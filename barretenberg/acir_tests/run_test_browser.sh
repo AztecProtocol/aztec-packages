@@ -37,7 +37,7 @@ docker run --rm \
   -e THREAD_MODEL=${THREAD_MODEL:-mt} \
   -e TEST=$test \
   -e VERBOSE=${VERBOSE:-0} \
-  aztecprotocol/build:2.0 bash -c '
+  aztecprotocol/build:3.0 bash -c '
     git config --global --add safe.directory /root/aztec-packages
     source /root/aztec-packages/ci3/source
     dump_fail "cd browser-test-app && yarn serve:dest:$THREAD_MODEL" > /dev/null &

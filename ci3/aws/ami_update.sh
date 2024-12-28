@@ -36,16 +36,20 @@ scp -F build_instance_ssh_config $HOME/.aws/build_instance_credentials ubuntu@$i
 # Download crs onto machine.
 ssh -t -F build_instance_ssh_config ubuntu@$ip < ../../barretenberg/scripts/download_bb_crs.sh
 
-# Pull ci:2.0 onto host, and build:2.0 into docker-in-docker volume.
+# Pull devbox onto host, and build into docker-in-docker volume.
 ssh -t -F build_instance_ssh_config ubuntu@$ip '
-  docker run --privileged -ti --rm -v boostrap_ci_local_docker:/var/lib/docker aztecprotocol/devbox:3.0 bash -c "
-    docker pull aztecprotocol/build:2.0
-    "
+  docker run --privileged -ti --rm -v bootstrap_ci_local_docker:/var/lib/docker aztecprotocol/devbox:3.0 bash -c "
+    docker pull aztecprotocol/build:3.0
+  "
 '
 
 if [ "${NO_AMI:-0}" -eq 0 ]; then
   export AWS_DEFAULT_REGION=us-east-2
-  ami_id=$(aws ec2 create-image --instance-id "$iid" --name "build-instance-$(uname -m)-$(date +'%d%m%y%H%M')" --query "ImageId" --output text)
+  ami_id=$(aws ec2 create-image \
+    --instance-id "$iid" \
+    --name "build-instance-$(uname -m)-$(date +'%d%m%y%H%M')" \
+    --query "ImageId" \
+    --output text)
   echo "Waiting for AMI to be created: $ami_id"
   while ! aws ec2 wait image-available --image-ids "$ami_id"; do true; done
   echo "Done."

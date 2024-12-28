@@ -1,12 +1,12 @@
 services:
   fork:
-    image: aztecprotocol/build:2.0
+    image: aztecprotocol/build:3.0
     cpus: 1
     mem_limit: 2G
     entrypoint: 'anvil --silent -p 8545 --host 0.0.0.0 --chain-id 31337'
 
   sandbox:
-    image: aztecprotocol/build:2.0
+    image: aztecprotocol/build:3.0
     cpus: 4
     mem_limit: 8G
     volumes:
@@ -27,7 +27,7 @@ services:
       HARDWARE_CONCURRENCY: ${HARDWARE_CONCURRENCY:-}
 
   end-to-end:
-    image: aztecprotocol/build:2.0
+    image: aztecprotocol/build:3.0
     cpus: 4
     mem_limit: 8G
     volumes:

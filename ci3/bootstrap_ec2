@@ -24,7 +24,7 @@ if [[ "$(git fetch origin --negotiate-only --negotiation-tip=$current_commit)" !
   exit 1
 fi
 
-instance_name="${BRANCH//\//_}"
+instance_name=$(echo -n "$BRANCH" | tr -c 'a-zA-Z0-9-' '_')
 [ -n "$postfix" ] && instance_name+="_$postfix"
 
 github_group "Request Build Instance"
@@ -52,7 +52,7 @@ github_endgroup
 [ "$NO_TERMINATE" -eq 0 ] && args+=" --rm"
 
 # Interactive if stdin is connected to terminal.
-[ -t 0 ] && args+=" -i"
+[ -t 0 ] && args+=" -ti"
 
 # Use ~/.ssh/build_instance_key to ssh into our requested instance.
 # Run in our build container, cloning the branches latest commit and running this given command.
@@ -66,7 +66,7 @@ github_endgroup
 # We provide the host user and group ids to the entrypoint script to ensure alignment.
 # We raise the default pid limit to 32k.
 ssh -t -F $ci3/aws/build_instance_ssh_config ubuntu@$ip "
-  docker run --privileged $args -t \
+  docker run --privileged $args \
     --name aztec_build \
     --hostname $instance_name \
     -v bootstrap_docker:/var/lib/docker \
@@ -74,7 +74,7 @@ ssh -t -F $ci3/aws/build_instance_ssh_config ubuntu@$ip "
     -v \$HOME/.bb-crs:/home/aztec-dev/.bb-crs:ro \
     -v /tmp:/tmp \
     --tmpfs /home/aztec-dev/aztec-packages:size=16g,exec,uid=1000,gid=1000 \
-    -e USE_TEST_CACHE=1 \
+    -e USE_TEST_CACHE=${USE_TEST_CACHE:-1} \
     -e SSH_CONNECTION=' ' \
     -e LOCAL_USER_ID=\$(id -u) \
     -e LOCAL_GROUP_ID=\$(id -g) \

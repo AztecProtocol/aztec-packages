@@ -34,7 +34,7 @@ fi
 # Construct the full instance type. We use m6a/m7g currently.
 if [ "$ARCH" == "x86_64" ]; then
   MACHINE_TYPE="m6a"
-  AMI=${AMI:-"ami-044f8e99cd65daf76"}
+  AMI=${AMI:-"ami-038da00b90fb68ea6"}
 elif [ "$ARCH" == "arm64" ]; then
   MACHINE_TYPE="m7g"
   AMI=${AMI:-"ami-0d8a9b0419ddb331a"}

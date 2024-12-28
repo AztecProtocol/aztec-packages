@@ -29,7 +29,7 @@ case "$TYPE" in
       --mount type=tmpfs,target=/tmp-jest,tmpfs-size=512m \
       -e JEST_CACHE_DIR=/tmp-jest \
       --workdir /root/aztec-packages/yarn-project/end-to-end \
-      aztecprotocol/build:2.0 ./scripts/test_simple.sh $TEST
+      aztecprotocol/build:3.0 ./scripts/test_simple.sh $TEST
   ;;
   "compose"|"compose-flake")
     name=${TEST//[\/\.]/_}

@@ -23,6 +23,7 @@ export FORCE_COLOR=1
 # Create a new file descriptor for capturing output
 exec 3>&1
 
+# If stdout is connected to a terminal, print singular dots in realtime.
 [ -t 1 ] && realtime=1 || realtime=0
 
 # Execute the command and process the output

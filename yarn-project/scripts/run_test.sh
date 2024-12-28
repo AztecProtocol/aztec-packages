@@ -22,7 +22,7 @@ if [ "${ISOLATE:-0}" -eq 1 ]; then
     --mount type=tmpfs,target=/tmp,tmpfs-size=1g \
     --workdir /root/aztec-packages/yarn-project/$dir \
     -e NODE_OPTIONS="--no-warnings --experimental-vm-modules" \
-    aztecprotocol/build:2.0 \
+    aztecprotocol/build:3.0 \
       node ../node_modules/.bin/jest --forceExit --runInBand --testRegex '\.test\.js$' --rootDir dest $test
 else
   export NODE_OPTIONS="--no-warnings --experimental-vm-modules"

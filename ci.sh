@@ -30,7 +30,7 @@ function print_usage {
 
 [ -n "$cmd" ] && shift
 
-instance_name="${BRANCH//\//_}"
+instance_name=$(echo -n "$BRANCH" | tr -c 'a-zA-Z0-9-' '_')
 
 function get_ip_for_instance {
   [ -n "${1:-}" ] && instance_name+="_$1"
@@ -56,10 +56,10 @@ case "$cmd" in
     bootstrap_ec2 "exec zsh"
     ;;
   "ec2-grind")
-    # Same as "ec2 ci", but disable the test cache, and repeat it over GRIND_NUM instances.
+    # "./bootstrap.sh ci" but disable the test cache, and repeat it over arg1 instances.
     export DENOISE=1
     num=${1:-5}
-    seq 0 $((num - 1)) | parallel --tag --line-buffered denoise "bootstrap_ec2 'USE_TEST_CACHE=0 ./bootstrap.sh ci {}'"
+    seq 0 $((num - 1)) | parallel --tag --line-buffered "denoise 'USE_TEST_CACHE=0 bootstrap_ec2 \"./bootstrap.sh ci\" {}'"
     ;;
   "local")
     # Create container with clone of local repo and bootstrap.
