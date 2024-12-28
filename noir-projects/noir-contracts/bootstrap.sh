@@ -2,6 +2,7 @@
 # Some notes if you have to work on this script.
 # - First of all, I'm sorry. It's a beautiful script but it's no fun to debug. I got carried away.
 # - You can enable BUILD_SYSTEM_DEBUG=1 but the output is quite verbose that it's not much use by default.
+# - This flag however, isn't carried into exported functions. You need to do "set -x" in those functions manually.
 # - You can call ./bootstrap.sh build <package name> to compile and process a single contract.
 # - You can disable further parallelism by setting PARALLELISM=1.
 # - The exported functions called by parallel must enable their own flags at the start e.g. set -euo pipefail
@@ -88,16 +89,12 @@ function process_function() {
 export -f process_function
 
 # Compute hash for a given contract.
-declare -A cache
 function get_contract_hash {
-  if [ -z "${cache[$1]:-}" ]; then
-    cache[$1]=$(cache_content_hash \
-      ../../noir/.rebuild_patterns \
-      ../../avm-transpiler/.rebuild_patterns \
-      "^noir-projects/noir-contracts/contracts/$1/" \
-      "^noir-projects/aztec-nr/")
-  fi
-  echo -n "${cache[$1]}"
+  cache_content_hash \
+    ../../noir/.rebuild_patterns \
+    ../../avm-transpiler/.rebuild_patterns \
+    "^noir-projects/noir-contracts/contracts/$1/" \
+    "^noir-projects/aztec-nr/"
 }
 export -f get_contract_hash
 
@@ -153,12 +150,12 @@ function build {
 }
 
 function test_cmds {
+  local -A cache
   i=0
   $NARGO test --list-tests --silence-warnings | sort | while read -r package test; do
     port=$((45730 + (i++ % ${NUM_TXES:-1})))
-    # This must be called within *this* shell, not within $(), else the cache won't work.
-    get_contract_hash $package
-    echo " noir-projects/scripts/run_test.sh noir-contracts $package $test $port"
+    [ -z "${cache[$package]:-}" ] && cache[$package]=$(get_contract_hash $package)
+    echo "${cache[$package]} noir-projects/scripts/run_test.sh noir-contracts $package $test $port"
   done
 }
 

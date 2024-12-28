@@ -12,7 +12,7 @@ source $(git rev-parse --show-toplevel)/ci3/source
 cmd=${1:-"./bootstrap.sh ci || exec zsh"}
 
 if ! git diff --quiet; then
-  echo -e "${yellow}WARNING: There are local changes to tracked files.${reset}"
+  echo -e "${yellow}WARNING: There are local changes to tracked files. They won't be reflected in the build.${reset}"
 fi
 
 docker run -ti --rm --privileged \
