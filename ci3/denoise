@@ -1,5 +1,6 @@
 #!/bin/bash
 set -uo pipefail
+source $(git rev-parse --show-toplevel)/ci3/source_color
 
 # Ensure a command is passed
 if [ "$#" -eq 0 ]; then
@@ -62,6 +63,8 @@ if [ -n "$CI_REDIS" ]; then
     echo "Command: $1 (exit: $status)"
     echo "$output"
   } | redis-cli -h $CI_REDIS -x SETEX $key 604800 &>/dev/null
+
+  [ "$status" -ne 0 ] && echo_stderr -e "${yellow}${bold}View log with:${reset} ./ci.sh dlog $key"
 fi
 
 exit $status

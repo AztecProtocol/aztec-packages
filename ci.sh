@@ -138,7 +138,9 @@ case "$cmd" in
     ssh -t -F $ci3/aws/build_instance_ssh_config ubuntu@$ip 'docker logs -f aztec_build'
     ;;
   "dlog")
-    redis-cli --raw GET $1
+    pager=${PAGER:-less}
+    [ -t 0 ] && pager=cat
+    redis-cli --raw GET $1 | $pager
     ;;
   "shell-host")
     get_ip_for_instance ${1:-}
