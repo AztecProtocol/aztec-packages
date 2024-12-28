@@ -61,7 +61,7 @@ function build {
 function build_tests {
   github_group "bb build tests"
   if ! cache_download barretenberg-tests-$hash.tar.gz; then
-    denoise ./format.sh check
+    denoise "./format.sh check"
     denoise "cmake --preset $preset && cmake --build --preset $preset"
     cache_upload barretenberg-tests-$hash.tar.gz build/bin
   fi

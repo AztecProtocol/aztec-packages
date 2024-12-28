@@ -12,7 +12,7 @@ function build {
     if [ "${CI:-0}" = 1 ]; then
       args="--push"
     fi
-    denoise ../scripts/earthly-ci $args +all-ci
+    denoise "../scripts/earthly-ci $args +all-ci"
     cache_upload_flag build-images-$hash
   fi
   github_endgroup

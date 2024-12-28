@@ -18,7 +18,7 @@ function build {
   # Fast build does not delete everything first.
   # It regenerates all generated code, then performs an incremental tsc build.
   echo -e "${blue}${bold}Attempting fast incremental build...${reset}"
-  denoise yarn install
+  denoise "yarn install"
 
   # We append a cache busting number we can bump if need be.
   tar_file=yarn-project-$hash.tar.gz

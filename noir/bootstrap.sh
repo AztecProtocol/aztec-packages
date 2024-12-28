@@ -34,7 +34,7 @@ function build_tests {
   if ! command -v cargo-binstall &>/dev/null; then
     denoise "curl -L --proto '=https' --tlsv1.2 -sSf https://raw.githubusercontent.com/cargo-bins/cargo-binstall/main/install-from-binstall-release.sh | bash"
   fi
-  denoise cargo-binstall cargo-nextest --version 0.9.67 -y --secure
+  denoise "cargo-binstall cargo-nextest --version 0.9.67 -y --secure"
   denoise "cargo nextest list --workspace --locked --release >/dev/null"
   github_endgroup
 }

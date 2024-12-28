@@ -33,11 +33,10 @@ function print_usage {
 instance_name="${BRANCH//\//_}"
 
 function get_ip_for_instance {
-  local name=$instance_name
-  [ -n "${1:-}" ] && name+="_$1"
+  [ -n "${1:-}" ] && instance_name+="_$1"
   ip=$(aws ec2 describe-instances \
     --region us-east-2 \
-    --filters "Name=tag:Name,Values=$name" \
+    --filters "Name=tag:Name,Values=$instance_name" \
     --query "Reservations[].Instances[].PublicIpAddress" \
     --output text)
 }
@@ -60,7 +59,7 @@ case "$cmd" in
     # Same as "ec2 ci", but disable the test cache, and repeat it over GRIND_NUM instances.
     export DENOISE=1
     num=${1:-5}
-    seq 0 $((num - 1)) | parallel --tag --line-buffered denoise bootstrap_ec2 "USE_TEST_CACHE=0 ./bootstrap.sh ci {}"
+    seq 0 $((num - 1)) | parallel --tag --line-buffered denoise "bootstrap_ec2 'USE_TEST_CACHE=0 ./bootstrap.sh ci {}'"
     ;;
   "local")
     # Create container with clone of local repo and bootstrap.

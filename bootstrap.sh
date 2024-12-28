@@ -142,7 +142,7 @@ function test {
 
 function build {
   github_group "pull submodules"
-  denoise git submodule update --init --recursive
+  denoise "git submodule update --init --recursive"
   github_endgroup
 
   check_toolchains
