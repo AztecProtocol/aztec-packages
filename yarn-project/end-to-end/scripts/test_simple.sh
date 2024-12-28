@@ -10,7 +10,7 @@
 # - runInBand is provided, to run the test in the main thread (no child process). It avoids various issues.
 set -eu
 
-export CHROME_BIN=/root/.cache/ms-playwright/chromium-1148/chrome-linux/chrome
+export CHROME_BIN=/opt/ms-playwright/chromium-1148/chrome-linux/chrome
 export HARDWARE_CONCURRENCY=16
 export RAYON_NUM_THREADS=1
 export LOG_LEVEL=${LOG_LEVEL:-verbose}
