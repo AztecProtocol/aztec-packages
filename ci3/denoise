@@ -23,16 +23,19 @@ export FORCE_COLOR=1
 # Create a new file descriptor for capturing output
 exec 3>&1
 
+[ -t 1 ] && realtime=1 || realtime=0
+
 # Execute the command and process the output
 echo "Executing: $*"
 echo -n "   0 "
 output=$(
   eval "$*" 2>&1 | while IFS= read -r -d '' -n 1 char; do
     if [[ "$char" == $'\n' || "$char" == $'\r' ]]; then
-      printf "." >&3
       ((dot_count++))
+      [ $realtime -eq 1 ] && >&3 printf "."
       if [[ "$dots_per_line" -gt 0 && $((dot_count % dots_per_line)) -eq 0 ]]; then
-        printf "\n%4s " "$dot_count" >&3
+        [ $realtime -eq 0 ] && >&3 printf '%.s.' $(seq 1 "$dots_per_line")
+        >&3 printf "\n%4s " "$dot_count"
       fi
     fi
     printf "%s" "$char"  # Send each character to the captured output

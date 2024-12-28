@@ -55,35 +55,39 @@ github_endgroup
 [ -t 0 ] && args+=" -i"
 
 # Use ~/.ssh/build_instance_key to ssh into our requested instance.
-# Run in our build container, cloning commit and running bootstrap.sh.
-# We mount a volume for the docker-in-docker data as overlayfs would kill performance.
-# We mount the entire host home directory into the container, giving us credentials, .bb-crs, and better performance.
+# Run in our build container, cloning the branches latest commit and running this given command.
+# We use a volume on /var/lib/docker as overlayfs trashes performance (in fact it just breaks).
+# Similarly we use tmpfs for the actual working directory in /home/aztec-dev/aztec-packages.
+# We mount in aws credentials to leverage the s3 cache.
+# We mount ~/.bb-crs to avoid downloading the CRS.
 # We mount /tmp into the container for performance.
 # We enable the test cache, which uses a redis instance for tracking test runs.
 # We set SSH_CONNECTION to something to ensure the hostname is shown in the lean prompt.
 # We provide the host user and group ids to the entrypoint script to ensure alignment.
 # We raise the default pid limit to 32k.
 ssh -t -F $ci3/aws/build_instance_ssh_config ubuntu@$ip "
-  docker run --privileged $args --name aztec_build -t \
-    -v boostrap_ci_local_docker:/var/lib/docker \
-    -v \$HOME:/root \
+  docker run --privileged $args -t \
+    --name aztec_build \
+    --hostname $instance_name \
+    -v bootstrap_docker:/var/lib/docker \
+    -v \$HOME/.aws:/home/aztec-dev/.aws:ro \
+    -v \$HOME/.bb-crs:/home/aztec-dev/.bb-crs:ro \
     -v /tmp:/tmp \
+    --tmpfs /home/aztec-dev/aztec-packages:size=16g,exec,uid=1000,gid=1000 \
     -e USE_TEST_CACHE=1 \
     -e SSH_CONNECTION=' ' \
     -e LOCAL_USER_ID=\$(id -u) \
     -e LOCAL_GROUP_ID=\$(id -g) \
     -e BUILD_SYSTEM_DEBUG=${BUILD_SYSTEM_DEBUG:-} \
     -e GITHUB_LOG='${GITHUB_LOG:-}' \
-    -e AWS_ACCESS_KEY_ID='${AWS_ACCESS_KEY_ID:-}' \
-    -e AWS_SECRET_ACCESS_KEY='${AWS_SECRET_ACCESS_KEY:-}' \
     --pids-limit=32768 \
     aztecprotocol/devbox:3.0 bash -c '
       set -e
       # When restarting the container, just hang around.
       while [ -f started ]; do sleep 999; done
       touch started
-      git init /root/aztec-packages
-      cd /root/aztec-packages
+      cd /home/aztec-dev/aztec-packages
+      git init . &>/dev/null
       git remote add origin https://github.com/aztecprotocol/aztec-packages
       git fetch --depth 1 origin $current_commit
       git checkout FETCH_HEAD

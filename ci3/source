@@ -57,8 +57,9 @@ function get_num_cpus_max {
 function parallelise {
   cd $root
   local jobs=$(get_num_cpus_max ${1:-})
+  [ -t 1 ] && local args="--bar" || local args="-v"
   echo "Starting test run with max $jobs jobs..."
-  parallel -j$jobs --bar --timeout 600 --joblog joblog.txt --halt now,fail=1 "run_test_cmd {}"
+  parallel -j$jobs $args --line-buffer --timeout 600 --joblog joblog.txt --halt now,fail=1 "run_test_cmd {}"
 
   slow_jobs=$(cat joblog.txt | \
     awk 'NR>1 && $4 > 300 {print | "sort -k4,4"}' | \

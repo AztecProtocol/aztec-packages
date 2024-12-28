@@ -4,6 +4,7 @@
 # We use a volume on /var/lib/docker as overlayfs trashes performance (in fact it just breaks).
 # Similarly we use tmpfs for the actual working directory in /home/aztec-dev/aztec-packages.
 # We mount in aws credentials to leverage the s3 cache.
+# We mount ~/.bb-crs to avoid downloading the CRS.
 # The host repository is mounted in read-only, and a clone is taken to ensure a clean start.
 # We set SSH_CONNECTION to something, to ensure the hostname is shown in our lean prompt.
 # If anything goes wrong during the run, the container will drop into a shell.
@@ -26,9 +27,10 @@ docker run -ti --rm --privileged \
   -e SSH_CONNECTION=' ' \
   -e LOCAL_USER_ID=$(id -u) \
   -e LOCAL_GROUP_ID=$(id -g) \
+  -e BUILD_SYSTEM_DEBUG=${BUILD_SYSTEM_DEBUG:-} \
   --cpus=$(get_num_cpus) \
   --pids-limit=32768 \
-  aztecprotocol/devbox:2.2 bash -c "
+  aztecprotocol/devbox:3.0 bash -c "
     set -e
     git config --global --add safe.directory /aztec-packages-host/.git
     git clone --depth 1 file:///aztec-packages-host aztec-packages

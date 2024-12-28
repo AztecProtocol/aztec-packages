@@ -49,7 +49,7 @@ case "$cmd" in
     bootstrap_ec2 "./bootstrap.sh ${1:-ci} || exec zsh" ${2:-}
     ;;
   "ec2-no-cache")
-    # Same as above, but disable the build cache.
+    # Same as ec2, but disable the build and test cache.
     bootstrap_ec2 "USE_CACHE=0 USE_TEST_CACHE=0 ./bootstrap.sh ${1:-ci} || exec zsh" ${2:-}
     ;;
   "ec2-shell")
@@ -57,10 +57,10 @@ case "$cmd" in
     bootstrap_ec2 "exec zsh"
     ;;
   "ec2-grind")
-    # Same as "ec2 ci", but repeat it over GRIND_NUM instances.
+    # Same as "ec2 ci", but disable the test cache, and repeat it over GRIND_NUM instances.
     export DENOISE=1
     num=${1:-5}
-    seq 0 $((num - 1)) | parallel --tag --line-buffered denoise $0 ec2 ci {}
+    seq 0 $((num - 1)) | parallel --tag --line-buffered denoise bootstrap_ec2 "USE_TEST_CACHE=0 ./bootstrap.sh ci {}"
     ;;
   "local")
     # Create container with clone of local repo and bootstrap.
@@ -127,7 +127,7 @@ case "$cmd" in
   "shell")
     get_ip_for_instance ${1:-}
     [ -z "$ip" ] && echo "No instance found: $instance_name" && exit 1
-    ssh -t -F $ci3/aws/build_instance_ssh_config ubuntu@$ip 'docker start aztec_build >/dev/null 2>&1 || true && docker exec -it aztec_build bash'
+    ssh -t -F $ci3/aws/build_instance_ssh_config ubuntu@$ip 'docker start aztec_build >/dev/null 2>&1 || true && docker exec -it --user aztec-dev aztec_build zsh'
     exit 0
     ;;
   "attach")
