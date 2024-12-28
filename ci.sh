@@ -30,15 +30,6 @@ function print_usage {
 
 [ -n "$cmd" ] && shift
 
-# Verify that the commit exists on the remote. It will be the remote tip of itself if so.
-current_commit=$(git rev-parse HEAD)
-function enforce_pushed_commit {
-  if [[ "$(git fetch origin --negotiate-only --negotiation-tip=$current_commit)" != *"$current_commit"* ]]; then
-    echo "Commit $current_commit is not pushed, exiting."
-    exit 1
-  fi
-}
-
 instance_name="${BRANCH//\//_}"
 
 function get_ip_for_instance {
@@ -53,34 +44,23 @@ function get_ip_for_instance {
 
 case "$cmd" in
   "ec2")
-    enforce_pushed_commit
     # Spin up ec2 instance and ci bootstrap with shell on failure.
-    bootstrap_ec2 "./bootstrap.sh ci || exec bash" ${1:-}
+    # You can override the bootstrap command with the first arg e.g: ci ec2 full
+    bootstrap_ec2 "./bootstrap.sh ${1:-ci} || exec zsh" ${2:-}
     ;;
-  "ec2-full")
-    enforce_pushed_commit
-    # Spin up ec2 instance and full bootstrap with shell on failure.
-    bootstrap_ec2 "./bootstrap.sh full || exec bash" ${1:-}
-    ;;
-  "ec2-full-test")
-    enforce_pushed_commit
-    # Spin up ec2 instance and full bootstrap with tests and shell on failure.
-    bootstrap_ec2 "USE_CACHE=0 ./bootstrap.sh ci || exec bash" ${1:-}
+  "ec2-no-cache")
+    # Same as above, but disable the build cache.
+    bootstrap_ec2 "USE_CACHE=0 USE_TEST_CACHE=0 ./bootstrap.sh ${1:-ci} || exec zsh" ${2:-}
     ;;
   "ec2-shell")
-    enforce_pushed_commit
-    # Spin up ec2 instance and drop into shell.
-    bootstrap_ec2 "exec bash"
+    # Spin up ec2 instance, clone, and drop into shell.
+    bootstrap_ec2 "exec zsh"
     ;;
-  "ec2-e2e")
-    enforce_pushed_commit
-    bootstrap_ec2 "./bootstrap.sh fast && cd yarn-project && ./bootstrap.sh test-e2e" ${1:-}
-    ;;
-  "ec2-e2e-grind")
-    enforce_pushed_commit
+  "ec2-grind")
+    # Same as "ec2 ci", but repeat it over GRIND_NUM instances.
     export DENOISE=1
     num=${1:-5}
-    seq 0 $((num - 1)) | parallel --tag --line-buffered denoise $0 ec2-e2e {}
+    seq 0 $((num - 1)) | parallel --tag --line-buffered denoise $0 ec2 ci {}
     ;;
   "local")
     # Create container with clone of local repo and bootstrap.

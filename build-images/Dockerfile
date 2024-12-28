@@ -73,7 +73,7 @@ RUN git clone https://github.com/tpoechtrager/osxcross.git \
 
 ########################################################################################################################
 # Build foundry.
-FROM base-build
+FROM base-build AS foundry
 ENV FOUNDRY_TAG=25f24e677a6a32a62512ad4f561995589ac2c7dc
 ENV FOUNDRY_BIN_DIR="/root/.foundry/bin"
 ENV RUSTUP_HOME=/opt/rust/rustup
@@ -93,12 +93,13 @@ ENV PATH="/opt/foundry/bin:$PATH"
 
 ########################################################################################################################
 # Build the build image.
-# This image contains *just* what's needed to perform a full build of the aztec project.
+# This image contains *just* what's needed to perform a full build of the aztec project and to run individual tests.
 # This is not sufficient for development, as it lacks many useful developer tools.
 # This is not sufficient for testing everything as per in CI, as that requires docker-in-docker.
 # You should use the devbox image for development and CI runs.
 # We favour using the devbox in CI as we can drop into a familiar environment on error.
 # It also means we're effectively testing the devbox in CI.
+# We use this image for test isolation
 FROM base-build AS build
 RUN apt update && \
     apt install -y \
@@ -140,7 +141,7 @@ RUN apt update && \
 COPY --from=wasi-sdk /opt/wasi-sdk /opt/wasi-sdk
 
 # Install foundry.
-COPY +foundry/opt/foundry /opt/foundry
+COPY --from=foundry /opt/foundry /opt/foundry
 ENV PATH="/opt/foundry/bin:$PATH"
 
 # Install rust and cross-compilers. Noir specifically uses 1.74.1.
@@ -268,7 +269,7 @@ RUN echo '%sudo ALL=(ALL) NOPASSWD: ALL' >> /etc/sudoers
 # - A persistent volume will be mounted to /home/aztec-dev.
 # - It provides docker via the hosts docker instance, mounted at /var/lib/docker.sock.
 # - It uses an entrypoint script at runtime to perform uid/gid alignment with the host and drop into user account.
-FROM basebox AS aztecprotocol/devbox:2.3
+FROM basebox AS devbox
 
 # Install gosu so we can start as root, adjust uid/gid, and then use gosu to become aztec-dev.
 RUN apt install -y gosu
@@ -309,7 +310,7 @@ CMD ["/bin/zsh"]
 # It's more advanced than devbox in that it uses nestybox's sysbox container runtime to provide more of a vm experience.
 # It's used primarily by internal aztec developers who have sysboxes running on a powerful underlying mainframe.
 # It provides better isolation and security guarantees than a plain devbox.
-FROM basebox AS aztecprotocol/sysbox:2.3
+FROM basebox AS sysbox
 
 ###################### START OF STOCK NESTYBOX SYSTEMD CONTAINER ###############################
 #

@@ -38,9 +38,7 @@ ssh -t -F build_instance_ssh_config ubuntu@$ip < ../../barretenberg/scripts/down
 
 # Pull ci:2.0 onto host, and build:2.0 into docker-in-docker volume.
 ssh -t -F build_instance_ssh_config ubuntu@$ip '
-  docker run --privileged -ti --rm -v boostrap_ci_local_docker:/var/lib/docker aztecprotocol/ci:2.0 bash -c "
-    /usr/local/share/docker-init.sh &> /dev/null
-    sleep 5
+  docker run --privileged -ti --rm -v boostrap_ci_local_docker:/var/lib/docker aztecprotocol/devbox:3.0 bash -c "
     docker pull aztecprotocol/build:2.0
     "
 '
