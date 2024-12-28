@@ -19,6 +19,8 @@ export const ProverBrokerConfig = z.object({
   proverBrokerPollIntervalMs: z.number(),
   /** If starting a prover broker locally, the directory to store broker data */
   proverBrokerDataDirectory: z.string().optional(),
+  /** The size of the data store map */
+  proverBrokerDataMapSizeKB: z.number(),
 });
 
 export type ProverBrokerConfig = z.infer<typeof ProverBrokerConfig>;
@@ -42,6 +44,11 @@ export const proverBrokerConfigMappings: ConfigMappingsType<ProverBrokerConfig> 
   proverBrokerDataDirectory: {
     env: 'PROVER_BROKER_DATA_DIRECTORY',
     description: 'If starting a prover broker locally, the directory to store broker data',
+  },
+  proverBrokerDataMapSizeKB: {
+    env: 'PROVER_BROKER_DATA_MAP_SIZE_KB',
+    description: 'The size of the data store map',
+    ...numberConfigHelper(128 * 1_024 * 1_024), // Defaulted to 128 GB
   },
 };
 

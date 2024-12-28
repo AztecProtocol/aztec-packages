@@ -93,6 +93,8 @@ spec:
               value: "{{ .Values.proverBroker.jobMaxRetries }}"
             - name: PROVER_BROKER_DATA_DIRECTORY
               value: "{{ .Values.proverBroker.dataDir }}"
+            -name: PROVER_BROKER_DATA_MAP_SIZE_KB
+              value: "{{ .Values.storage.dataStoreMapSize }}"
             - name: OTEL_RESOURCE_ATTRIBUTES
               value: service.name={{ .Release.Name }},service.namespace={{ .Release.Namespace }},service.version={{ .Chart.AppVersion }},environment={{ .Values.environment | default "production" }}
           resources:
