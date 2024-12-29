@@ -29,7 +29,7 @@ if [ "${USE_TEST_CACHE:-0}" -eq 1 ]; then
   echo "$log" | redis-cli -h $CI_REDIS -x SETEX $key 604800 &>/dev/null
 fi
 
-if [ $? -ne 0 ]; then
+if [ $code -ne 0 ]; then
   echo "$log"
   [ -n "$CI_REDIS" ] && echo -e "${yellow}${bold}View log with:${reset} ./ci.sh dlog $key"
 fi
