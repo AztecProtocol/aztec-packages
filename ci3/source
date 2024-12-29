@@ -19,9 +19,8 @@ export root="$(git rev-parse --show-toplevel)"
 export ci3="$root/ci3"
 [[ "$PATH" != *"$ci3:" ]] && export PATH=$ci3:$PATH
 
-# Our redis cache for e.g. test run tracking, denoised.
+# Our redis cache for e.g. test run tracking, denoise, etc.
 export CI_REDIS=${CI_REDIS:-}
-export USE_TEST_CACHE=${USE_TEST_CACHE:-0}
 
 function hash_str {
   set -eu
