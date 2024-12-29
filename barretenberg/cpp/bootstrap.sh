@@ -92,7 +92,7 @@ function test_cmds {
 # This is not called in ci. It is just for a developer to run the tests.
 function test {
   github_group "bb test"
-  test_cmds | parallelise
+  test_cmds | filter_test_cmds | parallelise
   github_endgroup
 }
 

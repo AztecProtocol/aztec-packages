@@ -13,7 +13,7 @@ if [ "${USE_TEST_CACHE:-0}" -eq 1 ] && [ "$(redis-cli --raw -h $CI_REDIS EXISTS 
 fi
 
 set +e
-output=$($test_cmd 2>&1)
+output=$(bash -c "$test_cmd" 2>&1)
 code=$?
 
 log=$(

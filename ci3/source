@@ -21,6 +21,7 @@ export ci3="$root/ci3"
 
 # Our redis cache for e.g. test run tracking, denoised.
 export CI_REDIS=${CI_REDIS:-}
+export USE_TEST_CACHE=${USE_TEST_CACHE:-0}
 
 function hash_str {
   set -eu
@@ -58,8 +59,10 @@ function get_num_cpus_max {
 
 # Filters any test cmd that matches any pattern in the repos root .test_skip_patterns file.
 # We filter comment lines and blank lines from the pattern file.
+# Then filter through cache to remove previously successfully run tests.
 function filter_test_cmds {
-  grep -Ev -f <(grep -Ev -e '^\s*$' -e '^\s*#' $root/.test_skip_patterns)
+  grep -Ev -f <(grep -Ev -e '^\s*$' -e '^\s*#' $root/.test_skip_patterns) | \
+    filter_cached_test_cmd
 }
 
 # For running test cmds that are pathed relative to the repo root.

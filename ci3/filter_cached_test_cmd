@@ -1,0 +1,39 @@
+#!/usr/bin/env bash
+NO_CD=1 source $(git rev-parse --show-toplevel)/ci3/source
+
+function process_batch {
+  set -euo pipefail
+
+  # Read all lines from stdin into an array.
+  mapfile -t lines
+
+  # Arrays to hold hashes and corresponding lines.
+  local hashes=()
+
+  for line in "${lines[@]}"; do
+    hashes+=($(hash_str "$line"))
+  done
+
+  # Batch resolve existence in redis.
+  readarray -t results < <(
+    for hash in "${hashes[@]}"; do
+      echo -e "EXISTS $hash\r"
+    done | nc -N $CI_REDIS 6379 | sed -e 's/^://' -e 's/\r//'
+  )
+
+  # Iterate over the results and output lines whose hashes don't exist in redis.
+  for i in "${!results[@]}"; do
+    if [ "${results[$i]}" -eq 0 ]; then
+      echo "${lines[$i]}"
+    fi
+  done
+}
+export -f process_batch
+
+if [ "$USE_TEST_CACHE" -eq 1 ]; then
+  # Process stdin in batches of 50.
+  parallel --pipe -N50 --keep-order process_batch
+else
+  # Noop.
+  cat
+fi
