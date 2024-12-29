@@ -155,7 +155,10 @@ function test_cmds {
   $NARGO test --list-tests --silence-warnings | sort | while read -r package test; do
     port=$((45730 + (i++ % ${NUM_TXES:-1})))
     [ -z "${cache[$package]:-}" ] && cache[$package]=$(get_contract_hash $package)
-    echo "${cache[$package]} noir-projects/scripts/run_test.sh noir-contracts $package $test $port"
+    echo "${cache[$package]} noir-projects/scripts/run_test.sh noir-contracts $package $test $port" | \
+      # TODO: FLAKE
+      # "The number -0.000015046493062592755 cannot be converted to a BigInt because it is not an integer"
+      grep -Ev "Counter::extended_incrementing_and_decrementing" || true
   done
 }
 

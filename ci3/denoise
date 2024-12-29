@@ -59,7 +59,7 @@ if [ "$status" -ne 0 ]; then
   echo -e "$output"
   [ -n "$CI_REDIS" ] && echo -e "${yellow}${bold}View log with:${reset} ./ci.sh dlog $key"
 else
-  echo -n ". ${green}done${reset} (${SECONDS}s)"
+  echo -e -n ". ${green}done${reset} (${SECONDS}s)"
   [ -n "$CI_REDIS" ] && echo -e -n " (./ci.sh dlog $key)"
   echo
 fi
