@@ -56,6 +56,12 @@ function get_num_cpus_max {
   echo $jobs
 }
 
+# Filters any test cmd that matches any pattern in the repos root .test_skip_patterns file.
+# We filter comment lines and blank lines from the pattern file.
+function filter_test_cmds {
+  grep -Ev -f <(grep -Ev -e '^\s*$' -e '^\s*#' $root/.test_skip_patterns)
+}
+
 # For running test cmds that are pathed relative to the repo root.
 # Commands are read from functions stdin.
 function parallelise {

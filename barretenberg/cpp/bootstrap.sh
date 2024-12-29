@@ -75,8 +75,6 @@ function build_tests {
 
 # Print every individual test command. Can be fed into gnu parallel.
 # Paths are relative to repo root.
-# reference_string.mem_grumpkin_file_consistency fails very specifically in bootstrap_local within gnu parallel context.
-# It's fine when run independently, it's fine when run in parallel on sysbox. Weird.
 # We append the hash as a comment. This ensures the test harness and cache and skip future runs.
 function test_cmds {
   cd build
@@ -84,7 +82,7 @@ function test_cmds {
     bin_name=$(basename $bin)
     $bin --gtest_list_tests | \
       awk '/^[a-zA-Z]/ {suite=$1} /^[ ]/ {print suite$1}' | \
-      grep -vE '(DISABLED_|reference_string.mem_grumpkin_file_consistency)' | \
+      grep -v 'DISABLED_' | \
       while read -r test; do
         echo -e "$hash barretenberg/cpp/scripts/run_test.sh $bin_name $test"
       done

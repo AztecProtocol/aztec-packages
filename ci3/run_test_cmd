@@ -13,16 +13,25 @@ if [ "${USE_TEST_CACHE:-0}" -eq 1 ] && [ "$(redis-cli --raw -h $CI_REDIS EXISTS 
 fi
 
 set +e
-output=$(dump_fail "$test_cmd")
+output=$($test_cmd 2>&1)
 code=$?
 
-if [ $? -ne 0 ]; then
+log=$(
+  if [ $code -eq 0 ]; then
+    echo -e "${green}PASSED${reset}: $cmd"
+  else
+    echo -e "${red}FAILED${reset}: $cmd (exit: $code)"
+  fi
   echo "$output"
-elif [ "${USE_TEST_CACHE:-0}" -eq 1 ]; then
-  {
-    echo "Command: $1"
-    echo "$output"
-  } | redis-cli -h $CI_REDIS -x SETEX $key 604800 &>/dev/null
+)
+
+if [ "${USE_TEST_CACHE:-0}" -eq 1 ]; then
+  echo "$log" | redis-cli -h $CI_REDIS -x SETEX $key 604800 &>/dev/null
+fi
+
+if [ $? -ne 0 ]; then
+  echo "$log"
+  [ -n "$CI_REDIS" ] && echo -e "${yellow}${bold}View log with:${reset} ./ci.sh dlog $key"
 fi
 
 exit $code

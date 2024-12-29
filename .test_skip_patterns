@@ -1,0 +1,21 @@
+# Be careful editing this file!
+# Validate you get expected results with: ./bootstrap.sh test-cmds
+# Blank lines, and lines starting with # are filtered.
+
+# noir
+noir_lsp-.* notifications::notification_tests::test_caches_open_files
+noir_lsp-.* requests::
+
+# noir-contracts
+# "The number -0.000015046493062592755 cannot be converted to a BigInt because it is not an integer"
+counter_contract Counter::extended_incrementing_and_decrementing
+
+# end-to-end
+simple e2e_block_building
+simple e2e_fees/private_payments
+simple e2e_p2p/gossip_network
+simple e2e_p2p/rediscovery
+simple e2e_p2p/reqresp
+simple e2e_p2p/upgrade_governance_proposer
+simple e2e_prover/full
+simple flakey_e2e_inclusion_proofs_contract

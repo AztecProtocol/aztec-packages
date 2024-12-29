@@ -15,7 +15,7 @@ export TEST=$2
 cd $(dirname $0)
 
 case "$TYPE" in
-  "simple"|"simple-flake")
+  "simple")
     # Strip leading non alpha numerics and replace / with _ for the container name.
     name=$(echo "${TEST}" | sed 's/^[^a-zA-Z0-9]*//' | tr '/' '_')
     trap 'docker kill $name &>/dev/null; docker rm $name &>/dev/null' SIGINT SIGTERM
@@ -31,7 +31,7 @@ case "$TYPE" in
       --workdir /root/aztec-packages/yarn-project/end-to-end \
       aztecprotocol/build:3.0 ./scripts/test_simple.sh $TEST
   ;;
-  "compose"|"compose-flake")
+  "compose")
     name=${TEST//[\/\.]/_}
     trap "docker compose -p $name down" SIGINT SIGTERM
     docker compose -p "$name" up --exit-code-from=end-to-end --abort-on-container-exit --force-recreate

@@ -204,6 +204,7 @@ RUN apt update && \
         iputils-ping \
         less \
         libfuse2 \
+        lldb \
         lsb-release \
         man \
         neovim \

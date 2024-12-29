@@ -55,8 +55,6 @@ function test_cmds {
         select(.value.ignored == false and .value["filter-match"].status == "matches") |
         "noir/scripts/run_test.sh \($binary) \(.key)"' | \
       sed "s|$PWD/target/release/deps/||" | \
-      # TODO: These fail. Figure out why.
-      grep -vE "(test_caches_open|requests)" | \
       awk "{print \"$test_hash \" \$0 }"
 }
 

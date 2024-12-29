@@ -101,19 +101,21 @@ function install_hooks {
 }
 
 function test_cmds {
-  if [ "$#" -gt 0 ]; then
-    parallel -k './{}/bootstrap.sh test-cmds 2>/dev/null' ::: $@
-  else
-    # Ordered with longest running first, to ensure they get scheduled earliest.
-    parallel -k './{}/bootstrap.sh test-cmds 2>/dev/null' ::: \
-      yarn-project/end-to-end \
-      yarn-project \
-      noir-projects \
-      boxes \
-      barretenberg \
-      l1-contracts \
-      noir
-  fi
+  {
+    if [ "$#" -gt 0 ]; then
+      parallel -k './{}/bootstrap.sh test-cmds 2>/dev/null' ::: $@
+    else
+      # Ordered with longest running first, to ensure they get scheduled earliest.
+      parallel -k './{}/bootstrap.sh test-cmds 2>/dev/null' ::: \
+        yarn-project/end-to-end \
+        yarn-project \
+        noir-projects \
+        boxes \
+        barretenberg \
+        l1-contracts \
+        noir
+    fi
+  } | filter_test_cmds
 }
 
 function test {
