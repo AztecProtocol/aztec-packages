@@ -144,7 +144,13 @@ case "$cmd" in
   "dlog")
     pager=${PAGER:-less}
     [ ! -t 0 ] && pager=cat
-    redis-cli --raw GET $1 | $pager
+    # TODO: Is this ok? We might show a local test log rather than a remote one as the hashes would collide.
+    if [ "$(redis-cli --raw EXISTS $1)" -eq 1 ]; then
+      redis-cli --raw GET $1 | $pager
+    else
+      ssh -F $ci3/aws/build_instance_ssh_config ci-bastion.aztecprotocol.com \
+        redis-cli -h ci-redis.lzka0i.0001.use2.cache.amazonaws.com --raw GET $1 | $pager
+    fi
     ;;
   "shell-host")
     get_ip_for_instance ${1:-}
