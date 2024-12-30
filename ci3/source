@@ -20,7 +20,11 @@ export ci3="$root/ci3"
 [[ "$PATH" != *"$ci3:" ]] && export PATH=$ci3:$PATH
 
 # Our redis cache for e.g. test run tracking, denoise, etc.
+# If not set and redis running on localhost, use it.
 export CI_REDIS=${CI_REDIS:-}
+if [ -z "$CI_REDIS" ] && nc -z localhost 6379 &>/dev/null; then
+  CI_REDIS=localhost
+fi
 
 function hash_str {
   set -eu
@@ -54,32 +58,6 @@ function get_num_cpus_max {
   local jobs=$(get_num_cpus)
   [ -n "${1:-}" ] && [ "$1" -lt $jobs ] && jobs=$1
   echo $jobs
-}
-
-# Filters any test cmd that matches any pattern in the repos root .test_skip_patterns file.
-# We filter comment lines and blank lines from the pattern file.
-# Then filter through cache to remove previously successfully run tests.
-function filter_test_cmds {
-  grep -Ev -f <(grep -Ev -e '^\s*$' -e '^\s*#' $root/.test_skip_patterns) | \
-    filter_cached_test_cmd
-}
-
-# For running test cmds that are pathed relative to the repo root.
-# Commands are read from functions stdin.
-function parallelise {
-  cd $root
-  local jobs=$(get_num_cpus_max ${1:-})
-  [ -t 1 ] && local args="--bar" || local args="-v"
-  echo "Starting test run with max $jobs jobs..."
-  parallel -j$jobs $args --line-buffer --timeout 600 --joblog joblog.txt --halt now,fail=1 "run_test_cmd {}"
-
-  slow_jobs=$(cat joblog.txt | \
-    awk 'NR>1 && $4 > 300 {print | "sort -k4,4"}' | \
-    awk '{print $4 ": " substr($0, index($0, $9))}' | sed -E "s/^(.*: ).*'([^']+)'.*$/\1\2/")
-  if [ -n "$slow_jobs" ]; then
-    echo -e "${yellow}WARNING: The following tests exceed 5 minute runtimes. Break them up or rethink them.${reset}"
-    echo "$slow_jobs"
-  fi
 }
 
 source $ci3/source_color

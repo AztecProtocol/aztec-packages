@@ -60,7 +60,7 @@ case "$cmd" in
     bootstrap_ec2 "exec zsh"
     ;;
   "ec2-grind")
-    # "./bootstrap.sh ci" but disable the test cache, and repeat it over arg1 instances.
+    # Same as ec2-test but repeat it over arg1 instances.
     export DENOISE=1
     num=${1:-5}
     seq 0 $((num - 1)) | parallel --tag --line-buffered "denoise 'bootstrap_ec2 \"USE_TEST_CACHE=0 ./bootstrap.sh ci\" {}'"

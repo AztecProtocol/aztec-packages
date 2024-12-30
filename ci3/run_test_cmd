@@ -3,10 +3,7 @@ NO_CD=1 source $(git rev-parse --show-toplevel)/ci3/source
 
 cmd=$1
 test_cmd="${cmd#* }"
-
 key=$(hash_str "$cmd")
-# Discard the content hash.
-shift
 
 if [ "${USE_TEST_CACHE:-0}" -eq 1 ] && [ "$(redis-cli --raw -h $CI_REDIS EXISTS $key)" == "1" ]; then
   exit 0
@@ -16,22 +13,17 @@ set +e
 output=$(bash -c "$test_cmd" 2>&1)
 code=$?
 
-log=$(
-  if [ $code -eq 0 ]; then
-    echo -e "${green}PASSED${reset}: $cmd"
-  else
-    echo -e "${red}FAILED${reset}: $cmd (exit: $code)"
-  fi
-  echo "$output"
-)
-
-if [ "${USE_TEST_CACHE:-0}" -eq 1 ]; then
-  echo "$log" | redis-cli -h $CI_REDIS -x SETEX $key 604800 &>/dev/null
+if [ -n "$CI_REDIS" ]; then
+  echo "$output" | redis-cli -h $CI_REDIS -x SETEX $key 604800 &>/dev/null
+  log_info=" ${yellow}$key${reset}"
 fi
 
-if [ $code -ne 0 ]; then
-  echo "$log"
-  [ -n "$CI_REDIS" ] && echo -e "${yellow}${bold}View log with:${reset} ./ci.sh dlog $key"
+if [ $code -eq 0 ]; then
+  [ "${VERBOSE:-0}" -eq 1 ] && echo -e "${green}PASSED${reset}${log_info:-}: $test_cmd"
+else
+  echo -e "${red}FAILED${reset}${log_info:-}: $test_cmd (code: $code)"
+  echo "$output"
+  echo -e "${red}FAILED${reset}${log_info:-}: $test_cmd (code: $code)"
 fi
 
 exit $code

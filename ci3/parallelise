@@ -1,0 +1,27 @@
+#!/usr/bin/env bash
+# For running test cmds that are pathed relative to the repo root.
+# Commands are read from functions stdin.
+NO_CD=1 source $(git rev-parse --show-toplevel)/ci3/source
+
+cd $root
+jobs=$(get_num_cpus_max ${1:-})
+parallel_args=""
+test_args=""
+# If we're in a terminal default to progress bar, otherwise run tests with verbose (shows passes).
+# If you want to see passes in the terminal you can e.g: ./bootstrap.sh test | cat
+if [ -t 1 ]; then
+  parallel_args="--bar"
+else
+  test_args="VERBOSE=1"
+fi
+echo "Starting test run with max $jobs jobs..."
+parallel -j$jobs $parallel_args --line-buffer --timeout 600 --joblog joblog.txt --halt now,fail=1 \
+  "$test_args run_test_cmd {}"
+
+slow_jobs=$(cat joblog.txt | \
+  awk 'NR>1 && $4 > 300 {print | "sort -k4,4"}' | \
+  awk '{print $4 ": " substr($0, index($0, $9))}' | sed -E "s/^(.*: ).*'([^']+)'.*$/\1\2/")
+if [ -n "$slow_jobs" ]; then
+  echo -e "${yellow}WARNING: The following tests exceed 5 minute runtimes. Break them up or rethink them.${reset}"
+  echo "$slow_jobs"
+fi

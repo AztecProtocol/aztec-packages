@@ -2,6 +2,17 @@
 # Validate you get expected results with: ./bootstrap.sh test-cmds
 # Blank lines, and lines starting with # are filtered.
 
+# barretenberg
+#
+# Rare. Unsure if limited to this one test.
+# Reproduce with: seq 0 10000 | parallel --bar "barretenberg/cpp/scripts/run_test.sh join_split_example_tests join_split_tests.test_defi_deposit_second_bridge_output_in_use_and_same_virtual_bridge_output_asset_ids >/dev/null"
+# Logic failed: field_t::range_constraint
+# /home/aztec-dev/aztec-packages/barretenberg/cpp/src/barretenberg/examples/join_split/join_split.test.cpp:1735: Failure
+# Value of: result.valid
+#   Actual: false
+# Expected: true
+join_split_example_tests join_split_tests.test_defi_deposit_second_bridge_output_in_use_and_same_virtual_bridge_output_asset_ids
+
 # noir
 noir_lsp-.* notifications::notification_tests::test_caches_open_files
 noir_lsp-.* requests::
@@ -19,3 +30,29 @@ simple e2e_p2p/reqresp
 simple e2e_p2p/upgrade_governance_proposer
 simple e2e_prover/full
 simple flakey_e2e_inclusion_proofs_contract
+
+# FAIL prover-coordination/e2e_prover_coordination.test.ts (302.744 s)
+#   ● e2e_prover_coordination › Can claim proving rights after a prune
+#
+#     expect(received).not.toEqual(expected) // deep equality
+#
+#     Expected: not "0x28ddfbc5e8fcf013d263fe4977086379ee406c118ab9a083fbde70396cb81988"
+#
+#       436 |     expect(tx2AfterReorg.status).toEqual(TxStatus.SUCCESS);
+#       437 |     expect(tx2AfterReorg.blockNumber).toEqual(tx2BeforeReorg.blockNumber);
+#     > 438 |     expect(tx2AfterReorg.blockHash).not.toEqual(tx2BeforeReorg.blockHash);
+#           |                                         ^
+#       439 |
+#       440 |     // the tx from epoch 3 is not valid anymore, since it was built against a reorged block
+#       441 |     // should be dropped
+#
+#       at Object.toEqual (prover-coordination/e2e_prover_coordination.test.ts:438:41)
+#
+#
+# Test Suites: 1 failed, 1 total
+# Tests:       1 failed, 1 passed, 2 total
+# Snapshots:   0 total
+# Time:        302.798 s
+# Ran all test suites matching /e2e_prover_coordination/i.
+# Force exiting Jest: Have you considered using `--detectOpenHandles` to detect async operations that kept running after all tests finished?
+simple e2e_prover_coordination

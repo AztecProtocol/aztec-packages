@@ -101,21 +101,11 @@ function install_hooks {
 }
 
 function test_cmds {
-  {
-    if [ "$#" -gt 0 ]; then
-      parallel -k './{}/bootstrap.sh test-cmds 2>/dev/null' ::: $@
-    else
-      # Ordered with longest running first, to ensure they get scheduled earliest.
-      parallel -k './{}/bootstrap.sh test-cmds 2>/dev/null' ::: \
-        yarn-project/end-to-end \
-        yarn-project \
-        noir-projects \
-        boxes \
-        barretenberg \
-        l1-contracts \
-        noir
-    fi
-  } | filter_test_cmds
+  if [ "$#" -eq 0 ]; then
+    # Ordered with longest running first, to ensure they get scheduled earliest.
+    set -- yarn-project/end-to-end yarn-project noir-projects boxes barretenberg l1-contracts noir
+  fi
+  parallel -k --line-buffer './{}/bootstrap.sh test-cmds 2>/dev/null' ::: $@ | filter_test_cmds
 }
 
 function test {
@@ -138,7 +128,11 @@ function test {
   done
 
   echo "Gathering tests to run..."
-  test_cmds $@ | parallelise 64
+  if [ -t 1 ]; then
+    test_cmds $@ | parallelise 64
+  else
+    test_cmds $@ | denoise "parallelise 64"
+  fi
   github_endgroup
 }
 
@@ -193,22 +187,6 @@ case "$cmd" in
     echo "Toolchains look good! 🎉"
     exit 0
   ;;
-  # "test-e2e")
-  #   ./bootstrap.sh image-e2e
-  #   shift 1
-  #   yarn-project/end-to-end/scripts/e2e_test.sh $@
-  #   exit
-  # ;;
-  # "test-cache")
-  #   # Test cache by running minio with full and fast bootstraps
-  #   scripts/tests/bootstrap/test-cache
-  #   exit
-  #   ;;
-  # "test-boxes")
-  #   github_group "test-boxes"
-  #   bootstrap_local_noninteractive "CI=1 SKIP_BB_CRS=1 ./bootstrap.sh fast && ./boxes/bootstrap.sh test";
-  #   exit
-  # ;;
   "image-aztec")
     image=aztecprotocol/aztec:$(git rev-parse HEAD)
     docker pull $image &>/dev/null || true

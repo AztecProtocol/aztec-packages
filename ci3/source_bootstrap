@@ -14,3 +14,10 @@ case "${1:-}" in
     export USE_CACHE=${USE_CACHE:-1}
     ;;
 esac
+
+# Filters any test cmd that matches any pattern in the repos root .test_skip_patterns file.
+# We filter comment lines and blank lines from the pattern file.
+# Then filter through cache to remove previously successfully run tests.
+function filter_test_cmds {
+  grep -Ev -f <(grep -Ev -e '^\s*$' -e '^\s*#' $root/.test_skip_patterns) | filter_cached_test_cmd
+}
