@@ -60,7 +60,9 @@ launch_spec=$(cat <<EOF
       "DeviceName": "/dev/sda1",
       "Ebs": {
         "VolumeSize": 64,
-        "VolumeType": "gp3"
+        "VolumeType": "gp3",
+        "Throughput": 1000,
+        "Iops": 4000
       }
     }
   ]
@@ -68,8 +70,9 @@ launch_spec=$(cat <<EOF
 EOF
 )
 
-# Save the launch specification to a temporary file
+# Save the launch specification to a temporary file.
 temp_file=$(mktemp)
+trap "rm -f $temp_file" EXIT
 echo "$launch_spec" > "$temp_file"
 
 if [ "${NO_SPOT:-0}" -ne 1 ]; then

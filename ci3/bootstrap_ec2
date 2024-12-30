@@ -56,22 +56,29 @@ github_endgroup
 
 # Use ~/.ssh/build_instance_key to ssh into our requested instance.
 # Run in our build container, cloning the branches latest commit and running this given command.
-# We use a volume on /var/lib/docker as overlayfs trashes performance (in fact it just breaks).
-# Similarly we use tmpfs for the actual working directory in /home/aztec-dev/aztec-packages.
+# To improve performance we:
+#   - Use a volume on /var/lib/docker for docker-in-docker as overlayfs trashes performance (in fact it just breaks).
+#   - Use a 16G tmpfs for the actual working directory in /home/aztec-dev/aztec-packages.
+#   - Copy the CRS into a 3G tmpfs and mount that into the container.
+#   - Mount the hosts /tmp into the container.
 # We mount in aws credentials to leverage the s3 cache.
-# We mount ~/.bb-crs to avoid downloading the CRS.
-# We mount /tmp into the container for performance.
 # We enable the test cache, which uses a redis instance for tracking test runs.
 # We set SSH_CONNECTION to something to ensure the hostname is shown in the lean prompt.
 # We provide the host user and group ids to the entrypoint script to ensure alignment.
 # We raise the default pid limit to 32k.
 ssh -t -F $ci3/aws/build_instance_ssh_config ubuntu@$ip "
+  echo "Loading CRS into tmpfs..."
+  sudo mkdir /mnt/bb-crs
+  sudo mount -t tmpfs -o size=3G tmpfs /mnt/bb-crs
+  sudo cp -r \$HOME/.bb-crs/* /mnt/bb-crs
+
+  echo "Starting devbox..."
   docker run --privileged $args \
     --name aztec_build \
     --hostname $instance_name \
     -v bootstrap_docker:/var/lib/docker \
     -v \$HOME/.aws:/home/aztec-dev/.aws:ro \
-    -v \$HOME/.bb-crs:/home/aztec-dev/.bb-crs:ro \
+    -v /mnt/bb-crs:/home/aztec-dev/.bb-crs:ro \
     -v /tmp:/tmp \
     --tmpfs /home/aztec-dev/aztec-packages:size=16g,exec,uid=1000,gid=1000 \
     -e USE_TEST_CACHE=1 \

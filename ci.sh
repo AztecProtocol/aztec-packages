@@ -51,6 +51,10 @@ case "$cmd" in
     # Same as ec2, but disable the build and test cache.
     bootstrap_ec2 "USE_CACHE=0 USE_TEST_CACHE=0 ./bootstrap.sh ${1:-ci} || exec zsh" ${2:-}
     ;;
+  "ec2-test")
+    # Same as ec2, but don't use the test cache.
+    bootstrap_ec2 "USE_TEST_CACHE=0 ./bootstrap.sh ci || exec zsh" ${1:-}
+    ;;
   "ec2-shell")
     # Spin up ec2 instance, clone, and drop into shell.
     bootstrap_ec2 "exec zsh"
