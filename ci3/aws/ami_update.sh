@@ -19,6 +19,8 @@ sir="${parts[1]}"
 iid="${parts[2]}"
 trap on_exit EXIT
 
+echo "Instance ip: $ip"
+
 # Initial setup.
 ssh -t -F build_instance_ssh_config ubuntu@$ip '
   set -e
