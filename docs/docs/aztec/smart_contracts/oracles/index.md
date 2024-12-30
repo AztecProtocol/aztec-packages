@@ -5,7 +5,7 @@ tags: [functions, oracles]
 
 This page goes over what oracles are in Aztec and how they work.
 
-Looking for a hands-on guide? You can learn how to use oracles in a smart contract [here](../../../guides/developer_guides/smart_contracts/writing_contracts/how_to_pop_capsules.md).
+Looking for a hands-on guide? You can learn how to use oracles in a smart contract [here](../../../build/guides/smart_contracts/writing_contracts/how_to_pop_capsules.md).
 
 An oracle is something that allows us to get data from the outside world into our contracts. The most widely-known types of oracles in blockchain systems are probably Chainlink price feeds, which allow us to get the price of an asset in USD taking non-blockchain data into account.
 
@@ -31,4 +31,4 @@ Oracles introduce **non-determinism** into a circuit, and thus are `unconstraine
 
 Find a full list [on GitHub](https://github.com/AztecProtocol/aztec-packages/tree/master/noir-projects/aztec-nr/aztec/src/oracle).
 
-Please note that it is **not** possible to write a custom oracle for your dapp. Oracles are implemented in the PXE, so all users of your dapp would have to use a PXE service with your custom oracle included. If you want to inject some arbitrary data that does not have a dedicated oracle, you can use [popCapsule](../../../guides/developer_guides/smart_contracts/writing_contracts/how_to_pop_capsules.md).
+Please note that it is **not** possible to write a custom oracle for your dapp. Oracles are implemented in the PXE, so all users of your dapp would have to use a PXE service with your custom oracle included. If you want to inject some arbitrary data that does not have a dedicated oracle, you can use [popCapsule](../../../build/guides/smart_contracts/writing_contracts/how_to_pop_capsules.md).

@@ -6,7 +6,7 @@ tags: [functions]
 
 In Aztec there are multiple different types of visibility that can be applied to functions. Namely we have `data visibility` and `function visibility`. This page explains these types of visibility.
 
-For a practical guide of using multiple types of data and function visibility, follow the [NFT tutorial](../../../tutorials/codealong/contract_tutorials/nft_contract.md).
+For a practical guide of using multiple types of data and function visibility, follow the [NFT tutorial](../../../build/tutorials/codealong/contract_tutorials/nft_contract.md).
 
 ### Data Visibility
 

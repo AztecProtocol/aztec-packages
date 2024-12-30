@@ -30,7 +30,7 @@ For private functions, the context creation involves hashing all input parameter
 
 ```rust
 let mut args_hasher = ArgsHasher::new();
-// Hash each parameter 
+// Hash each parameter
 args_hasher.add(param1);
 args_hasher.add(param2);
 // add all parameters
@@ -71,8 +71,8 @@ The context provides methods to call other contracts:
 ```rust
 let token_contract = TokenContract::at(token);
 ```
- 
-Under the hood, this creates a new instance of the contract interface with the specified address. 
+
+Under the hood, this creates a new instance of the contract interface with the specified address.
 
 ## Private and public input injection
 
@@ -102,7 +102,7 @@ This makes these inputs available to be consumed within private annotated functi
 
 ## Return value handling
 
-Return values in Aztec contracts are processed differently from traditional smart contracts when using private functions. 
+Return values in Aztec contracts are processed differently from traditional smart contracts when using private functions.
 
 ### Private functions
 
@@ -206,7 +206,7 @@ The computed function signatures are integrated into the contract interface like
    - The function's parameters are extracted
    - The signature hash is computed using `compute_fn_signature_hash`
    - The placeholder in the contract interface is replaced with the computed hash
-     
+
 This process ensures that each function in the contract has a unique, deterministic signature based on its name and parameter types. They are inspired by Solidity's function selector mechanism.
 
 ## Contract artifacts
@@ -270,7 +270,7 @@ struct transfer_abi {
 Contract artifacts are important because:
 
 - They provide a machine-readable description of the contract
-- They can be used to generate bindings for interacting with the contract (read [here](../../../guides/developer_guides/smart_contracts/how_to_compile_contract.md) to learn how to create TypeScript bindings)
+- They can be used to generate bindings for interacting with the contract (read [here](../../../build/guides/smart_contracts/how_to_compile_contract.md) to learn how to create TypeScript bindings)
 - They help decode function return values in the simulator
 
 ## Further reading

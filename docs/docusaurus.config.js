@@ -231,18 +231,23 @@ const config = {
             type: "docSidebar",
             sidebarId: "guidesSidebar",
             position: "left",
-            label: "Guides",
+            label: "Build",
           },
           {
             type: "docSidebar",
-            sidebarId: "referenceSidebar",
+            sidebarId: "nodesSidebar",
             position: "left",
-            label: "Reference",
+            label: "Run a node",
+          },
+          {
+            to: "/build/guides/getting_started",
+            label: "Install Sandbox",
+            position: "right",
           },
           {
             type: "dropdown",
             label: "Resources",
-            position: "left",
+            position: "right",
             items: [
               {
                 type: "html",
@@ -324,6 +329,12 @@ const config = {
               },
             ],
           },
+
+          // {
+          //   to: "/build/guides/sandbox_to_testnet",
+          //   label: "Migrating to Testnet",
+          //   position: "right",
+          // },
         ],
       },
       footer: {
@@ -338,7 +349,7 @@ const config = {
               },
               {
                 label: "Developer Getting Started Guide",
-                to: "/guides/getting_started",
+                to: "/build/getting_started",
               },
               {
                 label: "Aztec.nr",
