@@ -518,17 +518,30 @@ using KeccakTranscript = BaseTranscript<KeccakTranscriptParams>;
 
 inline bb::fr poseidon_hash_uint256(std::vector<bb::fr> const& data)
 {
-    // cast into uint256_t
     std::vector<uint8_t> buffer = to_buffer(data);
 
-    // TODO implement poseidon hash
-    std::array<uint8_t, 32> result;
+    assert(buffer.size() == 3 * 4 * 8);
 
-    permutation_9(NULL);
+    felt_t state[3];
+    for (size_t k = 0; k < 3; ++k) {
+        for (size_t i = 0; i < 4; ++i) {
+            state[k][i] = 0;
+            for (size_t j = 0; j < 8; ++j) {
+                state[k][i] |= static_cast<uint64_t>(buffer[(k * 4 + i) * 8]) << (56 - (j * 8));
+            }
+        }
+    }
+    permutation_3(state);
+    for (auto& word : state[0]) {
+        if (is_little_endian()) {
+            word = __builtin_bswap64(word);
+        }
+    }
+    std::array<uint8_t, 32> result;
 
     for (size_t i = 0; i < 4; ++i) {
         for (size_t j = 0; j < 8; ++j) {
-            uint8_t byte = 0; // TODO read byte from hash
+            uint8_t byte = static_cast<uint8_t>(state[0][i] >> (56 - (j * 8)));
             result[i * 8 + j] = byte;
         }
     }
