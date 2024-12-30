@@ -31,29 +31,32 @@ import {
   UniqueNote,
   getNonNullifiedL1ToL2MessageWitness,
 } from '@aztec/circuit-types';
+import type {
+  CompleteAddress,
+  ContractClassWithId,
+  ContractInstanceWithAddress,
+  GasFees,
+  L1_TO_L2_MSG_TREE_HEIGHT,
+  NodeInfo,
+  PartialAddress,
+  PrivateKernelTailCircuitPublicInputs,
+} from '@aztec/circuits.js';
 import {
-  type AztecAddress,
-  type CompleteAddress,
-  type ContractClassWithId,
-  type ContractInstanceWithAddress,
-  type GasFees,
-  type L1_TO_L2_MSG_TREE_HEIGHT,
-  type NodeInfo,
-  type PartialAddress,
-  type PrivateKernelTailCircuitPublicInputs,
-  computeAddressSecret,
   computeContractAddressFromInstance,
   computeContractClassId,
   getContractClassFromArtifact,
-} from '@aztec/circuits.js';
+} from '@aztec/circuits.js/contract';
 import { computeNoteHashNonce, siloNullifier } from '@aztec/circuits.js/hash';
+import { computeAddressSecret } from '@aztec/circuits.js/keys';
 import {
   type AbiDecoded,
   type ContractArtifact,
   EventSelector,
   FunctionSelector,
+  FunctionType,
   encodeArguments,
 } from '@aztec/foundation/abi';
+import { type AztecAddress } from '@aztec/foundation/aztec-address';
 import { Fr, type Point } from '@aztec/foundation/fields';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { Timer } from '@aztec/foundation/timer';
@@ -163,37 +166,37 @@ export class PXEService implements PXE {
     return accountCompleteAddress;
   }
 
-  public async registerContact(address: AztecAddress): Promise<AztecAddress> {
+  public async registerSender(address: AztecAddress): Promise<AztecAddress> {
     const accounts = await this.keyStore.getAccounts();
     if (accounts.includes(address)) {
-      this.log.info(`Account:\n "${address.toString()}"\n already registered.`);
+      this.log.info(`Sender:\n "${address.toString()}"\n already registered.`);
       return address;
     }
 
-    const wasAdded = await this.db.addContactAddress(address);
+    const wasAdded = await this.db.addSenderAddress(address);
 
     if (wasAdded) {
-      this.log.info(`Added contact:\n ${address.toString()}`);
+      this.log.info(`Added sender:\n ${address.toString()}`);
     } else {
-      this.log.info(`Contact:\n "${address.toString()}"\n already registered.`);
+      this.log.info(`Sender:\n "${address.toString()}"\n already registered.`);
     }
 
     return address;
   }
 
-  public getContacts(): Promise<AztecAddress[]> {
-    const contacts = this.db.getContactAddresses();
+  public getSenders(): Promise<AztecAddress[]> {
+    const senders = this.db.getSenderAddresses();
 
-    return Promise.resolve(contacts);
+    return Promise.resolve(senders);
   }
 
-  public async removeContact(address: AztecAddress): Promise<void> {
-    const wasRemoved = await this.db.removeContactAddress(address);
+  public async removeSender(address: AztecAddress): Promise<void> {
+    const wasRemoved = await this.db.removeSenderAddress(address);
 
     if (wasRemoved) {
-      this.log.info(`Removed contact:\n ${address.toString()}`);
+      this.log.info(`Removed sender:\n ${address.toString()}`);
     } else {
-      this.log.info(`Contact:\n "${address.toString()}"\n not in address book.`);
+      this.log.info(`Sender:\n "${address.toString()}"\n not in address book.`);
     }
 
     return Promise.resolve();
@@ -207,12 +210,6 @@ export class PXEService implements PXE {
     return completeAddresses.filter(completeAddress =>
       accounts.find(address => address.equals(completeAddress.address)),
     );
-  }
-
-  public async getRegisteredAccount(address: AztecAddress): Promise<CompleteAddress | undefined> {
-    const result = await this.getRegisteredAccounts();
-    const account = result.find(r => r.address.equals(address));
-    return Promise.resolve(account);
   }
 
   public async registerContractClass(artifact: ContractArtifact): Promise<void> {
@@ -240,8 +237,14 @@ export class PXEService implements PXE {
 
       await this.db.addContractArtifact(contractClassId, artifact);
 
-      // TODO: PXE may not want to broadcast the artifact to the network
-      await this.node.addContractArtifact(instance.address, artifact);
+      const functionNames: Record<string, string> = {};
+      for (const fn of artifact.functions) {
+        if (fn.functionType === FunctionType.PUBLIC) {
+          functionNames[FunctionSelector.fromNameAndParameters(fn.name, fn.parameters).toString()] = fn.name;
+        }
+      }
+
+      await this.node.registerContractFunctionNames(instance.address, functionNames);
 
       // TODO(#10007): Node should get public contract class from the registration event, not from PXE registration
       await this.node.addContractClass({ ...contractClass, privateFunctions: [], unconstrainedFunctions: [] });
@@ -479,6 +482,7 @@ export class PXEService implements PXE {
     simulatePublic: boolean,
     msgSender: AztecAddress | undefined = undefined,
     skipTxValidation: boolean = false,
+    enforceFeePayment: boolean = true,
     profile: boolean = false,
     scopes?: AztecAddress[],
   ): Promise<TxSimulationResult> {
@@ -516,7 +520,7 @@ export class PXEService implements PXE {
       const simulatedTx = privateSimulationResult.toSimulatedTx();
       let publicOutput: PublicSimulationOutput | undefined;
       if (simulatePublic) {
-        publicOutput = await this.#simulatePublicCalls(simulatedTx);
+        publicOutput = await this.#simulatePublicCalls(simulatedTx, enforceFeePayment);
       }
 
       if (!skipTxValidation) {
@@ -561,6 +565,12 @@ export class PXEService implements PXE {
     if (await this.node.getTxEffect(txHash)) {
       throw new Error(`A settled tx with equal hash ${txHash.toString()} exists.`);
     }
+
+    // Validate transaction before sending
+    if (!(await this.node.isValidTx(tx))) {
+      throw new Error(`Transaction validation failed for tx ${txHash.toString()}`);
+    }
+
     this.log.debug(`Sending transaction ${txHash}`);
     await this.node.sendTx(tx).catch(err => {
       throw this.contextualizeError(err, inspect(tx));
@@ -773,11 +783,11 @@ export class PXEService implements PXE {
    * It can also be used for estimating gas in the future.
    * @param tx - The transaction to be simulated.
    */
-  async #simulatePublicCalls(tx: Tx) {
+  async #simulatePublicCalls(tx: Tx, enforceFeePayment: boolean) {
     // Simulating public calls can throw if the TX fails in a phase that doesn't allow reverts (setup)
     // Or return as reverted if it fails in a phase that allows reverts (app logic, teardown)
     try {
-      const result = await this.node.simulatePublicCalls(tx);
+      const result = await this.node.simulatePublicCalls(tx, enforceFeePayment);
       if (result.revertReason) {
         throw result.revertReason;
       }
@@ -866,7 +876,9 @@ export class PXEService implements PXE {
         const [keyPrefix, account] = await this.keyStore.getKeyPrefixAndAccount(vpk);
         let secretKey = await this.keyStore.getMasterSecretKey(vpk);
         if (keyPrefix === 'iv') {
-          const registeredAccount = await this.getRegisteredAccount(account);
+          const registeredAccount = (await this.getRegisteredAccounts()).find(completeAddress =>
+            completeAddress.address.equals(account),
+          );
           if (!registeredAccount) {
             throw new Error('No registered account');
           }
