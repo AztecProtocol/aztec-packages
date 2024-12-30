@@ -338,6 +338,44 @@ describe('sequencer', () => {
     expect(p2p.deleteTxs).toHaveBeenCalledWith([doubleSpendTx.getTxHash()]);
   });
 
+  it('builds a block out of several txs rejecting invalid block headers', async () => {
+    const invalidBlockHeaderTxIndex = 1;
+    const txs = [mockTxForRollup(0x10000), mockTxForRollup(0x20000), mockTxForRollup(0x30000)];
+    txs.forEach(tx => {
+      tx.data.constants.txContext.chainId = chainId;
+      tx.data.constants.historicalHeader.globalVariables.blockNumber = new Fr(1);
+    });
+    const validTxHashes = txs.filter((_, i) => i !== invalidBlockHeaderTxIndex).map(tx => tx.getTxHash());
+
+    const invalidHeaderTx = txs[invalidBlockHeaderTxIndex];
+    invalidHeaderTx.data.constants.historicalHeader.globalVariables.blockNumber = new Fr(2);
+
+    p2p.getPendingTxs.mockResolvedValueOnce(txs);
+    blockBuilder.setBlockCompleted.mockResolvedValue(block);
+    publisher.proposeL2Block.mockResolvedValueOnce(true);
+
+    globalVariableBuilder.buildGlobalVariables.mockResolvedValueOnce(mockedGlobalVariables);
+
+    const invalidHeader = invalidHeaderTx.data.constants.historicalHeader.hash();
+    merkleTreeOps.findLeafIndices.mockImplementation((treeId: MerkleTreeId, value: any[]) => {
+      if (treeId === MerkleTreeId.NULLIFIER_TREE) {
+        return Promise.resolve([undefined]);
+      }
+      return Promise.resolve(
+        treeId === MerkleTreeId.ARCHIVE && value[0].toBigInt() == invalidHeader.toBigInt() ? [undefined] : [1n],
+      );
+    });
+
+    await sequencer.doRealWork();
+
+    expect(blockBuilder.startNewBlock).toHaveBeenCalledWith(
+      mockedGlobalVariables,
+      Array(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP).fill(new Fr(0n)),
+    );
+    expect(publisher.proposeL2Block).toHaveBeenCalledWith(block, getSignatures(), validTxHashes, undefined);
+    expect(p2p.deleteTxs).toHaveBeenCalledWith([invalidHeaderTx.getTxHash()]);
+  });
+
   it('builds a block out of several txs rejecting incorrect chain ids', async () => {
     const invalidChainTxIndex = 1;
     const txs = [mockTxForRollup(0x10000), mockTxForRollup(0x20000), mockTxForRollup(0x30000)];

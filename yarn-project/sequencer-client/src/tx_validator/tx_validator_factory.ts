@@ -9,6 +9,8 @@ import {
 import { type ContractDataSource, type GlobalVariables } from '@aztec/circuits.js';
 import {
   AggregateTxValidator,
+  type ArchiveSource,
+  BlockHeaderTxValidator,
   DataTxValidator,
   DoubleSpendTxValidator,
   MetadataTxValidator,
@@ -23,6 +25,7 @@ import { PhasesTxValidator } from './phases_validator.js';
 export class TxValidatorFactory {
   nullifierSource: NullifierSource;
   publicStateSource: PublicStateSource;
+  archiveSource: ArchiveSource;
   constructor(
     private committedDb: MerkleTreeReadOperations,
     private contractDataSource: ContractDataSource,
@@ -40,6 +43,12 @@ export class TxValidatorFactory {
         return readPublicState(this.committedDb, contractAddress, slot);
       },
     };
+
+    this.archiveSource = {
+      getArchiveIndices: archives => {
+        return this.committedDb.findLeafIndices(MerkleTreeId.ARCHIVE, archives);
+      },
+    };
   }
 
   validatorForNewTxs(globalVariables: GlobalVariables, setupAllowList: AllowedElement[]): TxValidator<Tx> {
@@ -54,6 +63,7 @@ export class TxValidatorFactory {
         this.enforceFees,
         globalVariables.gasFees,
       ),
+      new BlockHeaderTxValidator(this.archiveSource),
     );
   }
 
