@@ -1,6 +1,6 @@
 {
   "name": "@aztec/pxe",
-  "version": "0.1.0",
+  "version": "0.68.2",
   "type": "module",
   "exports": {
     ".": "./dest/index.js",
