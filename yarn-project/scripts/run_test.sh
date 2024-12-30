@@ -12,9 +12,10 @@ test=${path#*dest/}
 if [ "${ISOLATE:-0}" -eq 1 ]; then
   # Strip leading non alpha numerics and replace / with _ for the container name.
   name=$(echo "$path" | sed 's/^[^a-zA-Z0-9]*//' | tr '/' '_')
+  [ "${UNNAMED:-0}" -eq 0 ] && name_arg="--name $name"
   trap 'docker kill $name &>/dev/null; docker rm $name &>/dev/null' SIGINT SIGTERM
   docker run --rm \
-    --name $name \
+    ${name_arg:-} \
     --cpus=2 \
     --memory 4g \
     -v$(git rev-parse --show-toplevel):/root/aztec-packages \

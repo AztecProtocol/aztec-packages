@@ -70,16 +70,17 @@ function build_tests {
 }
 
 function test_cmds {
-  for test in !(end-to-end|kv-store|bb-prover|prover-client|prover-node)/dest/**/*.test.js; do
-    echo $hash yarn-project/scripts/run_test.sh $test
-  done
+  # TODO: This takes way longer than it probably should. Linting individual projects, maybe lint from root?
+  echo "$hash cd yarn-project && yarn formatting"
   # These need isolation due to network stack usage.
-  for test in prover-node/dest/**/*.test.js; do
+  for test in {prover-node,p2p}/dest/**/*.test.js; do
     echo "$hash ISOLATE=1 yarn-project/scripts/run_test.sh $test"
+  done
+  for test in !(end-to-end|kv-store|bb-prover|prover-client|prover-node|p2p)/dest/**/*.test.js; do
+    echo $hash yarn-project/scripts/run_test.sh $test
   done
   # Uses mocha - so we have to treat it differently...
   # echo "cd yarn-project/kv-store && yarn test"
-  echo "$hash cd yarn-project && yarn formatting"
 }
 
 function test {
