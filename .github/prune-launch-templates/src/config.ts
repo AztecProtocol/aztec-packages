@@ -29,7 +29,11 @@ export class ActionConfig implements ConfigInterface {
     this.awsIamRoleArn = core.getInput("aws_iam_role_arn");
     this.awsAssumeRole = this.awsIamRoleArn ? true : false;
 
-    this.maxAgeInDays = +core.getInput("max_age_in_days");
+    const maxAge = +core.getInput("max_age_in_days");
+    if (isNaN(maxAge) || maxAge < 0) {
+      throw new Error("max_age_in_days must be a non-negative number");
+    }
+    this.maxAgeInDays = maxAge;
     this.dryRun = core.getInput("dry_run") === "true";
   }
 }
