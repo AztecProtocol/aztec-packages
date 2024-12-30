@@ -8,6 +8,7 @@
 #include "barretenberg/ecc/curves/grumpkin/grumpkin.hpp"
 #include "barretenberg/ecc/fields/field_conversion.hpp"
 #include "barretenberg/honk/proof_system/types/proof.hpp"
+#include "barretenberg/crypto/poseidon/poseidon.hpp"
 #include <concepts>
 
 namespace bb {
@@ -522,6 +523,8 @@ inline bb::fr poseidon_hash_uint256(std::vector<bb::fr> const& data)
 
     // TODO implement poseidon hash
     std::array<uint8_t, 32> result;
+
+    permutation_9(NULL);
 
     for (size_t i = 0; i < 4; ++i) {
         for (size_t j = 0; j < 8; ++j) {
