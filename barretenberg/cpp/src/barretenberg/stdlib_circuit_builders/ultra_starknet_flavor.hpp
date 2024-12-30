@@ -163,7 +163,7 @@ class UltraStarknetFlavor : public bb::UltraFlavor {
      * @brief Derived class that defines proof structure for Ultra proofs, as well as supporting functions.
      *
      */
-    class Transcript : public KeccakTranscript {
+    class Transcript : public PoseidonTranscript {
       public:
         // Transcript objects defined as public member variables for easy access and modification
         uint32_t circuit_size;
@@ -188,7 +188,7 @@ class UltraStarknetFlavor : public bb::UltraFlavor {
 
         // Used by verifier to initialize the transcript
         Transcript(const std::vector<FF>& proof)
-            : KeccakTranscript(proof)
+            : PoseidonTranscript(proof)
         {}
 
         static std::shared_ptr<Transcript> prover_init_empty()
