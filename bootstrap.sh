@@ -26,6 +26,7 @@ function check_toolchains {
     if ! command -v $util > /dev/null; then
       encourage_dev_container
       echo "Utility $util not found."
+      echo "Installation: sudo apt install $util"
       exit 1
     fi
   done
