@@ -26,4 +26,4 @@ There are also special oracle functions, which can get data from outside of the 
 - [Oracles](../oracles/index.md) and how Aztec smart contracts might use them
 - [How functions work under the hood](./attributes.md)
 
-Find a function macros reference [here](../../../reference/developer_references/smart_contract_reference/macros.md)
+Find a function macros reference [here](../../../build/reference/smart_contract_reference/macros.md)

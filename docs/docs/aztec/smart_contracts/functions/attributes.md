@@ -6,7 +6,7 @@ tags: [functions]
 
 On this page you will learn about function attributes and macros.
 
-If you are looking for a reference of function macros, go [here](../../../reference/developer_references/smart_contract_reference/macros.md).
+If you are looking for a reference of function macros, go [here](../../../build/reference/smart_contract_reference/macros.md).
 
 ## Private functions #[private]
 
@@ -358,7 +358,7 @@ Key things to keep in mind:
 
 ## Further reading
 
-- [Macros reference](../../../reference/developer_references/smart_contract_reference/macros.md)
+- [Macros reference](../../../build/reference/smart_contract_reference/macros.md)
 - [How do macros work](./attributes.md)
 
 
