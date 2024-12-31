@@ -131,7 +131,7 @@ const config = {
         entryPoints: ["../yarn-project/circuit-types/src/interfaces/pxe.ts"],
         tsconfig: "../yarn-project/circuit-types/tsconfig.json",
         entryPointStrategy: "expand",
-        out: "reference/developer_references/aztecjs/pxe",
+        out: "build/reference/aztecjs/pxe",
         readme: "none",
         sidebar: {
           categoryLabel: "Private Execution Environment (PXE)",
@@ -149,7 +149,7 @@ const config = {
         ],
         tsconfig: "../yarn-project/aztec.js/tsconfig.json",
         entryPointStrategy: "resolve",
-        out: "reference/developer_references/aztecjs/aztec-js",
+        out: "build/reference/aztecjs/aztec-js",
         readme: "none",
         sidebar: {
           categoryLabel: "Aztec.js",
@@ -170,7 +170,7 @@ const config = {
         ],
         tsconfig: "../yarn-project/accounts/tsconfig.json",
         entryPointStrategy: "resolve",
-        out: "reference/developer_references/aztecjs/accounts",
+        out: "build/reference/aztecjs/accounts",
         readme: "none",
         sidebar: {
           categoryLabel: "Accounts",
