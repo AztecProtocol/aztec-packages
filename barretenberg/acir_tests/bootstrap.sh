@@ -40,7 +40,7 @@ function build_tests {
 
   # Update yarn.lock so it can be committed.
   # Be lenient about bb.js hash changing, even if we try to minimize the occurrences.
-  denoise "cd browser-test-app && yarn add --dev @aztec/bb.js@../../ts && yarn"
+  denoise "cd browser-test-app && yarn add --dev @aztec/bb.js@portal:../../ts && yarn"
   denoise "cd headless-test && yarn"
   denoise "cd sol-test && yarn"
   # The md5sum of everything is the same after each yarn call.

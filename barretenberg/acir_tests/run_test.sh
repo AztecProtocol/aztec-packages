@@ -53,7 +53,9 @@ set -e
 
 if [ $result -eq 0 ]; then
   echo -e "\033[32mPASSED\033[0m (${duration}s)"
-  [ "${VERBOSE:-0}" -eq 1 ] && echo "$output"
+  if [ "${VERBOSE:-0}" -eq 1 ]; then
+    echo "$output"
+  fi
 else
   echo -e "\033[31mFAILED\033[0m"
   echo "$output"
