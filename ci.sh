@@ -44,7 +44,11 @@ function get_ip_for_instance {
 case "$cmd" in
   "init")
     # Start a redis server we can use for caching logs etc.
-    docker run -d --name ci-redis -p 6379:6379 redis:latest
+    if [ "$(docker ps -q -f name=ci-redis)" ]; then
+        echo "Container 'ci-redis' is already running."
+    else
+        docker run -d --rm --name ci-redis -p 6379:6379 redis:latest
+    fi
     ;;
   "ec2")
     # Spin up ec2 instance and ci bootstrap with shell on failure.
