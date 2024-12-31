@@ -5,7 +5,7 @@ sidebar_position: 6
 
 import Image from "@theme/IdealImage";
 
-In this tutorial, we will learn how to build the entire flow of a cross-chain token using portals. If this is your first time hearing the word portal, you’ll want to read [this page in the protocol specs](../../../../protocol-specs/l1-smart-contracts/index.md).
+In this tutorial, we will learn how to build the entire flow of a cross-chain token using portals.
 
 ## A refresher on Portals
 
