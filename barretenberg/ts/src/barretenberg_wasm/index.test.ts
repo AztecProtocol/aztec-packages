@@ -18,7 +18,7 @@ describe('barretenberg wasm', () => {
     const length = 1024;
     const ptr = await wasm.call('bbmalloc', length);
     const buf = Buffer.alloc(length, 128);
-    await wasm.writeMemory(ptr, buf);
+    await wasm.writeMemory(ptr, buf.buffer as Uint8Array);
     const result = Buffer.from(await wasm.getMemorySlice(ptr, ptr + length));
     await wasm.call('bbfree', ptr);
     expect(result).toStrictEqual(buf);
@@ -37,7 +37,7 @@ describe('barretenberg wasm', () => {
     const length = 1024;
     const ptr = await wasm.call('bbmalloc', length);
     const buf = Buffer.alloc(length, 128);
-    await wasm.writeMemory(ptr, buf);
+    await wasm.writeMemory(ptr, buf.buffer as Uint8Array);
     const result = Buffer.from(await wasm.getMemorySlice(ptr, ptr + length));
     await wasm.call('bbfree', ptr);
     expect(result).toStrictEqual(buf);

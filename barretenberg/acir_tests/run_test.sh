@@ -1,9 +1,7 @@
 #!/usr/bin/env bash
-set -eu
+source $(git rev-parse --show-toplevel)/ci3/source
 
 TEST_NAME=$1
-
-cd $(dirname $0)
 
 COMPILE=${COMPILE:-0}
 BIN=$(realpath ${BIN:-../cpp/build/bin/bb})
@@ -18,7 +16,6 @@ nargo=$(realpath ../../noir/noir-repo/target/release/nargo)
 
 export BIN CRS_PATH RECURSIVE HARDWARE_CONCURRENCY VERBOSE
 
-# echo -n "Testing $TEST_NAME... "
 cd ./acir_tests/$TEST_NAME
 
 if [ "$COMPILE" -ne 0 ]; then
@@ -49,15 +46,14 @@ fi
 
 set +e
 SECONDS=0
-output=$($flow_script 2>&1)
+output=$($flow_script 2>&1 | add_timestamps)
 result=$?
 duration=$SECONDS
 set -e
 
-[ "${VERBOSE:-0}" -eq 1 ] && echo -e "\n${compile_output:-}\n$output"
-
 if [ $result -eq 0 ]; then
   echo -e "\033[32mPASSED\033[0m (${duration}s)"
+  [ "${VERBOSE:-0}" -eq 1 ] && echo "$output"
 else
   echo -e "\033[31mFAILED\033[0m"
   echo "$output"

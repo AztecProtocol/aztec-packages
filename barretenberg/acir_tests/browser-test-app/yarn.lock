@@ -5,9 +5,9 @@ __metadata:
   version: 8
   cacheKey: 10c0
 
-"@aztec/bb.js@file:../../ts::locator=browser-test-app%40workspace%3A.":
-  version: 0.68.0
-  resolution: "@aztec/bb.js@file:../../ts#../../ts::hash=f75cd0&locator=browser-test-app%40workspace%3A."
+"@aztec/bb.js@portal:../../ts::locator=browser-test-app%40workspace%3A.":
+  version: 0.0.0-use.local
+  resolution: "@aztec/bb.js@portal:../../ts::locator=browser-test-app%40workspace%3A."
   dependencies:
     comlink: "npm:^4.4.1"
     commander: "npm:^12.1.0"
@@ -17,9 +17,8 @@ __metadata:
     tslib: "npm:^2.4.0"
   bin:
     bb.js: ./dest/node/main.js
-  checksum: 10c0/31a29d9e0ad56efc85f4be66e220d2d7f3898061b69b22e8723f31162c4fd5cc8436eff475cba7b1ec48f49298a3fcc88c246bdf6e39f70f82afdafa0cabab31
   languageName: node
-  linkType: hard
+  linkType: soft
 
 "@discoveryjs/json-ext@npm:^0.5.0":
   version: 0.5.7
@@ -959,7 +958,7 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "browser-test-app@workspace:."
   dependencies:
-    "@aztec/bb.js": ../../ts
+    "@aztec/bb.js": "portal:../../ts"
     "@types/debug": "npm:^4.1.12"
     "@types/pako": "npm:^2.0.3"
     copy-webpack-plugin: "npm:^12.0.2"

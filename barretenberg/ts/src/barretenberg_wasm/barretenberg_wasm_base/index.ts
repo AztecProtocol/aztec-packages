@@ -1,7 +1,7 @@
 import createDebug from 'debug';
 import { randomBytes } from '../../random/index.js';
 
-const debug = createDebug('bb.js:wasm');
+const debug = createDebug('bb.js:bb_wasm_base');
 
 /**
  * Base implementation of BarretenbergWasm.
