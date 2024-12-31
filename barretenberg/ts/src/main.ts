@@ -28,12 +28,12 @@ function getBytecode(bytecodePath: string): Uint8Array {
   if (extension == 'json') {
     const encodedCircuit = JSON.parse(readFileSync(bytecodePath, 'utf8'));
     const decompressed = gunzipSync(Buffer.from(encodedCircuit.bytecode, 'base64'));
-    return decompressed.buffer as Uint8Array;
+    return Uint8Array.from(decompressed);
   }
 
   const encodedCircuit = readFileSync(bytecodePath);
   const decompressed = gunzipSync(encodedCircuit);
-  return decompressed.buffer as Uint8Array;
+  return Uint8Array.from(decompressed);
 }
 
 function base64ToUint8Array(base64: string) {
@@ -65,7 +65,7 @@ async function getGatesUltra(bytecodePath: string, recursive: boolean, honkRecur
 function getWitness(witnessPath: string): Uint8Array {
   const data = readFileSync(witnessPath);
   const decompressed = gunzipSync(data);
-  return decompressed.buffer as Uint8Array;
+  return Uint8Array.from(decompressed);
 }
 
 async function computeCircuitSize(bytecodePath: string, recursive: boolean, honkRecursion: boolean, api: Barretenberg) {
@@ -300,7 +300,7 @@ export async function gateCountUltra(bytecodePath: string, recursive: boolean, h
     const buffer = Buffer.alloc(8);
     buffer.writeBigInt64LE(BigInt(numberOfGates));
 
-    process.stdout.write(buffer.buffer as Uint8Array);
+    process.stdout.write(Uint8Array.from(buffer));
   } finally {
     await api.destroy();
   }
@@ -310,7 +310,7 @@ export async function verify(proofPath: string, vkPath: string, crsPath: string)
   const { api, acirComposer } = await initLite(crsPath);
   try {
     await api.acirLoadVerificationKey(acirComposer, new RawBuffer(readFileSync(vkPath)));
-    const verified = await api.acirVerifyProof(acirComposer, readFileSync(proofPath).buffer as Uint8Array);
+    const verified = await api.acirVerifyProof(acirComposer, Uint8Array.from(readFileSync(proofPath)));
     debug(`verified: ${verified}`);
     return verified;
   } finally {
@@ -406,7 +406,7 @@ export async function proofAsFields(proofPath: string, vkPath: string, outputPat
     const numPublicInputs = readFileSync(vkPath).readUint32BE(8);
     const proofAsFields = await api.acirSerializeProofIntoFields(
       acirComposer,
-      readFileSync(proofPath).buffer as Uint8Array,
+      Uint8Array.from(readFileSync(proofPath)),
       numPublicInputs,
     );
     const jsonProofAsFields = JSON.stringify(proofAsFields.map(f => f.toString()));
@@ -522,7 +522,7 @@ export async function verifyUltraHonk(
       ? api.acirVerifyUltraKeccakHonk.bind(api)
       : api.acirVerifyUltraHonk.bind(api);
     const verified = await acirVerifyUltraHonk(
-      readFileSync(proofPath).buffer as Uint8Array,
+      Uint8Array.from(readFileSync(proofPath)),
       new RawBuffer(readFileSync(vkPath)),
     );
 
@@ -537,7 +537,7 @@ export async function proofAsFieldsUltraHonk(proofPath: string, outputPath: stri
   const { api } = await initLite(crsPath);
   try {
     debug('outputting proof as vector of fields');
-    const proofAsFields = await api.acirProofAsFieldsUltraHonk(readFileSync(proofPath).buffer as Uint8Array);
+    const proofAsFields = await api.acirProofAsFieldsUltraHonk(Uint8Array.from(readFileSync(proofPath)));
     const jsonProofAsFields = JSON.stringify(proofAsFields.map(f => f.toString()));
 
     if (outputPath === '-') {

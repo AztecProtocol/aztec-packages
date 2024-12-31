@@ -5,7 +5,7 @@ set -e
 
 cd $(dirname $0)/..
 
-if [ -z "$SKIP_CPP_BUILD" ] && [ "$CI" -eq 0 ]; then
+if [ -z "$SKIP_CPP_BUILD" ] && [ "${CI:-0}" -eq 0 ]; then
   # Build the wasms and strip debug symbols.
   cd ../cpp
   cmake --preset wasm-threads -DCMAKE_MESSAGE_LOG_LEVEL=Warning && cmake --build --preset wasm-threads

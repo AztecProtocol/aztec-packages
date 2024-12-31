@@ -51,9 +51,9 @@ export class BarretenbergWasmBase {
           const m = this.getMemory();
           const str2 = `${str} (mem: ${(m.length / (1024 * 1024)).toFixed(2)}MiB)`;
           this.logger(str2);
-          if (str2.startsWith('WARNING:')) {
-            this.logger(new Error().stack!);
-          }
+          // if (str2.startsWith('WARNING:')) {
+          //   this.logger(new Error().stack!);
+          // }
         },
 
         get_data: (keyAddr: number, outBufAddr: number) => {
