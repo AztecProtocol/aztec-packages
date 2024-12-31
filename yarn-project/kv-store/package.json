@@ -28,7 +28,7 @@
     "@aztec/ethereum": "workspace:^",
     "@aztec/foundation": "workspace:^",
     "idb": "^8.0.0",
-    "lmdb": "^3.0.6"
+    "lmdb": "^3.2.0"
   },
   "devDependencies": {
     "@aztec/circuits.js": "workspace:^",

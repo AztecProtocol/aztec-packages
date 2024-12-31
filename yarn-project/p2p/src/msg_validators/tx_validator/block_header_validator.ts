@@ -1,4 +1,4 @@
-import { type AnyTx, type TxValidator } from '@aztec/circuit-types';
+import { type AnyTx, Tx, type TxValidator } from '@aztec/circuit-types';
 import { type Fr } from '@aztec/circuits.js';
 import { createLogger } from '@aztec/foundation/log';
 
@@ -22,8 +22,7 @@ export class BlockHeaderTxValidator<T extends AnyTx> implements TxValidator<T> {
     for (const tx of txs) {
       const archive = tx.data.constants.historicalHeader.hash();
       const archiveAsString = archive.toString();
-      const value = this.#archives[archiveAsString];
-      if (value === undefined) {
+      if (this.#archives[archiveAsString] === undefined) {
         const archiveIndices = await this.#archiveSource.getArchiveIndices([archive]);
         this.#archives[archiveAsString] = archiveIndices[0] !== undefined;
       }
@@ -31,6 +30,7 @@ export class BlockHeaderTxValidator<T extends AnyTx> implements TxValidator<T> {
         validTxs.push(tx);
       } else {
         invalidTxs.push(tx);
+        this.#log.warn(`Rejecting tx ${Tx.getHash(tx)} for referencing an unknown block header`);
       }
     }
 
