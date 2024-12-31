@@ -14,8 +14,12 @@ output=$(bash -c "$test_cmd" 2>&1)
 code=$?
 
 if [ -n "$CI_REDIS" ]; then
-  echo "$output" | redis-cli -h $CI_REDIS -x SETEX $key 604800 &>/dev/null
-  log_info=" ${yellow}$key${reset}"
+  # Set success flag for test. This key is unique to the test.
+  redis-cli -h $CI_REDIS -x SETEX $key 604800 1 &>/dev/null
+  # Set the test log. This key is globally unique.
+  log_key=$(uuid)
+  echo "$output" | redis-cli -h $CI_REDIS -x SETEX $log_key 604800 &>/dev/null
+  log_info=" ${yellow}$log_key${reset}"
 fi
 
 if [ $code -eq 0 ]; then

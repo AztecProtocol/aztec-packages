@@ -152,7 +152,8 @@ case "$cmd" in
     if [ "$(redis-cli --raw EXISTS $1)" -eq 1 ]; then
       redis-cli --raw GET $1 | $pager
     else
-      ssh -F $ci3/aws/build_instance_ssh_config ci-bastion.aztecprotocol.com \
+      ssh -o ControlMaster=auto -o ControlPath=/tmp/ssh_mux_%h_%p_%r -o ControlPersist=10m \
+        -F $ci3/aws/build_instance_ssh_config ci-bastion.aztecprotocol.com \
         redis-cli -h ci-redis.lzka0i.0001.use2.cache.amazonaws.com --raw GET $1 | $pager
     fi
     ;;
