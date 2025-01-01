@@ -1,5 +1,7 @@
 use acvm::{acir::brillig::MemoryAddress, AcirField, FieldElement};
 
+/// Returns the position of the most significant bit (MSB) for a given number.
+/// Returns 0 if the input is 0.
 fn get_msb(n: u128) -> usize {
     if n == 0 {
         0
@@ -8,7 +10,11 @@ fn get_msb(n: u128) -> usize {
     }
 }
 
+/// A trait for types that can report their significant bit count.
+/// This is useful for determining the minimum number of bits needed
+/// to represent a value of this type.
 pub trait BitsQueryable {
+    /// Returns the number of significant bits needed to represent the value.
     fn num_bits(&self) -> usize;
 }
 
@@ -63,6 +69,8 @@ impl BitsQueryable for MemoryAddress {
     }
 }
 
+/// Determines the optimal bit width for storing a value.
+/// Returns one of: 8, 16, 32, 64, 128, or 254 bits depending on the value's magnitude.
 pub fn bits_needed_for<T: BitsQueryable>(val: &T) -> usize {
     match val.num_bits() {
         0..=8 => 8,
