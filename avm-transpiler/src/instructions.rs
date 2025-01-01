@@ -161,6 +161,12 @@ impl AvmOperand {
     }
 }
 
+#[derive(Debug)]
+pub enum AddressingModeError {
+    TooManyOperands(usize),
+    OperandCountMismatch { indirect_len: usize, relative_len: usize },
+}
+
 #[derive(Debug, Default)]
 pub(crate) struct AddressingModeBuilder {
     indirect: Vec<bool>,
@@ -171,20 +177,28 @@ impl AddressingModeBuilder {
     pub(crate) fn direct_operand(mut self, address: &MemoryAddress) -> Self {
         self.relative.push(address.is_relative());
         self.indirect.push(false);
-
         self
     }
 
     pub(crate) fn indirect_operand(mut self, address: &MemoryAddress) -> Self {
         self.relative.push(address.is_relative());
         self.indirect.push(true);
-
         self
     }
 
-    pub(crate) fn build(self) -> AvmOperand {
+    pub(crate) fn build(self) -> Result<AvmOperand, AddressingModeError> {
         let num_operands = self.indirect.len();
-        assert!(num_operands <= 8, "Too many operands for building addressing mode bytes");
+
+        if self.indirect.len() != self.relative.len() {
+            return Err(AddressingModeError::OperandCountMismatch {
+                indirect_len: self.indirect.len(),
+                relative_len: self.relative.len(),
+            });
+        }
+
+        if num_operands > 8 {
+            return Err(AddressingModeError::TooManyOperands(num_operands));
+        }
 
         let mut result = 0;
         for (i, (indirect, relative)) in
@@ -198,10 +212,67 @@ impl AddressingModeBuilder {
             }
         }
 
-        if num_operands <= 4 {
+        Ok(if num_operands <= 4 {
             AvmOperand::U8 { value: result as u8 }
         } else {
             AvmOperand::U16 { value: result as u16 }
+        })
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_direct_operand() {
+        let builder = AddressingModeBuilder::default()
+            .direct_operand(&MemoryAddress::Direct(1))
+            .direct_operand(&MemoryAddress::Direct(2));
+
+        let result = builder.build().unwrap();
+        match result {
+            AvmOperand::U8 { value } => assert_eq!(value, 0), // All operands are direct
+            _ => panic!("Unexpected operand type"),
         }
+    }
+
+    #[test]
+    fn test_indirect_operand() {
+        let builder = AddressingModeBuilder::default()
+            .indirect_operand(&MemoryAddress::Direct(1))
+            .indirect_operand(&MemoryAddress::Direct(2));
+
+        let result = builder.build().unwrap();
+        match result {
+            AvmOperand::U8 { value } => assert_eq!(value, 0b11), // Both operands are indirect
+            _ => panic!("Unexpected operand type"),
+        }
+    }
+
+    #[test]
+    fn test_mixed_operands() {
+        let builder = AddressingModeBuilder::default()
+            .direct_operand(&MemoryAddress::Direct(1))
+            .indirect_operand(&MemoryAddress::Direct(2));
+
+        let result = builder.build().unwrap();
+        match result {
+            AvmOperand::U8 { value } => assert_eq!(value, 0b10), // The second operand is indirect
+            _ => panic!("Unexpected operand type"),
+        }
+    }
+
+    #[test]
+    fn test_too_many_operands() {
+        let mut builder = AddressingModeBuilder::default();
+        for _ in 0..9 {
+            builder = builder.direct_operand(&MemoryAddress::Direct(1));
+        }
+
+        assert!(matches!(
+            builder.build(),
+            Err(AddressingModeError::TooManyOperands(9))
+        ));
     }
 }
