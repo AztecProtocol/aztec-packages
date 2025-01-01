@@ -95,8 +95,7 @@ impl Default for AvmInstruction {
     fn default() -> Self {
         AvmInstruction {
             opcode: AvmOpcode::ADD_8,
-            // TODO(4266): default to Some(0), since all instructions have indirect flag except jumps
-            indirect: None,
+            indirect: Some(AvmOperand::U8 { value: 0 }),
             tag: None,
             operands: vec![],
             immediates: vec![],
