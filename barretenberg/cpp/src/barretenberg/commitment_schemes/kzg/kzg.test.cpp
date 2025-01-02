@@ -309,6 +309,7 @@ TYPED_TEST(KZGTest, ShpleminiKzgWithShiftAndConcatenation)
 
     // Gemini verifier output:
     // - claim: d+1 commitments to Fold_{r}^(0), Fold_{-r}^(0), Fold^(l), d+1 evaluations a_0_pos, a_l, l = 0:d-1
+    bool consistency_checked = true;
     const auto batch_opening_claim =
         ShpleminiVerifier::compute_batch_opening_claim(n,
                                                        RefVector(unshifted_commitments),
@@ -320,6 +321,7 @@ TYPED_TEST(KZGTest, ShpleminiKzgWithShiftAndConcatenation)
                                                        verifier_transcript,
                                                        /* repeated commitments= */ {},
                                                        /* has zk = */ {},
+                                                       &consistency_checked,
                                                        /* libra commitments = */ {},
                                                        /* libra evaluations = */ {},
                                                        to_vector_of_ref_vectors(concatenation_groups_commitments),

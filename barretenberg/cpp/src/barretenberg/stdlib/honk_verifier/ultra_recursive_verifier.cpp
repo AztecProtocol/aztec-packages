@@ -90,7 +90,7 @@ UltraRecursiveVerifier_<Flavor>::Output UltraRecursiveVerifier_<Flavor>::verify_
     auto sumcheck = Sumcheck(log_circuit_size, transcript);
 
     // Receive commitments to Libra masking polynomials
-    std::array<Commitment, 3> libra_commitments = {};
+    std::array<Commitment, NUM_LIBRA_COMMITMENTS> libra_commitments = {};
     FF libra_evaluation{ 0 };
     if constexpr (Flavor::HasZK) {
         libra_commitments[0] = transcript->template receive_from_prover<Commitment>("Libra:concatenation_commitment");
@@ -105,6 +105,7 @@ UltraRecursiveVerifier_<Flavor>::Output UltraRecursiveVerifier_<Flavor>::verify_
         libra_commitments[2] = transcript->template receive_from_prover<Commitment>("Libra:quotient_commitment");
     }
     // Execute Shplemini to produce a batch opening claim subsequently verified by a univariate PCS
+    bool consistency_checked = true;
     const BatchOpeningClaim<Curve> opening_claim =
         Shplemini::compute_batch_opening_claim(key->circuit_size,
                                                commitments.get_unshifted(),
@@ -116,6 +117,7 @@ UltraRecursiveVerifier_<Flavor>::Output UltraRecursiveVerifier_<Flavor>::verify_
                                                transcript,
                                                Flavor::REPEATED_COMMITMENTS,
                                                Flavor::HasZK,
+                                               &consistency_checked,
                                                libra_commitments,
                                                libra_evaluation);
 

@@ -103,7 +103,7 @@ bool TranslatorVerifier::verify_proof(const HonkProof& proof)
     }
 
     // Receive commitments to Libra masking polynomials
-    std::array<Commitment, 3> libra_commitments = {};
+    std::array<Commitment, NUM_LIBRA_COMMITMENTS> libra_commitments = {};
     libra_commitments[0] = transcript->template receive_from_prover<Commitment>("Libra:concatenation_commitment");
 
     auto [multivariate_challenge, claimed_evaluations, libra_evaluation, sumcheck_verified] =
@@ -118,7 +118,7 @@ bool TranslatorVerifier::verify_proof(const HonkProof& proof)
     libra_commitments[2] = transcript->template receive_from_prover<Commitment>("Libra:quotient_commitment");
 
     // Execute Shplemini
-
+    bool consistency_checked = false;
     const BatchOpeningClaim<Curve> opening_claim =
         Shplemini::compute_batch_opening_claim(circuit_size,
                                                commitments.get_unshifted_without_concatenated(),
@@ -130,6 +130,7 @@ bool TranslatorVerifier::verify_proof(const HonkProof& proof)
                                                transcript,
                                                Flavor::REPEATED_COMMITMENTS,
                                                Flavor::HasZK,
+                                               &consistency_checked,
                                                libra_commitments,
                                                libra_evaluation,
                                                commitments.get_groups_to_be_concatenated(),
@@ -138,7 +139,7 @@ bool TranslatorVerifier::verify_proof(const HonkProof& proof)
 
     auto verified = key->pcs_verification_key->pairing_check(pairing_points[0], pairing_points[1]);
 
-    return verified && opening_claim.consistency_checked;
+    return verified && consistency_checked;
 }
 
 bool TranslatorVerifier::verify_translation(const TranslationEvaluations& translation_evaluations)

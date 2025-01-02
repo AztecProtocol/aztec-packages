@@ -46,7 +46,7 @@ template <typename Flavor> bool DeciderVerifier_<Flavor>::verify()
     auto sumcheck = SumcheckVerifier<Flavor>(
         static_cast<size_t>(accumulator->verification_key->log_circuit_size), transcript, accumulator->target_sum);
     // For MegaZKFlavor: receive commitments to Libra masking polynomials
-    std::array<Commitment, 3> libra_commitments = {};
+    std::array<Commitment, NUM_LIBRA_COMMITMENTS> libra_commitments = {};
     if constexpr (Flavor::HasZK) {
         libra_commitments[0] = transcript->template receive_from_prover<Commitment>("Libra:concatenation_commitment");
     }
@@ -59,7 +59,6 @@ template <typename Flavor> bool DeciderVerifier_<Flavor>::verify()
         libra_evaluation = std::move(sumcheck_output.claimed_libra_evaluation);
         libra_commitments[1] = transcript->template receive_from_prover<Commitment>("Libra:big_sum_commitment");
         libra_commitments[2] = transcript->template receive_from_prover<Commitment>("Libra:quotient_commitment");
-        // info("big sum received");
     }
 
     // If Sumcheck did not verify, return false
@@ -67,7 +66,7 @@ template <typename Flavor> bool DeciderVerifier_<Flavor>::verify()
         info("Sumcheck verification failed.");
         return false;
     }
-
+    bool consistency_checked = true;
     const BatchOpeningClaim<Curve> opening_claim =
         Shplemini::compute_batch_opening_claim(accumulator->verification_key->circuit_size,
                                                commitments.get_unshifted(),
@@ -79,11 +78,12 @@ template <typename Flavor> bool DeciderVerifier_<Flavor>::verify()
                                                transcript,
                                                Flavor::REPEATED_COMMITMENTS,
                                                Flavor::HasZK,
+                                               &consistency_checked,
                                                libra_commitments,
                                                libra_evaluation);
     const auto pairing_points = PCS::reduce_verify_batch_opening_claim(opening_claim, transcript);
     bool verified = pcs_verification_key->pairing_check(pairing_points[0], pairing_points[1]);
-    return sumcheck_output.verified.value() && verified && opening_claim.consistency_checked;
+    return sumcheck_output.verified.value() && verified && consistency_checked;
 }
 
 template class DeciderVerifier_<UltraFlavor>;

@@ -110,7 +110,7 @@ template <typename Flavor> struct ZKSumcheckData {
      */
     static FF compute_libra_total_sum(const std::vector<Polynomial<FF>>& libra_univariates,
                                       FF& scaling_factor,
-                                      const FF& free_term)
+                                      const FF& constant_term)
     {
         FF total_sum = 0;
         scaling_factor *= one_half;
@@ -121,7 +121,7 @@ template <typename Flavor> struct ZKSumcheckData {
         }
         total_sum *= scaling_factor;
 
-        return total_sum + free_term * (1 << libra_univariates.size());
+        return total_sum + constant_term * (1 << libra_univariates.size());
     }
 
     /**

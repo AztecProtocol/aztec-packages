@@ -55,7 +55,7 @@ bool ECCVMVerifier::verify_proof(const ECCVMProof& proof)
     }
 
     // Receive commitments to Libra masking polynomials
-    std::array<Commitment, 3> libra_commitments = {};
+    std::array<Commitment, NUM_LIBRA_COMMITMENTS> libra_commitments = {};
 
     libra_commitments[0] = transcript->template receive_from_prover<Commitment>("Libra:concatenation_commitment");
 
@@ -72,6 +72,7 @@ bool ECCVMVerifier::verify_proof(const ECCVMProof& proof)
     }
     // Compute the Shplemini accumulator consisting of the Shplonk evaluation and the commitments and scalars vector
     // produced by the unified protocol
+    bool consistency_checked = true;
     BatchOpeningClaim<Curve> sumcheck_batch_opening_claims =
         Shplemini::compute_batch_opening_claim(circuit_size,
                                                commitments.get_unshifted(),
@@ -83,6 +84,7 @@ bool ECCVMVerifier::verify_proof(const ECCVMProof& proof)
                                                transcript,
                                                Flavor::REPEATED_COMMITMENTS,
                                                Flavor::HasZK,
+                                               &consistency_checked,
                                                libra_commitments,
                                                libra_evaluation);
 
@@ -134,6 +136,6 @@ bool ECCVMVerifier::verify_proof(const ECCVMProof& proof)
         PCS::reduce_verify(key->pcs_verification_key, batch_opening_claim, ipa_transcript);
     vinfo("eccvm sumcheck verified?: ", sumcheck_verified.value());
     vinfo("batch opening verified?: ", batched_opening_verified);
-    return sumcheck_verified.value() && batched_opening_verified && sumcheck_batch_opening_claims.consistency_checked;
+    return sumcheck_verified.value() && batched_opening_verified && consistency_checked;
 }
 } // namespace bb

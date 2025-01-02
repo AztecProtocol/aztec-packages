@@ -19,6 +19,15 @@ namespace bb {
  * commitments and openings of Libra polynomials zero-knowledge.
  *
  * ### Overview
+ *
+ * Let \f$ G \f$ be the masked concatenated Libra polynomial. Without masking, it is defined by concatenating Libra
+ * constant term and the monomial coefficients of the Libra univariates \f$ g_i \f$ in the Lagrange basis over \f$ H
+ * \f$. More explicitly, unmasked concatenated Libra polynomial is given by the following vector of coefficients:
+ * \f[ \big( \text{libra_constant_term},  g_{0,0}, \ldots, g_{0,
+ * \text{LIBRA_UNIVARIATES_LENGTH} - 1}, \ldots, g_{d-1, 0}, g_{d-1,  \text{LIBRA_UNIVARIATES_LENGTH} - 1} \big) \f],
+ * where \f$ d = \text{log_circuit_size}\f$.
+ * It is masked by adding \f$ (r_0 + r_1 X) Z_{H}(X)\f$, where \f$ Z_H(X) \f$ is the vanishing polynomial for \f$ H \f$.
+ *
  * This class enables the prover to:
  *
  * - Open the commitment to concatenated Libra polynomial with zero-knowledge while proving correctness of the claimed
@@ -27,29 +36,36 @@ namespace bb {
  * ### Inputs
  * The prover receives:
  * - **ZKSumcheckData:** Contains:
- *   - Concatenated coefficients of the masking term and \( d \) random Libra univariates of degree 3.
- *   - Monomial coefficients of the masked concatenated Libra polynomial denoted by \( G \) .
- *   - Interpolation domain for a small subgroup \( H \subset \mathbb{F}^\ast \).
+ *   - Monomial coefficients of the masked concatenated Libra polynomial \f$ G \f$.
+ *   - Interpolation domain for a small subgroup \( H \subset \mathbb{F}^\ast \), where \(\mathbb{F} \) is the
+ * ScalarField of a given curve.
  * - **Sumcheck challenges:** \( u_0, \ldots, u_{D-1} \), where \( D = \text{CONST_PROOF_SIZE_LOG_N} \).
  * - **Claimed inner product:** \( s = \text{claimed\_ipa\_eval} \), defined as:
  *   \f[
  *   s = \sum_{i=1}^{|H|} F(g^i) G(g^i),
  *   \f]
- *   where \( F(X) \) is the challenge polynomial and \( G(X) \) is the concatenated Libra polynomial.
+ *   where \( F(X) \) is the ``challenge`` polynomial constructed from the Sumcheck round challenges (see the formula
+ * below) and \( G(X) \) is the concatenated Libra polynomial.
  *
  * ### Prover's Construction
- * 1. Define a polynomial \( A(X) \), called the **big sum polynomial**, satisfying:
+ * 1. Define a polynomial \( A(X) \), called the **big sum polynomial**, which is analogous to the big product
+ * polynomial used to prove claims about \f$ \prod_{h\in H} f(h) \cdot g(h) \f$. It is uniquely defined by the
+ * following:
  *    - \( A(1) = 0 \),
  *    - \( A(g^i) = A(g^{i-1}) + F(g^{i-1}) G(g^{i-1}) \) for \( i = 1, \ldots, |H|-1 \).
  * 2. Mask \( A(X) \) by adding \( Z_H(X) R(X) \), where \( R(X) \) is a random polynomial of degree 3.
  * 3. Commit to \( A(X) \) and send the commitment to the verifier.
  *
  * ### Key Identity
- * If \( A(X) \) is honestly constructed, the following identity holds:
- * \f[
- * L_1(X) A(X) + (X - g^{-1}) (A(g \cdot X) - A(X) - F(X) G(X)) + L_{|H|}(X) (A(X) - s) = Z_H(X) Q(X),
- * \f]
- * where \( Q(X) \) is the quotient of the left-hand side by \( Z_H(X) \).
+ * \( A(X) \) is honestly constructed, i.e.
+ *    - \f$ A_0 = 0\f$,
+ *    - \f$ A_{i} = A_{i-1} + F_{i-1} * G_{i-1}\f$ (Lagrange coefficients over \f$ H \f$) for \f$ i = 1,\ldots, |H|\f$
+ *    - \f$ A_{|H|} \f$ is equal to the claimed inner product \f$s\f$.
+ * if and only if the following identity holds:
+ * \f[ L_1(X) A(X) + (X - g^{-1}) (A(g \cdot X) - A(X) -
+ * F(X) G(X)) + L_{|H|}(X) (A(X) - s) = Z_H(X) Q(X), \f] where \( Q(X) \) is the quotient of the left-hand side by \(
+ * Z_H(X) \). The second summand is the translation of the second condition using the fact that the coefficients of \f$
+ * A(gX) \f$ are given by a cyclic shift of the coefficients of \f$ A(X) \f$.
  *
  * The methods of this class allow the prover to compute \( A(X) \) and \( Q(X) \).
  *
@@ -107,7 +123,7 @@ template <typename Flavor> class SmallSubgroupIPAProver {
                            const std::vector<FF>& multivariate_challenge,
                            const FF claimed_ipa_eval,
                            std::shared_ptr<typename Flavor::Transcript> transcript,
-                           std::shared_ptr<typename Flavor::CommitmentKey> commitment_key = nullptr)
+                           std::shared_ptr<typename Flavor::CommitmentKey> commitment_key)
         : interpolation_domain(zk_sumcheck_data.interpolation_domain)
         , concatenated_polynomial(zk_sumcheck_data.libra_concatenated_monomial_form)
         , libra_concatenated_lagrange_form(zk_sumcheck_data.libra_concatenated_lagrange_form)
@@ -127,14 +143,11 @@ template <typename Flavor> class SmallSubgroupIPAProver {
         // Construct the challenge polynomial in Lagrange basis, compute its monomial coefficients
         compute_challenge_polynomial(multivariate_challenge);
 
-        // Construct unmasked big sum polynomial in Lagrange basis, compute its monomial coefficients, and mask it
+        // Construct unmasked big sum polynomial in Lagrange basis, compute its monomial coefficients and mask it
         compute_big_sum_polynomial();
 
         // Send masked commitment [A + Z_H * R] to the verifier, where R is of degree 2
-        if (commitment_key) {
-            transcript->template send_to_verifier("Libra:big_sum_commitment",
-                                                  commitment_key->commit(big_sum_polynomial));
-        }
+        transcript->template send_to_verifier("Libra:big_sum_commitment", commitment_key->commit(big_sum_polynomial));
 
         // Compute C(X)
         compute_batched_polynomial(claimed_ipa_eval);
@@ -150,7 +163,7 @@ template <typename Flavor> class SmallSubgroupIPAProver {
     }
 
     // Getter to pass the witnesses to ShpleminiProver. Big sum polynomial is evaluated at 2 points (and is small)
-    std::array<bb::Polynomial<FF>, 4> get_witness_polynomials() const
+    std::array<bb::Polynomial<FF>, NUM_LIBRA_EVALUATIONS> get_witness_polynomials() const
     {
         return { concatenated_polynomial, big_sum_polynomial, big_sum_polynomial, batched_quotient };
     }
@@ -171,16 +184,14 @@ template <typename Flavor> class SmallSubgroupIPAProver {
      * - For each challenge index `idx_poly` in the `CONST_PROOF_SIZE_LOG_N` range, compute a sequence of coefficients
      *   recursively as powers of the corresponding multivariate challenge.
      * - Store these coefficients in `coeffs_lagrange_basis`.
+     * More explicitly,
+     * \f$ F = (1 , 1 , u_0, \ldots, u_0^{LIBRA_UNIVARIATES_LENGTH-1}, \ldots, 1, u_{D-1}, \ldots,
+     * u_{D-1}^{LIBRA_UNVIARIATES_LENGTH-1} ) \f$ in the Lagrange basis over \f$ H \f$.
      *
      * ### Monomial Basis
      * If the curve is not `BN254`, the monomial polynomial is constructed directly using un-optimized Lagrange
      * interpolation. Otherwise, an IFFT is used to convert the Lagrange basis coefficients into monomial basis
      * coefficients.
-     *
-     * ### Notes:
-     * - The `LIBRA_UNIVARIATES_LENGTH` determines the number of recursive powers computed per challenge.
-     * - For `BN254`, the polynomial is computed using an IFFT operation to convert from the Lagrange basis to the
-     *   monomial basis.
      *
      * @param multivariate_challenge A vector of field elements used to compute the challenge polynomial.
      */
@@ -191,12 +202,12 @@ template <typename Flavor> class SmallSubgroupIPAProver {
 
         for (size_t challenge_idx = 0; challenge_idx < CONST_PROOF_SIZE_LOG_N; challenge_idx++) {
             // We concatenate 1 with CONST_PROOF_SIZE_LOG_N Libra Univariates of length LIBRA_UNIVARIATES_LENGTH
-            size_t poly_to_concatenate_start = 1 + LIBRA_UNIVARIATES_LENGTH * challenge_idx;
+            const size_t poly_to_concatenate_start = 1 + LIBRA_UNIVARIATES_LENGTH * challenge_idx;
             coeffs_lagrange_basis[poly_to_concatenate_start] = FF(1);
-            for (size_t idx = 1; idx < LIBRA_UNIVARIATES_LENGTH; idx++) {
+            for (size_t idx = 1 + poly_to_concatenate_start; idx < poly_to_concatenate_start + LIBRA_UNIVARIATES_LENGTH;
+                 idx++) {
                 // Recursively compute the powers of the challenge
-                coeffs_lagrange_basis[poly_to_concatenate_start + idx] =
-                    coeffs_lagrange_basis[poly_to_concatenate_start + idx - 1] * multivariate_challenge[challenge_idx];
+                coeffs_lagrange_basis[idx] = coeffs_lagrange_basis[idx - 1] * multivariate_challenge[challenge_idx];
             }
         }
 
@@ -252,9 +263,7 @@ template <typename Flavor> class SmallSubgroupIPAProver {
         }
         //  Generate random masking_term of degree 2, add Z_H(X) * masking_term
         bb::Univariate<FF, 3> masking_term = bb::Univariate<FF, 3>::get_random();
-        for (size_t idx = 0; idx < SUBGROUP_SIZE; idx++) {
-            big_sum_polynomial.at(idx) = big_sum_polynomial_unmasked.at(idx);
-        }
+        big_sum_polynomial += big_sum_polynomial_unmasked;
 
         for (size_t idx = 0; idx < masking_term.size(); idx++) {
             big_sum_polynomial.at(idx) -= masking_term.value_at(idx);
@@ -263,7 +272,8 @@ template <typename Flavor> class SmallSubgroupIPAProver {
     };
 
     /**
-     * @brief   Compute \f$ L_1(X) * A(X) + (X - 1/g) (A(gX) - A(X) - F(X) G(X)) + L_{|H|}(X)(A(X) - s) \f$
+     * @brief   Compute \f$ L_1(X) * A(X) + (X - 1/g) (A(gX) - A(X) - F(X) G(X)) + L_{|H|}(X)(A(X) - s) \f$, where \f$ g
+     * \f$ is the fixed generator of \f$ H \f$.
      *
      */
     void compute_batched_polynomial(const FF& claimed_evaluation)
@@ -405,7 +415,7 @@ template <typename Curve> class SmallSubgroupIPAVerifier {
      * @param eval_claim The claimed inner proudct of the coefficients of \f$G\f$ and \f$F\f$.
      * @return True if the consistency check passes, false otherwise.
      */
-    static bool evaluations_consistency_check(const std::vector<FF>& libra_evaluations,
+    static bool check_evaluations_consistency(const std::array<FF, NUM_LIBRA_EVALUATIONS>& libra_evaluations,
                                               const FF& gemini_evaluation_challenge,
                                               const std::vector<FF>& multilinear_challenge,
                                               const FF& inner_product_eval_claim)
@@ -421,8 +431,11 @@ template <typename Curve> class SmallSubgroupIPAVerifier {
 
         // Compute the evaluations of the challenge polynomial, Lagrange first, and Lagrange last for the fixed small
         // subgroup
-        auto [challenge_poly, lagrange_first, lagrange_last] = compute_batched_barycentric_evaluations(
-            challenge_polynomial_lagrange, gemini_evaluation_challenge, subgroup_generator_inverse);
+        auto [challenge_poly, lagrange_first, lagrange_last] =
+            compute_batched_barycentric_evaluations(challenge_polynomial_lagrange,
+                                                    gemini_evaluation_challenge,
+                                                    subgroup_generator_inverse,
+                                                    vanishing_poly_eval);
 
         const FF& concatenated_at_r = libra_evaluations[0];
         const FF& big_sum_shifted_eval = libra_evaluations[1];
@@ -437,6 +450,7 @@ template <typename Curve> class SmallSubgroupIPAVerifier {
         diff += lagrange_last * (big_sum_eval - inner_product_eval_claim) - vanishing_poly_eval * quotient_eval;
 
         if constexpr (Curve::is_stdlib_type) {
+            // TODO(https://github.com/AztecProtocol/barretenberg/issues/1186). Insecure pattern.
             return (diff.get_value() == FF(0).get_value());
         } else {
             return (diff == FF(0));
@@ -486,13 +500,13 @@ template <typename Curve> class SmallSubgroupIPAVerifier {
      */
     static std::array<FF, 3> compute_batched_barycentric_evaluations(const std::vector<FF>& coeffs,
                                                                      const FF& r,
-                                                                     const FF& inverse_root_of_unity)
+                                                                     const FF& inverse_root_of_unity,
+                                                                     const FF& vanishing_poly_eval)
     {
         std::array<FF, SUBGROUP_SIZE> denominators;
         FF one = FF{ 1 };
-        FF numerator = r;
+        FF numerator = vanishing_poly_eval;
 
-        numerator = numerator.pow(SUBGROUP_SIZE) - one;
         numerator *= one / FF(SUBGROUP_SIZE); // (r^n - 1) / n
 
         denominators[0] = r - one;
@@ -517,8 +531,8 @@ template <typename Curve> class SmallSubgroupIPAVerifier {
 
         // Accumulate the evaluation of the polynomials given by `coeffs` vector
         result[0] = FF{ 0 };
-        for (size_t i = 0; i < SUBGROUP_SIZE; ++i) {
-            result[0] += coeffs[i] * denominators[i]; // + coeffs_i * 1/(r * g^{-i}  - 1)
+        for (const auto& [coeff, denominator] : zip_view(coeffs, denominators)) {
+            result[0] += coeff * denominator; // + coeffs_i * 1/(r * g^{-i}  - 1)
         }
 
         result[0] = result[0] * numerator;       // The evaluation of the polynomials given by its evaluations over H

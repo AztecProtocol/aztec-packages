@@ -35,7 +35,7 @@ template <typename Flavor> struct SumcheckOutput<Flavor, std::enable_if_t<Flavor
     std::vector<FF> challenge;
     // Evaluations at \f$ \vec u \f$ of the polynomials used in Sumcheck
     ClaimedEvaluations claimed_evaluations;
-    // Include ClaimedLibraEvaluations conditioned on FlavorHasZK concept
+    // For ZK Flavors: the sum of the Libra constant term and Libra univariates evaluated at Sumcheck challenges
     FF claimed_libra_evaluation;
     // Whether or not the evaluations of multilinear polynomials \f$ P_1, \ldots, P_N \f$  and final Sumcheck evaluation
     // have been confirmed

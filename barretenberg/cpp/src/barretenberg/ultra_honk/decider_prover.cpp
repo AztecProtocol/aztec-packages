@@ -38,8 +38,6 @@ template <IsUltraFlavor Flavor> void DeciderProver_<Flavor>::execute_relation_ch
 
         if constexpr (Flavor::HasZK) {
             zk_sumcheck_data = ZKData(numeric::get_msb(polynomial_size), transcript, commitment_key);
-        } else {
-            zk_sumcheck_data = ZKData();
         }
 
         sumcheck_output = sumcheck.prove(proving_key->proving_key.polynomials,
