@@ -4,10 +4,10 @@ source $(git rev-parse --show-toplevel)/ci3/source_bootstrap
 cmd=${1:-}
 export CRS_PATH=$HOME/.bb-crs
 
-function build_tests {
+function prepare_tests {
   set -eu
 
-  github_group "acir_tests build"
+  github_group "acir_tests copy tests"
 
   rm -rf acir_tests
   cp -R ../../noir/noir-repo/test_programs/execution_success acir_tests
@@ -15,6 +15,16 @@ function build_tests {
   rm -rf acir_tests/{diamond_deps_0,workspace,workspace_default_member}
   # TODO(https://github.com/AztecProtocol/barretenberg/issues/1108): problem regardless the proof system used
   rm -rf acir_tests/regression_5045
+
+  github_endgroup
+}
+
+function build_tests {
+  set -eu
+
+  github_group "acir_tests build"
+
+  prepare_tests
 
   # COMPILE=2 only compiles the test.
   denoise "parallel --joblog joblog.txt --line-buffered 'COMPILE=2 ./run_test.sh \$(basename {})' ::: ./acir_tests/*"
@@ -153,6 +163,9 @@ case "$cmd" in
     ;;
   "test")
     test
+    ;;
+  "prepare-benches")
+    prepare_tests
     ;;
   "test-cmds")
     test_cmds

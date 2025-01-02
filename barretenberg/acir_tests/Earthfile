@@ -5,6 +5,11 @@ test:
   WORKDIR /usr/src/barretenberg/acir_tests
   RUN ./bootstrap.sh ci
 
+benches-bb:
+  FROM ../../+bootstrap-noir-bb
+  WORKDIR /usr/src/barretenberg/acir_tests
+  RUN ./bootstrap.sh prepare-benches
+
 bench:
   # This target is used for debugging the benchmarking target.
   # For precise benchmarks in CI use `bench-publish`
@@ -13,7 +18,7 @@ bench:
 
 export-bench-acir-bb:
   ARG EARTHLY_GIT_HASH
-  FROM +test
+  FROM +benches-bb
   SAVE IMAGE aztecprotocol/barretenberg-acir-benches:$EARTHLY_GIT_HASH
 
 bench-publish:
