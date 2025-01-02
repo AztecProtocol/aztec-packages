@@ -23,14 +23,12 @@ test-setup:
 
 test-help:
     FROM +test-setup
-    LOCALLY
     RUN ./aztec-spartan.sh | grep -q "Commands:" && \
         echo "✅ Help command test passed" || \
         (echo "❌ Help command test failed" && exit 1)
 
 test-no-config:
     FROM +test-setup
-    LOCALLY
     RUN if ./aztec-spartan.sh start 2>&1 | grep -q "Configuration not found"; then \
         echo "✅ No config test passed"; \
         else \
@@ -40,7 +38,6 @@ test-no-config:
 test-install:
     FROM +test-setup
     # Test installation with CLI arguments
-    LOCALLY
     RUN echo -e "\n\n" | ./aztec-spartan.sh config \
         -p 8080 \
         -p2p 40400 \
@@ -48,7 +45,6 @@ test-install:
         -k 0x00 \
         -n "troll-turtle"
     # Verify docker-compose.yml was created and contains correct values
-    LOCALLY
     RUN test -f .env && \
         test -f docker-compose.yml && \
         grep -q "P2P_UDP_ANNOUNCE_ADDR=1.2.3.4:40400" .env && \
@@ -60,13 +56,10 @@ test-install:
 test-docker-check:
     FROM +deps
     COPY aztec-spartan.sh .
-    LOCALLY
     RUN chmod +x aztec-spartan.sh
     # Remove docker to test docker installation check
-    LOCALLY
     RUN rm -f /usr/local/bin/docker /usr/local/bin/docker-compose
     # Test docker check (should fail since docker is not installed)
-    LOCALLY
     RUN if ./aztec-spartan.sh config 2>&1 | grep -q "Docker or Docker Compose not found"; then \
         echo "✅ Docker check test passed"; \
         else \
@@ -76,7 +69,6 @@ test-docker-check:
 test-start-stop:
     FROM +test-setup
     # First install with test configuration
-    LOCALLY
     RUN echo -e "\n" | ./aztec-spartan.sh config \
         -p 8080 \
         -p2p 40400 \
@@ -84,19 +76,16 @@ test-start-stop:
         -k 0x00 \
         -n "troll-turtle"
     # Test start command
-    LOCALLY
     RUN ./aztec-spartan.sh start 2>&1 | grep -q "Starting containers" && \
         echo "✅ Start command test passed" || \
         (echo "❌ Start command test failed" && exit 1)
     # Test stop command
-    LOCALLY
     RUN ./aztec-spartan.sh stop 2>&1 | grep -q "Stopping containers" && \
         echo "✅ Stop command test passed" || \
         (echo "❌ Stop command test failed" && exit 1)
 
 test-update:
     FROM +test-setup
-    LOCALLY
     RUN ./aztec-spartan.sh update 2>&1 | grep -q "Pulling latest images" && \
         echo "✅ Update command test passed" || \
         (echo "❌ Update command test failed" && exit 1)
@@ -104,7 +93,6 @@ test-update:
 test-data-dir:
     FROM +test-setup
     # Test installation with data directory argument
-    LOCALLY
     RUN echo -e "\n\n" | ./aztec-spartan.sh config \
         -p 8080 \
         -p2p 40400 \
@@ -113,7 +101,6 @@ test-data-dir:
         -d ./aztec-data \
         -n "troll-turtle"
     # Verify docker-compose.yml uses bind mount instead of named volume
-    LOCALLY
     RUN grep -q "volumes:" docker-compose.yml && \
         grep -q "./aztec-data:/var/lib/aztec" docker-compose.yml && \
         ! grep -q "volumes:\n    aztec_data:" docker-compose.yml && \
@@ -123,7 +110,6 @@ test-data-dir:
 test-p2p-key:
     FROM +test-setup
     # Test installation with P2P private key argument
-    LOCALLY
     RUN echo -e "\n\n" | ./aztec-spartan.sh config \
         -p 8080 \
         -p2p 40400 \
@@ -132,16 +118,13 @@ test-p2p-key:
         -pk 00000 \
         -n "troll-turtle"
     # Verify the P2P private key was set in the .env file
-    LOCALLY
     RUN test -f .env && \
         grep -q "PEER_ID_PRIVATE_KEY=00000" .env && \
         echo "✅ P2P private key test passed" || \
         (echo "❌ P2P private key test failed" && exit 1)
 
 test-ethereum-host:
-    LOCALLY
     FROM +test-setup
-    LOCALLY
     RUN echo -e "\n\n" | ./aztec-spartan.sh config \
         -n "troll-turtle" \
         -e http://foobar:8545 \
@@ -150,14 +133,12 @@ test-ethereum-host:
         -ip 1.2.3.4 \
         -k 0x00 \
         -pk 00000
-    LOCALLY
     RUN test -f .env && \
         grep -q "ETHEREUM_HOST=http://foobar:8545" .env && \
         echo "✅ Ethereum host cli test passed" || \
         (echo "❌ Ethereum host cli test failed" && exit 1)
 
     # We don't respect the env var here
-    LOCALLY
     RUN echo -e "\n\n" | ETHEREUM_HOST=http://foobar:8545 ./aztec-spartan.sh config \
         -n "troll-turtle" \
         -p 8080 \
@@ -165,7 +146,6 @@ test-ethereum-host:
         -ip 1.2.3.4 \
         -k 0x00 \
         -pk 00000
-    LOCALLY
     RUN test -f .env && \
         grep -q "ETHEREUM_HOST=http://34.19.127.9:8545" .env && \
         echo "✅ Ethereum host override test passed" || \
@@ -173,10 +153,9 @@ test-ethereum-host:
 
 
 test-all:
-    # BUILD +test-help
-    # BUILD +test-install
-
-    # BUILD +test-docker-check
+    BUILD +test-help
+    BUILD +test-install
+    BUILD +test-docker-check
     BUILD +test-start-stop
     BUILD +test-update
     BUILD +test-data-dir

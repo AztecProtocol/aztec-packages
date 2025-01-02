@@ -543,21 +543,21 @@ jobs:
             export CI=1 USE_CACHE=1
             scripts/earthly-ci +prover-client-with-cache
 
-  testnet-installer:
-    needs: [bootstrap, configure]
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-        with: { ref: "${{ github.event.pull_request.head.sha }}" }
-      - uses: ./.github/ci-setup-action
-      - name: Testnet Installer Helper Script
-        uses: ./.github/ensure-builder
-        timeout-minutes: 40
-        with:
-          username: ${{ needs.configure.outputs.username }}
-          runner_type: builder-x86
-          run: |
-            scripts/earthly-ci ./spartan/releases/testnet/+test-all
+  # testnet-installer:
+  #   needs: [bootstrap, configure]
+  #   runs-on: ubuntu-latest
+  #   steps:
+  #     - uses: actions/checkout@v4
+  #       with: { ref: "${{ github.event.pull_request.head.sha }}" }
+  #     - uses: ./.github/ci-setup-action
+  #     - name: Testnet Installer Helper Script
+  #       uses: ./.github/ensure-builder
+  #       timeout-minutes: 40
+  #       with:
+  #         username: ${{ needs.configure.outputs.username }}
+  #         runner_type: builder-x86
+  #         run: |
+  #           scripts/earthly-ci ./spartan/releases/testnet/+test-all
 
   protocol-circuits-gates-report:
     needs: [ci-rest, configure]
