@@ -44,6 +44,8 @@ template <typename RecursiveFlavor> class RecursiveVerifierTest : public testing
     using RecursiveVerifier = UltraRecursiveVerifier_<RecursiveFlavor>;
     using VerificationKey = typename RecursiveVerifier::VerificationKey;
 
+    using AggState = aggregation_state<typename RecursiveFlavor::Curve>;
+    using VerifierOutput = bb::stdlib::recursion::honk::UltraRecursiveVerifierOutput<RecursiveFlavor>;
     /**
      * @brief Create a non-trivial arbitrary inner circuit, the proof of which will be recursively verified
      *
@@ -252,11 +254,9 @@ template <typename RecursiveFlavor> class RecursiveVerifierTest : public testing
         OuterBuilder outer_circuit;
         RecursiveVerifier verifier{ &outer_circuit, verification_key };
 
-        aggregation_state<typename RecursiveFlavor::Curve> agg_obj =
-            init_default_aggregation_state<OuterBuilder, typename RecursiveFlavor::Curve>(outer_circuit);
-        bb::stdlib::recursion::honk::UltraRecursiveVerifierOutput<RecursiveFlavor> output =
-            verifier.verify_proof(inner_proof, agg_obj);
-        aggregation_state<typename RecursiveFlavor::Curve> pairing_points = output.agg_obj;
+        AggState agg_obj = init_default_aggregation_state<OuterBuilder, typename RecursiveFlavor::Curve>(outer_circuit);
+        VerifierOutput output = verifier.verify_proof(inner_proof, agg_obj);
+        AggState pairing_points = output.agg_obj;
         if constexpr (HasIPAAccumulator<OuterFlavor>) {
             outer_circuit.add_ipa_claim(output.ipa_opening_claim.get_witness_indices());
             outer_circuit.ipa_proof = convert_stdlib_proof_to_native(output.ipa_proof);
