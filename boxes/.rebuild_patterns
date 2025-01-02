@@ -1,1 +1,11 @@
 ^boxes/
+^barretenberg/ts/
+^yarn-project/accounts/
+^yarn-project/aztec.js/
+^yarn-project/circuits.js/
+^yarn-project/entrypoints/
+^yarn-project/foundation/
+^yarn-project/circuit-types/
+^yarn-project/ethereum/
+^yarn-project/protocol-contracts/
+^yarn-project/types/

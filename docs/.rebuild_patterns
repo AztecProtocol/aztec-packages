@@ -3,3 +3,5 @@
 ^docs/static
 ^docs/*.js
 ^docs/*.json
+^*.json
+^*.config.js
