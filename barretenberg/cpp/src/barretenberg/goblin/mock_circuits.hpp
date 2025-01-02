@@ -190,8 +190,8 @@ class GoblinMockCircuits {
     static void construct_simple_circuit(MegaBuilder& builder)
     {
         PROFILE_THIS();
-
-        add_some_ecc_op_gates(builder);
+        // DEBUG
+        // add_some_ecc_op_gates(builder);
         MockCircuits::construct_arithmetic_circuit(builder);
     }
 

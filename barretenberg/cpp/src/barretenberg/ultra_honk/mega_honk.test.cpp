@@ -121,11 +121,20 @@ TYPED_TEST(MegaHonkTests, BasicStructured)
 
     // Construct and verify Honk proof using a structured trace
     TraceSettings trace_settings{ SMALL_TEST_STRUCTURE };
+    // TraceSettings trace_settings{ MICRO_TEST_STRUCTURE };
     auto proving_key = std::make_shared<DeciderProvingKey_<Flavor>>(builder, trace_settings);
     Prover prover(proving_key);
     auto verification_key = std::make_shared<typename Flavor::VerificationKey>(proving_key->proving_key);
     Verifier verifier(verification_key);
     auto proof = prover.construct_proof();
+
+    RelationChecker<Flavor>::check_all(proving_key->proving_key.polynomials, proving_key->relation_parameters);
+
+    // for (size_t i = 0; i < proving_key->proving_key.circuit_size; ++i) {
+    //     info("i = ", i, ", z_perm = ", proving_key->proving_key.polynomials.z_perm[i]);
+    //     info("i = ", i, ", sigma_1 = ", proving_key->proving_key.polynomials.sigma_1[i]);
+    // }
+
     EXPECT_TRUE(verifier.verify_proof(proof));
 }
 
@@ -168,6 +177,15 @@ TYPED_TEST(MegaHonkTests, DynamicVirtualSizeIncrease)
 
     Verifier verifier(verification_key);
     auto proof = prover.construct_proof();
+
+    bool z_perm_nonzero = false;
+    for (size_t i = 0; i < circuit_size; ++i) {
+        if (proving_key->proving_key.polynomials.z_perm[i] != 0) {
+            z_perm_nonzero = true;
+            break;
+        }
+    }
+    EXPECT_TRUE(z_perm_nonzero);
 
     RelationChecker<Flavor>::check_all(proving_key->proving_key.polynomials, proving_key->relation_parameters);
     EXPECT_TRUE(verifier.verify_proof(proof));
