@@ -1,68 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1735831423776,
+  "lastUpdate": 1735831917132,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "codygunton@gmail.com",
-            "name": "Cody Gunton",
-            "username": "codygunton"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "8c064d484c686fdf00a100f65f1f740be4ef13cb",
-          "message": "feat: CIVC browser proveThenVerify  (#10431)\n\nAdd c_binds for ClientIVC `prove` and `verify`. Wrap these in\r\n`proveThenVerify` and use replace use of `proveAndVerify` by this in the\r\nivc-integration suite.",
-          "timestamp": "2024-12-10T10:17:17-05:00",
-          "tree_id": "bc3bcc2f411303ed6dd522b27918e568b3ef0936",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/8c064d484c686fdf00a100f65f1f740be4ef13cb"
-        },
-        "date": 1733846228166,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "nativeClientIVCBench/Full/6",
-            "value": 25449.79668299999,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 23020.436321999998 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 4657.012612000002,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 4363.618836 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmClientIVCBench/Full/6",
-            "value": 91991.37895999999,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 91991380000 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 16749.367298999998,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 16749368000 ms\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 2879038387,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 2879038387 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 137365749,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 137365749 ns\nthreads: 1"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -3166,6 +3106,72 @@ window.BENCHMARK_DATA = {
             "value": 141694091,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 141694091 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "codygunton@gmail.com",
+            "name": "Cody Gunton",
+            "username": "codygunton"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "fd5f611aca60c9c906a6440fdb5683794a183d53",
+          "message": "feat: Encapsulated UltraHonk Vanilla IVC (#10900)\n\nThis adds a class that does IVC proving via recursion for the UltraHonk\r\nproof system.",
+          "timestamp": "2025-01-02T10:11:02-05:00",
+          "tree_id": "447a8f6d995a8734379e1a0aebdd3fd538340894",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/fd5f611aca60c9c906a6440fdb5683794a183d53"
+        },
+        "date": 1735831909812,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Ambient_17_in_20/6",
+            "value": 20620.885541999996,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 18121.592355 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 24099.804028999984,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 19382.768035999998 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 4675.295517999984,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 4317.527015 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 80794.10385099999,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 80794105000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 13948.856737,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 13948858000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 3427319387,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 3427319387 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 168614617,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 168614617 ns\nthreads: 1"
           }
         ]
       }
