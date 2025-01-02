@@ -223,7 +223,7 @@ export function describeArchiverDataStore(testName: string, getStore: () => Arch
       });
 
       it('returns undefined if tx is not found', async () => {
-        await expect(store.getTxEffect(new TxHash(Fr.random().toBuffer()))).resolves.toBeUndefined();
+        await expect(store.getTxEffect(TxHash.random())).resolves.toBeUndefined();
       });
 
       it.each([
@@ -241,7 +241,7 @@ export function describeArchiverDataStore(testName: string, getStore: () => Arch
       });
 
       it('returns undefined if tx is not found', async () => {
-        await expect(store.getTxEffect(new TxHash(Fr.random().toBuffer()))).resolves.toBeUndefined();
+        await expect(store.getTxEffect(TxHash.random())).resolves.toBeUndefined();
       });
     });
 
@@ -645,7 +645,7 @@ export function describeArchiverDataStore(testName: string, getStore: () => Arch
 
       it('"txHash" filter param is ignored when "afterLog" is set', async () => {
         // Get random txHash
-        const txHash = new TxHash(randomBytes(TxHash.SIZE));
+        const txHash = TxHash.random();
         const afterLog = new LogId(1, 0, 0);
 
         const response = await store.getUnencryptedLogs({ txHash, afterLog });

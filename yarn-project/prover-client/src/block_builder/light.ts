@@ -4,6 +4,7 @@ import {
   MerkleTreeId,
   type MerkleTreeWriteOperations,
   type ProcessedTx,
+  TxHash,
   makeEmptyProcessedTx,
   toNumBlobFields,
 } from '@aztec/circuit-types';
@@ -53,7 +54,7 @@ export class LightweightBlockBuilder implements BlockBuilder {
     this.numTxs = Math.max(2, txs.length);
     this.spongeBlobState = SpongeBlob.init(toNumBlobFields(txs));
     for (const tx of txs) {
-      this.logger.debug(tx.hash.isZero() ? 'Adding padding tx to block' : 'Adding new tx to block', {
+      this.logger.debug(tx.hash.equals(TxHash.zero()) ? 'Adding padding tx to block' : 'Adding new tx to block', {
         txHash: tx.hash.toString(),
       });
       this.txs.push(tx);
