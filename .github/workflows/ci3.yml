@@ -10,7 +10,8 @@ on:
       - opened
       - synchronize
       - reopened
-  #     - labeled
+      - ready_for_review
+      - labeled
 
 concurrency:
   # force parallelism in master
