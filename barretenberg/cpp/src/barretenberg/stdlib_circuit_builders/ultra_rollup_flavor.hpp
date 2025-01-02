@@ -42,6 +42,7 @@ class UltraRollupFlavor : public bb::UltraFlavor {
      */
     class VerificationKey : public VerificationKey_<PrecomputedEntities<Commitment>, VerifierCommitmentKey> {
       public:
+        virtual ~VerificationKey() = default;
         bool contains_ipa_claim;
         IPAClaimPubInputIndices ipa_claim_public_input_indices;
 
@@ -102,6 +103,7 @@ class UltraRollupFlavor : public bb::UltraFlavor {
                 commitment = proving_key.commitment_key->commit(polynomial);
             }
         }
+
         // TODO(https://github.com/AztecProtocol/barretenberg/issues/964): Clean the boilerplate
         // up.
         VerificationKey(const uint64_t circuit_size,
