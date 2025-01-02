@@ -1,5 +1,5 @@
 import { Fr, Point } from '@aztec/foundation/fields';
-import { updateInlineTestData } from '@aztec/foundation/testing';
+import { updateInlineTestData } from '@aztec/foundation/testing/files';
 
 import { PublicKeys } from './public_keys.js';
 

@@ -84,7 +84,7 @@ template <typename FF_> class DatabusLookupRelationImpl {
 
     // The lookup subrelations are "linearly dependent" in the sense that they establish the value of a sum across the
     // entire execution trace rather than a per-row identity.
-    static constexpr std::array<bool, NUM_BUS_COLUMNS* 2> SUBRELATION_LINEARLY_INDEPENDENT = {
+    static constexpr std::array<bool, NUM_BUS_COLUMNS * 2> SUBRELATION_LINEARLY_INDEPENDENT = {
         INVERSE_SUBREL_LIN_INDEPENDENT, LOOKUP_SUBREL_LIN_INDEPENDENT,  INVERSE_SUBREL_LIN_INDEPENDENT,
         LOOKUP_SUBREL_LIN_INDEPENDENT,  INVERSE_SUBREL_LIN_INDEPENDENT, LOOKUP_SUBREL_LIN_INDEPENDENT
     };
@@ -154,11 +154,12 @@ template <typename FF_> class DatabusLookupRelationImpl {
     template <typename Accumulator, size_t bus_idx, typename AllEntities>
     static Accumulator compute_inverse_exists(const AllEntities& in)
     {
-        using View = typename Accumulator::View;
+        using CoefficientAccumulator = typename Accumulator::CoefficientAccumulator;
 
-        const auto is_read_gate = get_read_selector<Accumulator, bus_idx>(in);    // is this a read gate
-        const auto read_tag = View(BusData<bus_idx, AllEntities>::read_tags(in)); // does row contain data being read
-
+        const auto is_read_gate = get_read_selector<Accumulator, bus_idx>(in); // is this a read gate
+        const auto read_tag_m =
+            CoefficientAccumulator(BusData<bus_idx, AllEntities>::read_tags(in)); // does row contain data being read
+        const Accumulator read_tag(read_tag_m);
         return is_read_gate + read_tag - (is_read_gate * read_tag);
     }
 
@@ -170,12 +171,12 @@ template <typename FF_> class DatabusLookupRelationImpl {
     template <typename Accumulator, size_t bus_idx, typename AllEntities>
     static Accumulator get_read_selector(const AllEntities& in)
     {
-        using View = typename Accumulator::View;
+        using CoefficientAccumulator = typename Accumulator::CoefficientAccumulator;
 
-        auto q_busread = View(in.q_busread);
-        auto column_selector = View(BusData<bus_idx, AllEntities>::selector(in));
+        auto q_busread = CoefficientAccumulator(in.q_busread);
+        auto column_selector = CoefficientAccumulator(BusData<bus_idx, AllEntities>::selector(in));
 
-        return q_busread * column_selector;
+        return Accumulator(q_busread * column_selector);
     }
 
     /**
@@ -185,16 +186,17 @@ template <typename FF_> class DatabusLookupRelationImpl {
     template <typename Accumulator, size_t bus_idx, typename AllEntities, typename Parameters>
     static Accumulator compute_write_term(const AllEntities& in, const Parameters& params)
     {
-        using View = typename Accumulator::View;
-        using ParameterView = GetParameterView<Parameters, View>;
+        using CoefficientAccumulator = typename Accumulator::CoefficientAccumulator;
+        using ParameterCoefficientAccumulator =
+            typename GetParameterView<Parameters, typename Accumulator::View>::CoefficientAccumulator;
 
-        const auto& id = View(in.databus_id);
-        const auto& value = View(BusData<bus_idx, AllEntities>::values(in));
-        const auto& gamma = ParameterView(params.gamma);
-        const auto& beta = ParameterView(params.beta);
+        const auto& id = CoefficientAccumulator(in.databus_id);
+        const auto& value = CoefficientAccumulator(BusData<bus_idx, AllEntities>::values(in));
+        const auto& gamma = ParameterCoefficientAccumulator(params.gamma);
+        const auto& beta = ParameterCoefficientAccumulator(params.beta);
 
         // Construct value_i + idx_i*\beta + \gamma
-        return value + gamma + id * beta; // degree 1
+        return Accumulator(id * beta + value + gamma); // degree 1
     }
 
     /**
@@ -205,17 +207,19 @@ template <typename FF_> class DatabusLookupRelationImpl {
     template <typename Accumulator, typename AllEntities, typename Parameters>
     static Accumulator compute_read_term(const AllEntities& in, const Parameters& params)
     {
+        using CoefficientAccumulator = typename Accumulator::CoefficientAccumulator;
         using View = typename Accumulator::View;
         using ParameterView = GetParameterView<Parameters, View>;
+        using ParameterCoefficientAccumulator = typename ParameterView::CoefficientAccumulator;
 
         // Bus value stored in w_1, index into bus column stored in w_2
-        const auto& w_1 = View(in.w_l);
-        const auto& w_2 = View(in.w_r);
-        const auto& gamma = ParameterView(params.gamma);
-        const auto& beta = ParameterView(params.beta);
+        const auto& w_1 = CoefficientAccumulator(in.w_l);
+        const auto& w_2 = CoefficientAccumulator(in.w_r);
+        const auto& gamma = ParameterCoefficientAccumulator(params.gamma);
+        const auto& beta = ParameterCoefficientAccumulator(params.beta);
 
         // Construct value + index*\beta + \gamma
-        return w_1 + gamma + w_2 * beta;
+        return Accumulator((w_2 * beta) + w_1 + gamma);
     }
 
     /**
@@ -296,16 +300,15 @@ template <typename FF_> class DatabusLookupRelationImpl {
     {
         PROFILE_THIS_NAME("DatabusRead::accumulate");
         using Accumulator = typename std::tuple_element_t<0, ContainerOverSubrelations>;
-        using View = typename Accumulator::View;
+        using CoefficientAccumulator = typename Accumulator::CoefficientAccumulator;
 
-        const auto inverses = View(BusData<bus_idx, AllEntities>::inverses(in));       // Degree 1
-        const auto read_counts = View(BusData<bus_idx, AllEntities>::read_counts(in)); // Degree 1
-        const auto read_term = compute_read_term<Accumulator>(in, params);             // Degree 1 (2)
-        const auto write_term = compute_write_term<Accumulator, bus_idx>(in, params);  // Degree 1 (2)
-        const auto inverse_exists = compute_inverse_exists<Accumulator, bus_idx>(in);  // Degree 2
-        const auto read_selector = get_read_selector<Accumulator, bus_idx>(in);        // Degree 2
-        const auto write_inverse = inverses * read_term;                               // Degree 2 (3)
-        const auto read_inverse = inverses * write_term;                               // Degree 2 (3)
+        const auto inverses_m = CoefficientAccumulator(BusData<bus_idx, AllEntities>::inverses(in)); // Degree 1
+        Accumulator inverses(inverses_m);
+        const auto read_counts_m = CoefficientAccumulator(BusData<bus_idx, AllEntities>::read_counts(in)); // Degree 1
+        const auto read_term = compute_read_term<Accumulator>(in, params);            // Degree 1 (2)
+        const auto write_term = compute_write_term<Accumulator, bus_idx>(in, params); // Degree 1 (2)
+        const auto inverse_exists = compute_inverse_exists<Accumulator, bus_idx>(in); // Degree 2
+        const auto read_selector = get_read_selector<Accumulator, bus_idx>(in);       // Degree 2
 
         // Determine which pair of subrelations to update based on which bus column is being read
         constexpr size_t subrel_idx_1 = 2 * bus_idx;
@@ -317,7 +320,10 @@ template <typename FF_> class DatabusLookupRelationImpl {
 
         // Establish validity of the read. Note: no scaling factor here since this constraint is enforced across the
         // entire trace, not on a per-row basis.
-        std::get<subrel_idx_2>(accumulator) += read_selector * read_inverse - read_counts * write_inverse; // Deg 4 (5)
+        Accumulator tmp = read_selector * write_term;
+        tmp -= Accumulator(read_counts_m) * read_term;
+        tmp *= inverses;
+        std::get<subrel_idx_2>(accumulator) += tmp; // Deg 4 (5)
     }
 
     /**

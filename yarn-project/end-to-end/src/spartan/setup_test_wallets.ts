@@ -1,7 +1,7 @@
 import { getSchnorrAccount } from '@aztec/accounts/schnorr';
 import { type AccountWalletWithSecretKey, type AztecAddress, type PXE, createCompatibleClient } from '@aztec/aztec.js';
 import { type Logger } from '@aztec/foundation/log';
-import { TokenContract } from '@aztec/noir-contracts.js';
+import { TokenContract } from '@aztec/noir-contracts.js/Token';
 
 import { addAccounts } from '../fixtures/snapshot_manager.js';
 

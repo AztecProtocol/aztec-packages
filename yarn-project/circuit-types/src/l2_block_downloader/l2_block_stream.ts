@@ -8,6 +8,7 @@ import { type L2BlockId, type L2BlockSource, type L2Tips } from '../l2_block_sou
 /** Creates a stream of events for new blocks, chain tips updates, and reorgs, out of polling an archiver or a node. */
 export class L2BlockStream {
   private readonly runningPromise: RunningPromise;
+  private isSyncing = false;
 
   constructor(
     private l2BlockSource: Pick<L2BlockSource, 'getBlocks' | 'getBlockHeader' | 'getL2Tips'>,
@@ -37,8 +38,10 @@ export class L2BlockStream {
     return this.runningPromise.isRunning();
   }
 
-  public sync() {
-    return this.runningPromise.trigger();
+  public async sync() {
+    this.isSyncing = true;
+    await this.runningPromise.trigger();
+    this.isSyncing = false;
   }
 
   protected async work() {
@@ -132,7 +135,7 @@ export class L2BlockStream {
       `Emitting ${event.type} (${event.type === 'blocks-added' ? event.blocks.length : event.blockNumber})`,
     );
     await this.handler.handleBlockStreamEvent(event);
-    if (!this.isRunning()) {
+    if (!this.isRunning() && !this.isSyncing) {
       throw new AbortError();
     }
   }

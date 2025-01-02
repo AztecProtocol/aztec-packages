@@ -4,10 +4,10 @@
 #include "./msm_builder.hpp"
 #include "./precomputed_tables_builder.hpp"
 #include "./transcript_builder.hpp"
+#include "barretenberg/constants.hpp"
 #include "barretenberg/ecc/curves/bn254/fr.hpp"
 #include "barretenberg/ecc/curves/grumpkin/grumpkin.hpp"
 #include "barretenberg/honk/proof_system/logderivative_library.hpp"
-#include "barretenberg/honk/proof_system/permutation_library.hpp"
 #include "barretenberg/polynomials/polynomial.hpp"
 #include "barretenberg/relations/relation_parameters.hpp"
 #include "barretenberg/stdlib_circuit_builders/op_queue/ecc_op_queue.hpp"
@@ -38,7 +38,7 @@ class ECCVMCircuitBuilder {
     using ScalarMul = bb::eccvm::ScalarMul<CycleGroup>;
 
     ECCVMCircuitBuilder(std::shared_ptr<ECCOpQueue>& op_queue)
-        : op_queue(op_queue){};
+        : op_queue(op_queue) {};
 
     [[nodiscard]] uint32_t get_number_of_muls() const
     {
@@ -218,7 +218,7 @@ class ECCVMCircuitBuilder {
     [[nodiscard]] size_t get_circuit_subgroup_size(const size_t num_rows) const
     {
 
-        const auto num_rows_log2 = static_cast<size_t>(numeric::get_msb64(num_rows));
+        const auto num_rows_log2 = static_cast<size_t>(numeric::get_msb64(num_rows + MASKING_OFFSET));
         size_t num_rows_pow2 = 1UL << (num_rows_log2 + (1UL << num_rows_log2 == num_rows ? 0 : 1));
         return num_rows_pow2;
     }

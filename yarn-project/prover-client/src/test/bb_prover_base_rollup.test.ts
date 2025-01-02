@@ -1,13 +1,8 @@
 import { BBNativeRollupProver, type BBProverConfig } from '@aztec/bb-prover';
 import { makeEmptyProcessedTx } from '@aztec/circuit-types';
-import {
-  PRIVATE_KERNEL_EMPTY_INDEX,
-  type PrivateBaseRollupHints,
-  PrivateBaseRollupInputs,
-  PrivateKernelEmptyInputData,
-  PrivateTubeData,
-  VkWitnessData,
-} from '@aztec/circuits.js';
+import { PRIVATE_KERNEL_EMPTY_INDEX, PrivateKernelEmptyInputData, VkWitnessData } from '@aztec/circuits.js';
+import { SpongeBlob } from '@aztec/circuits.js/blobs';
+import { type PrivateBaseRollupHints, PrivateBaseRollupInputs, PrivateTubeData } from '@aztec/circuits.js/rollup';
 import { createLogger } from '@aztec/foundation/log';
 import { getVKSiblingPath, getVKTreeRoot } from '@aztec/noir-protocol-circuits-types';
 import { protocolContractTreeRoot } from '@aztec/protocol-contracts';
@@ -41,6 +36,7 @@ describe('prover/bb_prover/base-rollup', () => {
     const vkTreeRoot = getVKTreeRoot();
 
     const tx = makeEmptyProcessedTx(header, chainId, version, vkTreeRoot, protocolContractTreeRoot);
+    const startSpongeBlob = SpongeBlob.init(tx.txEffect.toBlobFields().length);
 
     logger.verbose('Building empty private proof');
     const privateInputs = new PrivateKernelEmptyInputData(
@@ -59,7 +55,12 @@ describe('prover/bb_prover/base-rollup', () => {
 
     const tubeData = new PrivateTubeData(tubeProof.inputs, tubeProof.proof, vkData);
 
-    const baseRollupHints = await buildBaseRollupHints(tx, context.globalVariables, await context.getFork());
+    const baseRollupHints = await buildBaseRollupHints(
+      tx,
+      context.globalVariables,
+      await context.getFork(),
+      startSpongeBlob,
+    );
     const baseRollupInputs = new PrivateBaseRollupInputs(tubeData, baseRollupHints as PrivateBaseRollupHints);
 
     logger.verbose('Proving base rollups');

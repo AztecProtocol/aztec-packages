@@ -1,13 +1,15 @@
 import { type AztecAddress, EthAddress, retryUntil } from '@aztec/aztec.js';
-import { isGenerateTestDataEnabled, switchGenerateProtocolCircuitTestData } from '@aztec/foundation/testing';
+import { getTestData, isGenerateTestDataEnabled } from '@aztec/foundation/testing';
+import { updateProtocolCircuitSampleInputs } from '@aztec/foundation/testing/files';
 import { RewardDistributorAbi, RollupAbi, TestERC20Abi } from '@aztec/l1-artifacts';
 
+import TOML from '@iarna/toml';
 import '@jest/globals';
 import { type Chain, type GetContractReturnType, type HttpTransport, type PublicClient, getContract } from 'viem';
 
 import { FullProverTest } from './e2e_prover_test.js';
 
-const TIMEOUT = 1_800_000;
+const TIMEOUT = 5_000_000;
 
 // This makes AVM proving throw if there's a failure.
 process.env.AVM_PROVING_STRICT = '1';
@@ -136,7 +138,7 @@ describe('full_prover', () => {
 
       // And wait for the first pair of txs to be proven
       logger.info(`Awaiting proof for the previous epoch`);
-      await Promise.all(txs.map(tx => tx.wait({ timeout: 300, interval: 10, proven: true, provenTimeout: 1500 })));
+      await Promise.all(txs.map(tx => tx.wait({ timeout: 300, interval: 10, proven: true, provenTimeout: 3000 })));
 
       const provenBn = await rollup.read.getProvenBlockNumber();
       const balanceAfterCoinbase = await feeJuice.read.balanceOf([COINBASE_ADDRESS.toString()]);
@@ -163,13 +165,11 @@ describe('full_prover', () => {
   it('generates sample Prover.toml files if generate test data is on', async () => {
     if (!isGenerateTestDataEnabled() || realProofs) {
       return;
-    } else {
-      switchGenerateProtocolCircuitTestData();
     }
 
     // Create the two transactions
     const privateBalance = await provenAssets[0].methods.balance_of_private(sender).simulate();
-    const privateSendAmount = privateBalance / 10n;
+    const privateSendAmount = privateBalance / 20n;
     expect(privateSendAmount).toBeGreaterThan(0n);
     const firstPrivateInteraction = provenAssets[0].methods.transfer(recipient, privateSendAmount);
 
@@ -245,7 +245,24 @@ describe('full_prover', () => {
     // And wait for the first pair of txs to be proven
     logger.info(`Awaiting proof for the previous epoch`);
     await Promise.all(txs.map(tx => tx.wait({ timeout: 300, interval: 10, proven: true, provenTimeout: 1500 })));
-    switchGenerateProtocolCircuitTestData();
+
+    [
+      'private-kernel-init',
+      'private-kernel-inner',
+      'private-kernel-tail',
+      'private-kernel-tail-to-public',
+      'private-kernel-reset',
+      'rollup-base-private',
+      'rollup-base-public',
+      'rollup-merge',
+      'rollup-block-root',
+      'rollup-root',
+    ].forEach(circuitName => {
+      const data = getTestData(circuitName);
+      if (data) {
+        updateProtocolCircuitSampleInputs(circuitName, TOML.stringify(data[0] as any));
+      }
+    });
   });
 
   it('rejects txs with invalid proofs', async () => {

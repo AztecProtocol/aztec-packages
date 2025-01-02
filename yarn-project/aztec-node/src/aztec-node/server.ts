@@ -15,6 +15,7 @@ import {
   MerkleTreeId,
   NullifierMembershipWitness,
   type NullifierWithBlockSource,
+  P2PClientType,
   type ProcessedTx,
   type ProverConfig,
   PublicDataWitness,
@@ -53,12 +54,12 @@ import {
   type PublicDataTreeLeafPreimage,
 } from '@aztec/circuits.js';
 import { computePublicDataTreeLeafSlot } from '@aztec/circuits.js/hash';
+import { EpochCache } from '@aztec/epoch-cache';
 import { type L1ContractAddresses, createEthereumChain } from '@aztec/ethereum';
-import { type ContractArtifact } from '@aztec/foundation/abi';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { padArrayEnd } from '@aztec/foundation/collection';
 import { type Logger, createLogger } from '@aztec/foundation/log';
-import { Timer } from '@aztec/foundation/timer';
+import { DateProvider, Timer } from '@aztec/foundation/timer';
 import { type AztecKVStore } from '@aztec/kv-store';
 import { openTmpStore } from '@aztec/kv-store/lmdb';
 import { SHA256Trunc, StandardTree, UnbalancedTree } from '@aztec/merkle-tree';
@@ -138,10 +139,12 @@ export class AztecNodeService implements AztecNode, Traceable {
       telemetry?: TelemetryClient;
       logger?: Logger;
       publisher?: L1Publisher;
+      dateProvider?: DateProvider;
     } = {},
   ): Promise<AztecNodeService> {
     const telemetry = deps.telemetry ?? new NoopTelemetryClient();
     const log = deps.logger ?? createLogger('node');
+    const dateProvider = deps.dateProvider ?? new DateProvider();
     const ethereumChain = createEthereumChain(config.l1RpcUrl, config.l1ChainId);
     //validate that the actual chain id matches that specified in configuration
     if (config.l1ChainId !== ethereumChain.chainInfo.id) {
@@ -154,7 +157,8 @@ export class AztecNodeService implements AztecNode, Traceable {
 
     // we identify the P2P transaction protocol by using the rollup contract address.
     // this may well change in future
-    config.transactionProtocol = `/aztec/tx/${config.l1Contracts.rollupAddress.toString()}`;
+    const rollupAddress = config.l1Contracts.rollupAddress;
+    config.transactionProtocol = `/aztec/tx/${rollupAddress.toString()}`;
 
     // now create the merkle trees and the world state synchronizer
     const worldStateSynchronizer = await createWorldStateSynchronizer(config, archiver, telemetry);
@@ -163,13 +167,23 @@ export class AztecNodeService implements AztecNode, Traceable {
       log.warn(`Aztec node is accepting fake proofs`);
     }
 
+    const epochCache = await EpochCache.create(config.l1Contracts.rollupAddress, config, { dateProvider });
+
     // create the tx pool and the p2p client, which will need the l2 block source
-    const p2pClient = await createP2PClient(config, archiver, proofVerifier, worldStateSynchronizer, telemetry);
+    const p2pClient = await createP2PClient(
+      P2PClientType.Full,
+      config,
+      archiver,
+      proofVerifier,
+      worldStateSynchronizer,
+      epochCache,
+      telemetry,
+    );
 
     // start both and wait for them to sync from the block source
     await Promise.all([p2pClient.start(), worldStateSynchronizer.start()]);
 
-    const validatorClient = await createValidatorClient(config, config.l1Contracts.rollupAddress, p2pClient, telemetry);
+    const validatorClient = createValidatorClient(config, { p2pClient, telemetry, dateProvider, epochCache });
 
     // now create the sequencer
     const sequencer = config.disableValidator
@@ -182,6 +196,7 @@ export class AztecNodeService implements AztecNode, Traceable {
           l2BlockSource: archiver,
           l1ToL2MessageSource: archiver,
           telemetry,
+          dateProvider,
           ...deps,
         });
 
@@ -214,6 +229,10 @@ export class AztecNodeService implements AztecNode, Traceable {
 
   public getBlockSource(): L2BlockSource {
     return this.blockSource;
+  }
+
+  public getContractDataSource(): ContractDataSource {
+    return this.contractDataSource;
   }
 
   public getP2P(): P2P {
@@ -787,7 +806,7 @@ export class AztecNodeService implements AztecNode, Traceable {
   @trackSpan('AztecNodeService.simulatePublicCalls', (tx: Tx) => ({
     [Attributes.TX_HASH]: tx.tryGetTxHash()?.toString(),
   }))
-  public async simulatePublicCalls(tx: Tx): Promise<PublicSimulationOutput> {
+  public async simulatePublicCalls(tx: Tx, enforceFeePayment = true): Promise<PublicSimulationOutput> {
     const txHash = tx.getTxHash();
     const blockNumber = (await this.blockSource.getBlockNumber()) + 1;
 
@@ -801,7 +820,11 @@ export class AztecNodeService implements AztecNode, Traceable {
       feeRecipient,
     );
     const prevHeader = (await this.blockSource.getBlock(-1))?.header;
-    const publicProcessorFactory = new PublicProcessorFactory(this.contractDataSource, this.telemetry);
+    const publicProcessorFactory = new PublicProcessorFactory(
+      this.contractDataSource,
+      new DateProvider(),
+      this.telemetry,
+    );
     const fork = await this.worldStateSynchronizer.fork();
 
     this.log.verbose(`Simulating public calls for tx ${tx.getTxHash()}`, {
@@ -811,7 +834,7 @@ export class AztecNodeService implements AztecNode, Traceable {
     });
 
     try {
-      const processor = publicProcessorFactory.create(fork, prevHeader, newGlobalVariables);
+      const processor = publicProcessorFactory.create(fork, prevHeader, newGlobalVariables, enforceFeePayment);
 
       // REFACTOR: Consider merging ProcessReturnValues into ProcessedTx
       const [processedTxs, failedTxs, returns] = await processor.process([tx]);
@@ -844,9 +867,7 @@ export class AztecNodeService implements AztecNode, Traceable {
       new DataTxValidator(),
       new MetadataTxValidator(new Fr(this.l1ChainId), new Fr(blockNumber)),
       new DoubleSpendTxValidator({
-        getNullifierIndex(nullifier) {
-          return db.findLeafIndices(MerkleTreeId.NULLIFIER_TREE, [nullifier.toBuffer()]).then(x => x[0]);
-        },
+        getNullifierIndices: nullifiers => db.findLeafIndices(MerkleTreeId.NULLIFIER_TREE, nullifiers),
       }),
     ];
 
@@ -892,10 +913,8 @@ export class AztecNodeService implements AztecNode, Traceable {
     return this.contractDataSource.addContractClass(contractClass);
   }
 
-  public addContractArtifact(address: AztecAddress, artifact: ContractArtifact): Promise<void> {
-    this.log.info(`Adding contract artifact ${artifact.name} for ${address.toString()} via API`);
-    // TODO: Node should validate the artifact before accepting it
-    return this.contractDataSource.addContractArtifact(address, artifact);
+  public registerContractFunctionNames(_address: AztecAddress, names: Record<string, string>): Promise<void> {
+    return this.contractDataSource.registerContractFunctionNames(_address, names);
   }
 
   public flushTxs(): Promise<void> {

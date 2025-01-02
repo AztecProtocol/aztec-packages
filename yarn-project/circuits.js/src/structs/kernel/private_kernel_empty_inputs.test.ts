@@ -1,6 +1,6 @@
 import { Fr } from '@aztec/foundation/fields';
 
-import { NESTED_RECURSIVE_PROOF_LENGTH } from '../../constants.gen.js';
+import { NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH } from '../../constants.gen.js';
 import { makeHeader } from '../../tests/factories.js';
 import { makeRecursiveProof } from '../recursive_proof.js';
 import { VerificationKeyAsFields } from '../verification_key.js';
@@ -20,7 +20,10 @@ describe('PrivateKernelEmptyInputData', () => {
 describe('PrivateKernelEmptyInputs', () => {
   it('serializes and deserializes', () => {
     const obj = new PrivateKernelEmptyInputs(
-      new EmptyNestedData(makeRecursiveProof(NESTED_RECURSIVE_PROOF_LENGTH), VerificationKeyAsFields.makeFakeHonk()),
+      new EmptyNestedData(
+        makeRecursiveProof(NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH),
+        VerificationKeyAsFields.makeFakeRollupHonk(),
+      ),
       makeHeader(),
       Fr.random(),
       Fr.random(),
@@ -35,8 +38,8 @@ describe('PrivateKernelEmptyInputs', () => {
 describe('EmptyNestedData', () => {
   it('serializes and deserializes', () => {
     const obj = new EmptyNestedData(
-      makeRecursiveProof(NESTED_RECURSIVE_PROOF_LENGTH),
-      VerificationKeyAsFields.makeFakeHonk(),
+      makeRecursiveProof(NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH),
+      VerificationKeyAsFields.makeFakeRollupHonk(),
     );
     expect(EmptyNestedData.fromBuffer(obj.toBuffer())).toEqual(obj);
   });

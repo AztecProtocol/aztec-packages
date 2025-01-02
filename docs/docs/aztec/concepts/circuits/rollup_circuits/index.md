@@ -15,5 +15,3 @@ The way we 'squish' all this data is in a 'binary tree of proofs' topology.
 > Note: 'binary tree of proofs' is actually an oversimplification. The Rollup Circuits are designed so that a Sequencer can actually deviate from a neat, symmetrical tree, for the purposes of efficiency, and instead sometimes create wonky trees.
 
 Some of the Rollup Circuits also do some protocol checks and computations, for efficiency reasons. We might rearrange which circuit does what computation, as we discover opportunities for efficiency.
-
-Read more about the rollup circuits in the protocol spec [here](../../../../protocol-specs/rollup-circuits/index.md).

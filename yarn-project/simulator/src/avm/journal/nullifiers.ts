@@ -18,17 +18,6 @@ export class NullifierManager {
   ) {}
 
   /**
-   * Create a new nullifiers manager with some preloaded pending siloed nullifiers
-   */
-  public static newWithPendingSiloedNullifiers(hostNullifiers: CommitmentsDB, pendingSiloedNullifiers?: Fr[]) {
-    const cachedSiloedNullifiers = new Set<bigint>();
-    if (pendingSiloedNullifiers !== undefined) {
-      pendingSiloedNullifiers.forEach(nullifier => cachedSiloedNullifiers.add(nullifier.toBigInt()));
-    }
-    return new NullifierManager(hostNullifiers, cachedSiloedNullifiers);
-  }
-
-  /**
    * Create a new nullifiers manager forked from this one
    */
   public fork() {
