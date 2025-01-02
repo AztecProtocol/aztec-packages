@@ -43,7 +43,7 @@ TEST(ZeroMorphRecursionTest, ProveAndVerifySingle)
     constexpr size_t NUM_UNSHIFTED = 2;
     constexpr size_t NUM_SHIFTED = 1;
 
-    srs::init_crs_factory("../srs_db/ignition");
+    srs::init_crs_factory(bb::srs::get_ignition_crs_path());
     std::vector<NativeFr> u_challenge(LOG_N);
     for (size_t idx = 0; idx < LOG_N; ++idx) {
         u_challenge[idx] = NativeFr::random_element(&engine);
