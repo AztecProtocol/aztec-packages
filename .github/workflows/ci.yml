@@ -6,13 +6,13 @@ on:
       - provernet ./bootstrap.sh
       - "*/ci-push*"
   merge_group:
-  pull_request:
-    types:
-      - opened
-      - reopened
-      - synchronize
-      - ready_for_review
-      - labeled
+  # pull_request:
+  #   types:
+  #     - opened
+  #     - reopened
+  #     - synchronize
+  #     - ready_for_review
+  #     - labeled
     branches-ignore: [devnet]
   workflow_dispatch:
     inputs: {}
