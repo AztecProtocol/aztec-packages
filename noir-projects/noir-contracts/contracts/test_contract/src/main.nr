@@ -1,3 +1,4 @@
+mod test;
 mod test_note;
 
 // A contract used for testing a random hodgepodge of small features from simulator and end-to-end tests.
@@ -42,6 +43,10 @@ contract Test {
     use std::meta::derive;
 
     use crate::test_note::TestNote;
+
+    // Imported just to test note type ids
+    use dep::uint_note::uint_note::UintNote;
+
     #[derive(Serialize)]
     #[event]
     struct ExampleEvent {
