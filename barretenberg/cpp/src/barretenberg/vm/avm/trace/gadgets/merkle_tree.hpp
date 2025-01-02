@@ -24,7 +24,7 @@ class AvmMerkleTreeTraceBuilder {
 
     AvmMerkleTreeTraceBuilder() = default;
     AvmMerkleTreeTraceBuilder(TreeSnapshots& tree_snapshots)
-        : tree_snapshots(tree_snapshots) {};
+        : tree_snapshots(tree_snapshots){};
 
     void reset();
 

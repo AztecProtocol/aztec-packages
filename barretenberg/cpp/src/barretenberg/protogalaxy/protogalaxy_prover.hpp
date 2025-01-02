@@ -48,7 +48,7 @@ template <class DeciderProvingKeys_> class ProtogalaxyProver_ {
         : keys_to_fold(DeciderProvingKeys_(keys))
         // TODO(https://github.com/AztecProtocol/barretenberg/issues/878)
         , commitment_key(keys_to_fold[1]->proving_key.commitment_key)
-        , pg_internal(trace_usage_tracker) {};
+        , pg_internal(trace_usage_tracker){};
 
     /**
      * @brief For each key produced by a circuit, prior to folding, we need to complete the computation of its

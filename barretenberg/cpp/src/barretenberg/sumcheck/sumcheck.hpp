@@ -174,7 +174,7 @@ template <typename Flavor> class SumcheckProver {
         , multivariate_d(numeric::get_msb(multivariate_n))
         , transcript(transcript)
         , round(multivariate_n)
-        , partially_evaluated_polynomials(multivariate_n) {};
+        , partially_evaluated_polynomials(multivariate_n){};
 
     /**
      * @brief Compute round univariate, place it in transcript, compute challenge, partially evaluate. Repeat
@@ -507,7 +507,7 @@ template <typename Flavor> class SumcheckVerifier {
     explicit SumcheckVerifier(size_t multivariate_d, std::shared_ptr<Transcript> transcript, FF target_sum = 0)
         : multivariate_d(multivariate_d)
         , transcript(transcript)
-        , round(target_sum) {};
+        , round(target_sum){};
     /**
      * @brief Extract round univariate, check sum, generate challenge, compute next target sum..., repeat until
      * final round, then use purported evaluations to generate purported full Honk relation value and check against

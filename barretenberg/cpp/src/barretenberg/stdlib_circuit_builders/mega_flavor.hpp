@@ -410,7 +410,7 @@ class MegaFlavor {
         ProvingKey(const size_t circuit_size,
                    const size_t num_public_inputs,
                    std::shared_ptr<CommitmentKey> commitment_key = nullptr)
-            : Base(circuit_size, num_public_inputs, commitment_key) {};
+            : Base(circuit_size, num_public_inputs, commitment_key){};
 
         std::vector<uint32_t> memory_read_records;
         std::vector<uint32_t> memory_write_records;

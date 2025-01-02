@@ -322,7 +322,7 @@ class UltraFlavor {
         ProvingKey(const size_t dyadic_circuit_size,
                    const size_t num_public_inputs,
                    std::shared_ptr<CommitmentKey> commitment_key = nullptr)
-            : Base(dyadic_circuit_size, num_public_inputs, std::move(commitment_key)) {};
+            : Base(dyadic_circuit_size, num_public_inputs, std::move(commitment_key)){};
 
         std::vector<uint32_t> memory_read_records;
         std::vector<uint32_t> memory_write_records;
