@@ -4,8 +4,8 @@ use crate::constants::{
     HONK_VERIFICATION_KEY_LENGTH_IN_FIELDS, MERGE_ROLLUP_INDEX, PRIVATE_BASE_ROLLUP_VK_INDEX,
     PRIVATE_KERNEL_EMPTY_INDEX, PRIVATE_KERNEL_INIT_INDEX, PRIVATE_KERNEL_INNER_INDEX,
     PRIVATE_KERNEL_RESET_INDEX, PRIVATE_KERNEL_TAIL_INDEX, PRIVATE_KERNEL_TAIL_TO_PUBLIC_INDEX,
-    PUBLIC_BASE_ROLLUP_VK_INDEX, ROOT_PARITY_INDEX, ROOT_ROLLUP_INDEX, TUBE_VK_INDEX,
-    VK_TREE_HEIGHT,
+    PUBLIC_BASE_ROLLUP_VK_INDEX, ROLLUP_HONK_VERIFICATION_KEY_LENGTH_IN_FIELDS, ROOT_PARITY_INDEX,
+    ROOT_ROLLUP_INDEX, TUBE_VK_INDEX, VK_TREE_HEIGHT,
 };
 use crate::hash::verification_key_hash;
 use crate::merkle_tree::merkle_tree::MerkleTree;
@@ -22,6 +22,13 @@ fn generate_fake_vk_for_index<let N: u32>(index: u32) -> [Field; N] {
 pub fn generate_fake_honk_vk_for_index(
     index: u32,
 ) -> VerificationKey<HONK_VERIFICATION_KEY_LENGTH_IN_FIELDS> {
+    let key = generate_fake_vk_for_index(index);
+    VerificationKey { key, hash: verification_key_hash(key) }
+}
+
+pub fn generate_fake_rollup_honk_vk_for_index(
+    index: u32,
+) -> VerificationKey<ROLLUP_HONK_VERIFICATION_KEY_LENGTH_IN_FIELDS> {
     let key = generate_fake_vk_for_index(index);
     VerificationKey { key, hash: verification_key_hash(key) }
 }
@@ -51,21 +58,22 @@ pub fn get_vk_merkle_tree() -> MerkleTree<VK_TREE_WIDTH> {
     leaves[EMPTY_NESTED_INDEX] = generate_fake_honk_vk_for_index(EMPTY_NESTED_INDEX).hash;
     leaves[PRIVATE_KERNEL_EMPTY_INDEX] =
         generate_fake_honk_vk_for_index(PRIVATE_KERNEL_EMPTY_INDEX).hash;
-    leaves[TUBE_VK_INDEX] = generate_fake_honk_vk_for_index(TUBE_VK_INDEX).hash;
+    leaves[TUBE_VK_INDEX] = generate_fake_rollup_honk_vk_for_index(TUBE_VK_INDEX).hash;
     leaves[AVM_VK_INDEX] = generate_fake_honk_vk_for_index(AVM_VK_INDEX).hash;
     leaves[PRIVATE_BASE_ROLLUP_VK_INDEX] =
-        generate_fake_honk_vk_for_index(PRIVATE_BASE_ROLLUP_VK_INDEX).hash;
+        generate_fake_rollup_honk_vk_for_index(PRIVATE_BASE_ROLLUP_VK_INDEX).hash;
     leaves[PUBLIC_BASE_ROLLUP_VK_INDEX] =
-        generate_fake_honk_vk_for_index(PUBLIC_BASE_ROLLUP_VK_INDEX).hash;
+        generate_fake_rollup_honk_vk_for_index(PUBLIC_BASE_ROLLUP_VK_INDEX).hash;
     leaves[BASE_PARITY_INDEX] = generate_fake_honk_vk_for_index(BASE_PARITY_INDEX).hash;
     leaves[ROOT_PARITY_INDEX] = generate_fake_honk_vk_for_index(ROOT_PARITY_INDEX).hash;
-    leaves[MERGE_ROLLUP_INDEX] = generate_fake_honk_vk_for_index(MERGE_ROLLUP_INDEX).hash;
-    leaves[BLOCK_ROOT_ROLLUP_INDEX] = generate_fake_honk_vk_for_index(BLOCK_ROOT_ROLLUP_INDEX).hash;
+    leaves[MERGE_ROLLUP_INDEX] = generate_fake_rollup_honk_vk_for_index(MERGE_ROLLUP_INDEX).hash;
+    leaves[BLOCK_ROOT_ROLLUP_INDEX] =
+        generate_fake_rollup_honk_vk_for_index(BLOCK_ROOT_ROLLUP_INDEX).hash;
     leaves[BLOCK_MERGE_ROLLUP_INDEX] =
-        generate_fake_honk_vk_for_index(BLOCK_MERGE_ROLLUP_INDEX).hash;
+        generate_fake_rollup_honk_vk_for_index(BLOCK_MERGE_ROLLUP_INDEX).hash;
     leaves[ROOT_ROLLUP_INDEX] = generate_fake_honk_vk_for_index(ROOT_ROLLUP_INDEX).hash;
     leaves[BLOCK_ROOT_ROLLUP_EMPTY_INDEX] =
-        generate_fake_honk_vk_for_index(BLOCK_ROOT_ROLLUP_EMPTY_INDEX).hash;
+        generate_fake_rollup_honk_vk_for_index(BLOCK_ROOT_ROLLUP_EMPTY_INDEX).hash;
 
     MerkleTree::new(leaves)
 }

@@ -1,11 +1,11 @@
 use crate::abis::base_or_merge_rollup_public_inputs::BaseOrMergeRollupPublicInputs;
 use dep::types::{
-    constants::VK_TREE_HEIGHT,
+    constants::{PROOF_TYPE_ROLLUP_HONK, VK_TREE_HEIGHT},
     merkle_tree::{membership::assert_check_membership, MembershipWitness},
     proof::{
-        recursive_proof::NestedRecursiveProof,
+        rollup_recursive_proof::NestedRecursiveProof,
         traits::Verifiable,
-        verification_key::{HonkVerificationKey, VerificationKey},
+        verification_key::{RollupHonkVerificationKey, VerificationKey},
     },
     traits::Empty,
     utils::arrays::find_index_hint,
@@ -14,7 +14,7 @@ use dep::types::{
 pub struct PreviousRollupData {
     pub base_or_merge_rollup_public_inputs: BaseOrMergeRollupPublicInputs,
     pub proof: NestedRecursiveProof,
-    pub vk: HonkVerificationKey,
+    pub vk: RollupHonkVerificationKey,
     pub vk_witness: MembershipWitness<VK_TREE_HEIGHT>,
 }
 
@@ -22,7 +22,13 @@ impl Verifiable for PreviousRollupData {
     fn verify(self) {
         let inputs =
             BaseOrMergeRollupPublicInputs::serialize(self.base_or_merge_rollup_public_inputs);
-        std::verify_proof(self.vk.key, self.proof.fields, inputs, self.vk.hash);
+        std::verify_proof_with_type(
+            self.vk.key,
+            self.proof.fields,
+            inputs,
+            self.vk.hash,
+            PROOF_TYPE_ROLLUP_HONK,
+        );
     }
 }
 

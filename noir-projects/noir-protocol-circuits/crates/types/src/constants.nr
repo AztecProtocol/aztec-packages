@@ -209,7 +209,10 @@ pub global DEFAULT_TPK_M_Y: Field =
 pub global AZTEC_ADDRESS_LENGTH: u32 = 1;
 pub global GAS_FEES_LENGTH: u32 = 2;
 pub global GAS_LENGTH: u32 = 2;
-pub global GAS_SETTINGS_LENGTH: u32 = GAS_LENGTH * 2 + GAS_FEES_LENGTH;
+pub global GAS_SETTINGS_LENGTH: u32 = GAS_LENGTH /* gas_limits */
+    + GAS_LENGTH /* teardown_gas_limits */
+    + GAS_FEES_LENGTH /* max_fees_per_gas */
+    + GAS_FEES_LENGTH /* max_priority_fees_per_gas */;
 pub global CALL_CONTEXT_LENGTH: u32 = 4;
 pub global CONTENT_COMMITMENT_LENGTH: u32 = 4;
 pub global CONTRACT_INSTANCE_LENGTH: u32 = 16;
@@ -321,6 +324,7 @@ pub global PRIVATE_CONTEXT_INPUTS_LENGTH: u32 =
 pub global FEE_RECIPIENT_LENGTH: u32 = 2;
 
 pub global AGGREGATION_OBJECT_LENGTH: u32 = 16;
+pub global IPA_CLAIM_LENGTH: u32 = 10;
 
 pub global SCOPED_READ_REQUEST_LEN: u32 = READ_REQUEST_LENGTH + 1;
 pub global PUBLIC_DATA_READ_LENGTH: u32 = 3;
@@ -457,11 +461,17 @@ pub global NUM_MSGS_PER_BASE_PARITY: u32 = 4;
 pub global NUM_BASE_PARITY_PER_ROOT_PARITY: u32 = 4;
 
 // Lengths of the different types of proofs in fields
-pub global RECURSIVE_PROOF_LENGTH: u32 = 463;
-pub global NESTED_RECURSIVE_PROOF_LENGTH: u32 = 463;
-pub global TUBE_PROOF_LENGTH: u32 = RECURSIVE_PROOF_LENGTH; // in the future these can differ
+pub global RECURSIVE_PROOF_LENGTH: u32 = 459;
+pub global NESTED_RECURSIVE_PROOF_LENGTH: u32 = RECURSIVE_PROOF_LENGTH;
+pub global IPA_PROOF_LENGTH: u32 = 65;
+pub global RECURSIVE_ROLLUP_HONK_PROOF_LENGTH: u32 =
+    RECURSIVE_PROOF_LENGTH + IPA_CLAIM_LENGTH + IPA_PROOF_LENGTH;
+pub global NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH: u32 = RECURSIVE_ROLLUP_HONK_PROOF_LENGTH;
+pub global TUBE_PROOF_LENGTH: u32 = RECURSIVE_ROLLUP_HONK_PROOF_LENGTH; // in the future these can differ
 
 pub global HONK_VERIFICATION_KEY_LENGTH_IN_FIELDS: u32 = 128; // size of an Ultra verification key
+pub global ROLLUP_HONK_VERIFICATION_KEY_LENGTH_IN_FIELDS: u32 =
+    HONK_VERIFICATION_KEY_LENGTH_IN_FIELDS + IPA_CLAIM_LENGTH + 1; // size of an Ultra verification key
 
 pub global CLIENT_IVC_VERIFICATION_KEY_LENGTH_IN_FIELDS: u32 = 143; // size of a Mega verification key
 // VK is composed of
@@ -470,6 +480,12 @@ pub global CLIENT_IVC_VERIFICATION_KEY_LENGTH_IN_FIELDS: u32 = 143; // size of a
 // - 21 affine elements (curve base field fq) encoded as fr elements takes (21 * 4 * 32 bytes)
 // 21 above refers to the constant AvmFlavor::NUM_PRECOMPUTED_ENTITIES
 pub global AVM_VERIFICATION_KEY_LENGTH_IN_FIELDS: u32 = 2 + 21 * 4;
+
+// Setting limits for MAX_PUBLIC_CALLS_TO_UNIQUE_CONTRACT_CLASS_IDS
+// This value is determined by the length of the AVM trace and the MAX_PUBLIC_BYTECODE_SIZE_IN_BYTES
+// (i.e. 2^21 / MAX_PUBLIC_BYTECODE_SIZE_IN_BYTES ==> 2^21 / 96,000 = 21
+pub global MAX_PUBLIC_BYTECODE_SIZE_IN_BYTES: u32 = MAX_PACKED_PUBLIC_BYTECODE_SIZE_IN_FIELDS * 32;
+pub global MAX_PUBLIC_CALLS_TO_UNIQUE_CONTRACT_CLASS_IDS: u32 = 21;
 
 // `AVM_PROOF_LENGTH_IN_FIELDS` must be updated when AVM circuit changes.
 // To determine latest value, hover `COMPUTED_AVM_PROOF_LENGTH_IN_FIELDS`
@@ -753,3 +769,5 @@ pub global PROOF_TYPE_HONK: u32 = 1;
 pub global PROOF_TYPE_OINK: u32 = 2;
 pub global PROOF_TYPE_PG: u32 = 3;
 pub global PROOF_TYPE_AVM: u32 = 4;
+pub global PROOF_TYPE_ROLLUP_HONK: u32 = 5;
+pub global PROOF_TYPE_ROOT_ROLLUP_HONK: u32 = 6;

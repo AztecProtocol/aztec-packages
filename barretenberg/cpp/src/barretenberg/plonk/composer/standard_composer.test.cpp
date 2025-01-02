@@ -15,7 +15,7 @@ auto& engine = numeric::get_debug_randomness();
 
 class StandardPlonkComposer : public ::testing::Test {
   public:
-    static void SetUpTestSuite() { bb::srs::init_crs_factory("../srs_db/ignition"); }
+    static void SetUpTestSuite() { bb::srs::init_crs_factory(bb::srs::get_ignition_crs_path()); }
 };
 
 TEST_F(StandardPlonkComposer, BaseCase)
@@ -45,7 +45,7 @@ TEST_F(StandardPlonkComposer, ComposerFromSerializedKeys)
     auto pk_data = from_buffer<plonk::proving_key_data>(pk_buf);
     auto vk_data = from_buffer<plonk::verification_key_data>(vk_buf);
 
-    auto crs = std::make_unique<bb::srs::factories::FileCrsFactory<curve::BN254>>("../srs_db/ignition");
+    auto crs = std::make_unique<bb::srs::factories::FileCrsFactory<curve::BN254>>(bb::srs::get_ignition_crs_path());
     auto proving_key =
         std::make_shared<plonk::proving_key>(std::move(pk_data), crs->get_prover_crs(pk_data.circuit_size + 1));
     auto verification_key = std::make_shared<plonk::verification_key>(std::move(vk_data), crs->get_verifier_crs());

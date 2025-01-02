@@ -4,11 +4,9 @@ from blessed import Terminal
 import os, json, subprocess, sys, time
 
 term = Terminal()
-if 'GITHUB_ACTOR' not in os.environ:
-    print("Make sure you have GITHUB_ACTOR in your environment variables e.g. .zshrc")
-    sys.exit(1)
-GITHUB_ACTOR = os.environ['GITHUB_ACTOR']
 BRANCH = subprocess.run("git rev-parse --abbrev-ref HEAD", shell=True, text=True, capture_output=True).stdout.strip()
+# Github actor is now just branch-derived
+GITHUB_ACTOR = BRANCH.replace("/", "_")
 
 def main():
     selection = -1
@@ -31,12 +29,10 @@ def main():
     if selection == '1':
         ssh_into_machine('x86')
     elif selection == '2':
-        ssh_into_machine('bench-x86')
-    elif selection == '3':
         manage_spot_instances()
-    elif selection == '4':
+    elif selection == '3':
         manage_ci_workflows()
-    elif selection == '5':
+    elif selection == '4':
         call_ci_workflow()
 
 def ssh_into_machine(suffix):
@@ -49,11 +45,13 @@ def ssh_into_machine(suffix):
     for i in range(10):
         # Command to get the instance information
         cmd = f'aws ec2 describe-instances --filters "Name=instance-state-name,Values=running" "Name=tag:Name,Values=aztec-packages-{GITHUB_ACTOR}-{suffix}" --output json --region us-east-2'
+        print(cmd)
         result = subprocess.run(cmd, shell=True, capture_output=True, text=True)
         if result.returncode != 0:
             print("Failed to get AWS instances:", result.stderr)
             return
         try:
+            print(result.stdout)
             instances_data = json.loads(result.stdout)
             instance = instances_data['Reservations'][0]['Instances'][0]
             instance_ip = instance['PublicIpAddress']

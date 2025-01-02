@@ -13,13 +13,13 @@ export type L1ContractsConfig = {
   aztecEpochProofClaimWindowInL2Slots: number;
 };
 
-export const DefaultL1ContractsConfig: L1ContractsConfig = {
+export const DefaultL1ContractsConfig = {
   ethereumSlotDuration: 12,
   aztecSlotDuration: 24,
   aztecEpochDuration: 16,
   aztecTargetCommitteeSize: 48,
   aztecEpochProofClaimWindowInL2Slots: 13,
-};
+} satisfies L1ContractsConfig;
 
 export const l1ContractsConfigMappings: ConfigMappingsType<L1ContractsConfig> = {
   ethereumSlotDuration: {

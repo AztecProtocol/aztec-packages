@@ -91,7 +91,13 @@ export abstract class BaseContractInteraction {
     opts?: Omit<SendMethodOptions, 'estimateGas' | 'skipPublicSimulation'>,
   ): Promise<Pick<GasSettings, 'gasLimits' | 'teardownGasLimits'>> {
     const txRequest = await this.create({ ...opts, fee: { ...opts?.fee, estimateGas: false } });
-    const simulationResult = await this.wallet.simulateTx(txRequest, true);
+    const simulationResult = await this.wallet.simulateTx(
+      txRequest,
+      true /*simulatePublic*/,
+      undefined /* msgSender */,
+      undefined /* skipTxValidation */,
+      false /* enforceFeePayment */,
+    );
     const { totalGas: gasLimits, teardownGas: teardownGasLimits } = getGasLimits(
       simulationResult,
       opts?.fee?.estimatedGasPadding,
@@ -122,17 +128,24 @@ export abstract class BaseContractInteraction {
     const defaultFeeOptions = await this.getDefaultFeeOptions(request.fee);
     const paymentMethod = defaultFeeOptions.paymentMethod;
     const maxFeesPerGas = defaultFeeOptions.gasSettings.maxFeesPerGas;
+    const maxPriorityFeesPerGas = defaultFeeOptions.gasSettings.maxPriorityFeesPerGas;
 
     let gasSettings = defaultFeeOptions.gasSettings;
     if (request.fee?.estimateGas) {
       const feeForEstimation: FeeOptions = { paymentMethod, gasSettings };
       const txRequest = await this.wallet.createTxExecutionRequest({ ...request, fee: feeForEstimation });
-      const simulationResult = await this.wallet.simulateTx(txRequest, true);
+      const simulationResult = await this.wallet.simulateTx(
+        txRequest,
+        true /*simulatePublic*/,
+        undefined /* msgSender */,
+        undefined /* skipTxValidation */,
+        false /* enforceFeePayment */,
+      );
       const { totalGas: gasLimits, teardownGas: teardownGasLimits } = getGasLimits(
         simulationResult,
         request.fee?.estimatedGasPadding,
       );
-      gasSettings = GasSettings.from({ maxFeesPerGas, gasLimits, teardownGasLimits });
+      gasSettings = GasSettings.from({ maxFeesPerGas, maxPriorityFeesPerGas, gasLimits, teardownGasLimits });
       this.log.verbose(
         `Estimated gas limits for tx: DA=${gasLimits.daGas} L2=${gasLimits.l2Gas} teardownDA=${teardownGasLimits.daGas} teardownL2=${teardownGasLimits.l2Gas}`,
       );

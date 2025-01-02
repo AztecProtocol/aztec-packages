@@ -15,7 +15,7 @@
     "clean": "rm -rf ./dest .tsbuildinfo",
     "formatting": "run -T prettier --check ./src && run -T eslint ./src",
     "formatting:fix": "run -T eslint --fix ./src && run -T prettier -w ./src",
-    "test:node": "NODE_NO_WARNINGS=1 mocha --config ./.mocharc.json",
+    "test:node": "NODE_NO_WARNINGS=1 mocha --config ./.mocharc.json --reporter dot",
     "test:browser": "wtr --config ./web-test-runner.config.mjs",
     "test": "yarn test:node && yarn test:browser"
   },
@@ -82,12 +82,7 @@
       "^(\\.{1,2}/.*)\\.[cm]?js$": "$1"
     },
     "reporters": [
-      [
-        "default",
-        {
-          "summaryThreshold": 9999
-        }
-      ]
+      "default"
     ],
     "testRegex": "./src/.*\\.test\\.(js|mjs|ts)$",
     "rootDir": "./src",
