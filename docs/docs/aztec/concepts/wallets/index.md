@@ -6,7 +6,7 @@ tags: [accounts]
 
 On this page we will cover the main responsibilities of a wallet in the Aztec network.
 
-Refer to [writing an account contract](../../../build/tutorials/codealong/contract_tutorials/write_accounts_contract.md) for a tutorial on how to write a contract to back a user's account.
+Refer to [writing an account contract](../../../developers/tutorials/codealong/contract_tutorials/write_accounts_contract.md) for a tutorial on how to write a contract to back a user's account.
 
 Go to [wallet architecture](./architecture.md) for an overview of its architecture and a reference on the interface a wallet must implement.
 

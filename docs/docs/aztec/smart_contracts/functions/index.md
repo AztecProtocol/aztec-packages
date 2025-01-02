@@ -5,7 +5,7 @@ tags: [functions]
 
 Functions serve as the building blocks of smart contracts. Functions can be either **public**, ie they are publicly available for anyone to see and can directly interact with public state, or **private**, meaning they are executed completely client-side in the [PXE](../../concepts/pxe/index.md). Read more about how private functions work [here](./attributes.md#private-functions).
 
-For a more practical guide of using multiple types of functions, follow the [NFT tutorial](../../../build/tutorials/codealong/contract_tutorials/nft_contract.md).
+For a more practical guide of using multiple types of functions, follow the [NFT tutorial](../../../developers/tutorials/codealong/contract_tutorials/nft_contract.md).
 
 Currently, any function is "mutable" in the sense that it might alter state. However, we also support static calls, similarly to EVM. A static call is essentially a call that does not alter state (it keeps state static).
 
@@ -22,8 +22,8 @@ There are also special oracle functions, which can get data from outside of the 
 ## Learn more about functions
 
 - [How function visibility works in Aztec](./visibility.md)
-- How to write an [initializer function](../../../build/guides/smart_contracts/writing_contracts/initializers.md)
+- How to write an [initializer function](../../../developers/guides/smart_contracts/writing_contracts/initializers.md)
 - [Oracles](../oracles/index.md) and how Aztec smart contracts might use them
 - [How functions work under the hood](./attributes.md)
 
-Find a function macros reference [here](../../../build/reference/smart_contract_reference/macros.md)
+Find a function macros reference [here](../../../developers/reference/smart_contract_reference/macros.md)

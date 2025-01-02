@@ -131,7 +131,7 @@ const config = {
         entryPoints: ["../yarn-project/circuit-types/src/interfaces/pxe.ts"],
         tsconfig: "../yarn-project/circuit-types/tsconfig.json",
         entryPointStrategy: "expand",
-        out: "build/reference/aztecjs/pxe",
+        out: "developers/reference/aztecjs/pxe",
         readme: "none",
         sidebar: {
           categoryLabel: "Private Execution Environment (PXE)",
@@ -149,7 +149,7 @@ const config = {
         ],
         tsconfig: "../yarn-project/aztec.js/tsconfig.json",
         entryPointStrategy: "resolve",
-        out: "build/reference/aztecjs/aztec-js",
+        out: "developers/reference/aztecjs/aztec-js",
         readme: "none",
         sidebar: {
           categoryLabel: "Aztec.js",
@@ -170,7 +170,7 @@ const config = {
         ],
         tsconfig: "../yarn-project/accounts/tsconfig.json",
         entryPointStrategy: "resolve",
-        out: "build/reference/aztecjs/accounts",
+        out: "developers/reference/aztecjs/accounts",
         readme: "none",
         sidebar: {
           categoryLabel: "Accounts",
@@ -240,7 +240,7 @@ const config = {
             label: "Run a node",
           },
           {
-            to: "/build/guides/getting_started",
+            to: "/developers/guides/getting_started",
             label: "Install Sandbox",
             position: "right",
           },
@@ -331,7 +331,7 @@ const config = {
           },
 
           // {
-          //   to: "/build/guides/sandbox_to_testnet",
+          //   to: "/developers/guides/sandbox_to_testnet",
           //   label: "Migrating to Testnet",
           //   position: "right",
           // },
@@ -349,7 +349,7 @@ const config = {
               },
               {
                 label: "Developer Getting Started Guide",
-                to: "/build/getting_started",
+                to: "/developers/getting_started",
               },
               {
                 label: "Aztec.nr",

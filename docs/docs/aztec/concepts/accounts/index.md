@@ -41,7 +41,7 @@ Implementing AA at the application layer has the main drawback that it's more co
 
 Now, there have also been multiple proposals for getting AA implemented at the _protocol_ level in Ethereum. This usually implies introducing a new transaction type or set of opcodes where signature verification and fee payment is handled by the EVM. See EIPs [2803](https://eips.ethereum.org/EIPS/eip-2803), [2938](https://eips.ethereum.org/EIPS/eip-2938), or [3074](https://eips.ethereum.org/EIPS/eip-3074). None of these have gained traction due to the efforts involved in implementing while keeping backwards compatibility.
 
-However, other chains are experimenting with protocol-level AA. Both [Starknet](https://docs.starknet.io/documentation/architecture_and_concepts/Accounts/introduction/#account_abstraction) and [zkSync](https://docs.zksync.io/build/developer-reference/account-abstraction) have native AA, zkSync being the first EVM-compatible one to do so. To maintain Ethereum compatibility, zkSync implements a [default account contract](https://github.com/matter-labs/era-system-contracts/blob/main/contracts/DefaultAccount.sol) in Solidity that mimics Ethereum's protocol behavior.
+However, other chains are experimenting with protocol-level AA. Both [Starknet](https://docs.starknet.io/documentation/architecture_and_concepts/Accounts/introduction/#account_abstraction) and [zkSync](https://docs.zksync.io/developers/developer-reference/account-abstraction) have native AA, zkSync being the first EVM-compatible one to do so. To maintain Ethereum compatibility, zkSync implements a [default account contract](https://github.com/matter-labs/era-system-contracts/blob/main/contracts/DefaultAccount.sol) in Solidity that mimics Ethereum's protocol behavior.
 
 ### Preventing DoS attacks
 
@@ -49,7 +49,7 @@ Protocol AA implementations are vulnerable to DoS attacks due to the unrestricte
 
 Application AA implementations face a similar issue: a smart wallet could return that a transaction is valid when a relayer is about to submit it on-chain and pay for its gas, but when the transaction is actually mined it could turn invalid.
 
-All implementations mitigate these issues by restricting what's doable in the validation phase. EIP4337 defines a set of prohibited opcodes and limits storage access (see [Simulation](https://eips.ethereum.org/EIPS/eip-4337#simulation) in the EIP), and requires a [reputation system](https://eips.ethereum.org/EIPS/eip-4337#reputation-scoring-and-throttlingbanning-for-global-entities) for global entities. zkSync [relaxes](https://docs.zksync.io/build/developer-reference/account-abstraction/extending-4337) opcode requirements a bit, and Starknet simply [does not allow to call external contracts](https://docs.starknet.io/documentation/architecture_and_concepts/Accounts/validate_and_execute/).
+All implementations mitigate these issues by restricting what's doable in the validation phase. EIP4337 defines a set of prohibited opcodes and limits storage access (see [Simulation](https://eips.ethereum.org/EIPS/eip-4337#simulation) in the EIP), and requires a [reputation system](https://eips.ethereum.org/EIPS/eip-4337#reputation-scoring-and-throttlingbanning-for-global-entities) for global entities. zkSync [relaxes](https://docs.zksync.io/developers/developer-reference/account-abstraction/extending-4337) opcode requirements a bit, and Starknet simply [does not allow to call external contracts](https://docs.starknet.io/documentation/architecture_and_concepts/Accounts/validate_and_execute/).
 
 ## Accounts in Aztec
 
@@ -72,7 +72,7 @@ def entryPoint(payload):
         enqueueCall(to, data, value, gasLimit);
 ```
 
-Read more about how to write an account contract [here](../../../build/tutorials/codealong/contract_tutorials/write_accounts_contract.md).
+Read more about how to write an account contract [here](../../../developers/tutorials/codealong/contract_tutorials/write_accounts_contract.md).
 
 ### Account contracts and wallets
 
@@ -147,7 +147,7 @@ Transaction simulations in the PXE are not currently simulated, this is future w
 
 Aztec requires users to define [encryption and nullifying keys](./keys.md) that are needed for receiving and spending private notes. Unlike transaction signing, encryption and nullifying is enshrined at the protocol. This means that there is a single scheme used for encryption and nullifying. These keys are derived from a master public key. This master public key, in turn, is used when deterministically deriving the account's address.
 
-A side effect of committing to a master public key as part of the address is that _this key cannot be rotated_. While an account contract implementation could include methods for rotating the signing key, this is unfortunately not possible for encryption and nullifying keys (note that rotating nullifying keys also creates other challenges such as preventing double spends). We are exploring usage of [`SharedMutable`](../../../build/reference#sharedmutable) to enable rotating these keys.
+A side effect of committing to a master public key as part of the address is that _this key cannot be rotated_. While an account contract implementation could include methods for rotating the signing key, this is unfortunately not possible for encryption and nullifying keys (note that rotating nullifying keys also creates other challenges such as preventing double spends). We are exploring usage of [`SharedMutable`](../../../developers/reference#sharedmutable) to enable rotating these keys.
 
 NOTE: While we entertained the idea of abstracting note encryption, where account contracts would define an `encrypt` method that would use a user-defined scheme, there are two main reasons we decided against this. First is that this entailed that, in order to receive funds, a user had to first deploy their account contract, which is a major UX issue. Second, users could define malicious `encrypt` methods that failed in certain circumstances, breaking application flows that required them to receive a private note. While this issue already exists in Ethereum when transferring ETH (see the [king of the hill](https://coinsbench.com/27-king-ethernaut-da5021cd4aa6)), its impact is made worse in Aztec since any execution failure in a private function makes the entire transaction unprovable (ie it is not possible to catch errors in calls to other private functions), and furthermore because encryption is required for any private state (not just for transferring ETH). Nevertheless, both of these problems are solvable. Initialization can be worked around by embedding a commitment to the bytecode in the address and removing the need for actually deploying contracts before interacting with them, and the king of the hill issue can be mitigated by introducing a full private VM that allows catching reverts. As such, we may be able to abstract encryption in the future as well.
 

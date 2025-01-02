@@ -140,4 +140,4 @@ We don't need to limit ourselves to the `transfer` function, we can use the same
 
 ### Next Steps
 
-Check out the [developer documentation](../../../build/guides/smart_contracts/writing_contracts/authwit.md) to see how to implement this in your own contracts.
+Check out the [developer documentation](../../../developers/guides/smart_contracts/writing_contracts/authwit.md) to see how to implement this in your own contracts.
