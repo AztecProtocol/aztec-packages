@@ -37,6 +37,7 @@ export class PhasesTxValidator implements TxValidator<Tx> {
             `Rejecting tx ${Tx.getHash(tx)} because it calls setup function not on allow list: ${
               setupFn.callContext.contractAddress
             }:${setupFn.callContext.functionSelector}`,
+            { allowList: this.setupAllowList },
           );
 
           return { result: 'invalid', reason: ['Setup function not on allow list'] };

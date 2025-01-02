@@ -71,6 +71,7 @@ import {
   SequencerClient,
   createSlasherClient,
   createValidatorForAcceptingTxs,
+  getDefaultAllowedSetupFunctions,
 } from '@aztec/sequencer-client';
 import { PublicProcessorFactory } from '@aztec/simulator';
 import { Attributes, type TelemetryClient, type Traceable, type Tracer, trackSpan } from '@aztec/telemetry-client';
@@ -889,7 +890,7 @@ export class AztecNodeService implements AztecNode, Traceable {
       blockNumber,
       l1ChainId: this.l1ChainId,
       enforceFees: !!this.config.enforceFees,
-      setupAllowList: this.config.allowedInSetup ?? [],
+      setupAllowList: this.config.allowedInSetup ?? getDefaultAllowedSetupFunctions(),
       gasFees: await this.getCurrentBaseFees(),
     });
 
