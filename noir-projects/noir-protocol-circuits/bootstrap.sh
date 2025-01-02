@@ -4,8 +4,9 @@ source $(git rev-parse --show-toplevel)/ci3/source_bootstrap
 
 CMD=${1:-}
 
-export RAYON_NUM_THREADS=16
-export HARDWARE_CONCURRENCY=16
+export RAYON_NUM_THREADS=${RAYON_NUM_THREADS:-16}
+export HARDWARE_CONCURRENCY=${HARDWARE_CONCURRENCY:-16}
+export PARALLELISM=${PARALLELISM:-16}
 
 export PLATFORM_TAG=any
 export BB=${BB:-../../barretenberg/cpp/build/bin/bb}
@@ -25,7 +26,18 @@ ivc_patterns=(
   "app_creator"
   "app_reader"
 )
+
+rollup_honk_patterns=(
+  "empty_nested.*"
+  "private_kernel_empty.*"
+  "rollup_base.*"
+  "rollup_block.*"
+  "rollup_merge"
+)
+
+
 ivc_regex=$(IFS="|"; echo "${ivc_patterns[*]}")
+rollup_honk_regex=$(IFS="|"; echo "${rollup_honk_patterns[*]}")
 
 function on_exit() {
   rm -rf $tmp_dir
@@ -33,13 +45,11 @@ function on_exit() {
 }
 trap on_exit EXIT
 
-[ -f package.json ] && denoise "yarn && node ./scripts/generate_variants.js"
-
 mkdir -p $tmp_dir
 mkdir -p $key_dir
 
 # Export vars needed inside compile.
-export tmp_dir key_dir ci3 ivc_regex
+export tmp_dir key_dir ci3 ivc_regex rollup_honk_regex
 
 function compile {
   set -euo pipefail
@@ -64,15 +74,21 @@ function compile {
     cache_upload circuit-$hash.tar.gz $json_path &> /dev/null
   fi
 
+  echo "$name"
   if echo "$name" | grep -qE "${ivc_regex}"; then
     local proto="client_ivc"
     local write_vk_cmd="write_vk_for_ivc"
     local vk_as_fields_cmd="vk_as_fields_mega_honk"
+  elif echo "$name" | grep -qE "${rollup_honk_regex}"; then
+    local proto="ultra_rollup_honk"
+    local write_vk_cmd="write_vk_ultra_rollup_honk -h 2"
+    local vk_as_fields_cmd="vk_as_fields_ultra_rollup_honk"
   else
     local proto="ultra_honk"
-    local write_vk_cmd="write_vk_ultra_honk"
+    local write_vk_cmd="write_vk_ultra_honk -h 1"
     local vk_as_fields_cmd="vk_as_fields_ultra_honk"
   fi
+  echo "$proto$"
 
   # No vks needed for simulated circuits.
   [[ "$name" == *"simulated"* ]] && return
@@ -85,7 +101,7 @@ function compile {
     local key_path="$key_dir/$name.vk.data.json"
     echo_stderr "Generating vk for function: $name..."
     SECONDS=0
-    local vk_cmd="jq -r '.bytecode' $json_path | base64 -d | gunzip | $BB $write_vk_cmd -h -b - -o - --recursive | xxd -p -c 0"
+    local vk_cmd="jq -r '.bytecode' $json_path | base64 -d | gunzip | $BB $write_vk_cmd -b - -o - --recursive | xxd -p -c 0"
     echo_stderr $vk_cmd
     vk=$(dump_fail "$vk_cmd")
     local vkf_cmd="echo '$vk' | xxd -r -p | $BB $vk_as_fields_cmd -k - -o -"
@@ -100,6 +116,9 @@ function compile {
 function build {
   set +e
   set -u
+
+  [ -f "package.json" ] && denoise "yarn && node ./scripts/generate_variants.js"
+
   grep -oP '(?<=crates/)[^"]+' Nargo.toml | \
     while read -r dir; do
       toml_file=./crates/$dir/Nargo.toml
@@ -107,7 +126,7 @@ function build {
           echo "$(basename $dir)"
       fi
     done | \
-    parallel -j16 --joblog joblog.txt -v --line-buffer --tag --halt now,fail=1 compile {}
+    parallel -j$PARALLELISM --joblog joblog.txt -v --line-buffer --tag --halt now,fail=1 compile {}
   code=$?
   cat joblog.txt
   return $code
@@ -115,16 +134,12 @@ function build {
 
 function test {
   set -eu
-  # Whether we run the tests or not is coarse grained.
   name=$(basename "$PWD")
   CIRCUITS_HASH=$(cache_content_hash ../../noir/.rebuild_patterns "^noir-projects/$name")
-  if ! test_should_run $name-tests-$CIRCUITS_HASH; then
-    return
-  fi
-  github_group "$name test"
-  RAYON_NUM_THREADS= $NARGO test --silence-warnings
+  test_should_run $name-tests-$CIRCUITS_HASH || return 0
+
+  RAYON_NUM_THREADS= $NARGO test --silence-warnings --skip-brillig-constraints-check
   cache_upload_flag $name-tests-$CIRCUITS_HASH
-  github_endgroup
 }
 
 export -f compile test build
@@ -146,8 +161,13 @@ case "$CMD" in
   "test")
     test
     ;;
+  "test-cmds")
+    $NARGO test --list-tests --silence-warnings | while read -r package test; do
+      echo "noir-projects/scripts/run_test.sh noir-protocol-circuits $package $test"
+    done
+    ;;
   "ci")
-    parallel --line-buffered bash -c {} ::: build test
+    parallel --tag --line-buffered {} ::: build test
     ;;
   *)
     echo_stderr "Unknown command: $CMD"

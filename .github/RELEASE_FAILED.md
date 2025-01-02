@@ -1,6 +1,6 @@
 ---
 title: "Nightly release failed"
-assignees: fcarreiro, ludamad
+assignees: fcarreiro, ludamad, spypsy
 ---
 
 The most recent nightly release failed. This means that no `bb` artifacts were published (which are required by Noir).

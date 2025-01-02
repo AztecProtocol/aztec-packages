@@ -44,7 +44,7 @@ async function main() {
             let func_with_contract_name = contractArtifact.name + "::" + func.brillig_names[0];
             let program_report = {
               package_name: "",
-              functions: [{ name: "main", opcodes: 1 }],
+              functions: [],
               unconstrained_functions: [],
             }
             // Programs are compared by package name, so we make a unique one for each function here

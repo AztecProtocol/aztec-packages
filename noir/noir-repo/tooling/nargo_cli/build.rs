@@ -7,7 +7,7 @@ const GIT_COMMIT: &&str = &"GIT_COMMIT";
 
 fn main() {
     // Only use build_data if the environment variable isn't set.
-    if std::env::var(GIT_COMMIT).is_err() {
+    if env::var(GIT_COMMIT).is_err() {
         build_data::set_GIT_COMMIT();
         build_data::set_GIT_DIRTY();
         build_data::no_debug_rebuilds();
@@ -19,15 +19,18 @@ fn main() {
 
     // Try to find the directory that Cargo sets when it is running; otherwise fallback to assuming the CWD
     // is the root of the repository and append the crate path
-    let root_dir = match std::env::var("CARGO_MANIFEST_DIR") {
+    let root_dir = match env::var("CARGO_MANIFEST_DIR") {
         Ok(dir) => PathBuf::from(dir).parent().unwrap().parent().unwrap().to_path_buf(),
-        Err(_) => std::env::current_dir().unwrap(),
+        Err(_) => env::current_dir().unwrap(),
     };
     let test_dir = root_dir.join("test_programs");
 
     // Rebuild if the tests have changed
     println!("cargo:rerun-if-changed=tests");
-    println!("cargo:rerun-if-changed={}", test_dir.as_os_str().to_str().unwrap());
+    // TODO: Why are we tying our test programs to the binary build?
+    // This took ages to track down, but running the tests changes the timestamps on test_programs files (also bad),
+    // and that has the knock-on effect of then needing to rebuild the tests after running the tests.
+    // println!("cargo:rerun-if-changed={}", test_dir.as_os_str().to_str().unwrap());
 
     generate_execution_success_tests(&mut test_file, &test_dir);
     generate_execution_failure_tests(&mut test_file, &test_dir);
@@ -215,6 +218,9 @@ fn test_{test_name}(force_brillig: ForceBrillig, inliner_aggressiveness: Inliner
         // Set the maximum increase so that part of the optimization is exercised (it might fail).
         nargo.arg("--max-bytecode-increase-percent");
         nargo.arg("50");
+
+        // Check whether the test case is non-deterministic
+        nargo.arg("--check-non-determinism");
     }}
 
     {test_content}

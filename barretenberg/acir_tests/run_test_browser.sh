@@ -6,6 +6,8 @@ cleanup() {
 }
 trap cleanup EXIT
 
+cd $(dirname $0)
+
 # Skipping firefox because this headless firefox is so slow.
 export BROWSER=${BROWSER:-chrome,webkit}
 

@@ -16,7 +16,6 @@ import {
 
 /* eslint-disable camelcase */
 
-createDebug.enable('*');
 const logger = createDebug('aztec:browser-ivc-test');
 
 jest.setTimeout(120_000);

@@ -17,7 +17,7 @@ export class WASMSimulator implements SimulationProvider {
     const _witnessMap = await executeCircuit(
       decodedBytecode,
       input,
-      foreignCallHandler, // handle calls to debug_log and evaluate_blobs mock
+      foreignCallHandler, // handle calls to debug_log
     );
 
     return _witnessMap;

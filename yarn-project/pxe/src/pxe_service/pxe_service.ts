@@ -31,22 +31,23 @@ import {
   UniqueNote,
   getNonNullifiedL1ToL2MessageWitness,
 } from '@aztec/circuit-types';
+import type {
+  CompleteAddress,
+  ContractClassWithId,
+  ContractInstanceWithAddress,
+  GasFees,
+  L1_TO_L2_MSG_TREE_HEIGHT,
+  NodeInfo,
+  PartialAddress,
+  PrivateKernelTailCircuitPublicInputs,
+} from '@aztec/circuits.js';
 import {
-  type AztecAddress,
-  type CompleteAddress,
-  type ContractClassWithId,
-  type ContractInstanceWithAddress,
-  type GasFees,
-  type L1_TO_L2_MSG_TREE_HEIGHT,
-  type NodeInfo,
-  type PartialAddress,
-  type PrivateKernelTailCircuitPublicInputs,
-  computeAddressSecret,
   computeContractAddressFromInstance,
   computeContractClassId,
   getContractClassFromArtifact,
-} from '@aztec/circuits.js';
+} from '@aztec/circuits.js/contract';
 import { computeNoteHashNonce, siloNullifier } from '@aztec/circuits.js/hash';
+import { computeAddressSecret } from '@aztec/circuits.js/keys';
 import {
   type AbiDecoded,
   type ContractArtifact,
@@ -55,6 +56,7 @@ import {
   FunctionType,
   encodeArguments,
 } from '@aztec/foundation/abi';
+import { type AztecAddress } from '@aztec/foundation/aztec-address';
 import { Fr, type Point } from '@aztec/foundation/fields';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { Timer } from '@aztec/foundation/timer';
@@ -208,12 +210,6 @@ export class PXEService implements PXE {
     return completeAddresses.filter(completeAddress =>
       accounts.find(address => address.equals(completeAddress.address)),
     );
-  }
-
-  public async getRegisteredAccount(address: AztecAddress): Promise<CompleteAddress | undefined> {
-    const result = await this.getRegisteredAccounts();
-    const account = result.find(r => r.address.equals(address));
-    return Promise.resolve(account);
   }
 
   public async registerContractClass(artifact: ContractArtifact): Promise<void> {
@@ -874,7 +870,9 @@ export class PXEService implements PXE {
         const [keyPrefix, account] = await this.keyStore.getKeyPrefixAndAccount(vpk);
         let secretKey = await this.keyStore.getMasterSecretKey(vpk);
         if (keyPrefix === 'iv') {
-          const registeredAccount = await this.getRegisteredAccount(account);
+          const registeredAccount = (await this.getRegisteredAccounts()).find(completeAddress =>
+            completeAddress.address.equals(account),
+          );
           if (!registeredAccount) {
             throw new Error('No registered account');
           }

@@ -9,11 +9,7 @@ import {
 import {
   ARCHIVE_HEIGHT,
   AppendOnlyTreeSnapshot,
-  type BaseOrMergeRollupPublicInputs,
   BlockHeader,
-  BlockMergeRollupInputs,
-  type BlockRootOrBlockMergePublicInputs,
-  ConstantRollupData,
   ContentCommitment,
   Fr,
   type GlobalVariables,
@@ -21,9 +17,8 @@ import {
   MAX_NULLIFIERS_PER_TX,
   MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
   MembershipWitness,
-  MergeRollupInputs,
   MerkleTreeCalculator,
-  type NESTED_RECURSIVE_PROOF_LENGTH,
+  type NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH,
   NOTE_HASH_SUBTREE_HEIGHT,
   NOTE_HASH_SUBTREE_SIBLING_PATH_LENGTH,
   NULLIFIER_SUBTREE_HEIGHT,
@@ -34,22 +29,29 @@ import {
   PUBLIC_DATA_TREE_HEIGHT,
   type ParityPublicInputs,
   PartialStateReference,
+  PublicDataHint,
+  PublicDataTreeLeaf,
+  PublicDataTreeLeafPreimage,
+  type RecursiveProof,
+  StateReference,
+  VK_TREE_HEIGHT,
+  type VerificationKeyAsFields,
+} from '@aztec/circuits.js';
+import { type SpongeBlob } from '@aztec/circuits.js/blobs';
+import {
+  type BaseOrMergeRollupPublicInputs,
+  BlockMergeRollupInputs,
+  type BlockRootOrBlockMergePublicInputs,
+  ConstantRollupData,
+  MergeRollupInputs,
   PreviousRollupBlockData,
   PreviousRollupData,
   PrivateBaseRollupHints,
   PrivateBaseStateDiffHints,
   PublicBaseRollupHints,
   PublicBaseStateDiffHints,
-  PublicDataHint,
-  PublicDataTreeLeaf,
-  PublicDataTreeLeafPreimage,
-  type RecursiveProof,
   RootRollupInputs,
-  type SpongeBlob,
-  StateReference,
-  VK_TREE_HEIGHT,
-  type VerificationKeyAsFields,
-} from '@aztec/circuits.js';
+} from '@aztec/circuits.js/rollup';
 import { makeTuple } from '@aztec/foundation/array';
 import { Blob } from '@aztec/foundation/blob';
 import { padArrayEnd } from '@aztec/foundation/collection';
@@ -273,8 +275,16 @@ async function getPublicDataHint(db: MerkleTreeWriteOperations, leafSlot: bigint
 }
 
 export function createMergeRollupInputs(
-  left: [BaseOrMergeRollupPublicInputs, RecursiveProof<typeof NESTED_RECURSIVE_PROOF_LENGTH>, VerificationKeyAsFields],
-  right: [BaseOrMergeRollupPublicInputs, RecursiveProof<typeof NESTED_RECURSIVE_PROOF_LENGTH>, VerificationKeyAsFields],
+  left: [
+    BaseOrMergeRollupPublicInputs,
+    RecursiveProof<typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH>,
+    VerificationKeyAsFields,
+  ],
+  right: [
+    BaseOrMergeRollupPublicInputs,
+    RecursiveProof<typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH>,
+    VerificationKeyAsFields,
+  ],
 ) {
   const mergeInputs = new MergeRollupInputs([
     getPreviousRollupDataFromPublicInputs(left[0], left[1], left[2]),
@@ -286,12 +296,12 @@ export function createMergeRollupInputs(
 export function createBlockMergeRollupInputs(
   left: [
     BlockRootOrBlockMergePublicInputs,
-    RecursiveProof<typeof NESTED_RECURSIVE_PROOF_LENGTH>,
+    RecursiveProof<typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH>,
     VerificationKeyAsFields,
   ],
   right: [
     BlockRootOrBlockMergePublicInputs,
-    RecursiveProof<typeof NESTED_RECURSIVE_PROOF_LENGTH>,
+    RecursiveProof<typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH>,
     VerificationKeyAsFields,
   ],
 ) {
@@ -427,10 +437,10 @@ export async function getRootTreeSiblingPath<TID extends MerkleTreeId>(treeId: T
 // Builds the inputs for the final root rollup circuit, without making any changes to trees
 export function getRootRollupInput(
   rollupOutputLeft: BlockRootOrBlockMergePublicInputs,
-  rollupProofLeft: RecursiveProof<typeof NESTED_RECURSIVE_PROOF_LENGTH>,
+  rollupProofLeft: RecursiveProof<typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH>,
   verificationKeyLeft: VerificationKeyAsFields,
   rollupOutputRight: BlockRootOrBlockMergePublicInputs,
-  rollupProofRight: RecursiveProof<typeof NESTED_RECURSIVE_PROOF_LENGTH>,
+  rollupProofRight: RecursiveProof<typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH>,
   verificationKeyRight: VerificationKeyAsFields,
   proverId: Fr,
 ) {
@@ -447,7 +457,7 @@ export function getRootRollupInput(
 
 export function getPreviousRollupDataFromPublicInputs(
   rollupOutput: BaseOrMergeRollupPublicInputs,
-  rollupProof: RecursiveProof<typeof NESTED_RECURSIVE_PROOF_LENGTH>,
+  rollupProof: RecursiveProof<typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH>,
   vk: VerificationKeyAsFields,
 ) {
   const leafIndex = getVKIndex(vk);
@@ -462,7 +472,7 @@ export function getPreviousRollupDataFromPublicInputs(
 
 export function getPreviousRollupBlockDataFromPublicInputs(
   rollupOutput: BlockRootOrBlockMergePublicInputs,
-  rollupProof: RecursiveProof<typeof NESTED_RECURSIVE_PROOF_LENGTH>,
+  rollupProof: RecursiveProof<typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH>,
   vk: VerificationKeyAsFields,
 ) {
   const leafIndex = getVKIndex(vk);
