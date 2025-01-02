@@ -110,7 +110,7 @@ function test_cmds {
       grep -oP '.*(?=: test$)' | \
       awk "{print \"$test_hash noir/scripts/run_test.sh $(basename $bin) \" \$0 }" || true
   done
-  echo "$test_hash cd noir/noir-repo && yarn workspaces foreach --parallel --topological-dev --verbose $js_include run test"
+  echo "$test_hash cd noir/noir-repo && GIT_COMMIT=$GIT_COMMIT yarn workspaces foreach --parallel --topological-dev --verbose $js_include run test"
   # cargo nextest list --workspace --locked --release -Tjson-pretty | \
   #     jq -r '
   #       .["rust-suites"][] |
