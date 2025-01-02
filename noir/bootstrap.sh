@@ -4,7 +4,6 @@ source $(git rev-parse --show-toplevel)/ci3/source_bootstrap
 cmd=${1:-}
 
 export hash=$(cache_content_hash .rebuild_patterns)
-# TODO: Do we need this? Test binaries depend on test programs?
 export test_hash=$(cache_content_hash .rebuild_patterns .rebuild_patterns_tests)
 
 export js_projects=(
@@ -38,11 +37,12 @@ function build_native {
 function build_packages {
   set -euo pipefail
   if cache_download noir-packages-$hash.tar.gz; then
+    cd noir-repo
+    yarn
     return
   fi
 
   cd noir-repo
-
   yarn install
   yarn workspaces foreach --parallel --topological-dev --verbose $js_include run build
 
