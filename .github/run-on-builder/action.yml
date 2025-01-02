@@ -14,7 +14,6 @@ runs:
         # avoid double shell interpolation
         RUN_SCRIPT: |
           sudo shutdown -P 40
-          export GITHUB_REF_NAME=${{ github.ref_name }}
           cd ~/run-${{ env.RUN_ID }}
           ${{ inputs.run }}
       shell: bash

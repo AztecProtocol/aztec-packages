@@ -1,34 +1,18 @@
 VERSION 0.8
 
-src:
-    FROM ../build-images+from-registry
-    WORKDIR /usr/src/l1-contracts
-    COPY --dir lib src terraform test *.json *.toml *.sh .
-    DO ../build-system/s3-cache-scripts/+WRITE_CONTENT_HASH --rebuild_patterns=".rebuild_patterns"
-
 lint:
-    FROM +src
+    FROM ../+bootstrap
+    WORKDIR /usr/src/l1-contracts
     RUN solhint --config ./.solhint.json "src/**/*.sol"
     RUN forge clean && forge fmt --check
 
-build:
-    FROM +lint
-    WORKDIR /usr/src/l1-contracts
-
-    DO ../build-system/s3-cache-scripts/+WITH_CACHE \
-        --prefix="l1-contracts" \
-        --rebuild_patterns=".rebuild_patterns" \
-        --command="forge build" \
-        --build_artifacts="out"
-
-    SAVE ARTIFACT /usr/src/l1-contracts /usr/src/l1-contracts
-
 test:
-    FROM +build
-    RUN forge test --no-match-contract UniswapPortalTest
+    FROM ../+bootstrap
+    WORKDIR /usr/src/l1-contracts
+    RUN USE_CACHE=1 ./bootstrap.sh test
 
 publish-npm:
-    FROM +build
+    FROM ../+bootstrap
     ARG VERSION
     ARG DIST_TAG
     ARG DRY_RUN=0

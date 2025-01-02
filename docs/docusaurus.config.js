@@ -294,12 +294,6 @@ const config = {
               },
               {
                 type: "docSidebar",
-                sidebarId: "protocolSpecSidebar",
-                label: "Protocol Specification",
-                className: "no-external-icon",
-              },
-              {
-                type: "docSidebar",
                 sidebarId: "roadmapSidebar",
                 label: "Roadmap",
                 className: "no-external-icon",

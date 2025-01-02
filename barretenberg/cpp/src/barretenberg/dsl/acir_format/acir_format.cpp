@@ -2,6 +2,7 @@
 #include "barretenberg/common/log.hpp"
 #include "barretenberg/common/throw_or_abort.hpp"
 #include "barretenberg/dsl/acir_format/ivc_recursion_constraint.hpp"
+#include "barretenberg/flavor/flavor.hpp"
 #include "barretenberg/stdlib/plonk_recursion/aggregation_state/aggregation_state.hpp"
 #include "barretenberg/stdlib/primitives/curves/grumpkin.hpp"
 #include "barretenberg/stdlib/primitives/field/field_conversion.hpp"
@@ -17,6 +18,12 @@ using namespace bb;
 
 template class DSLBigInts<UltraCircuitBuilder>;
 template class DSLBigInts<MegaCircuitBuilder>;
+
+template <typename Builder> struct HonkRecursionConstraintsOutput {
+    PairingPointAccumulatorIndices agg_obj_indices;
+    OpeningClaim<stdlib::grumpkin<Builder>> ipa_claim;
+    HonkProof ipa_proof;
+};
 
 template <typename Builder>
 void build_constraints(Builder& builder, AcirProgram& program, const ProgramMetadata& metadata)
@@ -232,14 +239,21 @@ void build_constraints(Builder& builder, AcirProgram& program, const ProgramMeta
             info("WARNING: this circuit contains unhandled avm_recursion_constraints!");
         }
         if (!constraint_system.ivc_recursion_constraints.empty()) {
-            process_ivc_recursion_constraints(builder, constraint_system, metadata.ivc, has_valid_witness_assignments);
+            process_ivc_recursion_constraints(
+                builder, constraint_system, metadata.ivc, has_valid_witness_assignments, gate_counter);
         }
     } else {
         process_plonk_recursion_constraints(builder, constraint_system, has_valid_witness_assignments, gate_counter);
         PairingPointAccumulatorIndices current_aggregation_object =
             stdlib::recursion::init_default_agg_obj_indices<Builder>(builder);
-        current_aggregation_object = process_honk_recursion_constraints(
-            builder, constraint_system, has_valid_witness_assignments, gate_counter, current_aggregation_object);
+        HonkRecursionConstraintsOutput<Builder> output =
+            process_honk_recursion_constraints(builder,
+                                               constraint_system,
+                                               has_valid_witness_assignments,
+                                               gate_counter,
+                                               current_aggregation_object,
+                                               metadata.honk_recursion);
+        current_aggregation_object = output.agg_obj_indices;
 
 #ifndef DISABLE_AZTEC_VM
         current_aggregation_object = process_avm_recursion_constraints(
@@ -249,12 +263,19 @@ void build_constraints(Builder& builder, AcirProgram& program, const ProgramMeta
         // default one if the circuit is recursive and honk_recursion is true.
         if (!constraint_system.honk_recursion_constraints.empty() ||
             !constraint_system.avm_recursion_constraints.empty()) {
-            ASSERT(metadata.honk_recursion);
+            ASSERT(metadata.honk_recursion != 0);
             builder.add_pairing_point_accumulator(current_aggregation_object);
-        } else if (metadata.honk_recursion && builder.is_recursive_circuit) {
+        } else if (metadata.honk_recursion != 0 && builder.is_recursive_circuit) {
             // Make sure the verification key records the public input indices of the
             // final recursion output.
             builder.add_pairing_point_accumulator(current_aggregation_object);
+        }
+        // TODO(https://github.com/AztecProtocol/barretenberg/issues/1183): This assertion should be true, except for
+        // the root rollup as of now since the root rollup will not output a ipa proof.
+        // ASSERT((metadata.honk_recursion == 2) == (output.ipa_proof.size() > 0));
+        if (metadata.honk_recursion == 2) {
+            builder.add_ipa_claim(output.ipa_claim.get_witness_indices());
+            builder.ipa_proof = output.ipa_proof;
         }
     }
 }
@@ -345,13 +366,15 @@ void process_plonk_recursion_constraints(Builder& builder,
     }
 }
 
-PairingPointAccumulatorIndices process_honk_recursion_constraints(
+HonkRecursionConstraintsOutput<Builder> process_honk_recursion_constraints(
     Builder& builder,
     AcirFormat& constraint_system,
     bool has_valid_witness_assignments,
     GateCounter<Builder>& gate_counter,
-    PairingPointAccumulatorIndices current_aggregation_object)
+    PairingPointAccumulatorIndices current_aggregation_object,
+    uint32_t honk_recursion)
 {
+    HonkRecursionConstraintsOutput<Builder> output;
     // Add recursion constraints
     size_t idx = 0;
     std::vector<OpeningClaim<stdlib::grumpkin<Builder>>> nested_ipa_claims;
@@ -384,21 +407,54 @@ PairingPointAccumulatorIndices process_honk_recursion_constraints(
 
         auto ipa_transcript_1 = std::make_shared<StdlibTranscript>(nested_ipa_proofs[0]);
         auto ipa_transcript_2 = std::make_shared<StdlibTranscript>(nested_ipa_proofs[1]);
-        IPA<stdlib::grumpkin<Builder>>::accumulate(
+        auto [ipa_claim, ipa_proof] = IPA<stdlib::grumpkin<Builder>>::accumulate(
             commitment_key, ipa_transcript_1, nested_ipa_claims[0], ipa_transcript_2, nested_ipa_claims[1]);
+        output.ipa_claim = ipa_claim;
+        output.ipa_proof = ipa_proof;
     } else if (nested_ipa_claims.size() == 1) {
-        builder.add_ipa_claim(nested_ipa_claims[0].get_witness_indices());
+        output.ipa_claim = nested_ipa_claims[0];
         // This conversion looks suspicious but there's no need to make this an output of the circuit since its a proof
         // that will be checked anyway.
-        builder.ipa_proof = convert_stdlib_proof_to_native(nested_ipa_proofs[0]);
+        output.ipa_proof = convert_stdlib_proof_to_native(nested_ipa_proofs[0]);
+    } else if (nested_ipa_claims.size() > 2) {
+        throw_or_abort("Too many nested IPA claims to accumulate");
+    } else {
+        // TODO(https://github.com/AztecProtocol/barretenberg/issues/1184): Move to IPA class.
+        if (honk_recursion == 2) {
+            info("Proving with UltraRollupHonk but no IPA claims exist.");
+            // just create some fake IPA claim and proof
+            using NativeCurve = curve::Grumpkin;
+            using Curve = stdlib::grumpkin<Builder>;
+            auto ipa_transcript = std::make_shared<NativeTranscript>();
+            auto ipa_commitment_key = std::make_shared<CommitmentKey<NativeCurve>>(1 << CONST_ECCVM_LOG_N);
+            size_t n = 4;
+            auto poly = Polynomial<fq>(n);
+            for (size_t i = 0; i < n; i++) {
+                poly.at(i) = fq::random_element();
+            }
+            fq x = fq::random_element();
+            fq eval = poly.evaluate(x);
+            auto commitment = ipa_commitment_key->commit(poly);
+            const OpeningPair<NativeCurve> opening_pair = { x, eval };
+            IPA<NativeCurve>::compute_opening_proof(ipa_commitment_key, { poly, opening_pair }, ipa_transcript);
+
+            auto stdlib_comm = Curve::Group::from_witness(&builder, commitment);
+            auto stdlib_x = Curve::ScalarField::from_witness(&builder, x);
+            auto stdlib_eval = Curve::ScalarField::from_witness(&builder, eval);
+            OpeningClaim<Curve> stdlib_opening_claim{ { stdlib_x, stdlib_eval }, stdlib_comm };
+            output.ipa_claim = stdlib_opening_claim;
+            output.ipa_proof = ipa_transcript->export_proof();
+        }
     }
-    return current_aggregation_object;
+    output.agg_obj_indices = current_aggregation_object;
+    return output;
 }
 
 void process_ivc_recursion_constraints(MegaCircuitBuilder& builder,
                                        AcirFormat& constraints,
                                        const std::shared_ptr<ClientIVC>& ivc,
-                                       bool has_valid_witness_assignments)
+                                       bool has_valid_witness_assignments,
+                                       GateCounter<MegaCircuitBuilder>& gate_counter)
 {
     using StdlibVerificationKey = ClientIVC::RecursiveVerificationKey;
 
@@ -446,6 +502,11 @@ void process_ivc_recursion_constraints(MegaCircuitBuilder& builder,
 
     // Complete the kernel circuit with all required recursive verifications, databus consistency checks etc.
     ivc->complete_kernel_circuit_logic(builder);
+
+    // Note: we can't easily track the gate contribution from each individual ivc_recursion_constraint since they are
+    // handled simultaneously in the above function call; instead we track the total contribution
+    gate_counter.track_diff(constraints.gates_per_opcode,
+                            constraints.original_opcode_indices.ivc_recursion_constraints.at(0));
 }
 
 #ifndef DISABLE_AZTEC_VM
@@ -525,7 +586,7 @@ UltraCircuitBuilder create_circuit(AcirFormat& constraint_system,
                                    bool recursive,
                                    const size_t size_hint,
                                    const WitnessVector& witness,
-                                   bool honk_recursion,
+                                   uint32_t honk_recursion,
                                    [[maybe_unused]] std::shared_ptr<ECCOpQueue>,
                                    bool collect_gates_per_opcode)
 {

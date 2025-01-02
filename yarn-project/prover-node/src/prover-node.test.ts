@@ -8,12 +8,12 @@ import {
   type L2BlockSource,
   type MerkleTreeWriteOperations,
   P2PClientType,
-  type ProverCache,
   type ProverCoordination,
   WorldStateRunningState,
   type WorldStateSynchronizer,
 } from '@aztec/circuit-types';
 import { type ContractDataSource, EthAddress, Fr } from '@aztec/circuits.js';
+import { type EpochCache } from '@aztec/epoch-cache';
 import { times } from '@aztec/foundation/collection';
 import { Signature } from '@aztec/foundation/eth-signature';
 import { makeBackoff, retry } from '@aztec/foundation/retry';
@@ -32,7 +32,6 @@ import { type BondManager } from './bond/bond-manager.js';
 import { type EpochProvingJob } from './job/epoch-proving-job.js';
 import { ClaimsMonitor } from './monitors/claims-monitor.js';
 import { EpochMonitor } from './monitors/epoch-monitor.js';
-import { ProverCacheManager } from './prover-cache/cache_manager.js';
 import { ProverNode, type ProverNodeOptions } from './prover-node.js';
 import { type QuoteProvider } from './quote-provider/index.js';
 import { type QuoteSigner } from './quote-signer.js';
@@ -99,7 +98,6 @@ describe('prover-node', () => {
       epochMonitor,
       bondManager,
       telemetryClient,
-      new ProverCacheManager(),
       config,
     );
 
@@ -221,17 +219,15 @@ describe('prover-node', () => {
     });
 
     it('starts proving if there is a claim sent by us', async () => {
-      publisher.getProofClaim.mockResolvedValue(claim);
       l2BlockSource.getProvenL2EpochNumber.mockResolvedValue(9);
-      await proverNode.handleInitialEpochSync(10n);
+      await proverNode.handleClaim(claim);
 
       expect(jobs[0].epochNumber).toEqual(10n);
     });
 
     it('does not start proving if there is a claim sent by us but proof has already landed', async () => {
-      publisher.getProofClaim.mockResolvedValue(claim);
       l2BlockSource.getProvenL2EpochNumber.mockResolvedValue(10);
-      await proverNode.handleInitialEpochSync(10n);
+      await proverNode.handleClaim(claim);
 
       expect(jobs.length).toEqual(0);
     });
@@ -264,6 +260,27 @@ describe('prover-node', () => {
       expect(coordination.addEpochProofQuote).toHaveBeenCalledTimes(1);
     });
 
+    it('starts proving if there is a claim during initial sync', async () => {
+      l2BlockSource.getL2EpochNumber.mockResolvedValue(11n);
+      publisher.getProofClaim.mockResolvedValue(claim);
+
+      await proverNode.start();
+      await sleep(100);
+
+      expect(jobs[0].epochNumber).toEqual(10n);
+      expect(jobs.length).toEqual(1);
+    });
+
+    it('does not start proving if there is a claim for proven epoch during initial sync', async () => {
+      l2BlockSource.getProvenL2EpochNumber.mockResolvedValue(10);
+      publisher.getProofClaim.mockResolvedValue(claim);
+
+      await proverNode.start();
+      await sleep(100);
+
+      expect(jobs.length).toEqual(0);
+    });
+
     it('sends another quote when a new epoch is completed', async () => {
       lastEpochComplete = 10n;
       l2BlockSource.getL2EpochNumber.mockResolvedValue(11n);
@@ -294,6 +311,7 @@ describe('prover-node', () => {
   // - The prover node can get the  it is missing via p2p, or it has them in it's mempool
   describe('Using a p2p coordination', () => {
     let bootnode: BootstrapNode;
+    let epochCache: MockProxy<EpochCache>;
     let p2pClient: P2PClient<P2PClientType.Prover>;
     let otherP2PClient: P2PClient<P2PClientType.Prover>;
 
@@ -302,11 +320,13 @@ describe('prover-node', () => {
         txPool: new InMemoryTxPool(telemetryClient),
         epochProofQuotePool: new MemoryEpochProofQuotePool(telemetryClient),
       };
+      epochCache = mock<EpochCache>();
       const libp2pService = await createTestLibP2PService(
         P2PClientType.Prover,
         [bootnodeAddr],
         l2BlockSource,
         worldState,
+        epochCache,
         mempools,
         telemetryClient,
         port,
@@ -354,14 +374,21 @@ describe('prover-node', () => {
       });
 
       it('Should send a proof quote via p2p to another node', async () => {
+        const epochNumber = 10n;
+        epochCache.getEpochAndSlotNow.mockReturnValue({
+          epoch: epochNumber,
+          slot: epochNumber * 2n,
+          ts: BigInt(Date.now()),
+        });
+
         // Check that the p2p client receives the quote (casted as any to access private property)
         const p2pEpochReceivedSpy = jest.spyOn((otherP2PClient as any).p2pService, 'processEpochProofQuoteFromPeer');
 
         // Check the other node's pool has no quotes yet
-        const peerInitialState = await otherP2PClient.getEpochProofQuotes(10n);
+        const peerInitialState = await otherP2PClient.getEpochProofQuotes(epochNumber);
         expect(peerInitialState.length).toEqual(0);
 
-        await proverNode.handleEpochCompleted(10n);
+        await proverNode.handleEpochCompleted(epochNumber);
 
         // Wait for message to be propagated
         await retry(
@@ -375,8 +402,8 @@ describe('prover-node', () => {
         );
 
         // We should be able to retreive the quote from the other node
-        const peerFinalStateQuotes = await otherP2PClient.getEpochProofQuotes(10n);
-        expect(peerFinalStateQuotes[0]).toEqual(toExpectedQuote(10n));
+        const peerFinalStateQuotes = await otherP2PClient.getEpochProofQuotes(epochNumber);
+        expect(peerFinalStateQuotes[0]).toEqual(toExpectedQuote(epochNumber));
       });
     });
   });
@@ -385,7 +412,6 @@ describe('prover-node', () => {
     protected override doCreateEpochProvingJob(
       epochNumber: bigint,
       _blocks: L2Block[],
-      _cache: ProverCache,
       _publicProcessorFactory: PublicProcessorFactory,
       cleanUp: (job: EpochProvingJob) => Promise<void>,
     ): EpochProvingJob {

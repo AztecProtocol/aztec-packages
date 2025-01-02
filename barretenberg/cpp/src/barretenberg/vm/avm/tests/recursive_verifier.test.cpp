@@ -71,6 +71,10 @@ class AvmRecursiveTests : public ::testing::Test {
 
 TEST_F(AvmRecursiveTests, recursion)
 {
+    if (std::getenv("AVM_ENABLE_FULL_PROVING") == nullptr) {
+        GTEST_SKIP();
+    }
+
     InnerBuilder circuit_builder = generate_avm_circuit();
     InnerComposer composer = InnerComposer();
     InnerProver prover = composer.create_prover(circuit_builder);

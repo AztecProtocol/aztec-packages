@@ -53,8 +53,8 @@ get_service_address() {
 }
 
 # Configure Ethereum address
-if [ "${ETHEREUM_EXTERNAL_HOST}" != "" ]; then
-    ETHEREUM_ADDR="${ETHEREUM_EXTERNAL_HOST}"
+if [ "${EXTERNAL_ETHEREUM_HOST}" != "" ]; then
+    ETHEREUM_ADDR="${EXTERNAL_ETHEREUM_HOST}"
 elif [ "${NETWORK_PUBLIC}" = "true" ]; then
     ETHEREUM_ADDR=$(get_service_address "ethereum" "${ETHEREUM_PORT}")
 else
