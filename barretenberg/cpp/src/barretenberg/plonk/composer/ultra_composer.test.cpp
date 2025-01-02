@@ -31,7 +31,7 @@ std::vector<uint32_t> add_variables(UltraCircuitBuilder& builder, std::vector<fr
 
 template <typename T> class ultra_plonk_composer : public ::testing::Test {
   public:
-    static void SetUpTestSuite() { bb::srs::init_crs_factory("../srs_db/ignition"); }
+    static void SetUpTestSuite() { bb::srs::init_crs_factory(bb::srs::get_ignition_crs_path()); }
 
     void prove_and_verify(UltraCircuitBuilder& builder, bool expected_result)
     {
@@ -770,7 +770,7 @@ TYPED_TEST(ultra_plonk_composer, range_checks_on_duplicates)
 // before range constraints are applied to it.
 TEST(ultra_plonk_composer, range_constraint_small_variable)
 {
-    bb::srs::init_crs_factory("../srs_db/ignition");
+    bb::srs::init_crs_factory(bb::srs::get_ignition_crs_path());
     auto builder = UltraCircuitBuilder();
 
     uint16_t mask = (1 << 8) - 1;
