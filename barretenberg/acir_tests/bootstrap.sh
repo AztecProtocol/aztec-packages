@@ -54,7 +54,8 @@ function hash {
     ../../noir/.rebuild_patterns \
     ../../noir/.rebuild_patterns_tests \
     ../../barretenberg/cpp/.rebuild_patterns \
-    ../../barretenberg/ts/.rebuild_patterns
+    ../../barretenberg/ts/.rebuild_patterns \
+    ../../barretenberg/acir_tests/.rebuild_patterns
 }
 
 function test {
