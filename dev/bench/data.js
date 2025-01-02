@@ -1,68 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1735857190320,
+  "lastUpdate": 1735857758197,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "sirasistant@gmail.com",
-            "name": "Álvaro Rodríguez",
-            "username": "sirasistant"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "ce0eee0ef4a2084ec74b6dae0a75d18af5877ef8",
-          "message": "feat: Add verify proof calls to private kernels (#10533)\n\nCo-authored-by: ledwards2225 <l.edwards.d@gmail.com>",
-          "timestamp": "2024-12-11T12:25:41Z",
-          "tree_id": "885d3fe8632afe5effc86a4a6bded0bf8d12cb44",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/ce0eee0ef4a2084ec74b6dae0a75d18af5877ef8"
-        },
-        "date": 1733922004034,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "nativeClientIVCBench/Full/6",
-            "value": 24968.581983000007,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 23105.302775 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 4957.461303999991,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 4662.423615 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmClientIVCBench/Full/6",
-            "value": 83912.49465499999,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 83912495000 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 15124.951348,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 15124952000 ms\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 2865992796,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 2865992796 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 143406629,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 143406629 ns\nthreads: 1"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -3196,6 +3136,72 @@ window.BENCHMARK_DATA = {
             "value": 148888180,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 148888180 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "49558828+AztecBot@users.noreply.github.com",
+            "name": "Aztec Bot",
+            "username": "AztecBot"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "2d3805a3b682b27bf6275c547b4b3d68d214eebe",
+          "message": "feat: Sync from noir (#10922)\n\nAutomated pull of development from the\n[noir](https://github.com/noir-lang/noir) programming language, a\ndependency of Aztec.\nBEGIN_COMMIT_OVERRIDE\nchore: add `rollup_root` and `rollup_block_merge` to tracked protocol\ncircuits (https://github.com/noir-lang/noir/pull/6903)\nfix: consistent file_id across installation paths\n(https://github.com/noir-lang/noir/pull/6912)\nfix: bigint builtins are foreigns\n(https://github.com/noir-lang/noir/pull/6892)\nfix: remove unnecessary cast in bit-shift\n(https://github.com/noir-lang/noir/pull/6890)\nchore: Release Noir(1.0.0-beta.1)\n(https://github.com/noir-lang/noir/pull/6622)\nchore: Add `Instruction::Noop`\n(https://github.com/noir-lang/noir/pull/6899)\nEND_COMMIT_OVERRIDE\n\n---------\n\nCo-authored-by: Tom French <15848336+TomAFrench@users.noreply.github.com>",
+          "timestamp": "2025-01-02T22:19:38Z",
+          "tree_id": "f959518d63905f05b879372ef583417ae33ee7b4",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/2d3805a3b682b27bf6275c547b4b3d68d214eebe"
+        },
+        "date": 1735857750701,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Ambient_17_in_20/6",
+            "value": 20568.767926000022,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 18035.928342000003 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 21991.315463000006,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 19276.388183000003 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 4671.218221000004,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 4317.6563129999995 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 74022.71658800001,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 74022717000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 13998.589694000002,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 13998590000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 2890858706,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 2890858706 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 143202427,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 143202427 ns\nthreads: 1"
           }
         ]
       }
