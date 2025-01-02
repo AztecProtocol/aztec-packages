@@ -137,6 +137,12 @@ case "$cmd" in
   "test-cmds")
     test_cmds
     ;;
+  "build-tests")
+    build_tests
+    ;;
+  "test-cmds")
+    test_cmds
+    ;;
   "hash")
     echo $hash
     ;;

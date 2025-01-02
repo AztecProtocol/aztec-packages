@@ -27,6 +27,7 @@ function check_toolchains {
     if ! command -v $util > /dev/null; then
       encourage_dev_container
       echo "Utility $util not found."
+      echo "Installation: sudo apt install $util"
       exit 1
     fi
   done
@@ -68,7 +69,7 @@ function check_toolchains {
       echo "$tool not in PATH or incorrect version (requires 25f24e677a6a32a62512ad4f561995589ac2c7dc)."
       echo "Installation: https://book.getfoundry.sh/getting-started/installation"
       echo "  curl -L https://foundry.paradigm.xyz | bash"
-      echo "  foundryup -v nightly-25f24e677a6a32a62512ad4f561995589ac2c7dc"
+      echo "  foundryup -i nightly-25f24e677a6a32a62512ad4f561995589ac2c7dc"
       exit 1
     fi
   done
@@ -152,6 +153,52 @@ function build {
   for project in "${projects[@]}"; do
     $project/bootstrap.sh $cmd
   done
+}
+
+function test_all {
+  # Rust is very annoying.
+  # You sneeze and everything needs recompiling and you can't avoid recompiling when running tests.
+  # Ensure tests are up-to-date first so parallel doesn't complain about slow startup.
+  echo "Building tests..."
+  ./noir/bootstrap.sh build-tests
+
+  # Starting txe servers with incrementing port numbers.
+  export NUM_TXES=8
+  trap 'kill $(jobs -p)' EXIT
+  for i in $(seq 0 $((NUM_TXES-1))); do
+    (cd $root/yarn-project/txe && LOG_LEVEL=silent TXE_PORT=$((45730 + i)) yarn start) &
+  done
+  echo "Waiting for TXE's to start..."
+  for i in $(seq 0 $((NUM_TXES-1))); do
+      while ! nc -z 127.0.0.1 $((45730 + i)) &>/dev/null; do sleep 1; done
+  done
+
+  echo "Gathering tests to run..."
+  {
+    set -euo pipefail
+
+    if [ "$#" -gt 0 ]; then
+      for arg in "$@"; do
+        "$arg/bootstrap.sh" test-cmds
+      done
+    else
+      # Ordered with longest running first, to ensure they get scheduled earliest.
+      ./yarn-project/bootstrap.sh test-cmds
+      ./noir-projects/bootstrap.sh test-cmds
+      ./boxes/bootstrap.sh test-cmds
+      ./barretenberg/bootstrap.sh test-cmds
+      ./l1-contracts/bootstrap.sh test-cmds
+      ./noir/bootstrap.sh test-cmds
+    fi
+  } | parallel -j96 --bar --joblog joblog.txt --halt now,fail=1 'dump_fail {} >/dev/null'
+
+  slow_jobs=$(cat joblog.txt | \
+    awk 'NR>1 && $4 > 300 {print | "sort -k4,4"}' | \
+    awk '{print $4 ": " substr($0, index($0, $9))}' | sed -E "s/^(.*: ).*'([^']+)'.*$/\1\2/")
+  if [ -n "$slow_jobs" ]; then
+    echo -e "${yellow}WARNING: The following tests exceed 5 minute runtimes. Break them up.${reset}"
+    echo "$slow_jobs"
+  fi
 }
 
 case "$cmd" in

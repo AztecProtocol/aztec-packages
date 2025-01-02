@@ -186,7 +186,10 @@ case "$cmd" in
       mv "${artifact}.tmp" "$artifact"
     done
     ;;
-  ""|"fast"|"full"|"ci")
+  ""|"fast"|"full")
+    build
+    ;;
+  "ci")
     build
     ;;
   "compile")
