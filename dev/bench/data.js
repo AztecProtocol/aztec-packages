@@ -1,68 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1735822400863,
+  "lastUpdate": 1735831423776,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "47148561+Maddiaa0@users.noreply.github.com",
-            "name": "Maddiaa",
-            "username": "Maddiaa0"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "e0d743121674bcfdd73f84836c17645a5bc2df92",
-          "message": "feat: keccak honk proving in bb.js (#10489)",
-          "timestamp": "2024-12-10T14:30:44Z",
-          "tree_id": "c4d67da1da2fc7cbe8afda4419d1b4e47a63ccbd",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/e0d743121674bcfdd73f84836c17645a5bc2df92"
-        },
-        "date": 1733842565278,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "nativeClientIVCBench/Full/6",
-            "value": 24970.354224999995,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 22854.476754 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 4569.090336000017,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 4297.830157 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmClientIVCBench/Full/6",
-            "value": 90260.531113,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 90260532000 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 16539.915219,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 16539916000 ms\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 2802856531,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 2802856531 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 135031461,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 135031461 ns\nthreads: 1"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -3160,6 +3100,72 @@ window.BENCHMARK_DATA = {
             "value": 142542608,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 142542608 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "49558828+AztecBot@users.noreply.github.com",
+            "name": "Aztec Bot",
+            "username": "AztecBot"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "2044c58387b5687658f190cf1b4a078a036eabc0",
+          "message": "chore: redo typo PR by Anon-im (#11009)\n\nThanks Anon-im for\nhttps://github.com/AztecProtocol/aztec-packages/pull/10955. Our policy\nis to redo typo changes to dissuade metric farming. This is an automated\nscript.",
+          "timestamp": "2025-01-02T15:08:02Z",
+          "tree_id": "12d5f6b9ca82ea4cc91f7b4c6dcbbd0f7a09d547",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/2044c58387b5687658f190cf1b4a078a036eabc0"
+        },
+        "date": 1735831416875,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Ambient_17_in_20/6",
+            "value": 20514.750378,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 18044.736857 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 22024.17950700004,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 19090.315262999997 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 4681.815486000005,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 4321.173408999999 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 73860.84801599999,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 73860849000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 14015.076969000002,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 14015077000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 2883417471,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 2883417471 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 141694091,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 141694091 ns\nthreads: 1"
           }
         ]
       }
