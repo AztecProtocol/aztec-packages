@@ -67,7 +67,7 @@ function check_toolchains {
       echo "$tool not in PATH or incorrect version (requires 25f24e677a6a32a62512ad4f561995589ac2c7dc)."
       echo "Installation: https://book.getfoundry.sh/getting-started/installation"
       echo "  curl -L https://foundry.paradigm.xyz | bash"
-      echo "  foundryup -v nightly-25f24e677a6a32a62512ad4f561995589ac2c7dc"
+      echo "  foundryup -i nightly-25f24e677a6a32a62512ad4f561995589ac2c7dc"
       exit 1
     fi
   done
