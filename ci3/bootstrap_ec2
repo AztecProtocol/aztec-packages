@@ -52,7 +52,7 @@ github_endgroup
 [ "$NO_TERMINATE" -eq 0 ] && args+=" --rm"
 
 # Interactive if stdin is connected to terminal.
-if [ -t 0 ]; then {
+if [ -t 0 ]; then
   args+=" -ti"
   shell_on_fail="|| exec zsh"
 fi
