@@ -164,7 +164,7 @@ void TranslatorProver::execute_relation_check_rounds()
     }
 
     // // create masking polynomials for sumcheck round univariates and auxiliary data
-    zk_sumcheck_data = ZKData(key->log_circuit_size, transcript, key->commitment_key);
+    zk_sumcheck_data = std::make_shared<ZKData>(key->log_circuit_size, transcript, key->commitment_key);
 
     sumcheck_output = sumcheck.prove(key->polynomials, relation_parameters, alpha, gate_challenges, zk_sumcheck_data);
 }
@@ -183,7 +183,7 @@ void TranslatorProver::execute_pcs_rounds()
 
     using SmallSubgroupIPA = SmallSubgroupIPAProver<Flavor>;
 
-    SmallSubgroupIPA small_subgroup_ipa_prover(zk_sumcheck_data,
+    SmallSubgroupIPA small_subgroup_ipa_prover(*zk_sumcheck_data,
                                                sumcheck_output.challenge,
                                                sumcheck_output.claimed_libra_evaluation,
                                                transcript,

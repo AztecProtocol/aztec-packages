@@ -158,7 +158,6 @@ template <typename Flavor> class SumcheckProver {
 
     std::shared_ptr<Transcript> transcript;
     SumcheckProverRound<Flavor> round;
-    ZKData zk_sumcheck_data;
 
     /**
     *
@@ -192,11 +191,9 @@ template <typename Flavor> class SumcheckProver {
                                  const bb::RelationParameters<FF>& relation_parameters,
                                  const RelationSeparator alpha,
                                  const std::vector<FF>& gate_challenges,
-                                 const ZKData& zk_data = ZKData())
+                                 const std::shared_ptr<ZKData>& zk_sumcheck_data = nullptr)
     {
-        if constexpr (Flavor::HasZK) {
-            extract_zk_data(zk_data);
-        }
+
         bb::GateSeparatorPolynomial<FF> gate_separators(gate_challenges, multivariate_d);
 
         std::vector<FF> multivariate_challenge;
@@ -211,7 +208,7 @@ template <typename Flavor> class SumcheckProver {
                                                          relation_parameters,
                                                          gate_separators,
                                                          alpha,
-                                                         zk_sumcheck_data,
+                                                         *zk_sumcheck_data,
                                                          row_disabling_polynomial);
         vinfo("starting sumcheck rounds...");
         {
@@ -244,7 +241,7 @@ template <typename Flavor> class SumcheckProver {
                                                         relation_parameters,
                                                         gate_separators,
                                                         alpha,
-                                                        zk_sumcheck_data,
+                                                        *zk_sumcheck_data,
                                                         row_disabling_polynomial);
             // Place evaluations of Sumcheck Round Univariate in the transcript
             transcript->send_to_verifier("Sumcheck:univariate_" + std::to_string(round_idx), round_univariate);
@@ -275,10 +272,10 @@ template <typename Flavor> class SumcheckProver {
         FF libra_evaluation{ 0 };
 
         if constexpr (Flavor::HasZK) {
-            for (auto& libra_eval : zk_sumcheck_data.libra_evaluations) {
+            for (auto& libra_eval : zk_sumcheck_data->libra_evaluations) {
                 libra_evaluation += libra_eval;
             }
-            libra_evaluation += zk_sumcheck_data.constant_term;
+            libra_evaluation += zk_sumcheck_data->constant_term;
             std::string libra_evaluation_label = "Libra:claimed_evaluation";
             transcript->send_to_verifier(libra_evaluation_label, libra_evaluation);
         };
@@ -380,15 +377,6 @@ polynomials that are sent in clear.
         return multivariate_evaluations;
     };
 
-    void extract_zk_data(const ZKSumcheckData<Flavor>& zk_data)
-    {
-        zk_sumcheck_data.libra_univariates = std::move(zk_data.libra_univariates);
-        zk_sumcheck_data.constant_term = std::move(zk_data.constant_term);
-        zk_sumcheck_data.libra_running_sum = std::move(zk_data.libra_running_sum);
-        zk_sumcheck_data.libra_challenge = std::move(zk_data.libra_challenge);
-        zk_sumcheck_data.libra_scaling_factor = std::move(zk_data.libra_scaling_factor);
-    }
-
     /**
      * @brief Upon receiving the challenge \f$u_i\f$, the prover updates Libra data. If \f$ i < d-1\f$
 
@@ -414,34 +402,36 @@ polynomials that are sent in clear.
      * @param libra_running_sum
      * @param libra_evaluations
      */
-    void update_zk_sumcheck_data(ZKData& zk_sumcheck_data, const FF round_challenge, size_t round_idx)
+    void update_zk_sumcheck_data(const std::shared_ptr<ZKData>& zk_sumcheck_data,
+                                 const FF round_challenge,
+                                 size_t round_idx)
     {
         static constexpr FF two_inv = FF(1) / FF(2);
         // when round_idx = d - 1, the update is not needed
-        if (round_idx < zk_sumcheck_data.libra_univariates.size() - 1) {
-            for (auto& univariate : zk_sumcheck_data.libra_univariates) {
+        if (round_idx < zk_sumcheck_data->libra_univariates.size() - 1) {
+            for (auto& univariate : zk_sumcheck_data->libra_univariates) {
                 univariate *= two_inv;
             };
             // compute the evaluation \f$ \rho \cdot 2^{d-2-i} \çdot g_i(u_i) \f$
-            auto libra_evaluation = zk_sumcheck_data.libra_univariates[round_idx].evaluate(round_challenge);
-            auto next_libra_univariate = zk_sumcheck_data.libra_univariates[round_idx + 1];
+            auto libra_evaluation = zk_sumcheck_data->libra_univariates[round_idx].evaluate(round_challenge);
+            auto next_libra_univariate = zk_sumcheck_data->libra_univariates[round_idx + 1];
             // update the running sum by adding g_i(u_i) and subtracting (g_i(0) + g_i(1))
-            zk_sumcheck_data.libra_running_sum +=
+            zk_sumcheck_data->libra_running_sum +=
                 -next_libra_univariate.evaluate(FF(0)) - next_libra_univariate.evaluate(FF(1));
-            zk_sumcheck_data.libra_running_sum *= two_inv;
+            zk_sumcheck_data->libra_running_sum *= two_inv;
 
-            zk_sumcheck_data.libra_running_sum += libra_evaluation;
-            zk_sumcheck_data.libra_scaling_factor *= two_inv;
+            zk_sumcheck_data->libra_running_sum += libra_evaluation;
+            zk_sumcheck_data->libra_scaling_factor *= two_inv;
 
-            zk_sumcheck_data.libra_evaluations.emplace_back(libra_evaluation / zk_sumcheck_data.libra_scaling_factor);
+            zk_sumcheck_data->libra_evaluations.emplace_back(libra_evaluation / zk_sumcheck_data->libra_scaling_factor);
         } else {
             // compute the evaluation of the last Libra univariate at the challenge u_{d-1}
-            auto libra_evaluation = zk_sumcheck_data.libra_univariates[round_idx].evaluate(round_challenge) /
-                                    zk_sumcheck_data.libra_scaling_factor;
+            auto libra_evaluation = zk_sumcheck_data->libra_univariates[round_idx].evaluate(round_challenge) /
+                                    zk_sumcheck_data->libra_scaling_factor;
             // place the evalution into the vector of Libra evaluations
-            zk_sumcheck_data.libra_evaluations.emplace_back(libra_evaluation);
-            for (auto univariate : zk_sumcheck_data.libra_univariates) {
-                univariate *= FF(1) / zk_sumcheck_data.libra_challenge;
+            zk_sumcheck_data->libra_evaluations.emplace_back(libra_evaluation);
+            for (auto univariate : zk_sumcheck_data->libra_univariates) {
+                univariate *= FF(1) / zk_sumcheck_data->libra_challenge;
             }
         };
     }

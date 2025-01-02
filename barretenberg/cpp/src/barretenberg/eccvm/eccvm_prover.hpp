@@ -56,7 +56,7 @@ class ECCVMProver {
     std::shared_ptr<ProvingKey> key;
 
     CommitmentLabels commitment_labels;
-    ZKData zk_sumcheck_data;
+    std::shared_ptr<ZKData> zk_sumcheck_data;
 
     Polynomial batched_quotient_Q; // batched quotient poly computed by Shplonk
     FF nu_challenge;               // needed in both Shplonk rounds

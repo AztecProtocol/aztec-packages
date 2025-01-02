@@ -149,7 +149,7 @@ template <typename Flavor> class SumcheckTests : public ::testing::Test {
         SumcheckOutput<Flavor> output;
 
         if constexpr (Flavor::HasZK) {
-            ZKData zk_sumcheck_data(multivariate_d, transcript);
+            std::shared_ptr<ZKData> zk_sumcheck_data = std::make_shared<ZKData>(multivariate_d, transcript);
             output = sumcheck.prove(full_polynomials, {}, alpha, gate_challenges, zk_sumcheck_data);
         } else {
             output = sumcheck.prove(full_polynomials, {}, alpha, gate_challenges);
@@ -255,7 +255,7 @@ template <typename Flavor> class SumcheckTests : public ::testing::Test {
         }
         SumcheckOutput<Flavor> output;
         if constexpr (Flavor::HasZK) {
-            ZKData zk_sumcheck_data(multivariate_d, prover_transcript);
+            std::shared_ptr<ZKData> zk_sumcheck_data = std::make_shared<ZKData>(multivariate_d, prover_transcript);
             output = sumcheck_prover.prove(
                 full_polynomials, relation_parameters, prover_alpha, prover_gate_challenges, zk_sumcheck_data);
         } else {
@@ -345,7 +345,7 @@ template <typename Flavor> class SumcheckTests : public ::testing::Test {
         SumcheckOutput<Flavor> output;
         if constexpr (Flavor::HasZK) {
             // construct libra masking polynomials and compute auxiliary data
-            ZKData zk_sumcheck_data(multivariate_d, prover_transcript);
+            std::shared_ptr<ZKData> zk_sumcheck_data = std::make_shared<ZKData>(multivariate_d, prover_transcript);
             output = sumcheck_prover.prove(
                 full_polynomials, relation_parameters, prover_alpha, prover_gate_challenges, zk_sumcheck_data);
         } else {

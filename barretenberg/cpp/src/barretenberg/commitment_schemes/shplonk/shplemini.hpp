@@ -521,21 +521,21 @@ template <typename Curve> class ShpleminiVerifier_ {
     }
 
     /**
-     * @brief Combines scalars of repeating commitments to reduce the number of scalar multiplications performed by
-     * the verifier.
+     * @brief Combines scalars of repeating commitments to reduce the number of scalar multiplications performed by the
+     * verifier.
      *
-     * @details The Shplemini verifier gets the access to multiple groups of commitments, some of which are
-     * duplicated because they correspond to polynomials whose shifts also evaluated or used in concatenation groups
-     * in Translator. This method combines the scalars associated with these repeating commitments, reducing the
-     * total number of scalar multiplications required during the verification.
+     * @details The Shplemini verifier gets the access to multiple groups of commitments, some of which are duplicated
+     * because they correspond to polynomials whose shifts also evaluated or used in concatenation groups in
+     * Translator. This method combines the scalars associated with these repeating commitments, reducing the total
+     * number of scalar multiplications required during the verification.
      *
      * More specifically, the Shplemini verifier receives two or three groups of commitments: get_unshifted() and
      * get_to_be_shifted() in the case of Ultra, Mega, and ECCVM Flavors; and get_unshifted_without_concatenated(),
-     * get_to_be_shifted(), and get_groups_to_be_concatenated() in the case of the TranslatorFlavor. The commitments
-     * are then placed in this specific order in a BatchOpeningClaim object containing a vector of commitments and a
-     * vector of scalars. The ranges with repeated commitments belong to the Flavors. This method iterates over
-     * these ranges and sums the scalar multipliers corresponding to the same group element. After combining the
-     * scalars, we erase corresponding entries in both vectors.
+     * get_to_be_shifted(), and get_groups_to_be_concatenated() in the case of the TranslatorFlavor. The commitments are
+     * then placed in this specific order in a BatchOpeningClaim object containing a vector of commitments and a vector
+     * of scalars. The ranges with repeated commitments belong to the Flavors. This method iterates over these ranges
+     * and sums the scalar multipliers corresponding to the same group element. After combining the scalars, we erase
+     * corresponding entries in both vectors.
      *
      */
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/1151) Avoid erasing vector elements.
@@ -544,9 +544,9 @@ template <typename Curve> class ShpleminiVerifier_ {
                                             const RepeatedCommitmentsData& repeated_commitments,
                                             bool has_zk)
     {
-        // We started populating commitments and scalars by adding Shplonk:Q commitmment and the corresponding
-        // scalar factor 1. In the case of ZK, we also added Gemini:masking_poly_comm before populating the vector
-        // with commitments to prover polynomials
+        // We started populating commitments and scalars by adding Shplonk:Q commitmment and the corresponding scalar
+        // factor 1. In the case of ZK, we also added Gemini:masking_poly_comm before populating the vector with
+        // commitments to prover polynomials
         const size_t offset = has_zk ? 2 : 1;
 
         // Extract the indices from the container, which is normally created in a given Flavor
