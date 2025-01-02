@@ -4,6 +4,8 @@ telemetry:
 
 validator:
   replicas: 1
+  sequencer:
+    enforceFees: false # disabled until the bot can fund itself
   validatorKeys:
     - 0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80
   validatorAddresses:
@@ -24,6 +26,7 @@ proverAgent:
 
 bot:
   followChain: "PENDING"
+  feePaymentMethod: "none" # disabled until the bot can fund itself
   enabled: true
   txIntervalSeconds: 200
 

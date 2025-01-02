@@ -1,4 +1,4 @@
-import { foreignCallHandler } from '@aztec/noir-protocol-circuits-types';
+import { foreignCallHandler } from '@aztec/noir-protocol-circuits-types/client';
 import { type NoirCompiledCircuit } from '@aztec/types/noir';
 
 import { executeCircuit } from '@noir-lang/acvm_js';
@@ -17,7 +17,7 @@ export class WASMSimulator implements SimulationProvider {
     const _witnessMap = await executeCircuit(
       decodedBytecode,
       input,
-      foreignCallHandler, // handle calls to debug_log and evaluate_blobs mock
+      foreignCallHandler, // handle calls to debug_log
     );
 
     return _witnessMap;

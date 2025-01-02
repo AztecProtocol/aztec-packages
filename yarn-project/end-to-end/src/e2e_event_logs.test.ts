@@ -9,7 +9,7 @@ import {
 import { EventSelector } from '@aztec/foundation/abi';
 import { makeTuple } from '@aztec/foundation/array';
 import { type Tuple } from '@aztec/foundation/serialize';
-import { type ExampleEvent0, type ExampleEvent1, TestLogContract } from '@aztec/noir-contracts.js';
+import { type ExampleEvent0, type ExampleEvent1, TestLogContract } from '@aztec/noir-contracts.js/TestLog';
 
 import { jest } from '@jest/globals';
 

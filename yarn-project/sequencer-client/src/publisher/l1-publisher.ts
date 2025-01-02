@@ -7,16 +7,15 @@ import {
   type TxHash,
   getHashedSignaturePayload,
 } from '@aztec/circuit-types';
-import { type L1PublishBlockStats, type L1PublishProofStats } from '@aztec/circuit-types/stats';
+import { type L1PublishBlockStats, type L1PublishProofStats, type L1PublishStats } from '@aztec/circuit-types/stats';
 import {
   AGGREGATION_OBJECT_LENGTH,
   AZTEC_MAX_EPOCH_DURATION,
   type BlockHeader,
   EthAddress,
-  type FeeRecipient,
   type Proof,
-  type RootRollupPublicInputs,
 } from '@aztec/circuits.js';
+import { type FeeRecipient, type RootRollupPublicInputs } from '@aztec/circuits.js/rollup';
 import {
   type EthereumChain,
   type L1ContractsConfig,
@@ -38,7 +37,6 @@ import { GovernanceProposerAbi, RollupAbi } from '@aztec/l1-artifacts';
 import { type TelemetryClient } from '@aztec/telemetry-client';
 
 import pick from 'lodash.pick';
-import { inspect } from 'util';
 import {
   type BaseError,
   type Chain,
@@ -71,7 +69,7 @@ import { privateKeyToAccount } from 'viem/accounts';
 
 import { type PublisherConfig, type TxSenderConfig } from './config.js';
 import { L1PublisherMetrics } from './l1-publisher-metrics.js';
-import { prettyLogViemError, prettyLogViemErrorMsg } from './utils.js';
+import { prettyLogViemErrorMsg } from './utils.js';
 
 /**
  * Stats for a sent transaction.
@@ -549,6 +547,8 @@ export class L1Publisher {
       const stats: L1PublishBlockStats = {
         gasPrice: receipt.effectiveGasPrice,
         gasUsed: receipt.gasUsed,
+        blobGasUsed: receipt.blobGasUsed ?? 0n,
+        blobDataGas: receipt.blobGasPrice ?? 0n,
         transactionHash: receipt.transactionHash,
         ...pick(tx!, 'calldataGas', 'calldataSize', 'sender'),
         ...block.getStats(),
@@ -581,6 +581,55 @@ export class L1Publisher {
     });
     await this.sleepOrInterrupted();
     return false;
+  }
+
+  /** Calls claimEpochProofRight in the Rollup contract to submit a chosen prover quote for the previous epoch. */
+  public async claimEpochProofRight(proofQuote: EpochProofQuote) {
+    const timer = new Timer();
+
+    let receipt;
+    try {
+      this.log.debug(`Submitting claimEpochProofRight transaction`);
+      receipt = await this.l1TxUtils.sendAndMonitorTransaction({
+        to: this.rollupContract.address,
+        data: encodeFunctionData({
+          abi: RollupAbi,
+          functionName: 'claimEpochProofRight',
+          args: [proofQuote.toViemArgs()],
+        }),
+      });
+    } catch (err) {
+      this.log.error(`Failed to claim epoch proof right: ${prettyLogViemErrorMsg(err)}`, err, {
+        proofQuote: proofQuote.toInspect(),
+      });
+      return false;
+    }
+
+    if (receipt.status === 'success') {
+      const tx = await this.getTransactionStats(receipt.transactionHash);
+      const stats: L1PublishStats = {
+        gasPrice: receipt.effectiveGasPrice,
+        gasUsed: receipt.gasUsed,
+        transactionHash: receipt.transactionHash,
+        blobDataGas: 0n,
+        blobGasUsed: 0n,
+        ...pick(tx!, 'calldataGas', 'calldataSize', 'sender'),
+      };
+      this.log.verbose(`Submitted claim epoch proof right to L1 rollup contract`, {
+        ...stats,
+        ...proofQuote.toInspect(),
+      });
+      this.metrics.recordClaimEpochProofRightTx(timer.ms(), stats);
+      return true;
+    } else {
+      this.metrics.recordFailedTx('claimEpochProofRight');
+      // TODO: Get the error message from the reverted tx
+      this.log.error(`Claim epoch proof right tx reverted`, {
+        txHash: receipt.transactionHash,
+        ...proofQuote.toInspect(),
+      });
+      return false;
+    }
   }
 
   private async tryGetErrorFromRevertedTx(
@@ -679,6 +728,8 @@ export class L1Publisher {
         const stats: L1PublishProofStats = {
           ...pick(receipt, 'gasPrice', 'gasUsed', 'transactionHash'),
           ...pick(tx!, 'calldataGas', 'calldataSize', 'sender'),
+          blobDataGas: 0n,
+          blobGasUsed: 0n,
           eventName: 'proof-published-to-l1',
         };
         this.log.info(`Published epoch proof to L1 rollup contract`, { ...stats, ...ctx });
@@ -925,8 +976,7 @@ export class L1Publisher {
         data,
       };
     } catch (err) {
-      prettyLogViemError(err, this.log);
-      this.log.error(`Rollup publish failed`, err);
+      this.log.error(`Rollup publish failed: ${prettyLogViemErrorMsg(err)}`, err);
       return undefined;
     }
   }
@@ -939,9 +989,6 @@ export class L1Publisher {
       return undefined;
     }
     try {
-      this.log.info(`ProposeAndClaim`);
-      this.log.info(inspect(quote.payload));
-
       const kzg = Blob.getViemKzgInstance();
       const { args, gas } = await this.prepareProposeTx(encodedData);
       const data = encodeFunctionData({
@@ -969,9 +1016,7 @@ export class L1Publisher {
         data,
       };
     } catch (err) {
-      prettyLogViemError(err, this.log);
-      const errorMessage = err instanceof Error ? err.message : String(err);
-      this.log.error(`Rollup publish failed`, errorMessage);
+      this.log.error(`Rollup publish failed: ${prettyLogViemErrorMsg(err)}`, err);
       return undefined;
     }
   }

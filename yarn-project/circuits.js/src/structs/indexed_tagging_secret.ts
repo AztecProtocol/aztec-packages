@@ -3,7 +3,11 @@ import { poseidon2Hash } from '@aztec/foundation/crypto';
 import { Fr } from '@aztec/foundation/fields';
 
 export class IndexedTaggingSecret {
-  constructor(public appTaggingSecret: Fr, public index: number) {}
+  constructor(public appTaggingSecret: Fr, public index: number) {
+    if (index < 0) {
+      throw new Error('IndexedTaggingSecret index out of bounds');
+    }
+  }
 
   toFields(): Fr[] {
     return [this.appTaggingSecret, new Fr(this.index)];

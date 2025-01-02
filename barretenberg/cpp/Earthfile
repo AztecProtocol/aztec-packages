@@ -1,4 +1,4 @@
-VERSION 0.8
+VERSION --raw-output 0.8
 
 # Note, this is only used on the main build path, caching test artifacts is less useful
 # As those only run if there are changes anyway.
@@ -230,6 +230,7 @@ bench-client-ivc:
   COPY --dir +bench-binaries/* .
   # install SRS needed for proving
   COPY --dir ./srs_db/+build/. srs_db
+  RUN cd release && ./bin/client_ivc_bench --benchmark_out=../client_ivc_17_in_20_release.json --benchmark_filter="ClientIVCBench/Ambient_17_in_20/6$"
   RUN cd release && ./bin/client_ivc_bench --benchmark_out=../client_ivc_release.json --benchmark_filter="ClientIVCBench/Full/6$"
   RUN cd op-count && ./bin/client_ivc_bench --benchmark_out=../client_ivc_op_count.json --benchmark_filter="ClientIVCBench/Full/6$"
   RUN cd op-count-time && ./bin/client_ivc_bench --benchmark_out=../client_ivc_op_count_time.json --benchmark_filter="ClientIVCBench/Full/6$"
@@ -248,6 +249,7 @@ bench:
   END
   COPY ./scripts/ci/combine_benchmarks.py ./scripts/ci/combine_benchmarks.py
   RUN ./scripts/ci/combine_benchmarks.py \
+    native client_ivc_17_in_20_release.json \
     native client_ivc_release.json \
     native ultra_honk_release.json \
     wasm client_ivc_wasm.json \
@@ -292,7 +294,8 @@ test:
   IF [ "$HARDWARE_CONCURRENCY" != "" ]
     ENV HARDWARE_CONCURRENCY=$hardware_concurrency
   END
-  RUN cd build && GTEST_COLOR=1 ctest -j$(nproc) --output-on-failure
+  ARG jobs=$(nproc)
+  RUN --raw-output cd build && GTEST_COLOR=1 ctest -j$jobs --output-on-failure
 
 vm-full-test:
   ARG hardware_concurrency=""

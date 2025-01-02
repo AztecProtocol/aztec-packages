@@ -122,7 +122,7 @@ class AcirAvmRecursionConstraint : public ::testing::Test {
 
         mock_opcode_indices(constraint_system);
         auto outer_circuit =
-            create_circuit(constraint_system, /*recursive*/ false, /*size_hint*/ 0, witness, /*honk_recursion=*/true);
+            create_circuit(constraint_system, /*recursive*/ false, /*size_hint*/ 0, witness, /*honk_recursion=*/1);
         return outer_circuit;
     }
 };

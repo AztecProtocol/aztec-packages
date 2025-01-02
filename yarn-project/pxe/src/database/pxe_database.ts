@@ -119,24 +119,24 @@ export interface PxeDatabase extends ContractArtifactDatabase, ContractInstanceD
   setHeader(header: BlockHeader): Promise<void>;
 
   /**
-   * Adds contact address to the database.
+   * Adds sender address to the database.
    * @param address - The address to add to the address book.
    * @returns A promise resolving to true if the address was added, false if it already exists.
    */
-  addContactAddress(address: AztecAddress): Promise<boolean>;
+  addSenderAddress(address: AztecAddress): Promise<boolean>;
 
   /**
-   * Retrieves the list of contact addresses in the address book.
+   * Retrieves the list of sender addresses in the address book.
    * @returns An array of Aztec addresses.
    */
-  getContactAddresses(): Promise<AztecAddress[]>;
+  getSenderAddresses(): Promise<AztecAddress[]>;
 
   /**
-   * Removes a contact address from the database.
+   * Removes a sender address from the database.
    * @param address - The address to remove from the address book.
    * @returns A promise resolving to true if the address was removed, false if it does not exist.
    */
-  removeContactAddress(address: AztecAddress): Promise<boolean>;
+  removeSenderAddress(address: AztecAddress): Promise<boolean>;
 
   /**
    * Adds complete address to the database.

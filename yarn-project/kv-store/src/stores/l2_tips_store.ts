@@ -47,10 +47,10 @@ export class L2TipsStore implements L2BlockStreamEventHandler, L2BlockStreamLoca
   public async handleBlockStreamEvent(event: L2BlockStreamEvent): Promise<void> {
     switch (event.type) {
       case 'blocks-added':
-        await this.l2TipsStore.set('latest', event.blocks.at(-1)!.number);
         for (const block of event.blocks) {
           await this.l2BlockHashesStore.set(block.number, block.header.hash().toString());
         }
+        await this.l2TipsStore.set('latest', event.blocks.at(-1)!.number);
         break;
       case 'chain-pruned':
         await this.l2TipsStore.set('latest', event.blockNumber);

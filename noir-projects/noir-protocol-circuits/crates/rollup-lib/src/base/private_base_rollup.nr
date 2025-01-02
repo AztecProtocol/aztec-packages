@@ -1,13 +1,12 @@
 use crate::{
-    abis::{
-        base_or_merge_rollup_public_inputs::{BASE_ROLLUP_TYPE, BaseOrMergeRollupPublicInputs},
-        constant_rollup_data::ConstantRollupData,
-    },
+    abis::base_or_merge_rollup_public_inputs::{BASE_ROLLUP_TYPE, BaseOrMergeRollupPublicInputs},
     base::{
         components::{
             archive::perform_archive_membership_check, constants::validate_combined_constant_data,
             fees::compute_fee_payer_fee_juice_balance_leaf_slot,
-            nullifier_tree::nullifier_tree_batch_insert, public_data_tree::public_data_tree_insert,
+            nullifier_tree::nullifier_tree_batch_insert,
+            private_base_rollup_output_composer::compute_transaction_fee, PrivateTubeDataValidator,
+            public_data_tree::public_data_tree_insert,
         },
         state_diff_hints::PrivateBaseStateDiffHints,
     },
@@ -15,12 +14,13 @@ use crate::{
 };
 use dep::types::{
     abis::{
-        append_only_tree_snapshot::AppendOnlyTreeSnapshot,
+        append_only_tree_snapshot::AppendOnlyTreeSnapshot, constant_rollup_data::ConstantRollupData,
         nullifier_leaf_preimage::NullifierLeafPreimage, public_data_write::PublicDataWrite,
         sponge_blob::SpongeBlob, tube::PrivateTubeData,
     },
     constants::{
         ARCHIVE_HEIGHT, MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, NOTE_HASH_SUBTREE_HEIGHT,
+        TUBE_VK_INDEX,
     },
     data::{hash::compute_public_data_tree_value, public_data_hint::PublicDataHint},
     hash::silo_l2_to_l1_message,
@@ -32,7 +32,7 @@ use dep::types::{
     traits::is_empty,
 };
 
-// global ALLOWED_PREVIOUS_CIRCUITS: [u32; 2] = [PRIVATE_KERNEL_EMPTY_INDEX, TUBE_VK_INDEX];
+global ALLOWED_PREVIOUS_CIRCUITS: [u32; 1] = [TUBE_VK_INDEX];
 
 pub struct PrivateBaseRollupInputs {
     tube_data: PrivateTubeData,
@@ -48,20 +48,16 @@ pub struct PrivateBaseRollupInputs {
 }
 
 impl PrivateBaseRollupInputs {
-    fn compute_transaction_fee(self) -> Field {
-        let gas_fees = self.constants.global_variables.gas_fees;
-        let gas_used = self.tube_data.public_inputs.gas_used;
-        gas_used.compute_fee(gas_fees)
-    }
-
     pub fn execute(self) -> BaseOrMergeRollupPublicInputs {
-        if !dep::std::runtime::is_unconstrained() {
-            self.tube_data.verify();
-            // TODO(#7410)
-            // self.tube_data.vk_data.validate_in_vk_tree(self.tube_data.public_inputs.constants.vk_tree_root, ALLOWED_PREVIOUS_CIRCUITS);
-        }
+        // TODO(#10311): There should be an empty base rollup.
+        // There's at least 1 nullifier for a tx. So gas_used won't be empty if the previous circuit is private_tail.
+        let is_empty_tube = self.tube_data.public_inputs.gas_used.is_empty();
 
-        let transaction_fee = self.compute_transaction_fee();
+        let tube_data_validator = PrivateTubeDataValidator::new(self.tube_data);
+        tube_data_validator.verify_proof(ALLOWED_PREVIOUS_CIRCUITS);
+        if !is_empty_tube {
+            tube_data_validator.validate_with_rollup_data(self.constants);
+        }
 
         validate_combined_constant_data(self.tube_data.public_inputs.constants, self.constants);
 
@@ -94,6 +90,12 @@ impl PrivateBaseRollupInputs {
         // Insert nullifiers:
         let end_nullifier_tree_snapshot =
             self.check_nullifier_tree_non_membership_and_insert_to_tree();
+
+        let transaction_fee = compute_transaction_fee(
+            self.constants.global_variables.gas_fees,
+            self.tube_data.public_inputs.constants.tx_context.gas_settings,
+            self.tube_data.public_inputs.gas_used,
+        );
 
         // Write fee to public data tree
         let fee_public_data_write = self.build_fee_public_data_write(transaction_fee);
@@ -223,10 +225,7 @@ impl PrivateBaseRollupInputs {
 
 mod tests {
     use crate::{
-        abis::{
-            base_or_merge_rollup_public_inputs::BaseOrMergeRollupPublicInputs,
-            constant_rollup_data::ConstantRollupData,
-        },
+        abis::base_or_merge_rollup_public_inputs::BaseOrMergeRollupPublicInputs,
         base::{
             components::fees::compute_fee_payer_fee_juice_balance_leaf_slot,
             private_base_rollup::PrivateBaseRollupInputs,
@@ -239,7 +238,8 @@ mod tests {
     use dep::types::{
         abis::{
             accumulated_data::CombinedAccumulatedData,
-            append_only_tree_snapshot::AppendOnlyTreeSnapshot, gas::Gas, gas_fees::GasFees,
+            append_only_tree_snapshot::AppendOnlyTreeSnapshot,
+            constant_rollup_data::ConstantRollupData, gas::Gas, gas_fees::GasFees,
             kernel_circuit_public_inputs::KernelCircuitPublicInputs,
             nullifier_leaf_preimage::NullifierLeafPreimage, public_data_write::PublicDataWrite,
             sponge_blob::SpongeBlob,
@@ -887,6 +887,8 @@ mod tests {
         builder.tube_data.set_gas_used(100, 200);
         builder.constants.global_variables.gas_fees.fee_per_da_gas = 1;
         builder.constants.global_variables.gas_fees.fee_per_l2_gas = 1;
+        builder.tube_data.tx_context.gas_settings.max_fees_per_gas.fee_per_da_gas = 1;
+        builder.tube_data.tx_context.gas_settings.max_fees_per_gas.fee_per_l2_gas = 1;
         let tx_fee = builder.compute_transaction_fee();
         // builder.transaction_fee = tx_fee;
         builder.tube_data.append_note_hashes_with_logs(NUM_NOTES);
@@ -1118,6 +1120,7 @@ mod tests {
 
         // Set gas
         builder.tube_data.gas_used = gas_used;
+        builder.tube_data.tx_context.gas_settings.max_fees_per_gas = gas_fees;
         builder.constants.global_variables.gas_fees = gas_fees;
 
         // Set fee payer
@@ -1167,6 +1170,7 @@ mod tests {
 
         // Set gas
         builder.tube_data.gas_used = gas_used;
+        builder.tube_data.tx_context.gas_settings.max_fees_per_gas = gas_fees;
         builder.constants.global_variables.gas_fees = gas_fees;
 
         // Set fee payer
@@ -1197,6 +1201,7 @@ mod tests {
 
         // Set gas
         builder.tube_data.gas_used = gas_used;
+        builder.tube_data.tx_context.gas_settings.max_fees_per_gas = gas_fees;
         builder.constants.global_variables.gas_fees = gas_fees;
 
         // Set fee payer

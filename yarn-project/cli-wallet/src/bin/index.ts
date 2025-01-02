@@ -88,9 +88,18 @@ async function main() {
     )
     .hook('preSubcommand', async command => {
       const { dataDir, remotePxe, nodeUrl } = command.optsWithGlobals();
+
       if (!remotePxe) {
         debugLogger.info('Using local PXE service');
-        await pxeWrapper.init(nodeUrl, join(dataDir, 'pxe'));
+
+        // Always enable proving when profiling
+        const subcommand = command.args[0];
+        const isProfiling = command.args.includes('--profile');
+        const proverEnabled = subcommand === 'simulate' && isProfiling;
+
+        await pxeWrapper.init(nodeUrl, join(dataDir, 'pxe'), {
+          ...(proverEnabled && { proverEnabled }), // only override if we're profiling
+        });
       }
       db.init(AztecLmdbStore.open(dataDir));
     });

@@ -16,8 +16,8 @@ import {
   UnencryptedTxL2Logs,
   WorldStateRunningState,
   type WorldStateSynchronizer,
+  mockEpochProofQuote as baseMockEpochProofQuote,
   makeProcessedTxFromPrivateOnlyTx,
-  mockEpochProofQuote,
   mockTxForRollup,
 } from '@aztec/circuit-types';
 import {
@@ -26,6 +26,7 @@ import {
   EthAddress,
   Fr,
   GasFees,
+  type GasSettings,
   GlobalVariables,
   NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
 } from '@aztec/circuits.js';
@@ -34,6 +35,7 @@ import { Buffer32 } from '@aztec/foundation/buffer';
 import { times } from '@aztec/foundation/collection';
 import { randomBytes } from '@aztec/foundation/crypto';
 import { Signature } from '@aztec/foundation/eth-signature';
+import { TestDateProvider } from '@aztec/foundation/timer';
 import { type Writeable } from '@aztec/foundation/types';
 import { type P2P, P2PClientState } from '@aztec/p2p';
 import { type BlockBuilderFactory } from '@aztec/prover-client/block-builder';
@@ -69,8 +71,12 @@ describe('sequencer', () => {
 
   let sequencer: TestSubject;
 
-  const epochDuration = DefaultL1ContractsConfig.aztecEpochDuration;
-  const slotDuration = DefaultL1ContractsConfig.aztecSlotDuration;
+  const {
+    aztecEpochDuration: epochDuration,
+    aztecSlotDuration: slotDuration,
+    ethereumSlotDuration,
+  } = DefaultL1ContractsConfig;
+
   const chainId = new Fr(12345);
   const version = Fr.ZERO;
   const coinbase = EthAddress.random();
@@ -187,10 +193,11 @@ describe('sequencer', () => {
       createBlockProposal: mockFn().mockResolvedValue(createBlockProposal()),
     });
 
-    const l1GenesisTime = Math.floor(Date.now() / 1000);
+    const l1GenesisTime = BigInt(Math.floor(Date.now() / 1000));
+    const l1Constants = { l1GenesisTime, slotDuration, ethereumSlotDuration };
     sequencer = new TestSubject(
       publisher,
-      // TDOO(md): add the relevant methods to the validator client that will prevent it stalling when waiting for attestations
+      // TODO(md): add the relevant methods to the validator client that will prevent it stalling when waiting for attestations
       validatorClient,
       globalVariableBuilder,
       p2p,
@@ -200,8 +207,8 @@ describe('sequencer', () => {
       l1ToL2MessageSource,
       publicProcessorFactory,
       new TxValidatorFactory(merkleTreeOps, contractSource, false),
-      l1GenesisTime,
-      slotDuration,
+      l1Constants,
+      new TestDateProvider(),
       new NoopTelemetryClient(),
       { enforceTimeTable: true, maxTxsPerBlock: 4 },
     );
@@ -230,9 +237,7 @@ describe('sequencer', () => {
   });
 
   it.each([
-    {
-      delayedState: SequencerState.WAITING_FOR_TXS,
-    },
+    { delayedState: SequencerState.WAITING_FOR_TXS },
     // It would be nice to add the other states, but we would need to inject delays within the `work` loop
   ])('does not build a block if it does not have enough time left in the slot', async ({ delayedState }) => {
     // trick the sequencer into thinking that we are just too far into slot 1
@@ -388,6 +393,47 @@ describe('sequencer', () => {
       Array(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP).fill(new Fr(0n)),
     );
     expect(publisher.proposeL2Block).toHaveBeenCalledWith(block, getSignatures(), validTxHashes, undefined);
+  });
+
+  it('builds a block out of several txs skipping the ones not providing enough fee per gas', async () => {
+    const gasFees = new GasFees(10, 20);
+    mockedGlobalVariables.gasFees = gasFees;
+
+    const txs = Array(5)
+      .fill(0)
+      .map((_, i) => mockTxForRollup(0x10000 * i));
+
+    const skippedTxIndexes = [1, 2];
+    const validTxHashes: TxHash[] = [];
+    txs.forEach((tx, i) => {
+      tx.data.constants.txContext.chainId = chainId;
+      const maxFeesPerGas: Writeable<GasFees> = gasFees.clone();
+      const feeToAdjust = i % 2 ? 'feePerDaGas' : 'feePerL2Gas';
+      if (skippedTxIndexes.includes(i)) {
+        // maxFeesPerGas is less than gasFees.
+        maxFeesPerGas[feeToAdjust] = maxFeesPerGas[feeToAdjust].sub(new Fr(i + 1));
+      } else {
+        // maxFeesPerGas is greater than or equal to gasFees.
+        maxFeesPerGas[feeToAdjust] = maxFeesPerGas[feeToAdjust].add(new Fr(i));
+        validTxHashes.push(tx.getTxHash());
+      }
+      (tx.data.constants.txContext.gasSettings as Writeable<GasSettings>).maxFeesPerGas = maxFeesPerGas;
+    });
+
+    p2p.getPendingTxs.mockResolvedValueOnce(txs);
+    blockBuilder.setBlockCompleted.mockResolvedValue(block);
+    publisher.proposeL2Block.mockResolvedValueOnce(true);
+    globalVariableBuilder.buildGlobalVariables.mockResolvedValueOnce(mockedGlobalVariables);
+
+    await sequencer.doRealWork();
+
+    expect(blockBuilder.startNewBlock).toHaveBeenCalledWith(
+      mockedGlobalVariables,
+      Array(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP).fill(new Fr(0n)),
+    );
+    expect(publisher.proposeL2Block).toHaveBeenCalledWith(block, getSignatures(), validTxHashes, undefined);
+    // The txs are not included. But they are not dropped from the pool either.
+    expect(p2p.deleteTxs).not.toHaveBeenCalled();
   });
 
   it('builds a block once it reaches the minimum number of transactions', async () => {
@@ -546,9 +592,10 @@ describe('sequencer', () => {
     expect(publisher.proposeL2Block).not.toHaveBeenCalled();
   });
 
-  describe('Handling proof quotes', () => {
+  describe('proof quotes', () => {
     let txHash: TxHash;
     let currentEpoch = 0n;
+
     const setupForBlockNumber = (blockNumber: number) => {
       currentEpoch = BigInt(blockNumber) / BigInt(epochDuration);
       // Create a new block and header
@@ -598,17 +645,20 @@ describe('sequencer', () => {
       blockBuilder.setBlockCompleted.mockResolvedValue(block);
     };
 
+    const mockEpochProofQuote = (opts: { epoch?: bigint; validUntilSlot?: bigint; fee?: number } = {}) =>
+      baseMockEpochProofQuote(
+        opts.epoch ?? currentEpoch - 1n,
+        opts.validUntilSlot ?? block.header.globalVariables.slotNumber.toBigInt() + 1n,
+        10000n,
+        EthAddress.random(),
+        opts.fee ?? 1,
+      );
+
     it('submits a valid proof quote with a block', async () => {
       const blockNumber = epochDuration + 1;
       setupForBlockNumber(blockNumber);
 
-      const proofQuote = mockEpochProofQuote(
-        currentEpoch - 1n,
-        block.header.globalVariables.slotNumber.toBigInt() + 1n,
-        10000n,
-        EthAddress.random(),
-        1,
-      );
+      const proofQuote = mockEpochProofQuote();
 
       p2p.getEpochProofQuotes.mockResolvedValue([proofQuote]);
       publisher.proposeL2Block.mockResolvedValueOnce(true);
@@ -621,17 +671,32 @@ describe('sequencer', () => {
       expect(publisher.proposeL2Block).toHaveBeenCalledWith(block, getSignatures(), [txHash], proofQuote);
     });
 
+    it('submits a valid proof quote even without a block', async () => {
+      const blockNumber = epochDuration + 1;
+      setupForBlockNumber(blockNumber);
+
+      // There are no txs!
+      p2p.getPendingTxs.mockResolvedValue([]);
+
+      const proofQuote = mockEpochProofQuote();
+
+      p2p.getEpochProofQuotes.mockResolvedValue([proofQuote]);
+      publisher.claimEpochProofRight.mockResolvedValueOnce(true);
+      publisher.validateProofQuote.mockImplementation((x: EpochProofQuote) => Promise.resolve(x));
+
+      // The previous epoch can be claimed
+      publisher.getClaimableEpoch.mockImplementation(() => Promise.resolve(currentEpoch - 1n));
+
+      await sequencer.doRealWork();
+      expect(publisher.claimEpochProofRight).toHaveBeenCalledWith(proofQuote);
+      expect(publisher.proposeL2Block).not.toHaveBeenCalled();
+    });
+
     it('does not claim the epoch previous to the first', async () => {
       const blockNumber = 1;
       setupForBlockNumber(blockNumber);
 
-      const proofQuote = mockEpochProofQuote(
-        0n,
-        block.header.globalVariables.slotNumber.toBigInt() + 1n,
-        10000n,
-        EthAddress.random(),
-        1,
-      );
+      const proofQuote = mockEpochProofQuote({ epoch: 0n });
 
       p2p.getEpochProofQuotes.mockResolvedValue([proofQuote]);
       publisher.proposeL2Block.mockResolvedValueOnce(true);
@@ -647,14 +712,8 @@ describe('sequencer', () => {
       const blockNumber = epochDuration + 1;
       setupForBlockNumber(blockNumber);
 
-      const proofQuote = mockEpochProofQuote(
-        currentEpoch - 1n,
-        // Slot number expired
-        block.header.globalVariables.slotNumber.toBigInt() - 1n,
-        10000n,
-        EthAddress.random(),
-        1,
-      );
+      const expiredSlotNumber = block.header.globalVariables.slotNumber.toBigInt() - 1n;
+      const proofQuote = mockEpochProofQuote({ validUntilSlot: expiredSlotNumber });
 
       p2p.getEpochProofQuotes.mockResolvedValue([proofQuote]);
       publisher.proposeL2Block.mockResolvedValueOnce(true);
@@ -671,13 +730,7 @@ describe('sequencer', () => {
       const blockNumber = epochDuration + 1;
       setupForBlockNumber(blockNumber);
 
-      const proofQuote = mockEpochProofQuote(
-        currentEpoch - 1n,
-        block.header.globalVariables.slotNumber.toBigInt() + 1n,
-        10000n,
-        EthAddress.random(),
-        1,
-      );
+      const proofQuote = mockEpochProofQuote();
 
       p2p.getEpochProofQuotes.mockResolvedValue([proofQuote]);
       publisher.proposeL2Block.mockResolvedValueOnce(true);
@@ -693,13 +746,7 @@ describe('sequencer', () => {
       const blockNumber = epochDuration + 1;
       setupForBlockNumber(blockNumber);
 
-      const proofQuote = mockEpochProofQuote(
-        currentEpoch - 1n,
-        block.header.globalVariables.slotNumber.toBigInt() + 1n,
-        10000n,
-        EthAddress.random(),
-        1,
-      );
+      const proofQuote = mockEpochProofQuote();
 
       p2p.getEpochProofQuotes.mockResolvedValue([proofQuote]);
       publisher.proposeL2Block.mockResolvedValueOnce(true);
@@ -714,61 +761,6 @@ describe('sequencer', () => {
       expect(publisher.proposeL2Block).toHaveBeenCalledWith(block, getSignatures(), [txHash], undefined);
     });
 
-    it('only selects valid quotes', async () => {
-      const blockNumber = epochDuration + 1;
-      setupForBlockNumber(blockNumber);
-
-      // Create 1 valid quote and 3 that have a higher fee but are invalid
-      const validProofQuote = mockEpochProofQuote(
-        currentEpoch - 1n,
-        block.header.globalVariables.slotNumber.toBigInt() + 1n,
-        10000n,
-        EthAddress.random(),
-        1,
-      );
-
-      const proofQuoteInvalidSlot = mockEpochProofQuote(
-        currentEpoch - 1n,
-        block.header.globalVariables.slotNumber.toBigInt() - 1n,
-        10000n,
-        EthAddress.random(),
-        2,
-      );
-
-      const proofQuoteInvalidEpoch = mockEpochProofQuote(
-        currentEpoch,
-        block.header.globalVariables.slotNumber.toBigInt() - 1n,
-        10000n,
-        EthAddress.random(),
-        2,
-      );
-
-      // This is deemed invalid by the contract, we identify it by a fee of 2
-      const proofQuoteInvalid = mockEpochProofQuote(
-        currentEpoch - 1n,
-        block.header.globalVariables.slotNumber.toBigInt() + 1n,
-        10000n,
-        EthAddress.random(),
-        2,
-      );
-
-      const allQuotes = [validProofQuote, proofQuoteInvalidSlot, proofQuoteInvalidEpoch, proofQuoteInvalid];
-
-      p2p.getEpochProofQuotes.mockResolvedValue(allQuotes);
-      publisher.proposeL2Block.mockResolvedValueOnce(true);
-
-      // Quote is reported as invalid
-      publisher.validateProofQuote.mockImplementation(p =>
-        Promise.resolve(p.payload.basisPointFee === 2 ? undefined : p),
-      );
-
-      // The previous epoch can be claimed
-      publisher.getClaimableEpoch.mockImplementation(() => Promise.resolve(currentEpoch - 1n));
-
-      await sequencer.doRealWork();
-      expect(publisher.proposeL2Block).toHaveBeenCalledWith(block, getSignatures(), [txHash], validProofQuote);
-    });
-
     it('selects the lowest cost valid quote', async () => {
       const blockNumber = epochDuration + 1;
       setupForBlockNumber(blockNumber);
@@ -776,40 +768,14 @@ describe('sequencer', () => {
       // Create 3 valid quotes with different fees.
       // And 3 invalid quotes with lower fees
       // We should select the lowest cost valid quote
-      const validQuotes = times(3, (i: number) =>
-        mockEpochProofQuote(
-          currentEpoch - 1n,
-          block.header.globalVariables.slotNumber.toBigInt() + 1n,
-          10000n,
-          EthAddress.random(),
-          10 + i,
-        ),
-      );
+      const validQuotes = times(3, (i: number) => mockEpochProofQuote({ fee: 10 + i }));
 
-      const proofQuoteInvalidSlot = mockEpochProofQuote(
-        currentEpoch - 1n,
-        block.header.globalVariables.slotNumber.toBigInt() - 1n,
-        10000n,
-        EthAddress.random(),
-        1,
-      );
+      const expiredSlot = block.header.globalVariables.slotNumber.toBigInt() - 1n;
+      const proofQuoteInvalidSlot = mockEpochProofQuote({ validUntilSlot: expiredSlot, fee: 1 });
+      const proofQuoteInvalidEpoch = mockEpochProofQuote({ epoch: currentEpoch, fee: 2 });
 
-      const proofQuoteInvalidEpoch = mockEpochProofQuote(
-        currentEpoch,
-        block.header.globalVariables.slotNumber.toBigInt() - 1n,
-        10000n,
-        EthAddress.random(),
-        2,
-      );
-
-      // This is deemed invalid by the contract, we identify it by it's fee
-      const proofQuoteInvalid = mockEpochProofQuote(
-        currentEpoch - 1n,
-        block.header.globalVariables.slotNumber.toBigInt() + 1n,
-        10000n,
-        EthAddress.random(),
-        3,
-      );
+      // This is deemed invalid by the contract, we identify it by its fee
+      const proofQuoteInvalid = mockEpochProofQuote({ fee: 3 });
 
       const allQuotes = [proofQuoteInvalidSlot, proofQuoteInvalidEpoch, ...validQuotes, proofQuoteInvalid];
 
@@ -836,7 +802,7 @@ class TestSubject extends Sequencer {
   }
 
   public setL1GenesisTime(l1GenesisTime: number) {
-    this.l1GenesisTime = l1GenesisTime;
+    this.l1Constants.l1GenesisTime = BigInt(l1GenesisTime);
   }
 
   public override doRealWork() {

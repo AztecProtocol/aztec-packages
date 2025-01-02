@@ -54,6 +54,10 @@ class AvmExecutionTests : public ::testing::Test {
         public_inputs.gas_settings.gas_limits.da_gas = DEFAULT_INITIAL_DA_GAS;
         public_inputs.start_gas_used.l2_gas = 0;
         public_inputs.start_gas_used.da_gas = 0;
+        public_inputs.end_tree_snapshots.note_hash_tree.size =
+            public_inputs.start_tree_snapshots.note_hash_tree.size + MAX_NOTE_HASHES_PER_TX;
+        public_inputs.end_tree_snapshots.nullifier_tree.size =
+            public_inputs.start_tree_snapshots.nullifier_tree.size + MAX_NULLIFIERS_PER_TX;
 
         // These values are magic because of how some tests work! Don't change them
         PublicCallRequest dummy_request = {
@@ -80,6 +84,7 @@ class AvmExecutionTests : public ::testing::Test {
         auto [contract_class_id, contract_instance] = gen_test_contract_hint(bytecode);
         auto execution_hints = ExecutionHints().with_avm_contract_bytecode(
             { AvmContractBytecode{ bytecode, contract_instance, contract_class_id } });
+        execution_hints.contract_instance_hints.emplace(contract_instance.address, contract_instance);
 
         vinfo("Calling execution::gen_trace");
         return AvmExecutionTests::gen_trace(bytecode, calldata, public_inputs, returndata, execution_hints);
@@ -94,6 +99,7 @@ class AvmExecutionTests : public ::testing::Test {
         auto [contract_class_id, contract_instance] = gen_test_contract_hint(bytecode);
         execution_hints.with_avm_contract_bytecode(
             { AvmContractBytecode{ bytecode, contract_instance, contract_class_id } });
+        execution_hints.contract_instance_hints.emplace(contract_instance.address, contract_instance);
 
         // These are magic values because of how some tests work! Don't change them
         public_inputs.public_app_logic_call_requests[0].contract_address = contract_instance.address;
@@ -125,6 +131,8 @@ class AvmExecutionTests : public ::testing::Test {
         return { ContractClassIdHint{ FF::one(), FF(2), public_commitment }, contract_instance };
     }
 };
+
+class AvmExecutionTestsToRadix : public AvmExecutionTests, public testing::WithParamInterface<bool> {};
 
 // Basic positive test with an ADD and RETURN opcode.
 // Parsing, trace generation and proving is verified.
@@ -850,85 +858,15 @@ TEST_F(AvmExecutionTests, setAndCastOpcodes)
     validate_trace(std::move(trace), public_inputs);
 }
 
-// Positive test with TO_RADIX_BE.
-TEST_F(AvmExecutionTests, toRadixBeOpcodeBytes)
+namespace {
+std::vector<uint8_t> gen_bytecode_radix(bool is_bit_mode)
 {
-    std::string bytecode_hex =
-        to_hex(OpCode::SET_8) +            // opcode SET
-        "00"                               // Indirect flag
-        "00"                               // dst_offset
-        + to_hex(AvmMemoryTag::U32) + "00" // val
-        + to_hex(OpCode::SET_8) +          // opcode SET
-        "00"                               // Indirect flag
-        "01"                               // dst_offset
-        + to_hex(AvmMemoryTag::U32) + "01" // val
-        + to_hex(OpCode::CALLDATACOPY) +   // opcode CALLDATACOPY
-        "00"                               // Indirect flag
-        "0000"                             // cd_offset
-        "0001"                             // copy_size
-        "0001"                             // dst_offset
-        + to_hex(OpCode::SET_8) +          // opcode SET for indirect src
-        "00"                               // Indirect flag
-        "11"                               // dst_offset 17
-        + to_hex(AvmMemoryTag::U32) + "01" // value 1 (i.e. where the src from calldata is copied)
-        + to_hex(OpCode::SET_8) +          // opcode SET for indirect dst
-        "00"                               // Indirect flag
-        "15"                               // dst_offset 21
-        + to_hex(AvmMemoryTag::U32) + "05" // value 5 (i.e. where the dst will be written to)
-        + to_hex(OpCode::SET_8) +          // opcode SET for indirect dst
-        "00"                               // Indirect flag
-        "80"                               // radix_offset 80
-        + to_hex(AvmMemoryTag::U32) + "02" // value 2 (i.e. radix 2 - perform bitwise decomposition)
-        + to_hex(OpCode::TORADIXBE) +      // opcode TO_RADIX_BE
-        "03"                               // Indirect flag
-        "0011"                             // src_offset 17 (indirect)
-        "0015"                             // dst_offset 21 (indirect)
-        "0080"                             // radix_offset 80 (direct)
-        "0100"                             // limbs: 256
-        "00"                               // output_bits: false
-        + to_hex(OpCode::SET_16) +         // opcode SET (for return size)
-        "00"                               // Indirect flag
-        "0200"                             // dst_offset=512
-        + to_hex(AvmMemoryTag::U32) +      //
-        "0100"                             // val: 256
-        + to_hex(OpCode::RETURN) +         // opcode RETURN
-        "00"                               // Indirect flag
-        "0005"                             // ret offset 5
-        "0200";                            // ret size offset 512
-
-    auto bytecode = hex_to_bytes(bytecode_hex);
-    auto [instructions, error] = Deserialization::parse_bytecode_statically(bytecode);
-    ASSERT_TRUE(is_ok(error));
-
-    // Assign a vector that we will mutate internally in gen_trace to store the return values;
-    std::vector<FF> returndata;
-    ExecutionHints execution_hints;
-    auto trace =
-        gen_trace(bytecode, std::vector<FF>{ FF::modulus - FF(1) }, public_inputs, returndata, execution_hints);
-
-    // Find the first row enabling the TORADIXBE selector
-    // Expected output is bitwise decomposition of MODULUS - 1..could hardcode the result but it's a bit long
-    size_t num_limbs = 256;
-    std::vector<FF> expected_output(num_limbs);
-    // Extract each bit.
-    for (size_t i = 0; i < num_limbs; i++) {
-        auto byte_index = num_limbs - i - 1;
-        FF expected_limb = (FF::modulus - 1) >> i & 1;
-        expected_output[byte_index] = expected_limb;
-    }
-    EXPECT_EQ(returndata, expected_output);
-
-    validate_trace(std::move(trace), public_inputs, { FF::modulus - FF(1) }, returndata);
-}
-
-// Positive test with TO_RADIX_BE.
-TEST_F(AvmExecutionTests, toRadixBeOpcodeBitsMode)
-{
+    const std::string bit_mode_hex = is_bit_mode ? "01" : "00";
     std::string bytecode_hex = to_hex(OpCode::SET_8) +          // opcode SET
                                "00"                             // Indirect flag
                                "00"                             // dst_offset
-                               + to_hex(AvmMemoryTag::U32)      //
-                               + "00"                           // val
+                               + to_hex(AvmMemoryTag::U32) +    //
+                               "00"                             // val
                                + to_hex(OpCode::SET_8) +        // opcode SET
                                "00"                             // Indirect flag
                                "01"                             // dst_offset
@@ -949,18 +887,28 @@ TEST_F(AvmExecutionTests, toRadixBeOpcodeBitsMode)
                                "15"                             // dst_offset 21
                                + to_hex(AvmMemoryTag::U32) +    //
                                "05"                             // value 5 (i.e. where the dst will be written to)
-                               + to_hex(OpCode::SET_8) +        // opcode SET for indirect dst
+                               + to_hex(OpCode::SET_8) +        // opcode SET (direct radix_offset)
                                "00"                             // Indirect flag
                                "80"                             // radix_offset 80
                                + to_hex(AvmMemoryTag::U32) +    //
                                "02"                          // value 2 (i.e. radix 2 - perform bitwise decomposition)
+                               + to_hex(OpCode::SET_16) +    // opcode SET (direct number_limbs_offset)
+                               "00"                          // Indirect flag
+                               "0090"                        // number_limbs_offset 0x90
+                               + to_hex(AvmMemoryTag::U32) + //
+                               "0100"                        // value 256
+                               + to_hex(OpCode::SET_8) +     // opcode SET (direct output_bits_offset)
+                               "00"                          // Indirect flag
+                               "95"                          // output_bits_offset 0x95
+                               + to_hex(AvmMemoryTag::U1) +  //
+                               bit_mode_hex                  // bit 1 (true for bits mode)
                                + to_hex(OpCode::TORADIXBE) + // opcode TO_RADIX_BE
-                               "03"                          // Indirect flag
+                               "0011"                        // Indirect flag
                                "0011"                        // src_offset 17 (indirect)
-                               "0015"                        // dst_offset 21 (indirect)
                                "0080"                        // radix_offset 80 (direct)
-                               "0100"                        // limbs: 256
-                               "01"                          // output_bits: true
+                               "0090"                        // num_limbs_offset (direct)
+                               "0095"                        // output_bits_offset (direct)
+                               "0015"                        // dst_offset 21 (indirect)
                                + to_hex(OpCode::SET_16) +    // opcode SET (for return size)
                                "00"                          // Indirect flag
                                "0200"                        // dst_offset=512
@@ -971,7 +919,15 @@ TEST_F(AvmExecutionTests, toRadixBeOpcodeBitsMode)
                                "0005"                        // ret offset 5
                                "0200";                       // ret size offset 512
 
-    auto bytecode = hex_to_bytes(bytecode_hex);
+    return hex_to_bytes(bytecode_hex);
+}
+} // namespace
+
+// Positive test for TORADIXBE opcode parametrized by a boolean toggling bit vs bytes mode.
+TEST_P(AvmExecutionTestsToRadix, ParamTest)
+{
+    const bool is_bit_mode = GetParam();
+    auto bytecode = gen_bytecode_radix(is_bit_mode);
     auto [instructions, error] = Deserialization::parse_bytecode_statically(bytecode);
     ASSERT_TRUE(is_ok(error));
 
@@ -995,6 +951,9 @@ TEST_F(AvmExecutionTests, toRadixBeOpcodeBitsMode)
 
     validate_trace(std::move(trace), public_inputs, { FF::modulus - FF(1) }, returndata);
 }
+
+// Run the test for TORADIXBE in bit mode and then in bytes mode.
+INSTANTIATE_TEST_SUITE_P(AvmExecutionTests, AvmExecutionTestsToRadix, testing::ValuesIn({ true, false }));
 
 // // Positive test with SHA256COMPRESSION.
 TEST_F(AvmExecutionTests, sha256CompressionOpcode)
