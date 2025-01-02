@@ -1,68 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1735857187132,
+  "lastUpdate": 1735857190320,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "98505400+ledwards2225@users.noreply.github.com",
-            "name": "ledwards2225",
-            "username": "ledwards2225"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "a4dfe13c1c0af3d527f5c9b2fcc38fe059e9bc38",
-          "message": "feat: unified create circuit from acir (#10440)\n\nThe main goal of this PR is to allow for all circuits (including\r\nkernels) to be created using a single `create_circuit()` method. (Prior\r\nto this PR things had diverged for kernels/ivc_recursion_constraints and\r\na separate `create_kernel_circuit()` method was required). To facilitate\r\nthis and as general cleanup, this PR introduces struct `ProgramMetadata`\r\nso that the create_circuit interface is reduced to\r\n`create_circuit(AcirProgram&, ProgramMetadata&)`.\r\n\r\nNote: `ProgramMetadata` simply contains all the stuff that used to be\r\nindividual defaulted inputs to the create_circuit methods (plus a\r\npointer to a ClientIVC instance). This is a better pattern but I haven't\r\nyet made an effort to address whether some of the parameters can be\r\nremoved altogether. (It may be that they cannot).",
-          "timestamp": "2024-12-10T14:08:24-07:00",
-          "tree_id": "de8f5dad237ac6e7333151914e57f140a6a5ea6b",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/a4dfe13c1c0af3d527f5c9b2fcc38fe059e9bc38"
-        },
-        "date": 1733867308372,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "nativeClientIVCBench/Full/6",
-            "value": 25006.930574000024,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 23013.879139 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 4927.290060999993,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 4611.554363 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmClientIVCBench/Full/6",
-            "value": 84133.171972,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 84133173000 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 15444.037854999999,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 15444038000 ms\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 2810950106,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 2810950106 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 140482713,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 140482713 ns\nthreads: 1"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -3190,6 +3130,72 @@ window.BENCHMARK_DATA = {
             "value": 141345356,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 141345356 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "49558828+AztecBot@users.noreply.github.com",
+            "name": "Aztec Bot",
+            "username": "AztecBot"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "faca458adda3139e92dcb2709f2c087c85842dd8",
+          "message": "chore: redo typo PR by MonkeyKing44 (#10996)\n\nThanks MonkeyKing44 for\r\nhttps://github.com/AztecProtocol/aztec-packages/pull/10985. Our policy\r\nis to redo typo changes to dissuade metric farming. This is an automated\r\nscript.\r\n\r\n---------\r\n\r\nCo-authored-by: Maddiaa <47148561+Maddiaa0@users.noreply.github.com>\r\nCo-authored-by: Tom French <15848336+TomAFrench@users.noreply.github.com>\r\nCo-authored-by: Tom French <tom@tomfren.ch>",
+          "timestamp": "2025-01-02T22:09:28Z",
+          "tree_id": "a3071b627c68a1f512fab632baffb05730f4b0e1",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/faca458adda3139e92dcb2709f2c087c85842dd8"
+        },
+        "date": 1735857183298,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Ambient_17_in_20/6",
+            "value": 20238.16852599998,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 17806.038097 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 21832.961119000003,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 19078.769716 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 4629.983260000017,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 4311.801830000001 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 73161.135687,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 73161136000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 13985.842454000001,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 13985843000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 2890763261,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 2890763261 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 148888180,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 148888180 ns\nthreads: 1"
           }
         ]
       }
