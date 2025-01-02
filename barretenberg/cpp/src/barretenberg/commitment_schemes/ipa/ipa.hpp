@@ -9,6 +9,7 @@
 #include "barretenberg/ecc/scalar_multiplication/scalar_multiplication.hpp"
 #include "barretenberg/stdlib/hash/poseidon2/poseidon2.hpp"
 #include "barretenberg/stdlib/honk_verifier/ipa_accumulator.hpp"
+#include "barretenberg/stdlib/primitives/circuit_builders/circuit_builders_fwd.hpp"
 #include "barretenberg/stdlib/transcript/transcript.hpp"
 #include "barretenberg/transcript/transcript.hpp"
 #include <cstddef>
@@ -948,6 +949,32 @@ template <typename Curve_> class IPA {
 
         output_claim.opening_pair.evaluation.self_reduce();
         return {output_claim, prover_transcript->proof_data};
+    }
+
+    static std::pair<OpeningClaim<Curve>, HonkProof> create_fake_ipa_claim_and_proof(UltraCircuitBuilder& builder)
+    requires Curve::is_stdlib_type {
+        using NativeCurve = curve::Grumpkin;
+        using Builder = typename Curve::Builder;
+        using Curve = stdlib::grumpkin<Builder>;
+        auto ipa_transcript = std::make_shared<NativeTranscript>();
+        auto ipa_commitment_key = std::make_shared<CommitmentKey<NativeCurve>>(1 << CONST_ECCVM_LOG_N);
+        size_t n = 4;
+        auto poly = Polynomial<fq>(n);
+        for (size_t i = 0; i < n; i++) {
+            poly.at(i) = fq::random_element();
+        }
+        fq x = fq::random_element();
+        fq eval = poly.evaluate(x);
+        auto commitment = ipa_commitment_key->commit(poly);
+        const OpeningPair<NativeCurve> opening_pair = { x, eval };
+        IPA<NativeCurve>::compute_opening_proof(ipa_commitment_key, { poly, opening_pair }, ipa_transcript);
+
+        auto stdlib_comm = Curve::Group::from_witness(&builder, commitment);
+        auto stdlib_x = Curve::ScalarField::from_witness(&builder, x);
+        auto stdlib_eval = Curve::ScalarField::from_witness(&builder, eval);
+        OpeningClaim<Curve> stdlib_opening_claim{ { stdlib_x, stdlib_eval }, stdlib_comm };
+
+        return {stdlib_opening_claim, ipa_transcript->export_proof()};
     }
 };
 
