@@ -16,6 +16,9 @@ function prepare_tests {
   # TODO(https://github.com/AztecProtocol/barretenberg/issues/1108): problem regardless the proof system used
   rm -rf acir_tests/regression_5045
 
+  # COMPILE=2 only compiles the test.
+  denoise "parallel --joblog joblog.txt --line-buffered 'COMPILE=2 ./run_test.sh \$(basename {})' ::: ./acir_tests/*"
+
   github_endgroup
 }
 
@@ -26,8 +29,6 @@ function build_tests {
 
   prepare_tests
 
-  # COMPILE=2 only compiles the test.
-  denoise "parallel --joblog joblog.txt --line-buffered 'COMPILE=2 ./run_test.sh \$(basename {})' ::: ./acir_tests/*"
 
   # TODO: This actually breaks things, but shouldn't. We want to do it here and not maintain manually.
   # Regenerate verify_honk_proof recursive input.
