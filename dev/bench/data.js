@@ -1,68 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1735070922208,
+  "lastUpdate": 1735822400863,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "fcarreiro@users.noreply.github.com",
-            "name": "Facundo",
-            "username": "fcarreiro"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "fbc8c0e864b10d2265373688457a33d61517bbb4",
-          "message": "chore(avm): pilcom compatibility changes (#10544)\n\nFor compatibility with upcoming design.\n* Creates a columns file\n* Relations now have subrelation constexpr\n* Relative includes for generated files\n* Now you can specify output path for generated files with `-o path`\n* Full row uses macro list of columns!*\n\n*warning: GCC didn't like this so I added\n```\n\"CXXFLAGS\": \"-Wno-missing-field-initializers\"\n```\nthe reason is that I'm now defining the AvmFullRow as `FF ALL_ENTITIES;` but GCC prefers it if I do `FF col1{}; FF col2{};...` with the explicit `{}`. If I need to do that, then I need to codegen and repeat again all names.\n\nTo be honest IDK why it complains so much, if you Google this, you'll find other people running into it. This should NOT be a problem since any field not specified in aggregate initialization WILL be value-initialized. \n\nNow, FF's are special in that they don't initialize themselves by default, to accommodate array/other uses cases. (this is a BAD choice if you ask me, there are other ways to avoid explicit initialization if and only when you want to, especially for arrays etc).\n\nLet's see what tests say. In our case the AvmFullRow is only used in a vector, which does somehow force full initialization of all the fields (or at least it did).",
-          "timestamp": "2024-12-09T22:03:39Z",
-          "tree_id": "9e79e965dd440542ccea3e37597516ff7a85aa9b",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/fbc8c0e864b10d2265373688457a33d61517bbb4"
-        },
-        "date": 1733784689993,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "nativeClientIVCBench/Full/6",
-            "value": 24739.08498900002,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 22920.006211 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 4941.039238000002,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 4638.026436999999 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmClientIVCBench/Full/6",
-            "value": 84269.571195,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 84269571000 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 15143.453146,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 15143455000 ms\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 2802303735,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 2802303735 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 141348575,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 141348575 ns\nthreads: 1"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -3154,6 +3094,72 @@ window.BENCHMARK_DATA = {
             "value": 144694268,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 144694268 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "karl.lye@gmail.com",
+            "name": "Charlie Lye",
+            "username": "charlielye"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "49dacc3378a339f8cc36971b630c52952249f60c",
+          "message": "chore: Cl/ci3.2 (#10919)\n\nFurther iteration towards full CI3.\r\nTLDR: Working towards ~10m repo test time.\r\n\r\n* Begin to separate out \"building of tests\" (mainly thinking of C++ and\r\nRust). We don't want to do this on a fast bootstrap, but we do want to\r\ndo it if we're going to run the tests. And moving towards the new\r\ntesting model we need to separate building and running of tests.\r\n* Introduce `test-cmds` cmd on bootstrap scripts. Returns a list of\r\ncommands, that if run from repo root, execute individual (usually)\r\ntests.\r\n* Note this also introduces the standard of `./scripts/run_test.sh`\r\nbeing a script that given some succinct arguments, can run a single\r\ntest.\r\n* Introduce `test-all` (eventually to become just `test`) in root\r\nbootstrap.sh. No args runs all tests, or you can give it a list of\r\nfolders to projects with their own bootstrap scripts and it'll run their\r\ntests. Runs in 10m20s. Currently skipping some things (see TODO below).\r\nReports slow tests after run.\r\n* Note this also runs our TS project tests *directly as javascript*.\r\ni.e. it's assumed the tests have all been compiled to the dest folder\r\nand have whatever they need to operate. Hitting yarn + transpiler is\r\njust gruesome use of resources.\r\n* Improve cache script to not deal with env vars, but just args. If the\r\nargs is a file, its treated as a rebuild patterns file, otherwise\r\ntreated as a pattern itself.\r\n* Remove `TEST=0/1` flag. Unnecessary. Normal bootstraps don't run\r\ntests, and If i request to run tests I want them to run. So the \"skip\r\ntests if cache flag exists\" only needs to be applied if `CI=1`.\r\n* Get's rid of all hardcoded srs paths in favour of making function call\r\nto get the path. Will check environment variables first, and fallback on\r\nhardcoded path (now in one place). I ultimately didn't need this like I\r\nthought I would, but it's the right move anyway, and will make the\r\nswitch to the flat crs easier.\r\n* Bit of refactoring to remove \"right drift\" of cache blocks. i.e.\r\nreturn if nothing to do instead of enclosing in an if statement.\r\n* bb.js uses @swc/jest like yarn-projects does.\r\n* Delete `bootstrap` folder. Is was there to help test the bootstrap\r\nscript in CI, but now we use the bootstrap script in CI.\r\n* Add build cache to `boxes`.\r\n* Enable extended globs in CI3 scripts.\r\n* Revert back to default jest reporter, unless running all tests from\r\nroot, then it uses summary reporter.\r\n\r\nTODO:\r\n- [ ] kv-store tests\r\n- [x] TXE for contracts/aztec.nr tests\r\n- [x] noir js packages tests\r\n- [ ] Skipping tests matching `test_caches_open|requests` in noir tests.\r\n- [x] Standardise how tests are skipped so we can see in one place.\r\n\r\n---------\r\n\r\nCo-authored-by: ludamad <adam.domurad@gmail.com>",
+          "timestamp": "2025-01-02T12:37:03Z",
+          "tree_id": "7d7c340709bc212fa5fa493dc1586a4ddb5c1eb7",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/49dacc3378a339f8cc36971b630c52952249f60c"
+        },
+        "date": 1735822393862,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Ambient_17_in_20/6",
+            "value": 20261.802672999976,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 17801.997142 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 21823.828717000026,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 19275.886926 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 4613.451245999982,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 4301.50535 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 72823.09977500001,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 72823100000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 13925.252640000002,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 13925253000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 2869725092,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 2869725092 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 142542608,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 142542608 ns\nthreads: 1"
           }
         ]
       }
