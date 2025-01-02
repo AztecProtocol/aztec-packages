@@ -160,8 +160,8 @@ export class EpochProvingJob implements Traceable {
   }
 
   private getTxs(block: L2Block): Tx[] {
-    const txHashes = block.body.txEffects.map(tx => tx.txHash);
-    return this.txs.filter(tx => txHashes.includes(tx.getTxHash()));
+    const txHashes = block.body.txEffects.map(tx => tx.txHash.toBigInt());
+    return this.txs.filter(tx => txHashes.includes(tx.getTxHash().toBigInt()));
   }
 
   private getL1ToL2Messages(block: L2Block) {
