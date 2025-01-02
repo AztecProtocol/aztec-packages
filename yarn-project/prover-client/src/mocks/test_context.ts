@@ -5,7 +5,6 @@ import {
   type PublicExecutionRequest,
   type ServerCircuitProver,
   type Tx,
-  type TxValidator,
 } from '@aztec/circuit-types';
 import { makeBloatedProcessedTx } from '@aztec/circuit-types/test';
 import {
