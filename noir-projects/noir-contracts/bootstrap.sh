@@ -3,7 +3,7 @@
 # - First of all, I'm sorry. It's a beautiful script but it's no fun to debug. I got carried away.
 # - You can enable BUILD_SYSTEM_DEBUG=1 but the output is quite verbose that it's not much use by default.
 # - This flag however, isn't carried into exported functions. You need to do "set -x" in those functions manually.
-# - You can call ./bootstrap.sh build <package name> to compile and process a single contract.
+# - You can call ./bootstrap.sh compile <package name> to compile and process a single contract.
 # - You can disable further parallelism by setting PARALLELISM=1.
 # - The exported functions called by parallel must enable their own flags at the start e.g. set -euo pipefail
 # - The exported functions are using stdin/stdout, so be very careful about what's printed where.
@@ -74,7 +74,7 @@ function process_function() {
     if ! cache_download vk-$hash.tar.gz &> /dev/null; then
       # It's not in the cache. Generate the vk file and upload it to the cache.
       echo_stderr "Generating vk for function: $name..."
-      echo "$bytecode_b64" | base64 -d | gunzip | $BB write_vk_for_ivc -h -b - -o $tmp_dir/$hash 2>/dev/null
+      echo "$bytecode_b64" | base64 -d | gunzip | $BB write_vk_for_ivc -b - -o $tmp_dir/$hash 2>/dev/null
       cache_upload vk-$hash.tar.gz $tmp_dir/$hash &> /dev/null
     fi
 

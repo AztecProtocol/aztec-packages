@@ -67,9 +67,9 @@ function test_cmds {
 # Paths are all relative to the repository root.
 function test_cmds_internal {
   local plonk_tests=$(find ./acir_tests -maxdepth 1 -mindepth 1 -type d | \
-    grep -vE 'verify_honk_proof|double_verify_honk_proof')
+    grep -vE 'verify_honk_proof|double_verify_honk_proof|verify_rollup_honk_proof')
   local honk_tests=$(find ./acir_tests -maxdepth 1 -mindepth 1 -type d | \
-    grep -vE 'single_verify_proof|double_verify_proof|double_verify_nested_proof')
+    grep -vE 'single_verify_proof|double_verify_proof|double_verify_nested_proof|verify_rollup_honk_proof')
 
   local run_test=$(realpath --relative-to=$root ./run_test.sh)
   local run_test_browser=$(realpath --relative-to=$root ./run_test_browser.sh)
@@ -121,6 +121,7 @@ function test_cmds_internal {
   echo SYS=ultra_honk FLOW=prove_then_verify RECURSIVE=true $run_test assert_statement
   echo SYS=ultra_honk FLOW=prove_then_verify RECURSIVE=true $run_test double_verify_honk_proof
   echo SYS=ultra_honk FLOW=prove_and_verify_program $run_test merkle_insert
+  echo SYS=ultra_rollup_honk FLOW=prove_then_verify $run_test verify_rollup_honk_proof
 
   # barretenberg-acir-tests-bb-client-ivc:
   echo FLOW=prove_then_verify_client_ivc $run_test 6_array

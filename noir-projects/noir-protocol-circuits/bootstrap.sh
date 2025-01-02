@@ -33,7 +33,17 @@ ivc_patterns=(
   "app_creator"
   "app_reader"
 )
+
+rollup_honk_patterns=(
+  "empty_nested.*"
+  "private_kernel_empty.*"
+  "rollup_base.*"
+  "rollup_block.*"
+  "rollup_merge"
+)
+
 ivc_regex=$(IFS="|"; echo "${ivc_patterns[*]}")
+rollup_honk_regex=$(IFS="|"; echo "${rollup_honk_patterns[*]}")
 
 function on_exit() {
   rm -rf $tmp_dir
@@ -45,7 +55,7 @@ mkdir -p $tmp_dir
 mkdir -p $key_dir
 
 # Export vars needed inside compile.
-export tmp_dir key_dir ci3 ivc_regex project_name
+export tmp_dir key_dir ci3 ivc_regex project_name rollup_honk_regex
 
 function compile {
   set -euo pipefail
@@ -72,15 +82,21 @@ function compile {
     cache_upload circuit-$hash.tar.gz $json_path &> /dev/null
   fi
 
+  echo "$name"
   if echo "$name" | grep -qE "${ivc_regex}"; then
     local proto="client_ivc"
     local write_vk_cmd="write_vk_for_ivc"
     local vk_as_fields_cmd="vk_as_fields_mega_honk"
+  elif echo "$name" | grep -qE "${rollup_honk_regex}"; then
+    local proto="ultra_rollup_honk"
+    local write_vk_cmd="write_vk_ultra_rollup_honk -h 2"
+    local vk_as_fields_cmd="vk_as_fields_ultra_rollup_honk"
   else
     local proto="ultra_honk"
-    local write_vk_cmd="write_vk_ultra_honk"
+    local write_vk_cmd="write_vk_ultra_honk -h 1"
     local vk_as_fields_cmd="vk_as_fields_ultra_honk"
   fi
+  echo "$proto$"
 
   # No vks needed for simulated circuits.
   [[ "$name" == *"simulated"* ]] && return
@@ -93,7 +109,7 @@ function compile {
     local key_path="$key_dir/$name.vk.data.json"
     echo_stderr "Generating vk for function: $name..."
     SECONDS=0
-    local vk_cmd="jq -r '.bytecode' $json_path | base64 -d | gunzip | $BB $write_vk_cmd -h -b - -o - --recursive | xxd -p -c 0"
+    local vk_cmd="jq -r '.bytecode' $json_path | base64 -d | gunzip | $BB $write_vk_cmd -b - -o - --recursive | xxd -p -c 0"
     echo_stderr $vk_cmd
     vk=$(dump_fail "$vk_cmd")
     local vkf_cmd="echo '$vk' | xxd -r -p | $BB $vk_as_fields_cmd -k - -o -"
