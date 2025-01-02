@@ -7,21 +7,21 @@ export hash=$(cache_content_hash .rebuild_patterns)
 # TODO: Do we need this? Test binaries depend on test programs?
 export test_hash=$(cache_content_hash .rebuild_patterns .rebuild_patterns_tests)
 
-js_projects=(
+export js_projects=(
   @noir-lang/acvm_js
   @noir-lang/types
   @noir-lang/noirc_abi
   @noir-lang/noir_codegen
   @noir-lang/noir_js
 )
-js_include=$(printf " --include %s" "${js_projects[@]}")
+export js_include=$(printf " --include %s" "${js_projects[@]}")
 
 # Fake this so artifacts have a consistent hash in the cache and not git hash dependent.
 # export GIT_COMMIT="$(echo "$hash" | sed 's/-.*//g')"
 export GIT_COMMIT="0000000000000000000000000000000000000000"
 export SOURCE_DATE_EPOCH=0
 export GIT_DIRTY=false
-export RUSTFLAGS=-Dwarnings
+export RUSTFLAGS="-Dwarnings"
 
 # Builds nargo and acvm binaries.
 function build_native {
@@ -32,19 +32,6 @@ function build_native {
   fi
   cargo build --release
   cache_upload noir-$hash.tar.gz target/release/nargo target/release/acvm
-}
-
-# Builds all test binaries.
-function build_tests {
-  set -euo pipefail
-  cd noir-repo
-  if cache_download noir-tests-$test_hash.tar.gz; then
-    return
-  fi
-  cache_upload noir-tests-$test_hash.tar.gz \
-    $(cargo nextest list --workspace --locked --release -Tjson-pretty | \
-      jq -r '.["rust-suites"][] | .["binary-path"]' | \
-      sed -e "s|$PWD/||")
 }
 
 # Builds js packages.
@@ -61,7 +48,7 @@ function build_packages {
 
   # We create a folder called packages, that contains each package as it would be published to npm, named correctly.
   # These can be useful for testing, or portaling into other projects.
-  yarn workspaces foreach --parallel $include pack
+  yarn workspaces foreach --parallel $js_include pack
 
   cd ..
   rm -rf packages && mkdir -p packages
@@ -73,7 +60,7 @@ function build_packages {
   cache_upload noir-packages-$hash.tar.gz packages
 }
 
-export -f build_native build_tests build_packages
+export -f build_native build_packages
 
 function build {
   github_group "noir build"
@@ -87,7 +74,7 @@ function build {
     denoise "cargo-binstall cargo-nextest --version 0.9.67 -y --secure"
   fi
 
-  parallel --tag --line-buffer --halt now,fail=1 denoise ::: build_native build_tests build_packages
+  parallel --tag --line-buffer --halt now,fail=1 denoise ::: build_native build_packages
   # if [ -x ./scripts/fix_incremental_ts.sh ]; then
   #   ./scripts/fix_incremental_ts.sh
   # fi
@@ -102,26 +89,20 @@ function test {
 }
 
 # Prints the commands to run tests, one line per test, prefixed with the appropriate content hash.
-# Originally this used "cargo nextest list", but you can't avoid kicking off a build when you use cargo.
-# So this just attempts to run "--list" on every executable in the test dir and extracts the test lines.
 function test_cmds {
-  find noir-repo/target/release/deps -type f -executable ! -name "*.so" | while read -r bin; do
-    $bin --list 2>/dev/null | \
-      grep -oP '.*(?=: test$)' | \
-      awk "{print \"$test_hash noir/scripts/run_test.sh $(basename $bin) \" \$0 }" || true
-  done
+  cd noir-repo
+  cargo nextest list --workspace --locked --release -Tjson-pretty 2>/dev/null | \
+      jq -r '
+        .["rust-suites"][] |
+        .testcases as $tests |
+        .["binary-path"] as $binary |
+        $tests |
+        to_entries[] |
+        select(.value.ignored == false and .value["filter-match"].status == "matches") |
+        "noir/scripts/run_test.sh \($binary) \(.key)"' | \
+      sed "s|$PWD/target/release/deps/||" | \
+      awk "{print \"$test_hash \" \$0 }"
   echo "$test_hash cd noir/noir-repo && GIT_COMMIT=$GIT_COMMIT yarn workspaces foreach --parallel --topological-dev --verbose $js_include run test"
-  # cargo nextest list --workspace --locked --release -Tjson-pretty | \
-  #     jq -r '
-  #       .["rust-suites"][] |
-  #       .testcases as $tests |
-  #       .["binary-path"] as $binary |
-  #       $tests |
-  #       to_entries[] |
-  #       select(.value.ignored == false and .value["filter-match"].status == "matches") |
-  #       "noir/scripts/run_test.sh \($binary) \(.key)"' | \
-  #     sed "s|$PWD/target/release/deps/||" | \
-  #     awk "{print \"$test_hash \" \$0 }"
 }
 
 case "$cmd" in
@@ -133,12 +114,6 @@ case "$cmd" in
     ;;
   "test")
     test
-    ;;
-  "test-cmds")
-    test_cmds
-    ;;
-  "build-tests")
-    build_tests
     ;;
   "test-cmds")
     test_cmds

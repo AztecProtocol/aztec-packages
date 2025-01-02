@@ -49,14 +49,14 @@ trap on_exit EXIT
 github_endgroup
 
 # If we're asking to not terminate the instance automatically, we also don't want to remove the container.
-[ "$NO_TERMINATE" -eq 0 ] && args+=" --rm"
+[ "$NO_TERMINATE" -eq 0 ] && docker_args+=" --rm"
 
 # Interactive if stdin is connected to terminal.
 if [ -t 0 ]; then
-  args+=" -ti"
+  ssh_args+="-t"
+  docker_args+="-ti"
   shell_on_fail="|| exec zsh"
 fi
-
 
 # Use ~/.ssh/build_instance_key to ssh into our requested instance.
 # Run in our build container, clones the branches latest commit and running this given command.
@@ -71,14 +71,14 @@ fi
 # We set SSH_CONNECTION to something to ensure the hostname is shown in the lean prompt.
 # We provide the host user and group ids to the entrypoint script to ensure alignment.
 # We raise the default pid limit to 32k.
-ssh -t -F $ci3/aws/build_instance_ssh_config ubuntu@$ip "
+ssh ${ssh_args:-} -F $ci3/aws/build_instance_ssh_config ubuntu@$ip "
   echo "Loading CRS into tmpfs..."
   sudo mkdir /mnt/bb-crs
   sudo mount -t tmpfs -o size=3G tmpfs /mnt/bb-crs
   sudo cp -r \$HOME/.bb-crs/* /mnt/bb-crs
 
   echo "Starting devbox..."
-  docker run --privileged $args \
+  docker run --privileged ${docker_args:-} \
     --name aztec_build \
     --hostname $instance_name \
     -v bootstrap_ci_local_docker:/var/lib/docker \

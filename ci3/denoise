@@ -59,6 +59,7 @@ if [ "$status" -ne 0 ]; then
   echo -e "$output"
   echo -e -n ". ${red}failed${reset} (${SECONDS}s)"
   [ -n "$CI_REDIS" ] && echo -e -n " (${yellow}$key${reset})"
+  echo
 else
   echo -e -n ". ${green}done${reset} (${SECONDS}s)"
   [ -n "$CI_REDIS" ] && echo -e -n " (${yellow}$key${reset})"

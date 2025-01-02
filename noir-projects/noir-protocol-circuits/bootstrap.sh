@@ -82,7 +82,6 @@ function compile {
     cache_upload circuit-$hash.tar.gz $json_path &> /dev/null
   fi
 
-  echo "$name"
   if echo "$name" | grep -qE "${ivc_regex}"; then
     local proto="client_ivc"
     local write_vk_cmd="write_vk_for_ivc"
@@ -96,7 +95,6 @@ function compile {
     local write_vk_cmd="write_vk_ultra_honk -h 1"
     local vk_as_fields_cmd="vk_as_fields_ultra_honk"
   fi
-  echo "$proto$"
 
   # No vks needed for simulated circuits.
   [[ "$name" == *"simulated"* ]] && return

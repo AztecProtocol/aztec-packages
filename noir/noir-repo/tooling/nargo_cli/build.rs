@@ -27,10 +27,9 @@ fn main() {
 
     // Rebuild if the tests have changed
     println!("cargo:rerun-if-changed=tests");
-    // TODO: Why are we tying our test programs to the binary build?
-    // This took ages to track down, but running the tests changes the timestamps on test_programs files (also bad),
-    // and that has the knock-on effect of then needing to rebuild the tests after running the tests.
-    // println!("cargo:rerun-if-changed={}", test_dir.as_os_str().to_str().unwrap());
+    // TODO: Running the tests changes the timestamps on test_programs files (file lock?).
+    // That has the knock-on effect of then needing to rebuild the tests after running the tests.
+    println!("cargo:rerun-if-changed={}", test_dir.as_os_str().to_str().unwrap());
 
     generate_execution_success_tests(&mut test_file, &test_dir);
     generate_execution_failure_tests(&mut test_file, &test_dir);

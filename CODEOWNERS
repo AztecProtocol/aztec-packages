@@ -1,4 +1,7 @@
 /build-images/ @charlielye
+/ci3/ @charlielye
+**/bootstrap.sh @charlielye
+**/run_test.sh @charlielye
 
 # Notify the Noir team of any changes to ACIR serialization
 /noir/noir-repo/acvm-repo/acir/codegen/* @TomAFrench @vezenovm @guipublic
@@ -29,4 +32,3 @@
 # on changes to the AVM transpiler
 /avm-transpiler/src @fcarreiro @dbanks12
 #####################################################
-
