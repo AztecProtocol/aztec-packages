@@ -5,6 +5,7 @@ import { type Writable } from 'stream';
 import { inspect } from 'util';
 
 import { compactArray } from '../collection/array.js';
+import { GoogleCloudLoggerConfig } from './gcloud-logger.js';
 import { getLogLevelFromFilters, parseEnv } from './log-filters.js';
 import { type LogLevel } from './log-levels.js';
 import { type LogData, type LogFn } from './log_fn.js';
@@ -70,44 +71,20 @@ const [logLevel, logFilters] = parseEnv(process.env.LOG_LEVEL, defaultLogLevel);
 // Define custom logging levels for pino.
 const customLevels = { verbose: 25 };
 
-// inspired by https://github.com/pinojs/pino/issues/726#issuecomment-605814879
-const levelToSeverityFormatter = (label: string, level: number): object => {
-  // Severity labels https://cloud.google.com/logging/docs/reference/v2/rest/v2/LogEntry#LogSeverity
-  let severity: string;
+// Do we want to log in JSON format?
+const logJson = ['1', 'true', 'TRUE'].includes(process.env.LOG_JSON ?? '');
 
-  switch (label as pino.Level | keyof typeof customLevels) {
-    case 'trace':
-    case 'debug':
-      severity = 'DEBUG';
-      break;
-    case 'verbose':
-    case 'info':
-      severity = 'INFO';
-      break;
-    case 'warn':
-      severity = 'WARNING';
-      break;
-    case 'error':
-      severity = 'ERROR';
-      break;
-    case 'fatal':
-      severity = 'CRITICAL';
-      break;
-    default:
-      severity = 'DEFAULT';
-      break;
-  }
+// Are we in google cloud? If so, format logs for its logs and traces explorer.
+const logGoogleCloud = ['1', 'true', 'TRUE'].includes(process.env.LOG_GCLOUD ?? '');
 
-  return { severity, level };
-};
-
+// Define global options for pino.
 const pinoOpts: pino.LoggerOptions<keyof typeof customLevels> = {
   customLevels,
   useOnlyCustomLevels: false,
   level: logLevel,
-  formatters: {
-    level: levelToSeverityFormatter,
-  },
+  // While it'd be great to set the google cloud formatters for the stdio transport only,
+  // pino requires that we set formatters at the logger level instead.
+  ...(logGoogleCloud ? GoogleCloudLoggerConfig : {}),
 };
 
 export const levels = {
@@ -170,7 +147,7 @@ function makeLogger() {
     // Regular nodejs with transports on worker thread, using pino-pretty for console logging if LOG_JSON
     // is not set, and an optional OTLP transport if the OTLP endpoint is provided.
     const targets: pino.TransportSingleOptions[] = compactArray([
-      ['1', 'true', 'TRUE'].includes(process.env.LOG_JSON ?? '') ? stdioTransport : prettyTransport,
+      logJson ? stdioTransport : prettyTransport,
       otlpEndpoint ? otelTransport : undefined,
     ]);
     return pino(pinoOpts, pino.transport({ targets, levels: levels.values }));

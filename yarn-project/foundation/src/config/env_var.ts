@@ -57,6 +57,7 @@ export type EnvVar =
   | 'L2_QUEUE_SIZE'
   | 'LOG_ELAPSED_TIME'
   | 'LOG_JSON'
+  | 'LOG_GCLOUD'
   | 'LOG_MULTILINE'
   | 'LOG_LEVEL'
   | 'MNEMONIC'

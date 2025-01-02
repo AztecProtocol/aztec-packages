@@ -126,7 +126,6 @@ export class OpenTelemetryClient implements TelemetryClient {
   public static async createAndStart(config: TelemetryClientConfig, log: Logger): Promise<OpenTelemetryClient> {
     const resource = await getOtelResource();
 
-    // TODO(palla/log): Should we show traces as logs in stdout when otel collection is disabled?
     const tracerProvider = new NodeTracerProvider({
       resource,
       spanProcessors: config.tracesCollectorUrl

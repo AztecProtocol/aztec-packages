@@ -222,6 +222,10 @@ export class OTelPinoStream extends Writable {
         // [aztec] They are not redundant, we depend on them for correlation.
         // The instrumentation package seems to be adding these fields via a custom hook.
         // We push them from the logger module in foundation, so we don't want to clear them here.
+        // We do rename the google-cloud specific fields though, back to their expected names.
+        ['logging.googleapis.com/trace']: trace_id,
+        ['logging.googleapis.com/spanId']: span_id,
+        ['logging.googleapis.com/trace_sampled']: _trace_flags,
 
         ...attributes
       } = recObj;
@@ -230,6 +234,11 @@ export class OTelPinoStream extends Writable {
       if (isNaN(timestamp)) {
         attributes['time'] = time; // save the unexpected "time" field to attributes
         timestamp = Date.now();
+      }
+
+      if (span_id && trace_id) {
+        attributes['trace_id'] = trace_id;
+        attributes['span_id'] = span_id;
       }
 
       // This avoids a possible subtle bug when a Pino logger uses
