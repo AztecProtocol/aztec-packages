@@ -9,8 +9,6 @@ source $(git rev-parse --show-toplevel)/ci3/source_bootstrap
 
 # Enable abbreviated output.
 export DENOISE=1
-# We always want color.
-export FORCE_COLOR=true
 
 cmd=${1:-}
 [ -n "$cmd" ] && shift

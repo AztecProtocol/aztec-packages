@@ -6,14 +6,14 @@ cmd=${1:-}
 export hash=$(cache_content_hash .rebuild_patterns)
 export test_hash=$(cache_content_hash .rebuild_patterns .rebuild_patterns_tests)
 
-export js_projects=(
+export js_projects="
   @noir-lang/acvm_js
   @noir-lang/types
   @noir-lang/noirc_abi
   @noir-lang/noir_codegen
   @noir-lang/noir_js
-)
-export js_include=$(printf " --include %s" "${js_projects[@]}")
+"
+export js_include=$(printf " --include %s" $js_projects)
 
 # Fake this so artifacts have a consistent hash in the cache and not git hash dependent.
 # export GIT_COMMIT="$(echo "$hash" | sed 's/-.*//g')"
@@ -52,7 +52,7 @@ function build_packages {
 
   cd ..
   rm -rf packages && mkdir -p packages
-  for project in "${js_projects[@]}"; do
+  for project in $js_projects; do
     p=$(cd noir-repo && yarn workspaces list --json | jq -r "select(.name==\"$project\").location")
     tar zxfv noir-repo/$p/package.tgz -C packages && mv packages/package packages/${project#*/}
   done
@@ -119,6 +119,12 @@ case "$cmd" in
     ;;
   ""|"fast"|"full"|"ci")
     build
+    ;;
+  "build-native")
+    build_native
+    ;;
+  "build-packages")
+    build_packages
     ;;
   "test")
     test
