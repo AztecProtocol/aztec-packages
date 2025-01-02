@@ -1,7 +1,8 @@
 ^docs/src
+^docs/docs
 ^docs/scripts
 ^docs/static
 ^docs/*.js
 ^docs/*.json
-^*.json
-^*.config.js
+^docs/*.config.js
+^docs/yarn.lock
