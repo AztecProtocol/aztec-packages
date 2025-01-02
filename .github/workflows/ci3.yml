@@ -19,7 +19,7 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  build:
+  ci:
     runs-on: ubuntu-latest
     if: >
       (github.event.action != 'labeled' && github.event.pull_request.draft == false) ||

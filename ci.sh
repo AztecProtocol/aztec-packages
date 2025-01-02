@@ -53,19 +53,20 @@ case "$cmd" in
   "ec2")
     # Spin up ec2 instance and ci bootstrap with shell on failure.
     # You can override the bootstrap command with the first arg e.g: ci ec2 full
-    bootstrap_ec2 "./bootstrap.sh ${1:-ci} || exec zsh" ${2:-}
+    bootstrap_ec2 "./bootstrap.sh ${1:-ci}" ${2:-}
     ;;
   "ec2-no-cache")
     # Same as ec2, but disable the build and test cache.
-    bootstrap_ec2 "USE_CACHE=0 USE_TEST_CACHE=0 ./bootstrap.sh ${1:-ci} || exec zsh" ${2:-}
+    bootstrap_ec2 "USE_CACHE=0 USE_TEST_CACHE=0 ./bootstrap.sh ${1:-ci}" ${2:-}
     ;;
   "ec2-test")
     # Same as ec2, but don't use the test cache.
-    bootstrap_ec2 "USE_TEST_CACHE=0 ./bootstrap.sh ci || exec zsh" ${1:-}
+    bootstrap_ec2 "USE_TEST_CACHE=0 ./bootstrap.sh ci" ${1:-}
     ;;
   "ec2-shell")
     # Spin up ec2 instance, clone, and drop into shell.
-    bootstrap_ec2 "exec zsh"
+    # False triggers the shell on fail.
+    bootstrap_ec2 "false"
     ;;
   "ec2-grind")
     # Same as ec2-test but repeat it over arg1 instances.

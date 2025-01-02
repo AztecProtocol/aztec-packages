@@ -1,7 +1,7 @@
 #!/bin/bash
 source $(git rev-parse --show-toplevel)/ci3/source
 
-cmd=${1:-"./bootstrap.sh ci || exec zsh"}
+cmd=${1:-"./bootstrap.sh ci"}
 postfix=${2:-}
 cores=${CORES:-128}
 NO_TERMINATE=${NO_TERMINATE:-0}
@@ -52,7 +52,11 @@ github_endgroup
 [ "$NO_TERMINATE" -eq 0 ] && args+=" --rm"
 
 # Interactive if stdin is connected to terminal.
-[ -t 0 ] && args+=" -ti"
+if [ -t 0 ]; then {
+  args+=" -ti"
+  shell_on_fail="|| exec zsh"
+fi
+
 
 # Use ~/.ssh/build_instance_key to ssh into our requested instance.
 # Run in our build container, clones the branches latest commit and running this given command.
@@ -100,6 +104,6 @@ ssh -t -F $ci3/aws/build_instance_ssh_config ubuntu@$ip "
       git remote add origin https://github.com/aztecprotocol/aztec-packages
       git fetch --depth 1 origin $current_commit
       git checkout FETCH_HEAD
-      $cmd
+      $cmd ${shell_on_fail:-}
     '
 "
