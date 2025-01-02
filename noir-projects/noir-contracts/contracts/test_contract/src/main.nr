@@ -33,12 +33,13 @@ contract Test {
             note_getter_options::NoteStatus,
         },
         oracle::pxe_db,
+        test::mocks::mock_struct::MockStruct,
         utils::comparison::Comparator,
     };
     use dep::token_portal_content_hash_lib::{
         get_mint_to_private_content_hash, get_mint_to_public_content_hash,
     };
-    use dep::value_note::value_note::{VALUE_NOTE_LEN, ValueNote};
+    use dep::value_note::value_note::ValueNote;
     use std::meta::derive;
 
     use crate::test_note::TestNote;
@@ -458,14 +459,14 @@ contract Test {
         constant.value
     }
 
-    unconstrained fn store_in_pxe_db(key: Field, note: ValueNote) {
-        pxe_db::store(context.this_address(), key, note);
+    unconstrained fn store_in_pxe_db(key: Field, arbitrary_struct: MockStruct) {
+        pxe_db::store(context.this_address(), key, arbitrary_struct);
     }
 
-    unconstrained fn load_from_pxe_db(key: Field) -> pub [Field; VALUE_NOTE_LEN] {
-        // ValueNote does not implement the Deserialize trait, so I just get it as an array.
-        let maybe_data = pxe_db::load(context.this_address(), key);
-        maybe_data.unwrap_or([0; VALUE_NOTE_LEN])
+    unconstrained fn load_from_pxe_db(key: Field) -> pub [Field; 2] {
+        let maybe_arbitrary_struct: Option<MockStruct> = pxe_db::load(context.this_address(), key);
+        let arbitrary_struct = maybe_arbitrary_struct.unwrap_or(MockStruct::new(0, 0));
+        arbitrary_struct.serialize()
     }
 
     #[private]

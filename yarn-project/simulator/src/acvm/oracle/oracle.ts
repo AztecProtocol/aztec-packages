@@ -2,11 +2,14 @@ import { MerkleTreeId, UnencryptedL2Log } from '@aztec/circuit-types';
 import { FunctionSelector, NoteSelector } from '@aztec/foundation/abi';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { Fr } from '@aztec/foundation/fields';
+import { createLogger } from '@aztec/foundation/log';
 
 import { type ACVMField } from '../acvm_types.js';
 import { frToBoolean, frToNumber, fromACVMField } from '../deserialize.js';
 import { toACVMField } from '../serialize.js';
 import { type TypedOracle } from './typed_oracle.js';
+
+const logger = createLogger('simulator:acvm:oracle');
 
 /**
  * A data source that has all the apis required by Aztec.nr.
@@ -398,19 +401,29 @@ export class Oracle {
     const processedContract = AztecAddress.fromField(fromACVMField(contract));
     const processedKey = fromACVMField(key);
     const processedValues = values.map(fromACVMField);
+    logger.debug(`Storing data for key ${processedKey} in contract ${processedContract}. Data: [${processedValues}]`);
     await this.typedOracle.store(processedContract, processedKey, processedValues);
   }
 
-  async load([contract]: ACVMField[], [key]: ACVMField[], [numReturnValues]: ACVMField[]): Promise<ACVMField[]> {
+  /**
+   * Load data from pxe db.
+   * @param contract - The contract address.
+   * @param key - The key to load.
+   * @param tSize - The size of the serialized object to return.
+   * @returns The data found flag and the serialized object concatenated in one array.
+   */
+  async load([contract]: ACVMField[], [key]: ACVMField[], [tSize]: ACVMField[]): Promise<ACVMField[]> {
     const processedContract = AztecAddress.fromField(fromACVMField(contract));
     const processedKey = fromACVMField(key);
     const values = await this.typedOracle.load(processedContract, processedKey);
     if (values === null) {
       // No data was found so we set the data-found flag to 0 and we pad with zeros get the correct return size.
-      const processedNumReturnValues = frToNumber(fromACVMField(numReturnValues));
-      return [0, ...Array(processedNumReturnValues).fill(0)].map(toACVMField);
+      const processedTSize = frToNumber(fromACVMField(tSize));
+      logger.debug(`No data found for key ${processedKey} in contract ${processedContract}`);
+      return [0, ...Array(processedTSize).fill(0)].map(toACVMField);
     } else {
       // Data was found so we set the data-found flag to 1 and return it along with the data.
+      logger.debug(`Returning data for key ${processedKey} in contract ${processedContract}. Data: [${values}]`);
       return [1, ...values].map(toACVMField);
     }
   }

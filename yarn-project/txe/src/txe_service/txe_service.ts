@@ -606,17 +606,24 @@ export class TXEService {
     return toForeignCallResult([]);
   }
 
-  async load(contract: ForeignCallSingle, key: ForeignCallSingle, numReturnValues: ForeignCallSingle) {
+  /**
+   * Load data from pxe db.
+   * @param contract - The contract address.
+   * @param key - The key to load.
+   * @param tSize - The size of the serialized object to return.
+   * @returns The data found flag and the serialized object concatenated in one array.
+   */
+  async load(contract: ForeignCallSingle, key: ForeignCallSingle, tSize: ForeignCallSingle) {
     const processedContract = AztecAddress.fromField(fromSingle(contract));
     const processedKey = fromSingle(key);
     const values = await this.typedOracle.load(processedContract, processedKey);
     if (values === null) {
       // No data was found so we set the data-found flag to 0 and we pad with zeros get the correct return size.
-      const processedNumReturnValues = fromSingle(numReturnValues).toNumber();
-      return toForeignCallResult([toArray([new Fr(0), ...Array(processedNumReturnValues).fill(new Fr(0))])]);
+      const processedTSize = fromSingle(tSize).toNumber();
+      return toForeignCallResult(toArray([new Fr(0), ...Array(processedTSize).fill(new Fr(0))]));
     } else {
       // Data was found so we set the data-found flag to 1 and return it along with the data.
-      return toForeignCallResult([toArray([new Fr(1), ...values])]);
+      return toForeignCallResult(toArray([new Fr(1), ...values]));
     }
   }
 

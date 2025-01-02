@@ -1,4 +1,3 @@
-use crate::utils::array;
 use protocol_types::{address::AztecAddress, traits::{Deserialize, Serialize}};
 
 #[oracle(store)]
@@ -18,14 +17,18 @@ where
     store_oracle(contract_address, key, serialized);
 }
 
-/// Load M values from local PXE database. We pass in M as a parameter to have the information of how many fields
-/// we need to pad if the key does not exist.
+/// Load data from local PXE database. We pass in `t_size` as a parameter to have the information of how many fields
+/// we need to pad if the key does not exist (note that the actual response size is `t_size + 1` as the Option prefixes
+/// the response with a boolean indicating if the data exists).
 #[oracle(load)]
-unconstrained fn load_oracle<let M: u32>(
+unconstrained fn load_oracle<T, let N: u32>(
     contract_address: AztecAddress,
     key: Field,
-    num_return_values: u32,
-) -> [Field; M] {}
+    t_size: u32,
+) -> Option<T>
+where
+    T: Deserialize<N>,
+{}
 
 /// Load a value of type T that implements Deserialize from local PXE database. The data is scoped to the current
 /// contract. If the key does not exist, Option::none() is returned.
@@ -33,16 +36,7 @@ pub unconstrained fn load<T, let N: u32>(contract_address: AztecAddress, key: Fi
 where
     T: Deserialize<N>,
 {
-    let fields: [Field; N + 1] = load_oracle(contract_address, key, N);
-    // First field is a flag indicating if the key exists.
-    if fields[0] == 0 {
-        Option::none()
-    } else if fields[0] == 1 {
-        Option::some(T::deserialize(array::subarray(fields, 1)))
-    } else {
-        assert(false, "Invalid key-existence flag");
-        Option::none()
-    }
+    load_oracle(contract_address, key, N)
 }
 
 mod test {
