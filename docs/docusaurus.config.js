@@ -39,7 +39,7 @@ const config = {
   markdown: {
     mermaid: true,
   },
-  themes: ["@docusaurus/theme-mermaid"],
+  themes: ["@docusaurus/theme-mermaid", "docusaurus-theme-search-typesense"],
   presets: [
     [
       "@docusaurus/preset-classic",
@@ -193,14 +193,19 @@ const config = {
         },
       ],
       image: "img/docs-preview-image.png",
-      algolia: {
-        appId: "CL4NK79B0W",
-        apiKey: "21d89dadaa37a4d1b6bf4b17978dcf7f",
-        indexName: "aztec",
+      typesense: {
+        typesenseCollectionName: "aztec-docs",
+        typesenseServerConfig: {
+          nodes: [
+            {
+              host: "cpk69vuom0ilr4abp.a1.typesense.net",
+              port: 443,
+              protocol: "https",
+            },
+          ],
+          apiKey: "gpH8o2YnqsOEj2jgtIMTULbtHi1kZ2X3", // public search-only api key, safe to commit
+        },
         contextualSearch: true,
-        customRanking: [
-          { asc: 'importance' },
-        ],
       },
       colorMode: {
         defaultMode: "light",
