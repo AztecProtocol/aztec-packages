@@ -18,7 +18,7 @@
     "formatting:fix": "run -T eslint --fix ./src && run -T prettier -w ./src",
     "start:dev": "tsc-watch -p tsconfig.json --onSuccess 'yarn start'",
     "start": "node ./dest/index.js",
-    "test": "HARDWARE_CONCURRENCY=16 RAYON_NUM_THREADS=4 NODE_NO_WARNINGS=1 node --experimental-vm-modules ../node_modules/.bin/jest --passWithNoTests --maxWorkers=8",
+    "test": "HARDWARE_CONCURRENCY=${HARDWARE_CONCURRENCY:-16} RAYON_NUM_THREADS=${RAYON_NUM_THREADS:-4} NODE_NO_WARNINGS=1 node --experimental-vm-modules ../node_modules/.bin/jest --passWithNoTests --maxWorkers=${JEST_MAX_WORKERS:-8}",
     "generate:noir-circuits": "echo Noop",
     "generate:noir-contracts": "echo Noop",
     "generate:l1-contracts": "echo Noop",
