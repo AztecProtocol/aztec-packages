@@ -1,5 +1,6 @@
+# This file provides a centralized location to track all disabled tests, usually because they're flakey.
 # Be careful editing this file!
-# Validate you get expected results with: ./bootstrap.sh test-cmds
+# Validate you get expected results with diffs or e.g: ./bootstrap.sh test-cmds | wc -l
 # Blank lines, and lines starting with # are filtered.
 
 # barretenberg

@@ -155,52 +155,6 @@ function build {
   done
 }
 
-function test_all {
-  # Rust is very annoying.
-  # You sneeze and everything needs recompiling and you can't avoid recompiling when running tests.
-  # Ensure tests are up-to-date first so parallel doesn't complain about slow startup.
-  echo "Building tests..."
-  ./noir/bootstrap.sh build-tests
-
-  # Starting txe servers with incrementing port numbers.
-  export NUM_TXES=8
-  trap 'kill $(jobs -p)' EXIT
-  for i in $(seq 0 $((NUM_TXES-1))); do
-    (cd $root/yarn-project/txe && LOG_LEVEL=silent TXE_PORT=$((45730 + i)) yarn start) &
-  done
-  echo "Waiting for TXE's to start..."
-  for i in $(seq 0 $((NUM_TXES-1))); do
-      while ! nc -z 127.0.0.1 $((45730 + i)) &>/dev/null; do sleep 1; done
-  done
-
-  echo "Gathering tests to run..."
-  {
-    set -euo pipefail
-
-    if [ "$#" -gt 0 ]; then
-      for arg in "$@"; do
-        "$arg/bootstrap.sh" test-cmds
-      done
-    else
-      # Ordered with longest running first, to ensure they get scheduled earliest.
-      ./yarn-project/bootstrap.sh test-cmds
-      ./noir-projects/bootstrap.sh test-cmds
-      ./boxes/bootstrap.sh test-cmds
-      ./barretenberg/bootstrap.sh test-cmds
-      ./l1-contracts/bootstrap.sh test-cmds
-      ./noir/bootstrap.sh test-cmds
-    fi
-  } | parallel -j96 --bar --joblog joblog.txt --halt now,fail=1 'dump_fail {} >/dev/null'
-
-  slow_jobs=$(cat joblog.txt | \
-    awk 'NR>1 && $4 > 300 {print | "sort -k4,4"}' | \
-    awk '{print $4 ": " substr($0, index($0, $9))}' | sed -E "s/^(.*: ).*'([^']+)'.*$/\1\2/")
-  if [ -n "$slow_jobs" ]; then
-    echo -e "${yellow}WARNING: The following tests exceed 5 minute runtimes. Break them up.${reset}"
-    echo "$slow_jobs"
-  fi
-}
-
 case "$cmd" in
   "clean")
     echo "WARNING: This will erase *all* untracked files, including hooks and submodules."
@@ -220,14 +174,10 @@ case "$cmd" in
 
     # Remove all untracked files, directories, nested repos, and .gitignore files.
     git clean -ffdx
-
-    echo "Cleaning complete"
-    exit 0
   ;;
   "check")
     check_toolchains
     echo "Toolchains look good! 🎉"
-    exit 0
   ;;
   "image-aztec")
     image=aztecprotocol/aztec:$(git rev-parse HEAD)
@@ -247,7 +197,6 @@ case "$cmd" in
       docker push $image
     fi
     github_endgroup
-    exit
   ;;
   "_image-e2e")
     image=aztecprotocol/end-to-end:$(git rev-parse HEAD)
@@ -268,11 +217,9 @@ case "$cmd" in
       docker push $image
     fi
     github_endgroup
-    exit
   ;;
   "image-e2e")
     parallel --line-buffer ./bootstrap.sh ::: image-aztec _image-e2e
-    exit
   ;;
   "image-faucet")
     image=aztecprotocol/aztec-faucet:$(git rev-parse HEAD)
@@ -290,7 +237,6 @@ case "$cmd" in
       docker push $image
     fi
     github_endgroup
-    exit
   ;;
   ""|"fast"|"full")
     build
