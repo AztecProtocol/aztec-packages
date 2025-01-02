@@ -2,8 +2,6 @@ import { Fr } from '@aztec/circuits.js';
 import { schemas } from '@aztec/foundation/schemas';
 import { BufferReader } from '@aztec/foundation/serialize';
 
-import { z } from 'zod';
-
 /**
  * A class representing hash of Aztec transaction.
  */
@@ -51,11 +49,7 @@ export class TxHash {
   }
 
   static get schema() {
-    return z
-      .object({
-        hash: schemas.Fr,
-      })
-      .transform(({ hash }) => new TxHash(hash));
+    return schemas.BufferHex.transform(value => new TxHash(Fr.fromBuffer(value)));
   }
 
   static zero() {
