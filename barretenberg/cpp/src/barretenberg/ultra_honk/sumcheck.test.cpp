@@ -19,7 +19,7 @@ using FF = typename Flavor::FF;
 
 class SumcheckTestsRealCircuit : public ::testing::Test {
   protected:
-    static void SetUpTestSuite() { bb::srs::init_crs_factory("../srs_db/ignition"); }
+    static void SetUpTestSuite() { bb::srs::init_crs_factory(bb::srs::get_ignition_crs_path()); }
 };
 
 /**
