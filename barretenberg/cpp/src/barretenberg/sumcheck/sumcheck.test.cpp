@@ -22,7 +22,7 @@ template <typename Flavor> class SumcheckTests : public ::testing::Test {
     using ProverPolynomials = typename Flavor::ProverPolynomials;
     using RelationSeparator = Flavor::RelationSeparator;
     const size_t NUM_POLYNOMIALS = Flavor::NUM_ALL_ENTITIES;
-    static void SetUpTestSuite() { bb::srs::init_crs_factory("../srs_db/ignition"); }
+    static void SetUpTestSuite() { bb::srs::init_crs_factory(bb::srs::get_ignition_crs_path()); }
 
     Polynomial<FF> random_poly(size_t size)
     {
