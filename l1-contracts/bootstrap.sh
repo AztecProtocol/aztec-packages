@@ -29,14 +29,14 @@ function build {
 function test {
   set -eu
   local test_flag=l1-contracts-test-$hash
-  if test_should_run $test_flag; then
-    github_group "l1-contracts test"
-    solhint --config ./.solhint.json "src/**/*.sol"
-    forge fmt --check
-    forge test --no-match-contract UniswapPortalTest
-    cache_upload_flag $test_flag
-    github_endgroup
-  fi
+  test_should_run $test_flag || return 0
+
+  github_group "l1-contracts test"
+  solhint --config ./.solhint.json "src/**/*.sol"
+  forge fmt --check
+  forge test --no-match-contract UniswapPortalTest
+  cache_upload_flag $test_flag
+  github_endgroup
 }
 export -f test
 
@@ -49,6 +49,9 @@ case "$cmd" in
     ;;
   "test")
     test
+    ;;
+  "test-cmds")
+    echo "cd l1-contracts && forge test --no-match-contract UniswapPortalTest"
     ;;
   "ci")
     build
