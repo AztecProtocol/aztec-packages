@@ -110,17 +110,12 @@ function test_cmds {
 
 function test {
   github_group "test all"
-  # Rust/nextest is very annoying.
-  # You sneeze and everything needs recompiling and you can't avoid recompiling when running tests.
-  # Ensure tests are up-to-date first so parallel doesn't complain about slow startup.
-  # echo "Building tests..."
-  # ./noir/bootstrap.sh build-tests
 
   # Starting txe servers with incrementing port numbers.
   export NUM_TXES=8
   trap 'kill $(jobs -p) &>/dev/null || true' EXIT
   for i in $(seq 0 $((NUM_TXES-1))); do
-    (cd $root/yarn-project/txe && LOG_LEVEL=silent TXE_PORT=$((45730 + i)) yarn start) &>/dev/null &
+    dump_fail "cd $root/yarn-project/txe && LOG_LEVEL=silent TXE_PORT=$((45730 + i)) yarn start" >/dev/null &
   done
   echo "Waiting for TXE's to start..."
   for i in $(seq 0 $((NUM_TXES-1))); do

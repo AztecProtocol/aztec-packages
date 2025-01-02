@@ -1,6 +1,5 @@
 #!/usr/bin/env bash
-set -euo pipefail
-[ "${BUILD_SYSTEM_DEBUG:-}" = 1 ] && set -x
+source $(git rev-parse --show-toplevel)/ci3/source
 
 # Ensure args are set
 if [[ "$#" = 0 ]]; then
