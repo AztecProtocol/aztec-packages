@@ -1,68 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1735833770335,
+  "lastUpdate": 1735855299987,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "98505400+ledwards2225@users.noreply.github.com",
-            "name": "ledwards2225",
-            "username": "ledwards2225"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "985aef16ce612a9d3d7ff27b87b871a01911002e",
-          "message": "fix: use e2e structure in cbind (#10585)",
-          "timestamp": "2024-12-10T17:26:16Z",
-          "tree_id": "f62851e64446bf75898ec86a57333e47eb0075d9",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/985aef16ce612a9d3d7ff27b87b871a01911002e"
-        },
-        "date": 1733853781259,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "nativeClientIVCBench/Full/6",
-            "value": 24977.41933399999,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 22904.236849 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 4959.933972000002,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 4652.185017 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmClientIVCBench/Full/6",
-            "value": 84560.366332,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 84560366000 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 15128.370046000002,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 15128370000 ms\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 2837789056,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 2837789056 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 142979160,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 142979160 ns\nthreads: 1"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -3178,6 +3118,72 @@ window.BENCHMARK_DATA = {
             "value": 142504165,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 142504165 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "lucasxia01@gmail.com",
+            "name": "Lucas Xia",
+            "username": "lucasxia01"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "37095ceba560ad66516467387d186b5afd19a6e0",
+          "message": "feat: Use full IPA recursive verifier in root rollup (#10962)\n\nModifies the root rollup circuit to use different recursion proof type,\r\nROOT_ROLLUP_HONK and processing of honk_recursion_constraints, so the\r\nbackend knows to run the full IPA recursive verifier.\r\n\r\nResolves https://github.com/AztecProtocol/barretenberg/issues/1183.",
+          "timestamp": "2025-01-02T21:45:58Z",
+          "tree_id": "fcf966e3b8c5d404c4ec30b396ed70c37832b480",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/37095ceba560ad66516467387d186b5afd19a6e0"
+        },
+        "date": 1735855292530,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Ambient_17_in_20/6",
+            "value": 20245.989401999992,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 17751.176918999998 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 21845.095571,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 19073.680909 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 4635.720676000034,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 4339.428815 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 73467.872584,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 73467873000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 13970.039669,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 13970039000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 2980474638,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 2980474638 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 141687442,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 141687442 ns\nthreads: 1"
           }
         ]
       }
