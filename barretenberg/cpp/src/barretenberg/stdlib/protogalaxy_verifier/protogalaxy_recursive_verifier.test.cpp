@@ -52,7 +52,7 @@ template <typename RecursiveFlavor> class ProtogalaxyRecursiveTests : public tes
     using InnerFoldingVerifier = ProtogalaxyVerifier_<InnerDeciderVerificationKeys>;
     using InnerFoldingProver = ProtogalaxyProver_<InnerDeciderProvingKeys>;
 
-    static void SetUpTestSuite() { bb::srs::init_crs_factory("../srs_db/ignition"); }
+    static void SetUpTestSuite() { bb::srs::init_crs_factory(bb::srs::get_ignition_crs_path()); }
     /**
      * @brief Create a non-trivial arbitrary inner circuit, the proof of which will be recursively verified
      *
