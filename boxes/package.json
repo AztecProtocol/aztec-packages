@@ -28,7 +28,7 @@
     "@aztec/types": "link:../yarn-project/types"
   },
   "dependencies": {
-    "@iarna/toml": "^2.2.5",
+    "@iarna/toml": "^2.2.6",
     "@inquirer/confirm": "^3.0.0",
     "@inquirer/input": "^2.0.0",
     "@inquirer/select": "^2.0.0",
