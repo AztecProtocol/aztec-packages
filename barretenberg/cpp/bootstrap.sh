@@ -3,17 +3,18 @@ source $(git rev-parse --show-toplevel)/ci3/source_bootstrap
 
 cmd=${1:-}
 
-preset=clang16-assert
-pic_preset="clang16-pic"
-hash=$(cache_content_hash .rebuild_patterns)
+export preset=clang16-assert
+export pic_preset="clang16-pic"
+export hash=$(cache_content_hash .rebuild_patterns)
 
+# Build all native binaries, including tests.
 function build_native {
   set -eu
   if ! cache_download barretenberg-release-$hash.tar.gz; then
+    ./format.sh check
     rm -f build/CMakeCache.txt
-    echo "Building with preset: $preset"
     cmake --preset $preset
-    cmake --build --preset $preset --target bb
+    cmake --build --preset $preset
     cache_upload barretenberg-release-$hash.tar.gz build/bin
   fi
 
@@ -26,6 +27,7 @@ function build_native {
   fi
 }
 
+# Build single threaded wasm. Needed when no shared mem available.
 function build_wasm {
   set -eu
   if ! cache_download barretenberg-wasm-$hash.tar.gz; then
@@ -38,6 +40,7 @@ function build_wasm {
   (cd ./build-wasm/bin && gzip barretenberg.wasm -c > barretenberg.wasm.gz)
 }
 
+# Build multi-threaded wasm. Requires shared memory.
 function build_wasm_threads {
   set -eu
   if ! cache_download barretenberg-wasm-threads-$hash.tar.gz; then
@@ -50,26 +53,18 @@ function build_wasm_threads {
   (cd ./build-wasm-threads/bin && gzip barretenberg.wasm -c > barretenberg.wasm.gz)
 }
 
-function build {
-  github_group "bb cpp build"
-  export preset pic_preset hash
-  export -f build_native build_wasm build_wasm_threads
-  parallel --line-buffered -v --tag denoise {} ::: build_native build_wasm build_wasm_threads
-  github_endgroup
+# Download ignition transcripts. Only needed for tests.
+# The actual bb binary uses the flat crs downloaded in barratenberg/bootstrap.sh to ~/.bb-crs.
+# TODO: Use the flattened crs. These old transcripts are a pain. Delete this.
+function download_old_crs {
+  cd ./srs_db && ./download_ignition.sh 3 && ./download_grumpkin.sh
 }
 
-function build_tests {
-  github_group "bb build tests"
-  if ! cache_download barretenberg-tests-$hash.tar.gz; then
-    denoise "./format.sh check"
-    denoise "cmake --preset $preset && cmake --build --preset $preset"
-    cache_upload barretenberg-tests-$hash.tar.gz build/bin
-  fi
+export -f build_native build_wasm build_wasm_threads download_old_crs
 
-  # Download ignition transcripts. Only needed for tests.
-  # The actual bb binary uses the flat crs downloaded in barratenberg/bootstrap.sh to ~/.bb-crs.
-  # TODO: Use the flattened crs. These old transcripts are a pain.
-  denoise "cd ./srs_db && ./download_ignition.sh 3 && ./download_grumpkin.sh"
+function build {
+  github_group "bb cpp build"
+  parallel --line-buffered --tag denoise {} ::: build_native build_wasm build_wasm_threads download_old_crs
   github_endgroup
 }
 
@@ -100,7 +95,7 @@ case "$cmd" in
   "clean")
     git clean -fdx
     ;;
-  ""|"fast")
+  ""|"fast"|"ci")
     # Build bb and wasms. Can be incremental.
     build
     ;;
@@ -109,17 +104,8 @@ case "$cmd" in
     rm -rf build*
     build
     ;;
-  "build-tests")
-    # Build the entire native repo, including all tests and benchmarks.
-    build_tests
-    ;;
   "test")
-    # Run the tests. Assumes they've been (re)built with a call to build_tests.
     test
-    ;;
-  "ci")
-    build
-    build_tests
     ;;
   "hash")
     echo $hash

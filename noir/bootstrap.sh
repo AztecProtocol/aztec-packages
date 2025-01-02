@@ -57,7 +57,15 @@ function build_packages {
     tar zxfv noir-repo/$p/package.tgz -C packages && mv packages/package packages/${project#*/}
   done
 
-  cache_upload noir-packages-$hash.tar.gz packages
+  cache_upload noir-packages-$hash.tar.gz \
+    packages \
+    noir-repo/acvm-repo/acvm_js/nodejs \
+    noir-repo/acvm-repo/acvm_js/web \
+    noir-repo/tooling/noir_codegen/lib \
+    noir-repo/tooling/noir_js/lib \
+    noir-repo/tooling/noir_js_types/lib \
+    noir-repo/tooling/noirc_abi_wasm/nodejs \
+    noir-repo/tooling/noirc_abi_wasm/web
 }
 
 export -f build_native build_packages
