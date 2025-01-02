@@ -1,68 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1735831917132,
+  "lastUpdate": 1735833770335,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "fcarreiro@users.noreply.github.com",
-            "name": "Facundo",
-            "username": "fcarreiro"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "f18d701aa527c68a1adcc4b8acbb9c7bd239468a",
-          "message": "chore(avm): more pilcom compat changes (#10569)\n\nMore changes that I need for compatibility between old and new witgen.\n\nIn particular, I'm using `bb::{{vm_name}}` namespaces versus\n``{{name}}Composer/Verifier`` etc because it makes it easier to work\nwith both of them. Also I had to add a prefix to the macros because\nnamespaces don't work with them.",
-          "timestamp": "2024-12-10T10:49:27-05:00",
-          "tree_id": "d7a835808ec6b418934ca7e53fcde2e4a9d3283f",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/f18d701aa527c68a1adcc4b8acbb9c7bd239468a"
-        },
-        "date": 1733848709257,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "nativeClientIVCBench/Full/6",
-            "value": 24967.05513500001,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 22686.914858 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 4598.240313999994,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 4308.402399 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmClientIVCBench/Full/6",
-            "value": 89083.774755,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 89083775000 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 16620.763439000002,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 16620763000 ms\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 2835158934,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 2835158934 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 134841990,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 134841990 ns\nthreads: 1"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -3172,6 +3112,72 @@ window.BENCHMARK_DATA = {
             "value": 168614617,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 168614617 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "49558828+AztecBot@users.noreply.github.com",
+            "name": "Aztec Bot",
+            "username": "AztecBot"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "0c6a4bee82c62a522f69756f0d233ec637cd1a7a",
+          "message": "chore: redo typo PR by petryshkaCODE (#10993)\n\nThanks petryshkaCODE for\nhttps://github.com/AztecProtocol/aztec-packages/pull/10982. Our policy\nis to redo typo changes to dissuade metric farming. This is an automated\nscript.",
+          "timestamp": "2025-01-02T15:38:56Z",
+          "tree_id": "0f4a236590bf14aeafdc6fa26dcd5d0831f1d846",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/0c6a4bee82c62a522f69756f0d233ec637cd1a7a"
+        },
+        "date": 1735833763118,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Ambient_17_in_20/6",
+            "value": 20306.493022000013,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 17804.506748 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 21891.938364999987,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 19106.475278 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 4667.638124999996,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 4338.460036999999 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 72991.96774299999,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 72991968000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 13953.806374,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 13953807000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 2893676788,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 2893676788 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 142504165,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 142504165 ns\nthreads: 1"
           }
         ]
       }
