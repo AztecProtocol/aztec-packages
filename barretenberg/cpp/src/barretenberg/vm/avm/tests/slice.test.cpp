@@ -22,7 +22,7 @@ class AvmSliceTests : public ::testing::Test {
         , trace_builder(
               AvmTraceBuilder(public_inputs).set_full_precomputed_tables(false).set_range_check_required(false))
     {
-        srs::init_crs_factory("../srs_db/ignition");
+        srs::init_crs_factory(bb::srs::get_ignition_crs_path());
     }
 
     void gen_trace_builder(std::vector<FF> const& calldata)

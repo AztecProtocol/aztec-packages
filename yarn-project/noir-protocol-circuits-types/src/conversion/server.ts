@@ -24,6 +24,7 @@ import {
   type PrivateToPublicKernelCircuitPublicInputs,
   type PublicDataHint,
   type RECURSIVE_PROOF_LENGTH,
+  ROLLUP_HONK_VERIFICATION_KEY_LENGTH_IN_FIELDS,
   type RecursiveProof,
   RevertCode,
   RollupValidationRequests,
@@ -638,7 +639,7 @@ export function mapPreviousRollupDataToNoir(previousRollupData: PreviousRollupDa
       previousRollupData.baseOrMergeRollupPublicInputs,
     ),
     proof: mapRecursiveProofToNoir(previousRollupData.proof),
-    vk: mapVerificationKeyToNoir(previousRollupData.vk, HONK_VERIFICATION_KEY_LENGTH_IN_FIELDS),
+    vk: mapVerificationKeyToNoir(previousRollupData.vk, ROLLUP_HONK_VERIFICATION_KEY_LENGTH_IN_FIELDS),
     vk_witness: {
       leaf_index: mapFieldToNoir(new Fr(previousRollupData.vkWitness.leafIndex)),
       sibling_path: mapTuple(previousRollupData.vkWitness.siblingPath, mapFieldToNoir),
@@ -659,7 +660,7 @@ export function mapPreviousRollupBlockDataToNoir(
       previousRollupData.blockRootOrBlockMergePublicInputs,
     ),
     proof: mapRecursiveProofToNoir(previousRollupData.proof),
-    vk: mapVerificationKeyToNoir(previousRollupData.vk, HONK_VERIFICATION_KEY_LENGTH_IN_FIELDS),
+    vk: mapVerificationKeyToNoir(previousRollupData.vk, ROLLUP_HONK_VERIFICATION_KEY_LENGTH_IN_FIELDS),
     vk_witness: {
       leaf_index: mapFieldToNoir(new Fr(previousRollupData.vkWitness.leafIndex)),
       sibling_path: mapTuple(previousRollupData.vkWitness.siblingPath, mapFieldToNoir),
@@ -832,7 +833,7 @@ function mapPrivateTubeDataToNoir(data: PrivateTubeData): PrivateTubeDataNoir {
   return {
     public_inputs: mapKernelCircuitPublicInputsToNoir(data.publicInputs),
     proof: mapRecursiveProofToNoir<typeof TUBE_PROOF_LENGTH>(data.proof),
-    vk_data: mapVkWitnessDataToNoir(data.vkData, HONK_VERIFICATION_KEY_LENGTH_IN_FIELDS),
+    vk_data: mapVkWitnessDataToNoir(data.vkData, ROLLUP_HONK_VERIFICATION_KEY_LENGTH_IN_FIELDS),
   };
 }
 
@@ -866,7 +867,7 @@ function mapPublicTubeDataToNoir(data: PublicTubeData): PublicTubeDataNoir {
   return {
     public_inputs: mapPrivateToPublicKernelCircuitPublicInputsToNoir(data.publicInputs),
     proof: mapRecursiveProofToNoir<typeof TUBE_PROOF_LENGTH>(data.proof),
-    vk_data: mapVkWitnessDataToNoir(data.vkData, HONK_VERIFICATION_KEY_LENGTH_IN_FIELDS),
+    vk_data: mapVkWitnessDataToNoir(data.vkData, ROLLUP_HONK_VERIFICATION_KEY_LENGTH_IN_FIELDS),
   };
 }
 
@@ -905,7 +906,7 @@ export function mapEmptyKernelInputsToNoir(inputs: PrivateKernelEmptyInputs): Pr
 function mapEmptyNestedDataToNoir(inputs: EmptyNestedData): EmptyNestedDataNoir {
   return {
     proof: mapRecursiveProofToNoir(inputs.proof),
-    vk: mapVerificationKeyToNoir(inputs.vk, HONK_VERIFICATION_KEY_LENGTH_IN_FIELDS),
+    vk: mapVerificationKeyToNoir(inputs.vk, ROLLUP_HONK_VERIFICATION_KEY_LENGTH_IN_FIELDS),
   };
 }
 
