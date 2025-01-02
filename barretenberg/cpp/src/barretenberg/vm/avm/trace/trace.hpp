@@ -233,6 +233,8 @@ class AvmTraceBuilder {
     void checkpoint_non_revertible_state();
     void rollback_to_non_revertible_checkpoint();
     std::vector<uint8_t> get_bytecode(const FF contract_address, bool check_membership = false);
+    // Used to track the unique class ids, could also be used to cache membership checks of class ids
+    std::unordered_set<FF> contract_class_id_cache;
     std::unordered_set<FF> bytecode_membership_cache;
     void insert_private_state(const std::vector<FF>& siloed_nullifiers, const std::vector<FF>& unique_note_hashes);
     void insert_private_revertible_state(const std::vector<FF>& siloed_nullifiers,
@@ -253,6 +255,24 @@ class AvmTraceBuilder {
         full_precomputed_tables = required;
         return *this;
     }
+    AvmTraceBuilder& with_default_ctx()
+    {
+        AvmTraceBuilder::ExtCallCtx ext_call_ctx({ .context_id = 0,
+                                                   .parent_id = 0,
+                                                   .is_top_level = true,
+                                                   .contract_address = FF(0),
+                                                   .calldata = {},
+                                                   .nested_returndata = {},
+                                                   .last_pc = 0,
+                                                   .success_offset = 0,
+                                                   .start_l2_gas_left = 0,
+                                                   .start_da_gas_left = 0,
+                                                   .l2_gas_left = 0,
+                                                   .da_gas_left = 0,
+                                                   .internal_return_ptr_stack = {} });
+        current_ext_call_ctx = ext_call_ctx;
+        return *this;
+    }
 
     struct MemOp {
         bool is_indirect;
@@ -266,6 +286,7 @@ class AvmTraceBuilder {
     struct ExtCallCtx {
         uint32_t context_id; // This is the unique id of the ctx, we'll use the clk
         uint32_t parent_id;
+        bool is_top_level = false;
         bool is_static_call = false;
         FF contract_address{};
         std::vector<FF> calldata;
@@ -281,6 +302,7 @@ class AvmTraceBuilder {
         std::unordered_set<FF> public_data_unique_writes;
     };
 
+    uint32_t next_context_id = 0;
     ExtCallCtx current_ext_call_ctx{};
     std::stack<ExtCallCtx> external_call_ctx_stack;
 
@@ -326,6 +348,7 @@ class AvmTraceBuilder {
     AvmBytecodeTraceBuilder bytecode_trace_builder;
     AvmMerkleTreeTraceBuilder merkle_tree_trace_builder;
 
+    std::vector<uint8_t> get_bytecode_from_hints(const FF contract_class_id);
     RowWithError create_kernel_lookup_opcode(uint8_t indirect, uint32_t dst_offset, FF value, AvmMemoryTag w_tag);
 
     RowWithError create_kernel_output_opcode(uint8_t indirect, uint32_t clk, uint32_t data_offset);
@@ -377,11 +400,11 @@ class AvmTraceBuilder {
     // TODO: remove these once everything is constrained.
     AvmMemoryTag unconstrained_get_memory_tag(AddressWithMode addr);
     bool check_tag(AvmMemoryTag tag, AddressWithMode addr);
-    bool check_tag_range(AvmMemoryTag tag, AddressWithMode start_offset, uint32_t size);
+    bool check_tag_range(AvmMemoryTag tag, uint32_t start_offset, uint32_t size);
     FF unconstrained_read_from_memory(AddressWithMode addr);
-    template <typename T> void read_slice_from_memory(AddressWithMode addr, size_t slice_len, std::vector<T>& slice);
+    template <typename T> AvmError read_slice_from_memory(uint32_t addr, uint32_t slice_len, std::vector<T>& slice);
     void write_to_memory(AddressWithMode addr, FF val, AvmMemoryTag w_tag, bool fix_pc = true);
-    template <typename T> void write_slice_to_memory(AddressWithMode addr, AvmMemoryTag w_tag, const T& slice);
+    template <typename T> AvmError write_slice_to_memory(uint32_t addr, AvmMemoryTag w_tag, const T& slice);
 };
 
 } // namespace bb::avm_trace

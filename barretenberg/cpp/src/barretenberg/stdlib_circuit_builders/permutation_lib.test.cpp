@@ -18,7 +18,7 @@ class PermutationHelperTests : public ::testing::Test {
 
     virtual void SetUp()
     {
-        srs::init_crs_factory("../srs_db/ignition");
+        srs::init_crs_factory(bb::srs::get_ignition_crs_path());
         circuit_constructor.add_public_variable(1024);
         circuit_constructor.add_public_variable(1025);
 

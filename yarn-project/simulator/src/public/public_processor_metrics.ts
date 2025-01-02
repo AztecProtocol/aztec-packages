@@ -1,7 +1,9 @@
 import { type TxExecutionPhase } from '@aztec/circuit-types';
+import { type Gas } from '@aztec/circuits.js';
 import { type ContractClassRegisteredEvent } from '@aztec/protocol-contracts/class-registerer';
 import {
   Attributes,
+  type Gauge,
   type Histogram,
   Metrics,
   type TelemetryClient,
@@ -21,6 +23,12 @@ export class PublicProcessorMetrics {
   private phaseCount: UpDownCounter;
 
   private bytecodeDeployed: Histogram;
+  private totalGas: Gauge;
+  private totalGasHistogram: Histogram;
+  private gasRate: Histogram;
+  private txGas: Histogram;
+
+  private treeInsertionDuration: Histogram;
 
   constructor(client: TelemetryClient, name = 'PublicProcessor') {
     this.tracer = client.getTracer(name);
@@ -54,6 +62,32 @@ export class PublicProcessorMetrics {
       description: 'Size of deployed bytecode',
       unit: 'By',
     });
+
+    this.totalGas = meter.createGauge(Metrics.PUBLIC_PROCESSOR_TOTAL_GAS, {
+      description: 'Total gas used in block',
+      unit: 'gas',
+    });
+
+    this.totalGasHistogram = meter.createHistogram(Metrics.PUBLIC_PROCESSOR_TOTAL_GAS_HISTOGRAM, {
+      description: 'Total gas used in block as histogram',
+      unit: 'gas/block',
+    });
+
+    this.txGas = meter.createHistogram(Metrics.PUBLIC_PROCESSOR_TX_GAS, {
+      description: 'Gas used in transaction',
+      unit: 'gas/tx',
+    });
+
+    this.gasRate = meter.createHistogram(Metrics.PUBLIC_PROCESSOR_GAS_RATE, {
+      description: 'L2 gas per second for complete block',
+      unit: 'gas/s',
+    });
+
+    this.treeInsertionDuration = meter.createHistogram(Metrics.PUBLIC_PROCESSOR_TREE_INSERTION, {
+      description: 'How long it takes for tree insertion',
+      unit: 'us',
+      valueType: ValueType.INT,
+    });
   }
 
   recordPhaseDuration(phaseName: TxExecutionPhase, durationMs: number) {
@@ -61,11 +95,35 @@ export class PublicProcessorMetrics {
     this.phaseDuration.record(Math.ceil(durationMs), { [Attributes.TX_PHASE_NAME]: phaseName });
   }
 
-  recordTx(phaseCount: number, durationMs: number) {
+  recordTx(phaseCount: number, durationMs: number, gasUsed: Gas) {
     this.txPhaseCount.add(phaseCount);
     this.txDuration.record(Math.ceil(durationMs));
     this.txCount.add(1, {
       [Attributes.OK]: true,
+    });
+    this.txGas.record(gasUsed.daGas, {
+      [Attributes.GAS_DIMENSION]: 'DA',
+    });
+    this.txGas.record(gasUsed.l2Gas, {
+      [Attributes.GAS_DIMENSION]: 'L2',
+    });
+  }
+
+  recordAllTxs(totalGas: Gas, gasRate: number) {
+    this.totalGas.record(totalGas.daGas, {
+      [Attributes.GAS_DIMENSION]: 'DA',
+    });
+    this.totalGas.record(totalGas.l2Gas, {
+      [Attributes.GAS_DIMENSION]: 'L2',
+    });
+    this.gasRate.record(gasRate, {
+      [Attributes.GAS_DIMENSION]: 'L2',
+    });
+    this.totalGasHistogram.record(totalGas.daGas, {
+      [Attributes.GAS_DIMENSION]: 'DA',
+    });
+    this.totalGasHistogram.record(totalGas.l2Gas, {
+      [Attributes.GAS_DIMENSION]: 'L2',
     });
   }
 
@@ -88,5 +146,9 @@ export class PublicProcessorMetrics {
     if (totalBytecode > 0) {
       this.bytecodeDeployed.record(totalBytecode);
     }
+  }
+
+  recordTreeInsertions(durationUs: number) {
+    this.treeInsertionDuration.record(Math.ceil(durationUs));
   }
 }

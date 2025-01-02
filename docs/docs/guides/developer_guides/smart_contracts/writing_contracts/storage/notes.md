@@ -150,7 +150,7 @@ Notice how the `add` function shows the simplicity of appending a new note to al
 
 ### Apply
 
-Try the [Token tutorial](../../../../../tutorials/codealong/contract_tutorials/token_contract.md) to see what notes can achieve. In this section you will also find other tutorials using notes in different ways.
+Try the [NFT tutorial](../../../../../tutorials/codealong/contract_tutorials/nft_contract.md) to see what notes can achieve. In this section you will also find other tutorials using notes in different ways.
 
 ### Further reading
 

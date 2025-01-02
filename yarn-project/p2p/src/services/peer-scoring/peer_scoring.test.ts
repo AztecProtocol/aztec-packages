@@ -3,7 +3,7 @@ import { PeerErrorSeverity } from '@aztec/circuit-types';
 import { jest } from '@jest/globals';
 
 import { getP2PDefaultConfig } from '../../config.js';
-import { PeerScoring } from './peer_scoring.js';
+import { PeerScoreState, PeerScoring } from './peer_scoring.js';
 
 describe('PeerScoring', () => {
   let peerScoring: PeerScoring;
@@ -102,5 +102,40 @@ describe('PeerScoring', () => {
 
     peerScoring.updateScore(testPeerId, -peerScoring.peerPenalties[PeerErrorSeverity.LowToleranceError]);
     expect(peerScoring.getScore(testPeerId)).toBe(-63);
+  });
+
+  test('should correctly determine peer score state', () => {
+    const testPeerId = 'testPeerState';
+
+    // Test Healthy state (default)
+    expect(peerScoring.getScoreState(testPeerId)).toBe(PeerScoreState.Healthy);
+
+    // Test Disconnect state (score between -100 and -50)
+    peerScoring.updateScore(testPeerId, -60);
+    expect(peerScoring.getScoreState(testPeerId)).toBe(PeerScoreState.Disconnect);
+
+    // Test Banned state (score below -100)
+    peerScoring.updateScore(testPeerId, -50); // Total now -110
+    expect(peerScoring.getScoreState(testPeerId)).toBe(PeerScoreState.Banned);
+
+    // Test return to Healthy state
+    peerScoring.updateScore(testPeerId, 120); // Total now +10
+    expect(peerScoring.getScoreState(testPeerId)).toBe(PeerScoreState.Healthy);
+  });
+
+  test('should handle score state transitions with decay', () => {
+    const testPeerId = 'testPeerStateDecay';
+
+    // Put peer in Disconnect state
+    peerScoring.updateScore(testPeerId, -60);
+    expect(peerScoring.getScoreState(testPeerId)).toBe(PeerScoreState.Disconnect);
+
+    // Advance time by 10 minutes (should decay score significantly)
+    jest.advanceTimersByTime(10 * 60 * 1000);
+    peerScoring.decayAllScores();
+
+    // Score should have decayed enough to return to Healthy state
+    // -60 * (0.9^10) ≈ -23.2, which is above the Disconnect threshold
+    expect(peerScoring.getScoreState(testPeerId)).toBe(PeerScoreState.Healthy);
   });
 });
