@@ -6,6 +6,8 @@ use dep::aztec::macros::aztec;
 
 #[aztec]
 contract Test {
+    // Note: If you import a new kind of note you will most likely need to update the test_note_type_id test
+    // as the note type ids of current notes might have changed.
 
     use dep::aztec::encrypted_logs::encrypted_event_emission::encode_and_encrypt_event_unconstrained;
     use dep::aztec::encrypted_logs::encrypted_note_emission::encode_and_encrypt_note;

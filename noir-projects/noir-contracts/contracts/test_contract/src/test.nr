@@ -4,6 +4,8 @@ use dep::value_note::value_note::ValueNote;
 
 #[test]
 unconstrained fn test_note_type_id() {
+    // I don't really know why the ids are assigned in this way, but the important thing is that they are sequential
+    // and start from 0.
     assert_eq(UintNote::get_note_type_id(), 0, "UintNote type id should be 0");
     assert_eq(ValueNote::get_note_type_id(), 1, "ValueNote type id should be 1");
     assert_eq(TestNote::get_note_type_id(), 2, "TestNote type id should be 2");
