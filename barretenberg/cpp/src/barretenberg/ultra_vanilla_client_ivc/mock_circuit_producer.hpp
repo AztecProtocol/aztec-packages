@@ -10,77 +10,6 @@ using namespace bb;
 namespace {
 
 /**
- * @brief Test utility for coordinating passing of databus data between mocked private function execution circuits
- * @details Facilitates testing of the databus consistency checks that establish the correct passing of databus data
- * between circuits. Generates arbitrary return data for each app/kernel. Sets the kernel calldata and
- * secondary_calldata based respectively on the previous kernel return data and app return data.
- */
-class MockDatabusProducer {
-  private:
-    using ClientCircuit = UltraVanillaClientIVC::ClientCircuit;
-    using Flavor = MegaFlavor;
-    using FF = Flavor::FF;
-    using BusDataArray = std::vector<FF>;
-
-    static constexpr size_t BUS_ARRAY_SIZE = 3; // arbitrary length of mock bus inputs
-    BusDataArray app_return_data;
-    BusDataArray kernel_return_data;
-
-    FF dummy_return_val = 1; // use simple return val for easier test debugging
-
-    BusDataArray generate_random_bus_array()
-    {
-        BusDataArray result;
-        for (size_t i = 0; i < BUS_ARRAY_SIZE; ++i) {
-            result.emplace_back(dummy_return_val);
-        }
-        dummy_return_val += 1;
-        return result;
-    }
-
-  public:
-    /**
-     * @brief Update the app return data and populate it in the app circuit
-     */
-    void populate_app_databus(ClientCircuit& circuit)
-    {
-        app_return_data = generate_random_bus_array();
-        for (auto& val : app_return_data) {
-            circuit.add_public_return_data(circuit.add_variable(val));
-        }
-    };
-
-    /**
-     * @brief Populate the calldata and secondary calldata in the kernel from respectively the previous kernel and app
-     * return data. Update and populate the return data for the present kernel.
-     */
-    void populate_kernel_databus(ClientCircuit& circuit)
-    {
-        // Populate calldata from previous kernel return data (if it exists)
-        for (auto& val : kernel_return_data) {
-            circuit.add_public_calldata(circuit.add_variable(val));
-        }
-        // Populate secondary_calldata from app return data (if it exists), then clear the app return data
-        for (auto& val : app_return_data) {
-            circuit.add_public_secondary_calldata(circuit.add_variable(val));
-        }
-        app_return_data.clear();
-
-        // Mock the return data for the present kernel circuit
-        kernel_return_data = generate_random_bus_array();
-        for (auto& val : kernel_return_data) {
-            circuit.add_public_return_data(circuit.add_variable(val));
-        }
-    };
-
-    /**
-     * @brief Add an arbitrary value to the app return data. This leads to a descrepency between the values used by the
-     * app itself and the secondary_calldata values in the kernel that will be set based on these tampered values.
-     */
-    void tamper_with_app_return_data() { app_return_data.emplace_back(17); }
-};
-
-/**
  * @brief Manage the construction of mock app/kernel circuits for the private function execution setting
  * @details Per the medium complexity benchmark spec, the first app circuit is size 2^19. Subsequent app and kernel
  * circuits are size 2^17. Circuits produced are alternatingly app and kernel. Mock databus data is passed between the
@@ -93,8 +22,6 @@ class PrivateFunctionExecutionMockCircuitProducer {
     using VerificationKey = Flavor::VerificationKey;
 
     size_t circuit_counter = 0;
-
-    MockDatabusProducer mock_databus;
 
     bool large_first_app = true; // if true, first app is 2^19, else 2^17
 
