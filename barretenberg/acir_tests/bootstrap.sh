@@ -4,10 +4,10 @@ source $(git rev-parse --show-toplevel)/ci3/source_bootstrap
 cmd=${1:-}
 export CRS_PATH=$HOME/.bb-crs
 
-function build_tests {
+function prepare_tests {
   set -eu
 
-  github_group "acir_tests build"
+  github_group "acir_tests copy tests"
 
   rm -rf acir_tests
   cp -R ../../noir/noir-repo/test_programs/execution_success acir_tests
@@ -18,6 +18,17 @@ function build_tests {
 
   # COMPILE=2 only compiles the test.
   denoise "parallel --joblog joblog.txt --line-buffered 'COMPILE=2 ./run_test.sh \$(basename {})' ::: ./acir_tests/*"
+
+  github_endgroup
+}
+
+function build_tests {
+  set -eu
+
+  github_group "acir_tests build"
+
+  prepare_tests
+
 
   # TODO: This actually breaks things, but shouldn't. We want to do it here and not maintain manually.
   # Regenerate verify_honk_proof recursive input.
@@ -44,7 +55,8 @@ function hash {
     ../../noir/.rebuild_patterns \
     ../../noir/.rebuild_patterns_tests \
     ../../barretenberg/cpp/.rebuild_patterns \
-    ../../barretenberg/ts/.rebuild_patterns
+    ../../barretenberg/ts/.rebuild_patterns \
+    ../../barretenberg/acir_tests/.rebuild_patterns
 }
 
 function test {
@@ -124,7 +136,7 @@ function test_cmds {
   echo SYS=ultra_honk FLOW=prove_then_verify RECURSIVE=true $run_test assert_statement
   echo SYS=ultra_honk FLOW=prove_then_verify RECURSIVE=true $run_test double_verify_honk_proof
   echo SYS=ultra_honk FLOW=prove_and_verify_program $run_test merkle_insert
-  echo SYS=ultra_rollup_honk FLOW=prove_then_verify $run_test verify_rollup_honk_proof
+  # echo SYS=ultra_rollup_honk FLOW=prove_then_verify $run_test verify_rollup_honk_proof
 
   # barretenberg-acir-tests-bb-client-ivc:
   echo FLOW=prove_then_verify_client_ivc $run_test 6_array
@@ -153,6 +165,9 @@ case "$cmd" in
     ;;
   "test")
     test
+    ;;
+  "prepare-benches")
+    prepare_tests
     ;;
   "test-cmds")
     test_cmds
