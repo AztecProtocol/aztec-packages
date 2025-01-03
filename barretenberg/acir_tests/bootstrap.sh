@@ -6,9 +6,11 @@ export CRS_PATH=$HOME/.bb-crs
 
 tests_tar=barretenberg-acir-tests-$(cache_content_hash \
     ../../noir/.rebuild_patterns \
-    ../../noir/.rebuild_patterns_tests).tar.gz
+    ../../noir/.rebuild_patterns_tests \
+    ).tar.gz
 
 tests_hash=$(cache_content_hash \
+    ^barretenberg/acir_tests/ \
     ../../noir/.rebuild_patterns \
     ../../noir/.rebuild_patterns_tests \
     ../../barretenberg/cpp/.rebuild_patterns \
@@ -38,12 +40,12 @@ function build {
   # (cd ./acir_tests/assert_statement && \
   #   $bb write_recursion_inputs_honk -b ./target/program.json -o ../verify_honk_proof --recursive)
 
-  # Update yarn.lock so it can be committed.
+  # TODO: Revisit. Update yarn.lock so it can be committed.
   # Be lenient about bb.js hash changing, even if we try to minimize the occurrences.
   denoise "cd browser-test-app && yarn add --dev @aztec/bb.js@portal:../../ts && yarn"
   denoise "cd headless-test && yarn"
   denoise "cd sol-test && yarn"
-  # The md5sum of everything is the same after each yarn call.
+  # TODO: Revist. The md5sum of everything is the same after each yarn call.
   # Yet seemingly yarn's content hash will churn unless we reset timestamps
   find {headless-test,browser-test-app} -exec touch -t 197001010000 {} + 2>/dev/null || true
 

@@ -23,41 +23,41 @@ function build {
   # We append a cache busting number we can bump if need be.
   tar_file=yarn-project-$hash.tar.gz
 
-  if ! cache_download $tar_file; then
-    case "${1:-}" in
-      "fast")
-        yarn build:fast
-        ;;
-      "full")
-        yarn build
-        ;;
-      *)
-        if ! yarn build:fast; then
-          echo -e "${yellow}${bold}Incremental build failed for some reason, attempting full build...${reset}\n"
-          yarn build
-        fi
-    esac
-
-    denoise 'cd end-to-end && yarn build:web'
-
-    # Upload common patterns for artifacts: dest, fixtures, build, artifacts, generated
-    # Then one-off cases. If you've written into src, you need to update this.
-    cache_upload $tar_file */{dest,fixtures,build,artifacts,generated} \
-      circuit-types/src/test/artifacts \
-      end-to-end/src/web/{main.js,main.js.LICENSE.txt} \
-      ivc-integration/src/types/ \
-      noir-contracts.js/{codegenCache.json,src/} \
-      noir-protocol-circuits-types/src/{private_kernel_reset_data.ts,types/} \
-      pxe/src/config/package_info.ts \
-      protocol-contracts/src/protocol_contract_data.ts
-    echo
-    echo -e "${green}Yarn project successfully built!${reset}"
+  if cache_download $tar_file; then
+    yarn install
+    return
   fi
-  github_endgroup
-}
 
-# Copy the snapshot files to dest folder and replace .ts with .js.
-function build_tests {
+  case "${1:-}" in
+    "fast")
+      yarn build:fast
+      ;;
+    "full")
+      yarn build
+      ;;
+    *)
+      if ! yarn build:fast; then
+        echo -e "${yellow}${bold}Incremental build failed for some reason, attempting full build...${reset}\n"
+        yarn build
+      fi
+  esac
+
+  denoise 'cd end-to-end && yarn build:web'
+
+  # Upload common patterns for artifacts: dest, fixtures, build, artifacts, generated
+  # Then one-off cases. If you've written into src, you need to update this.
+  cache_upload $tar_file */{dest,fixtures,build,artifacts,generated} \
+    circuit-types/src/test/artifacts \
+    end-to-end/src/web/{main.js,main.js.LICENSE.txt} \
+    ivc-integration/src/types/ \
+    noir-contracts.js/{codegenCache.json,src/} \
+    noir-protocol-circuits-types/src/{private_kernel_reset_data.ts,types/} \
+    pxe/src/config/package_info.ts \
+    protocol-contracts/src/protocol_contract_data.ts
+  echo
+  echo -e "${green}Yarn project successfully built!${reset}"
+
+  # Copy the snapshot files to dest folder and replace .ts with .js.
   for snapshot_dir in */src/**/__snapshots__; do
     dest_dir="${snapshot_dir/\/src\//\/dest\/}"
     rm -rf "$dest_dir"
@@ -67,6 +67,8 @@ function build_tests {
     done
   done
   cp -R circuit-types/src/test/artifacts circuit-types/dest/test/artifacts
+
+  github_endgroup
 }
 
 function test_cmds {
@@ -93,18 +95,12 @@ case "$cmd" in
   "clean")
     git clean -fdx
     ;;
-  "full")
-    build full
-    ;;
   "ci")
-    build full
-    build_tests
-    ;;
-  "fast-only")
-    build fast
-    ;;
-  ""|"fast")
     build
+    test
+    ;;
+  ""|"fast"|"full")
+    build $cmd
     ;;
   "test")
     test

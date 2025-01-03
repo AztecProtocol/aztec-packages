@@ -117,7 +117,11 @@ case "$cmd" in
   "clean")
     git clean -fdx
     ;;
-  ""|"fast"|"full"|"ci")
+  "ci")
+    build
+    test
+    ;;
+  ""|"fast"|"full")
     build
     ;;
   "build-native")

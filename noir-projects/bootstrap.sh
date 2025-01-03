@@ -40,6 +40,6 @@ case "$cmd" in
     cache_content_hash .rebuild_patterns
     ;;
   *)
-    echo_stderr "Unknown command: $CMD"
+    echo_stderr "Unknown command: $cmd"
     exit 1
 esac

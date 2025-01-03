@@ -156,7 +156,11 @@ case "$cmd" in
   "clean-keys")
     rm -rf target/keys
     ;;
-  ""|"fast"|"full"|"ci")
+  "ci")
+    build
+    test
+    ;;
+  ""|"fast"|"full")
     build
     ;;
   "compile")

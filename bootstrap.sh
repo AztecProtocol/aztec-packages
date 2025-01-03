@@ -151,7 +151,7 @@ function build {
 
   # Build projects.
   for project in "${projects[@]}"; do
-    $project/bootstrap.sh $cmd
+    $project/bootstrap.sh $1
   done
 }
 
@@ -239,7 +239,7 @@ case "$cmd" in
     github_endgroup
   ;;
   ""|"fast"|"full")
-    build
+    build $cmd
   ;;
   "test-cmds")
     test_cmds $@

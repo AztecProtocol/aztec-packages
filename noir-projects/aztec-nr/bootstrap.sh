@@ -29,7 +29,7 @@ function test {
 }
 
 case "$cmd" in
-  "test")
+  "test"|"ci")
     test
     ;;
   "test-cmds")

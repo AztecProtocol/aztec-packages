@@ -192,6 +192,7 @@ case "$cmd" in
     ;;
   "ci")
     build
+    test
     ;;
   "compile")
     shift
