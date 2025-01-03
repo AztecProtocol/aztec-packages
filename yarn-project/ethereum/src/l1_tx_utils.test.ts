@@ -1,3 +1,4 @@
+import { Blob } from '@aztec/foundation/blob';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { createLogger } from '@aztec/foundation/log';
 import { sleep } from '@aztec/foundation/sleep';
@@ -106,8 +107,9 @@ describe('GasUtils', () => {
     await cheatCodes.setAutomine(false);
     await cheatCodes.setIntervalMining(0);
 
-    // Ensure initial base fee is low
-    await cheatCodes.setNextBlockBaseFeePerGas(initialBaseFee);
+    // Add blob data
+    const blobData = new Uint8Array(131072).fill(1);
+    const kzg = Blob.getViemKzgInstance();
 
     const request = {
       to: '0x1234567890123456789012345678901234567890' as `0x${string}`,
@@ -119,12 +121,16 @@ describe('GasUtils', () => {
 
     const originalMaxFeePerGas = WEI_CONST * 10n;
     const originalMaxPriorityFeePerGas = WEI_CONST;
+    const originalMaxFeePerBlobGas = WEI_CONST * 10n;
 
     const txHash = await walletClient.sendTransaction({
       ...request,
       gas: estimatedGas,
       maxFeePerGas: originalMaxFeePerGas,
       maxPriorityFeePerGas: originalMaxPriorityFeePerGas,
+      blobs: [blobData],
+      kzg,
+      maxFeePerBlobGas: originalMaxFeePerBlobGas,
     });
 
     const rawTx = await cheatCodes.getRawTransaction(txHash);
@@ -142,11 +148,12 @@ describe('GasUtils', () => {
       params: [rawTx],
     });
 
-    // keeping auto-mining disabled to simulate a stuck transaction
-    // The monitor should detect the stall and create a replacement tx
-
     // Monitor should detect stall and replace with higher gas price
-    const monitorFn = gasUtils.monitorTransaction(request, txHash, { gasLimit: estimatedGas });
+    const monitorFn = gasUtils.monitorTransaction(request, txHash, { gasLimit: estimatedGas }, undefined, {
+      blobs: [blobData],
+      kzg,
+      maxFeePerBlobGas: WEI_CONST * 20n,
+    });
 
     await sleep(2000);
     // re-enable mining
@@ -156,11 +163,12 @@ describe('GasUtils', () => {
     // Verify that a replacement transaction was created
     expect(receipt.transactionHash).not.toBe(txHash);
 
-    // Get details of replacement tx to verify higher gas price
+    // Get details of replacement tx to verify higher gas prices
     const replacementTx = await publicClient.getTransaction({ hash: receipt.transactionHash });
 
     expect(replacementTx.maxFeePerGas!).toBeGreaterThan(originalMaxFeePerGas);
     expect(replacementTx.maxPriorityFeePerGas!).toBeGreaterThan(originalMaxPriorityFeePerGas);
+    expect(replacementTx.maxFeePerBlobGas!).toBeGreaterThan(originalMaxFeePerBlobGas);
   }, 20_000);
 
   it('respects max gas price limits during spikes', async () => {
@@ -299,4 +307,53 @@ describe('GasUtils', () => {
     const expectedEstimate = baseEstimate + (baseEstimate * 20n) / 100n;
     expect(bufferedEstimate).toBe(expectedEstimate);
   });
+
+  it('correctly handles transactions with blobs', async () => {
+    // Create a sample blob
+    const blobData = new Uint8Array(131072).fill(1); // 128KB blob
+    const kzg = Blob.getViemKzgInstance();
+
+    const receipt = await gasUtils.sendAndMonitorTransaction(
+      {
+        to: '0x1234567890123456789012345678901234567890',
+        data: '0x',
+        value: 0n,
+      },
+      undefined,
+      {
+        blobs: [blobData],
+        kzg,
+        maxFeePerBlobGas: 10000000000n, // 10 gwei
+      },
+    );
+
+    expect(receipt.status).toBe('success');
+    expect(receipt.blobGasUsed).toBeDefined();
+    expect(receipt.blobGasPrice).toBeDefined();
+  }, 20_000);
+
+  it('estimates gas correctly for blob transactions', async () => {
+    // Create a sample blob
+    const blobData = new Uint8Array(131072).fill(1); // 128KB blob
+    const kzg = Blob.getViemKzgInstance();
+
+    const request = {
+      to: '0x1234567890123456789012345678901234567890' as `0x${string}`,
+      data: '0x' as `0x${string}`,
+      value: 0n,
+    };
+
+    // Estimate gas without blobs first
+    const baseEstimate = await gasUtils.estimateGas(walletClient.account!, request);
+
+    // Estimate gas with blobs
+    const blobEstimate = await gasUtils.estimateGas(walletClient.account!, request, undefined, {
+      blobs: [blobData],
+      kzg,
+      maxFeePerBlobGas: 10000000000n,
+    });
+
+    // Blob transactions should require more gas
+    expect(blobEstimate).toBeGreaterThan(baseEstimate);
+  }, 20_000);
 });

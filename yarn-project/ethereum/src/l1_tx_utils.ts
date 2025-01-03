@@ -149,6 +149,7 @@ export interface L1BlobInputs {
 interface GasPrice {
   maxFeePerGas: bigint;
   maxPriorityFeePerGas: bigint;
+  maxFeePerBlobGas?: bigint;
 }
 
 export class L1TxUtils {
@@ -301,7 +302,11 @@ export class L1TxUtils {
             gasConfig,
             attempts,
             tx.maxFeePerGas && tx.maxPriorityFeePerGas
-              ? { maxFeePerGas: tx.maxFeePerGas, maxPriorityFeePerGas: tx.maxPriorityFeePerGas }
+              ? {
+                  maxFeePerGas: tx.maxFeePerGas,
+                  maxPriorityFeePerGas: tx.maxPriorityFeePerGas,
+                  maxFeePerBlobGas: tx.maxFeePerBlobGas,
+                }
               : undefined,
           );
 
@@ -365,6 +370,15 @@ export class L1TxUtils {
     const block = await this.publicClient.getBlock({ blockTag: 'latest' });
     const baseFee = block.baseFeePerGas ?? 0n;
 
+    // Get blob base fee if available
+    let blobBaseFee = 0n;
+    try {
+      const blobBaseFeeHex = await this.publicClient.request({ method: 'eth_blobBaseFee' });
+      blobBaseFee = BigInt(blobBaseFeeHex);
+    } catch {
+      // Ignore if not supported
+    }
+
     // Get initial priority fee from the network
     let priorityFee = await this.publicClient.estimateMaxPriorityFeePerGas();
     let maxFeePerGas = baseFee;
@@ -405,14 +419,28 @@ export class L1TxUtils {
     // Ensure priority fee doesn't exceed max fee
     const maxPriorityFeePerGas = priorityFee > maxFeePerGas ? maxFeePerGas : priorityFee;
 
+    if (attempt > 0 && previousGasPrice?.maxFeePerBlobGas) {
+      const bumpPercentage =
+        gasConfig.priorityFeeRetryBumpPercentage! > MIN_REPLACEMENT_BUMP_PERCENTAGE
+          ? gasConfig.priorityFeeRetryBumpPercentage!
+          : MIN_REPLACEMENT_BUMP_PERCENTAGE;
+
+      blobBaseFee = (previousGasPrice.maxFeePerBlobGas * (100n + bumpPercentage)) / 100n;
+    }
+
     this.logger?.debug(`Computed gas price`, {
       attempt,
       baseFee: formatGwei(baseFee),
       maxFeePerGas: formatGwei(maxFeePerGas),
       maxPriorityFeePerGas: formatGwei(maxPriorityFeePerGas),
+      ...(blobBaseFee && { maxFeePerBlobGas: formatGwei(blobBaseFee) }),
     });
 
-    return { maxFeePerGas, maxPriorityFeePerGas };
+    return {
+      maxFeePerGas,
+      maxPriorityFeePerGas,
+      ...(blobBaseFee && { maxFeePerBlobGas: blobBaseFee }),
+    };
   }
 
   /**
