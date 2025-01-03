@@ -53,6 +53,7 @@
     "viem": "^2.7.15"
   },
   "devDependencies": {
+    "@aztec/archiver": "workspace:^",
     "@aztec/kv-store": "workspace:^",
     "@jest/globals": "^29.5.0",
     "@types/jest": "^29.5.0",
@@ -106,12 +107,7 @@
     "testRegex": "./src/.*\\.test\\.(js|mjs|ts)$",
     "rootDir": "./src",
     "reporters": [
-      [
-        "jest-silent-reporter",
-        {
-          "useDots": true
-        }
-      ]
+      "default"
     ],
     "testTimeout": 30000,
     "setupFiles": [

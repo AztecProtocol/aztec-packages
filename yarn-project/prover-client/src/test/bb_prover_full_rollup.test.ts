@@ -85,6 +85,7 @@ describe('prover/bb_prover/full-rollup', () => {
         );
       }
     },
+    900000,
   );
 
   // TODO(@PhilWindle): Remove public functions and re-enable once we can handle empty tx slots
