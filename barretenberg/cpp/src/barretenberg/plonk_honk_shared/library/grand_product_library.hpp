@@ -278,7 +278,15 @@ void compute_grand_product(typename Flavor::ProverPolynomials& full_polynomials,
             }
         });
 
-        grand_product_polynomial.at(1) = 1;
+        // info("active_idxs[0] = ", active_idxs[0]);
+        // info("grand_product_polynomial.at(1) = ", grand_product_polynomial.at(1));
+        // info("numerator[0] * denominator[0] = ", numerator[0] * denominator[0]);
+        // WORKTODO: getting rid of this makes the grand prod test pass but I think i needed it elsewhere..
+        if (active_idxs[0] == 1) {
+            grand_product_polynomial.at(1) = 1;
+        } else {
+            grand_product_polynomial.at(1) = numerator[0] * denominator[0];
+        }
     }
 
     DEBUG_LOG_ALL(grand_product_polynomial.coeffs());
