@@ -5,15 +5,11 @@
 
 namespace bb {
 
-TranslatorVerifier::TranslatorVerifier(const std::shared_ptr<TranslatorVerifier::VerificationKey>& verifier_key,
+TranslatorVerifier::TranslatorVerifier(const std::shared_ptr<VerificationKey>& verifier_key,
                                        const std::shared_ptr<Transcript>& transcript)
     : key(verifier_key)
     , transcript(transcript)
 {}
-
-TranslatorVerifier::TranslatorVerifier(const std::shared_ptr<TranslatorVerifier::ProvingKey>& proving_key,
-                                       const std::shared_ptr<Transcript>& transcript)
-    : TranslatorVerifier(std::make_shared<TranslatorFlavor::VerificationKey>(proving_key), transcript){};
 
 void TranslatorVerifier::put_translation_data_in_relation_parameters(const uint256_t& evaluation_input_x,
                                                                      const BF& batching_challenge_v,

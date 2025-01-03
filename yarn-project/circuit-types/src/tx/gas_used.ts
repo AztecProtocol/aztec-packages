@@ -7,6 +7,10 @@ export interface GasUsed {
    * `GasSettings`, rather than actual teardown gas.
    */
   totalGas: Gas;
+
+  /** Total gas used during public execution, including teardown gas */
+  publicGas: Gas;
+
   /**
    * The actual gas used in the teardown phase.
    */
