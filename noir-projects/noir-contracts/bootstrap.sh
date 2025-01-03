@@ -29,6 +29,7 @@ export TRANSPILER=${TRANSPILER:-../../avm-transpiler/target/release/avm-transpil
 export BB_HASH=$(cache_content_hash ../../barretenberg/cpp/.rebuild_patterns)
 
 export tmp_dir=./target/tmp
+export sem_id="nargo"
 
 # Create our tmp working directory, ensure it's removed on exit.
 function on_exit() {
@@ -72,7 +73,7 @@ function process_function() {
     if ! cache_download vk-$hash.tar.gz &> /dev/null; then
       # It's not in the cache. Generate the vk file and upload it to the cache.
       echo_stderr "Generating vk for function: $name..."
-      echo "$bytecode_b64" | base64 -d | gunzip | $BB write_vk_for_ivc -b - -o $tmp_dir/$hash 2>/dev/null
+      echo "$bytecode_b64" | base64 -d | gunzip | sem --jobs $PARALLELISM --fg --id $sem_id $BB write_vk_for_ivc -b - -o $tmp_dir/$hash 2>/dev/null
       cache_upload vk-$hash.tar.gz $tmp_dir/$hash &> /dev/null
     fi
 
@@ -105,7 +106,7 @@ function compile {
     "^noir-projects/aztec-nr/" \
   )"
   if ! cache_download contract-$contract_hash.tar.gz &> /dev/null; then
-    $NARGO compile --package $contract --silence-warnings --inliner-aggressiveness 0
+    sem --jobs $PARALLELISM --fg --id $sem_id $NARGO compile --package $contract --silence-warnings --inliner-aggressiveness 0
     $TRANSPILER $json_path $json_path
     cache_upload contract-$contract_hash.tar.gz $json_path &> /dev/null
   fi
@@ -117,7 +118,7 @@ function compile {
   # .[1] is the updated functions on stdin (-)
   # * merges their fields.
   jq -c '.functions[]' $json_path | \
-    parallel -j$PARALLELISM --keep-order -N1 --block 8M --pipe --halt now,fail=1 process_function | \
+    parallel -j4 --keep-order -N1 --block 8M --pipe --halt now,fail=1 process_function | \
     jq -s '{functions: .}' | jq -s '.[0] * {functions: .[1].functions}' $json_path - > $tmp_dir/$filename
   mv $tmp_dir/$filename $json_path
 }
@@ -132,7 +133,7 @@ function build {
     set +e
     echo_stderr "Compiling contracts (bb-hash: $BB_HASH)..."
     grep -oP '(?<=contracts/)[^"]+' Nargo.toml | \
-      parallel -j$PARALLELISM --joblog joblog.txt -v --line-buffer --tag --halt now,fail=1 compile {}
+      parallel -j16 --joblog joblog.txt -v --line-buffer --tag --halt now,fail=1 compile {}
     code=$?
     cat joblog.txt
     return $code
