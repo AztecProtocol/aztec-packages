@@ -151,7 +151,7 @@ function build {
 
   # Build projects.
   for project in "${projects[@]}"; do
-    $project/bootstrap.sh $1
+    $project/bootstrap.sh ${1:-}
   done
 }
 
