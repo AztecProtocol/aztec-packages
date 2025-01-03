@@ -17,6 +17,9 @@ dots_per_line=${LINE_WIDTH:-64}
 dot_count=0
 status=0
 
+# We don't want to lose color just because we're wrapping.
+export FORCE_COLOR=1
+
 # Create a new file descriptor for capturing output
 exec 3>&1
 
