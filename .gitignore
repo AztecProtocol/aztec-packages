@@ -32,3 +32,4 @@ tmux-client-*.log
 
 # parallel
 joblog.txt
+joblog-*.txt
