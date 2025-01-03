@@ -100,17 +100,17 @@ describe('e2e_deploy_contract deploy method', () => {
   it('publicly deploys and calls a public contract in the same batched call', async () => {
     const owner = wallet.getAddress();
     // Create a contract instance and make the PXE aware of it
-    logger.warn(`Initializing deploy method`);
+    logger.debug(`Initializing deploy method`);
     const deployMethod = StatefulTestContract.deploy(wallet, owner, owner, 42);
-    logger.warn(`Creating request/calls to register and deploy contract`);
+    logger.debug(`Creating request/calls to register and deploy contract`);
     const deploy = await deployMethod.request();
-    logger.warn(`Getting an instance of the not-yet-deployed contract to batch calls to`);
+    logger.debug(`Getting an instance of the not-yet-deployed contract to batch calls to`);
     const contract = await StatefulTestContract.at(deployMethod.getInstance().address, wallet);
 
     // Batch registration, deployment, and public call into same TX
-    logger.warn(`Creating public calls to run in same batch as deployment`);
+    logger.debug(`Creating public calls to run in same batch as deployment`);
     const init = contract.methods.increment_public_value(owner, 84).request();
-    logger.warn(`Deploying a contract and calling a public function in the same batched call`);
+    logger.debug(`Deploying a contract and calling a public function in the same batched call`);
     await new BatchCall(wallet, [...deploy.calls, init]).send().wait();
   }, 300_000);
 
