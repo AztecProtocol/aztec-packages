@@ -33,10 +33,10 @@ template <IsUltraFlavor Flavor> void DeciderProver_<Flavor>::execute_relation_ch
     {
 
         PROFILE_THIS_NAME("sumcheck.prove");
-        const size_t log_subgroup_size = static_cast<size_t>(numeric::get_msb(Curve::SUBGROUP_SIZE));
-        auto commitment_key = std::make_shared<CommitmentKey>(1 << (log_subgroup_size + 1));
 
         if constexpr (Flavor::HasZK) {
+            const size_t log_subgroup_size = static_cast<size_t>(numeric::get_msb(Curve::SUBGROUP_SIZE));
+            auto commitment_key = std::make_shared<CommitmentKey>(1 << (log_subgroup_size + 1));
             zk_sumcheck_data = std::make_shared<ZKData>(numeric::get_msb(polynomial_size), transcript, commitment_key);
         }
 
