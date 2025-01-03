@@ -36,6 +36,7 @@ import {
 } from '@aztec/circuits.js/rollup';
 import { sha256 } from '@aztec/foundation/crypto';
 import { createLogger } from '@aztec/foundation/log';
+import { RunningPromise, promiseWithResolvers } from '@aztec/foundation/promise';
 import { retryUntil } from '@aztec/foundation/retry';
 import { truncate } from '@aztec/foundation/string';
 
@@ -44,7 +45,17 @@ import { InlineProofStore, type ProofStore } from './proof_store.js';
 // 20 minutes, roughly the length of an Aztec epoch. If a proof isn't ready in this amount of time then we've failed to prove the whole epoch
 const MAX_WAIT_MS = 1_200_000;
 
+type ProvingJob = {
+  id: ProvingJobId;
+  type: ProvingRequestType;
+  promise: PromiseWithResolvers<any>;
+};
+
 export class BrokerCircuitProverFacade implements ServerCircuitProver {
+  private jobs: Map<ProvingJobId, ProvingJob> = new Map();
+  private runningPromise?: RunningPromise;
+  private timeOfLastSnapshotSync = Date.now();
+
   constructor(
     private broker: ProvingJobProducer,
     private proofStore: ProofStore = new InlineProofStore(),
@@ -61,60 +72,155 @@ export class BrokerCircuitProverFacade implements ServerCircuitProver {
     signal?: AbortSignal,
   ): Promise<ProvingJobResultsMap[T]> {
     const inputsUri = await this.proofStore.saveProofInput(id, type, inputs);
-    await this.broker.enqueueProvingJob({
+    const enqueued = await this.broker.enqueueProvingJob({
       id,
       type,
       inputsUri,
       epochNumber,
     });
 
-    this.log.verbose(
-      `Sent proving job to broker id=${id} type=${ProvingRequestType[type]} epochNumber=${epochNumber}`,
-      {
-        provingJobId: id,
-        provingJobType: ProvingRequestType[type],
-        epochNumber,
-        inputsUri: truncate(inputsUri),
-      },
-    );
+    if (enqueued) {
+      // notify broker of cancelled job
+      const abortFn = async () => {
+        signal?.removeEventListener('abort', abortFn);
+        await this.broker.cancelProvingJob(id);
+      };
 
-    // notify broker of cancelled job
-    const abortFn = async () => {
-      signal?.removeEventListener('abort', abortFn);
-      await this.broker.cancelProvingJob(id);
-    };
+      signal?.addEventListener('abort', abortFn);
 
-    signal?.addEventListener('abort', abortFn);
-
-    try {
-      // loop here until the job settles
-      // NOTE: this could also terminate because the job was cancelled through event listener above
-      const result = await retryUntil(
-        async () => {
-          try {
-            return await this.broker.waitForJobToSettle(id);
-          } catch (err) {
-            // waitForJobToSettle can only fail for network errors
-            // keep retrying until we time out
-          }
+      const promise = promiseWithResolvers<ProvingJobResultsMap[T]>();
+      const job: ProvingJob = {
+        id,
+        type,
+        promise,
+      };
+      this.jobs.set(id, job);
+      this.log.verbose(
+        `Sent proving job to broker id=${id} type=${ProvingRequestType[type]} epochNumber=${epochNumber}`,
+        {
+          provingJobId: id,
+          provingJobType: ProvingRequestType[type],
+          epochNumber,
+          inputsUri: truncate(inputsUri),
+          numOutstandingJobs: this.jobs.size,
         },
-        `Proving job=${id} type=${ProvingRequestType[type]}`,
-        this.waitTimeoutMs / 1000,
-        this.pollIntervalMs / 1000,
+      );
+      const typedPromise = promise.promise as Promise<ProvingJobResultsMap[T]>;
+      return typedPromise;
+    } else {
+      this.log.verbose(
+        `Job not enqueued when sent to broker id=${id} type=${ProvingRequestType[type]} epochNumber=${epochNumber}`,
+        {
+          provingJobId: id,
+          provingJobType: ProvingRequestType[type],
+          epochNumber,
+          inputsUri: truncate(inputsUri),
+        },
       );
 
-      if (result.status === 'fulfilled') {
-        const output = await this.proofStore.getProofOutput(result.value);
-        if (output.type === type) {
-          return output.result as ProvingJobResultsMap[T];
-        } else {
-          throw new Error(`Unexpected proof type: ${output.type}. Expected: ${type}`);
+      // Job was not enqueued. It must be completed already
+      return this.retrieveCompletedJobResult(id, type);
+    }
+  }
+
+  private async retrieveCompletedJobResult<T extends ProvingRequestType>(
+    id: ProvingJobId,
+    type: T,
+  ): Promise<ProvingJobResultsMap[T]> {
+    // loop here until the job settles
+    // NOTE: this could also terminate because the job was cancelled through event listener above
+    const result = await retryUntil(
+      async () => {
+        try {
+          return await this.broker.waitForJobToSettle(id);
+        } catch (err) {
+          // waitForJobToSettle can only fail for network errors
+          // keep retrying until we time out
         }
+      },
+      `Proving job=${id} type=${ProvingRequestType[type]}`,
+      this.waitTimeoutMs / 1000,
+      this.pollIntervalMs / 1000,
+    );
+
+    if (result.status === 'fulfilled') {
+      const output = await this.proofStore.getProofOutput(result.value);
+      if (output.type === type) {
+        return output.result as ProvingJobResultsMap[T];
       } else {
-        throw new Error(result.reason);
+        throw new Error(`Unexpected proof type: ${output.type}. Expected: ${type}`);
       }
-    } finally {
-      signal?.removeEventListener('abort', abortFn);
+    } else {
+      throw new Error(result.reason);
+    }
+  }
+
+  public start() {
+    if (this.runningPromise) {
+      throw new Error('BrokerCircuitProverFacade already started');
+    }
+
+    this.runningPromise = new RunningPromise(() => this.monitorForCompletedJobs(), this.log, this.pollIntervalMs);
+    this.runningPromise.start();
+  }
+
+  public async stop(): Promise<void> {
+    if (!this.runningPromise) {
+      throw new Error('BrokerCircuitProverFacade not started');
+    }
+    await this.runningPromise.stop();
+  }
+
+  private async monitorForCompletedJobs() {
+    const processJob = async (job: ProvingJob) => {
+      try {
+        this.log.debug(`Received notification of completed job id=${job.id} type=${ProvingRequestType[job.type]}`);
+        const result = await this.retrieveCompletedJobResult(job.id, job.type);
+        this.log.verbose(`Resolved job id=${job.id} type=${ProvingRequestType[job.type]}`);
+        job.promise.resolve(result);
+      } catch (err) {
+        this.log.error(`Error processing job id=${job.id} type=${ProvingRequestType[job.type]}`, err);
+        job.promise.reject(err);
+      }
+      this.jobs.delete(job.id);
+    };
+
+    const getAllCompletedJobs = async (ids: ProvingJobId[]) => {
+      const allCompleted = [];
+      while (ids.length > 0) {
+        const slice = ids.splice(0, 1000);
+        const completed = await this.broker.getCompletedJobs(slice);
+        allCompleted.push(...completed);
+      }
+      const final = await this.broker.getCompletedJobs([]);
+      return allCompleted.concat(final);
+    };
+
+    // Here we check for completed jobs. If everything works well (there are no service restarts etc) then all we need to do
+    // to maintain correct job state is to check for incrementally completed jobs. i.e. call getCompletedJobs with and empty array
+    // However, if there are any problems then we may lose sync with the broker's actual set of completed jobs.
+    // In this case we need to perform a full snapshot sync. This involves sending all of our outstanding job Ids to the broker
+    // and have the broker report on whether they are completed or not.
+    // We perform an incremental sync on every call of this function with a full snapshot sync periodically.
+    // This should keep us ini sync without over-burdening the broker with snapshot sync requests
+
+    const snapshotSyncIds = [];
+    const currentTime = Date.now();
+    const secondsSinceLastSnapshotSync = (currentTime - this.timeOfLastSnapshotSync) / 1000;
+    if (secondsSinceLastSnapshotSync > 30) {
+      this.log.debug(`Performing full snapshot sync of completed jobs with ${snapshotSyncIds.length} jobs`);
+      this.timeOfLastSnapshotSync = currentTime;
+      snapshotSyncIds.push(...this.jobs.keys());
+    } else {
+      this.log.debug(`Performing incremental sync of completed jobs`);
+    }
+    this.log.verbose('Checking for completed jobs');
+    const completedJobs = await getAllCompletedJobs(snapshotSyncIds);
+    const filtered = completedJobs.map(jobId => this.jobs.get(jobId)).filter(job => job !== undefined);
+    this.log.verbose(`Found ${filtered.length} completed jobs`);
+    while (filtered.length > 0) {
+      const slice = filtered.splice(0, 10);
+      await Promise.all(slice.map(job => processJob(job!)));
     }
   }
 

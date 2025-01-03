@@ -72,6 +72,7 @@ describe('e2e_epochs', () => {
       }
 
       const newL2ProvenBlockNumber = Number(await rollup.getProvenBlockNumber());
+
       if (l2ProvenBlockNumber !== newL2ProvenBlockNumber) {
         const epochNumber = await rollup.getEpochNumber(BigInt(newL2ProvenBlockNumber));
         msg += ` with proof up to L2 block ${newL2ProvenBlockNumber} for epoch ${epochNumber}`;

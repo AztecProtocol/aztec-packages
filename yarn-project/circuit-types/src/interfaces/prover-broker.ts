@@ -60,7 +60,7 @@ export interface ProvingJobProducer {
    * Enqueues a proving job
    * @param job - The job to enqueue
    */
-  enqueueProvingJob(job: ProvingJob): Promise<void>;
+  enqueueProvingJob(job: ProvingJob): Promise<boolean>;
 
   /**
    * Cancels a proving job.
@@ -79,6 +79,13 @@ export interface ProvingJobProducer {
    * @param id - The ID of the job to get the status of
    */
   waitForJobToSettle(id: ProvingJobId): Promise<ProvingJobSettledResult>;
+
+  /**
+   * Returns the ids of jobs that have been completed since the last call
+   * Also returns the set of provided job ids that are completed
+   * @param ids - The set of job ids to check for completion
+   */
+  getCompletedJobs(ids: ProvingJobId[]): Promise<ProvingJobId[]>;
 }
 
 export type ProvingJobFilter = {

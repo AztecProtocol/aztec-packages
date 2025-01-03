@@ -91,15 +91,17 @@ export class ProvingBroker implements ProvingJobProducer, ProvingJobConsumer, Tr
 
   private maxParallelCleanUps: number;
 
+  private completedJobNotifications: ProvingJobId[] = [];
+
   /**
    * The broker keeps track of the highest epoch its seen.
    * This information is used for garbage collection: once it reaches the next epoch, it can start pruning the database of old state.
    * This clean up pass is only done against _settled_ jobs. This pass will not cancel jobs that are in-progress or in-queue.
    * It is a client responsibility to cancel jobs if they are no longer necessary.
    * Example:
-   * proving epoch 11 - the broker will wipe all setlled jobs for epochs 9 and lower
-   * finished proving epoch 11 and got first job for epoch 12 -> the broker will wipe all setlled jobs for epochs 10 and lower
-   * reorged back to end of epoch 10 -> epoch 11 is skipped and epoch 12 starts -> the broker will wipe all setlled jobs for epochs 10 and lower
+   * proving epoch 11 - the broker will wipe all settled jobs for epochs 9 and lower
+   * finished proving epoch 11 and got first job for epoch 12 -> the broker will wipe all settled jobs for epochs 10 and lower
+   * reorged back to end of epoch 10 -> epoch 11 is skipped and epoch 12 starts -> the broker will wipe all settled jobs for epochs 10 and lower
    */
   private epochHeight = 0;
   private maxEpochsToKeepResultsFor = 1;
@@ -171,14 +173,14 @@ export class ProvingBroker implements ProvingJobProducer, ProvingJobConsumer, Tr
     await this.cleanupPromise.stop();
   }
 
-  public async enqueueProvingJob(job: ProvingJob): Promise<void> {
+  public async enqueueProvingJob(job: ProvingJob): Promise<boolean> {
     if (this.jobsCache.has(job.id)) {
       const existing = this.jobsCache.get(job.id);
       assert.deepStrictEqual(job, existing, 'Duplicate proving job ID');
       this.logger.debug(`Duplicate proving job id=${job.id} epochNumber=${job.epochNumber}. Ignoring`, {
         provingJobId: job.id,
       });
-      return;
+      return false;
     }
 
     if (this.isJobStale(job)) {
@@ -199,6 +201,7 @@ export class ProvingBroker implements ProvingJobProducer, ProvingJobConsumer, Tr
       this.jobsCache.delete(job.id);
       throw err;
     }
+    return true;
   }
 
   public waitForJobToSettle(id: ProvingJobId): Promise<ProvingJobSettledResult> {
@@ -258,6 +261,13 @@ export class ProvingBroker implements ProvingJobProducer, ProvingJobConsumer, Tr
 
       return Promise.resolve({ status: this.inProgress.has(id) ? 'in-progress' : 'in-queue' });
     }
+  }
+
+  public getCompletedJobs(ids: ProvingJobId[]): Promise<ProvingJobId[]> {
+    const completedJobs = ids.filter(id => this.resultsCache.has(id));
+    const notifications = this.completedJobNotifications;
+    this.completedJobNotifications = [];
+    return Promise.resolve(notifications.concat(completedJobs));
   }
 
   // eslint-disable-next-line require-await
@@ -351,6 +361,7 @@ export class ProvingBroker implements ProvingJobProducer, ProvingJobConsumer, Tr
     const result: ProvingJobSettledResult = { status: 'rejected', reason: String(err) };
     this.resultsCache.set(id, result);
     this.promises.get(id)!.resolve(result);
+    this.completedJobNotifications.push(id);
 
     this.instrumentation.incRejectedJobs(item.type);
     if (info) {
@@ -459,6 +470,7 @@ export class ProvingBroker implements ProvingJobProducer, ProvingJobConsumer, Tr
     const result: ProvingJobSettledResult = { status: 'fulfilled', value };
     this.resultsCache.set(id, result);
     this.promises.get(id)!.resolve(result);
+    this.completedJobNotifications.push(id);
 
     this.instrumentation.incResolvedJobs(item.type);
     if (info) {

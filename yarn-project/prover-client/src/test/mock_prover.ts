@@ -83,7 +83,7 @@ export class TestBroker implements ProvingJobProducer {
     return this.proofStore;
   }
 
-  enqueueProvingJob(job: ProvingJob): Promise<void> {
+  enqueueProvingJob(job: ProvingJob): Promise<boolean> {
     return this.broker.enqueueProvingJob(job);
   }
   getProvingJobStatus(id: ProvingJobId): Promise<ProvingJobStatus> {
@@ -94,6 +94,10 @@ export class TestBroker implements ProvingJobProducer {
   }
   waitForJobToSettle(id: ProvingJobId): Promise<ProvingJobSettledResult> {
     return this.broker.waitForJobToSettle(id);
+  }
+
+  getCompletedJobs(ids: ProvingJobId[]): Promise<ProvingJobId[]> {
+    return this.broker.getCompletedJobs(ids);
   }
 }
 

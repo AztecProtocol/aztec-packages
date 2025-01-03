@@ -143,6 +143,7 @@ export class EpochProvingJob implements Traceable {
       this.state = 'failed';
     } finally {
       await this.cleanUp(this);
+      await this.prover.stop();
       resolve();
     }
   }
