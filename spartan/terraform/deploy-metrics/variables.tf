@@ -13,3 +13,15 @@ variable "VALUES_FILE" {
   description = "Name of the values file to use for deployment"
   type        = string
 }
+
+variable "GRAFANA_DASHBOARD_PASSWORD" {
+  description = "Grafana dashboard password"
+  type        = string
+  sensitive   = true
+}
+
+variable "GRAFANA_DASHBOARD_IP" {
+  description = "Grafana dashboard IP"
+  type        = string
+  default     = "34.74.176.245"
+}

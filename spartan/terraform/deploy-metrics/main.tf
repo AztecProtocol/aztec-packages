@@ -45,6 +45,16 @@ resource "helm_release" "aztec-gke-cluster" {
   # base values file
   values = [file("../../metrics/values/${var.VALUES_FILE}")]
 
+  set {
+    name  = "grafana.service.loadBalancerIP"
+    value = var.GRAFANA_DASHBOARD_IP
+  }
+
+  set {
+    name  = "grafana.adminPassword"
+    value = var.GRAFANA_DASHBOARD_PASSWORD
+  }
+
 
   # Setting timeout and wait conditions
   timeout       = 1200 # 20 minutes in seconds

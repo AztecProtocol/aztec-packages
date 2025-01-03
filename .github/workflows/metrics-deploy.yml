@@ -28,6 +28,11 @@ on:
         required: false
         type: string
         default: "master"
+      grafana_dashboard_password_secret_name:
+        description: The name of the secret which holds the Grafana dashboard password
+        required: true
+        type: string
+        default: "grafana-dashboard-password"
     secrets:
       GCP_SA_KEY:
         required: true
@@ -53,6 +58,10 @@ on:
         description: The branch name to deploy from
         required: false
         default: "master"
+      grafana_dashboard_password_secret_name:
+        description: The name of the secret which holds the Grafana dashboard password
+        required: true
+        default: "grafana-dashboard-password"
 
 jobs:
   metrics_deployment:
@@ -71,6 +80,7 @@ jobs:
       REGION: us-west1-a
       TF_STATE_BUCKET: aztec-terraform
       GKE_CLUSTER_CONTEXT: gke_testnet-440309_us-west1-a_aztec-gke
+      GRAFANA_DASHBOARD_PASSWORD_SECRET_NAME: ${{ inputs.grafana_dashboard_password_secret_name }}
 
     steps:
       - name: Checkout code
@@ -93,6 +103,12 @@ jobs:
       - name: Configure kubectl with GKE cluster
         run: |
           gcloud container clusters get-credentials ${{ env.CLUSTER_NAME }} --region ${{ env.REGION }}
+
+      - name: Grab the Grafana dashboard password
+        id: get-grafana-dashboard-password
+        run: |
+          echo "::add-mask::$(gcloud secrets versions access latest --secret=${{ env.GRAFANA_DASHBOARD_PASSWORD_SECRET_NAME }})"
+          echo "grafana_dashboard_password=$(gcloud secrets versions access latest --secret=${{ env.GRAFANA_DASHBOARD_PASSWORD_SECRET_NAME }})" >> "$GITHUB_OUTPUT"
 
       - name: Ensure Terraform state bucket exists
         run: |
@@ -126,6 +142,7 @@ jobs:
             -var="RELEASE_NAME=${{ env.NAMESPACE }}" \
             -var="VALUES_FILE=${{ env.VALUES_FILE }}" \
             -var="GKE_CLUSTER_CONTEXT=${{ env.GKE_CLUSTER_CONTEXT }}" \
+            -var="GRAFANA_DASHBOARD_PASSWORD=${{ steps.get-grafana-dashboard-password.outputs.grafana_dashboard_password }}" \
             -lock=${{ inputs.respect_tf_lock }}
 
       - name: Terraform Plan
@@ -135,6 +152,7 @@ jobs:
             -var="RELEASE_NAME=${{ env.NAMESPACE }}" \
             -var="VALUES_FILE=${{ env.VALUES_FILE }}" \
             -var="GKE_CLUSTER_CONTEXT=${{ env.GKE_CLUSTER_CONTEXT }}" \
+            -var="GRAFANA_DASHBOARD_PASSWORD=${{ steps.get-grafana-dashboard-password.outputs.grafana_dashboard_password }}" \
             -out=tfplan \
             -lock=${{ inputs.respect_tf_lock }}
 
