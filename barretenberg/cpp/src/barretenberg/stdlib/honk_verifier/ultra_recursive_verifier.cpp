@@ -49,12 +49,11 @@ UltraRecursiveVerifier_<Flavor>::Output UltraRecursiveVerifier_<Flavor>::verify_
     Output output;
     StdlibProof<Builder> honk_proof;
     if constexpr (HasIPAAccumulator<Flavor>) {
-        // TODO(https://github.com/AztecProtocol/barretenberg/issues/1168): Add formula to flavor
-        const size_t HONK_PROOF_LENGTH = 469;
+        const size_t HONK_PROOF_LENGTH = Flavor::NativeFlavor::PROOF_LENGTH_WITHOUT_PUB_INPUTS;
         const size_t num_public_inputs = static_cast<uint32_t>(proof[1].get_value());
         // The extra calculation is for the IPA proof length.
         // TODO(https://github.com/AztecProtocol/barretenberg/issues/1182): Handle in ProofSurgeon.
-        ASSERT(proof.size() == HONK_PROOF_LENGTH + (1 + 4 * (CONST_ECCVM_LOG_N) + 2 + 2) + num_public_inputs -
+        ASSERT(proof.size() == HONK_PROOF_LENGTH + IPA_PROOF_LENGTH + num_public_inputs -
                                    (PAIRING_POINT_ACCUMULATOR_SIZE + IPA_CLAIM_SIZE));
         // split out the ipa proof
         const std::ptrdiff_t honk_proof_with_pub_inputs_length = static_cast<std::ptrdiff_t>(

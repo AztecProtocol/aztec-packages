@@ -6,6 +6,7 @@
 #include "barretenberg/common/container.hpp"
 #include "barretenberg/common/thread.hpp"
 #include "barretenberg/common/throw_or_abort.hpp"
+#include "barretenberg/constants.hpp"
 #include "barretenberg/ecc/scalar_multiplication/scalar_multiplication.hpp"
 #include "barretenberg/stdlib/hash/poseidon2/poseidon2.hpp"
 #include "barretenberg/stdlib/honk_verifier/ipa_accumulator.hpp"
@@ -20,6 +21,8 @@
 
 namespace bb {
 // clang-format off
+
+constexpr size_t IPA_PROOF_LENGTH = 1 + 4 * CONST_ECCVM_LOG_N + 2 + 2;
 
 /**
 * @brief IPA (inner product argument) commitment scheme class.
