@@ -426,6 +426,17 @@ template <typename Curve> class SmallSubgroupIPAVerifier {
         // Compute the evaluation of the vanishing polynomia Z_H(X) at X = gemini_evaluation_challenge
         const FF vanishing_poly_eval = gemini_evaluation_challenge.pow(SUBGROUP_SIZE) - FF(1);
 
+        bool gemini_challenge_in_small_subgroup = false;
+        if constexpr (Curve::is_stdlib_type) {
+            gemini_challenge_in_small_subgroup = (vanishing_poly_eval.get_value() == FF(0).get_value());
+        } else {
+            gemini_challenge_in_small_subgroup = (vanishing_poly_eval == FF(0));
+        }
+
+        // The probability of this event is negligible but it has to be processed correctly
+        if (gemini_challenge_in_small_subgroup) {
+            throw_or_abort("Gemini evaluation challenge is in the SmallSubgroup.");
+        }
         // Construct the challenge polynomial from the sumcheck challenge, the verifier has to evaluate it on its own
         const std::vector<FF> challenge_polynomial_lagrange = compute_challenge_polynomial(multilinear_challenge);
 

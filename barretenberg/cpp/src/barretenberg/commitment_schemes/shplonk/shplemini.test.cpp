@@ -20,6 +20,8 @@ template <class Curve> class ShpleminiTest : public CommitmentTest<Curve> {
     using Commitment = typename Curve::AffineElement;
     using GroupElement = typename Curve::Element;
     using Polynomial = bb::Polynomial<Fr>;
+    static constexpr size_t n = 16;
+    static constexpr size_t log_n = 4;
 };
 
 using CurveTypes = ::testing::Types<curve::BN254, curve::Grumpkin>;
@@ -35,9 +37,6 @@ TYPED_TEST(ShpleminiTest, CorrectnessOfMultivariateClaimBatching)
     using Commitment = typename TypeParam::AffineElement;
     using Polynomial = typename bb::Polynomial<Fr>;
 
-    const size_t n = 16;
-    const size_t log_n = 4;
-
     // Generate mock challenges
     Fr rho = Fr::random_element();
     Fr gemini_eval_challenge = Fr::random_element();
@@ -45,10 +44,10 @@ TYPED_TEST(ShpleminiTest, CorrectnessOfMultivariateClaimBatching)
     Fr shplonk_eval_challenge = Fr::random_element();
 
     // Generate multilinear polynomials and compute their commitments
-    auto mle_opening_point = this->random_evaluation_point(log_n);
-    auto poly1 = Polynomial::random(n);
-    auto poly2 = Polynomial::random(n, /*shiftable*/ 1);
-    Polynomial poly3(n);
+    auto mle_opening_point = this->random_evaluation_point(this->log_n);
+    auto poly1 = Polynomial::random(this->n);
+    auto poly2 = Polynomial::random(this->n, /*shiftable*/ 1);
+    Polynomial poly3(this->n);
 
     Commitment commitment1 = this->commit(poly1);
     Commitment commitment2 = this->commit(poly2);
@@ -128,9 +127,6 @@ TYPED_TEST(ShpleminiTest, CorrectnessOfGeminiClaimBatching)
     using Commitment = typename TypeParam::AffineElement;
     using Polynomial = typename bb::Polynomial<Fr>;
 
-    const size_t n = 16;
-    const size_t log_n = 4;
-
     // Generate mock challenges
     Fr rho = Fr::random_element();
     Fr gemini_eval_challenge = Fr::random_element();
@@ -138,10 +134,10 @@ TYPED_TEST(ShpleminiTest, CorrectnessOfGeminiClaimBatching)
     Fr shplonk_eval_challenge = Fr::random_element();
 
     // Generate multilinear polynomials and compute their commitments
-    auto mle_opening_point = this->random_evaluation_point(log_n);
-    auto poly1 = Polynomial::random(n);
-    auto poly2 = Polynomial::random(n, /*shiftable*/ 1);
-    Polynomial poly3 = Polynomial::shiftable(n);
+    auto mle_opening_point = this->random_evaluation_point(this->log_n);
+    auto poly1 = Polynomial::random(this->n);
+    auto poly2 = Polynomial::random(this->n, /*shiftable*/ 1);
+    Polynomial poly3 = Polynomial::shiftable(this->n);
 
     // Evaluate the polynomials at the multivariate challenge, poly3 is not evaluated, because it is 0.
     auto eval1 = poly1.evaluate_mle(mle_opening_point);
@@ -154,8 +150,8 @@ TYPED_TEST(ShpleminiTest, CorrectnessOfGeminiClaimBatching)
     std::vector<Fr> multilinear_evaluations = { eval1, eval2, eval3, eval2_shift, eval3_shift };
     std::vector<Fr> rhos = gemini::powers_of_rho(rho, multilinear_evaluations.size());
 
-    Polynomial batched_unshifted(n);
-    Polynomial batched_to_be_shifted = Polynomial::shiftable(n);
+    Polynomial batched_unshifted(this->n);
+    Polynomial batched_to_be_shifted = Polynomial::shiftable(this->n);
     batched_unshifted.add_scaled(poly1, rhos[0]);
     batched_unshifted.add_scaled(poly2, rhos[1]);
     batched_unshifted.add_scaled(poly3, rhos[2]);
@@ -166,27 +162,27 @@ TYPED_TEST(ShpleminiTest, CorrectnessOfGeminiClaimBatching)
     // - (d+1) opening pairs: {r, \hat{a}_0}, {-r^{2^i}, a_i}, i = 0, ..., d-1
     // - (d+1) Fold polynomials Fold_{r}^(0), Fold_{-r}^(0), and Fold^(i), i = 0, ..., d-1
     auto fold_polynomials = GeminiProver::compute_fold_polynomials(
-        log_n, mle_opening_point, std::move(batched_unshifted), std::move(batched_to_be_shifted));
+        this->log_n, mle_opening_point, std::move(batched_unshifted), std::move(batched_to_be_shifted));
 
     std::vector<Commitment> prover_commitments;
-    for (size_t l = 0; l < log_n - 1; ++l) {
+    for (size_t l = 0; l < this->log_n - 1; ++l) {
         auto commitment = this->ck()->commit(fold_polynomials[l + 2]);
         prover_commitments.emplace_back(commitment);
     }
 
-    const auto opening_claims =
-        GeminiProver::compute_fold_polynomial_evaluations(log_n, std::move(fold_polynomials), gemini_eval_challenge);
+    const auto opening_claims = GeminiProver::compute_fold_polynomial_evaluations(
+        this->log_n, std::move(fold_polynomials), gemini_eval_challenge);
 
     std::vector<Fr> prover_evaluations;
-    for (size_t l = 0; l < log_n; ++l) {
+    for (size_t l = 0; l < this->log_n; ++l) {
         const auto& evaluation = opening_claims[l + 1].opening_pair.evaluation;
         prover_evaluations.emplace_back(evaluation);
     }
 
-    std::vector<Fr> r_squares = gemini::powers_of_evaluation_challenge(gemini_eval_challenge, log_n);
+    std::vector<Fr> r_squares = gemini::powers_of_evaluation_challenge(gemini_eval_challenge, this->log_n);
 
     GroupElement expected_result = GroupElement::zero();
-    std::vector<Fr> expected_inverse_vanishing_evals(log_n + 1);
+    std::vector<Fr> expected_inverse_vanishing_evals(this->log_n + 1);
     // Compute expected inverses
     expected_inverse_vanishing_evals[0] = (shplonk_eval_challenge - r_squares[0]).invert();
     expected_inverse_vanishing_evals[1] = (shplonk_eval_challenge + r_squares[0]).invert();
@@ -202,13 +198,13 @@ TYPED_TEST(ShpleminiTest, CorrectnessOfGeminiClaimBatching)
 
     // Run the ShepliminiVerifier batching method
     std::vector<Fr> inverse_vanishing_evals =
-        ShplonkVerifier::compute_inverted_gemini_denominators(log_n + 1, shplonk_eval_challenge, r_squares);
+        ShplonkVerifier::compute_inverted_gemini_denominators(this->log_n + 1, shplonk_eval_challenge, r_squares);
 
     std::vector<Commitment> commitments;
     std::vector<Fr> scalars;
     Fr expected_constant_term_accumulator{ 0 };
 
-    ShpleminiVerifier::batch_gemini_claims_received_from_prover(log_n,
+    ShpleminiVerifier::batch_gemini_claims_received_from_prover(this->log_n,
                                                                 prover_commitments,
                                                                 prover_evaluations,
                                                                 inverse_vanishing_evals,

@@ -181,6 +181,11 @@ template <typename Curve> class ShpleminiVerifier_ {
         // - Get Gemini evaluation challenge for Aᵢ, i = 0, … , d−1
         const Fr gemini_evaluation_challenge = transcript->template get_challenge<Fr>("Gemini:r");
 
+        // If gemini_evaluation_challenge is in the SmallSubgroup, the evaluations of masked witness polynomials at this
+        // point leak witness data.
+        if (has_zk && (gemini_evaluation_challenge.pow(Curve::SUBGROUP_SIZE) == Fr(1))) {
+            throw_or_abort("Gemini evaluation challenge is in the SmallSubgroup.");
+        }
         // - Get evaluations (A₀(−r), A₁(−r²), ... , Aₙ₋₁(−r²⁽ⁿ⁻¹⁾))
         const std::vector<Fr> gemini_evaluations = GeminiVerifier::get_gemini_evaluations(log_circuit_size, transcript);
         // - Compute vector (r, r², ... , r²⁽ⁿ⁻¹⁾), where n = log_circuit_size
@@ -324,6 +329,7 @@ template <typename Curve> class ShpleminiVerifier_ {
 
             *consistency_checked = SmallSubgroupIPAVerifier<Curve>::check_evaluations_consistency(
                 libra_evaluations, gemini_evaluation_challenge, multivariate_challenge, libra_univariate_evaluation);
+            info(*consistency_checked);
         }
 
         return { commitments, scalars, shplonk_evaluation_challenge };
