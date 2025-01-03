@@ -71,8 +71,6 @@ pub enum ParserErrorReason {
     PatternInTraitFunctionParameter,
     #[error("Patterns aren't allowed in a trait impl's associated constants")]
     PatternInAssociatedConstant,
-    #[error("Visibility is ignored on a trait method")]
-    TraitVisibilityIgnored,
     #[error("Visibility is ignored on a trait impl method")]
     TraitImplVisibilityIgnored,
     #[error("comptime keyword is deprecated")]
@@ -185,8 +183,11 @@ impl ParserError {
     }
 
     pub fn is_warning(&self) -> bool {
-        let diagnostic: Diagnostic = self.into();
-        diagnostic.is_warning()
+        matches!(
+            self.reason(),
+            Some(ParserErrorReason::ExperimentalFeature(_))
+                | Some(ParserErrorReason::MissingSafetyComment)
+        )
     }
 }
 
@@ -261,9 +262,6 @@ impl<'a> From<&'a ParserError> for Diagnostic {
                     error.span,
                 ),
                 ParserErrorReason::ExperimentalFeature(_) => {
-                    Diagnostic::simple_warning(reason.to_string(), "".into(), error.span)
-                }
-                ParserErrorReason::TraitVisibilityIgnored => {
                     Diagnostic::simple_warning(reason.to_string(), "".into(), error.span)
                 }
                 ParserErrorReason::TraitImplVisibilityIgnored => {

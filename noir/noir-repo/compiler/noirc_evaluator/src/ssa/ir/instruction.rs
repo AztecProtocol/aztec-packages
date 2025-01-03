@@ -22,7 +22,7 @@ use super::{
     value::{Value, ValueId},
 };
 
-pub(crate) mod binary;
+mod binary;
 mod call;
 mod cast;
 mod constrain;

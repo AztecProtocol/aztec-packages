@@ -12,6 +12,8 @@ mod tests {
 
     use super::*;
 
+    test_binary::build_test_binary_once!(mock_backend, "../backend_interface/test-binaries");
+
     // Utilities to keep the test matrix labels more intuitive.
     #[derive(Debug, Clone, Copy)]
     struct ForceBrillig(pub bool);

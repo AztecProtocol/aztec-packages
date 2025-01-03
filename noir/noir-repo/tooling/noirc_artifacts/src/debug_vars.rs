@@ -1,9 +1,8 @@
 use acvm::AcirField;
-use noirc_abi::decode_printable_value;
 use noirc_errors::debug_info::{
     DebugFnId, DebugFunction, DebugInfo, DebugTypeId, DebugVarId, DebugVariable,
 };
-use noirc_printable_type::{PrintableType, PrintableValue};
+use noirc_printable_type::{decode_value, PrintableType, PrintableValue};
 use std::collections::HashMap;
 
 #[derive(Debug, Default, Clone)]
@@ -46,7 +45,7 @@ impl<F: AcirField> DebugVars<F> {
         &'a self,
         fn_id: &DebugFnId,
         frame: &'a HashMap<DebugVarId, PrintableValue<F>>,
-    ) -> StackFrame<'a, F> {
+    ) -> StackFrame<F> {
         let debug_fn = &self.functions.get(fn_id).expect("failed to find function metadata");
 
         let params: Vec<&str> =
@@ -73,7 +72,7 @@ impl<F: AcirField> DebugVars<F> {
             .last_mut()
             .expect("unexpected empty stack frames")
             .1
-            .insert(var_id, decode_printable_value(&mut values.iter().copied(), ptype));
+            .insert(var_id, decode_value(&mut values.iter().copied(), ptype));
     }
 
     pub fn assign_field(&mut self, var_id: DebugVarId, indexes: Vec<u32>, values: &[F]) {
@@ -144,7 +143,7 @@ impl<F: AcirField> DebugVars<F> {
                 }
             };
         }
-        *cursor = decode_printable_value(&mut values.iter().copied(), cursor_type);
+        *cursor = decode_value(&mut values.iter().copied(), cursor_type);
     }
 
     pub fn assign_deref(&mut self, _var_id: DebugVarId, _values: &[F]) {

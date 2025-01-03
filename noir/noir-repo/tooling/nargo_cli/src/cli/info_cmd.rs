@@ -3,7 +3,8 @@ use bn254_blackbox_solver::Bn254BlackBoxSolver;
 use clap::Args;
 use iter_extended::vecmap;
 use nargo::{
-    constants::PROVER_INPUT_FILE, foreign_calls::DefaultForeignCallBuilder, package::Package,
+    constants::PROVER_INPUT_FILE, foreign_calls::DefaultForeignCallExecutor, package::Package,
+    PrintOutput,
 };
 use nargo_toml::{get_package_manifest, resolve_workspace_from_toml};
 use noirc_abi::input_parser::Format;
@@ -254,7 +255,7 @@ fn profile_brillig_execution(
             &program_artifact.bytecode,
             initial_witness,
             &Bn254BlackBoxSolver,
-            &mut DefaultForeignCallBuilder::default().build(),
+            &mut DefaultForeignCallExecutor::new(PrintOutput::None, None, None, None),
         )?;
 
         let expression_width = get_target_width(package.expression_width, expression_width);

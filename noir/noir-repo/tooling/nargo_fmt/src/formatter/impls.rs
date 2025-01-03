@@ -38,9 +38,7 @@ impl<'a> Formatter<'a> {
                 if !doc_comments.is_empty() {
                     self.format_outer_doc_comments();
                 }
-                self.format_function(
-                    method, false, // skip visibility
-                );
+                self.format_function(method);
             }
 
             self.skip_comments_and_whitespace();
