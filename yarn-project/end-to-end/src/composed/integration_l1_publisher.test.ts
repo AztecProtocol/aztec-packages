@@ -187,7 +187,7 @@ describe('L1Publisher integration', () => {
         ethereumSlotDuration: config.ethereumSlotDuration,
         blobSinkUrl: BLOB_SINK_URL,
       },
-      new NoopTelemetryClient(),
+      { telemetry: new NoopTelemetryClient() },
     );
 
     coinbase = config.coinbase || EthAddress.random();
