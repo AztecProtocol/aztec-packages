@@ -29,7 +29,7 @@ import {
   makeUnconstrainedFunctionWithMembershipProof,
 } from '@aztec/circuits.js/testing';
 import { times } from '@aztec/foundation/collection';
-import { randomBytes, randomInt } from '@aztec/foundation/crypto';
+import { randomInt } from '@aztec/foundation/crypto';
 
 import { type ArchiverDataStore, type ArchiverL1SynchPoint } from './archiver_store.js';
 import { type L1Published } from './structs/published.js';

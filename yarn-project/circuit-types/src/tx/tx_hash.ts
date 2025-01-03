@@ -44,6 +44,10 @@ export class TxHash {
     return this.hash.toBigInt();
   }
 
+  toJSON() {
+    return this.toString();
+  }
+
   public equals(other: TxHash) {
     return this.hash.equals(other.hash);
   }
