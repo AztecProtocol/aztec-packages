@@ -104,12 +104,11 @@ void compute_grand_product(typename Flavor::ProverPolynomials& full_polynomials,
         }
     }
 
-    const size_t active_num_threads = calculate_num_threads(domain_size, /*min_iterations_per_thread=*/1 << 5);
+    const size_t active_num_threads = calculate_num_threads(active_domain_size, /*min_iterations_per_thread=*/1 << 3);
     std::vector<std::pair<size_t, size_t>> active_idx_bounds;
     {
-        size_t domain_size = active_idxs.size();
-        const size_t block_size = domain_size / active_num_threads;
-        const size_t final_idx = domain_size - 1;
+        const size_t block_size = active_domain_size / active_num_threads;
+        const size_t final_idx = active_domain_size - 1;
 
         // Cumpute the index bounds for each thread for reuse in the computations below
         active_idx_bounds.reserve(active_num_threads);
@@ -219,10 +218,8 @@ void compute_grand_product(typename Flavor::ProverPolynomials& full_polynomials,
                     denominator_scaling *= partial_denominators[j];
                 }
                 for (size_t i = start; i < end; ++i) {
-                    if (check_is_active(i)) {
-                        numerator.at(i) = numerator[i] * numerator_scaling;
-                        denominator.at(i) = denominator[i] * denominator_scaling;
-                    }
+                    numerator.at(i) = numerator[i] * numerator_scaling;
+                    denominator.at(i) = denominator[i] * denominator_scaling;
                 }
             }
 

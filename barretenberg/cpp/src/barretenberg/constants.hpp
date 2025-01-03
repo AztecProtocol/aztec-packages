@@ -17,6 +17,7 @@ static constexpr uint32_t MAX_LOOKUP_TABLES_SIZE = 75000;
 
 static constexpr uint32_t MAX_DATABUS_SIZE = 10000;
 
+// DEBUG
 // static constexpr uint32_t MAX_LOOKUP_TABLES_SIZE = 8;
 // static constexpr uint32_t MAX_DATABUS_SIZE = 2;
 
