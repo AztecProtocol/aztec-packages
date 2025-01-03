@@ -142,7 +142,7 @@ pub fn compute_l2_to_l1_hash(
 
     let inputs =
         [contract_address.to_field(), rollup_version_id, recipient.to_field(), chain_id, content];
-    for i in 0..inputs.len() {
+    for i in 0..5 {
         // TODO are bytes be in fr.to_buffer() ?
         let item_bytes: [u8; 32] = inputs[i].to_be_bytes();
         for j in 0..32 {
