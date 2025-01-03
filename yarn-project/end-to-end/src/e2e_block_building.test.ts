@@ -193,7 +193,7 @@ describe('e2e_block_building', () => {
       logger.info(`Updating aztec node config`);
       await aztecNode.setConfig({ minTxsPerBlock: 1, maxTxsPerBlock: TX_COUNT, enforceTimeTable: true });
 
-      // We tweak the sequencer so it uses a fake simulator that adds a 200ms delay to every public tx.
+      // We tweak the sequencer so it uses a fake simulator that adds a delay to every public tx.
       const archiver = (aztecNode as AztecNodeService).getContractDataSource();
       sequencer.sequencer.publicProcessorFactory = new TestPublicProcessorFactory(
         archiver,
@@ -202,11 +202,13 @@ describe('e2e_block_building', () => {
       );
 
       // We also cheat the sequencer's timetable so it allocates little time to processing.
-      // This will leave the sequencer with just 2s to build the block, so it shouldn't be
-      // able to squeeze in more than 10 txs in each. This is sensitive to the time it takes
-      // to pick up and validate the txs, so we may need to bump it to work on CI.
-      sequencer.sequencer.timeTable[SequencerState.WAITING_FOR_TXS] = 2;
-      sequencer.sequencer.timeTable[SequencerState.CREATING_BLOCK] = 2;
+      // This will leave the sequencer with just a few seconds to build the block, so it shouldn't
+      // be able to squeeze in more than ~12 txs in each. This is sensitive to the time it takes
+      // to pick up and validate the txs, so we may need to bump it to work on CI. Note that we need
+      // at least 3s here so the archiver has time to loop once and sync, and the sequencer has at
+      // least 1s to loop.
+      sequencer.sequencer.timeTable[SequencerState.WAITING_FOR_TXS] = 4;
+      sequencer.sequencer.timeTable[SequencerState.CREATING_BLOCK] = 4;
       sequencer.sequencer.processTxTime = 1;
 
       // Flood the mempool with TX_COUNT simultaneous txs
@@ -615,9 +617,11 @@ type TestSequencer = Omit<Sequencer, 'publicProcessorFactory' | 'timeTable'> & {
 };
 type TestSequencerClient = Omit<SequencerClient, 'sequencer'> & { sequencer: TestSequencer };
 
+const TEST_PUBLIC_TX_SIMULATION_DELAY_MS = 300;
+
 class TestPublicTxSimulator extends PublicTxSimulator {
   public override async simulate(tx: Tx): Promise<PublicTxResult> {
-    await sleep(200);
+    await sleep(TEST_PUBLIC_TX_SIMULATION_DELAY_MS);
     return super.simulate(tx);
   }
 }
