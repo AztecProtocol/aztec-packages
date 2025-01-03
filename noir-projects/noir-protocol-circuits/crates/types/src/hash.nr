@@ -138,7 +138,7 @@ pub fn compute_l2_to_l1_hash(
     rollup_version_id: Field,
     chain_id: Field,
 ) -> Field {
-    let mut bytes: BoundedVec<u8, 160> = BoundedVec::new();
+    let mut bytes: [u8; 160] = std::mem::zeroed();
 
     let inputs =
         [contract_address.to_field(), rollup_version_id, recipient.to_field(), chain_id, content];
@@ -146,11 +146,11 @@ pub fn compute_l2_to_l1_hash(
         // TODO are bytes be in fr.to_buffer() ?
         let item_bytes: [u8; 32] = inputs[i].to_be_bytes();
         for j in 0..32 {
-            bytes.push(item_bytes[j]);
+            bytes[5 * i + j] = item_bytes[j];
         }
     }
 
-    sha256_to_field(bytes.storage())
+    sha256_to_field(bytes)
 }
 
 pub fn silo_l2_to_l1_message(
