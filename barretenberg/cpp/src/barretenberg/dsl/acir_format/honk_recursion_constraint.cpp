@@ -42,7 +42,9 @@ void create_dummy_vkey_and_proof(Builder& builder,
                                  const std::vector<field_ct>& proof_fields)
 {
     // Set vkey->circuit_size correctly based on the proof size
-    ASSERT(proof_size == Flavor::PROOF_LENGTH_WITHOUT_INNER_PUB_INPUTS);
+    info("proof_size: ", proof_size);
+    info("Flavor::PROOF_LENGTH_WITHOUT_PUB_INPUTS: ", Flavor::PROOF_LENGTH_WITHOUT_PUB_INPUTS);
+    ASSERT(proof_size == Flavor::PROOF_LENGTH_WITHOUT_PUB_INPUTS);
     // Note: this computation should always result in log_circuit_size = CONST_PROOF_SIZE_LOG_N
     auto log_circuit_size = CONST_PROOF_SIZE_LOG_N;
     // First key field is circuit size
