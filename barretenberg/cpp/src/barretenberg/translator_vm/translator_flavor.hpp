@@ -132,14 +132,7 @@ class TranslatorFlavor {
     static constexpr size_t NUM_RELATIONS = std::tuple_size_v<Relations>;
 
     // define the containers for storing the contributions from each relation in Sumcheck
-    using SumcheckTupleOfTuplesOfUnivariates =
-        std::tuple<typename TranslatorPermutationRelation<FF>::SumcheckTupleOfUnivariatesOverSubrelations,
-                   typename TranslatorDeltaRangeConstraintRelation<FF>::SumcheckTupleOfUnivariatesOverSubrelations,
-                   typename TranslatorOpcodeConstraintRelation<FF>::SumcheckTupleOfUnivariatesOverSubrelations,
-                   typename TranslatorAccumulatorTransferRelation<FF>::SumcheckTupleOfUnivariatesOverSubrelations,
-                   typename TranslatorDecompositionRelation<FF>::SumcheckTupleOfUnivariatesOverSubrelations,
-                   typename TranslatorNonNativeFieldRelation<FF>::SumcheckTupleOfUnivariatesOverSubrelations,
-                   typename TranslatorZeroConstraintsRelation<FF>::SumcheckTupleOfUnivariatesOverSubrelations>;
+    using SumcheckTupleOfTuplesOfUnivariates = decltype(create_sumcheck_tuple_of_tuples_of_univariates<Relations>());
     using TupleOfArraysOfValues = decltype(create_tuple_of_arrays_of_values<Relations>());
 
     /**
@@ -168,7 +161,6 @@ class TranslatorFlavor {
                               concatenated_range_constraints_2, // column 2
                               concatenated_range_constraints_3) // column 3
     };
-    // TODO(https://github.com/AztecProtocol/barretenberg/issues/790) dedupe with shifted?
     template <typename DataType> class WireToBeShiftedWithoutConcatenated {
       public:
         DEFINE_FLAVOR_MEMBERS(DataType,

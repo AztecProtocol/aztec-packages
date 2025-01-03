@@ -72,7 +72,7 @@ function process_function() {
     if ! cache_download vk-$hash.tar.gz &> /dev/null; then
       # It's not in the cache. Generate the vk file and upload it to the cache.
       echo_stderr "Generating vk for function: $name..."
-      echo "$bytecode_b64" | base64 -d | gunzip | $BB write_vk_for_ivc -h -b - -o $tmp_dir/$hash 2>/dev/null
+      echo "$bytecode_b64" | base64 -d | gunzip | $BB write_vk_for_ivc -b - -o $tmp_dir/$hash 2>/dev/null
       cache_upload vk-$hash.tar.gz $tmp_dir/$hash &> /dev/null
     fi
 
@@ -142,6 +142,31 @@ function build {
   # echo -e "uniswap_contract\ncontract_class_registerer_contract" | parallel --joblog joblog.txt -v --line-buffer --tag --halt now,fail=1 compile {}
 }
 
+function test_cmds {
+  i=0
+  $NARGO test --list-tests --silence-warnings | while read -r package test; do
+    # We assume there are 8 txe's running.
+    port=$((45730 + (i++ % ${NUM_TXES:-1})))
+    echo "noir-projects/scripts/run_test.sh noir-contracts $package $test $port"
+  done
+}
+
+function test {
+  # Starting txe servers with incrementing port numbers.
+  NUM_TXES=8
+  trap 'kill $(jobs -p)' EXIT
+  for i in $(seq 0 $((NUM_TXES-1))); do
+    (cd $root/yarn-project/txe && LOG_LEVEL=silent TXE_PORT=$((45730 + i)) yarn start) &
+  done
+  echo "Waiting for TXE's to start..."
+  for i in $(seq 0 $((NUM_TXES-1))); do
+      while ! nc -z 127.0.0.1 $((45730 + i)) &>/dev/null; do sleep 1; done
+  done
+
+  echo "Starting test run..."
+  test_cmds | (cd $root; NARGO_FOREIGN_CALL_TIMEOUT=300000 parallel --bar --halt now,fail=1 'dump_fail {} >/dev/null')
+}
+
 case "$cmd" in
   "clean")
     git clean -fdx
@@ -153,7 +178,10 @@ case "$cmd" in
       mv "${artifact}.tmp" "$artifact"
     done
     ;;
-  ""|"fast"|"full"|"ci")
+  ""|"fast"|"full")
+    build
+    ;;
+  "ci")
     build
     ;;
   "compile")
@@ -161,8 +189,10 @@ case "$cmd" in
     build $1
     ;;
   "test")
-    # TODO: Needs TXE. Handle after yarn-project.
-    exit 0
+    test
+    ;;
+  "test-cmds")
+    test_cmds
     ;;
   *)
     echo_stderr "Unknown command: $cmd"

@@ -1,4 +1,5 @@
 #include "honk_recursion_constraint.hpp"
+#include "barretenberg/constants.hpp"
 #include "barretenberg/flavor/flavor.hpp"
 #include "barretenberg/plonk_honk_shared/types/aggregation_object_type.hpp"
 #include "barretenberg/stdlib/honk_verifier/ultra_recursive_verifier.hpp"
@@ -9,6 +10,8 @@
 #include "barretenberg/stdlib_circuit_builders/ultra_rollup_recursive_flavor.hpp"
 #include "proof_surgeon.hpp"
 #include "recursion_constraint.hpp"
+
+#include <cstddef>
 
 namespace acir_format {
 
@@ -36,8 +39,7 @@ void create_dummy_vkey_and_proof(Builder& builder,
                                  size_t proof_size,
                                  size_t public_inputs_size,
                                  const std::vector<field_ct>& key_fields,
-                                 const std::vector<field_ct>& proof_fields,
-                                 bool is_rollup_honk_recursion_constraint)
+                                 const std::vector<field_ct>& proof_fields)
 {
     // Set vkey->circuit_size correctly based on the proof size
     size_t num_frs_comm = bb::field_conversion::calc_num_bn254_frs<typename Flavor::Commitment>();
@@ -62,7 +64,7 @@ void create_dummy_vkey_and_proof(Builder& builder,
     builder.assert_equal(builder.add_variable(1), key_fields[3].witness_index);
     uint32_t offset = 4;
     size_t num_inner_public_inputs = public_inputs_size - bb::PAIRING_POINT_ACCUMULATOR_SIZE;
-    if (is_rollup_honk_recursion_constraint) {
+    if constexpr (HasIPAAccumulator<Flavor>) {
         num_inner_public_inputs -= bb::IPA_CLAIM_SIZE;
     }
 
@@ -72,12 +74,13 @@ void create_dummy_vkey_and_proof(Builder& builder,
         offset++;
     }
 
-    if (is_rollup_honk_recursion_constraint) {
+    if constexpr (HasIPAAccumulator<Flavor>) {
         // Key field is the whether the proof contains an aggregation object.
         builder.assert_equal(builder.add_variable(1), key_fields[offset++].witness_index);
         // We are making the assumption that the IPA claim is behind the inner public inputs and pairing point object
         for (size_t i = 0; i < bb::IPA_CLAIM_SIZE; i++) {
-            builder.assert_equal(builder.add_variable(num_inner_public_inputs + i), key_fields[offset].witness_index);
+            builder.assert_equal(builder.add_variable(num_inner_public_inputs + PAIRING_POINT_ACCUMULATOR_SIZE + i),
+                                 key_fields[offset].witness_index);
             offset++;
         }
     }
@@ -110,10 +113,10 @@ void create_dummy_vkey_and_proof(Builder& builder,
         offset++;
     }
 
-    if (is_rollup_honk_recursion_constraint) {
-        IPAClaimIndices ipa_claim; // WORKTODO: initialize this to something?
-        for (auto idx : ipa_claim) {
-            builder.assert_equal(idx, proof_fields[offset].witness_index);
+    // IPA claim
+    if constexpr (HasIPAAccumulator<Flavor>) {
+        for (size_t i = 0; i < bb::IPA_CLAIM_SIZE; i++) {
+            builder.assert_equal(builder.add_variable(fr::random_element()), proof_fields[offset].witness_index);
             offset++;
         }
     }
@@ -169,6 +172,35 @@ void create_dummy_vkey_and_proof(Builder& builder,
         builder.assert_equal(builder.add_variable(frs[3]), proof_fields[offset + 3].witness_index);
         offset += 4;
     }
+    // IPA Proof
+    if constexpr (HasIPAAccumulator<Flavor>) {
+        // Poly length
+        builder.assert_equal(builder.add_variable(1), proof_fields[offset].witness_index);
+        offset++;
+
+        // Ls and Rs
+        for (size_t i = 0; i < static_cast<size_t>(2) * CONST_ECCVM_LOG_N; i++) {
+            auto comm = curve::Grumpkin::AffineElement::one() * fq::random_element();
+            auto frs = field_conversion::convert_to_bn254_frs(comm);
+            builder.assert_equal(builder.add_variable(frs[0]), proof_fields[offset].witness_index);
+            builder.assert_equal(builder.add_variable(frs[1]), proof_fields[offset + 1].witness_index);
+            offset += 2;
+        }
+
+        // G_zero
+        auto G_zero = curve::Grumpkin::AffineElement::one() * fq::random_element();
+        auto G_zero_frs = field_conversion::convert_to_bn254_frs(G_zero);
+        builder.assert_equal(builder.add_variable(G_zero_frs[0]), proof_fields[offset].witness_index);
+        builder.assert_equal(builder.add_variable(G_zero_frs[1]), proof_fields[offset + 1].witness_index);
+        offset += 2;
+
+        // a_zero
+        auto a_zero = fq::random_element();
+        auto a_zero_frs = field_conversion::convert_to_bn254_frs(a_zero);
+        builder.assert_equal(builder.add_variable(a_zero_frs[0]), proof_fields[offset].witness_index);
+        builder.assert_equal(builder.add_variable(a_zero_frs[1]), proof_fields[offset + 1].witness_index);
+        offset += 2;
+    }
     ASSERT(offset == proof_size + public_inputs_size);
 }
 } // namespace
@@ -196,9 +228,8 @@ HonkRecursionConstraintOutput create_honk_recursion_constraints(
     using RecursiveVerificationKey = Flavor::VerificationKey;
     using RecursiveVerifier = bb::stdlib::recursion::honk::UltraRecursiveVerifier_<Flavor>;
 
-    bool is_rollup_honk_recursion_constraint =
-        (input.proof_type == ROLLUP_HONK || input.proof_type == ROLLUP_ROOT_HONK);
-    ASSERT(input.proof_type == HONK || is_rollup_honk_recursion_constraint);
+    ASSERT(input.proof_type == HONK || HasIPAAccumulator<Flavor>);
+    ASSERT((input.proof_type == ROLLUP_HONK || input.proof_type == ROOT_ROLLUP_HONK) == HasIPAAccumulator<Flavor>);
 
     // Construct an in-circuit representation of the verification key.
     // For now, the v-key is a circuit constant and is fixed for the circuit.
@@ -226,19 +257,15 @@ HonkRecursionConstraintOutput create_honk_recursion_constraints(
         // In the constraint, the agg object public inputs are still contained in the proof. To get the 'raw' size of
         // the proof and public_inputs we subtract and add the corresponding amount from the respective sizes.
         size_t size_of_proof_with_no_pub_inputs = input.proof.size() - bb::PAIRING_POINT_ACCUMULATOR_SIZE;
-        if (is_rollup_honk_recursion_constraint) {
+        if constexpr (HasIPAAccumulator<Flavor>) {
             size_of_proof_with_no_pub_inputs -= bb::IPA_CLAIM_SIZE;
         }
         size_t total_num_public_inputs = input.public_inputs.size() + bb::PAIRING_POINT_ACCUMULATOR_SIZE;
-        if (is_rollup_honk_recursion_constraint) {
+        if constexpr (HasIPAAccumulator<Flavor>) {
             total_num_public_inputs += bb::IPA_CLAIM_SIZE;
         }
-        create_dummy_vkey_and_proof<typename Flavor::NativeFlavor>(builder,
-                                                                   size_of_proof_with_no_pub_inputs,
-                                                                   total_num_public_inputs,
-                                                                   key_fields,
-                                                                   proof_fields,
-                                                                   is_rollup_honk_recursion_constraint);
+        create_dummy_vkey_and_proof<typename Flavor::NativeFlavor>(
+            builder, size_of_proof_with_no_pub_inputs, total_num_public_inputs, key_fields, proof_fields);
     }
 
     // Recursively verify the proof
@@ -246,29 +273,16 @@ HonkRecursionConstraintOutput create_honk_recursion_constraints(
     RecursiveVerifier verifier(&builder, vkey);
     aggregation_state_ct input_agg_obj = bb::stdlib::recursion::convert_witness_indices_to_agg_obj<Builder, bn254>(
         builder, input_aggregation_object_indices);
-    std::vector<field_ct> honk_proof = proof_fields;
     HonkRecursionConstraintOutput output;
-    if (is_rollup_honk_recursion_constraint) {
-        // TODO(https://github.com/AztecProtocol/barretenberg/issues/1168): Add formula to flavor
-        const size_t HONK_PROOF_LENGTH = 469;
-        // The extra calculation is for the IPA proof length.
-        ASSERT(input.proof.size() == HONK_PROOF_LENGTH + 1 + 4 * (CONST_ECCVM_LOG_N) + 2 + 2);
-        ASSERT(proof_fields.size() == HONK_PROOF_LENGTH + 65 + input.public_inputs.size());
-        // split out the ipa proof
-        const std::ptrdiff_t honk_proof_with_pub_inputs_length =
-            static_cast<std::ptrdiff_t>(HONK_PROOF_LENGTH + input.public_inputs.size());
-        output.ipa_proof =
-            StdlibProof<Builder>(honk_proof.begin() + honk_proof_with_pub_inputs_length, honk_proof.end());
-        honk_proof = StdlibProof<Builder>(honk_proof.begin(), honk_proof.end() + honk_proof_with_pub_inputs_length);
-    }
-    UltraRecursiveVerifierOutput<Flavor> verifier_output = verifier.verify_proof(honk_proof, input_agg_obj);
+    UltraRecursiveVerifierOutput<Flavor> verifier_output = verifier.verify_proof(proof_fields, input_agg_obj);
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/996): investigate whether assert_equal on public inputs
     // is important, like what the plonk recursion constraint does.
 
     output.agg_obj_indices = verifier_output.agg_obj.get_witness_indices();
-    if (is_rollup_honk_recursion_constraint) {
+    if constexpr (HasIPAAccumulator<Flavor>) {
         ASSERT(HasIPAAccumulator<Flavor>);
         output.ipa_claim = verifier_output.ipa_opening_claim;
+        output.ipa_proof = verifier_output.ipa_proof;
     }
     return output;
 }

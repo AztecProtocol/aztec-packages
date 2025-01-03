@@ -4,6 +4,14 @@ const child_process = require("child_process");
 const crypto = require("crypto");
 
 const clientIvcPatterns = require("../client_ivc_circuits.json");
+const rollupHonkPatterns = require("../rollup_honk_circuits.json");
+
+const CircuitType = {
+  ClientIVCCircuit: 0,
+  RollupHonkCircuit: 1,
+  HonkCircuit: 2,
+};
+
 const {
   readVKFromS3,
   writeVKToS3,
@@ -32,13 +40,13 @@ async function getBytecodeHash(artifactPath) {
   return crypto.createHash("md5").update(bytecode).digest("hex");
 }
 
-async function getArtifactHash(artifactPath, isClientIvc, isRecursive) {
+async function getArtifactHash(artifactPath, circuitType, isRecursive) {
   const bytecodeHash = await getBytecodeHash(artifactPath);
   const barretenbergHash = await getBarretenbergHash();
   return generateArtifactHash(
     barretenbergHash,
     bytecodeHash,
-    isClientIvc,
+    circuitType,
     isRecursive
   );
 }
@@ -61,19 +69,29 @@ async function hasArtifactHashChanged(artifactHash, vkDataPath) {
   return true;
 }
 
-function isClientIvcCircuit(artifactName) {
-  return clientIvcPatterns.some((pattern) =>
-    artifactName.match(new RegExp(pattern))
-  );
+function typeOfCircuit(artifactName) {
+  if (
+    clientIvcPatterns.some((pattern) => artifactName.match(new RegExp(pattern)))
+  ) {
+    return CircuitType.ClientIVCCircuit;
+  } else if (
+    rollupHonkPatterns.some((pattern) =>
+      artifactName.match(new RegExp(pattern))
+    )
+  ) {
+    return CircuitType.RollupHonkCircuit;
+  } else {
+    return CircuitType.HonkCircuit;
+  }
 }
 
 async function processArtifact(artifactPath, artifactName, outputFolder) {
-  const isClientIvc = isClientIvcCircuit(artifactName);
+  const circuitType = typeOfCircuit(artifactName);
   const isRecursive = true;
 
   const artifactHash = await getArtifactHash(
     artifactPath,
-    isClientIvc,
+    circuitType,
     isRecursive
   );
 
@@ -92,7 +110,7 @@ async function processArtifact(artifactPath, artifactName, outputFolder) {
       outputFolder,
       artifactPath,
       artifactHash,
-      isClientIvc,
+      circuitType,
       isRecursive
     );
     await writeVKToS3(artifactName, artifactHash, JSON.stringify(vkData));
@@ -108,13 +126,15 @@ async function generateVKData(
   outputFolder,
   artifactPath,
   artifactHash,
-  isClientIvc,
+  circuitType,
   isRecursive
 ) {
-  if (isClientIvc) {
+  if (circuitType == CircuitType.ClientIVCCircuit) {
     console.log("Generating new client ivc vk for", artifactName);
+  } else if (circuitType == CircuitType.RollupHonkCircuit) {
+    console.log("Generating new rollup honk vk for", artifactName);
   } else {
-    console.log("Generating new vk for", artifactName);
+    console.log("Generating new honk vk for", artifactName);
   }
 
   const binaryVkPath = vkBinaryFileNameForArtifactName(
@@ -123,20 +143,29 @@ async function generateVKData(
   );
   const jsonVkPath = vkJsonFileNameForArtifactName(outputFolder, artifactName);
 
-  function getVkCommand() {
-    if (isClientIvc) return "write_vk_for_ivc";
-    return "write_vk_ultra_honk";
+  if (circuitType == CircuitType.ClientIVCCircuit) {
+    write_vk_flow = "write_vk_for_ivc";
+    vk_as_fields_flow = "vk_as_fields_mega_honk";
+    honk_recursion = 0;
+  } else if (circuitType == CircuitType.RollupHonkCircuit) {
+    write_vk_flow = "write_vk_ultra_rollup_honk";
+    vk_as_fields_flow = "vk_as_fields_ultra_rollup_honk";
+    honk_recursion = 2;
+  } else {
+    write_vk_flow = "write_vk_ultra_honk";
+    vk_as_fields_flow = "vk_as_fields_ultra_honk";
+    honk_recursion = 1;
   }
 
-  const writeVkCommand = `${BB_BIN_PATH} ${getVkCommand()} -h -b "${artifactPath}" -o "${binaryVkPath}" ${
+  const writeVkCommand = `${BB_BIN_PATH} ${write_vk_flow} -h ${honk_recursion} -b "${artifactPath}" -o "${binaryVkPath}" ${
     isRecursive ? "--recursive" : ""
   }`;
 
   console.log("WRITE VK CMD: ", writeVkCommand);
 
-  const vkAsFieldsCommand = `${BB_BIN_PATH} ${
-    isClientIvc ? "vk_as_fields_mega_honk" : "vk_as_fields_ultra_honk"
-  } -k "${binaryVkPath}" -o "${jsonVkPath}"`;
+  const vkAsFieldsCommand = `${BB_BIN_PATH} ${vk_as_fields_flow} -k "${binaryVkPath}" -o "${jsonVkPath}"`;
+
+  console.log("VK AS FIELDS CMD: ", vkAsFieldsCommand);
 
   await new Promise((resolve, reject) => {
     child_process.exec(`${writeVkCommand} && ${vkAsFieldsCommand}`, (err) => {

@@ -1,5 +1,20 @@
 # Changelog
 
+## [0.69.0](https://github.com/AztecProtocol/aztec-packages/compare/aztec-package-v0.68.2...aztec-package-v0.69.0) (2025-01-03)
+
+
+### Miscellaneous
+
+* Add version number when starting sandbox ([#10935](https://github.com/AztecProtocol/aztec-packages/issues/10935)) ([c8dcd8f](https://github.com/AztecProtocol/aztec-packages/commit/c8dcd8f3e50e6447e1e7a09d768b3aff5f17044b))
+* Cl/ci3.2 ([#10919](https://github.com/AztecProtocol/aztec-packages/issues/10919)) ([49dacc3](https://github.com/AztecProtocol/aztec-packages/commit/49dacc3378a339f8cc36971b630c52952249f60c))
+
+## [0.68.2](https://github.com/AztecProtocol/aztec-packages/compare/aztec-package-v0.68.1...aztec-package-v0.68.2) (2024-12-24)
+
+
+### Miscellaneous
+
+* **aztec-package:** Synchronize aztec-packages versions
+
 ## [0.68.1](https://github.com/AztecProtocol/aztec-packages/compare/aztec-package-v0.68.0...aztec-package-v0.68.1) (2024-12-23)
 
 
