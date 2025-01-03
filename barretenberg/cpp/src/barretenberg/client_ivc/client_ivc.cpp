@@ -93,8 +93,9 @@ void ClientIVC::perform_recursive_verification_and_databus_consistency_checks(
     }
     }
 
-    // Set the return data commitment to be propagated on the public inputs of the present kernel and peform consistency
-    // checks between the calldata commitments and the return data commitments contained within the public inputs
+    // Set the return data commitment to be propagated on the public inputs of the present kernel and perform
+    // consistency checks between the calldata commitments and the return data commitments contained within the public
+    // inputs
     bus_depot.set_return_data_to_be_propagated_and_perform_consistency_checks(
         decider_vk->witness_commitments.return_data,
         decider_vk->witness_commitments.calldata,
