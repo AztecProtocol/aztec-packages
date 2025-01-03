@@ -201,8 +201,8 @@ template <typename Curve> class ShpleminiVerifier_ {
         // - Get the quotient commitment for the Shplonk batching of Gemini opening claims
         const auto Q_commitment = transcript->template receive_from_prover<Commitment>("Shplonk:Q");
 
-        // Start populating the vector (Q, f₀, ... , fₖ₋₁, g₀, ... , gₘ₋₁, com(A₁), ... , com(Aₙ₋₁), [1]₁) where fᵢ
-        // are the k commitments to unshifted polynomials and gⱼ are the m commitments to shifted polynomials
+        // Start populating the vector (Q, f₀, ... , fₖ₋₁, g₀, ... , gₘ₋₁, com(A₁), ... , com(Aₙ₋₁), [1]₁) where fᵢ are
+        // the k commitments to unshifted polynomials and gⱼ are the m commitments to shifted polynomials
         std::vector<Commitment> commitments{ Q_commitment };
 
         // Get Shplonk opening point z
@@ -374,8 +374,8 @@ template <typename Curve> class ShpleminiVerifier_ {
      * @param commitments The vector of commitments to be populated.
      * @param scalars The vector of scalars to be populated.
      * @param batched_evaluation The evaluation of the batched multilinear polynomial.
-     * @param concatenated_scalars Scaling factors for the commitments to polynomials in concatenation groups, one
-     * for each group.
+     * @param concatenated_scalars Scaling factors for the commitments to polynomials in concatenation groups, one for
+     * each group.
      * @param concatenation_group_commitments Commitments to polynomials to be concatenated.
      * @param concatenated_evaluations Evaluations of the full concatenated polynomials.
      */
@@ -424,8 +424,8 @@ template <typename Curve> class ShpleminiVerifier_ {
             current_batching_challenge *= multivariate_batching_challenge;
         }
 
-        // If we are performing an opening verification for the translator, add the contributions from the
-        // concatenation commitments and evaluations to the result
+        // If we are performing an opening verification for the translator, add the contributions from the concatenation
+        // commitments and evaluations to the result
         ASSERT(concatenated_evaluations.size() == concatenation_group_commitments.size());
         if (!concatenation_group_commitments.empty()) {
             size_t concatenation_group_size = concatenation_group_commitments[0].size();
