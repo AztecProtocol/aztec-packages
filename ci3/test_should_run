@@ -1,22 +1,8 @@
 #!/bin/bash
+# This is called within test functions to provide an early out for running tests in CI.
 source $(git rev-parse --show-toplevel)/ci3/source
 
-# Are we able to download from a file with the flag name?
-# if TEST=0 is explicit, don't run tests.
-if [ "${TEST:-}" = 0 ]; then
-  echo "Skipping test $1 because TEST=0."
+# If we're in CI and the cache flag is present, we skip running tests.
+if [ "${CI:-0}" -eq 1 ] && cache_download_flag "$1"; then
   exit 1
 fi
-
-if [ "${TEST:-}" != 1 ] && [ "${CI:-}" != 1 ]; then
-  echo "Skipping test $1 because neither CI or TEST are 1."
-  exit 1
-fi
-
-# if we download the test s3 flag, don't run this
-if cache_download_flag "$1"; then
-  exit 1
-fi
-
-# otherwise CI=1 or TEST=1 and we have not found our flag in S3, run
-exit 0

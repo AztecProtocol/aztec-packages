@@ -139,7 +139,7 @@ proverAgent:
 bot:
   followChain: "PENDING"
   enabled: true
-  txIntervalSeconds: 300
+  txIntervalSeconds: 10
 
 jobs:
   deployL1Verifier:
