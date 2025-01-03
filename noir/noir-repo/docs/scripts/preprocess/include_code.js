@@ -85,7 +85,7 @@ function readFile(filePath, tag) {
       const root = path.resolve(__dirname, '../../../');
       const relPath = path.relative(root, filePath);
       const taggedPath = `${tag}:${relPath}`;
-      return childProcess.execSync('git show', taggedPath).toString();
+      return childProcess.execSync('git show', [taggedPath]).toString();
     } catch (err) {
       console.error(`Error reading file ${filePath} from version ${tag}. Falling back to current content.`);
     }
@@ -246,6 +246,10 @@ function doExtractCodeSnippet(filePath, identifier, useCurrent) {
 const regex = /^(?!<!--.*)(?=.*#include_code\s+(\S+)\s+(\S+)\s+(\S+)(?:[ ]+(\S+))?).*$/gm;
 
 async function preprocessIncludeCode(markdownContent, filePath, rootDir) {
+    if (!markdownContent || !filePath || !rootDir) {
+    throw new Error('Required parameters missing: markdownContent, filePath, and rootDir must be provided');
+  }
+  
   // Process each include tag in the current markdown file
   let updatedContent = markdownContent;
   let matchesFound = false;
