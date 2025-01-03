@@ -20,7 +20,6 @@ cmd=${1:-}
 
 export RAYON_NUM_THREADS=${RAYON_NUM_THREADS:-16}
 export HARDWARE_CONCURRENCY=${HARDWARE_CONCURRENCY:-16}
-export PARALLELISM=${PARALLELISM:-16}
 export PLATFORM_TAG=any
 
 export BB=${BB:-../../barretenberg/cpp/build/bin/bb}
@@ -37,6 +36,13 @@ function on_exit() {
 }
 trap on_exit EXIT
 mkdir -p $tmp_dir
+
+# Set flags for parallel
+export PARALLELISM=${PARALLELISM:-16}
+export PARALLEL_FLAGS="-j$PARALLELISM --halt now,fail=1"
+if [[ -n "${MEMSUSPEND-}" ]]; then
+  export PARALLEL_FLAGS="$PARALLEL_FLAGS --memsuspend $MEMSUSPEND"
+fi
 
 # This computes a vk and adds it to the input function json if it's private, else returns same input.
 # stdin has the function json.
@@ -117,7 +123,7 @@ function compile {
   # .[1] is the updated functions on stdin (-)
   # * merges their fields.
   jq -c '.functions[]' $json_path | \
-    parallel -j$PARALLELISM --keep-order -N1 --block 8M --pipe --halt now,fail=1 process_function | \
+    parallel $PARALLEL_FLAGS --keep-order -N1 --block 8M --pipe process_function | \
     jq -s '{functions: .}' | jq -s '.[0] * {functions: .[1].functions}' $json_path - > $tmp_dir/$filename
   mv $tmp_dir/$filename $json_path
 }
@@ -132,7 +138,7 @@ function build {
     set +e
     echo_stderr "Compiling contracts (bb-hash: $BB_HASH)..."
     grep -oP '(?<=contracts/)[^"]+' Nargo.toml | \
-      parallel -j$PARALLELISM --joblog joblog.txt -v --line-buffer --tag --halt now,fail=1 compile {}
+      parallel $PARALLEL_FLAGS --joblog joblog.txt -v --line-buffer --tag compile {}
     code=$?
     cat joblog.txt
     return $code
@@ -164,7 +170,7 @@ function test {
   done
 
   echo "Starting test run..."
-  test_cmds | (cd $root; NARGO_FOREIGN_CALL_TIMEOUT=300000 parallel --bar --halt now,fail=1 'dump_fail {} >/dev/null')
+  test_cmds | (cd $root; NARGO_FOREIGN_CALL_TIMEOUT=300000 parallel --bar $PARALLEL_FLAGS 'dump_fail {} >/dev/null')
 }
 
 case "$cmd" in
