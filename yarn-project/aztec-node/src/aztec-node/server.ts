@@ -885,7 +885,7 @@ export class AztecNodeService implements AztecNode, Traceable {
   public async isValidTx(tx: Tx, isSimulation: boolean = false): Promise<TxValidationResult> {
     const blockNumber = (await this.blockSource.getBlockNumber()) + 1;
     const db = this.worldStateSynchronizer.getCommitted();
-    const verifier = isSimulation ? this.proofVerifier : undefined;
+    const verifier = isSimulation ? undefined : this.proofVerifier;
     const validator = createValidatorForAcceptingTxs(db, this.contractDataSource, verifier, {
       blockNumber,
       l1ChainId: this.l1ChainId,
