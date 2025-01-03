@@ -1,6 +1,7 @@
 import { z } from 'zod';
 
 export interface PostBlobSidecarRequest {
+  // eslint-disable-next-line camelcase
   block_id: string;
   blobs: Array<{
     index: number;
@@ -18,6 +19,7 @@ export const blockIdSchema = z.coerce
   .max(66);
 
 export const postBlobSidecarSchema = z.object({
+  // eslint-disable-next-line camelcase
   block_id: blockIdSchema,
   blobs: z.array(
     z.object({
