@@ -412,7 +412,7 @@ export class Oracle {
    * @param tSize - The size of the serialized object to return.
    * @returns The data found flag and the serialized object concatenated in one array.
    */
-  async load([contract]: ACVMField[], [key]: ACVMField[], [tSize]: ACVMField[]): Promise<ACVMField[]> {
+  async load([contract]: ACVMField[], [key]: ACVMField[], [tSize]: ACVMField[]) {
     const processedContract = AztecAddress.fromField(fromACVMField(contract));
     const processedKey = fromACVMField(key);
     const values = await this.typedOracle.load(processedContract, processedKey);
@@ -420,11 +420,11 @@ export class Oracle {
       // No data was found so we set the data-found flag to 0 and we pad with zeros get the correct return size.
       const processedTSize = frToNumber(fromACVMField(tSize));
       logger.debug(`No data found for key ${processedKey} in contract ${processedContract}`);
-      return [0, ...Array(processedTSize).fill(0)].map(toACVMField);
+      return [toACVMField(0), Array(processedTSize).fill(toACVMField(0))];
     } else {
       // Data was found so we set the data-found flag to 1 and return it along with the data.
       logger.debug(`Returning data for key ${processedKey} in contract ${processedContract}. Data: [${values}]`);
-      return [1, ...values].map(toACVMField);
+      return [toACVMField(1), values.map(toACVMField)];
     }
   }
 }
