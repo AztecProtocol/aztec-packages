@@ -53,6 +53,7 @@
     "viem": "^2.7.15"
   },
   "devDependencies": {
+    "@aztec/archiver": "workspace:^",
     "@aztec/kv-store": "workspace:^",
     "@jest/globals": "^29.5.0",
     "@types/jest": "^29.5.0",

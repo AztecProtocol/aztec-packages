@@ -90,6 +90,8 @@ tests:
   e2e_p2p_gossip:
     test_path: 'e2e_p2p/gossip_network.test.ts'
     with_alerts: true
+  e2e_p2p_slashing:
+    test_path: 'e2e_p2p/slashing.test.ts'
   e2e_p2p_upgrade_governance_proposer:
     test_path: 'e2e_p2p/upgrade_governance_proposer.test.ts'
   e2e_p2p_rediscovery:
