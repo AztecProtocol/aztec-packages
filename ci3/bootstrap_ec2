@@ -27,7 +27,7 @@ fi
 instance_name=$(echo -n "$BRANCH" | tr -c 'a-zA-Z0-9-' '_')
 [ -n "$postfix" ] && instance_name+="_$postfix"
 
-github_group "Request Build Instance"
+echo_header "request build instance"
 # Terminate any existing instance with the same name.
 existing_instance=$(aws ec2 describe-instances \
   --region us-east-2 \
@@ -46,7 +46,6 @@ ip="${parts[0]}"
 sir="${parts[1]}"
 iid="${parts[2]}"
 trap on_exit EXIT
-github_endgroup
 
 # If we're asking to not terminate the instance automatically, we also don't want to remove the container.
 [ "$NO_TERMINATE" -eq 0 ] && docker_args+=" --rm"
@@ -92,7 +91,6 @@ ssh ${ssh_args:-} -F $ci3/aws/build_instance_ssh_config ubuntu@$ip "
     -e LOCAL_USER_ID=\$(id -u) \
     -e LOCAL_GROUP_ID=\$(id -g) \
     -e BUILD_SYSTEM_DEBUG=${BUILD_SYSTEM_DEBUG:-} \
-    -e GITHUB_LOG='${GITHUB_LOG:-}' \
     --pids-limit=32768 \
     aztecprotocol/devbox:3.0 bash -c '
       set -e

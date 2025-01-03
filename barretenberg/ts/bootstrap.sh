@@ -6,7 +6,7 @@ cmd=${1:-}
 hash=$(cache_content_hash ../cpp/.rebuild_patterns .rebuild_patterns)
 
 function build {
-  github_group "bb.js build"
+  echo_header "bb.js build"
   if ! cache_download bb.js-$hash.tar.gz; then
     denoise "yarn install"
     find . -exec touch -d "@0" {} + 2>/dev/null || true
@@ -26,8 +26,6 @@ function build {
       mv "$file" "${file/.test.ts.snap/.test.js.snap}"
     done
   done
-
-  github_endgroup
 }
 
 function test_cmds {
@@ -38,9 +36,8 @@ function test_cmds {
 }
 
 function test {
-  github_group "bb.js test"
+  echo_header "bb.js test"
   test_cmds | parallelise
-  github_endgroup
 }
 
 case "$cmd" in

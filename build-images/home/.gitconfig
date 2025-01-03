@@ -1,2 +1,4 @@
 [safe]
 	directory = /workspaces/aztec-packages
+[advice]
+	detachedHead = false

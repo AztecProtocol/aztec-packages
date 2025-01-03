@@ -17,7 +17,7 @@ tests_hash=$(cache_content_hash \
     ../../barretenberg/ts/.rebuild_patterns)
 
 function build {
-  github_group "acir_tests build"
+  echo_header "acir_tests build"
 
   if ! cache_download $tests_tar; then
     rm -rf acir_tests
@@ -50,15 +50,12 @@ function build {
   find {headless-test,browser-test-app} -exec touch -t 197001010000 {} + 2>/dev/null || true
 
   denoise "cd browser-test-app && yarn build"
-
-  github_endgroup
 }
 
 function test {
-  github_group "acir_tests testing"
+  echo_header "acir_tests testing"
   # TODO: 64 is bit of a magic number for CI/mainframe. Needs to work on lower hardware.
   test_cmds | parallelise 64
-  github_endgroup
 }
 
 function test_cmds {

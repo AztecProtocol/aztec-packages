@@ -71,7 +71,7 @@ function build_packages {
 export -f build_native build_packages
 
 function build {
-  github_group "noir build"
+  echo_header "noir build"
 
   # TODO: Move to build image?
   denoise ./noir-repo/.github/scripts/wasm-bindgen-install.sh
@@ -86,14 +86,11 @@ function build {
   # if [ -x ./scripts/fix_incremental_ts.sh ]; then
   #   ./scripts/fix_incremental_ts.sh
   # fi
-
-  github_endgroup
 }
 
 function test {
-  github_group "noir test"
+  echo_header "noir test"
   test_cmds | filter_test_cmds | parallelise
-  github_endgroup
 }
 
 # Prints the commands to run tests, one line per test, prefixed with the appropriate content hash.

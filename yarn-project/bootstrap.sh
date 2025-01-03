@@ -10,7 +10,7 @@ hash=$(cache_content_hash \
   ../barretenberg/*/.rebuild_patterns)
 
 function build {
-  github_group "yarn-project build"
+  echo_header "yarn-project build"
 
   # Generate l1-artifacts before creating lock file
   (cd l1-artifacts && ./scripts/generate-artifacts.sh)
@@ -67,8 +67,6 @@ function build {
     done
   done
   cp -R circuit-types/src/test/artifacts circuit-types/dest/test/artifacts
-
-  github_endgroup
 }
 
 function test_cmds {
@@ -97,9 +95,8 @@ function test_cmds {
 }
 
 function test {
-  github_group "yarn-project test"
+  echo_header "yarn-project test"
   test_cmds | parallelise
-  github_endgroup
 }
 
 case "$cmd" in

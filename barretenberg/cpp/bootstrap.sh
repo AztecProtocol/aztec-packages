@@ -63,9 +63,8 @@ function download_old_crs {
 export -f build_native build_wasm build_wasm_threads download_old_crs
 
 function build {
-  github_group "bb cpp build"
+  echo_header "bb cpp build"
   parallel --line-buffered --tag denoise {} ::: build_native build_wasm build_wasm_threads download_old_crs
-  github_endgroup
 }
 
 # Print every individual test command. Can be fed into gnu parallel.
@@ -86,9 +85,8 @@ function test_cmds {
 
 # This is not called in ci. It is just for a developer to run the tests.
 function test {
-  github_group "bb test"
+  echo_header "bb test"
   test_cmds | filter_test_cmds | parallelise
-  github_endgroup
 }
 
 case "$cmd" in

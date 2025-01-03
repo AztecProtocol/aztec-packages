@@ -1,0 +1,5 @@
+#!/usr/bin/env bash
+set -eu
+source $ci3/source_color
+
+echo -e "${purple}---${reset} ${blue}${bold}$@${reset} ${purple}---${reset}"

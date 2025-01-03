@@ -6,7 +6,7 @@ cmd=${1:-}
 export hash=$(cache_content_hash .rebuild_patterns)
 
 function build {
-  github_group "l1-contracts build"
+  echo_header "l1-contracts build"
   local artifact=l1-contracts-$hash.tar.gz
   if ! cache_download $artifact; then
     # Clean
@@ -23,7 +23,6 @@ function build {
 
     cache_upload $artifact out
   fi
-  github_endgroup
 }
 
 function test_cmds {
@@ -33,11 +32,10 @@ function test_cmds {
 }
 
 function test {
-  github_group "l1-contracts test"
+  echo_header "l1-contracts test"
   solhint --config ./.solhint.json "src/**/*.sol"
   forge fmt --check
   forge test --no-match-contract UniswapPortalTest
-  github_endgroup
 }
 
 case "$cmd" in

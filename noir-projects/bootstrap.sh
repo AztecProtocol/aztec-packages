@@ -5,7 +5,7 @@ source $(git rev-parse --show-toplevel)/ci3/source_bootstrap
 cmd=${1:-}
 
 function build {
-  github_group "noir-projects build"
+  echo_header "noir-projects build"
 
   # Use fmt as a trick to download dependencies.
   # Otherwise parallel runs of nargo will trip over each other trying to download dependencies.
@@ -25,8 +25,6 @@ function build {
     mock-protocol-circuits \
     noir-protocol-circuits \
     noir-contracts
-
-  github_endgroup
 }
 
 case "$cmd" in

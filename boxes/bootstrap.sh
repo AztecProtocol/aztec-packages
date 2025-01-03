@@ -16,20 +16,18 @@ hash=$(cache_content_hash \
   ../barretenberg/*/.rebuild_patterns)
 
 function build {
-  github_group "boxes build"
+  echo_header "boxes build"
   if ! cache_download boxes-$hash.tar.gz; then
     denoise 'yarn && echo "Building... " && yarn build'
     cache_upload boxes-$hash.tar.gz boxes/*/{artifacts,dist,src/contracts/target}
   else
     denoise yarn
   fi
-  github_endgroup
 }
 
 function test {
-  github_group "boxes test"
+  echo_header "boxes test"
   test_cmds | parallelise
-  github_endgroup
 }
 
 function test_cmds {

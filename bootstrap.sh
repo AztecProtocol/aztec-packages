@@ -108,7 +108,7 @@ function test_cmds {
 }
 
 function test {
-  github_group "test all"
+  echo_header "test all"
 
   # Starting txe servers with incrementing port numbers.
   export NUM_TXES=8
@@ -129,13 +129,11 @@ function test {
   else
     test_cmds $@ | denoise "parallelise 64"
   fi
-  github_endgroup
 }
 
 function build {
-  github_group "pull submodules"
+  echo_header "pull submodules"
   denoise "git submodule update --init --recursive"
-  github_endgroup
 
   check_toolchains
 
@@ -185,7 +183,7 @@ case "$cmd" in
     if docker_has_image $image; then
       exit
     fi
-    github_group "image-aztec"
+    echo_header "image-aztec"
     source $ci3/source_tmp
     echo "earthly artifact build:"
     scripts/earthly-ci --artifact +bootstrap-aztec/usr/src $TMP/usr/src
@@ -196,7 +194,6 @@ case "$cmd" in
     if [ "${CI:-0}" = 1 ]; then
       docker push $image
     fi
-    github_endgroup
   ;;
   "_image-e2e")
     image=aztecprotocol/end-to-end:$(git rev-parse HEAD)
@@ -204,7 +201,7 @@ case "$cmd" in
     if docker_has_image $image; then
       echo "Image $image already exists." && exit
     fi
-    github_group "image-e2e"
+    echo_header "image-e2e"
     source $ci3/source_tmp
     echo "earthly artifact build:"
     scripts/earthly-ci --artifact +bootstrap-end-to-end/usr/src $TMP/usr/src
@@ -216,7 +213,6 @@ case "$cmd" in
     if [ "${CI:-0}" = 1 ]; then
       docker push $image
     fi
-    github_endgroup
   ;;
   "image-e2e")
     parallel --line-buffer ./bootstrap.sh ::: image-aztec _image-e2e
@@ -226,7 +222,7 @@ case "$cmd" in
     if docker_has_image $image; then
       echo "Image $image already exists." && exit
     fi
-    github_group "image-faucet"
+    echo_header "image-faucet"
     source $ci3/source_tmp
     mkdir -p $TMP/usr
     echo "earthly artifact build:"
@@ -236,7 +232,6 @@ case "$cmd" in
     if [ "${CI:-0}" = 1 ]; then
       docker push $image
     fi
-    github_endgroup
   ;;
   ""|"fast"|"full")
     build $cmd
