@@ -1,10 +1,11 @@
 import { type Logger, createLogger } from '@aztec/foundation/log';
 
+import { beforeAll } from '@jest/globals';
 import { type Anvil } from '@viem/anvil';
 import { type PrivateKeyAccount } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
 
-import { setupL1Contracts, startAnvil } from './utils.js';
+import { setupL1Contracts, startAnvil } from '../fixtures/utils.js';
 
 describe('deploy_l1_contracts', () => {
   let anvil: Anvil;
