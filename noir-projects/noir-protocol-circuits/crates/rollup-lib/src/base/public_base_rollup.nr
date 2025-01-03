@@ -1,5 +1,8 @@
 use crate::{
-    abis::tx_effect::TxEffect, abis::base_or_merge_rollup_public_inputs::{BASE_ROLLUP_TYPE, BaseOrMergeRollupPublicInputs},
+    abis::{
+        base_or_merge_rollup_public_inputs::{BASE_ROLLUP_TYPE, BaseOrMergeRollupPublicInputs},
+        tx_effect::TxEffect,
+    },
     base::{
         components::{
             archive::perform_archive_membership_check, constants::validate_combined_constant_data,
@@ -50,7 +53,11 @@ pub struct PublicBaseRollupInputs {
 }
 
 impl PublicBaseRollupInputs {
-    fn generate_tx_effect(self, reverted: bool, combined_constant_data: CombinedConstantData) -> TxEffect {
+    fn generate_tx_effect(
+        self,
+        reverted: bool,
+        combined_constant_data: CombinedConstantData,
+    ) -> TxEffect {
         let from_private = self.tube_data.public_inputs;
         let from_public = self.avm_proof_data.public_inputs;
         let revert_code = if reverted { 1 } else { 0 };
@@ -90,12 +97,12 @@ impl PublicBaseRollupInputs {
             transaction_fee: from_public.transaction_fee,
             note_hashes: from_public.accumulated_data.note_hashes,
             nullifiers: from_public.accumulated_data.nullifiers,
-            l2_to_l1_msgs:siloed_l2_to_l1_msgs ,
+            l2_to_l1_msgs: siloed_l2_to_l1_msgs,
             public_data_writes: from_public.accumulated_data.public_data_writes,
             private_logs,
             unencrypted_logs_hashes: from_public.accumulated_data.unencrypted_logs_hashes,
-                        unencrypted_log_preimages_length,
-                                    contract_class_log_preimages_length,
+            unencrypted_log_preimages_length,
+            contract_class_log_preimages_length,
             contract_class_logs_hashes,
         }
     }
@@ -140,8 +147,7 @@ impl PublicBaseRollupInputs {
 
         let tx_effect = self.generate_tx_effect(reverted, combined_constant_data);
 
-        let commitments_tree_subroot =
-            calculate_subtree_root(tx_effect.note_hashes);
+        let commitments_tree_subroot = calculate_subtree_root(tx_effect.note_hashes);
 
         let empty_commitments_subtree_root = calculate_empty_tree_root(NOTE_HASH_SUBTREE_HEIGHT);
 
@@ -164,10 +170,7 @@ impl PublicBaseRollupInputs {
 
         let out_hash = compute_kernel_out_hash(tx_effect.l2_to_l1_msgs);
 
-        let end_sponge_blob = append_tx_effects_for_blob(
-            tx_effect,
-            self.start_sponge_blob,
-        );
+        let end_sponge_blob = append_tx_effects_for_blob(tx_effect, self.start_sponge_blob);
 
         // Perform membership checks that the notes provided exist within the historical trees data
         perform_archive_membership_check(
@@ -284,6 +287,7 @@ mod tests {
             append_tx_effects_for_blob, encode_blob_prefix, TX_EFFECTS_BLOB_HASH_INPUT_FIELDS,
         },
     };
+    use crate::abis::tx_effect::TxEffect;
     use dep::types::{
         abis::{
             accumulated_data::CombinedAccumulatedData,
@@ -321,7 +325,6 @@ mod tests {
             field::{field_from_bytes, full_field_less_than},
         },
     };
-    use crate::abis::tx_effect::TxEffect;
 
     struct NullifierInsertion {
         existing_index: u32,
@@ -436,9 +439,7 @@ mod tests {
             builder
         }
 
-       fn build_pre_existing_tx_effects(
-            self,
-        ) -> TxEffect {
+        fn build_pre_existing_tx_effects(self) -> TxEffect {
             let mut res = TxEffect::empty();
             res.note_hashes = self.pre_existing_notes;
             res.nullifiers = self.pre_existing_nullifiers.map(|nullifier: NullifierLeafPreimage| {
@@ -673,8 +674,7 @@ mod tests {
                 public_data_tree: start_public_data_tree_snapshot,
             };
 
-            let tx_effect =
-                self.build_pre_existing_tx_effects();
+            let tx_effect = self.build_pre_existing_tx_effects();
 
             let start_sponge_blob = append_tx_effects_for_blob(
                 tx_effect,

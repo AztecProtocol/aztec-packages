@@ -1,5 +1,8 @@
 use crate::{
-    abis::tx_effect::TxEffect, abis::base_or_merge_rollup_public_inputs::{BASE_ROLLUP_TYPE, BaseOrMergeRollupPublicInputs},
+    abis::{
+        base_or_merge_rollup_public_inputs::{BASE_ROLLUP_TYPE, BaseOrMergeRollupPublicInputs},
+        tx_effect::TxEffect,
+    },
     base::{
         components::{
             archive::perform_archive_membership_check,
@@ -12,15 +15,16 @@ use crate::{
     },
     components::{append_tx_effects_for_blob, compute_kernel_out_hash},
 };
+use super::components::constants::validate_tx_constant_data;
 use dep::types::{
     abis::{
-        log_hash::ScopedLogHash, append_only_tree_snapshot::AppendOnlyTreeSnapshot, constant_rollup_data::ConstantRollupData,
-        nullifier_leaf_preimage::NullifierLeafPreimage, public_data_write::PublicDataWrite,
-        sponge_blob::SpongeBlob, tube::PrivateTubeData,
+        append_only_tree_snapshot::AppendOnlyTreeSnapshot, constant_rollup_data::ConstantRollupData,
+        log_hash::ScopedLogHash, nullifier_leaf_preimage::NullifierLeafPreimage,
+        public_data_write::PublicDataWrite, sponge_blob::SpongeBlob, tube::PrivateTubeData,
     },
     constants::{
-        ARCHIVE_HEIGHT, MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, NOTE_HASH_SUBTREE_HEIGHT,
-        TUBE_VK_INDEX,MAX_UNENCRYPTED_LOGS_PER_TX
+        ARCHIVE_HEIGHT, MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, MAX_UNENCRYPTED_LOGS_PER_TX,
+        NOTE_HASH_SUBTREE_HEIGHT, TUBE_VK_INDEX,
     },
     data::{hash::compute_public_data_tree_value, public_data_hint::PublicDataHint},
     hash::silo_l2_to_l1_message,
@@ -30,7 +34,6 @@ use dep::types::{
     messaging::l2_to_l1_message::ScopedL2ToL1Message,
     partial_state_reference::PartialStateReference,
 };
-use super::components::constants::validate_tx_constant_data;
 
 global ALLOWED_PREVIOUS_CIRCUITS: [u32; 1] = [TUBE_VK_INDEX];
 
@@ -123,13 +126,14 @@ impl PrivateBaseRollupInputs {
             private_logs: self.tube_data.public_inputs.end.private_logs,
             unencrypted_log_preimages_length: 0,
             unencrypted_logs_hashes: [ScopedLogHash::empty(); MAX_UNENCRYPTED_LOGS_PER_TX],
-            contract_class_log_preimages_length: self.tube_data.public_inputs.end.contract_class_log_preimages_length,
+            contract_class_log_preimages_length: self
+                .tube_data
+                .public_inputs
+                .end
+                .contract_class_log_preimages_length,
             contract_class_logs_hashes: self.tube_data.public_inputs.end.contract_class_logs_hashes,
         };
-        let end_sponge_blob = append_tx_effects_for_blob(
-            tx_effect,
-            self.start_sponge_blob,
-        );
+        let end_sponge_blob = append_tx_effects_for_blob(tx_effect, self.start_sponge_blob);
 
         // Perform membership checks that the notes provided exist within the historical trees data
         perform_archive_membership_check(
@@ -225,6 +229,7 @@ mod tests {
             append_tx_effects_for_blob, encode_blob_prefix, TX_EFFECTS_BLOB_HASH_INPUT_FIELDS,
         },
     };
+    use crate::abis::tx_effect::TxEffect;
     use dep::types::{
         abis::{
             append_only_tree_snapshot::AppendOnlyTreeSnapshot,
@@ -260,7 +265,6 @@ mod tests {
             field::{field_from_bytes, full_field_less_than},
         },
     };
-    use crate::abis::tx_effect::TxEffect;
 
     struct NullifierInsertion {
         existing_index: u32,
@@ -386,9 +390,7 @@ mod tests {
             gas_used.compute_fee(gas_fees)
         }
 
-        fn build_pre_existing_tx_effects(
-            self,
-        ) -> TxEffect {
+        fn build_pre_existing_tx_effects(self) -> TxEffect {
             let mut res = TxEffect::empty();
             res.note_hashes = self.pre_existing_notes;
             res.nullifiers = self.pre_existing_nullifiers.map(|nullifier: NullifierLeafPreimage| {
@@ -573,9 +575,7 @@ mod tests {
                 public_data_tree: start_public_data_tree_snapshot,
             };
 
-            let pre_existing_tx_effects =
-                self.build_pre_existing_tx_effects();
-
+            let pre_existing_tx_effects = self.build_pre_existing_tx_effects();
 
             let start_sponge_blob = append_tx_effects_for_blob(
                 pre_existing_tx_effects,
@@ -962,15 +962,7 @@ mod tests {
         reconstructed_tx_effects[0] = field_from_bytes(
             array_concat(
                 TX_START_PREFIX.to_be_bytes::<8>(),
-                [
-                    0,
-                    length_bytes[0],
-                    length_bytes[1],
-                    0,
-                    REVERT_CODE_PREFIX,
-                    0,
-                    0,
-                ],
+                [0, length_bytes[0], length_bytes[1], 0, REVERT_CODE_PREFIX, 0, 0],
             ),
             true,
         );

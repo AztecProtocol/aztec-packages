@@ -1,7 +1,7 @@
 use crate::{
-    abis::tx_constant_data::TxConstantData, abis::{
-        accumulated_data::CombinedAccumulatedData,
-        gas::Gas, validation_requests::RollupValidationRequests,
+    abis::{
+        accumulated_data::CombinedAccumulatedData, gas::Gas, tx_constant_data::TxConstantData,
+        validation_requests::RollupValidationRequests,
     },
     address::AztecAddress,
     constants::KERNEL_CIRCUIT_PUBLIC_INPUTS_LENGTH,

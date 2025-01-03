@@ -4,11 +4,9 @@ use crate::abis::{
     previous_rollup_block_data::PreviousRollupBlockData,
     previous_rollup_data::PreviousRollupData,
 };
+use super::abis::tx_effect::TxEffect;
 use dep::types::{
-    abis::{
-        log_hash::ScopedLogHash,
-        public_data_write::PublicDataWrite, sponge_blob::SpongeBlob,
-    },
+    abis::{log_hash::ScopedLogHash, public_data_write::PublicDataWrite, sponge_blob::SpongeBlob},
     constants::{
         AZTEC_MAX_EPOCH_DURATION, CONTRACT_CLASS_LOGS_PREFIX, L2_L1_MSGS_PREFIX,
         MAX_CONTRACT_CLASS_LOGS_PER_TX, MAX_L2_TO_L1_MSGS_PER_TX, MAX_NOTE_HASHES_PER_TX,
@@ -24,7 +22,6 @@ use dep::types::{
     utils::{arrays::{array_concat, array_length, array_merge}, field::field_from_bytes},
 };
 use blob::blob_public_inputs::BlockBlobPublicInputs;
-use super::abis::tx_effect::TxEffect;
 
 /**
  * Asserts that the tree formed by rollup circuits is filled greedily from L to R
@@ -302,7 +299,10 @@ pub(crate) fn append_tx_effects_for_blob(
     // TX FEE
     // Using 29 bytes to encompass all reasonable fee lengths
     tx_effects_hash_input[offset] = field_from_bytes(
-        array_concat([TX_FEE_PREFIX, 0], tx_effect.transaction_fee.to_be_bytes::<29>()),
+        array_concat(
+            [TX_FEE_PREFIX, 0],
+            tx_effect.transaction_fee.to_be_bytes::<29>(),
+        ),
         true,
     );
     offset += 1;

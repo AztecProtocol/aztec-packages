@@ -43,7 +43,26 @@ impl TailOutputValidator {
     }
 
     fn validate_propagated_values(self) {
-        assert_eq(self.output.constants, self.previous_kernel.constants, "mismatch constants");
+        assert_eq(
+            self.output.constants.historical_header,
+            self.previous_kernel.constants.historical_header,
+            "mismatch historical_header",
+        );
+        assert_eq(
+            self.output.constants.tx_context,
+            self.previous_kernel.constants.tx_context,
+            "mismatch tx_context",
+        );
+        assert_eq(
+            self.output.constants.vk_tree_root,
+            self.previous_kernel.constants.vk_tree_root,
+            "mismatch vk_tree_root",
+        );
+        assert_eq(
+            self.output.constants.protocol_contract_tree_root,
+            self.previous_kernel.constants.protocol_contract_tree_root,
+            "mismatch protocol_contract_tree_root",
+        );
 
         assert_eq(
             self.output.rollup_validation_requests,
