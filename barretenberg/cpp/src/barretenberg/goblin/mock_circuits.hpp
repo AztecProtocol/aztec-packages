@@ -191,7 +191,7 @@ class GoblinMockCircuits {
     {
         PROFILE_THIS();
         // DEBUG
-        add_some_ecc_op_gates(builder);
+        // add_some_ecc_op_gates(builder);
         MockCircuits::construct_arithmetic_circuit(builder);
     }
 

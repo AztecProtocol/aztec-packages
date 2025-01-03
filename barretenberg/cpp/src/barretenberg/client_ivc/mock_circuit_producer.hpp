@@ -119,10 +119,11 @@ class PrivateFunctionExecutionMockCircuitProducer {
             mock_databus.populate_kernel_databus(circuit);              // populate databus inputs/outputs
             ivc.complete_kernel_circuit_logic(circuit);                 // complete with recursive verifiers etc
         } else {
-            bool use_large_circuit = large_first_app && (circuit_counter == 1);         // first circuit is size 2^19
-            GoblinMockCircuits::construct_mock_app_circuit(circuit, use_large_circuit); // construct mock app
-            // GoblinMockCircuits::construct_mock_app_circuit(circuit, false); // construct mock app
-            mock_databus.populate_app_databus(circuit); // populate databus outputs
+            [[maybe_unused]] bool use_large_circuit =
+                large_first_app && (circuit_counter == 1); // first circuit is size 2^19
+            // GoblinMockCircuits::construct_mock_app_circuit(circuit, use_large_circuit); // construct mock app
+            GoblinMockCircuits::construct_mock_app_circuit(circuit, false); // construct mock app
+            mock_databus.populate_app_databus(circuit);                     // populate databus outputs
         }
         return circuit;
     }

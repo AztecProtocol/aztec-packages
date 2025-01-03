@@ -3,6 +3,7 @@
 #include "barretenberg/common/debug_log.hpp"
 #include "barretenberg/common/thread.hpp"
 #include "barretenberg/common/zip_view.hpp"
+#include "barretenberg/flavor/flavor.hpp"
 #include "barretenberg/plonk/proof_system/proving_key/proving_key.hpp"
 #include "barretenberg/relations/relation_parameters.hpp"
 #include <typeinfo>
@@ -54,10 +55,10 @@ namespace bb {
  * @param size_override optional size of the domain; otherwise based on dyadic polynomial domain
  */
 template <typename Flavor, typename GrandProdRelation>
-void compute_grand_product_old(typename Flavor::ProverPolynomials& full_polynomials,
-                               bb::RelationParameters<typename Flavor::FF>& relation_parameters,
-                               size_t size_override = 0,
-                               std::vector<std::pair<size_t, size_t>> active_block_ranges = {})
+void compute_grand_product(typename Flavor::ProverPolynomials& full_polynomials,
+                           bb::RelationParameters<typename Flavor::FF>& relation_parameters,
+                           size_t size_override = 0,
+                           std::vector<std::pair<size_t, size_t>> active_block_ranges = {})
 {
     PROFILE_THIS_NAME("compute_grand_product");
 
@@ -81,12 +82,13 @@ void compute_grand_product_old(typename Flavor::ProverPolynomials& full_polynomi
             }
         }
     }
+    size_t active_domain_size = active_idxs.size();
 
     // const size_t num_threads = 4;
     std::vector<std::pair<size_t, size_t>> idx_bounds;
     const size_t num_threads = calculate_num_threads(domain_size, /*min_iterations_per_thread=*/1 << 14);
     {
-        info("num_threads = ", num_threads);
+        // info("num_threads = ", num_threads);
         // const size_t num_threads = domain_size >= get_num_cpus_pow2() ? get_num_cpus_pow2() : 1;
         const size_t block_size = domain_size / num_threads;
         const size_t final_idx = domain_size - 1;
@@ -97,8 +99,8 @@ void compute_grand_product_old(typename Flavor::ProverPolynomials& full_polynomi
             const size_t start = thread_idx * block_size;
             const size_t end = (thread_idx == num_threads - 1) ? final_idx : (thread_idx + 1) * block_size;
             idx_bounds.push_back(std::make_pair(start, end));
-            info("idx_bounds.start = ", start);
-            info("idx_bounds.end = ", end);
+            // info("idx_bounds.start = ", start);
+            // info("idx_bounds.end = ", end);
         }
     }
 
@@ -120,11 +122,6 @@ void compute_grand_product_old(typename Flavor::ProverPolynomials& full_polynomi
         }
     }
 
-    // Allocate numerator/denominator polynomials that will serve as scratch space
-    // TODO(zac) we can re-use the permutation polynomial as the numerator polynomial. Reduces readability
-    Polynomial numerator{ domain_size, domain_size };
-    Polynomial denominator{ domain_size, domain_size };
-
     auto check_is_active = [&](size_t idx) {
         if (active_block_ranges.empty()) {
             return true;
@@ -134,54 +131,42 @@ void compute_grand_product_old(typename Flavor::ProverPolynomials& full_polynomi
         });
     };
 
-    for (auto range : active_block_ranges) {
-        info("start = ", range.first);
-        info("end = ", range.second);
-    }
+    // Allocate numerator/denominator polynomials that will serve as scratch space
+    // TODO(zac) we can re-use the permutation polynomial as the numerator polynomial. Reduces readability
+    Polynomial numerator{ active_domain_size };
+    Polynomial denominator{ active_domain_size };
+
+    // for (auto range : active_block_ranges) {
+    //     info("start = ", range.first);
+    //     info("end = ", range.second);
+    // }
 
     // Step (1)
     // Populate `numerator` and `denominator` with the algebra described by Relation
     {
         PROFILE_THIS_NAME("GP step 1");
-        parallel_for(num_threads, [&](size_t thread_idx) {
+        parallel_for(active_num_threads, [&](size_t thread_idx) {
             typename Flavor::AllValues row;
-            const size_t start = idx_bounds[thread_idx].first;
-            const size_t end = idx_bounds[thread_idx].second;
+            const size_t start = active_idx_bounds[thread_idx].first;
+            const size_t end = active_idx_bounds[thread_idx].second;
             for (size_t i = start; i < end; ++i) {
-                if (check_is_active(i)) {
-                    // TODO(https://github.com/AztecProtocol/barretenberg/issues/940):consider avoiding get_row if
-                    // possible.
-                    row = full_polynomials.get_row(i);
-                    numerator.at(i) = GrandProdRelation::template compute_grand_product_numerator<Accumulator>(
-                        row, relation_parameters);
-                    denominator.at(i) = GrandProdRelation::template compute_grand_product_denominator<Accumulator>(
-                        row, relation_parameters);
+                // TODO(https://github.com/AztecProtocol/barretenberg/issues/940):consider avoiding get_row if
+                // possible.
+                auto poly_idx = active_idxs[i];
+                if constexpr (IsUltraFlavor<Flavor>) {
+
+                    row = full_polynomials.get_row_for_perm(poly_idx);
                 } else {
-                    numerator.at(i) = 1;
-                    denominator.at(i) = 1;
+                    row = full_polynomials.get_row(poly_idx);
                 }
-                info("num = ", numerator.at(i));
-                info("den = ", denominator.at(i));
+                numerator.at(i) =
+                    GrandProdRelation::template compute_grand_product_numerator<Accumulator>(row, relation_parameters);
+                denominator.at(i) = GrandProdRelation::template compute_grand_product_denominator<Accumulator>(
+                    row, relation_parameters);
+
+                // info("poly_idx = ", poly_idx, ", num = ", numerator.at(i));
             }
         });
-        // parallel_for(active_num_threads, [&](size_t thread_idx) {
-        //     typename Flavor::AllValues row;
-        //     const size_t start = active_idx_bounds[thread_idx].first;
-        //     const size_t end = active_idx_bounds[thread_idx].second;
-        //     for (size_t i = start; i < end; ++i) {
-        //         // TODO(https://github.com/AztecProtocol/barretenberg/issues/940):consider avoiding get_row if
-        //         // possible.
-        //         size_t idx = active_idxs[i];
-        //         row = full_polynomials.get_row(idx); // WORKTODO: implement get_row_for_permuation_argument?
-        //         numerator.at(idx) =
-        //             GrandProdRelation::template compute_grand_product_numerator<Accumulator>(row,
-        //             relation_parameters);
-        //         denominator.at(idx) = GrandProdRelation::template compute_grand_product_denominator<Accumulator>(
-        //             row, relation_parameters);
-        //         info("num = ", numerator.at(idx));
-        //         info("den = ", denominator.at(idx));
-        //     }
-        // });
     }
 
     DEBUG_LOG_ALL(numerator.coeffs());
@@ -199,22 +184,19 @@ void compute_grand_product_old(typename Flavor::ProverPolynomials& full_polynomi
     // (ii)  Take partial products P = { 1, a0a1, a2a3, a4a5 }
     // (iii) Each thread j computes N[i][j]*P[j]=
     //      {{a0,a0a1},{a0a1a2,a0a1a2a3},{a0a1a2a3a4,a0a1a2a3a4a5},{a0a1a2a3a4a5a6,a0a1a2a3a4a5a6a7}}
-    std::vector<FF> partial_numerators(num_threads);
-    std::vector<FF> partial_denominators(num_threads);
+    std::vector<FF> partial_numerators(active_num_threads);
+    std::vector<FF> partial_denominators(active_num_threads);
 
     {
-        info("GP step 2.1");
+        // info("GP step 2.1");
         PROFILE_THIS_NAME("GP step 2.1");
-        parallel_for(num_threads, [&](size_t thread_idx) {
-            const size_t start = idx_bounds[thread_idx].first;
-            const size_t end = idx_bounds[thread_idx].second;
+        parallel_for(active_num_threads, [&](size_t thread_idx) {
+            const size_t start = active_idx_bounds[thread_idx].first;
+            const size_t end = active_idx_bounds[thread_idx].second;
             for (size_t i = start; i < end - 1; ++i) {
-                if (check_is_active(i + 1)) {
-                    numerator.at(i + 1) *= numerator[i];
-                    denominator.at(i + 1) *= denominator[i];
-                }
-                info("num = ", numerator.at(i + 1));
-                info("den = ", denominator.at(i + 1));
+                numerator.at(i + 1) *= numerator[i];
+                denominator.at(i + 1) *= denominator[i];
+                // info("poly_idx = ", active_idxs[i], ", numer = ", numerator.at(i));
             }
             partial_numerators[thread_idx] = numerator[end - 1];
             partial_denominators[thread_idx] = denominator[end - 1];
@@ -225,9 +207,9 @@ void compute_grand_product_old(typename Flavor::ProverPolynomials& full_polynomi
     }
     {
         PROFILE_THIS_NAME("GP step 2.2");
-        parallel_for(num_threads, [&](size_t thread_idx) {
-            const size_t start = idx_bounds[thread_idx].first;
-            const size_t end = idx_bounds[thread_idx].second;
+        parallel_for(active_num_threads, [&](size_t thread_idx) {
+            const size_t start = active_idx_bounds[thread_idx].first;
+            const size_t end = active_idx_bounds[thread_idx].second;
             if (thread_idx > 0) {
                 FF numerator_scaling = 1;
                 FF denominator_scaling = 1;
@@ -259,38 +241,57 @@ void compute_grand_product_old(typename Flavor::ProverPolynomials& full_polynomi
 
     {
         PROFILE_THIS_NAME("GP step 3");
-        parallel_for(num_threads, [&](size_t thread_idx) {
-            const size_t start = idx_bounds[thread_idx].first;
-            const size_t end = idx_bounds[thread_idx].second;
-            for (size_t i = end; i-- > start;) {
-                // if (check_is_active(i + 1)) {
-                if (check_is_active(i)) {
-                    grand_product_polynomial.at(i + 1) = numerator[i] * denominator[i];
-                } else {
-                    // Set the value in the inactive regions to the first active value in the active region that follows
-                    for (size_t j = 0; j < active_block_ranges.size() - 1; ++j) {
-                        auto& ranges = active_block_ranges;
-                        if (i + 1 >= ranges[j].second && i + 1 < ranges[j + 1].first) {
-                            size_t val_idx = ranges[j + 1].first;
-                            grand_product_polynomial.at(i + 1) = numerator[val_idx] * denominator[val_idx];
-                            break;
-                        }
-                    }
-                }
+        parallel_for(active_num_threads, [&](size_t thread_idx) {
+            const size_t start = active_idx_bounds[thread_idx].first;
+            const size_t end = active_idx_bounds[thread_idx].second;
+            for (size_t i = start; i < end; ++i) {
+                auto poly_idx = active_idxs[i + 1];
+                grand_product_polynomial.at(poly_idx) = numerator[i] * denominator[i];
+
+                // info("poly_idx  = ", poly_idx, ", z_perm = ", grand_product_polynomial[poly_idx]);
                 // info("active = ", check_is_active(i + 1));
                 // info("GP(", i + 1, ") = ", grand_product_polynomial.at(i + 1));
             }
         });
     }
 
+    {
+        PROFILE_THIS_NAME("GP step 4");
+        parallel_for(num_threads, [&](size_t thread_idx) {
+            const size_t start = idx_bounds[thread_idx].first;
+            const size_t end = idx_bounds[thread_idx].second;
+            for (size_t i = start; i < end; ++i) {
+                if (!check_is_active(i + 1)) {
+                    // Set the value in the inactive regions to the first active value in the active region that
+                    // follows
+                    for (size_t j = 0; j < active_block_ranges.size() - 1; ++j) {
+                        auto& ranges = active_block_ranges;
+                        // info("i + 1 = ", i + 1);
+                        // info("ranges[j].second = ", ranges[j].second);
+                        // info("ranges[j + 1].first = ", ranges[j + 1].first);
+                        if (i + 1 >= ranges[j].second && i + 1 < ranges[j + 1].first) {
+                            size_t val_idx = ranges[j + 1].first;
+                            // info("inactive value idx = ", val_idx);
+                            grand_product_polynomial.at(i + 1) = grand_product_polynomial[val_idx];
+                            break;
+                        }
+                    }
+                }
+                // info("idx  = ", i + 1, ", z_perm = ", grand_product_polynomial[i + 1]);
+            }
+        });
+
+        grand_product_polynomial.at(1) = 1;
+    }
+
     DEBUG_LOG_ALL(grand_product_polynomial.coeffs());
 }
 
 template <typename Flavor, typename GrandProdRelation>
-void compute_grand_product(typename Flavor::ProverPolynomials& full_polynomials,
-                           bb::RelationParameters<typename Flavor::FF>& relation_parameters,
-                           size_t size_override = 0,
-                           std::vector<std::pair<size_t, size_t>> active_block_ranges = {})
+void compute_grand_product_stable(typename Flavor::ProverPolynomials& full_polynomials,
+                                  bb::RelationParameters<typename Flavor::FF>& relation_parameters,
+                                  size_t size_override = 0,
+                                  std::vector<std::pair<size_t, size_t>> active_block_ranges = {})
 {
     PROFILE_THIS_NAME("compute_grand_product");
 
@@ -303,8 +304,8 @@ void compute_grand_product(typename Flavor::ProverPolynomials& full_polynomials,
     using Polynomial = typename Flavor::Polynomial;
     using Accumulator = std::tuple_element_t<0, typename GrandProdRelation::SumcheckArrayOfValuesOverSubrelations>;
 
-    // Set the domain over which the grand product must be computed. This may be less than the dyadic circuit size, e.g
-    // the permutation grand product does not need to be computed beyond the index of the last active wire
+    // Set the domain over which the grand product must be computed. This may be less than the dyadic circuit size,
+    // e.g the permutation grand product does not need to be computed beyond the index of the last active wire
     size_t domain_size = size_override == 0 ? full_polynomials.get_polynomial_size() : size_override;
 
     const size_t num_threads = domain_size >= get_num_cpus_pow2() ? get_num_cpus_pow2() : 1;
@@ -343,7 +344,8 @@ void compute_grand_product(typename Flavor::ProverPolynomials& full_polynomials,
         const size_t end = idx_bounds[thread_idx].second;
         for (size_t i = start; i < end; ++i) {
             if (check_is_active(i)) {
-                // TODO(https://github.com/AztecProtocol/barretenberg/issues/940):consider avoiding get_row if possible.
+                // TODO(https://github.com/AztecProtocol/barretenberg/issues/940):consider avoiding get_row if
+                // possible.
                 row = full_polynomials.get_row(i);
                 numerator.at(i) =
                     GrandProdRelation::template compute_grand_product_numerator<Accumulator>(row, relation_parameters);
@@ -353,6 +355,7 @@ void compute_grand_product(typename Flavor::ProverPolynomials& full_polynomials,
                 numerator.at(i) = 1;
                 denominator.at(i) = 1;
             }
+            info("i = ", i, ", num = ", numerator.at(i));
         }
     });
 
@@ -387,7 +390,7 @@ void compute_grand_product(typename Flavor::ProverPolynomials& full_polynomials,
                 numerator.at(i + 1) = numerator[i];
                 denominator.at(i + 1) = denominator[i];
             }
-            // info("i = ", i, ", num = ", numerator.at(i));
+            info("i = ", i, ", numer = ", numerator.at(i));
         }
         partial_numerators[thread_idx] = numerator[end - 1];
         partial_denominators[thread_idx] = denominator[end - 1];
@@ -410,7 +413,7 @@ void compute_grand_product(typename Flavor::ProverPolynomials& full_polynomials,
             for (size_t i = start; i < end; ++i) {
                 numerator.at(i) = numerator[i] * numerator_scaling;
                 denominator.at(i) = denominator[i] * denominator_scaling;
-                // info("i = ", i, ", numer = ", numerator.at(i));
+                info("i = ", i, ", numerator = ", numerator.at(i));
             }
         }
 
@@ -447,7 +450,7 @@ void compute_grand_product(typename Flavor::ProverPolynomials& full_polynomials,
                     }
                 }
             }
-            // info("idx  = ", i + 1, ", z_perm = ", grand_product_polynomial[i + 1]);
+            info("idx  = ", i + 1, ", z_perm = ", grand_product_polynomial[i + 1]);
         }
     });
 
