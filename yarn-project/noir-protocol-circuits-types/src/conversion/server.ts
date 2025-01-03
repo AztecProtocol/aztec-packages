@@ -6,11 +6,9 @@ import {
   type AvmCircuitPublicInputs,
   BLOBS_PER_BLOCK,
   type BaseParityInputs,
-  type CombinedAccumulatedData,
   type EmptyNestedData,
   Fr,
   HONK_VERIFICATION_KEY_LENGTH_IN_FIELDS,
-  KernelCircuitPublicInputs,
   type MembershipWitness,
   type NESTED_RECURSIVE_PROOF_LENGTH,
   type NULLIFIER_TREE_HEIGHT,
@@ -21,6 +19,8 @@ import {
   type PrivateToAvmAccumulatedDataArrayLengths,
   type PrivateToPublicAccumulatedData,
   type PrivateToPublicKernelCircuitPublicInputs,
+  type PrivateToRollupAccumulatedData,
+  PrivateToRollupKernelCircuitPublicInputs,
   type PublicDataHint,
   type RECURSIVE_PROOF_LENGTH,
   ROLLUP_HONK_VERIFICATION_KEY_LENGTH_IN_FIELDS,
@@ -72,13 +72,12 @@ import type {
   BlockMergeRollupInputs as BlockMergeRollupInputsNoir,
   BlockRootOrBlockMergePublicInputs as BlockRootOrBlockMergePublicInputsNoir,
   BlockRootRollupInputs as BlockRootRollupInputsNoir,
-  CombinedAccumulatedData as CombinedAccumulatedDataNoir,
+  PrivateToRollupAccumulatedData as CombinedAccumulatedDataNoir,
   ConstantRollupData as ConstantRollupDataNoir,
   EmptyBlockRootRollupInputs as EmptyBlockRootRollupInputsNoir,
   EmptyNestedCircuitPublicInputs as EmptyNestedDataNoir,
   FeeRecipient as FeeRecipientNoir,
   FixedLengthArray,
-  KernelCircuitPublicInputs as KernelCircuitPublicInputsNoir,
   MergeRollupInputs as MergeRollupInputsNoir,
   Field as NoirField,
   ParityPublicInputs as ParityPublicInputsNoir,
@@ -93,6 +92,7 @@ import type {
   PrivateToAvmAccumulatedData as PrivateToAvmAccumulatedDataNoir,
   PrivateToPublicAccumulatedData as PrivateToPublicAccumulatedDataNoir,
   PrivateToPublicKernelCircuitPublicInputs as PrivateToPublicKernelCircuitPublicInputsNoir,
+  PrivateToRollupKernelCircuitPublicInputs as PrivateToRollupKernelCircuitPublicInputsNoir,
   PrivateTubeData as PrivateTubeDataNoir,
   PublicBaseRollupInputs as PublicBaseRollupInputsNoir,
   PublicBaseStateDiffHints as PublicBaseStateDiffHintsNoir,
@@ -470,15 +470,18 @@ export function mapPrivateToPublicAccumulatedDataToNoir(
 }
 
 export function mapCombinedAccumulatedDataToNoir(
-  combinedAccumulatedData: CombinedAccumulatedData,
+  PrivateToRollupAccumulatedData: PrivateToRollupAccumulatedData,
 ): CombinedAccumulatedDataNoir {
   return {
-    note_hashes: mapTuple(combinedAccumulatedData.noteHashes, mapFieldToNoir),
-    nullifiers: mapTuple(combinedAccumulatedData.nullifiers, mapFieldToNoir),
-    l2_to_l1_msgs: mapTuple(combinedAccumulatedData.l2ToL1Msgs, mapScopedL2ToL1MessageToNoir),
-    private_logs: mapTuple(combinedAccumulatedData.privateLogs, mapPrivateLogToNoir),
-    contract_class_logs_hashes: mapTuple(combinedAccumulatedData.contractClassLogsHashes, mapScopedLogHashToNoir),
-    contract_class_log_preimages_length: mapFieldToNoir(combinedAccumulatedData.contractClassLogPreimagesLength),
+    note_hashes: mapTuple(PrivateToRollupAccumulatedData.noteHashes, mapFieldToNoir),
+    nullifiers: mapTuple(PrivateToRollupAccumulatedData.nullifiers, mapFieldToNoir),
+    l2_to_l1_msgs: mapTuple(PrivateToRollupAccumulatedData.l2ToL1Msgs, mapScopedL2ToL1MessageToNoir),
+    private_logs: mapTuple(PrivateToRollupAccumulatedData.privateLogs, mapPrivateLogToNoir),
+    contract_class_logs_hashes: mapTuple(
+      PrivateToRollupAccumulatedData.contractClassLogsHashes,
+      mapScopedLogHashToNoir,
+    ),
+    contract_class_log_preimages_length: mapFieldToNoir(PrivateToRollupAccumulatedData.contractClassLogPreimagesLength),
   };
 }
 
@@ -514,7 +517,9 @@ export function mapPrivateToPublicKernelCircuitPublicInputsToNoir(
   };
 }
 
-export function mapKernelCircuitPublicInputsToNoir(inputs: KernelCircuitPublicInputs): KernelCircuitPublicInputsNoir {
+export function mapPrivateToRollupKernelCircuitPublicInputsToNoir(
+  inputs: PrivateToRollupKernelCircuitPublicInputs,
+): PrivateToRollupKernelCircuitPublicInputsNoir {
   return {
     rollup_validation_requests: mapRollupValidationRequestsToNoir(inputs.rollupValidationRequests),
     constants: mapTxConstantDataToNoir(inputs.constants),
@@ -813,7 +818,7 @@ export function mapRootParityInputsToNoir(inputs: RootParityInputs): RootParityI
 
 function mapPrivateTubeDataToNoir(data: PrivateTubeData): PrivateTubeDataNoir {
   return {
-    public_inputs: mapKernelCircuitPublicInputsToNoir(data.publicInputs),
+    public_inputs: mapPrivateToRollupKernelCircuitPublicInputsToNoir(data.publicInputs),
     proof: mapRecursiveProofToNoir<typeof TUBE_PROOF_LENGTH>(data.proof),
     vk_data: mapVkWitnessDataToNoir(data.vkData, ROLLUP_HONK_VERIFICATION_KEY_LENGTH_IN_FIELDS),
   };
@@ -936,8 +941,10 @@ export function mapRevertCodeToNoir(revertCode: RevertCode): NoirField {
   return mapFieldToNoir(revertCode.toField());
 }
 
-export function mapKernelCircuitPublicInputsFromNoir(inputs: KernelCircuitPublicInputsNoir) {
-  return new KernelCircuitPublicInputs(
+export function mapPrivateToRollupKernelCircuitPublicInputsFromNoir(
+  inputs: PrivateToRollupKernelCircuitPublicInputsNoir,
+) {
+  return new PrivateToRollupKernelCircuitPublicInputs(
     mapRollupValidationRequestsFromNoir(inputs.rollup_validation_requests),
     mapCombinedAccumulatedDataFromNoir(inputs.end),
     mapTxConstantDataFromNoir(inputs.constants),

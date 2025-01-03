@@ -61,7 +61,6 @@ import type {
   Counted as CountedPublicCallRequestNoir,
   FixedLengthArray,
   FunctionData as FunctionDataNoir,
-  KernelCircuitPublicInputs as KernelCircuitPublicInputsNoir,
   KeyValidationHint as KeyValidationHintNoir,
   KeyValidationRequestAndGenerator as KeyValidationRequestAndGeneratorNoir,
   KeyValidationRequest as KeyValidationRequestsNoir,
@@ -84,6 +83,7 @@ import type {
   PrivateLogData as PrivateLogDataNoir,
   PrivateToPublicAccumulatedData as PrivateToPublicAccumulatedDataNoir,
   PrivateToPublicKernelCircuitPublicInputs as PrivateToPublicKernelCircuitPublicInputsNoir,
+  PrivateToRollupKernelCircuitPublicInputs as PrivateToRollupKernelCircuitPublicInputsNoir,
   PrivateValidationRequests as PrivateValidationRequestsNoir,
   PublicKeys as PublicKeysNoir,
   ReadRequest as ReadRequestNoir,
@@ -683,7 +683,7 @@ export function mapPrivateKernelDataToNoir(
 }
 
 export function mapPrivateKernelTailCircuitPublicInputsForRollupFromNoir(
-  inputs: KernelCircuitPublicInputsNoir,
+  inputs: PrivateToRollupKernelCircuitPublicInputsNoir,
 ): PrivateKernelTailCircuitPublicInputs {
   const forRollup = new PartialPrivateTailPublicInputsForRollup(mapCombinedAccumulatedDataFromNoir(inputs.end));
   return new PrivateKernelTailCircuitPublicInputs(

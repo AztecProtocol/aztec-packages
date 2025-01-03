@@ -2,7 +2,6 @@ import {
   AppendOnlyTreeSnapshot,
   AztecAddress,
   BlockHeader,
-  CombinedAccumulatedData,
   ContentCommitment,
   EthAddress,
   Fr,
@@ -27,6 +26,7 @@ import {
   PartialStateReference,
   Point,
   PrivateLog,
+  PrivateToRollupAccumulatedData,
   PublicCallRequest,
   type PublicDataTreeLeafPreimage,
   type PublicDataWrite,
@@ -42,7 +42,7 @@ import { type Tuple, mapTuple, toTruncField } from '@aztec/foundation/serialize'
 import type {
   AppendOnlyTreeSnapshot as AppendOnlyTreeSnapshotNoir,
   BlockHeader as BlockHeaderNoir,
-  CombinedAccumulatedData as CombinedAccumulatedDataNoir,
+  PrivateToRollupAccumulatedData as CombinedAccumulatedDataNoir,
   ContentCommitment as ContentCommitmentNoir,
   Field,
   FixedLengthArray,
@@ -667,22 +667,26 @@ export function mapPublicDataWriteToNoir(write: PublicDataWrite): PublicDataWrit
 
 /**
  * Maps combined accumulated data from noir to the parsed type.
- * @param combinedAccumulatedData - The noir combined accumulated data.
+ * @param PrivateToRollupAccumulatedData - The noir combined accumulated data.
  * @returns The parsed combined accumulated data.
  */
-export function mapCombinedAccumulatedDataFromNoir(combinedAccumulatedData: CombinedAccumulatedDataNoir) {
-  return new CombinedAccumulatedData(
-    mapTupleFromNoir(combinedAccumulatedData.note_hashes, MAX_NOTE_HASHES_PER_TX, mapFieldFromNoir),
-    mapTupleFromNoir(combinedAccumulatedData.nullifiers, MAX_NULLIFIERS_PER_TX, mapFieldFromNoir),
-    mapTupleFromNoir(combinedAccumulatedData.l2_to_l1_msgs, MAX_L2_TO_L1_MSGS_PER_TX, mapScopedL2ToL1MessageFromNoir),
-    mapTupleFromNoir(combinedAccumulatedData.private_logs, MAX_PRIVATE_LOGS_PER_TX, mapPrivateLogFromNoir),
+export function mapCombinedAccumulatedDataFromNoir(PrivateToRollupAccumulatedData: CombinedAccumulatedDataNoir) {
+  return new PrivateToRollupAccumulatedData(
+    mapTupleFromNoir(PrivateToRollupAccumulatedData.note_hashes, MAX_NOTE_HASHES_PER_TX, mapFieldFromNoir),
+    mapTupleFromNoir(PrivateToRollupAccumulatedData.nullifiers, MAX_NULLIFIERS_PER_TX, mapFieldFromNoir),
+    mapTupleFromNoir(
+      PrivateToRollupAccumulatedData.l2_to_l1_msgs,
+      MAX_L2_TO_L1_MSGS_PER_TX,
+      mapScopedL2ToL1MessageFromNoir,
+    ),
+    mapTupleFromNoir(PrivateToRollupAccumulatedData.private_logs, MAX_PRIVATE_LOGS_PER_TX, mapPrivateLogFromNoir),
 
     mapTupleFromNoir(
-      combinedAccumulatedData.contract_class_logs_hashes,
+      PrivateToRollupAccumulatedData.contract_class_logs_hashes,
       MAX_CONTRACT_CLASS_LOGS_PER_TX,
       mapScopedLogHashFromNoir,
     ),
-    mapFieldFromNoir(combinedAccumulatedData.contract_class_log_preimages_length),
+    mapFieldFromNoir(PrivateToRollupAccumulatedData.contract_class_log_preimages_length),
   );
 }
 

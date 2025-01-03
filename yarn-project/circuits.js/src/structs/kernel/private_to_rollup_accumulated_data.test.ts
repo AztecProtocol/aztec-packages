@@ -1,10 +1,10 @@
 import { makeCombinedAccumulatedData } from '../../tests/factories.js';
-import { CombinedAccumulatedData } from './combined_accumulated_data.js';
+import { PrivateToRollupAccumulatedData } from './private_to_rollup_accumulated_data.js';
 
-describe('CombinedAccumulatedData', () => {
+describe('PrivateToRollupAccumulatedData', () => {
   it('Data after serialization and deserialization is equal to the original', () => {
     const original = makeCombinedAccumulatedData();
-    const afterSerialization = CombinedAccumulatedData.fromBuffer(original.toBuffer());
+    const afterSerialization = PrivateToRollupAccumulatedData.fromBuffer(original.toBuffer());
     expect(original).toEqual(afterSerialization);
   });
 });

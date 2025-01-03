@@ -1,15 +1,15 @@
 use crate::{
     abis::{log_hash::ScopedLogHash, private_log::PrivateLog},
     constants::{
-        COMBINED_ACCUMULATED_DATA_LENGTH, MAX_CONTRACT_CLASS_LOGS_PER_TX, MAX_L2_TO_L1_MSGS_PER_TX,
-        MAX_NOTE_HASHES_PER_TX, MAX_NULLIFIERS_PER_TX, MAX_PRIVATE_LOGS_PER_TX,
+        MAX_CONTRACT_CLASS_LOGS_PER_TX, MAX_L2_TO_L1_MSGS_PER_TX, MAX_NOTE_HASHES_PER_TX,
+        MAX_NULLIFIERS_PER_TX, MAX_PRIVATE_LOGS_PER_TX, PRIVATE_TO_ROLLUP_ACCUMULATED_DATA_LENGTH,
     },
     messaging::l2_to_l1_message::ScopedL2ToL1Message,
     traits::{Deserialize, Empty, Serialize},
     utils::reader::Reader,
 };
 
-pub struct CombinedAccumulatedData {
+pub struct PrivateToRollupAccumulatedData {
     pub note_hashes: [Field; MAX_NOTE_HASHES_PER_TX],
     pub nullifiers: [Field; MAX_NULLIFIERS_PER_TX],
     pub l2_to_l1_msgs: [ScopedL2ToL1Message; MAX_L2_TO_L1_MSGS_PER_TX],
@@ -22,9 +22,9 @@ pub struct CombinedAccumulatedData {
     pub contract_class_log_preimages_length: Field,
 }
 
-impl Empty for CombinedAccumulatedData {
+impl Empty for PrivateToRollupAccumulatedData {
     fn empty() -> Self {
-        CombinedAccumulatedData {
+        PrivateToRollupAccumulatedData {
             note_hashes: [0; MAX_NOTE_HASHES_PER_TX],
             nullifiers: [0; MAX_NULLIFIERS_PER_TX],
             l2_to_l1_msgs: [ScopedL2ToL1Message::empty(); MAX_L2_TO_L1_MSGS_PER_TX],
@@ -35,9 +35,10 @@ impl Empty for CombinedAccumulatedData {
     }
 }
 
-impl Serialize<COMBINED_ACCUMULATED_DATA_LENGTH> for CombinedAccumulatedData {
-    fn serialize(self) -> [Field; COMBINED_ACCUMULATED_DATA_LENGTH] {
-        let mut fields: BoundedVec<Field, COMBINED_ACCUMULATED_DATA_LENGTH> = BoundedVec::new();
+impl Serialize<PRIVATE_TO_ROLLUP_ACCUMULATED_DATA_LENGTH> for PrivateToRollupAccumulatedData {
+    fn serialize(self) -> [Field; PRIVATE_TO_ROLLUP_ACCUMULATED_DATA_LENGTH] {
+        let mut fields: BoundedVec<Field, PRIVATE_TO_ROLLUP_ACCUMULATED_DATA_LENGTH> =
+            BoundedVec::new();
 
         fields.extend_from_array(self.note_hashes);
         fields.extend_from_array(self.nullifiers);
@@ -52,17 +53,19 @@ impl Serialize<COMBINED_ACCUMULATED_DATA_LENGTH> for CombinedAccumulatedData {
         }
         fields.push(self.contract_class_log_preimages_length);
 
-        assert_eq(fields.len(), COMBINED_ACCUMULATED_DATA_LENGTH);
+        assert_eq(fields.len(), PRIVATE_TO_ROLLUP_ACCUMULATED_DATA_LENGTH);
 
         fields.storage()
     }
 }
 
-impl Deserialize<COMBINED_ACCUMULATED_DATA_LENGTH> for CombinedAccumulatedData {
-    fn deserialize(fields: [Field; COMBINED_ACCUMULATED_DATA_LENGTH]) -> CombinedAccumulatedData {
+impl Deserialize<PRIVATE_TO_ROLLUP_ACCUMULATED_DATA_LENGTH> for PrivateToRollupAccumulatedData {
+    fn deserialize(
+        fields: [Field; PRIVATE_TO_ROLLUP_ACCUMULATED_DATA_LENGTH],
+    ) -> PrivateToRollupAccumulatedData {
         let mut reader = Reader::new(fields);
 
-        let item = CombinedAccumulatedData {
+        let item = PrivateToRollupAccumulatedData {
             note_hashes: reader.read_array(),
             nullifiers: reader.read_array(),
             l2_to_l1_msgs: reader.read_struct_array(
@@ -84,7 +87,7 @@ impl Deserialize<COMBINED_ACCUMULATED_DATA_LENGTH> for CombinedAccumulatedData {
     }
 }
 
-impl Eq for CombinedAccumulatedData {
+impl Eq for PrivateToRollupAccumulatedData {
     fn eq(self, other: Self) -> bool {
         (self.note_hashes == other.note_hashes)
             & (self.nullifiers == other.nullifiers)
@@ -100,8 +103,8 @@ impl Eq for CombinedAccumulatedData {
 
 #[test]
 fn serialization_of_empty() {
-    let item = CombinedAccumulatedData::empty();
+    let item = PrivateToRollupAccumulatedData::empty();
     let serialized = item.serialize();
-    let deserialized = CombinedAccumulatedData::deserialize(serialized);
+    let deserialized = PrivateToRollupAccumulatedData::deserialize(serialized);
     assert(item.eq(deserialized));
 }

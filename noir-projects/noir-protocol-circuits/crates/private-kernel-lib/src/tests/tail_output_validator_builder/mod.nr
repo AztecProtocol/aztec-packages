@@ -12,7 +12,7 @@ use crate::components::{
 use dep::types::{
     abis::{
         gas::Gas, gas_fees::GasFees, gas_settings::GasSettings,
-        kernel_circuit_public_inputs::KernelCircuitPublicInputs,
+        kernel_circuit_public_inputs::PrivateToRollupKernelCircuitPublicInputs,
     },
     constants::{DEFAULT_GAS_LIMIT, DEFAULT_TEARDOWN_GAS_LIMIT},
     tests::fixture_builder::FixtureBuilder,
@@ -48,8 +48,8 @@ impl TailOutputValidatorBuilder {
         }
     }
 
-    pub fn export_output(self) -> KernelCircuitPublicInputs {
-        let mut output = self.output.to_kernel_circuit_public_inputs();
+    pub fn export_output(self) -> PrivateToRollupKernelCircuitPublicInputs {
+        let mut output = self.output.to_private_to_rollup_kernel_circuit_public_inputs();
         output.gas_used = meter_gas_used(output.end);
         output
     }
@@ -59,7 +59,7 @@ impl TailOutputValidatorBuilder {
         self.validate_with_output(output);
     }
 
-    pub fn validate_with_output(self, output: KernelCircuitPublicInputs) {
+    pub fn validate_with_output(self, output: PrivateToRollupKernelCircuitPublicInputs) {
         let previous_kernel = self.previous_kernel.to_private_kernel_circuit_public_inputs();
         TailOutputValidator::new(output, previous_kernel).validate();
     }

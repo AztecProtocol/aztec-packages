@@ -3,7 +3,9 @@ pub mod tail_output_hints;
 use crate::components::tail_output_composer::meter_gas_used;
 use dep::types::{
     abis::{
-        kernel_circuit_public_inputs::{KernelCircuitPublicInputs, PrivateKernelCircuitPublicInputs},
+        kernel_circuit_public_inputs::{
+            PrivateKernelCircuitPublicInputs, PrivateToRollupKernelCircuitPublicInputs,
+        },
         log_hash::ScopedLogHash,
         private_log::PrivateLogData,
         side_effect::scoped::Scoped,
@@ -14,14 +16,14 @@ use dep::types::{
 use tail_output_hints::{generate_tail_output_hints, TailOutputHints};
 
 pub struct TailOutputValidator {
-    output: KernelCircuitPublicInputs,
+    output: PrivateToRollupKernelCircuitPublicInputs,
     previous_kernel: PrivateKernelCircuitPublicInputs,
     hints: TailOutputHints,
 }
 
 impl TailOutputValidator {
     pub fn new(
-        output: KernelCircuitPublicInputs,
+        output: PrivateToRollupKernelCircuitPublicInputs,
         previous_kernel: PrivateKernelCircuitPublicInputs,
     ) -> Self {
         let hints = unsafe { generate_tail_output_hints(previous_kernel) };
@@ -29,7 +31,7 @@ impl TailOutputValidator {
     }
 
     pub fn new_with_hints(
-        output: KernelCircuitPublicInputs,
+        output: PrivateToRollupKernelCircuitPublicInputs,
         previous_kernel: PrivateKernelCircuitPublicInputs,
         hints: TailOutputHints,
     ) -> Self {

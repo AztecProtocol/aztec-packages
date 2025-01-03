@@ -21,7 +21,7 @@ import { PrivateLog } from '../private_log.js';
 /**
  * Data that is accumulated during the execution of the transaction.
  */
-export class CombinedAccumulatedData {
+export class PrivateToRollupAccumulatedData {
   constructor(
     /**
      * The new note hashes made in this transaction.
@@ -61,7 +61,7 @@ export class CombinedAccumulatedData {
     );
   }
 
-  static getFields(fields: FieldsOf<CombinedAccumulatedData>) {
+  static getFields(fields: FieldsOf<PrivateToRollupAccumulatedData>) {
     return [
       fields.noteHashes,
       fields.nullifiers,
@@ -72,12 +72,12 @@ export class CombinedAccumulatedData {
     ] as const;
   }
 
-  static from(fields: FieldsOf<CombinedAccumulatedData>): CombinedAccumulatedData {
-    return new CombinedAccumulatedData(...CombinedAccumulatedData.getFields(fields));
+  static from(fields: FieldsOf<PrivateToRollupAccumulatedData>): PrivateToRollupAccumulatedData {
+    return new PrivateToRollupAccumulatedData(...PrivateToRollupAccumulatedData.getFields(fields));
   }
 
   static get schema() {
-    return bufferSchemaFor(CombinedAccumulatedData);
+    return bufferSchemaFor(PrivateToRollupAccumulatedData);
   }
 
   toJSON() {
@@ -85,7 +85,7 @@ export class CombinedAccumulatedData {
   }
 
   toBuffer() {
-    return serializeToBuffer(...CombinedAccumulatedData.getFields(this));
+    return serializeToBuffer(...PrivateToRollupAccumulatedData.getFields(this));
   }
 
   toString() {
@@ -97,9 +97,9 @@ export class CombinedAccumulatedData {
    * @param buffer - Buffer or reader to read from.
    * @returns Deserialized object.
    */
-  static fromBuffer(buffer: Buffer | BufferReader): CombinedAccumulatedData {
+  static fromBuffer(buffer: Buffer | BufferReader): PrivateToRollupAccumulatedData {
     const reader = BufferReader.asReader(buffer);
-    return new CombinedAccumulatedData(
+    return new PrivateToRollupAccumulatedData(
       reader.readArray(MAX_NOTE_HASHES_PER_TX, Fr),
       reader.readArray(MAX_NULLIFIERS_PER_TX, Fr),
       reader.readArray(MAX_L2_TO_L1_MSGS_PER_TX, ScopedL2ToL1Message),
@@ -115,11 +115,11 @@ export class CombinedAccumulatedData {
    * @returns Deserialized object.
    */
   static fromString(str: string) {
-    return CombinedAccumulatedData.fromBuffer(hexToBuffer(str));
+    return PrivateToRollupAccumulatedData.fromBuffer(hexToBuffer(str));
   }
 
   static empty() {
-    return new CombinedAccumulatedData(
+    return new PrivateToRollupAccumulatedData(
       makeTuple(MAX_NOTE_HASHES_PER_TX, Fr.zero),
       makeTuple(MAX_NULLIFIERS_PER_TX, Fr.zero),
       makeTuple(MAX_L2_TO_L1_MSGS_PER_TX, ScopedL2ToL1Message.empty),
@@ -130,7 +130,7 @@ export class CombinedAccumulatedData {
   }
 
   [inspect.custom]() {
-    return `CombinedAccumulatedData {
+    return `PrivateToRollupAccumulatedData {
       noteHashes: [${this.noteHashes
         .filter(x => !x.isZero())
         .map(x => inspect(x))

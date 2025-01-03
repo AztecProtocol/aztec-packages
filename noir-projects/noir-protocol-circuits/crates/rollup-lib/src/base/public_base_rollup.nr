@@ -15,7 +15,7 @@ use crate::{
 };
 use dep::types::{
     abis::{
-        accumulated_data::{self, CombinedAccumulatedData},
+        accumulated_data::{self, PrivateToRollupAccumulatedData},
         append_only_tree_snapshot::AppendOnlyTreeSnapshot,
         avm_circuit_public_inputs::AvmProofData,
         combined_constant_data::CombinedConstantData,
@@ -290,7 +290,7 @@ mod tests {
     use crate::abis::tx_effect::TxEffect;
     use dep::types::{
         abis::{
-            accumulated_data::CombinedAccumulatedData,
+            accumulated_data::PrivateToRollupAccumulatedData,
             append_only_tree_snapshot::AppendOnlyTreeSnapshot,
             constant_rollup_data::ConstantRollupData,
             nullifier_leaf_preimage::NullifierLeafPreimage, public_data_write::PublicDataWrite,

@@ -474,7 +474,7 @@ mod tests {
         let mut tx_data = FixtureBuilder::new();
         tx_data.add_new_note_hash(1);
         let mut blob: [Field; FIELDS_PER_BLOB] = [0; FIELDS_PER_BLOB];
-        let blob_fields = tx_data.to_combined_accumulated_data().serialize();
+        let blob_fields = tx_data.to_private_to_rollup_accumulated_data().serialize();
         for i in 0..blob_fields.len() {
             blob[i] = blob_fields[i];
         }
@@ -519,7 +519,7 @@ mod tests {
         tx_data.append_l2_to_l1_msgs(5);
         tx_data.append_unencrypted_log_hashes(5);
         let mut blob: [Field; FIELDS_PER_BLOB] = [0; FIELDS_PER_BLOB];
-        let blob_fields = tx_data.to_combined_accumulated_data().serialize();
+        let blob_fields = tx_data.to_private_to_rollup_accumulated_data().serialize();
         for i in 0..blob_fields.len() {
             blob[i] = blob_fields[i];
         }

@@ -1,27 +1,27 @@
 use crate::{
     abis::{
-        accumulated_data::CombinedAccumulatedData, gas::Gas, tx_constant_data::TxConstantData,
-        validation_requests::RollupValidationRequests,
+        accumulated_data::PrivateToRollupAccumulatedData, gas::Gas,
+        tx_constant_data::TxConstantData, validation_requests::RollupValidationRequests,
     },
     address::AztecAddress,
-    constants::KERNEL_CIRCUIT_PUBLIC_INPUTS_LENGTH,
+    constants::PRIVATE_TO_ROLLUP_KERNEL_CIRCUIT_PUBLIC_INPUTS_LENGTH,
     traits::{Deserialize, Empty, Serialize},
     utils::reader::Reader,
 };
 
-pub struct KernelCircuitPublicInputs {
+pub struct PrivateToRollupKernelCircuitPublicInputs {
     pub constants: TxConstantData,
     pub rollup_validation_requests: RollupValidationRequests,
-    pub end: CombinedAccumulatedData,
+    pub end: PrivateToRollupAccumulatedData,
     pub gas_used: Gas,
     pub fee_payer: AztecAddress,
 }
 
-impl Empty for KernelCircuitPublicInputs {
+impl Empty for PrivateToRollupKernelCircuitPublicInputs {
     fn empty() -> Self {
-        KernelCircuitPublicInputs {
+        PrivateToRollupKernelCircuitPublicInputs {
             rollup_validation_requests: RollupValidationRequests::empty(),
-            end: CombinedAccumulatedData::empty(),
+            end: PrivateToRollupAccumulatedData::empty(),
             constants: TxConstantData::empty(),
             gas_used: Gas::empty(),
             fee_payer: AztecAddress::empty(),
@@ -29,7 +29,7 @@ impl Empty for KernelCircuitPublicInputs {
     }
 }
 
-impl Eq for KernelCircuitPublicInputs {
+impl Eq for PrivateToRollupKernelCircuitPublicInputs {
     fn eq(self, other: Self) -> bool {
         (self.rollup_validation_requests.eq(other.rollup_validation_requests))
             & (self.end.eq(other.end))
@@ -39,9 +39,10 @@ impl Eq for KernelCircuitPublicInputs {
     }
 }
 
-impl Serialize<KERNEL_CIRCUIT_PUBLIC_INPUTS_LENGTH> for KernelCircuitPublicInputs {
-    fn serialize(self) -> [Field; KERNEL_CIRCUIT_PUBLIC_INPUTS_LENGTH] {
-        let mut fields: BoundedVec<Field, KERNEL_CIRCUIT_PUBLIC_INPUTS_LENGTH> = BoundedVec::new();
+impl Serialize<PRIVATE_TO_ROLLUP_KERNEL_CIRCUIT_PUBLIC_INPUTS_LENGTH> for PrivateToRollupKernelCircuitPublicInputs {
+    fn serialize(self) -> [Field; PRIVATE_TO_ROLLUP_KERNEL_CIRCUIT_PUBLIC_INPUTS_LENGTH] {
+        let mut fields: BoundedVec<Field, PRIVATE_TO_ROLLUP_KERNEL_CIRCUIT_PUBLIC_INPUTS_LENGTH> =
+            BoundedVec::new();
 
         fields.extend_from_array(self.rollup_validation_requests.serialize());
         fields.extend_from_array(self.end.serialize());
@@ -49,20 +50,20 @@ impl Serialize<KERNEL_CIRCUIT_PUBLIC_INPUTS_LENGTH> for KernelCircuitPublicInput
         fields.extend_from_array(self.gas_used.serialize());
         fields.extend_from_array(self.fee_payer.serialize());
 
-        assert_eq(fields.len(), KERNEL_CIRCUIT_PUBLIC_INPUTS_LENGTH);
+        assert_eq(fields.len(), PRIVATE_TO_ROLLUP_KERNEL_CIRCUIT_PUBLIC_INPUTS_LENGTH);
 
         fields.storage()
     }
 }
 
-impl Deserialize<KERNEL_CIRCUIT_PUBLIC_INPUTS_LENGTH> for KernelCircuitPublicInputs {
+impl Deserialize<PRIVATE_TO_ROLLUP_KERNEL_CIRCUIT_PUBLIC_INPUTS_LENGTH> for PrivateToRollupKernelCircuitPublicInputs {
     fn deserialize(
-        fields: [Field; KERNEL_CIRCUIT_PUBLIC_INPUTS_LENGTH],
-    ) -> KernelCircuitPublicInputs {
+        fields: [Field; PRIVATE_TO_ROLLUP_KERNEL_CIRCUIT_PUBLIC_INPUTS_LENGTH],
+    ) -> PrivateToRollupKernelCircuitPublicInputs {
         let mut reader = Reader::new(fields);
         let item = Self {
             rollup_validation_requests: reader.read_struct(RollupValidationRequests::deserialize),
-            end: reader.read_struct(CombinedAccumulatedData::deserialize),
+            end: reader.read_struct(PrivateToRollupAccumulatedData::deserialize),
             constants: reader.read_struct(TxConstantData::deserialize),
             gas_used: reader.read_struct(Gas::deserialize),
             fee_payer: reader.read_struct(AztecAddress::deserialize),
@@ -75,8 +76,8 @@ impl Deserialize<KERNEL_CIRCUIT_PUBLIC_INPUTS_LENGTH> for KernelCircuitPublicInp
 
 #[test]
 fn serialization_of_empty_kernel_circuit_public_inputs() {
-    let item = KernelCircuitPublicInputs::empty();
+    let item = PrivateToRollupKernelCircuitPublicInputs::empty();
     let serialized = item.serialize();
-    let deserialized = KernelCircuitPublicInputs::deserialize(serialized);
+    let deserialized = PrivateToRollupKernelCircuitPublicInputs::deserialize(serialized);
     assert(item.eq(deserialized));
 }

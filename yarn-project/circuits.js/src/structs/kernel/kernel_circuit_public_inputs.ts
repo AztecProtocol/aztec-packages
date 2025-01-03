@@ -5,14 +5,14 @@ import { bufferToHex, hexToBuffer } from '@aztec/foundation/string';
 
 import { Gas } from '../gas.js';
 import { RollupValidationRequests } from '../rollup_validation_requests.js';
-import { CombinedAccumulatedData } from './combined_accumulated_data.js';
+import { PrivateToRollupAccumulatedData } from './private_to_rollup_accumulated_data.js';
 import { TxConstantData } from './tx_constant_data.js';
 
 /**
  * Outputs from the public kernel circuits.
  * All Public kernels use this shape for outputs.
  */
-export class KernelCircuitPublicInputs {
+export class PrivateToRollupKernelCircuitPublicInputs {
   constructor(
     /**
      * Validation requests accumulated from private and public execution to be completed by the rollup.
@@ -21,7 +21,7 @@ export class KernelCircuitPublicInputs {
     /**
      * Data accumulated from both public and private circuits.
      */
-    public end: CombinedAccumulatedData,
+    public end: PrivateToRollupAccumulatedData,
     /**
      * Data which is not modified by the circuits.
      */
@@ -47,13 +47,13 @@ export class KernelCircuitPublicInputs {
   /**
    * Deserializes from a buffer or reader, corresponding to a write in cpp.
    * @param buffer - Buffer or reader to read from.
-   * @returns A new instance of KernelCircuitPublicInputs.
+   * @returns A new instance of PrivateToRollupKernelCircuitPublicInputs.
    */
-  static fromBuffer(buffer: Buffer | BufferReader): KernelCircuitPublicInputs {
+  static fromBuffer(buffer: Buffer | BufferReader): PrivateToRollupKernelCircuitPublicInputs {
     const reader = BufferReader.asReader(buffer);
-    return new KernelCircuitPublicInputs(
+    return new PrivateToRollupKernelCircuitPublicInputs(
       reader.readObject(RollupValidationRequests),
-      reader.readObject(CombinedAccumulatedData),
+      reader.readObject(PrivateToRollupAccumulatedData),
       reader.readObject(TxConstantData),
       reader.readObject(Gas),
       reader.readObject(AztecAddress),
@@ -61,9 +61,9 @@ export class KernelCircuitPublicInputs {
   }
 
   static empty() {
-    return new KernelCircuitPublicInputs(
+    return new PrivateToRollupKernelCircuitPublicInputs(
       RollupValidationRequests.empty(),
-      CombinedAccumulatedData.empty(),
+      PrivateToRollupAccumulatedData.empty(),
       TxConstantData.empty(),
       Gas.empty(),
       AztecAddress.ZERO,
@@ -75,7 +75,7 @@ export class KernelCircuitPublicInputs {
   }
 
   static fromString(str: string) {
-    return KernelCircuitPublicInputs.fromBuffer(hexToBuffer(str));
+    return PrivateToRollupKernelCircuitPublicInputs.fromBuffer(hexToBuffer(str));
   }
 
   /** Returns a hex representation for JSON serialization. */
@@ -85,6 +85,6 @@ export class KernelCircuitPublicInputs {
 
   /** Creates an instance from a hex string. */
   static get schema() {
-    return bufferSchemaFor(KernelCircuitPublicInputs);
+    return bufferSchemaFor(PrivateToRollupKernelCircuitPublicInputs);
   }
 }
