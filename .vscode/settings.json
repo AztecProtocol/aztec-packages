@@ -179,6 +179,7 @@
     "barretenberg",
     "deinit",
     "denoise",
+    "devbox",
     "endgroup",
     "napi",
     "setsid",
@@ -190,6 +191,7 @@
     "wasi",
     "memfree",
     "parallelise",
+    "sysbox",
     "tmpfs"
   ]
 }

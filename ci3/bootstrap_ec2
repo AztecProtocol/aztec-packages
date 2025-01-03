@@ -53,16 +53,16 @@ github_endgroup
 
 # Interactive if stdin is connected to terminal.
 if [ -t 0 ]; then
-  ssh_args+="-t"
-  docker_args+="-ti"
+  ssh_args="-t"
+  docker_args+=" -ti"
   shell_on_fail="|| exec zsh"
 fi
 
 # Use ~/.ssh/build_instance_key to ssh into our requested instance.
-# Run in our build container, clones the branches latest commit and running this given command.
+# Launch our devbox container, clones the branches latest commit and runs the given command.
 # To improve performance we:
 #   - Use a volume on /var/lib/docker for docker-in-docker as overlayfs trashes performance (in fact it just breaks).
-#   - The volume has the build image preloaded within it in the ami_update.sh script.
+#   - The volume has the devbox image preloaded within it in the ami_update.sh script.
 #   - Use a 16G tmpfs for the actual working directory in /home/aztec-dev/aztec-packages.
 #   - Copy the CRS into a 3G tmpfs and mount that into the container.
 #   - Mount the hosts /tmp into the container.
