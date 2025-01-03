@@ -297,7 +297,7 @@ async function setupFromFresh(
   } else {
     aztecNodeConfig.dataDirectory = statePath;
   }
-  aztecNodeConfig.blobSinkUrl = `http://127.0.0.1:${blobSinkPort}`;
+  aztecNodeConfig.blobSinkUrl = `http://localhost:${blobSinkPort}`;
 
   // Setup blob sink service
   const blobSink = await createBlobSinkServer({

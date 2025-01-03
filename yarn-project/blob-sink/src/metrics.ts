@@ -16,7 +16,7 @@ export class BlobSinkMetrics {
     });
 
     this.blobSize = telemetry.getMeter(name).createHistogram(Metrics.BLOB_SINK_BLOB_SIZE, {
-      description: 'The size of blobs in the blob store',
+      description: 'The non zero size of blobs in the blob store',
     });
   }
 

@@ -4,12 +4,18 @@ import { type BlobStore } from './interface.js';
 export class MemoryBlobStore implements BlobStore {
   private blobs: Map<string, Buffer> = new Map();
 
-  public getBlobSidecars(blockId: string): Promise<BlobWithIndex[] | undefined> {
+  public getBlobSidecars(blockId: string, indices?: number[]): Promise<BlobWithIndex[] | undefined> {
     const blobBuffer = this.blobs.get(blockId);
     if (!blobBuffer) {
       return Promise.resolve(undefined);
     }
-    return Promise.resolve(BlobsWithIndexes.fromBuffer(blobBuffer).blobs);
+    const blobsWithIndexes = BlobsWithIndexes.fromBuffer(blobBuffer);
+    if (indices) {
+      // If indices are provided, return the blobs at the specified indices
+      return Promise.resolve(blobsWithIndexes.getBlobsFromIndices(indices));
+    }
+    // If no indices are provided, return all blobs
+    return Promise.resolve(blobsWithIndexes.blobs);
   }
 
   public addBlobSidecars(blockId: string, blobSidecars: BlobWithIndex[]): Promise<void> {

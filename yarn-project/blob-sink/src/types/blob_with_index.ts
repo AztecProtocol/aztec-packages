@@ -13,6 +13,10 @@ export class BlobsWithIndexes {
     const reader = BufferReader.asReader(buffer);
     return new BlobsWithIndexes(reader.readArray(reader.readNumber(), BlobWithIndex));
   }
+
+  public getBlobsFromIndices(indices: number[]): BlobWithIndex[] {
+    return this.blobs.filter((_, index) => indices.includes(index));
+  }
 }
 
 /** We store blobs alongside their index in the block */

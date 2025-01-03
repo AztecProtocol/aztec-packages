@@ -15,7 +15,7 @@ export function describeBlobStore(getBlobStore: () => BlobStore) {
     // Create a test blob with random fields
     const testFields = [Fr.random(), Fr.random(), Fr.random()];
     const blob = Blob.fromFields(testFields);
-    const blockId = '12345';
+    const blockId = '0x12345';
     const blobWithIndex = new BlobWithIndex(blob, 0);
 
     // Store the blob
@@ -29,6 +29,54 @@ export function describeBlobStore(getBlobStore: () => BlobStore) {
     expect(retrievedBlob).toBeDefined();
     expect(retrievedBlob.blob.fieldsHash.toString()).toBe(blob.fieldsHash.toString());
     expect(retrievedBlob.blob.commitment.toString('hex')).toBe(blob.commitment.toString('hex'));
+  });
+
+  it('Should allow requesting a specific index of blob', async () => {
+    const testFields = [Fr.random(), Fr.random(), Fr.random()];
+    const blob = Blob.fromFields(testFields);
+    const blockId = '0x12345';
+    const blobWithIndex = new BlobWithIndex(blob, 0);
+    const blobWithIndex2 = new BlobWithIndex(blob, 1);
+
+    await blobStore.addBlobSidecars(blockId, [blobWithIndex, blobWithIndex2]);
+
+    const retrievedBlobs = await blobStore.getBlobSidecars(blockId, [0]);
+    const [retrievedBlob] = retrievedBlobs!;
+
+    expect(retrievedBlob.blob.fieldsHash.toString()).toBe(blob.fieldsHash.toString());
+    expect(retrievedBlob.blob.commitment.toString('hex')).toBe(blob.commitment.toString('hex'));
+
+    const retrievedBlobs2 = await blobStore.getBlobSidecars(blockId, [1]);
+    const [retrievedBlob2] = retrievedBlobs2!;
+
+    expect(retrievedBlob2.blob.fieldsHash.toString()).toBe(blob.fieldsHash.toString());
+    expect(retrievedBlob2.blob.commitment.toString('hex')).toBe(blob.commitment.toString('hex'));
+  });
+
+  it('Differentiate between blockHash and slot', async () => {
+    const testFields = [Fr.random(), Fr.random(), Fr.random()];
+    const testFieldsSlot = [Fr.random(), Fr.random(), Fr.random()];
+    const blob = Blob.fromFields(testFields);
+    const blobSlot = Blob.fromFields(testFieldsSlot);
+    const blockId = '0x12345';
+    const slot = '12345';
+    const blobWithIndex = new BlobWithIndex(blob, 0);
+    const blobWithIndexSlot = new BlobWithIndex(blobSlot, 0);
+
+    await blobStore.addBlobSidecars(blockId, [blobWithIndex]);
+    await blobStore.addBlobSidecars(slot, [blobWithIndexSlot]);
+
+    const retrievedBlobs = await blobStore.getBlobSidecars(blockId, [0]);
+    const [retrievedBlob] = retrievedBlobs!;
+
+    expect(retrievedBlob.blob.fieldsHash.toString()).toBe(blob.fieldsHash.toString());
+    expect(retrievedBlob.blob.commitment.toString('hex')).toBe(blob.commitment.toString('hex'));
+
+    const retrievedBlobs2 = await blobStore.getBlobSidecars(slot, [0]);
+    const [retrievedBlob2] = retrievedBlobs2!;
+
+    expect(retrievedBlob2.blob.fieldsHash.toString()).toBe(blobSlot.fieldsHash.toString());
+    expect(retrievedBlob2.blob.commitment.toString('hex')).toBe(blobSlot.commitment.toString('hex'));
   });
 
   it('should return undefined for non-existent blob', async () => {
