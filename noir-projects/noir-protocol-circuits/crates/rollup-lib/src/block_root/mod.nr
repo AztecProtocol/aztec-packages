@@ -16,10 +16,10 @@ mod tests {
         let expected_out_hash = accumulate_sha256([1, 2]);
 
         let inputs = default_block_root_rollup_inputs();
-        let outputs = inputs.block_root_rollup_circuit();
+        let output = inputs.block_root_rollup_circuit();
 
         // check out hash
-        assert_eq(outputs.out_hash, expected_out_hash);
+        assert_eq(output.out_hash, expected_out_hash);
     }
 
     #[test]
