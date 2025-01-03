@@ -15,14 +15,12 @@
 join_split_example_tests
 
 # noir
+# Something to do with how I run the tests now. Think these are fine in nextest.
 noir_lsp-.* notifications::notification_tests::test_caches_open_files
 noir_lsp-.* requests::
 
-# noir-contracts
-# "The number -0.000015046493062592755 cannot be converted to a BigInt because it is not an integer"
-counter_contract Counter::extended_incrementing_and_decrementing
-
 # end-to-end
+# These all fail randomly in weird ways. Consider reproducing and adding error comments here.
 simple e2e_block_building
 simple e2e_fees/private_payments
 simple e2e_p2p/gossip_network
