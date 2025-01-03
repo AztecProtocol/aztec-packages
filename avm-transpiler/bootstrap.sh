@@ -6,34 +6,31 @@ cmd=${1:-}
 
 hash=$(cache_content_hash ../noir/.rebuild_patterns .rebuild_patterns)
 
+export GIT_COMMIT="0000000000000000000000000000000000000000"
+export SOURCE_DATE_EPOCH=0
+export GIT_DIRTY=false
+export RUSTFLAGS="-Dwarnings"
+
 function build {
   github_group "avm-transpiler build"
   artifact=avm-transpiler-$hash.tar.gz
   if ! cache_download $artifact; then
-    denoise ./scripts/bootstrap_native.sh
+    denoise "cargo build --release"
+    denoise "cargo fmt --check"
+    denoise "cargo clippy"
     cache_upload $artifact target/release
   fi
   github_endgroup
-}
-
-function test {
-  denoise "cargo fmt --check"
-  denoise "cargo clippy"
 }
 
 case "$cmd" in
   "clean")
     git clean -fdx
     ;;
-  ""|"fast"|"full")
+  ""|"fast"|"full"|"ci")
     build
     ;;
   "test")
-    test
-    ;;
-  "ci")
-    build
-    test
     ;;
   "hash")
     echo $hash

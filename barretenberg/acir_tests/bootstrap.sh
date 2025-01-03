@@ -14,7 +14,7 @@ tests_hash=$(cache_content_hash \
     ../../barretenberg/cpp/.rebuild_patterns \
     ../../barretenberg/ts/.rebuild_patterns)
 
-function build_tests {
+function build {
   github_group "acir_tests build"
 
   if ! cache_download $tests_tar; then
@@ -134,10 +134,12 @@ case "$cmd" in
     git clean -fdx
     (cd ../../noir/noir-repo/test_programs/execution_success && git clean -fdx)
     ;;
-  ""|"fast"|"full")
+  "ci")
+    build
+    test
     ;;
-  "build-tests"|"ci")
-    build_tests
+  ""|"fast"|"full")
+    build
     ;;
   "hash")
     echo $tests_hash

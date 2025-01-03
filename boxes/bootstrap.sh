@@ -21,7 +21,7 @@ function build {
     denoise 'yarn && echo "Building... " && yarn build'
     cache_upload boxes-$hash.tar.gz boxes/*/{artifacts,dist,src/contracts/target}
   else
-    denoise yarn
+    denoise yarn && yarn build
   fi
   github_endgroup
 }

@@ -95,7 +95,7 @@ case "$cmd" in
   "clean")
     git clean -fdx
     ;;
-  ""|"fast"|"ci")
+  ""|"fast")
     # Build bb and wasms. Can be incremental.
     build
     ;;
@@ -105,6 +105,10 @@ case "$cmd" in
     build
     ;;
   "test")
+    test
+    ;;
+  "ci")
+    build
     test
     ;;
   "hash")
