@@ -20,6 +20,7 @@
 #include "relations/alu.hpp"
 #include "relations/execution.hpp"
 #include "relations/range_check.hpp"
+#include "relations/sha256.hpp"
 
 // Lookup and permutation relations
 #include "relations/lookups_execution.hpp"
@@ -53,13 +54,13 @@ class AvmFlavor {
     // This flavor would not be used with ZK Sumcheck
     static constexpr bool HasZK = false;
 
-    static constexpr size_t NUM_PRECOMPUTED_ENTITIES = 10;
-    static constexpr size_t NUM_WITNESS_ENTITIES = 91;
-    static constexpr size_t NUM_SHIFTED_ENTITIES = 1;
+    static constexpr size_t NUM_PRECOMPUTED_ENTITIES = 12;
+    static constexpr size_t NUM_WITNESS_ENTITIES = 215;
+    static constexpr size_t NUM_SHIFTED_ENTITIES = 28;
     static constexpr size_t NUM_WIRES = NUM_WITNESS_ENTITIES + NUM_PRECOMPUTED_ENTITIES;
     // We have two copies of the witness entities, so we subtract the number of fixed ones (they have no shift), one for
     // the unshifted and one for the shifted
-    static constexpr size_t NUM_ALL_ENTITIES = 102;
+    static constexpr size_t NUM_ALL_ENTITIES = 255;
     // The total number of witnesses including shifts and derived entities.
     static constexpr size_t NUM_ALL_WITNESS_ENTITIES = NUM_WITNESS_ENTITIES + NUM_SHIFTED_ENTITIES;
 
@@ -69,7 +70,8 @@ class AvmFlavor {
         // Relations
         avm2::alu<FF_>,
         avm2::execution<FF_>,
-        avm2::range_check<FF_>>;
+        avm2::range_check<FF_>,
+        avm2::sha256<FF_>>;
 
     using MainRelations = MainRelations_<FF>;
 
@@ -336,6 +338,9 @@ class AvmFlavor {
             this->precomputed_sel_bitwise = verification_key->precomputed_sel_bitwise;
             this->precomputed_sel_range_16 = verification_key->precomputed_sel_range_16;
             this->precomputed_sel_range_8 = verification_key->precomputed_sel_range_8;
+            this->precomputed_sel_sha256_compression = verification_key->precomputed_sel_sha256_compression;
+            this->precomputed_sha256_compression_round_constant =
+                verification_key->precomputed_sha256_compression_round_constant;
         }
     };
 
