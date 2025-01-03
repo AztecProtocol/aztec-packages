@@ -620,10 +620,10 @@ export class TXEService {
     if (values === null) {
       // No data was found so we set the data-found flag to 0 and we pad with zeros get the correct return size.
       const processedTSize = fromSingle(tSize).toNumber();
-      return toForeignCallResult(toArray([new Fr(0), ...Array(processedTSize).fill(new Fr(0))]));
+      return toForeignCallResult([toSingle(new Fr(0)), toArray(Array(processedTSize).fill(new Fr(0)))]);
     } else {
       // Data was found so we set the data-found flag to 1 and return it along with the data.
-      return toForeignCallResult(toArray([new Fr(1), ...values]));
+      return toForeignCallResult([toSingle(new Fr(1)), toArray(values)]);
     }
   }
 

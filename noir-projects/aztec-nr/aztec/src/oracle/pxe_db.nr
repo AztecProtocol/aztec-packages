@@ -20,15 +20,17 @@ where
 /// Load data from local PXE database. We pass in `t_size` as a parameter to have the information of how many fields
 /// we need to pad if the key does not exist (note that the actual response size is `t_size + 1` as the Option prefixes
 /// the response with a boolean indicating if the data exists).
+///
+/// Note that we need to return an Option<[Field; N]> as we cannot return an Option<T> directly. This is because then
+/// the shape of T would affect the expected oracle response (e.g. if we were returning a struct of 3 u32 values
+/// then the expected response shape would be 3 single items. If instead we had a struct containing
+/// `u32, [Field;10], u32`, then the expected shape would be single, array, single.).
 #[oracle(load)]
-unconstrained fn load_oracle<T, let N: u32>(
+unconstrained fn load_oracle<let N: u32>(
     contract_address: AztecAddress,
     key: Field,
     t_size: u32,
-) -> Option<T>
-where
-    T: Deserialize<N>,
-{}
+) -> Option<[Field; N]> {}
 
 /// Load a value of type T that implements Deserialize from local PXE database. The data is scoped to the current
 /// contract. If the key does not exist, Option::none() is returned.
@@ -36,7 +38,8 @@ pub unconstrained fn load<T, let N: u32>(contract_address: AztecAddress, key: Fi
 where
     T: Deserialize<N>,
 {
-    load_oracle(contract_address, key, N)
+    let serialized_option = load_oracle::<N>(contract_address, key, N);
+    serialized_option.map(|arr| Deserialize::deserialize(arr))
 }
 
 mod test {
