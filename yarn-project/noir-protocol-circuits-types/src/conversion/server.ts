@@ -470,18 +470,18 @@ export function mapPrivateToPublicAccumulatedDataToNoir(
 }
 
 export function mapCombinedAccumulatedDataToNoir(
-  PrivateToRollupAccumulatedData: PrivateToRollupAccumulatedData,
+  privateToRollupAccumulatedData: PrivateToRollupAccumulatedData,
 ): CombinedAccumulatedDataNoir {
   return {
-    note_hashes: mapTuple(PrivateToRollupAccumulatedData.noteHashes, mapFieldToNoir),
-    nullifiers: mapTuple(PrivateToRollupAccumulatedData.nullifiers, mapFieldToNoir),
-    l2_to_l1_msgs: mapTuple(PrivateToRollupAccumulatedData.l2ToL1Msgs, mapScopedL2ToL1MessageToNoir),
-    private_logs: mapTuple(PrivateToRollupAccumulatedData.privateLogs, mapPrivateLogToNoir),
+    note_hashes: mapTuple(privateToRollupAccumulatedData.noteHashes, mapFieldToNoir),
+    nullifiers: mapTuple(privateToRollupAccumulatedData.nullifiers, mapFieldToNoir),
+    l2_to_l1_msgs: mapTuple(privateToRollupAccumulatedData.l2ToL1Msgs, mapScopedL2ToL1MessageToNoir),
+    private_logs: mapTuple(privateToRollupAccumulatedData.privateLogs, mapPrivateLogToNoir),
     contract_class_logs_hashes: mapTuple(
-      PrivateToRollupAccumulatedData.contractClassLogsHashes,
+      privateToRollupAccumulatedData.contractClassLogsHashes,
       mapScopedLogHashToNoir,
     ),
-    contract_class_log_preimages_length: mapFieldToNoir(PrivateToRollupAccumulatedData.contractClassLogPreimagesLength),
+    contract_class_log_preimages_length: mapFieldToNoir(privateToRollupAccumulatedData.contractClassLogPreimagesLength),
   };
 }
 
