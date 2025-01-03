@@ -45,6 +45,12 @@ import { InlineProofStore, type ProofStore } from './proof_store.js';
 // 20 minutes, roughly the length of an Aztec epoch. If a proof isn't ready in this amount of time then we've failed to prove the whole epoch
 const MAX_WAIT_MS = 1_200_000;
 
+// Perform a snapshot sync every 30 seconds
+const SNAPSHOT_SYNC_INTERVAL_MS = 30_000;
+
+const MAX_CONCURRENT_JOB_SETTLED_REQUESTS = 10;
+const SNAPSHOT_SYNC_CHECK_MAX_REQUEST_SIZE = 1000;
+
 type ProvingJob = {
   id: ProvingJobId;
   type: ProvingRequestType;
@@ -160,6 +166,8 @@ export class BrokerCircuitProverFacade implements ServerCircuitProver {
       throw new Error('BrokerCircuitProverFacade already started');
     }
 
+    this.log.verbose('Starting BrokerCircuitProverFacade');
+
     this.runningPromise = new RunningPromise(() => this.monitorForCompletedJobs(), this.log, this.pollIntervalMs);
     this.runningPromise.start();
   }
@@ -168,6 +176,7 @@ export class BrokerCircuitProverFacade implements ServerCircuitProver {
     if (!this.runningPromise) {
       throw new Error('BrokerCircuitProverFacade not started');
     }
+    this.log.verbose('Stopping BrokerCircuitProverFacade');
     await this.runningPromise.stop();
   }
 
@@ -188,7 +197,7 @@ export class BrokerCircuitProverFacade implements ServerCircuitProver {
     const getAllCompletedJobs = async (ids: ProvingJobId[]) => {
       const allCompleted = [];
       while (ids.length > 0) {
-        const slice = ids.splice(0, 1000);
+        const slice = ids.splice(0, SNAPSHOT_SYNC_CHECK_MAX_REQUEST_SIZE);
         const completed = await this.broker.getCompletedJobs(slice);
         allCompleted.push(...completed);
       }
@@ -206,20 +215,28 @@ export class BrokerCircuitProverFacade implements ServerCircuitProver {
 
     const snapshotSyncIds = [];
     const currentTime = Date.now();
-    const secondsSinceLastSnapshotSync = (currentTime - this.timeOfLastSnapshotSync) / 1000;
-    if (secondsSinceLastSnapshotSync > 30) {
-      this.log.debug(`Performing full snapshot sync of completed jobs with ${snapshotSyncIds.length} jobs`);
+    const secondsSinceLastSnapshotSync = currentTime - this.timeOfLastSnapshotSync;
+    if (secondsSinceLastSnapshotSync > SNAPSHOT_SYNC_INTERVAL_MS) {
       this.timeOfLastSnapshotSync = currentTime;
       snapshotSyncIds.push(...this.jobs.keys());
+      this.log.trace(`Performing full snapshot sync of completed jobs with ${snapshotSyncIds.length} job(s)`);
     } else {
-      this.log.debug(`Performing incremental sync of completed jobs`);
+      this.log.trace(`Performing incremental sync of completed jobs`);
     }
-    this.log.verbose('Checking for completed jobs');
+
     const completedJobs = await getAllCompletedJobs(snapshotSyncIds);
     const filtered = completedJobs.map(jobId => this.jobs.get(jobId)).filter(job => job !== undefined);
-    this.log.verbose(`Found ${filtered.length} completed jobs`);
+    if (filtered.length > 0) {
+      this.log.verbose(
+        `Check for job completion notifications returned ${filtered.length} job(s), snapshot ids length: ${snapshotSyncIds.length}, num outstanding jobs: ${this.jobs.size}`,
+      );
+    } else {
+      this.log.trace(
+        `Check for job completion notifications returned 0 jobs, snapshot ids length: ${snapshotSyncIds.length}, num outstanding jobs: ${this.jobs.size}`,
+      );
+    }
     while (filtered.length > 0) {
-      const slice = filtered.splice(0, 10);
+      const slice = filtered.splice(0, MAX_CONCURRENT_JOB_SETTLED_REQUESTS);
       await Promise.all(slice.map(job => processJob(job!)));
     }
   }
