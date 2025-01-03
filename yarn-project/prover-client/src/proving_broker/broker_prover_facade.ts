@@ -102,7 +102,7 @@ export class BrokerCircuitProverFacade implements ServerCircuitProver {
       };
       this.jobs.set(id, job);
       this.log.verbose(
-        `Sent proving job to broker id=${id} type=${ProvingRequestType[type]} epochNumber=${epochNumber}`,
+        `Job enqueued with broker id=${id} type=${ProvingRequestType[type]} epochNumber=${epochNumber}`,
         {
           provingJobId: id,
           provingJobType: ProvingRequestType[type],
@@ -224,15 +224,16 @@ export class BrokerCircuitProverFacade implements ServerCircuitProver {
       this.log.trace(`Performing incremental sync of completed jobs`);
     }
 
+    const snapshotIdsLength = snapshotSyncIds.length;
     const completedJobs = await getAllCompletedJobs(snapshotSyncIds);
     const filtered = completedJobs.map(jobId => this.jobs.get(jobId)).filter(job => job !== undefined);
     if (filtered.length > 0) {
       this.log.verbose(
-        `Check for job completion notifications returned ${filtered.length} job(s), snapshot ids length: ${snapshotSyncIds.length}, num outstanding jobs: ${this.jobs.size}`,
+        `Check for job completion notifications returned ${filtered.length} job(s), snapshot ids length: ${snapshotIdsLength}, num outstanding jobs: ${this.jobs.size}`,
       );
     } else {
       this.log.trace(
-        `Check for job completion notifications returned 0 jobs, snapshot ids length: ${snapshotSyncIds.length}, num outstanding jobs: ${this.jobs.size}`,
+        `Check for job completion notifications returned 0 jobs, snapshot ids length: ${snapshotIdsLength}, num outstanding jobs: ${this.jobs.size}`,
       );
     }
     while (filtered.length > 0) {
