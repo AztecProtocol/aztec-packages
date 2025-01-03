@@ -54,7 +54,7 @@ export class BlobSinkServer {
   private async handleGetBlobSidecar(req: Request, res: Response) {
     // eslint-disable-next-line camelcase
     const { block_id } = req.params;
-    let { indices } = req.query;
+    const { indices } = req.query;
 
     try {
       // eslint-disable-next-line camelcase
