@@ -1,7 +1,11 @@
 VERSION 0.8
 test:
-  BUILD +test-protocol-circuits
-  BUILD +test-aztec-nr
+  WAIT
+    BUILD +test-protocol-circuits
+  END
+  WAIT
+    BUILD +test-aztec-nr
+  END
   BUILD +test-contracts
 
 test-protocol-circuits:
