@@ -19,8 +19,6 @@ import {
   MAX_NOTE_HASHES_PER_TX,
   MAX_NULLIFIERS_PER_TX,
   MAX_PRIVATE_LOGS_PER_TX,
-  MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
-  MAX_UNENCRYPTED_LOGS_PER_TX,
   MaxBlockNumber,
   type MembershipWitness,
   NUM_BYTES_PER_SHA256,
@@ -31,7 +29,7 @@ import {
   PrivateLog,
   PublicCallRequest,
   type PublicDataTreeLeafPreimage,
-  PublicDataWrite,
+  type PublicDataWrite,
   ScopedL2ToL1Message,
   ScopedLogHash,
   StateReference,
@@ -660,10 +658,6 @@ function mapScopedLogHashFromNoir(scopedLogHash: ScopedLogHashNoir): ScopedLogHa
   );
 }
 
-function mapPublicDataWriteFromNoir(write: PublicDataWriteNoir) {
-  return new PublicDataWrite(mapFieldFromNoir(write.leaf_slot), mapFieldFromNoir(write.value));
-}
-
 export function mapPublicDataWriteToNoir(write: PublicDataWrite): PublicDataWriteNoir {
   return {
     leaf_slot: mapFieldToNoir(write.leafSlot),
@@ -682,23 +676,13 @@ export function mapCombinedAccumulatedDataFromNoir(combinedAccumulatedData: Comb
     mapTupleFromNoir(combinedAccumulatedData.nullifiers, MAX_NULLIFIERS_PER_TX, mapFieldFromNoir),
     mapTupleFromNoir(combinedAccumulatedData.l2_to_l1_msgs, MAX_L2_TO_L1_MSGS_PER_TX, mapScopedL2ToL1MessageFromNoir),
     mapTupleFromNoir(combinedAccumulatedData.private_logs, MAX_PRIVATE_LOGS_PER_TX, mapPrivateLogFromNoir),
-    mapTupleFromNoir(
-      combinedAccumulatedData.unencrypted_logs_hashes,
-      MAX_UNENCRYPTED_LOGS_PER_TX,
-      mapScopedLogHashFromNoir,
-    ),
+
     mapTupleFromNoir(
       combinedAccumulatedData.contract_class_logs_hashes,
       MAX_CONTRACT_CLASS_LOGS_PER_TX,
       mapScopedLogHashFromNoir,
     ),
-    mapFieldFromNoir(combinedAccumulatedData.unencrypted_log_preimages_length),
     mapFieldFromNoir(combinedAccumulatedData.contract_class_log_preimages_length),
-    mapTupleFromNoir(
-      combinedAccumulatedData.public_data_writes,
-      MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
-      mapPublicDataWriteFromNoir,
-    ),
   );
 }
 

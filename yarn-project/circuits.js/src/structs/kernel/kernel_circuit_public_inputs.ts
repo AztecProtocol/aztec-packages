@@ -4,11 +4,9 @@ import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 import { bufferToHex, hexToBuffer } from '@aztec/foundation/string';
 
 import { Gas } from '../gas.js';
-import { PartialStateReference } from '../partial_state_reference.js';
-import { RevertCode } from '../revert_code.js';
 import { RollupValidationRequests } from '../rollup_validation_requests.js';
 import { CombinedAccumulatedData } from './combined_accumulated_data.js';
-import { CombinedConstantData } from './combined_constant_data.js';
+import { TxConstantData } from './tx_constant_data.js';
 
 /**
  * Outputs from the public kernel circuits.
@@ -27,12 +25,7 @@ export class KernelCircuitPublicInputs {
     /**
      * Data which is not modified by the circuits.
      */
-    public constants: CombinedConstantData,
-    public startState: PartialStateReference,
-    /**
-     * Flag indicating whether the transaction reverted.
-     */
-    public revertCode: RevertCode,
+    public constants: TxConstantData,
     /**
      * Gas used during this transaction
      */
@@ -48,15 +41,7 @@ export class KernelCircuitPublicInputs {
   }
 
   toBuffer() {
-    return serializeToBuffer(
-      this.rollupValidationRequests,
-      this.end,
-      this.constants,
-      this.startState,
-      this.revertCode,
-      this.gasUsed,
-      this.feePayer,
-    );
+    return serializeToBuffer(this.rollupValidationRequests, this.end, this.constants, this.gasUsed, this.feePayer);
   }
 
   /**
@@ -69,9 +54,7 @@ export class KernelCircuitPublicInputs {
     return new KernelCircuitPublicInputs(
       reader.readObject(RollupValidationRequests),
       reader.readObject(CombinedAccumulatedData),
-      reader.readObject(CombinedConstantData),
-      reader.readObject(PartialStateReference),
-      reader.readObject(RevertCode),
+      reader.readObject(TxConstantData),
       reader.readObject(Gas),
       reader.readObject(AztecAddress),
     );
@@ -81,9 +64,7 @@ export class KernelCircuitPublicInputs {
     return new KernelCircuitPublicInputs(
       RollupValidationRequests.empty(),
       CombinedAccumulatedData.empty(),
-      CombinedConstantData.empty(),
-      PartialStateReference.empty(),
-      RevertCode.OK,
+      TxConstantData.empty(),
       Gas.empty(),
       AztecAddress.ZERO,
     );

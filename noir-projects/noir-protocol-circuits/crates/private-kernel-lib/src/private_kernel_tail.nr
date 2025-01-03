@@ -66,7 +66,6 @@ mod tests {
         messaging::l2_to_l1_message::ScopedL2ToL1Message,
         point::Point,
         tests::fixture_builder::FixtureBuilder,
-        traits::is_empty,
     };
     use dep::types::constants::{
         DA_BYTES_PER_FIELD, DA_GAS_PER_BYTE, EMPTY_NESTED_INDEX, GENERATOR_INDEX__IVSK_M,
@@ -108,9 +107,7 @@ mod tests {
     #[test]
     fn execution_succeeded() {
         let mut builder = PrivateKernelTailInputsBuilder::new();
-        let public_inputs = builder.execute();
-
-        assert(is_empty(public_inputs.start_state));
+        let _public_inputs = builder.execute();
     }
 
     #[test]

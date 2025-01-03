@@ -9,7 +9,6 @@ use dep::types::{
         side_effect::scoped::Scoped,
     },
     messaging::l2_to_l1_message::ScopedL2ToL1Message,
-    traits::{is_empty, is_empty_array},
     utils::arrays::assert_exposed_sorted_transformed_value_array,
 };
 use tail_output_hints::{generate_tail_output_hints, TailOutputHints};
@@ -38,43 +37,13 @@ impl TailOutputValidator {
     }
 
     pub fn validate(self) {
-        self.validate_empty_values();
         self.validate_propagated_values();
         self.validate_propagated_sorted_values();
         self.validate_gas_used();
     }
 
-    fn validate_empty_values(self) {
-        assert(is_empty(self.output.start_state), "start_state must be empty");
-        assert_eq(self.output.revert_code, 0, "revert_code must be empty");
-        assert(
-            is_empty_array(self.output.end.unencrypted_logs_hashes),
-            "unencrypted logs in private must be empty",
-        );
-    }
-
     fn validate_propagated_values(self) {
-        assert_eq(
-            self.output.constants.historical_header,
-            self.previous_kernel.constants.historical_header,
-            "mismatch historical_header",
-        );
-        assert_eq(
-            self.output.constants.tx_context,
-            self.previous_kernel.constants.tx_context,
-            "mismatch tx_context",
-        );
-        assert_eq(
-            self.output.constants.vk_tree_root,
-            self.previous_kernel.constants.vk_tree_root,
-            "mismatch vk_tree_root",
-        );
-        assert_eq(
-            self.output.constants.protocol_contract_tree_root,
-            self.previous_kernel.constants.protocol_contract_tree_root,
-            "mismatch protocol_contract_tree_root",
-        );
-        assert(is_empty(self.output.constants.global_variables), "global_variables must be empty");
+        assert_eq(self.output.constants, self.previous_kernel.constants, "mismatch constants");
 
         assert_eq(
             self.output.rollup_validation_requests,

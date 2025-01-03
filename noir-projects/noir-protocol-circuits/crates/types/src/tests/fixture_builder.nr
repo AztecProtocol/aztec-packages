@@ -444,15 +444,10 @@ impl FixtureBuilder {
                 m.expose_to_public()
             }),
             private_logs: self.private_logs.storage().map(|l: Scoped<PrivateLogData>| l.inner.log),
-            unencrypted_logs_hashes: self.unencrypted_logs_hashes.storage().map(|l: ScopedLogHash| {
-                l.expose_to_public()
-            }),
             contract_class_logs_hashes: self.contract_class_logs_hashes.storage().map(
                 |l: ScopedLogHash| l.expose_to_public(),
             ),
-            unencrypted_log_preimages_length: self.unencrypted_log_preimages_length,
             contract_class_log_preimages_length: self.contract_class_log_preimages_length,
-            public_data_writes: self.public_data_writes.storage(),
         }
     }
 
@@ -530,14 +525,12 @@ impl FixtureBuilder {
     pub fn to_kernel_circuit_public_inputs(self) -> KernelCircuitPublicInputs {
         let rollup_validation_requests = self.to_rollup_validation_requests();
         let end = self.to_combined_accumulated_data();
-        let constants = self.to_constant_data();
+        let constants = self.to_tx_constant_data();
 
         KernelCircuitPublicInputs {
             rollup_validation_requests,
             end,
             constants,
-            start_state: self.start_state,
-            revert_code: self.revert_code,
             gas_used: self.gas_used,
             fee_payer: self.fee_payer,
         }

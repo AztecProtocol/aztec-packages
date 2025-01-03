@@ -36,8 +36,7 @@ impl TailOutputComposer {
         output.rollup_validation_requests = source.validation_requests.for_rollup;
         output.end = self.build_combined_accumulated_data();
         output.gas_used = meter_gas_used(output.end);
-        output.constants =
-            CombinedConstantData::combine(source.constants, GlobalVariables::empty());
+        output.constants = source.constants;
         output.fee_payer = source.fee_payer;
         output
     }

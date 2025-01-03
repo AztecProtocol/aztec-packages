@@ -91,7 +91,6 @@ import {
   PublicKeys,
   RECURSIVE_PROOF_LENGTH,
   ReadRequest,
-  RevertCode,
   RollupTypes,
   RootParityInput,
   RootParityInputs,
@@ -312,16 +311,8 @@ export function makeCombinedAccumulatedData(seed = 1, full = false): CombinedAcc
     tupleGenerator(MAX_NULLIFIERS_PER_TX, fr, seed + 0x200, Fr.zero),
     tupleGenerator(MAX_L2_TO_L1_MSGS_PER_TX, makeScopedL2ToL1Message, seed + 0x600, ScopedL2ToL1Message.empty),
     tupleGenerator(MAX_PRIVATE_LOGS_PER_TX, makePrivateLog, seed + 0x700, PrivateLog.empty),
-    tupleGenerator(MAX_UNENCRYPTED_LOGS_PER_TX, makeScopedLogHash, seed + 0x900, ScopedLogHash.empty), // unencrypted logs
     tupleGenerator(MAX_CONTRACT_CLASS_LOGS_PER_TX, makeScopedLogHash, seed + 0xa00, ScopedLogHash.empty), // contract class logs
-    fr(seed + 0xd00), // unencrypted_log_preimages_length
     fr(seed + 0xe00), // contract_class_log_preimages_length
-    tupleGenerator(
-      MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
-      makePublicDataWrite,
-      seed + 0xd00,
-      PublicDataWrite.empty,
-    ),
   );
 }
 
@@ -428,8 +419,6 @@ export function makeKernelCircuitPublicInputs(seed = 1, fullAccumulatedData = tr
     makeRollupValidationRequests(seed),
     makeCombinedAccumulatedData(seed, fullAccumulatedData),
     makeCombinedConstantData(seed + 0x100),
-    makePartialStateReference(seed + 0x200),
-    RevertCode.OK,
     makeGas(seed + 0x600),
     makeAztecAddress(seed + 0x700),
   );

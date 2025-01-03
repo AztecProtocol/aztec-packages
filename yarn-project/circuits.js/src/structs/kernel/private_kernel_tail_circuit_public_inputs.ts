@@ -6,9 +6,7 @@ import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 import { countAccumulatedItems, mergeAccumulatedData } from '../../utils/index.js';
 import { Gas } from '../gas.js';
 import { GlobalVariables } from '../global_variables.js';
-import { PartialStateReference } from '../partial_state_reference.js';
 import { PublicCallRequest } from '../public_call_request.js';
-import { RevertCode } from '../revert_code.js';
 import { RollupValidationRequests } from '../rollup_validation_requests.js';
 import { CombinedAccumulatedData } from './combined_accumulated_data.js';
 import { CombinedConstantData } from './combined_constant_data.js';
@@ -178,8 +176,6 @@ export class PrivateKernelTailCircuitPublicInputs {
       this.rollupValidationRequests,
       this.forRollup.end,
       constants,
-      PartialStateReference.empty(),
-      RevertCode.OK,
       this.gasUsed,
       this.feePayer,
     );

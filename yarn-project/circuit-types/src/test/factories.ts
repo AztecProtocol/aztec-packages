@@ -75,9 +75,6 @@ export function makeBloatedProcessedTx({
   if (privateOnly) {
     const data = makeCombinedAccumulatedData(seed + 0x1000);
 
-    // Private-only tx has no public data writes.
-    data.publicDataWrites.forEach((_, i) => (data.publicDataWrites[i] = PublicDataWrite.empty()));
-
     const transactionFee = tx.data.gasUsed.computeFee(globalVariables.gasFees);
 
     clearLogs(data);

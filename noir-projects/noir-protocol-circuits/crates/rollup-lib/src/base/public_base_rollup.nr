@@ -1,5 +1,5 @@
 use crate::{
-    abis::base_or_merge_rollup_public_inputs::{BASE_ROLLUP_TYPE, BaseOrMergeRollupPublicInputs},
+    abis::tx_effect::TxEffect, abis::base_or_merge_rollup_public_inputs::{BASE_ROLLUP_TYPE, BaseOrMergeRollupPublicInputs},
     base::{
         components::{
             archive::perform_archive_membership_check, constants::validate_combined_constant_data,
@@ -50,9 +50,17 @@ pub struct PublicBaseRollupInputs {
 }
 
 impl PublicBaseRollupInputs {
-    fn generate_combined_accumulated_data(self, reverted: bool) -> CombinedAccumulatedData {
+    fn generate_tx_effect(self, reverted: bool, combined_constant_data: CombinedConstantData) -> TxEffect {
         let from_private = self.tube_data.public_inputs;
         let from_public = self.avm_proof_data.public_inputs;
+        let revert_code = if reverted { 1 } else { 0 };
+        let siloed_l2_to_l1_msgs = from_public.accumulated_data.l2_to_l1_msgs.map(
+            |message: ScopedL2ToL1Message| silo_l2_to_l1_message(
+                message,
+                combined_constant_data.tx_context.version,
+                combined_constant_data.tx_context.chain_id,
+            ),
+        );
 
         let private_logs = if reverted {
             from_private.non_revertible_accumulated_data.private_logs
@@ -77,16 +85,18 @@ impl PublicBaseRollupInputs {
             .unencrypted_logs_hashes
             .fold(0, |len, l: ScopedLogHash| len + l.log_hash.length);
 
-        CombinedAccumulatedData {
+        TxEffect {
+            revert_code,
+            transaction_fee: from_public.transaction_fee,
             note_hashes: from_public.accumulated_data.note_hashes,
             nullifiers: from_public.accumulated_data.nullifiers,
-            l2_to_l1_msgs: from_public.accumulated_data.l2_to_l1_msgs,
+            l2_to_l1_msgs:siloed_l2_to_l1_msgs ,
+            public_data_writes: from_public.accumulated_data.public_data_writes,
             private_logs,
             unencrypted_logs_hashes: from_public.accumulated_data.unencrypted_logs_hashes,
+                        unencrypted_log_preimages_length,
+                                    contract_class_log_preimages_length,
             contract_class_logs_hashes,
-            unencrypted_log_preimages_length,
-            contract_class_log_preimages_length,
-            public_data_writes: from_public.accumulated_data.public_data_writes,
         }
     }
 
@@ -108,8 +118,6 @@ impl PublicBaseRollupInputs {
         // TODO: Validate tube_data.public_inputs vs avm_proof_data.public_inputs
         let reverted = self.avm_proof_data.public_inputs.reverted;
 
-        let combined_accumulated_data = self.generate_combined_accumulated_data(reverted);
-
         let combined_constant_data = CombinedConstantData::combine(
             self.tube_data.public_inputs.constants,
             self.avm_proof_data.public_inputs.global_variables,
@@ -130,8 +138,10 @@ impl PublicBaseRollupInputs {
             );
         }
 
+        let tx_effect = self.generate_tx_effect(reverted, combined_constant_data);
+
         let commitments_tree_subroot =
-            calculate_subtree_root(combined_accumulated_data.note_hashes);
+            calculate_subtree_root(tx_effect.note_hashes);
 
         let empty_commitments_subtree_root = calculate_empty_tree_root(NOTE_HASH_SUBTREE_HEIGHT);
 
@@ -145,29 +155,17 @@ impl PublicBaseRollupInputs {
 
         // Insert nullifiers:
         let end_nullifier_tree_snapshot =
-            self.check_nullifier_tree_non_membership_and_insert_to_tree(combined_accumulated_data);
+            self.check_nullifier_tree_non_membership_and_insert_to_tree(tx_effect);
 
         // Validate public data update requests and update public data tree
         let end_public_data_tree_snapshot =
-            self.validate_and_process_public_state(combined_accumulated_data.public_data_writes);
+            self.validate_and_process_public_state(tx_effect.public_data_writes);
         // Append the tx effects for blob(s)
-        let siloed_l2_to_l1_msgs = combined_accumulated_data.l2_to_l1_msgs.map(
-            |message: ScopedL2ToL1Message| silo_l2_to_l1_message(
-                message,
-                combined_constant_data.tx_context.version,
-                combined_constant_data.tx_context.chain_id,
-            ),
-        );
-        let out_hash = compute_kernel_out_hash(siloed_l2_to_l1_msgs);
 
-        let revert_code = if reverted { 1 } else { 0 };
+        let out_hash = compute_kernel_out_hash(tx_effect.l2_to_l1_msgs);
 
         let end_sponge_blob = append_tx_effects_for_blob(
-            combined_accumulated_data,
-            revert_code,
-            self.avm_proof_data.public_inputs.transaction_fee,
-            combined_accumulated_data.public_data_writes,
-            siloed_l2_to_l1_msgs,
+            tx_effect,
             self.start_sponge_blob,
         );
 
@@ -217,11 +215,11 @@ impl PublicBaseRollupInputs {
 
     fn check_nullifier_tree_non_membership_and_insert_to_tree(
         self,
-        accumulated_data: CombinedAccumulatedData,
+        tx_effect: TxEffect,
     ) -> AppendOnlyTreeSnapshot {
         nullifier_tree_batch_insert(
             self.start.nullifier_tree,
-            accumulated_data.nullifiers,
+            tx_effect.nullifiers,
             self.state_diff_hints.sorted_nullifiers,
             self.state_diff_hints.sorted_nullifier_indexes,
             self.state_diff_hints.nullifier_subtree_sibling_path,
@@ -323,6 +321,7 @@ mod tests {
             field::{field_from_bytes, full_field_less_than},
         },
     };
+    use crate::abis::tx_effect::TxEffect;
 
     struct NullifierInsertion {
         existing_index: u32,
@@ -423,6 +422,7 @@ mod tests {
 
             inputs.constants.global_variables.chain_id = fixtures::CHAIN_ID;
             inputs.constants.global_variables.version = fixtures::VERSION;
+            inputs.avm_data.global_variables = inputs.constants.global_variables;
             inputs.constants.vk_tree_root = inputs.tube_data.vk_tree_root;
 
             inputs.pre_existing_blocks[0] = inputs.tube_data.historical_header.hash();
@@ -436,10 +436,10 @@ mod tests {
             builder
         }
 
-        fn build_pre_existing_tx_effects(
+       fn build_pre_existing_tx_effects(
             self,
-        ) -> (CombinedAccumulatedData, [PublicDataWrite; MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX]) {
-            let mut res = CombinedAccumulatedData::empty();
+        ) -> TxEffect {
+            let mut res = TxEffect::empty();
             res.note_hashes = self.pre_existing_notes;
             res.nullifiers = self.pre_existing_nullifiers.map(|nullifier: NullifierLeafPreimage| {
                 nullifier.nullifier
@@ -449,7 +449,7 @@ mod tests {
                     PublicDataWrite { leaf_slot: leaf_preimage.slot, value: leaf_preimage.value }
                 },
             );
-            let padded_all_public_data_update_requests = array_concat(
+            res.public_data_writes = array_concat(
                 all_public_data_update_requests,
                 [
                     PublicDataWrite::empty(); MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX
@@ -457,7 +457,7 @@ mod tests {
                 ],
             );
 
-            (res, padded_all_public_data_update_requests)
+            res
         }
 
         fn extract_subtree_sibling_path<let FULL_HEIGHT: u32, let SIBLING_PATH_LENGTH: u32>(
@@ -673,15 +673,11 @@ mod tests {
                 public_data_tree: start_public_data_tree_snapshot,
             };
 
-            let (pre_existing_tx_effects, pre_existing_public_data_update_requests) =
+            let tx_effect =
                 self.build_pre_existing_tx_effects();
 
             let start_sponge_blob = append_tx_effects_for_blob(
-                pre_existing_tx_effects,
-                0,
-                0,
-                pre_existing_public_data_update_requests,
-                [0; MAX_L2_TO_L1_MSGS_PER_TX],
+                tx_effect,
                 SpongeBlob::new(TX_EFFECTS_BLOB_HASH_INPUT_FIELDS),
             );
 
@@ -1183,6 +1179,7 @@ mod tests {
     unconstrained fn constants_dont_satisfy_smaller_max_block_number() {
         let mut builder = PublicBaseRollupInputsBuilder::new();
         builder.constants.global_variables.block_number = 42;
+        builder.avm_data.global_variables.block_number = 42;
         builder.tube_data.set_max_block_number(5);
         builder.fails();
     }
@@ -1191,6 +1188,7 @@ mod tests {
     unconstrained fn constants_satisfy_equal_max_block_number() {
         let mut builder = PublicBaseRollupInputsBuilder::new();
         builder.constants.global_variables.block_number = 42;
+        builder.avm_data.global_variables.block_number = 42;
         builder.tube_data.set_max_block_number(42);
         builder.succeeds();
     }
@@ -1199,6 +1197,7 @@ mod tests {
     unconstrained fn constants_satisfy_larger_max_block_number() {
         let mut builder = PublicBaseRollupInputsBuilder::new();
         builder.constants.global_variables.block_number = 42;
+        builder.avm_data.global_variables.block_number = 42;
         builder.tube_data.set_max_block_number(4294967295);
         builder.succeeds();
     }
