@@ -1,68 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1735857758197,
+  "lastUpdate": 1735903526611,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "47112877+dbanks12@users.noreply.github.com",
-            "name": "David Banks",
-            "username": "dbanks12"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "1365401cb379d7206e268dc01a33110cecae7293",
-          "message": "chore!: l2 gas maximum is per-TX-public-portion. AVM startup gas is now 20k. (#10214)\n\nResolves https://github.com/AztecProtocol/aztec-packages/issues/10030\r\n\r\nBump of AVM startup gas to 20k is mostly arbitrary, but considering some\r\nindividual opcodes cost more than its previous value of 512, it\r\ncertainly needed to be much higher. I thought 20k is at least _more_\r\nreasonable to account for the constraint cost of verifying an AVM proof.\r\n\r\nThe l2 gas maximum per-tx-public-portion ensures that there is some hard\r\nlimit on execution per AVM proof. For now, we use that limit to ensure\r\nthat you cannot overflow the AVM trace.\r\n\r\n---------\r\n\r\nCo-authored-by: IlyasRidhuan <ilyasridhuan@gmail.com>",
-          "timestamp": "2024-12-11T10:28:51-05:00",
-          "tree_id": "16478f624d315efa769aa2accd5873b046615dae",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/1365401cb379d7206e268dc01a33110cecae7293"
-        },
-        "date": 1733933892288,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "nativeClientIVCBench/Full/6",
-            "value": 25089.572749000014,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 22736.158037999998 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 4636.394272000004,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 4352.320544 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmClientIVCBench/Full/6",
-            "value": 90242.48128400001,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 90242481000 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 16729.639049999998,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 16729641000 ms\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 2830559702,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 2830559702 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 134125685,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 134125685 ns\nthreads: 1"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -3202,6 +3142,68 @@ window.BENCHMARK_DATA = {
             "value": 143202427,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 143202427 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "AztecProtocol",
+            "username": "AztecProtocol"
+          },
+          "committer": {
+            "name": "AztecProtocol",
+            "username": "AztecProtocol"
+          },
+          "id": "156634d992cadbfbdc7ac964ae122b939f8a3b59",
+          "message": "chore(master): Release 0.69.0",
+          "timestamp": "2025-01-03T11:16:15Z",
+          "url": "https://github.com/AztecProtocol/aztec-packages/pull/10956/commits/156634d992cadbfbdc7ac964ae122b939f8a3b59"
+        },
+        "date": 1735903519381,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Ambient_17_in_20/6",
+            "value": 20898.40717599998,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 18431.508804 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 22328.448932000014,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 19512.675563 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 4704.935141000022,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 4315.106790000001 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 73668.676343,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 73668677000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 14196.835392,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 14196836000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 2991132938,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 2991132938 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 142573096,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 142573096 ns\nthreads: 1"
           }
         ]
       }
