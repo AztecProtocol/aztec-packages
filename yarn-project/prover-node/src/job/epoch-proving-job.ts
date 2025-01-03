@@ -128,6 +128,8 @@ export class EpochProvingJob implements Traceable {
         await this.prover.setBlockCompleted(block.number, block.header);
       });
 
+      const executionTime = timer.ms();
+
       this.state = 'awaiting-prover';
       const { publicInputs, proof } = await this.prover.finaliseEpoch();
       this.log.info(`Finalised proof for epoch ${epochNumber}`, { epochNumber, uuid: this.uuid, duration: timer.ms() });
@@ -137,7 +139,7 @@ export class EpochProvingJob implements Traceable {
       this.log.info(`Submitted proof for epoch`, { epochNumber, uuid: this.uuid });
 
       this.state = 'completed';
-      this.metrics.recordProvingJob(timer, epochSizeBlocks, epochSizeTxs);
+      this.metrics.recordProvingJob(executionTime, timer.ms(), epochSizeBlocks, epochSizeTxs);
     } catch (err) {
       this.log.error(`Error running epoch ${epochNumber} prover job`, err, { uuid: this.uuid, epochNumber });
       this.state = 'failed';

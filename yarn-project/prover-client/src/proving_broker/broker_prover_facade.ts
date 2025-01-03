@@ -195,23 +195,24 @@ export class BrokerCircuitProverFacade implements ServerCircuitProver {
     };
 
     const getAllCompletedJobs = async (ids: ProvingJobId[]) => {
-      const allCompleted = [];
+      const allCompleted = new Set<ProvingJobId>();
       while (ids.length > 0) {
         const slice = ids.splice(0, SNAPSHOT_SYNC_CHECK_MAX_REQUEST_SIZE);
         const completed = await this.broker.getCompletedJobs(slice);
-        allCompleted.push(...completed);
+        completed.forEach(id => allCompleted.add(id));
       }
       const final = await this.broker.getCompletedJobs([]);
-      return allCompleted.concat(final);
+      final.forEach(id => allCompleted.add(id));
+      return Array.from(allCompleted);
     };
 
     // Here we check for completed jobs. If everything works well (there are no service restarts etc) then all we need to do
-    // to maintain correct job state is to check for incrementally completed jobs. i.e. call getCompletedJobs with and empty array
+    // to maintain correct job state is to check for incrementally completed jobs. i.e. call getCompletedJobs with an empty array
     // However, if there are any problems then we may lose sync with the broker's actual set of completed jobs.
     // In this case we need to perform a full snapshot sync. This involves sending all of our outstanding job Ids to the broker
     // and have the broker report on whether they are completed or not.
     // We perform an incremental sync on every call of this function with a full snapshot sync periodically.
-    // This should keep us ini sync without over-burdening the broker with snapshot sync requests
+    // This should keep us in sync without over-burdening the broker with snapshot sync requests
 
     const snapshotSyncIds = [];
     const currentTime = Date.now();
