@@ -79,6 +79,8 @@ spec:
               value: "{{ .Values.faucet.l1Assets }}"
             - name: LOG_JSON
               value: "1"
+            - name: LOG_GCLOUD
+              value: "{{ .Values.telemetry.gcloud }}"
             - name: LOG_LEVEL
               value: "{{ .Values.faucet.logLevel }}"
           ports:

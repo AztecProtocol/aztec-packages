@@ -87,6 +87,8 @@ spec:
               value: "{{ .Values.bot.service.nodePort }}"
             - name: LOG_JSON
               value: "1"
+            - name: LOG_GCLOUD
+              value: "{{ .Values.telemetry.gcloud }}"
             - name: LOG_LEVEL
               value: "{{ .Values.bot.logLevel }}"
             - name: BOT_PRIVATE_KEY

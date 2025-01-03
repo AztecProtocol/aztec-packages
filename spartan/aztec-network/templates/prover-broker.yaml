@@ -76,6 +76,8 @@ spec:
               value: "{{ .Values.proverBroker.logLevel }}"
             - name: LOG_JSON
               value: "1"
+            - name: LOG_GCLOUD
+              value: "{{ .Values.telemetry.gcloud }}"
             - name: PROVER_BROKER_POLL_INTERVAL_MS
               value: "{{ .Values.proverBroker.pollIntervalMs }}"
             - name: PROVER_BROKER_JOB_TIMEOUT_MS

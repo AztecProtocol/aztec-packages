@@ -125,6 +125,8 @@ spec:
               value: "{{ .Values.proverNode.logLevel }}"
             - name: LOG_JSON
               value: "1"
+            - name: LOG_GCLOUD
+              value: "{{ .Values.telemetry.gcloud }}"
             - name: PROVER_REAL_PROOFS
               value: "{{ .Values.aztec.realProofs }}"
             - name: PROVER_AGENT_COUNT

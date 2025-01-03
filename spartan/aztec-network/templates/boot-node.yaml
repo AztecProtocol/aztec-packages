@@ -180,6 +180,8 @@ spec:
               value: "{{ .Values.bootNode.logLevel }}"
             - name: LOG_JSON
               value: "1"
+            - name: LOG_GCLOUD
+              value: "{{ .Values.telemetry.gcloud }}"
             - name: P2P_ENABLED
               value: "{{ .Values.bootNode.p2p.enabled }}"
             - name: COINBASE
