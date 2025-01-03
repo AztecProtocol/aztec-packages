@@ -12,7 +12,7 @@ import { type BlobStore, DiskBlobStore } from './blobstore/index.js';
 import { MemoryBlobStore } from './blobstore/memory_blob_store.js';
 import { type BlobSinkConfig } from './config.js';
 import { BlobSinkMetrics } from './metrics.js';
-import { type PostBlobSidecarRequest, blockIdSchema } from './types/api.js';
+import { type PostBlobSidecarRequest, blockIdSchema, indicesSchema } from './types/api.js';
 import { BlobWithIndex } from './types/index.js';
 
 /**
@@ -47,26 +47,34 @@ export class BlobSinkServer {
   }
 
   private setupRoutes() {
-    this.app.get('/eth/v1/beacon/blob_sidecars/:block_id', this.handleBlobSidecar.bind(this));
+    this.app.get('/eth/v1/beacon/blob_sidecars/:block_id', this.handleGetBlobSidecar.bind(this));
     this.app.post('/blob_sidecar', this.handlePostBlobSidecar.bind(this));
   }
 
-  private async handleBlobSidecar(req: Request, res: Response) {
+  private async handleGetBlobSidecar(req: Request, res: Response) {
     // eslint-disable-next-line camelcase
     const { block_id } = req.params;
+    let { indices } = req.query;
 
     try {
       // eslint-disable-next-line camelcase
-      const parsedBlockId = blockIdSchema.parse(block_id);
-
-      if (!parsedBlockId) {
+      const parsedBlockId = blockIdSchema.safeParse(block_id);
+      if (!parsedBlockId.success) {
         res.status(400).json({
           error: 'Invalid block_id parameter',
         });
         return;
       }
 
-      const blobs = await this.blobStore.getBlobSidecars(parsedBlockId.toString());
+      const parsedIndices = indicesSchema.safeParse(indices);
+      if (!parsedIndices.success) {
+        res.status(400).json({
+          error: 'Invalid indices parameter',
+        });
+        return;
+      }
+
+      const blobs = await this.blobStore.getBlobSidecars(parsedBlockId.data.toString(), parsedIndices.data);
 
       if (!blobs) {
         res.status(404).json({ error: 'Blob not found' });
