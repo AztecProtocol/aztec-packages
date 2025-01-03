@@ -22,7 +22,7 @@ key_dir=./target/keys
 # Hash of the entire protocol circuits.
 # Needed for test hash, as we presently don't have a program hash for each individual test.
 # Means if anything within the dir changes, the tests will rerun.
-circuits_hash=$(cache_content_hash "^noir-projects/$project_name/crates/")
+circuits_hash=$(cache_content_hash "^noir-projects/$project_name/crates/" ../../noir/.rebuild_patterns)
 
 # Circuits matching these patterns we have clientivc keys computed, rather than ultrahonk.
 ivc_patterns=(
@@ -79,6 +79,12 @@ function compile {
     echo_stderr "$compile_cmd"
     dump_fail "$compile_cmd"
     echo_stderr "Compilation complete for: $name (${SECONDS}s)"
+    bytecode_size=$(jq -r .bytecode $json_path | base64 -d | gunzip | wc -c)
+    # TODO: Yes, you're reading that right. 850MB. That's why I'm adding this here, so we can't keep going up.
+    if [ "$bytecode_size" -gt $((850 * 1024 * 1024)) ]; then
+      echo "Error: $json_path bytecode size of $bytecode_size exceeds 850MB"
+      exit 1
+    fi
     cache_upload circuit-$hash.tar.gz $json_path &> /dev/null
   fi
 

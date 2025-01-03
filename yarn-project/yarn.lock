@@ -749,7 +749,7 @@ __metadata:
     "@noir-lang/noir_js": "file:../../noir/packages/noir_js"
     "@noir-lang/noirc_abi": "portal:../../noir/packages/noirc_abi"
     "@noir-lang/types": "portal:../../noir/packages/types"
-    "@playwright/test": "npm:^1.48.2"
+    "@playwright/test": "npm:^1.49.0"
     "@types/jest": "npm:^29.5.0"
     "@types/node": "npm:^22.8.1"
     "@types/pako": "npm:^2.0.3"
@@ -763,7 +763,7 @@ __metadata:
     levelup: "npm:^5.1.1"
     memdown: "npm:^6.1.1"
     pako: "npm:^2.1.0"
-    playwright: "npm:^1.48.2"
+    playwright: "npm:^1.49.0"
     puppeteer: "npm:^22.4.1"
     resolve-typescript-plugin: "npm:^2.0.1"
     serve: "npm:^14.2.1"
@@ -3855,7 +3855,7 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@noir-lang/noir_codegen@portal:../noir/packages/noir_codegen::locator=%40aztec%2Faztec3-packages%40workspace%3A."
   dependencies:
-    "@noir-lang/types": "npm:1.0.0-beta.1"
+    "@noir-lang/types": "npm:1.0.0-beta.0"
     glob: "npm:^10.3.10"
     ts-command-line-args: "npm:^2.5.1"
   bin:
@@ -3864,13 +3864,13 @@ __metadata:
   linkType: soft
 
 "@noir-lang/noir_js@file:../noir/packages/noir_js::locator=%40aztec%2Faztec3-packages%40workspace%3A.":
-  version: 1.0.0-beta.1
-  resolution: "@noir-lang/noir_js@file:../noir/packages/noir_js#../noir/packages/noir_js::hash=fd2109&locator=%40aztec%2Faztec3-packages%40workspace%3A."
+  version: 1.0.0-beta.0
+  resolution: "@noir-lang/noir_js@file:../noir/packages/noir_js#../noir/packages/noir_js::hash=90b0a4&locator=%40aztec%2Faztec3-packages%40workspace%3A."
   dependencies:
-    "@noir-lang/acvm_js": "npm:1.0.0-beta.1"
-    "@noir-lang/noirc_abi": "npm:1.0.0-beta.1"
-    "@noir-lang/types": "npm:1.0.0-beta.1"
-  checksum: 10/90680504cc73c9ce1587bfafac654dc6bae5347d1ba858c0698f70731254e45b877884cbbe2fd2a6cc50a2f41ecba340375576f4d94b3657768f65fd17c227a9
+    "@noir-lang/acvm_js": "npm:1.0.0-beta.0"
+    "@noir-lang/noirc_abi": "npm:1.0.0-beta.0"
+    "@noir-lang/types": "npm:1.0.0-beta.0"
+  checksum: 10/938fa6d909859abbc62eb45508b4a1729c3b3b0ced99dba2de37571697b9fa9f1c90c932e3768c01ceb50315e69d5c249e8a717e470f6fec33cf105a39b73cd4
   languageName: node
   linkType: hard
 
@@ -3878,7 +3878,7 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@noir-lang/noirc_abi@portal:../noir/packages/noirc_abi::locator=%40aztec%2Faztec3-packages%40workspace%3A."
   dependencies:
-    "@noir-lang/types": "npm:1.0.0-beta.1"
+    "@noir-lang/types": "npm:1.0.0-beta.0"
   languageName: node
   linkType: soft
 
@@ -4215,14 +4215,14 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@playwright/test@npm:^1.48.2":
-  version: 1.48.2
-  resolution: "@playwright/test@npm:1.48.2"
+"@playwright/test@npm:^1.49.0":
+  version: 1.49.1
+  resolution: "@playwright/test@npm:1.49.1"
   dependencies:
-    playwright: "npm:1.48.2"
+    playwright: "npm:1.49.1"
   bin:
     playwright: cli.js
-  checksum: 10/8557f9d60b93b9a60b66599d46f991b56df26b691f9285e8755298dabd9f42d1421c330a7d7578b76445fdd56040fe790d3f1081daa80e5e89a380170e0fd217
+  checksum: 10/bb0d5eda58ee0b5bbca732d2aa57782fadf420d101e08e16d5760179459c667907bd8d224ee3d6f43f3088378e377ef63d32ed605fec37605debf217c3efe8da
   languageName: node
   linkType: hard
 
@@ -16078,15 +16078,6 @@ __metadata:
   languageName: node
   linkType: hard
 
-"playwright-core@npm:1.48.2":
-  version: 1.48.2
-  resolution: "playwright-core@npm:1.48.2"
-  bin:
-    playwright-core: cli.js
-  checksum: 10/dd029f797b1afb2240713a032fecc50e1ffc5464a39c075570cf10e929c145da3a8d0951a3f2b279e33b2f09cbeb8ff4330822cb1078452c0c75cc4ce34ca171
-  languageName: node
-  linkType: hard
-
 "playwright-core@npm:1.49.0":
   version: 1.49.0
   resolution: "playwright-core@npm:1.49.0"
@@ -16096,18 +16087,27 @@ __metadata:
   languageName: node
   linkType: hard
 
-"playwright@npm:1.48.2, playwright@npm:^1.48.2":
-  version: 1.48.2
-  resolution: "playwright@npm:1.48.2"
+"playwright-core@npm:1.49.1":
+  version: 1.49.1
+  resolution: "playwright-core@npm:1.49.1"
+  bin:
+    playwright-core: cli.js
+  checksum: 10/baa39a53024ec7744708410f2b952ac3aa2e1a6d311dabfa303523712848eba142fce5c20f1b2ed2a66fbd9a415d22ea8642b0f70423360aaebd4b41c47d364e
+  languageName: node
+  linkType: hard
+
+"playwright@npm:1.49.1, playwright@npm:^1.49.0":
+  version: 1.49.1
+  resolution: "playwright@npm:1.49.1"
   dependencies:
     fsevents: "npm:2.3.2"
-    playwright-core: "npm:1.48.2"
+    playwright-core: "npm:1.49.1"
   dependenciesMeta:
     fsevents:
       optional: true
   bin:
     playwright: cli.js
-  checksum: 10/331af352504336f419cdf1369f0ef399c6f0e905fdb79a5e97c41f33e74766efd21430ab6ae2de0b237ae765ebfbe701e119a990d8dc01bcdac3bc43c1fa1fbf
+  checksum: 10/49fb063f4a107b8090f66d2d351ebd51fbb66843a8f95a161fa0c0e0b5156515961e75cc10f4249f61b9d2af51f762dda505c62b096d8f61cd47d1ff73ab39d2
   languageName: node
   linkType: hard
 

@@ -72,13 +72,24 @@ function build {
 }
 
 function test_cmds {
-  # TODO: This takes way longer than it probably should. Linting individual projects, maybe lint from root?
+  # TODO: This takes way longer than it probably should.
   echo "$hash cd yarn-project && yarn formatting"
   # These need isolation due to network stack usage.
   for test in {prover-node,p2p}/dest/**/*.test.js; do
     echo "$hash ISOLATE=1 yarn-project/scripts/run_test.sh $test"
   done
-  for test in !(end-to-end|kv-store|bb-prover|prover-client|prover-node|p2p)/dest/**/*.test.js; do
+  # Exclusions:
+  # end-to-end: e2e tests handled separately with end-to-end/bootstrap.sh. Unit tests are in dest/fixtures.
+  # kv-store: Uses mocha so will need different treatment.
+  # bb-prover: Excluded as per package.json.
+  # bb-client: Excluded as per package.json.
+  # prover-node: Isolated using docker above.
+  # p2p: Isolated using docker above.
+  # ivc-integration: Need to exclude currently excluded browser test.
+  for test in !(end-to-end|kv-store|bb-prover|prover-client|prover-node|p2p|ivc-integration)/dest/**/*.test.js; do
+    echo $hash yarn-project/scripts/run_test.sh $test
+  done
+  for test in ivc-integration/dest/**/!(*browser*).test.js; do
     echo $hash yarn-project/scripts/run_test.sh $test
   done
   # Uses mocha - so we have to treat it differently...
