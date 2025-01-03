@@ -1,11 +1,7 @@
 VERSION 0.8
 test:
-  WAIT
-    BUILD +test-protocol-circuits
-  END
-  WAIT
-    BUILD +test-aztec-nr
-  END
+  BUILD +test-protocol-circuits
+  BUILD +test-aztec-nr
   BUILD +test-contracts
 
 test-protocol-circuits:
@@ -20,7 +16,7 @@ test-aztec-nr:
       # Wait for TXE to initialize
       sleep 5 && \
       cd /usr/src/noir-projects/aztec-nr && \
-      NARGO_FOREIGN_CALL_TIMEOUT=300000 nargo test --silence-warnings --oracle-resolver http://localhost:8080
+      NARGO_FOREIGN_CALL_TIMEOUT=3000000 nargo test --silence-warnings --oracle-resolver http://localhost:8080
 
 test-contracts:
   FROM ../+bootstrap

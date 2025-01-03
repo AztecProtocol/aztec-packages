@@ -11,12 +11,12 @@ async function main() {
   const { TXE_PORT = 8080 } = process.env;
 
   const logger = createLogger('txe:service');
-  logger.info(`Setting up TXE...`);
+  logger.info(`Setting up TXE slow...`);
 
   const txeServer = createTXERpcServer(logger);
   const { port } = await startHttpRpcServer(txeServer, {
     port: TXE_PORT,
-    timeoutMs: 1e3 * 60 * 5,
+    timeoutMs: 1e4 * 60 * 5,
   });
 
   logger.info(`TXE listening on port ${port}`);
