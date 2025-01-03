@@ -24,7 +24,7 @@ template <typename Builder> class VerificationKeyFixture : public testing::Test 
     using Curve = stdlib::bn254<Builder>;
     using RecursVk = stdlib::recursion::verification_key<Curve>;
 
-    static void SetUpTestSuite() { bb::srs::init_crs_factory("../srs_db/ignition"); }
+    static void SetUpTestSuite() { bb::srs::init_crs_factory(bb::srs::get_ignition_crs_path()); }
 
     /**
      * @brief generate a random vk data for use in tests
@@ -56,7 +56,8 @@ TYPED_TEST(VerificationKeyFixture, VkDataVsRecursionHashNative)
     verification_key_data vk_data = TestFixture::rand_vk_data();
     verification_key_data vk_data_copy = vk_data;
 
-    auto file_crs = std::make_unique<bb::srs::factories::FileCrsFactory<curve::BN254>>("../srs_db/ignition");
+    auto file_crs =
+        std::make_unique<bb::srs::factories::FileCrsFactory<curve::BN254>>(bb::srs::get_ignition_crs_path());
     auto file_verifier = file_crs->get_verifier_crs();
 
     auto native_vk = std::make_shared<verification_key>(std::move(vk_data_copy), file_verifier);
@@ -76,7 +77,8 @@ TYPED_TEST(VerificationKeyFixture, HashVsHashNative)
 
     verification_key_data vk_data = TestFixture::rand_vk_data();
 
-    auto file_crs = std::make_unique<bb::srs::factories::FileCrsFactory<curve::BN254>>("../srs_db/ignition");
+    auto file_crs =
+        std::make_unique<bb::srs::factories::FileCrsFactory<curve::BN254>>(bb::srs::get_ignition_crs_path());
     auto file_verifier = file_crs->get_verifier_crs();
 
     auto native_vk = std::make_shared<verification_key>(std::move(vk_data), file_verifier);

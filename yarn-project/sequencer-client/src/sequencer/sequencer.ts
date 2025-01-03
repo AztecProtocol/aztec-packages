@@ -60,7 +60,7 @@ export class SequencerTooSlowError extends Error {
     public readonly currentTime: number,
   ) {
     super(
-      `Too far into slot to transition to ${proposedState}. max allowed: ${maxAllowedTime}s, time into slot: ${currentTime}s`,
+      `Too far into slot to transition to ${proposedState} (max allowed: ${maxAllowedTime}s, time into slot: ${currentTime}s)`,
     );
     this.name = 'SequencerTooSlowError';
   }
@@ -172,10 +172,10 @@ export class Sequencer {
 
   private setTimeTable() {
     // How late into the slot can we be to start working
-    const initialTime = 1;
+    const initialTime = 2;
 
     // How long it takes to validate the txs collected and get ready to start building
-    const blockPrepareTime = 2;
+    const blockPrepareTime = 1;
 
     // How long it takes to for attestations to travel across the p2p layer.
     const attestationPropagationTime = 2;
@@ -430,7 +430,7 @@ export class Sequencer {
     const bufferSeconds = maxAllowedTime - secondsIntoSlot;
 
     if (bufferSeconds < 0) {
-      this.log.warn(`Too far into slot to transition to ${proposedState}`, { maxAllowedTime, secondsIntoSlot });
+      this.log.debug(`Too far into slot to transition to ${proposedState}`, { maxAllowedTime, secondsIntoSlot });
       return false;
     }
 

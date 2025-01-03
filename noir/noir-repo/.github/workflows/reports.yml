@@ -290,6 +290,9 @@ jobs:
           - project: { repo: AztecProtocol/aztec-packages, path: noir-projects/noir-protocol-circuits/crates/private-kernel-inner, take_average: true }
           - project: { repo: AztecProtocol/aztec-packages, path: noir-projects/noir-protocol-circuits/crates/private-kernel-tail, take_average: true  }
           - project: { repo: AztecProtocol/aztec-packages, path: noir-projects/noir-protocol-circuits/crates/private-kernel-reset, take_average: true }
+          - project: { repo: AztecProtocol/aztec-packages, path: noir-projects/noir-protocol-circuits/crates/rollup-root }
+          #- project: { repo: AztecProtocol/aztec-packages, path: noir-projects/noir-protocol-circuits/crates/rollup-block-root }
+          - project: { repo: AztecProtocol/aztec-packages, path: noir-projects/noir-protocol-circuits/crates/rollup-block-merge }
           - project: { repo: AztecProtocol/aztec-packages, path: noir-projects/noir-protocol-circuits/crates/rollup-base-private }
           - project: { repo: AztecProtocol/aztec-packages, path: noir-projects/noir-protocol-circuits/crates/rollup-base-public }
 
@@ -344,6 +347,28 @@ jobs:
         run: |
           mv /home/runner/work/noir/noir/scripts/test_programs/execution_report.sh ./execution_report.sh
           ./execution_report.sh 1
+
+      - name: Generate compilation report with averages
+        working-directory: ./test-repo/${{ matrix.project.path }}
+        if: ${{ matrix.project.take_average }}
+        run: |
+          mv /home/runner/work/noir/noir/scripts/test_programs/compilation_report.sh ./compilation_report.sh
+          chmod +x ./compilation_report.sh
+          ./compilation_report.sh 1 1
+      
+      - name: Generate execution report without averages
+        working-directory: ./test-repo/${{ matrix.project.path }}
+        if: ${{ !matrix.project.is_library && !matrix.project.take_average }}
+        run: |
+          mv /home/runner/work/noir/noir/scripts/test_programs/execution_report.sh ./execution_report.sh
+          ./execution_report.sh 1
+
+      - name: Generate execution report with averages
+        working-directory: ./test-repo/${{ matrix.project.path }}
+        if: ${{ !matrix.project.is_library && matrix.project.take_average }}
+        run: |
+          mv /home/runner/work/noir/noir/scripts/test_programs/execution_report.sh ./execution_report.sh
+          ./execution_report.sh 1 1
 
       - name: Generate compilation report with averages
         working-directory: ./test-repo/${{ matrix.project.path }}

@@ -257,7 +257,7 @@ describe('sequencer', () => {
     await expect(sequencer.doRealWork()).rejects.toThrow(
       expect.objectContaining({
         name: 'SequencerTooSlowError',
-        message: expect.stringContaining(`Too far into slot to transition to ${delayedState}.`),
+        message: expect.stringContaining(`Too far into slot to transition to ${delayedState}`),
       }),
     );
 

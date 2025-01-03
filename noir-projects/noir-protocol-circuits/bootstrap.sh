@@ -45,8 +45,6 @@ function on_exit() {
 }
 trap on_exit EXIT
 
-[ -f package.json ] && denoise "yarn && node ./scripts/generate_variants.js"
-
 mkdir -p $tmp_dir
 mkdir -p $key_dir
 
@@ -118,6 +116,9 @@ function compile {
 function build {
   set +e
   set -u
+
+  [ -f "package.json" ] && denoise "yarn && node ./scripts/generate_variants.js"
+
   grep -oP '(?<=crates/)[^"]+' Nargo.toml | \
     while read -r dir; do
       toml_file=./crates/$dir/Nargo.toml
@@ -133,16 +134,12 @@ function build {
 
 function test {
   set -eu
-  # Whether we run the tests or not is coarse grained.
   name=$(basename "$PWD")
   CIRCUITS_HASH=$(cache_content_hash ../../noir/.rebuild_patterns "^noir-projects/$name")
-  if ! test_should_run $name-tests-$CIRCUITS_HASH; then
-    return
-  fi
-  github_group "$name test"
-  RAYON_NUM_THREADS= $NARGO test --silence-warnings
+  test_should_run $name-tests-$CIRCUITS_HASH || return 0
+
+  RAYON_NUM_THREADS= $NARGO test --silence-warnings --skip-brillig-constraints-check
   cache_upload_flag $name-tests-$CIRCUITS_HASH
-  github_endgroup
 }
 
 export -f compile test build
@@ -164,8 +161,13 @@ case "$CMD" in
   "test")
     test
     ;;
+  "test-cmds")
+    $NARGO test --list-tests --silence-warnings | while read -r package test; do
+      echo "noir-projects/scripts/run_test.sh noir-protocol-circuits $package $test"
+    done
+    ;;
   "ci")
-    parallel --line-buffered bash -c {} ::: build test
+    parallel --tag --line-buffered {} ::: build test
     ;;
   *)
     echo_stderr "Unknown command: $CMD"
