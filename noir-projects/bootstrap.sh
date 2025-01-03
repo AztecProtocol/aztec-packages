@@ -37,7 +37,7 @@ case "$cmd" in
     parallel -k ./{}/bootstrap.sh test-cmds ::: noir-protocol-circuits noir-contracts aztec-nr
     ;;
   "hash")
-    cache_content_hash .rebuild_patterns
+    cache_content_hash .rebuild_patterns ../noir/.rebuild_patterns
     ;;
   *)
     echo_stderr "Unknown command: $cmd"
