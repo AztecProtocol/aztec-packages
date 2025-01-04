@@ -22,7 +22,6 @@ noir_lsp-.* requests::
 # end-to-end
 # These all fail randomly in weird ways. Consider reproducing and adding error comments here.
 simple e2e_block_building
-simple e2e_fees/private_payments
 simple e2e_p2p/gossip_network
 simple e2e_p2p/rediscovery
 simple e2e_p2p/reqresp
