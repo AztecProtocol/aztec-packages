@@ -57,7 +57,7 @@ function getNullifierMembershipWitnessResolver(oracle: ProvingDataOracle) {
   return async (nullifier: Fr) => {
     const res = await oracle.getNullifierMembershipWitness(nullifier);
     if (!res) {
-      throw new Error(`Cannot find the leaf for nullifier ${nullifier.toBigInt()}.`);
+      throw new Error(`Cannot find the leaf for nullifier ${nullifier}.`);
     }
 
     const { index, siblingPath, leafPreimage } = res;
