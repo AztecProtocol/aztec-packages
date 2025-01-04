@@ -212,15 +212,14 @@ TYPED_TEST(UltraTranscriptTests, VerifierManifestConsistency)
     if constexpr (HasIPAAccumulator<TypeParam>) {
         verifier.ipa_verification_key =
             std::make_shared<VerifierCommitmentKey<curve::Grumpkin>>(1 << CONST_ECCVM_LOG_N);
-        const size_t HONK_PROOF_LENGTH = TypeParam::PROOF_LENGTH_WITHOUT_PUB_INPUTS;
+        const size_t HONK_PROOF_LENGTH = TypeParam::PROOF_LENGTH_WITHOUT_PUB_INPUTS - IPA_PROOF_LENGTH;
         const size_t num_public_inputs = static_cast<uint32_t>(proof[1]);
         // The extra calculation is for the IPA proof length.
         // TODO(https://github.com/AztecProtocol/barretenberg/issues/1182): Handle in ProofSurgeon.
-        ASSERT(proof.size() == HONK_PROOF_LENGTH + IPA_PROOF_LENGTH + num_public_inputs -
-                                   (PAIRING_POINT_ACCUMULATOR_SIZE + IPA_CLAIM_SIZE));
+        ASSERT(proof.size() == HONK_PROOF_LENGTH + IPA_PROOF_LENGTH + num_public_inputs);
         // split out the ipa proof
-        const std::ptrdiff_t honk_proof_with_pub_inputs_length = static_cast<std::ptrdiff_t>(
-            HONK_PROOF_LENGTH + num_public_inputs - (PAIRING_POINT_ACCUMULATOR_SIZE + IPA_CLAIM_SIZE));
+        const std::ptrdiff_t honk_proof_with_pub_inputs_length =
+            static_cast<std::ptrdiff_t>(HONK_PROOF_LENGTH + num_public_inputs);
         ipa_proof = HonkProof(proof.begin() + honk_proof_with_pub_inputs_length, proof.end());
         honk_proof = HonkProof(proof.begin(), proof.end() + honk_proof_with_pub_inputs_length);
     } else {
