@@ -4,7 +4,8 @@
 NO_CD=1 source $(git rev-parse --show-toplevel)/ci3/source
 
 if [ -n "$CI_REDIS" ] && [ ! -t 1 ]; then
-  key=${LOG_ID:-$(uuid)}
+  key=${1:-$(uuid)}
+  redis-cli -h $CI_REDIS SETEX $key 604800 "In progress..." &>/dev/null
   echo -e "Log id: ${yellow}$key${reset}"
   tee >(redis-cli -h $CI_REDIS -x SETEX $key 604800 &>/dev/null)
   echo -e "Log id: ${yellow}$key${reset}"

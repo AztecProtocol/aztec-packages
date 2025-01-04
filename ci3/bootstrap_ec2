@@ -52,11 +52,17 @@ trap on_exit EXIT
 
 # Interactive if stdin is connected to terminal.
 if [ -t 0 ]; then
+  docker_args+=" -i"
+fi
+
+# If stdout is connected to a terminal, drop into a shell on failure.
+# Otherwise ensure all logs go to redis cache.
+if [ -t 1 ]; then
   ssh_args="-t"
-  docker_args+=" -ti"
-  shell_on_fail="|| exec zsh"
+  docker_args+=" -t"
+  cmd_postfix="|| exec zsh"
 else
-  cache_log=" | cache_log ${LOG_ID:-}"
+  cmd_postfix="2>&1 | ci3/cache_log ${LOG_ID:-}"
 fi
 
 # Use ~/.ssh/build_instance_key to ssh into our requested instance.
@@ -73,7 +79,6 @@ fi
 # We provide the host user and group ids to the entrypoint script to ensure alignment.
 # We raise the default pid limit to 32k.
 ssh ${ssh_args:-} -F $ci3/aws/build_instance_ssh_config ubuntu@$ip "
-{
   echo "Loading CRS into tmpfs..."
   sudo mkdir /mnt/bb-crs
   sudo mount -t tmpfs -o size=3G tmpfs /mnt/bb-crs
@@ -106,7 +111,6 @@ ssh ${ssh_args:-} -F $ci3/aws/build_instance_ssh_config ubuntu@$ip "
       git remote add origin https://github.com/aztecprotocol/aztec-packages
       git fetch --depth 1 origin $current_commit
       git checkout FETCH_HEAD
-      $cmd ${shell_on_fail:-}
+      $cmd ${cmd_postfix:-}
     '
-} 2>&1 ${cache_log:-}
 "

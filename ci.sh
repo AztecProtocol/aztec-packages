@@ -4,6 +4,7 @@ source $(git rev-parse --show-toplevel)/ci3/source
 cmd=${1:-}
 NO_TERMINATE=${NO_TERMINATE:-0}
 BRANCH=${BRANCH:-$(git rev-parse --abbrev-ref HEAD)}
+ci3_workflow_id=128853861
 
 function echo_cmd {
   local name=$1
@@ -96,11 +97,12 @@ case "$cmd" in
       echo "No pull request found for branch $BRANCH."
       exit 1
     fi
-    echo "Triggering CI workflow for PR: $pr_number"
     gh pr edit "$pr_number" --remove-label "trigger-workflow" &> /dev/null
     gh pr edit "$pr_number" --add-label "trigger-workflow" &> /dev/null
-    sleep 5
+    sleep 1
     gh pr edit "$pr_number" --remove-label "trigger-workflow" &> /dev/null
+    run_id=$(gh run list --workflow $ci3_workflow_id -b $BRANCH --limit 1 --json databaseId -q .[0].databaseId)
+    echo "Triggered CI workflow for PR: $pr_number (${yellow}$run_id${reset})"
     ;;
   "ga-log")
     # Get workflow id of most recent CI3 run for this given branch.

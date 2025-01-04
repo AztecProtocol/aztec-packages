@@ -41,4 +41,6 @@ jobs:
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
         run: |
-          BRANCH=${{ github.event.pull_request.head.ref || github.ref_name }} ./ci.sh ec2
+          export LOG_ID=${{ github.run_id }}
+          export BRANCH=${{ github.event.pull_request.head.ref || github.ref_name }}
+          ./ci.sh ec2
