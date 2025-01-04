@@ -17,11 +17,11 @@ hash=$(cache_content_hash \
 
 function build {
   echo_header "boxes build"
+  denoise yarn
+
   if ! cache_download boxes-$hash.tar.gz; then
-    denoise 'yarn && echo "Building... " && yarn build'
+    denoise 'yarn build'
     cache_upload boxes-$hash.tar.gz boxes/*/{artifacts,dist,src/contracts/target}
-  else
-    denoise yarn
   fi
 }
 

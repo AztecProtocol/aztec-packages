@@ -7,14 +7,12 @@ hash=$(cache_content_hash ../cpp/.rebuild_patterns .rebuild_patterns)
 
 function build {
   echo_header "bb.js build"
-  if ! cache_download bb.js-$hash.tar.gz; then
-    denoise "yarn install"
-    find . -exec touch -d "@0" {} + 2>/dev/null || true
+  denoise "yarn install"
 
+  if ! cache_download bb.js-$hash.tar.gz; then
+    find . -exec touch -d "@0" {} + 2>/dev/null || true
     denoise "yarn build"
     cache_upload bb.js-$hash.tar.gz dest
-  else
-    denoise "yarn install"
   fi
 
   # We copy snapshot dirs to dest so we can run tests from dest.

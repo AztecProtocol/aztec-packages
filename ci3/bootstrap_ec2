@@ -55,6 +55,8 @@ if [ -t 0 ]; then
   ssh_args="-t"
   docker_args+=" -ti"
   shell_on_fail="|| exec zsh"
+else
+  cache_log=" | cache_log ${LOG_ID:-}"
 fi
 
 # Use ~/.ssh/build_instance_key to ssh into our requested instance.
@@ -71,10 +73,12 @@ fi
 # We provide the host user and group ids to the entrypoint script to ensure alignment.
 # We raise the default pid limit to 32k.
 ssh ${ssh_args:-} -F $ci3/aws/build_instance_ssh_config ubuntu@$ip "
+{
   echo "Loading CRS into tmpfs..."
   sudo mkdir /mnt/bb-crs
   sudo mount -t tmpfs -o size=3G tmpfs /mnt/bb-crs
   sudo cp -r \$HOME/.bb-crs/* /mnt/bb-crs
+  echo "Done in \$SECONDS seconds."
 
   echo "Starting devbox..."
   docker run --privileged ${docker_args:-} \
@@ -104,4 +108,5 @@ ssh ${ssh_args:-} -F $ci3/aws/build_instance_ssh_config ubuntu@$ip "
       git checkout FETCH_HEAD
       $cmd ${shell_on_fail:-}
     '
+} 2>&1 ${cache_log:-}
 "

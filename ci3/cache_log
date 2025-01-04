@@ -1,0 +1,24 @@
+#!/bin/bash
+# Runs the given command.
+# If a redis cache is available and we're not in a terminal, duplicate output into a cache log.
+NO_CD=1 source $(git rev-parse --show-toplevel)/ci3/source
+
+if [ -n "$CI_REDIS" ] && [ ! -t 1 ]; then
+  key=${LOG_ID:-$(uuid)}
+  echo -e "Log id: ${yellow}$key${reset}"
+  tee >(redis-cli -h $CI_REDIS -x SETEX $key 604800 &>/dev/null)
+  echo -e "Log id: ${yellow}$key${reset}"
+else
+  cat
+fi
+
+# NO_CD=1 source $(git rev-parse --show-toplevel)/ci3/source
+
+# if [ -n "$CI_REDIS" ] && [ ! -t 1 ]; then
+#   key=$(uuid)
+#   echo -e "Executing: $1 (${yellow}$key${reset})"
+#   bash -c "$1" | tee >(redis-cli -h $CI_REDIS -x SETEX $key 604800 &>/dev/null)
+#   echo -e "Complete: $1 (${yellow}$key${reset})"
+# else
+#   exec bash -c "$1"
+# fi

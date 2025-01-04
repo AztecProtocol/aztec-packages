@@ -14,7 +14,8 @@ function echo_cmd {
 function print_usage {
   echo "usage: $(basename $0) <cmd>"
   echo
-  echo_cmd "ec2"      "Launch an ec2 instance and bootstrap on it. Exactly what Github action does, but doesn't touch GA."
+  echo_cmd "ec2"      "Launch an ec2 instance and bootstrap on it." \
+                      "Exactly what Github Action's does, but doesn't touch GA."
   echo_cmd "local"    "Clone your last commit into the ci container and bootstrap on local hardware."
   echo_cmd "trigger"  "Trigger the GA workflow on the PR associated with the current branch." \
                       "Effectively the same as ec2, only the results will be tracked on your PR."
@@ -88,7 +89,7 @@ case "$cmd" in
     ./bootstrap.sh ci
     ;;
   "trigger")
-    # Trigger workflow and drop through to start logging.
+    # Trigger workflow.
     # We use this label trick because triggering the workflow direct doesn't associate with the PR.
     pr_number=$(gh pr list --head "$BRANCH" --json number --jq '.[0].number')
     if [ -z "$pr_number" ]; then

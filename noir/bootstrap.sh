@@ -36,9 +36,10 @@ function build_native {
 # Builds js packages.
 function build_packages {
   set -euo pipefail
+
   if cache_download noir-packages-$hash.tar.gz; then
     cd noir-repo
-    yarn
+    yarn install
     return
   fi
 
