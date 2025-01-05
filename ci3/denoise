@@ -57,13 +57,12 @@ fi
 if [ "$status" -ne 0 ]; then
   echo -e "\nCommand exited with status $status. Dumping output:"
   echo -e "$output"
-  echo -e -n ". ${red}failed${reset} (${SECONDS}s)"
-  [ -n "$CI_REDIS" ] && echo -e -n " (${yellow}$key${reset})"
-  echo
+  echo -e -n ". ${red}failed${reset}: $1 (${SECONDS}s)"
 else
-  echo -e -n ". ${green}done${reset} (${SECONDS}s)"
-  [ -n "$CI_REDIS" ] && echo -e -n " (${yellow}$key${reset})"
-  echo
+  echo -e -n ". ${green}done${reset}: $1 (${SECONDS}s)"
 fi
+
+[ -n "$CI_REDIS" ] && echo -e -n " (${yellow}$key${reset})"
+echo
 
 exit $status
