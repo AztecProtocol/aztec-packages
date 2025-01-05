@@ -232,11 +232,9 @@ export class BrokerCircuitProverFacade implements ServerCircuitProver {
     const completedJobs = await getAllCompletedJobs(snapshotSyncIds);
 
     // We now have an additional set of completed job notifications to add to our cached set giving us the full set of jobs that we have been told are ready
-    const allJobsReady = new Set([...completedJobs, ...this.jobsToRetrieve]);
-
-    // We now filter this list to what we actually need, in case for any reason it is different and store in our cache
-    // This is the up to date list of jobs that we need to retrieve
-    this.jobsToRetrieve = allJobsReady.intersection(this.jobs);
+    // We filter this list to what we actually need, in case for any reason it is different and store in our cache
+    const allJobsReady = [...completedJobs, ...this.jobsToRetrieve];
+    this.jobsToRetrieve = new Set(allJobsReady.filter(id => this.jobs.has(id)));
 
     if (completedJobs.size > 0) {
       this.log.verbose(
@@ -301,7 +299,7 @@ export class BrokerCircuitProverFacade implements ServerCircuitProver {
 
       if (result.success) {
         this.log.verbose(`Resolved proving job id=${job.id} type=${ProvingRequestType[job.type]}`);
-        job.promise.resolve(result);
+        job.promise.resolve(result.result);
       } else {
         this.log.error(`Rejected proving job id=${job.id} type=${ProvingRequestType[job.type]}`, result.reason);
         job.promise.reject(new Error(result.reason));
