@@ -116,7 +116,8 @@ function test {
   for i in $(seq 0 $((NUM_TXES-1))); do
     existing_pid=$(lsof -ti :$((45730 + i)) || true)
     [ -n "$existing_pid" ] && kill -9 $existing_pid
-    (cd $root/yarn-project/txe && LOG_LEVEL=silent TXE_PORT=$((45730 + i)) yarn start) >/dev/null &
+    # TODO: I'd like to use dump_fail here, but TXE needs to exit 0 on receiving a SIGTERM.
+    (cd $root/yarn-project/txe && LOG_LEVEL=silent TXE_PORT=$((45730 + i)) yarn start) &>/dev/null &
   done
   echo "Waiting for TXE's to start..."
   for i in $(seq 0 $((NUM_TXES-1))); do

@@ -7,6 +7,8 @@ hash=$(../bootstrap.sh hash)
 
 function test_cmds {
   local run_test="$hash yarn-project/end-to-end/scripts/test.sh"
+
+  echo "$run_test simple setup_l1_contracts"
   echo "$run_test simple e2e_2_pxes"
   echo "$run_test simple e2e_account_contracts"
   echo "$run_test simple e2e_authwit"

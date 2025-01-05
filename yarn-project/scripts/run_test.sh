@@ -5,13 +5,12 @@
 # TODO: --forceExit *should not be needed*. Find out what's not being cleaned up.
 set -eu
 
-path=$1
-dir=${path%%/*}
-test=${path#*dest/}
+test=$1
+dir=${test%%/*}
 
 if [ "${ISOLATE:-0}" -eq 1 ]; then
   # Strip leading non alpha numerics and replace / with _ for the container name.
-  name=$(echo "$path" | sed 's/^[^a-zA-Z0-9]*//' | tr '/' '_')
+  name=$(echo "$test" | sed 's/^[^a-zA-Z0-9]*//' | tr '/' '_')
   [ "${UNNAMED:-0}" -eq 0 ] && name_arg="--name $name"
   trap 'docker kill $name &>/dev/null; docker rm $name &>/dev/null' SIGINT SIGTERM
   docker run --rm \
@@ -22,11 +21,11 @@ if [ "${ISOLATE:-0}" -eq 1 ]; then
     -v$HOME/.bb-crs:/root/.bb-crs \
     --mount type=tmpfs,target=/tmp,tmpfs-size=1g \
     --workdir /root/aztec-packages/yarn-project/$dir \
-    -e NODE_OPTIONS="--no-warnings --experimental-vm-modules" \
+    -e NODE_OPTIONS="--no-warnings --experimental-vm-modules --loader ts-node/esm" \
     aztecprotocol/build:3.0 \
-      node ../node_modules/.bin/jest --forceExit --runInBand --testRegex '\.test\.js$' --rootDir dest $test
+      node ../node_modules/.bin/jest --forceExit --runInBand $test
 else
-  export NODE_OPTIONS="--no-warnings --experimental-vm-modules"
+  export NODE_OPTIONS="--no-warnings --experimental-vm-modules --loader ts-node/esm"
   cd $(dirname $0)/../$dir
-  node ../node_modules/.bin/jest --forceExit --runInBand --testRegex '\.test\.js$' --rootDir dest $test
+  node ../node_modules/.bin/jest --forceExit --runInBand $test
 fi

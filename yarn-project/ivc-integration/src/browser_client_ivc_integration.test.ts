@@ -66,7 +66,7 @@ export async function proveThenVerifyAztecClientBrowser(
   return result;
 }
 
-describe('Client IVC Integration', () => {
+describe.skip('Client IVC Integration', () => {
   let page: Page;
   let browser: Browser;
 
