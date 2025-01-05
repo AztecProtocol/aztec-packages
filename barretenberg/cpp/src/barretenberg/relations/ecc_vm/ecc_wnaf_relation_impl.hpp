@@ -74,7 +74,6 @@ void ECCVMWnafRelationImpl<FF>::accumulate(ContainerOverSubrelations& accumulato
     };
 
     const auto scaled_transition = q_transition * scaling_factor;
-    const auto scaled_transition_is_zero = -scaled_transition + scaling_factor;
     /**
      * @brief Constrain each of our scalar slice chunks (s1, ..., s8) to be 2 bits.
      * Doing range checks this way vs permutation-based range check removes need to create sorted list + grand product
@@ -139,7 +138,9 @@ void ECCVMWnafRelationImpl<FF>::accumulate(ContainerOverSubrelations& accumulato
     row_slice += w3;
     auto sum_delta = scalar_sum * FF(1ULL << 16) + row_slice;
     const auto check_sum = scalar_sum_new - sum_delta;
-    std::get<8>(accumulator) += precompute_select * check_sum * scaled_transition_is_zero;
+    const auto precompute_select_scaled_transition = precompute_select * scaled_transition;
+    const auto precompute_select_scaled = precompute_select * scaling_factor;
+    std::get<8>(accumulator) += check_sum * (precompute_select_scaled - precompute_select_scaled_transition);
 
     /**
      * @brief Round transition logic.
@@ -167,8 +168,9 @@ void ECCVMWnafRelationImpl<FF>::accumulate(ContainerOverSubrelations& accumulato
     // => q_transition * (round - 7 - round_shift + round + 1) + (round_shift - round - 1)
     // => q_transition * (2 * round - round_shift - 6) + (round_shift - round - 1)
     const auto round_check = round_shift - round - 1;
-    std::get<9>(accumulator) += precompute_select * scaled_transition * ((round - round_check - 7) + round_check);
-    std::get<10>(accumulator) += precompute_select * scaled_transition * round_shift;
+    std::get<9>(accumulator) +=
+        precompute_select_scaled_transition * ((round - round_check - 7)) + round_check * precompute_select_scaled;
+    std::get<10>(accumulator) += precompute_select_scaled_transition * round_shift;
 
     /**
      * @brief Scalar transition checks.
@@ -177,12 +179,12 @@ void ECCVMWnafRelationImpl<FF>::accumulate(ContainerOverSubrelations& accumulato
      * 3: if q_transition = 1, pc at next row = pc at current row - 1 (decrements by 1)
      * (we combine 2 and 3 into a single relation)
      */
-    std::get<11>(accumulator) += precompute_select * scalar_sum_new * scaled_transition;
+    std::get<11>(accumulator) += precompute_select_scaled_transition * scalar_sum_new;
     // (2, 3 combined): q_transition * (pc - pc_shift - 1) + (-q_transition + 1) * (pc_shift - pc)
     // => q_transition * (-2 * (pc_shift - pc) - 1) + (pc_shift - pc)
     const auto pc_delta = pc_shift - pc;
     std::get<12>(accumulator) +=
-        precompute_select * (scaled_transition * ((-pc_delta - pc_delta - 1)) + pc_delta * scaling_factor);
+        precompute_select_scaled_transition * (-pc_delta - pc_delta - 1) + pc_delta * precompute_select_scaled;
 
     /**
      * @brief Validate skew is 0 or 7
@@ -193,9 +195,9 @@ void ECCVMWnafRelationImpl<FF>::accumulate(ContainerOverSubrelations& accumulato
      * 1: when validating sum of wnaf slices matches input scalar (we add skew to scalar_sum in ecc_set_relation)
      * 2: in ecc_msm_relation. Final MSM round uses skew to conditionally subtract a point from the accumulator
      */
-    std::get<13>(accumulator) += precompute_select * (precompute_skew * (precompute_skew - 7)) * scaling_factor;
+    std::get<13>(accumulator) += precompute_select_scaled * (precompute_skew * (precompute_skew - 7));
 
-    const auto precompute_select_zero = (-precompute_select + 1) * scaling_factor;
+    const auto precompute_select_zero = scaling_factor - precompute_select_scaled;
     std::get<14>(accumulator) += precompute_select_zero * (w0 + 15);
     std::get<15>(accumulator) += precompute_select_zero * (w1 + 15);
     std::get<16>(accumulator) += precompute_select_zero * (w2 + 15);

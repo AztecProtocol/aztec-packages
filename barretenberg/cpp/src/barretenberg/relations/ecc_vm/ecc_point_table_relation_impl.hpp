@@ -130,18 +130,18 @@ void ECCVMPointTableRelationImpl<FF>::accumulate(ContainerOverSubrelations& accu
     auto four_yy = two_y.sqr();
     auto x_double_check = (Dx + two_x) * four_yy - nine_xxxx;
     auto y_double_check = (Ty + Dy) * two_y + three_xx * (Dx - Tx);
-    std::get<0>(accumulator) += precompute_point_transition * x_double_check * scaling_factor;
-    std::get<1>(accumulator) += precompute_point_transition * y_double_check * scaling_factor;
+    const auto precompute_point_transition_scaled = precompute_point_transition * scaling_factor;
+    std::get<0>(accumulator) += precompute_point_transition_scaled * x_double_check;
+    std::get<1>(accumulator) += precompute_point_transition_scaled * y_double_check;
 
     /**
      * @brief If precompute_round_transition = 0, (Dx_shift, Dy_shift) = (Dx, Dy)
      *
      * 1st row is empty => don't apply if lagrange_first == 1
      */
-    std::get<2>(accumulator) +=
-        (-lagrange_first + 1) * (-precompute_point_transition + 1) * (Dx - Dx_shift) * scaling_factor;
-    std::get<3>(accumulator) +=
-        (-lagrange_first + 1) * (-precompute_point_transition + 1) * (Dy - Dy_shift) * scaling_factor;
+    const auto partial_transition_term = (-lagrange_first + 1) * (-precompute_point_transition_scaled + scaling_factor);
+    std::get<2>(accumulator) += partial_transition_term * (Dx - Dx_shift);
+    std::get<3>(accumulator) += partial_transition_term * (Dy - Dy_shift);
 
     /**
      * @brief Valdiate (Tx, Ty) is correctly computed from (Tx_shift, Ty_shift), (Dx, Dy).
@@ -169,10 +169,8 @@ void ECCVMPointTableRelationImpl<FF>::accumulate(ContainerOverSubrelations& accu
     const auto lambda_denominator = x2 - x1;
     auto x_add_check = (x3 + x2 + x1) * lambda_denominator.sqr() - lambda_numerator.sqr();
     auto y_add_check = (y3 + y1) * lambda_denominator + (x3 - x1) * lambda_numerator;
-    std::get<4>(accumulator) +=
-        (-lagrange_first + 1) * (-precompute_point_transition + 1) * x_add_check * scaling_factor;
-    std::get<5>(accumulator) +=
-        (-lagrange_first + 1) * (-precompute_point_transition + 1) * y_add_check * scaling_factor;
+    std::get<4>(accumulator) += partial_transition_term * x_add_check;
+    std::get<5>(accumulator) += partial_transition_term * y_add_check;
 }
 
 } // namespace bb

@@ -124,7 +124,7 @@ void ECCVMTranscriptRelationImpl<FF>::accumulate(ContainerOverSubrelations& accu
      * @note pc starts out at its max value and decrements down to 0. This keeps the degree of the pc polynomial smol
      */
     Accumulator pc_delta = pc - pc_shift;
-    auto num_muls_in_row = ((-z1_zero + 1) + (-z2_zero + 1)) * (-transcript_Pinfinity + 1);
+    auto num_muls_in_row = ((-z1_zero + 1) + (-z2_zero + 1)) * is_not_infinity;
     std::get<3>(accumulator) += is_not_first_row * (pc_delta - q_mul * num_muls_in_row) * scaling_factor; // degree 4
 
     /**
@@ -165,9 +165,8 @@ void ECCVMTranscriptRelationImpl<FF>::accumulate(ContainerOverSubrelations& accu
      * row).
      */
     auto msm_count_delta = msm_count_shift - msm_count; // degree 4
-    auto num_counts = ((-z1_zero + 1) + (-z2_zero + 1)) * (-transcript_Pinfinity + 1);
     std::get<7>(accumulator) +=
-        is_not_first_row * (-msm_transition + 1) * (msm_count_delta - q_mul * (num_counts)) * scaling_factor;
+        is_not_first_row * (-msm_transition + 1) * (msm_count_delta - q_mul * (num_muls_in_row)) * scaling_factor;
 
     /**
      * @brief Opcode exclusion tests. We have the following assertions:
@@ -187,14 +186,15 @@ void ECCVMTranscriptRelationImpl<FF>::accumulate(ContainerOverSubrelations& accu
      * ELSE lhs and rhs are BOTH points at infinity
      **/
     auto both_infinity = transcript_Pinfinity * is_accumulator_empty;
-    auto both_not_infinity = (-transcript_Pinfinity + 1) * (-is_accumulator_empty + 1);
+    auto both_not_infinity = is_not_infinity * (-is_accumulator_empty + 1);
     auto infinity_exclusion_check = transcript_Pinfinity + is_accumulator_empty - both_infinity - both_infinity;
     auto eq_x_diff = transcript_Px - transcript_accumulator_x;
     auto eq_y_diff = transcript_Py - transcript_accumulator_y;
-    auto eq_x_diff_relation = q_eq * (eq_x_diff * both_not_infinity + infinity_exclusion_check); // degree 4
-    auto eq_y_diff_relation = q_eq * (eq_y_diff * both_not_infinity + infinity_exclusion_check); // degree 4
-    std::get<9>(accumulator) += eq_x_diff_relation * scaling_factor;                             // degree 4
-    std::get<10>(accumulator) += eq_y_diff_relation * scaling_factor;                            // degree 4
+    const auto q_eq_scaled = q_eq * scaling_factor;
+    auto eq_x_diff_relation = q_eq_scaled * (eq_x_diff * both_not_infinity + infinity_exclusion_check); // degree 4
+    auto eq_y_diff_relation = q_eq_scaled * (eq_y_diff * both_not_infinity + infinity_exclusion_check); // degree 4
+    std::get<9>(accumulator) += eq_x_diff_relation;                                                     // degree 4
+    std::get<10>(accumulator) += eq_y_diff_relation;                                                    // degree 4
 
     /**
      * @brief Initial condition check on 1st row.
@@ -295,7 +295,7 @@ void ECCVMTranscriptRelationImpl<FF>::accumulate(ContainerOverSubrelations& accu
                 transcript_add_lambda_relation += lambda_relation * is_double;         // degree 4
             }
             auto transcript_add_or_dbl_from_add_output_is_valid =
-                (-transcript_Pinfinity + 1) * (-is_accumulator_empty + 1);                    // degree 2
+                is_not_infinity * (-is_accumulator_empty + 1);                                // degree 2
             transcript_add_lambda_relation *= transcript_add_or_dbl_from_add_output_is_valid; // degree 6
             // No group operation because of points at infinity
             {

@@ -94,9 +94,9 @@ template <typename FF> struct GateSeparatorPolynomial {
         if (current_element_idx < betas.size()) {
             beta_or_dummy = betas[current_element_idx];
         } else {
-            beta_or_dummy = FF::from_witness(challenge.get_context(), 1);
+            beta_or_dummy = FF(1);
         }
-        FF beta_val = FF::conditional_assign(dummy_round, FF::from_witness(challenge.get_context(), 1), beta_or_dummy);
+        FF beta_val = FF::conditional_assign(dummy_round, FF(1), beta_or_dummy);
         return (FF(1) + (challenge * (beta_val - FF(1))));
     }
 

@@ -565,22 +565,21 @@ template <class Fr, size_t domain_end, size_t domain_start = 0, size_t skip_coun
         for (size_t i = domain_start; i != domain_end; ++i) {
             full_numerator_value *= u - i;
         }
-
         // build set of domain size-many denominator inverses 1/(d_i*(x_k - x_j)). will multiply against
         // each of these (rather than to divide by something) for each barycentric evaluation
-        std::array<Fr, LENGTH> denominator_inverses;
-        for (size_t i = 0; i != LENGTH; ++i) {
-            Fr inv = Data::lagrange_denominators[i];
-            inv *= u - Data::big_domain[i]; // warning: need to avoid zero here
-            inv = Fr(1) / inv;
-            denominator_inverses[i] = inv;
-        }
+        // std::array<Fr, LENGTH> denominator_inverses;
+        // for (size_t i = 0; i != LENGTH; ++i) {
+        //     Fr inv = Data::lagrange_denominators[i];
+        //     inv *= u - Data::big_domain[i]; // warning: need to avoid zero here
+        //                                     //  inv = Fr(1) / inv;
+        //     denominator_inverses[i] = inv;
+        // }
 
         Fr result = 0;
         // compute each term v_j / (d_j*(x-x_j)) of the sum
         for (size_t i = domain_start; i != domain_end; ++i) {
-            Fr term = value_at(i);
-            term *= denominator_inverses[i - domain_start];
+            Fr term = value_at(i) /
+                      (Data::lagrange_denominators[i - domain_start] * (u - Data::big_domain[i - domain_start]));
             result += term;
         }
         // scale the sum by the value of of B(x)
