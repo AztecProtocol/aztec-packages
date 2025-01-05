@@ -14,10 +14,22 @@ function build {
     denoise "yarn build"
     cache_upload bb.js-$hash.tar.gz dest
   fi
+
+  # We copy snapshot dirs to dest so we can run tests from dest.
+  # This is because web-workers run into issues with transpilation.
+  for snapshot_dir in src/**/__snapshots__; do
+    dest_dir="${snapshot_dir/src\//dest\/node\/}"
+    rm -rf "$dest_dir"
+    cp -r "$snapshot_dir" "$dest_dir"
+    for file in $dest_dir/*.test.ts.snap; do
+      mv "$file" "${file/.test.ts.snap/.test.js.snap}"
+    done
+  done
 }
 
 function test_cmds {
-  for test in src/**/*.test.ts; do
+  cd dest/node
+  for test in **/*.test.js; do
     echo "$hash barretenberg/ts/scripts/run_test.sh $test"
   done
 }

@@ -21,11 +21,11 @@ if [ "${ISOLATE:-0}" -eq 1 ]; then
     -v$HOME/.bb-crs:/root/.bb-crs \
     --mount type=tmpfs,target=/tmp,tmpfs-size=1g \
     --workdir /root/aztec-packages/yarn-project/$dir \
-    -e NODE_OPTIONS="--no-warnings --experimental-vm-modules --loader ts-node/esm" \
+    -e NODE_OPTIONS="--no-warnings --experimental-vm-modules --loader @swc-node/register" \
     $ISOLATION_IMAGE \
       node ../node_modules/.bin/jest --forceExit --runInBand $test
 else
-  export NODE_OPTIONS="--no-warnings --experimental-vm-modules --loader ts-node/esm"
+  export NODE_OPTIONS="--no-warnings --experimental-vm-modules --loader @swc-node/register"
   cd ../$dir
   node ../node_modules/.bin/jest --forceExit --runInBand $test
 fi
