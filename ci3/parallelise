@@ -25,3 +25,6 @@ if [ -n "$slow_jobs" ]; then
   echo -e "${yellow}WARNING: The following tests exceed 5 minute runtimes. Break them up or rethink them.${reset}"
   echo "$slow_jobs"
 fi
+
+echo
+echo "Completed run of $(tail -n+2 joblog.txt | wc -l) tests."

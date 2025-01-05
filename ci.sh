@@ -39,8 +39,28 @@ function get_ip_for_instance {
   ip=$(aws ec2 describe-instances \
     --region us-east-2 \
     --filters "Name=tag:Name,Values=$instance_name" \
-    --query "Reservations[].Instances[].PublicIpAddress" \
+    --query "Reservations[].Instances[0].PublicIpAddress" \
     --output text)
+}
+
+function get_latest_run_id {
+  gh run list --workflow $ci3_workflow_id -b $BRANCH --limit 1 --json databaseId -q .[0].databaseId
+}
+
+function remote_redis_cli {
+  ssh -o ControlMaster=auto -o ControlPath=/tmp/ssh_mux_%h_%p_%r -o ControlPersist=10m \
+    -F $ci3/aws/build_instance_ssh_config ci-bastion.aztecprotocol.com \
+    redis-cli -h ci-redis.lzka0i.0001.use2.cache.amazonaws.com --raw "$@"
+}
+
+function tail_live_instance {
+  get_ip_for_instance
+  [ -z "$ip" ] && return 1;
+  ssh -F $ci3/aws/build_instance_ssh_config -q -t -o ConnectTimeout=5 ubuntu@$ip "
+    trap 'exit 0' SIGINT
+    docker ps -a --filter name=aztec_build --format '{{.Names}}' | grep -q '^aztec_build$' || exit 1
+    docker logs -f aztec_build
+  "
 }
 
 case "$cmd" in
@@ -101,41 +121,21 @@ case "$cmd" in
     gh pr edit "$pr_number" --add-label "trigger-workflow" &> /dev/null
     sleep 1
     gh pr edit "$pr_number" --remove-label "trigger-workflow" &> /dev/null
-    run_id=$(gh run list --workflow $ci3_workflow_id -b $BRANCH --limit 1 --json databaseId -q .[0].databaseId)
-    echo "Triggered CI workflow for PR: $pr_number (${yellow}$run_id${reset})"
+    run_id=$(get_latest_run_id)
+    echo "In progress..." | remote_redis_cli -x SETEX $run_id 3600 &> /dev/null
+    echo -e "Triggered CI workflow for PR: $pr_number (${yellow}$run_id${reset})"
     ;;
-  "ga-log")
-    # Get workflow id of most recent CI3 run for this given branch.
-    workflow_id=$(gh workflow list --all --json name,id -q '.[] | select(.name == "CI3").id')
-
-    # Check if we're in progress.
-    if gh run list --workflow $workflow_id -b $BRANCH --limit 1 --json status --jq '.[] | select(.status == "in_progress" or .status == "queued")' | grep -q .; then
-      # If we're in progress, tail live logs from launched instance,
-      while true; do
-        get_ip_for_instance
-        if [ -z "$ip" ]; then
-          echo "Waiting on instance with name: $instance_name"
-          sleep 5
-          continue
-        fi
-        set +e
-        ssh -q -t -o ConnectTimeout=5 ubuntu@$ip "
-          trap 'exit 130' SIGINT
-          docker ps -a --filter name=aztec_build --format '{{.Names}}' | grep -q '^aztec_build$' || exit 255
-          docker logs -f aztec_build
-        "
-        code=$?
-        set -e
-        # Exit loop if not an ssh or missing container error.
-        [ "$code" -ne 255 ] && exit $code
-        echo "Waiting on aztec_build container..."
+  "log")
+    [ -z "${1:-}" ] && run_id=$(get_latest_run_id) || run_id=$1
+    output=$(remote_redis_cli GET $run_id)
+    if [ "$output" == "In progress..." ]; then
+      # If we're in progress, tail live logs from launched instance.
+      while ! tail_live_instance; do
+        echo "Waiting on instance with name: $instance_name"
         sleep 5
       done
     else
-      # If not in progress, dump the log from github.
-      run_id=$(gh run list --workflow $workflow_id -b $BRANCH --limit 1 --json databaseId -q .[0].databaseId)
-      job_id=$(gh run view $run_id --json jobs -q '.jobs[0].databaseId')
-      PAGER= gh run view -j $job_id --log
+      echo "$output" | $PAGER
     fi
     ;;
   "shell")
@@ -143,16 +143,16 @@ case "$cmd" in
     [ -z "$ip" ] && echo "No instance found: $instance_name" && exit 1
     ssh -t -F $ci3/aws/build_instance_ssh_config ubuntu@$ip 'docker start aztec_build >/dev/null 2>&1 || true && docker exec -it --user aztec-dev aztec_build zsh'
     ;;
-  "attach")
-    get_ip_for_instance ${1:-}
-    [ -z "$ip" ] && echo "No instance found: $instance_name" && exit 1
-    ssh -t -F $ci3/aws/build_instance_ssh_config ubuntu@$ip 'docker start aztec_build >/dev/null 2>&1 || true && docker attach aztec_build'
-   ;;
-  "log")
-    get_ip_for_instance ${1:-}
-    [ -z "$ip" ] && echo "No instance found: $instance_name" && exit 1
-    ssh -t -F $ci3/aws/build_instance_ssh_config ubuntu@$ip 'docker logs -f aztec_build'
-    ;;
+  # "attach")
+  #   get_ip_for_instance ${1:-}
+  #   [ -z "$ip" ] && echo "No instance found: $instance_name" && exit 1
+  #   ssh -t -F $ci3/aws/build_instance_ssh_config ubuntu@$ip 'docker start aztec_build >/dev/null 2>&1 || true && docker attach aztec_build'
+  #  ;;
+  # "log")
+  #   get_ip_for_instance ${1:-}
+  #   [ -z "$ip" ] && echo "No instance found: $instance_name" && exit 1
+  #   ssh -t -F $ci3/aws/build_instance_ssh_config ubuntu@$ip 'docker logs -f aztec_build'
+  #   ;;
   "dlog")
     pager=${PAGER:-less}
     [ ! -t 0 ] && pager=cat
@@ -160,9 +160,7 @@ case "$cmd" in
     if [ "$(redis-cli --raw EXISTS $1)" -eq 1 ]; then
       redis-cli --raw GET $1 | $pager
     else
-      ssh -o ControlMaster=auto -o ControlPath=/tmp/ssh_mux_%h_%p_%r -o ControlPersist=10m \
-        -F $ci3/aws/build_instance_ssh_config ci-bastion.aztecprotocol.com \
-        redis-cli -h ci-redis.lzka0i.0001.use2.cache.amazonaws.com --raw GET $1 | $pager
+      remote_redis_cli GET $1 | $pager
     fi
     ;;
   "shell-host")
