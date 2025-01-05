@@ -232,7 +232,7 @@ export class BrokerCircuitProverFacade implements ServerCircuitProver {
     const completedJobs = await getAllCompletedJobs(snapshotSyncIds);
 
     // We now have an additional set of completed job notifications to add to our cached set giving us the full set of jobs that we have been told are ready
-    const allJobsReady = completedJobs.union(this.jobsToRetrieve);
+    const allJobsReady = new Set([...completedJobs, ...this.jobsToRetrieve]);
 
     // We now filter this list to what we actually need, in case for any reason it is different and store in our cache
     // This is the up to date list of jobs that we need to retrieve
