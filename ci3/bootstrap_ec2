@@ -102,7 +102,7 @@ ssh ${ssh_args:-} -F $ci3/aws/build_instance_ssh_config ubuntu@$ip "
     -e BUILD_SYSTEM_DEBUG=${BUILD_SYSTEM_DEBUG:-} \
     --pids-limit=32768 \
     aztecprotocol/devbox:3.0 bash -c '
-      set -e
+      set -euo pipefail
       # When restarting the container, just hang around.
       while [ -f started ]; do sleep 999; done
       touch started

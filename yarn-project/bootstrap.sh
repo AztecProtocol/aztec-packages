@@ -44,6 +44,17 @@ function build {
 
   denoise 'cd end-to-end && yarn build:web'
 
+  # Copy the snapshot files to dest folder and replace .ts with .js.
+  for snapshot_dir in */src/**/__snapshots__; do
+    dest_dir="${snapshot_dir/\/src\//\/dest\/}"
+    rm -rf "$dest_dir"
+    cp -r "$snapshot_dir" "$dest_dir"
+    for file in $dest_dir/*.test.ts.snap; do
+      mv "$file" "${file/.test.ts.snap/.test.js.snap}"
+    done
+  done
+  cp -R circuit-types/src/test/artifacts circuit-types/dest/test/artifacts
+
   # Upload common patterns for artifacts: dest, fixtures, build, artifacts, generated
   # Then one-off cases. If you've written into src, you need to update this.
   cache_upload $tar_file */{dest,fixtures,build,artifacts,generated} \
@@ -56,17 +67,6 @@ function build {
     protocol-contracts/src/protocol_contract_data.ts
   echo
   echo -e "${green}Yarn project successfully built!${reset}"
-
-  # Copy the snapshot files to dest folder and replace .ts with .js.
-  for snapshot_dir in */src/**/__snapshots__; do
-    dest_dir="${snapshot_dir/\/src\//\/dest\/}"
-    rm -rf "$dest_dir"
-    cp -r "$snapshot_dir" "$dest_dir"
-    for file in $dest_dir/*.test.ts.snap; do
-      mv "$file" "${file/.test.ts.snap/.test.js.snap}"
-    done
-  done
-  cp -R circuit-types/src/test/artifacts circuit-types/dest/test/artifacts
 }
 
 function test_cmds {

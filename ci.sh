@@ -132,7 +132,7 @@ case "$cmd" in
       # If we're in progress, tail live logs from launched instance.
       while ! tail_live_instance; do
         echo "Waiting on instance with name: $instance_name"
-        sleep 5
+        sleep 10
       done
     else
       echo "$output" | $PAGER
