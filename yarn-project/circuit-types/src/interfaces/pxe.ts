@@ -198,6 +198,7 @@ export interface PXE {
    * Sends a transaction to an Aztec node to be broadcasted to the network and mined.
    * @param tx - The transaction as created via `proveTx`.
    * @returns A hash of the transaction, used to identify it.
+   * @throws {Error} If transaction validation fails
    */
   sendTx(tx: Tx): Promise<TxHash>;
 

@@ -84,4 +84,28 @@ describe('PXEService', () => {
     const pxe = new PXEService(keyStore, node, db, tips, new TestPrivateKernelProver(), config);
     await expect(pxe.sendTx(duplicateTx)).rejects.toThrow(/A settled tx with equal hash/);
   });
+
+  it('throws when submitting an invalid tx', async () => {
+    const invalidTx = mockTx();
+
+    node.getTxEffect.mockResolvedValue(undefined);
+    node.isValidTx.mockResolvedValue(false);
+
+    const pxe = new PXEService(keyStore, node, db, tips, new TestPrivateKernelProver(), config);
+    await expect(pxe.sendTx(invalidTx)).rejects.toThrow(/Transaction validation failed/);
+  });
+
+  it('successfully sends valid tx', async () => {
+    const validTx = mockTx();
+    const txHash = validTx.getTxHash();
+
+    node.getTxEffect.mockResolvedValue(undefined);
+    node.isValidTx.mockResolvedValue(true);
+    node.sendTx.mockResolvedValue();
+
+    const pxe = new PXEService(keyStore, node, db, tips, new TestPrivateKernelProver(), config);
+    const result = await pxe.sendTx(validTx);
+    expect(result).toEqual(txHash);
+    expect(node.sendTx).toHaveBeenCalledWith(validTx);
+  });
 });

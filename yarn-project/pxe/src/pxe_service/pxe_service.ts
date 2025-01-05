@@ -565,6 +565,12 @@ export class PXEService implements PXE {
     if (await this.node.getTxEffect(txHash)) {
       throw new Error(`A settled tx with equal hash ${txHash.toString()} exists.`);
     }
+
+    // Validate transaction before sending
+    if (!(await this.node.isValidTx(tx))) {
+      throw new Error(`Transaction validation failed for tx ${txHash.toString()}`);
+    }
+
     this.log.debug(`Sending transaction ${txHash}`);
     await this.node.sendTx(tx).catch(err => {
       throw this.contextualizeError(err, inspect(tx));
