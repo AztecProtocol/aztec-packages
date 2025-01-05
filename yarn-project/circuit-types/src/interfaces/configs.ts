@@ -60,6 +60,7 @@ export const SequencerConfigSchema = z.object({
   allowedInSetup: z.array(AllowedElementSchema).optional(),
   maxBlockSizeInBytes: z.number().optional(),
   enforceFees: z.boolean().optional(),
-  gerousiaPayload: schemas.EthAddress.optional(),
+  governanceProposerPayload: schemas.EthAddress.optional(),
   maxL1TxInclusionTimeIntoSlot: z.number().optional(),
+  enforceTimeTable: z.boolean().optional(),
 }) satisfies ZodFor<SequencerConfig>;

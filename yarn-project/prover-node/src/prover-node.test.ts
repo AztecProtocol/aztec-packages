@@ -1,4 +1,5 @@
 import {
+  type Body,
   type EpochProofClaim,
   EpochProofQuote,
   EpochProofQuotePayload,
@@ -9,6 +10,9 @@ import {
   type MerkleTreeWriteOperations,
   P2PClientType,
   type ProverCoordination,
+  type Tx,
+  type TxEffect,
+  TxHash,
   WorldStateRunningState,
   type WorldStateSynchronizer,
 } from '@aztec/circuit-types';
@@ -44,7 +48,8 @@ describe('prover-node', () => {
   let l1ToL2MessageSource: MockProxy<L1ToL2MessageSource>;
   let contractDataSource: MockProxy<ContractDataSource>;
   let worldState: MockProxy<WorldStateSynchronizer>;
-  let coordination: MockProxy<ProverCoordination> | ProverCoordination;
+  let coordination: ProverCoordination;
+  let mockCoordination: MockProxy<ProverCoordination>;
   let quoteProvider: MockProxy<QuoteProvider>;
   let quoteSigner: MockProxy<QuoteSigner>;
   let bondManager: MockProxy<BondManager>;
@@ -108,7 +113,8 @@ describe('prover-node', () => {
     l1ToL2MessageSource = mock<L1ToL2MessageSource>();
     contractDataSource = mock<ContractDataSource>();
     worldState = mock<WorldStateSynchronizer>();
-    coordination = mock<ProverCoordination>();
+    mockCoordination = mock<ProverCoordination>();
+    coordination = mockCoordination;
     quoteProvider = mock<QuoteProvider>();
     quoteSigner = mock<QuoteSigner>();
     bondManager = mock<BondManager>();
@@ -134,9 +140,22 @@ describe('prover-node', () => {
     // Signer returns an empty signature
     quoteSigner.sign.mockImplementation(payload => Promise.resolve(new EpochProofQuote(payload, Signature.empty())));
 
+    // We create 3 fake blocks with 1 tx effect each
+    blocks = times(3, i =>
+      mock<L2Block>({
+        number: i + 20,
+        hash: () => new Fr(i),
+        body: mock<Body>({ txEffects: [mock<TxEffect>({ txHash: TxHash.random() } as TxEffect)] }),
+      }),
+    );
+
     // Archiver returns a bunch of fake blocks
-    blocks = times(3, i => mock<L2Block>({ number: i + 20, hash: () => new Fr(i) }));
     l2BlockSource.getBlocksForEpoch.mockResolvedValue(blocks);
+
+    // Coordination plays along and returns a tx whenever requested
+    mockCoordination.getTxByHash.mockImplementation(hash =>
+      Promise.resolve(mock<Tx>({ getTxHash: () => hash, tryGetTxHash: () => hash })),
+    );
 
     // A sample claim
     claim = { epochToProve: 10n, bondProvider: address } as EpochProofClaim;
@@ -171,6 +190,12 @@ describe('prover-node', () => {
 
     it('does not send a quote if there are no blocks in the epoch', async () => {
       l2BlockSource.getBlocksForEpoch.mockResolvedValue([]);
+      await proverNode.handleEpochCompleted(10n);
+      expect(coordination.addEpochProofQuote).not.toHaveBeenCalled();
+    });
+
+    it('does not send a quote if there is a tx missing from coordinator', async () => {
+      mockCoordination.getTxByHash.mockResolvedValue(undefined);
       await proverNode.handleEpochCompleted(10n);
       expect(coordination.addEpochProofQuote).not.toHaveBeenCalled();
     });
@@ -309,7 +334,7 @@ describe('prover-node', () => {
   // Things to test
   // - Another aztec node receives the proof quote via p2p
   // - The prover node can get the  it is missing via p2p, or it has them in it's mempool
-  describe('Using a p2p coordination', () => {
+  describe('using a p2p coordination', () => {
     let bootnode: BootstrapNode;
     let epochCache: MockProxy<EpochCache>;
     let p2pClient: P2PClient<P2PClientType.Prover>;
@@ -346,6 +371,11 @@ describe('prover-node', () => {
       // Set the p2p client to be the coordination method
       coordination = p2pClient;
 
+      // But still mock getTxByHash
+      const mockGetTxByHash = (hash: TxHash) => Promise.resolve(mock<Tx>({ getTxHash: () => hash }));
+      jest.spyOn(p2pClient, 'getTxByHash').mockImplementation(mockGetTxByHash);
+      jest.spyOn(otherP2PClient, 'getTxByHash').mockImplementation(mockGetTxByHash);
+
       await Promise.all([p2pClient.start(), otherP2PClient.start()]);
 
       // Sleep to enable peer discovery
@@ -373,7 +403,7 @@ describe('prover-node', () => {
         await proverNode.stop();
       });
 
-      it('Should send a proof quote via p2p to another node', async () => {
+      it('should send a proof quote via p2p to another node', async () => {
         const epochNumber = 10n;
         epochCache.getEpochAndSlotNow.mockReturnValue({
           epoch: epochNumber,
@@ -412,6 +442,7 @@ describe('prover-node', () => {
     protected override doCreateEpochProvingJob(
       epochNumber: bigint,
       _blocks: L2Block[],
+      _txs: Tx[],
       _publicProcessorFactory: PublicProcessorFactory,
       cleanUp: (job: EpochProvingJob) => Promise<void>,
     ): EpochProvingJob {
