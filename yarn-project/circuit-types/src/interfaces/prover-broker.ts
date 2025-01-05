@@ -2,7 +2,6 @@ import {
   type ProofUri,
   type ProvingJob,
   type ProvingJobId,
-  type ProvingJobSettledResult,
   type ProvingJobStatus,
   type ProvingRequestType,
 } from '@aztec/circuit-types';
@@ -77,8 +76,9 @@ export interface ProvingJobProducer {
   /**
    * Waits for the job to settle and returns to the result
    * @param id - The ID of the job to get the status of
+   * @param wait - Whether to wait for the job to settle if not already settled
    */
-  waitForJobToSettle(id: ProvingJobId): Promise<ProvingJobSettledResult>;
+  //retrieveSettledJob(id: ProvingJobId, wait: boolean): Promise<ProvingJobSettledResult>;
 
   /**
    * Returns the ids of jobs that have been completed since the last call

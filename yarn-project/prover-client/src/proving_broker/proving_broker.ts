@@ -12,7 +12,7 @@ import {
 import { asyncPool } from '@aztec/foundation/async-pool';
 import { createLogger } from '@aztec/foundation/log';
 import { type PromiseWithResolvers, RunningPromise, promiseWithResolvers } from '@aztec/foundation/promise';
-import { PriorityMemoryQueue } from '@aztec/foundation/queue';
+import { PriorityMemoryQueue, SerialQueue } from '@aztec/foundation/queue';
 import { Timer } from '@aztec/foundation/timer';
 import { type TelemetryClient, type Traceable, type Tracer, trackSpan } from '@aztec/telemetry-client';
 
@@ -106,6 +106,8 @@ export class ProvingBroker implements ProvingJobProducer, ProvingJobConsumer, Tr
   private epochHeight = 0;
   private maxEpochsToKeepResultsFor = 1;
 
+  private requestQueue: SerialQueue = new SerialQueue();
+
   public constructor(
     private database: ProvingBrokerDatabase,
     client: TelemetryClient,
@@ -163,6 +165,8 @@ export class ProvingBroker implements ProvingJobProducer, ProvingJobConsumer, Tr
 
     this.cleanupPromise.start();
 
+    this.requestQueue.start();
+
     this.instrumentation.monitorQueueDepth(this.measureQueueDepth);
     this.instrumentation.monitorActiveJobs(this.countActiveJobs);
 
@@ -170,10 +174,48 @@ export class ProvingBroker implements ProvingJobProducer, ProvingJobConsumer, Tr
   }
 
   public async stop(): Promise<void> {
+    await this.requestQueue.cancel();
+    await this.cleanupPromise.stop();
     await this.cleanupPromise.stop();
   }
 
-  public async enqueueProvingJob(job: ProvingJob): Promise<boolean> {
+  public enqueueProvingJob(job: ProvingJob): Promise<boolean> {
+    return this.requestQueue.put(() => this.#enqueueProvingJob(job));
+  }
+
+  public cancelProvingJob(id: ProvingJobId): Promise<void> {
+    return this.requestQueue.put(() => this.#cancelProvingJob(id));
+  }
+
+  public getProvingJobStatus(id: ProvingJobId): Promise<ProvingJobStatus> {
+    return this.requestQueue.put(() => this.#getProvingJobStatus(id));
+  }
+
+  public getCompletedJobs(ids: ProvingJobId[]): Promise<ProvingJobId[]> {
+    return this.requestQueue.put(() => this.#getCompletedJobs(ids));
+  }
+
+  public getProvingJob(filter?: ProvingJobFilter): Promise<{ job: ProvingJob; time: number } | undefined> {
+    return this.requestQueue.put(() => this.#getProvingJob(filter));
+  }
+
+  public reportProvingJobSuccess(id: ProvingJobId, value: ProofUri): Promise<void> {
+    return this.requestQueue.put(() => this.#reportProvingJobSuccess(id, value));
+  }
+
+  public reportProvingJobError(id: ProvingJobId, err: string, retry = false): Promise<void> {
+    return this.requestQueue.put(() => this.#reportProvingJobError(id, err, retry));
+  }
+
+  public reportProvingJobProgress(
+    id: ProvingJobId,
+    startedAt: number,
+    filter?: ProvingJobFilter,
+  ): Promise<{ job: ProvingJob; time: number } | undefined> {
+    return this.requestQueue.put(() => this.#reportProvingJobProgress(id, startedAt, filter));
+  }
+
+  async #enqueueProvingJob(job: ProvingJob): Promise<boolean> {
     if (this.jobsCache.has(job.id)) {
       const existing = this.jobsCache.get(job.id);
       assert.deepStrictEqual(job, existing, 'Duplicate proving job ID');
@@ -204,16 +246,23 @@ export class ProvingBroker implements ProvingJobProducer, ProvingJobConsumer, Tr
     return true;
   }
 
-  public waitForJobToSettle(id: ProvingJobId): Promise<ProvingJobSettledResult> {
-    const promiseWithResolvers = this.promises.get(id);
-    if (!promiseWithResolvers) {
-      this.logger.warn(`Job id=${id} not found`, { provingJobId: id });
-      return Promise.resolve({ status: 'rejected', reason: `Job ${id} not found` });
-    }
-    return promiseWithResolvers.promise;
-  }
+  // public retrieveSettledJob(id: ProvingJobId, wait: boolean): Promise<ProvingJobSettledResult | undefined> {
+  //   const results = this.resultsCache.get(id);
+  //   if (results) {
+  //     return Promise.resolve(results);
+  //   }
+  //   if (!wait) {
+  //     return Promise.resolve(undefined);
+  //   }
+  //   const promiseWithResolvers = this.promises.get(id);
+  //   if (!promiseWithResolvers) {
+  //     this.logger.warn(`Job id=${id} not found`, { provingJobId: id });
+  //     return Promise.resolve({ status: 'rejected', reason: `Job ${id} not found` });
+  //   }
+  //   return promiseWithResolvers.promise;
+  // }
 
-  public async cancelProvingJob(id: ProvingJobId): Promise<void> {
+  async #cancelProvingJob(id: ProvingJobId): Promise<void> {
     if (!this.jobsCache.has(id)) {
       this.logger.warn(`Can't cancel a job that doesn't exist id=${id}`, { provingJobId: id });
       return;
@@ -246,7 +295,7 @@ export class ProvingBroker implements ProvingJobProducer, ProvingJobConsumer, Tr
     this.retries.delete(id);
   }
 
-  public getProvingJobStatus(id: ProvingJobId): Promise<ProvingJobStatus> {
+  #getProvingJobStatus(id: ProvingJobId): Promise<ProvingJobStatus> {
     const result = this.resultsCache.get(id);
     if (result) {
       return Promise.resolve(result);
@@ -263,7 +312,7 @@ export class ProvingBroker implements ProvingJobProducer, ProvingJobConsumer, Tr
     }
   }
 
-  public getCompletedJobs(ids: ProvingJobId[]): Promise<ProvingJobId[]> {
+  #getCompletedJobs(ids: ProvingJobId[]): Promise<ProvingJobId[]> {
     const completedJobs = ids.filter(id => this.resultsCache.has(id));
     const notifications = this.completedJobNotifications;
     this.completedJobNotifications = [];
@@ -271,7 +320,7 @@ export class ProvingBroker implements ProvingJobProducer, ProvingJobConsumer, Tr
   }
 
   // eslint-disable-next-line require-await
-  async getProvingJob(
+  async #getProvingJob(
     filter: ProvingJobFilter = { allowList: [] },
   ): Promise<{ job: ProvingJob; time: number } | undefined> {
     const allowedProofs: ProvingRequestType[] =
@@ -309,7 +358,7 @@ export class ProvingBroker implements ProvingJobProducer, ProvingJobConsumer, Tr
     return undefined;
   }
 
-  async reportProvingJobError(id: ProvingJobId, err: string, retry = false): Promise<void> {
+  async #reportProvingJobError(id: ProvingJobId, err: string, retry = false): Promise<void> {
     const info = this.inProgress.get(id);
     const item = this.jobsCache.get(id);
     const retries = this.retries.get(id) ?? 0;
@@ -380,7 +429,7 @@ export class ProvingBroker implements ProvingJobProducer, ProvingJobConsumer, Tr
     }
   }
 
-  reportProvingJobProgress(
+  #reportProvingJobProgress(
     id: ProvingJobId,
     startedAt: number,
     filter?: ProvingJobFilter,
@@ -437,7 +486,7 @@ export class ProvingBroker implements ProvingJobProducer, ProvingJobConsumer, Tr
     }
   }
 
-  async reportProvingJobSuccess(id: ProvingJobId, value: ProofUri): Promise<void> {
+  async #reportProvingJobSuccess(id: ProvingJobId, value: ProofUri): Promise<void> {
     const info = this.inProgress.get(id);
     const item = this.jobsCache.get(id);
     const retries = this.retries.get(id) ?? 0;
