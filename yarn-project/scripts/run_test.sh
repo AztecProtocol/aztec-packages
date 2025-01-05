@@ -3,7 +3,7 @@
 # It's the script used by ./bootstrap.sh test-cmds.
 # It means we can return a concise, easy to read, easy to run command for reproducing a test run.
 # TODO: --forceExit *should not be needed*. Find out what's not being cleaned up.
-set -eu
+source $(git rev-parse --show-toplevel)/ci3/source
 
 test=$1
 dir=${test%%/*}
@@ -22,7 +22,7 @@ if [ "${ISOLATE:-0}" -eq 1 ]; then
     --mount type=tmpfs,target=/tmp,tmpfs-size=1g \
     --workdir /root/aztec-packages/yarn-project/$dir \
     -e NODE_OPTIONS="--no-warnings --experimental-vm-modules --loader ts-node/esm" \
-    aztecprotocol/build:3.0 \
+    $ISOLATION_IMAGE \
       node ../node_modules/.bin/jest --forceExit --runInBand $test
 else
   export NODE_OPTIONS="--no-warnings --experimental-vm-modules --loader ts-node/esm"

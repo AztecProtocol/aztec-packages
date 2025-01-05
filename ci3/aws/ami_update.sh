@@ -39,11 +39,11 @@ scp -F build_instance_ssh_config $HOME/.aws/build_instance_credentials ubuntu@$i
 ssh -t -F build_instance_ssh_config ubuntu@$ip < ../../barretenberg/scripts/download_bb_crs.sh
 
 # Pull devbox onto host, and build into docker-in-docker volume.
-ssh -t -F build_instance_ssh_config ubuntu@$ip '
-  docker run --privileged -ti --rm -v bootstrap_ci_local_docker:/var/lib/docker aztecprotocol/devbox:3.0 bash -c "
-    docker pull aztecprotocol/build:3.0
-  "
-'
+ssh -t -F build_instance_ssh_config ubuntu@$ip "
+  docker run --privileged -ti --rm -v bootstrap_ci_local_docker:/var/lib/docker $DEVBOX_IMAGE bash -c \"
+    docker pull $ISOLATION_IMAGE
+  \"
+"
 
 if [ "${NO_AMI:-0}" -eq 0 ]; then
   export AWS_DEFAULT_REGION=us-east-2

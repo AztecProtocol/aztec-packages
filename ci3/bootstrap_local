@@ -30,7 +30,7 @@ docker run -ti --rm --privileged \
   -e BUILD_SYSTEM_DEBUG=${BUILD_SYSTEM_DEBUG:-} \
   --cpus=$(get_num_cpus) \
   --pids-limit=32768 \
-  aztecprotocol/devbox:3.0 bash -c "
+  $DEVBOX_IMAGE bash -c "
     set -e
     git config --global --add safe.directory /aztec-packages-host/.git
     git clone --depth 1 file:///aztec-packages-host aztec-packages

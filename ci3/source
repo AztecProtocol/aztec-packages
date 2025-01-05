@@ -26,6 +26,9 @@ if [ -z "$CI_REDIS" ] && nc -z localhost 6379 &>/dev/null; then
   CI_REDIS=localhost
 fi
 
+export DEVBOX_IMAGE=aztecprotocol/devbox:3.0
+export ISOLATION_IMAGE=aztecprotocol/build:3.0
+
 # We always want color.
 export FORCE_COLOR=true
 

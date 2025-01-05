@@ -7,4 +7,4 @@ set -eu
 cd $(dirname $0)/..
 
 export NODE_OPTIONS="--no-warnings --experimental-vm-modules --loader ts-node/esm"
-./node_modules/.bin/jest $1
+./node_modules/.bin/jest --forceExit --runInBand $1

@@ -3,18 +3,17 @@
 # Called by bootstrap when it runs all the tests.
 # A "simple" test is one that does not require docker-compose. They are still run within docker isolation however.
 # A "compose" test uses docker-compose to launch actual services.
-# A "skip" or "flake" test is simple skipped, the label is informational.
 #
 # To avoid thrashing the disk, we mount /tmp as a 1gb tmpfs.
 # We separate out jests temp dir for now, as it consumes a lot of space and we want to quota /tmp independently.
-set -eu
+source $(git rev-parse --show-toplevel)/ci3/source
 
-TYPE=$1
+type=$1
+
+# Needs exporting for resolving in docker-compose.yml.
 export TEST=$2
 
-cd $(dirname $0)
-
-case "$TYPE" in
+case "$type" in
   "simple")
     # Strip leading non alpha numerics and replace / with _ for the container name.
     name=$(echo "${TEST}" | sed 's/^[^a-zA-Z0-9]*//' | tr '/' '_')
@@ -29,14 +28,11 @@ case "$TYPE" in
       --mount type=tmpfs,target=/tmp-jest,tmpfs-size=512m \
       -e JEST_CACHE_DIR=/tmp-jest \
       --workdir /root/aztec-packages/yarn-project/end-to-end \
-      aztecprotocol/build:3.0 ./scripts/test_simple.sh $TEST
+      $ISOLATION_IMAGE ./scripts/test_simple.sh $TEST
   ;;
   "compose")
     name=${TEST//[\/\.]/_}
     trap "docker compose -p $name down" SIGINT SIGTERM
     docker compose -p "$name" up --exit-code-from=end-to-end --abort-on-container-exit --force-recreate
-  ;;
-  "skip")
-    echo "Skipping test: $TEST"
   ;;
 esac
