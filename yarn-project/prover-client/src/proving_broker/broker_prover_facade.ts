@@ -73,7 +73,7 @@ export class BrokerCircuitProverFacade implements ServerCircuitProver {
     private log = createLogger('prover-client:broker-circuit-prover-facade'),
   ) {}
 
-  private async enqueueJob<T extends ProvingRequestType>(
+  private enqueueJob<T extends ProvingRequestType>(
     id: ProvingJobId,
     type: T,
     inputs: ProvingJobInputsMap[T],
@@ -83,7 +83,9 @@ export class BrokerCircuitProverFacade implements ServerCircuitProver {
     if (!this.queue) {
       throw new Error('BrokerCircuitProverFacade not started');
     }
-    return await this.queue!.put(() => this._enqueueJob(id, type, inputs, epochNumber, signal));
+    return this.queue!.put(() => this._enqueueJob(id, type, inputs, epochNumber, signal)).then(
+      ({ enqueuedPromise }) => enqueuedPromise,
+    );
   }
 
   private async _enqueueJob<T extends ProvingRequestType>(
@@ -92,7 +94,7 @@ export class BrokerCircuitProverFacade implements ServerCircuitProver {
     inputs: ProvingJobInputsMap[T],
     epochNumber = 0,
     signal?: AbortSignal,
-  ): Promise<ProvingJobResultsMap[T]> {
+  ): Promise<{ enqueuedPromise: Promise<ProvingJobResultsMap[T]> }> {
     // Check if there is already a promise for this job
     const existingPromise = this.jobs.get(id);
     if (existingPromise) {
@@ -101,7 +103,7 @@ export class BrokerCircuitProverFacade implements ServerCircuitProver {
         provingJobType: ProvingRequestType[type],
         epochNumber,
       });
-      return existingPromise.promise.promise as Promise<ProvingJobResultsMap[T]>;
+      return { enqueuedPromise: existingPromise.promise.promise as Promise<ProvingJobResultsMap[T]> };
     }
     const inputsUri = await this.proofStore.saveProofInput(id, type, inputs);
     const enqueued = await this.broker.enqueueProvingJob({
@@ -155,7 +157,7 @@ export class BrokerCircuitProverFacade implements ServerCircuitProver {
       this.jobsToRetrieve.add(id);
     }
     const typedPromise = promise.promise as Promise<ProvingJobResultsMap[T]>;
-    return typedPromise;
+    return { enqueuedPromise: typedPromise };
   }
 
   public start() {
@@ -323,7 +325,7 @@ export class BrokerCircuitProverFacade implements ServerCircuitProver {
     }
     if (totalJobsToRetrieve > 0) {
       this.log.verbose(
-        `Successfully retrieved ${totalJobsRetrieved} of ${totalJobsToRetrieve} jobs that should be ready, outstanding jobs: ${this.jobsToRetrieve.size}`,
+        `Successfully retrieved ${totalJobsRetrieved} of ${totalJobsToRetrieve} jobs that should be ready, total ready jobs is now: ${this.jobsToRetrieve.size}`,
       );
     }
   }
