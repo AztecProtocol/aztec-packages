@@ -26,6 +26,6 @@ if [ "${ISOLATE:-0}" -eq 1 ]; then
       node ../node_modules/.bin/jest --forceExit --runInBand $test
 else
   export NODE_OPTIONS="--no-warnings --experimental-vm-modules --loader ts-node/esm"
-  cd $(dirname $0)/../$dir
+  cd ../$dir
   node ../node_modules/.bin/jest --forceExit --runInBand $test
 fi
