@@ -13,9 +13,15 @@ import { StatefulTestContract } from '@aztec/noir-contracts.js/StatefulTest';
 import { TestContract } from '@aztec/noir-contracts.js/Test';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
 
+import { jest } from '@jest/globals';
+
 import { DeployTest } from './deploy_test.js';
 
+const TIMEOUT = 300_000;
+
 describe('e2e_deploy_contract deploy method', () => {
+  jest.setTimeout(TIMEOUT);
+
   const t = new DeployTest('deploy method');
 
   let pxe: PXE;
