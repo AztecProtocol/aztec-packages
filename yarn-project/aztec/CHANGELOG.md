@@ -1,5 +1,184 @@
 # Changelog
 
+## [0.69.0](https://github.com/AztecProtocol/aztec-packages/compare/aztec-package-v0.68.2...aztec-package-v0.69.0) (2025-01-03)
+
+
+### Miscellaneous
+
+* Add version number when starting sandbox ([#10935](https://github.com/AztecProtocol/aztec-packages/issues/10935)) ([c8dcd8f](https://github.com/AztecProtocol/aztec-packages/commit/c8dcd8f3e50e6447e1e7a09d768b3aff5f17044b))
+* Cl/ci3.2 ([#10919](https://github.com/AztecProtocol/aztec-packages/issues/10919)) ([49dacc3](https://github.com/AztecProtocol/aztec-packages/commit/49dacc3378a339f8cc36971b630c52952249f60c))
+
+## [0.68.2](https://github.com/AztecProtocol/aztec-packages/compare/aztec-package-v0.68.1...aztec-package-v0.68.2) (2024-12-24)
+
+
+### Miscellaneous
+
+* **aztec-package:** Synchronize aztec-packages versions
+
+## [0.68.1](https://github.com/AztecProtocol/aztec-packages/compare/aztec-package-v0.68.0...aztec-package-v0.68.1) (2024-12-23)
+
+
+### Miscellaneous
+
+* Configurable parallelism in bootstrap ([#10909](https://github.com/AztecProtocol/aztec-packages/issues/10909)) ([5260f1e](https://github.com/AztecProtocol/aztec-packages/commit/5260f1e087d085ff42dc72801274442932af9778))
+
+## [0.68.0](https://github.com/AztecProtocol/aztec-packages/compare/aztec-package-v0.67.1...aztec-package-v0.68.0) (2024-12-20)
+
+
+### ⚠ BREAKING CHANGES
+
+* Remove debug and winston in favor of pino ([#10355](https://github.com/AztecProtocol/aztec-packages/issues/10355))
+
+### Features
+
+* Agent and broker expose OTEL metrics  ([#10264](https://github.com/AztecProtocol/aztec-packages/issues/10264)) ([c2c8cc6](https://github.com/AztecProtocol/aztec-packages/commit/c2c8cc6f7336cf4b2fa14d9a7f1af1a30f1b8f79))
+* **avm:** New public inputs witgen ([#10179](https://github.com/AztecProtocol/aztec-packages/issues/10179)) ([ac8f13e](https://github.com/AztecProtocol/aztec-packages/commit/ac8f13e4cd9a3f6b23d53ce5b06cc436324d5f7b))
+* Deploy faucet ([#10580](https://github.com/AztecProtocol/aztec-packages/issues/10580)) ([09e95a1](https://github.com/AztecProtocol/aztec-packages/commit/09e95a1d033deb5c31d9967d5100a6aeb8485ab5))
+* Epoch cache, do not attest if not in committee or from current proposer ([#10327](https://github.com/AztecProtocol/aztec-packages/issues/10327)) ([9ebaa65](https://github.com/AztecProtocol/aztec-packages/commit/9ebaa65ce290481e5dc00174e92137561360549a))
+* Expose P2P service API and clean up logs ([#10552](https://github.com/AztecProtocol/aztec-packages/issues/10552)) ([98cea58](https://github.com/AztecProtocol/aztec-packages/commit/98cea58dd9c7a4518daa8e625dd794a2b6f4b314)), closes [#10299](https://github.com/AztecProtocol/aztec-packages/issues/10299)
+* New proving broker ([#10174](https://github.com/AztecProtocol/aztec-packages/issues/10174)) ([6fd5fc1](https://github.com/AztecProtocol/aztec-packages/commit/6fd5fc18bd973b539fb9edfb372181fbe4617f75))
+* PXE in the browser ([#10353](https://github.com/AztecProtocol/aztec-packages/issues/10353)) ([676f673](https://github.com/AztecProtocol/aztec-packages/commit/676f673dfbcb14f5351a0068aef9ad9fa4ebf879))
+* PXE sync on demand ([#10613](https://github.com/AztecProtocol/aztec-packages/issues/10613)) ([b2f1159](https://github.com/AztecProtocol/aztec-packages/commit/b2f11596e5c79be0c11ad298e734885e9657e640))
+* Staking integration ([#10403](https://github.com/AztecProtocol/aztec-packages/issues/10403)) ([ecd6c4f](https://github.com/AztecProtocol/aztec-packages/commit/ecd6c4ff914129236b23ab6f4924e4faa3e9d523))
+* Unify anvil versions ([#10143](https://github.com/AztecProtocol/aztec-packages/issues/10143)) ([adae143](https://github.com/AztecProtocol/aztec-packages/commit/adae14363c29591e01477ce131578189b82430e8))
+
+
+### Bug Fixes
+
+* Do not load pino-pretty in production bundles ([#10578](https://github.com/AztecProtocol/aztec-packages/issues/10578)) ([e515e6e](https://github.com/AztecProtocol/aztec-packages/commit/e515e6e7644180bab72eb693d83b9496919cc159))
+* Tweaking Fr and Fq fromString functionality to distinguish number-only strings ([#10529](https://github.com/AztecProtocol/aztec-packages/issues/10529)) ([736fce1](https://github.com/AztecProtocol/aztec-packages/commit/736fce1f77533925943ef363d1803b2e55f83609))
+
+
+### Miscellaneous
+
+* Bump jest default test timeout to 30s ([#10550](https://github.com/AztecProtocol/aztec-packages/issues/10550)) ([841bf48](https://github.com/AztecProtocol/aztec-packages/commit/841bf48c27767c3a4a53aacd0115582e8397910f))
+* Ci3 phase 1 ([#10042](https://github.com/AztecProtocol/aztec-packages/issues/10042)) ([641da4b](https://github.com/AztecProtocol/aztec-packages/commit/641da4bbd7f12d5a66e5763c18f5fa8f7c627c76))
+* Delete old serialization methods ([#9951](https://github.com/AztecProtocol/aztec-packages/issues/9951)) ([10d3f6f](https://github.com/AztecProtocol/aztec-packages/commit/10d3f6fe851dc73f5f12edec26b028fe526f0be6))
+* Fast epoch building test ([#10045](https://github.com/AztecProtocol/aztec-packages/issues/10045)) ([fb791a2](https://github.com/AztecProtocol/aztec-packages/commit/fb791a2ffc3f477c4526d7e14baf06dbe200144d)), closes [#9809](https://github.com/AztecProtocol/aztec-packages/issues/9809)
+* Granular CLI imports to reduce start time ([#10778](https://github.com/AztecProtocol/aztec-packages/issues/10778)) ([e2fd046](https://github.com/AztecProtocol/aztec-packages/commit/e2fd046250664cd785269a718b036c0310dfcda7))
+* **master:** Release 0.64.0 ([#10043](https://github.com/AztecProtocol/aztec-packages/issues/10043)) ([12b1daa](https://github.com/AztecProtocol/aztec-packages/commit/12b1daafa121452a1ba2d17228be335b1a45b818))
+* **master:** Release 0.65.0 ([#10181](https://github.com/AztecProtocol/aztec-packages/issues/10181)) ([903bcb0](https://github.com/AztecProtocol/aztec-packages/commit/903bcb0a42f7fd83fb7da97a13b763cf761336bd))
+* **master:** Release 0.65.1 ([#10219](https://github.com/AztecProtocol/aztec-packages/issues/10219)) ([62fc917](https://github.com/AztecProtocol/aztec-packages/commit/62fc9175019cb5f3fabca1a5f5ff9e04d708695e))
+* **master:** Release 0.65.2 ([#10258](https://github.com/AztecProtocol/aztec-packages/issues/10258)) ([10754db](https://github.com/AztecProtocol/aztec-packages/commit/10754db0e6626047d4fc59cd0d7bbb320606152a))
+* **master:** Release 0.66.0 ([#10282](https://github.com/AztecProtocol/aztec-packages/issues/10282)) ([fc61b27](https://github.com/AztecProtocol/aztec-packages/commit/fc61b27dde7c8d30712bf4910d45081caaf0bb53))
+* **master:** Release 0.67.0 ([#10472](https://github.com/AztecProtocol/aztec-packages/issues/10472)) ([19a500f](https://github.com/AztecProtocol/aztec-packages/commit/19a500ffc09ab8bc367a78599dd73a07a04b426e))
+* **master:** Release 0.67.1 ([#10684](https://github.com/AztecProtocol/aztec-packages/issues/10684)) ([c90bb16](https://github.com/AztecProtocol/aztec-packages/commit/c90bb16a5880c42752809f383f517181e6f8a53a))
+* Remove debug and winston in favor of pino ([#10355](https://github.com/AztecProtocol/aztec-packages/issues/10355)) ([c246aba](https://github.com/AztecProtocol/aztec-packages/commit/c246aba5dd51391e2b8a3bd8cdc67f0115b85a7a))
+* Rename logger modules ([#10404](https://github.com/AztecProtocol/aztec-packages/issues/10404)) ([7441767](https://github.com/AztecProtocol/aztec-packages/commit/7441767d7e8e7e7d602c447ca843dee43f8dc8f8)), closes [#10125](https://github.com/AztecProtocol/aztec-packages/issues/10125)
+* Split up protocol contract artifacts ([#10765](https://github.com/AztecProtocol/aztec-packages/issues/10765)) ([5a9ca18](https://github.com/AztecProtocol/aztec-packages/commit/5a9ca18ceee03ca2175605d1029153a7bf228ea9))
+* Trace and handle errors in running promises ([#10645](https://github.com/AztecProtocol/aztec-packages/issues/10645)) ([4cc0a6d](https://github.com/AztecProtocol/aztec-packages/commit/4cc0a6d832e6ee1c3fcc6876517ed3f743f59d4b))
+
+## [0.67.1](https://github.com/AztecProtocol/aztec-packages/compare/aztec-package-v0.67.0...aztec-package-v0.67.1) (2024-12-17)
+
+
+### Miscellaneous
+
+* Granular CLI imports to reduce start time ([#10778](https://github.com/AztecProtocol/aztec-packages/issues/10778)) ([e2fd046](https://github.com/AztecProtocol/aztec-packages/commit/e2fd046250664cd785269a718b036c0310dfcda7))
+* Split up protocol contract artifacts ([#10765](https://github.com/AztecProtocol/aztec-packages/issues/10765)) ([5a9ca18](https://github.com/AztecProtocol/aztec-packages/commit/5a9ca18ceee03ca2175605d1029153a7bf228ea9))
+* Trace and handle errors in running promises ([#10645](https://github.com/AztecProtocol/aztec-packages/issues/10645)) ([4cc0a6d](https://github.com/AztecProtocol/aztec-packages/commit/4cc0a6d832e6ee1c3fcc6876517ed3f743f59d4b))
+
+## [0.67.0](https://github.com/AztecProtocol/aztec-packages/compare/aztec-package-v0.66.0...aztec-package-v0.67.0) (2024-12-13)
+
+
+### Features
+
+* Deploy faucet ([#10580](https://github.com/AztecProtocol/aztec-packages/issues/10580)) ([09e95a1](https://github.com/AztecProtocol/aztec-packages/commit/09e95a1d033deb5c31d9967d5100a6aeb8485ab5))
+* Expose P2P service API and clean up logs ([#10552](https://github.com/AztecProtocol/aztec-packages/issues/10552)) ([98cea58](https://github.com/AztecProtocol/aztec-packages/commit/98cea58dd9c7a4518daa8e625dd794a2b6f4b314)), closes [#10299](https://github.com/AztecProtocol/aztec-packages/issues/10299)
+* PXE in the browser ([#10353](https://github.com/AztecProtocol/aztec-packages/issues/10353)) ([676f673](https://github.com/AztecProtocol/aztec-packages/commit/676f673dfbcb14f5351a0068aef9ad9fa4ebf879))
+* PXE sync on demand ([#10613](https://github.com/AztecProtocol/aztec-packages/issues/10613)) ([b2f1159](https://github.com/AztecProtocol/aztec-packages/commit/b2f11596e5c79be0c11ad298e734885e9657e640))
+
+
+### Bug Fixes
+
+* Do not load pino-pretty in production bundles ([#10578](https://github.com/AztecProtocol/aztec-packages/issues/10578)) ([e515e6e](https://github.com/AztecProtocol/aztec-packages/commit/e515e6e7644180bab72eb693d83b9496919cc159))
+* Tweaking Fr and Fq fromString functionality to distinguish number-only strings ([#10529](https://github.com/AztecProtocol/aztec-packages/issues/10529)) ([736fce1](https://github.com/AztecProtocol/aztec-packages/commit/736fce1f77533925943ef363d1803b2e55f83609))
+
+
+### Miscellaneous
+
+* Bump jest default test timeout to 30s ([#10550](https://github.com/AztecProtocol/aztec-packages/issues/10550)) ([841bf48](https://github.com/AztecProtocol/aztec-packages/commit/841bf48c27767c3a4a53aacd0115582e8397910f))
+* Rename logger modules ([#10404](https://github.com/AztecProtocol/aztec-packages/issues/10404)) ([7441767](https://github.com/AztecProtocol/aztec-packages/commit/7441767d7e8e7e7d602c447ca843dee43f8dc8f8)), closes [#10125](https://github.com/AztecProtocol/aztec-packages/issues/10125)
+
+## [0.66.0](https://github.com/AztecProtocol/aztec-packages/compare/aztec-package-v0.65.2...aztec-package-v0.66.0) (2024-12-06)
+
+
+### ⚠ BREAKING CHANGES
+
+* Remove debug and winston in favor of pino ([#10355](https://github.com/AztecProtocol/aztec-packages/issues/10355))
+
+### Features
+
+* Agent and broker expose OTEL metrics  ([#10264](https://github.com/AztecProtocol/aztec-packages/issues/10264)) ([c2c8cc6](https://github.com/AztecProtocol/aztec-packages/commit/c2c8cc6f7336cf4b2fa14d9a7f1af1a30f1b8f79))
+* Epoch cache, do not attest if not in committee or from current proposer ([#10327](https://github.com/AztecProtocol/aztec-packages/issues/10327)) ([9ebaa65](https://github.com/AztecProtocol/aztec-packages/commit/9ebaa65ce290481e5dc00174e92137561360549a))
+* Staking integration ([#10403](https://github.com/AztecProtocol/aztec-packages/issues/10403)) ([ecd6c4f](https://github.com/AztecProtocol/aztec-packages/commit/ecd6c4ff914129236b23ab6f4924e4faa3e9d523))
+
+
+### Miscellaneous
+
+* Remove debug and winston in favor of pino ([#10355](https://github.com/AztecProtocol/aztec-packages/issues/10355)) ([c246aba](https://github.com/AztecProtocol/aztec-packages/commit/c246aba5dd51391e2b8a3bd8cdc67f0115b85a7a))
+
+## [0.65.2](https://github.com/AztecProtocol/aztec-packages/compare/aztec-package-v0.65.1...aztec-package-v0.65.2) (2024-11-28)
+
+
+### Features
+
+* New proving broker ([#10174](https://github.com/AztecProtocol/aztec-packages/issues/10174)) ([6fd5fc1](https://github.com/AztecProtocol/aztec-packages/commit/6fd5fc18bd973b539fb9edfb372181fbe4617f75))
+
+## [0.65.1](https://github.com/AztecProtocol/aztec-packages/compare/aztec-package-v0.65.0...aztec-package-v0.65.1) (2024-11-27)
+
+
+### Miscellaneous
+
+* Delete old serialization methods ([#9951](https://github.com/AztecProtocol/aztec-packages/issues/9951)) ([10d3f6f](https://github.com/AztecProtocol/aztec-packages/commit/10d3f6fe851dc73f5f12edec26b028fe526f0be6))
+
+## [0.65.0](https://github.com/AztecProtocol/aztec-packages/compare/aztec-package-v0.64.0...aztec-package-v0.65.0) (2024-11-26)
+
+
+### Features
+
+* **avm:** New public inputs witgen ([#10179](https://github.com/AztecProtocol/aztec-packages/issues/10179)) ([ac8f13e](https://github.com/AztecProtocol/aztec-packages/commit/ac8f13e4cd9a3f6b23d53ce5b06cc436324d5f7b))
+
+## [0.64.0](https://github.com/AztecProtocol/aztec-packages/compare/aztec-package-v0.63.1...aztec-package-v0.64.0) (2024-11-25)
+
+
+### Features
+
+* Unify anvil versions ([#10143](https://github.com/AztecProtocol/aztec-packages/issues/10143)) ([adae143](https://github.com/AztecProtocol/aztec-packages/commit/adae14363c29591e01477ce131578189b82430e8))
+
+
+### Miscellaneous
+
+* Fast epoch building test ([#10045](https://github.com/AztecProtocol/aztec-packages/issues/10045)) ([fb791a2](https://github.com/AztecProtocol/aztec-packages/commit/fb791a2ffc3f477c4526d7e14baf06dbe200144d)), closes [#9809](https://github.com/AztecProtocol/aztec-packages/issues/9809)
+
+## [0.63.1](https://github.com/AztecProtocol/aztec-packages/compare/aztec-package-v0.63.0...aztec-package-v0.63.1) (2024-11-19)
+
+
+### Miscellaneous
+
+* **aztec-package:** Synchronize aztec-packages versions
+
+## [0.63.0](https://github.com/AztecProtocol/aztec-packages/compare/aztec-package-v0.62.0...aztec-package-v0.63.0) (2024-11-19)
+
+
+### Features
+
+* Extract gossipsub / discv5 dependency gauge prometheus metrics ([#9710](https://github.com/AztecProtocol/aztec-packages/issues/9710)) ([58e75cd](https://github.com/AztecProtocol/aztec-packages/commit/58e75cdcc13de19bf5c1aedf7e66ce16e8cd4aaf))
+
+
+### Bug Fixes
+
+* Telemetry stopping on shutdown ([#9740](https://github.com/AztecProtocol/aztec-packages/issues/9740)) ([23b8d8b](https://github.com/AztecProtocol/aztec-packages/commit/23b8d8b15e2a8f5473e6bfedf62e9f1b35c9919c))
+
+
+### Miscellaneous
+
+* Clean up data configuration ([#9973](https://github.com/AztecProtocol/aztec-packages/issues/9973)) ([b660739](https://github.com/AztecProtocol/aztec-packages/commit/b66073986827731ce59e6f962ff1fb051677a094))
+* Move epoch and slot durations to config ([#9861](https://github.com/AztecProtocol/aztec-packages/issues/9861)) ([bfd4f2c](https://github.com/AztecProtocol/aztec-packages/commit/bfd4f2ce49393c4629563c07a89f19ebaf9aaab2))
+* Revert "chore: Validate RPC inputs" ([#9875](https://github.com/AztecProtocol/aztec-packages/issues/9875)) ([dd83d52](https://github.com/AztecProtocol/aztec-packages/commit/dd83d520c9925f00de155bddf0cf95852c971995))
+* Token partial notes refactor pt. 2 - bridging ([#9600](https://github.com/AztecProtocol/aztec-packages/issues/9600)) ([d513099](https://github.com/AztecProtocol/aztec-packages/commit/d51309954ab4a5ae1c829c86185b02c156baf3c7))
+* Validate RPC inputs ([#9672](https://github.com/AztecProtocol/aztec-packages/issues/9672)) ([6554122](https://github.com/AztecProtocol/aztec-packages/commit/6554122bdcd6d3840d03fdf1e7896f3961021e1f)), closes [#9455](https://github.com/AztecProtocol/aztec-packages/issues/9455)
+* Validate RPC inputs reloaded ([#9878](https://github.com/AztecProtocol/aztec-packages/issues/9878)) ([70ab7c4](https://github.com/AztecProtocol/aztec-packages/commit/70ab7c4a905a33b518c773aa244f4a85064cfde3))
+
 ## [0.62.0](https://github.com/AztecProtocol/aztec-packages/compare/aztec-package-v0.61.0...aztec-package-v0.62.0) (2024-11-01)
 
 

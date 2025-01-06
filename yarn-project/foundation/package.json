@@ -1,7 +1,6 @@
 {
   "name": "@aztec/foundation",
   "version": "0.1.0",
-  "packageManager": "yarn@3.4.1",
   "type": "module",
   "main": "./dest/index.js",
   "types": "./dest/index.d.ts",
@@ -11,6 +10,7 @@
     "./prettier": "./.prettierrc.json",
     "./abi": "./dest/abi/index.js",
     "./async-map": "./dest/async-map/index.js",
+    "./async-pool": "./dest/async-pool/index.js",
     "./aztec-address": "./dest/aztec-address/index.js",
     "./collection": "./dest/collection/index.js",
     "./config": "./dest/config/index.js",
@@ -25,6 +25,7 @@
     "./json-rpc": "./dest/json-rpc/index.js",
     "./json-rpc/server": "./dest/json-rpc/server/index.js",
     "./json-rpc/client": "./dest/json-rpc/client/index.js",
+    "./json-rpc/test": "./dest/json-rpc/test/index.js",
     "./iterable": "./dest/iterable/index.js",
     "./log": "./dest/log/index.js",
     "./mutex": "./dest/mutex/index.js",
@@ -39,15 +40,18 @@
     "./wasm": "./dest/wasm/index.js",
     "./worker": "./dest/worker/index.js",
     "./bigint-buffer": "./dest/bigint-buffer/index.js",
+    "./blob": "./dest/blob/index.js",
     "./types": "./dest/types/index.js",
     "./schemas": "./dest/schemas/index.js",
     "./url": "./dest/url/index.js",
     "./committable": "./dest/committable/index.js",
     "./noir": "./dest/noir/index.js",
     "./testing": "./dest/testing/index.js",
+    "./testing/files": "./dest/testing/files/index.js",
     "./array": "./dest/array/index.js",
     "./validation": "./dest/validation/index.js",
-    "./promise": "./dest/promise/index.js"
+    "./promise": "./dest/promise/index.js",
+    "./string": "./dest/string/index.js"
   },
   "scripts": {
     "build": "yarn clean && tsc -b",
@@ -56,7 +60,7 @@
     "generate": "true",
     "formatting": "run -T prettier --check ./src && run -T eslint ./src",
     "formatting:fix": "run -T eslint --fix ./src && run -T prettier -w ./src",
-    "test": "NODE_NO_WARNINGS=1 node --experimental-vm-modules ../node_modules/.bin/jest --passWithNoTests"
+    "test": "HARDWARE_CONCURRENCY=${HARDWARE_CONCURRENCY:-16} RAYON_NUM_THREADS=${RAYON_NUM_THREADS:-4} NODE_NO_WARNINGS=1 node --experimental-vm-modules ../node_modules/.bin/jest --passWithNoTests --maxWorkers=${JEST_MAX_WORKERS:-8}"
   },
   "inherits": [
     "../package.common.json"
@@ -87,12 +91,14 @@
       ".ts"
     ],
     "reporters": [
-      [
-        "default",
-        {
-          "summaryThreshold": 9999
-        }
-      ]
+      "default"
+    ],
+    "testTimeout": 30000,
+    "setupFilesAfterEnv": [
+      "../../foundation/src/jest/setup.mjs"
+    ],
+    "setupFiles": [
+      "../../foundation/src/jest/setup.mjs"
     ]
   },
   "dependencies": {
@@ -100,6 +106,8 @@
     "@koa/cors": "^5.0.0",
     "@noble/curves": "^1.2.0",
     "bn.js": "^5.2.1",
+    "c-kzg": "4.0.0-alpha.1",
+    "colorette": "^2.0.20",
     "debug": "^4.3.4",
     "detect-node": "^2.1.0",
     "elliptic": "^6.5.4",
@@ -114,6 +122,8 @@
     "lodash.clonedeepwith": "^4.5.0",
     "memdown": "^6.1.1",
     "pako": "^2.1.0",
+    "pino": "^9.5.0",
+    "pino-pretty": "^13.0.0",
     "sha3": "^2.1.4",
     "zod": "^3.23.8"
   },
@@ -127,7 +137,6 @@
     "@types/koa": "^2.13.5",
     "@types/koa-bodyparser": "^4.3.10",
     "@types/koa-compress": "^4.0.3",
-    "@types/koa-cors": "^0.0.2",
     "@types/koa-router": "^7.4.4",
     "@types/koa__cors": "^4.0.0",
     "@types/leveldown": "^4.0.3",

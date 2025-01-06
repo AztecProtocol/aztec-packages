@@ -21,7 +21,6 @@ abstract class ComparatorInstruction extends ThreeOperandInstruction {
     memory.set(dstOffset, dest);
 
     memory.assert({ reads: 2, writes: 1, addressing });
-    context.machineState.incrementPc();
   }
 
   protected abstract compare(a: MemoryValue, b: MemoryValue): boolean;

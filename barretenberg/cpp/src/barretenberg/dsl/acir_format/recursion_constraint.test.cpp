@@ -15,7 +15,7 @@ using namespace bb::plonk;
 using Composer = plonk::UltraComposer;
 class AcirRecursionConstraint : public ::testing::Test {
   protected:
-    static void SetUpTestSuite() { bb::srs::init_crs_factory("../srs_db/ignition"); }
+    static void SetUpTestSuite() { bb::srs::init_crs_factory(bb::srs::get_ignition_crs_path()); }
 };
 Builder create_inner_circuit()
 {
@@ -93,7 +93,7 @@ Builder create_inner_circuit()
         .range_constraints = { range_a, range_b },
         .aes128_constraints = {},
         .sha256_compression = {},
-        .schnorr_constraints = {},
+
         .ecdsa_k1_constraints = {},
         .ecdsa_r1_constraints = {},
         .blake2s_constraints = {},
@@ -146,7 +146,7 @@ Builder create_outer_circuit(std::vector<Builder>& inner_circuits)
         auto inner_proof = inner_prover.construct_proof();
         auto inner_verifier = inner_composer.create_verifier(inner_circuit);
 
-        const bool has_nested_proof = inner_verifier.key->contains_recursive_proof;
+        const bool has_nested_proof = inner_verifier.key->contains_pairing_point_accumulator;
 
         const size_t num_inner_public_inputs = inner_circuit.get_public_inputs().size();
         transcript::StandardTranscript transcript(inner_proof.proof_data,
@@ -167,17 +167,19 @@ Builder create_outer_circuit(std::vector<Builder>& inner_circuits)
             proof_witnesses.erase(proof_witnesses.begin(),
                                   proof_witnesses.begin() + static_cast<std::ptrdiff_t>(num_inner_public_inputs));
         } else {
-            proof_witnesses.erase(proof_witnesses.begin(),
-                                  proof_witnesses.begin() + static_cast<std::ptrdiff_t>(num_inner_public_inputs -
-                                                                                        bb::AGGREGATION_OBJECT_SIZE));
+            proof_witnesses.erase(
+                proof_witnesses.begin(),
+                proof_witnesses.begin() +
+                    static_cast<std::ptrdiff_t>(num_inner_public_inputs - bb::PAIRING_POINT_ACCUMULATOR_SIZE));
         }
 
         const std::vector<bb::fr> key_witnesses = export_key_in_recursion_format(inner_verifier.key);
 
         const uint32_t key_hash_start_idx = static_cast<uint32_t>(witness_offset);
         const uint32_t public_input_start_idx = key_hash_start_idx + 1;
-        const uint32_t proof_indices_start_idx = static_cast<uint32_t>(
-            public_input_start_idx + num_inner_public_inputs - (has_nested_proof ? bb::AGGREGATION_OBJECT_SIZE : 0));
+        const uint32_t proof_indices_start_idx =
+            static_cast<uint32_t>(public_input_start_idx + num_inner_public_inputs -
+                                  (has_nested_proof ? bb::PAIRING_POINT_ACCUMULATOR_SIZE : 0));
         const uint32_t key_indices_start_idx = static_cast<uint32_t>(proof_indices_start_idx + proof_witnesses.size());
 
         std::vector<uint32_t> proof_indices;
@@ -198,7 +200,7 @@ Builder create_outer_circuit(std::vector<Builder>& inner_circuits)
                 inner_public_inputs.push_back(static_cast<uint32_t>(i + public_input_start_idx));
             }
         } else {
-            for (size_t i = 0; i < num_inner_public_inputs - bb::AGGREGATION_OBJECT_SIZE; ++i) {
+            for (size_t i = 0; i < num_inner_public_inputs - bb::PAIRING_POINT_ACCUMULATOR_SIZE; ++i) {
                 inner_public_inputs.push_back(static_cast<uint32_t>(i + public_input_start_idx));
             }
         }
@@ -234,7 +236,7 @@ Builder create_outer_circuit(std::vector<Builder>& inner_circuits)
                 witness[inner_public_inputs[i]] = inner_public_input_values[i];
             }
         } else {
-            for (size_t i = 0; i < num_inner_public_inputs - bb::AGGREGATION_OBJECT_SIZE; ++i) {
+            for (size_t i = 0; i < num_inner_public_inputs - bb::PAIRING_POINT_ACCUMULATOR_SIZE; ++i) {
                 witness[inner_public_inputs[i]] = inner_public_input_values[i];
             }
         }
@@ -253,7 +255,7 @@ Builder create_outer_circuit(std::vector<Builder>& inner_circuits)
         .range_constraints = {},
         .aes128_constraints = {},
         .sha256_compression = {},
-        .schnorr_constraints = {},
+
         .ecdsa_k1_constraints = {},
         .ecdsa_r1_constraints = {},
         .blake2s_constraints = {},

@@ -4,7 +4,7 @@ title: Private State
 
 On this page we will look at how to manage private state in Aztec contracts. We will look at how to declare private state, how to read and write to it, and how to use it in your contracts.
 
-For a higher level overview of the state model in Aztec, see the [hybrid state model](../../../../aztec/concepts/state_model/index.md) page.
+For a higher level overview of the state model in Aztec, see the [hybrid state model](../../../../aztec/concepts/storage/state_model/index.md) page.
 
 ## Overview
 
@@ -184,7 +184,7 @@ Functionally similar to `get_note`, but executed unconstrained and can be used b
 
 You can view the implementation [here (GitHub link)](https://github.com/AztecProtocol/aztec-packages/blob/#include_aztec_version/noir-projects/aztec-nr/aztec/src/state_vars/private_set.nr).
 
-And can be added to the `Storage` struct as follows. Here adding a set for a custom note, the TransparentNote (useful for public -> private communication).
+And can be added to the `Storage` struct as follows. Here adding a set for a custom note.
 
 #include_code storage-set-declaration /noir-projects/noir-contracts/contracts/docs_example_contract/src/main.nr rust
 
@@ -206,11 +206,9 @@ A hash of the note will be generated, and inserted into the note hash tree, allo
 
 ### `insert_from_public`
 
-The `insert_from_public` allow public function to insert notes into private storage. This is very useful when we want to support private function calls that have been initiated in public, such as shielding in the [token contract codealong tutorial](../../../../tutorials/codealong/contract_tutorials/token_contract.md).
+The `insert_from_public` allow public function to insert notes into private storage. This is very useful when we want to support private function calls that have been initiated in public.
 
 The usage is similar to using the `insert` method with the difference that this one is called in public functions.
-
-#include_code insert_from_public /noir-projects/noir-contracts/contracts/token_contract/src/main.nr rust
 
 ### `pop_notes`
 

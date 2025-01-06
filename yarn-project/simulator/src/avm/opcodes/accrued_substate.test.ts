@@ -1,4 +1,5 @@
-import { Fr } from '@aztec/circuits.js';
+import { AztecAddress, Fr } from '@aztec/circuits.js';
+import { computeNoteHashNonce, computeUniqueNoteHash, siloNoteHash, siloNullifier } from '@aztec/circuits.js/hash';
 
 import { mock } from 'jest-mock-extended';
 
@@ -9,7 +10,7 @@ import { Field, Uint8, Uint32 } from '../avm_memory_types.js';
 import { InstructionExecutionError, StaticCallAlterationError } from '../errors.js';
 import { initContext, initExecutionEnvironment, initPersistableStateManager } from '../fixtures/index.js';
 import { type AvmPersistableStateManager } from '../journal/journal.js';
-import { mockL1ToL2MessageExists, mockNoteHashExists, mockNullifierExists } from '../test_utils.js';
+import { mockL1ToL2MessageExists, mockNoteHashCount, mockNoteHashExists, mockNullifierExists } from '../test_utils.js';
 import {
   EmitNoteHash,
   EmitNullifier,
@@ -26,8 +27,8 @@ describe('Accrued Substate', () => {
   let persistableState: AvmPersistableStateManager;
   let context: AvmContext;
 
-  const address = new Fr(1);
-  const sender = new Fr(42);
+  const address = AztecAddress.fromNumber(1);
+  const sender = AztecAddress.fromNumber(42);
   const value0 = new Fr(69); // noteHash or nullifier...
   const value0Offset = 100;
   const value1 = new Fr(420);
@@ -35,6 +36,7 @@ describe('Accrued Substate', () => {
   const leafIndex = new Fr(7);
   const leafIndexOffset = 1;
   const existsOffset = 2;
+  const siloedNullifier0 = siloNullifier(address, value0);
 
   beforeEach(() => {
     worldStateDB = mock<WorldStateDB>();
@@ -118,10 +120,14 @@ describe('Accrued Substate', () => {
     });
 
     it('Should append a new note hash correctly', async () => {
+      mockNoteHashCount(trace, 0);
       context.machineState.memory.set(value0Offset, new Field(value0));
       await new EmitNoteHash(/*indirect=*/ 0, /*offset=*/ value0Offset).execute(context);
       expect(trace.traceNewNoteHash).toHaveBeenCalledTimes(1);
-      expect(trace.traceNewNoteHash).toHaveBeenCalledWith(expect.objectContaining(address), /*noteHash=*/ value0);
+      const siloedNotehash = siloNoteHash(address, value0);
+      const nonce = computeNoteHashNonce(Fr.fromBuffer(context.persistableState.txHash.toBuffer()), 0);
+      const uniqueNoteHash = computeUniqueNoteHash(nonce, siloedNotehash);
+      expect(trace.traceNewNoteHash).toHaveBeenCalledWith(uniqueNoteHash);
     });
   });
 
@@ -155,7 +161,7 @@ describe('Accrued Substate', () => {
         }
 
         context.machineState.memory.set(value0Offset, new Field(value0)); // nullifier
-        context.machineState.memory.set(addressOffset, new Field(address));
+        context.machineState.memory.set(addressOffset, new Field(address.toField()));
         await new NullifierExists(
           /*indirect=*/ 0,
           /*nullifierOffset=*/ value0Offset,
@@ -169,14 +175,8 @@ describe('Accrued Substate', () => {
         expect(trace.traceNullifierCheck).toHaveBeenCalledTimes(1);
         const isPending = false;
         // leafIndex is returned from DB call for nullifiers, so it is absent on DB miss
-        const tracedLeafIndex = exists && !isPending ? leafIndex : Fr.ZERO;
-        expect(trace.traceNullifierCheck).toHaveBeenCalledWith(
-          address,
-          /*nullifier=*/ value0,
-          tracedLeafIndex,
-          exists,
-          isPending,
-        );
+        const _tracedLeafIndex = exists && !isPending ? leafIndex : Fr.ZERO;
+        expect(trace.traceNullifierCheck).toHaveBeenCalledWith(siloedNullifier0, exists);
       });
     });
   });
@@ -198,7 +198,7 @@ describe('Accrued Substate', () => {
       context.machineState.memory.set(value0Offset, new Field(value0));
       await new EmitNullifier(/*indirect=*/ 0, /*offset=*/ value0Offset).execute(context);
       expect(trace.traceNewNullifier).toHaveBeenCalledTimes(1);
-      expect(trace.traceNewNullifier).toHaveBeenCalledWith(expect.objectContaining(address), /*nullifier=*/ value0);
+      expect(trace.traceNewNullifier).toHaveBeenCalledWith(siloedNullifier0);
     });
 
     it('Nullifier collision reverts (same nullifier emitted twice)', async () => {
@@ -210,7 +210,7 @@ describe('Accrued Substate', () => {
         ),
       );
       expect(trace.traceNewNullifier).toHaveBeenCalledTimes(1);
-      expect(trace.traceNewNullifier).toHaveBeenCalledWith(expect.objectContaining(address), /*nullifier=*/ value0);
+      expect(trace.traceNewNullifier).toHaveBeenCalledWith(siloedNullifier0);
     });
 
     it('Nullifier collision reverts (nullifier exists in host state)', async () => {

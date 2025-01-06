@@ -24,7 +24,7 @@ allow_list+=("${input_labels[@]}")
 test_list=$(get_test_names | grep 'bench' | xargs echo)
 
 # If branch is master or allow_list contains 'bench-all', return full list
-if [[ "$BRANCH" == "master" ]] || [[ " ${allow_list[@]} " =~ "bench-all" ]]; then
+if [[ "$BRANCH" == "master" ]] || [[ " ${allow_list[@]} " =~ "bench_all" ]]; then
   # print as JSON list
   echo "$test_list" | jq -Rc 'split(" ")'
   exit 0

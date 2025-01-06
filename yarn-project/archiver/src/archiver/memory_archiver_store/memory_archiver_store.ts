@@ -1,34 +1,36 @@
 import {
-  type EncryptedL2BlockL2Logs,
-  type EncryptedL2NoteLog,
-  type EncryptedNoteL2BlockL2Logs,
+  type ContractClass2BlockL2Logs,
   ExtendedUnencryptedL2Log,
-  type FromLogType,
   type GetUnencryptedLogsResponse,
+  type InBlock,
   type InboxLeaf,
   type L2Block,
-  type L2BlockL2Logs,
+  L2BlockHash,
   type LogFilter,
   LogId,
-  LogType,
   type TxEffect,
   type TxHash,
   TxReceipt,
+  TxScopedL2Log,
   type UnencryptedL2BlockL2Logs,
+  wrapInBlock,
 } from '@aztec/circuit-types';
 import {
+  type BlockHeader,
   type ContractClassPublic,
   type ContractClassPublicWithBlockNumber,
   type ContractInstanceWithAddress,
   type ExecutablePrivateFunctionWithMembershipProof,
   Fr,
-  type Header,
   INITIAL_L2_BLOCK_NUM,
+  MAX_NOTE_HASHES_PER_TX,
+  MAX_NULLIFIERS_PER_TX,
+  type PrivateLog,
   type UnconstrainedFunctionWithMembershipProof,
 } from '@aztec/circuits.js';
-import { type ContractArtifact } from '@aztec/foundation/abi';
+import { type FunctionSelector } from '@aztec/foundation/abi';
 import { type AztecAddress } from '@aztec/foundation/aztec-address';
-import { createDebugLogger } from '@aztec/foundation/log';
+import { createLogger } from '@aztec/foundation/log';
 
 import { type ArchiverDataStore, type ArchiverL1SynchPoint } from '../archiver_store.js';
 import { type DataRetrieval } from '../structs/data_retrieval.js';
@@ -47,26 +49,28 @@ export class MemoryArchiverStore implements ArchiverDataStore {
   /**
    * An array containing all the tx effects in the L2 blocks that have been fetched so far.
    */
-  private txEffects: TxEffect[] = [];
+  private txEffects: InBlock<TxEffect>[] = [];
 
-  private noteEncryptedLogsPerBlock: Map<number, EncryptedNoteL2BlockL2Logs> = new Map();
+  private taggedLogs: Map<string, TxScopedL2Log[]> = new Map();
 
-  private taggedNoteEncryptedLogs: Map<string, EncryptedL2NoteLog[]> = new Map();
+  private logTagsPerBlock: Map<number, Fr[]> = new Map();
 
-  private noteEncryptedLogTagsPerBlock: Map<number, Fr[]> = new Map();
-
-  private encryptedLogsPerBlock: Map<number, EncryptedL2BlockL2Logs> = new Map();
+  private privateLogsPerBlock: Map<number, PrivateLog[]> = new Map();
 
   private unencryptedLogsPerBlock: Map<number, UnencryptedL2BlockL2Logs> = new Map();
+
+  private contractClassLogsPerBlock: Map<number, ContractClass2BlockL2Logs> = new Map();
+
+  private blockScopedNullifiers: Map<string, { blockNumber: number; blockHash: string; index: bigint }> = new Map();
 
   /**
    * Contains all L1 to L2 messages.
    */
   private l1ToL2Messages = new L1ToL2MessageStore();
 
-  private contractArtifacts: Map<string, ContractArtifact> = new Map();
-
   private contractClasses: Map<string, ContractClassPublicWithBlockNumber> = new Map();
+
+  private bytecodeCommitments: Map<string, Fr> = new Map();
 
   private privateFunctions: Map<string, ExecutablePrivateFunctionWithMembershipProof[]> = new Map();
 
@@ -80,7 +84,9 @@ export class MemoryArchiverStore implements ArchiverDataStore {
   private lastProvenL2BlockNumber: number = 0;
   private lastProvenL2EpochNumber: number = 0;
 
-  #log = createDebugLogger('aztec:archiver:data-store');
+  private functionNames = new Map<string, string>();
+
+  #log = createLogger('archiver:data-store');
 
   constructor(
     /** The max number of logs that can be obtained in 1 "getUnencryptedLogs" call. */
@@ -99,11 +105,15 @@ export class MemoryArchiverStore implements ArchiverDataStore {
   }
 
   public getContractClassIds(): Promise<Fr[]> {
-    return Promise.resolve(Array.from(this.contractClasses.keys()).map(key => Fr.fromString(key)));
+    return Promise.resolve(Array.from(this.contractClasses.keys()).map(key => Fr.fromHexString(key)));
   }
 
   public getContractInstance(address: AztecAddress): Promise<ContractInstanceWithAddress | undefined> {
     return Promise.resolve(this.contractInstances.get(address.toString()));
+  }
+
+  public getBytecodeCommitment(contractClassId: Fr): Promise<Fr | undefined> {
+    return Promise.resolve(this.bytecodeCommitments.get(contractClassId.toString()));
   }
 
   public addFunctions(
@@ -128,13 +138,21 @@ export class MemoryArchiverStore implements ArchiverDataStore {
     return Promise.resolve(true);
   }
 
-  public addContractClasses(data: ContractClassPublic[], blockNumber: number): Promise<boolean> {
-    for (const contractClass of data) {
+  public addContractClasses(
+    data: ContractClassPublic[],
+    bytecodeCommitments: Fr[],
+    blockNumber: number,
+  ): Promise<boolean> {
+    for (let i = 0; i < data.length; i++) {
+      const contractClass = data[i];
       if (!this.contractClasses.has(contractClass.id.toString())) {
         this.contractClasses.set(contractClass.id.toString(), {
           ...contractClass,
           l2BlockNumber: blockNumber,
         });
+      }
+      if (!this.bytecodeCommitments.has(contractClass.id.toString())) {
+        this.bytecodeCommitments.set(contractClass.id.toString(), bytecodeCommitments[i]);
       }
     }
     return Promise.resolve(true);
@@ -145,6 +163,7 @@ export class MemoryArchiverStore implements ArchiverDataStore {
       const restored = this.contractClasses.get(contractClass.id.toString());
       if (restored && restored.l2BlockNumber >= blockNumber) {
         this.contractClasses.delete(contractClass.id.toString());
+        this.bytecodeCommitments.delete(contractClass.id.toString());
       }
     }
     return Promise.resolve(true);
@@ -176,7 +195,7 @@ export class MemoryArchiverStore implements ArchiverDataStore {
 
     this.lastL1BlockNewBlocks = blocks[blocks.length - 1].l1.blockNumber;
     this.l2Blocks.push(...blocks);
-    this.txEffects.push(...blocks.flatMap(b => b.data.body.txEffects));
+    this.txEffects.push(...blocks.flatMap(b => b.data.body.txEffects.map(txEffect => wrapInBlock(txEffect, b.data))));
 
     return Promise.resolve(true);
   }
@@ -191,7 +210,7 @@ export class MemoryArchiverStore implements ArchiverDataStore {
   public async unwindBlocks(from: number, blocksToUnwind: number): Promise<boolean> {
     const last = await this.getSynchedL2BlockNumber();
     if (from != last) {
-      throw new Error(`Can only remove the tip`);
+      throw new Error(`Can only unwind blocks from the tip (requested ${from} but current tip is ${last})`);
     }
 
     const stopAt = from - blocksToUnwind;
@@ -206,6 +225,71 @@ export class MemoryArchiverStore implements ArchiverDataStore {
     return Promise.resolve(true);
   }
 
+  #storeTaggedLogsFromPrivate(block: L2Block): void {
+    const dataStartIndexForBlock =
+      block.header.state.partial.noteHashTree.nextAvailableLeafIndex -
+      block.body.numberOfTxsIncludingPadded * MAX_NOTE_HASHES_PER_TX;
+    block.body.txEffects.forEach((txEffect, txIndex) => {
+      const txHash = txEffect.txHash;
+      const dataStartIndexForTx = dataStartIndexForBlock + txIndex * MAX_NOTE_HASHES_PER_TX;
+      txEffect.privateLogs.forEach(log => {
+        const tag = log.fields[0];
+        const currentLogs = this.taggedLogs.get(tag.toString()) || [];
+        this.taggedLogs.set(tag.toString(), [
+          ...currentLogs,
+          new TxScopedL2Log(txHash, dataStartIndexForTx, block.number, /* isFromPublic */ false, log.toBuffer()),
+        ]);
+        const currentTagsInBlock = this.logTagsPerBlock.get(block.number) || [];
+        this.logTagsPerBlock.set(block.number, [...currentTagsInBlock, tag]);
+      });
+    });
+  }
+
+  #storeTaggedLogsFromPublic(block: L2Block): void {
+    const dataStartIndexForBlock =
+      block.header.state.partial.noteHashTree.nextAvailableLeafIndex -
+      block.body.numberOfTxsIncludingPadded * MAX_NOTE_HASHES_PER_TX;
+    block.body.unencryptedLogs.txLogs.forEach((txLogs, txIndex) => {
+      const txHash = block.body.txEffects[txIndex].txHash;
+      const dataStartIndexForTx = dataStartIndexForBlock + txIndex * MAX_NOTE_HASHES_PER_TX;
+      const logs = txLogs.unrollLogs();
+      logs.forEach(log => {
+        if (
+          // TODO remove when #9835 and #9836 are fixed
+          log.data.length <
+          32 * 33
+        ) {
+          this.#log.warn(`Skipping unencrypted log with invalid data length: ${log.data.length}`);
+          return;
+        }
+        try {
+          // TODO remove when #9835 and #9836 are fixed. The partial note logs are emitted as bytes, but encoded as Fields.
+          // This means that for every 32 bytes of payload, we only have 1 byte of data.
+          // Also, the tag is not stored in the first 32 bytes of the log, (that's the length of public fields now) but in the next 32.
+          const correctedBuffer = Buffer.alloc(32);
+          const initialOffset = 32;
+          for (let i = 0; i < 32; i++) {
+            const byte = Fr.fromBuffer(
+              log.data.subarray(i * 32 + initialOffset, i * 32 + 32 + initialOffset),
+            ).toNumber();
+            correctedBuffer.writeUInt8(byte, i);
+          }
+          const tag = new Fr(correctedBuffer);
+          this.#log.verbose(`Storing unencrypted tagged log with tag ${tag.toString()} in block ${block.number}`);
+          const currentLogs = this.taggedLogs.get(tag.toString()) || [];
+          this.taggedLogs.set(tag.toString(), [
+            ...currentLogs,
+            new TxScopedL2Log(txHash, dataStartIndexForTx, block.number, /* isFromPublic */ true, log.data),
+          ]);
+          const currentTagsInBlock = this.logTagsPerBlock.get(block.number) || [];
+          this.logTagsPerBlock.set(block.number, [...currentTagsInBlock, tag]);
+        } catch (err) {
+          this.#log.warn(`Failed to add tagged log to store: ${err}`);
+        }
+      });
+    });
+  }
+
   /**
    * Append new logs to the store's list.
    * @param block - The block for which to add the logs.
@@ -213,47 +297,76 @@ export class MemoryArchiverStore implements ArchiverDataStore {
    */
   addLogs(blocks: L2Block[]): Promise<boolean> {
     blocks.forEach(block => {
-      this.noteEncryptedLogsPerBlock.set(block.number, block.body.noteEncryptedLogs);
-      block.body.noteEncryptedLogs.txLogs.forEach(txLogs => {
-        const noteLogs = txLogs.unrollLogs();
-        noteLogs.forEach(noteLog => {
-          if (noteLog.data.length < 32) {
-            this.#log.warn(`Skipping note log with invalid data length: ${noteLog.data.length}`);
-            return;
-          }
-          try {
-            const tag = new Fr(noteLog.data.subarray(0, 32));
-            const currentNoteLogs = this.taggedNoteEncryptedLogs.get(tag.toString()) || [];
-            this.taggedNoteEncryptedLogs.set(tag.toString(), [...currentNoteLogs, noteLog]);
-            const currentTagsInBlock = this.noteEncryptedLogTagsPerBlock.get(block.number) || [];
-            this.noteEncryptedLogTagsPerBlock.set(block.number, [...currentTagsInBlock, tag]);
-          } catch (err) {
-            this.#log.warn(`Failed to add tagged note log to store: ${err}`);
-          }
-        });
-      });
-      this.encryptedLogsPerBlock.set(block.number, block.body.encryptedLogs);
+      void this.#storeTaggedLogsFromPrivate(block);
+      void this.#storeTaggedLogsFromPublic(block);
+      this.privateLogsPerBlock.set(block.number, block.body.txEffects.map(txEffect => txEffect.privateLogs).flat());
       this.unencryptedLogsPerBlock.set(block.number, block.body.unencryptedLogs);
+      this.contractClassLogsPerBlock.set(block.number, block.body.contractClassLogs);
     });
     return Promise.resolve(true);
   }
 
   deleteLogs(blocks: L2Block[]): Promise<boolean> {
-    const noteTagsToDelete = blocks.flatMap(block => this.noteEncryptedLogTagsPerBlock.get(block.number));
-    noteTagsToDelete
+    const tagsToDelete = blocks.flatMap(block => this.logTagsPerBlock.get(block.number));
+    tagsToDelete
       .filter(tag => tag != undefined)
       .forEach(tag => {
-        this.taggedNoteEncryptedLogs.delete(tag!.toString());
+        this.taggedLogs.delete(tag!.toString());
       });
 
     blocks.forEach(block => {
-      this.encryptedLogsPerBlock.delete(block.number);
-      this.noteEncryptedLogsPerBlock.delete(block.number);
+      this.privateLogsPerBlock.delete(block.number);
       this.unencryptedLogsPerBlock.delete(block.number);
-      this.noteEncryptedLogTagsPerBlock.delete(block.number);
+      this.logTagsPerBlock.delete(block.number);
+      this.contractClassLogsPerBlock.delete(block.number);
     });
 
     return Promise.resolve(true);
+  }
+
+  addNullifiers(blocks: L2Block[]): Promise<boolean> {
+    blocks.forEach(block => {
+      const dataStartIndexForBlock =
+        block.header.state.partial.nullifierTree.nextAvailableLeafIndex -
+        block.body.numberOfTxsIncludingPadded * MAX_NULLIFIERS_PER_TX;
+      block.body.txEffects.forEach((txEffects, txIndex) => {
+        const dataStartIndexForTx = dataStartIndexForBlock + txIndex * MAX_NULLIFIERS_PER_TX;
+        txEffects.nullifiers.forEach((nullifier, nullifierIndex) => {
+          this.blockScopedNullifiers.set(nullifier.toString(), {
+            index: BigInt(dataStartIndexForTx + nullifierIndex),
+            blockNumber: block.number,
+            blockHash: block.hash().toString(),
+          });
+        });
+      });
+    });
+    return Promise.resolve(true);
+  }
+
+  deleteNullifiers(blocks: L2Block[]): Promise<boolean> {
+    blocks.forEach(block => {
+      block.body.txEffects.forEach(txEffect => {
+        txEffect.nullifiers.forEach(nullifier => {
+          this.blockScopedNullifiers.delete(nullifier.toString());
+        });
+      });
+    });
+    return Promise.resolve(true);
+  }
+
+  findNullifiersIndexesWithBlock(blockNumber: number, nullifiers: Fr[]): Promise<(InBlock<bigint> | undefined)[]> {
+    const blockScopedNullifiers = nullifiers.map(nullifier => {
+      const nullifierData = this.blockScopedNullifiers.get(nullifier.toString());
+      if (nullifierData !== undefined && nullifierData.blockNumber <= blockNumber) {
+        return {
+          data: nullifierData.index,
+          l2BlockHash: nullifierData.blockHash,
+          l2BlockNumber: nullifierData.blockNumber,
+        } as InBlock<bigint>;
+      }
+      return undefined;
+    });
+    return Promise.resolve(blockScopedNullifiers);
   }
 
   getTotalL1ToL2MessageCount(): Promise<bigint> {
@@ -314,7 +427,7 @@ export class MemoryArchiverStore implements ArchiverDataStore {
     return Promise.resolve(this.l2Blocks.slice(fromIndex, toIndex));
   }
 
-  public async getBlockHeaders(from: number, limit: number): Promise<Header[]> {
+  public async getBlockHeaders(from: number, limit: number): Promise<BlockHeader[]> {
     const blocks = await this.getBlocks(from, limit);
     return blocks.map(block => block.data.header);
   }
@@ -324,8 +437,8 @@ export class MemoryArchiverStore implements ArchiverDataStore {
    * @param txHash - The txHash of the tx effect.
    * @returns The requested tx effect.
    */
-  public getTxEffect(txHash: TxHash): Promise<TxEffect | undefined> {
-    const txEffect = this.txEffects.find(tx => tx.txHash.equals(txHash));
+  public getTxEffect(txHash: TxHash): Promise<InBlock<TxEffect> | undefined> {
+    const txEffect = this.txEffects.find(tx => tx.data.txHash.equals(txHash));
     return Promise.resolve(txEffect);
   }
 
@@ -344,7 +457,7 @@ export class MemoryArchiverStore implements ArchiverDataStore {
               TxReceipt.statusFromRevertCode(txEffect.revertCode),
               '',
               txEffect.transactionFee.toBigInt(),
-              block.data.hash().toBuffer(),
+              L2BlockHash.fromField(block.data.hash()),
               block.data.number,
             ),
           );
@@ -364,17 +477,12 @@ export class MemoryArchiverStore implements ArchiverDataStore {
   }
 
   /**
-   * Gets up to `limit` amount of logs starting from `from`.
-   * @param from - Number of the L2 block to which corresponds the first logs to be returned.
-   * @param limit - The number of logs to return.
-   * @param logType - Specifies whether to return encrypted or unencrypted logs.
-   * @returns The requested logs.
+   * Retrieves all private logs from up to `limit` blocks, starting from the block number `from`.
+   * @param from - The block number from which to begin retrieving logs.
+   * @param limit - The maximum number of blocks to retrieve logs from.
+   * @returns An array of private logs from the specified range of blocks.
    */
-  getLogs<TLogType extends LogType>(
-    from: number,
-    limit: number,
-    logType: TLogType,
-  ): Promise<L2BlockL2Logs<FromLogType<TLogType>>[]> {
+  getPrivateLogs(from: number, limit: number): Promise<PrivateLog[]> {
     if (from < INITIAL_L2_BLOCK_NUM || limit < 1) {
       return Promise.resolve([]);
     }
@@ -383,34 +491,19 @@ export class MemoryArchiverStore implements ArchiverDataStore {
       return Promise.resolve([]);
     }
 
-    const logMap = (() => {
-      switch (logType) {
-        case LogType.ENCRYPTED:
-          return this.encryptedLogsPerBlock;
-        case LogType.NOTEENCRYPTED:
-          return this.noteEncryptedLogsPerBlock;
-        case LogType.UNENCRYPTED:
-        default:
-          return this.unencryptedLogsPerBlock;
-      }
-    })() as Map<number, L2BlockL2Logs<FromLogType<TLogType>>>;
-
     const startIndex = from;
     const endIndex = startIndex + limit;
     const upper = Math.min(endIndex, this.l2Blocks.length + INITIAL_L2_BLOCK_NUM);
 
-    const l = [];
+    const logsInBlocks = [];
     for (let i = startIndex; i < upper; i++) {
-      const log = logMap.get(i);
-      if (log) {
-        l.push(log);
-      } else {
-        // I hate typescript sometimes
-        l.push(undefined as unknown as L2BlockL2Logs<FromLogType<TLogType>>);
+      const logs = this.privateLogsPerBlock.get(i);
+      if (logs) {
+        logsInBlocks.push(logs);
       }
     }
 
-    return Promise.resolve(l);
+    return Promise.resolve(logsInBlocks.flat());
   }
 
   /**
@@ -419,8 +512,8 @@ export class MemoryArchiverStore implements ArchiverDataStore {
    * @returns For each received tag, an array of matching logs is returned. An empty array implies no logs match
    * that tag.
    */
-  getLogsByTags(tags: Fr[]): Promise<EncryptedL2NoteLog[][]> {
-    const noteLogs = tags.map(tag => this.taggedNoteEncryptedLogs.get(tag.toString()) || []);
+  getLogsByTags(tags: Fr[]): Promise<TxScopedL2Log[][]> {
+    const noteLogs = tags.map(tag => this.taggedLogs.get(tag.toString()) || []);
     return Promise.resolve(noteLogs);
   }
 
@@ -508,6 +601,90 @@ export class MemoryArchiverStore implements ArchiverDataStore {
   }
 
   /**
+   * Gets contract class logs based on the provided filter.
+   * NB: clone of the above fn, but for contract class logs
+   * @param filter - The filter to apply to the logs.
+   * @returns The requested logs.
+   * @remarks Works by doing an intersection of all params in the filter.
+   */
+  getContractClassLogs(filter: LogFilter): Promise<GetUnencryptedLogsResponse> {
+    let txHash: TxHash | undefined;
+    let fromBlock = 0;
+    let toBlock = this.l2Blocks.length + INITIAL_L2_BLOCK_NUM;
+    let txIndexInBlock = 0;
+    let logIndexInTx = 0;
+
+    if (filter.afterLog) {
+      // Continuation parameter is set --> tx hash is ignored
+      if (filter.fromBlock == undefined || filter.fromBlock <= filter.afterLog.blockNumber) {
+        fromBlock = filter.afterLog.blockNumber;
+        txIndexInBlock = filter.afterLog.txIndex;
+        logIndexInTx = filter.afterLog.logIndex + 1; // We want to start from the next log
+      } else {
+        fromBlock = filter.fromBlock;
+      }
+    } else {
+      txHash = filter.txHash;
+
+      if (filter.fromBlock !== undefined) {
+        fromBlock = filter.fromBlock;
+      }
+    }
+
+    if (filter.toBlock !== undefined) {
+      toBlock = filter.toBlock;
+    }
+
+    // Ensure the indices are within block array bounds
+    fromBlock = Math.max(fromBlock, INITIAL_L2_BLOCK_NUM);
+    toBlock = Math.min(toBlock, this.l2Blocks.length + INITIAL_L2_BLOCK_NUM);
+
+    if (fromBlock > this.l2Blocks.length || toBlock < fromBlock || toBlock <= 0) {
+      return Promise.resolve({
+        logs: [],
+        maxLogsHit: false,
+      });
+    }
+
+    const contractAddress = filter.contractAddress;
+
+    const logs: ExtendedUnencryptedL2Log[] = [];
+
+    for (; fromBlock < toBlock; fromBlock++) {
+      const block = this.l2Blocks[fromBlock - INITIAL_L2_BLOCK_NUM];
+      const blockLogs = this.contractClassLogsPerBlock.get(fromBlock);
+
+      if (blockLogs) {
+        for (; txIndexInBlock < blockLogs.txLogs.length; txIndexInBlock++) {
+          const txLogs = blockLogs.txLogs[txIndexInBlock].unrollLogs();
+          for (; logIndexInTx < txLogs.length; logIndexInTx++) {
+            const log = txLogs[logIndexInTx];
+            if (
+              (!txHash || block.data.body.txEffects[txIndexInBlock].txHash.equals(txHash)) &&
+              (!contractAddress || log.contractAddress.equals(contractAddress))
+            ) {
+              logs.push(new ExtendedUnencryptedL2Log(new LogId(block.data.number, txIndexInBlock, logIndexInTx), log));
+              if (logs.length === this.maxLogs) {
+                return Promise.resolve({
+                  logs,
+                  maxLogsHit: true,
+                });
+              }
+            }
+          }
+          logIndexInTx = 0;
+        }
+      }
+      txIndexInBlock = 0;
+    }
+
+    return Promise.resolve({
+      logs,
+      maxLogsHit: false,
+    });
+  }
+
+  /**
    * Gets the number of the latest L2 block processed.
    * @returns The number of the latest L2 block processed.
    */
@@ -553,12 +730,19 @@ export class MemoryArchiverStore implements ArchiverDataStore {
     });
   }
 
-  public addContractArtifact(address: AztecAddress, contract: ContractArtifact): Promise<void> {
-    this.contractArtifacts.set(address.toString(), contract);
+  public getContractFunctionName(_address: AztecAddress, selector: FunctionSelector): Promise<string | undefined> {
+    return Promise.resolve(this.functionNames.get(selector.toString()));
+  }
+
+  public registerContractFunctionName(_address: AztecAddress, names: Record<string, string>): Promise<void> {
+    for (const [selector, name] of Object.entries(names)) {
+      this.functionNames.set(selector, name);
+    }
+
     return Promise.resolve();
   }
 
-  public getContractArtifact(address: AztecAddress): Promise<ContractArtifact | undefined> {
-    return Promise.resolve(this.contractArtifacts.get(address.toString()));
+  public estimateSize(): { mappingSize: number; actualSize: number; numItems: number } {
+    return { mappingSize: 0, actualSize: 0, numItems: 0 };
   }
 }

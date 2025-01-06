@@ -1,7 +1,8 @@
 import { type Tx, mockTx } from '@aztec/circuit-types';
-import { AztecAddress, Fr, FunctionSelector, GasSettings, PUBLIC_DISPATCH_SELECTOR } from '@aztec/circuits.js';
+import { AztecAddress, Fr, FunctionSelector, GasFees, GasSettings, PUBLIC_DISPATCH_SELECTOR } from '@aztec/circuits.js';
 import { poseidon2Hash } from '@aztec/foundation/crypto';
-import { FeeJuiceContract } from '@aztec/noir-contracts.js';
+import { type Writeable } from '@aztec/foundation/types';
+import { FeeJuiceContract } from '@aztec/noir-contracts.js/FeeJuice';
 import { ProtocolContractAddress } from '@aztec/protocol-contracts';
 
 import { type MockProxy, mock, mockFn } from 'jest-mock-extended';
@@ -10,36 +11,31 @@ import { GasTxValidator, type PublicStateSource } from './gas_validator.js';
 import { patchNonRevertibleFn, patchRevertibleFn } from './test_utils.js';
 
 describe('GasTxValidator', () => {
-  let validator: GasTxValidator;
+  // Vars for validator.
   let publicStateSource: MockProxy<PublicStateSource>;
   let feeJuiceAddress: AztecAddress;
-
-  beforeEach(() => {
-    feeJuiceAddress = ProtocolContractAddress.FeeJuice;
-    publicStateSource = mock<PublicStateSource>({
-      storageRead: mockFn().mockImplementation((_address: AztecAddress, _slot: Fr) => Fr.ZERO),
-    });
-
-    validator = new GasTxValidator(publicStateSource, feeJuiceAddress, false);
-  });
-
+  let enforceFees: boolean;
+  let gasFees: Writeable<GasFees>;
+  // Vars for tx.
   let tx: Tx;
   let payer: AztecAddress;
   let expectedBalanceSlot: Fr;
-
-  const TX_FEE = 100n;
+  let feeLimit: bigint;
 
   beforeEach(() => {
+    publicStateSource = mock<PublicStateSource>({
+      storageRead: mockFn().mockImplementation((_address: AztecAddress, _slot: Fr) => Fr.ZERO),
+    });
+    feeJuiceAddress = ProtocolContractAddress.FeeJuice;
+    enforceFees = false;
+    gasFees = new GasFees(11, 22);
+
     tx = mockTx(1, { numberOfNonRevertiblePublicCallRequests: 2 });
     tx.data.feePayer = AztecAddress.random();
-    tx.data.constants.txContext.gasSettings = GasSettings.from({
-      ...GasSettings.empty(),
-      inclusionFee: new Fr(TX_FEE),
-    });
+    tx.data.constants.txContext.gasSettings = GasSettings.default({ maxFeesPerGas: gasFees.clone() });
     payer = tx.data.feePayer;
     expectedBalanceSlot = poseidon2Hash([FeeJuiceContract.storage.balances.slot, payer]);
-
-    expect(tx.data.constants.txContext.gasSettings.getFeeLimit()).toEqual(new Fr(TX_FEE));
+    feeLimit = tx.data.constants.txContext.gasSettings.getFeeLimit().toBigInt();
   });
 
   const mockBalance = (balance: bigint) => {
@@ -48,61 +44,79 @@ describe('GasTxValidator', () => {
     );
   };
 
-  const expectValidateSuccess = async (tx: Tx) => {
-    const result = await validator.validateTxs([tx]);
-    expect(result[0].length).toEqual(1);
-    expect(result).toEqual([[tx], []]);
+  const validateTx = async (tx: Tx) => {
+    const validator = new GasTxValidator(publicStateSource, feeJuiceAddress, enforceFees, gasFees);
+    return await validator.validateTxs([tx]);
   };
 
-  const expectValidateFail = async (tx: Tx) => {
-    const result = await validator.validateTxs([tx]);
-    expect(result[1].length).toEqual(1);
-    expect(result).toEqual([[], [tx]]);
+  const expectValid = async (tx: Tx) => {
+    const result = await validateTx(tx);
+    expect(result).toEqual([[tx], [], []]);
+  };
+
+  const expectInvalid = async (tx: Tx) => {
+    const result = await validateTx(tx);
+    expect(result).toEqual([[], [tx], []]);
+  };
+
+  const expectSkipped = async (tx: Tx) => {
+    const result = await validateTx(tx);
+    expect(result).toEqual([[], [], [tx]]);
   };
 
   it('allows fee paying txs if fee payer has enough balance', async () => {
-    mockBalance(TX_FEE);
-    await expectValidateSuccess(tx);
+    mockBalance(feeLimit);
+    await expectValid(tx);
   });
 
   it('allows fee paying txs if fee payer claims enough balance during setup', async () => {
-    mockBalance(TX_FEE - 1n);
+    mockBalance(feeLimit - 1n);
     const selector = FunctionSelector.fromSignature('_increase_public_balance((Field),Field)');
     patchNonRevertibleFn(tx, 0, {
       address: ProtocolContractAddress.FeeJuice,
       selector: FunctionSelector.fromField(new Fr(PUBLIC_DISPATCH_SELECTOR)),
-      args: [selector.toField(), payer, new Fr(1n)],
+      args: [selector.toField(), payer.toField(), new Fr(1n)],
       msgSender: ProtocolContractAddress.FeeJuice,
     });
-    await expectValidateSuccess(tx);
+    await expectValid(tx);
   });
 
   it('rejects txs if fee payer has not enough balance', async () => {
-    mockBalance(TX_FEE - 1n);
-    await expectValidateFail(tx);
+    mockBalance(feeLimit - 1n);
+    await expectInvalid(tx);
   });
 
   it('rejects txs if fee payer has zero balance', async () => {
-    await expectValidateFail(tx);
+    await expectInvalid(tx);
   });
 
   it('rejects txs if fee payer claims balance outside setup', async () => {
-    mockBalance(TX_FEE - 1n);
+    mockBalance(feeLimit - 1n);
     patchRevertibleFn(tx, 0, {
       selector: FunctionSelector.fromSignature('_increase_public_balance((Field),Field)'),
-      args: [payer, new Fr(1n)],
+      args: [payer.toField(), new Fr(1n)],
     });
-    await expectValidateFail(tx);
+    await expectInvalid(tx);
   });
 
   it('allows txs with no fee payer if fees are not enforced', async () => {
     tx.data.feePayer = AztecAddress.ZERO;
-    await expectValidateSuccess(tx);
+    await expectValid(tx);
   });
 
   it('rejects txs with no fee payer if fees are enforced', async () => {
-    validator.enforceFees = true;
+    enforceFees = true;
     tx.data.feePayer = AztecAddress.ZERO;
-    await expectValidateFail(tx);
+    await expectInvalid(tx);
+  });
+
+  it('skips txs with not enough fee per da gas', async () => {
+    gasFees.feePerDaGas = gasFees.feePerDaGas.add(new Fr(1));
+    await expectSkipped(tx);
+  });
+
+  it('skips txs with not enough fee per l2 gas', async () => {
+    gasFees.feePerL2Gas = gasFees.feePerL2Gas.add(new Fr(1));
+    await expectSkipped(tx);
   });
 });

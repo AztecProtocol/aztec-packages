@@ -5,10 +5,13 @@ use thiserror::Error;
 
 use crate::{
     ast::{Ident, UnsupportedNumericGenericType},
-    hir::comptime::InterpreterError,
+    hir::{
+        comptime::{InterpreterError, Value},
+        type_check::TypeCheckError,
+    },
     parser::ParserError,
     usage_tracker::UnusedItem,
-    Type,
+    Kind, Type,
 };
 
 use super::import::PathResolutionError;
@@ -77,8 +80,6 @@ pub enum ResolverError {
     MutableReferenceToImmutableVariable { variable: String, span: Span },
     #[error("Mutable references to array indices are unsupported")]
     MutableReferenceToArrayElement { span: Span },
-    #[error("Numeric constants should be printed without formatting braces")]
-    NumericConstantInFormatString { name: String, span: Span },
     #[error("Closure environment must be a tuple or unit type")]
     InvalidClosureEnvironment { typ: Type, span: Span },
     #[error("Nested slices, i.e. slices within an array or slice, are not supported")]
@@ -101,6 +102,16 @@ pub enum ResolverError {
     JumpOutsideLoop { is_break: bool, span: Span },
     #[error("Only `comptime` globals can be mutable")]
     MutableGlobal { span: Span },
+    #[error("Globals must have a specified type")]
+    UnspecifiedGlobalType { span: Span, expected_type: Type },
+    #[error("Global failed to evaluate")]
+    UnevaluatedGlobalType { span: Span },
+    #[error("Globals used in a type position must be non-negative")]
+    NegativeGlobalType { span: Span, global_value: Value },
+    #[error("Globals used in a type position must be integers")]
+    NonIntegralGlobalType { span: Span, global_value: Value },
+    #[error("Global value `{global_value}` is larger than its kind's maximum value")]
+    GlobalLargerThanKind { span: Span, global_value: FieldElement, kind: Kind },
     #[error("Self-referential structs are not supported")]
     SelfReferentialStruct { span: Span },
     #[error("#[no_predicates] attribute is only allowed on constrained functions")]
@@ -125,11 +136,12 @@ pub enum ResolverError {
     NamedTypeArgs { span: Span, item_kind: &'static str },
     #[error("Associated constants may only be a field or integer type")]
     AssociatedConstantsMustBeNumeric { span: Span },
-    #[error("Overflow in `{lhs} {op} {rhs}`")]
-    OverflowInType {
+    #[error("Computing `{lhs} {op} {rhs}` failed with error {err}")]
+    BinaryOpError {
         lhs: FieldElement,
         op: crate::BinaryTypeOperator,
         rhs: FieldElement,
+        err: Box<TypeCheckError>,
         span: Span,
     },
     #[error("`quote` cannot be used in runtime code")]
@@ -220,11 +232,21 @@ impl<'a> From<&'a ResolverError> for Diagnostic {
                     *span,
                 )
             }
-            ResolverError::VariableNotDeclared { name, span } => Diagnostic::simple_error(
-                format!("cannot find `{name}` in this scope "),
-                "not found in this scope".to_string(),
-                *span,
-            ),
+            ResolverError::VariableNotDeclared { name, span } =>  {
+                if name == "_" {
+                    Diagnostic::simple_error(
+                        "in expressions, `_` can only be used on the left-hand side of an assignment".to_string(),
+                        "`_` not allowed here".to_string(),
+                        *span,
+                    )
+                } else {
+                    Diagnostic::simple_error(
+                        format!("cannot find `{name}` in this scope"),
+                        "not found in this scope".to_string(),
+                        *span,
+                    )
+                }
+            },
             ResolverError::PathIsNotIdent { span } => Diagnostic::simple_error(
                 "cannot use path as an identifier".to_string(),
                 String::new(),
@@ -365,11 +387,6 @@ impl<'a> From<&'a ResolverError> for Diagnostic {
             ResolverError::MutableReferenceToArrayElement { span } => {
                 Diagnostic::simple_error("Mutable references to array elements are currently unsupported".into(), "Try storing the element in a fresh variable first".into(), *span)
             },
-            ResolverError::NumericConstantInFormatString { name, span } => Diagnostic::simple_error(
-                format!("cannot find `{name}` in this scope "),
-                "Numeric constants should be printed without formatting braces".to_string(),
-                *span,
-            ),
             ResolverError::InvalidClosureEnvironment { span, typ } => Diagnostic::simple_error(
                 format!("{typ} is not a valid closure environment type"),
                 "Closure environment must be a tuple or unit type".to_string(), *span),
@@ -430,6 +447,41 @@ impl<'a> From<&'a ResolverError> for Diagnostic {
                     *span,
                 )
             },
+            ResolverError::UnspecifiedGlobalType { span, expected_type } => {
+                Diagnostic::simple_error(
+                    "Globals must have a specified type".to_string(),
+                    format!("Inferred type is `{expected_type}`"),
+                    *span,
+                )
+            },
+            ResolverError::UnevaluatedGlobalType { span } => {
+                Diagnostic::simple_error(
+                    "Global failed to evaluate".to_string(),
+                    String::new(),
+                    *span,
+                )
+            }
+            ResolverError::NegativeGlobalType { span, global_value } => {
+                Diagnostic::simple_error(
+                    "Globals used in a type position must be non-negative".to_string(),
+                    format!("But found value `{global_value:?}`"),
+                    *span,
+                )
+            }
+            ResolverError::NonIntegralGlobalType { span, global_value } => {
+                Diagnostic::simple_error(
+                    "Globals used in a type position must be integers".to_string(),
+                    format!("But found value `{global_value:?}`"),
+                    *span,
+                )
+            }
+            ResolverError::GlobalLargerThanKind { span, global_value, kind } => {
+                Diagnostic::simple_error(
+                    format!("Global value `{global_value}` is larger than its kind's maximum value"),
+                    format!("Global's kind inferred to be `{kind}`"),
+                    *span,
+                )
+            }
             ResolverError::SelfReferentialStruct { span } => {
                 Diagnostic::simple_error(
                     "Self-referential structs are not supported".into(),
@@ -518,10 +570,10 @@ impl<'a> From<&'a ResolverError> for Diagnostic {
                     *span,
                 )
             }
-            ResolverError::OverflowInType { lhs, op, rhs, span } => {
+            ResolverError::BinaryOpError { lhs, op, rhs, err, span } => {
                 Diagnostic::simple_error(
-                    format!("Overflow in `{lhs} {op} {rhs}`"),
-                    "Overflow here".to_string(),
+                    format!("Computing `{lhs} {op} {rhs}` failed with error {err}"),
+                    String::new(),
                     *span,
                 )
             }

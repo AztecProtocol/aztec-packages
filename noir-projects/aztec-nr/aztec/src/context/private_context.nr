@@ -1,3 +1,5 @@
+use dep::protocol_types::debug_log::debug_log_format;
+
 use crate::{
     context::{inputs::PrivateContextInputs, packed_returns::PackedReturns},
     hash::{ArgsHasher, hash_args_array},
@@ -5,14 +7,13 @@ use crate::{
     messaging::process_l1_to_l2_message,
     oracle::{
         arguments,
+        block_header::get_block_header_at,
         call_private_function::call_private_function_internal,
         enqueue_public_function_call::{
             enqueue_public_function_call_internal, notify_set_min_revertible_side_effect_counter,
             set_public_teardown_function_call_internal,
         },
-        header::get_header_at,
         key_validation_request::get_key_validation_request,
-        logs::{emit_encrypted_event_log, emit_encrypted_note_log},
         returns::pack_returns,
     },
 };
@@ -20,26 +21,29 @@ use dep::protocol_types::{
     abis::{
         call_context::CallContext,
         function_selector::FunctionSelector,
-        log_hash::{EncryptedLogHash, LogHash, NoteLogHash},
+        log::Log,
+        log_hash::LogHash,
         max_block_number::MaxBlockNumber,
         note_hash::NoteHash,
         nullifier::Nullifier,
         private_call_request::PrivateCallRequest,
         private_circuit_public_inputs::PrivateCircuitPublicInputs,
+        private_log::PrivateLogData,
         public_call_request::PublicCallRequest,
         read_request::ReadRequest,
+        side_effect::Counted,
         validation_requests::{KeyValidationRequest, KeyValidationRequestAndGenerator},
     },
     address::{AztecAddress, EthAddress},
+    block_header::BlockHeader,
     constants::{
-        MAX_ENCRYPTED_LOGS_PER_CALL, MAX_KEY_VALIDATION_REQUESTS_PER_CALL,
-        MAX_L2_TO_L1_MSGS_PER_CALL, MAX_NOTE_ENCRYPTED_LOGS_PER_CALL,
+        MAX_CONTRACT_CLASS_LOGS_PER_CALL, MAX_ENQUEUED_CALLS_PER_CALL,
+        MAX_KEY_VALIDATION_REQUESTS_PER_CALL, MAX_L2_TO_L1_MSGS_PER_CALL,
         MAX_NOTE_HASH_READ_REQUESTS_PER_CALL, MAX_NOTE_HASHES_PER_CALL,
         MAX_NULLIFIER_READ_REQUESTS_PER_CALL, MAX_NULLIFIERS_PER_CALL,
-        MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL, MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL,
-        MAX_UNENCRYPTED_LOGS_PER_CALL, PUBLIC_DISPATCH_SELECTOR,
+        MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL, MAX_PRIVATE_LOGS_PER_CALL,
+        PRIVATE_LOG_SIZE_IN_FIELDS, PUBLIC_DISPATCH_SELECTOR,
     },
-    header::Header,
     messaging::l2_to_l1_message::L2ToL1Message,
     traits::Empty,
 };
@@ -47,41 +51,40 @@ use dep::protocol_types::{
 // When finished, one can call .finish() to convert back to the abi
 pub struct PrivateContext {
     // docs:start:private-context
-    inputs: PrivateContextInputs,
-    side_effect_counter: u32,
+    pub inputs: PrivateContextInputs,
+    pub side_effect_counter: u32,
 
-    min_revertible_side_effect_counter: u32,
-    is_fee_payer: bool,
+    pub min_revertible_side_effect_counter: u32,
+    pub is_fee_payer: bool,
 
-    args_hash: Field,
-    return_hash: Field,
+    pub args_hash: Field,
+    pub return_hash: Field,
 
-    max_block_number: MaxBlockNumber,
+    pub max_block_number: MaxBlockNumber,
 
-    note_hash_read_requests: BoundedVec<ReadRequest, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL>,
-    nullifier_read_requests: BoundedVec<ReadRequest, MAX_NULLIFIER_READ_REQUESTS_PER_CALL>,
+    pub note_hash_read_requests: BoundedVec<ReadRequest, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL>,
+    pub nullifier_read_requests: BoundedVec<ReadRequest, MAX_NULLIFIER_READ_REQUESTS_PER_CALL>,
     key_validation_requests_and_generators: BoundedVec<KeyValidationRequestAndGenerator, MAX_KEY_VALIDATION_REQUESTS_PER_CALL>,
 
-    note_hashes: BoundedVec<NoteHash, MAX_NOTE_HASHES_PER_CALL>,
-    nullifiers: BoundedVec<Nullifier, MAX_NULLIFIERS_PER_CALL>,
+    pub note_hashes: BoundedVec<NoteHash, MAX_NOTE_HASHES_PER_CALL>,
+    pub nullifiers: BoundedVec<Nullifier, MAX_NULLIFIERS_PER_CALL>,
 
-    private_call_requests: BoundedVec<PrivateCallRequest, MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL>,
-    public_call_requests: BoundedVec<PublicCallRequest, MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL>,
-    public_teardown_call_request: PublicCallRequest,
-    l2_to_l1_msgs: BoundedVec<L2ToL1Message, MAX_L2_TO_L1_MSGS_PER_CALL>,
+    pub private_call_requests: BoundedVec<PrivateCallRequest, MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL>,
+    pub public_call_requests: BoundedVec<Counted<PublicCallRequest>, MAX_ENQUEUED_CALLS_PER_CALL>,
+    pub public_teardown_call_request: PublicCallRequest,
+    pub l2_to_l1_msgs: BoundedVec<L2ToL1Message, MAX_L2_TO_L1_MSGS_PER_CALL>,
     // docs:end:private-context
 
     // Header of a block whose state is used during private execution (not the block the transaction is included in).
-    historical_header: Header,
+    pub historical_header: BlockHeader,
 
-    note_encrypted_logs_hashes: BoundedVec<NoteLogHash, MAX_NOTE_ENCRYPTED_LOGS_PER_CALL>,
-    encrypted_logs_hashes: BoundedVec<EncryptedLogHash, MAX_ENCRYPTED_LOGS_PER_CALL>,
-    unencrypted_logs_hashes: BoundedVec<LogHash, MAX_UNENCRYPTED_LOGS_PER_CALL>,
+    pub private_logs: BoundedVec<PrivateLogData, MAX_PRIVATE_LOGS_PER_CALL>,
+    pub contract_class_logs_hashes: BoundedVec<LogHash, MAX_CONTRACT_CLASS_LOGS_PER_CALL>,
 
     // Contains the last key validation request for each key type. This is used to cache the last request and avoid
     // fetching the same request multiple times.
     // The index of the array corresponds to the key type (0 nullifier, 1 incoming, 2 outgoing, 3 tagging).
-    last_key_validation_requests: [Option<KeyValidationRequest>; NUM_KEY_TYPES],
+    pub last_key_validation_requests: [Option<KeyValidationRequest>; NUM_KEY_TYPES],
 }
 
 impl PrivateContext {
@@ -104,48 +107,53 @@ impl PrivateContext {
             public_call_requests: BoundedVec::new(),
             public_teardown_call_request: PublicCallRequest::empty(),
             l2_to_l1_msgs: BoundedVec::new(),
-            note_encrypted_logs_hashes: BoundedVec::new(),
-            encrypted_logs_hashes: BoundedVec::new(),
-            unencrypted_logs_hashes: BoundedVec::new(),
+            private_logs: BoundedVec::new(),
+            contract_class_logs_hashes: BoundedVec::new(),
             last_key_validation_requests: [Option::none(); NUM_KEY_TYPES],
         }
     }
 
-    fn msg_sender(self) -> AztecAddress {
+    pub fn msg_sender(self) -> AztecAddress {
         self.inputs.call_context.msg_sender
     }
 
-    fn this_address(self) -> AztecAddress {
+    pub fn this_address(self) -> AztecAddress {
         self.inputs.call_context.contract_address
     }
 
-    fn chain_id(self) -> Field {
+    pub fn chain_id(self) -> Field {
         self.inputs.tx_context.chain_id
     }
 
-    fn version(self) -> Field {
+    pub fn version(self) -> Field {
         self.inputs.tx_context.version
     }
 
-    fn selector(self) -> FunctionSelector {
+    pub fn selector(self) -> FunctionSelector {
         self.inputs.call_context.function_selector
     }
 
-    fn get_args_hash(self) -> Field {
+    pub fn get_args_hash(self) -> Field {
         self.args_hash
     }
 
-    fn push_note_hash(&mut self, note_hash: Field) {
+    pub fn push_note_hash(&mut self, note_hash: Field) {
         self.note_hashes.push(NoteHash { value: note_hash, counter: self.next_counter() });
+
+        // WARNING(https://github.com/AztecProtocol/aztec-packages/issues/10558): if you delete this debug_log_format line, some tests fail.
+        debug_log_format(
+            "Context.note_hashes, after pushing new note hash: {0}",
+            self.note_hashes.storage().map(|nh: NoteHash| nh.value),
+        );
     }
 
-    fn push_nullifier(&mut self, nullifier: Field) {
+    pub fn push_nullifier(&mut self, nullifier: Field) {
         self.nullifiers.push(
             Nullifier { value: nullifier, note_hash: 0, counter: self.next_counter() },
         );
     }
 
-    fn push_nullifier_for_note_hash(&mut self, nullifier: Field, nullified_note_hash: Field) {
+    pub fn push_nullifier_for_note_hash(&mut self, nullifier: Field, nullified_note_hash: Field) {
         self.nullifiers.push(
             Nullifier {
                 value: nullifier,
@@ -157,14 +165,14 @@ impl PrivateContext {
 
     // Returns the header of a block whose state is used during private execution (not the block the transaction is
     // included in).
-    fn get_header(self) -> Header {
+    pub fn get_block_header(self) -> BlockHeader {
         self.historical_header
     }
 
     // Returns the header of an arbitrary block whose block number is less than or equal to the block number
     // of historical header.
-    pub fn get_header_at(self, block_number: u32) -> Header {
-        get_header_at(block_number, self)
+    pub fn get_block_header_at(self, block_number: u32) -> BlockHeader {
+        get_block_header_at(block_number, self)
     }
 
     pub fn set_return_hash(&mut self, returns_hasher: ArgsHasher) {
@@ -180,22 +188,21 @@ impl PrivateContext {
             min_revertible_side_effect_counter: self.min_revertible_side_effect_counter,
             is_fee_payer: self.is_fee_payer,
             max_block_number: self.max_block_number,
-            note_hash_read_requests: self.note_hash_read_requests.storage,
-            nullifier_read_requests: self.nullifier_read_requests.storage,
+            note_hash_read_requests: self.note_hash_read_requests.storage(),
+            nullifier_read_requests: self.nullifier_read_requests.storage(),
             key_validation_requests_and_generators: self
                 .key_validation_requests_and_generators
-                .storage,
-            note_hashes: self.note_hashes.storage,
-            nullifiers: self.nullifiers.storage,
-            private_call_requests: self.private_call_requests.storage,
-            public_call_requests: self.public_call_requests.storage,
+                .storage(),
+            note_hashes: self.note_hashes.storage(),
+            nullifiers: self.nullifiers.storage(),
+            private_call_requests: self.private_call_requests.storage(),
+            public_call_requests: self.public_call_requests.storage(),
             public_teardown_call_request: self.public_teardown_call_request,
-            l2_to_l1_msgs: self.l2_to_l1_msgs.storage,
+            l2_to_l1_msgs: self.l2_to_l1_msgs.storage(),
             start_side_effect_counter: self.inputs.start_side_effect_counter,
             end_side_effect_counter: self.side_effect_counter,
-            note_encrypted_logs_hashes: self.note_encrypted_logs_hashes.storage,
-            encrypted_logs_hashes: self.encrypted_logs_hashes.storage,
-            unencrypted_logs_hashes: self.unencrypted_logs_hashes.storage,
+            private_logs: self.private_logs.storage(),
+            contract_class_logs_hashes: self.contract_class_logs_hashes.storage(),
             historical_header: self.historical_header,
             tx_context: self.inputs.tx_context,
         }
@@ -251,17 +258,21 @@ impl PrivateContext {
             // We get a match so the cached request is the latest one
             cached_request.sk_app
         } else {
-            // We didn't get a match meaning the cached result is stale. We fetch new values from oracle and instruct
-            // protocol circuits to validate them by storing the validation request in context.
-            let request = get_key_validation_request(pk_m_hash, key_index);
-            let request_and_generator = KeyValidationRequestAndGenerator {
-                request,
-                sk_app_generator: sk_generators[key_index],
-            };
-            // We constrain that the pk_m_hash matches the one in the request (otherwise we could get an arbitrary
-            // valid key request and not the one corresponding to pk_m_hash).
+            // We didn't get a match meaning the cached result is stale
+            // Typically we'd validate keys by showing that they are the preimage of `pk_m_hash`, but that'd require
+            // the oracle returning the master secret keys, which could cause malicious contracts to leak it or learn
+            // about secrets from other contracts. We therefore silo secret keys, and rely on the private kernel to
+            // validate that we siloed secret key corresponds to correct siloing of the master secret key that hashes
+            // to `pk_m_hash`.
+            let request = unsafe { get_key_validation_request(pk_m_hash, key_index) };
             assert(request.pk_m.hash() == pk_m_hash);
-            self.key_validation_requests_and_generators.push(request_and_generator);
+
+            self.key_validation_requests_and_generators.push(
+                KeyValidationRequestAndGenerator {
+                    request,
+                    sk_app_generator: sk_generators[key_index],
+                },
+            );
             self.last_key_validation_requests[key_index] = Option::some(request);
             request.sk_app
         }
@@ -300,35 +311,20 @@ impl PrivateContext {
     }
     // docs:end:consume_l1_to_l2_message
 
-    // NB: A randomness value of 0 signals that the kernels should not mask the contract address
-    // used in siloing later on e.g. 'handshaking' contract w/ known address.
-    pub fn emit_raw_event_log_with_masked_address<let M: u32>(
-        &mut self,
-        randomness: Field,
-        log: [u8; M],
-        log_hash: Field,
-    ) {
+    pub fn emit_private_log(&mut self, log: [Field; PRIVATE_LOG_SIZE_IN_FIELDS]) {
         let counter = self.next_counter();
-        let contract_address = self.this_address();
-        let len = log.len() as Field + 4;
-        let side_effect = EncryptedLogHash { value: log_hash, counter, length: len, randomness };
-        self.encrypted_logs_hashes.push(side_effect);
-
-        emit_encrypted_event_log(contract_address, randomness, log, counter);
+        let private_log = PrivateLogData { log: Log::new(log), note_hash_counter: 0, counter };
+        self.private_logs.push(private_log);
     }
 
-    pub fn emit_raw_note_log<let M: u32>(
+    pub fn emit_raw_note_log(
         &mut self,
+        log: [Field; PRIVATE_LOG_SIZE_IN_FIELDS],
         note_hash_counter: u32,
-        log: [u8; M],
-        log_hash: Field,
     ) {
         let counter = self.next_counter();
-        let len = log.len() as Field + 4;
-        let side_effect = NoteLogHash { value: log_hash, counter, length: len, note_hash_counter };
-        self.note_encrypted_logs_hashes.push(side_effect);
-
-        emit_encrypted_note_log(note_hash_counter, log, counter);
+        let private_log = PrivateLogData { log: Log::new(log), note_hash_counter, counter };
+        self.private_logs.push(private_log);
     }
 
     pub fn call_private_function<let ARGS_COUNT: u32>(
@@ -388,15 +384,36 @@ impl PrivateContext {
     ) -> PackedReturns {
         let mut is_static_call = is_static_call | self.inputs.call_context.is_static_call;
         let start_side_effect_counter = self.side_effect_counter;
-        let (end_side_effect_counter, returns_hash) = call_private_function_internal(
-            contract_address,
-            function_selector,
-            args_hash,
-            start_side_effect_counter,
-            is_static_call,
-        );
 
-        self.side_effect_counter = end_side_effect_counter + 1;
+        // The oracle simulates the private call and returns the value of the side effects counter after execution of
+        // the call (which means that end_side_effect_counter - start_side_effect_counter is the number of side effects
+        // that took place), along with the hash of the return values. We validate these by requesting a private kernel
+        // iteration in which the return values are constrained to hash to `returns_hash` and the side effects counter
+        // to increment from start to end.
+        let (end_side_effect_counter, returns_hash) = unsafe {
+            call_private_function_internal(
+                contract_address,
+                function_selector,
+                args_hash,
+                start_side_effect_counter,
+                is_static_call,
+            )
+        };
+
+        self.private_call_requests.push(
+            PrivateCallRequest {
+                call_context: CallContext {
+                    msg_sender: self.this_address(),
+                    contract_address,
+                    function_selector,
+                    is_static_call,
+                },
+                args_hash,
+                returns_hash,
+                start_side_effect_counter,
+                end_side_effect_counter,
+            },
+        );
 
         // TODO (fees) figure out why this crashes the prover and enable it
         // we need this in order to pay fees inside child call contexts
@@ -409,23 +426,7 @@ impl PrivateContext {
         //     > self.min_revertible_side_effect_counter {
         //     self.min_revertible_side_effect_counter = item.public_inputs.min_revertible_side_effect_counter;
         // }
-        let call_context = CallContext {
-            msg_sender: self.this_address(),
-            contract_address,
-            function_selector,
-            is_static_call,
-        };
-
-        self.private_call_requests.push(
-            PrivateCallRequest {
-                call_context,
-                args_hash,
-                returns_hash,
-                start_side_effect_counter,
-                end_side_effect_counter,
-            },
-        );
-
+        self.side_effect_counter = end_side_effect_counter + 1;
         PackedReturns::new(returns_hash)
     }
 
@@ -503,15 +504,16 @@ impl PrivateContext {
 
         // Public calls are rerouted through the dispatch function.
         let function_selector = comptime { FunctionSelector::from_field(PUBLIC_DISPATCH_SELECTOR) };
-        let call_context = CallContext {
+
+        let call_request = PublicCallRequest {
             msg_sender: self.this_address(),
             contract_address,
             function_selector,
             is_static_call,
+            args_hash,
         };
 
-        let call_request = PublicCallRequest { call_context, args_hash, counter };
-        self.public_call_requests.push(call_request);
+        self.public_call_requests.push(Counted::new(call_request, counter));
     }
 
     pub fn set_public_teardown_function<let ARGS_COUNT: u32>(
@@ -555,14 +557,14 @@ impl PrivateContext {
         );
 
         let function_selector = comptime { FunctionSelector::from_field(PUBLIC_DISPATCH_SELECTOR) };
-        let call_context = CallContext {
+
+        self.public_teardown_call_request = PublicCallRequest {
             msg_sender: self.this_address(),
             contract_address,
             function_selector,
             is_static_call,
+            args_hash,
         };
-
-        self.public_teardown_call_request = PublicCallRequest { call_context, args_hash, counter };
     }
 
     fn next_counter(&mut self) -> u32 {
@@ -591,10 +593,9 @@ impl Empty for PrivateContext {
             public_call_requests: BoundedVec::new(),
             public_teardown_call_request: PublicCallRequest::empty(),
             l2_to_l1_msgs: BoundedVec::new(),
-            historical_header: Header::empty(),
-            note_encrypted_logs_hashes: BoundedVec::new(),
-            encrypted_logs_hashes: BoundedVec::new(),
-            unencrypted_logs_hashes: BoundedVec::new(),
+            historical_header: BlockHeader::empty(),
+            private_logs: BoundedVec::new(),
+            contract_class_logs_hashes: BoundedVec::new(),
             last_key_validation_requests: [Option::none(); NUM_KEY_TYPES],
         }
     }

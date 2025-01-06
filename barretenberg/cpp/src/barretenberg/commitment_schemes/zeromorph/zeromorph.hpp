@@ -421,6 +421,7 @@ template <typename Curve> class ZeroMorphProver_ {
             transcript->send_to_verifier(label, q_k_commitment);
         }
         // Add buffer elements to remove log_N dependence in proof
+        // TODO(https://github.com/AztecProtocol/barretenberg/issues/1159): Decouple constants from primitives.
         for (size_t idx = log_N; idx < CONST_PROOF_SIZE_LOG_N; ++idx) {
             auto buffer_element = Commitment::one();
             std::string label = "ZM:C_q_" + std::to_string(idx);
@@ -527,6 +528,7 @@ template <typename Curve> class ZeroMorphVerifier_ {
             if constexpr (Curve::is_stdlib_type) {
                 auto builder = x_challenge.get_context();
                 FF zero = FF(0);
+                // TODO(https://github.com/AztecProtocol/barretenberg/issues/1114): insecure dummy_round derivation!
                 stdlib::bool_t dummy_round = stdlib::witness_t(builder, is_dummy_round);
                 // TODO(https://github.com/AztecProtocol/barretenberg/issues/1039): is it kosher to reassign like this?
                 scalar = FF::conditional_assign(dummy_round, zero, scalar);
@@ -589,6 +591,8 @@ template <typename Curve> class ZeroMorphVerifier_ {
                                     const FF circuit_size,
                                     const std::vector<RefVector<Commitment>>& concatenation_groups_commitments = {})
     {
+        // TODO(https://github.com/AztecProtocol/barretenberg/issues/1144): Add proper constraints for taking the log of
+        // a field_t.
         size_t N{ 0 };
         size_t log_N{ 0 };
         if constexpr (Curve::is_stdlib_type) {

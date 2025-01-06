@@ -1,5 +1,4 @@
 use acvm::acir::brillig::{BitSize, IntegerBitSize, Opcode as BrilligOpcode};
-use fxhash::FxHashMap as HashMap;
 use std::collections::BTreeMap;
 
 use acvm::acir::circuit::BrilligOpcodeLocation;
@@ -9,22 +8,24 @@ use acvm::brillig_vm::brillig::{
 use acvm::FieldElement;
 use noirc_errors::debug_info::DebugInfo;
 
-use crate::bit_traits::bits_needed_for;
+use crate::bit_traits::{bits_needed_for, BitsQueryable};
 use crate::instructions::{AddressingModeBuilder, AvmInstruction, AvmOperand, AvmTypeTag};
 use crate::opcodes::AvmOpcode;
 use crate::utils::{dbg_print_avm_program, dbg_print_brillig_program, make_operand};
 
 /// Transpile a Brillig program to AVM bytecode
-pub fn brillig_to_avm(
-    brillig_bytecode: &[BrilligOpcode<FieldElement>],
-    brillig_pcs_to_avm_pcs: &[usize],
-) -> Vec<u8> {
+/// Returns the bytecode and a mapping from Brillig program counter to AVM program counter.
+pub fn brillig_to_avm(brillig_bytecode: &[BrilligOpcode<FieldElement>]) -> (Vec<u8>, Vec<usize>) {
     dbg_print_brillig_program(brillig_bytecode);
 
     let mut avm_instrs: Vec<AvmInstruction> = Vec::new();
+    let mut brillig_pcs_to_avm_pcs: Vec<usize> = [0_usize].to_vec();
+    let mut current_avm_pc: usize = 0;
 
     // Transpile a Brillig instruction to one or more AVM instructions
     for brillig_instr in brillig_bytecode {
+        let current_avm_instr_index = avm_instrs.len();
+
         match brillig_instr {
             BrilligOpcode::BinaryFieldOp { destination, op, lhs, rhs } => {
                 let bits_needed =
@@ -88,12 +89,12 @@ pub fn brillig_to_avm(
                             .direct_operand(destination)
                             .build(),
                     ),
-                    tag: None,
                     operands: vec![
                         make_operand(bits_needed, &lhs.to_usize()),
                         make_operand(bits_needed, &rhs.to_usize()),
                         make_operand(bits_needed, &destination.to_usize()),
                     ],
+                    ..Default::default()
                 });
             }
             BrilligOpcode::BinaryIntOp { destination, op, lhs, rhs, .. } => {
@@ -176,12 +177,12 @@ pub fn brillig_to_avm(
                             .direct_operand(destination)
                             .build(),
                     ),
-                    tag: None,
                     operands: vec![
                         make_operand(bits_needed, &lhs.to_usize()),
                         make_operand(bits_needed, &rhs.to_usize()),
                         make_operand(bits_needed, &destination.to_usize()),
                     ],
+                    ..Default::default()
                 });
             }
             BrilligOpcode::Not { destination, source, .. } => {
@@ -205,7 +206,7 @@ pub fn brillig_to_avm(
                         make_operand(bits_needed, &source.to_usize()),
                         make_operand(bits_needed, &destination.to_usize()),
                     ],
-                    tag: None,
+                    ..Default::default()
                 });
             }
             BrilligOpcode::CalldataCopy { destination_address, size_address, offset_address } => {
@@ -231,24 +232,22 @@ pub fn brillig_to_avm(
                 });
             }
             BrilligOpcode::Jump { location } => {
-                let avm_loc = brillig_pcs_to_avm_pcs[*location];
+                assert!(location.num_bits() <= 32);
                 avm_instrs.push(AvmInstruction {
                     opcode: AvmOpcode::JUMP_32,
-                    operands: vec![make_operand(32, &avm_loc)],
+                    immediates: vec![AvmOperand::BRILLIG_LOCATION { brillig_pc: *location as u32 }],
                     ..Default::default()
                 });
             }
             BrilligOpcode::JumpIf { condition, location } => {
-                let avm_loc = brillig_pcs_to_avm_pcs[*location];
+                assert!(location.num_bits() <= 32);
                 avm_instrs.push(AvmInstruction {
                     opcode: AvmOpcode::JUMPI_32,
                     indirect: Some(
                         AddressingModeBuilder::default().direct_operand(condition).build(),
                     ),
-                    operands: vec![
-                        make_operand(32, &avm_loc),
-                        make_operand(16, &condition.to_usize()),
-                    ],
+                    operands: vec![make_operand(16, &condition.to_usize())],
+                    immediates: vec![AvmOperand::BRILLIG_LOCATION { brillig_pc: *location as u32 }],
                     ..Default::default()
                 });
             }
@@ -295,25 +294,21 @@ pub fn brillig_to_avm(
                 ));
             }
             BrilligOpcode::Call { location } => {
-                let avm_loc = brillig_pcs_to_avm_pcs[*location];
+                assert!(location.num_bits() <= 32);
                 avm_instrs.push(AvmInstruction {
                     opcode: AvmOpcode::INTERNALCALL,
-                    operands: vec![AvmOperand::U32 { value: avm_loc as u32 }],
+                    immediates: vec![AvmOperand::BRILLIG_LOCATION { brillig_pc: *location as u32 }],
                     ..Default::default()
                 });
             }
             BrilligOpcode::Return {} => avm_instrs
                 .push(AvmInstruction { opcode: AvmOpcode::INTERNALRETURN, ..Default::default() }),
-            BrilligOpcode::Stop { return_data_offset, return_data_size } => {
-                avm_instrs.push(AvmInstruction {
-                    opcode: AvmOpcode::RETURN,
-                    indirect: Some(AddressingModeBuilder::default().build()),
-                    operands: vec![
-                        AvmOperand::U16 { value: *return_data_offset as u16 },
-                        AvmOperand::U16 { value: *return_data_size as u16 },
-                    ],
-                    ..Default::default()
-                });
+            BrilligOpcode::Stop { return_data } => {
+                generate_return_instruction(
+                    &mut avm_instrs,
+                    &return_data.pointer,
+                    &return_data.size,
+                );
             }
             BrilligOpcode::Trap { revert_data } => {
                 generate_revert_instruction(
@@ -342,7 +337,36 @@ pub fn brillig_to_avm(
                 brillig_instr
             ),
         }
+
+        // Increment the AVM program counter.
+        current_avm_pc +=
+            avm_instrs.iter().skip(current_avm_instr_index).map(|i| i.size()).sum::<usize>();
+        brillig_pcs_to_avm_pcs.push(current_avm_pc);
     }
+
+    // Now that we have the general structure of the AVM program, we need to resolve the
+    // Brillig jump locations.
+    let mut avm_instrs = avm_instrs
+        .into_iter()
+        .map(|i| match i.opcode {
+            AvmOpcode::JUMP_32 | AvmOpcode::JUMPI_32 | AvmOpcode::INTERNALCALL => {
+                let new_immediates = i
+                    .immediates
+                    .into_iter()
+                    .map(|o| match o {
+                        AvmOperand::BRILLIG_LOCATION { brillig_pc } => {
+                            let avm_pc = brillig_pcs_to_avm_pcs[brillig_pc as usize];
+                            assert!(avm_pc.num_bits() <= 32, "Oops! AVM PC is too large!");
+                            AvmOperand::U32 { value: avm_pc as u32 }
+                        }
+                        _ => o,
+                    })
+                    .collect::<Vec<AvmOperand>>();
+                AvmInstruction { immediates: new_immediates, ..i }
+            }
+            _ => i,
+        })
+        .collect::<Vec<AvmInstruction>>();
 
     // TEMPORARY: Add a "magic number" instruction to the end of the program.
     // This makes it possible to know that the bytecode corresponds to the AVM.
@@ -362,7 +386,8 @@ pub fn brillig_to_avm(
     for instruction in avm_instrs {
         bytecode.extend_from_slice(&instruction.to_bytes());
     }
-    bytecode
+
+    (bytecode, brillig_pcs_to_avm_pcs)
 }
 
 /// Handle brillig foreign calls
@@ -374,8 +399,8 @@ pub fn brillig_to_avm(
 fn handle_foreign_call(
     avm_instrs: &mut Vec<AvmInstruction>,
     function: &str,
-    destinations: &Vec<ValueOrArray>,
-    inputs: &Vec<ValueOrArray>,
+    destinations: &[ValueOrArray],
+    inputs: &[ValueOrArray],
 ) {
     match function {
         "avmOpcodeCall" => handle_external_call(avm_instrs, destinations, inputs, AvmOpcode::CALL),
@@ -427,8 +452,8 @@ fn handle_foreign_call(
 // ) -> bool {}
 fn handle_external_call(
     avm_instrs: &mut Vec<AvmInstruction>,
-    destinations: &Vec<ValueOrArray>,
-    inputs: &Vec<ValueOrArray>,
+    destinations: &[ValueOrArray],
+    inputs: &[ValueOrArray],
     opcode: AvmOpcode,
 ) {
     if destinations.len() != 1 || inputs.len() != 4 {
@@ -471,10 +496,10 @@ fn handle_external_call(
         opcode,
         indirect: Some(
             AddressingModeBuilder::default()
-                .indirect_operand(&gas_offset_ptr)
+                .indirect_operand(gas_offset_ptr)
                 .direct_operand(address_offset)
-                .indirect_operand(&args_offset_ptr)
-                .direct_operand(&args_size_offset)
+                .indirect_operand(args_offset_ptr)
+                .direct_operand(args_size_offset)
                 .direct_operand(success_offset)
                 .build(),
         ),
@@ -503,10 +528,10 @@ fn handle_cast(
 /// Adds the new instruction to the avm instructions list.
 fn handle_note_hash_exists(
     avm_instrs: &mut Vec<AvmInstruction>,
-    destinations: &Vec<ValueOrArray>,
-    inputs: &Vec<ValueOrArray>,
+    destinations: &[ValueOrArray],
+    inputs: &[ValueOrArray],
 ) {
-    let (note_hash_offset_operand, leaf_index_offset_operand) = match &inputs[..] {
+    let (note_hash_offset_operand, leaf_index_offset_operand) = match inputs {
         [
             ValueOrArray::MemoryAddress(nh_offset),
             ValueOrArray::MemoryAddress(li_offset)
@@ -515,7 +540,7 @@ fn handle_note_hash_exists(
             "Transpiler expects ForeignCall::NOTEHASHEXISTS to have 2 inputs of type MemoryAddress, got {:?}", inputs
         ),
     };
-    let exists_offset_operand = match &destinations[..] {
+    let exists_offset_operand = match destinations {
         [ValueOrArray::MemoryAddress(offset)] => offset,
         _ => panic!(
             "Transpiler expects ForeignCall::NOTEHASHEXISTS to have 1 output of type MemoryAddress, got {:?}", destinations
@@ -541,8 +566,8 @@ fn handle_note_hash_exists(
 
 fn handle_emit_unencrypted_log(
     avm_instrs: &mut Vec<AvmInstruction>,
-    destinations: &Vec<ValueOrArray>,
-    inputs: &Vec<ValueOrArray>,
+    destinations: &[ValueOrArray],
+    inputs: &[ValueOrArray],
 ) {
     if !destinations.is_empty() || inputs.len() != 2 {
         panic!(
@@ -581,8 +606,8 @@ fn handle_emit_unencrypted_log(
 fn handle_emit_note_hash_or_nullifier(
     is_nullifier: bool, // false for note hash, true for nullifier
     avm_instrs: &mut Vec<AvmInstruction>,
-    destinations: &Vec<ValueOrArray>,
-    inputs: &Vec<ValueOrArray>,
+    destinations: &[ValueOrArray],
+    inputs: &[ValueOrArray],
 ) {
     let function_name = if is_nullifier { "EMITNULLIFIER" } else { "EMITNOTEHASH" };
 
@@ -614,8 +639,8 @@ fn handle_emit_note_hash_or_nullifier(
 /// Adds the new instruction to the avm instructions list.
 fn handle_nullifier_exists(
     avm_instrs: &mut Vec<AvmInstruction>,
-    destinations: &Vec<ValueOrArray>,
-    inputs: &Vec<ValueOrArray>,
+    destinations: &[ValueOrArray],
+    inputs: &[ValueOrArray],
 ) {
     if destinations.len() != 1 || inputs.len() != 2 {
         panic!("Transpiler expects ForeignCall::CHECKNULLIFIEREXISTS to have 1 destinations and 2 inputs, got {} and {}", destinations.len(), inputs.len());
@@ -655,8 +680,8 @@ fn handle_nullifier_exists(
 /// Adds the new instruction to the avm instructions list.
 fn handle_l1_to_l2_msg_exists(
     avm_instrs: &mut Vec<AvmInstruction>,
-    destinations: &Vec<ValueOrArray>,
-    inputs: &Vec<ValueOrArray>,
+    destinations: &[ValueOrArray],
+    inputs: &[ValueOrArray],
 ) {
     if destinations.len() != 1 || inputs.len() != 2 {
         panic!(
@@ -706,8 +731,8 @@ fn handle_l1_to_l2_msg_exists(
 /// Adds the new instruction to the avm instructions list.
 fn handle_send_l2_to_l1_msg(
     avm_instrs: &mut Vec<AvmInstruction>,
-    destinations: &Vec<ValueOrArray>,
-    inputs: &Vec<ValueOrArray>,
+    destinations: &[ValueOrArray],
+    inputs: &[ValueOrArray],
 ) {
     if !destinations.is_empty() || inputs.len() != 2 {
         panic!(
@@ -755,13 +780,13 @@ fn handle_send_l2_to_l1_msg(
 fn handle_getter_instruction(
     avm_instrs: &mut Vec<AvmInstruction>,
     function: &str,
-    destinations: &Vec<ValueOrArray>,
-    inputs: &Vec<ValueOrArray>,
+    destinations: &[ValueOrArray],
+    inputs: &[ValueOrArray],
 ) {
+    #[allow(clippy::upper_case_acronyms)]
     enum EnvironmentVariable {
         ADDRESS,
         SENDER,
-        FUNCTIONSELECTOR,
         TRANSACTIONFEE,
         CHAINID,
         VERSION,
@@ -796,7 +821,6 @@ fn handle_getter_instruction(
         "avmOpcodeTimestamp" => EnvironmentVariable::TIMESTAMP,
         "avmOpcodeL2GasLeft" => EnvironmentVariable::L2GASLEFT,
         "avmOpcodeDaGasLeft" => EnvironmentVariable::DAGASLEFT,
-        "avmOpcodeFunctionSelector" => EnvironmentVariable::FUNCTIONSELECTOR,
         "avmOpcodeIsStaticCall" => EnvironmentVariable::ISSTATICCALL,
         _ => panic!("Transpiler doesn't know how to process getter {:?}", function),
     };
@@ -804,10 +828,8 @@ fn handle_getter_instruction(
     avm_instrs.push(AvmInstruction {
         opcode: AvmOpcode::GETENVVAR_16,
         indirect: Some(AddressingModeBuilder::default().direct_operand(&dest_offset).build()),
-        operands: vec![
-            AvmOperand::U8 { value: var_idx as u8 },
-            AvmOperand::U16 { value: dest_offset.to_usize() as u16 },
-        ],
+        operands: vec![AvmOperand::U16 { value: dest_offset.to_usize() as u16 }],
+        immediates: vec![AvmOperand::U8 { value: var_idx as u8 }],
         ..Default::default()
     });
 }
@@ -854,10 +876,8 @@ fn generate_set_instruction(
             Some(AddressingModeBuilder::default().direct_operand(dest).build())
         },
         tag: Some(tag),
-        operands: vec![
-            make_operand(bits_needed_opcode, value),
-            make_operand(bits_needed_mem, &(dest.to_usize())),
-        ],
+        operands: vec![make_operand(bits_needed_mem, &(dest.to_usize()))],
+        immediates: vec![make_operand(bits_needed_opcode, value)],
     }
 }
 
@@ -896,6 +916,7 @@ fn generate_cast_instruction(
             make_operand(bits_needed, &(source.to_usize())),
             make_operand(bits_needed, &(destination.to_usize())),
         ],
+        ..Default::default()
     }
 }
 
@@ -923,6 +944,28 @@ fn generate_revert_instruction(
         operands: vec![
             make_operand(bits_needed, &revert_data_pointer.to_usize()),
             make_operand(bits_needed, &revert_data_size_offset.to_usize()),
+        ],
+        ..Default::default()
+    });
+}
+
+/// Generates an AVM RETURN instruction.
+fn generate_return_instruction(
+    avm_instrs: &mut Vec<AvmInstruction>,
+    return_data_pointer: &MemoryAddress,
+    return_data_size_offset: &MemoryAddress,
+) {
+    avm_instrs.push(AvmInstruction {
+        opcode: AvmOpcode::RETURN,
+        indirect: Some(
+            AddressingModeBuilder::default()
+                .indirect_operand(return_data_pointer)
+                .direct_operand(return_data_size_offset)
+                .build(),
+        ),
+        operands: vec![
+            AvmOperand::U16 { value: return_data_pointer.to_usize() as u16 },
+            AvmOperand::U16 { value: return_data_size_offset.to_usize() as u16 },
         ],
         ..Default::default()
     });
@@ -1022,29 +1065,32 @@ fn handle_black_box_function(avm_instrs: &mut Vec<AvmInstruction>, operation: &B
                 ..Default::default()
             });
         }
-        BlackBoxOp::ToRadix { input, radix, output, output_bits } => {
-            let num_limbs = output.size as u32;
+        BlackBoxOp::ToRadix { input, radix, output_pointer, num_limbs, output_bits } => {
             let input_offset = input.to_usize() as u32;
-            let output_offset = output.pointer.to_usize() as u32;
             let radix_offset = radix.to_usize() as u32;
+            let output_offset = output_pointer.to_usize() as u32;
+            let num_limbs_offset = num_limbs.to_usize() as u32;
+            let output_bits_offset = output_bits.to_usize() as u32;
 
             avm_instrs.push(AvmInstruction {
                 opcode: AvmOpcode::TORADIXBE,
                 indirect: Some(
                     AddressingModeBuilder::default()
                         .direct_operand(input)
-                        .indirect_operand(&output.pointer)
                         .direct_operand(radix)
+                        .direct_operand(num_limbs)
+                        .direct_operand(output_bits)
+                        .indirect_operand(output_pointer)
                         .build(),
                 ),
-                tag: None,
                 operands: vec![
                     AvmOperand::U16 { value: input_offset as u16 },
-                    AvmOperand::U16 { value: output_offset as u16 },
                     AvmOperand::U16 { value: radix_offset as u16 },
-                    AvmOperand::U16 { value: num_limbs as u16 },
-                    AvmOperand::U8 { value: *output_bits as u8 },
+                    AvmOperand::U16 { value: num_limbs_offset as u16 },
+                    AvmOperand::U16 { value: output_bits_offset as u16 },
+                    AvmOperand::U16 { value: output_offset as u16 },
                 ],
+                ..Default::default()
             });
         }
         // This will be changed to utilise relative memory offsets
@@ -1116,8 +1162,8 @@ fn handle_black_box_function(avm_instrs: &mut Vec<AvmInstruction>, operation: &B
 
 fn handle_debug_log(
     avm_instrs: &mut Vec<AvmInstruction>,
-    destinations: &Vec<ValueOrArray>,
-    inputs: &Vec<ValueOrArray>,
+    destinations: &[ValueOrArray],
+    inputs: &[ValueOrArray],
 ) {
     if !destinations.is_empty() || inputs.len() != 3 {
         panic!(
@@ -1152,10 +1198,10 @@ fn handle_debug_log(
         ),
         operands: vec![
             AvmOperand::U16 { value: message_offset.to_usize() as u16 },
-            AvmOperand::U16 { value: message_size as u16 },
             AvmOperand::U16 { value: fields_offset_ptr.to_usize() as u16 },
             AvmOperand::U16 { value: fields_size_ptr.to_usize() as u16 },
         ],
+        immediates: vec![AvmOperand::U16 { value: message_size as u16 }],
         ..Default::default()
     });
 }
@@ -1164,8 +1210,8 @@ fn handle_debug_log(
 // unconstrained fn calldata_copy_opcode<let N: u32>(cdoffset: Field) -> [Field; N] {}
 fn handle_calldata_copy(
     avm_instrs: &mut Vec<AvmInstruction>,
-    destinations: &Vec<ValueOrArray>,
-    inputs: &Vec<ValueOrArray>,
+    destinations: &[ValueOrArray],
+    inputs: &[ValueOrArray],
 ) {
     assert!(inputs.len() == 2);
     assert!(destinations.len() == 1);
@@ -1207,10 +1253,10 @@ fn handle_calldata_copy(
 // unconstrained fn returndata_size_opcode() -> u32 {}
 fn handle_returndata_size(
     avm_instrs: &mut Vec<AvmInstruction>,
-    destinations: &Vec<ValueOrArray>,
-    inputs: &Vec<ValueOrArray>,
+    destinations: &[ValueOrArray],
+    inputs: &[ValueOrArray],
 ) {
-    assert!(inputs.len() == 0);
+    assert!(inputs.is_empty());
     assert!(destinations.len() == 1);
 
     let dest_offset = match destinations[0] {
@@ -1230,8 +1276,8 @@ fn handle_returndata_size(
 // unconstrained fn returndata_copy_opcode(rdoffset: u32, copy_size: u32) -> [Field] {}
 fn handle_returndata_copy(
     avm_instrs: &mut Vec<AvmInstruction>,
-    destinations: &Vec<ValueOrArray>,
-    inputs: &Vec<ValueOrArray>,
+    destinations: &[ValueOrArray],
+    inputs: &[ValueOrArray],
 ) {
     assert!(inputs.len() == 2);
     assert!(destinations.len() == 2);
@@ -1288,39 +1334,30 @@ fn handle_returndata_copy(
 // unconstrained fn return_opcode<let N: u32>(returndata: [Field; N]) {}
 fn handle_return(
     avm_instrs: &mut Vec<AvmInstruction>,
-    destinations: &Vec<ValueOrArray>,
-    inputs: &Vec<ValueOrArray>,
+    destinations: &[ValueOrArray],
+    inputs: &[ValueOrArray],
 ) {
-    assert!(inputs.len() == 1);
-    assert!(destinations.len() == 0);
+    assert!(inputs.len() == 2);
+    assert!(destinations.is_empty());
 
-    let (return_data_offset, return_data_size) = match inputs[0] {
-        ValueOrArray::HeapArray(HeapArray { pointer, size }) => (pointer, size as u32),
-        _ => panic!("Return instruction's args input should be a HeapArray"),
+    // First arg is the size, which is ignored because it's redundant.
+    let (return_data_offset, return_data_size) = match inputs[1] {
+        ValueOrArray::HeapVector(HeapVector { pointer, size }) => (pointer, size),
+        _ => panic!("Revert instruction's args input should be a HeapVector"),
     };
 
-    avm_instrs.push(AvmInstruction {
-        opcode: AvmOpcode::RETURN,
-        indirect: Some(
-            AddressingModeBuilder::default().indirect_operand(&return_data_offset).build(),
-        ),
-        operands: vec![
-            AvmOperand::U16 { value: return_data_offset.to_usize() as u16 },
-            AvmOperand::U16 { value: return_data_size as u16 },
-        ],
-        ..Default::default()
-    });
+    generate_return_instruction(avm_instrs, &return_data_offset, &return_data_size);
 }
 
 // #[oracle(avmOpcodeRevert)]
 // unconstrained fn revert_opcode(revertdata: [Field]) {}
 fn handle_revert(
     avm_instrs: &mut Vec<AvmInstruction>,
-    destinations: &Vec<ValueOrArray>,
-    inputs: &Vec<ValueOrArray>,
+    destinations: &[ValueOrArray],
+    inputs: &[ValueOrArray],
 ) {
     assert!(inputs.len() == 2);
-    assert!(destinations.len() == 0);
+    assert!(destinations.is_empty());
 
     // First arg is the size, which is ignored because it's redundant.
     let (revert_data_offset, revert_data_size_offset) = match inputs[1] {
@@ -1335,8 +1372,8 @@ fn handle_revert(
 /// The current implementation writes an array of values into storage ( contiguous slots in memory )
 fn handle_storage_write(
     avm_instrs: &mut Vec<AvmInstruction>,
-    destinations: &Vec<ValueOrArray>,
-    inputs: &Vec<ValueOrArray>,
+    destinations: &[ValueOrArray],
+    inputs: &[ValueOrArray],
 ) {
     assert!(inputs.len() == 2);
     assert!(destinations.is_empty());
@@ -1373,10 +1410,10 @@ fn handle_storage_write(
 fn handle_get_contract_instance(
     avm_instrs: &mut Vec<AvmInstruction>,
     function: &str,
-    destinations: &Vec<ValueOrArray>,
-    inputs: &Vec<ValueOrArray>,
+    destinations: &[ValueOrArray],
+    inputs: &[ValueOrArray],
 ) {
-    #[allow(non_camel_case_types)]
+    #[allow(non_camel_case_types, clippy::upper_case_acronyms)]
     enum ContractInstanceMember {
         DEPLOYER,
         CLASS_ID,
@@ -1421,11 +1458,11 @@ fn handle_get_contract_instance(
                 .build(),
         ),
         operands: vec![
-            AvmOperand::U8 { value: member_idx as u8 },
             AvmOperand::U16 { value: address_offset.to_usize() as u16 },
             AvmOperand::U16 { value: dest_offset.to_usize() as u16 },
             AvmOperand::U16 { value: exists_offset.to_usize() as u16 },
         ],
+        immediates: vec![AvmOperand::U8 { value: member_idx as u8 }],
         ..Default::default()
     });
 }
@@ -1434,8 +1471,8 @@ fn handle_get_contract_instance(
 /// The current implementation reads an array of values from storage ( contiguous slots in memory )
 fn handle_storage_read(
     avm_instrs: &mut Vec<AvmInstruction>,
-    destinations: &Vec<ValueOrArray>,
-    inputs: &Vec<ValueOrArray>,
+    destinations: &[ValueOrArray],
+    inputs: &[ValueOrArray],
 ) {
     assert!(inputs.len() == 1); // output
     assert!(destinations.len() == 1); // return value
@@ -1494,48 +1531,6 @@ pub fn patch_debug_info_pcs(
         patched_debug_info.brillig_locations = patched_brillig_locations;
     }
     debug_infos
-}
-
-/// Patch the assert messages with updated PCs since transpilation injects extra
-/// opcodes into the bytecode.
-pub fn patch_assert_message_pcs(
-    assert_messages: HashMap<usize, String>,
-    brillig_pcs_to_avm_pcs: &[usize],
-) -> HashMap<usize, String> {
-    assert_messages
-        .into_iter()
-        .map(|(brillig_pc, message)| (brillig_pcs_to_avm_pcs[brillig_pc], message))
-        .collect()
-}
-
-/// Compute an array that maps each Brillig pc to an AVM pc.
-/// This must be done before transpiling to properly transpile jump destinations.
-/// This is necessary for two reasons:
-/// 1. The transpiler injects `initial_offset` instructions at the beginning of the program.
-/// 2. Some brillig instructions map to multiple AVM instructions
-/// args:
-///     initial_offset: how many AVM instructions were inserted at the start of the program
-///     brillig: the Brillig program
-/// returns: an array where each index is a Brillig pc,
-///     and each value is the corresponding AVM pc.
-pub fn map_brillig_pcs_to_avm_pcs(brillig_bytecode: &[BrilligOpcode<FieldElement>]) -> Vec<usize> {
-    let mut pc_map = vec![0; brillig_bytecode.len()];
-
-    pc_map[0] = 0; // first PC is always 0 as there are no instructions inserted by AVM at start
-    for i in 0..brillig_bytecode.len() - 1 {
-        let num_avm_instrs_for_this_brillig_instr = match &brillig_bytecode[i] {
-            BrilligOpcode::ForeignCall { function, .. }
-                if function == "avmOpcodeReturndataCopy" =>
-            {
-                2
-            }
-            _ => 1,
-        };
-        // next Brillig pc will map to an AVM pc offset by the
-        // number of AVM instructions generated for this Brillig one
-        pc_map[i + 1] = pc_map[i] + num_avm_instrs_for_this_brillig_instr;
-    }
-    pc_map
 }
 
 fn tag_from_bit_size(bit_size: BitSize) -> AvmTypeTag {

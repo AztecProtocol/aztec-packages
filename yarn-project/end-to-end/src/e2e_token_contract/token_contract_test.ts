@@ -1,15 +1,7 @@
 import { getSchnorrAccount } from '@aztec/accounts/schnorr';
-import {
-  type AccountWallet,
-  type CompleteAddress,
-  type DebugLogger,
-  ExtendedNote,
-  Fr,
-  Note,
-  type TxHash,
-  createDebugLogger,
-} from '@aztec/aztec.js';
-import { DocsExampleContract, TokenContract } from '@aztec/noir-contracts.js';
+import { type AccountWallet, type CompleteAddress, type Logger, createLogger } from '@aztec/aztec.js';
+import { DocsExampleContract } from '@aztec/noir-contracts.js/DocsExample';
+import { TokenContract } from '@aztec/noir-contracts.js/Token';
 
 import { jest } from '@jest/globals';
 
@@ -23,14 +15,14 @@ import {
 import { mintTokensToPrivate } from '../fixtures/token_utils.js';
 import { TokenSimulator } from '../simulators/token_simulator.js';
 
-const { E2E_DATA_PATH: dataPath } = process.env;
+const { E2E_DATA_PATH: dataPath, METRICS_PORT: metricsPort } = process.env;
 
 export class TokenContractTest {
   static TOKEN_NAME = 'USDC';
   static TOKEN_SYMBOL = 'USD';
   static TOKEN_DECIMALS = 18n;
   private snapshotManager: ISnapshotManager;
-  logger: DebugLogger;
+  logger: Logger;
   wallets: AccountWallet[] = [];
   accounts: CompleteAddress[] = [];
   asset!: TokenContract;
@@ -38,8 +30,10 @@ export class TokenContractTest {
   badAccount!: DocsExampleContract;
 
   constructor(testName: string) {
-    this.logger = createDebugLogger(`aztec:e2e_token_contract:${testName}`);
-    this.snapshotManager = createSnapshotManager(`e2e_token_contract/${testName}`, dataPath);
+    this.logger = createLogger(`e2e:e2e_token_contract:${testName}`);
+    this.snapshotManager = createSnapshotManager(`e2e_token_contract/${testName}`, dataPath, {
+      metricsPort: metricsPort ? parseInt(metricsPort) : undefined,
+    });
   }
 
   /**
@@ -55,7 +49,6 @@ export class TokenContractTest {
       const accountManagers = accountKeys.map(ak => getSchnorrAccount(pxe, ak[0], ak[1], 1));
       this.wallets = await Promise.all(accountManagers.map(a => a.getWallet()));
       this.accounts = await pxe.getRegisteredAccounts();
-      this.wallets.forEach((w, i) => this.logger.verbose(`Wallet ${i} address: ${w.getAddress()}`));
     });
 
     await this.snapshotManager.snapshot(
@@ -123,19 +116,6 @@ export class TokenContractTest {
     await this.snapshotManager.teardown();
   }
 
-  async addPendingShieldNoteToPXE(accountIndex: number, amount: bigint, secretHash: Fr, txHash: TxHash) {
-    const note = new Note([new Fr(amount), secretHash]);
-    const extendedNote = new ExtendedNote(
-      note,
-      this.accounts[accountIndex].address,
-      this.asset.address,
-      TokenContract.storage.pending_shields.slot,
-      TokenContract.notes.TransparentNote.id,
-      txHash,
-    );
-    await this.wallets[accountIndex].addNote(extendedNote);
-  }
-
   async applyMintSnapshot() {
     await this.snapshotManager.snapshot(
       'mint',
@@ -144,7 +124,7 @@ export class TokenContractTest {
         const amount = 10000n;
 
         this.logger.verbose(`Minting ${amount} publicly...`);
-        await asset.methods.mint_public(wallets[0].getAddress(), amount).send().wait();
+        await asset.methods.mint_to_public(wallets[0].getAddress(), amount).send().wait();
 
         this.logger.verbose(`Minting ${amount} privately...`);
         await mintTokensToPrivate(asset, wallets[0], wallets[0].getAddress(), amount);
@@ -164,8 +144,7 @@ export class TokenContractTest {
         this.logger.verbose(`Public balance of wallet 0: ${publicBalance}`);
         expect(publicBalance).toEqual(this.tokenSim.balanceOfPublic(address));
 
-        tokenSim.mintPrivate(amount);
-        tokenSim.redeemShield(address, amount);
+        tokenSim.mintPrivate(address, amount);
         const privateBalance = await asset.methods.balance_of_private(address).simulate();
         this.logger.verbose(`Private balance of wallet 0: ${privateBalance}`);
         expect(privateBalance).toEqual(tokenSim.balanceOfPrivate(address));

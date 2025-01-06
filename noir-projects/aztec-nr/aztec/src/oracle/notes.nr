@@ -1,9 +1,8 @@
-use crate::note::{note_header::NoteHeader, note_interface::NoteInterface};
+use crate::{note::{note_header::NoteHeader, note_interface::NoteInterface}, utils::array};
 
 use dep::protocol_types::{
     address::AztecAddress,
     indexed_tagging_secret::{INDEXED_TAGGING_SECRET_LENGTH, IndexedTaggingSecret},
-    utils::arr_copy_slice,
 };
 
 /// Notifies the simulator that a note has been created, so that it can be returned in future read requests in the same
@@ -155,6 +154,7 @@ pub unconstrained fn get_notes<Note, let N: u32, let M: u32, let S: u32, let NS:
 where
     Note: NoteInterface<N>,
 {
+    sync_notes_oracle_wrapper();
     let fields = get_notes_oracle_wrapper(
         storage_slot,
         num_selects,
@@ -180,12 +180,14 @@ where
             let return_header_length: u32 = 2; // num_notes & contract_address.
             let extra_preimage_length: u32 = 2; // nonce & note_hash_counter.
             let read_offset: u32 = return_header_length + i * (N + extra_preimage_length);
+
             let nonce = fields[read_offset];
             let note_hash_counter = fields[read_offset + 1] as u32;
-            let header = NoteHeader { contract_address, nonce, storage_slot, note_hash_counter };
-            let serialized_note = arr_copy_slice(fields, [0; N], read_offset + 2);
-            let mut note = Note::deserialize_content(serialized_note);
-            note.set_header(header);
+            let note_content = array::subarray(fields, read_offset + 2);
+
+            let mut note = Note::deserialize_content(note_content);
+            note.set_header(NoteHeader { contract_address, nonce, storage_slot, note_hash_counter });
+
             placeholder_opt_notes[i] = Option::some(note);
         };
     }
@@ -203,53 +205,66 @@ pub unconstrained fn check_nullifier_exists(inner_nullifier: Field) -> bool {
 #[oracle(checkNullifierExists)]
 unconstrained fn check_nullifier_exists_oracle(_inner_nullifier: Field) -> Field {}
 
+/// Same as `get_indexed_tagging_secret_as_sender`, except it returns the derived tag, ready to be included in a log.
+pub unconstrained fn get_app_tag_as_sender(sender: AztecAddress, recipient: AztecAddress) -> Field {
+    get_indexed_tagging_secret_as_sender(sender, recipient).compute_tag(recipient)
+}
+
 /// Returns the tagging secret for a given sender and recipient pair, siloed for the current contract address.
-/// Includes the last known index used for tagging with this secret.
-/// For this to work, PXE must know the ivpsk_m of the sender.
+/// Includes the last known index used to send a note tagged with this secret.
+/// For this to work, PXE must know the ivsk_m of the sender.
 /// For the recipient's side, only the address is needed.
-pub unconstrained fn get_app_tagging_secret(
+pub unconstrained fn get_indexed_tagging_secret_as_sender(
     sender: AztecAddress,
     recipient: AztecAddress,
 ) -> IndexedTaggingSecret {
-    let result = get_app_tagging_secret_oracle(sender, recipient);
+    let result = get_indexed_tagging_secret_as_sender_oracle(sender, recipient);
     IndexedTaggingSecret::deserialize(result)
 }
 
-#[oracle(getAppTaggingSecret)]
-unconstrained fn get_app_tagging_secret_oracle(
+#[oracle(getIndexedTaggingSecretAsSender)]
+unconstrained fn get_indexed_tagging_secret_as_sender_oracle(
     _sender: AztecAddress,
     _recipient: AztecAddress,
 ) -> [Field; INDEXED_TAGGING_SECRET_LENGTH] {}
 
-pub unconstrained fn increment_app_tagging_secret(sender: AztecAddress, recipient: AztecAddress) {
-    increment_app_tagging_secret_oracle(sender, recipient);
+/// Notifies the simulator that a tag has been used in a note, and to therefore increment the associated index so that
+/// future notes get a different tag and can be discovered by the recipient.
+/// This change should only be persisted in a non-volatile database if the tagged log is found in an actual block -
+/// otherwise e.g. a reverting transaction can cause the sender to accidentally skip indices and later produce notes
+/// that are not found by the recipient.
+pub fn increment_app_tagging_secret_index_as_sender(sender: AztecAddress, recipient: AztecAddress) {
+    // This oracle call returns nothing: we only call it for its side effects. It is therefore always safe to call.
+    unsafe {
+        increment_app_tagging_secret_index_as_sender_wrapper(sender, recipient);
+    }
 }
 
-#[oracle(incrementAppTaggingSecret)]
-unconstrained fn increment_app_tagging_secret_oracle(
+unconstrained fn increment_app_tagging_secret_index_as_sender_wrapper(
+    sender: AztecAddress,
+    recipient: AztecAddress,
+) {
+    increment_app_tagging_secret_index_as_sender_oracle(sender, recipient);
+}
+
+#[oracle(incrementAppTaggingSecretIndexAsSender)]
+unconstrained fn increment_app_tagging_secret_index_as_sender_oracle(
     _sender: AztecAddress,
     _recipient: AztecAddress,
 ) {}
 
-/// Returns the tagging secrets for a given recipient and all the senders in PXE's address book,
-// siloed for the current contract address.
-/// Includes the last known index used for tagging with this secret.
-/// For this to work, PXE must know the ivsk_m of the recipient.
-pub unconstrained fn get_app_tagging_secrets_for_senders(
-    recipient: AztecAddress,
-) -> [IndexedTaggingSecret] {
-    let results = get_app_tagging_secrets_for_senders_oracle(recipient);
-    let mut indexed_tagging_secrets = &[];
-    for i in 0..results.len() {
-        if i % 3 != 0 {
-            continue;
-        }
-        indexed_tagging_secrets = indexed_tagging_secrets.push_back(
-            IndexedTaggingSecret::deserialize([results[i], results[i + 1], results[i + 2]]),
-        );
+/// Finds new notes that may have been sent to all registered accounts in PXE in the current contract and makes them available
+/// for later querying via the `get_notes` oracle.
+pub fn sync_notes() {
+    // This oracle call returns nothing: we only call it for its side effects. It is therefore always safe to call.
+    unsafe {
+        sync_notes_oracle_wrapper();
     }
-    indexed_tagging_secrets
 }
 
-#[oracle(getAppTaggingSecretsForSenders)]
-unconstrained fn get_app_tagging_secrets_for_senders_oracle(_recipient: AztecAddress) -> [Field] {}
+unconstrained fn sync_notes_oracle_wrapper() {
+    sync_notes_oracle();
+}
+
+#[oracle(syncNotes)]
+unconstrained fn sync_notes_oracle() {}

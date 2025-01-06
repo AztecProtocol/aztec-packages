@@ -34,7 +34,7 @@ contract MerkleTestUtil is Test {
     return (2 ** height) != originalNumber ? ++height : height;
   }
 
-  function testCalculateTreeHeightFromSize() external {
+  function testCalculateTreeHeightFromSize() external pure {
     assertEq(calculateTreeHeightFromSize(0), 1);
     assertEq(calculateTreeHeightFromSize(1), 1);
     assertEq(calculateTreeHeightFromSize(2), 1);

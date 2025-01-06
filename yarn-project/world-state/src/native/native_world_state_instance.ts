@@ -10,9 +10,8 @@ import {
   NULLIFIER_TREE_HEIGHT,
   PUBLIC_DATA_TREE_HEIGHT,
 } from '@aztec/circuits.js';
-import { createDebugLogger, fmtLogData } from '@aztec/foundation/log';
+import { createLogger } from '@aztec/foundation/log';
 import { SerialQueue } from '@aztec/foundation/queue';
-import { Timer } from '@aztec/foundation/timer';
 
 import assert from 'assert';
 import bindings from 'bindings';
@@ -20,6 +19,7 @@ import { Decoder, Encoder, addExtension } from 'msgpackr';
 import { cpus } from 'os';
 import { isAnyArrayBuffer } from 'util/types';
 
+import { type WorldStateInstrumentation } from '../instrumentation/instrumentation.js';
 import {
   MessageHeader,
   TypedMessage,
@@ -46,7 +46,7 @@ const NATIVE_LIBRARY_NAME = 'world_state_napi';
 const NATIVE_CLASS_NAME = 'WorldState';
 
 const NATIVE_MODULE = bindings(NATIVE_LIBRARY_NAME);
-const MAX_WORLD_STATE_THREADS = 16;
+const MAX_WORLD_STATE_THREADS = +(process.env.HARDWARE_CONCURRENCY || '16');
 
 export interface NativeWorldStateInstance {
   call<T extends WorldStateMessageType>(messageType: T, body: WorldStateRequest[T]): Promise<WorldStateResponse[T]>;
@@ -82,7 +82,16 @@ export class NativeWorldState implements NativeWorldStateInstance {
   private queue = new SerialQueue();
 
   /** Creates a new native WorldState instance */
-  constructor(dataDir: string, private log = createDebugLogger('aztec:world-state:database')) {
+  constructor(
+    dataDir: string,
+    dbMapSizeKb: number,
+    private instrumentation: WorldStateInstrumentation,
+    private log = createLogger('world-state:database'),
+  ) {
+    const threads = Math.min(cpus().length, MAX_WORLD_STATE_THREADS);
+    log.info(
+      `Creating world state data store at directory ${dataDir} with map size ${dbMapSizeKb} KB and ${threads} threads.`,
+    );
     this.instance = new NATIVE_MODULE[NATIVE_CLASS_NAME](
       dataDir,
       {
@@ -97,8 +106,8 @@ export class NativeWorldState implements NativeWorldStateInstance {
         [MerkleTreeId.PUBLIC_DATA_TREE]: 2 * MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
       },
       GeneratorIndex.BLOCK_HASH,
-      10 * 1024 * 1024, // 10 GB per tree (in KB)
-      Math.min(cpus().length, MAX_WORLD_STATE_THREADS),
+      dbMapSizeKb,
+      threads,
     );
     this.queue.start();
   }
@@ -107,16 +116,28 @@ export class NativeWorldState implements NativeWorldStateInstance {
    * Sends a message to the native instance and returns the response.
    * @param messageType - The type of message to send
    * @param body - The message body
+   * @param responseHandler - A callback accepting the response, executed on the job queue
+   * @param errorHandler - A callback called on request error, executed on the job queue
    * @returns The response to the message
    */
   public call<T extends WorldStateMessageType>(
     messageType: T,
     body: WorldStateRequest[T],
+    // allows for the pre-processing of responses on the job queue before being passed back
+    responseHandler = (response: WorldStateResponse[T]): WorldStateResponse[T] => response,
+    errorHandler = (_: string) => {},
   ): Promise<WorldStateResponse[T]> {
-    return this.queue.put(() => {
+    return this.queue.put(async () => {
       assert.notEqual(messageType, WorldStateMessageType.CLOSE, 'Use close() to close the native instance');
       assert.equal(this.open, true, 'Native instance is closed');
-      return this._sendMessage(messageType, body);
+      let response: WorldStateResponse[T];
+      try {
+        response = await this._sendMessage(messageType, body);
+      } catch (error: any) {
+        errorHandler(error.message);
+        throw error;
+      }
+      return responseHandler(response);
     });
   }
 
@@ -167,17 +188,6 @@ export class NativeWorldState implements NativeWorldStateInstance {
         data['blockHeaderHash'] = '0x' + body.blockHeaderHash.toString('hex');
       }
 
-      if ('leaf' in body) {
-        if (Buffer.isBuffer(body.leaf)) {
-          data['leaf'] = '0x' + body.leaf.toString('hex');
-        } else if ('slot' in body.leaf) {
-          data['slot'] = '0x' + body.leaf.slot.toString('hex');
-          data['value'] = '0x' + body.leaf.value.toString('hex');
-        } else {
-          data['nullifier'] = '0x' + body.leaf.value.toString('hex');
-        }
-      }
-
       if ('leaves' in body) {
         data['leavesCount'] = body.leaves.length;
       }
@@ -187,22 +197,20 @@ export class NativeWorldState implements NativeWorldStateInstance {
         data['notesCount'] = body.paddedNoteHashes.length;
         data['nullifiersCount'] = body.paddedNullifiers.length;
         data['l1ToL2MessagesCount'] = body.paddedL1ToL2Messages.length;
-        data['publicDataWritesCount'] = body.batchesOfPaddedPublicDataWrites.reduce(
-          (acc, batch) => acc + batch.length,
-          0,
-        );
+        data['publicDataWritesCount'] = body.publicDataWrites.length;
       }
 
-      this.log.debug(`Calling messageId=${messageId} ${WorldStateMessageType[messageType]} with ${fmtLogData(data)}`);
+      this.log.trace(`Calling messageId=${messageId} ${WorldStateMessageType[messageType]}`, data);
     } else {
-      this.log.debug(`Calling messageId=${messageId} ${WorldStateMessageType[messageType]}`);
+      this.log.trace(`Calling messageId=${messageId} ${WorldStateMessageType[messageType]}`);
     }
 
-    const timer = new Timer();
+    const start = process.hrtime.bigint();
 
     const request = new TypedMessage(messageType, new MessageHeader({ messageId }), body);
     const encodedRequest = this.encoder.encode(request);
-    const encodingDuration = timer.ms();
+    const encodingEnd = process.hrtime.bigint();
+    const encodingDuration = Number(encodingEnd - start) / 1_000_000;
 
     let encodedResponse: any;
     try {
@@ -212,7 +220,9 @@ export class NativeWorldState implements NativeWorldStateInstance {
       throw error;
     }
 
-    const callDuration = timer.ms() - encodingDuration;
+    const callEnd = process.hrtime.bigint();
+
+    const callDuration = Number(callEnd - encodingEnd) / 1_000_000;
 
     const buf = Buffer.isBuffer(encodedResponse)
       ? encodedResponse
@@ -236,16 +246,15 @@ export class NativeWorldState implements NativeWorldStateInstance {
     }
 
     const response = TypedMessage.fromMessagePack<T, WorldStateResponse[T]>(decodedResponse);
-    const decodingDuration = timer.ms() - callDuration;
-    const totalDuration = timer.ms();
-    this.log.debug(
-      `Call messageId=${messageId} ${WorldStateMessageType[messageType]} took (ms) ${fmtLogData({
-        totalDuration,
-        encodingDuration,
-        callDuration,
-        decodingDuration,
-      })}`,
-    );
+    const decodingEnd = process.hrtime.bigint();
+    const decodingDuration = Number(decodingEnd - callEnd) / 1_000_000;
+    const totalDuration = Number(decodingEnd - start) / 1_000_000;
+    this.log.trace(`Call messageId=${messageId} ${WorldStateMessageType[messageType]} took (ms)`, {
+      totalDuration,
+      encodingDuration,
+      callDuration,
+      decodingDuration,
+    });
 
     if (response.header.requestId !== request.header.messageId) {
       throw new Error(
@@ -256,6 +265,9 @@ export class NativeWorldState implements NativeWorldStateInstance {
     if (response.msgType !== messageType) {
       throw new Error('Invalid response message type: ' + response.msgType + ' != ' + messageType);
     }
+
+    const callDurationUs = Number(callEnd - encodingEnd) / 1000;
+    this.instrumentation.recordRoundTrip(callDurationUs, messageType);
 
     return response.value;
   }

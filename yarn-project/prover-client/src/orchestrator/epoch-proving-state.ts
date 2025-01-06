@@ -2,17 +2,16 @@ import { type MerkleTreeId } from '@aztec/circuit-types';
 import {
   type ARCHIVE_HEIGHT,
   type AppendOnlyTreeSnapshot,
-  type BlockRootOrBlockMergePublicInputs,
   Fr,
   type GlobalVariables,
   type L1_TO_L2_MSG_SUBTREE_SIBLING_PATH_LENGTH,
-  type NESTED_RECURSIVE_PROOF_LENGTH,
+  type NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH,
   NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
   type Proof,
   type RecursiveProof,
-  type RootRollupPublicInputs,
   type VerificationKeyAsFields,
 } from '@aztec/circuits.js';
+import { type BlockRootOrBlockMergePublicInputs, type RootRollupPublicInputs } from '@aztec/circuits.js/rollup';
 import { padArrayEnd } from '@aztec/foundation/collection';
 import { type Tuple } from '@aztec/foundation/serialize';
 
@@ -30,8 +29,8 @@ enum PROVING_STATE_LIFECYCLE {
 export type BlockMergeRollupInputData = {
   inputs: [BlockRootOrBlockMergePublicInputs | undefined, BlockRootOrBlockMergePublicInputs | undefined];
   proofs: [
-    RecursiveProof<typeof NESTED_RECURSIVE_PROOF_LENGTH> | undefined,
-    RecursiveProof<typeof NESTED_RECURSIVE_PROOF_LENGTH> | undefined,
+    RecursiveProof<typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH> | undefined,
+    RecursiveProof<typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH> | undefined,
   ];
   verificationKeys: [VerificationKeyAsFields | undefined, VerificationKeyAsFields | undefined];
 };
@@ -50,19 +49,15 @@ export class EpochProvingState {
   private mergeRollupInputs: BlockMergeRollupInputData[] = [];
   public rootRollupPublicInputs: RootRollupPublicInputs | undefined;
   public finalProof: Proof | undefined;
-  public blocks: BlockProvingState[] = [];
+  public blocks: (BlockProvingState | undefined)[] = [];
 
   constructor(
     public readonly epochNumber: number,
+    public readonly firstBlockNumber: number,
     public readonly totalNumBlocks: number,
     private completionCallback: (result: ProvingResult) => void,
     private rejectionCallback: (reason: string) => void,
   ) {}
-
-  /** Returns the current block proving state */
-  public get currentBlock(): BlockProvingState | undefined {
-    return this.blocks.at(-1);
-  }
 
   // Returns the number of levels of merge rollups
   public get numMergeLevels() {
@@ -101,7 +96,6 @@ export class EpochProvingState {
   // Adds a block to the proving state, returns its index
   // Will update the proving life cycle if this is the last block
   public startNewBlock(
-    numTxs: number,
     globalVariables: GlobalVariables,
     l1ToL2Messages: Fr[],
     messageTreeSnapshot: AppendOnlyTreeSnapshot,
@@ -110,10 +104,10 @@ export class EpochProvingState {
     archiveTreeSnapshot: AppendOnlyTreeSnapshot,
     archiveTreeRootSiblingPath: Tuple<Fr, typeof ARCHIVE_HEIGHT>,
     previousBlockHash: Fr,
-  ) {
+  ): BlockProvingState {
+    const index = globalVariables.blockNumber.toNumber() - this.firstBlockNumber;
     const block = new BlockProvingState(
-      this.blocks.length,
-      numTxs,
+      index,
       globalVariables,
       padArrayEnd(l1ToL2Messages, Fr.ZERO, NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP),
       messageTreeSnapshot,
@@ -124,11 +118,11 @@ export class EpochProvingState {
       previousBlockHash,
       this,
     );
-    this.blocks.push(block);
-    if (this.blocks.length === this.totalNumBlocks) {
+    this.blocks[index] = block;
+    if (this.blocks.filter(b => !!b).length === this.totalNumBlocks) {
       this.provingStateLifecycle = PROVING_STATE_LIFECYCLE.PROVING_STATE_FULL;
     }
-    return this.blocks.length - 1;
+    return block;
   }
 
   // Returns true if this proving state is still valid, false otherwise
@@ -154,7 +148,7 @@ export class EpochProvingState {
   public storeMergeInputs(
     mergeInputs: [
       BlockRootOrBlockMergePublicInputs,
-      RecursiveProof<typeof NESTED_RECURSIVE_PROOF_LENGTH>,
+      RecursiveProof<typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH>,
       VerificationKeyAsFields,
     ],
     indexWithinMerge: number,
@@ -180,8 +174,8 @@ export class EpochProvingState {
   }
 
   // Returns a specific transaction proving state
-  public getBlockProvingState(index: number) {
-    return this.blocks[index];
+  public getBlockProvingStateByBlockNumber(blockNumber: number) {
+    return this.blocks.find(block => block?.blockNumber === blockNumber);
   }
 
   // Returns a set of merge rollup inputs

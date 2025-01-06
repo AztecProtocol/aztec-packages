@@ -1,12 +1,13 @@
 import {
   AztecAddress,
+  BlockHeader,
   ContractStorageRead,
   ContractStorageUpdateRequest,
   Gas,
   GlobalVariables,
-  Header,
   L2ToL1Message,
   LogHash,
+  MAX_ENQUEUED_CALLS_PER_CALL,
   MAX_L1_TO_L2_MSG_READ_REQUESTS_PER_CALL,
   MAX_L2_TO_L1_MSGS_PER_CALL,
   MAX_NOTE_HASHES_PER_CALL,
@@ -14,7 +15,6 @@ import {
   MAX_NULLIFIERS_PER_CALL,
   MAX_NULLIFIER_NON_EXISTENT_READ_REQUESTS_PER_CALL,
   MAX_NULLIFIER_READ_REQUESTS_PER_CALL,
-  MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL,
   MAX_PUBLIC_DATA_READS_PER_CALL,
   MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL,
   MAX_UNENCRYPTED_LOGS_PER_CALL,
@@ -28,10 +28,10 @@ import {
 } from '@aztec/circuits.js';
 import { computeVarArgsHash } from '@aztec/circuits.js/hash';
 import { padArrayEnd } from '@aztec/foundation/collection';
-import { type PublicExecutionResult } from '@aztec/simulator';
+import { type PublicFunctionCallResult } from '@aztec/simulator';
 
 // TODO: pub somewhere more usable - copied from abstract phase manager
-export function getPublicInputs(result: PublicExecutionResult): PublicCircuitPublicInputs {
+export function getPublicInputs(result: PublicFunctionCallResult): PublicCircuitPublicInputs {
   return PublicCircuitPublicInputs.from({
     callContext: result.executionRequest.callContext,
     proverAddress: AztecAddress.ZERO,
@@ -72,9 +72,9 @@ export function getPublicInputs(result: PublicExecutionResult): PublicCircuitPub
       ContractStorageUpdateRequest.empty(),
       MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL,
     ),
-    publicCallRequests: padArrayEnd([], PublicInnerCallRequest.empty(), MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL),
+    publicCallRequests: padArrayEnd([], PublicInnerCallRequest.empty(), MAX_ENQUEUED_CALLS_PER_CALL),
     unencryptedLogsHashes: padArrayEnd(result.unencryptedLogsHashes, LogHash.empty(), MAX_UNENCRYPTED_LOGS_PER_CALL),
-    historicalHeader: Header.empty(),
+    historicalHeader: BlockHeader.empty(),
     globalVariables: GlobalVariables.empty(),
     startGasLeft: Gas.from(result.startGasLeft),
     endGasLeft: Gas.from(result.endGasLeft),

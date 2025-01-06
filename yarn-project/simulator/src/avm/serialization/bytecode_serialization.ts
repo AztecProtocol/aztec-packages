@@ -1,3 +1,4 @@
+import { AvmExecutionError, AvmParsingError, InvalidOpcodeError, InvalidProgramCounterError } from '../errors.js';
 import {
   Add,
   And,
@@ -48,7 +49,7 @@ import {
 } from '../opcodes/index.js';
 import { MultiScalarMul } from '../opcodes/multi_scalar_mul.js';
 import { BufferCursor } from './buffer_cursor.js';
-import { Opcode } from './instruction_serialization.js';
+import { MAX_OPCODE_VALUE, Opcode } from './instruction_serialization.js';
 
 export type InstructionDeserializer = (buf: BufferCursor | Buffer) => Instruction;
 
@@ -63,7 +64,7 @@ export interface Deserializable {
 export type InstructionSet = Map<Opcode, InstructionDeserializer>;
 // TODO(4359): This is a function so that Call and StaticCall can be lazily resolved.
 // This is a temporary solution until we solve the dependency cycle.
-const INSTRUCTION_SET = () =>
+export const INSTRUCTION_SET = () =>
   new Map<Opcode, InstructionDeserializer>([
     [Opcode.ADD_8, Add.as(Add.wireFormat8).deserialize],
     [Opcode.ADD_16, Add.as(Add.wireFormat16).deserialize],
@@ -143,12 +144,11 @@ const INSTRUCTION_SET = () =>
     [EcAdd.opcode, Instruction.deserialize.bind(EcAdd)],
     [Poseidon2.opcode, Instruction.deserialize.bind(Poseidon2)],
     [Sha256Compression.opcode, Instruction.deserialize.bind(Sha256Compression)],
+    [KeccakF1600.opcode, Instruction.deserialize.bind(KeccakF1600)],
     [MultiScalarMul.opcode, Instruction.deserialize.bind(MultiScalarMul)],
+
     // Conversions
     [ToRadixBE.opcode, Instruction.deserialize.bind(ToRadixBE)],
-    // Future Gadgets -- pending changes in noir
-    // SHA256COMPRESSION,
-    [KeccakF1600.opcode, Instruction.deserialize.bind(KeccakF1600)],
   ]);
 
 /**
@@ -158,30 +158,55 @@ export function encodeToBytecode(instructions: Serializable[]): Buffer {
   return Buffer.concat(instructions.map(i => i.serialize()));
 }
 
-/**
- * Convert a buffer of bytecode into an array of instructions.
- * @param bytecode Buffer of bytecode.
- * @param instructionSet Optional {@code InstructionSet} to be used for deserialization.
- * @returns Bytecode decoded into an ordered array of Instructions
- */
+// For testing only
 export function decodeFromBytecode(
   bytecode: Buffer,
   instructionSet: InstructionSet = INSTRUCTION_SET(),
 ): Instruction[] {
   const instructions: Instruction[] = [];
-  const cursor = new BufferCursor(bytecode);
+  let pc = 0;
+  while (pc < bytecode.length) {
+    const [instruction, bytesConsumed] = decodeInstructionFromBytecode(bytecode, pc, instructionSet);
+    instructions.push(instruction);
+    pc += bytesConsumed;
+  }
+  return instructions;
+}
 
-  while (!cursor.eof()) {
-    const opcode: Opcode = cursor.bufferAtPosition().readUint8(); // peek.
+// Returns the instruction and the number of bytes consumed.
+export function decodeInstructionFromBytecode(
+  bytecode: Buffer,
+  pc: number,
+  instructionSet: InstructionSet = INSTRUCTION_SET(),
+): [Instruction, number] {
+  if (pc >= bytecode.length) {
+    throw new InvalidProgramCounterError(pc, bytecode.length);
+  }
+
+  try {
+    const cursor = new BufferCursor(bytecode, pc);
+    const startingPosition = cursor.position();
+    const opcode: number = cursor.bufferAtPosition().readUint8(); // peek.
+
+    if (opcode > MAX_OPCODE_VALUE) {
+      throw new InvalidOpcodeError(
+        `Opcode ${opcode} (0x${opcode.toString(16)}) value is not in the range of valid opcodes.`,
+      );
+    }
+
     const instructionDeserializerOrUndef = instructionSet.get(opcode);
     if (instructionDeserializerOrUndef === undefined) {
-      throw new Error(`Opcode ${Opcode[opcode]} (0x${opcode.toString(16)}) not implemented`);
+      throw new InvalidOpcodeError(`Opcode ${Opcode[opcode]} (0x${opcode.toString(16)}) is not implemented`);
     }
 
     const instructionDeserializer: InstructionDeserializer = instructionDeserializerOrUndef;
-    const i: Instruction = instructionDeserializer(cursor);
-    instructions.push(i);
+    const instruction = instructionDeserializer(cursor);
+    return [instruction, cursor.position() - startingPosition];
+  } catch (error) {
+    if (error instanceof InvalidOpcodeError || error instanceof AvmExecutionError) {
+      throw error;
+    } else {
+      throw new AvmParsingError(`${error}`);
+    }
   }
-
-  return instructions;
 }

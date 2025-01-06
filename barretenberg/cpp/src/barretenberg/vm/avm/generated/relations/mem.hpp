@@ -4,16 +4,16 @@
 #include "barretenberg/relations/relation_parameters.hpp"
 #include "barretenberg/relations/relation_types.hpp"
 
-namespace bb::Avm_vm {
+namespace bb::avm {
 
 template <typename FF_> class memImpl {
   public:
     using FF = FF_;
 
-    static constexpr std::array<size_t, 53> SUBRELATION_PARTIAL_LENGTHS = { 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 2,
+    static constexpr std::array<size_t, 54> SUBRELATION_PARTIAL_LENGTHS = { 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 2,
                                                                             3, 4, 3, 4, 3, 3, 2, 3, 3, 4, 4, 4, 4, 4,
                                                                             2, 5, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3,
-                                                                            3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3 };
+                                                                            3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 2 };
 
     template <typename ContainerOverSubrelations, typename AllEntities>
     void static accumulate(ContainerOverSubrelations& evals,
@@ -375,6 +375,13 @@ template <typename FF_> class memImpl {
             tmp *= scaling_factor;
             std::get<52>(evals) += typename Accumulator::View(tmp);
         }
+        {
+            using Accumulator = typename std::tuple_element_t<53, ContainerOverSubrelations>;
+            auto tmp = (new_term.mem_diff - ((new_term.mem_u16_r0 + (new_term.mem_u16_r1 * FF(65536))) +
+                                             (new_term.mem_u8_r0 * FF(4294967296UL))));
+            tmp *= scaling_factor;
+            std::get<53>(evals) += typename Accumulator::View(tmp);
+        }
     }
 };
 
@@ -422,6 +429,25 @@ template <typename FF> class mem : public Relation<memImpl<FF>> {
         }
         return std::to_string(index);
     }
+
+    // Subrelation indices constants, to be used in tests.
+    static constexpr size_t SR_MEM_CONTIGUOUS = 15;
+    static constexpr size_t SR_MEM_FIRST_EMPTY = 16;
+    static constexpr size_t SR_MEM_LAST = 17;
+    static constexpr size_t SR_TIMESTAMP = 19;
+    static constexpr size_t SR_GLOBAL_ADDR = 20;
+    static constexpr size_t SR_LAST_ACCESS_FIRST_ROW = 21;
+    static constexpr size_t SR_MEM_LAST_ACCESS_DELIMITER = 22;
+    static constexpr size_t SR_MEM_READ_WRITE_VAL_CONSISTENCY = 24;
+    static constexpr size_t SR_MEM_READ_WRITE_TAG_CONSISTENCY = 25;
+    static constexpr size_t SR_MEM_ZERO_INIT = 26;
+    static constexpr size_t SR_MEM_ZERO_INIT_TAG_FF = 27;
+    static constexpr size_t SR_SKIP_CHECK_TAG = 28;
+    static constexpr size_t SR_MEM_IN_TAG_CONSISTENCY_1 = 29;
+    static constexpr size_t SR_MEM_IN_TAG_CONSISTENCY_2 = 30;
+    static constexpr size_t SR_NO_TAG_ERR_WRITE_OR_SKIP = 31;
+    static constexpr size_t SR_NO_TAG_ERR_WRITE = 33;
+    static constexpr size_t SR_MOV_SAME_TAG = 52;
 };
 
-} // namespace bb::Avm_vm
+} // namespace bb::avm

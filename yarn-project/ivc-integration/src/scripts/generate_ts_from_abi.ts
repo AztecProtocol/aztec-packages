@@ -3,9 +3,9 @@ import { createConsoleLogger } from '@aztec/foundation/log';
 import { codegen } from '@noir-lang/noir_codegen';
 import { type CompiledCircuit } from '@noir-lang/types';
 import { pascalCase } from 'change-case';
-import fs from 'fs/promises';
+import { promises as fs } from 'fs';
 
-const log = createConsoleLogger('aztec:mock-circuits');
+const log = createConsoleLogger('mock-circuits');
 
 const circuits = [
   'app_creator',
@@ -14,7 +14,7 @@ const circuits = [
   'mock_private_kernel_inner',
   'mock_private_kernel_reset',
   'mock_private_kernel_tail',
-  'mock_public_kernel',
+  'mock_public_base',
 ];
 
 const main = async () => {

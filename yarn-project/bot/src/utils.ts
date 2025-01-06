@@ -1,5 +1,5 @@
 import { type AztecAddress } from '@aztec/circuits.js';
-import { type EasyPrivateTokenContract } from '@aztec/noir-contracts.js';
+import { type EasyPrivateTokenContract } from '@aztec/noir-contracts.js/EasyPrivateToken';
 import { type TokenContract } from '@aztec/noir-contracts.js/Token';
 
 /**
@@ -23,5 +23,5 @@ export async function getPrivateBalance(token: EasyPrivateTokenContract, who: Az
 }
 
 export function isStandardTokenContract(token: TokenContract | EasyPrivateTokenContract): token is TokenContract {
-  return 'mint_public' in token.methods;
+  return 'mint_to_public' in token.methods;
 }

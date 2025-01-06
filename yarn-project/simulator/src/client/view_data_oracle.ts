@@ -8,15 +8,15 @@ import {
   type PublicDataWitness,
 } from '@aztec/circuit-types';
 import {
+  type BlockHeader,
   type ContractInstance,
-  type Header,
   type IndexedTaggingSecret,
   type KeyValidationRequest,
 } from '@aztec/circuits.js';
 import { siloNullifier } from '@aztec/circuits.js/hash';
-import { type AztecAddress } from '@aztec/foundation/aztec-address';
+import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { Fr } from '@aztec/foundation/fields';
-import { applyStringFormatting, createDebugLogger } from '@aztec/foundation/log';
+import { applyStringFormatting, createLogger } from '@aztec/foundation/log';
 
 import { type NoteData, TypedOracle } from '../acvm/index.js';
 import { type DBOracle } from './db_oracle.js';
@@ -33,7 +33,7 @@ export class ViewDataOracle extends TypedOracle {
     protected readonly authWitnesses: AuthWitness[],
     protected readonly db: DBOracle,
     protected readonly aztecNode: AztecNode,
-    protected log = createDebugLogger('aztec:simulator:client_view_context'),
+    protected log = createLogger('simulator:client_view_context'),
     protected readonly scopes?: AztecAddress[],
   ) {
     super();
@@ -139,7 +139,7 @@ export class ViewDataOracle extends TypedOracle {
    * @param blockNumber - The number of a block of which to get the block header.
    * @returns Block extracted from a block with block number `blockNumber`.
    */
-  public override async getHeader(blockNumber: number): Promise<Header | undefined> {
+  public override async getBlockHeader(blockNumber: number): Promise<BlockHeader | undefined> {
     const block = await this.db.getBlock(blockNumber);
     if (!block) {
       return undefined;
@@ -271,7 +271,7 @@ export class ViewDataOracle extends TypedOracle {
    * @param numberOfElements - Number of elements to read from the starting storage slot.
    */
   public override async storageRead(
-    contractAddress: Fr,
+    contractAddress: AztecAddress,
     startStorageSlot: Fr,
     blockNumber: number,
     numberOfElements: number,
@@ -290,32 +290,35 @@ export class ViewDataOracle extends TypedOracle {
   }
 
   public override debugLog(message: string, fields: Fr[]): void {
-    const formattedStr = applyStringFormatting(message, fields);
-    this.log.verbose(`debug_log ${formattedStr}`);
+    this.log.verbose(`${applyStringFormatting(message, fields)}`, { module: `${this.log.module}:debug_log` });
   }
 
   /**
    * Returns the tagging secret for a given sender and recipient pair, siloed to the current contract address.
-   * Includes the last known index used for tagging with this secret.
-   * For this to work, the ivpsk_m of the sender must be known.
+   * Includes the next index to be used used for tagging with this secret.
+   * For this to work, the ivsk_m of the sender must be known.
    * @param sender - The address sending the note
    * @param recipient - The address receiving the note
    * @returns A tagging secret that can be used to tag notes.
    */
-  public override async getAppTaggingSecret(
+  public override async getIndexedTaggingSecretAsSender(
     sender: AztecAddress,
     recipient: AztecAddress,
   ): Promise<IndexedTaggingSecret> {
-    return await this.db.getAppTaggingSecret(this.contractAddress, sender, recipient);
+    return await this.db.getIndexedTaggingSecretAsSender(this.contractAddress, sender, recipient);
   }
 
-  /**
-   * Returns the siloed tagging secrets for a given recipient and all the senders in the address book
-   * @param contractAddress - The contract address to silo the secret for
-   * @param recipient - The address receiving the notes
-   * @returns A list of siloed tagging secrets
-   */
-  public override async getAppTaggingSecretsForSenders(recipient: AztecAddress): Promise<IndexedTaggingSecret[]> {
-    return await this.db.getAppTaggingSecretsForSenders(this.contractAddress, recipient);
+  public override async syncNotes() {
+    const taggedLogsByRecipient = await this.db.syncTaggedLogs(
+      this.contractAddress,
+      await this.aztecNode.getBlockNumber(),
+      this.scopes,
+    );
+
+    for (const [recipient, taggedLogs] of taggedLogsByRecipient.entries()) {
+      await this.db.processTaggedLogs(taggedLogs, AztecAddress.fromString(recipient));
+    }
+
+    await this.db.removeNullifiedNotes(this.contractAddress);
   }
 }

@@ -1,16 +1,19 @@
-import { type AllowedElement } from '@aztec/circuit-types';
-import { AztecAddress, Fr, FunctionSelector, getContractClassFromArtifact } from '@aztec/circuits.js';
-import { type L1ReaderConfig, l1ReaderConfigMappings } from '@aztec/ethereum';
+import { type AllowedElement, type SequencerConfig } from '@aztec/circuit-types/config';
+import { AztecAddress, Fr, FunctionSelector } from '@aztec/circuits.js';
+import {
+  type L1ContractsConfig,
+  type L1ReaderConfig,
+  l1ContractsConfigMappings,
+  l1ReaderConfigMappings,
+} from '@aztec/ethereum';
 import {
   type ConfigMappingsType,
   booleanConfigHelper,
   getConfigFromMappings,
   numberConfigHelper,
 } from '@aztec/foundation/config';
+import { pickConfigMappings } from '@aztec/foundation/config';
 import { EthAddress } from '@aztec/foundation/eth-address';
-import { FPCContract } from '@aztec/noir-contracts.js/FPC';
-import { TokenContractArtifact } from '@aztec/noir-contracts.js/Token';
-import { ProtocolContractAddress } from '@aztec/protocol-contracts';
 
 import {
   type PublisherConfig,
@@ -18,7 +21,9 @@ import {
   getPublisherConfigMappings,
   getTxSenderConfigMappings,
 } from './publisher/config.js';
-import { type SequencerConfig } from './sequencer/config.js';
+
+export * from './publisher/config.js';
+export { SequencerConfig };
 
 /** Chain configuration. */
 type ChainConfig = {
@@ -31,7 +36,12 @@ type ChainConfig = {
 /**
  * Configuration settings for the SequencerClient.
  */
-export type SequencerClientConfig = PublisherConfig & TxSenderConfig & SequencerConfig & L1ReaderConfig & ChainConfig;
+export type SequencerClientConfig = PublisherConfig &
+  TxSenderConfig &
+  SequencerConfig &
+  L1ReaderConfig &
+  ChainConfig &
+  Pick<L1ContractsConfig, 'ethereumSlotDuration'>;
 
 export const sequencerConfigMappings: ConfigMappingsType<SequencerConfig> = {
   transactionPollingIntervalMS: {
@@ -48,17 +58,6 @@ export const sequencerConfigMappings: ConfigMappingsType<SequencerConfig> = {
     env: 'SEQ_MIN_TX_PER_BLOCK',
     description: 'The minimum number of txs to include in a block.',
     ...numberConfigHelper(1),
-  },
-  minSecondsBetweenBlocks: {
-    env: 'SEQ_MIN_SECONDS_BETWEEN_BLOCKS',
-    description: 'The minimum number of seconds in-between consecutive blocks.',
-    ...numberConfigHelper(0),
-  },
-  maxSecondsBetweenBlocks: {
-    env: 'SEQ_MAX_SECONDS_BETWEEN_BLOCKS',
-    description:
-      'The maximum number of seconds in-between consecutive blocks. Sequencer will produce a block with less than minTxsPerBlock once this threshold is reached.',
-    ...numberConfigHelper(0),
   },
   coinbase: {
     env: 'COINBASE',
@@ -81,17 +80,9 @@ export const sequencerConfigMappings: ConfigMappingsType<SequencerConfig> = {
   allowedInSetup: {
     env: 'SEQ_ALLOWED_SETUP_FN',
     parseEnv: (val: string) => parseSequencerAllowList(val),
-    defaultValue: getDefaultAllowedSetupFunctions(),
     description: 'The list of functions calls allowed to run in setup',
     printDefault: () =>
       'AuthRegistry, FeeJuice.increase_public_balance, Token.increase_public_balance, FPC.prepare_fee',
-  },
-  allowedInTeardown: {
-    env: 'SEQ_ALLOWED_TEARDOWN_FN',
-    parseEnv: (val: string) => parseSequencerAllowList(val),
-    defaultValue: getDefaultAllowedTeardownFunctions(),
-    description: 'The list of functions calls allowed to run teardown',
-    printDefault: () => 'FPC.pay_refund, FPC.pay_refund_with_shielded_rebate',
   },
   maxBlockSizeInBytes: {
     env: 'SEQ_MAX_BLOCK_SIZE_IN_BYTES',
@@ -103,11 +94,22 @@ export const sequencerConfigMappings: ConfigMappingsType<SequencerConfig> = {
     description: 'Whether to require every tx to have a fee payer',
     ...booleanConfigHelper(),
   },
-  gerousiaPayload: {
-    env: 'GEROUSIA_PAYLOAD_ADDRESS',
-    description: 'The address of the payload for the gerousia',
+  enforceTimeTable: {
+    env: 'SEQ_ENFORCE_TIME_TABLE',
+    description: 'Whether to enforce the time table when building blocks',
+    ...booleanConfigHelper(),
+    defaultValue: false,
+  },
+  governanceProposerPayload: {
+    env: 'GOVERNANCE_PROPOSER_PAYLOAD_ADDRESS',
+    description: 'The address of the payload for the governanceProposer',
     parseEnv: (val: string) => EthAddress.fromString(val),
     defaultValue: EthAddress.ZERO,
+  },
+  maxL1TxInclusionTimeIntoSlot: {
+    env: 'SEQ_MAX_L1_TX_INCLUSION_TIME_INTO_SLOT',
+    description: 'How many seconds into an L1 slot we can still send a tx and get it mined.',
+    parseEnv: (val: string) => (val ? parseInt(val, 10) : undefined),
   },
 };
 
@@ -126,6 +128,7 @@ export const sequencerClientConfigMappings: ConfigMappingsType<SequencerClientCo
   ...getTxSenderConfigMappings('SEQ'),
   ...getPublisherConfigMappings('SEQ'),
   ...chainConfigMappings,
+  ...pickConfigMappings(l1ContractsConfigMappings, ['ethereumSlotDuration']),
 };
 
 /**
@@ -171,55 +174,16 @@ export function parseSequencerAllowList(value: string): AllowedElement[] {
     } else if (typeString === 'C') {
       if (selector) {
         entries.push({
-          classId: Fr.fromString(identifierString),
+          classId: Fr.fromHexString(identifierString),
           selector,
         });
       } else {
         entries.push({
-          classId: Fr.fromString(identifierString),
+          classId: Fr.fromHexString(identifierString),
         });
       }
     }
   }
 
   return entries;
-}
-
-function getDefaultAllowedSetupFunctions(): AllowedElement[] {
-  return [
-    // needed for authwit support
-    {
-      address: ProtocolContractAddress.AuthRegistry,
-    },
-    // needed for claiming on the same tx as a spend
-    {
-      address: ProtocolContractAddress.FeeJuice,
-      // We can't restrict the selector because public functions get routed via dispatch.
-      // selector: FunctionSelector.fromSignature('_increase_public_balance((Field),Field)'),
-    },
-    // needed for private transfers via FPC
-    {
-      classId: getContractClassFromArtifact(TokenContractArtifact).id,
-      // We can't restrict the selector because public functions get routed via dispatch.
-      // selector: FunctionSelector.fromSignature('_increase_public_balance((Field),Field)'),
-    },
-    {
-      classId: getContractClassFromArtifact(FPCContract.artifact).id,
-      // We can't restrict the selector because public functions get routed via dispatch.
-      // selector: FunctionSelector.fromSignature('prepare_fee((Field),Field,(Field),Field)'),
-    },
-  ];
-}
-
-function getDefaultAllowedTeardownFunctions(): AllowedElement[] {
-  return [
-    {
-      classId: getContractClassFromArtifact(FPCContract.artifact).id,
-      selector: FunctionSelector.fromSignature('pay_refund((Field),Field,(Field))'),
-    },
-    {
-      classId: getContractClassFromArtifact(FPCContract.artifact).id,
-      selector: FunctionSelector.fromSignature('pay_refund_with_shielded_rebate(Field,(Field),Field)'),
-    },
-  ];
 }

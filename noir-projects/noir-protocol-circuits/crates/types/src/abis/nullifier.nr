@@ -8,9 +8,9 @@ use crate::{
 };
 
 pub struct Nullifier {
-    value: Field,
-    counter: u32,
-    note_hash: Field,
+    pub value: Field,
+    pub counter: u32,
+    pub note_hash: Field,
 }
 
 impl Ordered for Nullifier {
@@ -22,9 +22,6 @@ impl Ordered for Nullifier {
 impl OrderedValue<Field> for Nullifier {
     fn value(self) -> Field {
         self.value
-    }
-    fn counter(self) -> u32 {
-        self.counter
     }
 }
 
@@ -79,8 +76,8 @@ impl Nullifier {
 }
 
 pub struct ScopedNullifier {
-    nullifier: Nullifier,
-    contract_address: AztecAddress,
+    pub nullifier: Nullifier,
+    pub contract_address: AztecAddress,
 }
 
 impl Scoped<Nullifier> for ScopedNullifier {
@@ -101,9 +98,6 @@ impl Ordered for ScopedNullifier {
 impl OrderedValue<Field> for ScopedNullifier {
     fn value(self) -> Field {
         self.nullifier.value
-    }
-    fn counter(self) -> u32 {
-        self.nullifier.counter
     }
 }
 

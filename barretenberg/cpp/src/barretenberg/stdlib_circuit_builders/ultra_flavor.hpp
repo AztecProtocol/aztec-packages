@@ -3,6 +3,7 @@
 #include "barretenberg/ecc/curves/bn254/g1.hpp"
 #include "barretenberg/flavor/flavor.hpp"
 #include "barretenberg/flavor/flavor_macros.hpp"
+#include "barretenberg/flavor/repeated_commitments_data.hpp"
 #include "barretenberg/plonk_honk_shared/library/grand_product_delta.hpp"
 #include "barretenberg/plonk_honk_shared/library/grand_product_library.hpp"
 #include "barretenberg/polynomials/barycentric.hpp"
@@ -35,24 +36,33 @@ class UltraFlavor {
     using CommitmentKey = bb::CommitmentKey<Curve>;
     using VerifierCommitmentKey = bb::VerifierCommitmentKey<Curve>;
 
+    // indicates when evaluating sumcheck, edges can be left as degree-1 monomials
+    static constexpr bool USE_SHORT_MONOMIALS = true;
+
     // Indicates that this flavor runs with non-ZK Sumcheck.
     static constexpr bool HasZK = false;
     static constexpr size_t NUM_WIRES = CircuitBuilder::NUM_WIRES;
     // The number of multivariate polynomials on which a sumcheck prover sumcheck operates (witness polynomials,
     // precomputed polynomials and shifts). We often need containers of this size to hold related data, so we choose a
     // name more agnostic than `NUM_POLYNOMIALS`.
-    static constexpr size_t NUM_ALL_ENTITIES = 44;
+    static constexpr size_t NUM_ALL_ENTITIES = 40;
     // The number of polynomials precomputed to describe a circuit and to aid a prover in constructing a satisfying
     // assignment of witnesses. We again choose a neutral name.
     static constexpr size_t NUM_PRECOMPUTED_ENTITIES = 27;
     // The total number of witness entities not including shifts.
     static constexpr size_t NUM_WITNESS_ENTITIES = 8;
-    // The total number of witnesses including shifts and derived entities.
-    static constexpr size_t NUM_ALL_WITNESS_ENTITIES = 13;
     // Total number of folded polynomials, which is just all polynomials except the shifts
     static constexpr size_t NUM_FOLDED_ENTITIES = NUM_PRECOMPUTED_ENTITIES + NUM_WITNESS_ENTITIES;
+    // The number of shifted witness entities including derived witness entities
+    static constexpr size_t NUM_SHIFTED_WITNESSES = 5;
 
-    using GrandProductRelations = std::tuple<bb::UltraPermutationRelation<FF>>;
+    // A container to be fed to ShpleminiVerifier to avoid redundant scalar muls
+    static constexpr RepeatedCommitmentsData REPEATED_COMMITMENTS = RepeatedCommitmentsData(
+        NUM_PRECOMPUTED_ENTITIES, NUM_PRECOMPUTED_ENTITIES + NUM_WITNESS_ENTITIES, NUM_SHIFTED_WITNESSES);
+
+    // The total number of witnesses including shifts and derived entities.
+    static constexpr size_t NUM_ALL_WITNESS_ENTITIES = NUM_WITNESS_ENTITIES + NUM_SHIFTED_WITNESSES;
+
     // define the tuple of Relations that comprise the Sumcheck relation
     // Note: made generic for use in MegaRecursive.
     template <typename FF>
@@ -118,11 +128,11 @@ class UltraFlavor {
                               q_r,                  // column 3
                               q_o,                  // column 4
                               q_4,                  // column 5
-                              q_arith,              // column 6
-                              q_delta_range,        // column 7
-                              q_elliptic,           // column 8
-                              q_aux,                // column 9
-                              q_lookup,             // column 10
+                              q_lookup,             // column 6
+                              q_arith,              // column 7
+                              q_delta_range,        // column 8
+                              q_elliptic,           // column 9
+                              q_aux,                // column 10
                               q_poseidon2_external, // column 11
                               q_poseidon2_internal, // column 12
                               sigma_1,              // column 13
@@ -145,8 +155,9 @@ class UltraFlavor {
         auto get_non_gate_selectors() { return RefArray{ q_m, q_c, q_l, q_r, q_o, q_4 }; }
         auto get_gate_selectors()
         {
-            return RefArray{ q_arith,  q_delta_range,        q_elliptic,          q_aux,
-                             q_lookup, q_poseidon2_external, q_poseidon2_internal };
+            return RefArray{
+                q_lookup, q_arith, q_delta_range, q_elliptic, q_aux, q_poseidon2_external, q_poseidon2_internal
+            };
         }
         auto get_selectors() { return concatenate(get_non_gate_selectors(), get_gate_selectors()); }
 
@@ -172,15 +183,15 @@ class UltraFlavor {
                               lookup_read_tags)   // column 7
 
         auto get_wires() { return RefArray{ w_l, w_r, w_o, w_4 }; };
-        auto get_to_be_shifted() { return RefArray{ z_perm }; };
+        auto get_to_be_shifted() { return RefArray{ w_l, w_r, w_o, w_4, z_perm }; };
 
         MSGPACK_FIELDS(w_l, w_r, w_o, w_4, z_perm, lookup_inverses, lookup_read_counts, lookup_read_tags);
     };
 
     /**
-     * @brief Class for ShiftedWitnessEntities, containing only shifted witness polynomials.
+     * @brief Class for ShitftedEntities, containing shifted witness polynomials.
      */
-    template <typename DataType> class ShiftedWitnessEntities {
+    template <typename DataType> class ShiftedEntities {
       public:
         DEFINE_FLAVOR_MEMBERS(DataType,
                               w_l_shift,    // column 0
@@ -189,32 +200,7 @@ class UltraFlavor {
                               w_4_shift,    // column 3
                               z_perm_shift) // column 4
 
-        auto get_shifted_witnesses() { return RefArray{ w_l_shift, w_r_shift, w_o_shift, w_4_shift, z_perm_shift }; };
-    };
-
-    /**
-     * @brief Class for ShiftedEntities, containing shifted witness and table polynomials.
-     */
-    template <typename DataType> class ShiftedTables {
-      public:
-        DEFINE_FLAVOR_MEMBERS(DataType,
-                              table_1_shift, // column 0
-                              table_2_shift, // column 1
-                              table_3_shift, // column 2
-                              table_4_shift  // column 3
-        )
-    };
-
-    /**
-     * @brief Class for ShiftedEntities, containing shifted witness and table polynomials.
-     */
-    template <typename DataType>
-    class ShiftedEntities : public ShiftedTables<DataType>, public ShiftedWitnessEntities<DataType> {
-      public:
-        DEFINE_COMPOUND_GET_ALL(ShiftedTables<DataType>, ShiftedWitnessEntities<DataType>)
-
-        auto get_shifted_witnesses() { return ShiftedWitnessEntities<DataType>::get_all(); };
-        auto get_shifted_tables() { return ShiftedTables<DataType>::get_all(); };
+        auto get_shifted() { return RefArray{ w_l_shift, w_r_shift, w_o_shift, w_4_shift, z_perm_shift }; };
     };
 
     /**
@@ -246,33 +232,17 @@ class UltraFlavor {
         };
         auto get_precomputed() { return PrecomputedEntities<DataType>::get_all(); }
         auto get_witness() { return WitnessEntities<DataType>::get_all(); };
-        auto get_to_be_shifted()
-        {
-            return concatenate(PrecomputedEntities<DataType>::get_table_polynomials(),
-                               WitnessEntities<DataType>::get_wires(),
-                               WitnessEntities<DataType>::get_to_be_shifted());
-        };
+        auto get_to_be_shifted() { return WitnessEntities<DataType>::get_to_be_shifted(); };
 
-        auto get_shifted() { return ShiftedEntities<DataType>::get_all(); };
-        // getter for shifted witnesses
-        auto get_shifted_witnesses() { return ShiftedEntities<DataType>::get_shifted_witnesses(); };
-        // getter for shifted tables
-        auto get_shifted_tables() { return ShiftedEntities<DataType>::get_shifted_tables(); };
         // getter for all witnesses including shifted ones
         auto get_all_witnesses()
         {
-            return concatenate(WitnessEntities<DataType>::get_all(),
-                               ShiftedEntities<DataType>::get_shifted_witnesses());
+            return concatenate(WitnessEntities<DataType>::get_all(), ShiftedEntities<DataType>::get_shifted());
         };
         // getter for the complement of all witnesses inside all entities
-        auto get_non_witnesses()
-        {
-            return concatenate(PrecomputedEntities<DataType>::get_all(),
-                               ShiftedEntities<DataType>::get_shifted_tables());
-        };
+        auto get_non_witnesses() { return PrecomputedEntities<DataType>::get_all(); };
     };
 
-  public:
     /**
      * @brief A field element for each entity of the flavor. These entities represent the prover polynomials
      * evaluated at one point.
@@ -317,7 +287,7 @@ class UltraFlavor {
         [[nodiscard]] size_t get_polynomial_size() const { return q_c.size(); }
         [[nodiscard]] AllValues get_row(const size_t row_idx) const
         {
-            PROFILE_THIS();
+            PROFILE_THIS_NAME("UltraFlavor::get_row");
             AllValues result;
             for (auto [result_field, polynomial] : zip_view(result.get_all(), get_all())) {
                 result_field = polynomial[row_idx];
@@ -330,6 +300,13 @@ class UltraFlavor {
         {
             for (auto [shifted, to_be_shifted] : zip_view(get_shifted(), get_to_be_shifted())) {
                 shifted = to_be_shifted.shifted();
+            }
+        }
+
+        void increase_polynomials_virtual_size(const size_t size_in)
+        {
+            for (auto& polynomial : this->get_all()) {
+                polynomial.increase_virtual_size(size_in);
             }
         }
     };
@@ -401,18 +378,19 @@ class UltraFlavor {
          * @brief Computes public_input_delta and the permutation grand product polynomial
          *
          * @param relation_parameters
+         * @param size_override override the size of the domain over which to compute the grand product
          */
-        void compute_grand_product_polynomials(RelationParameters<FF>& relation_parameters)
+        void compute_grand_product_polynomial(RelationParameters<FF>& relation_parameters, size_t size_override = 0)
         {
-            auto public_input_delta = compute_public_input_delta<UltraFlavor>(this->public_inputs,
-                                                                              relation_parameters.beta,
-                                                                              relation_parameters.gamma,
-                                                                              this->circuit_size,
-                                                                              this->pub_inputs_offset);
-            relation_parameters.public_input_delta = public_input_delta;
+            relation_parameters.public_input_delta = compute_public_input_delta<UltraFlavor>(this->public_inputs,
+                                                                                             relation_parameters.beta,
+                                                                                             relation_parameters.gamma,
+                                                                                             this->circuit_size,
+                                                                                             this->pub_inputs_offset);
 
-            // Compute permutation and lookup grand product polynomials
-            compute_grand_products<UltraFlavor>(this->polynomials, relation_parameters);
+            // Compute permutation grand product polynomial
+            compute_grand_product<UltraFlavor, UltraPermutationRelation<FF>>(
+                this->polynomials, relation_parameters, size_override);
         }
     };
 
@@ -438,8 +416,9 @@ class UltraFlavor {
             this->log_circuit_size = numeric::get_msb(this->circuit_size);
             this->num_public_inputs = proving_key.num_public_inputs;
             this->pub_inputs_offset = proving_key.pub_inputs_offset;
-            this->contains_recursive_proof = proving_key.contains_recursive_proof;
-            this->recursive_proof_public_input_indices = proving_key.recursive_proof_public_input_indices;
+            this->contains_pairing_point_accumulator = proving_key.contains_pairing_point_accumulator;
+            this->pairing_point_accumulator_public_input_indices =
+                proving_key.pairing_point_accumulator_public_input_indices;
 
             if (proving_key.commitment_key == nullptr) {
                 proving_key.commitment_key = std::make_shared<CommitmentKey>(proving_key.circuit_size);
@@ -453,19 +432,19 @@ class UltraFlavor {
         VerificationKey(const uint64_t circuit_size,
                         const uint64_t num_public_inputs,
                         const uint64_t pub_inputs_offset,
-                        const bool contains_recursive_proof,
-                        const AggregationObjectPubInputIndices& recursive_proof_public_input_indices,
+                        const bool contains_pairing_point_accumulator,
+                        const PairingPointAccumulatorPubInputIndices& pairing_point_accumulator_public_input_indices,
                         const Commitment& q_m,
                         const Commitment& q_c,
                         const Commitment& q_l,
                         const Commitment& q_r,
                         const Commitment& q_o,
                         const Commitment& q_4,
+                        const Commitment& q_lookup,
                         const Commitment& q_arith,
                         const Commitment& q_delta_range,
                         const Commitment& q_elliptic,
                         const Commitment& q_aux,
-                        const Commitment& q_lookup,
                         const Commitment& q_poseidon2_external,
                         const Commitment& q_poseidon2_internal,
                         const Commitment& sigma_1,
@@ -487,19 +466,19 @@ class UltraFlavor {
             this->log_circuit_size = numeric::get_msb(this->circuit_size);
             this->num_public_inputs = num_public_inputs;
             this->pub_inputs_offset = pub_inputs_offset;
-            this->contains_recursive_proof = contains_recursive_proof;
-            this->recursive_proof_public_input_indices = recursive_proof_public_input_indices;
+            this->contains_pairing_point_accumulator = contains_pairing_point_accumulator;
+            this->pairing_point_accumulator_public_input_indices = pairing_point_accumulator_public_input_indices;
             this->q_m = q_m;
             this->q_c = q_c;
             this->q_l = q_l;
             this->q_r = q_r;
             this->q_o = q_o;
             this->q_4 = q_4;
+            this->q_lookup = q_lookup;
             this->q_arith = q_arith;
             this->q_delta_range = q_delta_range;
             this->q_elliptic = q_elliptic;
             this->q_aux = q_aux;
-            this->q_lookup = q_lookup;
             this->q_poseidon2_external = q_poseidon2_external;
             this->q_poseidon2_internal = q_poseidon2_internal;
             this->sigma_1 = sigma_1;
@@ -523,19 +502,19 @@ class UltraFlavor {
                        log_circuit_size,
                        num_public_inputs,
                        pub_inputs_offset,
-                       contains_recursive_proof,
-                       recursive_proof_public_input_indices,
+                       contains_pairing_point_accumulator,
+                       pairing_point_accumulator_public_input_indices,
                        q_m,
                        q_c,
                        q_l,
                        q_r,
                        q_o,
                        q_4,
+                       q_lookup,
                        q_arith,
                        q_delta_range,
                        q_elliptic,
                        q_aux,
-                       q_lookup,
                        q_poseidon2_external,
                        q_poseidon2_internal,
                        sigma_1,
@@ -621,11 +600,11 @@ class UltraFlavor {
             q_o = "Q_O";
             q_4 = "Q_4";
             q_m = "Q_M";
+            q_lookup = "Q_LOOKUP";
             q_arith = "Q_ARITH";
             q_delta_range = "Q_SORT";
             q_elliptic = "Q_ELLIPTIC";
             q_aux = "Q_AUX";
-            q_lookup = "Q_LOOKUP";
             q_poseidon2_external = "Q_POSEIDON2_EXTERNAL";
             q_poseidon2_internal = "Q_POSEIDON2_INTERNAL";
             sigma_1 = "SIGMA_1";
@@ -662,11 +641,11 @@ class UltraFlavor {
             this->q_r = verification_key->q_r;
             this->q_o = verification_key->q_o;
             this->q_4 = verification_key->q_4;
+            this->q_lookup = verification_key->q_lookup;
             this->q_arith = verification_key->q_arith;
             this->q_delta_range = verification_key->q_delta_range;
             this->q_elliptic = verification_key->q_elliptic;
             this->q_aux = verification_key->q_aux;
-            this->q_lookup = verification_key->q_lookup;
             this->q_poseidon2_external = verification_key->q_poseidon2_external;
             this->q_poseidon2_internal = verification_key->q_poseidon2_internal;
             this->sigma_1 = verification_key->sigma_1;

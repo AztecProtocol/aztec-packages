@@ -23,34 +23,13 @@ describe('SentTx', () => {
       pxe.getTxReceipt.mockResolvedValue(txReceipt);
     });
 
-    it('waits for all notes accounts to be synced', async () => {
-      pxe.getSyncStatus
-        .mockResolvedValueOnce({ blocks: 25, notes: { '0x1': 19, '0x2': 20 } })
-        .mockResolvedValueOnce({ blocks: 25, notes: { '0x1': 20, '0x2': 20 } });
-
-      const actual = await sentTx.wait({ timeout: 1, interval: 0.4 });
-      expect(actual).toEqual(txReceipt);
-    });
-
-    it('fails if an account is not synced', async () => {
-      pxe.getSyncStatus.mockResolvedValue({ blocks: 25, notes: { '0x1': 19, '0x2': 20 } });
-      await expect(sentTx.wait({ timeout: 1, interval: 0.4 })).rejects.toThrow(/timeout/i);
-    });
-
-    it('does not wait for notes sync', async () => {
-      pxe.getSyncStatus.mockResolvedValue({ blocks: 19, notes: { '0x1': 19, '0x2': 19 } });
-      const actual = await sentTx.wait({ timeout: 1, interval: 0.4, waitForNotesSync: false });
-      expect(actual).toEqual(txReceipt);
-    });
-
     it('throws if tx is dropped', async () => {
       pxe.getTxReceipt.mockResolvedValue({ ...txReceipt, status: TxStatus.DROPPED } as TxReceipt);
-      pxe.getSyncStatus.mockResolvedValue({ blocks: 19, notes: { '0x1': 19, '0x2': 19 } });
-      await expect(sentTx.wait({ timeout: 1, interval: 0.4 })).rejects.toThrow(/dropped/);
+      await expect(sentTx.wait({ timeout: 1, interval: 0.4, ignoreDroppedReceiptsFor: 0 })).rejects.toThrow(/dropped/);
     });
 
     it('waits for the tx to be proven', async () => {
-      const waitOpts = { timeout: 1, interval: 0.4, waitForNotesSync: false, proven: true, provenTimeout: 2 };
+      const waitOpts = { timeout: 1, interval: 0.4, waitForNotesAvailable: false, proven: true, provenTimeout: 2 };
       pxe.getProvenBlockNumber.mockResolvedValue(10);
       await expect(sentTx.wait(waitOpts)).rejects.toThrow(/timeout/i);
 

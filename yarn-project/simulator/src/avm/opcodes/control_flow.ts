@@ -22,6 +22,10 @@ export class Jump extends Instruction {
 
     context.machineState.memory.assert({});
   }
+
+  public override handlesPC(): boolean {
+    return true;
+  }
 }
 
 export class JumpI extends Instruction {
@@ -32,11 +36,11 @@ export class JumpI extends Instruction {
   static readonly wireFormat: OperandType[] = [
     OperandType.UINT8,
     OperandType.UINT8,
-    OperandType.UINT32,
     OperandType.UINT16,
+    OperandType.UINT32,
   ];
 
-  constructor(private indirect: number, private loc: number, private condOffset: number) {
+  constructor(private indirect: number, private condOffset: number, private loc: number) {
     super();
   }
 
@@ -50,12 +54,16 @@ export class JumpI extends Instruction {
     const condition = memory.getAs<IntegralValue>(condOffset);
 
     if (condition.toBigInt() == 0n) {
-      context.machineState.incrementPc();
+      context.machineState.pc = context.machineState.nextPc;
     } else {
       context.machineState.pc = this.loc;
     }
 
     memory.assert({ reads: 1, addressing });
+  }
+
+  public override handlesPC(): boolean {
+    return true;
   }
 }
 
@@ -72,10 +80,17 @@ export class InternalCall extends Instruction {
   public async execute(context: AvmContext): Promise<void> {
     context.machineState.consumeGas(this.gasCost());
 
-    context.machineState.internalCallStack.push(context.machineState.pc);
+    context.machineState.internalCallStack.push({
+      callPc: context.machineState.pc,
+      returnPc: context.machineState.nextPc,
+    });
     context.machineState.pc = this.loc;
 
     context.machineState.memory.assert({});
+  }
+
+  public override handlesPC(): boolean {
+    return true;
   }
 }
 
@@ -92,12 +107,16 @@ export class InternalReturn extends Instruction {
   public async execute(context: AvmContext): Promise<void> {
     context.machineState.consumeGas(this.gasCost());
 
-    const jumpOffset = context.machineState.internalCallStack.pop();
-    if (jumpOffset === undefined) {
+    const stackEntry = context.machineState.internalCallStack.pop();
+    if (stackEntry === undefined) {
       throw new InstructionExecutionError('Internal call stack empty!');
     }
-    context.machineState.pc = jumpOffset + 1;
+    context.machineState.pc = stackEntry.returnPc;
 
     context.machineState.memory.assert({});
+  }
+
+  public override handlesPC(): boolean {
+    return true;
   }
 }

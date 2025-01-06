@@ -1,8 +1,8 @@
 import {
   type AztecAddress,
-  type DebugLogger,
   EthAddress,
   Fr,
+  type Logger,
   type PXE,
   type SiblingPath,
   computeSecretHash,
@@ -38,10 +38,9 @@ export type L2Claim = {
 /** L1 to L2 message info that corresponds to an amount to claim. */
 export type L2AmountClaim = L2Claim & { /** Amount to claim */ claimAmount: Fr };
 
-/** L1 to L2 message info that corresponds to an amount to claim with associated notes to be redeemed. */
-export type L2RedeemableAmountClaim = L2AmountClaim & {
-  /** Secret for redeeming the minted notes */ redeemSecret: Fr;
-  /** Hash of the redeem secret*/ redeemSecretHash: Fr;
+/** L1 to L2 message info that corresponds to an amount to claim with associated recipient. */
+export type L2AmountClaimWithRecipient = L2AmountClaim & {
+  /** Address that will receive the newly minted notes. */ recipient: AztecAddress;
 };
 
 /** Stringifies an eth address for logging. */
@@ -50,7 +49,7 @@ function stringifyEthAddress(address: EthAddress | Hex, name?: string) {
 }
 
 /** Generates a pair secret and secret hash */
-export function generateClaimSecret(logger?: DebugLogger): [Fr, Fr] {
+export function generateClaimSecret(logger?: Logger): [Fr, Fr] {
   const secret = Fr.random();
   const secretHash = computeSecretHash(secret);
   logger?.verbose(`Generated claim secret=${secret.toString()} hash=${secretHash.toString()}`);
@@ -66,7 +65,7 @@ export class L1TokenManager {
     public readonly address: EthAddress,
     private publicClient: PublicClient<HttpTransport, Chain>,
     private walletClient: WalletClient<HttpTransport, Chain, Account>,
-    private logger: DebugLogger,
+    private logger: Logger,
   ) {
     this.contract = getContract({
       address: this.address.toString(),
@@ -123,7 +122,7 @@ export class L1FeeJuicePortalManager {
     tokenAddress: EthAddress,
     private readonly publicClient: PublicClient<HttpTransport, Chain>,
     private readonly walletClient: WalletClient<HttpTransport, Chain, Account>,
-    private readonly logger: DebugLogger,
+    private readonly logger: Logger,
   ) {
     this.tokenManager = new L1TokenManager(tokenAddress, publicClient, walletClient, logger);
     this.contract = getContract({
@@ -193,7 +192,7 @@ export class L1FeeJuicePortalManager {
     pxe: PXE,
     publicClient: PublicClient<HttpTransport, Chain>,
     walletClient: WalletClient<HttpTransport, Chain, Account>,
-    logger: DebugLogger,
+    logger: Logger,
   ): Promise<L1FeeJuicePortalManager> {
     const {
       l1ContractAddresses: { feeJuiceAddress, feeJuicePortalAddress },
@@ -217,7 +216,7 @@ export class L1ToL2TokenPortalManager {
     tokenAddress: EthAddress,
     protected publicClient: PublicClient<HttpTransport, Chain>,
     protected walletClient: WalletClient<HttpTransport, Chain, Account>,
-    protected logger: DebugLogger,
+    protected logger: Logger,
   ) {
     this.tokenManager = new L1TokenManager(tokenAddress, publicClient, walletClient, logger);
     this.portal = getContract({
@@ -279,17 +278,15 @@ export class L1ToL2TokenPortalManager {
    * @param amount - Amount of tokens to send.
    * @param mint - Whether to mint the tokens before sending (only during testing).
    */
-  public async bridgeTokensPrivate(to: AztecAddress, amount: bigint, mint = false): Promise<L2RedeemableAmountClaim> {
+  public async bridgeTokensPrivate(
+    to: AztecAddress,
+    amount: bigint,
+    mint = false,
+  ): Promise<L2AmountClaimWithRecipient> {
     const [claimSecret, claimSecretHash] = await this.bridgeSetup(amount, mint);
 
-    const redeemSecret = Fr.random();
-    const redeemSecretHash = computeSecretHash(redeemSecret);
     this.logger.info('Sending L1 tokens to L2 to be claimed privately');
-    const { request } = await this.portal.simulate.depositToAztecPrivate([
-      redeemSecretHash.toString(),
-      amount,
-      claimSecretHash.toString(),
-    ]);
+    const { request } = await this.portal.simulate.depositToAztecPrivate([amount, claimSecretHash.toString()]);
 
     const txReceipt = await this.publicClient.waitForTransactionReceipt({
       hash: await this.walletClient.writeContract(request),
@@ -300,21 +297,19 @@ export class L1ToL2TokenPortalManager {
       this.portal.address,
       this.portal.abi,
       'DepositToAztecPrivate',
-      log =>
-        log.args.secretHashForRedeemingMintedNotes === redeemSecretHash.toString() &&
-        log.args.amount === amount &&
-        log.args.secretHashForL2MessageConsumption === claimSecretHash.toString(),
+      log => log.args.amount === amount && log.args.secretHashForL2MessageConsumption === claimSecretHash.toString(),
       this.logger,
     );
 
-    this.logger.info(`Redeem shield secret: ${redeemSecret.toString()}, secret hash: ${redeemSecretHash.toString()}`);
+    this.logger.info(
+      `Claim message secret: ${claimSecret.toString()}, claim message secret hash: ${claimSecretHash.toString()}`,
+    );
 
     return {
       claimAmount: new Fr(amount),
       claimSecret,
       claimSecretHash,
-      redeemSecret,
-      redeemSecretHash,
+      recipient: to,
       messageHash: log.args.key,
       messageLeafIndex: log.args.index,
     };
@@ -329,7 +324,7 @@ export class L1ToL2TokenPortalManager {
   }
 }
 
-/** Helper for interacting with a test TokenPortal on L1 for both withdrawing from and briding to L2. */
+/** Helper for interacting with a test TokenPortal on L1 for both withdrawing from and bridging to L2. */
 export class L1TokenPortalManager extends L1ToL2TokenPortalManager {
   private readonly outbox: GetContractReturnType<typeof OutboxAbi, WalletClient<HttpTransport, Chain, Account>>;
 
@@ -339,7 +334,7 @@ export class L1TokenPortalManager extends L1ToL2TokenPortalManager {
     outboxAddress: EthAddress,
     publicClient: PublicClient<HttpTransport, Chain>,
     walletClient: WalletClient<HttpTransport, Chain, Account>,
-    logger: DebugLogger,
+    logger: Logger,
   ) {
     super(portalAddress, tokenAddress, publicClient, walletClient, logger);
     this.outbox = getContract({

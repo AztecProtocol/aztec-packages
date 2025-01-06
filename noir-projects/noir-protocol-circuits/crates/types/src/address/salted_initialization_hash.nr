@@ -5,7 +5,7 @@ use crate::{
 
 // Salted initialization hash. Used in the computation of a partial address.
 pub struct SaltedInitializationHash {
-    inner: Field,
+    pub inner: Field,
 }
 
 impl ToField for SaltedInitializationHash {

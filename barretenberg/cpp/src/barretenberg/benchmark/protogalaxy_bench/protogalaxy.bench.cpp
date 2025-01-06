@@ -27,7 +27,7 @@ void vector_of_evaluations(State& state) noexcept
 
 void compute_row_evaluations(State& state) noexcept
 {
-    using Fun = ProtogalaxyProverInternal<DeciderProvingKeys_<Flavor, 2>>;
+    using PGInternal = ProtogalaxyProverInternal<DeciderProvingKeys_<Flavor, 2>>;
     using Polys = Flavor::ProverPolynomials;
     using Alphas = Flavor::RelationSeparator;
     using Params = RelationParameters<FF>;
@@ -38,7 +38,8 @@ void compute_row_evaluations(State& state) noexcept
     auto params = Params::get_random();
 
     for (auto _ : state) {
-        auto result = Fun::compute_row_evaluations(polys, alphas, params);
+        PGInternal pg_internal;
+        auto result = pg_internal.compute_row_evaluations(polys, alphas, params);
         DoNotOptimize(result);
     }
 }
@@ -52,7 +53,7 @@ void fold_k(State& state) noexcept
     using ProtogalaxyProver = ProtogalaxyProver_<DeciderProvingKeys_<Flavor, k + 1>>;
     using Builder = typename Flavor::CircuitBuilder;
 
-    bb::srs::init_crs_factory("../srs_db/ignition");
+    bb::srs::init_crs_factory(bb::srs::get_ignition_crs_path());
 
     auto log2_num_gates = static_cast<size_t>(state.range(0));
 

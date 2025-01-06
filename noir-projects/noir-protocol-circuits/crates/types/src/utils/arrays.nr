@@ -1,33 +1,27 @@
-mod assert_array_appended;
-mod assert_array_prepended;
-mod assert_combined_array;
-mod assert_combined_sorted_transformed_value_array;
-mod assert_combined_transformed_array;
-mod assert_deduped_array;
-mod assert_exposed_sorted_transformed_value_array;
-mod assert_sorted_array;
-mod assert_sorted_transformed_value_array;
-mod assert_split_sorted_transformed_value_arrays;
-mod assert_split_transformed_value_arrays;
-mod get_sorted_result;
-mod get_sorted_tuple;
-mod sort_by;
-mod sort_by_counter;
+pub mod assert_array_appended;
+pub mod assert_array_prepended;
+pub mod assert_combined_array;
+pub mod assert_combined_transformed_array;
+pub mod assert_exposed_sorted_transformed_value_array;
+pub mod assert_sorted_array;
+pub mod assert_sorted_transformed_value_array;
+pub mod assert_split_sorted_transformed_value_arrays;
+pub mod assert_split_transformed_value_arrays;
+pub mod get_sorted_result;
+pub mod get_sorted_tuple;
+pub mod sort_by;
+pub mod sort_by_counter;
 
 // Re-exports.
 pub use assert_array_appended::{
-    assert_array_appended, assert_array_appended_reversed, assert_array_appended_scoped,
+    assert_array_appended, assert_array_appended_and_scoped, assert_array_appended_reversed,
+    assert_array_appended_scoped,
 };
 pub use assert_array_prepended::assert_array_prepended;
 pub use assert_combined_array::{assert_combined_array, combine_arrays};
-pub use assert_combined_sorted_transformed_value_array::{
-    assert_combined_sorted_transformed_value_array_asc,
-    get_combined_order_hints::{CombinedOrderHint, get_combined_order_hints_asc},
-};
 pub use assert_combined_transformed_array::{
     assert_combined_transformed_array, combine_and_transform_arrays,
 };
-pub use assert_deduped_array::{assert_deduped_array, dedupe_array};
 pub use assert_exposed_sorted_transformed_value_array::{
     assert_exposed_sorted_transformed_value_array,
     get_order_hints::{get_order_hints_asc, get_order_hints_desc, OrderHint},
@@ -47,18 +41,28 @@ pub use sort_by_counter::{sort_by_counter_asc, sort_by_counter_desc};
 
 use crate::traits::{Empty, is_empty};
 
-pub fn array_to_bounded_vec<T, let N: u32>(array: [T; N]) -> BoundedVec<T, N>
+pub fn subarray<let SRC_LEN: u32, let DST_LEN: u32>(
+    src: [Field; SRC_LEN],
+    offset: u32,
+) -> [Field; DST_LEN] {
+    assert(offset + DST_LEN <= SRC_LEN, "offset too large");
+
+    let mut dst: [Field; DST_LEN] = std::mem::zeroed();
+    for i in 0..DST_LEN {
+        dst[i] = src[i + offset];
+    }
+
+    dst
+}
+
+// Helper function to convert a validated array to BoundedVec.
+// Important: Only use it for validated arrays: validate_array(array) should be true.
+pub unconstrained fn array_to_bounded_vec<T, let N: u32>(array: [T; N]) -> BoundedVec<T, N>
 where
     T: Empty + Eq,
 {
-    let mut len = 0;
-    for elem in array {
-        if !is_empty(elem) {
-            len += 1;
-        }
-    }
-
-    BoundedVec { storage: array, len }
+    let len = array_length(array);
+    BoundedVec::from_parts_unchecked(array, len)
 }
 
 pub unconstrained fn find_index_hint<T, let N: u32, Env>(
@@ -138,6 +142,19 @@ where
             result[i] = elem;
             i += 1;
         }
+    }
+    result
+}
+
+// Helper fn to create a subarray from a given array
+pub fn array_splice<T, let N: u32, let M: u32>(array: [T; N], offset: u32) -> [T; M]
+where
+    T: Empty,
+{
+    assert(M + offset <= N, "Subarray length larger than array length");
+    let mut result: [T; M] = [T::empty(); M];
+    for i in 0..M {
+        result[i] = array[offset + i];
     }
     result
 }

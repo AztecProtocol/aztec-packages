@@ -169,7 +169,7 @@ impl CrateDefMap {
             module.value_definitions().filter_map(|id| {
                 if let Some(func_id) = id.as_function() {
                     let attributes = interner.function_attributes(&func_id);
-                    match &attributes.function {
+                    match attributes.function() {
                         Some(FunctionAttribute::Test(scope)) => {
                             let location = interner.function_meta(&func_id).name.location;
                             Some(TestFunction::new(func_id, scope.clone(), location))
@@ -193,11 +193,7 @@ impl CrateDefMap {
             module.value_definitions().filter_map(|id| {
                 if let Some(func_id) = id.as_function() {
                     let attributes = interner.function_attributes(&func_id);
-                    if attributes.secondary.contains(&SecondaryAttribute::Export) {
-                        Some(func_id)
-                    } else {
-                        None
-                    }
+                    attributes.has_export().then_some(func_id)
                 } else {
                     None
                 }
@@ -292,6 +288,29 @@ impl CrateDefMap {
         } else {
             String::new()
         }
+    }
+
+    /// Return a topological ordering of each module such that any child modules
+    /// are before their parent modules. Sibling modules will respect the ordering
+    /// declared from their parent module (the `mod foo; mod bar;` declarations).
+    pub fn get_module_topological_order(&self) -> HashMap<LocalModuleId, usize> {
+        let mut ordering = HashMap::default();
+        self.topologically_sort_modules(self.root, &mut 0, &mut ordering);
+        ordering
+    }
+
+    fn topologically_sort_modules(
+        &self,
+        current: LocalModuleId,
+        index: &mut usize,
+        ordering: &mut HashMap<LocalModuleId, usize>,
+    ) {
+        for child in &self.modules[current.0].child_declaration_order {
+            self.topologically_sort_modules(*child, index, ordering);
+        }
+
+        ordering.insert(current, *index);
+        *index += 1;
     }
 }
 

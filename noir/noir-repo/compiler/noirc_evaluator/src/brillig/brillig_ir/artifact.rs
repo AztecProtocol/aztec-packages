@@ -2,9 +2,10 @@ use acvm::acir::brillig::Opcode as BrilligOpcode;
 use acvm::acir::circuit::ErrorSelector;
 use std::collections::{BTreeMap, HashMap};
 
-use crate::brillig::brillig_ir::procedures::ProcedureId;
-use crate::ssa::ir::{basic_block::BasicBlockId, dfg::CallStack, function::FunctionId};
+use crate::ssa::ir::{basic_block::BasicBlockId, call_stack::CallStack, function::FunctionId};
 use crate::ErrorType;
+
+use super::procedures::ProcedureId;
 
 /// Represents a parameter or a return value of an entry point function.
 #[derive(Debug, Clone, Eq, PartialEq, Hash, PartialOrd, Ord)]
@@ -26,6 +27,7 @@ pub(crate) struct GeneratedBrillig<F> {
     pub(crate) locations: BTreeMap<OpcodeLocation, CallStack>,
     pub(crate) error_types: BTreeMap<ErrorSelector, ErrorType>,
     pub(crate) name: String,
+    pub(crate) procedure_locations: BTreeMap<ProcedureId, (OpcodeLocation, OpcodeLocation)>,
 }
 
 #[derive(Default, Debug, Clone)]
@@ -52,6 +54,14 @@ pub(crate) struct BrilligArtifact<F> {
     call_stack: CallStack,
     /// Name of the function, only used for debugging purposes.
     pub(crate) name: String,
+
+    /// This field contains the given procedure id if this artifact originates from as procedure
+    pub(crate) procedure: Option<ProcedureId>,
+    /// Procedure ID mapped to the range of its opcode locations
+    /// This is created as artifacts are linked together and allows us to determine
+    /// which opcodes originate from reusable procedures.s
+    /// The range is inclusive for both start and end opcode locations.
+    pub(crate) procedure_locations: BTreeMap<ProcedureId, (OpcodeLocation, OpcodeLocation)>,
 }
 
 /// A pointer to a location in the opcode.
@@ -148,6 +158,7 @@ impl<F: Clone + std::fmt::Debug> BrilligArtifact<F> {
             locations: self.locations,
             error_types: self.error_types,
             name: self.name,
+            procedure_locations: self.procedure_locations,
         }
     }
 
@@ -169,17 +180,7 @@ impl<F: Clone + std::fmt::Debug> BrilligArtifact<F> {
             self.error_types.insert(*error_selector, error_type.clone());
         }
 
-        let mut byte_code = obj.byte_code.clone();
-
-        // Replace STOP with RETURN because this is not the end of the program now.
-        let stop_position = byte_code
-            .iter()
-            .position(|opcode| matches!(opcode, BrilligOpcode::Stop { .. }))
-            .expect("Trying to link with a function that does not have a stop opcode");
-
-        byte_code[stop_position] = BrilligOpcode::Return;
-
-        self.byte_code.append(&mut byte_code);
+        self.byte_code.append(&mut obj.byte_code.clone());
 
         // Remove all resolved external calls and transform them to jumps
         let is_resolved = |label: &Label| self.labels.contains_key(label);

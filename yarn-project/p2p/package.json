@@ -5,7 +5,9 @@
   "exports": {
     ".": "./dest/index.js",
     "./mocks": "./dest/mocks/index.js",
-    "./bootstrap": "./dest/bootstrap/bootstrap.js"
+    "./bootstrap": "./dest/bootstrap/bootstrap.js",
+    "./config": "./dest/config.js",
+    "./msg_validators": "./dest/msg_validators/index.js"
   },
   "typedocOptions": {
     "entryPoints": [
@@ -20,7 +22,7 @@
     "clean": "rm -rf ./dest .tsbuildinfo",
     "formatting": "run -T prettier --check ./src && run -T eslint ./src",
     "formatting:fix": "run -T eslint --fix ./src && run -T prettier -w ./src",
-    "test": "NODE_NO_WARNINGS=1 node --experimental-vm-modules ../node_modules/.bin/jest --passWithNoTests",
+    "test": "HARDWARE_CONCURRENCY=${HARDWARE_CONCURRENCY:-16} RAYON_NUM_THREADS=${RAYON_NUM_THREADS:-4} NODE_NO_WARNINGS=1 node --experimental-vm-modules ../node_modules/.bin/jest --passWithNoTests --maxWorkers=${JEST_MAX_WORKERS:-8}",
     "start": "node ./dest",
     "start:dev": "tsc-watch -p tsconfig.json --onSuccess 'yarn start'"
   },
@@ -53,18 +55,17 @@
       ".ts"
     ],
     "reporters": [
-      [
-        "default",
-        {
-          "summaryThreshold": 9999
-        }
-      ]
+      "default"
     ],
-    "testTimeout": 15000
+    "testTimeout": 30000,
+    "setupFiles": [
+      "../../foundation/src/jest/setup.mjs"
+    ]
   },
   "dependencies": {
     "@aztec/circuit-types": "workspace:^",
     "@aztec/circuits.js": "workspace:^",
+    "@aztec/epoch-cache": "workspace:^",
     "@aztec/foundation": "workspace:^",
     "@aztec/kv-store": "workspace:^",
     "@aztec/telemetry-client": "workspace:^",
@@ -82,6 +83,7 @@
     "@libp2p/peer-id": "4.0.7",
     "@libp2p/peer-id-factory": "4.1.1",
     "@libp2p/peer-store": "10.0.16",
+    "@libp2p/prometheus-metrics": "^4.2.4",
     "@libp2p/tcp": "9.0.24",
     "@multiformats/multiaddr": "12.1.14",
     "interface-datastore": "^8.2.11",
@@ -90,7 +92,9 @@
     "libp2p": "1.5.0",
     "semver": "^7.6.0",
     "sha3": "^2.1.4",
-    "tslib": "^2.4.0"
+    "snappy": "^7.2.2",
+    "tslib": "^2.4.0",
+    "xxhash-wasm": "^1.1.0"
   },
   "devDependencies": {
     "@aztec/archiver": "workspace:^",

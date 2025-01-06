@@ -5,15 +5,17 @@
 #include "barretenberg/commitment_schemes/shplonk/shplonk.hpp"
 #include "barretenberg/common/ref_array.hpp"
 #include "barretenberg/honk/proof_system/logderivative_library.hpp"
-#include "barretenberg/honk/proof_system/permutation_library.hpp"
 #include "barretenberg/plonk_honk_shared/library/grand_product_library.hpp"
 #include "barretenberg/relations/permutation_relation.hpp"
 #include "barretenberg/sumcheck/sumcheck.hpp"
 
 namespace bb {
 
-ECCVMProver::ECCVMProver(CircuitBuilder& builder, const std::shared_ptr<Transcript>& transcript)
+ECCVMProver::ECCVMProver(CircuitBuilder& builder,
+                         const std::shared_ptr<Transcript>& transcript,
+                         const std::shared_ptr<Transcript>& ipa_transcript)
     : transcript(transcript)
+    , ipa_transcript(ipa_transcript)
 {
     PROFILE_THIS_NAME("ECCVMProver(CircuitBuilder&)");
 
@@ -96,11 +98,14 @@ void ECCVMProver::execute_relation_check_rounds()
 
     auto sumcheck = Sumcheck(key->circuit_size, transcript);
     FF alpha = transcript->template get_challenge<FF>("Sumcheck:alpha");
-    std::vector<FF> gate_challenges(numeric::get_msb(key->circuit_size));
-    for (size_t idx = 0; idx < gate_challenges.size(); idx++) {
+    std::vector<FF> gate_challenges(CONST_PROOF_SIZE_LOG_N);
+    for (size_t idx = 0; idx < CONST_PROOF_SIZE_LOG_N; idx++) {
         gate_challenges[idx] = transcript->template get_challenge<FF>("Sumcheck:gate_challenge_" + std::to_string(idx));
     }
-    sumcheck_output = sumcheck.prove(key->polynomials, relation_parameters, alpha, gate_challenges);
+
+    zk_sumcheck_data = ZKSumcheckData<Flavor>(key->log_circuit_size, transcript, key->commitment_key);
+
+    sumcheck_output = sumcheck.prove(key->polynomials, relation_parameters, alpha, gate_challenges, zk_sumcheck_data);
 }
 
 /**
@@ -118,12 +123,15 @@ void ECCVMProver::execute_pcs_rounds()
 
     // Execute the Shplemini (Gemini + Shplonk) protocol to produce a univariate opening claim for the multilinear
     // evaluations produced by Sumcheck
-    const OpeningClaim multivariate_to_univariate_opening_claim = Shplemini::prove(key->circuit_size,
-                                                                                   key->polynomials.get_unshifted(),
-                                                                                   key->polynomials.get_to_be_shifted(),
-                                                                                   sumcheck_output.challenge,
-                                                                                   key->commitment_key,
-                                                                                   transcript);
+    const OpeningClaim multivariate_to_univariate_opening_claim =
+        Shplemini::prove(key->circuit_size,
+                         key->polynomials.get_unshifted(),
+                         key->polynomials.get_to_be_shifted(),
+                         sumcheck_output.challenge,
+                         key->commitment_key,
+                         transcript,
+                         zk_sumcheck_data.libra_univariates_monomial,
+                         sumcheck_output.claimed_libra_evaluations);
 
     // Get the challenge at which we evaluate all transcript polynomials as univariates
     evaluation_challenge_x = transcript->template get_challenge<FF>("Translation:evaluation_challenge_x");
@@ -176,19 +184,20 @@ void ECCVMProver::execute_pcs_rounds()
     const OpeningClaim batch_opening_claim = Shplonk::prove(key->commitment_key, opening_claims, transcript);
 
     // Compute the opening proof for the batched opening claim with the univariate PCS
-    PCS::compute_opening_proof(key->commitment_key, batch_opening_claim, transcript);
+    PCS::compute_opening_proof(key->commitment_key, batch_opening_claim, ipa_transcript);
 
     // Produce another challenge passed as input to the translator verifier
     translation_batching_challenge_v = transcript->template get_challenge<FF>("Translation:batching_challenge");
+
+    vinfo("computed opening proof");
 }
 
-HonkProof ECCVMProver::export_proof()
+ECCVMProof ECCVMProver::export_proof()
 {
-    proof = transcript->export_proof();
-    return proof;
+    return { transcript->export_proof(), ipa_transcript->export_proof() };
 }
 
-HonkProof ECCVMProver::construct_proof()
+ECCVMProof ECCVMProver::construct_proof()
 {
     PROFILE_THIS_NAME("ECCVMProver::construct_proof");
 

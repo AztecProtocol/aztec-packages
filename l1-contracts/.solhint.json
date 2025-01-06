@@ -1,69 +1,41 @@
 {
   "extends": "solhint:recommended",
   "rules": {
+    "one-contract-per-file": "off",
+    "no-inline-assembly": "off",
+    "no-empty-blocks": "off",
+    "not-rely-on-time": "off",
+    "gas-custom-errors": "off",
+    "custom-errors": "off",
+    "interface-starts-with-i": "error",
+    "immutable-vars-naming": [
+      "error",
+      {
+        "immutablesAsConstants": true
+      }
+    ],
     "compiler-version": [
       "error",
       ">=0.8.27"
     ],
-    "no-inline-assembly": "off",
     "func-visibility": [
       "error",
       {
         "ignoreConstructors": true
       }
     ],
-    "no-empty-blocks": "off",
-    "no-unused-vars": [
-      "error"
-    ],
-    "state-visibility": [
-      "error"
-    ],
-    "not-rely-on-time": "off",
-    "immutable-vars-naming": [
-      "warn",
-      {
-        "immutablesAsConstants": true
-      }
-    ],
-    "var-name-mixedcase": [
-      "error",
-      {
-        "treatImmutableVarAsConstant": true
-      }
-    ],
-    "custom-error-name-camelcase": [
-      "error",
-      {
-        "allowPrefix": true
-      }
-    ],
-    "private-func-leading-underscore": [
-      "error"
-    ],
-    "private-vars-no-leading-underscore": [
-      "error"
-    ],
-    "func-param-name-leading-underscore": [
-      "error"
-    ],
-    "interface-starts-with-i": "warn",
-    "func-param-name-mixedcase": [
-      "error"
-    ],
-    "strict-override": [
-      "error"
-    ],
-    "strict-import": [
-      "error"
-    ],
-    "ordering": [
-      "error"
-    ],
-    "comprehensive-interface": [
-      "error"
-    ],
-    "custom-error-over-require": "off",
-    "no-unused-import": "error"
+    "no-unused-vars": "error",
+    "state-visibility": "error",
+    "var-name-mixedcase": "error",
+    "private-func-leading-underscore": "warn",
+    "private-vars-no-leading-underscore": "error",
+    "func-param-name-leading-underscore": "error",
+    "func-param-name-mixedcase": "error",
+    "strict-override": "error",
+    "ordering": "error",
+    "comprehensive-interface": "error",
+    "no-unused-import": "error",
+    "imports-order": "error",
+    "check-send-result": "error"
   }
 }

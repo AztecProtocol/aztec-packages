@@ -1,11 +1,11 @@
 import { TimeoutError } from '../error/index.js';
-import { createDebugLogger } from '../log/index.js';
+import { createLogger } from '../log/index.js';
 
 export abstract class BaseMemoryQueue<T> {
   private waiting: ((item: T | null) => void)[] = [];
   private flushing = false;
 
-  constructor(private log = createDebugLogger('aztec:foundation:memory_fifo')) {}
+  constructor(private log = createLogger('foundation:memory_fifo')) {}
 
   protected abstract get items(): {
     length: number;

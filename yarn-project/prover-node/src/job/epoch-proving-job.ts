@@ -2,20 +2,20 @@ import {
   EmptyTxValidator,
   type EpochProver,
   type EpochProvingJobState,
+  type ForkMerkleTreeOperations,
   type L1ToL2MessageSource,
   type L2Block,
   type L2BlockSource,
-  type MerkleTreeWriteOperations,
   type ProcessedTx,
-  type ProverCoordination,
   type Tx,
-  type TxHash,
 } from '@aztec/circuit-types';
-import { createDebugLogger } from '@aztec/foundation/log';
+import { asyncPool } from '@aztec/foundation/async-pool';
+import { createLogger } from '@aztec/foundation/log';
 import { promiseWithResolvers } from '@aztec/foundation/promise';
 import { Timer } from '@aztec/foundation/timer';
 import { type L1Publisher } from '@aztec/sequencer-client';
 import { type PublicProcessor, type PublicProcessorFactory } from '@aztec/simulator';
+import { Attributes, type Traceable, type Tracer, trackSpan } from '@aztec/telemetry-client';
 
 import * as crypto from 'node:crypto';
 
@@ -26,27 +26,31 @@ import { type ProverNodeMetrics } from '../metrics.js';
  * re-executes their public calls, generates a rollup proof, and submits it to L1. This job will update the
  * world state as part of public call execution via the public processor.
  */
-export class EpochProvingJob {
+export class EpochProvingJob implements Traceable {
   private state: EpochProvingJobState = 'initialized';
-  private log = createDebugLogger('aztec:epoch-proving-job');
+  private log = createLogger('prover-node:epoch-proving-job');
   private uuid: string;
 
   private runPromise: Promise<void> | undefined;
 
+  public readonly tracer: Tracer;
+
   constructor(
-    private db: MerkleTreeWriteOperations,
+    private dbProvider: ForkMerkleTreeOperations,
     private epochNumber: bigint,
     private blocks: L2Block[],
+    private txs: Tx[],
     private prover: EpochProver,
     private publicProcessorFactory: PublicProcessorFactory,
     private publisher: L1Publisher,
     private l2BlockSource: L2BlockSource,
     private l1ToL2MessageSource: L1ToL2MessageSource,
-    private coordination: ProverCoordination,
     private metrics: ProverNodeMetrics,
+    private config: { parallelBlockLimit: number } = { parallelBlockLimit: 32 },
     private cleanUp: (job: EpochProvingJob) => Promise<void> = () => Promise.resolve(),
   ) {
     this.uuid = crypto.randomUUID();
+    this.tracer = metrics.client.getTracer('EpochProvingJob');
   }
 
   public getId(): string {
@@ -60,10 +64,21 @@ export class EpochProvingJob {
   /**
    * Proves the given epoch and submits the proof to L1.
    */
+  @trackSpan('EpochProvingJob.run', function () {
+    return { [Attributes.EPOCH_NUMBER]: Number(this.epochNumber) };
+  })
   public async run() {
     const epochNumber = Number(this.epochNumber);
-    const epochSize = this.blocks.length;
-    this.log.info(`Starting epoch proving job`, { epochSize, epochNumber, uuid: this.uuid });
+    const epochSizeBlocks = this.blocks.length;
+    const epochSizeTxs = this.blocks.reduce((total, current) => total + current.body.numberOfTxsIncludingPadded, 0);
+    const [fromBlock, toBlock] = [this.blocks[0].number, this.blocks.at(-1)!.number];
+    this.log.info(`Starting epoch ${epochNumber} proving job with blocks ${fromBlock} to ${toBlock}`, {
+      fromBlock,
+      toBlock,
+      epochSizeBlocks,
+      epochNumber,
+      uuid: this.uuid,
+    });
     this.state = 'processing';
     const timer = new Timer();
 
@@ -71,23 +86,16 @@ export class EpochProvingJob {
     this.runPromise = promise;
 
     try {
-      this.prover.startNewEpoch(epochNumber, epochSize);
+      this.prover.startNewEpoch(epochNumber, fromBlock, epochSizeBlocks);
 
-      // Get the genesis header if the first block of the epoch is the first block of the chain
-      let previousHeader =
-        this.blocks[0].number === 1
-          ? this.db.getInitialHeader()
-          : await this.l2BlockSource.getBlockHeader(this.blocks[0].number - 1);
-
-      for (const block of this.blocks) {
-        // Gather all data to prove this block
+      await asyncPool(this.config.parallelBlockLimit, this.blocks, async block => {
         const globalVariables = block.header.globalVariables;
-        const txHashes = block.body.txEffects.map(tx => tx.txHash);
         const txCount = block.body.numberOfTxsIncludingPadded;
+        const txs = this.getTxs(block);
         const l1ToL2Messages = await this.getL1ToL2Messages(block);
-        const txs = await this.getTxs(txHashes);
+        const previousHeader = await this.getBlockHeader(block.number - 1);
 
-        this.log.verbose(`Starting block processing`, {
+        this.log.verbose(`Starting processing block ${block.number}`, {
           number: block.number,
           blockHash: block.hash().toString(),
           lastArchive: block.header.lastArchive.root,
@@ -98,37 +106,37 @@ export class EpochProvingJob {
           uuid: this.uuid,
           ...globalVariables,
         });
-
         // Start block proving
-        await this.prover.startNewBlock(txCount, globalVariables, l1ToL2Messages);
+        await this.prover.startNewBlock(globalVariables, l1ToL2Messages);
 
         // Process public fns
-        const publicProcessor = this.publicProcessorFactory.create(this.db, previousHeader, globalVariables);
-        await this.processTxs(publicProcessor, txs, txCount);
-        this.log.verbose(`Processed all txs for block`, {
+        const db = await this.dbProvider.fork(block.number - 1);
+        const publicProcessor = this.publicProcessorFactory.create(db, previousHeader, globalVariables, true);
+        const processed = await this.processTxs(publicProcessor, txs, txCount);
+        await this.prover.addTxs(processed);
+        await db.close();
+        this.log.verbose(`Processed all ${txs.length} txs for block ${block.number}`, {
           blockNumber: block.number,
           blockHash: block.hash().toString(),
           uuid: this.uuid,
         });
 
-        // Mark block as completed and update archive tree
-        await this.prover.setBlockCompleted(block.header);
-        previousHeader = block.header;
-      }
+        // Mark block as completed to pad it
+        await this.prover.setBlockCompleted(block.number, block.header);
+      });
 
       this.state = 'awaiting-prover';
       const { publicInputs, proof } = await this.prover.finaliseEpoch();
-      this.log.info(`Finalised proof for epoch`, { epochNumber, uuid: this.uuid });
+      this.log.info(`Finalised proof for epoch ${epochNumber}`, { epochNumber, uuid: this.uuid, duration: timer.ms() });
 
       this.state = 'publishing-proof';
-      const [fromBlock, toBlock] = [this.blocks[0].number, this.blocks.at(-1)!.number];
       await this.publisher.submitEpochProof({ fromBlock, toBlock, epochNumber, publicInputs, proof });
       this.log.info(`Submitted proof for epoch`, { epochNumber, uuid: this.uuid });
 
       this.state = 'completed';
-      this.metrics.recordProvingJob(timer);
+      this.metrics.recordProvingJob(timer, epochSizeBlocks, epochSizeTxs);
     } catch (err) {
-      this.log.error(`Error running epoch prover job`, err, { uuid: this.uuid });
+      this.log.error(`Error running epoch ${epochNumber} prover job`, err, { uuid: this.uuid, epochNumber });
       this.state = 'failed';
     } finally {
       await this.cleanUp(this);
@@ -143,15 +151,17 @@ export class EpochProvingJob {
     }
   }
 
-  private async getTxs(txHashes: TxHash[]): Promise<Tx[]> {
-    const txs = await Promise.all(
-      txHashes.map(txHash => this.coordination.getTxByHash(txHash).then(tx => [txHash, tx] as const)),
-    );
-    const notFound = txs.filter(([_, tx]) => !tx);
-    if (notFound.length) {
-      throw new Error(`Txs not found: ${notFound.map(([txHash]) => txHash.toString()).join(', ')}`);
+  /* Returns the header for the given block number, or undefined for block zero. */
+  private getBlockHeader(blockNumber: number) {
+    if (blockNumber === 0) {
+      return undefined;
     }
-    return txs.map(([_, tx]) => tx!);
+    return this.l2BlockSource.getBlockHeader(blockNumber);
+  }
+
+  private getTxs(block: L2Block): Tx[] {
+    const txHashes = block.body.txEffects.map(tx => tx.txHash.toBigInt());
+    return this.txs.filter(tx => txHashes.includes(tx.getTxHash().toBigInt()));
   }
 
   private getL1ToL2Messages(block: L2Block) {
@@ -163,12 +173,7 @@ export class EpochProvingJob {
     txs: Tx[],
     totalNumberOfTxs: number,
   ): Promise<ProcessedTx[]> {
-    const [processedTxs, failedTxs] = await publicProcessor.process(
-      txs,
-      totalNumberOfTxs,
-      this.prover,
-      new EmptyTxValidator(),
-    );
+    const [processedTxs, failedTxs] = await publicProcessor.process(txs, totalNumberOfTxs, new EmptyTxValidator());
 
     if (failedTxs.length) {
       throw new Error(

@@ -1,6 +1,8 @@
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { Fr } from '@aztec/foundation/fields';
+import { hexSchemaFor } from '@aztec/foundation/schemas';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
+import { bufferToHex } from '@aztec/foundation/string';
 
 import { computePartialAddress } from '../contract/contract_address.js';
 import { computeAddress, computePreaddress, deriveKeys } from '../keys/index.js';
@@ -28,7 +30,15 @@ export class CompleteAddress {
   }
 
   /** Size in bytes of an instance */
-  static readonly SIZE_IN_BYTES = 32 * 4;
+  static readonly SIZE_IN_BYTES = 32 * 10;
+
+  static get schema() {
+    return hexSchemaFor(CompleteAddress);
+  }
+
+  toJSON() {
+    return this.toString();
+  }
 
   static random(): CompleteAddress {
     return this.fromSecretKeyAndPartialAddress(Fr.random(), Fr.random());
@@ -57,7 +67,7 @@ export class CompleteAddress {
   public validate() {
     const expectedAddress = computeAddress(this.publicKeys, this.partialAddress);
 
-    if (!AztecAddress.fromField(expectedAddress).equals(this.address)) {
+    if (!expectedAddress.equals(this.address)) {
       throw new Error(
         `Address cannot be derived from public keys and partial address (received ${this.address.toString()}, derived ${expectedAddress.toString()})`,
       );
@@ -122,7 +132,7 @@ export class CompleteAddress {
    * @returns A Point instance.
    */
   static fromString(address: string): CompleteAddress {
-    return this.fromBuffer(Buffer.from(address.replace(/^0x/i, ''), 'hex'));
+    return CompleteAddress.fromBuffer(Buffer.from(address.replace(/^0x/i, ''), 'hex'));
   }
 
   /**
@@ -132,6 +142,6 @@ export class CompleteAddress {
    * @returns A hexadecimal string representation of the CompleteAddress.
    */
   toString(): string {
-    return `0x${this.toBuffer().toString('hex')}`;
+    return bufferToHex(this.toBuffer());
   }
 }

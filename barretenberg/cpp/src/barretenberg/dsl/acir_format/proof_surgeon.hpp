@@ -2,6 +2,7 @@
 #include "barretenberg/common/map.hpp"
 #include "barretenberg/common/serialize.hpp"
 #include "barretenberg/ecc/curves/bn254/fr.hpp"
+#include "barretenberg/flavor/flavor.hpp"
 #include "barretenberg/honk/proof_system/types/proof.hpp"
 #include "barretenberg/plonk_honk_shared/types/aggregation_object_type.hpp"
 #include "barretenberg/serialize/msgpack.hpp"
@@ -9,9 +10,6 @@
 #include <cstdint>
 
 namespace acir_format {
-
-// Where the public inputs start within a proof (after circuit_size, num_pub_inputs, pub_input_offset)
-static constexpr size_t HONK_RECURSION_PUBLIC_INPUT_OFFSET = 3;
 
 class ProofSurgeon {
     using FF = bb::fr;
@@ -30,13 +28,19 @@ class ProofSurgeon {
      * @param verification_key
      * @param toml_path
      */
+    template <typename Flavor>
     static std::string construct_recursion_inputs_toml_data(std::vector<FF>& proof, const auto& verification_key)
     {
         // Convert verification key to fields
         std::vector<FF> vkey_fields = verification_key.to_field_elements();
 
         // Get public inputs by cutting them out of the proof
-        const size_t num_public_inputs_to_extract = verification_key.num_public_inputs - bb::AGGREGATION_OBJECT_SIZE;
+        size_t num_public_inputs_to_extract = verification_key.num_public_inputs - bb::PAIRING_POINT_ACCUMULATOR_SIZE;
+        if constexpr (bb::HasIPAAccumulator<Flavor>) {
+            num_public_inputs_to_extract -= bb::IPA_CLAIM_SIZE;
+        }
+        debug("proof size: ", proof.size());
+        debug("number of public inputs to extract: ", num_public_inputs_to_extract);
         std::vector<FF> public_inputs =
             acir_format::ProofSurgeon::cut_public_inputs_from_proof(proof, num_public_inputs_to_extract);
 
@@ -71,9 +75,9 @@ class ProofSurgeon {
         proof.reserve(proof_in.size() + public_inputs.size());
 
         // Construct the complete proof as the concatenation {"initial data" | public_inputs | proof_in}
-        proof.insert(proof.end(), proof_in.begin(), proof_in.begin() + HONK_RECURSION_PUBLIC_INPUT_OFFSET);
+        proof.insert(proof.end(), proof_in.begin(), proof_in.begin() + bb::HONK_PROOF_PUBLIC_INPUT_OFFSET);
         proof.insert(proof.end(), public_inputs.begin(), public_inputs.end());
-        proof.insert(proof.end(), proof_in.begin() + HONK_RECURSION_PUBLIC_INPUT_OFFSET, proof_in.end());
+        proof.insert(proof.end(), proof_in.begin() + bb::HONK_PROOF_PUBLIC_INPUT_OFFSET, proof_in.end());
 
         return proof;
     }
@@ -90,10 +94,10 @@ class ProofSurgeon {
     {
         // Construct iterators pointing to the start and end of the public inputs within the proof
         auto pub_inputs_begin_itr =
-            proof_witnesses.begin() + static_cast<std::ptrdiff_t>(HONK_RECURSION_PUBLIC_INPUT_OFFSET);
+            proof_witnesses.begin() + static_cast<std::ptrdiff_t>(bb::HONK_PROOF_PUBLIC_INPUT_OFFSET);
         auto pub_inputs_end_itr =
             proof_witnesses.begin() +
-            static_cast<std::ptrdiff_t>(HONK_RECURSION_PUBLIC_INPUT_OFFSET + num_public_inputs_to_extract);
+            static_cast<std::ptrdiff_t>(bb::HONK_PROOF_PUBLIC_INPUT_OFFSET + num_public_inputs_to_extract);
 
         // Construct the isolated public inputs
         std::vector<bb::fr> public_input_witnesses{ pub_inputs_begin_itr, pub_inputs_end_itr };
@@ -117,7 +121,7 @@ class ProofSurgeon {
         std::vector<uint32_t> public_input_witness_indices;
         public_input_witness_indices.reserve(num_public_inputs_to_extract);
 
-        const size_t start = HONK_RECURSION_PUBLIC_INPUT_OFFSET;
+        const size_t start = bb::HONK_PROOF_PUBLIC_INPUT_OFFSET;
         const size_t end = start + num_public_inputs_to_extract;
         for (size_t i = start; i < end; ++i) {
             public_input_witness_indices.push_back(proof[i].get_witness_index());
@@ -148,10 +152,9 @@ class ProofSurgeon {
     static RecursionWitnessData populate_recursion_witness_data(bb::SlabVector<bb::fr>& witness,
                                                                 std::vector<bb::fr>& proof_witnesses,
                                                                 const std::vector<bb::fr>& key_witnesses,
-                                                                const size_t num_public_inputs)
+                                                                const size_t num_public_inputs_to_extract)
     {
         // Extract all public inputs except for those corresponding to the aggregation object
-        const size_t num_public_inputs_to_extract = num_public_inputs - bb::AGGREGATION_OBJECT_SIZE;
         std::vector<bb::fr> public_input_witnesses =
             cut_public_inputs_from_proof(proof_witnesses, num_public_inputs_to_extract);
 

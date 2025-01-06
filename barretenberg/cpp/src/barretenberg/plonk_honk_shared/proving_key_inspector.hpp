@@ -1,5 +1,6 @@
 #pragma once
 
+#include "barretenberg/common/assert.hpp"
 #include "barretenberg/common/log.hpp"
 
 namespace bb::proving_key_inspector {

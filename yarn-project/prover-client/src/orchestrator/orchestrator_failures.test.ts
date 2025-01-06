@@ -1,19 +1,16 @@
-import { ProvingRequestType, type ServerCircuitProver } from '@aztec/circuit-types';
-import { Fr } from '@aztec/circuits.js';
-import { makeAvmCircuitInputs } from '@aztec/circuits.js/testing';
-import { times } from '@aztec/foundation/collection';
-import { createDebugLogger } from '@aztec/foundation/log';
-import { WASMSimulator } from '@aztec/simulator';
+import { TestCircuitProver } from '@aztec/bb-prover';
+import { type ServerCircuitProver } from '@aztec/circuit-types';
+import { timesAsync } from '@aztec/foundation/collection';
+import { createLogger } from '@aztec/foundation/log';
+import { WASMSimulatorWithBlobs } from '@aztec/simulator';
 import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
 
 import { jest } from '@jest/globals';
 
-import { TestCircuitProver } from '../../../bb-prover/src/test/test_circuit_prover.js';
-import { makeBloatedProcessedTx, makeGlobals } from '../mocks/fixtures.js';
 import { TestContext } from '../mocks/test_context.js';
 import { ProvingOrchestrator } from './orchestrator.js';
 
-const logger = createDebugLogger('aztec:orchestrator-failures');
+const logger = createLogger('prover-client:test:orchestrator-failures');
 
 describe('prover/orchestrator/failures', () => {
   let context: TestContext;
@@ -31,38 +28,35 @@ describe('prover/orchestrator/failures', () => {
     let mockProver: ServerCircuitProver;
 
     beforeEach(() => {
-      mockProver = new TestCircuitProver(new NoopTelemetryClient(), new WASMSimulator());
-      orchestrator = new ProvingOrchestrator(context.actualDb, mockProver, new NoopTelemetryClient());
+      mockProver = new TestCircuitProver(new NoopTelemetryClient(), new WASMSimulatorWithBlobs());
+      orchestrator = new ProvingOrchestrator(context.worldState, mockProver, new NoopTelemetryClient());
     });
 
     const run = async (message: string) => {
-      orchestrator.startNewEpoch(1, 3);
+      // We need at least 3 blocks, 3 txs, and 1 message to ensure all circuits are used
+      // We generate them and add them as part of the pending chain
+      const blocks = await timesAsync(3, i => context.makePendingBlock(3, 1, i + 1, j => ({ privateOnly: j === 1 })));
 
-      // We need at least 3 blocks and 3 txs to ensure all circuits are used
-      for (let i = 0; i < 3; i++) {
-        const txs = times(3, j => makeBloatedProcessedTx(context.actualDb, i * 10 + j + 1));
-        txs[1].avmProvingRequest = {
-          type: ProvingRequestType.PUBLIC_VM,
-          inputs: makeAvmCircuitInputs(i),
-        };
-        const msgs = [new Fr(i + 100)];
+      orchestrator.startNewEpoch(1, 1, 3);
+
+      for (const { block, txs, msgs } of blocks) {
         // these operations could fail if the target circuit fails before adding all blocks or txs
         try {
-          await orchestrator.startNewBlock(txs.length, makeGlobals(i + 1), msgs);
+          await orchestrator.startNewBlock(block.header.globalVariables, msgs);
           let allTxsAdded = true;
-          for (const tx of txs) {
-            try {
-              await orchestrator.addNewTx(tx);
-            } catch (err) {
-              allTxsAdded = false;
-              break;
-            }
+          try {
+            await orchestrator.addTxs(txs);
+          } catch (err) {
+            allTxsAdded = false;
+            break;
           }
 
           if (!allTxsAdded) {
-            await expect(orchestrator.setBlockCompleted()).rejects.toThrow(`Block proving failed: ${message}`);
+            await expect(orchestrator.setBlockCompleted(block.number)).rejects.toThrow(
+              `Block proving failed: ${message}`,
+            );
           } else {
-            await orchestrator.setBlockCompleted();
+            await orchestrator.setBlockCompleted(block.number);
           }
         } catch (err) {
           break;

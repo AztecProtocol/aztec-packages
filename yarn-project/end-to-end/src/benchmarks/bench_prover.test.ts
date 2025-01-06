@@ -2,10 +2,13 @@ import { getSchnorrAccount, getSchnorrWallet } from '@aztec/accounts/schnorr';
 import { PublicFeePaymentMethod, TxStatus, sleep } from '@aztec/aztec.js';
 import { type AccountWallet } from '@aztec/aztec.js/wallet';
 import { BBCircuitVerifier } from '@aztec/bb-prover';
-import { CompleteAddress, Fq, Fr, GasSettings } from '@aztec/circuits.js';
-import { FPCContract, FeeJuiceContract, TestContract, TokenContract } from '@aztec/noir-contracts.js';
+import { CompleteAddress, FEE_FUNDING_FOR_TESTER_ACCOUNT, Fq, Fr, GasSettings } from '@aztec/circuits.js';
+import { FPCContract } from '@aztec/noir-contracts.js/FPC';
+import { FeeJuiceContract } from '@aztec/noir-contracts.js/FeeJuice';
+import { TestContract } from '@aztec/noir-contracts.js/Test';
+import { TokenContract } from '@aztec/noir-contracts.js/Token';
 import { ProtocolContractAddress } from '@aztec/protocol-contracts';
-import { type PXEService, createPXEService } from '@aztec/pxe';
+import { type PXEService, type PXEServiceConfig, createPXEService } from '@aztec/pxe';
 
 import { jest } from '@jest/globals';
 
@@ -37,6 +40,7 @@ describe('benchmarks/proving', () => {
   let schnorrWalletAddress: CompleteAddress;
 
   let recipient: CompleteAddress;
+  let feeRecipient: CompleteAddress; // The address that receives the fees from the fee refund flow.
 
   let initialGasContract: FeeJuiceContract;
   let initialTestContract: TestContract;
@@ -55,8 +59,8 @@ describe('benchmarks/proving', () => {
       {
         // do setup with fake proofs
         realProofs: false,
-        proverAgentConcurrency: 4,
-        proverAgentPollInterval: 10,
+        proverAgentCount: 4,
+        proverAgentPollIntervalMs: 10,
         minTxsPerBlock: 1,
       },
       {},
@@ -65,6 +69,10 @@ describe('benchmarks/proving', () => {
     schnorrWalletSalt = Fr.random();
     schnorrWalletEncKey = Fr.random();
     schnorrWalletSigningKey = Fq.random();
+
+    feeRecipient = CompleteAddress.random();
+    recipient = CompleteAddress.random();
+
     const initialSchnorrWallet = await getSchnorrAccount(
       ctx.pxe,
       schnorrWalletEncKey,
@@ -89,7 +97,9 @@ describe('benchmarks/proving', () => {
       .send()
       .deployed();
     initialGasContract = await FeeJuiceContract.at(ProtocolContractAddress.FeeJuice, initialSchnorrWallet);
-    initialFpContract = await FPCContract.deploy(initialSchnorrWallet, initialTokenContract.address).send().deployed();
+    initialFpContract = await FPCContract.deploy(initialSchnorrWallet, initialTokenContract.address, feeRecipient)
+      .send()
+      .deployed();
 
     const feeJuiceBridgeTestHarness = await FeeJuicePortalTestingHarnessFactory.create({
       aztecNode: ctx.aztecNode,
@@ -101,17 +111,25 @@ describe('benchmarks/proving', () => {
     });
 
     const { claimSecret, messageLeafIndex } = await feeJuiceBridgeTestHarness.prepareTokensOnL1(
-      1_000_000_000_000n,
+      FEE_FUNDING_FOR_TESTER_ACCOUNT,
       initialFpContract.address,
     );
 
+    const from = initialSchnorrWallet.getAddress(); // we are setting from to initial schnorr wallet here because of TODO(#9887)
     await Promise.all([
-      initialGasContract.methods.claim(initialFpContract.address, 1e12, claimSecret, messageLeafIndex).send().wait(),
-      initialTokenContract.methods.mint_public(initialSchnorrWallet.getAddress(), 1e12).send().wait(),
-      initialTokenContract.methods.mint_to_private(initialSchnorrWallet.getAddress(), 1e12).send().wait(),
+      initialGasContract.methods
+        .claim(initialFpContract.address, FEE_FUNDING_FOR_TESTER_ACCOUNT, claimSecret, messageLeafIndex)
+        .send()
+        .wait(),
+      initialTokenContract.methods
+        .mint_to_public(initialSchnorrWallet.getAddress(), FEE_FUNDING_FOR_TESTER_ACCOUNT)
+        .send()
+        .wait(),
+      initialTokenContract.methods
+        .mint_to_private(from, initialSchnorrWallet.getAddress(), FEE_FUNDING_FOR_TESTER_ACCOUNT)
+        .send()
+        .wait(),
     ]);
-
-    recipient = CompleteAddress.random();
   });
 
   // remove the fake prover and setup the real one
@@ -126,7 +144,7 @@ describe('benchmarks/proving', () => {
 
     ctx.logger.info('Stopping fake provers');
     await ctx.aztecNode.setConfig({
-      proverAgentConcurrency: 1,
+      proverAgentCount: 1,
       realProofs: true,
       minTxsPerBlock: 2,
     });
@@ -136,17 +154,18 @@ describe('benchmarks/proving', () => {
     ctx.logger.info('Starting PXEs configured with real proofs');
     provingPxes = [];
     for (let i = 0; i < 4; i++) {
-      const pxe = await createPXEService(
-        ctx.aztecNode,
-        {
-          proverEnabled: true,
-          bbBinaryPath: bbConfig.bbBinaryPath,
-          bbWorkingDirectory: bbConfig.bbWorkingDirectory,
-          l2BlockPollingIntervalMS: 1000,
-          l2StartingBlock: 1,
-        },
-        `proving-pxe-${i}`,
-      );
+      const l1Contracts = await ctx.aztecNode.getL1ContractAddresses();
+      const pxeConfig = {
+        proverEnabled: true,
+        bbBinaryPath: bbConfig.bbBinaryPath,
+        bbWorkingDirectory: bbConfig.bbWorkingDirectory,
+        l2BlockPollingIntervalMS: 1000,
+        l2StartingBlock: 1,
+        dataDirectory: undefined,
+        dataStoreMapSizeKB: 1024 * 1024,
+        l1Contracts,
+      } as PXEServiceConfig;
+      const pxe = await createPXEService(ctx.aztecNode, pxeConfig, `proving-pxe-${i}`);
 
       await getSchnorrAccount(pxe, schnorrWalletEncKey, schnorrWalletSigningKey, schnorrWalletSalt).register();
       await pxe.registerContract(initialTokenContract);
@@ -161,9 +180,6 @@ describe('benchmarks/proving', () => {
   });
 
   afterAll(async () => {
-    for (const pxe of provingPxes) {
-      await pxe.stop();
-    }
     await ctx.teardown();
     await acvmCleanup();
     await bbCleanup();
@@ -177,25 +193,23 @@ describe('benchmarks/proving', () => {
     ctx.logger.info('+----------------------+');
 
     const fnCalls = [
-      (await getTokenContract(0)).methods.transfer_public(schnorrWalletAddress.address, recipient.address, 1000, 0),
+      (await getTokenContract(0)).methods.transfer_in_public(schnorrWalletAddress.address, recipient.address, 1000, 0),
       (await getTokenContract(1)).methods.transfer(recipient.address, 1000),
       // (await getTestContractOnPXE(2)).methods.emit_unencrypted(43),
       // (await getTestContractOnPXE(3)).methods.create_l2_to_l1_message_public(45, 46, EthAddress.random()),
     ];
 
+    const wallet = await getWalletOnPxe(0);
+    const gasSettings = GasSettings.default({ maxFeesPerGas: await wallet.getCurrentBaseFees() });
+
     const feeFnCall0 = {
-      gasSettings: GasSettings.default(),
-      paymentMethod: new PublicFeePaymentMethod(
-        initialTokenContract.address,
-        initialFpContract.address,
-        await getWalletOnPxe(0),
-      ),
+      gasSettings,
+      paymentMethod: new PublicFeePaymentMethod(initialFpContract.address, wallet),
     };
 
     // const feeFnCall1 = {
-    //   gasSettings: GasSettings.default(),
+    //   gasSettings,
     //   paymentMethod: new PrivateFeePaymentMethod(
-    //     initialTokenContract.address,
     //     initialFpContract.address,
     //     await getWalletOnPxe(1),
     //   ),

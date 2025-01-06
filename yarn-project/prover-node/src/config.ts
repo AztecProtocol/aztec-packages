@@ -1,12 +1,25 @@
-import { type ArchiverConfig, archiverConfigMappings, getArchiverConfigFromEnv } from '@aztec/archiver';
+import { type ArchiverConfig, archiverConfigMappings, getArchiverConfigFromEnv } from '@aztec/archiver/config';
+import { type ACVMConfig, type BBConfig } from '@aztec/bb-prover/config';
+import {
+  type ProverAgentConfig,
+  type ProverBrokerConfig,
+  proverAgentConfigMappings,
+  proverBrokerConfigMappings,
+} from '@aztec/circuit-types/config';
 import {
   type ConfigMappingsType,
   bigintConfigHelper,
   getConfigFromMappings,
   numberConfigHelper,
 } from '@aztec/foundation/config';
-import { type P2PConfig, getP2PConfigFromEnv, p2pConfigMappings } from '@aztec/p2p';
-import { type ProverClientConfig, getProverEnvVars, proverClientConfigMappings } from '@aztec/prover-client';
+import { type DataStoreConfig, dataConfigMappings, getDataConfigFromEnv } from '@aztec/kv-store/config';
+import { type P2PConfig, getP2PConfigFromEnv, p2pConfigMappings } from '@aztec/p2p/config';
+import {
+  type ProverClientConfig,
+  bbConfigMappings,
+  getProverEnvVars,
+  proverClientConfigMappings,
+} from '@aztec/prover-client/config';
 import {
   type PublisherConfig,
   type TxSenderConfig,
@@ -14,8 +27,8 @@ import {
   getPublisherConfigMappings,
   getTxSenderConfigFromEnv,
   getTxSenderConfigMappings,
-} from '@aztec/sequencer-client';
-import { type WorldStateConfig, getWorldStateConfigFromEnv, worldStateConfigMappings } from '@aztec/world-state';
+} from '@aztec/sequencer-client/config';
+import { type WorldStateConfig, getWorldStateConfigFromEnv, worldStateConfigMappings } from '@aztec/world-state/config';
 
 import { type ProverBondManagerConfig, proverBondManagerConfigMappings } from './bond/config.js';
 import {
@@ -30,12 +43,17 @@ export type ProverNodeConfig = ArchiverConfig &
   WorldStateConfig &
   PublisherConfig &
   TxSenderConfig &
+  DataStoreConfig &
   ProverCoordinationConfig &
   ProverBondManagerConfig &
-  QuoteProviderConfig & {
-    proverNodeMaxPendingJobs: number;
-    proverNodePollingIntervalMs: number;
-  };
+  QuoteProviderConfig &
+  SpecificProverNodeConfig;
+
+type SpecificProverNodeConfig = {
+  proverNodeMaxPendingJobs: number;
+  proverNodePollingIntervalMs: number;
+  proverNodeMaxParallelBlocksPerEpoch: number;
+};
 
 export type QuoteProviderConfig = {
   quoteProviderBasisPointFee: number;
@@ -43,9 +61,7 @@ export type QuoteProviderConfig = {
   quoteProviderUrl?: string;
 };
 
-const specificProverNodeConfigMappings: ConfigMappingsType<
-  Pick<ProverNodeConfig, 'proverNodePollingIntervalMs' | 'proverNodeMaxPendingJobs'>
-> = {
+const specificProverNodeConfigMappings: ConfigMappingsType<SpecificProverNodeConfig> = {
   proverNodeMaxPendingJobs: {
     env: 'PROVER_NODE_MAX_PENDING_JOBS',
     description: 'The maximum number of pending jobs for the prover node',
@@ -55,6 +71,11 @@ const specificProverNodeConfigMappings: ConfigMappingsType<
     env: 'PROVER_NODE_POLLING_INTERVAL_MS',
     description: 'The interval in milliseconds to poll for new jobs',
     ...numberConfigHelper(1000),
+  },
+  proverNodeMaxParallelBlocksPerEpoch: {
+    env: 'PROVER_NODE_MAX_PARALLEL_BLOCKS_PER_EPOCH',
+    description: 'The Maximum number of blocks to process in parallel while proving an epoch',
+    ...numberConfigHelper(32),
   },
 };
 
@@ -77,6 +98,7 @@ const quoteProviderConfigMappings: ConfigMappingsType<QuoteProviderConfig> = {
 };
 
 export const proverNodeConfigMappings: ConfigMappingsType<ProverNodeConfig> = {
+  ...dataConfigMappings,
   ...archiverConfigMappings,
   ...proverClientConfigMappings,
   ...p2pConfigMappings,
@@ -91,6 +113,7 @@ export const proverNodeConfigMappings: ConfigMappingsType<ProverNodeConfig> = {
 
 export function getProverNodeConfigFromEnv(): ProverNodeConfig {
   return {
+    ...getDataConfigFromEnv(),
     ...getArchiverConfigFromEnv(),
     ...getProverEnvVars(),
     ...getP2PConfigFromEnv(),
@@ -101,5 +124,18 @@ export function getProverNodeConfigFromEnv(): ProverNodeConfig {
     ...getConfigFromMappings(quoteProviderConfigMappings),
     ...getConfigFromMappings(specificProverNodeConfigMappings),
     ...getConfigFromMappings(proverBondManagerConfigMappings),
+  };
+}
+
+export function getProverNodeBrokerConfigFromEnv(): ProverBrokerConfig {
+  return {
+    ...getConfigFromMappings(proverBrokerConfigMappings),
+  };
+}
+
+export function getProverNodeAgentConfigFromEnv(): ProverAgentConfig & BBConfig & ACVMConfig {
+  return {
+    ...getConfigFromMappings(proverAgentConfigMappings),
+    ...getConfigFromMappings(bbConfigMappings),
   };
 }

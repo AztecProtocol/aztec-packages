@@ -1,9 +1,12 @@
 import { Fr } from '@aztec/foundation/fields';
+import { bufferSchemaFor } from '@aztec/foundation/schemas';
 import { BufferReader, type Tuple, serializeToBuffer, serializeToFields } from '@aztec/foundation/serialize';
+import { bufferToHex, hexToBuffer } from '@aztec/foundation/string';
 import { type FieldsOf } from '@aztec/foundation/types';
 
-import { AZTEC_EPOCH_DURATION } from '../../constants.gen.js';
-import { AppendOnlyTreeSnapshot } from './append_only_tree_snapshot.js';
+import { AZTEC_MAX_EPOCH_DURATION } from '../../constants.gen.js';
+import { BlockBlobPublicInputs } from '../blobs/blob_public_inputs.js';
+import { AppendOnlyTreeSnapshot } from '../trees/append_only_tree_snapshot.js';
 import { FeeRecipient } from './block_root_or_block_merge_public_inputs.js';
 import { PreviousRollupBlockData } from './previous_rollup_block_data.js';
 
@@ -35,7 +38,7 @@ export class RootRollupInputs {
    * @returns The instance serialized to a hex string.
    */
   toString() {
-    return this.toBuffer().toString('hex');
+    return bufferToHex(this.toBuffer());
   }
 
   /**
@@ -75,7 +78,17 @@ export class RootRollupInputs {
    * @returns A new RootRollupInputs instance.
    */
   static fromString(str: string) {
-    return RootRollupInputs.fromBuffer(Buffer.from(str, 'hex'));
+    return RootRollupInputs.fromBuffer(hexToBuffer(str));
+  }
+
+  /** Returns a representation for JSON serialization. */
+  toJSON() {
+    return this.toBuffer();
+  }
+
+  /** Creates an instance from a string. */
+  static get schema() {
+    return bufferSchemaFor(RootRollupInputs);
   }
 }
 
@@ -95,10 +108,11 @@ export class RootRollupPublicInputs {
     public endTimestamp: Fr,
     public endBlockNumber: Fr,
     public outHash: Fr,
-    public fees: Tuple<FeeRecipient, typeof AZTEC_EPOCH_DURATION>,
+    public fees: Tuple<FeeRecipient, typeof AZTEC_MAX_EPOCH_DURATION>,
     public vkTreeRoot: Fr,
     public protocolContractTreeRoot: Fr,
     public proverId: Fr,
+    public blobPublicInputs: Tuple<BlockBlobPublicInputs, typeof AZTEC_MAX_EPOCH_DURATION>,
   ) {}
 
   static getFields(fields: FieldsOf<RootRollupPublicInputs>) {
@@ -114,6 +128,7 @@ export class RootRollupPublicInputs {
       fields.vkTreeRoot,
       fields.protocolContractTreeRoot,
       fields.proverId,
+      fields.blobPublicInputs,
     ] as const;
   }
 
@@ -144,18 +159,29 @@ export class RootRollupPublicInputs {
       Fr.fromBuffer(reader),
       Fr.fromBuffer(reader),
       Fr.fromBuffer(reader),
-      reader.readArray(AZTEC_EPOCH_DURATION, FeeRecipient),
+      reader.readArray(AZTEC_MAX_EPOCH_DURATION, FeeRecipient),
       Fr.fromBuffer(reader),
       Fr.fromBuffer(reader),
       Fr.fromBuffer(reader),
+      reader.readArray(AZTEC_MAX_EPOCH_DURATION, BlockBlobPublicInputs),
     );
   }
 
   toString() {
-    return this.toBuffer().toString('hex');
+    return bufferToHex(this.toBuffer());
   }
 
   static fromString(str: string) {
-    return RootRollupPublicInputs.fromBuffer(Buffer.from(str, 'hex'));
+    return RootRollupPublicInputs.fromBuffer(hexToBuffer(str));
+  }
+
+  /** Returns a representation for JSON serialization. */
+  toJSON() {
+    return this.toBuffer();
+  }
+
+  /** Creates an instance from a string. */
+  static get schema() {
+    return bufferSchemaFor(RootRollupPublicInputs);
   }
 }

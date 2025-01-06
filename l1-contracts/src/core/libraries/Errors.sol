@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
-// Copyright 2023 Aztec Labs.
+// Copyright 2024 Aztec Labs.
 pragma solidity >=0.8.27;
 
 import {Timestamp, Slot, Epoch} from "@aztec/core/libraries/TimeMath.sol";
@@ -60,6 +60,9 @@ library Errors {
   error Rollup__InvalidProposedArchive(bytes32 expected, bytes32 actual); // 0x32532e73
   error Rollup__InvalidTimestamp(Timestamp expected, Timestamp actual); // 0x3132e895
   error Rollup__InvalidVersion(uint256 expected, uint256 actual); // 0x9ef30794
+  error Rollup__InvalidBlobHash(bytes32 blobHash); // 0xc4a168c6
+  error Rollup__InvalidBlobProof(bytes32 blobHash); // 0x5ca17bef
+  error Rollup__InvalidBlobPublicInputsHash(bytes32 expected, bytes32 actual); // 0xfe6b4994
   error Rollup__NoEpochToProve(); // 0xcbaa3951
   error Rollup__NonSequentialProving(); // 0x1e5be132
   error Rollup__NotClaimingCorrectEpoch(Epoch expected, Epoch actual); // 0xf0e0744d
@@ -75,10 +78,7 @@ library Errors {
   error Rollup__NonZeroDaFee(); // 0xd9c75f52
   error Rollup__NonZeroL2Fee(); // 0x7e728abc
   error Rollup__InvalidBasisPointFee(uint256 basisPointFee); // 0x4292d136
-
-  //TxsDecoder
-  error TxsDecoder__InvalidLogsLength(uint256 expected, uint256 actual); // 0x829ca981
-  error TxsDecoder__TxsTooLarge(uint256 expected, uint256 actual); // 0xc7d44a62
+  error Rollup__InvalidManaBaseFee(uint256 expected, uint256 actual); // 0x73b6d896
 
   // HeaderLib
   error HeaderLib__InvalidHeaderSize(uint256 expected, uint256 actual); // 0xf3ccb247
@@ -97,8 +97,22 @@ library Errors {
   // Sequencer Selection (Leonidas)
   error Leonidas__EpochNotSetup(); // 0xcf4e597e
   error Leonidas__InvalidProposer(address expected, address actual); // 0xd02d278e
+  error Leonidas__InvalidDeposit(address attester, address proposer); // 0x1ef9a54b
   error Leonidas__InsufficientAttestations(uint256 minimumNeeded, uint256 provided); // 0xbf1ca4cb
   error Leonidas__InsufficientAttestationsProvided(uint256 minimumNeeded, uint256 provided); // 0xb3a697c2
+
+  // Staking
+  error Staking__AlreadyActive(address attester); // 0x5e206fa4
+  error Staking__AlreadyRegistered(address); // 0x18047699
+  error Staking__CannotSlashExitedStake(address); // 0x45bf4940
+  error Staking__FailedToRemove(address); // 0xa7d7baab
+  error Staking__InsufficientStake(uint256, uint256); // 0x903aee24
+  error Staking__NoOneToSlash(address); // 0x7e2f7f1c
+  error Staking__NotExiting(address); // 0xef566ee0
+  error Staking__NotSlasher(address, address); // 0x23a6f432
+  error Staking__NotWithdrawer(address, address); // 0x8e668e5d
+  error Staking__NothingToExit(address); // 0xd2aac9b6
+  error Staking__WithdrawalNotUnlockedYet(Timestamp, Timestamp); // 0x88e1826c
 
   // Fee Juice Portal
   error FeeJuicePortal__AlreadyInitialized(); // 0xc7a172fe
@@ -109,4 +123,8 @@ library Errors {
   error ProofCommitmentEscrow__InsufficientBalance(uint256 balance, uint256 requested); // 0x09b8b789
   error ProofCommitmentEscrow__NotOwner(address caller); // 0x2ac332c1
   error ProofCommitmentEscrow__WithdrawRequestNotReady(uint256 current, Timestamp readyAt); // 0xb32ab8a7
+
+  // FeeMath
+  error FeeMath__InvalidProvingCostModifier(); // 0x8b9d62ac
+  error FeeMath__InvalidFeeAssetPriceModifier(); // 0xf2fb32ad
 }

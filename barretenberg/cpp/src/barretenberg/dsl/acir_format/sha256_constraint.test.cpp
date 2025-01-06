@@ -15,7 +15,7 @@ using Composer = plonk::UltraComposer;
 
 class Sha256Tests : public ::testing::Test {
   protected:
-    static void SetUpTestSuite() { bb::srs::init_crs_factory("../srs_db/ignition"); }
+    static void SetUpTestSuite() { bb::srs::init_crs_factory(bb::srs::get_ignition_crs_path()); }
 };
 
 TEST_F(Sha256Tests, TestSha256Compression)
@@ -43,7 +43,7 @@ TEST_F(Sha256Tests, TestSha256Compression)
         .range_constraints = {},
         .aes128_constraints = {},
         .sha256_compression = { sha256_compression },
-        .schnorr_constraints = {},
+
         .ecdsa_k1_constraints = {},
         .ecdsa_r1_constraints = {},
         .blake2s_constraints = {},

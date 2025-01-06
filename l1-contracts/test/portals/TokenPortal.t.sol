@@ -3,7 +3,7 @@ pragma solidity >=0.8.27;
 import "forge-std/Test.sol";
 
 // Rollup Processor
-import {Rollup} from "@aztec/core/Rollup.sol";
+import {Rollup} from "../harnesses/Rollup.sol";
 import {Constants} from "@aztec/core/libraries/ConstantsGen.sol";
 import {Registry} from "@aztec/governance/Registry.sol";
 import {DataStructures} from "@aztec/core/libraries/DataStructures.sol";
@@ -20,10 +20,12 @@ import {TestERC20} from "@aztec/mock/TestERC20.sol";
 
 import {NaiveMerkle} from "../merkle/Naive.sol";
 import {MockFeeJuicePortal} from "@aztec/mock/MockFeeJuicePortal.sol";
-import {Sysstia} from "@aztec/governance/Sysstia.sol";
+import {RewardDistributor} from "@aztec/governance/RewardDistributor.sol";
+import {stdStorage, StdStorage} from "forge-std/Test.sol";
 
 contract TokenPortalTest is Test {
   using Hash for DataStructures.L1ToL2Msg;
+  using stdStorage for StdStorage;
 
   event MessageConsumed(bytes32 indexed messageHash, address indexed recipient);
 
@@ -31,7 +33,7 @@ contract TokenPortalTest is Test {
   uint256 internal constant L1_TO_L2_MSG_SUBTREE_SIZE = 2 ** Constants.L1_TO_L2_MSG_SUBTREE_HEIGHT;
 
   Registry internal registry;
-  Sysstia internal sysstia;
+  RewardDistributor internal rewardDistributor;
   IInbox internal inbox;
   IOutbox internal outbox;
 
@@ -49,9 +51,6 @@ contract TokenPortalTest is Test {
   // this hash is just a random 32 byte string
   bytes32 internal secretHashForL2MessageConsumption =
     0x147e4fec49805c924e28150fc4b36824679bc17ecb1d7d9f6a9effb7fde6b6a0;
-  // this hash is just a random 32 byte string
-  bytes32 internal secretHashForRedeemingMintedNotes =
-    0x157e4fec49805c924e28150fc4b36824679bc17ecb1d7d9f6a9effb7fde6b6a0;
 
   // params for withdraw:
   address internal recipient = address(0xdead);
@@ -61,10 +60,10 @@ contract TokenPortalTest is Test {
 
   function setUp() public {
     registry = new Registry(address(this));
-    testERC20 = new TestERC20();
-    sysstia = new Sysstia(testERC20, registry, address(this));
+    testERC20 = new TestERC20("test", "TEST", address(this));
+    rewardDistributor = new RewardDistributor(testERC20, registry, address(this));
     rollup = new Rollup(
-      new MockFeeJuicePortal(), sysstia, bytes32(0), bytes32(0), address(this), new address[](0)
+      new MockFeeJuicePortal(), rewardDistributor, testERC20, bytes32(0), bytes32(0), address(this)
     );
     inbox = rollup.INBOX();
     outbox = rollup.OUTBOX();
@@ -75,7 +74,7 @@ contract TokenPortalTest is Test {
     tokenPortal.initialize(address(registry), address(testERC20), l2TokenAddress);
 
     // Modify the proven block count
-    vm.store(address(rollup), bytes32(uint256(9)), bytes32(l2BlockNumber));
+    stdstore.target(address(rollup)).sig("getProvenBlockNumber()").checked_write(l2BlockNumber);
     assertEq(rollup.getProvenBlockNumber(), l2BlockNumber);
 
     vm.deal(address(this), 100 ether);
@@ -86,14 +85,12 @@ contract TokenPortalTest is Test {
     view
     returns (DataStructures.L1ToL2Msg memory)
   {
+    // The purpose of including the function selector is to make the message unique to that specific call. Note that
+    // it has nothing to do with calling the function.
     return DataStructures.L1ToL2Msg({
       sender: DataStructures.L1Actor(address(tokenPortal), block.chainid),
       recipient: DataStructures.L2Actor(l2TokenAddress, 1),
-      content: Hash.sha256ToField(
-        abi.encodeWithSignature(
-          "mint_private(bytes32,uint256)", secretHashForRedeemingMintedNotes, amount
-        )
-      ),
+      content: Hash.sha256ToField(abi.encodeWithSignature("mint_to_private(uint256)", amount)),
       secretHash: secretHashForL2MessageConsumption,
       index: _index
     });
@@ -104,10 +101,14 @@ contract TokenPortalTest is Test {
     view
     returns (DataStructures.L1ToL2Msg memory)
   {
+    // The purpose of including the function selector is to make the message unique to that specific call. Note that
+    // it has nothing to do with calling the function.
     return DataStructures.L1ToL2Msg({
       sender: DataStructures.L1Actor(address(tokenPortal), block.chainid),
       recipient: DataStructures.L2Actor(l2TokenAddress, 1),
-      content: Hash.sha256ToField(abi.encodeWithSignature("mint_public(bytes32,uint256)", to, amount)),
+      content: Hash.sha256ToField(
+        abi.encodeWithSignature("mint_to_public(bytes32,uint256)", to, amount)
+      ),
       secretHash: secretHashForL2MessageConsumption,
       index: _index
     });
@@ -132,9 +133,8 @@ contract TokenPortalTest is Test {
     // event we will get
 
     // Perform op
-    (bytes32 leaf, uint256 index) = tokenPortal.depositToAztecPrivate(
-      secretHashForRedeemingMintedNotes, amount, secretHashForL2MessageConsumption
-    );
+    (bytes32 leaf, uint256 index) =
+      tokenPortal.depositToAztecPrivate(amount, secretHashForL2MessageConsumption);
 
     assertEq(leaf, expectedLeaf, "returned leaf and calculated leaf should match");
     assertEq(index, expectedIndex, "returned index and calculated index should match");
@@ -172,6 +172,8 @@ contract TokenPortalTest is Test {
     internal
     returns (bytes32, bytes32)
   {
+    // The purpose of including the function selector is to make the message unique to that specific call. Note that
+    // it has nothing to do with calling the function.
     bytes32 l2ToL1Message = Hash.sha256ToField(
       DataStructures.L2ToL1Msg({
         sender: DataStructures.L2Actor({actor: l2TokenAddress, version: 1}),

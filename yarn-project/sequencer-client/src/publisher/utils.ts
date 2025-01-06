@@ -1,5 +1,3 @@
-import { type Logger } from '@aztec/foundation/log';
-
 import { BaseError, ContractFunctionRevertedError } from 'viem';
 
 export function prettyLogViemErrorMsg(err: any) {
@@ -12,11 +10,5 @@ export function prettyLogViemErrorMsg(err: any) {
       return `${errorName}${args}`;
     }
   }
-}
-
-export function prettyLogViemError(err: any, logger: Logger) {
-  const msg = prettyLogViemErrorMsg(err);
-  if (msg) {
-    logger.debug(`canProposeAtTime failed with "${msg}"`);
-  }
+  return err?.message ?? err;
 }

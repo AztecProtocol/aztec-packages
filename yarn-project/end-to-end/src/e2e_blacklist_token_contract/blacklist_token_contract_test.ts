@@ -2,15 +2,17 @@ import { getSchnorrAccount } from '@aztec/accounts/schnorr';
 import {
   type AccountWallet,
   type CompleteAddress,
-  type DebugLogger,
   ExtendedNote,
   Fr,
+  type Logger,
   Note,
   type TxHash,
   computeSecretHash,
-  createDebugLogger,
+  createLogger,
 } from '@aztec/aztec.js';
-import { DocsExampleContract, TokenBlacklistContract, type TokenContract } from '@aztec/noir-contracts.js';
+import { DocsExampleContract } from '@aztec/noir-contracts.js/DocsExample';
+import { type TokenContract } from '@aztec/noir-contracts.js/Token';
+import { TokenBlacklistContract } from '@aztec/noir-contracts.js/TokenBlacklist';
 
 import { jest } from '@jest/globals';
 
@@ -58,7 +60,7 @@ export class BlacklistTokenContractTest {
   static DELAY = 2;
 
   private snapshotManager: ISnapshotManager;
-  logger: DebugLogger;
+  logger: Logger;
   wallets: AccountWallet[] = [];
   accounts: CompleteAddress[] = [];
   asset!: TokenBlacklistContract;
@@ -70,7 +72,7 @@ export class BlacklistTokenContractTest {
   blacklisted!: AccountWallet;
 
   constructor(testName: string) {
-    this.logger = createDebugLogger(`aztec:e2e_blacklist_token_contract:${testName}`);
+    this.logger = createLogger(`e2e:e2e_blacklist_token_contract:${testName}`);
     this.snapshotManager = createSnapshotManager(`e2e_blacklist_token_contract/${testName}`, dataPath);
   }
 
@@ -96,7 +98,6 @@ export class BlacklistTokenContractTest {
       this.other = this.wallets[1];
       this.blacklisted = this.wallets[2];
       this.accounts = await pxe.getRegisteredAccounts();
-      this.wallets.forEach((w, i) => this.logger.verbose(`Wallet ${i} address: ${w.getAddress()}`));
     });
 
     await this.snapshotManager.snapshot(
@@ -222,8 +223,7 @@ export class BlacklistTokenContractTest {
         this.logger.verbose(`Public balance of wallet 0: ${publicBalance}`);
         expect(publicBalance).toEqual(this.tokenSim.balanceOfPublic(address));
 
-        tokenSim.mintPrivate(amount);
-        tokenSim.redeemShield(address, amount);
+        tokenSim.mintPrivate(address, amount);
         const privateBalance = await asset.methods.balance_of_private(address).simulate();
         this.logger.verbose(`Private balance of wallet 0: ${privateBalance}`);
         expect(privateBalance).toEqual(tokenSim.balanceOfPrivate(address));

@@ -18,6 +18,7 @@ pub struct PrivateKernelInitCircuitPrivateInputs {
     vk_tree_root: Field,
     protocol_contract_tree_root: Field,
     private_call: PrivateCallData,
+    is_private_only: bool,
 }
 
 impl PrivateKernelInitCircuitPrivateInputs {
@@ -27,12 +28,14 @@ impl PrivateKernelInitCircuitPrivateInputs {
         protocol_contract_tree_root: Field,
         private_call: PrivateCallDataWithoutPublicInputs,
         app_public_inputs: PrivateCircuitPublicInputs,
+        is_private_only: bool,
     ) -> Self {
         Self {
             tx_request,
             vk_tree_root,
             protocol_contract_tree_root,
             private_call: private_call.to_private_call_data(app_public_inputs),
+            is_private_only,
         }
     }
 
@@ -43,12 +46,17 @@ impl PrivateKernelInitCircuitPrivateInputs {
             private_call_public_inputs,
             self.vk_tree_root,
             self.protocol_contract_tree_root,
+            self.is_private_only,
         )
             .with_private_call(private_call_public_inputs)
             .finish()
     }
 
     pub fn execute(self) -> PrivateKernelCircuitPublicInputs {
+        if !std::runtime::is_unconstrained() {
+            self.private_call.verify(true);
+        }
+
         // Generate output.
         let output = unsafe { self.generate_output() };
 
@@ -69,6 +77,7 @@ impl PrivateKernelInitCircuitPrivateInputs {
                 private_call_data_validator.array_lengths,
                 self.vk_tree_root,
                 self.protocol_contract_tree_root,
+                self.is_private_only,
             );
         }
         output
@@ -102,6 +111,7 @@ mod tests {
                 private_call,
                 vk_tree_root: FixtureBuilder::vk_tree_root(),
                 protocol_contract_tree_root: 0,
+                is_private_only: false,
             }
                 .execute()
         }
@@ -113,11 +123,11 @@ mod tests {
 
         // note_hash_read_requests
         builder.private_call.append_note_hash_read_requests(2);
-        let note_hash_read_requests = builder.private_call.note_hash_read_requests.storage;
+        let note_hash_read_requests = builder.private_call.note_hash_read_requests.storage();
 
-        // encrypted_logs_hashes
-        builder.private_call.append_encrypted_log_hashes(1);
-        let encrypted_log_hashes = builder.private_call.encrypted_logs_hashes.storage;
+        // private_logs
+        builder.private_call.append_private_logs(2);
+        let private_logs = builder.private_call.private_logs.storage();
 
         let public_inputs = builder.execute();
         assert_array_eq(
@@ -125,8 +135,8 @@ mod tests {
             [note_hash_read_requests[0], note_hash_read_requests[1]],
         );
         assert_array_eq(
-            public_inputs.end.encrypted_logs_hashes,
-            [encrypted_log_hashes[0]],
+            public_inputs.end.private_logs,
+            [private_logs[0], private_logs[1]],
         );
     }
 }

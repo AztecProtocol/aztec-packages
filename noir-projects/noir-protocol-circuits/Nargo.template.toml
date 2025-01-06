@@ -1,7 +1,7 @@
 [workspace]
 members = [
     "crates/types",
-#    "crates/blob",
+    "crates/blob",
     "crates/parity-base",
     "crates/parity-lib",
     "crates/parity-root",
@@ -20,10 +20,6 @@ members = [
     "crates/private-kernel-empty-simulated",
     "crates/empty-nested",
     "crates/empty-nested-simulated",
-    "crates/public-kernel-lib",
-    "crates/public-kernel-inner-simulated",
-    "crates/public-kernel-merge-simulated",
-    "crates/public-kernel-tail-simulated",
     "crates/reset-kernel-lib",
     "crates/rollup-lib",
     "crates/rollup-merge",
@@ -33,6 +29,7 @@ members = [
     "crates/rollup-base-public-simulated",
     "crates/rollup-block-merge",
     "crates/rollup-block-root",
+    "crates/rollup-block-root-simulated",
     "crates/rollup-block-root-empty",
     "crates/rollup-root",
 ]

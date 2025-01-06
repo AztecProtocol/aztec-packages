@@ -6,6 +6,7 @@
 #include "barretenberg/relations/elliptic_relation.hpp"
 #include "barretenberg/relations/permutation_relation.hpp"
 #include "barretenberg/relations/ultra_arithmetic_relation.hpp"
+#include "barretenberg/stdlib_circuit_builders/mega_zk_flavor.hpp"
 #include "barretenberg/stdlib_circuit_builders/plookup_tables/fixed_base/fixed_base.hpp"
 #include "barretenberg/stdlib_circuit_builders/ultra_flavor.hpp"
 #include "barretenberg/stdlib_circuit_builders/ultra_zk_flavor.hpp"
@@ -21,7 +22,7 @@ template <typename Flavor> class SumcheckTests : public ::testing::Test {
     using ProverPolynomials = typename Flavor::ProverPolynomials;
     using RelationSeparator = Flavor::RelationSeparator;
     const size_t NUM_POLYNOMIALS = Flavor::NUM_ALL_ENTITIES;
-    static void SetUpTestSuite() { bb::srs::init_crs_factory("../srs_db/ignition"); }
+    static void SetUpTestSuite() { bb::srs::init_crs_factory(bb::srs::get_ignition_crs_path()); }
 
     Polynomial<FF> random_poly(size_t size)
     {
@@ -142,7 +143,14 @@ template <typename Flavor> class SumcheckTests : public ::testing::Test {
             gate_challenges[idx] =
                 transcript->template get_challenge<FF>("Sumcheck:gate_challenge_" + std::to_string(idx));
         }
-        auto output = sumcheck.prove(full_polynomials, {}, alpha, gate_challenges);
+        SumcheckOutput<Flavor> output;
+
+        if constexpr (Flavor::HasZK) {
+            ZKSumcheckData<Flavor> zk_sumcheck_data(multivariate_d, transcript);
+            output = sumcheck.prove(full_polynomials, {}, alpha, gate_challenges, zk_sumcheck_data);
+        } else {
+            output = sumcheck.prove(full_polynomials, {}, alpha, gate_challenges);
+        }
         FF u_0 = output.challenge[0];
         FF u_1 = output.challenge[1];
         std::vector<FF> expected_values;
@@ -164,7 +172,7 @@ template <typename Flavor> class SumcheckTests : public ::testing::Test {
     // TODO(#225): make the inputs to this test more interesting, e.g. non-trivial permutations
     void test_prover_verifier_flow()
     {
-        const size_t multivariate_d(2);
+        const size_t multivariate_d(3);
         const size_t multivariate_n(1 << multivariate_d);
 
         // Construct prover polynomials where each is the zero polynomial.
@@ -178,8 +186,7 @@ template <typename Flavor> class SumcheckTests : public ::testing::Test {
         // Add some non-trivial values to certain polynomials so that the arithmetic relation will have non-trivial
         // contribution. Note: since all other polynomials are set to 0, all other relations are trivially
         // satisfied.
-        std::array<FF, multivariate_n> w_l;
-        w_l = { 0, 1, 2, 0 };
+        std::array<FF, multivariate_n> w_l = { 0, 1, 2, 0 };
         std::array<FF, multivariate_n> w_r = { 0, 1, 2, 0 };
         std::array<FF, multivariate_n> w_o = { 0, 2, 4, 0 };
         std::array<FF, multivariate_n> w_4 = { 0, 0, 0, 0 };
@@ -191,6 +198,29 @@ template <typename Flavor> class SumcheckTests : public ::testing::Test {
         std::array<FF, multivariate_n> q_arith = { 0, 1, 1, 0 };
         // Setting all of these to 0 ensures the GrandProductRelation is satisfied
 
+        // For ZK Flavors: add some randomness to ProverPolynomials
+        if constexpr (Flavor::HasZK) {
+            w_l[7] = FF::random_element();
+            w_r[6] = FF::random_element();
+            w_4[6] = FF::random_element();
+            auto z_1 = FF::random_element();
+            auto z_2 = FF::random_element();
+            auto r = FF::random_element();
+
+            std::array<FF, multivariate_n> z_perm = { 0, 0, 0, 0, 0, 0, z_1, z_2 };
+            std::array<FF, multivariate_n> lookup_inverses = { 0, 0, 0, 0, 0, 0, r * r, r };
+
+            full_polynomials.z_perm = bb::Polynomial<FF>(z_perm);
+            full_polynomials.lookup_inverses = bb::Polynomial<FF>(lookup_inverses);
+
+            if constexpr (std::is_same<Flavor, MegaZKFlavor>::value) {
+                std::array<FF, multivariate_n> ecc_op_wire = { 0, 0, 0, 0, 0, 0, r * r * r, w_4[6] };
+                std::array<FF, multivariate_n> return_data_inverses = { 0, 0, 0, 0, 0, 0, FF(7) * r * r, -r };
+
+                full_polynomials.ecc_op_wire_1 = bb::Polynomial<FF>(ecc_op_wire);
+                full_polynomials.return_data_inverses = bb::Polynomial<FF>(return_data_inverses);
+            }
+        }
         full_polynomials.w_l = bb::Polynomial<FF>(w_l);
         full_polynomials.w_r = bb::Polynomial<FF>(w_r);
         full_polynomials.w_o = bb::Polynomial<FF>(w_o);
@@ -220,8 +250,14 @@ template <typename Flavor> class SumcheckTests : public ::testing::Test {
             prover_gate_challenges[idx] =
                 prover_transcript->template get_challenge<FF>("Sumcheck:gate_challenge_" + std::to_string(idx));
         }
-        auto output =
-            sumcheck_prover.prove(full_polynomials, relation_parameters, prover_alpha, prover_gate_challenges);
+        SumcheckOutput<Flavor> output;
+        if constexpr (Flavor::HasZK) {
+            ZKSumcheckData<Flavor> zk_sumcheck_data(multivariate_d, prover_transcript);
+            output = sumcheck_prover.prove(
+                full_polynomials, relation_parameters, prover_alpha, prover_gate_challenges, zk_sumcheck_data);
+        } else {
+            output = sumcheck_prover.prove(full_polynomials, relation_parameters, prover_alpha, prover_gate_challenges);
+        }
 
         auto verifier_transcript = Flavor::Transcript::verifier_init_empty(prover_transcript);
 
@@ -245,7 +281,9 @@ template <typename Flavor> class SumcheckTests : public ::testing::Test {
 
     void test_failure_prover_verifier_flow()
     {
-        const size_t multivariate_d(2);
+        // Since the last 4 rows in ZK Flavors are disabled, we extend an invalid circuit of size 4 to size 8 by padding
+        // with 0.
+        const size_t multivariate_d(3);
         const size_t multivariate_n(1 << multivariate_d);
 
         // Construct prover polynomials where each is the zero polynomial.
@@ -301,8 +339,15 @@ template <typename Flavor> class SumcheckTests : public ::testing::Test {
             prover_gate_challenges[idx] =
                 prover_transcript->template get_challenge<FF>("Sumcheck:gate_challenge_" + std::to_string(idx));
         }
-        auto output =
-            sumcheck_prover.prove(full_polynomials, relation_parameters, prover_alpha, prover_gate_challenges);
+        SumcheckOutput<Flavor> output;
+        if constexpr (Flavor::HasZK) {
+            // construct libra masking polynomials and compute auxiliary data
+            ZKSumcheckData<Flavor> zk_sumcheck_data(multivariate_d, prover_transcript);
+            output = sumcheck_prover.prove(
+                full_polynomials, relation_parameters, prover_alpha, prover_gate_challenges, zk_sumcheck_data);
+        } else {
+            output = sumcheck_prover.prove(full_polynomials, relation_parameters, prover_alpha, prover_gate_challenges);
+        }
 
         auto verifier_transcript = Flavor::Transcript::verifier_init_empty(prover_transcript);
 
@@ -326,13 +371,13 @@ template <typename Flavor> class SumcheckTests : public ::testing::Test {
 };
 
 // Define the FlavorTypes
-using FlavorTypes = testing::Types<UltraFlavor, UltraFlavorWithZK>;
+using FlavorTypes = testing::Types<UltraFlavor, UltraFlavorWithZK, MegaZKFlavor>;
 
 TYPED_TEST_SUITE(SumcheckTests, FlavorTypes);
 
 #define SKIP_IF_ZK()                                                                                                   \
-    if (std::is_same<TypeParam, UltraFlavorWithZK>::value) {                                                           \
-        GTEST_SKIP() << "Skipping test for UltraFlavorWithZK";                                                         \
+    if (std::is_same<TypeParam, UltraFlavorWithZK>::value || std::is_same<TypeParam, MegaZKFlavor>::value) {           \
+        GTEST_SKIP() << "Skipping test for ZK-enabled flavors";                                                        \
     }
 
 TYPED_TEST(SumcheckTests, PolynomialNormalization)

@@ -18,15 +18,15 @@ use dep::types::{
 };
 
 pub struct PrivateValidationRequestProcessor<let NH_RR_PENDING: u32, let NH_RR_SETTLED: u32, let NLL_RR_PENDING: u32, let NLL_RR_SETTLED: u32, let KEY_VALIDATION_REQUESTS: u32> {
-    validation_requests: PrivateValidationRequests,
-    note_hash_read_request_hints: NoteHashReadRequestHints<NH_RR_PENDING, NH_RR_SETTLED>,
-    pending_note_hashes: [ScopedNoteHash; MAX_NOTE_HASHES_PER_TX],
-    note_hash_tree_root: Field,
-    nullifier_read_request_hints: NullifierReadRequestHints<NLL_RR_PENDING, NLL_RR_SETTLED>,
-    pending_nullifiers: [ScopedNullifier; MAX_NULLIFIERS_PER_TX],
-    nullifier_tree_root: Field,
-    key_validation_hints: [KeyValidationHint; KEY_VALIDATION_REQUESTS],
-    validation_requests_split_counter: u32,
+    pub validation_requests: PrivateValidationRequests,
+    pub note_hash_read_request_hints: NoteHashReadRequestHints<NH_RR_PENDING, NH_RR_SETTLED>,
+    pub pending_note_hashes: [ScopedNoteHash; MAX_NOTE_HASHES_PER_TX],
+    pub note_hash_tree_root: Field,
+    pub nullifier_read_request_hints: NullifierReadRequestHints<NLL_RR_PENDING, NLL_RR_SETTLED>,
+    pub pending_nullifiers: [ScopedNullifier; MAX_NULLIFIERS_PER_TX],
+    pub nullifier_tree_root: Field,
+    pub key_validation_hints: [KeyValidationHint; KEY_VALIDATION_REQUESTS],
+    pub validation_requests_split_counter: u32,
 }
 
 impl<let NH_RR_PENDING: u32, let NH_RR_SETTLED: u32, let NLL_RR_PENDING: u32, let NLL_RR_SETTLED: u32, let KEY_VALIDATION_REQUESTS: u32> PrivateValidationRequestProcessor<NH_RR_PENDING, NH_RR_SETTLED, NLL_RR_PENDING, NLL_RR_SETTLED, KEY_VALIDATION_REQUESTS> {

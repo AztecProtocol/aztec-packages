@@ -1,5 +1,8 @@
-import { type EthAddress, type Header } from '@aztec/circuits.js';
+import { type BlockHeader, type EthAddress } from '@aztec/circuits.js';
 
+import { z } from 'zod';
+
+import { type InBlock } from './in_block.js';
 import { type L2Block } from './l2_block.js';
 import { type TxHash } from './tx/tx_hash.js';
 import { type TxReceipt } from './tx/tx_receipt.js';
@@ -51,7 +54,7 @@ export interface L2BlockSource {
    * @param number - The block number to return or 'latest' for the most recent one.
    * @returns The requested L2 block header.
    */
-  getBlockHeader(number: number | 'latest'): Promise<Header | undefined>;
+  getBlockHeader(number: number | 'latest'): Promise<BlockHeader | undefined>;
 
   /**
    * Gets up to `limit` amount of L2 blocks starting from `from`.
@@ -67,7 +70,7 @@ export interface L2BlockSource {
    * @param txHash - The hash of a transaction which resulted in the returned tx effect.
    * @returns The requested tx effect.
    */
-  getTxEffect(txHash: TxHash): Promise<TxEffect | undefined>;
+  getTxEffect(txHash: TxHash): Promise<InBlock<TxEffect> | undefined>;
 
   /**
    * Gets a receipt of a settled tx.
@@ -103,19 +106,6 @@ export interface L2BlockSource {
    * Returns the tips of the L2 chain.
    */
   getL2Tips(): Promise<L2Tips>;
-
-  /**
-   * Starts the L2 block source.
-   * @param blockUntilSynced - If true, blocks until the data source has fully synced.
-   * @returns A promise signalling completion of the start process.
-   */
-  start(blockUntilSynced: boolean): Promise<void>;
-
-  /**
-   * Stops the L2 block source.
-   * @returns A promise signalling completion of the stop process.
-   */
-  stop(): Promise<void>;
 }
 
 /**
@@ -130,14 +120,22 @@ export type L2BlockTag = 'latest' | 'proven' | 'finalized';
 export type L2Tips = Record<L2BlockTag, L2BlockId>;
 
 /** Identifies a block by number and hash. */
-export type L2BlockId =
-  | {
-      number: 0;
-      hash: undefined;
-    }
-  | {
-      /** L2 block number. */
-      number: number;
-      /** L2 block hash. */
-      hash: string;
-    };
+export type L2BlockId = z.infer<typeof L2BlockIdSchema>;
+
+// TODO(palla/schemas): This package should know what is the block hash of the genesis block 0.
+const L2BlockIdSchema = z.union([
+  z.object({
+    number: z.literal(0),
+    hash: z.undefined(),
+  }),
+  z.object({
+    number: z.number(),
+    hash: z.string(),
+  }),
+]);
+
+export const L2TipsSchema = z.object({
+  latest: L2BlockIdSchema,
+  proven: L2BlockIdSchema,
+  finalized: L2BlockIdSchema,
+}) satisfies z.ZodType<L2Tips>;

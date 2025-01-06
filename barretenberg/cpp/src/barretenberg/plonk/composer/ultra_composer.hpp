@@ -18,7 +18,7 @@ class UltraComposer {
     using Flavor = flavor::Ultra;
     using CircuitBuilder = UltraCircuitBuilder;
     using Curve = Flavor::Curve;
-    using Trace = ExecutionTrace_<Flavor>;
+    using Trace = TraceToPolynomials<Flavor>;
 
     static constexpr std::string_view NAME_STRING = "UltraPlonk";
     static constexpr CircuitType type = CircuitType::ULTRA;

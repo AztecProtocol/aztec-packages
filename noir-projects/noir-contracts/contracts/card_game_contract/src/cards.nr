@@ -109,14 +109,11 @@ impl<Context> Deck<Context> {
 
 impl Deck<&mut PrivateContext> {
     pub fn add_cards<let N: u32>(&mut self, cards: [Card; N], owner: AztecAddress) -> [CardNote] {
-        let msg_sender_ovpk_m = get_public_keys(self.set.context.msg_sender()).ovpk_m;
-
         let mut inserted_cards = &[];
         for card in cards {
             let mut card_note = CardNote::from_card(card, owner);
             self.set.insert(&mut card_note.note).emit(encode_and_encrypt_note(
                 self.set.context,
-                msg_sender_ovpk_m,
                 owner,
                 self.set.context.msg_sender(),
             ));
@@ -150,7 +147,7 @@ impl Deck<UnconstrainedContext> {
     }
 }
 
-global PACK_CARDS = 3; // Limited by number of write requests (max 4)
+global PACK_CARDS: u32 = 3; // Limited by number of write requests (max 4)
 
 pub fn get_pack_cards(
     seed: Field,

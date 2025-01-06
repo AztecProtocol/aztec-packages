@@ -8,12 +8,12 @@ import {
 } from '@aztec/circuits.js';
 import { type FunctionArtifact, type FunctionSelector, countArgumentsSize } from '@aztec/foundation/abi';
 import { type AztecAddress } from '@aztec/foundation/aztec-address';
-import { createDebugLogger } from '@aztec/foundation/log';
+import { createLogger } from '@aztec/foundation/log';
 import { Timer } from '@aztec/foundation/timer';
 
 import { fromACVMField, witnessMapToFields } from '../acvm/deserialize.js';
-import { type ACVMWitness, Oracle, acvm, extractCallStack, resolveAssertionMessageFromError } from '../acvm/index.js';
-import { ExecutionError } from '../common/errors.js';
+import { type ACVMWitness, Oracle, acvm, extractCallStack } from '../acvm/index.js';
+import { ExecutionError, resolveAssertionMessageFromError } from '../common/errors.js';
 import { type ClientExecutionContext } from './client_execution_context.js';
 
 /**
@@ -24,10 +24,10 @@ export async function executePrivateFunction(
   artifact: FunctionArtifact,
   contractAddress: AztecAddress,
   functionSelector: FunctionSelector,
-  log = createDebugLogger('aztec:simulator:private_execution'),
+  log = createLogger('simulator:private_execution'),
 ): Promise<PrivateExecutionResult> {
   const functionName = await context.getDebugFunctionName();
-  log.verbose(`Executing external function ${functionName}@${contractAddress}`);
+  log.verbose(`Executing private function ${functionName}@${contractAddress}`);
   const acir = artifact.bytecode;
   const initialWitness = context.getInitialWitness(artifact);
   const acvmCallback = new Oracle(context);
@@ -59,9 +59,7 @@ export async function executePrivateFunction(
     appCircuitName: functionName,
   } satisfies CircuitWitnessGenerationStats);
 
-  const noteEncryptedLogs = context.getNoteEncryptedLogs();
-  const encryptedLogs = context.getEncryptedLogs();
-  const unencryptedLogs = context.getUnencryptedLogs();
+  const contractClassLogs = context.getContractClassLogs();
 
   const rawReturnValues = await context.unpackReturns(publicInputs.returnsHash);
 
@@ -76,7 +74,7 @@ export async function executePrivateFunction(
 
   return new PrivateExecutionResult(
     acir,
-    Buffer.from(artifact.verificationKey!, 'hex'),
+    Buffer.from(artifact.verificationKey!, 'base64'),
     partialWitness,
     publicInputs,
     noteHashLeafIndexMap,
@@ -86,9 +84,7 @@ export async function executePrivateFunction(
     nestedExecutions,
     enqueuedPublicFunctionCalls,
     publicTeardownFunctionCall,
-    noteEncryptedLogs,
-    encryptedLogs,
-    unencryptedLogs,
+    contractClassLogs,
   );
 }
 

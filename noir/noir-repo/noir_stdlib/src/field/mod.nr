@@ -238,6 +238,7 @@ pub fn bytes32_to_field(bytes32: [u8; 32]) -> Field {
 fn lt_fallback(x: Field, y: Field) -> bool {
     if is_unconstrained() {
         unsafe {
+            //@safety : unconstrained context
             field_less_than(x, y)
         }
     } else {
@@ -285,9 +286,9 @@ mod tests {
     // docs:start:to_be_bytes_example
     fn test_to_be_bytes() {
         let field = 2;
-        let bits: [u8; 8] = field.to_be_bytes();
-        assert_eq(bits, [0, 0, 0, 0, 0, 0, 0, 2]);
-        assert_eq(Field::from_be_bytes::<8>(bits), field);
+        let bytes: [u8; 8] = field.to_be_bytes();
+        assert_eq(bytes, [0, 0, 0, 0, 0, 0, 0, 2]);
+        assert_eq(Field::from_be_bytes::<8>(bytes), field);
     }
     // docs:end:to_be_bytes_example
 
@@ -295,9 +296,9 @@ mod tests {
     // docs:start:to_le_bytes_example
     fn test_to_le_bytes() {
         let field = 2;
-        let bits: [u8; 8] = field.to_le_bytes();
-        assert_eq(bits, [2, 0, 0, 0, 0, 0, 0, 0]);
-        assert_eq(Field::from_le_bytes::<8>(bits), field);
+        let bytes: [u8; 8] = field.to_le_bytes();
+        assert_eq(bytes, [2, 0, 0, 0, 0, 0, 0, 0]);
+        assert_eq(Field::from_le_bytes::<8>(bytes), field);
     }
     // docs:end:to_le_bytes_example
 
@@ -305,9 +306,9 @@ mod tests {
     // docs:start:to_be_radix_example
     fn test_to_be_radix() {
         let field = 2;
-        let bits: [u8; 8] = field.to_be_radix(256);
-        assert_eq(bits, [0, 0, 0, 0, 0, 0, 0, 2]);
-        assert_eq(Field::from_be_bytes::<8>(bits), field);
+        let bytes: [u8; 8] = field.to_be_radix(256);
+        assert_eq(bytes, [0, 0, 0, 0, 0, 0, 0, 2]);
+        assert_eq(Field::from_be_bytes::<8>(bytes), field);
     }
     // docs:end:to_be_radix_example
 
@@ -315,9 +316,9 @@ mod tests {
     // docs:start:to_le_radix_example
     fn test_to_le_radix() {
         let field = 2;
-        let bits: [u8; 8] = field.to_le_radix(256);
-        assert_eq(bits, [2, 0, 0, 0, 0, 0, 0, 0]);
-        assert_eq(Field::from_le_bytes::<8>(bits), field);
+        let bytes: [u8; 8] = field.to_le_radix(256);
+        assert_eq(bytes, [2, 0, 0, 0, 0, 0, 0, 0]);
+        assert_eq(Field::from_le_bytes::<8>(bytes), field);
     }
     // docs:end:to_le_radix_example
 

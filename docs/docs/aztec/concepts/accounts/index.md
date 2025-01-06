@@ -107,10 +107,11 @@ Notice that the Signerless wallet doesn't invoke an entrypoint function of an ac
 
 :::info
 Entrypoints for the following cases:
+
 - if no contract entrypoint is used `msg_sender` is set to `Field.max`.
 - in a private to public entrypoint, `msg_sender` is the contract making the private to public call
 - when calling the entrypoint on an account contract, `msg_sender` is set to the account contract address
-:::
+  :::
 
 ### Account initialization
 
@@ -127,12 +128,20 @@ Users will need to pay transaction fees in order to deploy their account contrac
 Account contracts are also expected, though not required by the protocol, to implement a set of methods for authorizing actions on behalf of the user. During a transaction, a contract may call into the account contract and request the user authorization for a given action, identified by a hash. This pattern is used, for instance, for transferring tokens from an account that is not the caller.
 
 When executing a private function, this authorization is checked by requesting an _auth witness_ from the execution oracle, which is usually a signed message.
-The PXE is responsible for storing these auth witnesses and returning them to the requesting account contract.
+The user's Private eXecution Environment (PXE) is responsible for storing these auth witnesses and returning them to the requesting account contract.
 Auth witnesses can belong to the current user executing the local transaction, or to another user who shared it out-of-band.
 
 However, during a public function execution, it is not possible to retrieve a value from the local oracle. To support authorizations in public functions, account contracts should save in contract storage what actions have been pre-authorized by their owner.
 
-These two patterns combined allow an account contract to answer whether an action `is_valid` for a given user both in private and public contexts.
+These two patterns combined allow an account contract to answer whether an action `is_valid_impl` for a given user both in private and public contexts.
+
+You can read more about authorizing actions with authorization witnesses on [this page](./authwit.md).
+
+:::info
+
+Transaction simulations in the PXE are not currently simulated, this is future work described [here](https://github.com/AztecProtocol/aztec-packages/issues/9133). This means that any transaction simulations that call into a function requiring an authwit will require the user to provide an authwit. Without simulating simulations, the PXE can't anticipate what authwits a transaction may need, so developers will need to manually request these authwits from users. In the future, transactions requiring authwits will be smart enough to ask the user for the correct authwits automatically.
+
+:::
 
 ### Encryption and nullifying keys
 
@@ -147,5 +156,3 @@ NOTE: While we entertained the idea of abstracting note encryption, where accoun
 In order to be considered valid, an account must prove that it has locked enough funds to pay for itself. However, this does not mandate where those funds come from. This fee abstraction allows for easy implementation of paymasters or payment-in-kind via on-the-fly swaps.
 
 However, there is one major consideration around public execution reverts. In the current design, if one of the public function executions enqueued in a transaction fails, then the entire transaction is reverted. But reverting the whole transaction would also revert the fee payment, and leave the sequencer with their hands empty after running the public execution. This means we will need to enshrine an initial verification and fee payment phase that is _not_ reverted if public execution fails.
-
-You can read the latest information about fees in the [protocol specs](../../../protocol-specs/gas-and-fees/index.md).

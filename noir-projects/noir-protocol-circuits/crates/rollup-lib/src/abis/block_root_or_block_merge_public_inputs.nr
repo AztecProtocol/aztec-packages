@@ -2,21 +2,23 @@ use dep::types::{
     abis::{append_only_tree_snapshot::AppendOnlyTreeSnapshot, global_variables::GlobalVariables},
     address::EthAddress,
     constants::{
-        AZTEC_EPOCH_DURATION, BLOCK_ROOT_OR_BLOCK_MERGE_PUBLIC_INPUTS_LENGTH, FEE_RECIPIENT_LENGTH,
+        AZTEC_MAX_EPOCH_DURATION, BLOCK_ROOT_OR_BLOCK_MERGE_PUBLIC_INPUTS_LENGTH,
+        FEE_RECIPIENT_LENGTH,
     },
     traits::{Deserialize, Empty, Serialize},
     utils::reader::Reader,
 };
+use blob::blob_public_inputs::BlockBlobPublicInputs;
 
 pub struct FeeRecipient {
-    recipient: EthAddress,
-    value: Field,
+    pub recipient: EthAddress,
+    pub value: Field,
 }
 
 // TODO(#7346): Should the default empty value be MAX_FIELD? The zero addr may be a valid recipient
 impl Empty for FeeRecipient {
     fn empty() -> Self {
-        FeeRecipient { recipient: EthAddress::zero(), value: 0 }
+        Self { recipient: EthAddress::zero(), value: 0 }
     }
 }
 
@@ -41,21 +43,22 @@ impl Eq for FeeRecipient {
 // TODO: instead of archives + global vars, use ConstantRollupData x2? It also includes vk root
 // may be confusing as new_constant.last_archive would actually be the new_archive
 pub struct BlockRootOrBlockMergePublicInputs {
-    previous_archive: AppendOnlyTreeSnapshot, // Archive tree root immediately before this block range
-    new_archive: AppendOnlyTreeSnapshot, // Archive tree root after adding this block range
-    previous_block_hash: Field, // Identifier of the previous block before the range
-    end_block_hash: Field, // Identifier of the last block in the range
-    start_global_variables: GlobalVariables, // Global variables for the first block in the range
-    end_global_variables: GlobalVariables, // Global variables for the last block in the range
-    out_hash: Field, // Merkle node of the L2-to-L1 messages merkle roots in the block range
-    fees: [FeeRecipient; AZTEC_EPOCH_DURATION], // Concatenation of all coinbase and fees for the block range
-    vk_tree_root: Field, // Root of allowed vk tree
-    protocol_contract_tree_root: Field, // Root of protocol contract tree
-    prover_id: Field, // TODO(#7346): Temporarily added prover_id while we verify block-root proofs on L1
+    pub previous_archive: AppendOnlyTreeSnapshot, // Archive tree root immediately before this block range
+    pub new_archive: AppendOnlyTreeSnapshot, // Archive tree root after adding this block range
+    pub previous_block_hash: Field, // Identifier of the previous block before the range
+    pub end_block_hash: Field, // Identifier of the last block in the range
+    pub start_global_variables: GlobalVariables, // Global variables for the first block in the range
+    pub end_global_variables: GlobalVariables, // Global variables for the last block in the range
+    pub out_hash: Field, // Merkle node of the L2-to-L1 messages merkle roots in the block range
+    pub fees: [FeeRecipient; AZTEC_MAX_EPOCH_DURATION], // Concatenation of all coinbase and fees for the block range
+    pub vk_tree_root: Field, // Root of allowed vk tree
+    pub protocol_contract_tree_root: Field, // Root of protocol contract tree
+    pub prover_id: Field, // TODO(#7346): Temporarily added prover_id while we verify block-root proofs on L1
+    pub blob_public_inputs: [BlockBlobPublicInputs; AZTEC_MAX_EPOCH_DURATION], // z, y, and C s.t. p(z) = y and C commits to p, for blob verification
 }
 
 impl BlockRootOrBlockMergePublicInputs {
-    fn is_padding(self) -> bool {
+    pub fn is_padding(self) -> bool {
         self.previous_archive == self.new_archive
     }
 }
@@ -70,10 +73,11 @@ impl Empty for BlockRootOrBlockMergePublicInputs {
             start_global_variables: GlobalVariables::empty(),
             end_global_variables: GlobalVariables::empty(),
             out_hash: 0,
-            fees: [FeeRecipient::empty(); AZTEC_EPOCH_DURATION],
+            fees: [FeeRecipient::empty(); AZTEC_MAX_EPOCH_DURATION],
             vk_tree_root: 0,
             protocol_contract_tree_root: 0,
             prover_id: 0,
+            blob_public_inputs: [BlockBlobPublicInputs::empty(); AZTEC_MAX_EPOCH_DURATION],
         }
     }
 }
@@ -91,6 +95,7 @@ impl Eq for BlockRootOrBlockMergePublicInputs {
             & (self.vk_tree_root == other.vk_tree_root)
             & (self.protocol_contract_tree_root == other.protocol_contract_tree_root)
             & (self.prover_id == other.prover_id)
+            & (self.blob_public_inputs.eq(other.blob_public_inputs))
     }
 }
 
@@ -106,15 +111,18 @@ impl Serialize<BLOCK_ROOT_OR_BLOCK_MERGE_PUBLIC_INPUTS_LENGTH> for BlockRootOrBl
         fields.extend_from_array(self.start_global_variables.serialize());
         fields.extend_from_array(self.end_global_variables.serialize());
         fields.push(self.out_hash as Field);
-        for i in 0..AZTEC_EPOCH_DURATION {
+        for i in 0..AZTEC_MAX_EPOCH_DURATION {
             fields.extend_from_array(self.fees[i].serialize());
         }
         fields.push(self.vk_tree_root);
         fields.push(self.protocol_contract_tree_root);
         fields.push(self.prover_id as Field);
+        for i in 0..AZTEC_MAX_EPOCH_DURATION {
+            fields.extend_from_array(self.blob_public_inputs[i].serialize());
+        }
         assert_eq(fields.len(), BLOCK_ROOT_OR_BLOCK_MERGE_PUBLIC_INPUTS_LENGTH);
 
-        fields.storage
+        fields.storage()
     }
 }
 
@@ -133,11 +141,15 @@ impl Deserialize<BLOCK_ROOT_OR_BLOCK_MERGE_PUBLIC_INPUTS_LENGTH> for BlockRootOr
             out_hash: reader.read(),
             fees: reader.read_struct_array(
                 FeeRecipient::deserialize,
-                [FeeRecipient::empty(); AZTEC_EPOCH_DURATION],
+                [FeeRecipient::empty(); AZTEC_MAX_EPOCH_DURATION],
             ),
             vk_tree_root: reader.read(),
             protocol_contract_tree_root: reader.read(),
             prover_id: reader.read(),
+            blob_public_inputs: reader.read_struct_array(
+                BlockBlobPublicInputs::deserialize,
+                [BlockBlobPublicInputs::empty(); AZTEC_MAX_EPOCH_DURATION],
+            ),
         };
 
         reader.finish();

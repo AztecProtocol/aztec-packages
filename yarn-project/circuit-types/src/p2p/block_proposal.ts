@@ -1,5 +1,5 @@
 import { Buffer32 } from '@aztec/foundation/buffer';
-import { recoverAddress } from '@aztec/foundation/crypto';
+import { keccak256, recoverAddress } from '@aztec/foundation/crypto';
 import { type EthAddress } from '@aztec/foundation/eth-address';
 import { Signature } from '@aztec/foundation/eth-signature';
 import { type Fr } from '@aztec/foundation/fields';
@@ -7,7 +7,11 @@ import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 
 import { ConsensusPayload } from './consensus_payload.js';
 import { Gossipable } from './gossipable.js';
-import { getHashedSignaturePayload, getHashedSignaturePayloadEthSignedMessage } from './signature_utils.js';
+import {
+  SignatureDomainSeperator,
+  getHashedSignaturePayload,
+  getHashedSignaturePayloadEthSignedMessage,
+} from './signature_utils.js';
 import { TopicType, createTopicString } from './topic_type.js';
 
 export class BlockProposalHash extends Buffer32 {
@@ -38,18 +42,22 @@ export class BlockProposal extends Gossipable {
   }
 
   override p2pMessageIdentifier(): Buffer32 {
-    return BlockProposalHash.fromField(this.payload.archive);
+    return new BlockProposalHash(keccak256(this.signature.toBuffer()));
   }
 
   get archive(): Fr {
     return this.payload.archive;
   }
 
+  get slotNumber(): Fr {
+    return this.payload.header.globalVariables.slotNumber;
+  }
+
   static async createProposalFromSigner(
     payload: ConsensusPayload,
     payloadSigner: (payload: Buffer32) => Promise<Signature>,
   ) {
-    const hashed = getHashedSignaturePayload(payload);
+    const hashed = getHashedSignaturePayload(payload, SignatureDomainSeperator.blockProposal);
     const sig = await payloadSigner(hashed);
 
     return new BlockProposal(payload, sig);
@@ -60,7 +68,7 @@ export class BlockProposal extends Gossipable {
    */
   getSender() {
     if (!this.sender) {
-      const hashed = getHashedSignaturePayloadEthSignedMessage(this.payload);
+      const hashed = getHashedSignaturePayloadEthSignedMessage(this.payload, SignatureDomainSeperator.blockProposal);
       // Cache the sender for later use
       this.sender = recoverAddress(hashed, this.signature);
     }
@@ -69,7 +77,7 @@ export class BlockProposal extends Gossipable {
   }
 
   getPayload() {
-    return this.payload.getPayloadToSign();
+    return this.payload.getPayloadToSign(SignatureDomainSeperator.blockProposal);
   }
 
   toBuffer(): Buffer {

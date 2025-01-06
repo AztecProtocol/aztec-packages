@@ -1,4 +1,6 @@
-import { SerializableContractInstance } from '@aztec/circuits.js';
+import { AztecAddress, SerializableContractInstance, computePublicBytecodeCommitment } from '@aztec/circuits.js';
+import { computeNoteHashNonce, computeUniqueNoteHash, siloNoteHash, siloNullifier } from '@aztec/circuits.js/hash';
+import { makeContractClassPublic } from '@aztec/circuits.js/testing';
 import { Fr } from '@aztec/foundation/fields';
 
 import { mock } from 'jest-mock-extended';
@@ -7,8 +9,11 @@ import { type WorldStateDB } from '../../public/public_db_sources.js';
 import { type PublicSideEffectTraceInterface } from '../../public/side_effect_trace_interface.js';
 import { initPersistableStateManager } from '../fixtures/index.js';
 import {
+  mockGetBytecode,
+  mockGetContractClass,
   mockGetContractInstance,
   mockL1ToL2MessageExists,
+  mockNoteHashCount,
   mockNoteHashExists,
   mockNullifierExists,
   mockStorageRead,
@@ -16,7 +21,7 @@ import {
 import { type AvmPersistableStateManager } from './journal.js';
 
 describe('journal', () => {
-  const address = Fr.random();
+  const address = AztecAddress.random();
   const utxo = Fr.random();
   const leafIndex = Fr.random();
 
@@ -44,7 +49,7 @@ describe('journal', () => {
       expect(cacheMissResult).toEqual(storedValue);
 
       // Write to storage
-      persistableState.writeStorage(address, slot, cachedValue);
+      await persistableState.writeStorage(address, slot, cachedValue);
 
       // Get the storage value
       const cachedResult = await persistableState.readStorage(address, slot);
@@ -54,22 +59,8 @@ describe('journal', () => {
 
       // We expect the journal to store the access in [storedVal, cachedVal] - [time0, time1]
       expect(trace.tracePublicStorageRead).toHaveBeenCalledTimes(2);
-      expect(trace.tracePublicStorageRead).toHaveBeenNthCalledWith(
-        /*nthCall=*/ 1,
-        address,
-        slot,
-        storedValue,
-        /*exists=*/ true,
-        /*cached=*/ false,
-      );
-      expect(trace.tracePublicStorageRead).toHaveBeenNthCalledWith(
-        /*nthCall=*/ 2,
-        address,
-        slot,
-        cachedValue,
-        /*exists=*/ true,
-        /*cached=*/ true,
-      );
+      expect(trace.tracePublicStorageRead).toHaveBeenNthCalledWith(/*nthCall=*/ 1, address, slot, storedValue);
+      expect(trace.tracePublicStorageRead).toHaveBeenNthCalledWith(/*nthCall=*/ 2, address, slot, cachedValue);
     });
   });
 
@@ -90,35 +81,37 @@ describe('journal', () => {
     });
 
     it('writeNoteHash works', () => {
+      mockNoteHashCount(trace, 1);
       persistableState.writeNoteHash(address, utxo);
       expect(trace.traceNewNoteHash).toHaveBeenCalledTimes(1);
-      expect(trace.traceNewNoteHash).toHaveBeenCalledWith(expect.objectContaining(address), /*noteHash=*/ utxo);
+      const siloedNotehash = siloNoteHash(address, utxo);
+      const nonce = computeNoteHashNonce(Fr.fromBuffer(persistableState.txHash.toBuffer()), 1);
+      const uniqueNoteHash = computeUniqueNoteHash(nonce, siloedNotehash);
+      expect(trace.traceNewNoteHash).toHaveBeenCalledWith(uniqueNoteHash);
     });
 
     it('checkNullifierExists works for missing nullifiers', async () => {
       const exists = await persistableState.checkNullifierExists(address, utxo);
       expect(exists).toEqual(false);
+      const siloedNullifier = siloNullifier(address, utxo);
       expect(trace.traceNullifierCheck).toHaveBeenCalledTimes(1);
-      expect(trace.traceNullifierCheck).toHaveBeenCalledWith(
-        address,
-        utxo,
-        /*leafIndex=*/ Fr.ZERO,
-        exists,
-        /*isPending=*/ false,
-      );
+      expect(trace.traceNullifierCheck).toHaveBeenCalledWith(siloedNullifier, exists);
     });
 
     it('checkNullifierExists works for existing nullifiers', async () => {
       mockNullifierExists(worldStateDB, leafIndex, utxo);
       const exists = await persistableState.checkNullifierExists(address, utxo);
       expect(exists).toEqual(true);
+      const siloedNullifier = siloNullifier(address, utxo);
       expect(trace.traceNullifierCheck).toHaveBeenCalledTimes(1);
-      expect(trace.traceNullifierCheck).toHaveBeenCalledWith(address, utxo, leafIndex, exists, /*isPending=*/ false);
+      expect(trace.traceNullifierCheck).toHaveBeenCalledWith(siloedNullifier, exists);
     });
 
     it('writeNullifier works', async () => {
       await persistableState.writeNullifier(address, utxo);
-      expect(trace.traceNewNullifier).toHaveBeenCalledWith(expect.objectContaining(address), /*nullifier=*/ utxo);
+      const siloedNullifier = siloNullifier(address, utxo);
+      expect(trace.traceNewNullifier).toHaveBeenCalledTimes(1);
+      expect(trace.traceNewNullifier).toHaveBeenCalledWith(siloedNullifier);
     });
 
     it('checkL1ToL2MessageExists works for missing message', async () => {
@@ -147,7 +140,7 @@ describe('journal', () => {
   describe('Getting contract instances', () => {
     it('Should get contract instance', async () => {
       const contractInstance = SerializableContractInstance.default();
-      mockGetContractInstance(worldStateDB, contractInstance.withAddress(address));
+      mockNullifierExists(worldStateDB, leafIndex, utxo);
       mockGetContractInstance(worldStateDB, contractInstance.withAddress(address));
       await persistableState.getContractInstance(address);
       expect(trace.traceGetContractInstance).toHaveBeenCalledTimes(1);
@@ -160,6 +153,41 @@ describe('journal', () => {
     });
   });
 
+  describe('Getting bytecode', () => {
+    it('Should get bytecode', async () => {
+      const bytecode = Buffer.from('0xdeadbeef');
+      const bytecodeCommitment = computePublicBytecodeCommitment(bytecode);
+      const contractInstance = SerializableContractInstance.default();
+      const contractClass = makeContractClassPublic();
+
+      mockNullifierExists(worldStateDB, leafIndex, utxo);
+      mockGetContractInstance(worldStateDB, contractInstance.withAddress(address));
+      mockGetContractClass(worldStateDB, contractClass);
+      mockGetBytecode(worldStateDB, bytecode);
+
+      const expectedContractClassPreimage = {
+        artifactHash: contractClass.artifactHash,
+        privateFunctionsRoot: contractClass.privateFunctionsRoot,
+        publicBytecodeCommitment: bytecodeCommitment,
+      };
+
+      await persistableState.getBytecode(address);
+      expect(trace.traceGetBytecode).toHaveBeenCalledTimes(1);
+      expect(trace.traceGetBytecode).toHaveBeenCalledWith(
+        address,
+        /*exists=*/ true,
+        contractClass.packedBytecode,
+        contractInstance,
+        expectedContractClassPreimage,
+      );
+    });
+    it('Can get undefined contract instance', async () => {
+      await persistableState.getBytecode(address);
+      expect(trace.traceGetBytecode).toHaveBeenCalledTimes(1);
+      expect(trace.traceGetBytecode).toHaveBeenCalledWith(address, /*exists=*/ false);
+    });
+  });
+
   //it('Should merge two successful journals together', async () => {
   //  // Fundamentally checking that insert ordering of public storage is preserved upon journal merge
   //  // time | journal | op     | value
@@ -168,7 +196,7 @@ describe('journal', () => {
   //  // merge journals
   //  // t2 -> journal0 -> read  | 2
 
-  //  const contractAddress = new Fr(1);
+  //  const contractAddress = AztecAddress.fromNumber(1);
   //  const aztecContractAddress = AztecAddress.fromField(contractAddress);
   //  const key = new Fr(2);
   //  const value = new Fr(1);
@@ -301,7 +329,7 @@ describe('journal', () => {
   //  // merge journals
   //  // t2 -> journal0 -> read  | 1
 
-  //  const contractAddress = new Fr(1);
+  //  const contractAddress = AztecAddress.fromNumber(1);
   //  const aztecContractAddress = AztecAddress.fromField(contractAddress);
   //  const key = new Fr(2);
   //  const value = new Fr(1);

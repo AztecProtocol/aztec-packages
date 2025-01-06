@@ -121,9 +121,9 @@ impl HirExpression {
             HirExpression::Literal(HirLiteral::Str(string)) => {
                 ExpressionKind::Literal(Literal::Str(string.clone()))
             }
-            HirExpression::Literal(HirLiteral::FmtStr(string, _exprs)) => {
+            HirExpression::Literal(HirLiteral::FmtStr(fragments, _exprs, length)) => {
                 // TODO: Is throwing away the exprs here valid?
-                ExpressionKind::Literal(Literal::FmtStr(string.clone()))
+                ExpressionKind::Literal(Literal::FmtStr(fragments.clone(), *length))
             }
             HirExpression::Literal(HirLiteral::Unit) => ExpressionKind::Literal(Literal::Unit),
             HirExpression::Block(expr) => ExpressionKind::Block(expr.to_display_ast(interner)),
@@ -340,6 +340,7 @@ impl Type {
                 let name = Path::from_single(name.as_ref().clone(), Span::default());
                 UnresolvedTypeData::Named(name, GenericTypeArgs::default(), true)
             }
+            Type::CheckedCast { to, .. } => to.to_display_ast().typ,
             Type::Function(args, ret, env, unconstrained) => {
                 let args = vecmap(args, |arg| arg.to_display_ast());
                 let ret = Box::new(ret.to_display_ast());

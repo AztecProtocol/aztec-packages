@@ -1,11 +1,13 @@
-import { type AztecNode, type PXE, createAztecNodeClient, createDebugLogger } from '@aztec/aztec.js';
+import { type AztecNode, type PXE, createAztecNodeClient, createLogger } from '@aztec/aztec.js';
 import { RunningPromise } from '@aztec/foundation/running-promise';
+import { type TelemetryClient, type Traceable, type Tracer, trackSpan } from '@aztec/telemetry-client';
 
 import { Bot } from './bot.js';
 import { type BotConfig } from './config.js';
+import { type BotRunnerApi } from './interface.js';
 
-export class BotRunner {
-  private log = createDebugLogger('aztec:bot');
+export class BotRunner implements BotRunnerApi, Traceable {
+  private log = createLogger('bot');
   private bot?: Promise<Bot>;
   private pxe?: PXE;
   private node: AztecNode;
@@ -13,13 +15,19 @@ export class BotRunner {
   private consecutiveErrors = 0;
   private healthy = true;
 
-  public constructor(private config: BotConfig, dependencies: { pxe?: PXE; node?: AztecNode }) {
+  public readonly tracer: Tracer;
+
+  public constructor(
+    private config: BotConfig,
+    dependencies: { pxe?: PXE; node?: AztecNode; telemetry: TelemetryClient },
+  ) {
+    this.tracer = dependencies.telemetry.getTracer('Bot');
     this.pxe = dependencies.pxe;
     if (!dependencies.node && !config.nodeUrl) {
       throw new Error(`Missing node URL in config or dependencies`);
     }
     this.node = dependencies.node ?? createAztecNodeClient(config.nodeUrl!);
-    this.runningPromise = new RunningPromise(() => this.#work(), config.txIntervalSeconds * 1000);
+    this.runningPromise = new RunningPromise(() => this.#work(), this.log, config.txIntervalSeconds * 1000);
   }
 
   /** Initializes the bot if needed. Blocks until the bot setup is finished. */
@@ -112,7 +120,7 @@ export class BotRunner {
 
   /** Returns the current configuration for the bot. */
   public getConfig() {
-    return this.config;
+    return Promise.resolve(this.config);
   }
 
   async #createBot() {
@@ -125,6 +133,7 @@ export class BotRunner {
     }
   }
 
+  @trackSpan('Bot.work')
   async #work() {
     if (this.config.maxPendingTxs > 0) {
       const pendingTxs = await this.node.getPendingTxs();
@@ -145,7 +154,7 @@ export class BotRunner {
     }
 
     if (!this.healthy && this.config.stopWhenUnhealthy) {
-      this.log.error(`Stopping bot due to errors`);
+      this.log.fatal(`Stopping bot due to errors`);
       process.exit(1); // workaround docker not restarting the container if its unhealthy. We have to exit instead
     }
   }

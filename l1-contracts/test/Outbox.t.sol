@@ -288,7 +288,7 @@ contract OutboxTest is Test {
     }
   }
 
-  function testCheckOutOfBoundsStatus(uint256 _blockNumber, uint256 _leafIndex) public {
+  function testCheckOutOfBoundsStatus(uint256 _blockNumber, uint256 _leafIndex) public view {
     bool outOfBounds = outbox.hasMessageBeenConsumedAtBlockAndIndex(_blockNumber, _leafIndex);
     assertFalse(outOfBounds);
   }

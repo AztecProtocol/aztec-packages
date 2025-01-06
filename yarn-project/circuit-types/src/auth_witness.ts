@@ -1,6 +1,8 @@
 import { Vector } from '@aztec/circuits.js';
 import { Fr } from '@aztec/foundation/fields';
+import { hexSchemaFor } from '@aztec/foundation/schemas';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
+import { bufferToHex, hexToBuffer } from '@aztec/foundation/string';
 
 /**
  * An authentication witness. Used to authorize an action by a user.
@@ -18,6 +20,14 @@ export class AuthWitness {
     this.witness = witness.map(x => new Fr(x));
   }
 
+  static get schema() {
+    return hexSchemaFor(AuthWitness);
+  }
+
+  toJSON() {
+    return this.toString();
+  }
+
   toBuffer() {
     return serializeToBuffer(this.requestHash, new Vector(this.witness));
   }
@@ -28,11 +38,14 @@ export class AuthWitness {
   }
 
   toString() {
-    return '0x' + this.toBuffer().toString('hex');
+    return bufferToHex(this.toBuffer());
   }
 
   static fromString(str: string) {
-    const hex = str.replace(/^0x/, '');
-    return AuthWitness.fromBuffer(Buffer.from(hex, 'hex'));
+    return AuthWitness.fromBuffer(hexToBuffer(str));
+  }
+
+  static random() {
+    return new AuthWitness(Fr.random(), [Fr.random(), Fr.random(), Fr.random()]);
   }
 }

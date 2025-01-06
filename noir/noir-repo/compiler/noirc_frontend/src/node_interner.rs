@@ -25,8 +25,6 @@ use crate::hir::def_map::{LocalModuleId, ModuleDefId, ModuleId};
 use crate::hir::type_check::generics::TraitGenerics;
 use crate::hir_def::traits::NamedType;
 use crate::hir_def::traits::ResolvedTraitBound;
-use crate::usage_tracker::UnusedItem;
-use crate::usage_tracker::UsageTracker;
 use crate::QuotedType;
 
 use crate::ast::{BinaryOpKind, FunctionDefinition, ItemVisibility};
@@ -271,8 +269,6 @@ pub struct NodeInterner {
     /// share the same global values.
     pub(crate) comptime_scopes: Vec<HashMap<DefinitionId, comptime::Value>>,
 
-    pub(crate) usage_tracker: UsageTracker,
-
     /// Captures the documentation comments for each module, struct, trait, function, etc.
     pub(crate) doc_comments: HashMap<ReferenceId, Vec<String>>,
 }
@@ -418,7 +414,7 @@ pub struct DefinitionId(usize);
 impl DefinitionId {
     //dummy id for error reporting
     pub fn dummy_id() -> DefinitionId {
-        DefinitionId(std::usize::MAX)
+        DefinitionId(usize::MAX)
     }
 }
 
@@ -429,7 +425,7 @@ pub struct GlobalId(usize);
 impl GlobalId {
     // Dummy id for error reporting
     pub fn dummy_id() -> Self {
-        GlobalId(std::usize::MAX)
+        GlobalId(usize::MAX)
     }
 }
 
@@ -500,7 +496,7 @@ pub struct TypeAliasId(pub usize);
 
 impl TypeAliasId {
     pub fn dummy_id() -> TypeAliasId {
-        TypeAliasId(std::usize::MAX)
+        TypeAliasId(usize::MAX)
     }
 }
 
@@ -613,7 +609,14 @@ pub struct GlobalInfo {
     pub crate_id: CrateId,
     pub location: Location,
     pub let_statement: StmtId,
-    pub value: Option<comptime::Value>,
+    pub value: GlobalValue,
+}
+
+#[derive(Debug, Clone)]
+pub enum GlobalValue {
+    Unresolved,
+    Resolving,
+    Resolved(comptime::Value),
 }
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -680,7 +683,6 @@ impl Default for NodeInterner {
             auto_import_names: HashMap::default(),
             comptime_scopes: vec![HashMap::default()],
             trait_impl_associated_types: HashMap::default(),
-            usage_tracker: UsageTracker::default(),
             doc_comments: HashMap::default(),
         }
     }
@@ -854,6 +856,7 @@ impl NodeInterner {
         let id = GlobalId(self.globals.len());
         let location = Location::new(ident.span(), file);
         let name = ident.to_string();
+
         let definition_id =
             self.push_definition(name, mutable, comptime, DefinitionKind::Global(id), location);
 
@@ -865,7 +868,7 @@ impl NodeInterner {
             crate_id,
             let_statement,
             location,
-            value: None,
+            value: GlobalValue::Unresolved,
         });
         self.global_attributes.insert(id, attributes);
         id
@@ -889,6 +892,7 @@ impl NodeInterner {
     ) -> GlobalId {
         let statement = self.push_stmt(HirStatement::Error);
         let span = name.span();
+
         let id = self
             .push_global(name, local_id, crate_id, statement, file, attributes, mutable, comptime);
         self.push_stmt_location(statement, span, file);
@@ -2320,12 +2324,6 @@ impl NodeInterner {
     pub fn doc_comments(&self, id: ReferenceId) -> Option<&Vec<String>> {
         self.doc_comments.get(&id)
     }
-
-    pub fn unused_items(
-        &self,
-    ) -> &std::collections::HashMap<ModuleId, std::collections::HashMap<Ident, UnusedItem>> {
-        self.usage_tracker.unused_items()
-    }
 }
 
 impl Methods {
@@ -2362,7 +2360,7 @@ impl Methods {
     }
 
     /// Select the 1 matching method with an object type matching `typ`
-    fn find_matching_method(
+    pub fn find_matching_method(
         &self,
         typ: &Type,
         has_self_param: bool,
@@ -2450,6 +2448,7 @@ fn get_type_method_key(typ: &Type) -> Option<TypeMethodKey> {
         | Type::Error
         | Type::Struct(_, _)
         | Type::InfixExpr(..)
+        | Type::CheckedCast { .. }
         | Type::TraitAsType(..) => None,
     }
 }

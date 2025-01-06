@@ -4,7 +4,6 @@
 #include "gtest/gtest.h"
 #include <cstddef>
 #include <gmock/gmock.h>
-#include <gtest/gtest.h>
 
 #include <ranges>
 
@@ -23,14 +22,15 @@ class AvmSliceTests : public ::testing::Test {
         , trace_builder(
               AvmTraceBuilder(public_inputs).set_full_precomputed_tables(false).set_range_check_required(false))
     {
-        srs::init_crs_factory("../srs_db/ignition");
+        srs::init_crs_factory(bb::srs::get_ignition_crs_path());
     }
 
     void gen_trace_builder(std::vector<FF> const& calldata)
     {
-        trace_builder = AvmTraceBuilder(public_inputs, {}, 0, calldata)
-                            .set_full_precomputed_tables(false)
-                            .set_range_check_required(false);
+        trace_builder =
+            AvmTraceBuilder(public_inputs, {}, 0).set_full_precomputed_tables(false).set_range_check_required(false);
+        trace_builder.set_all_calldata(calldata);
+        trace_builder.current_ext_call_ctx.calldata = calldata;
         this->calldata = calldata;
     }
 
@@ -47,7 +47,8 @@ class AvmSliceTests : public ::testing::Test {
         trace_builder.op_set(0, col_offset, 0, AvmMemoryTag::U32);
         trace_builder.op_set(0, copy_size, 1, AvmMemoryTag::U32);
         trace_builder.op_calldata_copy(static_cast<uint8_t>(indirect), 0, 1, dst_offset);
-        trace_builder.op_return(0, 0, 0);
+        trace_builder.op_set(0, 0, 100, AvmMemoryTag::U32);
+        trace_builder.op_return(0, 0, 100);
         trace = trace_builder.finalize();
     }
 
@@ -115,7 +116,7 @@ class AvmSliceTests : public ::testing::Test {
         validate_trace(std::move(trace), public_inputs, calldata);
     }
 
-    VmPublicInputsNT public_inputs;
+    AvmPublicInputs public_inputs;
     AvmTraceBuilder trace_builder;
     std::vector<FF> calldata;
 
@@ -170,7 +171,8 @@ TEST_F(AvmSliceTests, twoCallsNoOverlap)
     trace_builder.op_set(0, 3, 1, AvmMemoryTag::U32);
     trace_builder.op_set(0, 2, 2, AvmMemoryTag::U32);
     trace_builder.op_calldata_copy(0, 1, 2, 2123);
-    trace_builder.op_return(0, 0, 0);
+    trace_builder.op_set(0, 0, 100, AvmMemoryTag::U32);
+    trace_builder.op_return(0, 0, 100);
     trace = trace_builder.finalize();
 
     // Main trace views of rows enabling the calldata_copy selector
@@ -207,7 +209,8 @@ TEST_F(AvmSliceTests, indirectTwoCallsOverlap)
     trace_builder.op_set(0, 3, 3, AvmMemoryTag::U32);
     trace_builder.op_calldata_copy(4, 1, 3, 100);
     trace_builder.op_calldata_copy(4, 2, 3, 101);
-    trace_builder.op_return(0, 0, 0);
+    trace_builder.op_set(0, 0, 100, AvmMemoryTag::U32);
+    trace_builder.op_return(0, 0, 100);
     trace = trace_builder.finalize();
 
     // Main trace views of rows enabling the calldata_copy selector
@@ -242,7 +245,7 @@ TEST_F(AvmSliceTests, indirectTwoCallsOverlap)
 
 TEST_F(AvmSliceTests, indirectFailedResolution)
 {
-    // TODO(#9131): Re-enable as part of #9131
+    // TODO(#9995): Re-enable as part of #9995
     GTEST_SKIP();
 
     gen_trace_builder({ 2, 3, 4, 5, 6 });
@@ -250,7 +253,8 @@ TEST_F(AvmSliceTests, indirectFailedResolution)
     trace_builder.op_set(0, 1, 1, AvmMemoryTag::U32);
     trace_builder.op_set(0, 3, 3, AvmMemoryTag::U32);
     trace_builder.op_calldata_copy(4, 1, 3, 100);
-    trace_builder.op_return(0, 0, 0);
+    trace_builder.op_set(0, 0, 100, AvmMemoryTag::U32);
+    trace_builder.op_return(0, 0, 100);
     trace = trace_builder.finalize();
 
     // Check that slice trace is empty
@@ -321,7 +325,8 @@ TEST_F(AvmSliceNegativeTests, wrongCDValueInCalldataVerifier)
 {
     gen_trace_builder({ 2, 3, 4, 5, 6 });
     trace_builder.op_calldata_copy(0, 1, 3, 100);
-    trace_builder.op_return(0, 0, 0);
+    trace_builder.op_set(0, 0, 100, AvmMemoryTag::U32);
+    trace_builder.op_return(0, 0, 100);
     trace = trace_builder.finalize();
 
     validate_trace(std::move(trace), public_inputs, { 2, 3, 4, 5, 7 }, {}, false, true);

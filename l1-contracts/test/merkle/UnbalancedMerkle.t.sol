@@ -5,11 +5,10 @@ pragma solidity >=0.8.27;
 import {Test} from "forge-std/Test.sol";
 import {Hash} from "@aztec/core/libraries/crypto/Hash.sol";
 
-import {TxsDecoderHelper} from "../decoders/helpers/TxsDecoderHelper.sol";
+import {MerkleLibHelper} from "./helpers/MerkleLibHelper.sol";
 /**
  * Tests the tree construction for unbalanced rollups.
- * Used for calculating txsEffectsHash over non balanced rollups - each leaf is one baseLeaf
- * calculated in TxsDecoder.sol.
+ * Used for calculating outHash over non balanced rollups.
  */
 
 contract UnbalancedMerkleTest is Test {
@@ -18,41 +17,41 @@ contract UnbalancedMerkleTest is Test {
    * powers of 2.
    * We list them in reverse order as we compute subtree roots from R to L
    */
-  TxsDecoderHelper internal txsHelper;
+  MerkleLibHelper internal merkleLibHelper;
 
   function setUp() public {
-    txsHelper = new TxsDecoderHelper();
+    merkleLibHelper = new MerkleLibHelper();
   }
 
-  function testDecomp() public {
+  function testDecomp() public view {
     // Worst case - max num txs
     uint32 numTxs = 65535;
-    (uint256 min, uint256 max) = txsHelper.computeMinMaxPathLength(numTxs);
+    (uint256 min, uint256 max) = merkleLibHelper.computeMinMaxPathLength(numTxs);
     assertEq(min, 15);
     assertEq(max, 16);
     // Single tree of 2**15
     numTxs = 32768;
-    (min, max) = txsHelper.computeMinMaxPathLength(numTxs);
+    (min, max) = merkleLibHelper.computeMinMaxPathLength(numTxs);
     assertEq(min, 15);
     assertEq(max, 15);
     // Single tree of 2**13
     numTxs = 8192;
-    (min, max) = txsHelper.computeMinMaxPathLength(numTxs);
+    (min, max) = merkleLibHelper.computeMinMaxPathLength(numTxs);
     assertEq(min, 13);
     assertEq(max, 13);
     // Trees of 2**12, 2**11, ... 2**0
     numTxs = 8191;
-    (min, max) = txsHelper.computeMinMaxPathLength(numTxs);
+    (min, max) = merkleLibHelper.computeMinMaxPathLength(numTxs);
     assertEq(min, 12);
     assertEq(max, 13);
     // Single tree of 2**8
     numTxs = 256;
-    (min, max) = txsHelper.computeMinMaxPathLength(numTxs);
+    (min, max) = merkleLibHelper.computeMinMaxPathLength(numTxs);
     assertEq(min, 8);
     assertEq(max, 8);
     // Left subtree of 2**8, right subtree of single leaf
     numTxs = 257;
-    (min, max) = txsHelper.computeMinMaxPathLength(numTxs);
+    (min, max) = merkleLibHelper.computeMinMaxPathLength(numTxs);
     assertEq(min, 1);
     assertEq(max, 9);
   }
@@ -62,18 +61,18 @@ contract UnbalancedMerkleTest is Test {
   //   root
   //  /     \
   // base  base
-  function testComputeTxsEffectsHash2() public {
+  function testComputeTxsEffectsHash2() public view {
     // Generate some base leaves
     bytes32[] memory baseLeaves = new bytes32[](2);
     for (uint256 i = 0; i < 2; i++) {
       baseLeaves[i] = Hash.sha256ToField(abi.encodePacked(i));
     }
     // We have just one 'balanced' branch, so depth is 0 with 2 elements
-    (uint256 min, uint256 max) = txsHelper.computeMinMaxPathLength(2);
+    (uint256 min, uint256 max) = merkleLibHelper.computeMinMaxPathLength(2);
     assertEq(min, 1);
     assertEq(max, 1);
     bytes32 rootTxsEffectsHash = Hash.sha256ToField(bytes.concat(baseLeaves[0], baseLeaves[1]));
-    bytes32 calculatedTxsEffectsHash = txsHelper.computeUnbalancedRoot(baseLeaves);
+    bytes32 calculatedTxsEffectsHash = merkleLibHelper.computeUnbalancedRoot(baseLeaves);
     assertEq(calculatedTxsEffectsHash, rootTxsEffectsHash);
   }
   // Example - 3 txs:
@@ -84,19 +83,19 @@ contract UnbalancedMerkleTest is Test {
   //  /     \
   // base  base
 
-  function testComputeTxsEffectsHash3() public {
+  function testComputeTxsEffectsHash3() public view {
     // Generate some base leaves
     bytes32[] memory baseLeaves = new bytes32[](3);
     for (uint256 i = 0; i < 3; i++) {
       baseLeaves[i] = Hash.sha256ToField(abi.encodePacked(i));
     }
-    (uint256 min, uint256 max) = txsHelper.computeMinMaxPathLength(3);
+    (uint256 min, uint256 max) = merkleLibHelper.computeMinMaxPathLength(3);
     assertEq(min, 1);
     assertEq(max, 2);
     bytes32 mergeTxsEffectsHash = Hash.sha256ToField(bytes.concat(baseLeaves[0], baseLeaves[1]));
     bytes32 rootTxsEffectsHash =
       Hash.sha256ToField(bytes.concat(mergeTxsEffectsHash, baseLeaves[2]));
-    bytes32 calculatedTxsEffectsHash = txsHelper.computeUnbalancedRoot(baseLeaves);
+    bytes32 calculatedTxsEffectsHash = merkleLibHelper.computeUnbalancedRoot(baseLeaves);
     assertEq(calculatedTxsEffectsHash, rootTxsEffectsHash);
   }
 
@@ -109,13 +108,13 @@ contract UnbalancedMerkleTest is Test {
   //   merge        merge
   //  /     \      /     \
   // base  base  base   base
-  function testComputeTxsEffectsHash5() public {
+  function testComputeTxsEffectsHash5() public view {
     // Generate some base leaves
     bytes32[] memory baseLeaves = new bytes32[](5);
     for (uint256 i = 0; i < 5; i++) {
       baseLeaves[i] = Hash.sha256ToField(abi.encodePacked(i));
     }
-    (uint256 min, uint256 max) = txsHelper.computeMinMaxPathLength(5);
+    (uint256 min, uint256 max) = merkleLibHelper.computeMinMaxPathLength(5);
     assertEq(min, 1);
     assertEq(max, 3);
     bytes32 firstMergeTxsEffectsHash =
@@ -126,7 +125,7 @@ contract UnbalancedMerkleTest is Test {
       Hash.sha256ToField(bytes.concat(firstMergeTxsEffectsHash, secondMergeTxsEffectsHash));
     bytes32 rootTxsEffectsHash =
       Hash.sha256ToField(bytes.concat(thirdMergeTxsEffectsHash, baseLeaves[4]));
-    bytes32 calculatedTxsEffectsHash = txsHelper.computeUnbalancedRoot(baseLeaves);
+    bytes32 calculatedTxsEffectsHash = merkleLibHelper.computeUnbalancedRoot(baseLeaves);
     assertEq(calculatedTxsEffectsHash, rootTxsEffectsHash);
   }
 
@@ -139,13 +138,13 @@ contract UnbalancedMerkleTest is Test {
   //   merge1       merge2  base  base
   //  /     \      /     \
   // base  base  base   base
-  function testComputeTxsEffectsHash6() public {
+  function testComputeTxsEffectsHash6() public view {
     // Generate some base leaves
     bytes32[] memory baseLeaves = new bytes32[](6);
     for (uint256 i = 0; i < 6; i++) {
       baseLeaves[i] = Hash.sha256ToField(abi.encodePacked(i));
     }
-    (uint256 min, uint256 max) = txsHelper.computeMinMaxPathLength(6);
+    (uint256 min, uint256 max) = merkleLibHelper.computeMinMaxPathLength(6);
     assertEq(min, 2);
     assertEq(max, 3);
     bytes32 firstMergeTxsEffectsHash =
@@ -158,7 +157,7 @@ contract UnbalancedMerkleTest is Test {
       Hash.sha256ToField(bytes.concat(firstMergeTxsEffectsHash, secondMergeTxsEffectsHash));
     bytes32 rootTxsEffectsHash =
       Hash.sha256ToField(bytes.concat(fourthMergeTxsEffectsHash, thirdMergeTxsEffectsHash));
-    bytes32 calculatedTxsEffectsHash = txsHelper.computeUnbalancedRoot(baseLeaves);
+    bytes32 calculatedTxsEffectsHash = merkleLibHelper.computeUnbalancedRoot(baseLeaves);
     assertEq(calculatedTxsEffectsHash, rootTxsEffectsHash);
   }
 
@@ -171,13 +170,13 @@ contract UnbalancedMerkleTest is Test {
   //   merge1       merge2      merge4  base
   //  /     \      /     \      /    \
   // base  base  base   base  base  base
-  function testComputeTxsEffectsHash7() public {
+  function testComputeTxsEffectsHash7() public view {
     // Generate some base leaves
     bytes32[] memory baseLeaves = new bytes32[](7);
     for (uint256 i = 0; i < 6; i++) {
       baseLeaves[i] = Hash.sha256ToField(abi.encodePacked(i));
     }
-    (uint256 min, uint256 max) = txsHelper.computeMinMaxPathLength(7);
+    (uint256 min, uint256 max) = merkleLibHelper.computeMinMaxPathLength(7);
     assertEq(min, 2);
     assertEq(max, 3);
     bytes32 firstMergeTxsEffectsHash =
@@ -193,7 +192,7 @@ contract UnbalancedMerkleTest is Test {
 
     bytes32 rootTxsEffectsHash =
       Hash.sha256ToField(bytes.concat(thirdMergeTxsEffectsHash, fifthMergeTxsEffectsHash));
-    bytes32 calculatedTxsEffectsHash = txsHelper.computeUnbalancedRoot(baseLeaves);
+    bytes32 calculatedTxsEffectsHash = merkleLibHelper.computeUnbalancedRoot(baseLeaves);
     assertEq(calculatedTxsEffectsHash, rootTxsEffectsHash);
   }
 }

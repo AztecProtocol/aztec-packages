@@ -1,8 +1,6 @@
-// TODO: For some reason this file requires `IndexedTreeLeafPreimage` but it's unclear why.
 use dep::types::{
     abis::validation_requests::ScopedKeyValidationRequestAndGenerator,
-    hash::poseidon2_hash_with_separator, merkle_tree::IndexedTreeLeafPreimage, scalar::Scalar,
-    traits::Empty,
+    hash::poseidon2_hash_with_separator, scalar::Scalar, traits::Empty,
 };
 use std::embedded_curve_ops::fixed_base_scalar_mul as derive_public_key;
 
@@ -121,5 +119,5 @@ pub unconstrained fn get_unverified_key_validation_requests<let REQUEST_LEN: u32
             propagated.push(key_validation_requests[i]);
         }
     }
-    propagated.storage
+    propagated.storage()
 }

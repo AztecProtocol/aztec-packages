@@ -38,12 +38,6 @@ export const Metrics = [
     events: ['avm-simulation'],
   },
   {
-    name: 'avm_simulation_bytecode_size_in_bytes',
-    groupBy: 'app-circuit-name',
-    description: 'Uncompressed bytecode size for an AVM program.',
-    events: ['avm-simulation'],
-  },
-  {
     name: 'proof_construction_time_sha256_ms',
     groupBy: 'threads',
     description: 'Time needed to generate a proof of an ACIR program.',
@@ -110,19 +104,6 @@ export const Metrics = [
     events: ['l2-block-handled'],
   },
   {
-    name: 'note_successful_decrypting_time_in_ms',
-    groupBy: 'block-size',
-    description: 'Time for the PXE to decrypt all notes in a block where they belong to a registered account.',
-    events: ['note-processor-caught-up'],
-  },
-  {
-    name: 'note_trial_decrypting_time_in_ms',
-    groupBy: 'block-size',
-    description:
-      'Time for the PXE to try decrypting all notes in a block where they do not belong to a registered account.',
-    events: ['note-processor-caught-up'],
-  },
-  {
     name: 'l2_block_building_time_in_ms',
     groupBy: 'block-size',
     description: 'Total time for the sequencer to build an L2 block from a set of txs.',
@@ -147,29 +128,10 @@ export const Metrics = [
     events: ['node-synced-chain-history'],
   },
   {
-    name: 'note_history_successful_decrypting_time_in_ms',
-    groupBy: 'chain-length',
-    description: 'Time for a PXE to decrypt all notes in the chain where they belong to a registered account.',
-    events: ['note-processor-caught-up'],
-  },
-  {
-    name: 'note_history_trial_decrypting_time_in_ms',
-    groupBy: 'chain-length',
-    description:
-      'Time for a PXE to try decrypting all notes in the chain where they do not belong to a registered account.',
-    events: ['note-processor-caught-up'],
-  },
-  {
     name: 'node_database_size_in_bytes',
     groupBy: 'chain-length',
     description: 'Size on disk of the leveldown database of a node after syncing all chain history.',
     events: ['node-synced-chain-history'],
-  },
-  {
-    name: 'pxe_database_size_in_bytes',
-    groupBy: 'chain-length',
-    description: 'Estimated size in memory of a PXE database after syncing all notes that belong to it in the chain.',
-    events: ['note-processor-caught-up'],
   },
   {
     name: 'protocol_circuit_simulation_time_in_ms',

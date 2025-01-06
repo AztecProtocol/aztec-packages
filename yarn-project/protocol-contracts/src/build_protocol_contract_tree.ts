@@ -15,7 +15,7 @@ export function buildProtocolContractTree(contracts: { address: AztecAddress; le
   const leaves = new Array(2 ** PROTOCOL_CONTRACT_TREE_HEIGHT).fill(Buffer.alloc(32));
 
   for (const contract of contracts) {
-    const index = contract.address.toNumber();
+    const index = contract.address.toField().toNumber();
     leaves[index] = contract.leaf;
   }
 
