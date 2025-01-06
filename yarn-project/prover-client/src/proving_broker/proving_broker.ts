@@ -106,6 +106,7 @@ export class ProvingBroker implements ProvingJobProducer, ProvingJobConsumer, Tr
   private maxEpochsToKeepResultsFor = 1;
 
   private requestQueue: SerialQueue = new SerialQueue();
+  private started = false;
 
   public constructor(
     private database: ProvingBrokerDatabase,
@@ -143,6 +144,10 @@ export class ProvingBroker implements ProvingJobProducer, ProvingJobConsumer, Tr
   };
 
   public start(): Promise<void> {
+    if (this.started) {
+      this.logger.info('ProvingBroker already started');
+      return Promise.resolve();
+    }
     for (const [item, result] of this.database.allProvingJobs()) {
       this.logger.info(`Restoring proving job id=${item.id} settled=${!!result}`, {
         provingJobId: item.id,
@@ -167,10 +172,16 @@ export class ProvingBroker implements ProvingJobProducer, ProvingJobConsumer, Tr
     this.instrumentation.monitorQueueDepth(this.measureQueueDepth);
     this.instrumentation.monitorActiveJobs(this.countActiveJobs);
 
+    this.started = true;
+
     return Promise.resolve();
   }
 
   public async stop(): Promise<void> {
+    if (!this.started) {
+      this.logger.warn('ProvingBroker not started');
+      return Promise.resolve();
+    }
     await this.requestQueue.cancel();
     await this.cleanupPromise.stop();
   }
