@@ -88,12 +88,6 @@ void compute_grand_product(typename Flavor::ProverPolynomials& full_polynomials,
 
     const MultithreadData active_range_thread_data = calculate_thread_data(active_domain_size);
 
-    auto check_is_active = [&](size_t idx) {
-        return std::any_of(active_block_ranges.begin(), active_block_ranges.end(), [idx](const auto& range) {
-            return idx >= range.first && idx < range.second;
-        });
-    };
-
     // Allocate numerator/denominator polynomials that will serve as scratch space
     // TODO(zac) we can re-use the permutation polynomial as the numerator polynomial. Reduces readability
     Polynomial numerator{ active_domain_size };
@@ -194,34 +188,29 @@ void compute_grand_product(typename Flavor::ProverPolynomials& full_polynomials,
         }
     });
 
-    // Final step is to populate the constant values of the grand product in the inactive regions
+    // Final step: The grand product is constant in the inactive regions of the trace (since there are no copy
+    // constraints there). These constant values have already been computed and are equal to the first value in the
+    // active region that follows
     MultithreadData full_domain_thread_data = calculate_thread_data(domain_size);
 
-    // WORKTODO: I think the fundamental problem that leads to this wierd backwards setting of constant values based on
-    // the start of the next active region is that the indices in z_perm are offset from the indices of num/denom by 1.
-    // I.e. the values of num at i determine the values of z_perm at i+1. So I think we should really use the values in
-    // active region j to set values [start_j + 1, end_j) in z_perm. This would then mean setting the constant values in
-    // a dead region (up to and including the value in the next active region) to the value that immediately preceded it
-    // (at the first index of the dead region)
+    // Lambda to set the constant inactive regions of the grand product if they exist
+    auto set_constant_value_if_inactive = [&](size_t i) {
+        for (size_t j = 0; j < active_block_ranges.size() - 1; ++j) {
+            if (i >= active_block_ranges[j].second && i < active_block_ranges[j + 1].first) {
+                size_t constant_value_idx = active_block_ranges[j + 1].first;
+                grand_product_polynomial.at(i) = grand_product_polynomial[constant_value_idx];
+                break;
+            }
+        }
+    };
+
     parallel_for(full_domain_thread_data.num_threads, [&](size_t thread_idx) {
         const size_t start = full_domain_thread_data.start[thread_idx];
         const size_t end = full_domain_thread_data.end[thread_idx];
         for (size_t i = start; i < end; ++i) {
-            if (!check_is_active(i + 1)) {
-                // Set the value in the inactive regions to the first active value in the active region that follows
-                for (size_t j = 0; j < active_block_ranges.size() - 1; ++j) {
-                    auto& ranges = active_block_ranges;
-                    if (i + 1 >= ranges[j].second && i + 1 < ranges[j + 1].first) {
-                        size_t val_idx = ranges[j + 1].first;
-                        grand_product_polynomial.at(i + 1) = grand_product_polynomial[val_idx];
-                        break;
-                    }
-                }
-            }
+            set_constant_value_if_inactive(i);
         }
     });
-
-    info("grand_product_polynomial.at(1) = ", grand_product_polynomial.at(1));
 
     DEBUG_LOG_ALL(grand_product_polynomial.coeffs());
 }
