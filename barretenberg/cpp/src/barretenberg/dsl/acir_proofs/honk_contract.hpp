@@ -1540,7 +1540,6 @@ abstract contract BaseHonkVerifier is IVerifier {
         ];
         // To compute the next target sum, we evaluate the given univariate at a point u (challenge).
 
-        // TODO: opt: use same array mem for each iteratioon
         // Performing Barycentric evaluations
         // Compute B(x)
         Fr numeratorValue = Fr.wrap(1);
@@ -1548,7 +1547,7 @@ abstract contract BaseHonkVerifier is IVerifier {
             numeratorValue = numeratorValue * (roundChallenge - Fr.wrap(i));
         }
 
-        // Calculate domain size N of inverses -- TODO: montgomery's trick
+        // Calculate domain size N of inverses
         Fr[BATCHED_RELATION_PARTIAL_LENGTH] memory denominatorInverses;
         for (uint256 i; i < BATCHED_RELATION_PARTIAL_LENGTH; ++i) {
             Fr inv = BARYCENTRIC_LAGRANGE_DENOMINATORS[i];
@@ -1579,7 +1578,9 @@ abstract contract BaseHonkVerifier is IVerifier {
 
     // Avoid stack too deep
     struct ShpleminiIntermediates {
+        // i-th unshifted commitment is multiplied by −ρⁱ and the unshifted_scalar ( 1/(z−r) + ν/(z+r) )
         Fr unshiftedScalar;
+        // i-th shifted commitment is multiplied by −ρⁱ⁺ᵏ and the shifted_scalar r⁻¹ ⋅ (1/(z−r) − ν/(z+r))
         Fr shiftedScalar;
         // Scalar to be multiplied by [1]₁
         Fr constantTermAccumulator;
