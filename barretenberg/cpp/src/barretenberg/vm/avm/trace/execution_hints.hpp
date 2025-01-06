@@ -275,7 +275,7 @@ struct ExecutionHints {
         std::vector<ContractInstanceHint> contract_instance_hints_vec;
         read(it, contract_instance_hints_vec);
         std::map<FF, ContractInstanceHint> contract_instance_hints;
-        for (const auto& instance : contract_instance_hints_vec) {
+        for (const auto& instance : std::views::reverse(contract_instance_hints_vec)) {
             contract_instance_hints[instance.address] = instance;
         }
 
