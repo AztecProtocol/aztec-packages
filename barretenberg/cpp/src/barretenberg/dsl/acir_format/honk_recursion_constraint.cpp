@@ -220,7 +220,7 @@ HonkRecursionConstraintOutput create_honk_recursion_constraints(
     using RecursiveVerifier = bb::stdlib::recursion::honk::UltraRecursiveVerifier_<Flavor>;
 
     ASSERT(input.proof_type == HONK || HasIPAAccumulator<Flavor>);
-    ASSERT((input.proof_type == ROLLUP_HONK || input.proof_type == ROLLUP_ROOT_HONK) == HasIPAAccumulator<Flavor>);
+    ASSERT((input.proof_type == ROLLUP_HONK || input.proof_type == ROOT_ROLLUP_HONK) == HasIPAAccumulator<Flavor>);
 
     // Construct an in-circuit representation of the verification key.
     // For now, the v-key is a circuit constant and is fixed for the circuit.

@@ -126,7 +126,7 @@ bootNode:
   storageSize: "100Gi"
 
 proverAgent:
-  replicas: 12
+  replicas: 60
   bb:
     hardwareConcurrency: 31
   gke:
