@@ -168,32 +168,12 @@ describe('ArchiverApiSchema', () => {
     expect(result).toEqual({ logs: [expect.any(ExtendedUnencryptedL2Log)], maxLogsHit: true });
   });
 
-  /* TODO: FLAKE
-    ● ArchiverApiSchema › getContractClassLogs
-
-    (JSON-RPC PROPAGATED) (host http://127.0.0.1:44739) (method getContractClassLogs) (code 500) Invalid block number: 0
-
-      58 |     const errorMessage = `(JSON-RPC PROPAGATED) (host ${host}) (method ${rpcMethod}) (code ${resp.status}) ${responseJson.error.message}`;
-      59 |     if (noRetry || (resp.status >= 400 && resp.status < 500)) {
-    > 60 |       throw new NoRetryError(errorMessage);
-         |             ^
-      61 |     } else {
-      62 |       throw new Error(errorMessage);
-      63 |     }
-
-      at defaultFetch (../../foundation/src/json-rpc/client/fetch.ts:60:13)
-      at retry (../../foundation/src/retry/index.ts:56:14)
-      at ../../foundation/src/json-rpc/client/fetch.ts:78:12
-      at request (../../foundation/src/json-rpc/client/safe_json_rpc_client.ts:33:17)
-      at Object.<anonymous> (../src/interfaces/archiver.test.ts:172:20)
-   */
   it('getContractClassLogs', async () => {
-    // I can't just skip this test due to annoying before/after voodoo.
-    // const result = await context.client.getContractClassLogs({
-    //   txHash: TxHash.random(),
-    //   contractAddress: AztecAddress.random(),
-    // });
-    // expect(result).toEqual({ logs: [expect.any(ExtendedUnencryptedL2Log)], maxLogsHit: true });
+    const result = await context.client.getContractClassLogs({
+      txHash: TxHash.random(),
+      contractAddress: AztecAddress.random(),
+    });
+    expect(result).toEqual({ logs: [expect.any(ExtendedUnencryptedL2Log)], maxLogsHit: true });
   });
 
   it('getPublicFunction', async () => {
