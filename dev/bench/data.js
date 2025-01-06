@@ -1,64 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1736202537012,
+  "lastUpdate": 1736202770893,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "name": "AztecProtocol",
-            "username": "AztecProtocol"
-          },
-          "committer": {
-            "name": "AztecProtocol",
-            "username": "AztecProtocol"
-          },
-          "id": "58362e4060163e5ec14e8ff7cc9f7c190302d112",
-          "message": "chore(master): Release 0.67.0",
-          "timestamp": "2024-12-13T05:57:40Z",
-          "url": "https://github.com/AztecProtocol/aztec-packages/pull/10472/commits/58362e4060163e5ec14e8ff7cc9f7c190302d112"
-        },
-        "date": 1734070506181,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "nativeClientIVCBench/Full/6",
-            "value": 24651.243679999992,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 22550.046144 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 4534.163036999985,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 4270.896552 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmClientIVCBench/Full/6",
-            "value": 90258.48015700001,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 90258480000 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 16525.912495,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 16525912000 ms\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 2782822117,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 2782822117 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 132200542,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 132200542 ns\nthreads: 1"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -3234,6 +3178,72 @@ window.BENCHMARK_DATA = {
             "value": 154266954,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 154266954 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "blorktronics@gmail.com",
+            "name": "Zachary James Williamson",
+            "username": "zac-williamson"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "7da7f2bb6c26a7c55a5869d21c3a5f546880a001",
+          "message": "feat: improve witness generation for cycle_group::batch_mul (#9563)\n\nProblem:\r\n\r\n`cycle_group` has a heavy witness generation cost. Existing code\r\nperforms multiple modular inversions for every cycle_group group\r\noperation in `batch_mul`\r\n\r\nThis was leading to 40% of the Prover time for `cycle_group` operations\r\nbeing raw witness generation.\r\n\r\nBatch inversion techniques are now employed to remove this cost.",
+          "timestamp": "2025-01-06T17:08:25-05:00",
+          "tree_id": "5221d562f6453310d60bab2d4df959480a161cb1",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/7da7f2bb6c26a7c55a5869d21c3a5f546880a001"
+        },
+        "date": 1736202763823,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Ambient_17_in_20/6",
+            "value": 19452.477765000025,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 17035.208253999997 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 21234.543427999994,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 18605.154755999996 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 4621.017558000005,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 4249.78584 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 80358.20862199999,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 80358209000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 13986.053909,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 13986054000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 3007016102,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 3007016102 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 141695438,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 141695438 ns\nthreads: 1"
           }
         ]
       }
