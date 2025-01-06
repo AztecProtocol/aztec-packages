@@ -10,6 +10,7 @@ import {
   type ProverCoordination,
   type ProverNodeApi,
   type Service,
+  type Tx,
   type WorldStateSynchronizer,
   tryStop,
 } from '@aztec/circuit-types';
@@ -49,6 +50,7 @@ export class ProverNode implements ClaimsMonitorHandler, EpochMonitorHandler, Pr
 
   private latestEpochWeAreProving: bigint | undefined;
   private jobs: Map<string, EpochProvingJob> = new Map();
+  private cachedEpochData: { epochNumber: bigint; blocks: L2Block[]; txs: Tx[] } | undefined = undefined;
   private options: ProverNodeOptions;
   private metrics: ProverNodeMetrics;
 
@@ -139,13 +141,12 @@ export class ProverNode implements ClaimsMonitorHandler, EpochMonitorHandler, Pr
    */
   async handleEpochCompleted(epochNumber: bigint): Promise<void> {
     try {
-      // Construct a quote for the epoch
-      const blocks = await this.l2BlockSource.getBlocksForEpoch(epochNumber);
-      if (blocks.length === 0) {
-        this.log.info(`No blocks found for epoch ${epochNumber}`);
-        return;
-      }
+      // Gather data for the epoch
+      const epochData = await this.gatherEpochData(epochNumber);
+      const { blocks } = epochData;
+      this.cachedEpochData = { epochNumber, ...epochData };
 
+      // Construct a quote for the epoch
       const partialQuote = await this.quoteProvider.getQuote(Number(epochNumber), blocks);
       if (!partialQuote) {
         this.log.info(`No quote produced for epoch ${epochNumber}`);
@@ -256,10 +257,9 @@ export class ProverNode implements ClaimsMonitorHandler, EpochMonitorHandler, Pr
     }
 
     // Gather blocks for this epoch
-    const blocks = await this.l2BlockSource.getBlocksForEpoch(epochNumber);
-    if (blocks.length === 0) {
-      throw new Error(`No blocks found for epoch ${epochNumber}`);
-    }
+    const cachedEpochData = this.cachedEpochData?.epochNumber === epochNumber ? this.cachedEpochData : undefined;
+    const { blocks, txs } = cachedEpochData ?? (await this.gatherEpochData(epochNumber));
+
     const fromBlock = blocks[0].number;
     const toBlock = blocks.at(-1)!.number;
 
@@ -279,15 +279,51 @@ export class ProverNode implements ClaimsMonitorHandler, EpochMonitorHandler, Pr
       return Promise.resolve();
     };
 
-    const job = this.doCreateEpochProvingJob(epochNumber, blocks, publicProcessorFactory, cleanUp);
+    const job = this.doCreateEpochProvingJob(epochNumber, blocks, txs, publicProcessorFactory, cleanUp);
     this.jobs.set(job.getId(), job);
     return job;
+  }
+
+  @trackSpan('ProverNode.gatherEpochData', epochNumber => ({ [Attributes.EPOCH_NUMBER]: Number(epochNumber) }))
+  private async gatherEpochData(epochNumber: bigint) {
+    // Gather blocks for this epoch and their txs
+    const blocks = await this.gatherBlocks(epochNumber);
+    const txs = await this.gatherTxs(epochNumber, blocks);
+
+    return { blocks, txs };
+  }
+
+  private async gatherBlocks(epochNumber: bigint) {
+    const blocks = await this.l2BlockSource.getBlocksForEpoch(epochNumber);
+    if (blocks.length === 0) {
+      throw new Error(`No blocks found for epoch ${epochNumber}`);
+    }
+    return blocks;
+  }
+
+  private async gatherTxs(epochNumber: bigint, blocks: L2Block[]) {
+    const txs = await Promise.all(
+      blocks.flatMap(block =>
+        block.body.txEffects
+          .map(tx => tx.txHash)
+          .map(txHash => this.coordination.getTxByHash(txHash).then(tx => [block.number, txHash, tx] as const)),
+      ),
+    );
+
+    const notFound = txs.filter(([_blockNum, _txHash, tx]) => !tx);
+    if (notFound.length) {
+      const notFoundList = notFound.map(([blockNum, txHash]) => `${txHash.toString()} (block ${blockNum})`).join(', ');
+      throw new Error(`Txs not found for epoch ${epochNumber}: ${notFoundList}`);
+    }
+
+    return txs.map(([_blockNumber, _txHash, tx]) => tx!);
   }
 
   /** Extracted for testing purposes. */
   protected doCreateEpochProvingJob(
     epochNumber: bigint,
     blocks: L2Block[],
+    txs: Tx[],
     publicProcessorFactory: PublicProcessorFactory,
     cleanUp: () => Promise<void>,
   ) {
@@ -295,12 +331,12 @@ export class ProverNode implements ClaimsMonitorHandler, EpochMonitorHandler, Pr
       this.worldState,
       epochNumber,
       blocks,
+      txs,
       this.prover.createEpochProver(),
       publicProcessorFactory,
       this.publisher,
       this.l2BlockSource,
       this.l1ToL2MessageSource,
-      this.coordination,
       this.metrics,
       { parallelBlockLimit: this.options.maxParallelBlocksPerEpoch },
       cleanUp,

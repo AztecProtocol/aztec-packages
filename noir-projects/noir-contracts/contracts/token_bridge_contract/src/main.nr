@@ -95,7 +95,6 @@ contract TokenBridge {
     /// Claims the bridged tokens and makes them accessible in private. Note that recipient's address is not revealed
     /// but the amount is. Hence it's most likely possible to determine to which L1 deposit this claim corresponds to
     /// (unless there are multiple pending deposits of the same amount).
-    /// TODO(#8416): Consider creating a truly private claim flow.
     #[private]
     fn claim_private(
         recipient: AztecAddress, // recipient of the bridged tokens

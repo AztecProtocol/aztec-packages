@@ -4,6 +4,14 @@
 #include "barretenberg/ultra_honk/oink_prover.hpp"
 namespace bb {
 
+template <IsUltraFlavor Flavor>
+UltraProver_<Flavor>::UltraProver_(const std::shared_ptr<DeciderPK>& proving_key,
+                                   const std::shared_ptr<CommitmentKey>& commitment_key)
+    : proving_key(std::move(proving_key))
+    , transcript(std::make_shared<Transcript>())
+    , commitment_key(commitment_key)
+{}
+
 /**
  * @brief Create UltraProver_ from a decider proving key.
  *

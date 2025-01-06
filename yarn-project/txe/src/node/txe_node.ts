@@ -149,7 +149,7 @@ export class TXENode implements AztecNode {
       const tag = log.fields[0];
       const currentLogs = this.#logsByTags.get(tag.toString()) ?? [];
       const scopedLog = new TxScopedL2Log(
-        new TxHash(new Fr(blockNumber).toBuffer()),
+        new TxHash(new Fr(blockNumber)),
         this.#noteIndex,
         blockNumber,
         false,
@@ -193,7 +193,7 @@ export class TXENode implements AztecNode {
 
         const currentLogs = this.#logsByTags.get(tag.toString()) ?? [];
         const scopedLog = new TxScopedL2Log(
-          new TxHash(new Fr(blockNumber).toBuffer()),
+          new TxHash(new Fr(blockNumber)),
           this.#noteIndex,
           blockNumber,
           true,

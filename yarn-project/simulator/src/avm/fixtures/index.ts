@@ -55,7 +55,7 @@ export function initPersistableStateManager(overrides?: {
     overrides?.nullifiers || new NullifierManager(worldStateDB),
     overrides?.doMerkleOperations || false,
     overrides?.merkleTrees || mock<AvmEphemeralForest>(),
-    overrides?.txHash || new TxHash(new Fr(27).toBuffer()),
+    overrides?.txHash || new TxHash(new Fr(27)),
   );
 }
 

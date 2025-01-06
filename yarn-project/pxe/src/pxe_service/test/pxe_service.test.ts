@@ -44,6 +44,7 @@ async function createPXEService(): Promise<PXE> {
     coinIssuerAddress: EthAddress.random(),
     rewardDistributorAddress: EthAddress.random(),
     governanceProposerAddress: EthAddress.random(),
+    slashFactoryAddress: EthAddress.random(),
   };
   node.getL1ContractAddresses.mockResolvedValue(mockedContracts);
 
