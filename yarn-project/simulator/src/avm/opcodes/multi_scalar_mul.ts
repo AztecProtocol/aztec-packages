@@ -3,7 +3,7 @@ import { Grumpkin } from '@aztec/circuits.js/barretenberg';
 
 import { type AvmContext } from '../avm_context.js';
 import { Field, TypeTag, Uint1 } from '../avm_memory_types.js';
-import { InstructionExecutionError } from '../errors.js';
+import { MSMPointNotOnCurveError, MSMPointsLengthError } from '../errors.js';
 import { Opcode, OperandType } from '../serialization/instruction_serialization.js';
 import { Addressing } from './addressing_mode.js';
 import { Instruction } from './instruction.js';
@@ -44,7 +44,7 @@ export class MultiScalarMul extends Instruction {
     // Get the size of the unrolled (x, y , inf) points vector
     const pointsReadLength = memory.get(pointsLengthOffset).toNumber();
     if (pointsReadLength % 3 !== 0) {
-      throw new InstructionExecutionError(`Points vector offset should be a multiple of 3, was ${pointsReadLength}`);
+      throw new MSMPointsLengthError(pointsReadLength);
     }
 
     // Get the unrolled (x, y, inf) representing the points
@@ -76,7 +76,7 @@ export class MultiScalarMul extends Instruction {
       const isInf = pointsVector[3 * i + 2].toNumber() === 1;
       const p: Point = new Point(pointsVector[3 * i].toFr(), pointsVector[3 * i + 1].toFr(), isInf);
       if (!p.isOnGrumpkin()) {
-        throw new InstructionExecutionError(`Point ${p.toString()} is not on the curve.`);
+        throw new MSMPointNotOnCurveError(p);
       }
       grumpkinPoints.push(p);
     }
