@@ -71,6 +71,9 @@ config.l1RpcUrl = config.l1RpcUrl || 'http://127.0.0.1:8545';
 
 const numberOfConsecutiveBlocks = 2;
 
+const BLOB_SINK_PORT = 5052;
+const BLOB_SINK_URL = `http://localhost:${BLOB_SINK_PORT}`;
+
 describe('L1Publisher integration', () => {
   let publicClient: PublicClient<HttpTransport, Chain>;
   let walletClient: WalletClient<HttpTransport, Chain, Account>;
@@ -182,6 +185,7 @@ describe('L1Publisher integration', () => {
         l1ChainId: 31337,
         viemPollingIntervalMS: 100,
         ethereumSlotDuration: config.ethereumSlotDuration,
+        blobSinkUrl: BLOB_SINK_URL,
       },
       new NoopTelemetryClient(),
     );
