@@ -1,7 +1,7 @@
 import {
   BlockAttestation,
   ConsensusPayload,
-  SignatureDomainSeperator,
+  SignatureDomainSeparator,
   TxHash,
   getHashedSignaturePayloadEthSignedMessage,
 } from '@aztec/circuit-types';
@@ -37,7 +37,7 @@ export const mockAttestation = (
   const header = makeHeader(1, 2, slot);
   const payload = new ConsensusPayload(header, archive, txs);
 
-  const hash = getHashedSignaturePayloadEthSignedMessage(payload, SignatureDomainSeperator.blockAttestation);
+  const hash = getHashedSignaturePayloadEthSignedMessage(payload, SignatureDomainSeparator.blockAttestation);
   const signature = signer.sign(hash);
 
   return new BlockAttestation(payload, signature);
