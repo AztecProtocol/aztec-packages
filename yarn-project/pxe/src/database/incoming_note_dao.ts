@@ -76,7 +76,7 @@ export class IncomingNoteDao implements NoteData {
       this.contractAddress,
       this.storageSlot,
       this.noteTypeId,
-      this.txHash.buffer,
+      this.txHash,
       this.l2BlockNumber,
       Fr.fromHexString(this.l2BlockHash),
       this.nonce,
