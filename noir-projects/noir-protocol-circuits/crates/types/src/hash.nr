@@ -146,7 +146,7 @@ pub fn compute_l2_to_l1_hash(
         // TODO are bytes be in fr.to_buffer() ?
         let item_bytes: [u8; 32] = inputs[i].to_be_bytes();
         for j in 0..32 {
-            bytes[5 * i + j] = item_bytes[j];
+            bytes[32 * i + j] = item_bytes[j];
         }
     }
 
