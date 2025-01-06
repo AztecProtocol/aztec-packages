@@ -32,6 +32,10 @@ const WEI_CONST = 1_000_000_000n;
 // https://github.com/ethereum/go-ethereum/blob/e3d61e6db028c412f74bc4d4c7e117a9e29d0de0/core/txpool/legacypool/list.go#L298
 const MIN_REPLACEMENT_BUMP_PERCENTAGE = 10n;
 
+// setting a minimum bump percentage to 100% due to geth's implementation
+// https://github.com/ethereum/go-ethereum/blob/e3d61e6db028c412f74bc4d4c7e117a9e29d0de0/core/txpool/blobpool/config.go#L34
+const MIN_BLOB_REPLACEMENT_BUMP_PERCENTAGE = 100n;
+
 // Avg ethereum block time is ~12s
 const BLOCK_TIME_MS = 12_000;
 
@@ -376,18 +380,22 @@ export class L1TxUtils {
       const blobBaseFeeHex = await this.publicClient.request({ method: 'eth_blobBaseFee' });
       blobBaseFee = BigInt(blobBaseFeeHex);
     } catch {
-      // Ignore if not supported
+      this.logger?.warn('Failed to get blob base fee', { attempt });
     }
 
     // Get initial priority fee from the network
     let priorityFee = await this.publicClient.estimateMaxPriorityFeePerGas();
     let maxFeePerGas = baseFee;
 
+    let maxFeePerBlobGas = blobBaseFee;
+
     // Bump base fee so it's valid for next blocks if it stalls
     const numBlocks = Math.ceil(gasConfig.stallTimeMs! / BLOCK_TIME_MS);
     for (let i = 0; i < numBlocks; i++) {
       // each block can go up 12.5% from previous baseFee
       maxFeePerGas = (maxFeePerGas * (1_000n + 125n)) / 1_000n;
+      // same for blob gas fee
+      maxFeePerBlobGas = (maxFeePerBlobGas * (1_000n + 125n)) / 1_000n;
     }
 
     if (attempt > 0) {
@@ -421,11 +429,15 @@ export class L1TxUtils {
 
     if (attempt > 0 && previousGasPrice?.maxFeePerBlobGas) {
       const bumpPercentage =
-        gasConfig.priorityFeeRetryBumpPercentage! > MIN_REPLACEMENT_BUMP_PERCENTAGE
+        gasConfig.priorityFeeRetryBumpPercentage! > MIN_BLOB_REPLACEMENT_BUMP_PERCENTAGE
           ? gasConfig.priorityFeeRetryBumpPercentage!
-          : MIN_REPLACEMENT_BUMP_PERCENTAGE;
+          : MIN_BLOB_REPLACEMENT_BUMP_PERCENTAGE;
 
-      blobBaseFee = (previousGasPrice.maxFeePerBlobGas * (100n + bumpPercentage)) / 100n;
+      // calculate min blob fee based on previous attempt
+      const minBlobFee = (previousGasPrice.maxFeePerBlobGas * (100n + bumpPercentage)) / 100n;
+
+      // use max between current network values and min required values
+      maxFeePerBlobGas = maxFeePerBlobGas > minBlobFee ? maxFeePerBlobGas : minBlobFee;
     }
 
     this.logger?.debug(`Computed gas price`, {
@@ -433,13 +445,13 @@ export class L1TxUtils {
       baseFee: formatGwei(baseFee),
       maxFeePerGas: formatGwei(maxFeePerGas),
       maxPriorityFeePerGas: formatGwei(maxPriorityFeePerGas),
-      ...(blobBaseFee && { maxFeePerBlobGas: formatGwei(blobBaseFee) }),
+      ...(maxFeePerBlobGas && { maxFeePerBlobGas: formatGwei(maxFeePerBlobGas) }),
     });
 
     return {
       maxFeePerGas,
       maxPriorityFeePerGas,
-      ...(blobBaseFee && { maxFeePerBlobGas: blobBaseFee }),
+      ...(maxFeePerBlobGas && { maxFeePerBlobGas: maxFeePerBlobGas }),
     };
   }
 

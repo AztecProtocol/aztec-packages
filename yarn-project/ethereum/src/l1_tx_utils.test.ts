@@ -352,7 +352,6 @@ describe('GasUtils', () => {
       kzg,
       maxFeePerBlobGas: 10000000000n,
     });
-
     // Blob transactions should require more gas
     expect(blobEstimate).toBeGreaterThan(baseEstimate);
   }, 20_000);
