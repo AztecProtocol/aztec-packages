@@ -152,7 +152,7 @@ template <typename Flavor> class ProtogalaxyTests : public testing::Test {
         std::vector<FF> betas = { FF(5), FF(8), FF(11) };
         std::vector<FF> deltas = { FF(2), FF(4), FF(8) };
         std::vector<FF> full_honk_evaluations = { FF(1), FF(1), FF(1), FF(1), FF(1), FF(1), FF(1), FF(1) };
-        [[maybe_unused]] Polynomial honk_evaluations_poly(full_honk_evaluations.size());
+        Polynomial honk_evaluations_poly(full_honk_evaluations.size());
         for (auto [poly_val, val] : zip_view(honk_evaluations_poly.coeffs(), full_honk_evaluations)) {
             poly_val = val;
         }
@@ -564,12 +564,7 @@ template <typename Flavor> class ProtogalaxyTests : public testing::Test {
         EXPECT_TRUE(check_accumulator_target_sum_manual(prover_accumulator));
 
         // Tamper with an accumulator polynomial
-        for (size_t i = 0; i < prover_accumulator->proving_key.circuit_size; ++i) {
-            if (prover_accumulator->proving_key.polynomials.q_arith[i] != 0) {
-                prover_accumulator->proving_key.polynomials.w_l.at(i) += 1;
-                break;
-            }
-        }
+        prover_accumulator->proving_key.polynomials.w_l.at(1) = FF::random_element();
         EXPECT_FALSE(check_accumulator_target_sum_manual(prover_accumulator));
 
         TupleOfKeys insts_2 = construct_keys(1); // just one decider key pair

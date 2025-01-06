@@ -6,6 +6,7 @@
 #include "barretenberg/flavor/flavor.hpp"
 #include "barretenberg/plonk/proof_system/proving_key/proving_key.hpp"
 #include "barretenberg/relations/relation_parameters.hpp"
+#include "barretenberg/trace_to_polynomials/trace_to_polynomials.hpp"
 #include <typeinfo>
 
 namespace bb {
@@ -58,7 +59,7 @@ template <typename Flavor, typename GrandProdRelation>
 void compute_grand_product(typename Flavor::ProverPolynomials& full_polynomials,
                            bb::RelationParameters<typename Flavor::FF>& relation_parameters,
                            size_t size_override = 0,
-                           std::vector<std::pair<size_t, size_t>> active_block_ranges = {})
+                           const ActiveRegionData& active_region_data = ActiveRegionData{})
 {
     PROFILE_THIS_NAME("compute_grand_product");
 
@@ -70,21 +71,43 @@ void compute_grand_product(typename Flavor::ProverPolynomials& full_polynomials,
     // the permutation grand product does not need to be computed beyond the index of the last active wire
     size_t domain_size = size_override == 0 ? full_polynomials.get_polynomial_size() : size_override;
 
-    // If no active ranges have been specified, define the whole domain as the single active range
-    if (active_block_ranges.empty()) {
-        active_block_ranges.emplace_back(0, domain_size);
-    }
+    // // If no active ranges have been specified, define the whole domain as the single active range
+    // if (active_region_data.ranges.empty()) {
+    //     active_region_data.ranges.emplace_back(0, domain_size);
+    // }
 
-    // Explicitly construct the indices of the active rows
-    std::vector<size_t> active_idxs;
-    for (auto& range : active_block_ranges) {
-        for (size_t i = range.first; i < range.second; ++i) {
-            active_idxs.push_back(i);
+    // auto execute_parallel_for_on_active_domain = [&](size_t num_iterations, const std::function<void(size_t)>& func)
+    // {
+    //     MultithreadData thread_data;
+
+    //     if (active_region_data.ranges.empty()) {
+    //         thread_data = calculate_thread_data(domain_size);
+    //         parallel_for(thread_data.num_threads, func) {}
+    //         else
+    //         {
+    //         }
+    //     };
+    // };
+
+    auto get_active_range_poly_idx = [&](size_t i) {
+        if (active_region_data.idxs.empty()) {
+            return i;
         }
-    }
-    // The size of the iteration domain is one less than the number of active rows since the final value of the grand
-    // product is constructed only in the relation and not explicitly in the polynomial
-    size_t active_domain_size = active_idxs.size() - 1;
+        return active_region_data.idxs[i];
+    };
+
+    // // Explicitly construct the indices of the active rows
+    // std::vector<size_t> active_region_data.idxs;
+    // for (auto& range : active_region_data.ranges) {
+    //     for (size_t i = range.first; i < range.second; ++i) {
+    //         active_region_data.idxs.push_back(i);
+    //     }
+    // }
+
+    // The size of the iteration domain is one less than the number of active rows since the final value of the
+    // grand product is constructed only in the relation and not explicitly in the polynomial
+    size_t active_domain_size =
+        active_region_data.ranges.empty() ? domain_size - 1 : active_region_data.idxs.size() - 1;
 
     const MultithreadData active_range_thread_data = calculate_thread_data(active_domain_size);
 
@@ -100,8 +123,9 @@ void compute_grand_product(typename Flavor::ProverPolynomials& full_polynomials,
         const size_t end = active_range_thread_data.end[thread_idx];
         typename Flavor::AllValues row;
         for (size_t i = start; i < end; ++i) {
-            // TODO(https://github.com/AztecProtocol/barretenberg/issues/940):consider avoiding get_row if possible.
-            auto row_idx = active_idxs[i];
+            // TODO(https://github.com/AztecProtocol/barretenberg/issues/940):consider avoiding get_row if
+            // possible.
+            auto row_idx = get_active_range_poly_idx(i);
             if constexpr (IsUltraFlavor<Flavor>) {
                 row = full_polynomials.get_row_for_permutation_arg(row_idx);
             } else {
@@ -183,7 +207,7 @@ void compute_grand_product(typename Flavor::ProverPolynomials& full_polynomials,
         const size_t start = active_range_thread_data.start[thread_idx];
         const size_t end = active_range_thread_data.end[thread_idx];
         for (size_t i = start; i < end; ++i) {
-            auto poly_idx = active_idxs[i + 1];
+            auto poly_idx = get_active_range_poly_idx(i + 1);
             grand_product_polynomial.at(poly_idx) = numerator[i] * denominator[i];
         }
     });
@@ -193,24 +217,27 @@ void compute_grand_product(typename Flavor::ProverPolynomials& full_polynomials,
     // active region that follows
     MultithreadData full_domain_thread_data = calculate_thread_data(domain_size);
 
+    // WORKTODO: just dont do this if a ctive ranges havent been set
     // Lambda to set the constant inactive regions of the grand product if they exist
     auto set_constant_value_if_inactive = [&](size_t i) {
-        for (size_t j = 0; j < active_block_ranges.size() - 1; ++j) {
-            if (i >= active_block_ranges[j].second && i < active_block_ranges[j + 1].first) {
-                size_t constant_value_idx = active_block_ranges[j + 1].first;
+        for (size_t j = 0; j < active_region_data.ranges.size() - 1; ++j) {
+            if (i >= active_region_data.ranges[j].second && i < active_region_data.ranges[j + 1].first) {
+                size_t constant_value_idx = active_region_data.ranges[j + 1].first;
                 grand_product_polynomial.at(i) = grand_product_polynomial[constant_value_idx];
                 break;
             }
         }
     };
 
-    parallel_for(full_domain_thread_data.num_threads, [&](size_t thread_idx) {
-        const size_t start = full_domain_thread_data.start[thread_idx];
-        const size_t end = full_domain_thread_data.end[thread_idx];
-        for (size_t i = start; i < end; ++i) {
-            set_constant_value_if_inactive(i);
-        }
-    });
+    if (!active_region_data.ranges.empty()) {
+        parallel_for(full_domain_thread_data.num_threads, [&](size_t thread_idx) {
+            const size_t start = full_domain_thread_data.start[thread_idx];
+            const size_t end = full_domain_thread_data.end[thread_idx];
+            for (size_t i = start; i < end; ++i) {
+                set_constant_value_if_inactive(i);
+            }
+        });
+    }
 
     DEBUG_LOG_ALL(grand_product_polynomial.coeffs());
 }

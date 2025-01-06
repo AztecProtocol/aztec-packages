@@ -98,13 +98,13 @@ template <IsUltraFlavor Flavor> void OinkProver<Flavor>::execute_wire_commitment
     // We only commit to the fourth wire polynomial after adding memory recordss
     {
         PROFILE_THIS_NAME("COMMIT::wires");
-        if (proving_key->get_is_structured()) {
+        if (IsMegaFlavor<Flavor> && proving_key->get_is_structured()) {
             witness_commitments.w_l = proving_key->proving_key.commitment_key->commit_structured(
-                proving_key->proving_key.polynomials.w_l, proving_key->proving_key.active_block_ranges);
+                proving_key->proving_key.polynomials.w_l, proving_key->proving_key.active_region_data.ranges);
             witness_commitments.w_r = proving_key->proving_key.commitment_key->commit_structured(
-                proving_key->proving_key.polynomials.w_r, proving_key->proving_key.active_block_ranges);
+                proving_key->proving_key.polynomials.w_r, proving_key->proving_key.active_region_data.ranges);
             witness_commitments.w_o = proving_key->proving_key.commitment_key->commit_structured(
-                proving_key->proving_key.polynomials.w_o, proving_key->proving_key.active_block_ranges);
+                proving_key->proving_key.polynomials.w_o, proving_key->proving_key.active_region_data.ranges);
         } else {
             witness_commitments.w_l =
                 proving_key->proving_key.commitment_key->commit(proving_key->proving_key.polynomials.w_l);
@@ -176,7 +176,7 @@ template <IsUltraFlavor Flavor> void OinkProver<Flavor>::execute_sorted_list_acc
         PROFILE_THIS_NAME("COMMIT::wires");
         if (proving_key->get_is_structured()) {
             witness_commitments.w_4 = proving_key->proving_key.commitment_key->commit_structured(
-                proving_key->proving_key.polynomials.w_4, proving_key->proving_key.active_block_ranges);
+                proving_key->proving_key.polynomials.w_4, proving_key->proving_key.active_region_data.ranges);
         } else {
             witness_commitments.w_4 =
                 proving_key->proving_key.commitment_key->commit(proving_key->proving_key.polynomials.w_4);
@@ -245,7 +245,7 @@ template <IsUltraFlavor Flavor> void OinkProver<Flavor>::execute_grand_product_c
             witness_commitments.z_perm =
                 proving_key->proving_key.commitment_key->commit_structured_with_nonzero_complement(
                     proving_key->proving_key.polynomials.z_perm,
-                    proving_key->proving_key.active_block_ranges,
+                    proving_key->proving_key.active_region_data.ranges,
                     proving_key->final_active_wire_idx + 1);
         } else {
             witness_commitments.z_perm =

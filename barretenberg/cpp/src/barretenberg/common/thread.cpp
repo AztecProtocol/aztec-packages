@@ -170,14 +170,6 @@ void parallel_for_heuristic(size_t num_points,
     });
 };
 
-/**
- * @brief Calculates number of threads and index bounds for each thread
- * @details Finds the number of cpus with calculate_num_threads() then divides domain evenly amongst threads
- *
- * @param num_iterations
- * @param min_iterations_per_thread
- * @return size_t
- */
 MultithreadData calculate_thread_data(size_t num_iterations, size_t min_iterations_per_thread)
 {
     size_t num_threads = calculate_num_threads(num_iterations, min_iterations_per_thread);

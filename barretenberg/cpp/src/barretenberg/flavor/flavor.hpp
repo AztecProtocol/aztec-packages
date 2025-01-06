@@ -98,6 +98,11 @@ class PrecomputedEntitiesBase {
     uint64_t log_circuit_size;
     uint64_t num_public_inputs;
 };
+// Specifies the regions of the execution trace containing non-trivial wire values
+struct ActiveRegionData {
+    std::vector<std::pair<size_t, size_t>> ranges; // active ranges [start_i, end_i) of the execution trace
+    std::vector<size_t> idxs;                      // full set of poly indices corresposponding to active ranges
+};
 
 /**
  * @brief Base proving key class.
@@ -123,10 +128,7 @@ template <typename FF, typename CommitmentKey_> class ProvingKey_ {
     // folded element by element.
     std::vector<FF> public_inputs;
 
-    // Ranges of the form [start, end) where witnesses have non-zero values (hence the execution trace is "active")
-    std::vector<std::pair<size_t, size_t>> active_block_ranges;
-    // The actual polynomial indices corresposponding to the active block ranges
-    std::vector<uint32_t> active_idxs;
+    ActiveRegionData active_region_data; // specifies active regions of execution trace
 
     ProvingKey_() = default;
     ProvingKey_(const size_t dyadic_circuit_size,
