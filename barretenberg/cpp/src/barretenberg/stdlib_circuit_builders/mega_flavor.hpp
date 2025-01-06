@@ -383,22 +383,18 @@ class MegaFlavor {
             return result;
         }
 
-        [[nodiscard]] AllValues get_row_for_perm(size_t row_idx) const
+        [[nodiscard]] AllValues get_row_for_permutation_arg(size_t row_idx)
         {
-            PROFILE_THIS_NAME("MegaFlavor::get_row");
             AllValues result;
-            result.sigma_1 = this->sigma_1[row_idx];
-            result.sigma_2 = this->sigma_2[row_idx];
-            result.sigma_3 = this->sigma_3[row_idx];
-            result.sigma_4 = this->sigma_4[row_idx];
-            result.id_1 = this->id_1[row_idx];
-            result.id_2 = this->id_2[row_idx];
-            result.id_3 = this->id_3[row_idx];
-            result.id_4 = this->id_4[row_idx];
-            result.w_l = this->w_l[row_idx];
-            result.w_r = this->w_r[row_idx];
-            result.w_o = this->w_o[row_idx];
-            result.w_4 = this->w_4[row_idx];
+            for (auto [result_field, polynomial] : zip_view(result.get_sigma_polynomials(), get_sigma_polynomials())) {
+                result_field = polynomial[row_idx];
+            }
+            for (auto [result_field, polynomial] : zip_view(result.get_id_polynomials(), get_id_polynomials())) {
+                result_field = polynomial[row_idx];
+            }
+            for (auto [result_field, polynomial] : zip_view(result.get_wires(), get_wires())) {
+                result_field = polynomial[row_idx];
+            }
             return result;
         }
 
