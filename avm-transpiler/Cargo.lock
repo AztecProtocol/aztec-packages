@@ -307,12 +307,6 @@ checksum = "349a06037c7bf932dd7e7d1f653678b2038b9ad46a74102f1fc7bd7872678cce"
 
 [[package]]
 name = "base64"
-version = "0.13.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9e1b586273c5702936fe7b7d6896644d8be71e6314cfe09d3167c95f712589e8"
-
-[[package]]
-name = "base64"
 version = "0.21.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9d297deb1925b89f2ccc13d7635fa0714f12c87adce1c75356b39ca9b7178567"
@@ -864,18 +858,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "jsonrpc"
-version = "0.16.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "34efde8d2422fb79ed56db1d3aea8fa5b583351d15a26770cdee2f88813dd702"
-dependencies = [
- "base64 0.13.1",
- "minreq",
- "serde",
- "serde_json",
-]
-
-[[package]]
 name = "k256"
 version = "0.11.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -930,17 +912,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "minreq"
-version = "2.12.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "763d142cdff44aaadd9268bebddb156ef6c65a0e13486bb81673cf2d8739f9b0"
-dependencies = [
- "log",
- "serde",
- "serde_json",
-]
-
-[[package]]
 name = "noirc_errors"
 version = "1.0.0-beta.1"
 dependencies = [
@@ -962,11 +933,7 @@ name = "noirc_printable_type"
 version = "1.0.0-beta.1"
 dependencies = [
  "acvm",
- "iter-extended",
- "jsonrpc",
  "serde",
- "serde_json",
- "thiserror",
 ]
 
 [[package]]
