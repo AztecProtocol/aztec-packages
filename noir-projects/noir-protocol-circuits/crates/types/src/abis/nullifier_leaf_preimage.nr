@@ -40,20 +40,12 @@ impl LeafPreimage for NullifierLeafPreimage {
 }
 
 impl IndexedTreeLeafPreimage<Field> for NullifierLeafPreimage {
-    fn get_key(self) -> Field {
-        self.nullifier
-    }
-
     fn get_next_key(self) -> Field {
         self.next_nullifier
     }
 
     fn points_to_infinity(self) -> bool {
         (self.next_nullifier == 0) & (self.next_index == 0)
-    }
-
-    fn as_leaf(self) -> Field {
-        self.hash()
     }
 
     fn update_pointers(self, next_key: Field, next_index: u32) -> Self {

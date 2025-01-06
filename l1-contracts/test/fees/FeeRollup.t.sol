@@ -131,7 +131,9 @@ contract FeeRollupTest is FeeModelTestPoints, DecoderBase {
         aztecEpochDuration: EPOCH_DURATION,
         targetCommitteeSize: 48,
         aztecEpochProofClaimWindowInL2Slots: 16,
-        minimumStake: 100 ether
+        minimumStake: TestConstants.AZTEC_MINIMUM_STAKE,
+        slashingQuorum: TestConstants.AZTEC_SLASHING_QUORUM,
+        slashingRoundSize: TestConstants.AZTEC_SLASHING_ROUND_SIZE
       })
     );
     fakeCanonical.setCanonicalRollup(address(rollup));

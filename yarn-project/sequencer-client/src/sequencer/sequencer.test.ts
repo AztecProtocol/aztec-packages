@@ -35,6 +35,7 @@ import { Buffer32 } from '@aztec/foundation/buffer';
 import { times } from '@aztec/foundation/collection';
 import { randomBytes } from '@aztec/foundation/crypto';
 import { Signature } from '@aztec/foundation/eth-signature';
+import { TestDateProvider } from '@aztec/foundation/timer';
 import { type Writeable } from '@aztec/foundation/types';
 import { type P2P, P2PClientState } from '@aztec/p2p';
 import { type BlockBuilderFactory } from '@aztec/prover-client/block-builder';
@@ -47,6 +48,7 @@ import { type MockProxy, mock, mockFn } from 'jest-mock-extended';
 
 import { type GlobalVariableBuilder } from '../global_variable_builder/global_builder.js';
 import { type L1Publisher } from '../publisher/l1-publisher.js';
+import { type SlasherClient } from '../slasher/index.js';
 import { TxValidatorFactory } from '../tx_validator/tx_validator_factory.js';
 import { Sequencer } from './sequencer.js';
 import { SequencerState } from './utils.js';
@@ -70,8 +72,12 @@ describe('sequencer', () => {
 
   let sequencer: TestSubject;
 
-  const epochDuration = DefaultL1ContractsConfig.aztecEpochDuration;
-  const slotDuration = DefaultL1ContractsConfig.aztecSlotDuration;
+  const {
+    aztecEpochDuration: epochDuration,
+    aztecSlotDuration: slotDuration,
+    ethereumSlotDuration,
+  } = DefaultL1ContractsConfig;
+
   const chainId = new Fr(12345);
   const version = Fr.ZERO;
   const coinbase = EthAddress.random();
@@ -188,21 +194,25 @@ describe('sequencer', () => {
       createBlockProposal: mockFn().mockResolvedValue(createBlockProposal()),
     });
 
-    const l1GenesisTime = Math.floor(Date.now() / 1000);
+    const l1GenesisTime = BigInt(Math.floor(Date.now() / 1000));
+    const l1Constants = { l1GenesisTime, slotDuration, ethereumSlotDuration };
+    const slasherClient = mock<SlasherClient>();
+
     sequencer = new TestSubject(
       publisher,
-      // TDOO(md): add the relevant methods to the validator client that will prevent it stalling when waiting for attestations
+      // TODO(md): add the relevant methods to the validator client that will prevent it stalling when waiting for attestations
       validatorClient,
       globalVariableBuilder,
       p2p,
       worldState,
+      slasherClient,
       blockBuilderFactory,
       l2BlockSource,
       l1ToL2MessageSource,
       publicProcessorFactory,
       new TxValidatorFactory(merkleTreeOps, contractSource, false),
-      l1GenesisTime,
-      slotDuration,
+      l1Constants,
+      new TestDateProvider(),
       new NoopTelemetryClient(),
       { enforceTimeTable: true, maxTxsPerBlock: 4 },
     );
@@ -231,9 +241,7 @@ describe('sequencer', () => {
   });
 
   it.each([
-    {
-      delayedState: SequencerState.WAITING_FOR_TXS,
-    },
+    { delayedState: SequencerState.WAITING_FOR_TXS },
     // It would be nice to add the other states, but we would need to inject delays within the `work` loop
   ])('does not build a block if it does not have enough time left in the slot', async ({ delayedState }) => {
     // trick the sequencer into thinking that we are just too far into slot 1
@@ -253,7 +261,7 @@ describe('sequencer', () => {
     await expect(sequencer.doRealWork()).rejects.toThrow(
       expect.objectContaining({
         name: 'SequencerTooSlowError',
-        message: expect.stringContaining(`Too far into slot to transition to ${delayedState}.`),
+        message: expect.stringContaining(`Too far into slot to transition to ${delayedState}`),
       }),
     );
 
@@ -798,7 +806,7 @@ class TestSubject extends Sequencer {
   }
 
   public setL1GenesisTime(l1GenesisTime: number) {
-    this.l1GenesisTime = l1GenesisTime;
+    this.l1Constants.l1GenesisTime = BigInt(l1GenesisTime);
   }
 
   public override doRealWork() {

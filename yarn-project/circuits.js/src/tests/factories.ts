@@ -61,6 +61,7 @@ import {
   MaxBlockNumber,
   MembershipWitness,
   NESTED_RECURSIVE_PROOF_LENGTH,
+  NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH,
   NOTE_HASH_SUBTREE_SIBLING_PATH_LENGTH,
   NULLIFIER_SUBTREE_SIBLING_PATH_LENGTH,
   NULLIFIER_TREE_HEIGHT,
@@ -762,7 +763,10 @@ export function makePreviousRollupData(
 ): PreviousRollupData {
   return new PreviousRollupData(
     makeBaseOrMergeRollupPublicInputs(seed, globalVariables),
-    makeRecursiveProof<typeof NESTED_RECURSIVE_PROOF_LENGTH>(NESTED_RECURSIVE_PROOF_LENGTH, seed + 0x50),
+    makeRecursiveProof<typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH>(
+      NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH,
+      seed + 0x50,
+    ),
     VerificationKeyAsFields.makeFakeHonk(),
     makeMembershipWitness(VK_TREE_HEIGHT, seed + 0x120),
   );
@@ -780,7 +784,10 @@ export function makePreviousRollupBlockData(
 ): PreviousRollupBlockData {
   return new PreviousRollupBlockData(
     makeBlockRootOrBlockMergeRollupPublicInputs(seed, globalVariables),
-    makeRecursiveProof<typeof NESTED_RECURSIVE_PROOF_LENGTH>(NESTED_RECURSIVE_PROOF_LENGTH, seed + 0x50),
+    makeRecursiveProof<typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH>(
+      NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH,
+      seed + 0x50,
+    ),
     VerificationKeyAsFields.makeFakeHonk(),
     makeMembershipWitness(VK_TREE_HEIGHT, seed + 0x120),
   );
@@ -1277,6 +1284,10 @@ export function makeVector<T extends Bufferable>(length: number, fn: (i: number)
   return new Vector(makeArray(length, fn, offset));
 }
 
+export function makeMap<T extends Bufferable>(size: number, fn: (i: number) => [string, T], offset = 0) {
+  return new Map(makeArray(size, i => fn(i + offset)));
+}
+
 export function makeContractInstanceFromClassId(classId: Fr, seed = 0): ContractInstanceWithAddress {
   const salt = new Fr(seed);
   const initializationHash = new Fr(seed + 1);
@@ -1412,7 +1423,14 @@ export function makeAvmExecutionHints(
   return AvmExecutionHints.from({
     enqueuedCalls: makeVector(baseLength, makeAvmEnqueuedCallHint, seed + 0x4100),
     contractInstances: makeVector(baseLength + 5, makeAvmContractInstanceHint, seed + 0x4700),
-    contractBytecodeHints: makeVector(baseLength + 6, makeAvmBytecodeHints, seed + 0x4800),
+    contractBytecodeHints: makeMap(
+      baseLength + 6,
+      i => {
+        const h = makeAvmBytecodeHints(i);
+        return [h.contractInstanceHint.address.toString(), h];
+      },
+      seed + 0x4900,
+    ),
     publicDataReads: makeVector(baseLength + 7, makeAvmStorageReadTreeHints, seed + 0x4900),
     publicDataWrites: makeVector(baseLength + 8, makeAvmStorageUpdateTreeHints, seed + 0x4a00),
     nullifierReads: makeVector(baseLength + 9, makeAvmNullifierReadTreeHints, seed + 0x4b00),

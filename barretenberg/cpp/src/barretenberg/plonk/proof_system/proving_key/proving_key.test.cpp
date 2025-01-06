@@ -17,7 +17,7 @@ using namespace bb::plonk;
 // Test proving key serialization/deserialization to/from buffer
 TEST(proving_key, proving_key_from_serialized_key)
 {
-    bb::srs::init_crs_factory("../srs_db/ignition");
+    bb::srs::init_crs_factory(bb::srs::get_ignition_crs_path());
     auto builder = StandardCircuitBuilder();
     auto composer = StandardComposer();
     fr a = fr::one();
@@ -55,7 +55,7 @@ TEST(proving_key, proving_key_from_serialized_key)
 // Test proving key serialization/deserialization to/from buffer using UltraPlonkComposer
 TEST(proving_key, proving_key_from_serialized_key_ultra)
 {
-    bb::srs::init_crs_factory("../srs_db/ignition");
+    bb::srs::init_crs_factory(bb::srs::get_ignition_crs_path());
     auto builder = UltraCircuitBuilder();
     auto composer = UltraComposer();
     fr a = fr::one();

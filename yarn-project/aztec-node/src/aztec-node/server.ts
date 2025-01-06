@@ -73,7 +73,7 @@ import {
   createP2PClient,
 } from '@aztec/p2p';
 import { ProtocolContractAddress } from '@aztec/protocol-contracts';
-import { GlobalVariableBuilder, type L1Publisher, SequencerClient } from '@aztec/sequencer-client';
+import { GlobalVariableBuilder, type L1Publisher, SequencerClient, createSlasherClient } from '@aztec/sequencer-client';
 import { PublicProcessorFactory } from '@aztec/simulator';
 import { Attributes, type TelemetryClient, type Traceable, type Tracer, trackSpan } from '@aztec/telemetry-client';
 import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
@@ -180,8 +180,10 @@ export class AztecNodeService implements AztecNode, Traceable {
       telemetry,
     );
 
+    const slasherClient = await createSlasherClient(config, archiver, telemetry);
+
     // start both and wait for them to sync from the block source
-    await Promise.all([p2pClient.start(), worldStateSynchronizer.start()]);
+    await Promise.all([p2pClient.start(), worldStateSynchronizer.start(), slasherClient.start()]);
 
     const validatorClient = createValidatorClient(config, { p2pClient, telemetry, dateProvider, epochCache });
 
@@ -192,10 +194,12 @@ export class AztecNodeService implements AztecNode, Traceable {
           validatorClient,
           p2pClient,
           worldStateSynchronizer,
+          slasherClient,
           contractDataSource: archiver,
           l2BlockSource: archiver,
           l1ToL2MessageSource: archiver,
           telemetry,
+          dateProvider,
           ...deps,
         });
 
@@ -228,6 +232,10 @@ export class AztecNodeService implements AztecNode, Traceable {
 
   public getBlockSource(): L2BlockSource {
     return this.blockSource;
+  }
+
+  public getContractDataSource(): ContractDataSource {
+    return this.contractDataSource;
   }
 
   public getP2P(): P2P {
@@ -815,7 +823,11 @@ export class AztecNodeService implements AztecNode, Traceable {
       feeRecipient,
     );
     const prevHeader = (await this.blockSource.getBlock(-1))?.header;
-    const publicProcessorFactory = new PublicProcessorFactory(this.contractDataSource, this.telemetry);
+    const publicProcessorFactory = new PublicProcessorFactory(
+      this.contractDataSource,
+      new DateProvider(),
+      this.telemetry,
+    );
     const fork = await this.worldStateSynchronizer.fork();
 
     this.log.verbose(`Simulating public calls for tx ${tx.getTxHash()}`, {
