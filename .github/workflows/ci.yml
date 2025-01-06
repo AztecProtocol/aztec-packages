@@ -514,7 +514,7 @@ jobs:
       - uses: actions/checkout@v4
         with: { ref: "${{ github.event.pull_request.head.sha }}" }
       - uses: ./.github/ci-setup-action
-      - name: Build Bench Binaries
+      - name: Build Boxes
         uses: ./.github/ensure-builder
         timeout-minutes: 40
         with:
@@ -562,7 +562,7 @@ jobs:
 
   protocol-circuits-gates-report:
     needs: [ci-rest, configure]
-    if: needs.configure.outputs.non-docs == 'true' && needs.configure.outputs.non-bb == 'true'
+    if: github.ref_name == 'master' || (needs.configure.outputs.non-docs == 'true' && needs.configure.outputs.non-bb == 'true')
     runs-on: ubuntu-latest
     permissions:
       pull-requests: write
@@ -582,7 +582,7 @@ jobs:
           scripts/copy_from_builder ./noir-projects/gates_report.json protocol_circuits_report.json
       - name: Compare gates reports
         id: gates_diff
-        uses: noir-lang/noir-gates-diff@84ada11295b9a1e1da7325af4e45e2db9f775175
+        uses: noir-lang/noir-gates-diff@7e4ddaa91c69380f15ccba514eac17bc7432a8cc
         continue-on-error: true
         timeout-minutes: 1
         with:
@@ -600,7 +600,7 @@ jobs:
 
   public-functions-size-report:
     needs: [ci-rest, configure]
-    if: needs.configure.outputs.non-docs == 'true'
+    if:  github.ref_name == 'master' || needs.configure.outputs.non-docs == 'true'
     runs-on: ubuntu-latest
     permissions:
       pull-requests: write
@@ -620,7 +620,7 @@ jobs:
           scripts/copy_from_builder noir-projects/public_functions_report.json public_functions_report.json
       - name: Compare public functions bytecode size reports
         id: public_functions_sizes_diff
-        uses: noir-lang/noir-gates-diff@84ada11295b9a1e1da7325af4e45e2db9f775175
+        uses: noir-lang/noir-gates-diff@7e4ddaa91c69380f15ccba514eac17bc7432a8cc
         continue-on-error: true
         timeout-minutes: 1
         with:
