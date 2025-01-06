@@ -203,6 +203,7 @@ case "$cmd" in
     image=aztecprotocol/aztec:$(git rev-parse HEAD)
     docker pull $image &>/dev/null || true
     if docker_has_image $image; then
+      echo "Image $image already exists and has been downloaded." && exit
       exit
     fi
     github_group "image-aztec"
