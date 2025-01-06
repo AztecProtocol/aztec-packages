@@ -562,7 +562,7 @@ jobs:
 
   protocol-circuits-gates-report:
     needs: [ci-rest, configure]
-    if: needs.configure.outputs.non-docs == 'true' && needs.configure.outputs.non-bb == 'true'
+    if: github.ref_name == 'master' || (needs.configure.outputs.non-docs == 'true' && needs.configure.outputs.non-bb == 'true')
     runs-on: ubuntu-latest
     permissions:
       pull-requests: write
@@ -600,7 +600,7 @@ jobs:
 
   public-functions-size-report:
     needs: [ci-rest, configure]
-    if: needs.configure.outputs.non-docs == 'true'
+    if:  github.ref_name == 'master' || needs.configure.outputs.non-docs == 'true'
     runs-on: ubuntu-latest
     permissions:
       pull-requests: write
