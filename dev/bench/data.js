@@ -1,68 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1736197379210,
+  "lastUpdate": 1736202537012,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "98505400+ledwards2225@users.noreply.github.com",
-            "name": "ledwards2225",
-            "username": "ledwards2225"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "b1d8b978871948fbba639476465f4de6fb471292",
-          "message": "feat: remove auto verify mode from ClientIVC (#10599)\n\nRemoves auto verify mode from `ClientIVC`. Auto verify mode was a\r\ntemporary feature designed to append kernel logic (recursive\r\nverifications etc.) to kernel circuits generated from noir kernel\r\nprograms before the `verify_proof()` calls were integrated into those\r\nprograms. Now that these calls are present in the kernels (mock and\r\ngenuine), the kernel logic is automatically constructed via\r\nivc_recursion_constraints via the normal `create_circuit()` pathway. If\r\nin the future there is need for a backend which automatically appends\r\nrecursive verification logic, it should be implemented in an entirely\r\nseparate class.\r\n\r\nNote: This change means we can no longer generate an IVC proof from the\r\nnoir `fold_*` programs since they do not contain explicit recursive\r\nverifiers. All such tests/flows have been removed.\r\n\r\nCloses https://github.com/AztecProtocol/barretenberg/issues/1116 (remove\r\nmanual setting of is_kernel)\r\nCloses https://github.com/AztecProtocol/barretenberg/issues/1101 (remove\r\nauto-verify)",
-          "timestamp": "2024-12-12T08:34:34-07:00",
-          "tree_id": "cd1ca9db8a576e0d7ccdcc9332438bd2096e3730",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/b1d8b978871948fbba639476465f4de6fb471292"
-        },
-        "date": 1734020162955,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "nativeClientIVCBench/Full/6",
-            "value": 24597.569082999995,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 22368.714204 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 4534.642659999974,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 4256.634741 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmClientIVCBench/Full/6",
-            "value": 89412.031254,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 89412031000 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 16556.181210000002,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 16556182000 ms\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 2774314315,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 2774314315 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 132429386,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 132429386 ns\nthreads: 1"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -3228,6 +3168,72 @@ window.BENCHMARK_DATA = {
             "value": 142345825,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 142345825 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "santiago@aztecprotocol.com",
+            "name": "Santiago Palladino",
+            "username": "spalladino"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "da5e95ffab1694bad22817edd9abdf8e48c992ca",
+          "message": "fix: Update requests per call should be less than per tx (#11072)\n\n`MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX` is 63, but\r\n`MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL` was set to 64. This PR\r\nupdates the `PER_CALL` constant to 63.\r\n\r\nUnrelated updates to other constants are probably due to\r\n`remake-constants` not having been run after updating other constants.",
+          "timestamp": "2025-01-06T19:05:14-03:00",
+          "tree_id": "55f97d783cfcd1966b118f9eda59b0c4d59c757f",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/da5e95ffab1694bad22817edd9abdf8e48c992ca"
+        },
+        "date": 1736202529736,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Ambient_17_in_20/6",
+            "value": 20165.038914000037,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 17636.651336 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 21856.21075300003,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 19283.547567999998 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 4634.679065,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 4318.763916 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 73227.457503,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 73227459000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 13938.672118,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 13938673000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 2890977578,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 2890977578 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 154266954,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 154266954 ns\nthreads: 1"
           }
         ]
       }
