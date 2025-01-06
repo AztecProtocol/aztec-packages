@@ -105,7 +105,7 @@ function compile {
     "^noir-projects/aztec-nr/" \
   )"
   if ! cache_download contract-$contract_hash.tar.gz &> /dev/null; then
-    $NARGO compile --package $contract --silence-warnings --inliner-aggressiveness 0
+    $NARGO compile --package $contract --inliner-aggressiveness 0
     $TRANSPILER $json_path $json_path
     cache_upload contract-$contract_hash.tar.gz $json_path &> /dev/null
   fi
