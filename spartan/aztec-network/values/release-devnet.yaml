@@ -18,11 +18,15 @@ bootNode:
     disabled: true
 
 proverAgent:
-  replicas: 1
+  replicas: 10
+  bb:
+    hardwareConcurrency: 31
+  gke:
+    spotEnabled: true
   resources:
     requests:
-      memory: "4Gi"
-      cpu: "1"
+      memory: "116Gi"
+      cpu: "31"
 
 bot:
   followChain: "PENDING"
