@@ -51,7 +51,9 @@ import { type AztecAddress } from '@aztec/circuits.js';
 import { getL1ContractsConfigEnvVars } from '@aztec/ethereum';
 import { Timer } from '@aztec/foundation/timer';
 import { RollupAbi } from '@aztec/l1-artifacts';
-import { SchnorrHardcodedAccountContract, SpamContract, TokenContract } from '@aztec/noir-contracts.js';
+import { SchnorrHardcodedAccountContract } from '@aztec/noir-contracts.js/SchnorrHardcodedAccount';
+import { SpamContract } from '@aztec/noir-contracts.js/Spam';
+import { TokenContract } from '@aztec/noir-contracts.js/Token';
 import { type PXEService } from '@aztec/pxe';
 import { L1Publisher } from '@aztec/sequencer-client';
 import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
@@ -358,13 +360,23 @@ describe('e2e_synching', () => {
       return;
     }
 
-    const { teardown, logger, deployL1ContractsValues, config, cheatCodes, aztecNode, sequencer, watcher, pxe } =
-      await setup(0, {
-        salt: SALT,
-        l1StartTime: START_TIME,
-        skipProtocolContracts: true,
-        assumeProvenThrough,
-      });
+    const {
+      teardown,
+      logger,
+      deployL1ContractsValues,
+      config,
+      cheatCodes,
+      aztecNode,
+      sequencer,
+      watcher,
+      pxe,
+      blobSink,
+    } = await setup(0, {
+      salt: SALT,
+      l1StartTime: START_TIME,
+      skipProtocolContracts: true,
+      assumeProvenThrough,
+    });
 
     await (aztecNode as any).stop();
     await (sequencer as any).stop();
@@ -381,6 +393,7 @@ describe('e2e_synching', () => {
         l1ChainId: 31337,
         viemPollingIntervalMS: 100,
         ethereumSlotDuration: ETHEREUM_SLOT_DURATION,
+        blobSinkUrl: `http://localhost:${blobSink?.port ?? 5052}`,
       },
       new NoopTelemetryClient(),
     );

@@ -125,31 +125,14 @@ template <typename Flavor> class AcirHonkRecursionConstraint : public ::testing:
         WitnessVector witness{
             5, 10, 15, 5, inverse_of_five, 1,
         };
-        auto builder =
-            create_circuit(constraint_system, /*recursive*/ true, /*size_hint*/ 0, witness, /*honk recursion*/ true);
-        if constexpr (HasIPAAccumulator<Flavor>) {
-            using NativeCurve = curve::Grumpkin;
-            using Curve = stdlib::grumpkin<Builder>;
-            auto ipa_transcript = std::make_shared<NativeTranscript>();
-            auto ipa_commitment_key = std::make_shared<CommitmentKey<NativeCurve>>(1 << CONST_ECCVM_LOG_N);
-            size_t n = 4;
-            auto poly = Polynomial<fq>(n);
-            for (size_t i = 0; i < n; i++) {
-                poly.at(i) = fq::random_element();
-            }
-            fq x = fq::random_element();
-            fq eval = poly.evaluate(x);
-            auto commitment = ipa_commitment_key->commit(poly);
-            const OpeningPair<NativeCurve> opening_pair = { x, eval };
-            IPA<NativeCurve>::compute_opening_proof(ipa_commitment_key, { poly, opening_pair }, ipa_transcript);
-
-            auto stdlib_comm = Curve::Group::from_witness(&builder, commitment);
-            auto stdlib_x = Curve::ScalarField::from_witness(&builder, x);
-            auto stdlib_eval = Curve::ScalarField::from_witness(&builder, eval);
-            OpeningClaim<Curve> stdlib_opening_claim{ { stdlib_x, stdlib_eval }, stdlib_comm };
-            builder.add_ipa_claim(stdlib_opening_claim.get_witness_indices());
-            builder.ipa_proof = ipa_transcript->export_proof();
+        uint32_t honk_recursion = 0;
+        if constexpr (IsAnyOf<Flavor, UltraFlavor>) {
+            honk_recursion = 1;
+        } else if constexpr (IsAnyOf<Flavor, UltraRollupFlavor>) {
+            honk_recursion = 2;
         }
+        auto builder = create_circuit(
+            constraint_system, /*recursive*/ true, /*size_hint*/ 0, witness, /*honk recursion*/ honk_recursion);
         return builder;
     }
 
@@ -203,8 +186,14 @@ template <typename Flavor> class AcirHonkRecursionConstraint : public ::testing:
         constraint_system.original_opcode_indices = create_empty_original_opcode_indices();
 
         mock_opcode_indices(constraint_system);
-        auto outer_circuit =
-            create_circuit(constraint_system, /*recursive*/ true, /*size_hint*/ 0, witness, /*honk recursion*/ true);
+        uint32_t honk_recursion = 0;
+        if constexpr (IsAnyOf<Flavor, UltraFlavor>) {
+            honk_recursion = 1;
+        } else if constexpr (IsAnyOf<Flavor, UltraRollupFlavor>) {
+            honk_recursion = 2;
+        }
+        auto outer_circuit = create_circuit(
+            constraint_system, /*recursive*/ true, /*size_hint*/ 0, witness, /*honk recursion*/ honk_recursion);
 
         return outer_circuit;
     }
@@ -212,8 +201,8 @@ template <typename Flavor> class AcirHonkRecursionConstraint : public ::testing:
   protected:
     static void SetUpTestSuite()
     {
-        bb::srs::init_crs_factory("../srs_db/ignition");
-        srs::init_grumpkin_crs_factory("../srs_db/grumpkin");
+        bb::srs::init_crs_factory(bb::srs::get_ignition_crs_path());
+        srs::init_grumpkin_crs_factory(bb::srs::get_grumpkin_crs_path());
     }
 };
 

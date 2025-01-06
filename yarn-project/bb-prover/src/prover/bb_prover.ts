@@ -12,35 +12,40 @@ import {
   AGGREGATION_OBJECT_LENGTH,
   AVM_PROOF_LENGTH_IN_FIELDS,
   type AvmCircuitInputs,
-  type BaseOrMergeRollupPublicInputs,
   type BaseParityInputs,
-  type BlockMergeRollupInputs,
-  type BlockRootOrBlockMergePublicInputs,
-  type BlockRootRollupInputs,
-  type EmptyBlockRootRollupInputs,
   EmptyNestedCircuitInputs,
   EmptyNestedData,
   Fr,
+  IPA_CLAIM_LENGTH,
   type KernelCircuitPublicInputs,
-  type MergeRollupInputs,
   NESTED_RECURSIVE_PROOF_LENGTH,
+  NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH,
   type ParityPublicInputs,
-  type PrivateBaseRollupInputs,
   type PrivateKernelEmptyInputData,
   PrivateKernelEmptyInputs,
   Proof,
-  type PublicBaseRollupInputs,
   RECURSIVE_PROOF_LENGTH,
+  RECURSIVE_ROLLUP_HONK_PROOF_LENGTH,
   RecursiveProof,
   type RootParityInputs,
-  type RootRollupInputs,
-  type RootRollupPublicInputs,
   TUBE_PROOF_LENGTH,
-  type TubeInputs,
   type VerificationKeyAsFields,
   type VerificationKeyData,
   makeRecursiveProofFromBinary,
 } from '@aztec/circuits.js';
+import {
+  type BaseOrMergeRollupPublicInputs,
+  type BlockMergeRollupInputs,
+  type BlockRootOrBlockMergePublicInputs,
+  type BlockRootRollupInputs,
+  type EmptyBlockRootRollupInputs,
+  type MergeRollupInputs,
+  type PrivateBaseRollupInputs,
+  type PublicBaseRollupInputs,
+  type RootRollupInputs,
+  type RootRollupPublicInputs,
+  type TubeInputs,
+} from '@aztec/circuits.js/rollup';
 import { runInDirectory } from '@aztec/foundation/fs';
 import { createLogger } from '@aztec/foundation/log';
 import { BufferReader } from '@aztec/foundation/serialize';
@@ -75,6 +80,7 @@ import { Attributes, type TelemetryClient, trackSpan } from '@aztec/telemetry-cl
 
 import { abiEncode } from '@noir-lang/noirc_abi';
 import { type Abi, type WitnessMap } from '@noir-lang/types';
+import { assert } from 'console';
 import crypto from 'crypto';
 import { promises as fs } from 'fs';
 import * as path from 'path';
@@ -99,6 +105,7 @@ import { type UltraHonkFlavor, getUltraHonkFlavorForCircuit } from '../honk.js';
 import { ProverInstrumentation } from '../instrumentation.js';
 import { mapProtocolArtifactNameToCircuitName } from '../stats.js';
 import { extractAvmVkData, extractVkData } from '../verification_key/verification_key_data.js';
+import { writeToOutputDirectory } from './client_ivc_proof_utils.js';
 
 const logger = createLogger('bb-prover');
 
@@ -115,7 +122,7 @@ export interface BBProverConfig extends BBConfig, ACVMConfig {
  */
 export class BBNativeRollupProver implements ServerCircuitProver {
   private verificationKeys = new Map<
-    `ultra${'_keccak_' | '_'}honk_${ServerProtocolArtifact}`,
+    `ultra${'_keccak_' | '_' | '_rollup_'}honk_${ServerProtocolArtifact}`,
     Promise<VerificationKeyData>
   >();
 
@@ -209,13 +216,15 @@ export class BBNativeRollupProver implements ServerCircuitProver {
    */
   public async getPrivateBaseRollupProof(
     inputs: PrivateBaseRollupInputs,
-  ): Promise<PublicInputsAndRecursiveProof<BaseOrMergeRollupPublicInputs>> {
+  ): Promise<
+    PublicInputsAndRecursiveProof<BaseOrMergeRollupPublicInputs, typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH>
+  > {
     const artifactName = 'PrivateBaseRollupArtifact';
 
     const { circuitOutput, proof } = await this.createRecursiveProof(
       inputs,
       artifactName,
-      NESTED_RECURSIVE_PROOF_LENGTH,
+      NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH,
       convertPrivateBaseRollupInputsToWitnessMap,
       convertPrivateBaseRollupOutputsFromWitnessMap,
     );
@@ -234,13 +243,15 @@ export class BBNativeRollupProver implements ServerCircuitProver {
    */
   public async getPublicBaseRollupProof(
     inputs: PublicBaseRollupInputs,
-  ): Promise<PublicInputsAndRecursiveProof<BaseOrMergeRollupPublicInputs>> {
+  ): Promise<
+    PublicInputsAndRecursiveProof<BaseOrMergeRollupPublicInputs, typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH>
+  > {
     const artifactName = 'PublicBaseRollupArtifact';
 
     const { circuitOutput, proof } = await this.createRecursiveProof(
       inputs,
       artifactName,
-      NESTED_RECURSIVE_PROOF_LENGTH,
+      NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH,
       convertPublicBaseRollupInputsToWitnessMap,
       convertPublicBaseRollupOutputsFromWitnessMap,
     );
@@ -259,11 +270,13 @@ export class BBNativeRollupProver implements ServerCircuitProver {
    */
   public async getMergeRollupProof(
     input: MergeRollupInputs,
-  ): Promise<PublicInputsAndRecursiveProof<BaseOrMergeRollupPublicInputs>> {
+  ): Promise<
+    PublicInputsAndRecursiveProof<BaseOrMergeRollupPublicInputs, typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH>
+  > {
     const { circuitOutput, proof } = await this.createRecursiveProof(
       input,
       'MergeRollupArtifact',
-      NESTED_RECURSIVE_PROOF_LENGTH,
+      NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH,
       convertMergeRollupInputsToWitnessMap,
       convertMergeRollupOutputsFromWitnessMap,
     );
@@ -282,11 +295,13 @@ export class BBNativeRollupProver implements ServerCircuitProver {
    */
   public async getBlockRootRollupProof(
     input: BlockRootRollupInputs,
-  ): Promise<PublicInputsAndRecursiveProof<BlockRootOrBlockMergePublicInputs>> {
+  ): Promise<
+    PublicInputsAndRecursiveProof<BlockRootOrBlockMergePublicInputs, typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH>
+  > {
     const { circuitOutput, proof } = await this.createRecursiveProof(
       input,
       'BlockRootRollupArtifact',
-      NESTED_RECURSIVE_PROOF_LENGTH,
+      NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH,
       convertBlockRootRollupInputsToWitnessMap,
       convertBlockRootRollupOutputsFromWitnessMap,
     );
@@ -305,11 +320,13 @@ export class BBNativeRollupProver implements ServerCircuitProver {
    */
   public async getEmptyBlockRootRollupProof(
     input: EmptyBlockRootRollupInputs,
-  ): Promise<PublicInputsAndRecursiveProof<BlockRootOrBlockMergePublicInputs>> {
+  ): Promise<
+    PublicInputsAndRecursiveProof<BlockRootOrBlockMergePublicInputs, typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH>
+  > {
     const { circuitOutput, proof } = await this.createRecursiveProof(
       input,
       'EmptyBlockRootRollupArtifact',
-      RECURSIVE_PROOF_LENGTH,
+      NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH,
       convertEmptyBlockRootRollupInputsToWitnessMap,
       convertEmptyBlockRootRollupOutputsFromWitnessMap,
     );
@@ -328,11 +345,13 @@ export class BBNativeRollupProver implements ServerCircuitProver {
    */
   public async getBlockMergeRollupProof(
     input: BlockMergeRollupInputs,
-  ): Promise<PublicInputsAndRecursiveProof<BlockRootOrBlockMergePublicInputs>> {
+  ): Promise<
+    PublicInputsAndRecursiveProof<BlockRootOrBlockMergePublicInputs, typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH>
+  > {
     const { circuitOutput, proof } = await this.createRecursiveProof(
       input,
       'BlockMergeRollupArtifact',
-      NESTED_RECURSIVE_PROOF_LENGTH,
+      NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH,
       convertBlockMergeRollupInputsToWitnessMap,
       convertBlockMergeRollupOutputsFromWitnessMap,
     );
@@ -370,7 +389,9 @@ export class BBNativeRollupProver implements ServerCircuitProver {
 
   public async getEmptyPrivateKernelProof(
     inputs: PrivateKernelEmptyInputData,
-  ): Promise<PublicInputsAndRecursiveProof<KernelCircuitPublicInputs>> {
+  ): Promise<
+    PublicInputsAndRecursiveProof<KernelCircuitPublicInputs, typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH>
+  > {
     const emptyNested = await this.getEmptyNestedProof();
     const emptyPrivateKernelProof = await this.getEmptyPrivateKernelProofFromEmptyNested(
       PrivateKernelEmptyInputs.from({
@@ -387,7 +408,7 @@ export class BBNativeRollupProver implements ServerCircuitProver {
     const { proof } = await this.createRecursiveProof(
       inputs,
       'EmptyNestedArtifact',
-      RECURSIVE_PROOF_LENGTH,
+      RECURSIVE_ROLLUP_HONK_PROOF_LENGTH,
       (nothing: any) => abiEncode(ServerCircuitArtifacts.EmptyNestedArtifact.abi as Abi, { _inputs: nothing as any }),
       () => new EmptyNestedCircuitInputs(),
     );
@@ -404,11 +425,13 @@ export class BBNativeRollupProver implements ServerCircuitProver {
 
   private async getEmptyPrivateKernelProofFromEmptyNested(
     inputs: PrivateKernelEmptyInputs,
-  ): Promise<PublicInputsAndRecursiveProof<KernelCircuitPublicInputs>> {
+  ): Promise<
+    PublicInputsAndRecursiveProof<KernelCircuitPublicInputs, typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH>
+  > {
     const { circuitOutput, proof } = await this.createRecursiveProof(
       inputs,
       'PrivateKernelEmptyArtifact',
-      NESTED_RECURSIVE_PROOF_LENGTH,
+      NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH,
       convertPrivateKernelEmptyInputsToWitnessMap,
       convertPrivateKernelEmptyOutputsFromWitnessMap,
     );
@@ -551,7 +574,7 @@ export class BBNativeRollupProver implements ServerCircuitProver {
     const hasher = crypto.createHash('sha256');
     hasher.update(input.toBuffer());
 
-    await input.clientIVCData.writeToOutputDirectory(bbWorkingDirectory);
+    await writeToOutputDirectory(input.clientIVCData, bbWorkingDirectory);
     const provingResult = await generateTubeProof(this.config.bbBinaryPath, bbWorkingDirectory, logger.verbose);
 
     if (provingResult.status === BB_RESULT.FAILURE) {
@@ -615,7 +638,7 @@ export class BBNativeRollupProver implements ServerCircuitProver {
       this.instrumentation.recordSize('circuitSize', 'tubeCircuit', tubeVK.circuitSize);
 
       // Sanity check the tube proof (can be removed later)
-      await this.verifyWithKey('ultra_honk', tubeVK, tubeProof.binaryProof);
+      await this.verifyWithKey('ultra_rollup_honk', tubeVK, tubeProof.binaryProof);
 
       logger.info(
         `Generated proof for tubeCircuit in ${Math.ceil(provingResult.durationMs)} ms, size: ${
@@ -750,7 +773,7 @@ export class BBNativeRollupProver implements ServerCircuitProver {
    * @returns - The valid proof
    */
   public async ensureValidProof(
-    proof: RecursiveProof<typeof NESTED_RECURSIVE_PROOF_LENGTH>,
+    proof: RecursiveProof<typeof NESTED_RECURSIVE_PROOF_LENGTH>, // WORKTODO
     circuit: ServerProtocolArtifact,
     vk: VerificationKeyData,
   ) {
@@ -761,7 +784,7 @@ export class BBNativeRollupProver implements ServerCircuitProver {
     }
 
     const operation = async (bbWorkingDirectory: string) => {
-      const numPublicInputs = vk.numPublicInputs - AGGREGATION_OBJECT_LENGTH;
+      const numPublicInputs = vk.numPublicInputs - AGGREGATION_OBJECT_LENGTH - IPA_CLAIM_LENGTH;
       const proofFullFilename = path.join(bbWorkingDirectory, PROOF_FILENAME);
       const vkFullFilename = path.join(bbWorkingDirectory, VK_FILENAME);
 
@@ -801,7 +824,7 @@ export class BBNativeRollupProver implements ServerCircuitProver {
         fields,
         new Proof(proof.binaryProof.buffer, vk.numPublicInputs),
         true,
-        NESTED_RECURSIVE_PROOF_LENGTH,
+        NESTED_RECURSIVE_PROOF_LENGTH, // WORKTODO
       );
     };
     return await this.runInDirectory(operation);
@@ -873,7 +896,12 @@ export class BBNativeRollupProver implements ServerCircuitProver {
 
     const json = JSON.parse(proofString);
 
-    const numPublicInputs = vkData.numPublicInputs - AGGREGATION_OBJECT_LENGTH;
+    let numPublicInputs = vkData.numPublicInputs - AGGREGATION_OBJECT_LENGTH;
+    if (proofLength == NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH) {
+      numPublicInputs -= IPA_CLAIM_LENGTH;
+    }
+
+    assert(json.length - numPublicInputs == proofLength, 'Proof length mismatch');
 
     const fieldsWithoutPublicInputs = json
       .slice(0, 3)

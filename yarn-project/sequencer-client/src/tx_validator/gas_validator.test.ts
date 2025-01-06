@@ -2,7 +2,7 @@ import { type Tx, mockTx } from '@aztec/circuit-types';
 import { AztecAddress, Fr, FunctionSelector, GasFees, GasSettings, PUBLIC_DISPATCH_SELECTOR } from '@aztec/circuits.js';
 import { poseidon2Hash } from '@aztec/foundation/crypto';
 import { type Writeable } from '@aztec/foundation/types';
-import { FeeJuiceContract } from '@aztec/noir-contracts.js';
+import { FeeJuiceContract } from '@aztec/noir-contracts.js/FeeJuice';
 import { ProtocolContractAddress } from '@aztec/protocol-contracts';
 
 import { type MockProxy, mock, mockFn } from 'jest-mock-extended';

@@ -3,6 +3,11 @@ import {
   type AVM_PROOF_LENGTH_IN_FIELDS,
   AVM_VK_INDEX,
   type AppendOnlyTreeSnapshot,
+  type TUBE_PROOF_LENGTH,
+  TUBE_VK_INDEX,
+  VkWitnessData,
+} from '@aztec/circuits.js';
+import {
   AvmProofData,
   type BaseRollupHints,
   PrivateBaseRollupHints,
@@ -11,11 +16,8 @@ import {
   PublicBaseRollupHints,
   PublicBaseRollupInputs,
   PublicTubeData,
-  type TUBE_PROOF_LENGTH,
-  TUBE_VK_INDEX,
   TubeInputs,
-  VkWitnessData,
-} from '@aztec/circuits.js';
+} from '@aztec/circuits.js/rollup';
 import { getVKIndex, getVKSiblingPath } from '@aztec/noir-protocol-circuits-types';
 
 /**

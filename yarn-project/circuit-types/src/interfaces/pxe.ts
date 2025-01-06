@@ -106,15 +106,6 @@ export interface PXE {
   getRegisteredAccounts(): Promise<CompleteAddress[]>;
 
   /**
-   * Retrieves the complete address of the account corresponding to the provided aztec address.
-   * Complete addresses include the address, the partial address, and the encryption public key.
-   *
-   * @param address - The address of account.
-   * @returns The complete address of the requested account if found.
-   */
-  getRegisteredAccount(address: AztecAddress): Promise<CompleteAddress | undefined>;
-
-  /**
    * Registers a user contact in PXE.
    *
    * Once a new contact is registered, the PXE Service will be able to receive notes tagged from this contact.
@@ -123,18 +114,18 @@ export interface PXE {
    * @param address - Address of the user to add to the address book
    * @returns The address address of the account.
    */
-  registerContact(address: AztecAddress): Promise<AztecAddress>;
+  registerSender(address: AztecAddress): Promise<AztecAddress>;
 
   /**
-   * Retrieves the addresses stored as contacts on this PXE Service.
-   * @returns An array of the contacts on this PXE Service.
+   * Retrieves the addresses stored as senders on this PXE Service.
+   * @returns An array of the senders on this PXE Service.
    */
-  getContacts(): Promise<AztecAddress[]>;
+  getSenders(): Promise<AztecAddress[]>;
 
   /**
-   * Removes a contact in the address book.
+   * Removes a sender in the address book.
    */
-  removeContact(address: AztecAddress): Promise<void>;
+  removeSender(address: AztecAddress): Promise<void>;
 
   /**
    * Registers a contract class in the PXE without registering any associated contract instance with it.
@@ -198,6 +189,7 @@ export interface PXE {
     simulatePublic: boolean,
     msgSender?: AztecAddress,
     skipTxValidation?: boolean,
+    enforceFeePayment?: boolean,
     profile?: boolean,
     scopes?: AztecAddress[],
   ): Promise<TxSimulationResult>;
@@ -462,13 +454,9 @@ export const PXESchema: ApiSchemaFor<PXE> = {
   addCapsule: z.function().args(z.array(schemas.Fr)).returns(z.void()),
   registerAccount: z.function().args(schemas.Fr, schemas.Fr).returns(CompleteAddress.schema),
   getRegisteredAccounts: z.function().returns(z.array(CompleteAddress.schema)),
-  getRegisteredAccount: z
-    .function()
-    .args(schemas.AztecAddress)
-    .returns(z.union([CompleteAddress.schema, z.undefined()])),
-  registerContact: z.function().args(schemas.AztecAddress).returns(schemas.AztecAddress),
-  getContacts: z.function().returns(z.array(schemas.AztecAddress)),
-  removeContact: z.function().args(schemas.AztecAddress).returns(z.void()),
+  registerSender: z.function().args(schemas.AztecAddress).returns(schemas.AztecAddress),
+  getSenders: z.function().returns(z.array(schemas.AztecAddress)),
+  removeSender: z.function().args(schemas.AztecAddress).returns(z.void()),
   registerContractClass: z.function().args(ContractArtifactSchema).returns(z.void()),
   registerContract: z
     .function()
@@ -482,6 +470,7 @@ export const PXESchema: ApiSchemaFor<PXE> = {
       TxExecutionRequest.schema,
       z.boolean(),
       optional(schemas.AztecAddress),
+      optional(z.boolean()),
       optional(z.boolean()),
       optional(z.boolean()),
       optional(z.array(schemas.AztecAddress)),

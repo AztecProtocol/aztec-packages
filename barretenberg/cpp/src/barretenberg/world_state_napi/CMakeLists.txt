@@ -5,7 +5,7 @@ file(GLOB_RECURSE SOURCE_FILES *.cpp)
 file(GLOB_RECURSE HEADER_FILES *.hpp *.tcc)
 
 execute_process(
-  COMMAND yarn --frozen-lockfile --prefer-offline
+  COMMAND yarn --immutable
   WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
 )
 

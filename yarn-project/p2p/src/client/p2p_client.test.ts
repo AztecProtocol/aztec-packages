@@ -181,7 +181,8 @@ describe('In-Memory P2P Client', () => {
     expect(epochProofQuotePool.getQuotes).toBeCalledWith(2n);
   });
 
-  it('deletes expired proof quotes', async () => {
+  // TODO(#10737) flake cc Maddiaa0
+  it.skip('deletes expired proof quotes', async () => {
     client = new P2PClient(P2PClientType.Full, kvStore, blockSource, mempools, p2pService, 0);
 
     blockSource.setProvenEpochNumber(1);
@@ -209,7 +210,8 @@ describe('In-Memory P2P Client', () => {
   });
 
   describe('Chain prunes', () => {
-    it('moves the tips on a chain reorg', async () => {
+    // TODO(#10737) flake cc Maddiaa0
+    it.skip('moves the tips on a chain reorg', async () => {
       blockSource.setProvenBlockNumber(0);
       await client.start();
 

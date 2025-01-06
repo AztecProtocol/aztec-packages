@@ -333,6 +333,13 @@ jobs:
             test_programs/execution_report.sh
             test_programs/parse_time.sh
           sparse-checkout-cone-mode: false
+            
+      - uses: actions/checkout@v4
+        with:
+          path: scripts
+          sparse-checkout: |
+            test_programs/execution_report.sh
+          sparse-checkout-cone-mode: false
 
       - name: Checkout
         uses: actions/checkout@v4
@@ -350,6 +357,123 @@ jobs:
           chmod +x parse_time.sh
           cp /home/runner/work/noir/noir/scripts/test_programs/parse_time.sh ./parse_time.sh
           ./compilation_report.sh 1
+      
+      - name: Generate execution report
+        working-directory: ./test-repo/${{ matrix.project.path }}
+        if: ${{ !matrix.project.is_library }}
+        run: |
+          mv /home/runner/work/noir/noir/scripts/test_programs/execution_report.sh ./execution_report.sh
+          ./execution_report.sh 1
+
+      - name: Generate compilation report with averages
+        working-directory: ./test-repo/${{ matrix.project.path }}
+        if: ${{ matrix.project.take_average }}
+        run: |
+          mv /home/runner/work/noir/noir/scripts/test_programs/compilation_report.sh ./compilation_report.sh
+          chmod +x ./compilation_report.sh
+          ./compilation_report.sh 1 1
+      
+      - name: Generate execution report without averages
+        working-directory: ./test-repo/${{ matrix.project.path }}
+        if: ${{ !matrix.project.is_library && !matrix.project.take_average }}
+        run: |
+          mv /home/runner/work/noir/noir/scripts/test_programs/execution_report.sh ./execution_report.sh
+          ./execution_report.sh 1
+
+      - name: Generate execution report with averages
+        working-directory: ./test-repo/${{ matrix.project.path }}
+        if: ${{ !matrix.project.is_library && matrix.project.take_average }}
+        run: |
+          mv /home/runner/work/noir/noir/scripts/test_programs/execution_report.sh ./execution_report.sh
+          ./execution_report.sh 1 1
+
+      - name: Generate compilation report with averages
+        working-directory: ./test-repo/${{ matrix.project.path }}
+        if: ${{ matrix.project.take_average }}
+        run: |
+          mv /home/runner/work/noir/noir/scripts/test_programs/compilation_report.sh ./compilation_report.sh
+          chmod +x ./compilation_report.sh
+          ./compilation_report.sh 1 1
+      
+      - name: Generate execution report without averages
+        working-directory: ./test-repo/${{ matrix.project.path }}
+        if: ${{ !matrix.project.is_library && !matrix.project.take_average }}
+        run: |
+          mv /home/runner/work/noir/noir/scripts/test_programs/execution_report.sh ./execution_report.sh
+          ./execution_report.sh 1
+
+      - name: Generate execution report with averages
+        working-directory: ./test-repo/${{ matrix.project.path }}
+        if: ${{ !matrix.project.is_library && matrix.project.take_average }}
+        run: |
+          mv /home/runner/work/noir/noir/scripts/test_programs/execution_report.sh ./execution_report.sh
+          ./execution_report.sh 1 1
+
+      - name: Generate compilation report with averages
+        working-directory: ./test-repo/${{ matrix.project.path }}
+        if: ${{ matrix.project.take_average }}
+        run: |
+          mv /home/runner/work/noir/noir/scripts/test_programs/compilation_report.sh ./compilation_report.sh
+          chmod +x ./compilation_report.sh
+          ./compilation_report.sh 1 1
+      
+      - name: Generate execution report without averages
+        working-directory: ./test-repo/${{ matrix.project.path }}
+        if: ${{ !matrix.project.is_library && !matrix.project.take_average }}
+        run: |
+          mv /home/runner/work/noir/noir/scripts/test_programs/execution_report.sh ./execution_report.sh
+          ./execution_report.sh 1
+
+      - name: Generate execution report with averages
+        working-directory: ./test-repo/${{ matrix.project.path }}
+        if: ${{ !matrix.project.is_library && matrix.project.take_average }}
+        run: |
+          mv /home/runner/work/noir/noir/scripts/test_programs/execution_report.sh ./execution_report.sh
+          ./execution_report.sh 1 1
+
+      - name: Generate compilation report with averages
+        working-directory: ./test-repo/${{ matrix.project.path }}
+        if: ${{ matrix.project.take_average }}
+        run: |
+          mv /home/runner/work/noir/noir/scripts/test_programs/compilation_report.sh ./compilation_report.sh
+          chmod +x ./compilation_report.sh
+          ./compilation_report.sh 1 1
+      
+      - name: Generate execution report without averages
+        working-directory: ./test-repo/${{ matrix.project.path }}
+        if: ${{ !matrix.project.is_library && !matrix.project.take_average }}
+        run: |
+          mv /home/runner/work/noir/noir/scripts/test_programs/execution_report.sh ./execution_report.sh
+          ./execution_report.sh 1
+
+      - name: Generate execution report with averages
+        working-directory: ./test-repo/${{ matrix.project.path }}
+        if: ${{ !matrix.project.is_library && matrix.project.take_average }}
+        run: |
+          mv /home/runner/work/noir/noir/scripts/test_programs/execution_report.sh ./execution_report.sh
+          ./execution_report.sh 1 1
+
+      - name: Generate compilation report with averages
+        working-directory: ./test-repo/${{ matrix.project.path }}
+        if: ${{ matrix.project.take_average }}
+        run: |
+          mv /home/runner/work/noir/noir/scripts/test_programs/compilation_report.sh ./compilation_report.sh
+          chmod +x ./compilation_report.sh
+          ./compilation_report.sh 1 1
+      
+      - name: Generate execution report without averages
+        working-directory: ./test-repo/${{ matrix.project.path }}
+        if: ${{ !matrix.project.is_library && !matrix.project.take_average }}
+        run: |
+          mv /home/runner/work/noir/noir/scripts/test_programs/execution_report.sh ./execution_report.sh
+          ./execution_report.sh 1
+
+      - name: Generate execution report with averages
+        working-directory: ./test-repo/${{ matrix.project.path }}
+        if: ${{ !matrix.project.is_library && matrix.project.take_average }}
+        run: |
+          mv /home/runner/work/noir/noir/scripts/test_programs/execution_report.sh ./execution_report.sh
+          ./execution_report.sh 1 1
 
       - name: Generate compilation report with averages
         working-directory: ./test-repo/${{ matrix.project.path }}

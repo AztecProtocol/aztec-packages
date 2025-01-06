@@ -1,6 +1,6 @@
 import { type ArchiveSource } from '@aztec/archiver';
 import { getConfigEnvVars } from '@aztec/aztec-node';
-import { AztecAddress, EthCheatCodes, Fr, GlobalVariables, type L2Block, createLogger } from '@aztec/aztec.js';
+import { AztecAddress, Fr, GlobalVariables, type L2Block, createLogger } from '@aztec/aztec.js';
 // eslint-disable-next-line no-restricted-imports
 import {
   type L2Tips,
@@ -9,7 +9,6 @@ import {
 } from '@aztec/circuit-types';
 import { makeBloatedProcessedTx } from '@aztec/circuit-types/test';
 import {
-  BlockBlobPublicInputs,
   type BlockHeader,
   EthAddress,
   GENESIS_ARCHIVE_ROOT,
@@ -18,8 +17,10 @@ import {
   MAX_NULLIFIERS_PER_TX,
   NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
 } from '@aztec/circuits.js';
+import { BlockBlobPublicInputs } from '@aztec/circuits.js/blobs';
 import { fr } from '@aztec/circuits.js/testing';
 import { type L1ContractAddresses, createEthereumChain } from '@aztec/ethereum';
+import { EthCheatCodesWithState } from '@aztec/ethereum/test';
 import { range } from '@aztec/foundation/array';
 import { Blob } from '@aztec/foundation/blob';
 import { sha256, sha256ToField } from '@aztec/foundation/crypto';
@@ -70,6 +71,9 @@ config.l1RpcUrl = config.l1RpcUrl || 'http://127.0.0.1:8545';
 
 const numberOfConsecutiveBlocks = 2;
 
+const BLOB_SINK_PORT = 5052;
+const BLOB_SINK_URL = `http://localhost:${BLOB_SINK_PORT}`;
+
 describe('L1Publisher integration', () => {
   let publicClient: PublicClient<HttpTransport, Chain>;
   let walletClient: WalletClient<HttpTransport, Chain, Account>;
@@ -99,7 +103,7 @@ describe('L1Publisher integration', () => {
   let coinbase: EthAddress;
   let feeRecipient: AztecAddress;
 
-  let ethCheatCodes: EthCheatCodes;
+  let ethCheatCodes: EthCheatCodesWithState;
   let worldStateSynchronizer: ServerWorldStateSynchronizer;
 
   // To update the test data, run "export AZTEC_GENERATE_TEST_DATA=1" in shell and run the tests again
@@ -125,7 +129,7 @@ describe('L1Publisher integration', () => {
       { assumeProvenThrough: undefined },
     ));
 
-    ethCheatCodes = new EthCheatCodes(config.l1RpcUrl);
+    ethCheatCodes = new EthCheatCodesWithState(config.l1RpcUrl);
 
     rollupAddress = getAddress(l1ContractAddresses.rollupAddress.toString());
     outboxAddress = getAddress(l1ContractAddresses.outboxAddress.toString());
@@ -168,12 +172,7 @@ describe('L1Publisher integration', () => {
       worldStateDbMapSizeKb: 10 * 1024 * 1024,
       worldStateBlockHistory: 0,
     };
-    worldStateSynchronizer = new ServerWorldStateSynchronizer(
-      builderDb,
-      blockSource,
-      worldStateConfig,
-      new NoopTelemetryClient(),
-    );
+    worldStateSynchronizer = new ServerWorldStateSynchronizer(builderDb, blockSource, worldStateConfig);
     await worldStateSynchronizer.start();
 
     publisher = new L1Publisher(
@@ -186,6 +185,7 @@ describe('L1Publisher integration', () => {
         l1ChainId: 31337,
         viemPollingIntervalMS: 100,
         ethereumSlotDuration: config.ethereumSlotDuration,
+        blobSinkUrl: BLOB_SINK_URL,
       },
       new NoopTelemetryClient(),
     );

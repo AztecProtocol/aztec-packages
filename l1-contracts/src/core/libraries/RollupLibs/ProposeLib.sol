@@ -15,6 +15,6 @@ struct ProposeArgs {
 
 library ProposeLib {
   function digest(ProposeArgs memory _args) internal pure returns (bytes32) {
-    return keccak256(abi.encode(SignatureLib.SignatureDomainSeperator.blockAttestation, _args));
+    return keccak256(abi.encode(SignatureLib.SignatureDomainSeparator.blockAttestation, _args));
   }
 }

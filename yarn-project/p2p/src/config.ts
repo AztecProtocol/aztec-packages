@@ -8,7 +8,7 @@ import {
 } from '@aztec/foundation/config';
 import { type DataStoreConfig, dataConfigMappings } from '@aztec/kv-store/config';
 
-import { type P2PReqRespConfig, p2pReqRespConfigMappings } from './service/reqresp/config.js';
+import { type P2PReqRespConfig, p2pReqRespConfigMappings } from './services/reqresp/config.js';
 
 /**
  * P2P client configuration values.
@@ -170,7 +170,7 @@ export const p2pConfigMappings: ConfigMappingsType<P2PConfig> = {
   peerCheckIntervalMS: {
     env: 'P2P_PEER_CHECK_INTERVAL_MS',
     description: 'The frequency in which to check for new peers.',
-    ...numberConfigHelper(1_000),
+    ...numberConfigHelper(30_000),
   },
   l2QueueSize: {
     env: 'P2P_L2_QUEUE_SIZE',

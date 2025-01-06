@@ -1,4 +1,4 @@
-import { type PXE, PXESchema } from '@aztec/circuit-types';
+import { type PXE, PXESchema } from '@aztec/circuit-types/interfaces';
 import { createSafeJsonRpcClient, makeFetch } from '@aztec/foundation/json-rpc/client';
 
 /**

@@ -22,6 +22,7 @@ describe('prover/orchestrator/mixed-blocks', () => {
   describe('blocks', () => {
     it('builds an unbalanced L2 block', async () => {
       const txs = times(3, i => context.makeProcessedTx(i + 1));
+      await context.setEndTreeRoots(txs);
 
       const l1ToL2Messages = range(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP, 1 + 0x400).map(fr);
 
@@ -36,6 +37,7 @@ describe('prover/orchestrator/mixed-blocks', () => {
 
     it.each([2, 4, 5, 8] as const)('builds an L2 block with %i bloated txs', async (totalCount: number) => {
       const txs = times(totalCount, i => context.makeProcessedTx(i + 1));
+      await context.setEndTreeRoots(txs);
 
       const l1ToL2Messages = range(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP, 1 + 0x400).map(fr);
 
