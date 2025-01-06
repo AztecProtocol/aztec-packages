@@ -13,6 +13,7 @@ spec:
         app: deploy-l1-verifier
     spec:
       restartPolicy: OnFailure
+      serviceAccountName: {{ include "aztec-network.fullname" . }}-node
       volumes:
         - name: config
           emptyDir: {}

@@ -150,7 +150,7 @@ impl Deck<UnconstrainedContext> {
     }
 }
 
-global PACK_CARDS = 3; // Limited by number of write requests (max 4)
+global PACK_CARDS: u32 = 3; // Limited by number of write requests (max 4)
 
 pub fn get_pack_cards(
     seed: Field,

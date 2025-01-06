@@ -94,50 +94,26 @@ export class DualSideEffectTrace implements PublicSideEffectTraceInterface {
   }
 
   public traceNullifierCheck(
-    contractAddress: AztecAddress,
-    nullifier: Fr,
+    siloedNullifier: Fr,
     exists: boolean,
     lowLeafPreimage: NullifierLeafPreimage,
     lowLeafIndex: Fr,
     lowLeafPath: Fr[],
   ) {
-    this.innerCallTrace.traceNullifierCheck(
-      contractAddress,
-      nullifier,
-      exists,
-      lowLeafPreimage,
-      lowLeafIndex,
-      lowLeafPath,
-    );
-    this.enqueuedCallTrace.traceNullifierCheck(
-      contractAddress,
-      nullifier,
-      exists,
-      lowLeafPreimage,
-      lowLeafIndex,
-      lowLeafPath,
-    );
+    this.innerCallTrace.traceNullifierCheck(siloedNullifier, exists, lowLeafPreimage, lowLeafIndex, lowLeafPath);
+    this.enqueuedCallTrace.traceNullifierCheck(siloedNullifier, exists, lowLeafPreimage, lowLeafIndex, lowLeafPath);
   }
 
   public traceNewNullifier(
-    contractAddress: AztecAddress,
-    nullifier: Fr,
+    siloedNullifier: Fr,
     lowLeafPreimage: NullifierLeafPreimage,
     lowLeafIndex: Fr,
     lowLeafPath: Fr[],
     insertionPath: Fr[],
   ) {
-    this.innerCallTrace.traceNewNullifier(
-      contractAddress,
-      nullifier,
-      lowLeafPreimage,
-      lowLeafIndex,
-      lowLeafPath,
-      insertionPath,
-    );
+    this.innerCallTrace.traceNewNullifier(siloedNullifier, lowLeafPreimage, lowLeafIndex, lowLeafPath, insertionPath);
     this.enqueuedCallTrace.traceNewNullifier(
-      contractAddress,
-      nullifier,
+      siloedNullifier,
       lowLeafPreimage,
       lowLeafIndex,
       lowLeafPath,

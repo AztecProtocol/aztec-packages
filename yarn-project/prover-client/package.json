@@ -4,6 +4,7 @@
   "type": "module",
   "exports": {
     ".": "./dest/index.js",
+    "./broker": "./dest/proving_broker/index.js",
     "./prover-agent": "./dest/prover-agent/index.js",
     "./orchestrator": "./dest/orchestrator/index.js",
     "./helpers": "./dest/orchestrator/block-building-helpers.js"
@@ -78,7 +79,8 @@
     "commander": "^12.1.0",
     "lodash.chunk": "^4.2.0",
     "source-map-support": "^0.5.21",
-    "tslib": "^2.4.0"
+    "tslib": "^2.4.0",
+    "zod": "^3.23.8"
   },
   "devDependencies": {
     "@jest/globals": "^29.5.0",

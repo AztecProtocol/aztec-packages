@@ -21,6 +21,8 @@ export class SequencerMetrics {
   private currentBlockNumber: Gauge;
   private currentBlockSize: Gauge;
 
+  private timeToCollectAttestations: Gauge;
+
   constructor(client: TelemetryClient, getState: SequencerStateCallback, name = 'Sequencer') {
     const meter = client.getMeter(name);
     this.tracer = client.getTracer(name);
@@ -60,7 +62,24 @@ export class SequencerMetrics {
       description: 'Current block number',
     });
 
+    this.timeToCollectAttestations = meter.createGauge(Metrics.SEQUENCER_TIME_TO_COLLECT_ATTESTATIONS, {
+      description: 'The time spent collecting attestations from committee members',
+    });
+
     this.setCurrentBlock(0, 0);
+  }
+
+  startCollectingAttestationsTimer(): () => void {
+    const startTime = Date.now();
+    const stop = () => {
+      const duration = Date.now() - startTime;
+      this.recordTimeToCollectAttestations(duration);
+    };
+    return stop.bind(this);
+  }
+
+  recordTimeToCollectAttestations(time: number) {
+    this.timeToCollectAttestations.record(time);
   }
 
   recordCancelledBlock() {

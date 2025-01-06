@@ -94,6 +94,7 @@ validator:
     enforceTimeTable: true
   validator:
     disabled: false
+    reexecute: true
   p2p:
     enabled: "true"
   startupProbe:
@@ -117,7 +118,16 @@ proverNode:
   logLevel: "debug"
   debug: "aztec:*,-aztec:avm_simulator*,-aztec:libp2p_service*,-aztec:circuits:artifact_hash,-json-rpc*,-aztec:world-state:database,-aztec:l2_block_stream*"
   realProofs: false
-  proverAgentEnabled: false
+  proverAgent:
+    count: 0
+    pollIntervalMs: 1000
+    proofTypes: []
+  proverBroker:
+    enabled: false
+    jobTimeoutMs: 30000
+    pollIntervalMs: 1000
+    jobMaxRetries: 3
+    dataDirectory: ""
   resources:
     requests:
       memory: "2Gi"
@@ -205,14 +215,29 @@ proverAgent:
     nodePort: 8083
   enabled: true
   replicas: 1
+  pollIntervalMs: 1000
+  proofTypes: ["foo", "bar", "baz"]
   gke:
     spotEnabled: false
   logLevel: "debug"
   debug: "aztec:*,-aztec:avm_simulator*,-aztec:libp2p_service*,-aztec:circuits:artifact_hash,-json-rpc*,-aztec:world-state:database,-aztec:l2_block_stream*"
   realProofs: false
-  concurrency: 1
   bb:
     hardwareConcurrency: ""
+  nodeSelector: {}
+  resources: {}
+
+proverBroker:
+  service:
+    nodePort: 8084
+  enabled: true
+  replicas: 1
+  jobTimeoutMs: 30000
+  pollIntervalMs: 1000
+  jobMaxRetries: 3
+  dataDirectory: ""
+  logLevel: "debug"
+  debug: "aztec:*,-aztec:avm_simulator*,-aztec:libp2p_service*,-aztec:circuits:artifact_hash,-json-rpc*,-aztec:world-state:database,-aztec:l2_block_stream*"
   nodeSelector: {}
   resources: {}
 

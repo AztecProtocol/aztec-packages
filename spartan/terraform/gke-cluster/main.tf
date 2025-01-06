@@ -96,6 +96,40 @@ resource "google_container_node_pool" "primary_nodes" {
   }
 }
 
+# Create node pool for aztec nodes (validators, prover nodes, boot nodes)
+resource "google_container_node_pool" "aztec_nodes" {
+  name     = "aztec-node-pool"
+  location = var.zone
+  cluster  = google_container_cluster.primary.name
+
+  # Enable autoscaling
+  autoscaling {
+    min_node_count = 1
+    max_node_count = 128
+  }
+
+  # Node configuration
+  node_config {
+    machine_type = "t2d-standard-8"
+
+    service_account = google_service_account.gke_sa.email
+    oauth_scopes = [
+      "https://www.googleapis.com/auth/cloud-platform"
+    ]
+
+    labels = {
+      env = "production"
+    }
+    tags = ["gke-node", "aztec"]
+  }
+
+  # Management configuration
+  management {
+    auto_repair  = true
+    auto_upgrade = true
+  }
+}
+
 # Create spot instance node pool with autoscaling
 resource "google_container_node_pool" "spot_nodes" {
   name     = "spot-node-pool"

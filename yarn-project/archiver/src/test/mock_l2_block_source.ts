@@ -1,4 +1,12 @@
-import { L2Block, type L2BlockSource, type L2Tips, type TxHash, TxReceipt, TxStatus } from '@aztec/circuit-types';
+import {
+  L2Block,
+  L2BlockHash,
+  type L2BlockSource,
+  type L2Tips,
+  type TxHash,
+  TxReceipt,
+  TxStatus,
+} from '@aztec/circuit-types';
 import { EthAddress, type Header } from '@aztec/circuits.js';
 import { DefaultL1ContractsConfig } from '@aztec/ethereum';
 import { createDebugLogger } from '@aztec/foundation/log';
@@ -144,7 +152,7 @@ export class MockL2BlockSource implements L2BlockSource {
               TxStatus.SUCCESS,
               '',
               txEffect.transactionFee.toBigInt(),
-              block.hash().toBuffer(),
+              L2BlockHash.fromField(block.hash()),
               block.number,
             ),
           );

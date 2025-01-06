@@ -11,8 +11,8 @@ unconstrained fn setup_refund_success() {
     // Gas used to compute transaction fee
     // TXE oracle uses gas_used = Gas(1,1) when crafting TX
     let txe_expected_gas_used = Gas::new(1, 1);
-    // TXE oracle uses default gas fees
-    let txe_gas_fees = GasFees::default();
+    // TXE oracle uses gas fees of (1, 1)
+    let txe_gas_fees = GasFees::new(1, 1);
     let expected_tx_fee = txe_expected_gas_used.compute_fee(txe_gas_fees);
 
     // Fund account with enough to cover tx fee plus some

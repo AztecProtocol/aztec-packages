@@ -1,8 +1,9 @@
 import { makeTuple } from '@aztec/foundation/array';
 import { times } from '@aztec/foundation/collection';
 import { Fq, Fr } from '@aztec/foundation/fields';
-import { hexSchemaFor } from '@aztec/foundation/schemas';
+import { bufferSchemaFor } from '@aztec/foundation/schemas';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
+import { bufferToHex, hexToBuffer } from '@aztec/foundation/string';
 
 import { HONK_VERIFICATION_KEY_LENGTH_IN_FIELDS } from '../constants.gen.js';
 import { CircuitType } from './shared.js';
@@ -100,11 +101,11 @@ export class VerificationKeyAsFields {
 
   static get schema() {
     // TODO(palla/schemas): Should we verify the hash matches the key when deserializing?
-    return hexSchemaFor(VerificationKeyAsFields);
+    return bufferSchemaFor(VerificationKeyAsFields);
   }
 
   toJSON() {
-    return '0x' + this.toBuffer().toString('hex');
+    return this.toBuffer();
   }
 
   /**
@@ -261,7 +262,7 @@ export class VerificationKeyData {
   }
 
   toString() {
-    return this.toBuffer().toString('hex');
+    return bufferToHex(this.toBuffer());
   }
 
   static fromBuffer(buffer: Buffer | BufferReader): VerificationKeyData {
@@ -273,7 +274,7 @@ export class VerificationKeyData {
   }
 
   static fromString(str: string): VerificationKeyData {
-    return VerificationKeyData.fromBuffer(Buffer.from(str, 'hex'));
+    return VerificationKeyData.fromBuffer(hexToBuffer(str));
   }
 
   public clone() {
@@ -282,11 +283,11 @@ export class VerificationKeyData {
 
   /** Returns a hex representation for JSON serialization. */
   toJSON() {
-    return this.toString();
+    return this.toBuffer();
   }
 
   /** Creates an instance from a hex string. */
   static get schema() {
-    return hexSchemaFor(VerificationKeyData);
+    return bufferSchemaFor(VerificationKeyData);
   }
 }

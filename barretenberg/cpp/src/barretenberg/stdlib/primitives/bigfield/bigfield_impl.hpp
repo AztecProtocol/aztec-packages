@@ -1001,6 +1001,12 @@ bigfield<Builder, T> bigfield<Builder, T>::sqradd(const std::vector<bigfield>& t
 
             const auto [quotient_1024, remainder_1024] = (left * right + add_right).divmod(modulus);
             remainder = bigfield(ctx, uint256_t(remainder_1024.lo.lo));
+            // Merge tags
+            OriginTag new_tag = get_origin_tag();
+            for (auto& element : to_add) {
+                new_tag = OriginTag(new_tag, element.get_origin_tag());
+            }
+            remainder.set_origin_tag(new_tag);
             return remainder;
         } else {
 

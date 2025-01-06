@@ -30,6 +30,7 @@ export function makeHeader(
     makeStateReference(seed + 0x600),
     makeGlobalVariables((seed += 0x700), blockNumber, slotNumber ?? blockNumber),
     fr(seed + 0x800),
+    fr(seed + 0x900),
   );
 }
 

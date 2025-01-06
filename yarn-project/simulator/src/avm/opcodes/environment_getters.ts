@@ -60,11 +60,11 @@ export class GetEnvVar extends Instruction {
   static readonly wireFormat16: OperandType[] = [
     OperandType.UINT8, // opcode
     OperandType.UINT8, // indirect
-    OperandType.UINT8, // variable enum (immediate)
     OperandType.UINT16, // dstOffset
+    OperandType.UINT8, // variable enum (immediate)
   ];
 
-  constructor(private indirect: number, private varEnum: number, private dstOffset: number) {
+  constructor(private indirect: number, private dstOffset: number, private varEnum: number) {
     super();
   }
 

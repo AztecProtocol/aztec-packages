@@ -1,5 +1,6 @@
 import { SignerlessWallet, type WaitOpts, createPXEClient, makeFetch } from '@aztec/aztec.js';
 import { DefaultMultiCallEntrypoint } from '@aztec/aztec.js/entrypoint';
+import { jsonStringify } from '@aztec/foundation/json-rpc';
 import { type LogFn } from '@aztec/foundation/log';
 import { ProtocolContractAddress } from '@aztec/protocol-contracts';
 
@@ -18,7 +19,7 @@ export async function setupProtocolContracts(
     proven: !skipProofWait,
     provenTimeout: 600,
   };
-  log('setupProtocolContracts: Wait options' + JSON.stringify(waitOpts));
+  log('setupProtocolContracts: Wait options' + jsonStringify(waitOpts));
   log('setupProtocolContracts: Creating PXE client...');
   const pxe = createPXEClient(rpcUrl, makeFetch([1, 1, 1, 1, 1], false));
   const wallet = new SignerlessWallet(pxe, new DefaultMultiCallEntrypoint(l1ChainId, 1));

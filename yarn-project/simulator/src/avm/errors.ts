@@ -40,6 +40,37 @@ export class InvalidProgramCounterError extends AvmExecutionError {
 }
 
 /**
+ * Error is thrown when the program counter points to a byte
+ * of an invalid opcode.
+ */
+export class InvalidOpcodeError extends AvmExecutionError {
+  constructor(str: string) {
+    super(str);
+    this.name = 'InvalidOpcodeError';
+  }
+}
+
+/**
+ * Error is thrown during parsing.
+ */
+export class AvmParsingError extends AvmExecutionError {
+  constructor(str: string) {
+    super(str);
+    this.name = 'AvmParsingError';
+  }
+}
+
+/**
+ * Error is thrown when the tag has an invalid value.
+ */
+export class InvalidTagValueError extends AvmExecutionError {
+  constructor(tagValue: number) {
+    super(`Tag value ${tagValue} is invalid.`);
+    this.name = 'InvalidTagValueError';
+  }
+}
+
+/**
  * Error thrown during an instruction's execution (during its execute()).
  */
 export class InstructionExecutionError extends AvmExecutionError {
@@ -64,6 +95,17 @@ export class TagCheckError extends AvmExecutionError {
   constructor(message: string) {
     super(message);
     this.name = 'TagCheckError';
+  }
+}
+
+/**
+ * Error is thrown when a relative memory address resolved to an offset which
+ * is out of range, i.e, greater than maxUint32.
+ */
+export class AddressOutOfRangeError extends AvmExecutionError {
+  constructor(baseAddr: number, relOffset: number) {
+    super(`Address out of range. Base address ${baseAddr}, relative offset ${relOffset}`);
+    this.name = 'AddressOutOfRangeError';
   }
 }
 

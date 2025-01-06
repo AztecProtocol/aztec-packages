@@ -24,7 +24,11 @@ import {
   revertReasonFromExplicitRevert,
 } from './errors.js';
 import { type AvmPersistableStateManager } from './journal/journal.js';
-import { decodeInstructionFromBytecode } from './serialization/bytecode_serialization.js';
+import {
+  INSTRUCTION_SET,
+  type InstructionSet,
+  decodeInstructionFromBytecode,
+} from './serialization/bytecode_serialization.js';
 
 type OpcodeTally = {
   count: number;
@@ -42,12 +46,19 @@ export class AvmSimulator {
   private opcodeTallies: Map<string, OpcodeTally> = new Map();
   private pcTallies: Map<number, PcTally> = new Map();
 
-  constructor(private context: AvmContext) {
+  private tallyPrintFunction = () => {};
+  private tallyInstructionFunction = (_a: number, _b: string, _c: Gas) => {};
+
+  constructor(private context: AvmContext, private instructionSet: InstructionSet = INSTRUCTION_SET()) {
     assert(
       context.machineState.gasLeft.l2Gas <= MAX_L2_GAS_PER_ENQUEUED_CALL,
       `Cannot allocate more than ${MAX_L2_GAS_PER_ENQUEUED_CALL} to the AVM for execution of an enqueued call`,
     );
     this.log = createDebugLogger(`aztec:avm_simulator:core(f:${context.environment.functionSelector.toString()})`);
+    if (process.env.LOG_LEVEL === 'debug') {
+      this.tallyPrintFunction = this.printOpcodeTallies;
+      this.tallyInstructionFunction = this.tallyInstruction;
+    }
   }
 
   public static create(
@@ -74,7 +85,8 @@ export class AvmSimulator {
 
     const avmMachineState = new AvmMachineState(allocatedGas);
     const avmContext = new AvmContext(stateManager, avmExecutionEnv, avmMachineState);
-    return new AvmSimulator(avmContext);
+    const instructionSet = INSTRUCTION_SET();
+    return new AvmSimulator(avmContext, instructionSet);
   }
 
   /**
@@ -82,7 +94,6 @@ export class AvmSimulator {
    */
   public async execute(): Promise<AvmContractCallResult> {
     const bytecode = await this.context.persistableState.getBytecode(this.context.environment.address);
-
     if (!bytecode) {
       // revert, consuming all gas
       const message = `No bytecode found at: ${this.context.environment.address}. Reverting...`;
@@ -129,12 +140,7 @@ export class AvmSimulator {
       // continuing until the machine state signifies a halt
       let instrCounter = 0;
       while (!machineState.getHalted()) {
-        const [instruction, bytesRead] = decodeInstructionFromBytecode(bytecode, machineState.pc);
-        assert(
-          !!instruction,
-          'AVM attempted to execute non-existent instruction. This should never happen (invalid bytecode or AVM simulator bug)!',
-        );
-
+        const [instruction, bytesRead] = decodeInstructionFromBytecode(bytecode, machineState.pc, this.instructionSet);
         const instrStartGas = machineState.gasLeft; // Save gas before executing instruction (for profiling)
         const instrPc = machineState.pc; // Save PC before executing instruction (for profiling)
 
@@ -147,6 +153,7 @@ export class AvmSimulator {
         // Normal returns and reverts will return normally here.
         // "Exceptional halts" will throw.
         machineState.nextPc = machineState.pc + bytesRead;
+
         await instruction.execute(this.context);
         if (!instruction.handlesPC()) {
           // Increment PC if the instruction doesn't handle it itself
@@ -158,7 +165,7 @@ export class AvmSimulator {
           l2Gas: instrStartGas.l2Gas - machineState.l2GasLeft,
           daGas: instrStartGas.daGas - machineState.daGasLeft,
         };
-        this.tallyInstruction(instrPc, instruction.constructor.name, gasUsed);
+        this.tallyInstructionFunction(instrPc, instruction.constructor.name, gasUsed);
 
         if (machineState.pc >= bytecode.length) {
           this.log.warn('Passed end of program');
@@ -172,7 +179,7 @@ export class AvmSimulator {
       const results = new AvmContractCallResult(reverted, output, machineState.gasLeft, revertReason);
       this.log.debug(`Context execution results: ${results.toString()}`);
 
-      this.printOpcodeTallies();
+      this.tallyPrintFunction();
       // Return results for processing by calling context
       return results;
     } catch (err: any) {
@@ -187,7 +194,7 @@ export class AvmSimulator {
       const results = new AvmContractCallResult(/*reverted=*/ true, /*output=*/ [], machineState.gasLeft, revertReason);
       this.log.debug(`Context execution results: ${results.toString()}`);
 
-      this.printOpcodeTallies();
+      this.tallyPrintFunction();
       // Return results for processing by calling context
       return results;
     }

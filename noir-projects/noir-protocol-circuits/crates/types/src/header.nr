@@ -21,6 +21,7 @@ pub struct Header {
     pub state: StateReference,
     pub global_variables: GlobalVariables,
     pub total_fees: Field,
+    pub total_mana_used: Field,
 }
 // docs:end:header
 
@@ -31,6 +32,7 @@ impl Eq for Header {
             & self.state.eq(other.state)
             & self.global_variables.eq(other.global_variables)
             & self.total_fees.eq(other.total_fees)
+            & self.total_mana_used.eq(other.total_mana_used)
     }
 }
 
@@ -43,7 +45,7 @@ impl Serialize<HEADER_LENGTH> for Header {
         fields.extend_from_array(self.state.serialize());
         fields.extend_from_array(self.global_variables.serialize());
         fields.push(self.total_fees);
-
+        fields.push(self.total_mana_used);
         fields.storage()
     }
 }
@@ -68,6 +70,9 @@ impl Deserialize<HEADER_LENGTH> for Header {
         offset = offset + GLOBAL_VARIABLES_LENGTH;
 
         let total_fees = serialized[offset];
+        offset = offset + 1;
+
+        let total_mana_used = serialized[offset];
 
         Header {
             last_archive: AppendOnlyTreeSnapshot::deserialize(last_archive_fields),
@@ -75,6 +80,7 @@ impl Deserialize<HEADER_LENGTH> for Header {
             state: StateReference::deserialize(state_fields),
             global_variables: GlobalVariables::deserialize(global_variables_fields),
             total_fees,
+            total_mana_used,
         }
     }
 }
@@ -87,6 +93,7 @@ impl Empty for Header {
             state: StateReference::empty(),
             global_variables: GlobalVariables::empty(),
             total_fees: 0,
+            total_mana_used: 0,
         }
     }
 }
@@ -117,6 +124,6 @@ fn empty_hash_is_zero() {
     let hash = header.hash();
 
     // Value from new_contract_data.test.ts "computes empty hash" test
-    let test_data_empty_hash = 0x1c97ed6fbc35f8b400d31bd38ce5cc938921e0cf2e20159d316f8c7011f9f42c;
+    let test_data_empty_hash = 0x28e48e620bc00817609b5fc765bc74864561f25a3c941b33e5ee05266b752839;
     assert_eq(hash, test_data_empty_hash);
 }

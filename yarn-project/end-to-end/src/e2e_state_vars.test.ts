@@ -26,88 +26,68 @@ describe('e2e_state_vars', () => {
 
   afterAll(() => teardown());
 
-  describe('SharedImmutable', () => {
-    it('private read of uninitialized SharedImmutable', async () => {
-      const s = await contract.methods.get_shared_immutable().simulate();
+  describe('PublicImmutable', () => {
+    it('private read of uninitialized PublicImmutable', async () => {
+      const s = await contract.methods.get_public_immutable().simulate();
 
       // Send the transaction and wait for it to be mined (wait function throws if the tx is not mined)
-      await contract.methods.match_shared_immutable(s.account, s.points).send().wait();
+      await contract.methods.match_public_immutable(s.account, s.points).send().wait();
     });
 
-    it('initialize and read SharedImmutable', async () => {
-      // Initializes the shared immutable and then reads the value using an unconstrained function
+    it('initialize and read PublicImmutable', async () => {
+      // Initializes the public immutable and then reads the value using an unconstrained function
       // checking the return values:
 
-      await contract.methods.initialize_shared_immutable(1).send().wait();
+      await contract.methods.initialize_public_immutable(1).send().wait();
 
-      const read = await contract.methods.get_shared_immutable().simulate();
+      const read = await contract.methods.get_public_immutable().simulate();
 
       expect(read).toEqual({ account: wallet.getAddress(), points: read.points });
     });
 
-    it('private read of SharedImmutable', async () => {
+    it('private read of PublicImmutable', async () => {
       // Reads the value using an unconstrained function checking the return values with:
       // 1. A constrained private function that reads it directly
       // 2. A constrained private function that calls another private function that reads.
       //    The indirect, adds 1 to the point to ensure that we are returning the correct value.
 
       const [a, b, c] = await new BatchCall(wallet, [
-        contract.methods.get_shared_immutable_constrained_private().request(),
-        contract.methods.get_shared_immutable_constrained_private_indirect().request(),
-        contract.methods.get_shared_immutable().request(),
+        contract.methods.get_public_immutable_constrained_private().request(),
+        contract.methods.get_public_immutable_constrained_private_indirect().request(),
+        contract.methods.get_public_immutable().request(),
       ]).simulate();
 
       expect(a).toEqual(c);
       expect(b).toEqual({ account: c.account, points: c.points + 1n });
-      await contract.methods.match_shared_immutable(c.account, c.points).send().wait();
+      await contract.methods.match_public_immutable(c.account, c.points).send().wait();
     });
 
-    it('public read of SharedImmutable', async () => {
+    it('public read of PublicImmutable', async () => {
       // Reads the value using an unconstrained function checking the return values with:
       // 1. A constrained public function that reads it directly
       // 2. A constrained public function that calls another public function that reads.
       //    The indirect, adds 1 to the point to ensure that we are returning the correct value.
 
       const [a, b, c] = await new BatchCall(wallet, [
-        contract.methods.get_shared_immutable_constrained_public().request(),
-        contract.methods.get_shared_immutable_constrained_public_indirect().request(),
-        contract.methods.get_shared_immutable().request(),
+        contract.methods.get_public_immutable_constrained_public().request(),
+        contract.methods.get_public_immutable_constrained_public_indirect().request(),
+        contract.methods.get_public_immutable().request(),
       ]).simulate();
 
       expect(a).toEqual(c);
       expect(b).toEqual({ account: c.account, points: c.points + 1n });
 
-      await contract.methods.match_shared_immutable(c.account, c.points).send().wait();
+      await contract.methods.match_public_immutable(c.account, c.points).send().wait();
     });
 
-    it('public multiread of SharedImmutable', async () => {
+    it('public multiread of PublicImmutable', async () => {
       // Reads the value using an unconstrained function checking the return values with:
       // 1. A constrained public function that reads 5 times directly (going beyond the previous 4 Field return value)
 
-      const a = await contract.methods.get_shared_immutable_constrained_public_multiple().simulate();
-      const c = await contract.methods.get_shared_immutable().simulate();
+      const a = await contract.methods.get_public_immutable_constrained_public_multiple().simulate();
+      const c = await contract.methods.get_public_immutable().simulate();
 
       expect(a).toEqual([c, c, c, c, c]);
-    });
-
-    it('initializing SharedImmutable the second time should fail', async () => {
-      // Jest executes the tests sequentially and the first call to initialize_shared_immutable was executed
-      // in the previous test, so the call below should fail.
-      await expect(contract.methods.initialize_shared_immutable(1).prove()).rejects.toThrow(
-        'Assertion failed: SharedImmutable already initialized',
-      );
-    });
-  });
-
-  describe('PublicImmutable', () => {
-    it('initialize and read public immutable', async () => {
-      const numPoints = 1n;
-
-      await contract.methods.initialize_public_immutable(numPoints).send().wait();
-      const p = await contract.methods.get_public_immutable().simulate();
-
-      expect(p.account).toEqual(wallet.getCompleteAddress().address);
-      expect(p.points).toEqual(numPoints);
     });
 
     it('initializing PublicImmutable the second time should fail', async () => {

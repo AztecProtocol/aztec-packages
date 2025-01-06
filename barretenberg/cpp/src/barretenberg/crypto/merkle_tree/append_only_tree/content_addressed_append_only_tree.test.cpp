@@ -475,6 +475,7 @@ TEST_F(PersistedContentAddressedAppendOnlyTreeTest, errors_are_caught_and_handle
     std::string name = random_string();
     std::string directory = random_temp_directory();
     std::filesystem::create_directories(directory);
+    auto& random_engine = numeric::get_randomness();
 
     {
         LMDBTreeStore::SharedPtr db = std::make_shared<LMDBTreeStore>(_directory, name, 50, _maxReaders);
@@ -492,9 +493,10 @@ TEST_F(PersistedContentAddressedAppendOnlyTreeTest, errors_are_caught_and_handle
 
         // Add lots of values to the tree
         uint32_t num_values_to_add = 16 * 1024;
-        std::vector<fr> values(num_values_to_add, VALUES[0]);
+        std::vector<fr> values;
         for (uint32_t i = 0; i < num_values_to_add; i++) {
-            memdb.update_element(i, VALUES[0]);
+            values.emplace_back(random_engine.get_random_uint256());
+            memdb.update_element(i, values[i]);
         }
         add_values(tree, values);
 
@@ -714,46 +716,31 @@ TEST_F(PersistedContentAddressedAppendOnlyTreeTest, test_find_leaf_index)
 
     commit_tree(tree);
 
-    values = { 16, 4, 18, 22 };
+    values = { 16, 4, 19, 22 };
     add_values(tree, values);
-
-    // we now have duplicate leaf 18, one committed the other not
-    check_find_leaf_index(tree, 18, 5, true, true);
-    check_find_leaf_index(tree, 18, 5, true, false);
 
     // verify the find index from api
     check_find_leaf_index_from(tree, 18, 0, 5, true, true);
-    check_find_leaf_index_from(tree, 18, 6, 10, true, true);
-    check_find_leaf_index_from(tree, 18, 6, 0, false, false);
+    check_find_leaf_index_from(tree, 19, 6, 10, true, true);
+    check_find_leaf_index_from(tree, 19, 0, 0, false, false);
 
     commit_tree(tree);
 
-    // add another leaf 18
-    add_value(tree, 18);
-
-    // should return the first index
-    check_find_leaf_index_from(tree, 18, 0, 5, true, false);
-    check_find_leaf_index_from(tree, 18, 0, 5, true, true);
-
     add_value(tree, 88);
-    // and another uncommitted 18
-    add_value(tree, 18);
 
     add_value(tree, 32);
 
-    // should return the first uncommitted
-    check_find_leaf_index_from(tree, 18, 12, 12, true, true);
-    check_find_leaf_index_from(tree, 18, 14, 14, true, true);
-    check_find_leaf_index_from(tree, 18, 15, 0, false, true);
+    check_size(tree, 14);
+    check_size(tree, 12, false);
 
     // look past the last instance of this leaf
-    check_find_leaf_index_from(tree, 18, 17, 0, false, true);
+    check_find_leaf_index_from(tree, 18, 6, 0, false, true);
 
     // look beyond the end of uncommitted
-    check_find_leaf_index_from(tree, 18, 18, 0, false, true);
+    check_find_leaf_index_from(tree, 18, 15, 0, false, true);
 
     // look beyond the end of committed and don't include uncomitted
-    check_find_leaf_index_from(tree, 18, 14, 0, false, false);
+    check_find_leaf_index_from(tree, 88, 13, 0, false, false);
 }
 
 TEST_F(PersistedContentAddressedAppendOnlyTreeTest, can_add_multiple_values)
@@ -797,6 +784,57 @@ TEST_F(PersistedContentAddressedAppendOnlyTreeTest, can_add_multiple_values_in_a
     check_root(tree, memdb.root());
     check_sibling_path(tree, 0, memdb.get_sibling_path(0));
     check_sibling_path(tree, 4 - 1, memdb.get_sibling_path(4 - 1));
+}
+
+TEST_F(PersistedContentAddressedAppendOnlyTreeTest, can_pad_with_zero_leaves)
+{
+    constexpr size_t depth = 10;
+    std::string name = random_string();
+    LMDBTreeStore::SharedPtr db = std::make_shared<LMDBTreeStore>(_directory, name, _mapSize, _maxReaders);
+    std::unique_ptr<Store> store = std::make_unique<Store>(name, depth, db);
+    ThreadPoolPtr pool = make_thread_pool(1);
+    TreeType tree(std::move(store), pool);
+    MemoryTree<Poseidon2HashPolicy> memdb(depth);
+
+    std::vector<fr> to_add(32, fr::zero());
+    to_add[0] = VALUES[0];
+
+    for (size_t i = 0; i < 32; ++i) {
+        memdb.update_element(i, to_add[i]);
+    }
+    add_values(tree, to_add);
+    check_size(tree, 32);
+    check_root(tree, memdb.root());
+
+    commit_tree(tree, true);
+
+    check_size(tree, 32);
+    check_root(tree, memdb.root());
+}
+
+TEST_F(PersistedContentAddressedAppendOnlyTreeTest, can_not_retrieve_zero_leaf_indices)
+{
+    constexpr size_t depth = 8;
+    std::string name = random_string();
+    LMDBTreeStore::SharedPtr db = std::make_shared<LMDBTreeStore>(_directory, name, _mapSize, _maxReaders);
+    std::unique_ptr<Store> store = std::make_unique<Store>(name, depth, db);
+    ThreadPoolPtr pool = make_thread_pool(1);
+    TreeType tree(std::move(store), pool);
+    MemoryTree<Poseidon2HashPolicy> memdb(depth);
+
+    std::vector<fr> to_add(32, fr::zero());
+    to_add[0] = VALUES[0];
+
+    for (size_t i = 0; i < 32; ++i) {
+        memdb.update_element(i, VALUES[i]);
+    }
+    add_values(tree, to_add);
+    commit_tree(tree);
+    fr leaf = fr::zero();
+    check_find_leaf_index(tree, leaf, 0, false);
+    check_find_historic_leaf_index(tree, 1, leaf, 0, false);
+    check_find_leaf_index_from(tree, leaf, 0, 0, false);
+    check_find_historic_leaf_index_from(tree, 1, leaf, 0, 0, false);
 }
 
 TEST_F(PersistedContentAddressedAppendOnlyTreeTest, can_commit_multiple_blocks)
@@ -975,7 +1013,7 @@ TEST_F(PersistedContentAddressedAppendOnlyTreeTest, test_find_historic_leaf_inde
 
     commit_tree(tree);
 
-    values = { 16, 4, 18, 22 };
+    values = { 16, 4, 19, 22 };
     add_values(tree, values);
 
     // should not be present at block 1
@@ -987,15 +1025,15 @@ TEST_F(PersistedContentAddressedAppendOnlyTreeTest, test_find_historic_leaf_inde
     check_find_historic_leaf_index_from(tree, 1, 18, 2, 0, false, false);
     // at block 2 it should be
     check_find_historic_leaf_index_from(tree, 2, 18, 2, 5, true);
-    // at block 2, from index 6 it should not be found if looking only at committed
-    check_find_historic_leaf_index_from(tree, 2, 18, 6, 5, false, false);
-    // at block 2, from index 6 it should be found if looking at uncommitted too
-    check_find_historic_leaf_index_from(tree, 2, 18, 6, 10, true);
+    // at block 2, from index 6, 19 should not be found if looking only at committed
+    check_find_historic_leaf_index_from(tree, 2, 19, 6, 5, false, false);
+    // at block 2, from index 6, 19 should be found if looking at uncommitted too
+    check_find_historic_leaf_index_from(tree, 2, 19, 6, 10, true);
 
     commit_tree(tree);
 
-    // at block 3, from index 6 it should now be found in committed only
-    check_find_historic_leaf_index_from(tree, 3, 18, 6, 10, true, false);
+    // at block 3, from index 6, should now be found in committed only
+    check_find_historic_leaf_index_from(tree, 3, 19, 6, 10, true, false);
 }
 
 TEST_F(PersistedContentAddressedAppendOnlyTreeTest, can_be_filled)
@@ -1367,7 +1405,12 @@ void test_unwind(std::string directory,
         // attempting to unwind a block that is not the tip should fail
         unwind_block(tree, blockNumber + 1, false);
         unwind_block(tree, blockNumber);
-        check_block_and_root_data(db, blockNumber, roots[blockNumber - 1], false);
+
+        // the root should now only exist if there are other blocks with same root
+        const auto last = roots.begin() + long(blockNumber - 1);
+        const auto it =
+            std::find_if(roots.begin(), last, [=](const fr& r) -> bool { return r == roots[blockNumber - 1]; });
+        check_block_and_root_data(db, blockNumber, roots[blockNumber - 1], false, it != last);
 
         const index_t previousValidBlock = blockNumber - 1;
         index_t deletedBlockStartIndex = previousValidBlock * batchSize;
@@ -1397,9 +1440,19 @@ void test_unwind(std::string directory,
 
             const index_t leafIndex = 1;
             check_historic_leaf(tree, historicBlockNumber, values[leafIndex], leafIndex, expectedSuccess);
-            check_find_historic_leaf_index(tree, historicBlockNumber, values[leafIndex], leafIndex, expectedSuccess);
-            check_find_historic_leaf_index_from(
-                tree, historicBlockNumber, values[leafIndex], 0, leafIndex, expectedSuccess);
+
+            // find historic leaves, provided they are not zero leaves
+            check_find_historic_leaf_index(tree,
+                                           historicBlockNumber,
+                                           values[leafIndex],
+                                           leafIndex,
+                                           expectedSuccess && values[leafIndex] != fr::zero());
+            check_find_historic_leaf_index_from(tree,
+                                                historicBlockNumber,
+                                                values[leafIndex],
+                                                0,
+                                                leafIndex,
+                                                expectedSuccess && values[leafIndex] != fr::zero());
         }
     }
 }
@@ -1418,77 +1471,31 @@ TEST_F(PersistedContentAddressedAppendOnlyTreeTest, can_unwind_all_blocks)
     test_unwind(_directory, "DB", _mapSize, _maxReaders, 10, 16, 16, 16, second);
 }
 
-TEST_F(PersistedContentAddressedAppendOnlyTreeTest, can_unwind_blocks_with_duplicate_leaves)
+TEST_F(PersistedContentAddressedAppendOnlyTreeTest, can_unwind_initial_blocks_that_are_empty)
 {
-    constexpr size_t depth = 4;
-    std::string name = random_string();
-    LMDBTreeStore::SharedPtr db = std::make_shared<LMDBTreeStore>(_directory, name, _mapSize, _maxReaders);
-    std::unique_ptr<Store> store = std::make_unique<Store>(name, depth, db);
-    ThreadPoolPtr pool = make_thread_pool(1);
-    TreeType tree(std::move(store), pool);
-    MemoryTree<Poseidon2HashPolicy> memdb(depth);
-
-    constexpr size_t blockSize = 2;
-    constexpr size_t numBlocks = 2;
-    constexpr size_t numBlocksToUnwind = 1;
-
-    std::vector<fr> values = create_values(blockSize);
-
-    // Add the same batch of values many times
-    for (size_t i = 0; i < numBlocks; i++) {
-        for (size_t j = 0; j < values.size(); j++) {
-            size_t ind = i * blockSize + j;
-            memdb.update_element(ind, values[j]);
-        }
-        add_values(tree, values);
-        commit_tree(tree);
-        check_block_and_root_data(db, i + 1, memdb.root(), true);
-
-        for (size_t j = 0; j < values.size(); j++) {
-            size_t ind = i * blockSize + j;
-            // query the indices db directly
-            check_indices_data(db, values[j], ind, true, true);
-        }
+    const size_t block_size = 16;
+    // First we add 16 blocks worth pf zero leaves and unwind them all
+    std::vector<fr> first(1024, fr::zero());
+    test_unwind(_directory, "DB", _mapSize, _maxReaders, 10, block_size, 16, 16, first);
+    // now we add 1 block of zero leaves and the other blocks non-zero leaves and unwind them all
+    std::vector<fr> second = create_values(1024);
+    // set the first 16 values to be zeros
+    for (size_t i = 0; i < block_size; i++) {
+        second[i] = fr::zero();
     }
+    test_unwind(_directory, "DB", _mapSize, _maxReaders, 10, block_size, 16, 16, second);
 
-    for (size_t i = 0; i < numBlocks; i++) {
-        index_t startIndex = i * blockSize;
-        index_t expectedIndex = startIndex + 1;
-
-        // search for the leaf from start of each batch
-        check_find_leaf_index_from(tree, values[1], startIndex, expectedIndex, true);
-        // search for the leaf from start of the next batch
-        check_find_leaf_index_from(tree, values[1], startIndex + 2, expectedIndex + blockSize, i < (numBlocks - 1));
+    // now we add 2 block of zero leaves in the middle and the other blocks non-zero leaves and unwind them all
+    std::vector<fr> third = create_values(1024);
+    size_t offset = block_size * 2;
+    for (size_t i = 0; i < block_size * 2; i++) {
+        third[i + offset] = fr::zero();
     }
+    test_unwind(_directory, "DB", _mapSize, _maxReaders, 10, block_size, 16, 16, third);
 
-    const uint32_t blocksToRemove = numBlocksToUnwind;
-    for (uint32_t i = 0; i < blocksToRemove; i++) {
-        const index_t blockNumber = numBlocks - i;
-        unwind_block(tree, blockNumber);
-
-        const index_t previousValidBlock = blockNumber - 1;
-        index_t deletedBlockStartIndex = previousValidBlock * blockSize;
-
-        check_block_height(tree, previousValidBlock);
-        check_size(tree, deletedBlockStartIndex);
-
-        for (size_t j = 0; j < numBlocks; j++) {
-            index_t startIndex = j * blockSize;
-            index_t expectedIndex = startIndex + 1;
-
-            // search for the leaf from start of each batch
-            check_find_leaf_index_from(tree, values[1], startIndex, expectedIndex, j < previousValidBlock);
-            // search for the leaf from start of the next batch
-            check_find_leaf_index_from(
-                tree, values[1], startIndex + 2, expectedIndex + blockSize, j < (previousValidBlock - 1));
-
-            for (size_t k = 0; k < values.size(); k++) {
-                size_t ind = j * blockSize + k;
-                // query the indices db directly. If block number == 1 that means the entry should not be present
-                check_indices_data(db, values[k], ind, blockNumber > 1, ind < deletedBlockStartIndex);
-            }
-        }
-    }
+    // Now we add a number of regular blocks and unwind
+    std::vector<fr> fourth = create_values(1024);
+    test_unwind(_directory, "DB", _mapSize, _maxReaders, 10, block_size, 16, 16, fourth);
 }
 
 TEST_F(PersistedContentAddressedAppendOnlyTreeTest, can_sync_and_unwind_large_blocks)
@@ -1534,23 +1541,15 @@ TEST_F(PersistedContentAddressedAppendOnlyTreeTest, can_advance_finalised_blocks
 
         index_t expectedFinalisedBlock = i < finalisedBlockDelay ? 0 : i - finalisedBlockDelay;
         check_finalised_block_height(tree, expectedFinalisedBlock);
-        index_t expectedPresentStart = i < finalisedBlockDelay ? 0 : (expectedFinalisedBlock * blockSize);
-        index_t expectedPresentEnd = ((i + 1) * blockSize) - 1;
-        std::vector<fr> toTest(values.begin() + static_cast<int64_t>(expectedPresentStart),
-                               values.begin() + static_cast<int64_t>(expectedPresentEnd + 1));
-        check_leaf_keys_are_present(db, expectedPresentStart, expectedPresentEnd, toTest);
 
         if (i >= finalisedBlockDelay) {
 
             index_t blockToFinalise = expectedFinalisedBlock + 1;
 
-            // attemnpting to finalise a block that doesn't exist should fail
+            // attempting to finalise a block that doesn't exist should fail
             finalise_block(tree, blockToFinalise + numBlocks, false);
 
             finalise_block(tree, blockToFinalise, true);
-
-            index_t expectedNotPresentEnd = (blockToFinalise * blockSize) - 1;
-            check_leaf_keys_are_not_present(db, 0, expectedNotPresentEnd);
         }
     }
 }
@@ -1585,12 +1584,7 @@ TEST_F(PersistedContentAddressedAppendOnlyTreeTest, can_finalise_multiple_blocks
 
     index_t blockToFinalise = 8;
 
-    check_leaf_keys_are_present(db, 0, (numBlocks * blockSize) - 1, values);
-
     finalise_block(tree, blockToFinalise);
-
-    index_t expectedNotPresentEnd = (blockToFinalise * blockSize) - 1;
-    check_leaf_keys_are_not_present(db, 0, expectedNotPresentEnd);
 }
 
 TEST_F(PersistedContentAddressedAppendOnlyTreeTest, can_not_finalise_block_beyond_pending_chain)
@@ -1630,12 +1624,7 @@ TEST_F(PersistedContentAddressedAppendOnlyTreeTest, can_not_finalise_block_beyon
     // finalise the entire chain
     index_t blockToFinalise = numBlocks;
 
-    check_leaf_keys_are_present(db, 0, (numBlocks * blockSize) - 1, values);
-
     finalise_block(tree, blockToFinalise);
-
-    index_t expectedNotPresentEnd = (blockToFinalise * blockSize) - 1;
-    check_leaf_keys_are_not_present(db, 0, expectedNotPresentEnd);
 }
 
 TEST_F(PersistedContentAddressedAppendOnlyTreeTest, can_not_fork_from_unwound_blocks)

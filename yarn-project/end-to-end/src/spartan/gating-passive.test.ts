@@ -4,6 +4,7 @@ import { createDebugLogger } from '@aztec/foundation/log';
 import { expect, jest } from '@jest/globals';
 
 import { RollupCheatCodes } from '../../../aztec.js/src/utils/cheat_codes.js';
+import { type AlertConfig } from '../quality_of_service/alert_checker.js';
 import {
   applyBootNodeFailure,
   applyNetworkShaping,
@@ -13,8 +14,19 @@ import {
   getConfig,
   isK8sConfig,
   restartBot,
+  runAlertCheck,
   startPortForward,
 } from './utils.js';
+
+const qosAlerts: AlertConfig[] = [
+  {
+    alert: 'SequencerTimeToCollectAttestations',
+    expr: 'avg_over_time(aztec_sequencer_time_to_collect_attestations[2m]) > 2500',
+    labels: { severity: 'error' },
+    for: '10m',
+    annotations: {},
+  },
+];
 
 const config = getConfig(process.env);
 if (!isK8sConfig(config)) {
@@ -39,6 +51,10 @@ describe('a test that passively observes the network in the presence of network 
   // 50% is the max that we expect to miss
   const MAX_MISSED_SLOT_PERCENT = 0.5;
 
+  afterAll(async () => {
+    await runAlertCheck(config, qosAlerts, debugLogger);
+  });
+
   it('survives network chaos', async () => {
     await startPortForward({
       resource: `svc/${config.INSTANCE_NAME}-aztec-network-pxe`,
@@ -51,6 +67,13 @@ describe('a test that passively observes the network in the presence of network 
       namespace: NAMESPACE,
       containerPort: CONTAINER_ETHEREUM_PORT,
       hostPort: HOST_ETHEREUM_PORT,
+    });
+
+    await startPortForward({
+      resource: `svc/metrics-grafana`,
+      namespace: 'metrics',
+      containerPort: config.CONTAINER_METRICS_PORT,
+      hostPort: config.HOST_METRICS_PORT,
     });
     const client = await createCompatibleClient(PXE_URL, debugLogger);
     const ethCheatCodes = new EthCheatCodes(ETHEREUM_HOST);

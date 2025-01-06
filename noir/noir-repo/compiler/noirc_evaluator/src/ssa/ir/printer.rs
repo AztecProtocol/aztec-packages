@@ -209,15 +209,11 @@ fn display_instruction_inner(
         Instruction::RangeCheck { value, max_bit_size, .. } => {
             writeln!(f, "range_check {} to {} bits", show(*value), *max_bit_size,)
         }
-        Instruction::IfElse { then_condition, then_value, else_condition, else_value } => {
+        Instruction::IfElse { then_condition, then_value, else_value } => {
             let then_condition = show(*then_condition);
             let then_value = show(*then_value);
-            let else_condition = show(*else_condition);
             let else_value = show(*else_value);
-            writeln!(
-                f,
-                "if {then_condition} then {then_value} else if {else_condition} then {else_value}"
-            )
+            writeln!(f, "if {then_condition} then {then_value} else {else_value}")
         }
         Instruction::MakeArray { elements, typ } => {
             write!(f, "make_array [")?;
@@ -276,13 +272,13 @@ fn display_constrain_error(
 ) -> Result {
     match error {
         ConstrainError::StaticString(assert_message_string) => {
-            writeln!(f, " '{assert_message_string:?}'")
+            writeln!(f, ", {assert_message_string:?}")
         }
         ConstrainError::Dynamic(_, is_string, values) => {
             if let Some(constant_string) =
                 try_to_extract_string_from_error_payload(*is_string, values, &function.dfg)
             {
-                writeln!(f, " '{}'", constant_string)
+                writeln!(f, ", {constant_string:?}")
             } else {
                 writeln!(f, ", data {}", value_list(function, values))
             }

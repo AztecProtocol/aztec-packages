@@ -4,11 +4,13 @@ import {
   ContractClassPublicSchema,
   type ContractInstanceWithAddress,
   ContractInstanceWithAddressSchema,
+  GasFees,
   Header,
   L1_TO_L2_MSG_TREE_HEIGHT,
   NOTE_HASH_TREE_HEIGHT,
   NULLIFIER_TREE_HEIGHT,
   PUBLIC_DATA_TREE_HEIGHT,
+  PrivateLog,
   type ProtocolContractAddresses,
   ProtocolContractAddressesSchema,
 } from '@aztec/circuits.js';
@@ -25,13 +27,10 @@ import { type InBlock, inBlockSchemaFor } from '../in_block.js';
 import { L2Block } from '../l2_block.js';
 import { type L2BlockSource, type L2Tips, L2TipsSchema } from '../l2_block_source.js';
 import {
-  type FromLogType,
   type GetUnencryptedLogsResponse,
   GetUnencryptedLogsResponseSchema,
-  L2BlockL2Logs,
   type LogFilter,
   LogFilterSchema,
-  LogType,
   TxScopedL2Log,
 } from '../logs/index.js';
 import { MerkleTreeId } from '../merkle_tree_id.js';
@@ -227,6 +226,12 @@ export interface AztecNode
   getBlocks(from: number, limit: number): Promise<L2Block[]>;
 
   /**
+   * Method to fetch the current base fees.
+   * @returns The current base fees.
+   */
+  getCurrentBaseFees(): Promise<GasFees>;
+
+  /**
    * Method to fetch the version of the package.
    * @returns The node package version
    */
@@ -263,17 +268,12 @@ export interface AztecNode
   addContractArtifact(address: AztecAddress, artifact: ContractArtifact): Promise<void>;
 
   /**
-   * Gets up to `limit` amount of logs starting from `from`.
-   * @param from - Number of the L2 block to which corresponds the first logs to be returned.
-   * @param limit - The maximum number of logs to return.
-   * @param logType - Specifies whether to return encrypted or unencrypted logs.
-   * @returns The requested logs.
+   * Retrieves all private logs from up to `limit` blocks, starting from the block number `from`.
+   * @param from - The block number from which to begin retrieving logs.
+   * @param limit - The maximum number of blocks to retrieve logs from.
+   * @returns An array of private logs from the specified range of blocks.
    */
-  getLogs<TLogType extends LogType>(
-    from: number,
-    limit: number,
-    logType: TLogType,
-  ): Promise<L2BlockL2Logs<FromLogType<TLogType>>[]>;
+  getPrivateLogs(from: number, limit: number): Promise<PrivateLog[]>;
 
   /**
    * Gets unencrypted logs based on the provided filter.
@@ -492,6 +492,8 @@ export const AztecNodeApiSchema: ApiSchemaFor<AztecNode> = {
 
   getBlocks: z.function().args(z.number(), z.number()).returns(z.array(L2Block.schema)),
 
+  getCurrentBaseFees: z.function().returns(GasFees.schema),
+
   getNodeVersion: z.function().returns(z.string()),
 
   getVersion: z.function().returns(z.number()),
@@ -504,7 +506,7 @@ export const AztecNodeApiSchema: ApiSchemaFor<AztecNode> = {
 
   addContractArtifact: z.function().args(schemas.AztecAddress, ContractArtifactSchema).returns(z.void()),
 
-  getLogs: z.function().args(z.number(), z.number(), z.nativeEnum(LogType)).returns(z.array(L2BlockL2Logs.schema)),
+  getPrivateLogs: z.function().args(z.number(), z.number()).returns(z.array(PrivateLog.schema)),
 
   getUnencryptedLogs: z.function().args(LogFilterSchema).returns(GetUnencryptedLogsResponseSchema),
 

@@ -4,6 +4,7 @@ import {
   Attributes,
   type Gauge,
   type Histogram,
+  LmdbMetrics,
   Metrics,
   type TelemetryClient,
   type UpDownCounter,
@@ -18,6 +19,7 @@ export class ArchiverInstrumentation {
   private syncDuration: Histogram;
   private proofsSubmittedDelay: Histogram;
   private proofsSubmittedCount: UpDownCounter;
+  private dbMetrics: LmdbMetrics;
 
   private log = createDebugLogger('aztec:archiver:instrumentation');
 
@@ -55,6 +57,26 @@ export class ArchiverInstrumentation {
         explicitBucketBoundaries: millisecondBuckets(1, 80), // 10ms -> ~3hs
       },
     });
+
+    this.dbMetrics = new LmdbMetrics(
+      meter,
+      {
+        name: Metrics.ARCHIVER_DB_MAP_SIZE,
+        description: 'Database map size for the archiver',
+      },
+      {
+        name: Metrics.ARCHIVER_DB_USED_SIZE,
+        description: 'Database used size for the archiver',
+      },
+      {
+        name: Metrics.ARCHIVER_DB_NUM_ITEMS,
+        description: 'Num items in the archiver database',
+      },
+    );
+  }
+
+  public recordDBMetrics(metrics: { mappingSize: number; numItems: number; actualSize: number }) {
+    this.dbMetrics.recordDBMetrics(metrics);
   }
 
   public isEnabled(): boolean {

@@ -1,7 +1,6 @@
 import { Buffer32 } from '@aztec/foundation/buffer';
 import { type Secp256k1Signer, keccak256 } from '@aztec/foundation/crypto';
 import { Signature } from '@aztec/foundation/eth-signature';
-import { schemas } from '@aztec/foundation/schemas';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 import { type FieldsOf } from '@aztec/foundation/types';
 
@@ -44,24 +43,13 @@ export class EpochProofQuote extends Gossipable {
     return new EpochProofQuote(reader.readObject(EpochProofQuotePayload), reader.readObject(Signature));
   }
 
-  toJSON() {
-    return {
-      payload: this.payload.toJSON(),
-      signature: this.signature.to0xString(),
-    };
-  }
-
   static get schema() {
     return z
       .object({
         payload: EpochProofQuotePayload.schema,
-        signature: schemas.Signature,
+        signature: Signature.schema,
       })
       .transform(({ payload, signature }) => new EpochProofQuote(payload, signature));
-  }
-
-  static fromJSON(obj: any) {
-    return EpochProofQuote.schema.parse(obj);
   }
 
   // TODO: https://github.com/AztecProtocol/aztec-packages/issues/8911

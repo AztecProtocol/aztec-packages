@@ -50,6 +50,8 @@ tests:
     test_path: 'e2e_fees/gas_estimation.test.ts'
   e2e_fees_private_payments:
     test_path: 'e2e_fees/private_payments.test.ts'
+  e2e_fees_public_payments:
+    test_path: 'e2e_fees/public_payments.test.ts'
   e2e_keys: {}
   e2e_l1_with_wall_time: {}
   e2e_lending_contract: {}
@@ -75,21 +77,26 @@ tests:
     env:
       HARDWARE_CONCURRENCY: '32'
   e2e_public_testnet: {}
+  e2e_pxe:
+    use_compose: true
   e2e_sandbox_example:
     use_compose: true
   e2e_state_vars: {}
   e2e_static_calls: {}
   e2e_synching: {}
-  e2e_token_contract: {}
+  e2e_token_contract:
+    with_alerts: true
   e2e_p2p_gossip:
     test_path: 'e2e_p2p/gossip_network.test.ts'
+    with_alerts: true
   e2e_p2p_upgrade_governance_proposer:
     test_path: 'e2e_p2p/upgrade_governance_proposer.test.ts'
-  # https://github.com/AztecProtocol/aztec-packages/issues/9843
   e2e_p2p_rediscovery:
     test_path: 'e2e_p2p/rediscovery.test.ts'
   e2e_p2p_reqresp:
     test_path: 'e2e_p2p/reqresp.test.ts'
+  e2e_p2p_reex:
+    test_path: 'e2e_p2p/reex.test.ts'
   flakey_e2e_tests:
     test_path: './src/flakey'
     ignore_failures: true
@@ -109,8 +116,6 @@ tests:
     use_compose: true
     test_path: 'guides/writing_an_account_contract.test.ts'
   integration_l1_publisher:
-    use_compose: true
-  pxe:
     use_compose: true
   # https://github.com/AztecProtocol/aztec-packages/issues/10030
   # uniswap_trade_on_l1_from_l2:

@@ -290,6 +290,18 @@ template <class Builder, class Fq, class Fr, class NativeGroup> class element {
     void set_point_at_infinity(const bool_ct& is_infinity) { _is_infinity = is_infinity; }
     element get_standard_form() const;
 
+    void set_origin_tag(OriginTag tag) const
+    {
+        x.set_origin_tag(tag);
+        y.set_origin_tag(tag);
+        _is_infinity.set_origin_tag(tag);
+    }
+
+    OriginTag get_origin_tag() const
+    {
+        return OriginTag(x.get_origin_tag(), y.get_origin_tag(), _is_infinity.get_origin_tag());
+    }
+
     Fq x;
     Fq y;
 

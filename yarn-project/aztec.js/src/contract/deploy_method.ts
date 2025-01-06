@@ -104,18 +104,15 @@ export class DeployMethod<TContract extends ContractBase = Contract> extends Bas
       throw new Error(`No function calls needed to deploy contract ${this.artifact.name}`);
     }
 
-    const request = {
-      calls: [...deployment.calls, ...bootstrap.calls],
-      authWitnesses: [...(deployment.authWitnesses ?? []), ...(bootstrap.authWitnesses ?? [])],
-      packedArguments: [...(deployment.packedArguments ?? []), ...(bootstrap.packedArguments ?? [])],
-      fee: options.fee,
-    };
+    const calls = [...deployment.calls, ...bootstrap.calls];
+    const authWitnesses = [...(deployment.authWitnesses ?? []), ...(bootstrap.authWitnesses ?? [])];
+    const packedArguments = [...(deployment.packedArguments ?? []), ...(bootstrap.packedArguments ?? [])];
+    const { cancellable, nonce, fee: userFee } = options;
 
-    if (options.estimateGas) {
-      request.fee = await this.getFeeOptionsFromEstimatedGas(request);
-    }
+    const request = { calls, authWitnesses, packedArguments, cancellable, fee: userFee, nonce };
 
-    return request;
+    const fee = await this.getFeeOptions(request);
+    return { ...request, fee };
   }
 
   /**
@@ -133,7 +130,9 @@ export class DeployMethod<TContract extends ContractBase = Contract> extends Bas
    * @param options - Deployment options.
    * @returns A function call array with potentially requests to the class registerer and instance deployer.
    */
-  protected async getDeploymentFunctionCalls(options: DeployOptions = {}): Promise<ExecutionRequestInit> {
+  protected async getDeploymentFunctionCalls(
+    options: DeployOptions = {},
+  ): Promise<Pick<ExecutionRequestInit, 'calls' | 'authWitnesses' | 'packedArguments'>> {
     const calls: FunctionCall[] = [];
 
     // Set contract instance object so it's available for populating the DeploySendTx object
@@ -167,9 +166,7 @@ export class DeployMethod<TContract extends ContractBase = Contract> extends Bas
       calls.push(deployInstance(this.wallet, instance).request());
     }
 
-    return {
-      calls,
-    };
+    return { calls };
   }
 
   /**
@@ -177,7 +174,9 @@ export class DeployMethod<TContract extends ContractBase = Contract> extends Bas
    * @param options - Deployment options.
    * @returns - An array of function calls.
    */
-  protected getInitializeFunctionCalls(options: DeployOptions): Promise<ExecutionRequestInit> {
+  protected getInitializeFunctionCalls(
+    options: DeployOptions,
+  ): Promise<Pick<ExecutionRequestInit, 'calls' | 'authWitnesses' | 'packedArguments'>> {
     const { address } = this.getInstance(options);
     const calls: FunctionCall[] = [];
     if (this.constructorArtifact && !options.skipInitialization) {
@@ -189,9 +188,7 @@ export class DeployMethod<TContract extends ContractBase = Contract> extends Bas
       );
       calls.push(constructorCall.request());
     }
-    return Promise.resolve({
-      calls,
-    });
+    return Promise.resolve({ calls });
   }
 
   /**

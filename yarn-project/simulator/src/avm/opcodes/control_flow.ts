@@ -36,11 +36,11 @@ export class JumpI extends Instruction {
   static readonly wireFormat: OperandType[] = [
     OperandType.UINT8,
     OperandType.UINT8,
-    OperandType.UINT32,
     OperandType.UINT16,
+    OperandType.UINT32,
   ];
 
-  constructor(private indirect: number, private loc: number, private condOffset: number) {
+  constructor(private indirect: number, private condOffset: number, private loc: number) {
     super();
   }
 

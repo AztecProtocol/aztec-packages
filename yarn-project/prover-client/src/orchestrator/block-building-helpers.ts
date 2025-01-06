@@ -1,5 +1,5 @@
 import {
-  type Body,
+  Body,
   MerkleTreeId,
   type MerkleTreeWriteOperations,
   type ProcessedTx,
@@ -122,6 +122,7 @@ export async function buildBaseRollupHints(
     padArrayEnd(tx.txEffect.nullifiers, Fr.ZERO, MAX_NULLIFIERS_PER_TX).map(n => n.toBuffer()),
     NULLIFIER_SUBTREE_HEIGHT,
   );
+
   if (nullifierWitnessLeaves === undefined) {
     throw new Error(`Could not craft nullifier batch insertion proofs`);
   }
@@ -315,6 +316,7 @@ export function buildHeaderFromCircuitOutputs(
     state,
     previousMergeData[0].constants.globalVariables,
     previousMergeData[0].accumulatedFees.add(previousMergeData[1].accumulatedFees),
+    previousMergeData[0].accumulatedManaUsed.add(previousMergeData[1].accumulatedManaUsed),
   );
   if (!header.hash().equals(rootRollupOutputs.endBlockHash)) {
     logger?.error(
@@ -327,8 +329,8 @@ export function buildHeaderFromCircuitOutputs(
   return header;
 }
 
-export async function buildHeaderFromTxEffects(
-  body: Body,
+export async function buildHeaderAndBodyFromTxs(
+  txs: ProcessedTx[],
   globalVariables: GlobalVariables,
   l1ToL2Messages: Fr[],
   db: MerkleTreeReadOperations,
@@ -343,6 +345,9 @@ export async function buildHeaderFromTxEffects(
   );
 
   const previousArchive = await getTreeSnapshot(MerkleTreeId.ARCHIVE, db);
+
+  const nonEmptyTxEffects: TxEffect[] = txs.map(tx => tx.txEffect).filter(txEffect => !txEffect.isEmpty());
+  const body = new Body(nonEmptyTxEffects);
 
   const outHash = computeUnbalancedMerkleRoot(
     body.txEffects.map(tx => tx.txOutHash()),
@@ -364,7 +369,11 @@ export async function buildHeaderFromTxEffects(
   );
 
   const fees = body.txEffects.reduce((acc, tx) => acc.add(tx.transactionFee), Fr.ZERO);
-  return new Header(previousArchive, contentCommitment, stateReference, globalVariables, fees);
+  const manaUsed = txs.reduce((acc, tx) => acc.add(new Fr(tx.gasUsed.totalGas.l2Gas)), Fr.ZERO);
+
+  const header = new Header(previousArchive, contentCommitment, stateReference, globalVariables, fees, manaUsed);
+
+  return { header, body };
 }
 
 // Validate that the roots of all local trees match the output of the root circuit simulation
@@ -483,41 +492,30 @@ async function processPublicDataUpdateRequests(tx: ProcessedTx, db: MerkleTreeWr
     ({ leafSlot, value }) => new PublicDataTreeLeaf(leafSlot, value),
   );
 
-  const lowPublicDataWritesPreimages = [];
-  const lowPublicDataWritesMembershipWitnesses = [];
-  const publicDataWritesSiblingPaths = [];
+  const { lowLeavesWitnessData, insertionWitnessData } = await db.sequentialInsert(
+    MerkleTreeId.PUBLIC_DATA_TREE,
+    allPublicDataWrites.map(write => {
+      if (write.isEmpty()) {
+        throw new Error(`Empty public data write in tx: ${toFriendlyJSON(tx)}`);
+      }
+      return write.toBuffer();
+    }),
+  );
 
-  for (const write of allPublicDataWrites) {
-    if (write.isEmpty()) {
-      throw new Error(`Empty public data write in tx: ${toFriendlyJSON(tx)}`);
-    }
-
-    // TODO(Alvaro) write a specialized function for this? Internally add_or_update_value uses batch insertion anyway
-    const { lowLeavesWitnessData, newSubtreeSiblingPath } = await db.batchInsert(
-      MerkleTreeId.PUBLIC_DATA_TREE,
-      [write.toBuffer()],
-      // TODO(#3675) remove oldValue from update requests
-      0,
-    );
-
-    if (lowLeavesWitnessData === undefined) {
-      throw new Error(`Could not craft public data batch insertion proofs`);
-    }
-
-    const [lowLeafWitness] = lowLeavesWitnessData;
-    lowPublicDataWritesPreimages.push(lowLeafWitness.leafPreimage as PublicDataTreeLeafPreimage);
-    lowPublicDataWritesMembershipWitnesses.push(
-      MembershipWitness.fromBufferArray<typeof PUBLIC_DATA_TREE_HEIGHT>(
-        lowLeafWitness.index,
-        assertLength(lowLeafWitness.siblingPath.toBufferArray(), PUBLIC_DATA_TREE_HEIGHT),
-      ),
-    );
-
-    const insertionSiblingPath = newSubtreeSiblingPath.toFields();
+  const lowPublicDataWritesPreimages = lowLeavesWitnessData.map(
+    lowLeafWitness => lowLeafWitness.leafPreimage as PublicDataTreeLeafPreimage,
+  );
+  const lowPublicDataWritesMembershipWitnesses = lowLeavesWitnessData.map(lowLeafWitness =>
+    MembershipWitness.fromBufferArray<typeof PUBLIC_DATA_TREE_HEIGHT>(
+      lowLeafWitness.index,
+      assertLength(lowLeafWitness.siblingPath.toBufferArray(), PUBLIC_DATA_TREE_HEIGHT),
+    ),
+  );
+  const publicDataWritesSiblingPaths = insertionWitnessData.map(w => {
+    const insertionSiblingPath = w.siblingPath.toFields();
     assertLength(insertionSiblingPath, PUBLIC_DATA_TREE_HEIGHT);
-
-    publicDataWritesSiblingPaths.push(insertionSiblingPath as Tuple<Fr, typeof PUBLIC_DATA_TREE_HEIGHT>);
-  }
+    return insertionSiblingPath as Tuple<Fr, typeof PUBLIC_DATA_TREE_HEIGHT>;
+  });
 
   return {
     lowPublicDataWritesPreimages,

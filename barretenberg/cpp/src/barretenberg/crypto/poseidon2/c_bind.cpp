@@ -47,3 +47,17 @@ WASM_EXPORT void poseidon2_permutation(fr::vec_in_buf inputs_buffer, fr::vec_out
     const std::vector<fr> results(results_array.begin(), results_array.end());
     *output = to_heap_buffer(results);
 }
+
+WASM_EXPORT void poseidon2_hash_accumulate(fr::vec_in_buf inputs_buffer, fr::out_buf output)
+{
+    std::vector<fr> to_hash;
+    read(inputs_buffer, to_hash);
+    const size_t numHashes = to_hash.size();
+    fr result = 0;
+    size_t count = 0;
+    while (count < numHashes) {
+        result = crypto::Poseidon2<crypto::Poseidon2Bn254ScalarFieldParams>::hash({ to_hash[count], result });
+        ++count;
+    }
+    write(output, result);
+}

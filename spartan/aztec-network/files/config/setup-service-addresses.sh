@@ -79,10 +79,19 @@ else
     PROVER_NODE_ADDR="http://${SERVICE_NAME}-prover-node.${NAMESPACE}:${PROVER_NODE_PORT}"
 fi
 
+if [ "${PROVER_BROKER_EXTERNAL_HOST}" != "" ]; then
+    PROVER_BROKER_ADDR="${PROVER_BROKER_EXTERNAL_HOST}"
+elif [ "${NETWORK_PUBLIC}" = "true" ]; then
+    PROVER_BROKER_ADDR=$(get_service_address "prover-broker" "${PROVER_BROKER_PORT}")
+else
+    PROVER_BROKER_ADDR="http://${SERVICE_NAME}-prover-broker.${NAMESPACE}:${PROVER_BROKER_PORT}"
+fi
+
 
 # Write addresses to file for sourcing
 echo "export ETHEREUM_HOST=${ETHEREUM_ADDR}" >> /shared/config/service-addresses
 echo "export BOOT_NODE_HOST=${BOOT_NODE_ADDR}" >> /shared/config/service-addresses
 echo "export PROVER_NODE_HOST=${PROVER_NODE_ADDR}" >> /shared/config/service-addresses
+echo "export PROVER_BROKER_HOST=${PROVER_BROKER_ADDR}" >> /shared/config/service-addresses
 echo "Addresses configured:"
 cat /shared/config/service-addresses

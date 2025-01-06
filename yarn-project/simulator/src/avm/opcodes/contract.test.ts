@@ -35,17 +35,17 @@ describe('Contract opcodes', () => {
       const buf = Buffer.from([
         GetContractInstance.opcode, // opcode
         0x01, // indirect
-        0x02, // memberEnum (immediate)
         ...Buffer.from('1234', 'hex'), // addressOffset
         ...Buffer.from('a234', 'hex'), // dstOffset
         ...Buffer.from('b234', 'hex'), // existsOffset
+        0x02, // memberEnum (immediate)
       ]);
       const inst = new GetContractInstance(
         /*indirect=*/ 0x01,
-        /*memberEnum=*/ 0x02,
         /*addressOffset=*/ 0x1234,
         /*dstOffset=*/ 0xa234,
         /*existsOffset=*/ 0xb234,
+        /*memberEnum=*/ 0x02,
       );
 
       expect(GetContractInstance.deserialize(buf)).toEqual(inst);
@@ -63,10 +63,10 @@ describe('Contract opcodes', () => {
         context.machineState.memory.set(0, new Field(address.toField()));
         await new GetContractInstance(
           /*indirect=*/ 0,
-          memberEnum,
           /*addressOffset=*/ 0,
           /*dstOffset=*/ 1,
           /*existsOffset=*/ 2,
+          memberEnum,
         ).execute(context);
 
         // value should be right
@@ -95,10 +95,10 @@ describe('Contract opcodes', () => {
           context.machineState.memory.set(0, new Field(address.toField()));
           await new GetContractInstance(
             /*indirect=*/ 0,
-            memberEnum,
             /*addressOffset=*/ 0,
             /*dstOffset=*/ 1,
             /*existsOffset=*/ 2,
+            memberEnum,
           ).execute(context);
 
           // value should be 0
@@ -121,10 +121,10 @@ describe('Contract opcodes', () => {
       const invalidEnum = 255;
       const instruction = new GetContractInstance(
         /*indirect=*/ 0,
-        /*memberEnum=*/ invalidEnum,
         /*addressOffset=*/ 0,
         /*dstOffset=*/ 1,
         /*existsOffset=*/ 2,
+        /*memberEnum=*/ invalidEnum,
       );
       await expect(instruction.execute(context)).rejects.toThrow(
         `Invalid GETCONSTRACTINSTANCE member enum ${invalidEnum}`,

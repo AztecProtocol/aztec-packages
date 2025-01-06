@@ -167,6 +167,10 @@ WorldStateAddon::WorldStateAddon(const Napi::CallbackInfo& info)
         [this](msgpack::object& obj, msgpack::sbuffer& buffer) { return batch_insert(obj, buffer); });
 
     _dispatcher.registerTarget(
+        WorldStateMessageType::SEQUENTIAL_INSERT,
+        [this](msgpack::object& obj, msgpack::sbuffer& buffer) { return sequential_insert(obj, buffer); });
+
+    _dispatcher.registerTarget(
         WorldStateMessageType::UPDATE_ARCHIVE,
         [this](msgpack::object& obj, msgpack::sbuffer& buffer) { return update_archive(obj, buffer); });
 
@@ -507,6 +511,42 @@ bool WorldStateAddon::batch_insert(msgpack::object& obj, msgpack::sbuffer& buffe
     return true;
 }
 
+bool WorldStateAddon::sequential_insert(msgpack::object& obj, msgpack::sbuffer& buffer)
+{
+    TypedMessage<TreeIdOnlyRequest> request;
+    obj.convert(request);
+
+    switch (request.value.treeId) {
+    case MerkleTreeId::PUBLIC_DATA_TREE: {
+        TypedMessage<InsertRequest<PublicDataLeafValue>> r1;
+        obj.convert(r1);
+        auto result = _ws->insert_indexed_leaves<crypto::merkle_tree::PublicDataLeafValue>(
+            request.value.treeId, r1.value.leaves, r1.value.forkId);
+        MsgHeader header(request.header.messageId);
+        messaging::TypedMessage<SequentialInsertionResult<PublicDataLeafValue>> resp_msg(
+            WorldStateMessageType::SEQUENTIAL_INSERT, header, result);
+        msgpack::pack(buffer, resp_msg);
+
+        break;
+    }
+    case MerkleTreeId::NULLIFIER_TREE: {
+        TypedMessage<InsertRequest<NullifierLeafValue>> r2;
+        obj.convert(r2);
+        auto result = _ws->insert_indexed_leaves<crypto::merkle_tree::NullifierLeafValue>(
+            request.value.treeId, r2.value.leaves, r2.value.forkId);
+        MsgHeader header(request.header.messageId);
+        messaging::TypedMessage<SequentialInsertionResult<NullifierLeafValue>> resp_msg(
+            WorldStateMessageType::SEQUENTIAL_INSERT, header, result);
+        msgpack::pack(buffer, resp_msg);
+        break;
+    }
+    default:
+        throw std::runtime_error("Unsupported tree type");
+    }
+
+    return true;
+}
+
 bool WorldStateAddon::update_archive(msgpack::object& obj, msgpack::sbuffer& buf)
 {
     TypedMessage<UpdateArchiveRequest> request;
@@ -560,7 +600,7 @@ bool WorldStateAddon::sync_block(msgpack::object& obj, msgpack::sbuffer& buf)
                                                   request.value.paddedNoteHashes,
                                                   request.value.paddedL1ToL2Messages,
                                                   request.value.paddedNullifiers,
-                                                  request.value.batchesOfPublicDataWrites);
+                                                  request.value.publicDataWrites);
 
     MsgHeader header(request.header.messageId);
     messaging::TypedMessage<WorldStateStatusFull> resp_msg(WorldStateMessageType::SYNC_BLOCK, header, { status });

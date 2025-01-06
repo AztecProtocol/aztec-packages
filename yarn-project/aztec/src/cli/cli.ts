@@ -96,9 +96,12 @@ export function injectAztecCommands(program: Command, userLog: LogFn, debugLogge
       } else if (options.p2pBootstrap) {
         const { startP2PBootstrap } = await import('./cmds/start_p2p_bootstrap.js');
         await startP2PBootstrap(options, userLog, debugLogger);
-      } else if (options.prover) {
+      } else if (options.proverAgent) {
         const { startProverAgent } = await import('./cmds/start_prover_agent.js');
         await startProverAgent(options, signalHandlers, services, userLog);
+      } else if (options.proverBroker) {
+        const { startProverBroker } = await import('./cmds/start_prover_broker.js');
+        await startProverBroker(options, signalHandlers, services, userLog);
       } else if (options.txe) {
         const { startTXE } = await import('./cmds/start_txe.js');
         await startTXE(options, debugLogger);

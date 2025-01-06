@@ -1,3 +1,4 @@
+import { jsonStringify } from '@aztec/foundation/json-rpc';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { fileURLToPath } from '@aztec/foundation/url';
 import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
@@ -25,7 +26,7 @@ async function main() {
   const config = getArchiverConfigFromEnv();
   const { l1RpcUrl: rpcUrl, l1Contracts } = config;
 
-  log.info(`Starting archiver in main(): ${JSON.stringify(config)}`);
+  log.info(`Starting archiver in main(): ${jsonStringify(config)}`);
   const publicClient = createPublicClient({
     chain: localhost,
     transport: http(rpcUrl),

@@ -10,7 +10,7 @@ services:
         exec anvil --silent -p "$$ANVIL_PORT" --host 0.0.0.0 --chain-id 31337
       fi'
     ports:
-      - "${ANVIL_PORT:-8545}:${ANVIL_PORT:-8545}"
+      - '${ANVIL_PORT:-8545}:${ANVIL_PORT:-8545}'
     environment:
       FORK_URL:
       FORK_BLOCK_NUMBER:

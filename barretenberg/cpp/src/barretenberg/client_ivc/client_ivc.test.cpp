@@ -2,9 +2,9 @@
 #include "barretenberg/client_ivc/test_bench_shared.hpp"
 #include "barretenberg/goblin/goblin.hpp"
 #include "barretenberg/goblin/mock_circuits.hpp"
+#include "barretenberg/protogalaxy/folding_test_utils.hpp"
 #include "barretenberg/stdlib_circuit_builders/mega_circuit_builder.hpp"
 #include "barretenberg/stdlib_circuit_builders/ultra_circuit_builder.hpp"
-
 #include <gtest/gtest.h>
 
 using namespace bb;
@@ -403,5 +403,62 @@ TEST_F(ClientIVCTests, StructuredTraceOverflow)
         log2_num_gates += 1;
     }
 
+    EXPECT_TRUE(ivc.prove_and_verify());
+};
+
+/**
+ * @brief Test dynamic structured trace overflow block mechanism
+ * @details Tests the case where the required overflow capacity is not known until runtime. Accumulates two circuits,
+ * the second of which overflows the trace but not enough to change the dyadic circuit size and thus there is no need
+ * for a virtual size increase of the first key.
+ *
+ */
+TEST_F(ClientIVCTests, DynamicOverflow)
+{
+    // Define trace settings with zero overflow capacity
+    ClientIVC ivc{ { SMALL_TEST_STRUCTURE_FOR_OVERFLOWS, /*overflow_capacity=*/0 } };
+
+    MockCircuitProducer circuit_producer;
+
+    const size_t NUM_CIRCUITS = 2;
+
+    // define parameters for two circuits; the first fits within the structured trace, the second overflows
+    const std::vector<size_t> log2_num_arith_gates = { 14, 16 };
+    // Accumulate
+    for (size_t idx = 0; idx < NUM_CIRCUITS; ++idx) {
+        auto circuit = circuit_producer.create_next_circuit(ivc, log2_num_arith_gates[idx]);
+        ivc.accumulate(circuit);
+    }
+
+    EXPECT_EQ(check_accumulator_target_sum_manual(ivc.fold_output.accumulator), true);
+    EXPECT_TRUE(ivc.prove_and_verify());
+};
+
+/**
+ * @brief Test dynamic trace overflow where the dyadic circuit size also increases
+ * @details Accumulates two circuits, the second of which overflows the trace structure and leads to an increased dyadic
+ * circuit size. This requires the virtual size of the polynomials in the first key to be increased accordingly which
+ * should be handled automatically in PG/ClientIvc.
+ *
+ */
+TEST_F(ClientIVCTests, DynamicOverflowCircuitSizeChange)
+{
+    uint32_t overflow_capacity = 0;
+    // uint32_t overflow_capacity = 1 << 1;
+    ClientIVC ivc{ { SMALL_TEST_STRUCTURE_FOR_OVERFLOWS, overflow_capacity } };
+
+    MockCircuitProducer circuit_producer;
+
+    const size_t NUM_CIRCUITS = 2;
+
+    // define parameters for two circuits; the first fits within the structured trace, the second overflows
+    const std::vector<size_t> log2_num_arith_gates = { 14, 18 };
+    // Accumulate
+    for (size_t idx = 0; idx < NUM_CIRCUITS; ++idx) {
+        auto circuit = circuit_producer.create_next_circuit(ivc, log2_num_arith_gates[idx]);
+        ivc.accumulate(circuit);
+    }
+
+    EXPECT_EQ(check_accumulator_target_sum_manual(ivc.fold_output.accumulator), true);
     EXPECT_TRUE(ivc.prove_and_verify());
 };

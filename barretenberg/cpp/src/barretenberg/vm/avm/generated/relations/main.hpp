@@ -26,25 +26,6 @@ template <typename FF_> class mainImpl {
         const auto constants_MEM_TAG_FF = FF(0);
         const auto constants_MEM_TAG_U1 = FF(1);
         const auto constants_misc_INTERNAL_CALL_SPACE_ID = FF(255);
-        const auto main_KERNEL_INPUT_SELECTORS = ((((((((((new_term.main_sel_op_address + new_term.main_sel_op_sender) +
-                                                          new_term.main_sel_op_function_selector) +
-                                                         new_term.main_sel_op_transaction_fee) +
-                                                        new_term.main_sel_op_chain_id) +
-                                                       new_term.main_sel_op_version) +
-                                                      new_term.main_sel_op_block_number) +
-                                                     new_term.main_sel_op_timestamp) +
-                                                    new_term.main_sel_op_fee_per_l2_gas) +
-                                                   new_term.main_sel_op_fee_per_da_gas) +
-                                                  new_term.main_sel_op_is_static_call);
-        const auto main_KERNEL_OUTPUT_SELECTORS =
-            ((((((((new_term.main_sel_op_note_hash_exists + new_term.main_sel_op_emit_note_hash) +
-                   new_term.main_sel_op_nullifier_exists) +
-                  new_term.main_sel_op_emit_nullifier) +
-                 new_term.main_sel_op_l1_to_l2_msg_exists) +
-                new_term.main_sel_op_emit_unencrypted_log) +
-               new_term.main_sel_op_emit_l2_to_l1_msg) +
-              new_term.main_sel_op_sload) +
-             new_term.main_sel_op_sstore);
         const auto main_SEL_ALL_CTRL_FLOW =
             (((((((new_term.main_sel_op_jump + new_term.main_sel_op_jumpi) + new_term.main_sel_op_internal_call) +
                  new_term.main_sel_op_internal_return) +
@@ -72,6 +53,25 @@ template <typename FF_> class mainImpl {
               new_term.main_sel_op_ecadd) +
              new_term.main_sel_op_msm);
         const auto main_SEL_ALL_MEMORY = (new_term.main_sel_op_mov + new_term.main_sel_op_set);
+        const auto main_KERNEL_INPUT_SELECTORS = ((((((((((new_term.main_sel_op_address + new_term.main_sel_op_sender) +
+                                                          new_term.main_sel_op_function_selector) +
+                                                         new_term.main_sel_op_transaction_fee) +
+                                                        new_term.main_sel_op_chain_id) +
+                                                       new_term.main_sel_op_version) +
+                                                      new_term.main_sel_op_block_number) +
+                                                     new_term.main_sel_op_timestamp) +
+                                                    new_term.main_sel_op_fee_per_l2_gas) +
+                                                   new_term.main_sel_op_fee_per_da_gas) +
+                                                  new_term.main_sel_op_is_static_call);
+        const auto main_KERNEL_OUTPUT_SELECTORS =
+            ((((((((new_term.main_sel_op_note_hash_exists + new_term.main_sel_op_emit_note_hash) +
+                   new_term.main_sel_op_nullifier_exists) +
+                  new_term.main_sel_op_emit_nullifier) +
+                 new_term.main_sel_op_l1_to_l2_msg_exists) +
+                new_term.main_sel_op_emit_unencrypted_log) +
+               new_term.main_sel_op_emit_l2_to_l1_msg) +
+              new_term.main_sel_op_sload) +
+             new_term.main_sel_op_sstore);
         const auto main_OPCODE_SELECTORS =
             (((((((((((((new_term.main_sel_op_fdiv + new_term.main_sel_op_calldata_copy) +
                         new_term.main_sel_op_get_contract_instance) +
@@ -82,10 +82,10 @@ template <typename FF_> class mainImpl {
                    main_SEL_ALL_BINARY) +
                   main_SEL_ALL_MEMORY) +
                  main_SEL_ALL_GADGET) +
-                main_KERNEL_INPUT_SELECTORS) +
-               main_KERNEL_OUTPUT_SELECTORS) +
-              main_SEL_ALL_LEFTGAS) +
-             main_SEL_ALL_CTRL_FLOW);
+                main_SEL_ALL_LEFTGAS) +
+               main_SEL_ALL_CTRL_FLOW) +
+              main_KERNEL_INPUT_SELECTORS) +
+             main_KERNEL_OUTPUT_SELECTORS);
         const auto main_CUR_AND_NEXT_ARE_MAIN =
             (new_term.main_sel_execution_row * new_term.main_sel_execution_row_shift);
 

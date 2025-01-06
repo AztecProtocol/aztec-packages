@@ -7,6 +7,7 @@ import {
   type L2Block,
   type L2BlockSource,
   type MerkleTreeWriteOperations,
+  type ProverCache,
   type ProverCoordination,
   type ProverNodeApi,
   type Service,
@@ -15,6 +16,7 @@ import {
 } from '@aztec/circuit-types';
 import { type ContractDataSource } from '@aztec/circuits.js';
 import { compact } from '@aztec/foundation/collection';
+import { sha256 } from '@aztec/foundation/crypto';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { type Maybe } from '@aztec/foundation/types';
 import { type L1Publisher } from '@aztec/sequencer-client';
@@ -26,6 +28,7 @@ import { EpochProvingJob, type EpochProvingJobState } from './job/epoch-proving-
 import { ProverNodeMetrics } from './metrics.js';
 import { type ClaimsMonitor, type ClaimsMonitorHandler } from './monitors/claims-monitor.js';
 import { type EpochMonitor, type EpochMonitorHandler } from './monitors/epoch-monitor.js';
+import { type ProverCacheManager } from './prover-cache/cache_manager.js';
 import { type QuoteProvider } from './quote-provider/index.js';
 import { type QuoteSigner } from './quote-signer.js';
 
@@ -62,6 +65,7 @@ export class ProverNode implements ClaimsMonitorHandler, EpochMonitorHandler, Pr
     private readonly epochsMonitor: EpochMonitor,
     private readonly bondManager: BondManager,
     private readonly telemetryClient: TelemetryClient,
+    private readonly proverCacheManager: ProverCacheManager,
     options: Partial<ProverNodeOptions> = {},
   ) {
     this.options = {
@@ -250,13 +254,26 @@ export class ProverNode implements ClaimsMonitorHandler, EpochMonitorHandler, Pr
     // Create a processor using the forked world state
     const publicProcessorFactory = new PublicProcessorFactory(this.contractDataSource, this.telemetryClient);
 
+    const epochHash = sha256(Buffer.concat(blocks.map(block => block.hash().toBuffer())));
+    const proverCache = await this.proverCacheManager.openCache(epochNumber, epochHash);
+
     const cleanUp = async () => {
       await publicDb.close();
       await proverDb.close();
+      await proverCache.close();
+      await this.proverCacheManager.removeStaleCaches(epochNumber);
       this.jobs.delete(job.getId());
     };
 
-    const job = this.doCreateEpochProvingJob(epochNumber, blocks, publicDb, proverDb, publicProcessorFactory, cleanUp);
+    const job = this.doCreateEpochProvingJob(
+      epochNumber,
+      blocks,
+      publicDb,
+      proverDb,
+      proverCache,
+      publicProcessorFactory,
+      cleanUp,
+    );
     this.jobs.set(job.getId(), job);
     return job;
   }
@@ -267,6 +284,7 @@ export class ProverNode implements ClaimsMonitorHandler, EpochMonitorHandler, Pr
     blocks: L2Block[],
     publicDb: MerkleTreeWriteOperations,
     proverDb: MerkleTreeWriteOperations,
+    proverCache: ProverCache,
     publicProcessorFactory: PublicProcessorFactory,
     cleanUp: () => Promise<void>,
   ) {
@@ -274,7 +292,7 @@ export class ProverNode implements ClaimsMonitorHandler, EpochMonitorHandler, Pr
       publicDb,
       epochNumber,
       blocks,
-      this.prover.createEpochProver(proverDb),
+      this.prover.createEpochProver(proverDb, proverCache),
       publicProcessorFactory,
       this.publisher,
       this.l2BlockSource,

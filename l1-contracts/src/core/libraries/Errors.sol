@@ -75,6 +75,7 @@ library Errors {
   error Rollup__NonZeroDaFee(); // 0xd9c75f52
   error Rollup__NonZeroL2Fee(); // 0x7e728abc
   error Rollup__InvalidBasisPointFee(uint256 basisPointFee); // 0x4292d136
+  error Rollup__InvalidManaBaseFee(uint256 expected, uint256 actual); // 0x73b6d896
 
   //TxsDecoder
   error TxsDecoder__InvalidLogsLength(uint256 expected, uint256 actual); // 0x829ca981

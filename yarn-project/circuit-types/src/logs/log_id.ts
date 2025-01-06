@@ -50,14 +50,6 @@ export class LogId {
       .transform(({ blockNumber, txIndex, logIndex }) => new LogId(blockNumber, txIndex, logIndex));
   }
 
-  toJSON() {
-    return {
-      blockNumber: this.blockNumber,
-      txIndex: this.txIndex,
-      logIndex: this.logIndex,
-    };
-  }
-
   /**
    * Serializes log id to a buffer.
    * @returns A buffer containing the serialized log id.

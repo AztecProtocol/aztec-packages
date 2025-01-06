@@ -1,10 +1,11 @@
 import { Fr } from '@aztec/foundation/fields';
+import { jsonStringify } from '@aztec/foundation/json-rpc';
 
 import { RevertCode } from './revert_code.js';
 
 describe('revert_code', () => {
   it.each([RevertCode.OK, RevertCode.APP_LOGIC_REVERTED, RevertCode.TEARDOWN_REVERTED, RevertCode.BOTH_REVERTED])(
-    'should serialize properly',
+    'should serialize %s properly',
     revertCode => {
       expect(revertCode.getSerializedLength()).toBe(1);
 
@@ -20,6 +21,9 @@ describe('revert_code', () => {
       expect(field).toMatchSnapshot();
       expect(RevertCode.fromField(field)).toEqual(revertCode);
       expect(RevertCode.fromFields([field])).toEqual(revertCode);
+
+      const json = jsonStringify(revertCode);
+      expect(RevertCode.schema.parse(JSON.parse(json))).toEqual(revertCode);
     },
   );
 

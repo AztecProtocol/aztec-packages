@@ -5,6 +5,7 @@ import { type FieldsOf } from '@aztec/foundation/types';
 
 import { z } from 'zod';
 
+import { L2BlockHash } from './block_hash.js';
 import { TxHash } from './tx_hash.js';
 
 /**
@@ -36,7 +37,7 @@ export class TxReceipt {
     /** The transaction fee paid for the transaction. */
     public transactionFee?: bigint,
     /** The hash of the block containing the transaction. */
-    public blockHash?: Buffer,
+    public blockHash?: L2BlockHash,
     /** The block number in which the transaction was included. */
     public blockNumber?: number,
     /** Information useful for testing/debugging, set when test flag is set to true in `waitOpts`. */
@@ -47,29 +48,13 @@ export class TxReceipt {
     return new TxReceipt(TxHash.zero(), TxStatus.DROPPED, '');
   }
 
-  /**
-   * Convert a Tx class object to a plain JSON object.
-   * @returns A plain object with Tx properties.
-   */
-  public toJSON() {
-    return {
-      txHash: this.txHash.toString(),
-      status: this.status.toString(),
-      error: this.error,
-      blockHash: this.blockHash?.toString('hex'),
-      blockNumber: this.blockNumber,
-      transactionFee: this.transactionFee?.toString(),
-      ...(this.debugInfo && { debugInfo: this.debugInfo }),
-    };
-  }
-
   static get schema() {
     return z
       .object({
         txHash: TxHash.schema,
         status: z.nativeEnum(TxStatus),
         error: z.string(),
-        blockHash: schemas.BufferHex.optional(),
+        blockHash: L2BlockHash.schema.optional(),
         blockNumber: z.number().optional(),
         transactionFee: schemas.BigInt.optional(),
         debugInfo: DebugInfoSchema.optional(),
@@ -87,21 +72,6 @@ export class TxReceipt {
       fields.blockNumber,
       fields.debugInfo,
     );
-  }
-
-  /**
-   * Convert a plain JSON object to a Tx class object.
-   * @param obj - A plain Tx JSON object.
-   * @returns A Tx class object.
-   */
-  public static fromJSON(obj: any) {
-    const txHash = TxHash.fromString(obj.txHash);
-    const status = obj.status as TxStatus;
-    const error = obj.error;
-    const transactionFee = obj.transactionFee ? BigInt(obj.transactionFee) : undefined;
-    const blockHash = obj.blockHash ? Buffer.from(obj.blockHash, 'hex') : undefined;
-    const blockNumber = obj.blockNumber ? Number(obj.blockNumber) : undefined;
-    return new TxReceipt(txHash, status, error, transactionFee, blockHash, blockNumber);
   }
 
   public static statusFromRevertCode(revertCode: RevertCode) {

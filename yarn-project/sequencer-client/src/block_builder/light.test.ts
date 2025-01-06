@@ -244,6 +244,10 @@ describe('LightBlockBuilder', () => {
       logger,
     );
 
+    // Ensure that the expected mana used is the sum of the txs' gas used
+    const expectedManaUsed = txs.reduce((acc, tx) => acc + tx.gasUsed.totalGas.l2Gas, 0);
+    expect(expectedHeader.totalManaUsed.toNumber()).toBe(expectedManaUsed);
+
     expect(expectedHeader.hash()).toEqual(rootOutput.endBlockHash);
     return expectedHeader;
   };

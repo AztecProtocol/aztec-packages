@@ -6,6 +6,7 @@ import {
   type ContractInstanceWithAddress,
   ContractInstanceWithAddressSchema,
   type Fr,
+  GasFees,
   L1_TO_L2_MSG_TREE_HEIGHT,
   type NodeInfo,
   NodeInfoSchema,
@@ -286,6 +287,12 @@ export interface PXE {
   getBlock(number: number): Promise<L2Block | undefined>;
 
   /**
+   * Method to fetch the current base fees.
+   * @returns The current base fees.
+   */
+  getCurrentBaseFees(): Promise<GasFees>;
+
+  /**
    * Simulate the execution of an unconstrained function on a deployed contract without actually modifying state.
    * This is useful to inspect contract state, for example fetching a variable value or calling a getter function.
    * The function takes function name and arguments as parameters, along with the contract address
@@ -515,6 +522,8 @@ export const PXESchema: ApiSchemaFor<PXE> = {
     .function()
     .args(z.number())
     .returns(z.union([L2Block.schema, z.undefined()])),
+  getCurrentBaseFees: z.function().returns(GasFees.schema),
+
   simulateUnconstrained: z
     .function()
     .args(

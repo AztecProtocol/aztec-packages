@@ -42,7 +42,7 @@ describe('L2BlockStream', () => {
 
   const makeBlock = (number: number) => ({ number } as L2Block);
 
-  const makeHeader = (number: number) => mock<Header>({ hash: () => new Fr(number) });
+  const makeHeader = (number: number) => mock<Header>({ hash: () => new Fr(number) } as Header);
 
   const setRemoteTips = (latest_: number, proven?: number, finalized?: number) => {
     proven = proven ?? 0;

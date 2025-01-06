@@ -1,4 +1,5 @@
 import { AztecAddress, SerializableContractInstance } from '@aztec/circuits.js';
+import { siloNullifier } from '@aztec/circuits.js/hash';
 import { Fr } from '@aztec/foundation/fields';
 
 import { mock } from 'jest-mock-extended';
@@ -84,22 +85,25 @@ describe('journal', () => {
     it('checkNullifierExists works for missing nullifiers', async () => {
       const exists = await persistableState.checkNullifierExists(address, utxo);
       expect(exists).toEqual(false);
+      const siloedNullifier = siloNullifier(address, utxo);
       expect(trace.traceNullifierCheck).toHaveBeenCalledTimes(1);
-      expect(trace.traceNullifierCheck).toHaveBeenCalledWith(address, utxo, exists);
+      expect(trace.traceNullifierCheck).toHaveBeenCalledWith(siloedNullifier, exists);
     });
 
     it('checkNullifierExists works for existing nullifiers', async () => {
       mockNullifierExists(worldStateDB, leafIndex, utxo);
       const exists = await persistableState.checkNullifierExists(address, utxo);
       expect(exists).toEqual(true);
+      const siloedNullifier = siloNullifier(address, utxo);
       expect(trace.traceNullifierCheck).toHaveBeenCalledTimes(1);
-      expect(trace.traceNullifierCheck).toHaveBeenCalledWith(address, utxo, exists);
+      expect(trace.traceNullifierCheck).toHaveBeenCalledWith(siloedNullifier, exists);
     });
 
     it('writeNullifier works', async () => {
       await persistableState.writeNullifier(address, utxo);
-      expect(trace.traceNewNullifier).toHaveBeenCalledWith(expect.objectContaining(address), /*nullifier=*/ utxo);
-      expect(trace.traceNewNullifier).toHaveBeenCalledWith(address, /*nullifier=*/ utxo);
+      const siloedNullifier = siloNullifier(address, utxo);
+      expect(trace.traceNewNullifier).toHaveBeenCalledTimes(1);
+      expect(trace.traceNewNullifier).toHaveBeenCalledWith(siloedNullifier);
     });
 
     it('checkL1ToL2MessageExists works for missing message', async () => {

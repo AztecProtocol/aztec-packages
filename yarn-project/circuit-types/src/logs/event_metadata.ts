@@ -1,4 +1,4 @@
-import { type AbiType, AbiTypeSchema, EventSelector, decodeFromAbi } from '@aztec/foundation/abi';
+import { type AbiType, AbiTypeSchema, type EventSelector, decodeFromAbi } from '@aztec/foundation/abi';
 import { Fr } from '@aztec/foundation/fields';
 import { schemas } from '@aztec/foundation/schemas';
 
@@ -49,37 +49,13 @@ export class EventMetadata<T> {
     };
   }
 
-  /**
-   * Serializes the metadata to a JSON-friendly format
-   */
-  public toJSON() {
-    return {
-      type: 'event_metadata', // TODO(palla/schemas): Remove this type property
-      eventSelector: this.eventSelector,
-      abiType: this.abiType,
-      fieldNames: this.fieldNames,
-    };
-  }
-
   static get schema() {
     return z
       .object({
         eventSelector: schemas.EventSelector,
         abiType: AbiTypeSchema,
         fieldNames: z.array(z.string()),
-        type: z.literal('event_metadata').optional(),
       })
       .transform(obj => new EventMetadata(obj));
-  }
-
-  /**
-   * Creates an EventMetadata instance from a JSON representation
-   */
-  public static fromJSON(json: any): EventMetadata<any> {
-    return new EventMetadata({
-      eventSelector: EventSelector.fromString(json.eventSelector),
-      abiType: json.abiType,
-      fieldNames: json.fieldNames,
-    });
   }
 }

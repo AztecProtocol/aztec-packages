@@ -20,7 +20,6 @@ import {
   MAX_NOTE_HASHES_PER_TX,
   MAX_NOTE_HASH_READ_REQUESTS_PER_CALL,
   MAX_NULLIFIERS_PER_CALL,
-  MAX_NULLIFIERS_PER_TX,
   MAX_NULLIFIER_NON_EXISTENT_READ_REQUESTS_PER_CALL,
   MAX_NULLIFIER_READ_REQUESTS_PER_CALL,
   MAX_PUBLIC_DATA_READS_PER_CALL,
@@ -146,16 +145,6 @@ export function generateAvmCircuitPublicInputs(
     }
   }
 
-  const nullifiersFromPrivate = revertCode.isOK()
-    ? mergeAccumulatedData(
-        avmCircuitPublicInputs.previousNonRevertibleAccumulatedData.nullifiers,
-        avmCircuitPublicInputs.previousRevertibleAccumulatedData.nullifiers,
-      )
-    : avmCircuitPublicInputs.previousNonRevertibleAccumulatedData.nullifiers;
-  avmCircuitPublicInputs.accumulatedData.nullifiers = assertLength(
-    mergeAccumulatedData(nullifiersFromPrivate, avmCircuitPublicInputs.accumulatedData.nullifiers),
-    MAX_NULLIFIERS_PER_TX,
-  );
   const msgsFromPrivate = revertCode.isOK()
     ? mergeAccumulatedData(
         avmCircuitPublicInputs.previousNonRevertibleAccumulatedData.l2ToL1Msgs,

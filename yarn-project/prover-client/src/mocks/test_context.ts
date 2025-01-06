@@ -9,7 +9,7 @@ import {
   type TxValidator,
 } from '@aztec/circuit-types';
 import { type Gas, type GlobalVariables, Header } from '@aztec/circuits.js';
-import { type Fr } from '@aztec/foundation/fields';
+import { Fr } from '@aztec/foundation/fields';
 import { type DebugLogger } from '@aztec/foundation/log';
 import { openTmpStore } from '@aztec/kv-store/utils';
 import {
@@ -118,7 +118,7 @@ export class TestContext {
     }
 
     const queue = new MemoryProvingQueue(telemetry);
-    const orchestrator = new ProvingOrchestrator(proverDb, queue, telemetry);
+    const orchestrator = new ProvingOrchestrator(proverDb, queue, telemetry, Fr.ZERO);
     const agent = new ProverAgent(localProver, proverCount);
 
     queue.start();

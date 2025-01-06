@@ -1,9 +1,11 @@
+import { getSchnorrAccount } from '@aztec/accounts/schnorr';
 import { type AztecNodeConfig, type AztecNodeService } from '@aztec/aztec-node';
-import { EthCheatCodes } from '@aztec/aztec.js';
+import { type AccountWalletWithSecretKey, EthCheatCodes } from '@aztec/aztec.js';
 import { EthAddress } from '@aztec/circuits.js';
 import { getL1ContractsConfigEnvVars } from '@aztec/ethereum';
 import { type DebugLogger, createDebugLogger } from '@aztec/foundation/log';
 import { RollupAbi } from '@aztec/l1-artifacts';
+import { SpamContract } from '@aztec/noir-contracts.js';
 import { type BootstrapNode } from '@aztec/p2p';
 import { createBootstrapNodeFromPrivateKey } from '@aztec/p2p/mocks';
 
@@ -17,7 +19,12 @@ import {
   generateNodePrivateKeys,
   generatePeerIdPrivateKeys,
 } from '../fixtures/setup_p2p_test.js';
-import { type ISnapshotManager, type SubsystemsContext, createSnapshotManager } from '../fixtures/snapshot_manager.js';
+import {
+  type ISnapshotManager,
+  type SubsystemsContext,
+  addAccounts,
+  createSnapshotManager,
+} from '../fixtures/snapshot_manager.js';
 import { getPrivateKeyFromIndex } from '../fixtures/utils.js';
 import { getEndToEndTestTelemetryClient } from '../fixtures/with_telemetry_utils.js';
 
@@ -38,6 +45,10 @@ export class P2PNetworkTest {
   public peerIdPrivateKeys: string[] = [];
 
   public bootstrapNodeEnr: string = '';
+
+  // The re-execution test needs a wallet and a spam contract
+  public wallet?: AccountWalletWithSecretKey;
+  public spamContract?: SpamContract;
 
   constructor(
     testName: string,
@@ -108,12 +119,16 @@ export class P2PNetworkTest {
         client: deployL1ContractsValues.walletClient,
       });
 
+      this.logger.verbose(`Adding ${this.numberOfNodes} validators`);
+
       const txHashes: `0x${string}`[] = [];
       for (let i = 0; i < this.numberOfNodes; i++) {
         const account = privateKeyToAccount(this.nodePrivateKeys[i]!);
         this.logger.debug(`Adding ${account.address} as validator`);
         const txHash = await rollup.write.addValidator([account.address]);
         txHashes.push(txHash);
+
+        this.logger.debug(`Adding ${account.address} as validator`);
       }
 
       // Wait for all the transactions adding validators to be mined
@@ -146,6 +161,39 @@ export class P2PNetworkTest {
         }),
       });
     });
+  }
+
+  async setupAccount() {
+    await this.snapshotManager.snapshot(
+      'setup-account',
+      addAccounts(1, this.logger, false),
+      async ({ accountKeys }, ctx) => {
+        const accountManagers = accountKeys.map(ak => getSchnorrAccount(ctx.pxe, ak[0], ak[1], 1));
+        await Promise.all(accountManagers.map(a => a.register()));
+        const wallets = await Promise.all(accountManagers.map(a => a.getWallet()));
+        this.wallet = wallets[0];
+      },
+    );
+  }
+
+  async deploySpamContract() {
+    await this.snapshotManager.snapshot(
+      'add-spam-contract',
+      async () => {
+        if (!this.wallet) {
+          throw new Error('Call snapshot t.setupAccount before deploying account contract');
+        }
+
+        const spamContract = await SpamContract.deploy(this.wallet).send().deployed();
+        return { contractAddress: spamContract.address };
+      },
+      async ({ contractAddress }) => {
+        if (!this.wallet) {
+          throw new Error('Call snapshot t.setupAccount before deploying account contract');
+        }
+        this.spamContract = await SpamContract.at(contractAddress, this.wallet);
+      },
+    );
   }
 
   async removeInitialNode() {

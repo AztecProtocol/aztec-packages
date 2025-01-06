@@ -1,5 +1,6 @@
-import { hexSchemaFor } from '@aztec/foundation/schemas';
+import { bufferSchemaFor } from '@aztec/foundation/schemas';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
+import { bufferToHex, hexToBuffer } from '@aztec/foundation/string';
 import { type FieldsOf } from '@aztec/foundation/types';
 
 import { AvmProofData } from './avm_proof_data.js';
@@ -33,25 +34,26 @@ export class PublicBaseRollupInputs {
   toBuffer() {
     return serializeToBuffer(...PublicBaseRollupInputs.getFields(this));
   }
+
   static fromString(str: string) {
-    return PublicBaseRollupInputs.fromBuffer(Buffer.from(str, 'hex'));
+    return PublicBaseRollupInputs.fromBuffer(hexToBuffer(str));
   }
 
   toString() {
-    return this.toBuffer().toString('hex');
+    return bufferToHex(this.toBuffer());
   }
 
   static empty() {
     return new PublicBaseRollupInputs(PublicTubeData.empty(), AvmProofData.empty(), PublicBaseRollupHints.empty());
   }
 
-  /** Returns a hex representation for JSON serialization. */
+  /** Returns a representation for JSON serialization. */
   toJSON() {
-    return this.toString();
+    return this.toBuffer();
   }
 
-  /** Creates an instance from a hex string. */
+  /** Creates an instance from a string. */
   static get schema() {
-    return hexSchemaFor(PublicBaseRollupInputs);
+    return bufferSchemaFor(PublicBaseRollupInputs);
   }
 }

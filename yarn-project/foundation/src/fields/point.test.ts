@@ -1,3 +1,4 @@
+import { jsonParseWithSchema, jsonStringify } from '../json-rpc/convert.js';
 import { schemas } from '../schemas/schemas.js';
 import { updateInlineTestData } from '../testing/test_data.js';
 import { Fr } from './fields.js';
@@ -93,7 +94,7 @@ describe('Point', () => {
 
   it('serializes from and to JSON', () => {
     const p = Point.random();
-    const p2 = schemas.Point.parse(JSON.parse(JSON.stringify(p)));
+    const p2 = jsonParseWithSchema(jsonStringify(p), schemas.Point);
     expect(p).toEqual(p2);
     expect(p2).toBeInstanceOf(Point);
   });

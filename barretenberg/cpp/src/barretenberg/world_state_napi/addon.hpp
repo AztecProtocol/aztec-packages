@@ -44,6 +44,7 @@ class WorldStateAddon : public Napi::ObjectWrap<WorldStateAddon> {
 
     bool append_leaves(msgpack::object& obj, msgpack::sbuffer& buffer);
     bool batch_insert(msgpack::object& obj, msgpack::sbuffer& buffer);
+    bool sequential_insert(msgpack::object& obj, msgpack::sbuffer& buffer);
 
     bool update_archive(msgpack::object& obj, msgpack::sbuffer& buffer);
 

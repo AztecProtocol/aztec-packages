@@ -1,6 +1,7 @@
 import { Fr } from '@aztec/foundation/fields';
 import { schemas } from '@aztec/foundation/schemas';
 import { BufferReader, FieldReader, serializeToBuffer } from '@aztec/foundation/serialize';
+import { bufferToHex } from '@aztec/foundation/string';
 
 import { z } from 'zod';
 
@@ -34,22 +35,13 @@ export class ContentCommitment {
     return z
       .object({
         numTxs: schemas.Fr,
-        txsEffectsHash: schemas.BufferHex,
-        inHash: schemas.BufferHex,
-        outHash: schemas.BufferHex,
+        txsEffectsHash: schemas.Buffer,
+        inHash: schemas.Buffer,
+        outHash: schemas.Buffer,
       })
       .transform(
         ({ numTxs, txsEffectsHash, inHash, outHash }) => new ContentCommitment(numTxs, txsEffectsHash, inHash, outHash),
       );
-  }
-
-  toJSON() {
-    return {
-      numTxs: this.numTxs,
-      txsEffectsHash: this.txsEffectsHash.toString('hex'),
-      inHash: this.inHash.toString('hex'),
-      outHash: this.outHash.toString('hex'),
-    };
   }
 
   getSize() {
@@ -113,7 +105,7 @@ export class ContentCommitment {
   }
 
   public toString(): string {
-    return this.toBuffer().toString('hex');
+    return bufferToHex(this.toBuffer());
   }
 
   static fromString(str: string): ContentCommitment {

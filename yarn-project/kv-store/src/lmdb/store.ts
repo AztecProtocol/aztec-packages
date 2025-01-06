@@ -182,15 +182,52 @@ export class AztecLmdbStore implements AztecKVStore {
     }
   }
 
-  estimateSize(): { bytes: number } {
+  estimateSize(): { mappingSize: number; actualSize: number; numItems: number } {
     const stats = this.#rootDb.getStats();
-    // `mapSize` represents to total amount of memory currently being used by the database.
-    // since the database is mmap'd, this is a good estimate of the size of the database for now.
+    // The 'mapSize' is the total amount of virtual address space allocated to the DB (effectively the maximum possible size)
     // http://www.lmdb.tech/doc/group__mdb.html#a4bde3c8b676457342cba2fe27aed5fbd
+    let mapSize = 0;
     if ('mapSize' in stats && typeof stats.mapSize === 'number') {
-      return { bytes: stats.mapSize };
-    } else {
-      return { bytes: 0 };
+      mapSize = stats.mapSize;
     }
+    const dataResult = this.estimateSubDBSize(this.#data);
+    const multiResult = this.estimateSubDBSize(this.#multiMapData);
+    return {
+      mappingSize: mapSize,
+      actualSize: dataResult.actualSize + multiResult.actualSize,
+      numItems: dataResult.numItems + multiResult.numItems,
+    };
+  }
+
+  private estimateSubDBSize(db: Database<unknown, Key>): { actualSize: number; numItems: number } {
+    const stats = db.getStats();
+    let branchPages = 0;
+    let leafPages = 0;
+    let overflowPages = 0;
+    let pageSize = 0;
+    let totalSize = 0;
+    let numItems = 0;
+    // This is the total number of key/value pairs present in the DB
+    if ('entryCount' in stats && typeof stats.entryCount === 'number') {
+      numItems = stats.entryCount;
+    }
+    // The closest value we can get to the actual size of the database is the number of consumed pages * the page size
+    if (
+      'treeBranchPageCount' in stats &&
+      typeof stats.treeBranchPageCount === 'number' &&
+      'treeLeafPageCount' in stats &&
+      typeof stats.treeLeafPageCount === 'number' &&
+      'overflowPages' in stats &&
+      typeof stats.overflowPages === 'number' &&
+      'pageSize' in stats &&
+      typeof stats.pageSize === 'number'
+    ) {
+      branchPages = stats.treeBranchPageCount;
+      leafPages = stats.treeLeafPageCount;
+      overflowPages = stats.overflowPages;
+      pageSize = stats.pageSize;
+      totalSize = (branchPages + leafPages + overflowPages) * pageSize;
+    }
+    return { actualSize: totalSize, numItems };
   }
 }

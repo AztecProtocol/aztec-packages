@@ -32,7 +32,7 @@ contract Token {
         },
         oracle::random::random,
         prelude::{
-            AztecAddress, FunctionSelector, Map, PublicContext, PublicMutable, SharedImmutable,
+            AztecAddress, FunctionSelector, Map, PublicContext, PublicImmutable, PublicMutable,
         },
         protocol_types::{point::Point, traits::Serialize},
     };
@@ -81,10 +81,10 @@ contract Token {
         // docs:end:storage_balances
         total_supply: PublicMutable<U128, Context>,
         public_balances: Map<AztecAddress, PublicMutable<U128, Context>, Context>,
-        symbol: SharedImmutable<FieldCompressedString, Context>,
-        name: SharedImmutable<FieldCompressedString, Context>,
+        symbol: PublicImmutable<FieldCompressedString, Context>,
+        name: PublicImmutable<FieldCompressedString, Context>,
         // docs:start:storage_decimals
-        decimals: SharedImmutable<u8, Context>,
+        decimals: PublicImmutable<u8, Context>,
         // docs:end:storage_decimals
     }
     // docs:end:storage_struct
@@ -117,40 +117,37 @@ contract Token {
     #[public]
     #[view]
     fn public_get_name() -> FieldCompressedString {
-        storage.name.read_public()
+        storage.name.read()
     }
 
     #[private]
     #[view]
     fn private_get_name() -> FieldCompressedString {
-        storage.name.read_private()
+        storage.name.read()
     }
 
     #[public]
     #[view]
     fn public_get_symbol() -> pub FieldCompressedString {
-        storage.symbol.read_public()
+        storage.symbol.read()
     }
 
     #[private]
     #[view]
     fn private_get_symbol() -> pub FieldCompressedString {
-        storage.symbol.read_private()
+        storage.symbol.read()
     }
 
     #[public]
     #[view]
     fn public_get_decimals() -> pub u8 {
-        // docs:start:read_decimals_public
-        storage.decimals.read_public()
-        // docs:end:read_decimals_public
+        storage.decimals.read()
     }
+
     #[private]
     #[view]
     fn private_get_decimals() -> pub u8 {
-        // docs:start:read_decimals_private
-        storage.decimals.read_private()
-        // docs:end:read_decimals_private
+        storage.decimals.read()
     }
 
     // docs:start:admin
@@ -704,7 +701,7 @@ contract Token {
     fn _store_payload_in_transient_storage_unsafe(
         slot: Field,
         point: Point,
-        setup_log: [Field; 15],
+        setup_log: [Field; 14],
     ) {
         context.storage_write(slot, point);
         context.storage_write(slot + aztec::protocol_types::point::POINT_LENGTH as Field, setup_log);

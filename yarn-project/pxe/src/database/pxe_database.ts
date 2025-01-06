@@ -202,11 +202,11 @@ export interface PxeDatabase extends ContractArtifactDatabase, ContractInstanceD
   getTaggingSecretsIndexesAsSender(appTaggingSecrets: Fr[]): Promise<number[]>;
 
   /**
-   * Increments the index for the provided app siloed tagging secrets in the senders database
-   * To be used when the generated tags have been used as sender
+   * Sets the index for the provided app siloed tagging secrets
+   * To be used when the generated tags have been "seen" as a sender
    * @param appTaggingSecrets - The app siloed tagging secrets.
    */
-  incrementTaggingSecretsIndexesAsSender(appTaggingSecrets: Fr[]): Promise<void>;
+  setTaggingSecretsIndexesAsSender(indexedTaggingSecrets: IndexedTaggingSecret[]): Promise<void>;
 
   /**
    * Sets the index for the provided app siloed tagging secrets

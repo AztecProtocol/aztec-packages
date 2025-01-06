@@ -1,6 +1,7 @@
 import { Header } from '@aztec/circuits.js';
 import { Fr } from '@aztec/foundation/fields';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
+import { hexToBuffer } from '@aztec/foundation/string';
 import { type FieldsOf } from '@aztec/foundation/types';
 
 import { encodeAbiParameters, parseAbiParameters } from 'viem';
@@ -25,14 +26,20 @@ export class ConsensusPayload implements Signable {
   }
 
   getPayloadToSign(domainSeperator: SignatureDomainSeperator): Buffer {
-    const abi = parseAbiParameters('uint8, (bytes32, bytes32, bytes, bytes32[])');
-    const txArray = this.txHashes.map(tx => tx.to0xString());
+    const abi = parseAbiParameters('uint8, (bytes32, bytes32, (uint256, uint256), bytes, bytes32[])');
+    const txArray = this.txHashes.map(tx => tx.toString());
     const encodedData = encodeAbiParameters(abi, [
       domainSeperator,
-      [this.archive.toString(), this.header.hash().toString(), `0x${this.header.toString()}`, txArray],
+      [
+        this.archive.toString(),
+        this.header.hash().toString(),
+        [0n, 0n] /* @todo See #9963 */,
+        this.header.toString(),
+        txArray,
+      ],
     ] as const);
 
-    return Buffer.from(encodedData.slice(2), 'hex');
+    return hexToBuffer(encodedData);
   }
 
   toBuffer(): Buffer {

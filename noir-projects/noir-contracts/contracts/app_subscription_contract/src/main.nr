@@ -12,7 +12,7 @@ contract AppSubscription {
         encrypted_logs::encrypted_note_emission::encode_and_encrypt_note,
         keys::getters::get_public_keys,
         macros::{functions::{initializer, private, public}, storage::storage},
-        prelude::{AztecAddress, Map, PrivateMutable, SharedImmutable},
+        prelude::{AztecAddress, Map, PrivateMutable, PublicImmutable},
         protocol_types::constants::MAX_FIELD_VALUE,
         utils::comparison::Comparator,
     };
@@ -21,19 +21,16 @@ contract AppSubscription {
 
     #[storage]
     struct Storage<Context> {
-        // The following is only needed in private but we use ShareImmutable here instead of PrivateImmutable because
-        // the value can be publicly known and SharedImmutable provides us with a better devex here because we don't
-        // have to bother with sharing the note between pixies of users.
-        target_address: SharedImmutable<AztecAddress, Context>,
-        subscription_token_address: SharedImmutable<AztecAddress, Context>,
-        subscription_recipient_address: SharedImmutable<AztecAddress, Context>,
-        subscription_price: SharedImmutable<Field, Context>,
+        target_address: PublicImmutable<AztecAddress, Context>,
+        subscription_token_address: PublicImmutable<AztecAddress, Context>,
+        subscription_recipient_address: PublicImmutable<AztecAddress, Context>,
+        subscription_price: PublicImmutable<Field, Context>,
         subscriptions: Map<AztecAddress, PrivateMutable<SubscriptionNote, Context>, Context>,
-        fee_juice_limit_per_tx: SharedImmutable<Field, Context>,
+        fee_juice_limit_per_tx: PublicImmutable<Field, Context>,
     }
 
-    global SUBSCRIPTION_DURATION_IN_BLOCKS = 5;
-    global SUBSCRIPTION_TXS = 5;
+    global SUBSCRIPTION_DURATION_IN_BLOCKS: Field = 5;
+    global SUBSCRIPTION_TXS: Field = 5;
 
     #[private]
     fn entrypoint(payload: DAppPayload, user_address: AztecAddress) {
@@ -59,7 +56,7 @@ contract AppSubscription {
         context.set_as_fee_payer();
 
         // TODO(palla/gas) Assert fee_juice_limit_per_tx is less than this tx gas_limit
-        let _gas_limit = storage.fee_juice_limit_per_tx.read_private();
+        let _gas_limit = storage.fee_juice_limit_per_tx.read();
 
         context.end_setup();
 
@@ -67,7 +64,7 @@ contract AppSubscription {
         // is performing the check.
         privately_check_block_number(Comparator.LT, note.expiry_block_number, &mut context);
 
-        payload.execute_calls(&mut context, storage.target_address.read_private());
+        payload.execute_calls(&mut context, storage.target_address.read());
     }
 
     #[public]
@@ -95,11 +92,11 @@ contract AppSubscription {
     ) {
         assert(tx_count as u64 <= SUBSCRIPTION_TXS as u64);
 
-        Token::at(storage.subscription_token_address.read_private())
+        Token::at(storage.subscription_token_address.read())
             .transfer_in_private(
                 context.msg_sender(),
-                storage.subscription_recipient_address.read_private(),
-                storage.subscription_price.read_private(),
+                storage.subscription_recipient_address.read(),
+                storage.subscription_price.read(),
                 nonce,
             )
             .call(&mut context);

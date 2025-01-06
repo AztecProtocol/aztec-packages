@@ -16,6 +16,7 @@ import {
 } from '@aztec/circuits.js';
 import { makeContentCommitment, makeGlobalVariables } from '@aztec/circuits.js/testing';
 
+import { jest } from '@jest/globals';
 import { mkdtemp, rm } from 'fs/promises';
 import { tmpdir } from 'os';
 import { join } from 'path';
@@ -25,6 +26,8 @@ import { INITIAL_NULLIFIER_TREE_SIZE, INITIAL_PUBLIC_DATA_TREE_SIZE } from '../w
 import { type WorldStateStatusSummary } from './message.js';
 import { NativeWorldStateService, WORLD_STATE_VERSION_FILE } from './native_world_state.js';
 import { WorldStateVersion } from './world_state_version.js';
+
+jest.setTimeout(60_000);
 
 describe('NativeWorldState', () => {
   let dataDir: string;
@@ -52,7 +55,7 @@ describe('NativeWorldState', () => {
 
       await ws.handleL2BlockAndMessages(block, messages);
       await ws.close();
-    }, 30_000);
+    });
 
     it('correctly restores committed state', async () => {
       const ws = await NativeWorldStateService.new(rollupAddress, dataDir, defaultDBMapSize);
@@ -119,7 +122,7 @@ describe('NativeWorldState', () => {
     });
 
     it('Fails to sync further blocks if trees are out of sync', async () => {
-      // open ws against the same data dir but a different rollup
+      // open ws against the same data dir but a different rollup and with a small max db size
       const rollupAddress = EthAddress.random();
       const ws = await NativeWorldStateService.new(rollupAddress, dataDir, 1024);
       const initialFork = await ws.fork();
@@ -170,7 +173,7 @@ describe('NativeWorldState', () => {
 
     beforeEach(async () => {
       ws = await NativeWorldStateService.new(EthAddress.random(), dataDir, defaultDBMapSize);
-    });
+    }, 30_000);
 
     afterEach(async () => {
       await ws.close();
@@ -190,6 +193,7 @@ describe('NativeWorldState', () => {
         makeContentCommitment(),
         stateReference,
         makeGlobalVariables(),
+        Fr.ZERO,
         Fr.ZERO,
       );
 
@@ -220,6 +224,7 @@ describe('NativeWorldState', () => {
         stateReference,
         makeGlobalVariables(),
         Fr.ZERO,
+        Fr.ZERO,
       );
 
       await fork.updateArchive(header);
@@ -243,7 +248,7 @@ describe('NativeWorldState', () => {
 
       const forkAtZero = await ws.fork(0);
       await compareChains(forkAtGenesis, forkAtZero);
-    }, 30_000);
+    });
   });
 
   describe('Pending and Proven chain', () => {
@@ -278,7 +283,7 @@ describe('NativeWorldState', () => {
           expect(status.summary.finalisedBlockNumber).toBe(0n);
         }
       }
-    }, 30_000);
+    });
 
     it('Can finalise multiple blocks', async () => {
       const fork = await ws.fork();
@@ -297,7 +302,7 @@ describe('NativeWorldState', () => {
       expect(status.unfinalisedBlockNumber).toBe(16n);
       expect(status.oldestHistoricalBlock).toBe(1n);
       expect(status.finalisedBlockNumber).toBe(8n);
-    }, 30_000);
+    });
 
     it('Can prune historic blocks', async () => {
       const fork = await ws.fork();
@@ -343,12 +348,14 @@ describe('NativeWorldState', () => {
       }
 
       //can't prune what has already been pruned
-      for (let i = 0; i < highestPrunedBlockNumber; i++) {
+      for (let i = 0; i <= highestPrunedBlockNumber; i++) {
         await expect(ws.removeHistoricalBlocks(BigInt(i + 1))).rejects.toThrow(
-          'Unable to remove historical block, block not found',
+          `Unable to remove historical blocks to block number ${BigInt(
+            i + 1,
+          )}, blocks not found. Current oldest block: ${highestPrunedBlockNumber + 1}`,
         );
       }
-    }, 30_000);
+    });
 
     it('Can re-org', async () => {
       const nonReorgState = await NativeWorldStateService.tmp();
@@ -448,7 +455,7 @@ describe('NativeWorldState', () => {
       }
 
       await compareChains(ws.getCommitted(), nonReorgState.getCommitted());
-    }, 30_000);
+    });
 
     it('Forks are deleted during a re-org', async () => {
       const fork = await ws.fork();
@@ -480,7 +487,7 @@ describe('NativeWorldState', () => {
           await expect(blockForks[i].getSiblingPath(MerkleTreeId.NULLIFIER_TREE, 0n)).rejects.toThrow('Fork not found');
         }
       }
-    }, 30_000);
+    });
   });
 
   describe('status reporting', () => {
@@ -596,6 +603,6 @@ describe('NativeWorldState', () => {
       expect(statuses[0].dbStats.publicDataTreeStats.mapSize).toBe(mapSizeBytes);
 
       await ws.close();
-    }, 30_000);
+    });
   });
 });

@@ -10,13 +10,13 @@ contract FPC {
     use dep::aztec::{
         macros::{functions::{initializer, internal, private, public}, storage::storage},
         protocol_types::{abis::function_selector::FunctionSelector, address::AztecAddress},
-        state_vars::SharedImmutable,
+        state_vars::PublicImmutable,
     };
     use dep::token::Token;
 
     #[storage]
     struct Storage<Context> {
-        settings: SharedImmutable<Settings, Context>,
+        settings: PublicImmutable<Settings, Context>,
     }
 
     #[public]
@@ -28,8 +28,8 @@ contract FPC {
 
     #[private]
     fn fee_entrypoint_private(amount: Field, asset: AztecAddress, nonce: Field) {
-        // TODO(PR #8022): Once SharedImmutable performs only 1 merkle proof here, we'll save ~4k gates
-        let settings = storage.settings.read_private();
+        // TODO(PR #8022): Once PublicImmutable performs only 1 merkle proof here, we'll save ~4k gates
+        let settings = storage.settings.read();
 
         assert(asset == settings.other_asset);
 

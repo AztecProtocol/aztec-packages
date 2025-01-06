@@ -1,4 +1,11 @@
 import { type ArchiverConfig, archiverConfigMappings, getArchiverConfigFromEnv } from '@aztec/archiver';
+import { type ACVMConfig, type BBConfig } from '@aztec/bb-prover';
+import {
+  type ProverAgentConfig,
+  type ProverBrokerConfig,
+  proverAgentConfigMappings,
+  proverBrokerConfigMappings,
+} from '@aztec/circuit-types';
 import {
   type ConfigMappingsType,
   bigintConfigHelper,
@@ -7,7 +14,12 @@ import {
 } from '@aztec/foundation/config';
 import { type DataStoreConfig, dataConfigMappings, getDataConfigFromEnv } from '@aztec/kv-store/config';
 import { type P2PConfig, getP2PConfigFromEnv, p2pConfigMappings } from '@aztec/p2p';
-import { type ProverClientConfig, getProverEnvVars, proverClientConfigMappings } from '@aztec/prover-client';
+import {
+  type ProverClientConfig,
+  bbConfigMappings,
+  getProverEnvVars,
+  proverClientConfigMappings,
+} from '@aztec/prover-client';
 import {
   type PublisherConfig,
   type TxSenderConfig,
@@ -105,5 +117,18 @@ export function getProverNodeConfigFromEnv(): ProverNodeConfig {
     ...getConfigFromMappings(quoteProviderConfigMappings),
     ...getConfigFromMappings(specificProverNodeConfigMappings),
     ...getConfigFromMappings(proverBondManagerConfigMappings),
+  };
+}
+
+export function getProverNodeBrokerConfigFromEnv(): ProverBrokerConfig {
+  return {
+    ...getConfigFromMappings(proverBrokerConfigMappings),
+  };
+}
+
+export function getProverNodeAgentConfigFromEnv(): ProverAgentConfig & BBConfig & ACVMConfig {
+  return {
+    ...getConfigFromMappings(proverAgentConfigMappings),
+    ...getConfigFromMappings(bbConfigMappings),
   };
 }

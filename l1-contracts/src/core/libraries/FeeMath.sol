@@ -13,6 +13,14 @@ struct OracleInput {
   int256 feeAssetPriceModifier;
 }
 
+struct ManaBaseFeeComponents {
+  uint256 congestionCost;
+  uint256 congestionMultiplier;
+  uint256 dataCost;
+  uint256 gasCost;
+  uint256 provingCost;
+}
+
 library FeeMath {
   using Math for uint256;
   using SafeCast for int256;
@@ -79,6 +87,11 @@ library FeeMath {
 
   function congestionMultiplier(uint256 _numerator) internal pure returns (uint256) {
     return fakeExponential(MINIMUM_CONGESTION_MULTIPLIER, _numerator, CONGESTION_UPDATE_FRACTION);
+  }
+
+  function summedBaseFee(ManaBaseFeeComponents memory _components) internal pure returns (uint256) {
+    return _components.dataCost + _components.gasCost + _components.provingCost
+      + _components.congestionCost;
   }
 
   /**

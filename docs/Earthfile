@@ -47,7 +47,7 @@ deploy-preview:
   COPY --dir ../yarn-project/+scripts-prod/usr/src/yarn-project /usr/src
   COPY ./netlify.toml .
   COPY ./deploy_preview.sh .
-  RUN NETLIFY_AUTH_TOKEN=$NETLIFY_AUTH_TOKEN NETLIFY_SITE_ID=$NETLIFY_SITE_ID ./deploy_preview.sh $PR $AZTEC_BOT_COMMENTER_GITHUB_TOKEN
+  RUN NETLIFY_AUTH_TOKEN=$NETLIFY_AUTH_TOKEN NETLIFY_SITE_ID=$NETLIFY_SITE_ID ./deploy_preview.sh "$PR" "$AZTEC_BOT_COMMENTER_GITHUB_TOKEN"
 
 deploy-prod:
   BUILD ../yarn-project/+scripts-prod

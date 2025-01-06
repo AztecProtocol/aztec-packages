@@ -2,6 +2,7 @@
 #include "barretenberg/crypto/merkle_tree/lmdb_store/lmdb_database.hpp"
 #include "barretenberg/crypto/merkle_tree/lmdb_store/lmdb_environment.hpp"
 #include "barretenberg/crypto/merkle_tree/lmdb_store/queries.hpp"
+#include "lmdb.h"
 #include <functional>
 #include <vector>
 
@@ -37,15 +38,17 @@ class LMDBTransaction {
      */
     virtual void abort();
 
-    template <typename T>
+    template <typename T, typename K>
     bool get_value_or_previous(T& key,
-                               std::vector<uint8_t>& data,
+                               K& data,
                                const LMDBDatabase& db,
-                               const std::function<bool(const std::vector<uint8_t>&)>& is_valid) const;
+                               const std::function<bool(const MDB_val&)>& is_valid) const;
 
-    template <typename T> bool get_value_or_previous(T& key, std::vector<uint8_t>& data, const LMDBDatabase& db) const;
+    template <typename T, typename K> bool get_value_or_previous(T& key, K& data, const LMDBDatabase& db) const;
 
     template <typename T> bool get_value(T& key, std::vector<uint8_t>& data, const LMDBDatabase& db) const;
+
+    template <typename T> bool get_value(T& key, index_t& data, const LMDBDatabase& db) const;
 
     template <typename T>
     void get_all_values_greater_or_equal_key(const T& key,
@@ -59,6 +62,8 @@ class LMDBTransaction {
 
     bool get_value(std::vector<uint8_t>& key, std::vector<uint8_t>& data, const LMDBDatabase& db) const;
 
+    bool get_value(std::vector<uint8_t>& key, index_t& data, const LMDBDatabase& db) const;
+
   protected:
     std::shared_ptr<LMDBEnvironment> _environment;
     MDB_txn* _transaction;
@@ -71,17 +76,23 @@ template <typename T> bool LMDBTransaction::get_value(T& key, std::vector<uint8_
     return get_value(keyBuffer, data, db);
 }
 
-template <typename T>
-bool LMDBTransaction::get_value_or_previous(T& key, std::vector<uint8_t>& data, const LMDBDatabase& db) const
+template <typename T> bool LMDBTransaction::get_value(T& key, index_t& data, const LMDBDatabase& db) const
+{
+    std::vector<uint8_t> keyBuffer = serialise_key(key);
+    return get_value(keyBuffer, data, db);
+}
+
+template <typename T, typename K>
+bool LMDBTransaction::get_value_or_previous(T& key, K& data, const LMDBDatabase& db) const
 {
     return lmdb_queries::get_value_or_previous(key, data, db, *this);
 }
 
-template <typename T>
+template <typename T, typename K>
 bool LMDBTransaction::get_value_or_previous(T& key,
-                                            std::vector<uint8_t>& data,
+                                            K& data,
                                             const LMDBDatabase& db,
-                                            const std::function<bool(const std::vector<uint8_t>&)>& is_valid) const
+                                            const std::function<bool(const MDB_val&)>& is_valid) const
 {
     return lmdb_queries::get_value_or_previous(key, data, db, is_valid, *this);
 }

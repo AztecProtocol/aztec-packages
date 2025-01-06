@@ -16,7 +16,7 @@ export async function createWorldStateSynchronizer(
   client: TelemetryClient,
 ) {
   const merkleTrees = await createWorldState(config, client);
-  return new ServerWorldStateSynchronizer(merkleTrees, l2BlockSource, config);
+  return new ServerWorldStateSynchronizer(merkleTrees, l2BlockSource, config, client);
 }
 
 export async function createWorldState(

@@ -1,6 +1,7 @@
 #pragma once
 
 #include "barretenberg/common/assert.hpp"
+#include "barretenberg/common/log.hpp"
 #include <cstddef>
 #include <memory>
 
@@ -47,6 +48,14 @@ template <typename T> struct SharedShiftedVirtualZeroesArray {
     const T& get(size_t index, size_t virtual_padding = 0) const
     {
         static const T zero{};
+        if (index >= virtual_size_ + virtual_padding) {
+            info("BAD GET(): index = ",
+                 index,
+                 ", virtual_size_ = ",
+                 virtual_size_,
+                 ", virtual_padding = ",
+                 virtual_padding);
+        }
         ASSERT(index < virtual_size_ + virtual_padding);
         if (index >= start_ && index < end_) {
             return data()[index - start_];
@@ -67,6 +76,12 @@ template <typename T> struct SharedShiftedVirtualZeroesArray {
     size_t size() const { return end_ - start_; }
     // Getter for consistency with size();
     size_t virtual_size() const { return virtual_size_; }
+
+    void increase_virtual_size(const size_t new_virtual_size)
+    {
+        ASSERT(new_virtual_size >= virtual_size_); // shrinking is not allowed
+        virtual_size_ = new_virtual_size;
+    }
 
     T& operator[](size_t index)
     {

@@ -1,6 +1,7 @@
 import { AztecAddress } from '@aztec/foundation/aztec-address';
-import { hexSchemaFor } from '@aztec/foundation/schemas';
+import { bufferSchemaFor } from '@aztec/foundation/schemas';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
+import { bufferToHex, hexToBuffer } from '@aztec/foundation/string';
 
 import { Gas } from '../gas.js';
 import { PartialStateReference } from '../partial_state_reference.js';
@@ -89,20 +90,20 @@ export class KernelCircuitPublicInputs {
   }
 
   toString() {
-    return this.toBuffer().toString('hex');
+    return bufferToHex(this.toBuffer());
   }
 
   static fromString(str: string) {
-    return KernelCircuitPublicInputs.fromBuffer(Buffer.from(str, 'hex'));
+    return KernelCircuitPublicInputs.fromBuffer(hexToBuffer(str));
   }
 
   /** Returns a hex representation for JSON serialization. */
   toJSON() {
-    return this.toString();
+    return this.toBuffer();
   }
 
   /** Creates an instance from a hex string. */
   static get schema() {
-    return hexSchemaFor(KernelCircuitPublicInputs);
+    return bufferSchemaFor(KernelCircuitPublicInputs);
   }
 }

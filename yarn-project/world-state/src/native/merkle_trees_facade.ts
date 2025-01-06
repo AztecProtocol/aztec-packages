@@ -5,6 +5,7 @@ import {
   type MerkleTreeLeafType,
   type MerkleTreeReadOperations,
   type MerkleTreeWriteOperations,
+  type SequentialInsertionResult,
   SiblingPath,
   type TreeInfo,
 } from '@aztec/circuit-types';
@@ -214,6 +215,31 @@ export class MerkleTreesForkFacade extends MerkleTreesFacade implements MerkleTr
         .map(serializeToBuffer),
       sortedNewLeavesIndexes: resp.sorted_leaves.map(([, index]) => index),
       lowLeavesWitnessData: resp.low_leaf_witness_data.map(data => ({
+        index: BigInt(data.index),
+        leafPreimage: deserializeIndexedLeaf(data.leaf),
+        siblingPath: new SiblingPath<TreeHeight>(data.path.length as any, data.path),
+      })),
+    };
+  }
+
+  async sequentialInsert<TreeHeight extends number, ID extends IndexedTreeId>(
+    treeId: ID,
+    rawLeaves: Buffer[],
+  ): Promise<SequentialInsertionResult<TreeHeight>> {
+    const leaves = rawLeaves.map((leaf: Buffer) => hydrateLeaf(treeId, leaf)).map(serializeLeaf);
+    const resp = await this.instance.call(WorldStateMessageType.SEQUENTIAL_INSERT, {
+      leaves,
+      treeId,
+      forkId: this.revision.forkId,
+    });
+
+    return {
+      lowLeavesWitnessData: resp.low_leaf_witness_data.map(data => ({
+        index: BigInt(data.index),
+        leafPreimage: deserializeIndexedLeaf(data.leaf),
+        siblingPath: new SiblingPath<TreeHeight>(data.path.length as any, data.path),
+      })),
+      insertionWitnessData: resp.insertion_witness_data.map(data => ({
         index: BigInt(data.index),
         leafPreimage: deserializeIndexedLeaf(data.leaf),
         siblingPath: new SiblingPath<TreeHeight>(data.path.length as any, data.path),

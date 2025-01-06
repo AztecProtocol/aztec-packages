@@ -85,7 +85,7 @@ export class LibP2PService extends WithTracer implements P2PService {
   private discoveryRunningPromise?: RunningPromise;
 
   // Request and response sub service
-  private reqresp: ReqResp;
+  public reqresp: ReqResp;
 
   /**
    * Callback for when a block is received from a peer.
@@ -102,11 +102,10 @@ export class LibP2PService extends WithTracer implements P2PService {
     private l2BlockSource: L2BlockSource,
     private proofVerifier: ClientProtocolCircuitVerifier,
     private worldStateSynchronizer: WorldStateSynchronizer,
-    telemetry: TelemetryClient,
+    private telemetry: TelemetryClient,
     private requestResponseHandlers: ReqRespSubProtocolHandlers = DEFAULT_SUB_PROTOCOL_HANDLERS,
     private logger = createDebugLogger('aztec:libp2p_service'),
   ) {
-    // Instatntiate tracer
     super(telemetry, 'LibP2PService');
 
     this.peerManager = new PeerManager(node, peerDiscoveryService, config, logger);

@@ -15,6 +15,7 @@ import { INITIAL_L2_BLOCK_NUM } from '@aztec/circuits.js/constants';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { type AztecKVStore, type AztecMap, type AztecSingleton } from '@aztec/kv-store';
 import { Attributes, type TelemetryClient, WithTracer, trackSpan } from '@aztec/telemetry-client';
+import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
 
 import { type ENR } from '@chainsafe/enr';
 
@@ -218,10 +219,10 @@ export class P2PClient extends WithTracer implements P2P {
     mempools: MemPools,
     private p2pService: P2PService,
     private keepProvenTxsFor: number,
-    telemetryClient: TelemetryClient,
+    telemetry: TelemetryClient = new NoopTelemetryClient(),
     private log = createDebugLogger('aztec:p2p'),
   ) {
-    super(telemetryClient, 'P2PClient');
+    super(telemetry, 'P2PClient');
 
     const { blockCheckIntervalMS, blockRequestBatchSize } = getP2PConfigFromEnv();
 

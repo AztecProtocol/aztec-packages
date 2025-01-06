@@ -1,13 +1,19 @@
-import { type MerkleTreeWriteOperations, SimulationError, TxExecutionPhase, mockTx } from '@aztec/circuit-types';
+import {
+  MerkleTreeId,
+  type MerkleTreeWriteOperations,
+  SimulationError,
+  TxExecutionPhase,
+  mockTx,
+} from '@aztec/circuit-types';
 import {
   AppendOnlyTreeSnapshot,
-  AztecAddress,
   Fr,
   Gas,
   GasFees,
   GasSettings,
   GlobalVariables,
   Header,
+  NULLIFIER_SUBTREE_HEIGHT,
   PUBLIC_DATA_TREE_HEIGHT,
   PartialStateReference,
   PublicDataWrite,
@@ -15,7 +21,7 @@ import {
   StateReference,
   countAccumulatedItems,
 } from '@aztec/circuits.js';
-import { computePublicDataTreeLeafSlot, siloNullifier } from '@aztec/circuits.js/hash';
+import { computePublicDataTreeLeafSlot } from '@aztec/circuits.js/hash';
 import { fr } from '@aztec/circuits.js/testing';
 import { type AztecKVStore } from '@aztec/kv-store';
 import { openTmpStore } from '@aztec/kv-store/utils';
@@ -28,10 +34,13 @@ import { type MockProxy, mock } from 'jest-mock-extended';
 
 import { AvmFinalizedCallResult } from '../avm/avm_contract_call_result.js';
 import { type AvmPersistableStateManager } from '../avm/journal/journal.js';
+import { type InstructionSet } from '../avm/serialization/bytecode_serialization.js';
 import { type WorldStateDB } from './public_db_sources.js';
-import { PublicTxSimulator } from './public_tx_simulator.js';
+import { type PublicTxResult, PublicTxSimulator } from './public_tx_simulator.js';
 
 describe('public_tx_simulator', () => {
+  // Nullifier must be >=128 since tree starts with 128 entries pre-filled
+  const MIN_NULLIFIER = 128;
   // Gas settings.
   const gasFees = GasFees.from({ feePerDaGas: new Fr(2), feePerL2Gas: new Fr(3) });
   const gasLimits = Gas.from({ daGas: 100, l2Gas: 150 });
@@ -58,6 +67,7 @@ describe('public_tx_simulator', () => {
       allocatedGas: Gas,
       transactionFee: any,
       fnName: any,
+      instructionSet: InstructionSet,
     ) => Promise<AvmFinalizedCallResult>
   >;
 
@@ -70,7 +80,8 @@ describe('public_tx_simulator', () => {
     numberOfAppLogicCalls?: number;
     hasPublicTeardownCall?: boolean;
   }) => {
-    const tx = mockTx(1, {
+    // seed with min nullifier to prevent insertion of a nullifier < min
+    const tx = mockTx(/*seed=*/ MIN_NULLIFIER, {
       numberOfNonRevertiblePublicCallRequests: numberOfSetupCalls,
       numberOfRevertiblePublicCallRequests: numberOfAppLogicCalls,
       hasPublicTeardownCallRequest: hasPublicTeardownCall,
@@ -126,6 +137,28 @@ describe('public_tx_simulator', () => {
     }
   };
 
+  const checkNullifierRoot = async (txResult: PublicTxResult) => {
+    const siloedNullifiers = txResult.avmProvingRequest.inputs.output.accumulatedData.nullifiers;
+    // Loop helpful for debugging so you can see root progression
+    //for (const nullifier of siloedNullifiers) {
+    //  await db.batchInsert(
+    //    MerkleTreeId.NULLIFIER_TREE,
+    //    [nullifier.toBuffer()],
+    //    NULLIFIER_SUBTREE_HEIGHT,
+    //  );
+    //  console.log(`TESTING Nullifier tree root after insertion ${(await db.getStateReference()).partial.nullifierTree.root}`);
+    //}
+    // This is how the public processor inserts nullifiers.
+    await db.batchInsert(
+      MerkleTreeId.NULLIFIER_TREE,
+      siloedNullifiers.map(n => n.toBuffer()),
+      NULLIFIER_SUBTREE_HEIGHT,
+    );
+    const expectedRoot = (await db.getStateReference()).partial.nullifierTree.root;
+    const gotRoot = txResult.avmProvingRequest.inputs.output.endTreeSnapshots.nullifierTree.root;
+    expect(gotRoot).toEqual(expectedRoot);
+  };
+
   const expectAvailableGasForCalls = (availableGases: Gas[]) => {
     expect(simulateInternal).toHaveBeenCalledTimes(availableGases.length);
     availableGases.forEach((availableGas, i) => {
@@ -177,6 +210,7 @@ describe('public_tx_simulator', () => {
       new NoopTelemetryClient(),
       GlobalVariables.from({ ...GlobalVariables.empty(), gasFees }),
       /*realAvmProvingRequest=*/ false,
+      /*doMerkleOperations=*/ true,
     );
 
     // Mock the internal private function. Borrowed from https://stackoverflow.com/a/71033167
@@ -202,7 +236,7 @@ describe('public_tx_simulator', () => {
         );
       },
     );
-  });
+  }, 30_000);
 
   afterEach(async () => {
     await treeStore.delete();
@@ -418,7 +452,8 @@ describe('public_tx_simulator', () => {
   });
 
   it('fails a transaction that reverts in setup', async function () {
-    const tx = mockTx(1, {
+    // seed with min nullifier to prevent insertion of a nullifier < min
+    const tx = mockTx(/*seed=*/ MIN_NULLIFIER, {
       numberOfNonRevertiblePublicCallRequests: 1,
       numberOfRevertiblePublicCallRequests: 1,
       hasPublicTeardownCallRequest: true,
@@ -449,24 +484,24 @@ describe('public_tx_simulator', () => {
 
     const appLogicFailure = new SimulationError('Simulation Failed in app logic', []);
 
-    const contractAddress = AztecAddress.fromBigInt(112233n);
+    const siloedNullifiers = [new Fr(10000), new Fr(20000), new Fr(30000), new Fr(40000), new Fr(50000)];
     mockPublicExecutor([
       // SETUP
       async (stateManager: AvmPersistableStateManager) => {
-        await stateManager.writeNullifier(contractAddress, new Fr(1));
+        await stateManager.writeSiloedNullifier(siloedNullifiers[0]);
       },
       // APP LOGIC
       async (stateManager: AvmPersistableStateManager) => {
-        await stateManager.writeNullifier(contractAddress, new Fr(2));
-        await stateManager.writeNullifier(contractAddress, new Fr(3));
+        await stateManager.writeSiloedNullifier(siloedNullifiers[1]);
+        await stateManager.writeSiloedNullifier(siloedNullifiers[2]);
       },
       async (stateManager: AvmPersistableStateManager) => {
-        await stateManager.writeNullifier(contractAddress, new Fr(4));
+        await stateManager.writeSiloedNullifier(siloedNullifiers[3]);
         return Promise.resolve(appLogicFailure);
       },
       // TEARDOWN
       async (stateManager: AvmPersistableStateManager) => {
-        await stateManager.writeNullifier(contractAddress, new Fr(5));
+        await stateManager.writeSiloedNullifier(siloedNullifiers[4]);
       },
     ]);
 
@@ -510,12 +545,17 @@ describe('public_tx_simulator', () => {
 
     // we keep the non-revertible data.
     expect(countAccumulatedItems(output.accumulatedData.nullifiers)).toBe(4);
-    expect(output.accumulatedData.nullifiers.slice(0, 4)).toEqual([
-      new Fr(7777),
-      new Fr(8888),
-      siloNullifier(contractAddress, new Fr(1)),
-      siloNullifier(contractAddress, new Fr(5)),
-    ]);
+    const includedSiloedNullifiers = [
+      ...tx.data.forPublic!.nonRevertibleAccumulatedData.nullifiers.filter(n => !n.isZero()),
+      siloedNullifiers[0],
+      // dropped revertibles and app logic
+      //...tx.data.forPublic!.revertibleAccumulatedData.nullifiers.filter(n => !n.isZero()),
+      //..siloedNullifiers[1...3]
+      // teardown
+      siloedNullifiers[4],
+    ];
+    expect(output.accumulatedData.nullifiers.filter(n => !n.isZero())).toEqual(includedSiloedNullifiers);
+    await checkNullifierRoot(txResult);
   });
 
   it('includes a transaction that reverts in teardown only', async function () {
@@ -527,23 +567,23 @@ describe('public_tx_simulator', () => {
 
     const teardownFailure = new SimulationError('Simulation Failed in teardown', []);
 
-    const contractAddress = AztecAddress.fromBigInt(112233n);
+    const siloedNullifiers = [new Fr(10000), new Fr(20000), new Fr(30000), new Fr(40000), new Fr(50000)];
     mockPublicExecutor([
       // SETUP
       async (stateManager: AvmPersistableStateManager) => {
-        await stateManager.writeNullifier(contractAddress, new Fr(1));
+        await stateManager.writeSiloedNullifier(siloedNullifiers[0]);
       },
       // APP LOGIC
       async (stateManager: AvmPersistableStateManager) => {
-        await stateManager.writeNullifier(contractAddress, new Fr(2));
-        await stateManager.writeNullifier(contractAddress, new Fr(3));
+        await stateManager.writeSiloedNullifier(siloedNullifiers[1]);
+        await stateManager.writeSiloedNullifier(siloedNullifiers[2]);
       },
       async (stateManager: AvmPersistableStateManager) => {
-        await stateManager.writeNullifier(contractAddress, new Fr(4));
+        await stateManager.writeSiloedNullifier(siloedNullifiers[3]);
       },
       // TEARDOWN
       async (stateManager: AvmPersistableStateManager) => {
-        await stateManager.writeNullifier(contractAddress, new Fr(5));
+        await stateManager.writeSiloedNullifier(siloedNullifiers[4]);
         return Promise.resolve(teardownFailure);
       },
     ]);
@@ -587,16 +627,15 @@ describe('public_tx_simulator', () => {
 
     // We keep the non-revertible data.
     expect(countAccumulatedItems(output.accumulatedData.nullifiers)).toBe(3);
-    expect(output.accumulatedData.nullifiers.slice(0, 3)).toEqual([
-      new Fr(7777),
-      new Fr(8888),
-      // new Fr(9999), // TODO: Data in app logic should be kept if teardown reverts.
-      siloNullifier(contractAddress, new Fr(1)),
-      // siloNullifier(contractAddress, new Fr(2)),
-      // siloNullifier(contractAddress, new Fr(3)),
-      // siloNullifier(contractAddress, new Fr(4)),
-      // siloNullifier(contractAddress, new Fr(5)),
-    ]);
+    const includedSiloedNullifiers = [
+      ...tx.data.forPublic!.nonRevertibleAccumulatedData.nullifiers.filter(n => !n.isZero()),
+      siloedNullifiers[0],
+      // dropped
+      //...tx.data.forPublic!.revertibleAccumulatedData.nullifiers.filter(n => !n.isZero()),
+      //..siloedNullifiers[1...4]
+    ];
+    expect(output.accumulatedData.nullifiers.filter(n => !n.isZero())).toEqual(includedSiloedNullifiers);
+    await checkNullifierRoot(txResult);
   });
 
   it('includes a transaction that reverts in app logic and teardown', async function () {
@@ -608,24 +647,24 @@ describe('public_tx_simulator', () => {
 
     const appLogicFailure = new SimulationError('Simulation Failed in app logic', []);
     const teardownFailure = new SimulationError('Simulation Failed in teardown', []);
-    const contractAddress = AztecAddress.fromBigInt(112233n);
+    const siloedNullifiers = [new Fr(10000), new Fr(20000), new Fr(30000), new Fr(40000), new Fr(50000)];
     mockPublicExecutor([
       // SETUP
       async (stateManager: AvmPersistableStateManager) => {
-        await stateManager.writeNullifier(contractAddress, new Fr(1));
+        await stateManager.writeSiloedNullifier(siloedNullifiers[0]);
       },
       // APP LOGIC
       async (stateManager: AvmPersistableStateManager) => {
-        await stateManager.writeNullifier(contractAddress, new Fr(2));
-        await stateManager.writeNullifier(contractAddress, new Fr(3));
+        await stateManager.writeSiloedNullifier(siloedNullifiers[1]);
+        await stateManager.writeSiloedNullifier(siloedNullifiers[2]);
       },
       async (stateManager: AvmPersistableStateManager) => {
-        await stateManager.writeNullifier(contractAddress, new Fr(4));
+        await stateManager.writeSiloedNullifier(siloedNullifiers[3]);
         return Promise.resolve(appLogicFailure);
       },
       // TEARDOWN
       async (stateManager: AvmPersistableStateManager) => {
-        await stateManager.writeNullifier(contractAddress, new Fr(5));
+        await stateManager.writeSiloedNullifier(siloedNullifiers[4]);
         return Promise.resolve(teardownFailure);
       },
     ]);
@@ -671,10 +710,47 @@ describe('public_tx_simulator', () => {
 
     // we keep the non-revertible data
     expect(countAccumulatedItems(output.accumulatedData.nullifiers)).toBe(3);
-    expect(output.accumulatedData.nullifiers.slice(0, 3)).toEqual([
-      new Fr(7777),
-      new Fr(8888),
-      siloNullifier(contractAddress, new Fr(1)),
+    const includedSiloedNullifiers = [
+      ...tx.data.forPublic!.nonRevertibleAccumulatedData.nullifiers.filter(n => !n.isZero()),
+      siloedNullifiers[0],
+      // dropped revertibles and app logic
+      //...tx.data.forPublic!.revertibleAccumulatedData.nullifiers.filter(n => !n.isZero()),
+      //..siloedNullifiers[1...4]
+    ];
+    expect(output.accumulatedData.nullifiers.filter(n => !n.isZero())).toEqual(includedSiloedNullifiers);
+    await checkNullifierRoot(txResult);
+  });
+
+  it('nullifier tree root is right', async function () {
+    const tx = mockTxWithPublicCalls({
+      numberOfSetupCalls: 1,
+      numberOfAppLogicCalls: 2,
+      hasPublicTeardownCall: true,
+    });
+
+    const siloedNullifiers = [new Fr(10000), new Fr(20000), new Fr(30000), new Fr(40000), new Fr(50000)];
+
+    mockPublicExecutor([
+      // SETUP
+      async (stateManager: AvmPersistableStateManager) => {
+        await stateManager.writeSiloedNullifier(siloedNullifiers[0]);
+      },
+      // APP LOGIC
+      async (stateManager: AvmPersistableStateManager) => {
+        await stateManager.writeSiloedNullifier(siloedNullifiers[1]);
+        await stateManager.writeSiloedNullifier(siloedNullifiers[2]);
+      },
+      async (stateManager: AvmPersistableStateManager) => {
+        await stateManager.writeSiloedNullifier(siloedNullifiers[3]);
+      },
+      // TEARDOWN
+      async (stateManager: AvmPersistableStateManager) => {
+        await stateManager.writeSiloedNullifier(siloedNullifiers[4]);
+      },
     ]);
+
+    const txResult = await simulator.simulate(tx);
+
+    await checkNullifierRoot(txResult);
   });
 });

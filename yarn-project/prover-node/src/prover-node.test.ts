@@ -7,11 +7,12 @@ import {
   type L2Block,
   type L2BlockSource,
   type MerkleTreeWriteOperations,
+  type ProverCache,
   type ProverCoordination,
   WorldStateRunningState,
   type WorldStateSynchronizer,
 } from '@aztec/circuit-types';
-import { type ContractDataSource, EthAddress } from '@aztec/circuits.js';
+import { type ContractDataSource, EthAddress, Fr } from '@aztec/circuits.js';
 import { times } from '@aztec/foundation/collection';
 import { Signature } from '@aztec/foundation/eth-signature';
 import { sleep } from '@aztec/foundation/sleep';
@@ -35,6 +36,7 @@ import { type BondManager } from './bond/bond-manager.js';
 import { type EpochProvingJob } from './job/epoch-proving-job.js';
 import { ClaimsMonitor } from './monitors/claims-monitor.js';
 import { EpochMonitor } from './monitors/epoch-monitor.js';
+import { ProverCacheManager } from './prover-cache/cache_manager.js';
 import { ProverNode, type ProverNodeOptions } from './prover-node.js';
 import { type QuoteProvider } from './quote-provider/index.js';
 import { type QuoteSigner } from './quote-signer.js';
@@ -102,6 +104,7 @@ describe('prover-node', () => {
       epochMonitor,
       bondManager,
       telemetryClient,
+      new ProverCacheManager(),
       config,
     );
 
@@ -139,7 +142,7 @@ describe('prover-node', () => {
     quoteSigner.sign.mockImplementation(payload => Promise.resolve(new EpochProofQuote(payload, Signature.empty())));
 
     // Archiver returns a bunch of fake blocks
-    blocks = times(3, i => mock<L2Block>({ number: i + 20 }));
+    blocks = times(3, i => mock<L2Block>({ number: i + 20, hash: () => new Fr(i) }));
     l2BlockSource.getBlocksForEpoch.mockResolvedValue(blocks);
 
     // A sample claim
@@ -307,7 +310,7 @@ describe('prover-node', () => {
         port,
       );
       const kvStore = openTmpStore();
-      return new P2PClient(kvStore, l2BlockSource, mempools, libp2pService, 0, telemetryClient);
+      return new P2PClient(kvStore, l2BlockSource, mempools, libp2pService, 0);
     };
 
     beforeEach(async () => {
@@ -377,6 +380,7 @@ describe('prover-node', () => {
       _blocks: L2Block[],
       publicDb: MerkleTreeWriteOperations,
       _proverDb: MerkleTreeWriteOperations,
+      _cache: ProverCache,
       _publicProcessorFactory: PublicProcessorFactory,
       cleanUp: (job: EpochProvingJob) => Promise<void>,
     ): EpochProvingJob {

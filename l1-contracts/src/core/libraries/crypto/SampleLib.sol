@@ -22,6 +22,62 @@ import {Errors} from "@aztec/core/libraries/Errors.sol";
  */
 library SampleLib {
   /**
+   * @notice  Computing a committee the most direct way.
+   *          This is horribly inefficient as we are throwing plenty of things away, but it is useful
+   *          for testing and just showcasing the simplest case.
+   *
+   * @param _committeeSize - The size of the committee
+   * @param _indexCount - The total number of indices
+   * @param _seed - The seed to use for shuffling
+   *
+   * @return indices - The indices of the committee
+   */
+  function computeCommitteeStupid(uint256 _committeeSize, uint256 _indexCount, uint256 _seed)
+    external
+    pure
+    returns (uint256[] memory)
+  {
+    uint256[] memory indices = new uint256[](_committeeSize);
+
+    for (uint256 index = 0; index < _indexCount; index++) {
+      uint256 sampledIndex = computeShuffledIndex(index, _indexCount, _seed);
+      if (sampledIndex < _committeeSize) {
+        indices[sampledIndex] = index;
+      }
+    }
+
+    return indices;
+  }
+
+  /**
+   * @notice  Computing a committee slightly more cleverly.
+   *          Only computes for the committee size, and does not sample the full set.
+   *          This is more efficient than the stupid way, but still not optimal.
+   *          To be more clever, we can compute the `shuffeRounds` and `pivots` separately
+   *          such that they get shared accross multiple indices.
+   *
+   * @param _committeeSize - The size of the committee
+   * @param _indexCount - The total number of indices
+   * @param _seed - The seed to use for shuffling
+   *
+   * @return indices - The indices of the committee
+   */
+  function computeCommitteeClever(uint256 _committeeSize, uint256 _indexCount, uint256 _seed)
+    external
+    pure
+    returns (uint256[] memory)
+  {
+    uint256[] memory indices = new uint256[](_committeeSize);
+
+    for (uint256 index = 0; index < _committeeSize; index++) {
+      uint256 originalIndex = computeOriginalIndex(index, _indexCount, _seed);
+      indices[index] = originalIndex;
+    }
+
+    return indices;
+  }
+
+  /**
    * @notice  Computes the shuffled index
    *
    * @param _index - The index to shuffle
@@ -76,62 +132,6 @@ library SampleLib {
     }
 
     return index;
-  }
-
-  /**
-   * @notice  Computing a committee the most direct way.
-   *          This is horribly inefficient as we are throwing plenty of things away, but it is useful
-   *          for testing and just showcasing the simplest case.
-   *
-   * @param _committeeSize - The size of the committee
-   * @param _indexCount - The total number of indices
-   * @param _seed - The seed to use for shuffling
-   *
-   * @return indices - The indices of the committee
-   */
-  function computeCommitteeStupid(uint256 _committeeSize, uint256 _indexCount, uint256 _seed)
-    internal
-    pure
-    returns (uint256[] memory)
-  {
-    uint256[] memory indices = new uint256[](_committeeSize);
-
-    for (uint256 index = 0; index < _indexCount; index++) {
-      uint256 sampledIndex = computeShuffledIndex(index, _indexCount, _seed);
-      if (sampledIndex < _committeeSize) {
-        indices[sampledIndex] = index;
-      }
-    }
-
-    return indices;
-  }
-
-  /**
-   * @notice  Computing a committee slightly more cleverly.
-   *          Only computes for the committee size, and does not sample the full set.
-   *          This is more efficient than the stupid way, but still not optimal.
-   *          To be more clever, we can compute the `shuffeRounds` and `pivots` separately
-   *          such that they get shared accross multiple indices.
-   *
-   * @param _committeeSize - The size of the committee
-   * @param _indexCount - The total number of indices
-   * @param _seed - The seed to use for shuffling
-   *
-   * @return indices - The indices of the committee
-   */
-  function computeCommitteeClever(uint256 _committeeSize, uint256 _indexCount, uint256 _seed)
-    internal
-    pure
-    returns (uint256[] memory)
-  {
-    uint256[] memory indices = new uint256[](_committeeSize);
-
-    for (uint256 index = 0; index < _committeeSize; index++) {
-      uint256 originalIndex = computeOriginalIndex(index, _indexCount, _seed);
-      indices[index] = originalIndex;
-    }
-
-    return indices;
   }
 
   /**

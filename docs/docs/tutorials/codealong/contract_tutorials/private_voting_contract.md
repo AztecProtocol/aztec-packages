@@ -74,7 +74,7 @@ We are using various utils within the Aztec `prelude` library:
 - `PrivateContext` - exposes things such as the contract address, msg_sender, etc
 - `Map` - A data storage type for storing candidates with the number of votes they have
 - `PublicMutable` - A type of storage, which holds a mutable public value. We'll store votes as PublicMutables
-- `SharedImmutable` - an immutable storage value that is accessible in private and public execution.
+- `PublicImmutable` - an immutable storage value that is accessible in private and public execution.
 
 ## Set up storage
 

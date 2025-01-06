@@ -43,14 +43,6 @@ inline std::ostream& operator<<(std::ostream& os, const BlockPayload& block)
     return os;
 }
 
-struct Indices {
-    std::vector<index_t> indices;
-
-    MSGPACK_FIELDS(indices);
-
-    bool operator==(const Indices& other) const { return indices == other.indices; }
-};
-
 struct NodePayload {
     std::optional<fr> left;
     std::optional<fr> right;
@@ -96,16 +88,13 @@ class LMDBTreeStore {
 
     bool read_meta_data(TreeMeta& metaData, ReadTransaction& tx);
 
-    template <typename TxType> bool read_leaf_indices(const fr& leafValue, Indices& indices, TxType& tx);
+    template <typename TxType> bool read_leaf_index(const fr& leafValue, index_t& leafIndex, TxType& tx);
 
-    fr find_low_leaf(const fr& leafValue,
-                     Indices& indices,
-                     const std::optional<index_t>& sizeLimit,
-                     ReadTransaction& tx);
+    fr find_low_leaf(const fr& leafValue, index_t& index, const std::optional<index_t>& sizeLimit, ReadTransaction& tx);
 
-    void write_leaf_indices(const fr& leafValue, const Indices& indices, WriteTransaction& tx);
+    void write_leaf_index(const fr& leafValue, const index_t& leafIndex, WriteTransaction& tx);
 
-    void delete_leaf_indices(const fr& leafValue, WriteTransaction& tx);
+    void delete_leaf_index(const fr& leafValue, WriteTransaction& tx);
 
     bool read_node(const fr& nodeHash, NodePayload& nodeData, ReadTransaction& tx);
 
@@ -145,22 +134,16 @@ class LMDBTreeStore {
     LMDBEnvironment::SharedPtr _environment;
     LMDBDatabase::Ptr _blockDatabase;
     LMDBDatabase::Ptr _nodeDatabase;
-    LMDBDatabase::Ptr _leafValueToIndexDatabase;
+    LMDBDatabase::Ptr _leafKeyToIndexDatabase;
     LMDBDatabase::Ptr _leafHashToPreImageDatabase;
-    LMDBDatabase::Ptr _leafIndexToKeyDatabase;
 
     template <typename TxType> bool get_node_data(const fr& nodeHash, NodePayload& nodeData, TxType& tx);
 };
 
-template <typename TxType> bool LMDBTreeStore::read_leaf_indices(const fr& leafValue, Indices& indices, TxType& tx)
+template <typename TxType> bool LMDBTreeStore::read_leaf_index(const fr& leafValue, index_t& leafIndex, TxType& tx)
 {
     FrKeyType key(leafValue);
-    std::vector<uint8_t> data;
-    bool success = tx.template get_value<FrKeyType>(key, data, *_leafValueToIndexDatabase);
-    if (success) {
-        msgpack::unpack((const char*)data.data(), data.size()).get().convert(indices);
-    }
-    return success;
+    return tx.template get_value<FrKeyType>(key, leafIndex, *_leafKeyToIndexDatabase);
 }
 
 template <typename LeafType, typename TxType>
@@ -194,44 +177,5 @@ template <typename TxType> bool LMDBTreeStore::get_node_data(const fr& nodeHash,
         msgpack::unpack((const char*)data.data(), data.size()).get().convert(nodeData);
     }
     return success;
-}
-
-template <typename TxType> bool LMDBTreeStore::read_leaf_key_by_index(const index_t& index, fr& leafKey, TxType& tx)
-{
-    LeafIndexKeyType key(index);
-    std::vector<uint8_t> data;
-    bool success = tx.template get_value<LeafIndexKeyType>(key, data, *_leafIndexToKeyDatabase);
-    if (success) {
-        leafKey = from_buffer<fr>(data);
-    }
-    return success;
-}
-
-template <typename TxType>
-void LMDBTreeStore::read_all_leaf_keys_after_or_equal_index(const index_t& index,
-                                                            std::vector<bb::fr>& leafKeys,
-                                                            TxType& tx)
-{
-    LeafIndexKeyType key(index);
-    std::vector<std::vector<uint8_t>> values;
-    tx.get_all_values_greater_or_equal_key(key, values, *_leafIndexToKeyDatabase);
-    for (const auto& value : values) {
-        fr leafKey = from_buffer<fr>(value);
-        leafKeys.push_back(leafKey);
-    }
-}
-
-template <typename TxType>
-void LMDBTreeStore::read_all_leaf_keys_before_or_equal_index(const index_t& index,
-                                                             std::vector<bb::fr>& leafKeys,
-                                                             TxType& tx)
-{
-    LeafIndexKeyType key(index);
-    std::vector<std::vector<uint8_t>> values;
-    tx.get_all_values_lesser_or_equal_key(key, values, *_leafIndexToKeyDatabase);
-    for (const auto& value : values) {
-        fr leafKey = from_buffer<fr>(value);
-        leafKeys.push_back(leafKey);
-    }
 }
 } // namespace bb::crypto::merkle_tree

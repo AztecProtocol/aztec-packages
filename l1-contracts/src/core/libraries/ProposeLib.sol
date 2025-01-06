@@ -3,10 +3,12 @@
 pragma solidity >=0.8.27;
 
 import {SignatureLib} from "@aztec/core/libraries/crypto/SignatureLib.sol";
+import {OracleInput} from "@aztec/core/libraries/FeeMath.sol";
 
 struct ProposeArgs {
   bytes32 archive;
   bytes32 blockHash;
+  OracleInput oracleInput;
   bytes header;
   bytes32[] txHashes;
 }

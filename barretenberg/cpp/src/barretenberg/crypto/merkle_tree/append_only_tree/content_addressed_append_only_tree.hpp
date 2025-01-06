@@ -489,6 +489,16 @@ std::optional<fr> ContentAddressedAppendOnlyTree<Store, HashingPolicy>::find_lea
 
         if (!child.has_value()) {
             // std::cout << "No child" << std::endl;
+            // We still need to update the cache with the sibling. The fact that under us there is an empty subtree
+            // doesn't mean that same is happening with our sibling.
+            if (updateNodesByIndexCache) {
+                child_index_at_level = is_right ? (child_index_at_level * 2) + 1 : (child_index_at_level * 2);
+                std::optional<fr> sibling = is_right ? nodePayload.left : nodePayload.right;
+                index_t sibling_index_at_level = is_right ? child_index_at_level - 1 : child_index_at_level + 1;
+                if (sibling.has_value()) {
+                    store_->put_cached_node_by_index(i + 1, sibling_index_at_level, sibling.value(), false);
+                }
+            }
             return std::nullopt;
         }
         // std::cout << "Found child " << child.value() << std::endl;
@@ -661,6 +671,9 @@ void ContentAddressedAppendOnlyTree<Store, HashingPolicy>::find_leaf_index_from(
     auto job = [=, this]() -> void {
         execute_and_report<FindLeafIndexResponse>(
             [=, this](TypedResponse<FindLeafIndexResponse>& response) {
+                if (leaf == fr::zero()) {
+                    throw std::runtime_error("Requesting indices for zero leaves is prohibited");
+                }
                 ReadTransactionPtr tx = store_->create_read_transaction();
                 RequestContext requestContext;
                 requestContext.includeUncommitted = includeUncommitted;
@@ -692,6 +705,9 @@ void ContentAddressedAppendOnlyTree<Store, HashingPolicy>::find_leaf_index_from(
             [=, this](TypedResponse<FindLeafIndexResponse>& response) {
                 if (blockNumber == 0) {
                     throw std::runtime_error("Unable to find leaf index for block number 0");
+                }
+                if (leaf == fr::zero()) {
+                    throw std::runtime_error("Requesting indices for zero leaves is prohibited");
                 }
                 ReadTransactionPtr tx = store_->create_read_transaction();
                 BlockPayload blockData;
@@ -899,6 +915,10 @@ void ContentAddressedAppendOnlyTree<Store, HashingPolicy>::add_batch_internal(
     // If we have been told to add these leaves to the index then do so now
     if (update_index) {
         for (uint32_t i = 0; i < number_to_insert; ++i) {
+            // We don't store indices of zero leaves
+            if (hashes_local[i] == fr::zero()) {
+                continue;
+            }
             // std::cout << "Updating index " << index + i << " : " << hashes_local[i] << std::endl;
             store_->update_index(index + i, hashes_local[i]);
         }

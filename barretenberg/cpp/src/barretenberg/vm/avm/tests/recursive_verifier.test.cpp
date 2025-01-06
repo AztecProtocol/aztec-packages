@@ -11,6 +11,7 @@
 #include "barretenberg/vm/avm/tests/helpers.test.hpp"
 #include "barretenberg/vm/avm/trace/common.hpp"
 #include "barretenberg/vm/avm/trace/helper.hpp"
+#include "barretenberg/vm/avm/trace/public_inputs.hpp"
 #include "barretenberg/vm/avm/trace/trace.hpp"
 #include <gtest/gtest.h>
 
@@ -41,7 +42,7 @@ class AvmRecursiveTests : public ::testing::Test {
 
     static void SetUpTestSuite() { bb::srs::init_crs_factory("../srs_db/ignition"); }
 
-    VmPublicInputsNT public_inputs;
+    AvmPublicInputs public_inputs;
 
     // Generate an extremely simple avm trace
     AvmCircuitBuilder generate_avm_circuit()
@@ -76,8 +77,20 @@ TEST_F(AvmRecursiveTests, recursion)
 
     HonkProof proof = prover.construct_proof();
 
-    std::vector<std::vector<InnerFF>> public_inputs_vec =
-        bb::avm_trace::copy_public_inputs_columns(public_inputs, {}, {});
+    // We just pad all the public inputs with the right number of zeroes
+    std::vector<FF> kernel_inputs(KERNEL_INPUTS_LENGTH);
+    std::vector<FF> kernel_value_outputs(KERNEL_OUTPUTS_LENGTH);
+    std::vector<FF> kernel_side_effect_outputs(KERNEL_OUTPUTS_LENGTH);
+    std::vector<FF> kernel_metadata_outputs(KERNEL_OUTPUTS_LENGTH);
+    std::vector<FF> calldata{ {} };
+    std::vector<FF> returndata{ {} };
+
+    std::vector<std::vector<InnerFF>> public_inputs{
+        kernel_inputs, kernel_value_outputs, kernel_side_effect_outputs, kernel_metadata_outputs
+    };
+    std::vector<std::vector<InnerFF>> public_inputs_vec{
+        kernel_inputs, kernel_value_outputs, kernel_side_effect_outputs, kernel_metadata_outputs, calldata, returndata
+    };
 
     bool verified = verifier.verify_proof(proof, public_inputs_vec);
     ASSERT_TRUE(verified) << "native proof verification failed";

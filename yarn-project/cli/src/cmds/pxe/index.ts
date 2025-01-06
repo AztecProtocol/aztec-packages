@@ -61,6 +61,15 @@ export function injectCommands(program: Command, log: LogFn, debugLogger: DebugL
     });
 
   program
+    .command('get-current-base-fee')
+    .description('Gets the current base fee.')
+    .addOption(pxeOption)
+    .action(async options => {
+      const { getCurrentBaseFee } = await import('./get_current_base_fee.js');
+      await getCurrentBaseFee(options.rpcUrl, debugLogger, log);
+    });
+
+  program
     .command('get-contract-data')
     .description('Gets information about the Aztec contract deployed at the specified address.')
     .argument('<contractAddress>', 'Aztec address of the contract.', parseAztecAddress)
