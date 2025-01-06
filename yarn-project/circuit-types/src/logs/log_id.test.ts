@@ -5,9 +5,9 @@ import { LogId } from './log_id.js';
 describe('LogId', () => {
   let logId: LogId;
   beforeEach(() => {
-    const blockNumber = randomInt(1000);
-    const txIndex = randomInt(1000);
-    const logIndex = randomInt(1000);
+    const blockNumber = randomInt(1000) + 1;
+    const txIndex = randomInt(1000) + 1;
+    const logIndex = randomInt(1000) + 1;
     logId = new LogId(blockNumber, txIndex, logIndex);
   });
 
