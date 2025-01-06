@@ -550,13 +550,22 @@ export const addAccounts =
 
     logger.verbose('Simulating account deployment...');
     const provenTxs = await Promise.all(
-      accountKeys.map(async ([secretKey, signPk]) => {
+      accountKeys.map(async ([secretKey, signPk], index) => {
         const account = getSchnorrAccount(pxe, secretKey, signPk, 1);
-        const deployMethod = await account.getDeployMethod();
 
+        // only register the contract class once
+        let skipClassRegistration = true;
+        if (index === 0) {
+          // for the first account, check if the contract class is already registered, otherwise we should register now
+          if (!(await pxe.isContractClassPubliclyRegistered(account.getInstance().contractClassId))) {
+            skipClassRegistration = false;
+          }
+        }
+
+        const deployMethod = await account.getDeployMethod();
         const provenTx = await deployMethod.prove({
           contractAddressSalt: account.salt,
-          skipClassRegistration: true,
+          skipClassRegistration,
           skipPublicDeployment: true,
           universalDeploy: true,
         });
