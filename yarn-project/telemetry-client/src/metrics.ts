@@ -6,6 +6,9 @@
  * @see {@link https://opentelemetry.io/docs/specs/semconv/general/metrics/ | OpenTelemetry Metrics} for naming conventions.
  */
 
+export const BLOB_SINK_OBJECTS_IN_BLOB_STORE = 'aztec.blob_sink.objects_in_blob_store';
+export const BLOB_SINK_BLOB_SIZE = 'aztec.blob_sink.blob_size';
+
 /** How long it takes to simulate a circuit */
 export const CIRCUIT_SIMULATION_DURATION = 'aztec.circuit.simulation.duration';
 export const CIRCUIT_SIMULATION_INPUT_SIZE = 'aztec.circuit.simulation.input_size';
