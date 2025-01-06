@@ -192,7 +192,7 @@ export class L1TxUtils {
       gasLimit = await this.estimateGas(account, request);
     }
 
-    const gasPrice = await this.getGasPrice(gasConfig);
+    const gasPrice = await this.getGasPrice(gasConfig, !!blobInputs);
 
     let txHash: Hex;
     if (blobInputs) {
@@ -313,6 +313,7 @@ export class L1TxUtils {
           attempts++;
           const newGasPrice = await this.getGasPrice(
             gasConfig,
+            !!blobInputs,
             attempts,
             tx.maxFeePerGas && tx.maxPriorityFeePerGas
               ? {
@@ -376,6 +377,7 @@ export class L1TxUtils {
    */
   private async getGasPrice(
     _gasConfig?: L1TxUtilsConfig,
+    isBlobTx: boolean = false,
     attempt: number = 0,
     previousGasPrice?: typeof attempt extends 0 ? never : GasPrice,
   ): Promise<GasPrice> {
@@ -411,8 +413,11 @@ export class L1TxUtils {
     if (attempt > 0) {
       const configBump =
         gasConfig.priorityFeeRetryBumpPercentage ?? defaultL1TxUtilsConfig.priorityFeeRetryBumpPercentage!;
-      const bumpPercentage =
-        configBump > MIN_REPLACEMENT_BUMP_PERCENTAGE ? configBump : MIN_REPLACEMENT_BUMP_PERCENTAGE;
+
+      // if this is a blob tx, we have to use the blob bump percentage
+      const minBumpPercentage = isBlobTx ? MIN_BLOB_REPLACEMENT_BUMP_PERCENTAGE : MIN_REPLACEMENT_BUMP_PERCENTAGE;
+
+      const bumpPercentage = configBump > minBumpPercentage ? configBump : minBumpPercentage;
 
       // Calculate minimum required fees based on previous attempt
       const minPriorityFee = (previousGasPrice!.maxPriorityFeePerGas * (100n + bumpPercentage)) / 100n;

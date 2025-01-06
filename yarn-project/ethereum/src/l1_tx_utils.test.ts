@@ -264,7 +264,7 @@ describe('GasUtils', () => {
     const initialGasPrice = await gasUtils['getGasPrice']();
 
     // Get retry gas price for 2nd attempt
-    const retryGasPrice = await gasUtils['getGasPrice'](undefined, 1, initialGasPrice);
+    const retryGasPrice = await gasUtils['getGasPrice'](undefined, false, 1, initialGasPrice);
 
     // With default config, retry should bump fees by 50%
     const expectedPriorityFee = (initialGasPrice.maxPriorityFeePerGas * 150n) / 100n;
@@ -283,7 +283,7 @@ describe('GasUtils', () => {
     const initialGasPrice = await gasUtils['getGasPrice']();
 
     // Get retry gas price with attempt = 1
-    const retryGasPrice = await gasUtils['getGasPrice'](undefined, 1, initialGasPrice);
+    const retryGasPrice = await gasUtils['getGasPrice'](undefined, false, 1, initialGasPrice);
 
     // Should use 10% minimum bump even though config specified 5%
     const expectedPriorityFee = (initialGasPrice.maxPriorityFeePerGas * 110n) / 100n;
