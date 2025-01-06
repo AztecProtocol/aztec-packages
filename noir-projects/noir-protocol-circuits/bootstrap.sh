@@ -138,7 +138,7 @@ function test {
   CIRCUITS_HASH=$(cache_content_hash ../../noir/.rebuild_patterns "^noir-projects/$name")
   test_should_run $name-tests-$CIRCUITS_HASH || return 0
 
-  RAYON_NUM_THREADS= $NARGO test --silence-warnings --skip-brillig-constraints-check
+  RAYON_NUM_THREADS= $NARGO test --skip-brillig-constraints-check
   cache_upload_flag $name-tests-$CIRCUITS_HASH
 }
 
