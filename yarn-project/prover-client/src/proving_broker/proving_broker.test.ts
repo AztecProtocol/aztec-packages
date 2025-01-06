@@ -1068,7 +1068,7 @@ describe.each([
 
     it('cleans up old jobs periodically', async () => {
       await broker.start();
-      jest.spyOn(database, 'deleteProvingJobAndResult');
+      jest.spyOn(database, 'deleteProvingJobs');
       const id1 = 'epoch1' as ProvingJobId; // makeProvingJobId(); // epoch 1
       const id2 = 'epoch2' as ProvingJobId; //makeProvingJobId(); // 2
       const id3 = 'epoch3' as ProvingJobId; //makeProvingJobId(); // 3
@@ -1095,7 +1095,7 @@ describe.each([
 
       // nothing got cleaned up yet. The broker first needs to advance to the next epoch
       await sleep(brokerIntervalMs);
-      expect(database.deleteProvingJobAndResult).not.toHaveBeenCalled();
+      expect(database.deleteProvingJobs).not.toHaveBeenCalled();
 
       await sleep(10);
       await broker.enqueueProvingJob({
@@ -1107,8 +1107,8 @@ describe.each([
 
       // we got a job for epoch 3, we can clean up jobs from epoch 1
       await sleep(brokerIntervalMs);
-      expect(database.deleteProvingJobAndResult).toHaveBeenCalledWith(id1);
-      expect(database.deleteProvingJobAndResult).not.toHaveBeenCalledWith(id2);
+      expect(database.deleteProvingJobs).toHaveBeenCalledWith([id1]);
+      expect(database.deleteProvingJobs).not.toHaveBeenCalledWith([id2]);
 
       await sleep(10);
       await broker.enqueueProvingJob({
@@ -1120,7 +1120,7 @@ describe.each([
 
       // once we advance to epoch 4 we can clean up finished jobs for epoch 2
       await sleep(brokerIntervalMs);
-      expect(database.deleteProvingJobAndResult).toHaveBeenCalledWith(id2);
+      expect(database.deleteProvingJobs).toHaveBeenCalledWith([id2]);
 
       await sleep(10);
       await broker.enqueueProvingJob({
@@ -1132,11 +1132,11 @@ describe.each([
 
       // advancing to epoch 5 does not automatically clean up unfinished jobs for epoch 3
       await sleep(brokerIntervalMs);
-      expect(database.deleteProvingJobAndResult).not.toHaveBeenCalledWith(id3);
+      expect(database.deleteProvingJobs).not.toHaveBeenCalledWith([id3]);
 
       await broker.cancelProvingJob(id3); // now job 3 is settled (aborted)
       await sleep(brokerIntervalMs);
-      expect(database.deleteProvingJobAndResult).toHaveBeenCalledWith(id3); // and we can clean it up
+      expect(database.deleteProvingJobs).toHaveBeenCalledWith([id3]); // and we can clean it up
 
       await broker.cancelProvingJob(id4);
       await broker.cancelProvingJob(id5);

@@ -29,9 +29,11 @@ export class InMemoryBrokerDatabase implements ProvingBrokerDatabase {
     return Promise.resolve();
   }
 
-  deleteProvingJobAndResult(id: ProvingJobId): Promise<void> {
-    this.jobs.delete(id);
-    this.results.delete(id);
+  deleteProvingJobs(ids: ProvingJobId[]): Promise<void> {
+    for (const id of ids) {
+      this.jobs.delete(id);
+      this.results.delete(id);
+    }
     return Promise.resolve();
   }
 

@@ -35,10 +35,12 @@ export class KVBrokerDatabase implements ProvingBrokerDatabase {
     }
   }
 
-  deleteProvingJobAndResult(id: ProvingJobId): Promise<void> {
+  deleteProvingJobs(ids: ProvingJobId[]): Promise<void> {
     return this.store.transaction(() => {
-      void this.jobs.delete(id);
-      void this.jobResults.delete(id);
+      for (const id of ids) {
+        void this.jobs.delete(id);
+        void this.jobResults.delete(id);
+      }
     });
   }
 
