@@ -36,8 +36,9 @@ import { Attributes, type TelemetryClient, type Tracer, trackSpan } from '@aztec
 import { type ValidatorClient } from '@aztec/validator-client';
 
 import { type GlobalVariableBuilder } from '../global_variable_builder/global_builder.js';
-import { type L1Publisher } from '../publisher/l1-publisher.js';
+import { type L1Publisher, VoteType } from '../publisher/l1-publisher.js';
 import { prettyLogViemErrorMsg } from '../publisher/utils.js';
+import { type SlasherClient } from '../slasher/slasher_client.js';
 import { type TxValidatorFactory } from '../tx_validator/tx_validator_factory.js';
 import { getDefaultAllowedSetupFunctions } from './allowed.js';
 import { type SequencerConfig } from './config.js';
@@ -106,6 +107,7 @@ export class Sequencer {
     private globalsBuilder: GlobalVariableBuilder,
     private p2pClient: P2P,
     private worldState: WorldStateSynchronizer,
+    private slasherClient: SlasherClient,
     private blockBuilderFactory: BlockBuilderFactory,
     private l2BlockSource: L2BlockSource,
     private l1ToL2MessageSource: L1ToL2MessageSource,
@@ -122,6 +124,9 @@ export class Sequencer {
 
     // Register the block builder with the validator client for re-execution
     this.validatorClient?.registerBlockBuilder(this.buildBlock.bind(this));
+
+    // Register the slasher on the publisher to fetch slashing payloads
+    this.publisher.registerSlashPayloadGetter(this.slasherClient.getSlashPayload.bind(this.slasherClient));
   }
 
   get tracer(): Tracer {
@@ -157,7 +162,7 @@ export class Sequencer {
       this.maxBlockSizeInBytes = config.maxBlockSizeInBytes;
     }
     if (config.governanceProposerPayload) {
-      this.publisher.setPayload(config.governanceProposerPayload);
+      this.publisher.setGovernancePayload(config.governanceProposerPayload);
     }
     if (config.maxL1TxInclusionTimeIntoSlot !== undefined) {
       this.maxL1TxInclusionTimeIntoSlot = config.maxL1TxInclusionTimeIntoSlot;
@@ -245,6 +250,7 @@ export class Sequencer {
     this.log.debug(`Stopping sequencer`);
     await this.validatorClient?.stop();
     await this.runningPromise?.stop();
+    await this.slasherClient?.stop();
     this.publisher.interrupt();
     this.setState(SequencerState.STOPPED, 0n, true /** force */);
     this.log.info('Stopped sequencer');
@@ -314,7 +320,8 @@ export class Sequencer {
       slot,
     );
 
-    void this.publisher.castVote(slot, newGlobalVariables.timestamp.toBigInt());
+    void this.publisher.castVote(slot, newGlobalVariables.timestamp.toBigInt(), VoteType.GOVERNANCE);
+    void this.publisher.castVote(slot, newGlobalVariables.timestamp.toBigInt(), VoteType.SLASHING);
 
     if (!this.shouldProposeBlock(historicalHeader, {})) {
       return;
