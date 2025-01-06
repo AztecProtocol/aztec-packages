@@ -180,7 +180,7 @@ export class L1TxUtils {
   public async sendTransaction(
     request: L1TxRequest,
     _gasConfig?: Partial<L1TxUtilsConfig> & { fixedGas?: bigint },
-    _blobInputs?: L1BlobInputs,
+    blobInputs?: L1BlobInputs,
   ): Promise<{ txHash: Hex; gasLimit: bigint; gasPrice: GasPrice }> {
     const gasConfig = { ...this.config, ..._gasConfig };
     const account = this.walletClient.account;
@@ -194,15 +194,24 @@ export class L1TxUtils {
 
     const gasPrice = await this.getGasPrice(gasConfig);
 
-    const blobInputs = _blobInputs || {};
-    const txHash = await this.walletClient.sendTransaction({
-      ...request,
-      ...blobInputs,
-      gas: gasLimit,
-      maxFeePerGas: gasPrice.maxFeePerGas,
-      maxPriorityFeePerGas: gasPrice.maxPriorityFeePerGas,
-    });
-
+    let txHash: Hex;
+    if (blobInputs) {
+      txHash = await this.walletClient.sendTransaction({
+        ...request,
+        ...blobInputs,
+        gas: gasLimit,
+        maxFeePerGas: gasPrice.maxFeePerGas,
+        maxPriorityFeePerGas: gasPrice.maxPriorityFeePerGas,
+        maxFeePerBlobGas: gasPrice.maxFeePerBlobGas!,
+      });
+    } else {
+      txHash = await this.walletClient.sendTransaction({
+        ...request,
+        gas: gasLimit,
+        maxFeePerGas: gasPrice.maxFeePerGas,
+        maxPriorityFeePerGas: gasPrice.maxPriorityFeePerGas,
+      });
+    }
     this.logger?.verbose(`Sent L1 transaction ${txHash}`, {
       gasLimit,
       maxFeePerGas: formatGwei(gasPrice.maxFeePerGas),
@@ -379,11 +388,9 @@ export class L1TxUtils {
     try {
       const blobBaseFeeHex = await this.publicClient.request({ method: 'eth_blobBaseFee' });
       blobBaseFee = BigInt(blobBaseFeeHex);
-      this.logger?.info('Blob base fee:', { blobBaseFee: formatGwei(blobBaseFee) });
-      console.log('Blob base fee:', formatGwei(blobBaseFee));
+      this.logger?.debug('Blob base fee:', { blobBaseFee: formatGwei(blobBaseFee) });
     } catch {
-      this.logger?.info('Failed to get blob base fee', attempt);
-      console.log('Failed to get blob base fee', attempt);
+      this.logger?.warn('Failed to get blob base fee', attempt);
     }
 
     // Get initial priority fee from the network
@@ -443,7 +450,7 @@ export class L1TxUtils {
       maxFeePerBlobGas = maxFeePerBlobGas > minBlobFee ? maxFeePerBlobGas : minBlobFee;
     }
 
-    this.logger?.info(`Computed gas price`, {
+    this.logger?.debug(`Computed gas price`, {
       attempt,
       baseFee: formatGwei(baseFee),
       maxFeePerGas: formatGwei(maxFeePerGas),
