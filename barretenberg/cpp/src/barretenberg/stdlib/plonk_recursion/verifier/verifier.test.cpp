@@ -352,7 +352,7 @@ template <typename OuterComposer> class stdlib_verifier : public testing::Test {
     }
 
   public:
-    static void SetUpTestSuite() { bb::srs::init_crs_factory("../srs_db/ignition"); }
+    static void SetUpTestSuite() { bb::srs::init_crs_factory(bb::srs::get_ignition_crs_path()); }
 
     static void test_inner_circuit()
     {

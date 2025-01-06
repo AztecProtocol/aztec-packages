@@ -1,4 +1,4 @@
-import { AztecAddress } from '@aztec/circuits.js';
+import { type AztecAddress } from '@aztec/circuits.js';
 import { Fr } from '@aztec/foundation/fields';
 
 import type { PublicStateDB } from '../../index.js';
@@ -31,13 +31,6 @@ export class PublicStorage {
    */
   public fork() {
     return new PublicStorage(this.hostPublicStorage, this);
-  }
-
-  /**
-   * Get the pending storage.
-   */
-  public getCache() {
-    return this.cache;
   }
 
   /**
@@ -108,17 +101,6 @@ export class PublicStorage {
   public acceptAndMerge(incomingPublicStorage: PublicStorage) {
     this.cache.acceptAndMerge(incomingPublicStorage.cache);
   }
-
-  /**
-   * Commits ALL staged writes to the host's state.
-   */
-  public async commitToDB() {
-    for (const [contractAddress, cacheAtContract] of this.cache.cachePerContract) {
-      for (const [slot, value] of cacheAtContract) {
-        await this.hostPublicStorage.storageWrite(AztecAddress.fromBigInt(contractAddress), new Fr(slot), value);
-      }
-    }
-  }
 }
 
 /**
@@ -132,8 +114,7 @@ class PublicStorageCache {
    * One inner-map per contract storage address,
    * mapping storage slot to latest staged write value.
    */
-  public cachePerContract: Map<bigint, Map<bigint, Fr>> = new Map();
-  // FIXME: storage ^ should be private, but its value is used in commitToDB
+  private cachePerContract: Map<bigint, Map<bigint, Fr>> = new Map();
 
   /**
    * Read a staged value from storage, if it has been previously written to.

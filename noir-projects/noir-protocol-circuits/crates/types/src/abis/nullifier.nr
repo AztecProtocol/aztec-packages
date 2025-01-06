@@ -23,9 +23,6 @@ impl OrderedValue<Field> for Nullifier {
     fn value(self) -> Field {
         self.value
     }
-    fn counter(self) -> u32 {
-        self.counter
-    }
 }
 
 impl Eq for Nullifier {
@@ -101,9 +98,6 @@ impl Ordered for ScopedNullifier {
 impl OrderedValue<Field> for ScopedNullifier {
     fn value(self) -> Field {
         self.nullifier.value
-    }
-    fn counter(self) -> u32 {
-        self.nullifier.counter
     }
 }
 

@@ -2,17 +2,16 @@ import { type MerkleTreeId } from '@aztec/circuit-types';
 import {
   type ARCHIVE_HEIGHT,
   type AppendOnlyTreeSnapshot,
-  type BlockRootOrBlockMergePublicInputs,
   Fr,
   type GlobalVariables,
   type L1_TO_L2_MSG_SUBTREE_SIBLING_PATH_LENGTH,
-  type NESTED_RECURSIVE_PROOF_LENGTH,
+  type NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH,
   NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
   type Proof,
   type RecursiveProof,
-  type RootRollupPublicInputs,
   type VerificationKeyAsFields,
 } from '@aztec/circuits.js';
+import { type BlockRootOrBlockMergePublicInputs, type RootRollupPublicInputs } from '@aztec/circuits.js/rollup';
 import { padArrayEnd } from '@aztec/foundation/collection';
 import { type Tuple } from '@aztec/foundation/serialize';
 
@@ -30,8 +29,8 @@ enum PROVING_STATE_LIFECYCLE {
 export type BlockMergeRollupInputData = {
   inputs: [BlockRootOrBlockMergePublicInputs | undefined, BlockRootOrBlockMergePublicInputs | undefined];
   proofs: [
-    RecursiveProof<typeof NESTED_RECURSIVE_PROOF_LENGTH> | undefined,
-    RecursiveProof<typeof NESTED_RECURSIVE_PROOF_LENGTH> | undefined,
+    RecursiveProof<typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH> | undefined,
+    RecursiveProof<typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH> | undefined,
   ];
   verificationKeys: [VerificationKeyAsFields | undefined, VerificationKeyAsFields | undefined];
 };
@@ -97,7 +96,6 @@ export class EpochProvingState {
   // Adds a block to the proving state, returns its index
   // Will update the proving life cycle if this is the last block
   public startNewBlock(
-    numTxs: number,
     globalVariables: GlobalVariables,
     l1ToL2Messages: Fr[],
     messageTreeSnapshot: AppendOnlyTreeSnapshot,
@@ -110,7 +108,6 @@ export class EpochProvingState {
     const index = globalVariables.blockNumber.toNumber() - this.firstBlockNumber;
     const block = new BlockProvingState(
       index,
-      numTxs,
       globalVariables,
       padArrayEnd(l1ToL2Messages, Fr.ZERO, NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP),
       messageTreeSnapshot,
@@ -151,7 +148,7 @@ export class EpochProvingState {
   public storeMergeInputs(
     mergeInputs: [
       BlockRootOrBlockMergePublicInputs,
-      RecursiveProof<typeof NESTED_RECURSIVE_PROOF_LENGTH>,
+      RecursiveProof<typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH>,
       VerificationKeyAsFields,
     ],
     indexWithinMerge: number,

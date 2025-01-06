@@ -15,7 +15,12 @@ import { type FunctionsOf } from '@aztec/foundation/types';
 
 import { strict as assert } from 'assert';
 
-import { InstructionExecutionError, InvalidTagValueError, TagCheckError } from './errors.js';
+import {
+  InstructionExecutionError,
+  InvalidTagValueError,
+  MemorySliceOutOfRangeError,
+  TagCheckError,
+} from './errors.js';
 import { Addressing, AddressingMode } from './opcodes/addressing_mode.js';
 
 /** MemoryValue gathers the common operations for all memory types. */
@@ -232,13 +237,14 @@ export class TaggedMemory implements TaggedMemoryInterface {
   // Whether to track and validate memory accesses for each instruction.
   static readonly TRACK_MEMORY_ACCESSES = process.env.NODE_ENV === 'test';
 
-  // FIXME: memory should be 2^32, but TS max array size is: 2^32 - 1
-  static readonly MAX_MEMORY_SIZE = Number((1n << 32n) - 1n);
-  private _mem: MemoryValue[];
+  // Memory is modelled by a map with key type being number.
+  // We however restrict the keys to be non-negative integers smaller than
+  // MAX_MEMORY_SIZE.
+  static readonly MAX_MEMORY_SIZE = Number(1n << 32n);
+  private _mem: Map<number, MemoryValue>;
 
   constructor() {
-    // We do not initialize memory size here because otherwise tests blow up when diffing.
-    this._mem = [];
+    this._mem = new Map<number, MemoryValue>();
   }
 
   public getMaxMemorySize(): number {
@@ -257,8 +263,9 @@ export class TaggedMemory implements TaggedMemoryInterface {
   }
 
   public getAs<T>(offset: number): T {
+    assert(Number.isInteger(offset));
     assert(offset < TaggedMemory.MAX_MEMORY_SIZE);
-    const word = this._mem[offset];
+    const word = this._mem.get(offset);
     TaggedMemory.log.trace(`get(${offset}) = ${word}`);
     if (word === undefined) {
       TaggedMemory.log.debug(`WARNING: Memory at offset ${offset} is undefined!`);
@@ -268,54 +275,63 @@ export class TaggedMemory implements TaggedMemoryInterface {
   }
 
   public getSlice(offset: number, size: number): MemoryValue[] {
-    assert(offset + size <= TaggedMemory.MAX_MEMORY_SIZE);
-    const value = this._mem.slice(offset, offset + size);
-    TaggedMemory.log.trace(`getSlice(${offset}, ${size}) = ${value}`);
-    for (let i = 0; i < value.length; i++) {
-      if (value[i] === undefined) {
-        value[i] = new Field(0);
-      }
+    assert(Number.isInteger(offset) && Number.isInteger(size));
+
+    if (offset + size > TaggedMemory.MAX_MEMORY_SIZE) {
+      throw new MemorySliceOutOfRangeError(offset, size);
     }
-    assert(value.length === size, `Expected slice of size ${size}, got ${value.length}.`);
-    return value;
+
+    const slice = new Array<MemoryValue>(size);
+
+    for (let i = 0; i < size; i++) {
+      slice[i] = this._mem.get(offset + i) ?? new Field(0);
+    }
+
+    TaggedMemory.log.trace(`getSlice(${offset}, ${size}) = ${slice}`);
+    return slice;
   }
 
   public getSliceAs<T>(offset: number, size: number): T[] {
-    assert(offset + size <= TaggedMemory.MAX_MEMORY_SIZE);
     return this.getSlice(offset, size) as T[];
   }
 
   public getSliceTags(offset: number, size: number): TypeTag[] {
-    assert(offset + size <= TaggedMemory.MAX_MEMORY_SIZE);
-    return this._mem.slice(offset, offset + size).map(TaggedMemory.getTag);
+    return this.getSlice(offset, size).map(TaggedMemory.getTag);
   }
 
   public set(offset: number, v: MemoryValue) {
+    assert(Number.isInteger(offset));
     assert(offset < TaggedMemory.MAX_MEMORY_SIZE);
-    this._mem[offset] = v;
+    this._mem.set(offset, v);
     TaggedMemory.log.trace(`set(${offset}, ${v})`);
   }
 
-  public setSlice(offset: number, vs: MemoryValue[]) {
-    assert(offset + vs.length <= TaggedMemory.MAX_MEMORY_SIZE);
-    // We may need to extend the memory size, otherwise splice doesn't insert.
-    if (offset + vs.length > this._mem.length) {
-      this._mem.length = offset + vs.length;
+  public setSlice(offset: number, slice: MemoryValue[]) {
+    assert(Number.isInteger(offset));
+
+    if (offset + slice.length > TaggedMemory.MAX_MEMORY_SIZE) {
+      throw new MemorySliceOutOfRangeError(offset, slice.length);
     }
-    this._mem.splice(offset, vs.length, ...vs);
-    TaggedMemory.log.trace(`setSlice(${offset}, ${vs})`);
+
+    slice.forEach((element, idx) => {
+      this._mem.set(offset + idx, element);
+    });
+    TaggedMemory.log.trace(`setSlice(${offset}, ${slice})`);
   }
 
   public getTag(offset: number): TypeTag {
-    return TaggedMemory.getTag(this._mem[offset]);
+    assert(Number.isInteger(offset));
+    assert(offset < TaggedMemory.MAX_MEMORY_SIZE);
+    return TaggedMemory.getTag(this._mem.get(offset));
   }
 
   /**
    * Check that the memory at the given offset matches the specified tag.
    */
   public checkTag(tag: TypeTag, offset: number) {
-    if (this.getTag(offset) !== tag) {
-      throw TagCheckError.forOffset(offset, TypeTag[this.getTag(offset)], TypeTag[tag]);
+    const gotTag = this.getTag(offset);
+    if (gotTag !== tag) {
+      throw TagCheckError.forOffset(offset, TypeTag[gotTag], TypeTag[tag]);
     }
   }
 
@@ -334,13 +350,13 @@ export class TaggedMemory implements TaggedMemoryInterface {
   public static checkIsValidTag(tagNumber: number) {
     if (
       ![
+        TypeTag.FIELD,
         TypeTag.UINT1,
         TypeTag.UINT8,
         TypeTag.UINT16,
         TypeTag.UINT32,
         TypeTag.UINT64,
         TypeTag.UINT128,
-        TypeTag.FIELD,
       ].includes(tagNumber)
     ) {
       throw new InvalidTagValueError(tagNumber);
@@ -380,21 +396,23 @@ export class TaggedMemory implements TaggedMemoryInterface {
   public static getTag(v: MemoryValue | undefined): TypeTag {
     let tag = TypeTag.INVALID;
 
+    // Not sure why, but using instanceof here doesn't work and leads odd behavior,
+    // but using constructor.name does the job...
     if (v === undefined) {
       tag = TypeTag.FIELD; // uninitialized memory is Field(0)
-    } else if (v instanceof Field) {
+    } else if (v.constructor.name == 'Field') {
       tag = TypeTag.FIELD;
-    } else if (v instanceof Uint1) {
+    } else if (v.constructor.name == 'Uint1') {
       tag = TypeTag.UINT1;
-    } else if (v instanceof Uint8) {
+    } else if (v.constructor.name == 'Uint8') {
       tag = TypeTag.UINT8;
-    } else if (v instanceof Uint16) {
+    } else if (v.constructor.name == 'Uint16') {
       tag = TypeTag.UINT16;
-    } else if (v instanceof Uint32) {
+    } else if (v.constructor.name == 'Uint32') {
       tag = TypeTag.UINT32;
-    } else if (v instanceof Uint64) {
+    } else if (v.constructor.name == 'Uint64') {
       tag = TypeTag.UINT64;
-    } else if (v instanceof Uint128) {
+    } else if (v.constructor.name == 'Uint128') {
       tag = TypeTag.UINT128;
     }
 

@@ -229,7 +229,7 @@ impl DependencyContext {
         function: &Function,
         all_functions: &BTreeMap<FunctionId, Function>,
     ) {
-        trace!("processing instructions of block {} of function {}", block, function);
+        trace!("processing instructions of block {} of function {}", block, function.id());
 
         for instruction in function.dfg[block].instructions() {
             let mut arguments = Vec::new();
@@ -294,11 +294,9 @@ impl DependencyContext {
                             Intrinsic::ArrayLen
                             | Intrinsic::ArrayRefCount
                             | Intrinsic::ArrayAsStrUnchecked
-                            | Intrinsic::AsField
                             | Intrinsic::AsSlice
                             | Intrinsic::BlackBox(..)
                             | Intrinsic::DerivePedersenGenerators
-                            | Intrinsic::FromField
                             | Intrinsic::Hint(..)
                             | Intrinsic::SlicePushBack
                             | Intrinsic::SlicePushFront
@@ -316,14 +314,9 @@ impl DependencyContext {
                                 self.update_children(&arguments, &results);
                             }
                         },
-                        Value::Function(callee) => match all_functions[&callee].runtime() {
+                        Value::Function(callee) => match all_functions[callee].runtime() {
                             RuntimeType::Brillig(_) => {
                                 // Record arguments/results for each Brillig call for the check
-                                trace!(
-                                    "Brillig function {} called at {}",
-                                    all_functions[&callee],
-                                    instruction
-                                );
                                 self.tainted.insert(
                                     *instruction,
                                     BrilligTaintedIds::new(&arguments, &results),
@@ -372,11 +365,12 @@ impl DependencyContext {
                 | Instruction::DecrementRc { .. }
                 | Instruction::EnableSideEffectsIf { .. }
                 | Instruction::IncrementRc { .. }
+                | Instruction::Noop
                 | Instruction::MakeArray { .. } => {}
             }
         }
 
-        trace!("resulting Brillig involved values: {:?}", self.tainted);
+        trace!("Number tainted Brillig calls: {}", self.tainted.len());
     }
 
     /// Every Brillig call not properly constrained should remain in the tainted set
@@ -387,12 +381,16 @@ impl DependencyContext {
             .keys()
             .map(|brillig_call| {
                 SsaReport::Bug(InternalBug::UncheckedBrilligCall {
-                    call_stack: function.dfg.get_call_stack(*brillig_call),
+                    call_stack: function.dfg.get_instruction_call_stack(*brillig_call),
                 })
             })
             .collect();
 
-        trace!("making following reports for function {}: {:?}", function.name(), warnings);
+        trace!(
+            "making {} under constrained reports for function {}",
+            warnings.len(),
+            function.name()
+        );
         warnings
     }
 
@@ -407,8 +405,6 @@ impl DependencyContext {
     /// Check if any of the recorded Brillig calls have been properly constrained
     /// by given values after recording partial constraints, if so stop tracking them
     fn clear_constrained(&mut self, constrained_values: &[ValueId], function: &Function) {
-        trace!("attempting to clear Brillig calls constrained by values: {:?}", constrained_values);
-
         // Remove numeric constants
         let constrained_values =
             constrained_values.iter().filter(|v| function.dfg.get_numeric_constant(**v).is_none());
@@ -516,7 +512,7 @@ impl Context {
             // There is a value not in the set, which means that the inputs/outputs of this call have not been properly constrained
             if unused_inputs {
                 warnings.push(SsaReport::Bug(InternalBug::IndependentSubgraph {
-                    call_stack: function.dfg.get_call_stack(
+                    call_stack: function.dfg.get_instruction_call_stack(
                         self.brillig_return_to_instruction_id[&brillig_output_in_set],
                     ),
                 }));
@@ -577,12 +573,10 @@ impl Context {
                             Intrinsic::ArrayLen
                             | Intrinsic::ArrayAsStrUnchecked
                             | Intrinsic::ArrayRefCount
-                            | Intrinsic::AsField
                             | Intrinsic::AsSlice
                             | Intrinsic::BlackBox(..)
                             | Intrinsic::Hint(Hint::BlackBox)
                             | Intrinsic::DerivePedersenGenerators
-                            | Intrinsic::FromField
                             | Intrinsic::SliceInsert
                             | Intrinsic::SlicePushBack
                             | Intrinsic::SlicePushFront
@@ -598,7 +592,7 @@ impl Context {
                                 self.value_sets.push(instruction_arguments_and_results);
                             }
                         },
-                        Value::Function(callee) => match all_functions[&callee].runtime() {
+                        Value::Function(callee) => match all_functions[callee].runtime() {
                             RuntimeType::Brillig(_) => {
                                 // For calls to Brillig functions we memorize the mapping of results to argument ValueId's and InstructionId's
                                 // The latter are needed to produce the callstack later
@@ -633,6 +627,7 @@ impl Context {
                 | Instruction::DecrementRc { .. }
                 | Instruction::EnableSideEffectsIf { .. }
                 | Instruction::IncrementRc { .. }
+                | Instruction::Noop
                 | Instruction::RangeCheck { .. } => {}
             }
         }

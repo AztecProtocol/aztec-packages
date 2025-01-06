@@ -23,15 +23,15 @@ namespace bb {
  * they overflow
  */
 static constexpr TraceStructure SMALL_TEST_STRUCTURE_FOR_OVERFLOWS{ .ecc_op = 1 << 14,
-                                                                    .pub_inputs = 1 << 14,
                                                                     .busread = 1 << 14,
+                                                                    .lookup = 1 << 14,
+                                                                    .pub_inputs = 1 << 14,
                                                                     .arithmetic = 1 << 15,
                                                                     .delta_range = 1 << 14,
                                                                     .elliptic = 1 << 14,
                                                                     .aux = 1 << 14,
                                                                     .poseidon2_external = 1 << 14,
                                                                     .poseidon2_internal = 1 << 15,
-                                                                    .lookup = 1 << 14,
                                                                     .overflow = 0 };
 
 class GoblinMockCircuits {
@@ -150,7 +150,7 @@ class GoblinMockCircuits {
         op_queue->set_size_data();
 
         // Manually compute the op queue transcript commitments (which would normally be done by the merge prover)
-        bb::srs::init_crs_factory("../srs_db/ignition");
+        bb::srs::init_crs_factory(bb::srs::get_ignition_crs_path());
         auto bn254_commitment_key =
             commitment_key ? commitment_key : std::make_shared<CommitmentKey>(op_queue->get_current_size());
         std::array<Point, Flavor::NUM_WIRES> op_queue_commitments;

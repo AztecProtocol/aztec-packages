@@ -19,7 +19,11 @@ pub struct PublicImmutable<T, Context> {
 impl<T, Context, let N: u32> Storage<T, N> for PublicImmutable<T, Context>
 where
     T: Serialize<N> + Deserialize<N>,
-{}
+{
+    fn get_storage_slot(self) -> Field {
+        self.storage_slot
+    }
+}
 
 impl<T, Context> PublicImmutable<T, Context> {
     // docs:start:public_immutable_struct_new

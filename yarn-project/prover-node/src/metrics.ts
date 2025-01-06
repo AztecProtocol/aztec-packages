@@ -3,18 +3,30 @@ import { type Histogram, Metrics, type TelemetryClient, ValueType } from '@aztec
 
 export class ProverNodeMetrics {
   provingJobDuration: Histogram;
+  provingJobBlocks: Histogram;
+  provingJobTransactions: Histogram;
 
-  constructor(client: TelemetryClient, name = 'ProverNode') {
+  constructor(public readonly client: TelemetryClient, name = 'ProverNode') {
     const meter = client.getMeter(name);
     this.provingJobDuration = meter.createHistogram(Metrics.PROVER_NODE_JOB_DURATION, {
       description: 'Duration of proving job',
       unit: 'ms',
       valueType: ValueType.INT,
     });
+    this.provingJobBlocks = meter.createHistogram(Metrics.PROVER_NODE_JOB_BLOCKS, {
+      description: 'Number of blocks in a proven epoch',
+      valueType: ValueType.INT,
+    });
+    this.provingJobTransactions = meter.createHistogram(Metrics.PROVER_NODE_JOB_TRANSACTIONS, {
+      description: 'Number of transactions in a proven epoch',
+      valueType: ValueType.INT,
+    });
   }
 
-  public recordProvingJob(timerOrMs: Timer | number) {
+  public recordProvingJob(timerOrMs: Timer | number, numBlocks: number, numTxs: number) {
     const ms = Math.ceil(typeof timerOrMs === 'number' ? timerOrMs : timerOrMs.ms());
     this.provingJobDuration.record(ms);
+    this.provingJobBlocks.record(Math.floor(numBlocks));
+    this.provingJobTransactions.record(Math.floor(numTxs));
   }
 }

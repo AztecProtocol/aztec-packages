@@ -13,7 +13,7 @@ import {
   createLogger,
   getContractInstanceFromDeployParams,
 } from '@aztec/aztec.js';
-import { type StatefulTestContract } from '@aztec/noir-contracts.js';
+import { type StatefulTestContract } from '@aztec/noir-contracts.js/StatefulTest';
 
 import { type ISnapshotManager, addAccounts, createSnapshotManager } from '../fixtures/snapshot_manager.js';
 

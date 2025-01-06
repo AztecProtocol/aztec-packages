@@ -95,7 +95,7 @@ export class NoteDao implements NoteData {
       this.nonce,
       this.noteHash,
       this.siloedNullifier,
-      this.txHash.buffer,
+      this.txHash,
       this.l2BlockNumber,
       Fr.fromHexString(this.l2BlockHash),
       this.index,
