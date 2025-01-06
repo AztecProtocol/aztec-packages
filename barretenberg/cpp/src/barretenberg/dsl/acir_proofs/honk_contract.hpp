@@ -4,7 +4,7 @@
 
 // Source code for the Ultrahonk Solidity verifier.
 // It's expected that the AcirComposer will inject a library which will load the verification key into memory.
-const std::string HONK_CONTRACT_SOURCE = R"(
+static const char HONK_CONTRACT_SOURCE[] = R"(
 pragma solidity ^0.8.27;
 
 type Fr is uint256;
@@ -1407,10 +1407,21 @@ interface IVerifier {
     function verify(bytes calldata _proof, bytes32[] calldata _publicInputs) external view returns (bool);
 }
 
-// Smart contract verifier of honk proofs
-contract HonkVerifier is IVerifier
-{
+
+abstract contract BaseHonkVerifier is IVerifier {
     using FrLib for Fr;
+
+    uint256 N;
+    uint256 logN;
+    uint256 numPublicInputs;
+
+    constructor(uint256 _N, uint256 _logN, uint256 _numPublicInputs) {
+        N = _N;
+        logN = _logN;
+        numPublicInputs = _numPublicInputs;
+    }
+
+    function loadVerificationKey() internal pure virtual returns (Honk.VerificationKey memory);
 
     function verify(bytes calldata proof, bytes32[] calldata publicInputs) public view override returns (bool) {
         Honk.VerificationKey memory vk = loadVerificationKey();
@@ -1437,10 +1448,6 @@ contract HonkVerifier is IVerifier
         return sumcheckVerified && shpleminiVerified; // Boolean condition not required - nice for vanity :)
     }
 
-    function loadVerificationKey() internal pure returns (Honk.VerificationKey memory) {
-        return HonkVerificationKey.loadVerificationKey();
-    }
-
     function computePublicInputDelta(
         bytes32[] memory publicInputs,
         Fr beta,
@@ -1455,7 +1462,7 @@ contract HonkVerifier is IVerifier
         Fr denominatorAcc = gamma - (beta * FrLib.from(offset + 1));
 
         {
-            for (uint256 i = 0; i < NUMBER_OF_PUBLIC_INPUTS; i++) {
+            for (uint256 i = 0; i < numPublicInputs; i++) {
                 Fr pubInput = FrLib.fromBytes32(publicInputs[i]);
 
                 numerator = numerator * (numeratorAcc + pubInput);
@@ -1477,7 +1484,7 @@ contract HonkVerifier is IVerifier
         Fr powPartialEvaluation = Fr.wrap(1);
 
         // We perform sumcheck reductions over log n rounds ( the multivariate degree )
-        for (uint256 round; round < LOG_N; ++round) {
+        for (uint256 round; round < logN; ++round) {
             Fr[BATCHED_RELATION_PARTIAL_LENGTH] memory roundUnivariate = proof.sumcheckUnivariates[round];
             bool valid = checkSum(roundUnivariate, roundTarget);
             if (!valid) revert SumcheckFailed();
@@ -1509,6 +1516,7 @@ contract HonkVerifier is IVerifier
         view
         returns (Fr targetSum)
     {
+        // TODO: inline
         Fr[BATCHED_RELATION_PARTIAL_LENGTH] memory BARYCENTRIC_LAGRANGE_DENOMINATORS = [
             Fr.wrap(0x30644e72e131a029b85045b68181585d2833e84879b9709143e1f593efffec51),
             Fr.wrap(0x00000000000000000000000000000000000000000000000000000000000002d0),
@@ -1532,6 +1540,7 @@ contract HonkVerifier is IVerifier
         ];
         // To compute the next target sum, we evaluate the given univariate at a point u (challenge).
 
+        // TODO: opt: use same array mem for each iteratioon
         // Performing Barycentric evaluations
         // Compute B(x)
         Fr numeratorValue = Fr.wrap(1);
@@ -1539,7 +1548,7 @@ contract HonkVerifier is IVerifier
             numeratorValue = numeratorValue * (roundChallenge - Fr.wrap(i));
         }
 
-        // Calculate domain size N of inverses
+        // Calculate domain size N of inverses -- TODO: montgomery's trick
         Fr[BATCHED_RELATION_PARTIAL_LENGTH] memory denominatorInverses;
         for (uint256 i; i < BATCHED_RELATION_PARTIAL_LENGTH; ++i) {
             Fr inv = BARYCENTRIC_LAGRANGE_DENOMINATORS[i];
@@ -1570,9 +1579,7 @@ contract HonkVerifier is IVerifier
 
     // Avoid stack too deep
     struct ShpleminiIntermediates {
-        // i-th unshifted commitment is multiplied by −ρⁱ and the unshifted_scalar ( 1/(z−r) + ν/(z+r) )
         Fr unshiftedScalar;
-        // i-th shifted commitment is multiplied by −ρⁱ⁺ᵏ and the shifted_scalar r⁻¹ ⋅ (1/(z−r) − ν/(z+r))
         Fr shiftedScalar;
         // Scalar to be multiplied by [1]₁
         Fr constantTermAccumulator;
@@ -1589,7 +1596,7 @@ contract HonkVerifier is IVerifier
     {
         ShpleminiIntermediates memory mem; // stack
 
-        // - Compute vector (r, r², ... , r²⁽ⁿ⁻¹⁾), where n = log_circuit_size, I think this should be CONST_PROOF_SIZE
+        // - Compute vector (r, r², ... , r²⁽ⁿ⁻¹⁾), where n = log_circuit_size
         Fr[CONST_PROOF_SIZE_LOG_N] memory powers_of_evaluation_challenge = computeSquares(tp.geminiR);
 
         // Arrays hold values that will be linearly combined for the gemini and shplonk batch openings
@@ -1719,7 +1726,7 @@ contract HonkVerifier is IVerifier
         mem.batchingChallenge = tp.shplonkNu.sqr();
 
         for (uint256 i; i < CONST_PROOF_SIZE_LOG_N - 1; ++i) {
-            bool dummy_round = i >= (LOG_N - 1);
+            bool dummy_round = i >= (logN - 1);
 
             Fr scalingFactor = Fr.wrap(0);
             if (!dummy_round) {
@@ -1775,7 +1782,7 @@ contract HonkVerifier is IVerifier
 
         for (uint256 i = 0; i < CONST_PROOF_SIZE_LOG_N; ++i) {
             Fr round_inverted_denominator = Fr.wrap(0);
-            if (i <= LOG_N + 1) {
+            if (i <= logN + 1) {
                 round_inverted_denominator = (eval_challenge + eval_challenge_powers[i]).invert();
             }
             inverse_vanishing_evals[i + 1] = round_inverted_denominator;
@@ -1800,7 +1807,7 @@ contract HonkVerifier is IVerifier
             // Divide by the denominator
             batchedEvalRoundAcc = batchedEvalRoundAcc * (challengePower * (Fr.wrap(1) - u) + u).invert();
 
-            bool is_dummy_round = (i > LOG_N);
+            bool is_dummy_round = (i > logN);
             if (!is_dummy_round) {
                 batchedEvalAccumulator = batchedEvalRoundAcc;
             }
@@ -1874,16 +1881,11 @@ contract HonkVerifier is IVerifier
     }
 }
 
-// Conversion util - Duplicated as we cannot template LOG_N
-function convertPoints(Honk.G1ProofPoint[LOG_N + 1] memory commitments)
-    pure
-    returns (Honk.G1Point[LOG_N + 1] memory converted)
-{
-    for (uint256 i; i < LOG_N + 1; ++i) {
-        converted[i] = convertProofPoint(commitments[i]);
+contract HonkVerifier is BaseHonkVerifier(N, LOG_N, NUMBER_OF_PUBLIC_INPUTS) {
+     function loadVerificationKey() internal pure override returns (Honk.VerificationKey memory) {
+       return HonkVerificationKey.loadVerificationKey();
     }
 }
-
 )";
 
 inline std::string get_honk_solidity_verifier(auto const& verification_key)
