@@ -47,11 +47,11 @@ function check_toolchains {
     exit 1
   fi
   # Check rust version.
-  if ! rustup show | grep "1.74" > /dev/null; then
+  if ! rustup show | grep "1.75" > /dev/null; then
     encourage_dev_container
-    echo "Rust version 1.74 not installed."
+    echo "Rust version 1.75 not installed."
     echo "Installation:"
-    echo "  curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain 1.74.1"
+    echo "  curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain 1.75.0"
     exit 1
   fi
   # Check wasi-sdk version.
