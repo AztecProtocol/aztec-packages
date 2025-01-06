@@ -42,18 +42,9 @@ void create_dummy_vkey_and_proof(Builder& builder,
                                  const std::vector<field_ct>& proof_fields)
 {
     // Set vkey->circuit_size correctly based on the proof size
-    size_t num_frs_comm = bb::field_conversion::calc_num_bn254_frs<typename Flavor::Commitment>();
-    size_t num_frs_fr = bb::field_conversion::calc_num_bn254_frs<typename Flavor::FF>();
-    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1168): Add formula to flavor
-    assert((proof_size - bb::HONK_PROOF_PUBLIC_INPUT_OFFSET - Flavor::NUM_WITNESS_ENTITIES * num_frs_comm -
-            Flavor::NUM_ALL_ENTITIES * num_frs_fr - num_frs_comm) %
-               (num_frs_comm + num_frs_fr * (Flavor::BATCHED_RELATION_PARTIAL_LENGTH + 1)) ==
-           0);
+    ASSERT(proof_size == Flavor::PROOF_LENGTH_WITHOUT_PUB_INPUTS);
     // Note: this computation should always result in log_circuit_size = CONST_PROOF_SIZE_LOG_N
-    auto log_circuit_size =
-        (proof_size - bb::HONK_PROOF_PUBLIC_INPUT_OFFSET - Flavor::NUM_WITNESS_ENTITIES * num_frs_comm -
-         Flavor::NUM_ALL_ENTITIES * num_frs_fr - num_frs_comm) /
-        (num_frs_comm + num_frs_fr * (Flavor::BATCHED_RELATION_PARTIAL_LENGTH + 1));
+    auto log_circuit_size = CONST_PROOF_SIZE_LOG_N;
     // First key field is circuit size
     builder.assert_equal(builder.add_variable(1 << log_circuit_size), key_fields[0].witness_index);
     // Second key field is number of public inputs
