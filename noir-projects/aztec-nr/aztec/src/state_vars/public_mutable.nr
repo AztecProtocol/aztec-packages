@@ -12,7 +12,11 @@ pub struct PublicMutable<T, Context> {
 impl<T, Context, let N: u32> Storage<T, N> for PublicMutable<T, Context>
 where
     T: Serialize<N> + Deserialize<N>,
-{}
+{
+    fn get_storage_slot(self) -> Field {
+        self.storage_slot
+    }
+}
 
 impl<T, Context> PublicMutable<T, Context> {
     // docs:start:public_mutable_struct_new

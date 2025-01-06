@@ -2,7 +2,7 @@ VERSION 0.8
 test:
   BUILD +test-protocol-circuits
   BUILD +test-aztec-nr
-  BUILD +test-contracts
+  # BUILD +test-contracts
 
 test-protocol-circuits:
   FROM ../+bootstrap

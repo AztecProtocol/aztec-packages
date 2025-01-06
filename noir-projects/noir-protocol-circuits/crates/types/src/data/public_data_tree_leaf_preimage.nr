@@ -1,6 +1,6 @@
 use crate::{
     data::public_data_tree_leaf::PublicDataTreeLeaf,
-    merkle_tree::leaf_preimage::IndexedTreeLeafPreimage,
+    merkle_tree::leaf_preimage::{IndexedTreeLeafPreimage, LeafPreimage},
     traits::{Empty, Hash},
 };
 
@@ -41,21 +41,23 @@ impl Hash for PublicDataTreeLeafPreimage {
     }
 }
 
-impl IndexedTreeLeafPreimage<PublicDataTreeLeaf> for PublicDataTreeLeafPreimage {
+impl LeafPreimage for PublicDataTreeLeafPreimage {
     fn get_key(self) -> Field {
         self.slot
     }
 
+    fn as_leaf(self) -> Field {
+        self.hash()
+    }
+}
+
+impl IndexedTreeLeafPreimage<PublicDataTreeLeaf> for PublicDataTreeLeafPreimage {
     fn get_next_key(self) -> Field {
         self.next_slot
     }
 
     fn points_to_infinity(self) -> bool {
         (self.next_slot == 0) & (self.next_index == 0)
-    }
-
-    fn as_leaf(self) -> Field {
-        self.hash()
     }
 
     fn update_pointers(self, next_slot: Field, next_index: u32) -> Self {
