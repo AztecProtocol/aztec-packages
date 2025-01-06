@@ -19,18 +19,18 @@ The verifier uses SMT (Satisfiability Modulo Theories) solving to formally verif
 ### Results
 
 | Opcode      | Lhs type/size | Rhs type/size | Time/seconds | Memory/GB | Success | SMT Term Type    | Reason                     |
-| ----------- | ------------- | ------------- | ------------ | --------- | ------- | ---------------- | -------------------------- |
+| ----------- | ------------- | ------------- | ------------ | --------- | ------- | ---------------- | -------------------------- | --- |
 | Binary::Add | Field         | Field         | 0.024        | -         | &check; | TermType::FFTerm |                            |
 | Binary::Add | Unsigned_127  | Unsigned_127  | 2.8          | -         | &check; | TermType::BVTerm |                            |
 | Binary::And | Unsigned_32   | Unsigned_32   | 6.7          | -         | &check; | TermType::BVTerm |                            |
 | Binary::And | Unsigned_127  | Unsigned_127  | 7.5          | -         | &cross; | TermType::BVTerm | Probably bug in smt solver |
 | Binary::Div | Field         | Field         | 0.024        | -         | &check; | TermType::FFTerm |                            |
-| Binary::Div | Unsigned_126  | Unsigned_126  | 402.7        | 3.5       | &cross; | TermType::BVTerm | ??                         |
+| Binary::Div | Unsigned_126  | Unsigned_126  | 402.7        | 3.5       | &cross; | TermType::BVTerm | Analysis in progress       |
 | Binary::Div | Signed_126    | Signed_126    | >17 days     | 5.1       | &cross; | TermType::ITerm  | Test takes too long        |
 | Binary::Eq  | Field         | Field         | 19.2         | -         | &check; | TermType::FFTerm |                            |
 | Binary::Eq  | Unsigned_127  | Unsigned_127  | 22.8         | -         | &check; | TermType::BVTerm |                            |
 | Binary::Lt  | Unsigned_127  | Unsigned_127  | 56.7         | -         | &check; | TermType::BVTerm |                            |
-| Binary::Mod | Unsigned_127  | Unsigned_127  | -            | 3.2       | &cross; | TermType::BVTerm | ??                         |
+| Binary::Mod | Unsigned_127  | Unsigned_127  | -            | 3.2       | &cross; | TermType::BVTerm | Analysis in progress       |
 | Binary::Mul | Field         | Field         | 0.024        | -         | &check; | TermType::FFTerm |                            |
 | Binary::Mul | Unsigned_127  | Unsigned_127  | 10.0         | -         | &check; | TermType::BVTerm |                            |
 | Binary::Or  | Unsigned_32   | Unsigned_32   | 18.0         | -         | &check; | TermType::BVTerm |                            |
