@@ -225,15 +225,14 @@ void compute_honk_style_permutation_lagrange_polynomials_from_mapping(
     const size_t num_gates = proving_key->circuit_size;
 
     size_t domain_size = proving_key->active_idxs.size();
-    size_t num_threads = calculate_num_threads(domain_size, /*min_iterations_per_thread=*/1 << 5);
-    size_t thread_size = domain_size / num_threads;
-    size_t leftover = domain_size % num_threads;
+
+    const MultithreadData thread_data = calculate_thread_data(domain_size, /*min_iterations_per_thread=*/1 << 5);
 
     size_t wire_idx = 0;
     for (auto& current_permutation_poly : permutation_polynomials) {
-        parallel_for(num_threads, [&](size_t j) {
-            const size_t start = j * thread_size;
-            const size_t end = (j == num_threads - 1) ? (j + 1) * thread_size + leftover : (j + 1) * thread_size;
+        parallel_for(thread_data.num_threads, [&](size_t j) {
+            const size_t start = thread_data.start[j];
+            const size_t end = thread_data.end[j];
             for (size_t i = start; i < end; ++i) {
                 size_t poly_idx = proving_key->active_idxs[i];
                 auto idx = static_cast<ptrdiff_t>(poly_idx);

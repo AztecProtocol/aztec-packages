@@ -82,9 +82,11 @@ void compute_grand_product(typename Flavor::ProverPolynomials& full_polynomials,
             active_idxs.push_back(i);
         }
     }
-    size_t active_domain_size = active_idxs.size();
+    // The size of the iteration domain is one less than the number of active rows since the final value of the grand
+    // product is constructed only in the relation and not explicitly in the polynomial
+    size_t active_domain_size = active_idxs.size() - 1;
 
-    MultithreadData active_range_thread_data = calculate_thread_data(active_domain_size);
+    const MultithreadData active_range_thread_data = calculate_thread_data(active_domain_size);
 
     auto check_is_active = [&](size_t idx) {
         return std::any_of(active_block_ranges.begin(), active_block_ranges.end(), [idx](const auto& range) {
@@ -179,6 +181,10 @@ void compute_grand_product(typename Flavor::ProverPolynomials& full_polynomials,
     // We have a 'virtual' 0 at the start (as this is a to-be-shifted polynomial)
     ASSERT(grand_product_polynomial.start_index() == 1);
 
+    if constexpr (IsUltraFlavor<Flavor>) {
+        grand_product_polynomial.at(1) = 1;
+    }
+
     parallel_for(active_range_thread_data.num_threads, [&](size_t thread_idx) {
         const size_t start = active_range_thread_data.start[thread_idx];
         const size_t end = active_range_thread_data.end[thread_idx];
@@ -191,6 +197,12 @@ void compute_grand_product(typename Flavor::ProverPolynomials& full_polynomials,
     // Final step is to populate the constant values of the grand product in the inactive regions
     MultithreadData full_domain_thread_data = calculate_thread_data(domain_size);
 
+    // WORKTODO: I think the fundamental problem that leads to this wierd backwards setting of constant values based on
+    // the start of the next active region is that the indices in z_perm are offset from the indices of num/denom by 1.
+    // I.e. the values of num at i determine the values of z_perm at i+1. So I think we should really use the values in
+    // active region j to set values [start_j + 1, end_j) in z_perm. This would then mean setting the constant values in
+    // a dead region (up to and including the value in the next active region) to the value that immediately preceded it
+    // (at the first index of the dead region)
     parallel_for(full_domain_thread_data.num_threads, [&](size_t thread_idx) {
         const size_t start = full_domain_thread_data.start[thread_idx];
         const size_t end = full_domain_thread_data.end[thread_idx];
@@ -209,11 +221,7 @@ void compute_grand_product(typename Flavor::ProverPolynomials& full_polynomials,
         }
     });
 
-    if (active_idxs[0] == 1) {
-        grand_product_polynomial.at(1) = 1;
-    } else {
-        grand_product_polynomial.at(1) = numerator[0] * denominator[0];
-    }
+    info("grand_product_polynomial.at(1) = ", grand_product_polynomial.at(1));
 
     DEBUG_LOG_ALL(grand_product_polynomial.coeffs());
 }

@@ -181,17 +181,14 @@ void parallel_for_heuristic(size_t num_points,
 MultithreadData calculate_thread_data(size_t num_iterations, size_t min_iterations_per_thread)
 {
     size_t num_threads = calculate_num_threads(num_iterations, min_iterations_per_thread);
-
     const size_t thread_size = num_iterations / num_threads;
-    const size_t final_idx = num_iterations - 1;
-
-    std::vector<size_t> start(num_threads);
-    std::vector<size_t> end(num_threads);
 
     // Cumpute the index bounds for each thread
+    std::vector<size_t> start(num_threads);
+    std::vector<size_t> end(num_threads);
     for (size_t thread_idx = 0; thread_idx < num_threads; ++thread_idx) {
         start[thread_idx] = thread_idx * thread_size;
-        end[thread_idx] = (thread_idx == num_threads - 1) ? final_idx : (thread_idx + 1) * thread_size;
+        end[thread_idx] = (thread_idx == num_threads - 1) ? num_iterations : (thread_idx + 1) * thread_size;
     }
 
     return MultithreadData{ num_threads, start, end };
