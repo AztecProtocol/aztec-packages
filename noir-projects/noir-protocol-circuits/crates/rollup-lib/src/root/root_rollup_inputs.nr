@@ -5,7 +5,7 @@ use crate::{
 use types::{
     constants::{
         BLOCK_MERGE_ROLLUP_INDEX, BLOCK_ROOT_ROLLUP_EMPTY_INDEX, BLOCK_ROOT_ROLLUP_INDEX,
-        PROOF_TYPE_ROLLUP_HONK, PROOF_TYPE_ROOT_ROLLUP_HONK,
+        PROOF_TYPE_ROOT_ROLLUP_HONK,
     },
     traits::Empty,
 };

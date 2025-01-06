@@ -501,7 +501,7 @@ mod tests {
         //*                    d
         //
         let rhs = z_d_helper(challenge_z);
-        let z_minus_1 = unsafe { challenge_z.__sub(BigNum::one()) };
+        let z_minus_1 = challenge_z.__sub(BigNum::one());
         let lhs = y.__mul(z_minus_1);
         assert_eq(lhs, rhs);
     }

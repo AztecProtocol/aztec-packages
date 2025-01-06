@@ -296,10 +296,8 @@ mod tests {
         }
 
         pub fn execute(&mut self) -> PrivateKernelCircuitPublicInputs {
-            let note_hash_read_request_hints =
-                unsafe { self.note_hash_read_request_hints_builder.to_hints() };
-            let nullifier_read_request_hints =
-                unsafe { self.nullifier_read_request_hints_builder.to_hints() };
+            let note_hash_read_request_hints = self.note_hash_read_request_hints_builder.to_hints();
+            let nullifier_read_request_hints = self.nullifier_read_request_hints_builder.to_hints();
             let hints = PrivateKernelResetHints {
                 note_hash_read_request_hints,
                 nullifier_read_request_hints,
