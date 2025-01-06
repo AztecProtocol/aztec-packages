@@ -125,11 +125,7 @@ function test {
   done
 
   echo "Gathering tests to run..."
-  if [ -t 1 ]; then
-    test_cmds $@ | parallelise 64
-  else
-    test_cmds $@ | denoise "parallelise 64"
-  fi
+  test_cmds $@ | parallelise 64
 }
 
 function build {

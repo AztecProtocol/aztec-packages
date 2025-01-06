@@ -62,7 +62,7 @@ if [ -t 1 ]; then
   docker_args+=" -t"
   cmd_postfix="|| exec zsh"
 else
-  cmd_postfix="2>&1 | ci3/cache_log ${LOG_ID:-}"
+  cmd_postfix="2>&1 | ci3/add_timestamps | ci3/cache_log ${LOG_ID:-}"
 fi
 
 # Use ~/.ssh/build_instance_key to ssh into our requested instance.
@@ -111,6 +111,14 @@ ssh ${ssh_args:-} -F $ci3/aws/build_instance_ssh_config ubuntu@$ip "
       git remote add origin https://github.com/aztecprotocol/aztec-packages
       git fetch --depth 1 origin $current_commit
       git checkout FETCH_HEAD
-      $cmd ${cmd_postfix:-}
+      ci3/aws_handle_evict "$cmd ${cmd_postfix:-}"
     '
 "
+code=$?
+
+# If we were spot evicted, try again using on-demand.
+if [ $code -eq 155 ]; then
+  NO_SPOT=1 $0
+else
+  exit $code
+fi

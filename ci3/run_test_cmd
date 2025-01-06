@@ -9,6 +9,9 @@ if [ "${USE_TEST_CACHE:-0}" -eq 1 ] && [ "$(redis-cli --raw -h $CI_REDIS EXISTS 
   exit 0
 fi
 
+# If the test has a verbose mode, we want it enabled.
+export VERBOSE=1
+
 set +e
 output=$(bash -c "$test_cmd" 2>&1)
 code=$?
@@ -23,7 +26,7 @@ if [ -n "$CI_REDIS" ]; then
 fi
 
 if [ $code -eq 0 ]; then
-  [ "${VERBOSE:-0}" -eq 1 ] && echo -e "${green}PASSED${reset}${log_info:-}: $test_cmd"
+  echo -e "${green}PASSED${reset}${log_info:-}: $test_cmd"
 else
   echo -e "${red}FAILED${reset}${log_info:-}: $test_cmd (code: $code)"
   echo "$output"

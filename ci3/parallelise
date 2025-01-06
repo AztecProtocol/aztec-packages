@@ -1,22 +1,21 @@
 #!/usr/bin/env bash
 # For running test cmds that are pathed relative to the repo root.
-# Commands are read from functions stdin.
+# Commands are read from stdin.
 NO_CD=1 source $(git rev-parse --show-toplevel)/ci3/source
 
 cd $root
 jobs=$(get_num_cpus_max ${1:-})
-parallel_args=""
-test_args=""
-# If we're in a terminal default to progress bar, otherwise run tests with verbose (shows passes).
-# If you want to see passes in the terminal you can e.g: ./bootstrap.sh test | cat
-if [ -t 1 ]; then
-  parallel_args="--bar"
-else
-  test_args="VERBOSE=1"
-fi
+parallel_args="-j$jobs --line-buffer --timeout 600 --joblog joblog.txt --halt now,fail=1"
+
 echo "Starting test run with max $jobs jobs..."
-parallel -j$jobs $parallel_args --line-buffer --timeout 600 --joblog joblog.txt --halt now,fail=1 \
-  "$test_args run_test_cmd {}"
+
+# If we're in a terminal default to a progress bar, and use cache_log to save output to redis.
+# Otherwise use denoise to display dots and save output to redis.
+if [ -t 1 ]; then
+  parallel $parallel_args --bar "run_test_cmd {}" | cache_log >/dev/null
+else
+  denoise "parallel $parallel_args 'run_test_cmd {}'"
+fi
 
 slow_jobs=$(cat joblog.txt | \
   awk 'NR>1 && $4 > 300 {print | "sort -k4,4"}' | \
@@ -26,5 +25,4 @@ if [ -n "$slow_jobs" ]; then
   echo "$slow_jobs"
 fi
 
-echo
 echo "Completed run of $(tail -n+2 joblog.txt | wc -l) tests."

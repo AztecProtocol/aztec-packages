@@ -40,7 +40,7 @@ if [ "$COMPILE" -ne 0 ]; then
 fi
 
 if [[ ! -f ./target/program.json || ! -f ./target/witness.gz ]]; then
-  echo -e "\033[33mSKIPPED\033[0m (uncompiled)"
+  echo -e "${yellow}SKIPPED${reset} (uncompiled)"
   exit 0
 fi
 
@@ -52,12 +52,12 @@ duration=$SECONDS
 set -e
 
 if [ $result -eq 0 ]; then
-  echo -e "\033[32mPASSED\033[0m (${duration}s)"
+  echo -e "${green}PASSED${reset} (${duration}s)"
   if [ "${VERBOSE:-0}" -eq 1 ]; then
     echo "$output"
   fi
 else
-  echo -e "\033[31mFAILED\033[0m"
+  echo -e "${red}FAILED${reset}"
   echo "$output"
   exit 1
 fi
