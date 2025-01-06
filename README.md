@@ -31,7 +31,7 @@ To build Typescript code, make sure to have [`nvm`](https://github.com/nvm-sh/nv
 
 This repository uses CircleCI for continuous integration. Build steps are managed using [`build-system`](https://github.com/AztecProtocol/build-system). Small packages are built and tested as part of a docker build operation, while larger ones and end-to-end tests spin up a large AWS spot instance. Each successful build step creates a new docker image that gets tagged with the package name and commit.
 
-All packages need to be included in the [build manifest](https://github.com/AztecProtocol/aztec-packages/blob/master/build_manifest.yml), which declares what paths belong to each package, as well as dependencies between packages. When the CI runs, if none of the rebuild patterns or dependencies were changed, then the build step is skipped and the last successful image is re-tagged with the current commit. Read more on the [`build-system`](https://github.com/AztecProtocol/build-system) repository README.
+All packages need to be included in the [build manifest](build_manifest.yml), which declares what paths belong to each package, as well as dependencies between packages. When the CI runs, if none of the rebuild patterns or dependencies were changed, then the build step is skipped and the last successful image is re-tagged with the current commit. Read more on the [`build-system`](https://github.com/AztecProtocol/build-system) repository README.
 
 It is faster to debug CI failures within a persistent ssh session compared to pushing and waiting. You can create a session with "Rerun step with SSH" on CircleCI which will generate an ssh command for debugging on a worker. Run that command locally and then do
 
