@@ -19,7 +19,7 @@ The verifier uses SMT (Satisfiability Modulo Theories) solving to formally verif
 ### Results
 
 | Opcode      | Lhs type/size | Rhs type/size | Time/seconds | Memory/GB | Success | SMT Term Type    | Reason                     |
-| ----------- | ------------- | ------------- | ------------ | --------- | ------- | ---------------- | -------------------------- | --- |
+| ----------- | ------------- | ------------- | ------------ | --------- | ------- | ---------------- | -------------------------- |
 | Binary::Add | Field         | Field         | 0.024        | -         | &check; | TermType::FFTerm |                            |
 | Binary::Add | Unsigned_127  | Unsigned_127  | 2.8          | -         | &check; | TermType::BVTerm |                            |
 | Binary::And | Unsigned_32   | Unsigned_32   | 6.7          | -         | &check; | TermType::BVTerm |                            |
