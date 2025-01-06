@@ -290,28 +290,6 @@ static constexpr TraceStructure SMALL_TEST_STRUCTURE{ .ecc_op = 1 << 14,
  * @brief A minimal structuring specifically tailored to the medium complexity transaction of the Client IVC
  * benchmark.
  */
-// static constexpr TraceStructure CLIENT_IVC_BENCH_STRUCTURE{ .ecc_op = 1 << 10,
-//                                                             .busread = 1 << 6,
-//                                                             .lookup = 36000,
-//                                                             .pub_inputs = 1 << 6,
-//                                                             .arithmetic = 84000,
-//                                                             .delta_range = 45000,
-//                                                             .elliptic = 9000,
-//                                                             .aux = 68000,
-//                                                             .poseidon2_external = 2500,
-//                                                             .poseidon2_internal = 14000,
-//                                                             .overflow = 0 };
-// static constexpr TraceStructure CLIENT_IVC_BENCH_STRUCTURE{ .ecc_op = 1 << 11,
-//                                                             .busread = 1 << 8,
-//                                                             .lookup = 144000,
-//                                                             .pub_inputs = 1 << 8,
-//                                                             .arithmetic = 396000,
-//                                                             .delta_range = 180000,
-//                                                             .elliptic = 18000,
-//                                                             .aux = 272000,
-//                                                             .poseidon2_external = 5000,
-//                                                             .poseidon2_internal = 28000,
-//                                                             .overflow = 0 };
 static constexpr TraceStructure CLIENT_IVC_BENCH_STRUCTURE{ .ecc_op = 1 << 10,
                                                             .busread = 1 << 7,
                                                             .lookup = 72000,
