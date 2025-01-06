@@ -1,68 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1736183001485,
+  "lastUpdate": 1736187234105,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "132435771+jeanmon@users.noreply.github.com",
-            "name": "Jean M",
-            "username": "jeanmon"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "fc729ef3af7ec33f48dbb9fae3820a59a4a26479",
-          "message": "chore(avm): Gas constants adjustment based on trace rows accounting (#10614)\n\nResolves #10368",
-          "timestamp": "2024-12-11T19:40:24Z",
-          "tree_id": "225ce297ac40c1bb343c8073532b9d9f8b1cd9a3",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/fc729ef3af7ec33f48dbb9fae3820a59a4a26479"
-        },
-        "date": 1733947986683,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "nativeClientIVCBench/Full/6",
-            "value": 24587.800087000003,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 22541.924446 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 4528.183127999995,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 4256.803812 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmClientIVCBench/Full/6",
-            "value": 89456.425646,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 89456425000 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 16535.653199000004,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 16535653000 ms\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 2777904570,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 2777904570 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 132148528,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 132148528 ns\nthreads: 1"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -3210,6 +3150,72 @@ window.BENCHMARK_DATA = {
             "value": 142471684,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 142471684 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "lucasxia01@gmail.com",
+            "name": "Lucas Xia",
+            "username": "lucasxia01"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "800c83475c2b23ac6cf501c998f7c57b3803ad8f",
+          "message": "chore: clean up proof lengths and IPA (#11020)\n\nCloses https://github.com/AztecProtocol/barretenberg/issues/1184.\r\nCloses https://github.com/AztecProtocol/barretenberg/issues/1168.\r\n\r\nCleans up some ugliness by deduplication and refactoring. Also adds new\r\nUltraRollupHonk tests and a new test for checking proof lengths.",
+          "timestamp": "2025-01-06T17:57:15Z",
+          "tree_id": "2b87b8a5a45e64471a9de9f547e1feff5f9b59be",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/800c83475c2b23ac6cf501c998f7c57b3803ad8f"
+        },
+        "date": 1736187226769,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Ambient_17_in_20/6",
+            "value": 20153.86183999999,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 17671.438688 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 21766.65838400004,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 19315.740832000003 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 4603.296634000003,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 4306.661016 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 72754.874095,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 72754875000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 13977.354899999998,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 13977356000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 2868605930,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 2868605930 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 141858000,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 141858000 ns\nthreads: 1"
           }
         ]
       }
