@@ -1,3 +1,10 @@
+aztec:
+  slotDuration: 36
+  epochDuration: 32
+
+telemetry:
+  enabled: true
+
 validator:
   replicas: 1
   validatorKeys:

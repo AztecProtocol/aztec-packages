@@ -28,7 +28,7 @@ import { type Tuple, serializeToBuffer } from '@aztec/foundation/serialize';
 import { InterruptibleSleep } from '@aztec/foundation/sleep';
 import { Timer } from '@aztec/foundation/timer';
 import { EmpireBaseAbi, ExtRollupLibAbi, LeonidasLibAbi, RollupAbi, SlasherAbi } from '@aztec/l1-artifacts';
-import { type TelemetryClient } from '@aztec/telemetry-client';
+import { type TelemetryClient, WithTracer, trackSpan } from '@aztec/telemetry-client';
 
 import pick from 'lodash.pick';
 import {
@@ -146,7 +146,7 @@ type GetSlashPayloadCallBack = (slotNumber: bigint) => Promise<EthAddress | unde
  *
  * Adapted from https://github.com/AztecProtocol/aztec2-internal/blob/master/falafel/src/rollup_publisher.ts.
  */
-export class L1Publisher {
+export class L1Publisher extends WithTracer {
   private interruptibleSleep = new InterruptibleSleep();
   private sleepTimeMs: number;
   private interrupted = false;
@@ -191,6 +191,7 @@ export class L1Publisher {
     config: TxSenderConfig & PublisherConfig & Pick<L1ContractsConfig, 'ethereumSlotDuration'>,
     client: TelemetryClient,
   ) {
+    super(client, 'L1Publisher');
     this.sleepTimeMs = config?.l1PublishRetryIntervalMS ?? 60_000;
     this.ethereumSlotDuration = BigInt(config.ethereumSlotDuration);
     this.blobSinkUrl = config.blobSinkUrl;
@@ -476,6 +477,8 @@ export class L1Publisher {
       calldataGas: getCalldataGasUsage(calldata),
     };
   }
+
+  @trackSpan('L1Publisher.castVote')
   public async castVote(slotNumber: bigint, timestamp: bigint, voteType: VoteType) {
     // @todo This function can be optimized by doing some of the computations locally instead of calling the L1 contracts
     if (this.myLastVotes[voteType] >= slotNumber) {
@@ -550,6 +553,14 @@ export class L1Publisher {
     if (slotForLastVote >= slotNumber) {
       return false;
     }
+
+    logger.info('Trying to vote', {
+      slotNumber,
+      roundNumber,
+      slotForLastVote,
+      proposer: this.account.address,
+      payload: payload.toString(),
+    });
 
     const cachedMyLastVote = this.myLastVotes[voteType];
     this.myLastVotes[voteType] = slotNumber;
