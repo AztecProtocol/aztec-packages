@@ -1,5 +1,13 @@
 import { getDeployedTestAccountsWallets } from '@aztec/accounts/testing';
-import { AztecAddress, type Logger, type PXE, type Wallet, createPXEClient, makeFetch } from '@aztec/aztec.js';
+import {
+  AztecAddress,
+  BatchCall,
+  type Logger,
+  type PXE,
+  type Wallet,
+  createPXEClient,
+  makeFetch,
+} from '@aztec/aztec.js';
 import { CounterContract } from '@aztec/noir-contracts.js/Counter';
 import { StatefulTestContract } from '@aztec/noir-contracts.js/StatefulTest';
 import { TestContract } from '@aztec/noir-contracts.js/Test';
@@ -89,9 +97,22 @@ describe('e2e_deploy_contract deploy method', () => {
     await expect(TestContract.deploy(wallet).prove(opts)).rejects.toThrow(/no function calls needed/i);
   });
 
-  it.skip('publicly deploys and calls a public function in the same batched call', async () => {
-    // TODO(@spalladino): Requires being able to read a nullifier on the same tx it was emitted.
-  });
+  it('publicly deploys and calls a public contract in the same batched call', async () => {
+    const owner = wallet.getAddress();
+    // Create a contract instance and make the PXE aware of it
+    logger.debug(`Initializing deploy method`);
+    const deployMethod = StatefulTestContract.deploy(wallet, owner, owner, 42);
+    logger.debug(`Creating request/calls to register and deploy contract`);
+    const deploy = await deployMethod.request();
+    logger.debug(`Getting an instance of the not-yet-deployed contract to batch calls to`);
+    const contract = await StatefulTestContract.at(deployMethod.getInstance().address, wallet);
+
+    // Batch registration, deployment, and public call into same TX
+    logger.debug(`Creating public calls to run in same batch as deployment`);
+    const init = contract.methods.increment_public_value(owner, 84).request();
+    logger.debug(`Deploying a contract and calling a public function in the same batched call`);
+    await new BatchCall(wallet, [...deploy.calls, init]).send().wait();
+  }, 300_000);
 
   it.skip('publicly deploys and calls a public function in a tx in the same block', async () => {
     // TODO(@spalladino): Requires being able to read a nullifier on the same block it was emitted.
