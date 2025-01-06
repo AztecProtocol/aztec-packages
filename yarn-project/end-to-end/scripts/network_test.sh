@@ -134,6 +134,9 @@ fi
 
 VALUES_PATH="$REPO/spartan/aztec-network/values/$VALUES_FILE"
 
+# Generate eth devnet values
+$REPO/spartan/aztec-network/eth-devnet/create.sh
+
 # Install the Helm chart
 helm upgrade --install spartan "$REPO/spartan/aztec-network/" \
   --namespace "$NAMESPACE" \

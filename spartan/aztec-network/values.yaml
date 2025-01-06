@@ -28,6 +28,9 @@ images:
   reth:
     image: ghcr.io/paradigmxyz/reth:v1.0.8
     pullPolicy: IfNotPresent
+  lighthouse:
+    image: sigp/lighthouse:v6.0.1
+    pullPolicy: IfNotPresent
 
 aztec:
   slotDuration: 24 # in seconds, aka L2 slot duration. Must be a multiple of {{ ethereum.blockTime }}
@@ -205,27 +208,47 @@ ethereum:
   externalHost: ""
   replicas: 1
   chainId: 1337
+  # TODO(md): make updatable in genesis scripts
   blockTime: 12sec
   # 1 billion gas limit
   # helps ensure we can deploy public contracts
   gasLimit: "1000000000"
   args: ""
-  service:
-    type: ClusterIP
-    port: 8545
-    targetPort: 8545
-    nodePort: ""
+  execution:
+    service:
+      type: ClusterIP
+      port: 8545
+      targetPort: 8545
+      nodePort: ""
+    resources:
+      requests:
+        memory: "4Gi"
+        cpu: "1"
+    storage: "80Gi"
+  ## TODO: maybe need a second port for these two to communicate
+  beacon:
+    service:
+      type: ClusterIP
+      port: 5052
+      targetPort: 5052
+      nodePort: ""
+    resources:
+      requests:
+        memory: "4Gi"
+        cpu: "1"
+    storage: "80Gi"
+  validator:
+    resources:
+      requests:
+        memory: "4Gi"
+        cpu: "1"
+    storage: "80Gi"
   readinessProbe:
     initialDelaySeconds: 5
     periodSeconds: 10
     timeoutSeconds: 5
     successThreshold: 1
     failureThreshold: 3
-  resources:
-    requests:
-      memory: "4Gi"
-      cpu: "1"
-  storage: "80Gi"
   deployL1ContractsPrivateKey:
 
 proverAgent:
