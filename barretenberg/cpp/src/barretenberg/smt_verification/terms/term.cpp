@@ -266,6 +266,16 @@ void STerm::operator>=(const bb::fr& other) const
     this->solver->assertFormula(ge);
 }
 
+STerm STerm::operator%(const STerm& other) const
+{
+    if (!this->operations.contains(OpType::MOD)) {
+        info("MOD is not compatible with ", this->type);
+        return *this;
+    }
+    cvc5::Term res = solver->term_manager.mkTerm(this->operations.at(OpType::MOD), { this->term, other.term });
+    return { res, this->solver, this->type };
+}
+
 STerm STerm::operator^(const STerm& other) const
 {
     if (!this->operations.contains(OpType::XOR)) {

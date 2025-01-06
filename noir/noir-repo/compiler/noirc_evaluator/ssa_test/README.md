@@ -1,6 +1,6 @@
 # SSA Test Generator
 
-This tool generates test artifacts for formally verifying SSA instructions and their conversion to ACIR .
+This tool generates test artifacts for formally verifying SSA instructions and their conversion to ACIR.
 
 ## Purpose
 
@@ -18,8 +18,10 @@ Each test case generates:
 
 ## Usage
 
-Run the generator and copy artifacts to barretenberg:
+Run the generator with the desired output directory. The directory can be specified using the `-d` or `--dir` flag:
 
 ```bash
-cargo run && cp artifacts/* ../../../../../barretenberg/cpp/src/barretenberg/acir_formal_proofs/artifacts/
+cargo run -- -d /path/to/output/directory/
 ```
+
+DON'T FORGET TO CHANGE ARTIFACTS_PATH IN barretenberg/cpp/src/barretenberg/acir_formal_proofs/acir_loader.test.cpp TO THE NEW OUTPUT DIRECTORY.

@@ -164,6 +164,7 @@ class STerm {
     void operator|=(const STerm& other);
     void operator<(const STerm& other) const;
     void operator>(const STerm& other) const;
+    STerm operator%(const STerm& other) const;
     STerm operator~() const;
     STerm operator<<(const uint32_t& n) const;
     void operator<<=(const uint32_t& n);

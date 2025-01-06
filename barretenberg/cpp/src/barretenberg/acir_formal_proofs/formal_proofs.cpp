@@ -94,13 +94,11 @@ bool verify_mod(smt_solver::Solver* solver, smt_circuit::UltraCircuit circuit)
     auto a = circuit["a"];
     auto b = circuit["b"];
     auto c = circuit["c"];
-    smt_circuit::STerm c1 = a / b;
-    smt_circuit::STerm c2 = a - c1 * b;
-    c != c2;
+    smt_circuit::STerm c1 = a % b;
+    c != c1;
     bool res = solver->check();
     if (res) {
-        std::unordered_map<std::string, cvc5::Term> terms(
-            { { "a", a }, { "b", b }, { "c", c }, { "c1", c1 }, { "c2", c2 } });
+        std::unordered_map<std::string, cvc5::Term> terms({ { "a", a }, { "b", b }, { "c", c }, { "c1", c1 } });
         debug_solution(solver, terms);
     }
     return res;
@@ -188,7 +186,7 @@ bool verify_shl64(smt_solver::Solver* solver, smt_circuit::UltraCircuit circuit)
     auto a = circuit["a"];
     auto b = circuit["b"];
     auto c = circuit["c"];
-    auto cr = shl32(a, b, solver);
+    auto cr = shl64(a, b, solver);
     c != cr;
     bool res = solver->check();
     if (res) {

@@ -94,6 +94,24 @@ TEST(acir_formal_proofs, uint_terms_and)
 }
 
 /**
+ * @brief Tests 32-bit unsigned bitwise AND
+ * Verifies that the ACIR implementation of AND is correct
+ * Execution time: ~6.7 seconds on SMTBOX
+ */
+TEST(acir_formal_proofs, uint_terms_and32)
+{
+    std::string TESTNAME = "Binary::And_Unsigned_32_Unsigned_32";
+    AcirToSmtLoader loader = AcirToSmtLoader(ARTIFACTS_PATH + TESTNAME + ".acir");
+    smt_solver::Solver solver = loader.get_smt_solver();
+    smt_circuit::UltraCircuit circuit = loader.get_bitvec_smt_circuit(&solver);
+    bool res = verify_and(&solver, circuit);
+    EXPECT_FALSE(res);
+    if (res) {
+        save_buggy_witness(TESTNAME, circuit);
+    }
+}
+
+/**
  * @brief Tests 126-bit unsigned division
  * Verifies that the ACIR implementation of division is correct
  */
@@ -145,7 +163,7 @@ TEST(acir_formal_proofs, uint_terms_eq)
  * Verifies two cases:
  * 1. When a < b, result must be 0
  * 2. When a >= b, result must be 1
- * Execution time: ~56.7 seconds on SMTBOX
+ * Execution time: ~81.7 seconds on SMTBOX
  */
 TEST(acir_formal_proofs, uint_terms_lt)
 {
@@ -225,6 +243,24 @@ TEST(acir_formal_proofs, uint_terms_or)
 }
 
 /**
+ * @brief Tests 32-bit unsigned bitwise OR
+ * Verifies that the ACIR implementation of OR is correct
+ * Execution time: ~20.3 seconds on SMTBOX
+ */
+TEST(acir_formal_proofs, uint_terms_or32)
+{
+    std::string TESTNAME = "Binary::Or_Unsigned_32_Unsigned_32";
+    AcirToSmtLoader loader = AcirToSmtLoader(ARTIFACTS_PATH + TESTNAME + ".acir");
+    smt_solver::Solver solver = loader.get_smt_solver();
+    smt_circuit::UltraCircuit circuit = loader.get_bitvec_smt_circuit(&solver);
+    bool res = verify_or(&solver, circuit);
+    EXPECT_FALSE(res);
+    if (res) {
+        save_buggy_witness(TESTNAME, circuit);
+    }
+}
+
+/**
  * @brief Tests 64-bit left shift
  * Verifies that the ACIR implementation of left shift is correct
  * Execution time: ~4588 seconds on SMTBOX
@@ -232,7 +268,7 @@ TEST(acir_formal_proofs, uint_terms_or)
  */
 TEST(acir_formal_proofs, uint_terms_shl64)
 {
-    std::string TESTNAME = "Binary::Shl_Unsigned_32_Unsigned_8";
+    std::string TESTNAME = "Binary::Shl_Unsigned_64_Unsigned_8";
     AcirToSmtLoader loader = AcirToSmtLoader(ARTIFACTS_PATH + TESTNAME + ".acir");
     smt_solver::Solver solver = loader.get_smt_solver();
     smt_circuit::UltraCircuit circuit = loader.get_bitvec_smt_circuit(&solver);
@@ -317,8 +353,26 @@ TEST(acir_formal_proofs, uint_terms_xor)
 }
 
 /**
+ * @brief Tests 32-bit unsigned bitwise XOR
+ * Verifies that the ACIR implementation of XOR is correct
+ */
+TEST(acir_formal_proofs, uint_terms_xor32)
+{
+    std::string TESTNAME = "Binary::Xor_Unsigned_32_Unsigned_32";
+    AcirToSmtLoader loader = AcirToSmtLoader(ARTIFACTS_PATH + TESTNAME + ".acir");
+    smt_solver::Solver solver = loader.get_smt_solver();
+    smt_circuit::UltraCircuit circuit = loader.get_bitvec_smt_circuit(&solver);
+    bool res = verify_xor(&solver, circuit);
+    EXPECT_FALSE(res);
+    if (res) {
+        save_buggy_witness(TESTNAME, circuit);
+    }
+}
+
+/**
  * @brief Tests 127-bit unsigned bitwise NOT
  * Verifies that the ACIR implementation of NOT is correct
+ * Execution time: ~21.3 seconds on SMTBOX
  */
 TEST(acir_formal_proofs, uint_terms_not)
 {
@@ -370,6 +424,36 @@ TEST(acir_formal_proofs, field_terms_div)
 }
 
 /**
+ * @brief Tests field equality comparison
+ * Verifies two cases:
+ * 1. When operands are equal, result must be 0
+ * 2. When operands are not equal, result must be 1
+ * Execution time: ~19.2 seconds on SMTBOX
+ */
+TEST(acir_formal_proofs, field_terms_eq)
+{
+    std::string TESTNAME = "Binary::Eq_Field_0_Field_0";
+    AcirToSmtLoader loader = AcirToSmtLoader(ARTIFACTS_PATH + TESTNAME + ".acir");
+    smt_solver::Solver solver1 = loader.get_smt_solver();
+    smt_circuit::UltraCircuit circuit1 = loader.get_field_smt_circuit(&solver1);
+
+    bool res1 = verify_eq_on_equlaity(&solver1, circuit1);
+    EXPECT_FALSE(res1);
+    if (res1) {
+        save_buggy_witness(TESTNAME, circuit1);
+    }
+
+    smt_solver::Solver solver2 = loader.get_smt_solver();
+    smt_circuit::UltraCircuit circuit2 = loader.get_field_smt_circuit(&solver2);
+
+    bool res2 = verify_eq_on_inequlaity(&solver2, circuit2);
+    EXPECT_FALSE(res2);
+    if (res2) {
+        save_buggy_witness(TESTNAME, circuit2);
+    }
+}
+
+/**
  * @brief Tests field multiplication
  * Verifies that the ACIR implementation of field multiplication is correct
  * Execution time: ~0.22 seconds on SMTBOX
@@ -390,7 +474,7 @@ TEST(acir_formal_proofs, field_terms_mul)
 /**
  * @brief Tests 126-bit signed division
  * Verifies that the ACIR implementation of signed division is correct
- * Execution time: >10 DAYS on SMTBOX
+ * Execution time: >17 DAYS on SMTBOX
  */
 TEST(acir_formal_proofs, integer_terms_div)
 {
@@ -403,10 +487,4 @@ TEST(acir_formal_proofs, integer_terms_div)
     if (res) {
         save_buggy_witness(TESTNAME, circuit);
     }
-}
-
-TEST(acir_formal_proofs, verify_div_bug)
-{
-    std::string name = "Binary::Div_Unsigned_126_Unsigned_126";
-    EXPECT_TRUE(verify_buggy_witness(name));
 }
