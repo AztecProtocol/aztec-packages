@@ -12,12 +12,16 @@ export class NullifierCache implements NullifierSource {
     this.nullifiers = new Set();
   }
 
-  async nullifiersExist(nullifiers: Buffer[]): Promise<boolean[]> {
-    const dbIndices = await this.db.findLeafIndices(MerkleTreeId.NULLIFIER_TREE, nullifiers);
-    return nullifiers.map((n, index) => this.nullifiers.has(n.toString()) || dbIndices[index] !== undefined);
+  public async nullifiersExist(nullifiers: Buffer[]): Promise<boolean[]> {
+    const cacheResults = nullifiers.map(n => this.nullifiers.has(n.toString()));
+    const toCheckDb = nullifiers.filter((_n, index) => !cacheResults[index]);
+    const dbHits = await this.db.findLeafIndices(MerkleTreeId.NULLIFIER_TREE, toCheckDb);
+
+    let dbIndex = 0;
+    return nullifiers.map((_n, index) => cacheResults[index] || dbHits[dbIndex++] !== undefined);
   }
 
-  addNullifiers(nullifiers: Buffer[]) {
+  public addNullifiers(nullifiers: Buffer[]) {
     for (const nullifier of nullifiers) {
       this.nullifiers.add(nullifier.toString());
     }
