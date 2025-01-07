@@ -175,7 +175,7 @@ export class Tx extends Gossipable {
       ? this.data.toPrivateToPublicKernelCircuitPublicInputs().hash()
       : this.data.toPrivateToRollupKernelCircuitPublicInputs().hash();
 
-    return new TxHash(firstNullifier);
+    return new TxHash(hash);
   }
 
   /** Returns the tx hash, or undefined if none is set. */

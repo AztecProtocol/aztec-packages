@@ -1,8 +1,12 @@
 import { AztecAddress } from '@aztec/foundation/aztec-address';
+import { poseidon2HashWithSeparator } from '@aztec/foundation/crypto';
+import { type Fr } from '@aztec/foundation/fields';
 import { bufferSchemaFor } from '@aztec/foundation/schemas';
-import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
+import { BufferReader, serializeToBuffer, serializeToFields } from '@aztec/foundation/serialize';
 import { bufferToHex, hexToBuffer } from '@aztec/foundation/string';
+import { type FieldsOf } from '@aztec/foundation/types';
 
+import { GeneratorIndex, PRIVATE_TO_ROLLUP_KERNEL_CIRCUIT_PUBLIC_INPUTS_LENGTH } from '../../constants.gen.js';
 import { Gas } from '../gas.js';
 import { RollupValidationRequests } from '../rollup_validation_requests.js';
 import { PrivateToRollupAccumulatedData } from './private_to_rollup_accumulated_data.js';
@@ -83,8 +87,26 @@ export class PrivateToRollupKernelCircuitPublicInputs {
     return this.toBuffer();
   }
 
+  static getFields(fields: FieldsOf<PrivateToRollupKernelCircuitPublicInputs>) {
+    return [fields.rollupValidationRequests, fields.end, fields.constants, fields.gasUsed, fields.feePayer] as const;
+  }
+
   /** Creates an instance from a hex string. */
   static get schema() {
     return bufferSchemaFor(PrivateToRollupKernelCircuitPublicInputs);
+  }
+
+  toFields(): Fr[] {
+    const fields = serializeToFields(...PrivateToRollupKernelCircuitPublicInputs.getFields(this));
+    if (fields.length !== PRIVATE_TO_ROLLUP_KERNEL_CIRCUIT_PUBLIC_INPUTS_LENGTH) {
+      throw new Error(
+        `Invalid number of fields for PrivateToRollupKernelCircuitPublicInputs. Expected ${PRIVATE_TO_ROLLUP_KERNEL_CIRCUIT_PUBLIC_INPUTS_LENGTH}, got ${fields.length}`,
+      );
+    }
+    return fields;
+  }
+
+  hash() {
+    return poseidon2HashWithSeparator(this.toFields(), GeneratorIndex.PRIVATE_TX_HASH);
   }
 }
