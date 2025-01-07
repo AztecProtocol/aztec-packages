@@ -225,6 +225,7 @@ export class L1TxUtils {
       gasLimit,
       maxFeePerGas: formatGwei(gasPrice.maxFeePerGas),
       maxPriorityFeePerGas: formatGwei(gasPrice.maxPriorityFeePerGas),
+      ...(gasPrice.maxFeePerBlobGas && { maxFeePerBlobGas: formatGwei(gasPrice.maxFeePerBlobGas) }),
     });
 
     return { txHash, gasLimit, gasPrice };
