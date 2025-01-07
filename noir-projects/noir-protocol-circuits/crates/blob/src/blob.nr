@@ -269,27 +269,26 @@ fn barycentric_evaluate_blob_at_z(z: F, ys: [F; FIELDS_PER_BLOB]) -> F {
             //                          sum                   partial_sum
             //
 
-
             //    partial_sums[i] <- partial_sums[i-1] + (lhs[8*i] * rhs[8*i] + ... + lhs[8*i + 7] * rhs[8*i + 7])
             // => (lhs[8*i] * rhs[8*i] + ... + lhs[8*i + 7] * rhs[8*i + 7]) + partial_sums[i-1] - partial_sums[i] == 0
-                let mut lhs: [[F; 1]; 8] = [std::mem::zeroed(); 8];
-                let mut rhs: [[F; 1]; 8] = [std::mem::zeroed(); 8];
-                for j in 0..8 {
-                    let k = i * 8 + j;
-                    lhs[j] = [ROOTS[k]]; // omega^k
-                    rhs[j] = [fracs[k]]; // y_k / (z - omega^k)
-                }
+            let mut lhs: [[F; 1]; 8] = [std::mem::zeroed(); 8];
+            let mut rhs: [[F; 1]; 8] = [std::mem::zeroed(); 8];
+            for j in 0..8 {
+                let k = i * 8 + j;
+                lhs[j] = [ROOTS[k]]; // omega^k
+                rhs[j] = [fracs[k]]; // y_k / (z - omega^k)
+            }
 
-                let linear_terms = [partial_sums[i - 1], partial_sums[i]];
+            let linear_terms = [partial_sums[i - 1], partial_sums[i]];
 
-                BigNum::evaluate_quadratic_expression(
-                    lhs,
-                    [[false], [false], [false], [false], [false], [false], [false], [false]],
-                    rhs,
-                    [[false], [false], [false], [false], [false], [false], [false], [false]],
-                    linear_terms,
-                    [false, true],
-                );
+            BigNum::evaluate_quadratic_expression(
+                lhs,
+                [[false], [false], [false], [false], [false], [false], [false], [false]],
+                rhs,
+                [[false], [false], [false], [false], [false], [false], [false], [false]],
+                linear_terms,
+                [false, true],
+            );
         }
     }
 
