@@ -16,10 +16,11 @@ export TEST=$2
 case "$type" in
   "simple")
     # Strip leading non alpha numerics and replace / with _ for the container name.
-    name=$(echo "${TEST}" | sed 's/^[^a-zA-Z0-9]*//' | tr '/' '_')
+    name="$(echo "${TEST}" | sed 's/^[^a-zA-Z0-9]*//' | tr '/' '_')${NAME_POSTFIX:-}"
+    name_arg="--name $name"
     trap 'docker kill $name &>/dev/null; docker rm $name &>/dev/null' SIGINT SIGTERM
     docker run --rm \
-      --name $name \
+      $name_arg \
       --cpus=4 \
       --memory 8g \
       -v$(git rev-parse --show-toplevel):/root/aztec-packages \
@@ -31,8 +32,9 @@ case "$type" in
       $ISOLATION_IMAGE ./scripts/test_simple.sh $TEST
   ;;
   "compose")
-    name=${TEST//[\/\.]/_}
-    trap "docker compose -p $name down" SIGINT SIGTERM
-    docker compose -p "$name" up --exit-code-from=end-to-end --abort-on-container-exit --force-recreate
+    name_arg="-p ${TEST//[\/\.]/_}"
+    name_arg+="${NAME_POSTFIX:-}"
+    trap "docker compose $name_arg down" SIGINT SIGTERM
+    docker compose $name_arg up --exit-code-from=end-to-end --abort-on-container-exit --force-recreate
   ;;
 esac
