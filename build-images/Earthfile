@@ -92,7 +92,7 @@ foundry:
   LET FOUNDRY_BIN_DIR = "/root/.foundry/bin"
 
   RUN curl -L https://foundry.paradigm.xyz | bash \
-      && $FOUNDRY_BIN_DIR/foundryup -v nightly-$FOUNDRY_TAG \
+      && $FOUNDRY_BIN_DIR/foundryup -i nightly-$FOUNDRY_TAG \
       && mkdir -p /opt/foundry/bin \
       && for t in forge cast anvil chisel; do \
           mv $FOUNDRY_BIN_DIR/$t /opt/foundry/bin/$t; \
