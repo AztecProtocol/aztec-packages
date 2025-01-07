@@ -2,7 +2,7 @@ import {
   type AuthWitness,
   type AztecNode,
   type CompleteAddress,
-  MerkleTreeId,
+  type MerkleTreeId,
   type NoteStatus,
   type NullifierMembershipWitness,
   type PublicDataWitness,
@@ -72,13 +72,8 @@ export class ViewDataOracle extends TypedOracle {
    * @param leafValue - The leaf value
    * @returns The index and sibling path concatenated [index, sibling_path]
    */
-  public override async getMembershipWitness(blockNumber: number, treeId: MerkleTreeId, leafValue: Fr): Promise<Fr[]> {
-    const index = await this.db.findLeafIndex(blockNumber, treeId, leafValue);
-    if (!index) {
-      throw new Error(`Leaf value: ${leafValue} not found in ${MerkleTreeId[treeId]}`);
-    }
-    const siblingPath = await this.db.getSiblingPath(blockNumber, treeId, index);
-    return [new Fr(index), ...siblingPath];
+  public override getMembershipWitness(blockNumber: number, treeId: MerkleTreeId, leafValue: Fr): Promise<Fr[]> {
+    return this.db.getMembershipWitness(blockNumber, treeId, leafValue);
   }
 
   /**

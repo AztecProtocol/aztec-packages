@@ -184,7 +184,18 @@ export class SimulatorOracle implements DBOracle {
     return leafIndex;
   }
 
-  public async getSiblingPath(blockNumber: number, treeId: MerkleTreeId, leafIndex: bigint): Promise<Fr[]> {
+  public async getMembershipWitness(blockNumber: number, treeId: MerkleTreeId, leafValue: Fr): Promise<Fr[]> {
+    const leafIndex = await this.findLeafIndex(blockNumber, treeId, leafValue);
+    if (!leafIndex) {
+      throw new Error(`Leaf value: ${leafValue} not found in ${MerkleTreeId[treeId]}`);
+    }
+
+    const siblingPath = await this.#getSiblingPath(blockNumber, treeId, leafIndex);
+
+    return [new Fr(leafIndex), ...siblingPath];
+  }
+
+  async #getSiblingPath(blockNumber: number, treeId: MerkleTreeId, leafIndex: bigint): Promise<Fr[]> {
     switch (treeId) {
       case MerkleTreeId.NULLIFIER_TREE:
         return (await this.aztecNode.getNullifierSiblingPath(blockNumber, leafIndex)).toFields();

@@ -150,13 +150,13 @@ export interface DBOracle extends CommitmentsDB {
   findLeafIndex(blockNumber: L2BlockNumber, treeId: MerkleTreeId, leafValue: Fr): Promise<bigint | undefined>;
 
   /**
-   * Fetch the sibling path of the leaf in the respective tree
-   * @param blockNumber - The block number at which to get the sibling path.
-   * @param treeId - The id of the tree to search.
-   * @param leafIndex - The index of the leaf.
-   * @returns - The sibling path of the leaf.
+   * Fetches the index and sibling path of a leaf at a given block from a given tree.
+   * @param blockNumber - The block number at which to get the membership witness.
+   * @param treeId - Id of the tree to get the sibling path from.
+   * @param leafValue - The leaf value
+   * @returns The index and sibling path concatenated [index, sibling_path]
    */
-  getSiblingPath(blockNumber: number, treeId: MerkleTreeId, leafIndex: bigint): Promise<Fr[]>;
+  getMembershipWitness(blockNumber: number, treeId: MerkleTreeId, leafValue: Fr): Promise<Fr[]>;
 
   /**
    * Returns a nullifier membership witness for a given nullifier at a given block.
