@@ -39,7 +39,11 @@ global HASH_SEPARATOR: u32 = 2;
 impl<T, let INITIAL_DELAY: u32, Context, let N: u32> Storage<T, N> for SharedMutable<T, INITIAL_DELAY, Context>
 where
     T: Serialize<N> + Deserialize<N>,
-{}
+{
+    fn get_storage_slot(self) -> Field {
+        self.storage_slot
+    }
+}
 
 // SharedMutable<T> stores a value of type T that is:
 //  - publicly known (i.e. unencrypted)

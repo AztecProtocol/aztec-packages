@@ -4,9 +4,7 @@ pub trait Storage<T, let N: u32>
 where
     T: Serialize<N> + Deserialize<N>,
 {
-    fn get_storage_slot(self) -> Field {
-        self.storage_slot
-    }
+    fn get_storage_slot(self) -> Field;
 }
 
 // Struct representing an exportable storage variable in the contract

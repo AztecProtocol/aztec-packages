@@ -47,7 +47,7 @@ template <IsUltraFlavor Flavor> HonkProof UltraProver_<Flavor>::export_proof()
     // Add the IPA proof
     if constexpr (HasIPAAccumulator<Flavor>) {
         // The extra calculation is for the IPA proof length.
-        ASSERT(proving_key->proving_key.ipa_proof.size() == 1 + 4 * (CONST_ECCVM_LOG_N) + 2 + 2);
+        ASSERT(proving_key->proving_key.ipa_proof.size() == IPA_PROOF_LENGTH);
         proof.insert(proof.end(), proving_key->proving_key.ipa_proof.begin(), proving_key->proving_key.ipa_proof.end());
     }
     return proof;

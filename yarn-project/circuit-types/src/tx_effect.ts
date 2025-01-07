@@ -550,6 +550,6 @@ export class TxEffect {
   }
 
   get txHash(): TxHash {
-    return new TxHash(this.nullifiers[0].toBuffer());
+    return new TxHash(this.nullifiers[0]);
   }
 }
