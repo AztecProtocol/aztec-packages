@@ -14,7 +14,6 @@ import { GlobalVariableBuilder } from '../global_variable_builder/index.js';
 import { L1Publisher } from '../publisher/index.js';
 import { Sequencer, type SequencerConfig } from '../sequencer/index.js';
 import { type SlasherClient } from '../slasher/index.js';
-import { TxValidatorFactory } from '../tx_validator/tx_validator_factory.js';
 
 /**
  * Encapsulates the full sequencer and publisher.
@@ -99,7 +98,7 @@ export class SequencerClient {
       l2BlockSource,
       l1ToL2MessageSource,
       publicProcessorFactory,
-      new TxValidatorFactory(worldStateSynchronizer.getCommitted(), contractDataSource, !!config.enforceFees),
+      contractDataSource,
       l1Constants,
       deps.dateProvider,
       telemetryClient,

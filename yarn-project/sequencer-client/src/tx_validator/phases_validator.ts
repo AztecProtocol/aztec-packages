@@ -3,6 +3,7 @@ import {
   type PublicExecutionRequest,
   Tx,
   TxExecutionPhase,
+  type TxValidationResult,
   type TxValidator,
 } from '@aztec/circuit-types';
 import { type ContractDataSource } from '@aztec/circuits.js';
@@ -17,48 +18,36 @@ export class PhasesTxValidator implements TxValidator<Tx> {
     this.contractDataSource = new ContractsDataSourcePublicDB(contracts);
   }
 
-  async validateTxs(txs: Tx[]): Promise<[validTxs: Tx[], invalidTxs: Tx[]]> {
-    const validTxs: Tx[] = [];
-    const invalidTxs: Tx[] = [];
-
-    for (const tx of txs) {
+  async validateTx(tx: Tx): Promise<TxValidationResult> {
+    try {
       // TODO(@spalladino): We add this just to handle public authwit-check calls during setup
       // which are needed for public FPC flows, but fail if the account contract hasnt been deployed yet,
       // which is what we're trying to do as part of the current txs.
       await this.contractDataSource.addNewContracts(tx);
 
-      if (await this.validateTx(tx)) {
-        validTxs.push(tx);
-      } else {
-        invalidTxs.push(tx);
+      if (!tx.data.forPublic) {
+        this.#log.debug(`Tx ${Tx.getHash(tx)} does not contain enqueued public functions. Skipping phases validation.`);
+        return { result: 'valid' };
       }
 
+      const setupFns = getExecutionRequestsByPhase(tx, TxExecutionPhase.SETUP);
+      for (const setupFn of setupFns) {
+        if (!(await this.isOnAllowList(setupFn, this.setupAllowList))) {
+          this.#log.warn(
+            `Rejecting tx ${Tx.getHash(tx)} because it calls setup function not on allow list: ${
+              setupFn.callContext.contractAddress
+            }:${setupFn.callContext.functionSelector}`,
+            { allowList: this.setupAllowList },
+          );
+
+          return { result: 'invalid', reason: ['Setup function not on allow list'] };
+        }
+      }
+
+      return { result: 'valid' };
+    } finally {
       await this.contractDataSource.removeNewContracts(tx);
     }
-
-    return Promise.resolve([validTxs, invalidTxs]);
-  }
-
-  async validateTx(tx: Tx): Promise<boolean> {
-    if (!tx.data.forPublic) {
-      this.#log.debug(`Tx ${Tx.getHash(tx)} does not contain enqueued public functions. Skipping phases validation.`);
-      return true;
-    }
-
-    const setupFns = getExecutionRequestsByPhase(tx, TxExecutionPhase.SETUP);
-    for (const setupFn of setupFns) {
-      if (!(await this.isOnAllowList(setupFn, this.setupAllowList))) {
-        this.#log.warn(
-          `Rejecting tx ${Tx.getHash(tx)} because it calls setup function not on allow list: ${
-            setupFn.callContext.contractAddress
-          }:${setupFn.callContext.functionSelector}`,
-        );
-
-        return false;
-      }
-    }
-
-    return true;
   }
 
   async isOnAllowList(publicCall: PublicExecutionRequest, allowList: AllowedElement[]): Promise<boolean> {
