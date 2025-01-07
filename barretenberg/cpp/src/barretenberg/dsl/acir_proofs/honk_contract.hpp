@@ -1398,10 +1398,6 @@ library RelationsLib {
     }
 }
 
-// Errors
-error PublicInputsLengthWrong();
-error SumcheckFailed();
-error ShpleminiFailed();
 
 interface IVerifier {
     function verify(bytes calldata _proof, bytes32[] calldata _publicInputs) external view returns (bool);
@@ -1411,15 +1407,19 @@ interface IVerifier {
 abstract contract BaseHonkVerifier is IVerifier {
     using FrLib for Fr;
 
-    uint256 N;
-    uint256 logN;
-    uint256 numPublicInputs;
+    uint256 immutable N;
+    uint256 immutable logN;
+    uint256 immutable numPublicInputs;
 
     constructor(uint256 _N, uint256 _logN, uint256 _numPublicInputs) {
         N = _N;
         logN = _logN;
         numPublicInputs = _numPublicInputs;
     }
+
+    error PublicInputsLengthWrong();
+    error SumcheckFailed();
+    error ShpleminiFailed();
 
     function loadVerificationKey() internal pure virtual returns (Honk.VerificationKey memory);
 
