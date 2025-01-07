@@ -18,7 +18,15 @@ import { type ORACLE_NAMES } from './oracle/index.js';
  */
 type ACIRCallback = Record<
   ORACLE_NAMES,
-  (...args: ForeignCallInput[]) => void | Promise<void> | ForeignCallOutput | Promise<ForeignCallOutput>
+  (
+    ...args: ForeignCallInput[]
+  ) =>
+    | void
+    | Promise<void>
+    | ForeignCallOutput
+    | ForeignCallOutput[]
+    | Promise<ForeignCallOutput>
+    | Promise<ForeignCallOutput[]>
 >;
 
 /**
@@ -56,7 +64,16 @@ export async function acvm(
         }
 
         const result = await oracleFunction.call(callback, ...args);
-        return typeof result === 'undefined' ? [] : [result];
+
+        if (typeof result === 'undefined') {
+          return [];
+        } else if (result instanceof Array && !result.every(item => typeof item === 'string')) {
+          // We are dealing with a nested array which means that we do not need it wrap it in another array as to have
+          // the nested array structure it is already "wrapped".
+          return result as ForeignCallOutput[];
+        } else {
+          return [result] as ForeignCallOutput[];
+        }
       } catch (err) {
         let typedError: Error;
         if (err instanceof Error) {

@@ -412,7 +412,7 @@ export class Oracle {
    * @param tSize - The size of the serialized object to return.
    * @returns The data found flag and the serialized object concatenated in one array.
    */
-  async load([contract]: ACVMField[], [key]: ACVMField[], [tSize]: ACVMField[]) {
+  async load([contract]: ACVMField[], [key]: ACVMField[], [tSize]: ACVMField[]): Promise<(ACVMField | ACVMField[])[]> {
     const processedContract = AztecAddress.fromField(fromACVMField(contract));
     const processedKey = fromACVMField(key);
     const values = await this.typedOracle.load(processedContract, processedKey);
