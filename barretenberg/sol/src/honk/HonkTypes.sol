@@ -1,9 +1,6 @@
 // SPDX-License-Identifier: MIT
 pragma solidity >=0.8.21;
 
-// Temp only set here for testing, logn will be templated
-import {LOG_N} from "./keys/Add2HonkVerificationKey.sol";
-
 import {Fr} from "./Fr.sol";
 
 uint256 constant CONST_PROOF_SIZE_LOG_N = 28;

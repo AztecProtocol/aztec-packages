@@ -21,6 +21,8 @@ template <typename Flavor> class SumcheckTests : public ::testing::Test {
     using FF = typename Flavor::FF;
     using ProverPolynomials = typename Flavor::ProverPolynomials;
     using RelationSeparator = Flavor::RelationSeparator;
+    using ZKData = ZKSumcheckData<Flavor>;
+
     const size_t NUM_POLYNOMIALS = Flavor::NUM_ALL_ENTITIES;
     static void SetUpTestSuite() { bb::srs::init_crs_factory(bb::srs::get_ignition_crs_path()); }
 
@@ -118,6 +120,7 @@ template <typename Flavor> class SumcheckTests : public ::testing::Test {
 
     void test_prover()
     {
+
         const size_t multivariate_d(2);
         const size_t multivariate_n(1 << multivariate_d);
 
@@ -146,7 +149,7 @@ template <typename Flavor> class SumcheckTests : public ::testing::Test {
         SumcheckOutput<Flavor> output;
 
         if constexpr (Flavor::HasZK) {
-            ZKSumcheckData<Flavor> zk_sumcheck_data(multivariate_d, transcript);
+            ZKData zk_sumcheck_data = ZKData(multivariate_d, transcript);
             output = sumcheck.prove(full_polynomials, {}, alpha, gate_challenges, zk_sumcheck_data);
         } else {
             output = sumcheck.prove(full_polynomials, {}, alpha, gate_challenges);
@@ -252,7 +255,7 @@ template <typename Flavor> class SumcheckTests : public ::testing::Test {
         }
         SumcheckOutput<Flavor> output;
         if constexpr (Flavor::HasZK) {
-            ZKSumcheckData<Flavor> zk_sumcheck_data(multivariate_d, prover_transcript);
+            ZKData zk_sumcheck_data = ZKData(multivariate_d, prover_transcript);
             output = sumcheck_prover.prove(
                 full_polynomials, relation_parameters, prover_alpha, prover_gate_challenges, zk_sumcheck_data);
         } else {
@@ -342,7 +345,7 @@ template <typename Flavor> class SumcheckTests : public ::testing::Test {
         SumcheckOutput<Flavor> output;
         if constexpr (Flavor::HasZK) {
             // construct libra masking polynomials and compute auxiliary data
-            ZKSumcheckData<Flavor> zk_sumcheck_data(multivariate_d, prover_transcript);
+            ZKData zk_sumcheck_data = ZKData(multivariate_d, prover_transcript);
             output = sumcheck_prover.prove(
                 full_polynomials, relation_parameters, prover_alpha, prover_gate_challenges, zk_sumcheck_data);
         } else {
@@ -375,15 +378,13 @@ using FlavorTypes = testing::Types<UltraFlavor, UltraFlavorWithZK, MegaZKFlavor>
 
 TYPED_TEST_SUITE(SumcheckTests, FlavorTypes);
 
-#define SKIP_IF_ZK()                                                                                                   \
-    if (std::is_same<TypeParam, UltraFlavorWithZK>::value || std::is_same<TypeParam, MegaZKFlavor>::value) {           \
-        GTEST_SKIP() << "Skipping test for ZK-enabled flavors";                                                        \
-    }
-
 TYPED_TEST(SumcheckTests, PolynomialNormalization)
 {
-    SKIP_IF_ZK();
-    this->test_polynomial_normalization();
+    if constexpr (std::is_same_v<TypeParam, UltraFlavor>) {
+        this->test_polynomial_normalization();
+    } else {
+        GTEST_SKIP() << "Skipping test for ZK-enabled flavors";
+    }
 }
 // Test the prover
 TYPED_TEST(SumcheckTests, Prover)

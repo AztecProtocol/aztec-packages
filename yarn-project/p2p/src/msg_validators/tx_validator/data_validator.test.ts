@@ -1,4 +1,4 @@
-import { mockTx } from '@aztec/circuit-types';
+import { type Tx, mockTx } from '@aztec/circuit-types';
 import { AztecAddress, Fr, FunctionSelector } from '@aztec/circuits.js';
 
 import { DataTxValidator } from './data_validator.js';
@@ -21,9 +21,19 @@ describe('TxDataValidator', () => {
     validator = new DataTxValidator();
   });
 
+  const expectValid = async (txs: Tx[]) => {
+    for (const tx of txs) {
+      await expect(validator.validateTx(tx)).resolves.toEqual({ result: 'valid' });
+    }
+  };
+
+  const expectInvalid = async (tx: Tx, reason: string) => {
+    await expect(validator.validateTx(tx)).resolves.toEqual({ result: 'invalid', reason: [reason] });
+  };
+
   it('allows transactions with the correct data', async () => {
-    const txs = mockTxs(3);
-    await expect(validator.validateTxs(txs)).resolves.toEqual([txs, []]);
+    const [tx] = mockTxs(1);
+    await expect(validator.validateTx(tx)).resolves.toEqual({ result: 'valid' });
   });
 
   it('rejects txs with mismatch non revertible execution requests', async () => {
@@ -33,7 +43,10 @@ describe('TxDataValidator', () => {
     badTxs[1].data.forPublic!.nonRevertibleAccumulatedData.publicCallRequests[1].contractAddress =
       AztecAddress.random();
 
-    await expect(validator.validateTxs([...goodTxs, ...badTxs])).resolves.toEqual([goodTxs, badTxs]);
+    await expectValid(goodTxs);
+
+    await expectInvalid(badTxs[0], 'Incorrect execution request for public call');
+    await expectInvalid(badTxs[1], 'Incorrect execution request for public call');
   });
 
   it('rejects txs with mismatch revertible execution requests', async () => {
@@ -46,7 +59,12 @@ describe('TxDataValidator', () => {
     badTxs[3].data.forPublic!.revertibleAccumulatedData.publicCallRequests[0].isStaticCall =
       !badTxs[3].enqueuedPublicFunctionCalls[0].callContext.isStaticCall;
 
-    await expect(validator.validateTxs([...badTxs, ...goodTxs])).resolves.toEqual([goodTxs, badTxs]);
+    await expectValid(goodTxs);
+
+    await expectInvalid(badTxs[0], 'Incorrect execution request for public call');
+    await expectInvalid(badTxs[1], 'Incorrect execution request for public call');
+    await expectInvalid(badTxs[2], 'Incorrect execution request for public call');
+    await expectInvalid(badTxs[3], 'Incorrect execution request for public call');
   });
 
   it('rejects txs with mismatch teardown execution requests', async () => {
@@ -55,7 +73,10 @@ describe('TxDataValidator', () => {
     badTxs[0].data.forPublic!.publicTeardownCallRequest.contractAddress = AztecAddress.random();
     badTxs[1].data.forPublic!.publicTeardownCallRequest.msgSender = AztecAddress.random();
 
-    await expect(validator.validateTxs([...goodTxs, ...badTxs])).resolves.toEqual([goodTxs, badTxs]);
+    await expectValid(goodTxs);
+
+    await expectInvalid(badTxs[0], 'Incorrect teardown execution request');
+    await expectInvalid(badTxs[1], 'Incorrect teardown execution request');
   });
 
   it('rejects txs with mismatch number of execution requests', async () => {
@@ -66,6 +87,9 @@ describe('TxDataValidator', () => {
     // Having an extra enqueuedPublicFunctionCall.
     badTxs[1].enqueuedPublicFunctionCalls.push(execRequest);
 
-    await expect(validator.validateTxs([...badTxs, ...goodTxs])).resolves.toEqual([goodTxs, badTxs]);
+    await expectValid(goodTxs);
+
+    await expectInvalid(badTxs[0], 'Wrong number of execution requests for public calls');
+    await expectInvalid(badTxs[1], 'Wrong number of execution requests for public calls');
   });
 });

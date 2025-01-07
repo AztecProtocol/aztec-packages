@@ -4780,6 +4780,11 @@ AvmError AvmTraceBuilder::op_variable_msm(uint8_t indirect,
 
     const FF points_length = is_ok(error) ? unconstrained_read_from_memory(resolved_point_length_offset) : 0;
 
+    // Unconstrained check that points_length must be a multiple of 3.
+    if (is_ok(error) && static_cast<uint32_t>(points_length) % 3 != 0) {
+        error = AvmError::MSM_POINTS_LEN_INVALID;
+    }
+
     if (is_ok(error) && !check_slice_mem_range(resolved_points_offset, static_cast<uint32_t>(points_length))) {
         error = AvmError::MEM_SLICE_OUT_OF_RANGE;
     }
@@ -4863,6 +4868,10 @@ AvmError AvmTraceBuilder::op_variable_msm(uint8_t indirect,
             points.emplace_back(grumpkin::g1::affine_element::infinity());
         } else {
             points.emplace_back(x, y);
+            // Unconstrained check that this point lies on the Grumpkin curve.
+            if (!points.back().on_curve()) {
+                return AvmError::MSM_POINT_NOT_ON_CURVE;
+            }
         }
     }
     // Reconstruct Grumpkin scalars
