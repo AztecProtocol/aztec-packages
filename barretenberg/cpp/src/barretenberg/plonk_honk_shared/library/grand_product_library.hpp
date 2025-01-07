@@ -181,10 +181,13 @@ void compute_grand_product(typename Flavor::ProverPolynomials& full_polynomials,
     // We have a 'virtual' 0 at the start (as this is a to-be-shifted polynomial)
     ASSERT(grand_product_polynomial.start_index() == 1);
 
+    // For Ultra/Mega, the first row is an inactive zero row thus the grand prod takes value 1 at both i = 0 and i = 1
     if constexpr (IsUltraFlavor<Flavor>) {
+        ASSERT(active_region_data.idxs[0] == 1); // first active idx should be 1
         grand_product_polynomial.at(1) = 1;
     }
 
+    // Compute grand product values corresponding only to the active regions of the trace
     parallel_for(active_range_thread_data.num_threads, [&](size_t thread_idx) {
         const size_t start = active_range_thread_data.start[thread_idx];
         const size_t end = active_range_thread_data.end[thread_idx];
@@ -194,28 +197,25 @@ void compute_grand_product(typename Flavor::ProverPolynomials& full_polynomials,
         }
     });
 
-    // Lambda to set the constant inactive regions of the grand product if they exist
-    auto set_constant_value_if_inactive = [&](size_t i) {
-        for (size_t j = 0; j < active_region_data.ranges.size() - 1; ++j) {
-            size_t previous_range_end = active_region_data.ranges[j].second;
-            size_t next_range_start = active_region_data.ranges[j + 1].first;
-            if (i >= previous_range_end && i < next_range_start) {
-                grand_product_polynomial.at(i) = grand_product_polynomial[next_range_start];
-                break;
-            }
-        }
-    };
-
-    // Final step: The grand product is constant in the inactive regions of the trace (if they exist) where no copy
-    // constraints are present. These constant values have already been computed and are equal to the first value in the
-    // subsequent active region.
+    // Final step: If active/inactive regions have been specified, the value of the grand product in the inactive
+    // regions have not yet been set. The polynomial takes an already computed constant value across each inactive
+    // region (since no copy constraints are present there) equal to the value of the grand product at the first index
+    // of the subsequent active region.
     if (active_region_specified) {
         MultithreadData full_domain_thread_data = calculate_thread_data(domain_size);
         parallel_for(full_domain_thread_data.num_threads, [&](size_t thread_idx) {
             const size_t start = full_domain_thread_data.start[thread_idx];
             const size_t end = full_domain_thread_data.end[thread_idx];
             for (size_t i = start; i < end; ++i) {
-                set_constant_value_if_inactive(i);
+                for (size_t j = 0; j < active_region_data.ranges.size() - 1; ++j) {
+                    size_t previous_range_end = active_region_data.ranges[j].second;
+                    size_t next_range_start = active_region_data.ranges[j + 1].first;
+                    // If the index falls in an inactive region, set its value
+                    if (i >= previous_range_end && i < next_range_start) {
+                        grand_product_polynomial.at(i) = grand_product_polynomial[next_range_start];
+                        break;
+                    }
+                }
             }
         });
     }

@@ -98,7 +98,7 @@ template <IsUltraFlavor Flavor> void OinkProver<Flavor>::execute_wire_commitment
     // We only commit to the fourth wire polynomial after adding memory recordss
     {
         PROFILE_THIS_NAME("COMMIT::wires");
-        if (IsMegaFlavor<Flavor> && proving_key->get_is_structured()) {
+        if (proving_key->get_is_structured()) {
             witness_commitments.w_l = proving_key->proving_key.commitment_key->commit_structured(
                 proving_key->proving_key.polynomials.w_l, proving_key->proving_key.active_region_data.ranges);
             witness_commitments.w_r = proving_key->proving_key.commitment_key->commit_structured(
