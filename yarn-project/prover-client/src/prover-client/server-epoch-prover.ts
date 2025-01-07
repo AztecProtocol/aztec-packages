@@ -10,7 +10,6 @@ export class ServerEpochProver implements EpochProver {
   constructor(private facade: BrokerCircuitProverFacade, private orchestrator: ProvingOrchestrator) {}
 
   startNewEpoch(epochNumber: number, firstBlockNumber: number, totalNumBlocks: number): void {
-    console.log(`HERE!!!`);
     this.orchestrator.startNewEpoch(epochNumber, firstBlockNumber, totalNumBlocks);
     this.facade.start();
   }
