@@ -67,7 +67,7 @@ function compile {
     SECONDS=0
     rm -f $json_path
     # TODO(#10754): Remove --skip-brillig-constraints-check
-    local compile_cmd="$NARGO compile --package $name --silence-warnings --skip-brillig-constraints-check"
+    local compile_cmd="$NARGO compile --package $name --skip-brillig-constraints-check"
     echo_stderr "$compile_cmd"
     dump_fail "$compile_cmd"
     echo_stderr "Compilation complete for: $name (${SECONDS}s)"
@@ -138,7 +138,7 @@ function test {
   CIRCUITS_HASH=$(cache_content_hash ../../noir/.rebuild_patterns "^noir-projects/$name")
   test_should_run $name-tests-$CIRCUITS_HASH || return 0
 
-  RAYON_NUM_THREADS= $NARGO test --silence-warnings --skip-brillig-constraints-check
+  RAYON_NUM_THREADS= $NARGO test --skip-brillig-constraints-check
   cache_upload_flag $name-tests-$CIRCUITS_HASH
 }
 
