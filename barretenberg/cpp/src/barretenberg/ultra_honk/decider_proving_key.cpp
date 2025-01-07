@@ -328,8 +328,9 @@ void DeciderProvingKey_<Flavor>::move_structured_trace_overflow_to_overflow_bloc
 }
 
 template class DeciderProvingKey_<UltraFlavor>;
-template class DeciderProvingKey_<UltraFlavorWithZK>;
+template class DeciderProvingKey_<UltraZKFlavor>;
 template class DeciderProvingKey_<UltraKeccakFlavor>;
+template class DeciderProvingKey_<UltraKeccakZKFlavor>;
 template class DeciderProvingKey_<UltraRollupFlavor>;
 template class DeciderProvingKey_<MegaFlavor>;
 template class DeciderProvingKey_<MegaZKFlavor>;

@@ -6,6 +6,7 @@ import {
   type PXE,
   type Wallet,
   createPXEClient,
+  getContractClassFromArtifact,
   makeFetch,
 } from '@aztec/aztec.js';
 import { CounterContract } from '@aztec/noir-contracts.js/Counter';
@@ -38,6 +39,16 @@ describe('e2e_deploy_contract deploy method', () => {
     logger.debug(`Calling public method on stateful test contract at ${contract.address.toString()}`);
     await contract.methods.increment_public_value(owner, 84).send().wait();
     expect(await contract.methods.get_public_value(owner).simulate()).toEqual(84n);
+    expect(await pxe.isContractClassPubliclyRegistered(contract.instance.contractClassId)).toBeTrue();
+  });
+
+  // TODO(#10007): Remove this test. Common contracts (ie token contracts) are only distinguished
+  // because we're manually adding them to the archiver to support provernet.
+  it('registers a contract class for a common contract', async () => {
+    const { id: tokenContractClass } = getContractClassFromArtifact(TokenContract.artifact);
+    expect(await pxe.isContractClassPubliclyRegistered(tokenContractClass)).toBeFalse();
+    await TokenContract.deploy(wallet, wallet.getAddress(), 'TOKEN', 'TKN', 18n).send().deployed();
+    expect(await pxe.isContractClassPubliclyRegistered(tokenContractClass)).toBeTrue();
   });
 
   it('publicly universally deploys and initializes a contract', async () => {
