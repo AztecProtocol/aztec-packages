@@ -6,7 +6,7 @@ import { BlockProposal, SignatureDomainSeparator, getHashedSignaturePayload } fr
 import { type PublicTxSimulator } from '@aztec/simulator';
 import { ReExFailedTxsError, ReExStateMismatchError, ReExTimeoutError } from '@aztec/validator-client/errors';
 
-import { beforeAll, describe, it, jest } from '@jest/globals';
+import { describe, it, jest } from '@jest/globals';
 import fs from 'fs';
 
 import { shouldCollectMetrics } from '../fixtures/fixtures.js';
@@ -16,21 +16,24 @@ import { submitComplexTxsTo } from './shared.js';
 
 const NUM_NODES = 4;
 const NUM_TXS_PER_NODE = 1;
-const BOOT_NODE_UDP_PORT = 41000;
-
-const DATA_DIR = './data/re-ex';
+const BASE_BOOT_NODE_UDP_PORT = 40000;
+const BASE_DATA_DIR = './data/re-ex';
 
 describe('e2e_p2p_reex', () => {
   let t: P2PNetworkTest;
   let nodes: AztecNodeService[];
+  let bootNodeUdpPort: number = BASE_BOOT_NODE_UDP_PORT;
+  let dataDir: string;
 
-  beforeAll(async () => {
+  beforeEach(async () => {
     nodes = [];
+    bootNodeUdpPort += 1000;
+    dataDir = `${BASE_DATA_DIR}/${bootNodeUdpPort.toString()}`;
 
     t = await P2PNetworkTest.create({
       testName: 'e2e_p2p_reex',
       numberOfNodes: NUM_NODES,
-      basePort: BOOT_NODE_UDP_PORT,
+      basePort: bootNodeUdpPort,
       // To collect metrics - run in aztec-packages `docker compose --profile metrics up` and set COLLECT_METRICS=true
       metricsPort: shouldCollectMetrics(),
       initialConfig: { enforceTimeTable: true },
@@ -49,12 +52,12 @@ describe('e2e_p2p_reex', () => {
     await t.setup();
   });
 
-  afterAll(async () => {
+  afterEach(async () => {
     // shutdown all nodes.
     await t.stopNodes(nodes);
     await t.teardown();
     for (let i = 0; i < NUM_NODES; i++) {
-      fs.rmSync(`${DATA_DIR}-${i}`, { recursive: true, force: true });
+      fs.rmSync(`${dataDir}-${i}`, { recursive: true, force: true });
     }
   });
 
@@ -145,18 +148,20 @@ describe('e2e_p2p_reex', () => {
 
         t.ctx.aztecNodeConfig.validatorReexecute = true;
 
+        t.logger.info('Creating nodes');
         nodes = await createNodes(
           t.ctx.aztecNodeConfig,
           t.ctx.dateProvider,
           t.bootstrapNodeEnr,
           NUM_NODES,
-          BOOT_NODE_UDP_PORT,
-          DATA_DIR,
+          bootNodeUdpPort,
+          dataDir,
           // To collect metrics - run in aztec-packages `docker compose --profile metrics up` and set COLLECT_METRICS=true
           shouldCollectMetrics(),
         );
 
         // Hook into the node and intercept re-execution logic
+        t.logger.info('Installing interceptors');
         const reExecutionSpies = [];
         for (const node of nodes) {
           nodeInterceptor(node);
@@ -166,6 +171,7 @@ describe('e2e_p2p_reex', () => {
         }
 
         // Wait a bit for peers to discover each other
+        t.logger.info('Waiting for peer discovery');
         await sleep(4000);
 
         nodes.forEach(node => {
@@ -174,18 +180,21 @@ describe('e2e_p2p_reex', () => {
             maxTxsPerBlock: NUM_TXS_PER_NODE,
           });
         });
+
+        t.logger.info('Submitting txs');
         const txs = await submitComplexTxsTo(t.logger, t.spamContract!, NUM_TXS_PER_NODE, { callPublic: true });
 
         // We ensure that the transactions are NOT mined
+        // FIXME: This only works if NUM_TXS_PER_NODE is 1, otherwise this throws on the 1st tx that times out.
         try {
           await Promise.all(
             txs.map(async (tx: SentTx, i: number) => {
               t.logger.info(`Waiting for tx ${i}: ${await tx.getTxHash()} to be mined`);
-              return tx.wait();
+              return tx.wait({ timeout: 60 });
             }),
           );
         } catch (e) {
-          t.logger.info('Failed to mine all txs, as planned');
+          t.logger.info('Failed to mine txs as planned');
         }
 
         // Expect that all of the re-execution attempts failed with an invalid root
