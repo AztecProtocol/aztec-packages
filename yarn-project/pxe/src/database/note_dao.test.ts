@@ -1,4 +1,4 @@
-import { NoteDao as NoteDao } from './note_dao.js';
+import { NoteDao } from './note_dao.js';
 
 describe('Note DAO', () => {
   it('convert to and from buffer', () => {

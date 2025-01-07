@@ -642,10 +642,10 @@ describe('Simulator oracle', () => {
 
       await simulatorOracle.processTaggedLogs(taggedLogs, recipient.address, simulator);
 
-      // Check incoming
+      // Check notes
       {
-        const addedIncoming: NoteDao[] = addNotesSpy.mock.calls[0][0];
-        expect(addedIncoming.map(dao => dao)).toEqual([
+        const addedNotes: NoteDao[] = addNotesSpy.mock.calls[0][0];
+        expect(addedNotes.map(dao => dao)).toEqual([
           expect.objectContaining({ ...requests[0].snippetOfNoteDao, index: requests[0].indexWithinNoteHashTree }),
           expect.objectContaining({ ...requests[1].snippetOfNoteDao, index: requests[1].indexWithinNoteHashTree }),
           expect.objectContaining({ ...requests[2].snippetOfNoteDao, index: requests[2].indexWithinNoteHashTree }),
@@ -655,7 +655,7 @@ describe('Simulator oracle', () => {
 
         // Check that every note has a different nonce.
         const nonceSet = new Set<bigint>();
-        addedIncoming.forEach(info => nonceSet.add(info.nonce.value));
+        addedNotes.forEach(info => nonceSet.add(info.nonce.value));
         expect(nonceSet.size).toBe(requests.length);
       }
     });

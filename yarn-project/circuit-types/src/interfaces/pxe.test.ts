@@ -34,7 +34,7 @@ import { AuthWitness } from '../auth_witness.js';
 import { type InBlock } from '../in_block.js';
 import { L2Block } from '../l2_block.js';
 import { ExtendedUnencryptedL2Log, type GetUnencryptedLogsResponse, type LogFilter } from '../logs/index.js';
-import { type NotesFilter } from '../notes/incoming_notes_filter.js';
+import { type NotesFilter } from '../notes/notes_filter.js';
 import { ExtendedNote, UniqueNote } from '../notes/index.js';
 import { PrivateExecutionResult } from '../private_execution_result.js';
 import { type EpochProofQuote } from '../prover_coordination/epoch_proof_quote.js';

@@ -23,7 +23,7 @@ export type NotesFilter = {
   status?: NoteStatus;
   /** The siloed nullifier for the note. */
   siloedNullifier?: Fr;
-  /** The scopes in which to get incoming notes from. This defaults to all scopes. */
+  /** The scopes in which to get notes from. This defaults to all scopes. */
   scopes?: AztecAddress[];
 };
 

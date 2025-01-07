@@ -36,7 +36,7 @@ import {
   type LogFilter,
   LogFilterSchema,
 } from '../logs/index.js';
-import { type NotesFilter as NotesFilter, NotesFilterSchema } from '../notes/incoming_notes_filter.js';
+import { type NotesFilter, NotesFilterSchema } from '../notes/notes_filter.js';
 import { ExtendedNote, UniqueNote } from '../notes/index.js';
 import { PrivateExecutionResult } from '../private_execution_result.js';
 import { SiblingPath } from '../sibling_path/sibling_path.js';
