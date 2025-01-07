@@ -1,68 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1736249124438,
+  "lastUpdate": 1736254521969,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "60546371+PhilWindle@users.noreply.github.com",
-            "name": "PhilWindle",
-            "username": "PhilWindle"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "a437e73558a936981f3eb3ba022b0770b75d9060",
-          "message": "feat: Leaf index requests to the native world state can now be performed as a batch query (#10649)\n\nPreviously, every request to retrieve the index for a given leaf had to\r\nmade using a seperate request. Given the number of requests that need to\r\nbe handled, this has now been changed to offer a batch request instead.",
-          "timestamp": "2024-12-13T07:14:58Z",
-          "tree_id": "66d315ce353877078fa0e635e82436312c958aec",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/a437e73558a936981f3eb3ba022b0770b75d9060"
-        },
-        "date": 1734076613325,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "nativeClientIVCBench/Full/6",
-            "value": 24613.872254,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 22439.988110000002 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 4527.275996000015,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 4247.862298999999 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmClientIVCBench/Full/6",
-            "value": 89460.304128,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 89460304000 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 16488.959654,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 16488960000 ms\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 2771149142,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 2771149142 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 132249560,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 132249560 ns\nthreads: 1"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -3250,6 +3190,72 @@ window.BENCHMARK_DATA = {
             "value": 150275139,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 150275139 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "105737703+iakovenkos@users.noreply.github.com",
+            "name": "iakovenkos",
+            "username": "iakovenkos"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "fc48dcca537fa790ed6866ad4e184cb89c2617a2",
+          "message": "feat: fix commitments and openings of masking polynomials used in zk sumcheck  (#10773)\n\nWe have updated the approach for committing to Libra masking\r\npolynomials. Instead of committing to them and opening them separately,\r\nwe now utilize the [inner products using KZG with ZK and a linear-time\r\nverifier](https://hackmd.io/xYHn1qqvQjey1yJutcuXdg?both#inner-products-using-KZG-with-zk-and-linear-time-verifier)\r\nprotocol, referred to as **SmallSubgroupIPA**.\r\n\r\n### Key Changes in this PR\r\n-  Addressed ZK issues of the previous approach.\r\n- Reduced the number of scalar multiplications required in our ZK\r\nverifiers over BN254.\r\n-  Finalized the necessary logic for UltraZK.\r\n\r\n### Remark\r\nHowever, the non-native arithmetic required by `ECCVMRecursiveVerifier`\r\nbecomes prohibitively expensive if we continue sending the coefficients\r\nof `SumcheckUnivariates`. To address this, we have implemented a\r\nGrumpkin-based version of **SmallSubgroupIPA**, which assumes sending\r\ncommitments to the `SumcheckRound` univariates. This will be done in a\r\nfollow-up update.",
+          "timestamp": "2025-01-07T13:39:20+01:00",
+          "tree_id": "e24381f5c2522df6b0354a4f35d8a8c79407fe18",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/fc48dcca537fa790ed6866ad4e184cb89c2617a2"
+        },
+        "date": 1736254513769,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Ambient_17_in_20/6",
+            "value": 19629.297726999994,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 17086.599381 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 21314.671893999985,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 18662.310964 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 4651.158126999973,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 4254.621628 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 72078.668879,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 72078669000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 13991.375813999999,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 13991376000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 2854677686,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 2854677686 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 146004416,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 146004416 ns\nthreads: 1"
           }
         ]
       }
