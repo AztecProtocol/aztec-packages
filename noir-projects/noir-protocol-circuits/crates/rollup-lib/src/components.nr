@@ -270,9 +270,7 @@ pub(crate) fn append_tx_effects_for_blob(
     tx_effect: TxEffect,
     start_sponge_blob: SpongeBlob,
 ) -> SpongeBlob {
-    let (mut tx_effects_hash_input, offset) = get_tx_effects_hash_input(
-       tx_effect
-    );
+    let (mut tx_effects_hash_input, offset) = get_tx_effects_hash_input(tx_effect);
 
     // NB: using start.absorb & returning start caused issues in ghost values appearing in
     // base_rollup_inputs.start when using a fresh sponge. These only appeared when simulating via wasm.
@@ -290,11 +288,7 @@ pub(crate) fn append_tx_effects_for_blob(
 fn get_tx_effects_hash_input(
     tx_effect: TxEffect,
 ) -> ([Field; TX_EFFECTS_BLOB_HASH_INPUT_FIELDS], u32) {
-    let mut tx_effects_hash_input = unsafe {
-        get_tx_effects_hash_input_helper(
-        tx_effect
-        )
-    };
+    let mut tx_effects_hash_input = unsafe { get_tx_effects_hash_input_helper(tx_effect) };
 
     let note_hashes = tx_effect.note_hashes;
     let nullifiers = tx_effect.nullifiers;
@@ -324,7 +318,10 @@ fn get_tx_effects_hash_input(
     assert_eq(
         tx_effects_hash_input[offset],
         field_from_bytes(
-            array_concat([TX_FEE_PREFIX, 0], tx_effect.transaction_fee.to_be_bytes::<29>()),
+            array_concat(
+                [TX_FEE_PREFIX, 0],
+                tx_effect.transaction_fee.to_be_bytes::<29>(),
+            ),
             true,
         ),
     );
@@ -462,7 +459,15 @@ fn get_tx_effects_hash_input(
         field_from_bytes(
             array_concat(
                 prefix_bytes,
-                [0, length_bytes[0], length_bytes[1], 0, REVERT_CODE_PREFIX, 0, tx_effect.revert_code],
+                [
+                    0,
+                    length_bytes[0],
+                    length_bytes[1],
+                    0,
+                    REVERT_CODE_PREFIX,
+                    0,
+                    tx_effect.revert_code,
+                ],
             ),
             true,
         ),
