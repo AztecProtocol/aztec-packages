@@ -87,6 +87,7 @@ impl PublicBaseRollupInputs {
             .fold(0, |len, l: ScopedLogHash| len + l.log_hash.length);
 
         TxEffect {
+            tx_hash: 27,
             revert_code,
             transaction_fee: from_public.transaction_fee,
             note_hashes: from_public.accumulated_data.note_hashes,

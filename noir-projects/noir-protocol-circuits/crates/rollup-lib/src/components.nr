@@ -257,6 +257,7 @@ pub fn encode_blob_prefix(input_type: u8, array_len: u32) -> Field {
 // 7 fields for prefixes for each of the above categories
 pub(crate) global TX_EFFECTS_BLOB_HASH_INPUT_FIELDS: u32 = 1
     + 1
+    + 1
     + MAX_NOTE_HASHES_PER_TX
     + MAX_NULLIFIERS_PER_TX
     + MAX_L2_TO_L1_MSGS_PER_TX
@@ -277,8 +278,8 @@ pub(crate) fn append_tx_effects_for_blob(
     let mut out_sponge = start_sponge_blob;
 
     // If we have an empty tx (usually a padding tx), we don't want to absorb anything
-    // An empty tx will only have 2 effects - revert code and fee - hence offset = 2
-    if offset != 2 {
+    // An empty tx will only have 3 effects - revert code, tx hash and fee - hence offset = 3
+    if offset != 3 {
         out_sponge.absorb(tx_effects_hash_input, offset);
     }
 
@@ -311,6 +312,9 @@ fn get_tx_effects_hash_input(
     // TX_START_PREFIX | 0 | txlen[0] txlen[1] | 0 | REVERT_CODE_PREFIX | 0 | revert_code
     // Two bytes are used to encode the number of fields appended here, given by 'offset'
     // We only know the value once the appending is complete, hence we overwrite input[0] below
+    offset += 1;
+
+    assert_eq(tx_effects_hash_input[offset], tx_effect.tx_hash);
     offset += 1;
 
     // TX FEE
@@ -503,6 +507,9 @@ unconstrained fn get_tx_effects_hash_input_helper(
     // Two bytes are used to encode the number of fields appended here, given by 'offset'
     // We only know the value once the appending is complete, hence we overwrite input[0] below
     tx_effects_hash_input[offset] = 0;
+    offset += 1;
+
+    tx_effects_hash_input[offset] = tx_effect.tx_hash;
     offset += 1;
 
     // TX FEE

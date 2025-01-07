@@ -117,6 +117,7 @@ impl PrivateBaseRollupInputs {
 
         let out_hash = compute_kernel_out_hash(siloed_l2_to_l1_msgs);
         let tx_effect = TxEffect {
+            tx_hash: 27,
             revert_code: 0,
             transaction_fee,
             note_hashes: self.tube_data.public_inputs.end.note_hashes,
@@ -247,7 +248,7 @@ mod tests {
             NULLIFIER_SUBTREE_HEIGHT, NULLIFIER_SUBTREE_SIBLING_PATH_LENGTH, NULLIFIER_TREE_HEIGHT,
             NULLIFIERS_PREFIX, PRIVATE_KERNEL_EMPTY_INDEX, PRIVATE_LOG_SIZE_IN_FIELDS,
             PRIVATE_LOGS_PREFIX, PUBLIC_DATA_TREE_HEIGHT, REVERT_CODE_PREFIX, TUBE_VK_INDEX,
-            TX_FEE_PREFIX, TX_START_PREFIX, UNENCRYPTED_LOGS_PREFIX,
+            TX_FEE_PREFIX, TX_START_PREFIX,
         },
         data::{public_data_hint::PublicDataHint, PublicDataTreeLeaf, PublicDataTreeLeafPreimage},
         hash::silo_l2_to_l1_message,

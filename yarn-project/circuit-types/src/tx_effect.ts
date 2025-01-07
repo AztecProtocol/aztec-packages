@@ -54,6 +54,10 @@ export class TxEffect {
      */
     public revertCode: RevertCode,
     /**
+     * The identifier of the transaction.
+     */
+    public txHash: TxHash,
+    /**
      * The transaction fee, denominated in FPA.
      */
     public transactionFee: Fr,
@@ -162,6 +166,7 @@ export class TxEffect {
 
     return new TxEffect(
       RevertCode.fromBuffer(reader),
+      TxHash.fromBuffer(reader),
       Fr.fromBuffer(reader),
       reader.readVectorUint8Prefix(Fr),
       reader.readVectorUint8Prefix(Fr),
@@ -208,6 +213,7 @@ export class TxEffect {
     const contractClassLogs = ContractClassTxL2Logs.random(1, 1);
     return new TxEffect(
       RevertCode.random(),
+      TxHash.random(),
       new Fr(Math.floor(Math.random() * 100_000)),
       makeTuple(MAX_NOTE_HASHES_PER_TX, Fr.random),
       makeTuple(MAX_NULLIFIERS_PER_TX, Fr.random),
@@ -224,6 +230,7 @@ export class TxEffect {
   static empty(): TxEffect {
     return new TxEffect(
       RevertCode.OK,
+      TxHash.zero(),
       Fr.ZERO,
       [],
       [],
@@ -490,9 +497,10 @@ export class TxEffect {
     });
   }
 
-  static from(fields: Omit<FieldsOf<TxEffect>, 'txHash'>) {
+  static from(fields: FieldsOf<TxEffect>) {
     return new TxEffect(
       fields.revertCode,
+      fields.txHash,
       fields.transactionFee,
       fields.noteHashes,
       fields.nullifiers,
@@ -510,6 +518,7 @@ export class TxEffect {
     return z
       .object({
         revertCode: RevertCode.schema,
+        txHash: TxHash.schema,
         transactionFee: schemas.Fr,
         noteHashes: z.array(schemas.Fr),
         nullifiers: z.array(schemas.Fr),
@@ -547,9 +556,5 @@ export class TxEffect {
    */
   static fromString(str: string) {
     return TxEffect.fromBuffer(hexToBuffer(str));
-  }
-
-  get txHash(): TxHash {
-    return new TxHash(this.nullifiers[0]);
   }
 }
