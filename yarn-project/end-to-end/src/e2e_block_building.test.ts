@@ -207,7 +207,7 @@ describe('e2e_block_building', () => {
       // to pick up and validate the txs, so we may need to bump it to work on CI. Note that we need
       // at least 3s here so the archiver has time to loop once and sync, and the sequencer has at
       // least 1s to loop.
-      sequencer.sequencer.timeTable[SequencerState.WAITING_FOR_TXS] = 4;
+      sequencer.sequencer.timeTable[SequencerState.INITIALIZING_PROPOSAL] = 4;
       sequencer.sequencer.timeTable[SequencerState.CREATING_BLOCK] = 4;
       sequencer.sequencer.processTxTime = 1;
 

@@ -16,7 +16,6 @@ import {
   NullifierMembershipWitness,
   type NullifierWithBlockSource,
   P2PClientType,
-  type ProcessedTx,
   type ProverConfig,
   PublicDataWitness,
   PublicSimulationOutput,
@@ -29,7 +28,7 @@ import {
   TxReceipt,
   type TxScopedL2Log,
   TxStatus,
-  type TxValidator,
+  type TxValidationResult,
   type WorldStateSynchronizer,
   tryStop,
 } from '@aztec/circuit-types';
@@ -52,8 +51,9 @@ import {
   type PrivateLog,
   type ProtocolContractAddresses,
   type PublicDataTreeLeafPreimage,
+  REGISTERER_CONTRACT_ADDRESS,
 } from '@aztec/circuits.js';
-import { computePublicDataTreeLeafSlot } from '@aztec/circuits.js/hash';
+import { computePublicDataTreeLeafSlot, siloNullifier } from '@aztec/circuits.js/hash';
 import { EpochCache } from '@aztec/epoch-cache';
 import { type L1ContractAddresses, createEthereumChain } from '@aztec/ethereum';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
@@ -63,17 +63,16 @@ import { DateProvider, Timer } from '@aztec/foundation/timer';
 import { type AztecKVStore } from '@aztec/kv-store';
 import { openTmpStore } from '@aztec/kv-store/lmdb';
 import { SHA256Trunc, StandardTree, UnbalancedTree } from '@aztec/merkle-tree';
-import {
-  AggregateTxValidator,
-  DataTxValidator,
-  DoubleSpendTxValidator,
-  MetadataTxValidator,
-  type P2P,
-  TxProofValidator,
-  createP2PClient,
-} from '@aztec/p2p';
+import { type P2P, createP2PClient } from '@aztec/p2p';
 import { ProtocolContractAddress } from '@aztec/protocol-contracts';
-import { GlobalVariableBuilder, type L1Publisher, SequencerClient, createSlasherClient } from '@aztec/sequencer-client';
+import {
+  GlobalVariableBuilder,
+  type L1Publisher,
+  SequencerClient,
+  createSlasherClient,
+  createValidatorForAcceptingTxs,
+  getDefaultAllowedSetupFunctions,
+} from '@aztec/sequencer-client';
 import { PublicProcessorFactory } from '@aztec/simulator';
 import { Attributes, type TelemetryClient, type Traceable, type Tracer, trackSpan } from '@aztec/telemetry-client';
 import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
@@ -348,8 +347,25 @@ export class AztecNodeService implements AztecNode, Traceable {
     return Promise.resolve(this.l1ChainId);
   }
 
-  public getContractClass(id: Fr): Promise<ContractClassPublic | undefined> {
-    return this.contractDataSource.getContractClass(id);
+  public async getContractClass(id: Fr): Promise<ContractClassPublic | undefined> {
+    const klazz = await this.contractDataSource.getContractClass(id);
+
+    // TODO(#10007): Remove this check. This is needed only because we're manually registering
+    // some contracts in the archiver so they are available to all nodes (see `registerCommonContracts`
+    // in `archiver/src/factory.ts`), but we still want clients to send the registration tx in order
+    // to emit the corresponding nullifier, which is now being checked. Note that this method
+    // is only called by the PXE to check if a contract is publicly registered.
+    if (klazz) {
+      const classNullifier = siloNullifier(AztecAddress.fromNumber(REGISTERER_CONTRACT_ADDRESS), id);
+      const worldState = await this.#getWorldState('latest');
+      const [index] = await worldState.findLeafIndices(MerkleTreeId.NULLIFIER_TREE, [classNullifier.toBuffer()]);
+      this.log.debug(`Registration nullifier ${classNullifier} for contract class ${id} found at index ${index}`);
+      if (index === undefined) {
+        return undefined;
+      }
+    }
+
+    return klazz;
   }
 
   public getContract(address: AztecAddress): Promise<ContractInstanceWithAddress | undefined> {
@@ -400,15 +416,21 @@ export class AztecNodeService implements AztecNode, Traceable {
    */
   public async sendTx(tx: Tx) {
     const timer = new Timer();
-    this.log.info(`Received tx ${tx.getTxHash()}`);
+    const txHash = tx.getTxHash().toString();
 
-    if (!(await this.isValidTx(tx))) {
+    const valid = await this.isValidTx(tx);
+    if (valid.result !== 'valid') {
+      const reason = valid.reason.join(', ');
       this.metrics.receivedTx(timer.ms(), false);
+      this.log.warn(`Invalid tx ${txHash}: ${reason}`, { txHash });
+      // TODO(#10967): Throw when receiving an invalid tx instead of just returning
+      // throw new Error(`Invalid tx: ${reason}`);
       return;
     }
 
     await this.p2pClient!.sendTx(tx);
     this.metrics.receivedTx(timer.ms(), true);
+    this.log.info(`Received tx ${tx.getTxHash()}`, { txHash });
   }
 
   public async getTxReceipt(txHash: TxHash): Promise<TxReceipt> {
@@ -860,34 +882,19 @@ export class AztecNodeService implements AztecNode, Traceable {
     }
   }
 
-  public async isValidTx(tx: Tx, isSimulation: boolean = false): Promise<boolean> {
+  public async isValidTx(tx: Tx, isSimulation: boolean = false): Promise<TxValidationResult> {
     const blockNumber = (await this.blockSource.getBlockNumber()) + 1;
     const db = this.worldStateSynchronizer.getCommitted();
-    // These validators are taken from the sequencer, and should match.
-    // The reason why `phases` and `gas` tx validator is in the sequencer and not here is because
-    // those tx validators are customizable by the sequencer.
-    const txValidators: TxValidator<Tx | ProcessedTx>[] = [
-      new DataTxValidator(),
-      new MetadataTxValidator(new Fr(this.l1ChainId), new Fr(blockNumber)),
-      new DoubleSpendTxValidator({
-        getNullifierIndices: nullifiers => db.findLeafIndices(MerkleTreeId.NULLIFIER_TREE, nullifiers),
-      }),
-    ];
+    const verifier = isSimulation ? undefined : this.proofVerifier;
+    const validator = createValidatorForAcceptingTxs(db, this.contractDataSource, verifier, {
+      blockNumber,
+      l1ChainId: this.l1ChainId,
+      enforceFees: !!this.config.enforceFees,
+      setupAllowList: this.config.allowedInSetup ?? getDefaultAllowedSetupFunctions(),
+      gasFees: await this.getCurrentBaseFees(),
+    });
 
-    if (!isSimulation) {
-      txValidators.push(new TxProofValidator(this.proofVerifier));
-    }
-
-    const txValidator = new AggregateTxValidator(...txValidators);
-
-    const [_, invalidTxs] = await txValidator.validateTxs([tx]);
-    if (invalidTxs.length > 0) {
-      this.log.warn(`Rejecting tx ${tx.getTxHash()} because of validation errors`);
-
-      return false;
-    }
-
-    return true;
+    return await validator.validateTx(tx);
   }
 
   public async setConfig(config: Partial<SequencerConfig & ProverConfig>): Promise<void> {

@@ -142,6 +142,12 @@ export type P2P<T extends P2PClientType = P2PClientType.Full> = P2PApi<T> & {
    */
   getTxStatus(txHash: TxHash): 'pending' | 'mined' | undefined;
 
+  /** Returns an iterator over pending txs on the mempool. */
+  iteratePendingTxs(): Iterable<Tx>;
+
+  /** Returns the number of pending txs in the mempool. */
+  getPendingTxCount(): number;
+
   /**
    * Starts the p2p client.
    * @returns A promise signalling the completion of the block sync.
@@ -458,6 +464,20 @@ export class P2PClient<T extends P2PClientType = P2PClientType.Full>
 
   public getPendingTxs(): Promise<Tx[]> {
     return Promise.resolve(this.getTxs('pending'));
+  }
+
+  public getPendingTxCount(): number {
+    return this.txPool.getPendingTxHashes().length;
+  }
+
+  public *iteratePendingTxs() {
+    const pendingTxHashes = this.txPool.getPendingTxHashes();
+    for (const txHash of pendingTxHashes) {
+      const tx = this.txPool.getTxByHash(txHash);
+      if (tx) {
+        yield tx;
+      }
+    }
   }
 
   /**
