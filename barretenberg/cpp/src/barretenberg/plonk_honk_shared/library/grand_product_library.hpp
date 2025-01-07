@@ -49,11 +49,17 @@ namespace bb {
  *
  * Note: Step (3) utilizes Montgomery batch inversion to replace n-many inversions with
  *
+ * @note This method makes use of the fact that there are at most as many unique entries in the grand product as active
+ * rows in the execution trace to efficiently compute the grand product when a structured trace is in use. I.e. the
+ * computation peformed herein is proportional to the number of active rows in the trace and the constant values in the
+ * inactive regions are simply populated from known values on the last step.
+ *
  * @tparam Flavor
  * @tparam GrandProdRelation
  * @param full_polynomials
  * @param relation_parameters
  * @param size_override optional size of the domain; otherwise based on dyadic polynomial domain
+ * @param active_region_data optional specification of active region of execution trace
  */
 template <typename Flavor, typename GrandProdRelation>
 void compute_grand_product(typename Flavor::ProverPolynomials& full_polynomials,
@@ -67,49 +73,25 @@ void compute_grand_product(typename Flavor::ProverPolynomials& full_polynomials,
     using Polynomial = typename Flavor::Polynomial;
     using Accumulator = std::tuple_element_t<0, typename GrandProdRelation::SumcheckArrayOfValuesOverSubrelations>;
 
+    const bool active_region_specified = !active_region_data.ranges.empty();
+
     // Set the domain over which the grand product must be computed. This may be less than the dyadic circuit size, e.g
     // the permutation grand product does not need to be computed beyond the index of the last active wire
     size_t domain_size = size_override == 0 ? full_polynomials.get_polynomial_size() : size_override;
 
-    // // If no active ranges have been specified, define the whole domain as the single active range
-    // if (active_region_data.ranges.empty()) {
-    //     active_region_data.ranges.emplace_back(0, domain_size);
-    // }
-
-    // auto execute_parallel_for_on_active_domain = [&](size_t num_iterations, const std::function<void(size_t)>& func)
-    // {
-    //     MultithreadData thread_data;
-
-    //     if (active_region_data.ranges.empty()) {
-    //         thread_data = calculate_thread_data(domain_size);
-    //         parallel_for(thread_data.num_threads, func) {}
-    //         else
-    //         {
-    //         }
-    //     };
-    // };
-
+    // Returns the ith active index if specified, otherwise acts as the identity map on the input
     auto get_active_range_poly_idx = [&](size_t i) {
-        if (active_region_data.idxs.empty()) {
-            return i;
+        if (active_region_specified) {
+            return active_region_data.idxs[i];
         }
-        return active_region_data.idxs[i];
+        return i;
     };
 
-    // // Explicitly construct the indices of the active rows
-    // std::vector<size_t> active_region_data.idxs;
-    // for (auto& range : active_region_data.ranges) {
-    //     for (size_t i = range.first; i < range.second; ++i) {
-    //         active_region_data.idxs.push_back(i);
-    //     }
-    // }
+    size_t active_domain_size = active_region_specified ? active_region_data.idxs.size() : domain_size;
 
     // The size of the iteration domain is one less than the number of active rows since the final value of the
     // grand product is constructed only in the relation and not explicitly in the polynomial
-    size_t active_domain_size =
-        active_region_data.ranges.empty() ? domain_size - 1 : active_region_data.idxs.size() - 1;
-
-    const MultithreadData active_range_thread_data = calculate_thread_data(active_domain_size);
+    const MultithreadData active_range_thread_data = calculate_thread_data(active_domain_size - 1);
 
     // Allocate numerator/denominator polynomials that will serve as scratch space
     // TODO(zac) we can re-use the permutation polynomial as the numerator polynomial. Reduces readability
@@ -212,24 +194,23 @@ void compute_grand_product(typename Flavor::ProverPolynomials& full_polynomials,
         }
     });
 
-    // Final step: The grand product is constant in the inactive regions of the trace (since there are no copy
-    // constraints there). These constant values have already been computed and are equal to the first value in the
-    // active region that follows
-    MultithreadData full_domain_thread_data = calculate_thread_data(domain_size);
-
-    // WORKTODO: just dont do this if a ctive ranges havent been set
     // Lambda to set the constant inactive regions of the grand product if they exist
     auto set_constant_value_if_inactive = [&](size_t i) {
         for (size_t j = 0; j < active_region_data.ranges.size() - 1; ++j) {
-            if (i >= active_region_data.ranges[j].second && i < active_region_data.ranges[j + 1].first) {
-                size_t constant_value_idx = active_region_data.ranges[j + 1].first;
-                grand_product_polynomial.at(i) = grand_product_polynomial[constant_value_idx];
+            size_t previous_range_end = active_region_data.ranges[j].second;
+            size_t next_range_start = active_region_data.ranges[j + 1].first;
+            if (i >= previous_range_end && i < next_range_start) {
+                grand_product_polynomial.at(i) = grand_product_polynomial[next_range_start];
                 break;
             }
         }
     };
 
-    if (!active_region_data.ranges.empty()) {
+    // Final step: The grand product is constant in the inactive regions of the trace (if they exist) where no copy
+    // constraints are present. These constant values have already been computed and are equal to the first value in the
+    // subsequent active region.
+    if (active_region_specified) {
+        MultithreadData full_domain_thread_data = calculate_thread_data(domain_size);
         parallel_for(full_domain_thread_data.num_threads, [&](size_t thread_idx) {
             const size_t start = full_domain_thread_data.start[thread_idx];
             const size_t end = full_domain_thread_data.end[thread_idx];

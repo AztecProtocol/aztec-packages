@@ -102,6 +102,14 @@ class PrecomputedEntitiesBase {
 struct ActiveRegionData {
     std::vector<std::pair<size_t, size_t>> ranges; // active ranges [start_i, end_i) of the execution trace
     std::vector<size_t> idxs;                      // full set of poly indices corresposponding to active ranges
+
+    void add_range(const size_t start, const size_t end)
+    {
+        ranges.emplace_back(start, end);
+        for (size_t i = start; i < end; ++i) {
+            idxs.push_back(i);
+        }
+    }
 };
 
 /**

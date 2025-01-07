@@ -105,10 +105,7 @@ typename TraceToPolynomials<Flavor>::TraceData TraceToPolynomials<Flavor>::const
         if constexpr (IsUltraFlavor<Flavor>) { // Mega and Ultra
             PROFILE_THIS_NAME("construct_active_indices");
             if (block.size() > 0) {
-                proving_key.active_region_data.ranges.emplace_back(offset, offset + block.size());
-                for (uint32_t i = offset; i < offset + block.size(); ++i) {
-                    proving_key.active_region_data.idxs.push_back(i);
-                }
+                proving_key.active_region_data.add_range(offset, offset + block.size());
             }
         }
 

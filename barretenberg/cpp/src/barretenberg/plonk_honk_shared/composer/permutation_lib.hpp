@@ -226,7 +226,7 @@ void compute_honk_style_permutation_lagrange_polynomials_from_mapping(
 
     size_t domain_size = proving_key->active_region_data.idxs.size();
 
-    const MultithreadData thread_data = calculate_thread_data(domain_size, /*min_iterations_per_thread=*/1 << 5);
+    const MultithreadData thread_data = calculate_thread_data(domain_size);
 
     size_t wire_idx = 0;
     for (auto& current_permutation_poly : permutation_polynomials) {
