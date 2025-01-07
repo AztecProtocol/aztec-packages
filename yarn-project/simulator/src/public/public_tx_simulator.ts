@@ -7,7 +7,6 @@ import {
   type SimulationError,
   type Tx,
   TxExecutionPhase,
-  UnencryptedFunctionL2Logs,
 } from '@aztec/circuit-types';
 import { type AvmSimulationStats } from '@aztec/circuit-types/stats';
 import { type Fr, type Gas, type GlobalVariables, type PublicCallRequest, type RevertCode } from '@aztec/circuits.js';
@@ -133,11 +132,11 @@ export class PublicTxSimulator {
       // FIXME(dbanks12): should not be changing immutable tx
       tx.filterRevertedLogs(
         tx.data.forPublic!.nonRevertibleAccumulatedData,
-        avmCircuitPublicInputs.accumulatedData.unencryptedLogsHashes,
+        avmCircuitPublicInputs.accumulatedData.publicLogs,
       );
     }
     // FIXME(dbanks12): should not be changing immutable tx
-    tx.unencryptedLogs.addFunctionLogs([new UnencryptedFunctionL2Logs(context.trace.getUnencryptedLogs())]);
+    tx.publicLogs.push(...context.trace.getPublicLogs());
 
     return {
       avmProvingRequest,

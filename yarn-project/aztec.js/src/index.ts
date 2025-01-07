@@ -116,7 +116,6 @@ export {
   TxHash,
   TxReceipt,
   TxStatus,
-  UnencryptedL2BlockL2Logs,
   UnencryptedL2Log,
   UniqueNote,
   createAztecNodeClient,

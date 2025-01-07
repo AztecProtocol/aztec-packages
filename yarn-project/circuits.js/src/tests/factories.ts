@@ -56,8 +56,8 @@ import {
   MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL,
   MAX_PRIVATE_LOGS_PER_CALL,
   MAX_PRIVATE_LOGS_PER_TX,
+  MAX_PUBLIC_LOGS_PER_TX,
   MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
-  MAX_UNENCRYPTED_LOGS_PER_TX,
   MaxBlockNumber,
   MembershipWitness,
   NESTED_RECURSIVE_PROOF_LENGTH,
@@ -73,6 +73,7 @@ import {
   NullifierLeafPreimage,
   PRIVATE_LOG_SIZE_IN_FIELDS,
   PUBLIC_DATA_TREE_HEIGHT,
+  PUBLIC_LOG_DATA_SIZE_IN_FIELDS,
   ParityPublicInputs,
   PartialPrivateTailPublicInputsForPublic,
   PartialPrivateTailPublicInputsForRollup,
@@ -136,6 +137,7 @@ import {
   PrivateToPublicAccumulatedData,
   PrivateToPublicKernelCircuitPublicInputs,
   PublicDataWrite,
+  PublicLog,
   ScopedL2ToL1Message,
   TreeSnapshots,
   TxConstantData,
@@ -192,6 +194,10 @@ function makePrivateLog(seed: number) {
 
 function makePrivateLogData(seed: number) {
   return new PrivateLogData(makePrivateLog(seed + 0x100), seed, seed + 1);
+}
+
+function makePublicLog(seed: number) {
+  return new PublicLog(makeAztecAddress(seed), makeTuple(PUBLIC_LOG_DATA_SIZE_IN_FIELDS, fr, seed + 1));
 }
 
 /**
@@ -312,9 +318,8 @@ export function makeCombinedAccumulatedData(seed = 1, full = false): CombinedAcc
     tupleGenerator(MAX_NULLIFIERS_PER_TX, fr, seed + 0x200, Fr.zero),
     tupleGenerator(MAX_L2_TO_L1_MSGS_PER_TX, makeScopedL2ToL1Message, seed + 0x600, ScopedL2ToL1Message.empty),
     tupleGenerator(MAX_PRIVATE_LOGS_PER_TX, makePrivateLog, seed + 0x700, PrivateLog.empty),
-    tupleGenerator(MAX_UNENCRYPTED_LOGS_PER_TX, makeScopedLogHash, seed + 0x900, ScopedLogHash.empty), // unencrypted logs
+    tupleGenerator(MAX_PUBLIC_LOGS_PER_TX, makePublicLog, seed + 0x900, PublicLog.empty),
     tupleGenerator(MAX_CONTRACT_CLASS_LOGS_PER_TX, makeScopedLogHash, seed + 0xa00, ScopedLogHash.empty), // contract class logs
-    fr(seed + 0xd00), // unencrypted_log_preimages_length
     fr(seed + 0xe00), // contract_class_log_preimages_length
     tupleGenerator(
       MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
@@ -353,7 +358,7 @@ function makeAvmAccumulatedData(seed = 1) {
     makeTuple(MAX_NOTE_HASHES_PER_TX, fr, seed),
     makeTuple(MAX_NULLIFIERS_PER_TX, fr, seed + 0x100),
     makeTuple(MAX_L2_TO_L1_MSGS_PER_TX, makeScopedL2ToL1Message, seed + 0x200),
-    makeTuple(MAX_UNENCRYPTED_LOGS_PER_TX, makeScopedLogHash, seed + 0x300),
+    makeTuple(MAX_PUBLIC_LOGS_PER_TX, makePublicLog, seed + 0x300),
     makeTuple(MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, makePublicDataWrite, seed + 0x400),
   );
 }

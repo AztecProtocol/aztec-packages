@@ -67,7 +67,7 @@ library Constants {
   uint256 internal constant MAX_L1_TO_L2_MSG_READ_REQUESTS_PER_TX = 64;
   uint256 internal constant MAX_KEY_VALIDATION_REQUESTS_PER_TX = 64;
   uint256 internal constant MAX_PRIVATE_LOGS_PER_TX = 32;
-  uint256 internal constant MAX_UNENCRYPTED_LOGS_PER_TX = 8;
+  uint256 internal constant MAX_PUBLIC_LOGS_PER_TX = 8;
   uint256 internal constant MAX_CONTRACT_CLASS_LOGS_PER_TX = 1;
   uint256 internal constant NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP = 16;
   uint256 internal constant EMPTY_NESTED_INDEX = 0;
@@ -92,6 +92,8 @@ library Constants {
   uint256 internal constant INITIAL_L2_BLOCK_NUM = 1;
   uint256 internal constant FIELDS_PER_BLOB = 4096;
   uint256 internal constant BLOBS_PER_BLOCK = 3;
+  uint256 internal constant PUBLIC_LOG_DATA_SIZE_IN_FIELDS = 13;
+  uint256 internal constant PUBLIC_LOG_SIZE_IN_FIELDS = 14;
   uint256 internal constant PRIVATE_LOG_SIZE_IN_FIELDS = 18;
   uint256 internal constant AZTEC_MAX_EPOCH_DURATION = 48;
   uint256 internal constant GENESIS_ARCHIVE_ROOT =
@@ -195,7 +197,7 @@ library Constants {
   uint256 internal constant SCOPED_READ_REQUEST_LEN = 3;
   uint256 internal constant PUBLIC_DATA_READ_LENGTH = 3;
   uint256 internal constant PRIVATE_VALIDATION_REQUESTS_LENGTH = 772;
-  uint256 internal constant COMBINED_ACCUMULATED_DATA_LENGTH = 902;
+  uint256 internal constant COMBINED_ACCUMULATED_DATA_LENGTH = 981;
   uint256 internal constant TX_CONSTANT_DATA_LENGTH = 37;
   uint256 internal constant COMBINED_CONSTANT_DATA_LENGTH = 46;
   uint256 internal constant PRIVATE_ACCUMULATED_DATA_LENGTH = 1412;
@@ -204,7 +206,7 @@ library Constants {
   uint256 internal constant PRIVATE_TO_AVM_ACCUMULATED_DATA_LENGTH = 160;
   uint256 internal constant NUM_PRIVATE_TO_AVM_ACCUMULATED_DATA_ARRAYS = 3;
   uint256 internal constant PRIVATE_TO_PUBLIC_KERNEL_CIRCUIT_PUBLIC_INPUTS_LENGTH = 1847;
-  uint256 internal constant KERNEL_CIRCUIT_PUBLIC_INPUTS_LENGTH = 960;
+  uint256 internal constant KERNEL_CIRCUIT_PUBLIC_INPUTS_LENGTH = 1039;
   uint256 internal constant CONSTANT_ROLLUP_DATA_LENGTH = 13;
   uint256 internal constant BASE_OR_MERGE_PUBLIC_INPUTS_LENGTH = 52;
   uint256 internal constant BLOCK_ROOT_OR_BLOCK_MERGE_PUBLIC_INPUTS_LENGTH = 986;

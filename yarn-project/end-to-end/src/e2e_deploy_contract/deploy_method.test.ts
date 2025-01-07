@@ -1,5 +1,5 @@
 import { getDeployedTestAccountsWallets } from '@aztec/accounts/testing';
-import { AztecAddress, type Logger, type PXE, type Wallet, createPXEClient, makeFetch } from '@aztec/aztec.js';
+import { AztecAddress, Fr, type Logger, type PXE, type Wallet, createPXEClient, makeFetch } from '@aztec/aztec.js';
 import { CounterContract } from '@aztec/noir-contracts.js/Counter';
 import { StatefulTestContract } from '@aztec/noir-contracts.js/StatefulTest';
 import { TestContract } from '@aztec/noir-contracts.js/Test';
@@ -79,8 +79,8 @@ describe('e2e_deploy_contract deploy method', () => {
     const contract = await TestContract.deploy(wallet).send().deployed();
     logger.debug(`Call a public function to check that it was publicly deployed`);
     const receipt = await contract.methods.emit_unencrypted(42).send().wait();
-    const logs = await pxe.getUnencryptedLogs({ txHash: receipt.txHash });
-    expect(logs.logs[0].log.data.toString('hex').replace(/^0+/, '')).toEqual('2a');
+    const logs = await pxe.getPublicLogs({ txHash: receipt.txHash });
+    expect(logs.logs[0].log.log[0]).toEqual(new Fr(42));
   });
 
   it('refuses to deploy a contract with no constructor and no public deployment', async () => {

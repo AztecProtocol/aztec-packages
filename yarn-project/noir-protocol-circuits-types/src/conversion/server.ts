@@ -6,7 +6,6 @@ import {
   type AvmCircuitPublicInputs,
   BLOBS_PER_BLOCK,
   type BaseParityInputs,
-  type CombinedAccumulatedData,
   CombinedConstantData,
   type EmptyNestedData,
   Fr,
@@ -73,7 +72,6 @@ import type {
   BlockMergeRollupInputs as BlockMergeRollupInputsNoir,
   BlockRootOrBlockMergePublicInputs as BlockRootOrBlockMergePublicInputsNoir,
   BlockRootRollupInputs as BlockRootRollupInputsNoir,
-  CombinedAccumulatedData as CombinedAccumulatedDataNoir,
   CombinedConstantData as CombinedConstantDataNoir,
   ConstantRollupData as ConstantRollupDataNoir,
   EmptyBlockRootRollupInputs as EmptyBlockRootRollupInputsNoir,
@@ -116,6 +114,7 @@ import {
   mapAztecAddressFromNoir,
   mapAztecAddressToNoir,
   mapCombinedAccumulatedDataFromNoir,
+  mapCombinedAccumulatedDataToNoir,
   mapEthAddressFromNoir,
   mapEthAddressToNoir,
   mapFieldFromNoir,
@@ -139,6 +138,7 @@ import {
   mapPublicCallRequestToNoir,
   mapPublicDataTreePreimageToNoir,
   mapPublicDataWriteToNoir,
+  mapPublicLogToNoir,
   mapScopedL2ToL1MessageToNoir,
   mapScopedLogHashToNoir,
   mapTupleFromNoir,
@@ -471,22 +471,6 @@ export function mapPrivateToPublicAccumulatedDataToNoir(
   };
 }
 
-export function mapCombinedAccumulatedDataToNoir(
-  combinedAccumulatedData: CombinedAccumulatedData,
-): CombinedAccumulatedDataNoir {
-  return {
-    note_hashes: mapTuple(combinedAccumulatedData.noteHashes, mapFieldToNoir),
-    nullifiers: mapTuple(combinedAccumulatedData.nullifiers, mapFieldToNoir),
-    l2_to_l1_msgs: mapTuple(combinedAccumulatedData.l2ToL1Msgs, mapScopedL2ToL1MessageToNoir),
-    private_logs: mapTuple(combinedAccumulatedData.privateLogs, mapPrivateLogToNoir),
-    unencrypted_logs_hashes: mapTuple(combinedAccumulatedData.unencryptedLogsHashes, mapScopedLogHashToNoir),
-    contract_class_logs_hashes: mapTuple(combinedAccumulatedData.contractClassLogsHashes, mapScopedLogHashToNoir),
-    unencrypted_log_preimages_length: mapFieldToNoir(combinedAccumulatedData.unencryptedLogPreimagesLength),
-    contract_class_log_preimages_length: mapFieldToNoir(combinedAccumulatedData.contractClassLogPreimagesLength),
-    public_data_writes: mapTuple(combinedAccumulatedData.publicDataWrites, mapPublicDataWriteToNoir),
-  };
-}
-
 function mapCombinedConstantDataFromNoir(combinedConstantData: CombinedConstantDataNoir): CombinedConstantData {
   return new CombinedConstantData(
     mapHeaderFromNoir(combinedConstantData.historical_header),
@@ -565,7 +549,7 @@ function mapAvmAccumulatedDataToNoir(data: AvmAccumulatedData): AvmAccumulatedDa
     note_hashes: mapTuple(data.noteHashes, mapFieldToNoir),
     nullifiers: mapTuple(data.nullifiers, mapFieldToNoir),
     l2_to_l1_msgs: mapTuple(data.l2ToL1Msgs, mapScopedL2ToL1MessageToNoir),
-    unencrypted_logs_hashes: mapTuple(data.unencryptedLogsHashes, mapScopedLogHashToNoir),
+    public_logs: mapTuple(data.publicLogs, mapPublicLogToNoir),
     public_data_writes: mapTuple(data.publicDataWrites, mapPublicDataWriteToNoir),
   };
 }

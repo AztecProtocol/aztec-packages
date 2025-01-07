@@ -3,6 +3,7 @@ import {
   type BlockBuilder,
   BlockProposal,
   ConsensusPayload,
+  ContractClassTxL2Logs,
   type EpochProofQuote,
   type L1ToL2MessageSource,
   L2Block,
@@ -13,7 +14,6 @@ import {
   type Tx,
   TxHash,
   type UnencryptedL2Log,
-  UnencryptedTxL2Logs,
   WorldStateRunningState,
   type WorldStateSynchronizer,
   mockEpochProofQuote as baseMockEpochProofQuote,
@@ -382,8 +382,8 @@ describe('sequencer', () => {
     globalVariableBuilder.buildGlobalVariables.mockResolvedValueOnce(mockedGlobalVariables);
 
     // We make txs[1] too big to fit
-    (txs[invalidTransactionIndex] as Writeable<Tx>).unencryptedLogs = UnencryptedTxL2Logs.random(2, 4);
-    (txs[invalidTransactionIndex].unencryptedLogs.functionLogs[0].logs[0] as Writeable<UnencryptedL2Log>).data =
+    (txs[invalidTransactionIndex] as Writeable<Tx>).contractClassLogs = ContractClassTxL2Logs.random(1, 1);
+    (txs[invalidTransactionIndex].contractClassLogs.functionLogs[0].logs[0] as Writeable<UnencryptedL2Log>).data =
       randomBytes(1024 * 1022);
 
     await sequencer.doRealWork();

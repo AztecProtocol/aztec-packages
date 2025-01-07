@@ -252,8 +252,9 @@ mod tests {
             NOTE_HASH_SUBTREE_SIBLING_PATH_LENGTH, NOTE_HASH_TREE_HEIGHT, NOTES_PREFIX,
             NULLIFIER_SUBTREE_HEIGHT, NULLIFIER_SUBTREE_SIBLING_PATH_LENGTH, NULLIFIER_TREE_HEIGHT,
             NULLIFIERS_PREFIX, PRIVATE_KERNEL_EMPTY_INDEX, PRIVATE_LOG_SIZE_IN_FIELDS,
-            PRIVATE_LOGS_PREFIX, PUBLIC_DATA_TREE_HEIGHT, REVERT_CODE_PREFIX, TUBE_VK_INDEX,
-            TX_FEE_PREFIX, TX_START_PREFIX, UNENCRYPTED_LOGS_PREFIX,
+            PRIVATE_LOGS_PREFIX, PUBLIC_DATA_TREE_HEIGHT, PUBLIC_LOG_SIZE_IN_FIELDS,
+            REVERT_CODE_PREFIX, TUBE_VK_INDEX, TX_FEE_PREFIX, TX_START_PREFIX,
+            UNENCRYPTED_LOGS_PREFIX,
         },
         data::{public_data_hint::PublicDataHint, PublicDataTreeLeaf, PublicDataTreeLeafPreimage},
         hash::silo_l2_to_l1_message,
@@ -868,7 +869,7 @@ mod tests {
         let NUM_NULLIFIERS = 3;
         let NUM_MSGS = 5;
         let NUM_PRIV_EVENT_LOGS = 4;
-        let NUM_UNENC_LOGS = 6;
+        let NUM_PUB_LOGS = 6;
         let NUM_CC_LOGS = 1;
         let TOTAL_BLOB_FIELDS = 2 // revert code and tx fee
             + NUM_NOTES
@@ -877,8 +878,8 @@ mod tests {
             + 1 // nullifiers and prefix
             + NUM_MSGS
             + 1 // L2 to L1 msgs and prefix
-            + NUM_UNENC_LOGS
-            + 1 // unenc. logs and prefix
+            + NUM_PUB_LOGS * PUBLIC_LOG_SIZE_IN_FIELDS
+            + 1 // public logs and prefix
             + NUM_CC_LOGS
             + 1 // contract class logs and prefix
             + (NUM_NOTES + NUM_PRIV_EVENT_LOGS) * PRIVATE_LOG_SIZE_IN_FIELDS
@@ -907,7 +908,7 @@ mod tests {
         builder.pre_existing_public_data[0] =
             PublicDataTreeLeafPreimage { slot: 20, value: 40, next_slot: 0, next_index: 0 };
         builder.tube_data.append_private_logs(NUM_PRIV_EVENT_LOGS);
-        builder.tube_data.append_unencrypted_log_hashes(NUM_UNENC_LOGS);
+        builder.tube_data.append_public_logs(NUM_PUB_LOGS);
         // Below will only work with NUM_CC_LOGS=1
         builder.tube_data.add_contract_class_log_hash(1, 2);
         let outputs = builder.execute();
@@ -978,23 +979,27 @@ mod tests {
             }
         }
         offset += total_private_logs_len;
-        // unenc logs
-        let unencrypted_logs_prefix = encode_blob_prefix(UNENCRYPTED_LOGS_PREFIX, NUM_UNENC_LOGS);
-        reconstructed_tx_effects[offset] = unencrypted_logs_prefix;
+        // public logs
+        let public_logs_prefix = encode_blob_prefix(
+            UNENCRYPTED_LOGS_PREFIX,
+            NUM_PUB_LOGS * PUBLIC_LOG_SIZE_IN_FIELDS,
+        );
+        reconstructed_tx_effects[offset] = public_logs_prefix;
         offset += 1;
-        for i in 0..NUM_UNENC_LOGS {
-            reconstructed_tx_effects[offset + i] = types::hash::silo_unencrypted_log_hash(
-                builder.tube_data.unencrypted_logs_hashes.storage()[i],
-            );
+        for i in 0..NUM_PUB_LOGS {
+            let log = builder.tube_data.public_logs.storage()[i].serialize();
+            for j in 0..PUBLIC_LOG_SIZE_IN_FIELDS {
+                reconstructed_tx_effects[offset + i * PUBLIC_LOG_SIZE_IN_FIELDS + j] = log[j];
+            }
         }
-        offset += NUM_UNENC_LOGS;
+        offset += NUM_PUB_LOGS * PUBLIC_LOG_SIZE_IN_FIELDS;
         // cc logs
         let contract_class_logs_prefix =
             encode_blob_prefix(CONTRACT_CLASS_LOGS_PREFIX, NUM_CC_LOGS);
         reconstructed_tx_effects[offset] = contract_class_logs_prefix;
         offset += 1;
         for i in 0..NUM_CC_LOGS {
-            reconstructed_tx_effects[offset + i] = types::hash::silo_unencrypted_log_hash(
+            reconstructed_tx_effects[offset + i] = types::hash::silo_contract_class_log_hash(
                 builder.tube_data.contract_class_logs_hashes.storage()[i],
             );
         }

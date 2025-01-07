@@ -91,7 +91,7 @@ pub global MAX_L1_TO_L2_MSG_READ_REQUESTS_PER_TX: u32 = 64;
 // databus will hopefully make the issue go away.
 pub global MAX_KEY_VALIDATION_REQUESTS_PER_TX: u32 = 64;
 pub global MAX_PRIVATE_LOGS_PER_TX: u32 = 32;
-pub global MAX_UNENCRYPTED_LOGS_PER_TX: u32 = 8;
+pub global MAX_PUBLIC_LOGS_PER_TX: u32 = 8;
 pub global MAX_CONTRACT_CLASS_LOGS_PER_TX: u32 = 1;
 // docs:end:constants
 
@@ -129,6 +129,8 @@ pub global INITIALIZATION_SLOT_SEPARATOR: Field = 1000_000_000;
 pub global INITIAL_L2_BLOCK_NUM: Field = 1;
 pub global FIELDS_PER_BLOB: u32 = 4096;
 pub global BLOBS_PER_BLOCK: u32 = 3;
+pub global PUBLIC_LOG_DATA_SIZE_IN_FIELDS: u32 = 13;
+pub global PUBLIC_LOG_SIZE_IN_FIELDS: u32 = PUBLIC_LOG_DATA_SIZE_IN_FIELDS + 1; // This includes the contract address, since it is always emitted with a public log
 pub global PRIVATE_LOG_SIZE_IN_FIELDS: u32 = 18; // This is currently affected by the size of the log overhead defined in aztec-nr/aztec/src/encrypted_logs/payload.nr.
 pub global AZTEC_MAX_EPOCH_DURATION: u32 = 48;
 // The following is taken from building a block and looking at the `lastArchive` value in it.
@@ -338,8 +340,7 @@ pub global COMBINED_ACCUMULATED_DATA_LENGTH: u32 = MAX_NOTE_HASHES_PER_TX
     + MAX_NULLIFIERS_PER_TX
     + (MAX_L2_TO_L1_MSGS_PER_TX * SCOPED_L2_TO_L1_MESSAGE_LENGTH)
     + (PRIVATE_LOG_SIZE_IN_FIELDS * MAX_PRIVATE_LOGS_PER_TX)
-    + (SCOPED_LOG_HASH_LENGTH * MAX_UNENCRYPTED_LOGS_PER_TX)
-    + 1 /* unencrypted_log_preimages_length */
+    + (PUBLIC_LOG_SIZE_IN_FIELDS * MAX_PUBLIC_LOGS_PER_TX)
     + (SCOPED_LOG_HASH_LENGTH * MAX_CONTRACT_CLASS_LOGS_PER_TX)
     + 1 /* contract_class_log_preimages_length */
     + (MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX * PUBLIC_DATA_WRITE_LENGTH);
@@ -379,7 +380,7 @@ pub global NUM_PRIVATE_TO_AVM_ACCUMULATED_DATA_ARRAYS: u32 = 3;
 pub global AVM_ACCUMULATED_DATA_LENGTH: u32 = MAX_NOTE_HASHES_PER_TX
     + MAX_NULLIFIERS_PER_TX
     + (MAX_L2_TO_L1_MSGS_PER_TX * SCOPED_L2_TO_L1_MESSAGE_LENGTH)
-    + (MAX_UNENCRYPTED_LOGS_PER_TX * SCOPED_LOG_HASH_LENGTH)
+    + (MAX_PUBLIC_LOGS_PER_TX * PUBLIC_LOG_SIZE_IN_FIELDS)
     + (MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX * PUBLIC_DATA_WRITE_LENGTH);
 
 pub global PRIVATE_TO_PUBLIC_KERNEL_CIRCUIT_PUBLIC_INPUTS_LENGTH: u32 = TX_CONSTANT_DATA_LENGTH

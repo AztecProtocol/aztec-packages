@@ -517,7 +517,7 @@ describe('e2e_synching', () => {
           expect(await archiver.getTxEffect(txHash)).not.toBeUndefined;
           expect(await archiver.getPrivateLogs(blockTip.number, 1)).not.toEqual([]);
           expect(
-            await archiver.getUnencryptedLogs({ fromBlock: blockTip.number, toBlock: blockTip.number + 1 }),
+            await archiver.getPublicLogs({ fromBlock: blockTip.number, toBlock: blockTip.number + 1 }),
           ).not.toEqual([]);
 
           await rollup.write.prune();
@@ -541,9 +541,9 @@ describe('e2e_synching', () => {
 
           expect(await archiver.getTxEffect(txHash)).toBeUndefined;
           expect(await archiver.getPrivateLogs(blockTip.number, 1)).toEqual([]);
-          expect(
-            await archiver.getUnencryptedLogs({ fromBlock: blockTip.number, toBlock: blockTip.number + 1 }),
-          ).toEqual([]);
+          expect(await archiver.getPublicLogs({ fromBlock: blockTip.number, toBlock: blockTip.number + 1 })).toEqual(
+            [],
+          );
 
           // Check world state reverted as well
           expect(await worldState.getLatestBlockNumber()).toEqual(Number(assumeProvenThrough));

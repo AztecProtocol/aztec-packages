@@ -7,18 +7,18 @@ use crate::abis::{
 use dep::types::{
     abis::{
         accumulated_data::CombinedAccumulatedData, log_hash::ScopedLogHash,
-        public_data_write::PublicDataWrite, sponge_blob::SpongeBlob,
+        public_data_write::PublicDataWrite, public_log::PublicLog, sponge_blob::SpongeBlob,
     },
     constants::{
         AZTEC_MAX_EPOCH_DURATION, CONTRACT_CLASS_LOGS_PREFIX, L2_L1_MSGS_PREFIX,
         MAX_CONTRACT_CLASS_LOGS_PER_TX, MAX_L2_TO_L1_MSGS_PER_TX, MAX_NOTE_HASHES_PER_TX,
-        MAX_NULLIFIERS_PER_TX, MAX_PRIVATE_LOGS_PER_TX,
-        MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, MAX_UNENCRYPTED_LOGS_PER_TX, NOTES_PREFIX,
-        NULLIFIERS_PREFIX, PRIVATE_LOG_SIZE_IN_FIELDS, PRIVATE_LOGS_PREFIX,
-        PUBLIC_DATA_UPDATE_REQUESTS_PREFIX, REVERT_CODE_PREFIX, TX_FEE_PREFIX, TX_START_PREFIX,
+        MAX_NULLIFIERS_PER_TX, MAX_PRIVATE_LOGS_PER_TX, MAX_PUBLIC_LOGS_PER_TX,
+        MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, NOTES_PREFIX, NULLIFIERS_PREFIX,
+        PRIVATE_LOG_SIZE_IN_FIELDS, PRIVATE_LOGS_PREFIX, PUBLIC_DATA_UPDATE_REQUESTS_PREFIX,
+        PUBLIC_LOG_SIZE_IN_FIELDS, REVERT_CODE_PREFIX, TX_FEE_PREFIX, TX_START_PREFIX,
         UNENCRYPTED_LOGS_PREFIX,
     },
-    hash::{accumulate_sha256, silo_unencrypted_log_hash},
+    hash::{accumulate_sha256, silo_contract_class_log_hash},
     merkle_tree::VariableMerkleTree,
     traits::is_empty,
     utils::{arrays::{array_concat, array_length, array_merge}, field::field_from_bytes},
@@ -254,7 +254,7 @@ pub fn encode_blob_prefix(input_type: u8, array_len: u32) -> Field {
 // MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX public data update requests -> MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX * 2 fields
 // TODO(#8954): When logs are refactored into fields, we will append the values here, for now appending the log hashes:
 // MAX_PRIVATE_LOGS_PER_TX * PRIVATE_LOG_SIZE_IN_FIELDS fields for private logs
-// MAX_UNENCRYPTED_LOGS_PER_TX fields for unencrypted logs
+// MAX_PUBLIC_LOGS_PER_TX * PUBLIC_LOG_SIZE_IN_FIELDS fields for public logs
 // MAX_CONTRACT_CLASS_LOGS_PER_TX fields for contract class logs
 // 7 fields for prefixes for each of the above categories
 pub(crate) global TX_EFFECTS_BLOB_HASH_INPUT_FIELDS: u32 = 1
@@ -264,7 +264,7 @@ pub(crate) global TX_EFFECTS_BLOB_HASH_INPUT_FIELDS: u32 = 1
     + MAX_L2_TO_L1_MSGS_PER_TX
     + MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX * 2
     + MAX_PRIVATE_LOGS_PER_TX * PRIVATE_LOG_SIZE_IN_FIELDS
-    + MAX_UNENCRYPTED_LOGS_PER_TX
+    + MAX_PUBLIC_LOGS_PER_TX * PUBLIC_LOG_SIZE_IN_FIELDS
     + MAX_CONTRACT_CLASS_LOGS_PER_TX
     + 7;
 pub fn append_tx_effects_for_blob(
@@ -285,10 +285,9 @@ pub fn append_tx_effects_for_blob(
     let public_data_update_requests =
         get_all_update_requests_for_tx_effects(all_public_data_update_requests);
     let private_logs = combined.private_logs;
-    let unencrypted_logs =
-        combined.unencrypted_logs_hashes.map(|log: ScopedLogHash| silo_unencrypted_log_hash(log));
+    let public_logs = combined.public_logs;
     let contract_class_logs = combined.contract_class_logs_hashes.map(|log: ScopedLogHash| {
-        silo_unencrypted_log_hash(log)
+        silo_contract_class_log_hash(log)
     });
 
     let mut offset = 0;
@@ -382,21 +381,24 @@ pub fn append_tx_effects_for_blob(
         offset += array_len;
     }
 
-    // TODO(#8954): When logs are refactored into fields, we will append the values here
-    // Currently appending the single log hash as an interim solution
-    // UNENCRYPTED LOGS
-    array_len = array_length(unencrypted_logs);
+    // PUBLIC LOGS
+    array_len = array_length(public_logs) * PUBLIC_LOG_SIZE_IN_FIELDS;
     if array_len != 0 {
         let unencrypted_logs_prefix = encode_blob_prefix(UNENCRYPTED_LOGS_PREFIX, array_len);
         tx_effects_hash_input[offset] = unencrypted_logs_prefix;
         offset += 1;
-
-        for j in 0..MAX_UNENCRYPTED_LOGS_PER_TX {
-            tx_effects_hash_input[offset + j] = unencrypted_logs[j];
+        for j in 0..MAX_PUBLIC_LOGS_PER_TX {
+            let log = public_logs[j].serialize();
+            for k in 0..PUBLIC_LOG_SIZE_IN_FIELDS {
+                let index = offset + j * PUBLIC_LOG_SIZE_IN_FIELDS + k;
+                tx_effects_hash_input[index] = log[k];
+            }
         }
         offset += array_len;
     }
 
+    // TODO(#8954): When logs are refactored into fields, we will append the values here
+    // Currently appending the single log hash as an interim solution
     // CONTRACT CLASS LOGS
     array_len = array_length(contract_class_logs);
     if array_len != 0 {

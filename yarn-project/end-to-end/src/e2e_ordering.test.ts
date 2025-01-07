@@ -1,5 +1,6 @@
 // Test suite for testing proper ordering of side effects
 import { Fr, type FunctionSelector, type PXE, type Wallet, toBigIntBE } from '@aztec/aztec.js';
+import { serializeToBuffer } from '@aztec/foundation/serialize';
 import { ChildContract } from '@aztec/noir-contracts.js/Child';
 import { ParentContract } from '@aztec/noir-contracts.js/Parent';
 
@@ -23,8 +24,11 @@ describe('e2e_ordering', () => {
       fromBlock,
       toBlock: fromBlock + 1,
     };
-    const unencryptedLogs = (await pxe.getUnencryptedLogs(logFilter)).logs;
-    const bigintLogs = unencryptedLogs.map(extendedLog => toBigIntBE(extendedLog.log.data));
+    const publicLogs = (await pxe.getPublicLogs(logFilter)).logs;
+
+    const bigintLogs = publicLogs.map(extendedLog =>
+      toBigIntBE(serializeToBuffer(extendedLog.log.log.filter(elt => !elt.isZero()))),
+    );
 
     expect(bigintLogs).toStrictEqual(logMessages);
   };

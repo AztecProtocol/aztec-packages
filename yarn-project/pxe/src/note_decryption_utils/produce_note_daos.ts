@@ -22,7 +22,6 @@ import { produceNoteDaosForKey } from './produce_note_daos_for_key.js';
  * @param dataStartIndexForTx - The next available leaf index for the note hash tree for this transaction.
  * @param excludedIndices - Indices that have been assigned a note in the same tx. Notes in a tx can have the same l1NotePayload, we need to find a different index for each replicate.
  * @param logger - An instance of Logger.
- * @param unencryptedLogs - Unencrypted logs for the transaction (used to complete partial notes).
  * @returns An object containing the incoming notes.
  */
 export async function produceNoteDaos(

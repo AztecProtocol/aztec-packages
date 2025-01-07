@@ -663,9 +663,7 @@ comptime fn generate_finalization_payload(
     // Each field contains 31 bytes so the length in fields is computed as ceil(setup_log_byte_length / 31)
     // --> we achieve rouding by adding 30 and then dividing without remainder
     let setup_log_field_length = (setup_log_byte_length + 30) / 31;
-    let public_values_field_length = public_values_length * 32;
-    let finalization_log_byte_length =
-        1 /* public_values_length */ + setup_log_byte_length + public_values_field_length;
+    let finalization_log_field_length = 1 + setup_log_field_length + public_values_length;
 
     (
         quote {
@@ -719,26 +717,20 @@ comptime fn generate_finalization_payload(
                 // We load the setup log from storage
                 let setup_log_fields: [Field; $setup_log_field_length] = self.context.storage_read(self.setup_log_slot);
 
-                // We convert the log from fields to bytes
-                let setup_log: [u8; $setup_log_byte_length] = aztec::utils::bytes::fields_to_bytes(setup_log_fields);
-
                 // We append the public value to the log and emit it as unencrypted log
-                let mut finalization_log = [0; $finalization_log_byte_length];
+                let mut finalization_log = [0; $finalization_log_field_length];
 
                 // Iterate over the partial log and copy it to the final log
-                for i in 0..setup_log.len() {
-                    finalization_log[i + 1] = setup_log[i];
+                for i in 0..setup_log_fields.len() {
+                    finalization_log[i + 1] = setup_log_fields[i];
                 }
 
                 // Iterate over the public values and append them to the log
                 for i in 0..$public_values_length {
-                    let public_value_bytes: [u8; 32] = self.public_values[i].to_be_bytes();
-                    for j in 0..public_value_bytes.len() {
-                        finalization_log[1 + $setup_log_byte_length + i * 32 + j] = public_value_bytes[j];
-                    }
+                    finalization_log[1 + $setup_log_field_length + i] = self.public_values[i];
                 }
 
-                // Populate the first byte with number of public values
+                // Populate the first field with number of public values
                 finalization_log[0] = $public_values_length;
 
                 // We emit the finalization log via the unencrypted logs stream

@@ -3620,7 +3620,7 @@ AvmError AvmTraceBuilder::op_emit_unencrypted_log(uint8_t indirect, uint32_t log
     // Can't return earlier as we do elsewhere for side-effect-limit because we need
     // to at least retrieve log_size first to charge proper gas.
     // This means a tag error could occur before side-effect-limit first.
-    if (is_ok(error) && unencrypted_log_write_counter >= MAX_UNENCRYPTED_LOGS_PER_TX) {
+    if (is_ok(error) && unencrypted_log_write_counter >= MAX_PUBLIC_LOGS_PER_TX) {
         error = AvmError::SIDE_EFFECT_LIMIT_REACHED;
         auto row = Row{
             .main_clk = clk,

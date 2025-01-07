@@ -47,10 +47,7 @@ impl TailOutputValidator {
     fn validate_empty_values(self) {
         assert(is_empty(self.output.start_state), "start_state must be empty");
         assert_eq(self.output.revert_code, 0, "revert_code must be empty");
-        assert(
-            is_empty_array(self.output.end.unencrypted_logs_hashes),
-            "unencrypted logs in private must be empty",
-        );
+        assert(is_empty_array(self.output.end.public_logs), "public logs in private must be empty");
     }
 
     fn validate_propagated_values(self) {

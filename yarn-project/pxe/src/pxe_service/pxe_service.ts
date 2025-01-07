@@ -5,6 +5,7 @@ import {
   type EventMetadataDefinition,
   type ExtendedNote,
   type FunctionCall,
+  type GetPublicLogsResponse,
   type GetUnencryptedLogsResponse,
   type InBlock,
   type IncomingNotesFilter,
@@ -615,12 +616,12 @@ export class PXEService implements PXE {
   }
 
   /**
-   * Gets unencrypted logs based on the provided filter.
+   * Gets public logs based on the provided filter.
    * @param filter - The filter to apply to the logs.
    * @returns The requested logs.
    */
-  public getUnencryptedLogs(filter: LogFilter): Promise<GetUnencryptedLogsResponse> {
-    return this.node.getUnencryptedLogs(filter);
+  public getPublicLogs(filter: LogFilter): Promise<GetPublicLogsResponse> {
+    return this.node.getPublicLogs(filter);
   }
 
   /**
@@ -922,32 +923,28 @@ export class PXEService implements PXE {
 
   async getUnencryptedEvents<T>(eventMetadataDef: EventMetadataDefinition, from: number, limit: number): Promise<T[]> {
     const eventMetadata = new EventMetadata<T>(eventMetadataDef);
-    const { logs: unencryptedLogs } = await this.node.getUnencryptedLogs({
+    const { logs } = await this.node.getPublicLogs({
       fromBlock: from,
       toBlock: from + limit,
     });
 
-    const decodedEvents = unencryptedLogs
-      .map(unencryptedLog => {
-        const unencryptedLogBuf = unencryptedLog.log.data;
+    const decodedEvents = logs
+      .map(log => {
+        const logFields = log.log.log.filter(f => !f.isZero());
         // We are assuming here that event logs are the last 4 bytes of the event. This is not enshrined but is a function of aztec.nr raw log emission.
-        if (
-          !EventSelector.fromBuffer(unencryptedLogBuf.subarray(unencryptedLogBuf.byteLength - 4)).equals(
-            eventMetadata.eventSelector,
-          )
-        ) {
+        if (!EventSelector.fromField(logFields[logFields.length - 1]).equals(eventMetadata.eventSelector)) {
           return undefined;
         }
-
-        if (unencryptedLogBuf.byteLength !== eventMetadata.fieldNames.length * 32 + 32) {
+        // +1 for the event selector
+        if (logFields.length !== eventMetadata.fieldNames.length + 1) {
           throw new Error(
             'Something is weird here, we have matching EventSelectors, but the actual payload has mismatched length',
           );
         }
 
-        return eventMetadata.decode(unencryptedLog.log);
+        return eventMetadata.decode(log.log);
       })
-      .filter(unencryptedLog => unencryptedLog !== undefined) as T[];
+      .filter(log => log !== undefined) as T[];
 
     return decodedEvents;
   }

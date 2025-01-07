@@ -4,6 +4,7 @@ import {
   type AztecNode,
   type ClientProtocolCircuitVerifier,
   type EpochProofQuote,
+  type GetPublicLogsResponse,
   type GetUnencryptedLogsResponse,
   type InBlock,
   type L1ToL2MessageSource,
@@ -374,12 +375,12 @@ export class AztecNodeService implements AztecNode, Traceable {
   }
 
   /**
-   * Gets unencrypted logs based on the provided filter.
+   * Gets public logs based on the provided filter.
    * @param filter - The filter to apply to the logs.
    * @returns The requested logs.
    */
-  getUnencryptedLogs(filter: LogFilter): Promise<GetUnencryptedLogsResponse> {
-    return this.logsSource.getUnencryptedLogs(filter);
+  getPublicLogs(filter: LogFilter): Promise<GetPublicLogsResponse> {
+    return this.logsSource.getPublicLogs(filter);
   }
 
   /**

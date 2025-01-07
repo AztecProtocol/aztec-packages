@@ -1,4 +1,5 @@
 use crate::tests::tail_output_validator_builder::TailOutputValidatorBuilder;
+use types::constants::PUBLIC_LOG_DATA_SIZE_IN_FIELDS;
 
 #[test]
 fn validate_empty_values_succeeds() {
@@ -24,11 +25,11 @@ fn validate_empty_values_non_empty_revert_code_fails() {
     builder.validate();
 }
 
-#[test(should_fail_with = "unencrypted logs in private must be empty")]
+#[test(should_fail_with = "public logs in private must be empty")]
 fn validate_empty_values_non_empty_unencrypted_log_fails() {
     let mut builder = TailOutputValidatorBuilder::new();
 
-    builder.output.add_unencrypted_log_hash(1, 2);
+    builder.output.add_public_log([2; PUBLIC_LOG_DATA_SIZE_IN_FIELDS]);
 
     builder.validate();
 }

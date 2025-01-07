@@ -64,6 +64,7 @@ export * from './public_data_read.js';
 export * from './public_data_update_request.js';
 export * from './public_data_write.js';
 export * from './public_inner_call_request.js';
+export * from './public_log.js';
 export * from './read_request.js';
 export * from './read_request_hints/index.js';
 export * from './recursive_proof.js';

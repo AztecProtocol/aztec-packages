@@ -1,4 +1,5 @@
 import {
+  type GetPublicLogsResponse,
   type GetUnencryptedLogsResponse,
   type InBlock,
   type InboxLeaf,
@@ -156,11 +157,11 @@ export interface ArchiverDataStore {
   getLogsByTags(tags: Fr[]): Promise<TxScopedL2Log[][]>;
 
   /**
-   * Gets unencrypted logs based on the provided filter.
+   * Gets public logs based on the provided filter.
    * @param filter - The filter to apply to the logs.
    * @returns The requested logs.
    */
-  getUnencryptedLogs(filter: LogFilter): Promise<GetUnencryptedLogsResponse>;
+  getPublicLogs(filter: LogFilter): Promise<GetPublicLogsResponse>;
 
   /**
    * Gets contract class logs based on the provided filter.

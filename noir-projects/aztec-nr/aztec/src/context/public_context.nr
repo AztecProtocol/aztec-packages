@@ -16,7 +16,7 @@ impl PublicContext {
     pub fn new(compute_args_hash: fn() -> Field) -> Self {
         PublicContext { args_hash: Option::none(), compute_args_hash }
     }
-
+    // TODO(MW): continue renaming unencrypted -> public
     pub fn emit_unencrypted_log<T, let N: u32>(_self: &mut Self, log: T)
     where
         T: Serialize<N>,

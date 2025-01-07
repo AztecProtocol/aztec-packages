@@ -1,6 +1,10 @@
 import { type Fr, type PrivateLog } from '@aztec/circuits.js';
 
-import { type GetUnencryptedLogsResponse, type TxScopedL2Log } from './get_logs_response.js';
+import {
+  type GetPublicLogsResponse,
+  type GetUnencryptedLogsResponse,
+  type TxScopedL2Log,
+} from './get_logs_response.js';
 import { type LogFilter } from './log_filter.js';
 
 /**
@@ -24,11 +28,11 @@ export interface L2LogsSource {
   getLogsByTags(tags: Fr[]): Promise<TxScopedL2Log[][]>;
 
   /**
-   * Gets unencrypted logs based on the provided filter.
+   * Gets public logs based on the provided filter.
    * @param filter - The filter to apply to the logs.
    * @returns The requested logs.
    */
-  getUnencryptedLogs(filter: LogFilter): Promise<GetUnencryptedLogsResponse>;
+  getPublicLogs(filter: LogFilter): Promise<GetPublicLogsResponse>;
 
   /**
    * Gets contract class logs based on the provided filter.

@@ -1,4 +1,5 @@
 import {
+  type GetPublicLogsResponse,
   type GetUnencryptedLogsResponse,
   type InBlock,
   type InboxLeaf,
@@ -693,12 +694,12 @@ export class Archiver implements ArchiveSource, Traceable {
   }
 
   /**
-   * Gets unencrypted logs based on the provided filter.
+   * Gets public logs based on the provided filter.
    * @param filter - The filter to apply to the logs.
    * @returns The requested logs.
    */
-  getUnencryptedLogs(filter: LogFilter): Promise<GetUnencryptedLogsResponse> {
-    return this.store.getUnencryptedLogs(filter);
+  getPublicLogs(filter: LogFilter): Promise<GetPublicLogsResponse> {
+    return this.store.getPublicLogs(filter);
   }
 
   /**
@@ -1041,8 +1042,8 @@ class ArchiverStoreHelper
   findNullifiersIndexesWithBlock(blockNumber: number, nullifiers: Fr[]): Promise<(InBlock<bigint> | undefined)[]> {
     return this.store.findNullifiersIndexesWithBlock(blockNumber, nullifiers);
   }
-  getUnencryptedLogs(filter: LogFilter): Promise<GetUnencryptedLogsResponse> {
-    return this.store.getUnencryptedLogs(filter);
+  getPublicLogs(filter: LogFilter): Promise<GetPublicLogsResponse> {
+    return this.store.getPublicLogs(filter);
   }
   getContractClassLogs(filter: LogFilter): Promise<GetUnencryptedLogsResponse> {
     return this.store.getContractClassLogs(filter);

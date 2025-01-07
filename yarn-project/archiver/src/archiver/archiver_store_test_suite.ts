@@ -1,14 +1,4 @@
-import {
-  InboxLeaf,
-  L2Block,
-  LogId,
-  TxEffect,
-  TxHash,
-  UnencryptedFunctionL2Logs,
-  UnencryptedL2Log,
-  UnencryptedTxL2Logs,
-  wrapInBlock,
-} from '@aztec/circuit-types';
+import { InboxLeaf, L2Block, LogId, TxEffect, TxHash, wrapInBlock } from '@aztec/circuit-types';
 import '@aztec/circuit-types/jest';
 import {
   AztecAddress,
@@ -19,7 +9,9 @@ import {
   L1_TO_L2_MSG_SUBTREE_HEIGHT,
   MAX_NULLIFIERS_PER_TX,
   PRIVATE_LOG_SIZE_IN_FIELDS,
+  PUBLIC_LOG_SIZE_IN_FIELDS,
   PrivateLog,
+  PublicLog,
   SerializableContractInstance,
   computePublicBytecodeCommitment,
 } from '@aztec/circuits.js';
@@ -166,14 +158,14 @@ export function describeArchiverDataStore(testName: string, getStore: () => Arch
     });
 
     describe('addLogs', () => {
-      it('adds private & unencrypted logs', async () => {
+      it('adds private & public logs', async () => {
         const block = blocks[0].data;
         await expect(store.addLogs([block])).resolves.toEqual(true);
       });
     });
 
     describe('deleteLogs', () => {
-      it('deletes private & unencrypted logs', async () => {
+      it('deletes private & public logs', async () => {
         const block = blocks[0].data;
         await store.addBlocks([blocks[0]]);
         await expect(store.addLogs([block])).resolves.toEqual(true);
@@ -181,15 +173,15 @@ export function describeArchiverDataStore(testName: string, getStore: () => Arch
         expect((await store.getPrivateLogs(1, 1)).length).toEqual(
           block.body.txEffects.map(txEffect => txEffect.privateLogs).flat().length,
         );
-        expect((await store.getUnencryptedLogs({ fromBlock: 1 })).logs.length).toEqual(
-          block.body.unencryptedLogs.getTotalLogCount(),
+        expect((await store.getPublicLogs({ fromBlock: 1 })).logs.length).toEqual(
+          block.body.txEffects.map(txEffect => txEffect.publicLogs).flat().length,
         );
 
         // This one is a pain for memory as we would never want to just delete memory in the middle.
         await store.deleteLogs([block]);
 
         expect((await store.getPrivateLogs(1, 1)).length).toEqual(0);
-        expect((await store.getUnencryptedLogs({ fromBlock: 1 })).logs.length).toEqual(0);
+        expect((await store.getPublicLogs({ fromBlock: 1 })).logs.length).toEqual(0);
       });
     });
 
@@ -373,7 +365,7 @@ export function describeArchiverDataStore(testName: string, getStore: () => Arch
       const numBlocks = 3;
       const numTxsPerBlock = 4;
       const numPrivateLogsPerTx = 3;
-      const numUnencryptedLogsPerTx = 2;
+      const numPublicLogsPerTx = 2;
 
       let blocks: L1Published<L2Block>[];
 
@@ -384,7 +376,7 @@ export function describeArchiverDataStore(testName: string, getStore: () => Arch
         PrivateLog.fromFields([tag, ...times(PRIVATE_LOG_SIZE_IN_FIELDS - 1, i => new Fr(tag.toNumber() + i))]);
 
       const makePublicLog = (tag: Fr) =>
-        Buffer.concat([tag.toBuffer(), ...times(tag.toNumber() % 60, i => new Fr(tag.toNumber() + i).toBuffer())]);
+        PublicLog.fromFields([tag, ...times(PUBLIC_LOG_SIZE_IN_FIELDS - 1, i => new Fr(tag.toNumber() + i))]);
 
       const mockPrivateLogs = (blockNumber: number, txIndex: number) => {
         return times(numPrivateLogsPerTx, (logIndex: number) => {
@@ -393,13 +385,11 @@ export function describeArchiverDataStore(testName: string, getStore: () => Arch
         });
       };
 
-      const mockUnencryptedLogs = (blockNumber: number, txIndex: number) => {
-        const logs = times(numUnencryptedLogsPerTx, (logIndex: number) => {
+      const mockPublicLogs = (blockNumber: number, txIndex: number) => {
+        return times(numPublicLogsPerTx, (logIndex: number) => {
           const tag = makeTag(blockNumber, txIndex, logIndex, /* isPublic */ true);
-          const log = makePublicLog(tag);
-          return new UnencryptedL2Log(AztecAddress.fromNumber(txIndex), log);
+          return makePublicLog(tag);
         });
-        return new UnencryptedTxL2Logs([new UnencryptedFunctionL2Logs(logs)]);
       };
 
       const mockBlockWithLogs = (blockNumber: number): L1Published<L2Block> => {
@@ -409,7 +399,7 @@ export function describeArchiverDataStore(testName: string, getStore: () => Arch
         block.body.txEffects = times(numTxsPerBlock, (txIndex: number) => {
           const txEffect = TxEffect.random();
           txEffect.privateLogs = mockPrivateLogs(blockNumber, txIndex);
-          txEffect.unencryptedLogs = mockUnencryptedLogs(blockNumber, txIndex);
+          txEffect.publicLogs = mockPublicLogs(blockNumber, txIndex);
           return txEffect;
         });
 
@@ -450,8 +440,8 @@ export function describeArchiverDataStore(testName: string, getStore: () => Arch
       });
 
       // TODO: Allow this test when #9835 is fixed and tags can be correctly decoded
-      it.skip('is possible to batch request all logs (private and unencrypted) via tags', async () => {
-        // Tag(0, 0, 0) is shared with the first private log and the first unencrypted log.
+      it.skip('is possible to batch request all logs (private and public) via tags', async () => {
+        // Tag(0, 0, 0) is shared with the first private log and the first public log.
         const tags = [makeTag(0, 0, 0)];
 
         const logsByTags = await store.getLogsByTags(tags);
@@ -522,16 +512,16 @@ export function describeArchiverDataStore(testName: string, getStore: () => Arch
       });
     });
 
-    describe('getUnencryptedLogs', () => {
+    describe('getPublicLogs', () => {
       const txsPerBlock = 4;
       const numPublicFunctionCalls = 3;
-      const numUnencryptedLogs = 2;
+      const numPublicLogs = 2;
       const numBlocks = 10;
       let blocks: L1Published<L2Block>[];
 
       beforeEach(async () => {
         blocks = times(numBlocks, (index: number) => ({
-          data: L2Block.random(index + 1, txsPerBlock, numPublicFunctionCalls, numUnencryptedLogs),
+          data: L2Block.random(index + 1, txsPerBlock, numPublicFunctionCalls, numPublicLogs),
           l1: { blockNumber: BigInt(index), blockHash: `0x${index}`, timestamp: BigInt(index) },
         }));
 
@@ -550,7 +540,7 @@ export function describeArchiverDataStore(testName: string, getStore: () => Arch
           store.deleteLogs(blocks.map(b => b.data)),
         ]);
 
-        const response = await store.getUnencryptedLogs({ txHash: targetTxHash });
+        const response = await store.getPublicLogs({ txHash: targetTxHash });
         const logs = response.logs;
 
         expect(response.maxLogsHit).toBeFalsy();
@@ -563,12 +553,12 @@ export function describeArchiverDataStore(testName: string, getStore: () => Arch
         const targetTxIndex = randomInt(txsPerBlock);
         const targetTxHash = blocks[targetBlockIndex].data.body.txEffects[targetTxIndex].txHash;
 
-        const response = await store.getUnencryptedLogs({ txHash: targetTxHash });
+        const response = await store.getPublicLogs({ txHash: targetTxHash });
         const logs = response.logs;
 
         expect(response.maxLogsHit).toBeFalsy();
 
-        const expectedNumLogs = numPublicFunctionCalls * numUnencryptedLogs;
+        const expectedNumLogs = numPublicFunctionCalls * numPublicLogs;
         expect(logs.length).toEqual(expectedNumLogs);
 
         const targeBlockNumber = targetBlockIndex + INITIAL_L2_BLOCK_NUM;
@@ -583,12 +573,12 @@ export function describeArchiverDataStore(testName: string, getStore: () => Arch
         const fromBlock = 3;
         const toBlock = 7;
 
-        const response = await store.getUnencryptedLogs({ fromBlock, toBlock });
+        const response = await store.getPublicLogs({ fromBlock, toBlock });
         const logs = response.logs;
 
         expect(response.maxLogsHit).toBeFalsy();
 
-        const expectedNumLogs = txsPerBlock * numPublicFunctionCalls * numUnencryptedLogs * (toBlock - fromBlock);
+        const expectedNumLogs = txsPerBlock * numPublicFunctionCalls * numPublicLogs * (toBlock - fromBlock);
         expect(logs.length).toEqual(expectedNumLogs);
 
         for (const log of logs) {
@@ -602,14 +592,11 @@ export function describeArchiverDataStore(testName: string, getStore: () => Arch
         // Get a random contract address from the logs
         const targetBlockIndex = randomInt(numBlocks);
         const targetTxIndex = randomInt(txsPerBlock);
-        const targetFunctionLogIndex = randomInt(numPublicFunctionCalls);
-        const targetLogIndex = randomInt(numUnencryptedLogs);
+        const targetLogIndex = randomInt(numPublicLogs * numPublicFunctionCalls);
         const targetContractAddress =
-          blocks[targetBlockIndex].data.body.txEffects[targetTxIndex].unencryptedLogs.functionLogs[
-            targetFunctionLogIndex
-          ].logs[targetLogIndex].contractAddress;
+          blocks[targetBlockIndex].data.body.txEffects[targetTxIndex].publicLogs[targetLogIndex].contractAddress;
 
-        const response = await store.getUnencryptedLogs({ contractAddress: targetContractAddress });
+        const response = await store.getPublicLogs({ contractAddress: targetContractAddress });
 
         expect(response.maxLogsHit).toBeFalsy();
 
@@ -622,11 +609,11 @@ export function describeArchiverDataStore(testName: string, getStore: () => Arch
         // Get a random log as reference
         const targetBlockIndex = randomInt(numBlocks);
         const targetTxIndex = randomInt(txsPerBlock);
-        const targetLogIndex = randomInt(numUnencryptedLogs);
+        const targetLogIndex = randomInt(numPublicLogs);
 
         const afterLog = new LogId(targetBlockIndex + INITIAL_L2_BLOCK_NUM, targetTxIndex, targetLogIndex);
 
-        const response = await store.getUnencryptedLogs({ afterLog });
+        const response = await store.getPublicLogs({ afterLog });
         const logs = response.logs;
 
         expect(response.maxLogsHit).toBeFalsy();
@@ -648,40 +635,40 @@ export function describeArchiverDataStore(testName: string, getStore: () => Arch
         const txHash = new TxHash(randomBytes(TxHash.SIZE));
         const afterLog = new LogId(1, 0, 0);
 
-        const response = await store.getUnencryptedLogs({ txHash, afterLog });
+        const response = await store.getPublicLogs({ txHash, afterLog });
         expect(response.logs.length).toBeGreaterThan(1);
       });
 
       it('intersecting works', async () => {
-        let logs = (await store.getUnencryptedLogs({ fromBlock: -10, toBlock: -5 })).logs;
+        let logs = (await store.getPublicLogs({ fromBlock: -10, toBlock: -5 })).logs;
         expect(logs.length).toBe(0);
 
         // "fromBlock" gets correctly trimmed to range and "toBlock" is exclusive
-        logs = (await store.getUnencryptedLogs({ fromBlock: -10, toBlock: 5 })).logs;
+        logs = (await store.getPublicLogs({ fromBlock: -10, toBlock: 5 })).logs;
         let blockNumbers = new Set(logs.map(log => log.id.blockNumber));
         expect(blockNumbers).toEqual(new Set([1, 2, 3, 4]));
 
         // "toBlock" should be exclusive
-        logs = (await store.getUnencryptedLogs({ fromBlock: 1, toBlock: 1 })).logs;
+        logs = (await store.getPublicLogs({ fromBlock: 1, toBlock: 1 })).logs;
         expect(logs.length).toBe(0);
 
-        logs = (await store.getUnencryptedLogs({ fromBlock: 10, toBlock: 5 })).logs;
+        logs = (await store.getPublicLogs({ fromBlock: 10, toBlock: 5 })).logs;
         expect(logs.length).toBe(0);
 
         // both "fromBlock" and "toBlock" get correctly capped to range and logs from all blocks are returned
-        logs = (await store.getUnencryptedLogs({ fromBlock: -100, toBlock: +100 })).logs;
+        logs = (await store.getPublicLogs({ fromBlock: -100, toBlock: +100 })).logs;
         blockNumbers = new Set(logs.map(log => log.id.blockNumber));
         expect(blockNumbers.size).toBe(numBlocks);
 
         // intersecting with "afterLog" works
-        logs = (await store.getUnencryptedLogs({ fromBlock: 2, toBlock: 5, afterLog: new LogId(4, 0, 0) })).logs;
+        logs = (await store.getPublicLogs({ fromBlock: 2, toBlock: 5, afterLog: new LogId(4, 0, 0) })).logs;
         blockNumbers = new Set(logs.map(log => log.id.blockNumber));
         expect(blockNumbers).toEqual(new Set([4]));
 
-        logs = (await store.getUnencryptedLogs({ toBlock: 5, afterLog: new LogId(5, 1, 0) })).logs;
+        logs = (await store.getPublicLogs({ toBlock: 5, afterLog: new LogId(5, 1, 0) })).logs;
         expect(logs.length).toBe(0);
 
-        logs = (await store.getUnencryptedLogs({ fromBlock: 2, toBlock: 5, afterLog: new LogId(100, 0, 0) })).logs;
+        logs = (await store.getPublicLogs({ fromBlock: 2, toBlock: 5, afterLog: new LogId(100, 0, 0) })).logs;
         expect(logs.length).toBe(0);
       });
 
@@ -689,11 +676,11 @@ export function describeArchiverDataStore(testName: string, getStore: () => Arch
         // Get a random log as reference
         const targetBlockIndex = randomInt(numBlocks);
         const targetTxIndex = randomInt(txsPerBlock);
-        const targetLogIndex = randomInt(numUnencryptedLogs);
+        const targetLogIndex = randomInt(numPublicLogs);
 
         const afterLog = new LogId(targetBlockIndex + INITIAL_L2_BLOCK_NUM, targetTxIndex, targetLogIndex);
 
-        const response = await store.getUnencryptedLogs({ afterLog, fromBlock: afterLog.blockNumber });
+        const response = await store.getPublicLogs({ afterLog, fromBlock: afterLog.blockNumber });
         const logs = response.logs;
 
         expect(response.maxLogsHit).toBeFalsy();

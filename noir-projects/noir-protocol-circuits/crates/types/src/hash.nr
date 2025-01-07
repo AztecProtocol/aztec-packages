@@ -115,15 +115,15 @@ pub fn silo_private_log(private_log: Scoped<PrivateLogData>) -> PrivateLog {
     }
 }
 
-fn compute_siloed_unencrypted_log_hash(address: AztecAddress, log_hash: Field) -> Field {
+fn compute_siloed_contract_class_log_hash(address: AztecAddress, log_hash: Field) -> Field {
     accumulate_sha256([address.to_field(), log_hash])
 }
 
-pub fn silo_unencrypted_log_hash(log_hash: ScopedLogHash) -> Field {
+pub fn silo_contract_class_log_hash(log_hash: ScopedLogHash) -> Field {
     if log_hash.contract_address.is_zero() {
         0
     } else {
-        compute_siloed_unencrypted_log_hash(log_hash.contract_address, log_hash.value())
+        compute_siloed_contract_class_log_hash(log_hash.contract_address, log_hash.value())
     }
 }
 

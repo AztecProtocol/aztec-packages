@@ -4,7 +4,7 @@ import {
   MAX_NULLIFIERS_PER_TX,
   MAX_PUBLIC_CALLS_TO_UNIQUE_CONTRACT_CLASS_IDS,
   MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
-  MAX_UNENCRYPTED_LOGS_PER_TX,
+  MAX_PUBLIC_LOGS_PER_TX,
   VerificationKeyData,
 } from '@aztec/circuits.js';
 import { Fr } from '@aztec/foundation/fields';
@@ -79,11 +79,11 @@ describe('AVM WitGen, proof generation and verification', () => {
     TIMEOUT,
   );
   it(
-    'Should prove and verify test that creates too many unencrypted logs and reverts',
+    'Should prove and verify test that creates too many public logs and reverts',
     async () => {
       await proveAndVerifyAvmTestContract(
         'n_new_unencrypted_logs',
-        /*args=*/ [new Fr(MAX_UNENCRYPTED_LOGS_PER_TX + 1)],
+        /*args=*/ [new Fr(MAX_PUBLIC_LOGS_PER_TX + 1)],
         /*expectRevert=*/ true,
       );
     },

@@ -16,10 +16,10 @@ import {
   PublicCallStackItemCompressed,
   type PublicDataUpdateRequest,
   PublicInnerCallRequest,
+  type PublicLog,
   type ReadRequest,
   RevertCode,
   type ScopedL2ToL1Message,
-  type ScopedLogHash,
   type TreeLeafReadRequest,
 } from '@aztec/circuits.js';
 import { computeVarArgsHash } from '@aztec/circuits.js/hash';
@@ -33,16 +33,8 @@ export interface PublicSideEffects {
   nullifiers: Nullifier[];
   /** The new l2 to l1 messages generated to be inserted into the messages tree. */
   l2ToL1Messages: ScopedL2ToL1Message[];
-  /**
-   * The hashed logs with side effect counter.
-   * Note: required as we don't track the counter anywhere else.
-   */
-  unencryptedLogsHashes: ScopedLogHash[];
-  /**
-   * Unencrypted logs emitted during execution.
-   * Note: These are preimages to `unencryptedLogsHashes`.
-   */
-  unencryptedLogs: UnencryptedFunctionL2Logs;
+  /** Public logs emitted during execution. */
+  publicLogs: PublicLog[];
 }
 
 export interface EnqueuedPublicCallExecutionResult {
@@ -123,6 +115,7 @@ export interface PublicFunctionCallResult {
   nullifierNonExistentReadRequests: ReadRequest[];
   /** L1 to L2 message read requests emitted in this call. */
   l1ToL2MsgReadRequests: TreeLeafReadRequest[];
+  // TODO(MW): remove unencrypted logs below without breaking everything
   /**
    * The hashed logs with side effect counter.
    * Note: required as we don't track the counter anywhere else.

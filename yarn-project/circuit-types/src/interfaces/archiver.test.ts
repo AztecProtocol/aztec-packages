@@ -24,8 +24,13 @@ import { resolve } from 'path';
 import { type InBlock, randomInBlock } from '../in_block.js';
 import { L2Block } from '../l2_block.js';
 import { type L2Tips } from '../l2_block_source.js';
+import { ExtendedPublicLog } from '../logs/extended_public_log.js';
 import { ExtendedUnencryptedL2Log } from '../logs/extended_unencrypted_l2_log.js';
-import { type GetUnencryptedLogsResponse, TxScopedL2Log } from '../logs/get_logs_response.js';
+import {
+  type GetPublicLogsResponse,
+  type GetUnencryptedLogsResponse,
+  TxScopedL2Log,
+} from '../logs/get_logs_response.js';
 import { type LogFilter } from '../logs/log_filter.js';
 import { TxHash } from '../tx/tx_hash.js';
 import { TxReceipt } from '../tx/tx_receipt.js';
@@ -160,12 +165,12 @@ describe('ArchiverApiSchema', () => {
     expect(result).toEqual([[expect.any(TxScopedL2Log)]]);
   });
 
-  it('getUnencryptedLogs', async () => {
-    const result = await context.client.getUnencryptedLogs({
+  it('getPublicLogs', async () => {
+    const result = await context.client.getPublicLogs({
       txHash: TxHash.random(),
       contractAddress: AztecAddress.random(),
     });
-    expect(result).toEqual({ logs: [expect.any(ExtendedUnencryptedL2Log)], maxLogsHit: true });
+    expect(result).toEqual({ logs: [expect.any(ExtendedPublicLog)], maxLogsHit: true });
   });
 
   it('getContractClassLogs', async () => {
@@ -322,10 +327,10 @@ class MockArchiver implements ArchiverApi {
     expect(tags[0]).toBeInstanceOf(Fr);
     return Promise.resolve([Array.from({ length: tags.length }, () => TxScopedL2Log.random())]);
   }
-  getUnencryptedLogs(filter: LogFilter): Promise<GetUnencryptedLogsResponse> {
+  getPublicLogs(filter: LogFilter): Promise<GetPublicLogsResponse> {
     expect(filter.txHash).toBeInstanceOf(TxHash);
     expect(filter.contractAddress).toBeInstanceOf(AztecAddress);
-    return Promise.resolve({ logs: [ExtendedUnencryptedL2Log.random()], maxLogsHit: true });
+    return Promise.resolve({ logs: [ExtendedPublicLog.random()], maxLogsHit: true });
   }
   getContractClassLogs(filter: LogFilter): Promise<GetUnencryptedLogsResponse> {
     expect(filter.txHash).toBeInstanceOf(TxHash);

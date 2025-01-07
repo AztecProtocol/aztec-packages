@@ -7,7 +7,7 @@ import {
   type PrivateKernelProverProfileResult,
   PrivateKernelProverProfileResultSchema,
 } from '../interfaces/private_kernel_prover.js';
-import { ContractClassTxL2Logs, UnencryptedTxL2Logs } from '../logs/tx_l2_logs.js';
+import { ContractClassTxL2Logs } from '../logs/tx_l2_logs.js';
 import {
   PrivateExecutionResult,
   collectEnqueuedPublicFunctionCalls,
@@ -33,11 +33,11 @@ export class PrivateSimulationResult {
     const enqueuedPublicFunctions = collectEnqueuedPublicFunctionCalls(this.privateExecutionResult);
     const teardownPublicFunction = collectPublicTeardownFunctionCall(this.privateExecutionResult);
 
-    // NB: no unencrypted logs* come from private, but we keep the property on Tx so enqueued_calls_processor.ts can accumulate public logs
+    // NB: no public logs* come from private, but we keep the property on Tx so public_tx_simulator.ts can accumulate public logs
     const tx = new Tx(
       this.publicInputs,
       ClientIvcProof.empty(),
-      UnencryptedTxL2Logs.empty(), // *unencrypted logs
+      [], // *public logs
       contractClassLogs,
       enqueuedPublicFunctions,
       teardownPublicFunction,
@@ -124,11 +124,11 @@ export class TxProvingResult {
     const enqueuedPublicFunctions = collectEnqueuedPublicFunctionCalls(this.privateExecutionResult);
     const teardownPublicFunction = collectPublicTeardownFunctionCall(this.privateExecutionResult);
 
-    // NB: no unencrypted logs* come from private, but we keep the property on Tx so enqueued_calls_processor.ts can accumulate public logs
+    // NB: no public logs* come from private, but we keep the property on Tx so public_tx_simulator.ts can accumulate public logs
     const tx = new Tx(
       this.publicInputs,
       this.clientIvcProof,
-      UnencryptedTxL2Logs.empty(), // *unencrypted logs
+      [], // *public logs
       contractClassLogs,
       enqueuedPublicFunctions,
       teardownPublicFunction,

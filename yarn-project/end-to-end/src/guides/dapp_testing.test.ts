@@ -139,8 +139,8 @@ describe('guides/dapp/testing', () => {
           fromBlock: tx.blockNumber!,
           limit: 1, // 1 log expected
         };
-        const logs = (await pxe.getUnencryptedLogs(filter)).logs;
-        expect(Fr.fromBuffer(logs[0].log.data)).toEqual(value);
+        const logs = (await pxe.getPublicLogs(filter)).logs;
+        expect(logs[0].log.log[0]).toEqual(value);
         // docs:end:unencrypted-logs
       });
 

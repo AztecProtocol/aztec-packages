@@ -2,6 +2,7 @@ import { createLogger } from '@aztec/aztec.js';
 import {
   type AztecNode,
   type EpochProofQuote,
+  type GetPublicLogsResponse,
   type GetUnencryptedLogsResponse,
   type InBlock,
   type L2Block,
@@ -20,7 +21,6 @@ import {
   TxHash,
   type TxReceipt,
   TxScopedL2Log,
-  type UnencryptedL2Log,
 } from '@aztec/circuit-types';
 import {
   type ARCHIVE_HEIGHT,
@@ -36,6 +36,7 @@ import {
   type PUBLIC_DATA_TREE_HEIGHT,
   type PrivateLog,
   type ProtocolContractAddresses,
+  type PublicLog,
 } from '@aztec/circuits.js';
 import { type L1ContractAddresses } from '@aztec/ethereum';
 import { Fr } from '@aztec/foundation/fields';
@@ -166,26 +167,17 @@ export class TXENode implements AztecNode {
   /**
    * Adds public logs to the txe node, given a block
    * @param blockNumber - The block number at which to add the public logs.
-   * @param privateLogs - The unencrypted logs to be added.
+   * @param publicLogs - The public logs to be added.
    */
-  addPublicLogsByTags(blockNumber: number, unencryptedLogs: UnencryptedL2Log[]) {
-    unencryptedLogs.forEach(log => {
-      if (log.data.length < 32 * 33) {
-        // TODO remove when #9835 and #9836 are fixed
-        this.#logger.warn(`Skipping unencrypted log with insufficient data length: ${log.data.length}`);
-        return;
-      }
+  addPublicLogsByTags(blockNumber: number, publicLogs: PublicLog[]) {
+    publicLogs.forEach(log => {
       try {
         // TODO remove when #9835 and #9836 are fixed. The partial note logs are emitted as bytes, but encoded as Fields.
         // This means that for every 32 bytes of payload, we only have 1 byte of data.
         // Also, the tag is not stored in the first 32 bytes of the log, (that's the length of public fields now) but in the next 32.
-        const correctedBuffer = Buffer.alloc(32);
-        const initialOffset = 32;
-        for (let i = 0; i < 32; i++) {
-          const byte = Fr.fromBuffer(log.data.subarray(i * 32 + initialOffset, i * 32 + 32 + initialOffset)).toNumber();
-          correctedBuffer.writeUInt8(byte, i);
-        }
-        const tag = new Fr(correctedBuffer);
+
+        // TODO(MW): For now, the first elt is the length of public fields => tag is in fields[1]?
+        const tag = log.log[1];
 
         this.#logger.verbose(
           `Found tagged unencrypted log with tag ${tag.toString()} in block ${this.getBlockNumber()}`,
@@ -455,12 +447,12 @@ export class TXENode implements AztecNode {
   }
 
   /**
-   * Gets unencrypted logs based on the provided filter.
+   * Gets public logs based on the provided filter.
    * @param filter - The filter to apply to the logs.
    * @returns The requested logs.
    */
-  getUnencryptedLogs(_filter: LogFilter): Promise<GetUnencryptedLogsResponse> {
-    throw new Error('TXE Node method getUnencryptedLogs not implemented');
+  getPublicLogs(_filter: LogFilter): Promise<GetPublicLogsResponse> {
+    throw new Error('TXE Node method getPublicLogs not implemented');
   }
 
   /**
