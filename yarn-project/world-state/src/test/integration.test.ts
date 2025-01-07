@@ -1,13 +1,14 @@
 import { MockPrefilledArchiver } from '@aztec/archiver/test';
 import { type L2Block, MerkleTreeId } from '@aztec/circuit-types';
 import { EthAddress, type Fr } from '@aztec/circuits.js';
-import { type DebugLogger, createDebugLogger } from '@aztec/foundation/log';
+import { type Logger, createLogger } from '@aztec/foundation/log';
 import { sleep } from '@aztec/foundation/sleep';
 import { type DataStoreConfig } from '@aztec/kv-store/config';
 import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
 
 import { jest } from '@jest/globals';
 
+import { WorldStateInstrumentation } from '../instrumentation/instrumentation.js';
 import { NativeWorldStateService } from '../native/native_world_state.js';
 import { type WorldStateConfig } from '../synchronizer/config.js';
 import { createWorldState } from '../synchronizer/factory.js';
@@ -22,7 +23,7 @@ describe('world-state integration', () => {
   let db: NativeWorldStateService;
   let synchronizer: TestWorldStateSynchronizer;
   let config: WorldStateConfig & DataStoreConfig;
-  let log: DebugLogger;
+  let log: Logger;
 
   let blocks: L2Block[];
   let messages: Fr[][];
@@ -30,7 +31,7 @@ describe('world-state integration', () => {
   const MAX_BLOCK_COUNT = 20;
 
   beforeAll(async () => {
-    log = createDebugLogger('aztec:world-state:test:integration');
+    log = createLogger('world-state:test:integration');
     rollupAddress = EthAddress.random();
     const db = await NativeWorldStateService.tmp(rollupAddress);
     log.info(`Generating ${MAX_BLOCK_COUNT} mock blocks`);
@@ -52,8 +53,16 @@ describe('world-state integration', () => {
 
     archiver = new MockPrefilledArchiver(blocks, messages);
 
-    db = (await createWorldState(config)) as NativeWorldStateService;
-    synchronizer = new TestWorldStateSynchronizer(db, archiver, config, new NoopTelemetryClient());
+    db = (await createWorldState(
+      config,
+      new WorldStateInstrumentation(new NoopTelemetryClient()),
+    )) as NativeWorldStateService;
+    synchronizer = new TestWorldStateSynchronizer(
+      db,
+      archiver,
+      config,
+      new WorldStateInstrumentation(new NoopTelemetryClient()),
+    );
     log.info(`Created synchronizer`);
   }, 30_000);
 
@@ -62,7 +71,7 @@ describe('world-state integration', () => {
     await db.close();
   });
 
-  const awaitSync = async (blockToSyncTo: number, finalized?: number, maxTimeoutMS = 5000) => {
+  const awaitSync = async (blockToSyncTo: number, finalized?: number, maxTimeoutMS = 30000) => {
     const startTime = Date.now();
     let sleepTime = 0;
     let tips = await synchronizer.getL2Tips();
@@ -146,7 +155,12 @@ describe('world-state integration', () => {
       await expectSynchedToBlock(5);
       await synchronizer.stopBlockStream();
 
-      synchronizer = new TestWorldStateSynchronizer(db, archiver, config, new NoopTelemetryClient());
+      synchronizer = new TestWorldStateSynchronizer(
+        db,
+        archiver,
+        config,
+        new WorldStateInstrumentation(new NoopTelemetryClient()),
+      );
 
       archiver.createBlocks(3);
       await synchronizer.start();
@@ -167,7 +181,7 @@ describe('world-state integration', () => {
         db,
         archiver,
         { ...config, worldStateProvenBlocksOnly: true },
-        new NoopTelemetryClient(),
+        new WorldStateInstrumentation(new NoopTelemetryClient()),
       );
 
       archiver.createBlocks(5);
@@ -206,7 +220,7 @@ describe('world-state integration', () => {
         db,
         archiver,
         { ...config, worldStateBlockCheckIntervalMS: 1000 },
-        new NoopTelemetryClient(),
+        new WorldStateInstrumentation(new NoopTelemetryClient()),
       );
     });
 

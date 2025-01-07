@@ -326,23 +326,6 @@ impl DebugShow {
                     result
                 );
             }
-            BlackBoxOp::SchnorrVerify {
-                public_key_x,
-                public_key_y,
-                message,
-                signature,
-                result,
-            } => {
-                debug_println!(
-                    self.enable_debug_trace,
-                    "  SCHNORR_VERIFY {} {} {} {} -> {}",
-                    public_key_x,
-                    public_key_y,
-                    message,
-                    signature,
-                    result
-                );
-            }
             BlackBoxOp::BigIntAdd { lhs, rhs, output } => {
                 debug_println!(
                     self.enable_debug_trace,
@@ -414,13 +397,14 @@ impl DebugShow {
                     output
                 );
             }
-            BlackBoxOp::ToRadix { input, radix, output, output_bits: _ } => {
+            BlackBoxOp::ToRadix { input, radix, output_pointer, num_limbs, output_bits: _ } => {
                 debug_println!(
                     self.enable_debug_trace,
-                    "  TO_RADIX {} {} -> {}",
+                    "  TO_RADIX {} {} {} -> {}",
                     input,
                     radix,
-                    output
+                    num_limbs,
+                    output_pointer
                 );
             }
         }

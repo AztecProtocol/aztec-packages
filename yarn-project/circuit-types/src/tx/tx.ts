@@ -4,7 +4,7 @@ import {
   type PrivateToPublicAccumulatedData,
   type ScopedLogHash,
 } from '@aztec/circuits.js';
-import { type Buffer32 } from '@aztec/foundation/buffer';
+import { Buffer32 } from '@aztec/foundation/buffer';
 import { arraySerializedSizeOfNonEmpty } from '@aztec/foundation/collection';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 import { type FieldsOf } from '@aztec/foundation/types';
@@ -65,7 +65,7 @@ export class Tx extends Gossipable {
 
   // Gossipable method
   override p2pMessageIdentifier(): Buffer32 {
-    return this.getTxHash();
+    return new Buffer32(this.getTxHash().toBuffer());
   }
 
   hasPublicCalls() {
@@ -176,7 +176,16 @@ export class Tx extends Gossipable {
     if (!firstNullifier || firstNullifier.isZero()) {
       throw new Error(`Cannot get tx hash since first nullifier is missing`);
     }
-    return new TxHash(firstNullifier.toBuffer());
+    return new TxHash(firstNullifier);
+  }
+
+  /** Returns the tx hash, or undefined if none is set. */
+  tryGetTxHash(): TxHash | undefined {
+    try {
+      return this.getTxHash();
+    } catch {
+      return undefined;
+    }
   }
 
   /** Returns stats about this tx. */

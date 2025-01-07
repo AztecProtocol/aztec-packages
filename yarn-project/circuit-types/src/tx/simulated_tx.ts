@@ -61,6 +61,7 @@ export class TxSimulationResult extends PrivateSimulationResult {
       this.publicOutput?.gasUsed ?? {
         totalGas: this.publicInputs.gasUsed,
         teardownGas: Gas.empty(),
+        publicGas: Gas.empty(),
       }
     );
   }

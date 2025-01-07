@@ -150,9 +150,14 @@ WorldStateAddon::WorldStateAddon(const Napi::CallbackInfo& info)
         WorldStateMessageType::GET_SIBLING_PATH,
         [this](msgpack::object& obj, msgpack::sbuffer& buffer) { return get_sibling_path(obj, buffer); });
 
+    _dispatcher.registerTarget(WorldStateMessageType::GET_BLOCK_NUMBERS_FOR_LEAF_INDICES,
+                               [this](msgpack::object& obj, msgpack::sbuffer& buffer) {
+                                   return get_block_numbers_for_leaf_indices(obj, buffer);
+                               });
+
     _dispatcher.registerTarget(
-        WorldStateMessageType::FIND_LEAF_INDEX,
-        [this](msgpack::object& obj, msgpack::sbuffer& buffer) { return find_leaf_index(obj, buffer); });
+        WorldStateMessageType::FIND_LEAF_INDICES,
+        [this](msgpack::object& obj, msgpack::sbuffer& buffer) { return find_leaf_indices(obj, buffer); });
 
     _dispatcher.registerTarget(
         WorldStateMessageType::FIND_LOW_LEAF,
@@ -387,38 +392,61 @@ bool WorldStateAddon::get_sibling_path(msgpack::object& obj, msgpack::sbuffer& b
     return true;
 }
 
-bool WorldStateAddon::find_leaf_index(msgpack::object& obj, msgpack::sbuffer& buffer) const
+bool WorldStateAddon::get_block_numbers_for_leaf_indices(msgpack::object& obj, msgpack::sbuffer& buffer) const
+{
+    TypedMessage<GetBlockNumbersForLeafIndicesRequest> request;
+    obj.convert(request);
+
+    GetBlockNumbersForLeafIndicesResponse response;
+    _ws->get_block_numbers_for_leaf_indices(
+        request.value.revision, request.value.treeId, request.value.leafIndices, response.blockNumbers);
+
+    MsgHeader header(request.header.messageId);
+    messaging::TypedMessage<GetBlockNumbersForLeafIndicesResponse> resp_msg(
+        WorldStateMessageType::GET_BLOCK_NUMBERS_FOR_LEAF_INDICES, header, response);
+
+    msgpack::pack(buffer, resp_msg);
+
+    return true;
+}
+
+bool WorldStateAddon::find_leaf_indices(msgpack::object& obj, msgpack::sbuffer& buffer) const
 {
     TypedMessage<TreeIdAndRevisionRequest> request;
     obj.convert(request);
 
-    std::optional<index_t> index;
+    FindLeafIndicesResponse response;
+
     switch (request.value.treeId) {
     case MerkleTreeId::NOTE_HASH_TREE:
     case MerkleTreeId::L1_TO_L2_MESSAGE_TREE:
     case MerkleTreeId::ARCHIVE: {
-        TypedMessage<FindLeafIndexRequest<bb::fr>> r1;
+        TypedMessage<FindLeafIndicesRequest<bb::fr>> r1;
         obj.convert(r1);
-        index = _ws->find_leaf_index<bb::fr>(request.value.revision, request.value.treeId, r1.value.leaf);
+        _ws->find_leaf_indices<bb::fr>(
+            request.value.revision, request.value.treeId, r1.value.leaves, response.indices, r1.value.startIndex);
         break;
     }
 
     case MerkleTreeId::PUBLIC_DATA_TREE: {
-        TypedMessage<FindLeafIndexRequest<crypto::merkle_tree::PublicDataLeafValue>> r2;
+        TypedMessage<FindLeafIndicesRequest<crypto::merkle_tree::PublicDataLeafValue>> r2;
         obj.convert(r2);
-        index = _ws->find_leaf_index<PublicDataLeafValue>(request.value.revision, request.value.treeId, r2.value.leaf);
+        _ws->find_leaf_indices<PublicDataLeafValue>(
+            request.value.revision, request.value.treeId, r2.value.leaves, response.indices, r2.value.startIndex);
         break;
     }
     case MerkleTreeId::NULLIFIER_TREE: {
-        TypedMessage<FindLeafIndexRequest<crypto::merkle_tree::NullifierLeafValue>> r3;
+        TypedMessage<FindLeafIndicesRequest<crypto::merkle_tree::NullifierLeafValue>> r3;
         obj.convert(r3);
-        index = _ws->find_leaf_index<NullifierLeafValue>(request.value.revision, request.value.treeId, r3.value.leaf);
+        _ws->find_leaf_indices<NullifierLeafValue>(
+            request.value.revision, request.value.treeId, r3.value.leaves, response.indices, r3.value.startIndex);
         break;
     }
     }
 
     MsgHeader header(request.header.messageId);
-    messaging::TypedMessage<std::optional<index_t>> resp_msg(WorldStateMessageType::FIND_LEAF_INDEX, header, index);
+    messaging::TypedMessage<FindLeafIndicesResponse> resp_msg(
+        WorldStateMessageType::FIND_LEAF_INDICES, header, response);
     msgpack::pack(buffer, resp_msg);
 
     return true;

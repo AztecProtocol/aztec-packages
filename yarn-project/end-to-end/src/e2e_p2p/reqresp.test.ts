@@ -65,7 +65,7 @@ describe('e2e_p2p_reqresp_tx', () => {
     t.logger.info('Creating nodes');
     nodes = await createNodes(
       t.ctx.aztecNodeConfig,
-      t.peerIdPrivateKeys,
+      t.ctx.dateProvider,
       t.bootstrapNodeEnr,
       NUM_NODES,
       BOOT_NODE_UDP_PORT,
@@ -124,6 +124,11 @@ describe('e2e_p2p_reqresp_tx', () => {
       client: t.ctx.deployL1ContractsValues.publicClient,
     });
 
+    const attesters = await rollupContract.read.getAttesters();
+    const mappedProposers = await Promise.all(
+      attesters.map(async attester => await rollupContract.read.getProposerForAttester([attester])),
+    );
+
     const currentTime = await t.ctx.cheatCodes.eth.timestamp();
     const slotDuration = await rollupContract.read.SLOT_DURATION();
 
@@ -134,9 +139,11 @@ describe('e2e_p2p_reqresp_tx', () => {
       const proposer = await rollupContract.read.getProposerAt([nextSlot]);
       proposers.push(proposer);
     }
-
     // Get the indexes of the nodes that are responsible for the next two slots
-    const proposerIndexes = proposers.map(proposer => t.nodePublicKeys.indexOf(proposer));
+    const proposerIndexes = proposers.map(proposer => mappedProposers.indexOf(proposer as `0x${string}`));
+
+    t.logger.info('proposerIndexes: ' + proposerIndexes.join(', '));
+
     const nodesToTurnOffTxGossip = Array.from({ length: NUM_NODES }, (_, i) => i).filter(
       i => !proposerIndexes.includes(i),
     );

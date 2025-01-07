@@ -1,5 +1,5 @@
-import { type IndexedTreeId, MerkleTreeId, type MerkleTreeReadOperations, getTreeHeight } from '@aztec/circuit-types';
-import { NullifierLeafPreimage, PublicDataTreeLeafPreimage } from '@aztec/circuits.js';
+import { type IndexedTreeId, MerkleTreeId, type MerkleTreeReadOperations } from '@aztec/circuit-types';
+import { AppendOnlyTreeSnapshot, NullifierLeafPreimage, PublicDataTreeLeafPreimage } from '@aztec/circuits.js';
 import { poseidon2Hash } from '@aztec/foundation/crypto';
 import { Fr } from '@aztec/foundation/fields';
 import { type IndexedTreeLeafPreimage, type TreeLeafPreimage } from '@aztec/foundation/trees';
@@ -17,7 +17,14 @@ import cloneDeep from 'lodash.clonedeep';
 type PreimageWitness<T extends IndexedTreeLeafPreimage> = {
   preimage: T;
   index: bigint;
-  update: boolean;
+};
+
+/**
+ * The result of fetching a leaf from an indexed tree. Contains the preimage and wether the leaf was already present
+ * or it's a low leaf.
+ */
+type GetLeafResult<T extends IndexedTreeLeafPreimage> = PreimageWitness<T> & {
+  alreadyPresent: boolean;
 };
 
 /**
@@ -29,15 +36,29 @@ type LeafWitness<T extends IndexedTreeLeafPreimage> = PreimageWitness<T> & {
 };
 
 /**
- * The result of an indexed insertion in an indexed merkle tree.
- * This will be used to hint the circuit
+ * The result of an update in an indexed merkle tree (no new leaf inserted)
  */
-export type IndexedInsertionResult<T extends IndexedTreeLeafPreimage> = {
-  leafIndex: bigint;
-  insertionPath: Fr[];
-  newOrElementToUpdate: { update: boolean; element: T };
+type IndexedUpdateResult<T extends IndexedTreeLeafPreimage> = {
+  element: T;
   lowWitness: LeafWitness<T>;
 };
+
+/**
+ * The result of an insertion in an indexed merkle tree.
+ * This will be used to hint the circuit
+ */
+export type IndexedInsertResult<T extends IndexedTreeLeafPreimage> = IndexedUpdateResult<T> & {
+  leafIndex: bigint;
+  insertionPath: Fr[];
+};
+
+/**
+ * The result of an indexed upsert in an indexed merkle tree.
+ * This will be used to hint the circuit
+ */
+export type IndexedUpsertResult<T extends IndexedTreeLeafPreimage> =
+  | (IndexedUpdateResult<T> & { update: true })
+  | (IndexedInsertResult<T> & { update: false });
 
 /****************************************************/
 /****** The AvmEphemeralForest Class ****************/
@@ -144,7 +165,7 @@ export class AvmEphemeralForest {
    * @param newValue - The value to be written or updated to
    * @returns The insertion result which contains the insertion path, low leaf and the new leaf index
    */
-  async writePublicStorage(slot: Fr, newValue: Fr): Promise<IndexedInsertionResult<PublicDataTreeLeafPreimage>> {
+  async writePublicStorage(slot: Fr, newValue: Fr): Promise<IndexedUpsertResult<PublicDataTreeLeafPreimage>> {
     // This only works for the public data tree
     const treeId = MerkleTreeId.PUBLIC_DATA_TREE;
     const tree = this.treeMap.get(treeId)!;
@@ -152,12 +173,12 @@ export class AvmEphemeralForest {
       typeof treeId,
       PublicDataTreeLeafPreimage
     >(treeId, slot);
-    const { preimage, index, update } = leafOrLowLeafInfo;
-    const siblingPath = await this.getSiblingPath(treeId, index);
+    const { preimage, index: lowLeafIndex, alreadyPresent: update } = leafOrLowLeafInfo;
+    const siblingPath = await this.getSiblingPath(treeId, lowLeafIndex);
 
     if (pathAbsentInEphemeralTree) {
       // Since we have never seen this before - we should insert it into our tree as it is about to be updated.
-      this.treeMap.get(treeId)!.insertSiblingPath(index, siblingPath);
+      this.treeMap.get(treeId)!.insertSiblingPath(lowLeafIndex, siblingPath);
     }
 
     if (update) {
@@ -165,29 +186,18 @@ export class AvmEphemeralForest {
       const existingPublicDataSiblingPath = siblingPath;
       updatedPreimage.value = newValue;
 
-      // It is really unintuitive that by updating, we are also appending a Zero Leaf to the tree
-      // Additionally, this leaf preimage does not seem to factor into further appends
-      const emptyLeaf = new PublicDataTreeLeafPreimage(Fr.ZERO, Fr.ZERO, Fr.ZERO, 0n);
-      const insertionIndex = tree.leafCount;
-      tree.updateLeaf(this.hashPreimage(updatedPreimage), index);
-      tree.appendLeaf(Fr.ZERO);
-      this.setIndexedUpdates(treeId, index, updatedPreimage);
-      this.setIndexedUpdates(treeId, insertionIndex, emptyLeaf);
-      const insertionPath = tree.getSiblingPath(insertionIndex)!;
-
-      // Even though we append an empty leaf into the tree as a part of update - it doesnt seem to impact future inserts...
-      this._updateSortedKeys(treeId, [updatedPreimage.slot], [index]);
+      tree.updateLeaf(this.hashPreimage(updatedPreimage), lowLeafIndex);
+      this.setIndexedUpdates(treeId, lowLeafIndex, updatedPreimage);
+      this._updateSortedKeys(treeId, [updatedPreimage.slot], [lowLeafIndex]);
 
       return {
-        leafIndex: insertionIndex,
-        insertionPath,
-        newOrElementToUpdate: { update: true, element: updatedPreimage },
+        element: updatedPreimage,
         lowWitness: {
           preimage: preimage,
-          index: index,
-          update: true,
+          index: lowLeafIndex,
           siblingPath: existingPublicDataSiblingPath,
         },
+        update: true,
       };
     }
     // We are writing to a new slot, so our preimage is a lowNullifier
@@ -202,22 +212,22 @@ export class AvmEphemeralForest {
       new Fr(preimage.getNextKey()),
       preimage.getNextIndex(),
     );
-    const insertionPath = this.appendIndexedTree(treeId, index, updatedLowLeaf, newPublicDataLeaf);
+    const insertionPath = this.appendIndexedTree(treeId, lowLeafIndex, updatedLowLeaf, newPublicDataLeaf);
 
     // Even though the low leaf key is not updated, we still need to update the sorted keys in case we have
     // not seen the low leaf before
-    this._updateSortedKeys(treeId, [newPublicDataLeaf.slot, updatedLowLeaf.slot], [insertionIndex, index]);
+    this._updateSortedKeys(treeId, [newPublicDataLeaf.slot, updatedLowLeaf.slot], [insertionIndex, lowLeafIndex]);
 
     return {
-      leafIndex: insertionIndex,
-      insertionPath: insertionPath,
-      newOrElementToUpdate: { update: false, element: newPublicDataLeaf },
+      element: newPublicDataLeaf,
       lowWitness: {
         preimage,
-        index: index,
-        update: false,
+        index: lowLeafIndex,
         siblingPath,
       },
+      update: false,
+      leafIndex: insertionIndex,
+      insertionPath: insertionPath,
     };
   }
 
@@ -247,14 +257,14 @@ export class AvmEphemeralForest {
    * @param value - The nullifier to be appended
    * @returns The insertion result which contains the insertion path, low leaf and the new leaf index
    */
-  async appendNullifier(nullifier: Fr): Promise<IndexedInsertionResult<NullifierLeafPreimage>> {
+  async appendNullifier(nullifier: Fr): Promise<IndexedInsertResult<NullifierLeafPreimage>> {
     const treeId = MerkleTreeId.NULLIFIER_TREE;
     const tree = this.treeMap.get(treeId)!;
     const [leafOrLowLeafInfo, pathAbsentInEphemeralTree] = await this._getLeafOrLowLeafInfo<
       typeof treeId,
       NullifierLeafPreimage
     >(treeId, nullifier);
-    const { preimage, index, update } = leafOrLowLeafInfo;
+    const { preimage, index, alreadyPresent } = leafOrLowLeafInfo;
     const siblingPath = await this.getSiblingPath(treeId, index);
 
     if (pathAbsentInEphemeralTree) {
@@ -262,7 +272,7 @@ export class AvmEphemeralForest {
       this.treeMap.get(treeId)!.insertSiblingPath(index, siblingPath);
     }
 
-    assert(!update, 'Nullifier already exists in the tree. Cannot update a nullifier!');
+    assert(!alreadyPresent, 'Nullifier already exists in the tree. Cannot update a nullifier!');
 
     // We are writing a new entry
     const insertionIndex = tree.leafCount;
@@ -282,15 +292,14 @@ export class AvmEphemeralForest {
     );
 
     return {
-      leafIndex: insertionIndex,
-      insertionPath: insertionPath,
-      newOrElementToUpdate: { update: false, element: newNullifierLeaf },
+      element: newNullifierLeaf,
       lowWitness: {
         preimage,
         index,
-        update,
         siblingPath,
       },
+      leafIndex: insertionIndex,
+      insertionPath: insertionPath,
     };
   }
 
@@ -360,7 +369,7 @@ export class AvmEphemeralForest {
   async getLeafOrLowLeafInfo<ID extends IndexedTreeId, T extends IndexedTreeLeafPreimage>(
     treeId: ID,
     key: Fr,
-  ): Promise<PreimageWitness<T>> {
+  ): Promise<GetLeafResult<T>> {
     const [leafOrLowLeafInfo, _] = await this._getLeafOrLowLeafInfo<ID, T>(treeId, key);
     return leafOrLowLeafInfo;
   }
@@ -373,14 +382,14 @@ export class AvmEphemeralForest {
    * @param key - The key for which we are look up the leaf or low leaf for.
    * @param T - The type of the preimage (PublicData or Nullifier)
    * @returns [
-   *     preimageWitness - The leaf or low leaf info (preimage & leaf index),
+   *     getLeafResult - The leaf or low leaf info (preimage & leaf index),
    *     pathAbsentInEphemeralTree - whether its sibling path is absent in the ephemeral tree (useful during insertions)
    * ]
    */
   async _getLeafOrLowLeafInfo<ID extends IndexedTreeId, T extends IndexedTreeLeafPreimage>(
     treeId: ID,
     key: Fr,
-  ): Promise<[PreimageWitness<T>, /*pathAbsentInEphemeralTree=*/ boolean]> {
+  ): Promise<[GetLeafResult<T>, /*pathAbsentInEphemeralTree=*/ boolean]> {
     const bigIntKey = key.toBigInt();
     // In this function, "min" refers to the leaf with the
     // largest key <= the specified key in the indexedUpdates.
@@ -389,35 +398,36 @@ export class AvmEphemeralForest {
     // First, search the indexed updates (no DB fallback) to find
     // the leafIndex of the leaf with the largest key <= the specified key.
     const minIndexedLeafIndex = this._getLeafIndexOrNextLowestInIndexedUpdates(treeId, key);
+
+    // Then we search on the external DB
+    const leafOrLowLeafWitnessFromExternalDb: GetLeafResult<T> = await this._getLeafOrLowLeafWitnessInExternalDb(
+      treeId,
+      bigIntKey,
+    );
+
+    // If the indexed updates are empty, we can return the leaf from the DB
     if (minIndexedLeafIndex === -1n) {
-      // No leaf is present in the indexed updates that is <= the key,
-      // so retrieve the leaf or low leaf from the underlying DB.
-      const leafOrLowLeafPreimage: PreimageWitness<T> = await this._getLeafOrLowLeafWitnessInExternalDb(
-        treeId,
-        bigIntKey,
-      );
-      return [leafOrLowLeafPreimage, /*pathAbsentInEphemeralTree=*/ true];
+      return [leafOrLowLeafWitnessFromExternalDb, /*pathAbsentInEphemeralTree=*/ true];
+    }
+
+    // Otherwise, we return the closest one. First fetch the leaf from the indexed updates.
+    const minIndexedUpdate: T = this.getIndexedUpdate(treeId, minIndexedLeafIndex);
+
+    // And get both keys
+    const keyFromIndexed = minIndexedUpdate.getKey();
+    const keyFromExternal = leafOrLowLeafWitnessFromExternalDb.preimage.getKey();
+
+    if (keyFromExternal > keyFromIndexed) {
+      // this.log.debug(`Using leaf from external DB for ${MerkleTreeId[treeId]}`);
+      return [leafOrLowLeafWitnessFromExternalDb, /*pathAbsentInEphemeralTree=*/ true];
     } else {
-      // A leaf was found in the indexed updates that is <= the key
-      const minPreimage: T = this.getIndexedUpdate(treeId, minIndexedLeafIndex);
-      if (minPreimage.getKey() === bigIntKey) {
-        // the index found is an exact match, no need to search further
-        const leafInfo = { preimage: minPreimage, index: minIndexedLeafIndex, update: true };
-        return [leafInfo, /*pathAbsentInEphemeralTree=*/ false];
-      } else {
-        // We are starting with the leaf with largest key <= the specified key
-        // Starting at that "min leaf", search for specified key in both the indexed updates
-        // and the underlying DB. If not found, return its low leaf.
-        const [leafOrLowLeafInfo, pathAbsentInEphemeralTree] = await this._searchForLeafOrLowLeaf<ID, T>(
-          treeId,
-          bigIntKey,
-          minPreimage,
-          minIndexedLeafIndex,
-        );
-        // We did not find it - this is unexpected... the leaf OR low leaf should always be present
-        assert(leafOrLowLeafInfo !== undefined, 'Could not find leaf or low leaf. This should not happen!');
-        return [leafOrLowLeafInfo, pathAbsentInEphemeralTree];
-      }
+      // this.log.debug(`Using leaf from indexed DB for ${MerkleTreeId[treeId]}`);
+      const leafInfo = {
+        preimage: minIndexedUpdate,
+        index: minIndexedLeafIndex,
+        alreadyPresent: keyFromIndexed === bigIntKey,
+      };
+      return [leafInfo, /*pathAbsentInEphemeralTree=*/ false];
     }
   }
 
@@ -453,7 +463,7 @@ export class AvmEphemeralForest {
   private async _getLeafOrLowLeafWitnessInExternalDb<ID extends IndexedTreeId, T extends IndexedTreeLeafPreimage>(
     treeId: ID,
     key: bigint,
-  ): Promise<PreimageWitness<T>> {
+  ): Promise<GetLeafResult<T>> {
     // "key" is siloed slot (leafSlot) or siloed nullifier
     const previousValueIndex = await this.treeDb.getPreviousValueIndex(treeId, key);
     assert(
@@ -468,70 +478,7 @@ export class AvmEphemeralForest {
       `${MerkleTreeId[treeId]}  low leaf preimage should never be undefined (even if target leaf does not exist)`,
     );
 
-    return { preimage: leafPreimage as T, index: leafIndex, update: alreadyPresent };
-  }
-
-  /**
-   * Search for the leaf for the specified key.
-   * Some leaf with key <= the specified key is expected to be present in the ephemeral tree's "indexed updates".
-   * While searching, this function bounces between our local indexedUpdates and the external DB.
-   *
-   * @param key - The key for which we are look up the leaf or low leaf for.
-   * @param minPreimage - The leaf with the largest key <= the specified key. Expected to be present in local indexedUpdates.
-   * @param minIndex - The index of the leaf with the largest key <= the specified key.
-   * @param T - The type of the preimage (PublicData or Nullifier)
-   * @returns [
-   *     preimageWitness | undefined - The leaf or low leaf info (preimage & leaf index),
-   *     pathAbsentInEphemeralTree - whether its sibling path is absent in the ephemeral tree (useful during insertions)
-   * ]
-   *
-   * @details We look for the low element by bouncing between our local indexedUpdates map or the external DB
-   * The conditions we are looking for are:
-   * (1) Exact Match: curr.nextKey == key (this is only valid for public data tree)
-   * (2) Sandwich Match: curr.nextKey > key and curr.key < key
-   * (3) Max Condition: curr.next_index == 0 and curr.key < key
-   * Note the min condition does not need to be handled since indexed trees are prefilled with at least the 0 element
-   */
-  private async _searchForLeafOrLowLeaf<ID extends IndexedTreeId, T extends IndexedTreeLeafPreimage>(
-    treeId: ID,
-    key: bigint,
-    minPreimage: T,
-    minIndex: bigint,
-  ): Promise<[PreimageWitness<T> | undefined, /*pathAbsentInEphemeralTree=*/ boolean]> {
-    let found = false;
-    let curr = minPreimage as T;
-    let result: PreimageWitness<T> | undefined = undefined;
-    // Temp to avoid infinite loops - the limit is the number of leaves we may have to read
-    const LIMIT = 2n ** BigInt(getTreeHeight(treeId)) - 1n;
-    let counter = 0n;
-    let lowPublicDataIndex = minIndex;
-    let pathAbsentInEphemeralTree = false;
-    while (!found && counter < LIMIT) {
-      const bigIntKey = key;
-      if (curr.getKey() === bigIntKey) {
-        // We found an exact match - therefore this is an update
-        found = true;
-        result = { preimage: curr, index: lowPublicDataIndex, update: true };
-      } else if (curr.getKey() < bigIntKey && (curr.getNextIndex() === 0n || curr.getNextKey() > bigIntKey)) {
-        // We found it via sandwich or max condition, this is a low nullifier
-        found = true;
-        result = { preimage: curr, index: lowPublicDataIndex, update: false };
-      }
-      // Update the the values for the next iteration
-      else {
-        lowPublicDataIndex = curr.getNextIndex();
-        if (this.hasLocalUpdates(treeId, lowPublicDataIndex)) {
-          curr = this.getIndexedUpdate(treeId, lowPublicDataIndex)!;
-          pathAbsentInEphemeralTree = false;
-        } else {
-          const preimage: IndexedTreeLeafPreimage = (await this.treeDb.getLeafPreimage(treeId, lowPublicDataIndex))!;
-          curr = preimage as T;
-          pathAbsentInEphemeralTree = true;
-        }
-      }
-      counter++;
-    }
-    return [result, pathAbsentInEphemeralTree];
+    return { preimage: leafPreimage as T, index: leafIndex, alreadyPresent };
   }
 
   /**
@@ -540,6 +487,11 @@ export class AvmEphemeralForest {
   hashPreimage<T extends TreeLeafPreimage>(preimage: T): Fr {
     const input = preimage.toHashInputs().map(x => Fr.fromBuffer(x));
     return poseidon2Hash(input);
+  }
+
+  getTreeSnapshot(id: MerkleTreeId): AppendOnlyTreeSnapshot {
+    const tree = this.treeMap.get(id)!;
+    return new AppendOnlyTreeSnapshot(tree.getRoot(), Number(tree.leafCount));
   }
 }
 
@@ -671,7 +623,12 @@ export class EphemeralAvmTree {
     for (let i = 0; i < siblingPath.length; i++) {
       // Flip(XOR) the last bit because we are inserting siblings of the leaf
       const sibIndex = index ^ 1n;
-      this.updateLeaf(siblingPath[i], sibIndex, this.depth - i);
+      const node = this.getNode(sibIndex, this.depth - i);
+      // If we are inserting a sibling path and we already have a branch at that index in our
+      // ephemeral tree, we should not overwrite it
+      if (node === undefined || node.tag === TreeType.LEAF) {
+        this.updateLeaf(siblingPath[i], sibIndex, this.depth - i);
+      }
       index >>= 1n;
     }
   }

@@ -1,4 +1,4 @@
-import { compactArray, removeArrayPaddingEnd, times, unique } from './array.js';
+import { compactArray, maxBy, removeArrayPaddingEnd, times, unique } from './array.js';
 
 describe('times', () => {
   it('should return an array with the result from all executions', () => {
@@ -59,5 +59,23 @@ describe('compactArray', () => {
 describe('unique', () => {
   it('works with bigints', () => {
     expect(unique([1n, 2n, 1n])).toEqual([1n, 2n]);
+  });
+});
+
+describe('maxBy', () => {
+  it('returns the max value', () => {
+    expect(maxBy([1, 2, 3], x => x)).toEqual(3);
+  });
+
+  it('returns the first max value', () => {
+    expect(maxBy([{ a: 1 }, { a: 3, b: 1 }, { a: 3, b: 2 }], ({ a }) => a)).toEqual({ a: 3, b: 1 });
+  });
+
+  it('returns undefined for an empty array', () => {
+    expect(maxBy([], x => x)).toBeUndefined();
+  });
+
+  it('applies the mapping function', () => {
+    expect(maxBy([1, 2, 3], x => -x)).toEqual(1);
   });
 });

@@ -1,33 +1,43 @@
-import { createDebugLogger } from '@aztec/foundation/log';
+import { randomBytes } from '@aztec/foundation/crypto';
+import { createLogger } from '@aztec/foundation/log';
 
-import { mkdirSync } from 'fs';
-import { mkdtemp, rm } from 'fs/promises';
-import { type Database, type Key, type RootDatabase, open } from 'lmdb';
+import { promises as fs, mkdirSync } from 'fs';
+import { type Database, type RootDatabase, open } from 'lmdb';
 import { tmpdir } from 'os';
-import { dirname, join } from 'path';
+import { join } from 'path';
 
-import { type AztecArray } from '../interfaces/array.js';
-import { type AztecCounter } from '../interfaces/counter.js';
-import { type AztecMap, type AztecMultiMap } from '../interfaces/map.js';
-import { type AztecSet } from '../interfaces/set.js';
-import { type AztecSingleton } from '../interfaces/singleton.js';
-import { type AztecKVStore } from '../interfaces/store.js';
+import { type AztecArray, type AztecAsyncArray } from '../interfaces/array.js';
+import { type Key } from '../interfaces/common.js';
+import { type AztecAsyncCounter, type AztecCounter } from '../interfaces/counter.js';
+import {
+  type AztecAsyncMap,
+  type AztecAsyncMultiMap,
+  type AztecMap,
+  type AztecMapWithSize,
+  type AztecMultiMap,
+  type AztecMultiMapWithSize,
+} from '../interfaces/map.js';
+import { type AztecAsyncSet, type AztecSet } from '../interfaces/set.js';
+import { type AztecAsyncSingleton, type AztecSingleton } from '../interfaces/singleton.js';
+import { type AztecAsyncKVStore, type AztecKVStore } from '../interfaces/store.js';
 import { LmdbAztecArray } from './array.js';
 import { LmdbAztecCounter } from './counter.js';
-import { LmdbAztecMap } from './map.js';
+import { LmdbAztecMap, LmdbAztecMapWithSize } from './map.js';
 import { LmdbAztecSet } from './set.js';
 import { LmdbAztecSingleton } from './singleton.js';
 
 /**
  * A key-value store backed by LMDB.
  */
-export class AztecLmdbStore implements AztecKVStore {
+export class AztecLmdbStore implements AztecKVStore, AztecAsyncKVStore {
+  syncGetters = true as const;
+
   #rootDb: RootDatabase;
   #data: Database<unknown, Key>;
   #multiMapData: Database<unknown, Key>;
-  #log = createDebugLogger('aztec:kv-store:lmdb');
+  #log = createLogger('kv-store:lmdb');
 
-  constructor(rootDb: RootDatabase, public readonly isEphemeral: boolean, private path?: string) {
+  constructor(rootDb: RootDatabase, public readonly isEphemeral: boolean, private path: string) {
     this.#rootDb = rootDb;
 
     // big bucket to store all the data
@@ -60,15 +70,14 @@ export class AztecLmdbStore implements AztecKVStore {
     path?: string,
     mapSizeKb = 1 * 1024 * 1024, // defaults to 1 GB map size
     ephemeral: boolean = false,
-    log = createDebugLogger('aztec:kv-store:lmdb'),
+    log = createLogger('kv-store:lmdb'),
   ): AztecLmdbStore {
-    if (path) {
-      mkdirSync(path, { recursive: true });
-    }
+    const dbPath = path ?? join(tmpdir(), randomBytes(8).toString('hex'));
+    mkdirSync(dbPath, { recursive: true });
     const mapSize = 1024 * mapSizeKb;
     log.debug(`Opening LMDB database at ${path || 'temporary location'} with map size ${mapSize}`);
-    const rootDb = open({ path, noSync: ephemeral, mapSize });
-    return new AztecLmdbStore(rootDb, ephemeral, path);
+    const rootDb = open({ path: dbPath, noSync: ephemeral, mapSize });
+    return new AztecLmdbStore(rootDb, ephemeral, dbPath);
   }
 
   /**
@@ -76,10 +85,9 @@ export class AztecLmdbStore implements AztecKVStore {
    * @returns A new AztecLmdbStore.
    */
   async fork() {
-    const baseDir = this.path ? dirname(this.path) : tmpdir();
+    const baseDir = this.path;
     this.#log.debug(`Forking store with basedir ${baseDir}`);
-    const forkPath =
-      (await mkdtemp(join(baseDir, 'aztec-store-fork-'))) + (this.isEphemeral || !this.path ? '/data.mdb' : '');
+    const forkPath = await fs.mkdtemp(join(baseDir, 'aztec-store-fork-'));
     this.#log.verbose(`Forking store to ${forkPath}`);
     await this.#rootDb.backup(forkPath, false);
     const forkDb = open(forkPath, { noSync: this.isEphemeral });
@@ -92,7 +100,7 @@ export class AztecLmdbStore implements AztecKVStore {
    * @param name - Name of the map
    * @returns A new AztecMap
    */
-  openMap<K extends string | number, V>(name: string): AztecMap<K, V> {
+  openMap<K extends Key, V>(name: string): AztecMap<K, V> & AztecAsyncMap<K, V> {
     return new LmdbAztecMap(this.#data, name);
   }
 
@@ -101,7 +109,7 @@ export class AztecLmdbStore implements AztecKVStore {
    * @param name - Name of the set
    * @returns A new AztecSet
    */
-  openSet<K extends string | number>(name: string): AztecSet<K> {
+  openSet<K extends Key>(name: string): AztecSet<K> & AztecAsyncSet<K> {
     return new LmdbAztecSet(this.#data, name);
   }
 
@@ -110,12 +118,29 @@ export class AztecLmdbStore implements AztecKVStore {
    * @param name - Name of the map
    * @returns A new AztecMultiMap
    */
-  openMultiMap<K extends string | number, V>(name: string): AztecMultiMap<K, V> {
+  openMultiMap<K extends Key, V>(name: string): AztecMultiMap<K, V> & AztecAsyncMultiMap<K, V> {
     return new LmdbAztecMap(this.#multiMapData, name);
   }
 
-  openCounter<K extends string | number | Array<string | number>>(name: string): AztecCounter<K> {
+  openCounter<K extends Key>(name: string): AztecCounter<K> & AztecAsyncCounter<K> {
     return new LmdbAztecCounter(this.#data, name);
+  }
+  /**
+   * Creates a new AztecMultiMapWithSize in the store. A multi-map with size stores multiple values for a single key automatically.
+   * @param name - Name of the map
+   * @returns A new AztecMultiMapWithSize
+   */
+  openMultiMapWithSize<K extends Key, V>(name: string): AztecMultiMapWithSize<K, V> {
+    return new LmdbAztecMapWithSize(this.#multiMapData, name);
+  }
+
+  /**
+   * Creates a new AztecMapWithSize in the store.
+   * @param name - Name of the map
+   * @returns A new AztecMapWithSize
+   */
+  openMapWithSize<K extends Key, V>(name: string): AztecMapWithSize<K, V> {
+    return new LmdbAztecMapWithSize(this.#data, name);
   }
 
   /**
@@ -123,7 +148,7 @@ export class AztecLmdbStore implements AztecKVStore {
    * @param name - Name of the array
    * @returns A new AztecArray
    */
-  openArray<T>(name: string): AztecArray<T> {
+  openArray<T>(name: string): AztecArray<T> & AztecAsyncArray<T> {
     return new LmdbAztecArray(this.#data, name);
   }
 
@@ -132,7 +157,7 @@ export class AztecLmdbStore implements AztecKVStore {
    * @param name - Name of the singleton
    * @returns A new AztecSingleton
    */
-  openSingleton<T>(name: string): AztecSingleton<T> {
+  openSingleton<T>(name: string): AztecSingleton<T> & AztecAsyncSingleton<T> {
     return new LmdbAztecSingleton(this.#data, name);
   }
 
@@ -143,6 +168,15 @@ export class AztecLmdbStore implements AztecKVStore {
    */
   transaction<T>(callback: () => T): Promise<T> {
     return this.#rootDb.transaction(callback);
+  }
+
+  /**
+   * Runs a callback in a transaction.
+   * @param callback - Function to execute in a transaction
+   * @returns A promise that resolves to the return value of the callback
+   */
+  async transactionAsync<T>(callback: () => Promise<T>): Promise<T> {
+    return await this.#rootDb.transaction(callback);
   }
 
   /**
@@ -177,7 +211,7 @@ export class AztecLmdbStore implements AztecKVStore {
     await this.drop();
     await this.close();
     if (this.path) {
-      await rm(this.path, { recursive: true, force: true });
+      await fs.rm(this.path, { recursive: true, force: true });
       this.#log.verbose(`Deleted database files at ${this.path}`);
     }
   }
@@ -201,11 +235,7 @@ export class AztecLmdbStore implements AztecKVStore {
 
   private estimateSubDBSize(db: Database<unknown, Key>): { actualSize: number; numItems: number } {
     const stats = db.getStats();
-    let branchPages = 0;
-    let leafPages = 0;
-    let overflowPages = 0;
-    let pageSize = 0;
-    let totalSize = 0;
+    let actualSize = 0;
     let numItems = 0;
     // This is the total number of key/value pairs present in the DB
     if ('entryCount' in stats && typeof stats.entryCount === 'number') {
@@ -222,12 +252,12 @@ export class AztecLmdbStore implements AztecKVStore {
       'pageSize' in stats &&
       typeof stats.pageSize === 'number'
     ) {
-      branchPages = stats.treeBranchPageCount;
-      leafPages = stats.treeLeafPageCount;
-      overflowPages = stats.overflowPages;
-      pageSize = stats.pageSize;
-      totalSize = (branchPages + leafPages + overflowPages) * pageSize;
+      const branchPages = stats.treeBranchPageCount;
+      const leafPages = stats.treeLeafPageCount;
+      const overflowPages = stats.overflowPages;
+      const pageSize = stats.pageSize;
+      actualSize = (branchPages + leafPages + overflowPages) * pageSize;
     }
-    return { actualSize: totalSize, numItems };
+    return { actualSize, numItems };
   }
 }

@@ -13,8 +13,8 @@ class ClientIVCTests : public ::testing::Test {
   protected:
     static void SetUpTestSuite()
     {
-        srs::init_crs_factory("../srs_db/ignition");
-        srs::init_grumpkin_crs_factory("../srs_db/grumpkin");
+        srs::init_crs_factory(bb::srs::get_ignition_crs_path());
+        srs::init_grumpkin_crs_factory(bb::srs::get_grumpkin_crs_path());
     }
 
     using Flavor = ClientIVC::Flavor;
@@ -306,7 +306,7 @@ TEST_F(ClientIVCTests, PrecomputedVerificationKeys)
     // Construct and accumulate set of circuits using the precomputed vkeys
     for (size_t idx = 0; idx < NUM_CIRCUITS; ++idx) {
         auto circuit = circuit_producer.create_next_circuit(ivc);
-        ivc.accumulate(circuit, precomputed_vks[idx]);
+        ivc.accumulate(circuit, /*one_circuit=*/false, precomputed_vks[idx]);
     }
 
     EXPECT_TRUE(ivc.prove_and_verify());
@@ -331,7 +331,7 @@ TEST_F(ClientIVCTests, StructuredPrecomputedVKs)
     // Construct and accumulate set of circuits using the precomputed vkeys
     for (size_t idx = 0; idx < NUM_CIRCUITS; ++idx) {
         auto circuit = circuit_producer.create_next_circuit(ivc, log2_num_gates);
-        ivc.accumulate(circuit, precomputed_vks[idx]);
+        ivc.accumulate(circuit, /*one_circuit=*/false, precomputed_vks[idx]);
     }
 
     EXPECT_TRUE(ivc.prove_and_verify());
@@ -346,8 +346,8 @@ TEST_F(ClientIVCTests, StructuredPrecomputedVKs)
  */
 TEST(ClientIVCBenchValidation, Full6)
 {
-    bb::srs::init_crs_factory("../srs_db/ignition");
-    bb::srs::init_grumpkin_crs_factory("../srs_db/grumpkin");
+    bb::srs::init_crs_factory(bb::srs::get_ignition_crs_path());
+    bb::srs::init_grumpkin_crs_factory(bb::srs::get_grumpkin_crs_path());
 
     ClientIVC ivc{ { CLIENT_IVC_BENCH_STRUCTURE } };
     size_t total_num_circuits{ 12 };
@@ -365,8 +365,8 @@ TEST(ClientIVCBenchValidation, Full6)
 TEST(ClientIVCBenchValidation, Full6MockedVKs)
 {
     const auto run_test = []() {
-        bb::srs::init_crs_factory("../srs_db/ignition");
-        bb::srs::init_grumpkin_crs_factory("../srs_db/grumpkin");
+        bb::srs::init_crs_factory(bb::srs::get_ignition_crs_path());
+        bb::srs::init_grumpkin_crs_factory(bb::srs::get_grumpkin_crs_path());
 
         ClientIVC ivc{ { CLIENT_IVC_BENCH_STRUCTURE } };
         size_t total_num_circuits{ 12 };

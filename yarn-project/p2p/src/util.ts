@@ -1,6 +1,10 @@
+import { type AztecKVStore, type AztecSingleton } from '@aztec/kv-store';
 import { type DataStoreConfig } from '@aztec/kv-store/config';
 
 import type { GossipSub } from '@chainsafe/libp2p-gossipsub';
+import { generateKeyPair, marshalPrivateKey, unmarshalPrivateKey } from '@libp2p/crypto/keys';
+import { type PeerId, type PrivateKey } from '@libp2p/interface';
+import { createFromPrivKey } from '@libp2p/peer-id-factory';
 import { resolve } from 'dns/promises';
 import type { Libp2p } from 'libp2p';
 
@@ -19,8 +23,7 @@ export interface PubSubLibp2p extends Libp2p {
  * const udpAddr = '[2001:db8::1]:8080' -> /ip6/2001:db8::1/udp/8080
  * @param address - The address string to convert. Has to be in the format <addr>:<port>.
  * @param protocol - The protocol to use in the multiaddr string.
- * @returns A multiaddr compliant string.
- */
+ * @returns A multiaddr compliant string.  */
 export function convertToMultiaddr(address: string, protocol: 'tcp' | 'udp'): string {
   const [addr, port] = splitAddressPort(address, false);
 
@@ -140,4 +143,47 @@ export async function configureP2PClientAddresses(
   }
 
   return config;
+}
+
+/**
+ * Get the peer id private key
+ *
+ * 1. Check if we have a peer id private key in the config
+ * 2. If not, check we have a peer id private key persisted in the node
+ * 3. If not, create a new one, then persist it in the node
+ *
+ */
+export async function getPeerIdPrivateKey(config: { peerIdPrivateKey?: string }, store: AztecKVStore): Promise<string> {
+  const peerIdPrivateKeySingleton: AztecSingleton<string> = store.openSingleton('peerIdPrivateKey');
+  if (config.peerIdPrivateKey) {
+    await peerIdPrivateKeySingleton.set(config.peerIdPrivateKey);
+    return config.peerIdPrivateKey;
+  }
+
+  const storedPeerIdPrivateKey = peerIdPrivateKeySingleton.get();
+  if (storedPeerIdPrivateKey) {
+    return storedPeerIdPrivateKey;
+  }
+
+  const newPeerIdPrivateKey = await generateKeyPair('secp256k1');
+  const privateKeyString = Buffer.from(marshalPrivateKey(newPeerIdPrivateKey)).toString('hex');
+
+  await peerIdPrivateKeySingleton.set(privateKeyString);
+  return privateKeyString;
+}
+
+/**
+ * Create a libp2p peer ID from the private key.
+ * @param privateKey - peer ID private key as hex string
+ * @returns The peer ID.
+ */
+export async function createLibP2PPeerIdFromPrivateKey(privateKey: string): Promise<PeerId> {
+  if (!privateKey?.length) {
+    throw new Error('No peer private key provided');
+  }
+
+  const asLibp2pPrivateKey: PrivateKey<'secp256k1'> = await unmarshalPrivateKey(
+    new Uint8Array(Buffer.from(privateKey, 'hex')),
+  );
+  return await createFromPrivKey(asLibp2pPrivateKey);
 }

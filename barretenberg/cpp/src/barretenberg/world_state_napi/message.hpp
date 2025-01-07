@@ -1,5 +1,6 @@
 #pragma once
 #include "barretenberg/crypto/merkle_tree/indexed_tree/indexed_leaf.hpp"
+#include "barretenberg/crypto/merkle_tree/types.hpp"
 #include "barretenberg/ecc/curves/bn254/fr.hpp"
 #include "barretenberg/messaging/header.hpp"
 #include "barretenberg/serialize/msgpack.hpp"
@@ -20,8 +21,9 @@ enum WorldStateMessageType {
     GET_LEAF_VALUE,
     GET_LEAF_PREIMAGE,
     GET_SIBLING_PATH,
+    GET_BLOCK_NUMBERS_FOR_LEAF_INDICES,
 
-    FIND_LEAF_INDEX,
+    FIND_LEAF_INDICES,
     FIND_LOW_LEAF,
 
     APPEND_LEAVES,
@@ -54,7 +56,7 @@ struct TreeIdOnlyRequest {
 
 struct CreateForkRequest {
     bool latest;
-    index_t blockNumber;
+    block_number_t blockNumber;
     MSGPACK_FIELDS(latest, blockNumber);
 };
 
@@ -129,11 +131,29 @@ struct GetSiblingPathRequest {
     MSGPACK_FIELDS(treeId, revision, leafIndex);
 };
 
-template <typename T> struct FindLeafIndexRequest {
+struct GetBlockNumbersForLeafIndicesRequest {
     MerkleTreeId treeId;
     WorldStateRevision revision;
-    T leaf;
-    MSGPACK_FIELDS(treeId, revision, leaf);
+    std::vector<index_t> leafIndices;
+    MSGPACK_FIELDS(treeId, revision, leafIndices);
+};
+
+struct GetBlockNumbersForLeafIndicesResponse {
+    std::vector<std::optional<block_number_t>> blockNumbers;
+    MSGPACK_FIELDS(blockNumbers);
+};
+
+template <typename T> struct FindLeafIndicesRequest {
+    MerkleTreeId treeId;
+    WorldStateRevision revision;
+    std::vector<T> leaves;
+    index_t startIndex;
+    MSGPACK_FIELDS(treeId, revision, leaves, startIndex);
+};
+
+struct FindLeafIndicesResponse {
+    std::vector<std::optional<index_t>> indices;
+    MSGPACK_FIELDS(indices);
 };
 
 struct FindLowLeafRequest {

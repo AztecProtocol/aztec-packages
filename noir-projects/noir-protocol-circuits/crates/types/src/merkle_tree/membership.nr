@@ -36,14 +36,14 @@ pub fn assert_check_membership<let TREE_HEIGHT: u32>(
     assert(check_membership(leaf, index, sibling_path, root), "membership check failed");
 }
 
-pub fn assert_check_non_membership<let TREE_HEIGHT: u32, LEAF_PREIMAGE>(
+pub fn assert_check_non_membership<let TREE_HEIGHT: u32, LEAF_PREIMAGE, VALUE>(
     key: Field,
     low_leaf_preimage: LEAF_PREIMAGE,
     low_leaf_membership_witness: MembershipWitness<TREE_HEIGHT>,
     tree_root: Field,
 )
 where
-    LEAF_PREIMAGE: IndexedTreeLeafPreimage,
+    LEAF_PREIMAGE: IndexedTreeLeafPreimage<VALUE>,
 {
     assert_check_valid_low_leaf(key, low_leaf_preimage);
 
@@ -58,7 +58,7 @@ where
 
 // Prove either membership or non-membership depending on the value of `exists`.
 // If `exists` == false, `key` is not in the tree, `leaf_preimage` and `membership_witness` are for the low leaf.
-pub fn conditionally_assert_check_membership<let TREE_HEIGHT: u32, LEAF_PREIMAGE>(
+pub fn conditionally_assert_check_membership<let TREE_HEIGHT: u32, LEAF_PREIMAGE, VALUE>(
     key: Field,
     exists: bool,
     leaf_preimage: LEAF_PREIMAGE,
@@ -66,7 +66,7 @@ pub fn conditionally_assert_check_membership<let TREE_HEIGHT: u32, LEAF_PREIMAGE
     tree_root: Field,
 )
 where
-    LEAF_PREIMAGE: IndexedTreeLeafPreimage,
+    LEAF_PREIMAGE: IndexedTreeLeafPreimage<VALUE>,
 {
     if exists {
         assert(key == leaf_preimage.get_key(), "Key does not match the key of the leaf preimage");
@@ -93,11 +93,18 @@ mod tests {
         },
         tests::merkle_tree_utils::NonEmptyMerkleTree,
     };
+    use crate::traits::Empty;
     use std::hash::pedersen_hash;
 
     struct TestLeafPreimage {
         value: Field,
         next_value: Field,
+    }
+
+    impl Empty for TestLeafPreimage {
+        fn empty() -> Self {
+            TestLeafPreimage { value: 0, next_value: 0 }
+        }
     }
 
     impl LeafPreimage for TestLeafPreimage {
@@ -110,17 +117,31 @@ mod tests {
         }
     }
 
-    impl IndexedTreeLeafPreimage for TestLeafPreimage {
-        fn get_key(self) -> Field {
-            self.value
+    impl Eq for TestLeafPreimage {
+        fn eq(self, other: Self) -> bool {
+            (self.value == other.value) & (self.next_value == other.next_value)
         }
+    }
 
+    impl IndexedTreeLeafPreimage<Field> for TestLeafPreimage {
         fn get_next_key(self) -> Field {
             self.next_value
         }
 
-        fn as_leaf(self) -> Field {
-            pedersen_hash([self.value])
+        fn points_to_infinity(self) -> bool {
+            (self.next_value == 0)
+        }
+
+        fn update_pointers(self, next_value: Field, _next_index: u32) -> Self {
+            Self { value: self.value, next_value }
+        }
+
+        fn update_value(self, value: Field) -> Self {
+            Self { value, next_value: self.next_value }
+        }
+
+        fn build_insertion_leaf(value: Field, low_leaf: Self) -> Self {
+            Self { value, next_value: low_leaf.next_value }
         }
     }
 

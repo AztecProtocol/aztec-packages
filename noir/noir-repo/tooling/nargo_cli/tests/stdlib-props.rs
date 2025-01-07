@@ -2,10 +2,7 @@ use std::{cell::RefCell, collections::BTreeMap, path::Path};
 
 use acvm::{acir::native_types::WitnessStack, AcirField, FieldElement};
 use iter_extended::vecmap;
-use nargo::{
-    ops::{execute_program, DefaultForeignCallExecutor},
-    parse_all,
-};
+use nargo::{foreign_calls::DefaultForeignCallBuilder, ops::execute_program, parse_all};
 use noirc_abi::input_parser::InputValue;
 use noirc_driver::{
     compile_main, file_manager_with_stdlib, prepare_crate, CompilationResult, CompileOptions,
@@ -64,6 +61,7 @@ fn prepare_and_compile_snippet(
 ) -> CompilationResult<CompiledProgram> {
     let (mut context, root_crate_id) = prepare_snippet(source);
     let options = CompileOptions { force_brillig, ..Default::default() };
+    // TODO: Run nargo::ops::transform_program?
     compile_main(&mut context, root_crate_id, &options, None)
 }
 
@@ -81,8 +79,7 @@ fn run_snippet_proptest(
     };
 
     let blackbox_solver = bn254_blackbox_solver::Bn254BlackBoxSolver;
-    let foreign_call_executor =
-        RefCell::new(DefaultForeignCallExecutor::new(false, None, None, None));
+    let foreign_call_executor = RefCell::new(DefaultForeignCallBuilder::default().build());
 
     // Generate multiple input/output
     proptest!(ProptestConfig::with_cases(100), |(io in strategy)| {
@@ -202,7 +199,7 @@ fn fuzz_keccak256_equivalence() {
                 }}"
             )
         },
-        |data| sha3::Keccak256::digest(data).try_into().unwrap(),
+        |data| sha3::Keccak256::digest(data).into(),
     );
 }
 
@@ -219,7 +216,7 @@ fn fuzz_keccak256_equivalence_over_135() {
                 }}"
             )
         },
-        |data| sha3::Keccak256::digest(data).try_into().unwrap(),
+        |data| sha3::Keccak256::digest(data).into(),
     );
 }
 
@@ -235,7 +232,7 @@ fn fuzz_sha256_equivalence() {
                 }}"
             )
         },
-        |data| sha2::Sha256::digest(data).try_into().unwrap(),
+        |data| sha2::Sha256::digest(data).into(),
     );
 }
 
@@ -251,7 +248,7 @@ fn fuzz_sha512_equivalence() {
                 }}"
             )
         },
-        |data| sha2::Sha512::digest(data).try_into().unwrap(),
+        |data| sha2::Sha512::digest(data).into(),
     );
 }
 

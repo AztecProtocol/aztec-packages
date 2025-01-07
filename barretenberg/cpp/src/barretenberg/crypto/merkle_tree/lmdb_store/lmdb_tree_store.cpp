@@ -55,29 +55,35 @@ LMDBTreeStore::LMDBTreeStore(std::string directory, std::string name, uint64_t m
 
     {
         LMDBDatabaseCreationTransaction tx(_environment);
-        _blockDatabase = std::make_unique<LMDBDatabase>(
-            _environment, tx, _name + std::string("blocks"), false, false, block_key_cmp);
+        _blockDatabase =
+            std::make_unique<LMDBDatabase>(_environment, tx, _name + BLOCKS_DB, false, false, block_key_cmp);
         tx.commit();
     }
 
     {
         LMDBDatabaseCreationTransaction tx(_environment);
-        _nodeDatabase =
-            std::make_unique<LMDBDatabase>(_environment, tx, _name + std::string("nodes"), false, false, fr_key_cmp);
+        _nodeDatabase = std::make_unique<LMDBDatabase>(_environment, tx, _name + NODES_DB, false, false, fr_key_cmp);
         tx.commit();
     }
 
     {
         LMDBDatabaseCreationTransaction tx(_environment);
-        _leafKeyToIndexDatabase = std::make_unique<LMDBDatabase>(
-            _environment, tx, _name + std::string("leaf indices"), false, false, fr_key_cmp);
+        _leafKeyToIndexDatabase =
+            std::make_unique<LMDBDatabase>(_environment, tx, _name + LEAF_INDICES_DB, false, false, fr_key_cmp);
         tx.commit();
     }
 
     {
         LMDBDatabaseCreationTransaction tx(_environment);
-        _leafHashToPreImageDatabase = std::make_unique<LMDBDatabase>(
-            _environment, tx, _name + std::string("leaf pre-images"), false, false, fr_key_cmp);
+        _leafHashToPreImageDatabase =
+            std::make_unique<LMDBDatabase>(_environment, tx, _name + LEAF_PREIMAGES_DB, false, false, fr_key_cmp);
+        tx.commit();
+    }
+
+    {
+        LMDBDatabaseCreationTransaction tx(_environment);
+        _indexToBlockDatabase =
+            std::make_unique<LMDBDatabase>(_environment, tx, _name + BLOCK_INDICES_DB, false, false, index_key_cmp);
         tx.commit();
     }
 }
@@ -107,9 +113,11 @@ void LMDBTreeStore::get_stats(TreeDBStats& stats, ReadTransaction& tx)
     stats.leafIndicesDBStats = DBStats(LEAF_INDICES_DB, stat);
     call_lmdb_func(mdb_stat, tx.underlying(), _nodeDatabase->underlying(), &stat);
     stats.nodesDBStats = DBStats(NODES_DB, stat);
+    call_lmdb_func(mdb_stat, tx.underlying(), _indexToBlockDatabase->underlying(), &stat);
+    stats.blockIndicesDBStats = DBStats(BLOCK_INDICES_DB, stat);
 }
 
-void LMDBTreeStore::write_block_data(uint64_t blockNumber,
+void LMDBTreeStore::write_block_data(const block_number_t& blockNumber,
                                      const BlockPayload& blockData,
                                      LMDBTreeStore::WriteTransaction& tx)
 {
@@ -120,13 +128,15 @@ void LMDBTreeStore::write_block_data(uint64_t blockNumber,
     tx.put_value<BlockMetaKeyType>(key, encoded, *_blockDatabase);
 }
 
-void LMDBTreeStore::delete_block_data(uint64_t blockNumber, LMDBTreeStore::WriteTransaction& tx)
+void LMDBTreeStore::delete_block_data(const block_number_t& blockNumber, LMDBTreeStore::WriteTransaction& tx)
 {
     BlockMetaKeyType key(blockNumber);
     tx.delete_value<BlockMetaKeyType>(key, *_blockDatabase);
 }
 
-bool LMDBTreeStore::read_block_data(uint64_t blockNumber, BlockPayload& blockData, LMDBTreeStore::ReadTransaction& tx)
+bool LMDBTreeStore::read_block_data(const block_number_t& blockNumber,
+                                    BlockPayload& blockData,
+                                    LMDBTreeStore::ReadTransaction& tx)
 {
     BlockMetaKeyType key(blockNumber);
     std::vector<uint8_t> data;
@@ -135,6 +145,79 @@ bool LMDBTreeStore::read_block_data(uint64_t blockNumber, BlockPayload& blockDat
         msgpack::unpack((const char*)data.data(), data.size()).get().convert(blockData);
     }
     return success;
+}
+
+void LMDBTreeStore::write_block_index_data(const block_number_t& blockNumber,
+                                           const index_t& sizeAtBlock,
+                                           WriteTransaction& tx)
+{
+    // There can be multiple block numbers aganst the same index (zero size blocks)
+    LeafIndexKeyType key(sizeAtBlock);
+    std::vector<uint8_t> data;
+    // Read the block index payload
+    bool success = tx.get_value<LeafIndexKeyType>(key, data, *_indexToBlockDatabase);
+    BlockIndexPayload payload;
+    if (success) {
+        msgpack::unpack((const char*)data.data(), data.size()).get().convert(payload);
+    }
+
+    payload.add_block(blockNumber);
+
+    // Write the new payload back down
+    msgpack::sbuffer buffer;
+    msgpack::pack(buffer, payload);
+    std::vector<uint8_t> encoded(buffer.data(), buffer.data() + buffer.size());
+    tx.put_value<BlockMetaKeyType>(key, encoded, *_indexToBlockDatabase);
+}
+
+bool LMDBTreeStore::find_block_for_index(const index_t& index, block_number_t& blockNumber, ReadTransaction& tx)
+{
+    LeafIndexKeyType key(index + 1);
+    std::vector<uint8_t> data;
+    // Retrieve the payload
+    bool success = tx.get_value_or_greater<LeafIndexKeyType>(key, data, *_indexToBlockDatabase);
+    if (!success) {
+        return false;
+    }
+    BlockIndexPayload payload;
+    msgpack::unpack((const char*)data.data(), data.size()).get().convert(payload);
+    if (payload.is_empty()) {
+        return false;
+    }
+    // The block numbers are sorted so we simply return the lowest
+    blockNumber = payload.get_min_block_number();
+    return true;
+}
+
+void LMDBTreeStore::delete_block_index(const index_t& sizeAtBlock,
+                                       const block_number_t& blockNumber,
+                                       WriteTransaction& tx)
+{
+    // To delete a block number form an index we retieve all the block numbers from that index
+    // Then we find and remove the block number in question
+    // Then we write back down
+    LeafIndexKeyType key(sizeAtBlock);
+    std::vector<uint8_t> data;
+    // Retrieve the data
+    bool success = tx.get_value<LeafIndexKeyType>(key, data, *_indexToBlockDatabase);
+    if (!success) {
+        return;
+    }
+    BlockIndexPayload payload;
+    msgpack::unpack((const char*)data.data(), data.size()).get().convert(payload);
+
+    payload.delete_block(blockNumber);
+
+    // if it's now empty, delete it
+    if (payload.is_empty()) {
+        tx.delete_value(key, *_indexToBlockDatabase);
+        return;
+    }
+    // not empty write it back
+    msgpack::sbuffer buffer;
+    msgpack::pack(buffer, payload);
+    std::vector<uint8_t> encoded(buffer.data(), buffer.data() + buffer.size());
+    tx.put_value<BlockMetaKeyType>(key, encoded, *_indexToBlockDatabase);
 }
 
 void LMDBTreeStore::write_meta_data(const TreeMeta& metaData, LMDBTreeStore::WriteTransaction& tx)

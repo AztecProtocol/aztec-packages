@@ -107,6 +107,11 @@ class WorldState {
                                                           MerkleTreeId tree_id,
                                                           index_t leaf_index) const;
 
+    void get_block_numbers_for_leaf_indices(const WorldStateRevision& revision,
+                                            MerkleTreeId tree_id,
+                                            const std::vector<index_t>& leafIndices,
+                                            std::vector<std::optional<block_number_t>>& blockNumbers) const;
+
     /**
      * @brief Get the leaf preimage object
      *
@@ -151,15 +156,16 @@ class WorldState {
      *
      * @param revision The revision to query
      * @param tree_id The ID of the tree
-     * @param leaf The leaf to find
+     * @param leaves The leaves to find
+     * @param indices The indices to be updated
      * @param start_index The index to start searching from
-     * @return std::optional<index_t>
      */
     template <typename T>
-    std::optional<index_t> find_leaf_index(const WorldStateRevision& revision,
-                                           MerkleTreeId tree_id,
-                                           const T& leaf,
-                                           index_t start_index = 0) const;
+    void find_leaf_indices(const WorldStateRevision& revision,
+                           MerkleTreeId tree_id,
+                           const std::vector<T>& leaves,
+                           std::vector<std::optional<index_t>>& indices,
+                           index_t start_index = 0) const;
 
     /**
      * @brief Appends a set of leaves to an existing Merkle Tree.
@@ -259,12 +265,12 @@ class WorldState {
                                uint64_t maxReaders);
 
     Fork::SharedPtr retrieve_fork(const uint64_t& forkId) const;
-    Fork::SharedPtr create_new_fork(const index_t& blockNumber);
-    void remove_forks_for_block(const index_t& blockNumber);
+    Fork::SharedPtr create_new_fork(const block_number_t& blockNumber);
+    void remove_forks_for_block(const block_number_t& blockNumber);
 
-    bool unwind_block(const index_t& blockNumber, WorldStateStatusFull& status);
-    bool remove_historical_block(const index_t& blockNumber, WorldStateStatusFull& status);
-    bool set_finalised_block(const index_t& blockNumber);
+    bool unwind_block(const block_number_t& blockNumber, WorldStateStatusFull& status);
+    bool remove_historical_block(const block_number_t& blockNumber, WorldStateStatusFull& status);
+    bool set_finalised_block(const block_number_t& blockNumber);
 
     void get_all_tree_info(const WorldStateRevision& revision, std::array<TreeMeta, NUM_TREES>& responses) const;
 
@@ -304,7 +310,7 @@ class WorldState {
                      std::atomic_bool& success,
                      std::string& message,
                      TreeMeta& meta,
-                     const index_t& blockNumber);
+                     const block_number_t& blockNumber);
 
     template <typename TreeType>
     void remove_historic_block_for_tree(TreeDBStats& dbStats,
@@ -313,7 +319,7 @@ class WorldState {
                                         std::atomic_bool& success,
                                         std::string& message,
                                         TreeMeta& meta,
-                                        const index_t& blockNumber);
+                                        const block_number_t& blockNumber);
 };
 
 template <typename TreeType>
@@ -342,7 +348,7 @@ void WorldState::unwind_tree(TreeDBStats& dbStats,
                              std::atomic_bool& success,
                              std::string& message,
                              TreeMeta& meta,
-                             const index_t& blockNumber)
+                             const block_number_t& blockNumber)
 {
     tree.unwind_block(blockNumber, [&](TypedResponse<UnwindResponse>& response) {
         bool expected = true;
@@ -362,7 +368,7 @@ void WorldState::remove_historic_block_for_tree(TreeDBStats& dbStats,
                                                 std::atomic_bool& success,
                                                 std::string& message,
                                                 TreeMeta& meta,
-                                                const index_t& blockNumber)
+                                                const block_number_t& blockNumber)
 {
     tree.remove_historic_block(blockNumber, [&](TypedResponse<RemoveHistoricResponse>& response) {
         bool expected = true;
@@ -384,15 +390,13 @@ std::optional<crypto::merkle_tree::IndexedLeaf<T>> WorldState::get_indexed_leaf(
     using Tree = ContentAddressedIndexedTree<Store, HashPolicy>;
 
     Fork::SharedPtr fork = retrieve_fork(rev.forkId);
+    TypedResponse<GetIndexedLeafResponse<T>> local;
 
     if (auto* const wrapper = std::get_if<TreeWithStore<Tree>>(&fork->_trees.at(id))) {
-        std::optional<IndexedLeaf<T>> value;
-        Signal signal;
-        auto callback = [&](const TypedResponse<GetIndexedLeafResponse<T>>& response) {
-            if (response.inner.indexed_leaf.has_value()) {
-                value = response.inner.indexed_leaf;
-            }
 
+        Signal signal;
+        auto callback = [&](TypedResponse<GetIndexedLeafResponse<T>>& response) {
+            local = std::move(response);
             signal.signal_level(0);
         };
 
@@ -403,7 +407,11 @@ std::optional<crypto::merkle_tree::IndexedLeaf<T>> WorldState::get_indexed_leaf(
         }
         signal.wait_for_level();
 
-        return value;
+        if (!local.success) {
+            throw std::runtime_error("Failed to find indexed leaf: " + local.message);
+        }
+
+        return local.inner.indexed_leaf;
     }
 
     throw std::runtime_error("Invalid tree type");
@@ -419,12 +427,17 @@ std::optional<T> WorldState::get_leaf(const WorldStateRevision& revision,
     Fork::SharedPtr fork = retrieve_fork(revision.forkId);
 
     std::optional<T> leaf;
+    bool success = true;
+    std::string error_msg;
     Signal signal;
     if constexpr (std::is_same_v<bb::fr, T>) {
         const auto& wrapper = std::get<TreeWithStore<FrTree>>(fork->_trees.at(tree_id));
-        auto callback = [&signal, &leaf](const TypedResponse<GetLeafResponse>& resp) {
-            if (resp.inner.leaf.has_value()) {
-                leaf = resp.inner.leaf.value();
+        auto callback = [&signal, &leaf, &success, &error_msg](const TypedResponse<GetLeafResponse>& response) {
+            if (!response.success || !response.inner.leaf.has_value()) {
+                success = false;
+                error_msg = response.message;
+            } else {
+                leaf = response.inner.leaf;
             }
             signal.signal_level();
         };
@@ -439,12 +452,16 @@ std::optional<T> WorldState::get_leaf(const WorldStateRevision& revision,
         using Tree = ContentAddressedIndexedTree<Store, HashPolicy>;
 
         auto& wrapper = std::get<TreeWithStore<Tree>>(fork->_trees.at(tree_id));
-        auto callback = [&signal, &leaf](const TypedResponse<GetIndexedLeafResponse<T>>& resp) {
-            if (resp.inner.indexed_leaf.has_value()) {
-                leaf = resp.inner.indexed_leaf.value().value;
-            }
-            signal.signal_level();
-        };
+        auto callback =
+            [&signal, &leaf, &success, &error_msg](const TypedResponse<GetIndexedLeafResponse<T>>& response) {
+                if (!response.success || !response.inner.indexed_leaf.has_value()) {
+                    success = false;
+                    error_msg = response.message;
+                } else {
+                    leaf = response.inner.indexed_leaf.value().value;
+                }
+                signal.signal_level();
+            };
 
         if (revision.blockNumber) {
             wrapper.tree->get_leaf(leaf_index, revision.blockNumber, revision.includeUncommitted, callback);
@@ -454,33 +471,34 @@ std::optional<T> WorldState::get_leaf(const WorldStateRevision& revision,
     }
 
     signal.wait_for_level();
+
     return leaf;
 }
 
 template <typename T>
-std::optional<index_t> WorldState::find_leaf_index(const WorldStateRevision& rev,
-                                                   MerkleTreeId id,
-                                                   const T& leaf,
-                                                   index_t start_index) const
+void WorldState::find_leaf_indices(const WorldStateRevision& rev,
+                                   MerkleTreeId id,
+                                   const std::vector<T>& leaves,
+                                   std::vector<std::optional<index_t>>& indices,
+                                   index_t start_index) const
 {
     using namespace crypto::merkle_tree;
-    std::optional<index_t> index;
 
     Fork::SharedPtr fork = retrieve_fork(rev.forkId);
+    TypedResponse<FindLeafIndexResponse> local;
 
     Signal signal;
-    auto callback = [&](const TypedResponse<FindLeafIndexResponse>& response) {
-        if (response.success) {
-            index = response.inner.leaf_index;
-        }
+    auto callback = [&](TypedResponse<FindLeafIndexResponse>& response) {
+        local = std::move(response);
         signal.signal_level(0);
     };
     if constexpr (std::is_same_v<bb::fr, T>) {
         const auto& wrapper = std::get<TreeWithStore<FrTree>>(fork->_trees.at(id));
         if (rev.blockNumber) {
-            wrapper.tree->find_leaf_index_from(leaf, start_index, rev.blockNumber, rev.includeUncommitted, callback);
+            wrapper.tree->find_leaf_indices_from(
+                leaves, start_index, rev.blockNumber, rev.includeUncommitted, callback);
         } else {
-            wrapper.tree->find_leaf_index_from(leaf, start_index, rev.includeUncommitted, callback);
+            wrapper.tree->find_leaf_indices_from(leaves, start_index, rev.includeUncommitted, callback);
         }
 
     } else {
@@ -489,14 +507,20 @@ std::optional<index_t> WorldState::find_leaf_index(const WorldStateRevision& rev
 
         auto& wrapper = std::get<TreeWithStore<Tree>>(fork->_trees.at(id));
         if (rev.blockNumber) {
-            wrapper.tree->find_leaf_index_from(leaf, rev.blockNumber, start_index, rev.includeUncommitted, callback);
+            wrapper.tree->find_leaf_indices_from(
+                leaves, start_index, rev.blockNumber, rev.includeUncommitted, callback);
         } else {
-            wrapper.tree->find_leaf_index_from(leaf, start_index, rev.includeUncommitted, callback);
+            wrapper.tree->find_leaf_indices_from(leaves, start_index, rev.includeUncommitted, callback);
         }
     }
 
     signal.wait_for_level(0);
-    return index;
+
+    if (!local.success || local.inner.leaf_indices.size() != leaves.size()) {
+        throw std::runtime_error(local.message);
+    }
+
+    indices = std::move(local.inner.leaf_indices);
 }
 
 template <typename T> void WorldState::append_leaves(MerkleTreeId id, const std::vector<T>& leaves, Fork::Id fork_id)
@@ -537,7 +561,7 @@ template <typename T> void WorldState::append_leaves(MerkleTreeId id, const std:
     signal.wait_for_level(0);
 
     if (!success) {
-        throw std::runtime_error("Failed to append leaves: " + error_msg);
+        throw std::runtime_error(error_msg);
     }
 }
 
@@ -576,7 +600,7 @@ BatchInsertionResult<T> WorldState::batch_insert_indexed_leaves(MerkleTreeId id,
     signal.wait_for_level();
 
     if (!success) {
-        throw std::runtime_error("Failed to batch insert indexed leaves: " + error_msg);
+        throw std::runtime_error(error_msg);
     }
 
     return result;
@@ -615,7 +639,7 @@ SequentialInsertionResult<T> WorldState::insert_indexed_leaves(MerkleTreeId id,
     signal.wait_for_level();
 
     if (!success) {
-        throw std::runtime_error("Failed to sequentially insert indexed leaves: " + error_msg);
+        throw std::runtime_error(error_msg);
     }
 
     return result;

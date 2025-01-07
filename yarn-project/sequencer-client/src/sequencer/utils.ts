@@ -27,13 +27,9 @@ export enum SequencerState {
    */
   CREATING_BLOCK = 'CREATING_BLOCK',
   /**
-   * Publishing blocks to validator peers. Will move to WAITING_FOR_ATTESTATIONS.
+   * Collecting attestations from its peers. Will move to PUBLISHING_BLOCK.
    */
-  PUBLISHING_BLOCK_TO_PEERS = 'PUBLISHING_BLOCK_TO_PEERS',
-  /**
-   * The block has been published to peers, and we are waiting for attestations. Will move to PUBLISHING_CONTRACT_DATA.
-   */
-  WAITING_FOR_ATTESTATIONS = 'WAITING_FOR_ATTESTATIONS',
+  COLLECTING_ATTESTATIONS = 'COLLECTING_ATTESTATIONS',
   /**
    * Sending the tx to L1 with the L2 block data and awaiting it to be mined. Will move to SYNCHRONIZING.
    */
@@ -71,9 +67,4 @@ export function orderAttestations(attestations: BlockAttestation[], orderAddress
   });
 
   return orderedAttestations;
-}
-
-export function getSecondsIntoSlot(l1GenesisTime: number, aztecSlotDuration: number, slotNumber: number): number {
-  const slotStartTimestamp = l1GenesisTime + slotNumber * aztecSlotDuration;
-  return Date.now() / 1000 - slotStartTimestamp;
 }

@@ -29,7 +29,10 @@ export class TxValidatorFactory {
     private enforceFees: boolean,
   ) {
     this.nullifierSource = {
-      getNullifierIndex: nullifier => this.committedDb.findLeafIndex(MerkleTreeId.NULLIFIER_TREE, nullifier.toBuffer()),
+      getNullifierIndices: nullifiers =>
+        this.committedDb
+          .findLeafIndices(MerkleTreeId.NULLIFIER_TREE, nullifiers)
+          .then(x => x.filter(index => index !== undefined) as bigint[]),
     };
 
     this.publicStateSource = {
@@ -45,13 +48,18 @@ export class TxValidatorFactory {
       new MetadataTxValidator(globalVariables.chainId, globalVariables.blockNumber),
       new DoubleSpendTxValidator(this.nullifierSource),
       new PhasesTxValidator(this.contractDataSource, setupAllowList),
-      new GasTxValidator(this.publicStateSource, ProtocolContractAddress.FeeJuice, this.enforceFees),
+      new GasTxValidator(
+        this.publicStateSource,
+        ProtocolContractAddress.FeeJuice,
+        this.enforceFees,
+        globalVariables.gasFees,
+      ),
     );
   }
 
   validatorForProcessedTxs(fork: MerkleTreeReadOperations): TxValidator<ProcessedTx> {
     return new DoubleSpendTxValidator({
-      getNullifierIndex: nullifier => fork.findLeafIndex(MerkleTreeId.NULLIFIER_TREE, nullifier.toBuffer()),
+      getNullifierIndices: nullifiers => fork.findLeafIndices(MerkleTreeId.NULLIFIER_TREE, nullifiers),
     });
   }
 }

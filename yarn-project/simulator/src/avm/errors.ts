@@ -1,5 +1,5 @@
 import { type FailingFunction, type NoirCallStack } from '@aztec/circuit-types';
-import { type AztecAddress, Fr, FunctionSelector, PUBLIC_DISPATCH_SELECTOR } from '@aztec/circuits.js';
+import { type AztecAddress, type Fr, type Point } from '@aztec/circuits.js';
 
 import { ExecutionError } from '../common/errors.js';
 import { type AvmContext } from './avm_context.js';
@@ -102,10 +102,21 @@ export class TagCheckError extends AvmExecutionError {
  * Error is thrown when a relative memory address resolved to an offset which
  * is out of range, i.e, greater than maxUint32.
  */
-export class AddressOutOfRangeError extends AvmExecutionError {
+export class RelativeAddressOutOfRangeError extends AvmExecutionError {
   constructor(baseAddr: number, relOffset: number) {
     super(`Address out of range. Base address ${baseAddr}, relative offset ${relOffset}`);
-    this.name = 'AddressOutOfRangeError';
+    this.name = 'RelativeAddressOutOfRangeError';
+  }
+}
+
+/**
+ * Error is thrown when a memory slice contains addresses which are
+ * out of range, i.e, greater than maxUint32.
+ */
+export class MemorySliceOutOfRangeError extends AvmExecutionError {
+  constructor(baseAddr: number, size: number) {
+    super(`Memory slice is out of range. Base address ${baseAddr}, size ${size}`);
+    this.name = 'MemorySliceOutOfRangeError';
   }
 }
 
@@ -114,6 +125,26 @@ export class OutOfGasError extends AvmExecutionError {
   constructor(dimensions: string[]) {
     super(`Not enough ${dimensions.map(d => d.toUpperCase()).join(', ')} gas left`);
     this.name = 'OutOfGasError';
+  }
+}
+
+/**
+ * Error is thrown when the supplied points length is not a multiple of 3. Specific for MSM opcode.
+ */
+export class MSMPointsLengthError extends AvmExecutionError {
+  constructor(pointsReadLength: number) {
+    super(`Points vector length should be a multiple of 3, was ${pointsReadLength}`);
+    this.name = 'MSMPointsLengthError';
+  }
+}
+
+/**
+ * Error is thrown when one of the supplied points does not lie on the Grumpkin curve. Specific for MSM opcode.
+ */
+export class MSMPointNotOnCurveError extends AvmExecutionError {
+  constructor(point: Point) {
+    super(`Point ${point.toString()} is not on the curve.`);
+    this.name = 'MSMPointNotOnCurveError';
   }
 }
 
@@ -138,16 +169,9 @@ export class AvmRevertReason extends ExecutionError {
   }
 }
 
-function createRevertReason(message: string, revertData: Fr[], context: AvmContext): AvmRevertReason {
-  // TODO(https://github.com/AztecProtocol/aztec-packages/issues/8985): Properly fix this.
-  // If the function selector is the public dispatch selector, we need to extract the actual function selector from the calldata.
-  // We should remove this because the AVM (or public protocol) shouldn't be aware of the public dispatch calling convention.
-  let functionSelector = context.environment.functionSelector;
+async function createRevertReason(message: string, revertData: Fr[], context: AvmContext): Promise<AvmRevertReason> {
   // We drop the returnPc information.
   const internalCallStack = context.machineState.internalCallStack.map(entry => entry.callPc);
-  if (functionSelector.toField().equals(new Fr(PUBLIC_DISPATCH_SELECTOR)) && context.environment.calldata.length > 0) {
-    functionSelector = FunctionSelector.fromField(context.environment.calldata[0]);
-  }
 
   // If we are reverting due to the same error that we have been tracking, we use the nested error as the cause.
   let nestedError = undefined;
@@ -160,11 +184,13 @@ function createRevertReason(message: string, revertData: Fr[], context: AvmConte
     message = context.machineState.collectedRevertInfo.recursiveRevertReason.message;
   }
 
+  const fnName = await context.persistableState.getPublicFunctionDebugName(context.environment);
+
   return new AvmRevertReason(
     message,
     /*failingFunction=*/ {
       contractAddress: context.environment.address,
-      functionSelector: functionSelector,
+      functionName: fnName,
     },
     /*noirCallStack=*/ [...internalCallStack, context.machineState.pc].map(pc => `0.${pc}`),
     /*options=*/ { cause: nestedError },
@@ -177,8 +203,11 @@ function createRevertReason(message: string, revertData: Fr[], context: AvmConte
  * @param haltingError - the lower-level error causing the exceptional halt
  * @param context - the context of the AVM execution used to extract the failingFunction and noirCallStack
  */
-export function revertReasonFromExceptionalHalt(haltingError: AvmExecutionError, context: AvmContext): AvmRevertReason {
-  return createRevertReason(haltingError.message, [], context);
+export async function revertReasonFromExceptionalHalt(
+  haltingError: AvmExecutionError,
+  context: AvmContext,
+): Promise<AvmRevertReason> {
+  return await createRevertReason(haltingError.message, [], context);
 }
 
 /**
@@ -187,6 +216,6 @@ export function revertReasonFromExceptionalHalt(haltingError: AvmExecutionError,
  * @param revertData - output data of the explicit REVERT instruction
  * @param context - the context of the AVM execution used to extract the failingFunction and noirCallStack
  */
-export function revertReasonFromExplicitRevert(revertData: Fr[], context: AvmContext): AvmRevertReason {
-  return createRevertReason('Assertion failed: ', revertData, context);
+export async function revertReasonFromExplicitRevert(revertData: Fr[], context: AvmContext): Promise<AvmRevertReason> {
+  return await createRevertReason('Assertion failed: ', revertData, context);
 }

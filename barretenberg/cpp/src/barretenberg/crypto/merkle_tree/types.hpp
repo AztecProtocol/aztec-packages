@@ -6,17 +6,50 @@
 #include <optional>
 namespace bb::crypto::merkle_tree {
 using index_t = uint64_t;
+using block_number_t = uint64_t;
 
 struct RequestContext {
     bool includeUncommitted;
-    std::optional<index_t> blockNumber;
+    std::optional<block_number_t> blockNumber;
     bb::fr root;
+    std::optional<index_t> maxIndex;
 };
+
+template <typename LeafType> fr preimage_to_key(const LeafType& leaf)
+{
+    return leaf.get_key();
+}
+
+inline fr preimage_to_key(const fr& leaf)
+{
+    return leaf;
+}
+
+template <typename LeafType> bool is_empty(const LeafType& leaf)
+{
+    return leaf.is_empty();
+}
+
+inline bool is_empty(const fr& leaf)
+{
+    return leaf == fr::zero();
+}
+
+template <typename LeafType> bool requires_preimage_for_key()
+{
+    return true;
+}
+
+template <> inline bool requires_preimage_for_key<fr>()
+{
+    return false;
+}
 
 const std::string BLOCKS_DB = "blocks";
 const std::string NODES_DB = "nodes";
 const std::string LEAF_PREIMAGES_DB = "leaf preimages";
 const std::string LEAF_INDICES_DB = "leaf indices";
+const std::string BLOCK_INDICES_DB = "block indices";
 
 struct DBStats {
     std::string name;
@@ -71,6 +104,7 @@ struct TreeDBStats {
     DBStats nodesDBStats;
     DBStats leafPreimagesDBStats;
     DBStats leafIndicesDBStats;
+    DBStats blockIndicesDBStats;
 
     TreeDBStats() = default;
     TreeDBStats(uint64_t mapSize)
@@ -80,24 +114,27 @@ struct TreeDBStats {
                 const DBStats& blockStats,
                 const DBStats& nodesStats,
                 const DBStats& leafPreimagesDBStats,
-                const DBStats& leafIndicesStats)
+                const DBStats& leafIndicesStats,
+                const DBStats& blockIndicesStats)
         : mapSize(mapSize)
         , blocksDBStats(blockStats)
         , nodesDBStats(nodesStats)
         , leafPreimagesDBStats(leafPreimagesDBStats)
         , leafIndicesDBStats(leafIndicesStats)
+        , blockIndicesDBStats(blockIndicesStats)
     {}
     TreeDBStats(const TreeDBStats& other) = default;
     TreeDBStats(TreeDBStats&& other) noexcept { *this = std::move(other); }
 
     ~TreeDBStats() = default;
 
-    MSGPACK_FIELDS(mapSize, blocksDBStats, nodesDBStats, leafPreimagesDBStats, leafIndicesDBStats)
+    MSGPACK_FIELDS(mapSize, blocksDBStats, nodesDBStats, leafPreimagesDBStats, leafIndicesDBStats, blockIndicesDBStats)
 
     bool operator==(const TreeDBStats& other) const
     {
         return mapSize == other.mapSize && blocksDBStats == other.blocksDBStats && nodesDBStats == other.nodesDBStats &&
-               leafPreimagesDBStats == other.leafPreimagesDBStats && leafIndicesDBStats == other.leafIndicesDBStats;
+               leafPreimagesDBStats == other.leafPreimagesDBStats && leafIndicesDBStats == other.leafIndicesDBStats &&
+               blockIndicesDBStats == other.blockIndicesDBStats;
     }
 
     TreeDBStats& operator=(TreeDBStats&& other) noexcept
@@ -108,6 +145,7 @@ struct TreeDBStats {
             nodesDBStats = std::move(other.nodesDBStats);
             leafPreimagesDBStats = std::move(other.leafPreimagesDBStats);
             leafIndicesDBStats = std::move(other.leafIndicesDBStats);
+            blockIndicesDBStats = std::move(other.blockIndicesDBStats);
         }
         return *this;
     }
@@ -118,7 +156,7 @@ struct TreeDBStats {
     {
         os << "Map Size: " << stats.mapSize << " Blocks DB " << stats.blocksDBStats << ", Nodes DB "
            << stats.nodesDBStats << ", Leaf Pre-images DB " << stats.leafPreimagesDBStats << ", Leaf Indices DB "
-           << stats.leafIndicesDBStats;
+           << stats.leafIndicesDBStats << ", Block Indices DB " << stats.blockIndicesDBStats;
         return os;
     }
 };

@@ -15,7 +15,8 @@ contract VoteTest is GovernanceProposerBase {
   address internal proposer = address(0);
   Leonidas internal leonidas;
 
-  function test_WhenProposalHoldNoCode() external {
+  // Skipping this test since the it matches the for now skipped check in `EmpireBase::vote`
+  function skip__test_WhenProposalHoldNoCode() external {
     // it revert
     vm.expectRevert(
       abi.encodeWithSelector(Errors.GovernanceProposer__ProposalHaveNoCode.selector, proposal)
@@ -39,7 +40,7 @@ contract VoteTest is GovernanceProposerBase {
   }
 
   modifier givenCanonicalRollupHoldCode() {
-    leonidas = new Leonidas(address(this));
+    leonidas = new Leonidas();
     vm.prank(registry.getGovernance());
     registry.upgrade(address(leonidas));
 
@@ -138,7 +139,7 @@ contract VoteTest is GovernanceProposerBase {
     uint256 leonidasRound = governanceProposer.computeRound(leonidasSlot);
     uint256 yeaBefore = governanceProposer.yeaCount(address(leonidas), leonidasRound, proposal);
 
-    Leonidas freshInstance = new Leonidas(address(this));
+    Leonidas freshInstance = new Leonidas();
     vm.prank(registry.getGovernance());
     registry.upgrade(address(freshInstance));
 

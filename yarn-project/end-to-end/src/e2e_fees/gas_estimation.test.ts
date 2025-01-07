@@ -8,7 +8,8 @@ import {
 } from '@aztec/aztec.js';
 import { GasSettings } from '@aztec/circuits.js';
 import { type Logger } from '@aztec/foundation/log';
-import { TokenContract as BananaCoin, type FPCContract } from '@aztec/noir-contracts.js';
+import { type FPCContract } from '@aztec/noir-contracts.js/FPC';
+import { TokenContract as BananaCoin } from '@aztec/noir-contracts.js/Token';
 
 import { inspect } from 'util';
 
@@ -95,7 +96,7 @@ describe('e2e_fees gas_estimation', () => {
 
   it('estimates gas with public payment method', async () => {
     const teardownFixedFee = gasSettings.teardownGasLimits.computeFee(gasSettings.maxFeesPerGas).toBigInt();
-    const paymentMethod = new PublicFeePaymentMethod(bananaCoin.address, bananaFPC.address, aliceWallet);
+    const paymentMethod = new PublicFeePaymentMethod(bananaFPC.address, aliceWallet);
     const estimatedGas = await makeTransferRequest().estimateGas({
       fee: { gasSettings, paymentMethod, estimatedGasPadding: 0 },
     });

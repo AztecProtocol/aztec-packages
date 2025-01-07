@@ -61,10 +61,10 @@ if (ENABLE_PIC AND CMAKE_CXX_COMPILER_ID MATCHES "Clang")
   add_subdirectory(barretenberg/world_state_napi)
 endif()
 
-add_subdirectory(barretenberg/client_ivc)
 add_subdirectory(barretenberg/bb)
 add_subdirectory(barretenberg/boomerang_value_detection)
 add_subdirectory(barretenberg/circuit_checker)
+add_subdirectory(barretenberg/client_ivc)
 add_subdirectory(barretenberg/commitment_schemes)
 add_subdirectory(barretenberg/commitment_schemes_recursion)
 add_subdirectory(barretenberg/common)
@@ -87,6 +87,7 @@ add_subdirectory(barretenberg/relations)
 add_subdirectory(barretenberg/serialize)
 add_subdirectory(barretenberg/solidity_helpers)
 add_subdirectory(barretenberg/srs)
+add_subdirectory(barretenberg/ultra_vanilla_client_ivc)
 add_subdirectory(barretenberg/stdlib)
 add_subdirectory(barretenberg/stdlib_circuit_builders)
 add_subdirectory(barretenberg/sumcheck)
@@ -140,6 +141,7 @@ set(BARRETENBERG_TARGET_OBJECTS
     $<TARGET_OBJECTS:protogalaxy_objects>
     $<TARGET_OBJECTS:relations_objects>
     $<TARGET_OBJECTS:srs_objects>
+    $<TARGET_OBJECTS:ultra_vanilla_client_ivc_objects>
     $<TARGET_OBJECTS:stdlib_aes128_objects>
     $<TARGET_OBJECTS:stdlib_blake2s_objects>
     $<TARGET_OBJECTS:stdlib_blake3s_objects>

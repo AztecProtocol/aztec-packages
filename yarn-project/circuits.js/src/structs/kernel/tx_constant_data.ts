@@ -2,7 +2,7 @@ import { Fr } from '@aztec/foundation/fields';
 import { BufferReader, FieldReader, serializeToBuffer } from '@aztec/foundation/serialize';
 import { type FieldsOf } from '@aztec/foundation/types';
 
-import { Header } from '../header.js';
+import { BlockHeader } from '../block_header.js';
 import { TxContext } from '../tx_context.js';
 
 /**
@@ -11,7 +11,7 @@ import { TxContext } from '../tx_context.js';
 export class TxConstantData {
   constructor(
     /** Header of a block whose state is used during execution (not the block the transaction is included in). */
-    public historicalHeader: Header,
+    public historicalHeader: BlockHeader,
     /**
      * Context of the transaction.
      *
@@ -42,7 +42,7 @@ export class TxConstantData {
   static fromFields(fields: Fr[] | FieldReader): TxConstantData {
     const reader = FieldReader.asReader(fields);
     return new TxConstantData(
-      reader.readObject(Header),
+      reader.readObject(BlockHeader),
       reader.readObject(TxContext),
       reader.readField(),
       reader.readField(),
@@ -52,7 +52,7 @@ export class TxConstantData {
   static fromBuffer(buffer: Buffer | BufferReader): TxConstantData {
     const reader = BufferReader.asReader(buffer);
     return new TxConstantData(
-      reader.readObject(Header),
+      reader.readObject(BlockHeader),
       reader.readObject(TxContext),
       Fr.fromBuffer(reader),
       Fr.fromBuffer(reader),
@@ -64,7 +64,7 @@ export class TxConstantData {
   }
 
   static empty() {
-    return new TxConstantData(Header.empty(), TxContext.empty(), Fr.ZERO, Fr.ZERO);
+    return new TxConstantData(BlockHeader.empty(), TxContext.empty(), Fr.ZERO, Fr.ZERO);
   }
 
   getSize() {

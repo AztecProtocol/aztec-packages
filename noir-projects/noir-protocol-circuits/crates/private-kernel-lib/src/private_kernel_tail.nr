@@ -33,6 +33,9 @@ impl PrivateKernelTailCircuitPrivateInputs {
     }
 
     pub fn execute(self) -> KernelCircuitPublicInputs {
+        if !std::runtime::is_unconstrained() {
+            self.previous_kernel.verify();
+        }
         // Generate output.
         let output = unsafe { self.generate_output() };
 
@@ -81,6 +84,7 @@ mod tests {
             let mut previous_kernel = FixtureBuilder::new().in_vk_tree(PRIVATE_KERNEL_INNER_INDEX);
             previous_kernel.tx_context.gas_settings.gas_limits = Gas::new(1_000_000, 1_000_000);
             previous_kernel.set_first_nullifier();
+            previous_kernel.is_private_only = true;
 
             PrivateKernelTailInputsBuilder { previous_kernel }
         }
@@ -144,7 +148,7 @@ mod tests {
         builder.previous_kernel.append_l2_to_l1_msgs(2);
 
         // Reorder the msgs
-        let original_msgs = builder.previous_kernel.l2_to_l1_msgs.storage;
+        let original_msgs = builder.previous_kernel.l2_to_l1_msgs.storage();
         let mut reversed_msgs = [ScopedL2ToL1Message::empty(); 2];
         for i in 0..reversed_msgs.len() {
             reversed_msgs[i] = builder.previous_kernel.l2_to_l1_msgs.pop();

@@ -10,6 +10,15 @@ using Poseidon2 = crypto::Poseidon2<crypto::Poseidon2Bn254ScalarFieldParams>;
  *                          UNCONSTRAINED TREE OPERATIONS
  **************************************************************************************************/
 
+void AvmMerkleTreeTraceBuilder::checkpoint_non_revertible_state()
+{
+    non_revertible_tree_snapshots = tree_snapshots.copy();
+}
+void AvmMerkleTreeTraceBuilder::rollback_to_non_revertible_checkpoint()
+{
+    tree_snapshots = non_revertible_tree_snapshots;
+}
+
 FF AvmMerkleTreeTraceBuilder::unconstrained_hash_nullifier_preimage(const NullifierLeafPreimage& preimage)
 {
     return Poseidon2::hash({ preimage.nullifier, preimage.next_nullifier, preimage.next_index });
@@ -23,6 +32,16 @@ FF AvmMerkleTreeTraceBuilder::unconstrained_hash_public_data_preimage(const Publ
 FF AvmMerkleTreeTraceBuilder::unconstrained_silo_note_hash(FF contract_address, FF note_hash)
 {
     return Poseidon2::hash({ GENERATOR_INDEX__SILOED_NOTE_HASH, contract_address, note_hash });
+}
+
+FF AvmMerkleTreeTraceBuilder::unconstrained_compute_note_hash_nonce(FF tx_hash, FF note_index_in_tx)
+{
+    return Poseidon2::hash({ GENERATOR_INDEX__NOTE_HASH_NONCE, tx_hash, note_index_in_tx });
+}
+
+FF AvmMerkleTreeTraceBuilder::unconstrained_compute_unique_note_hash(FF nonce, FF siloed_note_hash)
+{
+    return Poseidon2::hash({ GENERATOR_INDEX__UNIQUE_NOTE_HASH, nonce, siloed_note_hash });
 }
 
 FF AvmMerkleTreeTraceBuilder::unconstrained_silo_nullifier(FF contract_address, FF nullifier)
@@ -69,20 +88,44 @@ FF AvmMerkleTreeTraceBuilder::unconstrained_update_leaf_index(const FF& leaf_val
     return unconstrained_compute_root_from_path(leaf_value, leaf_index, path);
 }
 
+bool AvmMerkleTreeTraceBuilder::assert_public_data_non_membership_check(
+    const PublicDataTreeLeafPreimage& low_leaf_preimage, const FF& leaf_slot)
+{
+    auto low_leaf_slot = uint256_t(low_leaf_preimage.slot);
+    auto low_leaf_next_index = uint256_t(low_leaf_preimage.next_index);
+    auto low_leaf_next_slot = uint256_t(low_leaf_preimage.next_slot);
+
+    auto leaf_slot_value = uint256_t(leaf_slot);
+
+    return low_leaf_slot < leaf_slot_value && (low_leaf_next_index == 0 || low_leaf_next_slot > leaf_slot_value);
+}
+
+bool AvmMerkleTreeTraceBuilder::assert_nullifier_non_membership_check(const NullifierLeafPreimage& low_leaf_preimage,
+                                                                      const FF& siloed_nullifier)
+{
+    auto low_leaf_nullifier = uint256_t(low_leaf_preimage.nullifier);
+    auto low_leaf_next_index = uint256_t(low_leaf_preimage.next_index);
+    auto low_leaf_next_nullifier = uint256_t(low_leaf_preimage.next_nullifier);
+
+    auto siloed_leaf_nullifier = uint256_t(siloed_nullifier);
+
+    return low_leaf_nullifier < siloed_leaf_nullifier &&
+           (low_leaf_next_index == 0 || low_leaf_next_nullifier > siloed_leaf_nullifier);
+}
+
 /**************************************************************************************************
  *                          STORAGE TREE OPERATIONS
  **************************************************************************************************/
 bool AvmMerkleTreeTraceBuilder::perform_storage_read([[maybe_unused]] uint32_t clk,
                                                      const PublicDataTreeLeafPreimage& preimage,
                                                      const FF& leaf_index,
-                                                     const std::vector<FF>& path,
-                                                     const FF& root)
+                                                     const std::vector<FF>& path) const
 {
     // Hash the preimage
     FF preimage_hash = unconstrained_hash_public_data_preimage(preimage);
     auto index = static_cast<uint64_t>(leaf_index);
     // Check if the leaf is a member of the tree
-    return unconstrained_check_membership(preimage_hash, index, path, root);
+    return unconstrained_check_membership(preimage_hash, index, path, tree_snapshots.public_data_tree.root);
 }
 
 FF AvmMerkleTreeTraceBuilder::perform_storage_write([[maybe_unused]] uint32_t clk,
@@ -91,56 +134,62 @@ FF AvmMerkleTreeTraceBuilder::perform_storage_write([[maybe_unused]] uint32_t cl
                                                     const std::vector<FF>& low_path,
                                                     const FF& slot,
                                                     const FF& value,
-                                                    const FF& insertion_index,
-                                                    const std::vector<FF>& insertion_path,
-                                                    const FF& initial_root)
+                                                    const std::vector<FF>& insertion_path)
 {
     // Check membership of the low leaf
-    bool low_leaf_member = perform_storage_read(clk, low_preimage, low_index, low_path, initial_root);
+    bool low_leaf_member = perform_storage_read(clk, low_preimage, low_index, low_path);
     ASSERT(low_leaf_member);
     if (slot == low_preimage.slot) {
         //  We update the low value
         low_preimage.value = value;
         FF low_preimage_hash = unconstrained_hash_public_data_preimage(low_preimage);
-        // Update the low leaf - this will be returned in future
-        [[maybe_unused]] FF root =
+        // Update the low leaf
+        tree_snapshots.public_data_tree.root =
             unconstrained_update_leaf_index(low_preimage_hash, static_cast<uint64_t>(low_index), low_path);
-        // TEMPORARY UNTIL WE CHANGE HOW UPDATES WORK
-        // Insert a zero leaf at the insertion index
-        return unconstrained_update_leaf_index(FF::zero(), static_cast<uint64_t>(insertion_index), insertion_path);
+        // Update the set of writes to unique slots
+        public_data_unique_writes.insert(slot);
+        return tree_snapshots.public_data_tree.root;
     }
+    // Check the low leaf conditions (i.e. the slot is sandwiched by the low nullifier, or the new slot is a max
+    // value)
+    bool low_leaf_conditions = assert_public_data_non_membership_check(low_preimage, slot);
+    ASSERT(low_leaf_conditions);
     // The new leaf for an insertion is
     PublicDataTreeLeafPreimage new_preimage{
         .slot = slot, .value = value, .next_index = low_preimage.next_index, .next_slot = low_preimage.next_slot
     };
     // Update the low preimage with the new leaf preimage
     low_preimage.next_slot = slot;
-    low_preimage.next_index = insertion_index;
+    low_preimage.next_index = tree_snapshots.public_data_tree.size;
     // Hash the low preimage
     FF low_preimage_hash = unconstrained_hash_public_data_preimage(low_preimage);
     // Compute the new root
     FF new_root = unconstrained_update_leaf_index(low_preimage_hash, static_cast<uint64_t>(low_index), low_path);
     // Check membership of the zero leaf at the insertion index against the new root
-    auto index = static_cast<uint64_t>(insertion_index);
+    auto index = static_cast<uint64_t>(tree_snapshots.public_data_tree.size);
     bool zero_leaf_member = unconstrained_check_membership(FF::zero(), index, insertion_path, new_root);
     ASSERT(zero_leaf_member);
     // Hash the new preimage
     FF leaf_preimage_hash = unconstrained_hash_public_data_preimage(new_preimage);
     // Insert the new leaf into the tree
-    return unconstrained_update_leaf_index(leaf_preimage_hash, index, insertion_path);
+    tree_snapshots.public_data_tree.root = unconstrained_update_leaf_index(leaf_preimage_hash, index, insertion_path);
+    tree_snapshots.public_data_tree.size++;
+    // Update the set of writes to unique slots
+    public_data_unique_writes.insert(slot);
+    return tree_snapshots.public_data_tree.root;
 }
 
 bool AvmMerkleTreeTraceBuilder::perform_nullifier_read([[maybe_unused]] uint32_t clk,
                                                        const NullifierLeafPreimage& preimage,
                                                        const FF& leaf_index,
-                                                       const std::vector<FF>& path,
-                                                       const FF& root)
+                                                       const std::vector<FF>& path) const
+
 {
     // Hash the preimage
     FF preimage_hash = unconstrained_hash_nullifier_preimage(preimage);
     auto index = static_cast<uint64_t>(leaf_index);
     // Check if the leaf is a member of the tree
-    return unconstrained_check_membership(preimage_hash, index, path, root);
+    return unconstrained_check_membership(preimage_hash, index, path, tree_snapshots.nullifier_tree.root);
 }
 
 FF AvmMerkleTreeTraceBuilder::perform_nullifier_append([[maybe_unused]] uint32_t clk,
@@ -148,22 +197,24 @@ FF AvmMerkleTreeTraceBuilder::perform_nullifier_append([[maybe_unused]] uint32_t
                                                        const FF& low_index,
                                                        const std::vector<FF>& low_path,
                                                        const FF& nullifier,
-                                                       const FF& insertion_index,
-                                                       const std::vector<FF>& insertion_path,
-                                                       const FF& root)
+                                                       const std::vector<FF>& insertion_path)
 {
     bool is_update = low_preimage.nullifier == nullifier;
     FF low_preimage_hash = unconstrained_hash_nullifier_preimage(low_preimage);
     if (is_update) {
         // We need to raise an error here, since updates arent allowed in the nullifier tree
-        bool is_member =
-            unconstrained_check_membership(low_preimage_hash, static_cast<uint64_t>(low_index), low_path, root);
+        bool is_member = unconstrained_check_membership(
+            low_preimage_hash, static_cast<uint64_t>(low_index), low_path, tree_snapshots.nullifier_tree.root);
         ASSERT(is_member);
-        return root;
+        return tree_snapshots.nullifier_tree.root;
     }
+    // Check the low leaf conditions (i.e. the slot is sandwiched by the low nullifier, or the new slot is a max
+    // value)
+    bool low_leaf_conditions = assert_nullifier_non_membership_check(low_preimage, nullifier);
+    ASSERT(low_leaf_conditions);
     // Check membership of the low leaf
-    bool low_leaf_member =
-        unconstrained_check_membership(low_preimage_hash, static_cast<uint64_t>(low_index), low_path, root);
+    bool low_leaf_member = unconstrained_check_membership(
+        low_preimage_hash, static_cast<uint64_t>(low_index), low_path, tree_snapshots.nullifier_tree.root);
     ASSERT(low_leaf_member);
     // The new leaf for an insertion is
     NullifierLeafPreimage new_preimage{ .nullifier = nullifier,
@@ -171,19 +222,52 @@ FF AvmMerkleTreeTraceBuilder::perform_nullifier_append([[maybe_unused]] uint32_t
                                         .next_index = low_preimage.next_index };
     // Update the low preimage
     low_preimage.next_nullifier = nullifier;
-    low_preimage.next_index = insertion_index;
+    low_preimage.next_index = tree_snapshots.nullifier_tree.size;
     // Update hash of the low preimage
     low_preimage_hash = unconstrained_hash_nullifier_preimage(low_preimage);
     // Update the root with new low preimage
     FF updated_root = unconstrained_update_leaf_index(low_preimage_hash, static_cast<uint64_t>(low_index), low_path);
     // Check membership of the zero leaf at the insertion index against the new root
-    auto index = static_cast<uint64_t>(insertion_index);
+    auto index = static_cast<uint64_t>(tree_snapshots.nullifier_tree.size);
     bool zero_leaf_member = unconstrained_check_membership(FF::zero(), index, insertion_path, updated_root);
     ASSERT(zero_leaf_member);
     // Hash the new preimage
     FF leaf_preimage_hash = unconstrained_hash_nullifier_preimage(new_preimage);
     // Insert the new leaf into the tree
-    return unconstrained_update_leaf_index(leaf_preimage_hash, index, insertion_path);
+    tree_snapshots.nullifier_tree.root = unconstrained_update_leaf_index(leaf_preimage_hash, index, insertion_path);
+    tree_snapshots.nullifier_tree.size++;
+    return tree_snapshots.nullifier_tree.root;
+}
+
+bool AvmMerkleTreeTraceBuilder::perform_note_hash_read([[maybe_unused]] uint32_t clk,
+                                                       const FF& note_hash,
+                                                       const FF& leaf_index,
+                                                       const std::vector<FF>& path) const
+{
+    auto index = static_cast<uint64_t>(leaf_index);
+    return unconstrained_check_membership(note_hash, index, path, tree_snapshots.note_hash_tree.root);
+}
+
+FF AvmMerkleTreeTraceBuilder::perform_note_hash_append([[maybe_unused]] uint32_t clk,
+                                                       const FF& note_hash,
+                                                       const std::vector<FF>& insertion_path)
+{
+    auto index = static_cast<uint64_t>(tree_snapshots.note_hash_tree.size);
+    bool zero_leaf_member =
+        unconstrained_check_membership(FF::zero(), index, insertion_path, tree_snapshots.note_hash_tree.root);
+    ASSERT(zero_leaf_member);
+    tree_snapshots.note_hash_tree.root = unconstrained_update_leaf_index(note_hash, index, insertion_path);
+    tree_snapshots.note_hash_tree.size++;
+    return tree_snapshots.note_hash_tree.root;
+}
+
+bool AvmMerkleTreeTraceBuilder::perform_l1_to_l2_message_read([[maybe_unused]] uint32_t clk,
+                                                              const FF& leaf_value,
+                                                              const FF leaf_index,
+                                                              const std::vector<FF>& path) const
+{
+    auto index = static_cast<uint64_t>(leaf_index);
+    return unconstrained_check_membership(leaf_value, index, path, tree_snapshots.l1_to_l2_message_tree.root);
 }
 
 /**************************************************************************************************

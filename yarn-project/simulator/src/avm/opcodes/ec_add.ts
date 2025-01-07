@@ -84,10 +84,11 @@ export class EcAdd extends Instruction {
       dest = grumpkin.add(p1, p2);
     }
 
-    memory.set(dstOffset, new Field(dest.x));
-    memory.set(dstOffset + 1, new Field(dest.y));
+    // Important to use setSlice() and not set() in the two following statements as
+    // this checks that the offsets lie within memory range.
+    memory.setSlice(dstOffset, [new Field(dest.x), new Field(dest.y)]);
     // Check representation of infinity for grumpkin
-    memory.set(dstOffset + 2, new Uint1(dest.equals(Point.ZERO) ? 1 : 0));
+    memory.setSlice(dstOffset + 2, [new Uint1(dest.equals(Point.ZERO) ? 1 : 0)]);
 
     memory.assert({ reads: 6, writes: 3, addressing });
   }

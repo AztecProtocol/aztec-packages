@@ -4,14 +4,14 @@ import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 import { bufferToHex, hexToBuffer } from '@aztec/foundation/string';
 import { type FieldsOf } from '@aztec/foundation/types';
 
-import { RECURSIVE_PROOF_LENGTH } from '../../constants.gen.js';
-import { Header } from '../header.js';
+import { RECURSIVE_ROLLUP_HONK_PROOF_LENGTH } from '../../constants.gen.js';
+import { BlockHeader } from '../block_header.js';
 import { RecursiveProof } from '../recursive_proof.js';
 import { VerificationKeyAsFields } from '../verification_key.js';
 
 export class PrivateKernelEmptyInputData {
   constructor(
-    public readonly header: Header,
+    public readonly header: BlockHeader,
     public readonly chainId: Fr,
     public readonly version: Fr,
     public readonly vkTreeRoot: Fr,
@@ -29,7 +29,7 @@ export class PrivateKernelEmptyInputData {
   static fromBuffer(buf: Buffer) {
     const reader = BufferReader.asReader(buf);
     return new PrivateKernelEmptyInputData(
-      reader.readObject(Header),
+      reader.readObject(BlockHeader),
       reader.readObject(Fr),
       reader.readObject(Fr),
       reader.readObject(Fr),
@@ -65,7 +65,7 @@ export class PrivateKernelEmptyInputData {
 export class PrivateKernelEmptyInputs {
   constructor(
     public readonly emptyNested: EmptyNestedData,
-    public readonly header: Header,
+    public readonly header: BlockHeader,
     public readonly chainId: Fr,
     public readonly version: Fr,
     public readonly vkTreeRoot: Fr,
@@ -98,7 +98,7 @@ export class PrivateKernelEmptyInputs {
     const reader = BufferReader.asReader(buf);
     return new PrivateKernelEmptyInputs(
       reader.readObject(EmptyNestedData),
-      reader.readObject(Header),
+      reader.readObject(BlockHeader),
       reader.readObject(Fr),
       reader.readObject(Fr),
       reader.readObject(Fr),
@@ -115,7 +115,7 @@ export class EmptyNestedCircuitInputs {
 
 export class EmptyNestedData {
   constructor(
-    public readonly proof: RecursiveProof<typeof RECURSIVE_PROOF_LENGTH>,
+    public readonly proof: RecursiveProof<typeof RECURSIVE_ROLLUP_HONK_PROOF_LENGTH>,
     public readonly vk: VerificationKeyAsFields,
   ) {}
 
@@ -127,14 +127,14 @@ export class EmptyNestedData {
     const reader = BufferReader.asReader(buf);
     const recursiveProof = reader.readObject(RecursiveProof);
 
-    if (recursiveProof.proof.length !== RECURSIVE_PROOF_LENGTH) {
+    if (recursiveProof.proof.length !== RECURSIVE_ROLLUP_HONK_PROOF_LENGTH) {
       throw new TypeError(
-        `Invalid proof length. Expected: ${RECURSIVE_PROOF_LENGTH} got: ${recursiveProof.proof.length}`,
+        `Invalid proof length. Expected: ${RECURSIVE_ROLLUP_HONK_PROOF_LENGTH} got: ${recursiveProof.proof.length}`,
       );
     }
 
     return new EmptyNestedData(
-      recursiveProof as RecursiveProof<typeof RECURSIVE_PROOF_LENGTH>,
+      recursiveProof as RecursiveProof<typeof RECURSIVE_ROLLUP_HONK_PROOF_LENGTH>,
       reader.readObject(VerificationKeyAsFields),
     );
   }

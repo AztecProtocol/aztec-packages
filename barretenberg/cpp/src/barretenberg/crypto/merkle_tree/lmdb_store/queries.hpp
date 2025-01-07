@@ -178,6 +178,45 @@ bool get_value_or_previous(TKey& key,
 }
 
 template <typename TKey, typename TxType>
+bool get_value_or_greater(TKey& key, std::vector<uint8_t>& data, const LMDBDatabase& db, const TxType& tx)
+{
+    bool success = false;
+    std::vector<uint8_t> keyBuffer = serialise_key(key);
+    uint32_t keySize = static_cast<uint32_t>(keyBuffer.size());
+    MDB_cursor* cursor = nullptr;
+    call_lmdb_func("mdb_cursor_open", mdb_cursor_open, tx.underlying(), db.underlying(), &cursor);
+
+    try {
+        MDB_val dbKey;
+        dbKey.mv_size = keySize;
+        dbKey.mv_data = (void*)keyBuffer.data();
+
+        MDB_val dbVal;
+        // Look for the key >= to that provided
+        int code = mdb_cursor_get(cursor, &dbKey, &dbVal, MDB_SET_RANGE);
+
+        if (code == 0) {
+            // found a key >= our key. if it is not the same size, it must be out of range for what we are looking
+            // for, this means no more data available
+            if (keySize == dbKey.mv_size) {
+                // key is the same size, so this contains the data we are looking for
+                copy_to_vector(dbVal, data);
+                success = true;
+            }
+        } else if (code == MDB_NOTFOUND) {
+            // no key greater than or equal, nothing to extract
+        } else {
+            throw_error("get_value_or_greater::mdb_cursor_get", code);
+        }
+    } catch (std::exception& e) {
+        call_lmdb_func(mdb_cursor_close, cursor);
+        throw;
+    }
+    call_lmdb_func(mdb_cursor_close, cursor);
+    return success;
+}
+
+template <typename TKey, typename TxType>
 void get_all_values_greater_or_equal_key(const TKey& key,
                                          std::vector<std::vector<uint8_t>>& data,
                                          const LMDBDatabase& db,

@@ -6,10 +6,11 @@ use dep::types::{
         max_block_number::MaxBlockNumber,
         nullifier::{Nullifier, ScopedNullifier},
         private_circuit_public_inputs::PrivateCircuitPublicInputs,
+        side_effect::Ordered,
         tx_constant_data::TxConstantData,
     },
     address::AztecAddress,
-    traits::is_empty,
+    traits::{Empty, is_empty},
     transaction::tx_request::TxRequest,
     utils::arrays::{array_length, array_to_bounded_vec, sort_by_counter_asc, sort_by_counter_desc},
 };
@@ -18,8 +19,26 @@ pub fn create_first_nullifier(tx_request: TxRequest) -> ScopedNullifier {
     Nullifier { value: tx_request.hash(), note_hash: 0, counter: 0 }.scope(AztecAddress::zero())
 }
 
+unconstrained fn transform_vec<T, let N: u32, Env>(
+    vec: BoundedVec<T, N>,
+    f: unconstrained fn[Env]([T; N]) -> [T; N],
+) -> BoundedVec<T, N>
+where
+    T: Ordered + Empty + Eq,
+{
+    let len = vec.len();
+    let transformed = f(vec.storage());
+    let mut transformed_vec = vec;
+    for i in 0..N {
+        if i < len {
+            transformed_vec.set_unchecked(i, transformed[i]);
+        }
+    }
+    transformed_vec
+}
+
 pub struct PrivateKernelCircuitPublicInputsComposer {
-    public_inputs: PrivateKernelCircuitPublicInputsBuilder,
+    pub public_inputs: PrivateKernelCircuitPublicInputsBuilder,
 }
 
 impl PrivateKernelCircuitPublicInputsComposer {
@@ -28,8 +47,10 @@ impl PrivateKernelCircuitPublicInputsComposer {
         private_call_public_inputs: PrivateCircuitPublicInputs,
         vk_tree_root: Field,
         protocol_contract_tree_root: Field,
+        is_private_only: bool,
     ) -> Self {
         let mut public_inputs = PrivateKernelCircuitPublicInputsBuilder::empty();
+        public_inputs.is_private_only = is_private_only;
 
         public_inputs.constants = TxConstantData {
             historical_header: private_call_public_inputs.historical_header,
@@ -47,11 +68,12 @@ impl PrivateKernelCircuitPublicInputsComposer {
         PrivateKernelCircuitPublicInputsComposer { public_inputs }
     }
 
-    pub fn new_from_previous_kernel(
+    pub unconstrained fn new_from_previous_kernel(
         previous_kernel_public_inputs: PrivateKernelCircuitPublicInputs,
     ) -> Self {
         let mut public_inputs = PrivateKernelCircuitPublicInputsBuilder::empty();
 
+        public_inputs.is_private_only = previous_kernel_public_inputs.is_private_only;
         public_inputs.constants = previous_kernel_public_inputs.constants;
         public_inputs.min_revertible_side_effect_counter =
             previous_kernel_public_inputs.min_revertible_side_effect_counter;
@@ -98,12 +120,16 @@ impl PrivateKernelCircuitPublicInputsComposer {
 
     pub unconstrained fn sort_ordered_values(&mut self) {
         // Note hashes, nullifiers, and private logs are sorted in the reset circuit.
-        self.public_inputs.end.l2_to_l1_msgs.storage =
-            sort_by_counter_asc(self.public_inputs.end.l2_to_l1_msgs.storage);
-        self.public_inputs.end.contract_class_logs_hashes.storage =
-            sort_by_counter_asc(self.public_inputs.end.contract_class_logs_hashes.storage);
-        self.public_inputs.end.public_call_requests.storage =
-            sort_by_counter_desc(self.public_inputs.end.public_call_requests.storage);
+        self.public_inputs.end.l2_to_l1_msgs =
+            transform_vec(self.public_inputs.end.l2_to_l1_msgs, sort_by_counter_asc);
+        self.public_inputs.end.contract_class_logs_hashes = transform_vec(
+            self.public_inputs.end.contract_class_logs_hashes,
+            sort_by_counter_asc,
+        );
+        self.public_inputs.end.public_call_requests = transform_vec(
+            self.public_inputs.end.public_call_requests,
+            sort_by_counter_desc,
+        );
     }
 
     pub fn finish(self) -> PrivateKernelCircuitPublicInputs {

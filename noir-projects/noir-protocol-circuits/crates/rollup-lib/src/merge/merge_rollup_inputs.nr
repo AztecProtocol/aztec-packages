@@ -13,7 +13,7 @@ global ALLOWED_PREVIOUS_CIRCUITS: [u32; 3] =
 
 pub struct MergeRollupInputs {
     // TODO(Kev): Why is this 2?
-    previous_rollup_data: [PreviousRollupData; 2],
+    pub previous_rollup_data: [PreviousRollupData; 2],
 }
 
 impl Empty for MergeRollupInputs {
@@ -42,8 +42,6 @@ impl MergeRollupInputs {
         components::assert_equal_constants(left, right);
         components::assert_prev_rollups_follow_on_from_each_other(left, right);
 
-        // compute calldata hash:
-        let txs_effects_hash = components::compute_txs_effects_hash(self.previous_rollup_data);
         let out_hash = components::compute_out_hash(self.previous_rollup_data);
 
         let accumulated_fees = components::accumulate_fees(left, right);
@@ -56,7 +54,8 @@ impl MergeRollupInputs {
             constants: left.constants,
             start: left.start,
             end: right.end,
-            txs_effects_hash,
+            start_sponge_blob: left.start_sponge_blob,
+            end_sponge_blob: right.end_sponge_blob,
             out_hash,
             accumulated_fees,
             accumulated_mana_used,
@@ -71,7 +70,6 @@ mod tests {
     use dep::types::constants::{
         MERGE_ROLLUP_INDEX, PRIVATE_BASE_ROLLUP_VK_INDEX, ROOT_PARITY_INDEX,
     };
-    use dep::types::hash::accumulate_sha256;
     use types::merkle_tree::merkle_tree::MerkleTree;
     use types::tests::fixtures;
 
@@ -109,6 +107,16 @@ mod tests {
         inputs.previous_rollup_data[0].base_or_merge_rollup_public_inputs.end.nullifier_tree.root =
             0;
         inputs.previous_rollup_data[1].base_or_merge_rollup_public_inputs.start.nullifier_tree.root =
+            1;
+        let _output = inputs.merge_rollup_circuit();
+    }
+
+    #[test(should_fail_with = "input proofs have different blob data sponges")]
+    fn previous_rollups_dont_follow_sponge() {
+        let mut inputs = default_merge_rollup_inputs();
+        inputs.previous_rollup_data[0].base_or_merge_rollup_public_inputs.end_sponge_blob.sponge.state[0] =
+            0;
+        inputs.previous_rollup_data[1].base_or_merge_rollup_public_inputs.start_sponge_blob.sponge.state[0] =
             1;
         let _output = inputs.merge_rollup_circuit();
     }
@@ -170,12 +178,13 @@ mod tests {
     }
 
     #[test]
-    fn txs_effects_hash() {
+    fn txs_effects_sponge() {
         let mut inputs = default_merge_rollup_inputs();
-        let expected_hash = accumulate_sha256([1, 2]);
         let outputs = inputs.merge_rollup_circuit();
+        let mut expected_sponge = outputs.start_sponge_blob;
+        expected_sponge.absorb([1, 2], 2);
 
-        assert_eq(outputs.txs_effects_hash, expected_hash);
+        assert_eq(outputs.end_sponge_blob, expected_sponge);
     }
 
     #[test]
@@ -199,7 +208,7 @@ mod tests {
             comptime { fixtures::vk_tree::get_vk_merkle_tree() };
 
         inputs.previous_rollup_data[0].vk =
-            fixtures::vk_tree::generate_fake_honk_vk_for_index(PRIVATE_BASE_ROLLUP_VK_INDEX);
+            fixtures::vk_tree::generate_fake_rollup_honk_vk_for_index(PRIVATE_BASE_ROLLUP_VK_INDEX);
         inputs.previous_rollup_data[0].vk_witness.leaf_index =
             PRIVATE_BASE_ROLLUP_VK_INDEX as Field;
         inputs.previous_rollup_data[0].vk_witness.sibling_path =
@@ -216,7 +225,7 @@ mod tests {
             comptime { fixtures::vk_tree::get_vk_merkle_tree() };
 
         inputs.previous_rollup_data[0].vk =
-            fixtures::vk_tree::generate_fake_honk_vk_for_index(MERGE_ROLLUP_INDEX);
+            fixtures::vk_tree::generate_fake_rollup_honk_vk_for_index(MERGE_ROLLUP_INDEX);
         inputs.previous_rollup_data[0].vk_witness.leaf_index = MERGE_ROLLUP_INDEX as Field;
         inputs.previous_rollup_data[0].vk_witness.sibling_path =
             vk_tree.get_sibling_path(MERGE_ROLLUP_INDEX);
@@ -230,7 +239,7 @@ mod tests {
         let vk_tree: MerkleTree<fixtures::vk_tree::VK_TREE_WIDTH> =
             comptime { fixtures::vk_tree::get_vk_merkle_tree() };
         inputs.previous_rollup_data[0].vk =
-            fixtures::vk_tree::generate_fake_honk_vk_for_index(ROOT_PARITY_INDEX);
+            fixtures::vk_tree::generate_fake_rollup_honk_vk_for_index(ROOT_PARITY_INDEX);
         inputs.previous_rollup_data[0].vk_witness.leaf_index = ROOT_PARITY_INDEX as Field;
         inputs.previous_rollup_data[0].vk_witness.sibling_path =
             vk_tree.get_sibling_path(ROOT_PARITY_INDEX);

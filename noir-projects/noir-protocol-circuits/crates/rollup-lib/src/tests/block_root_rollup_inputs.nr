@@ -1,4 +1,4 @@
-use crate::block_root::block_root_rollup_inputs::BlockRootRollupInputs;
+use crate::block_root::BlockRootRollupInputs;
 use crate::tests::l1_to_l2_roots::default_root_rollup_parity_input;
 use crate::tests::previous_rollup_data::default_previous_rollup_data;
 use dep::types::{
@@ -57,6 +57,9 @@ pub fn default_block_root_rollup_inputs() -> BlockRootRollupInputs {
     inputs.new_archive_sibling_path = blocks_sibling_path;
 
     inputs.previous_rollup_data = default_previous_rollup_data();
+
+    inputs.blobs_fields[0] = 1;
+    inputs.blobs_fields[1] = 2;
 
     inputs
 }

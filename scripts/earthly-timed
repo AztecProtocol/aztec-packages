@@ -2,7 +2,7 @@
 [ -n "${BUILD_SYSTEM_DEBUG:-}" ] && set -x # conditionally trace
 
 # Aztec build/test/bench tool
-# Thin wrapper for earthly that helps with building targets. 
+# Thin wrapper for earthly that helps with building targets.
 # Adds autodownloading earthly and timing code.
 # Usage:
 # Go to folder, e.g. docs, use az to build
@@ -16,7 +16,7 @@ add_timestamps() {
   gray=$(tput setaf 8)
   normal=$(tput sgr0)
   while IFS= read -r line; do printf "${gray}%(%H:%M:%S)T${normal} " ; echo "$line" ; done
-} 
+}
 report_time() {
   end_time=$(date +%s)
   duration=$((end_time - start_time))

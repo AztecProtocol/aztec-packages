@@ -1,6 +1,7 @@
 import { getSchnorrAccount } from '@aztec/accounts/schnorr';
-import { type AccountWallet, type CompleteAddress, type DebugLogger, createDebugLogger } from '@aztec/aztec.js';
-import { DocsExampleContract, TokenContract } from '@aztec/noir-contracts.js';
+import { type AccountWallet, type CompleteAddress, type Logger, createLogger } from '@aztec/aztec.js';
+import { DocsExampleContract } from '@aztec/noir-contracts.js/DocsExample';
+import { TokenContract } from '@aztec/noir-contracts.js/Token';
 
 import { jest } from '@jest/globals';
 
@@ -21,7 +22,7 @@ export class TokenContractTest {
   static TOKEN_SYMBOL = 'USD';
   static TOKEN_DECIMALS = 18n;
   private snapshotManager: ISnapshotManager;
-  logger: DebugLogger;
+  logger: Logger;
   wallets: AccountWallet[] = [];
   accounts: CompleteAddress[] = [];
   asset!: TokenContract;
@@ -29,7 +30,7 @@ export class TokenContractTest {
   badAccount!: DocsExampleContract;
 
   constructor(testName: string) {
-    this.logger = createDebugLogger(`aztec:e2e_token_contract:${testName}`);
+    this.logger = createLogger(`e2e:e2e_token_contract:${testName}`);
     this.snapshotManager = createSnapshotManager(`e2e_token_contract/${testName}`, dataPath, {
       metricsPort: metricsPort ? parseInt(metricsPort) : undefined,
     });

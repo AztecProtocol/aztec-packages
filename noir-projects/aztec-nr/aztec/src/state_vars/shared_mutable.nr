@@ -39,7 +39,11 @@ global HASH_SEPARATOR: u32 = 2;
 impl<T, let INITIAL_DELAY: u32, Context, let N: u32> Storage<T, N> for SharedMutable<T, INITIAL_DELAY, Context>
 where
     T: Serialize<N> + Deserialize<N>,
-{}
+{
+    fn get_storage_slot(self) -> Field {
+        self.storage_slot
+    }
+}
 
 // SharedMutable<T> stores a value of type T that is:
 //  - publicly known (i.e. unencrypted)
@@ -191,7 +195,7 @@ where
     fn historical_read_from_public_storage(
         self,
     ) -> (ScheduledValueChange<T>, ScheduledDelayChange<INITIAL_DELAY>, u32) {
-        let header = self.context.get_header();
+        let header = self.context.get_block_header();
         let address = self.context.this_address();
 
         let historical_block_number = header.global_variables.block_number as u32;
