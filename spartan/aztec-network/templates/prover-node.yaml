@@ -11,6 +11,16 @@ spec:
     matchLabels:
       {{- include "aztec-network.selectorLabels" . | nindent 6 }}
       app: prover-node
+  {{- if not .Values.storage.localSsd }}
+  volumeClaimTemplates:
+    - metadata:
+        name: prover-node-data
+      spec:
+        accessModes: [ "ReadWriteOnce" ]
+        resources:
+          requests:
+            storage: {{ .Values.proverNode.storageSize }}
+  {{- end }}
   template:
     metadata:
       labels:
@@ -198,6 +208,10 @@ spec:
       {{- if .Values.storage.localSsd }}
         - name: prover-node-data
           emptyDir: {}
+      {{ else }}
+        - name: prover-node-data
+          persistentVolumeClaim:
+            claimName: prover-node-data
       {{- end }}
   {{- if not .Values.storage.localSsd }}
   volumeClaimTemplates:
