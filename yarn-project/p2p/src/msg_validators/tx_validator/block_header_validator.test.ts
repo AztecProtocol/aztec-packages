@@ -1,4 +1,4 @@
-import { type AnyTx, mockTxForRollup } from '@aztec/circuit-types';
+import { type AnyTx, type TxValidationResult, mockTxForRollup } from '@aztec/circuit-types';
 import { Fr } from '@aztec/circuits.js';
 
 import { type MockProxy, mock, mockFn } from 'jest-mock-extended';
@@ -31,6 +31,10 @@ describe('BlockHeaderTxValidator', () => {
         return Promise.resolve([undefined]);
       }
     });
-    await expect(txValidator.validateTxs([goodTx, badTx])).resolves.toEqual([[goodTx], [badTx]]);
+    await expect(txValidator.validateTx(goodTx)).resolves.toEqual({ result: 'valid' } satisfies TxValidationResult);
+    await expect(txValidator.validateTx(badTx)).resolves.toEqual({
+      result: 'invalid',
+      reason: ['Block header not found'],
+    } satisfies TxValidationResult);
   });
 });
