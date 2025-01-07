@@ -20,13 +20,60 @@ noir_lsp-.* notifications::notification_tests::test_caches_open_files
 noir_lsp-.* requests::
 
 # end-to-end
-# These all fail randomly in weird ways. Consider reproducing and adding error comments here.
+# This is just too slow at over 10m, grinding it 32 times it didn't flake.
 simple e2e_block_building
+
+# Seen this error on all the below.
+# e.g. to grind: seq 1 16 | parallel --bar --tag --halt now,fail=1 ci3/dump_fail "NAME_POSTFIX=_{} yarn-project/end-to-end/scripts/test.sh simple e2e_p2p/gossip_network >/dev/null"
+# FAIL  e2e_p2p/reqresp.test.ts
+#  ● e2e_p2p_reqresp_tx › should produce an attestation by requesting tx data over the p2p network
+
+#    TypeError: Cannot read properties of null (reading 'address')
+
+#      19 |
+#      20 |   get(): T | undefined {
+#    > 21 |     return this.#db.get(this.#slot);
+#         |                     ^
+#      22 |   }
+#      23 |
+#      24 |   getAsync(): Promise<T | undefined> {
+
+#      at LMDBStore.getBinaryFast (../../node_modules/lmdb/read.js:90:9)
+#      at LMDBStore.get (../../node_modules/lmdb/read.js:334:22)
+#      at LmdbAztecSingleton.get (../../kv-store/src/lmdb/singleton.ts:21:21)
+#      at initStoreForRollup (../../kv-store/src/utils.ts:26:82)
+#      at createStore (../../kv-store/src/lmdb/index.ts:25:12)
+#      at createArchiver (../../archiver/src/factory.ts:30:25)
+#      at Function.createAndSync (../../aztec-node/src/aztec-node/server.ts:157:28)
+#      at createAndSync (fixtures/setup_p2p_test.ts:72:33)
+#          at async Promise.all (index 0)
+#      at Object.<anonymous> (e2e_p2p/reqresp.test.ts:66:13)
 simple e2e_p2p/gossip_network
 simple e2e_p2p/rediscovery
 simple e2e_p2p/reqresp
 simple e2e_p2p/upgrade_governance_proposer
+
 simple e2e_prover/full
+
+# FAIL  ./flakey_e2e_inclusion_proofs_contract.test.ts
+# ● e2e_inclusion_proofs_contract › contract inclusion › proves public deployment of a contract
+#
+#   Undefined argument value of type field
+#
+#     41 |   private encodeArgument(abiType: AbiType, arg: any, name?: string) {
+#     42 |     if (arg === undefined || arg == null) {
+#   > 43 |       throw new Error(`Undefined argument ${name ?? 'unnamed'} of type ${abiType.kind}`);
+#        |             ^
+#     44 |     }
+#     45 |     switch (abiType.kind) {
+#     46 |       case 'field':
+#
+#     at ArgumentEncoder.encodeArgument (../../foundation/src/abi/encoder.ts:43:13)
+#     at ArgumentEncoder.encode (../../foundation/src/abi/encoder.ts:137:12)
+#     at encodeArguments (../../foundation/src/abi/encoder.ts:150:41)
+#     at computeInitializationHash (../../circuits.js/src/contract/contract_address.ts:75:20)
+#     at getContractInstanceFromDeployParams (../../circuits.js/src/contract/contract_instance.ts:124:9)
+#     at Object.getContractInstanceFromDeployParams (flakey_e2e_inclusion_proofs_contract.test.ts:275:24)
 simple flakey_e2e_inclusion_proofs_contract
 
 # FAIL prover-coordination/e2e_prover_coordination.test.ts (302.744 s)
@@ -45,12 +92,4 @@ simple flakey_e2e_inclusion_proofs_contract
 #       441 |     // should be dropped
 #
 #       at Object.toEqual (prover-coordination/e2e_prover_coordination.test.ts:438:41)
-#
-#
-# Test Suites: 1 failed, 1 total
-# Tests:       1 failed, 1 passed, 2 total
-# Snapshots:   0 total
-# Time:        302.798 s
-# Ran all test suites matching /e2e_prover_coordination/i.
-# Force exiting Jest: Have you considered using `--detectOpenHandles` to detect async operations that kept running after all tests finished?
 simple e2e_prover_coordination

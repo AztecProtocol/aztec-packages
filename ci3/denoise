@@ -1,6 +1,5 @@
 #!/bin/bash
-set -uo pipefail
-source $(git rev-parse --show-toplevel)/ci3/source_color
+NO_CD=1 source $(git rev-parse --show-toplevel)/ci3/source
 
 # Ensure a command is passed
 if [ "$#" -eq 0 ]; then
