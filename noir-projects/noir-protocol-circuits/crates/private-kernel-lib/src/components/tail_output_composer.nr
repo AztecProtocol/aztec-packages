@@ -4,8 +4,6 @@ use crate::components::private_kernel_circuit_public_inputs_composer::PrivateKer
 use dep::types::{
     abis::{
         accumulated_data::private_to_rollup_accumulated_data::PrivateToRollupAccumulatedData,
-        combined_constant_data::CombinedConstantData,
-        global_variables::GlobalVariables,
         kernel_circuit_public_inputs::{
             PrivateKernelCircuitPublicInputs, PrivateToRollupKernelCircuitPublicInputs,
         },

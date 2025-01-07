@@ -5,10 +5,8 @@ import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 
 import { countAccumulatedItems, mergeAccumulatedData } from '../../utils/index.js';
 import { Gas } from '../gas.js';
-import { GlobalVariables } from '../global_variables.js';
 import { PublicCallRequest } from '../public_call_request.js';
 import { RollupValidationRequests } from '../rollup_validation_requests.js';
-import { CombinedConstantData } from './combined_constant_data.js';
 import { PrivateToRollupKernelCircuitPublicInputs } from './kernel_circuit_public_inputs.js';
 import { PrivateToPublicAccumulatedData } from './private_to_public_accumulated_data.js';
 import { PrivateToPublicKernelCircuitPublicInputs } from './private_to_public_kernel_circuit_public_inputs.js';
@@ -165,12 +163,11 @@ export class PrivateKernelTailCircuitPublicInputs {
     if (!this.forRollup) {
       throw new Error('Private tail public inputs is not for rollup circuit.');
     }
-    const constants = new CombinedConstantData(
+    const constants = new TxConstantData(
       this.constants.historicalHeader,
       this.constants.txContext,
       this.constants.vkTreeRoot,
       this.constants.protocolContractTreeRoot,
-      GlobalVariables.empty(),
     );
     return new PrivateToRollupKernelCircuitPublicInputs(
       this.rollupValidationRequests,

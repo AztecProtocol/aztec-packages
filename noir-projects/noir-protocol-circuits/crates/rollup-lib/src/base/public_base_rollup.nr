@@ -15,16 +15,10 @@ use crate::{
 };
 use dep::types::{
     abis::{
-        accumulated_data::{self, PrivateToRollupAccumulatedData},
-        append_only_tree_snapshot::AppendOnlyTreeSnapshot,
-        avm_circuit_public_inputs::AvmProofData,
-        combined_constant_data::CombinedConstantData,
-        constant_rollup_data::ConstantRollupData,
-        log_hash::ScopedLogHash,
-        nullifier_leaf_preimage::NullifierLeafPreimage,
-        public_data_write::PublicDataWrite,
-        sponge_blob::SpongeBlob,
-        tube::PublicTubeData,
+        append_only_tree_snapshot::AppendOnlyTreeSnapshot, avm_circuit_public_inputs::AvmProofData,
+        combined_constant_data::CombinedConstantData, constant_rollup_data::ConstantRollupData,
+        log_hash::ScopedLogHash, nullifier_leaf_preimage::NullifierLeafPreimage,
+        public_data_write::PublicDataWrite, sponge_blob::SpongeBlob, tube::PublicTubeData,
     },
     constants::{
         ARCHIVE_HEIGHT, MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, NOTE_HASH_SUBTREE_HEIGHT,

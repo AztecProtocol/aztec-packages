@@ -421,7 +421,7 @@ export function makePrivateToRollupKernelCircuitPublicInputs(
   return new PrivateToRollupKernelCircuitPublicInputs(
     makeRollupValidationRequests(seed),
     makePrivateToRollupAccumulatedData(seed, fullAccumulatedData),
-    makeCombinedConstantData(seed + 0x100),
+    makeTxConstantData(seed + 0x100),
     makeGas(seed + 0x600),
     makeAztecAddress(seed + 0x700),
   );
