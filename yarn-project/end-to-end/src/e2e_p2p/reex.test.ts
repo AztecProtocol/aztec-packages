@@ -126,7 +126,7 @@ describe('e2e_p2p_reex', () => {
     const interceptTxProcessorWithFailure = (node: AztecNodeService) => {
       interceptTxProcessorSimulator(node, simulator => {
         const anySimulator: any = simulator;
-        jest.spyOn(anySimulator, 'process').mockImplementation(async () => {
+        jest.spyOn(anySimulator, 'simulate').mockImplementation(async () => {
           t.logger.warn('Public tx simulator failing');
           await sleep(1);
           throw new Error(`Fake tx failure`);
