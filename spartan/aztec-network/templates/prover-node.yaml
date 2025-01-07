@@ -213,18 +213,6 @@ spec:
           persistentVolumeClaim:
             claimName: prover-node-data
       {{- end }}
-  {{- if not .Values.storage.localSsd }}
-  volumeClaimTemplates:
-  - metadata:
-      name: shared-volume
-      labels:
-        {{- include "aztec-network.labels" . | nindent 8 }}
-    spec:
-      accessModes: ["ReadWriteOnce"]
-      resources:
-        requests:
-          storage: {{ .Values.proverNode.storage }}
-  {{- end }}
 {{if not .Values.network.public }}
 ---
 apiVersion: v1
