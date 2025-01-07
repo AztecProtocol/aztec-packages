@@ -120,7 +120,7 @@ jobs:
         timeout-minutes: 80
         run: |
           sudo shutdown -P 80
-          ./bootstrap.sh image-aztec
+          ./bootstrap.sh image-aztec --check-arch
           docker tag aztecprotocol/aztec:${{ env.GIT_COMMIT }} aztecprotocol/aztec:${{ env.GIT_COMMIT }}-arm64
           docker push aztecprotocol/aztec:${{ env.GIT_COMMIT }}-arm64
   build-nargo-x86:
