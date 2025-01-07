@@ -190,21 +190,25 @@ export class L1TxUtils {
     const gasPrice = await this.getGasPrice(gasConfig);
 
     const blobInputs = _blobInputs || {};
-    const txHash = await this.walletClient.sendTransaction({
-      ...request,
-      ...blobInputs,
-      gas: gasLimit,
-      maxFeePerGas: gasPrice.maxFeePerGas,
-      maxPriorityFeePerGas: gasPrice.maxPriorityFeePerGas,
-    });
+    try {
+      const txHash = await this.walletClient.sendTransaction({
+        ...request,
+        ...blobInputs,
+        gas: gasLimit,
+        maxFeePerGas: gasPrice.maxFeePerGas,
+        maxPriorityFeePerGas: gasPrice.maxPriorityFeePerGas,
+      });
+      this.logger?.verbose(`Sent L1 transaction ${txHash}`, {
+        gasLimit,
+        maxFeePerGas: formatGwei(gasPrice.maxFeePerGas),
+        maxPriorityFeePerGas: formatGwei(gasPrice.maxPriorityFeePerGas),
+      });
 
-    this.logger?.verbose(`Sent L1 transaction ${txHash}`, {
-      gasLimit,
-      maxFeePerGas: formatGwei(gasPrice.maxFeePerGas),
-      maxPriorityFeePerGas: formatGwei(gasPrice.maxPriorityFeePerGas),
-    });
-
-    return { txHash, gasLimit, gasPrice };
+      return { txHash, gasLimit, gasPrice };
+    } catch (err) {
+      this.logger?.error(`Failed to send L1 transaction`, err);
+      throw err;
+    }
   }
 
   /**
@@ -240,6 +244,7 @@ export class L1TxUtils {
       throw new Error(`Failed to get L1 transaction ${initialTxHash} nonce`);
     }
     const nonce = tx.nonce;
+    this.logger?.debug(`Nonce for L1 transaction ${initialTxHash} is ${nonce}`);
 
     const txHashes = new Set<Hex>([initialTxHash]);
     let currentTxHash = initialTxHash;
@@ -250,7 +255,11 @@ export class L1TxUtils {
 
     while (!txTimedOut) {
       try {
-        const currentNonce = await this.publicClient.getTransactionCount({ address: account.address });
+        const currentNonce = await this.publicClient.getTransactionCount({
+          address: account.address,
+          blockTag: 'pending',
+        });
+        this.logger?.debug(`Current nonce is ${currentNonce}`);
         if (currentNonce > nonce) {
           for (const hash of txHashes) {
             try {
@@ -432,8 +441,6 @@ export class L1TxUtils {
     if (_blobInputs) {
       initialEstimate = (
         await this.walletClient.prepareTransactionRequest({
-          account,
-          nonceManager: account.nonceManager,
           ...request,
           ..._blobInputs,
         })

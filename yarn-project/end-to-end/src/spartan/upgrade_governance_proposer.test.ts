@@ -50,7 +50,7 @@ describe('spartan_upgrade_governance_proposer', () => {
   });
 
   it('should deploy new governance proposer', async () => {
-    const chain = createEthereumChain(ETHEREUM_HOST, 1337);
+    const chain = createEthereumChain(ETHEREUM_HOST, 31337);
     const { walletClient: l1WalletClient, publicClient: l1PublicClient } = createL1Clients(
       ETHEREUM_HOST,
       MNEMONIC,
