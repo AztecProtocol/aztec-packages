@@ -1,5 +1,5 @@
 import { createCompatibleClient } from '@aztec/aztec.js';
-import { L1TxUtils, MINIMUM_STAKE, createEthereumChain } from '@aztec/ethereum';
+import { L1TxUtils, MINIMUM_STAKE, createEthereumChain, getL1ContractsConfigEnvVars } from '@aztec/ethereum';
 import { type LogFn, type Logger } from '@aztec/foundation/log';
 import { RollupAbi, TestERC20Abi } from '@aztec/l1-artifacts';
 
@@ -74,12 +74,13 @@ export async function sequencers(opts: {
       client: walletClient,
     });
 
+    const config = getL1ContractsConfigEnvVars();
     const mintRequest = {
       to: stakingAsset.address,
       data: encodeFunctionData({
         abi: stakingAsset.abi,
         functionName: 'mint',
-        args: [walletClient.account.address, MINIMUM_STAKE],
+        args: [walletClient.account.address, config.minimumStake],
       }),
     };
     const approveRequest = {
@@ -87,7 +88,7 @@ export async function sequencers(opts: {
       data: encodeFunctionData({
         abi: stakingAsset.abi,
         functionName: 'approve',
-        args: [rollup.address, MINIMUM_STAKE],
+        args: [rollup.address, config.minimumStake],
       }),
     };
 

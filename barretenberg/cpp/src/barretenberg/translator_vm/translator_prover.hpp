@@ -23,6 +23,7 @@ class TranslatorProver {
     using CommitmentLabels = typename Flavor::CommitmentLabels;
     using PCS = typename Flavor::PCS;
     using Transcript = typename Flavor::Transcript;
+    using ZKData = ZKSumcheckData<Flavor>;
     static constexpr size_t MINIMUM_MINI_CIRCUIT_SIZE = 2048;
     size_t total_num_gates = 0;          // num_gates (already include zero row offset) (used to compute dyadic size)
     size_t dyadic_circuit_size = 0;      // final power-of-2 circuit size
@@ -47,7 +48,7 @@ class TranslatorProver {
 
     CommitmentLabels commitment_labels;
 
-    ZKSumcheckData<Flavor> zk_sumcheck_data;
+    ZKData zk_sumcheck_data;
 
     SumcheckOutput<Flavor> sumcheck_output;
 

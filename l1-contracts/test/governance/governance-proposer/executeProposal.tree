@@ -1,4 +1,4 @@
-PushProposalTest
+ExecuteProposalTest
 ├── given canonical instance hold no code
 │   └── it revert
 └── given canonical instance hold code
@@ -25,5 +25,5 @@ PushProposalTest
                         │   └── it revert
                         └── given governance call succeeds
                             ├── it update executed to true
-                            ├── it emits {ProposalPushed} event
+                            ├── it emits {ProposalExecuted} event
                             └── it return true
