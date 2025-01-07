@@ -49,15 +49,9 @@ pub struct PrivateBaseRollupInputs {
 
 impl PrivateBaseRollupInputs {
     pub fn execute(self) -> BaseOrMergeRollupPublicInputs {
-        // TODO(#10311): There should be an empty base rollup.
-        // There's at least 1 nullifier for a tx. So gas_used won't be empty if the previous circuit is private_tail.
-        let is_empty_tube = self.tube_data.public_inputs.gas_used.is_empty();
-
         let tube_data_validator = PrivateTubeDataValidator::new(self.tube_data);
         tube_data_validator.verify_proof(ALLOWED_PREVIOUS_CIRCUITS);
-        if !is_empty_tube {
-            tube_data_validator.validate_with_rollup_data(self.constants);
-        }
+        tube_data_validator.validate_with_rollup_data(self.constants);
 
         validate_combined_constant_data(self.tube_data.public_inputs.constants, self.constants);
 
@@ -251,9 +245,9 @@ mod tests {
             MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, NOTE_HASH_SUBTREE_HEIGHT,
             NOTE_HASH_SUBTREE_SIBLING_PATH_LENGTH, NOTE_HASH_TREE_HEIGHT, NOTES_PREFIX,
             NULLIFIER_SUBTREE_HEIGHT, NULLIFIER_SUBTREE_SIBLING_PATH_LENGTH, NULLIFIER_TREE_HEIGHT,
-            NULLIFIERS_PREFIX, PRIVATE_KERNEL_EMPTY_INDEX, PRIVATE_LOG_SIZE_IN_FIELDS,
-            PRIVATE_LOGS_PREFIX, PUBLIC_DATA_TREE_HEIGHT, REVERT_CODE_PREFIX, TUBE_VK_INDEX,
-            TX_FEE_PREFIX, TX_START_PREFIX, UNENCRYPTED_LOGS_PREFIX,
+            NULLIFIERS_PREFIX, PRIVATE_LOG_SIZE_IN_FIELDS, PRIVATE_LOGS_PREFIX,
+            PUBLIC_DATA_TREE_HEIGHT, REVERT_CODE_PREFIX, TUBE_VK_INDEX, TX_FEE_PREFIX,
+            TX_START_PREFIX, UNENCRYPTED_LOGS_PREFIX,
         },
         data::{public_data_hint::PublicDataHint, PublicDataTreeLeaf, PublicDataTreeLeafPreimage},
         hash::silo_l2_to_l1_message,
@@ -1229,14 +1223,5 @@ mod tests {
         builder.fee_write = (0, PublicDataTreeLeaf { slot: balance_slot, value: expected_balance });
 
         builder.fails();
-    }
-
-    #[test]
-    fn valid_previous_kernel_empty() {
-        let builder = unsafe {
-            PrivateBaseRollupInputsBuilder::new_with_previous_kernel(PRIVATE_KERNEL_EMPTY_INDEX)
-        };
-
-        let _res = builder.execute();
     }
 }

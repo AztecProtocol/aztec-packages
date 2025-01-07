@@ -3,12 +3,19 @@ use crate::{
     root::root_rollup_public_inputs::RootRollupPublicInputs,
 };
 use types::{
-    constants::{BLOCK_MERGE_ROLLUP_INDEX, BLOCK_ROOT_ROLLUP_EMPTY_INDEX, BLOCK_ROOT_ROLLUP_INDEX},
+    constants::{
+        BLOCK_MERGE_ROLLUP_INDEX, BLOCK_ROOT_ROLLUP_EMPTY_INDEX, BLOCK_ROOT_ROLLUP_INDEX,
+        BLOCK_ROOT_ROLLUP_SINGLE_TX_INDEX,
+    },
     traits::Empty,
 };
-// TODO(#7346): Currently unused! Will be used when batch rollup circuits are integrated.
-global ALLOWED_PREVIOUS_CIRCUITS: [u32; 3] =
-    [BLOCK_ROOT_ROLLUP_INDEX, BLOCK_MERGE_ROLLUP_INDEX, BLOCK_ROOT_ROLLUP_EMPTY_INDEX];
+
+global ALLOWED_PREVIOUS_CIRCUITS: [u32; 4] = [
+    BLOCK_ROOT_ROLLUP_INDEX,
+    BLOCK_ROOT_ROLLUP_SINGLE_TX_INDEX,
+    BLOCK_MERGE_ROLLUP_INDEX,
+    BLOCK_ROOT_ROLLUP_EMPTY_INDEX,
+];
 
 pub struct RootRollupInputs {
     pub previous_rollup_data: [PreviousRollupBlockData; 2],

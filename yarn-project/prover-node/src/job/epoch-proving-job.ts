@@ -92,7 +92,7 @@ export class EpochProvingJob implements Traceable {
       await asyncPool(this.config.parallelBlockLimit, this.blocks, async block => {
         const globalVariables = block.header.globalVariables;
         const txHashes = block.body.txEffects.map(tx => tx.txHash);
-        const txCount = block.body.numberOfTxsIncludingPadded;
+        const txCount = txHashes.length;
         const l1ToL2Messages = await this.getL1ToL2Messages(block);
         const txs = await this.getTxs(txHashes, block.number);
         const previousHeader = await this.getBlockHeader(block.number - 1);

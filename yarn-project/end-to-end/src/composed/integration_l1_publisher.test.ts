@@ -2,11 +2,7 @@ import { type ArchiveSource } from '@aztec/archiver';
 import { getConfigEnvVars } from '@aztec/aztec-node';
 import { AztecAddress, Fr, GlobalVariables, type L2Block, createLogger } from '@aztec/aztec.js';
 // eslint-disable-next-line no-restricted-imports
-import {
-  type L2Tips,
-  type ProcessedTx,
-  makeEmptyProcessedTx as makeEmptyProcessedTxFromHistoricalTreeRoots,
-} from '@aztec/circuit-types';
+import { type L2Tips, type ProcessedTx } from '@aztec/circuit-types';
 import { makeBloatedProcessedTx } from '@aztec/circuit-types/test';
 import {
   BlockBlobPublicInputs,
@@ -210,15 +206,6 @@ describe('L1Publisher integration', () => {
   afterEach(async () => {
     await worldStateSynchronizer.stop();
   });
-
-  const makeEmptyProcessedTx = () =>
-    makeEmptyProcessedTxFromHistoricalTreeRoots(
-      prevHeader,
-      new Fr(chainId),
-      new Fr(config.version),
-      getVKTreeRoot(),
-      protocolContractTreeRoot,
-    );
 
   const makeProcessedTx = (seed = 0x1): ProcessedTx =>
     makeBloatedProcessedTx({
@@ -496,7 +483,7 @@ describe('L1Publisher integration', () => {
       }
     });
 
-    it(`builds ${numberOfConsecutiveBlocks} blocks of 2 empty txs building on each other`, async () => {
+    it(`builds ${numberOfConsecutiveBlocks} blocks with no txs building on each other`, async () => {
       const archiveInRollup_ = await rollup.read.archive();
       expect(hexStringToBuffer(archiveInRollup_.toString())).toEqual(new Fr(GENESIS_ARCHIVE_ROOT).toBuffer());
 
@@ -504,7 +491,6 @@ describe('L1Publisher integration', () => {
 
       for (let i = 0; i < numberOfConsecutiveBlocks; i++) {
         const l1ToL2Messages = new Array(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP).fill(new Fr(0n));
-        const txs = [makeEmptyProcessedTx(), makeEmptyProcessedTx()];
 
         const ts = (await publicClient.getBlock()).timestamp;
         const slot = await rollup.read.getSlotAt([ts + BigInt(config.ethereumSlotDuration)]);
@@ -519,7 +505,7 @@ describe('L1Publisher integration', () => {
           feeRecipient,
           new GasFees(Fr.ZERO, new Fr(await rollup.read.getManaBaseFeeAt([timestamp, true]))),
         );
-        const block = await buildBlock(globalVariables, txs, l1ToL2Messages);
+        const block = await buildBlock(globalVariables, [] /* txs */, l1ToL2Messages);
         prevHeader = block.header;
         blockSource.getL1ToL2Messages.mockResolvedValueOnce(l1ToL2Messages);
 
@@ -592,7 +578,7 @@ describe('L1Publisher integration', () => {
       // a Rollup__InvalidInHash that is not caught by validateHeader before.
       const l1ToL2Messages = new Array(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP).fill(new Fr(1n));
 
-      const txs = [makeEmptyProcessedTx(), makeEmptyProcessedTx()];
+      const txs = [makeProcessedTx(0x1000), makeProcessedTx(0x2000)];
       const ts = (await publicClient.getBlock()).timestamp;
       const slot = await rollup.read.getSlotAt([ts + BigInt(config.ethereumSlotDuration)]);
       const timestamp = await rollup.read.getTimestampForSlot([slot]);

@@ -1,9 +1,9 @@
 [package]
-name = "empty_nested"
+name = "rollup_block_root_single_tx"
 type = "bin"
 authors = [""]
 compiler_version = ">=0.18.0"
 
 [dependencies]
-private_kernel_lib = { path = "../private-kernel-lib" }
+rollup_lib = { path = "../rollup-lib" }
 types = { path = "../types" }

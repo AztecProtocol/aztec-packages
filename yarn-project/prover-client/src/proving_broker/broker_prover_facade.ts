@@ -17,17 +17,16 @@ import {
   type BlockRootOrBlockMergePublicInputs,
   type BlockRootRollupInputs,
   type EmptyBlockRootRollupInputs,
-  type KernelCircuitPublicInputs,
   type MergeRollupInputs,
   type NESTED_RECURSIVE_PROOF_LENGTH,
   type ParityPublicInputs,
   type PrivateBaseRollupInputs,
-  type PrivateKernelEmptyInputData,
   type PublicBaseRollupInputs,
   type RECURSIVE_PROOF_LENGTH,
   type RootParityInputs,
   type RootRollupInputs,
   type RootRollupPublicInputs,
+  type SingleTxBlockRootRollupInputs,
   type TUBE_PROOF_LENGTH,
   type TubeInputs,
 } from '@aztec/circuits.js';
@@ -171,6 +170,20 @@ export class BrokerCircuitProverFacade implements ServerCircuitProver {
     );
   }
 
+  getSingleTxBlockRootRollupProof(
+    input: SingleTxBlockRootRollupInputs,
+    signal?: AbortSignal,
+    epochNumber?: number,
+  ): Promise<PublicInputsAndRecursiveProof<BlockRootOrBlockMergePublicInputs, typeof RECURSIVE_PROOF_LENGTH>> {
+    return this.enqueueAndWaitForJob(
+      this.generateId(ProvingRequestType.BLOCK_ROOT_ROLLUP, input, epochNumber),
+      ProvingRequestType.SINGLE_TX_BLOCK_ROOT_ROLLUP,
+      input,
+      epochNumber,
+      signal,
+    );
+  }
+
   getEmptyBlockRootRollupProof(
     input: EmptyBlockRootRollupInputs,
     signal?: AbortSignal,
@@ -180,20 +193,6 @@ export class BrokerCircuitProverFacade implements ServerCircuitProver {
       this.generateId(ProvingRequestType.EMPTY_BLOCK_ROOT_ROLLUP, input, epochNumber),
       ProvingRequestType.EMPTY_BLOCK_ROOT_ROLLUP,
       input,
-      epochNumber,
-      signal,
-    );
-  }
-
-  getEmptyPrivateKernelProof(
-    inputs: PrivateKernelEmptyInputData,
-    signal?: AbortSignal,
-    epochNumber?: number,
-  ): Promise<PublicInputsAndRecursiveProof<KernelCircuitPublicInputs, typeof RECURSIVE_PROOF_LENGTH>> {
-    return this.enqueueAndWaitForJob(
-      this.generateId(ProvingRequestType.PRIVATE_KERNEL_EMPTY, inputs, epochNumber),
-      ProvingRequestType.PRIVATE_KERNEL_EMPTY,
-      inputs,
       epochNumber,
       signal,
     );

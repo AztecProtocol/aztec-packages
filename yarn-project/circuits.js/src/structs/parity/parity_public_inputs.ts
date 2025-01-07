@@ -76,6 +76,10 @@ export class ParityPublicInputs {
     return ParityPublicInputs.fromBuffer(hexToBuffer(str));
   }
 
+  static empty() {
+    return new ParityPublicInputs(Fr.ZERO, Fr.ZERO, Fr.ZERO);
+  }
+
   static get schema() {
     return bufferSchemaFor(ParityPublicInputs);
   }

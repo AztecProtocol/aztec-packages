@@ -17,17 +17,16 @@ import type {
   BlockRootOrBlockMergePublicInputs,
   BlockRootRollupInputs,
   EmptyBlockRootRollupInputs,
-  KernelCircuitPublicInputs,
   MergeRollupInputs,
   NESTED_RECURSIVE_PROOF_LENGTH,
   ParityPublicInputs,
   PrivateBaseRollupInputs,
-  PrivateKernelEmptyInputData,
   PublicBaseRollupInputs,
   RECURSIVE_PROOF_LENGTH,
   RootParityInputs,
   RootRollupInputs,
   RootRollupPublicInputs,
+  SingleTxBlockRootRollupInputs,
   TubeInputs,
 } from '@aztec/circuits.js';
 import { randomBytes } from '@aztec/foundation/crypto';
@@ -267,14 +266,6 @@ export class MemoryProvingQueue implements ServerCircuitProver, ProvingJobSource
     return promise.then(({ result }) => result);
   }
 
-  getEmptyPrivateKernelProof(
-    inputs: PrivateKernelEmptyInputData,
-    signal?: AbortSignal,
-    epochNumber?: number,
-  ): Promise<PublicInputsAndRecursiveProof<KernelCircuitPublicInputs>> {
-    return this.enqueue(ProvingRequestType.PRIVATE_KERNEL_EMPTY, inputs, signal, epochNumber);
-  }
-
   getTubeProof(
     inputs: TubeInputs,
     signal?: AbortSignal,
@@ -345,6 +336,14 @@ export class MemoryProvingQueue implements ServerCircuitProver, ProvingJobSource
     epochNumber?: number,
   ): Promise<PublicInputsAndRecursiveProof<BlockRootOrBlockMergePublicInputs>> {
     return this.enqueue(ProvingRequestType.BLOCK_ROOT_ROLLUP, inputs, signal, epochNumber);
+  }
+
+  getSingleTxBlockRootRollupProof(
+    inputs: SingleTxBlockRootRollupInputs,
+    signal?: AbortSignal,
+    epochNumber?: number,
+  ): Promise<PublicInputsAndRecursiveProof<BlockRootOrBlockMergePublicInputs>> {
+    return this.enqueue(ProvingRequestType.SINGLE_TX_BLOCK_ROOT_ROLLUP, inputs, signal, epochNumber);
   }
 
   getEmptyBlockRootRollupProof(

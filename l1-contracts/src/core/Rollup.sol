@@ -548,8 +548,10 @@ contract Rollup is EIP712("Aztec Rollup", "1"), Ownable, Leonidas, IRollup, ITes
 
     // TODO(#7218): Revert to fixed height tree for outbox, currently just providing min as interim
     // Min size = smallest path of the rollup tree + 1
-    (uint256 min,) = MerkleLib.computeMinMaxPathLength(header.contentCommitment.numTxs);
-    OUTBOX.insert(blockNumber, header.contentCommitment.outHash, min + 1);
+    if (header.contentCommitment.numTxs != 0) {
+      (uint256 min,) = MerkleLib.computeMinMaxPathLength(header.contentCommitment.numTxs);
+      OUTBOX.insert(blockNumber, header.contentCommitment.outHash, min + 1);
+    }
 
     emit L2BlockProposed(blockNumber, _args.archive);
 

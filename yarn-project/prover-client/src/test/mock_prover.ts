@@ -20,16 +20,15 @@ import {
   type BlockRootOrBlockMergePublicInputs,
   type BlockRootRollupInputs,
   type EmptyBlockRootRollupInputs,
-  type KernelCircuitPublicInputs,
   type MergeRollupInputs,
   NESTED_RECURSIVE_PROOF_LENGTH,
   type PrivateBaseRollupInputs,
-  type PrivateKernelEmptyInputData,
   type PublicBaseRollupInputs,
   RECURSIVE_PROOF_LENGTH,
   type RootParityInputs,
   type RootRollupInputs,
   type RootRollupPublicInputs,
+  type SingleTxBlockRootRollupInputs,
   TUBE_PROOF_LENGTH,
   VerificationKeyData,
   makeEmptyRecursiveProof,
@@ -38,7 +37,6 @@ import {
 import {
   makeBaseOrMergeRollupPublicInputs,
   makeBlockRootOrBlockMergeRollupPublicInputs,
-  makeKernelCircuitPublicInputs,
   makeParityPublicInputs,
   makeRootRollupPublicInputs,
 } from '@aztec/circuits.js/testing';
@@ -206,14 +204,14 @@ export class MockProver implements ServerCircuitProver {
     );
   }
 
-  getEmptyPrivateKernelProof(
-    _inputs: PrivateKernelEmptyInputData,
+  getSingleTxBlockRootRollupProof(
+    _input: SingleTxBlockRootRollupInputs,
     _signal?: AbortSignal,
     _epochNumber?: number,
-  ): Promise<PublicInputsAndRecursiveProof<KernelCircuitPublicInputs>> {
+  ): Promise<PublicInputsAndRecursiveProof<BlockRootOrBlockMergePublicInputs>> {
     return Promise.resolve(
       makePublicInputsAndRecursiveProof(
-        makeKernelCircuitPublicInputs(),
+        makeBlockRootOrBlockMergeRollupPublicInputs(),
         makeRecursiveProof(RECURSIVE_PROOF_LENGTH),
         VerificationKeyData.makeFakeHonk(),
       ),

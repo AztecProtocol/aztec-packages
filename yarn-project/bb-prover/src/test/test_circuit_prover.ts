@@ -15,20 +15,17 @@ import {
   type BlockRootOrBlockMergePublicInputs,
   type BlockRootRollupInputs,
   type EmptyBlockRootRollupInputs,
-  EmptyNestedData,
-  type KernelCircuitPublicInputs,
   type MergeRollupInputs,
   NESTED_RECURSIVE_PROOF_LENGTH,
   type ParityPublicInputs,
   type PrivateBaseRollupInputs,
-  type PrivateKernelEmptyInputData,
-  PrivateKernelEmptyInputs,
   type Proof,
   type PublicBaseRollupInputs,
   RECURSIVE_PROOF_LENGTH,
   type RootParityInputs,
   type RootRollupInputs,
   type RootRollupPublicInputs,
+  type SingleTxBlockRootRollupInputs,
   TUBE_PROOF_LENGTH,
   type TubeInputs,
   VerificationKeyData,
@@ -50,7 +47,6 @@ import {
   convertEmptyBlockRootRollupOutputsFromWitnessMap,
   convertMergeRollupInputsToWitnessMap,
   convertMergeRollupOutputsFromWitnessMap,
-  convertPrivateKernelEmptyInputsToWitnessMap,
   convertRootParityInputsToWitnessMap,
   convertRootParityOutputsFromWitnessMap,
   convertRootRollupInputsToWitnessMap,
@@ -59,9 +55,10 @@ import {
   convertSimulatedBlockRootRollupOutputsFromWitnessMap,
   convertSimulatedPrivateBaseRollupInputsToWitnessMap,
   convertSimulatedPrivateBaseRollupOutputsFromWitnessMap,
-  convertSimulatedPrivateKernelEmptyOutputsFromWitnessMap,
   convertSimulatedPublicBaseRollupInputsToWitnessMap,
   convertSimulatedPublicBaseRollupOutputsFromWitnessMap,
+  convertSimulatedSingleTxBlockRootRollupInputsToWitnessMap,
+  convertSimulatedSingleTxBlockRootRollupOutputsFromWitnessMap,
 } from '@aztec/noir-protocol-circuits-types';
 import { type SimulationProvider, WASMSimulator, emitCircuitSimulationStats } from '@aztec/simulator';
 import { type TelemetryClient, trackSpan } from '@aztec/telemetry-client';
@@ -90,31 +87,6 @@ export class TestCircuitProver implements ServerCircuitProver {
 
   get tracer() {
     return this.instrumentation.tracer;
-  }
-
-  public async getEmptyPrivateKernelProof(
-    inputs: PrivateKernelEmptyInputData,
-  ): Promise<PublicInputsAndRecursiveProof<KernelCircuitPublicInputs>> {
-    const emptyNested = new EmptyNestedData(
-      makeRecursiveProof(RECURSIVE_PROOF_LENGTH),
-      ProtocolCircuitVks['EmptyNestedArtifact'].keyAsFields,
-    );
-    const kernelInputs = new PrivateKernelEmptyInputs(
-      emptyNested,
-      inputs.header,
-      inputs.chainId,
-      inputs.version,
-      inputs.vkTreeRoot,
-      inputs.protocolContractTreeRoot,
-    );
-
-    return await this.simulate(
-      kernelInputs,
-      'PrivateKernelEmptyArtifact',
-      NESTED_RECURSIVE_PROOF_LENGTH,
-      convertPrivateKernelEmptyInputsToWitnessMap,
-      convertSimulatedPrivateKernelEmptyOutputsFromWitnessMap,
-    );
   }
 
   /**
@@ -220,6 +192,19 @@ export class TestCircuitProver implements ServerCircuitProver {
     );
   }
 
+  @trackSpan('TestCircuitProver.getSingleTxBlockRootRollupProof')
+  public async getSingleTxBlockRootRollupProof(
+    input: SingleTxBlockRootRollupInputs,
+  ): Promise<PublicInputsAndRecursiveProof<BlockRootOrBlockMergePublicInputs>> {
+    return await this.simulate(
+      input,
+      'SingleTxBlockRootRollupArtifact',
+      NESTED_RECURSIVE_PROOF_LENGTH,
+      convertSimulatedSingleTxBlockRootRollupInputsToWitnessMap,
+      convertSimulatedSingleTxBlockRootRollupOutputsFromWitnessMap,
+    );
+  }
+
   /**
    * Simulates the empty block root rollup circuit from its inputs.
    * @param input - Inputs to the circuit.
@@ -314,7 +299,7 @@ export class TestCircuitProver implements ServerCircuitProver {
     const circuitName = mapProtocolArtifactNameToCircuitName(artifactName);
 
     let simulationProvider = this.simulationProvider ?? this.wasmSimulator;
-    if (artifactName == 'BlockRootRollupArtifact') {
+    if (['BlockRootRollupArtifact', 'SingleTxBlockRootRollupArtifact'].includes(artifactName)) {
       // TODO(#10323): temporarily force block root to use wasm while we simulate
       // the blob operations with an oracle. Appears to be no way to provide nativeACVM with a foreign call hander.
       simulationProvider = this.wasmSimulator;
