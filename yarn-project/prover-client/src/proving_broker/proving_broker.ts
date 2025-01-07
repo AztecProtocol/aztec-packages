@@ -253,22 +253,6 @@ export class ProvingBroker implements ProvingJobProducer, ProvingJobConsumer, Tr
     return true;
   }
 
-  // public retrieveSettledJob(id: ProvingJobId, wait: boolean): Promise<ProvingJobSettledResult | undefined> {
-  //   const results = this.resultsCache.get(id);
-  //   if (results) {
-  //     return Promise.resolve(results);
-  //   }
-  //   if (!wait) {
-  //     return Promise.resolve(undefined);
-  //   }
-  //   const promiseWithResolvers = this.promises.get(id);
-  //   if (!promiseWithResolvers) {
-  //     this.logger.warn(`Job id=${id} not found`, { provingJobId: id });
-  //     return Promise.resolve({ status: 'rejected', reason: `Job ${id} not found` });
-  //   }
-  //   return promiseWithResolvers.promise;
-  // }
-
   async #cancelProvingJob(id: ProvingJobId): Promise<void> {
     if (!this.jobsCache.has(id)) {
       this.logger.warn(`Can't cancel a job that doesn't exist id=${id}`, { provingJobId: id });

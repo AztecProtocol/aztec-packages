@@ -74,13 +74,6 @@ export interface ProvingJobProducer {
   getProvingJobStatus(id: ProvingJobId): Promise<ProvingJobStatus>;
 
   /**
-   * Waits for the job to settle and returns to the result
-   * @param id - The ID of the job to get the status of
-   * @param wait - Whether to wait for the job to settle if not already settled
-   */
-  //retrieveSettledJob(id: ProvingJobId, wait: boolean): Promise<ProvingJobSettledResult>;
-
-  /**
    * Returns the ids of jobs that have been completed since the last call
    * Also returns the set of provided job ids that are completed
    * @param ids - The set of job ids to check for completion

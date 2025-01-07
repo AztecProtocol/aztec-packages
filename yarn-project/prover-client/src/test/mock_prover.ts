@@ -91,9 +91,6 @@ export class TestBroker implements ProvingJobProducer {
   cancelProvingJob(id: string): Promise<void> {
     return this.broker.cancelProvingJob(id);
   }
-  // retrieveSettledJob(id: ProvingJobId, wait: boolean): Promise<ProvingJobSettledResult> {
-  //   return this.broker.retrieveSettledJob(id, wait);
-  // }
 
   getCompletedJobs(ids: ProvingJobId[]): Promise<ProvingJobId[]> {
     return this.broker.getCompletedJobs(ids);
