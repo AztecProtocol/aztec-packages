@@ -22,9 +22,6 @@ impl OrderedValue<Field> for LogHash {
     fn value(self) -> Field {
         self.value
     }
-    fn counter(self) -> u32 {
-        self.counter
-    }
 }
 
 impl Eq for LogHash {
@@ -82,9 +79,6 @@ impl Ordered for ScopedLogHash {
 impl OrderedValue<Field> for ScopedLogHash {
     fn value(self) -> Field {
         self.log_hash.value
-    }
-    fn counter(self) -> u32 {
-        self.log_hash.counter
     }
 }
 

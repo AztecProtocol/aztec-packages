@@ -103,7 +103,7 @@ export function makeEmptyProcessedTx(
   clientProofOutput.constants = constants;
 
   return {
-    hash: new TxHash(Fr.ZERO.toBuffer()),
+    hash: new TxHash(Fr.ZERO),
     data: clientProofOutput,
     clientIvcProof: ClientIvcProof.empty(),
     avmProvingRequest: undefined,
