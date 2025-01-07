@@ -19,9 +19,9 @@ export enum SequencerState {
    */
   PROPOSER_CHECK = 'PROPOSER_CHECK',
   /**
-   * Polling the P2P module for txs to include in a block. Will move to CREATING_BLOCK if there are valid txs to include, or back to SYNCHRONIZING otherwise.
+   * Initializing the block proposal. Will move to CREATING_BLOCK if there are valid txs to include, or back to SYNCHRONIZING otherwise.
    */
-  WAITING_FOR_TXS = 'WAITING_FOR_TXS',
+  INITIALIZING_PROPOSAL = 'INITIALIZING_PROPOSAL',
   /**
    * Creating a new L2 block. Includes processing public function calls and running rollup circuits. Will move to PUBLISHING_CONTRACT_DATA.
    */
