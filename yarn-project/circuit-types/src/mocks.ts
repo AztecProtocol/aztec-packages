@@ -34,7 +34,7 @@ import { PublicExecutionRequest } from './public_execution_request.js';
 import { PublicSimulationOutput, Tx, TxHash, TxSimulationResult, accumulatePrivateReturnValues } from './tx/index.js';
 import { TxEffect } from './tx_effect.js';
 
-export const randomTxHash = (): TxHash => new TxHash(randomBytes(32));
+export const randomTxHash = (): TxHash => TxHash.random();
 
 export const mockPrivateExecutionResult = (
   seed = 1,

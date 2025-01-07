@@ -124,8 +124,8 @@ template <typename Flavor> class SumcheckProverRound {
     }
 
     /**
-     * @brief Return the evaluations of the univariate round polynomials \f$ \tilde{S}_{i} (X_{i}) \f$  at \f$ X_{i } =
-     0,\ldots, D \f$. Most likely, \f$ D \f$ is around  \f$ 12 \f$. At the
+     * @brief Non-ZK version: Return the evaluations of the univariate round polynomials \f$ \tilde{S}_{i} (X_{i}) \f$
+     at \f$ X_{i } = 0,\ldots, D \f$. Most likely, \f$ D \f$ is around  \f$ 12 \f$. At the
      * end, reset all
      * univariate accumulators to be zero.
      * @details First, the vector of \ref pow_challenges "pow challenges" is computed.
@@ -144,6 +144,61 @@ template <typename Flavor> class SumcheckProverRound {
      ..., \f$ P_N\left(u_0,\ldots, u_{i-1}, k, \vec \ell \right) \f$ to every sub-relation.
      * Finally, the accumulators for individual relations' contributions are summed with appropriate factors using
      method \ref extend_and_batch_univariates "extend and batch univariates".
+     */
+    template <typename ProverPolynomialsOrPartiallyEvaluatedMultivariates>
+    SumcheckRoundUnivariate compute_univariate(ProverPolynomialsOrPartiallyEvaluatedMultivariates& polynomials,
+                                               const bb::RelationParameters<FF>& relation_parameters,
+                                               const bb::GateSeparatorPolynomial<FF>& gate_sparators,
+                                               const RelationSeparator alpha)
+    {
+        PROFILE_THIS_NAME("compute_univariate");
+
+        // Determine number of threads for multithreading.
+        // Note: Multithreading is "on" for every round but we reduce the number of threads from the max available based
+        // on a specified minimum number of iterations per thread. This eventually leads to the use of a single thread.
+        // For now we use a power of 2 number of threads simply to ensure the round size is evenly divided.
+        size_t min_iterations_per_thread = 1 << 6; // min number of iterations for which we'll spin up a unique thread
+        size_t num_threads = bb::calculate_num_threads_pow2(round_size, min_iterations_per_thread);
+        size_t iterations_per_thread = round_size / num_threads; // actual iterations per thread
+
+        // Construct univariate accumulator containers; one per thread
+        std::vector<SumcheckTupleOfTuplesOfUnivariates> thread_univariate_accumulators(num_threads);
+
+        // Accumulate the contribution from each sub-relation accross each edge of the hyper-cube
+        parallel_for(num_threads, [&](size_t thread_idx) {
+            // Initialize the thread accumulator to 0
+            Utils::zero_univariates(thread_univariate_accumulators[thread_idx]);
+            // Construct extended univariates containers; one per thread
+            ExtendedEdges extended_edges;
+            size_t start = thread_idx * iterations_per_thread;
+            size_t end = (thread_idx + 1) * iterations_per_thread;
+            for (size_t edge_idx = start; edge_idx < end; edge_idx += 2) {
+                extend_edges(extended_edges, polynomials, edge_idx);
+                // Compute the \f$ \ell \f$-th edge's univariate contribution,
+                // scale it by the corresponding \f$ pow_{\beta} \f$ contribution and add it to the accumulators for \f$
+                // \tilde{S}^i(X_i) \f$. If \f$ \ell \f$'s binary representation is given by \f$ (\ell_{i+1},\ldots,
+                // \ell_{d-1})\f$, the \f$ pow_{\beta}\f$-contribution is \f$\beta_{i+1}^{\ell_{i+1}} \cdot \ldots \cdot
+                // \beta_{d-1}^{\ell_{d-1}}\f$.
+                accumulate_relation_univariates(thread_univariate_accumulators[thread_idx],
+                                                extended_edges,
+                                                relation_parameters,
+                                                gate_sparators[(edge_idx >> 1) * gate_sparators.periodicity]);
+            }
+        });
+
+        // Accumulate the per-thread univariate accumulators into a single set of accumulators
+        for (auto& accumulators : thread_univariate_accumulators) {
+            Utils::add_nested_tuples(univariate_accumulators, accumulators);
+        }
+
+        // Batch the univariate contributions from each sub-relation to obtain the round univariate
+        return batch_over_relations<SumcheckRoundUnivariate>(univariate_accumulators, alpha, gate_sparators);
+    }
+
+    /**
+     * @brief ZK-version of `compute_univariate` that runs Sumcheck with disabled rows and masking of Round Univariates.
+     * The masking is ensured by adding random Libra univariates to the Sumcheck round univariates.
+     *
      */
     template <typename ProverPolynomialsOrPartiallyEvaluatedMultivariates>
     SumcheckRoundUnivariate compute_univariate(const size_t round_idx,
@@ -195,21 +250,15 @@ template <typename Flavor> class SumcheckProverRound {
         }
         // For ZK Flavors: The evaluations of the round univariates are masked by the evaluations of Libra univariates
         // and corrected by subtracting the contribution from the disabled rows
-        if constexpr (Flavor::HasZK) {
-            const auto contribution_from_disabled_rows = compute_disabled_contribution(
-                polynomials, relation_parameters, gate_sparators, alpha, round_idx, row_disabling_poly);
-            const auto libra_round_univariate = compute_libra_round_univariate(zk_sumcheck_data, round_idx);
-            // Batch the univariate contributions from each sub-relation to obtain the round univariate
-            const auto round_univariate =
-                batch_over_relations<SumcheckRoundUnivariate>(univariate_accumulators, alpha, gate_sparators);
-            // Mask the round univariate
-            return round_univariate + libra_round_univariate - contribution_from_disabled_rows;
-        }
+        const auto contribution_from_disabled_rows = compute_disabled_contribution(
+            polynomials, relation_parameters, gate_sparators, alpha, round_idx, row_disabling_poly);
+        const auto libra_round_univariate = compute_libra_round_univariate(zk_sumcheck_data, round_idx);
         // Batch the univariate contributions from each sub-relation to obtain the round univariate
-        else {
-            return batch_over_relations<SumcheckRoundUnivariate>(univariate_accumulators, alpha, gate_sparators);
-        }
-    }
+        const auto round_univariate =
+            batch_over_relations<SumcheckRoundUnivariate>(univariate_accumulators, alpha, gate_sparators);
+        // Mask the round univariate
+        return round_univariate + libra_round_univariate - contribution_from_disabled_rows;
+    };
 
     /*!
      * @brief For ZK Flavors: A method disabling the last 4 rows of the ProverPolynomials

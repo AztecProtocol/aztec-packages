@@ -12,7 +12,7 @@ import {Inbox} from "@aztec/core/messagebridge/Inbox.sol";
 import {Outbox} from "@aztec/core/messagebridge/Outbox.sol";
 import {Errors} from "@aztec/core/libraries/Errors.sol";
 import {Registry} from "@aztec/governance/Registry.sol";
-import {Rollup} from "../harnesses/Rollup.sol";
+import {Rollup, Config} from "@aztec/core/Rollup.sol";
 import {Leonidas} from "@aztec/core/Leonidas.sol";
 import {NaiveMerkle} from "../merkle/Naive.sol";
 import {MerkleTestUtil} from "../merkle/TestUtil.sol";
@@ -27,6 +27,11 @@ import {CheatDepositArgs} from "@aztec/core/interfaces/IRollup.sol";
 
 import {Slot, Epoch, SlotLib, EpochLib} from "@aztec/core/libraries/TimeMath.sol";
 import {RewardDistributor} from "@aztec/governance/RewardDistributor.sol";
+
+import {SlashFactory} from "@aztec/periphery/SlashFactory.sol";
+import {Slasher, IPayload} from "@aztec/core/staking/Slasher.sol";
+import {ILeonidas} from "@aztec/core/interfaces/ILeonidas.sol";
+import {Status, ValidatorInfo} from "@aztec/core/interfaces/IStaking.sol";
 // solhint-disable comprehensive-interface
 
 /**
@@ -44,6 +49,8 @@ contract SpartaTest is DecoderBase {
     bool shouldRevert;
   }
 
+  SlashFactory internal slashFactory;
+  Slasher internal slasher;
   Inbox internal inbox;
   Outbox internal outbox;
   Rollup internal rollup;
@@ -64,9 +71,10 @@ contract SpartaTest is DecoderBase {
     string memory _name = "mixed_block_1";
     {
       Leonidas leonidas = new Leonidas(
-        address(1),
         testERC20,
         TestConstants.AZTEC_MINIMUM_STAKE,
+        TestConstants.AZTEC_SLASHING_QUORUM,
+        TestConstants.AZTEC_SLASHING_ROUND_SIZE,
         TestConstants.AZTEC_SLOT_DURATION,
         TestConstants.AZTEC_EPOCH_DURATION,
         TestConstants.AZTEC_TARGET_COMMITTEE_SIZE
@@ -102,9 +110,25 @@ contract SpartaTest is DecoderBase {
     testERC20 = new TestERC20("test", "TEST", address(this));
     Registry registry = new Registry(address(this));
     rewardDistributor = new RewardDistributor(testERC20, registry, address(this));
-    rollup = new Rollup(
-      new MockFeeJuicePortal(), rewardDistributor, testERC20, bytes32(0), bytes32(0), address(this)
-    );
+    rollup = new Rollup({
+      _fpcJuicePortal: new MockFeeJuicePortal(),
+      _rewardDistributor: rewardDistributor,
+      _stakingAsset: testERC20,
+      _vkTreeRoot: bytes32(0),
+      _protocolContractTreeRoot: bytes32(0),
+      _ares: address(this),
+      _config: Config({
+        aztecSlotDuration: TestConstants.AZTEC_SLOT_DURATION,
+        aztecEpochDuration: TestConstants.AZTEC_EPOCH_DURATION,
+        targetCommitteeSize: TestConstants.AZTEC_TARGET_COMMITTEE_SIZE,
+        aztecEpochProofClaimWindowInL2Slots: TestConstants.AZTEC_EPOCH_PROOF_CLAIM_WINDOW_IN_L2_SLOTS,
+        minimumStake: TestConstants.AZTEC_MINIMUM_STAKE,
+        slashingQuorum: TestConstants.AZTEC_SLASHING_QUORUM,
+        slashingRoundSize: TestConstants.AZTEC_SLASHING_ROUND_SIZE
+      })
+    });
+    slasher = rollup.SLASHER();
+    slashFactory = new SlashFactory(ILeonidas(address(rollup)));
 
     testERC20.mint(address(this), TestConstants.AZTEC_MINIMUM_STAKE * _validatorCount);
     testERC20.approve(address(rollup), TestConstants.AZTEC_MINIMUM_STAKE * _validatorCount);
@@ -178,6 +202,40 @@ contract SpartaTest is DecoderBase {
   function testHappyPath() public setup(4) {
     _testBlock("mixed_block_1", false, 3, false);
     _testBlock("mixed_block_2", false, 3, false);
+  }
+
+  function testNukeFromOrbit() public setup(4) {
+    // We propose some blocks, and have a bunch of validators attest to them.
+    // Then we slash EVERYONE that was in the committees because the epoch never
+    // got finalised.
+    // This is LIKELY, not the action you really want to take, you want to slash
+    // the people actually attesting, etc, but for simplicity we can do this as showcase.
+    _testBlock("mixed_block_1", false, 3, false);
+    _testBlock("mixed_block_2", false, 3, false);
+
+    address[] memory attesters = rollup.getAttesters();
+    uint256[] memory stakes = new uint256[](attesters.length);
+
+    for (uint256 i = 0; i < attesters.length; i++) {
+      ValidatorInfo memory info = rollup.getInfo(attesters[i]);
+      stakes[i] = info.stake;
+      assertTrue(info.status == Status.VALIDATING, "Invalid status");
+    }
+
+    // We say, these things are bad, call the baba yaga to take care of them!
+    uint256 slashAmount = 10e18;
+    IPayload slashPayload = slashFactory.createSlashPayload(rollup.getCurrentEpoch(), slashAmount);
+    vm.prank(address(slasher.PROPOSER()));
+    slasher.slash(slashPayload);
+
+    // Make sure that the slash was successful,
+    // Meaning that validators are now LIVING and have lost the slash amount
+    for (uint256 i = 0; i < attesters.length; i++) {
+      ValidatorInfo memory info = rollup.getInfo(attesters[i]);
+      uint256 stake = info.stake;
+      assertEq(stake, stakes[i] - slashAmount, "Invalid stake");
+      assertTrue(info.status == Status.LIVING, "Invalid status");
+    }
   }
 
   function testInvalidProposer() public setup(4) {

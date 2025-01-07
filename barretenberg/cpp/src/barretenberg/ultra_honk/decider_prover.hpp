@@ -48,7 +48,7 @@ template <IsUltraFlavor Flavor> class DeciderProver_ {
 
     Polynomial quotient_W;
 
-    std::shared_ptr<ZKData> zk_sumcheck_data;
+    ZKData zk_sumcheck_data;
 
     SumcheckOutput<Flavor> sumcheck_output;
 

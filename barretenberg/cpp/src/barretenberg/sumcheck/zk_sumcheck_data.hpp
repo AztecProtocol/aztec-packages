@@ -36,7 +36,6 @@ template <typename Flavor> struct ZKSumcheckData {
     // to compute product in lagrange basis
     Polynomial<FF> libra_concatenated_lagrange_form;
     Polynomial<FF> libra_concatenated_monomial_form;
-    bb::Univariate<FF, 2> masking_scalars;
 
     std::vector<Polynomial<FF>> libra_univariates{};
     size_t log_circuit_size{ 0 };
@@ -193,7 +192,7 @@ template <typename Flavor> struct ZKSumcheckData {
 
         libra_concatenated_lagrange_form = Polynomial<FF>(coeffs_lagrange_subgroup);
 
-        masking_scalars = bb::Univariate<FF, 2>::get_random();
+        bb::Univariate<FF, 2> masking_scalars = bb::Univariate<FF, 2>::get_random();
 
         Polynomial<FF> libra_concatenated_monomial_form_unmasked(SUBGROUP_SIZE);
         if constexpr (!std::is_same_v<Curve, curve::BN254>) {

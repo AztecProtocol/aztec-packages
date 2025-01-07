@@ -459,5 +459,5 @@ function fetchTxHash(nonRevertibleAccumulatedData: PrivateToPublicAccumulatedDat
   if (!firstNullifier || firstNullifier.isZero()) {
     throw new Error(`Cannot get tx hash since first nullifier is missing`);
   }
-  return new TxHash(firstNullifier.toBuffer());
+  return new TxHash(firstNullifier);
 }

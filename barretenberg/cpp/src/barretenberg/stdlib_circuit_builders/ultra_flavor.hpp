@@ -67,9 +67,9 @@ class UltraFlavor {
     // Note: made generic for use in MegaRecursive.
     template <typename FF>
 
-    // List of relations reflecting the Ultra arithmetisation. WARNING: As UltraKeccak flavor inherits from Ultra flavor
-    // any change of ordering in this tuple needs to be reflected in the smart contract, otherwise relation accumulation
-    // will not match.
+    // List of relations reflecting the Ultra arithmetisation. WARNING: As UltraKeccak flavor inherits from
+    // Ultra flavor any change of ordering in this tuple needs to be reflected in the smart contract, otherwise
+    // relation accumulation will not match.
     using Relations_ = std::tuple<bb::UltraArithmeticRelation<FF>,
                                   bb::UltraPermutationRelation<FF>,
                                   bb::LogDerivLookupRelation<FF>,
@@ -96,6 +96,22 @@ class UltraFlavor {
     // length = 3
     static constexpr size_t BATCHED_RELATION_PARTIAL_LENGTH = MAX_PARTIAL_RELATION_LENGTH + 1;
     static constexpr size_t NUM_RELATIONS = std::tuple_size_v<Relations>;
+
+    // Proof length formula:
+    // 1. HONK_PROOF_PUBLIC_INPUT_OFFSET are the circuit_size, num_public_inputs, pub_inputs_offset
+    // 2. PAIRING_POINT_ACCUMULATOR_SIZE public inputs for pairing point accumulator
+    // 3. NUM_WITNESS_ENTITIES commitments
+    // 4. CONST_PROOF_SIZE_LOG_N sumcheck univariates
+    // 5. NUM_ALL_ENTITIES sumcheck evaluations
+    // 6. CONST_PROOF_SIZE_LOG_N Gemini Fold commitments
+    // 7. CONST_PROOF_SIZE_LOG_N Gemini a evaluations
+    // 8. KZG W commitment
+    static constexpr size_t num_frs_comm = bb::field_conversion::calc_num_bn254_frs<Commitment>();
+    static constexpr size_t num_frs_fr = bb::field_conversion::calc_num_bn254_frs<FF>();
+    static constexpr size_t PROOF_LENGTH_WITHOUT_PUB_INPUTS =
+        HONK_PROOF_PUBLIC_INPUT_OFFSET + NUM_WITNESS_ENTITIES * num_frs_comm +
+        CONST_PROOF_SIZE_LOG_N * BATCHED_RELATION_PARTIAL_LENGTH * num_frs_fr + NUM_ALL_ENTITIES * num_frs_fr +
+        CONST_PROOF_SIZE_LOG_N * num_frs_comm + CONST_PROOF_SIZE_LOG_N * num_frs_fr + num_frs_comm;
 
     template <size_t NUM_KEYS>
     using ProtogalaxyTupleOfTuplesOfUnivariatesNoOptimisticSkipping =
@@ -537,7 +553,6 @@ class UltraFlavor {
      * @brief A container for storing the partially evaluated multivariates produced by sumcheck.
      */
     class PartiallyEvaluatedMultivariates : public AllEntities<Polynomial> {
-
       public:
         PartiallyEvaluatedMultivariates() = default;
         PartiallyEvaluatedMultivariates(const size_t circuit_size)
@@ -675,7 +690,7 @@ class UltraFlavor {
                 this->z_perm = commitments.z_perm;
             }
         }
-    };
+    }; // namespace bb
     // Specialize for Ultra (general case used in UltraRecursive).
     using VerifierCommitments = VerifierCommitments_<Commitment, VerificationKey>;
 
