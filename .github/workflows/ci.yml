@@ -6,13 +6,13 @@ on:
       - provernet ./bootstrap.sh
       - "*/ci-push*"
   merge_group:
-  # pull_request:
-  #   types:
-  #     - opened
-  #     - reopened
-  #     - synchronize
-  #     - ready_for_review
-  #     - labeled
+  pull_request:
+    types:
+      - opened
+      - reopened
+      - synchronize
+      - ready_for_review
+      - labeled
     branches-ignore: [devnet]
   workflow_dispatch:
     inputs: {}
@@ -600,7 +600,7 @@ jobs:
 
   public-functions-size-report:
     needs: [ci-rest, configure]
-    if:  github.ref_name == 'master' || needs.configure.outputs.non-docs == 'true'
+    if: github.ref_name == 'master' || needs.configure.outputs.non-docs == 'true'
     runs-on: ubuntu-latest
     permissions:
       pull-requests: write
