@@ -1,3 +1,4 @@
+import { memoize } from '@aztec/foundation/decorators';
 import { GovernanceProposerAbi } from '@aztec/l1-artifacts';
 
 import {
@@ -12,11 +13,21 @@ import {
 export class GovernanceProposerContract {
   private readonly governanceProposer: GetContractReturnType<
     typeof GovernanceProposerAbi,
-    PublicClient<HttpTransport, Chain>
+    PublicClient<HttpTransport, Chain | undefined>
   >;
 
   constructor(client: PublicClient, address: Hex) {
     this.governanceProposer = getContract({ address, abi: GovernanceProposerAbi, client });
+  }
+
+  @memoize
+  getRoundDuration(): Promise<bigint> {
+    return this.governanceProposer.read.M();
+  }
+
+  @memoize
+  getQuorumSize(): Promise<bigint> {
+    return this.governanceProposer.read.N();
   }
 
   computeRound(slot: bigint) {

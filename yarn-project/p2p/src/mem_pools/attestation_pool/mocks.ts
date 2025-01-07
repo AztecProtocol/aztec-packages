@@ -9,6 +9,7 @@ import { makeHeader } from '@aztec/circuits.js/testing';
 import { type Secp256k1Signer } from '@aztec/foundation/crypto';
 import { Fr } from '@aztec/foundation/fields';
 
+import type { Hex, PrivateKeyAccount } from 'viem';
 import { generatePrivateKey, privateKeyToAccount } from 'viem/accounts';
 
 /** Generate Account
@@ -16,8 +17,8 @@ import { generatePrivateKey, privateKeyToAccount } from 'viem/accounts';
  * Create a random signer
  * @returns A random viem signer
  */
-export const generateAccount = () => {
-  const privateKey = generatePrivateKey();
+export const generateAccount = (): PrivateKeyAccount => {
+  const privateKey: Hex = generatePrivateKey();
   return privateKeyToAccount(privateKey);
 };
 

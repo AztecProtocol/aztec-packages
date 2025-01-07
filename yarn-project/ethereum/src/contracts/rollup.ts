@@ -16,7 +16,7 @@ import { createEthereumChain } from '../ethereum_chain.js';
 import { type L1ReaderConfig } from '../l1_reader.js';
 
 export class RollupContract {
-  private readonly rollup: GetContractReturnType<typeof RollupAbi, PublicClient<HttpTransport, Chain>>;
+  private readonly rollup: GetContractReturnType<typeof RollupAbi, PublicClient<HttpTransport, Chain | undefined>>;
 
   constructor(client: PublicClient, address: Hex) {
     this.rollup = getContract({ address, abi: RollupAbi, client });
@@ -58,6 +58,10 @@ export class RollupContract {
 
   getCurrentEpochCommittee() {
     return this.rollup.read.getCurrentEpochCommittee();
+  }
+
+  getTimestampForSlot(slot: bigint) {
+    return this.rollup.read.getTimestampForSlot([slot]);
   }
 
   getCurrentProposer() {

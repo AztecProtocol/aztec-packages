@@ -37,7 +37,7 @@
     "get-port": "^7.1.0",
     "jest-mock-extended": "^3.0.7",
     "tslib": "^2.4.0",
-    "viem": "^2.7.15",
+    "viem": "^2.22.3",
     "zod": "^3.23.8"
   },
   "devDependencies": {

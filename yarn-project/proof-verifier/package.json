@@ -30,7 +30,7 @@
     "@aztec/foundation": "workspace:^",
     "@aztec/noir-protocol-circuits-types": "workspace:^",
     "@aztec/telemetry-client": "workspace:^",
-    "viem": "^2.7.15"
+    "viem": "^2.22.3"
   },
   "devDependencies": {
     "@jest/globals": "^29.5.0",

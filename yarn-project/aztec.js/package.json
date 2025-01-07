@@ -87,7 +87,7 @@
     "@aztec/types": "workspace:^",
     "axios": "^1.7.2",
     "tslib": "^2.4.0",
-    "viem": "^2.7.15"
+    "viem": "^2.22.3"
   },
   "devDependencies": {
     "@jest/globals": "^29.5.0",

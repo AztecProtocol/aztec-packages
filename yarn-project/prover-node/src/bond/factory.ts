@@ -2,17 +2,17 @@ import { EthAddress } from '@aztec/circuits.js';
 import { compact } from '@aztec/foundation/collection';
 import { type RollupAbi } from '@aztec/l1-artifacts';
 
-import {
-  type Chain,
-  type Client,
-  type GetContractReturnType,
-  type HttpTransport,
-  type PrivateKeyAccount,
-  type PublicActions,
-  type PublicClient,
-  type PublicRpcSchema,
-  type WalletActions,
-  type WalletRpcSchema,
+import type {
+  Chain,
+  Client,
+  GetContractReturnType,
+  HttpTransport,
+  PrivateKeyAccount,
+  PublicActions,
+  PublicRpcSchema,
+  WalletActions,
+  WalletClient,
+  WalletRpcSchema,
 } from 'viem';
 
 import { BondManager } from './bond-manager.js';
@@ -21,7 +21,7 @@ import { EscrowContract } from './escrow-contract.js';
 import { TokenContract } from './token-contract.js';
 
 export async function createBondManager(
-  rollupContract: GetContractReturnType<typeof RollupAbi, PublicClient>,
+  rollupContract: GetContractReturnType<typeof RollupAbi, WalletClient<HttpTransport, Chain, PrivateKeyAccount>>,
   client: Client<
     HttpTransport,
     Chain,

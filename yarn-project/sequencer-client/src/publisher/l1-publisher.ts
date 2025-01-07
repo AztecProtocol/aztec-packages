@@ -57,6 +57,7 @@ import {
   getContractError,
   hexToBytes,
   http,
+  nonceManager,
   publicActions,
 } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
@@ -199,7 +200,7 @@ export class L1Publisher extends WithTracer {
 
     const { l1RpcUrl: rpcUrl, l1ChainId: chainId, publisherPrivateKey, l1Contracts } = config;
     const chain = createEthereumChain(rpcUrl, chainId);
-    this.account = privateKeyToAccount(publisherPrivateKey);
+    this.account = privateKeyToAccount(publisherPrivateKey, { nonceManager });
     this.log.debug(`Publishing from address ${this.account.address}`);
 
     this.walletClient = this.createWalletClient(this.account, chain);

@@ -35,7 +35,7 @@
     "dotenv": "^16.0.3",
     "get-port": "^7.1.0",
     "tslib": "^2.4.0",
-    "viem": "^2.7.15",
+    "viem": "^2.22.3",
     "zod": "^3.23.8"
   },
   "devDependencies": {

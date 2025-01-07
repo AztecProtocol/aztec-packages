@@ -79,7 +79,7 @@
     "lodash.omit": "^4.5.0",
     "tsc-watch": "^6.0.0",
     "tslib": "^2.5.0",
-    "viem": "^2.7.15",
+    "viem": "^2.22.3",
     "ws": "^8.13.0"
   },
   "devDependencies": {
