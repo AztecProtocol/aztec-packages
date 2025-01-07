@@ -70,7 +70,7 @@ export async function acvm(
         } else if (result instanceof Array && !result.every(item => typeof item === 'string')) {
           // We are dealing with a nested array which means that we do not need it wrap it in another array as to have
           // the nested array structure it is already "wrapped".
-          return result as ForeignCallOutput[];
+          return result;
         } else {
           return [result] as ForeignCallOutput[];
         }
