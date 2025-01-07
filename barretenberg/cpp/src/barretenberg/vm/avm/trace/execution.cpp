@@ -472,6 +472,7 @@ AvmError Execution::execute_enqueued_call(AvmTraceBuilder& trace_builder,
     std::stack<uint32_t> debug_counter_stack;
     uint32_t counter = 0;
     // FIXME: this cast means that we can have duplicate call ptrs since clk will end up way bigger than 256
+    trace_builder.set_pc(pc);
     trace_builder.set_call_ptr(static_cast<uint8_t>(context_id));
     while (is_ok(error) && (pc = trace_builder.get_pc()) < bytecode.size()) {
         auto [inst, parse_error] = Deserialization::parse(bytecode, pc);
