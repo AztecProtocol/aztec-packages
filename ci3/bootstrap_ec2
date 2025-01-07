@@ -115,9 +115,11 @@ ssh ${ssh_args:-} -F $ci3/aws/build_instance_ssh_config ubuntu@$ip "
     '
 "
 code=$?
+echo "SSH exited with code: $code"
 
 # If we were spot evicted, try again using on-demand.
 if [ $code -eq 155 ]; then
+  echo "Spot was evicted. Retrying with on-demand instance."
   NO_SPOT=1 $0
 else
   exit $code

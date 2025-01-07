@@ -3,6 +3,8 @@
 eval "$*" &
 child_pid=$!
 
+token=$(curl -X PUT "http://169.254.169.254/latest/api/token" -H "X-aws-ec2-metadata-token-ttl-seconds: 21600")
+
 # Poll until the child finishes or a termination notice is detected
 while true; do
   # Wait for process to come up, makes check below happen every 5 seconds
@@ -14,7 +16,7 @@ while true; do
     sleep 1
   done
   # Check for imminent spot termination
-  if curl -fs http://169.254.169.254/latest/meta-data/spot/termination-time >/dev/null 2>&1; then
+  if curl -fs -H "X-aws-ec2-metadata-token: $token" http://169.254.169.254/latest/meta-data/spot/termination-time &>/dev/null; then
     # Termination notice found; kill the child and exit with 155
     echo "Spot will be terminated! Exiting early."
     kill "$child_pid" && wait "$child_pid"
