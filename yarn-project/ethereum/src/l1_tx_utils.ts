@@ -337,6 +337,11 @@ export class L1TxUtils {
           this.logger?.debug(
             `L1 transaction ${currentTxHash} appears stuck. Attempting speed-up ${attempts}/${gasConfig.maxAttempts} ` +
               `with new priority fee ${formatGwei(newGasPrice.maxPriorityFeePerGas)} gwei`,
+            {
+              maxFeePerGas: formatGwei(newGasPrice.maxFeePerGas),
+              maxPriorityFeePerGas: formatGwei(newGasPrice.maxPriorityFeePerGas),
+              ...(newGasPrice.maxFeePerBlobGas && { maxFeePerBlobGas: formatGwei(newGasPrice.maxFeePerBlobGas) }),
+            },
           );
 
           currentTxHash = await this.walletClient.sendTransaction({
