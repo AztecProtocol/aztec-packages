@@ -52,7 +52,7 @@ class MegaZKFlavor : public bb::MegaFlavor {
         static std::shared_ptr<Transcript> verifier_init_empty(const std::shared_ptr<Transcript>& transcript)
         {
             auto verifier_transcript = std::make_shared<Transcript>(transcript->proof_data);
-            [[maybe_unused]] auto _ = verifier_transcript->template receive_from_prover<uint32_t>("Init");
+            verifier_transcript->template receive_from_prover<uint32_t>("Init");
             return verifier_transcript;
         };
 

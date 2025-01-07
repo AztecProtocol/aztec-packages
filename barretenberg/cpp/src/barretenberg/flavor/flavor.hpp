@@ -404,6 +404,7 @@ template <typename T> concept IsECCVMRecursiveFlavor = IsAnyOf<T, ECCVMRecursive
 template <typename T> concept IsFoldingFlavor = IsAnyOf<T, UltraFlavor,
                                                            // Note(md): must be here to use oink prover
                                                            UltraKeccakFlavor,
+                                                           UltraKeccakZKFlavor,
                                                            UltraRollupFlavor,
                                                            UltraZKFlavor,
                                                            MegaFlavor,

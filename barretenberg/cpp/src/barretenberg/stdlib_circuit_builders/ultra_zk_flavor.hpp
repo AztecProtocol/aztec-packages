@@ -52,6 +52,21 @@ class UltraZKFlavor : public UltraFlavor {
             : UltraFlavor::Transcript_<Params>(proof)
         {}
 
+        static std::shared_ptr<Transcript_> prover_init_empty()
+        {
+            auto transcript = std::make_shared<Transcript_>();
+            constexpr uint32_t init{ 42 }; // arbitrary
+            transcript->send_to_verifier("Init", init);
+            return transcript;
+        };
+
+        static std::shared_ptr<Transcript_> verifier_init_empty(const std::shared_ptr<Transcript_>& transcript)
+        {
+            auto verifier_transcript = std::make_shared<Transcript_>(transcript->proof_data);
+            verifier_transcript->template receive_from_prover<FF>("Init");
+            return verifier_transcript;
+        };
+
         /**
          * @brief Takes a FULL Ultra proof and deserializes it into the public member variables
          * that compose the structure. Must be called in order to access the structure of the

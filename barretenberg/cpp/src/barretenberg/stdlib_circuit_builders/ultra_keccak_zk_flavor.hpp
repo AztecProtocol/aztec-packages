@@ -24,7 +24,8 @@ class UltraKeccakZKFlavor : public UltraKeccakFlavor {
     // the rounds of ZK Sumcheck.
     static constexpr size_t BATCHED_RELATION_PARTIAL_LENGTH = UltraKeccakFlavor::BATCHED_RELATION_PARTIAL_LENGTH + 1;
     /**
-     * @brief Derived class that defines proof structure for Ultra proofs, as well as supporting functions.
+     * @brief Derived class that defines proof structure for Ultra zero knowledge proofs, as well as supporting
+     * functions.
      *
      */
     class Transcript : public UltraKeccakFlavor::Transcript {
@@ -43,6 +44,28 @@ class UltraKeccakZKFlavor : public UltraKeccakFlavor {
         FF libra_quotient_eval;
         Commitment hiding_polynomial_commitment;
         FF hiding_polynomial_eval;
+
+        Transcript() = default;
+
+        // Used by verifier to initialize the transcript
+        Transcript(const std::vector<FF>& proof)
+            : UltraKeccakFlavor::Transcript(proof)
+        {}
+
+        static std::shared_ptr<Transcript> prover_init_empty()
+        {
+            auto transcript = std::make_shared<Transcript>();
+            constexpr uint32_t init{ 42 }; // arbitrary
+            transcript->send_to_verifier("Init", init);
+            return transcript;
+        };
+
+        static std::shared_ptr<Transcript> verifier_init_empty(const std::shared_ptr<Transcript>& transcript)
+        {
+            auto verifier_transcript = std::make_shared<Transcript>(transcript->proof_data);
+            verifier_transcript->template receive_from_prover<FF>("Init");
+            return verifier_transcript;
+        };
 
         /**
          * @brief Takes a FULL Ultra proof and deserializes it into the public member variables
