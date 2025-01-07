@@ -1,3 +1,4 @@
+import { type AztecNodeService } from '@aztec/aztec-node';
 import {
   AztecAddress,
   type AztecNode,
@@ -76,7 +77,11 @@ describe('e2e_deploy_contract contract class registration', () => {
     // TODO(#10007) Remove this test as well.
     it('starts archiver with pre-registered common contracts', async () => {
       const classId = computeContractClassId(getContractClassFromArtifact(TokenContractArtifact));
-      expect(await aztecNode.getContractClass(classId)).not.toBeUndefined();
+      // The node checks the registration nullifier
+      expect(await aztecNode.getContractClass(classId)).toBeUndefined();
+      // But the archiver does not
+      const archiver = (aztecNode as AztecNodeService).getContractDataSource();
+      expect(await archiver.getContractClass(classId)).toBeDefined();
     });
 
     it('registers the contract class on the node', async () => {

@@ -46,7 +46,7 @@ case "$cmd" in
     exit
     ;;
   "hash")
-    cache_content_hash .rebuild_patterns
+    cache_content_hash .rebuild_patterns ../noir/.rebuild_patterns
     exit
     ;;
   *)
