@@ -24,7 +24,8 @@ class UltraZKFlavor : public UltraFlavor {
     // the rounds of ZK Sumcheck.
     static constexpr size_t BATCHED_RELATION_PARTIAL_LENGTH = UltraFlavor::BATCHED_RELATION_PARTIAL_LENGTH + 1;
     /**
-     * @brief Derived class that defines proof structure for Ultra proofs, as well as supporting functions.
+     * @brief Derived class that defines proof structure for Ultra zero knowledge proofs, as well as supporting
+     * functions.
      *
      */
     template <typename Params> class Transcript_ : public UltraFlavor::Transcript_<Params> {
