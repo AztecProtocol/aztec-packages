@@ -236,11 +236,11 @@ export class Tx extends Gossipable {
    */
   getEstimatedPrivateTxEffectsSize() {
     return (
-      this.unencryptedLogs.getSerializedLength() +
       this.contractClassLogs.getSerializedLength() +
       this.data.getNonEmptyNoteHashes().length * Fr.SIZE_IN_BYTES +
       this.data.getNonEmptyNullifiers().length * Fr.SIZE_IN_BYTES +
-      this.data.getNonEmptyPrivateLogs().length * PrivateLog.SIZE_IN_BYTES
+      this.data.getNonEmptyPrivateLogs().length * PrivateLog.SIZE_IN_BYTES +
+      this.publicLogs.length * PublicLog.SIZE_IN_BYTES
     );
   }
 

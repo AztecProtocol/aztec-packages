@@ -7,7 +7,7 @@ use crate::abis::{
 use dep::types::{
     abis::{
         accumulated_data::CombinedAccumulatedData, log_hash::ScopedLogHash,
-        public_data_write::PublicDataWrite, public_log::PublicLog, sponge_blob::SpongeBlob,
+        public_data_write::PublicDataWrite, sponge_blob::SpongeBlob,
     },
     constants::{
         AZTEC_MAX_EPOCH_DURATION, CONTRACT_CLASS_LOGS_PREFIX, L2_L1_MSGS_PREFIX,
@@ -321,10 +321,9 @@ fn get_tx_effects_hash_input(
     let public_data_update_requests =
         get_all_update_requests_for_tx_effects(all_public_data_update_requests);
     let private_logs = combined.private_logs;
-    let unencrypted_logs =
-        combined.unencrypted_logs_hashes.map(|log: ScopedLogHash| silo_unencrypted_log_hash(log));
+    let public_logs = combined.public_logs;
     let contract_class_logs = combined.contract_class_logs_hashes.map(|log: ScopedLogHash| {
-        silo_unencrypted_log_hash(log)
+        silo_contract_class_log_hash(log)
     });
 
     let mut offset = 0;
@@ -436,23 +435,26 @@ fn get_tx_effects_hash_input(
         offset += array_len;
     }
 
-    // TODO(#8954): When logs are refactored into fields, we will append the values here
-    // Currently appending the single log hash as an interim solution
-    // UNENCRYPTED LOGS
-    array_len = array_length(unencrypted_logs);
+    // PUBLIC LOGS
+    array_len = array_length(public_logs) * PUBLIC_LOG_SIZE_IN_FIELDS;
     if array_len != 0 {
         let unencrypted_logs_prefix = encode_blob_prefix(UNENCRYPTED_LOGS_PREFIX, array_len);
         assert_eq(tx_effects_hash_input[offset], unencrypted_logs_prefix);
         offset += 1;
-
-        for j in 0..MAX_UNENCRYPTED_LOGS_PER_TX {
-            if j < array_len {
-                assert_eq(tx_effects_hash_input[offset + j], unencrypted_logs[j]);
+        for j in 0..MAX_PUBLIC_LOGS_PER_TX {
+            let log = public_logs[j].serialize();
+            for k in 0..PUBLIC_LOG_SIZE_IN_FIELDS {
+                let index = offset + j * PUBLIC_LOG_SIZE_IN_FIELDS + k;
+                if index < array_len {
+                    assert_eq(tx_effects_hash_input[index], log[k]);
+                }
             }
         }
         offset += array_len;
     }
 
+    // TODO(#8954): When logs are refactored into fields, we will append the values here
+    // Currently appending the single log hash as an interim solution
     // CONTRACT CLASS LOGS
     array_len = array_length(contract_class_logs);
     if array_len != 0 {

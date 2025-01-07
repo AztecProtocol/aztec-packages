@@ -4,7 +4,6 @@ import {
   BlockProposal,
   Body,
   ConsensusPayload,
-  ContractClassTxL2Logs,
   type EpochProofQuote,
   type L1ToL2MessageSource,
   L2Block,
@@ -333,7 +332,6 @@ describe('sequencer', () => {
       await processTxs(validTxs),
       [{ tx: invalidTx, error: new Error() }],
       [],
-      å,
     ]);
 
     await sequencer.doRealWork();
