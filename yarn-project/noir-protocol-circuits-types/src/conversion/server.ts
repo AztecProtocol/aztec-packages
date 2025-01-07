@@ -72,7 +72,6 @@ import type {
   BlockMergeRollupInputs as BlockMergeRollupInputsNoir,
   BlockRootOrBlockMergePublicInputs as BlockRootOrBlockMergePublicInputsNoir,
   BlockRootRollupInputs as BlockRootRollupInputsNoir,
-  PrivateToRollupAccumulatedData as CombinedAccumulatedDataNoir,
   ConstantRollupData as ConstantRollupDataNoir,
   EmptyBlockRootRollupInputs as EmptyBlockRootRollupInputsNoir,
   EmptyNestedCircuitPublicInputs as EmptyNestedDataNoir,
@@ -92,6 +91,7 @@ import type {
   PrivateToAvmAccumulatedData as PrivateToAvmAccumulatedDataNoir,
   PrivateToPublicAccumulatedData as PrivateToPublicAccumulatedDataNoir,
   PrivateToPublicKernelCircuitPublicInputs as PrivateToPublicKernelCircuitPublicInputsNoir,
+  PrivateToRollupAccumulatedData as PrivateToRollupAccumulatedDataNoir,
   PrivateToRollupKernelCircuitPublicInputs as PrivateToRollupKernelCircuitPublicInputsNoir,
   PrivateTubeData as PrivateTubeDataNoir,
   PublicBaseRollupInputs as PublicBaseRollupInputsNoir,
@@ -113,7 +113,6 @@ import {
   mapAppendOnlyTreeSnapshotToNoir,
   mapAztecAddressFromNoir,
   mapAztecAddressToNoir,
-  mapCombinedAccumulatedDataFromNoir,
   mapEthAddressFromNoir,
   mapEthAddressToNoir,
   mapFieldFromNoir,
@@ -134,6 +133,7 @@ import {
   mapPartialStateReferenceFromNoir,
   mapPartialStateReferenceToNoir,
   mapPrivateLogToNoir,
+  mapPrivateToRollupAccumulatedDataFromNoir,
   mapPublicCallRequestToNoir,
   mapPublicDataTreePreimageToNoir,
   mapPublicDataWriteToNoir,
@@ -469,9 +469,9 @@ export function mapPrivateToPublicAccumulatedDataToNoir(
   };
 }
 
-export function mapCombinedAccumulatedDataToNoir(
+export function mapPrivateToRollupAccumulatedDataToNoir(
   privateToRollupAccumulatedData: PrivateToRollupAccumulatedData,
-): CombinedAccumulatedDataNoir {
+): PrivateToRollupAccumulatedDataNoir {
   return {
     note_hashes: mapTuple(privateToRollupAccumulatedData.noteHashes, mapFieldToNoir),
     nullifiers: mapTuple(privateToRollupAccumulatedData.nullifiers, mapFieldToNoir),
@@ -523,7 +523,7 @@ export function mapPrivateToRollupKernelCircuitPublicInputsToNoir(
   return {
     rollup_validation_requests: mapRollupValidationRequestsToNoir(inputs.rollupValidationRequests),
     constants: mapTxConstantDataToNoir(inputs.constants),
-    end: mapCombinedAccumulatedDataToNoir(inputs.end),
+    end: mapPrivateToRollupAccumulatedDataToNoir(inputs.end),
     gas_used: mapGasToNoir(inputs.gasUsed),
     fee_payer: mapAztecAddressToNoir(inputs.feePayer),
   };
@@ -946,7 +946,7 @@ export function mapPrivateToRollupKernelCircuitPublicInputsFromNoir(
 ) {
   return new PrivateToRollupKernelCircuitPublicInputs(
     mapRollupValidationRequestsFromNoir(inputs.rollup_validation_requests),
-    mapCombinedAccumulatedDataFromNoir(inputs.end),
+    mapPrivateToRollupAccumulatedDataFromNoir(inputs.end),
     mapTxConstantDataFromNoir(inputs.constants),
     mapGasFromNoir(inputs.gas_used),
     mapAztecAddressFromNoir(inputs.fee_payer),

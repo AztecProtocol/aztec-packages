@@ -102,7 +102,6 @@ import type {
 import {
   mapAztecAddressFromNoir,
   mapAztecAddressToNoir,
-  mapCombinedAccumulatedDataFromNoir,
   mapFieldFromNoir,
   mapFieldToNoir,
   mapFunctionSelectorFromNoir,
@@ -124,6 +123,7 @@ import {
   mapPointToNoir,
   mapPrivateLogFromNoir,
   mapPrivateLogToNoir,
+  mapPrivateToRollupAccumulatedDataFromNoir,
   mapPublicCallRequestFromNoir,
   mapPublicCallRequestToNoir,
   mapScopedL2ToL1MessageFromNoir,
@@ -685,7 +685,7 @@ export function mapPrivateKernelDataToNoir(
 export function mapPrivateKernelTailCircuitPublicInputsForRollupFromNoir(
   inputs: PrivateToRollupKernelCircuitPublicInputsNoir,
 ): PrivateKernelTailCircuitPublicInputs {
-  const forRollup = new PartialPrivateTailPublicInputsForRollup(mapCombinedAccumulatedDataFromNoir(inputs.end));
+  const forRollup = new PartialPrivateTailPublicInputsForRollup(mapPrivateToRollupAccumulatedDataFromNoir(inputs.end));
   return new PrivateKernelTailCircuitPublicInputs(
     mapTxConstantDataFromNoir(inputs.constants),
     mapRollupValidationRequestsFromNoir(inputs.rollup_validation_requests),

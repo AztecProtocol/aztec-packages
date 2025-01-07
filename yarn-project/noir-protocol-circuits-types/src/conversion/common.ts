@@ -42,7 +42,6 @@ import { type Tuple, mapTuple, toTruncField } from '@aztec/foundation/serialize'
 import type {
   AppendOnlyTreeSnapshot as AppendOnlyTreeSnapshotNoir,
   BlockHeader as BlockHeaderNoir,
-  PrivateToRollupAccumulatedData as CombinedAccumulatedDataNoir,
   ContentCommitment as ContentCommitmentNoir,
   Field,
   FixedLengthArray,
@@ -64,6 +63,7 @@ import type {
   Option as OptionalNumberNoir,
   PartialStateReference as PartialStateReferenceNoir,
   Log as PrivateLogNoir,
+  PrivateToRollupAccumulatedData as PrivateToRollupAccumulatedDataNoir,
   PublicCallRequest as PublicCallRequestNoir,
   PublicDataTreeLeafPreimage as PublicDataTreeLeafPreimageNoir,
   PublicDataWrite as PublicDataWriteNoir,
@@ -670,7 +670,9 @@ export function mapPublicDataWriteToNoir(write: PublicDataWrite): PublicDataWrit
  * @param PrivateToRollupAccumulatedData - The noir combined accumulated data.
  * @returns The parsed combined accumulated data.
  */
-export function mapCombinedAccumulatedDataFromNoir(privateToRollupAccumulatedData: CombinedAccumulatedDataNoir) {
+export function mapPrivateToRollupAccumulatedDataFromNoir(
+  privateToRollupAccumulatedData: PrivateToRollupAccumulatedDataNoir,
+) {
   return new PrivateToRollupAccumulatedData(
     mapTupleFromNoir(privateToRollupAccumulatedData.note_hashes, MAX_NOTE_HASHES_PER_TX, mapFieldFromNoir),
     mapTupleFromNoir(privateToRollupAccumulatedData.nullifiers, MAX_NULLIFIERS_PER_TX, mapFieldFromNoir),

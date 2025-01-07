@@ -303,7 +303,7 @@ export function makeCombinedConstantData(seed = 1): CombinedConstantData {
  * @param seed - The seed to use for generating the accumulated data.
  * @returns An accumulated data.
  */
-export function makeCombinedAccumulatedData(seed = 1, full = false): PrivateToRollupAccumulatedData {
+export function makePrivateToRollupAccumulatedData(seed = 1, full = false): PrivateToRollupAccumulatedData {
   const tupleGenerator = full ? makeTuple : makeHalfFullTuple;
 
   return new PrivateToRollupAccumulatedData(
@@ -385,7 +385,7 @@ export function makePrivateKernelTailCircuitPublicInputs(
       )
     : undefined;
   const forRollup = !isForPublic
-    ? new PartialPrivateTailPublicInputsForRollup(makeCombinedAccumulatedData(seed + 0x100))
+    ? new PartialPrivateTailPublicInputsForRollup(makePrivateToRollupAccumulatedData(seed + 0x100))
     : undefined;
   return new PrivateKernelTailCircuitPublicInputs(
     makeTxConstantData(seed + 0x300),
@@ -420,7 +420,7 @@ export function makePrivateToRollupKernelCircuitPublicInputs(
 ): PrivateToRollupKernelCircuitPublicInputs {
   return new PrivateToRollupKernelCircuitPublicInputs(
     makeRollupValidationRequests(seed),
-    makeCombinedAccumulatedData(seed, fullAccumulatedData),
+    makePrivateToRollupAccumulatedData(seed, fullAccumulatedData),
     makeCombinedConstantData(seed + 0x100),
     makeGas(seed + 0x600),
     makeAztecAddress(seed + 0x700),
