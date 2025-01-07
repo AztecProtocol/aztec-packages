@@ -790,6 +790,7 @@ export class L1Publisher extends WithTracer {
       // This throws a EstimateGasExecutionError with the custom error information:
       await this.walletClient.prepareTransactionRequest({
         account: this.walletClient.account,
+        nonceManager,
         to: this.rollupContract.address,
         data,
         ...blobInputs,

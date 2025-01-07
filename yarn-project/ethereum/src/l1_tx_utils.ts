@@ -430,8 +430,14 @@ export class L1TxUtils {
     // Strangely, the only way to get gas and send blobs is prepareTransactionRequest().
     // See: https://github.com/wevm/viem/issues/2075
     if (_blobInputs) {
-      initialEstimate = (await this.walletClient.prepareTransactionRequest({ account, ...request, ..._blobInputs }))
-        .gas;
+      initialEstimate = (
+        await this.walletClient.prepareTransactionRequest({
+          account,
+          nonceManager: account.nonceManager,
+          ...request,
+          ..._blobInputs,
+        })
+      ).gas;
     } else {
       initialEstimate = await this.publicClient.estimateGas({ account, ...request });
     }
