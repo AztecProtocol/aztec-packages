@@ -1,4 +1,5 @@
 import { type Logger, getTimestampRangeForEpoch, retryUntil, sleep } from '@aztec/aztec.js';
+import { ChainMonitor } from '@aztec/aztec.js/utils';
 // eslint-disable-next-line no-restricted-imports
 import { type L1RollupConstants } from '@aztec/circuit-types';
 import { Proof } from '@aztec/circuits.js';
@@ -25,11 +26,7 @@ describe('e2e_epochs', () => {
   let logger: Logger;
   let proverDelayer: Delayer;
   let sequencerDelayer: Delayer;
-
-  let l2BlockNumber: number = 0;
-  let l2ProvenBlockNumber: number = 0;
-  let l1BlockNumber: number;
-  let handle: NodeJS.Timeout;
+  let monitor: ChainMonitor;
 
   const EPOCH_DURATION_IN_L2_SLOTS = 4;
   const L2_SLOT_DURATION_IN_L1_SLOTS = 2;
@@ -59,34 +56,8 @@ describe('e2e_epochs', () => {
     rollup = RollupContract.getFromConfig(context.config);
 
     // Loop that tracks L1 and L2 block numbers and logs whenever there's a new one.
-    // We could refactor this out to an utility if we want to use this in other tests.
-    handle = setInterval(async () => {
-      const newL1BlockNumber = Number(await l1Client.getBlockNumber({ cacheTime: 0 }));
-      if (l1BlockNumber === newL1BlockNumber) {
-        return;
-      }
-      const block = await l1Client.getBlock({ blockNumber: BigInt(newL1BlockNumber), includeTransactions: false });
-      const timestamp = block.timestamp;
-      l1BlockNumber = newL1BlockNumber;
-
-      let msg = `L1 block ${newL1BlockNumber} mined at ${timestamp}`;
-
-      const newL2BlockNumber = Number(await rollup.getBlockNumber());
-      if (l2BlockNumber !== newL2BlockNumber) {
-        const epochNumber = await rollup.getEpochNumber(BigInt(newL2BlockNumber));
-        msg += ` with new L2 block ${newL2BlockNumber} for epoch ${epochNumber}`;
-        l2BlockNumber = newL2BlockNumber;
-      }
-
-      const newL2ProvenBlockNumber = Number(await rollup.getProvenBlockNumber());
-
-      if (l2ProvenBlockNumber !== newL2ProvenBlockNumber) {
-        const epochNumber = await rollup.getEpochNumber(BigInt(newL2ProvenBlockNumber));
-        msg += ` with proof up to L2 block ${newL2ProvenBlockNumber} for epoch ${epochNumber}`;
-        l2ProvenBlockNumber = newL2ProvenBlockNumber;
-      }
-      logger.info(msg);
-    }, 200);
+    monitor = new ChainMonitor(rollup, logger);
+    monitor.start();
 
     proverDelayer = ((context.proverNode as TestProverNode).publisher as TestL1Publisher).delayer!;
     sequencerDelayer = ((context.sequencer as TestSequencerClient).sequencer.publisher as TestL1Publisher).delayer!;
@@ -106,8 +77,8 @@ describe('e2e_epochs', () => {
   });
 
   afterEach(async () => {
-    clearInterval(handle);
     jest.restoreAllMocks();
+    monitor.stop();
     await context.teardown();
   });
 
@@ -121,12 +92,12 @@ describe('e2e_epochs', () => {
 
   /** Waits until the given L2 block number is mined. */
   const waitUntilL2BlockNumber = async (target: number) => {
-    await retryUntil(() => Promise.resolve(target === l2BlockNumber), `Wait until L2 block ${target}`, 60, 0.1);
+    await retryUntil(() => Promise.resolve(target === monitor.l2BlockNumber), `Wait until L2 block ${target}`, 60, 0.1);
   };
 
   /** Waits until the given L2 block number is marked as proven. */
-  const waitUntilProvenL2BlockNumber = async (target: number) => {
-    await retryUntil(() => Promise.resolve(target === l2ProvenBlockNumber), `Wait proven L2 block ${target}`, 60, 0.1);
+  const waitUntilProvenL2BlockNumber = async (t: number) => {
+    await retryUntil(() => Promise.resolve(t === monitor.l2ProvenBlockNumber), `Wait proven L2 block ${t}`, 60, 0.1);
   };
 
   it('does not allow submitting proof after epoch end', async () => {
@@ -169,7 +140,7 @@ describe('e2e_epochs', () => {
     logger.info(`Starting epoch 1 after L2 block ${blockNumberAtEndOfEpoch0}`);
 
     await waitUntilProvenL2BlockNumber(blockNumberAtEndOfEpoch0);
-    expect(l2BlockNumber).toEqual(blockNumberAtEndOfEpoch0);
+    expect(monitor.l2BlockNumber).toEqual(blockNumberAtEndOfEpoch0);
     logger.info(`Test succeeded`);
   });
 
