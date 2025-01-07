@@ -181,11 +181,14 @@ describe('GasUtils', () => {
     // Mine a new block to make the base fee change take effect
     await cheatCodes.evmMine();
 
-    const receipt = await gasUtils.sendAndMonitorTransaction({
-      to: '0x1234567890123456789012345678901234567890',
-      data: '0x',
-      value: 0n,
-    });
+    const receipt = await gasUtils.sendAndMonitorTransaction(
+      {
+        to: '0x1234567890123456789012345678901234567890',
+        data: '0x',
+        value: 0n,
+      },
+      { maxGwei },
+    );
 
     expect(receipt.effectiveGasPrice).toBeLessThanOrEqual(maxGwei * WEI_CONST);
   }, 60_000);

@@ -53,6 +53,10 @@ export interface L1TxUtilsConfig {
    */
   minGwei?: bigint;
   /**
+   * Maximum blob fee per gas in gwei
+   */
+  maxBlobGwei?: bigint;
+  /**
    * Priority fee bump percentage
    */
   priorityFeeBumpPercentage?: bigint;
@@ -98,6 +102,11 @@ export const l1TxUtilsConfigMappings: ConfigMappingsType<L1TxUtilsConfig> = {
     description: 'Maximum gas price in gwei',
     env: 'L1_GAS_PRICE_MAX',
     ...bigintConfigHelper(100n),
+  },
+  maxBlobGwei: {
+    description: 'Maximum blob fee per gas in gwei',
+    env: 'L1_BLOB_FEE_PER_GAS_MAX',
+    ...bigintConfigHelper(1_500n),
   },
   priorityFeeBumpPercentage: {
     description: 'How much to increase priority fee by each attempt (percentage)',
@@ -438,6 +447,11 @@ export class L1TxUtils {
     // Ensure we don't exceed maxGwei
     const maxGweiInWei = gasConfig.maxGwei! * WEI_CONST;
     maxFeePerGas = maxFeePerGas > maxGweiInWei ? maxGweiInWei : maxFeePerGas;
+
+    // Ensure we don't exceed maxBlobGwei
+    if (maxFeePerBlobGas) {
+      maxFeePerBlobGas = maxFeePerBlobGas > gasConfig.maxBlobGwei! ? gasConfig.maxBlobGwei! : maxFeePerBlobGas;
+    }
 
     // Ensure priority fee doesn't exceed max fee
     const maxPriorityFeePerGas = priorityFee > maxFeePerGas ? maxFeePerGas : priorityFee;
