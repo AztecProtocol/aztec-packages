@@ -3,9 +3,9 @@ import {
   type EventMetadataDefinition,
   type ExtendedNote,
   type GetUnencryptedLogsResponse,
-  type IncomingNotesFilter,
   type L2Block,
   type LogFilter,
+  type NotesFilter,
   type PXE,
   type PXEInfo,
   type PrivateExecutionResult,
@@ -134,8 +134,8 @@ export abstract class BaseWallet implements Wallet {
   getTxReceipt(txHash: TxHash): Promise<TxReceipt> {
     return this.pxe.getTxReceipt(txHash);
   }
-  getIncomingNotes(filter: IncomingNotesFilter): Promise<UniqueNote[]> {
-    return this.pxe.getIncomingNotes(filter);
+  getNotes(filter: NotesFilter): Promise<UniqueNote[]> {
+    return this.pxe.getNotes(filter);
   }
   getPublicStorageAt(contract: AztecAddress, storageSlot: Fr): Promise<any> {
     return this.pxe.getPublicStorageAt(contract, storageSlot);
