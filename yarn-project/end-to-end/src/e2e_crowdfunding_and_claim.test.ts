@@ -3,8 +3,8 @@ import {
   type AccountWallet,
   type AztecNode,
   type CheatCodes,
-  type DebugLogger,
   Fr,
+  type Logger,
   type PXE,
   PackedValues,
   TxExecutionRequest,
@@ -12,9 +12,9 @@ import {
   deriveKeys,
 } from '@aztec/aztec.js';
 import { GasSettings, TxContext, computePartialAddress } from '@aztec/circuits.js';
-import { InclusionProofsContract } from '@aztec/noir-contracts.js';
 import { ClaimContract } from '@aztec/noir-contracts.js/Claim';
 import { CrowdfundingContract } from '@aztec/noir-contracts.js/Crowdfunding';
+import { InclusionProofsContract } from '@aztec/noir-contracts.js/InclusionProofs';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
 
 import { jest } from '@jest/globals';
@@ -45,7 +45,7 @@ describe('e2e_crowdfunding_and_claim', () => {
   let operatorWallet: AccountWallet;
   let donorWallets: AccountWallet[];
   let wallets: AccountWallet[];
-  let logger: DebugLogger;
+  let logger: Logger;
 
   let donationToken: TokenContract;
   let rewardToken: TokenContract;
@@ -116,7 +116,7 @@ describe('e2e_crowdfunding_and_claim', () => {
     // as a contact to all donor wallets, so they can receive notes
     await Promise.all(
       donorWallets.map(async wallet => {
-        await wallet.registerContact(operatorWallet.getAddress());
+        await wallet.registerSender(operatorWallet.getAddress());
       }),
     );
     // Now we mint DNT to donors
@@ -337,11 +337,12 @@ describe('e2e_crowdfunding_and_claim', () => {
     const call = crowdfundingContract.withWallet(donorWallets[1]).methods.withdraw(donationAmount).request();
     // ...using the withdraw fn as our entrypoint
     const entrypointPackedValues = PackedValues.fromValues(call.args);
+    const maxFeesPerGas = await pxe.getCurrentBaseFees();
     const request = new TxExecutionRequest(
       call.to,
       call.selector,
       entrypointPackedValues.hash,
-      new TxContext(donorWallets[1].getChainId(), donorWallets[1].getVersion(), GasSettings.default()),
+      new TxContext(donorWallets[1].getChainId(), donorWallets[1].getVersion(), GasSettings.default({ maxFeesPerGas })),
       [entrypointPackedValues],
       [],
     );

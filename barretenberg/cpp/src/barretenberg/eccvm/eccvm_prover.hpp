@@ -1,4 +1,5 @@
 #pragma once
+#include "barretenberg/commitment_schemes/small_subgroup_ipa/small_subgroup_ipa.hpp"
 #include "barretenberg/eccvm/eccvm_flavor.hpp"
 #include "barretenberg/goblin/translation_evaluations.hpp"
 #include "barretenberg/honk/proof_system/types/proof.hpp"
@@ -25,6 +26,8 @@ class ECCVMProver {
     using Transcript = typename Flavor::Transcript;
     using TranslationEvaluations = bb::TranslationEvaluations_<FF, BF>;
     using CircuitBuilder = typename Flavor::CircuitBuilder;
+    using ZKData = ZKSumcheckData<Flavor>;
+    using SmallSubgroupIPA = SmallSubgroupIPAProver<Flavor>;
 
     explicit ECCVMProver(CircuitBuilder& builder,
                          const std::shared_ptr<Transcript>& transcript = std::make_shared<Transcript>(),
@@ -53,7 +56,7 @@ class ECCVMProver {
     std::shared_ptr<ProvingKey> key;
 
     CommitmentLabels commitment_labels;
-    ZKSumcheckData<Flavor> zk_sumcheck_data;
+    ZKData zk_sumcheck_data;
 
     Polynomial batched_quotient_Q; // batched quotient poly computed by Shplonk
     FF nu_challenge;               // needed in both Shplonk rounds

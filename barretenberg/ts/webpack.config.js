@@ -3,6 +3,9 @@ import { fileURLToPath } from 'url';
 import ResolveTypeScriptPlugin from 'resolve-typescript-plugin';
 import webpack from 'webpack';
 
+/**
+ * @type {import('webpack').Configuration}
+ */
 export default {
   target: 'web',
   mode: 'production',
@@ -36,9 +39,13 @@ export default {
     path: resolve(dirname(fileURLToPath(import.meta.url)), './dest/browser'),
     filename: 'index.js',
     module: true,
+    globalObject: 'globalThis',
     library: {
       type: 'module',
     },
+  },
+  optimization: {
+    minimize: false,
   },
   experiments: {
     outputModule: true,

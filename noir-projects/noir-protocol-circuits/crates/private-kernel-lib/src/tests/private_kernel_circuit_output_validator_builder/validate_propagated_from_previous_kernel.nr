@@ -19,15 +19,6 @@ fn validate_propagated_from_previous_kernel_constants_mismatch_chain_id_fails() 
 }
 
 #[test(should_fail_with = "mismatch constants")]
-fn validate_propagated_from_previous_kernel_constants_mismatch_txs_effects_hash_fails() {
-    let mut builder = PrivateKernelCircuitOutputValidatorBuilder::new();
-
-    builder.output.historical_header.content_commitment.txs_effects_hash += 1;
-
-    builder.validate_as_inner_call();
-}
-
-#[test(should_fail_with = "mismatch constants")]
 fn validate_propagated_from_previous_kernel_constants_mismatch_protocol_contract_tree_root_fails() {
     let mut builder = PrivateKernelCircuitOutputValidatorBuilder::new();
 
@@ -214,49 +205,25 @@ fn validate_propagated_from_previous_kernel_l2_to_l1_msgs_less_than_fails() {
 }
 
 /**
- * note_encrypted_log_hashes
+ * private_logs
  */
 #[test]
-fn validate_propagated_from_previous_kernel_note_encrypted_log_hashes_succeeds() {
+fn validate_propagated_from_previous_kernel_private_logs_succeeds() {
     let mut builder = PrivateKernelCircuitOutputValidatorBuilder::new();
 
-    builder.previous_kernel.append_note_encrypted_log_hashes(2);
-    builder.output.append_note_encrypted_log_hashes(2);
+    builder.previous_kernel.append_private_logs(2);
+    builder.output.append_private_logs(2);
 
     builder.validate_as_inner_call();
 }
 
 #[test(should_fail_with = "source item does not prepend to dest")]
-fn validate_propagated_from_previous_kernel_note_encrypted_log_hashes_less_than_fails() {
+fn validate_propagated_from_previous_kernel_private_logs_less_than_fails() {
     let mut builder = PrivateKernelCircuitOutputValidatorBuilder::new();
 
-    builder.previous_kernel.append_note_encrypted_log_hashes(2);
+    builder.previous_kernel.append_private_logs(2);
     // Propagate 1 less item to the output.
-    builder.output.append_note_encrypted_log_hashes(1);
-
-    builder.validate_as_inner_call();
-}
-
-/**
- * encrypted_log_hashes
- */
-#[test]
-fn validate_propagated_from_previous_kernel_encrypted_log_hashes_succeeds() {
-    let mut builder = PrivateKernelCircuitOutputValidatorBuilder::new();
-
-    builder.previous_kernel.append_encrypted_log_hashes(2);
-    builder.output.append_encrypted_log_hashes(2);
-
-    builder.validate_as_inner_call();
-}
-
-#[test(should_fail_with = "source item does not prepend to dest")]
-fn validate_propagated_from_previous_kernel_encrypted_log_hashes_less_than_fails() {
-    let mut builder = PrivateKernelCircuitOutputValidatorBuilder::new();
-
-    builder.previous_kernel.append_encrypted_log_hashes(2);
-    // Propagate 1 less item to the output.
-    builder.output.append_encrypted_log_hashes(1);
+    builder.output.append_private_logs(1);
 
     builder.validate_as_inner_call();
 }

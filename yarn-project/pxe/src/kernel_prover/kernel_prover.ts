@@ -19,6 +19,8 @@ import {
   PrivateKernelInnerCircuitPrivateInputs,
   PrivateKernelTailCircuitPrivateInputs,
   type PrivateKernelTailCircuitPublicInputs,
+  type PrivateLog,
+  type ScopedPrivateLogData,
   type TxRequest,
   VK_TREE_HEIGHT,
   VerificationKeyAsFields,
@@ -26,10 +28,11 @@ import {
 import { hashVK } from '@aztec/circuits.js/hash';
 import { makeTuple } from '@aztec/foundation/array';
 import { vkAsFieldsMegaHonk } from '@aztec/foundation/crypto';
-import { createDebugLogger } from '@aztec/foundation/log';
+import { createLogger } from '@aztec/foundation/log';
 import { assertLength } from '@aztec/foundation/serialize';
 import { pushTestData } from '@aztec/foundation/testing';
-import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types';
+import { Timer } from '@aztec/foundation/timer';
+import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types/client';
 import {
   getProtocolContractSiblingPath,
   isProtocolContract,
@@ -37,9 +40,47 @@ import {
 } from '@aztec/protocol-contracts';
 
 import { type WitnessMap } from '@noir-lang/types';
+import { strict as assert } from 'assert';
 
 import { PrivateKernelResetPrivateInputsBuilder } from './hints/build_private_kernel_reset_private_inputs.js';
 import { type ProvingDataOracle } from './proving_data_oracle.js';
+
+// TODO(#10592): Temporary workaround to check that the private logs are correctly split into non-revertible set and revertible set.
+// This should be done in TailToPublicOutputValidator in private kernel tail.
+function checkPrivateLogs(
+  privateLogs: ScopedPrivateLogData[],
+  nonRevertiblePrivateLogs: PrivateLog[],
+  revertiblePrivateLogs: PrivateLog[],
+  splitCounter: number,
+) {
+  let numNonRevertible = 0;
+  let numRevertible = 0;
+  privateLogs
+    .filter(privateLog => privateLog.inner.counter !== 0)
+    .forEach(privateLog => {
+      if (privateLog.inner.counter < splitCounter) {
+        assert(
+          privateLog.inner.log.toBuffer().equals(nonRevertiblePrivateLogs[numNonRevertible].toBuffer()),
+          `mismatch non-revertible private logs at index ${numNonRevertible}`,
+        );
+        numNonRevertible++;
+      } else {
+        assert(
+          privateLog.inner.log.toBuffer().equals(revertiblePrivateLogs[numRevertible].toBuffer()),
+          `mismatch revertible private logs at index ${numRevertible}`,
+        );
+        numRevertible++;
+      }
+    });
+  assert(
+    nonRevertiblePrivateLogs.slice(numNonRevertible).every(l => l.isEmpty()),
+    'Unexpected non-empty private log in non-revertible set.',
+  );
+  assert(
+    revertiblePrivateLogs.slice(numRevertible).every(l => l.isEmpty()),
+    'Unexpected non-empty private log in revertible set.',
+  );
+}
 
 const NULL_PROVE_OUTPUT: PrivateKernelSimulateOutput<PrivateKernelCircuitPublicInputs> = {
   publicInputs: PrivateKernelCircuitPublicInputs.empty(),
@@ -55,7 +96,7 @@ const NULL_PROVE_OUTPUT: PrivateKernelSimulateOutput<PrivateKernelCircuitPublicI
  * constructs private call data based on the execution results.
  */
 export class KernelProver {
-  private log = createDebugLogger('aztec:kernel-prover');
+  private log = createLogger('pxe:kernel-prover');
 
   constructor(private oracle: ProvingDataOracle, private proofCreator: PrivateKernelProver) {}
 
@@ -78,6 +119,10 @@ export class KernelProver {
     profile: boolean = false,
     dryRun: boolean = false,
   ): Promise<PrivateKernelSimulateOutput<PrivateKernelTailCircuitPublicInputs>> {
+    const timer = new Timer();
+
+    const isPrivateOnlyTx = this.isPrivateOnly(executionResult);
+
     const executionStack = [executionResult];
     let firstIteration = true;
 
@@ -153,8 +198,11 @@ export class KernelProver {
           getVKTreeRoot(),
           protocolContractTreeRoot,
           privateCallData,
+          isPrivateOnlyTx,
         );
+
         pushTestData('private-kernel-inputs-init', proofInput);
+
         output = await this.proofCreator.simulateProofInit(proofInput);
 
         acirs.push(output.bytecode);
@@ -171,7 +219,9 @@ export class KernelProver {
           assertLength<Fr, typeof VK_TREE_HEIGHT>(previousVkMembershipWitness.siblingPath, VK_TREE_HEIGHT),
         );
         const proofInput = new PrivateKernelInnerCircuitPrivateInputs(previousKernelData, privateCallData);
+
         pushTestData('private-kernel-inputs-inner', proofInput);
+
         output = await this.proofCreator.simulateProofInner(proofInput);
 
         acirs.push(output.bytecode);
@@ -224,7 +274,14 @@ export class KernelProver {
     const privateInputs = new PrivateKernelTailCircuitPrivateInputs(previousKernelData);
 
     pushTestData('private-kernel-inputs-ordering', privateInputs);
+
     const tailOutput = await this.proofCreator.simulateProofTail(privateInputs);
+    if (tailOutput.publicInputs.forPublic) {
+      const privateLogs = privateInputs.previousKernel.publicInputs.end.privateLogs;
+      const nonRevertiblePrivateLogs = tailOutput.publicInputs.forPublic.nonRevertibleAccumulatedData.privateLogs;
+      const revertiblePrivateLogs = tailOutput.publicInputs.forPublic.revertibleAccumulatedData.privateLogs;
+      checkPrivateLogs(privateLogs, nonRevertiblePrivateLogs, revertiblePrivateLogs, validationRequestsSplitCounter);
+    }
 
     acirs.push(tailOutput.bytecode);
     witnessStack.push(tailOutput.outputWitness);
@@ -232,6 +289,8 @@ export class KernelProver {
       await addGateCount('private_kernel_tail', tailOutput.bytecode);
       tailOutput.profileResult = { gateCounts };
     }
+
+    this.log.verbose(`Private kernel witness generation took ${timer.ms()}ms`);
 
     // TODO(#7368) how do we 'bincode' encode these inputs?
     if (!dryRun) {
@@ -277,5 +336,15 @@ export class KernelProver {
       protocolContractSiblingPath,
       acirHash,
     });
+  }
+
+  private isPrivateOnly(executionResult: PrivateExecutionResult): boolean {
+    const makesPublicCalls =
+      executionResult.enqueuedPublicFunctionCalls.some(enqueuedCall => !enqueuedCall.isEmpty()) ||
+      !executionResult.publicTeardownFunctionCall.isEmpty();
+    return (
+      !makesPublicCalls &&
+      executionResult.nestedExecutions.every(nestedExecution => this.isPrivateOnly(nestedExecution))
+    );
   }
 }

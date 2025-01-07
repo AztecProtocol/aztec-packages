@@ -2,11 +2,11 @@ import { getSchnorrAccount } from '@aztec/accounts/schnorr';
 import { createAccount } from '@aztec/accounts/testing';
 import {
   type AccountWalletWithSecretKey,
-  type DebugLogger,
   EpochProofQuote,
   EpochProofQuotePayload,
+  type Logger,
   TxStatus,
-  createDebugLogger,
+  createLogger,
   retryUntil,
   sleep,
 } from '@aztec/aztec.js';
@@ -15,7 +15,7 @@ import { Buffer32 } from '@aztec/foundation/buffer';
 import { times } from '@aztec/foundation/collection';
 import { Secp256k1Signer, keccak256, randomBigInt, randomInt } from '@aztec/foundation/crypto';
 import { ProofCommitmentEscrowAbi, RollupAbi, TestERC20Abi } from '@aztec/l1-artifacts';
-import { StatefulTestContract, StatefulTestContractArtifact } from '@aztec/noir-contracts.js';
+import { StatefulTestContract, StatefulTestContractArtifact } from '@aztec/noir-contracts.js/StatefulTest';
 import { createPXEService, getPXEServiceConfig } from '@aztec/pxe';
 
 import {
@@ -57,13 +57,13 @@ describe('e2e_prover_coordination', () => {
   let proverSigner: Secp256k1Signer;
   let proverWallet: WalletClient<HttpTransport, Chain, Account>;
 
-  let logger: DebugLogger;
+  let logger: Logger;
   let snapshotManager: ISnapshotManager;
 
   beforeEach(async () => {
-    logger = createDebugLogger('aztec:prover_coordination:e2e_json_coordination');
+    logger = createLogger('e2e:prover_coordination');
     snapshotManager = createSnapshotManager(
-      `prover_coordination/e2e_json_coordination`,
+      `prover_coordination/e2e_prover_coordination`,
       process.env.E2E_DATA_PATH,
       { startProverNode: true },
       { assumeProvenThrough: undefined },
@@ -112,7 +112,7 @@ describe('e2e_prover_coordination', () => {
     const proverKey = Buffer32.random();
     proverSigner = new Secp256k1Signer(proverKey);
     proverWallet = createWalletClient({
-      account: privateKeyToAccount(proverKey.to0xString()),
+      account: privateKeyToAccount(proverKey.toString()),
       chain: foundry,
       transport: http(ctx.aztecNodeConfig.l1RpcUrl),
     });
@@ -128,6 +128,10 @@ describe('e2e_prover_coordination', () => {
     await performEscrow(10000000n);
   });
 
+  afterEach(async () => {
+    await snapshotManager.teardown();
+  });
+
   const expectProofClaimOnL1 = async (expected: {
     epochToProve: bigint;
     basisPointFee: number;
@@ -135,12 +139,13 @@ describe('e2e_prover_coordination', () => {
     proposer: EthAddress;
     prover: EthAddress;
   }) => {
-    const [epochToProve, basisPointFee, bondAmount, prover, proposer] = await rollupContract.read.proofClaim();
+    const { epochToProve, basisPointFee, bondAmount, bondProvider, proposerClaimant } =
+      await rollupContract.read.getProofClaim();
     expect(epochToProve).toEqual(expected.epochToProve);
     expect(basisPointFee).toEqual(BigInt(expected.basisPointFee));
     expect(bondAmount).toEqual(expected.bondAmount);
-    expect(prover).toEqual(expected.prover.toChecksumString());
-    expect(proposer).toEqual(expected.proposer.toChecksumString());
+    expect(bondProvider).toEqual(expected.prover.toChecksumString());
+    expect(proposerClaimant).toEqual(expected.proposer.toChecksumString());
   };
 
   const performEscrow = async (amount: bigint) => {

@@ -4,7 +4,7 @@ title: Public State
 
 On this page we will look at how to manage public state in Aztec contracts. We will look at how to declare public state, how to read and write to it, and how to use it in your contracts.
 
-For a higher level overview of the state model in Aztec,  see the [state model](../../../../aztec/concepts/state_model/index.md) concepts page.
+For a higher level overview of the state model in Aztec,  see the [state model](../../../../aztec/concepts/storage/state_model/index.md) concepts page.
 
 ## `PublicMutable`
 
@@ -71,9 +71,11 @@ We have a `write` method on the `PublicMutable` struct that takes the value to w
 
 ## `PublicImmutable`
 
-`PublicImmutable` is a type that can be written once during a contract deployment and read later on from public only. For a version of `PublicImmutable` that can also be read in private, head to [`SharedImmutable`](./shared_state.md#sharedimmutable).
+`PublicImmutable` is a type that is initialized from public once, typically during a contract deployment, but which can later be read from public, private and unconstrained execution contexts. This state variable is useful for stuff that you would usually have in `immutable` values in Solidity, e.g. this can be the name of a token or its number of decimals.
 
-Just like the `PublicMutable` it is generic over the variable type `T`. The type `MUST` implement Serialize and Deserialize traits.
+Just like the `PublicMutable` it is generic over the variable type `T`. The type `MUST` implement the `Serialize` and `Deserialize` traits.
+
+#include_code storage-public-immutable-declaration /noir-projects/noir-contracts/contracts/docs_example_contract/src/main.nr rust
 
 You can find the details of `PublicImmutable` in the implementation [here (GitHub link)](https://github.com/AztecProtocol/aztec-packages/blob/#include_aztec_version/noir-projects/aztec-nr/aztec/src/state_vars/public_immutable.nr).
 
@@ -83,13 +85,20 @@ Is done exactly like the `PublicMutable` struct, but with the `PublicImmutable` 
 
 #include_code storage-public-immutable-declaration /noir-projects/noir-contracts/contracts/docs_example_contract/src/main.nr rust
 
-#include_code storage-public-immutable /noir-projects/noir-contracts/contracts/docs_example_contract/src/main.nr rust
-
 ### `initialize`
+
+This function sets the immutable value. It can only be called once.
+
+#include_code initialize_decimals /noir-projects/noir-contracts/contracts/token_contract/src/main.nr rust
+
+:::warning
+A `PublicImmutable`'s storage **must** only be set once via `initialize`. Attempting to override this by manually accessing the underlying storage slots breaks all properties of the data structure, rendering it useless.
+:::
 
 #include_code initialize_public_immutable /noir-projects/noir-contracts/contracts/docs_example_contract/src/main.nr rust
 
 ### `read`
 
-Reading the value is just like `PublicMutable`.
+Returns the stored immutable value. This function is available in public, private and unconstrained contexts.
+
 #include_code read_public_immutable /noir-projects/noir-contracts/contracts/docs_example_contract/src/main.nr rust

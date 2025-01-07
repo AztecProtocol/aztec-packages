@@ -1,16 +1,27 @@
 import { type PXE, createCompatibleClient } from '@aztec/aztec.js';
-import { createDebugLogger } from '@aztec/foundation/log';
+import { createLogger } from '@aztec/foundation/log';
 import { RollupAbi } from '@aztec/l1-artifacts';
 
 import { createPublicClient, getAddress, getContract, http } from 'viem';
 import { foundry } from 'viem/chains';
 
-import { getConfig, isK8sConfig, startPortForward } from './utils.js';
+import { type AlertConfig } from '../quality_of_service/alert_checker.js';
+import { isK8sConfig, runAlertCheck, setupEnvironment, startPortForward } from './utils.js';
 
-const config = getConfig(process.env);
+const config = setupEnvironment(process.env);
 
-const debugLogger = createDebugLogger('aztec:spartan-test:smoke');
-// const userLog = createConsoleLogger();
+const debugLogger = createLogger('e2e:spartan-test:smoke');
+
+// QoS alerts for when we are running in k8s
+const qosAlerts: AlertConfig[] = [
+  {
+    alert: 'SequencerTimeToCollectAttestations',
+    expr: 'avg_over_time(aztec_sequencer_time_to_collect_attestations[2m]) > 2500',
+    labels: { severity: 'error' },
+    for: '10m',
+    annotations: {},
+  },
+];
 
 describe('smoke test', () => {
   let pxe: PXE;
@@ -24,11 +35,23 @@ describe('smoke test', () => {
         hostPort: config.HOST_PXE_PORT,
       });
       PXE_URL = `http://127.0.0.1:${config.HOST_PXE_PORT}`;
+
+      await startPortForward({
+        resource: `svc/metrics-grafana`,
+        namespace: 'metrics',
+        containerPort: config.CONTAINER_METRICS_PORT,
+        hostPort: config.HOST_METRICS_PORT,
+      });
     } else {
       PXE_URL = config.PXE_URL;
     }
     pxe = await createCompatibleClient(PXE_URL, debugLogger);
   });
+
+  afterAll(async () => {
+    await runAlertCheck(config, qosAlerts, debugLogger);
+  });
+
   it('should be able to get node enr', async () => {
     const info = await pxe.getNodeInfo();
     expect(info).toBeDefined();

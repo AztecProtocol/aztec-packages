@@ -1,12 +1,9 @@
 import { type L1ToL2MessageSource, type L2BlockSource } from '@aztec/circuit-types';
-import { createDebugLogger } from '@aztec/foundation/log';
 import { type DataStoreConfig } from '@aztec/kv-store/config';
-import { createStore } from '@aztec/kv-store/utils';
 import { type TelemetryClient } from '@aztec/telemetry-client';
-import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
 
+import { WorldStateInstrumentation } from '../instrumentation/instrumentation.js';
 import { NativeWorldStateService } from '../native/native_world_state.js';
-import { MerkleTrees } from '../world-state-db/merkle_trees.js';
 import { type WorldStateConfig } from './config.js';
 import { ServerWorldStateSynchronizer } from './server_world_state_synchronizer.js';
 
@@ -15,28 +12,31 @@ export async function createWorldStateSynchronizer(
   l2BlockSource: L2BlockSource & L1ToL2MessageSource,
   client: TelemetryClient,
 ) {
-  const merkleTrees = await createWorldState(config, client);
-  return new ServerWorldStateSynchronizer(merkleTrees, l2BlockSource, config);
+  const instrumentation = new WorldStateInstrumentation(client);
+  const merkleTrees = await createWorldState(config, instrumentation);
+  return new ServerWorldStateSynchronizer(merkleTrees, l2BlockSource, config, instrumentation);
 }
 
 export async function createWorldState(
   config: WorldStateConfig & DataStoreConfig,
-  client: TelemetryClient = new NoopTelemetryClient(),
+  instrumentation: WorldStateInstrumentation,
 ) {
   const newConfig = {
     dataDirectory: config.worldStateDataDirectory ?? config.dataDirectory,
     dataStoreMapSizeKB: config.worldStateDbMapSizeKb ?? config.dataStoreMapSizeKB,
   } as DataStoreConfig;
-  const merkleTrees = ['true', '1'].includes(process.env.USE_LEGACY_WORLD_STATE ?? '')
-    ? await MerkleTrees.new(
-        await createStore('world-state', newConfig, createDebugLogger('aztec:world-state:lmdb')),
-        client,
-      )
-    : newConfig.dataDirectory
+
+  if (!config.l1Contracts?.rollupAddress) {
+    throw new Error('Rollup address is required to create a world state synchronizer.');
+  }
+
+  // If a data directory is provided in config, then create a persistent store.
+  const merkleTrees = newConfig.dataDirectory
     ? await NativeWorldStateService.new(
         config.l1Contracts.rollupAddress,
         newConfig.dataDirectory,
         newConfig.dataStoreMapSizeKB,
+        instrumentation,
       )
     : await NativeWorldStateService.tmp(
         config.l1Contracts.rollupAddress,

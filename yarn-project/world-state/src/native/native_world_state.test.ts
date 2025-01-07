@@ -2,9 +2,9 @@ import { type L2Block, MerkleTreeId } from '@aztec/circuit-types';
 import {
   ARCHIVE_HEIGHT,
   AppendOnlyTreeSnapshot,
+  BlockHeader,
   EthAddress,
   Fr,
-  Header,
   L1_TO_L2_MSG_TREE_HEIGHT,
   MAX_L2_TO_L1_MSGS_PER_TX,
   MAX_NOTE_HASHES_PER_TX,
@@ -16,6 +16,7 @@ import {
 } from '@aztec/circuits.js';
 import { makeContentCommitment, makeGlobalVariables } from '@aztec/circuits.js/testing';
 
+import { jest } from '@jest/globals';
 import { mkdtemp, rm } from 'fs/promises';
 import { tmpdir } from 'os';
 import { join } from 'path';
@@ -25,6 +26,8 @@ import { INITIAL_NULLIFIER_TREE_SIZE, INITIAL_PUBLIC_DATA_TREE_SIZE } from '../w
 import { type WorldStateStatusSummary } from './message.js';
 import { NativeWorldStateService, WORLD_STATE_VERSION_FILE } from './native_world_state.js';
 import { WorldStateVersion } from './world_state_version.js';
+
+jest.setTimeout(60_000);
 
 describe('NativeWorldState', () => {
   let dataDir: string;
@@ -44,6 +47,14 @@ describe('NativeWorldState', () => {
     let block: L2Block;
     let messages: Fr[];
 
+    const findLeafIndex = async (leaf: Fr, ws: NativeWorldStateService) => {
+      const indices = await ws.getCommitted().findLeafIndices(MerkleTreeId.NOTE_HASH_TREE, [leaf]);
+      if (indices.length === 0) {
+        return undefined;
+      }
+      return indices[0];
+    };
+
     beforeAll(async () => {
       const ws = await NativeWorldStateService.new(rollupAddress, dataDir, defaultDBMapSize);
       const fork = await ws.fork();
@@ -52,13 +63,11 @@ describe('NativeWorldState', () => {
 
       await ws.handleL2BlockAndMessages(block, messages);
       await ws.close();
-    }, 30_000);
+    });
 
     it('correctly restores committed state', async () => {
       const ws = await NativeWorldStateService.new(rollupAddress, dataDir, defaultDBMapSize);
-      await expect(
-        ws.getCommitted().findLeafIndex(MerkleTreeId.NOTE_HASH_TREE, block.body.txEffects[0].noteHashes[0]),
-      ).resolves.toBeDefined();
+      await expect(findLeafIndex(block.body.txEffects[0].noteHashes[0], ws)).resolves.toBeDefined();
       const status = await ws.getStatusSummary();
       expect(status.unfinalisedBlockNumber).toBe(1n);
       await ws.close();
@@ -68,18 +77,14 @@ describe('NativeWorldState', () => {
       // open ws against the same data dir but a different rollup
       let ws = await NativeWorldStateService.new(EthAddress.random(), dataDir, defaultDBMapSize);
       // db should be empty
-      await expect(
-        ws.getCommitted().findLeafIndex(MerkleTreeId.NOTE_HASH_TREE, block.body.txEffects[0].noteHashes[0]),
-      ).resolves.toBeUndefined();
+      await expect(findLeafIndex(block.body.txEffects[0].noteHashes[0], ws)).resolves.toBeUndefined();
 
       await ws.close();
 
       // later on, open ws against the original rollup and same data dir
       // db should be empty because we wiped all its files earlier
       ws = await NativeWorldStateService.new(rollupAddress, dataDir, defaultDBMapSize);
-      await expect(
-        ws.getCommitted().findLeafIndex(MerkleTreeId.NOTE_HASH_TREE, block.body.txEffects[0].noteHashes[0]),
-      ).resolves.toBeUndefined();
+      await expect(findLeafIndex(block.body.txEffects[0].noteHashes[0], ws)).resolves.toBeUndefined();
       const status = await ws.getStatusSummary();
       expect(status.unfinalisedBlockNumber).toBe(0n);
       await ws.close();
@@ -119,7 +124,7 @@ describe('NativeWorldState', () => {
     });
 
     it('Fails to sync further blocks if trees are out of sync', async () => {
-      // open ws against the same data dir but a different rollup
+      // open ws against the same data dir but a different rollup and with a small max db size
       const rollupAddress = EthAddress.random();
       const ws = await NativeWorldStateService.new(rollupAddress, dataDir, 1024);
       const initialFork = await ws.fork();
@@ -170,7 +175,7 @@ describe('NativeWorldState', () => {
 
     beforeEach(async () => {
       ws = await NativeWorldStateService.new(EthAddress.random(), dataDir, defaultDBMapSize);
-    });
+    }, 30_000);
 
     afterEach(async () => {
       await ws.close();
@@ -185,11 +190,12 @@ describe('NativeWorldState', () => {
 
       const stateReference = await fork.getStateReference();
       const archiveInfo = await fork.getTreeInfo(MerkleTreeId.ARCHIVE);
-      const header = new Header(
+      const header = new BlockHeader(
         new AppendOnlyTreeSnapshot(new Fr(archiveInfo.root), Number(archiveInfo.size)),
         makeContentCommitment(),
         stateReference,
         makeGlobalVariables(),
+        Fr.ZERO,
         Fr.ZERO,
       );
 
@@ -214,11 +220,12 @@ describe('NativeWorldState', () => {
       const fork = await ws.fork(3);
       const stateReference = await fork.getStateReference();
       const archiveInfo = await fork.getTreeInfo(MerkleTreeId.ARCHIVE);
-      const header = new Header(
+      const header = new BlockHeader(
         new AppendOnlyTreeSnapshot(new Fr(archiveInfo.root), Number(archiveInfo.size)),
         makeContentCommitment(),
         stateReference,
         makeGlobalVariables(),
+        Fr.ZERO,
         Fr.ZERO,
       );
 
@@ -243,7 +250,7 @@ describe('NativeWorldState', () => {
 
       const forkAtZero = await ws.fork(0);
       await compareChains(forkAtGenesis, forkAtZero);
-    }, 30_000);
+    });
   });
 
   describe('Pending and Proven chain', () => {
@@ -278,7 +285,7 @@ describe('NativeWorldState', () => {
           expect(status.summary.finalisedBlockNumber).toBe(0n);
         }
       }
-    }, 30_000);
+    });
 
     it('Can finalise multiple blocks', async () => {
       const fork = await ws.fork();
@@ -297,7 +304,7 @@ describe('NativeWorldState', () => {
       expect(status.unfinalisedBlockNumber).toBe(16n);
       expect(status.oldestHistoricalBlock).toBe(1n);
       expect(status.finalisedBlockNumber).toBe(8n);
-    }, 30_000);
+    });
 
     it('Can prune historic blocks', async () => {
       const fork = await ws.fork();
@@ -343,12 +350,14 @@ describe('NativeWorldState', () => {
       }
 
       //can't prune what has already been pruned
-      for (let i = 0; i < highestPrunedBlockNumber; i++) {
+      for (let i = 0; i <= highestPrunedBlockNumber; i++) {
         await expect(ws.removeHistoricalBlocks(BigInt(i + 1))).rejects.toThrow(
-          'Unable to remove historical block, block not found',
+          `Unable to remove historical blocks to block number ${BigInt(
+            i + 1,
+          )}, blocks not found. Current oldest block: ${highestPrunedBlockNumber + 1}`,
         );
       }
-    }, 30_000);
+    });
 
     it('Can re-org', async () => {
       const nonReorgState = await NativeWorldStateService.tmp();
@@ -448,7 +457,7 @@ describe('NativeWorldState', () => {
       }
 
       await compareChains(ws.getCommitted(), nonReorgState.getCommitted());
-    }, 30_000);
+    });
 
     it('Forks are deleted during a re-org', async () => {
       const fork = await ws.fork();
@@ -480,12 +489,114 @@ describe('NativeWorldState', () => {
           await expect(blockForks[i].getSiblingPath(MerkleTreeId.NULLIFIER_TREE, 0n)).rejects.toThrow('Fork not found');
         }
       }
-    }, 30_000);
+    });
+  });
+
+  describe('finding leaves', () => {
+    let block: L2Block;
+    let messages: Fr[];
+
+    it('retrieves leaf indices', async () => {
+      const ws = await NativeWorldStateService.new(rollupAddress, dataDir, defaultDBMapSize);
+      const numBlocks = 2;
+      const txsPerBlock = 2;
+      const noteHashes: Fr[] = [];
+      for (let i = 0; i < numBlocks; i++) {
+        const fork = await ws.fork();
+        ({ block, messages } = await mockBlock(1, txsPerBlock, fork));
+        noteHashes.push(...block.body.txEffects.flatMap(x => x.noteHashes.flatMap(x => x)));
+        await fork.close();
+        await ws.handleL2BlockAndMessages(block, messages);
+      }
+
+      const leavesToRequest: Fr[] = [
+        noteHashes[0],
+        Fr.random(),
+        noteHashes[45],
+        noteHashes[89],
+        Fr.random(),
+        noteHashes[102],
+      ];
+      const expectedIndices = [0n, undefined, 45n, 89n, undefined, 102n];
+      const indices = await ws.getCommitted().findLeafIndices(MerkleTreeId.NOTE_HASH_TREE, leavesToRequest);
+      expect(indices).toEqual(expectedIndices);
+
+      const expectedIndicesAfter = [undefined, undefined, undefined, 89n, undefined, 102n];
+      const indicesAfter = await ws
+        .getCommitted()
+        .findLeafIndicesAfter(MerkleTreeId.NOTE_HASH_TREE, leavesToRequest, 89n);
+      expect(indicesAfter).toEqual(expectedIndicesAfter);
+    });
+  });
+
+  describe('block numbers for indices', () => {
+    let block: L2Block;
+    let messages: Fr[];
+    let noteHashes: number;
+    let nullifiers: number;
+    let publicTree: number;
+
+    beforeAll(async () => {
+      await rm(dataDir, { recursive: true });
+    });
+
+    it('correctly reports block numbers', async () => {
+      const ws = await NativeWorldStateService.new(rollupAddress, dataDir, defaultDBMapSize);
+      const statuses = [];
+      const numBlocks = 2;
+      const txsPerBlock = 2;
+      for (let i = 0; i < numBlocks; i++) {
+        const fork = await ws.fork();
+        ({ block, messages } = await mockBlock(1, txsPerBlock, fork));
+        noteHashes = block.body.txEffects[0].noteHashes.length;
+        nullifiers = block.body.txEffects[0].nullifiers.length;
+        publicTree = block.body.txEffects[0].publicDataWrites.length;
+        await fork.close();
+        const status = await ws.handleL2BlockAndMessages(block, messages);
+        statuses.push(status);
+      }
+
+      const checkTree = async (
+        treeId: MerkleTreeId,
+        itemsLength: number,
+        blockNumber: number,
+        initialSize: number,
+        numPerBlock: number,
+      ) => {
+        const before = initialSize + itemsLength * blockNumber * numPerBlock - 2;
+        const on = before + 1;
+        const after = on + 1;
+        const blockNumbers = await ws.getCommitted().getBlockNumbersForLeafIndices(
+          treeId,
+          [before, on, after].map(x => BigInt(x)),
+        );
+        expect(blockNumbers).toEqual([blockNumber, blockNumber, blockNumber + 1].map(x => BigInt(x)));
+      };
+
+      for (let i = 0; i < numBlocks - 1; i++) {
+        await checkTree(MerkleTreeId.NOTE_HASH_TREE, noteHashes, i + 1, 0, 2);
+        await checkTree(MerkleTreeId.NULLIFIER_TREE, nullifiers, i + 1, 128, 2);
+        await checkTree(MerkleTreeId.PUBLIC_DATA_TREE, publicTree, i + 1, 128, 2);
+        await checkTree(MerkleTreeId.L1_TO_L2_MESSAGE_TREE, messages.length, i + 1, 0, 1);
+      }
+
+      const lastStatus = statuses[statuses.length - 1];
+      const before = Number(lastStatus.meta.noteHashTreeMeta.committedSize) - 2;
+      const blockNumbers = await ws.getCommitted().getBlockNumbersForLeafIndices(
+        MerkleTreeId.NOTE_HASH_TREE,
+        [before, before + 1, before + 2].map(x => BigInt(x)),
+      );
+      expect(blockNumbers).toEqual([2, 2, undefined].map(x => (x == undefined ? x : BigInt(x))));
+    });
   });
 
   describe('status reporting', () => {
     let block: L2Block;
     let messages: Fr[];
+
+    beforeAll(async () => {
+      await rm(dataDir, { recursive: true });
+    });
 
     it('correctly reports status', async () => {
       const ws = await NativeWorldStateService.new(rollupAddress, dataDir, defaultDBMapSize);
@@ -596,6 +707,6 @@ describe('NativeWorldState', () => {
       expect(statuses[0].dbStats.publicDataTreeStats.mapSize).toBe(mapSizeBytes);
 
       await ws.close();
-    }, 30_000);
+    });
   });
 });

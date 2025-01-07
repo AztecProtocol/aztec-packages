@@ -18,7 +18,7 @@ An in-depth explainer about accounts on aztec can be found [here](../../../aztec
 
 ## Pre-requisites
 
-Have a running Sandbox and a repository that interacts with it as explained [in the quickstart](../getting_started.md).
+Have a running Sandbox and a repository that interacts with it as explained [in the quickstart](../../getting_started.md).
 
 Let's assume you have a file `src/index.ts` from the example used in the Sandbox page.
 

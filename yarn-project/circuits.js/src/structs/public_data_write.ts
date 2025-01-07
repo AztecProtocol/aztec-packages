@@ -1,7 +1,7 @@
-import { STRING_ENCODING } from '@aztec/circuits.js';
 import { Fr } from '@aztec/foundation/fields';
 import { schemas } from '@aztec/foundation/schemas';
 import { BufferReader, FieldReader, serializeToBuffer } from '@aztec/foundation/serialize';
+import { bufferToHex, hexToBuffer } from '@aztec/foundation/string';
 import { type FieldsOf } from '@aztec/foundation/types';
 
 import { z } from 'zod';
@@ -55,11 +55,11 @@ export class PublicDataWrite {
   }
 
   static fromString(str: string) {
-    return PublicDataWrite.fromBuffer(Buffer.from(str, STRING_ENCODING));
+    return PublicDataWrite.fromBuffer(hexToBuffer(str));
   }
 
   toString() {
-    return this.toBuffer().toString(STRING_ENCODING);
+    return bufferToHex(this.toBuffer());
   }
 
   static empty() {

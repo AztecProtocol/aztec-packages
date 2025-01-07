@@ -13,7 +13,13 @@ import { initContext, initPersistableStateManager } from '../fixtures/index.js';
 import { type AvmPersistableStateManager } from '../journal/journal.js';
 import { encodeToBytecode } from '../serialization/bytecode_serialization.js';
 import { Opcode } from '../serialization/instruction_serialization.js';
-import { mockGetBytecode, mockGetContractClass, mockGetContractInstance, mockTraceFork } from '../test_utils.js';
+import {
+  mockGetBytecode,
+  mockGetContractClass,
+  mockGetContractInstance,
+  mockNullifierExists,
+  mockTraceFork,
+} from '../test_utils.js';
 import { EnvironmentVariable, GetEnvVar } from './environment_getters.js';
 import { Call, Return, Revert, StaticCall } from './external_calls.js';
 import { type Instruction } from './instruction.js';
@@ -107,9 +113,9 @@ describe('External Calls', () => {
 
       const otherContextInstructionsBytecode = markBytecodeAsAvm(
         encodeToBytecode([
-          new Set(/*indirect=*/ 0, TypeTag.UINT32, 0, /*dstOffset=*/ 0).as(Opcode.SET_8, Set.wireFormat8),
-          new Set(/*indirect=*/ 0, TypeTag.UINT32, argsSize, /*dstOffset=*/ 1).as(Opcode.SET_8, Set.wireFormat8),
-          new Set(/*indirect=*/ 0, TypeTag.UINT32, 2, /*dstOffset=*/ 2).as(Opcode.SET_8, Set.wireFormat8),
+          new Set(/*indirect=*/ 0, /*dstOffset=*/ 0, TypeTag.UINT32, 0).as(Opcode.SET_8, Set.wireFormat8),
+          new Set(/*indirect=*/ 0, /*dstOffset=*/ 1, TypeTag.UINT32, argsSize).as(Opcode.SET_8, Set.wireFormat8),
+          new Set(/*indirect=*/ 0, /*dstOffset=*/ 2, TypeTag.UINT32, 2).as(Opcode.SET_8, Set.wireFormat8),
           new CalldataCopy(/*indirect=*/ 0, /*csOffsetAddress=*/ 0, /*copySizeOffset=*/ 1, /*dstOffset=*/ 3),
           new Return(/*indirect=*/ 0, /*retOffset=*/ 3, /*sizeOffset=*/ 2),
         ]),
@@ -123,6 +129,7 @@ describe('External Calls', () => {
       mockGetContractClass(worldStateDB, contractClass);
       const contractInstance = makeContractInstanceFromClassId(contractClass.id);
       mockGetContractInstance(worldStateDB, contractInstance);
+      mockNullifierExists(worldStateDB, contractInstance.address.toField());
 
       const { l2GasLeft: initialL2Gas, daGasLeft: initialDaGas } = context.machineState;
 
@@ -157,15 +164,16 @@ describe('External Calls', () => {
 
       const otherContextInstructionsBytecode = markBytecodeAsAvm(
         encodeToBytecode([
-          new GetEnvVar(/*indirect=*/ 0, /*envVar=*/ EnvironmentVariable.L2GASLEFT, /*dstOffset=*/ 0).as(
+          new GetEnvVar(/*indirect=*/ 0, /*dstOffset=*/ 0, /*envVar=*/ EnvironmentVariable.L2GASLEFT).as(
             Opcode.GETENVVAR_16,
             GetEnvVar.wireFormat16,
           ),
-          new Set(/*indirect=*/ 0, TypeTag.UINT32, 1, /*dstOffset=*/ 1).as(Opcode.SET_8, Set.wireFormat8),
+          new Set(/*indirect=*/ 0, /*dstOffset=*/ 1, TypeTag.UINT32, 1).as(Opcode.SET_8, Set.wireFormat8),
           new Return(/*indirect=*/ 0, /*retOffset=*/ 0, /*size=*/ 1),
         ]),
       );
       mockGetBytecode(worldStateDB, otherContextInstructionsBytecode);
+      mockNullifierExists(worldStateDB, addr);
 
       const contractClass = makeContractClassPublic(0, {
         bytecode: otherContextInstructionsBytecode,
@@ -174,6 +182,7 @@ describe('External Calls', () => {
       mockGetContractClass(worldStateDB, contractClass);
       const contractInstance = makeContractInstanceFromClassId(contractClass.id);
       mockGetContractInstance(worldStateDB, contractInstance);
+      mockNullifierExists(worldStateDB, contractInstance.address.toField());
 
       const { l2GasLeft: initialL2Gas, daGasLeft: initialDaGas } = context.machineState;
 
@@ -251,6 +260,7 @@ describe('External Calls', () => {
 
       const otherContextInstructionsBytecode = markBytecodeAsAvm(encodeToBytecode(otherContextInstructions));
       mockGetBytecode(worldStateDB, otherContextInstructionsBytecode);
+      mockNullifierExists(worldStateDB, addr.toFr());
 
       const contractClass = makeContractClassPublic(0, {
         bytecode: otherContextInstructionsBytecode,

@@ -1,7 +1,8 @@
-import { ProverNodeApiSchema, ProvingJobSourceSchema, createAztecNodeClient } from '@aztec/circuit-types';
+import { P2PApiSchema, ProverNodeApiSchema, type ProvingJobBroker, createAztecNodeClient } from '@aztec/circuit-types';
 import { NULL_KEY } from '@aztec/ethereum';
 import { type NamespacedApiHandlers } from '@aztec/foundation/json-rpc/server';
 import { type LogFn } from '@aztec/foundation/log';
+import { ProvingJobConsumerSchema, createProvingJobBrokerClient } from '@aztec/prover-client/broker';
 import {
   type ProverNodeConfig,
   createProverNode,
@@ -13,6 +14,7 @@ import { createAndStartTelemetryClient, telemetryClientConfigMappings } from '@a
 import { mnemonicToAccount } from 'viem/accounts';
 
 import { extractRelevantOptions } from '../util.js';
+import { startProverBroker } from './start_prover_broker.js';
 
 export async function startProverNode(
   options: any,
@@ -33,14 +35,6 @@ export async function startProverNode(
   if (!options.archiver && !proverConfig.archiverUrl) {
     userLog('--archiver.archiverUrl is required to start a Prover Node without --archiver option');
     process.exit(1);
-  }
-
-  if (options.prover || options.proverAgentEnabled) {
-    userLog(`Running prover node with local prover agent.`);
-    proverConfig.proverAgentEnabled = true;
-  } else {
-    userLog(`Running prover node without local prover agent. Connect one or more prover agents to this node.`);
-    proverConfig.proverAgentEnabled = false;
   }
 
   if (!proverConfig.publisherPrivateKey || proverConfig.publisherPrivateKey === NULL_KEY) {
@@ -67,16 +61,36 @@ export async function startProverNode(
   const telemetry = await createAndStartTelemetryClient(
     extractRelevantOptions(options, telemetryClientConfigMappings, 'tel'),
   );
-  const proverNode = await createProverNode(proverConfig, { telemetry });
 
+  let broker: ProvingJobBroker;
+  if (proverConfig.proverBrokerUrl) {
+    broker = createProvingJobBrokerClient(proverConfig.proverBrokerUrl);
+  } else if (options.proverBroker) {
+    broker = await startProverBroker(options, signalHandlers, services, userLog);
+  } else {
+    userLog(`--prover-broker-url or --prover-broker is required to start a Prover Node`);
+    process.exit(1);
+  }
+
+  if (proverConfig.proverAgentCount === 0) {
+    userLog(
+      `Running prover node without local prover agent. Connect one or more prover agents to this node or pass --proverAgent.proverAgentCount`,
+    );
+  }
+
+  const proverNode = await createProverNode(proverConfig, { telemetry, broker });
   services.proverNode = [proverNode, ProverNodeApiSchema];
 
-  if (!options.prover) {
-    services.provingJobSource = [proverNode.getProver().getProvingJobSource(), ProvingJobSourceSchema];
+  const p2p = proverNode.getP2P();
+  if (p2p) {
+    services.p2p = [proverNode.getP2P(), P2PApiSchema];
+  }
+
+  if (!proverConfig.proverBrokerUrl) {
+    services.provingJobSource = [proverNode.getProver().getProvingJobSource(), ProvingJobConsumerSchema];
   }
 
   signalHandlers.push(proverNode.stop.bind(proverNode));
 
-  // Automatically start proving unproven blocks
   await proverNode.start();
 }

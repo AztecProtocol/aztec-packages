@@ -1,10 +1,13 @@
 import {
   type ClientProtocolCircuitVerifier,
   type L2BlockSource,
+  type P2PClientType,
   type Tx,
   type WorldStateSynchronizer,
 } from '@aztec/circuit-types';
+import { type EpochCache } from '@aztec/epoch-cache';
 import { type DataStoreConfig } from '@aztec/kv-store/config';
+import { openTmpStore } from '@aztec/kv-store/lmdb';
 import { type TelemetryClient } from '@aztec/telemetry-client';
 import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
 
@@ -14,6 +17,7 @@ import { yamux } from '@chainsafe/libp2p-yamux';
 import { bootstrap } from '@libp2p/bootstrap';
 import { identify } from '@libp2p/identify';
 import { type PeerId } from '@libp2p/interface';
+import { createSecp256k1PeerId } from '@libp2p/peer-id-factory';
 import { tcp } from '@libp2p/tcp';
 import getPort from 'get-port';
 import { type Libp2p, type Libp2pOptions, createLibp2p } from 'libp2p';
@@ -21,11 +25,11 @@ import { type Libp2p, type Libp2pOptions, createLibp2p } from 'libp2p';
 import { BootstrapNode } from '../bootstrap/bootstrap.js';
 import { type BootnodeConfig, type P2PConfig } from '../config.js';
 import { type MemPools } from '../mem_pools/interface.js';
-import { DiscV5Service } from '../service/discV5_service.js';
-import { LibP2PService, createLibP2PPeerId } from '../service/libp2p_service.js';
-import { type PeerManager } from '../service/peer_manager.js';
-import { type P2PReqRespConfig } from '../service/reqresp/config.js';
-import { pingHandler, statusHandler } from '../service/reqresp/handlers.js';
+import { DiscV5Service } from '../services/discv5/discV5_service.js';
+import { LibP2PService } from '../services/libp2p/libp2p_service.js';
+import { type PeerManager } from '../services/peer_manager.js';
+import { type P2PReqRespConfig } from '../services/reqresp/config.js';
+import { pingHandler, statusHandler } from '../services/reqresp/handlers.js';
 import {
   PING_PROTOCOL,
   type ReqRespSubProtocolHandlers,
@@ -33,8 +37,8 @@ import {
   STATUS_PROTOCOL,
   TX_REQ_PROTOCOL,
   noopValidator,
-} from '../service/reqresp/interface.js';
-import { ReqResp } from '../service/reqresp/reqresp.js';
+} from '../services/reqresp/interface.js';
+import { ReqResp } from '../services/reqresp/reqresp.js';
 import { type PubSubLibp2p } from '../util.js';
 
 /**
@@ -93,16 +97,18 @@ export async function createLibp2pNode(
  *
  *
  */
-export async function createTestLibP2PService(
+export async function createTestLibP2PService<T extends P2PClientType>(
+  clientType: T,
   boostrapAddrs: string[] = [],
   l2BlockSource: L2BlockSource,
   worldStateSynchronizer: WorldStateSynchronizer,
-  mempools: MemPools,
+  epochCache: EpochCache,
+  mempools: MemPools<T>,
   telemetry: TelemetryClient,
   port: number = 0,
   peerId?: PeerId,
 ) {
-  peerId = peerId ?? (await createLibP2PPeerId());
+  peerId = peerId ?? (await createSecp256k1PeerId());
   const config = {
     tcpAnnounceAddress: `127.0.0.1:${port}`,
     udpAnnounceAddress: `127.0.0.1:${port}`,
@@ -121,12 +127,14 @@ export async function createTestLibP2PService(
   // No bootstrap nodes provided as the libp2p service will register them in the constructor
   const p2pNode = await createLibp2pNode([], peerId, port, /*enable gossip */ true, /**start */ false);
 
-  return new LibP2PService(
+  return new LibP2PService<T>(
+    clientType,
     config,
     p2pNode as PubSubLibp2p,
     discoveryService,
     mempools,
     l2BlockSource,
+    epochCache,
     proofVerifier,
     worldStateSynchronizer,
     telemetry,
@@ -146,7 +154,7 @@ export type ReqRespNode = {
 export const MOCK_SUB_PROTOCOL_HANDLERS: ReqRespSubProtocolHandlers = {
   [PING_PROTOCOL]: pingHandler,
   [STATUS_PROTOCOL]: statusHandler,
-  [TX_REQ_PROTOCOL]: (_msg: any) => Promise.resolve(Uint8Array.from(Buffer.from('tx'))),
+  [TX_REQ_PROTOCOL]: (_msg: any) => Promise.resolve(Buffer.from('tx')),
 };
 
 // By default, all requests are valid
@@ -231,6 +239,8 @@ export function createBootstrapNodeConfig(privateKey: string, port: number): Boo
     peerIdPrivateKey: privateKey,
     minPeerCount: 10,
     maxPeerCount: 100,
+    dataDirectory: undefined,
+    dataStoreMapSizeKB: 0,
   };
 }
 
@@ -247,14 +257,16 @@ export async function createBootstrapNode(
   port: number,
   telemetry: TelemetryClient = new NoopTelemetryClient(),
 ): Promise<BootstrapNode> {
-  const peerId = await createLibP2PPeerId();
+  const peerId = await createSecp256k1PeerId();
   const config = createBootstrapNodeConfig(Buffer.from(peerId.privateKey!).toString('hex'), port);
 
   return startBootstrapNode(config, telemetry);
 }
 
 async function startBootstrapNode(config: BootnodeConfig, telemetry: TelemetryClient) {
-  const bootstrapNode = new BootstrapNode(telemetry);
+  // Open an ephemeral store that will only exist in memory
+  const store = openTmpStore(true);
+  const bootstrapNode = new BootstrapNode(store, telemetry);
   await bootstrapNode.start(config);
   return bootstrapNode;
 }

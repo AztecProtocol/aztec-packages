@@ -1,3 +1,4 @@
+mod test;
 use dep::aztec::macros::aztec;
 
 #[aztec]
@@ -7,7 +8,7 @@ contract EasyPrivateVoting {
         keys::getters::get_public_keys,
         macros::{functions::{initializer, internal, private, public}, storage::storage},
     };
-    use dep::aztec::prelude::{AztecAddress, Map, PublicMutable, SharedImmutable};
+    use dep::aztec::prelude::{AztecAddress, Map, PublicImmutable, PublicMutable};
     // docs:end:imports
     // docs:start:storage_struct
     #[storage]
@@ -15,7 +16,7 @@ contract EasyPrivateVoting {
         admin: PublicMutable<AztecAddress, Context>, // admin can end vote
         tally: Map<Field, PublicMutable<Field, Context>, Context>, // we will store candidate as key and number of votes as value
         vote_ended: PublicMutable<bool, Context>, // vote_ended is boolean
-        active_at_block: SharedImmutable<u32, Context>, // when people can start voting
+        active_at_block: PublicImmutable<u32, Context>, // when people can start voting
     }
     // docs:end:storage_struct
 

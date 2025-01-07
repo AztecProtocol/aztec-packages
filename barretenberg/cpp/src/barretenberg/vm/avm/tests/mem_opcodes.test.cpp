@@ -1,6 +1,7 @@
 #include "barretenberg/vm/avm/tests/helpers.test.hpp"
 #include "barretenberg/vm/avm/trace/common.hpp"
 #include "barretenberg/vm/avm/trace/mem_trace.hpp"
+#include "barretenberg/vm/avm/trace/public_inputs.hpp"
 #include "common.test.hpp"
 #include "gtest/gtest.h"
 #include <cstddef>
@@ -21,10 +22,10 @@ class AvmMemOpcodeTests : public ::testing::Test {
         , trace_builder(
               AvmTraceBuilder(public_inputs).set_full_precomputed_tables(false).set_range_check_required(false))
     {
-        srs::init_crs_factory("../srs_db/ignition");
+        srs::init_crs_factory(bb::srs::get_ignition_crs_path());
     }
 
-    VmPublicInputsNT public_inputs;
+    AvmPublicInputs public_inputs;
     AvmTraceBuilder trace_builder;
 
   protected:

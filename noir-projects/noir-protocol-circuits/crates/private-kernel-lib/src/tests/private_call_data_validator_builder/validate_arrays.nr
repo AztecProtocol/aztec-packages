@@ -1,11 +1,14 @@
 use crate::tests::private_call_data_validator_builder::PrivateCallDataValidatorBuilder;
+use dep::types::traits::Empty;
 
-fn unshift_empty_item<T, let N: u32>(vec: &mut BoundedVec<T, N>) {
-    let len = vec.len();
-    let empty_item = vec.storage[len];
+fn unshift_empty_item<T, let N: u32>(vec: &mut BoundedVec<T, N>)
+where
+    T: Empty,
+{
+    let empty_item = T::empty();
     let first_item = vec.get(0);
     vec.push(first_item);
-    vec.storage[0] = empty_item;
+    vec.set(0, empty_item);
 }
 
 #[test(should_fail_with = "invalid array")]
@@ -91,21 +94,11 @@ fn validate_arrays_malformed_public_call_stack_fails() {
 }
 
 #[test(should_fail_with = "invalid array")]
-fn validate_arrays_malformed_note_encrypted_logs_hashes() {
+fn validate_arrays_malformed_private_logs() {
     let mut builder = PrivateCallDataValidatorBuilder::new();
 
-    builder.private_call.append_note_encrypted_log_hashes(1);
-    unshift_empty_item(&mut builder.private_call.note_encrypted_logs_hashes);
-
-    builder.validate();
-}
-
-#[test(should_fail_with = "invalid array")]
-fn validate_arrays_malformed_encrypted_logs_hashes_fails() {
-    let mut builder = PrivateCallDataValidatorBuilder::new();
-
-    builder.private_call.append_encrypted_log_hashes(1);
-    unshift_empty_item(&mut builder.private_call.encrypted_logs_hashes);
+    builder.private_call.append_private_logs(1);
+    unshift_empty_item(&mut builder.private_call.private_logs);
 
     builder.validate();
 }

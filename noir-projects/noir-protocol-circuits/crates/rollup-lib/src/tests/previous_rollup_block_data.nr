@@ -17,8 +17,10 @@ pub fn default_previous_rollup_block_data() -> [PreviousRollupBlockData; 2] {
     previous_rollup_data[0].block_root_or_block_merge_public_inputs.vk_tree_root = vk_tree_root;
     previous_rollup_data[1].block_root_or_block_merge_public_inputs.vk_tree_root = vk_tree_root;
 
-    previous_rollup_data[0].vk = fixtures::vk_tree::generate_fake_honk_vk_for_index(vk_index);
-    previous_rollup_data[1].vk = fixtures::vk_tree::generate_fake_honk_vk_for_index(vk_index);
+    previous_rollup_data[0].vk =
+        fixtures::vk_tree::generate_fake_rollup_honk_vk_for_index(vk_index);
+    previous_rollup_data[1].vk =
+        fixtures::vk_tree::generate_fake_rollup_honk_vk_for_index(vk_index);
 
     previous_rollup_data[0].vk_witness =
         MembershipWitness { leaf_index: vk_index as Field, sibling_path: vk_path };
@@ -54,6 +56,11 @@ pub fn default_previous_rollup_block_data() -> [PreviousRollupBlockData; 2] {
 
     previous_rollup_data[0].block_root_or_block_merge_public_inputs.fees[0].value = 10;
     previous_rollup_data[1].block_root_or_block_merge_public_inputs.fees[0].value = 15;
+
+    previous_rollup_data[0].block_root_or_block_merge_public_inputs.blob_public_inputs[0].inner[0].z =
+        1;
+    previous_rollup_data[1].block_root_or_block_merge_public_inputs.blob_public_inputs[0].inner[0].z =
+        2;
 
     previous_rollup_data
 }

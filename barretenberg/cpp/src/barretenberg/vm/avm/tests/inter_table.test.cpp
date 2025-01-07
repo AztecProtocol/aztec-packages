@@ -1,6 +1,7 @@
 #include "barretenberg/vm/avm/tests/helpers.test.hpp"
 #include "barretenberg/vm/avm/trace/common.hpp"
 #include "barretenberg/vm/avm/trace/mem_trace.hpp"
+#include "barretenberg/vm/avm/trace/public_inputs.hpp"
 #include "common.test.hpp"
 #include <cstddef>
 #include <gtest/gtest.h>
@@ -18,10 +19,10 @@ class AvmInterTableTests : public ::testing::Test {
         : public_inputs(generate_base_public_inputs())
         , trace_builder(AvmTraceBuilder(public_inputs))
     {
-        srs::init_crs_factory("../srs_db/ignition");
+        srs::init_crs_factory(bb::srs::get_ignition_crs_path());
     }
 
-    VmPublicInputsNT public_inputs;
+    AvmPublicInputs public_inputs;
     AvmTraceBuilder trace_builder;
 };
 

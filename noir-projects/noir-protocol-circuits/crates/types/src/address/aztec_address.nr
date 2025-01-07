@@ -12,17 +12,14 @@ use crate::{
     merkle_tree::membership::MembershipWitness,
     public_keys::{IvpkM, NpkM, OvpkM, PublicKeys, TpkM},
     traits::{Deserialize, Empty, FromField, Serialize, ToField},
-    utils,
 };
 
 // We do below because `use crate::point::Point;` does not work
 use dep::std::embedded_curve_ops::EmbeddedCurvePoint as Point;
 
 use crate::public_keys::AddressPoint;
-use std::{
-    ec::{pow, sqrt},
-    embedded_curve_ops::{EmbeddedCurveScalar, fixed_base_scalar_mul as derive_public_key},
-};
+use ec::{pow, sqrt};
+use std::embedded_curve_ops::{EmbeddedCurveScalar, fixed_base_scalar_mul as derive_public_key};
 
 // Aztec address
 pub struct AztecAddress {
@@ -150,11 +147,6 @@ impl AztecAddress {
     pub fn assert_is_zero(self) {
         assert(self.to_field() == 0);
     }
-
-    pub fn conditional_assign(predicate: bool, lhs: Self, rhs: Self) -> Self {
-        let result = utils::conditional_assign(predicate, rhs.to_field(), lhs.to_field());
-        Self { inner: result }
-    }
 }
 
 #[test]
@@ -201,6 +193,14 @@ fn compute_address_from_partial_and_pub_keys() {
     let expected_computed_address_from_partial_and_pubkeys =
         0x24e4646f58b9fbe7d38e317db8d5636c423fbbdfbe119fc190fe9c64747e0c62;
     assert(address.to_field() == expected_computed_address_from_partial_and_pubkeys);
+}
+
+#[test]
+fn compute_preaddress_from_partial_and_pub_keys() {
+    let pre_address = poseidon2_hash_with_separator([1, 2], GENERATOR_INDEX__CONTRACT_ADDRESS_V1);
+    let expected_computed_preaddress_from_partial_and_pubkey =
+        0x23ce9be3fa3c846b0f9245cc796902e731d04f086e8a42473bb29e405fc98075;
+    assert(pre_address == expected_computed_preaddress_from_partial_and_pubkey);
 }
 
 #[test]

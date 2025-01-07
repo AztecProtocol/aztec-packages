@@ -5,6 +5,7 @@
 #include "barretenberg/circuit_checker/circuit_checker.hpp"
 #include "barretenberg/common/log.hpp"
 #include "barretenberg/goblin/mock_circuits.hpp"
+#include "barretenberg/plonk_honk_shared/relation_checker.hpp"
 #include "barretenberg/stdlib_circuit_builders/mega_circuit_builder.hpp"
 #include "barretenberg/stdlib_circuit_builders/ultra_circuit_builder.hpp"
 #include "barretenberg/ultra_honk/merge_prover.hpp"
@@ -20,7 +21,7 @@ using FlavorTypes = ::testing::Types<MegaFlavor, MegaZKFlavor>;
 
 template <typename Flavor> class MegaHonkTests : public ::testing::Test {
   public:
-    static void SetUpTestSuite() { bb::srs::init_crs_factory("../srs_db/ignition"); }
+    static void SetUpTestSuite() { bb::srs::init_crs_factory(bb::srs::get_ignition_crs_path()); }
 
     using Curve = curve::BN254;
     using FF = Curve::ScalarField;
@@ -126,6 +127,56 @@ TYPED_TEST(MegaHonkTests, BasicStructured)
     Verifier verifier(verification_key);
     auto proof = prover.construct_proof();
     EXPECT_TRUE(verifier.verify_proof(proof));
+}
+
+/**
+ * @brief Test that increasing the virtual size of a valid set of prover polynomials still results in a valid Megahonk
+ * proof
+ *
+ */
+TYPED_TEST(MegaHonkTests, DynamicVirtualSizeIncrease)
+{
+    using Flavor = TypeParam;
+    typename Flavor::CircuitBuilder builder;
+    using Prover = UltraProver_<Flavor>;
+    using Verifier = UltraVerifier_<Flavor>;
+
+    GoblinMockCircuits::construct_simple_circuit(builder);
+
+    auto builder_copy = builder;
+
+    // Construct and verify Honk proof using a structured trace
+    TraceSettings trace_settings{ SMALL_TEST_STRUCTURE_FOR_OVERFLOWS };
+    auto proving_key = std::make_shared<DeciderProvingKey_<Flavor>>(builder, trace_settings);
+    auto proving_key_copy = std::make_shared<DeciderProvingKey_<Flavor>>(builder_copy, trace_settings);
+    auto circuit_size = proving_key->proving_key.circuit_size;
+
+    auto doubled_circuit_size = 2 * circuit_size;
+    proving_key_copy->proving_key.polynomials.increase_polynomials_virtual_size(doubled_circuit_size);
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1158)
+    // proving_key_copy->proving_key.circuit_size = doubled_circuit_size;
+
+    Prover prover(proving_key);
+    auto verification_key = std::make_shared<typename Flavor::VerificationKey>(proving_key->proving_key);
+
+    Prover prover_copy(proving_key_copy);
+    auto verification_key_copy = std::make_shared<typename Flavor::VerificationKey>(proving_key_copy->proving_key);
+
+    for (auto [entry, entry_copy] : zip_view(verification_key->get_all(), verification_key_copy->get_all())) {
+        EXPECT_EQ(entry, entry_copy);
+    }
+
+    Verifier verifier(verification_key);
+    auto proof = prover.construct_proof();
+
+    RelationChecker<Flavor>::check_all(proving_key->proving_key.polynomials, proving_key->relation_parameters);
+    EXPECT_TRUE(verifier.verify_proof(proof));
+
+    Verifier verifier_copy(verification_key_copy);
+    auto proof_copy = prover_copy.construct_proof();
+
+    RelationChecker<Flavor>::check_all(proving_key->proving_key.polynomials, proving_key->relation_parameters);
+    EXPECT_TRUE(verifier_copy.verify_proof(proof_copy));
 }
 
 /**
@@ -312,5 +363,51 @@ TYPED_TEST(MegaHonkTests, StructuredTraceOverflow)
 
         // We expect that the circuit has overflowed the provided structured trace
         EXPECT_TRUE(builder.blocks.has_overflow);
+    }
+}
+
+/**
+ * @brief A sanity check that a simple std::swap on a ProverPolynomials object works as expected
+ * @details Constuct two valid proving keys. Tamper with the prover_polynomials of one key then swap the
+ * prover_polynomials of the two keys. The key who received the tampered polys leads to a failed verification while the
+ * other succeeds.
+ *
+ */
+TYPED_TEST(MegaHonkTests, PolySwap)
+{
+    using Flavor = TypeParam;
+    using Builder = Flavor::CircuitBuilder;
+
+    TraceSettings trace_settings{ SMALL_TEST_STRUCTURE_FOR_OVERFLOWS };
+
+    // Construct a simple circuit and make a copy of it
+    Builder builder;
+    GoblinMockCircuits::construct_simple_circuit(builder);
+    auto builder_copy = builder;
+
+    // Construct two identical proving keys
+    auto proving_key_1 = std::make_shared<typename TestFixture::DeciderProvingKey>(builder, trace_settings);
+    auto proving_key_2 = std::make_shared<typename TestFixture::DeciderProvingKey>(builder_copy, trace_settings);
+
+    // Tamper with the polys of pkey 1 in such a way that verification should fail
+    proving_key_1->proving_key.polynomials.w_l.at(5) = 10;
+
+    // Swap the polys of the two proving keys; result should be pkey 1 is valid and pkey 2 should fail
+    std::swap(proving_key_1->proving_key.polynomials, proving_key_2->proving_key.polynomials);
+
+    { // Verification based on pkey 1 should succeed
+        typename TestFixture::Prover prover(proving_key_1);
+        auto verification_key = std::make_shared<typename TestFixture::VerificationKey>(proving_key_1->proving_key);
+        typename TestFixture::Verifier verifier(verification_key);
+        auto proof = prover.construct_proof();
+        EXPECT_TRUE(verifier.verify_proof(proof));
+    }
+
+    { // Verification based on pkey 2 should fail
+        typename TestFixture::Prover prover(proving_key_2);
+        auto verification_key = std::make_shared<typename TestFixture::VerificationKey>(proving_key_2->proving_key);
+        typename TestFixture::Verifier verifier(verification_key);
+        auto proof = prover.construct_proof();
+        EXPECT_FALSE(verifier.verify_proof(proof));
     }
 }

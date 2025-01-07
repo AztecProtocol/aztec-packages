@@ -10,7 +10,8 @@ LABELS=$(echo $2 | sed 's/-/_/g')
 
 # Function to parse YAML and extract test names
 get_test_names() {
-  yq e '.tests | keys | .[]' yarn-project/end-to-end/scripts/e2e_test_config.yml
+  # prover full is ran standalone
+  yq e '.tests | keys | .[]' yarn-project/end-to-end/scripts/e2e_test_config.yml | grep -v e2e_prover_full
 }
 
 # Read the full list from the YAML file
@@ -20,6 +21,7 @@ full_list=$(get_test_names)
 allow_list=(
   "e2e_2_pxes"
   "e2e_authwit"
+  "e2e_amm"
   "e2e_avm_simulator"
   "e2e_block_building"
   "e2e_cross_chain_messaging"
@@ -39,6 +41,7 @@ allow_list=(
   "e2e_prover_fake_proofs"
   "e2e_prover_coordination"
   "e2e_lending_contract"
+  "e2e_p2p_gossip"
   "kind_network_smoke"
   "guides_dapp_testing"
   "guides_sample_dapp"

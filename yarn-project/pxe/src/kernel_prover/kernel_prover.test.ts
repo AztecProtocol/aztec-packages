@@ -74,8 +74,6 @@ describe('Kernel Prover', () => {
       [],
       PublicExecutionRequest.empty(),
       [],
-      [],
-      [],
     );
   };
 
@@ -110,12 +108,6 @@ describe('Kernel Prover', () => {
       outputWitness: new Map(),
       verificationKey: VerificationKeyAsFields.makeEmpty(CLIENT_IVC_VERIFICATION_KEY_LENGTH_IN_FIELDS),
       bytecode: Buffer.from([]),
-    };
-  };
-
-  const computeAppCircuitVerificationKeyOutput = () => {
-    return {
-      verificationKey: VerificationKeyAsFields.makeEmpty(CLIENT_IVC_VERIFICATION_KEY_LENGTH_IN_FIELDS),
     };
   };
 
@@ -159,7 +151,6 @@ describe('Kernel Prover', () => {
     proofCreator.simulateProofInner.mockResolvedValue(simulateProofOutput([]));
     proofCreator.simulateProofReset.mockResolvedValue(simulateProofOutput([]));
     proofCreator.simulateProofTail.mockResolvedValue(simulateProofOutputFinal([]));
-    proofCreator.computeAppCircuitVerificationKey.mockResolvedValue(computeAppCircuitVerificationKeyOutput());
 
     prover = new KernelProver(oracle, proofCreator);
   });

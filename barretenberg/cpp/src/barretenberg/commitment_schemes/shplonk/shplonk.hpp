@@ -2,6 +2,7 @@
 #include "barretenberg/commitment_schemes/claim.hpp"
 #include "barretenberg/commitment_schemes/commitment_key.hpp"
 #include "barretenberg/commitment_schemes/verification_key.hpp"
+#include "barretenberg/stdlib/primitives/curves/bn254.hpp"
 #include "barretenberg/transcript/transcript.hpp"
 
 /**
@@ -44,6 +45,13 @@ template <typename Curve> class ShplonkProver_ {
     {
         // Find n, the maximum size of all polynomials fⱼ(X)
         size_t max_poly_size{ 0 };
+
+        if (!libra_opening_claims.empty()) {
+            // Max size of the polynomials in Libra opening claims is Curve::SUBGROUP_SIZE*2 + 2; we round it up to the
+            // next power of 2
+            const size_t log_subgroup_size = static_cast<size_t>(numeric::get_msb(Curve::SUBGROUP_SIZE));
+            max_poly_size = 1 << (log_subgroup_size + 1);
+        };
         for (const auto& claim : opening_claims) {
             max_poly_size = std::max(max_poly_size, claim.polynomial.size());
         }
@@ -224,7 +232,9 @@ template <typename Curve> class ShplonkVerifier_ {
         //  [G] = [Q] - ∑ⱼ (1/zⱼ(r))[Bⱼ]  + ( ∑ⱼ (1/zⱼ(r)) Tⱼ(r) )[1]
         //      = [Q] - ∑ⱼ (1/zⱼ(r))[Bⱼ]  +                    G₀ [1]
         // G₀ = ∑ⱼ ρʲ ⋅ vⱼ / (z − xⱼ )
-        auto G_commitment_constant = Fr(0);
+        Fr G_commitment_constant(0);
+
+        Fr evaluation(0);
 
         // TODO(#673): The recursive and non-recursive (native) logic is completely separated via the following
         // conditional. Much of the logic could be shared, but I've chosen to do it this way since soon the "else"
@@ -274,6 +284,8 @@ template <typename Curve> class ShplonkVerifier_ {
             // [G] += G₀⋅[1] = [G] + (∑ⱼ νʲ ⋅ vⱼ / (z − xⱼ ))⋅[1]
             G_commitment = GroupElement::batch_mul(commitments, scalars);
 
+            // Set evaluation to constant witness
+            evaluation.convert_constant_to_fixed_witness(z_challenge.get_context());
         } else {
             // [G] = [Q] - ∑ⱼ νʲ / (z − xⱼ )⋅[fⱼ] + G₀⋅[1]
             //     = [Q] - [∑ⱼ νʲ ⋅ ( fⱼ(X) − vⱼ) / (z − xⱼ )]
@@ -309,7 +321,7 @@ template <typename Curve> class ShplonkVerifier_ {
         }
 
         // Return opening pair (z, 0) and commitment [G]
-        return { { z_challenge, Fr(0) }, G_commitment };
+        return { { z_challenge, evaluation }, G_commitment };
     };
     /**
      * @brief Computes \f$ \frac{1}{z - r}, \frac{1}{z+r}, \ldots, \frac{1}{z+r^{2^{d-1}}} \f$.

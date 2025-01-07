@@ -17,9 +17,9 @@
     "clean": "rm -rf ./dest .tsbuildinfo",
     "formatting": "run -T prettier --check ./src && run -T eslint ./src",
     "formatting:fix": "run -T eslint --fix ./src && run -T prettier -w ./src",
-    "test": "NODE_NO_WARNINGS=1 node --experimental-vm-modules ../node_modules/.bin/jest --passWithNoTests",
-    "dev": "DEBUG='aztec:*,-aztec:avm_simulator:*' LOG_LEVEL=debug node ./dest/bin/index.js",
-    "start": "node ./dest/bin/index.js"
+    "test": "HARDWARE_CONCURRENCY=${HARDWARE_CONCURRENCY:-16} RAYON_NUM_THREADS=${RAYON_NUM_THREADS:-4} NODE_NO_WARNINGS=1 node --experimental-vm-modules ../node_modules/.bin/jest --passWithNoTests --maxWorkers=${JEST_MAX_WORKERS:-8}",
+    "dev": "LOG_LEVEL=debug node ./dest/bin/index.js",
+    "start": "node --no-warnings ./dest/bin/index.js"
   },
   "inherits": [
     "../package.common.json"
@@ -51,17 +51,15 @@
       ".ts"
     ],
     "reporters": [
-      [
-        "default",
-        {
-          "summaryThreshold": 9999
-        }
-      ]
+      "default"
+    ],
+    "testTimeout": 30000,
+    "setupFiles": [
+      "../../foundation/src/jest/setup.mjs"
     ]
   },
   "dependencies": {
     "@aztec/accounts": "workspace:^",
-    "@aztec/archiver": "workspace:^",
     "@aztec/aztec.js": "workspace:^",
     "@aztec/circuit-types": "workspace:^",
     "@aztec/circuits.js": "workspace:^",

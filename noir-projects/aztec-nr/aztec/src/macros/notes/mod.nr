@@ -1,5 +1,5 @@
 use crate::{
-    encrypted_logs::payload::PRIVATE_LOG_OVERHEAD_IN_BYTES,
+    encrypted_logs::payload::OVERHEAD_SIZE,
     note::{note_getter_options::PropertySelector, note_header::NoteHeader},
     prelude::Point,
 };
@@ -10,7 +10,7 @@ use std::{
     meta::{typ::fresh_type_variable, type_of, unquote},
 };
 
-comptime global NOTE_HEADER_TYPE = type_of(NoteHeader::empty());
+comptime global NOTE_HEADER_TYPE: Type = type_of(NoteHeader::empty());
 
 /// A map from note type to (note_struct_definition, serialized_note_length, note_type_id, fields).
 /// `fields` is an array of tuples where each tuple contains the name of the field/struct member (e.g. `amount`
@@ -22,7 +22,7 @@ pub comptime mut global NOTES: UHashMap<Type, (StructDefinition, u32, Field, [(Q
 /// Computes a note type id by hashing a note name (e.g. `TokenNote`), getting the first 4 bytes of the hash
 /// and returning it as a `Field`.
 comptime fn compute_note_type_id(name: Quoted) -> Field {
-    let name_as_str_quote = name.as_str_quote();
+    let (name_as_str_quote, _) = name.as_str_quote();
 
     unquote!(
         quote {
@@ -267,7 +267,7 @@ pub(crate) comptime fn generate_note_export(
     let hash = hasher.finish() as u32;
     let global_export_name = f"{name}_{hash}_EXPORTS".quoted_contents();
     let note_fields_name = f"{name}Fields_{hash}".quoted_contents();
-    let note_name_as_str = name.as_str_quote();
+    let (note_name_as_str, _) = name.as_str_quote();
     let note_name_str_len = unquote!(quote { $note_name_as_str.as_bytes().len() });
 
     let mut note_fields = &[];
@@ -392,12 +392,9 @@ comptime fn generate_multi_scalar_mul(
 ///     }
 ///
 ///     fn encrypt_log(self, context: &mut PrivateContext, recipient_keys: aztec::protocol_types::public_keys::PublicKeys, recipient: aztec::protocol_types::address::AztecAddress) -> [Field; 17] {
-///         let ovsk_app: Field  = context.request_ovsk_app(recipient_keys.ovpk_m.hash());
 ///
 ///         let encrypted_log_bytes: [u8; 513] = aztec::encrypted_logs::payload::compute_partial_public_log_payload(
 ///             context.this_address(),
-///             ovsk_app,
-///             recipient_keys.ovpk_m,
 ///             recipient,
 ///             self.log_plaintext
 ///         );
@@ -438,12 +435,13 @@ comptime fn generate_setup_payload(
         get_setup_log_plaintext_body(s, log_plaintext_length, indexed_nullable_fields);
 
     // Then we compute values for `encrypt_log(...)` function
-    let encrypted_log_byte_length = PRIVATE_LOG_OVERHEAD_IN_BYTES
+    let encrypted_log_byte_length = 32 /* tag */
+        + OVERHEAD_SIZE
         + log_plaintext_length /* log_plaintext */
-        + 1 /* log_plaintext_length */
-        + 15 /* AES padding */;
+        + 2 /* log_plaintext_length */
+        + 14 /* AES padding */;
     // Each field contains 31 bytes so the length in fields is computed as ceil(encrypted_log_byte_length / 31)
-    // --> we achieve rouding by adding 30 and then dividing without remainder
+    // --> we achieve rounding by adding 30 and then dividing without remainder
     let encrypted_log_field_length = (encrypted_log_byte_length + 30) / 31;
 
     (
@@ -468,13 +466,9 @@ comptime fn generate_setup_payload(
                 }
             }
 
-            pub fn encrypt_log(self, context: &mut PrivateContext, ovpk: aztec::protocol_types::public_keys::OvpkM, recipient: aztec::protocol_types::address::AztecAddress, sender: aztec::protocol_types::address::AztecAddress) -> [Field; $encrypted_log_field_length] {
-                let ovsk_app: Field  = context.request_ovsk_app(ovpk.hash());
-
+            pub fn encrypt_log(self, context: &mut PrivateContext, recipient: aztec::protocol_types::address::AztecAddress, sender: aztec::protocol_types::address::AztecAddress) -> [Field; $encrypted_log_field_length] {
                 let encrypted_log_bytes: [u8; $encrypted_log_byte_length] = aztec::encrypted_logs::payload::compute_partial_public_log_payload(
                     context.this_address(),
-                    ovsk_app,
-                    ovpk,
                     recipient,
                     sender,
                     self.log_plaintext,
@@ -661,12 +655,13 @@ comptime fn generate_finalization_payload(
 
     // Then we compute values for `encrypt_log(...)` function
     let setup_log_plaintext_length = indexed_fixed_fields.len() * 32 + 64;
-    let setup_log_byte_length = PRIVATE_LOG_OVERHEAD_IN_BYTES
+    let setup_log_byte_length = 32 /* tag */
+        + OVERHEAD_SIZE
         + setup_log_plaintext_length
-        + 1 /* log_plaintext_length */
-        + 15 /* AES padding */;
+        + 2 /* log_plaintext_length */
+        + 14 /* AES padding */;
     // Each field contains 31 bytes so the length in fields is computed as ceil(setup_log_byte_length / 31)
-    // --> we achieve rouding by adding 30 and then dividing without remainder
+    // --> we achieve rounding by adding 30 and then dividing without remainder
     let setup_log_field_length = (setup_log_byte_length + 30) / 31;
     let public_values_field_length = public_values_length * 32;
     let finalization_log_byte_length =

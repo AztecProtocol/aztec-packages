@@ -1,9 +1,8 @@
-use crate::note::{note_header::NoteHeader, note_interface::NoteInterface};
+use crate::{note::{note_header::NoteHeader, note_interface::NoteInterface}, utils::array};
 
 use dep::protocol_types::{
     address::AztecAddress,
     indexed_tagging_secret::{INDEXED_TAGGING_SECRET_LENGTH, IndexedTaggingSecret},
-    utils::arr_copy_slice,
 };
 
 /// Notifies the simulator that a note has been created, so that it can be returned in future read requests in the same
@@ -181,12 +180,14 @@ where
             let return_header_length: u32 = 2; // num_notes & contract_address.
             let extra_preimage_length: u32 = 2; // nonce & note_hash_counter.
             let read_offset: u32 = return_header_length + i * (N + extra_preimage_length);
+
             let nonce = fields[read_offset];
             let note_hash_counter = fields[read_offset + 1] as u32;
-            let header = NoteHeader { contract_address, nonce, storage_slot, note_hash_counter };
-            let serialized_note = arr_copy_slice(fields, [0; N], read_offset + 2);
-            let mut note = Note::deserialize_content(serialized_note);
-            note.set_header(header);
+            let note_content = array::subarray(fields, read_offset + 2);
+
+            let mut note = Note::deserialize_content(note_content);
+            note.set_header(NoteHeader { contract_address, nonce, storage_slot, note_hash_counter });
+
             placeholder_opt_notes[i] = Option::some(note);
         };
     }
@@ -204,30 +205,25 @@ pub unconstrained fn check_nullifier_exists(inner_nullifier: Field) -> bool {
 #[oracle(checkNullifierExists)]
 unconstrained fn check_nullifier_exists_oracle(_inner_nullifier: Field) -> Field {}
 
-/// Same as `get_app_tagging_secret_as_sender`, except it returns the derived tag as an array of bytes, ready to be included in a
-/// log.
-pub unconstrained fn get_app_tag_bytes_as_sender(
-    sender: AztecAddress,
-    recipient: AztecAddress,
-) -> [u8; 32] {
-    let tag = get_app_tagging_secret_as_sender(sender, recipient).compute_tag(recipient);
-    tag.to_be_bytes()
+/// Same as `get_indexed_tagging_secret_as_sender`, except it returns the derived tag, ready to be included in a log.
+pub unconstrained fn get_app_tag_as_sender(sender: AztecAddress, recipient: AztecAddress) -> Field {
+    get_indexed_tagging_secret_as_sender(sender, recipient).compute_tag(recipient)
 }
 
 /// Returns the tagging secret for a given sender and recipient pair, siloed for the current contract address.
 /// Includes the last known index used to send a note tagged with this secret.
-/// For this to work, PXE must know the ivpsk_m of the sender.
+/// For this to work, PXE must know the ivsk_m of the sender.
 /// For the recipient's side, only the address is needed.
-pub unconstrained fn get_app_tagging_secret_as_sender(
+pub unconstrained fn get_indexed_tagging_secret_as_sender(
     sender: AztecAddress,
     recipient: AztecAddress,
 ) -> IndexedTaggingSecret {
-    let result = get_app_tagging_secret_as_sender_oracle(sender, recipient);
+    let result = get_indexed_tagging_secret_as_sender_oracle(sender, recipient);
     IndexedTaggingSecret::deserialize(result)
 }
 
-#[oracle(getAppTaggingSecretAsSender)]
-unconstrained fn get_app_tagging_secret_as_sender_oracle(
+#[oracle(getIndexedTaggingSecretAsSender)]
+unconstrained fn get_indexed_tagging_secret_as_sender_oracle(
     _sender: AztecAddress,
     _recipient: AztecAddress,
 ) -> [Field; INDEXED_TAGGING_SECRET_LENGTH] {}

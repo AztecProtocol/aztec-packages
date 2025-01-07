@@ -6,8 +6,9 @@ import {
   numberConfigHelper,
   pickConfigMappings,
 } from '@aztec/foundation/config';
+import { type DataStoreConfig, dataConfigMappings } from '@aztec/kv-store/config';
 
-import { type P2PReqRespConfig, p2pReqRespConfigMappings } from './service/reqresp/config.js';
+import { type P2PReqRespConfig, p2pReqRespConfigMappings } from './services/reqresp/config.js';
 
 /**
  * P2P client configuration values.
@@ -91,6 +92,9 @@ export interface P2PConfig extends P2PReqRespConfig {
   /** How many blocks have to pass after a block is proven before its txs are deleted (zero to delete immediately once proven) */
   keepProvenTxsInPoolFor: number;
 
+  /** How many slots to keep attestations for. */
+  keepAttestationsInPoolFor: number;
+
   /**
    * The interval of the gossipsub heartbeat to perform maintenance tasks.
    */
@@ -166,7 +170,7 @@ export const p2pConfigMappings: ConfigMappingsType<P2PConfig> = {
   peerCheckIntervalMS: {
     env: 'P2P_PEER_CHECK_INTERVAL_MS',
     description: 'The frequency in which to check for new peers.',
-    ...numberConfigHelper(1_000),
+    ...numberConfigHelper(30_000),
   },
   l2QueueSize: {
     env: 'P2P_L2_QUEUE_SIZE',
@@ -228,6 +232,11 @@ export const p2pConfigMappings: ConfigMappingsType<P2PConfig> = {
     description:
       'How many blocks have to pass after a block is proven before its txs are deleted (zero to delete immediately once proven)',
     ...numberConfigHelper(0),
+  },
+  keepAttestationsInPoolFor: {
+    env: 'P2P_ATTESTATION_POOL_KEEP_FOR',
+    description: 'How many slots to keep attestations for.',
+    ...numberConfigHelper(96),
   },
   gossipsubInterval: {
     env: 'P2P_GOSSIPSUB_INTERVAL_MS',
@@ -318,7 +327,8 @@ export type BootnodeConfig = Pick<
   P2PConfig,
   'udpAnnounceAddress' | 'peerIdPrivateKey' | 'minPeerCount' | 'maxPeerCount'
 > &
-  Required<Pick<P2PConfig, 'udpListenAddress'>>;
+  Required<Pick<P2PConfig, 'udpListenAddress'>> &
+  Pick<DataStoreConfig, 'dataDirectory' | 'dataStoreMapSizeKB'>;
 
 const bootnodeConfigKeys: (keyof BootnodeConfig)[] = [
   'udpAnnounceAddress',
@@ -326,6 +336,11 @@ const bootnodeConfigKeys: (keyof BootnodeConfig)[] = [
   'minPeerCount',
   'maxPeerCount',
   'udpListenAddress',
+  'dataDirectory',
+  'dataStoreMapSizeKB',
 ];
 
-export const bootnodeConfigMappings = pickConfigMappings(p2pConfigMappings, bootnodeConfigKeys);
+export const bootnodeConfigMappings = pickConfigMappings(
+  { ...p2pConfigMappings, ...dataConfigMappings },
+  bootnodeConfigKeys,
+);

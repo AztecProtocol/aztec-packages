@@ -37,7 +37,7 @@ import {
 import { makeTuple } from '@aztec/foundation/array';
 import { padArrayEnd } from '@aztec/foundation/collection';
 import { type Tuple, assertLength } from '@aztec/foundation/serialize';
-import { privateKernelResetDimensionsConfig } from '@aztec/noir-protocol-circuits-types';
+import { privateKernelResetDimensionsConfig } from '@aztec/noir-protocol-circuits-types/client';
 
 import { type ProvingDataOracle } from '../proving_data_oracle.js';
 
@@ -57,7 +57,7 @@ function getNullifierMembershipWitnessResolver(oracle: ProvingDataOracle) {
   return async (nullifier: Fr) => {
     const res = await oracle.getNullifierMembershipWitness(nullifier);
     if (!res) {
-      throw new Error(`Cannot find the leaf for nullifier ${nullifier.toBigInt()}.`);
+      throw new Error(`Cannot find the leaf for nullifier ${nullifier}.`);
     }
 
     const { index, siblingPath, leafPreimage } = res;
@@ -131,7 +131,7 @@ export class PrivateKernelResetPrivateInputsBuilder {
     } else {
       // Siloing is only needed after processing all iterations.
       fns.push(
-        ...[() => this.needsSiloNoteHashes(), () => this.needsSiloNullifiers(), () => this.needsSiloLogHashes()],
+        ...[() => this.needsSiloNoteHashes(), () => this.needsSiloNullifiers(), () => this.needsSiloPrivateLogs()],
       );
       // If there's no next iteration, reset is needed when any of the dimension has non empty data.
       // All the fns should to be executed so that data in all dimensions will be reset.
@@ -447,24 +447,22 @@ export class PrivateKernelResetPrivateInputsBuilder {
     return numToSilo > 0;
   }
 
-  private needsSiloLogHashes() {
+  private needsSiloPrivateLogs() {
     if (this.numTransientData === undefined) {
-      throw new Error('`needsResetTransientData` must be run before `needsSiloLogHashes`.');
+      throw new Error('`needsResetTransientData` must be run before `needsSiloPrivateLogs`.');
     }
 
-    const numLogs = this.previousKernel.end.encryptedLogsHashes.filter(l => !l.logHash.randomness.isZero()).length;
-    const numToSilo = Math.max(0, numLogs - this.numTransientData);
-    // The reset circuit checks that capped_size must be greater than or equal to all non-empty logs.
-    // Since there is no current config with ENCRYPTED_LOG_SILOING_AMOUNT = 0 (only 1+), it defaults to 1,
-    // so the circuit fails when we have more than 1 log and require no siloing.
-    const numLogsNoSiloing = this.previousKernel.end.encryptedLogsHashes.filter(
-      l => !l.logHash.isEmpty() && l.logHash.randomness.isZero(),
-    ).length;
-    const cappedSize = !numToSilo && numLogsNoSiloing > 1 ? numLogsNoSiloing : numToSilo;
-    // NB: This is a little flimsy, and only works because we have either ENCRYPTED_LOG_SILOING_AMOUNT=1 or 8.
-    // e.g. if we have 2 logs that need siloing, and 2 that dont, then numLogs = ENCRYPTED_LOG_SILOING_AMOUNT = 2
-    // This would fail because the circuit thinks that cappedSize = 2, but we have 4 logs.
-    this.requestedDimensions.ENCRYPTED_LOG_SILOING_AMOUNT = cappedSize;
+    const privateLogs = this.previousKernel.end.privateLogs;
+    const numLogs = privateLogs.filter(l => !l.contractAddress.isZero()).length;
+
+    const noteHashes = this.previousKernel.end.noteHashes;
+    const squashedNoteHashCounters = this.transientDataIndexHints
+      .filter(h => h.noteHashIndex < noteHashes.length)
+      .map(h => noteHashes[h.noteHashIndex].counter);
+    const numSquashedLogs = privateLogs.filter(l => squashedNoteHashCounters.includes(l.inner.noteHashCounter)).length;
+
+    const numToSilo = numLogs - numSquashedLogs;
+    this.requestedDimensions.PRIVATE_LOG_SILOING_AMOUNT = numToSilo;
 
     return numToSilo > 0;
   }

@@ -37,14 +37,6 @@ export class TxContext {
       .transform(TxContext.from);
   }
 
-  toJSON() {
-    return {
-      chainId: this.chainId,
-      version: this.version,
-      gasSettings: this.gasSettings,
-    };
-  }
-
   getSize() {
     return this.chainId.size + this.version.size + this.gasSettings.getSize();
   }

@@ -52,7 +52,7 @@ export class TxScopedL2Log {
         dataStartIndexForTx: z.number(),
         blockNumber: z.number(),
         isFromPublic: z.boolean(),
-        logData: schemas.BufferB64,
+        logData: schemas.Buffer,
       })
       .transform(
         ({ txHash, dataStartIndexForTx, blockNumber, isFromPublic, logData }) =>
@@ -73,7 +73,7 @@ export class TxScopedL2Log {
   static fromBuffer(buffer: Buffer) {
     const reader = BufferReader.asReader(buffer);
     return new TxScopedL2Log(
-      TxHash.fromField(reader.readObject(Fr)),
+      reader.readObject(TxHash),
       reader.readNumber(),
       reader.readNumber(),
       reader.readBoolean(),

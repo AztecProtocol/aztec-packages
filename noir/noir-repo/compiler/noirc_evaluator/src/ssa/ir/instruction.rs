@@ -1,4 +1,3 @@
-use noirc_errors::Location;
 use serde::{Deserialize, Serialize};
 use std::hash::{Hash, Hasher};
 
@@ -11,17 +10,19 @@ use fxhash::FxHasher64;
 use iter_extended::vecmap;
 use noirc_frontend::hir_def::types::Type as HirType;
 
-use crate::ssa::opt::flatten_cfg::value_merger::ValueMerger;
+use crate::ssa::{ir::function::RuntimeType, opt::flatten_cfg::value_merger::ValueMerger};
 
 use super::{
     basic_block::BasicBlockId,
-    dfg::{CallStack, DataFlowGraph},
+    call_stack::CallStackId,
+    dfg::DataFlowGraph,
+    function::Function,
     map::Id,
     types::{NumericType, Type},
     value::{Value, ValueId},
 };
 
-mod binary;
+pub(crate) mod binary;
 mod call;
 mod cast;
 mod constrain;
@@ -42,10 +43,9 @@ pub(crate) type InstructionId = Id<Instruction>;
 /// These are similar to built-ins in other languages.
 /// These can be classified under two categories:
 /// - Opcodes which the IR knows the target machine has
-/// special support for. (LowLevel)
+///   special support for. (LowLevel)
 /// - Opcodes which have no function definition in the
-/// source code and must be processed by the IR. An example
-/// of this is println.
+///   source code and must be processed by the IR.
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub(crate) enum Intrinsic {
     ArrayLen,
@@ -64,12 +64,13 @@ pub(crate) enum Intrinsic {
     ToBits(Endian),
     ToRadix(Endian),
     BlackBox(BlackBoxFunc),
-    FromField,
-    AsField,
+    Hint(Hint),
     AsWitness,
     IsUnconstrained,
     DerivePedersenGenerators,
     FieldLessThan,
+    ArrayRefCount,
+    SliceRefCount,
 }
 
 impl std::fmt::Display for Intrinsic {
@@ -93,12 +94,13 @@ impl std::fmt::Display for Intrinsic {
             Intrinsic::ToRadix(Endian::Big) => write!(f, "to_be_radix"),
             Intrinsic::ToRadix(Endian::Little) => write!(f, "to_le_radix"),
             Intrinsic::BlackBox(function) => write!(f, "{function}"),
-            Intrinsic::FromField => write!(f, "from_field"),
-            Intrinsic::AsField => write!(f, "as_field"),
+            Intrinsic::Hint(Hint::BlackBox) => write!(f, "black_box"),
             Intrinsic::AsWitness => write!(f, "as_witness"),
             Intrinsic::IsUnconstrained => write!(f, "is_unconstrained"),
             Intrinsic::DerivePedersenGenerators => write!(f, "derive_pedersen_generators"),
             Intrinsic::FieldLessThan => write!(f, "field_less_than"),
+            Intrinsic::ArrayRefCount => write!(f, "array_refcount"),
+            Intrinsic::SliceRefCount => write!(f, "slice_refcount"),
         }
     }
 }
@@ -107,11 +109,18 @@ impl Intrinsic {
     /// Returns whether the `Intrinsic` has side effects.
     ///
     /// If there are no side effects then the `Intrinsic` can be removed if the result is unused.
+    ///
+    /// An example of a side effect is increasing the reference count of an array, but functions
+    /// which can fail due to implicit constraints are also considered to have a side effect.
     pub(crate) fn has_side_effects(&self) -> bool {
         match self {
             Intrinsic::AssertConstant
             | Intrinsic::StaticAssert
             | Intrinsic::ApplyRangeConstraint
+            // Array & slice ref counts are treated as having side effects since they operate
+            // on hidden variables on otherwise identical array values.
+            | Intrinsic::ArrayRefCount
+            | Intrinsic::SliceRefCount
             | Intrinsic::AsWitness => true,
 
             // These apply a constraint that the input must fit into a specified number of limbs.
@@ -127,11 +136,12 @@ impl Intrinsic {
             | Intrinsic::SlicePushFront
             | Intrinsic::SliceInsert
             | Intrinsic::StrAsBytes
-            | Intrinsic::FromField
-            | Intrinsic::AsField
             | Intrinsic::IsUnconstrained
             | Intrinsic::DerivePedersenGenerators
             | Intrinsic::FieldLessThan => false,
+
+            // Treat the black_box hint as-if it could potentially have side effects.
+            Intrinsic::Hint(Hint::BlackBox) => true,
 
             // Some black box functions have side-effects
             Intrinsic::BlackBox(func) => matches!(
@@ -140,6 +150,39 @@ impl Intrinsic {
                     | BlackBoxFunc::MultiScalarMul
                     | BlackBoxFunc::EmbeddedCurveAdd
             ),
+        }
+    }
+
+    /// Intrinsics which only have a side effect due to the chance that
+    /// they can fail a constraint can be deduplicated.
+    pub(crate) fn can_be_deduplicated(&self, deduplicate_with_predicate: bool) -> bool {
+        match self {
+            // These apply a constraint in the form of ACIR opcodes, but they can be deduplicated
+            // if the inputs are the same. If they depend on a side effect variable (e.g. because
+            // they were in an if-then-else) then `handle_instruction_side_effects` in `flatten_cfg`
+            // will have attached the condition variable to their inputs directly, so they don't
+            // directly depend on the corresponding `enable_side_effect` instruction any more.
+            // However, to conform with the expectations of `Instruction::can_be_deduplicated` and
+            // `constant_folding` we only use this information if the caller shows interest in it.
+            Intrinsic::ToBits(_)
+            | Intrinsic::ToRadix(_)
+            | Intrinsic::BlackBox(
+                BlackBoxFunc::MultiScalarMul
+                | BlackBoxFunc::EmbeddedCurveAdd
+                | BlackBoxFunc::RecursiveAggregation,
+            ) => deduplicate_with_predicate,
+
+            // Operations that remove items from a slice don't modify the slice, they just assert it's non-empty.
+            Intrinsic::SlicePopBack | Intrinsic::SlicePopFront | Intrinsic::SliceRemove => {
+                deduplicate_with_predicate
+            }
+
+            Intrinsic::AssertConstant
+            | Intrinsic::StaticAssert
+            | Intrinsic::ApplyRangeConstraint
+            | Intrinsic::AsWitness => deduplicate_with_predicate,
+
+            _ => !self.has_side_effects(),
         }
     }
 
@@ -164,12 +207,13 @@ impl Intrinsic {
             "to_be_radix" => Some(Intrinsic::ToRadix(Endian::Big)),
             "to_le_bits" => Some(Intrinsic::ToBits(Endian::Little)),
             "to_be_bits" => Some(Intrinsic::ToBits(Endian::Big)),
-            "from_field" => Some(Intrinsic::FromField),
-            "as_field" => Some(Intrinsic::AsField),
             "as_witness" => Some(Intrinsic::AsWitness),
             "is_unconstrained" => Some(Intrinsic::IsUnconstrained),
             "derive_pedersen_generators" => Some(Intrinsic::DerivePedersenGenerators),
             "field_less_than" => Some(Intrinsic::FieldLessThan),
+            "black_box" => Some(Intrinsic::Hint(Hint::BlackBox)),
+            "array_refcount" => Some(Intrinsic::ArrayRefCount),
+            "slice_refcount" => Some(Intrinsic::SliceRefCount),
 
             other => BlackBoxFunc::lookup(other).map(Intrinsic::BlackBox),
         }
@@ -183,6 +227,16 @@ pub(crate) enum Endian {
     Little,
 }
 
+/// Compiler hints.
+#[derive(Clone, Copy, Debug, Hash, PartialEq, Eq, Serialize, Deserialize)]
+pub(crate) enum Hint {
+    /// Hint to the compiler to treat the call as having potential side effects,
+    /// so that the value passed to it can survive SSA passes without being
+    /// simplified out completely. This facilitates testing and reproducing
+    /// runtime behavior with constants.
+    BlackBox,
+}
+
 #[derive(Debug, PartialEq, Eq, Hash, Clone, Serialize, Deserialize)]
 /// Instructions are used to perform tasks.
 /// The instructions that the IR is able to specify are listed below.
@@ -190,8 +244,8 @@ pub(crate) enum Instruction {
     /// Binary Operations like +, -, *, /, ==, !=
     Binary(Binary),
 
-    /// Converts `Value` into Typ
-    Cast(ValueId, Type),
+    /// Converts `Value` into the given NumericType
+    Cast(ValueId, NumericType),
 
     /// Computes a bit wise not
     Not(ValueId),
@@ -234,7 +288,7 @@ pub(crate) enum Instruction {
     /// - `code1` will have side effects iff `condition1` evaluates to `true`
     ///
     /// This instruction is only emitted after the cfg flattening pass, and is used to annotate
-    /// instruction regions with an condition that corresponds to their position in the CFG's
+    /// instruction regions with a condition that corresponds to their position in the CFG's
     /// if-branching structure.
     EnableSideEffectsIf { condition: ValueId },
 
@@ -269,9 +323,6 @@ pub(crate) enum Instruction {
     ///     else_value
     /// }
     /// ```
-    ///
-    /// Where we save the result of !then_condition so that we have the same
-    /// ValueId for it each time.
     IfElse {
         then_condition: ValueId,
         then_value: ValueId,
@@ -284,6 +335,14 @@ pub(crate) enum Instruction {
     /// `typ` should be an array or slice type with an element type
     /// matching each of the `elements` values' types.
     MakeArray { elements: im::Vector<ValueId>, typ: Type },
+
+    /// A No-op instruction. These are intended to replace other instructions in a block's
+    /// instructions vector without having to move each instruction afterward.
+    ///
+    /// A No-op has no results and is always removed when Instruction::simplify is called.
+    /// When replacing another instruction, the instruction's results should always be mapped to a
+    /// new value since they will not be able to refer to their original instruction value any more.
+    Noop,
 }
 
 impl Instruction {
@@ -296,9 +355,8 @@ impl Instruction {
     pub(crate) fn result_type(&self) -> InstructionResultType {
         match self {
             Instruction::Binary(binary) => binary.result_type(),
-            Instruction::Cast(_, typ) | Instruction::MakeArray { typ, .. } => {
-                InstructionResultType::Known(typ.clone())
-            }
+            Instruction::Cast(_, typ) => InstructionResultType::Known(Type::Numeric(*typ)),
+            Instruction::MakeArray { typ, .. } => InstructionResultType::Known(typ.clone()),
             Instruction::Not(value)
             | Instruction::Truncate { value, .. }
             | Instruction::ArraySet { array: value, .. }
@@ -310,6 +368,7 @@ impl Instruction {
             | Instruction::IncrementRc { .. }
             | Instruction::DecrementRc { .. }
             | Instruction::RangeCheck { .. }
+            | Instruction::Noop
             | Instruction::EnableSideEffectsIf { .. } => InstructionResultType::None,
             Instruction::Allocate { .. }
             | Instruction::Load { .. }
@@ -324,13 +383,69 @@ impl Instruction {
         matches!(self.result_type(), InstructionResultType::Unknown)
     }
 
+    /// Indicates if the instruction has a side effect, ie. it can fail, or it interacts with memory.
+    ///
+    /// This is similar to `can_be_deduplicated`, but it doesn't depend on whether the caller takes
+    /// constraints into account, because it might not use it to isolate the side effects across branches.
+    pub(crate) fn has_side_effects(&self, dfg: &DataFlowGraph) -> bool {
+        use Instruction::*;
+
+        match self {
+            // These either have side-effects or interact with memory
+            EnableSideEffectsIf { .. }
+            | Allocate
+            | Load { .. }
+            | Store { .. }
+            | IncrementRc { .. }
+            | DecrementRc { .. } => true,
+
+            Call { func, .. } => match dfg[*func] {
+                Value::Intrinsic(intrinsic) => intrinsic.has_side_effects(),
+                _ => true, // Be conservative and assume other functions can have side effects.
+            },
+
+            // These can fail.
+            Constrain(..) | RangeCheck { .. } => true,
+
+            // This should never be side-effectful
+            MakeArray { .. } | Noop => false,
+
+            // Some binary math can overflow or underflow
+            Binary(binary) => match binary.operator {
+                BinaryOp::Add | BinaryOp::Sub | BinaryOp::Mul | BinaryOp::Div | BinaryOp::Mod => {
+                    true
+                }
+                BinaryOp::Eq
+                | BinaryOp::Lt
+                | BinaryOp::And
+                | BinaryOp::Or
+                | BinaryOp::Xor
+                | BinaryOp::Shl
+                | BinaryOp::Shr => false,
+            },
+
+            // These can have different behavior depending on the EnableSideEffectsIf context.
+            Cast(_, _)
+            | Not(_)
+            | Truncate { .. }
+            | IfElse { .. }
+            | ArrayGet { .. }
+            | ArraySet { .. } => self.requires_acir_gen_predicate(dfg),
+        }
+    }
+
     /// Indicates if the instruction can be safely replaced with the results of another instruction with the same inputs.
     /// If `deduplicate_with_predicate` is set, we assume we're deduplicating with the instruction
     /// and its predicate, rather than just the instruction. Setting this means instructions that
     /// rely on predicates can be deduplicated as well.
+    ///
+    /// Some instructions get the predicate attached to their inputs by `handle_instruction_side_effects` in `flatten_cfg`.
+    /// These can be deduplicated because they implicitly depend on the predicate, not only when the caller uses the
+    /// predicate variable as a key to cache results. However, to avoid tight coupling between passes, we make the deduplication
+    /// conditional on whether the caller wants the predicate to be taken into account or not.
     pub(crate) fn can_be_deduplicated(
         &self,
-        dfg: &DataFlowGraph,
+        function: &Function,
         deduplicate_with_predicate: bool,
     ) -> bool {
         use Instruction::*;
@@ -344,16 +459,25 @@ impl Instruction {
             | IncrementRc { .. }
             | DecrementRc { .. } => false,
 
-            Call { func, .. } => match dfg[*func] {
-                Value::Intrinsic(intrinsic) => !intrinsic.has_side_effects(),
+            Call { func, .. } => match function.dfg[*func] {
+                Value::Intrinsic(intrinsic) => {
+                    intrinsic.can_be_deduplicated(deduplicate_with_predicate)
+                }
                 _ => false,
             },
 
             // We can deduplicate these instructions if we know the predicate is also the same.
             Constrain(..) | RangeCheck { .. } => deduplicate_with_predicate,
 
-            // This should never be side-effectful
-            MakeArray { .. } => true,
+            // Noop instructions can always be deduplicated, although they're more likely to be
+            // removed entirely.
+            Noop => true,
+
+            // Arrays can be mutated in unconstrained code so code that handles this case must
+            // take care to track whether the array was possibly mutated or not before
+            // deduplicating. Since we don't know if the containing pass checks for this, we
+            // can only assume these are safe to deduplicate in constrained code.
+            MakeArray { .. } => function.runtime().is_acir(),
 
             // These can have different behavior depending on the EnableSideEffectsIf context.
             // Replacing them with a similar instruction potentially enables replacing an instruction
@@ -366,17 +490,17 @@ impl Instruction {
             | IfElse { .. }
             | ArrayGet { .. }
             | ArraySet { .. } => {
-                deduplicate_with_predicate || !self.requires_acir_gen_predicate(dfg)
+                deduplicate_with_predicate || !self.requires_acir_gen_predicate(&function.dfg)
             }
         }
     }
 
-    pub(crate) fn can_eliminate_if_unused(&self, dfg: &DataFlowGraph) -> bool {
+    pub(crate) fn can_eliminate_if_unused(&self, function: &Function) -> bool {
         use Instruction::*;
         match self {
             Binary(binary) => {
                 if matches!(binary.operator, BinaryOp::Div | BinaryOp::Mod) {
-                    if let Some(rhs) = dfg.get_numeric_constant(binary.rhs) {
+                    if let Some(rhs) = function.dfg.get_numeric_constant(binary.rhs) {
                         rhs != FieldElement::zero()
                     } else {
                         false
@@ -393,20 +517,33 @@ impl Instruction {
             | ArrayGet { .. }
             | IfElse { .. }
             | ArraySet { .. }
+            | Noop
             | MakeArray { .. } => true,
 
+            // Store instructions must be removed by DIE in acir code, any load
+            // instructions should already be unused by that point.
+            //
+            // Note that this check assumes that it is being performed after the flattening
+            // pass and after the last mem2reg pass. This is currently the case for the DIE
+            // pass where this check is done, but does mean that we cannot perform mem2reg
+            // after the DIE pass.
+            Store { .. } => {
+                matches!(function.runtime(), RuntimeType::Acir(_))
+                    && function.reachable_blocks().len() == 1
+            }
+
             Constrain(..)
-            | Store { .. }
             | EnableSideEffectsIf { .. }
             | IncrementRc { .. }
             | DecrementRc { .. }
             | RangeCheck { .. } => false,
 
             // Some `Intrinsic`s have side effects so we must check what kind of `Call` this is.
-            Call { func, .. } => match dfg[*func] {
+            Call { func, .. } => match function.dfg[*func] {
                 // Explicitly allows removal of unused ec operations, even if they can fail
                 Value::Intrinsic(Intrinsic::BlackBox(BlackBoxFunc::MultiScalarMul))
                 | Value::Intrinsic(Intrinsic::BlackBox(BlackBoxFunc::EmbeddedCurveAdd)) => true,
+
                 Value::Intrinsic(intrinsic) => !intrinsic.has_side_effects(),
 
                 // All foreign functions are treated as having side effects.
@@ -422,13 +559,28 @@ impl Instruction {
         }
     }
 
-    /// If true the instruction will depends on enable_side_effects context during acir-gen
+    /// If true the instruction will depend on `enable_side_effects` context during acir-gen.
     pub(crate) fn requires_acir_gen_predicate(&self, dfg: &DataFlowGraph) -> bool {
         match self {
-            Instruction::Binary(binary)
-                if matches!(binary.operator, BinaryOp::Div | BinaryOp::Mod) =>
-            {
-                true
+            Instruction::Binary(binary) => {
+                match binary.operator {
+                    BinaryOp::Add
+                    | BinaryOp::Sub
+                    | BinaryOp::Mul
+                    | BinaryOp::Div
+                    | BinaryOp::Mod => {
+                        // Some binary math can overflow or underflow, but this is only the case
+                        // for unsigned types (here we assume the type of binary.lhs is the same)
+                        dfg.type_of_value(binary.rhs).is_unsigned()
+                    }
+                    BinaryOp::Eq
+                    | BinaryOp::Lt
+                    | BinaryOp::And
+                    | BinaryOp::Or
+                    | BinaryOp::Xor
+                    | BinaryOp::Shl
+                    | BinaryOp::Shr => false,
+                }
             }
 
             Instruction::ArrayGet { array, index } => {
@@ -446,7 +598,6 @@ impl Instruction {
                 _ => false,
             },
             Instruction::Cast(_, _)
-            | Instruction::Binary(_)
             | Instruction::Not(_)
             | Instruction::Truncate { .. }
             | Instruction::Constrain(_, _, _)
@@ -457,6 +608,7 @@ impl Instruction {
             | Instruction::IfElse { .. }
             | Instruction::IncrementRc { .. }
             | Instruction::DecrementRc { .. }
+            | Instruction::Noop
             | Instruction::MakeArray { .. } => false,
         }
     }
@@ -471,7 +623,7 @@ impl Instruction {
                 rhs: f(binary.rhs),
                 operator: binary.operator,
             }),
-            Instruction::Cast(value, typ) => Instruction::Cast(f(*value), typ.clone()),
+            Instruction::Cast(value, typ) => Instruction::Cast(f(*value), *typ),
             Instruction::Not(value) => Instruction::Not(f(*value)),
             Instruction::Truncate { value, bit_size, max_bit_size } => Instruction::Truncate {
                 value: f(*value),
@@ -536,6 +688,72 @@ impl Instruction {
                 elements: elements.iter().copied().map(f).collect(),
                 typ: typ.clone(),
             },
+            Instruction::Noop => Instruction::Noop,
+        }
+    }
+
+    /// Maps each ValueId inside this instruction to a new ValueId in place.
+    pub(crate) fn map_values_mut(&mut self, mut f: impl FnMut(ValueId) -> ValueId) {
+        match self {
+            Instruction::Binary(binary) => {
+                binary.lhs = f(binary.lhs);
+                binary.rhs = f(binary.rhs);
+            }
+            Instruction::Cast(value, _) => *value = f(*value),
+            Instruction::Not(value) => *value = f(*value),
+            Instruction::Truncate { value, bit_size: _, max_bit_size: _ } => {
+                *value = f(*value);
+            }
+            Instruction::Constrain(lhs, rhs, assert_message) => {
+                *lhs = f(*lhs);
+                *rhs = f(*rhs);
+                if let Some(ConstrainError::Dynamic(_, _, payload_values)) = assert_message {
+                    for value in payload_values {
+                        *value = f(*value);
+                    }
+                }
+            }
+            Instruction::Call { func, arguments } => {
+                *func = f(*func);
+                for argument in arguments {
+                    *argument = f(*argument);
+                }
+            }
+            Instruction::Allocate => (),
+            Instruction::Load { address } => *address = f(*address),
+            Instruction::Store { address, value } => {
+                *address = f(*address);
+                *value = f(*value);
+            }
+            Instruction::EnableSideEffectsIf { condition } => {
+                *condition = f(*condition);
+            }
+            Instruction::ArrayGet { array, index } => {
+                *array = f(*array);
+                *index = f(*index);
+            }
+            Instruction::ArraySet { array, index, value, mutable: _ } => {
+                *array = f(*array);
+                *index = f(*index);
+                *value = f(*value);
+            }
+            Instruction::IncrementRc { value } => *value = f(*value),
+            Instruction::DecrementRc { value } => *value = f(*value),
+            Instruction::RangeCheck { value, max_bit_size: _, assert_message: _ } => {
+                *value = f(*value);
+            }
+            Instruction::IfElse { then_condition, then_value, else_condition, else_value } => {
+                *then_condition = f(*then_condition);
+                *then_value = f(*then_value);
+                *else_condition = f(*else_condition);
+                *else_value = f(*else_value);
+            }
+            Instruction::MakeArray { elements, typ: _ } => {
+                for element in elements.iter_mut() {
+                    *element = f(*element);
+                }
+            }
+            Instruction::Noop => (),
         }
     }
 
@@ -601,6 +819,7 @@ impl Instruction {
                     f(*element);
                 }
             }
+            Instruction::Noop => (),
         }
     }
 
@@ -614,12 +833,12 @@ impl Instruction {
         dfg: &mut DataFlowGraph,
         block: BasicBlockId,
         ctrl_typevars: Option<Vec<Type>>,
-        call_stack: &CallStack,
+        call_stack: CallStackId,
     ) -> SimplifyResult {
         use SimplifyResult::*;
         match self {
             Instruction::Binary(binary) => binary.simplify(dfg),
-            Instruction::Cast(value, typ) => simplify_cast(*value, typ, dfg),
+            Instruction::Cast(value, typ) => simplify_cast(*value, *typ, dfg),
             Instruction::Not(value) => {
                 match &dfg[dfg.resolve(*value)] {
                     // Limit optimizing ! on constants to only booleans. If we tried it on fields,
@@ -628,7 +847,7 @@ impl Instruction {
                     Value::NumericConstant { constant, typ } if typ.is_unsigned() => {
                         // As we're casting to a `u128`, we need to clear out any upper bits that the NOT fills.
                         let value = !constant.to_u128() % (1 << typ.bit_size());
-                        SimplifiedTo(dfg.make_constant(value.into(), typ.clone()))
+                        SimplifiedTo(dfg.make_constant(value.into(), *typ))
                     }
                     Value::Instruction { instruction, .. } => {
                         // !!v => v
@@ -671,7 +890,7 @@ impl Instruction {
                             instruction,
                             block,
                             Option::None,
-                            call_stack.clone(),
+                            call_stack,
                         );
                         return SimplifiedTo(new_array.first());
                     }
@@ -757,9 +976,11 @@ impl Instruction {
                 }
             }
             Instruction::IfElse { then_condition, then_value, else_condition, else_value } => {
+                let then_condition = dfg.resolve(*then_condition);
+                let else_condition = dfg.resolve(*else_condition);
                 let typ = dfg.type_of_value(*then_value);
 
-                if let Some(constant) = dfg.get_numeric_constant(*then_condition) {
+                if let Some(constant) = dfg.get_numeric_constant(then_condition) {
                     if constant.is_one() {
                         return SimplifiedTo(*then_value);
                     } else if constant.is_zero() {
@@ -773,10 +994,51 @@ impl Instruction {
                     return SimplifiedTo(then_value);
                 }
 
-                if matches!(&typ, Type::Numeric(_)) {
-                    let then_condition = *then_condition;
-                    let else_condition = *else_condition;
+                if let Value::Instruction { instruction, .. } = &dfg[then_value] {
+                    if let Instruction::IfElse {
+                        then_condition: inner_then_condition,
+                        then_value: inner_then_value,
+                        else_condition: inner_else_condition,
+                        ..
+                    } = dfg[*instruction]
+                    {
+                        if then_condition == inner_then_condition {
+                            let instruction = Instruction::IfElse {
+                                then_condition,
+                                then_value: inner_then_value,
+                                else_condition: inner_else_condition,
+                                else_value,
+                            };
+                            return SimplifiedToInstruction(instruction);
+                        }
+                        // TODO: We could check to see if `then_condition == inner_else_condition`
+                        // but we run into issues with duplicate NOT instructions having distinct ValueIds.
+                    }
+                };
 
+                if let Value::Instruction { instruction, .. } = &dfg[else_value] {
+                    if let Instruction::IfElse {
+                        then_condition: inner_then_condition,
+                        else_condition: inner_else_condition,
+                        else_value: inner_else_value,
+                        ..
+                    } = dfg[*instruction]
+                    {
+                        if then_condition == inner_then_condition {
+                            let instruction = Instruction::IfElse {
+                                then_condition,
+                                then_value,
+                                else_condition: inner_else_condition,
+                                else_value: inner_else_value,
+                            };
+                            return SimplifiedToInstruction(instruction);
+                        }
+                        // TODO: We could check to see if `then_condition == inner_else_condition`
+                        // but we run into issues with duplicate NOT instructions having distinct ValueIds.
+                    }
+                };
+
+                if matches!(&typ, Type::Numeric(_)) {
                     let result = ValueMerger::merge_numeric_values(
                         dfg,
                         block,
@@ -791,6 +1053,7 @@ impl Instruction {
                 }
             }
             Instruction::MakeArray { .. } => None,
+            Instruction::Noop => Remove,
         }
     }
 }
@@ -1016,7 +1279,7 @@ pub(crate) enum TerminatorInstruction {
         condition: ValueId,
         then_destination: BasicBlockId,
         else_destination: BasicBlockId,
-        call_stack: CallStack,
+        call_stack: CallStackId,
     },
 
     /// Unconditional Jump
@@ -1024,7 +1287,7 @@ pub(crate) enum TerminatorInstruction {
     /// Jumps to specified `destination` with `arguments`.
     /// The CallStack here is expected to be used to issue an error when the start range of
     /// a for loop cannot be deduced at compile-time.
-    Jmp { destination: BasicBlockId, arguments: Vec<ValueId>, call_stack: CallStack },
+    Jmp { destination: BasicBlockId, arguments: Vec<ValueId>, call_stack: CallStackId },
 
     /// Return from the current function with the given return values.
     ///
@@ -1033,7 +1296,7 @@ pub(crate) enum TerminatorInstruction {
     /// unconditionally jump to a single exit block with the return values
     /// as the block arguments. Then the exit block can terminate in a return
     /// instruction returning these values.
-    Return { return_values: Vec<ValueId>, call_stack: CallStack },
+    Return { return_values: Vec<ValueId>, call_stack: CallStackId },
 }
 
 impl TerminatorInstruction {
@@ -1048,22 +1311,22 @@ impl TerminatorInstruction {
                 condition: f(*condition),
                 then_destination: *then_destination,
                 else_destination: *else_destination,
-                call_stack: call_stack.clone(),
+                call_stack: *call_stack,
             },
             Jmp { destination, arguments, call_stack } => Jmp {
                 destination: *destination,
                 arguments: vecmap(arguments, |value| f(*value)),
-                call_stack: call_stack.clone(),
+                call_stack: *call_stack,
             },
             Return { return_values, call_stack } => Return {
                 return_values: vecmap(return_values, |value| f(*value)),
-                call_stack: call_stack.clone(),
+                call_stack: *call_stack,
             },
         }
     }
 
     /// Mutate each ValueId to a new ValueId using the given mapping function
-    pub(crate) fn mutate_values(&mut self, mut f: impl FnMut(ValueId) -> ValueId) {
+    pub(crate) fn map_values_mut(&mut self, mut f: impl FnMut(ValueId) -> ValueId) {
         use TerminatorInstruction::*;
         match self {
             JmpIf { condition, .. } => {
@@ -1117,11 +1380,19 @@ impl TerminatorInstruction {
         }
     }
 
-    pub(crate) fn call_stack(&self) -> im::Vector<Location> {
+    pub(crate) fn call_stack(&self) -> CallStackId {
         match self {
             TerminatorInstruction::JmpIf { call_stack, .. }
             | TerminatorInstruction::Jmp { call_stack, .. }
-            | TerminatorInstruction::Return { call_stack, .. } => call_stack.clone(),
+            | TerminatorInstruction::Return { call_stack, .. } => *call_stack,
+        }
+    }
+
+    pub(crate) fn set_call_stack(&mut self, new_call_stack: CallStackId) {
+        match self {
+            TerminatorInstruction::JmpIf { call_stack, .. }
+            | TerminatorInstruction::Jmp { call_stack, .. }
+            | TerminatorInstruction::Return { call_stack, .. } => *call_stack = new_call_stack,
         }
     }
 }

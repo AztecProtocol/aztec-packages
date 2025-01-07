@@ -1,4 +1,5 @@
-import { createDebugLogger } from '@aztec/foundation/log';
+import { createLogger } from '@aztec/foundation/log';
+import { createStore } from '@aztec/kv-store/lmdb';
 import { type BootnodeConfig, BootstrapNode } from '@aztec/p2p';
 import { type TelemetryClient } from '@aztec/telemetry-client';
 import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
@@ -6,7 +7,7 @@ import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
 import Koa from 'koa';
 import Router from 'koa-router';
 
-const debugLogger = createDebugLogger('aztec:bootstrap_node');
+const debugLogger = createLogger('p2p-bootstrap:bootstrap_node');
 
 const { HTTP_PORT } = process.env;
 
@@ -18,7 +19,9 @@ async function main(
   telemetryClient: TelemetryClient = new NoopTelemetryClient(),
   logger = debugLogger,
 ) {
-  const bootstrapNode = new BootstrapNode(telemetryClient, logger);
+  const store = await createStore('p2p-bootstrap', config, logger);
+
+  const bootstrapNode = new BootstrapNode(store, telemetryClient, logger);
   await bootstrapNode.start(config);
   logger.info('DiscV5 Bootnode started');
 

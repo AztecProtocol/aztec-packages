@@ -16,12 +16,8 @@ export type L2BlockStats = {
   txCount: number;
   /** Number of the L2 block. */
   blockNumber: number;
-  /** Number of encrypted logs. */
-  encryptedLogCount?: number;
   /** Number of unencrypted logs. */
   unencryptedLogCount?: number;
-  /** Serialized size of encrypted logs. */
-  encryptedLogSize?: number;
   /** Serialized size of unencrypted logs. */
   unencryptedLogSize?: number;
 };
@@ -40,6 +36,10 @@ export type L1PublishStats = {
   calldataGas: number;
   /** Size in bytes of the calldata. */
   calldataSize: number;
+  /** Gas cost of the blob data */
+  blobDataGas: bigint;
+  /** Amount of blob gas used. */
+  blobGasUsed: bigint;
 };
 
 /** Stats logged for each L1 rollup publish tx.*/
@@ -209,22 +209,16 @@ export type TxStats = {
   size: number;
   /** Size of the proof. */
   proofSize: number;
-  /** Number of note encrypted logs. */
-  noteEncryptedLogCount: number;
-  /** Number of encrypted logs. */
-  encryptedLogCount: number;
   /** Number of unencrypted logs. */
   unencryptedLogCount: number;
-  /** Serialized size of note encrypted logs. */
-  noteEncryptedLogSize: number;
-  /** Serialized size of encrypted logs. */
-  encryptedLogSize: number;
   /** Serialized size of unencrypted logs. */
   unencryptedLogSize: number;
-  /** New commitments count */
-  newCommitmentCount: number;
-  /** New nullifier count */
-  newNullifierCount: number;
+  /** Number of note hashes */
+  noteHashCount: number;
+  /** Number of nullifiers */
+  nullifierCount: number;
+  /** Number of private logs */
+  privateLogCount: number;
   /** How many classes were registered through the canonical class registerer. */
   classRegisteredCount: number;
   /** Serialized size of contract class logs. */

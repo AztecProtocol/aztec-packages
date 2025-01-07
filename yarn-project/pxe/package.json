@@ -2,7 +2,13 @@
   "name": "@aztec/pxe",
   "version": "0.1.0",
   "type": "module",
-  "exports": "./dest/index.js",
+  "exports": {
+    ".": "./dest/index.js",
+    "./service": "./dest/pxe_service/index.js",
+    "./config": "./dest/config/index.js",
+    "./database": "./dest/database/index.js",
+    "./kernel_prover": "./dest/kernel_prover/index.js"
+  },
   "bin": "./dest/bin/index.js",
   "typedocOptions": {
     "entryPoints": [
@@ -12,16 +18,18 @@
     "tsconfig": "./tsconfig.json"
   },
   "scripts": {
-    "build": "yarn clean && tsc -b",
+    "build": "yarn clean && yarn generate && tsc -b",
     "build:dev": "tsc -b --watch",
-    "clean": "rm -rf ./dest .tsbuildinfo",
+    "clean": "rm -rf ./dest .tsbuildinfo ./src/config/package_info.ts",
     "formatting": "run -T prettier --check ./src && run -T eslint ./src",
     "formatting:fix": "run -T eslint --fix ./src && run -T prettier -w ./src",
-    "test": "NODE_NO_WARNINGS=1 node --experimental-vm-modules ../node_modules/.bin/jest --passWithNoTests",
-    "start": "DEBUG='aztec:*' && node ./dest/bin/index.js"
+    "test": "HARDWARE_CONCURRENCY=${HARDWARE_CONCURRENCY:-16} RAYON_NUM_THREADS=${RAYON_NUM_THREADS:-4} NODE_NO_WARNINGS=1 node --experimental-vm-modules ../node_modules/.bin/jest --passWithNoTests --maxWorkers=${JEST_MAX_WORKERS:-8}",
+    "start": "LOG_LEVEL=${LOG_LEVEL:-debug} && node ./dest/bin/index.js",
+    "generate": "node ./scripts/generate_package_info.js"
   },
   "inherits": [
-    "../package.common.json"
+    "../package.common.json",
+    "./package.local.json"
   ],
   "jest": {
     "moduleNameMapper": {
@@ -50,12 +58,11 @@
       ".ts"
     ],
     "reporters": [
-      [
-        "default",
-        {
-          "summaryThreshold": 9999
-        }
-      ]
+      "default"
+    ],
+    "testTimeout": 30000,
+    "setupFiles": [
+      "../../foundation/src/jest/setup.mjs"
     ]
   },
   "dependencies": {

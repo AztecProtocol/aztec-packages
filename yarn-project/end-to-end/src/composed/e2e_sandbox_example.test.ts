@@ -1,7 +1,60 @@
+/*
+end-to-end-1  | FAIL src/composed/e2e_sandbox_example.test.ts
+end-to-end-1  |   e2e_sandbox_example
+end-to-end-1  |     ✕ sandbox example works (21539 ms)
+end-to-end-1  |     ✕ can create accounts on the sandbox (78417 ms)
+end-to-end-1  |
+end-to-end-1  |   ● e2e_sandbox_example › sandbox example works
+end-to-end-1  |
+end-to-end-1  |     (JSON-RPC PROPAGATED) (host http://sandbox:8080) (method pxe_simulateTx) (code 500) Block 3 not yet synced
+end-to-end-1  |
+end-to-end-1  |       55 |       throw new NoRetryError(errorMessage);
+end-to-end-1  |       56 |     } else {
+end-to-end-1  |     > 57 |       throw new Error(errorMessage);
+end-to-end-1  |          |             ^
+end-to-end-1  |       58 |     }
+end-to-end-1  |       59 |   }
+end-to-end-1  |       60 |
+end-to-end-1  |
+end-to-end-1  |       at defaultFetch (../../foundation/src/json-rpc/client/fetch.ts:57:13)
+end-to-end-1  |       at retry (../../foundation/src/retry/index.ts:56:14)
+end-to-end-1  |       at ../../foundation/src/json-rpc/client/fetch.ts:73:12
+end-to-end-1  |       at request (../../foundation/src/json-rpc/client/safe_json_rpc_client.ts:33:17)
+end-to-end-1  |       at DeployMethod.proveInternal (../../aztec.js/src/contract/base_contract_interaction.ts:53:32)
+end-to-end-1  |       at ../../aztec.js/src/contract/base_contract_interaction.ts:78:31
+end-to-end-1  |       at DeploySentTx.waitForReceipt (../../aztec.js/src/contract/sent_tx.ts:106:20)
+end-to-end-1  |       at DeploySentTx.wait (../../aztec.js/src/contract/sent_tx.ts:73:21)
+end-to-end-1  |       at DeploySentTx.wait (../../aztec.js/src/contract/deploy_sent_tx.ts:56:21)
+end-to-end-1  |       at DeploySentTx.deployed (../../aztec.js/src/contract/deploy_sent_tx.ts:45:21)
+end-to-end-1  |       at deployToken (fixtures/token_utils.ts:7:20)
+end-to-end-1  |       at Object.<anonymous> (composed/e2e_sandbox_example.test.ts:53:32)
+end-to-end-1  |
+end-to-end-1  |   ● e2e_sandbox_example › can create accounts on the sandbox
+end-to-end-1  |
+end-to-end-1  |     Timeout awaiting isMined
+end-to-end-1  |
+end-to-end-1  |       94 |
+end-to-end-1  |       95 |     if (timeout && timer.s() > timeout) {
+end-to-end-1  |     > 96 |       throw new Error(name ? `Timeout awaiting ${name}` : 'Timeout');
+end-to-end-1  |          |             ^
+end-to-end-1  |       97 |     }
+end-to-end-1  |       98 |   }
+end-to-end-1  |       99 | }
+end-to-end-1  |
+end-to-end-1  |       at retryUntil (../../foundation/src/retry/index.ts:96:13)
+end-to-end-1  |       at DeployAccountSentTx.waitForReceipt (../../aztec.js/src/contract/sent_tx.ts:110:12)
+end-to-end-1  |       at DeployAccountSentTx.wait (../../aztec.js/src/contract/sent_tx.ts:73:21)
+end-to-end-1  |       at DeployAccountSentTx.wait (../../aztec.js/src/account_manager/deploy_account_sent_tx.ts:37:21)
+end-to-end-1  |       at AccountManager.waitSetup (../../aztec.js/src/account_manager/index.ts:184:5)
+end-to-end-1  |       at composed/e2e_sandbox_example.test.ts:143:11
+end-to-end-1  |           at async Promise.all (index 0)
+end-to-end-1  |       at createSchnorrAccounts (composed/e2e_sandbox_example.test.ts:141:14)
+end-to-end-1  |       at Object.<anonymous> (composed/e2e_sandbox_example.test.ts:151:22)
+*/
 // docs:start:imports
 import { getSchnorrAccount } from '@aztec/accounts/schnorr';
 import { getDeployedTestAccountsWallets } from '@aztec/accounts/testing';
-import { Fr, GrumpkinScalar, type PXE, createDebugLogger, createPXEClient, waitForPXE } from '@aztec/aztec.js';
+import { Fr, GrumpkinScalar, type PXE, createLogger, createPXEClient, waitForPXE } from '@aztec/aztec.js';
 
 import { format } from 'util';
 
@@ -14,7 +67,7 @@ describe('e2e_sandbox_example', () => {
   it('sandbox example works', async () => {
     // docs:start:setup
     ////////////// CREATE THE CLIENT INTERFACE AND CONTACT THE SANDBOX //////////////
-    const logger = createDebugLogger('token');
+    const logger = createLogger('e2e:token');
 
     // We create PXE client connected to the sandbox URL
     const pxe = createPXEClient(PXE_URL);
@@ -118,7 +171,7 @@ describe('e2e_sandbox_example', () => {
   });
 
   it('can create accounts on the sandbox', async () => {
-    const logger = createDebugLogger('token');
+    const logger = createLogger('e2e:token');
     // We create PXE client connected to the sandbox URL
     const pxe = createPXEClient(PXE_URL);
     // Wait for sandbox to be ready

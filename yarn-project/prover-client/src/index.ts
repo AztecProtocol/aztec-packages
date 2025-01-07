@@ -1,5 +1,4 @@
 export { EpochProverManager } from '@aztec/circuit-types';
 
-export * from './tx-prover/tx-prover.js';
+export * from './prover-client/index.js';
 export * from './config.js';
-export * from './tx-prover/factory.js';

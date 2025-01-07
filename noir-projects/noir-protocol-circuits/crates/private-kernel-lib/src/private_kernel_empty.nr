@@ -1,17 +1,17 @@
 use dep::types::{
-    header::Header,
+    block_header::BlockHeader,
     KernelCircuitPublicInputs,
     proof::{
-        recursive_proof::RecursiveProof,
+        rollup_recursive_proof::RecursiveProof,
         traits::Verifiable,
-        verification_key::{HonkVerificationKey, VerificationKey},
+        verification_key::{RollupHonkVerificationKey, VerificationKey},
     },
     traits::Empty,
 };
 
 pub struct EmptyNestedCircuitPublicInputs {
     proof: RecursiveProof,
-    vk: HonkVerificationKey,
+    vk: RollupHonkVerificationKey,
 }
 
 impl Verifiable for EmptyNestedCircuitPublicInputs {
@@ -28,7 +28,7 @@ impl Empty for EmptyNestedCircuitPublicInputs {
 
 pub struct PrivateKernelEmptyPrivateInputs {
     empty_nested: EmptyNestedCircuitPublicInputs,
-    historical_header: Header,
+    historical_header: BlockHeader,
     chain_id: Field,
     version: Field,
     vk_tree_root: Field,
@@ -54,7 +54,7 @@ impl Empty for PrivateKernelEmptyPrivateInputs {
     fn empty() -> Self {
         PrivateKernelEmptyPrivateInputs {
             empty_nested: EmptyNestedCircuitPublicInputs::empty(),
-            historical_header: Header::empty(),
+            historical_header: BlockHeader::empty(),
             chain_id: 0,
             version: 0,
             vk_tree_root: 0,
@@ -67,13 +67,13 @@ mod tests {
     use crate::private_kernel_empty::{
         EmptyNestedCircuitPublicInputs, PrivateKernelEmptyPrivateInputs,
     };
-    use dep::types::header::Header;
+    use dep::types::block_header::BlockHeader;
 
     #[test]
     unconstrained fn works() {
         let private_inputs = PrivateKernelEmptyPrivateInputs {
             empty_nested: EmptyNestedCircuitPublicInputs::empty(),
-            historical_header: Header::empty(),
+            historical_header: BlockHeader::empty(),
             chain_id: 1,
             version: 2,
             vk_tree_root: 3,

@@ -8,6 +8,7 @@
 #include <iostream>
 #include <limits>
 #include <set>
+#include <stdexcept>
 #include <string>
 #include <sys/types.h>
 #include <unordered_map>
@@ -16,6 +17,7 @@
 #include "barretenberg/common/assert.hpp"
 #include "barretenberg/common/serialize.hpp"
 #include "barretenberg/common/throw_or_abort.hpp"
+#include "barretenberg/crypto/poseidon2/poseidon2.hpp"
 #include "barretenberg/ecc/curves/grumpkin/grumpkin.hpp"
 #include "barretenberg/numeric/uint256/uint256.hpp"
 #include "barretenberg/polynomials/univariate.hpp"
@@ -24,19 +26,25 @@
 #include "barretenberg/vm/avm/trace/bytecode_trace.hpp"
 #include "barretenberg/vm/avm/trace/common.hpp"
 #include "barretenberg/vm/avm/trace/deserialization.hpp"
+#include "barretenberg/vm/avm/trace/execution_hints.hpp"
 #include "barretenberg/vm/avm/trace/fixed_bytes.hpp"
 #include "barretenberg/vm/avm/trace/fixed_gas.hpp"
 #include "barretenberg/vm/avm/trace/fixed_powers.hpp"
 #include "barretenberg/vm/avm/trace/gadgets/cmp.hpp"
 #include "barretenberg/vm/avm/trace/gadgets/keccak.hpp"
+#include "barretenberg/vm/avm/trace/gadgets/merkle_tree.hpp"
+#include "barretenberg/vm/avm/trace/gadgets/poseidon2.hpp"
 #include "barretenberg/vm/avm/trace/gadgets/slice_trace.hpp"
 #include "barretenberg/vm/avm/trace/helper.hpp"
 #include "barretenberg/vm/avm/trace/opcode.hpp"
+#include "barretenberg/vm/avm/trace/public_inputs.hpp"
 #include "barretenberg/vm/avm/trace/trace.hpp"
+#include "barretenberg/vm/aztec_constants.hpp"
 #include "barretenberg/vm/stats.hpp"
 
 namespace bb::avm_trace {
 
+using Poseidon2 = crypto::Poseidon2<crypto::Poseidon2Bn254ScalarFieldParams>;
 /**************************************************************************************************
  *                              HELPERS IN ANONYMOUS NAMESPACE
  **************************************************************************************************/
@@ -92,7 +100,9 @@ uint32_t finalize_rng_chks_for_testing(std::vector<Row>& main_trace,
     auto old_size = main_trace.size();
     for (auto const& clk : custom_clk) {
         if (clk >= old_size) {
-            main_trace.push_back(Row{ .main_clk = FF(clk) });
+            Row row{};
+            row.main_clk = clk;
+            main_trace.push_back(row);
         }
     }
 
@@ -124,11 +134,299 @@ bool check_tag_integral(AvmMemoryTag tag)
     }
 }
 
+bool is_canonical(FF contract_address)
+{
+    // TODO: constrain this!
+    return contract_address == CANONICAL_AUTH_REGISTRY_ADDRESS || contract_address == DEPLOYER_CONTRACT_ADDRESS ||
+           contract_address == REGISTERER_CONTRACT_ADDRESS || contract_address == MULTI_CALL_ENTRYPOINT_ADDRESS ||
+           contract_address == FEE_JUICE_ADDRESS || contract_address == ROUTER_ADDRESS;
+}
+
+// Returns true if the slice is not out of memory.
+inline bool check_slice_mem_range(uint32_t start_addr, uint32_t size)
+{
+    // Detect overflow for the highest address (start_addr + size - 1) in the slice.
+    return !(size > 1 && start_addr + size - 1 < start_addr);
+}
+
 } // anonymous namespace
 
 /**************************************************************************************************
  *                                   HELPERS
  **************************************************************************************************/
+
+void AvmTraceBuilder::checkpoint_non_revertible_state()
+{
+    merkle_tree_trace_builder.checkpoint_non_revertible_state();
+}
+void AvmTraceBuilder::rollback_to_non_revertible_checkpoint()
+{
+    merkle_tree_trace_builder.rollback_to_non_revertible_checkpoint();
+}
+
+std::vector<uint8_t> AvmTraceBuilder::get_bytecode_from_hints(const FF contract_class_id)
+{
+
+    // Find the bytecode based on the hinted contract class id
+    // TODO: still need to make sure that the contract address does correspond to this class id
+    const AvmContractBytecode bytecode_hint =
+        *std::ranges::find_if(execution_hints.all_contract_bytecode, [contract_class_id](const auto& contract) {
+            return contract.contract_instance.contract_class_id == contract_class_id;
+        });
+    return bytecode_hint.bytecode;
+}
+
+std::vector<uint8_t> AvmTraceBuilder::get_bytecode(const FF contract_address, bool check_membership)
+{
+    auto clk = static_cast<uint32_t>(main_trace.size()) + 1;
+
+    ASSERT(execution_hints.contract_instance_hints.contains(contract_address));
+    const ContractInstanceHint instance_hint = execution_hints.contract_instance_hints.at(contract_address);
+    const FF contract_class_id = instance_hint.contract_class_id;
+
+    bool exists = true;
+    if (check_membership && !is_canonical(contract_address)) {
+        if (bytecode_membership_cache.find(contract_address) != bytecode_membership_cache.end()) {
+            // If we have already seen the contract address, we can skip the membership check and used the cached
+            // membership proof
+            vinfo("Found bytecode for contract address in cache: ", contract_address);
+            return get_bytecode_from_hints(contract_class_id);
+        }
+        const auto contract_address_nullifier = AvmMerkleTreeTraceBuilder::unconstrained_silo_nullifier(
+            DEPLOYER_CONTRACT_ADDRESS, /*nullifier=*/contract_address);
+        // nullifier read hint for the contract address
+        NullifierReadTreeHint nullifier_read_hint = instance_hint.membership_hint;
+
+        // If the hinted preimage matches the contract address nullifier, the membership check will prove its existence,
+        // otherwise the membership check will prove that a low-leaf exists that skips the contract address nullifier.
+        exists = nullifier_read_hint.low_leaf_preimage.nullifier == contract_address_nullifier;
+        // perform the membership or non-membership check
+        bool is_member = merkle_tree_trace_builder.perform_nullifier_read(clk,
+                                                                          nullifier_read_hint.low_leaf_preimage,
+                                                                          nullifier_read_hint.low_leaf_index,
+                                                                          nullifier_read_hint.low_leaf_sibling_path);
+        // membership check must always pass
+        ASSERT(is_member);
+
+        if (exists) {
+            // This was a membership proof!
+            // Assert that the hint's exists flag matches. The flag isn't really necessary...
+            ASSERT(instance_hint.exists);
+            bytecode_membership_cache.insert(contract_address);
+
+            // The cache contains all the unique contract class ids we have seen so far
+            // If this bytecode retrievals have reached the number of unique contract class IDs, can't make
+            // more retrievals unless to already-checked contract class ids!
+            if (!contract_class_id_cache.contains(contract_class_id) &&
+                contract_class_id_cache.size() >= MAX_PUBLIC_CALLS_TO_UNIQUE_CONTRACT_CLASS_IDS) {
+                info("Limit reached for contract calls to unique class id. Limit: ",
+                     MAX_PUBLIC_CALLS_TO_UNIQUE_CONTRACT_CLASS_IDS);
+                throw std::runtime_error("Limit reached for contract calls to unique class id.");
+            }
+            contract_class_id_cache.insert(instance_hint.contract_class_id);
+            return get_bytecode_from_hints(contract_class_id);
+        } else {
+            // This was a non-membership proof!
+            // Enforce that the tree access membership checked a low-leaf that skips the contract address nullifier.
+            AvmMerkleTreeTraceBuilder::assert_nullifier_non_membership_check(nullifier_read_hint.low_leaf_preimage,
+                                                                             contract_address_nullifier);
+        }
+    }
+
+    if (exists) {
+        vinfo("Found bytecode for contract address: ", contract_address);
+        return get_bytecode_from_hints(contract_class_id);
+    }
+    info("Bytecode not found for contract address: ", contract_address);
+    throw std::runtime_error("Bytecode not found");
+}
+
+uint32_t AvmTraceBuilder::get_inserted_note_hashes_count()
+{
+    return merkle_tree_trace_builder.get_tree_snapshots().note_hash_tree.size -
+           public_inputs.start_tree_snapshots.note_hash_tree.size;
+}
+
+uint32_t AvmTraceBuilder::get_inserted_nullifiers_count()
+{
+    return merkle_tree_trace_builder.get_tree_snapshots().nullifier_tree.size -
+           public_inputs.start_tree_snapshots.nullifier_tree.size;
+}
+
+// Keeping track of the public data writes isn't as simple as comparing sizes
+// because of updates to leaves that were already in the tree and state squashing
+uint32_t AvmTraceBuilder::get_public_data_writes_count()
+{
+    return static_cast<uint32_t>(merkle_tree_trace_builder.get_public_data_unique_writes().size());
+}
+
+void AvmTraceBuilder::insert_private_state(const std::vector<FF>& siloed_nullifiers,
+                                           const std::vector<FF>& unique_note_hashes)
+{
+    for (const auto& siloed_nullifier : siloed_nullifiers) {
+        auto hint = execution_hints.nullifier_write_hints[nullifier_write_counter++];
+        merkle_tree_trace_builder.perform_nullifier_append(0,
+                                                           hint.low_leaf_membership.low_leaf_preimage,
+                                                           hint.low_leaf_membership.low_leaf_index,
+                                                           hint.low_leaf_membership.low_leaf_sibling_path,
+                                                           siloed_nullifier,
+                                                           hint.insertion_path);
+    }
+
+    for (const auto& unique_note_hash : unique_note_hashes) {
+        auto hint = execution_hints.note_hash_write_hints[note_hash_write_counter++];
+        merkle_tree_trace_builder.perform_note_hash_append(0, unique_note_hash, hint.sibling_path);
+    }
+}
+
+void AvmTraceBuilder::insert_private_revertible_state(const std::vector<FF>& siloed_nullifiers,
+                                                      const std::vector<FF>& siloed_note_hashes)
+{
+    // Revertibles come only siloed from private, so we need to make them unique here
+    std::vector<FF> unique_note_hashes;
+    unique_note_hashes.reserve(siloed_note_hashes.size());
+
+    for (size_t i = 0; i < siloed_note_hashes.size(); i++) {
+        size_t note_index_in_tx = i + get_inserted_note_hashes_count();
+        FF nonce = AvmMerkleTreeTraceBuilder::unconstrained_compute_note_hash_nonce(get_tx_hash(), note_index_in_tx);
+        unique_note_hashes.push_back(
+            AvmMerkleTreeTraceBuilder::unconstrained_compute_unique_note_hash(nonce, siloed_note_hashes.at(i)));
+    }
+
+    insert_private_state(siloed_nullifiers, unique_note_hashes);
+}
+
+void AvmTraceBuilder::pay_fee()
+{
+    auto clk = static_cast<uint32_t>(main_trace.size()) + 1;
+
+    auto gas_settings = public_inputs.gas_settings;
+    auto gas_fees = public_inputs.global_variables.gas_fees;
+    auto priority_fee_per_da_gas = std::min(gas_settings.max_priority_fees_per_gas.fee_per_da_gas,
+                                            gas_settings.max_fees_per_gas.fee_per_da_gas - gas_fees.fee_per_da_gas);
+    auto priority_fee_per_l2_gas = std::min(gas_settings.max_priority_fees_per_gas.fee_per_l2_gas,
+                                            gas_settings.max_fees_per_gas.fee_per_l2_gas - gas_fees.fee_per_l2_gas);
+    auto total_fee_per_da_gas = gas_fees.fee_per_da_gas + priority_fee_per_da_gas;
+    auto total_fee_per_l2_gas = gas_fees.fee_per_l2_gas + priority_fee_per_l2_gas;
+    auto tx_fee = (total_fee_per_da_gas * public_inputs.end_gas_used.da_gas) +
+                  (total_fee_per_l2_gas * public_inputs.end_gas_used.l2_gas);
+
+    if (public_inputs.fee_payer == 0) {
+        vinfo("No one is paying the fee of ", tx_fee);
+        return;
+    }
+
+    // ** Compute the storage slot **
+    // using the base slot of the balances map and the fee payer address (map key)
+    // TS equivalent:
+    // computeFeePayerBalanceStorageSlot(fee_payer);
+    std::vector<FF> slot_hash_inputs = { FEE_JUICE_BALANCES_SLOT, public_inputs.fee_payer };
+    const auto balance_slot = poseidon2_trace_builder.poseidon2_hash(slot_hash_inputs, clk, Poseidon2Caller::SILO);
+
+    // ** Read the balance before fee payment **
+    // TS equivalent:
+    // current_balance = readStorage(FEE_JUICE_ADDRESS, balance_slot);
+    PublicDataReadTreeHint read_hint = execution_hints.storage_read_hints.at(storage_read_counter++);
+    FF computed_tree_slot =
+        merkle_tree_trace_builder.compute_public_tree_leaf_slot(clk, FEE_JUICE_ADDRESS, balance_slot);
+    // Sanity check that the computed slot using the value read from slot_offset should match the read hint
+    ASSERT(computed_tree_slot == read_hint.leaf_preimage.slot);
+
+    // ** Write the updated balance after fee payment **
+    // TS equivalent:
+    // Check that the leaf is a member of the public data tree
+    bool is_member = merkle_tree_trace_builder.perform_storage_read(
+        clk, read_hint.leaf_preimage, read_hint.leaf_index, read_hint.sibling_path);
+    ASSERT(is_member);
+    FF current_balance = read_hint.leaf_preimage.value;
+
+    const auto updated_balance = current_balance - tx_fee;
+    if (current_balance < tx_fee) {
+        info("Not enough balance for fee payer to pay for transaction (got ", current_balance, " needs ", tx_fee);
+        throw std::runtime_error("Not enough balance for fee payer to pay for transaction");
+    }
+
+    // TS equivalent:
+    // writeStorage(FEE_JUICE_ADDRESS, balance_slot, updated_balance);
+    PublicDataWriteTreeHint write_hint = execution_hints.storage_write_hints.at(storage_write_counter++);
+    ASSERT(write_hint.new_leaf_preimage.value == updated_balance);
+    merkle_tree_trace_builder.perform_storage_write(clk,
+                                                    write_hint.low_leaf_membership.leaf_preimage,
+                                                    write_hint.low_leaf_membership.leaf_index,
+                                                    write_hint.low_leaf_membership.sibling_path,
+                                                    write_hint.new_leaf_preimage.slot,
+                                                    write_hint.new_leaf_preimage.value,
+                                                    write_hint.insertion_path);
+
+    debug("pay fee side-effect cnt: ", side_effect_counter);
+    side_effect_counter++;
+}
+
+void AvmTraceBuilder::pad_trees()
+{
+    auto current_tree_snapshots = merkle_tree_trace_builder.get_tree_snapshots();
+
+    auto initial_note_hash_snapshot = public_inputs.start_tree_snapshots.note_hash_tree;
+    // sanity check
+    uint32_t padded_note_hash_size = initial_note_hash_snapshot.size + MAX_NOTE_HASHES_PER_TX;
+    ASSERT(current_tree_snapshots.note_hash_tree.size <= padded_note_hash_size);
+    merkle_tree_trace_builder.set_note_hash_tree_size(padded_note_hash_size);
+
+    auto initial_nullifier_snapshot = public_inputs.start_tree_snapshots.nullifier_tree;
+    // sanity check
+    uint32_t padded_nullifier_size = initial_nullifier_snapshot.size + MAX_NULLIFIERS_PER_TX;
+    ASSERT(current_tree_snapshots.nullifier_tree.size <= padded_nullifier_size);
+    merkle_tree_trace_builder.set_nullifier_tree_size(padded_nullifier_size);
+}
+
+void AvmTraceBuilder::allocate_gas_for_call(uint32_t l2_gas, uint32_t da_gas)
+{
+    gas_trace_builder.allocate_gas_for_call(l2_gas, da_gas);
+}
+
+void AvmTraceBuilder::handle_exceptional_halt()
+{
+    const bool is_top_level = current_ext_call_ctx.is_top_level;
+    if (is_top_level) {
+        vinfo("Handling exceptional halt in top-level call. Consuming all allocated gas:");
+        // Consume all remaining gas.
+        gas_trace_builder.constrain_gas_for_top_level_exceptional_halt(current_ext_call_ctx.start_l2_gas_left,
+                                                                       current_ext_call_ctx.start_da_gas_left);
+
+        // max out the pc to signify "done"
+        pc = UINT32_MAX;
+    } else {
+        vinfo("Handling exceptional halt in nested call");
+        // before the nested call was made, how much gas does the parent have?
+        const auto l2_gas_allocated_to_nested_call = current_ext_call_ctx.start_l2_gas_left;
+        const auto da_gas_allocated_to_nested_call = current_ext_call_ctx.start_da_gas_left;
+
+        // Pop the caller/parent's context from the stack to proceed with execution there
+        current_ext_call_ctx = external_call_ctx_stack.top();
+        external_call_ctx_stack.pop();
+
+        // Grab the saved-off gas remaining in the parent from before the nested call
+        // now that we have popped its context from the stack.
+        auto parent_l2_gas_left = current_ext_call_ctx.l2_gas_left;
+        auto parent_da_gas_left = current_ext_call_ctx.da_gas_left;
+
+        // now modify the last row of the gas trace to return to the parent's latest gas
+        // with the nested call's entire allocation consumed
+        gas_trace_builder.constrain_gas_for_halt(/*exceptional_halt=*/true,
+                                                 parent_l2_gas_left,
+                                                 parent_da_gas_left,
+                                                 l2_gas_allocated_to_nested_call,
+                                                 da_gas_allocated_to_nested_call);
+
+        // Update the call_ptr before we write the success flag
+        set_call_ptr(static_cast<uint8_t>(current_ext_call_ctx.context_id));
+        write_to_memory(
+            current_ext_call_ctx.success_offset, /*success=*/FF::zero(), AvmMemoryTag::U1, /*fix_pc=*/false);
+
+        // Jump back to the parent's last pc
+        pc = current_ext_call_ctx.last_pc;
+    }
+}
 
 /**
  * @brief Loads a value from memory into a given intermediate register at a specified clock cycle.
@@ -226,7 +524,7 @@ bool AvmTraceBuilder::check_tag(AvmMemoryTag tag, AddressWithMode addr)
     return unconstrained_get_memory_tag(addr) == tag;
 }
 
-bool AvmTraceBuilder::check_tag_range(AvmMemoryTag tag, AddressWithMode start_offset, uint32_t size)
+bool AvmTraceBuilder::check_tag_range(AvmMemoryTag tag, uint32_t start_offset, uint32_t size)
 {
     for (uint32_t i = 0; i < size; i++) {
         if (!check_tag(tag, start_offset + i)) {
@@ -245,37 +543,42 @@ FF AvmTraceBuilder::unconstrained_read_from_memory(AddressWithMode addr)
     return mem_trace_builder.unconstrained_read(call_ptr, offset);
 }
 
-void AvmTraceBuilder::write_to_memory(AddressWithMode addr, FF val, AvmMemoryTag w_tag)
+void AvmTraceBuilder::write_to_memory(AddressWithMode addr, FF val, AvmMemoryTag w_tag, bool fix_pc)
 {
     // op_set increments the pc, so we need to store the current pc and then jump back to it
     // to legally reset the pc.
     auto current_pc = pc;
     op_set(static_cast<uint8_t>(addr.mode), val, addr.offset, w_tag, OpCode::SET_FF, true);
-    op_jump(current_pc, true);
+    if (fix_pc) {
+        op_jump(current_pc, true);
+    }
 }
 
 template <typename T>
-void AvmTraceBuilder::read_slice_from_memory(AddressWithMode addr, size_t slice_len, std::vector<T>& slice)
+AvmError AvmTraceBuilder::read_slice_from_memory(uint32_t addr, uint32_t slice_len, std::vector<T>& slice)
 {
-    uint32_t base_addr = addr.offset;
-    if (addr.mode == AddressingMode::INDIRECT) {
-        base_addr = static_cast<uint32_t>(mem_trace_builder.unconstrained_read(call_ptr, base_addr));
+    if (!check_slice_mem_range(addr, slice_len)) {
+        return AvmError::MEM_SLICE_OUT_OF_RANGE;
     }
 
     for (uint32_t i = 0; i < slice_len; i++) {
-        slice.push_back(static_cast<T>(mem_trace_builder.unconstrained_read(call_ptr, base_addr + i)));
+        slice.push_back(static_cast<T>(mem_trace_builder.unconstrained_read(call_ptr, addr + i)));
     }
+    return AvmError::NO_ERROR;
 }
 
-template <typename T>
-void AvmTraceBuilder::write_slice_to_memory(AddressWithMode addr, AvmMemoryTag w_tag, const T& slice)
+template <typename T> AvmError AvmTraceBuilder::write_slice_to_memory(uint32_t addr, AvmMemoryTag w_tag, const T& slice)
 {
-    auto base_addr = addr.mode == AddressingMode::INDIRECT
-                         ? static_cast<uint32_t>(mem_trace_builder.unconstrained_read(call_ptr, addr.offset))
-                         : addr.offset;
-    for (uint32_t i = 0; i < slice.size(); i++) {
-        write_to_memory(base_addr + i, slice[i], w_tag);
+    const size_t slice_len = slice.size();
+    // Memory out-of-range occurs if slice being huge (more than 32 bits) or highest address overflow.
+    if (slice_len > UINT32_MAX || !check_slice_mem_range(addr, static_cast<uint32_t>(slice_len))) {
+        return AvmError::MEM_SLICE_OUT_OF_RANGE;
     }
+
+    for (uint32_t i = 0; i < slice_len; i++) {
+        write_to_memory(addr + i, slice[i], w_tag);
+    }
+    return AvmError::NO_ERROR;
 }
 
 // Finalise Lookup Counts
@@ -296,21 +599,42 @@ void AvmTraceBuilder::finalise_mem_trace_lookup_counts()
  * @brief Constructor of a trace builder of AVM. Only serves to set the capacity of the
  *        underlying traces and initialize gas values.
  */
-AvmTraceBuilder::AvmTraceBuilder(VmPublicInputs public_inputs,
+AvmTraceBuilder::AvmTraceBuilder(AvmPublicInputs public_inputs,
                                  ExecutionHints execution_hints_,
-                                 uint32_t side_effect_counter,
-                                 std::vector<FF> calldata)
+                                 uint32_t side_effect_counter)
     // NOTE: we initialise the environment builder here as it requires public inputs
-    : calldata(std::move(calldata))
+    : public_inputs(public_inputs)
     , side_effect_counter(side_effect_counter)
     , execution_hints(std::move(execution_hints_))
-    , kernel_trace_builder(side_effect_counter, public_inputs, execution_hints)
     , bytecode_trace_builder(execution_hints.all_contract_bytecode)
+    , merkle_tree_trace_builder(public_inputs.start_tree_snapshots)
 {
+    AvmTraceBuilder::ExtCallCtx ext_call_ctx({ .context_id = 0,
+                                               .parent_id = 0,
+                                               .is_top_level = true,
+                                               .contract_address = FF(0),
+                                               .calldata = {},
+                                               .nested_returndata = {},
+                                               .last_pc = 0,
+                                               .success_offset = 0,
+                                               .start_l2_gas_left = 0,
+                                               .start_da_gas_left = 0,
+                                               .l2_gas_left = 0,
+                                               .da_gas_left = 0,
+                                               .internal_return_ptr_stack = {} });
+    current_ext_call_ctx = ext_call_ctx;
+
+    // Only allocate up to the maximum L2 gas for execution
+    // TODO: constrain this!
+    auto const l2_gas_left_after_private =
+        public_inputs.gas_settings.gas_limits.l2_gas - public_inputs.start_gas_used.l2_gas;
+    // TODO: think about cast
+    auto const allocated_l2_gas =
+        std::min(l2_gas_left_after_private, static_cast<uint32_t>(MAX_L2_GAS_PER_TX_PUBLIC_PORTION));
     // TODO: think about cast
     gas_trace_builder.set_initial_gas(
-        static_cast<uint32_t>(std::get<KERNEL_INPUTS>(public_inputs)[L2_START_GAS_KERNEL_INPUTS_COL_OFFSET]),
-        static_cast<uint32_t>(std::get<KERNEL_INPUTS>(public_inputs)[DA_START_GAS_KERNEL_INPUTS_COL_OFFSET]));
+        static_cast<uint32_t>(allocated_l2_gas),
+        static_cast<uint32_t>(public_inputs.gas_settings.gas_limits.da_gas - public_inputs.start_gas_used.da_gas));
 }
 
 /**************************************************************************************************
@@ -347,7 +671,7 @@ AvmError AvmTraceBuilder::op_add(
 
     bool tag_match = read_a.tag_match && read_b.tag_match;
     if (is_ok(error) && !tag_match) {
-        error = AvmError::TAG_ERROR;
+        error = AvmError::CHECK_TAG_ERROR;
     }
 
     // a + b = c
@@ -363,7 +687,10 @@ AvmError AvmTraceBuilder::op_add(
     auto write_c = constrained_write_to_memory(call_ptr, clk, resolved_c, c, in_tag, in_tag, IntermRegister::IC);
 
     // Constrain gas cost
-    gas_trace_builder.constrain_gas(clk, OpCode::ADD_8);
+    bool out_of_gas = gas_trace_builder.constrain_gas(clk, OpCode::ADD_8);
+    if (out_of_gas && is_ok(error)) {
+        error = AvmError::OUT_OF_GAS;
+    }
 
     main_trace.push_back(Row{
         .main_clk = clk,
@@ -430,7 +757,7 @@ AvmError AvmTraceBuilder::op_sub(
 
     bool tag_match = read_a.tag_match && read_b.tag_match;
     if (is_ok(error) && !tag_match) {
-        error = AvmError::TAG_ERROR;
+        error = AvmError::CHECK_TAG_ERROR;
     }
 
     // a - b = c
@@ -446,7 +773,10 @@ AvmError AvmTraceBuilder::op_sub(
     auto write_c = constrained_write_to_memory(call_ptr, clk, resolved_c, c, in_tag, in_tag, IntermRegister::IC);
 
     // Constrain gas cost
-    gas_trace_builder.constrain_gas(clk, OpCode::SUB_8);
+    bool out_of_gas = gas_trace_builder.constrain_gas(clk, OpCode::SUB_8);
+    if (out_of_gas && is_ok(error)) {
+        error = AvmError::OUT_OF_GAS;
+    }
 
     main_trace.push_back(Row{
         .main_clk = clk,
@@ -511,7 +841,7 @@ AvmError AvmTraceBuilder::op_mul(
 
     bool tag_match = read_a.tag_match && read_b.tag_match;
     if (is_ok(error) && !tag_match) {
-        error = AvmError::TAG_ERROR;
+        error = AvmError::CHECK_TAG_ERROR;
     }
 
     // a * b = c
@@ -527,7 +857,10 @@ AvmError AvmTraceBuilder::op_mul(
     auto write_c = constrained_write_to_memory(call_ptr, clk, resolved_c, c, in_tag, in_tag, IntermRegister::IC);
 
     // Constrain gas cost
-    gas_trace_builder.constrain_gas(clk, OpCode::MUL_8);
+    bool out_of_gas = gas_trace_builder.constrain_gas(clk, OpCode::MUL_8);
+    if (out_of_gas && is_ok(error)) {
+        error = AvmError::OUT_OF_GAS;
+    }
 
     main_trace.push_back(Row{
         .main_clk = clk,
@@ -593,7 +926,7 @@ AvmError AvmTraceBuilder::op_div(
 
     // No need to add check_tag_integral(read_b.tag) as this follows from tag matching and that a has integral tag.
     if (is_ok(error) && !(tag_match && check_tag_integral(read_a.tag))) {
-        error = AvmError::TAG_ERROR;
+        error = AvmError::CHECK_TAG_ERROR;
     }
 
     // a / b = c
@@ -622,7 +955,10 @@ AvmError AvmTraceBuilder::op_div(
     auto write_dst = constrained_write_to_memory(call_ptr, clk, resolved_dst, c, in_tag, in_tag, IntermRegister::IC);
 
     // Constrain gas cost
-    gas_trace_builder.constrain_gas(clk, OpCode::DIV_8);
+    bool out_of_gas = gas_trace_builder.constrain_gas(clk, OpCode::DIV_8);
+    if (out_of_gas && is_ok(error)) {
+        error = AvmError::OUT_OF_GAS;
+    }
 
     main_trace.push_back(Row{
         .main_clk = clk,
@@ -689,7 +1025,7 @@ AvmError AvmTraceBuilder::op_fdiv(
 
     bool tag_match = read_a.tag_match && read_b.tag_match;
     if (is_ok(error) && !tag_match) {
-        error = AvmError::TAG_ERROR;
+        error = AvmError::CHECK_TAG_ERROR;
     }
 
     // a * b^(-1) = c
@@ -714,7 +1050,10 @@ AvmError AvmTraceBuilder::op_fdiv(
         call_ptr, clk, resolved_c, c, AvmMemoryTag::FF, AvmMemoryTag::FF, IntermRegister::IC);
 
     // Constrain gas cost
-    gas_trace_builder.constrain_gas(clk, OpCode::FDIV_8);
+    bool out_of_gas = gas_trace_builder.constrain_gas(clk, OpCode::FDIV_8);
+    if (out_of_gas && is_ok(error)) {
+        error = AvmError::OUT_OF_GAS;
+    }
 
     main_trace.push_back(Row{
         .main_clk = clk,
@@ -783,7 +1122,7 @@ AvmError AvmTraceBuilder::op_eq(
     bool tag_match = read_a.tag_match && read_b.tag_match;
 
     if (is_ok(error) && !tag_match) {
-        error = AvmError::TAG_ERROR;
+        error = AvmError::CHECK_TAG_ERROR;
     }
 
     FF a = read_a.val;
@@ -799,7 +1138,10 @@ AvmError AvmTraceBuilder::op_eq(
         constrained_write_to_memory(call_ptr, clk, resolved_c, c, in_tag, AvmMemoryTag::U1, IntermRegister::IC);
 
     // Constrain gas cost
-    gas_trace_builder.constrain_gas(clk, OpCode::EQ_8);
+    bool out_of_gas = gas_trace_builder.constrain_gas(clk, OpCode::EQ_8);
+    if (out_of_gas && is_ok(error)) {
+        error = AvmError::OUT_OF_GAS;
+    }
 
     main_trace.push_back(Row{
         .main_clk = clk,
@@ -854,7 +1196,7 @@ AvmError AvmTraceBuilder::op_lt(
     bool tag_match = read_a.tag_match && read_b.tag_match;
 
     if (is_ok(error) && !tag_match) {
-        error = AvmError::TAG_ERROR;
+        error = AvmError::CHECK_TAG_ERROR;
     }
 
     FF a = tag_match ? read_a.val : FF(0);
@@ -867,7 +1209,10 @@ AvmError AvmTraceBuilder::op_lt(
         constrained_write_to_memory(call_ptr, clk, resolved_c, c, in_tag, AvmMemoryTag::U1, IntermRegister::IC);
 
     // Constrain gas cost
-    gas_trace_builder.constrain_gas(clk, OpCode::LT_8);
+    bool out_of_gas = gas_trace_builder.constrain_gas(clk, OpCode::LT_8);
+    if (out_of_gas && is_ok(error)) {
+        error = AvmError::OUT_OF_GAS;
+    }
 
     main_trace.push_back(Row{
         .main_clk = clk,
@@ -923,7 +1268,7 @@ AvmError AvmTraceBuilder::op_lte(
     bool tag_match = read_a.tag_match && read_b.tag_match;
 
     if (is_ok(error) && !tag_match) {
-        error = AvmError::TAG_ERROR;
+        error = AvmError::CHECK_TAG_ERROR;
     }
 
     FF a = tag_match ? read_a.val : FF(0);
@@ -936,7 +1281,10 @@ AvmError AvmTraceBuilder::op_lte(
         constrained_write_to_memory(call_ptr, clk, resolved_c, c, in_tag, AvmMemoryTag::U1, IntermRegister::IC);
 
     // Constrain gas cost
-    gas_trace_builder.constrain_gas(clk, OpCode::LTE_8);
+    bool out_of_gas = gas_trace_builder.constrain_gas(clk, OpCode::LTE_8);
+    if (out_of_gas && is_ok(error)) {
+        error = AvmError::OUT_OF_GAS;
+    }
 
     main_trace.push_back(Row{
         .main_clk = clk,
@@ -997,7 +1345,7 @@ AvmError AvmTraceBuilder::op_and(
     bool tag_match = read_a.tag_match && read_b.tag_match;
     // No need to add check_tag_integral(read_b.tag) as this follows from tag matching and that a has integral tag.
     if (is_ok(error) && !(tag_match && check_tag_integral(read_a.tag))) {
-        error = AvmError::TAG_ERROR;
+        error = AvmError::CHECK_TAG_ERROR;
     }
 
     FF a = tag_match ? read_a.val : FF(0);
@@ -1009,7 +1357,10 @@ AvmError AvmTraceBuilder::op_and(
     auto write_c = constrained_write_to_memory(call_ptr, clk, resolved_c, c, in_tag, in_tag, IntermRegister::IC);
 
     // Constrain gas cost
-    gas_trace_builder.constrain_gas(clk, OpCode::AND_8);
+    bool out_of_gas = gas_trace_builder.constrain_gas(clk, OpCode::AND_8);
+    if (out_of_gas && is_ok(error)) {
+        error = AvmError::OUT_OF_GAS;
+    }
 
     main_trace.push_back(Row{
         .main_clk = clk,
@@ -1067,7 +1418,7 @@ AvmError AvmTraceBuilder::op_or(
     bool tag_match = read_a.tag_match && read_b.tag_match;
     // No need to add check_tag_integral(read_b.tag) as this follows from tag matching and that a has integral tag.
     if (is_ok(error) && !(tag_match && check_tag_integral(read_a.tag))) {
-        error = AvmError::TAG_ERROR;
+        error = AvmError::CHECK_TAG_ERROR;
     }
 
     FF a = tag_match ? read_a.val : FF(0);
@@ -1079,7 +1430,10 @@ AvmError AvmTraceBuilder::op_or(
     auto write_c = constrained_write_to_memory(call_ptr, clk, resolved_c, c, in_tag, in_tag, IntermRegister::IC);
 
     // Constrain gas cost
-    gas_trace_builder.constrain_gas(clk, OpCode::OR_8);
+    bool out_of_gas = gas_trace_builder.constrain_gas(clk, OpCode::OR_8);
+    if (out_of_gas && is_ok(error)) {
+        error = AvmError::OUT_OF_GAS;
+    }
 
     main_trace.push_back(Row{
         .main_clk = clk,
@@ -1137,7 +1491,7 @@ AvmError AvmTraceBuilder::op_xor(
     bool tag_match = read_a.tag_match && read_b.tag_match;
     // No need to add check_tag_integral(read_b.tag) as this follows from tag matching and that a has integral tag.
     if (is_ok(error) && !(tag_match && check_tag_integral(read_a.tag))) {
-        error = AvmError::TAG_ERROR;
+        error = AvmError::CHECK_TAG_ERROR;
     }
 
     FF a = tag_match ? read_a.val : FF(0);
@@ -1149,7 +1503,10 @@ AvmError AvmTraceBuilder::op_xor(
     auto write_c = constrained_write_to_memory(call_ptr, clk, resolved_c, c, in_tag, in_tag, IntermRegister::IC);
 
     // Constrain gas cost
-    gas_trace_builder.constrain_gas(clk, OpCode::XOR_8);
+    bool out_of_gas = gas_trace_builder.constrain_gas(clk, OpCode::XOR_8);
+    if (out_of_gas && is_ok(error)) {
+        error = AvmError::OUT_OF_GAS;
+    }
 
     main_trace.push_back(Row{
         .main_clk = clk,
@@ -1211,7 +1568,7 @@ AvmError AvmTraceBuilder::op_not(uint8_t indirect, uint32_t a_offset, uint32_t d
     auto read_a = constrained_read_from_memory(call_ptr, clk, resolved_a, in_tag, in_tag, IntermRegister::IA);
 
     if (is_ok(error) && !check_tag_integral(read_a.tag)) {
-        error = AvmError::TAG_ERROR;
+        error = AvmError::CHECK_TAG_ERROR;
     }
 
     // ~a = c
@@ -1226,7 +1583,10 @@ AvmError AvmTraceBuilder::op_not(uint8_t indirect, uint32_t a_offset, uint32_t d
     auto write_c = constrained_write_to_memory(call_ptr, clk, resolved_c, c, in_tag, in_tag, IntermRegister::IC);
 
     // Constrain gas cost
-    gas_trace_builder.constrain_gas(clk, OpCode::NOT_8);
+    bool out_of_gas = gas_trace_builder.constrain_gas(clk, OpCode::NOT_8);
+    if (out_of_gas && is_ok(error)) {
+        error = AvmError::OUT_OF_GAS;
+    }
 
     main_trace.push_back(Row{
         .main_clk = clk,
@@ -1278,7 +1638,7 @@ AvmError AvmTraceBuilder::op_shl(
     auto read_b = unconstrained_read_from_memory(resolved_b);
 
     if (is_ok(error) && !(check_tag_integral(read_a.tag) && check_tag(AvmMemoryTag::U8, resolved_b))) {
-        error = AvmError::TAG_ERROR;
+        error = AvmError::CHECK_TAG_ERROR;
     }
 
     FF a = is_ok(error) ? read_a.val : FF(0);
@@ -1289,7 +1649,10 @@ AvmError AvmTraceBuilder::op_shl(
     // Write into memory value c from intermediate register ic.
     auto write_c = constrained_write_to_memory(call_ptr, clk, resolved_c, c, in_tag, in_tag, IntermRegister::IC);
     // Constrain gas cost
-    gas_trace_builder.constrain_gas(clk, OpCode::SHL_8);
+    bool out_of_gas = gas_trace_builder.constrain_gas(clk, OpCode::SHL_8);
+    if (out_of_gas && is_ok(error)) {
+        error = AvmError::OUT_OF_GAS;
+    }
 
     main_trace.push_back(Row{
         .main_clk = clk,
@@ -1345,7 +1708,7 @@ AvmError AvmTraceBuilder::op_shr(
     // IntermRegister::IB); bool tag_match = read_a.tag_match && read_b.tag_match;
     auto read_b = unconstrained_read_from_memory(resolved_b);
     if (is_ok(error) && !(check_tag_integral(read_a.tag) && check_tag(AvmMemoryTag::U8, resolved_b))) {
-        error = AvmError::TAG_ERROR;
+        error = AvmError::CHECK_TAG_ERROR;
     }
 
     FF a = is_ok(error) ? read_a.val : FF(0);
@@ -1356,7 +1719,10 @@ AvmError AvmTraceBuilder::op_shr(
     // Write into memory value c from intermediate register ic.
     auto write_c = constrained_write_to_memory(call_ptr, clk, resolved_c, c, in_tag, in_tag, IntermRegister::IC);
     // Constrain gas cost
-    gas_trace_builder.constrain_gas(clk, OpCode::SHR_8);
+    bool out_of_gas = gas_trace_builder.constrain_gas(clk, OpCode::SHR_8);
+    if (out_of_gas && is_ok(error)) {
+        error = AvmError::OUT_OF_GAS;
+    }
 
     main_trace.push_back(Row{
         .main_clk = clk,
@@ -1411,6 +1777,8 @@ AvmError AvmTraceBuilder::op_shr(
 AvmError AvmTraceBuilder::op_cast(
     uint8_t indirect, uint32_t a_offset, uint32_t dst_offset, AvmMemoryTag dst_tag, OpCode op_code)
 {
+    // We keep the first encountered error
+    AvmError error = AvmError::NO_ERROR;
     auto const clk = static_cast<uint32_t>(main_trace.size()) + 1;
 
     auto [resolved_addrs, res_error] =
@@ -1430,7 +1798,10 @@ AvmError AvmTraceBuilder::op_cast(
     mem_trace_builder.write_into_memory(call_ptr, clk, IntermRegister::IC, resolved_c, c, memEntry.tag, dst_tag);
 
     // Constrain gas cost
-    gas_trace_builder.constrain_gas(clk, OpCode::CAST_8);
+    bool out_of_gas = gas_trace_builder.constrain_gas(clk, OpCode::CAST_8);
+    if (out_of_gas && is_ok(error)) {
+        error = AvmError::OUT_OF_GAS;
+    }
 
     main_trace.push_back(Row{
         .main_clk = clk,
@@ -1506,7 +1877,7 @@ RowWithError AvmTraceBuilder::create_kernel_lookup_opcode(uint8_t indirect,
                          .error = res_error };
 }
 
-AvmError AvmTraceBuilder::op_get_env_var(uint8_t indirect, uint8_t env_var, uint32_t dst_offset)
+AvmError AvmTraceBuilder::op_get_env_var(uint8_t indirect, uint32_t dst_offset, uint8_t env_var)
 {
     if (env_var >= static_cast<int>(EnvironmentVariable::MAX_ENV_VAR)) {
         // Error, bad enum operand
@@ -1521,8 +1892,6 @@ AvmError AvmTraceBuilder::op_get_env_var(uint8_t indirect, uint8_t env_var, uint
             .main_sel_op_address = FF(1), // TODO(9407): what selector should this be?
         };
 
-        // Constrain gas cost
-        gas_trace_builder.constrain_gas(static_cast<uint32_t>(row.main_clk), OpCode::GETENVVAR_16);
         main_trace.push_back(row);
         return AvmError::ENV_VAR_UNKNOWN;
     } else {
@@ -1535,9 +1904,6 @@ AvmError AvmTraceBuilder::op_get_env_var(uint8_t indirect, uint8_t env_var, uint
             break;
         case EnvironmentVariable::SENDER:
             error = op_sender(indirect, dst_offset);
-            break;
-        case EnvironmentVariable::FUNCTIONSELECTOR:
-            error = op_function_selector(indirect, dst_offset);
             break;
         case EnvironmentVariable::TRANSACTIONFEE:
             error = op_transaction_fee(indirect, dst_offset);
@@ -1581,13 +1947,16 @@ AvmError AvmTraceBuilder::op_get_env_var(uint8_t indirect, uint8_t env_var, uint
 
 AvmError AvmTraceBuilder::op_address(uint8_t indirect, uint32_t dst_offset)
 {
-    auto const clk = static_cast<uint32_t>(main_trace.size()) + 1;
-    FF ia_value = kernel_trace_builder.op_address(clk);
+    FF ia_value = this->current_ext_call_ctx.contract_address;
+
     auto [row, error] = create_kernel_lookup_opcode(indirect, dst_offset, ia_value, AvmMemoryTag::FF);
     row.main_sel_op_address = FF(1);
 
     // Constrain gas cost
-    gas_trace_builder.constrain_gas(static_cast<uint32_t>(row.main_clk), OpCode::GETENVVAR_16);
+    bool out_of_gas = gas_trace_builder.constrain_gas(static_cast<uint32_t>(row.main_clk), OpCode::GETENVVAR_16);
+    if (out_of_gas && is_ok(error)) {
+        error = AvmError::OUT_OF_GAS;
+    }
 
     main_trace.push_back(row);
     return error;
@@ -1595,27 +1964,15 @@ AvmError AvmTraceBuilder::op_address(uint8_t indirect, uint32_t dst_offset)
 
 AvmError AvmTraceBuilder::op_sender(uint8_t indirect, uint32_t dst_offset)
 {
-    auto const clk = static_cast<uint32_t>(main_trace.size()) + 1;
-    FF ia_value = kernel_trace_builder.op_sender(clk);
+    FF ia_value = this->current_public_call_request.msg_sender;
     auto [row, error] = create_kernel_lookup_opcode(indirect, dst_offset, ia_value, AvmMemoryTag::FF);
     row.main_sel_op_sender = FF(1);
 
     // Constrain gas cost
-    gas_trace_builder.constrain_gas(static_cast<uint32_t>(row.main_clk), OpCode::GETENVVAR_16);
-
-    main_trace.push_back(row);
-    return error;
-}
-
-AvmError AvmTraceBuilder::op_function_selector(uint8_t indirect, uint32_t dst_offset)
-{
-    auto const clk = static_cast<uint32_t>(main_trace.size()) + 1;
-    FF ia_value = kernel_trace_builder.op_function_selector(clk);
-    auto [row, error] = create_kernel_lookup_opcode(indirect, dst_offset, ia_value, AvmMemoryTag::U32);
-    row.main_sel_op_function_selector = FF(1);
-
-    // Constrain gas cost
-    gas_trace_builder.constrain_gas(static_cast<uint32_t>(row.main_clk), OpCode::GETENVVAR_16);
+    bool out_of_gas = gas_trace_builder.constrain_gas(static_cast<uint32_t>(row.main_clk), OpCode::GETENVVAR_16);
+    if (out_of_gas && is_ok(error)) {
+        error = AvmError::OUT_OF_GAS;
+    }
 
     main_trace.push_back(row);
     return error;
@@ -1623,13 +1980,15 @@ AvmError AvmTraceBuilder::op_function_selector(uint8_t indirect, uint32_t dst_of
 
 AvmError AvmTraceBuilder::op_transaction_fee(uint8_t indirect, uint32_t dst_offset)
 {
-    auto const clk = static_cast<uint32_t>(main_trace.size()) + 1;
-    FF ia_value = kernel_trace_builder.op_transaction_fee(clk);
+    FF ia_value = public_inputs.transaction_fee;
     auto [row, error] = create_kernel_lookup_opcode(indirect, dst_offset, ia_value, AvmMemoryTag::FF);
     row.main_sel_op_transaction_fee = FF(1);
 
     // Constrain gas cost
-    gas_trace_builder.constrain_gas(static_cast<uint32_t>(row.main_clk), OpCode::GETENVVAR_16);
+    bool out_of_gas = gas_trace_builder.constrain_gas(static_cast<uint32_t>(row.main_clk), OpCode::GETENVVAR_16);
+    if (out_of_gas && is_ok(error)) {
+        error = AvmError::OUT_OF_GAS;
+    }
 
     main_trace.push_back(row);
     return error;
@@ -1637,13 +1996,15 @@ AvmError AvmTraceBuilder::op_transaction_fee(uint8_t indirect, uint32_t dst_offs
 
 AvmError AvmTraceBuilder::op_is_static_call(uint8_t indirect, uint32_t dst_offset)
 {
-    auto const clk = static_cast<uint32_t>(main_trace.size()) + 1;
-    FF ia_value = kernel_trace_builder.op_is_static_call(clk);
+    FF ia_value = this->current_public_call_request.is_static_call;
     auto [row, error] = create_kernel_lookup_opcode(indirect, dst_offset, ia_value, AvmMemoryTag::FF);
     row.main_sel_op_is_static_call = FF(1);
 
     // Constrain gas cost
-    gas_trace_builder.constrain_gas(static_cast<uint32_t>(row.main_clk), OpCode::GETENVVAR_16);
+    bool out_of_gas = gas_trace_builder.constrain_gas(static_cast<uint32_t>(row.main_clk), OpCode::GETENVVAR_16);
+    if (out_of_gas && is_ok(error)) {
+        error = AvmError::OUT_OF_GAS;
+    }
 
     main_trace.push_back(row);
     return error;
@@ -1655,13 +2016,15 @@ AvmError AvmTraceBuilder::op_is_static_call(uint8_t indirect, uint32_t dst_offse
 
 AvmError AvmTraceBuilder::op_chain_id(uint8_t indirect, uint32_t dst_offset)
 {
-    auto const clk = static_cast<uint32_t>(main_trace.size()) + 1;
-    FF ia_value = kernel_trace_builder.op_chain_id(clk);
+    FF ia_value = public_inputs.global_variables.chain_id;
     auto [row, error] = create_kernel_lookup_opcode(indirect, dst_offset, ia_value, AvmMemoryTag::FF);
     row.main_sel_op_chain_id = FF(1);
 
     // Constrain gas cost
-    gas_trace_builder.constrain_gas(static_cast<uint32_t>(row.main_clk), OpCode::GETENVVAR_16);
+    bool out_of_gas = gas_trace_builder.constrain_gas(static_cast<uint32_t>(row.main_clk), OpCode::GETENVVAR_16);
+    if (out_of_gas && is_ok(error)) {
+        error = AvmError::OUT_OF_GAS;
+    }
 
     main_trace.push_back(row);
     return error;
@@ -1669,13 +2032,15 @@ AvmError AvmTraceBuilder::op_chain_id(uint8_t indirect, uint32_t dst_offset)
 
 AvmError AvmTraceBuilder::op_version(uint8_t indirect, uint32_t dst_offset)
 {
-    auto const clk = static_cast<uint32_t>(main_trace.size()) + 1;
-    FF ia_value = kernel_trace_builder.op_version(clk);
+    FF ia_value = public_inputs.global_variables.version;
     auto [row, error] = create_kernel_lookup_opcode(indirect, dst_offset, ia_value, AvmMemoryTag::FF);
     row.main_sel_op_version = FF(1);
 
     // Constrain gas cost
-    gas_trace_builder.constrain_gas(static_cast<uint32_t>(row.main_clk), OpCode::GETENVVAR_16);
+    bool out_of_gas = gas_trace_builder.constrain_gas(static_cast<uint32_t>(row.main_clk), OpCode::GETENVVAR_16);
+    if (out_of_gas && is_ok(error)) {
+        error = AvmError::OUT_OF_GAS;
+    }
 
     main_trace.push_back(row);
     return error;
@@ -1683,13 +2048,15 @@ AvmError AvmTraceBuilder::op_version(uint8_t indirect, uint32_t dst_offset)
 
 AvmError AvmTraceBuilder::op_block_number(uint8_t indirect, uint32_t dst_offset)
 {
-    auto const clk = static_cast<uint32_t>(main_trace.size()) + 1;
-    FF ia_value = kernel_trace_builder.op_block_number(clk);
+    FF ia_value = public_inputs.global_variables.block_number;
     auto [row, error] = create_kernel_lookup_opcode(indirect, dst_offset, ia_value, AvmMemoryTag::FF);
     row.main_sel_op_block_number = FF(1);
 
     // Constrain gas cost
-    gas_trace_builder.constrain_gas(static_cast<uint32_t>(row.main_clk), OpCode::GETENVVAR_16);
+    bool out_of_gas = gas_trace_builder.constrain_gas(static_cast<uint32_t>(row.main_clk), OpCode::GETENVVAR_16);
+    if (out_of_gas && is_ok(error)) {
+        error = AvmError::OUT_OF_GAS;
+    }
 
     main_trace.push_back(row);
     return error;
@@ -1697,13 +2064,15 @@ AvmError AvmTraceBuilder::op_block_number(uint8_t indirect, uint32_t dst_offset)
 
 AvmError AvmTraceBuilder::op_timestamp(uint8_t indirect, uint32_t dst_offset)
 {
-    auto const clk = static_cast<uint32_t>(main_trace.size()) + 1;
-    FF ia_value = kernel_trace_builder.op_timestamp(clk);
+    FF ia_value = public_inputs.global_variables.timestamp;
     auto [row, error] = create_kernel_lookup_opcode(indirect, dst_offset, ia_value, AvmMemoryTag::U64);
     row.main_sel_op_timestamp = FF(1);
 
     // Constrain gas cost
-    gas_trace_builder.constrain_gas(static_cast<uint32_t>(row.main_clk), OpCode::GETENVVAR_16);
+    bool out_of_gas = gas_trace_builder.constrain_gas(static_cast<uint32_t>(row.main_clk), OpCode::GETENVVAR_16);
+    if (out_of_gas && is_ok(error)) {
+        error = AvmError::OUT_OF_GAS;
+    }
 
     main_trace.push_back(row);
     return error;
@@ -1711,13 +2080,15 @@ AvmError AvmTraceBuilder::op_timestamp(uint8_t indirect, uint32_t dst_offset)
 
 AvmError AvmTraceBuilder::op_fee_per_l2_gas(uint8_t indirect, uint32_t dst_offset)
 {
-    auto const clk = static_cast<uint32_t>(main_trace.size()) + 1;
-    FF ia_value = kernel_trace_builder.op_fee_per_l2_gas(clk);
+    FF ia_value = public_inputs.global_variables.gas_fees.fee_per_l2_gas;
     auto [row, error] = create_kernel_lookup_opcode(indirect, dst_offset, ia_value, AvmMemoryTag::FF);
     row.main_sel_op_fee_per_l2_gas = FF(1);
 
     // Constrain gas cost
-    gas_trace_builder.constrain_gas(static_cast<uint32_t>(row.main_clk), OpCode::GETENVVAR_16);
+    bool out_of_gas = gas_trace_builder.constrain_gas(static_cast<uint32_t>(row.main_clk), OpCode::GETENVVAR_16);
+    if (out_of_gas && is_ok(error)) {
+        error = AvmError::OUT_OF_GAS;
+    }
 
     main_trace.push_back(row);
     return error;
@@ -1725,13 +2096,15 @@ AvmError AvmTraceBuilder::op_fee_per_l2_gas(uint8_t indirect, uint32_t dst_offse
 
 AvmError AvmTraceBuilder::op_fee_per_da_gas(uint8_t indirect, uint32_t dst_offset)
 {
-    auto const clk = static_cast<uint32_t>(main_trace.size()) + 1;
-    FF ia_value = kernel_trace_builder.op_fee_per_da_gas(clk);
+    FF ia_value = public_inputs.global_variables.gas_fees.fee_per_da_gas;
     auto [row, error] = create_kernel_lookup_opcode(indirect, dst_offset, ia_value, AvmMemoryTag::FF);
     row.main_sel_op_fee_per_da_gas = FF(1);
 
     // Constrain gas cost
-    gas_trace_builder.constrain_gas(static_cast<uint32_t>(row.main_clk), OpCode::GETENVVAR_16);
+    bool out_of_gas = gas_trace_builder.constrain_gas(static_cast<uint32_t>(row.main_clk), OpCode::GETENVVAR_16);
+    if (out_of_gas && is_ok(error)) {
+        error = AvmError::OUT_OF_GAS;
+    }
 
     main_trace.push_back(row);
     return error;
@@ -1761,7 +2134,7 @@ AvmError AvmTraceBuilder::op_fee_per_da_gas(uint8_t indirect, uint32_t dst_offse
  */
 AvmError AvmTraceBuilder::op_calldata_copy(uint8_t indirect,
                                            uint32_t cd_offset_address,
-                                           uint32_t copy_size_address,
+                                           uint32_t copy_size_offset,
                                            uint32_t dst_offset)
 {
     // We keep the first encountered error
@@ -1770,7 +2143,7 @@ AvmError AvmTraceBuilder::op_calldata_copy(uint8_t indirect,
 
     auto [resolved_addrs, res_error] =
         Addressing<3>::fromWire(indirect, call_ptr)
-            .resolve({ cd_offset_address, copy_size_address, dst_offset }, mem_trace_builder);
+            .resolve({ cd_offset_address, copy_size_offset, dst_offset }, mem_trace_builder);
     auto [cd_offset_resolved, copy_size_offset_resolved, dst_offset_resolved] = resolved_addrs;
     error = res_error;
 
@@ -1778,21 +2151,39 @@ AvmError AvmTraceBuilder::op_calldata_copy(uint8_t indirect,
     bool tag_match = true;
     if (is_ok(error) && !(check_tag(AvmMemoryTag::U32, cd_offset_resolved) &&
                           check_tag(AvmMemoryTag::U32, copy_size_offset_resolved))) {
-        error = AvmError::TAG_ERROR;
+        error = AvmError::CHECK_TAG_ERROR;
     }
 
     // TODO: constrain these.
     const uint32_t cd_offset = static_cast<uint32_t>(unconstrained_read_from_memory(cd_offset_resolved));
     const uint32_t copy_size = static_cast<uint32_t>(unconstrained_read_from_memory(copy_size_offset_resolved));
 
+    bool is_top_level = current_ext_call_ctx.is_top_level;
+
+    // Do not take a reference as calldata might be resized below.
+    auto calldata = current_ext_call_ctx.calldata;
     if (is_ok(error)) {
-        slice_trace_builder.create_calldata_copy_slice(
-            calldata, clk, call_ptr, cd_offset, copy_size, dst_offset_resolved);
-        mem_trace_builder.write_calldata_copy(calldata, clk, call_ptr, cd_offset, copy_size, dst_offset_resolved);
+        if (is_top_level) {
+            if (!check_slice_mem_range(dst_offset_resolved, copy_size)) {
+                error = AvmError::MEM_SLICE_OUT_OF_RANGE;
+            } else {
+                slice_trace_builder.create_calldata_copy_slice(
+                    calldata, clk, call_ptr, cd_offset, copy_size, dst_offset_resolved);
+                mem_trace_builder.write_calldata_copy(
+                    calldata, clk, call_ptr, cd_offset, copy_size, dst_offset_resolved);
+            }
+        } else {
+            calldata.resize(copy_size);
+            // If we are not at the top level, we write to memory directly
+            error = write_slice_to_memory(dst_offset_resolved, AvmMemoryTag::FF, calldata);
+        }
     }
 
     // Constrain gas cost
-    gas_trace_builder.constrain_gas(clk, OpCode::CALLDATACOPY, copy_size);
+    bool out_of_gas = gas_trace_builder.constrain_gas(clk, OpCode::CALLDATACOPY, copy_size);
+    if (out_of_gas && is_ok(error)) {
+        error = AvmError::OUT_OF_GAS;
+    }
 
     main_trace.push_back(Row{
         .main_clk = clk,
@@ -1804,8 +2195,8 @@ AvmError AvmTraceBuilder::op_calldata_copy(uint8_t indirect,
         .main_op_err = static_cast<uint32_t>(!is_ok(error)),
         .main_pc = pc,
         .main_r_in_tag = static_cast<uint32_t>(AvmMemoryTag::FF),
-        .main_sel_op_calldata_copy = 1,
-        .main_sel_slice_gadget = static_cast<uint32_t>(is_ok(error)),
+        .main_sel_op_calldata_copy = FF(1),
+        .main_sel_slice_gadget = static_cast<uint32_t>(is_top_level && is_ok(error)),
         .main_tag_err = static_cast<uint32_t>(!tag_match),
         .main_w_in_tag = static_cast<uint32_t>(AvmMemoryTag::FF),
     });
@@ -1828,15 +2219,18 @@ AvmError AvmTraceBuilder::op_returndata_size(uint8_t indirect, uint32_t dst_offs
     error = res_error;
 
     if (is_ok(error) && !tag_match) {
-        error = AvmError::TAG_ERROR;
+        error = AvmError::CHECK_TAG_ERROR;
     }
 
-    FF returndata_size = tag_match ? FF(nested_returndata.size()) : FF(0);
+    FF returndata_size = tag_match ? FF(current_ext_call_ctx.nested_returndata.size()) : FF(0);
     // TODO: constrain
     write_to_memory(resolved_dst_offset, returndata_size, AvmMemoryTag::U32);
 
     // Constrain gas cost
-    gas_trace_builder.constrain_gas(clk, OpCode::RETURNDATASIZE);
+    bool out_of_gas = gas_trace_builder.constrain_gas(clk, OpCode::RETURNDATASIZE);
+    if (out_of_gas && is_ok(error)) {
+        error = AvmError::OUT_OF_GAS;
+    }
 
     main_trace.push_back(Row{
         .main_clk = clk,
@@ -1872,16 +2266,19 @@ AvmError AvmTraceBuilder::op_returndata_copy(uint8_t indirect,
     bool tag_match = true;
     if (is_ok(error) && !(check_tag(AvmMemoryTag::U32, rd_offset_resolved) &&
                           check_tag(AvmMemoryTag::U32, copy_size_offset_resolved))) {
-        error = AvmError::TAG_ERROR;
+        error = AvmError::CHECK_TAG_ERROR;
     }
 
     // TODO: constrain these.
     const uint32_t rd_offset = static_cast<uint32_t>(unconstrained_read_from_memory(rd_offset_resolved));
     const uint32_t copy_size = static_cast<uint32_t>(unconstrained_read_from_memory(copy_size_offset_resolved));
 
-    gas_trace_builder.constrain_gas(clk,
-                                    OpCode::RETURNDATACOPY,
-                                    /*dyn_gas_multiplier=*/copy_size);
+    bool out_of_gas = gas_trace_builder.constrain_gas(clk,
+                                                      OpCode::RETURNDATACOPY,
+                                                      /*dyn_gas_multiplier=*/copy_size);
+    if (out_of_gas && is_ok(error)) {
+        error = AvmError::OUT_OF_GAS;
+    }
 
     main_trace.push_back(Row{
         .main_clk = clk,
@@ -1895,14 +2292,14 @@ AvmError AvmTraceBuilder::op_returndata_copy(uint8_t indirect,
     if (is_ok(error)) {
         // Write the return data to memory
         // TODO: validate bounds
-        auto returndata_slice =
-            std::vector(nested_returndata.begin() + rd_offset, nested_returndata.begin() + rd_offset + copy_size);
+        auto returndata_slice = std::vector(current_ext_call_ctx.nested_returndata.begin() + rd_offset,
+                                            current_ext_call_ctx.nested_returndata.begin() + rd_offset + copy_size);
 
         pc += Deserialization::get_pc_increment(OpCode::RETURNDATACOPY);
 
         // Crucial to perform this operation after having incremented pc because write_slice_to_memory
         // is implemented with opcodes (SET and JUMP).
-        write_slice_to_memory(dst_offset_resolved, AvmMemoryTag::FF, returndata_slice);
+        error = write_slice_to_memory(dst_offset_resolved, AvmMemoryTag::FF, returndata_slice);
     }
     return error;
 }
@@ -1914,6 +2311,8 @@ AvmError AvmTraceBuilder::op_returndata_copy(uint8_t indirect,
 // Helper for "gas left" related opcodes
 AvmError AvmTraceBuilder::execute_gasleft(EnvironmentVariable var, uint8_t indirect, uint32_t dst_offset)
 {
+    // We keep the first encountered error
+    AvmError error = AvmError::NO_ERROR;
     ASSERT(var == EnvironmentVariable::L2GASLEFT || var == EnvironmentVariable::DAGASLEFT);
 
     auto clk = static_cast<uint32_t>(main_trace.size()) + 1;
@@ -1923,7 +2322,10 @@ AvmError AvmTraceBuilder::execute_gasleft(EnvironmentVariable var, uint8_t indir
     auto [resolved_dst] = resolved_addrs;
 
     // Constrain gas cost
-    gas_trace_builder.constrain_gas(clk, OpCode::GETENVVAR_16);
+    bool out_of_gas = gas_trace_builder.constrain_gas(clk, OpCode::GETENVVAR_16);
+    if (out_of_gas && is_ok(error)) {
+        error = AvmError::OUT_OF_GAS;
+    }
 
     uint32_t gas_remaining = 0;
 
@@ -1983,11 +2385,16 @@ AvmError AvmTraceBuilder::op_dagasleft(uint8_t indirect, uint32_t dst_offset)
  */
 AvmError AvmTraceBuilder::op_jump(uint32_t jmp_dest, bool skip_gas)
 {
+    // We keep the first encountered error
+    AvmError error = AvmError::NO_ERROR;
     auto clk = static_cast<uint32_t>(main_trace.size()) + 1;
 
     // Constrain gas cost
     if (!skip_gas) {
-        gas_trace_builder.constrain_gas(clk, OpCode::JUMP_32);
+        bool out_of_gas = gas_trace_builder.constrain_gas(clk, OpCode::JUMP_32);
+        if (out_of_gas && is_ok(error)) {
+            error = AvmError::OUT_OF_GAS;
+        }
     }
 
     main_trace.push_back(Row{
@@ -1995,13 +2402,14 @@ AvmError AvmTraceBuilder::op_jump(uint32_t jmp_dest, bool skip_gas)
         .main_call_ptr = call_ptr,
         .main_ia = FF(jmp_dest),
         .main_internal_return_ptr = FF(internal_return_ptr),
+        .main_op_err = static_cast<uint32_t>(!is_ok(error)),
         .main_pc = FF(pc),
         .main_sel_op_jump = FF(1),
     });
 
     // Adjust parameters for the next row
     pc = jmp_dest;
-    return AvmError::NO_ERROR;
+    return error;
 }
 
 /**
@@ -2011,10 +2419,10 @@ AvmError AvmTraceBuilder::op_jump(uint32_t jmp_dest, bool skip_gas)
  *        Otherwise, program counter is incremented.
  *
  * @param indirect A byte encoding information about indirect/direct memory access.
- * @param jmp_dest The destination to jump to
  * @param cond_offset Offset of the condition
+ * @param jmp_dest The destination to jump to
  */
-AvmError AvmTraceBuilder::op_jumpi(uint8_t indirect, uint32_t jmp_dest, uint32_t cond_offset)
+AvmError AvmTraceBuilder::op_jumpi(uint8_t indirect, uint32_t cond_offset, uint32_t jmp_dest)
 {
     // We keep the first encountered error
     AvmError error = AvmError::NO_ERROR;
@@ -2029,7 +2437,7 @@ AvmError AvmTraceBuilder::op_jumpi(uint8_t indirect, uint32_t jmp_dest, uint32_t
     error = res_error;
 
     if (is_ok(error) && !tag_match) {
-        error = AvmError::TAG_ERROR;
+        error = AvmError::CHECK_TAG_ERROR;
     }
 
     // Specific JUMPI loading of conditional value into intermediate register id without any tag constraint.
@@ -2040,7 +2448,10 @@ AvmError AvmTraceBuilder::op_jumpi(uint8_t indirect, uint32_t jmp_dest, uint32_t
     uint32_t next_pc = !id_zero ? jmp_dest : pc + Deserialization::get_pc_increment(OpCode::JUMPI_32);
 
     // Constrain gas cost
-    gas_trace_builder.constrain_gas(clk, OpCode::JUMPI_32);
+    bool out_of_gas = gas_trace_builder.constrain_gas(clk, OpCode::JUMPI_32);
+    if (out_of_gas && is_ok(error)) {
+        error = AvmError::OUT_OF_GAS;
+    }
 
     main_trace.push_back(Row{
         .main_clk = clk,
@@ -2071,28 +2482,25 @@ AvmError AvmTraceBuilder::op_jumpi(uint8_t indirect, uint32_t jmp_dest, uint32_t
  *        (current program counter + 1) onto a call stack.
  *        This function must:
  *          - Set the next program counter to the provided `jmp_dest`.
- *          - Store the current `pc` + 1 onto the call stack (emulated in memory)
- *          - Increment the return stack pointer (a pointer to where the call stack is in memory)
- *
- *        Note: We use intermediate register to perform memory storage operations.
+ *          - Store the current `pc` + 1 onto the call stack
  *
  * @param jmp_dest - The destination to jump to
  */
 AvmError AvmTraceBuilder::op_internal_call(uint32_t jmp_dest)
 {
+    // We keep the first encountered error
+    AvmError error = AvmError::NO_ERROR;
     auto clk = static_cast<uint32_t>(main_trace.size()) + 1;
     const auto next_pc = pc + Deserialization::get_pc_increment(OpCode::INTERNALCALL);
     // We store the next instruction as the return location
-    mem_trace_builder.write_into_memory(INTERNAL_CALL_SPACE_ID,
-                                        clk,
-                                        IntermRegister::IB,
-                                        internal_return_ptr,
-                                        FF(next_pc),
-                                        AvmMemoryTag::FF,
-                                        AvmMemoryTag::U32);
-
+    debug("Writing return ptr: ", internal_return_ptr);
+    // We push the next pc onto the internal return stack of the current context
+    current_ext_call_ctx.internal_return_ptr_stack.emplace(next_pc);
     // Constrain gas cost
-    gas_trace_builder.constrain_gas(clk, OpCode::INTERNALCALL);
+    bool out_of_gas = gas_trace_builder.constrain_gas(clk, OpCode::INTERNALCALL);
+    if (out_of_gas && is_ok(error)) {
+        error = AvmError::OUT_OF_GAS;
+    }
 
     main_trace.push_back(Row{
         .main_clk = clk,
@@ -2100,60 +2508,54 @@ AvmError AvmTraceBuilder::op_internal_call(uint32_t jmp_dest)
         .main_ia = FF(jmp_dest),
         .main_ib = FF(next_pc),
         .main_internal_return_ptr = FF(internal_return_ptr),
-        .main_mem_addr_b = FF(internal_return_ptr),
+        .main_op_err = static_cast<uint32_t>(!is_ok(error)),
         .main_pc = FF(pc),
-        .main_rwb = FF(1),
-        .main_sel_mem_op_b = FF(1),
         .main_sel_op_internal_call = FF(1),
-        .main_w_in_tag = FF(static_cast<uint32_t>(AvmMemoryTag::U32)),
     });
 
     // Adjust parameters for the next row
     pc = jmp_dest;
-    internal_return_ptr++;
-    return AvmError::NO_ERROR;
+    return error;
 }
 
 /**
  * @brief INTERNAL_RETURN OPCODE
  *        The opcode returns from an internal call.
  *        This function must:
- *          - Read the return location from the internal_return_ptr
+ *          - Read the return location from the internal call stack
  *          - Set the next program counter to the return location
- *          - Decrement the return stack pointer
  *
  *  TODO(https://github.com/AztecProtocol/aztec-packages/issues/3740): This function MUST come after a call
  * instruction.
  */
 AvmError AvmTraceBuilder::op_internal_return()
 {
+    // We keep the first encountered error
+    AvmError error = AvmError::NO_ERROR;
     auto clk = static_cast<uint32_t>(main_trace.size()) + 1;
 
-    // Internal return pointer is decremented
-    // We want to load the value pointed by the internal pointer
-    auto read_a = mem_trace_builder.read_and_load_from_memory(
-        INTERNAL_CALL_SPACE_ID, clk, IntermRegister::IA, internal_return_ptr - 1, AvmMemoryTag::U32, AvmMemoryTag::FF);
+    // We pop the return location from the internal return stack of the current context
+    uint32_t next_pc = current_ext_call_ctx.internal_return_ptr_stack.top();
+    current_ext_call_ctx.internal_return_ptr_stack.pop();
 
     // Constrain gas cost
-    gas_trace_builder.constrain_gas(clk, OpCode::INTERNALRETURN);
+    bool out_of_gas = gas_trace_builder.constrain_gas(clk, OpCode::INTERNALRETURN);
+    if (out_of_gas && is_ok(error)) {
+        error = AvmError::OUT_OF_GAS;
+    }
 
     main_trace.push_back(Row{
         .main_clk = clk,
         .main_call_ptr = call_ptr,
-        .main_ia = read_a.val,
+        .main_ia = next_pc,
         .main_internal_return_ptr = FF(internal_return_ptr),
-        .main_mem_addr_a = FF(internal_return_ptr - 1),
+        .main_op_err = static_cast<uint32_t>(!is_ok(error)),
         .main_pc = pc,
-        .main_r_in_tag = FF(static_cast<uint32_t>(AvmMemoryTag::U32)),
-        .main_rwa = FF(0),
-        .main_sel_mem_op_a = FF(1),
         .main_sel_op_internal_return = FF(1),
-        .main_tag_err = FF(static_cast<uint32_t>(!read_a.tag_match)),
     });
 
-    pc = uint32_t(read_a.val);
-    internal_return_ptr--;
-    return AvmError::NO_ERROR;
+    pc = next_pc;
+    return error;
 }
 
 /**************************************************************************************************
@@ -2170,12 +2572,11 @@ AvmError AvmTraceBuilder::op_internal_return()
  *        Therefore, no range check is required as part of this opcode relation.
  *
  * @param indirect A byte encoding information about indirect/direct memory access.
- * @param val The constant to be written upcasted to u128
  * @param dst_offset Memory destination offset where val is written to
  * @param in_tag The instruction memory tag
  */
 AvmError AvmTraceBuilder::op_set(
-    uint8_t indirect, FF val_ff, uint32_t dst_offset, AvmMemoryTag in_tag, OpCode op_code, bool skip_gas)
+    uint8_t indirect, FF val, uint32_t dst_offset, AvmMemoryTag in_tag, OpCode op_code, bool skip_gas)
 {
     // We keep the first encountered error
     AvmError error = AvmError::NO_ERROR;
@@ -2187,16 +2588,19 @@ AvmError AvmTraceBuilder::op_set(
     error = res_error;
 
     auto write_c = constrained_write_to_memory(
-        call_ptr, clk, resolved_dst_offset, val_ff, AvmMemoryTag::FF, in_tag, IntermRegister::IC);
+        call_ptr, clk, resolved_dst_offset, val, AvmMemoryTag::FF, in_tag, IntermRegister::IC);
 
     if (is_ok(error) && !write_c.tag_match) {
-        error = AvmError::TAG_ERROR;
+        error = AvmError::CHECK_TAG_ERROR;
     }
 
     // Constrain gas cost
     // FIXME: not great that we are having to choose one specific opcode here!
     if (!skip_gas) {
-        gas_trace_builder.constrain_gas(clk, OpCode::SET_8);
+        bool out_of_gas = gas_trace_builder.constrain_gas(clk, OpCode::SET_8);
+        if (out_of_gas && is_ok(error)) {
+            error = AvmError::OUT_OF_GAS;
+        }
     }
 
     main_trace.push_back(Row{
@@ -2246,7 +2650,7 @@ AvmError AvmTraceBuilder::op_mov(uint8_t indirect, uint32_t src_offset, uint32_t
     error = res_error;
 
     if (is_ok(error) && !tag_match) {
-        error = AvmError::TAG_ERROR;
+        error = AvmError::CHECK_TAG_ERROR;
     }
 
     // Reading from memory and loading into ia without tag check.
@@ -2257,7 +2661,10 @@ AvmError AvmTraceBuilder::op_mov(uint8_t indirect, uint32_t src_offset, uint32_t
 
     // Constrain gas cost
     // FIXME: not great that we are having to choose one specific opcode here!
-    gas_trace_builder.constrain_gas(clk, OpCode::MOV_8);
+    bool out_of_gas = gas_trace_builder.constrain_gas(clk, OpCode::MOV_8);
+    if (out_of_gas && is_ok(error)) {
+        error = AvmError::OUT_OF_GAS;
+    }
 
     main_trace.push_back(Row{
         .main_clk = clk,
@@ -2311,7 +2718,7 @@ RowWithError AvmTraceBuilder::create_kernel_output_opcode(uint8_t indirect, uint
         call_ptr, clk, resolved_data, AvmMemoryTag::FF, AvmMemoryTag::FF, IntermRegister::IA);
     bool tag_match = read_a.tag_match;
     if (is_ok(error) && !tag_match) {
-        error = AvmError::TAG_ERROR;
+        error = AvmError::CHECK_TAG_ERROR;
     }
 
     return RowWithError{ .row =
@@ -2366,7 +2773,7 @@ RowWithError AvmTraceBuilder::create_kernel_output_opcode_with_metadata(uint8_t 
     bool tag_match = read_a.tag_match && read_b.tag_match;
 
     if (is_ok(error) && !tag_match) {
-        error = AvmError::TAG_ERROR;
+        error = AvmError::CHECK_TAG_ERROR;
     }
 
     return RowWithError{ .row =
@@ -2393,160 +2800,11 @@ RowWithError AvmTraceBuilder::create_kernel_output_opcode_with_metadata(uint8_t 
                          .error = error };
 }
 
-/**
- * @brief Create a kernel output opcode with set metadata output object
- *
- * Used for writing output opcode where one metadata value is written and comes from a hint
- * {note_hash_exists, nullifier_exists, etc. } Where a boolean output if it exists must also be written
- *
- * @param indirect - Perform indirect memory resolution
- * @param clk - The trace clk
- * @param data_offset - The offset of the main value to output
- * @param metadata_offset - The offset of the metadata (slot in the sload example)
- * @return Row
- */
-Row AvmTraceBuilder::create_kernel_output_opcode_with_set_metadata_output_from_hint(
-    uint32_t clk, uint32_t data_offset, [[maybe_unused]] uint32_t address_offset, uint32_t metadata_offset)
-{
-    FF exists = execution_hints.get_side_effect_hints().at(side_effect_counter);
-
-    auto read_a = constrained_read_from_memory(
-        call_ptr, clk, data_offset, AvmMemoryTag::FF, AvmMemoryTag::U1, IntermRegister::IA);
-
-    auto write_b = constrained_write_to_memory(
-        call_ptr, clk, metadata_offset, exists, AvmMemoryTag::FF, AvmMemoryTag::U1, IntermRegister::IB);
-    bool tag_match = read_a.tag_match && write_b.tag_match;
-
-    return Row{
-        .main_clk = clk,
-        .main_ia = read_a.val,
-        .main_ib = write_b.val,
-        .main_ind_addr_a = FF(read_a.indirect_address),
-        .main_ind_addr_b = FF(write_b.indirect_address),
-        .main_internal_return_ptr = internal_return_ptr,
-        .main_mem_addr_a = FF(read_a.direct_address),
-        .main_mem_addr_b = FF(write_b.direct_address),
-        .main_pc = pc,
-        .main_r_in_tag = static_cast<uint32_t>(AvmMemoryTag::FF),
-        .main_rwa = 0,
-        .main_rwb = 1,
-        .main_sel_mem_op_a = 1,
-        .main_sel_mem_op_b = 1,
-        .main_sel_q_kernel_output_lookup = 1,
-        .main_sel_resolve_ind_addr_a = FF(static_cast<uint32_t>(read_a.is_indirect)),
-        .main_sel_resolve_ind_addr_b = FF(static_cast<uint32_t>(write_b.is_indirect)),
-        .main_tag_err = static_cast<uint32_t>(!tag_match),
-        .main_w_in_tag = static_cast<uint32_t>(AvmMemoryTag::U1),
-    };
-}
-
-// Specifically for handling the L1TOL2MSGEXISTS and NOTEHASHEXISTS opcodes
-Row AvmTraceBuilder::create_kernel_output_opcode_for_leaf_index(uint32_t clk,
-                                                                uint32_t data_offset,
-                                                                uint32_t leaf_index,
-                                                                uint32_t metadata_offset)
-{
-    // If doesnt exist, should not read_a, but instead get from public inputs
-    FF exists = execution_hints.get_leaf_index_hints().at(leaf_index);
-
-    auto read_a = constrained_read_from_memory(
-        call_ptr, clk, data_offset, AvmMemoryTag::FF, AvmMemoryTag::U1, IntermRegister::IA);
-
-    auto write_b = constrained_write_to_memory(
-        call_ptr, clk, metadata_offset, exists, AvmMemoryTag::FF, AvmMemoryTag::U1, IntermRegister::IB);
-    bool tag_match = read_a.tag_match && write_b.tag_match;
-
-    return Row{
-        .main_clk = clk,
-        .main_ia = read_a.val,
-        .main_ib = write_b.val,
-        .main_ind_addr_a = FF(read_a.indirect_address),
-        .main_ind_addr_b = FF(write_b.indirect_address),
-        .main_internal_return_ptr = internal_return_ptr,
-        .main_mem_addr_a = FF(read_a.direct_address),
-        .main_mem_addr_b = FF(write_b.direct_address),
-        .main_pc = pc,
-        .main_r_in_tag = static_cast<uint32_t>(AvmMemoryTag::FF),
-        .main_rwa = 0,
-        .main_rwb = 1,
-        .main_sel_mem_op_a = 1,
-        .main_sel_mem_op_b = 1,
-        .main_sel_q_kernel_output_lookup = 1,
-        .main_sel_resolve_ind_addr_a = FF(static_cast<uint32_t>(read_a.is_indirect)),
-        .main_sel_resolve_ind_addr_b = FF(static_cast<uint32_t>(write_b.is_indirect)),
-        .main_tag_err = static_cast<uint32_t>(!tag_match),
-        .main_w_in_tag = static_cast<uint32_t>(AvmMemoryTag::U1),
-    };
-}
-
-/**
- * @brief Create a kernel output opcode with set metadata output object
- *
- * Used for writing output opcode where one value is written and comes from a hint
- * {sload}
- *
- * @param indirect - Perform indirect memory resolution
- * @param clk - The trace clk
- * @param data_offset - The offset of the main value to output
- * @param metadata_offset - The offset of the metadata (slot in the sload example)
- * @return Row
- */
-RowWithError AvmTraceBuilder::create_kernel_output_opcode_with_set_value_from_hint(uint8_t indirect,
-                                                                                   uint32_t clk,
-                                                                                   uint32_t data_offset,
-                                                                                   uint32_t metadata_offset)
-{
-    FF value = execution_hints.get_side_effect_hints().at(side_effect_counter);
-    // TODO: throw error if incorrect
-
-    // We keep the first encountered error
-    AvmError error = AvmError::NO_ERROR;
-    auto [resolved_addrs, res_error] =
-        Addressing<2>::fromWire(indirect, call_ptr).resolve({ data_offset, metadata_offset }, mem_trace_builder);
-    auto [resolved_data, resolved_metadata] = resolved_addrs;
-    error = res_error;
-
-    auto write_a = constrained_write_to_memory(
-        call_ptr, clk, resolved_data, value, AvmMemoryTag::FF, AvmMemoryTag::FF, IntermRegister::IA);
-    auto read_b = constrained_read_from_memory(
-        call_ptr, clk, resolved_metadata, AvmMemoryTag::FF, AvmMemoryTag::FF, IntermRegister::IB);
-    bool tag_match = write_a.tag_match && read_b.tag_match;
-
-    if (is_ok(error) && !tag_match) {
-        error = AvmError::TAG_ERROR;
-    }
-
-    return RowWithError{ .row =
-                             Row{
-                                 .main_clk = clk,
-                                 .main_ia = write_a.val,
-                                 .main_ib = read_b.val,
-                                 .main_ind_addr_a = FF(write_a.indirect_address),
-                                 .main_ind_addr_b = FF(read_b.indirect_address),
-                                 .main_internal_return_ptr = internal_return_ptr,
-                                 .main_mem_addr_a = FF(write_a.direct_address),
-                                 .main_mem_addr_b = FF(read_b.direct_address),
-                                 .main_op_err = FF(static_cast<uint32_t>(!is_ok(error))),
-                                 .main_pc = pc, // No PC increment here since we do it in the specific ops
-                                 .main_r_in_tag = static_cast<uint32_t>(AvmMemoryTag::FF),
-                                 .main_rwa = 1,
-                                 .main_rwb = 0,
-                                 .main_sel_mem_op_a = 1,
-                                 .main_sel_mem_op_b = 1,
-                                 .main_sel_q_kernel_output_lookup = 1,
-                                 .main_sel_resolve_ind_addr_a = FF(static_cast<uint32_t>(write_a.is_indirect)),
-                                 .main_sel_resolve_ind_addr_b = FF(static_cast<uint32_t>(read_b.is_indirect)),
-                                 .main_tag_err = static_cast<uint32_t>(!tag_match),
-                                 .main_w_in_tag = static_cast<uint32_t>(AvmMemoryTag::FF),
-                             },
-                         .error = error };
-}
-
 /**************************************************************************************************
  *                              WORLD STATE
  **************************************************************************************************/
 
-AvmError AvmTraceBuilder::op_sload(uint8_t indirect, uint32_t slot_offset, uint32_t size, uint32_t dest_offset)
+AvmError AvmTraceBuilder::op_sload(uint8_t indirect, uint32_t slot_offset, uint32_t dest_offset)
 {
     // We keep the first encountered error
     AvmError error = AvmError::NO_ERROR;
@@ -2560,86 +2818,94 @@ AvmError AvmTraceBuilder::op_sload(uint8_t indirect, uint32_t slot_offset, uint3
     auto read_slot = unconstrained_read_from_memory(resolved_slot);
     // TODO(https://github.com/AztecProtocol/aztec-packages/issues/7960): Until this is moved
     // to its own gadget, we need to make an unconstrained read here
-    // otherwise everything falls apart since this is a fake row.
-    //
-    // auto read_slot = constrained_read_from_memory(
-    //     call_ptr, clk, resolved_slot, AvmMemoryTag::FF, AvmMemoryTag::FF, IntermRegister::IA);
-    //
-    // Read the slot value that we will write hints to in a row
-    // main_trace.push_back(Row{
-    //     .main_clk = clk,
-    //     .main_ia = read_slot.val,
-    //     .main_ind_addr_a = FF(read_slot.indirect_address),
-    //     .main_internal_return_ptr = FF(internal_return_ptr),
-    //     .main_mem_addr_a = FF(read_slot.direct_address),
-    //     .main_pc = pc, // No PC increment here since this is the same opcode as the rows created below
-    //     .main_r_in_tag = FF(static_cast<uint32_t>(AvmMemoryTag::FF)),
-    //     .main_sel_mem_op_a = FF(1),
-    //     .main_sel_resolve_ind_addr_a = FF(static_cast<uint32_t>(read_slot.is_indirect)),
-    //     .main_tag_err = FF(static_cast<uint32_t>(!read_slot.tag_match)),
-    // });
-    // gas_trace_builder.constrain_gas(clk, OpCode::SLOAD);
-    // clk++;
 
-    bool accumulated_tag_match = true;
-    AddressWithMode write_dst = resolved_dest;
-    // Loop over the size and write the hints to memory
-    for (uint32_t i = 0; i < size; i++) {
-        FF value = execution_hints.get_side_effect_hints().at(side_effect_counter);
+    // Retrieve the public data read hint for this sload
+    PublicDataReadTreeHint read_hint = execution_hints.storage_read_hints.at(storage_read_counter++);
+    // Check that the hinted leaf is a member of the public data tree
+    bool is_member = merkle_tree_trace_builder.perform_storage_read(
+        clk, read_hint.leaf_preimage, read_hint.leaf_index, read_hint.sibling_path);
+    ASSERT(is_member);
 
-        auto write_a = constrained_write_to_memory(
-            call_ptr, clk, write_dst, value, AvmMemoryTag::FF, AvmMemoryTag::FF, IntermRegister::IA);
+    // Compute the tree slot
+    FF computed_tree_slot =
+        merkle_tree_trace_builder.compute_public_tree_leaf_slot(clk, current_ext_call_ctx.contract_address, read_slot);
+    // Check if the computed_tree_slot matches the read hint
+    bool exists = computed_tree_slot == read_hint.leaf_preimage.slot;
 
-        // TODO(8945): remove fake rows
-        auto row = Row{
-            .main_clk = clk,
-            .main_ia = value,
-            .main_ib = read_slot + i, // slot increments each time
-            .main_ind_addr_a = write_a.indirect_address,
-            .main_internal_return_ptr = internal_return_ptr,
-            .main_mem_addr_a = write_a.direct_address, // direct address incremented at end of the loop
-            .main_pc = pc,
-            .main_rwa = 1,
-            .main_sel_mem_op_a = 1,
-            .main_sel_op_sload = FF(1),
-            .main_sel_resolve_ind_addr_a = FF(static_cast<uint32_t>(write_a.is_indirect)),
-            .main_tag_err = FF(static_cast<uint32_t>(!write_a.tag_match)),
-            .main_w_in_tag = static_cast<uint32_t>(AvmMemoryTag::FF),
-        };
-
-        accumulated_tag_match = accumulated_tag_match && write_a.tag_match;
-        // Output storage read to kernel outputs (performs lookup)
-        // Tuples of (slot, value) in the kernel lookup
-        kernel_trace_builder.op_sload(clk, side_effect_counter, row.main_ib, row.main_ia);
-
-        // Constrain gas cost
-        // TODO: when/if we move this to its own gadget, and we have 1 row only, we should pass the size as
-        // n_multiplier here.
-        gas_trace_builder.constrain_gas(clk, OpCode::SLOAD);
-
-        main_trace.push_back(row);
-
-        debug("sload side-effect cnt: ", side_effect_counter);
-        side_effect_counter++;
-        clk++;
-
-        // After the first loop, all future write destinations are direct, increment the direct address
-        write_dst = AddressWithMode{ AddressingMode::DIRECT, write_a.direct_address + 1 };
+    // If it doesnt exist, we should check the low nullifier conditions
+    if (!exists) {
+        bool non_member = AvmMerkleTreeTraceBuilder::assert_public_data_non_membership_check(read_hint.leaf_preimage,
+                                                                                             computed_tree_slot);
+        ASSERT(non_member);
     }
 
-    if (is_ok(error) && !accumulated_tag_match) {
-        error = AvmError::TAG_ERROR;
+    FF value = exists ? read_hint.leaf_preimage.value : FF::zero();
+    auto write_a = constrained_write_to_memory(
+        call_ptr, clk, resolved_dest, value, AvmMemoryTag::FF, AvmMemoryTag::FF, IntermRegister::IA);
+
+    if (is_ok(error) && !write_a.tag_match) {
+        error = AvmError::CHECK_TAG_ERROR;
     }
+
+    // TODO(8945): remove fake rows
+    auto row = Row{
+        .main_clk = clk,
+        .main_ia = value,
+        .main_ib = read_slot,
+        .main_ind_addr_a = write_a.indirect_address,
+        .main_internal_return_ptr = internal_return_ptr,
+        .main_mem_addr_a = write_a.direct_address, // direct address incremented at end of the loop
+        .main_pc = pc,
+        .main_rwa = 1,
+        .main_sel_mem_op_a = 1,
+        .main_sel_op_sload = FF(1),
+        .main_sel_resolve_ind_addr_a = FF(static_cast<uint32_t>(write_a.is_indirect)),
+        .main_tag_err = FF(static_cast<uint32_t>(!write_a.tag_match)),
+        .main_w_in_tag = static_cast<uint32_t>(AvmMemoryTag::FF),
+    };
+
+    // Constrain gas cost
+    // TODO: when/if we move this to its own gadget, and we have 1 row only, we should pass the size as
+    // n_multiplier here.
+    bool out_of_gas = gas_trace_builder.constrain_gas(clk, OpCode::SLOAD);
+    if (out_of_gas && is_ok(error)) {
+        error = AvmError::OUT_OF_GAS;
+    }
+
+    main_trace.push_back(row);
+
+    debug("sload side-effect cnt: ", side_effect_counter);
+    side_effect_counter++;
+    clk++;
 
     pc += Deserialization::get_pc_increment(OpCode::SLOAD);
     return error;
 }
 
-AvmError AvmTraceBuilder::op_sstore(uint8_t indirect, uint32_t src_offset, uint32_t size, uint32_t slot_offset)
+AvmError AvmTraceBuilder::op_sstore(uint8_t indirect, uint32_t src_offset, uint32_t slot_offset)
 {
-    // We keep the first encountered error
-    AvmError error = AvmError::NO_ERROR;
     auto clk = static_cast<uint32_t>(main_trace.size()) + 1;
+    uint32_t unique_public_data_slot_writes = get_public_data_writes_count();
+    AvmError error = current_ext_call_ctx.is_static_call ? AvmError::STATIC_CALL_ALTERATION
+                     : unique_public_data_slot_writes >= MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX
+                         ? AvmError::SIDE_EFFECT_LIMIT_REACHED
+                         : AvmError::NO_ERROR;
+
+    if (!is_ok(error)) {
+        // NOTE: the circuit constraint for this limit should only be applied
+        // for the storage writes performed by this opcode. An exception should before
+        // made for the fee juice storage write made after teardown.
+        auto row = Row{
+            .main_clk = clk,
+            .main_internal_return_ptr = internal_return_ptr,
+            .main_op_err = FF(static_cast<uint32_t>(!is_ok(error))),
+            .main_pc = pc,
+            .main_sel_op_sstore = FF(1),
+        };
+        main_trace.push_back(row);
+        pc += Deserialization::get_pc_increment(OpCode::SSTORE);
+        return error;
+    }
 
     auto [resolved_addrs, res_error] =
         Addressing<2>::fromWire(indirect, call_ptr).resolve({ src_offset, slot_offset }, mem_trace_builder);
@@ -2650,72 +2916,59 @@ AvmError AvmTraceBuilder::op_sstore(uint8_t indirect, uint32_t src_offset, uint3
     // TODO(https://github.com/AztecProtocol/aztec-packages/issues/7960): Until this is moved
     // to its own gadget, we need to make an unconstrained read here
     // otherwise everything falls apart since this is a fake row.
-    //
-    // auto read_slot = constrained_read_from_memory(
-    //     call_ptr, clk, resolved_slot, AvmMemoryTag::FF, AvmMemoryTag::FF, IntermRegister::IA);
-    //
-    // main_trace.push_back(Row{
-    //     .main_clk = clk,
-    //     .main_ia = read_slot.val,
-    //     .main_ind_addr_a = FF(read_slot.indirect_address),
-    //     .main_internal_return_ptr = FF(internal_return_ptr),
-    //     .main_mem_addr_a = FF(read_slot.direct_address),
-    //     .main_pc = pc, // No PC increment here since this is the same opcode as the rows created below
-    //     .main_r_in_tag = FF(static_cast<uint32_t>(AvmMemoryTag::FF)),
-    //     .main_sel_mem_op_a = FF(1),
-    //     .main_sel_resolve_ind_addr_a = FF(static_cast<uint32_t>(read_slot.is_indirect)),
-    //     .main_tag_err = FF(static_cast<uint32_t>(!read_slot.tag_match)),
-    //     .main_w_in_tag = FF(static_cast<uint32_t>(AvmMemoryTag::FF)),
-    // });
-    // gas_trace_builder.constrain_gas(clk, OpCode::SSTORE);
-    // clk++;
 
-    AddressWithMode read_src = resolved_src;
-    bool accumulated_tag_match = true;
+    auto read_a = constrained_read_from_memory(
+        call_ptr, clk, resolved_src, AvmMemoryTag::FF, AvmMemoryTag::FF, IntermRegister::IA);
 
-    // This loop reads a _size_ number of elements from memory and places them into a tuple of (ele, slot)
-    // in the kernel lookup.
-    for (uint32_t i = 0; i < size; i++) {
-        auto read_a = constrained_read_from_memory(
-            call_ptr, clk, read_src, AvmMemoryTag::FF, AvmMemoryTag::FF, IntermRegister::IA);
-
-        // TODO(8945): remove fake rows
-        Row row = Row{
-            .main_clk = clk,
-            .main_ia = read_a.val,
-            .main_ib = read_slot + i, // slot increments each time
-            .main_ind_addr_a = read_a.indirect_address,
-            .main_internal_return_ptr = internal_return_ptr,
-            .main_mem_addr_a = read_a.direct_address, // direct address incremented at end of the loop
-            .main_pc = pc,
-            .main_r_in_tag = static_cast<uint32_t>(AvmMemoryTag::FF),
-            .main_sel_mem_op_a = 1,
-            .main_sel_q_kernel_output_lookup = 1,
-            .main_sel_resolve_ind_addr_a = FF(static_cast<uint32_t>(read_a.is_indirect)),
-            .main_tag_err = FF(static_cast<uint32_t>(!read_a.tag_match)),
-        };
-        row.main_sel_op_sstore = FF(1);
-        kernel_trace_builder.op_sstore(clk, side_effect_counter, row.main_ib, row.main_ia);
-        accumulated_tag_match = accumulated_tag_match && read_a.tag_match;
-
-        // Constrain gas cost
-        // TODO: when/if we move this to its own gadget, and we have 1 row only, we should pass the size as
-        // n_multiplier here.
-        gas_trace_builder.constrain_gas(clk, OpCode::SSTORE);
-
-        main_trace.push_back(row);
-
-        debug("sstore side-effect cnt: ", side_effect_counter);
-        side_effect_counter++;
-        clk++;
-        // All future reads are direct, increment the direct address
-        read_src = AddressWithMode{ AddressingMode::DIRECT, read_a.direct_address + 1 };
+    if (is_ok(error) && !read_a.tag_match) {
+        error = AvmError::CHECK_TAG_ERROR;
     }
 
-    if (is_ok(error) && !accumulated_tag_match) {
-        error = AvmError::TAG_ERROR;
+    // Merkle check for SSTORE
+    // (a) We compute the tree leaf slot of the low nullifier
+    // (b) We check the membership of the low nullifier in the public data tree
+    // (c) We check that the operand slot meets the low nullifier conditions (sandwich or max)
+    // (d) We update the preimage of the low nullifier with the new slot it points to
+    // (e) We create a new preimage for the new write
+    // (f) We compute the new root by updating at the leaf index with the hash of the new preimage
+    PublicDataWriteTreeHint write_hint = execution_hints.storage_write_hints.at(storage_write_counter++);
+    merkle_tree_trace_builder.perform_storage_write(clk,
+                                                    write_hint.low_leaf_membership.leaf_preimage,
+                                                    write_hint.low_leaf_membership.leaf_index,
+                                                    write_hint.low_leaf_membership.sibling_path,
+                                                    write_hint.new_leaf_preimage.slot,
+                                                    write_hint.new_leaf_preimage.value,
+                                                    write_hint.insertion_path);
+
+    // TODO(8945): remove fake rows
+    Row row = Row{
+        .main_clk = clk,
+        .main_ia = read_a.val,
+        .main_ib = read_slot,
+        .main_ind_addr_a = read_a.indirect_address,
+        .main_internal_return_ptr = internal_return_ptr,
+        .main_mem_addr_a = read_a.direct_address, // direct address incremented at end of the loop
+        .main_op_err = FF(static_cast<uint32_t>(!is_ok(error))),
+        .main_pc = pc,
+        .main_r_in_tag = static_cast<uint32_t>(AvmMemoryTag::FF),
+        .main_sel_mem_op_a = 1,
+        .main_sel_q_kernel_output_lookup = 1,
+        .main_sel_resolve_ind_addr_a = FF(static_cast<uint32_t>(read_a.is_indirect)),
+        .main_tag_err = FF(static_cast<uint32_t>(!read_a.tag_match)),
+    };
+    row.main_sel_op_sstore = FF(1);
+
+    // Constrain gas cost
+    bool out_of_gas = gas_trace_builder.constrain_gas(clk, OpCode::SSTORE);
+    if (out_of_gas && is_ok(error)) {
+        error = AvmError::OUT_OF_GAS;
     }
 
+    main_trace.push_back(row);
+
+    debug("sstore side-effect cnt: ", side_effect_counter);
+    side_effect_counter++;
+    clk++;
     pc += Deserialization::get_pc_increment(OpCode::SSTORE);
     return error;
 }
@@ -2735,24 +2988,63 @@ AvmError AvmTraceBuilder::op_note_hash_exists(uint8_t indirect,
     auto [resolved_note_hash, resolved_leaf_index, resolved_dest] = resolved_addrs;
     error = res_error;
 
-    const auto leaf_index = unconstrained_read_from_memory(resolved_leaf_index);
     if (is_ok(error) && !check_tag(AvmMemoryTag::FF, resolved_leaf_index)) {
-        error = AvmError::TAG_ERROR;
+        error = AvmError::CHECK_TAG_ERROR;
     }
 
     Row row;
 
     if (is_ok(error)) {
-        row = create_kernel_output_opcode_for_leaf_index(
-            clk, resolved_note_hash, static_cast<uint32_t>(leaf_index), resolved_dest);
+        AppendTreeHint note_hash_read_hint = execution_hints.note_hash_read_hints.at(note_hash_read_counter++);
+        FF note_hash_value = unconstrained_read_from_memory(resolved_note_hash);
 
-        kernel_trace_builder.op_note_hash_exists(clk,
-                                                 /*side_effect_counter*/ static_cast<uint32_t>(leaf_index),
-                                                 row.main_ia,
-                                                 /*safe*/ static_cast<uint32_t>(row.main_ib));
+        // The note hash exists, if what we read from the note hash offset matches the hinted leaf value
+        bool exists = note_hash_value == note_hash_read_hint.leaf_value;
+        // Check membership of the leaf index in the note hash tree
+        const auto leaf_index = unconstrained_read_from_memory(resolved_leaf_index);
+        bool is_member = merkle_tree_trace_builder.perform_note_hash_read(
+            clk, note_hash_read_hint.leaf_value, leaf_index, note_hash_read_hint.sibling_path);
+
+        ASSERT(is_member);
+
+        // This already does memory reads
+        auto read_a = constrained_read_from_memory(
+            call_ptr, clk, resolved_note_hash, AvmMemoryTag::FF, AvmMemoryTag::U1, IntermRegister::IA);
+
+        auto write_b = constrained_write_to_memory(call_ptr,
+                                                   clk,
+                                                   resolved_dest,
+                                                   exists ? FF::one() : FF::zero(),
+                                                   AvmMemoryTag::FF,
+                                                   AvmMemoryTag::U1,
+                                                   IntermRegister::IB);
+        bool tag_match = read_a.tag_match && write_b.tag_match;
+
+        row = Row{
+            .main_clk = clk,
+            .main_ia = read_a.val,
+            .main_ib = write_b.val,
+            .main_ind_addr_a = FF(read_a.indirect_address),
+            .main_ind_addr_b = FF(write_b.indirect_address),
+            .main_internal_return_ptr = internal_return_ptr,
+            .main_mem_addr_a = FF(read_a.direct_address),
+            .main_mem_addr_b = FF(write_b.direct_address),
+            .main_pc = pc,
+            .main_r_in_tag = static_cast<uint32_t>(AvmMemoryTag::FF),
+            .main_rwa = 0,
+            .main_rwb = 1,
+            .main_sel_mem_op_a = 1,
+            .main_sel_mem_op_b = 1,
+            .main_sel_q_kernel_output_lookup = 1,
+            .main_sel_resolve_ind_addr_a = FF(static_cast<uint32_t>(read_a.is_indirect)),
+            .main_sel_resolve_ind_addr_b = FF(static_cast<uint32_t>(write_b.is_indirect)),
+            .main_tag_err = static_cast<uint32_t>(!tag_match),
+            .main_w_in_tag = static_cast<uint32_t>(AvmMemoryTag::U1),
+        };
+
         row.main_sel_op_note_hash_exists = FF(1);
         if (is_ok(error) && row.main_tag_err != FF(0)) {
-            error = AvmError::TAG_ERROR;
+            error = AvmError::CHECK_TAG_ERROR;
         }
     } else {
         row = Row{
@@ -2765,7 +3057,10 @@ AvmError AvmTraceBuilder::op_note_hash_exists(uint8_t indirect,
     }
 
     // Constrain gas cost
-    gas_trace_builder.constrain_gas(clk, OpCode::NOTEHASHEXISTS);
+    bool out_of_gas = gas_trace_builder.constrain_gas(clk, OpCode::NOTEHASHEXISTS);
+    if (out_of_gas && is_ok(error)) {
+        error = AvmError::OUT_OF_GAS;
+    }
 
     main_trace.push_back(row);
 
@@ -2777,13 +3072,53 @@ AvmError AvmTraceBuilder::op_note_hash_exists(uint8_t indirect,
 AvmError AvmTraceBuilder::op_emit_note_hash(uint8_t indirect, uint32_t note_hash_offset)
 {
     auto const clk = static_cast<uint32_t>(main_trace.size()) + 1;
+    uint32_t inserted_note_hashes_count = get_inserted_note_hashes_count();
+    AvmError error = current_ext_call_ctx.is_static_call                    ? AvmError::STATIC_CALL_ALTERATION
+                     : inserted_note_hashes_count >= MAX_NOTE_HASHES_PER_TX ? AvmError::SIDE_EFFECT_LIMIT_REACHED
+                                                                            : AvmError::NO_ERROR;
 
-    auto [row, error] = create_kernel_output_opcode(indirect, clk, note_hash_offset);
-    kernel_trace_builder.op_emit_note_hash(clk, side_effect_counter, row.main_ia);
+    if (!is_ok(error)) {
+        auto row = Row{
+            .main_clk = clk,
+            .main_internal_return_ptr = internal_return_ptr,
+            .main_op_err = FF(static_cast<uint32_t>(!is_ok(error))),
+            .main_pc = pc,
+            .main_sel_op_emit_note_hash = FF(1),
+        };
+        main_trace.push_back(row);
+        pc += Deserialization::get_pc_increment(OpCode::EMITNOTEHASH);
+        return error;
+    }
+
+    auto [row, output_error] = create_kernel_output_opcode(indirect, clk, note_hash_offset);
     row.main_sel_op_emit_note_hash = FF(1);
+    if (is_ok(error)) {
+        error = output_error;
+    }
+
+    row.main_op_err = FF(static_cast<uint32_t>(!is_ok(error)));
+
+    AppendTreeHint note_hash_write_hint = execution_hints.note_hash_write_hints.at(note_hash_write_counter++);
+    FF siloed_note_hash = AvmMerkleTreeTraceBuilder::unconstrained_silo_note_hash(
+        current_public_call_request.contract_address, row.main_ia);
+    FF nonce =
+        AvmMerkleTreeTraceBuilder::unconstrained_compute_note_hash_nonce(get_tx_hash(), inserted_note_hashes_count);
+    FF unique_note_hash = AvmMerkleTreeTraceBuilder::unconstrained_compute_unique_note_hash(nonce, siloed_note_hash);
+
+    ASSERT(unique_note_hash == note_hash_write_hint.leaf_value);
+    // We first check that the index is currently empty
+    bool insert_index_is_empty = merkle_tree_trace_builder.perform_note_hash_read(
+        clk, FF::zero(), note_hash_write_hint.leaf_index, note_hash_write_hint.sibling_path);
+    ASSERT(insert_index_is_empty);
+
+    // Update the root with the new leaf that is appended
+    merkle_tree_trace_builder.perform_note_hash_append(clk, unique_note_hash, note_hash_write_hint.sibling_path);
 
     // Constrain gas cost
-    gas_trace_builder.constrain_gas(clk, OpCode::EMITNOTEHASH);
+    bool out_of_gas = gas_trace_builder.constrain_gas(clk, OpCode::EMITNOTEHASH);
+    if (out_of_gas && is_ok(error)) {
+        error = AvmError::OUT_OF_GAS;
+    }
 
     main_trace.push_back(row);
 
@@ -2810,19 +3145,65 @@ AvmError AvmTraceBuilder::op_nullifier_exists(uint8_t indirect,
     error = res_error;
 
     if (is_ok(error) && !check_tag(AvmMemoryTag::FF, resolved_address)) {
-        error = AvmError::TAG_ERROR;
+        error = AvmError::CHECK_TAG_ERROR;
     }
 
     Row row;
 
+    // Exists is written to b
     if (is_ok(error)) {
-        row = create_kernel_output_opcode_with_set_metadata_output_from_hint(
-            clk, resolved_nullifier_offset, resolved_address, resolved_dest);
-        kernel_trace_builder.op_nullifier_exists(
-            clk, side_effect_counter, row.main_ia, /*safe*/ static_cast<uint32_t>(row.main_ib));
+        NullifierReadTreeHint nullifier_read_hint = execution_hints.nullifier_read_hints.at(nullifier_read_counter++);
+        FF nullifier_value = unconstrained_read_from_memory(resolved_nullifier_offset);
+        FF address_value = unconstrained_read_from_memory(resolved_address);
+        FF siloed_nullifier = AvmMerkleTreeTraceBuilder::unconstrained_silo_nullifier(address_value, nullifier_value);
+        bool is_member = merkle_tree_trace_builder.perform_nullifier_read(clk,
+                                                                          nullifier_read_hint.low_leaf_preimage,
+                                                                          nullifier_read_hint.low_leaf_index,
+                                                                          nullifier_read_hint.low_leaf_sibling_path);
+        ASSERT(is_member);
+        bool exists = siloed_nullifier == nullifier_read_hint.low_leaf_preimage.nullifier;
+        if (!exists) {
+            bool is_non_member = AvmMerkleTreeTraceBuilder::assert_nullifier_non_membership_check(
+                nullifier_read_hint.low_leaf_preimage, siloed_nullifier);
+            ASSERT(is_non_member);
+        }
+
+        auto read_a = constrained_read_from_memory(
+            call_ptr, clk, resolved_nullifier_offset, AvmMemoryTag::FF, AvmMemoryTag::U1, IntermRegister::IA);
+
+        auto write_b = constrained_write_to_memory(call_ptr,
+                                                   clk,
+                                                   resolved_dest,
+                                                   exists ? FF::one() : FF::zero(),
+                                                   AvmMemoryTag::FF,
+                                                   AvmMemoryTag::U1,
+                                                   IntermRegister::IB);
+        bool tag_match = read_a.tag_match && write_b.tag_match;
+        row = Row{
+            .main_clk = clk,
+            .main_ia = read_a.val,
+            .main_ib = write_b.val,
+            .main_ind_addr_a = FF(read_a.indirect_address),
+            .main_ind_addr_b = FF(write_b.indirect_address),
+            .main_internal_return_ptr = internal_return_ptr,
+            .main_mem_addr_a = FF(read_a.direct_address),
+            .main_mem_addr_b = FF(write_b.direct_address),
+            .main_pc = pc,
+            .main_r_in_tag = static_cast<uint32_t>(AvmMemoryTag::FF),
+            .main_rwa = 0,
+            .main_rwb = 1,
+            .main_sel_mem_op_a = 1,
+            .main_sel_mem_op_b = 1,
+            .main_sel_q_kernel_output_lookup = 1,
+            .main_sel_resolve_ind_addr_a = FF(static_cast<uint32_t>(read_a.is_indirect)),
+            .main_sel_resolve_ind_addr_b = FF(static_cast<uint32_t>(write_b.is_indirect)),
+            .main_tag_err = static_cast<uint32_t>(!tag_match),
+            .main_w_in_tag = static_cast<uint32_t>(AvmMemoryTag::U1),
+        };
+        // clk, resolved_nullifier_offset, resolved_address, resolved_dest);
         row.main_sel_op_nullifier_exists = FF(1);
         if (is_ok(error) && row.main_tag_err != FF(0)) {
-            error = AvmError::TAG_ERROR;
+            error = AvmError::CHECK_TAG_ERROR;
         }
     } else {
         row = Row{
@@ -2835,7 +3216,10 @@ AvmError AvmTraceBuilder::op_nullifier_exists(uint8_t indirect,
     }
 
     // Constrain gas cost
-    gas_trace_builder.constrain_gas(clk, OpCode::NULLIFIEREXISTS);
+    bool out_of_gas = gas_trace_builder.constrain_gas(clk, OpCode::NULLIFIEREXISTS);
+    if (out_of_gas && is_ok(error)) {
+        error = AvmError::OUT_OF_GAS;
+    }
 
     main_trace.push_back(row);
 
@@ -2850,12 +3234,71 @@ AvmError AvmTraceBuilder::op_emit_nullifier(uint8_t indirect, uint32_t nullifier
 {
     auto const clk = static_cast<uint32_t>(main_trace.size()) + 1;
 
-    auto [row, error] = create_kernel_output_opcode(indirect, clk, nullifier_offset);
-    kernel_trace_builder.op_emit_nullifier(clk, side_effect_counter, row.main_ia);
+    uint32_t inserted_nullifier_count = get_inserted_nullifiers_count();
+    AvmError error = current_ext_call_ctx.is_static_call                 ? AvmError::STATIC_CALL_ALTERATION
+                     : inserted_nullifier_count >= MAX_NULLIFIERS_PER_TX ? AvmError::SIDE_EFFECT_LIMIT_REACHED
+                                                                         : AvmError::NO_ERROR;
+
+    if (!is_ok(error)) {
+        auto row = Row{
+            .main_clk = clk,
+            .main_internal_return_ptr = internal_return_ptr,
+            .main_op_err = FF(static_cast<uint32_t>(!is_ok(error))),
+            .main_pc = pc,
+            .main_sel_op_emit_nullifier = FF(1),
+        };
+        main_trace.push_back(row);
+        pc += Deserialization::get_pc_increment(OpCode::EMITNULLIFIER);
+        return error;
+    }
+
+    auto [row, output_error] = create_kernel_output_opcode(indirect, clk, nullifier_offset);
     row.main_sel_op_emit_nullifier = FF(1);
+    if (is_ok(error)) {
+        error = output_error;
+    }
+
+    // Do merkle check
+    FF nullifier_value = row.main_ia;
+    FF siloed_nullifier =
+        AvmMerkleTreeTraceBuilder::unconstrained_silo_nullifier(current_ext_call_ctx.contract_address, nullifier_value);
+
+    NullifierWriteTreeHint nullifier_write_hint = execution_hints.nullifier_write_hints.at(nullifier_write_counter++);
+    bool is_update = siloed_nullifier == nullifier_write_hint.low_leaf_membership.low_leaf_preimage.next_nullifier;
+    if (is_update) {
+        // hinted low-leaf points to the target nullifier, so it already exists
+        // prove membership of that low-leaf, which also proves membership of the target nullifier
+        bool exists = merkle_tree_trace_builder.perform_nullifier_read(
+            clk,
+            nullifier_write_hint.low_leaf_membership.low_leaf_preimage,
+            nullifier_write_hint.low_leaf_membership.low_leaf_index,
+            nullifier_write_hint.low_leaf_membership.low_leaf_sibling_path);
+        // if hinted low-leaf that skips the nullifier fails membership check, bad hint!
+        ASSERT(exists);
+        nullifier_read_counter++;
+        // Cannot update an existing nullifier, and cannot emit a duplicate. Error!
+        if (is_ok(error)) {
+            error = AvmError::DUPLICATE_NULLIFIER;
+        }
+    } else {
+        // hinted low-leaf SKIPS the target nullifier, so it does NOT exist
+        // prove membership of the low leaf which  also proves non-membership of the target nullifier
+        merkle_tree_trace_builder.perform_nullifier_append(
+            clk,
+            nullifier_write_hint.low_leaf_membership.low_leaf_preimage,
+            nullifier_write_hint.low_leaf_membership.low_leaf_index,
+            nullifier_write_hint.low_leaf_membership.low_leaf_sibling_path,
+            siloed_nullifier,
+            nullifier_write_hint.insertion_path);
+    }
+
+    row.main_op_err = FF(static_cast<uint32_t>(!is_ok(error)));
 
     // Constrain gas cost
-    gas_trace_builder.constrain_gas(clk, OpCode::EMITNULLIFIER);
+    bool out_of_gas = gas_trace_builder.constrain_gas(clk, OpCode::EMITNULLIFIER);
+    if (out_of_gas && is_ok(error)) {
+        error = AvmError::OUT_OF_GAS;
+    }
 
     main_trace.push_back(row);
 
@@ -2882,21 +3325,62 @@ AvmError AvmTraceBuilder::op_l1_to_l2_msg_exists(uint8_t indirect,
 
     const auto leaf_index = unconstrained_read_from_memory(resolved_leaf_index);
     if (is_ok(error) && !check_tag(AvmMemoryTag::FF, resolved_leaf_index)) {
-        error = AvmError::TAG_ERROR;
+        error = AvmError::CHECK_TAG_ERROR;
     }
 
     Row row;
 
     if (is_ok(error)) {
-        row = create_kernel_output_opcode_for_leaf_index(
-            clk, resolved_log, static_cast<uint32_t>(leaf_index), resolved_dest);
-        kernel_trace_builder.op_l1_to_l2_msg_exists(clk,
-                                                    static_cast<uint32_t>(leaf_index) /*side_effect_counter*/,
-                                                    row.main_ia,
-                                                    /*safe*/ static_cast<uint32_t>(row.main_ib));
+        // Do merkle check
+        AppendTreeHint l1_to_l2_msg_read_hint =
+            execution_hints.l1_to_l2_message_read_hints.at(l1_to_l2_msg_read_counter);
+        FF l1_to_l2_msg_value = unconstrained_read_from_memory(resolved_log);
+        ASSERT(leaf_index == l1_to_l2_msg_read_hint.leaf_index);
+
+        bool exists = l1_to_l2_msg_value == l1_to_l2_msg_read_hint.leaf_value;
+
+        // Check membership of the leaf index in the l1_to_l2_msg tree
+        bool is_member = merkle_tree_trace_builder.perform_l1_to_l2_message_read(
+            clk, l1_to_l2_msg_read_hint.leaf_value, leaf_index, l1_to_l2_msg_read_hint.sibling_path);
+        ASSERT(is_member);
+
+        auto read_a = constrained_read_from_memory(
+            call_ptr, clk, resolved_log, AvmMemoryTag::FF, AvmMemoryTag::U1, IntermRegister::IA);
+
+        auto write_b = constrained_write_to_memory(call_ptr,
+                                                   clk,
+                                                   resolved_dest,
+                                                   exists ? FF::one() : FF::zero(),
+                                                   AvmMemoryTag::FF,
+                                                   AvmMemoryTag::U1,
+                                                   IntermRegister::IB);
+        bool tag_match = read_a.tag_match && write_b.tag_match;
+
+        row = Row{
+            .main_clk = clk,
+            .main_ia = read_a.val,
+            .main_ib = write_b.val,
+            .main_ind_addr_a = FF(read_a.indirect_address),
+            .main_ind_addr_b = FF(write_b.indirect_address),
+            .main_internal_return_ptr = internal_return_ptr,
+            .main_mem_addr_a = FF(read_a.direct_address),
+            .main_mem_addr_b = FF(write_b.direct_address),
+            .main_pc = pc,
+            .main_r_in_tag = static_cast<uint32_t>(AvmMemoryTag::FF),
+            .main_rwa = 0,
+            .main_rwb = 1,
+            .main_sel_mem_op_a = 1,
+            .main_sel_mem_op_b = 1,
+            .main_sel_q_kernel_output_lookup = 1,
+            .main_sel_resolve_ind_addr_a = FF(static_cast<uint32_t>(read_a.is_indirect)),
+            .main_sel_resolve_ind_addr_b = FF(static_cast<uint32_t>(write_b.is_indirect)),
+            .main_tag_err = static_cast<uint32_t>(!tag_match),
+            .main_w_in_tag = static_cast<uint32_t>(AvmMemoryTag::U1),
+        };
+
         row.main_sel_op_l1_to_l2_msg_exists = FF(1);
         if (is_ok(error) && row.main_tag_err != FF(0)) {
-            error = AvmError::TAG_ERROR;
+            error = AvmError::CHECK_TAG_ERROR;
         }
     } else {
         row = Row{
@@ -2909,7 +3393,10 @@ AvmError AvmTraceBuilder::op_l1_to_l2_msg_exists(uint8_t indirect,
     }
 
     // Constrain gas cost
-    gas_trace_builder.constrain_gas(clk, OpCode::L1TOL2MSGEXISTS);
+    bool out_of_gas = gas_trace_builder.constrain_gas(clk, OpCode::L1TOL2MSGEXISTS);
+    if (out_of_gas && is_ok(error)) {
+        error = AvmError::OUT_OF_GAS;
+    }
 
     main_trace.push_back(row);
 
@@ -2920,13 +3407,16 @@ AvmError AvmTraceBuilder::op_l1_to_l2_msg_exists(uint8_t indirect,
 }
 
 AvmError AvmTraceBuilder::op_get_contract_instance(
-    uint8_t indirect, uint8_t member_enum, uint16_t address_offset, uint16_t dst_offset, uint16_t exists_offset)
+    uint8_t indirect, uint16_t address_offset, uint16_t dst_offset, uint16_t exists_offset, uint8_t member_enum)
 {
     // We keep the first encountered error
     AvmError error = AvmError::NO_ERROR;
     auto clk = static_cast<uint32_t>(main_trace.size()) + 1;
     // Constrain gas cost
-    gas_trace_builder.constrain_gas(clk, OpCode::GETCONTRACTINSTANCE);
+    bool out_of_gas = gas_trace_builder.constrain_gas(clk, OpCode::GETCONTRACTINSTANCE);
+    if (out_of_gas && is_ok(error)) {
+        error = AvmError::OUT_OF_GAS;
+    }
 
     if (member_enum >= static_cast<int>(ContractInstanceMember::MAX_MEMBER)) {
         // Error, bad enum operand
@@ -2955,26 +3445,69 @@ AvmError AvmTraceBuilder::op_get_contract_instance(
         call_ptr, clk, resolved_address_offset, AvmMemoryTag::FF, AvmMemoryTag::FF, IntermRegister::IA);
     bool tag_match = read_address.tag_match;
     if (is_ok(error) && !tag_match) {
-        error = AvmError::TAG_ERROR;
+        error = AvmError::CHECK_TAG_ERROR;
     }
 
-    // Read the contract instance
-    ContractInstanceHint instance = execution_hints.contract_instance_hints.at(read_address.val);
+    FF member_value = 0;
+    bool exists = false;
 
-    FF member_value;
-    switch (chosen_member) {
-    case ContractInstanceMember::DEPLOYER:
-        member_value = instance.deployer_addr;
-        break;
-    case ContractInstanceMember::CLASS_ID:
-        member_value = instance.contract_class_id;
-        break;
-    case ContractInstanceMember::INIT_HASH:
-        member_value = instance.initialisation_hash;
-        break;
-    default:
-        member_value = 0;
-        break;
+    if (is_ok(error)) {
+        const auto contract_address = read_address.val;
+        const auto contract_address_nullifier = AvmMerkleTreeTraceBuilder::unconstrained_silo_nullifier(
+            DEPLOYER_CONTRACT_ADDRESS, /*nullifier=*/contract_address);
+        // Read the contract instance hint
+        ContractInstanceHint instance = execution_hints.contract_instance_hints.at(contract_address);
+
+        if (is_canonical(contract_address)) {
+            // skip membership check for canonical contracts
+            exists = true;
+        } else {
+            // nullifier read hint for the contract address
+            NullifierReadTreeHint nullifier_read_hint = instance.membership_hint;
+
+            // If the hinted preimage matches the contract address nullifier, the membership check will prove its
+            // existence, otherwise the membership check will prove that a low-leaf exists that skips the contract
+            // address nullifier.
+            exists = nullifier_read_hint.low_leaf_preimage.nullifier == contract_address_nullifier;
+
+            bool is_member =
+                merkle_tree_trace_builder.perform_nullifier_read(clk,
+                                                                 nullifier_read_hint.low_leaf_preimage,
+                                                                 nullifier_read_hint.low_leaf_index,
+                                                                 nullifier_read_hint.low_leaf_sibling_path);
+            // membership check must always pass
+            ASSERT(is_member);
+
+            if (exists) {
+                // This was a membership proof!
+                // Assert that the hint's exists flag matches. The flag isn't really necessary...
+                ASSERT(instance.exists);
+            } else {
+                // This was a non-membership proof!
+                // Enforce that the tree access membership checked a low-leaf that skips the contract address nullifier.
+                // Show that the contract address nullifier meets the non membership conditions (sandwich or max)
+                ASSERT(contract_address_nullifier < nullifier_read_hint.low_leaf_preimage.nullifier &&
+                       (nullifier_read_hint.low_leaf_preimage.next_nullifier == FF::zero() ||
+                        contract_address_nullifier > nullifier_read_hint.low_leaf_preimage.next_nullifier));
+            }
+        }
+
+        if (exists) {
+            switch (chosen_member) {
+            case ContractInstanceMember::DEPLOYER:
+                member_value = instance.deployer_addr;
+                break;
+            case ContractInstanceMember::CLASS_ID:
+                member_value = instance.contract_class_id;
+                break;
+            case ContractInstanceMember::INIT_HASH:
+                member_value = instance.initialisation_hash;
+                break;
+            default:
+                member_value = 0;
+                break;
+            }
+        }
     }
 
     // TODO(8603): once instructions can have multiple different tags for writes, write dst as FF and exists as
@@ -3013,12 +3546,12 @@ AvmError AvmTraceBuilder::op_get_contract_instance(
 
     pc += Deserialization::get_pc_increment(OpCode::GETCONTRACTINSTANCE);
 
-    // Crucial to perform this operation after having incremented pc because write_slice_to_memory
+    // Crucial to perform this operation after having incremented pc because write_to_memory
     // is implemented with opcodes (SET and JUMP).
     // TODO(8603): once instructions can have multiple different tags for writes, remove this and do a
     // constrained writes
     write_to_memory(resolved_dst_offset, member_value, AvmMemoryTag::FF);
-    write_to_memory(resolved_exists_offset, FF(static_cast<uint32_t>(instance.exists)), AvmMemoryTag::U1);
+    write_to_memory(resolved_exists_offset, FF(static_cast<uint32_t>(exists)), AvmMemoryTag::U1);
 
     // TODO(dbanks12): compute contract address nullifier from instance preimage and perform membership check
 
@@ -3057,12 +3590,11 @@ AvmError AvmTraceBuilder::op_emit_unencrypted_log(uint8_t indirect, uint32_t log
 
     if (is_ok(error) &&
         !(check_tag(AvmMemoryTag::FF, resolved_log_offset) && check_tag(AvmMemoryTag::U32, resolved_log_size_offset))) {
-        error = AvmError::TAG_ERROR;
+        error = AvmError::CHECK_TAG_ERROR;
     }
 
     Row row;
     uint32_t log_size = 0;
-    AddressWithMode direct_field_addr;
     uint32_t num_bytes = 0;
 
     if (is_ok(error)) {
@@ -3076,16 +3608,37 @@ AvmError AvmTraceBuilder::op_emit_unencrypted_log(uint8_t indirect, uint32_t log
                              std::make_move_iterator(log_size_bytes.begin()),
                              std::make_move_iterator(log_size_bytes.end()));
 
-        direct_field_addr = AddressWithMode(static_cast<uint32_t>(resolved_log_offset));
-        if (!check_tag_range(AvmMemoryTag::FF, direct_field_addr, log_size)) {
-            error = AvmError::TAG_ERROR;
-        };
+        if (!check_slice_mem_range(resolved_log_offset, log_size)) {
+            error = AvmError::MEM_SLICE_OUT_OF_RANGE;
+        }
+
+        if (is_ok(error) && !check_tag_range(AvmMemoryTag::FF, resolved_log_offset, log_size)) {
+            error = AvmError::CHECK_TAG_ERROR;
+        }
     }
+
+    // Can't return earlier as we do elsewhere for side-effect-limit because we need
+    // to at least retrieve log_size first to charge proper gas.
+    // This means a tag error could occur before side-effect-limit first.
+    if (is_ok(error) && unencrypted_log_write_counter >= MAX_UNENCRYPTED_LOGS_PER_TX) {
+        error = AvmError::SIDE_EFFECT_LIMIT_REACHED;
+        auto row = Row{
+            .main_clk = clk,
+            .main_internal_return_ptr = internal_return_ptr,
+            .main_op_err = FF(static_cast<uint32_t>(!is_ok(error))),
+            .main_pc = pc,
+            .main_sel_op_emit_unencrypted_log = FF(1),
+        };
+        main_trace.push_back(row);
+        pc += Deserialization::get_pc_increment(OpCode::EMITUNENCRYPTEDLOG);
+        return error;
+    }
+    unencrypted_log_write_counter++;
 
     if (is_ok(error)) {
         // We need to read the rest of the log_size number of elements
         for (uint32_t i = 0; i < log_size; i++) {
-            FF log_value = unconstrained_read_from_memory(direct_field_addr + i);
+            FF log_value = unconstrained_read_from_memory(resolved_log_offset + i);
             std::vector<uint8_t> log_value_byte = log_value.to_buffer();
             bytes_to_hash.insert(bytes_to_hash.end(),
                                  std::make_move_iterator(log_value_byte.begin()),
@@ -3110,7 +3663,8 @@ AvmError AvmTraceBuilder::op_emit_unencrypted_log(uint8_t indirect, uint32_t log
             .main_internal_return_ptr = internal_return_ptr,
             .main_pc = pc,
         };
-        kernel_trace_builder.op_emit_unencrypted_log(clk, side_effect_counter, trunc_hash, metadata_log_length);
+        // Write to offset
+        // kernel_trace_builder.op_emit_unencrypted_log(clk, side_effect_counter, trunc_hash, metadata_log_length);
         row.main_sel_op_emit_unencrypted_log = FF(1);
     } else {
         row = Row{
@@ -3123,7 +3677,10 @@ AvmError AvmTraceBuilder::op_emit_unencrypted_log(uint8_t indirect, uint32_t log
     }
 
     // Constrain gas cost
-    gas_trace_builder.constrain_gas(clk, OpCode::EMITUNENCRYPTEDLOG, static_cast<uint32_t>(log_size));
+    bool out_of_gas = gas_trace_builder.constrain_gas(clk, OpCode::EMITUNENCRYPTEDLOG, static_cast<uint32_t>(log_size));
+    if (out_of_gas && is_ok(error)) {
+        error = AvmError::OUT_OF_GAS;
+    }
 
     main_trace.push_back(row);
 
@@ -3135,16 +3692,43 @@ AvmError AvmTraceBuilder::op_emit_unencrypted_log(uint8_t indirect, uint32_t log
 
 AvmError AvmTraceBuilder::op_emit_l2_to_l1_msg(uint8_t indirect, uint32_t recipient_offset, uint32_t content_offset)
 {
+    // We keep the first encountered error
+    AvmError error = AvmError::NO_ERROR;
     auto const clk = static_cast<uint32_t>(main_trace.size()) + 1;
 
+    if (l2_to_l1_msg_write_counter >= MAX_L2_TO_L1_MSGS_PER_TX) {
+        error = AvmError::SIDE_EFFECT_LIMIT_REACHED;
+        auto row = Row{
+            .main_clk = clk,
+            .main_internal_return_ptr = internal_return_ptr,
+            .main_op_err = FF(static_cast<uint32_t>(!is_ok(error))),
+            .main_pc = pc,
+            .main_sel_op_emit_l2_to_l1_msg = FF(1),
+        };
+        main_trace.push_back(row);
+        pc += Deserialization::get_pc_increment(OpCode::SENDL2TOL1MSG);
+        return error;
+    }
+    l2_to_l1_msg_write_counter++;
+
     // Note: unorthodox order - as seen in L2ToL1Message struct in TS
-    auto [row, error] = create_kernel_output_opcode_with_metadata(
+    auto [row, output_error] = create_kernel_output_opcode_with_metadata(
         indirect, clk, content_offset, AvmMemoryTag::FF, recipient_offset, AvmMemoryTag::FF);
-    kernel_trace_builder.op_emit_l2_to_l1_msg(clk, side_effect_counter, row.main_ia, row.main_ib);
+
+    if (is_ok(error)) {
+        error = output_error;
+    }
+
+    // Wtite to output
+    // kernel_trace_builder.op_emit_l2_to_l1_msg(clk, side_effect_counter, row.main_ia, row.main_ib);
     row.main_sel_op_emit_l2_to_l1_msg = FF(1);
+    row.main_op_err = FF(static_cast<uint32_t>(!is_ok(error)));
 
     // Constrain gas cost
-    gas_trace_builder.constrain_gas(clk, OpCode::SENDL2TOL1MSG);
+    bool out_of_gas = gas_trace_builder.constrain_gas(clk, OpCode::SENDL2TOL1MSG);
+    if (out_of_gas && is_ok(error)) {
+        error = AvmError::OUT_OF_GAS;
+    }
 
     main_trace.push_back(row);
 
@@ -3172,7 +3756,6 @@ AvmError AvmTraceBuilder::constrain_external_call(OpCode opcode,
     // We keep the first encountered error
     AvmError error = AvmError::NO_ERROR;
     auto clk = static_cast<uint32_t>(main_trace.size()) + 1;
-    const ExternalCallHint& hint = execution_hints.externalcall_hints.at(external_call_counter);
 
     auto [resolved_addrs, res_error] =
         Addressing<5>::fromWire(indirect, call_ptr)
@@ -3196,18 +3779,21 @@ AvmError AvmTraceBuilder::constrain_external_call(OpCode opcode,
     bool tag_match = read_gas_l2.tag_match && read_gas_da.tag_match && read_addr.tag_match && read_args.tag_match;
 
     if (is_ok(error) && !(tag_match && check_tag(AvmMemoryTag::U32, resolved_args_size_offset))) {
-        error = AvmError::TAG_ERROR;
+        error = AvmError::CHECK_TAG_ERROR;
     }
 
     // TODO: constrain this
     auto args_size =
         is_ok(error) ? static_cast<uint32_t>(unconstrained_read_from_memory(resolved_args_size_offset)) : 0;
 
-    gas_trace_builder.constrain_gas(clk,
-                                    opcode,
-                                    /*dyn_gas_multiplier=*/args_size,
-                                    static_cast<uint32_t>(hint.l2_gas_used),
-                                    static_cast<uint32_t>(hint.da_gas_used));
+    // We need to consume the the gas cost of call, and then handle the amount allocated to the call
+    // TODO: is cast okay? Should gas be read from memory as u32?
+    bool out_of_gas = gas_trace_builder.constrain_gas(clk, opcode, /*dyn_gas_multiplier=*/args_size);
+    // NOTE: we don't run out of gas if the gas specified by user code is > gas left.
+    // In that case we just cap the gas allocation by gas left.
+    if (is_ok(error) && out_of_gas) {
+        error = AvmError::OUT_OF_GAS;
+    }
 
     main_trace.push_back(Row{
         .main_clk = clk,
@@ -3240,19 +3826,61 @@ AvmError AvmTraceBuilder::constrain_external_call(OpCode opcode,
 
     pc += Deserialization::get_pc_increment(opcode);
 
-    // Crucial to perform this operation after having incremented pc because write_slice_to_memory
-    // is implemented with opcodes (SET and JUMP).
-    // Write the success flag to memory
-    write_to_memory(resolved_success_offset, hint.success, AvmMemoryTag::U1);
-    external_call_counter++;
+    if (is_ok(error)) {
+        // Save the current gas left in the context before pushing it to stack
+        // It will be used on RETURN/REVERT/halt to remember how much gas the caller had left.
+        current_ext_call_ctx.l2_gas_left = gas_trace_builder.get_l2_gas_left();
+        current_ext_call_ctx.da_gas_left = gas_trace_builder.get_da_gas_left();
 
-    // Save return data for later.
-    nested_returndata = hint.return_data;
+        // We push the current ext call ctx onto the stack and initialize a new one
+        current_ext_call_ctx.last_pc = pc;
+        current_ext_call_ctx.success_offset = resolved_success_offset,
+        current_ext_call_ctx.tree_snapshot = merkle_tree_trace_builder.get_tree_snapshots();
+        current_ext_call_ctx.public_data_unique_writes = merkle_tree_trace_builder.get_public_data_unique_writes();
+        external_call_ctx_stack.emplace(current_ext_call_ctx);
 
-    // Adjust the side_effect_counter to the value at the end of the external call but not static call.
-    if (opcode == OpCode::CALL) {
-        side_effect_counter = static_cast<uint32_t>(hint.end_side_effect_counter);
+        // Ext Ctx setup
+        std::vector<FF> calldata;
+        const auto slice_err = read_slice_from_memory(resolved_args_offset, args_size, calldata);
+
+        if (!is_ok(slice_err)) {
+            return slice_err;
+        }
+
+        if (!check_tag_range(AvmMemoryTag::FF, resolved_args_offset, args_size)) {
+            return AvmError::CHECK_TAG_ERROR;
+        }
+
+        // Don't try allocating more than the gas that is actually left
+        const auto l2_gas_allocated_to_nested_call =
+            std::min(static_cast<uint32_t>(read_gas_l2.val), gas_trace_builder.get_l2_gas_left());
+        const auto da_gas_allocated_to_nested_call =
+            std::min(static_cast<uint32_t>(read_gas_da.val), gas_trace_builder.get_da_gas_left());
+        current_ext_call_ctx = ExtCallCtx{
+            .context_id = next_context_id,
+            .parent_id = current_ext_call_ctx.context_id,
+            .is_static_call = opcode == OpCode::STATICCALL,
+            .contract_address = read_addr.val,
+            .calldata = calldata,
+            .nested_returndata = {},
+            .last_pc = 0,
+            .success_offset = 0,
+            .start_l2_gas_left = l2_gas_allocated_to_nested_call,
+            .start_da_gas_left = da_gas_allocated_to_nested_call,
+            .l2_gas_left = l2_gas_allocated_to_nested_call,
+            .da_gas_left = da_gas_allocated_to_nested_call,
+            .internal_return_ptr_stack = {},
+            .tree_snapshot = {},
+        };
+        next_context_id++;
+
+        set_call_ptr(static_cast<uint8_t>(current_ext_call_ctx.context_id));
+
+        allocate_gas_for_call(l2_gas_allocated_to_nested_call, da_gas_allocated_to_nested_call);
+
+        set_pc(0);
     }
+
     return error;
 }
 
@@ -3321,6 +3949,7 @@ AvmError AvmTraceBuilder::op_static_call(uint16_t indirect,
  */
 ReturnDataError AvmTraceBuilder::op_return(uint8_t indirect, uint32_t ret_offset, uint32_t ret_size_offset)
 {
+
     // We keep the first encountered error
     AvmError error = AvmError::NO_ERROR;
     auto clk = static_cast<uint32_t>(main_trace.size()) + 1;
@@ -3335,12 +3964,84 @@ ReturnDataError AvmTraceBuilder::op_return(uint8_t indirect, uint32_t ret_offset
     error = res_error;
 
     if (is_ok(error) && !(tag_match && check_tag(AvmMemoryTag::U32, resolved_ret_size_offset))) {
-        error = AvmError::TAG_ERROR;
+        error = AvmError::CHECK_TAG_ERROR;
     }
 
     const auto ret_size = static_cast<uint32_t>(unconstrained_read_from_memory(resolved_ret_size_offset));
 
+    const bool is_top_level = current_ext_call_ctx.is_top_level;
+
+    const auto [l2_gas_cost, da_gas_cost] = gas_trace_builder.unconstrained_compute_gas(OpCode::RETURN, ret_size);
+    bool out_of_gas =
+        l2_gas_cost > gas_trace_builder.get_l2_gas_left() || da_gas_cost > gas_trace_builder.get_da_gas_left();
+    if (out_of_gas && is_ok(error)) {
+        error = AvmError::OUT_OF_GAS;
+    }
+    if (!is_ok(error)) {
+        main_trace.push_back(Row{
+            .main_clk = clk,
+            .main_call_ptr = call_ptr,
+            .main_ib = ret_size,
+            .main_internal_return_ptr = FF(internal_return_ptr),
+            .main_op_err = static_cast<uint32_t>(!is_ok(error)),
+            .main_pc = pc,
+            .main_sel_op_external_return = 1,
+        });
+        return ReturnDataError{
+            .return_data = {},
+            .error = error,
+            .is_top_level = is_top_level,
+        };
+    }
+
+    // Charge gas normally. The gas row will be modified later to go back to parent's gas
+    // minus gas consumed by nested call.
     gas_trace_builder.constrain_gas(clk, OpCode::RETURN, ret_size);
+
+    if (tag_match) {
+        if (is_top_level) {
+            // The only memory operation performed from the main trace is a possible indirect load for resolving the
+            // direct destination offset stored in main_mem_addr_c.
+            // All the other memory operations are triggered by the slice gadget.
+            returndata = mem_trace_builder.read_return_opcode(clk, call_ptr, resolved_ret_offset, ret_size);
+            slice_trace_builder.create_return_slice(returndata, clk, call_ptr, resolved_ret_offset, ret_size);
+            all_returndata.insert(all_returndata.end(), returndata.begin(), returndata.end());
+        } else {
+            // before the nested call was made, how much gas does the parent have?
+            const auto l2_gas_allocated_to_nested_call = current_ext_call_ctx.start_l2_gas_left;
+            const auto da_gas_allocated_to_nested_call = current_ext_call_ctx.start_da_gas_left;
+            // We are returning from a nested call
+            std::vector<FF> returndata{};
+            const auto slice_err = read_slice_from_memory(resolved_ret_offset, ret_size, returndata);
+
+            if (is_ok(error)) {
+                error = slice_err;
+            }
+
+            // Pop the caller/parent's context from the stack to proceed with execution there
+            current_ext_call_ctx = external_call_ctx_stack.top();
+            external_call_ctx_stack.pop();
+            current_ext_call_ctx.nested_returndata = returndata;
+
+            // Grab the saved-off gas remaining in the parent from before the nested call
+            // now that we have popped its context from the stack.
+            auto parent_l2_gas_left = current_ext_call_ctx.l2_gas_left;
+            auto parent_da_gas_left = current_ext_call_ctx.da_gas_left;
+
+            // modify this instruction's gas row (from constrain_gas) to go back to
+            // parent's gas minus gas consumed by nested call.
+            gas_trace_builder.constrain_gas_for_halt(/*exceptional_halt=*/false,
+                                                     parent_l2_gas_left,
+                                                     parent_da_gas_left,
+                                                     l2_gas_allocated_to_nested_call,
+                                                     da_gas_allocated_to_nested_call);
+
+            // Update the call_ptr before we write the success flag
+            set_call_ptr(static_cast<uint8_t>(current_ext_call_ctx.context_id));
+            write_to_memory(
+                current_ext_call_ctx.success_offset, /*success=*/FF::one(), AvmMemoryTag::U1, /*fix_pc=*/false);
+        }
+    }
 
     if (ret_size == 0) {
         main_trace.push_back(Row{
@@ -3353,21 +4054,14 @@ ReturnDataError AvmTraceBuilder::op_return(uint8_t indirect, uint32_t ret_offset
             .main_sel_op_external_return = 1,
         });
 
-        pc = UINT32_MAX; // This ensures that no subsequent opcode will be executed.
+        // Update the next pc, if we are at the top level we do what we used to do (i.e. maxing the pc)
+        pc = is_top_level ? UINT32_MAX : current_ext_call_ctx.last_pc;
 
         return ReturnDataError{
             .return_data = {},
             .error = error,
+            .is_top_level = is_top_level,
         };
-    }
-
-    // The only memory operation performed from the main trace is a possible indirect load for resolving the
-    // direct destination offset stored in main_mem_addr_c.
-    // All the other memory operations are triggered by the slice gadget.
-
-    if (tag_match) {
-        returndata = mem_trace_builder.read_return_opcode(clk, call_ptr, resolved_ret_offset, ret_size);
-        slice_trace_builder.create_return_slice(returndata, clk, call_ptr, resolved_ret_offset, ret_size);
     }
 
     main_trace.push_back(Row{
@@ -3380,16 +4074,20 @@ ReturnDataError AvmTraceBuilder::op_return(uint8_t indirect, uint32_t ret_offset
         .main_pc = pc,
         .main_r_in_tag = static_cast<uint32_t>(AvmMemoryTag::FF),
         .main_sel_op_external_return = 1,
-        .main_sel_slice_gadget = static_cast<uint32_t>(tag_match),
+        .main_sel_slice_gadget = static_cast<uint32_t>(is_top_level && tag_match),
         .main_tag_err = static_cast<uint32_t>(!tag_match),
         .main_w_in_tag = static_cast<uint32_t>(AvmMemoryTag::FF),
     });
 
-    pc = UINT32_MAX; // This ensures that no subsequent opcode will be executed.
+    // Update the next pc, if we are at the top level we do what we used to do (i.e. maxing the pc)
+    pc = is_top_level ? UINT32_MAX : current_ext_call_ctx.last_pc;
+
+    auto return_data = is_top_level ? returndata : current_ext_call_ctx.nested_returndata;
 
     return ReturnDataError{
-        .return_data = returndata,
+        .return_data = return_data,
         .error = error,
+        .is_top_level = is_top_level,
     };
 }
 
@@ -3409,13 +4107,87 @@ ReturnDataError AvmTraceBuilder::op_revert(uint8_t indirect, uint32_t ret_offset
     error = res_error;
 
     if (is_ok(error) && !(tag_match && check_tag(AvmMemoryTag::U32, ret_size_offset))) {
-        error = AvmError::TAG_ERROR;
+        error = AvmError::CHECK_TAG_ERROR;
     }
 
     const auto ret_size =
         is_ok(error) ? static_cast<uint32_t>(unconstrained_read_from_memory(resolved_ret_size_offset)) : 0;
 
+    const bool is_top_level = current_ext_call_ctx.is_top_level;
+
+    const auto [l2_gas_cost, da_gas_cost] = gas_trace_builder.unconstrained_compute_gas(OpCode::REVERT_8, ret_size);
+    bool out_of_gas =
+        l2_gas_cost > gas_trace_builder.get_l2_gas_left() || da_gas_cost > gas_trace_builder.get_da_gas_left();
+    if (out_of_gas && is_ok(error)) {
+        error = AvmError::OUT_OF_GAS;
+    }
+    if (!is_ok(error)) {
+        // TODO: fix and set sel_op_revert
+        main_trace.push_back(Row{
+            .main_call_ptr = call_ptr,
+            .main_ib = ret_size,
+            .main_internal_return_ptr = FF(internal_return_ptr),
+            .main_op_err = static_cast<uint32_t>(!is_ok(error)),
+            .main_pc = pc,
+            .main_sel_op_external_return = 1,
+        });
+        return ReturnDataError{
+            .return_data = {},
+            .error = error,
+            .is_top_level = is_top_level,
+        };
+    }
+
+    // Charge gas normally. The gas row will be modified later to go back to parent's gas
+    // minus gas consumed by nested call.
     gas_trace_builder.constrain_gas(clk, OpCode::REVERT_8, ret_size);
+
+    if (tag_match) {
+        if (is_top_level) {
+            // The only memory operation performed from the main trace is a possible indirect load for resolving the
+            // direct destination offset stored in main_mem_addr_c.
+            // All the other memory operations are triggered by the slice gadget.
+            returndata = mem_trace_builder.read_return_opcode(clk, call_ptr, resolved_ret_offset, ret_size);
+            slice_trace_builder.create_return_slice(returndata, clk, call_ptr, resolved_ret_offset, ret_size);
+            all_returndata.insert(all_returndata.end(), returndata.begin(), returndata.end());
+        } else {
+            // before the nested call was made, how much gas does the parent have?
+            const auto l2_gas_allocated_to_nested_call = current_ext_call_ctx.start_l2_gas_left;
+            const auto da_gas_allocated_to_nested_call = current_ext_call_ctx.start_da_gas_left;
+            // We are returning from a nested call
+            std::vector<FF> returndata{};
+            const auto slice_err = read_slice_from_memory(resolved_ret_offset, ret_size, returndata);
+
+            if (is_ok(error)) {
+                error = slice_err;
+            }
+
+            // Pop the caller/parent's context from the stack to proceed with execution there
+            current_ext_call_ctx = external_call_ctx_stack.top();
+            external_call_ctx_stack.pop();
+            current_ext_call_ctx.nested_returndata = returndata;
+
+            // Grab the saved-off gas remaining in the parent from before the nested call
+            // now that we have popped its context from the stack.
+            auto parent_l2_gas_left = current_ext_call_ctx.l2_gas_left;
+            auto parent_da_gas_left = current_ext_call_ctx.da_gas_left;
+
+            // modify this instruction's gas row (from constrain_gas) to go back to
+            // parent's gas minus gas consumed by nested call.
+            gas_trace_builder.constrain_gas_for_halt(/*exceptional_halt=*/false,
+                                                     parent_l2_gas_left,
+                                                     parent_da_gas_left,
+                                                     l2_gas_allocated_to_nested_call,
+                                                     da_gas_allocated_to_nested_call);
+
+            // Update the call_ptr before we write the success flag
+            set_call_ptr(static_cast<uint8_t>(current_ext_call_ctx.context_id));
+            write_to_memory(
+                current_ext_call_ctx.success_offset, /*success=*/FF::one(), AvmMemoryTag::U1, /*fix_pc=*/false);
+            merkle_tree_trace_builder.restore_tree_state(current_ext_call_ctx.tree_snapshot,
+                                                         current_ext_call_ctx.public_data_unique_writes);
+        }
+    }
 
     // TODO: fix and set sel_op_revert
     if (ret_size == 0) {
@@ -3426,22 +4198,16 @@ ReturnDataError AvmTraceBuilder::op_revert(uint8_t indirect, uint32_t ret_offset
             .main_internal_return_ptr = FF(internal_return_ptr),
             .main_op_err = FF(static_cast<uint32_t>(!is_ok(error))),
             .main_pc = pc,
-            .main_sel_op_external_return = 1,
+            .main_sel_op_external_revert = 1,
         });
 
-        pc = UINT32_MAX; // This ensures that no subsequent opcode will be executed.
+        pc = is_top_level ? UINT32_MAX : current_ext_call_ctx.last_pc;
+
         return ReturnDataError{
             .return_data = {},
             .error = error,
+            .is_top_level = is_top_level,
         };
-    }
-
-    // The only memory operation performed from the main trace is a possible indirect load for resolving the
-    // direct destination offset stored in main_mem_addr_c.
-    // All the other memory operations are triggered by the slice gadget.
-    if (tag_match) {
-        returndata = mem_trace_builder.read_return_opcode(clk, call_ptr, resolved_ret_offset, ret_size);
-        slice_trace_builder.create_return_slice(returndata, clk, call_ptr, resolved_ret_offset, ret_size);
     }
 
     // TODO: fix and set sel_op_revert
@@ -3460,12 +4226,14 @@ ReturnDataError AvmTraceBuilder::op_revert(uint8_t indirect, uint32_t ret_offset
         .main_w_in_tag = static_cast<uint32_t>(AvmMemoryTag::FF),
     });
 
-    pc = UINT32_MAX; // This ensures that no subsequent opcode will be executed.
+    pc = is_top_level ? UINT32_MAX : current_ext_call_ctx.last_pc;
+    auto return_data = is_top_level ? returndata : current_ext_call_ctx.nested_returndata;
 
     // op_valid == true otherwise, ret_size == 0 and we would have returned above.
     return ReturnDataError{
-        .return_data = returndata,
+        .return_data = return_data,
         .error = error,
+        .is_top_level = is_top_level,
     };
 }
 
@@ -3475,9 +4243,9 @@ ReturnDataError AvmTraceBuilder::op_revert(uint8_t indirect, uint32_t ret_offset
 
 AvmError AvmTraceBuilder::op_debug_log(uint8_t indirect,
                                        uint32_t message_offset,
-                                       uint32_t message_size,
                                        uint32_t fields_offset,
-                                       uint32_t fields_size_offset)
+                                       uint32_t fields_size_offset,
+                                       uint32_t message_size)
 {
     // We keep the first encountered error
     AvmError error = AvmError::NO_ERROR;
@@ -3490,18 +4258,27 @@ AvmError AvmTraceBuilder::op_debug_log(uint8_t indirect,
     error = res_error;
 
     if (is_ok(error) && !check_tag(AvmMemoryTag::U32, resolved_fields_size_offset)) {
-        error = AvmError::TAG_ERROR;
+        error = AvmError::CHECK_TAG_ERROR;
     }
 
     const uint32_t fields_size =
         is_ok(error) ? static_cast<uint32_t>(unconstrained_read_from_memory(resolved_fields_size_offset)) : 0;
 
     // Constrain gas cost
-    gas_trace_builder.constrain_gas(clk, OpCode::DEBUGLOG, message_size + fields_size);
+    bool out_of_gas = gas_trace_builder.constrain_gas(clk, OpCode::DEBUGLOG, message_size + fields_size);
+
+    if (out_of_gas && is_ok(error)) {
+        error = AvmError::OUT_OF_GAS;
+    }
+
+    if (is_ok(error) && !(check_slice_mem_range(resolved_message_offset, message_size) &&
+                          check_slice_mem_range(resolved_fields_offset, fields_size))) {
+        error = AvmError::MEM_SLICE_OUT_OF_RANGE;
+    }
 
     if (is_ok(error) && !(check_tag_range(AvmMemoryTag::U8, resolved_message_offset, message_size) &&
                           check_tag_range(AvmMemoryTag::FF, resolved_fields_offset, fields_size))) {
-        error = AvmError::TAG_ERROR;
+        error = AvmError::CHECK_TAG_ERROR;
     }
 
     main_trace.push_back(Row{
@@ -3547,7 +4324,14 @@ AvmError AvmTraceBuilder::op_poseidon2_permutation(uint8_t indirect, uint32_t in
     // Resolve indirects in the main trace. Do not resolve the value stored in direct addresses.
 
     // Constrain gas cost
-    gas_trace_builder.constrain_gas(clk, OpCode::POSEIDON2PERM);
+    bool out_of_gas = gas_trace_builder.constrain_gas(clk, OpCode::POSEIDON2PERM);
+    if (out_of_gas && is_ok(error)) {
+        error = AvmError::OUT_OF_GAS;
+    }
+
+    if (is_ok(error) && !check_slice_mem_range(resolved_input_offset, 4)) {
+        error = AvmError::MEM_SLICE_OUT_OF_RANGE;
+    }
 
     // These read patterns will be refactored - we perform them here instead of in the poseidon gadget trace
     // even though they are "performed" by the gadget.
@@ -3582,10 +4366,14 @@ AvmError AvmTraceBuilder::op_poseidon2_permutation(uint8_t indirect, uint32_t in
                                                IntermRegister::ID,
                                                AvmMemTraceBuilder::POSEIDON2);
 
-    bool read_tag_valid = read_a.tag_match && read_b.tag_match && read_c.tag_match && read_d.tag_match;
+    const bool read_tag_valid = read_a.tag_match && read_b.tag_match && read_c.tag_match && read_d.tag_match;
 
     if (is_ok(error) && !read_tag_valid) {
-        error = AvmError::TAG_ERROR;
+        error = AvmError::CHECK_TAG_ERROR;
+    }
+
+    if (is_ok(error) && !check_slice_mem_range(resolved_output_offset, 4)) {
+        error = AvmError::MEM_SLICE_OUT_OF_RANGE;
     }
 
     if (is_ok(error)) {
@@ -3635,7 +4423,7 @@ AvmError AvmTraceBuilder::op_poseidon2_permutation(uint8_t indirect, uint32_t in
 
         bool write_tag_valid = write_a.tag_match && write_b.tag_match && write_c.tag_match && write_d.tag_match;
         if (is_ok(error) && !write_tag_valid) {
-            error = AvmError::TAG_ERROR;
+            error = AvmError::CHECK_TAG_ERROR;
         }
     }
 
@@ -3674,11 +4462,11 @@ AvmError AvmTraceBuilder::op_sha256_compression(uint8_t indirect,
     const uint32_t STATE_SIZE = 8;
     const uint32_t INPUTS_SIZE = 16;
 
-    // The clk plays a crucial role in this function as we attempt to write across multiple lines in the main trace.
-    auto clk = static_cast<uint32_t>(main_trace.size()) + 1;
-
     // We keep the first encountered error
     AvmError error = AvmError::NO_ERROR;
+
+    // The clk plays a crucial role in this function as we attempt to write across multiple lines in the main trace.
+    auto clk = static_cast<uint32_t>(main_trace.size()) + 1;
 
     // Resolve the indirect flags, the results of this function are used to determine the memory offsets
     // that point to the starting memory addresses for the input and output values.
@@ -3693,13 +4481,21 @@ AvmError AvmTraceBuilder::op_sha256_compression(uint8_t indirect,
         call_ptr, clk, resolved_inputs_offset, AvmMemoryTag::U32, AvmMemoryTag::FF, IntermRegister::IB);
     bool tag_match = read_a.tag_match && read_b.tag_match;
 
-    if (is_ok(error) && !(check_tag_range(AvmMemoryTag::U32, resolved_state_offset, STATE_SIZE) &&
-                          check_tag_range(AvmMemoryTag::U32, resolved_inputs_offset, INPUTS_SIZE))) {
-        error = AvmError::TAG_ERROR;
+    if (is_ok(error) && !(check_slice_mem_range(resolved_inputs_offset, INPUTS_SIZE)) &&
+        check_slice_mem_range(resolved_state_offset, STATE_SIZE)) {
+        error = AvmError::MEM_SLICE_OUT_OF_RANGE;
+    }
+
+    if (is_ok(error) && !(check_tag_range(AvmMemoryTag::U32, resolved_inputs_offset, INPUTS_SIZE) &&
+                          check_tag_range(AvmMemoryTag::U32, resolved_state_offset, STATE_SIZE))) {
+        error = AvmError::CHECK_TAG_ERROR;
     }
 
     // Constrain gas cost
-    gas_trace_builder.constrain_gas(clk, OpCode::SHA256COMPRESSION);
+    bool out_of_gas = gas_trace_builder.constrain_gas(clk, OpCode::SHA256COMPRESSION);
+    if (out_of_gas && is_ok(error)) {
+        error = AvmError::OUT_OF_GAS;
+    }
 
     // Since the above adds mem_reads in the mem_trace_builder at clk, we need to follow up resolving the reads in
     // the main trace at the same clk cycle to preserve the cross-table permutation
@@ -3743,20 +4539,27 @@ AvmError AvmTraceBuilder::op_sha256_compression(uint8_t indirect,
     // Input for hash is expanded to 512 bits
     std::vector<uint32_t> input_vec;
     // Read results are written to h_init array.
-    read_slice_from_memory<uint32_t>(resolved_state_offset, 8, h_init_vec);
+    auto slice_err = read_slice_from_memory<uint32_t>(resolved_state_offset, STATE_SIZE, h_init_vec);
+
+    // This slice is not out of memory range, otherwise an error would be returned above. (check_slice_mem_range())
+    ASSERT(slice_err == AvmError::NO_ERROR);
+
     // Read results are written to input array
-    read_slice_from_memory<uint32_t>(resolved_inputs_offset, 16, input_vec);
+    slice_err = read_slice_from_memory<uint32_t>(resolved_inputs_offset, INPUTS_SIZE, input_vec);
+
+    // This slice is not out of memory range, otherwise an error would be returned above. (check_slice_mem_range())
+    ASSERT(slice_err == AvmError::NO_ERROR);
 
     // Now that we have read all the values, we can perform the operation to get the resulting witness.
     // Note: We use the sha_op_clk to ensure that the sha256 operation is performed at the same clock cycle as the
     // main trace that has the selector
-    std::array<uint32_t, 8> h_init = vec_to_arr<uint32_t, 8>(h_init_vec);
-    std::array<uint32_t, 16> input = vec_to_arr<uint32_t, 16>(input_vec);
+    std::array<uint32_t, STATE_SIZE> h_init = vec_to_arr<uint32_t, STATE_SIZE>(h_init_vec);
+    std::array<uint32_t, INPUTS_SIZE> input = vec_to_arr<uint32_t, INPUTS_SIZE>(input_vec);
 
-    std::array<uint32_t, 8> result = sha256_trace_builder.sha256_compression(h_init, input, sha_op_clk);
+    std::array<uint32_t, STATE_SIZE> result = sha256_trace_builder.sha256_compression(h_init, input, sha_op_clk);
     // We convert the results to field elements here
     std::vector<FF> ff_result;
-    for (uint32_t i = 0; i < 8; i++) {
+    for (uint32_t i = 0; i < STATE_SIZE; i++) {
         ff_result.emplace_back(result[i]);
     }
 
@@ -3764,7 +4567,7 @@ AvmError AvmTraceBuilder::op_sha256_compression(uint8_t indirect,
 
     // Crucial to perform this operation after having incremented pc because write_slice_to_memory
     // is implemented with opcodes (SET and JUMP).
-    write_slice_to_memory(resolved_output_offset, AvmMemoryTag::U32, ff_result);
+    error = write_slice_to_memory(resolved_output_offset, AvmMemoryTag::U32, ff_result);
 
     return AvmError::NO_ERROR;
 }
@@ -3792,13 +4595,23 @@ AvmError AvmTraceBuilder::op_keccakf1600(uint8_t indirect, uint32_t output_offse
         call_ptr, clk, resolved_input_offset, AvmMemoryTag::U64, AvmMemoryTag::FF, IntermRegister::IA);
     bool tag_match = input_read.tag_match;
 
-    if (is_ok(error) &&
-        !(tag_match && check_tag_range(AvmMemoryTag::U64, resolved_input_offset, KECCAKF1600_INPUT_SIZE))) {
-        error = AvmError::TAG_ERROR;
+    if (is_ok(error) && !tag_match) {
+        error = AvmError::CHECK_TAG_ERROR;
+    }
+
+    if (is_ok(error) && !check_slice_mem_range(resolved_input_offset, KECCAKF1600_INPUT_SIZE)) {
+        error = AvmError::MEM_SLICE_OUT_OF_RANGE;
+    }
+
+    if (is_ok(error) && !check_tag_range(AvmMemoryTag::U64, resolved_input_offset, KECCAKF1600_INPUT_SIZE)) {
+        error = AvmError::CHECK_TAG_ERROR;
     }
 
     // Constrain gas cost
-    gas_trace_builder.constrain_gas(clk, OpCode::KECCAKF1600);
+    bool out_of_gas = gas_trace_builder.constrain_gas(clk, OpCode::KECCAKF1600);
+    if (out_of_gas && is_ok(error)) {
+        error = AvmError::OUT_OF_GAS;
+    }
 
     main_trace.push_back(Row{
         .main_clk = clk,
@@ -3822,7 +4635,11 @@ AvmError AvmTraceBuilder::op_keccakf1600(uint8_t indirect, uint32_t output_offse
     // Array input is fixed to 1600 bits
     std::vector<uint64_t> input_vec;
     // Read results are written to input array
-    read_slice_from_memory<uint64_t>(resolved_input_offset, KECCAKF1600_INPUT_SIZE, input_vec);
+    const auto slice_err = read_slice_from_memory<uint64_t>(resolved_input_offset, KECCAKF1600_INPUT_SIZE, input_vec);
+
+    // This slice is not out of memory range, otherwise an error would be returned above. (check_slice_mem_range())
+    ASSERT(slice_err == AvmError::NO_ERROR);
+
     std::array<uint64_t, KECCAKF1600_INPUT_SIZE> input = vec_to_arr<uint64_t, KECCAKF1600_INPUT_SIZE>(input_vec);
 
     // Now that we have read all the values, we can perform the operation to get the resulting witness.
@@ -3834,9 +4651,9 @@ AvmError AvmTraceBuilder::op_keccakf1600(uint8_t indirect, uint32_t output_offse
 
     // Crucial to perform this operation after having incremented pc because write_slice_to_memory
     // is implemented with opcodes (SET and JUMP).
-    write_slice_to_memory(resolved_output_offset, AvmMemoryTag::U64, result);
+    error = write_slice_to_memory(resolved_output_offset, AvmMemoryTag::U64, result);
 
-    return AvmError::NO_ERROR;
+    return error;
 }
 
 AvmError AvmTraceBuilder::op_ec_add(uint16_t indirect,
@@ -3879,10 +4696,13 @@ AvmError AvmTraceBuilder::op_ec_add(uint16_t indirect,
         check_tag(AvmMemoryTag::FF, resolved_rhs_y_offset) && check_tag(AvmMemoryTag::U1, resolved_rhs_is_inf_offset);
 
     if (is_ok(error) && !tags_valid) {
-        error = AvmError::TAG_ERROR;
+        error = AvmError::CHECK_TAG_ERROR;
     }
 
-    gas_trace_builder.constrain_gas(clk, OpCode::ECADD);
+    bool out_of_gas = gas_trace_builder.constrain_gas(clk, OpCode::ECADD);
+    if (out_of_gas && is_ok(error)) {
+        error = AvmError::OUT_OF_GAS;
+    }
 
     if (!is_ok(error)) {
         main_trace.push_back(Row{
@@ -3923,7 +4743,11 @@ AvmError AvmTraceBuilder::op_ec_add(uint16_t indirect,
 
     pc += Deserialization::get_pc_increment(OpCode::ECADD);
 
-    // Crucial to perform this operation after having incremented pc because write_slice_to_memory
+    if (!check_slice_mem_range(resolved_output_offset, 3)) {
+        return AvmError::MEM_SLICE_OUT_OF_RANGE;
+    }
+
+    // Crucial to perform this operation after having incremented pc because write_to_memory
     // is implemented with opcodes (SET and JUMP).
     // Write point coordinates
     write_to_memory(resolved_output_offset, result.x, AvmMemoryTag::FF);
@@ -3951,10 +4775,19 @@ AvmError AvmTraceBuilder::op_variable_msm(uint8_t indirect,
     error = res_error;
 
     if (is_ok(error) && !check_tag(AvmMemoryTag::U32, resolved_point_length_offset)) {
-        error = AvmError::TAG_ERROR;
+        error = AvmError::CHECK_TAG_ERROR;
     }
 
     const FF points_length = is_ok(error) ? unconstrained_read_from_memory(resolved_point_length_offset) : 0;
+
+    // Unconstrained check that points_length must be a multiple of 3.
+    if (is_ok(error) && static_cast<uint32_t>(points_length) % 3 != 0) {
+        error = AvmError::MSM_POINTS_LEN_INVALID;
+    }
+
+    if (is_ok(error) && !check_slice_mem_range(resolved_points_offset, static_cast<uint32_t>(points_length))) {
+        error = AvmError::MEM_SLICE_OUT_OF_RANGE;
+    }
 
     // Points are stored as [x1, y1, inf1, x2, y2, inf2, ...] with the types [FF, FF, U8, FF, FF, U8, ...]
     const uint32_t num_points = uint32_t(points_length) / 3; // 3 elements per point
@@ -3963,24 +4796,33 @@ AvmError AvmTraceBuilder::op_variable_msm(uint8_t indirect,
     std::vector<FF> points_inf_vec;
     std::vector<FF> scalars_vec;
 
-    bool tags_valid = true;
     for (uint32_t i = 0; i < num_points; i++) {
-        tags_valid = tags_valid && check_tag_range(AvmMemoryTag::FF, resolved_points_offset + 3 * i, 2) &&
-                     check_tag(AvmMemoryTag::U1, resolved_points_offset + 3 * i + 2);
+        if (is_ok(error) && !check_tag_range(AvmMemoryTag::FF, resolved_points_offset + 3 * i, 2)) {
+            error = AvmError::CHECK_TAG_ERROR;
+        }
+
+        if (is_ok(error) && !check_tag(AvmMemoryTag::U1, resolved_points_offset + 3 * i + 2)) {
+            error = AvmError::CHECK_TAG_ERROR;
+        }
     }
 
     // Scalar read length is num_points* 2 since scalars are stored as lo and hi limbs
     uint32_t scalar_read_length = num_points * 2;
 
-    tags_valid = tags_valid && check_tag_range(AvmMemoryTag::FF, resolved_scalars_offset, scalar_read_length);
+    if (is_ok(error) && !check_slice_mem_range(resolved_scalars_offset, static_cast<uint32_t>(scalar_read_length))) {
+        error = AvmError::MEM_SLICE_OUT_OF_RANGE;
+    }
 
-    if (is_ok(error) && !tags_valid) {
-        error = AvmError::TAG_ERROR;
+    if (is_ok(error) && !check_tag_range(AvmMemoryTag::FF, resolved_scalars_offset, scalar_read_length)) {
+        error = AvmError::CHECK_TAG_ERROR;
     }
 
     // TODO(dbanks12): length needs to fit into u32 here or it will certainly
     // run out of gas. Casting/truncating here is not secure.
-    gas_trace_builder.constrain_gas(clk, OpCode::MSM, static_cast<uint32_t>(points_length));
+    bool out_of_gas = gas_trace_builder.constrain_gas(clk, OpCode::MSM, static_cast<uint32_t>(points_length));
+    if (out_of_gas && is_ok(error)) {
+        error = AvmError::OUT_OF_GAS;
+    }
 
     if (!is_ok(error)) {
         main_trace.push_back(Row{
@@ -4011,7 +4853,10 @@ AvmError AvmTraceBuilder::op_variable_msm(uint8_t indirect,
 
     // Scalars are easy to read since they are stored as [lo1, hi1, lo2, hi2, ...] with the types [FF, FF, FF,FF,
     // ...]
-    read_slice_from_memory(resolved_scalars_offset, scalar_read_length, scalars_vec);
+    const auto slice_err = read_slice_from_memory(resolved_scalars_offset, scalar_read_length, scalars_vec);
+
+    // This slice is not out of memory range, otherwise an error would be returned above. (check_slice_mem_range())
+    ASSERT(slice_err == AvmError::NO_ERROR);
 
     // Reconstruct Grumpkin points
     std::vector<grumpkin::g1::affine_element> points;
@@ -4023,6 +4868,10 @@ AvmError AvmTraceBuilder::op_variable_msm(uint8_t indirect,
             points.emplace_back(grumpkin::g1::affine_element::infinity());
         } else {
             points.emplace_back(x, y);
+            // Unconstrained check that this point lies on the Grumpkin curve.
+            if (!points.back().on_curve()) {
+                return AvmError::MSM_POINT_NOT_ON_CURVE;
+            }
         }
     }
     // Reconstruct Grumpkin scalars
@@ -4048,7 +4897,11 @@ AvmError AvmTraceBuilder::op_variable_msm(uint8_t indirect,
 
     pc += Deserialization::get_pc_increment(OpCode::MSM);
 
-    // Crucial to perform this operation after having incremented pc because write_slice_to_memory
+    if (!check_slice_mem_range(resolved_output_offset, 3)) {
+        return AvmError::MEM_SLICE_OUT_OF_RANGE;
+    }
+
+    // Crucial to perform this operation after having incremented pc because write_to_memory
     // is implemented with opcodes (SET and JUMP).
     // Write the result back to memory [x, y, inf] with tags [FF, FF, U8]
     write_to_memory(resolved_output_offset, result.x, AvmMemoryTag::FF);
@@ -4067,34 +4920,52 @@ AvmError AvmTraceBuilder::op_variable_msm(uint8_t indirect,
  *
  * @param indirect A byte encoding information about indirect/direct memory access.
  * @param src_offset An index in memory pointing to the input of the To_Radix_BE conversion.
- * @param dst_offset An index in memory pointing to the output of the To_Radix_BE conversion.
  * @param radix_offset An index in memory pointing to the strict upper bound of each converted limb, i.e., 0 <= limb
  * < radix.
- * @param num_limbs The number of limbs to the value into.
- * @param output_bits Should the output be U1s instead of U8s?
+ * @param num_limbs_offset Offset pointing to the number of limbs to the value into.
+ * @param output_bits_offset Offset pointing to a boolean telling whether bits (U1) or bytes (U8) are in the output
+ * @param dst_offset An index in memory pointing to the output of the To_Radix_BE conversion.
  */
-AvmError AvmTraceBuilder::op_to_radix_be(uint8_t indirect,
+AvmError AvmTraceBuilder::op_to_radix_be(uint16_t indirect,
                                          uint32_t src_offset,
-                                         uint32_t dst_offset,
                                          uint32_t radix_offset,
-                                         uint32_t num_limbs,
-                                         uint8_t output_bits)
+                                         uint32_t num_limbs_offset,
+                                         uint32_t output_bits_offset,
+                                         uint32_t dst_offset)
 {
     // We keep the first encountered error
     AvmError error = AvmError::NO_ERROR;
     auto clk = static_cast<uint32_t>(main_trace.size()) + 1;
 
+    auto [resolved_addrs, res_error] =
+        Addressing<5>::fromWire(indirect, call_ptr)
+            .resolve({ src_offset, radix_offset, num_limbs_offset, output_bits_offset, dst_offset }, mem_trace_builder);
+    auto [resolved_src_offset,
+          resolved_radix_offset,
+          resolved_num_limbs_offset,
+          resolved_output_bits_offset,
+          resolved_dst_offset] = resolved_addrs;
+    error = res_error;
+
+    if (is_ok(error) && !check_tag(AvmMemoryTag::U32, resolved_radix_offset) &&
+        !check_tag(AvmMemoryTag::U32, resolved_num_limbs_offset) &&
+        !check_tag(AvmMemoryTag::U1, resolved_output_bits_offset)) {
+        error = AvmError::CHECK_TAG_ERROR;
+    }
+
+    const auto num_limbs = static_cast<uint32_t>(unconstrained_read_from_memory(resolved_num_limbs_offset));
+
+    // Constrain gas cost
+    bool out_of_gas = gas_trace_builder.constrain_gas(clk, OpCode::TORADIXBE, num_limbs);
+    if (out_of_gas && is_ok(error)) {
+        error = AvmError::OUT_OF_GAS;
+    }
+
+    const auto output_bits = static_cast<uint8_t>(unconstrained_read_from_memory(resolved_output_bits_offset));
+
     // write output as bits or bytes
     AvmMemoryTag w_in_tag = output_bits > 0 ? AvmMemoryTag::U1 // bits mode
                                             : AvmMemoryTag::U8;
-
-    auto [resolved_addrs, res_error] = Addressing<3>::fromWire(indirect, call_ptr)
-                                           .resolve({ src_offset, dst_offset, radix_offset }, mem_trace_builder);
-    auto [resolved_src_offset, resolved_dst_offset, resolved_radix_offset] = resolved_addrs;
-    error = res_error;
-
-    // Constrain gas cost
-    gas_trace_builder.constrain_gas(clk, OpCode::TORADIXBE, num_limbs);
 
     auto read_src = constrained_read_from_memory(
         call_ptr, clk, resolved_src_offset, AvmMemoryTag::FF, w_in_tag, IntermRegister::IA);
@@ -4103,16 +4974,12 @@ AvmError AvmTraceBuilder::op_to_radix_be(uint8_t indirect,
     // auto read_radix = constrained_read_from_memory(
     //    call_ptr, clk, resolved_radix_offset, AvmMemoryTag::U32, AvmMemoryTag::U32, IntermRegister::IB);
 
-    if (is_ok(error) && !check_tag(AvmMemoryTag::U32, resolved_radix_offset)) {
-        error = AvmError::TAG_ERROR;
-    }
-
     auto read_radix = unconstrained_read_from_memory(resolved_radix_offset);
 
     FF input = read_src.val;
 
     if (is_ok(error) && !read_src.tag_match) {
-        error = AvmError::TAG_ERROR;
+        error = AvmError::CHECK_TAG_ERROR;
     }
 
     // TODO(8603): uncomment
@@ -4163,7 +5030,12 @@ AvmError AvmTraceBuilder::op_to_radix_be(uint8_t indirect,
 
     // Crucial to perform this operation after having incremented pc because write_slice_to_memory
     // is implemented with opcodes (SET and JUMP).
-    write_slice_to_memory(resolved_dst_offset, w_in_tag, res);
+    const auto slice_err = write_slice_to_memory(resolved_dst_offset, w_in_tag, res);
+
+    if (is_ok(error)) {
+        error = slice_err;
+    }
+
     return error;
 }
 
@@ -4179,8 +5051,13 @@ AvmError AvmTraceBuilder::op_to_radix_be(uint8_t indirect,
  *
  * @return The main trace
  */
-std::vector<Row> AvmTraceBuilder::finalize()
+std::vector<Row> AvmTraceBuilder::finalize(bool apply_end_gas_assertions)
 {
+    // Some sanity checks
+    // Check that the final merkle tree lines up with the public inputs
+    TreeSnapshots tree_snapshots = merkle_tree_trace_builder.get_tree_snapshots();
+    ASSERT(tree_snapshots == public_inputs.end_tree_snapshots);
+
     vinfo("range_check_required: ", range_check_required);
     vinfo("full_precomputed_tables: ", full_precomputed_tables);
 
@@ -4201,16 +5078,23 @@ std::vector<Row> AvmTraceBuilder::finalize()
     size_t bin_trace_size = bin_trace_builder.size();
     size_t gas_trace_size = gas_trace_builder.size();
     size_t slice_trace_size = slice_trace.size();
-    size_t kernel_trace_size = kernel_trace_builder.size();
 
     // Range check size is 1 less than it needs to be since we insert a "first row" at the top of the trace at the
     // end, with clk 0 (this doubles as our range check)
     size_t const range_check_size = range_check_required ? UINT16_MAX : 0;
-    std::vector<size_t> trace_sizes = { mem_trace_size,        main_trace_size + 1, alu_trace_size,
-                                        range_check_size,      conv_trace_size,     sha256_trace_size,
-                                        poseidon2_trace_size,  gas_trace_size + 1,  KERNEL_INPUTS_LENGTH,
-                                        KERNEL_OUTPUTS_LENGTH, kernel_trace_size,   fixed_gas_table.size(),
-                                        slice_trace_size,      calldata.size() };
+    std::vector<size_t> trace_sizes = { mem_trace_size,
+                                        main_trace_size + 1,
+                                        alu_trace_size,
+                                        range_check_size,
+                                        conv_trace_size,
+                                        sha256_trace_size,
+                                        poseidon2_trace_size,
+                                        gas_trace_size + 1,
+                                        KERNEL_INPUTS_LENGTH,
+                                        KERNEL_OUTPUTS_LENGTH,
+                                        /*kernel_trace_size,*/ fixed_gas_table.size(),
+                                        slice_trace_size,
+                                        current_ext_call_ctx.calldata.size() };
     auto trace_size = std::max_element(trace_sizes.begin(), trace_sizes.end());
 
     // Before making any changes to the main trace, mark the real rows.
@@ -4436,11 +5320,30 @@ std::vector<Row> AvmTraceBuilder::finalize()
 
     gas_trace_builder.finalize(main_trace);
 
+    if (apply_end_gas_assertions) {
+        // Sanity check that the amount of gas consumed matches what we expect from the public inputs
+        auto const l2_gas_left_after_private =
+            public_inputs.gas_settings.gas_limits.l2_gas - public_inputs.start_gas_used.l2_gas;
+        auto const allocated_l2_gas =
+            std::min(l2_gas_left_after_private, static_cast<uint32_t>(MAX_L2_GAS_PER_TX_PUBLIC_PORTION));
+        // Since end_gas_used also contains start_gas_used, we need to subtract it out to see what is consumed by
+        // the public computation only
+        auto expected_public_gas_consumed = public_inputs.end_gas_used.l2_gas - public_inputs.start_gas_used.l2_gas;
+        auto expected_end_gas_l2 = allocated_l2_gas - expected_public_gas_consumed;
+        auto last_l2_gas_remaining = main_trace.back().main_l2_gas_remaining;
+        vinfo("Last L2 gas remaining: ", last_l2_gas_remaining);
+        vinfo("Expected end gas L2: ", expected_end_gas_l2);
+        ASSERT(last_l2_gas_remaining == expected_end_gas_l2);
+        auto last_da_gas_remaining = main_trace.back().main_da_gas_remaining;
+        auto expected_end_gas_da = public_inputs.gas_settings.gas_limits.da_gas - public_inputs.end_gas_used.da_gas;
+        ASSERT(last_da_gas_remaining == expected_end_gas_da);
+    }
+
     /**********************************************************************************************
      * KERNEL TRACE INCLUSION
      **********************************************************************************************/
 
-    kernel_trace_builder.finalize(main_trace);
+    // kernel_trace_builder.finalize(main_trace);
 
     /**********************************************************************************************
      * BYTECODE TRACE INCLUSION
@@ -4568,11 +5471,11 @@ std::vector<Row> AvmTraceBuilder::finalize()
      **********************************************************************************************/
 
     // Add the kernel inputs and outputs
-    kernel_trace_builder.finalize_columns(main_trace);
+    // kernel_trace_builder.finalize_columns(main_trace);
 
     // calldata column inclusion and selector
-    for (size_t i = 0; i < calldata.size(); i++) {
-        main_trace.at(i).main_calldata = calldata.at(i);
+    for (size_t i = 0; i < all_calldata.size(); i++) {
+        main_trace.at(i).main_calldata = all_calldata.at(i);
         main_trace.at(i).main_sel_calldata = 1;
     }
 
@@ -4582,8 +5485,8 @@ std::vector<Row> AvmTraceBuilder::finalize()
     }
 
     // returndata column inclusion and selector
-    for (size_t i = 0; i < returndata.size(); i++) {
-        main_trace.at(i).main_returndata = returndata.at(i);
+    for (size_t i = 0; i < all_returndata.size(); i++) {
+        main_trace.at(i).main_returndata = all_returndata.at(i);
         main_trace.at(i).main_sel_returndata = 1;
     }
 
@@ -4636,14 +5539,14 @@ std::vector<Row> AvmTraceBuilder::finalize()
           cmp_trace_size,
           "\n\tkeccak_trace_size: ",
           keccak_trace_size,
-          "\n\tkernel_trace_size: ",
-          kernel_trace_size,
+          // "\n\tkernel_trace_size: ",
+          // kernel_trace_size,
           "\n\tKERNEL_INPUTS_LENGTH: ",
           KERNEL_INPUTS_LENGTH,
           "\n\tKERNEL_OUTPUTS_LENGTH: ",
           KERNEL_OUTPUTS_LENGTH,
           "\n\tcalldata_size: ",
-          calldata.size());
+          current_ext_call_ctx.calldata.size());
     reset();
 
     return trace;
@@ -4660,7 +5563,7 @@ void AvmTraceBuilder::reset()
     mem_trace_builder.reset();
     alu_trace_builder.reset();
     bin_trace_builder.reset();
-    kernel_trace_builder.reset();
+    // kernel_trace_builder.reset();
     gas_trace_builder.reset();
     conversion_trace_builder.reset();
     sha256_trace_builder.reset();

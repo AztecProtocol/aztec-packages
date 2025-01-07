@@ -44,11 +44,19 @@ pub struct LookupSide {
 pub trait LookupBuilder {
     /// Takes in an AST and works out what lookup relations are needed
     /// Note: returns the name of the inverse columns, such that they can be added to the prover in subsequent steps
-    fn create_lookup_files<F: FieldElement>(&self, analyzed: &Analyzed<F>) -> Vec<Lookup>;
+    fn create_lookup_files<F: FieldElement>(
+        &self,
+        analyzed: &Analyzed<F>,
+        vm_name: &str,
+    ) -> Vec<Lookup>;
 }
 
 impl LookupBuilder for BBFiles {
-    fn create_lookup_files<F: FieldElement>(&self, analyzed: &Analyzed<F>) -> Vec<Lookup> {
+    fn create_lookup_files<F: FieldElement>(
+        &self,
+        analyzed: &Analyzed<F>,
+        vm_name: &str,
+    ) -> Vec<Lookup> {
         let lookups = analyzed
             .identities
             .iter()
@@ -81,7 +89,7 @@ impl LookupBuilder for BBFiles {
             .unwrap();
 
         for lookup in lookups.iter() {
-            let data = create_lookup_settings_data(lookup);
+            let data = create_lookup_settings_data(lookup, vm_name);
             let lookup_settings = handlebars.render("lookup.hpp", &data).unwrap();
 
             let file_name = format!("{}.hpp", lookup.name);
@@ -107,7 +115,7 @@ pub fn get_counts_from_lookups(lookups: &[Lookup]) -> Vec<String> {
         .collect()
 }
 
-fn create_lookup_settings_data(lookup: &Lookup) -> Json {
+fn create_lookup_settings_data(lookup: &Lookup, vm_name: &str) -> Json {
     let columns_per_set = lookup.left.cols.len();
 
     // NOTE: https://github.com/AztecProtocol/aztec-packages/issues/3879
@@ -130,23 +138,6 @@ fn create_lookup_settings_data(lookup: &Lookup) -> Json {
         "Lookup columns lhs must be the same length as rhs"
     );
 
-    // 0.                       The polynomial containing the inverse products -> taken from the attributes
-    // 1.                       The polynomial with the counts!
-    // 2.                       lhs selector
-    // 3.                       rhs selector
-    // 4.. + columns per set.   lhs cols
-    // 4 + columns per set.. .  rhs cols
-    let mut lookup_entities: Vec<String> = [
-        lookup.inverse.clone(),
-        lookup.counts_poly.clone(),
-        lhs_selector.clone(),
-        rhs_selector.clone(),
-    ]
-    .to_vec();
-
-    lookup_entities.extend(lhs_cols);
-    lookup_entities.extend(rhs_cols);
-
     // NOTE: these are hardcoded as 1 for now until more optimizations are required
     let read_terms = 1;
     let write_terms = 1;
@@ -160,9 +151,14 @@ fn create_lookup_settings_data(lookup: &Lookup) -> Json {
     let write_term_types = "{0}".to_owned();
 
     json!({
+        "root_name": vm_name,
         "lookup_name": lookup.name,
         "lhs_selector": lhs_selector,
         "rhs_selector": rhs_selector,
+        "lhs_cols": lhs_cols,
+        "rhs_cols": rhs_cols,
+        "inverses_col": lookup.inverse.clone(),
+        "counts_col": lookup.counts_poly,
         "read_terms": read_terms,
         "write_terms": write_terms,
         "lookup_tuple_size": lookup_tuple_size,
@@ -171,7 +167,6 @@ fn create_lookup_settings_data(lookup: &Lookup) -> Json {
         "write_term_degree": write_term_degree,
         "read_term_types": read_term_types,
         "write_term_types": write_term_types,
-        "lookup_entities": lookup_entities,
     })
 }
 

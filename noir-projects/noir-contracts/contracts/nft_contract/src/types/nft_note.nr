@@ -10,6 +10,7 @@ use dep::aztec::{
     },
 };
 
+// docs:start:nft_note
 #[partial_note(quote { token_id})]
 pub struct NFTNote {
     // ID of the token
@@ -19,8 +20,10 @@ pub struct NFTNote {
     // Randomness of the note to hide its contents
     randomness: Field,
 }
+// docs:end:nft_note
 
 impl NullifiableNote for NFTNote {
+    // docs:start:compute_nullifier
     fn compute_nullifier(
         self,
         context: &mut PrivateContext,
@@ -33,6 +36,7 @@ impl NullifiableNote for NFTNote {
             GENERATOR_INDEX__NOTE_NULLIFIER as Field,
         )
     }
+    // docs:end:compute_nullifier
 
     unconstrained fn compute_nullifier_without_context(self) -> Field {
         let note_hash_for_nullify = compute_note_hash_for_nullify(self);

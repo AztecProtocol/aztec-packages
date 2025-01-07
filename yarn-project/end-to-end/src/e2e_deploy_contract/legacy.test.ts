@@ -1,14 +1,14 @@
 import {
   AztecAddress,
   ContractDeployer,
-  type DebugLogger,
   Fr,
+  type Logger,
   type PXE,
   TxStatus,
   type Wallet,
   getContractInstanceFromDeployParams,
 } from '@aztec/aztec.js';
-import { StatefulTestContract } from '@aztec/noir-contracts.js';
+import { StatefulTestContract } from '@aztec/noir-contracts.js/StatefulTest';
 import { TestContractArtifact } from '@aztec/noir-contracts.js/Test';
 import { TokenContractArtifact } from '@aztec/noir-contracts.js/Token';
 
@@ -18,7 +18,7 @@ describe('e2e_deploy_contract legacy', () => {
   const t = new DeployTest('legacy');
 
   let pxe: PXE;
-  let logger: DebugLogger;
+  let logger: Logger;
   let wallet: Wallet;
 
   beforeAll(async () => {

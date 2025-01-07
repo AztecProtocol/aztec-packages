@@ -39,19 +39,21 @@ import {
   AnvilTestWatcher,
   BatchCall,
   type Contract,
-  type DebugLogger,
   Fr,
   GrumpkinScalar,
-  createDebugLogger,
+  type Logger,
+  createLogger,
   sleep,
 } from '@aztec/aztec.js';
 // eslint-disable-next-line no-restricted-imports
-import { L2Block, LogType, tryStop } from '@aztec/circuit-types';
+import { L2Block, tryStop } from '@aztec/circuit-types';
 import { type AztecAddress } from '@aztec/circuits.js';
 import { getL1ContractsConfigEnvVars } from '@aztec/ethereum';
 import { Timer } from '@aztec/foundation/timer';
 import { RollupAbi } from '@aztec/l1-artifacts';
-import { SchnorrHardcodedAccountContract, SpamContract, TokenContract } from '@aztec/noir-contracts.js';
+import { SchnorrHardcodedAccountContract } from '@aztec/noir-contracts.js/SchnorrHardcodedAccount';
+import { SpamContract } from '@aztec/noir-contracts.js/Spam';
+import { TokenContract } from '@aztec/noir-contracts.js/Token';
 import { type PXEService } from '@aztec/pxe';
 import { L1Publisher } from '@aztec/sequencer-client';
 import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
@@ -96,7 +98,7 @@ type VariantDefinition = {
  *
  */
 class TestVariant {
-  private logger: DebugLogger = createDebugLogger(`test_variant`);
+  private logger: Logger = createLogger(`test_variant`);
   private pxe!: PXEService;
   private token!: TokenContract;
   private spam!: SpamContract;
@@ -358,13 +360,23 @@ describe('e2e_synching', () => {
       return;
     }
 
-    const { teardown, logger, deployL1ContractsValues, config, cheatCodes, aztecNode, sequencer, watcher, pxe } =
-      await setup(0, {
-        salt: SALT,
-        l1StartTime: START_TIME,
-        skipProtocolContracts: true,
-        assumeProvenThrough,
-      });
+    const {
+      teardown,
+      logger,
+      deployL1ContractsValues,
+      config,
+      cheatCodes,
+      aztecNode,
+      sequencer,
+      watcher,
+      pxe,
+      blobSink,
+    } = await setup(0, {
+      salt: SALT,
+      l1StartTime: START_TIME,
+      skipProtocolContracts: true,
+      assumeProvenThrough,
+    });
 
     await (aztecNode as any).stop();
     await (sequencer as any).stop();
@@ -381,6 +393,7 @@ describe('e2e_synching', () => {
         l1ChainId: 31337,
         viemPollingIntervalMS: 100,
         ethereumSlotDuration: ETHEREUM_SLOT_DURATION,
+        blobSinkUrl: `http://localhost:${blobSink?.port ?? 5052}`,
       },
       new NoopTelemetryClient(),
     );
@@ -497,8 +510,8 @@ describe('e2e_synching', () => {
           await rollup.write.setAssumeProvenThroughBlockNumber([assumeProvenThrough]);
 
           const timeliness = (await rollup.read.EPOCH_DURATION()) * 2n;
-          const [, , slot] = await rollup.read.blocks([(await rollup.read.getProvenBlockNumber()) + 1n]);
-          const timeJumpTo = await rollup.read.getTimestampForSlot([slot + timeliness]);
+          const blockLog = await rollup.read.getBlock([(await rollup.read.getProvenBlockNumber()) + 1n]);
+          const timeJumpTo = await rollup.read.getTimestampForSlot([blockLog.slotNumber + timeliness]);
 
           await opts.cheatCodes!.eth.warp(Number(timeJumpTo));
 
@@ -513,9 +526,10 @@ describe('e2e_synching', () => {
           });
 
           expect(await archiver.getTxEffect(txHash)).not.toBeUndefined;
-          [LogType.NOTEENCRYPTED, LogType.ENCRYPTED, LogType.UNENCRYPTED].forEach(async t => {
-            expect(await archiver.getLogs(blockTip.number, 1, t)).not.toEqual([]);
-          });
+          expect(await archiver.getPrivateLogs(blockTip.number, 1)).not.toEqual([]);
+          expect(
+            await archiver.getUnencryptedLogs({ fromBlock: blockTip.number, toBlock: blockTip.number + 1 }),
+          ).not.toEqual([]);
 
           await rollup.write.prune();
 
@@ -537,9 +551,10 @@ describe('e2e_synching', () => {
           );
 
           expect(await archiver.getTxEffect(txHash)).toBeUndefined;
-          [LogType.NOTEENCRYPTED, LogType.ENCRYPTED, LogType.UNENCRYPTED].forEach(async t => {
-            expect(await archiver.getLogs(blockTip.number, 1, t)).toEqual([]);
-          });
+          expect(await archiver.getPrivateLogs(blockTip.number, 1)).toEqual([]);
+          expect(
+            await archiver.getUnencryptedLogs({ fromBlock: blockTip.number, toBlock: blockTip.number + 1 }),
+          ).toEqual([]);
 
           // Check world state reverted as well
           expect(await worldState.getLatestBlockNumber()).toEqual(Number(assumeProvenThrough));
@@ -581,8 +596,8 @@ describe('e2e_synching', () => {
           const blockBeforePrune = await aztecNode.getBlockNumber();
 
           const timeliness = (await rollup.read.EPOCH_DURATION()) * 2n;
-          const [, , slot] = await rollup.read.blocks([(await rollup.read.getProvenBlockNumber()) + 1n]);
-          const timeJumpTo = await rollup.read.getTimestampForSlot([slot + timeliness]);
+          const blockLog = await rollup.read.getBlock([(await rollup.read.getProvenBlockNumber()) + 1n]);
+          const timeJumpTo = await rollup.read.getTimestampForSlot([blockLog.slotNumber + timeliness]);
 
           await opts.cheatCodes!.eth.warp(Number(timeJumpTo));
 
@@ -641,8 +656,8 @@ describe('e2e_synching', () => {
           await rollup.write.setAssumeProvenThroughBlockNumber([pendingBlockNumber - BigInt(variant.blockCount) / 2n]);
 
           const timeliness = (await rollup.read.EPOCH_DURATION()) * 2n;
-          const [, , slot] = await rollup.read.blocks([(await rollup.read.getProvenBlockNumber()) + 1n]);
-          const timeJumpTo = await rollup.read.getTimestampForSlot([slot + timeliness]);
+          const blockLog = await rollup.read.getBlock([(await rollup.read.getProvenBlockNumber()) + 1n]);
+          const timeJumpTo = await rollup.read.getTimestampForSlot([blockLog.slotNumber + timeliness]);
 
           await opts.cheatCodes!.eth.warp(Number(timeJumpTo));
 

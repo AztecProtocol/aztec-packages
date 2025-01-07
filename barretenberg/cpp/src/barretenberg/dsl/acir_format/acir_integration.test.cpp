@@ -36,7 +36,7 @@ class AcirIntegrationTest : public ::testing::Test {
     }
 
     acir_format::AcirProgramStack get_program_stack_data_from_test_file(const std::string& test_program_name,
-                                                                        bool honk_recursion = false)
+                                                                        uint32_t honk_recursion = 0)
     {
         std::string base_path = "../../acir_tests/acir_tests/" + test_program_name + "/target";
         std::string bytecode_path = base_path + "/program.json";
@@ -46,7 +46,7 @@ class AcirIntegrationTest : public ::testing::Test {
     }
 
     acir_format::AcirProgram get_program_data_from_test_file(const std::string& test_program_name,
-                                                             bool honk_recursion = false)
+                                                             uint32_t honk_recursion = 0)
     {
         auto program_stack = get_program_stack_data_from_test_file(test_program_name, honk_recursion);
         ASSERT(program_stack.size() == 1); // Otherwise this method will not return full stack data
@@ -126,7 +126,7 @@ class AcirIntegrationTest : public ::testing::Test {
     }
 
   protected:
-    static void SetUpTestSuite() { srs::init_crs_factory("../srs_db/ignition"); }
+    static void SetUpTestSuite() { srs::init_crs_factory(bb::srs::get_ignition_crs_path()); }
 };
 
 class AcirIntegrationSingleTest : public AcirIntegrationTest, public testing::WithParamInterface<std::string> {};
@@ -135,14 +135,14 @@ class AcirIntegrationFoldingTest : public AcirIntegrationTest, public testing::W
   protected:
     static void SetUpTestSuite()
     {
-        srs::init_crs_factory("../srs_db/ignition");
-        srs::init_grumpkin_crs_factory("../srs_db/grumpkin");
+        srs::init_crs_factory(bb::srs::get_ignition_crs_path());
+        srs::init_grumpkin_crs_factory(bb::srs::get_grumpkin_crs_path());
     }
 };
 
 TEST_P(AcirIntegrationSingleTest, DISABLED_ProveAndVerifyProgram)
 {
-    using Flavor = MegaFlavor;
+    using Flavor = UltraFlavor;
     // using Flavor = bb::plonk::flavor::Ultra;
     using Builder = Flavor::CircuitBuilder;
 
@@ -150,12 +150,11 @@ TEST_P(AcirIntegrationSingleTest, DISABLED_ProveAndVerifyProgram)
     info("Test: ", test_name);
     acir_format::AcirProgram acir_program = get_program_data_from_test_file(
         test_name,
-        /*honk_recursion=*/
-        false); // TODO(https://github.com/AztecProtocol/barretenberg/issues/1013): Assumes Flavor is not UltraHonk
+        /*honk_recursion=*/0); // TODO(https://github.com/AztecProtocol/barretenberg/issues/1013):
+                               // Assumes Flavor is not UltraHonk
 
     // Construct a bberg circuit from the acir representation
-    Builder builder =
-        acir_format::create_circuit<Builder>(acir_program.constraints, /*recursive*/ false, 0, acir_program.witness);
+    Builder builder = acir_format::create_circuit<Builder>(acir_program);
 
     // Construct and verify Honk proof
     if constexpr (IsPlonkFlavor<Flavor>) {
@@ -242,7 +241,7 @@ INSTANTIATE_TEST_SUITE_P(AcirTests,
                                          "brillig_to_bytes_integration",
                                          "brillig_to_le_bytes",
                                          "brillig_top_level",
-                                         "brillig_unitialised_arrays",
+                                         "brillig_uninitialized_arrays",
                                          "brillig_wrapping",
                                          "cast_bool",
                                          "closures_mut_ref",
@@ -373,51 +372,20 @@ TEST_P(AcirIntegrationFoldingTest, DISABLED_ProveAndVerifyProgramStack)
     info("Test: ", test_name);
 
     auto program_stack = get_program_stack_data_from_test_file(
-        test_name, /*honk_recursion=*/false); // TODO(https://github.com/AztecProtocol/barretenberg/issues/1013):
-                                              // Assumes Flavor is not UltraHonk
+        test_name, /*honk_recursion=*/0); // TODO(https://github.com/AztecProtocol/barretenberg/issues/1013):
+                                          // Assumes Flavor is not UltraHonk
 
     while (!program_stack.empty()) {
         auto program = program_stack.back();
 
         // Construct a bberg circuit from the acir representation
-        auto builder =
-            acir_format::create_circuit<Builder>(program.constraints, /*recursive*/ false, 0, program.witness);
+        auto builder = acir_format::create_circuit<Builder>(program);
 
         // Construct and verify Honk proof for the individidual circuit
         EXPECT_TRUE(prove_and_verify_honk<Flavor>(builder));
 
         program_stack.pop_back();
     }
-}
-
-TEST_P(AcirIntegrationFoldingTest, DISABLED_FoldAndVerifyProgramStack)
-{
-    using Flavor = MegaFlavor;
-    using Builder = Flavor::CircuitBuilder;
-
-    std::string test_name = GetParam();
-    auto program_stack = get_program_stack_data_from_test_file(
-        test_name, /*honk_recursion=*/false); // TODO(https://github.com/AztecProtocol/barretenberg/issues/1013):
-                                              // Assumes Flavor is not UltraHonk
-
-    ClientIVC ivc{ { SMALL_TEST_STRUCTURE }, /*auto_verify_mode=*/true };
-
-    while (!program_stack.empty()) {
-        auto program = program_stack.back();
-
-        // Construct a bberg circuit from the acir representation
-        auto circuit = acir_format::create_circuit<Builder>(
-            program.constraints, /*recursive*/ false, 0, program.witness, false, ivc.goblin.op_queue);
-
-        ivc.accumulate(circuit);
-
-        CircuitChecker::check(circuit);
-        // EXPECT_TRUE(prove_and_verify_honk<Flavor>(circuit));
-
-        program_stack.pop_back();
-    }
-
-    EXPECT_TRUE(ivc.prove_and_verify());
 }
 
 INSTANTIATE_TEST_SUITE_P(AcirTests,
@@ -438,8 +406,7 @@ TEST_F(AcirIntegrationTest, DISABLED_Databus)
     acir_format::AcirProgram acir_program = get_program_data_from_test_file(test_name);
 
     // Construct a bberg circuit from the acir representation
-    Builder builder =
-        acir_format::create_circuit<Builder>(acir_program.constraints, /*recursive*/ false, 0, acir_program.witness);
+    Builder builder = acir_format::create_circuit<Builder>(acir_program);
 
     // This prints a summary of the types of gates in the circuit
     builder.blocks.summarize();
@@ -463,8 +430,7 @@ TEST_F(AcirIntegrationTest, DISABLED_DatabusTwoCalldata)
     acir_format::AcirProgram acir_program = get_program_data_from_test_file(test_name);
 
     // Construct a bberg circuit from the acir representation
-    Builder builder =
-        acir_format::create_circuit<Builder>(acir_program.constraints, /*recursive*/ false, 0, acir_program.witness);
+    Builder builder = acir_format::create_circuit<Builder>(acir_program);
 
     // Check that the databus columns in the builder have been populated as expected
     const auto& calldata = builder.get_calldata();
@@ -514,12 +480,11 @@ TEST_F(AcirIntegrationTest, DISABLED_UpdateAcirCircuit)
 
     std::string test_name = "6_array"; // arbitrary program with RAM gates
     auto acir_program = get_program_data_from_test_file(
-        test_name, /*honk_recursion=*/false); // TODO(https://github.com/AztecProtocol/barretenberg/issues/1013):
-                                              // Assumes Flavor is not UltraHonk
+        test_name, /*honk_recursion=*/0); // TODO(https://github.com/AztecProtocol/barretenberg/issues/1013):
+                                          // Assumes Flavor is not UltraHonk
 
     // Construct a bberg circuit from the acir representation
-    auto circuit =
-        acir_format::create_circuit<Builder>(acir_program.constraints, /*recursive*/ false, 0, acir_program.witness);
+    Builder circuit = acir_format::create_circuit<Builder>(acir_program);
 
     EXPECT_TRUE(CircuitChecker::check(circuit));
 
@@ -550,16 +515,14 @@ TEST_F(AcirIntegrationTest, DISABLED_HonkRecursion)
     using Builder = Flavor::CircuitBuilder;
 
     std::string test_name = "verify_honk_proof"; // arbitrary program with RAM gates
-    // Note: honk_recursion set to false here because the selection of the honk recursive verifier is indicated by the
-    // proof_type field of the constraint generated from noir.
+    // Note: honk_recursion set to 1 here we are using the UltraFlavor.
     // The honk_recursion flag determines whether a noir program will be recursively verified via Honk in a Noir
     // program.
     auto acir_program = get_program_data_from_test_file(test_name,
-                                                        /*honk_recursion=*/false);
+                                                        /*honk_recursion=*/1);
 
     // Construct a bberg circuit from the acir representation
-    auto circuit =
-        acir_format::create_circuit<Builder>(acir_program.constraints, /*recursive*/ false, 0, acir_program.witness);
+    Builder circuit = acir_format::create_circuit<Builder>(acir_program);
 
     EXPECT_TRUE(CircuitChecker::check(circuit));
     EXPECT_TRUE(prove_and_verify_honk<Flavor>(circuit));

@@ -12,7 +12,7 @@ use dep::types::{
     PrivateKernelCircuitPublicInputs,
 };
 
-global ALLOWED_PREVIOUS_CIRCUITS =
+global ALLOWED_PREVIOUS_CIRCUITS: [u32; 3] =
     [PRIVATE_KERNEL_INIT_INDEX, PRIVATE_KERNEL_INNER_INDEX, PRIVATE_KERNEL_RESET_INDEX];
 
 pub struct PrivateKernelTailToPublicCircuitPrivateInputs {
@@ -34,6 +34,9 @@ impl PrivateKernelTailToPublicCircuitPrivateInputs {
     }
 
     pub fn execute(self) -> PrivateToPublicKernelCircuitPublicInputs {
+        if !std::runtime::is_unconstrained() {
+            self.previous_kernel.verify();
+        }
         // Generate output.
         let output = unsafe { self.generate_output() };
 
@@ -57,11 +60,9 @@ mod tests {
     };
     use dep::types::{
         abis::{
-            gas::Gas,
-            kernel_circuit_public_inputs::PrivateToPublicKernelCircuitPublicInputs,
-            log_hash::{LogHash, NoteLogHash},
-            note_hash::ScopedNoteHash,
-            nullifier::{Nullifier, ScopedNullifier},
+            gas::Gas, kernel_circuit_public_inputs::PrivateToPublicKernelCircuitPublicInputs,
+            note_hash::ScopedNoteHash, nullifier::ScopedNullifier, private_log::PrivateLogData,
+            side_effect::scoped::Scoped,
         },
         address::{AztecAddress, EthAddress},
         point::Point,
@@ -69,8 +70,9 @@ mod tests {
     };
     use dep::types::constants::{
         DA_BYTES_PER_FIELD, DA_GAS_PER_BYTE, EMPTY_NESTED_INDEX, FIXED_AVM_STARTUP_L2_GAS,
-        GENERATOR_INDEX__TSK_M, L2_GAS_PER_LOG_BYTE, L2_GAS_PER_NOTE_HASH, L2_GAS_PER_NULLIFIER,
-        PRIVATE_KERNEL_INNER_INDEX,
+        GENERATOR_INDEX__TSK_M, L2_GAS_PER_L2_TO_L1_MSG, L2_GAS_PER_LOG_BYTE, L2_GAS_PER_NOTE_HASH,
+        L2_GAS_PER_NULLIFIER, L2_GAS_PER_PRIVATE_LOG, PRIVATE_KERNEL_INNER_INDEX,
+        PRIVATE_LOG_SIZE_IN_FIELDS,
     };
 
     // TODO: Reduce the duplicated code/tests for PrivateKernelTailToPublicInputs and PrivateKernelTailInputs.
@@ -157,8 +159,9 @@ mod tests {
 
         let public_inputs = builder.execute();
 
-        let output_nullifiers =
-            builder.previous_kernel.nullifiers.storage.map(|n: ScopedNullifier| n.nullifier.value);
+        let output_nullifiers = builder.previous_kernel.nullifiers.storage().map(
+            |n: ScopedNullifier| n.nullifier.value,
+        );
 
         assert_array_eq(
             public_inputs.non_revertible_accumulated_data.nullifiers,
@@ -191,8 +194,9 @@ mod tests {
 
         let public_inputs = builder.execute();
 
-        let exposed_note_hashes =
-            builder.previous_kernel.note_hashes.storage.map(|n: ScopedNoteHash| n.note_hash.value);
+        let exposed_note_hashes = builder.previous_kernel.note_hashes.storage().map(
+            |n: ScopedNoteHash| n.note_hash.value,
+        );
 
         assert_array_eq(
             public_inputs.non_revertible_accumulated_data.note_hashes,
@@ -212,6 +216,34 @@ mod tests {
             + L2_GAS_PER_NULLIFIER
             + num_note_hashes * L2_GAS_PER_NOTE_HASH;
         assert_eq(public_inputs.gas_used, Gas::tx_overhead() + Gas::new(da_gas, l2_gas));
+    }
+
+    #[test]
+    unconstrained fn split_private_logs() {
+        let mut builder = PrivateKernelTailToPublicInputsBuilder::new();
+
+        // expect 2 non-revertible note hashes
+        builder.previous_kernel.append_siloed_private_logs_for_note(2, 11);
+        builder.previous_kernel.end_setup();
+
+        // expect 2 revertible note hashes
+        builder.previous_kernel.append_siloed_private_logs_for_note(3, 12);
+
+        let exposed_private_logs = builder.previous_kernel.private_logs.storage().map(
+            |n: Scoped<PrivateLogData>| n.inner.log,
+        );
+
+        let public_inputs = builder.execute();
+
+        assert_array_eq(
+            public_inputs.non_revertible_accumulated_data.private_logs,
+            [exposed_private_logs[0], exposed_private_logs[1]],
+        );
+
+        assert_array_eq(
+            public_inputs.revertible_accumulated_data.private_logs,
+            [exposed_private_logs[2], exposed_private_logs[3], exposed_private_logs[4]],
+        );
     }
 
     #[test(should_fail_with = "Non empty note hash read requests")]
@@ -317,26 +349,30 @@ mod tests {
             + 1 /* revertible */;
         let num_side_effects = num_msgs + 1 /* tx nullifier */;
         let da_gas = num_side_effects * DA_BYTES_PER_FIELD * DA_GAS_PER_BYTE;
-        let l2_gas = FIXED_AVM_STARTUP_L2_GAS + 1 * L2_GAS_PER_NULLIFIER;
+        let l2_gas = FIXED_AVM_STARTUP_L2_GAS
+            + 1 * L2_GAS_PER_NULLIFIER
+            + num_msgs * L2_GAS_PER_L2_TO_L1_MSG;
         assert_eq(public_inputs.gas_used, Gas::tx_overhead() + Gas::new(da_gas, l2_gas));
     }
 
     #[test]
     unconstrained fn tx_consumed_gas_from_logs() {
         let mut builder = PrivateKernelTailToPublicInputsBuilder::new();
-        builder.previous_kernel.add_masked_encrypted_log_hash(42, 3);
-        builder.previous_kernel.add_masked_encrypted_log_hash(42, 4);
-        builder.previous_kernel.add_contract_class_log_hash(42, 12);
+        builder.previous_kernel.append_siloed_private_logs_for_note(2, 11);
+        builder.previous_kernel.add_contract_class_log_hash(420, 12);
         builder.previous_kernel.end_setup();
-        builder.previous_kernel.add_masked_encrypted_log_hash(42, 6);
+        builder.previous_kernel.append_siloed_private_logs_for_note(1, 33);
 
         let public_inputs = builder.execute();
 
-        let num_log_bytes = 3 + 4 + 12 + 6;
-        let da_gas = (1 * DA_BYTES_PER_FIELD + num_log_bytes) * DA_GAS_PER_BYTE;
+        let num_private_logs = 3;
+        let num_da_fields = 1 /* nullifier */ + num_private_logs * PRIVATE_LOG_SIZE_IN_FIELDS;
+        let num_da_bytes = (num_da_fields * DA_BYTES_PER_FIELD) + 12 /* contract_class_logs */;
+        let da_gas = num_da_bytes * DA_GAS_PER_BYTE;
         let l2_gas = FIXED_AVM_STARTUP_L2_GAS
             + 1 * L2_GAS_PER_NULLIFIER
-            + num_log_bytes * L2_GAS_PER_LOG_BYTE;
+            + num_private_logs * L2_GAS_PER_PRIVATE_LOG
+            + 12 * L2_GAS_PER_LOG_BYTE /* contract_class_logs */;
         assert_eq(public_inputs.gas_used, Gas::tx_overhead() + Gas::new(da_gas, l2_gas));
     }
 

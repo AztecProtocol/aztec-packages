@@ -27,7 +27,7 @@ class ClientIVC {
 
   public:
     using Flavor = MegaFlavor;
-    using VerificationKey = Flavor::VerificationKey;
+    using MegaVerificationKey = Flavor::VerificationKey;
     using FF = Flavor::FF;
     using FoldProof = std::vector<FF>;
     using MergeProof = std::vector<FF>;
@@ -73,12 +73,20 @@ class ClientIVC {
         MSGPACK_FIELDS(mega_proof, goblin_proof);
     };
 
+    struct VerificationKey {
+        std::shared_ptr<MegaVerificationKey> mega;
+        std::shared_ptr<ECCVMVerificationKey> eccvm;
+        std::shared_ptr<TranslatorVerificationKey> translator;
+
+        MSGPACK_FIELDS(mega, eccvm, translator);
+    };
+
     enum class QUEUE_TYPE { OINK, PG }; // for specifying type of proof in the verification queue
 
     // An entry in the native verification queue
     struct VerifierInputs {
         std::vector<FF> proof; // oink or PG
-        std::shared_ptr<VerificationKey> honk_verification_key;
+        std::shared_ptr<MegaVerificationKey> honk_verification_key;
         QUEUE_TYPE type;
     };
     using VerificationQueue = std::vector<VerifierInputs>;
@@ -89,6 +97,7 @@ class ClientIVC {
         std::shared_ptr<RecursiveVerificationKey> honk_verification_key;
         QUEUE_TYPE type;
     };
+
     using StdlibVerificationQueue = std::vector<StdlibVerifierInputs>;
 
     // Utility for tracking the max size of each block across the full IVC
@@ -99,9 +108,10 @@ class ClientIVC {
 
   public:
     ProverFoldOutput fold_output; // prover accumulator and fold proof
+    HonkProof mega_proof;
 
     std::shared_ptr<DeciderVerificationKey> verifier_accumulator; // verifier accumulator
-    std::shared_ptr<VerificationKey> honk_vk; // honk vk to be completed and folded into the accumulator
+    std::shared_ptr<MegaVerificationKey> honk_vk; // honk vk to be completed and folded into the accumulator
 
     // Set of tuples {proof, verification_key, type} to be recursively verified
     VerificationQueue verification_queue;
@@ -116,19 +126,19 @@ class ClientIVC {
     // Settings related to the use of fixed block sizes for each gate in the execution trace
     TraceSettings trace_settings;
 
-    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1101): eventually do away with this.
-    // Setting auto_verify_mode = true will cause kernel completion logic to be added to kernels automatically
-    bool auto_verify_mode;
-
     std::shared_ptr<typename MegaFlavor::CommitmentKey> bn254_commitment_key;
 
     GoblinProver goblin;
 
+    // We dynamically detect whether the input stack consists of one circuit, in which case we do not construct the
+    // hiding circuit and instead simply prove the single input circuit.
+    bool one_circuit = false;
+
     bool initialized = false; // Is the IVC accumulator initialized
 
-    ClientIVC(TraceSettings trace_settings = {}, bool auto_verify_mode = false)
-        : trace_settings(trace_settings)
-        , auto_verify_mode(auto_verify_mode)
+    ClientIVC(TraceSettings trace_settings = {})
+        : trace_usage_tracker(trace_settings)
+        , trace_settings(trace_settings)
         , bn254_commitment_key(trace_settings.structure.has_value()
                                    ? std::make_shared<CommitmentKey<curve::BN254>>(trace_settings.dyadic_size())
                                    : nullptr)
@@ -155,20 +165,18 @@ class ClientIVC {
      * @param circuit The incoming statement
      * @param precomputed_vk The verification key of the incoming statement OR a mocked key whose metadata needs to be
      * set using the proving key produced from `circuit` in order to pass some assertions in the Oink prover.
-     * @param mock_vk A boolean to say whether the precomputed vk shoudl have its metadata set.
+     * @param mock_vk A boolean to say whether the precomputed vk should have its metadata set.
      */
     void accumulate(ClientCircuit& circuit,
-                    const std::shared_ptr<VerificationKey>& precomputed_vk = nullptr,
-                    bool mock_vk = false);
+                    const bool _one_circuit = false,
+                    const std::shared_ptr<MegaVerificationKey>& precomputed_vk = nullptr,
+                    const bool mock_vk = false);
 
     Proof prove();
 
     HonkProof construct_and_prove_hiding_circuit();
 
-    static bool verify(const Proof& proof,
-                       const std::shared_ptr<VerificationKey>& mega_vk,
-                       const std::shared_ptr<ClientIVC::ECCVMVerificationKey>& eccvm_vk,
-                       const std::shared_ptr<ClientIVC::TranslatorVerificationKey>& translator_vk);
+    static bool verify(const Proof& proof, const VerificationKey& vk);
 
     bool verify(const Proof& proof);
 
@@ -176,7 +184,14 @@ class ClientIVC {
 
     HonkProof decider_prove() const;
 
-    std::vector<std::shared_ptr<VerificationKey>> precompute_folding_verification_keys(
+    std::vector<std::shared_ptr<MegaVerificationKey>> precompute_folding_verification_keys(
         std::vector<ClientCircuit> circuits);
+
+    VerificationKey get_vk() const
+    {
+        return { honk_vk,
+                 std::make_shared<ECCVMVerificationKey>(goblin.get_eccvm_proving_key()),
+                 std::make_shared<TranslatorVerificationKey>(goblin.get_translator_proving_key()) };
+    }
 };
 } // namespace bb

@@ -50,6 +50,14 @@ app.kubernetes.io/name: {{ include "aztec-network.name" . }}
 app.kubernetes.io/instance: {{ .Release.Name }}
 {{- end }}
 
+{{/*
+Aztec Image
+*/}}
+{{- define "aztec-network.image" -}}
+image: {{ .Values.images.aztec.image }}
+imagePullPolicy: {{ .Values.images.aztec.pullPolicy }}
+{{- end -}}
+
 
 
 {{- define "aztec-network.pxeUrl" -}}
@@ -66,30 +74,6 @@ http://{{ include "aztec-network.fullname" . }}-validator.{{ .Release.Namespace 
 
 {{- define "aztec-network.metricsHost" -}}
 http://{{ include "aztec-network.fullname" . }}-metrics.{{ .Release.Namespace }}
-{{- end -}}
-
-{{- define "aztec-network.otelCollectorMetricsEndpoint" -}}
-{{- if .Values.telemetry.enabled -}}
-{{- if .Values.telemetry.otelCollectorEndpoint -}}
-{{- .Values.telemetry.otelCollectorEndpoint -}}/v1/metrics
-{{- end -}}
-{{- end -}}
-{{- end -}}
-
-{{- define "aztec-network.otelCollectorTracesEndpoint" -}}
-{{- if .Values.telemetry.enabled -}}
-{{- if .Values.telemetry.otelCollectorEndpoint -}}
-{{- .Values.telemetry.otelCollectorEndpoint -}}/v1/traces
-{{- end -}}
-{{- end -}}
-{{- end -}}
-
-{{- define "aztec-network.otelCollectorLogsEndpoint" -}}
-{{- if .Values.telemetry.enabled -}}
-{{- if .Values.telemetry.otelCollectorEndpoint -}}
-{{- .Values.telemetry.otelCollectorEndpoint -}}/v1/logs
-{{- end -}}
-{{- end -}}
 {{- end -}}
 
 {{- define "helpers.flag" -}}
@@ -153,6 +137,10 @@ Service Address Setup Container
       value: "{{ .Values.network.public }}"
     - name: NAMESPACE
       value: {{ .Release.Namespace }}
+    - name: TELEMETRY
+      value: "{{ .Values.telemetry.enabled }}"
+    - name: OTEL_COLLECTOR_ENDPOINT
+      value: "{{ .Values.telemetry.otelCollectorEndpoint }}"
     - name: EXTERNAL_ETHEREUM_HOST
       value: "{{ .Values.ethereum.externalHost }}"
     - name: ETHEREUM_PORT
@@ -165,6 +153,8 @@ Service Address Setup Container
       value: "{{ .Values.proverNode.externalHost }}"
     - name: PROVER_NODE_PORT
       value: "{{ .Values.proverNode.service.nodePort }}"
+    - name: PROVER_BROKER_PORT
+      value: "{{ .Values.proverBroker.service.nodePort }}"
     - name: SERVICE_NAME
       value: {{ include "aztec-network.fullname" . }}
   volumeMounts:
@@ -188,6 +178,8 @@ affinity:
               values:
                 - validator
                 - boot-node
-                - prover
+                - prover-node
+                - prover-broker
         topologyKey: "kubernetes.io/hostname"
+        namespaceSelector: {}
 {{- end -}}

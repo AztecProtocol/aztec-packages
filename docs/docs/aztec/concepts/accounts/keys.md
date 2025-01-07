@@ -4,7 +4,6 @@ tags: [accounts, keys]
 ---
 
 The goal of this section is to give app developer a good idea what keys there are used in the system.
-For a detailed description head over to the [protocol specification](../../../protocol-specs/addresses-and-keys/index.md).
 
 In short, there is a **nullifier key** (to spend your notes), an **incoming viewing key** (to view any notes or logs that were sent to you), an **outgoing viewing key** (to view any logs or notes you sent to another entity), a **tagging key** (to quickly find notes relevant to you) and oftentimes a signing key. A signing key is not strictly required by the protocol, but are often used with specific account contracts for authorization purposes.
 
@@ -13,10 +12,10 @@ Each account in Aztec is backed by 4 key pairs:
 - A **nullifier key pair** used for note nullifier computation, comprising the master nullifier secret key (`nsk_m`) and master nullifier public key (`Npk_m`).
 - An **incoming viewing key pair** used to encrypt a note for the recipient, consisting of the master incoming viewing secret key (`ivsk_m`) and master incoming viewing public key (`Ivpk_m`).
 - An **outgoing viewing key pair** used to encrypt a note for the sender, includes the master outgoing viewing secret key (`ovsk_m`) and master outgoing viewing public key (`Ovpk_m`).
-- A **tagging key pair** used to compute tags in a [tagging note discovery scheme](../../../protocol-specs/private-message-delivery/private-msg-delivery.md#note-tagging), comprising the master tagging secret key (`tsk_m`) and master tagging public key (`Tpk_m`).
+- A **tagging key pair** used to compute tags in a tagging note discovery scheme, comprising the master tagging secret key (`tsk_m`) and master tagging public key (`Tpk_m`).
 
 :::info
-All key pairs above are derived from a secret using a ZCash inspired scheme defined in [protocol specification](../../../protocol-specs/addresses-and-keys/keys.md#cheat-sheet).
+Key pairs are derived from a secret using a ZCash inspired scheme.
 :::
 
 :::note
@@ -52,7 +51,6 @@ If that happens, only the nullifier secret for that application is compromised (
 Above we mentioned that the notes typically contain `Npk_m`.
 It might seem like a mistake given that the notes are nullified with `nsk_app`.
 This is intentional and instead of directly trying to derive `Npk_m` from `nsk_app` we instead verify that both of the keys were derived from the same `nsk_m` in our protocol circuits.
-If you are curious how the derivation scheme works head over to [protocol specification](../../../protocol-specs/addresses-and-keys/example-usage/nullifier#diagram).
 
 ## Protocol key types
 
@@ -71,7 +69,7 @@ An application in Aztec.nr can request a secret from the current user for comput
 
 Typically, `Npk_m` is stored in a note and later on, the note is nullified using the secret app-siloed version (denoted `nsk_app`).
 `nsk_app` is derived by hashing `nsk_m` with the app contract address and it is necessary to present it to compute the nullifier.
-Validity of `nsk_app` is verified by our [protocol kernel circuits](../../../protocol-specs/circuits/private-kernel-tail#verifying-and-splitting-ordered-data).
+Validity of `nsk_app` is verified by our protocol kernel circuits.
 
 ## Incoming viewing keys
 
@@ -86,7 +84,7 @@ If these keys were not used and a new device would be synched there would be no 
 
 ## Tagging keys
 
-Used to compute tags in a [tagging note discovery scheme](../../../protocol-specs/private-message-delivery/private-msg-delivery#note-tagging).
+Used to compute tags in a tagging note discovery scheme.
 
 :::note
 Tagging note discovery scheme won't be present in our testnet so we are intentionally not providing you with much info yet.
@@ -111,7 +109,7 @@ In the following section we describe a few ways how an account contract could be
 
 #### Using a private note
 
-Storing the signing public key in a private note makes it accessible from the entrypoint function, which is required to be a private function, and allows for rotating the key when needed. However, keep in mind that reading a private note requires nullifying it to ensure it is up to date, so each transaction you send will destroy and recreate the public key. This has the side effect of enforcing a strict ordering across all transactions, since each transaction will refer the instantiation of the private note from the previous one.
+Storing the signing public key in a private note makes it accessible from the entrypoint function, which is required to be a private function, and allows for rotating the key when needed. However, keep in mind that reading a private note requires nullifying it to ensure it is up-to-date, so each transaction you send will destroy and recreate the public key. This has the side effect of enforcing a strict ordering across all transactions, since each transaction will refer the instantiation of the private note from the previous one.
 
 #### Using an immutable private note
 

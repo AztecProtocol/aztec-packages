@@ -20,7 +20,6 @@ import {
   RevertCode,
   type ScopedL2ToL1Message,
   type ScopedLogHash,
-  type ScopedNoteHash,
   type TreeLeafReadRequest,
 } from '@aztec/circuits.js';
 import { computeVarArgsHash } from '@aztec/circuits.js/hash';
@@ -29,7 +28,7 @@ export interface PublicSideEffects {
   /** The contract storage update requests performed. */
   publicDataWrites: PublicDataUpdateRequest[];
   /** The new note hashes to be inserted into the note hashes tree. */
-  noteHashes: ScopedNoteHash[];
+  noteHashes: NoteHash[];
   /** The new nullifiers to be inserted into the nullifier tree. */
   nullifiers: Nullifier[];
   /** The new l2 to l1 messages generated to be inserted into the messages tree. */

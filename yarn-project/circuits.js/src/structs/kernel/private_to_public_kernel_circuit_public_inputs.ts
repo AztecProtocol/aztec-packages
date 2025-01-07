@@ -1,5 +1,6 @@
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
+import { bufferToHex, hexToBuffer } from '@aztec/foundation/string';
 
 import { Gas } from '../gas.js';
 import { PublicCallRequest } from '../public_call_request.js';
@@ -56,10 +57,10 @@ export class PrivateToPublicKernelCircuitPublicInputs {
   }
 
   static fromString(str: string) {
-    return PrivateToPublicKernelCircuitPublicInputs.fromBuffer(Buffer.from(str, 'hex'));
+    return PrivateToPublicKernelCircuitPublicInputs.fromBuffer(hexToBuffer(str));
   }
 
   toString() {
-    return this.toBuffer().toString('hex');
+    return bufferToHex(this.toBuffer());
   }
 }
