@@ -1,5 +1,5 @@
 import { createCompatibleClient } from '@aztec/aztec.js';
-import { L1TxUtils, MINIMUM_STAKE, createEthereumChain, getL1ContractsConfigEnvVars } from '@aztec/ethereum';
+import { L1TxUtils, createEthereumChain, getL1ContractsConfigEnvVars } from '@aztec/ethereum';
 import { type LogFn, type Logger } from '@aztec/foundation/log';
 import { RollupAbi, TestERC20Abi } from '@aztec/l1-artifacts';
 
