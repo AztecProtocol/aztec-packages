@@ -3,8 +3,7 @@ import { L1TxUtils, createEthereumChain, getL1ContractsConfigEnvVars } from '@az
 import { type LogFn, type Logger } from '@aztec/foundation/log';
 import { RollupAbi, TestERC20Abi } from '@aztec/l1-artifacts';
 
-import { createPublicClient, createWalletClient, getContract, http } from 'viem';
-import { encodeFunctionData } from 'viem';
+import { createPublicClient, createWalletClient, encodeFunctionData, getContract, http } from 'viem';
 import { mnemonicToAccount } from 'viem/accounts';
 
 export async function sequencers(opts: {
