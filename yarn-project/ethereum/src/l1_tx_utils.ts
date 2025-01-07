@@ -456,7 +456,8 @@ export class L1TxUtils {
 
     // Ensure we don't exceed maxBlobGwei
     if (maxFeePerBlobGas) {
-      maxFeePerBlobGas = maxFeePerBlobGas > gasConfig.maxBlobGwei! ? gasConfig.maxBlobGwei! : maxFeePerBlobGas;
+      const maxBlobGweiInWei = gasConfig.maxBlobGwei! * WEI_CONST;
+      maxFeePerBlobGas = maxFeePerBlobGas > maxBlobGweiInWei ? maxBlobGweiInWei : maxFeePerBlobGas;
     }
 
     // Ensure priority fee doesn't exceed max fee
