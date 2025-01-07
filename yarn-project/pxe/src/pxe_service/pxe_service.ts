@@ -7,11 +7,11 @@ import {
   type FunctionCall,
   type GetUnencryptedLogsResponse,
   type InBlock,
-  type NotesFilter,
   L1EventPayload,
   type L2Block,
   type LogFilter,
   MerkleTreeId,
+  type NotesFilter,
   type PXE,
   type PXEInfo,
   type PrivateExecutionResult,
@@ -71,8 +71,8 @@ import { inspect } from 'util';
 import { type PXEServiceConfig } from '../config/index.js';
 import { getPackageInfo } from '../config/package_info.js';
 import { ContractDataOracle } from '../contract_data_oracle/index.js';
-import { NoteDao } from '../database/note_dao.js';
 import { type PxeDatabase } from '../database/index.js';
+import { NoteDao } from '../database/note_dao.js';
 import { KernelOracle } from '../kernel_oracle/index.js';
 import { KernelProver } from '../kernel_prover/kernel_prover.js';
 import { TestPrivateKernelProver } from '../kernel_prover/test/test_circuit_prover.js';

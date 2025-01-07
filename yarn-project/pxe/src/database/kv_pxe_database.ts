@@ -1,4 +1,4 @@
-import { type InBlock, type NotesFilter, MerkleTreeId, NoteStatus } from '@aztec/circuit-types';
+import { type InBlock, MerkleTreeId, NoteStatus, type NotesFilter } from '@aztec/circuit-types';
 import {
   AztecAddress,
   BlockHeader,

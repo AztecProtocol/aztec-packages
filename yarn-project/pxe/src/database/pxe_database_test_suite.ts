@@ -1,4 +1,4 @@
-import { type NotesFilter, NoteStatus, randomTxHash } from '@aztec/circuit-types';
+import { NoteStatus, type NotesFilter, randomTxHash } from '@aztec/circuit-types';
 import {
   AztecAddress,
   CompleteAddress,
@@ -166,9 +166,9 @@ export function describePxeDatabase(getDatabase: () => PxeDatabase) {
           );
         }
 
-        await expect(
-          database.getNotes({ ...getFilter(), status: NoteStatus.ACTIVE_OR_NULLIFIED }),
-        ).resolves.toEqual(getExpected());
+        await expect(database.getNotes({ ...getFilter(), status: NoteStatus.ACTIVE_OR_NULLIFIED })).resolves.toEqual(
+          getExpected(),
+        );
       });
 
       it('skips nullified notes by default or when requesting active', async () => {

@@ -57,7 +57,7 @@ export class NoteDao implements NoteData {
 
     /** The note type identifier for the contract.
      * TODO: remove
-    */
+     */
     public noteTypeId: NoteSelector,
   ) {}
 

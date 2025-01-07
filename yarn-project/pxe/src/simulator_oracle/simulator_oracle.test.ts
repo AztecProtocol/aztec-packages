@@ -32,9 +32,9 @@ import { jest } from '@jest/globals';
 import { type MockProxy, mock } from 'jest-mock-extended';
 import times from 'lodash.times';
 
-import { type NoteDao } from '../database/note_dao.js';
 import { type PxeDatabase } from '../database/index.js';
 import { KVPxeDatabase } from '../database/kv_pxe_database.js';
+import { type NoteDao } from '../database/note_dao.js';
 import { ContractDataOracle } from '../index.js';
 import { SimulatorOracle } from './index.js';
 import { WINDOW_HALF_SIZE } from './tagging_utils.js';

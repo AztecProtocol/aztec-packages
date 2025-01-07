@@ -36,8 +36,8 @@ import {
   type LogFilter,
   LogFilterSchema,
 } from '../logs/index.js';
-import { type NotesFilter, NotesFilterSchema } from '../notes/notes_filter.js';
 import { ExtendedNote, UniqueNote } from '../notes/index.js';
+import { type NotesFilter, NotesFilterSchema } from '../notes/notes_filter.js';
 import { PrivateExecutionResult } from '../private_execution_result.js';
 import { SiblingPath } from '../sibling_path/sibling_path.js';
 import { Tx, TxHash, TxProvingResult, TxReceipt, TxSimulationResult } from '../tx/index.js';

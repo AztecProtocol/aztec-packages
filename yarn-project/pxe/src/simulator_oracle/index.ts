@@ -34,8 +34,8 @@ import { MessageLoadOracleInputs } from '@aztec/simulator/acvm';
 import { type AcirSimulator, type DBOracle } from '@aztec/simulator/client';
 
 import { type ContractDataOracle } from '../contract_data_oracle/index.js';
-import { type NoteDao } from '../database/note_dao.js';
 import { type PxeDatabase } from '../database/index.js';
+import { type NoteDao } from '../database/note_dao.js';
 import { produceNoteDaos } from '../note_decryption_utils/produce_note_daos.js';
 import { getAcirSimulator } from '../simulator/index.js';
 import { WINDOW_HALF_SIZE, getIndexedTaggingSecretsForTheWindow, getInitialIndexesMap } from './tagging_utils.js';
