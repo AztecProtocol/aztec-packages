@@ -22,27 +22,22 @@
 namespace bb {
 
 class GoblinProver {
-    using MegaCircuitBuilder = bb::MegaCircuitBuilder;
     using Commitment = MegaFlavor::Commitment;
     using FF = MegaFlavor::FF;
 
   public:
-    using Builder = MegaCircuitBuilder;
+    using MegaBuilder = MegaCircuitBuilder;
     using Fr = bb::fr;
     using Transcript = NativeTranscript;
     using MegaDeciderProvingKey = DeciderProvingKey_<MegaFlavor>;
-    using OpQueue = bb::ECCOpQueue;
-    using ECCVMFlavor = bb::ECCVMFlavor;
-    using ECCVMBuilder = bb::ECCVMCircuitBuilder;
-    using ECCVMProver = bb::ECCVMProver;
+    using OpQueue = ECCOpQueue;
+    using ECCVMBuilder = ECCVMFlavor::CircuitBuilder;
     using ECCVMProvingKey = ECCVMFlavor::ProvingKey;
     using TranslationEvaluations = ECCVMProver::TranslationEvaluations;
-    using TranslatorBuilder = bb::TranslatorCircuitBuilder;
-    using TranslatorProver = bb::TranslatorProver;
-    using TranslatorProvingKey = bb::TranslatorFlavor::ProvingKey;
-    using RecursiveMergeVerifier = bb::stdlib::recursion::goblin::MergeRecursiveVerifier_<MegaCircuitBuilder>;
+    using TranslatorBuilder = TranslatorCircuitBuilder;
+    using RecursiveMergeVerifier = stdlib::recursion::goblin::MergeRecursiveVerifier_<MegaBuilder>;
     using PairingPoints = RecursiveMergeVerifier::PairingPoints;
-    using MergeProver = bb::MergeProver_<MegaFlavor>;
+    using MergeProver = MergeProver_<MegaFlavor>;
     using VerificationKey = MegaFlavor::VerificationKey;
     using MergeProof = std::vector<FF>;
     /**
@@ -51,6 +46,7 @@ class GoblinProver {
      */
 
     std::shared_ptr<OpQueue> op_queue = std::make_shared<OpQueue>();
+    std::shared_ptr<CommitmentKey<curve::BN254>> commitment_key;
 
     MergeProof merge_proof;
     GoblinProof goblin_proof;
@@ -59,22 +55,27 @@ class GoblinProver {
     bool merge_proof_exists{ false };
 
     std::shared_ptr<ECCVMProvingKey> get_eccvm_proving_key() const { return eccvm_key; }
-    std::shared_ptr<TranslatorProvingKey> get_translator_proving_key() const { return translator_prover->key; }
+    std::shared_ptr<TranslatorProvingKey::ProvingKey> get_translator_proving_key() const
+    {
+        return translator_key->proving_key;
+    }
 
   private:
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/798) unique_ptr use is a hack
     std::unique_ptr<TranslatorProver> translator_prover;
     std::unique_ptr<ECCVMProver> eccvm_prover;
     std::shared_ptr<ECCVMProvingKey> eccvm_key;
+    std::shared_ptr<TranslatorProvingKey> translator_key;
 
     GoblinAccumulationOutput accumulator; // Used only for ACIR methods for now
 
   public:
-    GoblinProver()
+    GoblinProver(const std::shared_ptr<CommitmentKey<curve::BN254>>& bn254_commitment_key = nullptr)
     { // Mocks the interaction of a first circuit with the op queue due to the inability to currently handle zero
       // commitments (https://github.com/AztecProtocol/barretenberg/issues/871) which would otherwise appear in the
       // first round of the merge protocol. To be removed once the issue has been resolved.
-        GoblinMockCircuits::perform_op_queue_interactions_for_mock_first_circuit(op_queue);
+        commitment_key = bn254_commitment_key ? bn254_commitment_key : nullptr;
+        GoblinMockCircuits::perform_op_queue_interactions_for_mock_first_circuit(op_queue, commitment_key);
     }
     /**
      * @brief Construct a MegaHonk proof and a merge proof for the present circuit.
@@ -82,7 +83,7 @@ class GoblinProver {
      *
      * @param circuit_builder
      */
-    GoblinAccumulationOutput accumulate(MegaCircuitBuilder& circuit_builder)
+    GoblinAccumulationOutput accumulate(MegaBuilder& circuit_builder)
     {
         // Complete the circuit logic by recursively verifying previous merge proof if it exists
         if (merge_proof_exists) {
@@ -115,7 +116,7 @@ class GoblinProver {
      *
      * @param circuit_builder
      */
-    void merge(MegaCircuitBuilder& circuit_builder)
+    void merge(MegaBuilder& circuit_builder)
     {
         // Append a recursive merge verification of the merge proof
         if (merge_proof_exists) {
@@ -132,7 +133,7 @@ class GoblinProver {
      * @param circuit_builder
      * @return PairingPoints
      */
-    PairingPoints verify_merge(MegaCircuitBuilder& circuit_builder, MergeProof& proof) const
+    PairingPoints verify_merge(MegaBuilder& circuit_builder, MergeProof& proof) const
     {
         PROFILE_THIS_NAME("Goblin::merge");
         RecursiveMergeVerifier merge_verifier{ &circuit_builder };
@@ -144,7 +145,7 @@ class GoblinProver {
      *
      * @param circuit_builder
      */
-    MergeProof prove_merge(MegaCircuitBuilder& circuit_builder)
+    MergeProof prove_merge(MegaBuilder& circuit_builder)
     {
         PROFILE_THIS_NAME("Goblin::merge");
         // TODO(https://github.com/AztecProtocol/barretenberg/issues/993): Some circuits (particularly on the first call
@@ -160,7 +161,7 @@ class GoblinProver {
             merge_proof_exists = true;
         }
 
-        MergeProver merge_prover{ circuit_builder.op_queue };
+        MergeProver merge_prover{ circuit_builder.op_queue, commitment_key };
         return merge_prover.construct_proof();
     };
 
@@ -209,7 +210,8 @@ class GoblinProver {
 
             auto translator_builder =
                 std::make_unique<TranslatorBuilder>(translation_batching_challenge_v, evaluation_challenge_x, op_queue);
-            translator_prover = std::make_unique<TranslatorProver>(*translator_builder, transcript);
+            translator_key = std::make_shared<TranslatorProvingKey>(*translator_builder, commitment_key);
+            translator_prover = std::make_unique<TranslatorProver>(translator_key, transcript);
         }
 
         {

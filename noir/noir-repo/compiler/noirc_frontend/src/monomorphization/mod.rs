@@ -11,7 +11,8 @@
 use crate::ast::{FunctionKind, IntegerBitSize, Signedness, UnaryOp, Visibility};
 use crate::hir::comptime::InterpreterError;
 use crate::hir::type_check::{NoMatchingImplFoundError, TypeCheckError};
-use crate::node_interner::{ExprId, ImplSearchErrorKind};
+use crate::node_interner::{ExprId, GlobalValue, ImplSearchErrorKind};
+use crate::token::FmtStrFragment;
 use crate::{
     debug::DebugInstrumenter,
     hir_def::{
@@ -417,10 +418,10 @@ impl<'interner> Monomorphizer<'interner> {
         let expr = match self.interner.expression(&expr) {
             HirExpression::Ident(ident, generics) => self.ident(ident, expr, generics)?,
             HirExpression::Literal(HirLiteral::Str(contents)) => Literal(Str(contents)),
-            HirExpression::Literal(HirLiteral::FmtStr(contents, idents)) => {
+            HirExpression::Literal(HirLiteral::FmtStr(fragments, idents, _length)) => {
                 let fields = try_vecmap(idents, |ident| self.expr(ident))?;
                 Literal(FmtStr(
-                    contents,
+                    fragments,
                     fields.len() as u64,
                     Box::new(ast::Expression::Tuple(fields)),
                 ))
@@ -894,7 +895,7 @@ impl<'interner> Monomorphizer<'interner> {
             DefinitionKind::Global(global_id) => {
                 let global = self.interner.get_global(*global_id);
 
-                let expr = if let Some(value) = global.value.clone() {
+                let expr = if let GlobalValue::Resolved(value) = global.value.clone() {
                     value
                         .into_hir_expression(self.interner, global.location)
                         .map_err(MonomorphizationError::InterpreterError)?
@@ -1132,7 +1133,7 @@ impl<'interner> Monomorphizer<'interner> {
             | HirType::Error
             | HirType::Quoted(_) => Ok(()),
             HirType::Constant(_value, kind) => {
-                if kind.is_error() {
+                if kind.is_error() || kind.default_type().is_none() {
                     Err(MonomorphizationError::UnknownConstant { location })
                 } else {
                     Ok(())
@@ -1153,7 +1154,6 @@ impl<'interner> Monomorphizer<'interner> {
 
                 Ok(())
             }
-
             HirType::TypeVariable(ref binding) => {
                 let type_var_kind = match &*binding.borrow() {
                     TypeBinding::Bound(binding) => {
@@ -1846,7 +1846,7 @@ impl<'interner> Monomorphizer<'interner> {
                     _ => unreachable!("ICE: format string fields should be structured in a tuple, but got a {zeroed_tuple}"),
                 };
                 ast::Expression::Literal(ast::Literal::FmtStr(
-                    "\0".repeat(*length as usize),
+                    vec![FmtStrFragment::String("\0".repeat(*length as usize))],
                     fields_len,
                     Box::new(zeroed_tuple),
                 ))

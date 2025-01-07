@@ -1,5 +1,4 @@
 import { GasFees } from '@aztec/circuits.js';
-import { FunctionSelector as FunctionSelectorType } from '@aztec/foundation/abi';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { Fr } from '@aztec/foundation/fields';
 
@@ -14,7 +13,6 @@ import { EnvironmentVariable, GetEnvVar } from './environment_getters.js';
 describe('Environment getters', () => {
   const address = AztecAddress.random();
   const sender = AztecAddress.random();
-  const functionSelector = FunctionSelectorType.random();
   const transactionFee = Fr.random();
   const chainId = Fr.random();
   const version = Fr.random();
@@ -34,7 +32,6 @@ describe('Environment getters', () => {
   const env = initExecutionEnvironment({
     address,
     sender,
-    functionSelector,
     transactionFee,
     globals,
     isStaticCall,
@@ -48,10 +45,10 @@ describe('Environment getters', () => {
     const buf = Buffer.from([
       Opcode.GETENVVAR_16, // opcode
       0x01, // indirect
-      0x05, // var idx
       ...Buffer.from('1234', 'hex'), // dstOffset
+      0x05, // var idx
     ]);
-    const instr = new GetEnvVar(/*indirect=*/ 0x01, 5, /*dstOffset=*/ 0x1234).as(
+    const instr = new GetEnvVar(/*indirect=*/ 0x01, /*dstOffset=*/ 0x1234, 5).as(
       Opcode.GETENVVAR_16,
       GetEnvVar.wireFormat16,
     );
@@ -63,7 +60,6 @@ describe('Environment getters', () => {
   describe.each([
     [EnvironmentVariable.ADDRESS, address.toField()],
     [EnvironmentVariable.SENDER, sender.toField()],
-    [EnvironmentVariable.FUNCTIONSELECTOR, functionSelector.toField(), TypeTag.UINT32],
     [EnvironmentVariable.TRANSACTIONFEE, transactionFee.toField()],
     [EnvironmentVariable.CHAINID, chainId.toField()],
     [EnvironmentVariable.VERSION, version.toField()],
@@ -74,7 +70,7 @@ describe('Environment getters', () => {
     [EnvironmentVariable.ISSTATICCALL, new Fr(isStaticCall ? 1 : 0)],
   ])('Environment getter instructions', (envVar: EnvironmentVariable, value: Fr, tag: TypeTag = TypeTag.FIELD) => {
     it(`Should read '${EnvironmentVariable[envVar]}' correctly`, async () => {
-      const instruction = new GetEnvVar(/*indirect=*/ 0, envVar, /*dstOffset=*/ 0);
+      const instruction = new GetEnvVar(/*indirect=*/ 0, /*dstOffset=*/ 0, envVar);
 
       await instruction.execute(context);
 
@@ -86,7 +82,7 @@ describe('Environment getters', () => {
 
   it(`GETENVVAR reverts for bad enum operand`, async () => {
     const invalidEnum = 255;
-    const instruction = new GetEnvVar(/*indirect=*/ 0, invalidEnum, /*dstOffset=*/ 0);
+    const instruction = new GetEnvVar(/*indirect=*/ 0, /*dstOffset=*/ 0, invalidEnum);
     await expect(instruction.execute(context)).rejects.toThrowError(`Invalid GETENVVAR var enum ${invalidEnum}`);
   });
 });

@@ -1,5 +1,6 @@
-import { hexSchemaFor } from '@aztec/foundation/schemas';
+import { bufferSchemaFor } from '@aztec/foundation/schemas';
 import { BufferReader, type Tuple, serializeToBuffer } from '@aztec/foundation/serialize';
+import { bufferToHex, hexToBuffer } from '@aztec/foundation/string';
 
 import { NUM_BASE_PARITY_PER_ROOT_PARITY, RECURSIVE_PROOF_LENGTH } from '../../constants.gen.js';
 import { RootParityInput } from './root_parity_input.js';
@@ -26,7 +27,7 @@ export class RootParityInputs {
    * @returns The instance serialized to a hex string.
    */
   toString() {
-    return this.toBuffer().toString('hex');
+    return bufferToHex(this.toBuffer());
   }
 
   /**
@@ -50,16 +51,16 @@ export class RootParityInputs {
    * @returns A new RootParityInputs instance.
    */
   static fromString(str: string) {
-    return RootParityInputs.fromBuffer(Buffer.from(str, 'hex'));
+    return RootParityInputs.fromBuffer(hexToBuffer(str));
   }
 
-  /** Returns a hex representation for JSON serialization. */
+  /** Returns a buffer representation for JSON serialization. */
   toJSON() {
-    return this.toString();
+    return this.toBuffer();
   }
 
   /** Creates an instance from a hex string. */
   static get schema() {
-    return hexSchemaFor(RootParityInputs);
+    return bufferSchemaFor(RootParityInputs);
   }
 }

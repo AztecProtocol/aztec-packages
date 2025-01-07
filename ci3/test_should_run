@@ -1,0 +1,8 @@
+#!/bin/bash
+# This is called within test functions to provide an early out for running tests in CI.
+source $(git rev-parse --show-toplevel)/ci3/source
+
+# If we're in CI and the cache flag is present, we skip running tests.
+if [ "${CI:-0}" -eq 1 ] && cache_download_flag "$1"; then
+  exit 1
+fi

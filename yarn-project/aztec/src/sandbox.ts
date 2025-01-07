@@ -3,7 +3,7 @@ import { type AztecNodeConfig, AztecNodeService, getConfigEnvVars } from '@aztec
 import { AnvilTestWatcher, EthCheatCodes, SignerlessWallet, retryUntil } from '@aztec/aztec.js';
 import { DefaultMultiCallEntrypoint } from '@aztec/aztec.js/entrypoint';
 import { type AztecNode } from '@aztec/circuit-types';
-import { setupCanonicalL2FeeJuice } from '@aztec/cli/misc';
+import { setupCanonicalL2FeeJuice } from '@aztec/cli/setup-contracts';
 import {
   type DeployL1Contracts,
   NULL_KEY,
@@ -11,7 +11,7 @@ import {
   deployL1Contracts,
   getL1ContractsConfigEnvVars,
 } from '@aztec/ethereum';
-import { createDebugLogger } from '@aztec/foundation/log';
+import { createLogger } from '@aztec/foundation/log';
 import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types';
 import { ProtocolContractAddress, protocolContractTreeRoot } from '@aztec/protocol-contracts';
 import { type PXEServiceConfig, createPXEService, getPXEServiceConfig } from '@aztec/pxe';
@@ -25,9 +25,9 @@ import { type HDAccount, type PrivateKeyAccount, createPublicClient, http as htt
 import { mnemonicToAccount } from 'viem/accounts';
 import { foundry } from 'viem/chains';
 
-export const defaultMnemonic = 'test test test test test test test test test test test junk';
+import { DefaultMnemonic } from './mnemonic.js';
 
-const logger = createDebugLogger('aztec:sandbox');
+const logger = createLogger('sandbox');
 
 const localAnvil = foundry;
 
@@ -110,7 +110,7 @@ export type SandboxConfig = AztecNodeConfig & {
  */
 export async function createSandbox(config: Partial<SandboxConfig> = {}) {
   const aztecNodeConfig: AztecNodeConfig = { ...getConfigEnvVars(), ...config };
-  const hdAccount = mnemonicToAccount(config.l1Mnemonic || defaultMnemonic);
+  const hdAccount = mnemonicToAccount(config.l1Mnemonic || DefaultMnemonic);
   if (!aztecNodeConfig.publisherPrivateKey || aztecNodeConfig.publisherPrivateKey === NULL_KEY) {
     const privKey = hdAccount.getHdKey().privateKey;
     aztecNodeConfig.publisherPrivateKey = `0x${Buffer.from(privKey!).toString('hex')}`;
@@ -157,7 +157,6 @@ export async function createSandbox(config: Partial<SandboxConfig> = {}) {
   }
 
   const stop = async () => {
-    await pxe.stop();
     await node.stop();
     await watcher?.stop();
   };
@@ -171,7 +170,7 @@ export async function createSandbox(config: Partial<SandboxConfig> = {}) {
  */
 export async function createAztecNode(config: Partial<AztecNodeConfig> = {}, telemetryClient?: TelemetryClient) {
   const aztecNodeConfig: AztecNodeConfig = { ...getConfigEnvVars(), ...config };
-  const node = await AztecNodeService.createAndSync(aztecNodeConfig, telemetryClient);
+  const node = await AztecNodeService.createAndSync(aztecNodeConfig, { telemetry: telemetryClient });
   return node;
 }
 

@@ -2,23 +2,28 @@ import {
   AztecAddress,
   CANONICAL_AUTH_REGISTRY_ADDRESS,
   DEPLOYER_CONTRACT_ADDRESS,
+  DEPLOYER_CONTRACT_INSTANCE_DEPLOYED_MAGIC_VALUE,
   FEE_JUICE_ADDRESS,
   Fr,
   MULTI_CALL_ENTRYPOINT_ADDRESS,
   REGISTERER_CONTRACT_ADDRESS,
+  REGISTERER_CONTRACT_CLASS_REGISTERED_MAGIC_VALUE,
+  REGISTERER_PRIVATE_FUNCTION_BROADCASTED_MAGIC_VALUE,
+  REGISTERER_UNCONSTRAINED_FUNCTION_BROADCASTED_MAGIC_VALUE,
   ROUTER_ADDRESS,
   getContractInstanceFromDeployParams,
 } from '@aztec/circuits.js';
+import { poseidon2Hash } from '@aztec/foundation/crypto';
 import { createConsoleLogger } from '@aztec/foundation/log';
 import { loadContractArtifact } from '@aztec/types/abi';
 import { type NoirCompiledContract } from '@aztec/types/noir';
 
-import fs from 'fs/promises';
+import { promises as fs } from 'fs';
 import path from 'path';
 
 import { buildProtocolContractTree } from '../build_protocol_contract_tree.js';
 
-const log = createConsoleLogger('aztec:autogenerate');
+const log = createConsoleLogger('autogenerate');
 
 const noirContractsRoot = '../../noir-projects/noir-contracts';
 const srcPath = path.join(noirContractsRoot, './target');
@@ -92,26 +97,6 @@ function generateNames(names: string[]) {
   `;
 }
 
-function generateArtifacts(names: string[]) {
-  const imports = names
-    .map(name => {
-      return `
-      import ${name}Json from '../artifacts/${name}.json' assert { type: 'json' };
-    `;
-    })
-    .join('\n');
-
-  const exports = names.map(name => `${name}: loadContractArtifact(${name}Json as NoirCompiledContract)`).join(',\n');
-
-  return `
-    ${imports}
-
-    export const ProtocolContractArtifact: Record<ProtocolContractName, ContractArtifact> = {
-      ${exports}
-    };
-  `;
-}
-
 function generateSalts(names: string[]) {
   return `
     export const ProtocolContractSalt: Record<ProtocolContractName, Fr> = {
@@ -132,7 +117,7 @@ function generateContractAddresses(names: string[]) {
 function generateContractLeaves(names: string[], leaves: Fr[]) {
   return `
     export const ProtocolContractLeaf = {
-      ${leaves.map((leaf, i) => `${names[i]}: Fr.fromString('${leaf.toString()}')`).join(',\n')}
+      ${leaves.map((leaf, i) => `${names[i]}: Fr.fromHexString('${leaf.toString()}')`).join(',\n')}
     };
   `;
 }
@@ -140,7 +125,19 @@ function generateContractLeaves(names: string[], leaves: Fr[]) {
 function generateRoot(names: string[], leaves: Fr[]) {
   const root = computeRoot(names, leaves);
   return `
-    export const protocolContractTreeRoot = Fr.fromString('${root.toString()}');
+    export const protocolContractTreeRoot = Fr.fromHexString('${root.toString()}');
+  `;
+}
+
+function generateLogTags() {
+  return `
+  export const REGISTERER_CONTRACT_CLASS_REGISTERED_TAG = new Fr(${REGISTERER_CONTRACT_CLASS_REGISTERED_MAGIC_VALUE}n);
+  export const REGISTERER_PRIVATE_FUNCTION_BROADCASTED_TAG = new Fr(${REGISTERER_PRIVATE_FUNCTION_BROADCASTED_MAGIC_VALUE}n);
+  export const REGISTERER_UNCONSTRAINED_FUNCTION_BROADCASTED_TAG = new Fr(${REGISTERER_UNCONSTRAINED_FUNCTION_BROADCASTED_MAGIC_VALUE}n);
+  export const DEPLOYER_CONTRACT_INSTANCE_DEPLOYED_TAG = Fr.fromHexString('${poseidon2Hash([
+    DEPLOYER_CONTRACT_ADDRESS,
+    DEPLOYER_CONTRACT_INSTANCE_DEPLOYED_MAGIC_VALUE,
+  ])}');
   `;
 }
 
@@ -148,13 +145,8 @@ async function generateOutputFile(names: string[], leaves: Fr[]) {
   const content = `
     // GENERATED FILE - DO NOT EDIT. RUN \`yarn generate\` or \`yarn generate:data\`
     import { AztecAddress, Fr } from '@aztec/circuits.js';
-    import { type ContractArtifact } from '@aztec/foundation/abi';
-    import { loadContractArtifact } from '@aztec/types/abi';
-    import { type NoirCompiledContract } from '@aztec/types/noir';
 
     ${generateNames(names)}
-
-    ${generateArtifacts(names)}
 
     ${generateSalts(names)}
 
@@ -163,6 +155,8 @@ async function generateOutputFile(names: string[], leaves: Fr[]) {
     ${generateContractLeaves(names, leaves)}
 
     ${generateRoot(names, leaves)}
+
+    ${generateLogTags()}
   `;
   await fs.writeFile(outputFilePath, content);
 }

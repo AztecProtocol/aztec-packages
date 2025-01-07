@@ -1,58 +1,27 @@
-import { type AvmProvingRequest, ProvingRequestType, type PublicExecutionRequest } from '@aztec/circuit-types';
 import {
-  AvmCircuitInputs,
-  AvmCircuitPublicInputs,
-  AztecAddress,
-  ContractStorageRead,
-  ContractStorageUpdateRequest,
+  type AvmCircuitPublicInputs,
+  type AztecAddress,
   Fr,
-  Gas,
+  type Gas,
   type GasSettings,
   type GlobalVariables,
-  type Header,
-  L2ToL1Message,
-  LogHash,
-  MAX_ENQUEUED_CALLS_PER_CALL,
-  MAX_L1_TO_L2_MSG_READ_REQUESTS_PER_CALL,
-  MAX_L2_TO_L1_MSGS_PER_CALL,
   MAX_L2_TO_L1_MSGS_PER_TX,
-  MAX_NOTE_HASHES_PER_CALL,
-  MAX_NOTE_HASHES_PER_TX,
-  MAX_NOTE_HASH_READ_REQUESTS_PER_CALL,
-  MAX_NULLIFIERS_PER_CALL,
-  MAX_NULLIFIERS_PER_TX,
-  MAX_NULLIFIER_NON_EXISTENT_READ_REQUESTS_PER_CALL,
-  MAX_NULLIFIER_READ_REQUESTS_PER_CALL,
-  MAX_PUBLIC_DATA_READS_PER_CALL,
-  MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL,
-  MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
-  MAX_UNENCRYPTED_LOGS_PER_CALL,
-  NoteHash,
-  Nullifier,
+  MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
   PrivateToAvmAccumulatedData,
   PrivateToAvmAccumulatedDataArrayLengths,
   type PrivateToPublicAccumulatedData,
   PublicCallRequest,
-  PublicCircuitPublicInputs,
   PublicDataWrite,
-  PublicInnerCallRequest,
-  ReadRequest,
-  RevertCode,
+  type RevertCode,
   type StateReference,
-  TreeLeafReadRequest,
   TreeSnapshots,
   countAccumulatedItems,
   mergeAccumulatedData,
 } from '@aztec/circuits.js';
-import { computeNoteHashNonce, computeUniqueNoteHash, computeVarArgsHash, siloNoteHash } from '@aztec/circuits.js/hash';
 import { padArrayEnd } from '@aztec/foundation/collection';
 import { assertLength } from '@aztec/foundation/serialize';
 
-import { AvmFinalizedCallResult } from '../avm/avm_contract_call_result.js';
-import { AvmExecutionEnvironment } from '../avm/avm_execution_environment.js';
-import { type AvmPersistableStateManager } from '../avm/journal/journal.js';
 import { type PublicEnqueuedCallSideEffectTrace } from './enqueued_call_side_effect_trace.js';
-import { type EnqueuedPublicCallExecutionResult, type PublicFunctionCallResult } from './execution.js';
 
 export function generateAvmCircuitPublicInputs(
   trace: PublicEnqueuedCallSideEffectTrace,
@@ -60,12 +29,13 @@ export function generateAvmCircuitPublicInputs(
   startStateReference: StateReference,
   startGasUsed: Gas,
   gasSettings: GasSettings,
+  feePayer: AztecAddress,
   setupCallRequests: PublicCallRequest[],
   appLogicCallRequests: PublicCallRequest[],
   teardownCallRequests: PublicCallRequest[],
   nonRevertibleAccumulatedDataFromPrivate: PrivateToPublicAccumulatedData,
   revertibleAccumulatedDataFromPrivate: PrivateToPublicAccumulatedData,
-  endStateReference: StateReference,
+  endTreeSnapshots: TreeSnapshots,
   endGasUsed: Gas,
   transactionFee: Fr,
   revertCode: RevertCode,
@@ -76,18 +46,13 @@ export function generateAvmCircuitPublicInputs(
     startStateReference.partial.nullifierTree,
     startStateReference.partial.publicDataTree,
   );
-  const endTreeSnapshots = new TreeSnapshots(
-    endStateReference.l1ToL2MessageTree,
-    endStateReference.partial.noteHashTree,
-    endStateReference.partial.nullifierTree,
-    endStateReference.partial.publicDataTree,
-  );
 
   const avmCircuitPublicInputs = trace.toAvmCircuitPublicInputs(
     globalVariables,
     startTreeSnapshots,
     startGasUsed,
     gasSettings,
+    feePayer,
     setupCallRequests,
     appLogicCallRequests,
     teardownCallRequests.length ? teardownCallRequests[0] : PublicCallRequest.empty(),
@@ -119,43 +84,6 @@ export function generateAvmCircuitPublicInputs(
     revertibleAccumulatedDataFromPrivate,
   );
 
-  // merge all revertible & non-revertible side effects into output accumulated data
-  const noteHashesFromPrivate = revertCode.isOK()
-    ? mergeAccumulatedData(
-        avmCircuitPublicInputs.previousNonRevertibleAccumulatedData.noteHashes,
-        avmCircuitPublicInputs.previousRevertibleAccumulatedData.noteHashes,
-      )
-    : avmCircuitPublicInputs.previousNonRevertibleAccumulatedData.noteHashes;
-  avmCircuitPublicInputs.accumulatedData.noteHashes = assertLength(
-    mergeAccumulatedData(noteHashesFromPrivate, avmCircuitPublicInputs.accumulatedData.noteHashes),
-    MAX_NOTE_HASHES_PER_TX,
-  );
-
-  const txHash = avmCircuitPublicInputs.previousNonRevertibleAccumulatedData.nullifiers[0];
-
-  const scopedNoteHashesFromPublic = trace.getSideEffects().noteHashes;
-  for (let i = 0; i < scopedNoteHashesFromPublic.length; i++) {
-    const scopedNoteHash = scopedNoteHashesFromPublic[i];
-    const noteHash = scopedNoteHash.value;
-    if (!noteHash.isZero()) {
-      const noteHashIndexInTx = i + countAccumulatedItems(noteHashesFromPrivate);
-      const nonce = computeNoteHashNonce(txHash, noteHashIndexInTx);
-      const uniqueNoteHash = computeUniqueNoteHash(nonce, noteHash);
-      const siloedNoteHash = siloNoteHash(scopedNoteHash.contractAddress, uniqueNoteHash);
-      avmCircuitPublicInputs.accumulatedData.noteHashes[noteHashIndexInTx] = siloedNoteHash;
-    }
-  }
-
-  const nullifiersFromPrivate = revertCode.isOK()
-    ? mergeAccumulatedData(
-        avmCircuitPublicInputs.previousNonRevertibleAccumulatedData.nullifiers,
-        avmCircuitPublicInputs.previousRevertibleAccumulatedData.nullifiers,
-      )
-    : avmCircuitPublicInputs.previousNonRevertibleAccumulatedData.nullifiers;
-  avmCircuitPublicInputs.accumulatedData.nullifiers = assertLength(
-    mergeAccumulatedData(nullifiersFromPrivate, avmCircuitPublicInputs.accumulatedData.nullifiers),
-    MAX_NULLIFIERS_PER_TX,
-  );
   const msgsFromPrivate = revertCode.isOK()
     ? mergeAccumulatedData(
         avmCircuitPublicInputs.previousNonRevertibleAccumulatedData.l2ToL1Msgs,
@@ -167,181 +95,19 @@ export function generateAvmCircuitPublicInputs(
     MAX_L2_TO_L1_MSGS_PER_TX,
   );
 
-  const dedupedPublicDataWrites: Array<PublicDataWrite> = [];
-  const leafSlotOccurences: Map<bigint, number> = new Map();
+  // Maps slot to value. Maps in TS are iterable in insertion order, which is exactly what we want for
+  // squashing "to the left", where the first occurrence of a slot uses the value of the last write to it,
+  // and the rest occurrences are omitted
+  const squashedPublicDataWrites: Map<bigint, Fr> = new Map();
   for (const publicDataWrite of avmCircuitPublicInputs.accumulatedData.publicDataWrites) {
-    const slot = publicDataWrite.leafSlot.toBigInt();
-    const prevOccurrences = leafSlotOccurences.get(slot) || 0;
-    leafSlotOccurences.set(slot, prevOccurrences + 1);
-  }
-
-  for (const publicDataWrite of avmCircuitPublicInputs.accumulatedData.publicDataWrites) {
-    const slot = publicDataWrite.leafSlot.toBigInt();
-    const prevOccurrences = leafSlotOccurences.get(slot) || 0;
-    if (prevOccurrences === 1) {
-      dedupedPublicDataWrites.push(publicDataWrite);
-    } else {
-      leafSlotOccurences.set(slot, prevOccurrences - 1);
-    }
+    squashedPublicDataWrites.set(publicDataWrite.leafSlot.toBigInt(), publicDataWrite.value);
   }
 
   avmCircuitPublicInputs.accumulatedData.publicDataWrites = padArrayEnd(
-    dedupedPublicDataWrites,
+    Array.from(squashedPublicDataWrites.entries()).map(([slot, value]) => new PublicDataWrite(new Fr(slot), value)),
     PublicDataWrite.empty(),
-    MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
+    MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
   );
   //console.log(`AvmCircuitPublicInputs:\n${inspect(avmCircuitPublicInputs)}`);
   return avmCircuitPublicInputs;
-}
-
-export function generateAvmProvingRequest(
-  real: boolean,
-  fnName: string,
-  stateManager: AvmPersistableStateManager,
-  historicalHeader: Header,
-  globalVariables: GlobalVariables,
-  executionRequest: PublicExecutionRequest,
-  result: EnqueuedPublicCallExecutionResult,
-  allocatedGas: Gas,
-  transactionFee: Fr,
-): AvmProvingRequest {
-  const avmExecutionEnv = new AvmExecutionEnvironment(
-    executionRequest.callContext.contractAddress,
-    executionRequest.callContext.msgSender,
-    executionRequest.callContext.functionSelector,
-    /*contractCallDepth=*/ Fr.zero(),
-    transactionFee,
-    globalVariables,
-    executionRequest.callContext.isStaticCall,
-    executionRequest.args,
-  );
-
-  const avmCallResult = new AvmFinalizedCallResult(result.reverted, result.returnValues, result.endGasLeft);
-
-  // Generate an AVM proving request
-  let avmProvingRequest: AvmProvingRequest;
-  if (real) {
-    const deprecatedFunctionCallResult = stateManager.trace.toPublicFunctionCallResult(
-      avmExecutionEnv,
-      /*startGasLeft=*/ allocatedGas,
-      Buffer.alloc(0),
-      avmCallResult,
-      fnName,
-    );
-    const publicInputs = getPublicCircuitPublicInputs(historicalHeader, globalVariables, deprecatedFunctionCallResult);
-    avmProvingRequest = makeAvmProvingRequest(publicInputs, deprecatedFunctionCallResult);
-  } else {
-    avmProvingRequest = emptyAvmProvingRequest();
-  }
-  return avmProvingRequest;
-}
-
-function emptyAvmProvingRequest(): AvmProvingRequest {
-  return {
-    type: ProvingRequestType.PUBLIC_VM,
-    inputs: AvmCircuitInputs.empty(),
-  };
-}
-function makeAvmProvingRequest(inputs: PublicCircuitPublicInputs, result: PublicFunctionCallResult): AvmProvingRequest {
-  return {
-    type: ProvingRequestType.PUBLIC_VM,
-    inputs: new AvmCircuitInputs(
-      result.functionName,
-      result.calldata,
-      inputs,
-      result.avmCircuitHints,
-      AvmCircuitPublicInputs.empty(),
-    ),
-  };
-}
-
-function getPublicCircuitPublicInputs(
-  historicalHeader: Header,
-  globalVariables: GlobalVariables,
-  result: PublicFunctionCallResult,
-) {
-  const header = historicalHeader.clone(); // don't modify the original
-  header.state.partial.publicDataTree.root = Fr.zero(); // AVM doesn't check this yet
-
-  return PublicCircuitPublicInputs.from({
-    callContext: result.executionRequest.callContext,
-    proverAddress: AztecAddress.ZERO,
-    argsHash: computeVarArgsHash(result.executionRequest.args),
-    noteHashes: padArrayEnd(
-      result.noteHashes,
-      NoteHash.empty(),
-      MAX_NOTE_HASHES_PER_CALL,
-      `Too many note hashes. Got ${result.noteHashes.length} with max being ${MAX_NOTE_HASHES_PER_CALL}`,
-    ),
-    nullifiers: padArrayEnd(
-      result.nullifiers,
-      Nullifier.empty(),
-      MAX_NULLIFIERS_PER_CALL,
-      `Too many nullifiers. Got ${result.nullifiers.length} with max being ${MAX_NULLIFIERS_PER_CALL}`,
-    ),
-    l2ToL1Msgs: padArrayEnd(
-      result.l2ToL1Messages,
-      L2ToL1Message.empty(),
-      MAX_L2_TO_L1_MSGS_PER_CALL,
-      `Too many L2 to L1 messages. Got ${result.l2ToL1Messages.length} with max being ${MAX_L2_TO_L1_MSGS_PER_CALL}`,
-    ),
-    startSideEffectCounter: result.startSideEffectCounter,
-    endSideEffectCounter: result.endSideEffectCounter,
-    returnsHash: computeVarArgsHash(result.returnValues),
-    noteHashReadRequests: padArrayEnd(
-      result.noteHashReadRequests,
-      TreeLeafReadRequest.empty(),
-      MAX_NOTE_HASH_READ_REQUESTS_PER_CALL,
-      `Too many note hash read requests. Got ${result.noteHashReadRequests.length} with max being ${MAX_NOTE_HASH_READ_REQUESTS_PER_CALL}`,
-    ),
-    nullifierReadRequests: padArrayEnd(
-      result.nullifierReadRequests,
-      ReadRequest.empty(),
-      MAX_NULLIFIER_READ_REQUESTS_PER_CALL,
-      `Too many nullifier read requests. Got ${result.nullifierReadRequests.length} with max being ${MAX_NULLIFIER_READ_REQUESTS_PER_CALL}`,
-    ),
-    nullifierNonExistentReadRequests: padArrayEnd(
-      result.nullifierNonExistentReadRequests,
-      ReadRequest.empty(),
-      MAX_NULLIFIER_NON_EXISTENT_READ_REQUESTS_PER_CALL,
-      `Too many nullifier non-existent read requests. Got ${result.nullifierNonExistentReadRequests.length} with max being ${MAX_NULLIFIER_NON_EXISTENT_READ_REQUESTS_PER_CALL}`,
-    ),
-    l1ToL2MsgReadRequests: padArrayEnd(
-      result.l1ToL2MsgReadRequests,
-      TreeLeafReadRequest.empty(),
-      MAX_L1_TO_L2_MSG_READ_REQUESTS_PER_CALL,
-      `Too many L1 to L2 message read requests. Got ${result.l1ToL2MsgReadRequests.length} with max being ${MAX_L1_TO_L2_MSG_READ_REQUESTS_PER_CALL}`,
-    ),
-    contractStorageReads: padArrayEnd(
-      result.contractStorageReads,
-      ContractStorageRead.empty(),
-      MAX_PUBLIC_DATA_READS_PER_CALL,
-      `Too many public data reads. Got ${result.contractStorageReads.length} with max being ${MAX_PUBLIC_DATA_READS_PER_CALL}`,
-    ),
-    contractStorageUpdateRequests: padArrayEnd(
-      result.contractStorageUpdateRequests,
-      ContractStorageUpdateRequest.empty(),
-      MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL,
-      `Too many public data update requests. Got ${result.contractStorageUpdateRequests.length} with max being ${MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL}`,
-    ),
-    publicCallRequests: padArrayEnd(
-      result.publicCallRequests,
-      PublicInnerCallRequest.empty(),
-      MAX_ENQUEUED_CALLS_PER_CALL,
-      `Too many public call requests. Got ${result.publicCallRequests.length} with max being ${MAX_ENQUEUED_CALLS_PER_CALL}`,
-    ),
-    unencryptedLogsHashes: padArrayEnd(
-      result.unencryptedLogsHashes,
-      LogHash.empty(),
-      MAX_UNENCRYPTED_LOGS_PER_CALL,
-      `Too many unencrypted logs. Got ${result.unencryptedLogsHashes.length} with max being ${MAX_UNENCRYPTED_LOGS_PER_CALL}`,
-    ),
-    historicalHeader: header,
-    globalVariables: globalVariables,
-    startGasLeft: Gas.from(result.startGasLeft),
-    endGasLeft: Gas.from(result.endGasLeft),
-    transactionFee: result.transactionFee,
-    // TODO(@just-mitch): need better mapping from simulator to revert code.
-    revertCode: result.reverted ? RevertCode.APP_LOGIC_REVERTED : RevertCode.OK,
-  });
 }

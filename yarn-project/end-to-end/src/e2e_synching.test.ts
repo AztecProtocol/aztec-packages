@@ -11,7 +11,6 @@
  *
  *        To run the Setup run with the `AZTEC_GENERATE_TEST_DATA=1` flag. Without
  *        this flag, we will run in execution.
- *
  *        There is functionality to store the `stats` of a sync, but currently we
  *        will simply be writing it to the log instead.
  *
@@ -40,19 +39,21 @@ import {
   AnvilTestWatcher,
   BatchCall,
   type Contract,
-  type DebugLogger,
   Fr,
   GrumpkinScalar,
-  createDebugLogger,
+  type Logger,
+  createLogger,
   sleep,
 } from '@aztec/aztec.js';
 // eslint-disable-next-line no-restricted-imports
-import { L2Block, LogType, tryStop } from '@aztec/circuit-types';
+import { L2Block, tryStop } from '@aztec/circuit-types';
 import { type AztecAddress } from '@aztec/circuits.js';
 import { getL1ContractsConfigEnvVars } from '@aztec/ethereum';
 import { Timer } from '@aztec/foundation/timer';
 import { RollupAbi } from '@aztec/l1-artifacts';
-import { SchnorrHardcodedAccountContract, SpamContract, TokenContract } from '@aztec/noir-contracts.js';
+import { SchnorrHardcodedAccountContract } from '@aztec/noir-contracts.js/SchnorrHardcodedAccount';
+import { SpamContract } from '@aztec/noir-contracts.js/Spam';
+import { TokenContract } from '@aztec/noir-contracts.js/Token';
 import { type PXEService } from '@aztec/pxe';
 import { L1Publisher } from '@aztec/sequencer-client';
 import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
@@ -97,7 +98,7 @@ type VariantDefinition = {
  *
  */
 class TestVariant {
-  private logger: DebugLogger = createDebugLogger(`test_variant`);
+  private logger: Logger = createLogger(`test_variant`);
   private pxe!: PXEService;
   private token!: TokenContract;
   private spam!: SpamContract;
@@ -359,13 +360,23 @@ describe('e2e_synching', () => {
       return;
     }
 
-    const { teardown, logger, deployL1ContractsValues, config, cheatCodes, aztecNode, sequencer, watcher, pxe } =
-      await setup(0, {
-        salt: SALT,
-        l1StartTime: START_TIME,
-        skipProtocolContracts: true,
-        assumeProvenThrough,
-      });
+    const {
+      teardown,
+      logger,
+      deployL1ContractsValues,
+      config,
+      cheatCodes,
+      aztecNode,
+      sequencer,
+      watcher,
+      pxe,
+      blobSink,
+    } = await setup(0, {
+      salt: SALT,
+      l1StartTime: START_TIME,
+      skipProtocolContracts: true,
+      assumeProvenThrough,
+    });
 
     await (aztecNode as any).stop();
     await (sequencer as any).stop();
@@ -382,6 +393,7 @@ describe('e2e_synching', () => {
         l1ChainId: 31337,
         viemPollingIntervalMS: 100,
         ethereumSlotDuration: ETHEREUM_SLOT_DURATION,
+        blobSinkUrl: `http://localhost:${blobSink?.port ?? 5052}`,
       },
       new NoopTelemetryClient(),
     );
@@ -419,10 +431,7 @@ describe('e2e_synching', () => {
           async (opts: Partial<EndToEndContext>, variant: TestVariant) => {
             // All the blocks have been "re-played" and we are now to simply get a new node up to speed
             const timer = new Timer();
-            const freshNode = await AztecNodeService.createAndSync(
-              { ...opts.config!, disableValidator: true },
-              new NoopTelemetryClient(),
-            );
+            const freshNode = await AztecNodeService.createAndSync({ ...opts.config!, disableValidator: true });
             const syncTime = timer.s();
 
             const blockNumber = await freshNode.getBlockNumber();
@@ -468,7 +477,7 @@ describe('e2e_synching', () => {
             );
             await watcher.start();
 
-            const aztecNode = await AztecNodeService.createAndSync(opts.config!, new NoopTelemetryClient());
+            const aztecNode = await AztecNodeService.createAndSync(opts.config!);
             const sequencer = aztecNode.getSequencer();
 
             const { pxe } = await setupPXEService(aztecNode!);
@@ -501,8 +510,8 @@ describe('e2e_synching', () => {
           await rollup.write.setAssumeProvenThroughBlockNumber([assumeProvenThrough]);
 
           const timeliness = (await rollup.read.EPOCH_DURATION()) * 2n;
-          const [, , slot] = await rollup.read.blocks([(await rollup.read.getProvenBlockNumber()) + 1n]);
-          const timeJumpTo = await rollup.read.getTimestampForSlot([slot + timeliness]);
+          const blockLog = await rollup.read.getBlock([(await rollup.read.getProvenBlockNumber()) + 1n]);
+          const timeJumpTo = await rollup.read.getTimestampForSlot([blockLog.slotNumber + timeliness]);
 
           await opts.cheatCodes!.eth.warp(Number(timeJumpTo));
 
@@ -517,9 +526,10 @@ describe('e2e_synching', () => {
           });
 
           expect(await archiver.getTxEffect(txHash)).not.toBeUndefined;
-          [LogType.NOTEENCRYPTED, LogType.ENCRYPTED, LogType.UNENCRYPTED].forEach(async t => {
-            expect(await archiver.getLogs(blockTip.number, 1, t)).not.toEqual([]);
-          });
+          expect(await archiver.getPrivateLogs(blockTip.number, 1)).not.toEqual([]);
+          expect(
+            await archiver.getUnencryptedLogs({ fromBlock: blockTip.number, toBlock: blockTip.number + 1 }),
+          ).not.toEqual([]);
 
           await rollup.write.prune();
 
@@ -541,9 +551,10 @@ describe('e2e_synching', () => {
           );
 
           expect(await archiver.getTxEffect(txHash)).toBeUndefined;
-          [LogType.NOTEENCRYPTED, LogType.ENCRYPTED, LogType.UNENCRYPTED].forEach(async t => {
-            expect(await archiver.getLogs(blockTip.number, 1, t)).toEqual([]);
-          });
+          expect(await archiver.getPrivateLogs(blockTip.number, 1)).toEqual([]);
+          expect(
+            await archiver.getUnencryptedLogs({ fromBlock: blockTip.number, toBlock: blockTip.number + 1 }),
+          ).toEqual([]);
 
           // Check world state reverted as well
           expect(await worldState.getLatestBlockNumber()).toEqual(Number(assumeProvenThrough));
@@ -579,14 +590,14 @@ describe('e2e_synching', () => {
           const pendingBlockNumber = await rollup.read.getPendingBlockNumber();
           await rollup.write.setAssumeProvenThroughBlockNumber([pendingBlockNumber - BigInt(variant.blockCount) / 2n]);
 
-          const aztecNode = await AztecNodeService.createAndSync(opts.config!, new NoopTelemetryClient());
+          const aztecNode = await AztecNodeService.createAndSync(opts.config!);
           const sequencer = aztecNode.getSequencer();
 
           const blockBeforePrune = await aztecNode.getBlockNumber();
 
           const timeliness = (await rollup.read.EPOCH_DURATION()) * 2n;
-          const [, , slot] = await rollup.read.blocks([(await rollup.read.getProvenBlockNumber()) + 1n]);
-          const timeJumpTo = await rollup.read.getTimestampForSlot([slot + timeliness]);
+          const blockLog = await rollup.read.getBlock([(await rollup.read.getProvenBlockNumber()) + 1n]);
+          const timeJumpTo = await rollup.read.getTimestampForSlot([blockLog.slotNumber + timeliness]);
 
           await opts.cheatCodes!.eth.warp(Number(timeJumpTo));
 
@@ -645,8 +656,8 @@ describe('e2e_synching', () => {
           await rollup.write.setAssumeProvenThroughBlockNumber([pendingBlockNumber - BigInt(variant.blockCount) / 2n]);
 
           const timeliness = (await rollup.read.EPOCH_DURATION()) * 2n;
-          const [, , slot] = await rollup.read.blocks([(await rollup.read.getProvenBlockNumber()) + 1n]);
-          const timeJumpTo = await rollup.read.getTimestampForSlot([slot + timeliness]);
+          const blockLog = await rollup.read.getBlock([(await rollup.read.getProvenBlockNumber()) + 1n]);
+          const timeJumpTo = await rollup.read.getTimestampForSlot([blockLog.slotNumber + timeliness]);
 
           await opts.cheatCodes!.eth.warp(Number(timeJumpTo));
 
@@ -660,7 +671,7 @@ describe('e2e_synching', () => {
           await watcher.start();
 
           // The sync here could likely be avoided by using the node we just synched.
-          const aztecNode = await AztecNodeService.createAndSync(opts.config!, new NoopTelemetryClient());
+          const aztecNode = await AztecNodeService.createAndSync(opts.config!);
           const sequencer = aztecNode.getSequencer();
 
           const { pxe } = await setupPXEService(aztecNode!);

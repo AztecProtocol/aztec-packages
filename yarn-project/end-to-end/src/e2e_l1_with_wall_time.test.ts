@@ -1,5 +1,5 @@
 import { getSchnorrAccount } from '@aztec/accounts/schnorr';
-import { type DebugLogger, Fr, GrumpkinScalar, type PXE, TxStatus } from '@aztec/aztec.js';
+import { Fr, GrumpkinScalar, type Logger, type PXE, TxStatus } from '@aztec/aztec.js';
 import { EthAddress } from '@aztec/circuits.js';
 import { getL1ContractsConfigEnvVars } from '@aztec/ethereum';
 import { type PXEService } from '@aztec/pxe';
@@ -9,7 +9,7 @@ import { privateKeyToAccount } from 'viem/accounts';
 import { getPrivateKeyFromIndex, setup } from './fixtures/utils.js';
 
 describe('e2e_l1_with_wall_time', () => {
-  let logger: DebugLogger;
+  let logger: Logger;
   let teardown: () => Promise<void>;
   let pxe: PXE;
 
@@ -20,7 +20,7 @@ describe('e2e_l1_with_wall_time', () => {
 
     ({ teardown, logger, pxe } = await setup(0, {
       initialValidators,
-      l1BlockTime: ethereumSlotDuration,
+      ethereumSlotDuration,
       salt: 420,
     }));
   });

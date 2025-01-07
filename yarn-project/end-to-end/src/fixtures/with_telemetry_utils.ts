@@ -1,15 +1,28 @@
+import { levels, registerLoggingStream } from '@aztec/foundation/log';
 import { type TelemetryClient } from '@aztec/telemetry-client';
 import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
+import { OTelPinoStream } from '@aztec/telemetry-client/otel-pino-stream';
 import {
   type TelemetryClientConfig,
   createAndStartTelemetryClient,
   getConfigEnvVars as getTelemetryConfig,
 } from '@aztec/telemetry-client/start';
 
-export function getEndToEndTestTelemetryClient(metricsPort?: number, serviceName?: string): Promise<TelemetryClient> {
-  return !metricsPort
-    ? Promise.resolve(new NoopTelemetryClient())
-    : createAndStartTelemetryClient(getEndToEndTestTelemetryConfig(metricsPort, serviceName));
+let telemetryClient: Promise<TelemetryClient> | undefined;
+export function getEndToEndTestTelemetryClient(metricsPort?: number): Promise<TelemetryClient> {
+  if (!metricsPort) {
+    return Promise.resolve(new NoopTelemetryClient());
+  }
+  if (!telemetryClient) {
+    telemetryClient = createEndToEndTestOtelClient(metricsPort);
+  }
+  return telemetryClient;
+}
+
+function createEndToEndTestOtelClient(metricsPort: number): Promise<TelemetryClient> {
+  const otelStream = new OTelPinoStream({ levels });
+  registerLoggingStream(otelStream);
+  return createAndStartTelemetryClient(getEndToEndTestTelemetryConfig(metricsPort));
 }
 
 /**
@@ -17,7 +30,7 @@ export function getEndToEndTestTelemetryClient(metricsPort?: number, serviceName
  *
  * Read from env vars, override if metricsPort is set
  */
-export function getEndToEndTestTelemetryConfig(metricsPort?: number, serviceName?: string) {
+function getEndToEndTestTelemetryConfig(metricsPort?: number) {
   const telemetryConfig: TelemetryClientConfig = getTelemetryConfig();
   if (metricsPort) {
     telemetryConfig.metricsCollectorUrl = new URL(`http://127.0.0.1:${metricsPort}/v1/metrics`);
@@ -26,9 +39,6 @@ export function getEndToEndTestTelemetryConfig(metricsPort?: number, serviceName
     // Set faster collection and export times for end-to-end tests
     telemetryConfig.otelCollectIntervalMs = 5000;
     telemetryConfig.otelExportTimeoutMs = 2500;
-  }
-  if (serviceName) {
-    telemetryConfig.serviceName = serviceName;
   }
   return telemetryConfig;
 }

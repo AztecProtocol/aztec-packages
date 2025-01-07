@@ -17,8 +17,8 @@ class ClientIVCIntegrationTests : public ::testing::Test {
   protected:
     static void SetUpTestSuite()
     {
-        srs::init_crs_factory("../srs_db/ignition");
-        srs::init_grumpkin_crs_factory("../srs_db/grumpkin");
+        srs::init_crs_factory(bb::srs::get_ignition_crs_path());
+        srs::init_grumpkin_crs_factory(bb::srs::get_grumpkin_crs_path());
     }
 
     using Flavor = ClientIVC::Flavor;
@@ -102,7 +102,7 @@ TEST_F(ClientIVCIntegrationTests, BenchmarkCasePrecomputedVKs)
     for (size_t idx = 0; idx < NUM_CIRCUITS; ++idx) {
         Builder circuit = circuit_producer.create_next_circuit(ivc);
 
-        ivc.accumulate(circuit, precomputed_vks[idx]);
+        ivc.accumulate(circuit, /* one_circuit=*/false, precomputed_vks[idx]);
     }
 
     EXPECT_TRUE(ivc.prove_and_verify());

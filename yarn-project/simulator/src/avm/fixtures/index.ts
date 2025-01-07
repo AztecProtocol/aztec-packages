@@ -1,10 +1,10 @@
-import { type MerkleTreeWriteOperations, isNoirCallStackUnresolved } from '@aztec/circuit-types';
-import { GasFees, GlobalVariables, MAX_L2_GAS_PER_ENQUEUED_CALL } from '@aztec/circuits.js';
+import { TxHash, isNoirCallStackUnresolved } from '@aztec/circuit-types';
+import { GasFees, GlobalVariables, MAX_L2_GAS_PER_TX_PUBLIC_PORTION } from '@aztec/circuits.js';
 import { type FunctionArtifact, FunctionSelector } from '@aztec/foundation/abi';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
-import { AvmTestContractArtifact } from '@aztec/noir-contracts.js';
+import { AvmTestContractArtifact } from '@aztec/noir-contracts.js/AvmTest';
 
 import { strict as assert } from 'assert';
 import { mock } from 'jest-mock-extended';
@@ -16,6 +16,7 @@ import { AvmContext } from '../avm_context.js';
 import { AvmExecutionEnvironment } from '../avm_execution_environment.js';
 import { AvmMachineState } from '../avm_machine_state.js';
 import { Field, Uint8, Uint32, Uint64 } from '../avm_memory_types.js';
+import { type AvmEphemeralForest } from '../avm_tree.js';
 import { type AvmRevertReason } from '../errors.js';
 import { AvmPersistableStateManager } from '../journal/journal.js';
 import { NullifierManager } from '../journal/nullifiers.js';
@@ -43,7 +44,8 @@ export function initPersistableStateManager(overrides?: {
   publicStorage?: PublicStorage;
   nullifiers?: NullifierManager;
   doMerkleOperations?: boolean;
-  merkleTrees?: MerkleTreeWriteOperations;
+  merkleTrees?: AvmEphemeralForest;
+  txHash?: TxHash;
 }): AvmPersistableStateManager {
   const worldStateDB = overrides?.worldStateDB || mock<WorldStateDB>();
   return new AvmPersistableStateManager(
@@ -52,7 +54,8 @@ export function initPersistableStateManager(overrides?: {
     overrides?.publicStorage || new PublicStorage(worldStateDB),
     overrides?.nullifiers || new NullifierManager(worldStateDB),
     overrides?.doMerkleOperations || false,
-    overrides?.merkleTrees || mock<MerkleTreeWriteOperations>(),
+    overrides?.merkleTrees || mock<AvmEphemeralForest>(),
+    overrides?.txHash || new TxHash(new Fr(27)),
   );
 }
 
@@ -63,7 +66,6 @@ export function initExecutionEnvironment(overrides?: Partial<AvmExecutionEnviron
   return new AvmExecutionEnvironment(
     overrides?.address ?? AztecAddress.zero(),
     overrides?.sender ?? AztecAddress.zero(),
-    overrides?.functionSelector ?? FunctionSelector.empty(),
     overrides?.contractCallDepth ?? Fr.zero(),
     overrides?.transactionFee ?? Fr.zero(),
     overrides?.globals ?? GlobalVariables.empty(),
@@ -93,7 +95,7 @@ export function initGlobalVariables(overrides?: Partial<GlobalVariables>): Globa
  */
 export function initMachineState(overrides?: Partial<AvmMachineState>): AvmMachineState {
   return AvmMachineState.fromState({
-    l2GasLeft: overrides?.l2GasLeft ?? MAX_L2_GAS_PER_ENQUEUED_CALL,
+    l2GasLeft: overrides?.l2GasLeft ?? MAX_L2_GAS_PER_TX_PUBLIC_PORTION,
     daGasLeft: overrides?.daGasLeft ?? 1e8,
   });
 }

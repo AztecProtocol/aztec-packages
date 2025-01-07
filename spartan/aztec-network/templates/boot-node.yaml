@@ -11,52 +11,97 @@ spec:
     matchLabels:
       {{- include "aztec-network.selectorLabels" . | nindent 6 }}
       app: boot-node
+  volumeClaimTemplates:
+    - metadata:
+        name: boot-node-data
+      spec:
+        accessModes: [ "ReadWriteOnce" ]
+        resources:
+          requests:
+            storage: {{ .Values.bootNode.storageSize }}
   template:
     metadata:
       labels:
         {{- include "aztec-network.selectorLabels" . | nindent 8 }}
         app: boot-node
     spec:
+      dnsPolicy: ClusterFirstWithHostNet
+      {{- if .Values.network.public }}
+      hostNetwork: true
+      {{- include "aztec-network.publicAntiAffinity" . | nindent 6 }}
+      {{- end }}
+      serviceAccountName: {{ include "aztec-network.fullname" . }}-node
       initContainers:
+        {{- include "aztec-network.p2pSetupContainer" . | nindent 8 }}
+        {{- include "aztec-network.serviceAddressSetupContainer" . | nindent 8 }}
         - name: wait-for-ethereum
-          image: {{ .Values.images.curl.image }}
+          {{- include "aztec-network.image" . | nindent 10 }}
           command:
-            - /bin/sh
+            - /bin/bash
             - -c
             - |
+              source /shared/config/service-addresses
+              cat /shared/config/service-addresses
+              echo "Awaiting ethereum node at ${ETHEREUM_HOST}"
               until curl -s -X POST -H 'Content-Type: application/json' \
-                -d '{"jsonrpc":"2.0","method":"web3_clientVersion","params":[],"id":67}' \
-                {{ include "aztec-network.ethereumHost" . }} | grep -q reth; do
-                echo "Waiting for Ethereum node..."
+                -d '{"jsonrpc":"2.0","method":"eth_chainId","params":[],"id":67}' \
+                ${ETHEREUM_HOST} | grep 0x; do
+                echo "Waiting for Ethereum node ${ETHEREUM_HOST}..."
                 sleep 5
               done
               echo "Ethereum node is ready!"
               {{- if .Values.telemetry.enabled }}
-              until curl --head --silent {{ include "aztec-network.otelCollectorMetricsEndpoint" . }} > /dev/null; do
-                echo "Waiting for OpenTelemetry collector..."
+              until curl --head --silent $OTEL_COLLECTOR_ENDPOINT > /dev/null; do
+                echo "Waiting for OpenTelemetry collector $OTEL_COLLECTOR_ENDPOINT..."
                 sleep 5
               done
               echo "OpenTelemetry collector is ready!"
               {{- end }}
+          volumeMounts:
+            - name: config
+              mountPath: /shared/config
       {{- if .Values.bootNode.deployContracts }}
-        - name: deploy-contracts
-          image: {{ .Values.images.aztec.image }}
+        - name: deploy-create2-deployer
+          image: {{ .Values.images.foundry.image }}
           command:
-            [
-              "/bin/sh",
-              "-c",
-              "cp /scripts/deploy-contracts.sh /tmp/deploy-contracts.sh && chmod +x /tmp/deploy-contracts.sh && /tmp/deploy-contracts.sh {{ .Values.ethereum.chainId }} \"{{ join "," .Values.validator.validatorAddresses }}\""
-            ]
+            - /bin/sh
+            - -c
+            - |
+              source /shared/config/service-addresses
+              if [ "$(cast code --rpc-url ${ETHEREUM_HOST} 0x4e59b44847b379578588920ca78fbf26c0b4956c)" = "0x" ]; then
+                echo "Deploying Deterministic Deployment Proxy"
+                cast publish --rpc-url ${ETHEREUM_HOST} 0xf8a58085174876e800830186a08080b853604580600e600039806000f350fe7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe03601600081602082378035828234f58015156039578182fd5b8082525050506014600cf31ba02222222222222222222222222222222222222222222222222222222222222222a02222222222222222222222222222222222222222222222222222222222222222
+              fi
+          volumeMounts:
+            - name: config
+              mountPath: /shared/config
+        - name: deploy-l1-contracts
+          {{- include "aztec-network.image" . | nindent 10 }}
+          command:
+            - /bin/bash
+            - -c
+            - |
+              cp /scripts/deploy-l1-contracts.sh /tmp/deploy-l1-contracts.sh
+              chmod +x /tmp/deploy-l1-contracts.sh
+              source /shared/config/service-addresses
+
+              /tmp/deploy-l1-contracts.sh "{{ .Values.aztec.l1Salt }}" "{{ .Values.ethereum.chainId }}" "{{ join "," .Values.validator.validatorAddresses }}"
           volumeMounts:
             - name: scripts-output
-              mountPath: /shared
+              mountPath: /shared/contracts
+            - name: config
+              mountPath: /shared/config
             - name: scripts
               mountPath: /scripts
           env:
-            - name: ETHEREUM_HOST
-              value: {{ include "aztec-network.ethereumHost" . | quote }}
+            - name: TELEMETRY
+              value: "{{ .Values.telemetry.enabled }}"
             - name: INIT_VALIDATORS
-              value: {{ not .Values.validator.external | quote }}
+              value: "true"
+            - name: MNEMONIC
+              value: "{{ .Values.aztec.l1DeploymentMnemonic }}"
+            - name: L1_DEPLOYMENT_PRIVATE_KEY
+              value: "{{ .Values.ethereum.deployL1ContractsPrivateKey }}"
             - name: ETHEREUM_SLOT_DURATION
               value: "{{ .Values.ethereum.blockTime }}"
             - name: AZTEC_SLOT_DURATION
@@ -65,17 +110,28 @@ spec:
               value: "{{ .Values.aztec.epochDuration }}"
             - name: AZTEC_EPOCH_PROOF_CLAIM_WINDOW_IN_L2_SLOTS
               value: "{{ .Values.aztec.epochProofClaimWindow }}"
+            - name: K8S_POD_UID
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.uid
+            - name: K8S_POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
       {{- end }}
       containers:
         - name: boot-node
-          image: {{ .Values.images.aztec.image }}
+          {{- include "aztec-network.image" . | nindent 10 }}
           command:
-          # sleep to allow dns name to be resolvable
-            [
-              "/bin/bash",
-              "-c",
-              "sleep 30 && source /shared/contracts.env && env && node --no-warnings /usr/src/yarn-project/aztec/dest/bin/index.js start --node --archiver --sequencer --pxe",
-            ]
+            - /bin/bash
+            - -c
+            - |
+              sleep 30 && \
+              source /shared/contracts/contracts.env && \
+              source /shared/p2p/p2p-addresses && \
+              source /shared/config/service-addresses && \
+              env && \
+              node --no-warnings /usr/src/yarn-project/aztec/dest/bin/index.js start --node --archiver --sequencer --pxe
           startupProbe:
             httpGet:
               path: /status
@@ -91,29 +147,39 @@ spec:
             timeoutSeconds: 30
             failureThreshold: 3
           volumeMounts:
-          {{- if .Values.bootNode.deployContracts }}
+            - name: p2p-addresses
+              mountPath: /shared/p2p
+            - name: config
+              mountPath: /shared/config
+            - name: boot-node-data
+              mountPath: {{ .Values.bootNode.dataDir }}
+            {{- if .Values.bootNode.deployContracts }}
             - name: scripts-output
-              mountPath: /shared
-          {{- else }}
+              mountPath: /shared/contracts
+            {{- else }}
             - name: contracts-env
-              mountPath: /shared/contracts.env
+              mountPath: /shared/contracts/contracts.env
               subPath: contracts.env
-          {{- end }}
+            {{- end }}
           env:
             - name: POD_IP
               valueFrom:
                 fieldRef:
                   fieldPath: status.podIP
-            - name: PORT
+            - name: K8S_POD_UID
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.uid
+            - name: K8S_POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+            - name: AZTEC_PORT
               value: "{{ .Values.bootNode.service.nodePort }}"
             - name: LOG_LEVEL
               value: "{{ .Values.bootNode.logLevel }}"
             - name: LOG_JSON
               value: "1"
-            - name: DEBUG
-              value: "{{ .Values.bootNode.debug }}"
-            - name: ETHEREUM_HOST
-              value: {{ include "aztec-network.ethereumHost" . | quote }}
             - name: P2P_ENABLED
               value: "{{ .Values.bootNode.p2p.enabled }}"
             - name: COINBASE
@@ -126,34 +192,16 @@ spec:
               value: "{{ .Values.bootNode.sequencer.maxSecondsBetweenBlocks }}"
             - name: SEQ_MIN_TX_PER_BLOCK
               value: "{{ .Values.bootNode.sequencer.minTxsPerBlock }}"
-            - name: P2P_TCP_ANNOUNCE_ADDR
-              {{- if .Values.bootNode.externalTcpHost }}
-              value: "{{ .Values.bootNode.externalTcpHost }}:{{ .Values.bootNode.service.p2pTcpPort }}"
-              {{- else }}
-              value: "$(POD_IP):{{ .Values.bootNode.service.p2pTcpPort }}"
-              {{- end }}
-            - name: P2P_UDP_ANNOUNCE_ADDR
-              {{- if .Values.bootNode.externalUdpHost }}
-              value: "{{ .Values.bootNode.externalUdpHost }}:{{ .Values.bootNode.service.p2pUdpPort }}"
-              {{- else }}
-              value: "$(POD_IP):{{ .Values.bootNode.service.p2pUdpPort }}"
-              {{- end }}
-            - name: P2P_TCP_LISTEN_ADDR
-              value: "0.0.0.0:{{ .Values.bootNode.service.p2pTcpPort }}"
-            - name: P2P_UDP_LISTEN_ADDR
-              value: "0.0.0.0:{{ .Values.bootNode.service.p2pUdpPort }}"
             - name: VALIDATOR_PRIVATE_KEY
               value: "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80"
+            - name: SEQ_PUBLISHER_PRIVATE_KEY
+              value: "{{ .Values.bootNode.seqPublisherPrivateKey }}"
             - name: OTEL_RESOURCE_ATTRIBUTES
               value: service.name={{ .Release.Name }},service.namespace={{ .Release.Namespace }},service.version={{ .Chart.AppVersion }},environment={{ .Values.environment | default "production" }}
-            - name: OTEL_EXPORTER_OTLP_METRICS_ENDPOINT
-              value: {{ include "aztec-network.otelCollectorMetricsEndpoint" . | quote }}
-            - name: OTEL_EXPORTER_OTLP_TRACES_ENDPOINT
-              value: {{ include "aztec-network.otelCollectorTracesEndpoint" . | quote }}
-            - name: OTEL_EXPORTER_OTLP_LOGS_ENDPOINT
-              value: {{ include "aztec-network.otelCollectorLogsEndpoint" . | quote }}
             - name: PROVER_REAL_PROOFS
-              value: "{{ .Values.bootNode.realProofs }}"
+              value: "{{ .Values.aztec.realProofs }}"
+            - name: PXE_PROVER_ENABLED
+              value: "{{ .Values.aztec.realProofs }}"
             - name: ETHEREUM_SLOT_DURATION
               value: "{{ .Values.ethereum.blockTime }}"
             - name: AZTEC_SLOT_DURATION
@@ -162,6 +210,16 @@ spec:
               value: "{{ .Values.aztec.epochDuration }}"
             - name: AZTEC_EPOCH_PROOF_CLAIM_WINDOW_IN_L2_SLOTS
               value: "{{ .Values.aztec.epochProofClaimWindow }}"
+            - name: ARCHIVER_POLLING_INTERVAL_MS
+              value: {{ .Values.bootNode.archiverPollingInterval | quote }}
+            - name: ARCHIVER_VIEM_POLLING_INTERVAL_MS
+              value: {{ .Values.bootNode.archiverViemPollingInterval | quote }}
+            - name: L1_READER_VIEM_POLLING_INTERVAL_MS
+              value: {{ .Values.bootNode.archiverViemPollingInterval | quote }}
+            - name: SEQ_VIEM_POLLING_INTERVAL_MS
+              value: {{ .Values.bootNode.viemPollingInterval | quote }}
+            - name: PEER_ID_PRIVATE_KEY
+              value: "{{ .Values.bootNode.peerIdPrivateKey }}"
           ports:
             - containerPort: {{ .Values.bootNode.service.nodePort }}
             - containerPort: {{ .Values.bootNode.service.p2pTcpPort }}
@@ -170,10 +228,17 @@ spec:
           resources:
             {{- toYaml .Values.bootNode.resources | nindent 12 }}
       volumes:
+        - name: p2p-addresses
+          emptyDir: {}
+        - name: config
+          emptyDir: {}
+        - name: boot-node-data
+          persistentVolumeClaim:
+            claimName: boot-node-data
       {{- if .Values.bootNode.deployContracts }}
         - name: scripts
           configMap:
-            name: {{ include "aztec-network.fullname" . }}-deploy-contracts-script
+            name: {{ include "aztec-network.fullname" . }}-scripts
         - name: scripts-output
           emptyDir: {}
       {{- else }}
@@ -181,18 +246,7 @@ spec:
           configMap:
             name: {{ include "aztec-network.fullname" . }}-contracts-env
       {{- end }}
-{{- if .Values.bootNode.deployContracts }}
----
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: {{ include "aztec-network.fullname" . }}-deploy-contracts-script
-  labels:
-    {{- include "aztec-network.labels" . | nindent 4 }}
-data:
-  deploy-contracts.sh: |
-    {{ .Files.Get "files/config/deploy-l1-contracts.sh" | nindent 4 }}
-{{- else }}
+{{- if not .Values.bootNode.deployContracts }}
 ---
 apiVersion: v1
 kind: ConfigMap
@@ -207,6 +261,7 @@ data:
     export INBOX_CONTRACT_ADDRESS={{ .Values.bootNode.contracts.inboxAddress }}
     export OUTBOX_CONTRACT_ADDRESS={{ .Values.bootNode.contracts.outboxAddress }}
     export FEE_JUICE_CONTRACT_ADDRESS={{ .Values.bootNode.contracts.feeJuiceAddress }}
+    export STAKING_ASSET_CONTRACT_ADDRESS={{ .Values.bootNode.contracts.stakingAssetAddress }}
     export FEE_JUICE_PORTAL_CONTRACT_ADDRESS={{ .Values.bootNode.contracts.feeJuicePortalAddress }}
 {{- end }}
 ---
@@ -218,55 +273,24 @@ metadata:
   labels:
     {{- include "aztec-network.labels" . | nindent 4 }}
 spec:
+  # If this is a public network, we want to expose the boot node as a LoadBalancer
+  {{- if .Values.network.public }}
+  type: LoadBalancer
+  {{- else }}
+  type: ClusterIP
   clusterIP: None
+  {{- end }}
   selector:
     {{- include "aztec-network.selectorLabels" . | nindent 4 }}
     app: boot-node
   ports:
+    # External load balancers cannot handle mixed TCP/UDP ports, so we only expose the node port
+    {{- if not .Values.network.public }}
     - port: {{ .Values.bootNode.service.p2pTcpPort }}
       name: p2p-tpc
     - port: {{ .Values.bootNode.service.p2pUdpPort }}
       name: p2p-udp
       protocol: UDP
+    {{- end }}
     - port: {{ .Values.bootNode.service.nodePort }}
       name: node
----
-{{if .Values.network.public }}
-apiVersion: v1
-kind: Service
-metadata:
-  name: boot-node-lb-tcp
-  labels:
-    {{- include "aztec-network.labels" . | nindent 4 }}
-spec:
-  type: LoadBalancer
-  selector:
-    {{- include "aztec-network.selectorLabels" . | nindent 4 }}
-    app: boot-node
-  ports:
-    - port: {{ .Values.bootNode.service.p2pTcpPort }}
-      name: p2p-tpc
-    - port: {{ .Values.bootNode.service.nodePort }}
-      name: node
----
-apiVersion: v1
-kind: Service
-metadata:
-  name: boot-node-lb-udp
-  annotations:
-    service.beta.kubernetes.io/aws-load-balancer-type: "nlb"
-    service.beta.kubernetes.io/aws-load-balancer-nlb-target-type: "ip"
-    service.beta.kubernetes.io/aws-load-balancer-scheme: "internet-facing"
-  labels:
-    {{- include "aztec-network.labels" . | nindent 4 }}
-spec:
-  type: LoadBalancer
-  selector:
-    {{- include "aztec-network.selectorLabels" . | nindent 4 }}
-    app: boot-node
-  ports:
-    - port: {{ .Values.bootNode.service.p2pUdpPort }}
-      name: p2p-udp
-      protocol: UDP
----
-{{ end }}

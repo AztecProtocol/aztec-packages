@@ -1,20 +1,18 @@
+import { DefaultDappInterface } from '@aztec/accounts/dapp';
 import {
-  type AccountWallet,
+  AccountWallet,
   type AztecAddress,
   type FeePaymentMethod,
   Fr,
   type PXE,
   PrivateFeePaymentMethod,
   PublicFeePaymentMethod,
-  SentTx,
 } from '@aztec/aztec.js';
-import { DefaultDappEntrypoint } from '@aztec/entrypoints/dapp';
-import {
-  type AppSubscriptionContract,
-  type TokenContract as BananaCoin,
-  type CounterContract,
-  type FPCContract,
-} from '@aztec/noir-contracts.js';
+import { FEE_FUNDING_FOR_TESTER_ACCOUNT, type GasSettings } from '@aztec/circuits.js';
+import { type AppSubscriptionContract } from '@aztec/noir-contracts.js/AppSubscription';
+import { type CounterContract } from '@aztec/noir-contracts.js/Counter';
+import { type FPCContract } from '@aztec/noir-contracts.js/FPC';
+import { type TokenContract as BananaCoin } from '@aztec/noir-contracts.js/Token';
 
 import { expectMapping, expectMappingDelta } from '../fixtures/utils.js';
 import { FeesTest } from './fees_test.js';
@@ -28,7 +26,6 @@ describe('e2e_fees dapp_subscription', () => {
   let aliceAddress: AztecAddress; // Dapp subscriber.
   let bobAddress: AztecAddress; // Dapp owner.
   let sequencerAddress: AztecAddress;
-  let feeRecipient: AztecAddress; // Account that receives the fees from the fee refund flow.
 
   let bananaCoin: BananaCoin;
   let counterContract: CounterContract;
@@ -40,6 +37,7 @@ describe('e2e_fees dapp_subscription', () => {
   let initialFPCGasBalance: bigint;
   let initialBananasPublicBalances: Balances; // alice, bob, fpc
   let initialBananasPrivateBalances: Balances; // alice, bob, fpc
+  let gasSettings: GasSettings;
 
   const t = new FeesTest('dapp_subscription');
 
@@ -60,9 +58,6 @@ describe('e2e_fees dapp_subscription', () => {
       counterContract,
       pxe,
     } = await t.setup());
-
-    // We like sequencer so we send him the fees.
-    feeRecipient = sequencerAddress;
   });
 
   afterAll(async () => {
@@ -73,7 +68,7 @@ describe('e2e_fees dapp_subscription', () => {
     await expectMapping(
       t.getGasBalanceFn,
       [aliceAddress, sequencerAddress, subscriptionContract.address, bananaFPC.address],
-      [0n, 0n, t.INITIAL_GAS_BALANCE, t.INITIAL_GAS_BALANCE],
+      [0n, 0n, FEE_FUNDING_FOR_TESTER_ACCOUNT, FEE_FUNDING_FOR_TESTER_ACCOUNT],
     );
 
     await expectMapping(
@@ -113,9 +108,7 @@ describe('e2e_fees dapp_subscription', () => {
     the FPC finalizes the partial notes for the fee and the refund
     */
 
-    const { transactionFee } = await subscribe(
-      new PrivateFeePaymentMethod(bananaCoin.address, bananaFPC.address, aliceWallet, feeRecipient),
-    );
+    const { transactionFee } = await subscribe(new PrivateFeePaymentMethod(bananaFPC.address, aliceWallet));
 
     // We let Alice see Bob's notes because the expect uses Alice's wallet to interact with the contracts to "get" state.
     aliceWallet.setScopes([aliceAddress, bobAddress]);
@@ -128,7 +121,7 @@ describe('e2e_fees dapp_subscription', () => {
 
     // alice, bob, fpc
     await expectBananasPrivateDelta(-t.SUBSCRIPTION_AMOUNT - transactionFee!, t.SUBSCRIPTION_AMOUNT, 0n);
-    await expectBananasPublicDelta(0n, 0n, 0n);
+    await expectBananasPublicDelta(0n, 0n, transactionFee!);
 
     // REFUND_AMOUNT is a transparent note note
   });
@@ -145,9 +138,7 @@ describe('e2e_fees dapp_subscription', () => {
     PUBLIC TEARDOWN
     the FPC finalizes the partial notes for the fee and the refund
     */
-    const { transactionFee } = await subscribe(
-      new PublicFeePaymentMethod(bananaCoin.address, bananaFPC.address, aliceWallet),
-    );
+    const { transactionFee } = await subscribe(new PublicFeePaymentMethod(bananaFPC.address, aliceWallet));
 
     await expectMapping(
       t.getGasBalanceFn,
@@ -165,19 +156,18 @@ describe('e2e_fees dapp_subscription', () => {
 
   it('should call dapp subscription entrypoint', async () => {
     // Subscribe again, so this test does not depend on the previous ones being run.
-    await subscribe(new PrivateFeePaymentMethod(bananaCoin.address, bananaFPC.address, aliceWallet, feeRecipient));
+
+    await subscribe(new PrivateFeePaymentMethod(bananaFPC.address, aliceWallet));
 
     expect(await subscriptionContract.methods.is_initialized(aliceAddress).simulate()).toBe(true);
 
-    const dappPayload = new DefaultDappEntrypoint(aliceAddress, aliceWallet, subscriptionContract.address);
-    // Emitting the outgoing logs to Alice below
-    const action = counterContract.methods.increment(bobAddress, aliceAddress).request();
-    const txExReq = await dappPayload.createTxExecutionRequest({ calls: [action] });
-    const txSimulationResult = await pxe.simulateTx(txExReq, true);
-    const txProvingResult = await pxe.proveTx(txExReq, txSimulationResult.privateExecutionResult);
-    const sentTx = new SentTx(pxe, pxe.sendTx(txProvingResult.toTx()));
-    const { transactionFee } = await sentTx.wait();
+    const dappInterface = DefaultDappInterface.createFromUserWallet(aliceWallet, subscriptionContract.address);
+    const counterContractViaDappEntrypoint = counterContract.withWallet(new AccountWallet(pxe, dappInterface));
 
+    const { transactionFee } = await counterContractViaDappEntrypoint.methods
+      .increment(bobAddress, aliceAddress)
+      .send()
+      .wait();
     expect(await counterContract.methods.get_counter(bobAddress).simulate()).toBe(1n);
 
     await expectMapping(
@@ -189,45 +179,36 @@ describe('e2e_fees dapp_subscription', () => {
 
   it('should reject after the sub runs out', async () => {
     // Subscribe again. This will overwrite the previous subscription.
-    await subscribe(new PrivateFeePaymentMethod(bananaCoin.address, bananaFPC.address, aliceWallet, feeRecipient), 0);
+    await subscribe(new PrivateFeePaymentMethod(bananaFPC.address, aliceWallet), 0);
     // TODO(#6651): Change back to /(context.block_number()) as u64 < expiry_block_number as u64/ when fixed
     await expect(dappIncrement()).rejects.toThrow(/Note encrypted logs hash mismatch/);
   });
 
   it('should reject after the txs run out', async () => {
     // Subscribe again. This will overwrite the previous subscription.
-    await subscribe(
-      new PrivateFeePaymentMethod(bananaCoin.address, bananaFPC.address, aliceWallet, feeRecipient),
-      5,
-      1,
-    );
+    await subscribe(new PrivateFeePaymentMethod(bananaFPC.address, aliceWallet), 5, 1);
     await expect(dappIncrement()).resolves.toBeDefined();
     await expect(dappIncrement()).rejects.toThrow(/note.remaining_txs as u64 > 0/);
   });
 
   async function subscribe(paymentMethod: FeePaymentMethod, blockDelta: number = 5, txCount: number = 4) {
     const nonce = Fr.random();
+    // This authwit is made because the subscription recipient is Bob, so we are approving the contract to send funds
+    // to him, on our behalf, as part of the subscription process.
     const action = bananaCoin.methods.transfer_in_private(aliceAddress, bobAddress, t.SUBSCRIPTION_AMOUNT, nonce);
     await aliceWallet.createAuthWit({ caller: subscriptionContract.address, action });
 
     return subscriptionContract
       .withWallet(aliceWallet)
       .methods.subscribe(aliceAddress, nonce, (await pxe.getBlockNumber()) + blockDelta, txCount)
-      .send({ fee: { gasSettings: t.gasSettings, paymentMethod } })
+      .send({ fee: { gasSettings, paymentMethod } })
       .wait();
   }
 
-  async function dappIncrement() {
-    const dappEntrypoint = new DefaultDappEntrypoint(aliceAddress, aliceWallet, subscriptionContract.address);
-    // Emitting the outgoing logs to Alice below
-    const action = counterContract.methods.increment(bobAddress, aliceAddress).request();
-    const txExReq = await dappEntrypoint.createTxExecutionRequest({ calls: [action] });
-    const txSimulationResult = await pxe.simulateTx(txExReq, true);
-    const txProvingResult = await pxe.proveTx(txExReq, txSimulationResult.privateExecutionResult);
-    const tx = txProvingResult.toTx();
-    expect(tx.data.feePayer).toEqual(subscriptionContract.address);
-    const sentTx = new SentTx(pxe, pxe.sendTx(tx));
-    return sentTx.wait();
+  function dappIncrement() {
+    const dappInterface = DefaultDappInterface.createFromUserWallet(aliceWallet, subscriptionContract.address);
+    const counterContractViaDappEntrypoint = counterContract.withWallet(new AccountWallet(pxe, dappInterface));
+    return counterContractViaDappEntrypoint.methods.increment(bobAddress, aliceAddress).send().wait();
   }
 
   const expectBananasPrivateDelta = (aliceAmount: bigint, bobAmount: bigint, fpcAmount: bigint) =>

@@ -10,17 +10,16 @@ use crate::{
 };
 
 pub struct PrivateKernelCircuitPublicInputsArrayLengths {
-    note_hash_read_requests: u32,
-    nullifier_read_requests: u32,
-    scoped_key_validation_requests_and_generators: u32,
-    note_hashes: u32,
-    nullifiers: u32,
-    l2_to_l1_msgs: u32,
-    note_encrypted_logs_hashes: u32,
-    encrypted_logs_hashes: u32,
-    contract_class_logs_hashes: u32,
-    public_call_requests: u32,
-    private_call_stack: u32,
+    pub note_hash_read_requests: u32,
+    pub nullifier_read_requests: u32,
+    pub scoped_key_validation_requests_and_generators: u32,
+    pub note_hashes: u32,
+    pub nullifiers: u32,
+    pub l2_to_l1_msgs: u32,
+    pub private_logs: u32,
+    pub contract_class_logs_hashes: u32,
+    pub public_call_requests: u32,
+    pub private_call_stack: u32,
 }
 
 impl PrivateKernelCircuitPublicInputsArrayLengths {
@@ -38,8 +37,7 @@ impl PrivateKernelCircuitPublicInputsArrayLengths {
             note_hashes: array_length(public_inputs.end.note_hashes),
             nullifiers: array_length(public_inputs.end.nullifiers),
             l2_to_l1_msgs: array_length(public_inputs.end.l2_to_l1_msgs),
-            note_encrypted_logs_hashes: array_length(public_inputs.end.note_encrypted_logs_hashes),
-            encrypted_logs_hashes: array_length(public_inputs.end.encrypted_logs_hashes),
+            private_logs: array_length(public_inputs.end.private_logs),
             contract_class_logs_hashes: array_length(public_inputs.end.contract_class_logs_hashes),
             public_call_requests: array_length(public_inputs.end.public_call_requests),
             private_call_stack: array_length(public_inputs.end.private_call_stack),
@@ -54,8 +52,7 @@ impl PrivateKernelCircuitPublicInputsArrayLengths {
             note_hashes: 0,
             nullifiers: 0,
             l2_to_l1_msgs: 0,
-            note_encrypted_logs_hashes: 0,
-            encrypted_logs_hashes: 0,
+            private_logs: 0,
             contract_class_logs_hashes: 0,
             public_call_requests: 0,
             private_call_stack: 0,
@@ -74,8 +71,7 @@ impl Eq for PrivateKernelCircuitPublicInputsArrayLengths {
             & (self.note_hashes == other.note_hashes)
             & (self.nullifiers == other.nullifiers)
             & (self.l2_to_l1_msgs == other.l2_to_l1_msgs)
-            & (self.note_encrypted_logs_hashes == other.note_encrypted_logs_hashes)
-            & (self.encrypted_logs_hashes == other.encrypted_logs_hashes)
+            & (self.private_logs == other.private_logs)
             & (self.contract_class_logs_hashes == other.contract_class_logs_hashes)
             & (self.public_call_requests == other.public_call_requests)
             & (self.private_call_stack == other.private_call_stack)
@@ -89,6 +85,7 @@ pub struct PrivateKernelCircuitPublicInputs {
     pub end: PrivateAccumulatedData,
     pub public_teardown_call_request: PublicCallRequest,
     pub fee_payer: AztecAddress,
+    pub is_private_only: bool,
 }
 
 impl Serialize<PRIVATE_KERNEL_CIRCUIT_PUBLIC_INPUTS_LENGTH> for PrivateKernelCircuitPublicInputs {
@@ -102,6 +99,7 @@ impl Serialize<PRIVATE_KERNEL_CIRCUIT_PUBLIC_INPUTS_LENGTH> for PrivateKernelCir
         fields.extend_from_array(self.end.serialize());
         fields.extend_from_array(self.public_teardown_call_request.serialize());
         fields.extend_from_array(self.fee_payer.serialize());
+        fields.push(self.is_private_only as Field);
 
         assert_eq(fields.len(), PRIVATE_KERNEL_CIRCUIT_PUBLIC_INPUTS_LENGTH);
 
@@ -121,6 +119,7 @@ impl Deserialize<PRIVATE_KERNEL_CIRCUIT_PUBLIC_INPUTS_LENGTH> for PrivateKernelC
             end: reader.read_struct(PrivateAccumulatedData::deserialize),
             public_teardown_call_request: reader.read_struct(PublicCallRequest::deserialize),
             fee_payer: reader.read_struct(AztecAddress::deserialize),
+            is_private_only: reader.read_bool(),
         };
 
         reader.finish();
@@ -147,6 +146,7 @@ impl Empty for PrivateKernelCircuitPublicInputs {
             end: PrivateAccumulatedData::empty(),
             public_teardown_call_request: PublicCallRequest::empty(),
             fee_payer: AztecAddress::empty(),
+            is_private_only: false,
         }
     }
 }

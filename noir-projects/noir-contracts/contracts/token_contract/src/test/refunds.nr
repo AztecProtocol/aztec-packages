@@ -11,8 +11,8 @@ unconstrained fn setup_refund_success() {
     // Gas used to compute transaction fee
     // TXE oracle uses gas_used = Gas(1,1) when crafting TX
     let txe_expected_gas_used = Gas::new(1, 1);
-    // TXE oracle uses default gas fees
-    let txe_gas_fees = GasFees::default();
+    // TXE oracle uses gas fees of (1, 1)
+    let txe_gas_fees = GasFees::new(1, 1);
     let expected_tx_fee = txe_expected_gas_used.compute_fee(txe_gas_fees);
 
     // Fund account with enough to cover tx fee plus some
@@ -34,7 +34,7 @@ unconstrained fn setup_refund_success() {
     let _ = OracleMock::mock("getRandomField").returns(fee_payer_randomness);
 
     let setup_refund_from_call_interface =
-        Token::at(token_contract_address).setup_refund(fee_payer, user, funded_amount, nonce);
+        Token::at(token_contract_address).setup_refund(user, funded_amount, nonce);
 
     authwit_cheatcodes::add_private_authwit_from_call_interface(
         user,
@@ -71,7 +71,7 @@ unconstrained fn setup_refund_success() {
 
 // This test should be reworked when final support for partial notes is in
 // Once that happens, the expected error message is commented out below
-//#[test(should_fail_with="funded amount not enough to cover tx fee")]
+//#[test(should_fail_with="max fee not enough to cover tx fee")]
 #[test(should_fail_with = "Balance too low")]
 unconstrained fn setup_refund_insufficient_funded_amount() {
     let (env, token_contract_address, owner, recipient, _mint_amount) =
@@ -86,7 +86,7 @@ unconstrained fn setup_refund_insufficient_funded_amount() {
     let nonce = random();
 
     let setup_refund_from_call_interface =
-        Token::at(token_contract_address).setup_refund(fee_payer, user, funded_amount, nonce);
+        Token::at(token_contract_address).setup_refund(user, funded_amount, nonce);
 
     authwit_cheatcodes::add_private_authwit_from_call_interface(
         user,
@@ -96,6 +96,6 @@ unconstrained fn setup_refund_insufficient_funded_amount() {
 
     env.impersonate(fee_payer);
 
-    // The following should fail with "funded amount not enough to cover tx fee" because funded amount is 0
+    // The following should fail with "max fee not enough to cover tx fee" because funded amount is 0
     setup_refund_from_call_interface.call(&mut env.private())
 }

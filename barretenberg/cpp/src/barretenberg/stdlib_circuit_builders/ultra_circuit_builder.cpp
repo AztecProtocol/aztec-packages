@@ -47,9 +47,11 @@ void UltraCircuitBuilder_<ExecutionTrace>::finalize_circuit(const bool ensure_no
             add_gates_to_ensure_all_polys_are_non_zero();
         }
         process_non_native_field_multiplications();
+#ifndef ULTRA_FUZZ
         process_ROM_arrays();
         process_RAM_arrays();
         process_range_lists();
+#endif
         circuit_finalized = true;
     } else {
         // Gates added after first call to finalize will not be processed since finalization is only performed once
@@ -2867,6 +2869,7 @@ template <typename ExecutionTrace> uint256_t UltraCircuitBuilder_<ExecutionTrace
  */
 template <typename ExecutionTrace> msgpack::sbuffer UltraCircuitBuilder_<ExecutionTrace>::export_circuit()
 {
+    this->set_variable_name(this->zero_idx, "zero");
     using base = CircuitBuilderBase<FF>;
     CircuitSchemaInternal<FF> cir;
 
@@ -2954,6 +2957,8 @@ template <typename ExecutionTrace> msgpack::sbuffer UltraCircuitBuilder_<Executi
     for (const auto& list : range_lists) {
         cir.range_tags[list.second.range_tag] = list.first;
     }
+
+    cir.circuit_finalized = this->circuit_finalized;
 
     msgpack::sbuffer buffer;
     msgpack::pack(buffer, cir);

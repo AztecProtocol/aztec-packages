@@ -6,20 +6,23 @@ import {
   type L1ToL2MessageSource,
   type L2Block,
   type L2BlockSource,
-  type MerkleTreeWriteOperations,
+  type P2PClientType,
   type ProverCoordination,
   type ProverNodeApi,
   type Service,
+  type Tx,
   type WorldStateSynchronizer,
   tryStop,
 } from '@aztec/circuit-types';
 import { type ContractDataSource } from '@aztec/circuits.js';
 import { compact } from '@aztec/foundation/collection';
-import { createDebugLogger } from '@aztec/foundation/log';
+import { createLogger } from '@aztec/foundation/log';
+import { DateProvider } from '@aztec/foundation/timer';
 import { type Maybe } from '@aztec/foundation/types';
+import { type P2P } from '@aztec/p2p';
 import { type L1Publisher } from '@aztec/sequencer-client';
 import { PublicProcessorFactory } from '@aztec/simulator';
-import { type TelemetryClient } from '@aztec/telemetry-client';
+import { Attributes, type TelemetryClient, type Traceable, type Tracer, trackSpan } from '@aztec/telemetry-client';
 
 import { type BondManager } from './bond/bond-manager.js';
 import { EpochProvingJob, type EpochProvingJobState } from './job/epoch-proving-job.js';
@@ -32,6 +35,7 @@ import { type QuoteSigner } from './quote-signer.js';
 export type ProverNodeOptions = {
   pollingIntervalMs: number;
   maxPendingJobs: number;
+  maxParallelBlocksPerEpoch: number;
 };
 
 /**
@@ -40,13 +44,17 @@ export type ProverNodeOptions = {
  * from a tx source in the p2p network or an external node, re-executes their public functions, creates a rollup
  * proof for the epoch, and submits it to L1.
  */
-export class ProverNode implements ClaimsMonitorHandler, EpochMonitorHandler, ProverNodeApi {
-  private log = createDebugLogger('aztec:prover-node');
+export class ProverNode implements ClaimsMonitorHandler, EpochMonitorHandler, ProverNodeApi, Traceable {
+  private log = createLogger('prover-node');
+  private dateProvider = new DateProvider();
 
   private latestEpochWeAreProving: bigint | undefined;
   private jobs: Map<string, EpochProvingJob> = new Map();
+  private cachedEpochData: { epochNumber: bigint; blocks: L2Block[]; txs: Tx[] } | undefined = undefined;
   private options: ProverNodeOptions;
   private metrics: ProverNodeMetrics;
+
+  public readonly tracer: Tracer;
 
   constructor(
     private readonly prover: EpochProverManager,
@@ -67,15 +75,31 @@ export class ProverNode implements ClaimsMonitorHandler, EpochMonitorHandler, Pr
     this.options = {
       pollingIntervalMs: 1_000,
       maxPendingJobs: 100,
+      maxParallelBlocksPerEpoch: 32,
       ...compact(options),
     };
 
     this.metrics = new ProverNodeMetrics(telemetryClient, 'ProverNode');
+    this.tracer = telemetryClient.getTracer('ProverNode');
+  }
+
+  public getP2P() {
+    const asP2PClient = this.coordination as P2P<P2PClientType.Prover>;
+    if (typeof asP2PClient.isP2PClient === 'function' && asP2PClient.isP2PClient()) {
+      return asP2PClient;
+    }
+    return undefined;
   }
 
   async handleClaim(proofClaim: EpochProofClaim): Promise<void> {
     if (proofClaim.epochToProve === this.latestEpochWeAreProving) {
       this.log.verbose(`Already proving claim for epoch ${proofClaim.epochToProve}`);
+      return;
+    }
+
+    const provenEpoch = await this.l2BlockSource.getProvenL2EpochNumber();
+    if (provenEpoch !== undefined && proofClaim.epochToProve <= provenEpoch) {
+      this.log.verbose(`Claim for epoch ${proofClaim.epochToProve} is already proven`);
       return;
     }
 
@@ -103,12 +127,8 @@ export class ProverNode implements ClaimsMonitorHandler, EpochMonitorHandler, Pr
     try {
       const claim = await this.publisher.getProofClaim();
       if (!claim || claim.epochToProve < epochNumber) {
+        this.log.verbose(`Handling epoch ${epochNumber} completed as initial sync`);
         await this.handleEpochCompleted(epochNumber);
-      } else if (claim && claim.bondProvider.equals(this.publisher.getSenderAddress())) {
-        const lastEpochProven = await this.l2BlockSource.getProvenL2EpochNumber();
-        if (lastEpochProven === undefined || lastEpochProven < claim.epochToProve) {
-          await this.handleClaim(claim);
-        }
       }
     } catch (err) {
       this.log.error(`Error handling initial epoch sync`, err);
@@ -121,11 +141,15 @@ export class ProverNode implements ClaimsMonitorHandler, EpochMonitorHandler, Pr
    */
   async handleEpochCompleted(epochNumber: bigint): Promise<void> {
     try {
+      // Gather data for the epoch
+      const epochData = await this.gatherEpochData(epochNumber);
+      const { blocks } = epochData;
+      this.cachedEpochData = { epochNumber, ...epochData };
+
       // Construct a quote for the epoch
-      const blocks = await this.l2BlockSource.getBlocksForEpoch(epochNumber);
       const partialQuote = await this.quoteProvider.getQuote(Number(epochNumber), blocks);
       if (!partialQuote) {
-        this.log.verbose(`No quote produced for epoch ${epochNumber}`);
+        this.log.info(`No quote produced for epoch ${epochNumber}`);
         return;
       }
 
@@ -142,7 +166,11 @@ export class ProverNode implements ClaimsMonitorHandler, EpochMonitorHandler, Pr
       const signed = await this.quoteSigner.sign(quote);
 
       // Send it to the coordinator
-      await this.sendEpochProofQuote(signed);
+      this.log.info(
+        `Sending quote for epoch ${epochNumber} with blocks ${blocks[0].number} to ${blocks.at(-1)!.number}`,
+        quote.toViemArgs(),
+      );
+      await this.doSendEpochProofQuote(signed);
     } catch (err) {
       this.log.error(`Error handling epoch completed`, err);
     }
@@ -177,11 +205,13 @@ export class ProverNode implements ClaimsMonitorHandler, EpochMonitorHandler, Pr
     this.log.info('Stopped ProverNode');
   }
 
-  /**
-   * Sends an epoch proof quote to the coordinator.
-   */
+  /** Sends an epoch proof quote to the coordinator. */
   public sendEpochProofQuote(quote: EpochProofQuote): Promise<void> {
     this.log.info(`Sending quote for epoch`, quote.toViemArgs().quote);
+    return this.doSendEpochProofQuote(quote);
+  }
+
+  private doSendEpochProofQuote(quote: EpochProofQuote) {
     return this.coordination.addEpochProofQuote(quote);
   }
 
@@ -220,61 +250,95 @@ export class ProverNode implements ClaimsMonitorHandler, EpochMonitorHandler, Pr
     return maxPendingJobs === 0 || this.jobs.size < maxPendingJobs;
   }
 
+  @trackSpan('ProverNode.createProvingJob', epochNumber => ({ [Attributes.EPOCH_NUMBER]: Number(epochNumber) }))
   private async createProvingJob(epochNumber: bigint) {
     if (!this.checkMaximumPendingJobs()) {
       throw new Error(`Maximum pending proving jobs ${this.options.maxPendingJobs} reached. Cannot create new job.`);
     }
 
     // Gather blocks for this epoch
-    const blocks = await this.l2BlockSource.getBlocksForEpoch(epochNumber);
-    if (blocks.length === 0) {
-      throw new Error(`No blocks found for epoch ${epochNumber}`);
-    }
+    const cachedEpochData = this.cachedEpochData?.epochNumber === epochNumber ? this.cachedEpochData : undefined;
+    const { blocks, txs } = cachedEpochData ?? (await this.gatherEpochData(epochNumber));
+
     const fromBlock = blocks[0].number;
     const toBlock = blocks.at(-1)!.number;
 
     // Fast forward world state to right before the target block and get a fork
     this.log.verbose(`Creating proving job for epoch ${epochNumber} for block range ${fromBlock} to ${toBlock}`);
     await this.worldState.syncImmediate(fromBlock - 1);
-    // NB: separated the dbs as both a block builder and public processor need to track and update tree state
-    // see public_processor.ts for context
-    const publicDb = await this.worldState.fork(fromBlock - 1);
-    const proverDb = await this.worldState.fork(fromBlock - 1);
 
     // Create a processor using the forked world state
-    const publicProcessorFactory = new PublicProcessorFactory(this.contractDataSource, this.telemetryClient);
+    const publicProcessorFactory = new PublicProcessorFactory(
+      this.contractDataSource,
+      this.dateProvider,
+      this.telemetryClient,
+    );
 
-    const cleanUp = async () => {
-      await publicDb.close();
-      await proverDb.close();
+    const cleanUp = () => {
       this.jobs.delete(job.getId());
+      return Promise.resolve();
     };
 
-    const job = this.doCreateEpochProvingJob(epochNumber, blocks, publicDb, proverDb, publicProcessorFactory, cleanUp);
+    const job = this.doCreateEpochProvingJob(epochNumber, blocks, txs, publicProcessorFactory, cleanUp);
     this.jobs.set(job.getId(), job);
     return job;
+  }
+
+  @trackSpan('ProverNode.gatherEpochData', epochNumber => ({ [Attributes.EPOCH_NUMBER]: Number(epochNumber) }))
+  private async gatherEpochData(epochNumber: bigint) {
+    // Gather blocks for this epoch and their txs
+    const blocks = await this.gatherBlocks(epochNumber);
+    const txs = await this.gatherTxs(epochNumber, blocks);
+
+    return { blocks, txs };
+  }
+
+  private async gatherBlocks(epochNumber: bigint) {
+    const blocks = await this.l2BlockSource.getBlocksForEpoch(epochNumber);
+    if (blocks.length === 0) {
+      throw new Error(`No blocks found for epoch ${epochNumber}`);
+    }
+    return blocks;
+  }
+
+  private async gatherTxs(epochNumber: bigint, blocks: L2Block[]) {
+    const txs = await Promise.all(
+      blocks.flatMap(block =>
+        block.body.txEffects
+          .map(tx => tx.txHash)
+          .map(txHash => this.coordination.getTxByHash(txHash).then(tx => [block.number, txHash, tx] as const)),
+      ),
+    );
+
+    const notFound = txs.filter(([_blockNum, _txHash, tx]) => !tx);
+    if (notFound.length) {
+      const notFoundList = notFound.map(([blockNum, txHash]) => `${txHash.toString()} (block ${blockNum})`).join(', ');
+      throw new Error(`Txs not found for epoch ${epochNumber}: ${notFoundList}`);
+    }
+
+    return txs.map(([_blockNumber, _txHash, tx]) => tx!);
   }
 
   /** Extracted for testing purposes. */
   protected doCreateEpochProvingJob(
     epochNumber: bigint,
     blocks: L2Block[],
-    publicDb: MerkleTreeWriteOperations,
-    proverDb: MerkleTreeWriteOperations,
+    txs: Tx[],
     publicProcessorFactory: PublicProcessorFactory,
     cleanUp: () => Promise<void>,
   ) {
     return new EpochProvingJob(
-      publicDb,
+      this.worldState,
       epochNumber,
       blocks,
-      this.prover.createEpochProver(proverDb),
+      txs,
+      this.prover.createEpochProver(),
       publicProcessorFactory,
       this.publisher,
       this.l2BlockSource,
       this.l1ToL2MessageSource,
-      this.coordination,
       this.metrics,
+      { parallelBlockLimit: this.options.maxParallelBlocksPerEpoch },
       cleanUp,
     );
   }

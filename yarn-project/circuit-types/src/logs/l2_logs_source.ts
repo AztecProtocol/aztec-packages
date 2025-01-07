@@ -1,26 +1,19 @@
-import { type Fr } from '@aztec/circuits.js';
+import { type Fr, type PrivateLog } from '@aztec/circuits.js';
 
 import { type GetUnencryptedLogsResponse, type TxScopedL2Log } from './get_logs_response.js';
-import { type L2BlockL2Logs } from './l2_block_l2_logs.js';
 import { type LogFilter } from './log_filter.js';
-import { type FromLogType, type LogType } from './log_type.js';
 
 /**
  * Interface of classes allowing for the retrieval of logs.
  */
 export interface L2LogsSource {
   /**
-   * Gets up to `limit` amount of logs starting from `from`.
-   * @param from - Number of the L2 block to which corresponds the first logs to be returned.
-   * @param limit - The maximum number of logs to return.
-   * @param logType - Specifies whether to return encrypted or unencrypted logs.
-   * @returns The requested logs.
+   * Retrieves all private logs from up to `limit` blocks, starting from the block number `from`.
+   * @param from - The block number from which to begin retrieving logs.
+   * @param limit - The maximum number of blocks to retrieve logs from.
+   * @returns An array of private logs from the specified range of blocks.
    */
-  getLogs<TLogType extends LogType>(
-    from: number,
-    limit: number,
-    logType: TLogType,
-  ): Promise<L2BlockL2Logs<FromLogType<TLogType>>[]>;
+  getPrivateLogs(from: number, limit: number): Promise<PrivateLog[]>;
 
   /**
    * Gets all logs that match any of the received tags (i.e. logs with their first field equal to a tag).

@@ -16,7 +16,7 @@ use super::brillig_directive;
 use crate::{
     brillig::brillig_ir::artifact::GeneratedBrillig,
     errors::{InternalError, RuntimeError, SsaReport},
-    ssa::ir::dfg::CallStack,
+    ssa::ir::call_stack::CallStack,
     ErrorType,
 };
 
@@ -225,19 +225,6 @@ impl<F: AcirField> GeneratedAcir<F> {
                 inputs: inputs[0].clone(),
                 outputs: outputs.try_into().expect("Compiler should generate correct size outputs"),
             },
-            BlackBoxFunc::SchnorrVerify => {
-                BlackBoxFuncCall::SchnorrVerify {
-                    public_key_x: inputs[0][0],
-                    public_key_y: inputs[1][0],
-                    // Schnorr signature is an r & s, 32 bytes each
-                    signature: inputs[2]
-                        .clone()
-                        .try_into()
-                        .expect("Compiler should generate correct size inputs"),
-                    message: inputs[3].clone(),
-                    output: outputs[0],
-                }
-            }
             BlackBoxFunc::EcdsaSecp256k1 => {
                 BlackBoxFuncCall::EcdsaSecp256k1 {
                     // 32 bytes for each public key co-ordinate
@@ -510,7 +497,7 @@ impl<F: AcirField> GeneratedAcir<F> {
     /// This implies that either `y` or `t` or both is `0`.
     /// - If `t == 0`, then by definition `t == 0`.
     /// - If `y == 0`, this does not mean anything at this point in time, due to it having no
-    /// constraints.
+    ///   constraints.
     ///
     /// Naively, we could apply the following constraint: `y == 1 - t`.
     /// This along with the previous `y * t == 0` constraint means that
@@ -617,7 +604,7 @@ impl<F: AcirField> GeneratedAcir<F> {
     ) {
         // Check whether we have a call to this Brillig function already exists.
         // This helps us optimize the Brillig metadata to only be stored once per Brillig entry point.
-        let inserted_func_before = self.brillig_locations.get(&brillig_function_index).is_some();
+        let inserted_func_before = self.brillig_locations.contains_key(&brillig_function_index);
 
         let opcode =
             AcirOpcode::BrilligCall { id: brillig_function_index, inputs, outputs, predicate };
@@ -715,9 +702,7 @@ fn black_box_func_expected_input_size(name: BlackBoxFunc) -> Option<usize> {
 
         // Signature verification algorithms will take in a variable
         // number of inputs, since the message/hashed-message can vary in size.
-        BlackBoxFunc::SchnorrVerify
-        | BlackBoxFunc::EcdsaSecp256k1
-        | BlackBoxFunc::EcdsaSecp256r1 => None,
+        BlackBoxFunc::EcdsaSecp256k1 | BlackBoxFunc::EcdsaSecp256r1 => None,
 
         // Inputs for multi scalar multiplication is an arbitrary number of [point, scalar] pairs.
         BlackBoxFunc::MultiScalarMul => None,
@@ -762,9 +747,7 @@ fn black_box_expected_output_size(name: BlackBoxFunc) -> Option<usize> {
         BlackBoxFunc::RANGE => Some(0),
 
         // Signature verification algorithms will return a boolean
-        BlackBoxFunc::SchnorrVerify
-        | BlackBoxFunc::EcdsaSecp256k1
-        | BlackBoxFunc::EcdsaSecp256r1 => Some(1),
+        BlackBoxFunc::EcdsaSecp256k1 | BlackBoxFunc::EcdsaSecp256r1 => Some(1),
 
         // Output of operations over the embedded curve
         // will be 2 field elements representing the point.

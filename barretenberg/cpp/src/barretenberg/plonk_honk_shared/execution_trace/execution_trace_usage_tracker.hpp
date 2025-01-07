@@ -22,6 +22,7 @@ struct ExecutionTraceUsageTracker {
     MegaTraceFixedBlockSizes fixed_sizes; // fixed size of each block prescribed by structuring
     // Store active ranges based on the most current accumulator and those based on all but the most recently
     // accumulated circuit. The former is needed for the combiner calculation and the latter for the perturbator.
+    // The ranges cover all areas in the trace where relations have nontrivial values.
     std::vector<Range> active_ranges;
     std::vector<Range> previous_active_ranges;
 
@@ -30,6 +31,22 @@ struct ExecutionTraceUsageTracker {
     // Max sizes of the "tables" for databus and conventional lookups (distinct from the sizes of their gate blocks)
     size_t max_databus_size = 0;
     size_t max_tables_size = 0;
+
+    // For printing only. Must match the order of the members in the arithmetization
+
+    static constexpr std::array<std::string_view, 13> block_labels{ "ecc_op",
+                                                                    "busread",
+                                                                    "lookup",
+                                                                    "pub_inputs",
+                                                                    "arithmetic",
+                                                                    "delta_range",
+                                                                    "elliptic",
+                                                                    "aux",
+                                                                    "poseidon2_external",
+                                                                    "poseidon2_internal",
+                                                                    "overflow",
+                                                                    "databus_table_data",
+                                                                    "lookup_table_data" };
 
     TraceSettings trace_settings;
 
@@ -72,17 +89,18 @@ struct ExecutionTraceUsageTracker {
         }
 
         // The active ranges must also include the rows where the actual databus and lookup table data are stored.
-        // (Note: lookup tables are constructed at the end of the trace; databus data is constructed at the start).
-        size_t dyadic_circuit_size = fixed_sizes.get_structured_dyadic_size();
+        // (Note: lookup tables are constructed from the beginning of the lookup block ; databus data is constructed at
+        // the start of the trace).
 
         // TODO(https://github.com/AztecProtocol/barretenberg/issues/1152): should be able to use simply Range{ 0,
-        // max_databus_size } but this breaks for certain choices of num_threads.
+        // max_databus_size } but this breaks for certain choices of num_threads. It should also be possible to have the
+        // lookup table data be Range{lookup_start, max_tables_size} but that also breaks.
         size_t databus_end =
             std::max(max_databus_size, static_cast<size_t>(fixed_sizes.busread.trace_offset + max_sizes.busread));
         active_ranges.push_back(Range{ 0, databus_end });
-        size_t lookups_start =
-            std::min(dyadic_circuit_size - max_tables_size, static_cast<size_t>(fixed_sizes.lookup.trace_offset));
-        active_ranges.push_back(Range{ lookups_start, dyadic_circuit_size });
+        size_t lookups_start = fixed_sizes.lookup.trace_offset;
+        size_t lookups_end = lookups_start + std::max(max_tables_size, static_cast<size_t>(max_sizes.lookup));
+        active_ranges.emplace_back(Range{ lookups_start, lookups_end });
     }
 
     // Check whether an index is contained within the active ranges (or previous active ranges; needed for perturbator)
@@ -98,24 +116,13 @@ struct ExecutionTraceUsageTracker {
         });
     }
 
-    // For printing only. Must match the order of the members in the arithmetization
-    std::vector<std::string> block_labels{ "ecc_op",
-                                           "pub_inputs",
-                                           "busread",
-                                           "arithmetic",
-                                           "delta_range",
-                                           "elliptic",
-                                           "aux",
-                                           "poseidon2_external",
-                                           "poseidon2_internal",
-                                           "lookup",
-                                           "overflow" };
-
     void print()
     {
         info("Minimum required block sizes for structured trace: ");
-        for (auto [label, max_size] : zip_view(block_labels, max_sizes.get())) {
-            std::cout << std::left << std::setw(20) << (label + ":") << max_size << std::endl;
+        size_t idx = 0;
+        for (auto max_size : max_sizes.get()) {
+            std::cout << std::left << std::setw(20) << block_labels[idx] << ": " << max_size << std::endl;
+            idx++;
         }
         info("");
     }
@@ -124,8 +131,18 @@ struct ExecutionTraceUsageTracker {
     {
         info("Active regions of accumulator: ");
         for (auto [label, range] : zip_view(block_labels, active_ranges)) {
-            std::cout << std::left << std::setw(20) << (label + ":") << "(" << range.first << ", " << range.second
-                      << ")" << std::endl;
+            std::cout << std::left << std::setw(20) << label << ": (" << range.first << ", " << range.second << ")"
+                      << std::endl;
+        }
+        info("");
+    }
+
+    void print_previous_active_ranges()
+    {
+        info("Active regions of previous accumulator: ");
+        for (auto [label, range] : zip_view(block_labels, previous_active_ranges)) {
+            std::cout << std::left << std::setw(20) << label << ": (" << range.first << ", " << range.second << ")"
+                      << std::endl;
         }
         info("");
     }

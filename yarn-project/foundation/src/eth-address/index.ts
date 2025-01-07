@@ -3,8 +3,10 @@ import { inspect } from 'util';
 import { keccak256String } from '../crypto/keccak/index.js';
 import { randomBytes } from '../crypto/random/index.js';
 import { Fr } from '../fields/index.js';
+import { hexSchemaFor } from '../schemas/utils.js';
 import { BufferReader, FieldReader } from '../serialize/index.js';
 import { TypeRegistry } from '../serialize/type_registry.js';
+import { bufferToHex } from '../string/index.js';
 
 /**
  * Represents an Ethereum address as a 20-byte buffer and provides various utility methods
@@ -154,7 +156,7 @@ export class EthAddress {
    * @returns A hex-encoded string representation of the Ethereum address.
    */
   public toString() {
-    return `0x${this.buffer.toString('hex')}` as `0x${string}`;
+    return bufferToHex(this.buffer);
   }
 
   [inspect.custom]() {
@@ -226,19 +228,12 @@ export class EthAddress {
     return new EthAddress(reader.readBytes(EthAddress.SIZE_IN_BYTES));
   }
 
-  /**
-   * Friendly representation for debugging purposes.
-   * @returns A hex string representing the address.
-   */
-  toFriendlyJSON() {
+  toJSON() {
     return this.toString();
   }
 
-  toJSON() {
-    return {
-      type: 'EthAddress',
-      value: this.toString(),
-    };
+  static get schema() {
+    return hexSchemaFor(EthAddress, EthAddress.isAddress);
   }
 }
 

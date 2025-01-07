@@ -6,12 +6,10 @@ import {
   type IncomingNotesFilter,
   type L2Block,
   type LogFilter,
-  type OutgoingNotesFilter,
   type PXE,
   type PXEInfo,
   type PrivateExecutionResult,
   type SiblingPath,
-  type SyncStatus,
   type Tx,
   type TxExecutionRequest,
   type TxHash,
@@ -26,6 +24,7 @@ import {
   type ContractClassWithId,
   type ContractInstanceWithAddress,
   type Fr,
+  type GasFees,
   type L1_TO_L2_MSG_TREE_HEIGHT,
   type NodeInfo,
   type PartialAddress,
@@ -42,6 +41,8 @@ import { type IntentAction, type IntentInnerHash } from '../utils/authwit.js';
  */
 export abstract class BaseWallet implements Wallet {
   constructor(protected readonly pxe: PXE, private scopes?: AztecAddress[]) {}
+
+  abstract isL1ToL2MessageSynced(l1ToL2Message: Fr): Promise<boolean>;
 
   abstract getCompleteAddress(): CompleteAddress;
 
@@ -82,17 +83,14 @@ export abstract class BaseWallet implements Wallet {
   getRegisteredAccounts(): Promise<CompleteAddress[]> {
     return this.pxe.getRegisteredAccounts();
   }
-  getRegisteredAccount(address: AztecAddress): Promise<CompleteAddress | undefined> {
-    return this.pxe.getRegisteredAccount(address);
+  registerSender(address: AztecAddress): Promise<AztecAddress> {
+    return this.pxe.registerSender(address);
   }
-  registerContact(address: AztecAddress): Promise<AztecAddress> {
-    return this.pxe.registerContact(address);
+  getSenders(): Promise<AztecAddress[]> {
+    return this.pxe.getSenders();
   }
-  getContacts(): Promise<AztecAddress[]> {
-    return this.pxe.getContacts();
-  }
-  async removeContact(address: AztecAddress): Promise<void> {
-    await this.pxe.removeContact(address);
+  async removeSender(address: AztecAddress): Promise<void> {
+    await this.pxe.removeSender(address);
   }
   registerContract(contract: {
     /** Instance */ instance: ContractInstanceWithAddress;
@@ -114,9 +112,18 @@ export abstract class BaseWallet implements Wallet {
     simulatePublic: boolean,
     msgSender?: AztecAddress,
     skipTxValidation?: boolean,
+    enforceFeePayment?: boolean,
     profile?: boolean,
   ): Promise<TxSimulationResult> {
-    return this.pxe.simulateTx(txRequest, simulatePublic, msgSender, skipTxValidation, profile, this.scopes);
+    return this.pxe.simulateTx(
+      txRequest,
+      simulatePublic,
+      msgSender,
+      skipTxValidation,
+      enforceFeePayment,
+      profile,
+      this.scopes,
+    );
   }
   sendTx(tx: Tx): Promise<TxHash> {
     return this.pxe.sendTx(tx);
@@ -130,9 +137,6 @@ export abstract class BaseWallet implements Wallet {
   getIncomingNotes(filter: IncomingNotesFilter): Promise<UniqueNote[]> {
     return this.pxe.getIncomingNotes(filter);
   }
-  getOutgoingNotes(filter: OutgoingNotesFilter): Promise<UniqueNote[]> {
-    return this.pxe.getOutgoingNotes(filter);
-  }
   getPublicStorageAt(contract: AztecAddress, storageSlot: Fr): Promise<any> {
     return this.pxe.getPublicStorageAt(contract, storageSlot);
   }
@@ -144,6 +148,9 @@ export abstract class BaseWallet implements Wallet {
   }
   getBlock(number: number): Promise<L2Block | undefined> {
     return this.pxe.getBlock(number);
+  }
+  getCurrentBaseFees(): Promise<GasFees> {
+    return this.pxe.getCurrentBaseFees();
   }
   simulateUnconstrained(
     functionName: string,
@@ -168,12 +175,6 @@ export abstract class BaseWallet implements Wallet {
   getNodeInfo(): Promise<NodeInfo> {
     return this.pxe.getNodeInfo();
   }
-  isGlobalStateSynchronized() {
-    return this.pxe.isGlobalStateSynchronized();
-  }
-  getSyncStatus(): Promise<SyncStatus> {
-    return this.pxe.getSyncStatus();
-  }
   addAuthWitness(authWitness: AuthWitness) {
     return this.pxe.addAuthWitness(authWitness);
   }
@@ -196,10 +197,7 @@ export abstract class BaseWallet implements Wallet {
     event: EventMetadataDefinition,
     from: number,
     limit: number,
-    vpks: Point[] = [
-      this.getCompleteAddress().publicKeys.masterIncomingViewingPublicKey,
-      this.getCompleteAddress().publicKeys.masterOutgoingViewingPublicKey,
-    ],
+    vpks: Point[] = [this.getCompleteAddress().publicKeys.masterIncomingViewingPublicKey],
   ): Promise<T[]> {
     return this.pxe.getEncryptedEvents(event, from, limit, vpks);
   }

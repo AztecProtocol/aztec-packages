@@ -3,7 +3,7 @@ import { AztecAddress, Fr, Point, type PublicKey } from '@aztec/circuits.js';
 import { NoteSelector } from '@aztec/foundation/abi';
 import { toBigIntBE } from '@aztec/foundation/bigint-buffer';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
-import { type NoteData } from '@aztec/simulator';
+import { type NoteData } from '@aztec/simulator/acvm';
 
 import { type NoteInfo } from '../note_decryption_utils/index.js';
 
@@ -76,9 +76,9 @@ export class IncomingNoteDao implements NoteData {
       this.contractAddress,
       this.storageSlot,
       this.noteTypeId,
-      this.txHash.buffer,
+      this.txHash,
       this.l2BlockNumber,
-      Fr.fromString(this.l2BlockHash),
+      Fr.fromHexString(this.l2BlockHash),
       this.nonce,
       this.noteHash,
       this.siloedNullifier,

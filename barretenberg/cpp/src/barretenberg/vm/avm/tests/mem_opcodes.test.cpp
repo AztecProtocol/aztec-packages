@@ -1,6 +1,7 @@
 #include "barretenberg/vm/avm/tests/helpers.test.hpp"
 #include "barretenberg/vm/avm/trace/common.hpp"
 #include "barretenberg/vm/avm/trace/mem_trace.hpp"
+#include "barretenberg/vm/avm/trace/public_inputs.hpp"
 #include "common.test.hpp"
 #include "gtest/gtest.h"
 #include <cstddef>
@@ -21,10 +22,10 @@ class AvmMemOpcodeTests : public ::testing::Test {
         , trace_builder(
               AvmTraceBuilder(public_inputs).set_full_precomputed_tables(false).set_range_check_required(false))
     {
-        srs::init_crs_factory("../srs_db/ignition");
+        srs::init_crs_factory(bb::srs::get_ignition_crs_path());
     }
 
-    VmPublicInputsNT public_inputs;
+    AvmPublicInputs public_inputs;
     AvmTraceBuilder trace_builder;
 
   protected:
@@ -228,7 +229,7 @@ TEST_F(AvmMemOpcodeTests, uninitializedValueMov)
 
 TEST_F(AvmMemOpcodeTests, indUninitializedValueMov)
 {
-    // TODO(#9131): Re-enable once we have error handling on wrong address resolution
+    // TODO(#9995): Re-enable once we have error handling on wrong address resolution
     GTEST_SKIP();
 
     trace_builder.op_set(0, 1, 3, AvmMemoryTag::U32);
@@ -244,7 +245,7 @@ TEST_F(AvmMemOpcodeTests, indUninitializedValueMov)
 
 TEST_F(AvmMemOpcodeTests, indUninitializedAddrMov)
 {
-    // TODO(#9131): Re-enable once we have error handling on wrong address resolution
+    // TODO(#9995): Re-enable once we have error handling on wrong address resolution
     GTEST_SKIP();
 
     trace_builder.op_set(0, 1, 3, AvmMemoryTag::U32);
@@ -268,7 +269,7 @@ TEST_F(AvmMemOpcodeTests, indirectMov)
 
 TEST_F(AvmMemOpcodeTests, indirectMovInvalidAddressTag)
 {
-    // TODO(#9131): Re-enable once we have error handling on wrong address resolution
+    // TODO(#9995): Re-enable once we have error handling on wrong address resolution
     GTEST_SKIP();
 
     trace_builder.op_set(0, 15, 100, AvmMemoryTag::U32);
@@ -369,7 +370,7 @@ TEST_F(AvmMemOpcodeTests, indirectSet)
 
 TEST_F(AvmMemOpcodeTests, indirectSetWrongTag)
 {
-    // TODO(#9131): Re-enable once we have error handling on wrong address resolution
+    // TODO(#9995): Re-enable once we have error handling on wrong address resolution
     GTEST_SKIP();
 
     trace_builder.op_set(0, 100, 10, AvmMemoryTag::U8);   // The address 100 has incorrect tag U8.

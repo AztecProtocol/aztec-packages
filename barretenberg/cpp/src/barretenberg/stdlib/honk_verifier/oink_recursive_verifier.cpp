@@ -5,6 +5,7 @@
 #include "barretenberg/stdlib_circuit_builders/mega_recursive_flavor.hpp"
 #include "barretenberg/stdlib_circuit_builders/mega_zk_recursive_flavor.hpp"
 #include "barretenberg/stdlib_circuit_builders/ultra_recursive_flavor.hpp"
+#include "barretenberg/stdlib_circuit_builders/ultra_rollup_recursive_flavor.hpp"
 #include <utility>
 
 namespace bb::stdlib::recursion::honk {
@@ -136,4 +137,5 @@ template class OinkRecursiveVerifier_<bb::MegaZKRecursiveFlavor_<MegaCircuitBuil
 template class OinkRecursiveVerifier_<bb::MegaZKRecursiveFlavor_<UltraCircuitBuilder>>;
 template class OinkRecursiveVerifier_<bb::UltraRecursiveFlavor_<CircuitSimulatorBN254>>;
 template class OinkRecursiveVerifier_<bb::MegaRecursiveFlavor_<CircuitSimulatorBN254>>;
+template class OinkRecursiveVerifier_<bb::UltraRollupRecursiveFlavor_<UltraCircuitBuilder>>;
 } // namespace bb::stdlib::recursion::honk

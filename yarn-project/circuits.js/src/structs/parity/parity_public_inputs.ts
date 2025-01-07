@@ -1,6 +1,7 @@
 import { Fr } from '@aztec/foundation/fields';
-import { hexSchemaFor } from '@aztec/foundation/schemas';
+import { bufferSchemaFor } from '@aztec/foundation/schemas';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
+import { bufferToHex, hexToBuffer } from '@aztec/foundation/string';
 import { type FieldsOf } from '@aztec/foundation/types';
 
 export class ParityPublicInputs {
@@ -30,12 +31,12 @@ export class ParityPublicInputs {
    * @returns The inputs serialized to a hex string.
    */
   toString() {
-    return this.toBuffer().toString('hex');
+    return bufferToHex(this.toBuffer());
   }
 
-  /** Returns a hex representation for JSON serialization. */
+  /** Returns a representation for JSON serialization. */
   toJSON() {
-    return this.toString();
+    return this.toBuffer();
   }
 
   /**
@@ -72,10 +73,10 @@ export class ParityPublicInputs {
    * @returns A new ParityPublicInputs instance.
    */
   static fromString(str: string) {
-    return ParityPublicInputs.fromBuffer(Buffer.from(str, 'hex'));
+    return ParityPublicInputs.fromBuffer(hexToBuffer(str));
   }
 
   static get schema() {
-    return hexSchemaFor(ParityPublicInputs);
+    return bufferSchemaFor(ParityPublicInputs);
   }
 }

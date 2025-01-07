@@ -1,11 +1,11 @@
 import { type AvmCircuitInputs } from '@aztec/circuits.js';
 import { sha256 } from '@aztec/foundation/crypto';
-import { type LogFn, currentLevel as currentLogLevel } from '@aztec/foundation/log';
+import { type LogFn, type Logger } from '@aztec/foundation/log';
 import { Timer } from '@aztec/foundation/timer';
 import { type NoirCompiledCircuit } from '@aztec/types/noir';
 
 import * as proc from 'child_process';
-import * as fs from 'fs/promises';
+import { promises as fs } from 'fs';
 import { basename, dirname, join } from 'path';
 
 import { type UltraHonkFlavor } from '../honk.js';
@@ -15,7 +15,6 @@ export const VK_FIELDS_FILENAME = 'vk_fields.json';
 export const PROOF_FILENAME = 'proof';
 export const PROOF_FIELDS_FILENAME = 'proof_fields.json';
 export const AVM_BYTECODE_FILENAME = 'avm_bytecode.bin';
-export const AVM_CALLDATA_FILENAME = 'avm_calldata.bin';
 export const AVM_PUBLIC_INPUTS_FILENAME = 'avm_public_inputs.bin';
 export const AVM_HINTS_FILENAME = 'avm_hints.bin';
 
@@ -225,13 +224,26 @@ export async function executeBbClientIvcProof(
     // Write the bytecode to the working directory
     log(`bytecodePath ${bytecodeStackPath}`);
     log(`outputPath ${outputPath}`);
-    const args = ['-o', outputPath, '-b', bytecodeStackPath, '-w', witnessStackPath, '-v'];
+    const args = [
+      '-o',
+      outputPath,
+      '-b',
+      bytecodeStackPath,
+      '-w',
+      witnessStackPath,
+      '-v',
+      '--scheme',
+      'client_ivc',
+      '--input_type',
+      'runtime_stack',
+    ];
+
     const timer = new Timer();
     const logFunction = (message: string) => {
       log(`bb - ${message}`);
     };
 
-    const result = await executeBB(pathToBB, 'client_ivc_prove_output_all_msgpack', args, logFunction);
+    const result = await executeBB(pathToBB, 'prove', args, logFunction);
     const durationMs = timer.ms();
 
     if (result.status == BB_RESULT.SUCCESS) {
@@ -431,10 +443,8 @@ export async function generateTubeProof(
   }
 
   // // Paths for the inputs
-  const vkPath = join(workingDirectory, 'mega_vk.bin');
+  const vkPath = join(workingDirectory, 'client_ivc_vk.bin');
   const proofPath = join(workingDirectory, 'client_ivc_proof.bin');
-  const translatorVkPath = join(workingDirectory, 'translator_vk.bin');
-  const eccVkPath = join(workingDirectory, 'ecc_vk.bin');
 
   // The proof is written to e.g. /workingDirectory/proof
   const outputPath = workingDirectory;
@@ -450,7 +460,7 @@ export async function generateTubeProof(
   }
 
   try {
-    if (!filePresent(vkPath) || !filePresent(proofPath) || !filePresent(translatorVkPath) || !filePresent(eccVkPath)) {
+    if (!filePresent(vkPath) || !filePresent(proofPath)) {
       return { status: BB_RESULT.FAILURE, reason: `Client IVC input files not present in  ${workingDirectory}` };
     }
     const args = ['-o', outputPath, '-v'];
@@ -495,7 +505,7 @@ export async function generateAvmProof(
   pathToBB: string,
   workingDirectory: string,
   input: AvmCircuitInputs,
-  log: LogFn,
+  logger: Logger,
 ): Promise<BBFailure | BBSuccess> {
   // Check that the working directory exists
   try {
@@ -505,7 +515,6 @@ export async function generateAvmProof(
   }
 
   // Paths for the inputs
-  const calldataPath = join(workingDirectory, AVM_CALLDATA_FILENAME);
   const publicInputsPath = join(workingDirectory, AVM_PUBLIC_INPUTS_FILENAME);
   const avmHintsPath = join(workingDirectory, AVM_HINTS_FILENAME);
 
@@ -525,20 +534,8 @@ export async function generateAvmProof(
 
   try {
     // Write the inputs to the working directory.
-    await fs.writeFile(
-      calldataPath,
-      input.calldata.map(fr => fr.toBuffer()),
-    );
-    if (!filePresent(calldataPath)) {
-      return { status: BB_RESULT.FAILURE, reason: `Could not write calldata at ${calldataPath}` };
-    }
 
-    // public inputs are used directly as a vector of fields in C++,
-    // so we serialize them as such here instead of just using toBuffer
-    await fs.writeFile(
-      publicInputsPath,
-      input.publicInputs.toFields().map(fr => fr.toBuffer()),
-    );
+    await fs.writeFile(publicInputsPath, input.output.toBuffer());
     if (!filePresent(publicInputsPath)) {
       return { status: BB_RESULT.FAILURE, reason: `Could not write publicInputs at ${publicInputsPath}` };
     }
@@ -549,19 +546,17 @@ export async function generateAvmProof(
     }
 
     const args = [
-      '--avm-calldata',
-      calldataPath,
       '--avm-public-inputs',
       publicInputsPath,
       '--avm-hints',
       avmHintsPath,
       '-o',
       outputPath,
-      currentLogLevel == 'debug' ? '-d' : currentLogLevel == 'verbose' ? '-v' : '',
+      logger.level === 'debug' || logger.level === 'trace' ? '-d' : logger.level === 'verbose' ? '-v' : '',
     ];
     const timer = new Timer();
     const logFunction = (message: string) => {
-      log(`AvmCircuit (prove) BB out - ${message}`);
+      logger.verbose(`AvmCircuit (prove) BB out - ${message}`);
     };
     const result = await executeBB(pathToBB, 'avm_prove', args, logFunction);
     const duration = timer.ms();
@@ -643,9 +638,9 @@ export async function verifyClientIvcProof(
   }
 
   try {
-    const args = ['-o', targetPath];
+    const args = ['-o', targetPath, '--scheme', 'client_ivc'];
     const timer = new Timer();
-    const command = 'verify_client_ivc';
+    const command = 'verify';
     const result = await executeBB(pathToBB, command, args, log);
     const duration = timer.ms();
     if (result.status == BB_RESULT.SUCCESS) {
@@ -675,7 +670,7 @@ async function verifyProofInternal(
   pathToBB: string,
   proofFullPath: string,
   verificationKeyPath: string,
-  command: 'verify_ultra_honk' | 'verify_ultra_keccak_honk' | 'avm_verify',
+  command: 'verify_ultra_honk' | 'verify_ultra_rollup_honk' | 'verify_ultra_keccak_honk' | 'avm_verify',
   log: LogFn,
 ): Promise<BBFailure | BBSuccess> {
   const binaryPresent = await fs
@@ -894,6 +889,7 @@ export async function computeGateCountForCircuit(
   circuitName: string,
   bytecode: Buffer,
   flavor: UltraHonkFlavor | 'mega_honk',
+  log: LogFn,
 ): Promise<BBFailure | BBSuccess> {
   // Check that the working directory exists
   try {
@@ -917,6 +913,7 @@ export async function computeGateCountForCircuit(
   let stdout = '';
   const logHandler = (message: string) => {
     stdout += message;
+    log(message);
   };
 
   try {
@@ -926,7 +923,7 @@ export async function computeGateCountForCircuit(
 
     const result = await executeBB(
       pathToBB,
-      flavor === 'mega_honk' ? `gates_mega_honk` : `gates`,
+      flavor === 'mega_honk' ? `gates_for_ivc` : `gates`,
       ['-b', bytecodePath, '-v'],
       logHandler,
     );

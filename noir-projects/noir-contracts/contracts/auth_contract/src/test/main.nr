@@ -3,7 +3,7 @@ use crate::test::utils;
 
 use dep::aztec::prelude::AztecAddress;
 
-global CHANGE_AUTHORIZED_DELAY_BLOCKS = 5;
+global CHANGE_AUTHORIZED_DELAY_BLOCKS: u32 = 5;
 
 // TODO (#8588): These were ported over directly from e2e tests. Refactor these in the correct TXe style.
 #[test]

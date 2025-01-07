@@ -10,7 +10,7 @@ import { Fr, MerkleTreeCalculator } from '@aztec/circuits.js';
 import { L1_TO_L2_MSG_SUBTREE_HEIGHT } from '@aztec/circuits.js/constants';
 import { times } from '@aztec/foundation/collection';
 import { randomInt } from '@aztec/foundation/crypto';
-import { type DebugLogger, createDebugLogger } from '@aztec/foundation/log';
+import { type Logger, createLogger } from '@aztec/foundation/log';
 import { SHA256Trunc } from '@aztec/merkle-tree';
 
 import { jest } from '@jest/globals';
@@ -23,7 +23,7 @@ import { ServerWorldStateSynchronizer } from './server_world_state_synchronizer.
 describe('ServerWorldStateSynchronizer', () => {
   jest.setTimeout(30_000);
 
-  let log: DebugLogger;
+  let log: Logger;
 
   let l1ToL2Messages: Fr[];
   let inHash: Buffer;
@@ -39,7 +39,7 @@ describe('ServerWorldStateSynchronizer', () => {
   const LATEST_BLOCK_NUMBER = 5;
 
   beforeAll(() => {
-    log = createDebugLogger('aztec:world-state:test:server_world_state_synchronizer');
+    log = createLogger('world-state:test:server_world_state_synchronizer');
 
     // Seed l1 to l2 msgs
     l1ToL2Messages = times(randomInt(2 ** L1_TO_L2_MSG_SUBTREE_HEIGHT), Fr.random);
@@ -75,6 +75,7 @@ describe('ServerWorldStateSynchronizer', () => {
       worldStateBlockCheckIntervalMS: 100,
       worldStateProvenBlocksOnly: false,
       worldStateDbMapSizeKb: 1024 * 1024,
+      worldStateBlockHistory: 0,
     };
 
     server = new TestWorldStateSynchronizer(merkleTreeDb, blockAndMessagesSource, config, l2BlockStream);
@@ -87,7 +88,7 @@ describe('ServerWorldStateSynchronizer', () => {
   const pushBlocks = async (from: number, to: number) => {
     await server.handleBlockStreamEvent({
       type: 'blocks-added',
-      blocks: times(to - from + 1, i => L2Block.random(i + from, 4, 2, 3, 2, 1, inHash)),
+      blocks: times(to - from + 1, i => L2Block.random(i + from, 4, 3, 1, inHash)),
     });
     server.latest.number = to;
   };

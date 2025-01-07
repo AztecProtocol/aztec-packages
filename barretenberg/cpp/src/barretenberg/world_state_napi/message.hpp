@@ -1,5 +1,6 @@
 #pragma once
 #include "barretenberg/crypto/merkle_tree/indexed_tree/indexed_leaf.hpp"
+#include "barretenberg/crypto/merkle_tree/types.hpp"
 #include "barretenberg/ecc/curves/bn254/fr.hpp"
 #include "barretenberg/messaging/header.hpp"
 #include "barretenberg/serialize/msgpack.hpp"
@@ -20,12 +21,14 @@ enum WorldStateMessageType {
     GET_LEAF_VALUE,
     GET_LEAF_PREIMAGE,
     GET_SIBLING_PATH,
+    GET_BLOCK_NUMBERS_FOR_LEAF_INDICES,
 
-    FIND_LEAF_INDEX,
+    FIND_LEAF_INDICES,
     FIND_LOW_LEAF,
 
     APPEND_LEAVES,
     BATCH_INSERT,
+    SEQUENTIAL_INSERT,
 
     UPDATE_ARCHIVE,
 
@@ -53,7 +56,7 @@ struct TreeIdOnlyRequest {
 
 struct CreateForkRequest {
     bool latest;
-    index_t blockNumber;
+    block_number_t blockNumber;
     MSGPACK_FIELDS(latest, blockNumber);
 };
 
@@ -128,11 +131,29 @@ struct GetSiblingPathRequest {
     MSGPACK_FIELDS(treeId, revision, leafIndex);
 };
 
-template <typename T> struct FindLeafIndexRequest {
+struct GetBlockNumbersForLeafIndicesRequest {
     MerkleTreeId treeId;
     WorldStateRevision revision;
-    T leaf;
-    MSGPACK_FIELDS(treeId, revision, leaf);
+    std::vector<index_t> leafIndices;
+    MSGPACK_FIELDS(treeId, revision, leafIndices);
+};
+
+struct GetBlockNumbersForLeafIndicesResponse {
+    std::vector<std::optional<block_number_t>> blockNumbers;
+    MSGPACK_FIELDS(blockNumbers);
+};
+
+template <typename T> struct FindLeafIndicesRequest {
+    MerkleTreeId treeId;
+    WorldStateRevision revision;
+    std::vector<T> leaves;
+    index_t startIndex;
+    MSGPACK_FIELDS(treeId, revision, leaves, startIndex);
+};
+
+struct FindLeafIndicesResponse {
+    std::vector<std::optional<index_t>> indices;
+    MSGPACK_FIELDS(indices);
 };
 
 struct FindLowLeafRequest {
@@ -168,6 +189,13 @@ template <typename T> struct BatchInsertRequest {
     MSGPACK_FIELDS(treeId, leaves, subtreeDepth, forkId);
 };
 
+template <typename T> struct InsertRequest {
+    MerkleTreeId treeId;
+    std::vector<T> leaves;
+    Fork::Id forkId{ CANONICAL_FORK_ID };
+    MSGPACK_FIELDS(treeId, leaves, forkId);
+};
+
 struct UpdateArchiveRequest {
     StateReference blockStateRef;
     bb::fr blockHeaderHash;
@@ -181,7 +209,7 @@ struct SyncBlockRequest {
     bb::fr blockHeaderHash;
     std::vector<bb::fr> paddedNoteHashes, paddedL1ToL2Messages;
     std::vector<crypto::merkle_tree::NullifierLeafValue> paddedNullifiers;
-    std::vector<std::vector<crypto::merkle_tree::PublicDataLeafValue>> batchesOfPublicDataWrites;
+    std::vector<crypto::merkle_tree::PublicDataLeafValue> publicDataWrites;
 
     MSGPACK_FIELDS(blockNumber,
                    blockStateRef,
@@ -189,7 +217,7 @@ struct SyncBlockRequest {
                    paddedNoteHashes,
                    paddedL1ToL2Messages,
                    paddedNullifiers,
-                   batchesOfPublicDataWrites);
+                   publicDataWrites);
 };
 
 } // namespace bb::world_state

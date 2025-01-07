@@ -1,0 +1,46 @@
+{
+  "name": "vite",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "compile": "cd src/contracts && ${AZTEC_NARGO:-aztec-nargo} compile --silence-warnings",
+    "codegen": "${AZTEC_BUILDER:-aztec} codegen src/contracts/target -o artifacts",
+    "clean": "rm -rf ./dist .tsbuildinfo ./artifacts ./src/contracts/target",
+    "prep": "yarn clean && yarn compile && yarn codegen",
+    "dev": "vite",
+    "build": "yarn prep && tsc -b && vite build",
+    "lint": "eslint .",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "@aztec/accounts": "portal:../../../yarn-project/accounts",
+    "@aztec/aztec.js": "portal:../../../yarn-project/aztec.js",
+    "@aztec/bb-prover": "link:../../../yarn-project/bb-prover",
+    "@aztec/circuit-types": "portal:../../../yarn-project/circuit-types",
+    "@aztec/key-store": "link:../../../yarn-project/key-store",
+    "@aztec/kv-store": "portal:../../../yarn-project/kv-store",
+    "@aztec/pxe": "link:../../../yarn-project/pxe",
+    "@noir-lang/acvm_js": "link:../../../noir/packages/acvm_js",
+    "@noir-lang/noirc_abi": "link:../../../noir/packages/noirc_abi",
+    "buffer": "^6.0.3",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "react-toastify": "^10.0.6"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.13.0",
+    "@types/react": "^18.3.12",
+    "@types/react-dom": "^18.3.1",
+    "@vitejs/plugin-react-swc": "^3.7.2",
+    "eslint": "^9.13.0",
+    "eslint-plugin-react-hooks": "^5.1.0",
+    "eslint-plugin-react-refresh": "^0.4.16",
+    "globals": "^15.11.0",
+    "typescript": "~5.6.2",
+    "typescript-eslint": "^8.11.0",
+    "vite": "^6.0.3",
+    "vite-plugin-node-polyfills": "^0.22.0",
+    "vite-plugin-top-level-await": "^1.4.4"
+  }
+}

@@ -10,22 +10,20 @@ import {
   UnencryptedFunctionL2Logs,
 } from '@aztec/circuit-types';
 import { type AvmSimulationStats } from '@aztec/circuit-types/stats';
-import {
-  type Fr,
-  Gas,
-  type GlobalVariables,
-  MAX_L2_GAS_PER_ENQUEUED_CALL,
-  type PublicCallRequest,
-  type RevertCode,
-} from '@aztec/circuits.js';
-import { type DebugLogger, createDebugLogger } from '@aztec/foundation/log';
+import { type Fr, type Gas, type GlobalVariables, type PublicCallRequest, type RevertCode } from '@aztec/circuits.js';
+import { type Logger, createLogger } from '@aztec/foundation/log';
 import { Timer } from '@aztec/foundation/timer';
-import { type TelemetryClient } from '@aztec/telemetry-client';
+import { ProtocolContractAddress } from '@aztec/protocol-contracts';
+import { Attributes, type TelemetryClient, type Tracer, trackSpan } from '@aztec/telemetry-client';
+
+import { strict as assert } from 'assert';
 
 import { type AvmFinalizedCallResult } from '../avm/avm_contract_call_result.js';
 import { type AvmPersistableStateManager, AvmSimulator } from '../avm/index.js';
+import { NullifierCollisionError } from '../avm/journal/nullifiers.js';
 import { getPublicFunctionDebugName } from '../common/debug_fn_name.js';
 import { ExecutorMetrics } from './executor_metrics.js';
+import { computeFeePayerBalanceStorageSlot } from './fee_payment.js';
 import { type WorldStateDB } from './public_db_sources.js';
 import { PublicTxContext } from './public_tx_context.js';
 
@@ -50,27 +48,31 @@ export type PublicTxResult = {
 export class PublicTxSimulator {
   metrics: ExecutorMetrics;
 
-  private log: DebugLogger;
+  private log: Logger;
 
   constructor(
     private db: MerkleTreeReadOperations,
     private worldStateDB: WorldStateDB,
-    client: TelemetryClient,
+    telemetryClient: TelemetryClient,
     private globalVariables: GlobalVariables,
-    private realAvmProvingRequests: boolean = true,
     private doMerkleOperations: boolean = false,
+    private enforceFeePayment: boolean = true,
   ) {
-    this.log = createDebugLogger(`aztec:public_tx_simulator`);
-    this.metrics = new ExecutorMetrics(client, 'PublicTxSimulator');
+    this.log = createLogger(`simulator:public_tx_simulator`);
+    this.metrics = new ExecutorMetrics(telemetryClient, 'PublicTxSimulator');
   }
 
+  get tracer(): Tracer {
+    return this.metrics.tracer;
+  }
   /**
    * Simulate a transaction's public portion including all of its phases.
    * @param tx - The transaction to simulate.
    * @returns The result of the transaction's public execution.
    */
-  async simulate(tx: Tx): Promise<PublicTxResult> {
-    this.log.verbose(`Processing tx ${tx.getTxHash()}`);
+  public async simulate(tx: Tx): Promise<PublicTxResult> {
+    const txHash = tx.getTxHash();
+    this.log.debug(`Simulating ${tx.enqueuedPublicFunctionCalls.length} public calls for tx ${txHash}`, { txHash });
 
     const context = await PublicTxContext.create(
       this.db,
@@ -89,20 +91,32 @@ export class PublicTxSimulator {
     // FIXME: we shouldn't need to directly modify worldStateDb here!
     await this.worldStateDB.addNewContracts(tx);
 
+    const nonRevertStart = process.hrtime.bigint();
+    await this.insertNonRevertiblesFromPrivate(context);
+    const nonRevertEnd = process.hrtime.bigint();
+    this.metrics.recordPrivateEffectsInsertion(Number(nonRevertEnd - nonRevertStart) / 1_000, 'non-revertible');
     const processedPhases: ProcessedPhase[] = [];
     if (context.hasPhase(TxExecutionPhase.SETUP)) {
       const setupResult: ProcessedPhase = await this.simulateSetupPhase(context);
       processedPhases.push(setupResult);
     }
+
+    const revertStart = process.hrtime.bigint();
+    await this.insertRevertiblesFromPrivate(context);
+    const revertEnd = process.hrtime.bigint();
+    this.metrics.recordPrivateEffectsInsertion(Number(revertEnd - revertStart) / 1_000, 'revertible');
     if (context.hasPhase(TxExecutionPhase.APP_LOGIC)) {
       const appLogicResult: ProcessedPhase = await this.simulateAppLogicPhase(context);
       processedPhases.push(appLogicResult);
     }
+
     if (context.hasPhase(TxExecutionPhase.TEARDOWN)) {
       const teardownResult: ProcessedPhase = await this.simulateTeardownPhase(context);
       processedPhases.push(teardownResult);
     }
+
     context.halt();
+    await this.payFee(context);
 
     const endStateReference = await this.db.getStateReference();
 
@@ -127,7 +141,11 @@ export class PublicTxSimulator {
 
     return {
       avmProvingRequest,
-      gasUsed: { totalGas: context.getActualGasUsed(), teardownGas: context.teardownGasUsed },
+      gasUsed: {
+        totalGas: context.getActualGasUsed(),
+        teardownGas: context.teardownGasUsed,
+        publicGas: context.getActualPublicGasUsed(),
+      },
       revertCode,
       revertReason: context.revertReason,
       processedPhases: processedPhases,
@@ -149,9 +167,7 @@ export class PublicTxSimulator {
    * @returns The phase result.
    */
   private async simulateAppLogicPhase(context: PublicTxContext): Promise<ProcessedPhase> {
-    // Fork the state manager so that we can rollback state if app logic or teardown reverts.
-    // Don't need to fork for setup since it's non-revertible (if setup fails, transaction is thrown out).
-    context.state.fork();
+    assert(context.state.isForked(), 'App logic phase should operate with forked state.');
 
     const result = await this.simulatePhase(TxExecutionPhase.APP_LOGIC, context);
 
@@ -175,7 +191,7 @@ export class PublicTxSimulator {
    */
   private async simulateTeardownPhase(context: PublicTxContext): Promise<ProcessedPhase> {
     if (!context.state.isForked()) {
-      // If state isn't forked (app logic was empty or reverted), fork now
+      // If state isn't forked (app logic reverted), fork now
       // so we can rollback to the end of setup if teardown reverts.
       context.state.fork();
     }
@@ -203,7 +219,12 @@ export class PublicTxSimulator {
     const callRequests = context.getCallRequestsForPhase(phase);
     const executionRequests = context.getExecutionRequestsForPhase(phase);
 
-    this.log.debug(`Beginning processing in phase ${TxExecutionPhase[phase]} for tx ${context.getTxHash()}`);
+    this.log.debug(`Processing phase ${TxExecutionPhase[phase]} for tx ${context.getTxHash()}`, {
+      txHash: context.getTxHash().toString(),
+      phase: TxExecutionPhase[phase],
+      callRequests: callRequests.length,
+      executionRequests: executionRequests.length,
+    });
 
     const returnValues: NestedProcessReturnValues[] = [];
     let reverted = false;
@@ -244,6 +265,12 @@ export class PublicTxSimulator {
    * @param executionRequest - The execution request (includes args)
    * @returns The result of execution.
    */
+  @trackSpan('PublicTxSimulator.simulateEnqueuedCall', (phase, context, _callRequest, executionRequest) => ({
+    [Attributes.TX_HASH]: context.getTxHash().toString(),
+    [Attributes.TARGET_ADDRESS]: executionRequest.callContext.contractAddress.toString(),
+    [Attributes.SENDER_ADDRESS]: executionRequest.callContext.msgSender.toString(),
+    [Attributes.SIMULATOR_PHASE]: TxExecutionPhase[phase].toString(),
+  }))
   private async simulateEnqueuedCall(
     phase: TxExecutionPhase,
     context: PublicTxContext,
@@ -252,40 +279,22 @@ export class PublicTxSimulator {
   ): Promise<AvmFinalizedCallResult> {
     const stateManager = context.state.getActiveStateManager();
     const address = executionRequest.callContext.contractAddress;
-    const selector = executionRequest.callContext.functionSelector;
-    const fnName = await getPublicFunctionDebugName(this.worldStateDB, address, selector, executionRequest.args);
+    const fnName = await getPublicFunctionDebugName(this.worldStateDB, address, executionRequest.args);
 
-    const availableGas = context.getGasLeftForPhase(phase);
-    // Gas allocated to an enqueued call can be different from the available gas
-    // if there is more gas available than the max allocation per enqueued call.
-    const allocatedGas = new Gas(
-      /*daGas=*/ availableGas.daGas,
-      /*l2Gas=*/ Math.min(availableGas.l2Gas, MAX_L2_GAS_PER_ENQUEUED_CALL),
-    );
+    const allocatedGas = context.getGasLeftAtPhase(phase);
 
     const result = await this.simulateEnqueuedCallInternal(
       context.state.getActiveStateManager(),
       executionRequest,
       allocatedGas,
-      context.getTransactionFee(phase),
+      /*transactionFee=*/ context.getTransactionFee(phase),
       fnName,
     );
 
-    const gasUsed = allocatedGas.sub(result.gasLeft);
+    const gasUsed = allocatedGas.sub(result.gasLeft); // by enqueued call
     context.consumeGas(phase, gasUsed);
-    this.log.verbose(
-      `[AVM] Enqueued public call consumed ${gasUsed.l2Gas} L2 gas ending with ${result.gasLeft.l2Gas} L2 gas left.`,
-    );
-
-    // TODO(dbanks12): remove once AVM proves entire public tx
-    context.updateProvingRequest(
-      this.realAvmProvingRequests,
-      phase,
-      fnName,
-      stateManager,
-      executionRequest,
-      result,
-      allocatedGas,
+    this.log.debug(
+      `Simulated enqueued public call consumed ${gasUsed.l2Gas} L2 gas ending with ${result.gasLeft.l2Gas} L2 gas left.`,
     );
 
     stateManager.traceEnqueuedCall(callRequest, executionRequest.args, result.reverted);
@@ -312,6 +321,12 @@ export class PublicTxSimulator {
    * @param fnName - The name of the function
    * @returns The result of execution.
    */
+  @trackSpan(
+    'PublicTxSimulator.simulateEnqueuedCallInternal',
+    (_stateManager, _executionRequest, _allocatedGas, _transactionFee, fnName) => ({
+      [Attributes.APP_CIRCUIT_NAME]: fnName,
+    }),
+  )
   private async simulateEnqueuedCallInternal(
     stateManager: AvmPersistableStateManager,
     executionRequest: PublicExecutionRequest,
@@ -321,18 +336,16 @@ export class PublicTxSimulator {
   ): Promise<AvmFinalizedCallResult> {
     const address = executionRequest.callContext.contractAddress;
     const sender = executionRequest.callContext.msgSender;
-    const selector = executionRequest.callContext.functionSelector;
 
-    this.log.verbose(
-      `[AVM] Executing enqueued public call to external function ${fnName}@${address} with ${allocatedGas.l2Gas} allocated L2 gas.`,
+    this.log.debug(
+      `Executing enqueued public call to external function ${fnName}@${address} with ${allocatedGas.l2Gas} allocated L2 gas.`,
     );
     const timer = new Timer();
 
-    const simulator = AvmSimulator.create(
+    const simulator = await AvmSimulator.create(
       stateManager,
       address,
       sender,
-      selector,
       transactionFee,
       this.globalVariables,
       executionRequest.callContext.isStaticCall,
@@ -343,9 +356,9 @@ export class PublicTxSimulator {
     const result = avmCallResult.finalize();
 
     this.log.verbose(
-      `[AVM] Simulation of enqueued public call ${fnName} completed. reverted: ${result.reverted}${
-        result.reverted ? ', reason: ' + result.revertReason : ''
-      }.`,
+      result.reverted
+        ? `Simulation of enqueued public call ${fnName} reverted with reason ${result.revertReason}.`
+        : `Simulation of enqueued public call ${fnName} completed successfully.`,
       {
         eventName: 'avm-simulation',
         appCircuitName: fnName,
@@ -356,9 +369,87 @@ export class PublicTxSimulator {
     if (result.reverted) {
       this.metrics.recordFunctionSimulationFailure();
     } else {
-      this.metrics.recordFunctionSimulation(timer.ms());
+      this.metrics.recordFunctionSimulation(timer.ms(), allocatedGas.sub(result.gasLeft).l2Gas, fnName);
     }
 
     return result;
+  }
+
+  /**
+   * Insert the non-revertible accumulated data from private into the public state.
+   */
+  public async insertNonRevertiblesFromPrivate(context: PublicTxContext) {
+    const stateManager = context.state.getActiveStateManager();
+    try {
+      await stateManager.writeSiloedNullifiersFromPrivate(context.nonRevertibleAccumulatedDataFromPrivate.nullifiers);
+    } catch (e) {
+      if (e instanceof NullifierCollisionError) {
+        throw new NullifierCollisionError(
+          `Nullifier collision encountered when inserting non-revertible nullifiers from private.\nDetails: ${e.message}\n.Stack:${e.stack}`,
+        );
+      }
+    }
+    for (const noteHash of context.nonRevertibleAccumulatedDataFromPrivate.noteHashes) {
+      if (!noteHash.isEmpty()) {
+        stateManager.writeUniqueNoteHash(noteHash);
+      }
+    }
+  }
+
+  /**
+   * Insert the revertible accumulated data from private into the public state.
+   * Start by forking state so we can rollback to the end of setup if app logic or teardown reverts.
+   */
+  public async insertRevertiblesFromPrivate(context: PublicTxContext) {
+    // Fork the state manager so we can rollback to end of setup if app logic reverts.
+    context.state.fork();
+    const stateManager = context.state.getActiveStateManager();
+    try {
+      await stateManager.writeSiloedNullifiersFromPrivate(context.revertibleAccumulatedDataFromPrivate.nullifiers);
+    } catch (e) {
+      if (e instanceof NullifierCollisionError) {
+        throw new NullifierCollisionError(
+          `Nullifier collision encountered when inserting revertible nullifiers from private. Details:\n${e.message}\n.Stack:${e.stack}`,
+        );
+      }
+    }
+    for (const noteHash of context.revertibleAccumulatedDataFromPrivate.noteHashes) {
+      if (!noteHash.isEmpty()) {
+        // Revertible note hashes from private are not hashed with nonce, since private can't know their final position, only we can.
+        stateManager.writeSiloedNoteHash(noteHash);
+      }
+    }
+  }
+
+  private async payFee(context: PublicTxContext) {
+    const txFee = context.getTransactionFee(TxExecutionPhase.TEARDOWN);
+
+    if (context.feePayer.isZero()) {
+      this.log.debug(`No one is paying the fee of ${txFee.toBigInt()}`);
+      return;
+    }
+
+    const feeJuiceAddress = ProtocolContractAddress.FeeJuice;
+    const balanceSlot = computeFeePayerBalanceStorageSlot(context.feePayer);
+
+    this.log.debug(`Deducting ${txFee.toBigInt()} balance in Fee Juice for ${context.feePayer}`);
+    const stateManager = context.state.getActiveStateManager();
+
+    let currentBalance = await stateManager.readStorage(feeJuiceAddress, balanceSlot);
+    // We allow to fake the balance of the fee payer to allow fee estimation
+    // When mocking the balance of the fee payer, the circuit should not be able to prove the simulation
+
+    if (currentBalance.lt(txFee)) {
+      if (this.enforceFeePayment) {
+        throw new Error(
+          `Not enough balance for fee payer to pay for transaction (got ${currentBalance.toBigInt()} needs ${txFee.toBigInt()})`,
+        );
+      } else {
+        currentBalance = txFee;
+      }
+    }
+
+    const updatedBalance = currentBalance.sub(txFee);
+    await stateManager.writeStorage(feeJuiceAddress, balanceSlot, updatedBalance, true);
   }
 }

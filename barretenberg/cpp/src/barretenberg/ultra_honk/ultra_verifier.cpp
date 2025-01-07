@@ -32,20 +32,29 @@ template <typename Flavor> bool UltraVerifier_<Flavor>::verify_proof(const HonkP
     };
 
     // Parse out the nested IPA claim using key->ipa_claim_public_input_indices and runs the native IPA verifier.
-    if constexpr (HasIPAAccumulatorFlavor<Flavor>) {
+    if constexpr (HasIPAAccumulator<Flavor>) {
         if (verification_key->verification_key->contains_ipa_claim) {
+
+            constexpr size_t NUM_LIMBS = 4;
             OpeningClaim<curve::Grumpkin> ipa_claim;
-            std::array<FF, 4> bigfield_limbs;
-            for (size_t k = 0; k < 4; k++) {
-                bigfield_limbs[k] =
+
+            std::array<FF, NUM_LIMBS> challenge_bigfield_limbs;
+            std::array<FF, NUM_LIMBS> evaluation_bigfield_limbs;
+            for (size_t k = 0; k < NUM_LIMBS; k++) {
+                challenge_bigfield_limbs[k] =
                     verification_key
                         ->public_inputs[verification_key->verification_key->ipa_claim_public_input_indices[k]];
             }
-            ipa_claim.opening_pair.challenge = recover_fq_from_public_inputs(bigfield_limbs);
-            ipa_claim.opening_pair.evaluation = 0;
+            for (size_t k = 0; k < NUM_LIMBS; k++) {
+                evaluation_bigfield_limbs[k] =
+                    verification_key->public_inputs[verification_key->verification_key
+                                                        ->ipa_claim_public_input_indices[NUM_LIMBS + k]];
+            }
+            ipa_claim.opening_pair.challenge = recover_fq_from_public_inputs(challenge_bigfield_limbs);
+            ipa_claim.opening_pair.evaluation = recover_fq_from_public_inputs(evaluation_bigfield_limbs);
             ipa_claim.commitment = {
-                verification_key->public_inputs[verification_key->verification_key->ipa_claim_public_input_indices[4]],
-                verification_key->public_inputs[verification_key->verification_key->ipa_claim_public_input_indices[5]]
+                verification_key->public_inputs[verification_key->verification_key->ipa_claim_public_input_indices[8]],
+                verification_key->public_inputs[verification_key->verification_key->ipa_claim_public_input_indices[9]]
             };
 
             // verify the ipa_proof with this claim
@@ -63,7 +72,9 @@ template <typename Flavor> bool UltraVerifier_<Flavor>::verify_proof(const HonkP
 }
 
 template class UltraVerifier_<UltraFlavor>;
+template class UltraVerifier_<UltraZKFlavor>;
 template class UltraVerifier_<UltraKeccakFlavor>;
+template class UltraVerifier_<UltraKeccakZKFlavor>;
 template class UltraVerifier_<UltraRollupFlavor>;
 template class UltraVerifier_<MegaFlavor>;
 template class UltraVerifier_<MegaZKFlavor>;

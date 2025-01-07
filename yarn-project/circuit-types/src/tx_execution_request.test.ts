@@ -1,6 +1,5 @@
-import { jsonStringify } from '@aztec/foundation/json-rpc';
+import { jsonParseWithSchema, jsonStringify } from '@aztec/foundation/json-rpc';
 
-import { jsonParseWithSchema } from '../../foundation/src/json-rpc/convert.js';
 import { TxExecutionRequest } from './tx_execution_request.js';
 
 describe('TxExecutionRequest', () => {

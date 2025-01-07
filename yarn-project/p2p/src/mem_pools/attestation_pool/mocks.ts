@@ -1,9 +1,14 @@
-import { BlockAttestation, ConsensusPayload, SignatureDomainSeperator, TxHash } from '@aztec/circuit-types';
+import {
+  BlockAttestation,
+  ConsensusPayload,
+  SignatureDomainSeparator,
+  TxHash,
+  getHashedSignaturePayloadEthSignedMessage,
+} from '@aztec/circuit-types';
 import { makeHeader } from '@aztec/circuits.js/testing';
-import { Signature } from '@aztec/foundation/eth-signature';
+import { type Secp256k1Signer } from '@aztec/foundation/crypto';
 import { Fr } from '@aztec/foundation/fields';
 
-import { type PrivateKeyAccount } from 'viem';
 import { generatePrivateKey, privateKeyToAccount } from 'viem/accounts';
 
 /** Generate Account
@@ -22,22 +27,18 @@ export const generateAccount = () => {
  * @param slot The slot number the attestation is for
  * @returns A Block Attestation
  */
-export const mockAttestation = async (
-  signer: PrivateKeyAccount,
+export const mockAttestation = (
+  signer: Secp256k1Signer,
   slot: number = 0,
   archive: Fr = Fr.random(),
-): Promise<BlockAttestation> => {
+  txs: TxHash[] = [0, 1, 2, 3, 4, 5].map(() => TxHash.random()),
+): BlockAttestation => {
   // Use arbitrary numbers for all other than slot
   const header = makeHeader(1, 2, slot);
-  const txs = [0, 1, 2, 3, 4, 5].map(() => TxHash.random());
-
   const payload = new ConsensusPayload(header, archive, txs);
 
-  const message: `0x${string}` = `0x${payload
-    .getPayloadToSign(SignatureDomainSeperator.blockAttestation)
-    .toString('hex')}`;
-  const sigString = await signer.signMessage({ message });
+  const hash = getHashedSignaturePayloadEthSignedMessage(payload, SignatureDomainSeparator.blockAttestation);
+  const signature = signer.sign(hash);
 
-  const signature = Signature.from0xString(sigString);
   return new BlockAttestation(payload, signature);
 };

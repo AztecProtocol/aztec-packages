@@ -5,7 +5,7 @@
 
 namespace bb::avm_trace {
 
-using FF = AvmFlavorSettings::FF;
+using FF = bb::avm::AvmFlavorSettings::FF;
 using AffinePoint = grumpkin::g1::affine_element;
 
 struct PublicDataTreeLeafPreimage {
@@ -166,6 +166,7 @@ struct ContractInstanceHint {
     FF contract_class_id{};
     FF initialisation_hash{};
     PublicKeysHint public_keys;
+    NullifierReadTreeHint membership_hint;
 };
 
 inline void read(uint8_t const*& it, PublicKeysHint& hint)
@@ -189,6 +190,7 @@ inline void read(uint8_t const*& it, ContractInstanceHint& hint)
     read(it, hint.contract_class_id);
     read(it, hint.initialisation_hash);
     read(it, hint.public_keys);
+    read(it, hint.membership_hint);
 }
 
 struct AvmContractBytecode {
@@ -201,7 +203,7 @@ struct AvmContractBytecode {
                         ContractInstanceHint contract_instance,
                         ContractClassIdHint contract_class_id_preimage)
         : bytecode(std::move(bytecode))
-        , contract_instance(contract_instance)
+        , contract_instance(std::move(contract_instance))
         , contract_class_id_preimage(contract_class_id_preimage)
     {}
     AvmContractBytecode(std::vector<uint8_t> bytecode)
@@ -217,12 +219,20 @@ inline void read(uint8_t const*& it, AvmContractBytecode& bytecode)
     read(it, bytecode.contract_class_id_preimage);
 }
 
+struct AvmEnqueuedCallHint {
+    FF contract_address;
+    std::vector<FF> calldata;
+};
+
+inline void read(uint8_t const*& it, AvmEnqueuedCallHint& hint)
+{
+    using serialize::read;
+    read(it, hint.contract_address);
+    read(it, hint.calldata);
+}
+
 struct ExecutionHints {
-    std::vector<std::pair<FF, FF>> storage_value_hints;
-    std::vector<std::pair<FF, FF>> note_hash_exists_hints;
-    std::vector<std::pair<FF, FF>> nullifier_exists_hints;
-    std::vector<std::pair<FF, FF>> l1_to_l2_message_exists_hints;
-    std::vector<ExternalCallHint> externalcall_hints;
+    std::vector<AvmEnqueuedCallHint> enqueued_call_hints;
     std::map<FF, ContractInstanceHint> contract_instance_hints;
     // We could make this address-indexed
     std::vector<AvmContractBytecode> all_contract_bytecode;
@@ -236,32 +246,6 @@ struct ExecutionHints {
 
     ExecutionHints() = default;
 
-    // Builder.
-    ExecutionHints& with_storage_value_hints(std::vector<std::pair<FF, FF>> storage_value_hints)
-    {
-        this->storage_value_hints = std::move(storage_value_hints);
-        return *this;
-    }
-    ExecutionHints& with_note_hash_exists_hints(std::vector<std::pair<FF, FF>> note_hash_exists_hints)
-    {
-        this->note_hash_exists_hints = std::move(note_hash_exists_hints);
-        return *this;
-    }
-    ExecutionHints& with_nullifier_exists_hints(std::vector<std::pair<FF, FF>> nullifier_exists_hints)
-    {
-        this->nullifier_exists_hints = std::move(nullifier_exists_hints);
-        return *this;
-    }
-    ExecutionHints& with_l1_to_l2_message_exists_hints(std::vector<std::pair<FF, FF>> l1_to_l2_message_exists_hints)
-    {
-        this->l1_to_l2_message_exists_hints = std::move(l1_to_l2_message_exists_hints);
-        return *this;
-    }
-    ExecutionHints& with_externalcall_hints(std::vector<ExternalCallHint> externalcall_hints)
-    {
-        this->externalcall_hints = std::move(externalcall_hints);
-        return *this;
-    }
     ExecutionHints& with_contract_instance_hints(std::map<FF, ContractInstanceHint> contract_instance_hints)
     {
         this->contract_instance_hints = std::move(contract_instance_hints);
@@ -281,46 +265,17 @@ struct ExecutionHints {
         }
     }
 
-    // TODO: Cache.
-    // Side effect counter -> value
-    std::unordered_map<uint32_t, FF> get_side_effect_hints() const
-    {
-        std::unordered_map<uint32_t, FF> hints_map;
-        push_vec_into_map(hints_map, storage_value_hints);
-        push_vec_into_map(hints_map, nullifier_exists_hints);
-        return hints_map;
-    }
-
-    // Leaf index -> exists
-    std::unordered_map<uint32_t, FF> get_leaf_index_hints() const
-    {
-        std::unordered_map<uint32_t, FF> hints_map;
-        push_vec_into_map(hints_map, note_hash_exists_hints);
-        push_vec_into_map(hints_map, l1_to_l2_message_exists_hints);
-        return hints_map;
-    }
-
     static ExecutionHints from(const std::vector<uint8_t>& data)
     {
-        std::vector<std::pair<FF, FF>> storage_value_hints;
-        std::vector<std::pair<FF, FF>> note_hash_exists_hints;
-        std::vector<std::pair<FF, FF>> nullifier_exists_hints;
-        std::vector<std::pair<FF, FF>> l1_to_l2_message_exists_hints;
-
         using serialize::read;
         const auto* it = data.data();
-        read(it, storage_value_hints);
-        read(it, note_hash_exists_hints);
-        read(it, nullifier_exists_hints);
-        read(it, l1_to_l2_message_exists_hints);
-
-        std::vector<ExternalCallHint> externalcall_hints;
-        read(it, externalcall_hints);
+        std::vector<AvmEnqueuedCallHint> enqueued_call_hints;
+        read(it, enqueued_call_hints);
 
         std::vector<ContractInstanceHint> contract_instance_hints_vec;
         read(it, contract_instance_hints_vec);
         std::map<FF, ContractInstanceHint> contract_instance_hints;
-        for (const auto& instance : contract_instance_hints_vec) {
+        for (const auto& instance : std::views::reverse(contract_instance_hints_vec)) {
             contract_instance_hints[instance.address] = instance;
         }
 
@@ -353,23 +308,17 @@ struct ExecutionHints {
                            " bytes out of " + std::to_string(data.size()) + " bytes");
         }
 
-        return { std::move(storage_value_hints),    std::move(note_hash_exists_hints),
-                 std::move(nullifier_exists_hints), std::move(l1_to_l2_message_exists_hints),
-                 std::move(externalcall_hints),     std::move(contract_instance_hints),
-                 std::move(all_contract_bytecode),  std::move(storage_read_hints),
-                 std::move(storage_write_hints),    std::move(nullifier_read_hints),
-                 std::move(nullifier_write_hints),  std::move(note_hash_read_hints),
-                 std::move(note_hash_write_hints),  std::move(l1_to_l2_message_read_hints)
+        return { std::move(enqueued_call_hints),   std::move(contract_instance_hints),
+                 std::move(all_contract_bytecode), std::move(storage_read_hints),
+                 std::move(storage_write_hints),   std::move(nullifier_read_hints),
+                 std::move(nullifier_write_hints), std::move(note_hash_read_hints),
+                 std::move(note_hash_write_hints), std::move(l1_to_l2_message_read_hints)
 
         };
     }
 
   private:
-    ExecutionHints(std::vector<std::pair<FF, FF>> storage_value_hints,
-                   std::vector<std::pair<FF, FF>> note_hash_exists_hints,
-                   std::vector<std::pair<FF, FF>> nullifier_exists_hints,
-                   std::vector<std::pair<FF, FF>> l1_to_l2_message_exists_hints,
-                   std::vector<ExternalCallHint> externalcall_hints,
+    ExecutionHints(std::vector<AvmEnqueuedCallHint> enqueued_call_hints,
                    std::map<FF, ContractInstanceHint> contract_instance_hints,
                    std::vector<AvmContractBytecode> all_contract_bytecode,
                    std::vector<PublicDataReadTreeHint> storage_read_hints,
@@ -380,11 +329,7 @@ struct ExecutionHints {
                    std::vector<AppendTreeHint> note_hash_write_hints,
                    std::vector<AppendTreeHint> l1_to_l2_message_read_hints)
 
-        : storage_value_hints(std::move(storage_value_hints))
-        , note_hash_exists_hints(std::move(note_hash_exists_hints))
-        , nullifier_exists_hints(std::move(nullifier_exists_hints))
-        , l1_to_l2_message_exists_hints(std::move(l1_to_l2_message_exists_hints))
-        , externalcall_hints(std::move(externalcall_hints))
+        : enqueued_call_hints(std::move(enqueued_call_hints))
         , contract_instance_hints(std::move(contract_instance_hints))
         , all_contract_bytecode(std::move(all_contract_bytecode))
         , storage_read_hints(std::move(storage_read_hints))

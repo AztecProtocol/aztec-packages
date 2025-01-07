@@ -1,7 +1,9 @@
 import { Fr } from '@aztec/foundation/fields';
-import { hexSchemaFor } from '@aztec/foundation/schemas';
+import { bufferSchemaFor } from '@aztec/foundation/schemas';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
+import { bufferToHex, hexToBuffer } from '@aztec/foundation/string';
 
+import { SpongeBlob } from '../blobs/sponge_blob.js';
 import { PartialStateReference } from '../partial_state_reference.js';
 import { RollupTypes } from '../shared.js';
 import { ConstantRollupData } from './constant_rollup_data.js';
@@ -32,20 +34,26 @@ export class BaseOrMergeRollupPublicInputs {
      */
     public end: PartialStateReference,
     /**
-     * SHA256 hash of transactions effects. Used to make public inputs constant-sized (to then be unpacked on-chain).
-     * Note: Truncated to 31 bytes to fit in Fr.
+     * Sponge state to absorb blob inputs at the start of the rollup circuit.
      */
-    public txsEffectsHash: Fr,
+    public startSpongeBlob: SpongeBlob,
+    /**
+     * Sponge state to absorb blob inputs at the end of the rollup circuit.
+     */
+    public endSpongeBlob: SpongeBlob,
     /**
      * SHA256 hash of outhash. Used to make public inputs constant-sized (to then be unpacked on-chain).
      * Note: Truncated to 31 bytes to fit in Fr.
      */
     public outHash: Fr,
-
     /**
      * The summed `transaction_fee` of the constituent transactions.
      */
     public accumulatedFees: Fr,
+    /**
+     * The summed `mana_used` of the constituent transactions.
+     */
+    public accumulatedManaUsed: Fr,
   ) {}
 
   /** Returns an empty instance. */
@@ -56,6 +64,8 @@ export class BaseOrMergeRollupPublicInputs {
       ConstantRollupData.empty(),
       PartialStateReference.empty(),
       PartialStateReference.empty(),
+      SpongeBlob.empty(),
+      SpongeBlob.empty(),
       Fr.zero(),
       Fr.zero(),
       Fr.zero(),
@@ -76,7 +86,8 @@ export class BaseOrMergeRollupPublicInputs {
       reader.readObject(ConstantRollupData),
       reader.readObject(PartialStateReference),
       reader.readObject(PartialStateReference),
-      //TODO check
+      reader.readObject(SpongeBlob),
+      reader.readObject(SpongeBlob),
       Fr.fromBuffer(reader),
       Fr.fromBuffer(reader),
       Fr.fromBuffer(reader),
@@ -96,10 +107,13 @@ export class BaseOrMergeRollupPublicInputs {
       this.start,
       this.end,
 
-      this.txsEffectsHash,
+      this.startSpongeBlob,
+      this.endSpongeBlob,
+
       this.outHash,
 
       this.accumulatedFees,
+      this.accumulatedManaUsed,
     );
   }
 
@@ -108,7 +122,7 @@ export class BaseOrMergeRollupPublicInputs {
    * @returns - The hex string.
    */
   toString() {
-    return this.toBuffer().toString('hex');
+    return bufferToHex(this.toBuffer());
   }
 
   /**
@@ -117,16 +131,16 @@ export class BaseOrMergeRollupPublicInputs {
    * @returns A new BaseOrMergeRollupPublicInputs instance.
    */
   static fromString(str: string) {
-    return BaseOrMergeRollupPublicInputs.fromBuffer(Buffer.from(str, 'hex'));
+    return BaseOrMergeRollupPublicInputs.fromBuffer(hexToBuffer(str));
   }
 
-  /** Returns a hex representation for JSON serialization. */
+  /** Returns a buffer representation for JSON serialization. */
   toJSON() {
-    return this.toString();
+    return this.toBuffer();
   }
 
   /** Creates an instance from a hex string. */
   static get schema() {
-    return hexSchemaFor(BaseOrMergeRollupPublicInputs);
+    return bufferSchemaFor(BaseOrMergeRollupPublicInputs);
   }
 }

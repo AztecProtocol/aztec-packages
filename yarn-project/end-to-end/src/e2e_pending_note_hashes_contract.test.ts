@@ -1,4 +1,4 @@
-import { type AztecAddress, type AztecNode, type DebugLogger, Fr, type Wallet } from '@aztec/aztec.js';
+import { type AztecAddress, type AztecNode, Fr, type Logger, type Wallet } from '@aztec/aztec.js';
 import {
   MAX_NOTE_HASHES_PER_CALL,
   MAX_NOTE_HASHES_PER_TX,
@@ -7,13 +7,12 @@ import {
 } from '@aztec/circuits.js';
 import { PendingNoteHashesContract } from '@aztec/noir-contracts.js/PendingNoteHashes';
 
-import { EncryptedNoteTxL2Logs } from '../../circuit-types/src/logs/tx_l2_logs.js';
 import { setup } from './fixtures/utils.js';
 
 describe('e2e_pending_note_hashes_contract', () => {
   let aztecNode: AztecNode;
   let wallet: Wallet;
-  let logger: DebugLogger;
+  let logger: Logger;
   let owner: AztecAddress;
   let teardown: () => Promise<void>;
   let contract: PendingNoteHashesContract;
@@ -61,14 +60,8 @@ describe('e2e_pending_note_hashes_contract', () => {
     const blockNum = await aztecNode.getBlockNumber();
     const block = (await aztecNode.getBlocks(blockNum, 1))[0];
 
-    const logArray = block.body.txEffects.flatMap(txEffect => txEffect.noteEncryptedLogs);
-
-    for (let l = 0; l < exceptFirstFew + 1; l++) {
-      expect(logArray[l]).not.toEqual(EncryptedNoteTxL2Logs.empty());
-    }
-    for (let l = exceptFirstFew + 1; l < logArray.length; l++) {
-      expect(logArray[l]).toEqual(EncryptedNoteTxL2Logs.empty());
-    }
+    const privateLogs = block.body.txEffects.flatMap(txEffect => txEffect.privateLogs);
+    expect(privateLogs.length).toBe(exceptFirstFew);
   };
 
   const deployContract = async () => {
@@ -83,11 +76,8 @@ describe('e2e_pending_note_hashes_contract', () => {
 
     const deployedContract = await deployContract();
 
-    const outgoingViewer = owner;
-    await deployedContract.methods
-      .test_insert_then_get_then_nullify_flat(mintAmount, owner, outgoingViewer)
-      .send()
-      .wait();
+    const sender = owner;
+    await deployedContract.methods.test_insert_then_get_then_nullify_flat(mintAmount, owner, sender).send().wait();
   });
 
   it('Squash! Aztec.nr function can "create" and "nullify" note in the same TX', async () => {
@@ -97,12 +87,12 @@ describe('e2e_pending_note_hashes_contract', () => {
 
     const deployedContract = await deployContract();
 
-    const outgoingViewer = owner;
+    const sender = owner;
     await deployedContract.methods
       .test_insert_then_get_then_nullify_all_in_nested_calls(
         mintAmount,
         owner,
-        outgoingViewer,
+        sender,
         deployedContract.methods.insert_note.selector,
         deployedContract.methods.get_then_nullify_note.selector,
       )
@@ -122,12 +112,12 @@ describe('e2e_pending_note_hashes_contract', () => {
 
     const deployedContract = await deployContract();
 
-    const outgoingViewer = owner;
+    const sender = owner;
     await deployedContract.methods
       .test_insert_then_get_then_nullify_all_in_nested_calls(
         mintAmount,
         owner,
-        outgoingViewer,
+        sender,
         deployedContract.methods.insert_note_extra_emit.selector,
         deployedContract.methods.get_then_nullify_note.selector,
       )
@@ -146,12 +136,12 @@ describe('e2e_pending_note_hashes_contract', () => {
 
     const deployedContract = await deployContract();
 
-    const outgoingViewer = owner;
+    const sender = owner;
     await deployedContract.methods
       .test_insert2_then_get2_then_nullify2_all_in_nested_calls(
         mintAmount,
         owner,
-        outgoingViewer,
+        sender,
         deployedContract.methods.insert_note.selector,
         deployedContract.methods.get_then_nullify_note.selector,
       )
@@ -171,12 +161,12 @@ describe('e2e_pending_note_hashes_contract', () => {
 
     const deployedContract = await deployContract();
 
-    const outgoingViewer = owner;
+    const sender = owner;
     await deployedContract.methods
       .test_insert2_then_get2_then_nullify1_all_in_nested_calls(
         mintAmount,
         owner,
-        outgoingViewer,
+        sender,
         deployedContract.methods.insert_note.selector,
         deployedContract.methods.get_then_nullify_note.selector,
       )
@@ -196,12 +186,12 @@ describe('e2e_pending_note_hashes_contract', () => {
 
     const deployedContract = await deployContract();
 
-    const outgoingViewer = owner;
+    const sender = owner;
     await deployedContract.methods
       .test_insert2_then_get2_then_nullify1_all_in_nested_calls(
         mintAmount,
         owner,
-        outgoingViewer,
+        sender,
         deployedContract.methods.insert_note_static_randomness.selector,
         deployedContract.methods.get_then_nullify_note.selector,
       )
@@ -224,8 +214,8 @@ describe('e2e_pending_note_hashes_contract', () => {
     const deployedContract = await deployContract();
 
     // create persistent note
-    const outgoingViewer = owner;
-    await deployedContract.methods.insert_note(mintAmount, owner, outgoingViewer).send().wait();
+    const sender = owner;
+    await deployedContract.methods.insert_note(mintAmount, owner, sender).send().wait();
 
     await expectNoteHashesSquashedExcept(1); // first TX just creates 1 persistent note
     await expectNullifiersSquashedExcept(0);
@@ -236,7 +226,7 @@ describe('e2e_pending_note_hashes_contract', () => {
       .test_insert1_then_get2_then_nullify2_all_in_nested_calls(
         mintAmount,
         owner,
-        outgoingViewer,
+        sender,
         deployedContract.methods.insert_note.selector,
         deployedContract.methods.get_then_nullify_note.selector,
       )
@@ -262,8 +252,8 @@ describe('e2e_pending_note_hashes_contract', () => {
     const mintAmount = 65n;
 
     const deployedContract = await deployContract();
-    const outgoingViewer = owner;
-    await deployedContract.methods.insert_note(mintAmount, owner, outgoingViewer).send().wait();
+    const sender = owner;
+    await deployedContract.methods.insert_note(mintAmount, owner, sender).send().wait();
 
     // There is a single new note hash.
     await expectNoteHashesSquashedExcept(1);
@@ -273,7 +263,7 @@ describe('e2e_pending_note_hashes_contract', () => {
       .test_insert_then_get_then_nullify_all_in_nested_calls(
         mintAmount,
         owner,
-        outgoingViewer,
+        sender,
         deployedContract.methods.dummy.selector,
         deployedContract.methods.get_then_nullify_note.selector,
       )
@@ -285,23 +275,22 @@ describe('e2e_pending_note_hashes_contract', () => {
   });
 
   it('Should handle overflowing the kernel data structures in nested calls', async () => {
-    // Setting the outgoing viewer to owner not have to bother with setting up another account.
-    const outgoingViewer = owner;
+    const sender = owner;
     const notesPerIteration = Math.min(MAX_NOTE_HASHES_PER_CALL, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL);
     const minToNeedReset = Math.min(MAX_NOTE_HASHES_PER_TX, MAX_NOTE_HASH_READ_REQUESTS_PER_TX) + 1;
     const deployedContract = await deployContract();
     await deployedContract.methods
-      .test_recursively_create_notes(owner, outgoingViewer, Math.ceil(minToNeedReset / notesPerIteration))
+      .test_recursively_create_notes(owner, sender, Math.ceil(minToNeedReset / notesPerIteration))
       .send()
       .wait();
   });
 
   it('Should drop note log for non existent note', async () => {
     const deployedContract = await deployContract();
-    const outgoingViewer = owner;
+    const sender = owner;
     // Add a note of value 10, with a note log
     // Then emit another note log with the same counter as the one above, but with value 5
-    const txReceipt = await deployedContract.methods.test_emit_bad_note_log(owner, outgoingViewer).send().wait();
+    const txReceipt = await deployedContract.methods.test_emit_bad_note_log(owner, sender).send().wait();
 
     await deployedContract.methods.sync_notes().simulate();
 

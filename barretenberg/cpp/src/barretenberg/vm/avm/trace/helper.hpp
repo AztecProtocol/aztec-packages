@@ -3,6 +3,7 @@
 #include <filesystem>
 
 #include "barretenberg/vm/avm/trace/common.hpp"
+#include "barretenberg/vm/avm/trace/public_inputs.hpp"
 #include "barretenberg/vm/avm/trace/trace.hpp"
 #include "barretenberg/vm/constants.hpp"
 
@@ -37,28 +38,12 @@ template <typename FF_> VmPublicInputs_<FF_> convert_public_inputs(std::vector<F
         throw_or_abort("Public inputs vector is not of PUBLIC_CIRCUIT_PUBLIC_INPUTS_LENGTH");
     }
 
-    // WARNING: this must be constrained by the kernel!
-    // Here this is just a sanity check to prevent generation of proofs that
-    // will be thrown out by the kernel anyway.
-    if constexpr (IsAnyOf<FF_, bb::fr>) {
-        if (public_inputs_vec[L2_START_GAS_LEFT_PCPI_OFFSET] > MAX_L2_GAS_PER_ENQUEUED_CALL) {
-            throw_or_abort(
-                "Cannot allocate more than MAX_L2_GAS_PER_ENQUEUED_CALL to the AVM for execution of an enqueued call");
-        }
-    } else {
-        if (public_inputs_vec[L2_START_GAS_LEFT_PCPI_OFFSET].get_value() > MAX_L2_GAS_PER_ENQUEUED_CALL) {
-            throw_or_abort(
-                "Cannot allocate more than MAX_L2_GAS_PER_ENQUEUED_CALL to the AVM for execution of an enqueued call");
-        }
-    }
-
     std::array<FF_, KERNEL_INPUTS_LENGTH>& kernel_inputs = std::get<KERNEL_INPUTS>(public_inputs);
 
     // Copy items from PublicCircuitPublicInputs vector to public input columns
     // PublicCircuitPublicInputs - CallContext
     kernel_inputs[SENDER_KERNEL_INPUTS_COL_OFFSET] = public_inputs_vec[SENDER_PCPI_OFFSET];   // Sender
     kernel_inputs[ADDRESS_KERNEL_INPUTS_COL_OFFSET] = public_inputs_vec[ADDRESS_PCPI_OFFSET]; // Address
-    kernel_inputs[FUNCTION_SELECTOR_KERNEL_INPUTS_COL_OFFSET] = public_inputs_vec[FUNCTION_SELECTOR_PCPI_OFFSET];
     kernel_inputs[IS_STATIC_CALL_KERNEL_INPUTS_COL_OFFSET] = public_inputs_vec[IS_STATIC_CALL_PCPI_OFFSET];
 
     // PublicCircuitPublicInputs - GlobalVariables
@@ -233,8 +218,10 @@ std::string to_hex(bb::avm_trace::AvmMemoryTag tag);
 std::string to_name(bb::avm_trace::AvmMemoryTag tag);
 
 std::string to_name(AvmError error);
+bool is_ok(AvmError error);
+bool exceptionally_halted(AvmError error);
 
 // Mutate the inputs
-void inject_end_gas_values(VmPublicInputs& public_inputs, std::vector<Row>& trace);
+void inject_end_gas_values(AvmPublicInputs& public_inputs, std::vector<Row>& trace);
 
 } // namespace bb::avm_trace

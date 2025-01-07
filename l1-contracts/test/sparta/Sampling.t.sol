@@ -44,7 +44,7 @@ contract Sampler {
 contract SamplingTest is Test {
   Sampler sampler = new Sampler();
 
-  function testShuffle() public {
+  function testShuffle() public view {
     // Sizes pulled out of thin air
     uint256 setSize = 1024;
     uint256 commiteeSize = 32;

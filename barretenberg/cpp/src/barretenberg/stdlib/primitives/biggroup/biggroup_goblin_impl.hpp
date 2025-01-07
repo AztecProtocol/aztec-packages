@@ -1,6 +1,7 @@
 #pragma once
 
 #include "barretenberg/stdlib/primitives/biggroup/biggroup_goblin.hpp"
+#include "barretenberg/transcript/origin_tag.hpp"
 namespace bb::stdlib::element_goblin {
 
 /**
@@ -39,10 +40,15 @@ goblin_element<C, Fq, Fr, G> goblin_element<C, Fq, Fr, G>::batch_mul(const std::
 
     // Loop over all points and scalars
     size_t num_points = points.size();
+
+    OriginTag tag_union{};
     for (size_t i = 0; i < num_points; ++i) {
         auto& point = points[i];
         auto& scalar = scalars[i];
 
+        // Merge tags
+
+        tag_union = OriginTag(tag_union, OriginTag(point.get_origin_tag(), scalar.get_origin_tag()));
         // Populate the goblin-style ecc op gates for the given mul inputs
         ecc_op_tuple op_tuple;
         bool scalar_is_constant_equal_one = scalar.get_witness_index() == IS_CONSTANT && scalar.get_value() == 1;
@@ -96,6 +102,9 @@ goblin_element<C, Fq, Fr, G> goblin_element<C, Fq, Fr, G>::batch_mul(const std::
     // TODO(@zac-williamson) what is op_queue.return_is_infinity actually used for? I don't see its value
     auto op2_is_infinity = (x_lo.add_two(x_hi, y_lo) + y_hi).is_zero();
     result.set_point_at_infinity(op2_is_infinity);
+
+    // Set the tag of the result
+    result.set_origin_tag(tag_union);
 
     return result;
 }

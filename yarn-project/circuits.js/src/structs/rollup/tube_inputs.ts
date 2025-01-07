@@ -1,5 +1,6 @@
-import { hexSchemaFor } from '@aztec/foundation/schemas';
+import { bufferSchemaFor } from '@aztec/foundation/schemas';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
+import { bufferToHex, hexToBuffer } from '@aztec/foundation/string';
 import { type FieldsOf } from '@aztec/foundation/types';
 
 import { ClientIvcProof } from '../client_ivc_proof.js';
@@ -28,7 +29,7 @@ export class TubeInputs {
    * @returns The instance serialized to a hex string.
    */
   toString() {
-    return this.toBuffer().toString('hex');
+    return bufferToHex(this.toBuffer());
   }
 
   /**
@@ -50,7 +51,7 @@ export class TubeInputs {
    * @returns A new TubeInputs instance.
    */
   static fromString(str: string) {
-    return TubeInputs.fromBuffer(Buffer.from(str, 'hex'));
+    return TubeInputs.fromBuffer(hexToBuffer(str));
   }
 
   static empty() {
@@ -59,11 +60,11 @@ export class TubeInputs {
 
   /** Returns a hex representation for JSON serialization. */
   toJSON() {
-    return this.toString();
+    return this.toBuffer();
   }
 
   /** Creates an instance from a hex string. */
   static get schema() {
-    return hexSchemaFor(TubeInputs);
+    return bufferSchemaFor(TubeInputs);
   }
 }

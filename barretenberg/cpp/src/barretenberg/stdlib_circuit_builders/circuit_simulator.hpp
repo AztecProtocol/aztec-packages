@@ -47,9 +47,8 @@ class CircuitSimulatorBN254 {
     static constexpr size_t UINT_LOG2_BASE = 2; // Would be 6 for UltraPlonk
     static constexpr size_t DEFAULT_PLOOKUP_RANGE_BITNUM = 1028;
 
-    static constexpr size_t num_gates = 0;  // WORKTODO: it was dumb to make this static.
-                                            // Should agree with what is in circuit builders
-    static constexpr uint32_t zero_idx = 0; // Ditto?
+    size_t num_gates = 0;
+    static constexpr uint32_t zero_idx = 0; // Should agree with what is in circuit builders
     std::vector<FF> public_inputs;
 
     void add_pairing_point_accumulator(const PairingPointAccumulatorIndices& proof_element_limbs)
@@ -189,6 +188,23 @@ class CircuitSimulatorBN254 {
     }
 
     [[nodiscard]] bool check_circuit() const { return !_failed; }
+
+    size_t create_ROM_array([[maybe_unused]] const size_t array_size) { return {}; }
+
+    void set_ROM_element_pair([[maybe_unused]] const size_t rom_id,
+                              [[maybe_unused]] const size_t index_value,
+                              [[maybe_unused]] const std::array<uint32_t, 2>& value_witnesses)
+    {}
+    uint32_t read_ROM_array([[maybe_unused]] const size_t rom_id, [[maybe_unused]] const uint32_t index_witness)
+    {
+        return {};
+    }
+    std::array<uint32_t, 2> read_ROM_array_pair([[maybe_unused]] const size_t rom_id,
+                                                [[maybe_unused]] const uint32_t index_witness)
+    {
+        return {};
+    }
+    void create_ecc_dbl_gate([[maybe_unused]] const ecc_dbl_gate_<FF>& in){};
 
     // Public input indices which contain recursive proof information
     PairingPointAccumulatorPubInputIndices pairing_point_accumulator_public_input_indices;

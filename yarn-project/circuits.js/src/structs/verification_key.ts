@@ -1,10 +1,14 @@
 import { makeTuple } from '@aztec/foundation/array';
 import { times } from '@aztec/foundation/collection';
 import { Fq, Fr } from '@aztec/foundation/fields';
-import { hexSchemaFor } from '@aztec/foundation/schemas';
+import { bufferSchemaFor } from '@aztec/foundation/schemas';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
+import { bufferToHex, hexToBuffer } from '@aztec/foundation/string';
 
-import { HONK_VERIFICATION_KEY_LENGTH_IN_FIELDS } from '../constants.gen.js';
+import {
+  HONK_VERIFICATION_KEY_LENGTH_IN_FIELDS,
+  ROLLUP_HONK_VERIFICATION_KEY_LENGTH_IN_FIELDS,
+} from '../constants.gen.js';
 import { CircuitType } from './shared.js';
 
 /**
@@ -100,11 +104,11 @@ export class VerificationKeyAsFields {
 
   static get schema() {
     // TODO(palla/schemas): Should we verify the hash matches the key when deserializing?
-    return hexSchemaFor(VerificationKeyAsFields);
+    return bufferSchemaFor(VerificationKeyAsFields);
   }
 
   toJSON() {
-    return '0x' + this.toBuffer().toString('hex');
+    return this.toBuffer();
   }
 
   /**
@@ -139,6 +143,13 @@ export class VerificationKeyAsFields {
 
   static makeFakeHonk(seed = 1): VerificationKeyAsFields {
     return new VerificationKeyAsFields(makeTuple(HONK_VERIFICATION_KEY_LENGTH_IN_FIELDS, Fr.random, seed), Fr.random());
+  }
+
+  static makeFakeRollupHonk(seed = 1): VerificationKeyAsFields {
+    return new VerificationKeyAsFields(
+      makeTuple(ROLLUP_HONK_VERIFICATION_KEY_LENGTH_IN_FIELDS, Fr.random, seed),
+      Fr.random(),
+    );
   }
 
   /**
@@ -210,6 +221,21 @@ export class VerificationKey {
   }
 
   /**
+   * Builds a fake Rollup Honk verification key that should be accepted by circuits.
+   * @returns A fake verification key.
+   */
+  static makeRollupFake(): VerificationKey {
+    return new VerificationKey(
+      CircuitType.ULTRA, // This is entirely arbitrary
+      2048,
+      116,
+      {}, // Empty set of commitments
+      false,
+      times(16, i => i),
+    );
+  }
+
+  /**
    * Builds a fake verification key that should be accepted by circuits.
    * @returns A fake verification key.
    */
@@ -248,7 +274,14 @@ export class VerificationKeyData {
     return new VerificationKeyData(VerificationKeyAsFields.makeFakeHonk(), VerificationKey.makeFake().toBuffer());
   }
 
-  static makeFake(len = HONK_VERIFICATION_KEY_LENGTH_IN_FIELDS): VerificationKeyData {
+  static makeFakeRollupHonk(): VerificationKeyData {
+    return new VerificationKeyData(
+      VerificationKeyAsFields.makeFakeRollupHonk(),
+      VerificationKey.makeRollupFake().toBuffer(),
+    );
+  }
+
+  static makeFake(len = ROLLUP_HONK_VERIFICATION_KEY_LENGTH_IN_FIELDS): VerificationKeyData {
     return new VerificationKeyData(VerificationKeyAsFields.makeFake(len), VerificationKey.makeFake().toBuffer());
   }
 
@@ -261,7 +294,7 @@ export class VerificationKeyData {
   }
 
   toString() {
-    return this.toBuffer().toString('hex');
+    return bufferToHex(this.toBuffer());
   }
 
   static fromBuffer(buffer: Buffer | BufferReader): VerificationKeyData {
@@ -273,7 +306,7 @@ export class VerificationKeyData {
   }
 
   static fromString(str: string): VerificationKeyData {
-    return VerificationKeyData.fromBuffer(Buffer.from(str, 'hex'));
+    return VerificationKeyData.fromBuffer(hexToBuffer(str));
   }
 
   public clone() {
@@ -282,11 +315,11 @@ export class VerificationKeyData {
 
   /** Returns a hex representation for JSON serialization. */
   toJSON() {
-    return this.toString();
+    return this.toBuffer();
   }
 
   /** Creates an instance from a hex string. */
   static get schema() {
-    return hexSchemaFor(VerificationKeyData);
+    return bufferSchemaFor(VerificationKeyData);
   }
 }

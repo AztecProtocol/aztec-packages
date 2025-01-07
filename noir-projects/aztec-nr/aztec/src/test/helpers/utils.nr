@@ -115,7 +115,7 @@ impl<let N: u32, let M: u32> Deployer<N, M> {
 }
 
 // Keys length + address
-global TEST_ACCOUNT_LENGTH = PUBLIC_KEYS_LENGTH + 1;
+global TEST_ACCOUNT_LENGTH: u32 = PUBLIC_KEYS_LENGTH + 1;
 
 pub struct TestAccount {
     pub address: AztecAddress,

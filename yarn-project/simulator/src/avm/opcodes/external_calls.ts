@@ -1,8 +1,5 @@
-import { Fr, FunctionSelector, Gas, PUBLIC_DISPATCH_SELECTOR } from '@aztec/circuits.js';
-
 import type { AvmContext } from '../avm_context.js';
 import { type AvmContractCallResult } from '../avm_contract_call_result.js';
-import { gasLeftToGas } from '../avm_gas.js';
 import { type Field, TypeTag, Uint1 } from '../avm_memory_types.js';
 import { AvmSimulator } from '../avm_simulator.js';
 import { Opcode, OperandType } from '../serialization/instruction_serialization.js';
@@ -42,11 +39,10 @@ abstract class ExternalCall extends Instruction {
     memory.checkTag(TypeTag.UINT32, argsSizeOffset);
 
     const calldataSize = memory.get(argsSizeOffset).toNumber();
+    const calldata = memory.getSlice(argsOffset, calldataSize).map(f => f.toFr());
     memory.checkTagsRange(TypeTag.FIELD, argsOffset, calldataSize);
 
     const callAddress = memory.getAs<Field>(addrOffset);
-    const calldata = memory.getSlice(argsOffset, calldataSize).map(f => f.toFr());
-    const functionSelector = new Fr(PUBLIC_DISPATCH_SELECTOR);
     // If we are already in a static call, we propagate the environment.
     const callType = context.environment.isStaticCall ? 'STATICCALL' : this.type;
 
@@ -63,15 +59,10 @@ abstract class ExternalCall extends Instruction {
     const allocatedGas = { l2Gas: allocatedL2Gas, daGas: allocatedDaGas };
     context.machineState.consumeGas(allocatedGas);
 
-    const nestedContext = context.createNestedContractCallContext(
-      callAddress.toAztecAddress(),
-      calldata,
-      allocatedGas,
-      callType,
-      FunctionSelector.fromField(functionSelector),
-    );
+    const aztecAddress = callAddress.toAztecAddress();
+    const nestedContext = context.createNestedContractCallContext(aztecAddress, calldata, allocatedGas, callType);
 
-    const simulator = new AvmSimulator(nestedContext);
+    const simulator = await AvmSimulator.build(nestedContext);
     const nestedCallResults: AvmContractCallResult = await simulator.execute();
     const success = !nestedCallResults.reverted;
 
@@ -95,7 +86,7 @@ abstract class ExternalCall extends Instruction {
     memory.set(successOffset, new Uint1(success ? 1 : 0));
 
     // Refund unused gas
-    context.machineState.refundGas(gasLeftToGas(nestedContext.machineState));
+    context.machineState.refundGas(nestedCallResults.gasLeft);
 
     // Merge nested call's state and trace based on whether it succeeded.
     if (success) {
@@ -103,14 +94,6 @@ abstract class ExternalCall extends Instruction {
     } else {
       context.persistableState.reject(nestedContext.persistableState);
     }
-    await context.persistableState.traceNestedCall(
-      /*nestedState=*/ nestedContext.persistableState,
-      /*nestedEnvironment=*/ nestedContext.environment,
-      /*startGasLeft=*/ Gas.from(allocatedGas),
-      /*bytecode=*/ simulator.getBytecode()!,
-      /*avmCallResults=*/ nestedCallResults,
-    );
-
     memory.assert({ reads: calldataSize + 4, writes: 1, addressing });
   }
 

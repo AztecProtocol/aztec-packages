@@ -6,43 +6,32 @@ import { z } from 'zod';
 
 import { type TxHash } from '../tx/tx_hash.js';
 import { type EpochProver } from './epoch-prover.js';
-import { type MerkleTreeReadOperations } from './merkle_tree_operations.js';
-import { type ProvingJobSource } from './proving-job-source.js';
+import { type ProvingJobConsumer } from './prover-broker.js';
+
+export type ActualProverConfig = {
+  /** Whether to construct real proofs */
+  realProofs: boolean;
+  /** Artificial delay to introduce to all operations to the test prover. */
+  proverTestDelayMs: number;
+};
 
 /**
  * The prover configuration.
  */
-export type ProverConfig = {
+export type ProverConfig = ActualProverConfig & {
   /** The URL to the Aztec node to take proving jobs from */
   nodeUrl?: string;
-  /** Whether to construct real proofs */
-  realProofs: boolean;
-  /** Whether this prover has a local prover agent */
-  proverAgentEnabled: boolean;
-  /** The interval agents poll for jobs at */
-  proverAgentPollInterval: number;
-  /** The maximum number of proving jobs to be run in parallel */
-  proverAgentConcurrency: number;
-  /** Jobs are retried if not kept alive for this long */
-  proverJobTimeoutMs: number;
-  /** The interval to check job health status */
-  proverJobPollIntervalMs: number;
-  /** Artificial delay to introduce to all operations to the test prover. */
-  proverTestDelayMs: number;
   /** Identifier of the prover */
-  proverId?: Fr;
+  proverId: Fr;
+  proverAgentCount: number;
 };
 
 export const ProverConfigSchema = z.object({
   nodeUrl: z.string().optional(),
   realProofs: z.boolean(),
-  proverAgentEnabled: z.boolean(),
-  proverAgentPollInterval: z.number(),
-  proverAgentConcurrency: z.number(),
-  proverJobTimeoutMs: z.number(),
-  proverJobPollIntervalMs: z.number(),
-  proverId: schemas.Fr.optional(),
+  proverId: schemas.Fr,
   proverTestDelayMs: z.number(),
+  proverAgentCount: z.number(),
 }) satisfies ZodFor<ProverConfig>;
 
 export const proverConfigMappings: ConfigMappingsType<ProverConfig> = {
@@ -55,45 +44,26 @@ export const proverConfigMappings: ConfigMappingsType<ProverConfig> = {
     description: 'Whether to construct real proofs',
     ...booleanConfigHelper(),
   },
-  proverAgentEnabled: {
-    env: 'PROVER_AGENT_ENABLED',
-    description: 'Whether this prover has a local prover agent',
-    ...booleanConfigHelper(true),
-  },
-  proverAgentPollInterval: {
-    env: 'PROVER_AGENT_POLL_INTERVAL_MS',
-    description: 'The interval agents poll for jobs at',
-    ...numberConfigHelper(100),
-  },
-  proverAgentConcurrency: {
-    env: 'PROVER_AGENT_CONCURRENCY',
-    description: 'The maximum number of proving jobs to be run in parallel',
-    ...numberConfigHelper(1),
-  },
-  proverJobTimeoutMs: {
-    env: 'PROVER_JOB_TIMEOUT_MS',
-    description: 'Jobs are retried if not kept alive for this long',
-    ...numberConfigHelper(60_000),
-  },
-  proverJobPollIntervalMs: {
-    env: 'PROVER_JOB_POLL_INTERVAL_MS',
-    description: 'The interval to check job health status',
-    ...numberConfigHelper(1_000),
-  },
   proverId: {
     env: 'PROVER_ID',
     parseEnv: (val: string) => parseProverId(val),
     description: 'Identifier of the prover',
+    defaultValue: Fr.ZERO,
   },
   proverTestDelayMs: {
     env: 'PROVER_TEST_DELAY_MS',
     description: 'Artificial delay to introduce to all operations to the test prover.',
     ...numberConfigHelper(0),
   },
+  proverAgentCount: {
+    env: 'PROVER_AGENT_COUNT',
+    description: 'The number of prover agents to start',
+    ...numberConfigHelper(1),
+  },
 };
 
 function parseProverId(str: string) {
-  return Fr.fromString(str.startsWith('0x') ? str : Buffer.from(str, 'utf8').toString('hex'));
+  return Fr.fromHexString(str.startsWith('0x') ? str : Buffer.from(str, 'utf8').toString('hex'));
 }
 
 /**
@@ -101,13 +71,13 @@ function parseProverId(str: string) {
  * Provides the ability to generate proofs and build rollups.
  */
 export interface EpochProverManager {
-  createEpochProver(db: MerkleTreeReadOperations): EpochProver;
+  createEpochProver(): EpochProver;
 
   start(): Promise<void>;
 
   stop(): Promise<void>;
 
-  getProvingJobSource(): ProvingJobSource;
+  getProvingJobSource(): ProvingJobConsumer;
 
   updateProverConfig(config: Partial<ProverConfig>): Promise<void>;
 }

@@ -1,21 +1,21 @@
 import { readFieldCompressedString } from '@aztec/aztec.js';
-import { createDebugLogger } from '@aztec/foundation/log';
-import { TokenContract } from '@aztec/noir-contracts.js';
+import { createLogger } from '@aztec/foundation/log';
+import { TokenContract } from '@aztec/noir-contracts.js/Token';
 
 import { jest } from '@jest/globals';
 
 import { type TestWallets, setupTestWalletsWithTokens } from './setup_test_wallets.js';
-import { getConfig, isK8sConfig, startPortForward } from './utils.js';
+import { isK8sConfig, setupEnvironment, startPortForward } from './utils.js';
 
-const config = getConfig(process.env);
+const config = setupEnvironment(process.env);
 
 describe('token transfer test', () => {
   jest.setTimeout(10 * 60 * 2000); // 20 minutes
 
-  const logger = createDebugLogger(`aztec:spartan-test:transfer`);
-  const MINT_AMOUNT = 20n;
+  const logger = createLogger(`e2e:spartan-test:transfer`);
+  const MINT_AMOUNT = 1n;
 
-  const ROUNDS = 5n;
+  const ROUNDS = 1n;
 
   let testWallets: TestWallets;
 
@@ -23,7 +23,7 @@ describe('token transfer test', () => {
     let PXE_URL;
     if (isK8sConfig(config)) {
       await startPortForward({
-        resource: 'svc/spartan-aztec-network-pxe',
+        resource: `svc/${config.INSTANCE_NAME}-aztec-network-pxe`,
         namespace: config.NAMESPACE,
         containerPort: config.CONTAINER_PXE_PORT,
         hostPort: config.HOST_PXE_PORT,

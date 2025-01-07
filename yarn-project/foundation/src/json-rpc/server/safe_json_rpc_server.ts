@@ -8,7 +8,7 @@ import { type AddressInfo } from 'net';
 import { format, inspect } from 'util';
 import { ZodError } from 'zod';
 
-import { type DebugLogger, createDebugLogger } from '../../log/index.js';
+import { type Logger, createLogger } from '../../log/index.js';
 import { promiseWithResolvers } from '../../promise/utils.js';
 import { type ApiSchema, type ApiSchemaFor, parseWithOptionals, schemaHasMethod } from '../../schemas/index.js';
 import { jsonStringify } from '../convert.js';
@@ -24,10 +24,15 @@ export class SafeJsonRpcServer {
   constructor(
     /** The proxy object to delegate requests to. */
     private readonly proxy: Proxy,
+    /**
+     *  Return an HTTP 200 status code on errors, but include an error object
+     *  as per the JSON RPC spec
+     */
+    private http200OnError = false,
     /** Health check function */
     private readonly healthCheck: StatusCheckFn = () => true,
     /** Logger */
-    private log = createDebugLogger('json-rpc:server'),
+    private log = createLogger('json-rpc:server'),
   ) {}
 
   public isHealthy(): boolean | Promise<boolean> {
@@ -105,9 +110,17 @@ export class SafeJsonRpcServer {
         ctx.status = 400;
         ctx.body = { jsonrpc, id, error: { code: -32601, message: `Method not found: ${method}` } };
       } else {
-        const result = await this.proxy.call(method, params);
-        ctx.body = { jsonrpc, id, result };
         ctx.status = 200;
+        try {
+          const result = await this.proxy.call(method, params);
+          ctx.body = { jsonrpc, id, result };
+        } catch (err: any) {
+          if (this.http200OnError) {
+            ctx.body = { jsonrpc, id, error: { code: err.code || -32600, data: err.data, message: err.message } };
+          } else {
+            throw err;
+          }
+        }
       }
     });
 
@@ -170,7 +183,7 @@ interface Proxy {
  * before forwarding calls, and then converts outputs into JSON using default conversions.
  */
 export class SafeJsonProxy<T extends object = any> implements Proxy {
-  private log = createDebugLogger('json-rpc:proxy');
+  private log = createLogger('json-rpc:proxy');
   private schema: ApiSchema;
 
   constructor(private handler: T, schema: ApiSchemaFor<T>) {
@@ -233,7 +246,7 @@ export function makeHandler<T extends object>(handler: T, schema: ApiSchemaFor<T
   return [handler, schema];
 }
 
-function makeAggregateHealthcheck(namedHandlers: NamespacedApiHandlers, log?: DebugLogger): StatusCheckFn {
+function makeAggregateHealthcheck(namedHandlers: NamespacedApiHandlers, log?: Logger): StatusCheckFn {
   return async () => {
     try {
       const results = await Promise.all(
@@ -259,20 +272,22 @@ function makeAggregateHealthcheck(namedHandlers: NamespacedApiHandlers, log?: De
  */
 export function createNamespacedSafeJsonRpcServer(
   handlers: NamespacedApiHandlers,
-  log = createDebugLogger('json-rpc:server'),
+  http200OnError = false,
+  log = createLogger('json-rpc:server'),
 ): SafeJsonRpcServer {
   const proxy = new NamespacedSafeJsonProxy(handlers);
   const healthCheck = makeAggregateHealthcheck(handlers, log);
-  return new SafeJsonRpcServer(proxy, healthCheck, log);
+  return new SafeJsonRpcServer(proxy, http200OnError, healthCheck, log);
 }
 
 export function createSafeJsonRpcServer<T extends object = any>(
   handler: T,
   schema: ApiSchemaFor<T>,
+  http200OnError = false,
   healthCheck?: StatusCheckFn,
 ) {
   const proxy = new SafeJsonProxy(handler, schema);
-  return new SafeJsonRpcServer(proxy, healthCheck);
+  return new SafeJsonRpcServer(proxy, http200OnError, healthCheck);
 }
 
 /**

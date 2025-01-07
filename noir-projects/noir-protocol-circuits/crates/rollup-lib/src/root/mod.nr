@@ -1,5 +1,5 @@
-mod root_rollup_inputs;
-mod root_rollup_public_inputs;
+pub mod root_rollup_inputs;
+pub mod root_rollup_public_inputs;
 
 // Re-exports
 pub use root_rollup_inputs::RootRollupInputs;

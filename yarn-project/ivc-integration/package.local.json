@@ -1,8 +1,8 @@
 {
   "scripts": {
-    "build": "yarn clean && yarn generate && rm -rf dest && webpack && tsc -b",
+    "build": "yarn clean && yarn generate && tsc -b &&  rm -rf dest && webpack",
     "clean": "rm -rf ./dest .tsbuildinfo src/types artifacts",
-    "test:non-browser": "NODE_NO_WARNINGS=1 node --experimental-vm-modules ../node_modules/.bin/jest --testPathIgnorePatterns=browser --passWithNoTests ",
+    "test:non-browser": "RAYON_NUM_THREADS=4 NODE_NO_WARNINGS=1 node --experimental-vm-modules ../node_modules/.bin/jest --testPathIgnorePatterns=browser --passWithNoTests ",
     "test:browser": "./run_browser_tests.sh",
     "test": "yarn test:non-browser"
   },

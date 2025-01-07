@@ -1,3 +1,4 @@
+{{- if not .Values.ethereum.externalHost }}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -16,6 +17,55 @@ spec:
         {{- include "aztec-network.selectorLabels" . | nindent 8 }}
         app: ethereum
     spec:
+      {{- if .Values.network.public }}
+      hostNetwork: true
+      {{- end }}
+      initContainers:
+        - name: prepare-genesis
+          image: node:18-alpine
+          command: ["/bin/sh", "-c"]
+          args:
+            - |
+              cd /tmp
+              npm init -y
+              npm install ethers@6
+              cat > derive.js << 'EOF'
+              const { ethers } = require('ethers');
+              const fs = require('fs');
+
+              async function main() {
+                const mnemonic = process.env.DEPLOYMENT_MNEMONIC;
+                const wallet = ethers.Wallet.fromPhrase(mnemonic);
+
+                const genesis = JSON.parse(fs.readFileSync('/genesis-template/genesis.json', 'utf8'));
+
+                genesis.alloc[wallet.address] = {
+                  balance: '0x3635c9adc5dea00000' // 1000 ETH in wei
+                };
+
+                // We rely on the deterministic deployment proxy to deploy the contracts
+                // It comes preloaded on anvil (https://book.getfoundry.sh/tutorials/create2-tutorial)
+                // But we need to do it ourselves for reth
+                // Addresses/tx in https://github.com/Arachnid/deterministic-deployment-proxy/tree/master
+                const deployer = '0x3fab184622dc19b6109349b94811493bf2a45362'
+                genesis.alloc[deployer] = {
+                  balance: '0x3635c9adc5dea00000' // 1000 ETH in wei
+                };
+
+                fs.writeFileSync('/genesis-output/genesis.json', JSON.stringify(genesis, null, 2));
+              }
+
+              main().catch(console.error);
+              EOF
+              node derive.js
+          env:
+            - name: DEPLOYMENT_MNEMONIC
+              value: {{ .Values.aztec.l1DeploymentMnemonic }}
+          volumeMounts:
+            - name: genesis-template
+              mountPath: /genesis-template
+            - name: genesis-output
+              mountPath: /genesis-output
       containers:
         - name: ethereum
           image: "{{ .Values.images.reth.image }}"
@@ -37,32 +87,20 @@ spec:
           volumeMounts:
             - name: shared-volume
               mountPath: /data
-            - name: genesis
+            - name: genesis-output
               mountPath: /genesis
-          # readinessProbe:
-          #   exec:
-          #     command:
-          #       - sh
-          #       - -c
-          #       - |
-          #         wget -qO- --post-data='{"jsonrpc":"2.0","method":"web3_clientVersion","params":[],"id":67}' \
-          #         --header='Content-Type: application/json' \
-          #         127.0.0.1:{{ .Values.ethereum.service.port }} \
-          #         | grep -q 'reth'
-          #   initialDelaySeconds: {{ .Values.ethereum.readinessProbe.initialDelaySeconds }}
-          #   periodSeconds: {{ .Values.ethereum.readinessProbe.periodSeconds }}
-          #   timeoutSeconds: {{ .Values.ethereum.readinessProbe.timeoutSeconds }}
-          #   successThreshold: {{ .Values.ethereum.readinessProbe.successThreshold }}
-          #   failureThreshold: {{ .Values.ethereum.readinessProbe.failureThreshold }}
           resources:
             {{- toYaml .Values.ethereum.resources | nindent 12 }}
       volumes:
         - name: shared-volume
           persistentVolumeClaim:
             claimName: {{ include "aztec-network.fullname" . }}-ethereum-pvc
-        - name: genesis
+        - name: genesis-template
           configMap:
             name: {{ include "aztec-network.fullname" . }}-reth-genesis
+        - name: genesis-output
+          emptyDir: {}
+{{if not .Values.network.public }}
 ---
 apiVersion: v1
 kind: Service
@@ -72,26 +110,6 @@ metadata:
     {{- include "aztec-network.labels" . | nindent 4 }}
 spec:
   type: {{ .Values.ethereum.service.type }}
-  selector:
-    {{- include "aztec-network.selectorLabels" . | nindent 4 }}
-    app: ethereum
-  ports:
-    - protocol: TCP
-      port: {{ .Values.ethereum.service.port }}
-      targetPort: {{ .Values.ethereum.service.targetPort }}
-      {{- if and (eq .Values.ethereum.service.type "NodePort") .Values.ethereum.service.nodePort }}
-      nodePort: {{ .Values.ethereum.service.nodePort }}
-      {{- end }}
----
-{{if .Values.network.public }}
-apiVersion: v1
-kind: Service
-metadata:
-  name: ethereum-lb
-  labels:
-    {{- include "aztec-network.labels" . | nindent 4 }}
-spec:
-  type: LoadBalancer
   selector:
     {{- include "aztec-network.selectorLabels" . | nindent 4 }}
     app: ethereum
@@ -128,3 +146,4 @@ spec:
       storage: {{ .Values.ethereum.storage }}
 {{- end }}
 ---
+{{ end }}

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity >=0.8.27;
 
-import {OracleInput, FeeMath} from "@aztec/core/libraries/FeeMath.sol";
+import {OracleInput, FeeMath} from "@aztec/core/libraries/RollupLibs/FeeMath.sol";
 import {
   FeeModelTestPoints,
   TestPoint,
@@ -12,6 +12,10 @@ import {
 import {MinimalFeeModel} from "./MinimalFeeModel.sol";
 import {Errors} from "@aztec/core/libraries/Errors.sol";
 import {SlotLib, Slot} from "@aztec/core/libraries/TimeMath.sol";
+import {
+  MAX_PROVING_COST_MODIFIER,
+  MAX_FEE_ASSET_PRICE_MODIFIER
+} from "@aztec/core/libraries/RollupLibs/FeeMath.sol";
 
 contract MinimalFeeModelTest is FeeModelTestPoints {
   using SlotLib for Slot;
@@ -78,8 +82,8 @@ contract MinimalFeeModelTest is FeeModelTestPoints {
   }
 
   function test_invalidOracleInput() public {
-    uint256 provingBoundary = FeeMath.MAX_PROVING_COST_MODIFIER + 1;
-    uint256 feeAssetPriceBoundary = FeeMath.MAX_FEE_ASSET_PRICE_MODIFIER + 1;
+    uint256 provingBoundary = MAX_PROVING_COST_MODIFIER + 1;
+    uint256 feeAssetPriceBoundary = MAX_FEE_ASSET_PRICE_MODIFIER + 1;
 
     vm.expectRevert(abi.encodeWithSelector(Errors.FeeMath__InvalidProvingCostModifier.selector));
     model.addSlot(

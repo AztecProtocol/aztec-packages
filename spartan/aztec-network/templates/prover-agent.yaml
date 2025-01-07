@@ -17,66 +17,93 @@ spec:
         {{- include "aztec-network.selectorLabels" . | nindent 8 }}
         app: prover-agent
     spec:
-      {{- if .Values.proverAgent.nodeSelector }}
-      nodeSelector:
-        {{- toYaml .Values.proverAgent.nodeSelector | nindent 8 }}
+      {{- if .Values.proverAgent.gke.spotEnabled }}
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+            - matchExpressions:
+              - key: cloud.google.com/gke-spot
+                operator: Exists
+      tolerations:
+      - key: "cloud.google.com/gke-spot"
+        operator: "Equal"
+        value: "true"
+        effect: "NoSchedule"
       {{- end }}
-
+      serviceAccountName: {{ include "aztec-network.fullname" . }}-node
+      {{- if .Values.network.public }}
+      hostNetwork: true
+      dnsPolicy: ClusterFirstWithHostNet
+      {{- end }}
+      volumes:
+        - name: config
+          emptyDir: {}
+        - name: scripts
+          configMap:
+            name: {{ include "aztec-network.fullname" . }}-scripts
       initContainers:
+        {{- include "aztec-network.serviceAddressSetupContainer" . | nindent 8 }}
         - name: wait-for-prover-node
-          image: {{ .Values.images.curl.image }}
+          {{- include "aztec-network.image" . | nindent 10 }}
           command:
-            - /bin/sh
+            - /bin/bash
             - -c
             - |
-              until curl -s -X POST "$PROVER_JOB_SOURCE_URL/status"; do
-                echo "Waiting for Prover node $PROVER_JOB_SOURCE_URL ..."
+              source /shared/config/service-addresses
+              cat /shared/config/service-addresses
+              until curl -s -X POST ${PROVER_BROKER_HOST}/status; do
+                echo "Waiting for broker ${PROVER_BROKER_HOST} ..."
                 sleep 5
               done
-              echo "Prover node is ready!"
+              echo "Broker is ready!"
               {{- if .Values.telemetry.enabled }}
-              until curl --head --silent {{ include "aztec-network.otelCollectorMetricsEndpoint" . }} > /dev/null; do
-                echo "Waiting for OpenTelemetry collector..."
+              until curl --head --silent $OTEL_COLLECTOR_ENDPOINT > /dev/null; do
+                echo "Waiting for OpenTelemetry collector $OTEL_COLLECTOR_ENDPOINT..."
                 sleep 5
               done
               echo "OpenTelemetry collector is ready!"
               {{- end }}
-          env:
-            - name: PROVER_JOB_SOURCE_URL
-              value: "http://{{ include "aztec-network.fullname" . }}-prover-node.{{ .Release.Namespace }}.svc.cluster.local:{{ .Values.proverNode.service.nodePort }}"
+          volumeMounts:
+            - name: config
+              mountPath: /shared/config
       containers:
         - name: prover-agent
-          image: "{{ .Values.images.aztec.image }}"
-          imagePullPolicy: {{ .Values.images.aztec.pullPolicy }}
+          {{- include "aztec-network.image" . | nindent 10 }}
+          volumeMounts:
+            - name: config
+              mountPath: /shared/config
           command:
             - "/bin/bash"
             - "-c"
-            - "node --no-warnings /usr/src/yarn-project/aztec/dest/bin/index.js start --prover"
+            - |
+              source /shared/config/service-addresses && \
+              node --no-warnings /usr/src/yarn-project/aztec/dest/bin/index.js start --prover-agent
           env:
+            - name: K8S_POD_UID
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.uid
+            - name: K8S_POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+            - name: AZTEC_PORT
+              value: "{{ .Values.proverAgent.service.nodePort }}"
             - name: LOG_LEVEL
               value: "{{ .Values.proverAgent.logLevel }}"
             - name: LOG_JSON
               value: "1"
-            - name: DEBUG
-              value: "{{ .Values.proverAgent.debug }}"
             - name: PROVER_REAL_PROOFS
-              value: "{{ .Values.proverAgent.realProofs }}"
-            - name: PROVER_JOB_SOURCE_URL
-              value: "http://{{ include "aztec-network.fullname" . }}-prover-node.{{ .Release.Namespace }}.svc.cluster.local:{{ .Values.proverNode.service.nodePort }}"
-            - name: PROVER_AGENT_ENABLED
-              value: "true"
-            - name: PROVER_AGENT_CONCURRENCY
-              value: {{ .Values.proverAgent.concurrency | quote }}
-            - name: HARDWARE_CONCURRENCY
-              value: {{ .Values.proverAgent.bb.hardwareConcurrency | quote }}
+              value: "{{ .Values.aztec.realProofs }}"
+            - name: PROVER_AGENT_COUNT
+              value: "1"
+            - name: PROVER_AGENT_POLL_INTERVAL_MS
+              value: "{{ .Values.proverAgent.pollIntervalMs }}"
+            - name: PROVER_AGENT_PROOF_TYPES
+              value: {{ join "," .Values.proverAgent.proofTypes | quote }}
             - name: OTEL_RESOURCE_ATTRIBUTES
               value: service.name={{ .Release.Name }},service.namespace={{ .Release.Namespace }},service.version={{ .Chart.AppVersion }},environment={{ .Values.environment | default "production" }}
-            - name: OTEL_EXPORTER_OTLP_METRICS_ENDPOINT
-              value: {{ include "aztec-network.otelCollectorMetricsEndpoint" . | quote }}
-            - name: OTEL_EXPORTER_OTLP_TRACES_ENDPOINT
-              value: {{ include "aztec-network.otelCollectorTracesEndpoint" . | quote }}
-            - name: OTEL_EXPORTER_OTLP_LOGS_ENDPOINT
-              value: {{ include "aztec-network.otelCollectorLogsEndpoint" . | quote }}
           resources:
             {{- toYaml .Values.proverAgent.resources | nindent 12 }}
 {{- end }}

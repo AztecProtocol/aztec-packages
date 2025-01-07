@@ -1,27 +1,34 @@
 import { type L2Block } from '@aztec/circuit-types';
-import { createDebugLogger } from '@aztec/foundation/log';
+import { createLogger } from '@aztec/foundation/log';
 import {
   Attributes,
   type Gauge,
   type Histogram,
+  LmdbMetrics,
+  type LmdbStatsCallback,
   Metrics,
   type TelemetryClient,
+  type Tracer,
   type UpDownCounter,
   ValueType,
-  exponentialBuckets,
-  millisecondBuckets,
 } from '@aztec/telemetry-client';
 
 export class ArchiverInstrumentation {
+  public readonly tracer: Tracer;
+
   private blockHeight: Gauge;
   private blockSize: Gauge;
   private syncDuration: Histogram;
+  private l1BlocksSynced: UpDownCounter;
   private proofsSubmittedDelay: Histogram;
   private proofsSubmittedCount: UpDownCounter;
+  private dbMetrics: LmdbMetrics;
+  private pruneCount: UpDownCounter;
 
-  private log = createDebugLogger('aztec:archiver:instrumentation');
+  private log = createLogger('archiver:instrumentation');
 
-  constructor(private telemetry: TelemetryClient) {
+  private constructor(private telemetry: TelemetryClient, lmdbStats?: LmdbStatsCallback) {
+    this.tracer = telemetry.getTracer('Archiver');
     const meter = telemetry.getMeter('Archiver');
     this.blockHeight = meter.createGauge(Metrics.ARCHIVER_BLOCK_HEIGHT, {
       description: 'The height of the latest block processed by the archiver',
@@ -37,9 +44,6 @@ export class ArchiverInstrumentation {
       unit: 'ms',
       description: 'Duration to sync a block',
       valueType: ValueType.INT,
-      advice: {
-        explicitBucketBoundaries: exponentialBuckets(1, 16),
-      },
     });
 
     this.proofsSubmittedCount = meter.createUpDownCounter(Metrics.ARCHIVER_ROLLUP_PROOF_COUNT, {
@@ -51,10 +55,35 @@ export class ArchiverInstrumentation {
       unit: 'ms',
       description: 'Time after a block is submitted until its proof is published',
       valueType: ValueType.INT,
-      advice: {
-        explicitBucketBoundaries: millisecondBuckets(1, 80), // 10ms -> ~3hs
-      },
     });
+
+    this.l1BlocksSynced = meter.createUpDownCounter(Metrics.ARCHIVER_L1_BLOCKS_SYNCED, {
+      description: 'Number of blocks synced from L1',
+      valueType: ValueType.INT,
+    });
+
+    this.dbMetrics = new LmdbMetrics(
+      meter,
+      {
+        [Attributes.DB_DATA_TYPE]: 'archiver',
+      },
+      lmdbStats,
+    );
+
+    this.pruneCount = meter.createUpDownCounter(Metrics.ARCHIVER_PRUNE_COUNT, {
+      description: 'Number of prunes detected',
+      valueType: ValueType.INT,
+    });
+  }
+
+  public static async new(telemetry: TelemetryClient, lmdbStats?: LmdbStatsCallback) {
+    const instance = new ArchiverInstrumentation(telemetry, lmdbStats);
+
+    instance.l1BlocksSynced.add(0);
+
+    await instance.telemetry.flush();
+
+    return instance;
   }
 
   public isEnabled(): boolean {
@@ -64,9 +93,14 @@ export class ArchiverInstrumentation {
   public processNewBlocks(syncTimePerBlock: number, blocks: L2Block[]) {
     this.syncDuration.record(Math.ceil(syncTimePerBlock));
     this.blockHeight.record(Math.max(...blocks.map(b => b.number)));
+    this.l1BlocksSynced.add(blocks.length);
     for (const block of blocks) {
       this.blockSize.record(block.body.txEffects.length);
     }
+  }
+
+  public processPrune() {
+    this.pruneCount.add(1);
   }
 
   public updateLastProvenBlock(blockNumber: number) {
