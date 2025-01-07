@@ -1,6 +1,5 @@
 import {
   type L2Block,
-  type L2BlockNumber,
   type MerkleTreeId,
   type NoteStatus,
   type NullifierMembershipWitness,
