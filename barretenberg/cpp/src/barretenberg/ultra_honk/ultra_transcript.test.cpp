@@ -14,8 +14,6 @@
 
 using namespace bb;
 
-using FlavorTypes =
-    ::testing::Types<UltraFlavor, UltraKeccakFlavor, UltraRollupFlavor, UltraZKFlavor, UltraKeccakZKFlavor>;
 template <typename Flavor> class UltraTranscriptTests : public ::testing::Test {
   public:
     static void SetUpTestSuite()
@@ -188,6 +186,8 @@ template <typename Flavor> class UltraTranscriptTests : public ::testing::Test {
     }
 };
 
+using FlavorTypes =
+    ::testing::Types<UltraFlavor, UltraKeccakFlavor, UltraRollupFlavor, UltraZKFlavor, UltraKeccakZKFlavor>;
 TYPED_TEST_SUITE(UltraTranscriptTests, FlavorTypes);
 
 /**

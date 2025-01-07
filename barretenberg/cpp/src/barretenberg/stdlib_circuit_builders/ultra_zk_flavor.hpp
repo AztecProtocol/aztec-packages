@@ -30,7 +30,8 @@ class UltraZKFlavor : public UltraFlavor {
     template <typename Params> class Transcript_ : public UltraFlavor::Transcript_<Params> {
       public:
         using Base = UltraFlavor::Transcript_<Params>::Base;
-        std::vector<bb::Univariate<FF, BATCHED_RELATION_PARTIAL_LENGTH>> sumcheck_univariates;
+        // Note: we have a different vector of univariates because the degree for ZK flavors differs
+        std::vector<bb::Univariate<FF, BATCHED_RELATION_PARTIAL_LENGTH>> zk_sumcheck_univariates;
         Commitment libra_concatenation_commitment;
         FF libra_sum;
         FF libra_claimed_evaluation;
@@ -82,7 +83,7 @@ class UltraZKFlavor : public UltraFlavor {
             libra_sum = Base::template deserialize_from_buffer<FF>(proof_data, num_frs_read);
 
             for (size_t i = 0; i < CONST_PROOF_SIZE_LOG_N; ++i) {
-                sumcheck_univariates.push_back(
+                zk_sumcheck_univariates.push_back(
                     Base::template deserialize_from_buffer<bb::Univariate<FF, BATCHED_RELATION_PARTIAL_LENGTH>>(
                         proof_data, num_frs_read));
             }
@@ -138,7 +139,7 @@ class UltraZKFlavor : public UltraFlavor {
             Base::template serialize_to_buffer(libra_sum, proof_data);
 
             for (size_t i = 0; i < CONST_PROOF_SIZE_LOG_N; ++i) {
-                Base::template serialize_to_buffer(sumcheck_univariates[i], proof_data);
+                Base::template serialize_to_buffer(zk_sumcheck_univariates[i], proof_data);
             }
             Base::template serialize_to_buffer(libra_claimed_evaluation, proof_data);
 

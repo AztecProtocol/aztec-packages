@@ -30,7 +30,8 @@ class UltraKeccakZKFlavor : public UltraKeccakFlavor {
     class Transcript : public UltraKeccakFlavor::Transcript {
       public:
         using Base = UltraKeccakFlavor::Transcript::Base;
-        std::vector<bb::Univariate<FF, BATCHED_RELATION_PARTIAL_LENGTH>> sumcheck_univariates;
+        // Note: we have a different vector of univariates because the degree for ZK flavors differs
+        std::vector<bb::Univariate<FF, BATCHED_RELATION_PARTIAL_LENGTH>> zk_sumcheck_univariates;
         Commitment libra_concatenation_commitment;
         FF libra_sum;
         FF libra_claimed_evaluation;
@@ -75,7 +76,7 @@ class UltraKeccakZKFlavor : public UltraKeccakFlavor {
             libra_sum = Base::template deserialize_from_buffer<FF>(proof_data, num_frs_read);
 
             for (size_t i = 0; i < CONST_PROOF_SIZE_LOG_N; ++i) {
-                sumcheck_univariates.push_back(
+                zk_sumcheck_univariates.push_back(
                     Base::template deserialize_from_buffer<bb::Univariate<FF, BATCHED_RELATION_PARTIAL_LENGTH>>(
                         proof_data, num_frs_read));
             }
@@ -131,7 +132,7 @@ class UltraKeccakZKFlavor : public UltraKeccakFlavor {
             Base::template serialize_to_buffer(libra_sum, proof_data);
 
             for (size_t i = 0; i < CONST_PROOF_SIZE_LOG_N; ++i) {
-                Base::template serialize_to_buffer(sumcheck_univariates[i], proof_data);
+                Base::template serialize_to_buffer(zk_sumcheck_univariates[i], proof_data);
             }
             Base::template serialize_to_buffer(libra_claimed_evaluation, proof_data);
 
