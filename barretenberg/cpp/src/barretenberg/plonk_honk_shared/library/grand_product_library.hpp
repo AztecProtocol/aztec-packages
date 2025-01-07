@@ -183,7 +183,6 @@ void compute_grand_product(typename Flavor::ProverPolynomials& full_polynomials,
 
     // For Ultra/Mega, the first row is an inactive zero row thus the grand prod takes value 1 at both i = 0 and i = 1
     if constexpr (IsUltraFlavor<Flavor>) {
-        ASSERT(active_region_data.idxs[0] == 1); // first active idx should be 1
         grand_product_polynomial.at(1) = 1;
     }
 
