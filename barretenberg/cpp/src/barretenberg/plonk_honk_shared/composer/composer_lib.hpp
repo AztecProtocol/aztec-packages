@@ -23,7 +23,13 @@ void construct_lookup_table_polynomials(const RefArray<typename Flavor::Polynomi
     //  ignored, as used for regular constraints and padding to the next power of 2.
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/1033): construct tables and counts at top of trace
     const size_t tables_size = circuit.get_tables_size();
-    ASSERT(tables_size <= MAX_LOOKUP_TABLES_SIZE); // if false, may need to increase constant
+    if (tables_size > MAX_LOOKUP_TABLES_SIZE) {
+        info("\nTotal lookup tables size = ",
+             tables_size,
+             " exceeds constant MAX_LOOKUP_TABLES_SIZE = ",
+             MAX_LOOKUP_TABLES_SIZE);
+        ASSERT(false);
+    }
     ASSERT(dyadic_circuit_size > tables_size + additional_offset);
     size_t offset = circuit.blocks.lookup.trace_offset;
     if constexpr (IsPlonkFlavor<Flavor>) {
