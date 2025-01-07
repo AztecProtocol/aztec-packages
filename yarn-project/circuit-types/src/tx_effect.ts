@@ -143,6 +143,7 @@ export class TxEffect {
   toBuffer(): Buffer {
     return serializeToBuffer([
       this.revertCode,
+      this.txHash,
       this.transactionFee,
       serializeArrayOfBufferableToVector(this.noteHashes, 1),
       serializeArrayOfBufferableToVector(this.nullifiers, 1),
