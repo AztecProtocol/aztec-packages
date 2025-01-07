@@ -3,20 +3,23 @@ import {
   ARCHIVE_HEIGHT,
   AppendOnlyTreeSnapshot,
   type BlockHeader,
-  BlockMergeRollupInputs,
-  type BlockRootOrBlockMergePublicInputs,
-  ConstantRollupData,
-  EmptyBlockRootRollupInputs,
   Fr,
   type GlobalVariables,
   L1_TO_L2_MSG_SUBTREE_SIBLING_PATH_LENGTH,
   MembershipWitness,
+  type NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH,
   NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
+  VK_TREE_HEIGHT,
+} from '@aztec/circuits.js';
+import {
+  BlockMergeRollupInputs,
+  type BlockRootOrBlockMergePublicInputs,
+  ConstantRollupData,
+  EmptyBlockRootRollupInputs,
   PreviousRollupBlockData,
   RootRollupInputs,
   type RootRollupPublicInputs,
-  VK_TREE_HEIGHT,
-} from '@aztec/circuits.js';
+} from '@aztec/circuits.js/rollup';
 import { makeTuple } from '@aztec/foundation/array';
 import { padArrayEnd } from '@aztec/foundation/collection';
 import { type Tuple } from '@aztec/foundation/serialize';
@@ -45,9 +48,11 @@ export type ProvingResult = { status: 'success' } | { status: 'failure'; reason:
  */
 export class EpochProvingState {
   private blockRootOrMergeProvingOutputs: UnbalancedTreeStore<
-    PublicInputsAndRecursiveProof<BlockRootOrBlockMergePublicInputs>
+    PublicInputsAndRecursiveProof<BlockRootOrBlockMergePublicInputs, typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH>
   >;
-  private paddingBlockRootProvingOutput: PublicInputsAndRecursiveProof<BlockRootOrBlockMergePublicInputs> | undefined;
+  private paddingBlockRootProvingOutput:
+    | PublicInputsAndRecursiveProof<BlockRootOrBlockMergePublicInputs, typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH>
+    | undefined;
   private rootRollupProvingOutput: PublicInputsAndRecursiveProof<RootRollupPublicInputs> | undefined;
   private provingStateLifecycle = PROVING_STATE_LIFECYCLE.PROVING_STATE_CREATED;
 
@@ -112,14 +117,20 @@ export class EpochProvingState {
 
   public setBlockRootRollupProof(
     blockIndex: number,
-    proof: PublicInputsAndRecursiveProof<BlockRootOrBlockMergePublicInputs>,
+    proof: PublicInputsAndRecursiveProof<
+      BlockRootOrBlockMergePublicInputs,
+      typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH
+    >,
   ): TreeNodeLocation {
     return this.blockRootOrMergeProvingOutputs.setLeaf(blockIndex, proof);
   }
 
   public setBlockMergeRollupProof(
     location: TreeNodeLocation,
-    proof: PublicInputsAndRecursiveProof<BlockRootOrBlockMergePublicInputs>,
+    proof: PublicInputsAndRecursiveProof<
+      BlockRootOrBlockMergePublicInputs,
+      typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH
+    >,
   ) {
     this.blockRootOrMergeProvingOutputs.setNode(location, proof);
   }
@@ -128,7 +139,12 @@ export class EpochProvingState {
     this.rootRollupProvingOutput = proof;
   }
 
-  public setPaddingBlockRootProof(proof: PublicInputsAndRecursiveProof<BlockRootOrBlockMergePublicInputs>) {
+  public setPaddingBlockRootProof(
+    proof: PublicInputsAndRecursiveProof<
+      BlockRootOrBlockMergePublicInputs,
+      typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH
+    >,
+  ) {
     this.paddingBlockRootProvingOutput = proof;
   }
 
@@ -247,7 +263,10 @@ export class EpochProvingState {
     inputs,
     proof,
     verificationKey,
-  }: PublicInputsAndRecursiveProof<BlockRootOrBlockMergePublicInputs>) {
+  }: PublicInputsAndRecursiveProof<
+    BlockRootOrBlockMergePublicInputs,
+    typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH
+  >) {
     const leafIndex = getVKIndex(verificationKey.keyAsFields);
     return new PreviousRollupBlockData(
       inputs,

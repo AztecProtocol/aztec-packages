@@ -97,7 +97,12 @@ export async function startPortForward({
   });
 
   process.stdout?.on('data', data => {
-    logger.info(data.toString());
+    const str = data.toString();
+    if (str.includes('Starting port forward')) {
+      logger.info(str);
+    } else {
+      logger.debug(str);
+    }
   });
   process.stderr?.on('data', data => {
     // It's a strange thing:

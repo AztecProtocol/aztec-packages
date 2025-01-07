@@ -1,5 +1,6 @@
 import { TxEffect } from '@aztec/circuit-types';
-import { BlobPublicInputs, Fr } from '@aztec/circuits.js';
+import { Fr } from '@aztec/circuits.js';
+import { BlobPublicInputs } from '@aztec/circuits.js/blobs';
 import { updateInlineTestData } from '@aztec/foundation/testing/files';
 
 import { buildBlobHints } from './block-building-helpers.js';

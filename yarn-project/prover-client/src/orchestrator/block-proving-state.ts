@@ -4,31 +4,34 @@ import {
   type ARCHIVE_HEIGHT,
   type AppendOnlyTreeSnapshot,
   BLOBS_PER_BLOCK,
-  type BaseOrMergeRollupPublicInputs,
   type BlockHeader,
-  type BlockRootOrBlockMergePublicInputs,
-  BlockRootRollupData,
-  BlockRootRollupInputs,
-  ConstantRollupData,
-  EmptyBlockRootRollupInputs,
   FIELDS_PER_BLOB,
   Fr,
   type GlobalVariables,
   type L1_TO_L2_MSG_SUBTREE_SIBLING_PATH_LENGTH,
   MembershipWitness,
-  MergeRollupInputs,
+  type NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH,
   type NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
   NUM_BASE_PARITY_PER_ROOT_PARITY,
   type ParityPublicInputs,
-  PreviousRollupData,
   type RECURSIVE_PROOF_LENGTH,
   RootParityInput,
   RootParityInputs,
-  SingleTxBlockRootRollupInputs,
-  SpongeBlob,
   StateReference,
   VK_TREE_HEIGHT,
 } from '@aztec/circuits.js';
+import { SpongeBlob } from '@aztec/circuits.js/blobs';
+import {
+  type BaseOrMergeRollupPublicInputs,
+  type BlockRootOrBlockMergePublicInputs,
+  BlockRootRollupData,
+  BlockRootRollupInputs,
+  ConstantRollupData,
+  EmptyBlockRootRollupInputs,
+  MergeRollupInputs,
+  PreviousRollupData,
+  SingleTxBlockRootRollupInputs,
+} from '@aztec/circuits.js/rollup';
 import { padArrayEnd } from '@aztec/foundation/collection';
 import { type Logger } from '@aztec/foundation/log';
 import { type Tuple } from '@aztec/foundation/serialize';
@@ -47,11 +50,14 @@ export type TreeSnapshots = Map<MerkleTreeId, AppendOnlyTreeSnapshot>;
  * Contains the raw inputs and intermediate state to generate every constituent proof in the tree.
  */
 export class BlockProvingState {
-  private baseOrMergeProvingOutputs: UnbalancedTreeStore<PublicInputsAndRecursiveProof<BaseOrMergeRollupPublicInputs>> =
-    new UnbalancedTreeStore(0);
+  private baseOrMergeProvingOutputs: UnbalancedTreeStore<
+    PublicInputsAndRecursiveProof<BaseOrMergeRollupPublicInputs, typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH>
+  > = new UnbalancedTreeStore(0);
   private baseParityProvingOutputs: (PublicInputsAndRecursiveProof<ParityPublicInputs> | undefined)[];
   private rootParityProvingOutput: PublicInputsAndRecursiveProof<ParityPublicInputs> | undefined;
-  private blockRootProvingOutput: PublicInputsAndRecursiveProof<BlockRootOrBlockMergePublicInputs> | undefined;
+  private blockRootProvingOutput:
+    | PublicInputsAndRecursiveProof<BlockRootOrBlockMergePublicInputs, typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH>
+    | undefined;
   public blockRootRollupStarted: boolean = false;
   public block: L2Block | undefined;
   public spongeBlobState: SpongeBlob | undefined;
@@ -105,14 +111,20 @@ export class BlockProvingState {
 
   public setBaseRollupProof(
     txIndex: number,
-    provingOutput: PublicInputsAndRecursiveProof<BaseOrMergeRollupPublicInputs>,
+    provingOutput: PublicInputsAndRecursiveProof<
+      BaseOrMergeRollupPublicInputs,
+      typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH
+    >,
   ): TreeNodeLocation {
     return this.baseOrMergeProvingOutputs.setLeaf(txIndex, provingOutput);
   }
 
   public setMergeRollupProof(
     location: TreeNodeLocation,
-    provingOutput: PublicInputsAndRecursiveProof<BaseOrMergeRollupPublicInputs>,
+    provingOutput: PublicInputsAndRecursiveProof<
+      BaseOrMergeRollupPublicInputs,
+      typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH
+    >,
   ) {
     this.baseOrMergeProvingOutputs.setNode(location, provingOutput);
   }
@@ -131,7 +143,12 @@ export class BlockProvingState {
     this.rootParityProvingOutput = provingOutput;
   }
 
-  public setBlockRootRollupProof(provingOutput: PublicInputsAndRecursiveProof<BlockRootOrBlockMergePublicInputs>) {
+  public setBlockRootRollupProof(
+    provingOutput: PublicInputsAndRecursiveProof<
+      BlockRootOrBlockMergePublicInputs,
+      typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH
+    >,
+  ) {
     this.blockRootProvingOutput = provingOutput;
   }
 
@@ -167,12 +184,12 @@ export class BlockProvingState {
     }
 
     const proofs = this.#getChildProofsForBlockRoot();
-    const nonEmptyProofs = proofs.filter(p => !!p) as PublicInputsAndRecursiveProof<BaseOrMergeRollupPublicInputs>[];
+    const nonEmptyProofs = proofs.filter(p => !!p);
     if (proofs.length !== nonEmptyProofs.length) {
       throw new Error('At lease one child is not ready for the block root.');
     }
 
-    const previousRollupData = nonEmptyProofs.map(this.#getPreviousRollupData);
+    const previousRollupData = nonEmptyProofs.map(p => this.#getPreviousRollupData(p!));
     const data = this.#getBlockRootRollupData(proverId);
 
     if (previousRollupData.length === 1) {
@@ -315,7 +332,7 @@ export class BlockProvingState {
     inputs,
     proof,
     verificationKey,
-  }: PublicInputsAndRecursiveProof<BaseOrMergeRollupPublicInputs>) {
+  }: PublicInputsAndRecursiveProof<BaseOrMergeRollupPublicInputs, typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH>) {
     const leafIndex = getVKIndex(verificationKey.keyAsFields);
     return new PreviousRollupData(
       inputs,

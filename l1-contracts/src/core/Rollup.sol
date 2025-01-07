@@ -51,6 +51,8 @@ struct Config {
   uint256 targetCommitteeSize;
   uint256 aztecEpochProofClaimWindowInL2Slots;
   uint256 minimumStake;
+  uint256 slashingQuorum;
+  uint256 slashingRoundSize;
 }
 
 /**
@@ -110,15 +112,15 @@ contract Rollup is EIP712("Aztec Rollup", "1"), Ownable, Leonidas, IRollup, ITes
   )
     Ownable(_ares)
     Leonidas(
-      _ares,
       _stakingAsset,
       _config.minimumStake,
+      _config.slashingQuorum,
+      _config.slashingRoundSize,
       _config.aztecSlotDuration,
       _config.aztecEpochDuration,
       _config.targetCommitteeSize
     )
   {
-    rollupStore.epochProofVerifier = new MockVerifier();
     FEE_JUICE_PORTAL = _fpcJuicePortal;
     REWARD_DISTRIBUTOR = _rewardDistributor;
     ASSET = _fpcJuicePortal.UNDERLYING();
@@ -127,13 +129,15 @@ contract Rollup is EIP712("Aztec Rollup", "1"), Ownable, Leonidas, IRollup, ITes
     );
     INBOX = IInbox(address(new Inbox(address(this), Constants.L1_TO_L2_MSG_SUBTREE_HEIGHT)));
     OUTBOX = IOutbox(address(new Outbox(address(this))));
-    rollupStore.vkTreeRoot = _vkTreeRoot;
-    rollupStore.protocolContractTreeRoot = _protocolContractTreeRoot;
     VERSION = 1;
     L1_BLOCK_AT_GENESIS = block.number;
     CLAIM_DURATION_IN_L2_SLOTS = _config.aztecEpochProofClaimWindowInL2Slots;
 
     IS_FOUNDRY_TEST = VM_ADDRESS.code.length > 0;
+
+    rollupStore.epochProofVerifier = new MockVerifier();
+    rollupStore.vkTreeRoot = _vkTreeRoot;
+    rollupStore.protocolContractTreeRoot = _protocolContractTreeRoot;
 
     // Genesis block
     rollupStore.blocks[0] = BlockLog({

@@ -9,10 +9,7 @@ import {
 import {
   ARCHIVE_HEIGHT,
   AppendOnlyTreeSnapshot,
-  type BaseOrMergeRollupPublicInputs,
   BlockHeader,
-  type BlockRootOrBlockMergePublicInputs,
-  ConstantRollupData,
   ContentCommitment,
   Fr,
   type GlobalVariables,
@@ -31,16 +28,21 @@ import {
   PUBLIC_DATA_TREE_HEIGHT,
   type ParityPublicInputs,
   PartialStateReference,
+  PublicDataHint,
+  PublicDataTreeLeaf,
+  PublicDataTreeLeafPreimage,
+  StateReference,
+} from '@aztec/circuits.js';
+import { type SpongeBlob } from '@aztec/circuits.js/blobs';
+import {
+  type BaseOrMergeRollupPublicInputs,
+  type BlockRootOrBlockMergePublicInputs,
+  ConstantRollupData,
   PrivateBaseRollupHints,
   PrivateBaseStateDiffHints,
   PublicBaseRollupHints,
   PublicBaseStateDiffHints,
-  PublicDataHint,
-  PublicDataTreeLeaf,
-  PublicDataTreeLeafPreimage,
-  type SpongeBlob,
-  StateReference,
-} from '@aztec/circuits.js';
+} from '@aztec/circuits.js/rollup';
 import { makeTuple } from '@aztec/foundation/array';
 import { Blob } from '@aztec/foundation/blob';
 import { padArrayEnd } from '@aztec/foundation/collection';

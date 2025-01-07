@@ -117,7 +117,8 @@ validator:
     - 0x3c3E2E178C69D4baD964568415a0f0c84fd6320A
   resources:
     requests:
-      memory: "512Mi"
+      memory: "8Gi"
+      cpu: "3.5"
   validator:
     disabled: false
   sequencer:
@@ -129,12 +130,28 @@ bootNode:
   storageSize: "100Gi"
   validator:
     disabled: true
+  resources:
+    requests:
+      memory: "8Gi"
+      cpu: "3.5"
 
 proverAgent:
-  replicas: 4
+  replicas: 8
+
+proverBroker:
+  resources:
+    requests:
+      memory: "8Gi"
+      cpu: "3.5"
+
+proverNode:
+  resources:
+    requests:
+      memory: "8Gi"
+      cpu: "3.5"
 
 bot:
-  replicas: 6
+  replicas: 10
   followChain: "NONE"
   enabled: true
   txIntervalSeconds: 1
@@ -142,3 +159,9 @@ bot:
 jobs:
   deployL1Verifier:
     enable: false
+
+ethereum:
+  resources:
+    requests:
+      memory: "8Gi"
+      cpu: "3.5"

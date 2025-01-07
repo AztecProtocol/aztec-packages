@@ -4,9 +4,11 @@ import {
   MerkleTreeId,
   type MerkleTreeWriteOperations,
   type ProcessedTx,
+  TxHash,
   toNumBlobFields,
 } from '@aztec/circuit-types';
-import { Fr, type GlobalVariables, NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP, SpongeBlob } from '@aztec/circuits.js';
+import { Fr, type GlobalVariables, NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP } from '@aztec/circuits.js';
+import { SpongeBlob } from '@aztec/circuits.js/blobs';
 import { padArrayEnd } from '@aztec/foundation/collection';
 import { createLogger } from '@aztec/foundation/log';
 import { type TelemetryClient } from '@aztec/telemetry-client';
@@ -46,7 +48,7 @@ export class LightweightBlockBuilder implements BlockBuilder {
   async addTxs(txs: ProcessedTx[]): Promise<void> {
     this.spongeBlobState = SpongeBlob.init(toNumBlobFields(txs));
     for (const tx of txs) {
-      this.logger.debug(tx.hash.isZero() ? 'Adding padding tx to block' : 'Adding new tx to block', {
+      this.logger.debug(tx.hash.equals(TxHash.zero()) ? 'Adding padding tx to block' : 'Adding new tx to block', {
         txHash: tx.hash.toString(),
       });
       this.txs.push(tx);

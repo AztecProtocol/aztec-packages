@@ -283,6 +283,15 @@ export class PublicTxContext {
   }
 
   /**
+   * Compute the public gas used using the actual gas used during teardown instead
+   * of the teardown gas limit.
+   */
+  getActualPublicGasUsed(): Gas {
+    assert(this.halted, 'Can only compute actual gas used after tx execution ends');
+    return this.gasUsedByPublic.add(this.teardownGasUsed);
+  }
+
+  /**
    * Get the transaction fee as is available to the specified phase.
    * Only teardown should have access to the actual transaction fee.
    */
@@ -450,5 +459,5 @@ function fetchTxHash(nonRevertibleAccumulatedData: PrivateToPublicAccumulatedDat
   if (!firstNullifier || firstNullifier.isZero()) {
     throw new Error(`Cannot get tx hash since first nullifier is missing`);
   }
-  return new TxHash(firstNullifier.toBuffer());
+  return new TxHash(firstNullifier);
 }

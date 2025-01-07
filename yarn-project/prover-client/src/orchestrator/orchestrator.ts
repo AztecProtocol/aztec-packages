@@ -16,10 +16,8 @@ import {
   AVM_VERIFICATION_KEY_LENGTH_IN_FIELDS,
   type AppendOnlyTreeSnapshot,
   BaseParityInputs,
-  type BaseRollupHints,
   BlockHeader,
   ContentCommitment,
-  EmptyBlockRootRollupInputs,
   Fr,
   GlobalVariables,
   L1_TO_L2_MSG_SUBTREE_HEIGHT,
@@ -27,12 +25,16 @@ import {
   NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
   NUM_BASE_PARITY_PER_ROOT_PARITY,
   PartialStateReference,
-  PrivateBaseRollupInputs,
-  SingleTxBlockRootRollupInputs,
   StateReference,
   VerificationKeyData,
   makeEmptyRecursiveProof,
 } from '@aztec/circuits.js';
+import {
+  type BaseRollupHints,
+  EmptyBlockRootRollupInputs,
+  PrivateBaseRollupInputs,
+  SingleTxBlockRootRollupInputs,
+} from '@aztec/circuits.js/rollup';
 import { makeTuple } from '@aztec/foundation/array';
 import { padArrayEnd } from '@aztec/foundation/collection';
 import { AbortError } from '@aztec/foundation/error';

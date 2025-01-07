@@ -9,10 +9,11 @@ For development, it may be useful to deploy, transact, or create notes in a non-
 
 - Deploying contracts
 - Sending transactions
-- Bridging L1 [Fee Juice](../../protocol-specs/gas-and-fees/fee-juice.md) into Aztec
+- Bridging L1 "Fee Juice" into Aztec
 - Pushing arbitrary [notes](../../guides/developer_guides/smart_contracts/writing_contracts/notes/index.md) to your PXE
 - Creating [authwits](../../guides/developer_guides/smart_contracts/writing_contracts/authwit.md)
 - Aliasing info and secrets for further usage
+- Proving your transactions and profile gate counts
 
 :::info
 
@@ -143,7 +144,7 @@ aztec-wallet simulate --profile --from master_yoda --contract-address jedi_order
 
 ### Bridge Fee Juice
 
-The wallet provides an easy way to mint the fee-paying asset on L1 and bridging it to L2. We call it Fee Juice and you can read more about it in the [protocol specs](../../protocol-specs/gas-and-fees/fee-juice.md).
+The wallet provides an easy way to mint the fee-paying asset on L1 and bridging it to L2. Current placeholder-name "fee juice".
 
 Using the sandbox, there's already a Fee Juice contract that manages this enshrined asset. You can optionally mint more Juice before bridging it.
 
@@ -164,3 +165,6 @@ It expects `name` and `storageFieldName`. For example, if the `#[storage]` struc
 ```bash
 aztec-wallet add-note JediMember available_members -a master_yoda -ca jedi_order -h 0x00000
 ```
+
+## Proving
+You can prove a transaction using the aztec-wallet with a running sandbox. Follow the guide [here](../../guides/developer_guides/local_env/sandbox_proving.md#proving-with-aztec-wallet)

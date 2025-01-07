@@ -23,6 +23,7 @@ export class ArchiverInstrumentation {
   private proofsSubmittedDelay: Histogram;
   private proofsSubmittedCount: UpDownCounter;
   private dbMetrics: LmdbMetrics;
+  private pruneCount: UpDownCounter;
 
   private log = createLogger('archiver:instrumentation');
 
@@ -68,6 +69,11 @@ export class ArchiverInstrumentation {
       },
       lmdbStats,
     );
+
+    this.pruneCount = meter.createUpDownCounter(Metrics.ARCHIVER_PRUNE_COUNT, {
+      description: 'Number of prunes detected',
+      valueType: ValueType.INT,
+    });
   }
 
   public static async new(telemetry: TelemetryClient, lmdbStats?: LmdbStatsCallback) {
@@ -91,6 +97,10 @@ export class ArchiverInstrumentation {
     for (const block of blocks) {
       this.blockSize.record(block.body.txEffects.length);
     }
+  }
+
+  public processPrune() {
+    this.pruneCount.add(1);
   }
 
   public updateLastProvenBlock(blockNumber: number) {

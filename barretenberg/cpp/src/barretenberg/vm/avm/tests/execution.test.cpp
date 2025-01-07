@@ -49,7 +49,7 @@ class AvmExecutionTests : public ::testing::Test {
     // TODO(640): The Standard Honk on Grumpkin test suite fails unless the SRS is initialised for every test.
     void SetUp() override
     {
-        srs::init_crs_factory("../srs_db/ignition");
+        srs::init_crs_factory(bb::srs::get_ignition_crs_path());
         public_inputs.gas_settings.gas_limits.l2_gas = DEFAULT_INITIAL_L2_GAS;
         public_inputs.gas_settings.gas_limits.da_gas = DEFAULT_INITIAL_DA_GAS;
         public_inputs.start_gas_used.l2_gas = 0;
@@ -84,6 +84,7 @@ class AvmExecutionTests : public ::testing::Test {
         auto [contract_class_id, contract_instance] = gen_test_contract_hint(bytecode);
         auto execution_hints = ExecutionHints().with_avm_contract_bytecode(
             { AvmContractBytecode{ bytecode, contract_instance, contract_class_id } });
+        execution_hints.contract_instance_hints.emplace(contract_instance.address, contract_instance);
 
         vinfo("Calling execution::gen_trace");
         return AvmExecutionTests::gen_trace(bytecode, calldata, public_inputs, returndata, execution_hints);
@@ -98,6 +99,7 @@ class AvmExecutionTests : public ::testing::Test {
         auto [contract_class_id, contract_instance] = gen_test_contract_hint(bytecode);
         execution_hints.with_avm_contract_bytecode(
             { AvmContractBytecode{ bytecode, contract_instance, contract_class_id } });
+        execution_hints.contract_instance_hints.emplace(contract_instance.address, contract_instance);
 
         // These are magic values because of how some tests work! Don't change them
         public_inputs.public_app_logic_call_requests[0].contract_address = contract_instance.address;

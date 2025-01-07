@@ -91,14 +91,20 @@ export class PublicTxSimulator {
     // FIXME: we shouldn't need to directly modify worldStateDb here!
     await this.worldStateDB.addNewContracts(tx);
 
+    const nonRevertStart = process.hrtime.bigint();
     await this.insertNonRevertiblesFromPrivate(context);
+    const nonRevertEnd = process.hrtime.bigint();
+    this.metrics.recordPrivateEffectsInsertion(Number(nonRevertEnd - nonRevertStart) / 1_000, 'non-revertible');
     const processedPhases: ProcessedPhase[] = [];
     if (context.hasPhase(TxExecutionPhase.SETUP)) {
       const setupResult: ProcessedPhase = await this.simulateSetupPhase(context);
       processedPhases.push(setupResult);
     }
 
+    const revertStart = process.hrtime.bigint();
     await this.insertRevertiblesFromPrivate(context);
+    const revertEnd = process.hrtime.bigint();
+    this.metrics.recordPrivateEffectsInsertion(Number(revertEnd - revertStart) / 1_000, 'revertible');
     if (context.hasPhase(TxExecutionPhase.APP_LOGIC)) {
       const appLogicResult: ProcessedPhase = await this.simulateAppLogicPhase(context);
       processedPhases.push(appLogicResult);
@@ -135,7 +141,11 @@ export class PublicTxSimulator {
 
     return {
       avmProvingRequest,
-      gasUsed: { totalGas: context.getActualGasUsed(), teardownGas: context.teardownGasUsed },
+      gasUsed: {
+        totalGas: context.getActualGasUsed(),
+        teardownGas: context.teardownGasUsed,
+        publicGas: context.getActualPublicGasUsed(),
+      },
       revertCode,
       revertReason: context.revertReason,
       processedPhases: processedPhases,
@@ -345,7 +355,7 @@ export class PublicTxSimulator {
     const avmCallResult = await simulator.execute();
     const result = avmCallResult.finalize();
 
-    this.log.debug(
+    this.log.verbose(
       result.reverted
         ? `Simulation of enqueued public call ${fnName} reverted with reason ${result.revertReason}.`
         : `Simulation of enqueued public call ${fnName} completed successfully.`,

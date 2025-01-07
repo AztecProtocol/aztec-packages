@@ -3,22 +3,8 @@ source $(git rev-parse --show-toplevel)/ci3/source_bootstrap
 
 cmd=${1:-}
 
-# Determine system.
-if [[ "$OSTYPE" == "darwin"* ]]; then
-  os=macos
-elif [[ "$OSTYPE" == "linux-gnu" ]]; then
-  os=linux
-elif [[ "$OSTYPE" == "linux-musl" ]]; then
-  os=linux
-else
-  echo "Unknown OS: $OSTYPE"
-  exit 1
-fi
-
-# Pick native toolchain.
 preset=clang16-assert
 pic_preset="clang16-pic"
-
 hash=$(cache_content_hash .rebuild_patterns)
 
 function build_native {
@@ -68,36 +54,26 @@ function build {
   github_group "bb cpp build"
   export preset pic_preset hash
   export -f build_native build_wasm build_wasm_threads
-  parallel --line-buffered -v --tag --memfree 8g denoise {} ::: build_native build_wasm build_wasm_threads
+  parallel --line-buffered -v --tag denoise {} ::: build_native build_wasm build_wasm_threads
   github_endgroup
 }
 
+function build_tests {
+  github_group "bb build tests"
+  denoise ./format.sh check
+  denoise cmake --preset $preset -Bbuild "&&" cmake --build build
+  # Download ignition transcripts. Only needed for tests.
+  # The actual bb binary uses the flat crs downloaded in barratenberg/bootstrap.sh to ~/.bb-crs.
+  # TODO: Use the flattened crs. These old transcripts are a pain.
+  denoise "cd ./srs_db && ./download_ignition.sh 3 && ./download_grumpkin.sh"
+}
+
 function test {
-  if test_should_run barretenberg-test-$hash; then
-    github_group "bb test"
-
-    echo "Check formatting..."
-    ./format.sh check
-
-    echo "Building tests..."
-    denoise cmake --preset $preset -Bbuild "&&" cmake --build build
-
-    # Download ignition transcripts.
-    # TODO: Use the flattened crs. These old transcripts are a pain.
-    echo "Downloading srs..."
-    denoise "cd ./srs_db && ./download_ignition.sh 3 && ./download_grumpkin.sh"
-    if [ ! -d ./srs_db/grumpkin ]; then
-      # The Grumpkin SRS is generated manually at the moment, only up to a large enough size for tests
-      # If tests require more points, the parameter can be increased here. Note: IPA requires
-      # dyadic_circuit_size + 1 points so in general this number will be a power of two plus 1
-      cd ./build && cmake --build . --parallel --target grumpkin_srs_gen && ./bin/grumpkin_srs_gen 32769
-    fi
-
-    echo "Testing..."
-    (cd build && GTEST_COLOR=1 denoise ctest -j32 --output-on-failure)
-    cache_upload_flag barretenberg-test-$hash
-    github_endgroup
-  fi
+  test_should_run barretenberg-test-$hash || return 0
+  github_group "bb test"
+  (cd build && GTEST_COLOR=1 denoise ctest -j32 --output-on-failure)
+  cache_upload_flag barretenberg-test-$hash
+  github_endgroup
 }
 
 case "$cmd" in
@@ -105,21 +81,39 @@ case "$cmd" in
     git clean -fdx
     ;;
   ""|"fast")
+    # Build bb and wasms. Can be incremental.
     build
     ;;
   "full")
+    # Deletes all build dirs and build bb and wasms from scratch.
     rm -rf build*
     build
     ;;
+  "build-tests")
+    # Build the entire native repo, including all tests and benchmarks.
+    build_tests
+    ;;
   "test")
+    # Run the tests. Assumes they've been (re)built with a call to build_tests.
     test
     ;;
   "ci")
-    build_native
+    build
+    build_tests
     test
     ;;
   "hash")
     echo $hash
+    ;;
+  "test-cmds")
+    # Print every individual test command. Can be fed into gnu parallel.
+    cd build
+    for bin in ./bin/*_tests; do
+      bin_name=$(basename $bin)
+      $bin --gtest_list_tests | \
+        awk -vbin=$bin_name '/^[a-zA-Z]/ {suite=$1} /^[ ]/ {print "barretenberg/cpp/scripts/run_test.sh " bin " " suite$1}' | \
+        sed 's/\.$//' | grep -v 'DISABLED_'
+    done
     ;;
   *)
     echo "Unknown command: $cmd"

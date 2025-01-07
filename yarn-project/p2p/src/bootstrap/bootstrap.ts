@@ -4,19 +4,19 @@ import { type AztecKVStore } from '@aztec/kv-store';
 import { OtelMetricsAdapter, type TelemetryClient } from '@aztec/telemetry-client';
 
 import { Discv5, type Discv5EventEmitter } from '@chainsafe/discv5';
-import { SignableENR } from '@chainsafe/enr';
+import { type ENR, SignableENR } from '@chainsafe/enr';
 import type { PeerId } from '@libp2p/interface';
 import { type Multiaddr, multiaddr } from '@multiformats/multiaddr';
 
 import type { BootnodeConfig } from '../config.js';
-import { AZTEC_ENR_KEY, AZTEC_NET } from '../services/discv5/discV5_service.js';
+import { AZTEC_ENR_KEY, AZTEC_NET } from '../services/types.js';
 import { convertToMultiaddr, createLibP2PPeerIdFromPrivateKey, getPeerIdPrivateKey } from '../util.js';
 
 /**
  * Encapsulates a 'Bootstrap' node, used for the purpose of assisting new joiners in acquiring peers.
  */
 export class BootstrapNode implements P2PBootstrapApi {
-  private node?: Discv5 = undefined;
+  private node?: Discv5 & Discv5EventEmitter = undefined;
   private peerId?: PeerId;
 
   constructor(
@@ -49,6 +49,7 @@ export class BootstrapNode implements P2PBootstrapApi {
     enr.set(AZTEC_ENR_KEY, Uint8Array.from([AZTEC_NET]));
 
     this.logger.debug(`Starting bootstrap node ${peerId} listening on ${listenAddrUdp.toString()}`);
+
     const metricsRegistry = new OtelMetricsAdapter(this.telemetry);
     this.node = Discv5.create({
       enr,
@@ -61,10 +62,10 @@ export class BootstrapNode implements P2PBootstrapApi {
       metricsRegistry,
     });
 
-    (this.node as Discv5EventEmitter).on('multiaddrUpdated', (addr: Multiaddr) => {
+    this.node.on('multiaddrUpdated', (addr: Multiaddr) => {
       this.logger.info('Advertised socket address updated', { addr: addr.toString() });
     });
-    (this.node as Discv5EventEmitter).on('discovered', async (enr: SignableENR) => {
+    this.node.on('discovered', async (enr: SignableENR) => {
       const addr = await enr.getFullMultiaddr('udp');
       this.logger.verbose(`Discovered new peer`, { enr: enr.encodeTxt(), addr: addr?.toString() });
     });
@@ -88,35 +89,39 @@ export class BootstrapNode implements P2PBootstrapApi {
     this.logger.info('Bootstrap node stopped');
   }
 
+  private assertNodeStarted() {
+    if (!this.node) {
+      throw new Error('Node not started');
+    }
+  }
+
+  private assertPeerId() {
+    if (!this.peerId) {
+      throw new Error('No peerId found');
+    }
+  }
+
   /**
    * Returns the peerId of this node.
    * @returns The node's peer Id
    */
   public getPeerId() {
-    if (!this.peerId) {
-      throw new Error('Node not started');
-    }
-    return this.peerId;
+    this.assertPeerId();
+    return this.peerId!;
   }
 
   public getENR() {
-    if (!this.node) {
-      throw new Error('Node not started');
-    }
+    this.assertNodeStarted();
     return this.node?.enr.toENR();
   }
 
   public getEncodedEnr() {
-    if (!this.node) {
-      throw new Error('Node not started');
-    }
-    return Promise.resolve(this.node.enr.encodeTxt());
+    this.assertNodeStarted();
+    return Promise.resolve(this.node!.enr.encodeTxt());
   }
 
   public getRoutingTable() {
-    if (!this.node) {
-      throw new Error('Node not started');
-    }
-    return Promise.resolve(this.node.kadValues().map(enr => enr.encodeTxt()));
+    this.assertNodeStarted();
+    return Promise.resolve(this.node!.kadValues().map((enr: ENR) => enr.encodeTxt()));
   }
 }

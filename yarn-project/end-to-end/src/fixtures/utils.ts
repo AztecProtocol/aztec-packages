@@ -27,6 +27,7 @@ import {
 import { deployInstance, registerContractClass } from '@aztec/aztec.js/deployment';
 import { DefaultMultiCallEntrypoint } from '@aztec/aztec.js/entrypoint';
 import { type BBNativePrivateKernelProver } from '@aztec/bb-prover';
+import { type BlobSinkServer, createBlobSinkServer } from '@aztec/blob-sink';
 import { type EthAddress, FEE_JUICE_INITIAL_MINT, Fr, Gas, getContractClassFromArtifact } from '@aztec/circuits.js';
 import {
   type DeployL1ContractsArgs,
@@ -50,8 +51,10 @@ import { createAndStartTelemetryClient, getConfigEnvVars as getTelemetryConfig }
 
 import { type Anvil } from '@viem/anvil';
 import fs from 'fs/promises';
+import getPort from 'get-port';
 import { tmpdir } from 'os';
 import * as path from 'path';
+import { inspect } from 'util';
 import {
   type Account,
   type Chain,
@@ -67,7 +70,7 @@ import {
 import { mnemonicToAccount, privateKeyToAccount } from 'viem/accounts';
 import { foundry } from 'viem/chains';
 
-import { MNEMONIC } from './fixtures.js';
+import { MNEMONIC, TEST_PEER_CHECK_INTERVAL_MS } from './fixtures.js';
 import { getACVMConfig } from './get_acvm_config.js';
 import { getBBConfig } from './get_bb_config.js';
 import { isMetricsLoggingRequested, setupMetricsLogger } from './logging.js';
@@ -240,6 +243,7 @@ async function setupWithRemoteEnvironment(
     cheatCodes,
     watcher: undefined,
     dateProvider: undefined,
+    blobSink: undefined,
     teardown,
   };
 }
@@ -296,6 +300,8 @@ export type EndToEndContext = {
   watcher: AnvilTestWatcher | undefined;
   /** Allows tweaking current system time, used by the epoch cache only (undefined if connected to remote environment) */
   dateProvider: TestDateProvider | undefined;
+  /** The blob sink (undefined if connected to remote environment) */
+  blobSink: BlobSinkServer | undefined;
   /** Function to stop the started services. */
   teardown: () => Promise<void>;
 };
@@ -315,6 +321,8 @@ export async function setup(
   chain: Chain = foundry,
 ): Promise<EndToEndContext> {
   const config = { ...getConfigEnvVars(), ...opts };
+  config.peerCheckIntervalMS = TEST_PEER_CHECK_INTERVAL_MS;
+
   const logger = getLogger();
 
   // Create a temp directory for any services that need it and cleanup later
@@ -380,6 +388,11 @@ export async function setup(
     return await setupWithRemoteEnvironment(publisherHdAccount!, config, logger, numberOfAccounts);
   }
 
+  // Blob sink service - blobs get posted here and served from here
+  const blobSinkPort = await getPort();
+  const blobSink = await createBlobSinkServer({ port: blobSinkPort });
+  config.blobSinkUrl = `http://127.0.0.1:${blobSinkPort}`;
+
   const deployL1ContractsValues =
     opts.deployL1ContractsValues ?? (await setupL1Contracts(config.l1RpcUrl, publisherHdAccount!, logger, opts, chain));
 
@@ -414,10 +427,13 @@ export async function setup(
     await ethCheatCodes.warp(opts.l2StartTime);
   }
 
+  const dateProvider = new TestDateProvider();
+
   const watcher = new AnvilTestWatcher(
     new EthCheatCodesWithState(config.l1RpcUrl),
     deployL1ContractsValues.l1ContractAddresses.rollupAddress,
     deployL1ContractsValues.publicClient,
+    dateProvider,
   );
 
   await watcher.start();
@@ -439,7 +455,6 @@ export async function setup(
 
   const telemetry = await telemetryPromise;
   const publisher = new TestL1Publisher(config, telemetry);
-  const dateProvider = new TestDateProvider();
   const aztecNode = await AztecNodeService.createAndSync(config, { telemetry, publisher, dateProvider });
   const sequencer = aztecNode.getSequencer();
 
@@ -490,6 +505,7 @@ export async function setup(
 
     await anvil?.stop();
     await watcher.stop();
+    await blobSink?.stop();
 
     if (directoryToCleanup) {
       logger.verbose(`Cleaning up data directory at ${directoryToCleanup}`);
@@ -510,6 +526,7 @@ export async function setup(
     sequencer,
     watcher,
     dateProvider,
+    blobSink,
     teardown,
   };
 }
@@ -679,7 +696,7 @@ export async function setupCanonicalFeeJuice(pxe: PXE) {
       .wait();
     getLogger().info(`Fee Juice successfully setup. Portal address: ${feeJuicePortalAddress}`);
   } catch (error) {
-    getLogger().info(`Fee Juice might have already been setup.`);
+    getLogger().warn(`Fee Juice might have already been setup. Got error: ${inspect(error)}.`);
   }
 }
 

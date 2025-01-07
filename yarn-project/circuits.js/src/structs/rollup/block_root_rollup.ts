@@ -12,7 +12,7 @@ import {
   NESTED_RECURSIVE_PROOF_LENGTH,
 } from '../../constants.gen.js';
 import { RootParityInput } from '../parity/root_parity_input.js';
-import { AppendOnlyTreeSnapshot } from './append_only_tree_snapshot.js';
+import { AppendOnlyTreeSnapshot } from '../trees/append_only_tree_snapshot.js';
 import { PreviousRollupData } from './previous_rollup_data.js';
 
 export class BlockRootRollupData {

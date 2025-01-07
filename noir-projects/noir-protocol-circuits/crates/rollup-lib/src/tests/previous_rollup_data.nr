@@ -24,8 +24,10 @@ pub fn default_previous_rollup_data<let N: u32, let M: u32>(
     previous_rollup_data[1].base_or_merge_rollup_public_inputs.constants.vk_tree_root =
         vk_tree_root;
 
-    previous_rollup_data[0].vk = fixtures::vk_tree::generate_fake_honk_vk_for_index(vk_index);
-    previous_rollup_data[1].vk = fixtures::vk_tree::generate_fake_honk_vk_for_index(vk_index);
+    previous_rollup_data[0].vk =
+        fixtures::vk_tree::generate_fake_rollup_honk_vk_for_index(vk_index);
+    previous_rollup_data[1].vk =
+        fixtures::vk_tree::generate_fake_rollup_honk_vk_for_index(vk_index);
 
     previous_rollup_data[0].vk_witness =
         MembershipWitness { leaf_index: vk_index as Field, sibling_path: vk_path };

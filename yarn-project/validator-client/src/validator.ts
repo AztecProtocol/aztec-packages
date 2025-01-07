@@ -1,11 +1,4 @@
-import {
-  type BlockAttestation,
-  type BlockProposal,
-  type L2Block,
-  type ProcessedTx,
-  type Tx,
-  type TxHash,
-} from '@aztec/circuit-types';
+import { type BlockAttestation, type BlockProposal, type L2Block, type Tx, type TxHash } from '@aztec/circuit-types';
 import { type BlockHeader, type GlobalVariables } from '@aztec/circuits.js';
 import { type EpochCache } from '@aztec/epoch-cache';
 import { Buffer32 } from '@aztec/foundation/buffer';
@@ -38,11 +31,11 @@ import { ValidatorMetrics } from './metrics.js';
  * We reuse the sequencer's block building functionality for re-execution
  */
 type BlockBuilderCallback = (
-  txs: Tx[],
+  txs: Iterable<Tx>,
   globalVariables: GlobalVariables,
   historicalHeader?: BlockHeader,
-  interrupt?: (processedTxs: ProcessedTx[]) => Promise<void>,
-) => Promise<{ block: L2Block; publicProcessorDuration: number; numProcessedTxs: number; blockBuildingTimer: Timer }>;
+  opts?: { validateOnly?: boolean },
+) => Promise<{ block: L2Block; publicProcessorDuration: number; numTxs: number; blockBuildingTimer: Timer }>;
 
 export interface Validator {
   start(): Promise<void>;
@@ -242,7 +235,7 @@ export class ValidatorClient extends WithTracer implements Validator {
 
     // Use the sequencer's block building logic to re-execute the transactions
     const stopTimer = this.metrics.reExecutionTimer();
-    const { block } = await this.blockBuilder(txs, header.globalVariables);
+    const { block } = await this.blockBuilder(txs, header.globalVariables, undefined, { validateOnly: true });
     stopTimer();
 
     this.log.verbose(`Transaction re-execution complete`);

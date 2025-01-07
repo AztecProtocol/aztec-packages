@@ -6,13 +6,9 @@ case "${1:-}" in
   "ci")
     export CI=1
     export USE_CACHE=${USE_CACHE:-1}
-    export TEST=1
     export DENOISE=${DENOISE:-1}
     ;;
   ""|"fast")
-    export USE_CACHE=1
-    ;;
-  "test")
-    export TEST=1
+    export USE_CACHE=${USE_CACHE:-1}
     ;;
 esac

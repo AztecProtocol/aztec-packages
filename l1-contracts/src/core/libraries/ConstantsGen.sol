@@ -21,7 +21,7 @@ library Constants {
   uint256 internal constant MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL = 5;
   uint256 internal constant MAX_ENQUEUED_CALLS_PER_CALL = 16;
   uint256 internal constant MAX_L2_TO_L1_MSGS_PER_CALL = 2;
-  uint256 internal constant MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL = 64;
+  uint256 internal constant MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL = 63;
   uint256 internal constant MAX_PUBLIC_DATA_READS_PER_CALL = 64;
   uint256 internal constant MAX_NOTE_HASH_READ_REQUESTS_PER_CALL = 16;
   uint256 internal constant MAX_NULLIFIER_READ_REQUESTS_PER_CALL = 16;
@@ -186,10 +186,11 @@ library Constants {
   uint256 internal constant BLOCK_HEADER_LENGTH = 25;
   uint256 internal constant BLOCK_HEADER_LENGTH_BYTES = 648;
   uint256 internal constant PRIVATE_CIRCUIT_PUBLIC_INPUTS_LENGTH = 741;
-  uint256 internal constant PUBLIC_CIRCUIT_PUBLIC_INPUTS_LENGTH = 867;
+  uint256 internal constant PUBLIC_CIRCUIT_PUBLIC_INPUTS_LENGTH = 864;
   uint256 internal constant PRIVATE_CONTEXT_INPUTS_LENGTH = 40;
   uint256 internal constant FEE_RECIPIENT_LENGTH = 2;
   uint256 internal constant AGGREGATION_OBJECT_LENGTH = 16;
+  uint256 internal constant IPA_CLAIM_LENGTH = 10;
   uint256 internal constant SCOPED_READ_REQUEST_LEN = 3;
   uint256 internal constant PUBLIC_DATA_READ_LENGTH = 3;
   uint256 internal constant PRIVATE_VALIDATION_REQUESTS_LENGTH = 772;
@@ -221,9 +222,15 @@ library Constants {
   uint256 internal constant NUM_BASE_PARITY_PER_ROOT_PARITY = 4;
   uint256 internal constant RECURSIVE_PROOF_LENGTH = 459;
   uint256 internal constant NESTED_RECURSIVE_PROOF_LENGTH = 459;
-  uint256 internal constant TUBE_PROOF_LENGTH = 459;
+  uint256 internal constant IPA_PROOF_LENGTH = 65;
+  uint256 internal constant RECURSIVE_ROLLUP_HONK_PROOF_LENGTH = 534;
+  uint256 internal constant NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH = 534;
+  uint256 internal constant TUBE_PROOF_LENGTH = 534;
   uint256 internal constant HONK_VERIFICATION_KEY_LENGTH_IN_FIELDS = 128;
+  uint256 internal constant ROLLUP_HONK_VERIFICATION_KEY_LENGTH_IN_FIELDS = 139;
   uint256 internal constant CLIENT_IVC_VERIFICATION_KEY_LENGTH_IN_FIELDS = 143;
+  uint256 internal constant MAX_PUBLIC_BYTECODE_SIZE_IN_BYTES = 96000;
+  uint256 internal constant MAX_PUBLIC_CALLS_TO_UNIQUE_CONTRACT_CLASS_IDS = 21;
   uint256 internal constant MEM_TAG_FF = 0;
   uint256 internal constant MEM_TAG_U1 = 1;
   uint256 internal constant MEM_TAG_U8 = 2;
@@ -250,11 +257,11 @@ library Constants {
   uint256 internal constant START_NULLIFIER_NON_EXISTS_OFFSET = 32;
   uint256 internal constant START_L1_TO_L2_MSG_EXISTS_WRITE_OFFSET = 48;
   uint256 internal constant START_SSTORE_WRITE_OFFSET = 64;
-  uint256 internal constant START_SLOAD_WRITE_OFFSET = 128;
-  uint256 internal constant START_EMIT_NOTE_HASH_WRITE_OFFSET = 192;
-  uint256 internal constant START_EMIT_NULLIFIER_WRITE_OFFSET = 208;
-  uint256 internal constant START_EMIT_L2_TO_L1_MSG_WRITE_OFFSET = 224;
-  uint256 internal constant START_EMIT_UNENCRYPTED_LOG_WRITE_OFFSET = 226;
+  uint256 internal constant START_SLOAD_WRITE_OFFSET = 127;
+  uint256 internal constant START_EMIT_NOTE_HASH_WRITE_OFFSET = 191;
+  uint256 internal constant START_EMIT_NULLIFIER_WRITE_OFFSET = 207;
+  uint256 internal constant START_EMIT_L2_TO_L1_MSG_WRITE_OFFSET = 223;
+  uint256 internal constant START_EMIT_UNENCRYPTED_LOG_WRITE_OFFSET = 225;
   uint256 internal constant DEFAULT_GAS_LIMIT = 1000000000;
   uint256 internal constant MAX_L2_GAS_PER_TX_PUBLIC_PORTION = 6000000;
   uint256 internal constant DEFAULT_TEARDOWN_GAS_LIMIT = 6000000;
@@ -291,4 +298,6 @@ library Constants {
   uint256 internal constant PROOF_TYPE_OINK = 2;
   uint256 internal constant PROOF_TYPE_PG = 3;
   uint256 internal constant PROOF_TYPE_AVM = 4;
+  uint256 internal constant PROOF_TYPE_ROLLUP_HONK = 5;
+  uint256 internal constant PROOF_TYPE_ROOT_ROLLUP_HONK = 6;
 }

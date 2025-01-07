@@ -10,33 +10,22 @@ import { makeBloatedProcessedTx } from '@aztec/circuit-types/test';
 import {
   type AppendOnlyTreeSnapshot,
   BLOBS_PER_BLOCK,
-  type BaseOrMergeRollupPublicInputs,
   BaseParityInputs,
-  BlockRootRollupData,
-  BlockRootRollupInputs,
-  ConstantRollupData,
-  EmptyBlockRootRollupInputs,
   FIELDS_PER_BLOB,
   Fr,
   type GlobalVariables,
   L1_TO_L2_MSG_SUBTREE_HEIGHT,
   L1_TO_L2_MSG_SUBTREE_SIBLING_PATH_LENGTH,
   MembershipWitness,
-  MergeRollupInputs,
   NESTED_RECURSIVE_PROOF_LENGTH,
+  NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH,
   NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
   NUM_BASE_PARITY_PER_ROOT_PARITY,
   type ParityPublicInputs,
   PartialStateReference,
-  PreviousRollupData,
-  type PrivateBaseRollupHints,
-  PrivateBaseRollupInputs,
-  PrivateTubeData,
   type RecursiveProof,
   RootParityInput,
   RootParityInputs,
-  SingleTxBlockRootRollupInputs,
-  SpongeBlob,
   StateReference,
   TUBE_VK_INDEX,
   VK_TREE_HEIGHT,
@@ -44,6 +33,20 @@ import {
   VkWitnessData,
   makeEmptyRecursiveProof,
 } from '@aztec/circuits.js';
+import { SpongeBlob } from '@aztec/circuits.js/blobs';
+import {
+  type BaseOrMergeRollupPublicInputs,
+  BlockRootRollupData,
+  BlockRootRollupInputs,
+  ConstantRollupData,
+  EmptyBlockRootRollupInputs,
+  MergeRollupInputs,
+  PreviousRollupData,
+  type PrivateBaseRollupHints,
+  PrivateBaseRollupInputs,
+  PrivateTubeData,
+  SingleTxBlockRootRollupInputs,
+} from '@aztec/circuits.js/rollup';
 import { makeGlobalVariables } from '@aztec/circuits.js/testing';
 import { Blob } from '@aztec/foundation/blob';
 import { padArrayEnd, times } from '@aztec/foundation/collection';
@@ -87,12 +90,14 @@ describe('LightBlockBuilder', () => {
   let builder: LightweightBlockBuilder;
 
   let emptyProof: RecursiveProof<typeof NESTED_RECURSIVE_PROOF_LENGTH>;
+  let emptyRollupProof: RecursiveProof<typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH>;
 
   beforeAll(async () => {
     logger = createLogger('prover-client:test:block-builder');
     simulator = new TestCircuitProver(new NoopTelemetryClient());
     vkTreeRoot = getVKTreeRoot();
     emptyProof = makeEmptyRecursiveProof(NESTED_RECURSIVE_PROOF_LENGTH);
+    emptyRollupProof = makeEmptyRecursiveProof(NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH);
     db = await NativeWorldStateService.tmp();
   });
 
@@ -267,7 +272,7 @@ describe('LightBlockBuilder', () => {
       const vkIndex = TUBE_VK_INDEX;
       const vkPath = getVKSiblingPath(vkIndex);
       const vkData = new VkWitnessData(TubeVk, vkIndex, vkPath);
-      const tubeData = new PrivateTubeData(tx.data.toKernelCircuitPublicInputs(), emptyProof, vkData);
+      const tubeData = new PrivateTubeData(tx.data.toKernelCircuitPublicInputs(), emptyRollupProof, vkData);
       const hints = await buildBaseRollupHints(tx, globalVariables, expectsFork, spongeBlobState);
       const inputs = new PrivateBaseRollupInputs(tubeData, hints as PrivateBaseRollupHints);
       const result = await simulator.getPrivateBaseRollupProof(inputs);
@@ -279,8 +284,8 @@ describe('LightBlockBuilder', () => {
   const getMergeOutput = async (left: BaseOrMergeRollupPublicInputs, right: BaseOrMergeRollupPublicInputs) => {
     const baseRollupVk = ProtocolCircuitVks['PrivateBaseRollupArtifact'].keyAsFields;
     const baseRollupVkWitness = getVkMembershipWitness(baseRollupVk);
-    const leftInput = new PreviousRollupData(left, emptyProof, baseRollupVk, baseRollupVkWitness);
-    const rightInput = new PreviousRollupData(right, emptyProof, baseRollupVk, baseRollupVkWitness);
+    const leftInput = new PreviousRollupData(left, emptyRollupProof, baseRollupVk, baseRollupVkWitness);
+    const rightInput = new PreviousRollupData(right, emptyRollupProof, baseRollupVk, baseRollupVkWitness);
     const inputs = new MergeRollupInputs([leftInput, rightInput]);
     const result = await simulator.getMergeRollupProof(inputs);
     return result.inputs;
@@ -318,7 +323,7 @@ describe('LightBlockBuilder', () => {
     const mergeRollupVk = ProtocolCircuitVks['MergeRollupArtifact'].keyAsFields;
     const mergeRollupVkWitness = getVkMembershipWitness(mergeRollupVk);
     const previousRollupData = previousRollups.map(
-      r => new PreviousRollupData(r, emptyProof, mergeRollupVk, mergeRollupVkWitness),
+      r => new PreviousRollupData(r, emptyRollupProof, mergeRollupVk, mergeRollupVkWitness),
     );
 
     const startArchiveSnapshot = await getTreeSnapshot(MerkleTreeId.ARCHIVE, expectsFork);

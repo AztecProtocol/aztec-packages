@@ -21,6 +21,7 @@ export const L1ContractsNames = [
   'governanceProposerAddress',
   'governanceAddress',
   'stakingAssetAddress',
+  'slashFactoryAddress',
 ] as const;
 
 /** Provides the directory of current L1 contract addresses */
@@ -40,6 +41,7 @@ export const L1ContractAddressesSchema = z.object({
   rewardDistributorAddress: schemas.EthAddress,
   governanceProposerAddress: schemas.EthAddress,
   governanceAddress: schemas.EthAddress,
+  slashFactoryAddress: schemas.EthAddress,
 }) satisfies ZodFor<L1ContractAddresses>;
 
 const parseEnv = (val: string) => EthAddress.fromString(val);
@@ -98,6 +100,11 @@ export const l1ContractAddressesMapping: ConfigMappingsType<L1ContractAddresses>
   governanceAddress: {
     env: 'GOVERNANCE_CONTRACT_ADDRESS',
     description: 'The deployed L1 governance contract address',
+    parseEnv,
+  },
+  slashFactoryAddress: {
+    env: 'SLASH_FACTORY_CONTRACT_ADDRESS',
+    description: 'The deployed L1 slashFactory contract address',
     parseEnv,
   },
 };

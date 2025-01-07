@@ -5,7 +5,7 @@ use crate::{
 use types::{
     constants::{
         BLOCK_MERGE_ROLLUP_INDEX, BLOCK_ROOT_ROLLUP_EMPTY_INDEX, BLOCK_ROOT_ROLLUP_INDEX,
-        BLOCK_ROOT_ROLLUP_SINGLE_TX_INDEX,
+        BLOCK_ROOT_ROLLUP_SINGLE_TX_INDEX, PROOF_TYPE_ROOT_ROLLUP_HONK,
     },
     traits::Empty,
 };
@@ -35,10 +35,10 @@ impl RootRollupInputs {
     pub fn root_rollup_circuit(self) -> RootRollupPublicInputs {
         // Verify the previous rollup proofs
         if !dep::std::runtime::is_unconstrained() {
-            self.previous_rollup_data[0].verify();
+            self.previous_rollup_data[0].verify(PROOF_TYPE_ROOT_ROLLUP_HONK); // root rollup honk proof type so we do full IPA recursive verifier
             self.previous_rollup_data[0].validate_in_vk_tree(ALLOWED_PREVIOUS_CIRCUITS);
 
-            self.previous_rollup_data[1].verify();
+            self.previous_rollup_data[1].verify(PROOF_TYPE_ROOT_ROLLUP_HONK); // root rollup honk proof type so we do full IPA recursive verifier
             self.previous_rollup_data[1].validate_in_vk_tree(ALLOWED_PREVIOUS_CIRCUITS);
         }
 

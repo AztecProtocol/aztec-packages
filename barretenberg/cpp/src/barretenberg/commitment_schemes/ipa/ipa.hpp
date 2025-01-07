@@ -6,9 +6,11 @@
 #include "barretenberg/common/container.hpp"
 #include "barretenberg/common/thread.hpp"
 #include "barretenberg/common/throw_or_abort.hpp"
+#include "barretenberg/constants.hpp"
 #include "barretenberg/ecc/scalar_multiplication/scalar_multiplication.hpp"
 #include "barretenberg/stdlib/hash/poseidon2/poseidon2.hpp"
 #include "barretenberg/stdlib/honk_verifier/ipa_accumulator.hpp"
+#include "barretenberg/stdlib/primitives/circuit_builders/circuit_builders_fwd.hpp"
 #include "barretenberg/stdlib/transcript/transcript.hpp"
 #include "barretenberg/transcript/transcript.hpp"
 #include <cstddef>
@@ -19,6 +21,8 @@
 
 namespace bb {
 // clang-format off
+
+constexpr size_t IPA_PROOF_LENGTH = 1 + 4 * CONST_ECCVM_LOG_N + 2 + 2;
 
 /**
 * @brief IPA (inner product argument) commitment scheme class.
@@ -529,7 +533,6 @@ template <typename Curve_> class IPA {
         GroupElement ipa_relation = GroupElement::batch_mul(msm_elements, msm_scalars);
         ipa_relation.assert_equal(-opening_claim.commitment);
 
-        ASSERT(ipa_relation.get_value() == -opening_claim.commitment.get_value() && "IPA relation failed.");
         // TODO(https://github.com/AztecProtocol/barretenberg/issues/1144): Add proper constraints for taking the log of a field_t.
         Fr stdlib_log_poly_length(static_cast<uint256_t>(log_poly_length));
         return {stdlib_log_poly_length, round_challenges_inv, G_zero};
@@ -622,7 +625,7 @@ template <typename Curve_> class IPA {
 
         // TODO(https://github.com/AztecProtocol/barretenberg/issues/1144): need checks here on poly_length.
         const auto poly_length = static_cast<uint32_t>(poly_length_var.get_value());
-        info("poly_length = ", poly_length);
+        debug("poly_length = ", poly_length);
         // Step 2.
         // Receive generator challenge u and compute auxiliary generator
         const Fr generator_challenge = transcript->template get_challenge<Fr>("IPA:generator_challenge");
@@ -726,7 +729,6 @@ template <typename Curve_> class IPA {
         GroupElement ipa_relation = GroupElement::batch_mul(msm_elements, msm_scalars);
         ipa_relation.assert_equal(-opening_claim.commitment);
 
-        ASSERT(ipa_relation.get_value() == -opening_claim.commitment.get_value() && "IPA relation failed.");
         return (ipa_relation.get_value() == -opening_claim.commitment.get_value());
     }
 
@@ -946,13 +948,36 @@ template <typename Curve_> class IPA {
         ASSERT(challenge_poly.evaluate(opening_pair.challenge) == opening_pair.evaluation && "Opening claim does not hold for challenge polynomial.");
 
         IPA<NativeCurve>::compute_opening_proof(ck, { challenge_poly, opening_pair }, prover_transcript);
+        ASSERT(challenge_poly.evaluate(fq(output_claim.opening_pair.challenge.get_value())) == fq(output_claim.opening_pair.evaluation.get_value()));
 
-        // Since we know this circuit will not have any more IPA claims to accumulate, add IPA Claim to public inputs of circuit and add the proof to the builder.
-        Builder* builder = r.get_context();
-        builder->add_ipa_claim(output_claim.get_witness_indices());
-        builder->ipa_proof = prover_transcript->proof_data;
-
+        output_claim.opening_pair.evaluation.self_reduce();
         return {output_claim, prover_transcript->proof_data};
+    }
+
+    static std::pair<OpeningClaim<Curve>, HonkProof> create_fake_ipa_claim_and_proof(UltraCircuitBuilder& builder)
+    requires Curve::is_stdlib_type {
+        using NativeCurve = curve::Grumpkin;
+        using Builder = typename Curve::Builder;
+        using Curve = stdlib::grumpkin<Builder>;
+        auto ipa_transcript = std::make_shared<NativeTranscript>();
+        auto ipa_commitment_key = std::make_shared<CommitmentKey<NativeCurve>>(1 << CONST_ECCVM_LOG_N);
+        size_t n = 4;
+        auto poly = Polynomial<fq>(n);
+        for (size_t i = 0; i < n; i++) {
+            poly.at(i) = fq::random_element();
+        }
+        fq x = fq::random_element();
+        fq eval = poly.evaluate(x);
+        auto commitment = ipa_commitment_key->commit(poly);
+        const OpeningPair<NativeCurve> opening_pair = { x, eval };
+        IPA<NativeCurve>::compute_opening_proof(ipa_commitment_key, { poly, opening_pair }, ipa_transcript);
+
+        auto stdlib_comm = Curve::Group::from_witness(&builder, commitment);
+        auto stdlib_x = Curve::ScalarField::from_witness(&builder, x);
+        auto stdlib_eval = Curve::ScalarField::from_witness(&builder, eval);
+        OpeningClaim<Curve> stdlib_opening_claim{ { stdlib_x, stdlib_eval }, stdlib_comm };
+
+        return {stdlib_opening_claim, ipa_transcript->export_proof()};
     }
 };
 

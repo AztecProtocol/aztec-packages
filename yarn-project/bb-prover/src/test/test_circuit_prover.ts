@@ -9,29 +9,32 @@ import {
   AVM_PROOF_LENGTH_IN_FIELDS,
   AVM_VERIFICATION_KEY_LENGTH_IN_FIELDS,
   type AvmCircuitInputs,
-  type BaseOrMergeRollupPublicInputs,
   type BaseParityInputs,
+  NESTED_RECURSIVE_PROOF_LENGTH,
+  NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH,
+  type ParityPublicInputs,
+  type Proof,
+  RECURSIVE_PROOF_LENGTH,
+  type RootParityInputs,
+  TUBE_PROOF_LENGTH,
+  VerificationKeyData,
+  makeEmptyRecursiveProof,
+  makeRecursiveProof,
+} from '@aztec/circuits.js';
+import {
+  type BaseOrMergeRollupPublicInputs,
   type BlockMergeRollupInputs,
   type BlockRootOrBlockMergePublicInputs,
   type BlockRootRollupInputs,
   type EmptyBlockRootRollupInputs,
   type MergeRollupInputs,
-  NESTED_RECURSIVE_PROOF_LENGTH,
-  type ParityPublicInputs,
   type PrivateBaseRollupInputs,
-  type Proof,
   type PublicBaseRollupInputs,
-  RECURSIVE_PROOF_LENGTH,
-  type RootParityInputs,
   type RootRollupInputs,
   type RootRollupPublicInputs,
   type SingleTxBlockRootRollupInputs,
-  TUBE_PROOF_LENGTH,
   type TubeInputs,
-  VerificationKeyData,
-  makeEmptyRecursiveProof,
-  makeRecursiveProof,
-} from '@aztec/circuits.js';
+} from '@aztec/circuits.js/rollup';
 import { createLogger } from '@aztec/foundation/log';
 import { sleep } from '@aztec/foundation/sleep';
 import { Timer } from '@aztec/foundation/timer';
@@ -60,7 +63,7 @@ import {
   convertSimulatedSingleTxBlockRootRollupInputsToWitnessMap,
   convertSimulatedSingleTxBlockRootRollupOutputsFromWitnessMap,
 } from '@aztec/noir-protocol-circuits-types';
-import { type SimulationProvider, WASMSimulator, emitCircuitSimulationStats } from '@aztec/simulator';
+import { type SimulationProvider, WASMSimulatorWithBlobs, emitCircuitSimulationStats } from '@aztec/simulator';
 import { type TelemetryClient, trackSpan } from '@aztec/telemetry-client';
 
 import { type WitnessMap } from '@noir-lang/types';
@@ -73,7 +76,7 @@ import { mapProtocolArtifactNameToCircuitName } from '../stats.js';
  * Simulates circuits using the most efficient method and performs no proving.
  */
 export class TestCircuitProver implements ServerCircuitProver {
-  private wasmSimulator = new WASMSimulator();
+  private wasmSimulator = new WASMSimulatorWithBlobs();
   private instrumentation: ProverInstrumentation;
   private logger = createLogger('bb-prover:test-prover');
 
@@ -127,17 +130,22 @@ export class TestCircuitProver implements ServerCircuitProver {
 
   public async getTubeProof(_tubeInput: TubeInputs): Promise<ProofAndVerificationKey<typeof TUBE_PROOF_LENGTH>> {
     await this.delay();
-    return makeProofAndVerificationKey(makeEmptyRecursiveProof(TUBE_PROOF_LENGTH), VerificationKeyData.makeFakeHonk());
+    return makeProofAndVerificationKey(
+      makeEmptyRecursiveProof(TUBE_PROOF_LENGTH),
+      VerificationKeyData.makeFakeRollupHonk(),
+    );
   }
 
   @trackSpan('TestCircuitProver.getPrivateBaseRollupProof')
   public async getPrivateBaseRollupProof(
     inputs: PrivateBaseRollupInputs,
-  ): Promise<PublicInputsAndRecursiveProof<BaseOrMergeRollupPublicInputs>> {
+  ): Promise<
+    PublicInputsAndRecursiveProof<BaseOrMergeRollupPublicInputs, typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH>
+  > {
     return await this.simulate(
       inputs,
       'PrivateBaseRollupArtifact',
-      NESTED_RECURSIVE_PROOF_LENGTH,
+      NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH,
       convertSimulatedPrivateBaseRollupInputsToWitnessMap,
       convertSimulatedPrivateBaseRollupOutputsFromWitnessMap,
     );
@@ -146,11 +154,13 @@ export class TestCircuitProver implements ServerCircuitProver {
   @trackSpan('TestCircuitProver.getPublicBaseRollupProof')
   public async getPublicBaseRollupProof(
     inputs: PublicBaseRollupInputs,
-  ): Promise<PublicInputsAndRecursiveProof<BaseOrMergeRollupPublicInputs>> {
+  ): Promise<
+    PublicInputsAndRecursiveProof<BaseOrMergeRollupPublicInputs, typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH>
+  > {
     return await this.simulate(
       inputs,
       'PublicBaseRollupArtifact',
-      NESTED_RECURSIVE_PROOF_LENGTH,
+      NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH,
       convertSimulatedPublicBaseRollupInputsToWitnessMap,
       convertSimulatedPublicBaseRollupOutputsFromWitnessMap,
     );
@@ -164,11 +174,13 @@ export class TestCircuitProver implements ServerCircuitProver {
   @trackSpan('TestCircuitProver.getMergeRollupProof')
   public async getMergeRollupProof(
     input: MergeRollupInputs,
-  ): Promise<PublicInputsAndRecursiveProof<BaseOrMergeRollupPublicInputs>> {
+  ): Promise<
+    PublicInputsAndRecursiveProof<BaseOrMergeRollupPublicInputs, typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH>
+  > {
     return await this.simulate(
       input,
       'MergeRollupArtifact',
-      NESTED_RECURSIVE_PROOF_LENGTH,
+      NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH,
       convertMergeRollupInputsToWitnessMap,
       convertMergeRollupOutputsFromWitnessMap,
     );
@@ -182,11 +194,13 @@ export class TestCircuitProver implements ServerCircuitProver {
   @trackSpan('TestCircuitProver.getBlockRootRollupProof')
   public async getBlockRootRollupProof(
     input: BlockRootRollupInputs,
-  ): Promise<PublicInputsAndRecursiveProof<BlockRootOrBlockMergePublicInputs>> {
+  ): Promise<
+    PublicInputsAndRecursiveProof<BlockRootOrBlockMergePublicInputs, typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH>
+  > {
     return await this.simulate(
       input,
       'BlockRootRollupArtifact',
-      NESTED_RECURSIVE_PROOF_LENGTH,
+      NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH,
       convertSimulatedBlockRootRollupInputsToWitnessMap,
       convertSimulatedBlockRootRollupOutputsFromWitnessMap,
     );
@@ -195,11 +209,13 @@ export class TestCircuitProver implements ServerCircuitProver {
   @trackSpan('TestCircuitProver.getSingleTxBlockRootRollupProof')
   public async getSingleTxBlockRootRollupProof(
     input: SingleTxBlockRootRollupInputs,
-  ): Promise<PublicInputsAndRecursiveProof<BlockRootOrBlockMergePublicInputs>> {
+  ): Promise<
+    PublicInputsAndRecursiveProof<BlockRootOrBlockMergePublicInputs, typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH>
+  > {
     return await this.simulate(
       input,
       'SingleTxBlockRootRollupArtifact',
-      NESTED_RECURSIVE_PROOF_LENGTH,
+      NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH,
       convertSimulatedSingleTxBlockRootRollupInputsToWitnessMap,
       convertSimulatedSingleTxBlockRootRollupOutputsFromWitnessMap,
     );
@@ -213,11 +229,13 @@ export class TestCircuitProver implements ServerCircuitProver {
   @trackSpan('TestCircuitProver.getEmptyBlockRootRollupProof')
   public async getEmptyBlockRootRollupProof(
     input: EmptyBlockRootRollupInputs,
-  ): Promise<PublicInputsAndRecursiveProof<BlockRootOrBlockMergePublicInputs>> {
+  ): Promise<
+    PublicInputsAndRecursiveProof<BlockRootOrBlockMergePublicInputs, typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH>
+  > {
     return await this.simulate(
       input,
       'EmptyBlockRootRollupArtifact',
-      NESTED_RECURSIVE_PROOF_LENGTH,
+      NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH,
       convertEmptyBlockRootRollupInputsToWitnessMap,
       convertEmptyBlockRootRollupOutputsFromWitnessMap,
     );
@@ -231,11 +249,13 @@ export class TestCircuitProver implements ServerCircuitProver {
   @trackSpan('TestCircuitProver.getBlockMergeRollupProof')
   public async getBlockMergeRollupProof(
     input: BlockMergeRollupInputs,
-  ): Promise<PublicInputsAndRecursiveProof<BlockRootOrBlockMergePublicInputs>> {
+  ): Promise<
+    PublicInputsAndRecursiveProof<BlockRootOrBlockMergePublicInputs, typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH>
+  > {
     return await this.simulate(
       input,
       'BlockMergeRollupArtifact',
-      NESTED_RECURSIVE_PROOF_LENGTH,
+      NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH,
       convertBlockMergeRollupInputsToWitnessMap,
       convertBlockMergeRollupOutputsFromWitnessMap,
     );

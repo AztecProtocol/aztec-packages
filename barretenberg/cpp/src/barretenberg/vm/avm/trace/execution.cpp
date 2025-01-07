@@ -427,13 +427,13 @@ AvmError Execution::execute_enqueued_call(AvmTraceBuilder& trace_builder,
     AvmError error = AvmError::NO_ERROR;
 
     // These hints help us to set up first call ctx
-    uint32_t clk = trace_builder.get_clk();
-    auto context_id = static_cast<uint8_t>(clk);
+    auto context_id = trace_builder.next_context_id;
     uint32_t l2_gas_allocated_to_enqueued_call = trace_builder.get_l2_gas_left();
     uint32_t da_gas_allocated_to_enqueued_call = trace_builder.get_da_gas_left();
     trace_builder.current_ext_call_ctx = AvmTraceBuilder::ExtCallCtx{
         .context_id = context_id,
         .parent_id = 0,
+        .is_top_level = true,
         .contract_address = enqueued_call_hint.contract_address,
         .calldata = enqueued_call_hint.calldata,
         .nested_returndata = {},
@@ -445,13 +445,14 @@ AvmError Execution::execute_enqueued_call(AvmTraceBuilder& trace_builder,
         .da_gas_left = da_gas_allocated_to_enqueued_call,
         .internal_return_ptr_stack = {},
     };
+    trace_builder.next_context_id++;
     // Find the bytecode based on contract address of the public call request
     std::vector<uint8_t> bytecode;
     try {
         bytecode =
             trace_builder.get_bytecode(trace_builder.current_ext_call_ctx.contract_address, check_bytecode_membership);
     } catch ([[maybe_unused]] const std::runtime_error& e) {
-        info("AVM enqueued call exceptionally halted. Error: No bytecode found for enqueued call");
+        info("AVM enqueued call exceptionally halted. Failed bytecode retrieval.");
         // FIXME: properly handle case when bytecode is not found!
         // For now, we add a dummy row in main trace to mutate later.
         // Dummy row in main trace to mutate afterwards.
@@ -459,8 +460,7 @@ AvmError Execution::execute_enqueued_call(AvmTraceBuilder& trace_builder,
         // we need at least one row in the execution trace to then mutate and say "it halted and consumed all gas!"
         trace_builder.op_add(0, 0, 0, 0, OpCode::ADD_8);
         trace_builder.handle_exceptional_halt();
-        return AvmError::NO_BYTECODE_FOUND;
-        ;
+        return AvmError::FAILED_BYTECODE_RETRIEVAL;
     }
 
     trace_builder.allocate_gas_for_call(l2_gas_allocated_to_enqueued_call, da_gas_allocated_to_enqueued_call);
@@ -471,7 +471,9 @@ AvmError Execution::execute_enqueued_call(AvmTraceBuilder& trace_builder,
     uint32_t pc = 0;
     std::stack<uint32_t> debug_counter_stack;
     uint32_t counter = 0;
-    trace_builder.set_call_ptr(context_id);
+    // FIXME: this cast means that we can have duplicate call ptrs since clk will end up way bigger than 256
+    trace_builder.set_pc(pc);
+    trace_builder.set_call_ptr(static_cast<uint8_t>(context_id));
     while (is_ok(error) && (pc = trace_builder.get_pc()) < bytecode.size()) {
         auto [inst, parse_error] = Deserialization::parse(bytecode, pc);
 
@@ -881,7 +883,8 @@ AvmError Execution::execute_enqueued_call(AvmTraceBuilder& trace_builder,
                     bytecode = trace_builder.get_bytecode(trace_builder.current_ext_call_ctx.contract_address,
                                                           /*check_membership=*/true);
                 } catch ([[maybe_unused]] const std::runtime_error& e) {
-                    error = AvmError::NO_BYTECODE_FOUND;
+                    info("AVM CALL failed bytecode retrieval.");
+                    error = AvmError::FAILED_BYTECODE_RETRIEVAL;
                 }
                 debug_counter_stack.push(counter);
                 counter = 0;
@@ -901,7 +904,8 @@ AvmError Execution::execute_enqueued_call(AvmTraceBuilder& trace_builder,
                     bytecode = trace_builder.get_bytecode(trace_builder.current_ext_call_ctx.contract_address,
                                                           /*check_membership=*/true);
                 } catch ([[maybe_unused]] const std::runtime_error& e) {
-                    error = AvmError::NO_BYTECODE_FOUND;
+                    info("AVM STATICCALL failed bytecode retrieval.");
+                    error = AvmError::FAILED_BYTECODE_RETRIEVAL;
                 }
                 debug_counter_stack.push(counter);
                 counter = 0;
@@ -1033,7 +1037,7 @@ AvmError Execution::execute_enqueued_call(AvmTraceBuilder& trace_builder,
         }
 
         if (!is_ok(error)) {
-            const bool is_top_level = trace_builder.current_ext_call_ctx.context_id == 0;
+            const bool is_top_level = trace_builder.current_ext_call_ctx.is_top_level;
 
             auto const error_ic = counter - 1; // Need adjustement as counter increment occurs in loop body
             std::string call_type = is_top_level ? "enqueued" : "nested";

@@ -10,6 +10,7 @@ import { Fr } from './fields.js';
  * Represents a Point on an elliptic curve with x and y coordinates.
  * The Point class provides methods for creating instances from different input types,
  * converting instances to various output formats, and checking the equality of points.
+ * TODO(#7386): Clean up this class.
  */
 export class Point {
   static ZERO = new Point(Fr.ZERO, Fr.ZERO, false);

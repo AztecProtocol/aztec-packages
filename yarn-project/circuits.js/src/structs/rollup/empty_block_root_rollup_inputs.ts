@@ -11,7 +11,7 @@ import {
 } from '../../constants.gen.js';
 import { RootParityInput } from '../parity/root_parity_input.js';
 import { PartialStateReference } from '../partial_state_reference.js';
-import { AppendOnlyTreeSnapshot } from './append_only_tree_snapshot.js';
+import { AppendOnlyTreeSnapshot } from '../trees/append_only_tree_snapshot.js';
 import { ConstantRollupData } from './constant_rollup_data.js';
 
 /**
