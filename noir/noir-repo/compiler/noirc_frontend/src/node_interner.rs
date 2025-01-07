@@ -2,7 +2,6 @@ use std::borrow::Cow;
 use std::fmt;
 use std::hash::Hash;
 use std::marker::Copy;
-use std::ops::Deref;
 
 use fm::FileId;
 use iter_extended::vecmap;
@@ -414,7 +413,7 @@ pub struct DefinitionId(usize);
 impl DefinitionId {
     //dummy id for error reporting
     pub fn dummy_id() -> DefinitionId {
-        DefinitionId(std::usize::MAX)
+        DefinitionId(usize::MAX)
     }
 }
 
@@ -425,7 +424,7 @@ pub struct GlobalId(usize);
 impl GlobalId {
     // Dummy id for error reporting
     pub fn dummy_id() -> Self {
-        GlobalId(std::usize::MAX)
+        GlobalId(usize::MAX)
     }
 }
 
@@ -496,7 +495,7 @@ pub struct TypeAliasId(pub usize);
 
 impl TypeAliasId {
     pub fn dummy_id() -> TypeAliasId {
-        TypeAliasId(std::usize::MAX)
+        TypeAliasId(usize::MAX)
     }
 }
 
@@ -609,7 +608,14 @@ pub struct GlobalInfo {
     pub crate_id: CrateId,
     pub location: Location,
     pub let_statement: StmtId,
-    pub value: Option<comptime::Value>,
+    pub value: GlobalValue,
+}
+
+#[derive(Debug, Clone)]
+pub enum GlobalValue {
+    Unresolved,
+    Resolving,
+    Resolved(comptime::Value),
 }
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -849,6 +855,7 @@ impl NodeInterner {
         let id = GlobalId(self.globals.len());
         let location = Location::new(ident.span(), file);
         let name = ident.to_string();
+
         let definition_id =
             self.push_definition(name, mutable, comptime, DefinitionKind::Global(id), location);
 
@@ -860,7 +867,7 @@ impl NodeInterner {
             crate_id,
             let_statement,
             location,
-            value: None,
+            value: GlobalValue::Unresolved,
         });
         self.global_attributes.insert(id, attributes);
         id
@@ -884,6 +891,7 @@ impl NodeInterner {
     ) -> GlobalId {
         let statement = self.push_stmt(HirStatement::Error);
         let span = name.span();
+
         let id = self
             .push_global(name, local_id, crate_id, statement, file, attributes, mutable, comptime);
         self.push_stmt_location(statement, span, file);
@@ -1467,25 +1475,6 @@ impl NodeInterner {
 
         Type::apply_type_bindings(bindings);
         Ok(impl_kind)
-    }
-
-    /// Given a `ObjectType: TraitId` pair, find all implementations without taking constraints into account or
-    /// applying any type bindings. Useful to look for a specific trait in a type that is used in a macro.
-    pub fn lookup_all_trait_implementations(
-        &self,
-        object_type: &Type,
-        trait_id: TraitId,
-    ) -> Vec<&TraitImplKind> {
-        let trait_impl = self.trait_implementation_map.get(&trait_id);
-
-        let trait_impl = trait_impl.map(|trait_impl| {
-            let impls = trait_impl.iter().filter_map(|(typ, impl_kind)| match &typ {
-                Type::Forall(_, typ) => (typ.deref() == object_type).then_some(impl_kind),
-                _ => None,
-            });
-            impls.collect()
-        });
-        trait_impl.unwrap_or_default()
     }
 
     /// Similar to `lookup_trait_implementation` but does not apply any type bindings on success.
