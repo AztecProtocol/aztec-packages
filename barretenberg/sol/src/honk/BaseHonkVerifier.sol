@@ -24,6 +24,11 @@ import {Transcript, TranscriptLib} from "./Transcript.sol";
 import {RelationsLib} from "./Relations.sol";
 
 abstract contract BaseHonkVerifier is IVerifier {
+    // Errors
+    error PublicInputsLengthWrong();
+    error SumcheckFailed();
+    error ShpleminiFailed();
+
     using FrLib for Fr;
 
     uint256 immutable N;

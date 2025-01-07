@@ -124,8 +124,7 @@ class MegaZKFlavor : public bb::MegaFlavor {
             lookup_inverses_comm = deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
             z_perm_comm = deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
             libra_concatenation_commitment = deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
-            libra_sum =
-                NativeTranscript::template deserialize_from_buffer<FF>(NativeTranscript::proof_data, num_frs_read);
+            libra_sum = deserialize_from_buffer<FF>(proof_data, num_frs_read);
 
             for (size_t i = 0; i < CONST_PROOF_SIZE_LOG_N; ++i) {
                 sumcheck_univariates.push_back(
@@ -137,7 +136,7 @@ class MegaZKFlavor : public bb::MegaFlavor {
             libra_big_sum_commitment = deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
             libra_quotient_commitment = deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
             hiding_polynomial_commitment = deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
-            hiding_polynomial_eval = deserialize_from_buffer<FF>(NativeTranscript::proof_data, num_frs_read);
+            hiding_polynomial_eval = deserialize_from_buffer<FF>(proof_data, num_frs_read);
             for (size_t i = 0; i < CONST_PROOF_SIZE_LOG_N - 1; ++i) {
                 gemini_fold_comms.push_back(deserialize_from_buffer<Commitment>(proof_data, num_frs_read));
             }
@@ -189,7 +188,7 @@ class MegaZKFlavor : public bb::MegaFlavor {
             serialize_to_buffer(z_perm_comm, proof_data);
 
             serialize_to_buffer(libra_concatenation_commitment, proof_data);
-            NativeTranscript::template serialize_to_buffer(libra_sum, NativeTranscript::proof_data);
+            serialize_to_buffer(libra_sum, proof_data);
 
             for (size_t i = 0; i < CONST_PROOF_SIZE_LOG_N; ++i) {
                 serialize_to_buffer(sumcheck_univariates[i], proof_data);
@@ -199,8 +198,8 @@ class MegaZKFlavor : public bb::MegaFlavor {
             serialize_to_buffer(sumcheck_evaluations, proof_data);
             serialize_to_buffer(libra_big_sum_commitment, proof_data);
             serialize_to_buffer(libra_quotient_commitment, proof_data);
-            serialize_to_buffer(hiding_polynomial_commitment, NativeTranscript::proof_data);
-            serialize_to_buffer(hiding_polynomial_eval, NativeTranscript::proof_data);
+            serialize_to_buffer(hiding_polynomial_commitment, proof_data);
+            serialize_to_buffer(hiding_polynomial_eval, proof_data);
             for (size_t i = 0; i < CONST_PROOF_SIZE_LOG_N - 1; ++i) {
                 serialize_to_buffer(gemini_fold_comms[i], proof_data);
             }

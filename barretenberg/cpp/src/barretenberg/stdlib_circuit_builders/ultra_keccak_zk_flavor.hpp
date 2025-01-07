@@ -1,6 +1,6 @@
 #pragma once
 
-#include "barretenberg/stdlib_circuit_builders/ultra_flavor.hpp"
+#include "barretenberg/stdlib_circuit_builders/ultra_keccak_flavor.hpp"
 
 namespace bb {
 
@@ -16,20 +16,20 @@ witness polynomials are of degree at most \f$2\f$ in each variable, and hence, f
 univariate accumuluator size has to be increased by the subrelation's witness degree. See more in
 \ref docs/src/sumcheck-outline.md "Sumcheck Outline".
 */
-class UltraZKFlavor : public UltraFlavor {
+class UltraKeccakZKFlavor : public UltraKeccakFlavor {
   public:
     // This flavor runs with ZK Sumcheck
     static constexpr bool HasZK = true;
     // Determine the number of evaluations of Prover and Libra Polynomials that the Prover sends to the Verifier in
     // the rounds of ZK Sumcheck.
-    static constexpr size_t BATCHED_RELATION_PARTIAL_LENGTH = UltraFlavor::BATCHED_RELATION_PARTIAL_LENGTH + 1;
+    static constexpr size_t BATCHED_RELATION_PARTIAL_LENGTH = UltraKeccakFlavor::BATCHED_RELATION_PARTIAL_LENGTH + 1;
     /**
      * @brief Derived class that defines proof structure for Ultra proofs, as well as supporting functions.
      *
      */
-    template <typename Params> class Transcript_ : public UltraFlavor::Transcript_<Params> {
+    class Transcript : public UltraKeccakFlavor::Transcript {
       public:
-        using Base = UltraFlavor::Transcript_<Params>::Base;
+        using Base = UltraKeccakFlavor::Transcript::Base;
         std::vector<bb::Univariate<FF, BATCHED_RELATION_PARTIAL_LENGTH>> sumcheck_univariates;
         Commitment libra_concatenation_commitment;
         FF libra_sum;
@@ -42,13 +42,6 @@ class UltraZKFlavor : public UltraFlavor {
         FF libra_quotient_eval;
         Commitment hiding_polynomial_commitment;
         FF hiding_polynomial_eval;
-
-        Transcript_() = default;
-
-        // Used by verifier to initialize the transcript
-        Transcript_(const std::vector<FF>& proof)
-            : UltraFlavor::Transcript_<Params>(proof)
-        {}
 
         /**
          * @brief Takes a FULL Ultra proof and deserializes it into the public member variables
@@ -163,6 +156,5 @@ class UltraZKFlavor : public UltraFlavor {
             ASSERT(proof_data.size() == old_proof_length);
         }
     };
-    using Transcript = Transcript_<NativeTranscriptParams>;
 };
 } // namespace bb
