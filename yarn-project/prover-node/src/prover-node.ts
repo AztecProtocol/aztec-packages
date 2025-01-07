@@ -40,9 +40,9 @@ export type ProverNodeOptions = {
   pollingIntervalMs: number;
   maxPendingJobs: number;
   maxParallelBlocksPerEpoch: number;
-  dataGatheringTimeoutMs: number;
-  dataGatheringIntervalMs: number;
-  dataGatheringConcurrency: number;
+  txGatheringTimeoutMs: number;
+  txGatheringIntervalMs: number;
+  txGatheringMaxParallelRequests: number;
 };
 
 /**
@@ -83,9 +83,9 @@ export class ProverNode implements ClaimsMonitorHandler, EpochMonitorHandler, Pr
       pollingIntervalMs: 1_000,
       maxPendingJobs: 100,
       maxParallelBlocksPerEpoch: 32,
-      dataGatheringTimeoutMs: 60_000,
-      dataGatheringIntervalMs: 1_000,
-      dataGatheringConcurrency: 100,
+      txGatheringTimeoutMs: 60_000,
+      txGatheringIntervalMs: 1_000,
+      txGatheringMaxParallelRequests: 100,
       ...compact(options),
     };
 
@@ -335,7 +335,7 @@ export class ProverNode implements ClaimsMonitorHandler, EpochMonitorHandler, Pr
         async () => {
           const batch = [...txsToFind];
           txsToFind = [];
-          const batchResults = await asyncPool(this.options.dataGatheringConcurrency, batch, async txHash => {
+          const batchResults = await asyncPool(this.options.txGatheringMaxParallelRequests, batch, async txHash => {
             const tx = await this.coordination.getTxByHash(txHash);
             return [txHash, tx] as const;
           });
@@ -359,8 +359,8 @@ export class ProverNode implements ClaimsMonitorHandler, EpochMonitorHandler, Pr
           return txsToFind.length === 0;
         },
         'Gather txs',
-        this.options.dataGatheringTimeoutMs / 1_000,
-        this.options.dataGatheringIntervalMs / 1_000,
+        this.options.txGatheringTimeoutMs / 1_000,
+        this.options.txGatheringIntervalMs / 1_000,
       );
     } catch (err) {
       if (err && err instanceof TimeoutError) {
