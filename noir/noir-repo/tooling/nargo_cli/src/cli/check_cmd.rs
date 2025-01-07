@@ -60,7 +60,7 @@ pub(crate) fn run(args: CheckCommand, config: NargoConfig) -> Result<(), CliErro
             let Some(main) = context.get_main_function(&crate_id) else {
                 continue;
             };
-            let program = monomorphize(main, &mut context.def_interner).unwrap();
+            let program = monomorphize(main, &mut context.def_interner, false).unwrap();
             let hash = fxhash::hash64(&program);
             println!("{}: {:x}", package.name, hash);
             continue;
