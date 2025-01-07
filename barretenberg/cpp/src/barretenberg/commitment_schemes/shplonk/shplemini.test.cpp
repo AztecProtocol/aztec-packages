@@ -7,6 +7,7 @@
 #include "../utils/batch_mul_native.hpp"
 #include "barretenberg/commitment_schemes/claim.hpp"
 #include "barretenberg/commitment_schemes/ipa/ipa.hpp"
+#include "barretenberg/commitment_schemes/small_subgroup_ipa/small_subgroup_ipa.test.cpp"
 #include "barretenberg/ecc/curves/bn254/g1.hpp"
 
 #include <gtest/gtest.h>
@@ -14,8 +15,9 @@
 
 namespace bb {
 
-template <class Curve> class ShpleminiTest : public CommitmentTest<Curve> {
+template <class Flavor> class ShpleminiTest : public CommitmentTest<typename Flavor::Curve> {
   public:
+    using Curve = typename Flavor::Curve;
     using Fr = typename Curve::ScalarField;
     using Commitment = typename Curve::AffineElement;
     using GroupElement = typename Curve::Element;
@@ -24,17 +26,18 @@ template <class Curve> class ShpleminiTest : public CommitmentTest<Curve> {
     static constexpr size_t log_n = 4;
 };
 
-using CurveTypes = ::testing::Types<curve::BN254, curve::Grumpkin>;
+using FlavorTypes = ::testing::Types<TestBn254Flavor, TestGrumpkinFlavor>;
 
-TYPED_TEST_SUITE(ShpleminiTest, CurveTypes);
+TYPED_TEST_SUITE(ShpleminiTest, FlavorTypes);
 
 // This test checks that batch_multivariate_opening_claims method operates correctly
 TYPED_TEST(ShpleminiTest, CorrectnessOfMultivariateClaimBatching)
 {
-    using ShpleminiVerifier = ShpleminiVerifier_<TypeParam>;
-    using Fr = typename TypeParam::ScalarField;
-    using GroupElement = typename TypeParam::Element;
-    using Commitment = typename TypeParam::AffineElement;
+    using Curve = typename TypeParam::Curve;
+    using ShpleminiVerifier = ShpleminiVerifier_<Curve>;
+    using Fr = typename Curve::ScalarField;
+    using GroupElement = typename Curve::Element;
+    using Commitment = typename Curve::AffineElement;
     using Polynomial = typename bb::Polynomial<Fr>;
 
     // Generate mock challenges
@@ -119,12 +122,13 @@ TYPED_TEST(ShpleminiTest, CorrectnessOfMultivariateClaimBatching)
 }
 TYPED_TEST(ShpleminiTest, CorrectnessOfGeminiClaimBatching)
 {
-    using GeminiProver = GeminiProver_<TypeParam>;
-    using ShpleminiVerifier = ShpleminiVerifier_<TypeParam>;
-    using ShplonkVerifier = ShplonkVerifier_<TypeParam>;
-    using Fr = typename TypeParam::ScalarField;
-    using GroupElement = typename TypeParam::Element;
-    using Commitment = typename TypeParam::AffineElement;
+    using Curve = typename TypeParam::Curve;
+    using GeminiProver = GeminiProver_<Curve>;
+    using ShpleminiVerifier = ShpleminiVerifier_<Curve>;
+    using ShplonkVerifier = ShplonkVerifier_<Curve>;
+    using Fr = typename Curve::ScalarField;
+    using GroupElement = typename Curve::Element;
+    using Commitment = typename Curve::AffineElement;
     using Polynomial = typename bb::Polynomial<Fr>;
 
     // Generate mock challenges
@@ -217,6 +221,52 @@ TYPED_TEST(ShpleminiTest, CorrectnessOfGeminiClaimBatching)
     GroupElement shplemini_result = batch_mul_native(commitments, scalars);
 
     EXPECT_EQ(shplemini_result, expected_result);
+}
+
+TYPED_TEST(ShpleminiTest, ShpleminiWithZK)
+{
+    using ZKData = ZKSumcheckData<TypeParam>;
+    using Curve = TypeParam::Curve;
+    using ShpleminiProver = ShpleminiProver_<Curve>;
+    using ShpleminiVerifier = ShpleminiVerifier_<Curve>;
+    using Fr = typename Curve::ScalarField;
+    using GroupElement = typename Curve::Element;
+    using Commitment = typename Curve::AffineElement;
+    using Polynomial = typename bb::Polynomial<Fr>;
+
+    // Generate mock challenges
+    Fr rho = Fr::random_element();
+    Fr gemini_eval_challenge = Fr::random_element();
+    Fr shplonk_batching_challenge = Fr::random_element();
+    Fr shplonk_eval_challenge = Fr::random_element();
+
+    auto prover_transcript = TypeParam::Transcript::prover_init_empty();
+    std::shared_ptr<typename TypeParam::CommitmentKey> ck;
+    ck = CreateCommitmentKey<typename TypeParam::CommitmentKey>();
+
+    ZKData zk_sumcheck_data(this->log_n, prover_transcript, ck);
+
+    std::vector<Fr> multivariate_challenge = this->generate_random_vector(CONST_PROOF_SIZE_LOG_N);
+
+    // Generate multilinear polynomials and compute their commitments
+    auto mle_opening_point = this->random_evaluation_point(this->log_n);
+    auto poly1 = Polynomial::random(this->n);
+    auto poly2 = Polynomial::random(this->n, /*shiftable*/ 1);
+    Polynomial poly3 = Polynomial::shiftable(this->n);
+
+    // Evaluate the polynomials at the multivariate challenge, poly3 is not evaluated, because it is 0.
+    auto eval1 = poly1.evaluate_mle(mle_opening_point);
+    auto eval2 = poly2.evaluate_mle(mle_opening_point);
+    Fr eval3{ 0 };
+    Fr eval3_shift{ 0 };
+    auto eval2_shift = poly2.evaluate_mle(mle_opening_point, true);
+
+    const Fr claimed_inner_product =
+        this->compute_claimed_inner_product(zk_sumcheck_data, multivariate_challenge, this->log_circuit_size);
+    SmallSubgroupIPAProver<TypeParam> small_subgroup_ipa_prover =
+        Prover(zk_sumcheck_data, multivariate_challenge, claimed_inner_product, prover_transcript, ck);
+
+    auto witness_polynomials = small_subgroup_ipa_prover.get_witness_polynomials();
 }
 
 } // namespace bb
