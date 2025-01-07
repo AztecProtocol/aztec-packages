@@ -1,68 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1736256428626,
+  "lastUpdate": 1736265573572,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "98505400+ledwards2225@users.noreply.github.com",
-            "name": "ledwards2225",
-            "username": "ledwards2225"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "1ab9e30d339cfd7a80f333e408c367c1f8bf49f8",
-          "message": "chore: move decider PK allocation to methods (#10670)\n\nJust moves the poly allocation logic in the DeciderPK into methods to\nmake the constructor a bit easier to digest",
-          "timestamp": "2024-12-13T10:10:17-07:00",
-          "tree_id": "6ee4e9406d6aa65c99b5930ca899a4022dc4c9c5",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/1ab9e30d339cfd7a80f333e408c367c1f8bf49f8"
-        },
-        "date": 1734111924169,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "nativeClientIVCBench/Full/6",
-            "value": 24689.301865999994,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 22774.397218000002 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 4959.345542999983,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 4669.006622999999 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmClientIVCBench/Full/6",
-            "value": 86123.74198100001,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 86123742000 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 15252.595772,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 15252597000 ms\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 2826379764,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 2826379764 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 143111162,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 143111162 ns\nthreads: 1"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -3262,6 +3202,72 @@ window.BENCHMARK_DATA = {
             "value": 144538888,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 144538888 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "mara@aztecprotocol.com",
+            "name": "maramihali",
+            "username": "maramihali"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "48286c671a61dbe18e5f8e0c44e71ab6c3fd109a",
+          "message": "feat: derive transcript structure between non-zk and zk flavors and between Ultra and UltraKeccak (#11086)\n\nThe Transcript Classes were duplicated between base and derived flavors\r\nwhich resulted at times in inconsistencies. This PR addresses the issue:\r\n* ZK flavors' Transcript is now a derived class of the corresponding\r\nnon-ZK Transcript class\r\n* `UltraFlavor` Transcript is now templated so in UltraKeccak we can\r\njust instantiate it with different parameters corresponding to Keccak\r\nrather than duplicate it.\r\n * the transcript tests are run for all flavor variations.",
+          "timestamp": "2025-01-07T15:34:25Z",
+          "tree_id": "d391f1021ecc959fd74dc082e8b5ecf214b80f5a",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/48286c671a61dbe18e5f8e0c44e71ab6c3fd109a"
+        },
+        "date": 1736265565440,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Ambient_17_in_20/6",
+            "value": 19626.07817200001,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 17136.909223 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 21383.976447999998,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 18807.720404 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 4604.717794999999,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 4331.753499 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 72311.288592,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 72311289000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 14029.206929,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 14029207000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 2845686908,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 2845686908 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 141417451,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 141417451 ns\nthreads: 1"
           }
         ]
       }
