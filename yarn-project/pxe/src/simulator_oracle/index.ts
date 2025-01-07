@@ -163,7 +163,7 @@ export class SimulatorOracle implements DBOracle {
    * @returns - The index of the commitment. Undefined if it does not exist in the tree.
    */
   async getCommitmentIndex(commitment: Fr) {
-    return await this.findLeafIndex('latest', MerkleTreeId.NOTE_HASH_TREE, commitment);
+    return await this.#findLeafIndex('latest', MerkleTreeId.NOTE_HASH_TREE, commitment);
   }
 
   // We need this in public as part of the EXISTS calls - but isn't used in private
@@ -172,20 +172,16 @@ export class SimulatorOracle implements DBOracle {
   }
 
   async getNullifierIndex(nullifier: Fr) {
-    return await this.findLeafIndex('latest', MerkleTreeId.NULLIFIER_TREE, nullifier);
+    return await this.#findLeafIndex('latest', MerkleTreeId.NULLIFIER_TREE, nullifier);
   }
 
-  public async findLeafIndex(
-    blockNumber: L2BlockNumber,
-    treeId: MerkleTreeId,
-    leafValue: Fr,
-  ): Promise<bigint | undefined> {
+  async #findLeafIndex(blockNumber: L2BlockNumber, treeId: MerkleTreeId, leafValue: Fr): Promise<bigint | undefined> {
     const [leafIndex] = await this.aztecNode.findLeavesIndexes(blockNumber, treeId, [leafValue]);
     return leafIndex;
   }
 
   public async getMembershipWitness(blockNumber: number, treeId: MerkleTreeId, leafValue: Fr): Promise<Fr[]> {
-    const leafIndex = await this.findLeafIndex(blockNumber, treeId, leafValue);
+    const leafIndex = await this.#findLeafIndex(blockNumber, treeId, leafValue);
     if (!leafIndex) {
       throw new Error(`Leaf value: ${leafValue} not found in ${MerkleTreeId[treeId]}`);
     }

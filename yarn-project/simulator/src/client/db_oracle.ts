@@ -141,15 +141,6 @@ export interface DBOracle extends CommitmentsDB {
   getBlockHeader(): Promise<BlockHeader>;
 
   /**
-   * Fetch the index of the leaf in the respective tree
-   * @param blockNumber - The block number at which to get the leaf index.
-   * @param treeId - The id of the tree to search.
-   * @param leafValue - The leaf value buffer.
-   * @returns - The index of the leaf. Undefined if it does not exist in the tree.
-   */
-  findLeafIndex(blockNumber: L2BlockNumber, treeId: MerkleTreeId, leafValue: Fr): Promise<bigint | undefined>;
-
-  /**
    * Fetches the index and sibling path of a leaf at a given block from a given tree.
    * @param blockNumber - The block number at which to get the membership witness.
    * @param treeId - Id of the tree to get the sibling path from.
