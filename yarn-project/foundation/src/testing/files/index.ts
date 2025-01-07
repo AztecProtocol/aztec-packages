@@ -42,8 +42,8 @@ export function updateInlineTestData(targetFileFromRepoRoot: string, itemName: s
 
 /**
  * Updates the sample Prover.toml files in noir-projects/noir-protocol-circuits/crates/.
- * @remarks Requires AZTEC_GENERATE_TEST_DATA=1 & generateProtocolCircuitTestData=true to be set
- * To re-gen, run 'AZTEC_GENERATE_TEST_DATA=1 FAKE_PROOFS=1 yarn workspace @aztec/end-to-end test full.test'
+ * @remarks Requires AZTEC_GENERATE_TEST_DATA=1 to be set
+ * To re-gen, run 'AZTEC_GENERATE_TEST_DATA=1 FAKE_PROOFS=1 yarn test:e2e-no-docker full.test '
  */
 export function updateProtocolCircuitSampleInputs(circuitName: string, value: string) {
   const logger = createConsoleLogger('aztec:testing:test_data');

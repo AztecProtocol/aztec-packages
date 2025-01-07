@@ -69,7 +69,7 @@ export class OutgoingNoteDao {
       this.contractAddress,
       this.storageSlot,
       this.noteTypeId,
-      this.txHash.buffer,
+      this.txHash,
       this.l2BlockNumber,
       Fr.fromHexString(this.l2BlockHash),
       this.nonce,
@@ -85,7 +85,7 @@ export class OutgoingNoteDao {
     const contractAddress = AztecAddress.fromBuffer(reader);
     const storageSlot = Fr.fromBuffer(reader);
     const noteTypeId = reader.readObject(NoteSelector);
-    const txHash = new TxHash(reader.readBytes(TxHash.SIZE));
+    const txHash = reader.readObject(TxHash);
     const l2BlockNumber = reader.readNumber();
     const l2BlockHash = Fr.fromBuffer(reader).toString();
     const nonce = Fr.fromBuffer(reader);

@@ -12,6 +12,7 @@ import {
 } from "@aztec/core/interfaces/IStaking.sol";
 import {Errors} from "@aztec/core/libraries/Errors.sol";
 import {Timestamp} from "@aztec/core/libraries/TimeMath.sol";
+import {Slasher} from "@aztec/core/staking/Slasher.sol";
 import {IERC20} from "@oz/token/ERC20/IERC20.sol";
 import {SafeERC20} from "@oz/token/ERC20/utils/SafeERC20.sol";
 import {EnumerableSet} from "@oz/utils/structs/EnumerableSet.sol";
@@ -23,14 +24,19 @@ contract Staking is IStaking {
   // Constant pulled out of the ass
   Timestamp public constant EXIT_DELAY = Timestamp.wrap(60 * 60 * 24);
 
-  address public immutable SLASHER;
+  Slasher public immutable SLASHER;
   IERC20 public immutable STAKING_ASSET;
   uint256 public immutable MINIMUM_STAKE;
 
   StakingStorage internal stakingStore;
 
-  constructor(address _slasher, IERC20 _stakingAsset, uint256 _minimumStake) {
-    SLASHER = _slasher;
+  constructor(
+    IERC20 _stakingAsset,
+    uint256 _minimumStake,
+    uint256 _slashingQuorum,
+    uint256 _roundSize
+  ) {
+    SLASHER = new Slasher(_slashingQuorum, _roundSize);
     STAKING_ASSET = _stakingAsset;
     MINIMUM_STAKE = _minimumStake;
   }
@@ -57,7 +63,9 @@ contract Staking is IStaking {
   }
 
   function slash(address _attester, uint256 _amount) external override(IStaking) {
-    require(msg.sender == SLASHER, Errors.Staking__NotSlasher(SLASHER, msg.sender));
+    require(
+      msg.sender == address(SLASHER), Errors.Staking__NotSlasher(address(SLASHER), msg.sender)
+    );
 
     ValidatorInfo storage validator = stakingStore.info[_attester];
     require(validator.status != Status.NONE, Errors.Staking__NoOneToSlash(_attester));

@@ -649,7 +649,7 @@ export class TXE implements TypedOracle {
     // index = await (await this.trees.getLatest()).findLeafIndex(MerkleTreeId.NULLIFIER_TREE, Fr.random().toBuffer());
     // console.log('INDEX OF RANDOM', index);
 
-    this.node.setTxEffect(blockNumber, new TxHash(new Fr(blockNumber).toBuffer()), txEffect);
+    this.node.setTxEffect(blockNumber, new TxHash(new Fr(blockNumber)), txEffect);
     this.node.setNullifiersIndexesWithBlock(blockNumber, txEffect.nullifiers);
     this.node.addNoteLogsByTags(this.blockNumber, this.privateLogs);
     this.node.addPublicLogsByTags(this.blockNumber, this.publicLogs);

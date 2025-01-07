@@ -228,10 +228,10 @@ void prove_tube(const std::string& output_path)
     // circuit
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/1048): INSECURE - make this tube proof actually use
     // these public inputs by turning proof into witnesses and calling set_public on each witness
-    auto num_public_inputs = static_cast<uint32_t>(static_cast<uint256_t>(proof.mega_proof[1]));
-    num_public_inputs -= bb::PAIRING_POINT_ACCUMULATOR_SIZE; // don't add the agg object
+    auto num_inner_public_inputs = static_cast<uint32_t>(static_cast<uint256_t>(proof.mega_proof[1]));
+    num_inner_public_inputs -= bb::PAIRING_POINT_ACCUMULATOR_SIZE; // don't add the agg object
 
-    for (size_t i = 0; i < num_public_inputs; i++) {
+    for (size_t i = 0; i < num_inner_public_inputs; i++) {
         auto offset = bb::HONK_PROOF_PUBLIC_INPUT_OFFSET;
         builder->add_public_variable(proof.mega_proof[i + offset]);
     }
@@ -278,13 +278,13 @@ void prove_tube(const std::string& output_path)
     Verifier tube_verifier(tube_verification_key, ipa_verification_key);
 
     // Break up the tube proof into the honk portion and the ipa portion
-    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1168): Add formula to flavor
-    const size_t HONK_PROOF_LENGTH = 469;
+    const size_t HONK_PROOF_LENGTH_WITHOUT_INNER_PUB_INPUTS =
+        UltraRollupFlavor::PROOF_LENGTH_WITHOUT_PUB_INPUTS + PAIRING_POINT_ACCUMULATOR_SIZE + IPA_CLAIM_SIZE;
     // The extra calculation is for the IPA proof length.
-    ASSERT(tube_proof.size() == HONK_PROOF_LENGTH + 1 + 4 * (CONST_ECCVM_LOG_N) + 2 + 2 + num_public_inputs);
+    ASSERT(tube_proof.size() == HONK_PROOF_LENGTH_WITHOUT_INNER_PUB_INPUTS + num_inner_public_inputs);
     // split out the ipa proof
-    const std::ptrdiff_t honk_proof_with_pub_inputs_length =
-        static_cast<std::ptrdiff_t>(HONK_PROOF_LENGTH + num_public_inputs);
+    const std::ptrdiff_t honk_proof_with_pub_inputs_length = static_cast<std::ptrdiff_t>(
+        HONK_PROOF_LENGTH_WITHOUT_INNER_PUB_INPUTS - IPA_PROOF_LENGTH + num_inner_public_inputs);
     auto ipa_proof = HonkProof(tube_proof.begin() + honk_proof_with_pub_inputs_length, tube_proof.end());
     auto tube_honk_proof = HonkProof(tube_proof.begin(), tube_proof.end() + honk_proof_with_pub_inputs_length);
     bool verified = tube_verifier.verify_proof(tube_honk_proof, ipa_proof);
@@ -895,15 +895,13 @@ template <IsUltraFlavor Flavor> bool verify_honk(const std::string& proof_path, 
     bool verified;
     if constexpr (HasIPAAccumulator<Flavor>) {
         // Break up the tube proof into the honk portion and the ipa portion
-        // TODO(https://github.com/AztecProtocol/barretenberg/issues/1168): Add formula to flavor
-        const size_t HONK_PROOF_LENGTH = 469;
-        const size_t num_public_inputs =
-            static_cast<size_t>(uint64_t(proof[1])) - PAIRING_POINT_ACCUMULATOR_SIZE - IPA_CLAIM_SIZE;
+        const size_t HONK_PROOF_LENGTH = Flavor::PROOF_LENGTH_WITHOUT_PUB_INPUTS - IPA_PROOF_LENGTH;
+        const size_t num_public_inputs = static_cast<size_t>(uint64_t(proof[1]));
         // The extra calculation is for the IPA proof length.
         debug("proof size: ", proof.size());
         debug("num public inputs: ", num_public_inputs);
         // TODO(https://github.com/AztecProtocol/barretenberg/issues/1182): Move to ProofSurgeon.
-        ASSERT(proof.size() == HONK_PROOF_LENGTH + 1 + 4 * (CONST_ECCVM_LOG_N) + 2 + 2 + num_public_inputs);
+        ASSERT(proof.size() == HONK_PROOF_LENGTH + IPA_PROOF_LENGTH + num_public_inputs);
         // split out the ipa proof
         const std::ptrdiff_t honk_proof_with_pub_inputs_length =
             static_cast<std::ptrdiff_t>(HONK_PROOF_LENGTH + num_public_inputs);

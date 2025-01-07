@@ -1,6 +1,6 @@
 import { EthCheatCodes } from '@aztec/aztec.js';
 import { type EthAddress } from '@aztec/circuits.js';
-import { MINIMUM_STAKE, createEthereumChain, getL1ContractsConfigEnvVars, isAnvilTestChain } from '@aztec/ethereum';
+import { createEthereumChain, getL1ContractsConfigEnvVars, isAnvilTestChain } from '@aztec/ethereum';
 import { type LogFn, type Logger } from '@aztec/foundation/log';
 import { RollupAbi, TestERC20Abi } from '@aztec/l1-artifacts';
 
@@ -40,6 +40,7 @@ export async function addL1Validator({
   log,
   debugLogger,
 }: RollupCommandArgs & LoggerArgs & { validatorAddress: EthAddress }) {
+  const config = getL1ContractsConfigEnvVars();
   const dualLog = makeDualLog(log, debugLogger);
   const publicClient = getPublicClient(rpcUrl, chainId);
   const walletClient = getWalletClient(rpcUrl, chainId, privateKey, mnemonic);
@@ -57,8 +58,8 @@ export async function addL1Validator({
 
   await Promise.all(
     [
-      await stakingAsset.write.mint([walletClient.account.address, MINIMUM_STAKE], {} as any),
-      await stakingAsset.write.approve([rollupAddress.toString(), MINIMUM_STAKE], {} as any),
+      await stakingAsset.write.mint([walletClient.account.address, config.minimumStake], {} as any),
+      await stakingAsset.write.approve([rollupAddress.toString(), config.minimumStake], {} as any),
     ].map(txHash => publicClient.waitForTransactionReceipt({ hash: txHash })),
   );
 
@@ -67,7 +68,7 @@ export async function addL1Validator({
     validatorAddress.toString(),
     validatorAddress.toString(),
     validatorAddress.toString(),
-    MINIMUM_STAKE,
+    config.minimumStake,
   ]);
   dualLog(`Transaction hash: ${txHash}`);
   await publicClient.waitForTransactionReceipt({ hash: txHash });

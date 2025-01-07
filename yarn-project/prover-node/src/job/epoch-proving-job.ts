@@ -7,9 +7,7 @@ import {
   type L2Block,
   type L2BlockSource,
   type ProcessedTx,
-  type ProverCoordination,
   type Tx,
-  type TxHash,
 } from '@aztec/circuit-types';
 import { asyncPool } from '@aztec/foundation/async-pool';
 import { createLogger } from '@aztec/foundation/log';
@@ -41,12 +39,12 @@ export class EpochProvingJob implements Traceable {
     private dbProvider: ForkMerkleTreeOperations,
     private epochNumber: bigint,
     private blocks: L2Block[],
+    private txs: Tx[],
     private prover: EpochProver,
     private publicProcessorFactory: PublicProcessorFactory,
     private publisher: L1Publisher,
     private l2BlockSource: L2BlockSource,
     private l1ToL2MessageSource: L1ToL2MessageSource,
-    private coordination: ProverCoordination,
     private metrics: ProverNodeMetrics,
     private config: { parallelBlockLimit: number } = { parallelBlockLimit: 32 },
     private cleanUp: (job: EpochProvingJob) => Promise<void> = () => Promise.resolve(),
@@ -92,10 +90,9 @@ export class EpochProvingJob implements Traceable {
 
       await asyncPool(this.config.parallelBlockLimit, this.blocks, async block => {
         const globalVariables = block.header.globalVariables;
-        const txHashes = block.body.txEffects.map(tx => tx.txHash);
         const txCount = block.body.numberOfTxsIncludingPadded;
+        const txs = this.getTxs(block);
         const l1ToL2Messages = await this.getL1ToL2Messages(block);
-        const txs = await this.getTxs(txHashes, block.number);
         const previousHeader = await this.getBlockHeader(block.number - 1);
 
         this.log.verbose(`Starting processing block ${block.number}`, {
@@ -162,17 +159,9 @@ export class EpochProvingJob implements Traceable {
     return this.l2BlockSource.getBlockHeader(blockNumber);
   }
 
-  private async getTxs(txHashes: TxHash[], blockNumber: number): Promise<Tx[]> {
-    const txs = await Promise.all(
-      txHashes.map(txHash => this.coordination.getTxByHash(txHash).then(tx => [txHash, tx] as const)),
-    );
-    const notFound = txs.filter(([_, tx]) => !tx);
-    if (notFound.length) {
-      throw new Error(
-        `Txs not found for block ${blockNumber}: ${notFound.map(([txHash]) => txHash.toString()).join(', ')}`,
-      );
-    }
-    return txs.map(([_, tx]) => tx!);
+  private getTxs(block: L2Block): Tx[] {
+    const txHashes = block.body.txEffects.map(tx => tx.txHash.toBigInt());
+    return this.txs.filter(tx => txHashes.includes(tx.getTxHash().toBigInt()));
   }
 
   private getL1ToL2Messages(block: L2Block) {

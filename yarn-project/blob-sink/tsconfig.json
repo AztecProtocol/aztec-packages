@@ -1,0 +1,23 @@
+{
+  "extends": "..",
+  "compilerOptions": {
+    "outDir": "dest",
+    "rootDir": "src",
+    "tsBuildInfoFile": ".tsbuildinfo"
+  },
+  "references": [
+    {
+      "path": "../circuit-types"
+    },
+    {
+      "path": "../foundation"
+    },
+    {
+      "path": "../kv-store"
+    },
+    {
+      "path": "../telemetry-client"
+    }
+  ],
+  "include": ["src"]
+}

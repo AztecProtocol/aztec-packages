@@ -35,7 +35,7 @@ contract MintTest is CoinIssuerBase {
     // it reverts
     uint256 amount = bound(_amount, maxMint + 1, type(uint256).max);
     vm.expectRevert(
-      abi.encodeWithSelector(Errors.CoinIssuer__InssuficientMintAvailable.selector, maxMint, amount)
+      abi.encodeWithSelector(Errors.CoinIssuer__InsufficientMintAvailable.selector, maxMint, amount)
     );
     nom.mint(address(0xdead), amount);
   }
