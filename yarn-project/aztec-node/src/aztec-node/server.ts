@@ -52,8 +52,9 @@ import {
   type PrivateLog,
   type ProtocolContractAddresses,
   type PublicDataTreeLeafPreimage,
+  REGISTERER_CONTRACT_ADDRESS,
 } from '@aztec/circuits.js';
-import { computePublicDataTreeLeafSlot } from '@aztec/circuits.js/hash';
+import { computePublicDataTreeLeafSlot, siloNullifier } from '@aztec/circuits.js/hash';
 import { EpochCache } from '@aztec/epoch-cache';
 import { type L1ContractAddresses, createEthereumChain } from '@aztec/ethereum';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
@@ -348,8 +349,25 @@ export class AztecNodeService implements AztecNode, Traceable {
     return Promise.resolve(this.l1ChainId);
   }
 
-  public getContractClass(id: Fr): Promise<ContractClassPublic | undefined> {
-    return this.contractDataSource.getContractClass(id);
+  public async getContractClass(id: Fr): Promise<ContractClassPublic | undefined> {
+    const klazz = await this.contractDataSource.getContractClass(id);
+
+    // TODO(#10007): Remove this check. This is needed only because we're manually registering
+    // some contracts in the archiver so they are available to all nodes (see `registerCommonContracts`
+    // in `archiver/src/factory.ts`), but we still want clients to send the registration tx in order
+    // to emit the corresponding nullifier, which is now being checked. Note that this method
+    // is only called by the PXE to check if a contract is publicly registered.
+    if (klazz) {
+      const classNullifier = siloNullifier(AztecAddress.fromNumber(REGISTERER_CONTRACT_ADDRESS), id);
+      const worldState = await this.#getWorldState('latest');
+      const [index] = await worldState.findLeafIndices(MerkleTreeId.NULLIFIER_TREE, [classNullifier.toBuffer()]);
+      this.log.debug(`Registration nullifier ${classNullifier} for contract class ${id} found at index ${index}`);
+      if (index === undefined) {
+        return undefined;
+      }
+    }
+
+    return klazz;
   }
 
   public getContract(address: AztecAddress): Promise<ContractInstanceWithAddress | undefined> {
