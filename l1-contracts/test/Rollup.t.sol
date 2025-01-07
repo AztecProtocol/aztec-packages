@@ -75,9 +75,10 @@ contract RollupTest is DecoderBase, TimeFns {
       testERC20 = new TestERC20("test", "TEST", address(this));
 
       leo = new Leonidas(
-        address(1),
         testERC20,
         TestConstants.AZTEC_MINIMUM_STAKE,
+        TestConstants.AZTEC_SLASHING_QUORUM,
+        TestConstants.AZTEC_SLASHING_ROUND_SIZE,
         TestConstants.AZTEC_SLOT_DURATION,
         TestConstants.AZTEC_EPOCH_DURATION,
         TestConstants.AZTEC_TARGET_COMMITTEE_SIZE

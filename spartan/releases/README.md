@@ -48,9 +48,17 @@ To spare you a few keystrokes, you can use `npx aztec-spartan [start/stop/logs/u
 
 ## Node Configuration
 
-You can tweak your validator in many different ways. Just edit the `.env` file directly and re-run `./aztec-spartan.sh`.
+The `aztec-spartan.sh` script will set the following required variables on your behalf. You can ofcourse override the variables set by the script by simply changing the `.env` file directly and re-running `./aztec-spartan.sh`
 
-Different env variables correspond to different components on the node.
+| Variable | Description |
+| ----- | ----- |
+| ETHEREUM_HOST | URL to the Ethereum node your validator will connect to. For as long as we're on private networks, please use the value in `aztec-spartan.sh`|
+| BOOTNODE_URL | URL to a bootnode that supplies L1 contract addresses and the ENR of the bootstrap nodes. |
+| IMAGE | The docker image to run |
+
+In addition, the user is prompted to enter 1) an IP Address and a P2P port to be used for the TCP and UDP addresses (defaults to 40400) 2) A port for your node (8080) 3) an Ethereum private key 4) `COINBASE` which is the Ethereum address associated with the private key and 5) a path to a local directory to store node data if you don't opt for a named volume.
+
+On a first run, the script will generate a p2p private key and store it in `$DATA_DIR/var/lib/aztec/p2p-private-key`. If you wish to change your p2p private key, you can pass it on as a CLI arg using the flag `-pk` or update the `PEER_ID_PRIVATE_KEY` in the env file.
 
 ### Publisher and Archiver
 
@@ -60,7 +68,7 @@ The Archiver's primary functions are data storage and retrieval (i.e. L1->L2 mes
 
 |Variable| Description|
 |----|-----|
-|ETHEREUM_HOST| This is the URL to the L1 node your validator will connect to. For as long as we're on private networks, please use the value from above |
+|ETHEREUM_HOST| This is the URL to the L1 node your validator will connect to. For as long as we're on private networks, please use the value in `aztec-spartan.sh`|
 |L1_CHAIN_ID | Chain ID of the L1 |
 | DATA_DIRECTORY | Optional dir to store archiver and world state data. If omitted will store in memory |
 | ARCHIVER_POLLING_INTERVAL_MS | The polling interval in ms for retrieving new L2 blocks and encrypted logs
@@ -116,12 +124,6 @@ The P2P client coordinates peer-to-peer communication between Nodes.
 ### Prover Config
 
 Please refer to the Epoch Proving Integration [Guide](https://hackmd.io/@aztec-network/epoch-proving-integration-guide) for info on how to setup your prover node.
-
-During a governance upgrade, we'll announce details on the discord. At some point we'll also write AZIPs (Aztec Improvement Proposals) and post them to either the github or forum to collect feedback.
-
-We'll deploy the payload to the L1 and share the address of the payload with the sequencers on discord.
-
-To participate in the governance vote, sequencers must change the variable `GOVERNANCE_PROPOSER_PAYLOAD_ADDRESS` in the Sequencer Client to vote during the L2 slot they've been assigned sequencer duties.
 
 ## Governance Upgrades
 

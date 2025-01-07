@@ -1,10 +1,9 @@
 use crate::abis::block_root_or_block_merge_public_inputs::BlockRootOrBlockMergePublicInputs;
 use dep::types::{
-    constants::{PROOF_TYPE_ROLLUP_HONK, VK_TREE_HEIGHT},
+    constants::VK_TREE_HEIGHT,
     merkle_tree::{membership::assert_check_membership, MembershipWitness},
     proof::{
         rollup_recursive_proof::NestedRecursiveProof,
-        traits::Verifiable,
         verification_key::{RollupHonkVerificationKey, VerificationKey},
     },
     traits::Empty,
@@ -18,8 +17,8 @@ pub struct PreviousRollupBlockData {
     pub vk_witness: MembershipWitness<VK_TREE_HEIGHT>,
 }
 
-impl Verifiable for PreviousRollupBlockData {
-    fn verify(self) {
+impl PreviousRollupBlockData {
+    fn verify(self, proof_type_id: u32) {
         let inputs = BlockRootOrBlockMergePublicInputs::serialize(
             self.block_root_or_block_merge_public_inputs,
         );
@@ -28,7 +27,7 @@ impl Verifiable for PreviousRollupBlockData {
             self.proof.fields,
             inputs,
             self.vk.hash,
-            PROOF_TYPE_ROLLUP_HONK,
+            proof_type_id,
         );
     }
 }

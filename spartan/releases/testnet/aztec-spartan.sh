@@ -171,8 +171,8 @@ configure_environment() {
 
     # if the network is `troll-turtle`
     if [ "$NETWORK" = "troll-turtle" ]; then
-        BOOTNODE_URL="${BOOTNODE_URL:-http://34.82.213.6:8080}"
-        ETHEREUM_HOST="${ETHEREUM_HOST:-http://34.19.127.9:8545}"
+        BOOTNODE_URL="${BOOTNODE_URL:-http://34.82.108.83:8080}"
+        ETHEREUM_HOST="${ETHEREUM_HOST:-http://34.82.53.127:8545}"
         IMAGE="${IMAGE:-aztecprotocol/aztec:troll-turtle}"
     else
         # unknown network
@@ -216,6 +216,20 @@ configure_environment() {
         done
     fi
 
+    if [ -n "$CLI_COINBASE" ]; then
+    COINBASE="$CLI_COINBASE"
+    else
+        while true; do
+            read -p "COINBASE (default: 0xbaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa): " COINBASE
+            COINBASE=${COINBASE:-0xbaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa}
+            if [[ "$COINBASE" =~ ^0x[a-fA-F0-9]{40}$ ]]; then
+                break
+            else
+                echo -e "${RED}Error: Invalid COINBASE address. Please enter a valid Ethereum address.${NC}"
+            fi
+        done
+    fi
+
     if [ -n "$CLI_IP" ]; then
         IP="$CLI_IP"
     else
@@ -250,7 +264,6 @@ configure_environment() {
     cat > .env << EOF
 P2P_UDP_ANNOUNCE_ADDR=${IP}:${P2P_PORT}
 P2P_TCP_ANNOUNCE_ADDR=${IP}:${P2P_PORT}
-COINBASE=0xbaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
 VALIDATOR_DISABLED=false
 VALIDATOR_PRIVATE_KEY=${KEY}
 SEQ_PUBLISHER_PRIVATE_KEY=${KEY}

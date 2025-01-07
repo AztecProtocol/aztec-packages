@@ -136,29 +136,132 @@ export class PublicProcessor implements Traceable {
    * @returns The list of processed txs with their circuit simulation outputs.
    */
   public async process(
-    txs: Tx[],
-    maxTransactions = txs.length,
-    txValidator?: TxValidator<ProcessedTx>,
-    deadline?: Date,
+    txs: Iterable<Tx>,
+    limits: {
+      maxTransactions?: number;
+      maxBlockSize?: number;
+      maxBlockGas?: Gas;
+      deadline?: Date;
+    } = {},
+    validators: {
+      preprocessValidator?: TxValidator<Tx>;
+      postprocessValidator?: TxValidator<ProcessedTx>;
+      nullifierCache?: { addNullifiers: (nullifiers: Buffer[]) => void };
+    } = {},
   ): Promise<[ProcessedTx[], FailedTx[], NestedProcessReturnValues[]]> {
-    // The processor modifies the tx objects in place, so we need to clone them.
-    txs = txs.map(tx => Tx.clone(tx));
+    const { maxTransactions, maxBlockSize, deadline, maxBlockGas } = limits;
+    const { preprocessValidator, postprocessValidator, nullifierCache } = validators;
     const result: ProcessedTx[] = [];
     const failed: FailedTx[] = [];
-    let returns: NestedProcessReturnValues[] = [];
-    let totalGas = new Gas(0, 0);
     const timer = new Timer();
 
-    for (const tx of txs) {
-      // only process up to the limit of the block
-      if (result.length >= maxTransactions) {
+    let totalSizeInBytes = 0;
+    let returns: NestedProcessReturnValues[] = [];
+    let totalPublicGas = new Gas(0, 0);
+    let totalBlockGas = new Gas(0, 0);
+
+    for (const origTx of txs) {
+      // Only process up to the max tx limit
+      if (maxTransactions !== undefined && result.length >= maxTransactions) {
+        this.log.debug(`Stopping tx processing due to reaching the max tx limit.`);
         break;
       }
+
+      // Bail if we've hit the deadline
+      if (deadline && this.dateProvider.now() > +deadline) {
+        this.log.warn(`Stopping tx processing due to timeout.`);
+        break;
+      }
+
+      // Skip this tx if it'd exceed max block size
+      const txHash = origTx.getTxHash().toString();
+      const preTxSizeInBytes = origTx.getEstimatedPrivateTxEffectsSize();
+      if (maxBlockSize !== undefined && totalSizeInBytes + preTxSizeInBytes > maxBlockSize) {
+        this.log.warn(`Skipping processing of tx ${txHash} sized ${preTxSizeInBytes} bytes due to block size limit`, {
+          txHash,
+          sizeInBytes: preTxSizeInBytes,
+          totalSizeInBytes,
+          maxBlockSize,
+        });
+        continue;
+      }
+
+      // Skip this tx if its gas limit would exceed the block gas limit
+      const txGasLimit = origTx.data.constants.txContext.gasSettings.gasLimits;
+      if (maxBlockGas !== undefined && totalBlockGas.add(txGasLimit).gtAny(maxBlockGas)) {
+        this.log.warn(`Skipping processing of tx ${txHash} due to block gas limit`, {
+          txHash,
+          txGasLimit,
+          totalBlockGas,
+          maxBlockGas,
+        });
+        continue;
+      }
+
+      // The processor modifies the tx objects in place, so we need to clone them.
+      const tx = Tx.clone(origTx);
+
+      // We validate the tx before processing it, to avoid unnecessary work.
+      if (preprocessValidator) {
+        const result = await preprocessValidator.validateTx(tx);
+        if (result.result === 'invalid') {
+          const reason = result.reason.join(', ');
+          this.log.warn(`Rejecting tx ${tx.getTxHash().toString()} due to pre-process validation fail: ${reason}`);
+          failed.push({ tx, error: new Error(`Tx failed preprocess validation: ${reason}`) });
+          returns.push(new NestedProcessReturnValues([]));
+          continue;
+        } else if (result.result === 'skipped') {
+          const reason = result.reason.join(', ');
+          this.log.warn(`Skipping tx ${tx.getTxHash().toString()} due to pre-process validation: ${reason}`);
+          returns.push(new NestedProcessReturnValues([]));
+          continue;
+        } else {
+          this.log.trace(`Tx ${tx.getTxHash().toString()} is valid before processing.`);
+        }
+      }
+
       try {
-        const [processedTx, returnValues] = await this.processTx(tx, txValidator, deadline);
+        const [processedTx, returnValues] = await this.processTx(tx, deadline);
+
+        // If the actual size of this tx would exceed block size, skip it
+        const txSize = processedTx.txEffect.getDASize();
+        if (maxBlockSize !== undefined && totalSizeInBytes + txSize > maxBlockSize) {
+          this.log.warn(`Skipping processed tx ${txHash} sized ${txSize} due to max block size.`, {
+            txHash,
+            sizeInBytes: txSize,
+            totalSizeInBytes,
+            maxBlockSize,
+          });
+          continue;
+        }
+
+        // Re-validate the transaction
+        if (postprocessValidator) {
+          // Only accept processed transactions that are not double-spends,
+          // public functions emitting nullifiers would pass earlier check but fail here.
+          // Note that we're checking all nullifiers generated in the private execution twice,
+          // we could store the ones already checked and skip them here as an optimization.
+          // TODO(palla/txs): Can we get into this case? AVM validates this. We should be able to remove it.
+          const result = await postprocessValidator.validateTx(processedTx);
+          if (result.result !== 'valid') {
+            const reason = result.reason.join(', ');
+            this.log.error(`Rejecting tx ${processedTx.hash} after processing: ${reason}.`);
+            failed.push({ tx, error: new Error(`Tx failed post-process validation: ${reason}`) });
+            continue;
+          } else {
+            this.log.trace(`Tx ${tx.getTxHash().toString()} is valid post processing.`);
+          }
+        }
+
+        // Otherwise, commit tx state for the next tx to be processed
+        await this.commitTxState(processedTx);
+        nullifierCache?.addNullifiers(processedTx.txEffect.nullifiers.map(n => n.toBuffer()));
         result.push(processedTx);
         returns = returns.concat(returnValues);
-        totalGas = totalGas.add(processedTx.gasUsed.publicGas);
+
+        totalPublicGas = totalPublicGas.add(processedTx.gasUsed.publicGas);
+        totalBlockGas = totalBlockGas.add(processedTx.gasUsed.totalGas);
+        totalSizeInBytes += txSize;
       } catch (err: any) {
         if (err?.name === 'PublicProcessorTimeoutError') {
           this.log.warn(`Stopping tx processing due to timeout.`);
@@ -173,18 +276,22 @@ export class PublicProcessor implements Traceable {
     }
 
     const duration = timer.s();
-    const rate = duration > 0 ? totalGas.l2Gas / duration : 0;
-    this.metrics.recordAllTxs(totalGas, rate);
+    const rate = duration > 0 ? totalPublicGas.l2Gas / duration : 0;
+    this.metrics.recordAllTxs(totalPublicGas, rate);
+
+    this.log.info(`Processed ${result.length} succesful txs and ${failed.length} txs in ${duration}ms`, {
+      duration,
+      rate,
+      totalPublicGas,
+      totalBlockGas,
+      totalSizeInBytes,
+    });
 
     return [result, failed, returns];
   }
 
   @trackSpan('PublicProcessor.processTx', tx => ({ [Attributes.TX_HASH]: tx.tryGetTxHash()?.toString() }))
-  private async processTx(
-    tx: Tx,
-    txValidator?: TxValidator<ProcessedTx>,
-    deadline?: Date,
-  ): Promise<[ProcessedTx, NestedProcessReturnValues[]]> {
+  private async processTx(tx: Tx, deadline?: Date): Promise<[ProcessedTx, NestedProcessReturnValues[]]> {
     const [time, [processedTx, returnValues]] = await elapsed(() => this.processTxWithinDeadline(tx, deadline));
 
     this.log.verbose(
@@ -208,20 +315,14 @@ export class PublicProcessor implements Traceable {
       },
     );
 
+    return [processedTx, returnValues ?? []];
+  }
+
+  private async commitTxState(processedTx: ProcessedTx, txValidator?: TxValidator<ProcessedTx>): Promise<void> {
     // Commit the state updates from this transaction
+    // TODO(palla/txs): It seems like this doesn't do anything...?
     await this.worldStateDB.commit();
 
-    // Re-validate the transaction
-    if (txValidator) {
-      // Only accept processed transactions that are not double-spends,
-      // public functions emitting nullifiers would pass earlier check but fail here.
-      // Note that we're checking all nullifiers generated in the private execution twice,
-      // we could store the ones already checked and skip them here as an optimization.
-      const [_, invalid] = await txValidator.validateTxs([processedTx]);
-      if (invalid.length) {
-        throw new Error(`Transaction ${invalid[0].hash} invalid after processing public functions`);
-      }
-    }
     // Update the state so that the next tx in the loop has the correct .startState
     // NB: before this change, all .startStates were actually incorrect, but the issue was never caught because we either:
     // a) had only 1 tx with public calls per block, so this loop had len 1
@@ -255,8 +356,6 @@ export class PublicProcessor implements Traceable {
     );
     const treeInsertionEnd = process.hrtime.bigint();
     this.metrics.recordTreeInsertions(Number(treeInsertionEnd - treeInsertionStart) / 1_000);
-
-    return [processedTx, returnValues ?? []];
   }
 
   /** Processes the given tx within deadline. Returns timeout if deadline is hit. */

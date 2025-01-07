@@ -21,6 +21,7 @@ import {
   TxHash,
   type TxReceipt,
   TxScopedL2Log,
+  type TxValidationResult,
 } from '@aztec/circuit-types';
 import {
   type ARCHIVE_HEIGHT,
@@ -150,7 +151,7 @@ export class TXENode implements AztecNode {
       const tag = log.fields[0];
       const currentLogs = this.#logsByTags.get(tag.toString()) ?? [];
       const scopedLog = new TxScopedL2Log(
-        new TxHash(new Fr(blockNumber).toBuffer()),
+        new TxHash(new Fr(blockNumber)),
         this.#noteIndex,
         blockNumber,
         false,
@@ -185,7 +186,7 @@ export class TXENode implements AztecNode {
 
         const currentLogs = this.#logsByTags.get(tag.toString()) ?? [];
         const scopedLog = new TxScopedL2Log(
-          new TxHash(new Fr(blockNumber).toBuffer()),
+          new TxHash(new Fr(blockNumber)),
           this.#noteIndex,
           blockNumber,
           true,
@@ -549,7 +550,7 @@ export class TXENode implements AztecNode {
    * @param tx - The transaction to validate for correctness.
    * @param isSimulation - True if the transaction is a simulated one without generated proofs. (Optional)
    */
-  isValidTx(_tx: Tx, _isSimulation?: boolean): Promise<boolean> {
+  isValidTx(_tx: Tx, _isSimulation?: boolean): Promise<TxValidationResult> {
     throw new Error('TXE Node method isValidTx not implemented');
   }
 

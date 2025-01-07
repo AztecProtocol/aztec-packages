@@ -87,7 +87,7 @@ export class TxScopedL2Log {
   static fromBuffer(buffer: Buffer) {
     const reader = BufferReader.asReader(buffer);
     return new TxScopedL2Log(
-      TxHash.fromField(reader.readObject(Fr)),
+      reader.readObject(TxHash),
       reader.readNumber(),
       reader.readNumber(),
       reader.readBoolean(),
