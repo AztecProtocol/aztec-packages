@@ -46,22 +46,19 @@ describe('GasTxValidator', () => {
 
   const validateTx = async (tx: Tx) => {
     const validator = new GasTxValidator(publicStateSource, feeJuiceAddress, enforceFees, gasFees);
-    return await validator.validateTxs([tx]);
+    return await validator.validateTx(tx);
   };
 
   const expectValid = async (tx: Tx) => {
-    const result = await validateTx(tx);
-    expect(result).toEqual([[tx], [], []]);
+    await expect(validateTx(tx)).resolves.toEqual({ result: 'valid' });
   };
 
-  const expectInvalid = async (tx: Tx) => {
-    const result = await validateTx(tx);
-    expect(result).toEqual([[], [tx], []]);
+  const expectInvalid = async (tx: Tx, reason: string) => {
+    await expect(validateTx(tx)).resolves.toEqual({ result: 'invalid', reason: [reason] });
   };
 
-  const expectSkipped = async (tx: Tx) => {
-    const result = await validateTx(tx);
-    expect(result).toEqual([[], [], [tx]]);
+  const expectSkipped = async (tx: Tx, reason: string) => {
+    await expect(validateTx(tx)).resolves.toEqual({ result: 'skipped', reason: [reason] });
   };
 
   it('allows fee paying txs if fee payer has enough balance', async () => {
@@ -83,11 +80,11 @@ describe('GasTxValidator', () => {
 
   it('rejects txs if fee payer has not enough balance', async () => {
     mockBalance(feeLimit - 1n);
-    await expectInvalid(tx);
+    await expectInvalid(tx, 'Insufficient fee payer balance');
   });
 
   it('rejects txs if fee payer has zero balance', async () => {
-    await expectInvalid(tx);
+    await expectInvalid(tx, 'Insufficient fee payer balance');
   });
 
   it('rejects txs if fee payer claims balance outside setup', async () => {
@@ -96,7 +93,7 @@ describe('GasTxValidator', () => {
       selector: FunctionSelector.fromSignature('_increase_public_balance((Field),Field)'),
       args: [payer.toField(), new Fr(1n)],
     });
-    await expectInvalid(tx);
+    await expectInvalid(tx, 'Insufficient fee payer balance');
   });
 
   it('allows txs with no fee payer if fees are not enforced', async () => {
@@ -107,16 +104,16 @@ describe('GasTxValidator', () => {
   it('rejects txs with no fee payer if fees are enforced', async () => {
     enforceFees = true;
     tx.data.feePayer = AztecAddress.ZERO;
-    await expectInvalid(tx);
+    await expectInvalid(tx, 'Missing fee payer');
   });
 
   it('skips txs with not enough fee per da gas', async () => {
     gasFees.feePerDaGas = gasFees.feePerDaGas.add(new Fr(1));
-    await expectSkipped(tx);
+    await expectSkipped(tx, 'Insufficient fee per gas');
   });
 
   it('skips txs with not enough fee per l2 gas', async () => {
     gasFees.feePerL2Gas = gasFees.feePerL2Gas.add(new Fr(1));
-    await expectSkipped(tx);
+    await expectSkipped(tx, 'Insufficient fee per gas');
   });
 });

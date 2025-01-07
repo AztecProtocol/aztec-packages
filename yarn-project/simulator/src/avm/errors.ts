@@ -1,5 +1,5 @@
 import { type FailingFunction, type NoirCallStack } from '@aztec/circuit-types';
-import { type AztecAddress, type Fr } from '@aztec/circuits.js';
+import { type AztecAddress, type Fr, type Point } from '@aztec/circuits.js';
 
 import { ExecutionError } from '../common/errors.js';
 import { type AvmContext } from './avm_context.js';
@@ -125,6 +125,26 @@ export class OutOfGasError extends AvmExecutionError {
   constructor(dimensions: string[]) {
     super(`Not enough ${dimensions.map(d => d.toUpperCase()).join(', ')} gas left`);
     this.name = 'OutOfGasError';
+  }
+}
+
+/**
+ * Error is thrown when the supplied points length is not a multiple of 3. Specific for MSM opcode.
+ */
+export class MSMPointsLengthError extends AvmExecutionError {
+  constructor(pointsReadLength: number) {
+    super(`Points vector length should be a multiple of 3, was ${pointsReadLength}`);
+    this.name = 'MSMPointsLengthError';
+  }
+}
+
+/**
+ * Error is thrown when one of the supplied points does not lie on the Grumpkin curve. Specific for MSM opcode.
+ */
+export class MSMPointNotOnCurveError extends AvmExecutionError {
+  constructor(point: Point) {
+    super(`Point ${point.toString()} is not on the curve.`);
+    this.name = 'MSMPointNotOnCurveError';
   }
 }
 
