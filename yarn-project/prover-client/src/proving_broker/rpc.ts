@@ -6,7 +6,6 @@ import {
   type ProvingJobConsumer,
   ProvingJobId,
   type ProvingJobProducer,
-  ProvingJobSettledResult,
   ProvingJobStatus,
   ProvingRequestType,
 } from '@aztec/circuit-types';
