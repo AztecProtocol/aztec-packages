@@ -286,7 +286,7 @@ template <typename Flavor> class SumcheckProver {
                                                          relation_parameters,
                                                          gate_separators,
                                                          alpha,
-                                                         *zk_sumcheck_data,
+                                                         zk_sumcheck_data,
                                                          row_disabling_polynomial);
         vinfo("starting sumcheck rounds...");
         {
@@ -317,7 +317,7 @@ template <typename Flavor> class SumcheckProver {
                                                         relation_parameters,
                                                         gate_separators,
                                                         alpha,
-                                                        *zk_sumcheck_data,
+                                                        zk_sumcheck_data,
                                                         row_disabling_polynomial);
             // Place evaluations of Sumcheck Round Univariate in the transcript
             transcript->send_to_verifier("Sumcheck:univariate_" + std::to_string(round_idx), round_univariate);
@@ -480,8 +480,8 @@ polynomials that are sent in clear.
                 univariate *= two_inv;
             };
             // compute the evaluation \f$ \rho \cdot 2^{d-2-i} \çdot g_i(u_i) \f$
-            auto libra_evaluation = zk_sumcheck_data->libra_univariates[round_idx].evaluate(round_challenge);
-            auto next_libra_univariate = zk_sumcheck_data->libra_univariates[round_idx + 1];
+            auto libra_evaluation = zk_sumcheck_data.libra_univariates[round_idx].evaluate(round_challenge);
+            auto next_libra_univariate = zk_sumcheck_data.libra_univariates[round_idx + 1];
             // update the running sum by adding g_i(u_i) and subtracting (g_i(0) + g_i(1))
             zk_sumcheck_data.libra_running_sum +=
                 -next_libra_univariate.evaluate(FF(0)) - next_libra_univariate.evaluate(FF(1));
@@ -490,15 +490,15 @@ polynomials that are sent in clear.
             zk_sumcheck_data.libra_running_sum += libra_evaluation;
             zk_sumcheck_data.libra_scaling_factor *= two_inv;
 
-            zk_sumcheck_data->libra_evaluations.emplace_back(libra_evaluation / zk_sumcheck_data->libra_scaling_factor);
+            zk_sumcheck_data.libra_evaluations.emplace_back(libra_evaluation / zk_sumcheck_data.libra_scaling_factor);
         } else {
             // compute the evaluation of the last Libra univariate at the challenge u_{d-1}
-            auto libra_evaluation = zk_sumcheck_data->libra_univariates[round_idx].evaluate(round_challenge) /
-                                    zk_sumcheck_data->libra_scaling_factor;
+            auto libra_evaluation = zk_sumcheck_data.libra_univariates[round_idx].evaluate(round_challenge) /
+                                    zk_sumcheck_data.libra_scaling_factor;
             // place the evalution into the vector of Libra evaluations
-            zk_sumcheck_data->libra_evaluations.emplace_back(libra_evaluation);
-            for (auto univariate : zk_sumcheck_data->libra_univariates) {
-                univariate *= FF(1) / zk_sumcheck_data->libra_challenge;
+            zk_sumcheck_data.libra_evaluations.emplace_back(libra_evaluation);
+            for (auto univariate : zk_sumcheck_data.libra_univariates) {
+                univariate *= FF(1) / zk_sumcheck_data.libra_challenge;
             }
         };
     }

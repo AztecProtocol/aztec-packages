@@ -22,8 +22,33 @@ template <class Flavor> class ShpleminiTest : public CommitmentTest<typename Fla
     using Commitment = typename Curve::AffineElement;
     using GroupElement = typename Curve::Element;
     using Polynomial = bb::Polynomial<Fr>;
-    static constexpr size_t n = 16;
-    static constexpr size_t log_n = 4;
+    static constexpr size_t n = 32;
+    static constexpr size_t log_n = 5;
+
+    void construct_instance_and_witnesses(
+        size_t num_unshifted, size_t num_shifted, std::vector<Fr>& const_size_mle_opening_point;
+        std::vector<Commitment> & commitments, std::vector<Fr>& unshifted_evals, std::vector<Fr>& shifted_evals)
+    {
+        auto mle_opening_point = this->random_evaluation_point(this->log_n);
+
+        for (size_t idx = 0; idx < num_unshifted; idx++) {
+        }
+        auto poly1 = Polynomial::random(this->n);
+        auto poly2 = Polynomial::random(this->n, /*shiftable*/ 1);
+        Polynomial poly3 = Polynomial::shiftable(this->n);
+
+        Commitment commitment1 = this->commit(poly1);
+        Commitment commitment2 = this->commit(poly2);
+        Commitment commitment3 = this->commit(poly3);
+        std::vector<Fr> mle_opening_point(const_size_mle_opening_point.begin(),
+                                          const_size_mle_opening_point.begin() + this->log_n);
+        // Evaluate the polynomials at the multivariate challenge, poly3 is not evaluated, because it is 0.
+        auto eval1 = poly1.evaluate_mle(mle_opening_point);
+        auto eval2 = poly2.evaluate_mle(mle_opening_point);
+        Fr eval3{ 0 };
+        Fr eval3_shift{ 0 };
+        auto eval2_shift = poly2.evaluate_mle(mle_opening_point, true);
+    }
 };
 
 using FlavorTypes = ::testing::Types<TestBn254Flavor, TestGrumpkinFlavor>;
@@ -230,15 +255,9 @@ TYPED_TEST(ShpleminiTest, ShpleminiWithZK)
     using ShpleminiProver = ShpleminiProver_<Curve>;
     using ShpleminiVerifier = ShpleminiVerifier_<Curve>;
     using Fr = typename Curve::ScalarField;
-    using GroupElement = typename Curve::Element;
+    // using GroupElement = typename Curve::Element;
     using Commitment = typename Curve::AffineElement;
     using Polynomial = typename bb::Polynomial<Fr>;
-
-    // Generate mock challenges
-    Fr rho = Fr::random_element();
-    Fr gemini_eval_challenge = Fr::random_element();
-    Fr shplonk_batching_challenge = Fr::random_element();
-    Fr shplonk_eval_challenge = Fr::random_element();
 
     auto prover_transcript = TypeParam::Transcript::prover_init_empty();
     std::shared_ptr<typename TypeParam::CommitmentKey> ck;
@@ -246,14 +265,18 @@ TYPED_TEST(ShpleminiTest, ShpleminiWithZK)
 
     ZKData zk_sumcheck_data(this->log_n, prover_transcript, ck);
 
-    std::vector<Fr> multivariate_challenge = this->generate_random_vector(CONST_PROOF_SIZE_LOG_N);
-
     // Generate multilinear polynomials and compute their commitments
-    auto mle_opening_point = this->random_evaluation_point(this->log_n);
+    auto const_size_mle_opening_point = this->random_evaluation_point(CONST_PROOF_SIZE_LOG_N);
+
     auto poly1 = Polynomial::random(this->n);
     auto poly2 = Polynomial::random(this->n, /*shiftable*/ 1);
     Polynomial poly3 = Polynomial::shiftable(this->n);
 
+    Commitment commitment1 = this->commit(poly1);
+    Commitment commitment2 = this->commit(poly2);
+    Commitment commitment3 = this->commit(poly3);
+    std::vector<Fr> mle_opening_point(const_size_mle_opening_point.begin(),
+                                      const_size_mle_opening_point.begin() + this->log_n);
     // Evaluate the polynomials at the multivariate challenge, poly3 is not evaluated, because it is 0.
     auto eval1 = poly1.evaluate_mle(mle_opening_point);
     auto eval2 = poly2.evaluate_mle(mle_opening_point);
@@ -261,12 +284,76 @@ TYPED_TEST(ShpleminiTest, ShpleminiWithZK)
     Fr eval3_shift{ 0 };
     auto eval2_shift = poly2.evaluate_mle(mle_opening_point, true);
 
-    const Fr claimed_inner_product =
-        this->compute_claimed_inner_product(zk_sumcheck_data, multivariate_challenge, this->log_circuit_size);
-    SmallSubgroupIPAProver<TypeParam> small_subgroup_ipa_prover =
-        Prover(zk_sumcheck_data, multivariate_challenge, claimed_inner_product, prover_transcript, ck);
+    const Fr claimed_inner_product = SmallSubgroupIPATest<TypeParam>::compute_claimed_inner_product(
+        zk_sumcheck_data, const_size_mle_opening_point, this->log_n);
 
-    auto witness_polynomials = small_subgroup_ipa_prover.get_witness_polynomials();
+    prover_transcript->template send_to_verifier("Libra:claimed_evaluation", claimed_inner_product);
+
+    auto small_subgroup_ipa_prover = SmallSubgroupIPAProver<TypeParam>(
+        zk_sumcheck_data, const_size_mle_opening_point, claimed_inner_product, prover_transcript, ck);
+
+    auto opening_claim = ShpleminiProver::prove(this->n,
+                                                RefVector{ poly1, poly2, poly3 },
+                                                RefVector{ poly2, poly3 },
+                                                const_size_mle_opening_point,
+                                                ck,
+                                                prover_transcript,
+                                                small_subgroup_ipa_prover.get_witness_polynomials());
+
+    if constexpr (std::is_same_v<TypeParam, TestGrumpkinFlavor>) {
+        IPA<Curve>::compute_opening_proof(this->ck(), opening_claim, prover_transcript);
+    } else {
+        KZG<Curve>::compute_opening_proof(this->ck(), opening_claim, prover_transcript);
+    }
+    auto verifier_transcript = NativeTranscript::verifier_init_empty(prover_transcript);
+
+    std::array<Commitment, NUM_LIBRA_COMMITMENTS> libra_commitments = {};
+    libra_commitments[0] =
+        verifier_transcript->template receive_from_prover<Commitment>("Libra:concatenation_commitment");
+
+    // Send the Libra total sum to the transcript
+    auto libra_total_sum = verifier_transcript->template receive_from_prover<Fr>("Libra:Sum");
+
+    info(libra_total_sum == claimed_inner_product);
+
+    // Receive the Libra challenge from the transcript
+    auto libra_challenge = verifier_transcript->template get_challenge<Fr>("Libra:Challenge");
+
+    info(libra_challenge == zk_sumcheck_data.libra_challenge);
+
+    auto libra_evaluation = verifier_transcript->template receive_from_prover<Fr>("Libra:claimed_evaluation");
+    info("libra eval", libra_evaluation == claimed_inner_product);
+
+    libra_commitments[1] = verifier_transcript->template receive_from_prover<Commitment>("Libra:big_sum_commitment");
+    libra_commitments[2] = verifier_transcript->template receive_from_prover<Commitment>("Libra:quotient_commitment");
+
+    bool consistency_checked = true;
+
+    const auto batch_opening_claim =
+        ShpleminiVerifier::compute_batch_opening_claim(this->n,
+                                                       RefVector{ commitment1, commitment2, commitment3 },
+                                                       RefVector{ commitment2, commitment3 },
+                                                       RefArray{ eval1, eval2, eval3 },
+                                                       RefArray{ eval2_shift, eval3_shift },
+                                                       const_size_mle_opening_point,
+                                                       this->vk()->get_g1_identity(),
+                                                       verifier_transcript,
+                                                       {},
+                                                       true,
+                                                       &consistency_checked,
+                                                       libra_commitments,
+                                                       libra_evaluation);
+    if constexpr (std::is_same_v<TypeParam, TestGrumpkinFlavor>) {
+        auto result =
+            IPA<Curve>::reduce_verify_batch_opening_claim(batch_opening_claim, this->vk(), verifier_transcript);
+        EXPECT_EQ(result, true);
+    } else {
+        const auto pairing_points =
+            KZG<Curve>::reduce_verify_batch_opening_claim(batch_opening_claim, verifier_transcript);
+
+        // Final pairing check: e([Q] - [Q_z] + z[W], [1]_2) = e([W], [x]_2)
+        EXPECT_EQ(this->vk()->pairing_check(pairing_points[0], pairing_points[1]), true);
+    }
 }
 
 } // namespace bb
