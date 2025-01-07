@@ -87,7 +87,7 @@ impl PublicBaseRollupInputs {
             .fold(0, |len, l: ScopedLogHash| len + l.log_hash.length);
 
         TxEffect {
-            tx_hash: 27,
+            tx_hash: self.tube_data.public_inputs.hash(),
             revert_code,
             transaction_fee: from_public.transaction_fee,
             note_hashes: from_public.accumulated_data.note_hashes,
@@ -918,12 +918,13 @@ mod tests {
     unconstrained fn non_empty_tx_effects_sponge() {
         let mut builder = PublicBaseRollupInputsBuilder::new();
         builder.avm_data.append_note_hashes(50);
-        let outputs = builder.execute();
-        let mut tx_effects = [0; 53];
-        // TODO(#8954): This test uses 50 notes and 3 extra absorbed fields
+        let inputs = builder.build_inputs();
+        let outputs = inputs.execute();
+        let mut tx_effects = [0; 54];
+        // TODO(#8954): This test uses 50 notes and 4 extra absorbed fields
         // This may change when logs are deconstructed
         // Initial field = TX_START_PREFIX | 0 | txlen[0] txlen[1] | 0 | REVERT_CODE_PREFIX | 0 | revert_code
-        // The first 3 are: i=0 init field, i=1: tx fee, i=2: note prefix
+        // The first 4 are: i=0 init field, i=1: tx hash, i=2: tx fee, i=3: note prefix
         tx_effects[0] = field_from_bytes(
             array_concat(
                 TX_START_PREFIX.to_be_bytes::<8>(),
@@ -931,13 +932,15 @@ mod tests {
             ),
             true,
         );
-        tx_effects[1] = field_from_bytes(
+        // TX hash
+        tx_effects[1] = inputs.tube_data.public_inputs.hash();
+        tx_effects[2] = field_from_bytes(
             array_concat([TX_FEE_PREFIX, 0], (0).to_be_bytes::<29>()),
             true,
         );
-        tx_effects[2] = encode_blob_prefix(NOTES_PREFIX, 50);
+        tx_effects[3] = encode_blob_prefix(NOTES_PREFIX, 50);
         for i in 0..50 {
-            tx_effects[i + 3] = builder.avm_data.note_hashes.storage()[i].value();
+            tx_effects[i + 4] = builder.avm_data.note_hashes.storage()[i].value();
         }
         let mut expected_sponge = outputs.start_sponge_blob;
 
@@ -955,7 +958,7 @@ mod tests {
         let NUM_CC_LOGS = 1;
         let PUB_DATA_SLOT = 25;
         let PUB_DATA_VALUE = 60;
-        let TOTAL_BLOB_FIELDS = 2 // revert code and tx fee
+        let TOTAL_BLOB_FIELDS = 3 // revert code, tx hash and tx fee
             + NUM_NOTES
             + 1 // notes and prefix
             + NUM_NULLIFIERS
@@ -995,7 +998,8 @@ mod tests {
         builder.avm_data.append_unencrypted_log_hashes(NUM_UNENC_LOGS);
         // Below will only work with NUM_CC_LOGS=1
         builder.tube_data.add_contract_class_log_hash(1, 2);
-        let outputs = builder.execute();
+        let inputs = builder.build_inputs();
+        let outputs = inputs.execute();
 
         let mut reconstructed_tx_effects = [0; TX_EFFECTS_BLOB_HASH_INPUT_FIELDS];
         // Initial field = TX_START_PREFIX | 0 | txlen[0] txlen[1] | 0 | REVERT_CODE_PREFIX | 0 | revert_code
@@ -1016,13 +1020,15 @@ mod tests {
             ),
             true,
         );
+        // tx hash
+        reconstructed_tx_effects[1] = inputs.tube_data.public_inputs.hash();
         // tx fee
-        reconstructed_tx_effects[1] = field_from_bytes(
+        reconstructed_tx_effects[2] = field_from_bytes(
             array_concat([TX_FEE_PREFIX, 0], tx_fee.to_be_bytes::<29>()),
             true,
         );
         // notes
-        let mut offset = 2;
+        let mut offset = 3;
         let notes_prefix = encode_blob_prefix(NOTES_PREFIX, NUM_NOTES);
         reconstructed_tx_effects[offset] = notes_prefix;
         offset += 1;

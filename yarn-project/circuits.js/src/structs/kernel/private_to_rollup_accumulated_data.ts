@@ -1,18 +1,21 @@
 import { type FieldsOf, makeTuple } from '@aztec/foundation/array';
 import { arraySerializedSizeOfNonEmpty } from '@aztec/foundation/collection';
+import { poseidon2HashWithSeparator } from '@aztec/foundation/crypto';
 import { Fr } from '@aztec/foundation/fields';
 import { bufferSchemaFor } from '@aztec/foundation/schemas';
-import { BufferReader, type Tuple, serializeToBuffer } from '@aztec/foundation/serialize';
+import { BufferReader, type Tuple, serializeToBuffer, serializeToFields } from '@aztec/foundation/serialize';
 import { bufferToHex, hexToBuffer } from '@aztec/foundation/string';
 
 import { inspect } from 'util';
 
 import {
+  GeneratorIndex,
   MAX_CONTRACT_CLASS_LOGS_PER_TX,
   MAX_L2_TO_L1_MSGS_PER_TX,
   MAX_NOTE_HASHES_PER_TX,
   MAX_NULLIFIERS_PER_TX,
   MAX_PRIVATE_LOGS_PER_TX,
+  PRIVATE_TO_ROLLUP_ACCUMULATED_DATA_LENGTH,
 } from '../../constants.gen.js';
 import { ScopedL2ToL1Message } from '../l2_to_l1_message.js';
 import { ScopedLogHash } from '../log_hash.js';
@@ -127,6 +130,20 @@ export class PrivateToRollupAccumulatedData {
       makeTuple(MAX_CONTRACT_CLASS_LOGS_PER_TX, ScopedLogHash.empty),
       Fr.zero(),
     );
+  }
+
+  toFields(): Fr[] {
+    const fields = serializeToFields(...PrivateToRollupAccumulatedData.getFields(this));
+    if (fields.length !== PRIVATE_TO_ROLLUP_ACCUMULATED_DATA_LENGTH) {
+      throw new Error(
+        `Invalid number of fields for PrivateToRollupAccumulatedData. Expected ${PRIVATE_TO_ROLLUP_ACCUMULATED_DATA_LENGTH}, got ${fields.length}`,
+      );
+    }
+    return fields;
+  }
+
+  hash() {
+    return poseidon2HashWithSeparator(this.toFields(), GeneratorIndex.PRIVATE_TX_HASH);
   }
 
   [inspect.custom]() {

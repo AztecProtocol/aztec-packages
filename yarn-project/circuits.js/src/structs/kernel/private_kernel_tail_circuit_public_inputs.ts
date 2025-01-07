@@ -144,7 +144,7 @@ export class PrivateKernelTailCircuitPublicInputs {
     );
   }
 
-  toPublicKernelCircuitPublicInputs() {
+  toPrivateToPublicKernelCircuitPublicInputs() {
     if (!this.forPublic) {
       throw new Error('Private tail public inputs is not for public circuit.');
     }

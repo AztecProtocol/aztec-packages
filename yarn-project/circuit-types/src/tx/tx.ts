@@ -171,11 +171,10 @@ export class Tx extends Gossipable {
    * @returns The transaction's hash.
    */
   getTxHash(): TxHash {
-    // Private kernel functions are executed client side and for this reason tx hash is already set as first nullifier
-    const firstNullifier = this.data.getNonEmptyNullifiers()[0];
-    if (!firstNullifier || firstNullifier.isZero()) {
-      throw new Error(`Cannot get tx hash since first nullifier is missing`);
-    }
+    const hash = this.data.forPublic
+      ? this.data.toPrivateToPublicKernelCircuitPublicInputs().hash()
+      : this.data.toPrivateToRollupKernelCircuitPublicInputs().hash();
+
     return new TxHash(firstNullifier);
   }
 

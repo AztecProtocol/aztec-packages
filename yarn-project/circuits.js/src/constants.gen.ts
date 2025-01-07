@@ -396,4 +396,6 @@ export enum GeneratorIndex {
   NOTE_NULLIFIER = 53,
   NOTE_HIDING_POINT = 54,
   SYMMETRIC_KEY = 55,
+  PUBLIC_TX_HASH = 56,
+  PRIVATE_TX_HASH = 57,
 }
