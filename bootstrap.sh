@@ -227,6 +227,8 @@ case "$cmd" in
       else
         echo "Image $image already exists and has been downloaded." && exit
       fi
+    else
+      echo "Image $image does not exist, building..."
     fi
     github_group "image-aztec"
     source $ci3/source_tmp
