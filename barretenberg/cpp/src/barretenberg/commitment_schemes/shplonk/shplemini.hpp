@@ -146,7 +146,8 @@ template <typename Curve> class ShpleminiVerifier_ {
         const std::shared_ptr<Transcript>& transcript,
         const RepeatedCommitmentsData& repeated_commitments = {},
         const bool has_zk = false,
-        bool* consistency_checked = nullptr,
+        bool* consistency_checked = nullptr, // TODO(https://github.com/AztecProtocol/barretenberg/issues/1191).
+                                             // Shplemini Refactoring: Remove bool pointer
         const std::array<Commitment, NUM_LIBRA_COMMITMENTS>& libra_commitments = {},
         const Fr& libra_univariate_evaluation = Fr{ 0 },
         const std::vector<RefVector<Commitment>>& concatenation_group_commitments = {},

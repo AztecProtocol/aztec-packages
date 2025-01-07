@@ -204,7 +204,7 @@ template <typename Flavor> class SmallSubgroupIPAProver {
             // We concatenate 1 with CONST_PROOF_SIZE_LOG_N Libra Univariates of length LIBRA_UNIVARIATES_LENGTH
             const size_t poly_to_concatenate_start = 1 + LIBRA_UNIVARIATES_LENGTH * challenge_idx;
             coeffs_lagrange_basis[poly_to_concatenate_start] = FF(1);
-            for (size_t idx = 1 + poly_to_concatenate_start; idx < poly_to_concatenate_start + LIBRA_UNIVARIATES_LENGTH;
+            for (size_t idx = poly_to_concatenate_start + 1; idx < poly_to_concatenate_start + LIBRA_UNIVARIATES_LENGTH;
                  idx++) {
                 // Recursively compute the powers of the challenge
                 coeffs_lagrange_basis[idx] = coeffs_lagrange_basis[idx - 1] * multivariate_challenge[challenge_idx];

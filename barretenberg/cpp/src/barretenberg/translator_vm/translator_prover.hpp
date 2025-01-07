@@ -48,7 +48,7 @@ class TranslatorProver {
 
     CommitmentLabels commitment_labels;
 
-    std::shared_ptr<ZKData> zk_sumcheck_data;
+    ZKData zk_sumcheck_data;
 
     SumcheckOutput<Flavor> sumcheck_output;
 

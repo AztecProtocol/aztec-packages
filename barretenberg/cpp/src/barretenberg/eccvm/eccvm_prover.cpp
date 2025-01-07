@@ -104,7 +104,7 @@ void ECCVMProver::execute_relation_check_rounds()
         gate_challenges[idx] = transcript->template get_challenge<FF>("Sumcheck:gate_challenge_" + std::to_string(idx));
     }
 
-    zk_sumcheck_data = std::make_shared<ZKData>(key->log_circuit_size, transcript, key->commitment_key);
+    zk_sumcheck_data = ZKData(key->log_circuit_size, transcript, key->commitment_key);
 
     sumcheck_output = sumcheck.prove(key->polynomials, relation_parameters, alpha, gate_challenges, zk_sumcheck_data);
 }
@@ -122,7 +122,7 @@ void ECCVMProver::execute_pcs_rounds()
     using Shplonk = ShplonkProver_<Curve>;
     using OpeningClaim = ProverOpeningClaim<Curve>;
 
-    SmallSubgroupIPA small_subgroup_ipa_prover(*zk_sumcheck_data,
+    SmallSubgroupIPA small_subgroup_ipa_prover(zk_sumcheck_data,
                                                sumcheck_output.challenge,
                                                sumcheck_output.claimed_libra_evaluation,
                                                transcript,
