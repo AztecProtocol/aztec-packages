@@ -1,6 +1,6 @@
 #pragma once
 
-#include "barretenberg/stdlib_circuit_builders/ultra_flavor.hpp"
+#include "barretenberg/stdlib_circuit_builders/ultra_keccak_flavor.hpp"
 
 namespace bb {
 
@@ -16,21 +16,21 @@ witness polynomials are of degree at most \f$2\f$ in each variable, and hence, f
 univariate accumuluator size has to be increased by the subrelation's witness degree. See more in
 \ref docs/src/sumcheck-outline.md "Sumcheck Outline".
 */
-class UltraZKFlavor : public UltraFlavor {
+class UltraKeccakZKFlavor : public UltraKeccakFlavor {
   public:
     // This flavor runs with ZK Sumcheck
     static constexpr bool HasZK = true;
     // Determine the number of evaluations of Prover and Libra Polynomials that the Prover sends to the Verifier in
     // the rounds of ZK Sumcheck.
-    static constexpr size_t BATCHED_RELATION_PARTIAL_LENGTH = UltraFlavor::BATCHED_RELATION_PARTIAL_LENGTH + 1;
+    static constexpr size_t BATCHED_RELATION_PARTIAL_LENGTH = UltraKeccakFlavor::BATCHED_RELATION_PARTIAL_LENGTH + 1;
     /**
      * @brief Derived class that defines proof structure for Ultra zero knowledge proofs, as well as supporting
      * functions.
      *
      */
-    template <typename Params> class Transcript_ : public UltraFlavor::Transcript_<Params> {
+    class Transcript : public UltraKeccakFlavor::Transcript {
       public:
-        using Base = UltraFlavor::Transcript_<Params>::Base;
+        using Base = UltraKeccakFlavor::Transcript::Base;
         // Note: we have a different vector of univariates because the degree for ZK flavors differs
         std::vector<bb::Univariate<FF, BATCHED_RELATION_PARTIAL_LENGTH>> zk_sumcheck_univariates;
         Commitment libra_concatenation_commitment;
@@ -45,24 +45,24 @@ class UltraZKFlavor : public UltraFlavor {
         Commitment hiding_polynomial_commitment;
         FF hiding_polynomial_eval;
 
-        Transcript_() = default;
+        Transcript() = default;
 
         // Used by verifier to initialize the transcript
-        Transcript_(const std::vector<FF>& proof)
-            : UltraFlavor::Transcript_<Params>(proof)
+        Transcript(const std::vector<FF>& proof)
+            : UltraKeccakFlavor::Transcript(proof)
         {}
 
-        static std::shared_ptr<Transcript_> prover_init_empty()
+        static std::shared_ptr<Transcript> prover_init_empty()
         {
-            auto transcript = std::make_shared<Transcript_>();
+            auto transcript = std::make_shared<Transcript>();
             constexpr uint32_t init{ 42 }; // arbitrary
             transcript->send_to_verifier("Init", init);
             return transcript;
         };
 
-        static std::shared_ptr<Transcript_> verifier_init_empty(const std::shared_ptr<Transcript_>& transcript)
+        static std::shared_ptr<Transcript> verifier_init_empty(const std::shared_ptr<Transcript>& transcript)
         {
-            auto verifier_transcript = std::make_shared<Transcript_>(transcript->proof_data);
+            auto verifier_transcript = std::make_shared<Transcript>(transcript->proof_data);
             verifier_transcript->template receive_from_prover<FF>("Init");
             return verifier_transcript;
         };
@@ -180,6 +180,5 @@ class UltraZKFlavor : public UltraFlavor {
             ASSERT(proof_data.size() == old_proof_length);
         }
     };
-    using Transcript = Transcript_<NativeTranscriptParams>;
 };
 } // namespace bb

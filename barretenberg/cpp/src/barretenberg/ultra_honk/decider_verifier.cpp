@@ -87,7 +87,9 @@ template <typename Flavor> bool DeciderVerifier_<Flavor>::verify()
 }
 
 template class DeciderVerifier_<UltraFlavor>;
+template class DeciderVerifier_<UltraZKFlavor>;
 template class DeciderVerifier_<UltraKeccakFlavor>;
+template class DeciderVerifier_<UltraKeccakZKFlavor>;
 template class DeciderVerifier_<UltraRollupFlavor>;
 template class DeciderVerifier_<MegaFlavor>;
 template class DeciderVerifier_<MegaZKFlavor>;
