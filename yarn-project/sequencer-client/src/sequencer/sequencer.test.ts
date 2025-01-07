@@ -48,6 +48,7 @@ import { type MockProxy, mock, mockFn } from 'jest-mock-extended';
 
 import { type GlobalVariableBuilder } from '../global_variable_builder/global_builder.js';
 import { type L1Publisher } from '../publisher/l1-publisher.js';
+import { type SlasherClient } from '../slasher/index.js';
 import { TxValidatorFactory } from '../tx_validator/tx_validator_factory.js';
 import { Sequencer } from './sequencer.js';
 import { SequencerState } from './utils.js';
@@ -195,6 +196,8 @@ describe('sequencer', () => {
 
     const l1GenesisTime = BigInt(Math.floor(Date.now() / 1000));
     const l1Constants = { l1GenesisTime, slotDuration, ethereumSlotDuration };
+    const slasherClient = mock<SlasherClient>();
+
     sequencer = new TestSubject(
       publisher,
       // TODO(md): add the relevant methods to the validator client that will prevent it stalling when waiting for attestations
@@ -202,6 +205,7 @@ describe('sequencer', () => {
       globalVariableBuilder,
       p2p,
       worldState,
+      slasherClient,
       blockBuilderFactory,
       l2BlockSource,
       l1ToL2MessageSource,
@@ -257,7 +261,7 @@ describe('sequencer', () => {
     await expect(sequencer.doRealWork()).rejects.toThrow(
       expect.objectContaining({
         name: 'SequencerTooSlowError',
-        message: expect.stringContaining(`Too far into slot to transition to ${delayedState}.`),
+        message: expect.stringContaining(`Too far into slot to transition to ${delayedState}`),
       }),
     );
 

@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.69.0](https://github.com/AztecProtocol/aztec-packages/compare/barretenberg.js-v0.68.2...barretenberg.js-v0.69.0) (2025-01-03)
+
+
+### Miscellaneous
+
+* Cl/ci3.2 ([#10919](https://github.com/AztecProtocol/aztec-packages/issues/10919)) ([49dacc3](https://github.com/AztecProtocol/aztec-packages/commit/49dacc3378a339f8cc36971b630c52952249f60c))
+
 ## [0.68.2](https://github.com/AztecProtocol/aztec-packages/compare/barretenberg.js-v0.68.1...barretenberg.js-v0.68.2) (2024-12-24)
 
 
