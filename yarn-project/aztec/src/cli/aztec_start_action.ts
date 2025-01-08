@@ -30,8 +30,7 @@ export async function aztecStart(options: any, userLog: LogFn, debugLogger: Logg
 
     const { aztecNodeConfig, node, pxe, stop } = await createSandbox({
       enableGas: sandboxOptions.enableGas,
-      l1Mnemonic: options.l1Mnemonic,
-      l1RpcUrl: options.l1RpcUrl,
+      ...options,
     });
 
     // Deploy test accounts by default

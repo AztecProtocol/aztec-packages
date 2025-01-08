@@ -441,6 +441,7 @@ export class L1TxUtils {
     if (_blobInputs) {
       initialEstimate = (
         await this.walletClient.prepareTransactionRequest({
+          account,
           ...request,
           ..._blobInputs,
         })

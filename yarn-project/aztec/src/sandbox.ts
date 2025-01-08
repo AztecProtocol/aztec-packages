@@ -110,6 +110,7 @@ export type SandboxConfig = AztecNodeConfig & {
  */
 export async function createSandbox(config: Partial<SandboxConfig> = {}) {
   const aztecNodeConfig: AztecNodeConfig = { ...getConfigEnvVars(), ...config };
+  logger.info('creating sandbox', aztecNodeConfig);
   const hdAccount = mnemonicToAccount(config.l1Mnemonic || DefaultMnemonic);
   if (!aztecNodeConfig.publisherPrivateKey || aztecNodeConfig.publisherPrivateKey === NULL_KEY) {
     const privKey = hdAccount.getHdKey().privateKey;
