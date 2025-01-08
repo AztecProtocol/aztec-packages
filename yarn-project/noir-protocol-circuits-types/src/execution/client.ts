@@ -43,7 +43,7 @@ export function executeInit(
 ): Promise<PrivateKernelCircuitPublicInputs> {
   return executeInitWithArtifact(
     privateKernelInitCircuitPrivateInputs,
-    ClientCircuitArtifacts.PrivateKernelInitArtifact,
+    SimulatedClientCircuitArtifacts.PrivateKernelInitArtifact,
   );
 }
 
@@ -57,7 +57,7 @@ export function executeInner(
 ): Promise<PrivateKernelCircuitPublicInputs> {
   return executeInnerWithArtifact(
     privateKernelInnerCircuitPrivateInputs,
-    ClientCircuitArtifacts.PrivateKernelInnerArtifact,
+    SimulatedClientCircuitArtifacts.PrivateKernelInnerArtifact,
   );
 }
 
@@ -102,7 +102,7 @@ export function executeReset<
 export function executeTail(
   privateInputs: PrivateKernelTailCircuitPrivateInputs,
 ): Promise<PrivateKernelTailCircuitPublicInputs> {
-  return executeTailWithArtifact(privateInputs, ClientCircuitArtifacts.PrivateKernelTailArtifact);
+  return executeTailWithArtifact(privateInputs, SimulatedClientCircuitArtifacts.PrivateKernelTailArtifact);
 }
 
 /**
@@ -113,7 +113,10 @@ export function executeTail(
 export function executeTailForPublic(
   privateInputs: PrivateKernelTailCircuitPrivateInputs,
 ): Promise<PrivateKernelTailCircuitPublicInputs> {
-  return executeTailForPublicWithArtifact(privateInputs, ClientCircuitArtifacts.PrivateKernelTailToPublicArtifact);
+  return executeTailForPublicWithArtifact(
+    privateInputs,
+    SimulatedClientCircuitArtifacts.PrivateKernelTailToPublicArtifact,
+  );
 }
 
 /**

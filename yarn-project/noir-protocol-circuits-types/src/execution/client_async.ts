@@ -41,7 +41,7 @@ import {
 export async function executeInit(
   privateKernelInitCircuitPrivateInputs: PrivateKernelInitCircuitPrivateInputs,
 ): Promise<PrivateKernelCircuitPublicInputs> {
-  const artifact = await getClientCircuitArtifactByName('PrivateKernelInitArtifact');
+  const artifact = await getSimulatedClientCircuitArtifactByName('PrivateKernelInitArtifact');
   return executeInitWithArtifact(privateKernelInitCircuitPrivateInputs, artifact);
 }
 
@@ -53,7 +53,7 @@ export async function executeInit(
 export async function executeInner(
   privateKernelInnerCircuitPrivateInputs: PrivateKernelInnerCircuitPrivateInputs,
 ): Promise<PrivateKernelCircuitPublicInputs> {
-  const artifact = await getClientCircuitArtifactByName('PrivateKernelInnerArtifact');
+  const artifact = await getSimulatedClientCircuitArtifactByName('PrivateKernelInnerArtifact');
   return executeInnerWithArtifact(privateKernelInnerCircuitPrivateInputs, artifact);
 }
 
@@ -98,7 +98,7 @@ export async function executeReset<
 export async function executeTail(
   privateInputs: PrivateKernelTailCircuitPrivateInputs,
 ): Promise<PrivateKernelTailCircuitPublicInputs> {
-  const artifact = await getClientCircuitArtifactByName('PrivateKernelTailArtifact');
+  const artifact = await getSimulatedClientCircuitArtifactByName('PrivateKernelTailArtifact');
   return executeTailWithArtifact(privateInputs, artifact);
 }
 
@@ -110,7 +110,7 @@ export async function executeTail(
 export async function executeTailForPublic(
   privateInputs: PrivateKernelTailCircuitPrivateInputs,
 ): Promise<PrivateKernelTailCircuitPublicInputs> {
-  const artifact = await getClientCircuitArtifactByName('PrivateKernelTailToPublicArtifact');
+  const artifact = await getSimulatedClientCircuitArtifactByName('PrivateKernelTailToPublicArtifact');
   return executeTailForPublicWithArtifact(privateInputs, artifact);
 }
 
