@@ -20,6 +20,9 @@ import { foundry } from 'viem/chains';
 import { EthCheatCodes } from './eth_cheat_codes.js';
 import { L1TxUtils, defaultL1TxUtilsConfig } from './l1_tx_utils.js';
 import { startAnvil } from './test/start_anvil.js';
+import { formatViemError } from './utils.js';
+
+const logger = createLogger('ethereum:test:l1_gas_test');
 
 const MNEMONIC = 'test test test test test test test test test test test junk';
 const WEI_CONST = 1_000_000_000n;
@@ -358,4 +361,56 @@ describe('GasUtils', () => {
     // Blob transactions should require more gas
     expect(blobEstimate).toBeGreaterThan(baseEstimate);
   }, 20_000);
+
+  it('formats anvil errors correctly', async () => {
+    // Set base fee extremely high to trigger error
+    const extremelyHighBaseFee = WEI_CONST * 1_000_000n; // 1M gwei
+    await cheatCodes.setNextBlockBaseFeePerGas(extremelyHighBaseFee);
+    await cheatCodes.evmMine();
+
+    try {
+      await gasUtils.sendAndMonitorTransaction({
+        to: '0x1234567890123456789012345678901234567890',
+        data: '0x',
+        value: 0n,
+      });
+      fail('Should have thrown');
+    } catch (err: any) {
+      const formattedError = formatViemError(err);
+      const parsed = JSON.parse(formattedError);
+
+      // Check the error chain structure
+      expect(parsed.errorChain).toBeDefined();
+      expect(Array.isArray(parsed.errorChain)).toBe(true);
+      expect(parsed.errorChain.length).toBeGreaterThan(0);
+
+      // Check that we have the key error information
+      const firstError = parsed.errorChain[0];
+      expect(firstError.name).toBe('TransactionExecutionError');
+      expect(firstError.message).toContain('fee cap');
+      expect(firstError.details).toContain('max fee per gas');
+
+      // Verify args contains expected transaction information
+      if (firstError.args) {
+        expect(Array.isArray(firstError.args)).toBe(true);
+        expect(firstError.args).toEqual(
+          expect.arrayContaining([
+            expect.stringMatching(/^from:\s+0x[a-fA-F0-9]{40}$/),
+            expect.stringMatching(/^to:\s+0x[a-fA-F0-9]{40}$/),
+            expect.stringMatching(/^value:\s+0 ETH$/),
+            expect.stringMatching(/^data:\s+0x$/),
+            expect.stringMatching(/^gas:\s+\d+$/),
+            expect.stringMatching(/^maxFeePerGas:\s+\d+(\.\d+)? gwei$/),
+            expect.stringMatching(/^maxPriorityFeePerGas:\s+\d+(\.\d+)? gwei$/),
+          ]),
+        );
+      }
+
+      // Check that request body is properly truncated
+      if (firstError.requestBody) {
+        expect(firstError.requestBody).toContain('eth_sendRawTransaction');
+        expect(firstError.requestBody).toContain('...');
+      }
+    }
+  }, 10_000);
 });

@@ -80,15 +80,6 @@ export function prettyLogViemErrorMsg(err: any) {
   return err?.message ?? err;
 }
 
-interface ViemErrorWithCode {
-  code?: number;
-  name?: string;
-  shortMessage?: string;
-  message: string;
-  details?: string;
-  metaMessages?: string[];
-}
-
 export function formatViemError(error: any): string {
   const truncateHex = (hex: string, length = 10) => {
     if (!hex || typeof hex !== 'string') {
@@ -114,23 +105,47 @@ export function formatViemError(error: any): string {
 
   const errorChain = [];
   if (error instanceof BaseError) {
-    error.walk((err: unknown) => {
-      const viemErr = err as ViemErrorWithCode;
-      errorChain.push({
-        name: viemErr.name,
-        message: viemErr.shortMessage || viemErr.message,
-        details: viemErr.details,
-        code: viemErr.code,
-        metaMessages: viemErr.metaMessages?.map(msg => {
-          if (typeof msg === 'string' && msg.startsWith('Request body:')) {
-            return `Request body: ${formatRequestBody(msg.slice(13))}`;
-          }
-          return msg;
-        }),
-      });
+    error.walk((err: any) => {
+      const errorInfo: any = {
+        name: err.name,
+        message: err.shortMessage || err.message,
+      };
+
+      // Extract request arguments if present
+      const argsMatch = err.message?.match(/Request Arguments:\n([\s\S]*?)(?:\n\nDetails:|$)/);
+      if (argsMatch) {
+        errorInfo.args = argsMatch[1]
+          .split('\n')
+          .map((line: string) => line.trim())
+          .filter(Boolean);
+      }
+
+      // Extract details if present
+      const detailsMatch = err.message?.match(/Details: (.*?)(?:\nVersion:|$)/);
+      if (detailsMatch) {
+        errorInfo.details = detailsMatch[1];
+      }
+
+      // Process request body if present
+      if (err.metaMessages?.some((msg: string) => msg.includes('Request body:'))) {
+        const requestBody = err.metaMessages
+          .find((msg: string) => msg.includes('Request body:'))
+          ?.replace('Request body:', '')
+          .trim();
+        if (requestBody) {
+          errorInfo.requestBody = formatRequestBody(requestBody);
+        }
+      }
+
+      if (err.code) {
+        errorInfo.code = err.code;
+      }
+
+      errorChain.push(errorInfo);
       return false;
     });
   } else {
+    // Handle non-BaseError
     errorChain.push({
       message: error?.message || String(error),
       details: error?.details,
@@ -138,23 +153,14 @@ export function formatViemError(error: any): string {
     });
   }
 
-  const formatted = {
-    errorChain,
-    args: error.message
-      ?.match(/Request Arguments:\n([\s\S]*?)\n\nDetails/)?.[1]
-      ?.split('\n')
-      ?.map((line: string) => line.trim())
-      ?.filter(Boolean),
-  };
-
-  const clean = (obj: any) => {
-    Object.keys(obj).forEach(key => {
-      if (obj[key] === undefined) {
-        delete obj[key];
-      }
-    });
-    return obj;
-  };
-
-  return JSON.stringify(clean(formatted), null, 2);
+  return JSON.stringify(clean({ errorChain }), null, 2);
 }
+
+const clean = (obj: any) => {
+  Object.keys(obj).forEach(key => {
+    if (obj[key] === undefined) {
+      delete obj[key];
+    }
+  });
+  return obj;
+};
