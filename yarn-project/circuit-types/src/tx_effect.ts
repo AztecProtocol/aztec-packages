@@ -157,6 +157,11 @@ export class TxEffect {
     ]);
   }
 
+  /** Returns the size of this tx effect in bytes as serialized onto DA. */
+  getDASize() {
+    return this.toBlobFields().length * Fr.SIZE_IN_BYTES;
+  }
+
   /**
    * Deserializes the TxEffect object from a Buffer.
    * @param buffer - Buffer or BufferReader object to deserialize.

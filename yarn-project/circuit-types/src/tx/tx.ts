@@ -1,6 +1,8 @@
 import {
   ClientIvcProof,
+  Fr,
   PrivateKernelTailCircuitPublicInputs,
+  PrivateLog,
   type PrivateToPublicAccumulatedData,
   type ScopedLogHash,
 } from '@aztec/circuits.js';
@@ -226,6 +228,20 @@ export class Tx extends Gossipable {
       this.contractClassLogs.getSerializedLength() +
       arraySerializedSizeOfNonEmpty(this.enqueuedPublicFunctionCalls) +
       arraySerializedSizeOfNonEmpty([this.publicTeardownFunctionCall])
+    );
+  }
+
+  /**
+   * Estimates the tx size based on its private effects. Note that the actual size of the tx
+   * after processing will probably be larger, as public execution would generate more data.
+   */
+  getEstimatedPrivateTxEffectsSize() {
+    return (
+      this.unencryptedLogs.getSerializedLength() +
+      this.contractClassLogs.getSerializedLength() +
+      this.data.getNonEmptyNoteHashes().length * Fr.SIZE_IN_BYTES +
+      this.data.getNonEmptyNullifiers().length * Fr.SIZE_IN_BYTES +
+      this.data.getNonEmptyPrivateLogs().length * PrivateLog.SIZE_IN_BYTES
     );
   }
 

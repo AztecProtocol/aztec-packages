@@ -54,6 +54,7 @@ import fs from 'fs/promises';
 import getPort from 'get-port';
 import { tmpdir } from 'os';
 import * as path from 'path';
+import { inspect } from 'util';
 import {
   type Account,
   type Chain,
@@ -695,7 +696,7 @@ export async function setupCanonicalFeeJuice(pxe: PXE) {
       .wait();
     getLogger().info(`Fee Juice successfully setup. Portal address: ${feeJuicePortalAddress}`);
   } catch (error) {
-    getLogger().info(`Fee Juice might have already been setup.`);
+    getLogger().warn(`Fee Juice might have already been setup. Got error: ${inspect(error)}.`);
   }
 }
 

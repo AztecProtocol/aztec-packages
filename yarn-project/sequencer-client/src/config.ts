@@ -59,6 +59,16 @@ export const sequencerConfigMappings: ConfigMappingsType<SequencerConfig> = {
     description: 'The minimum number of txs to include in a block.',
     ...numberConfigHelper(1),
   },
+  maxL2BlockGas: {
+    env: 'SEQ_MAX_L2_BLOCK_GAS',
+    description: 'The maximum L2 block gas.',
+    ...numberConfigHelper(10e9),
+  },
+  maxDABlockGas: {
+    env: 'SEQ_MAX_DA_BLOCK_GAS',
+    description: 'The maximum DA block gas.',
+    ...numberConfigHelper(10e9),
+  },
   coinbase: {
     env: 'COINBASE',
     parseEnv: (val: string) => EthAddress.fromString(val),

@@ -4,14 +4,13 @@ use crate::{
         tx_constant_data::TxConstantData, validation_requests::RollupValidationRequests,
     },
     address::AztecAddress,
-    constants::{
-        GENERATOR_INDEX__PRIVATE_TX_HASH, PRIVATE_TO_ROLLUP_KERNEL_CIRCUIT_PUBLIC_INPUTS_LENGTH,
-    },
-    hash::poseidon2_hash_with_separator,
-    traits::{Deserialize, Empty, Hash, Serialize},
+    constants::PRIVATE_TO_ROLLUP_KERNEL_CIRCUIT_PUBLIC_INPUTS_LENGTH,
+    traits::{Deserialize, Empty, Serialize},
     utils::reader::Reader,
 };
+use std::meta::derive;
 
+#[derive(Eq)]
 pub struct PrivateToRollupKernelCircuitPublicInputs {
     pub constants: TxConstantData,
     pub rollup_validation_requests: RollupValidationRequests,
@@ -32,24 +31,14 @@ impl Empty for PrivateToRollupKernelCircuitPublicInputs {
     }
 }
 
-impl Eq for PrivateToRollupKernelCircuitPublicInputs {
-    fn eq(self, other: Self) -> bool {
-        (self.rollup_validation_requests.eq(other.rollup_validation_requests))
-            & (self.end.eq(other.end))
-            & (self.constants.eq(other.constants))
-            & (self.gas_used == other.gas_used)
-            & (self.fee_payer.eq(other.fee_payer))
-    }
-}
-
 impl Serialize<PRIVATE_TO_ROLLUP_KERNEL_CIRCUIT_PUBLIC_INPUTS_LENGTH> for PrivateToRollupKernelCircuitPublicInputs {
     fn serialize(self) -> [Field; PRIVATE_TO_ROLLUP_KERNEL_CIRCUIT_PUBLIC_INPUTS_LENGTH] {
         let mut fields: BoundedVec<Field, PRIVATE_TO_ROLLUP_KERNEL_CIRCUIT_PUBLIC_INPUTS_LENGTH> =
             BoundedVec::new();
 
+        fields.extend_from_array(self.constants.serialize());
         fields.extend_from_array(self.rollup_validation_requests.serialize());
         fields.extend_from_array(self.end.serialize());
-        fields.extend_from_array(self.constants.serialize());
         fields.extend_from_array(self.gas_used.serialize());
         fields.extend_from_array(self.fee_payer.serialize());
 
@@ -71,9 +60,9 @@ impl Deserialize<PRIVATE_TO_ROLLUP_KERNEL_CIRCUIT_PUBLIC_INPUTS_LENGTH> for Priv
     ) -> PrivateToRollupKernelCircuitPublicInputs {
         let mut reader = Reader::new(fields);
         let item = Self {
+            constants: reader.read_struct(TxConstantData::deserialize),
             rollup_validation_requests: reader.read_struct(RollupValidationRequests::deserialize),
             end: reader.read_struct(PrivateToRollupAccumulatedData::deserialize),
-            constants: reader.read_struct(TxConstantData::deserialize),
             gas_used: reader.read_struct(Gas::deserialize),
             fee_payer: reader.read_struct(AztecAddress::deserialize),
         };
