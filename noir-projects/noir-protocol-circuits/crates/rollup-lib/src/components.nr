@@ -296,7 +296,7 @@ fn get_tx_effects_hash_input(
     // Public writes are the concatenation of all non-empty user update requests and protocol update requests, then padded with zeroes.
     // The incoming all_public_data_update_requests may have empty update requests in the middle, so we move those to the end of the array.
     let public_data_update_requests =
-        get_all_update_requests_for_tx_effects(all_public_data_update_requests);
+        get_all_update_requests_for_tx_effects(tx_effect.public_data_writes);
     let private_logs = tx_effect.private_logs;
     let public_logs = tx_effect.public_logs;
     let contract_class_logs = tx_effect.contract_class_logs_hashes.map(|log: ScopedLogHash| {
@@ -489,7 +489,7 @@ unconstrained fn get_tx_effects_hash_input_helper(
     // Public writes are the concatenation of all non-empty user update requests and protocol update requests, then padded with zeroes.
     // The incoming all_public_data_update_requests may have empty update requests in the middle, so we move those to the end of the array.
     let public_data_update_requests =
-        get_all_update_requests_for_tx_effects(all_public_data_update_requests);
+        get_all_update_requests_for_tx_effects(tx_effect.public_data_writes);
     let private_logs = tx_effect.private_logs;
     let public_logs = tx_effect.public_logs;
     let contract_class_logs = tx_effect.contract_class_logs_hashes.map(|log: ScopedLogHash| {
