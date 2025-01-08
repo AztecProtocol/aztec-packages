@@ -11,7 +11,7 @@ import {
   type ProverNodeApi,
   type Service,
   type Tx,
-  TxHash,
+  type TxHash,
   type WorldStateSynchronizer,
   tryStop,
 } from '@aztec/circuit-types';

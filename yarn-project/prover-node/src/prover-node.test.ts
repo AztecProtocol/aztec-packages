@@ -1,5 +1,4 @@
 import {
-  type Body,
   type EpochProofClaim,
   EpochProofQuote,
   EpochProofQuotePayload,
@@ -11,12 +10,11 @@ import {
   P2PClientType,
   type ProverCoordination,
   type Tx,
-  type TxEffect,
-  TxHash,
+  type TxHash,
   WorldStateRunningState,
   type WorldStateSynchronizer,
 } from '@aztec/circuit-types';
-import { type ContractDataSource, EthAddress, Fr } from '@aztec/circuits.js';
+import { type ContractDataSource, EthAddress } from '@aztec/circuits.js';
 import { type EpochCache } from '@aztec/epoch-cache';
 import { times } from '@aztec/foundation/collection';
 import { Signature } from '@aztec/foundation/eth-signature';
