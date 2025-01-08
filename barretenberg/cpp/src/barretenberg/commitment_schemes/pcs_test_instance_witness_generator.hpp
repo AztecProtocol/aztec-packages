@@ -6,10 +6,14 @@
 #include "commitment_key.test.hpp"
 
 namespace bb {
-
+/**
+ * @brief Constructs random polynomials, computes commitments and corresponding evaluations.
+ *
+ * @tparam Curve
+ */
 template <typename Curve> struct PCSInstanceWitnessGenerator {
   public:
-    using CommitmentKey = CommitmentKey<Curve>;
+    using CommitmentKey = bb::CommitmentKey<Curve>;
     using Fr = typename Curve::ScalarField;
     using Commitment = typename Curve::AffineElement;
     using Polynomial = bb::Polynomial<Fr>;
@@ -41,12 +45,14 @@ template <typename Curve> struct PCSInstanceWitnessGenerator {
 
         const size_t num_unshifted = polynomials.size() - shiftable_polynomials.size();
 
+        // Process polynomials that are not getting shifted
         for (size_t idx = 0; idx < num_unshifted; idx++) {
             polynomials[idx] = Polynomial::random(n);
             unshifted_commitments.push_back(ck->commit(polynomials[idx]));
             unshifted_evals.push_back(polynomials[idx].evaluate_mle(mle_opening_point));
         }
 
+        // Process polynomials that are getting shifted
         size_t idx = num_unshifted;
         for (auto& poly : shiftable_polynomials) {
             poly = Polynomial::random(n, /*shiftable*/ 1);

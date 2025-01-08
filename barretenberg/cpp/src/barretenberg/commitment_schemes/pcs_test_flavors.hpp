@@ -5,10 +5,14 @@
 #include "commitment_key.test.hpp"
 
 namespace bb {
+/**
+ * @brief Mock Flavors to use ZKSumcheckData and SmallSubgroupIPAProver in the PCS tests.
+ *
+ */
 class TestBn254Flavor {
   public:
     using Curve = curve::BN254;
-    using CommitmentKey = CommitmentKey<Curve>;
+    using CommitmentKey = bb::CommitmentKey<curve::BN254>;
     using Transcript = NativeTranscript;
     using FF = typename Curve::ScalarField;
     static constexpr size_t SUBGROUP_SIZE = Curve::SUBGROUP_SIZE;
@@ -17,7 +21,7 @@ class TestBn254Flavor {
 class TestGrumpkinFlavor {
   public:
     using Curve = curve::Grumpkin;
-    using CommitmentKey = CommitmentKey<Curve>;
+    using CommitmentKey = bb::CommitmentKey<curve::Grumpkin>;
     using Transcript = NativeTranscript;
     using FF = typename Curve::ScalarField;
     static constexpr size_t SUBGROUP_SIZE = Curve::SUBGROUP_SIZE;

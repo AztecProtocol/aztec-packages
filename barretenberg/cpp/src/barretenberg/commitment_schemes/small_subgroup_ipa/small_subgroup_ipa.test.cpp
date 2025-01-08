@@ -9,7 +9,6 @@ namespace bb {
 template <typename Flavor> class SmallSubgroupIPATest : public ::testing::Test {
   public:
     using Curve = typename Flavor::Curve;
-    using CommitmentKey = typename Flavor::CommitmentKey;
     using Transcript = typename Flavor::Transcript;
     using FF = typename Curve::ScalarField;
 
