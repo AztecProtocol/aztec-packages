@@ -22,7 +22,7 @@ import { InMemoryBrokerDatabase } from './proving_broker_database/memory.js';
 import { KVBrokerDatabase } from './proving_broker_database/persisted.js';
 
 describe.each([
-  //() => Promise.resolve({ database: new InMemoryBrokerDatabase(), cleanup: undefined }),
+  () => Promise.resolve({ database: new InMemoryBrokerDatabase(), cleanup: undefined }),
   async () => {
     const directory = await mkdtemp(join(tmpdir(), 'proving-broker-test'));
     const config: ProverBrokerConfig = {

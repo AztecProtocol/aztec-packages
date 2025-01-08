@@ -7,6 +7,7 @@ import {
   getEpochFromProvingJobId,
 } from '@aztec/circuit-types';
 import { jsonParseWithSchema, jsonStringify } from '@aztec/foundation/json-rpc';
+import { type Logger, createLogger } from '@aztec/foundation/log';
 import { type AztecKVStore, type AztecMap } from '@aztec/kv-store';
 import { AztecLmdbStore } from '@aztec/kv-store/lmdb';
 import { Attributes, LmdbMetrics, type TelemetryClient } from '@aztec/telemetry-client';
@@ -60,10 +61,11 @@ class SingleEpochDatabase {
 export class KVBrokerDatabase implements ProvingBrokerDatabase {
   private metrics: LmdbMetrics;
 
-  constructor(
+  private constructor(
     private epochs: Map<number, SingleEpochDatabase>,
     private config: ProverBrokerConfig,
     client: TelemetryClient,
+    private logger: Logger,
   ) {
     this.metrics = new LmdbMetrics(
       client.getMeter('KVBrokerDatabase'),
@@ -83,7 +85,11 @@ export class KVBrokerDatabase implements ProvingBrokerDatabase {
     };
   }
 
-  public static async new(config: ProverBrokerConfig, client: TelemetryClient) {
+  public static async new(
+    config: ProverBrokerConfig,
+    client: TelemetryClient,
+    logger = createLogger('prover-client:proving-broker-database'),
+  ) {
     const epochs: Map<number, SingleEpochDatabase> = new Map<number, SingleEpochDatabase>();
     const files = await readdir(config.proverBrokerDataDirectory!, { recursive: false, withFileTypes: true });
     for (const file of files) {
@@ -92,11 +98,14 @@ export class KVBrokerDatabase implements ProvingBrokerDatabase {
       }
       const epochDirectory = file.name;
       const epochNumber = +epochDirectory;
+      logger.info(
+        `Loading broker database for epoch ${epochNumber} from ${file.parentPath} with map size ${config.proverBrokerDataMapSizeKB}`,
+      );
       const db = AztecLmdbStore.open(epochDirectory, config.proverBrokerDataMapSizeKB);
       const epochDb = new SingleEpochDatabase(db);
       epochs.set(epochNumber, epochDb);
     }
-    return new KVBrokerDatabase(epochs, config, client);
+    return new KVBrokerDatabase(epochs, config, client, logger);
   }
 
   async deleteAllProvingJobsOlderThanEpoch(epochNumber: number): Promise<void> {
@@ -106,6 +115,7 @@ export class KVBrokerDatabase implements ProvingBrokerDatabase {
       if (!db) {
         continue;
       }
+      this.logger.info(`Deleting broker database for epoch ${old}`);
       await db.close();
       this.epochs.delete(old);
     }
@@ -116,6 +126,9 @@ export class KVBrokerDatabase implements ProvingBrokerDatabase {
     if (!epochDb) {
       const newEpochDirectory = join(this.config.proverBrokerDataDirectory!, job.epochNumber.toString());
       await mkdir(newEpochDirectory, { recursive: true });
+      this.logger.info(
+        `Creating broker database for epoch ${job.epochNumber} at ${newEpochDirectory} with map size ${this.config.proverBrokerDataMapSizeKB}`,
+      );
       const db = AztecLmdbStore.open(newEpochDirectory, this.config.proverBrokerDataMapSizeKB);
       epochDb = new SingleEpochDatabase(db);
       this.epochs.set(job.epochNumber, epochDb);

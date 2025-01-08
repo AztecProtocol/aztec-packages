@@ -36,8 +36,6 @@ type ProofRequestBrokerConfig = {
 
 type EnqueuedProvingJob = Pick<ProvingJob, 'id' | 'epochNumber'>;
 
-const MAX_CLEANUP_BATCH_SIZE = 100;
-
 /**
  * A broker that manages proof requests and distributes them to workers based on their priority.
  * It takes a backend that is responsible for storing and retrieving proof requests and results.
@@ -526,9 +524,9 @@ export class ProvingBroker implements ProvingJobProducer, ProvingJobConsumer, Tr
     this.cleanupStaleJobs();
     this.reEnqueueExpiredJobs();
     const oldestEpochToKeep = this.oldestEpochToKeep();
-    if (oldestEpochToKeep >= 0) {
+    if (oldestEpochToKeep > 0) {
       await this.requestQueue.put(() => this.database.deleteAllProvingJobsOlderThanEpoch(oldestEpochToKeep));
-      this.logger.info(`Deleted all epochs older than ${oldestEpochToKeep}`);
+      this.logger.trace(`Deleted all epochs older than ${oldestEpochToKeep}`);
     }
   }
 
