@@ -130,6 +130,7 @@ describe('e2e_p2p_governance_proposer', () => {
     t.logger.info('Creating nodes');
     nodes = await createNodes(
       { ...t.ctx.aztecNodeConfig, governanceProposerPayload: newPayloadAddress },
+      t.ctx.dateProvider,
       t.bootstrapNodeEnr,
       NUM_NODES,
       BOOT_NODE_UDP_PORT,
@@ -161,7 +162,10 @@ describe('e2e_p2p_governance_proposer', () => {
 
     await waitL1Block();
 
-    const txHash = await governanceProposer.write.pushProposal([govData.round], { account: emperor, gas: 1_000_000n });
+    const txHash = await governanceProposer.write.executeProposal([govData.round], {
+      account: emperor,
+      gas: 1_000_000n,
+    });
     await t.ctx.deployL1ContractsValues.publicClient.waitForTransactionReceipt({ hash: txHash });
 
     const token = getContract({

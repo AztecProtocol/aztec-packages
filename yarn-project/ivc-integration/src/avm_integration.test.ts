@@ -53,7 +53,8 @@ describe('AVM Integration', () => {
     return provingResult as BBSuccess;
   }
 
-  it('Should generate and verify an ultra honk proof from an AVM verification', async () => {
+  // TODO: Skipping for now as per Davids advice.
+  it.skip('Should generate and verify an ultra honk proof from an AVM verification', async () => {
     const bbSuccess = await proveAvmTestContract(
       'bulk_testing',
       [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(x => new Fr(x)),

@@ -44,8 +44,8 @@ spec:
               cat /shared/config/service-addresses
               echo "Awaiting ethereum node at ${ETHEREUM_HOST}"
               until curl -s -X POST -H 'Content-Type: application/json' \
-                -d '{"jsonrpc":"2.0","method":"web3_clientVersion","params":[],"id":67}' \
-                ${ETHEREUM_HOST} | grep -q reth; do
+                -d '{"jsonrpc":"2.0","method":"eth_chainId","params":[],"id":67}' \
+                ${ETHEREUM_HOST} | grep 0x; do
                 echo "Waiting for Ethereum node ${ETHEREUM_HOST}..."
                 sleep 5
               done
@@ -61,17 +61,31 @@ spec:
             - name: config
               mountPath: /shared/config
       {{- if .Values.bootNode.deployContracts }}
+        - name: deploy-create2-deployer
+          image: {{ .Values.images.foundry.image }}
+          command:
+            - /bin/sh
+            - -c
+            - |
+              source /shared/config/service-addresses
+              if [ "$(cast code --rpc-url ${ETHEREUM_HOST} 0x4e59b44847b379578588920ca78fbf26c0b4956c)" = "0x" ]; then
+                echo "Deploying Deterministic Deployment Proxy"
+                cast publish --rpc-url ${ETHEREUM_HOST} 0xf8a58085174876e800830186a08080b853604580600e600039806000f350fe7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe03601600081602082378035828234f58015156039578182fd5b8082525050506014600cf31ba02222222222222222222222222222222222222222222222222222222222222222a02222222222222222222222222222222222222222222222222222222222222222
+              fi
+          volumeMounts:
+            - name: config
+              mountPath: /shared/config
         - name: deploy-l1-contracts
           {{- include "aztec-network.image" . | nindent 10 }}
           command:
-            [
-              "/bin/bash",
-              "-c",
-              "cp /scripts/deploy-l1-contracts.sh /tmp/deploy-l1-contracts.sh && \
-               chmod +x /tmp/deploy-l1-contracts.sh && \
-               source /shared/config/service-addresses && \
-               /tmp/deploy-l1-contracts.sh {{ .Values.ethereum.chainId }} \"{{ join "," .Values.validator.validatorAddresses }}\""
-            ]
+            - /bin/bash
+            - -c
+            - |
+              cp /scripts/deploy-l1-contracts.sh /tmp/deploy-l1-contracts.sh
+              chmod +x /tmp/deploy-l1-contracts.sh
+              source /shared/config/service-addresses
+
+              /tmp/deploy-l1-contracts.sh "{{ .Values.aztec.l1Salt }}" "{{ .Values.ethereum.chainId }}" "{{ join "," .Values.validator.validatorAddresses }}"
           volumeMounts:
             - name: scripts-output
               mountPath: /shared/contracts
@@ -86,6 +100,8 @@ spec:
               value: "true"
             - name: MNEMONIC
               value: "{{ .Values.aztec.l1DeploymentMnemonic }}"
+            - name: L1_DEPLOYMENT_PRIVATE_KEY
+              value: "{{ .Values.ethereum.deployL1ContractsPrivateKey }}"
             - name: ETHEREUM_SLOT_DURATION
               value: "{{ .Values.ethereum.blockTime }}"
             - name: AZTEC_SLOT_DURATION
@@ -164,8 +180,6 @@ spec:
               value: "{{ .Values.bootNode.logLevel }}"
             - name: LOG_JSON
               value: "1"
-            - name: DEBUG
-              value: "{{ .Values.bootNode.debug }}"
             - name: P2P_ENABLED
               value: "{{ .Values.bootNode.p2p.enabled }}"
             - name: COINBASE
@@ -180,6 +194,8 @@ spec:
               value: "{{ .Values.bootNode.sequencer.minTxsPerBlock }}"
             - name: VALIDATOR_PRIVATE_KEY
               value: "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80"
+            - name: SEQ_PUBLISHER_PRIVATE_KEY
+              value: "{{ .Values.bootNode.seqPublisherPrivateKey }}"
             - name: OTEL_RESOURCE_ATTRIBUTES
               value: service.name={{ .Release.Name }},service.namespace={{ .Release.Namespace }},service.version={{ .Chart.AppVersion }},environment={{ .Values.environment | default "production" }}
             - name: PROVER_REAL_PROOFS
@@ -194,6 +210,14 @@ spec:
               value: "{{ .Values.aztec.epochDuration }}"
             - name: AZTEC_EPOCH_PROOF_CLAIM_WINDOW_IN_L2_SLOTS
               value: "{{ .Values.aztec.epochProofClaimWindow }}"
+            - name: ARCHIVER_POLLING_INTERVAL_MS
+              value: {{ .Values.bootNode.archiverPollingInterval | quote }}
+            - name: ARCHIVER_VIEM_POLLING_INTERVAL_MS
+              value: {{ .Values.bootNode.archiverViemPollingInterval | quote }}
+            - name: L1_READER_VIEM_POLLING_INTERVAL_MS
+              value: {{ .Values.bootNode.archiverViemPollingInterval | quote }}
+            - name: SEQ_VIEM_POLLING_INTERVAL_MS
+              value: {{ .Values.bootNode.viemPollingInterval | quote }}
             - name: PEER_ID_PRIVATE_KEY
               value: "{{ .Values.bootNode.peerIdPrivateKey }}"
           ports:

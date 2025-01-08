@@ -10,7 +10,6 @@ import {
   TxHash,
 } from '@aztec/circuit-types';
 import {
-  AppendOnlyTreeSnapshot,
   AvmCircuitInputs,
   type AvmCircuitPublicInputs,
   type AztecAddress,
@@ -19,12 +18,15 @@ import {
   type GasSettings,
   type GlobalVariables,
   MAX_L2_GAS_PER_TX_PUBLIC_PORTION,
+  MAX_NOTE_HASHES_PER_TX,
+  MAX_NULLIFIERS_PER_TX,
   type PrivateToPublicAccumulatedData,
   type PublicCallRequest,
   PublicCircuitPublicInputs,
   RevertCode,
   type StateReference,
   TreeSnapshots,
+  computeTransactionFee,
   countAccumulatedItems,
 } from '@aztec/circuits.js';
 import { type Logger, createLogger } from '@aztec/foundation/log';
@@ -91,7 +93,7 @@ export class PublicTxContext {
     const previousAccumulatedDataArrayLengths = new SideEffectArrayLengths(
       /*publicDataWrites*/ 0,
       /*protocolPublicDataWrites*/ 0,
-      countAccumulatedItems(nonRevertibleAccumulatedDataFromPrivate.noteHashes),
+      /*noteHashes*/ 0,
       /*nullifiers=*/ 0,
       countAccumulatedItems(nonRevertibleAccumulatedDataFromPrivate.l2ToL1Msgs),
       /*unencryptedLogsHashes*/ 0,
@@ -102,7 +104,12 @@ export class PublicTxContext {
     );
 
     // Transaction level state manager that will be forked for revertible phases.
-    const txStateManager = await AvmPersistableStateManager.create(worldStateDB, enqueuedCallTrace, doMerkleOperations);
+    const txStateManager = await AvmPersistableStateManager.create(
+      worldStateDB,
+      enqueuedCallTrace,
+      doMerkleOperations,
+      fetchTxHash(nonRevertibleAccumulatedDataFromPrivate),
+    );
 
     const gasSettings = tx.data.constants.txContext.gasSettings;
     const gasUsedByPrivate = tx.data.gasUsed;
@@ -186,12 +193,7 @@ export class PublicTxContext {
    * @returns The transaction's hash.
    */
   getTxHash(): TxHash {
-    // Private kernel functions are executed client side and for this reason tx hash is already set as first nullifier
-    const firstNullifier = this.nonRevertibleAccumulatedDataFromPrivate.nullifiers[0];
-    if (!firstNullifier || firstNullifier.isZero()) {
-      throw new Error(`Cannot get tx hash since first nullifier is missing`);
-    }
-    return new TxHash(firstNullifier.toBuffer());
+    return fetchTxHash(this.nonRevertibleAccumulatedDataFromPrivate);
   }
 
   /**
@@ -281,6 +283,15 @@ export class PublicTxContext {
   }
 
   /**
+   * Compute the public gas used using the actual gas used during teardown instead
+   * of the teardown gas limit.
+   */
+  getActualPublicGasUsed(): Gas {
+    assert(this.halted, 'Can only compute actual gas used after tx execution ends');
+    return this.gasUsedByPublic.add(this.teardownGasUsed);
+  }
+
+  /**
    * Get the transaction fee as is available to the specified phase.
    * Only teardown should have access to the actual transaction fee.
    */
@@ -297,12 +308,15 @@ export class PublicTxContext {
    * Should only be called during or after teardown.
    */
   private getTransactionFeeUnsafe(): Fr {
-    const txFee = this.getTotalGasUsed().computeFee(this.globalVariables.gasFees);
+    const gasUsed = this.getTotalGasUsed();
+    const txFee = computeTransactionFee(this.globalVariables.gasFees, this.gasSettings, gasUsed);
+
     this.log.debug(`Computed tx fee`, {
       txFee,
-      gasUsed: inspect(this.getTotalGasUsed()),
+      gasUsed: inspect(gasUsed),
       gasFees: inspect(this.globalVariables.gasFees),
     });
+
     return txFee;
   }
 
@@ -311,16 +325,29 @@ export class PublicTxContext {
    */
   private generateAvmCircuitPublicInputs(endStateReference: StateReference): AvmCircuitPublicInputs {
     assert(this.halted, 'Can only get AvmCircuitPublicInputs after tx execution ends');
-    const ephemeralTrees = this.state.getActiveStateManager().merkleTrees.treeMap;
+    const ephemeralTrees = this.state.getActiveStateManager().merkleTrees;
 
-    const getAppendSnaphot = (id: MerkleTreeId) => {
-      const tree = ephemeralTrees.get(id)!;
-      return new AppendOnlyTreeSnapshot(tree.getRoot(), Number(tree.leafCount));
-    };
+    const noteHashTree = ephemeralTrees.getTreeSnapshot(MerkleTreeId.NOTE_HASH_TREE);
+    const nullifierTree = ephemeralTrees.getTreeSnapshot(MerkleTreeId.NULLIFIER_TREE);
+    const publicDataTree = ephemeralTrees.getTreeSnapshot(MerkleTreeId.PUBLIC_DATA_TREE);
+    // Pad the note hash and nullifier trees
+    const paddedNoteHashTreeSize =
+      this.startStateReference.partial.noteHashTree.nextAvailableLeafIndex + MAX_NOTE_HASHES_PER_TX;
+    if (noteHashTree.nextAvailableLeafIndex > paddedNoteHashTreeSize) {
+      throw new Error(
+        `Inserted too many leaves in note hash tree: ${noteHashTree.nextAvailableLeafIndex} > ${paddedNoteHashTreeSize}`,
+      );
+    }
+    noteHashTree.nextAvailableLeafIndex = paddedNoteHashTreeSize;
 
-    const noteHashTree = getAppendSnaphot(MerkleTreeId.NOTE_HASH_TREE);
-    const nullifierTree = getAppendSnaphot(MerkleTreeId.NULLIFIER_TREE);
-    const publicDataTree = getAppendSnaphot(MerkleTreeId.PUBLIC_DATA_TREE);
+    const paddedNullifierTreeSize =
+      this.startStateReference.partial.nullifierTree.nextAvailableLeafIndex + MAX_NULLIFIERS_PER_TX;
+    if (nullifierTree.nextAvailableLeafIndex > paddedNullifierTreeSize) {
+      throw new Error(
+        `Inserted too many leaves in nullifier tree: ${nullifierTree.nextAvailableLeafIndex} > ${paddedNullifierTreeSize}`,
+      );
+    }
+    nullifierTree.nextAvailableLeafIndex = paddedNullifierTreeSize;
 
     const endTreeSnapshots = new TreeSnapshots(
       endStateReference.l1ToL2MessageTree,
@@ -424,4 +451,13 @@ function applyMaxToAvailableGas(availableGas: Gas) {
     /*daGas=*/ availableGas.daGas,
     /*l2Gas=*/ Math.min(availableGas.l2Gas, MAX_L2_GAS_PER_TX_PUBLIC_PORTION),
   );
+}
+
+function fetchTxHash(nonRevertibleAccumulatedData: PrivateToPublicAccumulatedData): TxHash {
+  // Private kernel functions are executed client side and for this reason tx hash is already set as first nullifier
+  const firstNullifier = nonRevertibleAccumulatedData.nullifiers[0];
+  if (!firstNullifier || firstNullifier.isZero()) {
+    throw new Error(`Cannot get tx hash since first nullifier is missing`);
+  }
+  return new TxHash(firstNullifier);
 }

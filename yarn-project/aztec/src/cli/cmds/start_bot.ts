@@ -2,6 +2,11 @@ import { type BotConfig, BotRunner, botConfigMappings, getBotRunnerApiHandler } 
 import { type AztecNode, type PXE } from '@aztec/circuit-types';
 import { type NamespacedApiHandlers } from '@aztec/foundation/json-rpc/server';
 import { type LogFn } from '@aztec/foundation/log';
+import { type TelemetryClient } from '@aztec/telemetry-client';
+import {
+  createAndStartTelemetryClient,
+  getConfigEnvVars as getTelemetryClientConfig,
+} from '@aztec/telemetry-client/start';
 
 import { extractRelevantOptions } from '../util.js';
 
@@ -25,14 +30,15 @@ export async function startBot(
     pxe = await addPXE(options, signalHandlers, services, userLog);
   }
 
-  await addBot(options, signalHandlers, services, { pxe });
+  const telemetry = await createAndStartTelemetryClient(getTelemetryClientConfig());
+  await addBot(options, signalHandlers, services, { pxe, telemetry });
 }
 
 export function addBot(
   options: any,
   signalHandlers: (() => Promise<void>)[],
   services: NamespacedApiHandlers,
-  deps: { pxe?: PXE; node?: AztecNode } = {},
+  deps: { pxe?: PXE; node?: AztecNode; telemetry: TelemetryClient },
 ) {
   const config = extractRelevantOptions<BotConfig>(options, botConfigMappings, 'bot');
 

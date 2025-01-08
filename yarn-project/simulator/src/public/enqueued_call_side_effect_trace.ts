@@ -24,6 +24,7 @@ import {
   MAX_L2_TO_L1_MSGS_PER_TX,
   MAX_NOTE_HASHES_PER_TX,
   MAX_NULLIFIERS_PER_TX,
+  MAX_PUBLIC_CALLS_TO_UNIQUE_CONTRACT_CLASS_IDS,
   MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
   MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
   MAX_UNENCRYPTED_LOGS_PER_TX,
@@ -42,7 +43,6 @@ import {
   PublicDataWrite,
   ScopedL2ToL1Message,
   ScopedLogHash,
-  type ScopedNoteHash,
   SerializableContractInstance,
   type TreeSnapshots,
 } from '@aztec/circuits.js';
@@ -59,6 +59,7 @@ import { type AvmExecutionEnvironment } from '../avm/avm_execution_environment.j
 import { type EnqueuedPublicCallExecutionResultWithSideEffects, type PublicFunctionCallResult } from './execution.js';
 import { SideEffectLimitReachedError } from './side_effect_errors.js';
 import { type PublicSideEffectTraceInterface } from './side_effect_trace_interface.js';
+import { UniqueClassIds } from './unique_class_ids.js';
 
 const emptyPublicDataPath = () => new Array(PUBLIC_DATA_TREE_HEIGHT).fill(Fr.zero());
 const emptyNoteHashPath = () => new Array(NOTE_HASH_TREE_HEIGHT).fill(Fr.zero());
@@ -74,7 +75,7 @@ export type SideEffects = {
   enqueuedCalls: PublicCallRequest[];
 
   publicDataWrites: PublicDataUpdateRequest[];
-  noteHashes: ScopedNoteHash[];
+  noteHashes: NoteHash[];
   nullifiers: Nullifier[];
   l2ToL1Msgs: ScopedL2ToL1Message[];
 
@@ -111,7 +112,7 @@ export class PublicEnqueuedCallSideEffectTrace implements PublicSideEffectTraceI
   private publicDataWrites: PublicDataUpdateRequest[] = [];
   private protocolPublicDataWritesLength: number = 0;
   private userPublicDataWritesLength: number = 0;
-  private noteHashes: ScopedNoteHash[] = [];
+  private noteHashes: NoteHash[] = [];
   private nullifiers: Nullifier[] = [];
   private l2ToL1Messages: ScopedL2ToL1Message[] = [];
   private unencryptedLogs: UnencryptedL2Log[] = [];
@@ -129,6 +130,8 @@ export class PublicEnqueuedCallSideEffectTrace implements PublicSideEffectTraceI
      *  otherwise the public kernel can fail to prove because TX limits are breached.
      */
     private readonly previousSideEffectArrayLengths: SideEffectArrayLengths = SideEffectArrayLengths.empty(),
+    /** We need to track the set of class IDs used for bytecode retrieval to deduplicate and enforce limits. */
+    private gotBytecodeFromClassIds: UniqueClassIds = new UniqueClassIds(),
   ) {
     this.log.debug(`Creating trace instance with startSideEffectCounter: ${startSideEffectCounter}`);
     this.sideEffectCounter = startSideEffectCounter;
@@ -146,6 +149,7 @@ export class PublicEnqueuedCallSideEffectTrace implements PublicSideEffectTraceI
         this.previousSideEffectArrayLengths.l2ToL1Msgs + this.l2ToL1Messages.length,
         this.previousSideEffectArrayLengths.unencryptedLogs + this.unencryptedLogs.length,
       ),
+      this.gotBytecodeFromClassIds.fork(),
     );
   }
 
@@ -153,7 +157,7 @@ export class PublicEnqueuedCallSideEffectTrace implements PublicSideEffectTraceI
     // sanity check to avoid merging the same forked trace twice
     assert(
       !forkedTrace.alreadyMergedIntoParent,
-      'Cannot merge a forked trace that has already been merged into its parent!',
+      'Bug! Cannot merge a forked trace that has already been merged into its parent!',
     );
     forkedTrace.alreadyMergedIntoParent = true;
 
@@ -172,10 +176,21 @@ export class PublicEnqueuedCallSideEffectTrace implements PublicSideEffectTraceI
   }
 
   private mergeHints(forkedTrace: this) {
+    this.gotBytecodeFromClassIds.acceptAndMerge(forkedTrace.gotBytecodeFromClassIds);
+
     this.avmCircuitHints.enqueuedCalls.items.push(...forkedTrace.avmCircuitHints.enqueuedCalls.items);
 
     this.avmCircuitHints.contractInstances.items.push(...forkedTrace.avmCircuitHints.contractInstances.items);
-    this.avmCircuitHints.contractBytecodeHints.items.push(...forkedTrace.avmCircuitHints.contractBytecodeHints.items);
+
+    // merge in contract bytecode hints
+    // UniqueClassIds should prevent duplication
+    for (const [contractClassId, bytecodeHint] of forkedTrace.avmCircuitHints.contractBytecodeHints) {
+      assert(
+        !this.avmCircuitHints.contractBytecodeHints.has(contractClassId),
+        'Bug preventing duplication of contract bytecode hints',
+      );
+      this.avmCircuitHints.contractBytecodeHints.set(contractClassId, bytecodeHint);
+    }
 
     this.avmCircuitHints.publicDataReads.items.push(...forkedTrace.avmCircuitHints.publicDataReads.items);
     this.avmCircuitHints.publicDataWrites.items.push(...forkedTrace.avmCircuitHints.publicDataWrites.items);
@@ -192,6 +207,10 @@ export class PublicEnqueuedCallSideEffectTrace implements PublicSideEffectTraceI
 
   private incrementSideEffectCounter() {
     this.sideEffectCounter++;
+  }
+
+  public getNoteHashCount() {
+    return this.previousSideEffectArrayLengths.noteHashes + this.noteHashes.length;
   }
 
   public tracePublicStorageRead(
@@ -272,19 +291,12 @@ export class PublicEnqueuedCallSideEffectTrace implements PublicSideEffectTraceI
     // NOTE: counter does not increment for note hash checks (because it doesn't rely on pending note hashes)
   }
 
-  public traceNewNoteHash(
-    contractAddress: AztecAddress,
-    noteHash: Fr,
-    leafIndex: Fr = Fr.zero(),
-    path: Fr[] = emptyNoteHashPath(),
-  ) {
+  public traceNewNoteHash(noteHash: Fr, leafIndex: Fr = Fr.zero(), path: Fr[] = emptyNoteHashPath()) {
     if (this.noteHashes.length + this.previousSideEffectArrayLengths.noteHashes >= MAX_NOTE_HASHES_PER_TX) {
       throw new SideEffectLimitReachedError('note hash', MAX_NOTE_HASHES_PER_TX);
     }
 
-    // TODO(dbanks12): make unique and silo instead of scoping
-    //const siloedNoteHash = siloNoteHash(contractAddress, noteHash);
-    this.noteHashes.push(new NoteHash(noteHash, this.sideEffectCounter).scope(contractAddress));
+    this.noteHashes.push(new NoteHash(noteHash, this.sideEffectCounter));
     this.log.debug(`NEW_NOTE_HASH cnt: ${this.sideEffectCounter}`);
     this.avmCircuitHints.noteHashWrites.items.push(new AvmAppendTreeHint(leafIndex, noteHash, path));
     this.incrementSideEffectCounter();
@@ -409,6 +421,14 @@ export class PublicEnqueuedCallSideEffectTrace implements PublicSideEffectTraceI
     lowLeafIndex: Fr = Fr.zero(),
     lowLeafPath: Fr[] = emptyNullifierPath(),
   ) {
+    // FIXME: The way we are hinting contract bytecodes is fundamentally broken.
+    // We are mapping contract class ID to a bytecode hint
+    // But a bytecode hint is tied to a contract INSTANCE.
+    // What if you encounter another contract instance with the same class ID?
+    // We can't hint that instance too since there is already an entry in the hints set that class ID.
+    // But without that instance hinted, the circuit can't prove that the called contract address
+    // actually corresponds to any class ID.
+
     const membershipHint = new AvmNullifierReadTreeHint(lowLeafPreimage, lowLeafIndex, lowLeafPath);
     const instance = new AvmContractInstanceHint(
       contractAddress,
@@ -420,13 +440,57 @@ export class PublicEnqueuedCallSideEffectTrace implements PublicSideEffectTraceI
       contractInstance.publicKeys,
       membershipHint,
     );
-    // We need to deduplicate the contract instances based on addresses
-    this.avmCircuitHints.contractBytecodeHints.items.push(
+
+    // Always hint the contract instance separately from the bytecode hint.
+    // Since the bytecode hints are keyed by class ID, we need to hint the instance separately
+    // since there might be multiple instances hinted for the same class ID.
+    this.avmCircuitHints.contractInstances.items.push(instance);
+    this.log.debug(
+      `Tracing contract instance for bytecode retrieval: exists=${exists}, instance=${jsonStringify(contractInstance)}`,
+    );
+
+    if (!exists) {
+      // this ensures there are no duplicates
+      this.log.debug(`Contract address ${contractAddress} does not exist. Not tracing bytecode & class ID.`);
+      return;
+    }
+    // We already hinted this bytecode. No need to
+    // Don't we still need to hint if the class ID already exists?
+    // Because the circuit needs to prove that the called contract address corresponds to the class ID.
+    // To do so, the circuit needs to know the class ID in the
+    if (this.gotBytecodeFromClassIds.has(contractInstance.contractClassId.toString())) {
+      // this ensures there are no duplicates
+      this.log.debug(
+        `Contract class id ${contractInstance.contractClassId.toString()} already exists in previous hints`,
+      );
+      return;
+    }
+
+    // If we could actually allow contract calls after the limit was reached, we would hint even if we have
+    // surpassed the limit of unique class IDs (still trace the failed bytecode retrieval)
+    // because the circuit needs to know the class ID to know when the limit is hit.
+    // BUT, the issue with this approach is that the sequencer could lie and say "this call was to a new class ID",
+    // and the circuit cannot prove that it's not true without deriving the class ID from bytecode,
+    // proving that it corresponds to the called contract address, and proving that the class ID wasn't already
+    // present/used. That would require more bytecode hashing which is exactly what this limit exists to avoid.
+    if (this.gotBytecodeFromClassIds.size() >= MAX_PUBLIC_CALLS_TO_UNIQUE_CONTRACT_CLASS_IDS) {
+      this.log.debug(
+        `Bytecode retrieval failure for contract class ID ${contractInstance.contractClassId.toString()} (limit reached)`,
+      );
+      throw new SideEffectLimitReachedError(
+        'contract calls to unique class IDs',
+        MAX_PUBLIC_CALLS_TO_UNIQUE_CONTRACT_CLASS_IDS,
+      );
+    }
+
+    this.log.debug(`Tracing bytecode & contract class for bytecode retrieval: class=${jsonStringify(contractClass)}`);
+    this.avmCircuitHints.contractBytecodeHints.set(
+      contractInstance.contractClassId.toString(),
       new AvmContractBytecodeHints(bytecode, instance, contractClass),
     );
-    this.log.debug(
-      `Bytecode retrieval for contract execution traced: exists=${exists}, instance=${jsonStringify(contractInstance)}`,
-    );
+    // After adding the bytecode hint, mark the classId as retrieved to avoid duplication.
+    // The above map alone isn't sufficient because we need to check the parent trace's (and its parent) as well.
+    this.gotBytecodeFromClassIds.add(contractInstance.contractClassId.toString());
   }
 
   /**

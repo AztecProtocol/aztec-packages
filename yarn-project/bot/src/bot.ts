@@ -10,7 +10,8 @@ import {
 import { type AztecNode, type FunctionCall, type PXE } from '@aztec/circuit-types';
 import { Gas } from '@aztec/circuits.js';
 import { times } from '@aztec/foundation/collection';
-import { type EasyPrivateTokenContract, type TokenContract } from '@aztec/noir-contracts.js';
+import { type EasyPrivateTokenContract } from '@aztec/noir-contracts.js/EasyPrivateToken';
+import { type TokenContract } from '@aztec/noir-contracts.js/Token';
 
 import { type BotConfig } from './config.js';
 import { BotFactory } from './factory.js';

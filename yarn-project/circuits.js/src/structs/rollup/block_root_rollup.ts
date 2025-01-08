@@ -6,12 +6,14 @@ import { type FieldsOf } from '@aztec/foundation/types';
 
 import {
   ARCHIVE_HEIGHT,
+  BLOBS_PER_BLOCK,
+  FIELDS_PER_BLOB,
   L1_TO_L2_MSG_SUBTREE_SIBLING_PATH_LENGTH,
   NESTED_RECURSIVE_PROOF_LENGTH,
   NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
 } from '../../constants.gen.js';
 import { RootParityInput } from '../parity/root_parity_input.js';
-import { AppendOnlyTreeSnapshot } from './append_only_tree_snapshot.js';
+import { AppendOnlyTreeSnapshot } from '../trees/append_only_tree_snapshot.js';
 import { PreviousRollupData } from './previous_rollup_data.js';
 
 /**
@@ -55,6 +57,22 @@ export class BlockRootRollupInputs {
      * TODO(#7346): Temporarily added prover_id while we verify block-root proofs on L1
      */
     public proverId: Fr,
+    /**
+     * Flat list of all tx effects which will be added to the blob.
+     * Below line gives error 'Type instantiation is excessively deep and possibly infinite. ts(2589)'
+     * Tuple<Fr, FIELDS_PER_BLOB * BLOBS_PER_BLOCK>
+     */
+    public blobFields: Fr[],
+    /**
+     * KZG commitments representing the blob (precomputed in ts, injected to use inside circuit).
+     * TODO(Miranda): Rename to kzg_commitment to match BlobPublicInputs?
+     */
+    public blobCommitments: Tuple<Tuple<Fr, 2>, typeof BLOBS_PER_BLOCK>,
+    /**
+     * The hash of eth blob hashes for this block
+     * See yarn-project/foundation/src/blob/index.ts or body.ts for calculation
+     */
+    public blobsHash: Fr,
   ) {}
 
   /**
@@ -98,6 +116,9 @@ export class BlockRootRollupInputs {
       fields.newArchiveSiblingPath,
       fields.previousBlockHash,
       fields.proverId,
+      fields.blobFields,
+      fields.blobCommitments,
+      fields.blobsHash,
     ] as const;
   }
 
@@ -117,6 +138,11 @@ export class BlockRootRollupInputs {
       reader.readObject(AppendOnlyTreeSnapshot),
       reader.readArray(ARCHIVE_HEIGHT, Fr),
       Fr.fromBuffer(reader),
+      Fr.fromBuffer(reader),
+      // Below line gives error 'Type instantiation is excessively deep and possibly infinite. ts(2589)'
+      // reader.readArray(FIELDS_PER_BLOB, Fr),
+      Array.from({ length: FIELDS_PER_BLOB * BLOBS_PER_BLOCK }, () => Fr.fromBuffer(reader)),
+      reader.readArray(BLOBS_PER_BLOCK, { fromBuffer: () => reader.readArray(2, Fr) }),
       Fr.fromBuffer(reader),
     );
   }

@@ -17,7 +17,6 @@ import { type JsonRpcTestContext, createJsonRpcTestSetup } from '@aztec/foundati
 import { fileURLToPath } from '@aztec/foundation/url';
 import { loadContractArtifact } from '@aztec/types/abi';
 
-import { deepStrictEqual } from 'assert';
 import { readFileSync } from 'fs';
 import omit from 'lodash.omit';
 import { resolve } from 'path';
@@ -101,12 +100,12 @@ describe('ArchiverApiSchema', () => {
   });
 
   it('getTxEffect', async () => {
-    const result = await context.client.getTxEffect(new TxHash(Buffer.alloc(32, 1)));
+    const result = await context.client.getTxEffect(TxHash.fromBuffer(Buffer.alloc(32, 1)));
     expect(result!.data).toBeInstanceOf(TxEffect);
   });
 
   it('getSettledTxReceipt', async () => {
-    const result = await context.client.getSettledTxReceipt(new TxHash(Buffer.alloc(32, 1)));
+    const result = await context.client.getSettledTxReceipt(TxHash.fromBuffer(Buffer.alloc(32, 1)));
     expect(result).toBeInstanceOf(TxReceipt);
   });
 
@@ -223,14 +222,11 @@ describe('ArchiverApiSchema', () => {
     expect(result).toBe(1n);
   });
 
-  it('getContractArtifact', async () => {
-    const result = await context.client.getContractArtifact(AztecAddress.random());
-    deepStrictEqual(result, artifact);
+  it('registerContractFunctionNames', async () => {
+    await context.client.registerContractFunctionNames(AztecAddress.random(), {
+      [FunctionSelector.random().toString()]: 'test_fn',
+    });
   });
-
-  it('addContractArtifact', async () => {
-    await context.client.addContractArtifact(AztecAddress.random(), artifact);
-  }, 20_000);
 
   it('getContract', async () => {
     const address = AztecAddress.random();
@@ -378,10 +374,9 @@ class MockArchiver implements ArchiverApi {
     expect(address).toBeInstanceOf(AztecAddress);
     return Promise.resolve(this.artifact);
   }
-  addContractArtifact(address: AztecAddress, contract: ContractArtifact): Promise<void> {
+  registerContractFunctionNames(address: AztecAddress, names: Record<string, string>): Promise<void> {
     expect(address).toBeInstanceOf(AztecAddress);
-    // We use node's native assertion because jest's is too slow
-    deepStrictEqual(contract, this.artifact);
+    expect(names).toEqual(expect.any(Object));
     return Promise.resolve();
   }
   getL1ToL2Messages(blockNumber: bigint): Promise<Fr[]> {

@@ -4,8 +4,8 @@ use std::{
 };
 
 use crate::{
-    ast::ItemVisibility, hir_def::traits::ResolvedTraitBound, usage_tracker::UsageTracker,
-    StructField, StructType, TypeBindings,
+    ast::ItemVisibility, hir_def::traits::ResolvedTraitBound, node_interner::GlobalValue,
+    usage_tracker::UsageTracker, StructField, StructType, TypeBindings,
 };
 use crate::{
     ast::{
@@ -79,6 +79,16 @@ pub struct LambdaContext {
     pub scope_index: usize,
 }
 
+/// Determines whether we are in an unsafe block and, if so, whether
+/// any unconstrained calls were found in it (because if not we'll warn
+/// that the unsafe block is not needed).
+#[derive(Copy, Clone)]
+enum UnsafeBlockStatus {
+    NotInUnsafeBlock,
+    InUnsafeBlockWithoutUnconstrainedCalls,
+    InUnsafeBlockWithConstrainedCalls,
+}
+
 pub struct Elaborator<'context> {
     scopes: ScopeForest,
 
@@ -90,7 +100,7 @@ pub struct Elaborator<'context> {
 
     pub(crate) file: FileId,
 
-    in_unsafe_block: bool,
+    unsafe_block_status: UnsafeBlockStatus,
     nested_loops: usize,
 
     /// Contains a mapping of the current struct or functions's generics to
@@ -202,7 +212,7 @@ impl<'context> Elaborator<'context> {
             def_maps,
             usage_tracker,
             file: FileId::dummy(),
-            in_unsafe_block: false,
+            unsafe_block_status: UnsafeBlockStatus::NotInUnsafeBlock,
             nested_loops: 0,
             generics: Vec::new(),
             lambda_stack: Vec::new(),
@@ -307,22 +317,12 @@ impl<'context> Elaborator<'context> {
 
         // We have to run any comptime attributes on functions before the function is elaborated
         // since the generated items are checked beforehand as well.
-        let generated_items = self.run_attributes(
+        self.run_attributes(
             &items.traits,
             &items.types,
             &items.functions,
             &items.module_attributes,
         );
-
-        // After everything is collected, we can elaborate our generated items.
-        // It may be better to inline these within `items` entirely since elaborating them
-        // all here means any globals will not see these. Inlining them completely within `items`
-        // means we must be more careful about missing any additional items that need to be already
-        // elaborated. E.g. if a new struct is created, we've already passed the code path to
-        // elaborate them.
-        if !generated_items.is_empty() {
-            self.elaborate_items(generated_items);
-        }
 
         for functions in items.functions {
             self.elaborate_functions(functions);
@@ -1662,20 +1662,13 @@ impl<'context> Elaborator<'context> {
             self.push_err(ResolverError::MutableGlobal { span });
         }
 
-        let comptime = let_stmt.comptime;
-
-        let (let_statement, _typ) = if comptime {
-            self.elaborate_in_comptime_context(|this| this.elaborate_let(let_stmt, Some(global_id)))
-        } else {
-            self.elaborate_let(let_stmt, Some(global_id))
-        };
+        let (let_statement, _typ) = self
+            .elaborate_in_comptime_context(|this| this.elaborate_let(let_stmt, Some(global_id)));
 
         let statement_id = self.interner.get_global(global_id).let_statement;
         self.interner.replace_statement(statement_id, let_statement);
 
-        if comptime {
-            self.elaborate_comptime_global(global_id);
-        }
+        self.elaborate_comptime_global(global_id);
 
         if let Some(name) = name {
             self.interner.register_global(global_id, name, global.visibility, self.module_id());
@@ -1706,7 +1699,17 @@ impl<'context> Elaborator<'context> {
 
             self.debug_comptime(location, |interner| value.display(interner).to_string());
 
-            self.interner.get_global_mut(global_id).value = Some(value);
+            self.interner.get_global_mut(global_id).value = GlobalValue::Resolved(value);
+        }
+    }
+
+    /// If the given global is unresolved, elaborate it and return true
+    fn elaborate_global_if_unresolved(&mut self, global_id: &GlobalId) -> bool {
+        if let Some(global) = self.unresolved_globals.remove(global_id) {
+            self.elaborate_global(global);
+            true
+        } else {
+            false
         }
     }
 

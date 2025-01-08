@@ -1,24 +1,38 @@
 #!/bin/bash
 set -exu
 
-CHAIN_ID=$1
-
+SALT=${1:-$RANDOM}
+CHAIN_ID=$2
 
 # Run the deploy-l1-contracts command and capture the output
 output=""
 MAX_RETRIES=5
 RETRY_DELAY=60
+
 for attempt in $(seq 1 $MAX_RETRIES); do
-  # if INIT_VALIDATORS is true, then we need to pass the validators flag to the deploy-l1-contracts command
-  if [ "${INIT_VALIDATORS:-false}" = "true" ]; then
-    output=$(node --no-warnings /usr/src/yarn-project/aztec/dest/bin/index.js deploy-l1-contracts --mnemonic "$MNEMONIC" --validators $2 --l1-chain-id $CHAIN_ID) && break
+  # Construct base command
+  base_cmd="node --no-warnings /usr/src/yarn-project/aztec/dest/bin/index.js deploy-l1-contracts"
+
+  # Add account - use private key if set, otherwise use mnemonic
+  if [ -n "${L1_DEPLOYMENT_PRIVATE_KEY:-}" ]; then
+    base_cmd="$base_cmd --private-key $L1_DEPLOYMENT_PRIVATE_KEY"
   else
-    output=$(node --no-warnings /usr/src/yarn-project/aztec/dest/bin/index.js deploy-l1-contracts --mnemonic "$MNEMONIC" --l1-chain-id $CHAIN_ID) && break
+    base_cmd="$base_cmd --mnemonic '$MNEMONIC'"
   fi
+
+  # Add validators if INIT_VALIDATORS is true
+  if [ "${INIT_VALIDATORS:-false}" = "true" ]; then
+    output=$(eval $base_cmd --validators $3 --l1-chain-id $CHAIN_ID --salt $SALT) && break
+  else
+    output=$(eval $base_cmd --l1-chain-id $CHAIN_ID --salt $SALT) && break
+  fi
+
   echo "Attempt $attempt failed. Retrying in $RETRY_DELAY seconds..."
   sleep "$RETRY_DELAY"
-done || { echo "All l1 contract deploy attempts failed."; exit 1; }
-
+done || {
+  echo "All l1 contract deploy attempts failed."
+  exit 1
+}
 
 echo "$output"
 
@@ -34,9 +48,10 @@ coin_issuer_address=$(echo "$output" | grep -oP 'CoinIssuer Address: \K0x[a-fA-F
 reward_distributor_address=$(echo "$output" | grep -oP 'RewardDistributor Address: \K0x[a-fA-F0-9]{40}')
 governance_proposer_address=$(echo "$output" | grep -oP 'GovernanceProposer Address: \K0x[a-fA-F0-9]{40}')
 governance_address=$(echo "$output" | grep -oP 'Governance Address: \K0x[a-fA-F0-9]{40}')
+slash_factory_address=$(echo "$output" | grep -oP 'SlashFactory Address: \K0x[a-fA-F0-9]{40}')
 
 # Write the addresses to a file in the shared volume
-cat <<EOF > /shared/contracts/contracts.env
+cat <<EOF >/shared/contracts/contracts.env
 export ROLLUP_CONTRACT_ADDRESS=$rollup_address
 export REGISTRY_CONTRACT_ADDRESS=$registry_address
 export INBOX_CONTRACT_ADDRESS=$inbox_address
@@ -48,6 +63,7 @@ export COIN_ISSUER_CONTRACT_ADDRESS=$coin_issuer_address
 export REWARD_DISTRIBUTOR_CONTRACT_ADDRESS=$reward_distributor_address
 export GOVERNANCE_PROPOSER_CONTRACT_ADDRESS=$governance_proposer_address
 export GOVERNANCE_CONTRACT_ADDRESS=$governance_address
+export SLASH_FACTORY_CONTRACT_ADDRESS=$slash_factory_address
 EOF
 
 cat /shared/contracts/contracts.env

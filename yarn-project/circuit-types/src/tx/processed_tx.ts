@@ -103,7 +103,7 @@ export function makeEmptyProcessedTx(
   clientProofOutput.constants = constants;
 
   return {
-    hash: new TxHash(Fr.ZERO.toBuffer()),
+    hash: new TxHash(Fr.ZERO),
     data: clientProofOutput,
     clientIvcProof: ClientIvcProof.empty(),
     avmProvingRequest: undefined,
@@ -112,6 +112,7 @@ export function makeEmptyProcessedTx(
     gasUsed: {
       totalGas: Gas.empty(),
       teardownGas: Gas.empty(),
+      publicGas: Gas.empty(),
     },
     revertReason: undefined,
     isEmpty: true,
@@ -148,7 +149,8 @@ export function makeProcessedTxFromPrivateOnlyTx(
   const gasUsed = {
     totalGas: tx.data.gasUsed,
     teardownGas: Gas.empty(),
-  };
+    publicGas: Gas.empty(),
+  } satisfies GasUsed;
 
   return {
     hash: tx.getTxHash(),
@@ -161,6 +163,12 @@ export function makeProcessedTxFromPrivateOnlyTx(
     revertReason: undefined,
     isEmpty: false,
   };
+}
+
+export function toNumBlobFields(txs: ProcessedTx[]): number {
+  return txs.reduce((acc, tx) => {
+    return acc + tx.txEffect.toBlobFields().length;
+  }, 0);
 }
 
 export function makeProcessedTxFromTxWithPublicCalls(

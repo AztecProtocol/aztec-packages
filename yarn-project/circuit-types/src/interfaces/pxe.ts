@@ -43,7 +43,6 @@ import { SiblingPath } from '../sibling_path/sibling_path.js';
 import { Tx, TxHash, TxProvingResult, TxReceipt, TxSimulationResult } from '../tx/index.js';
 import { TxEffect } from '../tx_effect.js';
 import { TxExecutionRequest } from '../tx_execution_request.js';
-import { type SyncStatus, SyncStatusSchema } from './sync-status.js';
 
 // docs:start:pxe-interface
 /**
@@ -107,15 +106,6 @@ export interface PXE {
   getRegisteredAccounts(): Promise<CompleteAddress[]>;
 
   /**
-   * Retrieves the complete address of the account corresponding to the provided aztec address.
-   * Complete addresses include the address, the partial address, and the encryption public key.
-   *
-   * @param address - The address of account.
-   * @returns The complete address of the requested account if found.
-   */
-  getRegisteredAccount(address: AztecAddress): Promise<CompleteAddress | undefined>;
-
-  /**
    * Registers a user contact in PXE.
    *
    * Once a new contact is registered, the PXE Service will be able to receive notes tagged from this contact.
@@ -124,18 +114,18 @@ export interface PXE {
    * @param address - Address of the user to add to the address book
    * @returns The address address of the account.
    */
-  registerContact(address: AztecAddress): Promise<AztecAddress>;
+  registerSender(address: AztecAddress): Promise<AztecAddress>;
 
   /**
-   * Retrieves the addresses stored as contacts on this PXE Service.
-   * @returns An array of the contacts on this PXE Service.
+   * Retrieves the addresses stored as senders on this PXE Service.
+   * @returns An array of the senders on this PXE Service.
    */
-  getContacts(): Promise<AztecAddress[]>;
+  getSenders(): Promise<AztecAddress[]>;
 
   /**
-   * Removes a contact in the address book.
+   * Removes a sender in the address book.
    */
-  removeContact(address: AztecAddress): Promise<void>;
+  removeSender(address: AztecAddress): Promise<void>;
 
   /**
    * Registers a contract class in the PXE without registering any associated contract instance with it.
@@ -199,6 +189,7 @@ export interface PXE {
     simulatePublic: boolean,
     msgSender?: AztecAddress,
     skipTxValidation?: boolean,
+    enforceFeePayment?: boolean,
     profile?: boolean,
     scopes?: AztecAddress[],
   ): Promise<TxSimulationResult>;
@@ -352,22 +343,6 @@ export interface PXE {
   getPXEInfo(): Promise<PXEInfo>;
 
   /**
-   * Checks whether all the blocks were processed (tree roots updated, txs updated with block info, etc.).
-   * @returns True if there are no outstanding blocks to be synched.
-   * @remarks This indicates that blocks and transactions are synched even if notes are not. Compares local block number with the block number from aztec node.
-   * @deprecated Use `getSyncStatus` instead.
-   */
-  isGlobalStateSynchronized(): Promise<boolean>;
-
-  /**
-   * Returns the latest block that has been synchronized globally and for each account. The global block number
-   * indicates whether global state has been updated up to that block, whereas each address indicates up to which
-   * block the private state has been synced for that account.
-   * @returns The latest block synchronized for blocks, and the latest block synched for notes for each public key being tracked.
-   */
-  getSyncStatus(): Promise<SyncStatus>;
-
-  /**
    * Returns a Contract Instance given its address, which includes the contract class identifier,
    * initialization hash, deployment salt, and public keys hash.
    * TODO(@spalladino): Should we return the public keys in plain as well here?
@@ -479,13 +454,9 @@ export const PXESchema: ApiSchemaFor<PXE> = {
   addCapsule: z.function().args(z.array(schemas.Fr)).returns(z.void()),
   registerAccount: z.function().args(schemas.Fr, schemas.Fr).returns(CompleteAddress.schema),
   getRegisteredAccounts: z.function().returns(z.array(CompleteAddress.schema)),
-  getRegisteredAccount: z
-    .function()
-    .args(schemas.AztecAddress)
-    .returns(z.union([CompleteAddress.schema, z.undefined()])),
-  registerContact: z.function().args(schemas.AztecAddress).returns(schemas.AztecAddress),
-  getContacts: z.function().returns(z.array(schemas.AztecAddress)),
-  removeContact: z.function().args(schemas.AztecAddress).returns(z.void()),
+  registerSender: z.function().args(schemas.AztecAddress).returns(schemas.AztecAddress),
+  getSenders: z.function().returns(z.array(schemas.AztecAddress)),
+  removeSender: z.function().args(schemas.AztecAddress).returns(z.void()),
   registerContractClass: z.function().args(ContractArtifactSchema).returns(z.void()),
   registerContract: z
     .function()
@@ -499,6 +470,7 @@ export const PXESchema: ApiSchemaFor<PXE> = {
       TxExecutionRequest.schema,
       z.boolean(),
       optional(schemas.AztecAddress),
+      optional(z.boolean()),
       optional(z.boolean()),
       optional(z.boolean()),
       optional(z.array(schemas.AztecAddress)),
@@ -540,8 +512,6 @@ export const PXESchema: ApiSchemaFor<PXE> = {
   getProvenBlockNumber: z.function().returns(z.number()),
   getNodeInfo: z.function().returns(NodeInfoSchema),
   getPXEInfo: z.function().returns(PXEInfoSchema),
-  isGlobalStateSynchronized: z.function().returns(z.boolean()),
-  getSyncStatus: z.function().returns(SyncStatusSchema),
   getContractInstance: z
     .function()
     .args(schemas.AztecAddress)

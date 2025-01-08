@@ -1,6 +1,6 @@
 {
   "name": "@aztec/aztec",
-  "version": "0.66.0",
+  "version": "0.69.0",
   "type": "module",
   "exports": {
     ".": "./dest/index.js"
@@ -17,11 +17,12 @@
     "build": "yarn clean && tsc -b",
     "start": "node --no-warnings ./dest/bin",
     "start:debug": "node --inspect=0.0.0.0:9221 --no-warnings ./dest/bin",
+    "start:sandbox": "ETHEREUM_HOST=http://0.0.0.0:8545/ && yarn start start --sandbox",
     "clean": "rm -rf ./dest .tsbuildinfo",
     "formatting": "run -T prettier --check ./src && run -T eslint ./src",
     "formatting:fix": "run -T eslint --fix ./src && run -T prettier -w ./src",
     "build:dev": "tsc -b --watch",
-    "test": "NODE_NO_WARNINGS=1 node --experimental-vm-modules ../node_modules/.bin/jest --passWithNoTests",
+    "test": "HARDWARE_CONCURRENCY=${HARDWARE_CONCURRENCY:-16} RAYON_NUM_THREADS=${RAYON_NUM_THREADS:-4} NODE_NO_WARNINGS=1 node --experimental-vm-modules ../node_modules/.bin/jest --passWithNoTests --maxWorkers=${JEST_MAX_WORKERS:-8}",
     "run:example:token": "LOG_LEVEL='verbose' node ./dest/examples/token.js"
   },
   "inherits": [
@@ -104,12 +105,7 @@
       ".ts"
     ],
     "reporters": [
-      [
-        "default",
-        {
-          "summaryThreshold": 9999
-        }
-      ]
+      "default"
     ],
     "testTimeout": 30000,
     "setupFiles": [

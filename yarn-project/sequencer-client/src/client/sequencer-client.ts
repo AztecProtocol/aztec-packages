@@ -1,6 +1,8 @@
 import { type L1ToL2MessageSource, type L2BlockSource, type WorldStateSynchronizer } from '@aztec/circuit-types';
 import { type ContractDataSource } from '@aztec/circuits.js';
+import { isAnvilTestChain } from '@aztec/ethereum';
 import { type EthAddress } from '@aztec/foundation/eth-address';
+import { type DateProvider } from '@aztec/foundation/timer';
 import { type P2P } from '@aztec/p2p';
 import { LightweightBlockBuilderFactory } from '@aztec/prover-client/block-builder';
 import { PublicProcessorFactory } from '@aztec/simulator';
@@ -11,13 +13,14 @@ import { type SequencerClientConfig } from '../config.js';
 import { GlobalVariableBuilder } from '../global_variable_builder/index.js';
 import { L1Publisher } from '../publisher/index.js';
 import { Sequencer, type SequencerConfig } from '../sequencer/index.js';
+import { type SlasherClient } from '../slasher/index.js';
 import { TxValidatorFactory } from '../tx_validator/tx_validator_factory.js';
 
 /**
  * Encapsulates the full sequencer and publisher.
  */
 export class SequencerClient {
-  constructor(private sequencer: Sequencer) {}
+  constructor(protected sequencer: Sequencer) {}
 
   /**
    * Initializes and starts a new instance.
@@ -38,17 +41,20 @@ export class SequencerClient {
       validatorClient: ValidatorClient | undefined; // allowed to be undefined while we migrate
       p2pClient: P2P;
       worldStateSynchronizer: WorldStateSynchronizer;
+      slasherClient: SlasherClient;
       contractDataSource: ContractDataSource;
       l2BlockSource: L2BlockSource;
       l1ToL2MessageSource: L1ToL2MessageSource;
       telemetry: TelemetryClient;
       publisher?: L1Publisher;
+      dateProvider: DateProvider;
     },
   ) {
     const {
       validatorClient,
       p2pClient,
       worldStateSynchronizer,
+      slasherClient,
       contractDataSource,
       l2BlockSource,
       l1ToL2MessageSource,
@@ -57,7 +63,7 @@ export class SequencerClient {
     const publisher = deps.publisher ?? new L1Publisher(config, telemetryClient);
     const globalsBuilder = new GlobalVariableBuilder(config);
 
-    const publicProcessorFactory = new PublicProcessorFactory(contractDataSource, telemetryClient);
+    const publicProcessorFactory = new PublicProcessorFactory(contractDataSource, deps.dateProvider, telemetryClient);
 
     const rollup = publisher.getRollupContract();
     const [l1GenesisTime, slotDuration] = await Promise.all([
@@ -65,21 +71,39 @@ export class SequencerClient {
       rollup.read.SLOT_DURATION(),
     ] as const);
 
+    const ethereumSlotDuration = config.ethereumSlotDuration;
+
+    // When running in anvil, assume we can post a tx up until the very last second of an L1 slot.
+    // Otherwise, assume we must have broadcasted the tx before the slot started (we use a default
+    // maxL1TxInclusionTimeIntoSlot of zero) to get the tx into that L1 slot.
+    // In theory, the L1 slot has an initial 4s phase where the block is propagated, so we could
+    // make it with a propagation time into slot equal to 4s. However, we prefer being conservative.
+    // See https://www.blocknative.com/blog/anatomy-of-a-slot#7 for more info.
+    const maxL1TxInclusionTimeIntoSlot =
+      config.maxL1TxInclusionTimeIntoSlot ?? isAnvilTestChain(config.l1ChainId) ? ethereumSlotDuration : 0;
+
+    const l1Constants = {
+      l1GenesisTime,
+      slotDuration: Number(slotDuration),
+      ethereumSlotDuration,
+    };
+
     const sequencer = new Sequencer(
       publisher,
       validatorClient,
       globalsBuilder,
       p2pClient,
       worldStateSynchronizer,
+      slasherClient,
       new LightweightBlockBuilderFactory(telemetryClient),
       l2BlockSource,
       l1ToL2MessageSource,
       publicProcessorFactory,
       new TxValidatorFactory(worldStateSynchronizer.getCommitted(), contractDataSource, !!config.enforceFees),
-      Number(l1GenesisTime),
-      Number(slotDuration),
+      l1Constants,
+      deps.dateProvider,
       telemetryClient,
-      config,
+      { ...config, maxL1TxInclusionTimeIntoSlot },
     );
     await validatorClient?.start();
     await sequencer.start();

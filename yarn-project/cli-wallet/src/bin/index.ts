@@ -2,7 +2,6 @@ import { Fr, computeSecretHash, fileURLToPath } from '@aztec/aztec.js';
 import { LOCALHOST } from '@aztec/cli/cli-utils';
 import { type LogFn, createConsoleLogger, createLogger } from '@aztec/foundation/log';
 import { AztecLmdbStore } from '@aztec/kv-store/lmdb';
-import { type PXEService } from '@aztec/pxe';
 
 import { Argument, Command, Option } from 'commander';
 import { readFileSync } from 'fs';
@@ -89,16 +88,20 @@ async function main() {
     )
     .hook('preSubcommand', async command => {
       const { dataDir, remotePxe, nodeUrl } = command.optsWithGlobals();
+
       if (!remotePxe) {
         debugLogger.info('Using local PXE service');
-        await pxeWrapper.init(nodeUrl, join(dataDir, 'pxe'));
+
+        // Always enable proving when profiling
+        const subcommand = command.args[0];
+        const isProfiling = command.args.includes('--profile');
+        const proverEnabled = subcommand === 'simulate' && isProfiling;
+
+        await pxeWrapper.init(nodeUrl, join(dataDir, 'pxe'), {
+          ...(proverEnabled && { proverEnabled }), // only override if we're profiling
+        });
       }
       db.init(AztecLmdbStore.open(dataDir));
-    })
-    .hook('postAction', async () => {
-      if (pxeWrapper.getPXE()) {
-        await (pxeWrapper.getPXE() as PXEService).stop();
-      }
     });
 
   injectCommands(program, userLog, debugLogger, db, pxeWrapper);

@@ -3,8 +3,6 @@ title: Communicating with L1
 tags: [contracts, portals]
 ---
 
-Is this your first time hearing the word `Portal`? You might want to check out the [protocol specs](../../../../../protocol-specs/l1-smart-contracts/index.md).
-
 Follow the [token bridge tutorial](../../../../../tutorials/codealong/contract_tutorials/token_bridge/index.md) for hands-on experience writing and deploying a Portal contract.
 
 ## Passing data to the rollup
