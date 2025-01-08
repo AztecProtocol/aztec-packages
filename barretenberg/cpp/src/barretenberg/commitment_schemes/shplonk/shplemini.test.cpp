@@ -24,31 +24,6 @@ template <class Flavor> class ShpleminiTest : public CommitmentTest<typename Fla
     using Polynomial = bb::Polynomial<Fr>;
     static constexpr size_t n = 32;
     static constexpr size_t log_n = 5;
-
-    void construct_instance_and_witnesses(
-        size_t num_unshifted, size_t num_shifted, std::vector<Fr>& const_size_mle_opening_point;
-        std::vector<Commitment> & commitments, std::vector<Fr>& unshifted_evals, std::vector<Fr>& shifted_evals)
-    {
-        auto mle_opening_point = this->random_evaluation_point(this->log_n);
-
-        for (size_t idx = 0; idx < num_unshifted; idx++) {
-        }
-        auto poly1 = Polynomial::random(this->n);
-        auto poly2 = Polynomial::random(this->n, /*shiftable*/ 1);
-        Polynomial poly3 = Polynomial::shiftable(this->n);
-
-        Commitment commitment1 = this->commit(poly1);
-        Commitment commitment2 = this->commit(poly2);
-        Commitment commitment3 = this->commit(poly3);
-        std::vector<Fr> mle_opening_point(const_size_mle_opening_point.begin(),
-                                          const_size_mle_opening_point.begin() + this->log_n);
-        // Evaluate the polynomials at the multivariate challenge, poly3 is not evaluated, because it is 0.
-        auto eval1 = poly1.evaluate_mle(mle_opening_point);
-        auto eval2 = poly2.evaluate_mle(mle_opening_point);
-        Fr eval3{ 0 };
-        Fr eval3_shift{ 0 };
-        auto eval2_shift = poly2.evaluate_mle(mle_opening_point, true);
-    }
 };
 
 using FlavorTypes = ::testing::Types<TestBn254Flavor, TestGrumpkinFlavor>;
