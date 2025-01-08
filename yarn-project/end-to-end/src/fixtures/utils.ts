@@ -745,6 +745,9 @@ export async function createAndSyncProverNode(
     quoteProviderBondAmount: 1000n,
     proverMinimumEscrowAmount: 1000n,
     proverTargetEscrowAmount: 2000n,
+    txGatheringTimeoutMs: 60000,
+    txGatheringIntervalMs: 1000,
+    txGatheringMaxParallelRequests: 100,
   };
 
   // Use testing l1 publisher

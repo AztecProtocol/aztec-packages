@@ -1,3 +1,4 @@
+import { TimeoutError } from '../error/index.js';
 import { createLogger } from '../log/index.js';
 import { sleep } from '../sleep/index.js';
 import { Timer } from '../timer/index.js';
@@ -93,7 +94,7 @@ export async function retryUntil<T>(fn: () => Promise<T | undefined>, name = '',
     await sleep(interval * 1000);
 
     if (timeout && timer.s() > timeout) {
-      throw new Error(name ? `Timeout awaiting ${name}` : 'Timeout');
+      throw new TimeoutError(name ? `Timeout awaiting ${name}` : 'Timeout');
     }
   }
 }
