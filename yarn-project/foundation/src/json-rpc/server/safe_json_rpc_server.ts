@@ -24,6 +24,11 @@ export class SafeJsonRpcServer {
   constructor(
     /** The proxy object to delegate requests to. */
     private readonly proxy: Proxy,
+    /**
+     *  Return an HTTP 200 status code on errors, but include an error object
+     *  as per the JSON RPC spec
+     */
+    private http200OnError = false,
     /** Health check function */
     private readonly healthCheck: StatusCheckFn = () => true,
     /** Logger */
@@ -105,9 +110,17 @@ export class SafeJsonRpcServer {
         ctx.status = 400;
         ctx.body = { jsonrpc, id, error: { code: -32601, message: `Method not found: ${method}` } };
       } else {
-        const result = await this.proxy.call(method, params);
-        ctx.body = { jsonrpc, id, result };
         ctx.status = 200;
+        try {
+          const result = await this.proxy.call(method, params);
+          ctx.body = { jsonrpc, id, result };
+        } catch (err: any) {
+          if (this.http200OnError) {
+            ctx.body = { jsonrpc, id, error: { code: err.code || -32600, data: err.data, message: err.message } };
+          } else {
+            throw err;
+          }
+        }
       }
     });
 
@@ -259,20 +272,22 @@ function makeAggregateHealthcheck(namedHandlers: NamespacedApiHandlers, log?: Lo
  */
 export function createNamespacedSafeJsonRpcServer(
   handlers: NamespacedApiHandlers,
+  http200OnError = false,
   log = createLogger('json-rpc:server'),
 ): SafeJsonRpcServer {
   const proxy = new NamespacedSafeJsonProxy(handlers);
   const healthCheck = makeAggregateHealthcheck(handlers, log);
-  return new SafeJsonRpcServer(proxy, healthCheck, log);
+  return new SafeJsonRpcServer(proxy, http200OnError, healthCheck, log);
 }
 
 export function createSafeJsonRpcServer<T extends object = any>(
   handler: T,
   schema: ApiSchemaFor<T>,
+  http200OnError = false,
   healthCheck?: StatusCheckFn,
 ) {
   const proxy = new SafeJsonProxy(handler, schema);
-  return new SafeJsonRpcServer(proxy, healthCheck);
+  return new SafeJsonRpcServer(proxy, http200OnError, healthCheck);
 }
 
 /**

@@ -4,6 +4,7 @@ import {
   ProvingRequestType,
   SimulationError,
   type TreeInfo,
+  type Tx,
   type TxValidator,
   mockTx,
 } from '@aztec/circuit-types';
@@ -95,7 +96,7 @@ describe('public_processor', () => {
     it('process private-only txs', async function () {
       const tx = mockPrivateOnlyTx();
 
-      const [processed, failed] = await processor.process([tx], 1);
+      const [processed, failed] = await processor.process([tx]);
 
       expect(processed.length).toBe(1);
       expect(processed[0].hash).toEqual(tx.getTxHash());
@@ -106,7 +107,7 @@ describe('public_processor', () => {
     it('runs a tx with enqueued public calls', async function () {
       const tx = mockTxWithPublicCalls();
 
-      const [processed, failed] = await processor.process([tx], 1);
+      const [processed, failed] = await processor.process([tx]);
 
       expect(processed.length).toBe(1);
       expect(processed[0].hash).toEqual(tx.getTxHash());
@@ -122,7 +123,7 @@ describe('public_processor', () => {
       mockedEnqueuedCallsResult.revertCode = RevertCode.APP_LOGIC_REVERTED;
       mockedEnqueuedCallsResult.revertReason = new SimulationError(`Failed`, []);
 
-      const [processed, failed] = await processor.process([tx], 1);
+      const [processed, failed] = await processor.process([tx]);
 
       expect(processed.length).toBe(1);
       expect(processed[0].hash).toEqual(tx.getTxHash());
@@ -135,7 +136,7 @@ describe('public_processor', () => {
       publicTxSimulator.simulate.mockRejectedValue(new SimulationError(`Failed`, []));
 
       const tx = mockTxWithPublicCalls();
-      const [processed, failed] = await processor.process([tx], 1);
+      const [processed, failed] = await processor.process([tx]);
 
       expect(processed).toEqual([]);
       expect(failed.length).toBe(1);
@@ -149,7 +150,7 @@ describe('public_processor', () => {
       const txs = Array.from([1, 2, 3], seed => mockPrivateOnlyTx({ seed }));
 
       // We are passing 3 txs but only 2 can fit in the block
-      const [processed, failed] = await processor.process(txs, 2);
+      const [processed, failed] = await processor.process(txs, { maxTransactions: 2 });
 
       expect(processed.length).toBe(2);
       expect(processed[0].hash).toEqual(txs[0].getTxHash());
@@ -159,13 +160,25 @@ describe('public_processor', () => {
       expect(worldStateDB.commit).toHaveBeenCalledTimes(2);
     });
 
-    it('does not send a transaction to the prover if validation fails', async function () {
+    it('does not send a transaction to the prover if pre validation fails', async function () {
+      const tx = mockPrivateOnlyTx();
+
+      const txValidator: MockProxy<TxValidator<Tx>> = mock();
+      txValidator.validateTx.mockResolvedValue({ result: 'invalid', reason: ['Invalid'] });
+
+      const [processed, failed] = await processor.process([tx], {}, { preprocessValidator: txValidator });
+
+      expect(processed).toEqual([]);
+      expect(failed.length).toBe(1);
+    });
+
+    it('does not send a transaction to the prover if post validation fails', async function () {
       const tx = mockPrivateOnlyTx();
 
       const txValidator: MockProxy<TxValidator<ProcessedTx>> = mock();
-      txValidator.validateTxs.mockRejectedValue([[], [tx]]);
+      txValidator.validateTx.mockResolvedValue({ result: 'invalid', reason: ['Invalid'] });
 
-      const [processed, failed] = await processor.process([tx], 1, txValidator);
+      const [processed, failed] = await processor.process([tx], {}, { postprocessValidator: txValidator });
 
       expect(processed).toEqual([]);
       expect(failed.length).toBe(1);
@@ -183,7 +196,7 @@ describe('public_processor', () => {
 
       // We allocate a deadline of 1s, so only one 2 txs should fit
       const deadline = new Date(Date.now() + 1000);
-      const [processed, failed] = await processor.process(txs, 3, undefined, deadline);
+      const [processed, failed] = await processor.process(txs, { deadline });
 
       expect(processed.length).toBe(2);
       expect(processed[0].hash).toEqual(txs[0].getTxHash());
@@ -215,7 +228,7 @@ describe('public_processor', () => {
 
       const txFee = privateGasUsed.computeFee(globalVariables.gasFees);
 
-      const [processed, failed] = await processor.process([tx], 1);
+      const [processed, failed] = await processor.process([tx]);
 
       expect(processed).toHaveLength(1);
       expect(processed[0].data.feePayer).toEqual(feePayer);
@@ -239,7 +252,7 @@ describe('public_processor', () => {
       }
       tx.data.gasUsed = privateGasUsed;
 
-      const [processed, failed] = await processor.process([tx], 1);
+      const [processed, failed] = await processor.process([tx]);
 
       expect(processed).toEqual([]);
       expect(failed).toHaveLength(1);

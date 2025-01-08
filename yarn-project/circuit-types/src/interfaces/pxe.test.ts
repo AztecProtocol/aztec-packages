@@ -34,8 +34,8 @@ import { AuthWitness } from '../auth_witness.js';
 import { type InBlock } from '../in_block.js';
 import { L2Block } from '../l2_block.js';
 import { ExtendedUnencryptedL2Log, type GetUnencryptedLogsResponse, type LogFilter } from '../logs/index.js';
-import { type IncomingNotesFilter } from '../notes/incoming_notes_filter.js';
 import { ExtendedNote, UniqueNote } from '../notes/index.js';
+import { type NotesFilter } from '../notes/notes_filter.js';
 import { PrivateExecutionResult } from '../private_execution_result.js';
 import { type EpochProofQuote } from '../prover_coordination/epoch_proof_quote.js';
 import { SiblingPath } from '../sibling_path/sibling_path.js';
@@ -190,8 +190,8 @@ describe('PXESchema', () => {
     expect(result).toBeInstanceOf(Fr);
   });
 
-  it('getIncomingNotes', async () => {
-    const result = await context.client.getIncomingNotes({ contractAddress: address });
+  it('getNotes', async () => {
+    const result = await context.client.getNotes({ contractAddress: address });
     expect(result).toEqual([expect.any(UniqueNote)]);
   });
 
@@ -409,7 +409,7 @@ class MockPXE implements PXE {
     expect(slot).toBeInstanceOf(Fr);
     return Promise.resolve(Fr.random());
   }
-  getIncomingNotes(filter: IncomingNotesFilter): Promise<UniqueNote[]> {
+  getNotes(filter: NotesFilter): Promise<UniqueNote[]> {
     expect(filter.contractAddress).toEqual(this.address);
     return Promise.resolve([UniqueNote.random()]);
   }

@@ -2,11 +2,12 @@ VERSION 0.8
 test:
   BUILD +test-protocol-circuits
   BUILD +test-aztec-nr
-  # BUILD +test-contracts
+  BUILD +test-contracts
 
 test-protocol-circuits:
   FROM ../+bootstrap
   ENV PATH="/usr/src/noir/noir-repo/target/release:${PATH}"
+  # TODO(#10754): Remove --skip-brillig-constraints-check
   RUN cd /usr/src/noir-projects/noir-protocol-circuits && nargo test --silence-warnings --skip-brillig-constraints-check
 
 test-aztec-nr:
@@ -52,6 +53,8 @@ gates-report:
 
   # Install bb
   ENV BB_BIN /usr/src/barretenberg/cpp/build/bin/bb
+
+  # TODO(#10754): Remove --skip-brillig-constraints-check
   RUN cd noir-protocol-circuits && yarn && node ./scripts/generate_variants.js tiny && nargo compile --silence-warnings --skip-brillig-constraints-check
 
   COPY ./gates_report.sh ./gates_report.sh

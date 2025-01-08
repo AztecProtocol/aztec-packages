@@ -20,6 +20,7 @@ import {
   TxHash,
   type TxReceipt,
   TxScopedL2Log,
+  type TxValidationResult,
   type UnencryptedL2Log,
 } from '@aztec/circuit-types';
 import {
@@ -450,7 +451,7 @@ export class TXENode implements AztecNode {
    * @param aztecAddress
    * @param artifact
    */
-  registerContractFunctionNames(_address: AztecAddress, _names: Record<string, string>): Promise<void> {
+  registerContractFunctionSignatures(_address: AztecAddress, _signatures: string[]): Promise<void> {
     throw new Error('TXE Node method addContractArtifact not implemented');
   }
 
@@ -557,7 +558,7 @@ export class TXENode implements AztecNode {
    * @param tx - The transaction to validate for correctness.
    * @param isSimulation - True if the transaction is a simulated one without generated proofs. (Optional)
    */
-  isValidTx(_tx: Tx, _isSimulation?: boolean): Promise<boolean> {
+  isValidTx(_tx: Tx, _isSimulation?: boolean): Promise<TxValidationResult> {
     throw new Error('TXE Node method isValidTx not implemented');
   }
 
