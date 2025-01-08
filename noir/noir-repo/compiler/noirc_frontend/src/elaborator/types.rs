@@ -1,6 +1,5 @@
 use std::{borrow::Cow, rc::Rc};
 
-use acvm::acir::AcirField;
 use iter_extended::vecmap;
 use noirc_errors::{Location, Span};
 use rustc_hash::FxHashMap as HashMap;
@@ -12,7 +11,6 @@ use crate::{
         UnresolvedTypeData, UnresolvedTypeExpression, WILDCARD_TYPE,
     },
     hir::{
-        comptime::{Interpreter, Value},
         def_collector::dc_crate::CompilationError,
         resolution::{errors::ResolverError, import::PathResolutionError},
         type_check::{
@@ -30,14 +28,14 @@ use crate::{
         traits::{NamedType, ResolvedTraitBound, Trait, TraitConstraint},
     },
     node_interner::{
-        DefinitionKind, DependencyId, ExprId, GlobalId, ImplSearchErrorKind, NodeInterner, TraitId,
+        DependencyId, ExprId, GlobalValue, ImplSearchErrorKind, NodeInterner, TraitId,
         TraitImplKind, TraitMethodId,
     },
     token::SecondaryAttribute,
     Generics, Kind, ResolvedGeneric, Type, TypeBinding, TypeBindings, UnificationError,
 };
 
-use super::{lints, path_resolution::PathResolutionItem, Elaborator};
+use super::{lints, path_resolution::PathResolutionItem, Elaborator, UnsafeBlockStatus};
 
 pub const SELF_TYPE_NAME: &str = "Self";
 
@@ -415,17 +413,41 @@ impl<'context> Elaborator<'context> {
                     .map(|let_statement| Kind::numeric(let_statement.r#type))
                     .unwrap_or(Kind::u32());
 
-                // TODO(https://github.com/noir-lang/noir/issues/6238):
-                // support non-u32 generics here
-                if !kind.unifies(&Kind::u32()) {
-                    let error = TypeCheckError::EvaluatedGlobalIsntU32 {
-                        expected_kind: Kind::u32().to_string(),
-                        expr_kind: kind.to_string(),
-                        expr_span: path.span(),
-                    };
-                    self.push_err(error);
-                }
-                Some(Type::Constant(self.eval_global_as_array_length(id, path).into(), kind))
+                let Some(stmt) = self.interner.get_global_let_statement(id) else {
+                    if self.elaborate_global_if_unresolved(&id) {
+                        return self.lookup_generic_or_global_type(path);
+                    } else {
+                        let path = path.clone();
+                        self.push_err(ResolverError::NoSuchNumericTypeVariable { path });
+                        return None;
+                    }
+                };
+
+                let rhs = stmt.expression;
+                let span = self.interner.expr_span(&rhs);
+
+                let GlobalValue::Resolved(global_value) = &self.interner.get_global(id).value
+                else {
+                    self.push_err(ResolverError::UnevaluatedGlobalType { span });
+                    return None;
+                };
+
+                let Some(global_value) = global_value.to_field_element() else {
+                    let global_value = global_value.clone();
+                    if global_value.is_integral() {
+                        self.push_err(ResolverError::NegativeGlobalType { span, global_value });
+                    } else {
+                        self.push_err(ResolverError::NonIntegralGlobalType { span, global_value });
+                    }
+                    return None;
+                };
+
+                let Ok(global_value) = kind.ensure_value_fits(global_value, span) else {
+                    self.push_err(ResolverError::GlobalLargerThanKind { span, global_value, kind });
+                    return None;
+                };
+
+                Some(Type::Constant(global_value, kind))
             }
             _ => None,
         }
@@ -544,12 +566,17 @@ impl<'context> Elaborator<'context> {
     }
 
     // this resolves Self::some_static_method, inside an impl block (where we don't have a concrete self_type)
+    // or inside a trait default method.
     //
     // Returns the trait method, trait constraint, and whether the impl is assumed to exist by a where clause or not
     // E.g. `t.method()` with `where T: Foo<Bar>` in scope will return `(Foo::method, T, vec![Bar])`
     fn resolve_trait_static_method_by_self(&mut self, path: &Path) -> Option<TraitPathResolution> {
-        let trait_impl = self.current_trait_impl?;
-        let trait_id = self.interner.try_get_trait_implementation(trait_impl)?.borrow().trait_id;
+        let trait_id = if let Some(current_trait) = self.current_trait {
+            current_trait
+        } else {
+            let trait_impl = self.current_trait_impl?;
+            self.interner.try_get_trait_implementation(trait_impl)?.borrow().trait_id
+        };
 
         if path.kind == PathKind::Plain && path.segments.len() == 2 {
             let name = &path.segments[0].ident.0.contents;
@@ -631,31 +658,6 @@ impl<'context> Elaborator<'context> {
         self.resolve_trait_static_method_by_self(path)
             .or_else(|| self.resolve_trait_static_method(path))
             .or_else(|| self.resolve_trait_method_by_named_generic(path))
-    }
-
-    fn eval_global_as_array_length(&mut self, global_id: GlobalId, path: &Path) -> u32 {
-        let Some(stmt) = self.interner.get_global_let_statement(global_id) else {
-            if let Some(global) = self.unresolved_globals.remove(&global_id) {
-                self.elaborate_global(global);
-                return self.eval_global_as_array_length(global_id, path);
-            } else {
-                let path = path.clone();
-                self.push_err(ResolverError::NoSuchNumericTypeVariable { path });
-                return 0;
-            }
-        };
-
-        let length = stmt.expression;
-        let span = self.interner.expr_span(&length);
-        let result = try_eval_array_length_id(self.interner, length, span);
-
-        match result.map(|length| length.try_into()) {
-            Ok(Ok(length_value)) => return length_value,
-            Ok(Err(_cast_err)) => self.push_err(ResolverError::IntegerTooLarge { span }),
-            Err(Some(error)) => self.push_err(error),
-            Err(None) => (),
-        }
-        0
     }
 
     pub(super) fn unify(
@@ -1398,6 +1400,25 @@ impl<'context> Elaborator<'context> {
         };
         let func_meta = self.interner.function_meta(&func_id);
 
+        // If inside a trait method, check if it's a method on `self`
+        if let Some(trait_id) = func_meta.trait_id {
+            if Some(object_type) == self.self_type.as_ref() {
+                let the_trait = self.interner.get_trait(trait_id);
+                let constraint = the_trait.as_constraint(the_trait.name.span());
+                if let Some(HirMethodReference::TraitMethodId(method_id, generics, _)) = self
+                    .lookup_method_in_trait(
+                        the_trait,
+                        method_name,
+                        &constraint.trait_bound,
+                        the_trait.id,
+                    )
+                {
+                    // If it is, it's an assumed trait
+                    return Some(HirMethodReference::TraitMethodId(method_id, generics, true));
+                }
+            }
+        }
+
         for constraint in &func_meta.trait_constraints {
             if *object_type == constraint.typ {
                 if let Some(the_trait) =
@@ -1435,6 +1456,7 @@ impl<'context> Elaborator<'context> {
             return Some(HirMethodReference::TraitMethodId(
                 trait_method,
                 trait_bound.trait_generics.clone(),
+                false,
             ));
         }
 
@@ -1486,8 +1508,14 @@ impl<'context> Elaborator<'context> {
             func_type_is_unconstrained || self.is_unconstrained_call(call.func);
         let crossing_runtime_boundary = is_current_func_constrained && is_unconstrained_call;
         if crossing_runtime_boundary {
-            if !self.in_unsafe_block {
-                self.push_err(TypeCheckError::Unsafe { span });
+            match self.unsafe_block_status {
+                UnsafeBlockStatus::NotInUnsafeBlock => {
+                    self.push_err(TypeCheckError::Unsafe { span });
+                }
+                UnsafeBlockStatus::InUnsafeBlockWithoutUnconstrainedCalls => {
+                    self.unsafe_block_status = UnsafeBlockStatus::InUnsafeBlockWithConstrainedCalls;
+                }
+                UnsafeBlockStatus::InUnsafeBlockWithConstrainedCalls => (),
             }
 
             if let Some(called_func_id) = self.interner.lookup_function_from_expr(&call.func) {
@@ -1831,88 +1859,6 @@ fn bind_generic(param: &ResolvedGeneric, arg: &Type, bindings: &mut TypeBindings
     // Avoid binding t = t
     if !arg.occurs(param.type_var.id()) {
         bindings.insert(param.type_var.id(), (param.type_var.clone(), param.kind(), arg.clone()));
-    }
-}
-
-pub fn try_eval_array_length_id(
-    interner: &NodeInterner,
-    rhs: ExprId,
-    span: Span,
-) -> Result<u128, Option<ResolverError>> {
-    // Arbitrary amount of recursive calls to try before giving up
-    let fuel = 100;
-    try_eval_array_length_id_with_fuel(interner, rhs, span, fuel)
-}
-
-fn try_eval_array_length_id_with_fuel(
-    interner: &NodeInterner,
-    rhs: ExprId,
-    span: Span,
-    fuel: u32,
-) -> Result<u128, Option<ResolverError>> {
-    if fuel == 0 {
-        // If we reach here, it is likely from evaluating cyclic globals. We expect an error to
-        // be issued for them after name resolution so issue no error now.
-        return Err(None);
-    }
-
-    match interner.expression(&rhs) {
-        HirExpression::Literal(HirLiteral::Integer(int, false)) => {
-            int.try_into_u128().ok_or(Some(ResolverError::IntegerTooLarge { span }))
-        }
-        HirExpression::Ident(ident, _) => {
-            if let Some(definition) = interner.try_definition(ident.id) {
-                match definition.kind {
-                    DefinitionKind::Global(global_id) => {
-                        let let_statement = interner.get_global_let_statement(global_id);
-                        if let Some(let_statement) = let_statement {
-                            let expression = let_statement.expression;
-                            try_eval_array_length_id_with_fuel(interner, expression, span, fuel - 1)
-                        } else {
-                            Err(Some(ResolverError::InvalidArrayLengthExpr { span }))
-                        }
-                    }
-                    _ => Err(Some(ResolverError::InvalidArrayLengthExpr { span })),
-                }
-            } else {
-                Err(Some(ResolverError::InvalidArrayLengthExpr { span }))
-            }
-        }
-        HirExpression::Infix(infix) => {
-            let lhs = try_eval_array_length_id_with_fuel(interner, infix.lhs, span, fuel - 1)?;
-            let rhs = try_eval_array_length_id_with_fuel(interner, infix.rhs, span, fuel - 1)?;
-
-            match infix.operator.kind {
-                BinaryOpKind::Add => Ok(lhs + rhs),
-                BinaryOpKind::Subtract => Ok(lhs - rhs),
-                BinaryOpKind::Multiply => Ok(lhs * rhs),
-                BinaryOpKind::Divide => Ok(lhs / rhs),
-                BinaryOpKind::Equal => Ok((lhs == rhs) as u128),
-                BinaryOpKind::NotEqual => Ok((lhs != rhs) as u128),
-                BinaryOpKind::Less => Ok((lhs < rhs) as u128),
-                BinaryOpKind::LessEqual => Ok((lhs <= rhs) as u128),
-                BinaryOpKind::Greater => Ok((lhs > rhs) as u128),
-                BinaryOpKind::GreaterEqual => Ok((lhs >= rhs) as u128),
-                BinaryOpKind::And => Ok(lhs & rhs),
-                BinaryOpKind::Or => Ok(lhs | rhs),
-                BinaryOpKind::Xor => Ok(lhs ^ rhs),
-                BinaryOpKind::ShiftRight => Ok(lhs >> rhs),
-                BinaryOpKind::ShiftLeft => Ok(lhs << rhs),
-                BinaryOpKind::Modulo => Ok(lhs % rhs),
-            }
-        }
-        HirExpression::Cast(cast) => {
-            let lhs = try_eval_array_length_id_with_fuel(interner, cast.lhs, span, fuel - 1)?;
-            let lhs_value = Value::Field(lhs.into());
-            let evaluated_value =
-                Interpreter::evaluate_cast_one_step(&cast, rhs, lhs_value, interner)
-                    .map_err(|error| Some(ResolverError::ArrayLengthInterpreter { error }))?;
-
-            evaluated_value
-                .to_u128()
-                .ok_or_else(|| Some(ResolverError::InvalidArrayLengthExpr { span }))
-        }
-        _other => Err(Some(ResolverError::InvalidArrayLengthExpr { span })),
     }
 }
 
