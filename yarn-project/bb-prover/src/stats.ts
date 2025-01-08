@@ -1,9 +1,7 @@
 import type { CircuitName } from '@aztec/circuit-types/stats';
-import { type ClientProtocolArtifact, type ServerProtocolArtifact } from '@aztec/noir-protocol-circuits-types';
+import { type ProtocolArtifact } from '@aztec/noir-protocol-circuits-types/types';
 
-export function mapProtocolArtifactNameToCircuitName(
-  artifact: ServerProtocolArtifact | ClientProtocolArtifact,
-): CircuitName {
+export function mapProtocolArtifactNameToCircuitName(artifact: ProtocolArtifact): CircuitName {
   switch (artifact) {
     case 'BaseParityArtifact':
       return 'base-parity';
@@ -44,7 +42,7 @@ export function mapProtocolArtifactNameToCircuitName(
   }
 }
 
-export function isProtocolArtifactRecursive(artifact: ServerProtocolArtifact | ClientProtocolArtifact): boolean {
+export function isProtocolArtifactRecursive(artifact: ProtocolArtifact): boolean {
   switch (artifact) {
     case 'EmptyNestedArtifact':
     case 'PrivateKernelEmptyArtifact':

@@ -3,10 +3,11 @@
   "version": "0.1.0",
   "type": "module",
   "exports": {
-    ".": "./dest/index.js",
+    "./server": "./dest/server.js",
     "./client": "./dest/client.js",
     "./client_async": "./dest/client_async.js",
-    "./types": "./dest/types/index.js"
+    "./types": "./dest/types/index.js",
+    "./vks": "./dest/vks.js"
   },
   "inherits": [
     "../package.common.json",

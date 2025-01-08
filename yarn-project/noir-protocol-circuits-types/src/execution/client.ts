@@ -12,7 +12,7 @@ import {
 import { type WitnessMap } from '@noir-lang/noir_js';
 import { type Abi } from '@noir-lang/noirc_abi';
 
-import { ClientCircuitArtifacts, SimulatedClientCircuitArtifacts } from '../index.js';
+import { ClientCircuitArtifacts, SimulatedClientCircuitArtifacts } from '../artifacts/client.js';
 import { type PrivateResetArtifact } from '../private_kernel_reset_types.js';
 import { getPrivateKernelResetArtifactName } from '../utils/private_kernel_reset.js';
 import {

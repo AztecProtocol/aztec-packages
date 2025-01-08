@@ -18,7 +18,7 @@ import {
   BBCircuitVerifier,
   type ClientProtocolCircuitVerifier,
   TestCircuitVerifier,
-  type UltraKeccakHonkProtocolArtifact,
+  type UltraKeccakHonkServerProtocolArtifact,
 } from '@aztec/bb-prover';
 import { compileContract } from '@aztec/ethereum';
 import { Buffer32 } from '@aztec/foundation/buffer';
@@ -383,7 +383,7 @@ export class FullProverTest {
 
     // REFACTOR: Extract this method to a common package. We need a package that deals with L1
     // but also has a reference to L1 artifacts and bb-prover.
-    const setupVerifier = async (artifact: UltraKeccakHonkProtocolArtifact) => {
+    const setupVerifier = async (artifact: UltraKeccakHonkServerProtocolArtifact) => {
       const contract = await verifier.generateSolidityContract(artifact, 'UltraHonkVerifier.sol');
       const { abi, bytecode } = compileContract('UltraHonkVerifier.sol', 'HonkVerifier', contract, solc);
       const { address: verifierAddress } = await deployL1Contract(walletClient, publicClient, abi, bytecode);

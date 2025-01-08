@@ -16,9 +16,7 @@ import { type Logger, createLogger } from '@aztec/foundation/log';
 import { Timer } from '@aztec/foundation/timer';
 import {
   ClientCircuitArtifacts,
-  ClientCircuitVks,
   type ClientProtocolArtifact,
-  ProtocolCircuitVks,
   convertPrivateKernelInitInputsToWitnessMap,
   convertPrivateKernelInitOutputsFromWitnessMap,
   convertPrivateKernelInnerInputsToWitnessMap,
@@ -30,7 +28,8 @@ import {
   convertPrivateKernelTailOutputsFromWitnessMap,
   convertPrivateKernelTailToPublicInputsToWitnessMap,
   getPrivateKernelResetArtifactName,
-} from '@aztec/noir-protocol-circuits-types';
+} from '@aztec/noir-protocol-circuits-types/client';
+import { ClientCircuitVks } from '@aztec/noir-protocol-circuits-types/vks';
 import { WASMSimulatorWithBlobs } from '@aztec/simulator';
 import { type NoirCompiledCircuit } from '@aztec/types/noir';
 
@@ -167,35 +166,6 @@ export class BBNativePrivateKernelProver implements PrivateKernelProver {
       convertPrivateKernelTailToPublicInputsToWitnessMap,
       convertPrivateKernelTailForPublicOutputsFromWitnessMap,
     );
-  }
-
-  /**
-   * Verifies a proof, will generate the verification key if one is not cached internally
-   * @param circuitType - The type of circuit whose proof is to be verified
-   * @param proof - The proof to be verified
-   */
-  public async verifyProofForProtocolCircuit(circuitType: ClientProtocolArtifact, proof: Proof) {
-    const verificationKey = ProtocolCircuitVks[circuitType];
-
-    this.log.debug(`Verifying with key: ${verificationKey.keyAsFields.hash.toString()}`);
-
-    const logFunction = (message: string) => {
-      this.log.debug(`${circuitType} BB out - ${message}`);
-    };
-
-    const result = await this.verifyProofFromKey(
-      getUltraHonkFlavorForCircuit(circuitType),
-      verificationKey.keyAsBytes,
-      proof,
-      logFunction,
-    );
-
-    if (result.status === BB_RESULT.FAILURE) {
-      const errorMessage = `Failed to verify ${circuitType} proof!`;
-      throw new Error(errorMessage);
-    }
-
-    this.log.info(`Successfully verified ${circuitType} proof in ${Math.ceil(result.durationMs)} ms`);
   }
 
   public async computeGateCountForCircuit(bytecode: Buffer, circuitName: string): Promise<number> {

@@ -12,7 +12,6 @@ import {
 import { createLogger } from '@aztec/foundation/log';
 import { elapsed } from '@aztec/foundation/timer';
 import {
-  ClientCircuitVks,
   type ClientProtocolArtifact,
   executeInit,
   executeInner,
@@ -22,6 +21,7 @@ import {
   getPrivateKernelResetArtifactName,
   maxPrivateKernelResetDimensions,
 } from '@aztec/noir-protocol-circuits-types/client_async';
+import { ClientCircuitVks } from '@aztec/noir-protocol-circuits-types/vks';
 
 import { type WitnessMap } from '@noir-lang/types';
 

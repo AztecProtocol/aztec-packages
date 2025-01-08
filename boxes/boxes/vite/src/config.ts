@@ -15,7 +15,7 @@ import { KeyStore } from "@aztec/key-store";
 import { PrivateKernelProver } from "@aztec/circuit-types";
 import { L2TipsStore } from "@aztec/kv-store/stores";
 import { createStore } from "@aztec/kv-store/indexeddb";
-import { BBWasmPrivateKernelProver } from "@aztec/bb-prover/wasm";
+import { BbWasmAsyncPrivateKernelProver } from "@aztec/bb-prover/wasm_async";
 
 process.env = Object.keys(import.meta.env).reduce((acc, key) => {
   acc[key.replace("VITE_", "")] = import.meta.env[key];
@@ -38,7 +38,7 @@ export class PrivateEnv {
     const config = getPXEServiceConfig();
     config.dataDirectory = "pxe";
     const aztecNode = await createAztecNodeClient(this.nodeURL);
-    const proofCreator = new BBWasmPrivateKernelProver(16);
+    const proofCreator = new BbWasmAsyncPrivateKernelProver(16);
     this.pxe = await this.createPXEService(aztecNode, config, proofCreator);
     const encryptionPrivateKey = deriveMasterIncomingViewingSecretKey(
       this.secretKey,

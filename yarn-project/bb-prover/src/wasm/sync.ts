@@ -1,19 +1,16 @@
-import { AztecClientBackend } from '@aztec/bb.js';
-import { type PrivateKernelProver, type PrivateKernelSimulateOutput } from '@aztec/circuit-types';
+import { PrivateKernelSimulateOutput } from '@aztec/circuit-types';
 import {
-  ClientIvcProof,
-  type PrivateKernelCircuitPublicInputs,
-  type PrivateKernelInitCircuitPrivateInputs,
-  type PrivateKernelInnerCircuitPrivateInputs,
-  type PrivateKernelResetCircuitPrivateInputs,
-  type PrivateKernelTailCircuitPrivateInputs,
-  type PrivateKernelTailCircuitPublicInputs,
+  PrivateKernelCircuitPublicInputs,
+  PrivateKernelInitCircuitPrivateInputs,
+  PrivateKernelInnerCircuitPrivateInputs,
+  PrivateKernelResetCircuitPrivateInputs,
+  PrivateKernelTailCircuitPrivateInputs,
+  PrivateKernelTailCircuitPublicInputs,
 } from '@aztec/circuits.js';
 import { createLogger } from '@aztec/foundation/log';
 import { Timer } from '@aztec/foundation/timer';
 import {
-  ClientCircuitVks,
-  type ClientProtocolArtifact,
+  ClientCircuitArtifacts,
   convertPrivateKernelInitInputsToWitnessMap,
   convertPrivateKernelInitOutputsFromWitnessMap,
   convertPrivateKernelInnerInputsToWitnessMap,
@@ -24,22 +21,22 @@ import {
   convertPrivateKernelTailInputsToWitnessMap,
   convertPrivateKernelTailOutputsFromWitnessMap,
   convertPrivateKernelTailToPublicInputsToWitnessMap,
-  getClientCircuitArtifactByName,
   getPrivateKernelResetArtifactName,
-} from '@aztec/noir-protocol-circuits-types/client_async';
-import { WASMSimulator } from '@aztec/simulator/client';
-import { type NoirCompiledCircuit } from '@aztec/types/noir';
+} from '@aztec/noir-protocol-circuits-types/client';
+import { ClientProtocolArtifact } from '@aztec/noir-protocol-circuits-types/types';
+import { ClientCircuitVks } from '@aztec/noir-protocol-circuits-types/vks';
+import { NoirCompiledCircuit } from '@aztec/types/noir';
 
-import { type WitnessMap } from '@noir-lang/noir_js';
-import { serializeWitness } from '@noir-lang/noirc_abi';
-import { ungzip } from 'pako';
+import { WitnessMap } from '@noir-lang/types';
 
-export class BBWasmPrivateKernelProver implements PrivateKernelProver {
-  private simulator = new WASMSimulator();
+import { BBWasmPrivateKernelProver } from './bb_wasm_private_kernel_prover.js';
 
-  constructor(private threads: number = 1, private log = createLogger('bb-prover:wasm')) {}
+export class BbWasmSyncPrivateKernelProver extends BBWasmPrivateKernelProver {
+  constructor(threads: number = 1, log = createLogger('bb-prover:wasm:sync')) {
+    super(threads, log);
+  }
 
-  public async simulateProofInit(
+  public override async simulateProofInit(
     inputs: PrivateKernelInitCircuitPrivateInputs,
   ): Promise<PrivateKernelSimulateOutput<PrivateKernelCircuitPublicInputs>> {
     return await this.simulate(
@@ -50,7 +47,7 @@ export class BBWasmPrivateKernelProver implements PrivateKernelProver {
     );
   }
 
-  public async simulateProofInner(
+  public override async simulateProofInner(
     inputs: PrivateKernelInnerCircuitPrivateInputs,
   ): Promise<PrivateKernelSimulateOutput<PrivateKernelCircuitPublicInputs>> {
     return await this.simulate(
@@ -61,7 +58,7 @@ export class BBWasmPrivateKernelProver implements PrivateKernelProver {
     );
   }
 
-  public async simulateProofReset(
+  public override async simulateProofReset(
     inputs: PrivateKernelResetCircuitPrivateInputs,
   ): Promise<PrivateKernelSimulateOutput<PrivateKernelCircuitPublicInputs>> {
     const variantInputs = inputs.trimToSizes();
@@ -74,7 +71,7 @@ export class BBWasmPrivateKernelProver implements PrivateKernelProver {
     );
   }
 
-  public async simulateProofTail(
+  public override async simulateProofTail(
     inputs: PrivateKernelTailCircuitPrivateInputs,
   ): Promise<PrivateKernelSimulateOutput<PrivateKernelTailCircuitPublicInputs>> {
     if (!inputs.isForPublic()) {
@@ -99,16 +96,16 @@ export class BBWasmPrivateKernelProver implements PrivateKernelProver {
   >(
     inputs: I,
     circuitType: ClientProtocolArtifact,
-    convertInputs: (inputs: I) => Promise<WitnessMap>,
-    convertOutputs: (outputs: WitnessMap) => Promise<O>,
+    convertInputs: (inputs: I) => WitnessMap,
+    convertOutputs: (outputs: WitnessMap) => O,
   ): Promise<PrivateKernelSimulateOutput<O>> {
     this.log.debug(`Generating witness for ${circuitType}`);
-    const compiledCircuit: NoirCompiledCircuit = await getClientCircuitArtifactByName(circuitType);
+    const compiledCircuit: NoirCompiledCircuit = ClientCircuitArtifacts[circuitType];
 
-    const witnessMap = await convertInputs(inputs);
+    const witnessMap = convertInputs(inputs);
     const timer = new Timer();
     const outputWitness = await this.simulator.simulateCircuit(witnessMap, compiledCircuit);
-    const output = await convertOutputs(outputWitness);
+    const output = convertOutputs(outputWitness);
 
     this.log.debug(`Generated witness for ${circuitType}`, {
       eventName: 'circuit-witness-generation',
@@ -128,28 +125,5 @@ export class BBWasmPrivateKernelProver implements PrivateKernelProver {
       bytecode,
     };
     return kernelOutput;
-  }
-
-  async createClientIvcProof(acirs: Buffer[], witnessStack: WitnessMap[]): Promise<ClientIvcProof> {
-    const timer = new Timer();
-    this.log.info(`Generating ClientIVC proof...`);
-    const backend = new AztecClientBackend(
-      acirs.map(acir => ungzip(acir)),
-      { threads: this.threads },
-    );
-
-    const [proof, vk] = await backend.prove(witnessStack.map(witnessMap => ungzip(serializeWitness(witnessMap))));
-    await backend.destroy();
-    this.log.info(`Generated ClientIVC proof`, {
-      eventName: 'client-ivc-proof-generation',
-      duration: timer.ms(),
-      proofSize: proof.length,
-      vkSize: vk.length,
-    });
-    return new ClientIvcProof(Buffer.from(proof), Buffer.from(vk));
-  }
-
-  computeGateCountForCircuit(_bytecode: Buffer, _circuitName: string): Promise<number> {
-    return Promise.resolve(0);
   }
 }
