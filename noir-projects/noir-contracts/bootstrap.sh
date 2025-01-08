@@ -113,7 +113,8 @@ function compile {
   local json_path="./target/$filename"
   contract_hash=$(get_contract_hash $contract)
   if ! cache_download contract-$contract_hash.tar.gz &> /dev/null; then
-    $NARGO compile --package $contract --inliner-aggressiveness 0
+    [ "${CI:-0}" -eq 1 ] && local args="--silence-warnings"
+    $NARGO compile ${args:-} --package $contract --inliner-aggressiveness 0
     $TRANSPILER $json_path $json_path
     cache_upload contract-$contract_hash.tar.gz $json_path &> /dev/null
   fi
@@ -153,8 +154,7 @@ function build {
 function test_cmds {
   local -A cache
   i=0
-  $NARGO test --list-tests | while read -r package test; do
-    # We assume there are 8 txe's running.
+  $NARGO test --list-tests --silence-warnings | sort | while read -r package test; do
     port=$((45730 + (i++ % ${NUM_TXES:-1})))
     [ -z "${cache[$package]:-}" ] && cache[$package]=$(get_contract_hash $package)
     echo "${cache[$package]} noir-projects/scripts/run_test.sh noir-contracts $package $test $port"

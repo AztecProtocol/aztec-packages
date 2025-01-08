@@ -484,31 +484,38 @@ export async function setup(
   const cheatCodes = await CheatCodes.create(config.l1RpcUrl, pxe!);
 
   const teardown = async () => {
-    await pxeTeardown();
+    // Teardown failure should log but not fail the actual test suite.
+    // Bit of a hack, but wanting to work around "Anvil failed to stop in time".
+    // Our e2e tests are all run in isolation anywhere, so there's a hard cleanup on container exit.
+    try {
+      await pxeTeardown();
 
-    if (aztecNode instanceof AztecNodeService) {
-      await aztecNode?.stop();
-    }
+      if (aztecNode instanceof AztecNodeService) {
+        await aztecNode?.stop();
+      }
 
-    if (acvmConfig?.cleanup) {
-      // remove the temp directory created for the acvm
-      logger.verbose(`Cleaning up ACVM state`);
-      await acvmConfig.cleanup();
-    }
+      if (acvmConfig?.cleanup) {
+        // remove the temp directory created for the acvm
+        logger.verbose(`Cleaning up ACVM state`);
+        await acvmConfig.cleanup();
+      }
 
-    if (bbConfig?.cleanup) {
-      // remove the temp directory created for the acvm
-      logger.verbose(`Cleaning up BB state`);
-      await bbConfig.cleanup();
-    }
+      if (bbConfig?.cleanup) {
+        // remove the temp directory created for the acvm
+        logger.verbose(`Cleaning up BB state`);
+        await bbConfig.cleanup();
+      }
 
-    await anvil?.stop();
-    await watcher.stop();
-    await blobSink?.stop();
+      await anvil?.stop();
+      await watcher.stop();
+      await blobSink?.stop();
 
-    if (directoryToCleanup) {
-      logger.verbose(`Cleaning up data directory at ${directoryToCleanup}`);
-      await fs.rm(directoryToCleanup, { recursive: true, force: true });
+      if (directoryToCleanup) {
+        logger.verbose(`Cleaning up data directory at ${directoryToCleanup}`);
+        await fs.rm(directoryToCleanup, { recursive: true, force: true });
+      }
+    } catch (err) {
+      logger.error(err.message);
     }
   };
 
