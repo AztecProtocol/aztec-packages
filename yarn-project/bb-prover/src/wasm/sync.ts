@@ -1,11 +1,11 @@
-import { PrivateKernelSimulateOutput } from '@aztec/circuit-types';
+import { type PrivateKernelSimulateOutput } from '@aztec/circuit-types';
 import {
-  PrivateKernelCircuitPublicInputs,
-  PrivateKernelInitCircuitPrivateInputs,
-  PrivateKernelInnerCircuitPrivateInputs,
-  PrivateKernelResetCircuitPrivateInputs,
-  PrivateKernelTailCircuitPrivateInputs,
-  PrivateKernelTailCircuitPublicInputs,
+  type PrivateKernelCircuitPublicInputs,
+  type PrivateKernelInitCircuitPrivateInputs,
+  type PrivateKernelInnerCircuitPrivateInputs,
+  type PrivateKernelResetCircuitPrivateInputs,
+  type PrivateKernelTailCircuitPrivateInputs,
+  type PrivateKernelTailCircuitPublicInputs,
 } from '@aztec/circuits.js';
 import { createLogger } from '@aztec/foundation/log';
 import { Timer } from '@aztec/foundation/timer';
@@ -23,11 +23,11 @@ import {
   convertPrivateKernelTailToPublicInputsToWitnessMap,
   getPrivateKernelResetArtifactName,
 } from '@aztec/noir-protocol-circuits-types/client';
-import { ClientProtocolArtifact } from '@aztec/noir-protocol-circuits-types/types';
+import { type ClientProtocolArtifact } from '@aztec/noir-protocol-circuits-types/types';
 import { ClientCircuitVks } from '@aztec/noir-protocol-circuits-types/vks';
-import { NoirCompiledCircuit } from '@aztec/types/noir';
+import { type NoirCompiledCircuit } from '@aztec/types/noir';
 
-import { WitnessMap } from '@noir-lang/types';
+import { type WitnessMap } from '@noir-lang/types';
 
 import { BBWasmPrivateKernelProver } from './bb_wasm_private_kernel_prover.js';
 

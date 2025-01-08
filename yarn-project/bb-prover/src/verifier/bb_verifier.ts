@@ -5,9 +5,9 @@ import { runInDirectory } from '@aztec/foundation/fs';
 import { type LogFn, type Logger, createLogger } from '@aztec/foundation/log';
 import { ServerCircuitArtifacts } from '@aztec/noir-protocol-circuits-types/server';
 import {
-  ClientProtocolArtifact,
+  type ClientProtocolArtifact,
   type ProtocolArtifact,
-  ServerProtocolArtifact,
+  type ServerProtocolArtifact,
 } from '@aztec/noir-protocol-circuits-types/types';
 
 import { promises as fs } from 'fs';

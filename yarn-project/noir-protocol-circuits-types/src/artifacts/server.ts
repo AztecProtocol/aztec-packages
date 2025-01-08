@@ -16,7 +16,7 @@ import EmptyBlockRootRollupJson from '../../artifacts/rollup_block_root_empty.js
 import BlockRootRollupSimulatedJson from '../../artifacts/rollup_block_root_simulated.json' assert { type: 'json' };
 import MergeRollupJson from '../../artifacts/rollup_merge.json' assert { type: 'json' };
 import RootRollupJson from '../../artifacts/rollup_root.json' assert { type: 'json' };
-import { ServerProtocolArtifact } from './types.js';
+import { type ServerProtocolArtifact } from './types.js';
 
 export const ServerCircuitArtifacts: Record<ServerProtocolArtifact, NoirCompiledCircuit> = {
   EmptyNestedArtifact: EmptyNestedJson as NoirCompiledCircuit,

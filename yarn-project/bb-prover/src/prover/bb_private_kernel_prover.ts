@@ -8,7 +8,6 @@ import {
   type PrivateKernelResetCircuitPrivateInputs,
   type PrivateKernelTailCircuitPrivateInputs,
   type PrivateKernelTailCircuitPublicInputs,
-  type Proof,
   type VerificationKeyData,
 } from '@aztec/circuits.js';
 import { runInDirectory } from '@aztec/foundation/fs';
@@ -39,9 +38,8 @@ import { type WitnessMap } from '@noir-lang/types';
 import { promises as fs } from 'fs';
 import path from 'path';
 
-import { BB_RESULT, computeGateCountForCircuit, executeBbClientIvcProof, verifyProof } from '../bb/execute.js';
+import { BB_RESULT, computeGateCountForCircuit, executeBbClientIvcProof } from '../bb/execute.js';
 import { type BBConfig } from '../config.js';
-import { type UltraHonkFlavor, getUltraHonkFlavorForCircuit } from '../honk.js';
 import { mapProtocolArtifactNameToCircuitName } from '../stats.js';
 import { extractVkData } from '../verification_key/verification_key_data.js';
 import { readFromOutputDirectory } from './client_ivc_proof_utils.js';
@@ -186,23 +184,6 @@ export class BBNativePrivateKernelProver implements PrivateKernelProver {
     }
 
     return result.circuitSize as number;
-  }
-
-  private async verifyProofFromKey(
-    flavor: UltraHonkFlavor,
-    verificationKey: Buffer,
-    proof: Proof,
-    logFunction: (message: string) => void = () => {},
-  ) {
-    const operation = async (bbWorkingDirectory: string) => {
-      const proofFileName = `${bbWorkingDirectory}/proof`;
-      const verificationKeyPath = `${bbWorkingDirectory}/vk`;
-
-      await fs.writeFile(proofFileName, proof.buffer);
-      await fs.writeFile(verificationKeyPath, verificationKey);
-      return await verifyProof(this.bbBinaryPath, proofFileName, verificationKeyPath!, flavor, logFunction);
-    };
-    return await this.runInDirectory(operation);
   }
 
   /**
