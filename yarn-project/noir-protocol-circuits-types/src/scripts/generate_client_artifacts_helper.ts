@@ -20,7 +20,7 @@ const ClientCircuitArtifactNames: Record<ClientProtocolArtifact, string> = {
 function generateImports() {
   return `
   import { type NoirCompiledCircuit } from '@aztec/types/noir';
-  import { ClientProtocolArtifact } from './artifacts/types.js';
+  import { type ClientProtocolArtifact } from './artifacts/types.js';
 `;
 }
 
