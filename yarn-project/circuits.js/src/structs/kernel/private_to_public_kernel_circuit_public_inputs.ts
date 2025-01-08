@@ -91,6 +91,6 @@ export class PrivateToPublicKernelCircuitPublicInputs {
   }
 
   hash() {
-    return poseidon2HashWithSeparator(this.toFields(), GeneratorIndex.PUBLIC_TX_HASH);
+    return poseidon2HashWithSeparator(this.toFields(), GeneratorIndex.PRIVATE_TX_HASH);
   }
 }

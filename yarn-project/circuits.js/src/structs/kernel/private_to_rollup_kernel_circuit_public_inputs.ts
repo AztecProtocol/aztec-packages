@@ -19,6 +19,10 @@ import { TxConstantData } from './tx_constant_data.js';
 export class PrivateToRollupKernelCircuitPublicInputs {
   constructor(
     /**
+     * Data which is not modified by the circuits.
+     */
+    public constants: TxConstantData,
+    /**
      * Validation requests accumulated from private and public execution to be completed by the rollup.
      */
     public rollupValidationRequests: RollupValidationRequests,
@@ -26,10 +30,6 @@ export class PrivateToRollupKernelCircuitPublicInputs {
      * Data accumulated from both public and private circuits.
      */
     public end: PrivateToRollupAccumulatedData,
-    /**
-     * Data which is not modified by the circuits.
-     */
-    public constants: TxConstantData,
     /**
      * Gas used during this transaction
      */
@@ -56,9 +56,9 @@ export class PrivateToRollupKernelCircuitPublicInputs {
   static fromBuffer(buffer: Buffer | BufferReader): PrivateToRollupKernelCircuitPublicInputs {
     const reader = BufferReader.asReader(buffer);
     return new PrivateToRollupKernelCircuitPublicInputs(
+      reader.readObject(TxConstantData),
       reader.readObject(RollupValidationRequests),
       reader.readObject(PrivateToRollupAccumulatedData),
-      reader.readObject(TxConstantData),
       reader.readObject(Gas),
       reader.readObject(AztecAddress),
     );
@@ -66,9 +66,9 @@ export class PrivateToRollupKernelCircuitPublicInputs {
 
   static empty() {
     return new PrivateToRollupKernelCircuitPublicInputs(
+      TxConstantData.empty(),
       RollupValidationRequests.empty(),
       PrivateToRollupAccumulatedData.empty(),
-      TxConstantData.empty(),
       Gas.empty(),
       AztecAddress.ZERO,
     );
@@ -88,7 +88,7 @@ export class PrivateToRollupKernelCircuitPublicInputs {
   }
 
   static getFields(fields: FieldsOf<PrivateToRollupKernelCircuitPublicInputs>) {
-    return [fields.rollupValidationRequests, fields.end, fields.constants, fields.gasUsed, fields.feePayer] as const;
+    return [fields.constants, fields.rollupValidationRequests, fields.end, fields.gasUsed, fields.feePayer] as const;
   }
 
   /** Creates an instance from a hex string. */

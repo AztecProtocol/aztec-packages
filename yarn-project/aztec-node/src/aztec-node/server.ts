@@ -829,7 +829,7 @@ export class AztecNodeService implements AztecNode, Traceable {
    * @param tx - The transaction to simulate.
    **/
   @trackSpan('AztecNodeService.simulatePublicCalls', (tx: Tx) => ({
-    [Attributes.TX_HASH]: tx.tryGetTxHash()?.toString(),
+    [Attributes.TX_HASH]: tx.getTxHash().toString(),
   }))
   public async simulatePublicCalls(tx: Tx, enforceFeePayment = true): Promise<PublicSimulationOutput> {
     const txHash = tx.getTxHash();

@@ -603,6 +603,7 @@ export class SimulatorOracle implements DBOracle {
           notePayload ? recipient.toAddressPoint() : undefined,
           payload!,
           txEffect.data.txHash,
+          txEffect.data.nullifiers[0],
           txEffect.l2BlockNumber,
           txEffect.l2BlockHash,
           txEffect.data.noteHashes,

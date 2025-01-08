@@ -290,7 +290,7 @@ export class PublicProcessor implements Traceable {
     return [result, failed, returns];
   }
 
-  @trackSpan('PublicProcessor.processTx', tx => ({ [Attributes.TX_HASH]: tx.tryGetTxHash()?.toString() }))
+  @trackSpan('PublicProcessor.processTx', tx => ({ [Attributes.TX_HASH]: tx.getTxHash()?.toString() }))
   private async processTx(tx: Tx, deadline?: Date): Promise<[ProcessedTx, NestedProcessReturnValues[]]> {
     const [time, [processedTx, returnValues]] = await elapsed(() => this.processTxWithinDeadline(tx, deadline));
 

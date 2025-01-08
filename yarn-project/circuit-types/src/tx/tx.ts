@@ -27,6 +27,8 @@ import { TxHash } from './tx_hash.js';
  */
 export class Tx extends Gossipable {
   static override p2pTopic: string;
+  // For memoization
+  private txHash: TxHash | undefined;
 
   constructor(
     /**
@@ -169,24 +171,27 @@ export class Tx extends Gossipable {
   }
 
   /**
-   * Construct & return transaction hash.
+   * Computes (if necessary) & return transaction hash.
    * @returns The transaction's hash.
    */
-  getTxHash(): TxHash {
-    const hash = this.data.forPublic
-      ? this.data.toPrivateToPublicKernelCircuitPublicInputs().hash()
-      : this.data.toPrivateToRollupKernelCircuitPublicInputs().hash();
-
-    return new TxHash(hash);
+  getTxHash(forceRecompute = false): TxHash {
+    if (!this.txHash || forceRecompute) {
+      const hash = this.data.forPublic
+        ? this.data.toPrivateToPublicKernelCircuitPublicInputs().hash()
+        : this.data.toPrivateToRollupKernelCircuitPublicInputs().hash();
+      this.txHash = new TxHash(hash);
+    }
+    return this.txHash!;
   }
 
-  /** Returns the tx hash, or undefined if none is set. */
-  tryGetTxHash(): TxHash | undefined {
-    try {
-      return this.getTxHash();
-    } catch {
-      return undefined;
-    }
+  /**
+   * Allows setting the hash of the Tx.
+   * Use this when you want to skip computing it from the original data.
+   * Don't set a Tx hash received from an untrusted source.
+   * @param hash - The hash to set.
+   */
+  setTxHash(hash: TxHash) {
+    this.txHash = hash;
   }
 
   /** Returns stats about this tx. */
@@ -277,7 +282,7 @@ export class Tx extends Gossipable {
       PublicExecutionRequest.fromBuffer(x.toBuffer()),
     );
     const publicTeardownFunctionCall = PublicExecutionRequest.fromBuffer(tx.publicTeardownFunctionCall.toBuffer());
-    return new Tx(
+    const clonedTx = new Tx(
       publicInputs,
       clientIvcProof,
       unencryptedLogs,
@@ -285,6 +290,11 @@ export class Tx extends Gossipable {
       enqueuedPublicFunctionCalls,
       publicTeardownFunctionCall,
     );
+    if (tx.txHash) {
+      clonedTx.setTxHash(TxHash.fromBuffer(tx.txHash.toBuffer()));
+    }
+
+    return clonedTx;
   }
 
   static random() {

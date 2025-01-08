@@ -529,8 +529,8 @@ export class PXEService implements PXE {
         }
       }
 
-      this.log.info(`Simulation completed for ${simulatedTx.tryGetTxHash()} in ${timer.ms()}ms`, {
-        txHash: simulatedTx.tryGetTxHash(),
+      this.log.info(`Simulation completed for ${simulatedTx.getTxHash()} in ${timer.ms()}ms`, {
+        txHash: simulatedTx.getTxHash(),
         ...txInfo,
         ...(profileResult ? { gateCounts: profileResult.gateCounts } : {}),
         ...(publicOutput

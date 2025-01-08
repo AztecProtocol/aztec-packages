@@ -945,9 +945,9 @@ export function mapPrivateToRollupKernelCircuitPublicInputsFromNoir(
   inputs: PrivateToRollupKernelCircuitPublicInputsNoir,
 ) {
   return new PrivateToRollupKernelCircuitPublicInputs(
+    mapTxConstantDataFromNoir(inputs.constants),
     mapRollupValidationRequestsFromNoir(inputs.rollup_validation_requests),
     mapPrivateToRollupAccumulatedDataFromNoir(inputs.end),
-    mapTxConstantDataFromNoir(inputs.constants),
     mapGasFromNoir(inputs.gas_used),
     mapAztecAddressFromNoir(inputs.fee_payer),
   );

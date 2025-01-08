@@ -67,10 +67,12 @@ export function describeTxPool(getTxPool: () => TxPool) {
     await pool.addTxs([tx1]);
     // this peer knows that tx2 was mined, but it does not have the tx object
     await pool.markAsMined([tx1.getTxHash(), someTxHashThatThisPeerDidNotSee], 1);
-    expect(pool.getMinedTxHashes()).toEqual([
-      [tx1.getTxHash(), 1],
-      [someTxHashThatThisPeerDidNotSee, 1],
-    ]);
+    expect(new Set(pool.getMinedTxHashes())).toEqual(
+      new Set([
+        [tx1.getTxHash(), 1],
+        [someTxHashThatThisPeerDidNotSee, 1],
+      ]),
+    );
 
     // reorg: both txs should now become available again
     await pool.markMinedAsPending([tx1.getTxHash(), someTxHashThatThisPeerDidNotSee]);
