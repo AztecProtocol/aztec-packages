@@ -9,7 +9,7 @@ import {
   L1_TO_L2_MSG_SUBTREE_HEIGHT,
   MAX_NULLIFIERS_PER_TX,
   PRIVATE_LOG_SIZE_IN_FIELDS,
-  PUBLIC_LOG_SIZE_IN_FIELDS,
+  PUBLIC_LOG_DATA_SIZE_IN_FIELDS,
   PrivateLog,
   PublicLog,
   SerializableContractInstance,
@@ -375,8 +375,15 @@ export function describeArchiverDataStore(testName: string, getStore: () => Arch
       const makePrivateLog = (tag: Fr) =>
         PrivateLog.fromFields([tag, ...times(PRIVATE_LOG_SIZE_IN_FIELDS - 1, i => new Fr(tag.toNumber() + i))]);
 
+      // The tag seems to live in field 1, not 0, of a public log
+      // See extractTaggedLogsFromPublic and noir-projects/aztec-nr/aztec/src/macros/notes/mod.nr -> emit_log
       const makePublicLog = (tag: Fr) =>
-        PublicLog.fromFields([tag, ...times(PUBLIC_LOG_SIZE_IN_FIELDS - 1, i => new Fr(tag.toNumber() + i))]);
+        PublicLog.fromFields([
+          AztecAddress.fromNumber(1).toField(),
+          Fr.ONE,
+          tag,
+          ...times(PUBLIC_LOG_DATA_SIZE_IN_FIELDS - 1, i => new Fr(tag.toNumber() + i)),
+        ]);
 
       const mockPrivateLogs = (blockNumber: number, txIndex: number) => {
         return times(numPrivateLogsPerTx, (logIndex: number) => {
@@ -439,8 +446,7 @@ export function describeArchiverDataStore(testName: string, getStore: () => Arch
         ]);
       });
 
-      // TODO: Allow this test when #9835 is fixed and tags can be correctly decoded
-      it.skip('is possible to batch request all logs (private and public) via tags', async () => {
+      it('is possible to batch request all logs (private and public) via tags', async () => {
         // Tag(0, 0, 0) is shared with the first private log and the first public log.
         const tags = [makeTag(0, 0, 0)];
 
@@ -455,7 +461,7 @@ export function describeArchiverDataStore(testName: string, getStore: () => Arch
             }),
             expect.objectContaining({
               blockNumber: 0,
-              logData: makePublicLog(tags[0]),
+              logData: makePublicLog(tags[0]).toBuffer(),
               isFromPublic: true,
             }),
           ],
