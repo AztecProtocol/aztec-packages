@@ -67,6 +67,10 @@ export interface L1TxUtilsConfig {
    */
   priorityFeeRetryBumpPercentage?: bigint;
   /**
+   * Fixed priority fee per gas in Gwei. Overrides any priority fee bump percentage
+   */
+  fixedPriorityFeePerGas?: bigint;
+  /**
    * Maximum number of speed-up attempts
    */
   maxAttempts?: number;
@@ -120,6 +124,11 @@ export const l1TxUtilsConfigMappings: ConfigMappingsType<L1TxUtilsConfig> = {
     env: 'L1_PRIORITY_FEE_RETRY_BUMP_PERCENTAGE',
     ...bigintConfigHelper(50n),
   },
+  fixedPriorityFeePerGas: {
+    description: 'Fixed priority fee per gas. Overrides any priority fee bump percentage',
+    env: 'L1_FIXED_PRIORITY_FEE_PER_GAS',
+    ...bigintConfigHelper(),
+  },
   maxAttempts: {
     description: 'Maximum number of speed-up attempts',
     env: 'L1_TX_MONITOR_MAX_ATTEMPTS',
@@ -133,7 +142,7 @@ export const l1TxUtilsConfigMappings: ConfigMappingsType<L1TxUtilsConfig> = {
   stallTimeMs: {
     description: 'How long before considering tx stalled',
     env: 'L1_TX_MONITOR_STALL_TIME_MS',
-    ...numberConfigHelper(30_000),
+    ...numberConfigHelper(45_000),
   },
   txTimeoutMs: {
     description: 'How long to wait for a tx to be mined before giving up. Set to 0 to disable.',
@@ -412,8 +421,16 @@ export class L1TxUtils {
       this.logger?.warn('Failed to get blob base fee', attempt);
     }
 
-    // Get initial priority fee from the network
-    let priorityFee = await this.publicClient.estimateMaxPriorityFeePerGas();
+    let priorityFee: bigint;
+    if (gasConfig.fixedPriorityFeePerGas) {
+      this.logger?.debug('Using fixed priority fee per gas', {
+        fixedPriorityFeePerGas: formatGwei(gasConfig.fixedPriorityFeePerGas),
+      });
+      priorityFee = gasConfig.fixedPriorityFeePerGas * WEI_CONST;
+    } else {
+      // Get initial priority fee from the network
+      priorityFee = await this.publicClient.estimateMaxPriorityFeePerGas();
+    }
     let maxFeePerGas = baseFee;
 
     let maxFeePerBlobGas = blobBaseFee;
