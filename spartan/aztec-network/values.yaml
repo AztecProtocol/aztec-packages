@@ -224,6 +224,9 @@ ethereum:
       requests:
         memory: "4Gi"
         cpu: "1"
+      limits:
+        memory: "8Gi"
+        cpu: "4"
     storage: "80Gi"
   ## TODO: maybe need a second port for these two to communicate
   beacon:
@@ -236,12 +239,18 @@ ethereum:
       requests:
         memory: "4Gi"
         cpu: "1"
+      limits:
+        memory: "8Gi"
+        cpu: "4"
     storage: "80Gi"
   validator:
     resources:
       requests:
         memory: "4Gi"
         cpu: "1"
+      limits:
+        memory: "8Gi"
+        cpu: "4"
     storage: "80Gi"
   readinessProbe:
     initialDelaySeconds: 5

@@ -400,6 +400,8 @@ export const deployL1Contracts = async (
     account.address.toString(),
     rollupConfigArgs,
   ];
+  await deployer.waitForDeployments();
+
   const rollupAddress = await deployer.deploy(l1Artifacts.rollup, rollupArgs);
   logger.verbose(`Deployed Rollup at ${rollupAddress}`, rollupConfigArgs);
 
