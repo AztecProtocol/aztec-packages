@@ -21,6 +21,7 @@ scripts/run_on_builder "
   cd ~/run-$RUN_ID
   flock /var/lock/install.lock .github/ensure-builder/chron
   flock /var/lock/install.lock .github/ensure-builder/install $DOCKERHUB_PASSWORD
+  source "$HOME/.cargo/env"
   ci3/aws_handle_evict 'set -eu; $INPUT'
 "
 exit_code=$?

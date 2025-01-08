@@ -33,7 +33,6 @@ if ! command -v jq >/dev/null; then
 fi
 if ! rustup show | grep "1.75" > /dev/null; then
   curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain 1.75.0
-  source "$HOME/.cargo/env"
 fi
 function install_parallel() {
   sudo apt update && sudo systemctl stop unattended-upgrades && sudo apt install parallel
