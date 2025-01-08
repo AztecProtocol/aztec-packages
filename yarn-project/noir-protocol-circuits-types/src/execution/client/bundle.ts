@@ -12,9 +12,9 @@ import {
 import { type WitnessMap } from '@noir-lang/noir_js';
 import { type Abi } from '@noir-lang/noirc_abi';
 
-import { getClientCircuitArtifactByName, getSimulatedClientCircuitArtifactByName } from '../artifacts/client_async.js';
-import { type PrivateResetArtifact } from '../private_kernel_reset_types.js';
-import { getPrivateKernelResetArtifactName } from '../utils/private_kernel_reset.js';
+import { ClientCircuitArtifacts, SimulatedClientCircuitArtifacts } from '../../artifacts/client/bundle.js';
+import { type PrivateResetArtifact } from '../../private_kernel_reset_types.js';
+import { getPrivateKernelResetArtifactName } from '../../utils/private_kernel_reset.js';
 import {
   convertPrivateKernelInitInputsToWitnessMapWithAbi,
   convertPrivateKernelInitOutputsFromWitnessMapWithAbi,
@@ -31,18 +31,20 @@ import {
   executeResetWithArtifact,
   executeTailForPublicWithArtifact,
   executeTailWithArtifact,
-} from './client/index.js';
+} from '../client/common.js';
 
 /**
  * Executes the init private kernel.
  * @param privateKernelInitCircuitPrivateInputs - The private inputs to the initial private kernel.
  * @returns The public inputs.
  */
-export async function executeInit(
+export function executeInit(
   privateKernelInitCircuitPrivateInputs: PrivateKernelInitCircuitPrivateInputs,
 ): Promise<PrivateKernelCircuitPublicInputs> {
-  const artifact = await getSimulatedClientCircuitArtifactByName('PrivateKernelInitArtifact');
-  return executeInitWithArtifact(privateKernelInitCircuitPrivateInputs, artifact);
+  return executeInitWithArtifact(
+    privateKernelInitCircuitPrivateInputs,
+    SimulatedClientCircuitArtifacts.PrivateKernelInitArtifact,
+  );
 }
 
 /**
@@ -50,11 +52,13 @@ export async function executeInit(
  * @param privateKernelInnerCircuitPrivateInputs - The private inputs to the inner private kernel.
  * @returns The public inputs.
  */
-export async function executeInner(
+export function executeInner(
   privateKernelInnerCircuitPrivateInputs: PrivateKernelInnerCircuitPrivateInputs,
 ): Promise<PrivateKernelCircuitPublicInputs> {
-  const artifact = await getSimulatedClientCircuitArtifactByName('PrivateKernelInnerArtifact');
-  return executeInnerWithArtifact(privateKernelInnerCircuitPrivateInputs, artifact);
+  return executeInnerWithArtifact(
+    privateKernelInnerCircuitPrivateInputs,
+    SimulatedClientCircuitArtifacts.PrivateKernelInnerArtifact,
+  );
 }
 
 /**
@@ -62,7 +66,7 @@ export async function executeInner(
  * @param privateKernelResetCircuitPrivateInputs - The private inputs to the reset private kernel.
  * @returns The public inputs.
  */
-export async function executeReset<
+export function executeReset<
   NH_RR_PENDING extends number,
   NH_RR_SETTLED extends number,
   NLL_RR_PENDING extends number,
@@ -82,7 +86,7 @@ export async function executeReset<
   // TODO: This input is a hack so we can write full reset inputs to a Prover.toml. Ideally we remove it in favour of adding a test that runs a full reset.
   untrimmedPrivateKernelResetCircuitPrivateInputs?: PrivateKernelResetCircuitPrivateInputs,
 ): Promise<PrivateKernelCircuitPublicInputs> {
-  const artifact = await getSimulatedClientCircuitArtifactByName(getPrivateKernelResetArtifactName(dimensions));
+  const artifact = SimulatedClientCircuitArtifacts[getPrivateKernelResetArtifactName(dimensions)];
   return executeResetWithArtifact(
     privateKernelResetCircuitPrivateInputs,
     artifact,
@@ -95,11 +99,10 @@ export async function executeReset<
  * @param privateKernelCircuitPrivateInputs - The private inputs to the tail private kernel.
  * @returns The public inputs.
  */
-export async function executeTail(
+export function executeTail(
   privateInputs: PrivateKernelTailCircuitPrivateInputs,
 ): Promise<PrivateKernelTailCircuitPublicInputs> {
-  const artifact = await getSimulatedClientCircuitArtifactByName('PrivateKernelTailArtifact');
-  return executeTailWithArtifact(privateInputs, artifact);
+  return executeTailWithArtifact(privateInputs, SimulatedClientCircuitArtifacts.PrivateKernelTailArtifact);
 }
 
 /**
@@ -107,11 +110,13 @@ export async function executeTail(
  * @param privateKernelInnerCircuitPrivateInputs - The private inputs to the tail private kernel.
  * @returns The public inputs.
  */
-export async function executeTailForPublic(
+export function executeTailForPublic(
   privateInputs: PrivateKernelTailCircuitPrivateInputs,
 ): Promise<PrivateKernelTailCircuitPublicInputs> {
-  const artifact = await getSimulatedClientCircuitArtifactByName('PrivateKernelTailToPublicArtifact');
-  return executeTailForPublicWithArtifact(privateInputs, artifact);
+  return executeTailForPublicWithArtifact(
+    privateInputs,
+    SimulatedClientCircuitArtifacts.PrivateKernelTailToPublicArtifact,
+  );
 }
 
 /**
@@ -119,11 +124,13 @@ export async function executeTailForPublic(
  * @param inputs - The private kernel inputs.
  * @returns The witness map
  */
-export async function convertPrivateKernelInitInputsToWitnessMap(
+export function convertPrivateKernelInitInputsToWitnessMap(
   privateKernelInitCircuitPrivateInputs: PrivateKernelInitCircuitPrivateInputs,
-): Promise<WitnessMap> {
-  const artifact = await getClientCircuitArtifactByName('PrivateKernelInitArtifact');
-  return convertPrivateKernelInitInputsToWitnessMapWithAbi(privateKernelInitCircuitPrivateInputs, artifact.abi as Abi);
+): WitnessMap {
+  return convertPrivateKernelInitInputsToWitnessMapWithAbi(
+    privateKernelInitCircuitPrivateInputs,
+    ClientCircuitArtifacts.PrivateKernelInitArtifact.abi as Abi,
+  );
 }
 
 /**
@@ -131,11 +138,13 @@ export async function convertPrivateKernelInitInputsToWitnessMap(
  * @param inputs - The private kernel inputs.
  * @returns The witness map
  */
-export async function convertPrivateKernelInnerInputsToWitnessMap(
+export function convertPrivateKernelInnerInputsToWitnessMap(
   privateKernelInnerCircuitPrivateInputs: PrivateKernelInnerCircuitPrivateInputs,
-): Promise<WitnessMap> {
-  const artifact = await getClientCircuitArtifactByName('PrivateKernelInnerArtifact');
-  return convertPrivateKernelInnerInputsToWitnessMapWithAbi(privateKernelInnerCircuitPrivateInputs, artifact.abi);
+): WitnessMap {
+  return convertPrivateKernelInnerInputsToWitnessMapWithAbi(
+    privateKernelInnerCircuitPrivateInputs,
+    ClientCircuitArtifacts.PrivateKernelInnerArtifact.abi,
+  );
 }
 
 /**
@@ -143,7 +152,7 @@ export async function convertPrivateKernelInnerInputsToWitnessMap(
  * @param inputs - The private kernel inputs.
  * @returns The witness map
  */
-export async function convertPrivateKernelResetInputsToWitnessMap<
+export function convertPrivateKernelResetInputsToWitnessMap<
   NH_RR_PENDING extends number,
   NH_RR_SETTLED extends number,
   NLL_RR_PENDING extends number,
@@ -160,11 +169,10 @@ export async function convertPrivateKernelResetInputsToWitnessMap<
     NUM_TRANSIENT_DATA_HINTS
   >,
   artifactName: PrivateResetArtifact,
-): Promise<WitnessMap> {
-  const artifact = await getClientCircuitArtifactByName(artifactName);
+): WitnessMap {
   return convertPrivateKernelResetInputsToWitnessMapWithAbi(
     privateKernelResetCircuitPrivateInputs,
-    artifact.abi as Abi,
+    ClientCircuitArtifacts[artifactName].abi as Abi,
   );
 }
 
@@ -173,11 +181,13 @@ export async function convertPrivateKernelResetInputsToWitnessMap<
  * @param inputs - The private kernel inputs.
  * @returns The witness map
  */
-export async function convertPrivateKernelTailInputsToWitnessMap(
+export function convertPrivateKernelTailInputsToWitnessMap(
   privateKernelTailCircuitPrivateInputs: PrivateKernelTailCircuitPrivateInputs,
-): Promise<WitnessMap> {
-  const artifact = await getClientCircuitArtifactByName('PrivateKernelTailArtifact');
-  return convertPrivateKernelTailInputsToWitnessMapWithAbi(privateKernelTailCircuitPrivateInputs, artifact.abi as Abi);
+): WitnessMap {
+  return convertPrivateKernelTailInputsToWitnessMapWithAbi(
+    privateKernelTailCircuitPrivateInputs,
+    ClientCircuitArtifacts.PrivateKernelTailArtifact.abi as Abi,
+  );
 }
 
 /**
@@ -185,13 +195,12 @@ export async function convertPrivateKernelTailInputsToWitnessMap(
  * @param inputs - The private kernel inputs.
  * @returns The witness map
  */
-export async function convertPrivateKernelTailToPublicInputsToWitnessMap(
+export function convertPrivateKernelTailToPublicInputsToWitnessMap(
   privateKernelTailToPublicCircuitPrivateInputs: PrivateKernelTailCircuitPrivateInputs,
-): Promise<WitnessMap> {
-  const artifact = await getClientCircuitArtifactByName('PrivateKernelTailToPublicArtifact');
+): WitnessMap {
   return convertPrivateKernelTailToPublicInputsToWitnessMapWithAbi(
     privateKernelTailToPublicCircuitPrivateInputs,
-    artifact.abi as Abi,
+    ClientCircuitArtifacts.PrivateKernelTailToPublicArtifact.abi as Abi,
   );
 }
 
@@ -200,11 +209,11 @@ export async function convertPrivateKernelTailToPublicInputsToWitnessMap(
  * @param outputs - The private kernel outputs as a witness map.
  * @returns The public inputs.
  */
-export async function convertPrivateKernelInitOutputsFromWitnessMap(
-  outputs: WitnessMap,
-): Promise<PrivateKernelCircuitPublicInputs> {
-  const artifact = await getClientCircuitArtifactByName('PrivateKernelInitArtifact');
-  return convertPrivateKernelInitOutputsFromWitnessMapWithAbi(outputs, artifact.abi as Abi);
+export function convertPrivateKernelInitOutputsFromWitnessMap(outputs: WitnessMap): PrivateKernelCircuitPublicInputs {
+  return convertPrivateKernelInitOutputsFromWitnessMapWithAbi(
+    outputs,
+    ClientCircuitArtifacts.PrivateKernelInitArtifact.abi as Abi,
+  );
 }
 
 /**
@@ -212,11 +221,11 @@ export async function convertPrivateKernelInitOutputsFromWitnessMap(
  * @param outputs - The private kernel outputs as a witness map.
  * @returns The public inputs.
  */
-export async function convertPrivateKernelInnerOutputsFromWitnessMap(
-  outputs: WitnessMap,
-): Promise<PrivateKernelCircuitPublicInputs> {
-  const artifact = await getClientCircuitArtifactByName('PrivateKernelInnerArtifact');
-  return convertPrivateKernelInnerOutputsFromWitnessMapWithAbi(outputs, artifact.abi as Abi);
+export function convertPrivateKernelInnerOutputsFromWitnessMap(outputs: WitnessMap): PrivateKernelCircuitPublicInputs {
+  return convertPrivateKernelInnerOutputsFromWitnessMapWithAbi(
+    outputs,
+    ClientCircuitArtifacts.PrivateKernelInnerArtifact.abi as Abi,
+  );
 }
 
 /**
@@ -224,12 +233,14 @@ export async function convertPrivateKernelInnerOutputsFromWitnessMap(
  * @param outputs - The private kernel outputs as a witness map.
  * @returns The public inputs.
  */
-export async function convertPrivateKernelResetOutputsFromWitnessMap(
+export function convertPrivateKernelResetOutputsFromWitnessMap(
   outputs: WitnessMap,
   artifactName: PrivateResetArtifact,
-): Promise<PrivateKernelCircuitPublicInputs> {
-  const artifact = await getClientCircuitArtifactByName(artifactName);
-  return convertPrivateKernelResetOutputsFromWitnessMapWithAbi(outputs, artifact.abi as Abi);
+): PrivateKernelCircuitPublicInputs {
+  return convertPrivateKernelResetOutputsFromWitnessMapWithAbi(
+    outputs,
+    ClientCircuitArtifacts[artifactName].abi as Abi,
+  );
 }
 
 /**
@@ -237,11 +248,13 @@ export async function convertPrivateKernelResetOutputsFromWitnessMap(
  * @param outputs - The private kernel outputs as a witness map.
  * @returns The public inputs.
  */
-export async function convertPrivateKernelTailOutputsFromWitnessMap(
+export function convertPrivateKernelTailOutputsFromWitnessMap(
   outputs: WitnessMap,
-): Promise<PrivateKernelTailCircuitPublicInputs> {
-  const artifact = await getClientCircuitArtifactByName('PrivateKernelTailArtifact');
-  return convertPrivateKernelTailOutputsFromWitnessMapWithAbi(outputs, artifact.abi as Abi);
+): PrivateKernelTailCircuitPublicInputs {
+  return convertPrivateKernelTailOutputsFromWitnessMapWithAbi(
+    outputs,
+    ClientCircuitArtifacts.PrivateKernelTailArtifact.abi as Abi,
+  );
 }
 
 /**
@@ -249,9 +262,11 @@ export async function convertPrivateKernelTailOutputsFromWitnessMap(
  * @param outputs - The private kernel outputs as a witness map.
  * @returns The public inputs.
  */
-export async function convertPrivateKernelTailForPublicOutputsFromWitnessMap(
+export function convertPrivateKernelTailForPublicOutputsFromWitnessMap(
   outputs: WitnessMap,
-): Promise<PrivateKernelTailCircuitPublicInputs> {
-  const artifact = await getClientCircuitArtifactByName('PrivateKernelTailToPublicArtifact');
-  return convertPrivateKernelTailForPublicOutputsFromWitnessMapWithAbi(outputs, artifact.abi as Abi);
+): PrivateKernelTailCircuitPublicInputs {
+  return convertPrivateKernelTailForPublicOutputsFromWitnessMapWithAbi(
+    outputs,
+    ClientCircuitArtifacts.PrivateKernelTailToPublicArtifact.abi as Abi,
+  );
 }

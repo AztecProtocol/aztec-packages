@@ -3,11 +3,11 @@
   "version": "0.1.0",
   "type": "module",
   "exports": {
-    "./server": "./dest/server.js",
-    "./client": "./dest/client.js",
-    "./client_async": "./dest/client_async.js",
+    "./server": "./dest/entrypoint/server.js",
+    "./client/bundle": "./dest/entrypoint/client/bundle.js",
+    "./client/lazy": "./dest/entrypoint/client/lazy.js",
     "./types": "./dest/types/index.js",
-    "./vks": "./dest/vks.js"
+    "./vks": "./dest/entrypoint/vks.js"
   },
   "inherits": [
     "../package.common.json",

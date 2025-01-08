@@ -11,6 +11,8 @@ import {
 } from '@aztec/circuits.js';
 import { createLogger } from '@aztec/foundation/log';
 import { Timer } from '@aztec/foundation/timer';
+import { type ClientProtocolArtifact } from '@aztec/noir-protocol-circuits-types/types';
+import { ClientCircuitVks } from '@aztec/noir-protocol-circuits-types/vks';
 import { WASMSimulator } from '@aztec/simulator/client';
 
 import { type WitnessMap } from '@noir-lang/noir_js';
@@ -22,22 +24,49 @@ export abstract class BBWasmPrivateKernelProver implements PrivateKernelProver {
 
   constructor(protected threads: number = 1, protected log = createLogger('bb-prover:wasm')) {}
 
-  simulateProofInit(
+  generateInitOutput(
     _privateKernelInputsInit: PrivateKernelInitCircuitPrivateInputs,
   ): Promise<PrivateKernelSimulateOutput<PrivateKernelCircuitPublicInputs>> {
     throw new Error('Method not implemented.');
   }
-  simulateProofInner(
+
+  simulateInit(
+    _privateKernelInputsInit: PrivateKernelInitCircuitPrivateInputs,
+  ): Promise<PrivateKernelSimulateOutput<PrivateKernelCircuitPublicInputs>> {
+    throw new Error('Method not implemented.');
+  }
+
+  generateInnerOutput(
     _privateKernelInputsInner: PrivateKernelInnerCircuitPrivateInputs,
   ): Promise<PrivateKernelSimulateOutput<PrivateKernelCircuitPublicInputs>> {
     throw new Error('Method not implemented.');
   }
-  simulateProofReset(
+
+  simulateInner(
+    _privateKernelInputsInner: PrivateKernelInnerCircuitPrivateInputs,
+  ): Promise<PrivateKernelSimulateOutput<PrivateKernelCircuitPublicInputs>> {
+    throw new Error('Method not implemented.');
+  }
+
+  generateResetOutput(
     _privateKernelInputsReset: PrivateKernelResetCircuitPrivateInputs,
   ): Promise<PrivateKernelSimulateOutput<PrivateKernelCircuitPublicInputs>> {
     throw new Error('Method not implemented.');
   }
-  simulateProofTail(
+
+  simulateReset(
+    _privateKernelInputsReset: PrivateKernelResetCircuitPrivateInputs,
+  ): Promise<PrivateKernelSimulateOutput<PrivateKernelCircuitPublicInputs>> {
+    throw new Error('Method not implemented.');
+  }
+
+  generateTailOutput(
+    _privateKernelInputsTail: PrivateKernelTailCircuitPrivateInputs,
+  ): Promise<PrivateKernelSimulateOutput<PrivateKernelTailCircuitPublicInputs>> {
+    throw new Error('Method not implemented.');
+  }
+
+  simulateTail(
     _privateKernelInputsTail: PrivateKernelTailCircuitPrivateInputs,
   ): Promise<PrivateKernelSimulateOutput<PrivateKernelTailCircuitPublicInputs>> {
     throw new Error('Method not implemented.');
@@ -60,6 +89,18 @@ export abstract class BBWasmPrivateKernelProver implements PrivateKernelProver {
       vkSize: vk.length,
     });
     return new ClientIvcProof(Buffer.from(proof), Buffer.from(vk));
+  }
+
+  protected makeEmptyKernelSimulateOutput<
+    PublicInputsType extends PrivateKernelTailCircuitPublicInputs | PrivateKernelCircuitPublicInputs,
+  >(publicInputs: PublicInputsType, circuitType: ClientProtocolArtifact) {
+    const kernelProofOutput: PrivateKernelSimulateOutput<PublicInputsType> = {
+      publicInputs,
+      verificationKey: ClientCircuitVks[circuitType].keyAsFields,
+      outputWitness: new Map(),
+      bytecode: Buffer.from([]),
+    };
+    return kernelProofOutput;
   }
 
   computeGateCountForCircuit(_bytecode: Buffer, _circuitName: string): Promise<number> {

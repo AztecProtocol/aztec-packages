@@ -9,7 +9,6 @@ import { L2TipsStore } from '@aztec/kv-store/stores';
 
 import { type PXEServiceConfig } from '../config/index.js';
 import { KVPxeDatabase } from '../database/kv_pxe_database.js';
-import { TestPrivateKernelProver } from '../kernel_prover/test/test_circuit_prover.js';
 import { PXEService } from '../pxe_service/pxe_service.js';
 
 /**
@@ -54,10 +53,6 @@ export async function createPXEService(
 }
 
 function createProver(config: PXEServiceConfig, logSuffix?: string) {
-  if (!config.proverEnabled) {
-    return new TestPrivateKernelProver();
-  }
-
   if (!config.bbBinaryPath || !config.bbWorkingDirectory) {
     return new BbWasmSyncPrivateKernelProver(16);
   } else {

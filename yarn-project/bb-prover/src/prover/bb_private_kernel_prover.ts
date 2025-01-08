@@ -1,5 +1,5 @@
 import { type PrivateKernelProver, type PrivateKernelSimulateOutput } from '@aztec/circuit-types';
-import { type CircuitWitnessGenerationStats } from '@aztec/circuit-types/stats';
+import { type CircuitSimulationStats, type CircuitWitnessGenerationStats } from '@aztec/circuit-types/stats';
 import {
   type ClientIvcProof,
   type PrivateKernelCircuitPublicInputs,
@@ -8,11 +8,10 @@ import {
   type PrivateKernelResetCircuitPrivateInputs,
   type PrivateKernelTailCircuitPrivateInputs,
   type PrivateKernelTailCircuitPublicInputs,
-  type VerificationKeyData,
 } from '@aztec/circuits.js';
 import { runInDirectory } from '@aztec/foundation/fs';
 import { type Logger, createLogger } from '@aztec/foundation/log';
-import { Timer } from '@aztec/foundation/timer';
+import { Timer, elapsed } from '@aztec/foundation/timer';
 import {
   ClientCircuitArtifacts,
   type ClientProtocolArtifact,
@@ -26,8 +25,14 @@ import {
   convertPrivateKernelTailInputsToWitnessMap,
   convertPrivateKernelTailOutputsFromWitnessMap,
   convertPrivateKernelTailToPublicInputsToWitnessMap,
+  executeInit,
+  executeInner,
+  executeReset,
+  executeTail,
+  executeTailForPublic,
   getPrivateKernelResetArtifactName,
-} from '@aztec/noir-protocol-circuits-types/client';
+  maxPrivateKernelResetDimensions,
+} from '@aztec/noir-protocol-circuits-types/client/bundle';
 import { ClientCircuitVks } from '@aztec/noir-protocol-circuits-types/vks';
 import { WASMSimulatorWithBlobs } from '@aztec/simulator';
 import { type NoirCompiledCircuit } from '@aztec/types/noir';
@@ -41,7 +46,6 @@ import path from 'path';
 import { BB_RESULT, computeGateCountForCircuit, executeBbClientIvcProof } from '../bb/execute.js';
 import { type BBConfig } from '../config.js';
 import { mapProtocolArtifactNameToCircuitName } from '../stats.js';
-import { extractVkData } from '../verification_key/verification_key_data.js';
 import { readFromOutputDirectory } from './client_ivc_proof_utils.js';
 
 /**
@@ -51,11 +55,6 @@ import { readFromOutputDirectory } from './client_ivc_proof_utils.js';
  */
 export class BBNativePrivateKernelProver implements PrivateKernelProver {
   private simulator = new WASMSimulatorWithBlobs();
-
-  private verificationKeys: Map<ClientProtocolArtifact, Promise<VerificationKeyData>> = new Map<
-    ClientProtocolArtifact,
-    Promise<VerificationKeyData>
-  >();
 
   private constructor(
     private bbBinaryPath: string,
@@ -112,10 +111,10 @@ export class BBNativePrivateKernelProver implements PrivateKernelProver {
     return await this.runInDirectory(operation);
   }
 
-  public async simulateProofInit(
+  public async generateInitOutput(
     inputs: PrivateKernelInitCircuitPrivateInputs,
   ): Promise<PrivateKernelSimulateOutput<PrivateKernelCircuitPublicInputs>> {
-    return await this.simulate(
+    return await this.generateCircuitOutput(
       inputs,
       'PrivateKernelInitArtifact',
       convertPrivateKernelInitInputsToWitnessMap,
@@ -123,10 +122,24 @@ export class BBNativePrivateKernelProver implements PrivateKernelProver {
     );
   }
 
-  public async simulateProofInner(
+  public async simulateInit(
+    privateInputs: PrivateKernelInitCircuitPrivateInputs,
+  ): Promise<PrivateKernelSimulateOutput<PrivateKernelCircuitPublicInputs>> {
+    const [duration, result] = await elapsed(() => executeInit(privateInputs));
+    this.log.debug(`Simulated private kernel init`, {
+      eventName: 'circuit-simulation',
+      circuitName: 'private-kernel-init',
+      duration,
+      inputSize: privateInputs.toBuffer().length,
+      outputSize: result.toBuffer().length,
+    } satisfies CircuitSimulationStats);
+    return this.makeEmptyKernelSimulateOutput<PrivateKernelCircuitPublicInputs>(result, 'PrivateKernelInitArtifact');
+  }
+
+  public async generateInnerOutput(
     inputs: PrivateKernelInnerCircuitPrivateInputs,
   ): Promise<PrivateKernelSimulateOutput<PrivateKernelCircuitPublicInputs>> {
-    return await this.simulate(
+    return await this.generateCircuitOutput(
       inputs,
       'PrivateKernelInnerArtifact',
       convertPrivateKernelInnerInputsToWitnessMap,
@@ -134,12 +147,26 @@ export class BBNativePrivateKernelProver implements PrivateKernelProver {
     );
   }
 
-  public async simulateProofReset(
+  public async simulateInner(
+    privateInputs: PrivateKernelInnerCircuitPrivateInputs,
+  ): Promise<PrivateKernelSimulateOutput<PrivateKernelCircuitPublicInputs>> {
+    const [duration, result] = await elapsed(() => executeInner(privateInputs));
+    this.log.debug(`Simulated private kernel inner`, {
+      eventName: 'circuit-simulation',
+      circuitName: 'private-kernel-inner',
+      duration,
+      inputSize: privateInputs.toBuffer().length,
+      outputSize: result.toBuffer().length,
+    } satisfies CircuitSimulationStats);
+    return this.makeEmptyKernelSimulateOutput<PrivateKernelCircuitPublicInputs>(result, 'PrivateKernelInnerArtifact');
+  }
+
+  public async generateResetOutput(
     inputs: PrivateKernelResetCircuitPrivateInputs,
   ): Promise<PrivateKernelSimulateOutput<PrivateKernelCircuitPublicInputs>> {
     const variantInputs = inputs.trimToSizes();
     const artifactName = getPrivateKernelResetArtifactName(inputs.dimensions);
-    return await this.simulate(
+    return await this.generateCircuitOutput(
       variantInputs,
       artifactName,
       variantInputs => convertPrivateKernelResetInputsToWitnessMap(variantInputs, artifactName),
@@ -147,22 +174,62 @@ export class BBNativePrivateKernelProver implements PrivateKernelProver {
     );
   }
 
-  public async simulateProofTail(
+  public async simulateReset(
+    privateInputs: PrivateKernelResetCircuitPrivateInputs,
+  ): Promise<PrivateKernelSimulateOutput<PrivateKernelCircuitPublicInputs>> {
+    const variantPrivateInputs = privateInputs.trimToSizes();
+    const [duration, result] = await elapsed(() =>
+      executeReset(variantPrivateInputs, privateInputs.dimensions, privateInputs),
+    );
+    this.log.debug(`Simulated private kernel reset`, {
+      eventName: 'circuit-simulation',
+      circuitName: 'private-kernel-reset',
+      duration,
+      inputSize: variantPrivateInputs.toBuffer().length,
+      outputSize: result.toBuffer().length,
+    } satisfies CircuitSimulationStats);
+    return this.makeEmptyKernelSimulateOutput<PrivateKernelCircuitPublicInputs>(
+      result,
+      getPrivateKernelResetArtifactName(maxPrivateKernelResetDimensions),
+    );
+  }
+
+  public async generateTailOutput(
     inputs: PrivateKernelTailCircuitPrivateInputs,
   ): Promise<PrivateKernelSimulateOutput<PrivateKernelTailCircuitPublicInputs>> {
     if (!inputs.isForPublic()) {
-      return await this.simulate(
+      return await this.generateCircuitOutput(
         inputs,
         'PrivateKernelTailArtifact',
         convertPrivateKernelTailInputsToWitnessMap,
         convertPrivateKernelTailOutputsFromWitnessMap,
       );
     }
-    return await this.simulate(
+    return await this.generateCircuitOutput(
       inputs,
       'PrivateKernelTailToPublicArtifact',
       convertPrivateKernelTailToPublicInputsToWitnessMap,
       convertPrivateKernelTailForPublicOutputsFromWitnessMap,
+    );
+  }
+
+  public async simulateTail(
+    privateInputs: PrivateKernelTailCircuitPrivateInputs,
+  ): Promise<PrivateKernelSimulateOutput<PrivateKernelTailCircuitPublicInputs>> {
+    const isForPublic = privateInputs.isForPublic();
+    const [duration, result] = await elapsed(() =>
+      isForPublic ? executeTailForPublic(privateInputs) : executeTail(privateInputs),
+    );
+    this.log.debug(`Simulated private kernel ordering`, {
+      eventName: 'circuit-simulation',
+      circuitName: 'private-kernel-tail',
+      duration,
+      inputSize: privateInputs.toBuffer().length,
+      outputSize: result.toBuffer().length,
+    } satisfies CircuitSimulationStats);
+    return this.makeEmptyKernelSimulateOutput<PrivateKernelTailCircuitPublicInputs>(
+      result,
+      isForPublic ? 'PrivateKernelTailToPublicArtifact' : 'PrivateKernelTailArtifact',
     );
   }
 
@@ -186,22 +253,7 @@ export class BBNativePrivateKernelProver implements PrivateKernelProver {
     return result.circuitSize as number;
   }
 
-  /**
-   * Ensures our verification key cache includes the key data located at the specified directory
-   * @param filePath - The directory containing the verification key data files
-   * @param circuitType - The type of circuit to which the verification key corresponds
-   */
-  private async updateVerificationKeyAfterSimulation(filePath: string, circuitType: ClientProtocolArtifact) {
-    let promise = this.verificationKeys.get(circuitType);
-    if (!promise) {
-      promise = extractVkData(filePath);
-      this.log.debug(`Updated verification key for circuit: ${circuitType}`);
-      this.verificationKeys.set(circuitType, promise);
-    }
-    return await promise;
-  }
-
-  private async simulate<
+  private async generateCircuitOutput<
     I extends { toBuffer: () => Buffer },
     O extends PrivateKernelCircuitPublicInputs | PrivateKernelTailCircuitPublicInputs,
   >(
@@ -249,5 +301,17 @@ export class BBNativePrivateKernelProver implements PrivateKernelProver {
         }),
       this.skipCleanup,
     );
+  }
+
+  private makeEmptyKernelSimulateOutput<
+    PublicInputsType extends PrivateKernelTailCircuitPublicInputs | PrivateKernelCircuitPublicInputs,
+  >(publicInputs: PublicInputsType, circuitType: ClientProtocolArtifact) {
+    const kernelProofOutput: PrivateKernelSimulateOutput<PublicInputsType> = {
+      publicInputs,
+      verificationKey: ClientCircuitVks[circuitType].keyAsFields,
+      outputWitness: new Map(),
+      bytecode: Buffer.from([]),
+    };
+    return kernelProofOutput;
   }
 }

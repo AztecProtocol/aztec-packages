@@ -1,4 +1,5 @@
 import { type PrivateKernelSimulateOutput } from '@aztec/circuit-types';
+import { type CircuitSimulationStats } from '@aztec/circuit-types/stats';
 import {
   type PrivateKernelCircuitPublicInputs,
   type PrivateKernelInitCircuitPrivateInputs,
@@ -8,7 +9,7 @@ import {
   type PrivateKernelTailCircuitPublicInputs,
 } from '@aztec/circuits.js';
 import { createLogger } from '@aztec/foundation/log';
-import { Timer } from '@aztec/foundation/timer';
+import { Timer, elapsed } from '@aztec/foundation/timer';
 import {
   ClientCircuitArtifacts,
   convertPrivateKernelInitInputsToWitnessMap,
@@ -21,8 +22,14 @@ import {
   convertPrivateKernelTailInputsToWitnessMap,
   convertPrivateKernelTailOutputsFromWitnessMap,
   convertPrivateKernelTailToPublicInputsToWitnessMap,
+  executeInit,
+  executeInner,
+  executeReset,
+  executeTail,
+  executeTailForPublic,
   getPrivateKernelResetArtifactName,
-} from '@aztec/noir-protocol-circuits-types/client';
+  maxPrivateKernelResetDimensions,
+} from '@aztec/noir-protocol-circuits-types/client/bundle';
 import { type ClientProtocolArtifact } from '@aztec/noir-protocol-circuits-types/types';
 import { ClientCircuitVks } from '@aztec/noir-protocol-circuits-types/vks';
 import { type NoirCompiledCircuit } from '@aztec/types/noir';
@@ -36,10 +43,10 @@ export class BbWasmSyncPrivateKernelProver extends BBWasmPrivateKernelProver {
     super(threads, log);
   }
 
-  public override async simulateProofInit(
+  public override async generateInitOutput(
     inputs: PrivateKernelInitCircuitPrivateInputs,
   ): Promise<PrivateKernelSimulateOutput<PrivateKernelCircuitPublicInputs>> {
-    return await this.simulate(
+    return await this.generateCircuitOutput(
       inputs,
       'PrivateKernelInitArtifact',
       convertPrivateKernelInitInputsToWitnessMap,
@@ -47,10 +54,24 @@ export class BbWasmSyncPrivateKernelProver extends BBWasmPrivateKernelProver {
     );
   }
 
-  public override async simulateProofInner(
+  public override async simulateInit(
+    privateInputs: PrivateKernelInitCircuitPrivateInputs,
+  ): Promise<PrivateKernelSimulateOutput<PrivateKernelCircuitPublicInputs>> {
+    const [duration, result] = await elapsed(() => executeInit(privateInputs));
+    this.log.debug(`Simulated private kernel init`, {
+      eventName: 'circuit-simulation',
+      circuitName: 'private-kernel-init',
+      duration,
+      inputSize: privateInputs.toBuffer().length,
+      outputSize: result.toBuffer().length,
+    } satisfies CircuitSimulationStats);
+    return this.makeEmptyKernelSimulateOutput<PrivateKernelCircuitPublicInputs>(result, 'PrivateKernelInitArtifact');
+  }
+
+  public override async generateInnerOutput(
     inputs: PrivateKernelInnerCircuitPrivateInputs,
   ): Promise<PrivateKernelSimulateOutput<PrivateKernelCircuitPublicInputs>> {
-    return await this.simulate(
+    return await this.generateCircuitOutput(
       inputs,
       'PrivateKernelInnerArtifact',
       convertPrivateKernelInnerInputsToWitnessMap,
@@ -58,12 +79,26 @@ export class BbWasmSyncPrivateKernelProver extends BBWasmPrivateKernelProver {
     );
   }
 
-  public override async simulateProofReset(
+  public override async simulateInner(
+    privateInputs: PrivateKernelInnerCircuitPrivateInputs,
+  ): Promise<PrivateKernelSimulateOutput<PrivateKernelCircuitPublicInputs>> {
+    const [duration, result] = await elapsed(() => executeInner(privateInputs));
+    this.log.debug(`Simulated private kernel inner`, {
+      eventName: 'circuit-simulation',
+      circuitName: 'private-kernel-inner',
+      duration,
+      inputSize: privateInputs.toBuffer().length,
+      outputSize: result.toBuffer().length,
+    } satisfies CircuitSimulationStats);
+    return this.makeEmptyKernelSimulateOutput<PrivateKernelCircuitPublicInputs>(result, 'PrivateKernelInnerArtifact');
+  }
+
+  public override async generateResetOutput(
     inputs: PrivateKernelResetCircuitPrivateInputs,
   ): Promise<PrivateKernelSimulateOutput<PrivateKernelCircuitPublicInputs>> {
     const variantInputs = inputs.trimToSizes();
     const artifactName = getPrivateKernelResetArtifactName(inputs.dimensions);
-    return await this.simulate(
+    return await this.generateCircuitOutput(
       variantInputs,
       artifactName,
       variantInputs => convertPrivateKernelResetInputsToWitnessMap(variantInputs, artifactName),
@@ -71,18 +106,38 @@ export class BbWasmSyncPrivateKernelProver extends BBWasmPrivateKernelProver {
     );
   }
 
-  public override async simulateProofTail(
+  public override async simulateReset(
+    privateInputs: PrivateKernelResetCircuitPrivateInputs,
+  ): Promise<PrivateKernelSimulateOutput<PrivateKernelCircuitPublicInputs>> {
+    const variantPrivateInputs = privateInputs.trimToSizes();
+    const [duration, result] = await elapsed(() =>
+      executeReset(variantPrivateInputs, privateInputs.dimensions, privateInputs),
+    );
+    this.log.debug(`Simulated private kernel reset`, {
+      eventName: 'circuit-simulation',
+      circuitName: 'private-kernel-reset',
+      duration,
+      inputSize: variantPrivateInputs.toBuffer().length,
+      outputSize: result.toBuffer().length,
+    } satisfies CircuitSimulationStats);
+    return this.makeEmptyKernelSimulateOutput<PrivateKernelCircuitPublicInputs>(
+      result,
+      getPrivateKernelResetArtifactName(maxPrivateKernelResetDimensions),
+    );
+  }
+
+  public override async generateTailOutput(
     inputs: PrivateKernelTailCircuitPrivateInputs,
   ): Promise<PrivateKernelSimulateOutput<PrivateKernelTailCircuitPublicInputs>> {
     if (!inputs.isForPublic()) {
-      return await this.simulate(
+      return await this.generateCircuitOutput(
         inputs,
         'PrivateKernelTailArtifact',
         convertPrivateKernelTailInputsToWitnessMap,
         convertPrivateKernelTailOutputsFromWitnessMap,
       );
     }
-    return await this.simulate(
+    return await this.generateCircuitOutput(
       inputs,
       'PrivateKernelTailToPublicArtifact',
       convertPrivateKernelTailToPublicInputsToWitnessMap,
@@ -90,7 +145,27 @@ export class BbWasmSyncPrivateKernelProver extends BBWasmPrivateKernelProver {
     );
   }
 
-  private async simulate<
+  public override async simulateTail(
+    privateInputs: PrivateKernelTailCircuitPrivateInputs,
+  ): Promise<PrivateKernelSimulateOutput<PrivateKernelTailCircuitPublicInputs>> {
+    const isForPublic = privateInputs.isForPublic();
+    const [duration, result] = await elapsed(() =>
+      isForPublic ? executeTailForPublic(privateInputs) : executeTail(privateInputs),
+    );
+    this.log.debug(`Simulated private kernel ordering`, {
+      eventName: 'circuit-simulation',
+      circuitName: 'private-kernel-tail',
+      duration,
+      inputSize: privateInputs.toBuffer().length,
+      outputSize: result.toBuffer().length,
+    } satisfies CircuitSimulationStats);
+    return this.makeEmptyKernelSimulateOutput<PrivateKernelTailCircuitPublicInputs>(
+      result,
+      isForPublic ? 'PrivateKernelTailToPublicArtifact' : 'PrivateKernelTailArtifact',
+    );
+  }
+
+  private async generateCircuitOutput<
     I extends { toBuffer: () => Buffer },
     O extends PrivateKernelCircuitPublicInputs | PrivateKernelTailCircuitPublicInputs,
   >(
