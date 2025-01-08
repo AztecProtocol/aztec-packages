@@ -1,6 +1,7 @@
 import {
   ClientIvcProof,
   Fr,
+  type GasSettings,
   PrivateKernelTailCircuitPublicInputs,
   PrivateLog,
   type PrivateToPublicAccumulatedData,
@@ -86,6 +87,10 @@ export class Tx extends Gossipable {
 
   getPublicTeardownExecutionRequest(): PublicExecutionRequest | undefined {
     return this.publicTeardownFunctionCall.isEmpty() ? undefined : this.publicTeardownFunctionCall;
+  }
+
+  getGasSettings(): GasSettings {
+    return this.data.constants.txContext.gasSettings;
   }
 
   /**
