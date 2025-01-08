@@ -1,4 +1,4 @@
-import { type InBlock, type IncomingNotesFilter } from '@aztec/circuit-types';
+import { type InBlock, type NotesFilter } from '@aztec/circuit-types';
 import {
   type BlockHeader,
   type CompleteAddress,
@@ -12,7 +12,7 @@ import { type Fr } from '@aztec/foundation/fields';
 
 import { type ContractArtifactDatabase } from './contracts/contract_artifact_db.js';
 import { type ContractInstanceDatabase } from './contracts/contract_instance_db.js';
-import { type IncomingNoteDao } from './incoming_note_dao.js';
+import { type NoteDao } from './note_dao.js';
 
 /**
  * A database interface that provides methods for retrieving, adding, and removing transactional data related to Aztec
@@ -50,11 +50,11 @@ export interface PxeDatabase extends ContractArtifactDatabase, ContractInstanceD
   popCapsule(): Promise<Fr[] | undefined>;
 
   /**
-   * Gets incoming notes based on the provided filter.
+   * Gets notes based on the provided filter.
    * @param filter - The filter to apply to the notes.
    * @returns The requested notes.
    */
-  getIncomingNotes(filter: IncomingNotesFilter): Promise<IncomingNoteDao[]>;
+  getNotes(filter: NotesFilter): Promise<NoteDao[]>;
 
   /**
    * Adds a note to DB.
@@ -62,24 +62,24 @@ export interface PxeDatabase extends ContractArtifactDatabase, ContractInstanceD
    * @param scope - The scope to add the note under. Currently optional.
    * @remark - Will create a database for the scope if it does not already exist.
    */
-  addNote(note: IncomingNoteDao, scope?: AztecAddress): Promise<void>;
+  addNote(note: NoteDao, scope?: AztecAddress): Promise<void>;
 
   /**
    * Adds a nullified note to DB.
    * @param note - The note to add.
    */
-  addNullifiedNote(note: IncomingNoteDao): Promise<void>;
+  addNullifiedNote(note: NoteDao): Promise<void>;
 
   /**
    * Adds an array of notes to DB.
    * This function is used to insert multiple notes to the database at once,
    * which can improve performance when dealing with large numbers of transactions.
    *
-   * @param incomingNotes - An array of notes which were decrypted as incoming.
+   * @param notes - An array of notes.
    * @param scope - The scope to add the notes under. Currently optional.
    * @remark - Will create a database for the scope if it does not already exist.
    */
-  addNotes(incomingNotes: IncomingNoteDao[], scope?: AztecAddress): Promise<void>;
+  addNotes(notes: NoteDao[], scope?: AztecAddress): Promise<void>;
 
   /**
    * Remove nullified notes associated with the given account and nullifiers.
@@ -88,7 +88,7 @@ export interface PxeDatabase extends ContractArtifactDatabase, ContractInstanceD
    * @param account - A PublicKey instance representing the account for which the records are being removed.
    * @returns Removed notes.
    */
-  removeNullifiedNotes(nullifiers: InBlock<Fr>[], account: PublicKey): Promise<IncomingNoteDao[]>;
+  removeNullifiedNotes(nullifiers: InBlock<Fr>[], account: PublicKey): Promise<NoteDao[]>;
 
   /**
    * Gets the most recently processed block number.

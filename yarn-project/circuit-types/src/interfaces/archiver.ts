@@ -68,10 +68,7 @@ export const ArchiverApiSchema: ApiSchemaFor<ArchiverApi> = {
   getBytecodeCommitment: z.function().args(schemas.Fr).returns(schemas.Fr),
   getContract: z.function().args(schemas.AztecAddress).returns(ContractInstanceWithAddressSchema.optional()),
   getContractClassIds: z.function().args().returns(z.array(schemas.Fr)),
-  registerContractFunctionNames: z
-    .function()
-    .args(schemas.AztecAddress, z.record(z.string(), z.string()))
-    .returns(z.void()),
+  registerContractFunctionSignatures: z.function().args(schemas.AztecAddress, z.array(z.string())).returns(z.void()),
   getL1ToL2Messages: z.function().args(schemas.BigInt).returns(z.array(schemas.Fr)),
   getL1ToL2MessageIndex: z.function().args(schemas.Fr).returns(schemas.BigInt.optional()),
   // TODO(#10007): Remove this method

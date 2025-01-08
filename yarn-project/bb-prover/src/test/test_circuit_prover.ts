@@ -11,12 +11,12 @@ import {
   type AvmCircuitInputs,
   type BaseParityInputs,
   EmptyNestedData,
-  type KernelCircuitPublicInputs,
   NESTED_RECURSIVE_PROOF_LENGTH,
   NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH,
   type ParityPublicInputs,
   type PrivateKernelEmptyInputData,
   PrivateKernelEmptyInputs,
+  type PrivateToRollupKernelCircuitPublicInputs,
   type Proof,
   RECURSIVE_PROOF_LENGTH,
   type RootParityInputs,
@@ -98,7 +98,10 @@ export class TestCircuitProver implements ServerCircuitProver {
   public async getEmptyPrivateKernelProof(
     inputs: PrivateKernelEmptyInputData,
   ): Promise<
-    PublicInputsAndRecursiveProof<KernelCircuitPublicInputs, typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH>
+    PublicInputsAndRecursiveProof<
+      PrivateToRollupKernelCircuitPublicInputs,
+      typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH
+    >
   > {
     const emptyNested = new EmptyNestedData(
       makeRecursiveProof(NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH),

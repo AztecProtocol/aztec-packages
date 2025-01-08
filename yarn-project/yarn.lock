@@ -225,7 +225,6 @@ __metadata:
     eslint: "npm:^8.21.0"
     eslint-import-resolver-typescript: "npm:^3.5.5"
     eslint-plugin-import: "npm:^2.27.5"
-    jest-silent-reporter: "npm:^0.6.0"
     madge: "npm:^6.1.0"
     prettier: "npm:^2.8.8"
     typedoc: "npm:^0.24.8"
@@ -333,6 +332,32 @@ __metadata:
   bin:
     bb.js: ./dest/node/main.js
   languageName: node
+  linkType: soft
+
+"@aztec/blob-sink@workspace:^, @aztec/blob-sink@workspace:blob-sink":
+  version: 0.0.0-use.local
+  resolution: "@aztec/blob-sink@workspace:blob-sink"
+  dependencies:
+    "@aztec/circuit-types": "workspace:^"
+    "@aztec/foundation": "workspace:^"
+    "@aztec/kv-store": "workspace:*"
+    "@aztec/telemetry-client": "workspace:*"
+    "@jest/globals": "npm:^29.5.0"
+    "@types/jest": "npm:^29.5.0"
+    "@types/memdown": "npm:^3.0.0"
+    "@types/node": "npm:^18.7.23"
+    "@types/source-map-support": "npm:^0.5.10"
+    "@types/supertest": "npm:^6.0.2"
+    express: "npm:^4.21.1"
+    jest: "npm:^29.5.0"
+    jest-mock-extended: "npm:^3.0.3"
+    source-map-support: "npm:^0.5.21"
+    supertest: "npm:^7.0.0"
+    ts-node: "npm:^10.9.1"
+    tslib: "npm:^2.4.0"
+    typescript: "npm:^5.0.4"
+    zod: "npm:^3.23.8"
+  languageName: unknown
   linkType: soft
 
 "@aztec/bot@workspace:^, @aztec/bot@workspace:bot":
@@ -532,6 +557,7 @@ __metadata:
     "@aztec/aztec-node": "workspace:^"
     "@aztec/aztec.js": "workspace:^"
     "@aztec/bb-prover": "workspace:^"
+    "@aztec/blob-sink": "workspace:^"
     "@aztec/bot": "workspace:^"
     "@aztec/circuit-types": "workspace:^"
     "@aztec/circuits.js": "workspace:^"
@@ -796,7 +822,7 @@ __metadata:
   languageName: unknown
   linkType: soft
 
-"@aztec/kv-store@workspace:^, @aztec/kv-store@workspace:kv-store":
+"@aztec/kv-store@workspace:*, @aztec/kv-store@workspace:^, @aztec/kv-store@workspace:kv-store":
   version: 0.0.0-use.local
   resolution: "@aztec/kv-store@workspace:kv-store"
   dependencies:
@@ -1158,6 +1184,7 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@aztec/sequencer-client@workspace:sequencer-client"
   dependencies:
+    "@aztec/archiver": "workspace:^"
     "@aztec/aztec.js": "workspace:^"
     "@aztec/bb-prover": "workspace:^"
     "@aztec/circuit-types": "workspace:^"
@@ -1188,6 +1215,7 @@ __metadata:
     "@types/node": "npm:^18.7.23"
     concurrently: "npm:^7.6.0"
     eslint: "npm:^8.37.0"
+    express: "npm:^4.21.1"
     jest: "npm:^29.5.0"
     jest-mock-extended: "npm:^3.0.3"
     levelup: "npm:^5.1.1"
@@ -1240,7 +1268,7 @@ __metadata:
   languageName: unknown
   linkType: soft
 
-"@aztec/telemetry-client@workspace:^, @aztec/telemetry-client@workspace:telemetry-client":
+"@aztec/telemetry-client@workspace:*, @aztec/telemetry-client@workspace:^, @aztec/telemetry-client@workspace:telemetry-client":
   version: 0.0.0-use.local
   resolution: "@aztec/telemetry-client@workspace:telemetry-client"
   dependencies:
@@ -2837,19 +2865,6 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@jest/types@npm:^26.6.2":
-  version: 26.6.2
-  resolution: "@jest/types@npm:26.6.2"
-  dependencies:
-    "@types/istanbul-lib-coverage": "npm:^2.0.0"
-    "@types/istanbul-reports": "npm:^3.0.0"
-    "@types/node": "npm:*"
-    "@types/yargs": "npm:^15.0.0"
-    chalk: "npm:^4.0.0"
-  checksum: 10/02d42749c8c6dc7e3184d0ff0293dd91c97233c2e6dc3708d61ef33d3162d4f07ad38d2d8a39abd94cf2fced69b92a87565c7099137c4529809242ca327254af
-  languageName: node
-  linkType: hard
-
 "@jest/types@npm:^29.6.3":
   version: 29.6.3
   resolution: "@jest/types@npm:29.6.3"
@@ -3868,7 +3883,7 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@noir-lang/noir_codegen@portal:../noir/packages/noir_codegen::locator=%40aztec%2Faztec3-packages%40workspace%3A."
   dependencies:
-    "@noir-lang/types": "npm:1.0.0-beta.0"
+    "@noir-lang/types": "npm:1.0.0-beta.1"
     glob: "npm:^10.3.10"
     ts-command-line-args: "npm:^2.5.1"
   bin:
@@ -3877,13 +3892,13 @@ __metadata:
   linkType: soft
 
 "@noir-lang/noir_js@file:../noir/packages/noir_js::locator=%40aztec%2Faztec3-packages%40workspace%3A.":
-  version: 1.0.0-beta.0
-  resolution: "@noir-lang/noir_js@file:../noir/packages/noir_js#../noir/packages/noir_js::hash=90b0a4&locator=%40aztec%2Faztec3-packages%40workspace%3A."
+  version: 1.0.0-beta.1
+  resolution: "@noir-lang/noir_js@file:../noir/packages/noir_js#../noir/packages/noir_js::hash=fd2109&locator=%40aztec%2Faztec3-packages%40workspace%3A."
   dependencies:
-    "@noir-lang/acvm_js": "npm:1.0.0-beta.0"
-    "@noir-lang/noirc_abi": "npm:1.0.0-beta.0"
-    "@noir-lang/types": "npm:1.0.0-beta.0"
-  checksum: 10/938fa6d909859abbc62eb45508b4a1729c3b3b0ced99dba2de37571697b9fa9f1c90c932e3768c01ceb50315e69d5c249e8a717e470f6fec33cf105a39b73cd4
+    "@noir-lang/acvm_js": "npm:1.0.0-beta.1"
+    "@noir-lang/noirc_abi": "npm:1.0.0-beta.1"
+    "@noir-lang/types": "npm:1.0.0-beta.1"
+  checksum: 10/90680504cc73c9ce1587bfafac654dc6bae5347d1ba858c0698f70731254e45b877884cbbe2fd2a6cc50a2f41ecba340375576f4d94b3657768f65fd17c227a9
   languageName: node
   linkType: hard
 
@@ -3891,7 +3906,7 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@noir-lang/noirc_abi@portal:../noir/packages/noirc_abi::locator=%40aztec%2Faztec3-packages%40workspace%3A."
   dependencies:
-    "@noir-lang/types": "npm:1.0.0-beta.0"
+    "@noir-lang/types": "npm:1.0.0-beta.1"
   languageName: node
   linkType: soft
 
@@ -5726,12 +5741,34 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@types/superagent@npm:^8.1.0":
+  version: 8.1.9
+  resolution: "@types/superagent@npm:8.1.9"
+  dependencies:
+    "@types/cookiejar": "npm:^2.1.5"
+    "@types/methods": "npm:^1.1.4"
+    "@types/node": "npm:*"
+    form-data: "npm:^4.0.0"
+  checksum: 10/6d9687b0bc3d693b900ef76000b02437a70879c3219b28606879c086d786bb1e48429813e72e32dd0aafc94c053a78a2aa8be67c45bc8e6b968ca62d6d5cc554
+  languageName: node
+  linkType: hard
+
 "@types/supertest@npm:^2.0.12":
   version: 2.0.16
   resolution: "@types/supertest@npm:2.0.16"
   dependencies:
     "@types/superagent": "npm:*"
   checksum: 10/2fc998ea698e0467cdbe3bea0ebce2027ea3a45a13e51a6cecb0435f44b486faecf99c34d8702d2d7fe033e6e09fdd2b374af52ecc8d0c69a1deec66b8c0dd52
+  languageName: node
+  linkType: hard
+
+"@types/supertest@npm:^6.0.2":
+  version: 6.0.2
+  resolution: "@types/supertest@npm:6.0.2"
+  dependencies:
+    "@types/methods": "npm:^1.1.4"
+    "@types/superagent": "npm:^8.1.0"
+  checksum: 10/4b67fb2d1bfbb7ff0a7dfaaf190cdf2e0014522615fb2dc53c214bdac95b4ee42696dd1df13332c90a7765cc52934c9cc0c428bf0f9e8189167aef01042e7448
   languageName: node
   linkType: hard
 
@@ -5773,15 +5810,6 @@ __metadata:
   version: 21.0.3
   resolution: "@types/yargs-parser@npm:21.0.3"
   checksum: 10/a794eb750e8ebc6273a51b12a0002de41343ffe46befef460bdbb57262d187fdf608bc6615b7b11c462c63c3ceb70abe2564c8dd8ee0f7628f38a314f74a9b9b
-  languageName: node
-  linkType: hard
-
-"@types/yargs@npm:^15.0.0":
-  version: 15.0.19
-  resolution: "@types/yargs@npm:15.0.19"
-  dependencies:
-    "@types/yargs-parser": "npm:*"
-  checksum: 10/c3abcd3472c32c02702f365dc1702a0728562deb8a8c61f3ce2161958d756cc033f7d78567565b4eba62f5869e9b5eac93d4c1dcb2c97af17aafda8f9f892b4b
   languageName: node
   linkType: hard
 
@@ -8071,13 +8099,6 @@ __metadata:
   peerDependencies:
     devtools-protocol: "*"
   checksum: 10/4fb8ca03f690f899a5a4e6eb41b490e5ba49b9b106e15a26d5ab4bf18c95c49d070b96a02803d44e9ab02672d5ee7712c89f1279ca812db3e501ab3ba155a196
-  languageName: node
-  linkType: hard
-
-"ci-info@npm:^2.0.0":
-  version: 2.0.0
-  resolution: "ci-info@npm:2.0.0"
-  checksum: 10/3b374666a85ea3ca43fa49aa3a048d21c9b475c96eb13c133505d2324e7ae5efd6a454f41efe46a152269e9b6a00c9edbe63ec7fa1921957165aae16625acd67
   languageName: node
   linkType: hard
 
@@ -10728,7 +10749,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"express@npm:^4.19.2":
+"express@npm:^4.19.2, express@npm:^4.21.1":
   version: 4.21.1
   resolution: "express@npm:4.21.1"
   dependencies:
@@ -11098,6 +11119,17 @@ __metadata:
     once: "npm:^1.4.0"
     qs: "npm:^6.11.0"
   checksum: 10/d385180e0461f65e6f7b70452859fe1c32aa97a290c2ca33f00cdc33145ef44fa68bbc9b93af2c3af73ae726e42c3477c6619c49f3c34b49934e9481275b7b4c
+  languageName: node
+  linkType: hard
+
+"formidable@npm:^3.5.1":
+  version: 3.5.2
+  resolution: "formidable@npm:3.5.2"
+  dependencies:
+    dezalgo: "npm:^1.0.4"
+    hexoid: "npm:^2.0.0"
+    once: "npm:^1.4.0"
+  checksum: 10/b9d87af44be8ba82f8f4955c240e65c559aedb84fecce6b294d97b256db66e6a20d50e799776fdf29ee46cb83857231d12c416c735696b18d3895b85620704f4
   languageName: node
   linkType: hard
 
@@ -11696,6 +11728,13 @@ __metadata:
   version: 1.0.0
   resolution: "hexoid@npm:1.0.0"
   checksum: 10/f2271b8b6b0e13fb5a1eccf740f53ce8bae689c80b9498b854c447f9dc94f75f44e0de064c0e4660ecdbfa8942bb2b69973fdcb080187b45bbb409a3c71f19d4
+  languageName: node
+  linkType: hard
+
+"hexoid@npm:^2.0.0":
+  version: 2.0.0
+  resolution: "hexoid@npm:2.0.0"
+  checksum: 10/73d8e135bdd9326d0fa9ea05356741d48a3e67fbd3b2ce14c4f7b523a1cdabe70fa42f2c53447244886a0aecdf7873d4124abc30093a72d15188805f7a7ee406
   languageName: node
   linkType: hard
 
@@ -12305,17 +12344,6 @@ __metadata:
   version: 1.2.7
   resolution: "is-callable@npm:1.2.7"
   checksum: 10/48a9297fb92c99e9df48706241a189da362bff3003354aea4048bd5f7b2eb0d823cd16d0a383cece3d76166ba16d85d9659165ac6fcce1ac12e6c649d66dbdb9
-  languageName: node
-  linkType: hard
-
-"is-ci@npm:^2.0.0":
-  version: 2.0.0
-  resolution: "is-ci@npm:2.0.0"
-  dependencies:
-    ci-info: "npm:^2.0.0"
-  bin:
-    is-ci: bin.js
-  checksum: 10/77b869057510f3efa439bbb36e9be429d53b3f51abd4776eeea79ab3b221337fe1753d1e50058a9e2c650d38246108beffb15ccfd443929d77748d8c0cc90144
   languageName: node
   linkType: hard
 
@@ -13331,7 +13359,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"jest-runner@npm:^29.7.0":
+"jest-runner@npm:29.7.0":
   version: 29.7.0
   resolution: "jest-runner@npm:29.7.0"
   dependencies:
@@ -13357,6 +13385,35 @@ __metadata:
     p-limit: "npm:^3.1.0"
     source-map-support: "npm:0.5.13"
   checksum: 10/9d8748a494bd90f5c82acea99be9e99f21358263ce6feae44d3f1b0cd90991b5df5d18d607e73c07be95861ee86d1cbab2a3fc6ca4b21805f07ac29d47c1da1e
+  languageName: node
+  linkType: hard
+
+"jest-runner@patch:jest-runner@npm%3A29.7.0#~/.yarn/patches/jest-runner-npm-29.7.0-3bc9f82b58.patch":
+  version: 29.7.0
+  resolution: "jest-runner@patch:jest-runner@npm%3A29.7.0#~/.yarn/patches/jest-runner-npm-29.7.0-3bc9f82b58.patch::version=29.7.0&hash=a79dea"
+  dependencies:
+    "@jest/console": "npm:^29.7.0"
+    "@jest/environment": "npm:^29.7.0"
+    "@jest/test-result": "npm:^29.7.0"
+    "@jest/transform": "npm:^29.7.0"
+    "@jest/types": "npm:^29.6.3"
+    "@types/node": "npm:*"
+    chalk: "npm:^4.0.0"
+    emittery: "npm:^0.13.1"
+    graceful-fs: "npm:^4.2.9"
+    jest-docblock: "npm:^29.7.0"
+    jest-environment-node: "npm:^29.7.0"
+    jest-haste-map: "npm:^29.7.0"
+    jest-leak-detector: "npm:^29.7.0"
+    jest-message-util: "npm:^29.7.0"
+    jest-resolve: "npm:^29.7.0"
+    jest-runtime: "npm:^29.7.0"
+    jest-util: "npm:^29.7.0"
+    jest-watcher: "npm:^29.7.0"
+    jest-worker: "npm:^29.7.0"
+    p-limit: "npm:^3.1.0"
+    source-map-support: "npm:0.5.13"
+  checksum: 10/d520c4f40179a22626d547b9fdf5f802a7e40d27e50f13a3ecca327581e78164dcdc8c650ed2974ef8f82caef935f7e356f7ce2d1f8dac65a9556101da79a27c
   languageName: node
   linkType: hard
 
@@ -13390,16 +13447,6 @@ __metadata:
   languageName: node
   linkType: hard
 
-"jest-silent-reporter@npm:^0.6.0":
-  version: 0.6.0
-  resolution: "jest-silent-reporter@npm:0.6.0"
-  dependencies:
-    chalk: "npm:^4.0.0"
-    jest-util: "npm:^26.0.0"
-  checksum: 10/443e0abaf5a6dc8c17da1e8495b7a55f813224adc39b6d1954bf49ff7fe70533b1020571453180dbb8388ace87f8e1dfc79610a4554bb93334f6c4154231c292
-  languageName: node
-  linkType: hard
-
 "jest-snapshot@npm:^29.7.0":
   version: 29.7.0
   resolution: "jest-snapshot@npm:29.7.0"
@@ -13425,20 +13472,6 @@ __metadata:
     pretty-format: "npm:^29.7.0"
     semver: "npm:^7.5.3"
   checksum: 10/cb19a3948256de5f922d52f251821f99657339969bf86843bd26cf3332eae94883e8260e3d2fba46129a27c3971c1aa522490e460e16c7fad516e82d10bbf9f8
-  languageName: node
-  linkType: hard
-
-"jest-util@npm:^26.0.0":
-  version: 26.6.2
-  resolution: "jest-util@npm:26.6.2"
-  dependencies:
-    "@jest/types": "npm:^26.6.2"
-    "@types/node": "npm:*"
-    chalk: "npm:^4.0.0"
-    graceful-fs: "npm:^4.2.4"
-    is-ci: "npm:^2.0.0"
-    micromatch: "npm:^4.0.2"
-  checksum: 10/4502bc699f147d2fa43274af18174b55fd5b956becd1347665217e35a5354e929206abaef580f967ed239587be926c835eb3ca9b5c361205df1988bc8d58a462
   languageName: node
   linkType: hard
 
@@ -18335,6 +18368,23 @@ __metadata:
   languageName: node
   linkType: hard
 
+"superagent@npm:^9.0.1":
+  version: 9.0.2
+  resolution: "superagent@npm:9.0.2"
+  dependencies:
+    component-emitter: "npm:^1.3.0"
+    cookiejar: "npm:^2.1.4"
+    debug: "npm:^4.3.4"
+    fast-safe-stringify: "npm:^2.1.1"
+    form-data: "npm:^4.0.0"
+    formidable: "npm:^3.5.1"
+    methods: "npm:^1.1.2"
+    mime: "npm:2.6.0"
+    qs: "npm:^6.11.0"
+  checksum: 10/d3c0c9051ceec84d5b431eaa410ad81bcd53255cea57af1fc66d683a24c34f3ba4761b411072a9bf489a70e3d5b586a78a0e6f2eac6a561067e7d196ddab0907
+  languageName: node
+  linkType: hard
+
 "supertest@npm:^6.3.3":
   version: 6.3.4
   resolution: "supertest@npm:6.3.4"
@@ -18342,6 +18392,16 @@ __metadata:
     methods: "npm:^1.1.2"
     superagent: "npm:^8.1.2"
   checksum: 10/93015318f5a90398915a032747973d9eacf9aebec3f07b413eba9d8b3db83ff48fbf6f5a92f9526578cae50153b0f76a37de197141030d856db4371a711b86ee
+  languageName: node
+  linkType: hard
+
+"supertest@npm:^7.0.0":
+  version: 7.0.0
+  resolution: "supertest@npm:7.0.0"
+  dependencies:
+    methods: "npm:^1.1.2"
+    superagent: "npm:^9.0.1"
+  checksum: 10/73bf2a37e13856a1b3e6a37b9df5cec8e506aa0360a5f5ecd989d1f4b0edf168883e306012e81e371d5252c17d4c7bef4ba30633dbf3877cbf52fc7af51cca9b
   languageName: node
   linkType: hard
 

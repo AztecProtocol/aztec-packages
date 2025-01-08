@@ -151,6 +151,10 @@ proverNode:
   archiverViemPollingInterval: 1000
   pollInterval: 1000
   viemPollingInterval: 1000
+  txGathering:
+    timeoutMs: 60000
+    intervalMs: 1000
+    maxParallelRequests: 100
 
 pxe:
   logLevel: "debug; info: aztec:simulator, json-rpc"
