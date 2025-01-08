@@ -17,12 +17,12 @@ import {
   EmptyNestedData,
   Fr,
   IPA_CLAIM_LENGTH,
-  type KernelCircuitPublicInputs,
   NESTED_RECURSIVE_PROOF_LENGTH,
   NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH,
   type ParityPublicInputs,
   type PrivateKernelEmptyInputData,
   PrivateKernelEmptyInputs,
+  type PrivateToRollupKernelCircuitPublicInputs,
   Proof,
   RECURSIVE_PROOF_LENGTH,
   RECURSIVE_ROLLUP_HONK_PROOF_LENGTH,
@@ -390,7 +390,10 @@ export class BBNativeRollupProver implements ServerCircuitProver {
   public async getEmptyPrivateKernelProof(
     inputs: PrivateKernelEmptyInputData,
   ): Promise<
-    PublicInputsAndRecursiveProof<KernelCircuitPublicInputs, typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH>
+    PublicInputsAndRecursiveProof<
+      PrivateToRollupKernelCircuitPublicInputs,
+      typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH
+    >
   > {
     const emptyNested = await this.getEmptyNestedProof();
     const emptyPrivateKernelProof = await this.getEmptyPrivateKernelProofFromEmptyNested(
@@ -426,7 +429,10 @@ export class BBNativeRollupProver implements ServerCircuitProver {
   private async getEmptyPrivateKernelProofFromEmptyNested(
     inputs: PrivateKernelEmptyInputs,
   ): Promise<
-    PublicInputsAndRecursiveProof<KernelCircuitPublicInputs, typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH>
+    PublicInputsAndRecursiveProof<
+      PrivateToRollupKernelCircuitPublicInputs,
+      typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH
+    >
   > {
     const { circuitOutput, proof } = await this.createRecursiveProof(
       inputs,

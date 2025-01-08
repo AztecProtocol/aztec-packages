@@ -280,7 +280,11 @@ describe('LightBlockBuilder', () => {
       const vkIndex = TUBE_VK_INDEX;
       const vkPath = getVKSiblingPath(vkIndex);
       const vkData = new VkWitnessData(TubeVk, vkIndex, vkPath);
-      const tubeData = new PrivateTubeData(tx.data.toKernelCircuitPublicInputs(), emptyRollupProof, vkData);
+      const tubeData = new PrivateTubeData(
+        tx.data.toPrivateToRollupKernelCircuitPublicInputs(),
+        emptyRollupProof,
+        vkData,
+      );
       const hints = await buildBaseRollupHints(tx, globalVariables, expectsFork, spongeBlobState);
       const inputs = new PrivateBaseRollupInputs(tubeData, hints as PrivateBaseRollupHints);
       const result = await simulator.getPrivateBaseRollupProof(inputs);

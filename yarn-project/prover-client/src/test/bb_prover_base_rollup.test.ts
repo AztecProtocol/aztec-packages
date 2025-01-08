@@ -47,7 +47,7 @@ describe('prover/bb_prover/base-rollup', () => {
       protocolContractTreeRoot,
     );
     const tubeProof = await context.prover.getEmptyPrivateKernelProof(privateInputs);
-    expect(tubeProof.inputs).toEqual(tx.data.toKernelCircuitPublicInputs());
+    expect(tubeProof.inputs).toEqual(tx.data.toPrivateToRollupKernelCircuitPublicInputs());
 
     const vkIndex = PRIVATE_KERNEL_EMPTY_INDEX;
     const vkPath = getVKSiblingPath(vkIndex);

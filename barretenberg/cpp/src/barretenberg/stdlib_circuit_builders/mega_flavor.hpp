@@ -850,7 +850,7 @@ class MegaFlavor {
      * Note: Made generic for use in MegaRecursive.
      * TODO(https://github.com/AztecProtocol/barretenberg/issues/877): Remove this Commitment template parameter
      */
-    template <typename Commitment> class Transcript_ : public NativeTranscript {
+    class Transcript : public NativeTranscript {
       public:
         uint32_t circuit_size;
         uint32_t public_input_size;
@@ -887,23 +887,23 @@ class MegaFlavor {
         Commitment shplonk_q_comm;
         Commitment kzg_w_comm;
 
-        Transcript_() = default;
+        Transcript() = default;
 
-        Transcript_(const HonkProof& proof)
+        Transcript(const HonkProof& proof)
             : NativeTranscript(proof)
         {}
 
-        static std::shared_ptr<Transcript_> prover_init_empty()
+        static std::shared_ptr<Transcript> prover_init_empty()
         {
-            auto transcript = std::make_shared<Transcript_>();
+            auto transcript = std::make_shared<Transcript>();
             constexpr uint32_t init{ 42 }; // arbitrary
             transcript->send_to_verifier("Init", init);
             return transcript;
         };
 
-        static std::shared_ptr<Transcript_> verifier_init_empty(const std::shared_ptr<Transcript_>& transcript)
+        static std::shared_ptr<Transcript> verifier_init_empty(const std::shared_ptr<Transcript>& transcript)
         {
-            auto verifier_transcript = std::make_shared<Transcript_>(transcript->proof_data);
+            auto verifier_transcript = std::make_shared<Transcript>(transcript->proof_data);
             [[maybe_unused]] auto _ = verifier_transcript->template receive_from_prover<uint32_t>("Init");
             return verifier_transcript;
         };
@@ -1010,8 +1010,6 @@ class MegaFlavor {
             ASSERT(proof_data.size() == old_proof_length);
         }
     };
-    // Specialize for Mega (general case used in MegaRecursive).
-    using Transcript = Transcript_<Commitment>;
 };
 
 } // namespace bb

@@ -324,7 +324,7 @@ export class MockedAvmTestContractDataSource implements ContractDataSource {
     return Promise.resolve(this.fnName);
   }
 
-  registerContractFunctionNames(_address: AztecAddress, _names: Record<string, string>): Promise<void> {
+  registerContractFunctionSignatures(_address: AztecAddress, _signatures: string[]): Promise<void> {
     return Promise.resolve();
   }
 }

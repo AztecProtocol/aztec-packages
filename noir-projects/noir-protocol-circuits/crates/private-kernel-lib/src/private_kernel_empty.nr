@@ -1,6 +1,6 @@
 use dep::types::{
     block_header::BlockHeader,
-    KernelCircuitPublicInputs,
+    PrivateToRollupKernelCircuitPublicInputs,
     proof::{
         rollup_recursive_proof::RecursiveProof,
         traits::Verifiable,
@@ -36,10 +36,10 @@ pub struct PrivateKernelEmptyPrivateInputs {
 }
 
 impl PrivateKernelEmptyPrivateInputs {
-    pub fn execute(self) -> KernelCircuitPublicInputs {
+    pub fn execute(self) -> PrivateToRollupKernelCircuitPublicInputs {
         self.empty_nested.verify();
 
-        let mut public_inputs = KernelCircuitPublicInputs::empty();
+        let mut public_inputs = PrivateToRollupKernelCircuitPublicInputs::empty();
         public_inputs.constants.historical_header = self.historical_header;
         public_inputs.constants.tx_context.chain_id = self.chain_id;
         public_inputs.constants.tx_context.version = self.version;

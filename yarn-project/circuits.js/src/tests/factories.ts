@@ -26,7 +26,6 @@ import {
   BLOBS_PER_BLOCK,
   BaseParityInputs,
   CallContext,
-  CombinedAccumulatedData,
   CombinedConstantData,
   ContractStorageRead,
   ContractStorageUpdateRequest,
@@ -81,6 +80,7 @@ import {
   PrivateCallRequest,
   PrivateCircuitPublicInputs,
   PrivateKernelTailCircuitPublicInputs,
+  PrivateToRollupAccumulatedData,
   Proof,
   PublicCallRequest,
   PublicCircuitPublicInputs,
@@ -91,7 +91,6 @@ import {
   PublicKeys,
   RECURSIVE_PROOF_LENGTH,
   ReadRequest,
-  RevertCode,
   RollupTypes,
   RootParityInput,
   RootParityInputs,
@@ -141,7 +140,7 @@ import {
   TxConstantData,
   VkWitnessData,
 } from '../structs/index.js';
-import { KernelCircuitPublicInputs } from '../structs/kernel/kernel_circuit_public_inputs.js';
+import { PrivateToRollupKernelCircuitPublicInputs } from '../structs/kernel/kernel_circuit_public_inputs.js';
 import { AvmProofData } from '../structs/rollup/avm_proof_data.js';
 import { BaseOrMergeRollupPublicInputs } from '../structs/rollup/base_or_merge_rollup_public_inputs.js';
 import { PrivateBaseRollupHints, PublicBaseRollupHints } from '../structs/rollup/base_rollup_hints.js';
@@ -304,24 +303,16 @@ export function makeCombinedConstantData(seed = 1): CombinedConstantData {
  * @param seed - The seed to use for generating the accumulated data.
  * @returns An accumulated data.
  */
-export function makeCombinedAccumulatedData(seed = 1, full = false): CombinedAccumulatedData {
+export function makePrivateToRollupAccumulatedData(seed = 1, full = false): PrivateToRollupAccumulatedData {
   const tupleGenerator = full ? makeTuple : makeHalfFullTuple;
 
-  return new CombinedAccumulatedData(
+  return new PrivateToRollupAccumulatedData(
     tupleGenerator(MAX_NOTE_HASHES_PER_TX, fr, seed + 0x120, Fr.zero),
     tupleGenerator(MAX_NULLIFIERS_PER_TX, fr, seed + 0x200, Fr.zero),
     tupleGenerator(MAX_L2_TO_L1_MSGS_PER_TX, makeScopedL2ToL1Message, seed + 0x600, ScopedL2ToL1Message.empty),
     tupleGenerator(MAX_PRIVATE_LOGS_PER_TX, makePrivateLog, seed + 0x700, PrivateLog.empty),
-    tupleGenerator(MAX_UNENCRYPTED_LOGS_PER_TX, makeScopedLogHash, seed + 0x900, ScopedLogHash.empty), // unencrypted logs
     tupleGenerator(MAX_CONTRACT_CLASS_LOGS_PER_TX, makeScopedLogHash, seed + 0xa00, ScopedLogHash.empty), // contract class logs
-    fr(seed + 0xd00), // unencrypted_log_preimages_length
     fr(seed + 0xe00), // contract_class_log_preimages_length
-    tupleGenerator(
-      MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
-      makePublicDataWrite,
-      seed + 0xd00,
-      PublicDataWrite.empty,
-    ),
   );
 }
 
@@ -394,7 +385,7 @@ export function makePrivateKernelTailCircuitPublicInputs(
       )
     : undefined;
   const forRollup = !isForPublic
-    ? new PartialPrivateTailPublicInputsForRollup(makeCombinedAccumulatedData(seed + 0x100))
+    ? new PartialPrivateTailPublicInputsForRollup(makePrivateToRollupAccumulatedData(seed + 0x100))
     : undefined;
   return new PrivateKernelTailCircuitPublicInputs(
     makeTxConstantData(seed + 0x300),
@@ -423,13 +414,14 @@ function makePrivateToPublicKernelCircuitPublicInputs(seed = 1) {
  * @param seed - The seed to use for generating the kernel circuit public inputs.
  * @returns Public kernel circuit public inputs.
  */
-export function makeKernelCircuitPublicInputs(seed = 1, fullAccumulatedData = true): KernelCircuitPublicInputs {
-  return new KernelCircuitPublicInputs(
+export function makePrivateToRollupKernelCircuitPublicInputs(
+  seed = 1,
+  fullAccumulatedData = true,
+): PrivateToRollupKernelCircuitPublicInputs {
+  return new PrivateToRollupKernelCircuitPublicInputs(
     makeRollupValidationRequests(seed),
-    makeCombinedAccumulatedData(seed, fullAccumulatedData),
-    makeCombinedConstantData(seed + 0x100),
-    makePartialStateReference(seed + 0x200),
-    RevertCode.OK,
+    makePrivateToRollupAccumulatedData(seed, fullAccumulatedData),
+    makeTxConstantData(seed + 0x100),
     makeGas(seed + 0x600),
     makeAztecAddress(seed + 0x700),
   );
@@ -1122,9 +1114,9 @@ function makeVkWitnessData(seed = 1) {
   return new VkWitnessData(VerificationKeyData.makeFakeHonk(), seed, makeTuple(VK_TREE_HEIGHT, fr, seed + 0x100));
 }
 
-function makePrivateTubeData(seed = 1, kernelPublicInputs?: KernelCircuitPublicInputs) {
+function makePrivateTubeData(seed = 1, kernelPublicInputs?: PrivateToRollupKernelCircuitPublicInputs) {
   return new PrivateTubeData(
-    kernelPublicInputs ?? makeKernelCircuitPublicInputs(seed, true),
+    kernelPublicInputs ?? makePrivateToRollupKernelCircuitPublicInputs(seed, true),
     makeRecursiveProof<typeof TUBE_PROOF_LENGTH>(TUBE_PROOF_LENGTH, seed + 0x100),
     makeVkWitnessData(seed + 0x200),
   );
