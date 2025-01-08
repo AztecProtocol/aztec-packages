@@ -20,7 +20,7 @@ import {
   TxConstantData,
   mergeAccumulatedData,
 } from '@aztec/circuits.js';
-import { makeCombinedAccumulatedData, makePrivateToPublicAccumulatedData } from '@aztec/circuits.js/testing';
+import { makePrivateToPublicAccumulatedData, makePrivateToRollupAccumulatedData } from '@aztec/circuits.js/testing';
 import { makeTuple } from '@aztec/foundation/array';
 
 import { type MerkleTreeReadOperations } from '../interfaces/merkle_tree_operations.js';
@@ -74,10 +74,7 @@ export function makeBloatedProcessedTx({
   tx.data.gasUsed = Gas.from({ daGas: FIXED_DA_GAS, l2Gas: FIXED_L2_GAS });
 
   if (privateOnly) {
-    const data = makeCombinedAccumulatedData(seed + 0x1000);
-
-    // Private-only tx has no public data writes.
-    data.publicDataWrites.forEach((_, i) => (data.publicDataWrites[i] = PublicDataWrite.empty()));
+    const data = makePrivateToRollupAccumulatedData(seed + 0x1000);
 
     const transactionFee = tx.data.gasUsed.computeFee(globalVariables.gasFees);
 

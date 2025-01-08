@@ -27,7 +27,7 @@ import { type Logger, createLogger } from '@aztec/foundation/log';
 import { type Tuple, serializeToBuffer } from '@aztec/foundation/serialize';
 import { InterruptibleSleep } from '@aztec/foundation/sleep';
 import { Timer } from '@aztec/foundation/timer';
-import { EmpireBaseAbi, ExtRollupLibAbi, LeonidasLibAbi, RollupAbi, SlasherAbi } from '@aztec/l1-artifacts';
+import { EmpireBaseAbi, RollupAbi, SlasherAbi } from '@aztec/l1-artifacts';
 import { type TelemetryClient } from '@aztec/telemetry-client';
 
 import pick from 'lodash.pick';
@@ -35,7 +35,7 @@ import {
   type BaseError,
   type Chain,
   type Client,
-  ContractFunctionExecutionError,
+  type ContractFunctionExecutionError,
   ContractFunctionRevertedError,
   type GetContractReturnType,
   type Hex,
@@ -421,38 +421,6 @@ export class L1Publisher {
       if (error instanceof ContractFunctionRevertedError) {
         const err = error as ContractFunctionRevertedError;
         this.log.debug(`Validation failed: ${err.message}`, err.data);
-      } else if (error instanceof ContractFunctionExecutionError) {
-        let err = error as ContractFunctionRevertedError;
-        if (!tryGetCustomErrorName(err)) {
-          // If we get here, it's because the custom error no longer exists in Rollup.sol,
-          // but in another lib. The below reconstructs the error message.
-          try {
-            await this.publicClient.estimateGas({
-              data: encodeFunctionData({
-                abi: this.rollupContract.abi,
-                functionName: 'validateHeader',
-                args,
-              }),
-              account: this.account,
-              to: this.rollupContract.address,
-            });
-          } catch (estGasErr: unknown) {
-            const possibleAbis = [ExtRollupLibAbi, LeonidasLibAbi];
-            possibleAbis.forEach(abi => {
-              const possibleErr = getContractError(estGasErr as BaseError, {
-                args: [],
-                abi: abi,
-                functionName: 'validateHeader',
-                address: this.rollupContract.address,
-                sender: this.account.address,
-              });
-              err = tryGetCustomErrorName(possibleErr) ? possibleErr : err;
-            });
-          }
-          throw err;
-        }
-      } else {
-        this.log.debug(`Unexpected error during validation: ${error}`);
       }
       throw error;
     }
@@ -771,8 +739,7 @@ export class L1Publisher {
           },
         ],
       });
-      // If the above passes, we have a blob error. We cannot simulate blob txs, and failed txs no longer throw errors,
-      // and viem provides no way to get the revert reason from a given tx.
+      // If the above passes, we have a blob error. We cannot simulate blob txs, and failed txs no longer throw errors.
       // Strangely, the only way to throw the revert reason as an error and provide blobs is prepareTransactionRequest.
       // See: https://github.com/wevm/viem/issues/2075
       // This throws a EstimateGasExecutionError with the custom error information:
@@ -784,13 +751,13 @@ export class L1Publisher {
       });
       return undefined;
     } catch (simulationErr: any) {
-      // If we don't have a ContractFunctionExecutionError, we have a blob related error => use ExtRollupLibAbi to get the error msg.
+      // If we don't have a ContractFunctionExecutionError, we have a blob related error => use getContractError to get the error msg.
       const contractErr =
         simulationErr.name === 'ContractFunctionExecutionError'
           ? simulationErr
           : getContractError(simulationErr as BaseError, {
               args: [],
-              abi: ExtRollupLibAbi,
+              abi: RollupAbi,
               functionName: args.functionName,
               address: args.address,
               sender: this.account.address,

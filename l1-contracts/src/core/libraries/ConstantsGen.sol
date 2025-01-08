@@ -197,7 +197,7 @@ library Constants {
   uint256 internal constant SCOPED_READ_REQUEST_LEN = 3;
   uint256 internal constant PUBLIC_DATA_READ_LENGTH = 3;
   uint256 internal constant PRIVATE_VALIDATION_REQUESTS_LENGTH = 772;
-  uint256 internal constant COMBINED_ACCUMULATED_DATA_LENGTH = 981;
+  uint256 internal constant PRIVATE_TO_ROLLUP_ACCUMULATED_DATA_LENGTH = 741;
   uint256 internal constant TX_CONSTANT_DATA_LENGTH = 37;
   uint256 internal constant COMBINED_CONSTANT_DATA_LENGTH = 46;
   uint256 internal constant PRIVATE_ACCUMULATED_DATA_LENGTH = 1412;
@@ -206,7 +206,7 @@ library Constants {
   uint256 internal constant PRIVATE_TO_AVM_ACCUMULATED_DATA_LENGTH = 160;
   uint256 internal constant NUM_PRIVATE_TO_AVM_ACCUMULATED_DATA_ARRAYS = 3;
   uint256 internal constant PRIVATE_TO_PUBLIC_KERNEL_CIRCUIT_PUBLIC_INPUTS_LENGTH = 1847;
-  uint256 internal constant KERNEL_CIRCUIT_PUBLIC_INPUTS_LENGTH = 1039;
+  uint256 internal constant PRIVATE_TO_ROLLUP_KERNEL_CIRCUIT_PUBLIC_INPUTS_LENGTH = 783;
   uint256 internal constant CONSTANT_ROLLUP_DATA_LENGTH = 13;
   uint256 internal constant BASE_OR_MERGE_PUBLIC_INPUTS_LENGTH = 52;
   uint256 internal constant BLOCK_ROOT_OR_BLOCK_MERGE_PUBLIC_INPUTS_LENGTH = 986;

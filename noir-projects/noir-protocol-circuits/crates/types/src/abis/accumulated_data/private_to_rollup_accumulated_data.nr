@@ -1,54 +1,44 @@
 use crate::{
-    abis::{
-        log_hash::ScopedLogHash, private_log::PrivateLog, public_data_write::PublicDataWrite,
-        public_log::PublicLog,
-    },
+    abis::{log_hash::ScopedLogHash, private_log::PrivateLog},
     constants::{
-        COMBINED_ACCUMULATED_DATA_LENGTH, MAX_CONTRACT_CLASS_LOGS_PER_TX, MAX_L2_TO_L1_MSGS_PER_TX,
-        MAX_NOTE_HASHES_PER_TX, MAX_NULLIFIERS_PER_TX, MAX_PRIVATE_LOGS_PER_TX,
-        MAX_PUBLIC_LOGS_PER_TX, MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
+        MAX_CONTRACT_CLASS_LOGS_PER_TX, MAX_L2_TO_L1_MSGS_PER_TX, MAX_NOTE_HASHES_PER_TX,
+        MAX_NULLIFIERS_PER_TX, MAX_PRIVATE_LOGS_PER_TX, PRIVATE_TO_ROLLUP_ACCUMULATED_DATA_LENGTH,
     },
     messaging::l2_to_l1_message::ScopedL2ToL1Message,
     traits::{Deserialize, Empty, Serialize},
     utils::reader::Reader,
 };
 
-pub struct CombinedAccumulatedData {
+pub struct PrivateToRollupAccumulatedData {
     pub note_hashes: [Field; MAX_NOTE_HASHES_PER_TX],
     pub nullifiers: [Field; MAX_NULLIFIERS_PER_TX],
     pub l2_to_l1_msgs: [ScopedL2ToL1Message; MAX_L2_TO_L1_MSGS_PER_TX],
 
     pub private_logs: [PrivateLog; MAX_PRIVATE_LOGS_PER_TX],
-    pub public_logs: [PublicLog; MAX_PUBLIC_LOGS_PER_TX],
     pub contract_class_logs_hashes: [ScopedLogHash; MAX_CONTRACT_CLASS_LOGS_PER_TX],
 
     // Here so that the gas cost of this request can be measured by circuits, without actually needing to feed in the
     // variable-length data.
     pub contract_class_log_preimages_length: Field,
-
-    pub public_data_writes: [PublicDataWrite; MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX],
 }
 
-impl Empty for CombinedAccumulatedData {
+impl Empty for PrivateToRollupAccumulatedData {
     fn empty() -> Self {
-        CombinedAccumulatedData {
+        PrivateToRollupAccumulatedData {
             note_hashes: [0; MAX_NOTE_HASHES_PER_TX],
             nullifiers: [0; MAX_NULLIFIERS_PER_TX],
             l2_to_l1_msgs: [ScopedL2ToL1Message::empty(); MAX_L2_TO_L1_MSGS_PER_TX],
             private_logs: [PrivateLog::empty(); MAX_PRIVATE_LOGS_PER_TX],
-            public_logs: [PublicLog::empty(); MAX_PUBLIC_LOGS_PER_TX],
             contract_class_logs_hashes: [ScopedLogHash::empty(); MAX_CONTRACT_CLASS_LOGS_PER_TX],
             contract_class_log_preimages_length: 0,
-            public_data_writes: [
-                PublicDataWrite::empty(); MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX
-            ],
         }
     }
 }
 
-impl Serialize<COMBINED_ACCUMULATED_DATA_LENGTH> for CombinedAccumulatedData {
-    fn serialize(self) -> [Field; COMBINED_ACCUMULATED_DATA_LENGTH] {
-        let mut fields: BoundedVec<Field, COMBINED_ACCUMULATED_DATA_LENGTH> = BoundedVec::new();
+impl Serialize<PRIVATE_TO_ROLLUP_ACCUMULATED_DATA_LENGTH> for PrivateToRollupAccumulatedData {
+    fn serialize(self) -> [Field; PRIVATE_TO_ROLLUP_ACCUMULATED_DATA_LENGTH] {
+        let mut fields: BoundedVec<Field, PRIVATE_TO_ROLLUP_ACCUMULATED_DATA_LENGTH> =
+            BoundedVec::new();
 
         fields.extend_from_array(self.note_hashes);
         fields.extend_from_array(self.nullifiers);
@@ -58,29 +48,24 @@ impl Serialize<COMBINED_ACCUMULATED_DATA_LENGTH> for CombinedAccumulatedData {
         for i in 0..self.private_logs.len() {
             fields.extend_from_array(self.private_logs[i].serialize());
         }
-        for i in 0..self.public_logs.len() {
-            fields.extend_from_array(self.public_logs[i].serialize());
-        }
         for i in 0..self.contract_class_logs_hashes.len() {
             fields.extend_from_array(self.contract_class_logs_hashes[i].serialize());
         }
         fields.push(self.contract_class_log_preimages_length);
 
-        for i in 0..MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX {
-            fields.extend_from_array(self.public_data_writes[i].serialize());
-        }
-
-        assert_eq(fields.len(), COMBINED_ACCUMULATED_DATA_LENGTH);
+        assert_eq(fields.len(), PRIVATE_TO_ROLLUP_ACCUMULATED_DATA_LENGTH);
 
         fields.storage()
     }
 }
 
-impl Deserialize<COMBINED_ACCUMULATED_DATA_LENGTH> for CombinedAccumulatedData {
-    fn deserialize(fields: [Field; COMBINED_ACCUMULATED_DATA_LENGTH]) -> CombinedAccumulatedData {
+impl Deserialize<PRIVATE_TO_ROLLUP_ACCUMULATED_DATA_LENGTH> for PrivateToRollupAccumulatedData {
+    fn deserialize(
+        fields: [Field; PRIVATE_TO_ROLLUP_ACCUMULATED_DATA_LENGTH],
+    ) -> PrivateToRollupAccumulatedData {
         let mut reader = Reader::new(fields);
 
-        let item = CombinedAccumulatedData {
+        let item = PrivateToRollupAccumulatedData {
             note_hashes: reader.read_array(),
             nullifiers: reader.read_array(),
             l2_to_l1_msgs: reader.read_struct_array(
@@ -91,45 +76,35 @@ impl Deserialize<COMBINED_ACCUMULATED_DATA_LENGTH> for CombinedAccumulatedData {
                 PrivateLog::deserialize,
                 [PrivateLog::empty(); MAX_PRIVATE_LOGS_PER_TX],
             ),
-            public_logs: reader.read_struct_array(
-                PublicLog::deserialize,
-                [PublicLog::empty(); MAX_PUBLIC_LOGS_PER_TX],
-            ),
             contract_class_logs_hashes: reader.read_struct_array(
                 ScopedLogHash::deserialize,
                 [ScopedLogHash::empty(); MAX_CONTRACT_CLASS_LOGS_PER_TX],
             ),
             contract_class_log_preimages_length: reader.read(),
-            public_data_writes: reader.read_struct_array(
-                PublicDataWrite::deserialize,
-                [PublicDataWrite::empty(); MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX],
-            ),
         };
         reader.finish();
         item
     }
 }
 
-impl Eq for CombinedAccumulatedData {
+impl Eq for PrivateToRollupAccumulatedData {
     fn eq(self, other: Self) -> bool {
         (self.note_hashes == other.note_hashes)
             & (self.nullifiers == other.nullifiers)
             & (self.l2_to_l1_msgs == other.l2_to_l1_msgs)
             & (self.private_logs == other.private_logs)
-            & (self.public_logs == other.public_logs)
             & (self.contract_class_logs_hashes == other.contract_class_logs_hashes)
             & (
                 self.contract_class_log_preimages_length
                     == other.contract_class_log_preimages_length
             )
-            & (self.public_data_writes == other.public_data_writes)
     }
 }
 
 #[test]
 fn serialization_of_empty() {
-    let item = CombinedAccumulatedData::empty();
+    let item = PrivateToRollupAccumulatedData::empty();
     let serialized = item.serialize();
-    let deserialized = CombinedAccumulatedData::deserialize(serialized);
+    let deserialized = PrivateToRollupAccumulatedData::deserialize(serialized);
     assert(item.eq(deserialized));
 }

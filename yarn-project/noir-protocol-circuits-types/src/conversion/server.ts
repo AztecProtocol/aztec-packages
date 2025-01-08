@@ -6,11 +6,9 @@ import {
   type AvmCircuitPublicInputs,
   BLOBS_PER_BLOCK,
   type BaseParityInputs,
-  CombinedConstantData,
   type EmptyNestedData,
   Fr,
   HONK_VERIFICATION_KEY_LENGTH_IN_FIELDS,
-  KernelCircuitPublicInputs,
   type MembershipWitness,
   type NESTED_RECURSIVE_PROOF_LENGTH,
   type NULLIFIER_TREE_HEIGHT,
@@ -21,6 +19,8 @@ import {
   type PrivateToAvmAccumulatedDataArrayLengths,
   type PrivateToPublicAccumulatedData,
   type PrivateToPublicKernelCircuitPublicInputs,
+  type PrivateToRollupAccumulatedData,
+  PrivateToRollupKernelCircuitPublicInputs,
   type PublicDataHint,
   type RECURSIVE_PROOF_LENGTH,
   ROLLUP_HONK_VERIFICATION_KEY_LENGTH_IN_FIELDS,
@@ -31,7 +31,7 @@ import {
   type RootParityInputs,
   type TUBE_PROOF_LENGTH,
   type TreeSnapshots,
-  type TxConstantData,
+  TxConstantData,
   type VkWitnessData,
 } from '@aztec/circuits.js';
 import { BlobPublicInputs, BlockBlobPublicInputs, Poseidon2Sponge, SpongeBlob } from '@aztec/circuits.js/blobs';
@@ -72,13 +72,11 @@ import type {
   BlockMergeRollupInputs as BlockMergeRollupInputsNoir,
   BlockRootOrBlockMergePublicInputs as BlockRootOrBlockMergePublicInputsNoir,
   BlockRootRollupInputs as BlockRootRollupInputsNoir,
-  CombinedConstantData as CombinedConstantDataNoir,
   ConstantRollupData as ConstantRollupDataNoir,
   EmptyBlockRootRollupInputs as EmptyBlockRootRollupInputsNoir,
   EmptyNestedCircuitPublicInputs as EmptyNestedDataNoir,
   FeeRecipient as FeeRecipientNoir,
   FixedLengthArray,
-  KernelCircuitPublicInputs as KernelCircuitPublicInputsNoir,
   MergeRollupInputs as MergeRollupInputsNoir,
   Field as NoirField,
   ParityPublicInputs as ParityPublicInputsNoir,
@@ -93,6 +91,7 @@ import type {
   PrivateToAvmAccumulatedData as PrivateToAvmAccumulatedDataNoir,
   PrivateToPublicAccumulatedData as PrivateToPublicAccumulatedDataNoir,
   PrivateToPublicKernelCircuitPublicInputs as PrivateToPublicKernelCircuitPublicInputsNoir,
+  PrivateToRollupKernelCircuitPublicInputs as PrivateToRollupKernelCircuitPublicInputsNoir,
   PrivateTubeData as PrivateTubeDataNoir,
   PublicBaseRollupInputs as PublicBaseRollupInputsNoir,
   PublicBaseStateDiffHints as PublicBaseStateDiffHintsNoir,
@@ -113,8 +112,6 @@ import {
   mapAppendOnlyTreeSnapshotToNoir,
   mapAztecAddressFromNoir,
   mapAztecAddressToNoir,
-  mapCombinedAccumulatedDataFromNoir,
-  mapCombinedAccumulatedDataToNoir,
   mapEthAddressFromNoir,
   mapEthAddressToNoir,
   mapFieldFromNoir,
@@ -135,6 +132,8 @@ import {
   mapPartialStateReferenceFromNoir,
   mapPartialStateReferenceToNoir,
   mapPrivateLogToNoir,
+  mapPrivateToRollupAccumulatedDataFromNoir,
+  mapPrivateToRollupAccumulatedDataToNoir,
   mapPublicCallRequestToNoir,
   mapPublicDataTreePreimageToNoir,
   mapPublicDataWriteToNoir,
@@ -471,24 +470,13 @@ export function mapPrivateToPublicAccumulatedDataToNoir(
   };
 }
 
-function mapCombinedConstantDataFromNoir(combinedConstantData: CombinedConstantDataNoir): CombinedConstantData {
-  return new CombinedConstantData(
+function mapTxConstantDataFromNoir(combinedConstantData: TxConstantDataNoir): TxConstantData {
+  return new TxConstantData(
     mapHeaderFromNoir(combinedConstantData.historical_header),
     mapTxContextFromNoir(combinedConstantData.tx_context),
     mapFieldFromNoir(combinedConstantData.vk_tree_root),
     mapFieldFromNoir(combinedConstantData.protocol_contract_tree_root),
-    mapGlobalVariablesFromNoir(combinedConstantData.global_variables),
   );
-}
-
-function mapCombinedConstantDataToNoir(combinedConstantData: CombinedConstantData): CombinedConstantDataNoir {
-  return {
-    historical_header: mapHeaderToNoir(combinedConstantData.historicalHeader),
-    tx_context: mapTxContextToNoir(combinedConstantData.txContext),
-    vk_tree_root: mapFieldToNoir(combinedConstantData.vkTreeRoot),
-    protocol_contract_tree_root: mapFieldToNoir(combinedConstantData.protocolContractTreeRoot),
-    global_variables: mapGlobalVariablesToNoir(combinedConstantData.globalVariables),
-  };
 }
 
 function mapTxConstantDataToNoir(data: TxConstantData): TxConstantDataNoir {
@@ -514,13 +502,13 @@ export function mapPrivateToPublicKernelCircuitPublicInputsToNoir(
   };
 }
 
-export function mapKernelCircuitPublicInputsToNoir(inputs: KernelCircuitPublicInputs): KernelCircuitPublicInputsNoir {
+export function mapPrivateToRollupKernelCircuitPublicInputsToNoir(
+  inputs: PrivateToRollupKernelCircuitPublicInputs,
+): PrivateToRollupKernelCircuitPublicInputsNoir {
   return {
     rollup_validation_requests: mapRollupValidationRequestsToNoir(inputs.rollupValidationRequests),
-    constants: mapCombinedConstantDataToNoir(inputs.constants),
-    end: mapCombinedAccumulatedDataToNoir(inputs.end),
-    start_state: mapPartialStateReferenceToNoir(inputs.startState),
-    revert_code: mapRevertCodeToNoir(inputs.revertCode),
+    constants: mapTxConstantDataToNoir(inputs.constants),
+    end: mapPrivateToRollupAccumulatedDataToNoir(inputs.end),
     gas_used: mapGasToNoir(inputs.gasUsed),
     fee_payer: mapAztecAddressToNoir(inputs.feePayer),
   };
@@ -815,7 +803,7 @@ export function mapRootParityInputsToNoir(inputs: RootParityInputs): RootParityI
 
 function mapPrivateTubeDataToNoir(data: PrivateTubeData): PrivateTubeDataNoir {
   return {
-    public_inputs: mapKernelCircuitPublicInputsToNoir(data.publicInputs),
+    public_inputs: mapPrivateToRollupKernelCircuitPublicInputsToNoir(data.publicInputs),
     proof: mapRecursiveProofToNoir<typeof TUBE_PROOF_LENGTH>(data.proof),
     vk_data: mapVkWitnessDataToNoir(data.vkData, ROLLUP_HONK_VERIFICATION_KEY_LENGTH_IN_FIELDS),
   };
@@ -938,13 +926,13 @@ export function mapRevertCodeToNoir(revertCode: RevertCode): NoirField {
   return mapFieldToNoir(revertCode.toField());
 }
 
-export function mapKernelCircuitPublicInputsFromNoir(inputs: KernelCircuitPublicInputsNoir) {
-  return new KernelCircuitPublicInputs(
+export function mapPrivateToRollupKernelCircuitPublicInputsFromNoir(
+  inputs: PrivateToRollupKernelCircuitPublicInputsNoir,
+) {
+  return new PrivateToRollupKernelCircuitPublicInputs(
     mapRollupValidationRequestsFromNoir(inputs.rollup_validation_requests),
-    mapCombinedAccumulatedDataFromNoir(inputs.end),
-    mapCombinedConstantDataFromNoir(inputs.constants),
-    mapPartialStateReferenceFromNoir(inputs.start_state),
-    mapRevertCodeFromNoir(inputs.revert_code),
+    mapPrivateToRollupAccumulatedDataFromNoir(inputs.end),
+    mapTxConstantDataFromNoir(inputs.constants),
     mapGasFromNoir(inputs.gas_used),
     mapAztecAddressFromNoir(inputs.fee_payer),
   );
