@@ -1,6 +1,6 @@
 import { toBigIntBE } from '../bigint-buffer/index.js';
-import { randomBytes } from '../crypto/index.js';
-import { type Fr } from '../fields/fields.js';
+import { randomInt } from '../crypto/index.js';
+import { Fr } from '../fields/fields.js';
 import { hexSchemaFor } from '../schemas/utils.js';
 import { BufferReader } from '../serialize/buffer_reader.js';
 import { TypeRegistry } from '../serialize/type_registry.js';
@@ -14,7 +14,10 @@ export interface NoteSelector {
   _branding: 'NoteSelector';
 }
 
-/** A note selector is the first 4 bytes of the hash of a note signature. */
+/**
+ * A note selector is a 7 bit long value that identifies a note type within a contract.
+ * TODO(#10952): Encoding of note type id can be reduced to 7 bits.
+ */
 export class NoteSelector extends Selector {
   /**
    * Deserializes from a buffer or reader, corresponding to a write in cpp.
@@ -24,6 +27,9 @@ export class NoteSelector extends Selector {
   static fromBuffer(buffer: Buffer | BufferReader) {
     const reader = BufferReader.asReader(buffer);
     const value = Number(toBigIntBE(reader.readBytes(Selector.SIZE)));
+    if (value >= 1 << 7) {
+      throw new Error('Invalid note selector');
+    }
     return new NoteSelector(value);
   }
 
@@ -55,7 +61,8 @@ export class NoteSelector extends Selector {
    * @returns A random selector.
    */
   static random() {
-    return NoteSelector.fromBuffer(randomBytes(Selector.SIZE));
+    const value = randomInt(1 << 7);
+    return NoteSelector.fromField(new Fr(value));
   }
 
   toJSON() {
