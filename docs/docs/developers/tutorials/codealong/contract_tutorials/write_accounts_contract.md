@@ -114,4 +114,4 @@ Lo and behold, we get `Error: Assertion failed: 'verification == true'` when run
 - [ECDSA signer account contract (GitHub link)](https://github.com/AztecProtocol/aztec-packages/blob/#include_aztec_version/noir-projects/noir-contracts/contracts/ecdsa_account_contract/src/main.nr)
 - [Schnorr signer account contract (GitHub link)](https://github.com/AztecProtocol/aztec-packages/tree/#include_aztec_version/noir-projects/noir-contracts/contracts/schnorr_account_contract)
 - [Account abstraction](../../../aztec/concepts/accounts/index.md#what-is-account-abstraction)
-- [Authentication witness](../../../aztec/concepts/accounts/authwit.md)
+- [Authentication witness](../../../aztec/concepts/advanced/authwit.md)

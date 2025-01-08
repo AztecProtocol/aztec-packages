@@ -5,7 +5,7 @@ tags: [accounts, authwit]
 
 This page assumes you have authwit set up correctly in your contract. To learn how to do that, [go here](../smart_contracts/writing_contracts/authwit.md).
 
-For an introduction to authentication witnesses on Aztec, [read this explainer](../../../aztec/concepts/accounts/authwit.md).
+For an introduction to authentication witnesses on Aztec, [read this explainer](../../../aztec/concepts/advanced/authwit.md).
 
 ## Import libraries
 
@@ -117,5 +117,5 @@ If you created an arbitrary message, you would replace the first param struct wi
 
 ## Further reading
 
-- [An explainer of authentication witnesses](../../../aztec/concepts/accounts/authwit.md)
+- [An explainer of authentication witnesses](../../../aztec/concepts/advanced/authwit.md)
 - [Authwits in Aztec.nr](../smart_contracts/writing_contracts/authwit.md)

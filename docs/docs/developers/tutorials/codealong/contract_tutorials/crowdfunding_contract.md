@@ -198,5 +198,5 @@ Follow the account contract tutorial on the [next page](./write_accounts_contrac
 
  - [Initializer functions](../../../guides/smart_contracts/writing_contracts/initializers.md)
  - [Versions](../../../guides/local_env/versions-updating.md).
- - [Authorizing actions](../../../../aztec/concepts/accounts/authwit.md)
+ - [Authorizing actions](../../../../aztec/concepts/advanced/authwit.md)
  - [Unencrypted logs](../../../guides/smart_contracts/writing_contracts/how_to_emit_event.md#call-emit_unencrypted_log)

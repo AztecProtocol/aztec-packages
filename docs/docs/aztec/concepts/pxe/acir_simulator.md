@@ -20,7 +20,7 @@ Private functions can call other private functions and can request to call a pub
 
 ### Public Functions
 
-Public functions are simulated and proved on the [sequencer](../../network/sequencer/index.md) side, and verified by the [public kernel circuit](../../concepts/circuits/kernels/public_kernel.md).
+Public functions are simulated and proved on the [sequencer](../../network/sequencer/index.md) side, and verified by the [public kernel circuit](../../concepts/advanced/circuits/kernels/public_kernel.md).
 
 They are run with the assistance of an oracle that provides any value read from the public state tree.
 

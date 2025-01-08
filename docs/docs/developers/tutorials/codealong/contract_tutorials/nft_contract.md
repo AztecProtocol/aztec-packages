@@ -87,7 +87,7 @@ These are functions that have transparent logic, will execute in a publicly veri
 - [`set_minter`](#set_minter) - adds a minter to the `minters` mapping
 - [`mint`](#mint) - mints an NFT with a specified `token_id` to the recipient
 - [`transfer_in_public`](#transfer_in_public) - publicly transfer the specified token
-- [`finalize_transfer_to_private`](#finalize_transfer_to_private) - finalize the transfer of the NFT from public to private context by completing the [partial note](../../../../aztec/concepts/storage/partial_notes.md)(more on this below)
+- [`finalize_transfer_to_private`](#finalize_transfer_to_private) - finalize the transfer of the NFT from public to private context by completing the [partial note](../../../../aztec/concepts/advanced/storage/partial_notes.md)(more on this below)
 
 #### Public `view` functions
 
@@ -103,8 +103,8 @@ These functions are useful for getting contract information for use in other con
 
 These are functions that have private logic and will be executed on user devices to maintain privacy. The only data that is submitted to the network is a proof of correct execution, new data commitments and nullifiers, so users will not reveal which contract they are interacting with or which function they are executing. The only information that will be revealed publicly is that someone executed a private transaction on Aztec.
 
-- [`transfer_to_private`](#transfer_to_private) - privately initiates the transfer of an NFT from the public context to the private context by creating a [partial note](../../../../aztec/concepts/storage/partial_notes.md)
-- [`prepare_private_balance_increase`](#prepare_private_balance_increase) - creates a [partial note](../../../../aztec/concepts/storage/partial_notes.md) to transfer an NFT from the public context to the private context.
+- [`transfer_to_private`](#transfer_to_private) - privately initiates the transfer of an NFT from the public context to the private context by creating a [partial note](../../../../aztec/concepts/advanced/storage/partial_notes.md)
+- [`prepare_private_balance_increase`](#prepare_private_balance_increase) - creates a [partial note](../../../../aztec/concepts/advanced/storage/partial_notes.md) to transfer an NFT from the public context to the private context.
 - [`cancel_authwit`](#cancel_authwit) - emits a nullifier to cancel a private authwit
 - [`transfer_in_private`](#transfer_in_private) - transfers an NFT to another account, privately
 - [`transfer_to_public`](#transfer_to_public) - transfers a NFT from private to public context
@@ -158,7 +158,7 @@ We are also importing types from a `types.nr` file, which imports types from the
 
 :::note
 
-Private state in Aztec is all [UTXOs](../../../aztec/concepts/storage/index.md).
+Private state in Aztec is all [UTXOs](../../../../aztec/concepts/storage/index.md).
 
 :::
 
@@ -172,7 +172,7 @@ Below the dependencies, paste the following Storage struct:
 
 ## Custom Notes
 
-The contract storage uses a [custom note](../../../developers/guides/smart_contracts/writing_contracts/notes/custom_note.md) implementation. Custom notes are useful for defining your own data types. You can think of a custom note as a "chunk" of private data, the entire thing is added, updated or nullified (deleted) together. This NFT note is very simple and stores only the owner and the `token_id` and uses `randomness` to hide its contents.
+The contract storage uses a [custom note](../../../guides/smart_contracts/writing_contracts/notes/custom_note.md) implementation. Custom notes are useful for defining your own data types. You can think of a custom note as a "chunk" of private data, the entire thing is added, updated or nullified (deleted) together. This NFT note is very simple and stores only the owner and the `token_id` and uses `randomness` to hide its contents.
 
 Randomness is required because notes are stored as commitments (hashes) in the note hash tree. Without randomness, the contents of a note may be derived through brute force (e.g. without randomness, if you know my Aztec address, you may be able to figure out which note hash in the tree is mine by hashing my address with many potential `token_id`s).
 
@@ -196,7 +196,7 @@ This function sets the admin and makes them a minter, and sets the name and symb
 
 Public functions are declared with the `#[public]` macro above the function name.
 
-As described in the [execution contexts section above](#execution-contexts), public function logic and transaction information is transparent to the world. Public functions update public state, but can be used to finalize notes prepared in a private context ([partial notes flow](../../../../aztec/concepts/storage/partial_notes.md)).
+As described in the [execution contexts section above](#execution-contexts), public function logic and transaction information is transparent to the world. Public functions update public state, but can be used to finalize notes prepared in a private context ([partial notes flow](../../../../aztec/concepts/advanced/storage/partial_notes.md)).
 
 Storage is referenced as `storage.variable`.
 
@@ -255,7 +255,7 @@ Transfers token with `token_id` from public balance of the sender to a private b
 
 #### `prepare_private_balance_increase`
 
-This function prepares a [partial note](../../../../aztec/concepts/storage/partial_notes.md) to transfer an NFT from the public context to the private context. The caller specifies an `AztecAddress` that will receive the NFT in private storage.
+This function prepares a [partial note](../../../../aztec/concepts/advanced/storage/partial_notes.md) to transfer an NFT from the public context to the private context. The caller specifies an `AztecAddress` that will receive the NFT in private storage.
 
 :::note
 
@@ -275,7 +275,7 @@ Cancels a private authwit by emitting the corresponding nullifier.
 
 #### `transfer_in_private`
 
-Transfers an NFT between two addresses in the private context. Uses [authwits](../../../aztec/concepts/accounts/authwit.md) to allow contracts to transfer NFTs on behalf of other accounts.
+Transfers an NFT between two addresses in the private context. Uses [authwits](../../../../aztec/concepts/advanced/authwit.md) to allow contracts to transfer NFTs on behalf of other accounts.
 
 #include_code transfer_in_private /noir-projects/noir-contracts/contracts/nft_contract/src/main.nr rust
 
@@ -359,7 +359,7 @@ A getter function for checking the private balance of the provided Aztec account
 
 ## Compiling
 
-Now that the contract is complete, you can compile it with `aztec-nargo`. See the [Sandbox reference page](../../reference/environment_reference/index.md) for instructions on setting it up.
+Now that the contract is complete, you can compile it with `aztec-nargo`. See the [Sandbox reference page](../../../reference/environment_reference/index.md) for instructions on setting it up.
 
 Run the following command in the directory where your `Nargo.toml` file is located:
 
@@ -377,6 +377,6 @@ aztec codegen target -o src/artifacts
 
 - Review [the end to end tests (Github link)](https://github.com/AztecProtocol/aztec-packages/blob/#include_aztec_version/yarn-project/end-to-end/src/e2e_nft.test.ts) for reference.
 - [Nullifiers](../../../aztec/concepts/storage/trees/index.md#nullifier-tree)
-- [Public / Private function calls](../../../aztec/smart_contracts/functions/public_private_calls.md).
-- [Contract Storage](../../../aztec/concepts/storage/index.md)
-- [Authwit](../../../aztec/concepts/accounts/authwit.md)
+- [Public / Private function calls](../../../../aztec/smart_contracts/functions/public_private_calls.md).
+- [Contract Storage](../../../../aztec/concepts/storage/index.md)
+- [Authwit](../../../../aztec/concepts/advanced/authwit.md)

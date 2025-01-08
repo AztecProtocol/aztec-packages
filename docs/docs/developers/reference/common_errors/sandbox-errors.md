@@ -15,7 +15,7 @@ This section contains a list of errors you may encounter when using Aztec Sandbo
 
 ### Kernel Circuits
 
-We have several versions of public and private kernels as explained in [the circuits section in the concepts](../../../aztec/concepts/circuits/index.md). Certain things are only possible in certain versions of the circuits. So always ensure that the right version is being used for proof generation. For example, there is a specific version of the public kernel that only works if the previous kernel iteration was a private kernel. Similarly there is one that only works if the previous kernel was public.
+We have several versions of public and private kernels as explained in [the circuits section in the concepts](../../../aztec/concepts/advanced/circuits/index.md). Certain things are only possible in certain versions of the circuits. So always ensure that the right version is being used for proof generation. For example, there is a specific version of the public kernel that only works if the previous kernel iteration was a private kernel. Similarly there is one that only works if the previous kernel was public.
 
 Remember that for each function call (i.e. each item in the call stack), there is a new kernel iteration that gets run.
 
@@ -132,7 +132,7 @@ For static calls, no new note hashes or nullifiers can be added to the state.
 
 ### Rollup circuit errors
 
-These are errors that occur when kernel proofs (transaction proofs) are sent to the rollup circuits to create an L2 block. See [rollup circuits](../../../aztec/concepts/circuits/rollup_circuits/index.md) for more information.
+These are errors that occur when kernel proofs (transaction proofs) are sent to the rollup circuits to create an L2 block. See [rollup circuits](../../../aztec/concepts/advanced/circuits/rollup_circuits/index.md) for more information.
 
 #### 4007 - BASE\_\_INVALID_CHAIN_ID
 

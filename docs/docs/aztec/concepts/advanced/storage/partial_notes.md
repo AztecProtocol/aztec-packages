@@ -2,6 +2,7 @@
 title: Partial Notes
 description: Describes how partial notes are used in Aztec
 tags: [notes, storage]
+sidebar_position: 3
 ---
 
 Partial notes are a concept that allows users to commit to an encrypted value, and allows a counterparty to update that value without knowing the specific details of the encrypted value.

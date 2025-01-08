@@ -104,7 +104,7 @@ Explore the Concepts for a deeper understanding into the components that make up
     </CardBody>
   </Card>
 
-  <Card shadow='tl' link='/aztec/concepts/circuits'>
+  <Card shadow='tl' link='/aztec/concepts/advanced/circuits'>
     <CardHeader>
       <h3>Protocol Circuits</h3>
     </CardHeader>

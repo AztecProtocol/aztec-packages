@@ -10,13 +10,13 @@ For a guide on using authwit in Aztec.js, [read this](../../js_apps/authwit.md).
 
 ## Prerequisite reading
 
-- [Authwit](../../../../aztec/concepts/accounts/authwit.md)
+- [Authwit](../../../../aztec/concepts/advanced/authwit.md)
 
 ## Introduction
 
 Authentication Witness (authwit) is a scheme for authentication actions on Aztec, so users can allow third-parties (eg other contracts) to execute an action on their behalf. Authwits can only authorize actions for contracts that your account is calling, they cannot be used to permit other users to take actions on your behalf.
 
-How it works logically is explained in the [concepts](../../../../aztec/concepts/accounts/authwit.md) but we will do a short recap here.
+How it works logically is explained in the [concepts](../../../../aztec/concepts/advanced/authwit.md) but we will do a short recap here.
 
 An authentication witness is defined for a specific action, such as allowing a Defi protocol to transfer funds on behalf of the user. An action is here something that could be explained as `A is allowed to perform X operation on behalf of B` and we define it as a hash computed as such:
 
@@ -167,7 +167,7 @@ With private functions covered, how can we use this in a public function? Well, 
 
 Authenticating an action in the public domain is slightly different from the private domain, since we are executing a function on the auth registry contract to add the witness flag. As you might recall, this was to ensure that we don't need to call into the account contract from public, which is a potential DOS vector.
 
-In the snippet below, this is done as a separate contract call, but can also be done as part of a batch as mentioned in the [Accounts concepts](../../../../aztec/concepts/accounts/authwit.md#what-about-public).
+In the snippet below, this is done as a separate contract call, but can also be done as part of a batch as mentioned in the [Accounts concepts](../../../../aztec/concepts/advanced/authwit.md#what-about-public).
 
 #include_code authwit_public_transfer_example /yarn-project/end-to-end/src/e2e_token_contract/transfer_in_public.test.ts typescript
 

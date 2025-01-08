@@ -1,9 +1,14 @@
+---
+title: Storage Slots
+tags: [storage, concepts, advanced]
+sidebar_position: 1
+---
 
 # Storage Slots
 
 ## Public State Slots
 
-As mentioned in [State Model](../storage/state_model/index.md), Aztec public state behaves similarly to public state on Ethereum from the point of view of the developer. Behind the scenes however, the storage is managed differently. As mentioned, public state has just one large sparse tree in Aztec - so we silo slots of public data by hashing it together with its contract address.
+As mentioned in [State Model](../../storage/state_model.md), Aztec public state behaves similarly to public state on Ethereum from the point of view of the developer. Behind the scenes however, the storage is managed differently. As mentioned, public state has just one large sparse tree in Aztec - so we silo slots of public data by hashing it together with its contract address.
 
 The mental model is that we have a key-value store, where the siloed slot is the key, and the value is the data stored in that slot. You can think of the `real_storage_slot` identifying its position in the tree, and the `logical_storage_slot` identifying the position in the contract storage.
 
@@ -17,7 +22,7 @@ For structs and arrays, we are logically using a similar storage slot computatio
 
 ## Private State Slots
 
-Private storage is a different beast. As you might remember from [Hybrid State Model](../storage/state_model/index.md), private state is stored in encrypted logs and the corresponding private state commitments in append-only tree, called the note hash tree where each leaf is a commitment. Append-only means that leaves are never updated or deleted; instead a nullifier is emitted to signify that some note is no longer valid. A major reason we used this tree, is that updates at a specific storage slot would leak information in the context of private state, even if the value is encrypted. That is not good privacy.
+Private storage is a different beast. As you might remember from [Hybrid State Model](../../storage/state_model.md), private state is stored in encrypted logs and the corresponding private state commitments in append-only tree, called the note hash tree where each leaf is a commitment. Append-only means that leaves are never updated or deleted; instead a nullifier is emitted to signify that some note is no longer valid. A major reason we used this tree, is that updates at a specific storage slot would leak information in the context of private state, even if the value is encrypted. That is not good privacy.
 
 Following this, the storage slot as we know it doesn't really exist. The leaves of the note hashes tree are just commitments to content (think of it as a hash of its content).
 
@@ -52,4 +57,4 @@ By doing this address-siloing at the kernel circuit we _force_ the inserted comm
 To ensure that nullifiers don't collide across contracts we also force this contract siloing at the kernel level.
 :::
 
-For an example of this see [developer documentation on storage](../../../developers/reference/smart_contract_reference/storage/index.md).
+For an example of this see [developer documentation on storage](../../../../developers/reference/smart_contract_reference/storage/index.md).

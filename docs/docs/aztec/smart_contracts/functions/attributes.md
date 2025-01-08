@@ -12,7 +12,7 @@ If you are looking for a reference of function macros, go [here](../../../develo
 
 A private function operates on private information, and is executed by the user on their device. Annotate the function with the `#[private]` attribute to tell the compiler it's a private function. This will make the [private context](./context.md#the-private-context) available within the function's execution scope. The compiler will create a circuit to define this function.
 
-`#[private]` is just syntactic sugar. At compile time, the Aztec.nr framework inserts code that allows the function to interact with the [kernel](../../../aztec/concepts/circuits/kernels/private_kernel.md).
+`#[private]` is just syntactic sugar. At compile time, the Aztec.nr framework inserts code that allows the function to interact with the [kernel](../../../aztec/concepts/advanced/circuits/kernels/private_kernel.md).
 
 To help illustrate how this interacts with the internals of Aztec and its kernel circuits, we can take an example private function, and explore what it looks like after Aztec.nr's macro expansion.
 

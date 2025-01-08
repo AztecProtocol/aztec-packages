@@ -85,7 +85,7 @@ These are functions that have private logic and will be executed on user devices
 - [`cancel_authwit`](#cancel_authwit) enables an account to cancel an authorization to spend tokens
 - [`burn_private`](#burn_private) enables tokens to be burned privately
 - [`setup_refund`](#setup_refund) allows users using a fee paying contract to receive unspent transaction fees
-- [`prepare_private_balance_increase`](#prepare_private_balance_increase) is used to set up a [partial note](../../../aztec/concepts/storage/partial_notes.md) to be completed in public
+- [`prepare_private_balance_increase`](#prepare_private_balance_increase) is used to set up a [partial note](../../../../aztec/concepts/advanced/storage/partial_notes.md) to be completed in public
 
 #### Private `view` functions
 
@@ -101,7 +101,7 @@ Internal functions are functions that can only be called by the contract itself.
 
 - [`_increase_public_balance`](#_increase_public_balance) increases the public balance of an account when `transfer_to_public` is called
 - [`_reduce_total_supply`](#_reduce_total_supply) reduces the total supply of tokens when a token is privately burned
-- [`complete_refund`](#complete_refund) used in the fee payment flow. There is more detail on the [partial note](../../../aztec/concepts/storage/partial_notes.md#private-fee-payment-implementation) page.
+- [`complete_refund`](#complete_refund) used in the fee payment flow. There is more detail on the [partial note](../../../../aztec/concepts/advanced/storage/partial_notes.md#complete_refund) page.
 - [`_finalize_transfer_to_private_unsafe`](#_finalize_transfer_to_private_unsafe) is the public component for finalizing a transfer from a public balance to private balance. It is considered `unsafe` because `from` is not enforced in this function, but it is in enforced the private function that calls this one (so it's safe).
 - [`_finalize_mint_to_private_unsafe`](#_finalize_mint_to_private_unsafe) finalizes a private mint. Like the function above, it is considered `unsafe` because `from` is not enforced in this function, but it is in enforced the private function that calls this one (so it's safe).
 
@@ -156,7 +156,7 @@ We are also importing types from a `types.nr` file, which imports types from the
 
 :::note
 
-Private state in Aztec is all [UTXOs](../../../aztec/concepts/storage/index.md).
+Private state in Aztec is all [UTXOs](../../../../aztec/concepts/storage/index.md).
 
 :::
 
@@ -191,7 +191,7 @@ This function sets the creator of the contract (passed as `msg_sender` from the 
 
 Public functions are declared with the `#[public]` macro above the function name.
 
-As described in the [execution contexts section above](#execution-contexts), public function logic and transaction information is transparent to the world. Public functions update public state, but can be used to finalize notes prepared in a private context ([partial notes flow](../../../aztec/concepts/storage/partial_notes.md)).
+As described in the [execution contexts section above](#execution-contexts), public function logic and transaction information is transparent to the world. Public functions update public state, but can be used to finalize notes prepared in a private context ([partial notes flow](../../../../aztec/concepts/advanced/storage/partial_notes.md)).
 
 Storage is referenced as `storage.variable`.
 
@@ -398,13 +398,13 @@ Unconstrained functions are similar to `view` functions in Solidity in that they
 
 #### `balance_of_private`
 
-A getter function for checking the private balance of the provided Aztec account. Note that the [Private Execution Environment (PXE) (GitHub link)](https://github.com/AztecProtocol/aztec-packages/tree/#include_aztec_version/yarn-project/pxe) must have `ivsk` ([incoming viewing secret key](../../../aztec/concepts/accounts/keys.md#incoming-viewing-keys)) in order to decrypt the notes.
+A getter function for checking the private balance of the provided Aztec account. Note that the [Private Execution Environment (PXE) (GitHub link)](https://github.com/AztecProtocol/aztec-packages/tree/#include_aztec_version/yarn-project/pxe) must have `ivsk` ([incoming viewing secret key](../../../../aztec/concepts/accounts/keys.md#incoming-viewing-keys)) in order to decrypt the notes.
 
 #include_code balance_of_private /noir-projects/noir-contracts/contracts/token_contract/src/main.nr rust
 
 ## Compiling
 
-Now that the contract is complete, you can compile it with `aztec-nargo`. See the [Sandbox reference page](../../reference/environment_reference/index.md) for instructions on setting it up.
+Now that the contract is complete, you can compile it with `aztec-nargo`. See the [Sandbox reference page](../../../reference/environment_reference/index.md) for instructions on setting it up.
 
 Run the following command in the directory where your `Nargo.toml` file is located:
 
@@ -422,7 +422,7 @@ aztec codegen target -o src/artifacts
 
 ### Token Bridge Contract
 
-The [token bridge tutorial](.//token_bridge/index.md) is a great follow up to this one.
+The [token bridge tutorial](./token_bridge/index.md) is a great follow up to this one.
 
 It builds on the Token contract described here and goes into more detail about Aztec contract composability and Ethereum (L1) and Aztec (L2) cross-chain messaging.
 
@@ -433,4 +433,4 @@ It builds on the Token contract described here and goes into more detail about A
 - [Nullifiers](../../../aztec/concepts/storage/trees/index.md#nullifier-tree)
 - [Public / Private function calls](../../../aztec/smart_contracts/functions/public_private_calls.md).
 - [Contract Storage](../../../aztec/concepts/storage/index.md)
-- [Authwit](../../../aztec/concepts/accounts/authwit.md)
+- [Authwit](../../../aztec/concepts/advanced/authwit.md)

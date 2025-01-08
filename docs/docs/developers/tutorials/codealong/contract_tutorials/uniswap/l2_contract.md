@@ -16,7 +16,7 @@ We just need to store the portal address for the token that we want to swap.
 
 #include_code swap_public noir-projects/noir-contracts/contracts/uniswap_contract/src/main.nr rust
 
-1. We check that `msg.sender()` has appropriate approval to call this on behalf of the sender by constructing an authwit message and checking if `from` has given the approval (read more about authwit [here](../../../aztec/concepts/accounts/authwit.md)).
+1. We check that `msg.sender()` has appropriate approval to call this on behalf of the sender by constructing an authwit message and checking if `from` has given the approval (read more about authwit [here](../../../aztec/concepts/advanced/authwit.md)).
 2. We fetch the underlying aztec token that needs to be swapped.
 3. We transfer the user’s funds to the Uniswap contract. Like with Ethereum, the user must have provided approval to the Uniswap contract to do so. The user must provide the nonce they used in the approval for transfer, so that Uniswap can send it to the token contract, to prove it has appropriate approval.
 4. Funds are added to the Uniswap contract.

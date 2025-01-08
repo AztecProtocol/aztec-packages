@@ -41,7 +41,7 @@ Note that while the `secret` and the `content` are both hashed, they are actuall
 
 ### Token bridge example
 
-Computing the `content` must currently be done manually, as we are still adding a number of bytes utilities. A good example exists within the [Token bridge example (codealong tutorial)](./../../../tutorials/codealong/contract_tutorials/token_bridge/index.md).
+Computing the `content` must currently be done manually, as we are still adding a number of bytes utilities. A good example exists within the [Token bridge example (codealong tutorial)](../../../../tutorials/codealong/contract_tutorials/token_bridge/index.md).
 
 #include_code claim_public /noir-projects/noir-contracts/contracts/token_bridge_contract/src/main.nr rust
 
