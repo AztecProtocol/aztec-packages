@@ -8,7 +8,6 @@ use crate::hir::resolution::import::{resolve_path_kind, PathResolutionError};
 use crate::hir::resolution::errors::ResolverError;
 use crate::hir::resolution::visibility::item_in_module_is_visible;
 
-use crate::hir_def::traits::Trait;
 use crate::locations::ReferencesTracker;
 use crate::node_interner::{FuncId, GlobalId, StructId, TraitId, TypeAliasId};
 use crate::{Shared, Type, TypeAlias};
