@@ -617,12 +617,14 @@ export class TXEService {
     const processedContract = AztecAddress.fromField(fromSingle(contract));
     const processedKey = fromSingle(key);
     const values = await this.typedOracle.load(processedContract, processedKey);
+    // We are going to return a Noir Option struct to represent the possibility of null values. Options are a struct
+    // with two fields: `some` (a boolean) and `value` (a field array in this case).
     if (values === null) {
-      // No data was found so we set the data-found flag to 0 and we pad with zeros get the correct return size.
+      // No data was found so we set `some` to 0 and pad `value` with zeros get the correct return size.
       const processedTSize = fromSingle(tSize).toNumber();
       return toForeignCallResult([toSingle(new Fr(0)), toArray(Array(processedTSize).fill(new Fr(0)))]);
     } else {
-      // Data was found so we set the data-found flag to 1 and return it along with the data.
+      // Data was found so we set `some` to 1 and return it along with `value`.
       return toForeignCallResult([toSingle(new Fr(1)), toArray(values)]);
     }
   }
