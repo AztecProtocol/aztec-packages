@@ -145,8 +145,11 @@ mod tests {
     use dep::types::{
         abis::{
             kernel_circuit_public_inputs::PrivateKernelCircuitPublicInputs,
-            max_block_number::MaxBlockNumber, note_hash::ScopedNoteHash, nullifier::ScopedNullifier,
-            private_log::PrivateLogData, side_effect::scoped::Scoped,
+            max_block_number::MaxBlockNumber,
+            note_hash::ScopedNoteHash,
+            nullifier::ScopedNullifier,
+            private_log::PrivateLogData,
+            side_effect::{OrderedValue, scoped::Scoped},
         },
         address::AztecAddress,
         hash::{compute_unique_siloed_note_hash, silo_note_hash, silo_nullifier, silo_private_log},
@@ -670,11 +673,11 @@ mod tests {
 
         let output_nullifiers = public_inputs.end.nullifiers;
         // The 0th nullifier (tx hash) doesn't change.
-        assert(output_nullifiers[0].value() == nullifiers[0].value());
+        assert(OrderedValue::<Field>::value(output_nullifiers[0]) == nullifiers[0].value());
         // The 1st nullifier doesn't change.
-        assert(output_nullifiers[1].value() == nullifiers[1].value());
+        assert(OrderedValue::<Field>::value(output_nullifiers[1]) == nullifiers[1].value());
         // The 2nd nullifier has been siloed
-        assert(output_nullifiers[2].value() != nullifiers[2].value());
+        assert(OrderedValue::<Field>::value(output_nullifiers[2]) != nullifiers[2].value());
     }
 
     #[test(should_fail_with = "Invalid vk index")]
