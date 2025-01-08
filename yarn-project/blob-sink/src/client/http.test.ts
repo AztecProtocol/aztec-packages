@@ -1,15 +1,12 @@
 import { Blob } from '@aztec/foundation/blob';
 import { Fr } from '@aztec/foundation/fields';
 
-import getPort from 'get-port';
-
 import { BlobSinkServer } from '../server/server.js';
 import { runBlobSinkClientTests } from './blob-sink-client-tests.js';
 import { HttpBlobSinkClient } from './http.js';
 
 describe('HttpBlobSinkClient', () => {
   runBlobSinkClientTests(async () => {
-    const port = await getPort();
     const server = new BlobSinkServer({
       port: 0,
     });

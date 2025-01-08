@@ -352,7 +352,6 @@ __metadata:
     "@types/source-map-support": "npm:^0.5.10"
     "@types/supertest": "npm:^6.0.2"
     express: "npm:^4.21.1"
-    get-port: "npm:^7.1.0"
     jest: "npm:^29.5.0"
     jest-mock-extended: "npm:^3.0.3"
     source-map-support: "npm:^0.5.21"

@@ -8,11 +8,36 @@
 
 ## Args
 
-TODO:
+Args can be supplied via environment variables.
 
-- add the deployment mnemonic etc
+### NUMBER_OF_KEYS
+
+This determines the number of accounts that will be prefunded with eth on the execution layer.
+
+### MNEMONIC
+
+The seed phrase from which the keys will be derived.
+
+### BLOCK_TIME
+
+The time in seconds between blocks.
+
+### GAS_LIMIT
+
+The gas limit for the execution layer.
+
+### CHAIN_ID
+
+The chain id for the execution layer.
 
 ---
+
+## Common Pitfalls
+
+If you are struggling to get the network up and running, it is usually due to the genesis.json file having different values from the config.yaml + genesis.ssz file. Make sure that you do not edit any of them by accident after ./create.sh is run.
+Note that this script places the configuration values within the /out folder, it will not actually run the testnet.
+
+SSZ files are not passable thorugh config maps, so they must be base64 encoded, then decoded in the container before running.
 
 Generating an Ethereum testnet requires a few ingredients:
 

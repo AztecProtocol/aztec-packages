@@ -161,7 +161,18 @@ jobs:
     enable: false
 
 ethereum:
-  resources:
-    requests:
-      memory: "8Gi"
-      cpu: "3.5"
+  execution:
+    resources:
+      requests:
+        memory: "8Gi"
+        cpu: "3.5"
+  beacon:
+    resources:
+      requests:
+        memory: "8Gi"
+        cpu: "3.5"
+  validator:
+    resources:
+      requests:
+        memory: "8Gi"
+        cpu: "3.5"

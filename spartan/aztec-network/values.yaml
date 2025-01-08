@@ -208,8 +208,7 @@ ethereum:
   externalHost: ""
   replicas: 1
   chainId: 1337
-  # TODO(md): make updatable in genesis scripts
-  blockTime: 12sec
+  blockTime: 12
   # 1 billion gas limit
   # helps ensure we can deploy public contracts
   gasLimit: "1000000000"
@@ -228,7 +227,6 @@ ethereum:
         memory: "8Gi"
         cpu: "4"
     storage: "80Gi"
-  ## TODO: maybe need a second port for these two to communicate
   beacon:
     service:
       type: ClusterIP
