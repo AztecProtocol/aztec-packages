@@ -14,7 +14,9 @@ export interface ProvingBrokerDatabase {
    * Removes a proof request from the backend
    * @param id - The ID of the proof request to remove
    */
-  deleteProvingJobs(ids: ProvingJobId[]): Promise<void>;
+  //deleteProvingJobs(ids: ProvingJobId[]): Promise<void>;
+
+  deleteAllProvingJobsOlderThanEpoch(epochNumber: number): Promise<void>;
 
   /**
    * Returns an iterator over all saved proving jobs

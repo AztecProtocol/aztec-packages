@@ -290,6 +290,15 @@ export const ProvingJob = z.object({
   inputsUri: ProofUri,
 });
 
+export const makeProvingJobId = (epochNumber: number, type: ProvingRequestType, inputsHash: string) => {
+  return `${epochNumber}:${ProvingRequestType[type]}:${inputsHash}`;
+};
+
+export const getEpochFromProvingJobId = (id: ProvingJobId) => {
+  const components = id.split(':');
+  return +components[0];
+};
+
 export type ProvingJob = z.infer<typeof ProvingJob>;
 
 export function makeProvingRequestResult(

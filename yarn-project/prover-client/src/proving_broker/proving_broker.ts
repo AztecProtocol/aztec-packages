@@ -145,9 +145,10 @@ export class ProvingBroker implements ProvingJobProducer, ProvingJobConsumer, Tr
 
   public start(): Promise<void> {
     if (this.started) {
-      this.logger.info('ProvingBroker already started');
+      this.logger.info('Proving Broker already started');
       return Promise.resolve();
     }
+    this.logger.info('Proving Broker started');
     for (const [item, result] of this.database.allProvingJobs()) {
       this.logger.info(`Restoring proving job id=${item.id} settled=${!!result}`, {
         provingJobId: item.id,
@@ -186,7 +187,7 @@ export class ProvingBroker implements ProvingJobProducer, ProvingJobConsumer, Tr
     await this.cleanupPromise.stop();
   }
 
-  public enqueueProvingJob(job: ProvingJob): Promise<boolean> {
+  public enqueueProvingJob(job: ProvingJob): Promise<ProvingJobStatus> {
     return this.requestQueue.put(() => this.#enqueueProvingJob(job));
   }
 
@@ -222,14 +223,16 @@ export class ProvingBroker implements ProvingJobProducer, ProvingJobConsumer, Tr
     return this.requestQueue.put(() => this.#reportProvingJobProgress(id, startedAt, filter));
   }
 
-  async #enqueueProvingJob(job: ProvingJob): Promise<boolean> {
+  async #enqueueProvingJob(job: ProvingJob): Promise<ProvingJobStatus> {
+    // We return the job status at the start of this call
+    const jobStatus = await this.#getProvingJobStatus(job.id);
     if (this.jobsCache.has(job.id)) {
       const existing = this.jobsCache.get(job.id);
       assert.deepStrictEqual(job, existing, 'Duplicate proving job ID');
       this.logger.debug(`Duplicate proving job id=${job.id} epochNumber=${job.epochNumber}. Ignoring`, {
         provingJobId: job.id,
       });
-      return false;
+      return jobStatus;
     }
 
     if (this.isJobStale(job)) {
@@ -250,7 +253,7 @@ export class ProvingBroker implements ProvingJobProducer, ProvingJobConsumer, Tr
       this.jobsCache.delete(job.id);
       throw err;
     }
-    return true;
+    return jobStatus;
   }
 
   async #cancelProvingJob(id: ProvingJobId): Promise<void> {
@@ -266,27 +269,8 @@ export class ProvingBroker implements ProvingJobProducer, ProvingJobConsumer, Tr
     }
   }
 
-  private async cleanUpProvingJobState(ids: ProvingJobId[]): Promise<void> {
-    const toRemove = [];
+  private cleanUpProvingJobState(ids: ProvingJobId[]) {
     for (const id of ids) {
-      const job = this.jobsCache.get(id);
-      if (!job) {
-        this.logger.warn(`Can't clean up a job that doesn't exist id=${id}`, { provingJobId: id });
-        continue;
-      }
-
-      if (!this.resultsCache.has(id)) {
-        this.logger.warn(`Can't cleanup busy proving job: id=${id}`, { provingJobId: id });
-        continue;
-      }
-
-      this.logger.debug(`Cleaning up state for job id=${id}`, { provingJobId: id });
-      toRemove.push(id);
-    }
-
-    await this.database.deleteProvingJobs(toRemove);
-
-    for (const id of toRemove) {
       this.jobsCache.delete(id);
       this.promises.delete(id);
       this.resultsCache.delete(id);
@@ -304,7 +288,6 @@ export class ProvingBroker implements ProvingJobProducer, ProvingJobConsumer, Tr
       const item = this.jobsCache.get(id);
 
       if (!item) {
-        this.logger.warn(`Proving job id=${id} not found`, { provingJobId: id });
         return Promise.resolve({ status: 'not-found' });
       }
 
@@ -540,47 +523,33 @@ export class ProvingBroker implements ProvingJobProducer, ProvingJobConsumer, Tr
 
   @trackSpan('ProvingBroker.cleanupPass')
   private async cleanupPass() {
-    let numCleanups = 1;
-    let numEnqueue = 1;
-    let remaining = await this.requestQueue.put(() => this.cleanupStaleJobs());
-    while (remaining) {
-      remaining = await this.requestQueue.put(() => this.cleanupStaleJobs());
-      numCleanups++;
+    this.cleanupStaleJobs();
+    this.reEnqueueExpiredJobs();
+    const oldestEpochToKeep = this.oldestEpochToKeep();
+    if (oldestEpochToKeep >= 0) {
+      await this.requestQueue.put(() => this.database.deleteAllProvingJobsOlderThanEpoch(oldestEpochToKeep));
+      this.logger.info(`Deleted all epochs older than ${oldestEpochToKeep}`);
     }
-    remaining = await this.requestQueue.put(() => this.reEnqueueExpiredJobs());
-    while (remaining) {
-      remaining = await this.requestQueue.put(() => this.reEnqueueExpiredJobs());
-      numEnqueue++;
-    }
-    this.logger.debug(`Cleanup pass numCleanups=${numCleanups} numEnqueue=${numEnqueue}`);
   }
 
-  private async cleanupStaleJobs() {
+  private cleanupStaleJobs() {
     const jobIds = Array.from(this.jobsCache.keys());
     const jobsToClean: ProvingJobId[] = [];
     for (const id of jobIds) {
       const job = this.jobsCache.get(id)!;
-      const isComplete = this.resultsCache.has(id);
-      if (isComplete && this.isJobStale(job)) {
+      if (this.isJobStale(job)) {
         jobsToClean.push(id);
-        if (jobsToClean.length >= MAX_CLEANUP_BATCH_SIZE) {
-          break;
-        }
       }
     }
 
     if (jobsToClean.length > 0) {
-      const timer = new Timer();
-      await this.cleanUpProvingJobState(jobsToClean);
-      this.logger.info(`Cleaned up jobs=${jobsToClean.length}, duration=${timer.ms()}ms`);
+      this.cleanUpProvingJobState(jobsToClean);
+      this.logger.info(`Cleaned up jobs=${jobsToClean.length}`);
     }
-
-    return jobsToClean.length == MAX_CLEANUP_BATCH_SIZE;
   }
 
-  private async reEnqueueExpiredJobs() {
+  private reEnqueueExpiredJobs() {
     const inProgressEntries = Array.from(this.inProgress.entries());
-    let dbUpdateCount = 0;
     for (const [id, metadata] of inProgressEntries) {
       const item = this.jobsCache.get(id);
       if (!item) {
@@ -592,22 +561,12 @@ export class ProvingBroker implements ProvingJobProducer, ProvingJobConsumer, Tr
       const now = this.msTimeSource();
       const msSinceLastUpdate = now - metadata.lastUpdatedAt;
       if (msSinceLastUpdate >= this.jobTimeoutMs) {
-        if (this.isJobStale(item)) {
-          // the job has timed out and it's also old, just cancel and move on
-          await this.#cancelProvingJob(item.id);
-          ++dbUpdateCount;
-          if (dbUpdateCount >= MAX_CLEANUP_BATCH_SIZE) {
-            return true;
-          }
-        } else {
-          this.logger.warn(`Proving job id=${id} timed out. Adding it back to the queue.`, { provingJobId: id });
-          this.inProgress.delete(id);
-          this.enqueueJobInternal(item);
-          this.instrumentation.incTimedOutJobs(item.type);
-        }
+        this.logger.warn(`Proving job id=${id} timed out. Adding it back to the queue.`, { provingJobId: id });
+        this.inProgress.delete(id);
+        this.enqueueJobInternal(item);
+        this.instrumentation.incTimedOutJobs(item.type);
       }
     }
-    return false;
   }
 
   private enqueueJobInternal(job: ProvingJob): void {
@@ -623,7 +582,11 @@ export class ProvingBroker implements ProvingJobProducer, ProvingJobConsumer, Tr
   }
 
   private isJobStale(job: ProvingJob) {
-    return job.epochNumber < this.epochHeight - this.maxEpochsToKeepResultsFor;
+    return job.epochNumber < this.oldestEpochToKeep();
+  }
+
+  private oldestEpochToKeep() {
+    return this.epochHeight - this.maxEpochsToKeepResultsFor;
   }
 }
 

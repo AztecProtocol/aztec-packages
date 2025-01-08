@@ -59,7 +59,7 @@ export interface ProvingJobProducer {
    * Enqueues a proving job
    * @param job - The job to enqueue
    */
-  enqueueProvingJob(job: ProvingJob): Promise<boolean>;
+  enqueueProvingJob(job: ProvingJob): Promise<ProvingJobStatus>;
 
   /**
    * Cancels a proving job.

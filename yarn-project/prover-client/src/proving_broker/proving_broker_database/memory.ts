@@ -1,4 +1,10 @@
-import type { ProofUri, ProvingJob, ProvingJobId, ProvingJobSettledResult } from '@aztec/circuit-types';
+import {
+  type ProofUri,
+  type ProvingJob,
+  type ProvingJobId,
+  type ProvingJobSettledResult,
+  getEpochFromProvingJobId,
+} from '@aztec/circuit-types';
 
 import { type ProvingBrokerDatabase } from '../proving_broker_database.js';
 
@@ -35,6 +41,14 @@ export class InMemoryBrokerDatabase implements ProvingBrokerDatabase {
       this.results.delete(id);
     }
     return Promise.resolve();
+  }
+
+  deleteAllProvingJobsOlderThanEpoch(epochNumber: number): Promise<void> {
+    const toDelete = [
+      ...Array.from(this.jobs.keys()).filter(x => getEpochFromProvingJobId(x) < epochNumber),
+      ...Array.from(this.results.keys()).filter(x => getEpochFromProvingJobId(x) < epochNumber),
+    ];
+    return this.deleteProvingJobs(toDelete);
   }
 
   *allProvingJobs(): Iterable<[ProvingJob, ProvingJobSettledResult | undefined]> {

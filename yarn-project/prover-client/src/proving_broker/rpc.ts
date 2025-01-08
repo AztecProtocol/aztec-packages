@@ -25,7 +25,7 @@ const GetProvingJobResponse = z.object({
 });
 
 export const ProvingJobProducerSchema: ApiSchemaFor<ProvingJobProducer> = {
-  enqueueProvingJob: z.function().args(ProvingJob).returns(z.boolean()),
+  enqueueProvingJob: z.function().args(ProvingJob).returns(ProvingJobStatus),
   getProvingJobStatus: z.function().args(ProvingJobId).returns(ProvingJobStatus),
   cancelProvingJob: z.function().args(ProvingJobId).returns(z.void()),
   getCompletedJobs: z.function().args(z.array(ProvingJobId)).returns(z.array(ProvingJobId)),
