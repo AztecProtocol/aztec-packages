@@ -226,7 +226,7 @@ Simulation result:  25n
 Now you have a development network running, so you're ready to start coding your first app with Aztec.nr and Aztec.js!
 
 <div className="card-container full-width">
-  <Card shadow='tl' link='/tutorials/codealong/contract_tutorials/counter_contract'>
+  <Card shadow='tl' link='./tutorials/codealong/contract_tutorials/counter_contract'>
     <CardHeader>
       <h3>Write your first contract</h3>
     </CardHeader>

@@ -17,13 +17,13 @@ You will learn:
 
 Writing your own account contract allows you to define the rules by which user transactions are authorized and paid for, as well as how user keys are managed (including key rotation and recovery). In other words, writing an account contract lets you make the most out of account abstraction in the Aztec network.
 
-It is highly recommended that you understand how an [account](../../../aztec/concepts/accounts/index.md) is defined in Aztec, as well as the differences between privacy and authentication [keys](../../../aztec/concepts/accounts/keys.md). You will also need to know how to write a contract in Noir, as well as some basic [Typescript](https://www.typescriptlang.org/).
+It is highly recommended that you understand how an [account](../../../../aztec/concepts/accounts/index.md) is defined in Aztec, as well as the differences between privacy and authentication [keys](../../../../aztec/concepts/accounts/keys.md). You will also need to know how to write a contract in Noir, as well as some basic [Typescript](https://www.typescriptlang.org/).
 
 For this tutorial, we will write an account contract that uses Schnorr signatures for authenticating transaction requests.
 
 Every time a transaction payload is passed to this account contract's `entrypoint` function, the account contract requires a valid Schnorr signature, whose signed message matches the transaction payload, and whose signer matches the account contract owner's public key. If the signature fails, the transaction will fail.
 
-For the sake of simplicity, we will hardcode the signing public key into the contract, but you could store it [in a private note](../../../aztec/concepts/accounts/keys.md#using-a-private-note), [in an immutable note](../../../aztec/concepts/accounts/keys.md#using-an-immutable-private-note), or [on a separate keystore](../../../aztec/concepts/accounts/keys.md#using-a-separate-keystore), to mention a few examples.
+For the sake of simplicity, we will hardcode the signing public key into the contract, but you could store it [in a private note](../../../../aztec/concepts/accounts/keys.md#using-a-private-note), [in an immutable note](../../../../aztec/concepts/accounts/keys.md#using-an-immutable-private-note), or [on a separate keystore](../../../../aztec/concepts/accounts/keys.md#using-a-separate-keystore), to mention a few examples.
 
 ## Contract
 
@@ -91,7 +91,7 @@ More signing schemes are available in case you want to experiment with other typ
 
 Let's try creating a new account backed by our account contract, and interact with a simple token contract to test it works.
 
-To create and deploy the account, we will use the `AccountManager` class, which takes an instance of an Private Execution Environment (PXE), a [privacy private key](../../../aztec/concepts/accounts/keys.md#incoming-viewing-keys), and an instance of our `AccountContract` class:
+To create and deploy the account, we will use the `AccountManager` class, which takes an instance of an Private Execution Environment (PXE), a [privacy private key](../../../../aztec/concepts/accounts/keys.md#incoming-viewing-keys), and an instance of our `AccountContract` class:
 
 #include_code account-contract-deploy yarn-project/end-to-end/src/guides/writing_an_account_contract.test.ts typescript
 
@@ -113,5 +113,5 @@ Lo and behold, we get `Error: Assertion failed: 'verification == true'` when run
 
 - [ECDSA signer account contract (GitHub link)](https://github.com/AztecProtocol/aztec-packages/blob/#include_aztec_version/noir-projects/noir-contracts/contracts/ecdsa_account_contract/src/main.nr)
 - [Schnorr signer account contract (GitHub link)](https://github.com/AztecProtocol/aztec-packages/tree/#include_aztec_version/noir-projects/noir-contracts/contracts/schnorr_account_contract)
-- [Account abstraction](../../../aztec/concepts/accounts/index.md#what-is-account-abstraction)
-- [Authentication witness](../../../aztec/concepts/advanced/authwit.md)
+- [Account abstraction](../../../../aztec/concepts/accounts/index.md#what-is-account-abstraction)
+- [Authentication witness](../../../../aztec/concepts/advanced/authwit.md)

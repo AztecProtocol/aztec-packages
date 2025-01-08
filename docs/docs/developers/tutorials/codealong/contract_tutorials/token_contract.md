@@ -430,7 +430,7 @@ It builds on the Token contract described here and goes into more detail about A
 
 - Review [the end to end tests (Github link)](https://github.com/AztecProtocol/aztec-packages/blob/#include_aztec_version/yarn-project/end-to-end/src/e2e_token_contract/) for reference.
 - [Commitments (Wikipedia link)](https://en.wikipedia.org/wiki/Commitment_scheme)
-- [Nullifiers](../../../aztec/concepts/storage/trees/index.md#nullifier-tree)
-- [Public / Private function calls](../../../aztec/smart_contracts/functions/public_private_calls.md).
-- [Contract Storage](../../../aztec/concepts/storage/index.md)
-- [Authwit](../../../aztec/concepts/advanced/authwit.md)
+- [Nullifiers](../../../../aztec/concepts/advanced/storage/indexed_merkle_tree.mdx)
+- [Public / Private function calls](../../../../aztec/smart_contracts/functions/public_private_calls.md).
+- [Contract Storage](../../../../aztec/concepts/storage/index.md)
+- [Authwit](../../../../aztec/concepts/advanced/authwit.md)

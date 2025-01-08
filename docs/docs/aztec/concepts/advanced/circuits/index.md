@@ -53,7 +53,7 @@ In other words, since neither the EVM nor other rollups have rules for how to pr
 
 What kind of extra rules / checks does a rollup need, to enforce notions of private states and private functions? Stuff like:
 
-- "Perform state reads and writes using new tree structures which prevent tx linkability" (see [trees](../storage/trees/index.md)).
+- "Perform state reads and writes using new tree structures which prevent tx linkability" (see [indexed merkle tree](../storage/indexed_merkle_tree.mdx).
 - "Hide which function was just executed, by wrapping it in a zk-snark"
 - "Hide all functions which were executed as part of this tx's stack trace, by wrapping the whole tx in a zk-snark"
 

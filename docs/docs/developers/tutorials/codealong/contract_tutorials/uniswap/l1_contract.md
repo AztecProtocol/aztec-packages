@@ -3,7 +3,7 @@ title: L1 contracts (EVM)
 sidebar_position: 2
 ---
 
-This page goes over the code in the L1 contract for Uniswap, which works alongside a [token portal (codealong tutorial)](../../codealong/contract_tutorials/token_bridge/index.md). 
+This page goes over the code in the L1 contract for Uniswap, which works alongside a [token portal (codealong tutorial)](../token_bridge/index.md). 
 
 ## Setup
 

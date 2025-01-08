@@ -7,7 +7,7 @@ import Image from "@theme/IdealImage";
 
 In this guide, we will retrieving the Sandbox and deploy a pre-written contract to it using Aztec.js.
 
-This guide assumes you have followed the [quickstart](../../../developers/getting_started.md).
+This guide assumes you have followed the [quickstart](../../../../developers/getting_started.md).
 
 ## Prerequisites
 
@@ -134,7 +134,7 @@ The sandbox is preloaded with multiple accounts so you don't have to sit and cre
 
 #include_code load_accounts /yarn-project/end-to-end/src/composed/e2e_sandbox_example.test.ts typescript
 
-An explanation on accounts on Aztec can be found [here](../../../aztec/concepts/accounts/index.md).
+An explanation on accounts on Aztec can be found [here](../../../../aztec/concepts/accounts/index.md).
 
 ## Deploy a contract
 
@@ -295,7 +295,7 @@ This function takes:
 2. A recipient
 3. An amount of tokens to mint
 
-This function starts as private to set up the creation of a [partial note](../../../aztec/concepts/advanced/storage/partial_notes.md). The private function calls a public function that checks that the minter is authorized to mint new tokens an increments the public total supply. The recipient of the tokens remains private, but the minter and the amount of tokens minted are public.
+This function starts as private to set up the creation of a [partial note](../../../../aztec/concepts/advanced/storage/partial_notes.md). The private function calls a public function that checks that the minter is authorized to mint new tokens an increments the public total supply. The recipient of the tokens remains private, but the minter and the amount of tokens minted are public.
 
 Let's now use these functions to mint some tokens to Bob's account using Typescript, add this to `index.ts`:
 
@@ -339,7 +339,7 @@ Our complete output should now be something like:
   token Bob's balance 10543 +43ms
 ```
 
-That's it! We have successfully deployed a token contract to an instance of the Aztec network and mined private state-transitioning transactions. We have also queried the resulting state all via the interfaces provided by the contract. To see exactly what has happened here, you can learn about the transaction flow [on the Concepts page here](../../../aztec/concepts/transactions.md).
+That's it! We have successfully deployed a token contract to an instance of the Aztec network and mined private state-transitioning transactions. We have also queried the resulting state all via the interfaces provided by the contract. To see exactly what has happened here, you can learn about the transaction flow [on the Concepts page here](../../../../aztec/concepts/transactions.md).
 
 ## Next Steps
 
@@ -349,5 +349,5 @@ Follow the [dapp tutorial](./simple_dapp/index.md).
 
 ### Optional: Learn more about concepts mentioned here
 
-- [Authentication witness](../../../aztec/concepts/advanced/authwit.md)
-- [Functions under the hood](../../../aztec/smart_contracts/functions/function_transforms.md)
+- [Authentication witness](../../../../aztec/concepts/advanced/authwit.md)
+- [Functions under the hood](../../../../aztec/smart_contracts/functions/function_transforms.md)

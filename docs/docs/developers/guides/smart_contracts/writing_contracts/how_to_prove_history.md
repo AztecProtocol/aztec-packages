@@ -4,7 +4,7 @@ sidebar_position: 4
 tags: [contracts]
 ---
 
-The Aztec Protocol uses an append-only Merkle tree to store hashes of the headers of all previous blocks in the chain as its leaves. This is known as the Archive tree. You can learn more about how it works in the [concepts section](../../../../aztec/concepts/storage/trees/index.md).
+The Aztec Protocol uses an append-only Merkle tree to store hashes of the headers of all previous blocks in the chain as its leaves. This is known as the Archive tree. 
 
 This page is a quick introductory guide to creating historical proofs proofs from the archive tree.
 

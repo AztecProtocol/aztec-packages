@@ -45,7 +45,7 @@ Make sure Secretive's "Secret Agent" is running.
 
 The Secure Enclave is a protected chip on most recent iPhones and Macs and it's meant to be airgapped. It is not safe to use in production.
 
-Fortunately, Aztec implements [Account Abstraction](../../../aztec/concepts/accounts#what-is-account-abstraction) at the protocol level. You could write logic to allow someone else to recover your account, or use a different key or keys for recovery.
+Fortunately, Aztec implements [Account Abstraction](../../../../aztec/concepts/accounts/index.md#what-is-account-abstraction) at the protocol level. You could write logic to allow someone else to recover your account, or use a different key or keys for recovery.
 
 :::
 

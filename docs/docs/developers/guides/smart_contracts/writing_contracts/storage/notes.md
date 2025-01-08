@@ -85,7 +85,7 @@ Some optional background resources on notes can be found here:
 
 - [High level network architecture](../../../../../aztec/concepts_overview.md), specifically the Private Execution Environment
 - [Transaction lifecycle (simple diagram)](../../../../../aztec/concepts/transactions.md#simple-example-of-the-private-transaction-lifecycle)
-- [Public and Private state](../../../../../aztec/concepts/storage/state_model/index.md)
+- [Public and Private state](../../../../../aztec/concepts/storage/state_model.md)
 
 Notes touch several core components of the protocol, but we will focus on a the essentials first.
 
@@ -154,7 +154,6 @@ Try the [NFT tutorial](../../../../tutorials/codealong/contract_tutorials/nft_co
 
 ### Further reading
 
-- [Storage Trees](../../../../../aztec/concepts/storage/trees/index.md)
 - [Proof of prior notes](../how_to_prove_history.md) - public/private reading of public/private proof of state (public or private)
 
 If you're curious about any of the following related topics, search the documentation for...

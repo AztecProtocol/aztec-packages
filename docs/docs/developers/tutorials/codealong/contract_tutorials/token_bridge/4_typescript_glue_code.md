@@ -171,4 +171,4 @@ Follow the tutorial [here](../../js_tutorials/aztecjs-getting-started.md).
 
 ### Optional: Learn more about concepts mentioned here
 
-- [Functions under the hood (concepts)](../../../../aztec/smart_contracts/functions/function_transforms.md)
+- [Functions under the hood (concepts)](../../../../../aztec/smart_contracts/functions/function_transforms.md)

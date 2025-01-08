@@ -240,7 +240,7 @@ const config = {
             label: "Run a node",
           },
           {
-            to: "/developers/guides/getting_started",
+            to: "/developers/getting_started",
             label: "Install Sandbox",
             position: "right",
           },

@@ -107,7 +107,7 @@ To query storage directly, you'll need to know the slot you want to access. This
 
 #### Querying private state
 
-Private state in the Aztec is represented via sets of [private notes](../../../aztec/concepts/storage/state_model/index.md#private-state). We can query the Private Execution Environment (PXE) for all notes encrypted for a given user in a contract slot. For example, this gets all notes encrypted for the `owner` user that are stored on the token contract address and on the slot that was calculated earlier. To calculate the actual balance, it extracts the `value` of each note, which is the first element, and sums them up.
+Private state in the Aztec is represented via sets of [private notes](../../../aztec/concepts/storage/state_model.md#private-state). We can query the Private Execution Environment (PXE) for all notes encrypted for a given user in a contract slot. For example, this gets all notes encrypted for the `owner` user that are stored on the token contract address and on the slot that was calculated earlier. To calculate the actual balance, it extracts the `value` of each note, which is the first element, and sums them up.
 
 #include_code private-storage /yarn-project/end-to-end/src/guides/dapp_testing.test.ts typescript
 

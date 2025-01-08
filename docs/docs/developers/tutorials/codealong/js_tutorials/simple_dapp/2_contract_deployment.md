@@ -3,7 +3,7 @@
 To add contracts to your application, we'll start by creating a new `aztec-nargo` project. We'll then compile the contracts, and write a simple script to deploy them to our Sandbox.
 
 :::info
-Follow the instructions [here](../../../../developers/getting_started.md) to install `aztec-nargo` if you haven't done so already.
+Follow the instructions [here](../../../../getting_started.md) to install `aztec-nargo` if you haven't done so already.
 :::
 
 ## Initialize Aztec project
@@ -73,7 +73,7 @@ Here, we are using the `Contract` class with the compiled artifact to send a new
 Note that the token's `constructor()` method expects an `owner` address to set as the contract `admin`. We are using the first account from the Sandbox for this.
 
 :::info
-If you are using the generated typescript classes, you can drop the generic `ContractDeployer` in favor of using the `deploy` method of the generated class, which will automatically load the artifact for you and type-check the constructor arguments. See the [How to deploy a contract](../../../../developers/guides/smart_contracts/how_to_deploy_contract.md) page for more info.
+If you are using the generated typescript classes, you can drop the generic `ContractDeployer` in favor of using the `deploy` method of the generated class, which will automatically load the artifact for you and type-check the constructor arguments. See the [How to deploy a contract](../../../../guides/smart_contracts/how_to_deploy_contract.md) page for more info.
 :::
 
 Run the snippet above as `node src/deploy.mjs`, and you should see the following output, along with a new `addresses.json` file in your project root:

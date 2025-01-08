@@ -142,7 +142,7 @@ The L1 chain ID you used in your proof generation (for your private transaction)
 
 Same as [section 4007](#4007---base__invalid_chain_id) except the `version` refers to the version of the Aztec L2 instance.
 
-Some scary bugs like `4003 - BASE__INVALID_NULLIFIER_SUBTREE` and `4004 - BASE__INVALID_NULLIFIER_RANGE` which are to do malformed nullifier trees (see [Indexed Merkle Trees](../../../aztec/concepts/storage/trees/indexed_merkle_tree.mdx)) etc may seem unrelated at a glance, but at a closer look may be because of some bug in an application's Aztec.nr code. Same is true for certain instances of `7008 - MEMBERSHIP_CHECK_FAILED`.
+Some scary bugs like `4003 - BASE__INVALID_NULLIFIER_SUBTREE` and `4004 - BASE__INVALID_NULLIFIER_RANGE` which are to do malformed nullifier trees (see [Indexed Merkle Trees](../../../aztec/concepts/advanced/storage/indexed_merkle_tree.mdx)) etc may seem unrelated at a glance, but at a closer look may be because of some bug in an application's Aztec.nr code. Same is true for certain instances of `7008 - MEMBERSHIP_CHECK_FAILED`.
 
 ### Generic circuit errors
 
@@ -173,7 +173,7 @@ Users may create a proof against a historical state in Aztec. The rollup circuit
 - using invalid historical L1 to L2 message data tree state
 - inserting a subtree into the greater tree
   - we make a smaller merkle tree of all the new note hashes/nullifiers etc that were created in a transaction or in a rollup and add it to the bigger state tree. Before inserting, we do a merkle membership check to ensure that the index to insert at is indeed an empty subtree (otherwise we would be overwriting state). This can happen when `next_available_leaf_index` in the state tree's snapshot is wrong (it is fetched by the sequencer from the archiver). The error message should reveal which tree is causing this issue
-  - nullifier tree related errors - The nullifier tree uses an [Indexed Merkle Tree](../../../aztec/concepts/storage/trees/indexed_merkle_tree.mdx). It requires additional data from the archiver to know which is the nullifier in the tree that is just below the current nullifier before it can perform batch insertion. If the low nullifier is wrong, or the nullifier is in incorrect range, you may receive this error.
+  - nullifier tree related errors - The nullifier tree uses an [Indexed Merkle Tree](../../../aztec/concepts/advanced/storage/indexed_merkle_tree.mdx). It requires additional data from the archiver to know which is the nullifier in the tree that is just below the current nullifier before it can perform batch insertion. If the low nullifier is wrong, or the nullifier is in incorrect range, you may receive this error.
 
 ---
 
