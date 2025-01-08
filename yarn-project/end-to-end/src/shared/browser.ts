@@ -6,7 +6,6 @@ import * as AztecJs from '@aztec/aztec.js';
 import { TokenContractArtifact } from '@aztec/noir-contracts.js/Token';
 import { contractArtifactToBuffer } from '@aztec/types/abi';
 
-import { jest } from '@jest/globals';
 import getPort from 'get-port';
 import { type Server } from 'http';
 import Koa from 'koa';
@@ -56,8 +55,6 @@ export const browserTestSuite = (
   pageLogger: AztecJs.Logger,
 ) =>
   describe('e2e_aztec.js_browser', () => {
-    jest.setTimeout(60_000);
-
     const initialBalance = 33n;
     const transferAmount = 3n;
 

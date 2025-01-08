@@ -7,16 +7,12 @@ import { TestContract } from '@aztec/noir-contracts.js/Test';
 // docs:end:import_contract
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
 
-import { jest } from '@jest/globals';
-
 import { U128_UNDERFLOW_ERROR } from '../fixtures/fixtures.js';
 import { mintTokensToPrivate } from '../fixtures/token_utils.js';
 
 const { PXE_URL = 'http://localhost:8080', ETHEREUM_HOST = 'http://localhost:8545' } = process.env;
 
 describe('guides/dapp/testing', () => {
-  jest.setTimeout(60_000);
-
   describe('on local sandbox', () => {
     beforeAll(async () => {
       // docs:start:create_pxe_client

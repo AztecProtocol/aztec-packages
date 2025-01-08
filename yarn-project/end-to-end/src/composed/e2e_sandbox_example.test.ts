@@ -56,7 +56,6 @@ import { getSchnorrAccount } from '@aztec/accounts/schnorr';
 import { getDeployedTestAccountsWallets } from '@aztec/accounts/testing';
 import { Fr, GrumpkinScalar, type PXE, createLogger, createPXEClient, waitForPXE } from '@aztec/aztec.js';
 
-import { jest } from '@jest/globals';
 import { format } from 'util';
 
 // docs:end:imports
@@ -65,8 +64,6 @@ import { deployToken, mintTokensToPrivate } from '../fixtures/token_utils.js';
 const { PXE_URL = 'http://localhost:8080' } = process.env;
 
 describe('e2e_sandbox_example', () => {
-  jest.setTimeout(60_000);
-
   it('sandbox example works', async () => {
     // docs:start:setup
     ////////////// CREATE THE CLIENT INTERFACE AND CONTACT THE SANDBOX //////////////
