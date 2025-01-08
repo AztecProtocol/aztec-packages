@@ -64,7 +64,7 @@ export class BrokerCircuitProverFacade implements ServerCircuitProver {
   private jobs: Map<ProvingJobId, ProvingJob> = new Map();
   private runningPromise?: RunningPromise;
   private timeOfLastSnapshotSync = Date.now();
-  private queue?: SerialQueue = new SerialQueue();
+  private queue: SerialQueue = new SerialQueue();
   private jobsToRetrieve: Set<ProvingJobId> = new Set();
 
   constructor(

@@ -98,21 +98,23 @@ describe.each([
 
     it('enqueues jobs', async () => {
       const id = makeRandomProvingJobId();
-      await broker.enqueueProvingJob({
+      const enqueueStatus = await broker.enqueueProvingJob({
         id,
         epochNumber: 1,
         type: ProvingRequestType.BASE_PARITY,
         inputsUri: makeInputsUri(),
       });
+      expect(enqueueStatus).toEqual({ status: 'not-found' });
       expect(await broker.getProvingJobStatus(id)).toEqual({ status: 'in-queue' });
 
       const id2 = makeRandomProvingJobId();
-      await broker.enqueueProvingJob({
+      const enqueueStatus2 = await broker.enqueueProvingJob({
         id: id2,
         epochNumber: 1,
         type: ProvingRequestType.PRIVATE_BASE_ROLLUP,
         inputsUri: makeInputsUri(),
       });
+      expect(enqueueStatus2).toEqual({ status: 'not-found' });
       expect(await broker.getProvingJobStatus(id2)).toEqual({ status: 'in-queue' });
     });
 
@@ -124,9 +126,41 @@ describe.each([
         inputsUri: makeInputsUri(),
       };
 
-      await broker.enqueueProvingJob(provingJob);
-      await expect(broker.enqueueProvingJob(provingJob)).resolves.toBeFalsy();
+      const enqueueStatus = await broker.enqueueProvingJob(provingJob);
+      expect(enqueueStatus).toEqual({ status: 'not-found' });
+      await expect(broker.enqueueProvingJob(provingJob)).resolves.toEqual({ status: 'in-queue' });
       await expect(broker.getProvingJobStatus(provingJob.id)).resolves.toEqual({ status: 'in-queue' });
+    });
+
+    it('reports correct status when enqueuing repeat jobs', async () => {
+      const provingJob: ProvingJob = {
+        id: makeRandomProvingJobId(),
+        type: ProvingRequestType.BASE_PARITY,
+        epochNumber: 1,
+        inputsUri: makeInputsUri(),
+      };
+
+      const enqueueStatus = await broker.enqueueProvingJob(provingJob);
+      expect(enqueueStatus).toEqual({ status: 'not-found' });
+
+      // start the job
+      const returnedJob = await broker.getProvingJob();
+      expect(returnedJob?.job.id).toEqual(provingJob.id);
+
+      // job status should be in progress
+      await expect(broker.getProvingJobStatus(provingJob.id)).resolves.toEqual({ status: 'in-progress' });
+
+      // enqueuing the same job again should return in progress
+      await expect(broker.enqueueProvingJob(provingJob)).resolves.toEqual({ status: 'in-progress' });
+
+      // now complete the job
+      await broker.reportProvingJobSuccess(provingJob.id, 'Proof' as ProofUri);
+
+      // now the status should say fulfilled
+      await expect(broker.getProvingJobStatus(provingJob.id)).resolves.toEqual({ status: 'fulfilled', value: 'Proof' });
+
+      // enqueuing the same job again should return fulfilled
+      await expect(broker.enqueueProvingJob(provingJob)).resolves.toEqual({ status: 'fulfilled', value: 'Proof' });
     });
 
     it('throws an error in case of duplicate job IDs', async () => {
