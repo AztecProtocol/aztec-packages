@@ -12,11 +12,11 @@ import type {
   AVM_PROOF_LENGTH_IN_FIELDS,
   AvmCircuitInputs,
   BaseParityInputs,
-  KernelCircuitPublicInputs,
   NESTED_RECURSIVE_PROOF_LENGTH,
   NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH,
   ParityPublicInputs,
   PrivateKernelEmptyInputData,
+  PrivateToRollupKernelCircuitPublicInputs,
   RECURSIVE_PROOF_LENGTH,
   RootParityInputs,
   TUBE_PROOF_LENGTH,
@@ -276,7 +276,10 @@ export class MemoryProvingQueue implements ServerCircuitProver, ProvingJobSource
     signal?: AbortSignal,
     epochNumber?: number,
   ): Promise<
-    PublicInputsAndRecursiveProof<KernelCircuitPublicInputs, typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH>
+    PublicInputsAndRecursiveProof<
+      PrivateToRollupKernelCircuitPublicInputs,
+      typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH
+    >
   > {
     return this.enqueue(ProvingRequestType.PRIVATE_KERNEL_EMPTY, inputs, signal, epochNumber);
   }

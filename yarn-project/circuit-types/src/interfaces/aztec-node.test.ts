@@ -40,6 +40,7 @@ import { MerkleTreeId } from '../merkle_tree_id.js';
 import { EpochProofQuote } from '../prover_coordination/epoch_proof_quote.js';
 import { PublicDataWitness } from '../public_data_witness.js';
 import { SiblingPath } from '../sibling_path/sibling_path.js';
+import { type TxValidationResult } from '../tx/index.js';
 import { PublicSimulationOutput } from '../tx/public_simulation_output.js';
 import { Tx } from '../tx/tx.js';
 import { TxHash } from '../tx/tx_hash.js';
@@ -293,9 +294,14 @@ describe('AztecNodeApiSchema', () => {
     expect(response).toBeInstanceOf(PublicSimulationOutput);
   });
 
-  it('isValidTx', async () => {
+  it('isValidTx(valid)', async () => {
+    const response = await context.client.isValidTx(Tx.random(), true);
+    expect(response).toEqual({ result: 'valid' });
+  });
+
+  it('isValidTx(invalid)', async () => {
     const response = await context.client.isValidTx(Tx.random());
-    expect(response).toBe(true);
+    expect(response).toEqual({ result: 'invalid', reason: ['Invalid'] });
   });
 
   it('setConfig', async () => {
@@ -559,9 +565,9 @@ class MockAztecNode implements AztecNode {
     expect(tx).toBeInstanceOf(Tx);
     return Promise.resolve(PublicSimulationOutput.random());
   }
-  isValidTx(tx: Tx, _isSimulation?: boolean | undefined): Promise<boolean> {
+  isValidTx(tx: Tx, isSimulation?: boolean | undefined): Promise<TxValidationResult> {
     expect(tx).toBeInstanceOf(Tx);
-    return Promise.resolve(true);
+    return Promise.resolve(isSimulation ? { result: 'valid' } : { result: 'invalid', reason: ['Invalid'] });
   }
   setConfig(config: Partial<SequencerConfig & ProverConfig>): Promise<void> {
     expect(config.coinbase).toBeInstanceOf(EthAddress);

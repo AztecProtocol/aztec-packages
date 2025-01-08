@@ -4,11 +4,9 @@ use crate::abis::{
     previous_rollup_block_data::PreviousRollupBlockData,
     previous_rollup_data::PreviousRollupData,
 };
+use super::abis::tx_effect::TxEffect;
 use dep::types::{
-    abis::{
-        accumulated_data::CombinedAccumulatedData, log_hash::ScopedLogHash,
-        public_data_write::PublicDataWrite, sponge_blob::SpongeBlob,
-    },
+    abis::{log_hash::ScopedLogHash, public_data_write::PublicDataWrite, sponge_blob::SpongeBlob},
     constants::{
         AZTEC_MAX_EPOCH_DURATION, CONTRACT_CLASS_LOGS_PREFIX, L2_L1_MSGS_PREFIX,
         MAX_CONTRACT_CLASS_LOGS_PER_TX, MAX_L2_TO_L1_MSGS_PER_TX, MAX_NOTE_HASHES_PER_TX,
@@ -267,21 +265,12 @@ pub(crate) global TX_EFFECTS_BLOB_HASH_INPUT_FIELDS: u32 = 1
     + MAX_UNENCRYPTED_LOGS_PER_TX
     + MAX_CONTRACT_CLASS_LOGS_PER_TX
     + 7;
-pub fn append_tx_effects_for_blob(
-    combined: CombinedAccumulatedData,
-    revert_code: u8,
-    transaction_fee: Field,
-    all_public_data_update_requests: [PublicDataWrite; MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX],
-    l2_to_l1_msgs: [Field; MAX_L2_TO_L1_MSGS_PER_TX],
+
+pub(crate) fn append_tx_effects_for_blob(
+    tx_effect: TxEffect,
     start_sponge_blob: SpongeBlob,
 ) -> SpongeBlob {
-    let (mut tx_effects_hash_input, offset) = get_tx_effects_hash_input(
-        combined,
-        revert_code,
-        transaction_fee,
-        all_public_data_update_requests,
-        l2_to_l1_msgs,
-    );
+    let (mut tx_effects_hash_input, offset) = get_tx_effects_hash_input(tx_effect);
 
     // NB: using start.absorb & returning start caused issues in ghost values appearing in
     // base_rollup_inputs.start when using a fresh sponge. These only appeared when simulating via wasm.
@@ -297,33 +286,21 @@ pub fn append_tx_effects_for_blob(
 }
 
 fn get_tx_effects_hash_input(
-    combined: CombinedAccumulatedData,
-    revert_code: u8,
-    transaction_fee: Field,
-    all_public_data_update_requests: [PublicDataWrite; MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX],
-    l2_to_l1_msgs: [Field; MAX_L2_TO_L1_MSGS_PER_TX],
+    tx_effect: TxEffect,
 ) -> ([Field; TX_EFFECTS_BLOB_HASH_INPUT_FIELDS], u32) {
-    let mut tx_effects_hash_input = unsafe {
-        get_tx_effects_hash_input_helper(
-            combined,
-            revert_code,
-            transaction_fee,
-            all_public_data_update_requests,
-            l2_to_l1_msgs,
-        )
-    };
+    let mut tx_effects_hash_input = unsafe { get_tx_effects_hash_input_helper(tx_effect) };
 
-    let note_hashes = combined.note_hashes;
-    let nullifiers = combined.nullifiers;
+    let note_hashes = tx_effect.note_hashes;
+    let nullifiers = tx_effect.nullifiers;
 
     // Public writes are the concatenation of all non-empty user update requests and protocol update requests, then padded with zeroes.
     // The incoming all_public_data_update_requests may have empty update requests in the middle, so we move those to the end of the array.
     let public_data_update_requests =
-        get_all_update_requests_for_tx_effects(all_public_data_update_requests);
-    let private_logs = combined.private_logs;
+        get_all_update_requests_for_tx_effects(tx_effect.public_data_writes);
+    let private_logs = tx_effect.private_logs;
     let unencrypted_logs =
-        combined.unencrypted_logs_hashes.map(|log: ScopedLogHash| silo_unencrypted_log_hash(log));
-    let contract_class_logs = combined.contract_class_logs_hashes.map(|log: ScopedLogHash| {
+        tx_effect.unencrypted_logs_hashes.map(|log: ScopedLogHash| silo_unencrypted_log_hash(log));
+    let contract_class_logs = tx_effect.contract_class_logs_hashes.map(|log: ScopedLogHash| {
         silo_unencrypted_log_hash(log)
     });
 
@@ -341,7 +318,10 @@ fn get_tx_effects_hash_input(
     assert_eq(
         tx_effects_hash_input[offset],
         field_from_bytes(
-            array_concat([TX_FEE_PREFIX, 0], transaction_fee.to_be_bytes::<29>()),
+            array_concat(
+                [TX_FEE_PREFIX, 0],
+                tx_effect.transaction_fee.to_be_bytes::<29>(),
+            ),
             true,
         ),
     );
@@ -381,7 +361,7 @@ fn get_tx_effects_hash_input(
     }
 
     // L2 TO L1 MESSAGES
-    array_len = array_length(l2_to_l1_msgs);
+    array_len = array_length(tx_effect.l2_to_l1_msgs);
     if array_len != 0 {
         let l2_to_l1_msgs_prefix = encode_blob_prefix(L2_L1_MSGS_PREFIX, array_len);
         assert_eq(tx_effects_hash_input[offset], l2_to_l1_msgs_prefix);
@@ -389,7 +369,7 @@ fn get_tx_effects_hash_input(
 
         for j in 0..MAX_L2_TO_L1_MSGS_PER_TX {
             if j < array_len {
-                assert_eq(tx_effects_hash_input[offset + j], l2_to_l1_msgs[j]);
+                assert_eq(tx_effects_hash_input[offset + j], tx_effect.l2_to_l1_msgs[j]);
             }
         }
         offset += array_len;
@@ -479,7 +459,15 @@ fn get_tx_effects_hash_input(
         field_from_bytes(
             array_concat(
                 prefix_bytes,
-                [0, length_bytes[0], length_bytes[1], 0, REVERT_CODE_PREFIX, 0, revert_code],
+                [
+                    0,
+                    length_bytes[0],
+                    length_bytes[1],
+                    0,
+                    REVERT_CODE_PREFIX,
+                    0,
+                    tx_effect.revert_code,
+                ],
             ),
             true,
         ),
@@ -489,25 +477,21 @@ fn get_tx_effects_hash_input(
 }
 
 unconstrained fn get_tx_effects_hash_input_helper(
-    combined: CombinedAccumulatedData,
-    revert_code: u8,
-    transaction_fee: Field,
-    all_public_data_update_requests: [PublicDataWrite; MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX],
-    l2_to_l1_msgs: [Field; MAX_L2_TO_L1_MSGS_PER_TX],
+    tx_effect: TxEffect,
 ) -> [Field; TX_EFFECTS_BLOB_HASH_INPUT_FIELDS] {
     let mut tx_effects_hash_input = [0; TX_EFFECTS_BLOB_HASH_INPUT_FIELDS];
 
-    let note_hashes = combined.note_hashes;
-    let nullifiers = combined.nullifiers;
+    let note_hashes = tx_effect.note_hashes;
+    let nullifiers = tx_effect.nullifiers;
 
     // Public writes are the concatenation of all non-empty user update requests and protocol update requests, then padded with zeroes.
     // The incoming all_public_data_update_requests may have empty update requests in the middle, so we move those to the end of the array.
     let public_data_update_requests =
-        get_all_update_requests_for_tx_effects(all_public_data_update_requests);
-    let private_logs = combined.private_logs;
+        get_all_update_requests_for_tx_effects(tx_effect.public_data_writes);
+    let private_logs = tx_effect.private_logs;
     let unencrypted_logs =
-        combined.unencrypted_logs_hashes.map(|log: ScopedLogHash| silo_unencrypted_log_hash(log));
-    let contract_class_logs = combined.contract_class_logs_hashes.map(|log: ScopedLogHash| {
+        tx_effect.unencrypted_logs_hashes.map(|log: ScopedLogHash| silo_unencrypted_log_hash(log));
+    let contract_class_logs = tx_effect.contract_class_logs_hashes.map(|log: ScopedLogHash| {
         silo_unencrypted_log_hash(log)
     });
 
@@ -524,7 +508,10 @@ unconstrained fn get_tx_effects_hash_input_helper(
     // TX FEE
     // Using 29 bytes to encompass all reasonable fee lengths
     tx_effects_hash_input[offset] = field_from_bytes(
-        array_concat([TX_FEE_PREFIX, 0], transaction_fee.to_be_bytes::<29>()),
+        array_concat(
+            [TX_FEE_PREFIX, 0],
+            tx_effect.transaction_fee.to_be_bytes::<29>(),
+        ),
         true,
     );
     offset += 1;
@@ -559,14 +546,14 @@ unconstrained fn get_tx_effects_hash_input_helper(
     }
 
     // L2 TO L1 MESSAGES
-    array_len = array_length(l2_to_l1_msgs);
+    array_len = array_length(tx_effect.l2_to_l1_msgs);
     if array_len != 0 {
         let l2_to_l1_msgs_prefix = encode_blob_prefix(L2_L1_MSGS_PREFIX, array_len);
         tx_effects_hash_input[offset] = l2_to_l1_msgs_prefix;
         offset += 1;
 
         for j in 0..MAX_L2_TO_L1_MSGS_PER_TX {
-            tx_effects_hash_input[offset + j] = l2_to_l1_msgs[j];
+            tx_effects_hash_input[offset + j] = tx_effect.l2_to_l1_msgs[j];
         }
         offset += array_len;
     }
@@ -639,7 +626,7 @@ unconstrained fn get_tx_effects_hash_input_helper(
     tx_effects_hash_input[0] = field_from_bytes(
         array_concat(
             prefix_bytes,
-            [0, length_bytes[0], length_bytes[1], 0, REVERT_CODE_PREFIX, 0, revert_code],
+            [0, length_bytes[0], length_bytes[1], 0, REVERT_CODE_PREFIX, 0, tx_effect.revert_code],
         ),
         true,
     );
@@ -647,6 +634,7 @@ unconstrained fn get_tx_effects_hash_input_helper(
     tx_effects_hash_input
 }
 
+// TODO remove this? The avm should be returning public data writes left aligned.
 fn get_all_update_requests_for_tx_effects(
     all_public_data_update_requests: [PublicDataWrite; MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX],
 ) -> [PublicDataWrite; MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX] {

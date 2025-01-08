@@ -2,7 +2,7 @@ mod meter_gas_used;
 
 use crate::components::tail_output_composer::TailOutputComposer;
 use dep::types::{
-    abis::kernel_circuit_public_inputs::KernelCircuitPublicInputs,
+    abis::kernel_circuit_public_inputs::PrivateToRollupKernelCircuitPublicInputs,
     tests::fixture_builder::FixtureBuilder,
 };
 
@@ -17,7 +17,7 @@ impl TailOutputComposerBuilder {
         TailOutputComposerBuilder { previous_kernel }
     }
 
-    pub fn finish(self) -> KernelCircuitPublicInputs {
+    pub fn finish(self) -> PrivateToRollupKernelCircuitPublicInputs {
         let previous_kernel = self.previous_kernel.to_private_kernel_circuit_public_inputs();
         unsafe {
             let composer = TailOutputComposer::new(previous_kernel);

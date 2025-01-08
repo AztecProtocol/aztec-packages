@@ -3,7 +3,7 @@ import { type Fr } from '@aztec/foundation/fields';
 import { type Logger } from '@aztec/foundation/log';
 import { type AcirSimulator } from '@aztec/simulator/client';
 
-import { IncomingNoteDao } from '../database/incoming_note_dao.js';
+import { NoteDao } from '../database/note_dao.js';
 import { type PxeDatabase } from '../database/pxe_database.js';
 import { produceNoteDaosForKey } from './produce_note_daos_for_key.js';
 
@@ -37,15 +37,15 @@ export async function produceNoteDaos(
   dataStartIndexForTx: number,
   excludedIndices: Set<number>,
   logger: Logger,
-): Promise<{ incomingNote: IncomingNoteDao | undefined }> {
+): Promise<{ note: NoteDao | undefined }> {
   if (!addressPoint) {
     throw new Error('addressPoint is undefined. Cannot create note.');
   }
 
-  let incomingNote: IncomingNoteDao | undefined;
+  let note: NoteDao | undefined;
 
   if (addressPoint) {
-    incomingNote = await produceNoteDaosForKey(
+    note = await produceNoteDaosForKey(
       simulator,
       db,
       addressPoint,
@@ -57,11 +57,11 @@ export async function produceNoteDaos(
       dataStartIndexForTx,
       excludedIndices,
       logger,
-      IncomingNoteDao.fromPayloadAndNoteInfo,
+      NoteDao.fromPayloadAndNoteInfo,
     );
   }
 
   return {
-    incomingNote,
+    note,
   };
 }

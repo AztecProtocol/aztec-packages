@@ -7,14 +7,15 @@ export CRS_PATH=$HOME/.bb-crs
 tests_tar=barretenberg-acir-tests-$(cache_content_hash \
     ../../noir/.rebuild_patterns \
     ../../noir/.rebuild_patterns_tests \
+    ../cpp/.rebuild_patterns \
     ).tar.gz
 
 tests_hash=$(cache_content_hash \
     ^barretenberg/acir_tests/ \
     ../../noir/.rebuild_patterns \
     ../../noir/.rebuild_patterns_tests \
-    ../../barretenberg/cpp/.rebuild_patterns \
-    ../../barretenberg/ts/.rebuild_patterns)
+    ../cpp/.rebuild_patterns \
+    ../ts/.rebuild_patterns)
 
 function build {
   echo_header "acir_tests build"
@@ -31,14 +32,14 @@ function build {
     # COMPILE=2 only compiles the test.
     denoise "parallel --joblog joblog.txt --line-buffered 'COMPILE=2 ./run_test.sh \$(basename {})' ::: ./acir_tests/*"
 
+    echo "Regenerating verify_honk_proof and verify_rollup_honk_proof recursive inputs."
+    local bb=$(realpath ../cpp/build/bin/bb)
+    (cd ./acir_tests/assert_statement && \
+      $bb write_recursion_inputs_ultra_honk -b ./target/program.json -o ../verify_honk_proof --recursive && \
+      $bb write_recursion_inputs_rollup_honk -b ./target/program.json -o ../verify_rollup_honk_proof --recursive)
+
     cache_upload $tests_tar acir_tests
   fi
-
-  # TODO: This actually breaks things, but shouldn't. We want to do it here and not maintain manually.
-  # Regenerate verify_honk_proof recursive input.
-  # local bb=$(realpath ../cpp/build/bin/bb)
-  # (cd ./acir_tests/assert_statement && \
-  #   $bb write_recursion_inputs_honk -b ./target/program.json -o ../verify_honk_proof --recursive)
 
   # TODO: Revisit. Update yarn.lock so it can be committed.
   # Be lenient about bb.js hash changing, even if we try to minimize the occurrences.
@@ -59,6 +60,7 @@ function test {
 }
 
 function test_cmds {
+  # Prefix the test hash on each command.
   test_cmds_internal | awk "{ print \"$tests_hash \" \$0 }"
 }
 

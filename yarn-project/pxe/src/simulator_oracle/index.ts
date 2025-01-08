@@ -34,8 +34,8 @@ import { MessageLoadOracleInputs } from '@aztec/simulator/acvm';
 import { type AcirSimulator, type DBOracle } from '@aztec/simulator/client';
 
 import { type ContractDataOracle } from '../contract_data_oracle/index.js';
-import { type IncomingNoteDao } from '../database/incoming_note_dao.js';
 import { type PxeDatabase } from '../database/index.js';
+import { type NoteDao } from '../database/note_dao.js';
 import { produceNoteDaos } from '../note_decryption_utils/produce_note_daos.js';
 import { getAcirSimulator } from '../simulator/index.js';
 import { WINDOW_HALF_SIZE, getIndexedTaggingSecretsForTheWindow, getInitialIndexesMap } from './tagging_utils.js';
@@ -92,7 +92,7 @@ export class SimulatorOracle implements DBOracle {
   }
 
   async getNotes(contractAddress: AztecAddress, storageSlot: Fr, status: NoteStatus, scopes?: AztecAddress[]) {
-    const noteDaos = await this.db.getIncomingNotes({
+    const noteDaos = await this.db.getNotes({
       contractAddress,
       storageSlot,
       status,
@@ -569,17 +569,17 @@ export class SimulatorOracle implements DBOracle {
     // Since we could have notes with the same index for different txs, we need
     // to keep track of them scoping by txHash
     const excludedIndices: Map<string, Set<number>> = new Map();
-    const incomingNotes: IncomingNoteDao[] = [];
+    const notes: NoteDao[] = [];
 
     const txEffectsCache = new Map<string, InBlock<TxEffect> | undefined>();
 
     for (const scopedLog of scopedLogs) {
-      const incomingNotePayload = scopedLog.isFromPublic
+      const notePayload = scopedLog.isFromPublic
         ? L1NotePayload.decryptAsIncomingFromPublic(scopedLog.logData, addressSecret)
         : L1NotePayload.decryptAsIncoming(PrivateLog.fromBuffer(scopedLog.logData), addressSecret);
 
-      if (incomingNotePayload) {
-        const payload = incomingNotePayload;
+      if (notePayload) {
+        const payload = notePayload;
 
         const txEffect =
           txEffectsCache.get(scopedLog.txHash.toString()) ?? (await this.aztecNode.getTxEffect(scopedLog.txHash));
@@ -594,13 +594,13 @@ export class SimulatorOracle implements DBOracle {
         if (!excludedIndices.has(scopedLog.txHash.toString())) {
           excludedIndices.set(scopedLog.txHash.toString(), new Set());
         }
-        const { incomingNote } = await produceNoteDaos(
+        const { note } = await produceNoteDaos(
           // I don't like this at all, but we need a simulator to run `computeNoteHashAndOptionallyANullifier`. This generates
           // a chicken-and-egg problem due to this oracle requiring a simulator, which in turn requires this oracle. Furthermore, since jest doesn't allow
           // mocking ESM exports, we have to pollute the method even more by providing a simulator parameter so tests can inject a fake one.
           simulator ?? getAcirSimulator(this.db, this.aztecNode, this.keyStore, this.contractDataOracle),
           this.db,
-          incomingNotePayload ? recipient.toAddressPoint() : undefined,
+          notePayload ? recipient.toAddressPoint() : undefined,
           payload!,
           txEffect.data.txHash,
           txEffect.l2BlockNumber,
@@ -611,12 +611,12 @@ export class SimulatorOracle implements DBOracle {
           this.log,
         );
 
-        if (incomingNote) {
-          incomingNotes.push(incomingNote);
+        if (note) {
+          notes.push(note);
         }
       }
     }
-    return { incomingNotes };
+    return { notes };
   }
 
   /**
@@ -629,10 +629,10 @@ export class SimulatorOracle implements DBOracle {
     recipient: AztecAddress,
     simulator?: AcirSimulator,
   ): Promise<void> {
-    const { incomingNotes } = await this.#decryptTaggedLogs(logs, recipient, simulator);
-    if (incomingNotes.length) {
-      await this.db.addNotes(incomingNotes, recipient);
-      incomingNotes.forEach(noteDao => {
+    const { notes } = await this.#decryptTaggedLogs(logs, recipient, simulator);
+    if (notes.length) {
+      await this.db.addNotes(notes, recipient);
+      notes.forEach(noteDao => {
         this.log.verbose(`Added incoming note for contract ${noteDao.contractAddress} at slot ${noteDao.storageSlot}`, {
           contract: noteDao.contractAddress,
           slot: noteDao.storageSlot,
@@ -644,7 +644,7 @@ export class SimulatorOracle implements DBOracle {
 
   public async removeNullifiedNotes(contractAddress: AztecAddress) {
     for (const recipient of await this.keyStore.getAccounts()) {
-      const currentNotesForRecipient = await this.db.getIncomingNotes({ contractAddress, owner: recipient });
+      const currentNotesForRecipient = await this.db.getNotes({ contractAddress, owner: recipient });
       const nullifiersToCheck = currentNotesForRecipient.map(note => note.siloedNullifier);
       const nullifierIndexes = await this.aztecNode.findNullifiersIndexesWithBlock('latest', nullifiersToCheck);
 
