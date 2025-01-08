@@ -80,12 +80,7 @@ void compute_grand_product(typename Flavor::ProverPolynomials& full_polynomials,
     size_t domain_size = size_override == 0 ? full_polynomials.get_polynomial_size() : size_override;
 
     // Returns the ith active index if specified, otherwise acts as the identity map on the input
-    auto get_active_range_poly_idx = [&](size_t i) {
-        if (active_region_specified) {
-            return active_region_data.idxs[i];
-        }
-        return i;
-    };
+    auto get_active_range_poly_idx = [&](size_t i) { return active_region_specified ? active_region_data.idxs[i] : i; };
 
     size_t active_domain_size = active_region_specified ? active_region_data.idxs.size() : domain_size;
 
@@ -105,8 +100,7 @@ void compute_grand_product(typename Flavor::ProverPolynomials& full_polynomials,
         const size_t end = active_range_thread_data.end[thread_idx];
         typename Flavor::AllValues row;
         for (size_t i = start; i < end; ++i) {
-            // TODO(https://github.com/AztecProtocol/barretenberg/issues/940):consider avoiding get_row if
-            // possible.
+            // TODO(https://github.com/AztecProtocol/barretenberg/issues/940):consider avoiding get_row if possible.
             auto row_idx = get_active_range_poly_idx(i);
             if constexpr (IsUltraFlavor<Flavor>) {
                 row = full_polynomials.get_row_for_permutation_arg(row_idx);
