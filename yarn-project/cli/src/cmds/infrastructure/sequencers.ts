@@ -102,7 +102,7 @@ export async function sequencers(opts: {
       data: encodeFunctionData({
         abi: writeableRollup.abi,
         functionName: 'deposit',
-        args: [who, who, who, MINIMUM_STAKE],
+        args: [who, who, who, config.minimumStake],
       }),
     });
 
