@@ -772,7 +772,13 @@ export class Sequencer {
     // Publishes new block to the network and awaits the tx to be mined
     this.setState(SequencerState.PUBLISHING_BLOCK, block.header.globalVariables.slotNumber.toBigInt());
 
-    const publishedL2Block = await this.publisher.proposeL2Block(block, attestations, txHashes, proofQuote);
+    // Time out tx at the end of the slot
+    const slot = block.header.globalVariables.slotNumber.toNumber();
+    const txTimeoutAt = new Date((this.getSlotStartTimestamp(slot) + this.aztecSlotDuration) * 1000);
+
+    const publishedL2Block = await this.publisher.proposeL2Block(block, attestations, txHashes, proofQuote, {
+      txTimeoutAt,
+    });
     if (!publishedL2Block) {
       throw new Error(`Failed to publish block ${block.number}`);
     }
