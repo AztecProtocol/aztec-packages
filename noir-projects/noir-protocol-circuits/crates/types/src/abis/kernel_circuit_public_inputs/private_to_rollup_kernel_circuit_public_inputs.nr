@@ -4,8 +4,11 @@ use crate::{
         tx_constant_data::TxConstantData, validation_requests::RollupValidationRequests,
     },
     address::AztecAddress,
-    constants::PRIVATE_TO_ROLLUP_KERNEL_CIRCUIT_PUBLIC_INPUTS_LENGTH,
-    traits::{Deserialize, Empty, Serialize},
+    constants::{
+        GENERATOR_INDEX__PRIVATE_TX_HASH, PRIVATE_TO_ROLLUP_KERNEL_CIRCUIT_PUBLIC_INPUTS_LENGTH,
+    },
+    hash::poseidon2_hash_with_separator,
+    traits::{Deserialize, Empty, Hash, Serialize},
     utils::reader::Reader,
 };
 use std::meta::derive;
