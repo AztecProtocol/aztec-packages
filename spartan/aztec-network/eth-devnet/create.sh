@@ -11,6 +11,12 @@ BLOCK_TIME=${BLOCK_TIME:-"12"}
 GAS_LIMIT=${GAS_LIMIT:-"1000000000"}
 CHAIN_ID=${CHAIN_ID:-"1337"}
 
+# Install cast if it is not installed
+if ! command -v cast &> /dev/null; then
+  curl -L https://foundry.paradigm.xyz | bash
+  ~/.foundry/bin/foundryup
+fi
+
 # Function to create execution genesis
 # Updates genesis timestamp to current time, helps with triggering Consensus layer
 create_execution_genesis() {

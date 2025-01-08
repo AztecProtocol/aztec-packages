@@ -58,7 +58,6 @@ spec:
             - name: genesis
               mountPath: /genesis-template
           resources:
-            # NOTE: new path here
             {{- toYaml .Values.ethereum.beacon.resources | nindent 12 }}
       volumes:
         - name: shared-volume

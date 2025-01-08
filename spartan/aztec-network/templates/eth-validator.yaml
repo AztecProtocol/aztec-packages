@@ -75,7 +75,6 @@ spec:
             - name: validator-setup
               mountPath: /validator-setup
           resources:
-            # NOTE: new path here
             {{- toYaml .Values.ethereum.validator.resources | nindent 12 }}
       volumes:
         - name: shared-volume
