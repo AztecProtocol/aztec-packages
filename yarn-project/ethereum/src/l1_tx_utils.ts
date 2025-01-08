@@ -22,6 +22,8 @@ import {
   formatGwei,
 } from 'viem';
 
+import { prettyLogViemErrorMsg } from './utils.js';
+
 // 1_000_000_000 Gwei = 1 ETH
 // 1_000_000_000 Wei = 1 Gwei
 // 1_000_000_000_000_000_000 Wei = 1 ETH
@@ -358,7 +360,7 @@ export class L1TxUtils {
         }
         await sleep(gasConfig.checkIntervalMs!);
       } catch (err: any) {
-        this.logger?.warn(`Error monitoring tx ${currentTxHash}:`, err);
+        this.logger?.warn(`Error monitoring tx ${currentTxHash}:`, prettyLogViemErrorMsg(err));
         if (err.message?.includes('reverted')) {
           throw err;
         }

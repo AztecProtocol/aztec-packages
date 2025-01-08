@@ -3,7 +3,9 @@ import { type Logger } from '@aztec/foundation/log';
 
 import {
   type Abi,
+  BaseError,
   type ContractEventName,
+  ContractFunctionRevertedError,
   type DecodeEventLogReturnType,
   type Hex,
   type Log,
@@ -63,4 +65,96 @@ function tryExtractEvent<
       }
     }
   }
+}
+
+export function prettyLogViemErrorMsg(err: any) {
+  if (err instanceof BaseError) {
+    const revertError = err.walk(err => err instanceof ContractFunctionRevertedError);
+    if (revertError instanceof ContractFunctionRevertedError) {
+      const errorName = revertError.data?.errorName ?? '';
+      const args =
+        revertError.metaMessages && revertError.metaMessages?.length > 1 ? revertError.metaMessages[1].trimStart() : '';
+      return `${errorName}${args}`;
+    }
+  }
+  return err?.message ?? err;
+}
+
+interface ViemErrorWithCode {
+  code?: number;
+  name?: string;
+  shortMessage?: string;
+  message: string;
+  details?: string;
+  metaMessages?: string[];
+}
+
+export function formatViemError(error: any): string {
+  const truncateHex = (hex: string, length = 10) => {
+    if (!hex || typeof hex !== 'string') {
+      return hex;
+    }
+    if (hex.length <= length * 2) {
+      return hex;
+    }
+    return `${hex.slice(0, length)}...${hex.slice(-length)}`;
+  };
+
+  const formatRequestBody = (body: string) => {
+    try {
+      const parsed = JSON.parse(body);
+      if (parsed.params && Array.isArray(parsed.params)) {
+        parsed.params = parsed.params.map((param: any) => (typeof param === 'string' ? truncateHex(param) : param));
+      }
+      return JSON.stringify(parsed, null, 2);
+    } catch {
+      return truncateHex(body);
+    }
+  };
+
+  const errorChain = [];
+  if (error instanceof BaseError) {
+    error.walk((err: unknown) => {
+      const viemErr = err as ViemErrorWithCode;
+      errorChain.push({
+        name: viemErr.name,
+        message: viemErr.shortMessage || viemErr.message,
+        details: viemErr.details,
+        code: viemErr.code,
+        metaMessages: viemErr.metaMessages?.map(msg => {
+          if (typeof msg === 'string' && msg.startsWith('Request body:')) {
+            return `Request body: ${formatRequestBody(msg.slice(13))}`;
+          }
+          return msg;
+        }),
+      });
+      return false;
+    });
+  } else {
+    errorChain.push({
+      message: error?.message || String(error),
+      details: error?.details,
+      code: error?.code,
+    });
+  }
+
+  const formatted = {
+    errorChain,
+    args: error.message
+      ?.match(/Request Arguments:\n([\s\S]*?)\n\nDetails/)?.[1]
+      ?.split('\n')
+      ?.map((line: string) => line.trim())
+      ?.filter(Boolean),
+  };
+
+  const clean = (obj: any) => {
+    Object.keys(obj).forEach(key => {
+      if (obj[key] === undefined) {
+        delete obj[key];
+      }
+    });
+    return obj;
+  };
+
+  return JSON.stringify(clean(formatted), null, 2);
 }
