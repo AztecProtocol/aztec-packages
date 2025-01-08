@@ -8,7 +8,7 @@ Aztec is in full-speed development. Literally every version breaks compatibility
 
 ## TBD
 ### [Aztec.nr] Removal of `getSiblingPath` oracle
-Use `getMembershipWitness` oracle instead that returns both the sibling path and an index [index, ...sibling_path].
+Use `getMembershipWitness` oracle instead that returns both the sibling path and index.
 
 ## 0.68.0
 ### [archiver, node, pxe] Remove contract artifacts in node and archiver and store function names instead
