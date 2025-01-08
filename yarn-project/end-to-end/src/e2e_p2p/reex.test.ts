@@ -144,11 +144,7 @@ describe('e2e_p2p_reex', () => {
       node: AztecNodeService,
       stub: (tx: Tx, originalSimulate: (tx: Tx) => Promise<PublicTxResult>) => Promise<PublicTxResult>,
     ) => {
-      // Clear any previous mocks before installing the new one
       const processorFactory: PublicProcessorFactory = (node as any).sequencer.sequencer.publicProcessorFactory;
-      // if ('mockRestore' in processorFactory.create) {
-      //   (processorFactory.create as jest.MockedFunction<PublicProcessorFactory['create']>).mockRestore();
-      // }
       const originalCreate = processorFactory.create.bind(processorFactory);
       jest
         .spyOn(processorFactory, 'create')

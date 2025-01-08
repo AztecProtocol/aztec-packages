@@ -67,6 +67,7 @@ export class ChainMonitor {
     this.logger.info(msg, {
       l1Timestamp: timestamp,
       l1BlockNumber: this.l1BlockNumber,
+      l2SlotNumber: await this.rollup.getSlotNumber(),
       l2BlockNumber: this.l2BlockNumber,
       l2ProvenBlockNumber: this.l2ProvenBlockNumber,
     });
