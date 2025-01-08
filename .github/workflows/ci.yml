@@ -527,8 +527,6 @@ jobs:
           runner_type: builder-x86
           run: |
             export CI=1 USE_CACHE=1
-            curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain 1.75.0
-
             if ci3/test_should_run "boxes-test-$(./boxes/bootstrap.sh hash)"; then
               ./bootstrap.sh test-boxes
             fi
