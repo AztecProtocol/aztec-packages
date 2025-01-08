@@ -99,8 +99,8 @@ void DeciderProvingKey_<Flavor>::allocate_table_lookup_polynomials(const Circuit
     PROFILE_THIS_NAME("allocate_table_lookup_polynomials");
 
     size_t table_offset = circuit.blocks.lookup.trace_offset;
-    const size_t max_tables_size =
-        std::min(static_cast<size_t>(MAX_LOOKUP_TABLES_SIZE), dyadic_circuit_size - table_offset);
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1193): can potentially improve memory footprint
+    const size_t max_tables_size = dyadic_circuit_size - table_offset;
     ASSERT(dyadic_circuit_size > max_tables_size);
 
     // Allocate the polynomials containing the actual table data
