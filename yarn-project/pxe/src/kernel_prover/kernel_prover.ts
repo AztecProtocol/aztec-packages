@@ -32,7 +32,7 @@ import { createLogger } from '@aztec/foundation/log';
 import { assertLength } from '@aztec/foundation/serialize';
 import { pushTestData } from '@aztec/foundation/testing';
 import { Timer } from '@aztec/foundation/timer';
-import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types/client';
+import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types/client_async';
 import {
   getProtocolContractSiblingPath,
   isProtocolContract,

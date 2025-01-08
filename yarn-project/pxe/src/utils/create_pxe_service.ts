@@ -58,7 +58,6 @@ function createProver(config: PXEServiceConfig, logSuffix?: string) {
     return new TestPrivateKernelProver();
   }
 
-  // (@PhilWindle) Temporary validation until WASM is implemented
   if (!config.bbBinaryPath || !config.bbWorkingDirectory) {
     return new BBWasmPrivateKernelProver(16);
   } else {

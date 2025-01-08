@@ -1,0 +1,14 @@
+import { type NoirCompiledCircuit } from '@aztec/types/noir';
+
+import { ClientCircuitArtifactNames, getClientCircuitArtifact } from '../client_artifacts_helper.js';
+import { ClientProtocolArtifact } from './types.js';
+
+export async function getClientCircuitArtifactByName(artifact: ClientProtocolArtifact): Promise<NoirCompiledCircuit> {
+  return getClientCircuitArtifact(ClientCircuitArtifactNames[artifact], false);
+}
+
+export async function getSimulatedClientCircuitArtifactByName(
+  artifact: ClientProtocolArtifact,
+): Promise<NoirCompiledCircuit> {
+  return getClientCircuitArtifact(ClientCircuitArtifactNames[artifact], true);
+}

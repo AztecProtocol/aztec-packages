@@ -21,7 +21,7 @@ import {
   executeTailForPublic,
   getPrivateKernelResetArtifactName,
   maxPrivateKernelResetDimensions,
-} from '@aztec/noir-protocol-circuits-types/client';
+} from '@aztec/noir-protocol-circuits-types/client_async';
 
 import { type WitnessMap } from '@noir-lang/types';
 

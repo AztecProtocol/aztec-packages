@@ -8,18 +8,8 @@ import PrivateKernelTailJson from '../../artifacts/private_kernel_tail.json' ass
 import PrivateKernelTailSimulatedJson from '../../artifacts/private_kernel_tail_simulated.json' assert { type: 'json' };
 import PrivateKernelTailToPublicJson from '../../artifacts/private_kernel_tail_to_public.json' assert { type: 'json' };
 import PrivateKernelTailToPublicSimulatedJson from '../../artifacts/private_kernel_tail_to_public_simulated.json' assert { type: 'json' };
-import {
-  PrivateKernelResetArtifacts,
-  PrivateKernelResetSimulatedArtifacts,
-  type PrivateResetArtifact,
-} from '../private_kernel_reset_data.js';
-
-export type ClientProtocolArtifact =
-  | 'PrivateKernelInitArtifact'
-  | 'PrivateKernelInnerArtifact'
-  | 'PrivateKernelTailArtifact'
-  | 'PrivateKernelTailToPublicArtifact'
-  | PrivateResetArtifact;
+import { PrivateKernelResetArtifacts, PrivateKernelResetSimulatedArtifacts } from '../private_kernel_reset_data.js';
+import { ClientProtocolArtifact } from './types.js';
 
 export const ClientCircuitArtifacts: Record<ClientProtocolArtifact, NoirCompiledCircuit> = {
   PrivateKernelInitArtifact: PrivateKernelInitJson as NoirCompiledCircuit,

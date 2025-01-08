@@ -12,7 +12,6 @@ import {
 import { createLogger } from '@aztec/foundation/log';
 import { Timer } from '@aztec/foundation/timer';
 import {
-  ClientCircuitArtifacts,
   ClientCircuitVks,
   type ClientProtocolArtifact,
   convertPrivateKernelInitInputsToWitnessMap,
@@ -25,8 +24,9 @@ import {
   convertPrivateKernelTailInputsToWitnessMap,
   convertPrivateKernelTailOutputsFromWitnessMap,
   convertPrivateKernelTailToPublicInputsToWitnessMap,
+  getClientCircuitArtifactByName,
   getPrivateKernelResetArtifactName,
-} from '@aztec/noir-protocol-circuits-types/client';
+} from '@aztec/noir-protocol-circuits-types/client_async';
 import { WASMSimulator } from '@aztec/simulator/client';
 import { type NoirCompiledCircuit } from '@aztec/types/noir';
 
@@ -99,16 +99,16 @@ export class BBWasmPrivateKernelProver implements PrivateKernelProver {
   >(
     inputs: I,
     circuitType: ClientProtocolArtifact,
-    convertInputs: (inputs: I) => WitnessMap,
-    convertOutputs: (outputs: WitnessMap) => O,
+    convertInputs: (inputs: I) => Promise<WitnessMap>,
+    convertOutputs: (outputs: WitnessMap) => Promise<O>,
   ): Promise<PrivateKernelSimulateOutput<O>> {
     this.log.debug(`Generating witness for ${circuitType}`);
-    const compiledCircuit: NoirCompiledCircuit = ClientCircuitArtifacts[circuitType];
+    const compiledCircuit: NoirCompiledCircuit = await getClientCircuitArtifactByName(circuitType);
 
-    const witnessMap = convertInputs(inputs);
+    const witnessMap = await convertInputs(inputs);
     const timer = new Timer();
     const outputWitness = await this.simulator.simulateCircuit(witnessMap, compiledCircuit);
-    const output = convertOutputs(outputWitness);
+    const output = await convertOutputs(outputWitness);
 
     this.log.debug(`Generated witness for ${circuitType}`, {
       eventName: 'circuit-witness-generation',
