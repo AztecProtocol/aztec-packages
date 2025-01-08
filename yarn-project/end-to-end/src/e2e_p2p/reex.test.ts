@@ -2,8 +2,10 @@ import { type AztecNodeService } from '@aztec/aztec-node';
 import { type SentTx, sleep } from '@aztec/aztec.js';
 
 /* eslint-disable-next-line no-restricted-imports */
-import { BlockProposal, SignatureDomainSeparator, getHashedSignaturePayload } from '@aztec/circuit-types';
-import { type PublicTxSimulator } from '@aztec/simulator';
+import { BlockProposal, SignatureDomainSeparator, type Tx, getHashedSignaturePayload } from '@aztec/circuit-types';
+import { times } from '@aztec/foundation/collection';
+import { type PublicProcessorFactory, type PublicTxResult, type PublicTxSimulator } from '@aztec/simulator';
+import { type ValidatorClient } from '@aztec/validator-client';
 import { ReExFailedTxsError, ReExStateMismatchError, ReExTimeoutError } from '@aztec/validator-client/errors';
 
 import { describe, it, jest } from '@jest/globals';
@@ -24,8 +26,9 @@ describe('e2e_p2p_reex', () => {
   let nodes: AztecNodeService[];
   let bootNodeUdpPort: number = BASE_BOOT_NODE_UDP_PORT;
   let dataDir: string;
+  let txs: SentTx[];
 
-  beforeEach(async () => {
+  beforeAll(async () => {
     nodes = [];
     bootNodeUdpPort += 1000;
     dataDir = `${BASE_DATA_DIR}/${bootNodeUdpPort.toString()}`;
@@ -39,20 +42,53 @@ describe('e2e_p2p_reex', () => {
       initialConfig: { enforceTimeTable: true, txTimeoutMs: 30_000 },
     });
 
-    t.logger.verbose('Setup account');
+    t.logger.info('Setup account');
     await t.setupAccount();
 
-    t.logger.verbose('Deploy spam contract');
+    t.logger.info('Deploy spam contract');
     await t.deploySpamContract();
 
-    t.logger.verbose('Apply base snapshots');
+    t.logger.info('Apply base snapshots');
     await t.applyBaseSnapshots();
 
-    t.logger.verbose('Setup nodes');
+    t.logger.info('Setup snapshot manager');
     await t.setup();
+
+    t.logger.info('Stopping main node sequencer');
+    await t.ctx.aztecNode.getSequencer()?.stop();
+
+    if (!t.bootstrapNodeEnr) {
+      throw new Error('Bootstrap node ENR is not available');
+    }
+
+    t.logger.info('Creating peer nodes');
+    nodes = await createNodes(
+      {
+        ...t.ctx.aztecNodeConfig,
+        validatorReexecute: true,
+        minTxsPerBlock: NUM_TXS_PER_NODE + 1,
+        maxTxsPerBlock: NUM_TXS_PER_NODE,
+      },
+      t.ctx.dateProvider,
+      t.bootstrapNodeEnr,
+      NUM_NODES,
+      bootNodeUdpPort,
+      dataDir,
+      // To collect metrics - run in aztec-packages `docker compose --profile metrics up` and set COLLECT_METRICS=true
+      shouldCollectMetrics(),
+    );
+
+    // Wait a bit for peers to discover each other
+    t.logger.info('Waiting for peer discovery');
+    await sleep(4000);
+
+    // Submit the txs to the mempool. We submit a single set of txs, and then inject different behaviors
+    // into the vlaidator nodes to cause them to fail in different ways.
+    t.logger.info('Submitting txs');
+    txs = await submitComplexTxsTo(t.logger, t.spamContract!, NUM_TXS_PER_NODE, { callPublic: true });
   });
 
-  afterEach(async () => {
+  afterAll(async () => {
     // shutdown all nodes.
     await t.stopNodes(nodes);
     await t.teardown();
@@ -62,6 +98,22 @@ describe('e2e_p2p_reex', () => {
   });
 
   describe('validators re-execute transactions before attesting', () => {
+    // Keep track of txs we have seen, so we do not intercept the simulate call on the first run (the block-proposer's)
+    let seenTxs: Set<string>;
+    beforeEach(() => {
+      seenTxs = new Set();
+    });
+
+    // Hold off sequencers from building a block
+    const pauseProposals = () =>
+      Promise.all(
+        nodes.map(node => node.getSequencer()?.updateSequencerConfig({ minTxsPerBlock: NUM_TXS_PER_NODE + 1 })),
+      );
+
+    // Reenable them
+    const resumeProposals = () =>
+      Promise.all(nodes.map(node => node.getSequencer()?.updateSequencerConfig({ minTxsPerBlock: NUM_TXS_PER_NODE })));
+
     // Make sure the nodes submit faulty proposals, in this case a faulty proposal is one where we remove one of the transactions
     // Such that the calculated archive will be different!
     const interceptBroadcastProposal = (node: AztecNodeService) => {
@@ -88,49 +140,55 @@ describe('e2e_p2p_reex', () => {
     // Intercepts the simulator within the tx processor within the processor factory with the given function
     // Only the processor for validators is intercepted, the one for the proposer is left untouched
     // We abuse the fact that the proposer will always run before the validators
-    let interceptTxProcessorSimulatorCallCount = 0;
-    const interceptTxProcessorSimulator = (
+    const interceptTxProcessorSimulate = (
       node: AztecNodeService,
-      intercept: (simulator: PublicTxSimulator) => void,
+      stub: (tx: Tx, originalSimulate: (tx: Tx) => Promise<PublicTxResult>) => Promise<PublicTxResult>,
     ) => {
-      const processorFactory = (node as any).sequencer.sequencer.publicProcessorFactory;
+      // Clear any previous mocks before installing the new one
+      const processorFactory: PublicProcessorFactory = (node as any).sequencer.sequencer.publicProcessorFactory;
+      // if ('mockRestore' in processorFactory.create) {
+      //   (processorFactory.create as jest.MockedFunction<PublicProcessorFactory['create']>).mockRestore();
+      // }
       const originalCreate = processorFactory.create.bind(processorFactory);
-      jest.spyOn(processorFactory, 'create').mockImplementation((...args: unknown[]) => {
-        interceptTxProcessorSimulatorCallCount++;
-        const processor = originalCreate(...args);
-        if (interceptTxProcessorSimulatorCallCount > 1) {
+      jest
+        .spyOn(processorFactory, 'create')
+        .mockImplementation((...args: Parameters<PublicProcessorFactory['create']>) => {
+          const processor = originalCreate(...args);
           t.logger.warn('Creating mocked processor factory');
-          const simulator = (processor as any).publicTxSimulator;
-          intercept(simulator);
-        } else {
-          t.logger.warn('Creating vanilla processor factory');
-        }
-        return processor;
-      });
+          const simulator: PublicTxSimulator = (processor as any).publicTxSimulator;
+          const originalSimulate = simulator.simulate.bind(simulator);
+          // We only stub the simulate method if it's NOT the first time we see the tx
+          // so the proposer works fine, but we cause the failure in the validators.
+          jest.spyOn(simulator, 'simulate').mockImplementation((tx: Tx) => {
+            const txHash = tx.getTxHash().toString();
+            if (seenTxs.has(txHash)) {
+              t.logger.warn('Calling stubbed simulate for tx', { txHash });
+              return stub(tx, originalSimulate);
+            } else {
+              seenTxs.add(txHash);
+              t.logger.warn('Calling original simulate for tx', { txHash });
+              return originalSimulate(tx);
+            }
+          });
+          return processor;
+        });
     };
 
     // Have the public tx processor take an extra long time to process the tx, so the validator times out
     const interceptTxProcessorWithTimeout = (node: AztecNodeService) => {
-      interceptTxProcessorSimulator(node, simulator => {
-        const anySimulator: any = simulator;
-        const originalSimulate = anySimulator.simulate.bind(simulator);
-        jest.spyOn(anySimulator, 'simulate').mockImplementation(async (...args: unknown[]) => {
-          t.logger.warn('Public tx simulator sleeping for 40s to simulate timeout');
-          await sleep(40_000);
-          return originalSimulate(...args);
-        });
+      interceptTxProcessorSimulate(node, async (tx: Tx, originalSimulate: (tx: Tx) => Promise<PublicTxResult>) => {
+        t.logger.warn('Public tx simulator sleeping for 40s to simulate timeout', { txHash: tx.getTxHash() });
+        await sleep(40_000);
+        return originalSimulate(tx);
       });
     };
 
     // Have the public tx processor throw when processing a tx
     const interceptTxProcessorWithFailure = (node: AztecNodeService) => {
-      interceptTxProcessorSimulator(node, simulator => {
-        const anySimulator: any = simulator;
-        jest.spyOn(anySimulator, 'simulate').mockImplementation(async () => {
-          t.logger.warn('Public tx simulator failing');
-          await sleep(1);
-          throw new Error(`Fake tx failure`);
-        });
+      interceptTxProcessorSimulate(node, async (tx: Tx, _originalSimulate: (tx: Tx) => Promise<PublicTxResult>) => {
+        await sleep(1);
+        t.logger.warn('Public tx simulator failing', { txHash: tx.getTxHash() });
+        throw new Error(`Fake tx failure`);
       });
     };
 
@@ -141,61 +199,35 @@ describe('e2e_p2p_reex', () => {
     ])(
       'rejects proposal with %s',
       async (_errType: string, errMsg: string, nodeInterceptor: (node: AztecNodeService) => void) => {
-        // create the bootstrap node for the network
-        if (!t.bootstrapNodeEnr) {
-          throw new Error('Bootstrap node ENR is not available');
-        }
-
-        t.ctx.aztecNodeConfig.validatorReexecute = true;
-
-        t.logger.info('Creating nodes');
-        nodes = await createNodes(
-          t.ctx.aztecNodeConfig,
-          t.ctx.dateProvider,
-          t.bootstrapNodeEnr,
-          NUM_NODES,
-          bootNodeUdpPort,
-          dataDir,
-          // To collect metrics - run in aztec-packages `docker compose --profile metrics up` and set COLLECT_METRICS=true
-          shouldCollectMetrics(),
-        );
+        await pauseProposals();
 
         // Hook into the node and intercept re-execution logic
         t.logger.info('Installing interceptors');
+        jest.restoreAllMocks();
         const reExecutionSpies = [];
         for (const node of nodes) {
           nodeInterceptor(node);
-          // Collect re-execution spies node -> sequencer client -> sequencer -> validator
-          const spy = jest.spyOn((node as any).sequencer.sequencer.validatorClient, 'reExecuteTransactions');
-          reExecutionSpies.push(spy);
-        }
-
-        // Wait a bit for peers to discover each other
-        t.logger.info('Waiting for peer discovery');
-        await sleep(4000);
-
-        nodes.forEach(node => {
-          node.getSequencer()?.updateSequencerConfig({
-            minTxsPerBlock: NUM_TXS_PER_NODE,
-            maxTxsPerBlock: NUM_TXS_PER_NODE,
-          });
-        });
-
-        t.logger.info('Submitting txs');
-        const txs = await submitComplexTxsTo(t.logger, t.spamContract!, NUM_TXS_PER_NODE, { callPublic: true });
-
-        // We ensure that the transactions are NOT mined
-        // FIXME: This only works if NUM_TXS_PER_NODE is 1, otherwise this throws on the 1st tx that times out.
-        try {
-          await Promise.all(
-            txs.map(async (tx: SentTx, i: number) => {
-              t.logger.info(`Waiting for tx ${i}: ${await tx.getTxHash()} to be mined`);
-              return tx.wait({ timeout: 60 });
-            }),
+          // Collect re-execution spies
+          reExecutionSpies.push(
+            jest.spyOn((node as any).sequencer.sequencer.validatorClient as ValidatorClient, 'reExecuteTransactions'),
           );
-        } catch (e) {
-          t.logger.info('Failed to mine txs as planned');
         }
+
+        // Start a fresh slot and resume proposals
+        await t.ctx.cheatCodes.rollup.advanceToNextSlot();
+        await resumeProposals();
+
+        // We ensure that the transactions are NOT mined in the next slot
+        const txResults = await Promise.allSettled(
+          txs.map(async (tx: SentTx, i: number) => {
+            t.logger.info(`Waiting for tx ${i}: ${await tx.getTxHash()} to be mined`);
+            return tx.wait({ timeout: 12 });
+          }),
+        );
+
+        // Check that txs are not mined
+        expect(txResults.map(r => r.status)).toEqual(times(NUM_TXS_PER_NODE, () => 'rejected'));
+        t.logger.info('Failed to mine txs as planned');
 
         // Expect that all of the re-execution attempts failed with an invalid root
         for (const spy of reExecutionSpies) {
