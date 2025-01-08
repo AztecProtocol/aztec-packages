@@ -1,6 +1,6 @@
 use dep::private_kernel_lib::PrivateKernelEmptyPrivateInputs;
-use dep::types::KernelCircuitPublicInputs;
+use dep::types::PrivateToRollupKernelCircuitPublicInputs;
 
-fn main(input: PrivateKernelEmptyPrivateInputs) -> pub KernelCircuitPublicInputs {
+fn main(input: PrivateKernelEmptyPrivateInputs) -> pub PrivateToRollupKernelCircuitPublicInputs {
     input.execute()
 }

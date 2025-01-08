@@ -275,6 +275,9 @@ export class FullProverTest {
       quoteProviderBondAmount: 1000n,
       proverMinimumEscrowAmount: 3000n,
       proverTargetEscrowAmount: 6000n,
+      txGatheringTimeoutMs: 60000,
+      txGatheringIntervalMs: 1000,
+      txGatheringMaxParallelRequests: 100,
     };
     this.proverNode = await createProverNode(proverConfig, {
       aztecNodeTxProvider: this.aztecNode,

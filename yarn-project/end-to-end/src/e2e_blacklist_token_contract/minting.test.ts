@@ -98,9 +98,9 @@ describe('e2e_blacklist_token_contract mint', () => {
         // Trigger a note sync
         await asset.methods.sync_notes().simulate();
         // 1 note should have been created containing `amount` of tokens
-        const visibleIncomingNotes = await wallets[0].getIncomingNotes({ txHash: receiptClaim.txHash });
-        expect(visibleIncomingNotes.length).toBe(1);
-        expect(visibleIncomingNotes[0].note.items[0].toBigInt()).toBe(amount);
+        const visibleNotes = await wallets[0].getNotes({ txHash: receiptClaim.txHash });
+        expect(visibleNotes.length).toBe(1);
+        expect(visibleNotes[0].note.items[0].toBigInt()).toBe(amount);
       });
     });
 

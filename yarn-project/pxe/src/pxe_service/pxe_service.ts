@@ -7,11 +7,11 @@ import {
   type FunctionCall,
   type GetUnencryptedLogsResponse,
   type InBlock,
-  type IncomingNotesFilter,
   L1EventPayload,
   type L2Block,
   type LogFilter,
   MerkleTreeId,
+  type NotesFilter,
   type PXE,
   type PXEInfo,
   type PrivateExecutionResult,
@@ -71,8 +71,8 @@ import { inspect } from 'util';
 import { type PXEServiceConfig } from '../config/index.js';
 import { getPackageInfo } from '../config/package_info.js';
 import { ContractDataOracle } from '../contract_data_oracle/index.js';
-import { IncomingNoteDao } from '../database/incoming_note_dao.js';
 import { type PxeDatabase } from '../database/index.js';
+import { NoteDao } from '../database/note_dao.js';
 import { KernelOracle } from '../kernel_oracle/index.js';
 import { KernelProver } from '../kernel_prover/kernel_prover.js';
 import { TestPrivateKernelProver } from '../kernel_prover/test/test_circuit_prover.js';
@@ -273,8 +273,8 @@ export class PXEService implements PXE {
     return await this.node.getPublicStorageAt(contract, slot, 'latest');
   }
 
-  public async getIncomingNotes(filter: IncomingNotesFilter): Promise<UniqueNote[]> {
-    const noteDaos = await this.db.getIncomingNotes(filter);
+  public async getNotes(filter: NotesFilter): Promise<UniqueNote[]> {
+    const noteDaos = await this.db.getNotes(filter);
 
     const extendedNotes = noteDaos.map(async dao => {
       let owner = filter.owner;
@@ -343,19 +343,19 @@ export class PXEService implements PXE {
       }
 
       await this.db.addNote(
-        new IncomingNoteDao(
+        new NoteDao(
           note.note,
           note.contractAddress,
           note.storageSlot,
-          note.noteTypeId,
-          note.txHash,
-          l2BlockNumber,
-          l2BlockHash,
           nonce,
           noteHash,
           siloedNullifier,
+          note.txHash,
+          l2BlockNumber,
+          l2BlockHash,
           index,
           owner.address.toAddressPoint(),
+          note.noteTypeId,
         ),
         scope,
       );
@@ -388,19 +388,19 @@ export class PXEService implements PXE {
       }
 
       await this.db.addNullifiedNote(
-        new IncomingNoteDao(
+        new NoteDao(
           note.note,
           note.contractAddress,
           note.storageSlot,
-          note.noteTypeId,
-          note.txHash,
-          l2BlockNumber,
-          l2BlockHash,
           nonce,
           noteHash,
           Fr.ZERO, // We are not able to derive
+          note.txHash,
+          l2BlockNumber,
+          l2BlockHash,
           index,
           note.owner.toAddressPoint(),
+          note.noteTypeId,
         ),
       );
     }

@@ -1,10 +1,12 @@
 import {
   ClientIvcProof,
+  Fr,
   PrivateKernelTailCircuitPublicInputs,
+  PrivateLog,
   type PrivateToPublicAccumulatedData,
   type ScopedLogHash,
 } from '@aztec/circuits.js';
-import { type Buffer32 } from '@aztec/foundation/buffer';
+import { Buffer32 } from '@aztec/foundation/buffer';
 import { arraySerializedSizeOfNonEmpty } from '@aztec/foundation/collection';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 import { type FieldsOf } from '@aztec/foundation/types';
@@ -65,7 +67,7 @@ export class Tx extends Gossipable {
 
   // Gossipable method
   override p2pMessageIdentifier(): Buffer32 {
-    return this.getTxHash();
+    return new Buffer32(this.getTxHash().toBuffer());
   }
 
   hasPublicCalls() {
@@ -176,7 +178,7 @@ export class Tx extends Gossipable {
     if (!firstNullifier || firstNullifier.isZero()) {
       throw new Error(`Cannot get tx hash since first nullifier is missing`);
     }
-    return new TxHash(firstNullifier.toBuffer());
+    return new TxHash(firstNullifier);
   }
 
   /** Returns the tx hash, or undefined if none is set. */
@@ -227,6 +229,20 @@ export class Tx extends Gossipable {
       this.contractClassLogs.getSerializedLength() +
       arraySerializedSizeOfNonEmpty(this.enqueuedPublicFunctionCalls) +
       arraySerializedSizeOfNonEmpty([this.publicTeardownFunctionCall])
+    );
+  }
+
+  /**
+   * Estimates the tx size based on its private effects. Note that the actual size of the tx
+   * after processing will probably be larger, as public execution would generate more data.
+   */
+  getEstimatedPrivateTxEffectsSize() {
+    return (
+      this.unencryptedLogs.getSerializedLength() +
+      this.contractClassLogs.getSerializedLength() +
+      this.data.getNonEmptyNoteHashes().length * Fr.SIZE_IN_BYTES +
+      this.data.getNonEmptyNullifiers().length * Fr.SIZE_IN_BYTES +
+      this.data.getNonEmptyPrivateLogs().length * PrivateLog.SIZE_IN_BYTES
     );
   }
 

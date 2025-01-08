@@ -2,7 +2,6 @@ import {
   AppendOnlyTreeSnapshot,
   AztecAddress,
   BlockHeader,
-  CombinedAccumulatedData,
   ContentCommitment,
   EthAddress,
   Fr,
@@ -19,8 +18,6 @@ import {
   MAX_NOTE_HASHES_PER_TX,
   MAX_NULLIFIERS_PER_TX,
   MAX_PRIVATE_LOGS_PER_TX,
-  MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
-  MAX_UNENCRYPTED_LOGS_PER_TX,
   MaxBlockNumber,
   type MembershipWitness,
   NUM_BYTES_PER_SHA256,
@@ -29,9 +26,10 @@ import {
   PartialStateReference,
   Point,
   PrivateLog,
+  PrivateToRollupAccumulatedData,
   PublicCallRequest,
   type PublicDataTreeLeafPreimage,
-  PublicDataWrite,
+  type PublicDataWrite,
   ScopedL2ToL1Message,
   ScopedLogHash,
   StateReference,
@@ -44,7 +42,6 @@ import { type Tuple, mapTuple, toTruncField } from '@aztec/foundation/serialize'
 import type {
   AppendOnlyTreeSnapshot as AppendOnlyTreeSnapshotNoir,
   BlockHeader as BlockHeaderNoir,
-  CombinedAccumulatedData as CombinedAccumulatedDataNoir,
   ContentCommitment as ContentCommitmentNoir,
   Field,
   FixedLengthArray,
@@ -66,6 +63,7 @@ import type {
   Option as OptionalNumberNoir,
   PartialStateReference as PartialStateReferenceNoir,
   Log as PrivateLogNoir,
+  PrivateToRollupAccumulatedData as PrivateToRollupAccumulatedDataNoir,
   PublicCallRequest as PublicCallRequestNoir,
   PublicDataTreeLeafPreimage as PublicDataTreeLeafPreimageNoir,
   PublicDataWrite as PublicDataWriteNoir,
@@ -660,10 +658,6 @@ function mapScopedLogHashFromNoir(scopedLogHash: ScopedLogHashNoir): ScopedLogHa
   );
 }
 
-function mapPublicDataWriteFromNoir(write: PublicDataWriteNoir) {
-  return new PublicDataWrite(mapFieldFromNoir(write.leaf_slot), mapFieldFromNoir(write.value));
-}
-
 export function mapPublicDataWriteToNoir(write: PublicDataWrite): PublicDataWriteNoir {
   return {
     leaf_slot: mapFieldToNoir(write.leafSlot),
@@ -673,32 +667,28 @@ export function mapPublicDataWriteToNoir(write: PublicDataWrite): PublicDataWrit
 
 /**
  * Maps combined accumulated data from noir to the parsed type.
- * @param combinedAccumulatedData - The noir combined accumulated data.
+ * @param PrivateToRollupAccumulatedData - The noir combined accumulated data.
  * @returns The parsed combined accumulated data.
  */
-export function mapCombinedAccumulatedDataFromNoir(combinedAccumulatedData: CombinedAccumulatedDataNoir) {
-  return new CombinedAccumulatedData(
-    mapTupleFromNoir(combinedAccumulatedData.note_hashes, MAX_NOTE_HASHES_PER_TX, mapFieldFromNoir),
-    mapTupleFromNoir(combinedAccumulatedData.nullifiers, MAX_NULLIFIERS_PER_TX, mapFieldFromNoir),
-    mapTupleFromNoir(combinedAccumulatedData.l2_to_l1_msgs, MAX_L2_TO_L1_MSGS_PER_TX, mapScopedL2ToL1MessageFromNoir),
-    mapTupleFromNoir(combinedAccumulatedData.private_logs, MAX_PRIVATE_LOGS_PER_TX, mapPrivateLogFromNoir),
+export function mapPrivateToRollupAccumulatedDataFromNoir(
+  privateToRollupAccumulatedData: PrivateToRollupAccumulatedDataNoir,
+) {
+  return new PrivateToRollupAccumulatedData(
+    mapTupleFromNoir(privateToRollupAccumulatedData.note_hashes, MAX_NOTE_HASHES_PER_TX, mapFieldFromNoir),
+    mapTupleFromNoir(privateToRollupAccumulatedData.nullifiers, MAX_NULLIFIERS_PER_TX, mapFieldFromNoir),
     mapTupleFromNoir(
-      combinedAccumulatedData.unencrypted_logs_hashes,
-      MAX_UNENCRYPTED_LOGS_PER_TX,
-      mapScopedLogHashFromNoir,
+      privateToRollupAccumulatedData.l2_to_l1_msgs,
+      MAX_L2_TO_L1_MSGS_PER_TX,
+      mapScopedL2ToL1MessageFromNoir,
     ),
+    mapTupleFromNoir(privateToRollupAccumulatedData.private_logs, MAX_PRIVATE_LOGS_PER_TX, mapPrivateLogFromNoir),
+
     mapTupleFromNoir(
-      combinedAccumulatedData.contract_class_logs_hashes,
+      privateToRollupAccumulatedData.contract_class_logs_hashes,
       MAX_CONTRACT_CLASS_LOGS_PER_TX,
       mapScopedLogHashFromNoir,
     ),
-    mapFieldFromNoir(combinedAccumulatedData.unencrypted_log_preimages_length),
-    mapFieldFromNoir(combinedAccumulatedData.contract_class_log_preimages_length),
-    mapTupleFromNoir(
-      combinedAccumulatedData.public_data_writes,
-      MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
-      mapPublicDataWriteFromNoir,
-    ),
+    mapFieldFromNoir(privateToRollupAccumulatedData.contract_class_log_preimages_length),
   );
 }
 

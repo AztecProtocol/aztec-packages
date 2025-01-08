@@ -38,7 +38,14 @@ import { MerkleTreeId } from '../merkle_tree_id.js';
 import { EpochProofQuote } from '../prover_coordination/epoch_proof_quote.js';
 import { PublicDataWitness } from '../public_data_witness.js';
 import { SiblingPath } from '../sibling_path/index.js';
-import { PublicSimulationOutput, Tx, TxHash, TxReceipt } from '../tx/index.js';
+import {
+  PublicSimulationOutput,
+  Tx,
+  TxHash,
+  TxReceipt,
+  type TxValidationResult,
+  TxValidationResultSchema,
+} from '../tx/index.js';
 import { TxEffect } from '../tx_effect.js';
 import { type SequencerConfig, SequencerConfigSchema } from './configs.js';
 import { type L2BlockNumber, L2BlockNumberSchema } from './l2_block_number.js';
@@ -395,7 +402,7 @@ export interface AztecNode
    * @param tx - The transaction to validate for correctness.
    * @param isSimulation - True if the transaction is a simulated one without generated proofs. (Optional)
    */
-  isValidTx(tx: Tx, isSimulation?: boolean): Promise<boolean>;
+  isValidTx(tx: Tx, isSimulation?: boolean): Promise<TxValidationResult>;
 
   /**
    * Updates the configuration of this node.
@@ -567,7 +574,7 @@ export const AztecNodeApiSchema: ApiSchemaFor<AztecNode> = {
 
   simulatePublicCalls: z.function().args(Tx.schema, optional(z.boolean())).returns(PublicSimulationOutput.schema),
 
-  isValidTx: z.function().args(Tx.schema, optional(z.boolean())).returns(z.boolean()),
+  isValidTx: z.function().args(Tx.schema, optional(z.boolean())).returns(TxValidationResultSchema),
 
   setConfig: z.function().args(SequencerConfigSchema.merge(ProverConfigSchema).partial()).returns(z.void()),
 
