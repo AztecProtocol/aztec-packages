@@ -13,18 +13,15 @@ import {
   MAX_NOTE_HASHES_PER_TX,
   MAX_NULLIFIERS_PER_TX,
   MAX_PRIVATE_LOGS_PER_TX,
-  MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
-  MAX_UNENCRYPTED_LOGS_PER_TX,
 } from '../../constants.gen.js';
 import { ScopedL2ToL1Message } from '../l2_to_l1_message.js';
 import { ScopedLogHash } from '../log_hash.js';
 import { PrivateLog } from '../private_log.js';
-import { PublicDataWrite } from '../public_data_write.js';
 
 /**
  * Data that is accumulated during the execution of the transaction.
  */
-export class CombinedAccumulatedData {
+export class PrivateToRollupAccumulatedData {
   constructor(
     /**
      * The new note hashes made in this transaction.
@@ -43,27 +40,14 @@ export class CombinedAccumulatedData {
      */
     public privateLogs: Tuple<PrivateLog, typeof MAX_PRIVATE_LOGS_PER_TX>,
     /**
-     * Accumulated unencrypted logs hash from all the previous kernel iterations.
-     * Note: Truncated to 31 bytes to fit in Fr.
-     */
-    public unencryptedLogsHashes: Tuple<ScopedLogHash, typeof MAX_UNENCRYPTED_LOGS_PER_TX>,
-    /**
      * Accumulated contract class logs hash from all the previous kernel iterations.
      * Note: Truncated to 31 bytes to fit in Fr.
      */
     public contractClassLogsHashes: Tuple<ScopedLogHash, typeof MAX_CONTRACT_CLASS_LOGS_PER_TX>,
     /**
-     * Total accumulated length of the unencrypted log preimages emitted in all the previous kernel iterations
-     */
-    public unencryptedLogPreimagesLength: Fr,
-    /**
      * Total accumulated length of the contract class log preimages emitted in all the previous kernel iterations
      */
     public contractClassLogPreimagesLength: Fr,
-    /**
-     * All the public data update requests made in this transaction.
-     */
-    public publicDataWrites: Tuple<PublicDataWrite, typeof MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX>,
   ) {}
 
   getSize() {
@@ -72,34 +56,28 @@ export class CombinedAccumulatedData {
       arraySerializedSizeOfNonEmpty(this.nullifiers) +
       arraySerializedSizeOfNonEmpty(this.l2ToL1Msgs) +
       arraySerializedSizeOfNonEmpty(this.privateLogs) +
-      arraySerializedSizeOfNonEmpty(this.unencryptedLogsHashes) +
       arraySerializedSizeOfNonEmpty(this.contractClassLogsHashes) +
-      this.unencryptedLogPreimagesLength.size +
-      this.contractClassLogPreimagesLength.size +
-      arraySerializedSizeOfNonEmpty(this.publicDataWrites)
+      this.contractClassLogPreimagesLength.size
     );
   }
 
-  static getFields(fields: FieldsOf<CombinedAccumulatedData>) {
+  static getFields(fields: FieldsOf<PrivateToRollupAccumulatedData>) {
     return [
       fields.noteHashes,
       fields.nullifiers,
       fields.l2ToL1Msgs,
       fields.privateLogs,
-      fields.unencryptedLogsHashes,
       fields.contractClassLogsHashes,
-      fields.unencryptedLogPreimagesLength,
       fields.contractClassLogPreimagesLength,
-      fields.publicDataWrites,
     ] as const;
   }
 
-  static from(fields: FieldsOf<CombinedAccumulatedData>): CombinedAccumulatedData {
-    return new CombinedAccumulatedData(...CombinedAccumulatedData.getFields(fields));
+  static from(fields: FieldsOf<PrivateToRollupAccumulatedData>): PrivateToRollupAccumulatedData {
+    return new PrivateToRollupAccumulatedData(...PrivateToRollupAccumulatedData.getFields(fields));
   }
 
   static get schema() {
-    return bufferSchemaFor(CombinedAccumulatedData);
+    return bufferSchemaFor(PrivateToRollupAccumulatedData);
   }
 
   toJSON() {
@@ -107,7 +85,7 @@ export class CombinedAccumulatedData {
   }
 
   toBuffer() {
-    return serializeToBuffer(...CombinedAccumulatedData.getFields(this));
+    return serializeToBuffer(...PrivateToRollupAccumulatedData.getFields(this));
   }
 
   toString() {
@@ -119,18 +97,15 @@ export class CombinedAccumulatedData {
    * @param buffer - Buffer or reader to read from.
    * @returns Deserialized object.
    */
-  static fromBuffer(buffer: Buffer | BufferReader): CombinedAccumulatedData {
+  static fromBuffer(buffer: Buffer | BufferReader): PrivateToRollupAccumulatedData {
     const reader = BufferReader.asReader(buffer);
-    return new CombinedAccumulatedData(
+    return new PrivateToRollupAccumulatedData(
       reader.readArray(MAX_NOTE_HASHES_PER_TX, Fr),
       reader.readArray(MAX_NULLIFIERS_PER_TX, Fr),
       reader.readArray(MAX_L2_TO_L1_MSGS_PER_TX, ScopedL2ToL1Message),
       reader.readArray(MAX_PRIVATE_LOGS_PER_TX, PrivateLog),
-      reader.readArray(MAX_UNENCRYPTED_LOGS_PER_TX, ScopedLogHash),
       reader.readArray(MAX_CONTRACT_CLASS_LOGS_PER_TX, ScopedLogHash),
       Fr.fromBuffer(reader),
-      Fr.fromBuffer(reader),
-      reader.readArray(MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, PublicDataWrite),
     );
   }
 
@@ -140,25 +115,22 @@ export class CombinedAccumulatedData {
    * @returns Deserialized object.
    */
   static fromString(str: string) {
-    return CombinedAccumulatedData.fromBuffer(hexToBuffer(str));
+    return PrivateToRollupAccumulatedData.fromBuffer(hexToBuffer(str));
   }
 
   static empty() {
-    return new CombinedAccumulatedData(
+    return new PrivateToRollupAccumulatedData(
       makeTuple(MAX_NOTE_HASHES_PER_TX, Fr.zero),
       makeTuple(MAX_NULLIFIERS_PER_TX, Fr.zero),
       makeTuple(MAX_L2_TO_L1_MSGS_PER_TX, ScopedL2ToL1Message.empty),
       makeTuple(MAX_PRIVATE_LOGS_PER_TX, PrivateLog.empty),
-      makeTuple(MAX_UNENCRYPTED_LOGS_PER_TX, ScopedLogHash.empty),
       makeTuple(MAX_CONTRACT_CLASS_LOGS_PER_TX, ScopedLogHash.empty),
       Fr.zero(),
-      Fr.zero(),
-      makeTuple(MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, PublicDataWrite.empty),
     );
   }
 
   [inspect.custom]() {
-    return `CombinedAccumulatedData {
+    return `PrivateToRollupAccumulatedData {
       noteHashes: [${this.noteHashes
         .filter(x => !x.isZero())
         .map(x => inspect(x))
@@ -175,20 +147,11 @@ export class CombinedAccumulatedData {
         .filter(x => !x.isEmpty())
         .map(x => inspect(x))
         .join(', ')}]
-      unencryptedLogsHashes: : [${this.unencryptedLogsHashes
-        .filter(x => !x.isEmpty())
-        .map(x => inspect(x))
-        .join(', ')}],
       contractClassLogsHashes: : [${this.contractClassLogsHashes
         .filter(x => !x.isEmpty())
         .map(x => inspect(x))
         .join(', ')}],
-      unencryptedLogPreimagesLength: ${this.unencryptedLogPreimagesLength.toString()},
       contractClassLogPreimagesLength: ${this.contractClassLogPreimagesLength.toString()},
-      publicDataWrites: [${this.publicDataWrites
-        .filter(x => !x.isEmpty())
-        .map(x => inspect(x))
-        .join(', ')}],
     }`;
   }
 }
