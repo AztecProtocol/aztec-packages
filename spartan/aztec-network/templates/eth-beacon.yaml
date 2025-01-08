@@ -32,7 +32,6 @@ spec:
               cp -r /genesis-template /genesis &&
               base64 -d /genesis/genesis-ssz > /genesis/genesis.ssz &&
 
-              cat /genesis/jwt-secret.hex &&
 
               lighthouse bn
               --disable-peer-scoring
@@ -52,7 +51,7 @@ spec:
               --execution-endpoints="http://{{ include "aztec-network.fullname" . }}-eth-execution.{{ .Release.Namespace }}.svc.cluster.local:8551"
               --execution-jwt-secret-key="61e1dd9539e8cc37b3d71dcf8ce372f0e119cc1c73426ee80472a4214f2a41a1"
               --allow-insecure-genesis-sync
-              --debug-level=debug
+              --debug-level=info
           volumeMounts:
             - name: shared-volume
               mountPath: /data

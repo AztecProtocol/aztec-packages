@@ -12,29 +12,26 @@ REPO=$(git rev-parse --show-toplevel)/spartan/aztec-network/eth-devnet
 # Updates genesis timestamp to current time, helps with triggering Consensus layer
 create_execution_genesis() {
   local execution_genesis_path="$1"
+  local execution_genesis_output="$2"
   echo "Creating execution genesis..."
 
   # Get the current timestamp
   timestamp=$(date +%s)
 
-  # Define paths
-  GENESIS_TEMPLATE="$execution_genesis_path"
-  GENESIS_OUTPUT="$execution_genesis_path"
-
   # Read the Genesis JSON template
-  if [[ ! -f "$GENESIS_TEMPLATE" ]]; then
-    echo "Error: Genesis template not found at $GENESIS_TEMPLATE"
+  if [[ ! -f "$execution_genesis_path" ]]; then
+    echo "Error: Genesis template not found at $execution_genesis_path"
     exit 1
   fi
 
-  genesis_json=$(cat "$GENESIS_TEMPLATE")
+  genesis_json=$(cat "$execution_genesis_path")
 
   # Replace the timestamp in the Genesis JSON
   updated_json=$(echo "$genesis_json" | jq --arg ts "$timestamp" '.timestamp = ($ts | tonumber)')
 
   # Write the updated Genesis JSON to the output file
-  echo "$updated_json" > "$GENESIS_OUTPUT"
-  echo "Execution genesis created at $GENESIS_OUTPUT"
+  echo "$updated_json" > "$execution_genesis_output"
+  echo "Execution genesis created at $execution_genesis_output"
 }
 
 # Function to create beacon genesis
@@ -64,7 +61,7 @@ create_beacon_genesis() {
       --preset-bellatrix=minimal \
       --preset-capella=minimal \
       --preset-deneb=minimal \
-      --eth1-config="$execution_genesis_path" \
+      --eth1-config="./out/genesis.json" \
       --state-output="${beacon_genesis_path}/genesis.ssz" \
       --tranches-dir="$beacon_genesis_path" \
       --mnemonics="$mnemonics_path" \
@@ -100,12 +97,11 @@ execution_genesis_path="./config/genesis.json"
 
 mkdir -p "$REPO/out"
 
-create_execution_genesis "$REPO/config/genesis.json"
-create_beacon_genesis "$mnemonics_path" "$beacon_config_path" "$execution_genesis_path"
+create_execution_genesis "$REPO/config/genesis.json" "$REPO/out/genesis.json"
+create_beacon_genesis "$mnemonics_path" "$beacon_config_path" "$REPO/out/genesis.json"
 create_deposit_contract_block
 write_ssz_file_base64
 
 cp "$REPO/$beacon_config_path" "$REPO/out/config.yaml"
-cp "$REPO/$execution_genesis_path" "$REPO/out/genesis.json"
 cp "$REPO/config/jwt-secret.hex" "$REPO/out/jwt-secret.hex"
 echo "Genesis files copied to ./out"

@@ -27,8 +27,6 @@ spec:
           command: ["/bin/sh", "-c"]
           args:
             - >-
-              cat /genesis-template/jwt-secret.hex &&
-
               reth node
               {{ include "helpers.flag" (list "http.port" .Values.ethereum.execution.service.port) }}
               --http
@@ -41,8 +39,8 @@ spec:
               --disable-discovery
               --authrpc.addr="0.0.0.0"
               --authrpc.port=8551
-              --authrpc.jwtsecret="/genesis-template/jwt-secret.hex"
-              --chain="/genesis-template/genesis.json"
+              --authrpc.jwtsecret="/genesis/jwt-secret.hex"
+              --chain="/genesis/genesis.json"
               --datadir="/data"
               -vvvv
 
@@ -50,8 +48,8 @@ spec:
             - containerPort: {{ .Values.ethereum.execution.service.port }}
               name: eth-execution
           volumeMounts:
-            - name: genesis-template
-              mountPath: /genesis-template
+            - name: genesis
+              mountPath: /genesis
             - name: shared-volume
               mountPath: /data
           resources:
@@ -60,7 +58,7 @@ spec:
         - name: shared-volume
           persistentVolumeClaim:
             claimName: {{ include "aztec-network.fullname" . }}-eth-execution-pvc
-        - name: genesis-template
+        - name: genesis
           configMap:
             name: {{ include "aztec-network.fullname" . }}-eth-execution-genesis
 {{if not .Values.network.public }}
@@ -99,9 +97,9 @@ metadata:
     {{- include "aztec-network.labels" . | nindent 4 }}
 data:
   genesis.json: |
-    {{ .Files.Get "generate-eth/out/genesis.json" | nindent 4 }}
+    {{ .Files.Get "eth-devnet/out/genesis.json" | nindent 4 }}
   jwt-secret.hex: |
-    {{ .Files.Get "generate-eth/out/jwt-secret.hex" | nindent 4 }}
+    {{ .Files.Get "eth-devnet/out/jwt-secret.hex" | nindent 4 }}
 ---
 {{- if gt (.Values.ethereum.replicas | int) 0 }}
 apiVersion: v1
