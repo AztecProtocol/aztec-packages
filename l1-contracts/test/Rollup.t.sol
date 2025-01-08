@@ -846,7 +846,10 @@ contract RollupTest is DecoderBase, TimeFns {
     assertEq(rollup.getProvenBlockNumber(), _toProve ? 1 : 0, "Invalid proven block number");
   }
 
-  function testConsecutiveSingleTxBlocks(uint256 _blocksToProve) public setUpFor("single_tx_block_1") {
+  function testConsecutiveSingleTxBlocks(uint256 _blocksToProve)
+    public
+    setUpFor("single_tx_block_1")
+  {
     uint256 toProve = bound(_blocksToProve, 0, 2);
 
     _testBlock("single_tx_block_1", toProve > 0);
@@ -1302,7 +1305,8 @@ contract RollupTest is DecoderBase, TimeFns {
       uint256 subTreeHeight = full.messages.l2ToL1Messages.length == 0
         ? 0
         : merkleTestUtil.calculateTreeHeightFromSize(full.messages.l2ToL1Messages.length / numTxs);
-      uint256 outHashTreeHeight = numTxs == 1 ? 0 : merkleTestUtil.calculateTreeHeightFromSize(numTxs);
+      uint256 outHashTreeHeight =
+        numTxs == 1 ? 0 : merkleTestUtil.calculateTreeHeightFromSize(numTxs);
       uint256 numMessagesWithPadding = numTxs * Constants.MAX_L2_TO_L1_MSGS_PER_TX;
 
       uint256 treeHeight = subTreeHeight + outHashTreeHeight;
