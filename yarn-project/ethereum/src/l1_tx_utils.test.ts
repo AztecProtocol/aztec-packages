@@ -22,8 +22,6 @@ import { L1TxUtils, defaultL1TxUtilsConfig } from './l1_tx_utils.js';
 import { startAnvil } from './test/start_anvil.js';
 import { formatViemError } from './utils.js';
 
-const logger = createLogger('ethereum:test:l1_gas_test');
-
 const MNEMONIC = 'test test test test test test test test test test test junk';
 const WEI_CONST = 1_000_000_000n;
 // Simple contract that just returns 42
