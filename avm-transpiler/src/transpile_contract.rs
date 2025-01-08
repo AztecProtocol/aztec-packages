@@ -88,7 +88,16 @@ impl From<CompiledAcirContractArtifact> for TranspiledContractArtifact {
 
         for function in contract.functions {
             if function.custom_attributes.contains(&"public".to_string()) {
-                // if function.name == "public_dispatch" {
+                if function.name != "public_dispatch" {
+                    // The AVM only handles the `public_dispatch` function exposed by Aztec contracts.
+                    // We can then drop other public functions to reduce artifact sizes.
+                    info!(
+                        "Dropping unused public function {} on contract {}",
+                        function.name, contract.name
+                    );
+                    continue;
+                }
+
                 info!("Transpiling AVM function {} on contract {}", function.name, contract.name);
                 // Extract Brillig Opcodes from acir
                 let acir_program = function.bytecode;
