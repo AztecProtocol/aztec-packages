@@ -15,6 +15,8 @@ CHAIN_ID=${CHAIN_ID:-"1337"}
 if ! command -v cast &> /dev/null; then
   curl -L https://foundry.paradigm.xyz | bash
   ~/.foundry/bin/foundryup
+  ## add cast to path
+  export PATH="$PATH:~/.foundry/bin"
 fi
 
 # Function to create execution genesis
