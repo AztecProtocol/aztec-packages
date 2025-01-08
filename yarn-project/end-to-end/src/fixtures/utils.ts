@@ -515,7 +515,7 @@ export async function setup(
         logger.verbose(`Cleaning up data directory at ${directoryToCleanup}`);
         await fs.rm(directoryToCleanup, { recursive: true, force: true });
       }
-    } catch (err) {
+    } catch (err: any) {
       logger.error(err.message);
     }
   };
