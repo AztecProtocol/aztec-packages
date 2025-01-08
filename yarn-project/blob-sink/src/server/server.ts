@@ -6,7 +6,7 @@ import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
 
 import express, { type Express, type Request, type Response, json } from 'express';
 import { type Server } from 'http';
-import { AddressInfo } from 'net';
+import { type AddressInfo } from 'net';
 import { z } from 'zod';
 
 import { type BlobStore, DiskBlobStore } from '../blobstore/index.js';
@@ -143,7 +143,7 @@ export class BlobSinkServer {
         const address = this.server?.address() as AddressInfo | null;
         if (!address) {
           this.log.error('Server address not found');
-          this.stop().then(() => reject(new Error('Server address not found')));
+          void this.stop().then(() => reject(new Error('Server address not found')));
         }
 
         this.port = address!.port;
