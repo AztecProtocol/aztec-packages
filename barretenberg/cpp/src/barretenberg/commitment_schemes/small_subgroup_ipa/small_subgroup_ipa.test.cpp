@@ -19,6 +19,13 @@ template <typename Flavor> class SmallSubgroupIPATest : public ::testing::Test {
 
     void SetUp() override { evaluation_challenge = FF::random_element(); }
 
+    /**
+     * @brief Comput the sum of the Libra constant term and Libra univariates evaluated at Sumcheck challenges.
+     *
+     * @param zk_sumcheck_data Contains Libra constant term and scaled Libra univariates
+     * @param multivariate_challenge Sumcheck challenge
+     * @param log_circuit_size
+     */
     static FF compute_claimed_inner_product(ZKSumcheckData<Flavor>& zk_sumcheck_data,
                                             const std::vector<FF>& multivariate_challenge,
                                             const size_t& log_circuit_size)
@@ -79,7 +86,7 @@ TYPED_TEST(SmallSubgroupIPATest, ProverComputationsCorrectness)
     auto challenge_polynomial = small_subgroup_ipa_prover.get_challenge_polynomial();
 
     // Check that claimed inner product coincides with the inner product of libra_concatenated_polynomial and
-    // challenge_polynomial Since libra_concatenated_polynomial is masked, we also check that masking does not affect
+    // challenge_polynomial. Since libra_concatenated_polynomial is masked, we also check that masking does not affect
     // the evaluations over H
     FF inner_product = FF(0);
     auto domain = zk_sumcheck_data.interpolation_domain;

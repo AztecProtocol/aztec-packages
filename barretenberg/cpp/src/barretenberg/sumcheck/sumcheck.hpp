@@ -618,7 +618,7 @@ template <typename Flavor> class SumcheckVerifier {
         // if Flavor has ZK, the target total sum is corrected by Libra total sum multiplied by the Libra
         // challenge
         if constexpr (Flavor::HasZK) {
-            round.target_total_sum += libra_total_sum * libra_challenge;
+            d round.target_total_sum += libra_total_sum * libra_challenge;
         };
         for (size_t round_idx = 0; round_idx < CONST_PROOF_SIZE_LOG_N; round_idx++) {
             // Obtain the round univariate from the transcript
