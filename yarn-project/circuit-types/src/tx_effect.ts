@@ -347,6 +347,8 @@ export class TxEffect {
     const flattened: Fr[] = [];
     // We reassign the first field when we know the length of all effects - see below
     flattened.push(Fr.ZERO);
+
+    flattened.push(this.txHash.hash);
     // TODO: how long should tx fee be? For now, not using toPrefix()
     flattened.push(
       new Fr(
@@ -417,6 +419,8 @@ export class TxEffect {
     }
     const { length: _, revertCode } = this.decodeFirstField(firstField);
     effect.revertCode = RevertCode.fromField(new Fr(revertCode));
+
+    effect.txHash = new TxHash(reader.readField());
     // TODO: how long should tx fee be? For now, not using fromPrefix()
     const prefixedFee = reader.readField();
     // NB: Fr.fromBuffer hangs here if you provide a buffer less than 32 in len
