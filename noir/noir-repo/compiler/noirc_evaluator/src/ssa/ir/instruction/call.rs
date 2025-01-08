@@ -493,7 +493,7 @@ fn simplify_black_box_func(
     block: BasicBlockId,
     call_stack: CallStackId,
 ) -> SimplifyResult {
-    let pedantic_solving = true;
+    let pedantic_solving = false;
     cfg_if::cfg_if! {
         if #[cfg(feature = "bn254")] {
             let solver = bn254_blackbox_solver::Bn254BlackBoxSolver(pedantic_solving);
