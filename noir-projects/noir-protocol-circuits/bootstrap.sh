@@ -66,7 +66,7 @@ function compile {
   if ! cache_download circuit-$hash.tar.gz 1>&2; then
     SECONDS=0
     rm -f $json_path
-    # TODO: --skip-brillig-constraints-check added temporarily for blobs build time.
+    # TODO(#10754): Remove --skip-brillig-constraints-check
     local compile_cmd="$NARGO compile --package $name --skip-brillig-constraints-check"
     echo_stderr "$compile_cmd"
     dump_fail "$compile_cmd"

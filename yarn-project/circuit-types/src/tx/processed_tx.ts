@@ -101,7 +101,7 @@ export function makeProcessedTxFromPrivateOnlyTx(
       .filter(h => !h.isZero()),
     publicDataWrites,
     data.end.privateLogs.filter(l => !l.isEmpty()),
-    data.end.unencryptedLogPreimagesLength,
+    Fr.ZERO,
     data.end.contractClassLogPreimagesLength,
     tx.unencryptedLogs,
     tx.contractClassLogs,

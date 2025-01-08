@@ -775,8 +775,8 @@ export class Archiver implements ArchiveSource, Traceable {
     return;
   }
 
-  registerContractFunctionNames(address: AztecAddress, names: Record<string, string>): Promise<void> {
-    return this.store.registerContractFunctionName(address, names);
+  registerContractFunctionSignatures(address: AztecAddress, signatures: string[]): Promise<void> {
+    return this.store.registerContractFunctionSignatures(address, signatures);
   }
 
   getContractFunctionName(address: AztecAddress, selector: FunctionSelector): Promise<string | undefined> {
@@ -1083,8 +1083,8 @@ class ArchiverStoreHelper
   getContractClassIds(): Promise<Fr[]> {
     return this.store.getContractClassIds();
   }
-  registerContractFunctionName(address: AztecAddress, names: Record<string, string>): Promise<void> {
-    return this.store.registerContractFunctionName(address, names);
+  registerContractFunctionSignatures(address: AztecAddress, signatures: string[]): Promise<void> {
+    return this.store.registerContractFunctionSignatures(address, signatures);
   }
   getContractFunctionName(address: AztecAddress, selector: FunctionSelector): Promise<string | undefined> {
     return this.store.getContractFunctionName(address, selector);

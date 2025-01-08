@@ -19,7 +19,7 @@ import {
   getContractClassFromArtifact,
 } from '@aztec/circuits.js';
 import { type L1ContractAddresses, L1ContractsNames } from '@aztec/ethereum';
-import { type ContractArtifact, FunctionSelector } from '@aztec/foundation/abi';
+import { type ContractArtifact } from '@aztec/foundation/abi';
 import { memoize } from '@aztec/foundation/decorators';
 import { type JsonRpcTestContext, createJsonRpcTestSetup } from '@aztec/foundation/json-rpc/test';
 import { fileURLToPath } from '@aztec/foundation/url';
@@ -224,10 +224,8 @@ describe('AztecNodeApiSchema', () => {
     expect(response).toEqual(Object.fromEntries(ProtocolContractsNames.map(name => [name, expect.any(AztecAddress)])));
   });
 
-  it('registerContractFunctionNames', async () => {
-    await context.client.registerContractFunctionNames(AztecAddress.random(), {
-      [FunctionSelector.random().toString()]: 'test_fn',
-    });
+  it('registerContractFunctionSignatures', async () => {
+    await context.client.registerContractFunctionSignatures(AztecAddress.random(), ['test()']);
   });
 
   it('getPrivateLogs', async () => {
@@ -512,7 +510,7 @@ class MockAztecNode implements AztecNode {
       ) as ProtocolContractAddresses,
     );
   }
-  registerContractFunctionNames(_address: AztecAddress, _names: Record<string, string>): Promise<void> {
+  registerContractFunctionSignatures(_address: AztecAddress, _signatures: string[]): Promise<void> {
     return Promise.resolve();
   }
   getPrivateLogs(_from: number, _limit: number): Promise<PrivateLog[]> {

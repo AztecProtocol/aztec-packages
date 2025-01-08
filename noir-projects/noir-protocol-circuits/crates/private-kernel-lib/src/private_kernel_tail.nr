@@ -4,7 +4,7 @@ use crate::components::{
 };
 use dep::types::{
     abis::{
-        kernel_circuit_public_inputs::KernelCircuitPublicInputs,
+        kernel_circuit_public_inputs::PrivateToRollupKernelCircuitPublicInputs,
         private_kernel_data::{PrivateKernelData, PrivateKernelDataWithoutPublicInputs},
     },
     constants::{PRIVATE_KERNEL_INIT_INDEX, PRIVATE_KERNEL_INNER_INDEX, PRIVATE_KERNEL_RESET_INDEX},
@@ -28,11 +28,11 @@ impl PrivateKernelTailCircuitPrivateInputs {
         }
     }
 
-    unconstrained fn generate_output(self) -> KernelCircuitPublicInputs {
+    unconstrained fn generate_output(self) -> PrivateToRollupKernelCircuitPublicInputs {
         TailOutputComposer::new(self.previous_kernel.public_inputs).finish()
     }
 
-    pub fn execute(self) -> KernelCircuitPublicInputs {
+    pub fn execute(self) -> PrivateToRollupKernelCircuitPublicInputs {
         if !std::runtime::is_unconstrained() {
             self.previous_kernel.verify();
         }
@@ -59,14 +59,13 @@ mod tests {
     };
     use dep::types::{
         abis::{
-            gas::Gas, kernel_circuit_public_inputs::KernelCircuitPublicInputs,
+            gas::Gas, kernel_circuit_public_inputs::PrivateToRollupKernelCircuitPublicInputs,
             max_block_number::MaxBlockNumber,
         },
         address::{AztecAddress, EthAddress},
         messaging::l2_to_l1_message::ScopedL2ToL1Message,
         point::Point,
         tests::fixture_builder::FixtureBuilder,
-        traits::is_empty,
     };
     use dep::types::constants::{
         DA_BYTES_PER_FIELD, DA_GAS_PER_BYTE, GENERATOR_INDEX__IVSK_M, L2_GAS_PER_L2_TO_L1_MSG,
@@ -89,7 +88,7 @@ mod tests {
             PrivateKernelTailInputsBuilder { previous_kernel }
         }
 
-        pub fn execute(&mut self) -> KernelCircuitPublicInputs {
+        pub fn execute(&mut self) -> PrivateToRollupKernelCircuitPublicInputs {
             let kernel = PrivateKernelTailCircuitPrivateInputs {
                 previous_kernel: self.previous_kernel.to_private_kernel_data(),
             };
@@ -108,9 +107,7 @@ mod tests {
     #[test]
     fn execution_succeeded() {
         let mut builder = PrivateKernelTailInputsBuilder::new();
-        let public_inputs = builder.execute();
-
-        assert(is_empty(public_inputs.start_state));
+        let _public_inputs = builder.execute();
     }
 
     #[test]
