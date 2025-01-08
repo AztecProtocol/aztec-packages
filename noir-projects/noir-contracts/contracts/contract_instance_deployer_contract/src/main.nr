@@ -112,7 +112,7 @@ contract ContractInstanceDeployer {
             version: 1,
         };
 
-        let payload = event.serialize();
+        let payload: [Field; 15] = Serialize::<15>::serialize(event);
         dep::aztec::oracle::debug_log::debug_log_format("ContractInstanceDeployed: {}", payload);
 
         let padded_log = array_concat(payload, [0; 3]);
