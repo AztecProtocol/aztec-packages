@@ -94,12 +94,30 @@ export function formatViemError(error: any): string {
   const formatRequestBody = (body: string) => {
     try {
       const parsed = JSON.parse(body);
+
+      // Handle specific fields that need truncation
       if (parsed.params && Array.isArray(parsed.params)) {
-        parsed.params = parsed.params.map((param: any) => (typeof param === 'string' ? truncateHex(param) : param));
+        parsed.params = parsed.params.map((param: any) => {
+          if (typeof param === 'object') {
+            const truncated = { ...param };
+            // Only truncate known large fields
+            if (truncated.blobs) {
+              truncated.blobs = truncated.blobs.map((blob: string) => truncateHex(blob));
+            }
+            if (truncated.data) {
+              truncated.data = truncateHex(truncated.data);
+            }
+            // Keep other fields as is (from, blobVersionedHashes, etc.)
+            return truncated;
+          }
+          return param;
+        });
       }
+
       return JSON.stringify(parsed, null, 2);
     } catch {
-      return truncateHex(body);
+      // If we can't parse it as JSON, only truncate if it's a very long string
+      return body.length > 1000 ? truncateHex(body) : body;
     }
   };
 
