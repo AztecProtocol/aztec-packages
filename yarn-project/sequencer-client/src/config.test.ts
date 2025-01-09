@@ -20,7 +20,6 @@ describe('sequencer config', () => {
     const stringifiedAllowList = configStrings.join(',');
 
     const allowList = parseSequencerAllowList(stringifiedAllowList);
-    expect(false).toBeTruthy();
     expect(allowList).toEqual(config);
   });
 });
