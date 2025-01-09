@@ -511,8 +511,8 @@ export class Archiver implements ArchiveSource, Traceable {
     return Promise.resolve();
   }
 
-  public getL1Constants(): L1RollupConstants {
-    return this.l1constants;
+  public getL1Constants(): Promise<L1RollupConstants> {
+    return Promise.resolve(this.l1constants);
   }
 
   public getRollupAddress(): Promise<EthAddress> {

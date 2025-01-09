@@ -1,6 +1,7 @@
 import {
   type EpochProver,
   type EpochProvingJobState,
+  EpochProvingJobTerminalState,
   type ForkMerkleTreeOperations,
   type L1ToL2MessageSource,
   type L2Block,
@@ -31,6 +32,7 @@ export class EpochProvingJob implements Traceable {
   private uuid: string;
 
   private runPromise: Promise<void> | undefined;
+  private deadlineTimeoutHandler: NodeJS.Timeout | undefined;
 
   public readonly tracer: Tracer;
 
@@ -45,6 +47,7 @@ export class EpochProvingJob implements Traceable {
     private l2BlockSource: L2BlockSource,
     private l1ToL2MessageSource: L1ToL2MessageSource,
     private metrics: ProverNodeMetrics,
+    private deadline: Date | undefined,
     private config: { parallelBlockLimit: number } = { parallelBlockLimit: 32 },
     private cleanUp: (job: EpochProvingJob) => Promise<void> = () => Promise.resolve(),
   ) {
@@ -67,6 +70,8 @@ export class EpochProvingJob implements Traceable {
     return { [Attributes.EPOCH_NUMBER]: Number(this.epochNumber) };
   })
   public async run() {
+    this.scheduleDeadlineStop();
+
     const epochNumber = Number(this.epochNumber);
     const epochSizeBlocks = this.blocks.length;
     const epochSizeTxs = this.blocks.reduce((total, current) => total + current.body.numberOfTxsIncludingPadded, 0);
@@ -78,9 +83,9 @@ export class EpochProvingJob implements Traceable {
       epochNumber,
       uuid: this.uuid,
     });
-    this.state = 'processing';
-    const timer = new Timer();
 
+    this.progressState('processing');
+    const timer = new Timer();
     const { promise, resolve } = promiseWithResolvers<void>();
     this.runPromise = promise;
 
@@ -88,6 +93,8 @@ export class EpochProvingJob implements Traceable {
       this.prover.startNewEpoch(epochNumber, fromBlock, epochSizeBlocks);
 
       await asyncPool(this.config.parallelBlockLimit, this.blocks, async block => {
+        this.checkState();
+
         const globalVariables = block.header.globalVariables;
         const txs = this.getTxs(block);
         const l1ToL2Messages = await this.getL1ToL2Messages(block);
@@ -104,6 +111,7 @@ export class EpochProvingJob implements Traceable {
           uuid: this.uuid,
           ...globalVariables,
         });
+
         // Start block proving
         await this.prover.startNewBlock(globalVariables, l1ToL2Messages);
 
@@ -123,29 +131,70 @@ export class EpochProvingJob implements Traceable {
         await this.prover.setBlockCompleted(block.number, block.header);
       });
 
-      this.state = 'awaiting-prover';
+      this.progressState('awaiting-prover');
       const { publicInputs, proof } = await this.prover.finaliseEpoch();
       this.log.info(`Finalised proof for epoch ${epochNumber}`, { epochNumber, uuid: this.uuid, duration: timer.ms() });
 
-      this.state = 'publishing-proof';
-      await this.publisher.submitEpochProof({ fromBlock, toBlock, epochNumber, publicInputs, proof });
-      this.log.info(`Submitted proof for epoch`, { epochNumber, uuid: this.uuid });
+      this.progressState('publishing-proof');
+      const success = await this.publisher.submitEpochProof({ fromBlock, toBlock, epochNumber, publicInputs, proof });
+      if (!success) {
+        throw new Error('Failed to submit epoch proof to L1');
+      }
 
+      this.log.info(`Submitted proof for epoch`, { epochNumber, uuid: this.uuid });
       this.state = 'completed';
       this.metrics.recordProvingJob(timer, epochSizeBlocks, epochSizeTxs);
-    } catch (err) {
+    } catch (err: any) {
+      if (err && err.name === 'HaltExecutionError') {
+        this.log.warn(`Halted execution of epoch ${epochNumber} prover job`, { uuid: this.uuid, epochNumber });
+        return;
+      }
       this.log.error(`Error running epoch ${epochNumber} prover job`, err, { uuid: this.uuid, epochNumber });
       this.state = 'failed';
     } finally {
+      clearTimeout(this.deadlineTimeoutHandler);
       await this.cleanUp(this);
       resolve();
     }
   }
 
-  public async stop() {
+  private progressState(state: EpochProvingJobState) {
+    this.checkState();
+    this.state = state;
+  }
+
+  private checkState() {
+    if (this.state === 'timed-out' || this.state === 'stopped' || this.state === 'failed') {
+      throw new HaltExecutionError(this.state);
+    }
+  }
+
+  public async stop(state: EpochProvingJobState = 'stopped') {
+    this.state = state;
     this.prover.cancel();
+    // TODO(palla/prover): Stop the publisher as well
     if (this.runPromise) {
       await this.runPromise;
+    }
+  }
+
+  private scheduleDeadlineStop() {
+    const deadline = this.deadline;
+    if (deadline) {
+      const timeout = deadline.getTime() - Date.now();
+      if (timeout <= 0) {
+        throw new Error('Cannot start job with deadline in the past');
+      }
+
+      this.deadlineTimeoutHandler = setTimeout(() => {
+        if (EpochProvingJobTerminalState.includes(this.state)) {
+          return;
+        }
+        this.log.warn('Stopping job due to deadline hit', { uuid: this.uuid, epochNumber: this.epochNumber });
+        this.stop('timed-out').catch(err => {
+          this.log.error('Error stopping job', err, { uuid: this.uuid, epochNumber: this.epochNumber });
+        });
+      }, timeout);
     }
   }
 
@@ -167,15 +216,27 @@ export class EpochProvingJob implements Traceable {
   }
 
   private async processTxs(publicProcessor: PublicProcessor, txs: Tx[]): Promise<ProcessedTx[]> {
-    const [processedTxs, failedTxs] = await publicProcessor.process(txs);
+    const { deadline } = this;
+    const [processedTxs, failedTxs] = await publicProcessor.process(txs, { deadline });
 
     if (failedTxs.length) {
       throw new Error(
-        `Failed to process txs: ${failedTxs.map(({ tx, error }) => `${tx.getTxHash()} (${error})`).join(', ')}`,
+        `Txs failed processing: ${failedTxs.map(({ tx, error }) => `${tx.getTxHash()} (${error})`).join(', ')}`,
       );
     }
 
+    if (processedTxs.length !== txs.length) {
+      throw new Error(`Failed to process all txs: processed ${processedTxs.length} out of ${txs.length}`);
+    }
+
     return processedTxs;
+  }
+}
+
+class HaltExecutionError extends Error {
+  constructor(state: EpochProvingJobState) {
+    super(`Halted execution due to state ${state}`);
+    this.name = 'HaltExecutionError';
   }
 }
 
