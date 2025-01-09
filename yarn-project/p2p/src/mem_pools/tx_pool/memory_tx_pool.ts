@@ -4,6 +4,7 @@ import { createLogger } from '@aztec/foundation/log';
 import { type TelemetryClient } from '@aztec/telemetry-client';
 
 import { PoolInstrumentation, PoolName } from '../instrumentation.js';
+import { getPendingTxPriority } from './priority.js';
 import { type TxPool } from './tx_pool.js';
 
 /**
@@ -68,7 +69,10 @@ export class InMemoryTxPool implements TxPool {
   }
 
   public getPendingTxHashes(): TxHash[] {
-    return Array.from(this.pendingTxs).map(x => TxHash.fromBigInt(x));
+    return this.getAllTxs()
+      .sort((tx1, tx2) => -getPendingTxPriority(tx1).localeCompare(getPendingTxPriority(tx2)))
+      .map(tx => tx.getTxHash())
+      .filter(txHash => this.pendingTxs.has(txHash.toBigInt()));
   }
 
   public getMinedTxHashes(): [TxHash, number][] {

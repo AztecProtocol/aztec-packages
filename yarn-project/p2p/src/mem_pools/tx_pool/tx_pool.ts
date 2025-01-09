@@ -49,7 +49,7 @@ export interface TxPool {
   getAllTxHashes(): TxHash[];
 
   /**
-   * Gets the hashes of pending transactions currently in the tx pool.
+   * Gets the hashes of pending transactions currently in the tx pool sorted by priority (see getPendingTxPriority).
    * @returns An array of pending transaction hashes found in the tx pool.
    */
   getPendingTxHashes(): TxHash[];
