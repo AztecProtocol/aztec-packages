@@ -111,8 +111,28 @@ export class FullProverTest {
     await this.snapshotManager.snapshot('2_accounts', addAccounts(2, this.logger), async ({ accountKeys }, { pxe }) => {
       this.keys = accountKeys;
       const accountManagers = accountKeys.map(ak => getSchnorrAccount(pxe, ak[0], ak[1], SALT));
-      this.wallets = await Promise.all(accountManagers.map(a => a.getWallet()));
-      this.accounts = await pxe.getRegisteredAccounts();
+      this.wallets = (await Promise.all(accountManagers.map(a => a.getWallet()))).sort((aWallet, bWallet) => {
+        const a = aWallet.getAddress().toBigInt();
+        const b = bWallet.getAddress().toBigInt();
+        if (a < b) {
+          return -1;
+        } else if (a > b) {
+          return 1;
+        } else {
+          return 0;
+        }
+      });
+      this.accounts = (await pxe.getRegisteredAccounts()).sort((aAccount, bAccount) => {
+        const a = aAccount.address.toBigInt();
+        const b = bAccount.address.toBigInt();
+        if (a < b) {
+          return -1;
+        } else if (a > b) {
+          return 1;
+        } else {
+          return 0;
+        }
+      });
       this.wallets.forEach((w, i) => this.logger.verbose(`Wallet ${i} address: ${w.getAddress()}`));
     });
 
