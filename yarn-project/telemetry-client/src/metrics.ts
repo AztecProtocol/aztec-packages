@@ -126,4 +126,5 @@ export const PROOF_VERIFIER_COUNT = 'aztec.proof_verifier.count';
 export const VALIDATOR_RE_EXECUTION_TIME = 'aztec.validator.re_execution_time';
 export const VALIDATOR_FAILED_REEXECUTION_COUNT = 'aztec.validator.failed_reexecution_count';
 
+export const EVENT_LOOP_UTILIZATION = 'aztec.event_loop_utilization';
 export const EVENT_LOOP_LAG = 'aztec.event_loop_lag';

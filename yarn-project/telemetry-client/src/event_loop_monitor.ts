@@ -1,20 +1,29 @@
 import { promiseWithResolvers } from '@aztec/foundation/promise';
 import { Timer } from '@aztec/foundation/timer';
 
-import { EVENT_LOOP_LAG } from './metrics.js';
-import { type Meter, type ObservableGauge, type ObservableResult, ValueType } from './telemetry.js';
+import { type EventLoopUtilization, performance } from 'node:perf_hooks';
+
+import { EVENT_LOOP_LAG, EVENT_LOOP_UTILIZATION } from './metrics.js';
+import { type BatchObservableResult, type Meter, type ObservableGauge, ValueType } from './telemetry.js';
 
 /**
  * Detector for custom Aztec attributes
  */
 export class EventLoopMonitor {
   private eventLoopLag: ObservableGauge;
+  private eventLoopUilization: ObservableGauge;
   private started = false;
 
-  constructor(meter: Meter) {
+  private lastELU: EventLoopUtilization | undefined;
+
+  constructor(private meter: Meter) {
     this.eventLoopLag = meter.createObservableGauge(EVENT_LOOP_LAG, {
       unit: 'us',
       valueType: ValueType.INT,
+      description: 'Latency to execute a macro task',
+    });
+    this.eventLoopUilization = meter.createObservableGauge(EVENT_LOOP_UTILIZATION, {
+      valueType: ValueType.DOUBLE,
       description: 'How busy is the event loop',
     });
   }
@@ -23,17 +32,23 @@ export class EventLoopMonitor {
     if (this.started) {
       return;
     }
-    this.eventLoopLag.addCallback(this.measureLag);
+
+    this.lastELU = performance.eventLoopUtilization();
+    this.meter.addBatchObservableCallback(this.measureLag, [this.eventLoopUilization, this.eventLoopLag]);
   }
 
   stop(): void {
     if (!this.started) {
       return;
     }
-    this.eventLoopLag.removeCallback(this.measureLag);
+    this.meter.removeBatchObservableCallback(this.measureLag, [this.eventLoopUilization, this.eventLoopLag]);
   }
 
-  private measureLag = async (obs: ObservableResult): Promise<void> => {
+  private measureLag = async (obs: BatchObservableResult): Promise<void> => {
+    const newELU = performance.eventLoopUtilization();
+    const delta = performance.eventLoopUtilization(newELU, this.lastELU);
+    this.lastELU = newELU;
+
     const timer = new Timer();
     const { promise, resolve } = promiseWithResolvers<number>();
     // how long does it take to schedule the next macro task?
@@ -44,6 +59,7 @@ export class EventLoopMonitor {
     });
 
     const lag = await promise;
-    obs.observe(Math.floor(lag));
+    obs.observe(this.eventLoopLag, Math.floor(lag));
+    obs.observe(this.eventLoopUilization, delta.utilization);
   };
 }
