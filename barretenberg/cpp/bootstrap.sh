@@ -89,6 +89,64 @@ function test {
   test_cmds | filter_test_cmds | parallelise
 }
 
+function build_benchmarks {
+  set -eu
+  if ! cache_download barretenberg-benchmarks-$hash.tar.gz; then
+    parallel --line-buffered --tag denoise \
+      "cmake --preset {} && cmake --build --preset {} --target ultra_honk_bench --target client_ivc_bench" ::: \
+      clang16-assert wasm-threads op-count op-count-time
+    cache_upload barretenberg-benchmarks-$hash.tar.gz \
+      {build,build-wasm-threads,build-op-count,build-op-count-time}/bin/{ultra_honk_bench,client_ivc_bench}
+  fi
+}
+
+function benchmark {
+  build_benchmarks
+
+  export HARDWARE_CONCURRENCY=16
+  export IGNITION_CRS_PATH=./srs_db/ignition
+  export GRUMPKIN_CRS_PATH=./srs_db/grumpkin
+
+  mkdir -p bench-out
+
+  # Ultra honk.
+  ./build/bin/ultra_honk_bench \
+    --benchmark_out=./bench-out/ultra_honk_release.json \
+    --benchmark_filter="construct_proof_ultrahonk_power_of_2/20$"
+  wasmtime run --env HARDWARE_CONCURRENCY --env IGNITION_CRS_PATH --env GRUMPKIN_CRS_PATH -Wthreads=y -Sthreads=y --dir=. \
+    ./build-wasm-threads/bin/ultra_honk_bench \
+      --benchmark_out=./bench-out/ultra_honk_wasm.json \
+      --benchmark_filter="construct_proof_ultrahonk_power_of_2/20$"
+
+  # Client IVC
+  ./build/bin/client_ivc_bench \
+    --benchmark_out=./bench-out/client_ivc_17_in_20_release.json \
+    --benchmark_filter="ClientIVCBench/Ambient_17_in_20/6$"
+  ./build/bin/client_ivc_bench \
+    --benchmark_out=./bench-out/client_ivc_release.json \
+    --benchmark_filter="ClientIVCBench/Full/6$"
+   ./build-op-count/bin/client_ivc_bench \
+    --benchmark_out=./bench-out/client_ivc_op_count.json \
+    --benchmark_filter="ClientIVCBench/Full/6$"
+   ./build-op-count-time/bin/client_ivc_bench \
+    --benchmark_out=./bench-out/client_ivc_op_count_time.json \
+    --benchmark_filter="ClientIVCBench/Full/6$"
+  wasmtime run --env HARDWARE_CONCURRENCY --env IGNITION_CRS_PATH --env GRUMPKIN_CRS_PATH -Wthreads=y -Sthreads=y --dir=. \
+    ./build-wasm-threads/bin/client_ivc_bench \
+      --benchmark_out=./bench-out/client_ivc_wasm.json \
+      --benchmark_filter="ClientIVCBench/Full/6$"
+
+  ./scripts/ci/combine_benchmarks.py \
+    native ./bench-out/client_ivc_17_in_20_release.json \
+    native ./bench-out/client_ivc_release.json \
+    native ./bench-out/ultra_honk_release.json \
+    wasm ./bench-out/client_ivc_wasm.json \
+    wasm ./bench-out/ultra_honk_wasm.json \
+    "" ./bench-out/client_ivc_op_count.json \
+    "" ./bench-out/client_ivc_op_count_time.json \
+    > ./bench-out/bench.json
+}
+
 case "$cmd" in
   "clean")
     git clean -fdx
@@ -114,6 +172,9 @@ case "$cmd" in
     ;;
   "test-cmds")
     test_cmds
+    ;;
+  "bench")
+    benchmark
     ;;
   *)
     echo "Unknown command: $cmd"

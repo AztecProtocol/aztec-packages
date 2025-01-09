@@ -44,3 +44,20 @@ jobs:
           export LOG_ID=${{ github.run_id }}
           export BRANCH=${{ github.event.pull_request.head.ref || github.ref_name }}
           ./ci.sh ec2
+      # TODO: We will need to extract the result from the remote container before termination.
+      # Also only on master?
+      # - name: Store benchmark result
+      #   if: github.ref == 'refs/heads/master'
+      #   continue-on-error: true
+      #   uses: benchmark-action/github-action-benchmark@4de1bed97a47495fc4c5404952da0499e31f5c29
+      #   with:
+      #     name: C++ Benchmark
+      #     tool: "googlecpp"
+      #     output-file-path: bench.json
+      #     github-token: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
+      #     auto-push: true
+      #     alert-threshold: "105%"
+      #     comment-on-alert: true
+      #     fail-on-alert: false
+      #     alert-comment-cc-users: "@ludamad @codygunton"
+      #     max-items-in-chart: 50

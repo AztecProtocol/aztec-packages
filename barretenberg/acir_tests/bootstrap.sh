@@ -151,6 +151,10 @@ case "$cmd" in
   "test-cmds")
     test_cmds
     ;;
+  "bench")
+    # TODO: Move to scripts dir along with run_test.sh.
+    LOG_FILE=bench-acir.jsonl ./bench_acir_tests.sh
+    ;;
   *)
     echo "Unknown command: $cmd"
     exit 1
