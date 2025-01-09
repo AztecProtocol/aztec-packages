@@ -3,13 +3,12 @@ import {
   BLOCK_MERGE_ROLLUP_INDEX,
   BLOCK_ROOT_ROLLUP_EMPTY_INDEX,
   BLOCK_ROOT_ROLLUP_INDEX,
-  EMPTY_NESTED_INDEX,
+  BLOCK_ROOT_ROLLUP_SINGLE_TX_INDEX,
   Fr,
   MERGE_ROLLUP_INDEX,
   type MerkleTree,
   MerkleTreeCalculator,
   PRIVATE_BASE_ROLLUP_VK_INDEX,
-  PRIVATE_KERNEL_EMPTY_INDEX,
   PRIVATE_KERNEL_INIT_INDEX,
   PRIVATE_KERNEL_INNER_INDEX,
   PRIVATE_KERNEL_TAIL_INDEX,
@@ -25,10 +24,8 @@ import {
 import { poseidon2Hash } from '@aztec/foundation/crypto';
 import { assertLength } from '@aztec/foundation/serialize';
 
-import EmptyNestedVkJson from '../../artifacts/keys/empty_nested.vk.data.json' assert { type: 'json' };
 import BaseParityVkJson from '../../artifacts/keys/parity_base.vk.data.json' assert { type: 'json' };
 import RootParityVkJson from '../../artifacts/keys/parity_root.vk.data.json' assert { type: 'json' };
-import PrivateKernelEmptyVkJson from '../../artifacts/keys/private_kernel_empty.vk.data.json' assert { type: 'json' };
 import PrivateKernelInitVkJson from '../../artifacts/keys/private_kernel_init.vk.data.json' assert { type: 'json' };
 import PrivateKernelInnerVkJson from '../../artifacts/keys/private_kernel_inner.vk.data.json' assert { type: 'json' };
 import PrivateKernelTailVkJson from '../../artifacts/keys/private_kernel_tail.vk.data.json' assert { type: 'json' };
@@ -38,6 +35,7 @@ import PublicBaseRollupVkJson from '../../artifacts/keys/rollup_base_public.vk.d
 import BlockMergeRollupVkJson from '../../artifacts/keys/rollup_block_merge.vk.data.json' assert { type: 'json' };
 import BlockRootRollupVkJson from '../../artifacts/keys/rollup_block_root.vk.data.json' assert { type: 'json' };
 import EmptyBlockRootRollupVkJson from '../../artifacts/keys/rollup_block_root_empty.vk.data.json' assert { type: 'json' };
+import SingleTxBlockRootRollupVkJson from '../../artifacts/keys/rollup_block_root_single_tx.vk.data.json' assert { type: 'json' };
 import MergeRollupVkJson from '../../artifacts/keys/rollup_merge.vk.data.json' assert { type: 'json' };
 import RootRollupVkJson from '../../artifacts/keys/rollup_root.vk.data.json' assert { type: 'json' };
 import TubeVkJson from '../../artifacts/keys/tube.vk.data.json' assert { type: 'json' };
@@ -49,14 +47,13 @@ import { keyJsonToVKData } from '../utils/vk_json.js';
 export const TubeVk = keyJsonToVKData(TubeVkJson);
 
 export const ServerCircuitVks: Record<ServerProtocolArtifact, VerificationKeyData> = {
-  EmptyNestedArtifact: keyJsonToVKData(EmptyNestedVkJson),
-  PrivateKernelEmptyArtifact: keyJsonToVKData(PrivateKernelEmptyVkJson),
   BaseParityArtifact: keyJsonToVKData(BaseParityVkJson),
   RootParityArtifact: keyJsonToVKData(RootParityVkJson),
   PrivateBaseRollupArtifact: keyJsonToVKData(PrivateBaseRollupVkJson),
   PublicBaseRollupArtifact: keyJsonToVKData(PublicBaseRollupVkJson),
   MergeRollupArtifact: keyJsonToVKData(MergeRollupVkJson),
   BlockRootRollupArtifact: keyJsonToVKData(BlockRootRollupVkJson),
+  SingleTxBlockRootRollupArtifact: keyJsonToVKData(SingleTxBlockRootRollupVkJson),
   EmptyBlockRootRollupArtifact: keyJsonToVKData(EmptyBlockRootRollupVkJson),
   BlockMergeRollupArtifact: keyJsonToVKData(BlockMergeRollupVkJson),
   RootRollupArtifact: keyJsonToVKData(RootRollupVkJson),
@@ -76,8 +73,6 @@ export const ProtocolCircuitVks: Record<ProtocolArtifact, VerificationKeyData> =
 };
 
 export const ProtocolCircuitVkIndexes: Record<ProtocolArtifact, number> = {
-  EmptyNestedArtifact: EMPTY_NESTED_INDEX,
-  PrivateKernelEmptyArtifact: PRIVATE_KERNEL_EMPTY_INDEX,
   PrivateKernelInitArtifact: PRIVATE_KERNEL_INIT_INDEX,
   PrivateKernelInnerArtifact: PRIVATE_KERNEL_INNER_INDEX,
   PrivateKernelTailArtifact: PRIVATE_KERNEL_TAIL_INDEX,
@@ -88,9 +83,10 @@ export const ProtocolCircuitVkIndexes: Record<ProtocolArtifact, number> = {
   PublicBaseRollupArtifact: PUBLIC_BASE_ROLLUP_VK_INDEX,
   MergeRollupArtifact: MERGE_ROLLUP_INDEX,
   BlockRootRollupArtifact: BLOCK_ROOT_ROLLUP_INDEX,
+  SingleTxBlockRootRollupArtifact: BLOCK_ROOT_ROLLUP_SINGLE_TX_INDEX,
+  EmptyBlockRootRollupArtifact: BLOCK_ROOT_ROLLUP_EMPTY_INDEX,
   BlockMergeRollupArtifact: BLOCK_MERGE_ROLLUP_INDEX,
   RootRollupArtifact: ROOT_ROLLUP_INDEX,
-  EmptyBlockRootRollupArtifact: BLOCK_ROOT_ROLLUP_EMPTY_INDEX,
   ...PrivateKernelResetVkIndexes,
 };
 

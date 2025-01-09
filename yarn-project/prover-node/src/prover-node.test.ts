@@ -1,4 +1,5 @@
 import {
+  EmptyL1RollupConstants,
   type EpochProofClaim,
   EpochProofQuote,
   EpochProofQuotePayload,
@@ -150,6 +151,7 @@ describe('prover-node', () => {
 
     // Archiver returns a bunch of fake blocks
     l2BlockSource.getBlocksForEpoch.mockResolvedValue(blocks);
+    l2BlockSource.getL1Constants.mockResolvedValue(EmptyL1RollupConstants);
 
     // Coordination plays along and returns a tx whenever requested
     mockCoordination.getTxByHash.mockImplementation(hash =>
@@ -472,6 +474,7 @@ describe('prover-node', () => {
   class TestProverNode extends ProverNode {
     protected override doCreateEpochProvingJob(
       epochNumber: bigint,
+      _deadline: Date | undefined,
       _blocks: L2Block[],
       _txs: Tx[],
       _publicProcessorFactory: PublicProcessorFactory,

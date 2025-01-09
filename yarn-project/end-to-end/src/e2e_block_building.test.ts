@@ -64,7 +64,7 @@ describe('e2e_block_building', () => {
     const artifact = StatefulTestContractArtifact;
 
     beforeAll(async () => {
-      let sequencerClient;
+      let sequencerClient: SequencerClient | undefined;
       ({
         teardown,
         pxe,
@@ -75,8 +75,7 @@ describe('e2e_block_building', () => {
         dateProvider,
         cheatCodes,
       } = await setup(2));
-      // Bypass accessibility modifiers in sequencer
-      sequencer = sequencerClient! as unknown as TestSequencerClient;
+      sequencer = sequencerClient! as TestSequencerClient;
     });
 
     afterEach(() => aztecNode.setConfig({ minTxsPerBlock: 1 }));
@@ -614,13 +613,6 @@ async function sendAndWait(calls: ContractFunctionInteraction[]) {
       .map(p => p.wait()),
   );
 }
-
-type TestSequencer = Omit<Sequencer, 'publicProcessorFactory' | 'timeTable'> & {
-  publicProcessorFactory: PublicProcessorFactory;
-  timeTable: Record<SequencerState, number>;
-  processTxTime: number;
-};
-type TestSequencerClient = Omit<SequencerClient, 'sequencer'> & { sequencer: TestSequencer };
 
 const TEST_PUBLIC_TX_SIMULATION_DELAY_MS = 300;
 

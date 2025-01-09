@@ -9,6 +9,7 @@ import {
 import { type AztecAddress, type ContractDataSource, Fr, type GasFees, type GlobalVariables } from '@aztec/circuits.js';
 import {
   AggregateTxValidator,
+  BlockHeaderTxValidator,
   DataTxValidator,
   DoubleSpendTxValidator,
   MetadataTxValidator,
@@ -17,6 +18,7 @@ import {
 import { ProtocolContractAddress } from '@aztec/protocol-contracts';
 import { readPublicState } from '@aztec/simulator/server';
 
+import { ArchiveCache } from './archive_cache.js';
 import { GasTxValidator, type PublicStateSource } from './gas_validator.js';
 import { NullifierCache } from './nullifier_cache.js';
 import { PhasesTxValidator } from './phases_validator.js';
@@ -40,6 +42,7 @@ export function createValidatorForAcceptingTxs(
     new DoubleSpendTxValidator(new NullifierCache(db)),
     new PhasesTxValidator(contractDataSource, setupAllowList),
     new GasTxValidator(new DatabasePublicStateSource(db), ProtocolContractAddress.FeeJuice, enforceFees, gasFees),
+    new BlockHeaderTxValidator(new ArchiveCache(db)),
   ];
 
   if (verifier) {
@@ -61,11 +64,13 @@ export function createValidatorsForBlockBuilding(
   nullifierCache: NullifierCache;
 } {
   const nullifierCache = new NullifierCache(db);
+  const archiveCache = new ArchiveCache(db);
   const publicStateSource = new DatabasePublicStateSource(db);
 
   return {
     preprocessValidator: preprocessValidator(
       nullifierCache,
+      archiveCache,
       publicStateSource,
       contractDataSource,
       enforceFees,
@@ -87,6 +92,7 @@ class DatabasePublicStateSource implements PublicStateSource {
 
 function preprocessValidator(
   nullifierCache: NullifierCache,
+  archiveCache: ArchiveCache,
   publicStateSource: PublicStateSource,
   contractDataSource: ContractDataSource,
   enforceFees: boolean,
@@ -99,6 +105,7 @@ function preprocessValidator(
     new DoubleSpendTxValidator(nullifierCache),
     new PhasesTxValidator(contractDataSource, setupAllowList),
     new GasTxValidator(publicStateSource, ProtocolContractAddress.FeeJuice, enforceFees, globalVariables.gasFees),
+    new BlockHeaderTxValidator(archiveCache),
   );
 }
 
