@@ -2,7 +2,6 @@ import {
   type ProofUri,
   type ProvingJob,
   type ProvingJobId,
-  type ProvingJobSettledResult,
   type ProvingJobStatus,
   type ProvingRequestType,
 } from '@aztec/circuit-types';
@@ -19,6 +18,8 @@ export const ProverBrokerConfig = z.object({
   proverBrokerPollIntervalMs: z.number(),
   /** If starting a prover broker locally, the directory to store broker data */
   proverBrokerDataDirectory: z.string().optional(),
+  /** The size of the data store map */
+  proverBrokerDataMapSizeKB: z.number(),
 });
 
 export type ProverBrokerConfig = z.infer<typeof ProverBrokerConfig>;
@@ -43,6 +44,11 @@ export const proverBrokerConfigMappings: ConfigMappingsType<ProverBrokerConfig> 
     env: 'PROVER_BROKER_DATA_DIRECTORY',
     description: 'If starting a prover broker locally, the directory to store broker data',
   },
+  proverBrokerDataMapSizeKB: {
+    env: 'PROVER_BROKER_DATA_MAP_SIZE_KB',
+    description: 'The size of the data store map',
+    ...numberConfigHelper(128 * 1_024 * 1_024), // Defaulted to 128 GB
+  },
 };
 
 /**
@@ -53,7 +59,7 @@ export interface ProvingJobProducer {
    * Enqueues a proving job
    * @param job - The job to enqueue
    */
-  enqueueProvingJob(job: ProvingJob): Promise<void>;
+  enqueueProvingJob(job: ProvingJob): Promise<ProvingJobStatus>;
 
   /**
    * Cancels a proving job.
@@ -68,10 +74,11 @@ export interface ProvingJobProducer {
   getProvingJobStatus(id: ProvingJobId): Promise<ProvingJobStatus>;
 
   /**
-   * Waits for the job to settle and returns to the result
-   * @param id - The ID of the job to get the status of
+   * Returns the ids of jobs that have been completed since the last call
+   * Also returns the set of provided job ids that are completed
+   * @param ids - The set of job ids to check for completion
    */
-  waitForJobToSettle(id: ProvingJobId): Promise<ProvingJobSettledResult>;
+  getCompletedJobs(ids: ProvingJobId[]): Promise<ProvingJobId[]>;
 }
 
 export type ProvingJobFilter = {

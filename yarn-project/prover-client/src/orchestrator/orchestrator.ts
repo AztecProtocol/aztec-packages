@@ -134,6 +134,12 @@ export class ProvingOrchestrator implements EpochProver {
     this.paddingTxProof = undefined;
   }
 
+  public stop(): Promise<void> {
+    this.cancel();
+    this.reset();
+    return Promise.resolve();
+  }
+
   public startNewEpoch(epochNumber: number, firstBlockNumber: number, totalNumBlocks: number) {
     const { promise: _promise, resolve, reject } = promiseWithResolvers<ProvingResult>();
     const promise = _promise.catch((reason): ProvingResult => ({ status: 'failure', reason }));

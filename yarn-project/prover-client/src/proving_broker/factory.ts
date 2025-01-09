@@ -1,5 +1,4 @@
 import { type ProverBrokerConfig } from '@aztec/circuit-types';
-import { AztecLmdbStore } from '@aztec/kv-store/lmdb';
 import { type TelemetryClient } from '@aztec/telemetry-client';
 
 import { ProvingBroker } from './proving_broker.js';
@@ -11,7 +10,7 @@ export async function createAndStartProvingBroker(
   client: TelemetryClient,
 ): Promise<ProvingBroker> {
   const database = config.proverBrokerDataDirectory
-    ? new KVBrokerDatabase(AztecLmdbStore.open(config.proverBrokerDataDirectory), client)
+    ? await KVBrokerDatabase.new(config, client)
     : new InMemoryBrokerDatabase();
 
   const broker = new ProvingBroker(database, client, {
