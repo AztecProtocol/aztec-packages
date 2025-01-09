@@ -32,6 +32,8 @@ export default defineConfig({
       allow: [
         searchForWorkspaceRoot(process.cwd()),
         "../../../yarn-project/noir-protocol-circuits-types/artifacts",
+        "../../../noir/packages/noirc_abi/web",
+        "../../../noir/packages/acvm_js/web",
       ],
     },
   },
@@ -50,8 +52,5 @@ export default defineConfig({
         },
       },
     },
-  },
-  optimizeDeps: {
-    exclude: ["@noir-lang/acvm_js", "@noir-lang/noirc_abi", "@aztec/bb-prover"],
   },
 });
