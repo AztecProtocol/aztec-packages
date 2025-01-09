@@ -334,15 +334,6 @@ export class TXEService {
     return toForeignCallResult([toArray(witness.toFields())]);
   }
 
-  async getSiblingPath(blockNumber: ForeignCallSingle, treeId: ForeignCallSingle, leafIndex: ForeignCallSingle) {
-    const result = await this.typedOracle.getSiblingPath(
-      fromSingle(blockNumber).toNumber(),
-      fromSingle(treeId).toNumber(),
-      fromSingle(leafIndex),
-    );
-    return toForeignCallResult([toArray(result)]);
-  }
-
   async getNotes(
     storageSlot: ForeignCallSingle,
     numSelects: ForeignCallSingle,

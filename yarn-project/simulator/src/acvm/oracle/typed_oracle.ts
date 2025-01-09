@@ -108,10 +108,6 @@ export abstract class TypedOracle {
     throw new OracleMethodNotAvailableError('getMembershipWitness');
   }
 
-  getSiblingPath(_blockNumber: number, _treeId: MerkleTreeId, _leafIndex: Fr): Promise<Fr[]> {
-    throw new OracleMethodNotAvailableError('getSiblingPath');
-  }
-
   getNullifierMembershipWitness(_blockNumber: number, _nullifier: Fr): Promise<NullifierMembershipWitness | undefined> {
     throw new OracleMethodNotAvailableError('getNullifierMembershipWitness');
   }

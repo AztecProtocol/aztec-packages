@@ -95,19 +95,6 @@ export class Oracle {
     return witness.map(toACVMField);
   }
 
-  async getSiblingPath(
-    [blockNumber]: ACVMField[],
-    [treeId]: ACVMField[],
-    [leafIndex]: ACVMField[],
-  ): Promise<ACVMField[]> {
-    const parsedBlockNumber = frToNumber(fromACVMField(blockNumber));
-    const parsedTreeId = frToNumber(fromACVMField(treeId));
-    const parsedLeafIndex = fromACVMField(leafIndex);
-
-    const path = await this.typedOracle.getSiblingPath(parsedBlockNumber, parsedTreeId, parsedLeafIndex);
-    return path.map(toACVMField);
-  }
-
   async getNullifierMembershipWitness(
     [blockNumber]: ACVMField[],
     [nullifier]: ACVMField[], // nullifier, we try to find the witness for (to prove inclusion)
