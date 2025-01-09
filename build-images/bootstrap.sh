@@ -47,7 +47,7 @@ function build_ec2 {
     git remote add origin https://github.com/aztecprotocol/aztec-packages
     git fetch --depth 1 origin $current_commit
     git checkout FETCH_HEAD
-    ./build-images/bootstrap.sh build-images
+    ./build-images/bootstrap.sh
     ./build-images/bootstrap.sh push-images
   "
 }
@@ -84,5 +84,9 @@ case "$cmd" in
     ;;
   "ec2-arm64")
     build_ec2 64 arm64
+    ;;
+  *)
+    echo "Unknown command: $cmd"
+    exit 1
     ;;
 esac
