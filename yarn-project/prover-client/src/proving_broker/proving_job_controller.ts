@@ -124,6 +124,10 @@ export class ProvingJobController {
         return await this.circuitProver.getBlockRootRollupProof(inputs, signal, this.epochNumber);
       }
 
+      case ProvingRequestType.SINGLE_TX_BLOCK_ROOT_ROLLUP: {
+        return await this.circuitProver.getSingleTxBlockRootRollupProof(inputs, signal, this.epochNumber);
+      }
+
       case ProvingRequestType.BLOCK_MERGE_ROLLUP: {
         return await this.circuitProver.getBlockMergeRollupProof(inputs, signal, this.epochNumber);
       }
@@ -138,10 +142,6 @@ export class ProvingJobController {
 
       case ProvingRequestType.ROOT_PARITY: {
         return await this.circuitProver.getRootParityProof(inputs, signal, this.epochNumber);
-      }
-
-      case ProvingRequestType.PRIVATE_KERNEL_EMPTY: {
-        return await this.circuitProver.getEmptyPrivateKernelProof(inputs, signal, this.epochNumber);
       }
 
       case ProvingRequestType.TUBE_PROOF: {

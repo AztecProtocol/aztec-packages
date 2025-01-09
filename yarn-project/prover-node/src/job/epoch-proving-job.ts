@@ -74,7 +74,7 @@ export class EpochProvingJob implements Traceable {
 
     const epochNumber = Number(this.epochNumber);
     const epochSizeBlocks = this.blocks.length;
-    const epochSizeTxs = this.blocks.reduce((total, current) => total + current.body.numberOfTxsIncludingPadded, 0);
+    const epochSizeTxs = this.blocks.reduce((total, current) => total + current.body.txEffects.length, 0);
     const [fromBlock, toBlock] = [this.blocks[0].number, this.blocks.at(-1)!.number];
     this.log.info(`Starting epoch ${epochNumber} proving job with blocks ${fromBlock} to ${toBlock}`, {
       fromBlock,

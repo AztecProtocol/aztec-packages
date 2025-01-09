@@ -44,7 +44,6 @@ export class ProvingBroker implements ProvingJobProducer, ProvingJobConsumer, Tr
   private queues: ProvingQueues = {
     [ProvingRequestType.PUBLIC_VM]: new PriorityMemoryQueue<EnqueuedProvingJob>(provingJobComparator),
     [ProvingRequestType.TUBE_PROOF]: new PriorityMemoryQueue<EnqueuedProvingJob>(provingJobComparator),
-    [ProvingRequestType.PRIVATE_KERNEL_EMPTY]: new PriorityMemoryQueue<EnqueuedProvingJob>(provingJobComparator),
 
     [ProvingRequestType.PRIVATE_BASE_ROLLUP]: new PriorityMemoryQueue<EnqueuedProvingJob>(provingJobComparator),
     [ProvingRequestType.PUBLIC_BASE_ROLLUP]: new PriorityMemoryQueue<EnqueuedProvingJob>(provingJobComparator),
@@ -53,6 +52,7 @@ export class ProvingBroker implements ProvingJobProducer, ProvingJobConsumer, Tr
 
     [ProvingRequestType.BLOCK_MERGE_ROLLUP]: new PriorityMemoryQueue<EnqueuedProvingJob>(provingJobComparator),
     [ProvingRequestType.BLOCK_ROOT_ROLLUP]: new PriorityMemoryQueue<EnqueuedProvingJob>(provingJobComparator),
+    [ProvingRequestType.SINGLE_TX_BLOCK_ROOT_ROLLUP]: new PriorityMemoryQueue<EnqueuedProvingJob>(provingJobComparator),
     [ProvingRequestType.EMPTY_BLOCK_ROOT_ROLLUP]: new PriorityMemoryQueue<EnqueuedProvingJob>(provingJobComparator),
 
     [ProvingRequestType.BASE_PARITY]: new PriorityMemoryQueue<EnqueuedProvingJob>(provingJobComparator),
@@ -644,6 +644,7 @@ function proofTypeComparator(a: ProvingRequestType, b: ProvingRequestType): -1 |
  */
 const PROOF_TYPES_IN_PRIORITY_ORDER: ProvingRequestType[] = [
   ProvingRequestType.BLOCK_ROOT_ROLLUP,
+  ProvingRequestType.SINGLE_TX_BLOCK_ROOT_ROLLUP,
   ProvingRequestType.BLOCK_MERGE_ROLLUP,
   ProvingRequestType.ROOT_ROLLUP,
   ProvingRequestType.MERGE_ROLLUP,
@@ -654,5 +655,4 @@ const PROOF_TYPES_IN_PRIORITY_ORDER: ProvingRequestType[] = [
   ProvingRequestType.ROOT_PARITY,
   ProvingRequestType.BASE_PARITY,
   ProvingRequestType.EMPTY_BLOCK_ROOT_ROLLUP,
-  ProvingRequestType.PRIVATE_KERNEL_EMPTY,
 ];
