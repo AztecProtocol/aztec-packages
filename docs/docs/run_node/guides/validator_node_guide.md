@@ -1,9 +1,7 @@
 ---
 sidebar_position: 0
-title: How to run a validator node
+title: How to run validator node
 ---
-
-# Aztec Validator Node Guide
 
 ## Introduction
 
