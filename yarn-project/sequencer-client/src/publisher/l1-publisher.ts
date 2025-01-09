@@ -691,7 +691,7 @@ export class L1Publisher {
       {
         blobs: proposeTxArgs.blobs.map(b => b.dataWithZeros),
         kzg,
-        maxFeePerBlobGas: gasPrice.maxFeePerBlobGas,
+        maxFeePerBlobGas: gasPrice.maxFeePerBlobGas ?? 10000000000n,
       },
     );
     this.log.error(`Rollup process tx reverted. ${errorMsg}`, undefined, {
