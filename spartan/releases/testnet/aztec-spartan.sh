@@ -369,10 +369,24 @@ update_node() {
 }
 
 show_logs() {
+    local logs_param="$1"
+
+    if [ -z "$logs_param" ]; then
+        logs_param="100"
+    fi
+
     echo -e "${BLUE}Fetching logs...${NC}"
-    if ! docker compose logs -f; then
-        echo -e "${RED}Failed to fetch logs${NC}"
-        exit 1
+
+    if [ "$logs_param" = "all" ]; then
+        docker compose logs -f
+    else
+        if ! [[ "$logs_param" =~ ^[0-9]+$ ]]; then
+            echo -e "${RED}Invalid logs parameter: $logs_param. Please specify a number or 'all'.${NC}"
+            exit 1
+        fi
+
+        echo -e "${YELLOW}Showing last $logs_param lines of logs (and following)...${NC}"
+        docker compose logs --no-color -f --tail="$logs_param"
     fi
 }
 
@@ -393,7 +407,7 @@ case "$1" in
         update_node
         ;;
     "logs")
-        show_logs
+        show_logs "$2"
         ;;
     *)
         echo "Usage: $0 {config|start|stop|update|logs}"
@@ -402,8 +416,7 @@ case "$1" in
         echo "  start   - Start Aztec Testnet node"
         echo "  stop    - Stop Aztec Testnet node"
         echo "  update  - Update Aztec Testnet node images"
-        echo "  logs    - Show Aztec Testnet node logs"
+        echo "  logs     - Show Aztec Testnet node logs. You can optionally specify a number (last N lines) or 'all'"
         exit 1
         ;;
 esac
-
