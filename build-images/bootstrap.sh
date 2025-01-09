@@ -6,6 +6,14 @@ version="3.0"
 arch=$(arch)
 branch=${BRANCH:-$(git rev-parse --abbrev-ref HEAD)}
 
+function docker_login {
+  if [ -z "$DOCKERHUB_PASSWORD" ]; then
+    echo "No DOCKERHUB_PASSWORD provided."
+    exit 1
+  fi
+  echo $DOCKERHUB_PASSWORD | docker login -u aztecprotocolci --password-stdin
+}
+
 function build_images {
   for target in build devbox sysbox; do
     docker build -t aztecprotocol/$target:$version-$arch --target $target .
@@ -41,14 +49,15 @@ function build_ec2 {
 
   ssh -F $ci3/aws/build_instance_ssh_config ubuntu@$ip "
     set -euo pipefail
+    export DOCKERHUB_PASSWORD=$DOCKERHUB_PASSWORD
     mkdir aztec-packages
     cd aztec-packages
     git init . &>/dev/null
     git remote add origin https://github.com/aztecprotocol/aztec-packages
     git fetch --depth 1 origin $current_commit
     git checkout FETCH_HEAD
-    ./build-images/bootstrap.sh
-    ./build-images/bootstrap.sh push-images
+    ./build-images/bootstrap.sh || bash
+    ./build-images/bootstrap.sh push-images || bash
   "
 }
 
@@ -73,16 +82,20 @@ case "$cmd" in
     build_images
     ;;
   "push-images")
+    docker_login
     push_images
     ;;
   "ci")
+    docker_login
     build_all
     update_manifest
     ;;
   "ec2-amd64")
+    docker_login
     build_ec2 128 amd64
     ;;
   "ec2-arm64")
+    docker_login
     build_ec2 64 arm64
     ;;
   *)
