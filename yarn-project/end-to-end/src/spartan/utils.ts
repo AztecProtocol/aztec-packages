@@ -1,4 +1,4 @@
-import { createAztecNodeClient, createLogger, sleep } from '@aztec/aztec.js';
+import { createAztecNodeClient, createLogger, retryUntil, sleep } from '@aztec/aztec.js';
 import { type RollupCheatCodes } from '@aztec/aztec.js/ethereum';
 import type { Logger } from '@aztec/foundation/log';
 import type { SequencerConfig } from '@aztec/sequencer-client';
@@ -331,6 +331,25 @@ export function applyProverKill({
   });
 }
 
+export function applyProverBrokerKill({
+  namespace,
+  spartanDir,
+  logger,
+}: {
+  namespace: string;
+  spartanDir: string;
+  logger: Logger;
+}) {
+  return installChaosMeshChart({
+    instanceName: 'prover-broker-kill',
+    targetNamespace: namespace,
+    valuesFile: 'prover-broker-kill.yaml',
+    helmChartDir: getChartDir(spartanDir, 'aztec-chaos-scenarios'),
+    clean: true,
+    logger,
+  });
+}
+
 export function applyBootNodeFailure({
   namespace,
   spartanDir,
@@ -411,6 +430,43 @@ export async function awaitL2BlockNumber(
   } else {
     logger.info(`Reached L2 Block ${tips.pending}`);
   }
+}
+
+export async function awaitProvenChainAdvance(
+  rollupCheatCodes: RollupCheatCodes,
+  timeoutSeconds: number,
+  logger: Logger,
+): Promise<true> {
+  logger.info(`Waiting for L2 proven chain to advance`);
+
+  let { proven, pending } = await rollupCheatCodes.getTips();
+
+  logger.info(`Initial pending chain tip: ${pending}`);
+  logger.info(`Initial proven chain tip: ${proven}`);
+
+  return retryUntil(
+    async () => {
+      const newTips = await rollupCheatCodes.getTips();
+
+      if (newTips.pending > pending) {
+        logger.info(`Pending chain has advanced: ${pending} -> ${newTips.pending}`);
+      } else if (newTips.pending < pending) {
+        logger.error(`Pending chain has been pruned: ${pending} -> ${newTips.pending}`);
+        throw new Error('Reorg detected');
+      }
+
+      if (newTips.proven > proven) {
+        logger.info(`Proven chain has advanced: ${proven} -> ${newTips.proven}`);
+        return true;
+      }
+
+      proven = newTips.proven;
+      pending = newTips.pending;
+    },
+    'await proven chain',
+    timeoutSeconds,
+    1,
+  );
 }
 
 export async function restartBot(namespace: string, logger: Logger) {
