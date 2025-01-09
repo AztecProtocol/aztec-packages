@@ -296,7 +296,7 @@ export const makeProvingJobId = (epochNumber: number, type: ProvingRequestType, 
 
 export const getEpochFromProvingJobId = (id: ProvingJobId) => {
   const components = id.split(':');
-  const epochNumber = parseInt(components[0], 10);
+  const epochNumber = components.length < 1 ? Number.NaN : parseInt(components[0], 10);
   if (!Number.isSafeInteger(epochNumber) || epochNumber < 0) {
     throw new Error(`Proving Job ID ${id} does not contain valid epoch`);
   }
