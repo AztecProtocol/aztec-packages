@@ -268,7 +268,9 @@ comptime fn generate_process_log() -> Quoted {
             );
         }
     } else {
-        panic(f"No notes defined")
+        quote {
+            panic(f"No notes defined")
+        }
     };
 
     quote {
