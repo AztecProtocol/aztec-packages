@@ -306,8 +306,9 @@ services:
         env_file: .env
         image: ${IMAGE}
         ports:
-            - ${P2P_PORT}:${P2P_PORT}
-            - ${PORT}:${PORT}
+            - ${P2P_PORT}:${P2P_PORT}/tcp
+            - ${P2P_PORT}:${P2P_PORT}/udp
+            - ${PORT}:${PORT}/tcp
         entrypoint: >
             sh -c '
 
