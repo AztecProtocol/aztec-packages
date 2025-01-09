@@ -37,14 +37,12 @@ Initializers are commonly used to set an admin, such as this example:
 
 #include_code constructor /noir-projects/noir-contracts/contracts/token_contract/src/main.nr rust
 
-Here, the initializer is writing to storage. It can also call another function. Learn more about calling functions from functions [here](./call_functions.md).
+Here, the initializer is writing to storage. It can also call another function. Learn more about calling functions from functions [here](./call_contracts.md).
 
 ## Multiple initializers
 
 You can set multiple functions as an initializer function simply by annotating each of them with `#[initializer]`. You can then decide which one to call when you are deploying the contract.
 
 Calling any one of the functions annotated with `#[initializer]` will mark the contract as initialized.
-
-See [this page of the protocol specs](../../../../protocol-specs/contract-deployment/instances.md#initialization) for more info about what marking a function as initialized means.
 
 To see an initializer in action, follow the [Counter codealong tutorial](../../../../tutorials/codealong/contract_tutorials/counter_contract.md).

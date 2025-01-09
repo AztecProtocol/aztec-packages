@@ -6,9 +6,10 @@
 #include "barretenberg/plonk_honk_shared/execution_trace/ultra_execution_trace.hpp"
 #include "barretenberg/relations/relation_parameters.hpp"
 #include "barretenberg/stdlib_circuit_builders/mega_zk_flavor.hpp"
-#include "barretenberg/stdlib_circuit_builders/ultra_flavor.hpp"
 #include "barretenberg/stdlib_circuit_builders/ultra_keccak_flavor.hpp"
+#include "barretenberg/stdlib_circuit_builders/ultra_keccak_zk_flavor.hpp"
 #include "barretenberg/stdlib_circuit_builders/ultra_rollup_flavor.hpp"
+#include "barretenberg/stdlib_circuit_builders/ultra_zk_flavor.hpp"
 #include "barretenberg/trace_to_polynomials/trace_to_polynomials.hpp"
 
 namespace bb {
@@ -24,7 +25,6 @@ namespace bb {
 template <IsUltraFlavor Flavor> class DeciderProvingKey_ {
     using Circuit = typename Flavor::CircuitBuilder;
     using ProvingKey = typename Flavor::ProvingKey;
-    using VerificationKey = typename Flavor::VerificationKey;
     using CommitmentKey = typename Flavor::CommitmentKey;
     using FF = typename Flavor::FF;
     using ProverPolynomials = typename Flavor::ProverPolynomials;
@@ -154,7 +154,7 @@ template <IsUltraFlavor Flavor> class DeciderProvingKey_ {
             PROFILE_THIS_NAME("constructing lookup table polynomials");
 
             construct_lookup_table_polynomials<Flavor>(
-                proving_key.polynomials.get_tables(), circuit, dyadic_circuit_size);
+                proving_key.polynomials.get_tables(), circuit, dyadic_circuit_size, MASKING_OFFSET);
         }
 
         {

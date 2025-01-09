@@ -21,6 +21,10 @@ export function describeAztecSet(
       set = store.openSet<string>('test');
     });
 
+    afterEach(async () => {
+      await store.delete();
+    });
+
     async function has(key: string) {
       return isSyncStore(store) && !forceAsync
         ? (set as AztecSet<string>).has(key)

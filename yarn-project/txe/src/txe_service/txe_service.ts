@@ -15,7 +15,8 @@ import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { type Logger } from '@aztec/foundation/log';
 import { KeyStore } from '@aztec/key-store';
 import { openTmpStore } from '@aztec/kv-store/lmdb';
-import { getCanonicalProtocolContract, protocolContractNames } from '@aztec/protocol-contracts';
+import { protocolContractNames } from '@aztec/protocol-contracts';
+import { getCanonicalProtocolContract } from '@aztec/protocol-contracts/bundle';
 import { enrichPublicSimulationError } from '@aztec/pxe';
 import { ExecutionNoteCache, PackedValuesCache, type TypedOracle } from '@aztec/simulator';
 import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
@@ -333,15 +334,6 @@ export class TXEService {
     return toForeignCallResult([toArray(witness.toFields())]);
   }
 
-  async getSiblingPath(blockNumber: ForeignCallSingle, treeId: ForeignCallSingle, leafIndex: ForeignCallSingle) {
-    const result = await this.typedOracle.getSiblingPath(
-      fromSingle(blockNumber).toNumber(),
-      fromSingle(treeId).toNumber(),
-      fromSingle(leafIndex),
-    );
-    return toForeignCallResult([toArray(result)]);
-  }
-
   async getNotes(
     storageSlot: ForeignCallSingle,
     numSelects: ForeignCallSingle,
@@ -595,6 +587,37 @@ export class TXEService {
   async syncNotes() {
     await this.typedOracle.syncNotes();
     return toForeignCallResult([]);
+  }
+
+  async store(contract: ForeignCallSingle, key: ForeignCallSingle, values: ForeignCallArray) {
+    const processedContract = AztecAddress.fromField(fromSingle(contract));
+    const processedKey = fromSingle(key);
+    const processedValues = fromArray(values);
+    await this.typedOracle.store(processedContract, processedKey, processedValues);
+    return toForeignCallResult([]);
+  }
+
+  /**
+   * Load data from pxe db.
+   * @param contract - The contract address.
+   * @param key - The key to load.
+   * @param tSize - The size of the serialized object to return.
+   * @returns The data found flag and the serialized object concatenated in one array.
+   */
+  async load(contract: ForeignCallSingle, key: ForeignCallSingle, tSize: ForeignCallSingle) {
+    const processedContract = AztecAddress.fromField(fromSingle(contract));
+    const processedKey = fromSingle(key);
+    const values = await this.typedOracle.load(processedContract, processedKey);
+    // We are going to return a Noir Option struct to represent the possibility of null values. Options are a struct
+    // with two fields: `some` (a boolean) and `value` (a field array in this case).
+    if (values === null) {
+      // No data was found so we set `some` to 0 and pad `value` with zeros get the correct return size.
+      const processedTSize = fromSingle(tSize).toNumber();
+      return toForeignCallResult([toSingle(new Fr(0)), toArray(Array(processedTSize).fill(new Fr(0)))]);
+    } else {
+      // Data was found so we set `some` to 1 and return it along with `value`.
+      return toForeignCallResult([toSingle(new Fr(1)), toArray(values)]);
+    }
   }
 
   // AVM opcodes

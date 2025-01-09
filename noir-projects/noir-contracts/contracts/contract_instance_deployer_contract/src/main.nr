@@ -112,7 +112,10 @@ contract ContractInstanceDeployer {
             version: 1,
         };
 
-        let payload = event.serialize();
+        // This is a hack to get around there being two implementations of `Serialize`.
+        // Can be replaced with the below once fixed
+        // let payload = event.serialize();
+        let payload = Serialize::<15>::serialize(event);
         dep::aztec::oracle::debug_log::debug_log_format("ContractInstanceDeployed: {}", payload);
 
         let padded_log = array_concat(payload, [0; 3]);

@@ -97,25 +97,22 @@ export class AvmSimulator {
    * Fetch the bytecode and execute it in the current context.
    */
   public async execute(): Promise<AvmContractCallResult> {
-    const bytecode = await this.context.persistableState.getBytecode(this.context.environment.address);
-    if (!bytecode) {
-      // revert, consuming all gas
-      const message = `No bytecode found at: ${this.context.environment.address}. Reverting...`;
-      const fnName = await this.context.persistableState.getPublicFunctionDebugName(this.context.environment);
-      const revertReason = new AvmRevertReason(
-        message,
-        /*failingFunction=*/ {
-          contractAddress: this.context.environment.address,
-          functionName: fnName,
-        },
-        /*noirCallStack=*/ [],
+    let bytecode: Buffer | undefined;
+    try {
+      bytecode = await this.context.persistableState.getBytecode(this.context.environment.address);
+    } catch (err: any) {
+      if (!(err instanceof AvmExecutionError || err instanceof SideEffectLimitReachedError)) {
+        this.log.error(`Unknown error thrown by AVM during bytecode retrieval: ${err}`);
+        throw err;
+      }
+      return await this.handleFailureToRetrieveBytecode(
+        `Bytecode retrieval for contract '${this.context.environment.address}' failed with ${err}. Reverting...`,
       );
-      this.log.warn(message);
-      return new AvmContractCallResult(
-        /*reverted=*/ true,
-        /*output=*/ [],
-        /*gasLeft=*/ { l2Gas: 0, daGas: 0 },
-        revertReason,
+    }
+
+    if (!bytecode) {
+      return await this.handleFailureToRetrieveBytecode(
+        `No bytecode found at: ${this.context.environment.address}. Reverting...`,
       );
     }
 
@@ -183,26 +180,58 @@ export class AvmSimulator {
       const revertReason = reverted ? await revertReasonFromExplicitRevert(output, this.context) : undefined;
       const results = new AvmContractCallResult(reverted, output, machineState.gasLeft, revertReason);
       this.log.debug(`Context execution results: ${results.toString()}`);
+      this.log.debug(`Executed ${instrCounter} instructions`);
 
       this.tallyPrintFunction();
       // Return results for processing by calling context
       return results;
     } catch (err: any) {
       this.log.verbose('Exceptional halt (revert by something other than REVERT opcode)');
-      if (!(err instanceof AvmExecutionError || err instanceof SideEffectLimitReachedError)) {
+      // FIXME: weird that we have to do this OutOfGasError check because:
+      // 1. OutOfGasError is an AvmExecutionError, so that check should cover both
+      // 2. We should at least be able to do instanceof OutOfGasError instead of checking the constructor name
+      if (
+        !(
+          err.constructor.name == 'OutOfGasError' ||
+          err instanceof AvmExecutionError ||
+          err instanceof SideEffectLimitReachedError
+        )
+      ) {
         this.log.error(`Unknown error thrown by AVM: ${err}`);
         throw err;
       }
 
       const revertReason = await revertReasonFromExceptionalHalt(err, this.context);
+      // Exceptional halts consume all allocated gas
+      const noGasLeft = { l2Gas: 0, daGas: 0 };
       // Note: "exceptional halts" cannot return data, hence [].
-      const results = new AvmContractCallResult(/*reverted=*/ true, /*output=*/ [], machineState.gasLeft, revertReason);
+      const results = new AvmContractCallResult(/*reverted=*/ true, /*output=*/ [], noGasLeft, revertReason);
       this.log.debug(`Context execution results: ${results.toString()}`);
 
       this.tallyPrintFunction();
       // Return results for processing by calling context
       return results;
     }
+  }
+
+  private async handleFailureToRetrieveBytecode(message: string): Promise<AvmContractCallResult> {
+    // revert, consuming all gas
+    const fnName = await this.context.persistableState.getPublicFunctionDebugName(this.context.environment);
+    const revertReason = new AvmRevertReason(
+      message,
+      /*failingFunction=*/ {
+        contractAddress: this.context.environment.address,
+        functionName: fnName,
+      },
+      /*noirCallStack=*/ [],
+    );
+    this.log.warn(message);
+    return new AvmContractCallResult(
+      /*reverted=*/ true,
+      /*output=*/ [],
+      /*gasLeft=*/ { l2Gas: 0, daGas: 0 }, // consumes all allocated gas
+      revertReason,
+    );
   }
 
   private tallyInstruction(pc: number, opcode: string, gasUsed: Gas) {

@@ -31,6 +31,7 @@ describe('prover/orchestrator/blocks', () => {
 
     it('builds a block with 1 transaction', async () => {
       const txs = [context.makeProcessedTx(1)];
+      await context.setEndTreeRoots(txs);
 
       // This will need to be a 2 tx block
       context.orchestrator.startNewEpoch(1, 1, 1);
@@ -45,7 +46,7 @@ describe('prover/orchestrator/blocks', () => {
 
     it('builds a block concurrently with transaction simulation', async () => {
       const txs = times(4, i => context.makeProcessedTx(i + 1));
-
+      await context.setEndTreeRoots(txs);
       const l1ToL2Messages = range(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP, 1 + 0x400).map(fr);
 
       context.orchestrator.startNewEpoch(1, 1, 1);

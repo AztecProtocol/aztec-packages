@@ -52,10 +52,6 @@ module.exports = {
       {
         patterns: [
           {
-            group: ['client-dest'],
-            message: "Fix this absolute garbage import. It's your duty to solve it before it spreads.",
-          },
-          {
             group: ['dest'],
             message: 'You should not be importing from a build directory. Did you accidentally do a relative import?',
           },
@@ -78,5 +74,5 @@ module.exports = {
     // this unfortunately doesn't block `fit` and `fdescribe`
     'no-only-tests/no-only-tests': ['error'],
   },
-  ignorePatterns: ['node_modules', 'dest*', 'dist', '*.js', '.eslintrc.cjs', '.eslintrc.*.cjs'],
+  ignorePatterns: ['node_modules', 'dest*', 'dist', '*.js', 'scripts*', '.eslintrc.cjs', '.eslintrc.*.cjs'],
 };

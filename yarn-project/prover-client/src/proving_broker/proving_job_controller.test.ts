@@ -23,6 +23,7 @@ describe('ProvingJobController', () => {
         type: ProvingRequestType.BASE_PARITY,
         inputs: makeBaseParityInputs(),
       },
+      42,
       0,
       prover,
       onComplete,

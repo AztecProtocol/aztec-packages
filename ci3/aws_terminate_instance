@@ -1,0 +1,14 @@
+#!/usr/bin/env bash
+source $(git rev-parse --show-toplevel)/ci3/source
+
+iid=$1
+sir=${2:-}
+
+export AWS_DEFAULT_REGION=us-east-2
+
+echo "Terminating instance: $iid..."
+dump_fail aws ec2 terminate-instances --instance-ids $iid > /dev/null
+
+if [ -n "$sir" ]; then
+    dump_fail aws ec2 cancel-spot-instance-requests --spot-instance-request-ids $sir > /dev/null
+fi

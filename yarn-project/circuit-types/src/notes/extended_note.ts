@@ -1,7 +1,7 @@
 import { AztecAddress, Fr } from '@aztec/circuits.js';
 import { NoteSelector } from '@aztec/foundation/abi';
 import { schemas } from '@aztec/foundation/schemas';
-import { BufferReader } from '@aztec/foundation/serialize';
+import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 import { bufferToHex, hexToBuffer } from '@aztec/foundation/string';
 
 import { z } from 'zod';
@@ -29,25 +29,25 @@ export class ExtendedNote {
   ) {}
 
   toBuffer(): Buffer {
-    return Buffer.concat([
-      this.note.toBuffer(),
-      this.owner.toBuffer(),
-      this.contractAddress.toBuffer(),
-      this.storageSlot.toBuffer(),
-      this.noteTypeId.toBuffer(),
-      this.txHash.buffer,
+    return serializeToBuffer([
+      this.note,
+      this.owner,
+      this.contractAddress,
+      this.storageSlot,
+      this.noteTypeId,
+      this.txHash,
     ]);
   }
 
   static fromBuffer(buffer: Buffer | BufferReader) {
     const reader = BufferReader.asReader(buffer);
 
-    const note = Note.fromBuffer(reader);
-    const owner = AztecAddress.fromBuffer(reader);
-    const contractAddress = AztecAddress.fromBuffer(reader);
-    const storageSlot = Fr.fromBuffer(reader);
+    const note = reader.readObject(Note);
+    const owner = reader.readObject(AztecAddress);
+    const contractAddress = reader.readObject(AztecAddress);
+    const storageSlot = reader.readObject(Fr);
     const noteTypeId = reader.readObject(NoteSelector);
-    const txHash = new TxHash(reader.readBytes(TxHash.SIZE));
+    const txHash = reader.readObject(TxHash);
 
     return new this(note, owner, contractAddress, storageSlot, noteTypeId, txHash);
   }
@@ -124,14 +124,14 @@ export class UniqueNote extends ExtendedNote {
   }
 
   override toBuffer(): Buffer {
-    return Buffer.concat([
-      this.note.toBuffer(),
-      this.owner.toBuffer(),
-      this.contractAddress.toBuffer(),
-      this.storageSlot.toBuffer(),
-      this.noteTypeId.toBuffer(),
-      this.txHash.buffer,
-      this.nonce.toBuffer(),
+    return serializeToBuffer([
+      this.note,
+      this.owner,
+      this.contractAddress,
+      this.storageSlot,
+      this.noteTypeId,
+      this.txHash,
+      this.nonce,
     ]);
   }
 
@@ -150,13 +150,13 @@ export class UniqueNote extends ExtendedNote {
   static override fromBuffer(buffer: Buffer | BufferReader) {
     const reader = BufferReader.asReader(buffer);
 
-    const note = Note.fromBuffer(reader);
-    const owner = AztecAddress.fromBuffer(reader);
-    const contractAddress = AztecAddress.fromBuffer(reader);
-    const storageSlot = Fr.fromBuffer(reader);
+    const note = reader.readObject(Note);
+    const owner = reader.readObject(AztecAddress);
+    const contractAddress = reader.readObject(AztecAddress);
+    const storageSlot = reader.readObject(Fr);
     const noteTypeId = reader.readObject(NoteSelector);
-    const txHash = new TxHash(reader.readBytes(TxHash.SIZE));
-    const nonce = Fr.fromBuffer(reader);
+    const txHash = reader.readObject(TxHash);
+    const nonce = reader.readObject(Fr);
 
     return new this(note, owner, contractAddress, storageSlot, noteTypeId, txHash, nonce);
   }

@@ -1,4 +1,5 @@
-import { type BlockHeader, type Fr, type Proof, type RootRollupPublicInputs } from '@aztec/circuits.js';
+import { type BlockHeader, type Fr, type Proof } from '@aztec/circuits.js';
+import { type RootRollupPublicInputs } from '@aztec/circuits.js/rollup';
 
 import { type L2Block } from '../l2_block.js';
 import { type BlockBuilder } from './block-builder.js';
@@ -27,4 +28,7 @@ export interface EpochProver extends Omit<BlockBuilder, 'setBlockCompleted'> {
 
   /** Returns the block assembled at a given index (zero-based) within the epoch. */
   getBlock(index: number): L2Block;
+
+  /** Called when no longer required, cleans up internal resources */
+  stop(): Promise<void>;
 }

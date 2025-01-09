@@ -1,7 +1,9 @@
 import { type AztecAddress, EthAddress, retryUntil } from '@aztec/aztec.js';
-import { isGenerateTestDataEnabled, switchGenerateProtocolCircuitTestData } from '@aztec/foundation/testing';
+import { getTestData, isGenerateTestDataEnabled } from '@aztec/foundation/testing';
+import { updateProtocolCircuitSampleInputs } from '@aztec/foundation/testing/files';
 import { RewardDistributorAbi, RollupAbi, TestERC20Abi } from '@aztec/l1-artifacts';
 
+import TOML from '@iarna/toml';
 import '@jest/globals';
 import { type Chain, type GetContractReturnType, type HttpTransport, type PublicClient, getContract } from 'viem';
 
@@ -163,8 +165,6 @@ describe('full_prover', () => {
   it('generates sample Prover.toml files if generate test data is on', async () => {
     if (!isGenerateTestDataEnabled() || realProofs) {
       return;
-    } else {
-      switchGenerateProtocolCircuitTestData();
     }
 
     // Create the two transactions
@@ -245,7 +245,25 @@ describe('full_prover', () => {
     // And wait for the first pair of txs to be proven
     logger.info(`Awaiting proof for the previous epoch`);
     await Promise.all(txs.map(tx => tx.wait({ timeout: 300, interval: 10, proven: true, provenTimeout: 1500 })));
-    switchGenerateProtocolCircuitTestData();
+
+    [
+      'private-kernel-init',
+      'private-kernel-inner',
+      'private-kernel-tail',
+      'private-kernel-tail-to-public',
+      'private-kernel-reset',
+      'rollup-base-private',
+      'rollup-base-public',
+      'rollup-merge',
+      'rollup-block-root',
+      'rollup-block-merge',
+      'rollup-root',
+    ].forEach(circuitName => {
+      const data = getTestData(circuitName);
+      if (data) {
+        updateProtocolCircuitSampleInputs(circuitName, TOML.stringify(data[0] as any));
+      }
+    });
   });
 
   it('rejects txs with invalid proofs', async () => {

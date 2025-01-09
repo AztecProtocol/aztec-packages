@@ -92,7 +92,7 @@ foundry:
   LET FOUNDRY_BIN_DIR = "/root/.foundry/bin"
 
   RUN curl -L https://foundry.paradigm.xyz | bash \
-      && $FOUNDRY_BIN_DIR/foundryup -v nightly-$FOUNDRY_TAG \
+      && $FOUNDRY_BIN_DIR/foundryup -i nightly-$FOUNDRY_TAG \
       && mkdir -p /opt/foundry/bin \
       && for t in forge cast anvil chisel; do \
           mv $FOUNDRY_BIN_DIR/$t /opt/foundry/bin/$t; \
@@ -108,7 +108,7 @@ foundry:
 
 ########################################################################################################################
 # This image contains *just* what's needed to perform a full build of the aztec project.
-# It acts as the base image for all CI builds, and we build on it to produce a developer box.
+# This is not sufficient for testing everything as per in CI, as that requires docker-in-docker (see ci image).
 build:
   BUILD +wasi-sdk
   BUILD +foundry
@@ -125,6 +125,8 @@ build:
           netcat-openbsd \
           parallel \
           xz-utils \
+          lsof \
+          xxd \
           # C++ (clang=18, which we will move to. 16 is for current build.)
           build-essential \
           cmake \
@@ -154,21 +156,21 @@ build:
   COPY +foundry/opt/foundry /opt/foundry
   ENV PATH="/opt/foundry/bin:$PATH"
 
-  # Install rust and cross-compilers. Noir specifically uses 1.74.1.
+  # Install rust and cross-compilers. Noir specifically uses 1.75.0.
   # We remove base-build's rust first.
   # We give everyone write ownership so downstream boxes can write.
   ENV RUSTUP_HOME=/opt/rust/rustup
   ENV CARGO_HOME=/opt/rust/cargo
   ENV PATH="/opt/rust/cargo/bin:$PATH"
   RUN apt remove -y cargo rustc
-  RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain 1.74.1 && \
+  RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain 1.75.0 && \
       rustup target add wasm32-unknown-unknown wasm32-wasi aarch64-apple-darwin && \
       chmod -R a+w /opt/rust
 
-  # Install yarn
-  RUN npm install --global yarn
+  # Install corepack and yarn.
+  RUN npm install --global corepack && corepack enable && corepack install --global yarn@4.5.2
 
-  # Install solhint
+  # Install solhint.
   RUN npm install --global solhint
 
   # Install aws cli.
@@ -192,14 +194,48 @@ build:
   RUN curl -sL https://github.com/mikefarah/yq/releases/download/v4.42.1/yq_linux_$(dpkg --print-architecture) \
           -o /usr/local/bin/yq && chmod +x /usr/local/bin/yq
 
+  # Install playwright for browser testing.
+  RUN npx -y playwright@1.49 install --with-deps
+
   ARG TARGETARCH
   # NOTE: bump this version when doing non-backwards compatible changes
-  SAVE IMAGE --push aztecprotocol/build:1.0-$TARGETARCH
+  SAVE IMAGE --push aztecprotocol/build:2.0-$TARGETARCH
+
+build-manifest:
+  LET VERSION = 2.0
+  ARG TARGETARCH
+  WAIT
+    BUILD +build
+  END
+  LOCALLY
+	RUN docker push aztecprotocol/build:$VERSION-$TARGETARCH
+	RUN docker manifest rm aztecprotocol/build:$VERSION || true
+	RUN docker manifest create aztecprotocol/build:$VERSION \
+		--amend aztecprotocol/build:$VERSION-amd64 \
+		--amend aztecprotocol/build:$VERSION-arm64
+	RUN docker manifest push aztecprotocol/build:$VERSION
 
 from-registry:
   ARG TARGETARCH
   # NOTE: match version string above
-  FROM aztecprotocol/build:1.0-$TARGETARCH
+  FROM aztecprotocol/build:2.0-$TARGETARCH
+
+########################################################################################################################
+# This builds on the build image. It acts as the image for all CI builds.
+# It adds docker-in-docker which is required for running certain tests.
+# We set CI=1, which triggers bootstrap to also run tests, makes yarn default to immutable, etc.
+ci:
+  FROM +build
+
+  # Install docker using docker-in-docker dev-container feature install script, modified to permit noble.
+  COPY install-docker.sh /install-docker.sh
+  RUN /install-docker.sh && rm /install-docker.sh
+
+  ENV CI=1
+
+  ARG TARGETARCH
+  SAVE IMAGE --push aztecprotocol/ci:2.0-$TARGETARCH
+  SAVE IMAGE --push aztecprotocol/ci:2.0
 
 ########################################################################################################################
 # We want to produce downstream images: devbox and sysbox. This image is the base image for each.
@@ -208,7 +244,7 @@ basebox:
   BUILD +osxcross
   BUILD +build
   FROM +build
-  RUN yes | unminimize
+  RUN apt install unminimize && yes | unminimize
 
   # Install stuff devs need.
   RUN apt update && \
@@ -233,6 +269,7 @@ basebox:
           tmux \
           vim \
           zsh \
+          inotify-tools \
       && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
 
   # Install earthly.
@@ -270,7 +307,7 @@ basebox:
   RUN echo '%sudo ALL=(ALL) NOPASSWD: ALL' >> /etc/sudoers
 
   ARG TARGETARCH
-  SAVE IMAGE --push aztecprotocol/cache:basebox-1.0-$TARGETARCH
+  SAVE IMAGE --push aztecprotocol/cache:basebox-2.0-$TARGETARCH
 
 ########################################################################################################################
 # This devbox container can be used to provide a full development environment.
@@ -323,12 +360,12 @@ devbox:
   CMD ["/bin/zsh"]
 
   ARG TARGETARCH
-  SAVE IMAGE --push aztecprotocol/devbox:1.1-$TARGETARCH
+  SAVE IMAGE --push aztecprotocol/devbox:2.2-$TARGETARCH
   # Save it without the arch tag as this is what's referenced in devcontainer.json
-  SAVE IMAGE aztecprotocol/devbox:1.1
+  SAVE IMAGE aztecprotocol/devbox:2.2
 
 devbox-manifest:
-  LET VERSION = 1.1
+  LET VERSION = 2.1
   ARG TARGETARCH
   WAIT
     BUILD +devbox
@@ -428,5 +465,46 @@ sysbox:
   EXPOSE 22
 
   ARG TARGETARCH
-  SAVE IMAGE aztecprotocol/sysbox:1.1-$TARGETARCH
-  SAVE IMAGE aztecprotocol/sysbox:1.1
+  SAVE IMAGE aztecprotocol/sysbox:2.1-$TARGETARCH
+  SAVE IMAGE aztecprotocol/sysbox:2.1
+
+########################################################################################################################
+# Bases for images we run in e.g. docker or kubernetes
+
+aztec-base:
+  FROM ubuntu:noble
+  RUN apt update && apt install nodejs curl jq -y && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
+  ARG TARGETARCH
+  SAVE IMAGE --push aztecprotocol/aztec-base:v1.0-$TARGETARCH
+
+# Add a new target for end-to-end-base that corresponds to the portion of Dockerfile.end-to-end before COPY /usr/src
+end-to-end-base:
+  FROM ubuntu:noble
+  # Add our dev testing dependencies.
+  RUN apt-get update && apt-get install -y software-properties-common \
+    && add-apt-repository ppa:xtradeb/apps -y && apt-get update \
+    && apt-get install -y wget gnupg \
+    && wget -q -O - https://dl-ssl.google.com/linux/linux_signing_key.pub | apt-key add - \
+    && echo "deb [arch=$(dpkg --print-architecture)] http://dl.google.com/linux/chrome/deb/ stable main" >> /etc/apt/sources.list.d/google-chrome.list \
+    && apt update && apt install curl chromium nodejs npm netcat-openbsd -y \
+    && rm -rf /var/lib/apt/lists/* \
+    && mkdir -p /usr/local/bin \
+    && curl -fsSL -o /usr/local/bin/kubectl "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl" \
+    && chmod +x /usr/local/bin/kubectl \
+    && curl -fsSL -o get_helm.sh https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 \
+    && chmod +x get_helm.sh \
+    && ./get_helm.sh \
+    && rm get_helm.sh \
+    && npm install --global corepack && corepack enable && corepack install --global yarn@4.5.2
+  ARG TARGETARCH
+  SAVE IMAGE --push aztecprotocol/end-to-end-base:v1.0-$TARGETARCH
+
+all-ci:
+  # Build all images needed by ci, pushing them to the registry.
+  BUILD +base-build
+  BUILD +wasi-sdk
+  BUILD +foundry
+  BUILD +build
+  BUILD +ci
+  BUILD +aztec-base
+  BUILD +end-to-end-base

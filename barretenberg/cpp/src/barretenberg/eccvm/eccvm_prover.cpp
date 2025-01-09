@@ -3,9 +3,9 @@
 #include "barretenberg/commitment_schemes/commitment_key.hpp"
 #include "barretenberg/commitment_schemes/shplonk/shplemini.hpp"
 #include "barretenberg/commitment_schemes/shplonk/shplonk.hpp"
+#include "barretenberg/commitment_schemes/small_subgroup_ipa/small_subgroup_ipa.hpp"
 #include "barretenberg/common/ref_array.hpp"
 #include "barretenberg/honk/proof_system/logderivative_library.hpp"
-#include "barretenberg/honk/proof_system/permutation_library.hpp"
 #include "barretenberg/plonk_honk_shared/library/grand_product_library.hpp"
 #include "barretenberg/relations/permutation_relation.hpp"
 #include "barretenberg/sumcheck/sumcheck.hpp"
@@ -104,7 +104,7 @@ void ECCVMProver::execute_relation_check_rounds()
         gate_challenges[idx] = transcript->template get_challenge<FF>("Sumcheck:gate_challenge_" + std::to_string(idx));
     }
 
-    zk_sumcheck_data = ZKSumcheckData<Flavor>(key->log_circuit_size, transcript, key->commitment_key);
+    zk_sumcheck_data = ZKData(key->log_circuit_size, transcript, key->commitment_key);
 
     sumcheck_output = sumcheck.prove(key->polynomials, relation_parameters, alpha, gate_challenges, zk_sumcheck_data);
 }
@@ -122,6 +122,11 @@ void ECCVMProver::execute_pcs_rounds()
     using Shplonk = ShplonkProver_<Curve>;
     using OpeningClaim = ProverOpeningClaim<Curve>;
 
+    SmallSubgroupIPA small_subgroup_ipa_prover(zk_sumcheck_data,
+                                               sumcheck_output.challenge,
+                                               sumcheck_output.claimed_libra_evaluation,
+                                               transcript,
+                                               key->commitment_key);
     // Execute the Shplemini (Gemini + Shplonk) protocol to produce a univariate opening claim for the multilinear
     // evaluations produced by Sumcheck
     const OpeningClaim multivariate_to_univariate_opening_claim =
@@ -131,8 +136,7 @@ void ECCVMProver::execute_pcs_rounds()
                          sumcheck_output.challenge,
                          key->commitment_key,
                          transcript,
-                         zk_sumcheck_data.libra_univariates_monomial,
-                         sumcheck_output.claimed_libra_evaluations);
+                         small_subgroup_ipa_prover.get_witness_polynomials());
 
     // Get the challenge at which we evaluate all transcript polynomials as univariates
     evaluation_challenge_x = transcript->template get_challenge<FF>("Translation:evaluation_challenge_x");

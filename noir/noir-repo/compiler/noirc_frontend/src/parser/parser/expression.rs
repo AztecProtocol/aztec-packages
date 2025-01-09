@@ -8,7 +8,7 @@ use crate::{
         MemberAccessExpression, MethodCallExpression, Statement, TypePath, UnaryOp, UnresolvedType,
     },
     parser::{labels::ParsingRuleLabel, parser::parse_many::separated_by_comma, ParserErrorReason},
-    token::{Keyword, Token, TokenKind},
+    token::{DocStyle, Keyword, SpannedToken, Token, TokenKind},
 };
 
 use super::{
@@ -1024,7 +1024,7 @@ mod tests {
     #[test]
     fn parses_unclosed_parentheses() {
         let src = "
-        ( 
+        (
          ^
         ";
         let (src, span) = get_source_with_error_span(src);
@@ -1512,7 +1512,7 @@ mod tests {
     #[test]
     fn parses_cast_missing_type() {
         let src = "
-        1 as 
+        1 as
             ^
         ";
         let (src, span) = get_source_with_error_span(src);

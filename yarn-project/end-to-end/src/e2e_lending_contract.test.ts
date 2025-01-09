@@ -1,6 +1,8 @@
 import { type AccountWallet, type CheatCodes, type DeployL1Contracts, Fr, type Logger } from '@aztec/aztec.js';
 import { RollupAbi } from '@aztec/l1-artifacts';
-import { LendingContract, PriceFeedContract, TokenContract } from '@aztec/noir-contracts.js';
+import { LendingContract } from '@aztec/noir-contracts.js/Lending';
+import { PriceFeedContract } from '@aztec/noir-contracts.js/PriceFeed';
+import { TokenContract } from '@aztec/noir-contracts.js/Token';
 
 import { afterAll, jest } from '@jest/globals';
 import { getContract } from 'viem';

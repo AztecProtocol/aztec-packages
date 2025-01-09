@@ -73,7 +73,7 @@ jobs:
           ./rebuild.sh
           ./gates_report.sh
           mv gates_report.json ../gates_report.json
-      
+
       - name: Compare gates reports
         id: gates_diff
         uses: noir-lang/noir-gates-diff@7e4ddaa91c69380f15ccba514eac17bc7432a8cc
@@ -139,7 +139,7 @@ jobs:
           message: ${{ steps.brillig_bytecode_diff.outputs.markdown }}
 
   compare_brillig_execution_reports:
-    name: Brillig execution trace sizes  
+    name: Brillig execution trace sizes
     needs: [build-nargo]
     runs-on: ubuntu-22.04
     permissions:
@@ -188,7 +188,7 @@ jobs:
           message: ${{ steps.brillig_execution_diff.outputs.markdown }}
 
   generate_memory_report:
-    name: Peak memory usage  
+    name: Peak memory usage
     needs: [build-nargo]
     runs-on: ubuntu-22.04
     permissions:
@@ -274,7 +274,7 @@ jobs:
         run: |
           ./execution_report.sh 0 1
           mv execution_report.json ../execution_report.json
-          
+
       - name: Upload compilation report
         uses: actions/upload-artifact@v4
         with:
@@ -282,7 +282,7 @@ jobs:
           path: compilation_report.json
           retention-days: 3
           overwrite: true
-      
+
       - name: Upload execution report
         uses: actions/upload-artifact@v4
         with:
@@ -360,7 +360,7 @@ jobs:
           chmod +x parse_time.sh
           cp /home/runner/work/noir/noir/scripts/test_programs/parse_time.sh ./parse_time.sh
           ./compilation_report.sh 1 1
-      
+
       - name: Generate execution report without averages
         working-directory: ./test-repo/${{ matrix.project.path }}
         if: ${{ !matrix.project.is_library && !matrix.project.take_average }}
@@ -395,7 +395,7 @@ jobs:
           PACKAGE_NAME=$(basename $PACKAGE_NAME)
           mv ./test-repo/${{ matrix.project.path }}/execution_report.json ./execution_report_$PACKAGE_NAME.json
           echo "execution_report_name=$PACKAGE_NAME" >> $GITHUB_OUTPUT
-          
+
       - name: Upload compilation report
         uses: actions/upload-artifact@v4
         with:
@@ -413,10 +413,10 @@ jobs:
           overwrite: true
 
   upload_compilation_report:
-    name: Upload compilation report 
+    name: Upload compilation report
     needs: [generate_compilation_and_execution_report, external_repo_compilation_and_execution_report]
     # We want this job to run even if one variation of the matrix in `external_repo_compilation_and_execution_report` fails
-    if: always() 
+    if: always()
     runs-on: ubuntu-latest
     permissions:
       pull-requests: write
@@ -550,10 +550,10 @@ jobs:
           overwrite: true
 
   upload_compilation_memory_report:
-    name: Upload compilation memory report 
+    name: Upload compilation memory report
     needs: [generate_memory_report, external_repo_memory_report]
     # We want this job to run even if one variation of the matrix in `external_repo_memory_report` fails
-    if: always() 
+    if: always()
     runs-on: ubuntu-latest
     permissions:
       pull-requests: write
@@ -594,10 +594,10 @@ jobs:
           message: ${{ steps.compilation_mem_report.outputs.markdown }}
 
   upload_execution_memory_report:
-    name: Upload execution memory report 
+    name: Upload execution memory report
     needs: [generate_memory_report, external_repo_memory_report]
     # We want this job to run even if one variation of the matrix in `external_repo_memory_report` fails
-    if: always() 
+    if: always()
     runs-on: ubuntu-latest
     permissions:
       pull-requests: write
@@ -640,10 +640,10 @@ jobs:
           message: ${{ steps.execution_mem_report.outputs.markdown }}
 
   upload_execution_report:
-    name: Upload execution report 
+    name: Upload execution report
     needs: [generate_compilation_and_execution_report, external_repo_compilation_and_execution_report]
     # We want this job to run even if one variation of the matrix in `external_repo_compilation_and_execution_report` fails
-    if: always() 
+    if: always()
     runs-on: ubuntu-latest
     permissions:
       pull-requests: write

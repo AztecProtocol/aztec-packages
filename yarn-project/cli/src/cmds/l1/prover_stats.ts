@@ -181,7 +181,7 @@ async function getL2BlockEvents(
         name: 'L2BlockProposed',
       }),
       fromBlock: blockNum,
-      toBlock: end + 1n, // the toBlock argument in getLogs is exclusive
+      toBlock: end,
     });
 
     events.push(...newEvents);

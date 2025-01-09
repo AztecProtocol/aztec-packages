@@ -32,8 +32,8 @@ import { type AttestationPool } from '../mem_pools/attestation_pool/attestation_
 import { type EpochProofQuotePool } from '../mem_pools/epoch_proof_quote_pool/epoch_proof_quote_pool.js';
 import { type MemPools } from '../mem_pools/interface.js';
 import { type TxPool } from '../mem_pools/tx_pool/index.js';
-import { TX_REQ_PROTOCOL } from '../service/reqresp/interface.js';
-import type { P2PService } from '../service/service.js';
+import { TX_REQ_PROTOCOL } from '../services/reqresp/interface.js';
+import type { P2PService } from '../services/service.js';
 
 /**
  * Enum defining the possible states of the p2p client.
@@ -141,6 +141,12 @@ export type P2P<T extends P2PClientType = P2PClientType.Full> = P2PApi<T> & {
    * @returns Pending or mined depending on its status, or undefined if not found.
    */
   getTxStatus(txHash: TxHash): 'pending' | 'mined' | undefined;
+
+  /** Returns an iterator over pending txs on the mempool. */
+  iteratePendingTxs(): Iterable<Tx>;
+
+  /** Returns the number of pending txs in the mempool. */
+  getPendingTxCount(): number;
 
   /**
    * Starts the p2p client.
@@ -374,9 +380,6 @@ export class P2PClient<T extends P2PClientType = P2PClientType.Full>
       this.log.debug(`Block ${syncedLatestBlock} (proven ${syncedProvenBlock}) already beyond current block`);
     }
 
-    // publish any txs in TxPool after its doing initial sync
-    this.syncPromise = this.syncPromise.then(() => this.publishStoredTxs());
-
     this.blockStream.start();
     this.log.verbose(`Started block downloader from block ${syncedLatestBlock}`);
 
@@ -458,6 +461,20 @@ export class P2PClient<T extends P2PClientType = P2PClientType.Full>
 
   public getPendingTxs(): Promise<Tx[]> {
     return Promise.resolve(this.getTxs('pending'));
+  }
+
+  public getPendingTxCount(): number {
+    return this.txPool.getPendingTxHashes().length;
+  }
+
+  public *iteratePendingTxs() {
+    const pendingTxHashes = this.txPool.getPendingTxHashes();
+    for (const txHash of pendingTxHashes) {
+      const tx = this.txPool.getTxByHash(txHash);
+      if (tx) {
+        yield tx;
+      }
+    }
   }
 
   /**
@@ -659,12 +676,13 @@ export class P2PClient<T extends P2PClientType = P2PClientType.Full>
       await this.attestationPool?.deleteAttestationsOlderThan(lastBlockSlotMinusKeepAttestationsInPoolFor);
     }
 
-    await this.synchedProvenBlockNumber.set(lastBlockNum);
-    this.log.debug(`Synched to proven block ${lastBlockNum}`);
     const provenEpochNumber = await this.l2BlockSource.getProvenL2EpochNumber();
     if (provenEpochNumber !== undefined) {
       this.epochProofQuotePool.deleteQuotesToEpoch(BigInt(provenEpochNumber));
     }
+
+    await this.synchedProvenBlockNumber.set(lastBlockNum);
+    this.log.debug(`Synched to proven block ${lastBlockNum}`);
 
     await this.startServiceIfSynched();
   }

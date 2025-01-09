@@ -2,7 +2,6 @@ import createDebug from 'debug';
 
 import { generate3FunctionTestingIVCStack, proveThenVerifyAztecClient } from './index.js';
 
-createDebug.enable('*');
 const logger = createDebug('aztec:ivc-test');
 
 /* eslint-disable no-console */

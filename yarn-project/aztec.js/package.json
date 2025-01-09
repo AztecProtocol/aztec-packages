@@ -8,7 +8,8 @@
     "./interfaces/pxe": "./dest/api/interfaces/pxe.js",
     "./abi": "./dest/api/abi.js",
     "./account": "./dest/api/account.js",
-    "./aztec_address": "./dest/api/aztec_address.js",
+    "./addresses": "./dest/api/addresses.js",
+    "./contracts": "./dest/contract/index.js",
     "./deployment": "./dest/api/deployment.js",
     "./entrypoint": "./dest/api/entrypoint.js",
     "./eth_address": "./dest/api/eth_address.js",
@@ -17,8 +18,10 @@
     "./fields": "./dest/api/fields.js",
     "./init": "./dest/api/init.js",
     "./log_id": "./dest/api/log_id.js",
+    "./rpc": "./dest/rpc_clients/index.js",
     "./tx_hash": "./dest/api/tx_hash.js",
-    "./wallet": "./dest/api/wallet.js"
+    "./wallet": "./dest/api/wallet.js",
+    "./utils": "./dest/utils/index.js"
   },
   "typedocOptions": {
     "entryPoints": [
@@ -35,7 +38,7 @@
     "clean": "rm -rf ./dest .tsbuildinfo ./src/account_contract/artifacts",
     "formatting": "run -T prettier --check ./src && run -T eslint ./src",
     "formatting:fix": "run -T eslint --fix ./src && run -T prettier -w ./src",
-    "test": "NODE_NO_WARNINGS=1 node --experimental-vm-modules ../node_modules/.bin/jest --passWithNoTests"
+    "test": "HARDWARE_CONCURRENCY=${HARDWARE_CONCURRENCY:-16} RAYON_NUM_THREADS=${RAYON_NUM_THREADS:-4} NODE_NO_WARNINGS=1 node --experimental-vm-modules ../node_modules/.bin/jest --passWithNoTests --maxWorkers=${JEST_MAX_WORKERS:-8}"
   },
   "inherits": [
     "../package.common.json",
@@ -67,12 +70,7 @@
       ".ts"
     ],
     "reporters": [
-      [
-        "default",
-        {
-          "summaryThreshold": 9999
-        }
-      ]
+      "default"
     ],
     "testTimeout": 30000,
     "setupFiles": [
