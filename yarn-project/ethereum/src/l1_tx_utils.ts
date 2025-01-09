@@ -167,10 +167,10 @@ export interface L1TxRequest {
 export interface L1BlobInputs {
   blobs: Uint8Array[];
   kzg: any;
-  maxFeePerBlobGas: bigint;
+  maxFeePerBlobGas?: bigint;
 }
 
-interface GasPrice {
+export interface GasPrice {
   maxFeePerGas: bigint;
   maxPriorityFeePerGas: bigint;
   maxFeePerBlobGas?: bigint;
@@ -393,9 +393,10 @@ export class L1TxUtils {
     request: L1TxRequest,
     gasConfig?: Partial<L1TxUtilsConfig> & { fixedGas?: bigint },
     blobInputs?: L1BlobInputs,
-  ): Promise<TransactionReceipt> {
-    const { txHash, gasLimit } = await this.sendTransaction(request, gasConfig, blobInputs);
-    return this.monitorTransaction(request, txHash, { gasLimit }, gasConfig, blobInputs);
+  ): Promise<{ receipt: TransactionReceipt; gasPrice: GasPrice }> {
+    const { txHash, gasLimit, gasPrice } = await this.sendTransaction(request, gasConfig, blobInputs);
+    const receipt = await this.monitorTransaction(request, txHash, { gasLimit }, gasConfig, blobInputs);
+    return { receipt, gasPrice };
   }
 
   /**
@@ -525,8 +526,15 @@ export class L1TxUtils {
     // Strangely, the only way to get gas and send blobs is prepareTransactionRequest().
     // See: https://github.com/wevm/viem/issues/2075
     if (_blobInputs) {
-      initialEstimate = (await this.walletClient.prepareTransactionRequest({ account, ...request, ..._blobInputs }))
-        .gas;
+      const gasPrice = await this.getGasPrice(gasConfig, true, 0);
+      initialEstimate = (
+        await this.walletClient.prepareTransactionRequest({
+          account,
+          ...request,
+          ..._blobInputs,
+          maxFeePerBlobGas: gasPrice.maxFeePerBlobGas!,
+        })
+      )?.gas;
     } else {
       initialEstimate = await this.publicClient.estimateGas({ account, ...request });
     }

@@ -94,7 +94,7 @@ describe('GasUtils', () => {
   }, 5_000);
 
   it('sends and monitors a simple transaction', async () => {
-    const receipt = await gasUtils.sendAndMonitorTransaction({
+    const { receipt } = await gasUtils.sendAndMonitorTransaction({
       to: '0x1234567890123456789012345678901234567890',
       data: '0x',
       value: 0n,
@@ -182,7 +182,7 @@ describe('GasUtils', () => {
     // Mine a new block to make the base fee change take effect
     await cheatCodes.evmMine();
 
-    const receipt = await gasUtils.sendAndMonitorTransaction(
+    const { receipt } = await gasUtils.sendAndMonitorTransaction(
       {
         to: '0x1234567890123456789012345678901234567890',
         data: '0x',
@@ -209,7 +209,7 @@ describe('GasUtils', () => {
       stallTimeMs: 1000,
     });
 
-    const baselineTx = await baselineGasUtils.sendAndMonitorTransaction({
+    const { receipt: baselineTx } = await baselineGasUtils.sendAndMonitorTransaction({
       to: EthAddress.ZERO.toString(),
       data: SIMPLE_CONTRACT_BYTECODE,
     });
@@ -229,7 +229,7 @@ describe('GasUtils', () => {
       stallTimeMs: 1000,
     });
 
-    const bufferedTx = await bufferedGasUtils.sendAndMonitorTransaction({
+    const { receipt: bufferedTx } = await bufferedGasUtils.sendAndMonitorTransaction({
       to: EthAddress.ZERO.toString(),
       data: SIMPLE_CONTRACT_BYTECODE,
     });
@@ -317,7 +317,7 @@ describe('GasUtils', () => {
     const blobData = new Uint8Array(131072).fill(1); // 128KB blob
     const kzg = Blob.getViemKzgInstance();
 
-    const receipt = await gasUtils.sendAndMonitorTransaction(
+    const { receipt } = await gasUtils.sendAndMonitorTransaction(
       {
         to: '0x1234567890123456789012345678901234567890',
         data: '0x',
