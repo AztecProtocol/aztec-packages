@@ -93,10 +93,10 @@ export class ProvingBroker implements ProvingJobProducer, ProvingJobConsumer, Tr
   /**
    * The broker keeps track of the highest epoch its seen.
    * This information is used for garbage collection: once it reaches the next epoch, it can start pruning the database of old state.
-   * This clean up pass is only done against _settled_ jobs. This pass will not cancel jobs that are in-progress or in-queue.
-   * It is a client responsibility to cancel jobs if they are no longer necessary.
+   * It is important that this value is initialised to zero. This ensures that we don't delete any old jobs until the current
+   * process instance receives a job request informing it of the actual current highest epoch
    * Example:
-   * proving epoch 11 - the broker will wipe all settled jobs for epochs 9 and lower
+   * proving epoch 11 - the broker will wipe all jobs for epochs 9 and lower
    * finished proving epoch 11 and got first job for epoch 12 -> the broker will wipe all settled jobs for epochs 10 and lower
    * reorged back to end of epoch 10 -> epoch 11 is skipped and epoch 12 starts -> the broker will wipe all settled jobs for epochs 10 and lower
    */
