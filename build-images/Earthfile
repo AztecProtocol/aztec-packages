@@ -505,7 +505,6 @@ all-ci:
   BUILD +wasi-sdk
   BUILD +foundry
   BUILD +build
-  # TODO(#10677): this needs to be pushed while also updating our CI AMI
-  # BUILD +ci
+  BUILD +ci
   BUILD +aztec-base
   BUILD +end-to-end-base
