@@ -1,8 +1,4 @@
-import {
-  type PublicExecutionRequest,
-  type SimulationError,
-  type UnencryptedFunctionL2Logs,
-} from '@aztec/circuit-types';
+import { type PublicExecutionRequest, type SimulationError } from '@aztec/circuit-types';
 import {
   type AvmExecutionHints,
   type ContractStorageRead,
@@ -10,7 +6,6 @@ import {
   type Fr,
   Gas,
   type L2ToL1Message,
-  type LogHash,
   type NoteHash,
   type Nullifier,
   PublicCallStackItemCompressed,
@@ -115,23 +110,11 @@ export interface PublicFunctionCallResult {
   nullifierNonExistentReadRequests: ReadRequest[];
   /** L1 to L2 message read requests emitted in this call. */
   l1ToL2MsgReadRequests: TreeLeafReadRequest[];
-  // TODO(MW): remove unencrypted logs below without breaking everything
   /**
-   * The hashed logs with side effect counter.
-   * Note: required as we don't track the counter anywhere else.
+   * The public logs emitted in this call.
+   * Note: PublicLog has no counter - unsure if this is needed bc this struct is unused
    */
-  unencryptedLogsHashes: LogHash[];
-  /**
-   * Unencrypted logs emitted during execution of this function call.
-   * Note: These are preimages to `unencryptedLogsHashes`.
-   */
-  unencryptedLogs: UnencryptedFunctionL2Logs;
-  /**
-   * Unencrypted logs emitted during this call AND any nested calls.
-   * Useful for maintaining correct ordering in ts.
-   */
-  allUnencryptedLogs: UnencryptedFunctionL2Logs;
-
+  publicLogs: PublicLog[];
   /** The requests to call public functions made by this call. */
   publicCallRequests: PublicInnerCallRequest[];
   /** The results of nested calls. */

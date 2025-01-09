@@ -29,7 +29,7 @@ library Constants {
   uint256 internal constant MAX_L1_TO_L2_MSG_READ_REQUESTS_PER_CALL = 16;
   uint256 internal constant MAX_KEY_VALIDATION_REQUESTS_PER_CALL = 16;
   uint256 internal constant MAX_PRIVATE_LOGS_PER_CALL = 16;
-  uint256 internal constant MAX_UNENCRYPTED_LOGS_PER_CALL = 4;
+  uint256 internal constant MAX_PUBLIC_LOGS_PER_CALL = 4;
   uint256 internal constant MAX_CONTRACT_CLASS_LOGS_PER_CALL = 1;
   uint256 internal constant ARCHIVE_HEIGHT = 29;
   uint256 internal constant VK_TREE_HEIGHT = 6;
@@ -189,7 +189,7 @@ library Constants {
   uint256 internal constant BLOCK_HEADER_LENGTH = 25;
   uint256 internal constant BLOCK_HEADER_LENGTH_BYTES = 648;
   uint256 internal constant PRIVATE_CIRCUIT_PUBLIC_INPUTS_LENGTH = 741;
-  uint256 internal constant PUBLIC_CIRCUIT_PUBLIC_INPUTS_LENGTH = 864;
+  uint256 internal constant PUBLIC_CIRCUIT_PUBLIC_INPUTS_LENGTH = 908;
   uint256 internal constant PRIVATE_CONTEXT_INPUTS_LENGTH = 40;
   uint256 internal constant FEE_RECIPIENT_LENGTH = 2;
   uint256 internal constant AGGREGATION_OBJECT_LENGTH = 16;

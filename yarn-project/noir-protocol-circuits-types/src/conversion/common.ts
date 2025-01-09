@@ -18,7 +18,6 @@ import {
   MAX_NOTE_HASHES_PER_TX,
   MAX_NULLIFIERS_PER_TX,
   MAX_PRIVATE_LOGS_PER_TX,
-  MAX_PUBLIC_LOGS_PER_TX,
   MaxBlockNumber,
   type MembershipWitness,
   NUM_BYTES_PER_SHA256,
