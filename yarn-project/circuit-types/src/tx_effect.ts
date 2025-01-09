@@ -546,6 +546,7 @@ export class TxEffect {
   [inspect.custom]() {
     return `TxEffect {
       revertCode: ${this.revertCode},
+      txHash: ${this.txHash},
       transactionFee: ${this.transactionFee},
       note hashes: [${this.noteHashes.map(h => h.toString()).join(', ')}],
       nullifiers: [${this.nullifiers.map(h => h.toString()).join(', ')}],

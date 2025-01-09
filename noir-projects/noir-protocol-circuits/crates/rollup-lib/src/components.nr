@@ -245,6 +245,7 @@ pub fn encode_blob_prefix(input_type: u8, array_len: u32) -> Field {
 
 // Tx effects consist of
 // 1 field for revert code
+// 1 field for tx hash
 // 1 field for transaction fee
 // MAX_NOTE_HASHES_PER_TX fields for note hashes
 // MAX_NULLIFIERS_PER_TX fields for nullifiers
