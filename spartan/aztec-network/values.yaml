@@ -161,6 +161,10 @@ proverNode:
   viemPollingInterval: 1000
   dataDir: "/data"
   storageSize: "1Gi"
+  txGathering:
+    timeoutMs: 60000
+    intervalMs: 1000
+    maxParallelRequests: 100
 
 pxe:
   logLevel: "debug; info: aztec:simulator, json-rpc"

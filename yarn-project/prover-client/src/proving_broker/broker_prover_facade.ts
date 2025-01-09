@@ -13,11 +13,11 @@ import {
   type AVM_PROOF_LENGTH_IN_FIELDS,
   type AvmCircuitInputs,
   type BaseParityInputs,
-  type KernelCircuitPublicInputs,
   type NESTED_RECURSIVE_PROOF_LENGTH,
   type NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH,
   type ParityPublicInputs,
   type PrivateKernelEmptyInputData,
+  type PrivateToRollupKernelCircuitPublicInputs,
   type RECURSIVE_PROOF_LENGTH,
   type RootParityInputs,
   type TUBE_PROOF_LENGTH,
@@ -459,7 +459,10 @@ export class BrokerCircuitProverFacade implements ServerCircuitProver {
     signal?: AbortSignal,
     epochNumber?: number,
   ): Promise<
-    PublicInputsAndRecursiveProof<KernelCircuitPublicInputs, typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH>
+    PublicInputsAndRecursiveProof<
+      PrivateToRollupKernelCircuitPublicInputs,
+      typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH
+    >
   > {
     return this.enqueueJob(
       this.generateId(ProvingRequestType.PRIVATE_KERNEL_EMPTY, inputs, epochNumber),
