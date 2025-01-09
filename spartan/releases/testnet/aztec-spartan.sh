@@ -305,6 +305,9 @@ services:
         restart: unless-stopped
         env_file: .env
         image: ${IMAGE}
+        ports:
+            - ${P2P_PORT}:${P2P_PORT}
+            - ${PORT}:${PORT}
         entrypoint: >
             sh -c '
 
