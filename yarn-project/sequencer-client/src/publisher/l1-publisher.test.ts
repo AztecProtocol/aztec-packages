@@ -1,6 +1,7 @@
 import { L2Block } from '@aztec/circuit-types';
 import { EthAddress } from '@aztec/circuits.js';
 import {
+  type GasPrice,
   type L1ContractsConfig,
   type L1TxRequest,
   type L1TxUtilsConfig,
@@ -40,7 +41,7 @@ interface MockL1TxUtils {
   sendAndMonitorTransaction: (
     request: L1TxRequest,
     _gasConfig?: Partial<L1TxUtilsConfig>,
-  ) => Promise<TransactionReceipt>;
+  ) => Promise<{ receipt: TransactionReceipt; gasPrice: GasPrice }>;
 }
 
 interface MockRollupContractWrite {
@@ -146,7 +147,10 @@ describe('L1Publisher', () => {
     rollupContractRead.getCurrentSlot.mockResolvedValue(l2Block.header.globalVariables.slotNumber.toBigInt());
     publicClient.getBlock.mockResolvedValue({ timestamp: 12n });
     publicClient.estimateGas.mockResolvedValue(GAS_GUESS);
-    l1TxUtils.sendAndMonitorTransaction.mockResolvedValue(proposeTxReceipt);
+    l1TxUtils.sendAndMonitorTransaction.mockResolvedValue({
+      receipt: proposeTxReceipt,
+      gasPrice: { maxFeePerGas: 1n, maxPriorityFeePerGas: 1n },
+    });
     (l1TxUtils as any).estimateGas.mockResolvedValue(GAS_GUESS);
   });
 
@@ -244,7 +248,9 @@ describe('L1Publisher', () => {
 
   it('does not retry if sending a propose tx fails', async () => {
     rollupContractRead.archive.mockResolvedValue(l2Block.header.lastArchive.root.toString() as `0x${string}`);
-    l1TxUtils.sendAndMonitorTransaction.mockRejectedValueOnce(new Error()).mockResolvedValueOnce(proposeTxReceipt);
+    l1TxUtils.sendAndMonitorTransaction
+      .mockRejectedValueOnce(new Error())
+      .mockResolvedValueOnce({ receipt: proposeTxReceipt, gasPrice: { maxFeePerGas: 1n, maxPriorityFeePerGas: 1n } });
 
     const result = await publisher.proposeL2Block(l2Block);
 
@@ -262,7 +268,9 @@ describe('L1Publisher', () => {
 
   it('does not retry if sending a publish and propose tx fails', async () => {
     rollupContractRead.archive.mockResolvedValue(l2Block.header.lastArchive.root.toString() as `0x${string}`);
-    l1TxUtils.sendAndMonitorTransaction.mockRejectedValueOnce(new Error()).mockResolvedValueOnce(proposeTxReceipt);
+    l1TxUtils.sendAndMonitorTransaction
+      .mockRejectedValueOnce(new Error())
+      .mockResolvedValueOnce({ receipt: proposeTxReceipt, gasPrice: { maxFeePerGas: 1n, maxPriorityFeePerGas: 1n } });
 
     const result = await publisher.proposeL2Block(l2Block);
 
@@ -271,7 +279,10 @@ describe('L1Publisher', () => {
 
   it('returns false if publish and propose tx reverts', async () => {
     rollupContractRead.archive.mockResolvedValue(l2Block.header.lastArchive.root.toString() as `0x${string}`);
-    l1TxUtils.sendAndMonitorTransaction.mockResolvedValueOnce({ ...proposeTxReceipt, status: 'reverted' });
+    l1TxUtils.sendAndMonitorTransaction.mockResolvedValueOnce({
+      receipt: { ...proposeTxReceipt, status: 'reverted' },
+      gasPrice: { maxFeePerGas: 1n, maxPriorityFeePerGas: 1n },
+    });
 
     const result = await publisher.proposeL2Block(l2Block);
 
@@ -281,7 +292,10 @@ describe('L1Publisher', () => {
   it('returns false if propose tx reverts', async () => {
     rollupContractRead.archive.mockResolvedValue(l2Block.header.lastArchive.root.toString() as `0x${string}`);
 
-    l1TxUtils.sendAndMonitorTransaction.mockResolvedValueOnce({ ...proposeTxReceipt, status: 'reverted' });
+    l1TxUtils.sendAndMonitorTransaction.mockResolvedValueOnce({
+      receipt: { ...proposeTxReceipt, status: 'reverted' },
+      gasPrice: { maxFeePerGas: 1n, maxPriorityFeePerGas: 1n },
+    });
 
     const result = await publisher.proposeL2Block(l2Block);
 
@@ -291,7 +305,11 @@ describe('L1Publisher', () => {
   it('returns false if sending publish and progress tx is interrupted', async () => {
     rollupContractRead.archive.mockResolvedValue(l2Block.header.lastArchive.root.toString() as `0x${string}`);
     l1TxUtils.sendAndMonitorTransaction.mockImplementationOnce(
-      () => sleep(10, proposeTxReceipt) as Promise<TransactionReceipt>,
+      () =>
+        sleep(10, { receipt: proposeTxReceipt, gasPrice: { maxFeePerGas: 1n, maxPriorityFeePerGas: 1n } }) as Promise<{
+          receipt: TransactionReceipt;
+          gasPrice: GasPrice;
+        }>,
     );
     const resultPromise = publisher.proposeL2Block(l2Block);
     publisher.interrupt();
@@ -304,7 +322,11 @@ describe('L1Publisher', () => {
   it('returns false if sending propose tx is interrupted', async () => {
     rollupContractRead.archive.mockResolvedValue(l2Block.header.lastArchive.root.toString() as `0x${string}`);
     l1TxUtils.sendAndMonitorTransaction.mockImplementationOnce(
-      () => sleep(10, proposeTxReceipt) as Promise<TransactionReceipt>,
+      () =>
+        sleep(10, { receipt: proposeTxReceipt, gasPrice: { maxFeePerGas: 1n, maxPriorityFeePerGas: 1n } }) as Promise<{
+          receipt: TransactionReceipt;
+          gasPrice: GasPrice;
+        }>,
     );
 
     const resultPromise = publisher.proposeL2Block(l2Block);
