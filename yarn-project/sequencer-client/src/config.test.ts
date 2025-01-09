@@ -2,8 +2,8 @@ import { AztecAddress, Fr, FunctionSelector } from '@aztec/circuits.js';
 
 import { parseSequencerAllowList } from './config.js';
 
-describe('sequencer config', () => {
-  it('parse a sequencer config', () => {
+describe.only('sequencer config', () => {
+  it.only('parse a sequencer config', () => {
     const instance = { address: AztecAddress.random() };
     const instanceFunction = { address: AztecAddress.random(), selector: FunctionSelector.random() };
     const classId = { classId: Fr.random() };
@@ -20,7 +20,7 @@ describe('sequencer config', () => {
     const stringifiedAllowList = configStrings.join(',');
 
     const allowList = parseSequencerAllowList(stringifiedAllowList);
-
+    expect(false).toBeTruthy();
     expect(allowList).toEqual(config);
   });
 });
