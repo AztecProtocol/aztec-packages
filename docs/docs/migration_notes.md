@@ -5,6 +5,11 @@ keywords: [sandbox, aztec, notes, migration, updating, upgrading]
 ---
 
 Aztec is in full-speed development. Literally every version breaks compatibility with the previous ones. This page attempts to target errors and difficulties you might encounter when upgrading, and how to resolve them.
+
+## TBD
+### [Aztec.nr] Removal of `getSiblingPath` oracle
+Use `getMembershipWitness` oracle instead that returns both the sibling path and index.
+
 ## 0.68.0
 ### [archiver, node, pxe] Remove contract artifacts in node and archiver and store function names instead
 Contract artifacts were only in the archiver for debugging purposes. Instead function names are now (optionally) emitted
