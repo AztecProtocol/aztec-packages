@@ -10,6 +10,7 @@ import {
 } from '@aztec/circuit-types';
 import {
   CLIENT_IVC_VERIFICATION_KEY_LENGTH_IN_FIELDS,
+  ClientIvcProof,
   Fr,
   PROTOCOL_CONTRACT_TREE_HEIGHT,
   PrivateCallData,
@@ -321,6 +322,8 @@ export class KernelProver {
     if (!dryRun && !simulate) {
       const ivcProof = await this.proofCreator.createClientIvcProof(acirs, witnessStack);
       tailOutput.clientIvcProof = ivcProof;
+    } else {
+      tailOutput.clientIvcProof = ClientIvcProof.empty();
     }
 
     return tailOutput;

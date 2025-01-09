@@ -37,6 +37,7 @@ export class PrivateEnv {
   async init() {
     const config = getPXEServiceConfig();
     config.dataDirectory = "pxe";
+    config.proverEnabled = true;
     const aztecNode = await createAztecNodeClient(this.nodeURL);
     const proofCreator = new BbWasmAsyncPrivateKernelProver(16);
     this.pxe = await this.createPXEService(aztecNode, config, proofCreator);
