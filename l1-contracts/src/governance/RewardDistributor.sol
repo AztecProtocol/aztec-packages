@@ -11,52 +11,71 @@ import {SafeERC20} from "@oz/token/ERC20/utils/SafeERC20.sol";
 
 /**
  * @title RewardDistributor
- * @notice This contract is responsible for distributing rewards.
+ * @notice Distributes block rewards to the canonical rollup.
+ * @dev This implementation is a placeholder until more nuanced logic is designed.
  */
 contract RewardDistributor is IRewardDistributor, Ownable {
-  using SafeERC20 for IERC20;
+    using SafeERC20 for IERC20;
 
-  // This value is pulled out my ass. Don't take it seriously
-  uint256 public constant BLOCK_REWARD = 50e18;
+    /**
+     * @dev The reward distributed per block.
+     * This value is currently arbitrary and should be adjusted as needed.
+     */
+    uint256 public constant BLOCK_REWARD = 50e18;
 
-  IERC20 public immutable ASSET;
-  IRegistry public registry;
+    /// @dev The ERC20 asset used for rewards.
+    IERC20 public immutable ASSET;
 
-  constructor(IERC20 _asset, IRegistry _registry, address _owner) Ownable(_owner) {
-    ASSET = _asset;
-    registry = _registry;
-  }
+    /// @dev The registry used to determine the canonical rollup.
+    IRegistry public registry;
 
-  function updateRegistry(IRegistry _registry) external override(IRewardDistributor) onlyOwner {
-    registry = _registry;
-    emit RegistryUpdated(_registry);
-  }
-
-  /**
-   * @notice	Simple claim of a block reward
-   *          Note especially that it can be called any number of times.
-   *          Essentially a placeholder until more nuanced logic is designed.
-   *
-   * @param _to - The address to receive the reward
-   *
-   * @return - the amount claimed
-   */
-  function claim(address _to) external override(IRewardDistributor) returns (uint256) {
-    require(
-      msg.sender == canonicalRollup(),
-      Errors.RewardDistributor__InvalidCaller(msg.sender, canonicalRollup())
-    );
-    uint256 bal = ASSET.balanceOf(address(this));
-    uint256 reward = bal > BLOCK_REWARD ? BLOCK_REWARD : bal;
-
-    if (reward > 0) {
-      ASSET.safeTransfer(_to, reward);
+    /**
+     * @param _asset The ERC20 token used for rewards.
+     * @param _registry The registry contract to fetch the canonical rollup address.
+     * @param _owner The owner of the contract.
+     */
+    constructor(IERC20 _asset, IRegistry _registry, address _owner) Ownable(_owner) {
+        ASSET = _asset;
+        registry = _registry;
     }
 
-    return reward;
-  }
+    /**
+     * @notice Updates the registry contract.
+     * @dev Only callable by the owner.
+     * @param _registry The new registry contract address.
+     */
+    function updateRegistry(IRegistry _registry) external override(IRewardDistributor) onlyOwner {
+        registry = _registry;
+        emit RegistryUpdated(_registry);
+    }
 
-  function canonicalRollup() public view override(IRewardDistributor) returns (address) {
-    return registry.getRollup();
-  }
+    /**
+     * @notice Claims the block reward for the canonical rollup.
+     * @dev Only callable by the canonical rollup address.
+     * @param _to The address to receive the reward.
+     * @return The amount of reward claimed.
+     */
+    function claim(address _to) external override(IRewardDistributor) returns (uint256) {
+        address rollup = canonicalRollup();
+        if (msg.sender != rollup) {
+            revert Errors.RewardDistributor__InvalidCaller(msg.sender, rollup);
+        }
+
+        uint256 balance = ASSET.balanceOf(address(this));
+        uint256 reward = balance > BLOCK_REWARD ? BLOCK_REWARD : balance;
+
+        if (reward > 0) {
+            ASSET.safeTransfer(_to, reward);
+        }
+
+        return reward;
+    }
+
+    /**
+     * @notice Returns the canonical rollup address from the registry.
+     * @return The canonical rollup address.
+     */
+    function canonicalRollup() public view override(IRewardDistributor) returns (address) {
+        return registry.getRollup();
+    }
 }
