@@ -170,7 +170,7 @@ describe('e2e_epochs', () => {
     logger.info(`Starting epoch 2`);
 
     // No proof for epoch zero should have landed during epoch one
-    expect(l2ProvenBlockNumber).toEqual(0);
+    expect(monitor.l2ProvenBlockNumber).toEqual(0);
 
     // Wait until the prover job finalises (and a bit more) and check that it aborted and never attempted to submit a tx
     logger.info(`Awaiting finalise epoch`);
