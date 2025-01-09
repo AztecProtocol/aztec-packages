@@ -8,6 +8,7 @@ import {
 } from '@aztec/circuits.js';
 import { Buffer32 } from '@aztec/foundation/buffer';
 import { arraySerializedSizeOfNonEmpty } from '@aztec/foundation/collection';
+import { createLogger } from '@aztec/foundation/log';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 import { type FieldsOf } from '@aztec/foundation/types';
 
@@ -176,9 +177,12 @@ export class Tx extends Gossipable {
    */
   getTxHash(forceRecompute = false): TxHash {
     if (!this.txHash || forceRecompute) {
+      const logger = createLogger(`Tx`);
+      const startTime = Date.now();
       const hash = this.data.forPublic
         ? this.data.toPrivateToPublicKernelCircuitPublicInputs().hash()
         : this.data.toPrivateToRollupKernelCircuitPublicInputs().hash();
+      logger.debug(`Tx hash computed in ${Date.now() - startTime}ms, isPublic? ${!!this.data.forPublic}`);
       this.txHash = new TxHash(hash);
     }
     return this.txHash!;
