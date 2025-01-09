@@ -8,6 +8,7 @@ import {
   ProvingRequestType,
   type PublicInputsAndRecursiveProof,
   type ServerCircuitProver,
+  makeProvingJobId,
 } from '@aztec/circuit-types';
 import {
   type AVM_PROOF_LENGTH_IN_FIELDS,
@@ -564,6 +565,6 @@ export class BrokerCircuitProverFacade implements ServerCircuitProver {
 
   private generateId(type: ProvingRequestType, inputs: { toBuffer(): Buffer }, epochNumber = 0) {
     const inputsHash = sha256(inputs.toBuffer());
-    return `${epochNumber}:${ProvingRequestType[type]}:${inputsHash.toString('hex')}`;
+    return makeProvingJobId(epochNumber, type, inputsHash.toString('hex'));
   }
 }
