@@ -28,4 +28,7 @@ export interface EpochProver extends Omit<BlockBuilder, 'setBlockCompleted'> {
 
   /** Returns the block assembled at a given index (zero-based) within the epoch. */
   getBlock(index: number): L2Block;
+
+  /** Called when no longer required, cleans up internal resources */
+  stop(): Promise<void>;
 }

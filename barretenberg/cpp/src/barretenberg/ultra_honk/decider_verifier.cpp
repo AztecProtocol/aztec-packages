@@ -46,22 +46,19 @@ template <typename Flavor> bool DeciderVerifier_<Flavor>::verify()
     auto sumcheck = SumcheckVerifier<Flavor>(
         static_cast<size_t>(accumulator->verification_key->log_circuit_size), transcript, accumulator->target_sum);
     // For MegaZKFlavor: receive commitments to Libra masking polynomials
-    std::vector<Commitment> libra_commitments = {};
+    std::array<Commitment, NUM_LIBRA_COMMITMENTS> libra_commitments = {};
     if constexpr (Flavor::HasZK) {
-        for (size_t idx = 0; idx < static_cast<size_t>(accumulator->verification_key->log_circuit_size); idx++) {
-            Commitment libra_commitment =
-                transcript->template receive_from_prover<Commitment>("Libra:commitment_" + std::to_string(idx));
-            libra_commitments.push_back(libra_commitment);
-        };
+        libra_commitments[0] = transcript->template receive_from_prover<Commitment>("Libra:concatenation_commitment");
     }
-
     SumcheckOutput<Flavor> sumcheck_output =
         sumcheck.verify(accumulator->relation_parameters, accumulator->alphas, accumulator->gate_challenges);
 
     // For MegaZKFlavor: the sumcheck output contains claimed evaluations of the Libra polynomials
-    std::vector<FF> libra_evaluations = {};
+    FF libra_evaluation{ 0 };
     if constexpr (Flavor::HasZK) {
-        libra_evaluations = std::move(sumcheck_output.claimed_libra_evaluations);
+        libra_evaluation = std::move(sumcheck_output.claimed_libra_evaluation);
+        libra_commitments[1] = transcript->template receive_from_prover<Commitment>("Libra:big_sum_commitment");
+        libra_commitments[2] = transcript->template receive_from_prover<Commitment>("Libra:quotient_commitment");
     }
 
     // If Sumcheck did not verify, return false
@@ -69,7 +66,7 @@ template <typename Flavor> bool DeciderVerifier_<Flavor>::verify()
         info("Sumcheck verification failed.");
         return false;
     }
-
+    bool consistency_checked = true;
     const BatchOpeningClaim<Curve> opening_claim =
         Shplemini::compute_batch_opening_claim(accumulator->verification_key->circuit_size,
                                                commitments.get_unshifted(),
@@ -80,15 +77,19 @@ template <typename Flavor> bool DeciderVerifier_<Flavor>::verify()
                                                Commitment::one(),
                                                transcript,
                                                Flavor::REPEATED_COMMITMENTS,
-                                               RefVector(libra_commitments),
-                                               libra_evaluations);
+                                               Flavor::HasZK,
+                                               &consistency_checked,
+                                               libra_commitments,
+                                               libra_evaluation);
     const auto pairing_points = PCS::reduce_verify_batch_opening_claim(opening_claim, transcript);
     bool verified = pcs_verification_key->pairing_check(pairing_points[0], pairing_points[1]);
-    return sumcheck_output.verified.value() && verified;
+    return sumcheck_output.verified.value() && verified && consistency_checked;
 }
 
 template class DeciderVerifier_<UltraFlavor>;
+template class DeciderVerifier_<UltraZKFlavor>;
 template class DeciderVerifier_<UltraKeccakFlavor>;
+template class DeciderVerifier_<UltraKeccakZKFlavor>;
 template class DeciderVerifier_<UltraRollupFlavor>;
 template class DeciderVerifier_<MegaFlavor>;
 template class DeciderVerifier_<MegaZKFlavor>;

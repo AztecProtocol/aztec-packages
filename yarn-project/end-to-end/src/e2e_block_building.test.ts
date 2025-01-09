@@ -29,7 +29,8 @@ import { type TestDateProvider } from '@aztec/foundation/timer';
 import { StatefulTestContract, StatefulTestContractArtifact } from '@aztec/noir-contracts.js/StatefulTest';
 import { TestContract } from '@aztec/noir-contracts.js/Test';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
-import { type Sequencer, type SequencerClient, SequencerState } from '@aztec/sequencer-client';
+import { type SequencerClient, SequencerState } from '@aztec/sequencer-client';
+import { type TestSequencerClient } from '@aztec/sequencer-client/test';
 import { PublicProcessorFactory, type PublicTxResult, PublicTxSimulator, type WorldStateDB } from '@aztec/simulator';
 import { type TelemetryClient } from '@aztec/telemetry-client';
 import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
@@ -59,7 +60,7 @@ describe('e2e_block_building', () => {
     const artifact = StatefulTestContractArtifact;
 
     beforeAll(async () => {
-      let sequencerClient;
+      let sequencerClient: SequencerClient | undefined;
       ({
         teardown,
         pxe,
@@ -70,8 +71,7 @@ describe('e2e_block_building', () => {
         dateProvider,
         cheatCodes,
       } = await setup(2));
-      // Bypass accessibility modifiers in sequencer
-      sequencer = sequencerClient! as unknown as TestSequencerClient;
+      sequencer = sequencerClient! as TestSequencerClient;
     });
 
     afterEach(() => aztecNode.setConfig({ minTxsPerBlock: 1 }));
@@ -207,7 +207,7 @@ describe('e2e_block_building', () => {
       // to pick up and validate the txs, so we may need to bump it to work on CI. Note that we need
       // at least 3s here so the archiver has time to loop once and sync, and the sequencer has at
       // least 1s to loop.
-      sequencer.sequencer.timeTable[SequencerState.WAITING_FOR_TXS] = 4;
+      sequencer.sequencer.timeTable[SequencerState.INITIALIZING_PROPOSAL] = 4;
       sequencer.sequencer.timeTable[SequencerState.CREATING_BLOCK] = 4;
       sequencer.sequencer.processTxTime = 1;
 
@@ -609,13 +609,6 @@ async function sendAndWait(calls: ContractFunctionInteraction[]) {
       .map(p => p.wait()),
   );
 }
-
-type TestSequencer = Omit<Sequencer, 'publicProcessorFactory' | 'timeTable'> & {
-  publicProcessorFactory: PublicProcessorFactory;
-  timeTable: Record<SequencerState, number>;
-  processTxTime: number;
-};
-type TestSequencerClient = Omit<SequencerClient, 'sequencer'> & { sequencer: TestSequencer };
 
 const TEST_PUBLIC_TX_SIMULATION_DELAY_MS = 300;
 

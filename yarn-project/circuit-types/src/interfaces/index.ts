@@ -6,7 +6,7 @@ export * from './configs.js';
 export * from './epoch-prover.js';
 export * from './l2_block_number.js';
 export * from './merkle_tree_operations.js';
-export * from './nullifier_tree.js';
+export * from './nullifier_membership_witness.js';
 export * from './private_kernel_prover.js';
 export * from './processed-tx-handler.js';
 export * from './prover-agent.js';

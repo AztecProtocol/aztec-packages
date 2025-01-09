@@ -102,7 +102,7 @@ export async function aztecStart(options: any, userLog: LogFn, debugLogger: Logg
   installSignalHandlers(debugLogger.info, signalHandlers);
 
   if (Object.entries(services).length > 0) {
-    const rpcServer = createNamespacedSafeJsonRpcServer(services, debugLogger);
+    const rpcServer = createNamespacedSafeJsonRpcServer(services, false, debugLogger);
     const { port } = await startHttpRpcServer(rpcServer, { port: options.port });
     debugLogger.info(`Aztec Server listening on port ${port}`);
   }

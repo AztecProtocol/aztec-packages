@@ -5,7 +5,6 @@ import {
   type PublicExecutionRequest,
   type ServerCircuitProver,
   type Tx,
-  type TxValidator,
 } from '@aztec/circuit-types';
 import { makeBloatedProcessedTx } from '@aztec/circuit-types/test';
 import {
@@ -19,7 +18,7 @@ import { times } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/fields';
 import { type Logger } from '@aztec/foundation/log';
 import { TestDateProvider } from '@aztec/foundation/timer';
-import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types';
+import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types/vks';
 import { protocolContractTreeRoot } from '@aztec/protocol-contracts';
 import {
   PublicProcessor,
@@ -195,7 +194,7 @@ export class TestContext {
     return { block, txs, msgs };
   }
 
-  public async processPublicFunctions(txs: Tx[], maxTransactions: number, txValidator?: TxValidator<ProcessedTx>) {
+  public async processPublicFunctions(txs: Tx[], maxTransactions: number) {
     const defaultExecutorImplementation = (
       _stateManager: AvmPersistableStateManager,
       executionRequest: PublicExecutionRequest,
@@ -220,7 +219,6 @@ export class TestContext {
     return await this.processPublicFunctionsWithMockExecutorImplementation(
       txs,
       maxTransactions,
-      txValidator,
       defaultExecutorImplementation,
     );
   }
@@ -244,7 +242,6 @@ export class TestContext {
   private async processPublicFunctionsWithMockExecutorImplementation(
     txs: Tx[],
     maxTransactions: number,
-    txValidator?: TxValidator<ProcessedTx>,
     executorMock?: (
       stateManager: AvmPersistableStateManager,
       executionRequest: PublicExecutionRequest,
@@ -271,7 +268,7 @@ export class TestContext {
     if (executorMock) {
       simulateInternal.mockImplementation(executorMock);
     }
-    return await this.publicProcessor.process(txs, maxTransactions, txValidator);
+    return await this.publicProcessor.process(txs, { maxTransactions });
   }
 }
 

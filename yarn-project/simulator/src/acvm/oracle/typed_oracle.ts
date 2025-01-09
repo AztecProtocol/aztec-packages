@@ -108,10 +108,6 @@ export abstract class TypedOracle {
     throw new OracleMethodNotAvailableError('getMembershipWitness');
   }
 
-  getSiblingPath(_blockNumber: number, _treeId: MerkleTreeId, _leafIndex: Fr): Promise<Fr[]> {
-    throw new OracleMethodNotAvailableError('getSiblingPath');
-  }
-
   getNullifierMembershipWitness(_blockNumber: number, _nullifier: Fr): Promise<NullifierMembershipWitness | undefined> {
     throw new OracleMethodNotAvailableError('getNullifierMembershipWitness');
   }
@@ -260,5 +256,13 @@ export abstract class TypedOracle {
     _recipient: AztecAddress,
   ): Promise<void> {
     throw new OracleMethodNotAvailableError('deliverNote');
+  }
+
+  store(_contract: AztecAddress, _key: Fr, _values: Fr[]): Promise<void> {
+    throw new OracleMethodNotAvailableError('store');
+  }
+
+  load(_contract: AztecAddress, _key: Fr): Promise<Fr[] | null> {
+    throw new OracleMethodNotAvailableError('load');
   }
 }

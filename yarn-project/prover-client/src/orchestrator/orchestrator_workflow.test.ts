@@ -16,7 +16,7 @@ import { makeParityPublicInputs } from '@aztec/circuits.js/testing';
 import { createLogger } from '@aztec/foundation/log';
 import { promiseWithResolvers } from '@aztec/foundation/promise';
 import { sleep } from '@aztec/foundation/sleep';
-import { ProtocolCircuitVks } from '@aztec/noir-protocol-circuits-types';
+import { ProtocolCircuitVks } from '@aztec/noir-protocol-circuits-types/vks';
 
 import { type MockProxy, mock } from 'jest-mock-extended';
 

@@ -32,9 +32,9 @@ import { jest } from '@jest/globals';
 import { type MockProxy, mock } from 'jest-mock-extended';
 import times from 'lodash.times';
 
-import { type IncomingNoteDao } from '../database/incoming_note_dao.js';
 import { type PxeDatabase } from '../database/index.js';
 import { KVPxeDatabase } from '../database/kv_pxe_database.js';
+import { type NoteDao } from '../database/note_dao.js';
 import { ContractDataOracle } from '../index.js';
 import { SimulatorOracle } from './index.js';
 import { WINDOW_HALF_SIZE } from './tagging_utils.js';
@@ -461,13 +461,13 @@ describe('Simulator oracle', () => {
 
   describe('Process notes', () => {
     let addNotesSpy: any;
-    let getIncomingNotesSpy: any;
+    let getNotesSpy: any;
     let removeNullifiedNotesSpy: any;
     let simulator: MockProxy<AcirSimulator>;
 
     beforeEach(() => {
       addNotesSpy = jest.spyOn(database, 'addNotes');
-      getIncomingNotesSpy = jest.spyOn(database, 'getIncomingNotes');
+      getNotesSpy = jest.spyOn(database, 'getNotes');
       removeNullifiedNotesSpy = jest.spyOn(database, 'removeNullifiedNotes');
       removeNullifiedNotesSpy.mockImplementation(() => Promise.resolve([]));
       simulator = mock<AcirSimulator>();
@@ -483,7 +483,7 @@ describe('Simulator oracle', () => {
 
     afterEach(() => {
       addNotesSpy.mockReset();
-      getIncomingNotesSpy.mockReset();
+      getNotesSpy.mockReset();
       removeNullifiedNotesSpy.mockReset();
       simulator.computeNoteHashAndOptionallyANullifier.mockReset();
       aztecNode.getTxEffect.mockReset();
@@ -642,10 +642,10 @@ describe('Simulator oracle', () => {
 
       await simulatorOracle.processTaggedLogs(taggedLogs, recipient.address, simulator);
 
-      // Check incoming
+      // Check notes
       {
-        const addedIncoming: IncomingNoteDao[] = addNotesSpy.mock.calls[0][0];
-        expect(addedIncoming.map(dao => dao)).toEqual([
+        const addedNotes: NoteDao[] = addNotesSpy.mock.calls[0][0];
+        expect(addedNotes.map(dao => dao)).toEqual([
           expect.objectContaining({ ...requests[0].snippetOfNoteDao, index: requests[0].indexWithinNoteHashTree }),
           expect.objectContaining({ ...requests[1].snippetOfNoteDao, index: requests[1].indexWithinNoteHashTree }),
           expect.objectContaining({ ...requests[2].snippetOfNoteDao, index: requests[2].indexWithinNoteHashTree }),
@@ -655,7 +655,7 @@ describe('Simulator oracle', () => {
 
         // Check that every note has a different nonce.
         const nonceSet = new Set<bigint>();
-        addedIncoming.forEach(info => nonceSet.add(info.nonce.value));
+        addedNotes.forEach(info => nonceSet.add(info.nonce.value));
         expect(nonceSet.size).toBe(requests.length);
       }
     });
@@ -667,7 +667,7 @@ describe('Simulator oracle', () => {
         new MockNoteRequest(getRandomNoteLogPayload(Fr.random(), contractAddress), 12, 3, 2, recipient.address),
       ];
 
-      getIncomingNotesSpy.mockResolvedValueOnce(
+      getNotesSpy.mockResolvedValueOnce(
         Promise.resolve(requests.map(request => ({ siloedNullifier: Fr.random(), ...request.snippetOfNoteDao }))),
       );
       let requestedNullifier;

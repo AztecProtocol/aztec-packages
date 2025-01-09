@@ -13,13 +13,13 @@ pub mod get_membership_witness;
 pub mod keys;
 pub mod key_validation_request;
 pub mod management;
-pub mod get_sibling_path;
 pub mod random;
 pub mod enqueue_public_function_call;
 pub mod block_header;
 pub mod notes;
 pub mod storage;
 pub mod logs;
+pub mod pxe_db;
 pub mod returns;
 
 // debug_log oracle is used by both noir-protocol-circuits and this crate and for this reason we just re-export it
