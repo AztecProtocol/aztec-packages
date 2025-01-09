@@ -6,11 +6,15 @@ version="3.0"
 arch=$(arch)
 branch=${BRANCH:-$(git rev-parse --abbrev-ref HEAD)}
 
-function docker_login {
+function check_login {
   if [ -z "$DOCKERHUB_PASSWORD" ]; then
     echo "No DOCKERHUB_PASSWORD provided."
     exit 1
   fi
+}
+
+function docker_login {
+  check_login
   echo $DOCKERHUB_PASSWORD | docker login -u aztecprotocolci --password-stdin
 }
 
@@ -91,11 +95,11 @@ case "$cmd" in
     update_manifest
     ;;
   "ec2-amd64")
-    docker_login
+    check_login
     build_ec2 128 amd64
     ;;
   "ec2-arm64")
-    docker_login
+    check_login
     build_ec2 64 arm64
     ;;
   *)
