@@ -64,7 +64,7 @@ jobs:
         if: needs.changes.outputs.build-images == 'true'
         timeout-minutes: 40
         run: |
-          ./build-images/bootstrap.sh ci
+          ./build-images/bootstrap-earthly.sh ci
 
   # all the non-bench end-to-end integration tests for aztec
   e2e:

@@ -128,7 +128,7 @@ jobs:
           username: ${{ needs.configure.outputs.username }}
           run: |
             echo ${{ secrets.DOCKERHUB_PASSWORD }} | docker login -u aztecprotocolci --password-stdin
-            ./build-images/bootstrap.sh ci
+            ./build-images/bootstrap-earthly.sh ci
 
   # CI for noir and bb.
   ci-noir-bb:

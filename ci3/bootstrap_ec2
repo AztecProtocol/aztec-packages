@@ -4,6 +4,7 @@ source $(git rev-parse --show-toplevel)/ci3/source
 cmd=${1:-"./bootstrap.sh ci"}
 postfix=${2:-}
 cores=${CORES:-128}
+arch=${ARCH:-x86_64}
 NO_TERMINATE=${NO_TERMINATE:-0}
 BRANCH=${BRANCH:-$(git rev-parse --abbrev-ref HEAD)}
 
@@ -40,7 +41,7 @@ if [ -n "$existing_instance" ]; then
 fi
 
 # Request new instance.
-ip_sir=$(aws_request_instance $instance_name $cores x86_64)
+ip_sir=$(aws_request_instance $instance_name $cores $arch)
 parts=(${ip_sir//:/ })
 ip="${parts[0]}"
 sir="${parts[1]}"
