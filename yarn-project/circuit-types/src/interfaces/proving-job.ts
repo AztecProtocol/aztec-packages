@@ -298,7 +298,11 @@ export const makeProvingJobId = (epochNumber: number, type: ProvingRequestType, 
 
 export const getEpochFromProvingJobId = (id: ProvingJobId) => {
   const components = id.split(':');
-  return +components[0];
+  const epochNumber = components.length < 1 ? Number.NaN : parseInt(components[0], 10);
+  if (!Number.isSafeInteger(epochNumber) || epochNumber < 0) {
+    throw new Error(`Proving Job ID ${id} does not contain valid epoch`);
+  }
+  return epochNumber;
 };
 
 export type ProvingJob = z.infer<typeof ProvingJob>;
