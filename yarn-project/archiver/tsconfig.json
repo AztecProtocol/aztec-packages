@@ -25,6 +25,9 @@
       "path": "../l1-artifacts"
     },
     {
+      "path": "../noir-contracts.js"
+    },
+    {
       "path": "../protocol-contracts"
     },
     {
