@@ -1,10 +1,4 @@
-import {
-  type ProofUri,
-  type ProverBrokerConfig,
-  type ProvingJob,
-  type ProvingJobSettledResult,
-  ProvingRequestType,
-} from '@aztec/circuit-types';
+import { type ProofUri, type ProvingJob, type ProvingJobSettledResult, ProvingRequestType } from '@aztec/circuit-types';
 import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
 
 import { existsSync } from 'fs';
@@ -12,6 +6,7 @@ import { mkdir, mkdtemp, rm } from 'fs/promises';
 import { tmpdir } from 'os';
 import { join } from 'path';
 
+import { type ProverBrokerConfig } from '../config.js';
 import { makeInputsUri, makeRandomProvingJobId } from '../fixtures.js';
 import { KVBrokerDatabase } from './persisted.js';
 
@@ -23,8 +18,8 @@ describe('ProvingBrokerPersistedDatabase', () => {
   beforeEach(async () => {
     directory = await mkdtemp(join(tmpdir(), 'proving-broker-database-test'));
     config = {
-      proverBrokerDataMapSizeKB: 1024 * 1024 * 1024, // 1GB
-      proverBrokerDataDirectory: directory,
+      dataStoreMapSizeKB: 1024 * 1024 * 1024, // 1GB
+      dataDirectory: directory,
       proverBrokerJobMaxRetries: 1,
       proverBrokerJobTimeoutMs: 1000,
       proverBrokerPollIntervalMs: 1000,
