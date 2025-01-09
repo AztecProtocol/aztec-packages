@@ -187,10 +187,10 @@ export abstract class BBPrivateKernelProver implements PrivateKernelProver {
       circuitType,
     );
 
-    const witnessMap = await convertInputs(inputs, compiledCircuit.abi);
+    const witnessMap = convertInputs(inputs, compiledCircuit.abi);
     const timer = new Timer();
     const outputWitness = await this.simulator.simulateCircuit(witnessMap, compiledCircuit);
-    const output = await convertOutputs(outputWitness, compiledCircuit.abi);
+    const output = convertOutputs(outputWitness, compiledCircuit.abi);
 
     this.log.debug(`Generated witness for ${circuitType}`, {
       eventName: 'circuit-witness-generation',
@@ -224,7 +224,7 @@ export abstract class BBPrivateKernelProver implements PrivateKernelProver {
     return kernelProofOutput;
   }
 
-  public async createClientIvcProof(acirs: Buffer[], witnessStack: WitnessMap[]): Promise<ClientIvcProof> {
+  public createClientIvcProof(_acirs: Buffer[], _witnessStack: WitnessMap[]): Promise<ClientIvcProof> {
     throw new Error('Not implemented');
   }
 
