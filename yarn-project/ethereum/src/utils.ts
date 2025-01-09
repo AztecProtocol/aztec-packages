@@ -110,6 +110,9 @@ export function formatViemError(error: any): string {
             // Keep other fields as is (from, blobVersionedHashes, etc.)
             return truncated;
           }
+          if (typeof param === 'string' && param.length > 1000) {
+            return truncateHex(param);
+          }
           return param;
         });
       }
@@ -122,8 +125,16 @@ export function formatViemError(error: any): string {
   };
 
   const errorChain = [];
+  const seenMessages = new Set(); // To avoid duplicate error messages
+
   if (error instanceof BaseError) {
     error.walk((err: any) => {
+      // Skip if we've seen this exact message before
+      if (seenMessages.has(err.message)) {
+        return false;
+      }
+      seenMessages.add(err.message);
+
       const errorInfo: any = {
         name: err.name,
         message: err.shortMessage || err.message,
@@ -171,14 +182,5 @@ export function formatViemError(error: any): string {
     });
   }
 
-  return JSON.stringify(clean({ errorChain }), null, 2);
+  return JSON.stringify({ errorChain }, null, 2);
 }
-
-const clean = (obj: any) => {
-  Object.keys(obj).forEach(key => {
-    if (obj[key] === undefined) {
-      delete obj[key];
-    }
-  });
-  return obj;
-};
