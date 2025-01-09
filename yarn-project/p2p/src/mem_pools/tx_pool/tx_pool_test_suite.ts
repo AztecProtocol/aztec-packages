@@ -1,4 +1,6 @@
-import { mockTx } from '@aztec/circuit-types';
+import { type Tx, mockTx } from '@aztec/circuit-types';
+import { GasFees } from '@aztec/circuits.js';
+import { unfreeze } from '@aztec/foundation/types';
 
 import { type TxPool } from './tx_pool.js';
 
@@ -100,5 +102,23 @@ export function describeTxPool(getTxPool: () => TxPool) {
     const poolTxHashes = pool.getAllTxHashes();
     expect(poolTxHashes).toHaveLength(3);
     expect(poolTxHashes).toEqual(expect.arrayContaining([tx1.getTxHash(), tx2.getTxHash(), tx3.getTxHash()]));
+  });
+
+  it('Returns pending tx hashes sorted by priority', async () => {
+    const withPriorityFee = (tx: Tx, fee: number) => {
+      unfreeze(tx.data.constants.txContext.gasSettings).maxPriorityFeesPerGas = new GasFees(fee, fee);
+      return tx;
+    };
+
+    const tx1 = withPriorityFee(mockTx(0), 1000);
+    const tx2 = withPriorityFee(mockTx(1), 100);
+    const tx3 = withPriorityFee(mockTx(2), 200);
+    const tx4 = withPriorityFee(mockTx(3), 3000);
+
+    await pool.addTxs([tx1, tx2, tx3, tx4]);
+
+    const poolTxHashes = pool.getPendingTxHashes();
+    expect(poolTxHashes).toHaveLength(4);
+    expect(poolTxHashes).toEqual([tx4, tx1, tx3, tx2].map(tx => tx.getTxHash()));
   });
 }

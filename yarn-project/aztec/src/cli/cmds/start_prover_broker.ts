@@ -31,7 +31,5 @@ export async function startProverBroker(
   services.proverBroker = [broker, ProvingJobBrokerSchema];
   signalHandlers.push(() => broker.stop());
 
-  await broker.start();
-
   return broker;
 }

@@ -24,24 +24,24 @@ import {
 import { poseidon2Hash } from '@aztec/foundation/crypto';
 import { assertLength } from '@aztec/foundation/serialize';
 
-import BaseParityVkJson from '../artifacts/keys/parity_base.vk.data.json' assert { type: 'json' };
-import RootParityVkJson from '../artifacts/keys/parity_root.vk.data.json' assert { type: 'json' };
-import PrivateKernelInitVkJson from '../artifacts/keys/private_kernel_init.vk.data.json' assert { type: 'json' };
-import PrivateKernelInnerVkJson from '../artifacts/keys/private_kernel_inner.vk.data.json' assert { type: 'json' };
-import PrivateKernelTailVkJson from '../artifacts/keys/private_kernel_tail.vk.data.json' assert { type: 'json' };
-import PrivateKernelTailToPublicVkJson from '../artifacts/keys/private_kernel_tail_to_public.vk.data.json' assert { type: 'json' };
-import PrivateBaseRollupVkJson from '../artifacts/keys/rollup_base_private.vk.data.json' assert { type: 'json' };
-import PublicBaseRollupVkJson from '../artifacts/keys/rollup_base_public.vk.data.json' assert { type: 'json' };
-import BlockMergeRollupVkJson from '../artifacts/keys/rollup_block_merge.vk.data.json' assert { type: 'json' };
-import BlockRootRollupVkJson from '../artifacts/keys/rollup_block_root.vk.data.json' assert { type: 'json' };
-import EmptyBlockRootRollupVkJson from '../artifacts/keys/rollup_block_root_empty.vk.data.json' assert { type: 'json' };
-import SingleTxBlockRootRollupVkJson from '../artifacts/keys/rollup_block_root_single_tx.vk.data.json' assert { type: 'json' };
-import MergeRollupVkJson from '../artifacts/keys/rollup_merge.vk.data.json' assert { type: 'json' };
-import RootRollupVkJson from '../artifacts/keys/rollup_root.vk.data.json' assert { type: 'json' };
-import TubeVkJson from '../artifacts/keys/tube.vk.data.json' assert { type: 'json' };
-import { type ClientProtocolArtifact, type ProtocolArtifact, type ServerProtocolArtifact } from './artifacts/index.js';
-import { PrivateKernelResetVkIndexes, PrivateKernelResetVks } from './private_kernel_reset_data.js';
-import { keyJsonToVKData } from './utils/vk_json.js';
+import BaseParityVkJson from '../../artifacts/keys/parity_base.vk.data.json' assert { type: 'json' };
+import RootParityVkJson from '../../artifacts/keys/parity_root.vk.data.json' assert { type: 'json' };
+import PrivateKernelInitVkJson from '../../artifacts/keys/private_kernel_init.vk.data.json' assert { type: 'json' };
+import PrivateKernelInnerVkJson from '../../artifacts/keys/private_kernel_inner.vk.data.json' assert { type: 'json' };
+import PrivateKernelTailVkJson from '../../artifacts/keys/private_kernel_tail.vk.data.json' assert { type: 'json' };
+import PrivateKernelTailToPublicVkJson from '../../artifacts/keys/private_kernel_tail_to_public.vk.data.json' assert { type: 'json' };
+import PrivateBaseRollupVkJson from '../../artifacts/keys/rollup_base_private.vk.data.json' assert { type: 'json' };
+import PublicBaseRollupVkJson from '../../artifacts/keys/rollup_base_public.vk.data.json' assert { type: 'json' };
+import BlockMergeRollupVkJson from '../../artifacts/keys/rollup_block_merge.vk.data.json' assert { type: 'json' };
+import BlockRootRollupVkJson from '../../artifacts/keys/rollup_block_root.vk.data.json' assert { type: 'json' };
+import EmptyBlockRootRollupVkJson from '../../artifacts/keys/rollup_block_root_empty.vk.data.json' assert { type: 'json' };
+import SingleTxBlockRootRollupVkJson from '../../artifacts/keys/rollup_block_root_single_tx.vk.data.json' assert { type: 'json' };
+import MergeRollupVkJson from '../../artifacts/keys/rollup_merge.vk.data.json' assert { type: 'json' };
+import RootRollupVkJson from '../../artifacts/keys/rollup_root.vk.data.json' assert { type: 'json' };
+import TubeVkJson from '../../artifacts/keys/tube.vk.data.json' assert { type: 'json' };
+import { type ClientProtocolArtifact, type ProtocolArtifact, type ServerProtocolArtifact } from '../artifacts/types.js';
+import { PrivateKernelResetVkIndexes, PrivateKernelResetVks } from '../private_kernel_reset_vks.js';
+import { keyJsonToVKData } from '../utils/vk_json.js';
 
 // TODO Include this in the normal maps when the tube is implemented in noir
 export const TubeVk = keyJsonToVKData(TubeVkJson);

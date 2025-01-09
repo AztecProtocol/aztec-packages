@@ -1,12 +1,11 @@
-import { type EpochConstants, getTimestampRangeForEpoch } from './index.js';
+import { type L1RollupConstants, getTimestampRangeForEpoch } from './index.js';
 
 describe('EpochHelpers', () => {
-  let constants: EpochConstants;
+  let constants: Omit<L1RollupConstants, 'l1StartBlock'>;
   const l1GenesisTime = 1734440000n;
 
   beforeEach(() => {
     constants = {
-      l1GenesisBlock: 10n,
       l1GenesisTime: l1GenesisTime,
       epochDuration: 4,
       slotDuration: 24,

@@ -3,7 +3,6 @@ import {
   type ProvingJob,
   type ProvingJobId,
   type ProvingJobProducer,
-  type ProvingJobSettledResult,
   type ProvingJobStatus,
   type PublicInputsAndRecursiveProof,
   type ServerCircuitProver,
@@ -81,7 +80,7 @@ export class TestBroker implements ProvingJobProducer {
     return this.proofStore;
   }
 
-  enqueueProvingJob(job: ProvingJob): Promise<void> {
+  enqueueProvingJob(job: ProvingJob): Promise<ProvingJobStatus> {
     return this.broker.enqueueProvingJob(job);
   }
   getProvingJobStatus(id: ProvingJobId): Promise<ProvingJobStatus> {
@@ -90,8 +89,9 @@ export class TestBroker implements ProvingJobProducer {
   cancelProvingJob(id: string): Promise<void> {
     return this.broker.cancelProvingJob(id);
   }
-  waitForJobToSettle(id: ProvingJobId): Promise<ProvingJobSettledResult> {
-    return this.broker.waitForJobToSettle(id);
+
+  getCompletedJobs(ids: ProvingJobId[]): Promise<ProvingJobId[]> {
+    return this.broker.getCompletedJobs(ids);
   }
 }
 

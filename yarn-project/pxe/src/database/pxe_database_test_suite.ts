@@ -405,5 +405,66 @@ export function describePxeDatabase(getDatabase: () => PxeDatabase) {
         await expect(database.getContractInstance(address)).resolves.toEqual(instance);
       });
     });
+
+    describe('contract store', () => {
+      let contract: AztecAddress;
+
+      beforeEach(() => {
+        // Setup mock contract address
+        contract = AztecAddress.random();
+      });
+
+      it('stores and loads a single value', async () => {
+        const key = new Fr(1);
+        const values = [new Fr(42)];
+
+        await database.store(contract, key, values);
+        const result = await database.load(contract, key);
+        expect(result).toEqual(values);
+      });
+
+      it('stores and loads multiple values', async () => {
+        const key = new Fr(1);
+        const values = [new Fr(42), new Fr(43), new Fr(44)];
+
+        await database.store(contract, key, values);
+        const result = await database.load(contract, key);
+        expect(result).toEqual(values);
+      });
+
+      it('overwrites existing values', async () => {
+        const key = new Fr(1);
+        const initialValues = [new Fr(42)];
+        const newValues = [new Fr(100)];
+
+        await database.store(contract, key, initialValues);
+        await database.store(contract, key, newValues);
+
+        const result = await database.load(contract, key);
+        expect(result).toEqual(newValues);
+      });
+
+      it('stores values for different contracts independently', async () => {
+        const anotherContract = AztecAddress.random();
+        const key = new Fr(1);
+        const values1 = [new Fr(42)];
+        const values2 = [new Fr(100)];
+
+        await database.store(contract, key, values1);
+        await database.store(anotherContract, key, values2);
+
+        const result1 = await database.load(contract, key);
+        const result2 = await database.load(anotherContract, key);
+
+        expect(result1).toEqual(values1);
+        expect(result2).toEqual(values2);
+      });
+
+      it('returns null for non-existent keys', async () => {
+        const key = Fr.random();
+        const result = await database.load(contract, key);
+        expect(result).toBeNull();
+      });
+    });
   });
 }

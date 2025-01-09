@@ -1,5 +1,6 @@
 import { createArchiver } from '@aztec/archiver';
 import { BBCircuitVerifier, TestCircuitVerifier } from '@aztec/bb-prover';
+import { type BlobSinkClientInterface, createBlobSinkClient } from '@aztec/blob-sink/client';
 import {
   type AztecNode,
   type ClientProtocolCircuitVerifier,
@@ -138,11 +139,13 @@ export class AztecNodeService implements AztecNode, Traceable {
       logger?: Logger;
       publisher?: L1Publisher;
       dateProvider?: DateProvider;
+      blobSinkClient?: BlobSinkClientInterface;
     } = {},
   ): Promise<AztecNodeService> {
     const telemetry = deps.telemetry ?? new NoopTelemetryClient();
     const log = deps.logger ?? createLogger('node');
     const dateProvider = deps.dateProvider ?? new DateProvider();
+    const blobSinkClient = deps.blobSinkClient ?? createBlobSinkClient(config.blobSinkUrl);
     const ethereumChain = createEthereumChain(config.l1RpcUrl, config.l1ChainId);
     //validate that the actual chain id matches that specified in configuration
     if (config.l1ChainId !== ethereumChain.chainInfo.id) {
@@ -151,7 +154,7 @@ export class AztecNodeService implements AztecNode, Traceable {
       );
     }
 
-    const archiver = await createArchiver(config, telemetry, { blockUntilSync: true });
+    const archiver = await createArchiver(config, blobSinkClient, telemetry, { blockUntilSync: true });
 
     // we identify the P2P transaction protocol by using the rollup contract address.
     // this may well change in future
@@ -189,6 +192,7 @@ export class AztecNodeService implements AztecNode, Traceable {
     const sequencer = config.disableValidator
       ? undefined
       : await SequencerClient.new(config, {
+          ...deps,
           validatorClient,
           p2pClient,
           worldStateSynchronizer,
@@ -198,7 +202,7 @@ export class AztecNodeService implements AztecNode, Traceable {
           l1ToL2MessageSource: archiver,
           telemetry,
           dateProvider,
-          ...deps,
+          blobSinkClient,
         });
 
     return new AztecNodeService(

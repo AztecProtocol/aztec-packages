@@ -4,7 +4,8 @@
   "type": "module",
   "exports": {
     ".": "./dest/index.js",
-    "./config": "./dest/config.js"
+    "./config": "./dest/config.js",
+    "./test": "./dest/test/index.js"
   },
   "typedocOptions": {
     "entryPoints": [
@@ -29,6 +30,7 @@
   "dependencies": {
     "@aztec/aztec.js": "workspace:^",
     "@aztec/bb-prover": "workspace:^",
+    "@aztec/blob-sink": "workspace:^",
     "@aztec/circuit-types": "workspace:^",
     "@aztec/circuits.js": "workspace:^",
     "@aztec/ethereum": "workspace:^",

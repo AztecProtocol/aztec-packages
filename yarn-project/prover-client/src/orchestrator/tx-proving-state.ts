@@ -19,7 +19,7 @@ import {
   PublicTubeData,
   TubeInputs,
 } from '@aztec/circuits.js/rollup';
-import { getVKIndex, getVKSiblingPath } from '@aztec/noir-protocol-circuits-types';
+import { getVKIndex, getVKSiblingPath } from '@aztec/noir-protocol-circuits-types/vks';
 
 /**
  * Helper class to manage the proving cycle of a transaction

@@ -163,7 +163,7 @@ export class SimulatorOracle implements DBOracle {
    * @returns - The index of the commitment. Undefined if it does not exist in the tree.
    */
   async getCommitmentIndex(commitment: Fr) {
-    return await this.findLeafIndex('latest', MerkleTreeId.NOTE_HASH_TREE, commitment);
+    return await this.#findLeafIndex('latest', MerkleTreeId.NOTE_HASH_TREE, commitment);
   }
 
   // We need this in public as part of the EXISTS calls - but isn't used in private
@@ -172,19 +172,26 @@ export class SimulatorOracle implements DBOracle {
   }
 
   async getNullifierIndex(nullifier: Fr) {
-    return await this.findLeafIndex('latest', MerkleTreeId.NULLIFIER_TREE, nullifier);
+    return await this.#findLeafIndex('latest', MerkleTreeId.NULLIFIER_TREE, nullifier);
   }
 
-  public async findLeafIndex(
-    blockNumber: L2BlockNumber,
-    treeId: MerkleTreeId,
-    leafValue: Fr,
-  ): Promise<bigint | undefined> {
+  async #findLeafIndex(blockNumber: L2BlockNumber, treeId: MerkleTreeId, leafValue: Fr): Promise<bigint | undefined> {
     const [leafIndex] = await this.aztecNode.findLeavesIndexes(blockNumber, treeId, [leafValue]);
     return leafIndex;
   }
 
-  public async getSiblingPath(blockNumber: number, treeId: MerkleTreeId, leafIndex: bigint): Promise<Fr[]> {
+  public async getMembershipWitness(blockNumber: number, treeId: MerkleTreeId, leafValue: Fr): Promise<Fr[]> {
+    const leafIndex = await this.#findLeafIndex(blockNumber, treeId, leafValue);
+    if (!leafIndex) {
+      throw new Error(`Leaf value: ${leafValue} not found in ${MerkleTreeId[treeId]}`);
+    }
+
+    const siblingPath = await this.#getSiblingPath(blockNumber, treeId, leafIndex);
+
+    return [new Fr(leafIndex), ...siblingPath];
+  }
+
+  async #getSiblingPath(blockNumber: number, treeId: MerkleTreeId, leafIndex: bigint): Promise<Fr[]> {
     switch (treeId) {
       case MerkleTreeId.NULLIFIER_TREE:
         return (await this.aztecNode.getNullifierSiblingPath(blockNumber, leafIndex)).toFields();
@@ -665,5 +672,27 @@ export class SimulatorOracle implements DBOracle {
         });
       });
     }
+  }
+
+  /**
+   * Used by contracts during execution to store arbitrary data in the local PXE database. The data is siloed/scoped
+   * to a specific `contract`.
+   * @param contract - An address of a contract that is requesting to store the data.
+   * @param key - A field element representing the key to store the data under.
+   * @param values - An array of field elements representing the data to store.
+   */
+  store(contract: AztecAddress, key: Fr, values: Fr[]): Promise<void> {
+    return this.db.store(contract, key, values);
+  }
+
+  /**
+   * Used by contracts during execution to load arbitrary data from the local PXE database. The data is siloed/scoped
+   * to a specific `contract`.
+   * @param contract - An address of a contract that is requesting to load the data.
+   * @param key - A field element representing the key under which to load the data..
+   * @returns An array of field elements representing the stored data or `null` if no data is stored under the key.
+   */
+  load(contract: AztecAddress, key: Fr): Promise<Fr[] | null> {
+    return this.db.load(contract, key);
   }
 }

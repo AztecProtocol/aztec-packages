@@ -44,7 +44,7 @@ import { type Tuple } from '@aztec/foundation/serialize';
 import { pushTestData } from '@aztec/foundation/testing';
 import { elapsed } from '@aztec/foundation/timer';
 import { type TreeNodeLocation } from '@aztec/foundation/trees';
-import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types';
+import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types/vks';
 import { Attributes, type TelemetryClient, type Tracer, trackSpan, wrapCallbackInSpan } from '@aztec/telemetry-client';
 
 import { inspect } from 'util';
@@ -102,6 +102,11 @@ export class ProvingOrchestrator implements EpochProver {
 
   public getProverId(): Fr {
     return this.proverId;
+  }
+
+  public stop(): Promise<void> {
+    this.cancel();
+    return Promise.resolve();
   }
 
   public startNewEpoch(epochNumber: number, firstBlockNumber: number, totalNumBlocks: number) {

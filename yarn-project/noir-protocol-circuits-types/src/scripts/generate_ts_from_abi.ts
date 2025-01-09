@@ -44,11 +44,15 @@ const main = async () => {
     const abiObj: CompiledCircuit = JSON.parse(rawData);
     programs.push([pascalCase(circuit), abiObj]);
   }
-  const code = codegen(
+  let code = codegen(
     programs,
     false, // Don't embed artifacts
     true, // Use fixed length arrays
   );
+
+  code += `
+    export * from '../artifacts/types.js';
+  `;
   await fs.writeFile('./src/types/index.ts', code);
 };
 

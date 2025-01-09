@@ -59,7 +59,7 @@ import {
   getVKIndex,
   getVKSiblingPath,
   getVKTreeRoot,
-} from '@aztec/noir-protocol-circuits-types';
+} from '@aztec/noir-protocol-circuits-types/vks';
 import { protocolContractTreeRoot } from '@aztec/protocol-contracts';
 import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
 import { type MerkleTreeAdminDatabase, NativeWorldStateService } from '@aztec/world-state';

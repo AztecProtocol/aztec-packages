@@ -14,19 +14,7 @@ import SingleTxBlockRootRollupJson from '../../artifacts/rollup_block_root_singl
 import SingleTxBlockRootRollupSimulatedJson from '../../artifacts/rollup_block_root_single_tx_simulated.json' assert { type: 'json' };
 import MergeRollupJson from '../../artifacts/rollup_merge.json' assert { type: 'json' };
 import RootRollupJson from '../../artifacts/rollup_root.json' assert { type: 'json' };
-
-// These are all circuits that should generate proofs with the `recursive` flag.
-export type ServerProtocolArtifact =
-  | 'BaseParityArtifact'
-  | 'RootParityArtifact'
-  | 'PrivateBaseRollupArtifact'
-  | 'PublicBaseRollupArtifact'
-  | 'MergeRollupArtifact'
-  | 'BlockRootRollupArtifact'
-  | 'SingleTxBlockRootRollupArtifact'
-  | 'EmptyBlockRootRollupArtifact'
-  | 'BlockMergeRollupArtifact'
-  | 'RootRollupArtifact';
+import { type ServerProtocolArtifact } from './types.js';
 
 export const ServerCircuitArtifacts: Record<ServerProtocolArtifact, NoirCompiledCircuit> = {
   BaseParityArtifact: BaseParityJson as NoirCompiledCircuit,

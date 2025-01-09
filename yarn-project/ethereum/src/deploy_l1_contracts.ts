@@ -404,7 +404,7 @@ export const deployL1Contracts = async (
   logger.verbose(`Deployed Rollup at ${rollupAddress}`, rollupConfigArgs);
 
   const slashFactoryAddress = await deployer.deploy(l1Artifacts.slashFactory, [rollupAddress.toString()]);
-  logger.info(`Deployed SlashFactory at ${slashFactoryAddress}`);
+  logger.verbose(`Deployed SlashFactory at ${slashFactoryAddress}`);
 
   await deployer.waitForDeployments();
   logger.verbose(`All core contracts have been deployed`);
