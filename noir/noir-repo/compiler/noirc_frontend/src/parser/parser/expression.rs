@@ -8,7 +8,7 @@ use crate::{
         MemberAccessExpression, MethodCallExpression, Statement, TypePath, UnaryOp, UnresolvedType,
     },
     parser::{labels::ParsingRuleLabel, parser::parse_many::separated_by_comma, ParserErrorReason},
-    token::{DocStyle, Keyword, SpannedToken, Token, TokenKind},
+    token::{Keyword, Token, TokenKind},
 };
 
 use super::{
