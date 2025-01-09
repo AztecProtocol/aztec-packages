@@ -46,7 +46,7 @@ import {
 import { makeTuple } from '@aztec/foundation/array';
 import { Blob } from '@aztec/foundation/blob';
 import { padArrayEnd } from '@aztec/foundation/collection';
-import { sha256ToField, sha256Trunc } from '@aztec/foundation/crypto';
+import { sha256Trunc } from '@aztec/foundation/crypto';
 import { type Logger } from '@aztec/foundation/log';
 import { type Tuple, assertLength, serializeToBuffer, toFriendlyJSON } from '@aztec/foundation/serialize';
 import { computeUnbalancedMerkleRoot } from '@aztec/foundation/trees';
@@ -269,7 +269,7 @@ export function buildBlobHints(txEffects: TxEffect[]) {
   const blobFields = txEffects.flatMap(tx => tx.toBlobFields());
   const blobs = Blob.getBlobs(blobFields);
   const blobCommitments = blobs.map(b => b.commitmentToFields());
-  const blobsHash = sha256ToField(blobs.map(b => b.getEthVersionedBlobHash()));
+  const blobsHash = new Fr(getBlobsHashFromBlobs(blobs));
   return { blobFields, blobCommitments, blobs, blobsHash };
 }
 

@@ -3,14 +3,18 @@ use crate::abis::previous_rollup_block_data::PreviousRollupBlockData;
 use crate::components;
 use dep::types::{
     constants::{
-        BLOCK_MERGE_ROLLUP_INDEX, BLOCK_ROOT_ROLLUP_INDEX, BLOCK_ROOT_ROLLUP_SINGLE_TX_INDEX,
-        PROOF_TYPE_ROLLUP_HONK,
+        BLOCK_MERGE_ROLLUP_INDEX, BLOCK_ROOT_ROLLUP_EMPTY_INDEX, BLOCK_ROOT_ROLLUP_INDEX,
+        BLOCK_ROOT_ROLLUP_SINGLE_TX_INDEX, PROOF_TYPE_ROLLUP_HONK,
     },
     traits::Empty,
 };
 
-global ALLOWED_PREVIOUS_CIRCUITS: [u32; 3] =
-    [BLOCK_ROOT_ROLLUP_INDEX, BLOCK_ROOT_ROLLUP_SINGLE_TX_INDEX, BLOCK_MERGE_ROLLUP_INDEX];
+global ALLOWED_PREVIOUS_CIRCUITS: [u32; 4] = [
+    BLOCK_ROOT_ROLLUP_INDEX,
+    BLOCK_ROOT_ROLLUP_SINGLE_TX_INDEX,
+    BLOCK_ROOT_ROLLUP_EMPTY_INDEX,
+    BLOCK_MERGE_ROLLUP_INDEX,
+];
 
 pub struct BlockMergeRollupInputs {
     pub previous_rollup_data: [PreviousRollupBlockData; 2],

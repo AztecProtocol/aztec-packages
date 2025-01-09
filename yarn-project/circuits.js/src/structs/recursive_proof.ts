@@ -91,10 +91,6 @@ export class RecursiveProof<N extends number> {
     return this.toBuffer();
   }
 
-  static empty<N extends number>(size: N) {
-    return new RecursiveProof(makeTuple<Fr, N>(size, Fr.zero), makeEmptyProof(), true, size);
-  }
-
   /** Creates an instance from a hex string with expected size. */
   static schemaFor<N extends number>(expectedSize?: N) {
     return schemas.Buffer.transform(b => RecursiveProof.fromBuffer(b, expectedSize));

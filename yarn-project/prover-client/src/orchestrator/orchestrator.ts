@@ -242,7 +242,7 @@ export class ProvingOrchestrator implements EpochProver {
     provingState.startNewBlock(txs.length, numBlobFields);
 
     logger.info(
-      `Adding ${txs.length} transactions with ${numBlobFields} blob fields to block ${provingState?.blockNumber}`,
+      `Adding ${txs.length} transactions with ${numBlobFields} blob fields to block ${provingState.blockNumber}`,
     );
     for (const tx of txs) {
       try {
@@ -318,7 +318,7 @@ export class ProvingOrchestrator implements EpochProver {
 
   private async buildBlock(provingState: BlockProvingState, expectedHeader?: BlockHeader) {
     // Collect all new nullifiers, commitments, and contracts from all txs in this block to build body
-    const txs = provingState!.allTxs.map(a => a.processedTx);
+    const txs = provingState.allTxs.map(a => a.processedTx);
 
     // Get db for this block
     const db = this.dbs.get(provingState.blockNumber)!;
