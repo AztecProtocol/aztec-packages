@@ -1,7 +1,7 @@
 import { type PrivateKernelProver, type PrivateKernelSimulateOutput } from '@aztec/circuit-types';
-import { CircuitSimulationStats } from '@aztec/circuit-types/stats';
+import { type CircuitSimulationStats } from '@aztec/circuit-types/stats';
 import {
-  ClientIvcProof,
+  type ClientIvcProof,
   type PrivateKernelCircuitPublicInputs,
   type PrivateKernelInitCircuitPrivateInputs,
   type PrivateKernelInnerCircuitPrivateInputs,
@@ -30,13 +30,13 @@ import {
   getPrivateKernelResetArtifactName,
   maxPrivateKernelResetDimensions,
 } from '@aztec/noir-protocol-circuits-types/client';
-import { ArtifactProvider, type ClientProtocolArtifact } from '@aztec/noir-protocol-circuits-types/types';
+import { type ArtifactProvider, type ClientProtocolArtifact } from '@aztec/noir-protocol-circuits-types/types';
 import { ClientCircuitVks } from '@aztec/noir-protocol-circuits-types/vks';
 import { WASMSimulator } from '@aztec/simulator/client';
-import { NoirCompiledCircuit } from '@aztec/types/noir';
+import { type NoirCompiledCircuit } from '@aztec/types/noir';
 
 import { type WitnessMap } from '@noir-lang/noir_js';
-import { Abi } from '@noir-lang/types';
+import { type Abi } from '@noir-lang/types';
 
 export abstract class BBPrivateKernelProver implements PrivateKernelProver {
   protected simulator = new WASMSimulator();

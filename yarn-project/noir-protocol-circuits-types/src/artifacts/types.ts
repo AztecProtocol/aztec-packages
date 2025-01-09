@@ -1,4 +1,4 @@
-import { NoirCompiledCircuit } from '@aztec/types/noir';
+import { type NoirCompiledCircuit } from '@aztec/types/noir';
 
 import { type PrivateResetArtifact } from '../private_kernel_reset_types.js';
 

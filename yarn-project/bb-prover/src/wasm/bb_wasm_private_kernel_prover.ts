@@ -2,7 +2,7 @@ import { AztecClientBackend } from '@aztec/bb.js';
 import { ClientIvcProof } from '@aztec/circuits.js';
 import { createLogger } from '@aztec/foundation/log';
 import { Timer } from '@aztec/foundation/timer';
-import { ArtifactProvider } from '@aztec/noir-protocol-circuits-types/types';
+import { type ArtifactProvider } from '@aztec/noir-protocol-circuits-types/types';
 
 import { type WitnessMap } from '@noir-lang/noir_js';
 import { serializeWitness } from '@noir-lang/noirc_abi';
