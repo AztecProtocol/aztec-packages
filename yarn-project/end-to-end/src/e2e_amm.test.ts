@@ -1,5 +1,6 @@
-import { type AccountWallet, type DebugLogger, Fr, type Wallet } from '@aztec/aztec.js';
-import { AMMContract, type TokenContract } from '@aztec/noir-contracts.js';
+import { type AccountWallet, Fr, type Logger, type Wallet } from '@aztec/aztec.js';
+import { AMMContract } from '@aztec/noir-contracts.js/AMM';
+import { type TokenContract } from '@aztec/noir-contracts.js/Token';
 
 import { jest } from '@jest/globals';
 
@@ -13,7 +14,7 @@ describe('AMM', () => {
 
   let teardown: () => Promise<void>;
 
-  let logger: DebugLogger;
+  let logger: Logger;
 
   let adminWallet: AccountWallet;
   let liquidityProvider: AccountWallet;

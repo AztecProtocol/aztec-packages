@@ -4,7 +4,7 @@ version = 3
 
 [[package]]
 name = "acir"
-version = "1.0.0-beta.0"
+version = "1.0.0-beta.1"
 dependencies = [
  "acir_field",
  "base64 0.21.7",
@@ -20,7 +20,7 @@ dependencies = [
 
 [[package]]
 name = "acir_field"
-version = "1.0.0-beta.0"
+version = "1.0.0-beta.1"
 dependencies = [
  "ark-bn254",
  "ark-ff",
@@ -32,11 +32,12 @@ dependencies = [
 
 [[package]]
 name = "acvm"
-version = "1.0.0-beta.0"
+version = "1.0.0-beta.1"
 dependencies = [
  "acir",
  "acvm_blackbox_solver",
  "brillig_vm",
+ "fxhash",
  "indexmap 1.9.3",
  "serde",
  "thiserror",
@@ -45,7 +46,7 @@ dependencies = [
 
 [[package]]
 name = "acvm_blackbox_solver"
-version = "1.0.0-beta.0"
+version = "1.0.0-beta.1"
 dependencies = [
  "acir",
  "blake2",
@@ -306,12 +307,6 @@ checksum = "349a06037c7bf932dd7e7d1f653678b2038b9ad46a74102f1fc7bd7872678cce"
 
 [[package]]
 name = "base64"
-version = "0.13.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9e1b586273c5702936fe7b7d6896644d8be71e6314cfe09d3167c95f712589e8"
-
-[[package]]
-name = "base64"
 version = "0.21.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9d297deb1925b89f2ccc13d7635fa0714f12c87adce1c75356b39ca9b7178567"
@@ -370,7 +365,7 @@ dependencies = [
 
 [[package]]
 name = "brillig"
-version = "1.0.0-beta.0"
+version = "1.0.0-beta.1"
 dependencies = [
  "acir_field",
  "serde",
@@ -378,7 +373,7 @@ dependencies = [
 
 [[package]]
 name = "brillig_vm"
-version = "1.0.0-beta.0"
+version = "1.0.0-beta.1"
 dependencies = [
  "acir",
  "acvm_blackbox_solver",
@@ -392,6 +387,12 @@ name = "bumpalo"
 version = "3.16.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "79296716171880943b8470b5f8d03aa55eb2e645a4874bdbb28adb49162e012c"
+
+[[package]]
+name = "byteorder"
+version = "1.5.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1fd0f2584146f6f2ef48085050886acf353beff7305ebd1ae69500e27c67f64b"
 
 [[package]]
 name = "cc"
@@ -669,7 +670,7 @@ dependencies = [
 
 [[package]]
 name = "fm"
-version = "1.0.0-beta.0"
+version = "1.0.0-beta.1"
 dependencies = [
  "codespan-reporting",
  "iter-extended",
@@ -681,6 +682,15 @@ name = "fnv"
 version = "1.0.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3f9eec918d3f24069decb9af1554cad7c880e2da24a9afd88aca000531ab82c1"
+
+[[package]]
+name = "fxhash"
+version = "0.2.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c31b6d751ae2c7f11320402d34e41349dd1016f8d5d45e48c4312bc8625af50c"
+dependencies = [
+ "byteorder",
+]
 
 [[package]]
 name = "generic-array"
@@ -821,7 +831,7 @@ checksum = "f8478577c03552c21db0e2724ffb8986a5ce7af88107e6be5d2ee6e158c12800"
 
 [[package]]
 name = "iter-extended"
-version = "1.0.0-beta.0"
+version = "1.0.0-beta.1"
 
 [[package]]
 name = "itertools"
@@ -845,18 +855,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "29c15563dc2726973df627357ce0c9ddddbea194836909d655df6a75d2cf296d"
 dependencies = [
  "wasm-bindgen",
-]
-
-[[package]]
-name = "jsonrpc"
-version = "0.16.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "34efde8d2422fb79ed56db1d3aea8fa5b583351d15a26770cdee2f88813dd702"
-dependencies = [
- "base64 0.13.1",
- "minreq",
- "serde",
- "serde_json",
 ]
 
 [[package]]
@@ -914,19 +912,8 @@ dependencies = [
 ]
 
 [[package]]
-name = "minreq"
-version = "2.12.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "763d142cdff44aaadd9268bebddb156ef6c65a0e13486bb81673cf2d8739f9b0"
-dependencies = [
- "log",
- "serde",
- "serde_json",
-]
-
-[[package]]
 name = "noirc_errors"
-version = "1.0.0-beta.0"
+version = "1.0.0-beta.1"
 dependencies = [
  "acvm",
  "base64 0.21.7",
@@ -943,15 +930,10 @@ dependencies = [
 
 [[package]]
 name = "noirc_printable_type"
-version = "1.0.0-beta.0"
+version = "1.0.0-beta.1"
 dependencies = [
  "acvm",
- "iter-extended",
- "jsonrpc",
- "regex",
  "serde",
- "serde_json",
- "thiserror",
 ]
 
 [[package]]

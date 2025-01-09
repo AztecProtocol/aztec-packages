@@ -65,6 +65,10 @@ impl<let NH_RR_PENDING: u32, let NH_RR_SETTLED: u32, let NLL_RR_PENDING: u32, le
         nullifier_siloing_amount: u32,
         private_log_siloing_amount: u32,
     ) -> PrivateKernelCircuitPublicInputs {
+        if !std::runtime::is_unconstrained() {
+            self.previous_kernel.verify();
+        }
+
         let previous_public_inputs = self.previous_kernel.public_inputs;
         let validation_request_processor = PrivateValidationRequestProcessor {
             validation_requests: previous_public_inputs.validation_requests,
@@ -145,15 +149,15 @@ mod tests {
             private_log::PrivateLogData, side_effect::scoped::Scoped,
         },
         address::AztecAddress,
-        hash::{silo_note_hash, silo_nullifier, silo_private_log},
+        hash::{compute_unique_siloed_note_hash, silo_note_hash, silo_nullifier, silo_private_log},
         point::Point,
         tests::{fixture_builder::FixtureBuilder, utils::{assert_array_eq, swap_items}},
         traits::is_empty_array,
         utils::arrays::find_index_hint,
     };
     use dep::types::constants::{
-        EMPTY_NESTED_INDEX, GENERATOR_INDEX__OVSK_M, MAX_KEY_VALIDATION_REQUESTS_PER_TX,
-        MAX_NOTE_HASHES_PER_TX, MAX_NULLIFIERS_PER_TX, PRIVATE_KERNEL_INNER_INDEX,
+        GENERATOR_INDEX__OVSK_M, MAX_KEY_VALIDATION_REQUESTS_PER_TX, MAX_NOTE_HASHES_PER_TX,
+        MAX_NULLIFIERS_PER_TX, PRIVATE_KERNEL_INNER_INDEX, PRIVATE_KERNEL_TAIL_INDEX,
     };
 
     global NOTE_HASH_PENDING_AMOUNT: u32 = 6;
@@ -227,8 +231,9 @@ mod tests {
 
         pub fn nullify_pending_note_hash(&mut self, nullifier_index: u32, note_hash_index: u32) {
             let note_hash = self.previous_kernel.note_hashes.get(note_hash_index).note_hash;
-            self.previous_kernel.nullifiers.storage[nullifier_index].nullifier.note_hash =
-                note_hash.value;
+            let mut nullifier = self.previous_kernel.nullifiers.get(nullifier_index);
+            nullifier.nullifier.note_hash = note_hash.value;
+            self.previous_kernel.nullifiers.set(nullifier_index, nullifier);
             let num_hints = unsafe {
                 find_index_hint(
                     self.transient_data_index_hints,
@@ -240,14 +245,27 @@ mod tests {
         }
 
         pub fn compute_output_note_hashes<let N: u32>(
-            self,
+            self: Self,
             note_hashes: [ScopedNoteHash; N],
         ) -> [ScopedNoteHash; N] {
-            // First nullifier is tx hash.
-            let tx_hash = self.previous_kernel.nullifiers.get_unchecked(0).value();
+            let first_nullifier = self.previous_kernel.nullifiers.get_unchecked(0).value();
+            let is_private_only = self.previous_kernel.is_private_only;
+            let min_revertible_side_effect_counter =
+                self.previous_kernel.min_revertible_side_effect_counter;
+
             let mut output = note_hashes;
             for i in 0..N {
-                output[i].note_hash.value = silo_note_hash(note_hashes[i], tx_hash, i);
+                let note_hash = note_hashes[i];
+                let siloed_note_hash = silo_note_hash(note_hash);
+                let unique_note_hash =
+                    compute_unique_siloed_note_hash(siloed_note_hash, first_nullifier, i);
+                // We don't silo with nonce revertible note hashes, since we don't know their final position in the tx
+                output[i].note_hash.value = if is_private_only
+                    | (note_hash.counter() < min_revertible_side_effect_counter) {
+                    unique_note_hash
+                } else {
+                    siloed_note_hash
+                };
                 output[i].contract_address = AztecAddress::zero();
             }
             output
@@ -512,7 +530,7 @@ mod tests {
         builder.previous_kernel.note_hashes.set(2, tmp);
 
         builder.previous_kernel.append_nullifiers(3);
-        // Shuffle the nullifers so they will have to be re-ordered.
+        // Shuffle the nullifiers so they will have to be re-ordered.
         let tmp = builder.previous_kernel.nullifiers.get(1);
         builder.previous_kernel.nullifiers.set(1, builder.previous_kernel.nullifiers.get(3));
         builder.previous_kernel.nullifiers.set(3, builder.previous_kernel.nullifiers.get(2));
@@ -584,7 +602,9 @@ mod tests {
         builder.previous_kernel.append_note_hashes(1);
         builder.previous_kernel.append_nullifiers(3);
         // The nullifier at index 2 is nullifying a note hash that doesn't exist yet.
-        builder.previous_kernel.nullifiers.storage[2].nullifier.note_hash = 9988;
+        let mut nullifier = builder.previous_kernel.nullifiers.get(2);
+        nullifier.nullifier.note_hash = 9988;
+        builder.previous_kernel.nullifiers.set(2, nullifier);
         // Get ordered items before shuffling.
         let note_hashes = builder.previous_kernel.note_hashes.storage();
         let nullifiers = builder.previous_kernel.nullifiers.storage();
@@ -626,7 +646,9 @@ mod tests {
         builder.previous_kernel.append_note_hashes_with_logs(2);
 
         // The note hash at index 0 is siloed.
-        builder.previous_kernel.note_hashes.storage[0].contract_address = AztecAddress::zero();
+        let mut note_hash = builder.previous_kernel.note_hashes.get(0);
+        note_hash.contract_address = AztecAddress::zero();
+        builder.previous_kernel.note_hashes.set(0, note_hash);
 
         builder.failed();
     }
@@ -638,7 +660,9 @@ mod tests {
         builder.previous_kernel.append_nullifiers(2);
 
         // The nullifier at index 1 is siloed.
-        builder.previous_kernel.nullifiers.storage[1].contract_address = AztecAddress::zero();
+        let mut nullifier = builder.previous_kernel.nullifiers.get(1);
+        nullifier.contract_address = AztecAddress::zero();
+        builder.previous_kernel.nullifiers.set(1, nullifier);
 
         let nullifiers = builder.previous_kernel.nullifiers.storage();
 
@@ -656,7 +680,7 @@ mod tests {
     #[test(should_fail_with = "Invalid vk index")]
     fn invalid_previous_kernel() {
         let mut builder = PrivateKernelResetInputsBuilder::new();
-        builder.previous_kernel = builder.previous_kernel.in_vk_tree(EMPTY_NESTED_INDEX);
+        builder.previous_kernel = builder.previous_kernel.in_vk_tree(PRIVATE_KERNEL_TAIL_INDEX);
         let _res = builder.execute();
     }
 }

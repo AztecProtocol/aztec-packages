@@ -36,13 +36,16 @@ class UltraFlavor {
     using CommitmentKey = bb::CommitmentKey<Curve>;
     using VerifierCommitmentKey = bb::VerifierCommitmentKey<Curve>;
 
+    // indicates when evaluating sumcheck, edges can be left as degree-1 monomials
+    static constexpr bool USE_SHORT_MONOMIALS = true;
+
     // Indicates that this flavor runs with non-ZK Sumcheck.
     static constexpr bool HasZK = false;
     static constexpr size_t NUM_WIRES = CircuitBuilder::NUM_WIRES;
     // The number of multivariate polynomials on which a sumcheck prover sumcheck operates (witness polynomials,
     // precomputed polynomials and shifts). We often need containers of this size to hold related data, so we choose a
     // name more agnostic than `NUM_POLYNOMIALS`.
-    static constexpr size_t NUM_ALL_ENTITIES = 44;
+    static constexpr size_t NUM_ALL_ENTITIES = 40;
     // The number of polynomials precomputed to describe a circuit and to aid a prover in constructing a satisfying
     // assignment of witnesses. We again choose a neutral name.
     static constexpr size_t NUM_PRECOMPUTED_ENTITIES = 27;
@@ -52,14 +55,10 @@ class UltraFlavor {
     static constexpr size_t NUM_FOLDED_ENTITIES = NUM_PRECOMPUTED_ENTITIES + NUM_WITNESS_ENTITIES;
     // The number of shifted witness entities including derived witness entities
     static constexpr size_t NUM_SHIFTED_WITNESSES = 5;
-    // The number of shifted tables
-    static constexpr size_t NUM_SHIFTED_TABLES = 4;
 
     // A container to be fed to ShpleminiVerifier to avoid redundant scalar muls
-    static constexpr RepeatedCommitmentsData REPEATED_COMMITMENTS =
-        RepeatedCommitmentsData(NUM_PRECOMPUTED_ENTITIES,
-                                NUM_PRECOMPUTED_ENTITIES + NUM_WITNESS_ENTITIES + NUM_SHIFTED_TABLES,
-                                NUM_SHIFTED_WITNESSES);
+    static constexpr RepeatedCommitmentsData REPEATED_COMMITMENTS = RepeatedCommitmentsData(
+        NUM_PRECOMPUTED_ENTITIES, NUM_PRECOMPUTED_ENTITIES + NUM_WITNESS_ENTITIES, NUM_SHIFTED_WITNESSES);
 
     // The total number of witnesses including shifts and derived entities.
     static constexpr size_t NUM_ALL_WITNESS_ENTITIES = NUM_WITNESS_ENTITIES + NUM_SHIFTED_WITNESSES;
@@ -68,9 +67,9 @@ class UltraFlavor {
     // Note: made generic for use in MegaRecursive.
     template <typename FF>
 
-    // List of relations reflecting the Ultra arithmetisation. WARNING: As UltraKeccak flavor inherits from Ultra flavor
-    // any change of ordering in this tuple needs to be reflected in the smart contract, otherwise relation accumulation
-    // will not match.
+    // List of relations reflecting the Ultra arithmetisation. WARNING: As UltraKeccak flavor inherits from
+    // Ultra flavor any change of ordering in this tuple needs to be reflected in the smart contract, otherwise
+    // relation accumulation will not match.
     using Relations_ = std::tuple<bb::UltraArithmeticRelation<FF>,
                                   bb::UltraPermutationRelation<FF>,
                                   bb::LogDerivLookupRelation<FF>,
@@ -97,6 +96,22 @@ class UltraFlavor {
     // length = 3
     static constexpr size_t BATCHED_RELATION_PARTIAL_LENGTH = MAX_PARTIAL_RELATION_LENGTH + 1;
     static constexpr size_t NUM_RELATIONS = std::tuple_size_v<Relations>;
+
+    // Proof length formula:
+    // 1. HONK_PROOF_PUBLIC_INPUT_OFFSET are the circuit_size, num_public_inputs, pub_inputs_offset
+    // 2. PAIRING_POINT_ACCUMULATOR_SIZE public inputs for pairing point accumulator
+    // 3. NUM_WITNESS_ENTITIES commitments
+    // 4. CONST_PROOF_SIZE_LOG_N sumcheck univariates
+    // 5. NUM_ALL_ENTITIES sumcheck evaluations
+    // 6. CONST_PROOF_SIZE_LOG_N Gemini Fold commitments
+    // 7. CONST_PROOF_SIZE_LOG_N Gemini a evaluations
+    // 8. KZG W commitment
+    static constexpr size_t num_frs_comm = bb::field_conversion::calc_num_bn254_frs<Commitment>();
+    static constexpr size_t num_frs_fr = bb::field_conversion::calc_num_bn254_frs<FF>();
+    static constexpr size_t PROOF_LENGTH_WITHOUT_PUB_INPUTS =
+        HONK_PROOF_PUBLIC_INPUT_OFFSET + NUM_WITNESS_ENTITIES * num_frs_comm +
+        CONST_PROOF_SIZE_LOG_N * BATCHED_RELATION_PARTIAL_LENGTH * num_frs_fr + NUM_ALL_ENTITIES * num_frs_fr +
+        CONST_PROOF_SIZE_LOG_N * num_frs_comm + CONST_PROOF_SIZE_LOG_N * num_frs_fr + num_frs_comm;
 
     template <size_t NUM_KEYS>
     using ProtogalaxyTupleOfTuplesOfUnivariatesNoOptimisticSkipping =
@@ -129,11 +144,11 @@ class UltraFlavor {
                               q_r,                  // column 3
                               q_o,                  // column 4
                               q_4,                  // column 5
-                              q_arith,              // column 6
-                              q_delta_range,        // column 7
-                              q_elliptic,           // column 8
-                              q_aux,                // column 9
-                              q_lookup,             // column 10
+                              q_lookup,             // column 6
+                              q_arith,              // column 7
+                              q_delta_range,        // column 8
+                              q_elliptic,           // column 9
+                              q_aux,                // column 10
                               q_poseidon2_external, // column 11
                               q_poseidon2_internal, // column 12
                               sigma_1,              // column 13
@@ -156,8 +171,9 @@ class UltraFlavor {
         auto get_non_gate_selectors() { return RefArray{ q_m, q_c, q_l, q_r, q_o, q_4 }; }
         auto get_gate_selectors()
         {
-            return RefArray{ q_arith,  q_delta_range,        q_elliptic,          q_aux,
-                             q_lookup, q_poseidon2_external, q_poseidon2_internal };
+            return RefArray{
+                q_lookup, q_arith, q_delta_range, q_elliptic, q_aux, q_poseidon2_external, q_poseidon2_internal
+            };
         }
         auto get_selectors() { return concatenate(get_non_gate_selectors(), get_gate_selectors()); }
 
@@ -183,15 +199,15 @@ class UltraFlavor {
                               lookup_read_tags)   // column 7
 
         auto get_wires() { return RefArray{ w_l, w_r, w_o, w_4 }; };
-        auto get_to_be_shifted() { return RefArray{ z_perm }; };
+        auto get_to_be_shifted() { return RefArray{ w_l, w_r, w_o, w_4, z_perm }; };
 
         MSGPACK_FIELDS(w_l, w_r, w_o, w_4, z_perm, lookup_inverses, lookup_read_counts, lookup_read_tags);
     };
 
     /**
-     * @brief Class for ShiftedWitnessEntities, containing only shifted witness polynomials.
+     * @brief Class for ShitftedEntities, containing shifted witness polynomials.
      */
-    template <typename DataType> class ShiftedWitnessEntities {
+    template <typename DataType> class ShiftedEntities {
       public:
         DEFINE_FLAVOR_MEMBERS(DataType,
                               w_l_shift,    // column 0
@@ -200,33 +216,7 @@ class UltraFlavor {
                               w_4_shift,    // column 3
                               z_perm_shift) // column 4
 
-        auto get_shifted_witnesses() { return RefArray{ w_l_shift, w_r_shift, w_o_shift, w_4_shift, z_perm_shift }; };
-    };
-
-    /**
-     * @brief Class for ShiftedEntities, containing shifted witness and table polynomials.
-     * TODO: Remove NUM_SHIFTED_TABLES once these entities are deprecated.
-     */
-    template <typename DataType> class ShiftedTables {
-      public:
-        DEFINE_FLAVOR_MEMBERS(DataType,
-                              table_1_shift, // column 0
-                              table_2_shift, // column 1
-                              table_3_shift, // column 2
-                              table_4_shift  // column 3
-        )
-    };
-
-    /**
-     * @brief Class for ShiftedEntities, containing shifted witness and table polynomials.
-     */
-    template <typename DataType>
-    class ShiftedEntities : public ShiftedTables<DataType>, public ShiftedWitnessEntities<DataType> {
-      public:
-        DEFINE_COMPOUND_GET_ALL(ShiftedTables<DataType>, ShiftedWitnessEntities<DataType>)
-
-        auto get_shifted_witnesses() { return ShiftedWitnessEntities<DataType>::get_all(); };
-        auto get_shifted_tables() { return ShiftedTables<DataType>::get_all(); };
+        auto get_shifted() { return RefArray{ w_l_shift, w_r_shift, w_o_shift, w_4_shift, z_perm_shift }; };
     };
 
     /**
@@ -258,30 +248,15 @@ class UltraFlavor {
         };
         auto get_precomputed() { return PrecomputedEntities<DataType>::get_all(); }
         auto get_witness() { return WitnessEntities<DataType>::get_all(); };
-        auto get_to_be_shifted()
-        {
-            return concatenate(PrecomputedEntities<DataType>::get_table_polynomials(),
-                               WitnessEntities<DataType>::get_wires(),
-                               WitnessEntities<DataType>::get_to_be_shifted());
-        };
+        auto get_to_be_shifted() { return WitnessEntities<DataType>::get_to_be_shifted(); };
 
-        auto get_shifted() { return ShiftedEntities<DataType>::get_all(); };
-        // getter for shifted witnesses
-        auto get_shifted_witnesses() { return ShiftedEntities<DataType>::get_shifted_witnesses(); };
-        // getter for shifted tables
-        auto get_shifted_tables() { return ShiftedEntities<DataType>::get_shifted_tables(); };
         // getter for all witnesses including shifted ones
         auto get_all_witnesses()
         {
-            return concatenate(WitnessEntities<DataType>::get_all(),
-                               ShiftedEntities<DataType>::get_shifted_witnesses());
+            return concatenate(WitnessEntities<DataType>::get_all(), ShiftedEntities<DataType>::get_shifted());
         };
         // getter for the complement of all witnesses inside all entities
-        auto get_non_witnesses()
-        {
-            return concatenate(PrecomputedEntities<DataType>::get_all(),
-                               ShiftedEntities<DataType>::get_shifted_tables());
-        };
+        auto get_non_witnesses() { return PrecomputedEntities<DataType>::get_all(); };
     };
 
     /**
@@ -328,9 +303,24 @@ class UltraFlavor {
         [[nodiscard]] size_t get_polynomial_size() const { return q_c.size(); }
         [[nodiscard]] AllValues get_row(const size_t row_idx) const
         {
-            PROFILE_THIS();
+            PROFILE_THIS_NAME("UltraFlavor::get_row");
             AllValues result;
             for (auto [result_field, polynomial] : zip_view(result.get_all(), get_all())) {
+                result_field = polynomial[row_idx];
+            }
+            return result;
+        }
+
+        [[nodiscard]] AllValues get_row_for_permutation_arg(size_t row_idx)
+        {
+            AllValues result;
+            for (auto [result_field, polynomial] : zip_view(result.get_sigma_polynomials(), get_sigma_polynomials())) {
+                result_field = polynomial[row_idx];
+            }
+            for (auto [result_field, polynomial] : zip_view(result.get_id_polynomials(), get_id_polynomials())) {
+                result_field = polynomial[row_idx];
+            }
+            for (auto [result_field, polynomial] : zip_view(result.get_wires(), get_wires())) {
                 result_field = polynomial[row_idx];
             }
             return result;
@@ -481,11 +471,11 @@ class UltraFlavor {
                         const Commitment& q_r,
                         const Commitment& q_o,
                         const Commitment& q_4,
+                        const Commitment& q_lookup,
                         const Commitment& q_arith,
                         const Commitment& q_delta_range,
                         const Commitment& q_elliptic,
                         const Commitment& q_aux,
-                        const Commitment& q_lookup,
                         const Commitment& q_poseidon2_external,
                         const Commitment& q_poseidon2_internal,
                         const Commitment& sigma_1,
@@ -515,11 +505,11 @@ class UltraFlavor {
             this->q_r = q_r;
             this->q_o = q_o;
             this->q_4 = q_4;
+            this->q_lookup = q_lookup;
             this->q_arith = q_arith;
             this->q_delta_range = q_delta_range;
             this->q_elliptic = q_elliptic;
             this->q_aux = q_aux;
-            this->q_lookup = q_lookup;
             this->q_poseidon2_external = q_poseidon2_external;
             this->q_poseidon2_internal = q_poseidon2_internal;
             this->sigma_1 = sigma_1;
@@ -551,11 +541,11 @@ class UltraFlavor {
                        q_r,
                        q_o,
                        q_4,
+                       q_lookup,
                        q_arith,
                        q_delta_range,
                        q_elliptic,
                        q_aux,
-                       q_lookup,
                        q_poseidon2_external,
                        q_poseidon2_internal,
                        sigma_1,
@@ -578,7 +568,6 @@ class UltraFlavor {
      * @brief A container for storing the partially evaluated multivariates produced by sumcheck.
      */
     class PartiallyEvaluatedMultivariates : public AllEntities<Polynomial> {
-
       public:
         PartiallyEvaluatedMultivariates() = default;
         PartiallyEvaluatedMultivariates(const size_t circuit_size)
@@ -641,11 +630,11 @@ class UltraFlavor {
             q_o = "Q_O";
             q_4 = "Q_4";
             q_m = "Q_M";
+            q_lookup = "Q_LOOKUP";
             q_arith = "Q_ARITH";
             q_delta_range = "Q_SORT";
             q_elliptic = "Q_ELLIPTIC";
             q_aux = "Q_AUX";
-            q_lookup = "Q_LOOKUP";
             q_poseidon2_external = "Q_POSEIDON2_EXTERNAL";
             q_poseidon2_internal = "Q_POSEIDON2_INTERNAL";
             sigma_1 = "SIGMA_1";
@@ -682,11 +671,11 @@ class UltraFlavor {
             this->q_r = verification_key->q_r;
             this->q_o = verification_key->q_o;
             this->q_4 = verification_key->q_4;
+            this->q_lookup = verification_key->q_lookup;
             this->q_arith = verification_key->q_arith;
             this->q_delta_range = verification_key->q_delta_range;
             this->q_elliptic = verification_key->q_elliptic;
             this->q_aux = verification_key->q_aux;
-            this->q_lookup = verification_key->q_lookup;
             this->q_poseidon2_external = verification_key->q_poseidon2_external;
             this->q_poseidon2_internal = verification_key->q_poseidon2_internal;
             this->sigma_1 = verification_key->sigma_1;
@@ -716,7 +705,7 @@ class UltraFlavor {
                 this->z_perm = commitments.z_perm;
             }
         }
-    };
+    }; // namespace bb
     // Specialize for Ultra (general case used in UltraRecursive).
     using VerifierCommitments = VerifierCommitments_<Commitment, VerificationKey>;
 
@@ -724,8 +713,10 @@ class UltraFlavor {
      * @brief Derived class that defines proof structure for Ultra proofs, as well as supporting functions.
      *
      */
-    class Transcript : public NativeTranscript {
+    template <typename Params> class Transcript_ : public BaseTranscript<Params> {
       public:
+        using Base = BaseTranscript<Params>;
+
         // Transcript objects defined as public member variables for easy access and modification
         uint32_t circuit_size;
         uint32_t public_input_size;
@@ -745,24 +736,24 @@ class UltraFlavor {
         std::vector<FF> gemini_fold_evals;
         Commitment shplonk_q_comm;
         Commitment kzg_w_comm;
-        Transcript() = default;
+        Transcript_() = default;
 
         // Used by verifier to initialize the transcript
-        Transcript(const std::vector<FF>& proof)
-            : NativeTranscript(proof)
+        Transcript_(const std::vector<FF>& proof)
+            : Base(proof)
         {}
 
-        static std::shared_ptr<Transcript> prover_init_empty()
+        static std::shared_ptr<Transcript_> prover_init_empty()
         {
-            auto transcript = std::make_shared<Transcript>();
+            auto transcript = std::make_shared<Transcript_>();
             constexpr uint32_t init{ 42 }; // arbitrary
             transcript->send_to_verifier("Init", init);
             return transcript;
         };
 
-        static std::shared_ptr<Transcript> verifier_init_empty(const std::shared_ptr<Transcript>& transcript)
+        static std::shared_ptr<Transcript_> verifier_init_empty(const std::shared_ptr<Transcript_>& transcript)
         {
-            auto verifier_transcript = std::make_shared<Transcript>(transcript->proof_data);
+            auto verifier_transcript = std::make_shared<Transcript_>(transcript->proof_data);
             [[maybe_unused]] auto _ = verifier_transcript->template receive_from_prover<FF>("Init");
             return verifier_transcript;
         };
@@ -776,37 +767,40 @@ class UltraFlavor {
         void deserialize_full_transcript()
         {
             // take current proof and put them into the struct
+            auto& proof_data = this->proof_data;
             size_t num_frs_read = 0;
-            circuit_size = deserialize_from_buffer<uint32_t>(proof_data, num_frs_read);
+            circuit_size = Base::template deserialize_from_buffer<uint32_t>(proof_data, num_frs_read);
 
-            public_input_size = deserialize_from_buffer<uint32_t>(proof_data, num_frs_read);
-            pub_inputs_offset = deserialize_from_buffer<uint32_t>(proof_data, num_frs_read);
+            public_input_size = Base::template deserialize_from_buffer<uint32_t>(proof_data, num_frs_read);
+            pub_inputs_offset = Base::template deserialize_from_buffer<uint32_t>(proof_data, num_frs_read);
             for (size_t i = 0; i < public_input_size; ++i) {
-                public_inputs.push_back(deserialize_from_buffer<FF>(proof_data, num_frs_read));
+                public_inputs.push_back(Base::template deserialize_from_buffer<FF>(proof_data, num_frs_read));
             }
-            w_l_comm = deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
-            w_r_comm = deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
-            w_o_comm = deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
-            lookup_read_counts_comm = deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
-            lookup_read_tags_comm = deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
-            w_4_comm = deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
-            lookup_inverses_comm = deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
-            z_perm_comm = deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
+            w_l_comm = Base::template deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
+            w_r_comm = Base::template deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
+            w_o_comm = Base::template deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
+            lookup_read_counts_comm = Base::template deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
+            lookup_read_tags_comm = Base::template deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
+            w_4_comm = Base::template deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
+            lookup_inverses_comm = Base::template deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
+            z_perm_comm = Base::template deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
             for (size_t i = 0; i < CONST_PROOF_SIZE_LOG_N; ++i) {
                 sumcheck_univariates.push_back(
-                    deserialize_from_buffer<bb::Univariate<FF, BATCHED_RELATION_PARTIAL_LENGTH>>(proof_data,
-                                                                                                 num_frs_read));
+                    Base::template deserialize_from_buffer<bb::Univariate<FF, BATCHED_RELATION_PARTIAL_LENGTH>>(
+                        proof_data, num_frs_read));
             }
-            sumcheck_evaluations = deserialize_from_buffer<std::array<FF, NUM_ALL_ENTITIES>>(proof_data, num_frs_read);
+            sumcheck_evaluations =
+                Base::template deserialize_from_buffer<std::array<FF, NUM_ALL_ENTITIES>>(proof_data, num_frs_read);
             for (size_t i = 0; i < CONST_PROOF_SIZE_LOG_N - 1; ++i) {
-                gemini_fold_comms.push_back(deserialize_from_buffer<Commitment>(proof_data, num_frs_read));
+                gemini_fold_comms.push_back(
+                    Base::template deserialize_from_buffer<Commitment>(proof_data, num_frs_read));
             }
             for (size_t i = 0; i < CONST_PROOF_SIZE_LOG_N; ++i) {
-                gemini_fold_evals.push_back(deserialize_from_buffer<FF>(proof_data, num_frs_read));
+                gemini_fold_evals.push_back(Base::template deserialize_from_buffer<FF>(proof_data, num_frs_read));
             }
-            shplonk_q_comm = deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
+            shplonk_q_comm = Base::template deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
 
-            kzg_w_comm = deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
+            kzg_w_comm = Base::template deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
         }
 
         /**
@@ -817,39 +811,42 @@ class UltraFlavor {
          */
         void serialize_full_transcript()
         {
+            auto& proof_data = this->proof_data;
             size_t old_proof_length = proof_data.size();
             proof_data.clear(); // clear proof_data so the rest of the function can replace it
-            serialize_to_buffer(circuit_size, proof_data);
-            serialize_to_buffer(public_input_size, proof_data);
-            serialize_to_buffer(pub_inputs_offset, proof_data);
+            Base::template serialize_to_buffer(circuit_size, proof_data);
+            Base::template serialize_to_buffer(public_input_size, proof_data);
+            Base::template serialize_to_buffer(pub_inputs_offset, proof_data);
             for (size_t i = 0; i < public_input_size; ++i) {
-                serialize_to_buffer(public_inputs[i], proof_data);
+                Base::template serialize_to_buffer(public_inputs[i], proof_data);
             }
-            serialize_to_buffer(w_l_comm, proof_data);
-            serialize_to_buffer(w_r_comm, proof_data);
-            serialize_to_buffer(w_o_comm, proof_data);
-            serialize_to_buffer(lookup_read_counts_comm, proof_data);
-            serialize_to_buffer(lookup_read_tags_comm, proof_data);
-            serialize_to_buffer(w_4_comm, proof_data);
-            serialize_to_buffer(lookup_inverses_comm, proof_data);
-            serialize_to_buffer(z_perm_comm, proof_data);
+            Base::template serialize_to_buffer(w_l_comm, proof_data);
+            Base::template serialize_to_buffer(w_r_comm, proof_data);
+            Base::template serialize_to_buffer(w_o_comm, proof_data);
+            Base::template serialize_to_buffer(lookup_read_counts_comm, proof_data);
+            Base::template serialize_to_buffer(lookup_read_tags_comm, proof_data);
+            Base::template serialize_to_buffer(w_4_comm, proof_data);
+            Base::template serialize_to_buffer(lookup_inverses_comm, proof_data);
+            Base::template serialize_to_buffer(z_perm_comm, proof_data);
             for (size_t i = 0; i < CONST_PROOF_SIZE_LOG_N; ++i) {
-                serialize_to_buffer(sumcheck_univariates[i], proof_data);
+                Base::template serialize_to_buffer(sumcheck_univariates[i], proof_data);
             }
-            serialize_to_buffer(sumcheck_evaluations, proof_data);
+            Base::template serialize_to_buffer(sumcheck_evaluations, proof_data);
             for (size_t i = 0; i < CONST_PROOF_SIZE_LOG_N - 1; ++i) {
-                serialize_to_buffer(gemini_fold_comms[i], proof_data);
+                Base::template serialize_to_buffer(gemini_fold_comms[i], proof_data);
             }
             for (size_t i = 0; i < CONST_PROOF_SIZE_LOG_N; ++i) {
-                serialize_to_buffer(gemini_fold_evals[i], proof_data);
+                Base::template serialize_to_buffer(gemini_fold_evals[i], proof_data);
             }
-            serialize_to_buffer(shplonk_q_comm, proof_data);
-            serialize_to_buffer(kzg_w_comm, proof_data);
+            Base::template serialize_to_buffer(shplonk_q_comm, proof_data);
+            Base::template serialize_to_buffer(kzg_w_comm, proof_data);
 
             // sanity check to make sure we generate the same length of proof as before.
             ASSERT(proof_data.size() == old_proof_length);
         }
     };
+
+    using Transcript = Transcript_<NativeTranscriptParams>;
 };
 
 } // namespace bb

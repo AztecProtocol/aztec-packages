@@ -2,9 +2,9 @@ import { type L2Block, MerkleTreeId } from '@aztec/circuit-types';
 import {
   ARCHIVE_HEIGHT,
   AppendOnlyTreeSnapshot,
+  BlockHeader,
   EthAddress,
   Fr,
-  Header,
   L1_TO_L2_MSG_TREE_HEIGHT,
   MAX_L2_TO_L1_MSGS_PER_TX,
   MAX_NOTE_HASHES_PER_TX,
@@ -47,6 +47,14 @@ describe('NativeWorldState', () => {
     let block: L2Block;
     let messages: Fr[];
 
+    const findLeafIndex = async (leaf: Fr, ws: NativeWorldStateService) => {
+      const indices = await ws.getCommitted().findLeafIndices(MerkleTreeId.NOTE_HASH_TREE, [leaf]);
+      if (indices.length === 0) {
+        return undefined;
+      }
+      return indices[0];
+    };
+
     beforeAll(async () => {
       const ws = await NativeWorldStateService.new(rollupAddress, dataDir, defaultDBMapSize);
       const fork = await ws.fork();
@@ -59,9 +67,7 @@ describe('NativeWorldState', () => {
 
     it('correctly restores committed state', async () => {
       const ws = await NativeWorldStateService.new(rollupAddress, dataDir, defaultDBMapSize);
-      await expect(
-        ws.getCommitted().findLeafIndex(MerkleTreeId.NOTE_HASH_TREE, block.body.txEffects[0].noteHashes[0]),
-      ).resolves.toBeDefined();
+      await expect(findLeafIndex(block.body.txEffects[0].noteHashes[0], ws)).resolves.toBeDefined();
       const status = await ws.getStatusSummary();
       expect(status.unfinalisedBlockNumber).toBe(1n);
       await ws.close();
@@ -71,18 +77,14 @@ describe('NativeWorldState', () => {
       // open ws against the same data dir but a different rollup
       let ws = await NativeWorldStateService.new(EthAddress.random(), dataDir, defaultDBMapSize);
       // db should be empty
-      await expect(
-        ws.getCommitted().findLeafIndex(MerkleTreeId.NOTE_HASH_TREE, block.body.txEffects[0].noteHashes[0]),
-      ).resolves.toBeUndefined();
+      await expect(findLeafIndex(block.body.txEffects[0].noteHashes[0], ws)).resolves.toBeUndefined();
 
       await ws.close();
 
       // later on, open ws against the original rollup and same data dir
       // db should be empty because we wiped all its files earlier
       ws = await NativeWorldStateService.new(rollupAddress, dataDir, defaultDBMapSize);
-      await expect(
-        ws.getCommitted().findLeafIndex(MerkleTreeId.NOTE_HASH_TREE, block.body.txEffects[0].noteHashes[0]),
-      ).resolves.toBeUndefined();
+      await expect(findLeafIndex(block.body.txEffects[0].noteHashes[0], ws)).resolves.toBeUndefined();
       const status = await ws.getStatusSummary();
       expect(status.unfinalisedBlockNumber).toBe(0n);
       await ws.close();
@@ -188,7 +190,7 @@ describe('NativeWorldState', () => {
 
       const stateReference = await fork.getStateReference();
       const archiveInfo = await fork.getTreeInfo(MerkleTreeId.ARCHIVE);
-      const header = new Header(
+      const header = new BlockHeader(
         new AppendOnlyTreeSnapshot(new Fr(archiveInfo.root), Number(archiveInfo.size)),
         makeContentCommitment(),
         stateReference,
@@ -218,7 +220,7 @@ describe('NativeWorldState', () => {
       const fork = await ws.fork(3);
       const stateReference = await fork.getStateReference();
       const archiveInfo = await fork.getTreeInfo(MerkleTreeId.ARCHIVE);
-      const header = new Header(
+      const header = new BlockHeader(
         new AppendOnlyTreeSnapshot(new Fr(archiveInfo.root), Number(archiveInfo.size)),
         makeContentCommitment(),
         stateReference,
@@ -487,6 +489,43 @@ describe('NativeWorldState', () => {
           await expect(blockForks[i].getSiblingPath(MerkleTreeId.NULLIFIER_TREE, 0n)).rejects.toThrow('Fork not found');
         }
       }
+    });
+  });
+
+  describe('finding leaves', () => {
+    let block: L2Block;
+    let messages: Fr[];
+
+    it('retrieves leaf indices', async () => {
+      const ws = await NativeWorldStateService.new(rollupAddress, dataDir, defaultDBMapSize);
+      const numBlocks = 2;
+      const txsPerBlock = 2;
+      const noteHashes: Fr[] = [];
+      for (let i = 0; i < numBlocks; i++) {
+        const fork = await ws.fork();
+        ({ block, messages } = await mockBlock(1, txsPerBlock, fork));
+        noteHashes.push(...block.body.txEffects.flatMap(x => x.noteHashes.flatMap(x => x)));
+        await fork.close();
+        await ws.handleL2BlockAndMessages(block, messages);
+      }
+
+      const leavesToRequest: Fr[] = [
+        noteHashes[0],
+        Fr.random(),
+        noteHashes[45],
+        noteHashes[89],
+        Fr.random(),
+        noteHashes[102],
+      ];
+      const expectedIndices = [0n, undefined, 45n, 89n, undefined, 102n];
+      const indices = await ws.getCommitted().findLeafIndices(MerkleTreeId.NOTE_HASH_TREE, leavesToRequest);
+      expect(indices).toEqual(expectedIndices);
+
+      const expectedIndicesAfter = [undefined, undefined, undefined, 89n, undefined, 102n];
+      const indicesAfter = await ws
+        .getCommitted()
+        .findLeafIndicesAfter(MerkleTreeId.NOTE_HASH_TREE, leavesToRequest, 89n);
+      expect(indicesAfter).toEqual(expectedIndicesAfter);
     });
   });
 

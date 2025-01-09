@@ -100,11 +100,11 @@ template <IsUltraFlavor Flavor> void OinkProver<Flavor>::execute_wire_commitment
         PROFILE_THIS_NAME("COMMIT::wires");
         if (proving_key->get_is_structured()) {
             witness_commitments.w_l = proving_key->proving_key.commitment_key->commit_structured(
-                proving_key->proving_key.polynomials.w_l, proving_key->proving_key.active_block_ranges);
+                proving_key->proving_key.polynomials.w_l, proving_key->proving_key.active_region_data.get_ranges());
             witness_commitments.w_r = proving_key->proving_key.commitment_key->commit_structured(
-                proving_key->proving_key.polynomials.w_r, proving_key->proving_key.active_block_ranges);
+                proving_key->proving_key.polynomials.w_r, proving_key->proving_key.active_region_data.get_ranges());
             witness_commitments.w_o = proving_key->proving_key.commitment_key->commit_structured(
-                proving_key->proving_key.polynomials.w_o, proving_key->proving_key.active_block_ranges);
+                proving_key->proving_key.polynomials.w_o, proving_key->proving_key.active_region_data.get_ranges());
         } else {
             witness_commitments.w_l =
                 proving_key->proving_key.commitment_key->commit(proving_key->proving_key.polynomials.w_l);
@@ -176,7 +176,7 @@ template <IsUltraFlavor Flavor> void OinkProver<Flavor>::execute_sorted_list_acc
         PROFILE_THIS_NAME("COMMIT::wires");
         if (proving_key->get_is_structured()) {
             witness_commitments.w_4 = proving_key->proving_key.commitment_key->commit_structured(
-                proving_key->proving_key.polynomials.w_4, proving_key->proving_key.active_block_ranges);
+                proving_key->proving_key.polynomials.w_4, proving_key->proving_key.active_region_data.get_ranges());
         } else {
             witness_commitments.w_4 =
                 proving_key->proving_key.commitment_key->commit(proving_key->proving_key.polynomials.w_4);
@@ -206,8 +206,8 @@ template <IsUltraFlavor Flavor> void OinkProver<Flavor>::execute_log_derivative_
 
     {
         PROFILE_THIS_NAME("COMMIT::lookup_inverses");
-        witness_commitments.lookup_inverses =
-            proving_key->proving_key.commitment_key->commit(proving_key->proving_key.polynomials.lookup_inverses);
+        witness_commitments.lookup_inverses = proving_key->proving_key.commitment_key->commit_sparse(
+            proving_key->proving_key.polynomials.lookup_inverses);
     }
     transcript->send_to_verifier(domain_separator + commitment_labels.lookup_inverses,
                                  witness_commitments.lookup_inverses);
@@ -235,6 +235,7 @@ template <IsUltraFlavor Flavor> void OinkProver<Flavor>::execute_grand_product_c
 {
     PROFILE_THIS_NAME("OinkProver::execute_grand_product_computation_round");
     // Compute the permutation grand product polynomial
+
     proving_key->proving_key.compute_grand_product_polynomial(proving_key->relation_parameters,
                                                               proving_key->final_active_wire_idx + 1);
 
@@ -243,7 +244,9 @@ template <IsUltraFlavor Flavor> void OinkProver<Flavor>::execute_grand_product_c
         if (proving_key->get_is_structured()) {
             witness_commitments.z_perm =
                 proving_key->proving_key.commitment_key->commit_structured_with_nonzero_complement(
-                    proving_key->proving_key.polynomials.z_perm, proving_key->proving_key.active_block_ranges);
+                    proving_key->proving_key.polynomials.z_perm,
+                    proving_key->proving_key.active_region_data.get_ranges(),
+                    proving_key->final_active_wire_idx + 1);
         } else {
             witness_commitments.z_perm =
                 proving_key->proving_key.commitment_key->commit(proving_key->proving_key.polynomials.z_perm);
@@ -265,7 +268,9 @@ template <IsUltraFlavor Flavor> typename Flavor::RelationSeparator OinkProver<Fl
 }
 
 template class OinkProver<UltraFlavor>;
+template class OinkProver<UltraZKFlavor>;
 template class OinkProver<UltraKeccakFlavor>;
+template class OinkProver<UltraKeccakZKFlavor>;
 template class OinkProver<UltraRollupFlavor>;
 template class OinkProver<MegaFlavor>;
 template class OinkProver<MegaZKFlavor>;

@@ -1,15 +1,15 @@
 import { getSchnorrAccount } from '@aztec/accounts/schnorr';
 import { type AztecNodeService } from '@aztec/aztec-node';
-import { type DebugLogger, type SentTx } from '@aztec/aztec.js';
+import { type Logger, type SentTx } from '@aztec/aztec.js';
 import { CompleteAddress, TxStatus } from '@aztec/aztec.js';
 import { Fr, GrumpkinScalar } from '@aztec/foundation/fields';
-import { type SpamContract } from '@aztec/noir-contracts.js';
+import { type SpamContract } from '@aztec/noir-contracts.js/Spam';
 import { type PXEService, createPXEService, getPXEServiceConfig as getRpcConfig } from '@aztec/pxe';
 
 import { type NodeContext } from '../fixtures/setup_p2p_test.js';
 
 // submits a set of transactions to the provided Private eXecution Environment (PXE)
-export const submitComplexTxsTo = async (logger: DebugLogger, spamContract: SpamContract, numTxs: number) => {
+export const submitComplexTxsTo = async (logger: Logger, spamContract: SpamContract, numTxs: number) => {
   const txs: SentTx[] = [];
 
   const seed = 1234n;
@@ -34,7 +34,7 @@ export const submitComplexTxsTo = async (logger: DebugLogger, spamContract: Spam
 
 // creates an instance of the PXE and submit a given number of transactions to it.
 export const createPXEServiceAndSubmitTransactions = async (
-  logger: DebugLogger,
+  logger: Logger,
   node: AztecNodeService,
   numTxs: number,
 ): Promise<NodeContext> => {
@@ -55,7 +55,7 @@ export const createPXEServiceAndSubmitTransactions = async (
 };
 
 // submits a set of transactions to the provided Private eXecution Environment (PXE)
-const submitTxsTo = async (logger: DebugLogger, pxe: PXEService, numTxs: number) => {
+const submitTxsTo = async (logger: Logger, pxe: PXEService, numTxs: number) => {
   const provenTxs = [];
   for (let i = 0; i < numTxs; i++) {
     const accountManager = getSchnorrAccount(pxe, Fr.random(), GrumpkinScalar.random(), Fr.random());

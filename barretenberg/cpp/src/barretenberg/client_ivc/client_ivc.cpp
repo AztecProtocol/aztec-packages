@@ -45,7 +45,7 @@ void ClientIVC::instantiate_stdlib_verification_queue(
  *
  * @param circuit The circuit to which the constraints are appended
  * @param proof A stdlib proof to be recursively verified (either oink or PG)
- * @param vkey The stdlib verfication key associated with the proof
+ * @param vkey The stdlib verification key associated with the proof
  * @param type The type of the proof (equivalently, the type of the verifier)
  */
 void ClientIVC::perform_recursive_verification_and_databus_consistency_checks(
@@ -93,8 +93,9 @@ void ClientIVC::perform_recursive_verification_and_databus_consistency_checks(
     }
     }
 
-    // Set the return data commitment to be propagated on the public inputs of the present kernel and peform consistency
-    // checks between the calldata commitments and the return data commitments contained within the public inputs
+    // Set the return data commitment to be propagated on the public inputs of the present kernel and perform
+    // consistency checks between the calldata commitments and the return data commitments contained within the public
+    // inputs
     bus_depot.set_return_data_to_be_propagated_and_perform_consistency_checks(
         decider_vk->witness_commitments.return_data,
         decider_vk->witness_commitments.calldata,
@@ -161,10 +162,6 @@ void ClientIVC::accumulate(ClientCircuit& circuit,
                            const std::shared_ptr<MegaVerificationKey>& precomputed_vk,
                            const bool mock_vk)
 {
-    if (auto_verify_mode && circuit.databus_propagation_data.is_kernel) {
-        complete_kernel_circuit_logic(circuit);
-    }
-
     // Construct merge proof for the present circuit and add to merge verification queue
     MergeProof merge_proof = goblin.prove_merge(circuit);
     merge_verification_queue.emplace_back(merge_proof);
@@ -407,10 +404,8 @@ std::vector<std::shared_ptr<MegaFlavor::VerificationKey>> ClientIVC::precompute_
 
     // Reset the scheme so it can be reused for actual accumulation, maintaining the trace structure setting as is
     TraceSettings settings = trace_settings;
-    bool auto_verify = auto_verify_mode;
     *this = ClientIVC();
     this->trace_settings = settings;
-    this->auto_verify_mode = auto_verify;
 
     return vkeys;
 }

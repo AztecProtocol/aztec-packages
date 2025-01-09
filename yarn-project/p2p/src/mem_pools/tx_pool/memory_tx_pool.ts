@@ -1,9 +1,10 @@
 import { Tx, TxHash } from '@aztec/circuit-types';
 import { type TxAddedToPoolStats } from '@aztec/circuit-types/stats';
-import { createDebugLogger } from '@aztec/foundation/log';
+import { createLogger } from '@aztec/foundation/log';
 import { type TelemetryClient } from '@aztec/telemetry-client';
 
 import { PoolInstrumentation, PoolName } from '../instrumentation.js';
+import { getPendingTxPriority } from './priority.js';
 import { type TxPool } from './tx_pool.js';
 
 /**
@@ -23,7 +24,7 @@ export class InMemoryTxPool implements TxPool {
    * Class constructor for in-memory TxPool. Initiates our transaction pool as a JS Map.
    * @param log - A logger.
    */
-  constructor(telemetry: TelemetryClient, private log = createDebugLogger('aztec:tx_pool')) {
+  constructor(telemetry: TelemetryClient, private log = createLogger('p2p:tx_pool')) {
     this.txs = new Map<bigint, Tx>();
     this.minedTxs = new Map();
     this.pendingTxs = new Set();
@@ -68,7 +69,10 @@ export class InMemoryTxPool implements TxPool {
   }
 
   public getPendingTxHashes(): TxHash[] {
-    return Array.from(this.pendingTxs).map(x => TxHash.fromBigInt(x));
+    return this.getAllTxs()
+      .sort((tx1, tx2) => -getPendingTxPriority(tx1).localeCompare(getPendingTxPriority(tx2)))
+      .map(tx => tx.getTxHash())
+      .filter(txHash => this.pendingTxs.has(txHash.toBigInt()));
   }
 
   public getMinedTxHashes(): [TxHash, number][] {
@@ -105,7 +109,7 @@ export class InMemoryTxPool implements TxPool {
     let pending = 0;
     for (const tx of txs) {
       const txHash = tx.getTxHash();
-      this.log.debug(`Adding tx with id ${txHash.toString()}`, {
+      this.log.verbose(`Adding tx ${txHash.toString()} to pool`, {
         eventName: 'tx-added-to-pool',
         ...tx.getStats(),
       } satisfies TxAddedToPoolStats);

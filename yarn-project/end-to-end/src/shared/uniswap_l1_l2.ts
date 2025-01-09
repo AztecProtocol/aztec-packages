@@ -2,9 +2,9 @@ import {
   type AccountWallet,
   AztecAddress,
   type AztecNode,
-  type DebugLogger,
   EthAddress,
   Fr,
+  type Logger,
   type PXE,
   computeAuthWitMessageHash,
   generateClaimSecret,
@@ -36,7 +36,7 @@ import { CrossChainTestHarness } from './cross_chain_test_harness.js';
 // To generate a new dump, use the `dumpChainState` cheatcode.
 // To start an actual fork, use the command:
 // anvil --fork-url https://mainnet.infura.io/v3/9928b52099854248b3a096be07a6b23c --fork-block-number 17514288 --chain-id 31337
-// For CI, this is configured in `run_tests.sh` and `docker-compose.yml`
+// For CI, this is configured in `run_tests.sh` and `docker-compose-images.yml`
 
 // docs:start:uniswap_l1_l2_test_setup_const
 const TIMEOUT = 360_000;
@@ -48,7 +48,7 @@ export type UniswapSetupContext = {
   /** The Private eXecution Environment (PXE). */
   pxe: PXE;
   /** Logger instance named as the current test. */
-  logger: DebugLogger;
+  logger: Logger;
   /** Viem Public client instance. */
   publicClient: PublicClient<HttpTransport, Chain>;
   /** Viem Wallet Client instance. */
@@ -76,7 +76,7 @@ export const uniswapL1L2TestSuite = (
 
     let aztecNode: AztecNode;
     let pxe: PXE;
-    let logger: DebugLogger;
+    let logger: Logger;
 
     let walletClient: WalletClient<HttpTransport, Chain, Account>;
     let publicClient: PublicClient<HttpTransport, Chain>;
@@ -195,7 +195,7 @@ export const uniswapL1L2TestSuite = (
         wethAmountToBridge,
       );
 
-      await wethCrossChainHarness.makeMessageConsumable(Fr.fromString(wethDepositClaim.messageHash));
+      await wethCrossChainHarness.makeMessageConsumable(Fr.fromHexString(wethDepositClaim.messageHash));
 
       // 2. Claim WETH on L2
       logger.info('Minting weth on L2');
@@ -331,7 +331,7 @@ export const uniswapL1L2TestSuite = (
       // We get the msg leaf from event so that we can later wait for it to be available for consumption
       const inboxAddress = daiCrossChainHarness.l1ContractAddresses.inboxAddress.toString();
       const txLog = extractEvent(txReceipt.logs, inboxAddress, InboxAbi, 'MessageSent');
-      const tokenOutMsgHash = Fr.fromString(txLog.args.hash);
+      const tokenOutMsgHash = Fr.fromHexString(txLog.args.hash);
       const tokenOutMsgIndex = txLog.args.index;
 
       // weth was swapped to dai and send to portal
@@ -559,7 +559,7 @@ export const uniswapL1L2TestSuite = (
     //       data: txLog.data,
     //       topics: txLog.topics,
     //     });
-    //     outTokenDepositMsgHash = Fr.fromString(topics.args.hash);
+    //     outTokenDepositMsgHash = Fr.fromHexString(topics.args.hash);
     //   }
 
     //   // weth was swapped to dai and send to portal

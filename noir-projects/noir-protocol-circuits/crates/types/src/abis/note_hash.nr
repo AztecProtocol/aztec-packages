@@ -71,9 +71,6 @@ impl OrderedValue<Field> for ScopedNoteHash {
     fn value(self) -> Field {
         self.note_hash.value
     }
-    fn counter(self) -> u32 {
-        self.note_hash.counter
-    }
 }
 
 impl Eq for ScopedNoteHash {

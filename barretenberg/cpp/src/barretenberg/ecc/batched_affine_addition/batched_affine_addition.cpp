@@ -10,12 +10,14 @@ template <typename Curve>
 std::vector<typename BatchedAffineAddition<Curve>::G1> BatchedAffineAddition<Curve>::add_in_place(
     const std::span<G1>& points, const std::vector<size_t>& sequence_counts)
 {
+    PROFILE_THIS_NAME("BatchedAffineAddition::add_in_place");
     // Instantiate scratch space for point addition denominators and their calculation
     std::vector<Fq> scratch_space_vector(points.size());
     std::span<Fq> scratch_space(scratch_space_vector);
 
     // Divide the work into groups of addition sequences to be reduced by each thread
-    auto [addition_sequences, sequence_tags] = construct_thread_data(points, sequence_counts, scratch_space);
+    auto [addition_sequences_, sequence_tags] = construct_thread_data(points, sequence_counts, scratch_space);
+    auto& addition_sequences = addition_sequences_;
 
     const size_t num_threads = addition_sequences.size();
     parallel_for(num_threads, [&](size_t thread_idx) { batched_affine_add_in_place(addition_sequences[thread_idx]); });

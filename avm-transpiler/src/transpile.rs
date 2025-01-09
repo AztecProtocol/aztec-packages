@@ -399,8 +399,8 @@ pub fn brillig_to_avm(brillig_bytecode: &[BrilligOpcode<FieldElement>]) -> (Vec<
 fn handle_foreign_call(
     avm_instrs: &mut Vec<AvmInstruction>,
     function: &str,
-    destinations: &Vec<ValueOrArray>,
-    inputs: &Vec<ValueOrArray>,
+    destinations: &[ValueOrArray],
+    inputs: &[ValueOrArray],
 ) {
     match function {
         "avmOpcodeCall" => handle_external_call(avm_instrs, destinations, inputs, AvmOpcode::CALL),
@@ -452,8 +452,8 @@ fn handle_foreign_call(
 // ) -> bool {}
 fn handle_external_call(
     avm_instrs: &mut Vec<AvmInstruction>,
-    destinations: &Vec<ValueOrArray>,
-    inputs: &Vec<ValueOrArray>,
+    destinations: &[ValueOrArray],
+    inputs: &[ValueOrArray],
     opcode: AvmOpcode,
 ) {
     if destinations.len() != 1 || inputs.len() != 4 {
@@ -496,10 +496,10 @@ fn handle_external_call(
         opcode,
         indirect: Some(
             AddressingModeBuilder::default()
-                .indirect_operand(&gas_offset_ptr)
+                .indirect_operand(gas_offset_ptr)
                 .direct_operand(address_offset)
-                .indirect_operand(&args_offset_ptr)
-                .direct_operand(&args_size_offset)
+                .indirect_operand(args_offset_ptr)
+                .direct_operand(args_size_offset)
                 .direct_operand(success_offset)
                 .build(),
         ),
@@ -528,10 +528,10 @@ fn handle_cast(
 /// Adds the new instruction to the avm instructions list.
 fn handle_note_hash_exists(
     avm_instrs: &mut Vec<AvmInstruction>,
-    destinations: &Vec<ValueOrArray>,
-    inputs: &Vec<ValueOrArray>,
+    destinations: &[ValueOrArray],
+    inputs: &[ValueOrArray],
 ) {
-    let (note_hash_offset_operand, leaf_index_offset_operand) = match &inputs[..] {
+    let (note_hash_offset_operand, leaf_index_offset_operand) = match inputs {
         [
             ValueOrArray::MemoryAddress(nh_offset),
             ValueOrArray::MemoryAddress(li_offset)
@@ -540,7 +540,7 @@ fn handle_note_hash_exists(
             "Transpiler expects ForeignCall::NOTEHASHEXISTS to have 2 inputs of type MemoryAddress, got {:?}", inputs
         ),
     };
-    let exists_offset_operand = match &destinations[..] {
+    let exists_offset_operand = match destinations {
         [ValueOrArray::MemoryAddress(offset)] => offset,
         _ => panic!(
             "Transpiler expects ForeignCall::NOTEHASHEXISTS to have 1 output of type MemoryAddress, got {:?}", destinations
@@ -566,8 +566,8 @@ fn handle_note_hash_exists(
 
 fn handle_emit_unencrypted_log(
     avm_instrs: &mut Vec<AvmInstruction>,
-    destinations: &Vec<ValueOrArray>,
-    inputs: &Vec<ValueOrArray>,
+    destinations: &[ValueOrArray],
+    inputs: &[ValueOrArray],
 ) {
     if !destinations.is_empty() || inputs.len() != 2 {
         panic!(
@@ -606,8 +606,8 @@ fn handle_emit_unencrypted_log(
 fn handle_emit_note_hash_or_nullifier(
     is_nullifier: bool, // false for note hash, true for nullifier
     avm_instrs: &mut Vec<AvmInstruction>,
-    destinations: &Vec<ValueOrArray>,
-    inputs: &Vec<ValueOrArray>,
+    destinations: &[ValueOrArray],
+    inputs: &[ValueOrArray],
 ) {
     let function_name = if is_nullifier { "EMITNULLIFIER" } else { "EMITNOTEHASH" };
 
@@ -639,8 +639,8 @@ fn handle_emit_note_hash_or_nullifier(
 /// Adds the new instruction to the avm instructions list.
 fn handle_nullifier_exists(
     avm_instrs: &mut Vec<AvmInstruction>,
-    destinations: &Vec<ValueOrArray>,
-    inputs: &Vec<ValueOrArray>,
+    destinations: &[ValueOrArray],
+    inputs: &[ValueOrArray],
 ) {
     if destinations.len() != 1 || inputs.len() != 2 {
         panic!("Transpiler expects ForeignCall::CHECKNULLIFIEREXISTS to have 1 destinations and 2 inputs, got {} and {}", destinations.len(), inputs.len());
@@ -680,8 +680,8 @@ fn handle_nullifier_exists(
 /// Adds the new instruction to the avm instructions list.
 fn handle_l1_to_l2_msg_exists(
     avm_instrs: &mut Vec<AvmInstruction>,
-    destinations: &Vec<ValueOrArray>,
-    inputs: &Vec<ValueOrArray>,
+    destinations: &[ValueOrArray],
+    inputs: &[ValueOrArray],
 ) {
     if destinations.len() != 1 || inputs.len() != 2 {
         panic!(
@@ -731,8 +731,8 @@ fn handle_l1_to_l2_msg_exists(
 /// Adds the new instruction to the avm instructions list.
 fn handle_send_l2_to_l1_msg(
     avm_instrs: &mut Vec<AvmInstruction>,
-    destinations: &Vec<ValueOrArray>,
-    inputs: &Vec<ValueOrArray>,
+    destinations: &[ValueOrArray],
+    inputs: &[ValueOrArray],
 ) {
     if !destinations.is_empty() || inputs.len() != 2 {
         panic!(
@@ -780,13 +780,13 @@ fn handle_send_l2_to_l1_msg(
 fn handle_getter_instruction(
     avm_instrs: &mut Vec<AvmInstruction>,
     function: &str,
-    destinations: &Vec<ValueOrArray>,
-    inputs: &Vec<ValueOrArray>,
+    destinations: &[ValueOrArray],
+    inputs: &[ValueOrArray],
 ) {
+    #[allow(clippy::upper_case_acronyms)]
     enum EnvironmentVariable {
         ADDRESS,
         SENDER,
-        FUNCTIONSELECTOR,
         TRANSACTIONFEE,
         CHAINID,
         VERSION,
@@ -821,7 +821,6 @@ fn handle_getter_instruction(
         "avmOpcodeTimestamp" => EnvironmentVariable::TIMESTAMP,
         "avmOpcodeL2GasLeft" => EnvironmentVariable::L2GASLEFT,
         "avmOpcodeDaGasLeft" => EnvironmentVariable::DAGASLEFT,
-        "avmOpcodeFunctionSelector" => EnvironmentVariable::FUNCTIONSELECTOR,
         "avmOpcodeIsStaticCall" => EnvironmentVariable::ISSTATICCALL,
         _ => panic!("Transpiler doesn't know how to process getter {:?}", function),
     };
@@ -1066,29 +1065,30 @@ fn handle_black_box_function(avm_instrs: &mut Vec<AvmInstruction>, operation: &B
                 ..Default::default()
             });
         }
-        BlackBoxOp::ToRadix { input, radix, output, output_bits } => {
-            let num_limbs = output.size as u32;
+        BlackBoxOp::ToRadix { input, radix, output_pointer, num_limbs, output_bits } => {
             let input_offset = input.to_usize() as u32;
-            let output_offset = output.pointer.to_usize() as u32;
             let radix_offset = radix.to_usize() as u32;
+            let output_offset = output_pointer.to_usize() as u32;
+            let num_limbs_offset = num_limbs.to_usize() as u32;
+            let output_bits_offset = output_bits.to_usize() as u32;
 
             avm_instrs.push(AvmInstruction {
                 opcode: AvmOpcode::TORADIXBE,
                 indirect: Some(
                     AddressingModeBuilder::default()
                         .direct_operand(input)
-                        .indirect_operand(&output.pointer)
                         .direct_operand(radix)
+                        .direct_operand(num_limbs)
+                        .direct_operand(output_bits)
+                        .indirect_operand(output_pointer)
                         .build(),
                 ),
                 operands: vec![
                     AvmOperand::U16 { value: input_offset as u16 },
-                    AvmOperand::U16 { value: output_offset as u16 },
                     AvmOperand::U16 { value: radix_offset as u16 },
-                ],
-                immediates: vec![
-                    AvmOperand::U16 { value: num_limbs as u16 },
-                    AvmOperand::U8 { value: *output_bits as u8 },
+                    AvmOperand::U16 { value: num_limbs_offset as u16 },
+                    AvmOperand::U16 { value: output_bits_offset as u16 },
+                    AvmOperand::U16 { value: output_offset as u16 },
                 ],
                 ..Default::default()
             });
@@ -1162,8 +1162,8 @@ fn handle_black_box_function(avm_instrs: &mut Vec<AvmInstruction>, operation: &B
 
 fn handle_debug_log(
     avm_instrs: &mut Vec<AvmInstruction>,
-    destinations: &Vec<ValueOrArray>,
-    inputs: &Vec<ValueOrArray>,
+    destinations: &[ValueOrArray],
+    inputs: &[ValueOrArray],
 ) {
     if !destinations.is_empty() || inputs.len() != 3 {
         panic!(
@@ -1210,8 +1210,8 @@ fn handle_debug_log(
 // unconstrained fn calldata_copy_opcode<let N: u32>(cdoffset: Field) -> [Field; N] {}
 fn handle_calldata_copy(
     avm_instrs: &mut Vec<AvmInstruction>,
-    destinations: &Vec<ValueOrArray>,
-    inputs: &Vec<ValueOrArray>,
+    destinations: &[ValueOrArray],
+    inputs: &[ValueOrArray],
 ) {
     assert!(inputs.len() == 2);
     assert!(destinations.len() == 1);
@@ -1253,10 +1253,10 @@ fn handle_calldata_copy(
 // unconstrained fn returndata_size_opcode() -> u32 {}
 fn handle_returndata_size(
     avm_instrs: &mut Vec<AvmInstruction>,
-    destinations: &Vec<ValueOrArray>,
-    inputs: &Vec<ValueOrArray>,
+    destinations: &[ValueOrArray],
+    inputs: &[ValueOrArray],
 ) {
-    assert!(inputs.len() == 0);
+    assert!(inputs.is_empty());
     assert!(destinations.len() == 1);
 
     let dest_offset = match destinations[0] {
@@ -1276,8 +1276,8 @@ fn handle_returndata_size(
 // unconstrained fn returndata_copy_opcode(rdoffset: u32, copy_size: u32) -> [Field] {}
 fn handle_returndata_copy(
     avm_instrs: &mut Vec<AvmInstruction>,
-    destinations: &Vec<ValueOrArray>,
-    inputs: &Vec<ValueOrArray>,
+    destinations: &[ValueOrArray],
+    inputs: &[ValueOrArray],
 ) {
     assert!(inputs.len() == 2);
     assert!(destinations.len() == 2);
@@ -1334,11 +1334,11 @@ fn handle_returndata_copy(
 // unconstrained fn return_opcode<let N: u32>(returndata: [Field; N]) {}
 fn handle_return(
     avm_instrs: &mut Vec<AvmInstruction>,
-    destinations: &Vec<ValueOrArray>,
-    inputs: &Vec<ValueOrArray>,
+    destinations: &[ValueOrArray],
+    inputs: &[ValueOrArray],
 ) {
     assert!(inputs.len() == 2);
-    assert!(destinations.len() == 0);
+    assert!(destinations.is_empty());
 
     // First arg is the size, which is ignored because it's redundant.
     let (return_data_offset, return_data_size) = match inputs[1] {
@@ -1353,11 +1353,11 @@ fn handle_return(
 // unconstrained fn revert_opcode(revertdata: [Field]) {}
 fn handle_revert(
     avm_instrs: &mut Vec<AvmInstruction>,
-    destinations: &Vec<ValueOrArray>,
-    inputs: &Vec<ValueOrArray>,
+    destinations: &[ValueOrArray],
+    inputs: &[ValueOrArray],
 ) {
     assert!(inputs.len() == 2);
-    assert!(destinations.len() == 0);
+    assert!(destinations.is_empty());
 
     // First arg is the size, which is ignored because it's redundant.
     let (revert_data_offset, revert_data_size_offset) = match inputs[1] {
@@ -1372,8 +1372,8 @@ fn handle_revert(
 /// The current implementation writes an array of values into storage ( contiguous slots in memory )
 fn handle_storage_write(
     avm_instrs: &mut Vec<AvmInstruction>,
-    destinations: &Vec<ValueOrArray>,
-    inputs: &Vec<ValueOrArray>,
+    destinations: &[ValueOrArray],
+    inputs: &[ValueOrArray],
 ) {
     assert!(inputs.len() == 2);
     assert!(destinations.is_empty());
@@ -1410,10 +1410,10 @@ fn handle_storage_write(
 fn handle_get_contract_instance(
     avm_instrs: &mut Vec<AvmInstruction>,
     function: &str,
-    destinations: &Vec<ValueOrArray>,
-    inputs: &Vec<ValueOrArray>,
+    destinations: &[ValueOrArray],
+    inputs: &[ValueOrArray],
 ) {
-    #[allow(non_camel_case_types)]
+    #[allow(non_camel_case_types, clippy::upper_case_acronyms)]
     enum ContractInstanceMember {
         DEPLOYER,
         CLASS_ID,
@@ -1471,8 +1471,8 @@ fn handle_get_contract_instance(
 /// The current implementation reads an array of values from storage ( contiguous slots in memory )
 fn handle_storage_read(
     avm_instrs: &mut Vec<AvmInstruction>,
-    destinations: &Vec<ValueOrArray>,
-    inputs: &Vec<ValueOrArray>,
+    destinations: &[ValueOrArray],
+    inputs: &[ValueOrArray],
 ) {
     assert!(inputs.len() == 1); // output
     assert!(destinations.len() == 1); // return value

@@ -11,7 +11,7 @@ import {
 } from '@aztec/circuit-types';
 import { Fr, PrivateLog } from '@aztec/circuits.js';
 import { INITIAL_L2_BLOCK_NUM, MAX_NOTE_HASHES_PER_TX } from '@aztec/circuits.js/constants';
-import { createDebugLogger } from '@aztec/foundation/log';
+import { createLogger } from '@aztec/foundation/log';
 import { BufferReader } from '@aztec/foundation/serialize';
 import { type AztecKVStore, type AztecMap } from '@aztec/kv-store';
 
@@ -27,7 +27,7 @@ export class LogStore {
   #unencryptedLogsByBlock: AztecMap<number, Buffer>;
   #contractClassLogsByBlock: AztecMap<number, Buffer>;
   #logsMaxPageSize: number;
-  #log = createDebugLogger('aztec:archiver:log_store');
+  #log = createLogger('archiver:log_store');
 
   constructor(private db: AztecKVStore, private blockStore: BlockStore, logsMaxPageSize: number = 1000) {
     this.#logsByTag = db.openMap('archiver_tagged_logs_by_tag');
@@ -43,7 +43,7 @@ export class LogStore {
     const taggedLogs = new Map<string, Buffer[]>();
     const dataStartIndexForBlock =
       block.header.state.partial.noteHashTree.nextAvailableLeafIndex -
-      block.body.numberOfTxsIncludingPadded * MAX_NOTE_HASHES_PER_TX;
+      block.body.txEffects.length * MAX_NOTE_HASHES_PER_TX;
     block.body.txEffects.forEach((txEffect, txIndex) => {
       const txHash = txEffect.txHash;
       const dataStartIndexForTx = dataStartIndexForBlock + txIndex * MAX_NOTE_HASHES_PER_TX;
@@ -69,7 +69,7 @@ export class LogStore {
     const taggedLogs = new Map<string, Buffer[]>();
     const dataStartIndexForBlock =
       block.header.state.partial.noteHashTree.nextAvailableLeafIndex -
-      block.body.numberOfTxsIncludingPadded * MAX_NOTE_HASHES_PER_TX;
+      block.body.txEffects.length * MAX_NOTE_HASHES_PER_TX;
     block.body.unencryptedLogs.txLogs.forEach((txLogs, txIndex) => {
       const txHash = block.body.txEffects[txIndex].txHash;
       const dataStartIndexForTx = dataStartIndexForBlock + txIndex * MAX_NOTE_HASHES_PER_TX;
@@ -94,7 +94,7 @@ export class LogStore {
           }
           const tag = new Fr(correctedBuffer);
 
-          this.#log.verbose(`Found tagged unencrypted log with tag ${tag.toString()} in block ${block.number}`);
+          this.#log.debug(`Found tagged unencrypted log with tag ${tag.toString()} in block ${block.number}`);
           const currentLogs = taggedLogs.get(tag.toString()) ?? [];
           currentLogs.push(
             new TxScopedL2Log(txHash, dataStartIndexForTx, block.number, /* isFromPublic */ true, log.data).toBuffer(),

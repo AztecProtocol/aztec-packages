@@ -6,21 +6,41 @@
 #include <vector>
 
 #include "barretenberg/common/ref_vector.hpp"
+#include "columns.hpp"
+
+namespace bb::{{snakeCase name}} {
+
+template <typename FF_>
+struct AvmFullRow {
+    using FF = FF_;
+
+    FF {{shoutySnakeCase name}}_ALL_ENTITIES;
+
+    RefVector<const FF> as_vector() const;
+    static std::vector<std::string> names();
+    static constexpr size_t SIZE = {{len all_cols}};
+
+    // Risky but oh so efficient.
+    FF& get_column(ColumnAndShifts col)
+    {
+        static_assert(sizeof(*this) == sizeof(FF) * static_cast<size_t>(ColumnAndShifts::NUM_COLUMNS));
+        return reinterpret_cast<FF*>(this)[static_cast<size_t>(col)];
+    }
+
+    const FF& get_column(ColumnAndShifts col) const
+    {
+        static_assert(sizeof(*this) == sizeof(FF) * static_cast<size_t>(ColumnAndShifts::NUM_COLUMNS));
+        return reinterpret_cast<const FF*>(this)[static_cast<size_t>(col)];
+    }
+};
+
+template <typename FF> std::ostream& operator<<(std::ostream& os, AvmFullRow<FF> const& row);
+
+} // namespace bb::{{snakeCase name}}
 
 namespace bb {
 
-template <typename FF>
-struct {{name}}FullRow {
-    {{#each all_cols as |col|}}
-    FF {{col}}{};
-    {{/each}}
-    
-    RefVector<const FF> as_vector() const;
-
-    static std::vector<std::string> names();
-    static constexpr size_t SIZE = {{len all_cols}};
-};
-
-template <typename FF> std::ostream& operator<<(std::ostream& os, {{name}}FullRow<FF> const& row);
+// Expose this in the bb namespace. For compatibility with the old witgen.
+using {{snakeCase name}}::AvmFullRow;
 
 } // namespace bb

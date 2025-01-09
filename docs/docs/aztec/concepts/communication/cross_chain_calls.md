@@ -150,7 +150,3 @@ To make it possible to hide when a specific message is consumed, the `L1ToL2Msg`
 The following diagram shows the overall architecture, combining the earlier sections.
 
 <Image img={require("/img/com-abs-7.png")} />
-
-## Learn more
-
-Check out the [protocol specs](../../../protocol-specs/l1-smart-contracts#portals) for more information about cross-chain communication and contracts on L1.

@@ -1,11 +1,11 @@
 import {
   AztecAddress,
+  BlockHeader,
   type ContractClassPublic,
   type ContractInstanceWithAddress,
   EthAddress,
   Fr,
   FunctionSelector,
-  Header,
   PrivateLog,
   type PublicFunction,
   PublicKeys,
@@ -17,11 +17,11 @@ import { type JsonRpcTestContext, createJsonRpcTestSetup } from '@aztec/foundati
 import { fileURLToPath } from '@aztec/foundation/url';
 import { loadContractArtifact } from '@aztec/types/abi';
 
-import { deepStrictEqual } from 'assert';
 import { readFileSync } from 'fs';
 import omit from 'lodash.omit';
 import { resolve } from 'path';
 
+import { EmptyL1RollupConstants, type L1RollupConstants } from '../epoch-helpers/index.js';
 import { type InBlock, randomInBlock } from '../in_block.js';
 import { L2Block } from '../l2_block.js';
 import { type L2Tips } from '../l2_block_source.js';
@@ -92,7 +92,7 @@ describe('ArchiverApiSchema', () => {
 
   it('getBlockHeader', async () => {
     const result = await context.client.getBlockHeader(1);
-    expect(result).toBeInstanceOf(Header);
+    expect(result).toBeInstanceOf(BlockHeader);
   });
 
   it('getBlocks', async () => {
@@ -101,12 +101,12 @@ describe('ArchiverApiSchema', () => {
   });
 
   it('getTxEffect', async () => {
-    const result = await context.client.getTxEffect(new TxHash(Buffer.alloc(32, 1)));
+    const result = await context.client.getTxEffect(TxHash.fromBuffer(Buffer.alloc(32, 1)));
     expect(result!.data).toBeInstanceOf(TxEffect);
   });
 
   it('getSettledTxReceipt', async () => {
-    const result = await context.client.getSettledTxReceipt(new TxHash(Buffer.alloc(32, 1)));
+    const result = await context.client.getSettledTxReceipt(TxHash.fromBuffer(Buffer.alloc(32, 1)));
     expect(result).toBeInstanceOf(TxReceipt);
   });
 
@@ -223,14 +223,9 @@ describe('ArchiverApiSchema', () => {
     expect(result).toBe(1n);
   });
 
-  it('getContractArtifact', async () => {
-    const result = await context.client.getContractArtifact(AztecAddress.random());
-    deepStrictEqual(result, artifact);
+  it('registerContractFunctionSignatures', async () => {
+    await context.client.registerContractFunctionSignatures(AztecAddress.random(), ['test()']);
   });
-
-  it('addContractArtifact', async () => {
-    await context.client.addContractArtifact(AztecAddress.random(), artifact);
-  }, 20_000);
 
   it('getContract', async () => {
     const address = AztecAddress.random();
@@ -253,6 +248,11 @@ describe('ArchiverApiSchema', () => {
       unconstrainedFunctions: [],
       privateFunctions: [],
     });
+  });
+
+  it('getL1Constants', async () => {
+    const result = await context.client.getL1Constants();
+    expect(result).toEqual(EmptyL1RollupConstants);
   });
 });
 
@@ -277,8 +277,8 @@ class MockArchiver implements ArchiverApi {
   getBlock(number: number): Promise<L2Block | undefined> {
     return Promise.resolve(L2Block.random(number));
   }
-  getBlockHeader(_number: number | 'latest'): Promise<Header | undefined> {
-    return Promise.resolve(Header.empty());
+  getBlockHeader(_number: number | 'latest'): Promise<BlockHeader | undefined> {
+    return Promise.resolve(BlockHeader.empty());
   }
   getBlocks(from: number, _limit: number, _proven?: boolean | undefined): Promise<L2Block[]> {
     return Promise.resolve([L2Block.random(from)]);
@@ -378,10 +378,9 @@ class MockArchiver implements ArchiverApi {
     expect(address).toBeInstanceOf(AztecAddress);
     return Promise.resolve(this.artifact);
   }
-  addContractArtifact(address: AztecAddress, contract: ContractArtifact): Promise<void> {
+  registerContractFunctionSignatures(address: AztecAddress, signatures: string[]): Promise<void> {
     expect(address).toBeInstanceOf(AztecAddress);
-    // We use node's native assertion because jest's is too slow
-    deepStrictEqual(contract, this.artifact);
+    expect(Array.isArray(signatures)).toBe(true);
     return Promise.resolve();
   }
   getL1ToL2Messages(blockNumber: bigint): Promise<Fr[]> {
@@ -394,5 +393,8 @@ class MockArchiver implements ArchiverApi {
   }
   addContractClass(_contractClass: ContractClassPublic): Promise<void> {
     return Promise.resolve();
+  }
+  getL1Constants(): Promise<L1RollupConstants> {
+    return Promise.resolve(EmptyL1RollupConstants);
   }
 }

@@ -1,5 +1,5 @@
 import { aztecNodeConfigMappings } from '@aztec/aztec-node';
-import { AztecNodeApiSchema, type PXE } from '@aztec/circuit-types';
+import { AztecNodeApiSchema, P2PApiSchema, type PXE } from '@aztec/circuit-types';
 import { NULL_KEY } from '@aztec/ethereum';
 import { type NamespacedApiHandlers } from '@aztec/foundation/json-rpc/server';
 import { type LogFn } from '@aztec/foundation/log';
@@ -88,13 +88,14 @@ export async function startNode(
   }
 
   const telemetryConfig = extractRelevantOptions<TelemetryClientConfig>(options, telemetryClientConfigMappings, 'tel');
-  const telemetryClient = await createAndStartTelemetryClient(telemetryConfig);
+  const telemetry = await createAndStartTelemetryClient(telemetryConfig);
 
   // Create and start Aztec Node
-  const node = await createAztecNode(nodeConfig, telemetryClient);
+  const node = await createAztecNode(nodeConfig, { telemetry });
 
-  // Add node to services list
+  // Add node and p2p to services list
   services.node = [node, AztecNodeApiSchema];
+  services.p2p = [node.getP2P(), P2PApiSchema];
 
   // Add node stop function to signal handlers
   signalHandlers.push(node.stop.bind(node));
@@ -109,6 +110,6 @@ export async function startNode(
   // Add a txs bot if requested
   if (options.bot) {
     const { addBot } = await import('./start_bot.js');
-    await addBot(options, signalHandlers, services, { pxe, node });
+    await addBot(options, signalHandlers, services, { pxe, node, telemetry });
   }
 }

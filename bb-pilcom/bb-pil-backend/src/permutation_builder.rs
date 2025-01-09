@@ -40,14 +40,18 @@ pub struct PermutationSide {
 pub trait PermutationBuilder {
     /// Takes in an AST and works out what permutation relations are needed
     /// Note: returns the name of the inverse columns, such that they can be added to he prover in subsequent steps
-    fn create_permutation_files<F: FieldElement>(&self, analyzed: &Analyzed<F>)
-        -> Vec<Permutation>;
+    fn create_permutation_files<F: FieldElement>(
+        &self,
+        analyzed: &Analyzed<F>,
+        vm_name: &str,
+    ) -> Vec<Permutation>;
 }
 
 impl PermutationBuilder for BBFiles {
     fn create_permutation_files<F: FieldElement>(
         &self,
         analyzed: &Analyzed<F>,
+        vm_name: &str,
     ) -> Vec<Permutation> {
         let permutations = analyzed
             .identities
@@ -78,7 +82,7 @@ impl PermutationBuilder for BBFiles {
             .unwrap();
 
         for permutation in permutations.iter() {
-            let data = create_permutation_settings_data(permutation);
+            let data = create_permutation_settings_data(permutation, vm_name);
             let perm_settings = handlebars.render("permutation.hpp", &data).unwrap();
 
             let file_name = format!("{}.hpp", permutation.name);
@@ -97,7 +101,7 @@ pub fn get_inverses_from_permutations(permutations: &[Permutation]) -> Vec<Strin
         .collect()
 }
 
-fn create_permutation_settings_data(permutation: &Permutation) -> Json {
+fn create_permutation_settings_data(permutation: &Permutation, vm_name: &str) -> Json {
     let columns_per_set = permutation.left.cols.len();
 
     // This also will need to work for both sides of this !
@@ -134,11 +138,13 @@ fn create_permutation_settings_data(permutation: &Permutation) -> Json {
     perm_entities.extend(rhs_cols);
 
     json!({
+        "root_name": vm_name,
         "perm_name": permutation.name,
         "columns_per_set": columns_per_set,
         "lhs_selector": lhs_selector,
         "rhs_selector": rhs_selector,
         "perm_entities": perm_entities,
+        "inverses_col": permutation.inverse.clone(),
     })
 }
 

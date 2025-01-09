@@ -1,4 +1,4 @@
-import { createDebugLogger, fileURLToPath } from '@aztec/aztec.js';
+import { createLogger, fileURLToPath } from '@aztec/aztec.js';
 import { startPXEHttpServer } from '@aztec/pxe';
 
 import Koa from 'koa';
@@ -15,19 +15,18 @@ const __dirname = dirname(__filename);
 const PORT = 4000;
 const PXE_PORT = 4001;
 
-const logger = createDebugLogger('aztec:e2e_aztec_browser.js:web');
-const pageLogger = createDebugLogger('aztec:e2e_aztec_browser.js:web:page');
+const logger = createLogger('e2e:aztec_browser.js:web');
+const pageLogger = createLogger('e2e:aztec_browser.js:web:page');
 
 /**
  * This test is a bit of a special case as it's on a web browser and not only on anvil and node.js.
  * To run the test, do the following:
  *    1) Build the whole repository,
  *    2) go to `yarn-project/end-to-end` and build the web packed package with `yarn build:web`,
- *    3) start anvil: `anvil`,
- *    4) if you intend to use a remotely running environment then export the URL of your PXE e.g.
+ *    3) if you intend to use a remotely running environment then export the URL of your PXE e.g.
  *       `export PXE_URL='http://localhost:8080'`
- *    5) go to `yarn-project/end-to-end` and run the test: `yarn test aztec_js_browser`
- *    6) If you get dependency error run `apt install libnss3 libatk1.0-0t64 libatk-bridge2.0-0t64 libcups2t64 libxdamage1 libxkbcommon0 libpango-1.0-0 libcairo2 libasound2t64`.
+ *    4) go to `yarn-project/end-to-end` and run the test: `yarn test aztec_js_browser`
+ *    5) If you get dependency error run `apt install libnss3 libatk1.0-0t64 libatk-bridge2.0-0t64 libcups2t64 libxdamage1 libxkbcommon0 libpango-1.0-0 libcairo2 libasound2t64`.
  *
  * NOTE 1: If you see the logs spammed with unexpected logs there is probably a chrome process with a webpage
  *         unexpectedly running in the background. Kill it with `killall chrome`

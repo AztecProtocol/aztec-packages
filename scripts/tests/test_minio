@@ -1,0 +1,11 @@
+#!/bin/bash
+# Use the minio script base. We ensure minio is running and wipe it.
+source $(git rev-parse --show-toplevel)/ci3/source_test
+export CI=1
+export USE_CACHE=1
+# should not exist
+! cache_download cache-artifact.tar.gz
+touch cache-artifact
+cache_upload cache-artifact.tar.gz cache-artifact
+# should not exist
+cache_download cache-artifact.tar.gz

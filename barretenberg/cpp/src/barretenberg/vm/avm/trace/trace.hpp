@@ -15,11 +15,12 @@
 #include "barretenberg/vm/avm/trace/gadgets/sha256.hpp"
 #include "barretenberg/vm/avm/trace/gadgets/slice_trace.hpp"
 #include "barretenberg/vm/avm/trace/gas_trace.hpp"
-// #include "barretenberg/vm/avm/trace/kernel_trace.hpp"
 #include "barretenberg/vm/avm/trace/mem_trace.hpp"
 #include "barretenberg/vm/avm/trace/opcode.hpp"
 #include "barretenberg/vm/avm/trace/public_inputs.hpp"
 #include "barretenberg/vm/constants.hpp"
+#include <stack>
+#include <unordered_set>
 
 namespace bb::avm_trace {
 
@@ -28,6 +29,7 @@ using Row = bb::AvmFullRow<bb::fr>;
 struct ReturnDataError {
     std::vector<FF> return_data;
     AvmError error;
+    bool is_top_level = false;
 };
 
 struct RowWithError {
@@ -42,20 +44,24 @@ struct RowWithError {
 class AvmTraceBuilder {
 
   public:
-    AvmTraceBuilder(AvmPublicInputs new_public_inputs = {},
+    AvmTraceBuilder(AvmPublicInputs public_inputs = {},
                     ExecutionHints execution_hints = {},
-                    uint32_t side_effect_counter = 0,
-                    std::vector<FF> calldata = {});
+                    uint32_t side_effect_counter = 0);
 
+    void set_all_calldata(const std::vector<FF>& all_calldata) { this->all_calldata = all_calldata; }
+    std::vector<FF> get_all_returndata() { return this->all_returndata; }
     void set_public_call_request(PublicCallRequest const& public_call_request)
     {
         this->current_public_call_request = public_call_request;
     }
+    uint32_t get_call_ptr() const { return call_ptr; }
     void set_call_ptr(uint8_t call_ptr) { this->call_ptr = call_ptr; }
 
     uint32_t get_pc() const { return pc; }
+    void set_pc(uint32_t new_pc) { pc = new_pc; }
     uint32_t get_l2_gas_left() const { return gas_trace_builder.get_l2_gas_left(); }
     uint32_t get_da_gas_left() const { return gas_trace_builder.get_da_gas_left(); }
+    uint32_t get_clk() const { return static_cast<uint32_t>(main_trace.size()); }
 
     // Compute - Arithmetic
     AvmError op_add(
@@ -101,7 +107,6 @@ class AvmTraceBuilder {
     AvmError op_get_env_var(uint8_t indirect, uint32_t dst_offset, uint8_t env_var);
     AvmError op_address(uint8_t indirect, uint32_t dst_offset);
     AvmError op_sender(uint8_t indirect, uint32_t dst_offset);
-    AvmError op_function_selector(uint8_t indirect, uint32_t dst_offset);
     AvmError op_transaction_fee(uint8_t indirect, uint32_t dst_offset);
     AvmError op_is_static_call(uint8_t indirect, uint32_t dst_offset);
 
@@ -215,15 +220,29 @@ class AvmTraceBuilder {
                              uint32_t output_offset,
                              uint32_t point_length_offset);
     // Conversions
-    AvmError op_to_radix_be(uint8_t indirect,
+    AvmError op_to_radix_be(uint16_t indirect,
                             uint32_t src_offset,
-                            uint32_t dst_offset,
                             uint32_t radix_offset,
-                            uint32_t num_limbs,
-                            uint8_t output_bits);
+                            uint32_t num_limbs_offset,
+                            uint32_t output_bits_offset,
+                            uint32_t dst_offset);
 
-    std::vector<Row> finalize();
+    std::vector<Row> finalize(bool apply_end_gas_assertions = false);
     void reset();
+
+    void checkpoint_non_revertible_state();
+    void rollback_to_non_revertible_checkpoint();
+    std::vector<uint8_t> get_bytecode(const FF contract_address, bool check_membership = false);
+    // Used to track the unique class ids, could also be used to cache membership checks of class ids
+    std::unordered_set<FF> contract_class_id_cache;
+    std::unordered_set<FF> bytecode_membership_cache;
+    void insert_private_state(const std::vector<FF>& siloed_nullifiers, const std::vector<FF>& unique_note_hashes);
+    void insert_private_revertible_state(const std::vector<FF>& siloed_nullifiers,
+                                         const std::vector<FF>& siloed_note_hashes);
+    void pay_fee();
+    void pad_trees();
+    void allocate_gas_for_call(uint32_t l2_gas, uint32_t da_gas);
+    void handle_exceptional_halt();
 
     // These are used for testing only.
     AvmTraceBuilder& set_range_check_required(bool required)
@@ -236,6 +255,24 @@ class AvmTraceBuilder {
         full_precomputed_tables = required;
         return *this;
     }
+    AvmTraceBuilder& with_default_ctx()
+    {
+        AvmTraceBuilder::ExtCallCtx ext_call_ctx({ .context_id = 0,
+                                                   .parent_id = 0,
+                                                   .is_top_level = true,
+                                                   .contract_address = FF(0),
+                                                   .calldata = {},
+                                                   .nested_returndata = {},
+                                                   .last_pc = 0,
+                                                   .success_offset = 0,
+                                                   .start_l2_gas_left = 0,
+                                                   .start_da_gas_left = 0,
+                                                   .l2_gas_left = 0,
+                                                   .da_gas_left = 0,
+                                                   .internal_return_ptr_stack = {} });
+        current_ext_call_ctx = ext_call_ctx;
+        return *this;
+    }
 
     struct MemOp {
         bool is_indirect;
@@ -246,31 +283,52 @@ class AvmTraceBuilder {
         FF val;
     };
 
+    struct ExtCallCtx {
+        uint32_t context_id; // This is the unique id of the ctx, we'll use the clk
+        uint32_t parent_id;
+        bool is_top_level = false;
+        bool is_static_call = false;
+        FF contract_address{};
+        std::vector<FF> calldata;
+        std::vector<FF> nested_returndata;
+        uint32_t last_pc;
+        uint32_t success_offset;
+        uint32_t start_l2_gas_left;
+        uint32_t start_da_gas_left;
+        uint32_t l2_gas_left; // as of start of latest nested call
+        uint32_t da_gas_left; // as of start of latest nested call
+        std::stack<uint32_t> internal_return_ptr_stack;
+        TreeSnapshots tree_snapshot; // This is the tree state at the time of the call
+        std::unordered_set<FF> public_data_unique_writes;
+    };
+
+    uint32_t next_context_id = 0;
+    ExtCallCtx current_ext_call_ctx{};
+    std::stack<ExtCallCtx> external_call_ctx_stack;
+
   private:
     std::vector<Row> main_trace;
 
-    std::vector<FF> calldata;
-    AvmPublicInputs new_public_inputs;
+    AvmPublicInputs public_inputs;
     PublicCallRequest current_public_call_request;
     std::vector<FF> returndata;
-
-    // Return/revert data of the last nested call.
-    std::vector<FF> nested_returndata;
+    std::vector<FF> all_calldata;
+    std::vector<FF> all_returndata;
 
     // Side effect counter will increment when any state writing values are encountered.
     uint32_t side_effect_counter = 0;
     uint32_t external_call_counter = 0; // Incremented both by OpCode::CALL and OpCode::STATICCALL
     ExecutionHints execution_hints;
-    // These are the tracked roots for intermediate steps
-    TreeSnapshots intermediate_tree_snapshots;
     // These are some counters for the tree acceess hints that we probably dont need in the future
     uint32_t note_hash_read_counter = 0;
     uint32_t note_hash_write_counter = 0;
     uint32_t nullifier_read_counter = 0;
     uint32_t nullifier_write_counter = 0;
     uint32_t l1_to_l2_msg_read_counter = 0;
+    uint32_t l2_to_l1_msg_write_counter = 0;
     uint32_t storage_read_counter = 0;
     uint32_t storage_write_counter = 0;
+    uint32_t unencrypted_log_write_counter = 0;
 
     // These exist due to testing only.
     bool range_check_required = true;
@@ -279,7 +337,6 @@ class AvmTraceBuilder {
     AvmMemTraceBuilder mem_trace_builder;
     AvmAluTraceBuilder alu_trace_builder;
     AvmBinaryTraceBuilder bin_trace_builder;
-    // AvmKernelTraceBuilder kernel_trace_builder;
     AvmGasTraceBuilder gas_trace_builder;
     AvmConversionTraceBuilder conversion_trace_builder;
     AvmSha256TraceBuilder sha256_trace_builder;
@@ -291,6 +348,7 @@ class AvmTraceBuilder {
     AvmBytecodeTraceBuilder bytecode_trace_builder;
     AvmMerkleTreeTraceBuilder merkle_tree_trace_builder;
 
+    std::vector<uint8_t> get_bytecode_from_hints(const FF contract_class_id);
     RowWithError create_kernel_lookup_opcode(uint8_t indirect, uint32_t dst_offset, FF value, AvmMemoryTag w_tag);
 
     RowWithError create_kernel_output_opcode(uint8_t indirect, uint32_t clk, uint32_t data_offset);
@@ -301,21 +359,6 @@ class AvmTraceBuilder {
                                                            AvmMemoryTag data_r_tag,
                                                            uint32_t metadata_offset,
                                                            AvmMemoryTag metadata_r_tag);
-
-    Row create_kernel_output_opcode_with_set_metadata_output_from_hint(uint32_t clk,
-                                                                       uint32_t data_offset,
-                                                                       uint32_t address_offset,
-                                                                       uint32_t metadata_offset);
-
-    Row create_kernel_output_opcode_for_leaf_index(uint32_t clk,
-                                                   uint32_t data_offset,
-                                                   uint32_t leaf_index,
-                                                   uint32_t metadata_offset);
-
-    RowWithError create_kernel_output_opcode_with_set_value_from_hint(uint8_t indirect,
-                                                                      uint32_t clk,
-                                                                      uint32_t data_offset,
-                                                                      uint32_t metadata_offset);
 
     AvmError constrain_external_call(OpCode opcode,
                                      uint16_t indirect,
@@ -349,15 +392,19 @@ class AvmTraceBuilder {
                                       AvmMemoryTag write_tag,
                                       IntermRegister reg,
                                       AvmMemTraceBuilder::MemOpOwner mem_op_owner = AvmMemTraceBuilder::MAIN);
+    uint32_t get_inserted_note_hashes_count();
+    uint32_t get_inserted_nullifiers_count();
+    uint32_t get_public_data_writes_count();
+    FF get_tx_hash() const { return public_inputs.previous_non_revertible_accumulated_data.nullifiers[0]; }
 
     // TODO: remove these once everything is constrained.
     AvmMemoryTag unconstrained_get_memory_tag(AddressWithMode addr);
     bool check_tag(AvmMemoryTag tag, AddressWithMode addr);
-    bool check_tag_range(AvmMemoryTag tag, AddressWithMode start_offset, uint32_t size);
+    bool check_tag_range(AvmMemoryTag tag, uint32_t start_offset, uint32_t size);
     FF unconstrained_read_from_memory(AddressWithMode addr);
-    template <typename T> void read_slice_from_memory(AddressWithMode addr, size_t slice_len, std::vector<T>& slice);
-    void write_to_memory(AddressWithMode addr, FF val, AvmMemoryTag w_tag);
-    template <typename T> void write_slice_to_memory(AddressWithMode addr, AvmMemoryTag w_tag, const T& slice);
+    template <typename T> AvmError read_slice_from_memory(uint32_t addr, uint32_t slice_len, std::vector<T>& slice);
+    void write_to_memory(AddressWithMode addr, FF val, AvmMemoryTag w_tag, bool fix_pc = true);
+    template <typename T> AvmError write_slice_to_memory(uint32_t addr, AvmMemoryTag w_tag, const T& slice);
 };
 
 } // namespace bb::avm_trace

@@ -1,15 +1,16 @@
 import {
   ARCHIVE_HEIGHT,
   AztecAddress,
+  BlockHeader,
   type ContractClassPublic,
   type ContractInstanceWithAddress,
   EthAddress,
   Fr,
   GasFees,
-  Header,
   L1_TO_L2_MSG_TREE_HEIGHT,
   NOTE_HASH_TREE_HEIGHT,
   NULLIFIER_TREE_HEIGHT,
+  type NodeInfo,
   PUBLIC_DATA_TREE_HEIGHT,
   PrivateLog,
   type ProtocolContractAddresses,
@@ -24,7 +25,6 @@ import { type JsonRpcTestContext, createJsonRpcTestSetup } from '@aztec/foundati
 import { fileURLToPath } from '@aztec/foundation/url';
 import { loadContractArtifact } from '@aztec/types/abi';
 
-import { deepStrictEqual } from 'assert';
 import { readFileSync } from 'fs';
 import omit from 'lodash.omit';
 import times from 'lodash.times';
@@ -40,6 +40,7 @@ import { MerkleTreeId } from '../merkle_tree_id.js';
 import { EpochProofQuote } from '../prover_coordination/epoch_proof_quote.js';
 import { PublicDataWitness } from '../public_data_witness.js';
 import { SiblingPath } from '../sibling_path/sibling_path.js';
+import { type TxValidationResult } from '../tx/index.js';
 import { PublicSimulationOutput } from '../tx/public_simulation_output.js';
 import { Tx } from '../tx/tx.js';
 import { TxHash } from '../tx/tx_hash.js';
@@ -47,7 +48,7 @@ import { TxReceipt } from '../tx/tx_receipt.js';
 import { TxEffect } from '../tx_effect.js';
 import { type AztecNode, AztecNodeApiSchema } from './aztec-node.js';
 import { type SequencerConfig } from './configs.js';
-import { NullifierMembershipWitness } from './nullifier_tree.js';
+import { NullifierMembershipWitness } from './nullifier_membership_witness.js';
 import { type ProverConfig } from './prover-client.js';
 
 describe('AztecNodeApiSchema', () => {
@@ -179,6 +180,19 @@ describe('AztecNodeApiSchema', () => {
     expect(response).toBe(true);
   });
 
+  it('getNodeInfo', async () => {
+    const response = await context.client.getNodeInfo();
+    expect(response).toEqual({
+      ...(await handler.getNodeInfo()),
+      l1ContractAddresses: Object.fromEntries(
+        L1ContractsNames.map(name => [name, expect.any(EthAddress)]),
+      ) as L1ContractAddresses,
+      protocolContractAddresses: Object.fromEntries(
+        ProtocolContractsNames.map(name => [name, expect.any(AztecAddress)]),
+      ) as ProtocolContractAddresses,
+    });
+  });
+
   it('getBlocks', async () => {
     const response = await context.client.getBlocks(1, 1);
     expect(response).toHaveLength(1);
@@ -210,9 +224,9 @@ describe('AztecNodeApiSchema', () => {
     expect(response).toEqual(Object.fromEntries(ProtocolContractsNames.map(name => [name, expect.any(AztecAddress)])));
   });
 
-  it('addContractArtifact', async () => {
-    await context.client.addContractArtifact(AztecAddress.random(), artifact);
-  }, 20_000);
+  it('registerContractFunctionSignatures', async () => {
+    await context.client.registerContractFunctionSignatures(AztecAddress.random(), ['test()']);
+  });
 
   it('getPrivateLogs', async () => {
     const response = await context.client.getPrivateLogs(1, 1);
@@ -270,7 +284,7 @@ describe('AztecNodeApiSchema', () => {
 
   it('getBlockHeader', async () => {
     const response = await context.client.getBlockHeader();
-    expect(response).toBeInstanceOf(Header);
+    expect(response).toBeInstanceOf(BlockHeader);
   });
 
   it('simulatePublicCalls', async () => {
@@ -278,9 +292,14 @@ describe('AztecNodeApiSchema', () => {
     expect(response).toBeInstanceOf(PublicSimulationOutput);
   });
 
-  it('isValidTx', async () => {
+  it('isValidTx(valid)', async () => {
+    const response = await context.client.isValidTx(Tx.random(), true);
+    expect(response).toEqual({ result: 'valid' });
+  });
+
+  it('isValidTx(invalid)', async () => {
     const response = await context.client.isValidTx(Tx.random());
-    expect(response).toBe(true);
+    expect(response).toEqual({ result: 'invalid', reason: ['Invalid'] });
   });
 
   it('setConfig', async () => {
@@ -451,6 +470,20 @@ class MockAztecNode implements AztecNode {
   isReady(): Promise<boolean> {
     return Promise.resolve(true);
   }
+  getNodeInfo(): Promise<NodeInfo> {
+    return Promise.resolve({
+      nodeVersion: '1.0',
+      l1ChainId: 1,
+      protocolVersion: 1,
+      enr: 'enr',
+      l1ContractAddresses: Object.fromEntries(
+        L1ContractsNames.map(name => [name, EthAddress.random()]),
+      ) as L1ContractAddresses,
+      protocolContractAddresses: Object.fromEntries(
+        ProtocolContractsNames.map(name => [name, AztecAddress.random()]),
+      ) as ProtocolContractAddresses,
+    });
+  }
   getBlocks(from: number, limit: number): Promise<L2Block[]> {
     return Promise.resolve(times(limit, i => L2Block.random(from + i)));
   }
@@ -477,9 +510,7 @@ class MockAztecNode implements AztecNode {
       ) as ProtocolContractAddresses,
     );
   }
-  addContractArtifact(address: AztecAddress, artifact: ContractArtifact): Promise<void> {
-    expect(address).toBeInstanceOf(AztecAddress);
-    deepStrictEqual(artifact, this.artifact);
+  registerContractFunctionSignatures(_address: AztecAddress, _signatures: string[]): Promise<void> {
     return Promise.resolve();
   }
   getPrivateLogs(_from: number, _limit: number): Promise<PrivateLog[]> {
@@ -525,16 +556,16 @@ class MockAztecNode implements AztecNode {
     expect(slot).toBeInstanceOf(Fr);
     return Promise.resolve(Fr.random());
   }
-  getBlockHeader(_blockNumber?: number | 'latest' | undefined): Promise<Header> {
-    return Promise.resolve(Header.empty());
+  getBlockHeader(_blockNumber?: number | 'latest' | undefined): Promise<BlockHeader> {
+    return Promise.resolve(BlockHeader.empty());
   }
-  simulatePublicCalls(tx: Tx): Promise<PublicSimulationOutput> {
+  simulatePublicCalls(tx: Tx, _enforceFeePayment = false): Promise<PublicSimulationOutput> {
     expect(tx).toBeInstanceOf(Tx);
     return Promise.resolve(PublicSimulationOutput.random());
   }
-  isValidTx(tx: Tx, _isSimulation?: boolean | undefined): Promise<boolean> {
+  isValidTx(tx: Tx, isSimulation?: boolean | undefined): Promise<TxValidationResult> {
     expect(tx).toBeInstanceOf(Tx);
-    return Promise.resolve(true);
+    return Promise.resolve(isSimulation ? { result: 'valid' } : { result: 'invalid', reason: ['Invalid'] });
   }
   setConfig(config: Partial<SequencerConfig & ProverConfig>): Promise<void> {
     expect(config.coinbase).toBeInstanceOf(EthAddress);

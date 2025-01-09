@@ -9,7 +9,7 @@ import {
 import { EventSelector } from '@aztec/foundation/abi';
 import { makeTuple } from '@aztec/foundation/array';
 import { type Tuple } from '@aztec/foundation/serialize';
-import { type ExampleEvent0, type ExampleEvent1, TestLogContract } from '@aztec/noir-contracts.js';
+import { type ExampleEvent0, type ExampleEvent1, TestLogContract } from '@aztec/noir-contracts.js/TestLog';
 
 import { jest } from '@jest/globals';
 
@@ -96,7 +96,7 @@ describe('Logs', () => {
       const lastBlockNumber = Math.max(...txs.map(tx => tx.blockNumber!));
       const numBlocks = lastBlockNumber - firstBlockNumber + 1;
 
-      // We get all the events we can decrypt with either our incoming or outgoing viewing keys
+      // We get all the events we can decrypt with our incoming viewing keys
 
       const collectedEvent0s = await wallets[0].getEncryptedEvents<ExampleEvent0>(
         TestLogContract.events.ExampleEvent0,
@@ -112,13 +112,6 @@ describe('Logs', () => {
         [wallets[0].getCompleteAddress().publicKeys.masterIncomingViewingPublicKey],
       );
 
-      const collectedEvent0sWithOutgoing = await wallets[0].getEncryptedEvents<ExampleEvent0>(
-        TestLogContract.events.ExampleEvent0,
-        firstBlockNumber,
-        numBlocks,
-        [wallets[0].getCompleteAddress().publicKeys.masterOutgoingViewingPublicKey],
-      );
-
       const collectedEvent1s = await wallets[0].getEncryptedEvents<ExampleEvent1>(
         TestLogContract.events.ExampleEvent1,
         firstBlockNumber,
@@ -127,8 +120,7 @@ describe('Logs', () => {
       );
 
       expect(collectedEvent0sWithIncoming.length).toBe(5);
-      expect(collectedEvent0sWithOutgoing.length).toBe(5);
-      expect(collectedEvent0s.length).toBe(10);
+      expect(collectedEvent0s.length).toBe(5);
       expect(collectedEvent1s.length).toBe(5);
 
       const emptyEvent1s = await wallets[0].getEncryptedEvents<ExampleEvent1>(
@@ -145,16 +137,6 @@ describe('Logs', () => {
         preimages
           .map(preimage => ({ value0: preimage[0].toBigInt(), value1: preimage[1].toBigInt() }))
           .sort(exampleEvent0Sort),
-      );
-
-      expect(collectedEvent0sWithOutgoing.sort(exampleEvent0Sort)).toStrictEqual(
-        preimages
-          .map(preimage => ({ value0: preimage[0].toBigInt(), value1: preimage[1].toBigInt() }))
-          .sort(exampleEvent0Sort),
-      );
-
-      expect([...collectedEvent0sWithIncoming, ...collectedEvent0sWithOutgoing].sort(exampleEvent0Sort)).toStrictEqual(
-        collectedEvent0s.sort(exampleEvent0Sort),
       );
 
       const exampleEvent1Sort = (a: ExampleEvent1, b: ExampleEvent1) => (a.value2 > b.value2 ? 1 : -1);

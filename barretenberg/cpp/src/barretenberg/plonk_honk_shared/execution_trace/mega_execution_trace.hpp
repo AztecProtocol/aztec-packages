@@ -14,55 +14,46 @@ namespace bb {
  *
  * @details We instantiate this both to contain the actual gates of an execution trace, and also to describe different
  * trace structures (i.e., sets of capacities for each block type, which we use to optimize the folding prover).
+ * Note: the ecc_op block has to be the first in the execution trace to not break the Goblin functionality.
  */
 template <typename T> struct MegaTraceBlockData {
     T ecc_op;
-    T pub_inputs;
     T busread;
+    T lookup;
+    T pub_inputs;
     T arithmetic;
     T delta_range;
     T elliptic;
     T aux;
     T poseidon2_external;
     T poseidon2_internal;
-    T lookup;
     T overflow; // block gates of arbitrary type that overflow their designated block
 
     std::vector<std::string_view> get_labels() const
     {
-        return { "ecc_op",
-                 "pub_inputs",
-                 "busread",
-                 "arithmetic",
-                 "delta_range",
-                 "elliptic",
-                 "aux",
-                 "poseidon2_external",
-                 "poseidon2_internal",
-                 "lookup",
+        return { "ecc_op",      "busread",  "lookup", "pub_inputs",         "arithmetic",
+                 "delta_range", "elliptic", "aux",    "poseidon2_external", "poseidon2_internal",
                  "overflow" };
     }
 
     auto get()
     {
-        return RefArray{
-            ecc_op, pub_inputs, busread, arithmetic, delta_range, elliptic, aux, poseidon2_external, poseidon2_internal,
-            lookup, overflow
-        };
+        return RefArray{ ecc_op,      busread,  lookup, pub_inputs,         arithmetic,
+                         delta_range, elliptic, aux,    poseidon2_external, poseidon2_internal,
+                         overflow };
     }
 
     auto get() const
     {
-        return RefArray{
-            ecc_op, pub_inputs, busread, arithmetic, delta_range, elliptic, aux, poseidon2_external, poseidon2_internal,
-            lookup, overflow
-        };
+        return RefArray{ ecc_op,      busread,  lookup, pub_inputs,         arithmetic,
+                         delta_range, elliptic, aux,    poseidon2_external, poseidon2_internal,
+                         overflow };
     }
 
-    auto get_gate_blocks()
+    auto get_gate_blocks() const
     {
         return RefArray{
-            busread, arithmetic, delta_range, elliptic, aux, poseidon2_external, poseidon2_internal, lookup
+            busread, lookup, arithmetic, delta_range, elliptic, aux, poseidon2_external, poseidon2_internal,
         };
     }
 
@@ -125,24 +116,26 @@ class MegaTraceBlock : public ExecutionTraceBlock<fr, /*NUM_WIRES_ */ 4, /*NUM_S
     auto& q_3() { return this->selectors[4]; };
     auto& q_4() { return this->selectors[5]; };
     auto& q_busread() { return this->selectors[6]; };
-    auto& q_arith() { return this->selectors[7]; };
-    auto& q_delta_range() { return this->selectors[8]; };
-    auto& q_elliptic() { return this->selectors[9]; };
-    auto& q_aux() { return this->selectors[10]; };
-    auto& q_poseidon2_external() { return this->selectors[11]; };
-    auto& q_poseidon2_internal() { return this->selectors[12]; };
-    auto& q_lookup_type() { return this->selectors[13]; };
+    auto& q_lookup_type() { return this->selectors[7]; };
+    auto& q_arith() { return this->selectors[8]; };
+    auto& q_delta_range() { return this->selectors[9]; };
+    auto& q_elliptic() { return this->selectors[10]; };
+    auto& q_aux() { return this->selectors[11]; };
+    auto& q_poseidon2_external() { return this->selectors[12]; };
+    auto& q_poseidon2_internal() { return this->selectors[13]; };
 
     RefVector<SelectorType> get_gate_selectors()
     {
-        return { q_busread(),
-                 q_arith(),
-                 q_delta_range(),
-                 q_elliptic(),
-                 q_aux(),
-                 q_poseidon2_external(),
-                 q_poseidon2_internal(),
-                 q_lookup_type() };
+        return {
+            q_busread(),
+            q_lookup_type(),
+            q_arith(),
+            q_delta_range(),
+            q_elliptic(),
+            q_aux(),
+            q_poseidon2_external(),
+            q_poseidon2_internal(),
+        };
     }
 
     /**
@@ -210,19 +203,19 @@ class MegaExecutionTraceBlocks : public MegaTraceBlockData<MegaTraceBlock> {
     {
         info("Gate blocks summary: (actual gates / fixed capacity)");
         info("goblin ecc op :\t", this->ecc_op.size(), "/", this->ecc_op.get_fixed_size());
+        info("busread       :\t", this->busread.size(), "/", this->busread.get_fixed_size());
+        info("lookups       :\t", this->lookup.size(), "/", this->lookup.get_fixed_size());
         info("pub inputs    :\t",
              this->pub_inputs.size(),
              "/",
              this->pub_inputs.get_fixed_size(),
              " (populated in decider pk constructor)");
-        info("busread       :\t", this->busread.size(), "/", this->busread.get_fixed_size());
         info("arithmetic    :\t", this->arithmetic.size(), "/", this->arithmetic.get_fixed_size());
         info("delta range   :\t", this->delta_range.size(), "/", this->delta_range.get_fixed_size());
         info("elliptic      :\t", this->elliptic.size(), "/", this->elliptic.get_fixed_size());
         info("auxiliary     :\t", this->aux.size(), "/", this->aux.get_fixed_size());
         info("poseidon ext  :\t", this->poseidon2_external.size(), "/", this->poseidon2_external.get_fixed_size());
         info("poseidon int  :\t", this->poseidon2_internal.size(), "/", this->poseidon2_internal.get_fixed_size());
-        info("lookups       :\t", this->lookup.size(), "/", this->lookup.get_fixed_size());
         info("overflow      :\t", this->overflow.size(), "/", this->overflow.get_fixed_size());
         info("");
     }
@@ -251,30 +244,31 @@ class MegaExecutionTraceBlocks : public MegaTraceBlockData<MegaTraceBlock> {
  * @brief A tiny structuring (for testing without recursive verifications only)
  */
 static constexpr TraceStructure TINY_TEST_STRUCTURE{ .ecc_op = 18,
-                                                     .pub_inputs = 1,
                                                      .busread = 3,
+                                                     .lookup = 2,
+                                                     .pub_inputs = 1,
                                                      .arithmetic = 1 << 14,
                                                      .delta_range = 5,
                                                      .elliptic = 2,
                                                      .aux = 10,
                                                      .poseidon2_external = 2,
                                                      .poseidon2_internal = 2,
-                                                     .lookup = 2,
                                                      .overflow = 0 };
 
 /**
  * @brief An arbitrary but small-ish structuring that can be used for generic unit testing with non-trivial circuits
  */
+
 static constexpr TraceStructure SMALL_TEST_STRUCTURE{ .ecc_op = 1 << 14,
-                                                      .pub_inputs = 1 << 14,
                                                       .busread = 1 << 14,
+                                                      .lookup = 1 << 14,
+                                                      .pub_inputs = 1 << 14,
                                                       .arithmetic = 1 << 15,
                                                       .delta_range = 1 << 14,
                                                       .elliptic = 1 << 14,
                                                       .aux = 1 << 14,
                                                       .poseidon2_external = 1 << 14,
                                                       .poseidon2_internal = 1 << 15,
-                                                      .lookup = 1 << 14,
                                                       .overflow = 0 };
 
 /**
@@ -282,60 +276,60 @@ static constexpr TraceStructure SMALL_TEST_STRUCTURE{ .ecc_op = 1 << 14,
  * benchmark.
  */
 static constexpr TraceStructure CLIENT_IVC_BENCH_STRUCTURE{ .ecc_op = 1 << 10,
-                                                            .pub_inputs = 1 << 7,
                                                             .busread = 1 << 7,
+                                                            .lookup = 72000,
+                                                            .pub_inputs = 1 << 7,
                                                             .arithmetic = 198000,
                                                             .delta_range = 90000,
                                                             .elliptic = 9000,
                                                             .aux = 136000,
                                                             .poseidon2_external = 2500,
                                                             .poseidon2_internal = 14000,
-                                                            .lookup = 72000,
                                                             .overflow = 0 };
 
 /**
  * @brief An example structuring of size 2^18.
  */
 static constexpr TraceStructure EXAMPLE_18{ .ecc_op = 1 << 10,
-                                            .pub_inputs = 1 << 6,
                                             .busread = 1 << 6,
+                                            .lookup = 36000,
+                                            .pub_inputs = 1 << 6,
                                             .arithmetic = 84000,
                                             .delta_range = 45000,
                                             .elliptic = 9000,
                                             .aux = 68000,
                                             .poseidon2_external = 2500,
                                             .poseidon2_internal = 14000,
-                                            .lookup = 36000,
                                             .overflow = 0 };
 
 /**
  * @brief An example structuring of size 2^20.
  */
 static constexpr TraceStructure EXAMPLE_20{ .ecc_op = 1 << 11,
-                                            .pub_inputs = 1 << 8,
                                             .busread = 1 << 8,
+                                            .lookup = 144000,
+                                            .pub_inputs = 1 << 8,
                                             .arithmetic = 396000,
                                             .delta_range = 180000,
                                             .elliptic = 18000,
                                             .aux = 272000,
                                             .poseidon2_external = 5000,
                                             .poseidon2_internal = 28000,
-                                            .lookup = 144000,
                                             .overflow = 0 };
 
 /**
  * @brief Structuring tailored to the full e2e TS test (TO BE UPDATED ACCORDINGLY)
  */
 static constexpr TraceStructure E2E_FULL_TEST_STRUCTURE{ .ecc_op = 1 << 10,
-                                                         .pub_inputs = 4000,
                                                          .busread = 6000,
+                                                         .lookup = 200000,
+                                                         .pub_inputs = 4000,
                                                          .arithmetic = 200000,
                                                          .delta_range = 25000,
                                                          .elliptic = 80000,
                                                          .aux = 100000,
                                                          .poseidon2_external = 30128,
                                                          .poseidon2_internal = 172000,
-                                                         .lookup = 200000,
                                                          .overflow = 0 };
 
 template <typename T>

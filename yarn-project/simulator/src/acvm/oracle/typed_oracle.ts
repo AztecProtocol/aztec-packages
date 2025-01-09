@@ -9,8 +9,8 @@ import {
   type UnencryptedL2Log,
 } from '@aztec/circuit-types';
 import {
+  type BlockHeader,
   type ContractInstance,
-  type Header,
   type IndexedTaggingSecret,
   type KeyValidationRequest,
   type L1_TO_L2_MSG_TREE_HEIGHT,
@@ -108,10 +108,6 @@ export abstract class TypedOracle {
     throw new OracleMethodNotAvailableError('getMembershipWitness');
   }
 
-  getSiblingPath(_blockNumber: number, _treeId: MerkleTreeId, _leafIndex: Fr): Promise<Fr[]> {
-    throw new OracleMethodNotAvailableError('getSiblingPath');
-  }
-
   getNullifierMembershipWitness(_blockNumber: number, _nullifier: Fr): Promise<NullifierMembershipWitness | undefined> {
     throw new OracleMethodNotAvailableError('getNullifierMembershipWitness');
   }
@@ -127,8 +123,8 @@ export abstract class TypedOracle {
     throw new OracleMethodNotAvailableError('getLowNullifierMembershipWitness');
   }
 
-  getHeader(_blockNumber: number): Promise<Header | undefined> {
-    throw new OracleMethodNotAvailableError('getHeader');
+  getBlockHeader(_blockNumber: number): Promise<BlockHeader | undefined> {
+    throw new OracleMethodNotAvailableError('getBlockHeader');
   }
 
   getCompleteAddress(_account: AztecAddress): Promise<CompleteAddress> {
@@ -237,8 +233,8 @@ export abstract class TypedOracle {
     throw new OracleMethodNotAvailableError('debugLog');
   }
 
-  getAppTaggingSecretAsSender(_sender: AztecAddress, _recipient: AztecAddress): Promise<IndexedTaggingSecret> {
-    throw new OracleMethodNotAvailableError('getAppTaggingSecretAsSender');
+  getIndexedTaggingSecretAsSender(_sender: AztecAddress, _recipient: AztecAddress): Promise<IndexedTaggingSecret> {
+    throw new OracleMethodNotAvailableError('getIndexedTaggingSecretAsSender');
   }
 
   incrementAppTaggingSecretIndexAsSender(_sender: AztecAddress, _recipient: AztecAddress): Promise<void> {
@@ -247,5 +243,13 @@ export abstract class TypedOracle {
 
   syncNotes(): Promise<void> {
     throw new OracleMethodNotAvailableError('syncNotes');
+  }
+
+  store(_contract: AztecAddress, _key: Fr, _values: Fr[]): Promise<void> {
+    throw new OracleMethodNotAvailableError('store');
+  }
+
+  load(_contract: AztecAddress, _key: Fr): Promise<Fr[] | null> {
+    throw new OracleMethodNotAvailableError('load');
   }
 }

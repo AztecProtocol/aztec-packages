@@ -10,7 +10,7 @@ import {
   type WorldStateSynchronizer,
   mockTxForRollup,
 } from '@aztec/circuit-types';
-import { type ContractDataSource, EthAddress, Fr, MaxBlockNumber } from '@aztec/circuits.js';
+import { type ContractDataSource, EthAddress, Fr, GasFees, MaxBlockNumber } from '@aztec/circuits.js';
 import { type P2P } from '@aztec/p2p';
 import { type GlobalVariableBuilder } from '@aztec/sequencer-client';
 import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
@@ -37,7 +37,16 @@ describe('aztec node', () => {
     p2p = mock<P2P>();
 
     globalVariablesBuilder = mock<GlobalVariableBuilder>();
+    globalVariablesBuilder.getCurrentBaseFees.mockResolvedValue(new GasFees(0, 0));
+
     merkleTreeOps = mock<MerkleTreeReadOperations>();
+    merkleTreeOps.findLeafIndices.mockImplementation((treeId: MerkleTreeId, _value: any[]) => {
+      if (treeId === MerkleTreeId.ARCHIVE) {
+        return Promise.resolve([1n]);
+      } else {
+        return Promise.resolve([undefined]);
+      }
+    });
 
     const worldState = mock<WorldStateSynchronizer>({
       getCommitted: () => merkleTreeOps,
@@ -95,24 +104,31 @@ describe('aztec node', () => {
       const doubleSpendWithExistingTx = txs[1];
       lastBlockNumber += 1;
 
-      expect(await node.isValidTx(doubleSpendTx)).toBe(true);
+      expect(await node.isValidTx(doubleSpendTx)).toEqual({ result: 'valid' });
 
       // We push a duplicate nullifier that was created in the same transaction
       doubleSpendTx.data.forRollup!.end.nullifiers.push(doubleSpendTx.data.forRollup!.end.nullifiers[0]);
 
-      expect(await node.isValidTx(doubleSpendTx)).toBe(false);
+      expect(await node.isValidTx(doubleSpendTx)).toEqual({ result: 'invalid', reason: ['Duplicate nullifier in tx'] });
 
-      expect(await node.isValidTx(doubleSpendWithExistingTx)).toBe(true);
+      expect(await node.isValidTx(doubleSpendWithExistingTx)).toEqual({ result: 'valid' });
 
       // We make a nullifier from `doubleSpendWithExistingTx` a part of the nullifier tree, so it gets rejected as double spend
       const doubleSpendNullifier = doubleSpendWithExistingTx.data.forRollup!.end.nullifiers[0].toBuffer();
-      merkleTreeOps.findLeafIndex.mockImplementation((treeId: MerkleTreeId, value: any) => {
-        return Promise.resolve(
-          treeId === MerkleTreeId.NULLIFIER_TREE && value.equals(doubleSpendNullifier) ? 1n : undefined,
-        );
+      merkleTreeOps.findLeafIndices.mockImplementation((treeId: MerkleTreeId, value: any[]) => {
+        let retVal: [bigint | undefined] = [undefined];
+        if (treeId === MerkleTreeId.ARCHIVE) {
+          retVal = [1n];
+        } else if (treeId === MerkleTreeId.NULLIFIER_TREE) {
+          retVal = value[0].equals(doubleSpendNullifier) ? [1n] : [undefined];
+        }
+        return Promise.resolve(retVal);
       });
 
-      expect(await node.isValidTx(doubleSpendWithExistingTx)).toBe(false);
+      expect(await node.isValidTx(doubleSpendWithExistingTx)).toEqual({
+        result: 'invalid',
+        reason: ['Existing nullifier'],
+      });
       lastBlockNumber = 0;
     });
 
@@ -120,12 +136,12 @@ describe('aztec node', () => {
       const tx = mockTxForRollup(0x10000);
       tx.data.constants.txContext.chainId = chainId;
 
-      expect(await node.isValidTx(tx)).toBe(true);
+      expect(await node.isValidTx(tx)).toEqual({ result: 'valid' });
 
       // We make the chain id on the tx not equal to the configured chain id
-      tx.data.constants.txContext.chainId = new Fr(1n + chainId.value);
+      tx.data.constants.txContext.chainId = new Fr(1n + chainId.toBigInt());
 
-      expect(await node.isValidTx(tx)).toBe(false);
+      expect(await node.isValidTx(tx)).toEqual({ result: 'invalid', reason: ['Incorrect chain id'] });
     });
 
     it('tests that the node correctly validates max block numbers', async () => {
@@ -155,11 +171,14 @@ describe('aztec node', () => {
       lastBlockNumber = 3;
 
       // Default tx with no max block number should be valid
-      expect(await node.isValidTx(noMaxBlockNumberMetadata)).toBe(true);
+      expect(await node.isValidTx(noMaxBlockNumberMetadata)).toEqual({ result: 'valid' });
       // Tx with max block number < current block number should be invalid
-      expect(await node.isValidTx(invalidMaxBlockNumberMetadata)).toBe(false);
+      expect(await node.isValidTx(invalidMaxBlockNumberMetadata)).toEqual({
+        result: 'invalid',
+        reason: ['Invalid block number'],
+      });
       // Tx with max block number >= current block number should be valid
-      expect(await node.isValidTx(validMaxBlockNumberMetadata)).toBe(true);
+      expect(await node.isValidTx(validMaxBlockNumberMetadata)).toEqual({ result: 'valid' });
     });
   });
 });

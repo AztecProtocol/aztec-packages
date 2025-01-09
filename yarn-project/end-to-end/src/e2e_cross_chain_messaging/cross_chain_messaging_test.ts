@@ -5,14 +5,15 @@ import {
   AztecAddress,
   type AztecNode,
   type CompleteAddress,
-  type DebugLogger,
   EthAddress,
+  type Logger,
   type PXE,
-  createDebugLogger,
+  createLogger,
 } from '@aztec/aztec.js';
 import { createL1Clients } from '@aztec/ethereum';
 import { InboxAbi, OutboxAbi, RollupAbi } from '@aztec/l1-artifacts';
-import { TokenBridgeContract, TokenContract } from '@aztec/noir-contracts.js';
+import { TokenContract } from '@aztec/noir-contracts.js/Token';
+import { TokenBridgeContract } from '@aztec/noir-contracts.js/TokenBridge';
 
 import { type Chain, type HttpTransport, type PublicClient, getContract } from 'viem';
 
@@ -30,7 +31,7 @@ const { E2E_DATA_PATH: dataPath } = process.env;
 
 export class CrossChainMessagingTest {
   private snapshotManager: ISnapshotManager;
-  logger: DebugLogger;
+  logger: Logger;
   wallets: AccountWallet[] = [];
   accounts: CompleteAddress[] = [];
   aztecNode!: AztecNode;
@@ -52,7 +53,7 @@ export class CrossChainMessagingTest {
   outbox!: any; // GetContractReturnType<typeof OutboxAbi> | undefined;
 
   constructor(testName: string) {
-    this.logger = createDebugLogger(`aztec:e2e_cross_chain_messaging:${testName}`);
+    this.logger = createLogger(`e2e:e2e_cross_chain_messaging:${testName}`);
     this.snapshotManager = createSnapshotManager(`e2e_cross_chain_messaging/${testName}`, dataPath);
   }
 

@@ -16,21 +16,21 @@ import {
   wrapInBlock,
 } from '@aztec/circuit-types';
 import {
+  type BlockHeader,
   type ContractClassPublic,
   type ContractClassPublicWithBlockNumber,
   type ContractInstanceWithAddress,
   type ExecutablePrivateFunctionWithMembershipProof,
   Fr,
-  type Header,
   INITIAL_L2_BLOCK_NUM,
   MAX_NOTE_HASHES_PER_TX,
   MAX_NULLIFIERS_PER_TX,
   type PrivateLog,
   type UnconstrainedFunctionWithMembershipProof,
 } from '@aztec/circuits.js';
-import { type ContractArtifact, FunctionSelector } from '@aztec/foundation/abi';
+import { FunctionSelector } from '@aztec/foundation/abi';
 import { type AztecAddress } from '@aztec/foundation/aztec-address';
-import { createDebugLogger } from '@aztec/foundation/log';
+import { createLogger } from '@aztec/foundation/log';
 
 import { type ArchiverDataStore, type ArchiverL1SynchPoint } from '../archiver_store.js';
 import { type DataRetrieval } from '../structs/data_retrieval.js';
@@ -68,8 +68,6 @@ export class MemoryArchiverStore implements ArchiverDataStore {
    */
   private l1ToL2Messages = new L1ToL2MessageStore();
 
-  private contractArtifacts: Map<string, ContractArtifact> = new Map();
-
   private contractClasses: Map<string, ContractClassPublicWithBlockNumber> = new Map();
 
   private bytecodeCommitments: Map<string, Fr> = new Map();
@@ -86,7 +84,9 @@ export class MemoryArchiverStore implements ArchiverDataStore {
   private lastProvenL2BlockNumber: number = 0;
   private lastProvenL2EpochNumber: number = 0;
 
-  #log = createDebugLogger('aztec:archiver:data-store');
+  private functionNames = new Map<string, string>();
+
+  #log = createLogger('archiver:data-store');
 
   constructor(
     /** The max number of logs that can be obtained in 1 "getUnencryptedLogs" call. */
@@ -105,7 +105,7 @@ export class MemoryArchiverStore implements ArchiverDataStore {
   }
 
   public getContractClassIds(): Promise<Fr[]> {
-    return Promise.resolve(Array.from(this.contractClasses.keys()).map(key => Fr.fromString(key)));
+    return Promise.resolve(Array.from(this.contractClasses.keys()).map(key => Fr.fromHexString(key)));
   }
 
   public getContractInstance(address: AztecAddress): Promise<ContractInstanceWithAddress | undefined> {
@@ -228,7 +228,7 @@ export class MemoryArchiverStore implements ArchiverDataStore {
   #storeTaggedLogsFromPrivate(block: L2Block): void {
     const dataStartIndexForBlock =
       block.header.state.partial.noteHashTree.nextAvailableLeafIndex -
-      block.body.numberOfTxsIncludingPadded * MAX_NOTE_HASHES_PER_TX;
+      block.body.txEffects.length * MAX_NOTE_HASHES_PER_TX;
     block.body.txEffects.forEach((txEffect, txIndex) => {
       const txHash = txEffect.txHash;
       const dataStartIndexForTx = dataStartIndexForBlock + txIndex * MAX_NOTE_HASHES_PER_TX;
@@ -248,7 +248,7 @@ export class MemoryArchiverStore implements ArchiverDataStore {
   #storeTaggedLogsFromPublic(block: L2Block): void {
     const dataStartIndexForBlock =
       block.header.state.partial.noteHashTree.nextAvailableLeafIndex -
-      block.body.numberOfTxsIncludingPadded * MAX_NOTE_HASHES_PER_TX;
+      block.body.txEffects.length * MAX_NOTE_HASHES_PER_TX;
     block.body.unencryptedLogs.txLogs.forEach((txLogs, txIndex) => {
       const txHash = block.body.txEffects[txIndex].txHash;
       const dataStartIndexForTx = dataStartIndexForBlock + txIndex * MAX_NOTE_HASHES_PER_TX;
@@ -328,7 +328,7 @@ export class MemoryArchiverStore implements ArchiverDataStore {
     blocks.forEach(block => {
       const dataStartIndexForBlock =
         block.header.state.partial.nullifierTree.nextAvailableLeafIndex -
-        block.body.numberOfTxsIncludingPadded * MAX_NULLIFIERS_PER_TX;
+        block.body.txEffects.length * MAX_NULLIFIERS_PER_TX;
       block.body.txEffects.forEach((txEffects, txIndex) => {
         const dataStartIndexForTx = dataStartIndexForBlock + txIndex * MAX_NULLIFIERS_PER_TX;
         txEffects.nullifiers.forEach((nullifier, nullifierIndex) => {
@@ -427,7 +427,7 @@ export class MemoryArchiverStore implements ArchiverDataStore {
     return Promise.resolve(this.l2Blocks.slice(fromIndex, toIndex));
   }
 
-  public async getBlockHeaders(from: number, limit: number): Promise<Header[]> {
+  public async getBlockHeaders(from: number, limit: number): Promise<BlockHeader[]> {
     const blocks = await this.getBlocks(from, limit);
     return blocks.map(block => block.data.header);
   }
@@ -730,26 +730,21 @@ export class MemoryArchiverStore implements ArchiverDataStore {
     });
   }
 
-  public addContractArtifact(address: AztecAddress, contract: ContractArtifact): Promise<void> {
-    this.contractArtifacts.set(address.toString(), contract);
-    return Promise.resolve();
+  public getContractFunctionName(_address: AztecAddress, selector: FunctionSelector): Promise<string | undefined> {
+    return Promise.resolve(this.functionNames.get(selector.toString()));
   }
 
-  public getContractArtifact(address: AztecAddress): Promise<ContractArtifact | undefined> {
-    return Promise.resolve(this.contractArtifacts.get(address.toString()));
-  }
-
-  async getContractFunctionName(address: AztecAddress, selector: FunctionSelector): Promise<string | undefined> {
-    const artifact = await this.getContractArtifact(address);
-
-    if (!artifact) {
-      return undefined;
+  public registerContractFunctionSignatures(_address: AztecAddress, signatures: string[]): Promise<void> {
+    for (const sig of signatures) {
+      try {
+        const selector = FunctionSelector.fromSignature(sig);
+        this.functionNames.set(selector.toString(), sig.slice(0, sig.indexOf('(')));
+      } catch {
+        this.#log.warn(`Failed to parse signature: ${sig}. Ignoring`);
+      }
     }
 
-    const func = artifact.functions.find(f =>
-      FunctionSelector.fromNameAndParameters({ name: f.name, parameters: f.parameters }).equals(selector),
-    );
-    return Promise.resolve(func?.name);
+    return Promise.resolve();
   }
 
   public estimateSize(): { mappingSize: number; actualSize: number; numItems: number } {

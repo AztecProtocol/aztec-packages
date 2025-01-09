@@ -1,5 +1,5 @@
-import { type IndexedTreeId, MerkleTreeId, type MerkleTreeReadOperations, getTreeHeight } from '@aztec/circuit-types';
-import { NullifierLeafPreimage, PublicDataTreeLeafPreimage } from '@aztec/circuits.js';
+import { type IndexedTreeId, MerkleTreeId, type MerkleTreeReadOperations } from '@aztec/circuit-types';
+import { AppendOnlyTreeSnapshot, NullifierLeafPreimage, PublicDataTreeLeafPreimage } from '@aztec/circuits.js';
 import { poseidon2Hash } from '@aztec/foundation/crypto';
 import { Fr } from '@aztec/foundation/fields';
 import { type IndexedTreeLeafPreimage, type TreeLeafPreimage } from '@aztec/foundation/trees';
@@ -398,35 +398,36 @@ export class AvmEphemeralForest {
     // First, search the indexed updates (no DB fallback) to find
     // the leafIndex of the leaf with the largest key <= the specified key.
     const minIndexedLeafIndex = this._getLeafIndexOrNextLowestInIndexedUpdates(treeId, key);
+
+    // Then we search on the external DB
+    const leafOrLowLeafWitnessFromExternalDb: GetLeafResult<T> = await this._getLeafOrLowLeafWitnessInExternalDb(
+      treeId,
+      bigIntKey,
+    );
+
+    // If the indexed updates are empty, we can return the leaf from the DB
     if (minIndexedLeafIndex === -1n) {
-      // No leaf is present in the indexed updates that is <= the key,
-      // so retrieve the leaf or low leaf from the underlying DB.
-      const leafOrLowLeafPreimage: GetLeafResult<T> = await this._getLeafOrLowLeafWitnessInExternalDb(
-        treeId,
-        bigIntKey,
-      );
-      return [leafOrLowLeafPreimage, /*pathAbsentInEphemeralTree=*/ true];
+      return [leafOrLowLeafWitnessFromExternalDb, /*pathAbsentInEphemeralTree=*/ true];
+    }
+
+    // Otherwise, we return the closest one. First fetch the leaf from the indexed updates.
+    const minIndexedUpdate: T = this.getIndexedUpdate(treeId, minIndexedLeafIndex);
+
+    // And get both keys
+    const keyFromIndexed = minIndexedUpdate.getKey();
+    const keyFromExternal = leafOrLowLeafWitnessFromExternalDb.preimage.getKey();
+
+    if (keyFromExternal > keyFromIndexed) {
+      // this.log.debug(`Using leaf from external DB for ${MerkleTreeId[treeId]}`);
+      return [leafOrLowLeafWitnessFromExternalDb, /*pathAbsentInEphemeralTree=*/ true];
     } else {
-      // A leaf was found in the indexed updates that is <= the key
-      const minPreimage: T = this.getIndexedUpdate(treeId, minIndexedLeafIndex);
-      if (minPreimage.getKey() === bigIntKey) {
-        // the index found is an exact match, no need to search further
-        const leafInfo = { preimage: minPreimage, index: minIndexedLeafIndex, alreadyPresent: true };
-        return [leafInfo, /*pathAbsentInEphemeralTree=*/ false];
-      } else {
-        // We are starting with the leaf with largest key <= the specified key
-        // Starting at that "min leaf", search for specified key in both the indexed updates
-        // and the underlying DB. If not found, return its low leaf.
-        const [leafOrLowLeafInfo, pathAbsentInEphemeralTree] = await this._searchForLeafOrLowLeaf<ID, T>(
-          treeId,
-          bigIntKey,
-          minPreimage,
-          minIndexedLeafIndex,
-        );
-        // We did not find it - this is unexpected... the leaf OR low leaf should always be present
-        assert(leafOrLowLeafInfo !== undefined, 'Could not find leaf or low leaf. This should not happen!');
-        return [leafOrLowLeafInfo, pathAbsentInEphemeralTree];
-      }
+      // this.log.debug(`Using leaf from indexed DB for ${MerkleTreeId[treeId]}`);
+      const leafInfo = {
+        preimage: minIndexedUpdate,
+        index: minIndexedLeafIndex,
+        alreadyPresent: keyFromIndexed === bigIntKey,
+      };
+      return [leafInfo, /*pathAbsentInEphemeralTree=*/ false];
     }
   }
 
@@ -481,74 +482,16 @@ export class AvmEphemeralForest {
   }
 
   /**
-   * Search for the leaf for the specified key.
-   * Some leaf with key <= the specified key is expected to be present in the ephemeral tree's "indexed updates".
-   * While searching, this function bounces between our local indexedUpdates and the external DB.
-   *
-   * @param key - The key for which we are look up the leaf or low leaf for.
-   * @param minPreimage - The leaf with the largest key <= the specified key. Expected to be present in local indexedUpdates.
-   * @param minIndex - The index of the leaf with the largest key <= the specified key.
-   * @param T - The type of the preimage (PublicData or Nullifier)
-   * @returns [
-   *     GetLeafResult | undefined - The leaf or low leaf info (preimage & leaf index),
-   *     pathAbsentInEphemeralTree - whether its sibling path is absent in the ephemeral tree (useful during insertions)
-   * ]
-   *
-   * @details We look for the low element by bouncing between our local indexedUpdates map or the external DB
-   * The conditions we are looking for are:
-   * (1) Exact Match: curr.nextKey == key (this is only valid for public data tree)
-   * (2) Sandwich Match: curr.nextKey > key and curr.key < key
-   * (3) Max Condition: curr.next_index == 0 and curr.key < key
-   * Note the min condition does not need to be handled since indexed trees are prefilled with at least the 0 element
-   */
-  private async _searchForLeafOrLowLeaf<ID extends IndexedTreeId, T extends IndexedTreeLeafPreimage>(
-    treeId: ID,
-    key: bigint,
-    minPreimage: T,
-    minIndex: bigint,
-  ): Promise<[GetLeafResult<T> | undefined, /*pathAbsentInEphemeralTree=*/ boolean]> {
-    let found = false;
-    let curr = minPreimage as T;
-    let result: GetLeafResult<T> | undefined = undefined;
-    // Temp to avoid infinite loops - the limit is the number of leaves we may have to read
-    const LIMIT = 2n ** BigInt(getTreeHeight(treeId)) - 1n;
-    let counter = 0n;
-    let lowPublicDataIndex = minIndex;
-    let pathAbsentInEphemeralTree = false;
-    while (!found && counter < LIMIT) {
-      const bigIntKey = key;
-      if (curr.getKey() === bigIntKey) {
-        // We found an exact match - therefore this is an update
-        found = true;
-        result = { preimage: curr, index: lowPublicDataIndex, alreadyPresent: true };
-      } else if (curr.getKey() < bigIntKey && (curr.getNextIndex() === 0n || curr.getNextKey() > bigIntKey)) {
-        // We found it via sandwich or max condition, this is a low nullifier
-        found = true;
-        result = { preimage: curr, index: lowPublicDataIndex, alreadyPresent: false };
-      }
-      // Update the the values for the next iteration
-      else {
-        lowPublicDataIndex = curr.getNextIndex();
-        if (this.hasLocalUpdates(treeId, lowPublicDataIndex)) {
-          curr = this.getIndexedUpdate(treeId, lowPublicDataIndex)!;
-          pathAbsentInEphemeralTree = false;
-        } else {
-          const preimage: IndexedTreeLeafPreimage = (await this.treeDb.getLeafPreimage(treeId, lowPublicDataIndex))!;
-          curr = preimage as T;
-          pathAbsentInEphemeralTree = true;
-        }
-      }
-      counter++;
-    }
-    return [result, pathAbsentInEphemeralTree];
-  }
-
-  /**
    * This hashes the preimage to a field element
    */
   hashPreimage<T extends TreeLeafPreimage>(preimage: T): Fr {
     const input = preimage.toHashInputs().map(x => Fr.fromBuffer(x));
     return poseidon2Hash(input);
+  }
+
+  getTreeSnapshot(id: MerkleTreeId): AppendOnlyTreeSnapshot {
+    const tree = this.treeMap.get(id)!;
+    return new AppendOnlyTreeSnapshot(tree.getRoot(), Number(tree.leafCount));
   }
 }
 
@@ -680,7 +623,12 @@ export class EphemeralAvmTree {
     for (let i = 0; i < siblingPath.length; i++) {
       // Flip(XOR) the last bit because we are inserting siblings of the leaf
       const sibIndex = index ^ 1n;
-      this.updateLeaf(siblingPath[i], sibIndex, this.depth - i);
+      const node = this.getNode(sibIndex, this.depth - i);
+      // If we are inserting a sibling path and we already have a branch at that index in our
+      // ephemeral tree, we should not overwrite it
+      if (node === undefined || node.tag === TreeType.LEAF) {
+        this.updateLeaf(siblingPath[i], sibIndex, this.depth - i);
+      }
       index >>= 1n;
     }
   }

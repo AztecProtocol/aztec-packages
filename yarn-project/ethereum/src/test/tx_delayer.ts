@@ -1,4 +1,5 @@
-import { type DebugLogger, createDebugLogger } from '@aztec/foundation/log';
+import { omit } from '@aztec/foundation/collection';
+import { type Logger, createLogger } from '@aztec/foundation/log';
 import { retryUntil } from '@aztec/foundation/retry';
 
 import { inspect } from 'util';
@@ -8,11 +9,12 @@ import {
   type PublicClient,
   type WalletClient,
   keccak256,
+  parseTransaction,
   publicActions,
   walletActions,
 } from 'viem';
 
-export function waitUntilBlock<T extends Client>(client: T, blockNumber: number | bigint, logger?: DebugLogger) {
+export function waitUntilBlock<T extends Client>(client: T, blockNumber: number | bigint, logger?: Logger) {
   const publicClient =
     'getBlockNumber' in client && typeof client.getBlockNumber === 'function'
       ? (client as unknown as PublicClient)
@@ -25,12 +27,12 @@ export function waitUntilBlock<T extends Client>(client: T, blockNumber: number 
       return currentBlockNumber >= BigInt(blockNumber);
     },
     `Wait until L1 block ${blockNumber}`,
-    60,
+    120,
     0.1,
   );
 }
 
-export function waitUntilL1Timestamp<T extends Client>(client: T, timestamp: number | bigint, logger?: DebugLogger) {
+export function waitUntilL1Timestamp<T extends Client>(client: T, timestamp: number | bigint, logger?: Logger) {
   const publicClient =
     'getBlockNumber' in client && typeof client.getBlockNumber === 'function'
       ? (client as unknown as PublicClient)
@@ -50,7 +52,7 @@ export function waitUntilL1Timestamp<T extends Client>(client: T, timestamp: num
       return currentTs >= BigInt(timestamp);
     },
     `Wait until L1 timestamp ${timestamp}`,
-    60,
+    120,
     0.1,
   );
 }
@@ -89,12 +91,13 @@ class DelayerImpl implements Delayer {
 /**
  * Returns a new client (without modifying the one passed in) with an injected tx delayer.
  * The delayer can be used to hold off the next tx to be sent until a given block number.
+ * TODO(#10824): This doesn't play along well with blob txs for some reason.
  */
 export function withDelayer<T extends WalletClient>(
   client: T,
   opts: { ethereumSlotDuration: bigint | number },
 ): { client: T; delayer: Delayer } {
-  const logger = createDebugLogger('aztec:ethereum:tx_delayer');
+  const logger = createLogger('ethereum:tx_delayer');
   const delayer = new DelayerImpl(opts);
   const extended = client
     // Tweak sendRawTransaction so it uses the delay defined in the delayer.
@@ -116,23 +119,32 @@ export function withDelayer<T extends WalletClient>(
           // Compute the tx hash manually so we emulate sendRawTransaction response
           const { serializedTransaction } = args[0];
           const txHash = keccak256(serializedTransaction);
-          logger.info(`Delaying tx ${txHash} until ${inspect(waitUntil)}`);
+          logger.info(`Delaying tx ${txHash} until ${inspect(waitUntil)}`, {
+            argsLen: args.length,
+            ...omit(parseTransaction(serializedTransaction), 'data', 'sidecars'),
+          });
 
           // Do not await here so we can return the tx hash immediately as if it had been sent on the spot.
           // Instead, delay it so it lands on the desired block number or timestamp, assuming anvil will
           // mine it immediately.
           void wait
             .then(async () => {
-              const txHash = await client.sendRawTransaction(...args);
-              logger.info(`Sent previously delayed tx ${txHash} to land on ${inspect(waitUntil)}`);
-              delayer.txs.push(txHash);
+              const clientTxHash = await client.sendRawTransaction(...args);
+              if (clientTxHash !== txHash) {
+                logger.error(`Tx hash returned by the client does not match computed one`, {
+                  clientTxHash,
+                  computedTxHash: txHash,
+                });
+              }
+              logger.info(`Sent previously delayed tx ${clientTxHash} to land on ${inspect(waitUntil)}`);
+              delayer.txs.push(clientTxHash);
             })
             .catch(err => logger.error(`Error sending tx after delay`, err));
 
           return Promise.resolve(txHash);
         } else {
           const txHash = await client.sendRawTransaction(...args);
-          logger.debug(`Sent tx immediately ${txHash}`);
+          logger.verbose(`Sent tx immediately ${txHash}`);
           delayer.txs.push(txHash);
           return txHash;
         }

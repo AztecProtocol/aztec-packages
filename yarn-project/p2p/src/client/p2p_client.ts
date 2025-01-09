@@ -5,16 +5,24 @@ import {
   type L2Block,
   type L2BlockId,
   type L2BlockSource,
-  L2BlockStream,
   type L2BlockStreamEvent,
   type L2Tips,
+  type P2PApi,
+  type P2PClientType,
+  type PeerInfo,
   type Tx,
   type TxHash,
 } from '@aztec/circuit-types';
 import { INITIAL_L2_BLOCK_NUM } from '@aztec/circuits.js/constants';
-import { createDebugLogger } from '@aztec/foundation/log';
+import { createLogger } from '@aztec/foundation/log';
 import { type AztecKVStore, type AztecMap, type AztecSingleton } from '@aztec/kv-store';
-import { Attributes, type TelemetryClient, WithTracer, trackSpan } from '@aztec/telemetry-client';
+import {
+  Attributes,
+  type TelemetryClient,
+  TraceableL2BlockStream,
+  WithTracer,
+  trackSpan,
+} from '@aztec/telemetry-client';
 import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
 
 import { type ENR } from '@chainsafe/enr';
@@ -24,8 +32,8 @@ import { type AttestationPool } from '../mem_pools/attestation_pool/attestation_
 import { type EpochProofQuotePool } from '../mem_pools/epoch_proof_quote_pool/epoch_proof_quote_pool.js';
 import { type MemPools } from '../mem_pools/interface.js';
 import { type TxPool } from '../mem_pools/tx_pool/index.js';
-import { TX_REQ_PROTOCOL } from '../service/reqresp/interface.js';
-import type { P2PService } from '../service/service.js';
+import { TX_REQ_PROTOCOL } from '../services/reqresp/interface.js';
+import type { P2PService } from '../services/service.js';
 
 /**
  * Enum defining the possible states of the p2p client.
@@ -54,22 +62,13 @@ export interface P2PSyncState {
 /**
  * Interface of a P2P client.
  **/
-export interface P2P {
+export type P2P<T extends P2PClientType = P2PClientType.Full> = P2PApi<T> & {
   /**
    * Broadcasts a block proposal to other peers.
    *
    * @param proposal - the block proposal
    */
   broadcastProposal(proposal: BlockProposal): void;
-
-  /**
-   * Queries the Attestation pool for attestations for the given slot
-   *
-   * @param slot - the slot to query
-   * @param proposalId - the proposal id to query
-   * @returns BlockAttestations
-   */
-  getAttestationsForSlot(slot: bigint, proposalId: string): Promise<BlockAttestation[]>;
 
   /**
    * Queries the EpochProofQuote pool for quotes for the given epoch
@@ -123,12 +122,6 @@ export interface P2P {
   deleteTxs(txHashes: TxHash[]): Promise<void>;
 
   /**
-   * Returns all transactions in the transaction pool.
-   * @returns An array of Txs.
-   */
-  getTxs(filter: 'all' | 'pending' | 'mined'): Tx[];
-
-  /**
    * Returns a transaction in the transaction pool by its hash.
    * @param txHash  - Hash of tx to return.
    * @returns A single tx or undefined.
@@ -148,6 +141,12 @@ export interface P2P {
    * @returns Pending or mined depending on its status, or undefined if not found.
    */
   getTxStatus(txHash: TxHash): 'pending' | 'mined' | undefined;
+
+  /** Returns an iterator over pending txs on the mempool. */
+  iteratePendingTxs(): Iterable<Tx>;
+
+  /** Returns the number of pending txs in the mempool. */
+  getPendingTxCount(): number;
 
   /**
    * Starts the p2p client.
@@ -173,15 +172,21 @@ export interface P2P {
   getStatus(): Promise<P2PSyncState>;
 
   /**
-   * Returns the ENR for this node, if any.
+   * Returns the ENR of this node, if any.
    */
   getEnr(): ENR | undefined;
-}
+
+  /** Identifies a p2p client. */
+  isP2PClient(): true;
+};
 
 /**
  * The P2P client implementation.
  */
-export class P2PClient extends WithTracer implements P2P {
+export class P2PClient<T extends P2PClientType = P2PClientType.Full>
+  extends WithTracer
+  implements P2P, P2P<P2PClientType.Prover>
+{
   /** Property that indicates whether the client is running. */
   private stopping = false;
 
@@ -199,7 +204,7 @@ export class P2PClient extends WithTracer implements P2P {
   private synchedProvenBlockNumber: AztecSingleton<number>;
 
   private txPool: TxPool;
-  private attestationPool: AttestationPool;
+  private attestationPool: T extends P2PClientType.Full ? AttestationPool : undefined;
   private epochProofQuotePool: EpochProofQuotePool;
 
   /** How many slots to keep attestations for. */
@@ -217,13 +222,14 @@ export class P2PClient extends WithTracer implements P2P {
    * @param log - A logger.
    */
   constructor(
+    clientType: T,
     store: AztecKVStore,
     private l2BlockSource: L2BlockSource,
-    mempools: MemPools,
+    mempools: MemPools<T>,
     private p2pService: P2PService,
     private keepProvenTxsFor: number,
     telemetry: TelemetryClient = new NoopTelemetryClient(),
-    private log = createDebugLogger('aztec:p2p'),
+    private log = createLogger('p2p'),
   ) {
     super(telemetry, 'P2PClient');
 
@@ -231,7 +237,9 @@ export class P2PClient extends WithTracer implements P2P {
 
     this.keepAttestationsInPoolFor = keepAttestationsInPoolFor;
 
-    this.blockStream = new L2BlockStream(l2BlockSource, this, this, {
+    const tracer = telemetry.getTracer('P2PL2BlockStream');
+    const logger = createLogger('p2p:l2-block-stream');
+    this.blockStream = new TraceableL2BlockStream(l2BlockSource, this, this, tracer, 'P2PL2BlockStream', logger, {
       batchSize: blockRequestBatchSize,
       pollIntervalMS: blockCheckIntervalMS,
     });
@@ -241,8 +249,16 @@ export class P2PClient extends WithTracer implements P2P {
     this.synchedProvenBlockNumber = store.openSingleton('p2p_pool_last_proven_l2_block');
 
     this.txPool = mempools.txPool;
-    this.attestationPool = mempools.attestationPool;
     this.epochProofQuotePool = mempools.epochProofQuotePool;
+    this.attestationPool = mempools.attestationPool!;
+  }
+
+  public isP2PClient(): true {
+    return true;
+  }
+
+  public getPeers(includePending?: boolean): Promise<PeerInfo[]> {
+    return Promise.resolve(this.p2pService.getPeers(includePending));
   }
 
   public getL2BlockHash(number: number): Promise<string | undefined> {
@@ -361,11 +377,8 @@ export class P2PClient extends WithTracer implements P2P {
       this.setCurrentState(P2PClientState.RUNNING);
       this.syncPromise = Promise.resolve();
       await this.p2pService.start();
-      this.log.verbose(`Block ${syncedLatestBlock} (proven ${syncedProvenBlock}) already beyond current block`);
+      this.log.debug(`Block ${syncedLatestBlock} (proven ${syncedProvenBlock}) already beyond current block`);
     }
-
-    // publish any txs in TxPool after its doing initial sync
-    this.syncPromise = this.syncPromise.then(() => this.publishStoredTxs());
 
     this.blockStream.start();
     this.log.verbose(`Started block downloader from block ${syncedLatestBlock}`);
@@ -401,7 +414,7 @@ export class P2PClient extends WithTracer implements P2P {
   }
 
   public getAttestationsForSlot(slot: bigint, proposalId: string): Promise<BlockAttestation[]> {
-    return Promise.resolve(this.attestationPool.getAttestationsForSlot(slot, proposalId));
+    return Promise.resolve(this.attestationPool?.getAttestationsForSlot(slot, proposalId) ?? []);
   }
 
   // REVIEW: https://github.com/AztecProtocol/aztec-packages/issues/7963
@@ -436,12 +449,32 @@ export class P2PClient extends WithTracer implements P2P {
   public async requestTxByHash(txHash: TxHash): Promise<Tx | undefined> {
     const tx = await this.p2pService.sendRequest(TX_REQ_PROTOCOL, txHash);
 
-    this.log.debug(`Requested ${txHash.toString()} from peer | success = ${!!tx}`);
     if (tx) {
+      this.log.debug(`Received tx ${txHash.toString()} from peer`);
       await this.txPool.addTxs([tx]);
+    } else {
+      this.log.debug(`Failed to receive tx ${txHash.toString()} from peer`);
     }
 
     return tx;
+  }
+
+  public getPendingTxs(): Promise<Tx[]> {
+    return Promise.resolve(this.getTxs('pending'));
+  }
+
+  public getPendingTxCount(): number {
+    return this.txPool.getPendingTxHashes().length;
+  }
+
+  public *iteratePendingTxs() {
+    const pendingTxHashes = this.txPool.getPendingTxHashes();
+    for (const txHash of pendingTxHashes) {
+      const tx = this.txPool.getTxByHash(txHash);
+      if (tx) {
+        yield tx;
+      }
+    }
   }
 
   /**
@@ -512,6 +545,10 @@ export class P2PClient extends WithTracer implements P2P {
 
   public getEnr(): ENR | undefined {
     return this.p2pService.getEnr();
+  }
+
+  public getEncodedEnr(): Promise<string | undefined> {
+    return Promise.resolve(this.p2pService.getEnr()?.encodeTxt());
   }
 
   /**
@@ -636,15 +673,16 @@ export class P2PClient extends WithTracer implements P2P {
     // We delete attestations older than the last block slot minus the number of slots we want to keep in the pool.
     const lastBlockSlotMinusKeepAttestationsInPoolFor = lastBlockSlot - BigInt(this.keepAttestationsInPoolFor);
     if (lastBlockSlotMinusKeepAttestationsInPoolFor >= BigInt(INITIAL_L2_BLOCK_NUM)) {
-      await this.attestationPool.deleteAttestationsOlderThan(lastBlockSlotMinusKeepAttestationsInPoolFor);
+      await this.attestationPool?.deleteAttestationsOlderThan(lastBlockSlotMinusKeepAttestationsInPoolFor);
     }
 
-    await this.synchedProvenBlockNumber.set(lastBlockNum);
-    this.log.debug(`Synched to proven block ${lastBlockNum}`);
     const provenEpochNumber = await this.l2BlockSource.getProvenL2EpochNumber();
     if (provenEpochNumber !== undefined) {
       this.epochProofQuotePool.deleteQuotesToEpoch(BigInt(provenEpochNumber));
     }
+
+    await this.synchedProvenBlockNumber.set(lastBlockNum);
+    this.log.debug(`Synched to proven block ${lastBlockNum}`);
 
     await this.startServiceIfSynched();
   }
@@ -709,8 +747,9 @@ export class P2PClient extends WithTracer implements P2P {
    * @param newState - New state value.
    */
   private setCurrentState(newState: P2PClientState) {
+    const oldState = this.currentState;
     this.currentState = newState;
-    this.log.debug(`Moved to state ${P2PClientState[this.currentState]}`);
+    this.log.debug(`Moved from state ${P2PClientState[oldState]} to ${P2PClientState[this.currentState]}`);
   }
 
   private async publishStoredTxs() {
