@@ -4,8 +4,8 @@ import { createLogger } from '@aztec/foundation/log';
 import { Timer } from '@aztec/foundation/timer';
 import { type ArtifactProvider } from '@aztec/noir-protocol-circuits-types/types';
 
-import { type WitnessMap } from '@noir-lang/noir_js';
 import { serializeWitness } from '@noir-lang/noirc_abi';
+import { type WitnessMap } from '@noir-lang/types';
 import { ungzip } from 'pako';
 
 import { BBPrivateKernelProver } from '../prover/bb_private_kernel_prover.js';

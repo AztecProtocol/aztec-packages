@@ -1,5 +1,5 @@
 import { type PrivateKernelProver, type PrivateKernelSimulateOutput } from '@aztec/circuit-types';
-import { type CircuitSimulationStats, CircuitWitnessGenerationStats } from '@aztec/circuit-types/stats';
+import { type CircuitSimulationStats, type CircuitWitnessGenerationStats } from '@aztec/circuit-types/stats';
 import {
   type ClientIvcProof,
   type PrivateKernelCircuitPublicInputs,
@@ -10,6 +10,7 @@ import {
   type PrivateKernelTailCircuitPublicInputs,
 } from '@aztec/circuits.js';
 import { createLogger } from '@aztec/foundation/log';
+import { pushTestData } from '@aztec/foundation/testing';
 import { Timer } from '@aztec/foundation/timer';
 import {
   convertPrivateKernelInitInputsToWitnessMapWithAbi,
@@ -29,8 +30,7 @@ import { ClientCircuitVks } from '@aztec/noir-protocol-circuits-types/vks';
 import { WASMSimulator } from '@aztec/simulator/client';
 import { type NoirCompiledCircuit } from '@aztec/types/noir';
 
-import { type WitnessMap } from '@noir-lang/noir_js';
-import { type Abi } from '@noir-lang/types';
+import { type Abi, type WitnessMap } from '@noir-lang/types';
 
 import { mapProtocolArtifactNameToCircuitName } from '../stats.js';
 
@@ -160,6 +160,9 @@ export abstract class BBPrivateKernelProver implements PrivateKernelProver {
     );
 
     const witnessMap = convertInputs(inputs, compiledCircuit.abi);
+
+    pushTestData(mapProtocolArtifactNameToCircuitName(circuitType), inputs);
+
     const timer = new Timer();
     const outputWitness = await this.simulator.simulateCircuit(witnessMap, compiledCircuit);
     const output = convertOutputs(outputWitness, compiledCircuit.abi);

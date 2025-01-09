@@ -7,7 +7,6 @@ import {
   type PrivateKernelTailCircuitPrivateInputs,
   type PrivateKernelTailCircuitPublicInputs,
 } from '@aztec/circuits.js';
-import { pushTestData } from '@aztec/foundation/testing';
 
 import { type WitnessMap } from '@noir-lang/acvm_js';
 import { abiDecode, abiEncode } from '@noir-lang/noirc_abi';
@@ -240,18 +239,4 @@ export function convertPrivateKernelTailForPublicOutputsFromWitnessMapWithAbi(
   const returnType = decodedInputs.return_value as PrivateKernelTailToPublicReturnType;
 
   return mapPrivateKernelTailCircuitPublicInputsForPublicFromNoir(returnType);
-}
-
-function updateResetCircuitSampleInputs(
-  privateKernelResetCircuitPrivateInputs: PrivateKernelResetCircuitPrivateInputs,
-) {
-  const inputs = {
-    previous_kernel: mapPrivateKernelDataToNoir(privateKernelResetCircuitPrivateInputs.previousKernel),
-    previous_kernel_public_inputs: mapPrivateKernelCircuitPublicInputsToNoir(
-      privateKernelResetCircuitPrivateInputs.previousKernel.publicInputs,
-    ),
-    hints: mapPrivateKernelResetHintsToNoir(privateKernelResetCircuitPrivateInputs.hints),
-  };
-
-  pushTestData('private-kernel-reset', inputs);
 }
