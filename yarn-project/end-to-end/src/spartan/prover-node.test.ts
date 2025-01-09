@@ -23,15 +23,15 @@ const logger = createLogger('e2e:spartan-test:prover-node');
 const interval = '1m';
 const cachedProvingJobs = {
   alert: 'CachedProvingJobRate',
-  expr: `increase(sum(last_over_time(aztec_proving_queue_cached_jobs[${interval}]) or vector(0))[${interval}:])`,
+  expr: `increase(sum(last_over_time(aztec_proving_queue_cached_jobs_count[${interval}]) or vector(0))[${interval}:])`,
   labels: { severity: 'error' },
   for: interval,
   annotations: {},
 };
 
-const completedProvingJobs: AlertConfig = {
+const completedProvingJobs = {
   alert: 'ResolvedProvingJobRate',
-  expr: `rate(aztec_proving_queue_total_jobs{aztec_proving_job_type=~"BLOCK_ROOT_ROLLUP|SINGLE_TX_BLOCK_ROOT_ROLLUP"}[${interval}])>0`,
+  expr: `rate(aztec_proving_queue_enqueued_jobs_count{aztec_proving_job_type=~"BLOCK_ROOT_ROLLUP|SINGLE_TX_BLOCK_ROOT_ROLLUP"}[${interval}])>0`,
   labels: { severity: 'error' },
   for: interval,
   annotations: {},
@@ -39,13 +39,6 @@ const completedProvingJobs: AlertConfig = {
 
 describe('prover node recovery', () => {
   beforeAll(async () => {
-    await startPortForward({
-      resource: `svc/${config.INSTANCE_NAME}-aztec-network-prover-node`,
-      namespace: config.NAMESPACE,
-      containerPort: config.CONTAINER_PROVER_NODE_PORT,
-      hostPort: config.HOST_PROVER_NODE_PORT,
-    });
-
     await startPortForward({
       resource: `svc/metrics-grafana`,
       namespace: 'metrics',
