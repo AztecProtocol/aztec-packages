@@ -161,8 +161,6 @@ export abstract class BBPrivateKernelProver implements PrivateKernelProver {
 
     const witnessMap = convertInputs(inputs, compiledCircuit.abi);
 
-    pushTestData(mapProtocolArtifactNameToCircuitName(circuitType), inputs);
-
     const timer = new Timer();
     const outputWitness = await this.simulator.simulateCircuit(witnessMap, compiledCircuit);
     const output = convertOutputs(outputWitness, compiledCircuit.abi);

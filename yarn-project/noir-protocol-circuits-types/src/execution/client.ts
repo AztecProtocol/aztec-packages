@@ -2,11 +2,11 @@ import {
   type PrivateKernelCircuitPublicInputs,
   type PrivateKernelInitCircuitPrivateInputs,
   type PrivateKernelInnerCircuitPrivateInputs,
-  type PrivateKernelResetCircuitPrivateInputs,
   type PrivateKernelResetCircuitPrivateInputsVariants,
   type PrivateKernelTailCircuitPrivateInputs,
   type PrivateKernelTailCircuitPublicInputs,
 } from '@aztec/circuits.js';
+import { pushTestData } from '@aztec/foundation/testing';
 
 import { type WitnessMap } from '@noir-lang/acvm_js';
 import { abiDecode, abiEncode } from '@noir-lang/noirc_abi';
@@ -44,7 +44,7 @@ export function convertPrivateKernelInitInputsToWitnessMapWithAbi(
   privateKernelInitCircuitPrivateInputs: PrivateKernelInitCircuitPrivateInputs,
   privateKernelInitAbi: Abi,
 ): WitnessMap {
-  const initialWitnessMap = abiEncode(privateKernelInitAbi, {
+  const mapped = {
     tx_request: mapTxRequestToNoir(privateKernelInitCircuitPrivateInputs.txRequest),
     vk_tree_root: mapFieldToNoir(privateKernelInitCircuitPrivateInputs.vkTreeRoot),
     protocol_contract_tree_root: mapFieldToNoir(privateKernelInitCircuitPrivateInputs.protocolContractTreeRoot),
@@ -53,7 +53,9 @@ export function convertPrivateKernelInitInputsToWitnessMapWithAbi(
     app_public_inputs: mapPrivateCircuitPublicInputsToNoir(
       privateKernelInitCircuitPrivateInputs.privateCall.publicInputs,
     ),
-  });
+  };
+  pushTestData('private-kernel-init', mapped);
+  const initialWitnessMap = abiEncode(privateKernelInitAbi, mapped);
   return initialWitnessMap;
 }
 
@@ -66,7 +68,7 @@ export function convertPrivateKernelInnerInputsToWitnessMapWithAbi(
   privateKernelInnerCircuitPrivateInputs: PrivateKernelInnerCircuitPrivateInputs,
   privateKernelInnerAbi: Abi,
 ): WitnessMap {
-  const initialWitnessMap = abiEncode(privateKernelInnerAbi, {
+  const mapped = {
     previous_kernel: mapPrivateKernelDataToNoir(privateKernelInnerCircuitPrivateInputs.previousKernel),
     previous_kernel_public_inputs: mapPrivateKernelCircuitPublicInputsToNoir(
       privateKernelInnerCircuitPrivateInputs.previousKernel.publicInputs,
@@ -75,7 +77,9 @@ export function convertPrivateKernelInnerInputsToWitnessMapWithAbi(
     app_public_inputs: mapPrivateCircuitPublicInputsToNoir(
       privateKernelInnerCircuitPrivateInputs.privateCall.publicInputs,
     ),
-  });
+  };
+  pushTestData('private-kernel-inner', mapped);
+  const initialWitnessMap = abiEncode(privateKernelInnerAbi, mapped);
   return initialWitnessMap;
 }
 
@@ -102,14 +106,15 @@ export function convertPrivateKernelResetInputsToWitnessMapWithAbi<
   >,
   resetAbi: Abi,
 ): WitnessMap {
-  const args: InputMap = {
+  const mapped: InputMap = {
     previous_kernel: mapPrivateKernelDataToNoir(privateKernelResetCircuitPrivateInputs.previousKernel),
     previous_kernel_public_inputs: mapPrivateKernelCircuitPublicInputsToNoir(
       privateKernelResetCircuitPrivateInputs.previousKernel.publicInputs,
     ),
     hints: mapPrivateKernelResetHintsToNoir(privateKernelResetCircuitPrivateInputs.hints),
   };
-  const initialWitnessMap = abiEncode(resetAbi, args);
+  pushTestData('private-kernel-reset', mapped);
+  const initialWitnessMap = abiEncode(resetAbi, mapped);
   return initialWitnessMap;
 }
 
@@ -122,13 +127,14 @@ export function convertPrivateKernelTailInputsToWitnessMapWithAbi(
   privateKernelTailCircuitPrivateInputs: PrivateKernelTailCircuitPrivateInputs,
   privateKernelTailAbi: Abi,
 ): WitnessMap {
-  const args: InputMap = {
+  const mapped: InputMap = {
     previous_kernel: mapPrivateKernelDataToNoir(privateKernelTailCircuitPrivateInputs.previousKernel),
     previous_kernel_public_inputs: mapPrivateKernelCircuitPublicInputsToNoir(
       privateKernelTailCircuitPrivateInputs.previousKernel.publicInputs,
     ),
   };
-  const initialWitnessMap = abiEncode(privateKernelTailAbi, args);
+  pushTestData('private-kernel-tail', mapped);
+  const initialWitnessMap = abiEncode(privateKernelTailAbi, mapped);
   return initialWitnessMap;
 }
 
@@ -141,13 +147,14 @@ export function convertPrivateKernelTailToPublicInputsToWitnessMapWithAbi(
   privateKernelTailToPublicCircuitPrivateInputs: PrivateKernelTailCircuitPrivateInputs,
   privateKernelTailToPublicAbi: Abi,
 ): WitnessMap {
-  const args: InputMap = {
+  const mapped: InputMap = {
     previous_kernel: mapPrivateKernelDataToNoir(privateKernelTailToPublicCircuitPrivateInputs.previousKernel),
     previous_kernel_public_inputs: mapPrivateKernelCircuitPublicInputsToNoir(
       privateKernelTailToPublicCircuitPrivateInputs.previousKernel.publicInputs,
     ),
   };
-  const initialWitnessMap = abiEncode(privateKernelTailToPublicAbi, args);
+  pushTestData('private-kernel-tail-to-public', mapped);
+  const initialWitnessMap = abiEncode(privateKernelTailToPublicAbi, mapped);
   return initialWitnessMap;
 }
 
