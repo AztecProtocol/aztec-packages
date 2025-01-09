@@ -143,7 +143,7 @@ spec:
   accessModes: ["ReadWriteOnce"]
   resources:
     requests:
-      storage: {{ .Values.ethereum.storage }}
+      storage: {{ .Values.ethereum.storageSize }}
 {{- end }}
 ---
 {{ end }}

@@ -180,6 +180,7 @@ export class AvmSimulator {
       const revertReason = reverted ? await revertReasonFromExplicitRevert(output, this.context) : undefined;
       const results = new AvmContractCallResult(reverted, output, machineState.gasLeft, revertReason);
       this.log.debug(`Context execution results: ${results.toString()}`);
+      this.log.debug(`Executed ${instrCounter} instructions`);
 
       this.tallyPrintFunction();
       // Return results for processing by calling context

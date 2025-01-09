@@ -19,11 +19,10 @@ const circuits = [
   'rollup_base_public',
   'rollup_merge',
   'rollup_block_root',
+  'rollup_block_root_single_tx',
   'rollup_block_merge',
   'rollup_block_root_empty',
   'rollup_root',
-  'private_kernel_empty',
-  'empty_nested',
 ];
 
 const main = async () => {
@@ -45,11 +44,15 @@ const main = async () => {
     const abiObj: CompiledCircuit = JSON.parse(rawData);
     programs.push([pascalCase(circuit), abiObj]);
   }
-  const code = codegen(
+  let code = codegen(
     programs,
     false, // Don't embed artifacts
     true, // Use fixed length arrays
   );
+
+  code += `
+    export * from '../artifacts/types.js';
+  `;
   await fs.writeFile('./src/types/index.ts', code);
 };
 

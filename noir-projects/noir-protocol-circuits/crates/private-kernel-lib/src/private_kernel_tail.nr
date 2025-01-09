@@ -68,9 +68,9 @@ mod tests {
         tests::fixture_builder::FixtureBuilder,
     };
     use dep::types::constants::{
-        DA_BYTES_PER_FIELD, DA_GAS_PER_BYTE, EMPTY_NESTED_INDEX, GENERATOR_INDEX__IVSK_M,
-        L2_GAS_PER_L2_TO_L1_MSG, L2_GAS_PER_LOG_BYTE, L2_GAS_PER_NULLIFIER, L2_GAS_PER_PRIVATE_LOG,
-        PRIVATE_KERNEL_INNER_INDEX, PRIVATE_LOG_SIZE_IN_FIELDS,
+        DA_BYTES_PER_FIELD, DA_GAS_PER_BYTE, GENERATOR_INDEX__IVSK_M, L2_GAS_PER_L2_TO_L1_MSG,
+        L2_GAS_PER_LOG_BYTE, L2_GAS_PER_NULLIFIER, L2_GAS_PER_PRIVATE_LOG,
+        PRIVATE_KERNEL_INNER_INDEX, PRIVATE_KERNEL_TAIL_INDEX, PRIVATE_LOG_SIZE_IN_FIELDS,
     };
 
     // TODO: Reduce the duplicated code/tests for PrivateKernelTailInputs and PrivateKernelTailToPublicInputs.
@@ -312,7 +312,7 @@ mod tests {
     #[test(should_fail_with = "Invalid vk index")]
     fn invalid_previous_kernel() {
         let mut builder = PrivateKernelTailInputsBuilder::new();
-        builder.previous_kernel = builder.previous_kernel.in_vk_tree(EMPTY_NESTED_INDEX);
+        builder.previous_kernel = builder.previous_kernel.in_vk_tree(PRIVATE_KERNEL_TAIL_INDEX);
         let _res = builder.execute();
     }
 }

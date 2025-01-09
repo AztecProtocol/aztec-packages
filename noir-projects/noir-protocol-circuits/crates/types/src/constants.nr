@@ -99,23 +99,22 @@ pub global MAX_CONTRACT_CLASS_LOGS_PER_TX: u32 = 1;
 pub global NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP: u32 = 16;
 
 // VK TREE CONSTANTS
-pub comptime global EMPTY_NESTED_INDEX: u32 = 0;
-pub comptime global PRIVATE_KERNEL_EMPTY_INDEX: u32 = 1;
-pub comptime global PRIVATE_KERNEL_INIT_INDEX: u32 = 2;
-pub comptime global PRIVATE_KERNEL_INNER_INDEX: u32 = 3;
-pub comptime global PRIVATE_KERNEL_TAIL_INDEX: u32 = 4;
-pub comptime global PRIVATE_KERNEL_TAIL_TO_PUBLIC_INDEX: u32 = 5;
-pub comptime global TUBE_VK_INDEX: u32 = 6;
-pub comptime global AVM_VK_INDEX: u32 = 7;
-pub comptime global PRIVATE_BASE_ROLLUP_VK_INDEX: u32 = 8;
-pub comptime global PUBLIC_BASE_ROLLUP_VK_INDEX: u32 = 9;
-pub comptime global BASE_PARITY_INDEX: u32 = 10;
-pub comptime global ROOT_PARITY_INDEX: u32 = 11;
-pub comptime global MERGE_ROLLUP_INDEX: u32 = 12;
-pub comptime global BLOCK_ROOT_ROLLUP_INDEX: u32 = 13;
-pub comptime global BLOCK_MERGE_ROLLUP_INDEX: u32 = 14;
-pub comptime global ROOT_ROLLUP_INDEX: u32 = 15;
-pub comptime global BLOCK_ROOT_ROLLUP_EMPTY_INDEX: u32 = 16;
+pub comptime global PRIVATE_KERNEL_INIT_INDEX: u32 = 0;
+pub comptime global PRIVATE_KERNEL_INNER_INDEX: u32 = 1;
+pub comptime global PRIVATE_KERNEL_TAIL_INDEX: u32 = 2;
+pub comptime global PRIVATE_KERNEL_TAIL_TO_PUBLIC_INDEX: u32 = 3;
+pub comptime global TUBE_VK_INDEX: u32 = 4;
+pub comptime global AVM_VK_INDEX: u32 = 5;
+pub comptime global PRIVATE_BASE_ROLLUP_VK_INDEX: u32 = 6;
+pub comptime global PUBLIC_BASE_ROLLUP_VK_INDEX: u32 = 7;
+pub comptime global MERGE_ROLLUP_INDEX: u32 = 8;
+pub comptime global BLOCK_ROOT_ROLLUP_INDEX: u32 = 9;
+pub comptime global BLOCK_ROOT_ROLLUP_SINGLE_TX_INDEX: u32 = 10;
+pub comptime global BLOCK_ROOT_ROLLUP_EMPTY_INDEX: u32 = 11;
+pub comptime global BLOCK_MERGE_ROLLUP_INDEX: u32 = 12;
+pub comptime global ROOT_ROLLUP_INDEX: u32 = 13;
+pub comptime global BASE_PARITY_INDEX: u32 = 14;
+pub comptime global ROOT_PARITY_INDEX: u32 = 15;
 pub comptime global PRIVATE_KERNEL_RESET_INDEX: u32 = 20;
 // Important: Do not define indexes after the PRIVATE_KERNEL_RESET_INDEX. They are allocated for the variants of private kernel reset.
 
