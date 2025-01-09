@@ -87,6 +87,7 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@aztec/archiver@workspace:archiver"
   dependencies:
+    "@aztec/blob-sink": "workspace:^"
     "@aztec/circuit-types": "workspace:^"
     "@aztec/circuits.js": "workspace:^"
     "@aztec/ethereum": "workspace:^"
@@ -150,6 +151,7 @@ __metadata:
   dependencies:
     "@aztec/archiver": "workspace:^"
     "@aztec/bb-prover": "workspace:^"
+    "@aztec/blob-sink": "workspace:^"
     "@aztec/circuit-types": "workspace:^"
     "@aztec/circuits.js": "workspace:^"
     "@aztec/epoch-cache": "workspace:^"
@@ -242,6 +244,7 @@ __metadata:
     "@aztec/aztec-node": "workspace:^"
     "@aztec/aztec.js": "workspace:^"
     "@aztec/bb-prover": "workspace:^"
+    "@aztec/blob-sink": "workspace:^"
     "@aztec/bot": "workspace:^"
     "@aztec/builder": "workspace:^"
     "@aztec/circuit-types": "workspace:^"
@@ -1085,6 +1088,7 @@ __metadata:
   dependencies:
     "@aztec/archiver": "workspace:^"
     "@aztec/bb-prover": "workspace:^"
+    "@aztec/blob-sink": "workspace:^"
     "@aztec/circuit-types": "workspace:^"
     "@aztec/circuits.js": "workspace:^"
     "@aztec/epoch-cache": "workspace:^"
@@ -1187,6 +1191,7 @@ __metadata:
     "@aztec/archiver": "workspace:^"
     "@aztec/aztec.js": "workspace:^"
     "@aztec/bb-prover": "workspace:^"
+    "@aztec/blob-sink": "workspace:^"
     "@aztec/circuit-types": "workspace:^"
     "@aztec/circuits.js": "workspace:^"
     "@aztec/ethereum": "workspace:^"

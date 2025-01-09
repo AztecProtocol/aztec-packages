@@ -6,14 +6,15 @@ import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
 
 import express, { type Express, type Request, type Response, json } from 'express';
 import { type Server } from 'http';
+import { type AddressInfo } from 'net';
 import { z } from 'zod';
 
-import { type BlobStore, DiskBlobStore } from './blobstore/index.js';
-import { MemoryBlobStore } from './blobstore/memory_blob_store.js';
+import { type BlobStore, DiskBlobStore } from '../blobstore/index.js';
+import { MemoryBlobStore } from '../blobstore/memory_blob_store.js';
+import { type PostBlobSidecarRequest, blockIdSchema, indicesSchema } from '../types/api.js';
+import { BlobWithIndex } from '../types/index.js';
 import { type BlobSinkConfig } from './config.js';
 import { BlobSinkMetrics } from './metrics.js';
-import { type PostBlobSidecarRequest, blockIdSchema, indicesSchema } from './types/api.js';
-import { BlobWithIndex } from './types/index.js';
 
 /**
  * Example usage:
@@ -23,7 +24,7 @@ import { BlobWithIndex } from './types/index.js';
  * await service.stop();
  */
 export class BlobSinkServer {
-  public readonly port: number;
+  public port: number;
 
   private app: Express;
   private server: Server | null = null;
@@ -135,8 +136,17 @@ export class BlobSinkServer {
   }
 
   public start(): Promise<void> {
-    return new Promise(resolve => {
+    return new Promise((resolve, reject) => {
       this.server = this.app.listen(this.port, () => {
+        // Extract port from server address, allows setting address when
+        // server is started with port 0
+        const address = this.server?.address() as AddressInfo | null;
+        if (!address) {
+          this.log.error('Server address not found');
+          void this.stop().then(() => reject(new Error('Server address not found')));
+        }
+
+        this.port = address!.port;
         this.log.info(`Server is running on http://localhost:${this.port}`);
         resolve();
       });
