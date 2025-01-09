@@ -32,11 +32,11 @@ const WEI_CONST = 1_000_000_000n;
 
 // setting a minimum bump percentage to 10% due to geth's implementation
 // https://github.com/ethereum/go-ethereum/blob/e3d61e6db028c412f74bc4d4c7e117a9e29d0de0/core/txpool/legacypool/list.go#L298
-const MIN_REPLACEMENT_BUMP_PERCENTAGE = 10n;
+const MIN_REPLACEMENT_BUMP_PERCENTAGE = 10;
 
 // setting a minimum bump percentage to 100% due to geth's implementation
 // https://github.com/ethereum/go-ethereum/blob/e3d61e6db028c412f74bc4d4c7e117a9e29d0de0/core/txpool/blobpool/config.go#L34
-const MIN_BLOB_REPLACEMENT_BUMP_PERCENTAGE = 100n;
+const MIN_BLOB_REPLACEMENT_BUMP_PERCENTAGE = 100;
 
 // Avg ethereum block time is ~12s
 const BLOCK_TIME_MS = 12_000;
@@ -45,7 +45,7 @@ export interface L1TxUtilsConfig {
   /**
    * How much to increase calculated gas limit.
    */
-  gasLimitBufferPercentage?: bigint;
+  gasLimitBufferPercentage?: number;
   /**
    * Maximum gas price in gwei
    */
@@ -61,13 +61,13 @@ export interface L1TxUtilsConfig {
   /**
    * Priority fee bump percentage
    */
-  priorityFeeBumpPercentage?: bigint;
+  priorityFeeBumpPercentage?: number;
   /**
    * How much to increase priority fee by each attempt (percentage)
    */
-  priorityFeeRetryBumpPercentage?: bigint;
+  priorityFeeRetryBumpPercentage?: number;
   /**
-   * Fixed priority fee per gas in Gwei. Overrides any priority fee bump percentage
+   * Fixed priority fee per gas in Gwei. Overrides any priority fee bump percentage config
    */
   fixedPriorityFeePerGas?: number;
   /**
@@ -97,7 +97,7 @@ export const l1TxUtilsConfigMappings: ConfigMappingsType<L1TxUtilsConfig> = {
   gasLimitBufferPercentage: {
     description: 'How much to increase gas price by each attempt (percentage)',
     env: 'L1_GAS_LIMIT_BUFFER_PERCENTAGE',
-    ...bigintConfigHelper(20n),
+    ...numberConfigHelper(10),
   },
   minGwei: {
     description: 'Minimum gas price in gwei',
@@ -117,12 +117,12 @@ export const l1TxUtilsConfigMappings: ConfigMappingsType<L1TxUtilsConfig> = {
   priorityFeeBumpPercentage: {
     description: 'How much to increase priority fee by each attempt (percentage)',
     env: 'L1_PRIORITY_FEE_BUMP_PERCENTAGE',
-    ...bigintConfigHelper(20n),
+    ...numberConfigHelper(20),
   },
   priorityFeeRetryBumpPercentage: {
     description: 'How much to increase priority fee by each retry attempt (percentage)',
     env: 'L1_PRIORITY_FEE_RETRY_BUMP_PERCENTAGE',
-    ...bigintConfigHelper(50n),
+    ...numberConfigHelper(50),
   },
   fixedPriorityFeePerGas: {
     description: 'Fixed priority fee per gas in Gwei. Overrides any priority fee bump percentage',
@@ -466,8 +466,10 @@ export class L1TxUtils {
       const bumpPercentage = configBump > minBumpPercentage ? configBump : minBumpPercentage;
 
       // Calculate minimum required fees based on previous attempt
-      const minPriorityFee = (previousGasPrice!.maxPriorityFeePerGas * (100n + bumpPercentage)) / 100n;
-      const minMaxFee = (previousGasPrice!.maxFeePerGas * (100n + bumpPercentage)) / 100n;
+      // multiply by 100 & divide by 100 to maintain some precision
+      const minPriorityFee =
+        (previousGasPrice!.maxPriorityFeePerGas * (100_00n + BigInt(bumpPercentage * 1_00))) / 100_00n;
+      const minMaxFee = (previousGasPrice!.maxFeePerGas * (100_00n + BigInt(bumpPercentage * 1_00))) / 100_00n;
 
       // Add priority fee to maxFeePerGas
       maxFeePerGas += priorityFee;
@@ -477,8 +479,9 @@ export class L1TxUtils {
       maxFeePerGas = maxFeePerGas > minMaxFee ? maxFeePerGas : minMaxFee;
     } else {
       // first attempt, just bump priority fee, unless it's a fixed config
+      // multiply by 100 & divide by 100 to maintain some precision
       if (!gasConfig.fixedPriorityFeePerGas) {
-        priorityFee = (priorityFee * (100n + (gasConfig.priorityFeeBumpPercentage || 0n))) / 100n;
+        priorityFee = (priorityFee * (100_00n + BigInt((gasConfig.priorityFeeBumpPercentage || 0) * 1_00))) / 100_00n;
       }
       maxFeePerGas += priorityFee;
     }
@@ -503,7 +506,7 @@ export class L1TxUtils {
           : MIN_BLOB_REPLACEMENT_BUMP_PERCENTAGE;
 
       // calculate min blob fee based on previous attempt
-      const minBlobFee = (previousGasPrice.maxFeePerBlobGas * (100n + bumpPercentage)) / 100n;
+      const minBlobFee = (previousGasPrice.maxFeePerBlobGas * (100_00n + BigInt(bumpPercentage * 1_00))) / 100_00n;
 
       // use max between current network values and min required values
       maxFeePerBlobGas = maxFeePerBlobGas > minBlobFee ? maxFeePerBlobGas : minBlobFee;
@@ -553,7 +556,8 @@ export class L1TxUtils {
     }
 
     // Add buffer based on either fixed amount or percentage
-    const withBuffer = initialEstimate + (initialEstimate * (gasConfig.gasLimitBufferPercentage ?? 0n)) / 100n;
+    const withBuffer =
+      initialEstimate + (initialEstimate * BigInt((gasConfig.gasLimitBufferPercentage || 0) * 1_00)) / 100_00n;
 
     return withBuffer;
   }
