@@ -31,6 +31,15 @@ describe('e2e_deploy_contract deploy method', () => {
 
   afterAll(() => t.teardown());
 
+  it('refused to deploy a contract instance whose contract class is not yet registered', async () => {
+    const owner = wallet.getAddress();
+    const opts = { skipClassRegistration: true };
+    logger.debug(`Trying to deploy contract instance without registering its contract class`);
+    await expect(StatefulTestContract.deploy(wallet, owner, owner, 42).send(opts).wait()).rejects.toThrow(
+      /Cannot find the leaf for nullifier/,
+    );
+  });
+
   it('publicly deploys and initializes a contract', async () => {
     const owner = wallet.getAddress();
     logger.debug(`Deploying stateful test contract`);
@@ -106,15 +115,6 @@ describe('e2e_deploy_contract deploy method', () => {
     logger.debug(`Deploying contract with no constructor and skipping public deploy`);
     const opts = { skipPublicDeployment: true, skipClassRegistration: true };
     await expect(TestContract.deploy(wallet).prove(opts)).rejects.toThrow(/no function calls needed/i);
-  });
-
-  it('refused to deploy a contract instance whose contract class is not yet registered', async () => {
-    const owner = wallet.getAddress();
-    const opts = { skipClassRegistration: true };
-    logger.debug(`Trying to deploy contract instance without registering its contract class`);
-    await expect(StatefulTestContract.deploy(wallet, owner, owner, 42).send(opts).wait()).rejects.toThrow(
-      /Cannot find the leaf for nullifier/,
-    );
   });
 
   it('publicly deploys and calls a public contract in the same batched call', async () => {
