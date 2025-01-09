@@ -100,16 +100,26 @@ class PrecomputedEntitiesBase {
 };
 // Specifies the regions of the execution trace containing non-trivial wire values
 struct ActiveRegionData {
-    std::vector<std::pair<size_t, size_t>> ranges; // active ranges [start_i, end_i) of the execution trace
-    std::vector<size_t> idxs;                      // full set of poly indices corresposponding to active ranges
-
     void add_range(const size_t start, const size_t end)
     {
+        ASSERT(start >= current_end); // ranges should be non-overlapping and increasing
         ranges.emplace_back(start, end);
         for (size_t i = start; i < end; ++i) {
             idxs.push_back(i);
         }
+        current_end = end;
     }
+
+    std::vector<std::pair<size_t, size_t>> get_ranges() const { return ranges; }
+    size_t get_idx(const size_t idx) const { return idxs[idx]; }
+    std::pair<size_t, size_t> get_range(const size_t idx) const { return ranges.at(idx); }
+    size_t size() const { return idxs.size(); }
+    size_t num_ranges() const { return ranges.size(); }
+
+  private:
+    std::vector<std::pair<size_t, size_t>> ranges; // active ranges [start_i, end_i) of the execution trace
+    std::vector<size_t> idxs;                      // full set of poly indices corresposponding to active ranges
+    size_t current_end{ 0 };                       // end of last range; for ensuring monotonicity of ranges
 };
 
 /**

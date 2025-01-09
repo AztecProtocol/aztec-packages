@@ -73,16 +73,16 @@ void compute_grand_product(typename Flavor::ProverPolynomials& full_polynomials,
     using Polynomial = typename Flavor::Polynomial;
     using Accumulator = std::tuple_element_t<0, typename GrandProdRelation::SumcheckArrayOfValuesOverSubrelations>;
 
-    const bool active_region_specified = !active_region_data.ranges.empty();
+    const bool has_active_ranges = active_region_data.size() > 0;
 
     // Set the domain over which the grand product must be computed. This may be less than the dyadic circuit size, e.g
     // the permutation grand product does not need to be computed beyond the index of the last active wire
     size_t domain_size = size_override == 0 ? full_polynomials.get_polynomial_size() : size_override;
 
     // Returns the ith active index if specified, otherwise acts as the identity map on the input
-    auto get_active_range_poly_idx = [&](size_t i) { return active_region_specified ? active_region_data.idxs[i] : i; };
+    auto get_active_range_poly_idx = [&](size_t i) { return has_active_ranges ? active_region_data.get_idx(i) : i; };
 
-    size_t active_domain_size = active_region_specified ? active_region_data.idxs.size() : domain_size;
+    size_t active_domain_size = has_active_ranges ? active_region_data.size() : domain_size;
 
     // The size of the iteration domain is one less than the number of active rows since the final value of the
     // grand product is constructed only in the relation and not explicitly in the polynomial
@@ -185,7 +185,7 @@ void compute_grand_product(typename Flavor::ProverPolynomials& full_polynomials,
         const size_t start = active_range_thread_data.start[thread_idx];
         const size_t end = active_range_thread_data.end[thread_idx];
         for (size_t i = start; i < end; ++i) {
-            auto poly_idx = get_active_range_poly_idx(i + 1);
+            const auto poly_idx = get_active_range_poly_idx(i + 1);
             grand_product_polynomial.at(poly_idx) = numerator[i] * denominator[i];
         }
     });
@@ -194,16 +194,16 @@ void compute_grand_product(typename Flavor::ProverPolynomials& full_polynomials,
     // regions have not yet been set. The polynomial takes an already computed constant value across each inactive
     // region (since no copy constraints are present there) equal to the value of the grand product at the first index
     // of the subsequent active region.
-    if (active_region_specified) {
+    if (has_active_ranges) {
         MultithreadData full_domain_thread_data = calculate_thread_data(domain_size);
         parallel_for(full_domain_thread_data.num_threads, [&](size_t thread_idx) {
             const size_t start = full_domain_thread_data.start[thread_idx];
             const size_t end = full_domain_thread_data.end[thread_idx];
             for (size_t i = start; i < end; ++i) {
-                for (size_t j = 0; j < active_region_data.ranges.size() - 1; ++j) {
-                    size_t previous_range_end = active_region_data.ranges[j].second;
-                    size_t next_range_start = active_region_data.ranges[j + 1].first;
-                    // If the index falls in an inactive region, set its value
+                for (size_t j = 0; j < active_region_data.num_ranges() - 1; ++j) {
+                    const size_t previous_range_end = active_region_data.get_range(j).second;
+                    const size_t next_range_start = active_region_data.get_range(j + 1).first;
+                    // Set the value of the polynomial if the index falls in an inactive region
                     if (i >= previous_range_end && i < next_range_start) {
                         grand_product_polynomial.at(i) = grand_product_polynomial[next_range_start];
                         break;

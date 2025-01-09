@@ -224,7 +224,7 @@ void compute_honk_style_permutation_lagrange_polynomials_from_mapping(
     using FF = typename Flavor::FF;
     const size_t num_gates = proving_key->circuit_size;
 
-    size_t domain_size = proving_key->active_region_data.idxs.size();
+    size_t domain_size = proving_key->active_region_data.size();
 
     const MultithreadData thread_data = calculate_thread_data(domain_size);
 
@@ -234,8 +234,8 @@ void compute_honk_style_permutation_lagrange_polynomials_from_mapping(
             const size_t start = thread_data.start[j];
             const size_t end = thread_data.end[j];
             for (size_t i = start; i < end; ++i) {
-                size_t poly_idx = proving_key->active_region_data.idxs[i];
-                auto idx = static_cast<ptrdiff_t>(poly_idx);
+                const size_t poly_idx = proving_key->active_region_data.get_idx(i);
+                const auto idx = static_cast<ptrdiff_t>(poly_idx);
                 const auto& current_row_idx = permutation_mappings[wire_idx].row_idx[idx];
                 const auto& current_col_idx = permutation_mappings[wire_idx].col_idx[idx];
                 const auto& current_is_tag = permutation_mappings[wire_idx].is_tag[idx];
