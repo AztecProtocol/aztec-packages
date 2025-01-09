@@ -59,8 +59,10 @@ where
     T: Ordered + Empty + Eq,
     S: Empty + Eq,
 {
-    let num_non_revertibles =
-        unsafe { find_index_hint(sorted_array, |n: T| n.counter() >= split_counter) };
+    let num_non_revertibles = unsafe {
+        //@safety The value is constrained by `assert_split_transformed_value_arrays_with_hint`.
+        find_index_hint(sorted_array, |n: T| n.counter() >= split_counter)
+    };
 
     assert_split_transformed_value_arrays_with_hint(
         sorted_array,

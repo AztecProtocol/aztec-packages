@@ -15,6 +15,7 @@ impl ProveNullifierInclusion for BlockHeader {
     fn prove_nullifier_inclusion(self, nullifier: Field) {
         // 1) Get the membership witness of the nullifier
         let witness = unsafe {
+            //@safety The witness is only used as a "magical value" that makes the proof below pass. Hence it's safe.
             get_nullifier_membership_witness(self.global_variables.block_number as u32, nullifier)
         };
 

@@ -20,6 +20,7 @@ impl ProveNoteInclusion for BlockHeader {
         let note_hash = compute_note_hash_for_nullify(note);
 
         let witness = unsafe {
+            //@safety The witness is only used as a "magical value" that makes the merkle proof below pass. Hence it's safe.
             get_note_hash_membership_witness(self.global_variables.block_number as u32, note_hash)
         };
 

@@ -207,6 +207,7 @@ where
         // prove inclusion of their hash, which is both a much smaller proof (a single slot), and also independent of
         // the size of T.
         let (value_change_hint, delay_change_hint) = unsafe {
+            //@safety The hints are checked against the hash below.
             get_public_storage_hints(address, self.storage_slot, historical_block_number)
         };
 

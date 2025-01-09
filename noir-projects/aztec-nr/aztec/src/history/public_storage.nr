@@ -28,6 +28,7 @@ impl PublicStorageHistoricalRead for BlockHeader {
 
         // 2) Get the membership witness for the tree index.
         let witness = unsafe {
+            //@safety The witness is only used as a "magical value" that makes the proof below pass. Hence it's safe.
             get_public_data_witness(
                 self.global_variables.block_number as u32,
                 public_data_tree_index,

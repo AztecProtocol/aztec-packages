@@ -24,6 +24,8 @@ impl PrivateKernelData {
             self.vk_index
         };
         let index_hint = unsafe {
+            //@safety find_index_hint should return an index into allowed_indices where `index == index_in_allowed_list`.
+            // The assertion below then verifies that the condition is met.
             find_index_hint(allowed_indices, |index: u32| index == index_in_allowed_list)
         };
         assert(index_hint < N, "Invalid vk index");

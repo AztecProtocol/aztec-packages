@@ -89,10 +89,11 @@ pub fn get_note<Note, let N: u32>(
 where
     Note: NoteInterface<N> + NullifiableNote,
 {
-    let note = unsafe { get_note_internal(storage_slot) };
-
-    // Constraining that we got a valid note from the oracle is fairly straightforward: all we need to do is check that
-    // the metadata is correct, and that the note exists.
+    let note = unsafe {
+        //@safety Constraining that we got a valid note from the oracle is fairly straightforward: all we need to do
+        // is check that the metadata is correct, and that the note exists.
+        get_note_internal(storage_slot)
+    };
     check_note_header(*context, storage_slot, note);
 
     let note_hash_for_read_request = compute_note_hash_for_read_request(note);
@@ -109,7 +110,10 @@ pub fn get_notes<Note, let N: u32, PREPROCESSOR_ARGS, FILTER_ARGS>(
 where
     Note: NoteInterface<N> + NullifiableNote + Eq,
 {
-    let opt_notes = unsafe { get_notes_internal(storage_slot, options) };
+    let opt_notes = unsafe {
+        //@safety The notes are constrained below.
+        get_notes_internal(storage_slot, options)
+    };
 
     // We apply the constraints in a separate function instead of inlining them here to make it easier to test that
     // these checks correctly reject bad notes.

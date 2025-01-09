@@ -21,23 +21,34 @@ impl PublicContext {
     where
         T: Serialize<N>,
     {
-        // AVM opcodes are constrained by the AVM itself
-        unsafe { emit_unencrypted_log(Serialize::serialize(log).as_slice()) };
+        unsafe {
+            //@safety AVM opcodes are constrained by the AVM itself
+            emit_unencrypted_log(Serialize::serialize(log).as_slice())
+        };
     }
 
     pub fn note_hash_exists(_self: Self, note_hash: Field, leaf_index: Field) -> bool {
-        // AVM opcodes are constrained by the AVM itself
-        unsafe { note_hash_exists(note_hash, leaf_index) } == 1
+        unsafe {
+            //@safety AVM opcodes are constrained by the AVM itself
+            note_hash_exists(note_hash, leaf_index)
+        }
+            == 1
     }
 
     pub fn l1_to_l2_msg_exists(_self: Self, msg_hash: Field, msg_leaf_index: Field) -> bool {
-        // AVM opcodes are constrained by the AVM itself
-        unsafe { l1_to_l2_msg_exists(msg_hash, msg_leaf_index) } == 1
+        unsafe {
+            //@safety AVM opcodes are constrained by the AVM itself
+            l1_to_l2_msg_exists(msg_hash, msg_leaf_index)
+        }
+            == 1
     }
 
     pub fn nullifier_exists(_self: Self, unsiloed_nullifier: Field, address: AztecAddress) -> bool {
-        // AVM opcodes are constrained by the AVM itself
-        unsafe { nullifier_exists(unsiloed_nullifier, address.to_field()) } == 1
+        unsafe {
+            //@safety AVM opcodes are constrained by the AVM itself
+            nullifier_exists(unsiloed_nullifier, address.to_field())
+        }
+            == 1
     }
 
     pub fn consume_l1_to_l2_message(
@@ -73,8 +84,10 @@ impl PublicContext {
     }
 
     pub fn message_portal(_self: &mut Self, recipient: EthAddress, content: Field) {
-        // AVM opcodes are constrained by the AVM itself
-        unsafe { send_l2_to_l1_msg(recipient, content) };
+        unsafe {
+            //@safety AVM opcodes are constrained by the AVM itself
+            send_l2_to_l1_msg(recipient, content)
+        };
     }
 
     pub unconstrained fn call_public_function(
@@ -114,30 +127,36 @@ impl PublicContext {
     }
 
     pub fn push_note_hash(_self: &mut Self, note_hash: Field) {
-        // AVM opcodes are constrained by the AVM itself
-        unsafe { emit_note_hash(note_hash) };
+        unsafe {
+            //@safety AVM opcodes are constrained by the AVM itself
+            emit_note_hash(note_hash)
+        };
     }
     pub fn push_nullifier(_self: &mut Self, nullifier: Field) {
-        // AVM opcodes are constrained by the AVM itself
-        unsafe { emit_nullifier(nullifier) };
+        unsafe {
+            //@safety AVM opcodes are constrained by the AVM itself
+            emit_nullifier(nullifier)
+        };
     }
 
     pub fn this_address(_self: Self) -> AztecAddress {
-        // AVM opcodes are constrained by the AVM itself
         unsafe {
+            //@safety AVM opcodes are constrained by the AVM itself
             address()
         }
     }
     pub fn msg_sender(_self: Self) -> AztecAddress {
-        // AVM opcodes are constrained by the AVM itself
         unsafe {
+            //@safety AVM opcodes are constrained by the AVM itself
             sender()
         }
     }
     pub fn selector(_self: Self) -> FunctionSelector {
         // The selector is the first element of the calldata when calling a public function through dispatch.
-        // AVM opcodes are constrained by the AVM itself.
-        let raw_selector: [Field; 1] = unsafe { calldata_copy(0, 1) };
+        let raw_selector: [Field; 1] = unsafe {
+            //@safety AVM opcodes are constrained by the AVM itself
+            calldata_copy(0, 1)
+        };
         FunctionSelector::from_field(raw_selector[0])
     }
     pub fn get_args_hash(mut self) -> Field {
@@ -148,71 +167,76 @@ impl PublicContext {
         self.args_hash.unwrap_unchecked()
     }
     pub fn transaction_fee(_self: Self) -> Field {
-        // AVM opcodes are constrained by the AVM itself
         unsafe {
+            //@safety AVM opcodes are constrained by the AVM itself
             transaction_fee()
         }
     }
 
     pub fn chain_id(_self: Self) -> Field {
-        // AVM opcodes are constrained by the AVM itself
         unsafe {
+            //@safety AVM opcodes are constrained by the AVM itself
             chain_id()
         }
     }
     pub fn version(_self: Self) -> Field {
-        // AVM opcodes are constrained by the AVM itself
         unsafe {
+            //@safety AVM opcodes are constrained by the AVM itself
             version()
         }
     }
     pub fn block_number(_self: Self) -> Field {
-        // AVM opcodes are constrained by the AVM itself
         unsafe {
+            //@safety AVM opcodes are constrained by the AVM itself
             block_number()
         }
     }
     pub fn timestamp(_self: Self) -> u64 {
-        // AVM opcodes are constrained by the AVM itself
         unsafe {
+            //@safety AVM opcodes are constrained by the AVM itself
             timestamp()
         }
     }
     pub fn fee_per_l2_gas(_self: Self) -> Field {
-        // AVM opcodes are constrained by the AVM itself
         unsafe {
+            //@safety AVM opcodes are constrained by the AVM itself
             fee_per_l2_gas()
         }
     }
     pub fn fee_per_da_gas(_self: Self) -> Field {
-        // AVM opcodes are constrained by the AVM itself
         unsafe {
+            //@safety AVM opcodes are constrained by the AVM itself
             fee_per_da_gas()
         }
     }
 
     pub fn l2_gas_left(_self: Self) -> Field {
-        // AVM opcodes are constrained by the AVM itself
         unsafe {
+            //@safety AVM opcodes are constrained by the AVM itself
             l2_gas_left()
         }
     }
     pub fn da_gas_left(_self: Self) -> Field {
-        // AVM opcodes are constrained by the AVM itself
         unsafe {
+            //@safety AVM opcodes are constrained by the AVM itself
             da_gas_left()
         }
     }
     pub fn is_static_call(_self: Self) -> bool {
-        // AVM opcodes are constrained by the AVM itself
-        unsafe { is_static_call() } == 1
+        unsafe {
+            //@safety AVM opcodes are constrained by the AVM itself
+            is_static_call()
+        }
+            == 1
     }
 
     pub fn raw_storage_read<let N: u32>(_self: Self, storage_slot: Field) -> [Field; N] {
         let mut out = [0; N];
         for i in 0..N {
-            // AVM opcodes are constrained by the AVM itself
-            out[i] = unsafe { storage_read(storage_slot + i as Field) };
+            out[i] = unsafe {
+                //@safety AVM opcodes are constrained by the AVM itself
+                storage_read(storage_slot + i as Field)
+            };
         }
         out
     }
@@ -226,8 +250,10 @@ impl PublicContext {
 
     pub fn raw_storage_write<let N: u32>(_self: Self, storage_slot: Field, values: [Field; N]) {
         for i in 0..N {
-            // AVM opcodes are constrained by the AVM itself
-            unsafe { storage_write(storage_slot + i as Field, values[i]) };
+            unsafe {
+                //@safety AVM opcodes are constrained by the AVM itself
+                storage_write(storage_slot + i as Field, values[i])
+            };
         }
     }
 
