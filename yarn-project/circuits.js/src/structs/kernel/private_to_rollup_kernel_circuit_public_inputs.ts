@@ -45,7 +45,7 @@ export class PrivateToRollupKernelCircuitPublicInputs {
   }
 
   toBuffer() {
-    return serializeToBuffer(this.rollupValidationRequests, this.end, this.constants, this.gasUsed, this.feePayer);
+    return serializeToBuffer(this.constants, this.rollupValidationRequests, this.end, this.gasUsed, this.feePayer);
   }
 
   /**
