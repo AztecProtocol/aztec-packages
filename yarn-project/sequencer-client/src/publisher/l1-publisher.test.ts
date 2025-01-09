@@ -236,7 +236,7 @@ describe('L1Publisher', () => {
         data: encodeFunctionData({ abi: rollupContract.abi, functionName: 'propose', args }),
       },
       { fixedGas: GAS_GUESS + L1Publisher.PROPOSE_GAS_GUESS },
-      { blobs: expectedBlobs.map(b => b.dataWithZeros), kzg, maxFeePerBlobGas: 10000000000n },
+      { blobs: expectedBlobs.map(b => b.dataWithZeros), kzg },
     );
 
     expect(sendToBlobSinkSpy).toHaveBeenCalledTimes(1);
