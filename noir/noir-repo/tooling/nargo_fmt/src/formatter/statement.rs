@@ -509,7 +509,6 @@ mod tests {
         1  } } ";
         let expected = "fn foo() {
     unsafe {
-        //@safety: testing context
         1
     }
 }
