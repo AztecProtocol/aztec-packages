@@ -75,8 +75,7 @@ import { ContractDataOracle } from '../contract_data_oracle/index.js';
 import { type PxeDatabase } from '../database/index.js';
 import { NoteDao } from '../database/note_dao.js';
 import { KernelOracle } from '../kernel_oracle/index.js';
-import { KernelProver } from '../kernel_prover/kernel_prover.js';
-import { TestPrivateKernelProver } from '../kernel_prover/test/test_circuit_prover.js';
+import { KernelProver, type ProvingConfig } from '../kernel_prover/kernel_prover.js';
 import { getAcirSimulator } from '../simulator/index.js';
 import { Synchronizer } from '../synchronizer/index.js';
 import { enrichPublicSimulationError, enrichSimulationError } from './error_enriching.js';
@@ -90,6 +89,7 @@ export class PXEService implements PXE {
   private simulator: AcirSimulator;
   private log: Logger;
   private packageVersion: string;
+  private proverEnabled: boolean;
 
   constructor(
     private keyStore: KeyStore,
@@ -105,6 +105,7 @@ export class PXEService implements PXE {
     this.contractDataOracle = new ContractDataOracle(db);
     this.simulator = getAcirSimulator(db, node, keyStore, this.contractDataOracle);
     this.packageVersion = getPackageInfo().version;
+    this.proverEnabled = !!config.proverEnabled;
   }
 
   /**
@@ -453,20 +454,16 @@ export class PXEService implements PXE {
     return await this.node.getCurrentBaseFees();
   }
 
-  async #simulateKernels(
-    txRequest: TxExecutionRequest,
-    privateExecutionResult: PrivateExecutionResult,
-  ): Promise<PrivateKernelTailCircuitPublicInputs> {
-    const result = await this.#prove(txRequest, new TestPrivateKernelProver(), privateExecutionResult);
-    return result.publicInputs;
-  }
-
   public async proveTx(
     txRequest: TxExecutionRequest,
     privateExecutionResult: PrivateExecutionResult,
   ): Promise<TxProvingResult> {
     try {
-      const { publicInputs, clientIvcProof } = await this.#prove(txRequest, this.proofCreator, privateExecutionResult);
+      const { publicInputs, clientIvcProof } = await this.#prove(txRequest, this.proofCreator, privateExecutionResult, {
+        simulate: false,
+        profile: false,
+        dryRun: false,
+      });
       return new TxProvingResult(privateExecutionResult, publicInputs, clientIvcProof!);
     } catch (err: any) {
       throw this.contextualizeError(err, inspect(txRequest), inspect(privateExecutionResult));
@@ -501,17 +498,11 @@ export class PXEService implements PXE {
       await this.synchronizer.sync();
       const privateExecutionResult = await this.#executePrivate(txRequest, msgSender, scopes);
 
-      let publicInputs: PrivateKernelTailCircuitPublicInputs;
-      let profileResult;
-      if (profile) {
-        ({ publicInputs, profileResult } = await this.#profileKernelProver(
-          txRequest,
-          this.proofCreator,
-          privateExecutionResult,
-        ));
-      } else {
-        publicInputs = await this.#simulateKernels(txRequest, privateExecutionResult);
-      }
+      const { publicInputs, profileResult } = await this.#prove(txRequest, this.proofCreator, privateExecutionResult, {
+        simulate: !profile,
+        profile,
+        dryRun: true,
+      });
 
       const privateSimulationResult = new PrivateSimulationResult(privateExecutionResult, publicInputs);
       const simulatedTx = privateSimulationResult.toSimulatedTx();
@@ -795,20 +786,6 @@ export class PXEService implements PXE {
     }
   }
 
-  async #profileKernelProver(
-    txExecutionRequest: TxExecutionRequest,
-    proofCreator: PrivateKernelProver,
-    privateExecutionResult: PrivateExecutionResult,
-  ): Promise<PrivateKernelSimulateOutput<PrivateKernelTailCircuitPublicInputs>> {
-    const block = privateExecutionResult.publicInputs.historicalHeader.globalVariables.blockNumber.toNumber();
-    const kernelOracle = new KernelOracle(this.contractDataOracle, this.keyStore, this.node, block);
-    const kernelProver = new KernelProver(kernelOracle, proofCreator);
-
-    // Dry run the prover with profiler enabled
-    const result = await kernelProver.prove(txExecutionRequest.toTxRequest(), privateExecutionResult, true, true);
-    return result;
-  }
-
   /**
    * Generate a kernel proof, and create a private kernel output.
    * The function takes in a transaction execution request, and the result of private execution
@@ -823,13 +800,18 @@ export class PXEService implements PXE {
     txExecutionRequest: TxExecutionRequest,
     proofCreator: PrivateKernelProver,
     privateExecutionResult: PrivateExecutionResult,
+    { simulate, profile, dryRun }: ProvingConfig,
   ): Promise<PrivateKernelSimulateOutput<PrivateKernelTailCircuitPublicInputs>> {
     // use the block the tx was simulated against
     const block = privateExecutionResult.publicInputs.historicalHeader.globalVariables.blockNumber.toNumber();
     const kernelOracle = new KernelOracle(this.contractDataOracle, this.keyStore, this.node, block);
-    const kernelProver = new KernelProver(kernelOracle, proofCreator);
-    this.log.debug(`Executing kernel prover...`);
-    return await kernelProver.prove(txExecutionRequest.toTxRequest(), privateExecutionResult);
+    const kernelProver = new KernelProver(kernelOracle, proofCreator, !this.proverEnabled);
+    this.log.debug(`Executing kernel prover (simulate: ${simulate}, profile: ${profile}, dryRun: ${dryRun})...`);
+    return await kernelProver.prove(txExecutionRequest.toTxRequest(), privateExecutionResult, {
+      simulate,
+      profile,
+      dryRun,
+    });
   }
 
   public async isContractClassPubliclyRegistered(id: Fr): Promise<boolean> {

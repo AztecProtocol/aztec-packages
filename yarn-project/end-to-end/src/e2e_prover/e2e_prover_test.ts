@@ -18,7 +18,7 @@ import {
   BBCircuitVerifier,
   type ClientProtocolCircuitVerifier,
   TestCircuitVerifier,
-  type UltraKeccakHonkProtocolArtifact,
+  type UltraKeccakHonkServerProtocolArtifact,
 } from '@aztec/bb-prover';
 import { createBlobSinkClient } from '@aztec/blob-sink/client';
 import { type BlobSinkServer } from '@aztec/blob-sink/server';
@@ -394,7 +394,7 @@ export class FullProverTest {
 
     // REFACTOR: Extract this method to a common package. We need a package that deals with L1
     // but also has a reference to L1 artifacts and bb-prover.
-    const setupVerifier = async (artifact: UltraKeccakHonkProtocolArtifact) => {
+    const setupVerifier = async (artifact: UltraKeccakHonkServerProtocolArtifact) => {
       const contract = await verifier.generateSolidityContract(artifact, 'UltraHonkVerifier.sol');
       const { abi, bytecode } = compileContract('UltraHonkVerifier.sol', 'HonkVerifier', contract, solc);
       const { address: verifierAddress } = await deployL1Contract(walletClient, publicClient, abi, bytecode);
