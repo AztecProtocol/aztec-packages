@@ -1,4 +1,4 @@
-import { BbWasmSyncPrivateKernelProver } from '@aztec/bb-prover/wasm';
+import { BBWASMBundlePrivateKernelProver } from '@aztec/bb-prover/wasm/bundle';
 import { type AztecNode, type PXE, TxEffect, mockTx, randomInBlock } from '@aztec/circuit-types';
 import { INITIAL_L2_BLOCK_NUM } from '@aztec/circuits.js/constants';
 import { type L1ContractAddresses } from '@aztec/ethereum/l1-contract-addresses';
@@ -48,7 +48,7 @@ async function createPXEService(): Promise<PXE> {
   };
   node.getL1ContractAddresses.mockResolvedValue(mockedContracts);
 
-  return Promise.resolve(new PXEService(keyStore, node, db, tips, new BbWasmSyncPrivateKernelProver(), config));
+  return Promise.resolve(new PXEService(keyStore, node, db, tips, new BBWASMBundlePrivateKernelProver(), config));
 }
 
 pxeTestSuite('PXEService', createPXEService);
@@ -81,7 +81,7 @@ describe('PXEService', () => {
 
     node.getTxEffect.mockResolvedValue(randomInBlock(settledTx));
 
-    const pxe = new PXEService(keyStore, node, db, tips, new BbWasmSyncPrivateKernelProver(), config);
+    const pxe = new PXEService(keyStore, node, db, tips, new BBWASMBundlePrivateKernelProver(), config);
     await expect(pxe.sendTx(duplicateTx)).rejects.toThrow(/A settled tx with equal hash/);
   });
 });

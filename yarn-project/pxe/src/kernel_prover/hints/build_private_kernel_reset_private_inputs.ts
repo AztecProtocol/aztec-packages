@@ -37,7 +37,7 @@ import {
 import { makeTuple } from '@aztec/foundation/array';
 import { padArrayEnd } from '@aztec/foundation/collection';
 import { type Tuple, assertLength } from '@aztec/foundation/serialize';
-import { privateKernelResetDimensionsConfig } from '@aztec/noir-protocol-circuits-types/client/lazy';
+import { privateKernelResetDimensionsConfig } from '@aztec/noir-protocol-circuits-types/client';
 
 import { type ProvingDataOracle } from '../proving_data_oracle.js';
 

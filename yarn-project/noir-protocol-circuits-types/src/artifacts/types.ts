@@ -1,3 +1,5 @@
+import { NoirCompiledCircuit } from '@aztec/types/noir';
+
 import { type PrivateResetArtifact } from '../private_kernel_reset_types.js';
 
 export type ClientProtocolArtifact =
@@ -22,3 +24,8 @@ export type ServerProtocolArtifact =
   | 'RootRollupArtifact';
 
 export type ProtocolArtifact = ServerProtocolArtifact | ClientProtocolArtifact;
+
+export interface ArtifactProvider {
+  getClientCircuitArtifactByName(artifact: ClientProtocolArtifact): Promise<NoirCompiledCircuit>;
+  getSimulatedClientCircuitArtifactByName(artifact: ClientProtocolArtifact): Promise<NoirCompiledCircuit>;
+}

@@ -4,6 +4,7 @@
   "type": "module",
   "exports": {
     "./server": "./dest/entrypoint/server.js",
+    "./client": "./dest/entrypoint/client/common.js",
     "./client/bundle": "./dest/entrypoint/client/bundle.js",
     "./client/lazy": "./dest/entrypoint/client/lazy.js",
     "./types": "./dest/types/index.js",

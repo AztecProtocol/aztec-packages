@@ -1,5 +1,5 @@
 import { BBNativePrivateKernelProver } from '@aztec/bb-prover';
-import { BbWasmSyncPrivateKernelProver } from '@aztec/bb-prover/wasm';
+import { BBWASMBundlePrivateKernelProver } from '@aztec/bb-prover/wasm/bundle';
 import { type AztecNode, type PrivateKernelProver } from '@aztec/circuit-types';
 import { randomBytes } from '@aztec/foundation/crypto';
 import { createLogger } from '@aztec/foundation/log';
@@ -54,7 +54,7 @@ export async function createPXEService(
 
 function createProver(config: PXEServiceConfig, logSuffix?: string) {
   if (!config.bbBinaryPath || !config.bbWorkingDirectory) {
-    return new BbWasmSyncPrivateKernelProver(16);
+    return new BBWASMBundlePrivateKernelProver(16);
   } else {
     const bbConfig = config as Required<Pick<PXEServiceConfig, 'bbBinaryPath' | 'bbWorkingDirectory'>> &
       PXEServiceConfig;

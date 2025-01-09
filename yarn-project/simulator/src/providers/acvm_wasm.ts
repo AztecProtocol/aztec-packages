@@ -1,4 +1,4 @@
-import { foreignCallHandler } from '@aztec/noir-protocol-circuits-types/client/lazy';
+import { foreignCallHandler } from '@aztec/noir-protocol-circuits-types/client';
 import { type NoirCompiledCircuit } from '@aztec/types/noir';
 
 import { executeCircuit } from '@noir-lang/acvm_js';

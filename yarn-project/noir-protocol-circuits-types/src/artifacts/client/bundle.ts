@@ -9,7 +9,7 @@ import PrivateKernelTailSimulatedJson from '../../../artifacts/private_kernel_ta
 import PrivateKernelTailToPublicJson from '../../../artifacts/private_kernel_tail_to_public.json' assert { type: 'json' };
 import PrivateKernelTailToPublicSimulatedJson from '../../../artifacts/private_kernel_tail_to_public_simulated.json' assert { type: 'json' };
 import { PrivateKernelResetArtifacts, PrivateKernelResetSimulatedArtifacts } from '../../private_kernel_reset_data.js';
-import { type ClientProtocolArtifact } from '../types.js';
+import { ArtifactProvider, type ClientProtocolArtifact } from '../types.js';
 
 export const ClientCircuitArtifacts: Record<ClientProtocolArtifact, NoirCompiledCircuit> = {
   PrivateKernelInitArtifact: PrivateKernelInitJson as NoirCompiledCircuit,
@@ -26,3 +26,13 @@ export const SimulatedClientCircuitArtifacts: Record<ClientProtocolArtifact, Noi
   PrivateKernelTailToPublicArtifact: PrivateKernelTailToPublicSimulatedJson as NoirCompiledCircuit,
   ...PrivateKernelResetSimulatedArtifacts,
 };
+
+export class BundleArtifactProvider implements ArtifactProvider {
+  getClientCircuitArtifactByName(artifact: ClientProtocolArtifact): Promise<NoirCompiledCircuit> {
+    return Promise.resolve(ClientCircuitArtifacts[artifact]);
+  }
+
+  getSimulatedClientCircuitArtifactByName(artifact: ClientProtocolArtifact): Promise<NoirCompiledCircuit> {
+    return Promise.resolve(SimulatedClientCircuitArtifacts[artifact]);
+  }
+}

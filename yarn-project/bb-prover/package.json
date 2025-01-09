@@ -4,8 +4,8 @@
   "type": "module",
   "exports": {
     ".": "./dest/index.js",
-    "./wasm": "./dest/wasm/sync.js",
-    "./wasm_async": "./dest/wasm/async.js",
+    "./wasm/bundle": "./dest/wasm/bundle.js",
+    "./wasm/lazy": "./dest/wasm/lazy.js",
     "./prover": "./dest/prover/index.js",
     "./verifier": "./dest/verifier/index.js",
     "./test": "./dest/test/index.js",

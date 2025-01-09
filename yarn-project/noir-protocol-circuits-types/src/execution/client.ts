@@ -22,8 +22,8 @@ import {
   mapPrivateKernelTailCircuitPublicInputsForPublicFromNoir,
   mapPrivateKernelTailCircuitPublicInputsForRollupFromNoir,
   mapTxRequestToNoir,
-} from '../../conversion/client.js';
-import { mapFieldToNoir } from '../../conversion/common.js';
+} from '../conversion/client.js';
+import { mapFieldToNoir } from '../conversion/common.js';
 import {
   type PrivateKernelInitReturnType,
   type PrivateKernelInnerReturnType,
@@ -34,9 +34,9 @@ import {
   PrivateKernelInner as executePrivateKernelInnerWithACVM,
   PrivateKernelTailToPublic as executePrivateKernelTailToPublicWithACVM,
   PrivateKernelTail as executePrivateKernelTailWithACVM,
-} from '../../types/index.js';
-import { foreignCallHandler } from '../../utils/client/foreign_call_handler.js';
-import { type DecodedInputs } from '../../utils/decoded_inputs.js';
+} from '../types/index.js';
+import { foreignCallHandler } from '../utils/client/foreign_call_handler.js';
+import { type DecodedInputs } from '../utils/decoded_inputs.js';
 
 /* eslint-disable camelcase */
 
