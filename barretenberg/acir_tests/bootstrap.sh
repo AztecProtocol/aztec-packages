@@ -16,6 +16,14 @@ function prepare_tests {
   # TODO(https://github.com/AztecProtocol/barretenberg/issues/1108): problem regardless the proof system used
   rm -rf acir_tests/regression_5045
 
+  # Regenerate verify_honk_proof and verify_rollup_honk_proof recursive input.
+  echo "Regenerating verify_honk_proof and verify_rollup_honk_proof recursive inputs."
+  COMPILE=2 ./run_test.sh assert_statement
+  local bb=$(realpath ../cpp/build/bin/bb)
+  (cd ./acir_tests/assert_statement && \
+    $bb write_recursion_inputs_ultra_honk -b ./target/program.json -o ../verify_honk_proof --recursive && \
+    $bb write_recursion_inputs_rollup_honk -b ./target/program.json -o ../verify_rollup_honk_proof --recursive)
+
   # COMPILE=2 only compiles the test.
   denoise "parallel --joblog joblog.txt --line-buffered 'COMPILE=2 ./run_test.sh \$(basename {})' ::: ./acir_tests/*"
 
@@ -28,13 +36,6 @@ function build_tests {
   github_group "acir_tests build"
 
   prepare_tests
-
-
-  # TODO: This actually breaks things, but shouldn't. We want to do it here and not maintain manually.
-  # Regenerate verify_honk_proof recursive input.
-  # local bb=$(realpath ../cpp/build/bin/bb)
-  # (cd ./acir_tests/assert_statement && \
-  #   $bb write_recursion_inputs_honk -b ./target/program.json -o ../verify_honk_proof --recursive)
 
   # Update yarn.lock so it can be committed.
   # Be lenient about bb.js hash changing, even if we try to minimize the occurrences.
@@ -72,7 +73,7 @@ function test {
   # local jobs=$(($(nproc) / HARDWARE_CONCURRENCY))
   local jobs=64
 
-  test_cmds | (cd $root; parallel -j$jobs --tag --line-buffered --joblog joblog.txt)
+  test_cmds | (cd $root; parallel --memsuspend 64G -j$jobs --tag --line-buffered --joblog joblog.txt)
 
   cache_upload_flag barretenberg-acir-tests-$hash
   github_endgroup

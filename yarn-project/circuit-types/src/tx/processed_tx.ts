@@ -4,10 +4,11 @@ import {
   CombinedConstantData,
   Fr,
   Gas,
-  type GlobalVariables,
+  GlobalVariables,
   PrivateKernelTailCircuitPublicInputs,
   type PublicDataWrite,
   RevertCode,
+  TxConstantData,
 } from '@aztec/circuits.js';
 import { siloL2ToL1Message } from '@aztec/circuits.js/hash';
 
@@ -92,7 +93,7 @@ export function makeEmptyProcessedTx(
   vkTreeRoot: Fr,
   protocolContractTreeRoot: Fr,
 ): ProcessedTx {
-  const constants = CombinedConstantData.empty();
+  const constants = TxConstantData.empty();
   constants.historicalHeader = header;
   constants.txContext.chainId = chainId;
   constants.txContext.version = version;
@@ -107,7 +108,7 @@ export function makeEmptyProcessedTx(
     data: clientProofOutput,
     clientIvcProof: ClientIvcProof.empty(),
     avmProvingRequest: undefined,
-    constants,
+    constants: CombinedConstantData.combine(constants, GlobalVariables.empty()),
     txEffect: TxEffect.empty(),
     gasUsed: {
       totalGas: Gas.empty(),
@@ -140,7 +141,7 @@ export function makeProcessedTxFromPrivateOnlyTx(
       .filter(h => !h.isZero()),
     publicDataWrites,
     data.end.privateLogs.filter(l => !l.isEmpty()),
-    data.end.unencryptedLogPreimagesLength,
+    Fr.ZERO,
     data.end.contractClassLogPreimagesLength,
     tx.unencryptedLogs,
     tx.contractClassLogs,

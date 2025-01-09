@@ -3,10 +3,10 @@ mod meter_gas_used;
 use crate::components::private_kernel_circuit_public_inputs_composer::PrivateKernelCircuitPublicInputsComposer;
 use dep::types::{
     abis::{
-        accumulated_data::combined_accumulated_data::CombinedAccumulatedData,
-        combined_constant_data::CombinedConstantData,
-        global_variables::GlobalVariables,
-        kernel_circuit_public_inputs::{KernelCircuitPublicInputs, PrivateKernelCircuitPublicInputs},
+        accumulated_data::private_to_rollup_accumulated_data::PrivateToRollupAccumulatedData,
+        kernel_circuit_public_inputs::{
+            PrivateKernelCircuitPublicInputs, PrivateToRollupKernelCircuitPublicInputs,
+        },
         log_hash::ScopedLogHash,
         note_hash::ScopedNoteHash,
         nullifier::ScopedNullifier,
@@ -30,21 +30,22 @@ impl TailOutputComposer {
         TailOutputComposer { output_composer }
     }
 
-    pub unconstrained fn finish(self) -> KernelCircuitPublicInputs {
+    pub unconstrained fn finish(self) -> PrivateToRollupKernelCircuitPublicInputs {
         let source = self.output_composer.finish();
-        let mut output = KernelCircuitPublicInputs::empty();
+        let mut output = PrivateToRollupKernelCircuitPublicInputs::empty();
         output.rollup_validation_requests = source.validation_requests.for_rollup;
-        output.end = self.build_combined_accumulated_data();
+        output.end = self.build_private_to_rollup_accumulated_data();
         output.gas_used = meter_gas_used(output.end);
-        output.constants =
-            CombinedConstantData::combine(source.constants, GlobalVariables::empty());
+        output.constants = source.constants;
         output.fee_payer = source.fee_payer;
         output
     }
 
-    unconstrained fn build_combined_accumulated_data(self) -> CombinedAccumulatedData {
+    unconstrained fn build_private_to_rollup_accumulated_data(
+        self,
+    ) -> PrivateToRollupAccumulatedData {
         let source = self.output_composer.public_inputs.end;
-        let mut data = CombinedAccumulatedData::empty();
+        let mut data = PrivateToRollupAccumulatedData::empty();
         data.note_hashes = source.note_hashes.storage().map(|n: ScopedNoteHash| n.note_hash.value);
         data.nullifiers = source.nullifiers.storage().map(|n: ScopedNullifier| n.nullifier.value);
         data.l2_to_l1_msgs =

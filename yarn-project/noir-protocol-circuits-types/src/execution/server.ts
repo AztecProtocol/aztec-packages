@@ -1,8 +1,8 @@
 import {
   type BaseParityInputs,
-  type KernelCircuitPublicInputs,
   type ParityPublicInputs,
   type PrivateKernelEmptyInputs,
+  type PrivateToRollupKernelCircuitPublicInputs,
   type RootParityInputs,
 } from '@aztec/circuits.js';
 import {
@@ -31,10 +31,10 @@ import {
   mapBlockRootRollupInputsToNoir,
   mapEmptyBlockRootRollupInputsToNoir,
   mapEmptyKernelInputsToNoir,
-  mapKernelCircuitPublicInputsFromNoir,
   mapMergeRollupInputsToNoir,
   mapParityPublicInputsFromNoir,
   mapPrivateBaseRollupInputsToNoir,
+  mapPrivateToRollupKernelCircuitPublicInputsFromNoir,
   mapPublicBaseRollupInputsToNoir,
   mapRootParityInputsToNoir,
   mapRootRollupInputsToNoir,
@@ -187,23 +187,25 @@ export function convertRootRollupInputsToWitnessMap(inputs: RootRollupInputs): W
   return initialWitnessMap;
 }
 
-export function convertPrivateKernelEmptyOutputsFromWitnessMap(outputs: WitnessMap): KernelCircuitPublicInputs {
+export function convertPrivateKernelEmptyOutputsFromWitnessMap(
+  outputs: WitnessMap,
+): PrivateToRollupKernelCircuitPublicInputs {
   const decodedInputs: DecodedInputs = abiDecode(ServerCircuitArtifacts.PrivateKernelEmptyArtifact.abi, outputs);
   const returnType = decodedInputs.return_value as PrivateKernelEmptyReturnType;
 
-  return mapKernelCircuitPublicInputsFromNoir(returnType);
+  return mapPrivateToRollupKernelCircuitPublicInputsFromNoir(returnType);
 }
 
 export function convertSimulatedPrivateKernelEmptyOutputsFromWitnessMap(
   outputs: WitnessMap,
-): KernelCircuitPublicInputs {
+): PrivateToRollupKernelCircuitPublicInputs {
   const decodedInputs: DecodedInputs = abiDecode(
     SimulatedServerCircuitArtifacts.PrivateKernelEmptyArtifact.abi,
     outputs,
   );
   const returnType = decodedInputs.return_value as PrivateKernelEmptyReturnType;
 
-  return mapKernelCircuitPublicInputsFromNoir(returnType);
+  return mapPrivateToRollupKernelCircuitPublicInputsFromNoir(returnType);
 }
 
 /**
