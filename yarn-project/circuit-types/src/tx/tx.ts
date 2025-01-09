@@ -182,7 +182,7 @@ export class Tx extends Gossipable {
       const hash = this.data.forPublic
         ? this.data.toPrivateToPublicKernelCircuitPublicInputs().hash()
         : this.data.toPrivateToRollupKernelCircuitPublicInputs().hash();
-      logger.debug(`Tx hash computed in ${Date.now() - startTime}ms, isPublic? ${!!this.data.forPublic}`);
+      logger.info(`Tx hash computed in ${Date.now() - startTime}ms, isPublic? ${!!this.data.forPublic}`);
       this.txHash = new TxHash(hash);
     }
     return this.txHash!;
