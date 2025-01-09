@@ -1,3 +1,4 @@
+import { type BlobSinkClientInterface } from '@aztec/blob-sink/client';
 import { type ArchiverApi, type Service } from '@aztec/circuit-types';
 import {
   type ContractClassPublic,
@@ -23,6 +24,7 @@ import { createArchiverClient } from './rpc/index.js';
 
 export async function createArchiver(
   config: ArchiverConfig & DataStoreConfig,
+  blobSinkClient: BlobSinkClientInterface,
   telemetry: TelemetryClient = new NoopTelemetryClient(),
   opts: { blockUntilSync: boolean } = { blockUntilSync: true },
 ): Promise<ArchiverApi & Maybe<Service>> {
@@ -31,7 +33,7 @@ export async function createArchiver(
     const archiverStore = new KVArchiverDataStore(store, config.maxLogs);
     await registerProtocolContracts(archiverStore);
     await registerCommonContracts(archiverStore);
-    return Archiver.createAndSync(config, archiverStore, telemetry, opts.blockUntilSync);
+    return Archiver.createAndSync(config, archiverStore, { telemetry, blobSinkClient }, opts.blockUntilSync);
   } else {
     return createArchiverClient(config.archiverUrl);
   }

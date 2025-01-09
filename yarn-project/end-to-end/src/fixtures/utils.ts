@@ -27,7 +27,8 @@ import {
 import { deployInstance, registerContractClass } from '@aztec/aztec.js/deployment';
 import { DefaultMultiCallEntrypoint } from '@aztec/aztec.js/entrypoint';
 import { type BBNativePrivateKernelProver } from '@aztec/bb-prover';
-import { type BlobSinkServer, createBlobSinkServer } from '@aztec/blob-sink';
+import { createBlobSinkClient } from '@aztec/blob-sink/client';
+import { type BlobSinkServer, createBlobSinkServer } from '@aztec/blob-sink/server';
 import { type EthAddress, FEE_JUICE_INITIAL_MINT, Fr, Gas, getContractClassFromArtifact } from '@aztec/circuits.js';
 import {
   type DeployL1ContractsArgs,
@@ -391,7 +392,8 @@ export async function setup(
   // Blob sink service - blobs get posted here and served from here
   const blobSinkPort = await getPort();
   const blobSink = await createBlobSinkServer({ port: blobSinkPort });
-  config.blobSinkUrl = `http://127.0.0.1:${blobSinkPort}`;
+  await blobSink.start();
+  config.blobSinkUrl = `http://localhost:${blobSinkPort}`;
 
   const deployL1ContractsValues =
     opts.deployL1ContractsValues ?? (await setupL1Contracts(config.l1RpcUrl, publisherHdAccount!, logger, opts, chain));
@@ -454,8 +456,15 @@ export async function setup(
   config.l1PublishRetryIntervalMS = 100;
 
   const telemetry = await telemetryPromise;
-  const publisher = new TestL1Publisher(config, telemetry);
-  const aztecNode = await AztecNodeService.createAndSync(config, { telemetry, publisher, dateProvider });
+
+  const blobSinkClient = createBlobSinkClient(config.blobSinkUrl);
+  const publisher = new TestL1Publisher(config, { telemetry, blobSinkClient });
+  const aztecNode = await AztecNodeService.createAndSync(config, {
+    telemetry,
+    publisher,
+    dateProvider,
+    blobSinkClient,
+  });
   const sequencer = aztecNode.getSequencer();
 
   let proverNode: ProverNode | undefined = undefined;
@@ -725,9 +734,13 @@ export async function createAndSyncProverNode(
     stop: () => Promise.resolve(),
   };
 
+  const blobSinkClient = createBlobSinkClient();
   // Creating temp store and archiver for simulated prover node
   const archiverConfig = { ...aztecNodeConfig, dataDirectory };
-  const archiver = await createArchiver(archiverConfig, new NoopTelemetryClient(), { blockUntilSync: true });
+  const telemetry = new NoopTelemetryClient();
+  const archiver = await createArchiver(archiverConfig, blobSinkClient, telemetry, {
+    blockUntilSync: true,
+  });
 
   // Prover node config is for simulated proofs
   const proverConfig: ProverNodeConfig = {
@@ -751,7 +764,7 @@ export async function createAndSyncProverNode(
   };
 
   // Use testing l1 publisher
-  const publisher = new TestL1Publisher(proverConfig, new NoopTelemetryClient());
+  const publisher = new TestL1Publisher(proverConfig, { telemetry, blobSinkClient });
 
   const proverNode = await createProverNode(proverConfig, {
     aztecNodeTxProvider: aztecNodeWithoutStop,
