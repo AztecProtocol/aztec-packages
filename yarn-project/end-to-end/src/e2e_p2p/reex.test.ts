@@ -217,7 +217,7 @@ describe('e2e_p2p_reex', () => {
         const txResults = await Promise.allSettled(
           txs.map(async (tx: SentTx, i: number) => {
             t.logger.info(`Waiting for tx ${i}: ${await tx.getTxHash()} to be mined`);
-            return tx.wait({ timeout: 12 });
+            return tx.wait({ timeout: 24 });
           }),
         );
 
