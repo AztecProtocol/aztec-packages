@@ -632,7 +632,7 @@ export class SimulatorOracle implements DBOracle {
       }
 
       // This will trigger calls to the deliverNote oracle
-      await this.callProcessLogs(
+      await this.callProcessLog(
         decryptedLog.contractAddress,
         decryptedLog.plaintext,
         decryptedLog.txHash,
@@ -644,7 +644,7 @@ export class SimulatorOracle implements DBOracle {
     return;
   }
 
-  // Called when notes are delivered, usually as a result to a call to the process_logs contract function
+  // Called when notes are delivered, usually as a result to a call to the process_log contract function
   public async deliverNote(
     contractAddress: AztecAddress,
     storageSlot: Fr,
@@ -745,7 +745,7 @@ export class SimulatorOracle implements DBOracle {
     );
   }
 
-  async callProcessLogs(
+  async callProcessLog(
     contractAddress: AztecAddress,
     logPlaintext: Fr[],
     txHash: TxHash,
@@ -755,11 +755,11 @@ export class SimulatorOracle implements DBOracle {
   ) {
     const artifact: FunctionArtifact | undefined = await new ContractDataOracle(this.db).getFunctionArtifactByName(
       contractAddress,
-      'process_logs',
+      'process_log',
     );
     if (!artifact) {
       throw new Error(
-        `Mandatory implementation of "process_logs" missing in noir contract ${contractAddress.toString()}.`,
+        `Mandatory implementation of "process_log" missing in noir contract ${contractAddress.toString()}.`,
       );
     }
 

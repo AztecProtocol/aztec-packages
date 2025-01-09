@@ -60,7 +60,7 @@ fn for_each_bounded_vec<T, let MaxLen: u32, Env>(
 ///     })
 /// }
 /// ```
-pub unconstrained fn process_log<Env>(
+pub unconstrained fn do_process_log<Env>(
     context: UnconstrainedContext,
     log_plaintext: BoundedVec<Field, PRIVATE_LOG_SIZE_IN_FIELDS>,
     tx_hash: Field,
@@ -86,7 +86,6 @@ pub unconstrained fn process_log<Env>(
                 note_type_id,
             )
                 .unwrap();
-
 
             if hashes.unique_note_hash == expected_unique_note_hash {
                 // TODO(#10726): push these into a vec to deliver all at once instead of having one oracle call per note
