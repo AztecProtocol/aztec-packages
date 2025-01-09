@@ -1,74 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1736372149253,
+  "lastUpdate": 1736445443793,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "105737703+iakovenkos@users.noreply.github.com",
-            "name": "iakovenkos",
-            "username": "iakovenkos"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "abd2226da3a159e7efb7cbef099e41739f665ef1",
-          "message": "feat: sumcheck with disabled rows (#10068)\n\nZKFlavors are now running Sumcheck with last 4 rows disabled. To our\r\nknowledge, this is the cheapest approach to mask witness commitments,\r\ntheir evaluations, and, if necessary, the evaluations of their shifts at\r\nthe sumcheck challenge. \r\n\r\n**Note:** The last 4 rows of actual circuits in ECCVM and Translator are becoming\r\nun-constrained. Will be fixed in the follow-up PRs",
-          "timestamp": "2024-12-17T10:43:36+01:00",
-          "tree_id": "4215e7a77d3a7fcbeecacbe3d11ed4646896a605",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/abd2226da3a159e7efb7cbef099e41739f665ef1"
-        },
-        "date": 1734431820600,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "nativeClientIVCBench/Ambient_17_in_20/6",
-            "value": 25431.55851899999,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 19831.529317 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeClientIVCBench/Full/6",
-            "value": 24433.107527999993,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 22535.97772 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 4530.41484900001,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 4261.140504 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmClientIVCBench/Full/6",
-            "value": 94777.705245,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 94777705000 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 16472.460823999998,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 16472462000 ms\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 2782079198,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 2782079198 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 132657232,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 132657232 ns\nthreads: 1"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -3276,6 +3210,72 @@ window.BENCHMARK_DATA = {
             "value": 142052111,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 142052111 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "98505400+ledwards2225@users.noreply.github.com",
+            "name": "ledwards2225",
+            "username": "ledwards2225"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "de9960345da17e97464d2c36c35e3eada4fa3680",
+          "message": "feat: permutation argument optimizations  (#10960)\n\nA handful of optimizations for the large ambient trace setting, mostly\nto do with the grand product argument. Total savings is about 1s on the\n\"17 in 20\" benchmark.\n\n- Only perform computation for the grand product on active rows of the\ntrace. This means (1) only setting the values of sigma/id on the active\nrows (they remain zero elsewhere since those values don't contribute to\nthe grand product anyway). And (2) only compute the grand product at\nactive rows then populate the constant regions as a final step. These\nare both facilitated by constructing a vector `active_row_idxs` which\nexplicitly contains the indices of the active rows. This makes it easier\nto multithread and is much more efficient than looping over the entire\ndomain and using something like `check_is_active()` which itself has low\noverhead but results in huge disparities in the distribution of actual\nwork across threads.\n- Replace a default initialized `std::vector` in PG with a `Polynomial`\nsimply to take advantage of the optimized constructor\n\nBranch \"17 in 20\" benchmark\n\n`ClientIVCBench/Full/6      20075 ms        17763 ms`\n\nMaster \"17 in 20\" benchmark\n\n`ClientIVCBench/Full/6      21054 ms        18395 ms`\n\nThe conventional benchmark (\"19 in 19\") shows a very minor improvement,\nas expected:\n\nBranch: \n\n`ClientIVCBench/Full/6      22231 ms        19857 ms`\n\nMaster:\n\n`ClientIVCBench/Full/6      22505 ms        19536 ms`",
+          "timestamp": "2025-01-09T10:33:11-07:00",
+          "tree_id": "73828bc83a35e049de401d8b3346b10c8b2ba7b5",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/de9960345da17e97464d2c36c35e3eada4fa3680"
+        },
+        "date": 1736445435828,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Ambient_17_in_20/6",
+            "value": 19884.75347799999,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 17097.27884 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 21838.192907999997,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 18876.969049 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 4740.065844000014,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 4328.781017000001 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 72406.167237,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 72406168000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 14272.296748000002,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 14272298000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 3231217012,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 3231217012 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 141715859,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 141715859 ns\nthreads: 1"
           }
         ]
       }
