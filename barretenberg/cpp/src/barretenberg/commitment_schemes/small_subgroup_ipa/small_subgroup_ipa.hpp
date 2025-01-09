@@ -204,7 +204,7 @@ template <typename Flavor> class SmallSubgroupIPAProver {
             // We concatenate 1 with CONST_PROOF_SIZE_LOG_N Libra Univariates of length LIBRA_UNIVARIATES_LENGTH
             const size_t poly_to_concatenate_start = 1 + LIBRA_UNIVARIATES_LENGTH * challenge_idx;
             coeffs_lagrange_basis[poly_to_concatenate_start] = FF(1);
-            for (size_t idx = 1 + poly_to_concatenate_start; idx < poly_to_concatenate_start + LIBRA_UNIVARIATES_LENGTH;
+            for (size_t idx = poly_to_concatenate_start + 1; idx < poly_to_concatenate_start + LIBRA_UNIVARIATES_LENGTH;
                  idx++) {
                 // Recursively compute the powers of the challenge
                 coeffs_lagrange_basis[idx] = coeffs_lagrange_basis[idx - 1] * multivariate_challenge[challenge_idx];
@@ -426,13 +426,14 @@ template <typename Curve> class SmallSubgroupIPAVerifier {
         // Compute the evaluation of the vanishing polynomia Z_H(X) at X = gemini_evaluation_challenge
         const FF vanishing_poly_eval = gemini_evaluation_challenge.pow(SUBGROUP_SIZE) - FF(1);
 
+        // TODO(https://github.com/AztecProtocol/barretenberg/issues/1194). Handle edge cases in PCS
+        // TODO(https://github.com/AztecProtocol/barretenberg/issues/1186). Insecure pattern.
         bool gemini_challenge_in_small_subgroup = false;
         if constexpr (Curve::is_stdlib_type) {
             gemini_challenge_in_small_subgroup = (vanishing_poly_eval.get_value() == FF(0).get_value());
         } else {
             gemini_challenge_in_small_subgroup = (vanishing_poly_eval == FF(0));
         }
-
         // The probability of this event is negligible but it has to be processed correctly
         if (gemini_challenge_in_small_subgroup) {
             throw_or_abort("Gemini evaluation challenge is in the SmallSubgroup.");
