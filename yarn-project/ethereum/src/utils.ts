@@ -124,8 +124,21 @@ export function formatViemError(error: any): string {
     }
   };
 
+  const formatArgs = (args: string[]) => {
+    return args.map(arg => {
+      // If it's a data field with a long hex string, truncate it
+      if (arg.startsWith('data:')) {
+        const [prefix, hexData] = arg.split(/:\s+/);
+        if (hexData && hexData.startsWith('0x') && hexData.length > 50) {
+          return `${prefix}: ${truncateHex(hexData)}`;
+        }
+      }
+      return arg;
+    });
+  };
+
   const errorChain = [];
-  const seenMessages = new Set(); // To avoid duplicate error messages
+  const seenMessages = new Set();
 
   if (error instanceof BaseError) {
     error.walk((err: any) => {
@@ -143,10 +156,12 @@ export function formatViemError(error: any): string {
       // Extract request arguments if present
       const argsMatch = err.message?.match(/Request Arguments:\n([\s\S]*?)(?:\n\nDetails:|$)/);
       if (argsMatch) {
-        errorInfo.args = argsMatch[1]
-          .split('\n')
-          .map((line: string) => line.trim())
-          .filter(Boolean);
+        errorInfo.args = formatArgs(
+          argsMatch[1]
+            .split('\n')
+            .map((line: string) => line.trim())
+            .filter(Boolean),
+        );
       }
 
       // Extract details if present

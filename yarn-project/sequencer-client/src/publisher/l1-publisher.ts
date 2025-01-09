@@ -22,7 +22,7 @@ import {
   type L1ContractsConfig,
   L1TxUtils,
   createEthereumChain,
-  prettyLogViemErrorMsg,
+  formatViemError,
 } from '@aztec/ethereum';
 import { makeTuple } from '@aztec/foundation/array';
 import { toHex } from '@aztec/foundation/bigint-buffer';
@@ -574,7 +574,7 @@ export class L1Publisher {
         account: this.account,
       });
     } catch (err) {
-      const msg = prettyLogViemErrorMsg(err);
+      const msg = formatViemError(err);
       logger.error(`Failed to vote`, msg);
       this.myLastVotes[voteType] = cachedMyLastVote;
       return false;
@@ -717,7 +717,7 @@ export class L1Publisher {
         }),
       });
     } catch (err) {
-      this.log.error(`Failed to claim epoch proof right: ${prettyLogViemErrorMsg(err)}`, err, {
+      this.log.error(`Failed to claim epoch proof right: ${formatViemError(err)}`, err, {
         proofQuote: proofQuote.toInspect(),
       });
       return false;
@@ -1096,7 +1096,7 @@ export class L1Publisher {
         data,
       };
     } catch (err) {
-      this.log.error(`Rollup publish failed: ${prettyLogViemErrorMsg(err)}`, err);
+      this.log.error(`Rollup publish failed: ${formatViemError(err)}`, err);
       return undefined;
     }
   }
@@ -1137,7 +1137,7 @@ export class L1Publisher {
         data,
       };
     } catch (err) {
-      this.log.error(`Rollup publish failed: ${prettyLogViemErrorMsg(err)}`, err);
+      this.log.error(`Rollup publish failed: ${formatViemError(err)}`, err);
       return undefined;
     }
   }
