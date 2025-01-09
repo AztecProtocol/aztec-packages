@@ -278,7 +278,7 @@ comptime fn generate_process_log() -> Quoted {
             log_plaintext: BoundedVec<Field, dep::aztec::protocol_types::constants::PRIVATE_LOG_SIZE_IN_FIELDS>,
             tx_hash: Field,
             unique_note_hashes_in_tx: BoundedVec<Field, dep::aztec::protocol_types::constants::MAX_NOTE_HASHES_PER_TX>,
-            recipient: AztecAddress,
+            recipient: aztec::protocol_types::address::AztecAddress,
         ) {
             $body
         }
