@@ -238,13 +238,8 @@ comptime fn generate_process_log() -> Quoted {
 
     let if_note_type_id_match_statements = if_note_type_id_match_statements_list.join(quote {});
 
-    quote {
-        unconstrained fn process_log(
-            log_plaintext: BoundedVec<Field, dep::aztec::protocol_types::constants::PRIVATE_LOG_SIZE_IN_FIELDS>,
-            tx_hash: Field,
-            unique_note_hashes_in_tx: BoundedVec<Field, dep::aztec::protocol_types::constants::MAX_NOTE_HASHES_PER_TX>,
-            recipient: AztecAddress,
-        ) {
+    let body = if notes.len() > 0 {
+        quote {
             // Because this unconstrained function is injected after the contract is processed by the macros, it'll not
             // be modified by the macros that alter unconstrained functions. As such, we need to manually inject the
             // unconstrained execution context since it will not be available otherwise.
@@ -271,6 +266,19 @@ comptime fn generate_process_log() -> Quoted {
                     )
                 }
             );
+        }
+    } else {
+        panic(f"No notes defined")
+    };
+
+    quote {
+        unconstrained fn process_log(
+            log_plaintext: BoundedVec<Field, dep::aztec::protocol_types::constants::PRIVATE_LOG_SIZE_IN_FIELDS>,
+            tx_hash: Field,
+            unique_note_hashes_in_tx: BoundedVec<Field, dep::aztec::protocol_types::constants::MAX_NOTE_HASHES_PER_TX>,
+            recipient: AztecAddress,
+        ) {
+            $body
         }
     }
 }
