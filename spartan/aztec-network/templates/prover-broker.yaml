@@ -1,6 +1,6 @@
 {{- if .Values.proverBroker.enabled }}
 apiVersion: apps/v1
-kind: ReplicaSet
+kind: StatefulSet
 metadata:
   name: {{ include "aztec-network.fullname" . }}-prover-broker
   labels:
@@ -11,6 +11,16 @@ spec:
     matchLabels:
       {{- include "aztec-network.selectorLabels" . | nindent 6 }}
       app: prover-broker
+  {{- if not .Values.storage.localSsd }}
+  volumeClaimTemplates:
+    - metadata:
+        name: prover-broker-data
+      spec:
+        accessModes: [ "ReadWriteOnce" ]
+        resources:
+          requests:
+            storage: {{ .Values.proverBroker.storageSize }}
+  {{- end }}
   template:
     metadata:
       labels:
@@ -60,6 +70,8 @@ spec:
           volumeMounts:
             - name: config
               mountPath: /shared/config
+            - name: prover-broker-data
+              mountPath: {{ .Values.proverBroker.dataDir }}
           command:
             - "/bin/bash"
             - "-c"
@@ -99,6 +111,20 @@ spec:
               value: service.name={{ .Release.Name }},service.namespace={{ .Release.Namespace }},service.version={{ .Chart.AppVersion }},environment={{ .Values.environment | default "production" }}
           resources:
             {{- toYaml .Values.proverBroker.resources | nindent 12 }}
+      volumes:
+        - name: scripts
+          configMap:
+            name: {{ include "aztec-network.fullname" . }}-scripts
+        - name: config
+          emptyDir: {}
+      {{- if .Values.storage.localSsd }}
+        - name: prover-broker-data
+          emptyDir: {}
+      {{ else }}
+        - name: prover-broker-data
+          persistentVolumeClaim:
+            claimName: prover-broker-data
+      {{- end }}
 {{- end }}
 ---
 # Headless service for StatefulSet DNS entries
