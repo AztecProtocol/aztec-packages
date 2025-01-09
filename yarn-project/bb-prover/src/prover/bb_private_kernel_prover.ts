@@ -48,6 +48,7 @@ export abstract class BBPrivateKernelProver implements PrivateKernelProver {
       convertPrivateKernelInitOutputsFromWitnessMapWithAbi,
     );
   }
+
   public async simulateInit(
     inputs: PrivateKernelInitCircuitPrivateInputs,
   ): Promise<PrivateKernelSimulateOutput<PrivateKernelCircuitPublicInputs>> {
