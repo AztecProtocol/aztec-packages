@@ -675,6 +675,8 @@ export class SimulatorOracle implements DBOracle {
   }
 
   public async removeNullifiedNotes(contractAddress: AztecAddress) {
+    this.log.verbose('Removing nullified notes', { contract: contractAddress });
+
     for (const recipient of await this.keyStore.getAccounts()) {
       const currentNotesForRecipient = await this.db.getIncomingNotes({ contractAddress, owner: recipient });
       const nullifiersToCheck = currentNotesForRecipient.map(note => note.siloedNullifier);
@@ -715,15 +717,15 @@ export class SimulatorOracle implements DBOracle {
     }
     const { blockNumber, blockHash } = receipt;
 
-    const siloedNoteHash = siloNoteHash(contractAddress, computeUniqueNoteHash(nonce, noteHash));
+    const uniqueNoteHash = computeUniqueNoteHash(nonce, siloNoteHash(contractAddress, noteHash));
     const siloedNullifier = siloNullifier(contractAddress, nullifier);
 
-    const siloedNoteHashTreeIndex = (
-      await this.aztecNode.findLeavesIndexes(blockNumber!, MerkleTreeId.NOTE_HASH_TREE, [siloedNoteHash])
+    const uniqueNoteHashTreeIndex = (
+      await this.aztecNode.findLeavesIndexes(blockNumber!, MerkleTreeId.NOTE_HASH_TREE, [uniqueNoteHash])
     )[0];
-    if (siloedNoteHashTreeIndex === undefined) {
+    if (uniqueNoteHashTreeIndex === undefined) {
       throw new Error(
-        `Note hash ${noteHash} (siloed as ${siloedNoteHash}) is not present on the tree at block ${blockNumber} (from tx ${txHash})`,
+        `Note hash ${noteHash} (uniqued as ${uniqueNoteHash}) is not present on the tree at block ${blockNumber} (from tx ${txHash})`,
       );
     }
 
@@ -738,7 +740,7 @@ export class SimulatorOracle implements DBOracle {
       nonce,
       noteHash,
       siloedNullifier,
-      siloedNoteHashTreeIndex,
+      uniqueNoteHashTreeIndex,
       recipient.toAddressPoint(),
     );
   }

@@ -22,7 +22,6 @@ contract SchnorrAccount {
     use dep::aztec::prelude::{AztecAddress, PrivateContext, PrivateImmutable};
 
     use crate::public_key_note::PublicKeyNote;
-    use dep::aztec::protocol_types::constants::{MAX_NOTE_HASHES_PER_TX, PRIVATE_LOG_SIZE_IN_FIELDS};
 
     #[storage]
     struct Storage<Context> {
@@ -120,41 +119,5 @@ contract SchnorrAccount {
         let is_spent = lower_wit.leaf_preimage.nullifier == siloed_nullifier;
 
         !is_spent & valid_in_private
-    }
-
-    unconstrained fn process_logs(
-        log_plaintext: BoundedVec<Field, PRIVATE_LOG_SIZE_IN_FIELDS>,
-        tx_hash: Field,
-        siloed_note_hashes_in_tx: BoundedVec<Field, MAX_NOTE_HASHES_PER_TX>,
-        recipient: AztecAddress,
-    ) {
-        dep::aztec::oracle::management::process_log(
-            context,
-            log_plaintext,
-            tx_hash,
-            siloed_note_hashes_in_tx,
-            recipient,
-            |serialized_note_content: BoundedVec<Field, _>, note_header, note_type_id| {
-                let hashes = if note_type_id == PublicKeyNote::get_note_type_id() {
-                    assert(serialized_note_content.len() == 3);
-                    dep::aztec::note::utils::compute_note_hash_and_optionally_a_nullifier(
-                        PublicKeyNote::deserialize_content,
-                        note_header,
-                        true,
-                        serialized_note_content.storage(),
-                    )
-                } else {
-                    panic(f"Unknown note type id {note_type_id}")
-                };
-
-                Option::some(
-                    dep::aztec::oracle::management::NoteHashesAndNullifier {
-                        note_hash: hashes[0],
-                        siloed_note_hash: hashes[2],
-                        inner_nullifier: hashes[3],
-                    },
-                )
-            },
-        );
     }
 }

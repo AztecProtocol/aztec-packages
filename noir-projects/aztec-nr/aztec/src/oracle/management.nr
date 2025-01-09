@@ -17,7 +17,7 @@ global MAX_NOTE_SERIALIZED_LEN: u32 = PRIVATE_LOG_SIZE_IN_FIELDS - NOTE_LOG_RESE
 
 pub struct NoteHashesAndNullifier {
     pub note_hash: Field,
-    pub siloed_note_hash: Field,
+    pub unique_note_hash: Field,
     pub inner_nullifier: Field,
 }
 
@@ -34,7 +34,7 @@ fn for_each_bounded_vec<T, let MaxLen: u32, Env>(
 
 /// Processes a log given its plaintext by trying to find notes encoded in it. This process involves the discovery of
 /// the nonce of any such notes, which requires knowledge of the transaction hash in which the notes would've been
-/// created, along with the list of siloed note hashes in said transaction.
+/// created, along with the list of unique note hashes in said transaction.
 ///
 /// Additionally, this requires a `compute_note_hash_and_nullifier` lambda that is able to compute these values for any
 /// note in the contract given their contents. A typical implementation of such a function would look like this:
@@ -55,7 +55,7 @@ fn for_each_bounded_vec<T, let MaxLen: u32, Env>(
 ///
 ///     Option::some(dep::aztec::oracle::management::NoteHashesAndNullifier {
 ///         note_hash: hashes[0],
-///         siloed_note_hash: hashes[2],
+///         unique_note_hash: hashes[1],
 ///         inner_nullifier: hashes[3],
 ///     })
 /// }
@@ -64,17 +64,17 @@ pub unconstrained fn process_log<Env>(
     context: UnconstrainedContext,
     log_plaintext: BoundedVec<Field, PRIVATE_LOG_SIZE_IN_FIELDS>,
     tx_hash: Field,
-    siloed_note_hashes_in_tx: BoundedVec<Field, MAX_NOTE_HASHES_PER_TX>,
+    unique_note_hashes_in_tx: BoundedVec<Field, MAX_NOTE_HASHES_PER_TX>,
     recipient: AztecAddress,
     compute_note_hash_and_nullifier: fn[Env](BoundedVec<Field, MAX_NOTE_SERIALIZED_LEN>, NoteHeader, Field) -> Option<NoteHashesAndNullifier>,
 ) {
     let (storage_slot, note_type_id, serialized_note_content) =
         destructure_log_plaintext(log_plaintext);
 
-    // We need to find the note's nonce, which is the one that results in one of the siloed note hashes from tx_hash
+    // We need to find the note's nonce, which is the one that results in one of the unique note hashes from tx_hash
     for_each_bounded_vec(
-        siloed_note_hashes_in_tx,
-        |expected_siloed_note_hash, i| {
+        unique_note_hashes_in_tx,
+        |expected_unique_note_hash, i| {
             let candidate_nonce = compute_note_hash_nonce(tx_hash, i);
 
             let header = NoteHeader::new(context.this_address(), candidate_nonce, storage_slot);
@@ -87,7 +87,8 @@ pub unconstrained fn process_log<Env>(
             )
                 .unwrap();
 
-            if hashes.siloed_note_hash == expected_siloed_note_hash {
+
+            if hashes.unique_note_hash == expected_unique_note_hash {
                 // TODO(#10726): push these into a vec to deliver all at once instead of having one oracle call per note
                 deliver_note(
                     context.this_address(), // TODO(#10727): allow other contracts to deliver notes
@@ -100,8 +101,9 @@ pub unconstrained fn process_log<Env>(
                     recipient,
                 );
 
-                // We don't exit the loop - it is possible (though rare) for the same note content to be present
-                // multiple times in the same transaction with different nonces.
+                // We don't exit the loop - it is possible (though rare) for the exact same note content to be present
+                // multiple times in the same transaction with different nonces. This typically doesn't happen due to
+                // notes containing random values in order to hide their contents.
             }
         },
     );

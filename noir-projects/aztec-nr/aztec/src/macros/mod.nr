@@ -25,15 +25,19 @@ pub comptime fn aztec(m: Module) -> Quoted {
     for f in unconstrained_functions {
         transform_unconstrained(f);
     }
+
     let compute_note_hash_and_optionally_a_nullifier =
         generate_compute_note_hash_and_optionally_a_nullifier();
+    let process_logs = generate_process_logs();
     let note_exports = generate_note_exports();
     let public_dispatch = generate_public_dispatch(m);
     let sync_notes = generate_sync_notes();
+
     quote {
         $note_exports
         $interface
         $compute_note_hash_and_optionally_a_nullifier
+        $process_logs
         $public_dispatch
         $sync_notes
     }
@@ -161,6 +165,63 @@ comptime fn generate_compute_note_hash_and_optionally_a_nullifier() -> Quoted {
             serialized_note: [Field; $max_note_length],
         ) -> pub [Field; 4] {
             $body
+        }
+    }
+}
+
+comptime fn generate_process_logs() -> Quoted {
+    let mut if_note_type_id_match_statements_list = &[];
+
+    let notes = NOTES.entries();
+    for i in 0..notes.len() {
+        let (typ, (_, serialized_note_length, _, _)) = notes[i];
+        let if_or_else_if = if i == 0 {
+            quote { if }
+        } else {
+            quote { else if }
+        };
+        if_note_type_id_match_statements_list = if_note_type_id_match_statements_list.push_back(
+            quote {
+                $if_or_else_if note_type_id == $typ::get_note_type_id() {
+                    assert_eq(serialized_note_content.len(), $serialized_note_length);
+                    aztec::note::utils::compute_note_hash_and_optionally_a_nullifier($typ::deserialize_content, note_header, true, serialized_note_content.storage())
+                }
+            },
+        );
+    }
+
+    let if_note_type_id_match_statements = if_note_type_id_match_statements_list.join(quote {});
+
+    quote {
+        unconstrained fn process_logs(
+            log_plaintext: BoundedVec<Field, dep::aztec::protocol_types::constants::PRIVATE_LOG_SIZE_IN_FIELDS>,
+            tx_hash: Field,
+            unique_note_hashes_in_tx: BoundedVec<Field, dep::aztec::protocol_types::constants::MAX_NOTE_HASHES_PER_TX>,
+            recipient: AztecAddress,
+        ) {
+            let context = dep::aztec::context::unconstrained_context::UnconstrainedContext::new();
+
+            dep::aztec::oracle::management::process_log(
+                context,
+                log_plaintext,
+                tx_hash,
+                unique_note_hashes_in_tx,
+                recipient,
+                |serialized_note_content: BoundedVec<Field, _>, note_header, note_type_id| {
+                    let hashes = $if_note_type_id_match_statements
+                    else {
+                        panic(f"Unknown note type id {note_type_id}")
+                    };
+
+                    Option::some(
+                        dep::aztec::oracle::management::NoteHashesAndNullifier {
+                            note_hash: hashes[0],
+                            unique_note_hash: hashes[1],
+                            inner_nullifier: hashes[3],
+                        },
+                    )
+                }
+            );
         }
     }
 }
