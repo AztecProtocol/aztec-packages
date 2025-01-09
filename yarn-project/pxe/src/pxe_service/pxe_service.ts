@@ -55,6 +55,7 @@ import {
   EventSelector,
   FunctionSelector,
   FunctionType,
+  decodeFunctionSignature,
   encodeArguments,
 } from '@aztec/foundation/abi';
 import { type AztecAddress } from '@aztec/foundation/aztec-address';
@@ -238,14 +239,10 @@ export class PXEService implements PXE {
 
       await this.db.addContractArtifact(contractClassId, artifact);
 
-      const functionNames: Record<string, string> = {};
-      for (const fn of artifact.functions) {
-        if (fn.functionType === FunctionType.PUBLIC) {
-          functionNames[FunctionSelector.fromNameAndParameters(fn.name, fn.parameters).toString()] = fn.name;
-        }
-      }
-
-      await this.node.registerContractFunctionNames(instance.address, functionNames);
+      const publicFunctionSignatures = artifact.functions
+        .filter(fn => fn.functionType === FunctionType.PUBLIC)
+        .map(fn => decodeFunctionSignature(fn.name, fn.parameters));
+      await this.node.registerContractFunctionSignatures(instance.address, publicFunctionSignatures);
 
       // TODO(#10007): Node should get public contract class from the registration event, not from PXE registration
       await this.node.addContractClass({ ...contractClass, privateFunctions: [], unconstrainedFunctions: [] });

@@ -124,7 +124,6 @@ export {
   mockEpochProofQuote,
   mockTx,
   type AztecNode,
-  type EpochConstants,
   type LogFilter,
   type PXE,
   type PartialAddress,

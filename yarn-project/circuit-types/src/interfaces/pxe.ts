@@ -390,7 +390,7 @@ export interface PXE {
   isContractInitialized(address: AztecAddress): Promise<boolean>;
 
   /**
-   * Returns the enctypred events given search parameters.
+   * Returns the encrypted events given search parameters.
    * @param eventMetadata - Metadata of the event. This should be the class generated from the contract. e.g. Contract.events.Event
    * @param from - The block number to search from.
    * @param limit - The amount of blocks to search.

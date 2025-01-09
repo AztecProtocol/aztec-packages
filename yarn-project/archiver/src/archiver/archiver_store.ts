@@ -265,7 +265,7 @@ export interface ArchiverDataStore {
   // TODO:  These function names are in memory only as they are for development/debugging. They require the full contract
   //        artifact supplied to the node out of band. This should be reviewed and potentially removed as part of
   //        the node api cleanup process.
-  registerContractFunctionName(address: AztecAddress, names: Record<string, string>): Promise<void>;
+  registerContractFunctionSignatures(address: AztecAddress, signatures: string[]): Promise<void>;
   getContractFunctionName(address: AztecAddress, selector: FunctionSelector): Promise<string | undefined>;
 
   /**

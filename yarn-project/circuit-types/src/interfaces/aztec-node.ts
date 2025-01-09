@@ -51,7 +51,7 @@ import {
 import { TxEffect } from '../tx_effect.js';
 import { type SequencerConfig, SequencerConfigSchema } from './configs.js';
 import { type L2BlockNumber, L2BlockNumberSchema } from './l2_block_number.js';
-import { NullifierMembershipWitness } from './nullifier_tree.js';
+import { NullifierMembershipWitness } from './nullifier_membership_witness.js';
 import { type ProverConfig, ProverConfigSchema } from './prover-client.js';
 import { type ProverCoordination, ProverCoordinationApiSchema } from './prover-coordination.js';
 
@@ -295,7 +295,7 @@ export interface AztecNode
    * @param aztecAddress
    * @param artifact
    */
-  registerContractFunctionNames(address: AztecAddress, names: Record<string, string>): Promise<void>;
+  registerContractFunctionSignatures(address: AztecAddress, functionSignatures: string[]): Promise<void>;
 
   /**
    * Retrieves all private logs from up to `limit` blocks, starting from the block number `from`.
@@ -542,10 +542,7 @@ export const AztecNodeApiSchema: ApiSchemaFor<AztecNode> = {
 
   getProtocolContractAddresses: z.function().returns(ProtocolContractAddressesSchema),
 
-  registerContractFunctionNames: z
-    .function()
-    .args(schemas.AztecAddress, z.record(z.string(), z.string()))
-    .returns(z.void()),
+  registerContractFunctionSignatures: z.function().args(schemas.AztecAddress, z.array(z.string())).returns(z.void()),
 
   getPrivateLogs: z.function().args(z.number(), z.number()).returns(z.array(PrivateLog.schema)),
 

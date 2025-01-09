@@ -30,7 +30,7 @@ import {
   type PublicLog,
   type UnconstrainedFunctionWithMembershipProof,
 } from '@aztec/circuits.js';
-import { type FunctionSelector } from '@aztec/foundation/abi';
+import { FunctionSelector } from '@aztec/foundation/abi';
 import { type AztecAddress } from '@aztec/foundation/aztec-address';
 import { createLogger } from '@aztec/foundation/log';
 
@@ -721,9 +721,14 @@ export class MemoryArchiverStore implements ArchiverDataStore {
     return Promise.resolve(this.functionNames.get(selector.toString()));
   }
 
-  public registerContractFunctionName(_address: AztecAddress, names: Record<string, string>): Promise<void> {
-    for (const [selector, name] of Object.entries(names)) {
-      this.functionNames.set(selector, name);
+  public registerContractFunctionSignatures(_address: AztecAddress, signatures: string[]): Promise<void> {
+    for (const sig of signatures) {
+      try {
+        const selector = FunctionSelector.fromSignature(sig);
+        this.functionNames.set(selector.toString(), sig.slice(0, sig.indexOf('(')));
+      } catch {
+        this.#log.warn(`Failed to parse signature: ${sig}. Ignoring`);
+      }
     }
 
     return Promise.resolve();

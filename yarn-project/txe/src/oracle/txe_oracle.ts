@@ -59,7 +59,7 @@ import {
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { poseidon2Hash } from '@aztec/foundation/crypto';
 import { Fr } from '@aztec/foundation/fields';
-import { type Logger, applyStringFormatting } from '@aztec/foundation/log';
+import { type LogFn, type Logger, applyStringFormatting, createDebugOnlyLogger } from '@aztec/foundation/log';
 import { Timer } from '@aztec/foundation/timer';
 import { type KeyStore } from '@aztec/key-store';
 import { ContractDataOracle, SimulatorOracle, enrichPublicSimulationError } from '@aztec/pxe';
@@ -117,6 +117,8 @@ export class TXE implements TypedOracle {
 
   private node = new TXENode(this.blockNumber);
 
+  debug: LogFn;
+
   constructor(
     private logger: Logger,
     private trees: MerkleTrees,
@@ -130,6 +132,8 @@ export class TXE implements TypedOracle {
     // Default msg_sender (for entrypoints) is now Fr.max_value rather than 0 addr (see #7190 & #7404)
     this.msgSender = AztecAddress.fromField(Fr.MAX_FIELD_VALUE);
     this.simulatorOracle = new SimulatorOracle(this.contractDataOracle, txeDatabase, keyStore, this.node);
+
+    this.debug = createDebugOnlyLogger('aztec:kv-pxe-database');
   }
 
   // Utils
@@ -1042,5 +1046,38 @@ export class TXE implements TypedOracle {
     )) as PublicDataTreeLeafPreimage;
 
     return preimage.value;
+  }
+
+  /**
+   * Used by contracts during execution to store arbitrary data in the local PXE database. The data is siloed/scoped
+   * to a specific `contract`.
+   * @param contract - The contract address to store the data under.
+   * @param key - A field element representing the key to store the data under.
+   * @param values - An array of field elements representing the data to store.
+   */
+  store(contract: AztecAddress, key: Fr, values: Fr[]): Promise<void> {
+    if (!contract.equals(this.contractAddress)) {
+      // TODO(#10727): instead of this check check that this.contractAddress is allowed to process notes for contract
+      throw new Error(
+        `Contract address ${contract} does not match the oracle's contract address ${this.contractAddress}`,
+      );
+    }
+    return this.txeDatabase.store(this.contractAddress, key, values);
+  }
+
+  /**
+   * Used by contracts during execution to load arbitrary data from the local PXE database. The data is siloed/scoped
+   * to a specific `contract`.
+   * @param contract - The contract address to load the data from.
+   * @param key - A field element representing the key under which to load the data..
+   * @returns An array of field elements representing the stored data or `null` if no data is stored under the key.
+   */
+  load(contract: AztecAddress, key: Fr): Promise<Fr[] | null> {
+    if (!contract.equals(this.contractAddress)) {
+      // TODO(#10727): instead of this check check that this.contractAddress is allowed to process notes for contract
+      this.debug(`Data not found for contract ${contract.toString()} and key ${key.toString()}`);
+      return Promise.resolve(null);
+    }
+    return this.txeDatabase.load(this.contractAddress, key);
   }
 }

@@ -1,3 +1,4 @@
+import { type BlobSinkClientInterface } from '@aztec/blob-sink/client';
 import {
   type GetPublicLogsResponse,
   type GetUnencryptedLogsResponse,
@@ -116,6 +117,7 @@ export class Archiver implements ArchiveSource, Traceable {
     private readonly l1Addresses: { rollupAddress: EthAddress; inboxAddress: EthAddress; registryAddress: EthAddress },
     readonly dataStore: ArchiverDataStore,
     private readonly config: { pollingIntervalMs: number; batchSize: number },
+    private readonly _blobSinkClient: BlobSinkClientInterface,
     private readonly instrumentation: ArchiverInstrumentation,
     private readonly l1constants: L1RollupConstants,
     private readonly log: Logger = createLogger('archiver'),
@@ -146,7 +148,7 @@ export class Archiver implements ArchiveSource, Traceable {
   public static async createAndSync(
     config: ArchiverConfig,
     archiverStore: ArchiverDataStore,
-    telemetry: TelemetryClient,
+    deps: { telemetry: TelemetryClient; blobSinkClient: BlobSinkClientInterface },
     blockUntilSynced = true,
   ): Promise<Archiver> {
     const chain = createEthereumChain(config.l1RpcUrl, config.l1ChainId);
@@ -177,7 +179,8 @@ export class Archiver implements ArchiveSource, Traceable {
         pollingIntervalMs: config.archiverPollingIntervalMS ?? 10_000,
         batchSize: config.archiverBatchSize ?? 100,
       },
-      await ArchiverInstrumentation.new(telemetry, () => archiverStore.estimateSize()),
+      deps.blobSinkClient,
+      await ArchiverInstrumentation.new(deps.telemetry, () => archiverStore.estimateSize()),
       { l1StartBlock, l1GenesisTime, epochDuration, slotDuration, ethereumSlotDuration },
     );
     await archiver.start(blockUntilSynced);
@@ -509,8 +512,8 @@ export class Archiver implements ArchiveSource, Traceable {
     return Promise.resolve();
   }
 
-  public getL1Constants(): L1RollupConstants {
-    return this.l1constants;
+  public getL1Constants(): Promise<L1RollupConstants> {
+    return Promise.resolve(this.l1constants);
   }
 
   public getRollupAddress(): Promise<EthAddress> {
@@ -776,8 +779,8 @@ export class Archiver implements ArchiveSource, Traceable {
     return;
   }
 
-  registerContractFunctionNames(address: AztecAddress, names: Record<string, string>): Promise<void> {
-    return this.store.registerContractFunctionName(address, names);
+  registerContractFunctionSignatures(address: AztecAddress, signatures: string[]): Promise<void> {
+    return this.store.registerContractFunctionSignatures(address, signatures);
   }
 
   getContractFunctionName(address: AztecAddress, selector: FunctionSelector): Promise<string | undefined> {
@@ -1084,8 +1087,8 @@ class ArchiverStoreHelper
   getContractClassIds(): Promise<Fr[]> {
     return this.store.getContractClassIds();
   }
-  registerContractFunctionName(address: AztecAddress, names: Record<string, string>): Promise<void> {
-    return this.store.registerContractFunctionName(address, names);
+  registerContractFunctionSignatures(address: AztecAddress, signatures: string[]): Promise<void> {
+    return this.store.registerContractFunctionSignatures(address, signatures);
   }
   getContractFunctionName(address: AztecAddress, selector: FunctionSelector): Promise<string | undefined> {
     return this.store.getContractFunctionName(address, selector);
