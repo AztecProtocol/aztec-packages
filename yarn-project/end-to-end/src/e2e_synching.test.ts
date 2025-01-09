@@ -45,6 +45,7 @@ import {
   createLogger,
   sleep,
 } from '@aztec/aztec.js';
+import { createBlobSinkClient } from '@aztec/blob-sink/client';
 // eslint-disable-next-line no-restricted-imports
 import { L2Block, tryStop } from '@aztec/circuit-types';
 import { type AztecAddress } from '@aztec/circuits.js';
@@ -382,6 +383,8 @@ describe('e2e_synching', () => {
     await (sequencer as any).stop();
     await watcher?.stop();
 
+    const blobSinkClient = createBlobSinkClient(`http://localhost:${blobSink?.port ?? 5052}`);
+
     const sequencerPK: `0x${string}` = `0x${getPrivateKeyFromIndex(0)!.toString('hex')}`;
     const publisher = new L1Publisher(
       {
@@ -395,7 +398,7 @@ describe('e2e_synching', () => {
         ethereumSlotDuration: ETHEREUM_SLOT_DURATION,
         blobSinkUrl: `http://localhost:${blobSink?.port ?? 5052}`,
       },
-      new NoopTelemetryClient(),
+      { telemetry: new NoopTelemetryClient(), blobSinkClient },
     );
 
     const blocks = variant.loadBlocks();
@@ -498,7 +501,10 @@ describe('e2e_synching', () => {
             await aztecNode.stop();
           }
 
-          const archiver = await createArchiver(opts.config!);
+          const blobSinkClient = createBlobSinkClient(`http://localhost:${opts.blobSink?.port ?? 5052}`);
+          const archiver = await createArchiver(opts.config!, blobSinkClient, new NoopTelemetryClient(), {
+            blockUntilSync: true,
+          });
           const pendingBlockNumber = await rollup.read.getPendingBlockNumber();
 
           const worldState = await createWorldStateSynchronizer(opts.config!, archiver, new NoopTelemetryClient());
