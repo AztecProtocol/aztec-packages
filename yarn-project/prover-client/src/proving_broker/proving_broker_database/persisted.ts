@@ -8,7 +8,7 @@ import {
 } from '@aztec/circuit-types';
 import { jsonParseWithSchema, jsonStringify } from '@aztec/foundation/json-rpc';
 import { type Logger, createLogger } from '@aztec/foundation/log';
-import { type AztecKVStore, type AztecMap } from '@aztec/kv-store';
+import { type AztecMap } from '@aztec/kv-store';
 import { AztecLmdbStore } from '@aztec/kv-store/lmdb';
 import { Attributes, LmdbMetrics, type TelemetryClient } from '@aztec/telemetry-client';
 
@@ -21,7 +21,7 @@ class SingleEpochDatabase {
   private jobs: AztecMap<ProvingJobId, string>;
   private jobResults: AztecMap<ProvingJobId, string>;
 
-  constructor(public readonly store: AztecKVStore) {
+  constructor(public readonly store: AztecLmdbStore) {
     this.jobs = store.openMap('proving_jobs');
     this.jobResults = store.openMap('proving_job_results');
   }
@@ -53,8 +53,12 @@ class SingleEpochDatabase {
     await this.jobResults.set(id, jsonStringify(result));
   }
 
-  close() {
+  delete() {
     return this.store.delete();
+  }
+
+  close() {
+    return this.store.close();
   }
 }
 
@@ -96,16 +100,27 @@ export class KVBrokerDatabase implements ProvingBrokerDatabase {
       if (!file.isDirectory()) {
         continue;
       }
+      const fullDirectory = join(config.proverBrokerDataDirectory!, file.name);
       const epochDirectory = file.name;
-      const epochNumber = +epochDirectory;
+      const epochNumber = parseInt(epochDirectory, 10);
+      if (!Number.isSafeInteger(epochNumber) || epochNumber < 0) {
+        logger.warn(`Found invalid epoch directory ${fullDirectory} when loading epoch databases, ignoring`);
+        continue;
+      }
       logger.info(
-        `Loading broker database for epoch ${epochNumber} from ${file.parentPath} with map size ${config.proverBrokerDataMapSizeKB}`,
+        `Loading broker database for epoch ${epochNumber} from ${fullDirectory} with map size ${config.proverBrokerDataMapSizeKB}KB`,
       );
-      const db = AztecLmdbStore.open(epochDirectory, config.proverBrokerDataMapSizeKB);
+      const db = AztecLmdbStore.open(fullDirectory, config.proverBrokerDataMapSizeKB, false);
       const epochDb = new SingleEpochDatabase(db);
       epochs.set(epochNumber, epochDb);
     }
     return new KVBrokerDatabase(epochs, config, client, logger);
+  }
+
+  async close(): Promise<void> {
+    for (const [_, v] of this.epochs) {
+      await v.close();
+    }
   }
 
   async deleteAllProvingJobsOlderThanEpoch(epochNumber: number): Promise<void> {
@@ -116,7 +131,7 @@ export class KVBrokerDatabase implements ProvingBrokerDatabase {
         continue;
       }
       this.logger.info(`Deleting broker database for epoch ${old}`);
-      await db.close();
+      await db.delete();
       this.epochs.delete(old);
     }
   }
@@ -129,7 +144,7 @@ export class KVBrokerDatabase implements ProvingBrokerDatabase {
       this.logger.info(
         `Creating broker database for epoch ${job.epochNumber} at ${newEpochDirectory} with map size ${this.config.proverBrokerDataMapSizeKB}`,
       );
-      const db = AztecLmdbStore.open(newEpochDirectory, this.config.proverBrokerDataMapSizeKB);
+      const db = AztecLmdbStore.open(newEpochDirectory, this.config.proverBrokerDataMapSizeKB, false);
       epochDb = new SingleEpochDatabase(db);
       this.epochs.set(job.epochNumber, epochDb);
     }

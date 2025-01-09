@@ -36,4 +36,9 @@ export interface ProvingBrokerDatabase {
    * @param err - The error that occurred while processing the proof request
    */
   setProvingJobError(id: ProvingJobId, err: string): Promise<void>;
+
+  /**
+   * Closes the database
+   */
+  close(): Promise<void>;
 }

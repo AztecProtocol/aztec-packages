@@ -56,4 +56,8 @@ export class InMemoryBrokerDatabase implements ProvingBrokerDatabase {
       yield [item, this.results.get(item.id)] as const;
     }
   }
+
+  close(): Promise<void> {
+    return Promise.resolve();
+  }
 }

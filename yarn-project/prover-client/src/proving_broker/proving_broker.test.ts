@@ -5,9 +5,7 @@ import {
   type ProvingJobId,
   type ProvingJobStatus,
   ProvingRequestType,
-  makeProvingJobId,
 } from '@aztec/circuit-types';
-import { randomBytes } from '@aztec/foundation/crypto';
 import { sleep } from '@aztec/foundation/sleep';
 import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
 
@@ -16,6 +14,7 @@ import { mkdtemp } from 'fs/promises';
 import { tmpdir } from 'os';
 import { join } from 'path';
 
+import { makeInputsUri, makeOutputsUri, makeRandomProvingJobId } from './fixtures.js';
 import { ProvingBroker } from './proving_broker.js';
 import { type ProvingBrokerDatabase } from './proving_broker_database.js';
 import { InMemoryBrokerDatabase } from './proving_broker_database/memory.js';
@@ -1226,15 +1225,3 @@ describe.each([
     );
   }
 });
-
-function makeRandomProvingJobId(epochNumber?: number): ProvingJobId {
-  return makeProvingJobId(epochNumber ?? 1, ProvingRequestType.BASE_PARITY, randomBytes(8).toString('hex'));
-}
-
-function makeInputsUri(): ProofUri {
-  return randomBytes(8).toString('hex') as ProofUri;
-}
-
-function makeOutputsUri(): ProofUri {
-  return randomBytes(8).toString('hex') as ProofUri;
-}
