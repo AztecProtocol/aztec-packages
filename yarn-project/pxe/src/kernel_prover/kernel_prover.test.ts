@@ -152,7 +152,7 @@ describe('Kernel Prover', () => {
     proofCreator.simulateReset.mockResolvedValue(simulateProofOutput([]));
     proofCreator.simulateTail.mockResolvedValue(simulateProofOutputFinal([]));
 
-    prover = new KernelProver(oracle, proofCreator);
+    prover = new KernelProver(oracle, proofCreator, true);
   });
 
   it('should create proofs in correct order', async () => {
