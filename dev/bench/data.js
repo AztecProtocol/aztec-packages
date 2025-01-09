@@ -1,74 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1736445443793,
+  "lastUpdate": 1736453945316,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "sirasistant@gmail.com",
-            "name": "Álvaro Rodríguez",
-            "username": "sirasistant"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "923826a9d1bbed6739527a82b34d5610600eca1b",
-          "message": "feat: Add tree equality assertions (#10756)\n\nAsserts in the public base that the end tree roots of the AVM equal the\r\ncalculated tree roots in the public base, to check correctness of the\r\nAVM insertions.",
-          "timestamp": "2024-12-17T17:05:14+01:00",
-          "tree_id": "8ed9a58664e9d107f47e19b8b7558943865043f8",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/923826a9d1bbed6739527a82b34d5610600eca1b"
-        },
-        "date": 1734453257717,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "nativeClientIVCBench/Ambient_17_in_20/6",
-            "value": 25364.301028,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 19743.115241000003 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeClientIVCBench/Full/6",
-            "value": 24507.166215000012,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 22465.644397999997 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 4533.45861599999,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 4258.466504 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmClientIVCBench/Full/6",
-            "value": 89489.743332,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 89489744000 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 16500.062938,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 16500064000 ms\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 2795012783,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 2795012783 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 133026956,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 133026956 ns\nthreads: 1"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -3276,6 +3210,72 @@ window.BENCHMARK_DATA = {
             "value": 141715859,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 141715859 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "fcarreiro@users.noreply.github.com",
+            "name": "Facundo",
+            "username": "fcarreiro"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "535a14c8c59399ce7579c69f6aec862f71981699",
+          "message": "chore(avm): improve column stats (#11135)\n\nNow that we use tight polynomials it makes sense to count things differently for our stats.\n\nI'm gathering info in particular to see if it makes sense to use `commit_sparse` (which we _are_ using now). From what I can see, probably not, or we should do it dynamically based on sparseness information.\n\nStats from the bulk test.\n\n```\nMedian column fullness: 90%\nAverage column fullness: 66%\nFullness of all columns, ignoring empty ones:\n  1: 100%  705: 100%  695: 100%  691: 100%  690: 100%  689: 100%  688: 100%  657: 100%  649: 100%  638: 100%  \n637: 100%  636: 100%  632: 100%  268: 100%  267: 100%  194: 100%    0: 100%   25: 100%   15: 100%   20: 100%  \n 11: 100%    8: 100%    2: 100%   66:  99%  175:  99%   75:  99%   90:  99%  101:  99%  108:  99%  117:  99%  \n136:  99%  149:  99%  150:  99%  153:  99%  156:  99%  157:  99%  158:  99%  176:  99%  177:  99%  178:  99%  \n186:  99%    3:  99%  196:  99%  308:  99%  307:  99%  302:  99%  282:  99%  275:  99%  274:  99%   35:  99%  \n631:  99%  650:  99%   12:  99%   48:  99%    4:  99%  644:  98%  276:  98%  273:  98%    6:  96%  672:  96%  \n666:  96%  673:  96%  658:  95%  120:  94%  139:  92%  141:  92%  143:  92%  140:  92%  144:  92%  121:  92%  \n674:  91%   43:  91%  682:  91%   46:  91%  678:  91%  677:  91%  675:  91%  472:  90%  471:  90%  454:  90%  \n445:  90%  470:  90%  455:  90%  456:  90%  457:  90%  458:  90%  459:  90%  469:  90%  468:  90%  460:  90%  \n461:  90%  467:  90%  466:  90%  465:  90%  462:  90%  463:  90%  464:  90%  485:  90%  497:  90%  496:  90%  \n495:  90%  494:  90%  493:  90%  492:  90%  491:  90%  490:  90%  489:  90%  488:  90%  487:  90%  486:  90%  \n473:  90%  484:  90%  483:  90%  482:  90%  481:  90%  480:  90%  479:  90%  478:  90%  477:  90%  476:  90%  \n475:  90%  474:  90%  401:  90%  426:  90%  425:  90%  424:  90%  423:  90%  422:  90%  421:  90%  400:  90%  \n420:  90%  419:  90%  418:  90%  417:  90%  416:  90%  415:  90%  427:  90%  402:  90%  403:  90%  414:  90%  \n404:  90%  405:  90%  413:  90%  412:  90%  411:  90%  410:  90%  409:  90%  408:  90%  406:  90%  439:  90%  \n452:  90%  451:  90%  450:  90%  449:  90%  448:  90%  447:  90%  446:  90%  407:  90%  444:  90%  443:  90%  \n442:  90%  441:  90%  440:  90%  453:  90%  438:  90%  437:  90%  398:  90%  436:  90%  435:  90%  434:  90%  \n433:  90%  432:  90%  431:  90%  430:  90%  429:  90%  428:  90%  565:  90%  578:  90%  577:  90%  576:  90%  \n575:  90%  574:  90%  573:  90%  572:  90%  571:  90%  570:  90%  569:  90%  568:  90%  567:  90%  566:  90%  \n579:  90%  564:  90%  563:  90%  562:  90%  561:  90%  560:  90%  559:  90%  558:  90%  557:  90%  556:  90%  \n555:  90%  554:  90%  553:  90%  593:  90%  629:  90%  627:  90%  626:  90%  625:  90%  624:  90%  623:  90%  \n622:  90%  621:  90%  620:  90%  619:  90%  618:  90%  617:  90%  594:  90%  552:  90%  592:  90%  591:  90%  \n590:  90%  589:  90%  587:  90%  586:  90%  585:  90%  584:  90%  583:  90%  582:  90%  581:  90%  580:  90%  \n511:  90%  524:  90%  523:  90%  522:  90%  521:  90%  520:  90%  519:  90%  518:  90%  517:  90%  516:  90%  \n515:  90%  514:  90%  513:  90%  512:  90%  525:  90%  510:  90%  509:  90%  508:  90%  507:  90%  506:  90%  \n505:  90%  504:  90%  503:  90%  502:  90%  501:  90%  500:  90%  499:  90%  538:  90%  551:  90%  550:  90%  \n549:  90%  548:  90%  547:  90%  546:  90%  545:  90%  544:  90%  543:  90%  542:  90%  541:  90%  540:  90%  \n539:  90%  498:  90%  537:  90%  536:  90%  535:  90%  534:  90%  533:  90%  532:  90%  531:  90%  530:  90%  \n529:  90%  528:  90%  527:  90%  526:  90%  352:  90%  343:  90%  344:  90%  345:  90%  346:  90%  347:  90%  \n348:  90%  349:  90%  350:  90%  351:  90%  342:  90%  353:  90%  354:  90%  355:  90%  356:  90%  357:  90%  \n358:  90%  359:  90%  360:  90%  333:  90%  399:  90%  326:  90%  327:  90%  328:  90%  329:  90%  330:  90%  \n331:  90%  332:  90%  397:  90%  334:  90%  335:  90%  336:  90%  337:  90%  338:  90%  339:  90%  340:  90%  \n341:  90%  388:  90%  380:  90%  381:  90%  382:  90%  383:  90%  384:  90%  385:  90%  386:  90%  387:  90%  \n362:  90%  389:  90%  390:  90%  391:  90%  392:  90%  393:  90%  394:  90%  395:  90%  396:  90%  378:  90%  \n379:  90%  361:  90%  363:  90%  364:  90%  365:  90%  366:  90%  367:  90%  368:  90%  369:  90%  370:  90%  \n371:  90%  372:  90%  373:  90%  374:  90%  375:  90%  376:  90%  377:  90%   44:  89%  312:  88%  305:  88%  \n 31:  87%   72:  86%  676:  86%   45:  85%  280:  84%  311:  84%   91:  83%  163:  80%  185:  80%  272:  78%  \n190:  74%  199:  74%  182:  73%  187:  70%  132:  70%  125:  70%    5:  66%  197:  65%  180:  63%  119:  63%  \n165:  60%  700:  60%  135:  57%   62:  56%   63:  53%   64:  53%   49:  51%  671:  50%  670:  50%  668:  50%  \n667:  50%  680:  50%   18:  50%  145:  50%  146:  50%  148:  50%  174:  47%  701:  44%  287:  39%  281:  39%  \n 41:  37%  588:  36%  192:  36%  164:  35%  198:  34%  285:  34%  181:  34%   37:  34%   38:  34%  151:  33%  \n651:  33%  652:  33%  642:  32%  653:  32%  654:  32%  635:  32%  655:  32%  656:  32%  122:  29%  201:  28%  \n236:  28%   39:  26%   67:  25%   40:  21%  203:  18%  123:  18%  286:  18%   53:  17%   10:  16%  283:  15%  \n200:  13%  173:  13%  230:  13%  702:  13%  183:  13%  683:  11%  696:  11%   52:  10%  248:   9%  166:   9%  \n 42:   8%   54:   8%  697:   8%    7:   7%  685:   7%  229:   7%  288:   7%  234:   6%  270:   5%   55:   4%  \n235:   3%  278:   3%   33:   3%   71:   3%   56:   3%  167:   3%  693:   3%  218:   3%   50:   3%   28:   2%  \n227:   2%  226:   2%  304:   1%   74:   1%   59:   1%    9:   1%  155:   1%  643:   1%   30:   1%  208:   1%  \n646:   1%  665:   1%  238:   1%  239:   1%  692:   0%   27:   0%  687:   0%   58:   0%  686:   0%   57:   0%  \n684:   0%  704:   0%  660:   0%  659:   0%   47:   0%  703:   0%   51:   0%  694:   0%  258:   0%  241:   0%  \n243:   0%  244:   0%  245:   0%  246:   0%  247:   0%  249:   0%  250:   0%  251:   0%  252:   0%  253:   0%  \n254:   0%  255:   0%  256:   0%  257:   0%  240:   0%  261:   0%  269:   0%  277:   0%  289:   0%  290:   0%  \n291:   0%  292:   0%  293:   0%  294:   0%  295:   0%  296:   0%  297:   0%  303:   0%  309:   0%  212:   0%  \n 68:   0%   73:   0%  152:   0%  160:   0%  161:   0%  162:   0%  188:   0%  189:   0%  195:   0%  204:   0%  \n206:   0%  207:   0%  209:   0%  210:   0%  211:   0%   65:   0%  214:   0%  215:   0%  216:   0%  217:   0%  \n219:   0%  220:   0%  222:   0%  223:   0%  224:   0%  225:   0%  231:   0%  232:   0%  233:   0%  237:   0%  \nDetails for 20 most sparse columns:\nColumn main_sel_op_msm: 2 non-zero entries out of 28048 (0%)\nColumn main_sel_op_l2gasleft: 1 non-zero entries out of 28904 (0%)\nColumn main_sel_op_l1_to_l2_msg_exists: 1 non-zero entries out of 35497 (0%)\nColumn main_sel_op_keccak: 1 non-zero entries out of 14710 (0%)\nColumn main_sel_op_get_contract_instance: 3 non-zero entries out of 28157 (0%)\nColumn main_sel_op_fee_per_l2_gas: 1 non-zero entries out of 28740 (0%)\nColumn main_sel_op_fee_per_da_gas: 1 non-zero entries out of 28825 (0%)\nColumn main_sel_op_fdiv: 40 non-zero entries out of 27798 (0%)\nColumn main_sel_op_external_return: 3 non-zero entries out of 36569 (0%)\nColumn main_sel_op_external_call: 1 non-zero entries out of 35820 (0%)\nColumn main_sel_op_emit_unencrypted_log: 3 non-zero entries out of 35147 (0%)\nColumn main_sel_op_emit_nullifier: 1 non-zero entries out of 35335 (0%)\nColumn main_sel_op_emit_note_hash: 1 non-zero entries out of 35291 (0%)\nColumn main_sel_op_emit_l2_to_l1_msg: 1 non-zero entries out of 35580 (0%)\nColumn alu_remainder: 6 non-zero entries out of 6708 (0%)\nColumn main_sel_op_debug_log: 31 non-zero entries out of 36202 (0%)\nColumn main_sel_op_dagasleft: 1 non-zero entries out of 28983 (0%)\nColumn main_sel_op_chain_id: 1 non-zero entries out of 28426 (0%)\nColumn main_sel_op_calldata_copy: 6 non-zero entries out of 36361 (0%)\nColumn main_sel_op_block_number: 1 non-zero entries out of 28580 (0%)\n```",
+          "timestamp": "2025-01-09T19:54:49Z",
+          "tree_id": "bbf742f19e4c87e4dcfd7b6e2c5fd14132346f41",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/535a14c8c59399ce7579c69f6aec862f71981699"
+        },
+        "date": 1736453938176,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Ambient_17_in_20/6",
+            "value": 19705.740804000015,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 16925.128748000003 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 21604.69227300001,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 18835.069935 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 4649.140547000002,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 4260.5637320000005 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 71873.770908,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 71873771000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 14210.19371,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 14210193000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 3086929751,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 3086929751 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 144588502,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 144588502 ns\nthreads: 1"
           }
         ]
       }
