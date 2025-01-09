@@ -27,6 +27,7 @@ import { createLogger } from '@aztec/foundation/log';
 
 import { type NoteData, toACVMWitness } from '../acvm/index.js';
 import { type PackedValuesCache } from '../common/packed_values_cache.js';
+import { SimulationProvider } from '../server.js';
 import { type DBOracle } from './db_oracle.js';
 import { type ExecutionNoteCache } from './execution_note_cache.js';
 import { pickNotes } from './pick_notes.js';
@@ -73,6 +74,7 @@ export class ClientExecutionContext extends ViewDataOracle {
     private readonly noteCache: ExecutionNoteCache,
     db: DBOracle,
     private node: AztecNode,
+    private provider: SimulationProvider,
     protected sideEffectCounter: number = 0,
     log = createLogger('simulator:client_execution_context'),
     scopes?: AztecAddress[],
@@ -373,12 +375,14 @@ export class ClientExecutionContext extends ViewDataOracle {
       this.noteCache,
       this.db,
       this.node,
+      this.provider,
       sideEffectCounter,
       this.log,
       this.scopes,
     );
 
     const childExecutionResult = await executePrivateFunction(
+      this.provider,
       context,
       targetArtifact,
       targetContractAddress,

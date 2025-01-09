@@ -8,9 +8,12 @@ import { TokenBlacklistContractArtifact } from '@aztec/noir-contracts.js/TokenBl
 import { type MockProxy, mock } from 'jest-mock-extended';
 
 import { type DBOracle } from './db_oracle.js';
+import { WASMSimulator } from './index.js';
 import { AcirSimulator } from './simulator.js';
 
 describe('Simulator', () => {
+  const simulationProvider = new WASMSimulator();
+
   let oracle: MockProxy<DBOracle>;
   let node: MockProxy<AztecNode>;
 
@@ -40,7 +43,7 @@ describe('Simulator', () => {
     );
     oracle.getCompleteAddress.mockResolvedValue(ownerCompleteAddress);
 
-    simulator = new AcirSimulator(oracle, node);
+    simulator = new AcirSimulator(oracle, node, simulationProvider);
   });
 
   describe('computeNoteHashAndOptionallyANullifier', () => {

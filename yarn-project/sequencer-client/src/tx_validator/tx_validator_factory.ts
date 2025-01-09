@@ -15,7 +15,7 @@ import {
   TxProofValidator,
 } from '@aztec/p2p';
 import { ProtocolContractAddress } from '@aztec/protocol-contracts';
-import { readPublicState } from '@aztec/simulator';
+import { readPublicState } from '@aztec/simulator/server';
 
 import { GasTxValidator, type PublicStateSource } from './gas_validator.js';
 import { NullifierCache } from './nullifier_cache.js';

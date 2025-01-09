@@ -3,6 +3,7 @@ import { ClientIvcProof } from '@aztec/circuits.js';
 import { createLogger } from '@aztec/foundation/log';
 import { Timer } from '@aztec/foundation/timer';
 import { type ArtifactProvider } from '@aztec/noir-protocol-circuits-types/types';
+import { SimulationProvider } from '@aztec/simulator/client';
 
 import { serializeWitness } from '@noir-lang/noirc_abi';
 import { type WitnessMap } from '@noir-lang/types';
@@ -13,10 +14,11 @@ import { BBPrivateKernelProver } from '../prover/bb_private_kernel_prover.js';
 export abstract class BBWASMPrivateKernelProver extends BBPrivateKernelProver {
   constructor(
     protected override artifactProvider: ArtifactProvider,
+    protected override simulationProvider: SimulationProvider,
     private threads: number = 1,
     protected override log = createLogger('bb-prover:wasm'),
   ) {
-    super(artifactProvider, log);
+    super(artifactProvider, simulationProvider, log);
   }
 
   public override async createClientIvcProof(acirs: Buffer[], witnessStack: WitnessMap[]): Promise<ClientIvcProof> {

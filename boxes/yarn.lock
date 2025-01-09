@@ -139,6 +139,12 @@ __metadata:
   languageName: unknown
   linkType: soft
 
+"@aztec/simulator@link:../../../yarn-project/simulator::locator=vite%40workspace%3Aboxes%2Fvite":
+  version: 0.0.0-use.local
+  resolution: "@aztec/simulator@link:../../../yarn-project/simulator::locator=vite%40workspace%3Aboxes%2Fvite"
+  languageName: node
+  linkType: soft
+
 "@aztec/types@link:../yarn-project/types::locator=aztec-app%40workspace%3A.":
   version: 0.0.0-use.local
   resolution: "@aztec/types@link:../yarn-project/types::locator=aztec-app%40workspace%3A."
@@ -12162,6 +12168,7 @@ __metadata:
     "@aztec/key-store": "link:../../../yarn-project/key-store"
     "@aztec/kv-store": "portal:../../../yarn-project/kv-store"
     "@aztec/pxe": "link:../../../yarn-project/pxe"
+    "@aztec/simulator": "link:../../../yarn-project/simulator"
     "@eslint/js": "npm:^9.13.0"
     "@noir-lang/acvm_js": "link:../../../noir/packages/acvm_js"
     "@noir-lang/noirc_abi": "link:../../../noir/packages/noirc_abi"

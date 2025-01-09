@@ -26,7 +26,7 @@ import {
 import { pedersenHash, poseidon2Hash } from '@aztec/foundation/crypto';
 import { KeyStore } from '@aztec/key-store';
 import { openTmpStore } from '@aztec/kv-store/lmdb';
-import { type AcirSimulator } from '@aztec/simulator/client';
+import { type AcirSimulator, type SimulationProvider, WASMSimulator } from '@aztec/simulator/client';
 
 import { jest } from '@jest/globals';
 import { type MockProxy, mock } from 'jest-mock-extended';
@@ -118,6 +118,7 @@ describe('Simulator oracle', () => {
   let contractDataOracle: ContractDataOracle;
   let simulatorOracle: SimulatorOracle;
   let keyStore: KeyStore;
+  let simulationProvider: SimulationProvider;
 
   let recipient: CompleteAddress;
   let contractAddress: AztecAddress;
@@ -129,7 +130,8 @@ describe('Simulator oracle', () => {
     contractDataOracle = new ContractDataOracle(database);
     jest.spyOn(contractDataOracle, 'getDebugContractName').mockImplementation(() => Promise.resolve('TestContract'));
     keyStore = new KeyStore(db);
-    simulatorOracle = new SimulatorOracle(contractDataOracle, database, keyStore, aztecNode);
+    simulationProvider = new WASMSimulator();
+    simulatorOracle = new SimulatorOracle(contractDataOracle, database, keyStore, aztecNode, simulationProvider);
     // Set up contract address
     contractAddress = AztecAddress.random();
     // Set up recipient account

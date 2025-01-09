@@ -66,17 +66,18 @@ import { jest } from '@jest/globals';
 import { type MockProxy, mock } from 'jest-mock-extended';
 import { toFunctionSelector } from 'viem';
 
-import { MessageLoadOracleInputs } from '../acvm/index.js';
 import { buildL1ToL2Message } from '../test/utils.js';
 import { type DBOracle } from './db_oracle.js';
+import { MessageLoadOracleInputs, WASMSimulator } from './index.js';
 import { AcirSimulator } from './simulator.js';
 
 jest.setTimeout(60_000);
 
 describe('Private Execution test suite', () => {
+  const simulationProvider = new WASMSimulator();
+
   let oracle: MockProxy<DBOracle>;
   let node: MockProxy<AztecNode>;
-
   let acirSimulator: AcirSimulator;
 
   let header = BlockHeader.empty();
@@ -245,7 +246,7 @@ describe('Private Execution test suite', () => {
       },
     );
 
-    acirSimulator = new AcirSimulator(oracle, node);
+    acirSimulator = new AcirSimulator(oracle, node, simulationProvider);
   });
 
   describe('no constructor', () => {

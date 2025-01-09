@@ -19,6 +19,8 @@ import { type FunctionSelector, type NoteSelector } from '@aztec/foundation/abi'
 import { type AztecAddress } from '@aztec/foundation/aztec-address';
 import { Fr } from '@aztec/foundation/fields';
 
+import { MessageLoadOracleInputs } from '../../common/message_load_oracle_inputs.js';
+
 /**
  * Information about a note needed during execution.
  */
@@ -37,19 +39,6 @@ export interface NoteData {
   siloedNullifier?: Fr;
   /** The note's leaf index in the note hash tree. Undefined for pending notes. */
   index?: bigint;
-}
-
-export class MessageLoadOracleInputs<N extends number> {
-  constructor(
-    /** The index of the message commitment in the merkle tree. */
-    public index: bigint,
-    /** The path in the merkle tree to the message. */
-    public siblingPath: SiblingPath<N>,
-  ) {}
-
-  toFields(): Fr[] {
-    return [new Fr(this.index), ...this.siblingPath.toFields()];
-  }
 }
 
 class OracleMethodNotAvailableError extends Error {

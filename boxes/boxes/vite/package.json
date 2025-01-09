@@ -21,6 +21,7 @@
     "@aztec/key-store": "link:../../../yarn-project/key-store",
     "@aztec/kv-store": "portal:../../../yarn-project/kv-store",
     "@aztec/pxe": "link:../../../yarn-project/pxe",
+    "@aztec/simulator": "link:../../../yarn-project/simulator",
     "@noir-lang/acvm_js": "link:../../../noir/packages/acvm_js",
     "@noir-lang/noirc_abi": "link:../../../noir/packages/noirc_abi",
     "buffer": "^6.0.3",

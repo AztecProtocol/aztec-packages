@@ -75,7 +75,7 @@ import {
   convertRootRollupOutputsFromWitnessMap,
 } from '@aztec/noir-protocol-circuits-types/server';
 import { ProtocolCircuitVks } from '@aztec/noir-protocol-circuits-types/vks';
-import { NativeACVMSimulator } from '@aztec/simulator';
+import { NativeACVMSimulator } from '@aztec/simulator/server';
 import { Attributes, type TelemetryClient, trackSpan } from '@aztec/telemetry-client';
 
 import { abiEncode } from '@noir-lang/noirc_abi';
@@ -475,7 +475,7 @@ export class BBNativeRollupProver implements ServerCircuitProver {
 
     const inputWitness = convertInput(input);
     const timer = new Timer();
-    const outputWitness = await simulator.simulateCircuit(inputWitness, artifact);
+    const outputWitness = await simulator.executeProtocolCircuit(inputWitness, artifact);
     const output = convertOutput(outputWitness);
 
     const circuitName = mapProtocolArtifactNameToCircuitName(circuitType);

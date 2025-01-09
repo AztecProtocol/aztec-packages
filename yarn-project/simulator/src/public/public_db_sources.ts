@@ -24,12 +24,9 @@ import { createLogger } from '@aztec/foundation/log';
 import { Timer } from '@aztec/foundation/timer';
 import { ContractClassRegisteredEvent } from '@aztec/protocol-contracts/class-registerer';
 import { ContractInstanceDeployedEvent } from '@aztec/protocol-contracts/instance-deployer';
-import {
-  type CommitmentsDB,
-  MessageLoadOracleInputs,
-  type PublicContractsDB,
-  type PublicStateDB,
-} from '@aztec/simulator';
+
+import { MessageLoadOracleInputs } from '../common/message_load_oracle_inputs.js';
+import { CommitmentsDB, PublicContractsDB, PublicStateDB } from './db_interfaces.js';
 
 /**
  * Implements the PublicContractsDB using a ContractDataSource.
