@@ -11,14 +11,13 @@ export type ClientProtocolArtifact =
 
 // These are all circuits that should generate proofs with the `recursive` flag.
 export type ServerProtocolArtifact =
-  | 'EmptyNestedArtifact'
-  | 'PrivateKernelEmptyArtifact'
   | 'BaseParityArtifact'
   | 'RootParityArtifact'
   | 'PrivateBaseRollupArtifact'
   | 'PublicBaseRollupArtifact'
   | 'MergeRollupArtifact'
   | 'BlockRootRollupArtifact'
+  | 'SingleTxBlockRootRollupArtifact'
   | 'EmptyBlockRootRollupArtifact'
   | 'BlockMergeRollupArtifact'
   | 'RootRollupArtifact';

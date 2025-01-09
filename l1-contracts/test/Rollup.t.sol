@@ -626,10 +626,8 @@ contract RollupTest is DecoderBase, TimeFns {
     uint256 minHeightEmpty =
       uint256(vm.load(address(outbox), bytes32(uint256(keccak256(abi.encode(1, 0))) + 1)));
 
-    assertNotEq(rootEmpty, bytes32(0), "Invalid root");
+    assertEq(rootEmpty, bytes32(0), "Invalid root");
     assertNotEq(minHeightEmpty, 0, "Invalid min height");
-    assertNotEq(rootEmpty, rootMixed, "Invalid root");
-    assertNotEq(minHeightEmpty, minHeightMixed, "Invalid min height");
   }
 
   function testShouldNotBeTooEagerToPrune() public setUpFor("mixed_block_1") {
@@ -836,6 +834,26 @@ contract RollupTest is DecoderBase, TimeFns {
 
     _testBlock("mixed_block_1", toProve > 0);
     _testBlock("mixed_block_2", toProve > 1);
+
+    assertEq(rollup.getPendingBlockNumber(), 2, "Invalid pending block number");
+    assertEq(rollup.getProvenBlockNumber(), 0 + toProve, "Invalid proven block number");
+  }
+
+  function testSingleBlock(bool _toProve) public setUpFor("single_tx_block_1") {
+    _testBlock("single_tx_block_1", _toProve);
+
+    assertEq(rollup.getPendingBlockNumber(), 1, "Invalid pending block number");
+    assertEq(rollup.getProvenBlockNumber(), _toProve ? 1 : 0, "Invalid proven block number");
+  }
+
+  function testConsecutiveSingleTxBlocks(uint256 _blocksToProve)
+    public
+    setUpFor("single_tx_block_1")
+  {
+    uint256 toProve = bound(_blocksToProve, 0, 2);
+
+    _testBlock("single_tx_block_1", toProve > 0);
+    _testBlock("single_tx_block_2", toProve > 1);
 
     assertEq(rollup.getPendingBlockNumber(), 2, "Invalid pending block number");
     assertEq(rollup.getProvenBlockNumber(), 0 + toProve, "Invalid proven block number");
@@ -1275,7 +1293,8 @@ contract RollupTest is DecoderBase, TimeFns {
     }
 
     bytes32 l2ToL1MessageTreeRoot;
-    {
+    uint32 numTxs = full.block.numTxs;
+    if (numTxs != 0) {
       // NB: The below works with full blocks because we require the largest possible subtrees
       // for L2 to L1 messages - usually we make variable height subtrees, the roots of which
       // form a balanced tree
@@ -1283,11 +1302,11 @@ contract RollupTest is DecoderBase, TimeFns {
       // The below is a little janky - we know that this test deals with full txs with equal numbers
       // of msgs or txs with no messages, so the division works
       // TODO edit full.messages to include information about msgs per tx?
-      uint32 numTxs = full.block.numTxs;
       uint256 subTreeHeight = full.messages.l2ToL1Messages.length == 0
         ? 0
         : merkleTestUtil.calculateTreeHeightFromSize(full.messages.l2ToL1Messages.length / numTxs);
-      uint256 outHashTreeHeight = merkleTestUtil.calculateTreeHeightFromSize(numTxs);
+      uint256 outHashTreeHeight =
+        numTxs == 1 ? 0 : merkleTestUtil.calculateTreeHeightFromSize(numTxs);
       uint256 numMessagesWithPadding = numTxs * Constants.MAX_L2_TO_L1_MSGS_PER_TX;
 
       uint256 treeHeight = subTreeHeight + outHashTreeHeight;

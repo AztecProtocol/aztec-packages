@@ -1,11 +1,14 @@
 #include "barretenberg/vm/avm/trace/execution.hpp"
 #include "barretenberg/bb/log.hpp"
 #include "barretenberg/common/serialize.hpp"
+#include "barretenberg/common/thread.hpp"
 #include "barretenberg/common/throw_or_abort.hpp"
 #include "barretenberg/numeric/uint256/uint256.hpp"
 #include "barretenberg/vm/avm/generated/circuit_builder.hpp"
+#include "barretenberg/vm/avm/generated/columns.hpp"
 #include "barretenberg/vm/avm/generated/composer.hpp"
 #include "barretenberg/vm/avm/generated/flavor.hpp"
+#include "barretenberg/vm/avm/generated/full_row.hpp"
 #include "barretenberg/vm/avm/generated/verifier.hpp"
 #include "barretenberg/vm/avm/trace/common.hpp"
 #include "barretenberg/vm/avm/trace/deserialization.hpp"
@@ -139,44 +142,79 @@ void show_trace_info(const auto& trace)
         return;
     }
 
-    const size_t total_elements = trace.front().SIZE * trace.size();
-    const size_t nonzero_elements = [&]() {
-        size_t count = 0;
-        for (auto const& row : trace) {
-            for (const auto& ff : row.as_vector()) {
-                if (!ff.is_zero()) {
-                    count++;
-                }
+    // Calculate number of non-zero entries in each column.
+    struct ColumnStats {
+        size_t column_number = 0;
+        size_t non_zero_entries = 0;
+        size_t total_entries = 0;
+        size_t fullness = 0; // 0 to 100.
+    };
+    std::vector<ColumnStats> column_stats(static_cast<size_t>(avm::ColumnAndShifts::NUM_COLUMNS));
+    bb::parallel_for(static_cast<size_t>(avm::ColumnAndShifts::NUM_COLUMNS), [&](size_t col) {
+        size_t non_zero_entries = 0;
+        ssize_t last_non_zero_row = -1;
+        for (uint32_t row_n = 0; row_n < trace.size(); row_n++) {
+            const auto& row = trace.at(row_n);
+            if (!row.get_column(static_cast<avm::ColumnAndShifts>(col)).is_zero()) {
+                non_zero_entries++;
+                last_non_zero_row = row_n;
             }
         }
-        return count;
-    }();
-    vinfo("Number of non-zero elements: ",
-          nonzero_elements,
-          "/",
-          total_elements,
-          " (",
-          100 * nonzero_elements / total_elements,
-          "%)");
-    const size_t non_zero_columns = [&]() {
-        std::vector<bool> column_is_nonzero(trace.front().SIZE, false);
-        for (auto const& row : trace) {
-            const auto row_vec = row.as_vector();
-            for (size_t col = 0; col < row.SIZE; col++) {
-                if (!row_vec[col].is_zero()) {
-                    column_is_nonzero[col] = true;
-                }
+        size_t size = static_cast<size_t>(last_non_zero_row + 1);
+        column_stats[col] = { .column_number = col,
+                              .non_zero_entries = non_zero_entries,
+                              .total_entries = size,
+                              .fullness = size > 0 ? non_zero_entries * 100 / size : 0 };
+    });
+    // ignore empty columns because they don't cost anything.
+    std::erase_if(column_stats, [](const ColumnStats& stat) { return stat.total_entries == 0; });
+    std::sort(column_stats.begin(), column_stats.end(), [](const ColumnStats& a, const ColumnStats& b) {
+        return a.fullness > b.fullness;
+    });
+    vinfo(
+        "Median column fullness: ",
+        [&]() {
+            const auto& median_stat = column_stats.at(column_stats.size() / 2);
+            return median_stat.fullness;
+        }(),
+        "%");
+    vinfo(
+        "Average column fullness: ",
+        [&]() {
+            size_t fullness_sum = 0;
+            for (const auto& stat : column_stats) {
+                fullness_sum += stat.fullness;
             }
+            return static_cast<int>(fullness_sum / column_stats.size());
+        }(),
+        "%");
+    if (getenv("AVM_FULL_COLUMN_STATS") != nullptr) {
+        vinfo("Fullness of all columns, ignoring empty ones:");
+        // Print fullness of all columns in descending order and batches of 10.
+        for (size_t i = 0; i < column_stats.size(); i += 10) {
+            std::string fullnesses;
+            for (size_t j = i; j < i + 10 && j < column_stats.size(); j++) {
+                const auto& stat = column_stats.at(j);
+                fullnesses += std::format("{:3}: {:3}%  ", stat.column_number, stat.fullness);
+            }
+            vinfo(fullnesses);
         }
-        return static_cast<size_t>(std::count(column_is_nonzero.begin(), column_is_nonzero.end(), true));
-    }();
-    vinfo("Number of non-zero columns: ",
-          non_zero_columns,
-          "/",
-          trace.front().SIZE,
-          " (",
-          100 * non_zero_columns / trace.front().SIZE,
-          "%)");
+
+        vinfo("Details for 20 most sparse columns:");
+        const auto names = AvmFullRow<FF>::names();
+        for (size_t i = 0; i < 20; i++) {
+            const auto& stat = column_stats.at(column_stats.size() - i - 1);
+            vinfo("Column \"",
+                  names.at(stat.column_number),
+                  "\": ",
+                  stat.non_zero_entries,
+                  " non-zero entries out of ",
+                  stat.total_entries,
+                  " (",
+                  stat.fullness,
+                  "%)");
+        }
+    }
 }
 
 } // namespace
