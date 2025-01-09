@@ -34,8 +34,8 @@ import { MessageLoadOracleInputs } from '@aztec/simulator/acvm';
 import { type AcirSimulator, type DBOracle } from '@aztec/simulator/client';
 
 import { type ContractDataOracle } from '../contract_data_oracle/index.js';
-import { type IncomingNoteDao } from '../database/incoming_note_dao.js';
 import { type PxeDatabase } from '../database/index.js';
+import { type NoteDao } from '../database/note_dao.js';
 import { produceNoteDaos } from '../note_decryption_utils/produce_note_daos.js';
 import { getAcirSimulator } from '../simulator/index.js';
 import { WINDOW_HALF_SIZE, getIndexedTaggingSecretsForTheWindow, getInitialIndexesMap } from './tagging_utils.js';
@@ -92,7 +92,7 @@ export class SimulatorOracle implements DBOracle {
   }
 
   async getNotes(contractAddress: AztecAddress, storageSlot: Fr, status: NoteStatus, scopes?: AztecAddress[]) {
-    const noteDaos = await this.db.getIncomingNotes({
+    const noteDaos = await this.db.getNotes({
       contractAddress,
       storageSlot,
       status,
@@ -163,7 +163,7 @@ export class SimulatorOracle implements DBOracle {
    * @returns - The index of the commitment. Undefined if it does not exist in the tree.
    */
   async getCommitmentIndex(commitment: Fr) {
-    return await this.findLeafIndex('latest', MerkleTreeId.NOTE_HASH_TREE, commitment);
+    return await this.#findLeafIndex('latest', MerkleTreeId.NOTE_HASH_TREE, commitment);
   }
 
   // We need this in public as part of the EXISTS calls - but isn't used in private
@@ -172,19 +172,26 @@ export class SimulatorOracle implements DBOracle {
   }
 
   async getNullifierIndex(nullifier: Fr) {
-    return await this.findLeafIndex('latest', MerkleTreeId.NULLIFIER_TREE, nullifier);
+    return await this.#findLeafIndex('latest', MerkleTreeId.NULLIFIER_TREE, nullifier);
   }
 
-  public async findLeafIndex(
-    blockNumber: L2BlockNumber,
-    treeId: MerkleTreeId,
-    leafValue: Fr,
-  ): Promise<bigint | undefined> {
+  async #findLeafIndex(blockNumber: L2BlockNumber, treeId: MerkleTreeId, leafValue: Fr): Promise<bigint | undefined> {
     const [leafIndex] = await this.aztecNode.findLeavesIndexes(blockNumber, treeId, [leafValue]);
     return leafIndex;
   }
 
-  public async getSiblingPath(blockNumber: number, treeId: MerkleTreeId, leafIndex: bigint): Promise<Fr[]> {
+  public async getMembershipWitness(blockNumber: number, treeId: MerkleTreeId, leafValue: Fr): Promise<Fr[]> {
+    const leafIndex = await this.#findLeafIndex(blockNumber, treeId, leafValue);
+    if (!leafIndex) {
+      throw new Error(`Leaf value: ${leafValue} not found in ${MerkleTreeId[treeId]}`);
+    }
+
+    const siblingPath = await this.#getSiblingPath(blockNumber, treeId, leafIndex);
+
+    return [new Fr(leafIndex), ...siblingPath];
+  }
+
+  async #getSiblingPath(blockNumber: number, treeId: MerkleTreeId, leafIndex: bigint): Promise<Fr[]> {
     switch (treeId) {
       case MerkleTreeId.NULLIFIER_TREE:
         return (await this.aztecNode.getNullifierSiblingPath(blockNumber, leafIndex)).toFields();
@@ -253,8 +260,8 @@ export class SimulatorOracle implements DBOracle {
    * finally the index specified tag. We will then query the node with this tag for each address in the address book.
    * @returns The full list of the users contact addresses.
    */
-  public getContacts(): Promise<AztecAddress[]> {
-    return this.db.getContactAddresses();
+  public getSenders(): Promise<AztecAddress[]> {
+    return this.db.getSenderAddresses();
   }
 
   /**
@@ -321,18 +328,19 @@ export class SimulatorOracle implements DBOracle {
    * @param recipient - The address receiving the notes
    * @returns A list of indexed tagging secrets
    */
-  async #getIndexedTaggingSecretsForContacts(
+  async #getIndexedTaggingSecretsForSenders(
     contractAddress: AztecAddress,
     recipient: AztecAddress,
   ): Promise<IndexedTaggingSecret[]> {
     const recipientCompleteAddress = await this.getCompleteAddress(recipient);
     const recipientIvsk = await this.keyStore.getMasterIncomingViewingSecretKey(recipient);
 
-    // We implicitly add all PXE accounts as contacts, this helps us decrypt tags on notes that we send to ourselves (recipient = us, sender = us)
-    const contacts = [...(await this.db.getContactAddresses()), ...(await this.keyStore.getAccounts())].filter(
+    // We implicitly add all PXE accounts as senders, this helps us decrypt tags on notes that we send to ourselves
+    // (recipient = us, sender = us)
+    const senders = [...(await this.db.getSenderAddresses()), ...(await this.keyStore.getAccounts())].filter(
       (address, index, self) => index === self.findIndex(otherAddress => otherAddress.equals(address)),
     );
-    const appTaggingSecrets = contacts.map(contact => {
+    const appTaggingSecrets = senders.map(contact => {
       const sharedSecret = computeTaggingSecretPoint(recipientCompleteAddress, recipientIvsk, contact);
       return poseidon2Hash([sharedSecret.x, sharedSecret.y, contractAddress]);
     });
@@ -434,7 +442,7 @@ export class SimulatorOracle implements DBOracle {
       const logsForRecipient: TxScopedL2Log[] = [];
 
       // Get all the secrets for the recipient and sender pairs (#9365)
-      const secrets = await this.#getIndexedTaggingSecretsForContacts(contractAddress, recipient);
+      const secrets = await this.#getIndexedTaggingSecretsForSenders(contractAddress, recipient);
 
       // We fetch logs for a window of indexes in a range:
       //    <latest_log_index - WINDOW_HALF_SIZE, latest_log_index + WINDOW_HALF_SIZE>.
@@ -568,17 +576,17 @@ export class SimulatorOracle implements DBOracle {
     // Since we could have notes with the same index for different txs, we need
     // to keep track of them scoping by txHash
     const excludedIndices: Map<string, Set<number>> = new Map();
-    const incomingNotes: IncomingNoteDao[] = [];
+    const notes: NoteDao[] = [];
 
     const txEffectsCache = new Map<string, InBlock<TxEffect> | undefined>();
 
     for (const scopedLog of scopedLogs) {
-      const incomingNotePayload = scopedLog.isFromPublic
+      const notePayload = scopedLog.isFromPublic
         ? L1NotePayload.decryptAsIncomingFromPublic(scopedLog.logData, addressSecret)
         : L1NotePayload.decryptAsIncoming(PrivateLog.fromBuffer(scopedLog.logData), addressSecret);
 
-      if (incomingNotePayload) {
-        const payload = incomingNotePayload;
+      if (notePayload) {
+        const payload = notePayload;
 
         const txEffect =
           txEffectsCache.get(scopedLog.txHash.toString()) ?? (await this.aztecNode.getTxEffect(scopedLog.txHash));
@@ -593,13 +601,13 @@ export class SimulatorOracle implements DBOracle {
         if (!excludedIndices.has(scopedLog.txHash.toString())) {
           excludedIndices.set(scopedLog.txHash.toString(), new Set());
         }
-        const { incomingNote } = await produceNoteDaos(
+        const { note } = await produceNoteDaos(
           // I don't like this at all, but we need a simulator to run `computeNoteHashAndOptionallyANullifier`. This generates
           // a chicken-and-egg problem due to this oracle requiring a simulator, which in turn requires this oracle. Furthermore, since jest doesn't allow
           // mocking ESM exports, we have to pollute the method even more by providing a simulator parameter so tests can inject a fake one.
           simulator ?? getAcirSimulator(this.db, this.aztecNode, this.keyStore, this.contractDataOracle),
           this.db,
-          incomingNotePayload ? recipient.toAddressPoint() : undefined,
+          notePayload ? recipient.toAddressPoint() : undefined,
           payload!,
           txEffect.data.txHash,
           txEffect.l2BlockNumber,
@@ -610,12 +618,12 @@ export class SimulatorOracle implements DBOracle {
           this.log,
         );
 
-        if (incomingNote) {
-          incomingNotes.push(incomingNote);
+        if (note) {
+          notes.push(note);
         }
       }
     }
-    return { incomingNotes };
+    return { notes };
   }
 
   /**
@@ -628,10 +636,10 @@ export class SimulatorOracle implements DBOracle {
     recipient: AztecAddress,
     simulator?: AcirSimulator,
   ): Promise<void> {
-    const { incomingNotes } = await this.#decryptTaggedLogs(logs, recipient, simulator);
-    if (incomingNotes.length) {
-      await this.db.addNotes(incomingNotes, recipient);
-      incomingNotes.forEach(noteDao => {
+    const { notes } = await this.#decryptTaggedLogs(logs, recipient, simulator);
+    if (notes.length) {
+      await this.db.addNotes(notes, recipient);
+      notes.forEach(noteDao => {
         this.log.verbose(`Added incoming note for contract ${noteDao.contractAddress} at slot ${noteDao.storageSlot}`, {
           contract: noteDao.contractAddress,
           slot: noteDao.storageSlot,
@@ -643,7 +651,7 @@ export class SimulatorOracle implements DBOracle {
 
   public async removeNullifiedNotes(contractAddress: AztecAddress) {
     for (const recipient of await this.keyStore.getAccounts()) {
-      const currentNotesForRecipient = await this.db.getIncomingNotes({ contractAddress, owner: recipient });
+      const currentNotesForRecipient = await this.db.getNotes({ contractAddress, owner: recipient });
       const nullifiersToCheck = currentNotesForRecipient.map(note => note.siloedNullifier);
       const nullifierIndexes = await this.aztecNode.findNullifiersIndexesWithBlock('latest', nullifiersToCheck);
 
@@ -664,5 +672,27 @@ export class SimulatorOracle implements DBOracle {
         });
       });
     }
+  }
+
+  /**
+   * Used by contracts during execution to store arbitrary data in the local PXE database. The data is siloed/scoped
+   * to a specific `contract`.
+   * @param contract - An address of a contract that is requesting to store the data.
+   * @param key - A field element representing the key to store the data under.
+   * @param values - An array of field elements representing the data to store.
+   */
+  store(contract: AztecAddress, key: Fr, values: Fr[]): Promise<void> {
+    return this.db.store(contract, key, values);
+  }
+
+  /**
+   * Used by contracts during execution to load arbitrary data from the local PXE database. The data is siloed/scoped
+   * to a specific `contract`.
+   * @param contract - An address of a contract that is requesting to load the data.
+   * @param key - A field element representing the key under which to load the data..
+   * @returns An array of field elements representing the stored data or `null` if no data is stored under the key.
+   */
+  load(contract: AztecAddress, key: Fr): Promise<Fr[] | null> {
+    return this.db.load(contract, key);
   }
 }

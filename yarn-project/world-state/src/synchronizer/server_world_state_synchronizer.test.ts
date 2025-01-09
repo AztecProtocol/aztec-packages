@@ -12,7 +12,6 @@ import { times } from '@aztec/foundation/collection';
 import { randomInt } from '@aztec/foundation/crypto';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { SHA256Trunc } from '@aztec/merkle-tree';
-import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
 
 import { jest } from '@jest/globals';
 import { type MockProxy, mock } from 'jest-mock-extended';
@@ -213,7 +212,7 @@ class TestWorldStateSynchronizer extends ServerWorldStateSynchronizer {
     worldStateConfig: WorldStateConfig,
     private mockBlockStream: L2BlockStream,
   ) {
-    super(merkleTrees, blockAndMessagesSource, worldStateConfig, new NoopTelemetryClient());
+    super(merkleTrees, blockAndMessagesSource, worldStateConfig);
   }
 
   protected override createBlockStream(): L2BlockStream {

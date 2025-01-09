@@ -63,6 +63,7 @@ COIN_ISSUER_CONTRACT_ADDRESS=$(echo "$output" | grep -oP 'CoinIssuer Address: \K
 REWARD_DISTRIBUTOR_CONTRACT_ADDRESS=$(echo "$output" | grep -oP 'RewardDistributor Address: \K0x[a-fA-F0-9]{40}')
 GOVERNANCE_PROPOSER_CONTRACT_ADDRESS=$(echo "$output" | grep -oP 'GovernanceProposer Address: \K0x[a-fA-F0-9]{40}')
 GOVERNANCE_CONTRACT_ADDRESS=$(echo "$output" | grep -oP 'Governance Address: \K0x[a-fA-F0-9]{40}')
+SLASH_FACTORY_CONTRACT_ADDRESS=$(echo "$output" | grep -oP 'SlashFactory Address: \K0x[a-fA-F0-9]{40}')
 
 # Save contract addresses to state/l1-contracts.env
 cat <<EOCONFIG >$(git rev-parse --show-toplevel)/yarn-project/end-to-end/scripts/native-network/state/l1-contracts.env
@@ -77,6 +78,7 @@ export COIN_ISSUER_CONTRACT_ADDRESS=$COIN_ISSUER_CONTRACT_ADDRESS
 export REWARD_DISTRIBUTOR_CONTRACT_ADDRESS=$REWARD_DISTRIBUTOR_CONTRACT_ADDRESS
 export GOVERNANCE_PROPOSER_CONTRACT_ADDRESS=$GOVERNANCE_PROPOSER_CONTRACT_ADDRESS
 export GOVERNANCE_CONTRACT_ADDRESS=$GOVERNANCE_CONTRACT_ADDRESS
+export SLASH_FACTORY_CONTRACT_ADDRESS=$SLASH_FACTORY_CONTRACT_ADDRESS
 EOCONFIG
 
 echo "Contract addresses saved to state/l1-contracts.env"

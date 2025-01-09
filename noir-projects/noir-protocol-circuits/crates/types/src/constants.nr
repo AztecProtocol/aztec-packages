@@ -31,7 +31,7 @@ pub global MAX_NULLIFIERS_PER_CALL: u32 = 16;
 pub global MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL: u32 = 5;
 pub global MAX_ENQUEUED_CALLS_PER_CALL: u32 = 16;
 pub global MAX_L2_TO_L1_MSGS_PER_CALL: u32 = 2;
-pub global MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL: u32 = 64;
+pub global MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL: u32 = 63;
 pub global MAX_PUBLIC_DATA_READS_PER_CALL: u32 = 64;
 pub global MAX_NOTE_HASH_READ_REQUESTS_PER_CALL: u32 = 16;
 pub global MAX_NULLIFIER_READ_REQUESTS_PER_CALL: u32 = 16;
@@ -99,23 +99,22 @@ pub global MAX_CONTRACT_CLASS_LOGS_PER_TX: u32 = 1;
 pub global NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP: u32 = 16;
 
 // VK TREE CONSTANTS
-pub comptime global EMPTY_NESTED_INDEX: u32 = 0;
-pub comptime global PRIVATE_KERNEL_EMPTY_INDEX: u32 = 1;
-pub comptime global PRIVATE_KERNEL_INIT_INDEX: u32 = 2;
-pub comptime global PRIVATE_KERNEL_INNER_INDEX: u32 = 3;
-pub comptime global PRIVATE_KERNEL_TAIL_INDEX: u32 = 4;
-pub comptime global PRIVATE_KERNEL_TAIL_TO_PUBLIC_INDEX: u32 = 5;
-pub comptime global TUBE_VK_INDEX: u32 = 6;
-pub comptime global AVM_VK_INDEX: u32 = 7;
-pub comptime global PRIVATE_BASE_ROLLUP_VK_INDEX: u32 = 8;
-pub comptime global PUBLIC_BASE_ROLLUP_VK_INDEX: u32 = 9;
-pub comptime global BASE_PARITY_INDEX: u32 = 10;
-pub comptime global ROOT_PARITY_INDEX: u32 = 11;
-pub comptime global MERGE_ROLLUP_INDEX: u32 = 12;
-pub comptime global BLOCK_ROOT_ROLLUP_INDEX: u32 = 13;
-pub comptime global BLOCK_MERGE_ROLLUP_INDEX: u32 = 14;
-pub comptime global ROOT_ROLLUP_INDEX: u32 = 15;
-pub comptime global BLOCK_ROOT_ROLLUP_EMPTY_INDEX: u32 = 16;
+pub comptime global PRIVATE_KERNEL_INIT_INDEX: u32 = 0;
+pub comptime global PRIVATE_KERNEL_INNER_INDEX: u32 = 1;
+pub comptime global PRIVATE_KERNEL_TAIL_INDEX: u32 = 2;
+pub comptime global PRIVATE_KERNEL_TAIL_TO_PUBLIC_INDEX: u32 = 3;
+pub comptime global TUBE_VK_INDEX: u32 = 4;
+pub comptime global AVM_VK_INDEX: u32 = 5;
+pub comptime global PRIVATE_BASE_ROLLUP_VK_INDEX: u32 = 6;
+pub comptime global PUBLIC_BASE_ROLLUP_VK_INDEX: u32 = 7;
+pub comptime global MERGE_ROLLUP_INDEX: u32 = 8;
+pub comptime global BLOCK_ROOT_ROLLUP_INDEX: u32 = 9;
+pub comptime global BLOCK_ROOT_ROLLUP_SINGLE_TX_INDEX: u32 = 10;
+pub comptime global BLOCK_ROOT_ROLLUP_EMPTY_INDEX: u32 = 11;
+pub comptime global BLOCK_MERGE_ROLLUP_INDEX: u32 = 12;
+pub comptime global ROOT_ROLLUP_INDEX: u32 = 13;
+pub comptime global BASE_PARITY_INDEX: u32 = 14;
+pub comptime global ROOT_PARITY_INDEX: u32 = 15;
 pub comptime global PRIVATE_KERNEL_RESET_INDEX: u32 = 20;
 // Important: Do not define indexes after the PRIVATE_KERNEL_RESET_INDEX. They are allocated for the variants of private kernel reset.
 
@@ -324,6 +323,7 @@ pub global PRIVATE_CONTEXT_INPUTS_LENGTH: u32 =
 pub global FEE_RECIPIENT_LENGTH: u32 = 2;
 
 pub global AGGREGATION_OBJECT_LENGTH: u32 = 16;
+pub global IPA_CLAIM_LENGTH: u32 = 10;
 
 pub global SCOPED_READ_REQUEST_LEN: u32 = READ_REQUEST_LENGTH + 1;
 pub global PUBLIC_DATA_READ_LENGTH: u32 = 3;
@@ -333,15 +333,13 @@ pub global PRIVATE_VALIDATION_REQUESTS_LENGTH: u32 = ROLLUP_VALIDATION_REQUESTS_
     + (SCOPED_KEY_VALIDATION_REQUEST_AND_GENERATOR_LENGTH * MAX_KEY_VALIDATION_REQUESTS_PER_TX)
     + 2;
 
-pub global COMBINED_ACCUMULATED_DATA_LENGTH: u32 = MAX_NOTE_HASHES_PER_TX
+pub global PRIVATE_TO_ROLLUP_ACCUMULATED_DATA_LENGTH: u32 = MAX_NOTE_HASHES_PER_TX
     + MAX_NULLIFIERS_PER_TX
     + (MAX_L2_TO_L1_MSGS_PER_TX * SCOPED_L2_TO_L1_MESSAGE_LENGTH)
     + (PRIVATE_LOG_SIZE_IN_FIELDS * MAX_PRIVATE_LOGS_PER_TX)
-    + (SCOPED_LOG_HASH_LENGTH * MAX_UNENCRYPTED_LOGS_PER_TX)
-    + 1 /* unencrypted_log_preimages_length */
     + (SCOPED_LOG_HASH_LENGTH * MAX_CONTRACT_CLASS_LOGS_PER_TX)
-    + 1 /* contract_class_log_preimages_length */
-    + (MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX * PUBLIC_DATA_WRITE_LENGTH);
+    + 1 /* contract_class_log_preimages_length */;
+
 pub global TX_CONSTANT_DATA_LENGTH: u32 = BLOCK_HEADER_LENGTH
     + TX_CONTEXT_LENGTH
     + 1 /* vk_tree_root */
@@ -389,11 +387,9 @@ pub global PRIVATE_TO_PUBLIC_KERNEL_CIRCUIT_PUBLIC_INPUTS_LENGTH: u32 = TX_CONST
     + GAS_LENGTH /* gas_used */
     + AZTEC_ADDRESS_LENGTH /* fee_payer */;
 
-pub global KERNEL_CIRCUIT_PUBLIC_INPUTS_LENGTH: u32 = ROLLUP_VALIDATION_REQUESTS_LENGTH
-    + COMBINED_ACCUMULATED_DATA_LENGTH
-    + COMBINED_CONSTANT_DATA_LENGTH
-    + PARTIAL_STATE_REFERENCE_LENGTH
-    + 1 /* revert_code */
+pub global PRIVATE_TO_ROLLUP_KERNEL_CIRCUIT_PUBLIC_INPUTS_LENGTH: u32 = ROLLUP_VALIDATION_REQUESTS_LENGTH
+    + PRIVATE_TO_ROLLUP_ACCUMULATED_DATA_LENGTH
+    + TX_CONSTANT_DATA_LENGTH
     + GAS_LENGTH /* gas_used */
     + AZTEC_ADDRESS_LENGTH;
 
@@ -461,10 +457,16 @@ pub global NUM_BASE_PARITY_PER_ROOT_PARITY: u32 = 4;
 
 // Lengths of the different types of proofs in fields
 pub global RECURSIVE_PROOF_LENGTH: u32 = 459;
-pub global NESTED_RECURSIVE_PROOF_LENGTH: u32 = 459;
-pub global TUBE_PROOF_LENGTH: u32 = RECURSIVE_PROOF_LENGTH; // in the future these can differ
+pub global NESTED_RECURSIVE_PROOF_LENGTH: u32 = RECURSIVE_PROOF_LENGTH;
+pub global IPA_PROOF_LENGTH: u32 = 65;
+pub global RECURSIVE_ROLLUP_HONK_PROOF_LENGTH: u32 =
+    RECURSIVE_PROOF_LENGTH + IPA_CLAIM_LENGTH + IPA_PROOF_LENGTH;
+pub global NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH: u32 = RECURSIVE_ROLLUP_HONK_PROOF_LENGTH;
+pub global TUBE_PROOF_LENGTH: u32 = RECURSIVE_ROLLUP_HONK_PROOF_LENGTH; // in the future these can differ
 
 pub global HONK_VERIFICATION_KEY_LENGTH_IN_FIELDS: u32 = 128; // size of an Ultra verification key
+pub global ROLLUP_HONK_VERIFICATION_KEY_LENGTH_IN_FIELDS: u32 =
+    HONK_VERIFICATION_KEY_LENGTH_IN_FIELDS + IPA_CLAIM_LENGTH + 1; // size of an Ultra verification key
 
 pub global CLIENT_IVC_VERIFICATION_KEY_LENGTH_IN_FIELDS: u32 = 143; // size of a Mega verification key
 // VK is composed of
@@ -473,6 +475,12 @@ pub global CLIENT_IVC_VERIFICATION_KEY_LENGTH_IN_FIELDS: u32 = 143; // size of a
 // - 21 affine elements (curve base field fq) encoded as fr elements takes (21 * 4 * 32 bytes)
 // 21 above refers to the constant AvmFlavor::NUM_PRECOMPUTED_ENTITIES
 pub global AVM_VERIFICATION_KEY_LENGTH_IN_FIELDS: u32 = 2 + 21 * 4;
+
+// Setting limits for MAX_PUBLIC_CALLS_TO_UNIQUE_CONTRACT_CLASS_IDS
+// This value is determined by the length of the AVM trace and the MAX_PUBLIC_BYTECODE_SIZE_IN_BYTES
+// (i.e. 2^21 / MAX_PUBLIC_BYTECODE_SIZE_IN_BYTES ==> 2^21 / 96,000 = 21
+pub global MAX_PUBLIC_BYTECODE_SIZE_IN_BYTES: u32 = MAX_PACKED_PUBLIC_BYTECODE_SIZE_IN_FIELDS * 32;
+pub global MAX_PUBLIC_CALLS_TO_UNIQUE_CONTRACT_CLASS_IDS: u32 = 21;
 
 // `AVM_PROOF_LENGTH_IN_FIELDS` must be updated when AVM circuit changes.
 // To determine latest value, hover `COMPUTED_AVM_PROOF_LENGTH_IN_FIELDS`
@@ -756,3 +764,16 @@ pub global PROOF_TYPE_HONK: u32 = 1;
 pub global PROOF_TYPE_OINK: u32 = 2;
 pub global PROOF_TYPE_PG: u32 = 3;
 pub global PROOF_TYPE_AVM: u32 = 4;
+pub global PROOF_TYPE_ROLLUP_HONK: u32 = 5;
+pub global PROOF_TYPE_ROOT_ROLLUP_HONK: u32 = 6;
+
+mod test {
+    use crate::constants::{
+        MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL, MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
+    };
+
+    #[test]
+    unconstrained fn test_constants() {
+        assert(MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL <= MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX);
+    }
+}

@@ -1,6 +1,7 @@
+import { BBWASMBundlePrivateKernelProver } from '@aztec/bb-prover/wasm/bundle';
 import { type AztecNode, type PXE, TxEffect, mockTx, randomInBlock } from '@aztec/circuit-types';
 import { INITIAL_L2_BLOCK_NUM } from '@aztec/circuits.js/constants';
-import { type L1ContractAddresses } from '@aztec/ethereum';
+import { type L1ContractAddresses } from '@aztec/ethereum/l1-contract-addresses';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { KeyStore } from '@aztec/key-store';
 import { openTmpStore } from '@aztec/kv-store/lmdb';
@@ -11,7 +12,6 @@ import { type MockProxy, mock } from 'jest-mock-extended';
 import { KVPxeDatabase } from '../../database/kv_pxe_database.js';
 import { type PxeDatabase } from '../../database/pxe_database.js';
 import { type PXEServiceConfig } from '../../index.js';
-import { TestPrivateKernelProver } from '../../kernel_prover/test/test_circuit_prover.js';
 import { PXEService } from '../pxe_service.js';
 import { pxeTestSuite } from './pxe_test_suite.js';
 
@@ -44,10 +44,11 @@ async function createPXEService(): Promise<PXE> {
     coinIssuerAddress: EthAddress.random(),
     rewardDistributorAddress: EthAddress.random(),
     governanceProposerAddress: EthAddress.random(),
+    slashFactoryAddress: EthAddress.random(),
   };
   node.getL1ContractAddresses.mockResolvedValue(mockedContracts);
 
-  return Promise.resolve(new PXEService(keyStore, node, db, tips, new TestPrivateKernelProver(), config));
+  return Promise.resolve(new PXEService(keyStore, node, db, tips, new BBWASMBundlePrivateKernelProver(), config));
 }
 
 pxeTestSuite('PXEService', createPXEService);
@@ -80,7 +81,7 @@ describe('PXEService', () => {
 
     node.getTxEffect.mockResolvedValue(randomInBlock(settledTx));
 
-    const pxe = new PXEService(keyStore, node, db, tips, new TestPrivateKernelProver(), config);
+    const pxe = new PXEService(keyStore, node, db, tips, new BBWASMBundlePrivateKernelProver(), config);
     await expect(pxe.sendTx(duplicateTx)).rejects.toThrow(/A settled tx with equal hash/);
   });
 });

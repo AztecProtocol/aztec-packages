@@ -10,7 +10,7 @@ Partial notes are a concept that allows users to commit to an encrypted value, a
 
 Why is this useful?
 
-Consider the case where a user wants to pay for a transaction fee, using a [fee-payment contract](../../../protocol-specs/gas-and-fees/index.md) and they want to do this privately. They can't be certain what the transaction fee will be because the state of the network will have progressed by the time the transaction is processed by the sequencer, and transaction fees are dynamic. So the user can commit to a value for the transaction fee, publicly post this commitment, the fee payer (aka paymaster) can update the public commitment, deducting the final cost of the transaction from the commitment and returning the unused value to the user.
+Consider the case where a user wants to pay for a transaction fee, using a fee-payment contract and they want to do this privately. They can't be certain what the transaction fee will be because the state of the network will have progressed by the time the transaction is processed by the sequencer, and transaction fees are dynamic. So the user can commit to a value for the transaction fee, publicly post this commitment, the fee payer (aka paymaster) can update the public commitment, deducting the final cost of the transaction from the commitment and returning the unused value to the user.
 
 So, in general, the user is:
 

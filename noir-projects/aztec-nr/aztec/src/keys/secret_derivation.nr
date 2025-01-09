@@ -11,7 +11,7 @@ pub fn derive_aes_secret(secret: Scalar, point: Point) -> [u8; 32] {
     }
 
     shared_secret_bytes_with_separator[32] = GENERATOR_INDEX__SYMMETRIC_KEY;
-
+    // TODO(https://github.com/AztecProtocol/aztec-packages/issues/10537): Replace use of sha256
     sha256(shared_secret_bytes_with_separator)
 }
 

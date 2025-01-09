@@ -5,7 +5,6 @@ CACHE:
   ARG command
   ARG build_artifacts
   ARG prefix
-  # TODO(#8929): reinstate bb.js caching
   DO ../../build-system/s3-cache-scripts/+WITH_CACHE \
     --prefix="bb.js-$prefix" \
     --command="$command" \
@@ -13,65 +12,15 @@ CACHE:
     --build_artifacts="$build_artifacts"
 
 deps:
-    FROM ../../build-images+from-registry
+    FROM ../../+bootstrap-noir-bb
     WORKDIR /usr/src/barretenberg/ts
-
-    # minimum files to download yarn packages
-    # keep timestamps for incremental builds
-    COPY --dir .yarn package.json yarn.lock .yarnrc.yml .
-    RUN yarn --immutable
-
-    # other source files
-    COPY --dir src *.json *.js *.cjs *.md .
-
-    # copy over wasm builds from cpp folder
-    COPY ../cpp/+preset-wasm-threads/bin/barretenberg.wasm.gz src/barretenberg_wasm/barretenberg-threads.wasm.gz
-    COPY ../cpp/+preset-wasm/bin/barretenberg.wasm.gz src/barretenberg_wasm/barretenberg.wasm.gz
-    COPY ../cpp/+preset-wasm-threads/bin/barretenberg.wasm.gz dest/node/barretenberg_wasm/barretenberg-threads.wasm.gz
-    COPY ../cpp/+preset-wasm-threads/bin/barretenberg.wasm.gz dest/node-cjs/barretenberg_wasm/barretenberg-threads.wasm.gz
-
-esm:
-    FROM +deps
-    DO +CACHE \
-      --prefix="esm" \
-      --command="yarn build:esm" \
-      --build_artifacts="."
-    SAVE ARTIFACT /usr/src/barretenberg/ts build
-
-cjs:
-    FROM +deps
-    COPY scripts/cjs_postprocess.sh scripts/
-    DO +CACHE \
-      --prefix="cjs" \
-      --command="yarn build:cjs" \
-      --build_artifacts="."
-    SAVE ARTIFACT /usr/src/barretenberg/ts build
-
-browser:
-    FROM +deps
-    RUN yarn build:browser
-    DO +CACHE \
-      --prefix="browser" \
-      --command="yarn build:browser" \
-      --build_artifacts="."
-    SAVE ARTIFACT /usr/src/barretenberg/ts build
 
 test-prettier-format:
     FROM +deps
     RUN yarn formatting
 
-build:
-    FROM +deps
-    # collect all our build types
-    COPY +esm/build /usr/src/barretenberg/ts
-    COPY +cjs/build /usr/src/barretenberg/ts
-    COPY +browser/build /usr/src/barretenberg/ts
-    # We want to create a pure package, as would be published to npm, for consuming projects.
-    RUN yarn pack && tar zxf package.tgz && rm package.tgz
-    SAVE ARTIFACT /usr/src/barretenberg/ts build
-
 publish-npm:
-    FROM +build
+    FROM +deps
     ARG VERSION
     ARG DIST_TAG
     ARG DRY_RUN=0

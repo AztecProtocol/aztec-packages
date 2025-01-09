@@ -7,11 +7,11 @@ import {
   type FunctionCall,
   type GetUnencryptedLogsResponse,
   type InBlock,
-  type IncomingNotesFilter,
   L1EventPayload,
   type L2Block,
   type LogFilter,
   MerkleTreeId,
+  type NotesFilter,
   type PXE,
   type PXEInfo,
   type PrivateExecutionResult,
@@ -31,30 +31,33 @@ import {
   UniqueNote,
   getNonNullifiedL1ToL2MessageWitness,
 } from '@aztec/circuit-types';
+import type {
+  CompleteAddress,
+  ContractClassWithId,
+  ContractInstanceWithAddress,
+  GasFees,
+  L1_TO_L2_MSG_TREE_HEIGHT,
+  NodeInfo,
+  PartialAddress,
+  PrivateKernelTailCircuitPublicInputs,
+} from '@aztec/circuits.js';
 import {
-  type AztecAddress,
-  type CompleteAddress,
-  type ContractClassWithId,
-  type ContractInstanceWithAddress,
-  type GasFees,
-  type L1_TO_L2_MSG_TREE_HEIGHT,
-  type NodeInfo,
-  type PartialAddress,
-  type PrivateKernelTailCircuitPublicInputs,
-  computeAddressSecret,
   computeContractAddressFromInstance,
   computeContractClassId,
   getContractClassFromArtifact,
-} from '@aztec/circuits.js';
+} from '@aztec/circuits.js/contract';
 import { computeNoteHashNonce, siloNullifier } from '@aztec/circuits.js/hash';
+import { computeAddressSecret } from '@aztec/circuits.js/keys';
 import {
   type AbiDecoded,
   type ContractArtifact,
   EventSelector,
   FunctionSelector,
   FunctionType,
+  decodeFunctionSignature,
   encodeArguments,
 } from '@aztec/foundation/abi';
+import { type AztecAddress } from '@aztec/foundation/aztec-address';
 import { Fr, type Point } from '@aztec/foundation/fields';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { Timer } from '@aztec/foundation/timer';
@@ -69,11 +72,10 @@ import { inspect } from 'util';
 import { type PXEServiceConfig } from '../config/index.js';
 import { getPackageInfo } from '../config/package_info.js';
 import { ContractDataOracle } from '../contract_data_oracle/index.js';
-import { IncomingNoteDao } from '../database/incoming_note_dao.js';
 import { type PxeDatabase } from '../database/index.js';
+import { NoteDao } from '../database/note_dao.js';
 import { KernelOracle } from '../kernel_oracle/index.js';
-import { KernelProver } from '../kernel_prover/kernel_prover.js';
-import { TestPrivateKernelProver } from '../kernel_prover/test/test_circuit_prover.js';
+import { KernelProver, type ProvingConfig } from '../kernel_prover/kernel_prover.js';
 import { getAcirSimulator } from '../simulator/index.js';
 import { Synchronizer } from '../synchronizer/index.js';
 import { enrichPublicSimulationError, enrichSimulationError } from './error_enriching.js';
@@ -87,6 +89,7 @@ export class PXEService implements PXE {
   private simulator: AcirSimulator;
   private log: Logger;
   private packageVersion: string;
+  private proverEnabled: boolean;
 
   constructor(
     private keyStore: KeyStore,
@@ -102,6 +105,7 @@ export class PXEService implements PXE {
     this.contractDataOracle = new ContractDataOracle(db);
     this.simulator = getAcirSimulator(db, node, keyStore, this.contractDataOracle);
     this.packageVersion = getPackageInfo().version;
+    this.proverEnabled = !!config.proverEnabled;
   }
 
   /**
@@ -164,37 +168,37 @@ export class PXEService implements PXE {
     return accountCompleteAddress;
   }
 
-  public async registerContact(address: AztecAddress): Promise<AztecAddress> {
+  public async registerSender(address: AztecAddress): Promise<AztecAddress> {
     const accounts = await this.keyStore.getAccounts();
     if (accounts.includes(address)) {
-      this.log.info(`Account:\n "${address.toString()}"\n already registered.`);
+      this.log.info(`Sender:\n "${address.toString()}"\n already registered.`);
       return address;
     }
 
-    const wasAdded = await this.db.addContactAddress(address);
+    const wasAdded = await this.db.addSenderAddress(address);
 
     if (wasAdded) {
-      this.log.info(`Added contact:\n ${address.toString()}`);
+      this.log.info(`Added sender:\n ${address.toString()}`);
     } else {
-      this.log.info(`Contact:\n "${address.toString()}"\n already registered.`);
+      this.log.info(`Sender:\n "${address.toString()}"\n already registered.`);
     }
 
     return address;
   }
 
-  public getContacts(): Promise<AztecAddress[]> {
-    const contacts = this.db.getContactAddresses();
+  public getSenders(): Promise<AztecAddress[]> {
+    const senders = this.db.getSenderAddresses();
 
-    return Promise.resolve(contacts);
+    return Promise.resolve(senders);
   }
 
-  public async removeContact(address: AztecAddress): Promise<void> {
-    const wasRemoved = await this.db.removeContactAddress(address);
+  public async removeSender(address: AztecAddress): Promise<void> {
+    const wasRemoved = await this.db.removeSenderAddress(address);
 
     if (wasRemoved) {
-      this.log.info(`Removed contact:\n ${address.toString()}`);
+      this.log.info(`Removed sender:\n ${address.toString()}`);
     } else {
-      this.log.info(`Contact:\n "${address.toString()}"\n not in address book.`);
+      this.log.info(`Sender:\n "${address.toString()}"\n not in address book.`);
     }
 
     return Promise.resolve();
@@ -208,12 +212,6 @@ export class PXEService implements PXE {
     return completeAddresses.filter(completeAddress =>
       accounts.find(address => address.equals(completeAddress.address)),
     );
-  }
-
-  public async getRegisteredAccount(address: AztecAddress): Promise<CompleteAddress | undefined> {
-    const result = await this.getRegisteredAccounts();
-    const account = result.find(r => r.address.equals(address));
-    return Promise.resolve(account);
   }
 
   public async registerContractClass(artifact: ContractArtifact): Promise<void> {
@@ -241,14 +239,10 @@ export class PXEService implements PXE {
 
       await this.db.addContractArtifact(contractClassId, artifact);
 
-      const functionNames: Record<string, string> = {};
-      for (const fn of artifact.functions) {
-        if (fn.functionType === FunctionType.PUBLIC) {
-          functionNames[FunctionSelector.fromNameAndParameters(fn.name, fn.parameters).toString()] = fn.name;
-        }
-      }
-
-      await this.node.registerContractFunctionNames(instance.address, functionNames);
+      const publicFunctionSignatures = artifact.functions
+        .filter(fn => fn.functionType === FunctionType.PUBLIC)
+        .map(fn => decodeFunctionSignature(fn.name, fn.parameters));
+      await this.node.registerContractFunctionSignatures(instance.address, publicFunctionSignatures);
 
       // TODO(#10007): Node should get public contract class from the registration event, not from PXE registration
       await this.node.addContractClass({ ...contractClass, privateFunctions: [], unconstrainedFunctions: [] });
@@ -277,8 +271,8 @@ export class PXEService implements PXE {
     return await this.node.getPublicStorageAt(contract, slot, 'latest');
   }
 
-  public async getIncomingNotes(filter: IncomingNotesFilter): Promise<UniqueNote[]> {
-    const noteDaos = await this.db.getIncomingNotes(filter);
+  public async getNotes(filter: NotesFilter): Promise<UniqueNote[]> {
+    const noteDaos = await this.db.getNotes(filter);
 
     const extendedNotes = noteDaos.map(async dao => {
       let owner = filter.owner;
@@ -347,19 +341,19 @@ export class PXEService implements PXE {
       }
 
       await this.db.addNote(
-        new IncomingNoteDao(
+        new NoteDao(
           note.note,
           note.contractAddress,
           note.storageSlot,
-          note.noteTypeId,
-          note.txHash,
-          l2BlockNumber,
-          l2BlockHash,
           nonce,
           noteHash,
           siloedNullifier,
+          note.txHash,
+          l2BlockNumber,
+          l2BlockHash,
           index,
           owner.address.toAddressPoint(),
+          note.noteTypeId,
         ),
         scope,
       );
@@ -392,19 +386,19 @@ export class PXEService implements PXE {
       }
 
       await this.db.addNullifiedNote(
-        new IncomingNoteDao(
+        new NoteDao(
           note.note,
           note.contractAddress,
           note.storageSlot,
-          note.noteTypeId,
-          note.txHash,
-          l2BlockNumber,
-          l2BlockHash,
           nonce,
           noteHash,
           Fr.ZERO, // We are not able to derive
+          note.txHash,
+          l2BlockNumber,
+          l2BlockHash,
           index,
           note.owner.toAddressPoint(),
+          note.noteTypeId,
         ),
       );
     }
@@ -460,20 +454,16 @@ export class PXEService implements PXE {
     return await this.node.getCurrentBaseFees();
   }
 
-  async #simulateKernels(
-    txRequest: TxExecutionRequest,
-    privateExecutionResult: PrivateExecutionResult,
-  ): Promise<PrivateKernelTailCircuitPublicInputs> {
-    const result = await this.#prove(txRequest, new TestPrivateKernelProver(), privateExecutionResult);
-    return result.publicInputs;
-  }
-
   public async proveTx(
     txRequest: TxExecutionRequest,
     privateExecutionResult: PrivateExecutionResult,
   ): Promise<TxProvingResult> {
     try {
-      const { publicInputs, clientIvcProof } = await this.#prove(txRequest, this.proofCreator, privateExecutionResult);
+      const { publicInputs, clientIvcProof } = await this.#prove(txRequest, this.proofCreator, privateExecutionResult, {
+        simulate: false,
+        profile: false,
+        dryRun: false,
+      });
       return new TxProvingResult(privateExecutionResult, publicInputs, clientIvcProof!);
     } catch (err: any) {
       throw this.contextualizeError(err, inspect(txRequest), inspect(privateExecutionResult));
@@ -486,6 +476,7 @@ export class PXEService implements PXE {
     simulatePublic: boolean,
     msgSender: AztecAddress | undefined = undefined,
     skipTxValidation: boolean = false,
+    enforceFeePayment: boolean = true,
     profile: boolean = false,
     scopes?: AztecAddress[],
   ): Promise<TxSimulationResult> {
@@ -507,23 +498,17 @@ export class PXEService implements PXE {
       await this.synchronizer.sync();
       const privateExecutionResult = await this.#executePrivate(txRequest, msgSender, scopes);
 
-      let publicInputs: PrivateKernelTailCircuitPublicInputs;
-      let profileResult;
-      if (profile) {
-        ({ publicInputs, profileResult } = await this.#profileKernelProver(
-          txRequest,
-          this.proofCreator,
-          privateExecutionResult,
-        ));
-      } else {
-        publicInputs = await this.#simulateKernels(txRequest, privateExecutionResult);
-      }
+      const { publicInputs, profileResult } = await this.#prove(txRequest, this.proofCreator, privateExecutionResult, {
+        simulate: !profile,
+        profile,
+        dryRun: true,
+      });
 
       const privateSimulationResult = new PrivateSimulationResult(privateExecutionResult, publicInputs);
       const simulatedTx = privateSimulationResult.toSimulatedTx();
       let publicOutput: PublicSimulationOutput | undefined;
       if (simulatePublic) {
-        publicOutput = await this.#simulatePublicCalls(simulatedTx);
+        publicOutput = await this.#simulatePublicCalls(simulatedTx, enforceFeePayment);
       }
 
       if (!skipTxValidation) {
@@ -780,11 +765,11 @@ export class PXEService implements PXE {
    * It can also be used for estimating gas in the future.
    * @param tx - The transaction to be simulated.
    */
-  async #simulatePublicCalls(tx: Tx) {
+  async #simulatePublicCalls(tx: Tx, enforceFeePayment: boolean) {
     // Simulating public calls can throw if the TX fails in a phase that doesn't allow reverts (setup)
     // Or return as reverted if it fails in a phase that allows reverts (app logic, teardown)
     try {
-      const result = await this.node.simulatePublicCalls(tx);
+      const result = await this.node.simulatePublicCalls(tx, enforceFeePayment);
       if (result.revertReason) {
         throw result.revertReason;
       }
@@ -801,20 +786,6 @@ export class PXEService implements PXE {
     }
   }
 
-  async #profileKernelProver(
-    txExecutionRequest: TxExecutionRequest,
-    proofCreator: PrivateKernelProver,
-    privateExecutionResult: PrivateExecutionResult,
-  ): Promise<PrivateKernelSimulateOutput<PrivateKernelTailCircuitPublicInputs>> {
-    const block = privateExecutionResult.publicInputs.historicalHeader.globalVariables.blockNumber.toNumber();
-    const kernelOracle = new KernelOracle(this.contractDataOracle, this.keyStore, this.node, block);
-    const kernelProver = new KernelProver(kernelOracle, proofCreator);
-
-    // Dry run the prover with profiler enabled
-    const result = await kernelProver.prove(txExecutionRequest.toTxRequest(), privateExecutionResult, true, true);
-    return result;
-  }
-
   /**
    * Generate a kernel proof, and create a private kernel output.
    * The function takes in a transaction execution request, and the result of private execution
@@ -829,13 +800,18 @@ export class PXEService implements PXE {
     txExecutionRequest: TxExecutionRequest,
     proofCreator: PrivateKernelProver,
     privateExecutionResult: PrivateExecutionResult,
+    { simulate, profile, dryRun }: ProvingConfig,
   ): Promise<PrivateKernelSimulateOutput<PrivateKernelTailCircuitPublicInputs>> {
     // use the block the tx was simulated against
     const block = privateExecutionResult.publicInputs.historicalHeader.globalVariables.blockNumber.toNumber();
     const kernelOracle = new KernelOracle(this.contractDataOracle, this.keyStore, this.node, block);
-    const kernelProver = new KernelProver(kernelOracle, proofCreator);
-    this.log.debug(`Executing kernel prover...`);
-    return await kernelProver.prove(txExecutionRequest.toTxRequest(), privateExecutionResult);
+    const kernelProver = new KernelProver(kernelOracle, proofCreator, !this.proverEnabled);
+    this.log.debug(`Executing kernel prover (simulate: ${simulate}, profile: ${profile}, dryRun: ${dryRun})...`);
+    return await kernelProver.prove(txExecutionRequest.toTxRequest(), privateExecutionResult, {
+      simulate,
+      profile,
+      dryRun,
+    });
   }
 
   public async isContractClassPubliclyRegistered(id: Fr): Promise<boolean> {
@@ -873,7 +849,9 @@ export class PXEService implements PXE {
         const [keyPrefix, account] = await this.keyStore.getKeyPrefixAndAccount(vpk);
         let secretKey = await this.keyStore.getMasterSecretKey(vpk);
         if (keyPrefix === 'iv') {
-          const registeredAccount = await this.getRegisteredAccount(account);
+          const registeredAccount = (await this.getRegisteredAccounts()).find(completeAddress =>
+            completeAddress.address.equals(account),
+          );
           if (!registeredAccount) {
             throw new Error('No registered account');
           }

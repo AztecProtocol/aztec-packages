@@ -117,6 +117,8 @@ std::string to_name(AvmError error)
         return "TAG CHECKING ERROR";
     case AvmError::ADDR_RES_TAG_ERROR:
         return "ADDRESS RESOLUTION TAG ERROR";
+    case AvmError::MEM_SLICE_OUT_OF_RANGE:
+        return "MEMORY SLICE OUT OF RANGE";
     case AvmError::REL_ADDR_OUT_OF_RANGE:
         return "RELATIVE ADDRESS IS OUT OF RANGE";
     case AvmError::DIV_ZERO:
@@ -135,6 +137,14 @@ std::string to_name(AvmError error)
         return "SIDE EFFECT LIMIT REACHED";
     case AvmError::OUT_OF_GAS:
         return "OUT OF GAS";
+    case AvmError::STATIC_CALL_ALTERATION:
+        return "STATIC CALL ALTERATION";
+    case AvmError::FAILED_BYTECODE_RETRIEVAL:
+        return "FAILED BYTECODE RETRIEVAL";
+    case AvmError::MSM_POINTS_LEN_INVALID:
+        return "MSM POINTS LEN INVALID";
+    case AvmError::MSM_POINT_NOT_ON_CURVE:
+        return "MSM POINT NOT ON CURVE";
     default:
         throw std::runtime_error("Invalid error type");
         break;

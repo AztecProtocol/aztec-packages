@@ -4,14 +4,13 @@ import {
   MerkleTreeId,
   type MerkleTreeWriteOperations,
   type ProcessedTx,
-  makeEmptyProcessedTx,
+  TxHash,
   toNumBlobFields,
 } from '@aztec/circuit-types';
-import { Fr, type GlobalVariables, NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP, SpongeBlob } from '@aztec/circuits.js';
+import { Fr, type GlobalVariables, NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP } from '@aztec/circuits.js';
+import { SpongeBlob } from '@aztec/circuits.js/blobs';
 import { padArrayEnd } from '@aztec/foundation/collection';
 import { createLogger } from '@aztec/foundation/log';
-import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types';
-import { protocolContractTreeRoot } from '@aztec/protocol-contracts';
 import { type TelemetryClient } from '@aztec/telemetry-client';
 import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
 
@@ -25,7 +24,6 @@ import {
  * Builds a block and its header from a set of processed tx without running any circuits.
  */
 export class LightweightBlockBuilder implements BlockBuilder {
-  private numTxs?: number;
   private spongeBlobState?: SpongeBlob;
   private globalVariables?: GlobalVariables;
   private l1ToL2Messages?: Fr[];
@@ -41,7 +39,6 @@ export class LightweightBlockBuilder implements BlockBuilder {
     this.globalVariables = globalVariables;
     this.l1ToL2Messages = padArrayEnd(l1ToL2Messages, Fr.ZERO, NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP);
     this.txs = [];
-    this.numTxs = 0;
     this.spongeBlobState = undefined;
 
     // Update L1 to L2 tree
@@ -49,10 +46,9 @@ export class LightweightBlockBuilder implements BlockBuilder {
   }
 
   async addTxs(txs: ProcessedTx[]): Promise<void> {
-    this.numTxs = Math.max(2, txs.length);
     this.spongeBlobState = SpongeBlob.init(toNumBlobFields(txs));
     for (const tx of txs) {
-      this.logger.debug(tx.hash.isZero() ? 'Adding padding tx to block' : 'Adding new tx to block', {
+      this.logger.debug(tx.hash.equals(TxHash.zero()) ? 'Adding padding tx to block' : 'Adding new tx to block', {
         txHash: tx.hash.toString(),
       });
       this.txs.push(tx);
@@ -60,20 +56,7 @@ export class LightweightBlockBuilder implements BlockBuilder {
     }
   }
 
-  async setBlockCompleted(): Promise<L2Block> {
-    const paddingTxCount = this.numTxs! - this.txs.length;
-    for (let i = 0; i < paddingTxCount; i++) {
-      await this.addTxs([
-        makeEmptyProcessedTx(
-          this.db.getInitialHeader(),
-          this.globalVariables!.chainId,
-          this.globalVariables!.version,
-          getVKTreeRoot(),
-          protocolContractTreeRoot,
-        ),
-      ]);
-    }
-
+  setBlockCompleted(): Promise<L2Block> {
     return this.buildBlock();
   }
 

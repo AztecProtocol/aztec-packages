@@ -12,6 +12,7 @@ spec:
     matchLabels:
       {{- include "aztec-network.selectorLabels" . | nindent 6 }}
       app: validator
+  {{- if not .Values.storage.localSsd }}
   volumeClaimTemplates:
     - metadata:
         name: validator-data
@@ -20,12 +21,17 @@ spec:
         resources:
           requests:
             storage: {{ .Values.validator.storageSize }}
+  {{- end }}
   template:
     metadata:
       labels:
         {{- include "aztec-network.selectorLabels" . | nindent 8 }}
         app: validator
     spec:
+      {{- if .Values.storage.localSsd }}
+      {{- include "aztec-network.gcpLocalSsd" . | nindent 6 }}
+      {{- end }}
+
       {{- if .Values.network.public }}
       hostNetwork: true
       dnsPolicy: ClusterFirstWithHostNet
@@ -45,8 +51,8 @@ spec:
               cat /shared/config/service-addresses
               # First check ethereum node
               until curl -s -X POST -H 'Content-Type: application/json' \
-                -d '{"jsonrpc":"2.0","method":"web3_clientVersion","params":[],"id":67}' \
-                $ETHEREUM_HOST | grep -q reth; do
+                -d '{"jsonrpc":"2.0","method":"eth_chainId","params":[],"id":67}' \
+                $ETHEREUM_HOST | grep 0x; do
                 echo "Waiting for Ethereum node ${ETHEREUM_HOST}..."
                 sleep 5
               done
@@ -156,14 +162,14 @@ spec:
               valueFrom:
                 fieldRef:
                   fieldPath: status.podIP
+            - name: NODE_OPTIONS
+              value: "--max-old-space-size={{ .Values.validator.maxOldSpaceSize}}"
             - name: AZTEC_PORT
               value: "{{ .Values.validator.service.nodePort }}"
             - name: LOG_LEVEL
               value: "{{ .Values.validator.logLevel }}"
             - name: LOG_JSON
               value: "1"
-            - name: DEBUG
-              value: "{{ .Values.validator.debug }}"
             - name: P2P_ENABLED
               value: "{{ .Values.validator.p2p.enabled }}"
             - name: VALIDATOR_DISABLED
@@ -192,6 +198,22 @@ spec:
               value: "{{ .Values.aztec.epochDuration }}"
             - name: AZTEC_EPOCH_PROOF_CLAIM_WINDOW_IN_L2_SLOTS
               value: "{{ .Values.aztec.epochProofClaimWindow }}"
+            - name: VALIDATOR_ATTESTATIONS_POLLING_INTERVAL_MS
+              value: {{ .Values.validator.attestationPollingInterval | quote }}
+            - name: ARCHIVER_POLLING_INTERVAL_MS
+              value: {{ .Values.validator.archiverPollingInterval | quote }}
+            - name: ARCHIVER_VIEM_POLLING_INTERVAL_MS
+              value: {{ .Values.validator.viemPollingInterval | quote }}
+            - name: L1_READER_VIEM_POLLING_INTERVAL_MS
+              value: {{ .Values.validator.viemPollingInterval | quote }}
+            - name: SEQ_VIEM_POLLING_INTERVAL_MS
+              value: {{ .Values.validator.viemPollingInterval | quote }}
+            - name: DATA_DIRECTORY
+              value: "{{ .Values.validator.dataDir }}"
+            - name: DATA_STORE_MAP_SIZE_KB
+              value: "{{ .Values.storage.dataStoreMapSize }}"
+            - name: WS_DB_MAP_SIZE_KB
+              value: "{{ .Values.storage.worldStateMapSize }}"
           ports:
             - containerPort: {{ .Values.validator.service.nodePort }}
             - containerPort: {{ .Values.validator.service.p2pTcpPort }}
@@ -214,9 +236,14 @@ spec:
           emptyDir: {}
         - name: config
           emptyDir: {}
+      {{- if .Values.storage.localSsd }}
+        - name: validator-data
+          emptyDir: {}
+      {{ else }}
         - name: validator-data
           persistentVolumeClaim:
             claimName: validator-data
+      {{- end }}
 ---
 # If this is not a public network, create a headless service for StatefulSet DNS entries
 {{ if not .Values.network.public }}

@@ -1,6 +1,7 @@
 // @attribution: lodestar impl for inspiration
+import { PeerErrorSeverity } from '@aztec/circuit-types';
 import { type Logger, createLogger } from '@aztec/foundation/log';
-import { executeTimeoutWithCustomError } from '@aztec/foundation/timer';
+import { executeTimeout } from '@aztec/foundation/timer';
 
 import { type IncomingStreamData, type PeerId, type Stream } from '@libp2p/interface';
 import { pipe } from 'it-pipe';
@@ -13,7 +14,6 @@ import {
   InvalidResponseError,
 } from '../../errors/reqresp.error.js';
 import { SnappyTransform } from '../encoding.js';
-import { PeerErrorSeverity } from '../peer-scoring/peer_scoring.js';
 import { type PeerManager } from '../peer_manager.js';
 import { type P2PReqRespConfig } from './config.js';
 import {
@@ -159,7 +159,7 @@ export class ReqResp {
     };
 
     try {
-      return await executeTimeoutWithCustomError<InstanceType<SubProtocolMap[SubProtocol]['response']> | undefined>(
+      return await executeTimeout<InstanceType<SubProtocolMap[SubProtocol]['response']> | undefined>(
         requestFunction,
         this.overallRequestTimeoutMs,
         () => new CollectiveReqRespTimeoutError(),
@@ -205,7 +205,7 @@ export class ReqResp {
       this.logger.trace(`Stream opened with ${peerId.toString()} for ${subProtocol}`);
 
       // Open the stream with a timeout
-      const result = await executeTimeoutWithCustomError<Buffer>(
+      const result = await executeTimeout<Buffer>(
         (): Promise<Buffer> => pipe([payload], stream!, this.readMessage.bind(this)),
         this.individualRequestTimeoutMs,
         () => new IndividualReqRespTimeoutError(),

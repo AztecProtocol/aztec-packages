@@ -1,23 +1,19 @@
+import { type BaseParityInputs, type ParityPublicInputs, type RootParityInputs } from '@aztec/circuits.js';
 import {
   type BaseOrMergeRollupPublicInputs,
-  type BaseParityInputs,
   type BlockMergeRollupInputs,
   type BlockRootOrBlockMergePublicInputs,
   type BlockRootRollupInputs,
   type EmptyBlockRootRollupInputs,
-  type KernelCircuitPublicInputs,
   type MergeRollupInputs,
-  type ParityPublicInputs,
   type PrivateBaseRollupInputs,
-  type PrivateKernelEmptyInputs,
   type PublicBaseRollupInputs,
-  type RootParityInputs,
   type RootRollupInputs,
   type RootRollupPublicInputs,
-} from '@aztec/circuits.js';
-import { updateProtocolCircuitSampleInputs } from '@aztec/foundation/testing/files';
+  type SingleTxBlockRootRollupInputs,
+} from '@aztec/circuits.js/rollup';
+import { pushTestData } from '@aztec/foundation/testing';
 
-import TOML from '@iarna/toml';
 import { type WitnessMap } from '@noir-lang/acvm_js';
 import { abiDecode, abiEncode } from '@noir-lang/noirc_abi';
 
@@ -29,8 +25,6 @@ import {
   mapBlockRootOrBlockMergePublicInputsFromNoir,
   mapBlockRootRollupInputsToNoir,
   mapEmptyBlockRootRollupInputsToNoir,
-  mapEmptyKernelInputsToNoir,
-  mapKernelCircuitPublicInputsFromNoir,
   mapMergeRollupInputsToNoir,
   mapParityPublicInputsFromNoir,
   mapPrivateBaseRollupInputsToNoir,
@@ -38,16 +32,17 @@ import {
   mapRootParityInputsToNoir,
   mapRootRollupInputsToNoir,
   mapRootRollupPublicInputsFromNoir,
-} from '../type_conversion.js';
+  mapSingleTxBlockRootRollupInputsToNoir,
+} from '../conversion/server.js';
 import {
   type ParityBaseReturnType,
   type ParityRootReturnType,
-  type PrivateKernelEmptyReturnType,
   type RollupBasePrivateReturnType,
   type RollupBasePublicReturnType,
   type RollupBlockMergeReturnType,
   type RollupBlockRootEmptyReturnType,
   type RollupBlockRootReturnType,
+  type RollupBlockRootSingleTxReturnType,
   type RollupMergeReturnType,
   type RollupRootReturnType,
 } from '../types/index.js';
@@ -75,12 +70,6 @@ export function convertRootParityInputsToWitnessMap(inputs: RootParityInputs): W
   return initialWitnessMap;
 }
 
-export function convertPrivateKernelEmptyInputsToWitnessMap(inputs: PrivateKernelEmptyInputs): WitnessMap {
-  const mapped = mapEmptyKernelInputsToNoir(inputs);
-  const initialWitnessMap = abiEncode(ServerCircuitArtifacts.PrivateKernelEmptyArtifact.abi, { input: mapped as any });
-  return initialWitnessMap;
-}
-
 export function convertPrivateBaseRollupInputsToWitnessMap(inputs: PrivateBaseRollupInputs): WitnessMap {
   const mapped = mapPrivateBaseRollupInputsToNoir(inputs);
   const initialWitnessMap = abiEncode(ServerCircuitArtifacts.PrivateBaseRollupArtifact.abi, { inputs: mapped as any });
@@ -89,7 +78,7 @@ export function convertPrivateBaseRollupInputsToWitnessMap(inputs: PrivateBaseRo
 
 export function convertSimulatedPrivateBaseRollupInputsToWitnessMap(inputs: PrivateBaseRollupInputs): WitnessMap {
   const mapped = mapPrivateBaseRollupInputsToNoir(inputs);
-  updateProtocolCircuitSampleInputs('rollup-base-private', TOML.stringify({ inputs: mapped }));
+  pushTestData('rollup-base-private', { inputs: mapped });
   const initialWitnessMap = abiEncode(SimulatedServerCircuitArtifacts.PrivateBaseRollupArtifact.abi, {
     inputs: mapped as any,
   });
@@ -104,7 +93,7 @@ export function convertPublicBaseRollupInputsToWitnessMap(inputs: PublicBaseRoll
 
 export function convertSimulatedPublicBaseRollupInputsToWitnessMap(inputs: PublicBaseRollupInputs): WitnessMap {
   const mapped = mapPublicBaseRollupInputsToNoir(inputs);
-  updateProtocolCircuitSampleInputs('rollup-base-public', TOML.stringify({ inputs: mapped }));
+  pushTestData('rollup-base-public', { inputs: mapped });
   const initialWitnessMap = abiEncode(SimulatedServerCircuitArtifacts.PublicBaseRollupArtifact.abi, {
     inputs: mapped as any,
   });
@@ -118,7 +107,7 @@ export function convertSimulatedPublicBaseRollupInputsToWitnessMap(inputs: Publi
  */
 export function convertMergeRollupInputsToWitnessMap(inputs: MergeRollupInputs): WitnessMap {
   const mapped = mapMergeRollupInputsToNoir(inputs);
-  updateProtocolCircuitSampleInputs('rollup-merge', TOML.stringify({ inputs: mapped }));
+  pushTestData('rollup-merge', { inputs: mapped });
   const initialWitnessMap = abiEncode(ServerCircuitArtifacts.MergeRollupArtifact.abi, { inputs: mapped as any });
   return initialWitnessMap;
 }
@@ -130,7 +119,7 @@ export function convertMergeRollupInputsToWitnessMap(inputs: MergeRollupInputs):
  */
 export function convertBlockRootRollupInputsToWitnessMap(inputs: BlockRootRollupInputs): WitnessMap {
   const mapped = mapBlockRootRollupInputsToNoir(inputs);
-  updateProtocolCircuitSampleInputs('rollup-block-root', TOML.stringify({ inputs: mapped }));
+  pushTestData('rollup-block-root', { inputs: mapped });
   const initialWitnessMap = abiEncode(ServerCircuitArtifacts.BlockRootRollupArtifact.abi, { inputs: mapped as any });
   return initialWitnessMap;
 }
@@ -142,8 +131,26 @@ export function convertBlockRootRollupInputsToWitnessMap(inputs: BlockRootRollup
  */
 export function convertSimulatedBlockRootRollupInputsToWitnessMap(inputs: BlockRootRollupInputs): WitnessMap {
   const mapped = mapBlockRootRollupInputsToNoir(inputs);
-  updateProtocolCircuitSampleInputs('rollup-block-root', TOML.stringify({ inputs: mapped }));
+  pushTestData('rollup-block-root', { inputs: mapped });
   const initialWitnessMap = abiEncode(SimulatedServerCircuitArtifacts.BlockRootRollupArtifact.abi, {
+    inputs: mapped as any,
+  });
+  return initialWitnessMap;
+}
+
+export function convertSingleTxBlockRootRollupInputsToWitnessMap(inputs: SingleTxBlockRootRollupInputs): WitnessMap {
+  const mapped = mapSingleTxBlockRootRollupInputsToNoir(inputs);
+  const initialWitnessMap = abiEncode(ServerCircuitArtifacts.SingleTxBlockRootRollupArtifact.abi, {
+    inputs: mapped as any,
+  });
+  return initialWitnessMap;
+}
+
+export function convertSimulatedSingleTxBlockRootRollupInputsToWitnessMap(
+  inputs: SingleTxBlockRootRollupInputs,
+): WitnessMap {
+  const mapped = mapSingleTxBlockRootRollupInputsToNoir(inputs);
+  const initialWitnessMap = abiEncode(SimulatedServerCircuitArtifacts.SingleTxBlockRootRollupArtifact.abi, {
     inputs: mapped as any,
   });
   return initialWitnessMap;
@@ -169,7 +176,7 @@ export function convertEmptyBlockRootRollupInputsToWitnessMap(inputs: EmptyBlock
  */
 export function convertBlockMergeRollupInputsToWitnessMap(inputs: BlockMergeRollupInputs): WitnessMap {
   const mapped = mapBlockMergeRollupInputsToNoir(inputs);
-  updateProtocolCircuitSampleInputs('rollup-block-merge', TOML.stringify({ inputs: mapped }));
+  pushTestData('rollup-block-merge', { inputs: mapped });
   const initialWitnessMap = abiEncode(ServerCircuitArtifacts.BlockMergeRollupArtifact.abi, { inputs: mapped as any });
   return initialWitnessMap;
 }
@@ -181,28 +188,9 @@ export function convertBlockMergeRollupInputsToWitnessMap(inputs: BlockMergeRoll
  */
 export function convertRootRollupInputsToWitnessMap(inputs: RootRollupInputs): WitnessMap {
   const mapped = mapRootRollupInputsToNoir(inputs);
-  updateProtocolCircuitSampleInputs('rollup-root', TOML.stringify({ inputs: mapped }));
+  pushTestData('rollup-root', { inputs: mapped });
   const initialWitnessMap = abiEncode(ServerCircuitArtifacts.RootRollupArtifact.abi, { inputs: mapped as any });
   return initialWitnessMap;
-}
-
-export function convertPrivateKernelEmptyOutputsFromWitnessMap(outputs: WitnessMap): KernelCircuitPublicInputs {
-  const decodedInputs: DecodedInputs = abiDecode(ServerCircuitArtifacts.PrivateKernelEmptyArtifact.abi, outputs);
-  const returnType = decodedInputs.return_value as PrivateKernelEmptyReturnType;
-
-  return mapKernelCircuitPublicInputsFromNoir(returnType);
-}
-
-export function convertSimulatedPrivateKernelEmptyOutputsFromWitnessMap(
-  outputs: WitnessMap,
-): KernelCircuitPublicInputs {
-  const decodedInputs: DecodedInputs = abiDecode(
-    SimulatedServerCircuitArtifacts.PrivateKernelEmptyArtifact.abi,
-    outputs,
-  );
-  const returnType = decodedInputs.return_value as PrivateKernelEmptyReturnType;
-
-  return mapKernelCircuitPublicInputsFromNoir(returnType);
 }
 
 /**
@@ -332,6 +320,33 @@ export function convertBlockRootRollupOutputsFromWitnessMap(outputs: WitnessMap)
 
   // Cast the inputs as the return type
   const returnType = decodedInputs.return_value as RollupBlockRootReturnType;
+
+  return mapBlockRootOrBlockMergePublicInputsFromNoir(returnType);
+}
+
+export function convertSimulatedSingleTxBlockRootRollupOutputsFromWitnessMap(
+  outputs: WitnessMap,
+): BlockRootOrBlockMergePublicInputs {
+  // Decode the witness map into two fields, the return values and the inputs
+  const decodedInputs: DecodedInputs = abiDecode(
+    SimulatedServerCircuitArtifacts.SingleTxBlockRootRollupArtifact.abi,
+    outputs,
+  );
+
+  // Cast the inputs as the return type
+  const returnType = decodedInputs.return_value as RollupBlockRootSingleTxReturnType;
+
+  return mapBlockRootOrBlockMergePublicInputsFromNoir(returnType);
+}
+
+export function convertSingleTxBlockRootRollupOutputsFromWitnessMap(
+  outputs: WitnessMap,
+): BlockRootOrBlockMergePublicInputs {
+  // Decode the witness map into two fields, the return values and the inputs
+  const decodedInputs: DecodedInputs = abiDecode(ServerCircuitArtifacts.SingleTxBlockRootRollupArtifact.abi, outputs);
+
+  // Cast the inputs as the return type
+  const returnType = decodedInputs.return_value as RollupBlockRootSingleTxReturnType;
 
   return mapBlockRootOrBlockMergePublicInputsFromNoir(returnType);
 }

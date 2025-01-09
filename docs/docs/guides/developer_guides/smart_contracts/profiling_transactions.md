@@ -16,7 +16,6 @@ In this guide, we will look at how to profile the private execution of a transac
 
 - `aztec-nargo` installed (go to [Sandbox section](../../../reference/developer_references/sandbox_reference/sandbox-reference.md) for installation instructions)
 - `aztec-wallet` installed (installed as part of the Sandbox)
-- Aztec Sandbox running with **proving enabled** (go to [Sandbox PXE Proving](../local_env/sandbox_proving.md) for instructions)
 
 ## Profiling using aztec-wallet
 
@@ -33,6 +32,7 @@ aztec-wallet create-account -a owner
 aztec-wallet create-account -a user
 
 # Deploy a token contract and mint 100 tokens to the user
+# Run this from noir-projects/noir-contracts to determine the path to the token_contract
 aztec-wallet deploy token_contract@Token --args accounts:owner Test TST 18 -f owner -a token
 aztec-wallet send mint_to_private -ca token --args accounts:owner accounts:user 100 -f owner
 ```
@@ -54,14 +54,14 @@ This will print the following results after some time:
 
 ```bash
 Gate count per circuit:
-   SchnorrAccount:entrypoint                          Gates: 26,363     Acc: 26,363
-   private_kernel_init                                Gates: 34,887     Acc: 61,250
-   Token:transfer                                     Gates: 28,229     Acc: 89,479
-   private_kernel_inner                               Gates: 57,530     Acc: 147,009
-   private_kernel_reset                               Gates: 86,600     Acc: 233,609
-   private_kernel_tail                                Gates: 13,045     Acc: 246,654
+   SchnorrAccount:entrypoint                          Gates: 26,487     Acc: 26,487
+   private_kernel_init                                Gates: 48,562     Acc: 75,049
+   Token:transfer                                     Gates: 32,869     Acc: 107,918
+   private_kernel_inner                               Gates: 89,062     Acc: 196,980
+   private_kernel_reset                               Gates: 105,077    Acc: 302,057
+   private_kernel_tail                                Gates: 27,501     Acc: 329,558
 
-Total gates: 246,654
+Total gates: 329,558
 ```
 
 Here you can see the gate count of each private function call in the transaction along with the kernel circuits needed in between, and the total gate count.

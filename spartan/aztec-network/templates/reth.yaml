@@ -1,3 +1,4 @@
+{{- if not .Values.ethereum.externalHost }}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -142,6 +143,7 @@ spec:
   accessModes: ["ReadWriteOnce"]
   resources:
     requests:
-      storage: {{ .Values.ethereum.storage }}
+      storage: {{ .Values.ethereum.storageSize }}
 {{- end }}
 ---
+{{ end }}

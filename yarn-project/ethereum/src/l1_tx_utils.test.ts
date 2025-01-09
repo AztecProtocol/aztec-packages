@@ -299,4 +299,22 @@ describe('GasUtils', () => {
     const expectedEstimate = baseEstimate + (baseEstimate * 20n) / 100n;
     expect(bufferedEstimate).toBe(expectedEstimate);
   });
+
+  it('stops trying after timeout', async () => {
+    await cheatCodes.setAutomine(false);
+    await cheatCodes.setIntervalMining(0);
+
+    const now = Date.now();
+    await expect(
+      gasUtils.sendAndMonitorTransaction(
+        {
+          to: '0x1234567890123456789012345678901234567890',
+          data: '0x',
+          value: 0n,
+        },
+        { txTimeoutAt: new Date(now + 1000) },
+      ),
+    ).rejects.toThrow(/timed out/);
+    expect(Date.now() - now).toBeGreaterThanOrEqual(990);
+  }, 60_000);
 });

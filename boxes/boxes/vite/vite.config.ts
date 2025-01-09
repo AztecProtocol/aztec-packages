@@ -1,8 +1,7 @@
-import { defineConfig } from "vite";
+import { defineConfig, searchForWorkspaceRoot } from "vite";
 import react from "@vitejs/plugin-react-swc";
 import { PolyfillOptions, nodePolyfills } from "vite-plugin-node-polyfills";
 import topLevelAwait from "vite-plugin-top-level-await";
-import stripBlock from "vite-plugin-strip-block";
 
 // Unfortunate, but needed due to https://github.com/davidmyersdev/vite-plugin-node-polyfills/issues/81
 // Suspected to be because of the yarn workspace setup, but not sure
@@ -29,13 +28,29 @@ export default defineConfig({
       "Cross-Origin-Opener-Policy": "same-origin",
       "Cross-Origin-Embedder-Policy": "require-corp",
     },
+    fs: {
+      allow: [
+        searchForWorkspaceRoot(process.cwd()),
+        "../../../yarn-project/noir-protocol-circuits-types/artifacts",
+      ],
+    },
   },
   plugins: [
-    stripBlock({ start: "testing-only-start", end: "testing-only-end" }),
     react(),
     nodePolyfillsFix({ include: ["buffer", "process", "path"] }),
     topLevelAwait(),
   ],
+  build: {
+    rollupOptions: {
+      output: {
+        manualChunks(id: string) {
+          if (id.includes("bb-prover")) {
+            return "@aztec/bb-prover";
+          }
+        },
+      },
+    },
+  },
   optimizeDeps: {
     exclude: ["@noir-lang/acvm_js", "@noir-lang/noirc_abi", "@aztec/bb-prover"],
   },

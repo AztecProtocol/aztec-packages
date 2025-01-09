@@ -54,9 +54,9 @@ template <typename Flavor, typename Relation> void execute_relation_for_univaria
 template <typename Flavor, typename Relation> void execute_relation_for_pg_univariates(::benchmark::State& state)
 {
     using DeciderProvingKeys = DeciderProvingKeys_<Flavor>;
-    using Input = ProtogalaxyProverInternal<DeciderProvingKeys>::ExtendedUnivariatesNoOptimisticSkipping;
-    using Accumulator = typename Relation::template ProtogalaxyTupleOfUnivariatesOverSubrelationsNoOptimisticSkipping<
-        DeciderProvingKeys::NUM>;
+    using Input = ProtogalaxyProverInternal<DeciderProvingKeys>::ExtendedUnivariates;
+    using Accumulator =
+        typename Relation::template ProtogalaxyTupleOfUnivariatesOverSubrelations<DeciderProvingKeys::NUM>;
 
     execute_relation<Flavor, Relation, Input, Accumulator>(state);
 }
