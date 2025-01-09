@@ -2,8 +2,8 @@ import { AztecAddress, Fr, FunctionSelector } from '@aztec/circuits.js';
 
 import { parseSequencerAllowList } from './config.js';
 
-describe.only('sequencer config', () => {
-  it.only('parse a sequencer config', () => {
+describe('sequencer config', () => {
+  it('parse a sequencer config', () => {
     const instance = { address: AztecAddress.random() };
     const instanceFunction = { address: AztecAddress.random(), selector: FunctionSelector.random() };
     const classId = { classId: Fr.random() };
