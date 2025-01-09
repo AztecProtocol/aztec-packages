@@ -69,7 +69,7 @@ export interface L1TxUtilsConfig {
   /**
    * Fixed priority fee per gas in Gwei. Overrides any priority fee bump percentage
    */
-  fixedPriorityFeePerGas?: bigint;
+  fixedPriorityFeePerGas?: number;
   /**
    * Maximum number of speed-up attempts
    */
@@ -125,9 +125,9 @@ export const l1TxUtilsConfigMappings: ConfigMappingsType<L1TxUtilsConfig> = {
     ...bigintConfigHelper(50n),
   },
   fixedPriorityFeePerGas: {
-    description: 'Fixed priority fee per gas. Overrides any priority fee bump percentage',
+    description: 'Fixed priority fee per gas in Gwei. Overrides any priority fee bump percentage',
     env: 'L1_FIXED_PRIORITY_FEE_PER_GAS',
-    ...bigintConfigHelper(),
+    ...numberConfigHelper(0),
   },
   maxAttempts: {
     description: 'Maximum number of speed-up attempts',
@@ -430,9 +430,10 @@ export class L1TxUtils {
     let priorityFee: bigint;
     if (gasConfig.fixedPriorityFeePerGas) {
       this.logger?.debug('Using fixed priority fee per gas', {
-        fixedPriorityFeePerGas: formatGwei(gasConfig.fixedPriorityFeePerGas),
+        fixedPriorityFeePerGas: gasConfig,
       });
-      priorityFee = gasConfig.fixedPriorityFeePerGas * WEI_CONST;
+      // try to maintain precision up to 1000000 wei
+      priorityFee = BigInt(gasConfig.fixedPriorityFeePerGas * 1_000_000) * (WEI_CONST / 1_000_000n);
     } else {
       // Get initial priority fee from the network
       priorityFee = await this.publicClient.estimateMaxPriorityFeePerGas();
@@ -470,8 +471,10 @@ export class L1TxUtils {
       priorityFee = priorityFee > minPriorityFee ? priorityFee : minPriorityFee;
       maxFeePerGas = maxFeePerGas > minMaxFee ? maxFeePerGas : minMaxFee;
     } else {
-      // first attempt, just bump priority fee
-      priorityFee = (priorityFee * (100n + (gasConfig.priorityFeeBumpPercentage || 0n))) / 100n;
+      // first attempt, just bump priority fee, unless it's a fixed config
+      if (!gasConfig.fixedPriorityFeePerGas) {
+        priorityFee = (priorityFee * (100n + (gasConfig.priorityFeeBumpPercentage || 0n))) / 100n;
+      }
       maxFeePerGas += priorityFee;
     }
 
