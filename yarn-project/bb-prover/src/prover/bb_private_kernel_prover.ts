@@ -10,7 +10,6 @@ import {
   type PrivateKernelTailCircuitPublicInputs,
 } from '@aztec/circuits.js';
 import { createLogger } from '@aztec/foundation/log';
-import { pushTestData } from '@aztec/foundation/testing';
 import { Timer } from '@aztec/foundation/timer';
 import {
   convertPrivateKernelInitInputsToWitnessMapWithAbi,
