@@ -123,6 +123,8 @@ spec:
               valueFrom:
                 fieldRef:
                   fieldPath: metadata.name
+            - name: OTEL_SERVICE_NAME
+              value: boot-node
       {{- end }}
       containers:
         - name: boot-node

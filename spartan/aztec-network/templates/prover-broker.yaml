@@ -87,6 +87,8 @@ spec:
               valueFrom:
                 fieldRef:
                   fieldPath: metadata.name
+            - name: OTEL_SERVICE_NAME
+              value: prover-broker
             - name: NODE_OPTIONS
               value: "--max-old-space-size={{ .Values.proverBroker.maxOldSpaceSize}}"
             - name: AZTEC_PORT
