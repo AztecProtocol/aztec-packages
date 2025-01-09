@@ -202,44 +202,49 @@ export class L1TxUtils {
     _gasConfig?: Partial<L1TxUtilsConfig> & { fixedGas?: bigint },
     blobInputs?: L1BlobInputs,
   ): Promise<{ txHash: Hex; gasLimit: bigint; gasPrice: GasPrice }> {
-    const gasConfig = { ...this.config, ..._gasConfig };
-    const account = this.walletClient.account;
-    let gasLimit: bigint;
+    try {
+      const gasConfig = { ...this.config, ..._gasConfig };
+      const account = this.walletClient.account;
+      let gasLimit: bigint;
 
-    if (gasConfig.fixedGas) {
-      gasLimit = gasConfig.fixedGas;
-    } else {
-      gasLimit = await this.estimateGas(account, request);
-    }
+      if (gasConfig.fixedGas) {
+        gasLimit = gasConfig.fixedGas;
+      } else {
+        gasLimit = await this.estimateGas(account, request);
+      }
 
-    const gasPrice = await this.getGasPrice(gasConfig, !!blobInputs);
+      const gasPrice = await this.getGasPrice(gasConfig, !!blobInputs);
 
-    let txHash: Hex;
-    if (blobInputs) {
-      txHash = await this.walletClient.sendTransaction({
-        ...request,
-        ...blobInputs,
-        gas: gasLimit,
-        maxFeePerGas: gasPrice.maxFeePerGas,
-        maxPriorityFeePerGas: gasPrice.maxPriorityFeePerGas,
-        maxFeePerBlobGas: gasPrice.maxFeePerBlobGas!,
+      let txHash: Hex;
+      if (blobInputs) {
+        txHash = await this.walletClient.sendTransaction({
+          ...request,
+          ...blobInputs,
+          gas: gasLimit,
+          maxFeePerGas: gasPrice.maxFeePerGas,
+          maxPriorityFeePerGas: gasPrice.maxPriorityFeePerGas,
+          maxFeePerBlobGas: gasPrice.maxFeePerBlobGas!,
+        });
+      } else {
+        txHash = await this.walletClient.sendTransaction({
+          ...request,
+          gas: gasLimit,
+          maxFeePerGas: gasPrice.maxFeePerGas,
+          maxPriorityFeePerGas: gasPrice.maxPriorityFeePerGas,
+        });
+      }
+      this.logger?.verbose(`Sent L1 transaction ${txHash}`, {
+        gasLimit,
+        maxFeePerGas: formatGwei(gasPrice.maxFeePerGas),
+        maxPriorityFeePerGas: formatGwei(gasPrice.maxPriorityFeePerGas),
+        ...(gasPrice.maxFeePerBlobGas && { maxFeePerBlobGas: formatGwei(gasPrice.maxFeePerBlobGas) }),
       });
-    } else {
-      txHash = await this.walletClient.sendTransaction({
-        ...request,
-        gas: gasLimit,
-        maxFeePerGas: gasPrice.maxFeePerGas,
-        maxPriorityFeePerGas: gasPrice.maxPriorityFeePerGas,
-      });
-    }
-    this.logger?.verbose(`Sent L1 transaction ${txHash}`, {
-      gasLimit,
-      maxFeePerGas: formatGwei(gasPrice.maxFeePerGas),
-      maxPriorityFeePerGas: formatGwei(gasPrice.maxPriorityFeePerGas),
-      ...(gasPrice.maxFeePerBlobGas && { maxFeePerBlobGas: formatGwei(gasPrice.maxFeePerBlobGas) }),
-    });
 
-    return { txHash, gasLimit, gasPrice };
+      return { txHash, gasLimit, gasPrice };
+    } catch (err: any) {
+      this.logger?.error(`Failed to send transaction: ${formatViemError(err)}`);
+      throw err;
+    }
   }
 
   /**
