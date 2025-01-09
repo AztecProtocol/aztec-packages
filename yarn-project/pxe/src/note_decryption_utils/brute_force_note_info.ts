@@ -47,6 +47,7 @@ export async function bruteForceNoteInfo(
   let noteHash: Fr | undefined;
   let uniqueNoteHash: Fr | undefined;
   let innerNullifier: Fr | undefined;
+  console.log({ firstNullifier, txHash });
 
   for (; noteHashIndex < uniqueNoteHashes.length; ++noteHashIndex) {
     if (excludedIndices.has(noteHashIndex)) {
