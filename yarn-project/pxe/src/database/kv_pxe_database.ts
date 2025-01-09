@@ -12,6 +12,7 @@ import { type ContractArtifact, FunctionSelector, FunctionType } from '@aztec/fo
 import { toBufferBE } from '@aztec/foundation/bigint-buffer';
 import { Fr } from '@aztec/foundation/fields';
 import { toArray } from '@aztec/foundation/iterable';
+import { type LogFn, createDebugOnlyLogger } from '@aztec/foundation/log';
 import {
   type AztecAsyncArray,
   type AztecAsyncKVStore,
@@ -63,6 +64,11 @@ export class KVPxeDatabase implements PxeDatabase {
   #taggingSecretIndexesForSenders: AztecAsyncMap<string, number>;
   #taggingSecretIndexesForRecipients: AztecAsyncMap<string, number>;
 
+  // Arbitrary data stored by contracts. Key is computed as `${contractAddress}:${key}`
+  #contractStore: AztecAsyncMap<string, Buffer>;
+
+  debug: LogFn;
+
   protected constructor(private db: AztecAsyncKVStore) {
     this.#db = db;
 
@@ -100,6 +106,10 @@ export class KVPxeDatabase implements PxeDatabase {
 
     this.#taggingSecretIndexesForSenders = db.openMap('tagging_secret_indexes_for_senders');
     this.#taggingSecretIndexesForRecipients = db.openMap('tagging_secret_indexes_for_recipients');
+
+    this.#contractStore = db.openMap('contract_store');
+
+    this.debug = createDebugOnlyLogger('aztec:kv-pxe-database');
   }
 
   public static async create(db: AztecAsyncKVStore): Promise<KVPxeDatabase> {
@@ -610,5 +620,25 @@ export class KVPxeDatabase implements PxeDatabase {
       const senders = await toArray(this.#taggingSecretIndexesForSenders.keysAsync());
       await Promise.all(senders.map(sender => this.#taggingSecretIndexesForSenders.delete(sender)));
     });
+  }
+
+  async store(contract: AztecAddress, key: Fr, values: Fr[]): Promise<void> {
+    const dataKey = `${contract.toString()}:${key.toString()}`;
+    const dataBuffer = Buffer.concat(values.map(value => value.toBuffer()));
+    await this.#contractStore.set(dataKey, dataBuffer);
+  }
+
+  async load(contract: AztecAddress, key: Fr): Promise<Fr[] | null> {
+    const dataKey = `${contract.toString()}:${key.toString()}`;
+    const dataBuffer = await this.#contractStore.getAsync(dataKey);
+    if (!dataBuffer) {
+      this.debug(`Data not found for contract ${contract.toString()} and key ${key.toString()}`);
+      return null;
+    }
+    const values: Fr[] = [];
+    for (let i = 0; i < dataBuffer.length; i += Fr.SIZE_IN_BYTES) {
+      values.push(Fr.fromBuffer(dataBuffer.subarray(i, i + Fr.SIZE_IN_BYTES)));
+    }
+    return values;
   }
 }

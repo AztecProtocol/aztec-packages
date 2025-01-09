@@ -1,3 +1,4 @@
+import { HttpBlobSinkClient } from '@aztec/blob-sink/client';
 import { L2Block } from '@aztec/circuit-types';
 import { EthAddress } from '@aztec/circuits.js';
 import {
@@ -92,6 +93,7 @@ describe('L1Publisher', () => {
   let blockHash: Buffer;
   let body: Buffer;
 
+  let blobSinkClient: HttpBlobSinkClient;
   let mockBlobSinkServer: Server | undefined = undefined;
 
   // An l1 publisher with some private methods exposed
@@ -101,6 +103,7 @@ describe('L1Publisher', () => {
 
   beforeEach(() => {
     mockBlobSinkServer = undefined;
+    blobSinkClient = new HttpBlobSinkClient(BLOB_SINK_URL);
 
     l2Block = L2Block.random(42);
 
@@ -137,7 +140,7 @@ describe('L1Publisher', () => {
       Pick<L1ContractsConfig, 'ethereumSlotDuration'> &
       L1TxUtilsConfig;
 
-    publisher = new L1Publisher(config, new NoopTelemetryClient());
+    publisher = new L1Publisher(config, { telemetry: new NoopTelemetryClient(), blobSinkClient });
 
     (publisher as any)['rollupContract'] = rollupContract;
     (publisher as any)['publicClient'] = publicClient;

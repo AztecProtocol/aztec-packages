@@ -1,22 +1,21 @@
 import {
-  type Body,
+  EmptyL1RollupConstants,
   type EpochProofClaim,
   EpochProofQuote,
   EpochProofQuotePayload,
   type EpochProverManager,
   type L1ToL2MessageSource,
-  type L2Block,
+  L2Block,
   type L2BlockSource,
   type MerkleTreeWriteOperations,
   P2PClientType,
   type ProverCoordination,
   type Tx,
-  type TxEffect,
-  TxHash,
+  type TxHash,
   WorldStateRunningState,
   type WorldStateSynchronizer,
 } from '@aztec/circuit-types';
-import { type ContractDataSource, EthAddress, Fr } from '@aztec/circuits.js';
+import { type ContractDataSource, EthAddress } from '@aztec/circuits.js';
 import { type EpochCache } from '@aztec/epoch-cache';
 import { times } from '@aztec/foundation/collection';
 import { Signature } from '@aztec/foundation/eth-signature';
@@ -66,7 +65,7 @@ describe('prover-node', () => {
   let claim: MockProxy<EpochProofClaim>;
 
   // Blocks returned by the archiver
-  let blocks: MockProxy<L2Block>[];
+  let blocks: L2Block[];
 
   // Address of the publisher
   let address: EthAddress;
@@ -120,7 +119,14 @@ describe('prover-node', () => {
     bondManager = mock<BondManager>();
 
     telemetryClient = new NoopTelemetryClient();
-    config = { maxPendingJobs: 3, pollingIntervalMs: 10, maxParallelBlocksPerEpoch: 32 };
+    config = {
+      maxPendingJobs: 3,
+      pollingIntervalMs: 10,
+      maxParallelBlocksPerEpoch: 32,
+      txGatheringMaxParallelRequests: 10,
+      txGatheringIntervalMs: 100,
+      txGatheringTimeoutMs: 1000,
+    };
 
     // World state returns a new mock db every time it is asked to fork
     worldState.fork.mockImplementation(() => Promise.resolve(mock<MerkleTreeWriteOperations>()));
@@ -141,16 +147,11 @@ describe('prover-node', () => {
     quoteSigner.sign.mockImplementation(payload => Promise.resolve(new EpochProofQuote(payload, Signature.empty())));
 
     // We create 3 fake blocks with 1 tx effect each
-    blocks = times(3, i =>
-      mock<L2Block>({
-        number: i + 20,
-        hash: () => new Fr(i),
-        body: mock<Body>({ txEffects: [mock<TxEffect>({ txHash: TxHash.random() } as TxEffect)] }),
-      }),
-    );
+    blocks = times(3, i => L2Block.random(i + 20, 1));
 
     // Archiver returns a bunch of fake blocks
     l2BlockSource.getBlocksForEpoch.mockResolvedValue(blocks);
+    l2BlockSource.getL1Constants.mockResolvedValue(EmptyL1RollupConstants);
 
     // Coordination plays along and returns a tx whenever requested
     mockCoordination.getTxByHash.mockImplementation(hash =>
@@ -294,6 +295,38 @@ describe('prover-node', () => {
 
       expect(jobs[0].epochNumber).toEqual(10n);
       expect(jobs.length).toEqual(1);
+    });
+
+    it('retries acquiring txs if they are not immediately available', async () => {
+      l2BlockSource.getL2EpochNumber.mockResolvedValue(11n);
+      publisher.getProofClaim.mockResolvedValue(claim);
+      const mockGetTxByHash = mockCoordination.getTxByHash.getMockImplementation();
+      mockCoordination.getTxByHash.mockResolvedValue(undefined);
+
+      await proverNode.start();
+      await sleep(100);
+
+      // initially no job will be started because the txs aren't available
+      expect(jobs).toHaveLength(0);
+      expect(mockCoordination.getTxByHash).toHaveBeenCalled();
+
+      mockCoordination.getTxByHash.mockImplementation(mockGetTxByHash);
+      await sleep(100);
+
+      // now it should have all the txs necessary to start proving
+      expect(jobs[0].epochNumber).toEqual(10n);
+      expect(jobs.length).toEqual(1);
+    });
+
+    it('does not start proving if txs are not all available', async () => {
+      l2BlockSource.getL2EpochNumber.mockResolvedValue(11n);
+      publisher.getProofClaim.mockResolvedValue(claim);
+
+      mockCoordination.getTxByHash.mockResolvedValue(undefined);
+
+      await proverNode.start();
+      await sleep(2000);
+      expect(jobs).toHaveLength(0);
     });
 
     it('does not start proving if there is a claim for proven epoch during initial sync', async () => {
@@ -441,6 +474,7 @@ describe('prover-node', () => {
   class TestProverNode extends ProverNode {
     protected override doCreateEpochProvingJob(
       epochNumber: bigint,
+      _deadline: Date | undefined,
       _blocks: L2Block[],
       _txs: Tx[],
       _publicProcessorFactory: PublicProcessorFactory,

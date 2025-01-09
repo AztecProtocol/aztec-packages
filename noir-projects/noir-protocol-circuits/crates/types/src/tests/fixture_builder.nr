@@ -1,8 +1,9 @@
 use crate::{
     abis::{
         accumulated_data::{
-            avm_accumulated_data::AvmAccumulatedData, CombinedAccumulatedData,
-            PrivateAccumulatedData, PrivateAccumulatedDataBuilder, PrivateToPublicAccumulatedData,
+            avm_accumulated_data::AvmAccumulatedData, PrivateAccumulatedData,
+            PrivateAccumulatedDataBuilder, PrivateToPublicAccumulatedData,
+            PrivateToRollupAccumulatedData,
         },
         append_only_tree_snapshot::AppendOnlyTreeSnapshot,
         avm_circuit_public_inputs::AvmProofData,
@@ -14,8 +15,8 @@ use crate::{
         gas_settings::GasSettings,
         global_variables::GlobalVariables,
         kernel_circuit_public_inputs::{
-            KernelCircuitPublicInputs, PrivateKernelCircuitPublicInputs,
-            PrivateToPublicKernelCircuitPublicInputs,
+            PrivateKernelCircuitPublicInputs, PrivateToPublicKernelCircuitPublicInputs,
+            PrivateToRollupKernelCircuitPublicInputs,
         },
         log::Log,
         log_hash::{LogHash, ScopedLogHash},
@@ -436,23 +437,18 @@ impl FixtureBuilder {
         }
     }
 
-    pub fn to_combined_accumulated_data(self) -> CombinedAccumulatedData {
-        CombinedAccumulatedData {
+    pub fn to_private_to_rollup_accumulated_data(self) -> PrivateToRollupAccumulatedData {
+        PrivateToRollupAccumulatedData {
             note_hashes: self.note_hashes.storage().map(|n: ScopedNoteHash| n.note_hash.value),
             nullifiers: self.nullifiers.storage().map(|n: ScopedNullifier| n.nullifier.value),
             l2_to_l1_msgs: self.l2_to_l1_msgs.storage().map(|m: ScopedL2ToL1Message| {
                 m.expose_to_public()
             }),
             private_logs: self.private_logs.storage().map(|l: Scoped<PrivateLogData>| l.inner.log),
-            unencrypted_logs_hashes: self.unencrypted_logs_hashes.storage().map(|l: ScopedLogHash| {
-                l.expose_to_public()
-            }),
             contract_class_logs_hashes: self.contract_class_logs_hashes.storage().map(
                 |l: ScopedLogHash| l.expose_to_public(),
             ),
-            unencrypted_log_preimages_length: self.unencrypted_log_preimages_length,
             contract_class_log_preimages_length: self.contract_class_log_preimages_length,
-            public_data_writes: self.public_data_writes.storage(),
         }
     }
 
@@ -527,17 +523,17 @@ impl FixtureBuilder {
         RollupValidationRequests { max_block_number: self.max_block_number }
     }
 
-    pub fn to_kernel_circuit_public_inputs(self) -> KernelCircuitPublicInputs {
+    pub fn to_private_to_rollup_kernel_circuit_public_inputs(
+        self,
+    ) -> PrivateToRollupKernelCircuitPublicInputs {
         let rollup_validation_requests = self.to_rollup_validation_requests();
-        let end = self.to_combined_accumulated_data();
-        let constants = self.to_constant_data();
+        let end = self.to_private_to_rollup_accumulated_data();
+        let constants = self.to_tx_constant_data();
 
-        KernelCircuitPublicInputs {
+        PrivateToRollupKernelCircuitPublicInputs {
             rollup_validation_requests,
             end,
             constants,
-            start_state: self.start_state,
-            revert_code: self.revert_code,
             gas_used: self.gas_used,
             fee_payer: self.fee_payer,
         }
@@ -545,7 +541,7 @@ impl FixtureBuilder {
 
     pub fn to_private_tube_data(self) -> PrivateTubeData {
         let mut result: PrivateTubeData = std::mem::zeroed();
-        result.public_inputs = self.to_kernel_circuit_public_inputs();
+        result.public_inputs = self.to_private_to_rollup_kernel_circuit_public_inputs();
         result
     }
 

@@ -3,7 +3,6 @@ import {
   type ProvingJob,
   type ProvingJobId,
   type ProvingJobProducer,
-  type ProvingJobSettledResult,
   type ProvingJobStatus,
   type PublicInputsAndRecursiveProof,
   type ServerCircuitProver,
@@ -15,10 +14,10 @@ import {
   AVM_VERIFICATION_KEY_LENGTH_IN_FIELDS,
   type AvmCircuitInputs,
   type BaseParityInputs,
-  type KernelCircuitPublicInputs,
   NESTED_RECURSIVE_PROOF_LENGTH,
   NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH,
   type PrivateKernelEmptyInputData,
+  type PrivateToRollupKernelCircuitPublicInputs,
   RECURSIVE_PROOF_LENGTH,
   type RootParityInputs,
   TUBE_PROOF_LENGTH,
@@ -41,8 +40,8 @@ import {
 import {
   makeBaseOrMergeRollupPublicInputs,
   makeBlockRootOrBlockMergeRollupPublicInputs,
-  makeKernelCircuitPublicInputs,
   makeParityPublicInputs,
+  makePrivateToRollupKernelCircuitPublicInputs,
   makeRootRollupPublicInputs,
 } from '@aztec/circuits.js/testing';
 import { times } from '@aztec/foundation/collection';
@@ -83,7 +82,7 @@ export class TestBroker implements ProvingJobProducer {
     return this.proofStore;
   }
 
-  enqueueProvingJob(job: ProvingJob): Promise<void> {
+  enqueueProvingJob(job: ProvingJob): Promise<ProvingJobStatus> {
     return this.broker.enqueueProvingJob(job);
   }
   getProvingJobStatus(id: ProvingJobId): Promise<ProvingJobStatus> {
@@ -92,8 +91,9 @@ export class TestBroker implements ProvingJobProducer {
   cancelProvingJob(id: string): Promise<void> {
     return this.broker.cancelProvingJob(id);
   }
-  waitForJobToSettle(id: ProvingJobId): Promise<ProvingJobSettledResult> {
-    return this.broker.waitForJobToSettle(id);
+
+  getCompletedJobs(ids: ProvingJobId[]): Promise<ProvingJobId[]> {
+    return this.broker.getCompletedJobs(ids);
   }
 }
 
@@ -224,11 +224,14 @@ export class MockProver implements ServerCircuitProver {
     _signal?: AbortSignal,
     _epochNumber?: number,
   ): Promise<
-    PublicInputsAndRecursiveProof<KernelCircuitPublicInputs, typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH>
+    PublicInputsAndRecursiveProof<
+      PrivateToRollupKernelCircuitPublicInputs,
+      typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH
+    >
   > {
     return Promise.resolve(
       makePublicInputsAndRecursiveProof(
-        makeKernelCircuitPublicInputs(),
+        makePrivateToRollupKernelCircuitPublicInputs(),
         makeRecursiveProof(NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH),
         VerificationKeyData.makeFakeHonk(),
       ),

@@ -42,13 +42,13 @@ export class ProvingJobController {
     }
 
     this.status = ProvingJobControllerStatus.PROVING;
+
     this.promise = this.generateProof()
       .then(
         result => {
           if (this.status === ProvingJobControllerStatus.ABORTED) {
             return;
           }
-
           this.status = ProvingJobControllerStatus.DONE;
           return this.onComplete(this.jobId, this.inputs.type, undefined, result);
         },

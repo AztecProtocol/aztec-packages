@@ -17,12 +17,12 @@ import {
   EmptyNestedData,
   Fr,
   IPA_CLAIM_LENGTH,
-  type KernelCircuitPublicInputs,
   NESTED_RECURSIVE_PROOF_LENGTH,
   NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH,
   type ParityPublicInputs,
   type PrivateKernelEmptyInputData,
   PrivateKernelEmptyInputs,
+  type PrivateToRollupKernelCircuitPublicInputs,
   Proof,
   RECURSIVE_PROOF_LENGTH,
   RECURSIVE_ROLLUP_HONK_PROOF_LENGTH,
@@ -51,7 +51,6 @@ import { createLogger } from '@aztec/foundation/log';
 import { BufferReader } from '@aztec/foundation/serialize';
 import { Timer } from '@aztec/foundation/timer';
 import {
-  ProtocolCircuitVks,
   ServerCircuitArtifacts,
   type ServerProtocolArtifact,
   convertBaseParityInputsToWitnessMap,
@@ -74,7 +73,8 @@ import {
   convertRootParityOutputsFromWitnessMap,
   convertRootRollupInputsToWitnessMap,
   convertRootRollupOutputsFromWitnessMap,
-} from '@aztec/noir-protocol-circuits-types';
+} from '@aztec/noir-protocol-circuits-types/server';
+import { ProtocolCircuitVks } from '@aztec/noir-protocol-circuits-types/vks';
 import { NativeACVMSimulator } from '@aztec/simulator';
 import { Attributes, type TelemetryClient, trackSpan } from '@aztec/telemetry-client';
 
@@ -390,7 +390,10 @@ export class BBNativeRollupProver implements ServerCircuitProver {
   public async getEmptyPrivateKernelProof(
     inputs: PrivateKernelEmptyInputData,
   ): Promise<
-    PublicInputsAndRecursiveProof<KernelCircuitPublicInputs, typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH>
+    PublicInputsAndRecursiveProof<
+      PrivateToRollupKernelCircuitPublicInputs,
+      typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH
+    >
   > {
     const emptyNested = await this.getEmptyNestedProof();
     const emptyPrivateKernelProof = await this.getEmptyPrivateKernelProofFromEmptyNested(
@@ -426,7 +429,10 @@ export class BBNativeRollupProver implements ServerCircuitProver {
   private async getEmptyPrivateKernelProofFromEmptyNested(
     inputs: PrivateKernelEmptyInputs,
   ): Promise<
-    PublicInputsAndRecursiveProof<KernelCircuitPublicInputs, typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH>
+    PublicInputsAndRecursiveProof<
+      PrivateToRollupKernelCircuitPublicInputs,
+      typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH
+    >
   > {
     const { circuitOutput, proof } = await this.createRecursiveProof(
       inputs,

@@ -1,3 +1,4 @@
+import { makeTuple } from '@aztec/foundation/array';
 import { Fr } from '@aztec/foundation/fields';
 import { bufferSchemaFor } from '@aztec/foundation/schemas';
 import { BufferReader, type Tuple, serializeToBuffer, serializeToFields } from '@aztec/foundation/serialize';
@@ -183,5 +184,23 @@ export class RootRollupPublicInputs {
   /** Creates an instance from a string. */
   static get schema() {
     return bufferSchemaFor(RootRollupPublicInputs);
+  }
+
+  /** Creates a random instance. */
+  static random() {
+    return new RootRollupPublicInputs(
+      AppendOnlyTreeSnapshot.random(),
+      AppendOnlyTreeSnapshot.random(),
+      Fr.random(),
+      Fr.random(),
+      Fr.random(),
+      Fr.random(),
+      Fr.random(),
+      makeTuple(AZTEC_MAX_EPOCH_DURATION, FeeRecipient.random),
+      Fr.random(),
+      Fr.random(),
+      Fr.random(),
+      makeTuple(AZTEC_MAX_EPOCH_DURATION, BlockBlobPublicInputs.empty),
+    );
   }
 }

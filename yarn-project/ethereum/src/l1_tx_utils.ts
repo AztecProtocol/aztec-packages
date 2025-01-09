@@ -199,7 +199,7 @@ export class L1TxUtils {
    */
   public async sendTransaction(
     request: L1TxRequest,
-    _gasConfig?: Partial<L1TxUtilsConfig> & { fixedGas?: bigint },
+    _gasConfig?: Partial<L1TxUtilsConfig> & { fixedGas?: bigint; txTimeoutAt?: Date },
     blobInputs?: L1BlobInputs,
   ): Promise<{ txHash: Hex; gasLimit: bigint; gasPrice: GasPrice }> {
     try {
@@ -214,6 +214,10 @@ export class L1TxUtils {
       }
 
       const gasPrice = await this.getGasPrice(gasConfig, !!blobInputs);
+
+      if (gasConfig.txTimeoutAt && Date.now() > gasConfig.txTimeoutAt.getTime()) {
+        throw new Error('Transaction timed out before sending');
+      }
 
       let txHash: Hex;
       if (blobInputs) {
@@ -258,7 +262,7 @@ export class L1TxUtils {
     request: L1TxRequest,
     initialTxHash: Hex,
     params: { gasLimit: bigint },
-    _gasConfig?: Partial<L1TxUtilsConfig>,
+    _gasConfig?: Partial<L1TxUtilsConfig> & { txTimeoutAt?: Date },
     _blobInputs?: L1BlobInputs,
   ): Promise<TransactionReceipt> {
     const gasConfig = { ...this.config, ..._gasConfig };
@@ -286,7 +290,12 @@ export class L1TxUtils {
     let attempts = 0;
     let lastAttemptSent = Date.now();
     const initialTxTime = lastAttemptSent;
+
     let txTimedOut = false;
+    const isTimedOut = () =>
+      (gasConfig.txTimeoutAt && Date.now() > gasConfig.txTimeoutAt.getTime()) ||
+      (gasConfig.txTimeoutMs !== undefined && Date.now() - initialTxTime > gasConfig.txTimeoutMs) ||
+      false;
 
     while (!txTimedOut) {
       try {
@@ -324,11 +333,9 @@ export class L1TxUtils {
           this.logger?.debug(`L1 transaction ${currentTxHash} pending. Time passed: ${timePassed}ms.`);
 
           // Check timeout before continuing
-          if (gasConfig.txTimeoutMs) {
-            txTimedOut = Date.now() - initialTxTime > gasConfig.txTimeoutMs;
-            if (txTimedOut) {
-              break;
-            }
+          txTimedOut = isTimedOut();
+          if (txTimedOut) {
+            break;
           }
 
           await sleep(gasConfig.checkIntervalMs!);
@@ -381,9 +388,7 @@ export class L1TxUtils {
         await sleep(gasConfig.checkIntervalMs!);
       }
       // Check if tx has timed out.
-      if (gasConfig.txTimeoutMs) {
-        txTimedOut = Date.now() - initialTxTime > gasConfig.txTimeoutMs!;
-      }
+      txTimedOut = isTimedOut();
     }
     throw new Error(`L1 transaction ${currentTxHash} timed out`);
   }
@@ -396,7 +401,7 @@ export class L1TxUtils {
    */
   public async sendAndMonitorTransaction(
     request: L1TxRequest,
-    gasConfig?: Partial<L1TxUtilsConfig> & { fixedGas?: bigint },
+    gasConfig?: Partial<L1TxUtilsConfig> & { fixedGas?: bigint; txTimeoutAt?: Date },
     blobInputs?: L1BlobInputs,
   ): Promise<{ receipt: TransactionReceipt; gasPrice: GasPrice }> {
     const { txHash, gasLimit, gasPrice } = await this.sendTransaction(request, gasConfig, blobInputs);

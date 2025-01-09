@@ -2,11 +2,11 @@ import {
   AVM_PROOF_LENGTH_IN_FIELDS,
   AvmCircuitInputs,
   BaseParityInputs,
-  KernelCircuitPublicInputs,
   NESTED_RECURSIVE_PROOF_LENGTH,
   NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH,
   ParityPublicInputs,
   PrivateKernelEmptyInputData,
+  PrivateToRollupKernelCircuitPublicInputs,
   RECURSIVE_PROOF_LENGTH,
   RecursiveProof,
   RootParityInputs,
@@ -168,7 +168,7 @@ export const ProvingJobResult = z.discriminatedUnion('type', [
   z.object({
     type: z.literal(ProvingRequestType.PRIVATE_KERNEL_EMPTY),
     result: schemaForPublicInputsAndRecursiveProof(
-      KernelCircuitPublicInputs.schema,
+      PrivateToRollupKernelCircuitPublicInputs.schema,
       NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH,
     ),
   }),
@@ -238,7 +238,7 @@ export const ProvingJobResult = z.discriminatedUnion('type', [
 export type ProvingJobResult = z.infer<typeof ProvingJobResult>;
 export type ProvingJobResultsMap = {
   [ProvingRequestType.PRIVATE_KERNEL_EMPTY]: PublicInputsAndRecursiveProof<
-    KernelCircuitPublicInputs,
+    PrivateToRollupKernelCircuitPublicInputs,
     typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH
   >;
   [ProvingRequestType.PUBLIC_VM]: ProofAndVerificationKey<typeof AVM_PROOF_LENGTH_IN_FIELDS>;
@@ -289,6 +289,15 @@ export const ProvingJob = z.object({
   epochNumber: z.number(),
   inputsUri: ProofUri,
 });
+
+export const makeProvingJobId = (epochNumber: number, type: ProvingRequestType, inputsHash: string) => {
+  return `${epochNumber}:${ProvingRequestType[type]}:${inputsHash}`;
+};
+
+export const getEpochFromProvingJobId = (id: ProvingJobId) => {
+  const components = id.split(':');
+  return +components[0];
+};
 
 export type ProvingJob = z.infer<typeof ProvingJob>;
 

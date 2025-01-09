@@ -85,7 +85,7 @@ export class Sequencer {
   private allowedInSetup: AllowedElement[] = getDefaultAllowedSetupFunctions();
   private maxBlockSizeInBytes: number = 1024 * 1024;
   private maxBlockGas: Gas = new Gas(10e9, 10e9);
-  private processTxTime: number = 12;
+  protected processTxTime: number = 12;
   private metrics: SequencerMetrics;
   private isFlushing: boolean = false;
 
@@ -97,22 +97,22 @@ export class Sequencer {
   protected enforceTimeTable: boolean = false;
 
   constructor(
-    private publisher: L1Publisher,
-    private validatorClient: ValidatorClient | undefined, // During migration the validator client can be inactive
-    private globalsBuilder: GlobalVariableBuilder,
-    private p2pClient: P2P,
-    private worldState: WorldStateSynchronizer,
-    private slasherClient: SlasherClient,
-    private blockBuilderFactory: BlockBuilderFactory,
-    private l2BlockSource: L2BlockSource,
-    private l1ToL2MessageSource: L1ToL2MessageSource,
-    private publicProcessorFactory: PublicProcessorFactory,
-    private contractDataSource: ContractDataSource,
+    protected publisher: L1Publisher,
+    protected validatorClient: ValidatorClient | undefined, // During migration the validator client can be inactive
+    protected globalsBuilder: GlobalVariableBuilder,
+    protected p2pClient: P2P,
+    protected worldState: WorldStateSynchronizer,
+    protected slasherClient: SlasherClient,
+    protected blockBuilderFactory: BlockBuilderFactory,
+    protected l2BlockSource: L2BlockSource,
+    protected l1ToL2MessageSource: L1ToL2MessageSource,
+    protected publicProcessorFactory: PublicProcessorFactory,
+    protected contractDataSource: ContractDataSource,
     protected l1Constants: SequencerRollupConstants,
-    private dateProvider: DateProvider,
+    protected dateProvider: DateProvider,
     telemetry: TelemetryClient,
-    private config: SequencerConfig = {},
-    private log = createLogger('sequencer'),
+    protected config: SequencerConfig = {},
+    protected log = createLogger('sequencer'),
   ) {
     this.updateConfig(config);
     this.metrics = new SequencerMetrics(telemetry, () => this.state, 'Sequencer');
@@ -772,7 +772,13 @@ export class Sequencer {
     // Publishes new block to the network and awaits the tx to be mined
     this.setState(SequencerState.PUBLISHING_BLOCK, block.header.globalVariables.slotNumber.toBigInt());
 
-    const publishedL2Block = await this.publisher.proposeL2Block(block, attestations, txHashes, proofQuote);
+    // Time out tx at the end of the slot
+    const slot = block.header.globalVariables.slotNumber.toNumber();
+    const txTimeoutAt = new Date((this.getSlotStartTimestamp(slot) + this.aztecSlotDuration) * 1000);
+
+    const publishedL2Block = await this.publisher.proposeL2Block(block, attestations, txHashes, proofQuote, {
+      txTimeoutAt,
+    });
     if (!publishedL2Block) {
       throw new Error(`Failed to publish block ${block.number}`);
     }

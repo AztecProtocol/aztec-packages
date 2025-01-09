@@ -6,13 +6,19 @@ CMD=${1:-}
 
 export RAYON_NUM_THREADS=${RAYON_NUM_THREADS:-16}
 export HARDWARE_CONCURRENCY=${HARDWARE_CONCURRENCY:-16}
-export PARALLELISM=${PARALLELISM:-16}
 
 export PLATFORM_TAG=any
 export BB=${BB:-../../barretenberg/cpp/build/bin/bb}
 export NARGO=${NARGO:-../../noir/noir-repo/target/release/nargo}
 export BB_HASH=$(cache_content_hash ../../barretenberg/cpp/.rebuild_patterns)
 export NARGO_HASH=$(cache_content_hash ../../noir/.rebuild_patterns)
+
+# Set flags for parallel
+export PARALLELISM=${PARALLELISM:-16}
+export PARALLEL_FLAGS="-j$PARALLELISM -v --line-buffer --tag --halt now,fail=1"
+if [[ -n "${MEMSUSPEND-}" ]]; then
+  export PARALLEL_FLAGS="$PARALLEL_FLAGS --memsuspend $MEMSUSPEND"
+fi
 
 tmp_dir=./target/tmp
 key_dir=./target/keys
@@ -66,7 +72,7 @@ function compile {
   if ! cache_download circuit-$hash.tar.gz 1>&2; then
     SECONDS=0
     rm -f $json_path
-    # TODO: --skip-brillig-constraints-check added temporarily for blobs build time.
+    # TODO(#10754): Remove --skip-brillig-constraints-check
     local compile_cmd="$NARGO compile --package $name --skip-brillig-constraints-check"
     echo_stderr "$compile_cmd"
     dump_fail "$compile_cmd"
@@ -126,7 +132,7 @@ function build {
           echo "$(basename $dir)"
       fi
     done | \
-    parallel -j$PARALLELISM --joblog joblog.txt -v --line-buffer --tag --halt now,fail=1 compile {}
+    parallel $PARALLEL_FLAGS --joblog joblog.txt compile {}
   code=$?
   cat joblog.txt
   return $code

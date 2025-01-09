@@ -18,7 +18,7 @@ import {
   PublicTubeData,
   TubeInputs,
 } from '@aztec/circuits.js/rollup';
-import { getVKIndex, getVKSiblingPath } from '@aztec/noir-protocol-circuits-types';
+import { getVKIndex, getVKSiblingPath } from '@aztec/noir-protocol-circuits-types/vks';
 
 /**
  * Helper class to manage the proving cycle of a transaction
@@ -60,7 +60,11 @@ export class TxProvingState {
     }
 
     const vkData = this.getTubeVkData();
-    const tubeData = new PrivateTubeData(this.processedTx.data.toKernelCircuitPublicInputs(), this.tube.proof, vkData);
+    const tubeData = new PrivateTubeData(
+      this.processedTx.data.toPrivateToRollupKernelCircuitPublicInputs(),
+      this.tube.proof,
+      vkData,
+    );
 
     if (!(this.baseRollupHints instanceof PrivateBaseRollupHints)) {
       throw new Error('Mismatched base rollup hints, expected private base rollup hints');

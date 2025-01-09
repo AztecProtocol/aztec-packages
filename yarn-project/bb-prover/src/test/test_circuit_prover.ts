@@ -11,12 +11,12 @@ import {
   type AvmCircuitInputs,
   type BaseParityInputs,
   EmptyNestedData,
-  type KernelCircuitPublicInputs,
   NESTED_RECURSIVE_PROOF_LENGTH,
   NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH,
   type ParityPublicInputs,
   type PrivateKernelEmptyInputData,
   PrivateKernelEmptyInputs,
+  type PrivateToRollupKernelCircuitPublicInputs,
   type Proof,
   RECURSIVE_PROOF_LENGTH,
   type RootParityInputs,
@@ -42,7 +42,6 @@ import { createLogger } from '@aztec/foundation/log';
 import { sleep } from '@aztec/foundation/sleep';
 import { Timer } from '@aztec/foundation/timer';
 import {
-  ProtocolCircuitVks,
   type ServerProtocolArtifact,
   SimulatedServerCircuitArtifacts,
   convertBaseParityInputsToWitnessMap,
@@ -65,7 +64,8 @@ import {
   convertSimulatedPrivateKernelEmptyOutputsFromWitnessMap,
   convertSimulatedPublicBaseRollupInputsToWitnessMap,
   convertSimulatedPublicBaseRollupOutputsFromWitnessMap,
-} from '@aztec/noir-protocol-circuits-types';
+} from '@aztec/noir-protocol-circuits-types/server';
+import { ProtocolCircuitVks } from '@aztec/noir-protocol-circuits-types/vks';
 import { type SimulationProvider, WASMSimulatorWithBlobs, emitCircuitSimulationStats } from '@aztec/simulator';
 import { type TelemetryClient, trackSpan } from '@aztec/telemetry-client';
 
@@ -98,7 +98,10 @@ export class TestCircuitProver implements ServerCircuitProver {
   public async getEmptyPrivateKernelProof(
     inputs: PrivateKernelEmptyInputData,
   ): Promise<
-    PublicInputsAndRecursiveProof<KernelCircuitPublicInputs, typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH>
+    PublicInputsAndRecursiveProof<
+      PrivateToRollupKernelCircuitPublicInputs,
+      typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH
+    >
   > {
     const emptyNested = new EmptyNestedData(
       makeRecursiveProof(NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH),

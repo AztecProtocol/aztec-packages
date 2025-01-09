@@ -1,3 +1,4 @@
+import { type BlobSinkClientInterface, createBlobSinkClient } from '@aztec/blob-sink/client';
 import {
   ConsensusPayload,
   type EpochProofClaim,
@@ -34,15 +35,16 @@ import { type Logger, createLogger } from '@aztec/foundation/log';
 import { type Tuple, serializeToBuffer } from '@aztec/foundation/serialize';
 import { InterruptibleSleep } from '@aztec/foundation/sleep';
 import { Timer } from '@aztec/foundation/timer';
-import { EmpireBaseAbi, ExtRollupLibAbi, LeonidasLibAbi, RollupAbi, SlasherAbi } from '@aztec/l1-artifacts';
+import { EmpireBaseAbi, RollupAbi, SlasherAbi } from '@aztec/l1-artifacts';
 import { type TelemetryClient } from '@aztec/telemetry-client';
+import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
 
 import pick from 'lodash.pick';
 import {
   type BaseError,
   type Chain,
   type Client,
-  ContractFunctionExecutionError,
+  type ContractFunctionExecutionError,
   ContractFunctionRevertedError,
   type GetContractReturnType,
   type Hex,
@@ -191,8 +193,7 @@ export class L1Publisher {
   protected account: PrivateKeyAccount;
   protected ethereumSlotDuration: bigint;
 
-  private blobSinkUrl: string | undefined;
-
+  private blobSinkClient: BlobSinkClientInterface;
   // @note - with blobs, the below estimate seems too large.
   // Total used for full block from int_l1_pub e2e test: 1m (of which 86k is 1x blob)
   // Total used for emptier block from above test: 429k (of which 84k is 1x blob)
@@ -203,12 +204,15 @@ export class L1Publisher {
 
   constructor(
     config: TxSenderConfig & PublisherConfig & Pick<L1ContractsConfig, 'ethereumSlotDuration'>,
-    client: TelemetryClient,
+    deps: { telemetry?: TelemetryClient; blobSinkClient?: BlobSinkClientInterface } = {},
   ) {
     this.sleepTimeMs = config?.l1PublishRetryIntervalMS ?? 60_000;
     this.ethereumSlotDuration = BigInt(config.ethereumSlotDuration);
-    this.blobSinkUrl = config.blobSinkUrl;
-    this.metrics = new L1PublisherMetrics(client, 'L1Publisher');
+
+    const telemetry = deps.telemetry ?? new NoopTelemetryClient();
+    this.blobSinkClient = deps.blobSinkClient ?? createBlobSinkClient(config.blobSinkUrl);
+
+    this.metrics = new L1PublisherMetrics(telemetry, 'L1Publisher');
 
     const { l1RpcUrl: rpcUrl, l1ChainId: chainId, publisherPrivateKey, l1Contracts } = config;
     const chain = createEthereumChain(rpcUrl, chainId);
@@ -435,38 +439,6 @@ export class L1Publisher {
       if (error instanceof ContractFunctionRevertedError) {
         const err = error as ContractFunctionRevertedError;
         this.log.debug(`Validation failed: ${err.message}`, err.data);
-      } else if (error instanceof ContractFunctionExecutionError) {
-        let err = error as ContractFunctionRevertedError;
-        if (!tryGetCustomErrorName(err)) {
-          // If we get here, it's because the custom error no longer exists in Rollup.sol,
-          // but in another lib. The below reconstructs the error message.
-          try {
-            await this.publicClient.estimateGas({
-              data: encodeFunctionData({
-                abi: this.rollupContract.abi,
-                functionName: 'validateHeader',
-                args,
-              }),
-              account: this.account,
-              to: this.rollupContract.address,
-            });
-          } catch (estGasErr: unknown) {
-            const possibleAbis = [ExtRollupLibAbi, LeonidasLibAbi];
-            possibleAbis.forEach(abi => {
-              const possibleErr = getContractError(estGasErr as BaseError, {
-                args: [],
-                abi: abi,
-                functionName: 'validateHeader',
-                address: this.rollupContract.address,
-                sender: this.account.address,
-              });
-              err = tryGetCustomErrorName(possibleErr) ? possibleErr : err;
-            });
-          }
-          throw err;
-        }
-      } else {
-        this.log.debug(`Unexpected error during validation: ${error}`);
       }
       throw error;
     }
@@ -603,6 +575,7 @@ export class L1Publisher {
     attestations?: Signature[],
     txHashes?: TxHash[],
     proofQuote?: EpochProofQuote,
+    opts: { txTimeoutAt?: Date } = {},
   ): Promise<boolean> {
     const ctx = {
       blockNumber: block.number,
@@ -644,8 +617,8 @@ export class L1Publisher {
 
     this.log.debug(`Submitting propose transaction`);
     const result = proofQuote
-      ? await this.sendProposeAndClaimTx(proposeTxArgs, proofQuote)
-      : await this.sendProposeTx(proposeTxArgs);
+      ? await this.sendProposeAndClaimTx(proposeTxArgs, proofQuote, opts)
+      : await this.sendProposeTx(proposeTxArgs, opts);
 
     if (!result?.receipt) {
       this.log.info(`Failed to publish block ${block.number} to L1`, ctx);
@@ -786,8 +759,7 @@ export class L1Publisher {
           },
         ],
       });
-      // If the above passes, we have a blob error. We cannot simulate blob txs, and failed txs no longer throw errors,
-      // and viem provides no way to get the revert reason from a given tx.
+      // If the above passes, we have a blob error. We cannot simulate blob txs, and failed txs no longer throw errors.
       // Strangely, the only way to throw the revert reason as an error and provide blobs is prepareTransactionRequest.
       // See: https://github.com/wevm/viem/issues/2075
       // This throws a EstimateGasExecutionError with the custom error information:
@@ -799,13 +771,13 @@ export class L1Publisher {
       });
       return undefined;
     } catch (simulationErr: any) {
-      // If we don't have a ContractFunctionExecutionError, we have a blob related error => use ExtRollupLibAbi to get the error msg.
+      // If we don't have a ContractFunctionExecutionError, we have a blob related error => use getContractError to get the error msg.
       const contractErr =
         simulationErr.name === 'ContractFunctionExecutionError'
           ? simulationErr
           : getContractError(simulationErr as BaseError, {
               args: [],
-              abi: ExtRollupLibAbi,
+              abi: RollupAbi,
               functionName: args.functionName,
               address: args.address,
               sender: this.account.address,
@@ -1062,7 +1034,10 @@ export class L1Publisher {
     ] as const;
   }
 
-  private async sendProposeTx(encodedData: L1ProcessArgs): Promise<L1ProcessReturnType | undefined> {
+  private async sendProposeTx(
+    encodedData: L1ProcessArgs,
+    opts: { txTimeoutAt?: Date } = {},
+  ): Promise<L1ProcessReturnType | undefined> {
     if (this.interrupted) {
       return undefined;
     }
@@ -1081,6 +1056,7 @@ export class L1Publisher {
         },
         {
           fixedGas: gas,
+          ...opts,
         },
         {
           blobs: encodedData.blobs.map(b => b.dataWithZeros),
@@ -1104,6 +1080,7 @@ export class L1Publisher {
   private async sendProposeAndClaimTx(
     encodedData: L1ProcessArgs,
     quote: EpochProofQuote,
+    opts: { txTimeoutAt?: Date } = {},
   ): Promise<L1ProcessReturnType | undefined> {
     if (this.interrupted) {
       return undefined;
@@ -1121,7 +1098,10 @@ export class L1Publisher {
           to: this.rollupContract.address,
           data,
         },
-        { fixedGas: gas },
+        {
+          fixedGas: gas,
+          ...opts,
+        },
         {
           blobs: encodedData.blobs.map(b => b.dataWithZeros),
           kzg,
@@ -1191,38 +1171,8 @@ export class L1Publisher {
    *   In the future this will move to be the beacon block id - which takes a bit more work
    *   to calculate and will need to be mocked in e2e tests
    */
-  protected async sendBlobsToBlobSink(blockHash: string, blobs: Blob[]): Promise<boolean> {
-    // TODO(md): for now we are assuming the indexes of the blobs will be 0, 1, 2
-    // When in reality they will not, but for testing purposes this is fine
-    if (!this.blobSinkUrl) {
-      this.log.verbose('No blob sink url configured');
-      return false;
-    }
-
-    this.log.verbose(`Sending ${blobs.length} blobs to blob sink`);
-    try {
-      const res = await fetch(`${this.blobSinkUrl}/blob_sidecar`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          // eslint-disable-next-line camelcase
-          block_id: blockHash,
-          blobs: blobs.map((b, i) => ({ blob: b.toBuffer(), index: i })),
-        }),
-      });
-
-      if (res.ok) {
-        return true;
-      }
-
-      this.log.error('Failed to send blobs to blob sink', res.status);
-      return false;
-    } catch (err) {
-      this.log.error(`Error sending blobs to blob sink`, err);
-      return false;
-    }
+  protected sendBlobsToBlobSink(blockHash: string, blobs: Blob[]): Promise<boolean> {
+    return this.blobSinkClient.sendBlobsToBlobSink(blockHash, blobs);
   }
 }
 

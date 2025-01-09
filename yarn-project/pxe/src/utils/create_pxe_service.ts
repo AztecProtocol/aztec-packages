@@ -1,5 +1,5 @@
 import { BBNativePrivateKernelProver } from '@aztec/bb-prover';
-import { BBWasmPrivateKernelProver } from '@aztec/bb-prover/wasm';
+import { BBWASMBundlePrivateKernelProver } from '@aztec/bb-prover/wasm/bundle';
 import { type AztecNode, type PrivateKernelProver } from '@aztec/circuit-types';
 import { randomBytes } from '@aztec/foundation/crypto';
 import { createLogger } from '@aztec/foundation/log';
@@ -9,7 +9,6 @@ import { L2TipsStore } from '@aztec/kv-store/stores';
 
 import { type PXEServiceConfig } from '../config/index.js';
 import { KVPxeDatabase } from '../database/kv_pxe_database.js';
-import { TestPrivateKernelProver } from '../kernel_prover/test/test_circuit_prover.js';
 import { PXEService } from '../pxe_service/pxe_service.js';
 
 /**
@@ -54,13 +53,8 @@ export async function createPXEService(
 }
 
 function createProver(config: PXEServiceConfig, logSuffix?: string) {
-  if (!config.proverEnabled) {
-    return new TestPrivateKernelProver();
-  }
-
-  // (@PhilWindle) Temporary validation until WASM is implemented
   if (!config.bbBinaryPath || !config.bbWorkingDirectory) {
-    return new BBWasmPrivateKernelProver(16);
+    return new BBWASMBundlePrivateKernelProver(16);
   } else {
     const bbConfig = config as Required<Pick<PXEServiceConfig, 'bbBinaryPath' | 'bbWorkingDirectory'>> &
       PXEServiceConfig;

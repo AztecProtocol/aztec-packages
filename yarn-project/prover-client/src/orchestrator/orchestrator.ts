@@ -55,7 +55,7 @@ import { promiseWithResolvers } from '@aztec/foundation/promise';
 import { type Tuple } from '@aztec/foundation/serialize';
 import { pushTestData } from '@aztec/foundation/testing';
 import { elapsed } from '@aztec/foundation/timer';
-import { getVKIndex, getVKSiblingPath, getVKTreeRoot } from '@aztec/noir-protocol-circuits-types';
+import { getVKIndex, getVKSiblingPath, getVKTreeRoot } from '@aztec/noir-protocol-circuits-types/vks';
 import { protocolContractTreeRoot } from '@aztec/protocol-contracts';
 import { Attributes, type TelemetryClient, type Tracer, trackSpan, wrapCallbackInSpan } from '@aztec/telemetry-client';
 
@@ -132,6 +132,12 @@ export class ProvingOrchestrator implements EpochProver {
    */
   public reset() {
     this.paddingTxProof = undefined;
+  }
+
+  public stop(): Promise<void> {
+    this.cancel();
+    this.reset();
+    return Promise.resolve();
   }
 
   public startNewEpoch(epochNumber: number, firstBlockNumber: number, totalNumBlocks: number) {

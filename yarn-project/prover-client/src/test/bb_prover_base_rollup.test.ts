@@ -4,7 +4,7 @@ import { PRIVATE_KERNEL_EMPTY_INDEX, PrivateKernelEmptyInputData, VkWitnessData 
 import { SpongeBlob } from '@aztec/circuits.js/blobs';
 import { type PrivateBaseRollupHints, PrivateBaseRollupInputs, PrivateTubeData } from '@aztec/circuits.js/rollup';
 import { createLogger } from '@aztec/foundation/log';
-import { getVKSiblingPath, getVKTreeRoot } from '@aztec/noir-protocol-circuits-types';
+import { getVKSiblingPath, getVKTreeRoot } from '@aztec/noir-protocol-circuits-types/vks';
 import { protocolContractTreeRoot } from '@aztec/protocol-contracts';
 import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
 
@@ -47,7 +47,7 @@ describe('prover/bb_prover/base-rollup', () => {
       protocolContractTreeRoot,
     );
     const tubeProof = await context.prover.getEmptyPrivateKernelProof(privateInputs);
-    expect(tubeProof.inputs).toEqual(tx.data.toKernelCircuitPublicInputs());
+    expect(tubeProof.inputs).toEqual(tx.data.toPrivateToRollupKernelCircuitPublicInputs());
 
     const vkIndex = PRIVATE_KERNEL_EMPTY_INDEX;
     const vkPath = getVKSiblingPath(vkIndex);
