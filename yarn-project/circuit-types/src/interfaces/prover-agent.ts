@@ -16,8 +16,12 @@ export const ProverAgentConfig = z.object({
   proverBrokerUrl: z.string().optional(),
   /** Whether to construct real proofs */
   realProofs: z.boolean(),
-  /** Artificial delay to introduce to all operations to the test prover. */
+  /** The type of artificial delay to introduce */
+  proverTestDelayType: z.enum(['fixed', 'realistic']),
+  /** If using fixed delay, the time each operation takes. */
   proverTestDelayMs: z.number(),
+  /** If using realistic delays, what percentage of realistic times to apply. */
+  proverTestDelayFactor: z.number(),
 });
 
 export type ProverAgentConfig = z.infer<typeof ProverAgentConfig>;
@@ -51,10 +55,20 @@ export const proverAgentConfigMappings: ConfigMappingsType<ProverAgentConfig> = 
     description: 'Whether to construct real proofs',
     ...booleanConfigHelper(false),
   },
+  proverTestDelayType: {
+    env: 'PROVER_TEST_DELAY_TYPE',
+    description: 'The type of artificial delay to introduce',
+    defaultValue: 'fixed',
+  },
   proverTestDelayMs: {
     env: 'PROVER_TEST_DELAY_MS',
     description: 'Artificial delay to introduce to all operations to the test prover.',
     ...numberConfigHelper(0),
+  },
+  proverTestDelayFactor: {
+    env: 'PROVER_TEST_DELAY_FACTOR',
+    description: 'If using realistic delays, what percentage of realistic times to apply.',
+    ...numberConfigHelper(1),
   },
 };
 

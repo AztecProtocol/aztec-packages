@@ -234,7 +234,10 @@ proverAgent:
   enabled: true
   replicas: 1
   pollIntervalMs: 1000
-  proofTypes: ["foo", "bar", "baz"]
+  proofTypes: []
+  testDelayType: "fixed"
+  testDelayMs: 100 # each fake proof takes 100ms
+  testDelayFactor: 1
   gke:
     spotEnabled: false
   logLevel: "debug; info: aztec:simulator, json-rpc"

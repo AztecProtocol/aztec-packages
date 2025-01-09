@@ -69,6 +69,10 @@ proverFailure:
   enabled: false
   duration: 13m
 
+proverKill:
+  enabled: false
+  percent: 100
+
 validatorKill:
   enabled: false
   percent: 30

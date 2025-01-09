@@ -301,6 +301,25 @@ export function applyProverFailure({
   });
 }
 
+export function applyProverKill({
+  namespace,
+  spartanDir,
+  logger,
+}: {
+  namespace: string;
+  spartanDir: string;
+  logger: Logger;
+}) {
+  return installChaosMeshChart({
+    instanceName: 'prover-kill',
+    targetNamespace: namespace,
+    valuesFile: 'prover-kill.yaml',
+    helmChartDir: getChartDir(spartanDir, 'aztec-chaos-scenarios'),
+    clean: true,
+    logger,
+  });
+}
+
 export function applyBootNodeFailure({
   namespace,
   spartanDir,

@@ -32,6 +32,7 @@ FRESH_INSTALL="${FRESH_INSTALL:-false}"
 AZTEC_DOCKER_TAG=${AZTEC_DOCKER_TAG:-$(git rev-parse HEAD)}
 INSTALL_TIMEOUT=${INSTALL_TIMEOUT:-30m}
 CLEANUP_CLUSTER=${CLEANUP_CLUSTER:-false}
+TEST_IN_DOCKER=${TEST_IN_DOCKER:-true}
 
 # Check required environment variable
 if [ -z "${NAMESPACE:-}" ]; then
@@ -46,7 +47,7 @@ if ! docker image ls --format '{{.Repository}}:{{.Tag}}' | grep -q "aztecprotoco
 fi
 
 # Only check for end-to-end image if a test is specified
-if [ -n "$TEST" ] && ! docker image ls --format '{{.Repository}}:{{.Tag}}' | grep -q "aztecprotocol/end-to-end:$AZTEC_DOCKER_TAG"; then
+if [ -n "$TEST" ] && [ "$TEST_IN_DOCKER" = "true" ] && ! docker image ls --format '{{.Repository}}:{{.Tag}}' | grep -q "aztecprotocol/end-to-end:$AZTEC_DOCKER_TAG"; then
   echo "End-to-end Docker image not found. It needs to be built with 'earthly ./yarn-project/+export-e2e-test-images' or otherwise tagged with aztecprotocol/end-to-end:$AZTEC_DOCKER_TAG."
   exit 1
 fi
@@ -150,14 +151,14 @@ kubectl wait pod -l app==pxe --for=condition=Ready -n "$NAMESPACE" --timeout=10m
 FREE_PORTS=$(comm -23 <(seq 9000 10000 | sort) <(ss -Htan | awk '{print $4}' | cut -d':' -f2 | sort -u) | shuf | head -n 3)
 
 # Extract the free ports from the list
-PXE_PORT=$(echo $FREE_PORTS | awk '{print $1}')
-ANVIL_PORT=$(echo $FREE_PORTS | awk '{print $2}')
-METRICS_PORT=$(echo $FREE_PORTS | awk '{print $3}')
+export HOST_PXE_PORT=$(echo $FREE_PORTS | awk '{print $1}')
+export HOST_ETHEREUM_PORT=$(echo $FREE_PORTS | awk '{print $2}')
+export HOST_METRICS_PORT=$(echo $FREE_PORTS | awk '{print $3}')
 
-GRAFANA_PASSWORD=$(kubectl get secrets -n metrics metrics-grafana -o jsonpath='{.data.admin-password}' | base64 --decode)
+export GRAFANA_PASSWORD=$(kubectl get secrets -n metrics metrics-grafana -o jsonpath='{.data.admin-password}' | base64 --decode)
 
 # Namespace variable (assuming it's set)
-NAMESPACE=${NAMESPACE:-default}
+export NAMESPACE=${NAMESPACE:-default}
 
 # If we are unable to apply network shaping, as we cannot change existing chaos configurations, then delete existing configurations and try again
 if ! handle_network_shaping; then
@@ -171,34 +172,49 @@ if ! handle_network_shaping; then
 fi
 
 # Get the values from the values file
-VALUES=$(cat "$VALUES_PATH")
-ETHEREUM_SLOT_DURATION=$(yq -r '.ethereum.blockTime' <<<"$VALUES")
-AZTEC_SLOT_DURATION=$(yq -r '.aztec.slotDuration' <<<"$VALUES")
-AZTEC_EPOCH_DURATION=$(yq -r '.aztec.epochDuration' <<<"$VALUES")
-AZTEC_EPOCH_PROOF_CLAIM_WINDOW_IN_L2_SLOTS=$(yq -r '.aztec.epochProofClaimWindow' <<<"$VALUES")
+VALUES=$(helm get values -n "$NAMESPACE" spartan --all -o json)
+export ETHEREUM_SLOT_DURATION=$(yq -r '.ethereum.blockTime' <<<"$VALUES")
+export AZTEC_SLOT_DURATION=$(yq -r '.aztec.slotDuration' <<<"$VALUES")
+export AZTEC_EPOCH_DURATION=$(yq -r '.aztec.epochDuration' <<<"$VALUES")
+export AZTEC_EPOCH_PROOF_CLAIM_WINDOW_IN_L2_SLOTS=$(yq -r '.aztec.epochProofClaimWindow' <<<"$VALUES")
+
+export CONTAINER_PXE_PORT=$(jq -r '.pxe.service.nodePort' <<< $HELM_VALUES)
+export CONTAINER_ETHEREUM_PORT=$(jq -r '.ethereum.service.port' <<< $HELM_VALUES)
+export CONTAINER_METRICS_PORT=80
+
+export LOG_LEVEL="${LOG_LEVEL:-"debug; info: aztec:simulator, json-rpc"}"
+
 
 # Run the test if $TEST is not empty
 if [ -n "$TEST" ]; then
   echo "RUNNING TEST: $TEST"
-  docker run --rm --network=host \
-    -v ~/.kube:/root/.kube \
-    -e K8S=local \
-    -e INSTANCE_NAME="spartan" \
-    -e SPARTAN_DIR="/usr/src/spartan" \
-    -e NAMESPACE="$NAMESPACE" \
-    -e HOST_PXE_PORT=$PXE_PORT \
-    -e CONTAINER_PXE_PORT=8081 \
-    -e HOST_ETHEREUM_PORT=$ANVIL_PORT \
-    -e CONTAINER_ETHEREUM_PORT=8545 \
-    -e HOST_METRICS_PORT=$METRICS_PORT \
-    -e CONTAINER_METRICS_PORT=80 \
-    -e GRAFANA_PASSWORD=$GRAFANA_PASSWORD \
-    -e DEBUG=${DEBUG:-""} \
-    -e LOG_JSON=1 \
-    -e LOG_LEVEL=${LOG_LEVEL:-"debug; info: aztec:simulator, json-rpc"} \
-    -e ETHEREUM_SLOT_DURATION=$ETHEREUM_SLOT_DURATION \
-    -e AZTEC_SLOT_DURATION=$AZTEC_SLOT_DURATION \
-    -e AZTEC_EPOCH_DURATION=$AZTEC_EPOCH_DURATION \
-    -e AZTEC_EPOCH_PROOF_CLAIM_WINDOW_IN_L2_SLOTS=$AZTEC_EPOCH_PROOF_CLAIM_WINDOW_IN_L2_SLOTS \
-    aztecprotocol/end-to-end:$AZTEC_DOCKER_TAG $TEST
+
+  if [ "$TEST_IN_DOCKER" = "true" ]; then
+    docker run --rm --network=host \
+      -v ~/.kube:/root/.kube \
+      -e K8S=local \
+      -e INSTANCE_NAME="spartan" \
+      -e SPARTAN_DIR="/usr/src/spartan" \
+      -e NAMESPACE \
+      -e HOST_PXE_PORT \
+      -e CONTAINER_PXE_PORT \
+      -e HOST_ETHEREUM_PORT \
+      -e CONTAINER_ETHEREUM_PORT \
+      -e HOST_METRICS_PORT \
+      -e CONTAINER_METRICS_PORT \
+      -e GRAFANA_PASSWORD \
+      -e LOG_JSON=1 \
+      -e LOG_LEVEL \
+      -e ETHEREUM_SLOT_DURATION \
+      -e AZTEC_SLOT_DURATION \
+      -e AZTEC_EPOCH_DURATION \
+      -e AZTEC_EPOCH_PROOF_CLAIM_WINDOW_IN_L2_SLOTS \
+      aztecprotocol/end-to-end:$AZTEC_DOCKER_TAG $TEST
+  else
+    export K8S=local
+    export INSTANCE_NAME=spartan
+    export SPARTAN_DIR=$(realpath "$SCRIPT_DIR/../../../spartan")
+    export NODE_OPTIONS="${NODE_OPTIONS:-""} --no-warnings --experimental-vm-modules"
+    yarn jest $TEST
+  fi
 fi
