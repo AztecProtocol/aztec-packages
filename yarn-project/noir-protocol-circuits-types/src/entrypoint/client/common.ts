@@ -9,11 +9,6 @@ export {
   convertPrivateKernelTailInputsToWitnessMapWithAbi,
   convertPrivateKernelTailOutputsFromWitnessMapWithAbi,
   convertPrivateKernelTailToPublicInputsToWitnessMapWithAbi,
-  executeInitWithArtifact,
-  executeInnerWithArtifact,
-  executeResetWithArtifact,
-  executeTailWithArtifact,
-  executeTailForPublicWithArtifact,
 } from '../../execution/client.js';
 
 export { getPrivateKernelResetArtifactName } from '../../utils/private_kernel_reset.js';
