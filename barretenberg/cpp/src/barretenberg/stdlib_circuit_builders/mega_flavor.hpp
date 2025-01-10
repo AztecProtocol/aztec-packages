@@ -383,6 +383,21 @@ class MegaFlavor {
             return result;
         }
 
+        [[nodiscard]] AllValues get_row_for_permutation_arg(size_t row_idx)
+        {
+            AllValues result;
+            for (auto [result_field, polynomial] : zip_view(result.get_sigma_polynomials(), get_sigma_polynomials())) {
+                result_field = polynomial[row_idx];
+            }
+            for (auto [result_field, polynomial] : zip_view(result.get_id_polynomials(), get_id_polynomials())) {
+                result_field = polynomial[row_idx];
+            }
+            for (auto [result_field, polynomial] : zip_view(result.get_wires(), get_wires())) {
+                result_field = polynomial[row_idx];
+            }
+            return result;
+        }
+
         void set_shifted()
         {
             for (auto [shifted, to_be_shifted] : zip_view(get_shifted(), get_to_be_shifted())) {
@@ -495,7 +510,7 @@ class MegaFlavor {
 
             // Compute permutation grand product polynomial
             compute_grand_product<MegaFlavor, UltraPermutationRelation<FF>>(
-                this->polynomials, relation_parameters, size_override, this->active_block_ranges);
+                this->polynomials, relation_parameters, size_override, this->active_region_data);
         }
 
         uint64_t estimate_memory()

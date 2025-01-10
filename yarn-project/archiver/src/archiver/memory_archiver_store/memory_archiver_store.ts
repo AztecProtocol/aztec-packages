@@ -228,7 +228,7 @@ export class MemoryArchiverStore implements ArchiverDataStore {
   #storeTaggedLogsFromPrivate(block: L2Block): void {
     const dataStartIndexForBlock =
       block.header.state.partial.noteHashTree.nextAvailableLeafIndex -
-      block.body.numberOfTxsIncludingPadded * MAX_NOTE_HASHES_PER_TX;
+      block.body.txEffects.length * MAX_NOTE_HASHES_PER_TX;
     block.body.txEffects.forEach((txEffect, txIndex) => {
       const txHash = txEffect.txHash;
       const dataStartIndexForTx = dataStartIndexForBlock + txIndex * MAX_NOTE_HASHES_PER_TX;
@@ -248,7 +248,7 @@ export class MemoryArchiverStore implements ArchiverDataStore {
   #storeTaggedLogsFromPublic(block: L2Block): void {
     const dataStartIndexForBlock =
       block.header.state.partial.noteHashTree.nextAvailableLeafIndex -
-      block.body.numberOfTxsIncludingPadded * MAX_NOTE_HASHES_PER_TX;
+      block.body.txEffects.length * MAX_NOTE_HASHES_PER_TX;
     block.body.unencryptedLogs.txLogs.forEach((txLogs, txIndex) => {
       const txHash = block.body.txEffects[txIndex].txHash;
       const dataStartIndexForTx = dataStartIndexForBlock + txIndex * MAX_NOTE_HASHES_PER_TX;
@@ -328,7 +328,7 @@ export class MemoryArchiverStore implements ArchiverDataStore {
     blocks.forEach(block => {
       const dataStartIndexForBlock =
         block.header.state.partial.nullifierTree.nextAvailableLeafIndex -
-        block.body.numberOfTxsIncludingPadded * MAX_NULLIFIERS_PER_TX;
+        block.body.txEffects.length * MAX_NULLIFIERS_PER_TX;
       block.body.txEffects.forEach((txEffects, txIndex) => {
         const dataStartIndexForTx = dataStartIndexForBlock + txIndex * MAX_NULLIFIERS_PER_TX;
         txEffects.nullifiers.forEach((nullifier, nullifierIndex) => {

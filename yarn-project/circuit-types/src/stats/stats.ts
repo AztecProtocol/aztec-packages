@@ -80,6 +80,7 @@ export type CircuitName =
   | 'public-base-rollup'
   | 'merge-rollup'
   | 'block-root-rollup'
+  | 'single-tx-block-root-rollup'
   | 'empty-block-root-rollup'
   | 'block-merge-rollup'
   | 'root-rollup'
@@ -90,8 +91,6 @@ export type CircuitName =
   | 'private-kernel-tail-to-public'
   | 'app-circuit'
   | 'avm-circuit'
-  | 'empty-nested'
-  | 'private-kernel-empty'
   | 'tube-circuit';
 
 /** Stats for circuit simulation. */

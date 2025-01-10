@@ -32,7 +32,7 @@ describe('prover/orchestrator/errors', () => {
       await orchestrator.addTxs(txs);
 
       await expect(async () => await orchestrator.addTxs([context.makeProcessedTx()])).rejects.toThrow(
-        `Block ${context.blockNumber} already initalised.`,
+        `Block ${context.blockNumber} has been initialized with transactions.`,
       );
 
       const block = await orchestrator.setBlockCompleted(context.blockNumber);

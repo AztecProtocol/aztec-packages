@@ -1,12 +1,6 @@
 import { type ArchiverConfig, archiverConfigMappings, getArchiverConfigFromEnv } from '@aztec/archiver/config';
 import { type ACVMConfig, type BBConfig } from '@aztec/bb-prover/config';
 import {
-  type ProverAgentConfig,
-  type ProverBrokerConfig,
-  proverAgentConfigMappings,
-  proverBrokerConfigMappings,
-} from '@aztec/circuit-types/config';
-import {
   type ConfigMappingsType,
   bigintConfigHelper,
   getConfigFromMappings,
@@ -14,6 +8,12 @@ import {
 } from '@aztec/foundation/config';
 import { type DataStoreConfig, dataConfigMappings, getDataConfigFromEnv } from '@aztec/kv-store/config';
 import { type P2PConfig, getP2PConfigFromEnv, p2pConfigMappings } from '@aztec/p2p/config';
+import {
+  type ProverAgentConfig,
+  type ProverBrokerConfig,
+  proverAgentConfigMappings,
+  proverBrokerConfigMappings,
+} from '@aztec/prover-client/broker';
 import {
   type ProverClientConfig,
   bbConfigMappings,
