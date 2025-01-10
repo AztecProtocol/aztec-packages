@@ -220,3 +220,4 @@ pub mod tests {
         assert_eq(tree.root, full_tree.get_root());
     }
 }
+
