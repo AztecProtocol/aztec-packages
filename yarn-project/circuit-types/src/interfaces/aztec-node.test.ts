@@ -36,8 +36,8 @@ import { type L2Tips } from '../l2_block_source.js';
 import { ExtendedPublicLog } from '../logs/extended_public_log.js';
 import { ExtendedUnencryptedL2Log } from '../logs/extended_unencrypted_l2_log.js';
 import {
+  type GetContractClassLogsResponse,
   type GetPublicLogsResponse,
-  type GetUnencryptedLogsResponse,
   TxScopedL2Log,
 } from '../logs/get_logs_response.js';
 import { type LogFilter } from '../logs/log_filter.js';
@@ -525,7 +525,7 @@ class MockAztecNode implements AztecNode {
     expect(filter.contractAddress).toBeInstanceOf(AztecAddress);
     return Promise.resolve({ logs: [ExtendedPublicLog.random()], maxLogsHit: true });
   }
-  getContractClassLogs(filter: LogFilter): Promise<GetUnencryptedLogsResponse> {
+  getContractClassLogs(filter: LogFilter): Promise<GetContractClassLogsResponse> {
     expect(filter.contractAddress).toBeInstanceOf(AztecAddress);
     return Promise.resolve({ logs: [ExtendedUnencryptedL2Log.random()], maxLogsHit: true });
   }

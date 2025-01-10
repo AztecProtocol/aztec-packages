@@ -294,7 +294,7 @@ library Constants {
   uint256 internal constant L2_L1_MSGS_PREFIX = 5;
   uint256 internal constant PUBLIC_DATA_UPDATE_REQUESTS_PREFIX = 6;
   uint256 internal constant PRIVATE_LOGS_PREFIX = 7;
-  uint256 internal constant UNENCRYPTED_LOGS_PREFIX = 8;
+  uint256 internal constant PUBLIC_LOGS_PREFIX = 8;
   uint256 internal constant CONTRACT_CLASS_LOGS_PREFIX = 9;
   uint256 internal constant PROOF_TYPE_PLONK = 0;
   uint256 internal constant PROOF_TYPE_HONK = 1;

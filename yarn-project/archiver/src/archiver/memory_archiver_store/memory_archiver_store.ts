@@ -2,8 +2,8 @@ import {
   type ContractClass2BlockL2Logs,
   ExtendedPublicLog,
   ExtendedUnencryptedL2Log,
+  type GetContractClassLogsResponse,
   type GetPublicLogsResponse,
-  type GetUnencryptedLogsResponse,
   type InBlock,
   type InboxLeaf,
   type L2Block,
@@ -91,7 +91,7 @@ export class MemoryArchiverStore implements ArchiverDataStore {
   #log = createLogger('archiver:data-store');
 
   constructor(
-    /** The max number of logs that can be obtained in 1 "getUnencryptedLogs" call. */
+    /** The max number of logs that can be obtained in 1 "getPublicLogs" call. */
     public readonly maxLogs: number,
   ) {}
 
@@ -594,7 +594,7 @@ export class MemoryArchiverStore implements ArchiverDataStore {
    * @returns The requested logs.
    * @remarks Works by doing an intersection of all params in the filter.
    */
-  getContractClassLogs(filter: LogFilter): Promise<GetUnencryptedLogsResponse> {
+  getContractClassLogs(filter: LogFilter): Promise<GetContractClassLogsResponse> {
     let txHash: TxHash | undefined;
     let fromBlock = 0;
     let toBlock = this.l2Blocks.length + INITIAL_L2_BLOCK_NUM;

@@ -1,7 +1,7 @@
 import { type BlobSinkClientInterface } from '@aztec/blob-sink/client';
 import {
+  type GetContractClassLogsResponse,
   type GetPublicLogsResponse,
-  type GetUnencryptedLogsResponse,
   type InBlock,
   type InboxLeaf,
   type L1RollupConstants,
@@ -710,7 +710,7 @@ export class Archiver implements ArchiveSource, Traceable {
    * @param filter - The filter to apply to the logs.
    * @returns The requested logs.
    */
-  getContractClassLogs(filter: LogFilter): Promise<GetUnencryptedLogsResponse> {
+  getContractClassLogs(filter: LogFilter): Promise<GetContractClassLogsResponse> {
     return this.store.getContractClassLogs(filter);
   }
 
@@ -1048,7 +1048,7 @@ class ArchiverStoreHelper
   getPublicLogs(filter: LogFilter): Promise<GetPublicLogsResponse> {
     return this.store.getPublicLogs(filter);
   }
-  getContractClassLogs(filter: LogFilter): Promise<GetUnencryptedLogsResponse> {
+  getContractClassLogs(filter: LogFilter): Promise<GetContractClassLogsResponse> {
     return this.store.getContractClassLogs(filter);
   }
   getSynchedL2BlockNumber(): Promise<number> {

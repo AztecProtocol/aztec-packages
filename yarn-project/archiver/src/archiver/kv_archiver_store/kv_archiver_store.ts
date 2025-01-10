@@ -1,6 +1,6 @@
 import {
+  type GetContractClassLogsResponse,
   type GetPublicLogsResponse,
-  type GetUnencryptedLogsResponse,
   type InBlock,
   type InboxLeaf,
   type L2Block,
@@ -308,7 +308,7 @@ export class KVArchiverDataStore implements ArchiverDataStore {
    * @param filter - The filter to apply to the logs.
    * @returns The requested logs.
    */
-  getContractClassLogs(filter: LogFilter): Promise<GetUnencryptedLogsResponse> {
+  getContractClassLogs(filter: LogFilter): Promise<GetContractClassLogsResponse> {
     try {
       return Promise.resolve(this.#logStore.getContractClassLogs(filter));
     } catch (err) {

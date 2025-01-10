@@ -2,8 +2,8 @@ import { createLogger } from '@aztec/aztec.js';
 import {
   type AztecNode,
   type EpochProofQuote,
+  type GetContractClassLogsResponse,
   type GetPublicLogsResponse,
-  type GetUnencryptedLogsResponse,
   type InBlock,
   type L2Block,
   type L2BlockNumber,
@@ -461,7 +461,7 @@ export class TXENode implements AztecNode {
    * @param filter - The filter to apply to the logs.
    * @returns The requested logs.
    */
-  getContractClassLogs(_filter: LogFilter): Promise<GetUnencryptedLogsResponse> {
+  getContractClassLogs(_filter: LogFilter): Promise<GetContractClassLogsResponse> {
     throw new Error('TXE Node method getContractClassLogs not implemented');
   }
 

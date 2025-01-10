@@ -15,8 +15,8 @@ import { inBlockSchemaFor } from '../in_block.js';
 import { L2Block } from '../l2_block.js';
 import { type L2BlockSource, L2TipsSchema } from '../l2_block_source.js';
 import {
+  GetContractClassLogsResponseSchema,
   GetPublicLogsResponseSchema,
-  GetUnencryptedLogsResponseSchema,
   TxScopedL2Log,
 } from '../logs/get_logs_response.js';
 import { type L2LogsSource } from '../logs/l2_logs_source.js';
@@ -64,7 +64,7 @@ export const ArchiverApiSchema: ApiSchemaFor<ArchiverApi> = {
     .args(z.number(), z.array(schemas.Fr))
     .returns(z.array(optional(inBlockSchemaFor(schemas.BigInt)))),
   getPublicLogs: z.function().args(LogFilterSchema).returns(GetPublicLogsResponseSchema),
-  getContractClassLogs: z.function().args(LogFilterSchema).returns(GetUnencryptedLogsResponseSchema),
+  getContractClassLogs: z.function().args(LogFilterSchema).returns(GetContractClassLogsResponseSchema),
   getPublicFunction: z
     .function()
     .args(schemas.AztecAddress, schemas.FunctionSelector)

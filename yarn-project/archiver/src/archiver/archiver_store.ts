@@ -1,6 +1,6 @@
 import {
+  type GetContractClassLogsResponse,
   type GetPublicLogsResponse,
-  type GetUnencryptedLogsResponse,
   type InBlock,
   type InboxLeaf,
   type L2Block,
@@ -168,7 +168,7 @@ export interface ArchiverDataStore {
    * @param filter - The filter to apply to the logs.
    * @returns The requested logs.
    */
-  getContractClassLogs(filter: LogFilter): Promise<GetUnencryptedLogsResponse>;
+  getContractClassLogs(filter: LogFilter): Promise<GetContractClassLogsResponse>;
 
   /**
    * Gets the number of the latest L2 block processed.

@@ -2,8 +2,8 @@ import {
   ContractClass2BlockL2Logs,
   ExtendedPublicLog,
   ExtendedUnencryptedL2Log,
+  type GetContractClassLogsResponse,
   type GetPublicLogsResponse,
-  type GetUnencryptedLogsResponse,
   type L2Block,
   type LogFilter,
   LogId,
@@ -294,7 +294,7 @@ export class LogStore {
    * @param filter - The filter to apply to the logs.
    * @returns The requested logs.
    */
-  getContractClassLogs(filter: LogFilter): GetUnencryptedLogsResponse {
+  getContractClassLogs(filter: LogFilter): GetContractClassLogsResponse {
     if (filter.afterLog) {
       return this.#filterContractClassLogsBetweenBlocks(filter);
     } else if (filter.txHash) {
@@ -304,7 +304,7 @@ export class LogStore {
     }
   }
 
-  #filterContractClassLogsOfTx(filter: LogFilter): GetUnencryptedLogsResponse {
+  #filterContractClassLogsOfTx(filter: LogFilter): GetContractClassLogsResponse {
     if (!filter.txHash) {
       throw new Error('Missing txHash');
     }
@@ -325,7 +325,7 @@ export class LogStore {
     return { logs, maxLogsHit };
   }
 
-  #filterContractClassLogsBetweenBlocks(filter: LogFilter): GetUnencryptedLogsResponse {
+  #filterContractClassLogsBetweenBlocks(filter: LogFilter): GetContractClassLogsResponse {
     const start =
       filter.afterLog?.blockNumber ?? Math.max(filter.fromBlock ?? INITIAL_L2_BLOCK_NUM, INITIAL_L2_BLOCK_NUM);
     const end = filter.toBlock;

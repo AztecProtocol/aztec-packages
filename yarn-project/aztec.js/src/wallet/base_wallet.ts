@@ -2,8 +2,8 @@ import {
   type AuthWitness,
   type EventMetadataDefinition,
   type ExtendedNote,
+  type GetContractClassLogsResponse,
   type GetPublicLogsResponse,
-  type GetUnencryptedLogsResponse,
   type L2Block,
   type LogFilter,
   type NotesFilter,
@@ -164,7 +164,7 @@ export abstract class BaseWallet implements Wallet {
   getPublicLogs(filter: LogFilter): Promise<GetPublicLogsResponse> {
     return this.pxe.getPublicLogs(filter);
   }
-  getContractClassLogs(filter: LogFilter): Promise<GetUnencryptedLogsResponse> {
+  getContractClassLogs(filter: LogFilter): Promise<GetContractClassLogsResponse> {
     return this.pxe.getContractClassLogs(filter);
   }
   getBlockNumber(): Promise<number> {

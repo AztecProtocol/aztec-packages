@@ -279,7 +279,6 @@ mod tests {
     use crate::abis::tx_effect::TxEffect;
     use dep::types::{
         abis::{
-            accumulated_data::PrivateToRollupAccumulatedData,
             append_only_tree_snapshot::AppendOnlyTreeSnapshot,
             constant_rollup_data::ConstantRollupData,
             nullifier_leaf_preimage::NullifierLeafPreimage, public_data_write::PublicDataWrite,
@@ -294,8 +293,8 @@ mod tests {
             NULLIFIER_SUBTREE_HEIGHT, NULLIFIER_SUBTREE_SIBLING_PATH_LENGTH, NULLIFIER_TREE_HEIGHT,
             NULLIFIERS_PREFIX, PRIVATE_KERNEL_EMPTY_INDEX, PRIVATE_LOG_SIZE_IN_FIELDS,
             PRIVATE_LOGS_PREFIX, PUBLIC_DATA_TREE_HEIGHT, PUBLIC_DATA_UPDATE_REQUESTS_PREFIX,
-            PUBLIC_LOG_SIZE_IN_FIELDS, REVERT_CODE_PREFIX, TUBE_VK_INDEX, TX_FEE_PREFIX,
-            TX_START_PREFIX, UNENCRYPTED_LOGS_PREFIX,
+            PUBLIC_LOG_SIZE_IN_FIELDS, PUBLIC_LOGS_PREFIX, REVERT_CODE_PREFIX, TUBE_VK_INDEX,
+            TX_FEE_PREFIX, TX_START_PREFIX,
         },
         data::{PublicDataTreeLeaf, PublicDataTreeLeafPreimage},
         hash::silo_l2_to_l1_message,
@@ -1066,10 +1065,8 @@ mod tests {
         }
         offset += total_private_logs_len;
         // public logs
-        let public_logs_prefix = encode_blob_prefix(
-            UNENCRYPTED_LOGS_PREFIX,
-            NUM_PUB_LOGS * PUBLIC_LOG_SIZE_IN_FIELDS,
-        );
+        let public_logs_prefix =
+            encode_blob_prefix(PUBLIC_LOGS_PREFIX, NUM_PUB_LOGS * PUBLIC_LOG_SIZE_IN_FIELDS);
         reconstructed_tx_effects[offset] = public_logs_prefix;
         offset += 1;
         for i in 0..NUM_PUB_LOGS {

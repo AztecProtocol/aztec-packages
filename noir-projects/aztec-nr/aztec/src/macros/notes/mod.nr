@@ -436,14 +436,13 @@ comptime fn generate_setup_payload(
         get_setup_log_plaintext_body(s, log_plaintext_length, indexed_nullable_fields);
 
     // Then we compute values for `encrypt_log(...)` function
-    let encrypted_log_byte_length = 32 /* tag */
-        + OVERHEAD_SIZE
+    let untagged_encrypted_log_byte_length = OVERHEAD_SIZE
         + log_plaintext_length /* log_plaintext */
         + 2 /* log_plaintext_length */
         + 14 /* AES padding */;
-    // Each field contains 31 bytes so the length in fields is computed as ceil(encrypted_log_byte_length / 31)
-    // --> we achieve rounding by adding 30 and then dividing without remainder
-    let encrypted_log_field_length = (encrypted_log_byte_length + 30) / 31;
+    // Each field (apart from the tag) contains 31 bytes so the length in fields is computed as ceil(encrypted_log_byte_length / 31)
+    // --> we achieve rounding by adding 30 and then dividing without remainder, then add one for the 32 byte tag
+    let encrypted_log_field_length = 1 + (untagged_encrypted_log_byte_length + 30) / 31;
 
     (
         quote {
@@ -468,14 +467,12 @@ comptime fn generate_setup_payload(
             }
 
             pub fn encrypt_log(self, context: &mut PrivateContext, recipient: aztec::protocol_types::address::AztecAddress, sender: aztec::protocol_types::address::AztecAddress) -> [Field; $encrypted_log_field_length] {
-                let encrypted_log_bytes: [u8; $encrypted_log_byte_length] = aztec::encrypted_logs::payload::compute_partial_public_log_payload(
+                aztec::encrypted_logs::payload::compute_partial_public_log_payload::<$log_plaintext_length, $untagged_encrypted_log_byte_length>(
                     context.this_address(),
                     recipient,
                     sender,
                     self.log_plaintext,
-                );
-
-                aztec::utils::bytes::bytes_to_fields(encrypted_log_bytes)
+                )
             }
         }
 
@@ -656,14 +653,13 @@ comptime fn generate_finalization_payload(
 
     // Then we compute values for `encrypt_log(...)` function
     let setup_log_plaintext_length = indexed_fixed_fields.len() * 32 + 64;
-    let setup_log_byte_length = 32 /* tag */
-        + OVERHEAD_SIZE
+    let untagged_setup_log_byte_length = OVERHEAD_SIZE
         + setup_log_plaintext_length
         + 2 /* log_plaintext_length */
         + 14 /* AES padding */;
-    // Each field contains 31 bytes so the length in fields is computed as ceil(setup_log_byte_length / 31)
-    // --> we achieve rounding by adding 30 and then dividing without remainder
-    let setup_log_field_length = (setup_log_byte_length + 30) / 31;
+    // Each field (apart from the tag) contains 31 bytes so the length in fields is computed as ceil(setup_log_byte_length / 31)
+    // --> we achieve rounding by adding 30 and then dividing without remainder, then add one for the 32 byte tag
+    let setup_log_field_length = 1 + (untagged_setup_log_byte_length + 30) / 31;
     let finalization_log_field_length = 1 + setup_log_field_length + public_values_length;
 
     (

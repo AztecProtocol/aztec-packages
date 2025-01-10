@@ -757,7 +757,7 @@ pub global NULLIFIERS_PREFIX: u8 = 4;
 pub global L2_L1_MSGS_PREFIX: u8 = 5;
 pub global PUBLIC_DATA_UPDATE_REQUESTS_PREFIX: u8 = 6;
 pub global PRIVATE_LOGS_PREFIX: u8 = 7;
-pub global UNENCRYPTED_LOGS_PREFIX: u8 = 8;
+pub global PUBLIC_LOGS_PREFIX: u8 = 8;
 pub global CONTRACT_CLASS_LOGS_PREFIX: u8 = 9;
 
 // Constants related to proof type of a recursive proof verification.

@@ -23,6 +23,7 @@ import {
   type KeyValidationRequest,
   type L1_TO_L2_MSG_TREE_HEIGHT,
   PrivateLog,
+  PublicLog,
   computeAddressSecret,
   computeTaggingSecretPoint,
 } from '@aztec/circuits.js';
@@ -582,7 +583,7 @@ export class SimulatorOracle implements DBOracle {
 
     for (const scopedLog of scopedLogs) {
       const notePayload = scopedLog.isFromPublic
-        ? L1NotePayload.decryptAsIncomingFromPublic(scopedLog.logData, addressSecret)
+        ? L1NotePayload.decryptAsIncomingFromPublic(PublicLog.fromBuffer(scopedLog.logData), addressSecret)
         : L1NotePayload.decryptAsIncoming(PrivateLog.fromBuffer(scopedLog.logData), addressSecret);
 
       if (notePayload) {

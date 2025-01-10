@@ -29,13 +29,15 @@ export class IndexedTaggingSecret {
   }
 
   /**
-   * Computes the tag as it is submitted on-chain.
+   * Computes the siloed tag.
    * @dev We do this second layer of siloing (one was already done as the tagging secret is app-siloed) because kernels
    * do that to protect against contract impersonation attacks. This extra layer of siloing in kernels ensures that
    * a malicious contract cannot emit a note with a tag corresponding to another contract.
+   * TODO(#10273/#11124): noir-projects/aztec-nr/aztec/src/encrypted_logs/payload.nr implies we still need to silo
+   * even though the log containing this tag is siloed, the above dev msg no longer applies with public logs.
    * @param recipient The recipient of the note
    * @param app The app address
-   * @returns The tag as it is submitted on-chain in a log.
+   * @returns The siloed tag.
    */
   computeSiloedTag(recipient: AztecAddress, app: AztecAddress) {
     const tag = this.computeTag(recipient);

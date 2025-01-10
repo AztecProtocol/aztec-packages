@@ -5,8 +5,8 @@ import {
   type EventMetadataDefinition,
   type ExtendedNote,
   type FunctionCall,
+  type GetContractClassLogsResponse,
   type GetPublicLogsResponse,
-  type GetUnencryptedLogsResponse,
   type InBlock,
   L1EventPayload,
   type L2Block,
@@ -626,7 +626,7 @@ export class PXEService implements PXE {
    * @param filter - The filter to apply to the logs.
    * @returns The requested logs.
    */
-  public getContractClassLogs(filter: LogFilter): Promise<GetUnencryptedLogsResponse> {
+  public getContractClassLogs(filter: LogFilter): Promise<GetContractClassLogsResponse> {
     return this.node.getContractClassLogs(filter);
   }
 

@@ -36,8 +36,8 @@ import { L2Block } from '../l2_block.js';
 import {
   ExtendedPublicLog,
   ExtendedUnencryptedL2Log,
+  type GetContractClassLogsResponse,
   type GetPublicLogsResponse,
-  type GetUnencryptedLogsResponse,
   type LogFilter,
 } from '../logs/index.js';
 import { ExtendedNote, UniqueNote } from '../notes/index.js';
@@ -460,7 +460,7 @@ class MockPXE implements PXE {
     expect(filter.contractAddress).toEqual(this.address);
     return Promise.resolve({ logs: [ExtendedPublicLog.random()], maxLogsHit: true });
   }
-  getContractClassLogs(filter: LogFilter): Promise<GetUnencryptedLogsResponse> {
+  getContractClassLogs(filter: LogFilter): Promise<GetContractClassLogsResponse> {
     expect(filter.contractAddress).toEqual(this.address);
     return Promise.resolve({ logs: [ExtendedUnencryptedL2Log.random()], maxLogsHit: true });
   }

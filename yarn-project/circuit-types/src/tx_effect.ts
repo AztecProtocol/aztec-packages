@@ -12,6 +12,7 @@ import {
   PRIVATE_LOGS_PREFIX,
   PRIVATE_LOG_SIZE_IN_FIELDS,
   PUBLIC_DATA_UPDATE_REQUESTS_PREFIX,
+  PUBLIC_LOGS_PREFIX,
   PUBLIC_LOG_SIZE_IN_FIELDS,
   PrivateLog,
   PublicDataWrite,
@@ -20,7 +21,6 @@ import {
   RevertCode,
   TX_FEE_PREFIX,
   TX_START_PREFIX,
-  UNENCRYPTED_LOGS_PREFIX,
 } from '@aztec/circuits.js';
 import { type FieldsOf, makeTuple } from '@aztec/foundation/array';
 import { toBufferBE } from '@aztec/foundation/bigint-buffer';
@@ -354,7 +354,7 @@ export class TxEffect {
       flattened.push(...this.privateLogs.map(l => l.fields).flat());
     }
     if (this.publicLogs.length) {
-      flattened.push(this.toPrefix(UNENCRYPTED_LOGS_PREFIX, this.publicLogs.length * PUBLIC_LOG_SIZE_IN_FIELDS));
+      flattened.push(this.toPrefix(PUBLIC_LOGS_PREFIX, this.publicLogs.length * PUBLIC_LOG_SIZE_IN_FIELDS));
       flattened.push(...this.publicLogs.map(l => l.toFields()).flat());
     }
     // TODO(#8954): When logs are refactored into fields, we will append the values here
@@ -430,7 +430,7 @@ export class TxEffect {
           }
           break;
         }
-        case UNENCRYPTED_LOGS_PREFIX: {
+        case PUBLIC_LOGS_PREFIX: {
           ensureEmpty(effect.publicLogs);
           const flatPublicLogs = reader.readFieldArray(length);
           for (let i = 0; i < length; i += PUBLIC_LOG_SIZE_IN_FIELDS) {

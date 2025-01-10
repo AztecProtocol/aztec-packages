@@ -13,8 +13,8 @@ use dep::types::{
         MAX_NULLIFIERS_PER_TX, MAX_PRIVATE_LOGS_PER_TX, MAX_PUBLIC_LOGS_PER_TX,
         MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, NOTES_PREFIX, NULLIFIERS_PREFIX,
         PRIVATE_LOG_SIZE_IN_FIELDS, PRIVATE_LOGS_PREFIX, PUBLIC_DATA_UPDATE_REQUESTS_PREFIX,
-        PUBLIC_LOG_SIZE_IN_FIELDS, REVERT_CODE_PREFIX, TX_FEE_PREFIX, TX_START_PREFIX,
-        UNENCRYPTED_LOGS_PREFIX,
+        PUBLIC_LOG_SIZE_IN_FIELDS, PUBLIC_LOGS_PREFIX, REVERT_CODE_PREFIX, TX_FEE_PREFIX,
+        TX_START_PREFIX,
     },
     hash::{accumulate_sha256, silo_contract_class_log_hash},
     merkle_tree::VariableMerkleTree,
@@ -418,8 +418,8 @@ fn get_tx_effects_hash_input(
     // PUBLIC LOGS
     array_len = array_length(public_logs) * PUBLIC_LOG_SIZE_IN_FIELDS;
     if array_len != 0 {
-        let unencrypted_logs_prefix = encode_blob_prefix(UNENCRYPTED_LOGS_PREFIX, array_len);
-        assert_eq(tx_effects_hash_input[offset], unencrypted_logs_prefix);
+        let public_logs_prefix = encode_blob_prefix(PUBLIC_LOGS_PREFIX, array_len);
+        assert_eq(tx_effects_hash_input[offset], public_logs_prefix);
         offset += 1;
         for j in 0..MAX_PUBLIC_LOGS_PER_TX {
             let log = public_logs[j].serialize();
@@ -593,8 +593,8 @@ unconstrained fn get_tx_effects_hash_input_helper(
     // PUBLIC LOGS
     array_len = array_length(public_logs) * PUBLIC_LOG_SIZE_IN_FIELDS;
     if array_len != 0 {
-        let unencrypted_logs_prefix = encode_blob_prefix(UNENCRYPTED_LOGS_PREFIX, array_len);
-        tx_effects_hash_input[offset] = unencrypted_logs_prefix;
+        let public_logs_prefix = encode_blob_prefix(PUBLIC_LOGS_PREFIX, array_len);
+        tx_effects_hash_input[offset] = public_logs_prefix;
         offset += 1;
         for j in 0..MAX_PUBLIC_LOGS_PER_TX {
             let log = public_logs[j].serialize();

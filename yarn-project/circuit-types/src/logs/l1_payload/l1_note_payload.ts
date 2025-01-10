@@ -1,4 +1,4 @@
-import { AztecAddress, type PrivateLog, Vector } from '@aztec/circuits.js';
+import { AztecAddress, type PrivateLog, type PublicLog, Vector } from '@aztec/circuits.js';
 import { NoteSelector } from '@aztec/foundation/abi';
 import { randomInt } from '@aztec/foundation/crypto';
 import { type Fq, Fr } from '@aztec/foundation/fields';
@@ -60,7 +60,7 @@ export class L1NotePayload {
   }
 
   static decryptAsIncoming(log: PrivateLog, sk: Fq): L1NotePayload | undefined {
-    const decryptedLog = EncryptedLogPayload.decryptAsIncoming(log, sk);
+    const decryptedLog = EncryptedLogPayload.decryptAsIncoming(log.fields, sk);
     if (!decryptedLog) {
       return undefined;
     }
@@ -72,13 +72,13 @@ export class L1NotePayload {
     );
   }
 
-  static decryptAsIncomingFromPublic(log: Buffer, sk: Fq): L1NotePayload | undefined {
+  static decryptAsIncomingFromPublic(log: PublicLog, sk: Fq): L1NotePayload | undefined {
     const { privateValues, publicValues } = parseLogFromPublic(log);
     if (!privateValues) {
       return undefined;
     }
 
-    const decryptedLog = EncryptedLogPayload.decryptAsIncomingFromPublic(privateValues, sk);
+    const decryptedLog = EncryptedLogPayload.decryptAsIncoming(privateValues, sk);
     if (!decryptedLog) {
       return undefined;
     }
@@ -152,48 +152,21 @@ export class L1NotePayload {
  * @param log - Log to be parsed.
  * @returns An object containing the public values and the encrypted log.
  */
-function parseLogFromPublic(log: Buffer) {
-  // First we remove padding bytes
-  const processedLog = removePaddingBytes(log);
-  if (!processedLog) {
-    return {};
-  }
+function parseLogFromPublic(log: PublicLog) {
+  //TODO(MW): Ensure len
+  const logFields = log.log.slice(0, 12);
 
-  const reader = new BufferReader(processedLog);
+  // Extract public values from the log
+  const publicValuesLength = logFields[0].toNumber();
 
-  // Then we extract public values from the log
-  const numPublicValues = reader.readUInt8();
+  // Minus 1 for the public values length in position 0
+  const privateValuesLength = logFields.length - publicValuesLength - 1;
 
-  const publicValuesLength = numPublicValues * Fr.SIZE_IN_BYTES;
-  const privateValuesLength = reader.remainingBytes() - publicValuesLength;
-
-  // Now we get the buffer corresponding to the values generated from private.
-  const privateValues = reader.readBytes(privateValuesLength);
+  // Now we get the fields corresponding to the values generated from private.
+  const privateValues = logFields.slice(1, privateValuesLength + 1);
 
   // At last we load the public values
-  const publicValues = reader.readArray(numPublicValues, Fr);
+  const publicValues = logFields.slice(privateValuesLength + 1);
 
   return { publicValues, privateValues };
-}
-
-/**
- * When a log is emitted via the unencrypted log channel each field contains only 1 byte. OTOH when a log is emitted
- * via the encrypted log channel there are no empty bytes. This function removes the padding bytes.
- * @param unprocessedLog - Log to be processed.
- * @returns Log with padding bytes removed.
- */
-function removePaddingBytes(unprocessedLog: Buffer) {
-  // Determine whether first 31 bytes of each 32 bytes block of bytes are 0
-  const is1FieldPerByte = unprocessedLog.every((byte, index) => index % 32 === 31 || byte === 0);
-  if (!is1FieldPerByte) {
-    return;
-  }
-
-  // We take every 32nd byte from the log and return the result
-  const processedLog = Buffer.alloc(unprocessedLog.length / 32);
-  for (let i = 0; i < processedLog.length; i++) {
-    processedLog[i] = unprocessedLog[31 + i * 32];
-  }
-
-  return processedLog;
 }

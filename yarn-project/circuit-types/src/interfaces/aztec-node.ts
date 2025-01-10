@@ -28,10 +28,10 @@ import { type InBlock, inBlockSchemaFor } from '../in_block.js';
 import { L2Block } from '../l2_block.js';
 import { type L2BlockSource, type L2Tips, L2TipsSchema } from '../l2_block_source.js';
 import {
+  type GetContractClassLogsResponse,
+  GetContractClassLogsResponseSchema,
   type GetPublicLogsResponse,
   GetPublicLogsResponseSchema,
-  type GetUnencryptedLogsResponse,
-  GetUnencryptedLogsResponseSchema,
   type LogFilter,
   LogFilterSchema,
   TxScopedL2Log,
@@ -317,7 +317,7 @@ export interface AztecNode
    * @param filter - The filter to apply to the logs.
    * @returns The requested logs.
    */
-  getContractClassLogs(filter: LogFilter): Promise<GetUnencryptedLogsResponse>;
+  getContractClassLogs(filter: LogFilter): Promise<GetContractClassLogsResponse>;
 
   /**
    * Gets all logs that match any of the received tags (i.e. logs with their first field equal to a tag).
@@ -548,7 +548,7 @@ export const AztecNodeApiSchema: ApiSchemaFor<AztecNode> = {
 
   getPublicLogs: z.function().args(LogFilterSchema).returns(GetPublicLogsResponseSchema),
 
-  getContractClassLogs: z.function().args(LogFilterSchema).returns(GetUnencryptedLogsResponseSchema),
+  getContractClassLogs: z.function().args(LogFilterSchema).returns(GetContractClassLogsResponseSchema),
 
   getLogsByTags: z
     .function()
