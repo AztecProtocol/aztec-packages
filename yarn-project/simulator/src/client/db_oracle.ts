@@ -234,7 +234,7 @@ export interface DBOracle extends CommitmentsDB {
   processTaggedLogs(logs: TxScopedL2Log[], recipient: AztecAddress): Promise<void>;
 
   /**
-   * Delivers the preimage and metadata of a committed note so that it can be later be requested via the `getNotes`
+   * Delivers the preimage and metadata of a committed note so that it can be later requested via the `getNotes`
    * oracle.
    *
    * @param contractAddress - The address of the contract that created the note (i.e. the siloing contract)

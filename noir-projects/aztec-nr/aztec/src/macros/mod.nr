@@ -173,8 +173,8 @@ comptime fn generate_process_log() -> Quoted {
     // This mandatory function processes a log emitted by the contract. This is currently used to recover note contents
     // and deliver the note to PXE.
     // The bulk of the work of this function is done by aztec::oracle::management::do_process_log, so all we need to do
-    // is call that function. However, one of its parameters is a lambda function that computes note hash a nullifier
-    // given note contents and metadata (e.g. note type id), given that this is behavior is contract-specific (as it
+    // is call that function. However, one of its parameters is a lambda function that computes note hash and nullifier
+    // given note contents and metadata (e.g. note type id), since this behavior is contract-specific (as it
     // depends on the note types implemented by each contract).
     // The job of this macro is therefore to implement this lambda function and then call `do_process_log` with it.
 
