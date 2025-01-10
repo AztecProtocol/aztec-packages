@@ -95,6 +95,9 @@ export class BlacklistTokenContractTest {
     await this.snapshotManager.snapshot('3_accounts', addAccounts(3, this.logger), async ({ accountKeys }, { pxe }) => {
       const accountManagers = accountKeys.map(ak => getSchnorrAccount(pxe, ak[0], ak[1], 1));
       this.wallets = await Promise.all(accountManagers.map(a => a.getWallet()));
+      this.admin = this.wallets[0];
+      this.other = this.wallets[1];
+      this.blacklisted = this.wallets[2];
 
       // This Map and loop ensure that this.accounts has the same order as this.wallets and this.keys
       const registeredAccounts: Map<string, CompleteAddress> = new Map(
