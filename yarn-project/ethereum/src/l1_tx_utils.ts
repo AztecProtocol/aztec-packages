@@ -246,8 +246,9 @@ export class L1TxUtils {
 
       return { txHash, gasLimit, gasPrice };
     } catch (err: any) {
-      this.logger?.error(`Failed to send transaction: ${formatViemError(err)}`);
-      throw err;
+      const formattedErr = formatViemError(err);
+      this.logger?.error(`Failed to send transaction`, err);
+      throw formattedErr;
     }
   }
 
@@ -381,9 +382,10 @@ export class L1TxUtils {
         }
         await sleep(gasConfig.checkIntervalMs!);
       } catch (err: any) {
-        this.logger?.warn(`Error monitoring tx ${currentTxHash}:`, formatViemError(err));
+        const formattedErr = formatViemError(err);
+        this.logger?.warn(`Error monitoring tx ${currentTxHash}:`, formattedErr);
         if (err.message?.includes('reverted')) {
-          throw err;
+          throw formattedErr;
         }
         await sleep(gasConfig.checkIntervalMs!);
       }

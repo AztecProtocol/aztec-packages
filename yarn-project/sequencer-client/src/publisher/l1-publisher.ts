@@ -690,7 +690,7 @@ export class L1Publisher {
         }),
       });
     } catch (err) {
-      this.log.error(`Failed to claim epoch proof right: ${formatViemError(err)}`, err, {
+      this.log.error(`Failed to claim epoch proof right`, err, {
         proofQuote: proofQuote.toInspect(),
       });
       return false;
@@ -920,35 +920,42 @@ export class L1Publisher {
     publicInputs: RootRollupPublicInputs;
     proof: Proof;
   }): Promise<string | undefined> {
+    const proofHex: Hex = `0x${args.proof.withoutPublicInputs().toString('hex')}`;
+    const argsArray = this.getSubmitEpochProofArgs(args);
+
+    const txArgs = [
+      {
+        epochSize: argsArray[0],
+        args: argsArray[1],
+        fees: argsArray[2],
+        blobPublicInputs: argsArray[3],
+        aggregationObject: argsArray[4],
+        proof: proofHex,
+      },
+    ] as const;
+
+    this.log.info(`SubmitEpochProof proofSize=${args.proof.withoutPublicInputs().length} bytes`);
+    const data = encodeFunctionData({
+      abi: this.rollupContract.abi,
+      functionName: 'submitEpochRootProof',
+      args: txArgs,
+    });
     try {
-      const proofHex: Hex = `0x${args.proof.withoutPublicInputs().toString('hex')}`;
-      const argsArray = this.getSubmitEpochProofArgs(args);
-
-      const txArgs = [
-        {
-          epochSize: argsArray[0],
-          args: argsArray[1],
-          fees: argsArray[2],
-          blobPublicInputs: argsArray[3],
-          aggregationObject: argsArray[4],
-          proof: proofHex,
-        },
-      ] as const;
-
-      this.log.info(`SubmitEpochProof proofSize=${args.proof.withoutPublicInputs().length} bytes`);
-
       const { receipt } = await this.l1TxUtils.sendAndMonitorTransaction({
         to: this.rollupContract.address,
-        data: encodeFunctionData({
-          abi: this.rollupContract.abi,
-          functionName: 'submitEpochRootProof',
-          args: txArgs,
-        }),
+        data,
       });
 
       return receipt.transactionHash;
     } catch (err) {
       this.log.error(`Rollup submit epoch proof failed`, err);
+      const errorMsg = await this.tryGetErrorFromRevertedTx(data, {
+        args: [...txArgs],
+        functionName: 'submitEpochRootProof',
+        abi: this.rollupContract.abi,
+        address: this.rollupContract.address,
+      });
+      this.log.error(`Rollup submit epoch proof tx reverted. ${errorMsg}`);
       return undefined;
     }
   }
@@ -1072,7 +1079,7 @@ export class L1Publisher {
         data,
       };
     } catch (err) {
-      this.log.error(`Rollup publish failed: ${formatViemError(err)}`, err);
+      this.log.error(`Rollup publish failed.`, err);
       return undefined;
     }
   }
@@ -1117,7 +1124,7 @@ export class L1Publisher {
         data,
       };
     } catch (err) {
-      this.log.error(`Rollup publish failed: ${formatViemError(err)}`, err);
+      this.log.error(`Rollup publish failed.`, err);
       return undefined;
     }
   }

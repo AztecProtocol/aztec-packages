@@ -360,7 +360,7 @@ describe('GasUtils', () => {
     expect(blobEstimate).toBeGreaterThan(baseEstimate);
   }, 20_000);
 
-  it('formats anvil errors correctly', async () => {
+  it('formats eth node errors correctly', async () => {
     // Set base fee extremely high to trigger error
     const extremelyHighBaseFee = WEI_CONST * 1_000_000n; // 1M gwei
     await cheatCodes.setNextBlockBaseFeePerGas(extremelyHighBaseFee);
