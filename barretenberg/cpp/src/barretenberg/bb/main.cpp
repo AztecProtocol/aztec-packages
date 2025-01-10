@@ -829,7 +829,7 @@ bool avm2_verify(const std::filesystem::path& proof_path,
 {
     const auto proof = many_from_buffer<fr>(read_file(proof_path));
     std::vector<uint8_t> vk_bytes = read_file(vk_path);
-    auto public_inputs = avm2::AvmAPI::PublicInputs::from(read_file(public_inputs_path));
+    auto public_inputs = avm2::PublicInputs::from(read_file(public_inputs_path));
 
     init_bn254_crs(1);
     avm2::AvmAPI avm;
