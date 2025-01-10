@@ -66,9 +66,10 @@ import { jest } from '@jest/globals';
 import { type MockProxy, mock } from 'jest-mock-extended';
 import { toFunctionSelector } from 'viem';
 
+import { MessageLoadOracleInputs } from '../common/message_load_oracle_inputs.js';
+import { WASMSimulator } from '../providers/acvm_wasm.js';
 import { buildL1ToL2Message } from '../test/utils.js';
 import { type DBOracle } from './db_oracle.js';
-import { MessageLoadOracleInputs, WASMSimulator } from './index.js';
 import { AcirSimulator } from './simulator.js';
 
 jest.setTimeout(60_000);

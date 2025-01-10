@@ -7,8 +7,8 @@ import { StatefulTestContractArtifact } from '@aztec/noir-contracts.js/StatefulT
 
 import { mock } from 'jest-mock-extended';
 
+import { WASMSimulator } from '../providers/acvm_wasm.js';
 import { type DBOracle } from './db_oracle.js';
-import { WASMSimulator } from './index.js';
 import { AcirSimulator } from './simulator.js';
 
 describe('Unconstrained Execution test suite', () => {

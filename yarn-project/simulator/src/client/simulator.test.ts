@@ -7,8 +7,8 @@ import { TokenBlacklistContractArtifact } from '@aztec/noir-contracts.js/TokenBl
 
 import { type MockProxy, mock } from 'jest-mock-extended';
 
+import { WASMSimulator } from '../providers/acvm_wasm.js';
 import { type DBOracle } from './db_oracle.js';
-import { WASMSimulator } from './index.js';
 import { AcirSimulator } from './simulator.js';
 
 describe('Simulator', () => {
