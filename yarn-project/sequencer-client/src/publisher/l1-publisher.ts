@@ -976,7 +976,6 @@ export class L1Publisher {
       {
         blobs: encodedData.blobs.map(b => b.dataWithZeros),
         kzg,
-        // maxFeePerBlobGas: 10000000000n, //This is 10 gwei, taken from DEFAULT_MAX_FEE_PER_GAS
       },
     );
 
@@ -1068,7 +1067,6 @@ export class L1Publisher {
         {
           blobs: encodedData.blobs.map(b => b.dataWithZeros),
           kzg,
-          // maxFeePerBlobGas: 10000000000n, //This is 10 gwei, taken from DEFAULT_MAX_FEE_PER_GAS
         },
       );
       return {
@@ -1112,7 +1110,6 @@ export class L1Publisher {
         {
           blobs: encodedData.blobs.map(b => b.dataWithZeros),
           kzg,
-          // maxFeePerBlobGas: 10000000000n, //This is 10 gwei, taken from DEFAULT_MAX_FEE_PER_GAS
         },
       );
 
