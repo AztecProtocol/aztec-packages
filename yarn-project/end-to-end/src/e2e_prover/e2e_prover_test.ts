@@ -30,7 +30,6 @@ import { type ProverNode, type ProverNodeConfig, createProverNode } from '@aztec
 import { type PXEService } from '@aztec/pxe';
 import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
 
-import { strict as assert } from 'assert';
 // TODO(#7373): Deploy honk solidity verifier
 // @ts-expect-error solc-js doesn't publish its types https://github.com/ethereum/solc-js/issues/689
 import solc from 'solc';
@@ -46,7 +45,7 @@ import {
   createSnapshotManager,
   publicDeployAccounts,
 } from '../fixtures/snapshot_manager.js';
-import { getPrivateKeyFromIndex, setupPXEService } from '../fixtures/utils.js';
+import { getPrivateKeyFromIndex, getRegisteredWalletsAndAccountsFromKeys, setupPXEService } from '../fixtures/utils.js';
 import { TokenSimulator } from '../simulators/token_simulator.js';
 
 const { E2E_DATA_PATH: dataPath } = process.env;
@@ -114,22 +113,7 @@ export class FullProverTest {
   async applyBaseSnapshots() {
     await this.snapshotManager.snapshot('2_accounts', addAccounts(2, this.logger), async ({ accountKeys }, { pxe }) => {
       this.keys = accountKeys;
-      const accountManagers = accountKeys.map(ak => getSchnorrAccount(pxe, ak[0], ak[1], SALT));
-      this.wallets = await Promise.all(accountManagers.map(a => a.getWallet()));
-
-      // This Map and loop ensure that this.accounts has the same order as this.wallets and this.keys
-      const registeredAccounts: Map<string, CompleteAddress> = new Map(
-        (await pxe.getRegisteredAccounts()).map(acc => [acc.address.toString(), acc]),
-      );
-      for (let i = 0; i < this.wallets.length; i++) {
-        const wallet = this.wallets[i];
-        const walletAddr = wallet.getAddress().toString();
-        assert(
-          registeredAccounts.has(walletAddr),
-          `Test account ${walletAddr} not registered, but it should have been`,
-        );
-        this.accounts.push(registeredAccounts.get(walletAddr)!);
-      }
+      [this.wallets, this.accounts] = await getRegisteredWalletsAndAccountsFromKeys(accountKeys, pxe);
       this.wallets.forEach((w, i) => this.logger.verbose(`Wallet ${i} address: ${w.getAddress()}`));
     });
 
