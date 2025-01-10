@@ -104,6 +104,35 @@ void WitnessComputation<Flavor>::compute_grand_product_polynomial(Flavor::Provin
         proving_key.polynomials, relation_parameters, size_override, proving_key.active_region_data);
 }
 
+/**
+ * @brief TEST only method for completing computation of the prover polynomials using random challenges
+ *
+ * @tparam Flavor
+ * @param decider_pk
+ */
+template <IsUltraFlavor Flavor>
+void WitnessComputation<Flavor>::complete_proving_key_for_test(
+    const std::shared_ptr<DeciderProvingKey_<Flavor>>& decider_pk)
+{
+    // Generate random eta, beta and gamma
+    decider_pk->relation_parameters.eta = FF::random_element();
+    decider_pk->relation_parameters.eta = FF::random_element();
+    decider_pk->relation_parameters.eta_two = FF::random_element();
+    decider_pk->relation_parameters.eta_three = FF::random_element();
+    decider_pk->relation_parameters.beta = FF::random_element();
+    decider_pk->relation_parameters.gamma = FF::random_element();
+
+    add_ram_rom_memory_records_to_wire_4(decider_pk->proving_key,
+                                         decider_pk->relation_parameters.eta,
+                                         decider_pk->relation_parameters.eta_two,
+                                         decider_pk->relation_parameters.eta_three);
+
+    compute_logderivative_inverses(decider_pk->proving_key, decider_pk->relation_parameters);
+
+    compute_grand_product_polynomial(
+        decider_pk->proving_key, decider_pk->relation_parameters, decider_pk->final_active_wire_idx + 1);
+}
+
 template class WitnessComputation<UltraFlavor>;
 template class WitnessComputation<UltraZKFlavor>;
 template class WitnessComputation<UltraKeccakFlavor>;

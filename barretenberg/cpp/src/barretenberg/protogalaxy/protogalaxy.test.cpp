@@ -117,20 +117,7 @@ template <typename Flavor> class ProtogalaxyTests : public testing::Test {
 
         auto decider_pk = std::make_shared<DeciderProvingKey>(builder);
 
-        decider_pk->relation_parameters.eta = FF::random_element();
-        decider_pk->relation_parameters.eta_two = FF::random_element();
-        decider_pk->relation_parameters.eta_three = FF::random_element();
-        decider_pk->relation_parameters.beta = FF::random_element();
-        decider_pk->relation_parameters.gamma = FF::random_element();
-
-        WitnessComputation<Flavor>::add_ram_rom_memory_records_to_wire_4(decider_pk->proving_key,
-                                                                         decider_pk->relation_parameters.eta,
-                                                                         decider_pk->relation_parameters.eta_two,
-                                                                         decider_pk->relation_parameters.eta_three);
-        WitnessComputation<Flavor>::compute_logderivative_inverses(decider_pk->proving_key,
-                                                                   decider_pk->relation_parameters);
-        WitnessComputation<Flavor>::compute_grand_product_polynomial(
-            decider_pk->proving_key, decider_pk->relation_parameters, decider_pk->final_active_wire_idx + 1);
+        WitnessComputation<Flavor>::complete_proving_key_for_test(decider_pk);
 
         for (auto& alpha : decider_pk->alphas) {
             alpha = FF::random_element();

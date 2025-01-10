@@ -3,6 +3,7 @@
 #include "barretenberg/flavor/flavor.hpp"
 #include "barretenberg/relations/relation_parameters.hpp"
 #include "barretenberg/stdlib_circuit_builders/ultra_flavor.hpp"
+#include "barretenberg/ultra_honk/decider_proving_key.hpp"
 namespace bb {
 /**
  * @brief Class for all the oink rounds, which are shared between the folding prover and ultra prover.
@@ -27,6 +28,8 @@ template <IsUltraFlavor Flavor> class WitnessComputation {
     static void compute_grand_product_polynomial(Flavor::ProvingKey& proving_key,
                                                  RelationParameters<FF>& relation_parameters,
                                                  size_t size_override = 0);
+
+    static void complete_proving_key_for_test(const std::shared_ptr<DeciderProvingKey_<Flavor>>& decider_pk);
 };
 
 } // namespace bb
