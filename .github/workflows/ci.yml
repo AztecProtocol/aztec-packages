@@ -55,7 +55,6 @@ jobs:
       e2e-all: ${{ github.ref_name == 'master' || contains(github.event.pull_request.labels.*.name, 'e2e-all') || github.event_name == 'merge_group' }}
       network-all: ${{ github.ref_name == 'master' || contains(github.event.pull_request.labels.*.name, 'network-all') }}
       e2e-list: ${{ steps.e2e_list.outputs.e2e-list }}
-      bench-list: ${{ steps.e2e_list.outputs.bench-list }}
     steps:
       - uses: actions/checkout@v4
         with: { ref: "${{ env.GIT_COMMIT }}" }
@@ -85,7 +84,6 @@ jobs:
           echo Labels: $LABELS
           set -x
           echo "e2e-list=$(./scripts/ci/get_e2e_jobs.sh ${{github.ref_name}} "$LABELS")" >> $GITHUB_OUTPUT
-          echo "bench-list=$(./scripts/ci/get_bench_jobs.sh ${{github.ref_name}} "$LABELS")" >> $GITHUB_OUTPUT
       - uses: dorny/paths-filter@de90cc6fb38fc0963ad72b210f1f284cd68cea36
         id: filter
         with:
@@ -215,37 +213,6 @@ jobs:
             ci3/cache_upload_flag "$artifact"
           fi
 
-  # all the benchmarking end-to-end integration tests for aztec (not required to merge)
-  bench-e2e:
-    needs: [images-e2e, configure]
-    if: needs.configure.outputs.e2e-all == 'true' || needs.configure.outputs.bench-list != '[]'
-    runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        test: ${{ fromJson( needs.configure.outputs.bench-list )}}
-    steps:
-      - uses: actions/checkout@v4
-        with: { ref: "${{ env.GIT_COMMIT }}" }
-      - name: Test
-        timeout-minutes: 40
-        run: |
-          echo ${{ secrets.DOCKERHUB_PASSWORD }} | docker login -u aztecprotocolci --password-stdin
-          export CI=1 USE_CACHE=1
-          artifact="bench-${{matrix.test}}-$(./yarn-project/bootstrap.sh hash)"
-          if ci3/test_should_run "$artifact"; then
-            docker pull aztecprotocol/aztec:${{ env.GIT_COMMIT }}
-            docker pull aztecprotocol/end-to-end:${{ env.GIT_COMMIT }}
-            export FORCE_COLOR=1
-            export EARTHLY_BUILD_ARGS="${{ env.EARTHLY_BUILD_ARGS }}"
-            ./yarn-project/end-to-end/scripts/e2e_test.sh ${{ matrix.test }}
-            export COMMIT_HASH=${{ env.GIT_COMMIT }}
-            export PULL_REQUEST=${{ github.event.pull_request.number }}
-            export BRANCH=${{ github.ref_name }}
-            scripts/logs/upload_logs_to_s3.sh /usr/var/log
-            ci3/cache_upload_flag "$artifact"
-          fi
-
   # Only e2e test that can't run on standard github runner
   e2e-prover-full:
     runs-on: ubuntu-latest
@@ -295,49 +262,6 @@ jobs:
               scripts/earthly-ci ./barretenberg/acir_tests+bench-publish
               ci3/cache_upload_flag acir-bench-$(./barretenberg/acir_tests/bootstrap.sh hash)
             fi
-
-  # TODO(ci3) fix and reinstate
-  # bench-summary:
-  #   if: needs.configure.outputs.e2e-all == 'true'
-  #   needs:
-  #     - acir-bench
-  #     - bench-e2e
-  #     - configure
-  #   runs-on: ubuntu-latest
-  #   steps:
-  #     - uses: actions/checkout@v4
-  #       with:
-  #         fetch-depth: 100 # Downloading base benchmark from master requires access to history
-  #         ref: "${{ github.event.pull_request.head.sha }}"
-  #     - uses: ./.github/ci-setup-action
-  #     - name: "Build and upload bench aggregate file"
-  #       uses: ./.github/ensure-builder
-  #       with:
-  #         runner_type: builder-x86
-  #         username: ${{ needs.configure.outputs.username }}
-  #         run: scripts/earthly-ci ./yarn-project/scripts/+bench-aggregate
-  #     - name: "Download base benchmark and package into earthly"
-  #       if: github.event_name == 'pull_request'
-  #       uses: ./.github/run-on-builder
-  #       env:
-  #         AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-  #         AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-  #         BENCH_FOLDER: "./scripts/logs/tmp/bench"
-  #         PULL_REQUEST: "${{ github.event.pull_request.number }}"
-  #       with:
-  #         run: |
-  #           # Download the base benchmark locally (requires AWS creds and .git history)
-  #           mkdir -p $BENCH_FOLDER
-  #           ./scripts/logs/download_base_benchmark_from_s3.sh
-  #           # Package it into an earthly artifact to read from bench-comment
-  #           scripts/earthly-ci ./scripts/logs+pack-base-benchmark
-  #     - name: "Generate summary comment if pull request"
-  #       if: github.event_name == 'pull_request'
-  #       uses: ./.github/run-on-builder
-  #       env:
-  #         AZTEC_BOT_GITHUB_TOKEN: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
-  #       with:
-  #         run: scripts/earthly-ci ./yarn-project/scripts/+bench-comment
 
   # barretenberg (prover) native, AVM (public VM) and Merkle tree (world state) tests
   # ran on own runner for resource reasons (memory x cpu intensive)
