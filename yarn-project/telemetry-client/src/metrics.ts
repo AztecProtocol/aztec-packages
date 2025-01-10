@@ -128,3 +128,4 @@ export const VALIDATOR_FAILED_REEXECUTION_COUNT = 'aztec.validator.failed_reexec
 
 export const EVENT_LOOP_UTILIZATION = 'aztec.event_loop_utilization';
 export const EVENT_LOOP_LAG = 'aztec.event_loop_lag';
+export const EVENT_LOOP_LAG_MAX = 'aztec.event_loop_lag_max';
