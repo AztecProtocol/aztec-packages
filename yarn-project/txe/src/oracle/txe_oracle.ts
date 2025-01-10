@@ -64,10 +64,10 @@ import { type KeyStore } from '@aztec/key-store';
 import { ContractDataOracle, SimulatorOracle, enrichPublicSimulationError } from '@aztec/pxe';
 import {
   ExecutionNoteCache,
-  MessageLoadOracleInputs,
-  NoteData,
+  type MessageLoadOracleInputs,
+  type NoteData,
   Oracle,
-  TypedOracle,
+  type TypedOracle,
   WASMSimulator,
   extractCallStack,
   extractPrivateCircuitPublicInputs,

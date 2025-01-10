@@ -14,7 +14,7 @@ import { type Logger, createLogger } from '@aztec/foundation/log';
 
 import { createSimulationError } from '../common/errors.js';
 import { PackedValuesCache } from '../common/packed_values_cache.js';
-import { SimulationProvider } from '../common/simulation_provider.js';
+import { type SimulationProvider } from '../common/simulation_provider.js';
 import { ClientExecutionContext } from './client_execution_context.js';
 import { type DBOracle } from './db_oracle.js';
 import { ExecutionNoteCache } from './execution_note_cache.js';

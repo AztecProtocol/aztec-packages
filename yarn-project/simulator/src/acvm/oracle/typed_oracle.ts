@@ -19,7 +19,7 @@ import { type FunctionSelector, type NoteSelector } from '@aztec/foundation/abi'
 import { type AztecAddress } from '@aztec/foundation/aztec-address';
 import { Fr } from '@aztec/foundation/fields';
 
-import { MessageLoadOracleInputs } from '../../common/message_load_oracle_inputs.js';
+import { type MessageLoadOracleInputs } from '../../common/message_load_oracle_inputs.js';
 
 /**
  * Information about a note needed during execution.

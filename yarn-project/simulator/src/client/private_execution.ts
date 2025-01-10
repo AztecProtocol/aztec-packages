@@ -14,7 +14,7 @@ import { Timer } from '@aztec/foundation/timer';
 import { fromACVMField, witnessMapToFields } from '../acvm/deserialize.js';
 import { type ACVMWitness, Oracle, extractCallStack } from '../acvm/index.js';
 import { ExecutionError, resolveAssertionMessageFromError } from '../common/errors.js';
-import { SimulationProvider } from '../server.js';
+import { type SimulationProvider } from '../server.js';
 import { type ClientExecutionContext } from './client_execution_context.js';
 
 /**

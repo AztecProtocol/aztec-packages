@@ -26,7 +26,7 @@ import {
 } from '@aztec/noir-protocol-circuits-types/client';
 import { type ArtifactProvider, type ClientProtocolArtifact } from '@aztec/noir-protocol-circuits-types/types';
 import { ClientCircuitVks } from '@aztec/noir-protocol-circuits-types/vks';
-import { SimulationProvider } from '@aztec/simulator/client';
+import { type SimulationProvider } from '@aztec/simulator/client';
 import { type NoirCompiledCircuit } from '@aztec/types/noir';
 
 import { type Abi, type WitnessMap } from '@noir-lang/types';

@@ -1,11 +1,11 @@
 import { foreignCallHandler } from '@aztec/noir-protocol-circuits-types/client';
 import { type NoirCompiledCircuit } from '@aztec/types/noir';
 
-import initACVM, { ExecutionError, executeCircuit } from '@noir-lang/acvm_js';
+import initACVM, { type ExecutionError, executeCircuit } from '@noir-lang/acvm_js';
 import initAbi from '@noir-lang/noirc_abi';
 import { type WitnessMap } from '@noir-lang/types';
 
-import { ACIRCallback, acvm } from '../acvm/acvm.js';
+import { type ACIRCallback, acvm } from '../acvm/acvm.js';
 import { type ACVMWitness } from '../acvm/acvm_types.js';
 import { type SimulationProvider, parseErrorPayload } from '../common/simulation_provider.js';
 
@@ -15,7 +15,7 @@ export class WASMSimulator implements SimulationProvider {
     // web environment. For the node environment, this
     // is a no-op.
     if (typeof initAbi === 'function') {
-      /** @ts-ignore */
+      /** @ts-expect-error */
       await Promise.all([initAbi(), initACVM()]);
     }
   }

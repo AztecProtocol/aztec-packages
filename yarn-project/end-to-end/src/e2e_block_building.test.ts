@@ -29,8 +29,8 @@ import { type TestDateProvider } from '@aztec/foundation/timer';
 import { StatefulTestContract, StatefulTestContractArtifact } from '@aztec/noir-contracts.js/StatefulTest';
 import { TestContract } from '@aztec/noir-contracts.js/Test';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
-import { type Sequencer, type SequencerClient, SequencerState } from '@aztec/sequencer-client';
-import { TestSequencerClient } from '@aztec/sequencer-client/test';
+import { type SequencerClient, SequencerState } from '@aztec/sequencer-client';
+import { type TestSequencerClient } from '@aztec/sequencer-client/test';
 import {
   PublicProcessorFactory,
   type PublicTxResult,

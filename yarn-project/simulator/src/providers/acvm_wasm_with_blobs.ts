@@ -1,10 +1,10 @@
 import { foreignCallHandler } from '@aztec/noir-protocol-circuits-types/server';
 import { type NoirCompiledCircuit } from '@aztec/types/noir';
 
-import { ExecutionError, executeCircuit } from '@noir-lang/acvm_js';
+import { type ExecutionError, executeCircuit } from '@noir-lang/acvm_js';
 import { type WitnessMap } from '@noir-lang/types';
 
-import { ACIRCallback, ACIRExecutionResult } from '../acvm/acvm.js';
+import { type ACIRCallback, type ACIRExecutionResult } from '../acvm/acvm.js';
 import { type ACVMWitness } from '../acvm/acvm_types.js';
 import { type SimulationProvider, parseErrorPayload } from '../common/simulation_provider.js';
 
@@ -40,7 +40,7 @@ export class WASMSimulatorWithBlobs implements SimulationProvider {
     }
   }
 
-  async executeUserCircuit(
+  executeUserCircuit(
     _acir: Buffer,
     _initialWitness: ACVMWitness,
     _callback: ACIRCallback,

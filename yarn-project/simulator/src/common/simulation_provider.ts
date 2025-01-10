@@ -1,8 +1,8 @@
 import { type NoirCompiledCircuit } from '@aztec/types/noir';
 
-import { ExecutionError } from '@noir-lang/acvm_js';
+import { type ExecutionError } from '@noir-lang/acvm_js';
 import { abiDecodeError } from '@noir-lang/noirc_abi';
-import { Abi, type WitnessMap } from '@noir-lang/types';
+import { type Abi, type WitnessMap } from '@noir-lang/types';
 
 import { type ACIRCallback, type ACIRExecutionResult } from '../acvm/acvm.js';
 import { type ACVMWitness } from '../acvm/acvm_types.js';
@@ -21,7 +21,9 @@ export type ErrorWithPayload = ExecutionError & { decodedAssertionPayload?: any 
 // TODO: import this in isolation without having to import noir_js in its entirety.
 export function parseErrorPayload(abi: Abi, originalError: ExecutionError): Error {
   const payload = originalError.rawAssertionPayload;
-  if (!payload) return originalError;
+  if (!payload) {
+    return originalError;
+  }
   const enrichedError = originalError as ErrorWithPayload;
 
   try {

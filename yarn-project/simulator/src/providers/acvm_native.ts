@@ -7,7 +7,7 @@ import { type WitnessMap } from '@noir-lang/types';
 import * as proc from 'child_process';
 import { promises as fs } from 'fs';
 
-import { ACIRCallback, ACIRExecutionResult } from '../acvm/acvm.js';
+import { type ACIRCallback, type ACIRExecutionResult } from '../acvm/acvm.js';
 import { type ACVMWitness } from '../acvm/acvm_types.js';
 import { type SimulationProvider } from '../common/simulation_provider.js';
 
@@ -161,7 +161,7 @@ export class NativeACVMSimulator implements SimulationProvider {
     return await runInDirectory(this.workingDirectory, operation, false);
   }
 
-  async executeUserCircuit(
+  executeUserCircuit(
     _acir: Buffer,
     _initialWitness: ACVMWitness,
     _callback: ACIRCallback,

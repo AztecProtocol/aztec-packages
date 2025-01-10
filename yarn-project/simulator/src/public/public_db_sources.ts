@@ -26,7 +26,7 @@ import { ContractClassRegisteredEvent } from '@aztec/protocol-contracts/class-re
 import { ContractInstanceDeployedEvent } from '@aztec/protocol-contracts/instance-deployer';
 
 import { MessageLoadOracleInputs } from '../common/message_load_oracle_inputs.js';
-import { CommitmentsDB, PublicContractsDB, PublicStateDB } from './db_interfaces.js';
+import { type CommitmentsDB, type PublicContractsDB, type PublicStateDB } from './db_interfaces.js';
 
 /**
  * Implements the PublicContractsDB using a ContractDataSource.

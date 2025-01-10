@@ -27,7 +27,7 @@ import { createLogger } from '@aztec/foundation/log';
 
 import { type NoteData, toACVMWitness } from '../acvm/index.js';
 import { type PackedValuesCache } from '../common/packed_values_cache.js';
-import { SimulationProvider } from '../server.js';
+import { type SimulationProvider } from '../server.js';
 import { type DBOracle } from './db_oracle.js';
 import { type ExecutionNoteCache } from './execution_note_cache.js';
 import { pickNotes } from './pick_notes.js';

@@ -2,7 +2,7 @@ import { type ClientIvcProof } from '@aztec/circuits.js';
 import { runInDirectory } from '@aztec/foundation/fs';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { BundleArtifactProvider } from '@aztec/noir-protocol-circuits-types/client/bundle';
-import { SimulationProvider } from '@aztec/simulator/server';
+import { type SimulationProvider } from '@aztec/simulator/server';
 
 import { encode } from '@msgpack/msgpack';
 import { serializeWitness } from '@noir-lang/noirc_abi';

@@ -7,7 +7,7 @@ import {
 import { type AztecAddress } from '@aztec/foundation/aztec-address';
 import { type Fr } from '@aztec/foundation/fields';
 
-import { MessageLoadOracleInputs } from '../common/message_load_oracle_inputs.js';
+import { type MessageLoadOracleInputs } from '../common/message_load_oracle_inputs.js';
 
 /**
  * Database interface for providing access to public state.

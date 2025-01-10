@@ -3,7 +3,7 @@ import { ClientIvcProof } from '@aztec/circuits.js';
 import { createLogger } from '@aztec/foundation/log';
 import { Timer } from '@aztec/foundation/timer';
 import { type ArtifactProvider } from '@aztec/noir-protocol-circuits-types/types';
-import { SimulationProvider } from '@aztec/simulator/client';
+import { type SimulationProvider } from '@aztec/simulator/client';
 
 import { serializeWitness } from '@noir-lang/noirc_abi';
 import { type WitnessMap } from '@noir-lang/types';

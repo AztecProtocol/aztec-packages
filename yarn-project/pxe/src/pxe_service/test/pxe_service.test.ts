@@ -1,12 +1,19 @@
 import { BBWASMBundlePrivateKernelProver } from '@aztec/bb-prover/wasm/bundle';
-import { type AztecNode, type PXE, PrivateKernelProver, TxEffect, mockTx, randomInBlock } from '@aztec/circuit-types';
+import {
+  type AztecNode,
+  type PXE,
+  type PrivateKernelProver,
+  TxEffect,
+  mockTx,
+  randomInBlock,
+} from '@aztec/circuit-types';
 import { INITIAL_L2_BLOCK_NUM } from '@aztec/circuits.js/constants';
 import { type L1ContractAddresses } from '@aztec/ethereum/l1-contract-addresses';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { KeyStore } from '@aztec/key-store';
 import { openTmpStore } from '@aztec/kv-store/lmdb';
 import { L2TipsStore } from '@aztec/kv-store/stores';
-import { SimulationProvider, WASMSimulator } from '@aztec/simulator/client';
+import { type SimulationProvider, WASMSimulator } from '@aztec/simulator/client';
 
 import { type MockProxy, mock } from 'jest-mock-extended';
 
