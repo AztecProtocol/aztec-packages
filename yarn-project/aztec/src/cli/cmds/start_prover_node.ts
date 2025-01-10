@@ -9,7 +9,7 @@ import {
   getProverNodeConfigFromEnv,
   proverNodeConfigMappings,
 } from '@aztec/prover-node';
-import { createAndStartTelemetryClient, telemetryClientConfigMappings } from '@aztec/telemetry-client/start';
+import { initTelemetryClient, telemetryClientConfigMappings } from '@aztec/telemetry-client';
 
 import { mnemonicToAccount } from 'viem/accounts';
 
@@ -58,9 +58,7 @@ export async function startProverNode(
     proverConfig.l1Contracts = await createAztecNodeClient(nodeUrl).getL1ContractAddresses();
   }
 
-  const telemetry = await createAndStartTelemetryClient(
-    extractRelevantOptions(options, telemetryClientConfigMappings, 'tel'),
-  );
+  const telemetry = await initTelemetryClient(extractRelevantOptions(options, telemetryClientConfigMappings, 'tel'));
 
   let broker: ProvingJobBroker;
   if (proverConfig.proverBrokerUrl) {

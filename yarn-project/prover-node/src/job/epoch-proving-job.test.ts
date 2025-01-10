@@ -14,7 +14,7 @@ import { times } from '@aztec/foundation/collection';
 import { sleep } from '@aztec/foundation/sleep';
 import { type L1Publisher } from '@aztec/sequencer-client';
 import { type PublicProcessor, type PublicProcessorFactory } from '@aztec/simulator';
-import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
+import { getTelemetryClient } from '@aztec/telemetry-client';
 
 import { type MockProxy, mock } from 'jest-mock-extended';
 
@@ -74,7 +74,7 @@ describe('epoch-proving-job', () => {
     publicProcessorFactory = mock<PublicProcessorFactory>();
     db = mock<MerkleTreeWriteOperations>();
     publicProcessor = mock<PublicProcessor>();
-    metrics = new ProverNodeMetrics(new NoopTelemetryClient());
+    metrics = new ProverNodeMetrics(getTelemetryClient());
 
     publicInputs = RootRollupPublicInputs.random();
     proof = Proof.empty();

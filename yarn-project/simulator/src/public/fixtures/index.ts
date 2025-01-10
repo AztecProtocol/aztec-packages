@@ -39,7 +39,6 @@ import {
   PublicTxSimulator,
   WorldStateDB,
 } from '@aztec/simulator';
-import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
 import { MerkleTrees } from '@aztec/world-state';
 
 import { strict as assert } from 'assert';
@@ -58,17 +57,11 @@ export async function simulateAvmTestContractGenerateCircuitInputs(
   const globals = GlobalVariables.empty();
   globals.timestamp = TIMESTAMP;
 
-  const merkleTrees = await (await MerkleTrees.new(openTmpStore(), new NoopTelemetryClient())).fork();
+  const merkleTrees = await (await MerkleTrees.new(openTmpStore())).fork();
   await contractDataSource.deployContracts(merkleTrees);
   const worldStateDB = new WorldStateDB(merkleTrees, contractDataSource);
 
-  const simulator = new PublicTxSimulator(
-    merkleTrees,
-    worldStateDB,
-    new NoopTelemetryClient(),
-    globals,
-    /*doMerkleOperations=*/ true,
-  );
+  const simulator = new PublicTxSimulator(merkleTrees, worldStateDB, globals, /*doMerkleOperations=*/ true);
 
   const sender = AztecAddress.random();
   const functionSelector = getAvmTestContractFunctionSelector(functionName);
@@ -109,7 +102,7 @@ export async function simulateAvmTestContractCall(
   const globals = GlobalVariables.empty();
   globals.timestamp = TIMESTAMP;
 
-  const merkleTrees = await (await MerkleTrees.new(openTmpStore(), new NoopTelemetryClient())).fork();
+  const merkleTrees = await (await MerkleTrees.new(openTmpStore())).fork();
   await contractDataSource.deployContracts(merkleTrees);
   const worldStateDB = new WorldStateDB(merkleTrees, contractDataSource);
 

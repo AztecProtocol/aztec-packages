@@ -8,7 +8,7 @@ import { Secp256k1Signer } from '@aztec/foundation/crypto';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
 import { type P2P } from '@aztec/p2p';
-import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
+import { getTelemetryClient } from '@aztec/telemetry-client';
 
 import { describe, expect, it } from '@jest/globals';
 import { type MockProxy, mock } from 'jest-mock-extended';
@@ -46,12 +46,12 @@ describe('ValidationService', () => {
       disableValidator: false,
       validatorReexecute: false,
     };
-    validatorClient = ValidatorClient.new(config, epochCache, p2pClient, new NoopTelemetryClient());
+    validatorClient = ValidatorClient.new(config, epochCache, p2pClient, getTelemetryClient());
   });
 
   it('Should throw error if an invalid private key is provided', () => {
     config.validatorPrivateKey = '0x1234567890123456789';
-    expect(() => ValidatorClient.new(config, epochCache, p2pClient, new NoopTelemetryClient())).toThrow(
+    expect(() => ValidatorClient.new(config, epochCache, p2pClient, getTelemetryClient())).toThrow(
       InvalidValidatorPrivateKeyError,
     );
   });

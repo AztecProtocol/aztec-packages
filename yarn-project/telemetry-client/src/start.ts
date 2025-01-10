@@ -7,13 +7,27 @@ import { type TelemetryClient } from './telemetry.js';
 
 export * from './config.js';
 
-export async function createAndStartTelemetryClient(config: TelemetryClientConfig): Promise<TelemetryClient> {
+let initialised = false;
+let telemetry: TelemetryClient = new NoopTelemetryClient();
+
+export async function initTelemetryClient(config: TelemetryClientConfig): Promise<TelemetryClient> {
   const log = createLogger('telemetry:client');
+  if (initialised) {
+    log.warn('Telemetry client has already been initialized once');
+    return telemetry;
+  }
+
+  initialised = true;
   if (config.metricsCollectorUrl) {
     log.info('Using OpenTelemetry client');
-    return await OpenTelemetryClient.createAndStart(config, log);
+    telemetry = await OpenTelemetryClient.createAndStart(config, log);
   } else {
     log.info('Using NoopTelemetryClient');
-    return new NoopTelemetryClient();
   }
+
+  return telemetry;
+}
+
+export function getTelemetryClient(): TelemetryClient {
+  return telemetry;
 }

@@ -64,7 +64,7 @@ import {
 } from '@aztec/noir-protocol-circuits-types/server';
 import { ProtocolCircuitVks } from '@aztec/noir-protocol-circuits-types/vks';
 import { type SimulationProvider, WASMSimulatorWithBlobs, emitCircuitSimulationStats } from '@aztec/simulator';
-import { type TelemetryClient, trackSpan } from '@aztec/telemetry-client';
+import { type TelemetryClient, getTelemetryClient, trackSpan } from '@aztec/telemetry-client';
 
 import { type WitnessMap } from '@noir-lang/types';
 
@@ -81,9 +81,9 @@ export class TestCircuitProver implements ServerCircuitProver {
   private logger = createLogger('bb-prover:test-prover');
 
   constructor(
-    telemetry: TelemetryClient,
     private simulationProvider?: SimulationProvider,
     private opts: { proverTestDelayMs: number } = { proverTestDelayMs: 0 },
+    telemetry: TelemetryClient = getTelemetryClient(),
   ) {
     this.instrumentation = new ProverInstrumentation(telemetry, 'TestCircuitProver');
   }

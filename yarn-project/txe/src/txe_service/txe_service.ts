@@ -19,7 +19,7 @@ import { protocolContractNames } from '@aztec/protocol-contracts';
 import { getCanonicalProtocolContract } from '@aztec/protocol-contracts/bundle';
 import { enrichPublicSimulationError } from '@aztec/pxe';
 import { ExecutionNoteCache, PackedValuesCache, type TypedOracle } from '@aztec/simulator';
-import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
+import { getTelemetryClient } from '@aztec/telemetry-client';
 import { MerkleTrees } from '@aztec/world-state';
 
 import { TXE } from '../oracle/txe_oracle.js';
@@ -41,7 +41,7 @@ export class TXEService {
 
   static async init(logger: Logger) {
     const store = openTmpStore(true);
-    const trees = await MerkleTrees.new(store, new NoopTelemetryClient(), logger);
+    const trees = await MerkleTrees.new(store, getTelemetryClient(), logger);
     const packedValuesCache = new PackedValuesCache();
     const txHash = new Fr(1); // The txHash is used for computing the revertible nullifiers for non-revertible note hashes. It can be any value for testing.
     const noteCache = new ExecutionNoteCache(txHash);
