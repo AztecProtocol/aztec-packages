@@ -73,7 +73,7 @@ describe('GasUtils', () => {
     await cheatCodes.evmMine();
 
     gasUtils = new L1TxUtils(publicClient, walletClient, logger, {
-      gasLimitBufferPercentage: 20n,
+      gasLimitBufferPercentage: 20,
       maxGwei: 500n,
       minGwei: 1n,
       maxAttempts: 3,
@@ -201,7 +201,7 @@ describe('GasUtils', () => {
 
     // First deploy without any buffer
     const baselineGasUtils = new L1TxUtils(publicClient, walletClient, logger, {
-      gasLimitBufferPercentage: 0n,
+      gasLimitBufferPercentage: 0,
       maxGwei: 500n,
       minGwei: 10n, // Increased minimum gas price
       maxAttempts: 5,
@@ -221,7 +221,7 @@ describe('GasUtils', () => {
 
     // Now deploy with 20% buffer
     const bufferedGasUtils = new L1TxUtils(publicClient, walletClient, logger, {
-      gasLimitBufferPercentage: 20n,
+      gasLimitBufferPercentage: 20,
       maxGwei: 500n,
       minGwei: 1n,
       maxAttempts: 3,
@@ -281,7 +281,7 @@ describe('GasUtils', () => {
   it('respects minimum gas price bump for replacements', async () => {
     const gasUtils = new L1TxUtils(publicClient, walletClient, logger, {
       ...defaultL1TxUtilsConfig,
-      priorityFeeRetryBumpPercentage: 5n, // Set lower than minimum 10%
+      priorityFeeRetryBumpPercentage: 5, // Set lower than minimum 10%
     });
 
     const initialGasPrice = await gasUtils['getGasPrice']();
