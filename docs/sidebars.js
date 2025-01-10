@@ -7,14 +7,9 @@ const path = require("path");
 export default {
   sidebar: [
     {
-      type: "html",
-      value: '<span class="sidebar-title">Concepts</span>',
-      className: "sidebar-title",
-    },
-    {
       type: "doc",
-      id: "aztec/concepts_overview",
-      label: "Concepts Overview",
+      id: "aztec/index",
+      label: "Aztec Overview",
     },
     {
       type: "category",
@@ -62,11 +57,11 @@ export default {
     {
       type: "doc",
       label: "Building in Public",
-      id: "aztec",
+      id: "building_in_public",
     },
   ],
 
-  guidesSidebar: [
+  buildSidebar: [
     {
       type: "doc",
       id: "developers/index",

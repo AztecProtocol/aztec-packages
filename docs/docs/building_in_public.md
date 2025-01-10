@@ -1,6 +1,7 @@
 ---
 title: Building in Public
 sidebar_position: 0
+id: building_in_public
 ---
 
 import Disclaimer from "@site/src/components/Disclaimers/\_wip_disclaimer.mdx";

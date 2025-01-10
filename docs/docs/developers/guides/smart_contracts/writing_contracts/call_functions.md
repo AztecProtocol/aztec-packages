@@ -73,7 +73,7 @@ To call a public function from private, you will need to enqueue it like this:
 
 #include_code enqueue_public /noir-projects/noir-contracts/contracts/lending_contract/src/main.nr rust
 
-Public functions are always executed after private execution. To learn why, read the [concepts overview](../../../../aztec/concepts_overview.md).
+Public functions are always executed after private execution. To learn why, read the [concepts overview](../../../../aztec/index.md).
 
 #### Other call types
 

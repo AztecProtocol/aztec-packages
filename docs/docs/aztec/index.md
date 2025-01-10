@@ -1,5 +1,5 @@
 ---
-title: Concepts Overview
+title: Aztec Overview
 sidebar_position: 0
 tags: [protocol]
 ---
