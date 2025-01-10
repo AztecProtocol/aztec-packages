@@ -56,6 +56,7 @@ pub unconstrained fn do_process_log<Env>(
     log_plaintext: BoundedVec<Field, PRIVATE_LOG_SIZE_IN_FIELDS>,
     tx_hash: Field,
     unique_note_hashes_in_tx: BoundedVec<Field, MAX_NOTE_HASHES_PER_TX>,
+    first_nullifier_in_tx: Field,
     recipient: AztecAddress,
     compute_note_hash_and_nullifier: fn[Env](BoundedVec<Field, MAX_NOTE_SERIALIZED_LEN>, NoteHeader, Field) -> Option<NoteHashesAndNullifier>,
 ) {
@@ -66,7 +67,7 @@ pub unconstrained fn do_process_log<Env>(
     for_each_in_bounded_vec(
         unique_note_hashes_in_tx,
         |expected_unique_note_hash, i| {
-            let candidate_nonce = compute_note_hash_nonce(tx_hash, i);
+            let candidate_nonce = compute_note_hash_nonce(first_nullifier_in_tx, i);
 
             let header = NoteHeader::new(context.this_address(), candidate_nonce, storage_slot);
 

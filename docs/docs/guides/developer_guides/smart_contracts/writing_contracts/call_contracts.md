@@ -1,40 +1,20 @@
 ---
-title: Calling Other Functions
-sidebar_position: 2
+title: Calling Other Contracts
+sidebar_position: 4
 tags: [functions, contracts]
 ---
 
-
-A contract is a collection of persistent state variables and functions which may manipulate these variables. 
+A contract is a collection of persistent state variables and functions which may manipulate these variables.
 
 Functions and state variables within a contract's scope are said to belong to that contract. A contract can only access and modify its own state.
 
 If a contract wishes to access or modify another contract's state, it must make a call to an external function of the other contract. For anything to happen on the Aztec network, an external function of a contract needs to be called.
 
-### Defining a contract
-
-A contract may be declared and given a name using the `contract` keyword (see snippet below). By convention, contracts are named in `PascalCase`.
-
-```rust title="contract keyword"
-// highlight-next-line
-contract MyContract {
-
-    // Imports 
-
-    // Storage 
-
-    // Functions
-}
-```
-:::info A note for vanilla Noir devs
-There is no [`main()` (GitHub link)](https://noir-lang.org/docs/getting_started/project_breakdown/#mainnr) function within a Noir `contract` scope. More than one function can be an entrypoint.
-:::
-
-### Add as a dependency in Nargo.toml
+### Add Contract as a Dependency
 
 Import the contract that you want to call into your `Nargo.toml` under `dependencies` like this:
 
-```
+```toml
 token = { git="https://github.com/AztecProtocol/aztec-packages/", tag="#include_aztec_version", directory="noir-projects/noir-contracts/contracts/token_contract" }
 ```
 
@@ -42,7 +22,7 @@ token = { git="https://github.com/AztecProtocol/aztec-packages/", tag="#include_
 
 At the top of your contract, import the contract you want to call like this:
 
-```
+```rust
 use token::Token;
 ```
 
@@ -53,7 +33,7 @@ To call the function, you need to
 - Specify the address of the contract with `Contract::at(contract_address)`
 - Call the function name with `.function_name()`
 - Pass the parameters into the function call, like `.function_name(param1,param2)`
-- Specify the type of call you want to make and pass a mut reference to the context, like `.call(&mut context)` 
+- Specify the type of call you want to make and pass a mut reference to the context, like `.call(&mut context)`
 
 #### Private calls
 
@@ -77,6 +57,4 @@ Public functions are always executed after private execution. To learn why, read
 
 #### Other call types
 
-There are other call types, for example to ensure no state changes are made. You can learn more about them in the [call types glossary](../../../../aztec/glossary/call_types.md). 
-
-
+There are other call types, for example to ensure no state changes are made. You can learn more about them in the [call types glossary](../../../../aztec/glossary/call_types.md).

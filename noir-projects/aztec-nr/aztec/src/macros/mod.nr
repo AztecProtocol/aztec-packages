@@ -118,7 +118,11 @@ comptime fn generate_compute_note_hash_and_optionally_a_nullifier() -> Quoted {
         max_note_length = notes.fold(
             0,
             |acc, (_, (_, len, _, _)): (Type, (StructDefinition, u32, Field, [(Quoted, u32, bool)]))| {
-                acc + len
+                if len > acc {
+                    len
+                } else {
+                    acc
+                }
             },
         );
 
@@ -250,6 +254,7 @@ comptime fn generate_process_log() -> Quoted {
                 log_plaintext,
                 tx_hash,
                 unique_note_hashes_in_tx,
+                first_nullifier_in_tx
                 recipient,
                 |serialized_note_content: BoundedVec<Field, _>, note_header, note_type_id| {
                     let hashes = $if_note_type_id_match_statements
@@ -278,6 +283,7 @@ comptime fn generate_process_log() -> Quoted {
             log_plaintext: BoundedVec<Field, dep::aztec::protocol_types::constants::PRIVATE_LOG_SIZE_IN_FIELDS>,
             tx_hash: Field,
             unique_note_hashes_in_tx: BoundedVec<Field, dep::aztec::protocol_types::constants::MAX_NOTE_HASHES_PER_TX>,
+            first_nullifier_in_tx: Field,
             recipient: aztec::protocol_types::address::AztecAddress,
         ) {
             $body

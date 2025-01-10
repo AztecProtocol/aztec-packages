@@ -154,9 +154,7 @@ describe('prover-node', () => {
     l2BlockSource.getL1Constants.mockResolvedValue(EmptyL1RollupConstants);
 
     // Coordination plays along and returns a tx whenever requested
-    mockCoordination.getTxByHash.mockImplementation(hash =>
-      Promise.resolve(mock<Tx>({ getTxHash: () => hash, tryGetTxHash: () => hash })),
-    );
+    mockCoordination.getTxByHash.mockImplementation(hash => Promise.resolve(mock<Tx>({ getTxHash: () => hash })));
 
     // A sample claim
     claim = { epochToProve: 10n, bondProvider: address } as EpochProofClaim;

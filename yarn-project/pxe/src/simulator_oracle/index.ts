@@ -644,6 +644,7 @@ export class SimulatorOracle implements DBOracle {
         decryptedLog.plaintext,
         decryptedLog.txHash,
         txEffect.data.noteHashes,
+        txEffect.data.nullifiers[0],
         recipient,
         simulator,
       );
@@ -757,6 +758,7 @@ export class SimulatorOracle implements DBOracle {
     logPlaintext: Fr[],
     txHash: TxHash,
     noteHashes: Fr[],
+    firstNullifier: Fr,
     recipient: AztecAddress,
     simulator?: AcirSimulator,
   ) {
@@ -780,6 +782,7 @@ export class SimulatorOracle implements DBOracle {
         toBoundedVec(logPlaintext, PRIVATE_LOG_SIZE_IN_FIELDS),
         txHash.toString(),
         toBoundedVec(noteHashes, MAX_NOTE_HASHES_PER_TX),
+        firstNullifier,
         recipient,
       ]),
       returnTypes: artifact.returnTypes,
