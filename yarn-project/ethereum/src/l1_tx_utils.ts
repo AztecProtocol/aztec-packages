@@ -247,7 +247,7 @@ export class L1TxUtils {
       return { txHash, gasLimit, gasPrice };
     } catch (err: any) {
       const formattedErr = formatViemError(err);
-      this.logger?.error(`Failed to send transaction`, err);
+      this.logger?.error(`Failed to send transaction`, formattedErr);
       throw formattedErr;
     }
   }
