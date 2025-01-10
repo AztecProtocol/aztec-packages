@@ -234,8 +234,8 @@ ci:
   ENV CI=1
 
   ARG TARGETARCH
-  SAVE IMAGE --push aztecprotocol/ci:2.1-$TARGETARCH
-  SAVE IMAGE --push aztecprotocol/ci:2.1
+  SAVE IMAGE --push aztecprotocol/ci:2.2-$TARGETARCH
+  SAVE IMAGE --push aztecprotocol/ci:2.2
 
 ########################################################################################################################
 # We want to produce downstream images: devbox and sysbox. This image is the base image for each.
