@@ -59,6 +59,8 @@ import {
   convertSimulatedPrivateBaseRollupOutputsFromWitnessMap,
   convertSimulatedPublicBaseRollupInputsToWitnessMap,
   convertSimulatedPublicBaseRollupOutputsFromWitnessMap,
+  convertSimulatedSingleTxBlockRootRollupInputsToWitnessMap,
+  convertSimulatedSingleTxBlockRootRollupOutputsFromWitnessMap,
 } from '@aztec/noir-protocol-circuits-types/server';
 import { ProtocolCircuitVks } from '@aztec/noir-protocol-circuits-types/vks';
 import { type SimulationProvider, WASMSimulatorWithBlobs, emitCircuitSimulationStats } from '@aztec/simulator/server';

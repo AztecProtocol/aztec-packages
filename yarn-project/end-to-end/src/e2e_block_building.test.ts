@@ -30,6 +30,7 @@ import { StatefulTestContract, StatefulTestContractArtifact } from '@aztec/noir-
 import { TestContract } from '@aztec/noir-contracts.js/Test';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
 import { type Sequencer, type SequencerClient, SequencerState } from '@aztec/sequencer-client';
+import { TestSequencerClient } from '@aztec/sequencer-client/test';
 import {
   PublicProcessorFactory,
   type PublicTxResult,
