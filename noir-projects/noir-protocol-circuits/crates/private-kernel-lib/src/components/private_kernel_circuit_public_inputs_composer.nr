@@ -15,7 +15,7 @@ use dep::types::{
     utils::arrays::{array_length, array_to_bounded_vec, sort_by_counter_asc, sort_by_counter_desc},
 };
 
-pub fn create_first_nullifier(tx_request: TxRequest) -> ScopedNullifier {
+pub fn create_protocol_nullifier(tx_request: TxRequest) -> ScopedNullifier {
     Nullifier { value: tx_request.hash(), note_hash: 0, counter: 0 }.scope(AztecAddress::zero())
 }
 
@@ -48,6 +48,7 @@ impl PrivateKernelCircuitPublicInputsComposer {
         vk_tree_root: Field,
         protocol_contract_tree_root: Field,
         is_private_only: bool,
+        inject_protocol_nullifier: bool,
     ) -> Self {
         let mut public_inputs = PrivateKernelCircuitPublicInputsBuilder::empty();
         public_inputs.is_private_only = is_private_only;
@@ -59,8 +60,11 @@ impl PrivateKernelCircuitPublicInputsComposer {
             protocol_contract_tree_root,
         };
 
-        // Since it's the first iteration, we need to push the tx hash nullifier into the `nullifiers` array
-        public_inputs.end.nullifiers.push(create_first_nullifier(tx_request));
+        // If no non revertible nullifiers are created, the PXE can instruct the protocol to create a nullifier
+        // The existence of at least 1 non revertible nullifier will be checked in tail.
+        if inject_protocol_nullifier {
+            public_inputs.end.nullifiers.push(create_protocol_nullifier(tx_request));
+        }
         // Note that we do not need to nullify the transaction request nonce anymore.
         // Should an account want to additionally use nonces for replay protection or handling cancellations,
         // they will be able to do so in the account contract logic:

@@ -19,6 +19,7 @@ pub struct PrivateKernelInitCircuitPrivateInputs {
     protocol_contract_tree_root: Field,
     private_call: PrivateCallData,
     is_private_only: bool,
+    inject_protocol_nullifier: bool,
 }
 
 impl PrivateKernelInitCircuitPrivateInputs {
@@ -29,6 +30,7 @@ impl PrivateKernelInitCircuitPrivateInputs {
         private_call: PrivateCallDataWithoutPublicInputs,
         app_public_inputs: PrivateCircuitPublicInputs,
         is_private_only: bool,
+        inject_protocol_nullifier: bool,
     ) -> Self {
         Self {
             tx_request,
@@ -36,6 +38,7 @@ impl PrivateKernelInitCircuitPrivateInputs {
             protocol_contract_tree_root,
             private_call: private_call.to_private_call_data(app_public_inputs),
             is_private_only,
+            inject_protocol_nullifier,
         }
     }
 
@@ -47,6 +50,7 @@ impl PrivateKernelInitCircuitPrivateInputs {
             self.vk_tree_root,
             self.protocol_contract_tree_root,
             self.is_private_only,
+            self.inject_protocol_nullifier,
         )
             .with_private_call(private_call_public_inputs)
             .finish()
@@ -78,6 +82,7 @@ impl PrivateKernelInitCircuitPrivateInputs {
                 self.vk_tree_root,
                 self.protocol_contract_tree_root,
                 self.is_private_only,
+                self.inject_protocol_nullifier,
             );
         }
         output
@@ -95,13 +100,18 @@ mod tests {
     struct PrivateKernelInitInputsBuilder {
         tx_request: TxRequest,
         private_call: FixtureBuilder,
+        inject_protocol_nullifier: bool,
     }
 
     impl PrivateKernelInitInputsBuilder {
         pub fn new() -> Self {
             let private_call = FixtureBuilder::new().is_first_call();
             let tx_request = private_call.build_tx_request();
-            PrivateKernelInitInputsBuilder { tx_request, private_call }
+            PrivateKernelInitInputsBuilder {
+                tx_request,
+                private_call,
+                inject_protocol_nullifier: false,
+            }
         }
 
         pub fn execute(self) -> PrivateKernelCircuitPublicInputs {
@@ -112,6 +122,7 @@ mod tests {
                 vk_tree_root: FixtureBuilder::vk_tree_root(),
                 protocol_contract_tree_root: 0,
                 is_private_only: false,
+                inject_protocol_nullifier: self.inject_protocol_nullifier,
             }
                 .execute()
         }

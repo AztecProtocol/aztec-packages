@@ -258,6 +258,11 @@ export class Oracle {
     return toACVMField(0);
   }
 
+  async notifyCreatedNullifier([innerNullifier]: ACVMField[]): Promise<ACVMField> {
+    await this.typedOracle.notifyNullifiedNote(fromACVMField(innerNullifier));
+    return toACVMField(0);
+  }
+
   async checkNullifierExists([innerNullifier]: ACVMField[]): Promise<ACVMField> {
     const exists = await this.typedOracle.checkNullifierExists(fromACVMField(innerNullifier));
     return toACVMField(exists);

@@ -217,6 +217,7 @@ export class KernelProver {
           protocolContractTreeRoot,
           privateCallData,
           isPrivateOnlyTx,
+          true,
         );
 
         pushTestData('private-kernel-inputs-init', proofInput);

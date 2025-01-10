@@ -5,7 +5,7 @@ mod validate_propagated_from_private_call;
 
 use crate::components::{
     private_kernel_circuit_output_validator::PrivateKernelCircuitOutputValidator,
-    private_kernel_circuit_public_inputs_composer::create_first_nullifier,
+    private_kernel_circuit_public_inputs_composer::create_protocol_nullifier,
 };
 use dep::types::{
     abis::{
@@ -31,9 +31,6 @@ impl PrivateKernelCircuitOutputValidatorBuilder {
         let private_call = FixtureBuilder::new();
         let mut output = FixtureBuilder::new();
         let tx_request = output.build_tx_request();
-        let first_nullifier = create_first_nullifier(tx_request);
-        output.nullifiers.push(first_nullifier);
-        previous_kernel.nullifiers.push(first_nullifier);
         previous_kernel = previous_kernel.in_vk_tree(PRIVATE_KERNEL_INIT_INDEX);
 
         PrivateKernelCircuitOutputValidatorBuilder {
@@ -42,6 +39,12 @@ impl PrivateKernelCircuitOutputValidatorBuilder {
             output,
             tx_request,
         }
+    }
+
+    pub fn with_protocol_nullifier(&mut self) {
+        let first_nullifier = create_protocol_nullifier(self.tx_request);
+        self.output.nullifiers.push(first_nullifier);
+        self.previous_kernel.nullifiers.push(first_nullifier);
     }
 
     pub fn with_previous_kernel_vk_index(&mut self, vk_index: u32) {
@@ -56,7 +59,7 @@ impl PrivateKernelCircuitOutputValidatorBuilder {
         self.output.counter = 777;
     }
 
-    pub fn validate_as_first_call(self, is_private_only: bool) {
+    pub fn validate_as_first_call(self, is_private_only: bool, injected_protocol_nullifier: bool) {
         let private_call = self.private_call.to_private_call_data();
         let array_lengths = PrivateCircuitPublicInputsArrayLengths::new(private_call.public_inputs);
         let output = self.output.to_private_kernel_circuit_public_inputs();
@@ -67,6 +70,7 @@ impl PrivateKernelCircuitOutputValidatorBuilder {
             FixtureBuilder::vk_tree_root(),
             self.private_call.protocol_contract_tree_root,
             is_private_only,
+            injected_protocol_nullifier,
         );
     }
 

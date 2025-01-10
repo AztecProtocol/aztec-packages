@@ -11,6 +11,7 @@ unconstrained fn main(
     private_call: PrivateCallDataWithoutPublicInputs,
     app_public_inputs: PrivateCircuitPublicInputs,
     is_private_only: bool,
+    inject_protocol_nullifier: bool,
 ) -> pub PrivateKernelCircuitPublicInputs {
     let private_inputs = PrivateKernelInitCircuitPrivateInputs::new(
         tx_request,
@@ -19,6 +20,7 @@ unconstrained fn main(
         private_call,
         app_public_inputs,
         is_private_only,
+        inject_protocol_nullifier,
     );
     private_inputs.execute()
 }

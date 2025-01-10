@@ -308,6 +308,17 @@ export class ClientExecutionContext extends ViewDataOracle {
   }
 
   /**
+   * Adding a siloed nullifier into the current set of all pending nullifiers created
+   * within the current transaction/execution.
+   * @param innerNullifier - The pending nullifier to add in the list (not yet siloed by contract address).
+   * @param noteHash - A hash of the new note.
+   */
+  public override notifyCreatedNullifier(innerNullifier: Fr) {
+    this.noteCache.nullifierCreated(this.callContext.contractAddress, innerNullifier);
+    return Promise.resolve();
+  }
+
+  /**
    * Emit a contract class unencrypted log.
    * This fn exists because sha hashing the preimage
    * is too large to compile (16,200 fields, 518,400 bytes) => the oracle hashes it.

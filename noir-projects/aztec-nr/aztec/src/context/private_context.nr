@@ -1,7 +1,7 @@
 use dep::protocol_types::debug_log::debug_log_format;
 
 use crate::{
-    context::{inputs::PrivateContextInputs, packed_returns::PackedReturns},
+    oracle::notes::{notify_created_nullifier, notify_nullified_note}, context::{inputs::PrivateContextInputs, packed_returns::PackedReturns},
     hash::{ArgsHasher, hash_args_array},
     keys::constants::{NULLIFIER_INDEX, NUM_KEY_TYPES, OUTGOING_INDEX, sk_generators},
     messaging::process_l1_to_l2_message,
@@ -148,17 +148,20 @@ impl PrivateContext {
     }
 
     pub fn push_nullifier(&mut self, nullifier: Field) {
+        notify_created_nullifier(nullifier);
         self.nullifiers.push(
             Nullifier { value: nullifier, note_hash: 0, counter: self.next_counter() },
         );
     }
 
     pub fn push_nullifier_for_note_hash(&mut self, nullifier: Field, nullified_note_hash: Field) {
+        let nullifier_counter = self.next_counter();
+        notify_nullified_note(nullifier, nullified_note_hash, nullifier_counter);
         self.nullifiers.push(
             Nullifier {
                 value: nullifier,
                 note_hash: nullified_note_hash,
-                counter: self.next_counter(),
+                counter: nullifier_counter,
             },
         );
     }

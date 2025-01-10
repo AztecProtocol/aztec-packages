@@ -34,6 +34,12 @@ pub fn notify_nullified_note(nullifier: Field, note_hash: Field, counter: u32) {
     unsafe { notify_nullified_note_oracle_wrapper(nullifier, note_hash, counter) };
 }
 
+/// Notifies the simulator that a non-note nullifier has been created, so that it can be used for note nonces.
+pub fn notify_created_nullifier(nullifier: Field) {
+    // This oracle call returns nothing: we only call it for its side effects. It is therefore always safe to call.
+    unsafe { notify_created_nullifier_oracle_wrapper(nullifier) };
+}
+
 unconstrained fn notify_created_note_oracle_wrapper<let N: u32>(
     storage_slot: Field,
     note_type_id: Field,
@@ -73,6 +79,17 @@ unconstrained fn notify_nullified_note_oracle(
     _note_hash: Field,
     _counter: u32,
 ) -> Field {}
+
+unconstrained fn notify_created_nullifier_oracle_wrapper(
+    nullifier: Field,
+) {
+    let _ = notify_created_nullifier_oracle(nullifier);
+}
+
+#[oracle(notifyCreatedNullifier)]
+unconstrained fn notify_created_nullifier_oracle(
+    _nullifier: Field,
+) -> Field  {}
 
 #[oracle(getNotes)]
 unconstrained fn get_notes_oracle<let N: u32, let S: u32>(

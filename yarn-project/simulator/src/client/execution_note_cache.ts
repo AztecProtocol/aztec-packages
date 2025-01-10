@@ -25,12 +25,16 @@ export class ExecutionNoteCache {
   private noteMap: Map<bigint, PendingNote[]> = new Map();
 
   /**
-   * The list of nullifiers created in this transaction.
-   * This mapping maps from a contract address to the nullifiers emitted from the contract.
+   * This maps from a contract address to the nullifiers emitted from the contract.
    * The note which is nullified might be new or not (i.e., was generated in a previous transaction).
    * Note that their value (bigint representation) is used because Frs cannot be looked up in Sets.
    */
   private nullifierMap: Map<bigint, Set<bigint>> = new Map();
+
+  /**
+   * All nullifiers emitted in this transaction.
+   */
+  private allNullifiers: Set<bigint> = new Set();
 
   private minRevertibleSideEffectCounter = 0;
 
@@ -88,10 +92,6 @@ export class ExecutionNoteCache {
    */
   public nullifyNote(contractAddress: AztecAddress, innerNullifier: Fr, noteHash: Fr) {
     const siloedNullifier = siloNullifier(contractAddress, innerNullifier);
-    const nullifiers = this.getNullifiers(contractAddress);
-    nullifiers.add(siloedNullifier.value);
-    this.nullifierMap.set(contractAddress.toBigInt(), nullifiers);
-
     let nullifiedNoteHashCounter: number | undefined = undefined;
     // Find and remove the matching new note and log(s) if the emitted noteHash is not empty.
     if (!noteHash.isEmpty()) {
@@ -105,8 +105,21 @@ export class ExecutionNoteCache {
       nullifiedNoteHashCounter = note.counter;
       this.noteMap.set(contractAddress.toBigInt(), notesInContract);
       this.notes = this.notes.filter(n => n.counter !== note.counter);
+
+      // If the note is non revertible and the nullifier was emitted in the revertible phase, both the note hash and the nullifier will be emitted
+      if (this.minRevertibleSideEffectCounter && note.counter < this.minRevertibleSideEffectCounter) {
+        this.recordNullifier(contractAddress, siloedNullifier);
+      }
+    } else {
+      // If the note being nullified comes from a previous tx the nullifier will be emitted.
+      this.recordNullifier(contractAddress, siloedNullifier);
     }
     return nullifiedNoteHashCounter;
+  }
+
+  public nullifierCreated(contractAddress: AztecAddress, innerNullifier: Fr) {
+    const siloedNullifier = siloNullifier(contractAddress, innerNullifier);
+    this.recordNullifier(contractAddress, siloedNullifier);
   }
 
   /**
@@ -152,8 +165,13 @@ export class ExecutionNoteCache {
   }
 
   getAllNullifiers(): Fr[] {
-    return [...this.nullifierMap.values()].flatMap(nullifierArray =>
-      [...nullifierArray.values()].map(val => new Fr(val)),
-    );
+    return [...this.allNullifiers].map(n => new Fr(n));
+  }
+
+  recordNullifier(contractAddress: AztecAddress, siloedNullifier: Fr) {
+    const nullifiers = this.getNullifiers(contractAddress);
+    nullifiers.add(siloedNullifier.toBigInt());
+    this.nullifierMap.set(contractAddress.toBigInt(), nullifiers);
+    this.allNullifiers.add(siloedNullifier.toBigInt());
   }
 }

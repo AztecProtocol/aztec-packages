@@ -166,6 +166,10 @@ export abstract class TypedOracle {
     throw new OracleMethodNotAvailableError('notifyNullifiedNote');
   }
 
+  notifyCreatedNullifier(_innerNullifier: Fr): Promise<void> {
+    throw new OracleMethodNotAvailableError('notifyCreatedNullifier');
+  }
+
   checkNullifierExists(_innerNullifier: Fr): Promise<boolean> {
     throw new OracleMethodNotAvailableError('checkNullifierExists');
   }

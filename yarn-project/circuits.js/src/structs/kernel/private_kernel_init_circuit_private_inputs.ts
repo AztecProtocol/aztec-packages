@@ -29,6 +29,12 @@ export class PrivateKernelInitCircuitPrivateInputs {
      * Wether this tx will make public calls or not.
      */
     public isPrivateOnly: boolean,
+    /**
+     * Wether to inject the protocol nullifier into the circuit.
+     * The protocol nullifier needs to be injected if the apps don't generate any non revertible nullifier.
+     * As TXs need at least one non revertible nullifier for protection against replays
+     */
+    public injectProtocolNullifier: boolean,
   ) {}
 
   /**
@@ -36,7 +42,13 @@ export class PrivateKernelInitCircuitPrivateInputs {
    * @returns The buffer.
    */
   toBuffer() {
-    return serializeToBuffer(this.txRequest, this.vkTreeRoot, this.protocolContractTreeRoot, this.privateCall);
+    return serializeToBuffer(
+      this.txRequest,
+      this.vkTreeRoot,
+      this.protocolContractTreeRoot,
+      this.privateCall,
+      this.injectProtocolNullifier,
+    );
   }
 
   /**
@@ -51,6 +63,7 @@ export class PrivateKernelInitCircuitPrivateInputs {
       Fr.fromBuffer(reader),
       Fr.fromBuffer(reader),
       reader.readObject(PrivateCallData),
+      reader.readBoolean(),
       reader.readBoolean(),
     );
   }

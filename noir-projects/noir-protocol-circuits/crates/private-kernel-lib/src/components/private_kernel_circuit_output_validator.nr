@@ -1,4 +1,4 @@
-use crate::components::private_kernel_circuit_public_inputs_composer::create_first_nullifier;
+use crate::components::private_kernel_circuit_public_inputs_composer::create_protocol_nullifier;
 use dep::types::{
     abis::{
         kernel_circuit_public_inputs::{
@@ -35,6 +35,7 @@ impl PrivateKernelCircuitOutputValidator {
         vk_tree_root: Field,
         protocol_contract_tree_root: Field,
         is_private_only: bool,
+        with_protocol_nullifier: bool,
     ) {
         self.validate_initial_values(
             tx_request,
@@ -42,9 +43,12 @@ impl PrivateKernelCircuitOutputValidator {
             vk_tree_root,
             protocol_contract_tree_root,
             is_private_only,
+            with_protocol_nullifier,
         );
         let mut offsets = PrivateKernelCircuitPublicInputsArrayLengths::empty();
-        offsets.nullifiers = 1; // The first nullifier is not propagated from the private call.
+        if with_protocol_nullifier {
+            offsets.nullifiers = 1; // The protocol nullifier is not propagated from the private call.
+        }
         self.validate_propagated_from_private_call(
             private_call,
             private_call_array_lengths,
@@ -80,6 +84,7 @@ impl PrivateKernelCircuitOutputValidator {
         vk_tree_root: Field,
         protocol_contract_tree_root: Field,
         is_private_only: bool,
+        with_protocol_nullifier: bool,
     ) {
         // Constants.
         assert_eq(self.output.is_private_only, is_private_only, "mismatch is_private_only");
@@ -96,13 +101,14 @@ impl PrivateKernelCircuitOutputValidator {
             "mismatch protocol_contract_tree_root",
         );
 
-        // First nullifier.
-        let first_nullifier = create_first_nullifier(tx_request);
-        assert_eq(
-            self.output.end.nullifiers[0],
-            first_nullifier,
-            "first nullifier must be the tx request nullifier",
-        );
+        if with_protocol_nullifier {
+            let protocol_nullifier = create_protocol_nullifier(tx_request);
+            assert_eq(
+                self.output.end.nullifiers[0],
+                protocol_nullifier,
+                "protocol nullifier must be the tx request nullifier",
+            );
+        }
 
         // Others.
         assert_eq(
