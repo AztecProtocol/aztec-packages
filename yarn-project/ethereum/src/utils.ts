@@ -81,7 +81,7 @@ export function prettyLogViemErrorMsg(err: any) {
 }
 
 export function formatViemError(error: any): string {
-  const truncateHex = (hex: string, length = 10) => {
+  const truncateHex = (hex: string, length = 100) => {
     if (!hex || typeof hex !== 'string') {
       return hex;
     }
