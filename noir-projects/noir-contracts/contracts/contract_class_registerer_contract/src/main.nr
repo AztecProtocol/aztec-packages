@@ -210,4 +210,9 @@ contract ContractClassRegisterer {
             LogHash { value: log_hash, counter, length: 40 + (N as Field) * 32 },
         );
     }
+
+    #[private]
+    fn assert_class_id_is_registered(contract_class_id: ContractClassId) {
+        context.push_nullifier_read_request(contract_class_id.to_field());
+    }
 }
