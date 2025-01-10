@@ -9,6 +9,8 @@ test-protocol-circuits:
   ENV PATH="/usr/src/noir/noir-repo/target/release:${PATH}"
   # TODO(#10754): Remove --skip-brillig-constraints-check
   RUN cd /usr/src/noir-projects/noir-protocol-circuits && nargo test --silence-warnings --skip-brillig-constraints-check
+  # Also execute circuits to ensure that `Prover.toml` files are in sync.
+  RUN cd /usr/src/noir-projects/noir-protocol-circuits && nargo execute --silence-warnings --skip-brillig-constraints-check
 
 test-aztec-nr:
   FROM ../+bootstrap
