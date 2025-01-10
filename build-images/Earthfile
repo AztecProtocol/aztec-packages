@@ -92,7 +92,7 @@ foundry:
   LET FOUNDRY_BIN_DIR = "/root/.foundry/bin"
 
   RUN curl -L https://foundry.paradigm.xyz | bash \
-      && $FOUNDRY_BIN_DIR/foundryup -v nightly-$FOUNDRY_TAG \
+      && $FOUNDRY_BIN_DIR/foundryup -i nightly-$FOUNDRY_TAG \
       && mkdir -p /opt/foundry/bin \
       && for t in forge cast anvil chisel; do \
           mv $FOUNDRY_BIN_DIR/$t /opt/foundry/bin/$t; \
@@ -156,14 +156,14 @@ build:
   COPY +foundry/opt/foundry /opt/foundry
   ENV PATH="/opt/foundry/bin:$PATH"
 
-  # Install rust and cross-compilers. Noir specifically uses 1.74.1.
+  # Install rust and cross-compilers. Noir specifically uses 1.75.0.
   # We remove base-build's rust first.
   # We give everyone write ownership so downstream boxes can write.
   ENV RUSTUP_HOME=/opt/rust/rustup
   ENV CARGO_HOME=/opt/rust/cargo
   ENV PATH="/opt/rust/cargo/bin:$PATH"
   RUN apt remove -y cargo rustc
-  RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain 1.74.1 && \
+  RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain 1.75.0 && \
       rustup target add wasm32-unknown-unknown wasm32-wasi aarch64-apple-darwin && \
       chmod -R a+w /opt/rust
 
@@ -234,8 +234,8 @@ ci:
   ENV CI=1
 
   ARG TARGETARCH
-  SAVE IMAGE --push aztecprotocol/ci:2.0-$TARGETARCH
-  SAVE IMAGE --push aztecprotocol/ci:2.0
+  SAVE IMAGE --push aztecprotocol/ci:2.1-$TARGETARCH
+  SAVE IMAGE --push aztecprotocol/ci:2.1
 
 ########################################################################################################################
 # We want to produce downstream images: devbox and sysbox. This image is the base image for each.
@@ -477,7 +477,7 @@ aztec-base:
   ARG TARGETARCH
   SAVE IMAGE --push aztecprotocol/aztec-base:v1.0-$TARGETARCH
 
-# Add a new target for end-to-end-base that corresponds to the portion of Dockerfile.end-to-end before COPY /usr/src
+# Add a new target for end-to-end-base that corresponds to the portion of Dockerfile.end-to-end before COPY /usr/src.
 end-to-end-base:
   FROM ubuntu:noble
   # Add our dev testing dependencies.
@@ -505,7 +505,6 @@ all-ci:
   BUILD +wasi-sdk
   BUILD +foundry
   BUILD +build
-  # TODO(#10677): this needs to be pushed while also updating our CI AMI
-  # BUILD +ci
+  BUILD +ci
   BUILD +aztec-base
   BUILD +end-to-end-base

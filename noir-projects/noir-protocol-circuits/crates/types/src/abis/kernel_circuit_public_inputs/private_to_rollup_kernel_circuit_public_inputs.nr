@@ -4,8 +4,11 @@ use crate::{
         tx_constant_data::TxConstantData, validation_requests::RollupValidationRequests,
     },
     address::AztecAddress,
-    constants::PRIVATE_TO_ROLLUP_KERNEL_CIRCUIT_PUBLIC_INPUTS_LENGTH,
-    traits::{Deserialize, Empty, Serialize},
+    constants::{
+        GENERATOR_INDEX__PRIVATE_TX_HASH, PRIVATE_TO_ROLLUP_KERNEL_CIRCUIT_PUBLIC_INPUTS_LENGTH,
+    },
+    hash::poseidon2_hash_with_separator,
+    traits::{Deserialize, Empty, Hash, Serialize},
     utils::reader::Reader,
 };
 use std::meta::derive;
@@ -45,6 +48,12 @@ impl Serialize<PRIVATE_TO_ROLLUP_KERNEL_CIRCUIT_PUBLIC_INPUTS_LENGTH> for Privat
         assert_eq(fields.len(), PRIVATE_TO_ROLLUP_KERNEL_CIRCUIT_PUBLIC_INPUTS_LENGTH);
 
         fields.storage()
+    }
+}
+
+impl Hash for PrivateToRollupKernelCircuitPublicInputs {
+    fn hash(self) -> Field {
+        poseidon2_hash_with_separator(self.serialize(), GENERATOR_INDEX__PRIVATE_TX_HASH)
     }
 }
 

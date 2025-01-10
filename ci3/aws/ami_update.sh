@@ -36,9 +36,9 @@ scp -F build_instance_ssh_config $HOME/.aws/build_instance_credentials ubuntu@$i
 # Download crs onto machine.
 ssh -t -F build_instance_ssh_config ubuntu@$ip < ../../barretenberg/scripts/download_bb_crs.sh
 
-# Pull ci:2.0 onto host, and build:2.0 into docker-in-docker volume.
+# Pull ci:2.1 onto host, and build:2.0 into docker-in-docker volume.
 ssh -t -F build_instance_ssh_config ubuntu@$ip '
-  docker run --privileged -ti --rm -v boostrap_ci_local_docker:/var/lib/docker aztecprotocol/ci:2.0 bash -c "
+  docker run --privileged -ti --rm -v boostrap_ci_local_docker:/var/lib/docker aztecprotocol/ci:2.1 bash -c "
     /usr/local/share/docker-init.sh &> /dev/null
     sleep 5
     docker pull aztecprotocol/build:2.0

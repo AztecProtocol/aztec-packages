@@ -1,5 +1,6 @@
 ---
 title: Declaring Storage
+sidebar_position: 2
 tags: [contracts, storage]
 ---
 

@@ -93,6 +93,7 @@ export function makeProcessedTxFromPrivateOnlyTx(
   const data = tx.data.forRollup!;
   const txEffect = new TxEffect(
     RevertCode.OK,
+    tx.getTxHash(),
     transactionFee,
     data.end.noteHashes.filter(h => !h.isZero()),
     data.end.nullifiers.filter(h => !h.isZero()),
@@ -114,7 +115,7 @@ export function makeProcessedTxFromPrivateOnlyTx(
   } satisfies GasUsed;
 
   return {
-    hash: tx.getTxHash(),
+    hash: txEffect.txHash,
     data: tx.data,
     clientIvcProof: tx.clientIvcProof,
     avmProvingRequest: undefined,
@@ -156,6 +157,7 @@ export function makeProcessedTxFromTxWithPublicCalls(
 
   const txEffect = new TxEffect(
     revertCode,
+    tx.getTxHash(),
     avmOutput.transactionFee,
     avmOutput.accumulatedData.noteHashes.filter(h => !h.isZero()),
     avmOutput.accumulatedData.nullifiers.filter(h => !h.isZero()),
@@ -171,7 +173,7 @@ export function makeProcessedTxFromTxWithPublicCalls(
   );
 
   return {
-    hash: tx.getTxHash(),
+    hash: txEffect.txHash,
     data: tx.data,
     clientIvcProof: tx.clientIvcProof,
     avmProvingRequest,
