@@ -1,10 +1,11 @@
+import { type BlobSinkClientInterface } from '@aztec/blob-sink/client';
 import { type ArchiverApi, type Service } from '@aztec/circuit-types';
 import {
   type ContractClassPublic,
   computePublicBytecodeCommitment,
   getContractClassFromArtifact,
 } from '@aztec/circuits.js';
-import { FunctionSelector, FunctionType } from '@aztec/foundation/abi';
+import { FunctionType, decodeFunctionSignature } from '@aztec/foundation/abi';
 import { createLogger } from '@aztec/foundation/log';
 import { type Maybe } from '@aztec/foundation/types';
 import { type DataStoreConfig } from '@aztec/kv-store/config';
@@ -23,6 +24,7 @@ import { createArchiverClient } from './rpc/index.js';
 
 export async function createArchiver(
   config: ArchiverConfig & DataStoreConfig,
+  blobSinkClient: BlobSinkClientInterface,
   telemetry: TelemetryClient = new NoopTelemetryClient(),
   opts: { blockUntilSync: boolean } = { blockUntilSync: true },
 ): Promise<ArchiverApi & Maybe<Service>> {
@@ -31,7 +33,7 @@ export async function createArchiver(
     const archiverStore = new KVArchiverDataStore(store, config.maxLogs);
     await registerProtocolContracts(archiverStore);
     await registerCommonContracts(archiverStore);
-    return Archiver.createAndSync(config, archiverStore, telemetry, opts.blockUntilSync);
+    return Archiver.createAndSync(config, archiverStore, { telemetry, blobSinkClient }, opts.blockUntilSync);
   } else {
     return createArchiverClient(config.archiverUrl);
   }
@@ -47,14 +49,11 @@ async function registerProtocolContracts(store: KVArchiverDataStore) {
       unconstrainedFunctions: [],
     };
 
-    const functionNames: Record<string, string> = {};
-    for (const fn of contract.artifact.functions) {
-      if (fn.functionType === FunctionType.PUBLIC) {
-        functionNames[FunctionSelector.fromNameAndParameters(fn.name, fn.parameters).toString()] = fn.name;
-      }
-    }
+    const publicFunctionSignatures = contract.artifact.functions
+      .filter(fn => fn.functionType === FunctionType.PUBLIC)
+      .map(fn => decodeFunctionSignature(fn.name, fn.parameters));
 
-    await store.registerContractFunctionName(contract.address, functionNames);
+    await store.registerContractFunctionSignatures(contract.address, publicFunctionSignatures);
     const bytecodeCommitment = computePublicBytecodeCommitment(contractClassPublic.packedBytecode);
     await store.addContractClasses([contractClassPublic], [bytecodeCommitment], blockNumber);
     await store.addContractInstances([contract.instance], blockNumber);

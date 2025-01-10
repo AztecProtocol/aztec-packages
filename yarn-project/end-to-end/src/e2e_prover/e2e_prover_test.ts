@@ -18,8 +18,10 @@ import {
   BBCircuitVerifier,
   type ClientProtocolCircuitVerifier,
   TestCircuitVerifier,
-  type UltraKeccakHonkProtocolArtifact,
+  type UltraKeccakHonkServerProtocolArtifact,
 } from '@aztec/bb-prover';
+import { createBlobSinkClient } from '@aztec/blob-sink/client';
+import { type BlobSinkServer } from '@aztec/blob-sink/server';
 import { compileContract } from '@aztec/ethereum';
 import { Buffer32 } from '@aztec/foundation/buffer';
 import { RollupAbi, TestERC20Abi } from '@aztec/l1-artifacts';
@@ -76,6 +78,7 @@ export class FullProverTest {
   aztecNode!: AztecNode;
   pxe!: PXEService;
   cheatCodes!: CheatCodes;
+  blobSink!: BlobSinkServer;
   private provenComponents: ProvenSetup[] = [];
   private bbConfigCleanup?: () => Promise<void>;
   private acvmConfigCleanup?: () => Promise<void>;
@@ -163,7 +166,10 @@ export class FullProverTest {
       aztecNode: this.aztecNode,
       deployL1ContractsValues: this.l1Contracts,
       cheatCodes: this.cheatCodes,
+      blobSink: this.blobSink,
     } = this.context);
+
+    const blobSinkClient = createBlobSinkClient(`http://localhost:${this.blobSink.port}`);
 
     // Configure a full prover PXE
     let acvmConfig: Awaited<ReturnType<typeof getACVMConfig>> | undefined;
@@ -247,6 +253,7 @@ export class FullProverTest {
     this.logger.verbose('Starting archiver for new prover node');
     const archiver = await createArchiver(
       { ...this.context.aztecNodeConfig, dataDirectory: undefined },
+      blobSinkClient,
       new NoopTelemetryClient(),
       { blockUntilSync: true },
     );
@@ -275,10 +282,14 @@ export class FullProverTest {
       quoteProviderBondAmount: 1000n,
       proverMinimumEscrowAmount: 3000n,
       proverTargetEscrowAmount: 6000n,
+      txGatheringTimeoutMs: 60000,
+      txGatheringIntervalMs: 1000,
+      txGatheringMaxParallelRequests: 100,
     };
     this.proverNode = await createProverNode(proverConfig, {
       aztecNodeTxProvider: this.aztecNode,
       archiver: archiver as Archiver,
+      blobSinkClient,
     });
     await this.proverNode.start();
 
@@ -383,7 +394,7 @@ export class FullProverTest {
 
     // REFACTOR: Extract this method to a common package. We need a package that deals with L1
     // but also has a reference to L1 artifacts and bb-prover.
-    const setupVerifier = async (artifact: UltraKeccakHonkProtocolArtifact) => {
+    const setupVerifier = async (artifact: UltraKeccakHonkServerProtocolArtifact) => {
       const contract = await verifier.generateSolidityContract(artifact, 'UltraHonkVerifier.sol');
       const { abi, bytecode } = compileContract('UltraHonkVerifier.sol', 'HonkVerifier', contract, solc);
       const { address: verifierAddress } = await deployL1Contract(walletClient, publicClient, abi, bytecode);

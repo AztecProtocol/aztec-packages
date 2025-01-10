@@ -1,5 +1,6 @@
 import { createArchiver } from '@aztec/archiver';
 import { BBCircuitVerifier, TestCircuitVerifier } from '@aztec/bb-prover';
+import { type BlobSinkClientInterface, createBlobSinkClient } from '@aztec/blob-sink/client';
 import {
   type AztecNode,
   type ClientProtocolCircuitVerifier,
@@ -57,7 +58,6 @@ import { computePublicDataTreeLeafSlot, siloNullifier } from '@aztec/circuits.js
 import { EpochCache } from '@aztec/epoch-cache';
 import { type L1ContractAddresses, createEthereumChain } from '@aztec/ethereum';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
-import { padArrayEnd } from '@aztec/foundation/collection';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { DateProvider, Timer } from '@aztec/foundation/timer';
 import { type AztecKVStore } from '@aztec/kv-store';
@@ -139,11 +139,13 @@ export class AztecNodeService implements AztecNode, Traceable {
       logger?: Logger;
       publisher?: L1Publisher;
       dateProvider?: DateProvider;
+      blobSinkClient?: BlobSinkClientInterface;
     } = {},
   ): Promise<AztecNodeService> {
     const telemetry = deps.telemetry ?? new NoopTelemetryClient();
     const log = deps.logger ?? createLogger('node');
     const dateProvider = deps.dateProvider ?? new DateProvider();
+    const blobSinkClient = deps.blobSinkClient ?? createBlobSinkClient(config.blobSinkUrl);
     const ethereumChain = createEthereumChain(config.l1RpcUrl, config.l1ChainId);
     //validate that the actual chain id matches that specified in configuration
     if (config.l1ChainId !== ethereumChain.chainInfo.id) {
@@ -152,7 +154,7 @@ export class AztecNodeService implements AztecNode, Traceable {
       );
     }
 
-    const archiver = await createArchiver(config, telemetry, { blockUntilSync: true });
+    const archiver = await createArchiver(config, blobSinkClient, telemetry, { blockUntilSync: true });
 
     // we identify the P2P transaction protocol by using the rollup contract address.
     // this may well change in future
@@ -190,6 +192,7 @@ export class AztecNodeService implements AztecNode, Traceable {
     const sequencer = config.disableValidator
       ? undefined
       : await SequencerClient.new(config, {
+          ...deps,
           validatorClient,
           p2pClient,
           worldStateSynchronizer,
@@ -199,7 +202,7 @@ export class AztecNodeService implements AztecNode, Traceable {
           l1ToL2MessageSource: archiver,
           telemetry,
           dateProvider,
-          ...deps,
+          blobSinkClient,
         });
 
     return new AztecNodeService(
@@ -648,10 +651,12 @@ export class AztecNodeService implements AztecNode, Traceable {
       true,
     );
 
-    let l2toL1SubtreeRoots = l2toL1Subtrees.map(t => Fr.fromBuffer(t.getRoot(true)));
-    if (l2toL1SubtreeRoots.length < 2) {
-      l2toL1SubtreeRoots = padArrayEnd(l2toL1SubtreeRoots, Fr.ZERO, 2);
+    const numTxs = block.body.txEffects.length;
+    if (numTxs === 1) {
+      return [BigInt(indexOfMsgInSubtree), subtreePathOfL2ToL1Message];
     }
+
+    const l2toL1SubtreeRoots = l2toL1Subtrees.map(t => Fr.fromBuffer(t.getRoot(true)));
     const maxTreeHeight = Math.ceil(Math.log2(l2toL1SubtreeRoots.length));
     // The root of this tree is the out_hash calculated in Noir => we truncate to match Noir's SHA
     const outHashTree = new UnbalancedTree(new SHA256Trunc(), 'temp_outhash_sibling_path', maxTreeHeight, Fr);
@@ -923,8 +928,8 @@ export class AztecNodeService implements AztecNode, Traceable {
     return this.contractDataSource.addContractClass(contractClass);
   }
 
-  public registerContractFunctionNames(_address: AztecAddress, names: Record<string, string>): Promise<void> {
-    return this.contractDataSource.registerContractFunctionNames(_address, names);
+  public registerContractFunctionSignatures(_address: AztecAddress, signatures: string[]): Promise<void> {
+    return this.contractDataSource.registerContractFunctionSignatures(_address, signatures);
   }
 
   public flushTxs(): Promise<void> {

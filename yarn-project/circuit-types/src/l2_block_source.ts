@@ -2,6 +2,7 @@ import { type BlockHeader, type EthAddress } from '@aztec/circuits.js';
 
 import { z } from 'zod';
 
+import { type L1RollupConstants } from './epoch-helpers/index.js';
 import { type InBlock } from './in_block.js';
 import { type L2Block } from './l2_block.js';
 import { type TxHash } from './tx/tx_hash.js';
@@ -106,6 +107,11 @@ export interface L2BlockSource {
    * Returns the tips of the L2 chain.
    */
   getL2Tips(): Promise<L2Tips>;
+
+  /**
+   * Returns the rollup constants for the current chain.
+   */
+  getL1Constants(): Promise<L1RollupConstants>;
 }
 
 /**

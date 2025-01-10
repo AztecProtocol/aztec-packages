@@ -47,8 +47,12 @@ describe('aztec node', () => {
     globalVariablesBuilder.getCurrentBaseFees.mockResolvedValue(new GasFees(0, 0));
 
     merkleTreeOps = mock<MerkleTreeReadOperations>();
-    merkleTreeOps.findLeafIndices.mockImplementation((_treeId: MerkleTreeId, _value: any[]) => {
-      return Promise.resolve([undefined]);
+    merkleTreeOps.findLeafIndices.mockImplementation((treeId: MerkleTreeId, _value: any[]) => {
+      if (treeId === MerkleTreeId.ARCHIVE) {
+        return Promise.resolve([1n]);
+      } else {
+        return Promise.resolve([undefined]);
+      }
     });
 
     const worldState = mock<WorldStateSynchronizer>({
@@ -119,9 +123,13 @@ describe('aztec node', () => {
       // We make a nullifier from `doubleSpendWithExistingTx` a part of the nullifier tree, so it gets rejected as double spend
       const doubleSpendNullifier = doubleSpendWithExistingTx.data.forRollup!.end.nullifiers[0].toBuffer();
       merkleTreeOps.findLeafIndices.mockImplementation((treeId: MerkleTreeId, value: any[]) => {
-        return Promise.resolve(
-          treeId === MerkleTreeId.NULLIFIER_TREE && value[0].equals(doubleSpendNullifier) ? [1n] : [undefined],
-        );
+        let retVal: [bigint | undefined] = [undefined];
+        if (treeId === MerkleTreeId.ARCHIVE) {
+          retVal = [1n];
+        } else if (treeId === MerkleTreeId.NULLIFIER_TREE) {
+          retVal = value[0].equals(doubleSpendNullifier) ? [1n] : [undefined];
+        }
+        return Promise.resolve(retVal);
       });
 
       expect(await node.isValidTx(doubleSpendWithExistingTx)).toEqual({

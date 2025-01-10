@@ -1,4 +1,5 @@
 import { type Archiver, createArchiver } from '@aztec/archiver';
+import { type BlobSinkClientInterface, createBlobSinkClient } from '@aztec/blob-sink/client';
 import { type ProverCoordination, type ProvingJobBroker } from '@aztec/circuit-types';
 import { EpochCache } from '@aztec/epoch-cache';
 import { createEthereumChain } from '@aztec/ethereum';
@@ -34,12 +35,14 @@ export async function createProverNode(
     aztecNodeTxProvider?: ProverCoordination;
     archiver?: Archiver;
     publisher?: L1Publisher;
+    blobSinkClient?: BlobSinkClientInterface;
     broker?: ProvingJobBroker;
   } = {},
 ) {
   const telemetry = deps.telemetry ?? new NoopTelemetryClient();
+  const blobSinkClient = deps.blobSinkClient ?? createBlobSinkClient(config.blobSinkUrl);
   const log = deps.log ?? createLogger('prover-node');
-  const archiver = deps.archiver ?? (await createArchiver(config, telemetry, { blockUntilSync: true }));
+  const archiver = deps.archiver ?? (await createArchiver(config, blobSinkClient, telemetry, { blockUntilSync: true }));
   log.verbose(`Created archiver and synced to block ${await archiver.getBlockNumber()}`);
 
   const worldStateConfig = { ...config, worldStateProvenBlocksOnly: false };
@@ -50,7 +53,7 @@ export async function createProverNode(
   const prover = await createProverClient(config, worldStateSynchronizer, broker, telemetry);
 
   // REFACTOR: Move publisher out of sequencer package and into an L1-related package
-  const publisher = deps.publisher ?? new L1Publisher(config, telemetry);
+  const publisher = deps.publisher ?? new L1Publisher(config, { telemetry, blobSinkClient });
 
   const epochCache = await EpochCache.create(config.l1Contracts.rollupAddress, config);
 
@@ -71,6 +74,9 @@ export async function createProverNode(
     maxPendingJobs: config.proverNodeMaxPendingJobs,
     pollingIntervalMs: config.proverNodePollingIntervalMs,
     maxParallelBlocksPerEpoch: config.proverNodeMaxParallelBlocksPerEpoch,
+    txGatheringMaxParallelRequests: config.txGatheringMaxParallelRequests,
+    txGatheringIntervalMs: config.txGatheringIntervalMs,
+    txGatheringTimeoutMs: config.txGatheringTimeoutMs,
   };
 
   const claimsMonitor = new ClaimsMonitor(publisher, telemetry, proverNodeConfig);

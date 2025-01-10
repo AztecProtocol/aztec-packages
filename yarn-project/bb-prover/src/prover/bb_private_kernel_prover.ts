@@ -1,5 +1,5 @@
 import { type PrivateKernelProver, type PrivateKernelSimulateOutput } from '@aztec/circuit-types';
-import { type CircuitWitnessGenerationStats } from '@aztec/circuit-types/stats';
+import { type CircuitSimulationStats, type CircuitWitnessGenerationStats } from '@aztec/circuit-types/stats';
 import {
   type ClientIvcProof,
   type PrivateKernelCircuitPublicInputs,
@@ -8,264 +8,192 @@ import {
   type PrivateKernelResetCircuitPrivateInputs,
   type PrivateKernelTailCircuitPrivateInputs,
   type PrivateKernelTailCircuitPublicInputs,
-  type Proof,
-  type VerificationKeyData,
 } from '@aztec/circuits.js';
-import { runInDirectory } from '@aztec/foundation/fs';
-import { type Logger, createLogger } from '@aztec/foundation/log';
+import { createLogger } from '@aztec/foundation/log';
 import { Timer } from '@aztec/foundation/timer';
 import {
-  ClientCircuitArtifacts,
-  ClientCircuitVks,
-  type ClientProtocolArtifact,
-  ProtocolCircuitVks,
-  convertPrivateKernelInitInputsToWitnessMap,
-  convertPrivateKernelInitOutputsFromWitnessMap,
-  convertPrivateKernelInnerInputsToWitnessMap,
-  convertPrivateKernelInnerOutputsFromWitnessMap,
-  convertPrivateKernelResetInputsToWitnessMap,
-  convertPrivateKernelResetOutputsFromWitnessMap,
-  convertPrivateKernelTailForPublicOutputsFromWitnessMap,
-  convertPrivateKernelTailInputsToWitnessMap,
-  convertPrivateKernelTailOutputsFromWitnessMap,
-  convertPrivateKernelTailToPublicInputsToWitnessMap,
+  convertPrivateKernelInitInputsToWitnessMapWithAbi,
+  convertPrivateKernelInitOutputsFromWitnessMapWithAbi,
+  convertPrivateKernelInnerInputsToWitnessMapWithAbi,
+  convertPrivateKernelInnerOutputsFromWitnessMapWithAbi,
+  convertPrivateKernelResetInputsToWitnessMapWithAbi,
+  convertPrivateKernelResetOutputsFromWitnessMapWithAbi,
+  convertPrivateKernelTailForPublicOutputsFromWitnessMapWithAbi,
+  convertPrivateKernelTailInputsToWitnessMapWithAbi,
+  convertPrivateKernelTailOutputsFromWitnessMapWithAbi,
+  convertPrivateKernelTailToPublicInputsToWitnessMapWithAbi,
   getPrivateKernelResetArtifactName,
-} from '@aztec/noir-protocol-circuits-types';
-import { WASMSimulatorWithBlobs } from '@aztec/simulator';
+} from '@aztec/noir-protocol-circuits-types/client';
+import { type ArtifactProvider, type ClientProtocolArtifact } from '@aztec/noir-protocol-circuits-types/types';
+import { ClientCircuitVks } from '@aztec/noir-protocol-circuits-types/vks';
+import { WASMSimulator } from '@aztec/simulator/client';
 import { type NoirCompiledCircuit } from '@aztec/types/noir';
 
-import { encode } from '@msgpack/msgpack';
-import { serializeWitness } from '@noir-lang/noirc_abi';
-import { type WitnessMap } from '@noir-lang/types';
-import { promises as fs } from 'fs';
-import path from 'path';
+import { type Abi, type WitnessMap } from '@noir-lang/types';
 
-import { BB_RESULT, computeGateCountForCircuit, executeBbClientIvcProof, verifyProof } from '../bb/execute.js';
-import { type BBConfig } from '../config.js';
-import { type UltraHonkFlavor, getUltraHonkFlavorForCircuit } from '../honk.js';
 import { mapProtocolArtifactNameToCircuitName } from '../stats.js';
-import { extractVkData } from '../verification_key/verification_key_data.js';
-import { readFromOutputDirectory } from './client_ivc_proof_utils.js';
 
-/**
- * This proof creator implementation uses the native bb binary.
- * This is a temporary implementation until we make the WASM version work.
- * TODO(#7368): this class grew 'organically' aka it could use a look at its resposibilities
- */
-export class BBNativePrivateKernelProver implements PrivateKernelProver {
-  private simulator = new WASMSimulatorWithBlobs();
+export abstract class BBPrivateKernelProver implements PrivateKernelProver {
+  protected simulator = new WASMSimulator();
 
-  private verificationKeys: Map<ClientProtocolArtifact, Promise<VerificationKeyData>> = new Map<
-    ClientProtocolArtifact,
-    Promise<VerificationKeyData>
-  >();
+  constructor(protected artifactProvider: ArtifactProvider, protected log = createLogger('bb-prover')) {}
 
-  private constructor(
-    private bbBinaryPath: string,
-    private bbWorkingDirectory: string,
-    private skipCleanup: boolean,
-    private log = createLogger('bb-prover:native'),
-  ) {}
-
-  public static async new(config: BBConfig, log?: Logger) {
-    await fs.mkdir(config.bbWorkingDirectory, { recursive: true });
-    return new BBNativePrivateKernelProver(config.bbBinaryPath, config.bbWorkingDirectory, !!config.bbSkipCleanup, log);
-  }
-
-  private async _createClientIvcProof(
-    directory: string,
-    acirs: Buffer[],
-    witnessStack: WitnessMap[],
-  ): Promise<ClientIvcProof> {
-    // TODO(#7371): Longer term we won't use this hacked together msgpack format
-    // and instead properly create the bincode serialization from rust
-    await fs.writeFile(path.join(directory, 'acir.msgpack'), encode(acirs));
-    await fs.writeFile(
-      path.join(directory, 'witnesses.msgpack'),
-      encode(witnessStack.map(map => serializeWitness(map))),
-    );
-    const provingResult = await executeBbClientIvcProof(
-      this.bbBinaryPath,
-      directory,
-      path.join(directory, 'acir.msgpack'),
-      path.join(directory, 'witnesses.msgpack'),
-      this.log.info,
-    );
-
-    if (provingResult.status === BB_RESULT.FAILURE) {
-      this.log.error(`Failed to generate client ivc proof`);
-      throw new Error(provingResult.reason);
-    }
-
-    const proof = await readFromOutputDirectory(directory);
-
-    this.log.info(`Generated IVC proof`, {
-      duration: provingResult.durationMs,
-      eventName: 'circuit-proving',
-    });
-
-    return proof;
-  }
-
-  async createClientIvcProof(acirs: Buffer[], witnessStack: WitnessMap[]): Promise<ClientIvcProof> {
-    this.log.info(`Generating Client IVC proof`);
-    const operation = async (directory: string) => {
-      return await this._createClientIvcProof(directory, acirs, witnessStack);
-    };
-    return await this.runInDirectory(operation);
-  }
-
-  public async simulateProofInit(
+  public async generateInitOutput(
     inputs: PrivateKernelInitCircuitPrivateInputs,
   ): Promise<PrivateKernelSimulateOutput<PrivateKernelCircuitPublicInputs>> {
-    return await this.simulate(
+    return await this.generateCircuitOutput(
       inputs,
       'PrivateKernelInitArtifact',
-      convertPrivateKernelInitInputsToWitnessMap,
-      convertPrivateKernelInitOutputsFromWitnessMap,
+      convertPrivateKernelInitInputsToWitnessMapWithAbi,
+      convertPrivateKernelInitOutputsFromWitnessMapWithAbi,
     );
   }
 
-  public async simulateProofInner(
+  public async simulateInit(
+    inputs: PrivateKernelInitCircuitPrivateInputs,
+  ): Promise<PrivateKernelSimulateOutput<PrivateKernelCircuitPublicInputs>> {
+    return await this.simulateCircuitOutput(
+      inputs,
+      'PrivateKernelInitArtifact',
+      convertPrivateKernelInitInputsToWitnessMapWithAbi,
+      convertPrivateKernelInitOutputsFromWitnessMapWithAbi,
+    );
+  }
+
+  public async generateInnerOutput(
     inputs: PrivateKernelInnerCircuitPrivateInputs,
   ): Promise<PrivateKernelSimulateOutput<PrivateKernelCircuitPublicInputs>> {
-    return await this.simulate(
+    return await this.generateCircuitOutput(
       inputs,
       'PrivateKernelInnerArtifact',
-      convertPrivateKernelInnerInputsToWitnessMap,
-      convertPrivateKernelInnerOutputsFromWitnessMap,
+      convertPrivateKernelInnerInputsToWitnessMapWithAbi,
+      convertPrivateKernelInnerOutputsFromWitnessMapWithAbi,
     );
   }
 
-  public async simulateProofReset(
+  public async simulateInner(
+    inputs: PrivateKernelInnerCircuitPrivateInputs,
+  ): Promise<PrivateKernelSimulateOutput<PrivateKernelCircuitPublicInputs>> {
+    return await this.simulateCircuitOutput(
+      inputs,
+      'PrivateKernelInnerArtifact',
+      convertPrivateKernelInnerInputsToWitnessMapWithAbi,
+      convertPrivateKernelInnerOutputsFromWitnessMapWithAbi,
+    );
+  }
+
+  public async generateResetOutput(
     inputs: PrivateKernelResetCircuitPrivateInputs,
   ): Promise<PrivateKernelSimulateOutput<PrivateKernelCircuitPublicInputs>> {
     const variantInputs = inputs.trimToSizes();
     const artifactName = getPrivateKernelResetArtifactName(inputs.dimensions);
-    return await this.simulate(
+    return await this.generateCircuitOutput(
       variantInputs,
       artifactName,
-      variantInputs => convertPrivateKernelResetInputsToWitnessMap(variantInputs, artifactName),
-      output => convertPrivateKernelResetOutputsFromWitnessMap(output, artifactName),
+      convertPrivateKernelResetInputsToWitnessMapWithAbi,
+      convertPrivateKernelResetOutputsFromWitnessMapWithAbi,
     );
   }
 
-  public async simulateProofTail(
+  public async simulateReset(
+    inputs: PrivateKernelResetCircuitPrivateInputs,
+  ): Promise<PrivateKernelSimulateOutput<PrivateKernelCircuitPublicInputs>> {
+    const variantInputs = inputs.trimToSizes();
+    const artifactName = getPrivateKernelResetArtifactName(inputs.dimensions);
+    return await this.simulateCircuitOutput(
+      variantInputs,
+      artifactName,
+      convertPrivateKernelResetInputsToWitnessMapWithAbi,
+      convertPrivateKernelResetOutputsFromWitnessMapWithAbi,
+    );
+  }
+
+  public async generateTailOutput(
     inputs: PrivateKernelTailCircuitPrivateInputs,
   ): Promise<PrivateKernelSimulateOutput<PrivateKernelTailCircuitPublicInputs>> {
     if (!inputs.isForPublic()) {
-      return await this.simulate(
+      return await this.generateCircuitOutput(
         inputs,
         'PrivateKernelTailArtifact',
-        convertPrivateKernelTailInputsToWitnessMap,
-        convertPrivateKernelTailOutputsFromWitnessMap,
+        convertPrivateKernelTailInputsToWitnessMapWithAbi,
+        convertPrivateKernelTailOutputsFromWitnessMapWithAbi,
       );
     }
-    return await this.simulate(
+    return await this.generateCircuitOutput(
       inputs,
       'PrivateKernelTailToPublicArtifact',
-      convertPrivateKernelTailToPublicInputsToWitnessMap,
-      convertPrivateKernelTailForPublicOutputsFromWitnessMap,
+      convertPrivateKernelTailToPublicInputsToWitnessMapWithAbi,
+      convertPrivateKernelTailForPublicOutputsFromWitnessMapWithAbi,
     );
   }
 
-  /**
-   * Verifies a proof, will generate the verification key if one is not cached internally
-   * @param circuitType - The type of circuit whose proof is to be verified
-   * @param proof - The proof to be verified
-   */
-  public async verifyProofForProtocolCircuit(circuitType: ClientProtocolArtifact, proof: Proof) {
-    const verificationKey = ProtocolCircuitVks[circuitType];
-
-    this.log.debug(`Verifying with key: ${verificationKey.keyAsFields.hash.toString()}`);
-
-    const logFunction = (message: string) => {
-      this.log.debug(`${circuitType} BB out - ${message}`);
-    };
-
-    const result = await this.verifyProofFromKey(
-      getUltraHonkFlavorForCircuit(circuitType),
-      verificationKey.keyAsBytes,
-      proof,
-      logFunction,
+  public async simulateTail(
+    inputs: PrivateKernelTailCircuitPrivateInputs,
+  ): Promise<PrivateKernelSimulateOutput<PrivateKernelTailCircuitPublicInputs>> {
+    if (!inputs.isForPublic()) {
+      return await this.simulateCircuitOutput(
+        inputs,
+        'PrivateKernelTailArtifact',
+        convertPrivateKernelTailInputsToWitnessMapWithAbi,
+        convertPrivateKernelTailOutputsFromWitnessMapWithAbi,
+      );
+    }
+    return await this.simulateCircuitOutput(
+      inputs,
+      'PrivateKernelTailToPublicArtifact',
+      convertPrivateKernelTailToPublicInputsToWitnessMapWithAbi,
+      convertPrivateKernelTailForPublicOutputsFromWitnessMapWithAbi,
     );
-
-    if (result.status === BB_RESULT.FAILURE) {
-      const errorMessage = `Failed to verify ${circuitType} proof!`;
-      throw new Error(errorMessage);
-    }
-
-    this.log.info(`Successfully verified ${circuitType} proof in ${Math.ceil(result.durationMs)} ms`);
   }
 
-  public async computeGateCountForCircuit(bytecode: Buffer, circuitName: string): Promise<number> {
-    const logFunction = (message: string) => {
-      this.log.debug(`$bb gates ${circuitName} - ${message}`);
-    };
-
-    const result = await computeGateCountForCircuit(
-      this.bbBinaryPath,
-      this.bbWorkingDirectory,
-      circuitName,
-      bytecode,
-      'mega_honk',
-      logFunction,
-    );
-    if (result.status === BB_RESULT.FAILURE) {
-      throw new Error(result.reason);
-    }
-
-    return result.circuitSize as number;
-  }
-
-  private async verifyProofFromKey(
-    flavor: UltraHonkFlavor,
-    verificationKey: Buffer,
-    proof: Proof,
-    logFunction: (message: string) => void = () => {},
-  ) {
-    const operation = async (bbWorkingDirectory: string) => {
-      const proofFileName = `${bbWorkingDirectory}/proof`;
-      const verificationKeyPath = `${bbWorkingDirectory}/vk`;
-
-      await fs.writeFile(proofFileName, proof.buffer);
-      await fs.writeFile(verificationKeyPath, verificationKey);
-      return await verifyProof(this.bbBinaryPath, proofFileName, verificationKeyPath!, flavor, logFunction);
-    };
-    return await this.runInDirectory(operation);
-  }
-
-  /**
-   * Ensures our verification key cache includes the key data located at the specified directory
-   * @param filePath - The directory containing the verification key data files
-   * @param circuitType - The type of circuit to which the verification key corresponds
-   */
-  private async updateVerificationKeyAfterSimulation(filePath: string, circuitType: ClientProtocolArtifact) {
-    let promise = this.verificationKeys.get(circuitType);
-    if (!promise) {
-      promise = extractVkData(filePath);
-      this.log.debug(`Updated verification key for circuit: ${circuitType}`);
-      this.verificationKeys.set(circuitType, promise);
-    }
-    return await promise;
-  }
-
-  private async simulate<
+  public async simulateCircuitOutput<
     I extends { toBuffer: () => Buffer },
     O extends PrivateKernelCircuitPublicInputs | PrivateKernelTailCircuitPublicInputs,
   >(
     inputs: I,
     circuitType: ClientProtocolArtifact,
-    convertInputs: (inputs: I) => WitnessMap,
-    convertOutputs: (outputs: WitnessMap) => O,
+    convertInputs: (inputs: I, abi: Abi) => WitnessMap,
+    convertOutputs: (outputs: WitnessMap, abi: Abi) => O,
   ): Promise<PrivateKernelSimulateOutput<O>> {
-    this.log.debug(`Generating witness for ${circuitType}`);
-    const compiledCircuit: NoirCompiledCircuit = ClientCircuitArtifacts[circuitType];
+    const compiledCircuit: NoirCompiledCircuit = await this.artifactProvider.getSimulatedClientCircuitArtifactByName(
+      circuitType,
+    );
 
-    const witnessMap = convertInputs(inputs);
+    const witnessMap = convertInputs(inputs, compiledCircuit.abi);
+
     const timer = new Timer();
     const outputWitness = await this.simulator.simulateCircuit(witnessMap, compiledCircuit);
-    const output = convertOutputs(outputWitness);
+    const output = convertOutputs(outputWitness, compiledCircuit.abi);
+
+    this.log.debug(`Simulated ${circuitType}`, {
+      eventName: 'circuit-simulation',
+      circuitName: mapProtocolArtifactNameToCircuitName(circuitType),
+      duration: timer.ms(),
+      inputSize: inputs.toBuffer().length,
+      outputSize: output.toBuffer().length,
+    } satisfies CircuitSimulationStats);
+
+    return this.makeEmptyKernelSimulateOutput<O>(output, circuitType);
+  }
+
+  public async generateCircuitOutput<
+    I extends { toBuffer: () => Buffer },
+    O extends PrivateKernelCircuitPublicInputs | PrivateKernelTailCircuitPublicInputs,
+  >(
+    inputs: I,
+    circuitType: ClientProtocolArtifact,
+    convertInputs: (inputs: I, abi: Abi) => WitnessMap,
+    convertOutputs: (outputs: WitnessMap, abi: Abi) => O,
+  ): Promise<PrivateKernelSimulateOutput<O>> {
+    this.log.debug(`Generating witness for ${circuitType}`);
+    const compiledCircuit: NoirCompiledCircuit = await this.artifactProvider.getClientCircuitArtifactByName(
+      circuitType,
+    );
+
+    const witnessMap = convertInputs(inputs, compiledCircuit.abi);
+    const timer = new Timer();
+    const outputWitness = await this.simulator.simulateCircuit(witnessMap, compiledCircuit);
+    const output = convertOutputs(outputWitness, compiledCircuit.abi);
 
     this.log.debug(`Generated witness for ${circuitType}`, {
       eventName: 'circuit-witness-generation',
@@ -287,16 +215,23 @@ export class BBNativePrivateKernelProver implements PrivateKernelProver {
     return kernelOutput;
   }
 
-  private runInDirectory<T>(fn: (dir: string) => Promise<T>) {
-    const log = this.log;
-    return runInDirectory(
-      this.bbWorkingDirectory,
-      (dir: string) =>
-        fn(dir).catch(err => {
-          log.error(`Error running operation at ${dir}: ${err}`);
-          throw err;
-        }),
-      this.skipCleanup,
-    );
+  public makeEmptyKernelSimulateOutput<
+    PublicInputsType extends PrivateKernelTailCircuitPublicInputs | PrivateKernelCircuitPublicInputs,
+  >(publicInputs: PublicInputsType, circuitType: ClientProtocolArtifact) {
+    const kernelProofOutput: PrivateKernelSimulateOutput<PublicInputsType> = {
+      publicInputs,
+      verificationKey: ClientCircuitVks[circuitType].keyAsFields,
+      outputWitness: new Map(),
+      bytecode: Buffer.from([]),
+    };
+    return kernelProofOutput;
+  }
+
+  public createClientIvcProof(_acirs: Buffer[], _witnessStack: WitnessMap[]): Promise<ClientIvcProof> {
+    throw new Error('Not implemented');
+  }
+
+  public computeGateCountForCircuit(_bytecode: Buffer, _circuitName: string): Promise<number> {
+    throw new Error('Not implemented');
   }
 }

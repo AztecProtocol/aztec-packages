@@ -18,7 +18,6 @@ export * from './block_header.js';
 export * from './indexed_tagging_secret.js';
 export * from './kernel/private_to_rollup_accumulated_data.js';
 export * from './kernel/combined_constant_data.js';
-export * from './kernel/private_kernel_empty_inputs.js';
 export * from './kernel/private_to_rollup_kernel_circuit_public_inputs.js';
 export * from './kernel/private_accumulated_data.js';
 export * from './kernel/private_call_data.js';

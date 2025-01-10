@@ -124,13 +124,14 @@ export class AvmPersistableStateManager {
     this.publicStorage.acceptAndMerge(forkedState.publicStorage);
     this.nullifiers.acceptAndMerge(forkedState.nullifiers);
     this.trace.merge(forkedState.trace, reverted);
-    if (!reverted) {
-      this.merkleTrees = forkedState.merkleTrees;
+    if (reverted) {
       if (this.doMerkleOperations) {
         this.log.debug(
           `Rolled back nullifier tree to root ${this.merkleTrees.treeMap.get(MerkleTreeId.NULLIFIER_TREE)!.getRoot()}`,
         );
       }
+    } else {
+      this.merkleTrees = forkedState.merkleTrees;
     }
   }
 
