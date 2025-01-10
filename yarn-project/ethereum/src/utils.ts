@@ -85,6 +85,9 @@ export function formatViemError(error: any): string {
     if (!hex || typeof hex !== 'string') {
       return hex;
     }
+    if (!hex.startsWith('0x')) {
+      return hex;
+    }
     if (hex.length <= length * 2) {
       return hex;
     }
@@ -95,107 +98,78 @@ export function formatViemError(error: any): string {
     try {
       const parsed = JSON.parse(body);
 
-      // Handle specific fields that need truncation
-      if (parsed.params && Array.isArray(parsed.params)) {
-        parsed.params = parsed.params.map((param: any) => {
-          if (typeof param === 'object') {
-            const truncated = { ...param };
-            // Only truncate known large fields
-            if (truncated.blobs) {
-              truncated.blobs = truncated.blobs.map((blob: string) => truncateHex(blob));
-            }
-            if (truncated.data) {
-              truncated.data = truncateHex(truncated.data);
-            }
-            // Keep other fields as is (from, blobVersionedHashes, etc.)
-            return truncated;
+      // Recursively process all parameters that might contain hex strings
+      const processParams = (obj: any): any => {
+        if (Array.isArray(obj)) {
+          return obj.map(item => processParams(item));
+        }
+        if (typeof obj === 'object' && obj !== null) {
+          const result: any = {};
+          for (const [key, value] of Object.entries(obj)) {
+            result[key] = processParams(value);
           }
-          if (typeof param === 'string' && param.length > 1000) {
-            return truncateHex(param);
+          return result;
+        }
+        if (typeof obj === 'string') {
+          if (obj.startsWith('0x')) {
+            return truncateHex(obj);
           }
-          return param;
-        });
-      }
+        }
+        return obj;
+      };
 
-      return JSON.stringify(parsed, null, 2);
+      // Process the entire request body
+      const processed = processParams(parsed);
+      return JSON.stringify(processed, null, 2);
     } catch {
-      // If we can't parse it as JSON, only truncate if it's a very long string
-      return body.length > 1000 ? truncateHex(body) : body;
+      return body;
     }
   };
 
-  const formatArgs = (args: string[]) => {
-    return args.map(arg => {
-      // If it's a data field with a long hex string, truncate it
-      if (arg.startsWith('data:')) {
-        const [prefix, hexData] = arg.split(/:\s+/);
-        if (hexData && hexData.startsWith('0x') && hexData.length > 50) {
-          return `${prefix}: ${truncateHex(hexData)}`;
-        }
-      }
-      return arg;
-    });
+  const truncateHexStringsInText = (text: string): string => {
+    const hexRegex = /0x[a-fA-F0-9]{10,}/g;
+    return text.replace(hexRegex, hex => truncateHex(hex));
   };
 
-  const errorChain = [];
-  const seenMessages = new Set();
+  const extractAndFormatRequestBody = (message: string): string => {
+    // First handle Request body JSON
+    const requestBodyRegex = /Request body: ({[\s\S]*?})\n/g;
+    let result = message.replace(requestBodyRegex, (match, body) => {
+      return `Request body: ${formatRequestBody(body)}\n`;
+    });
 
-  if (error instanceof BaseError) {
-    error.walk((err: any) => {
-      // Skip if we've seen this exact message before
-      if (seenMessages.has(err.message)) {
-        return false;
-      }
-      seenMessages.add(err.message);
-
-      const errorInfo: any = {
-        name: err.name,
-        message: err.shortMessage || err.message,
-      };
-
-      // Extract request arguments if present
-      const argsMatch = err.message?.match(/Request Arguments:\n([\s\S]*?)(?:\n\nDetails:|$)/);
-      if (argsMatch) {
-        errorInfo.args = formatArgs(
-          argsMatch[1]
-            .split('\n')
-            .map((line: string) => line.trim())
-            .filter(Boolean),
-        );
-      }
-
-      // Extract details if present
-      const detailsMatch = err.message?.match(/Details: (.*?)(?:\nVersion:|$)/);
-      if (detailsMatch) {
-        errorInfo.details = detailsMatch[1];
-      }
-
-      // Process request body if present
-      if (err.metaMessages?.some((msg: string) => msg.includes('Request body:'))) {
-        const requestBody = err.metaMessages
-          .find((msg: string) => msg.includes('Request body:'))
-          ?.replace('Request body:', '')
-          .trim();
-        if (requestBody) {
-          errorInfo.requestBody = formatRequestBody(requestBody);
+    // Then handle Arguments section
+    const argsRegex = /((?:Request |Estimate Gas )?Arguments:[\s\S]*?(?=\n\n|$))/g;
+    result = result.replace(argsRegex, section => {
+      const lines = section.split('\n');
+      const processedLines = lines.map(line => {
+        // Check if line contains a colon followed by content
+        const colonIndex = line.indexOf(':');
+        if (colonIndex !== -1) {
+          const [prefix, content] = [line.slice(0, colonIndex + 1), line.slice(colonIndex + 1).trim()];
+          // If content contains a hex string, truncate it
+          if (content.includes('0x')) {
+            const hexMatches = content.match(/0x[a-fA-F0-9]+/g) || [];
+            let processedContent = content;
+            hexMatches.forEach(hex => {
+              processedContent = processedContent.replace(hex, truncateHex(hex));
+            });
+            return `${prefix} ${processedContent}`;
+          }
         }
-      }
-
-      if (err.code) {
-        errorInfo.code = err.code;
-      }
-
-      errorChain.push(errorInfo);
-      return false;
+        return line;
+      });
+      return processedLines.join('\n');
     });
-  } else {
-    // Handle non-BaseError
-    errorChain.push({
-      message: error?.message || String(error),
-      details: error?.details,
-      code: error?.code,
-    });
-  }
 
-  return JSON.stringify({ errorChain }, null, 2);
+    // Finally, catch any remaining hex strings in the message
+    result = truncateHexStringsInText(result);
+
+    return result;
+  };
+
+  return JSON.stringify({ error: extractAndFormatRequestBody(error?.message || String(error)) }, null, 2).replace(
+    /\\n/g,
+    '\n',
+  );
 }
