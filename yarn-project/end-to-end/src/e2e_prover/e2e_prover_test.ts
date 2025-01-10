@@ -113,7 +113,7 @@ export class FullProverTest {
   async applyBaseSnapshots() {
     await this.snapshotManager.snapshot('2_accounts', addAccounts(2, this.logger), async ({ accountKeys }, { pxe }) => {
       this.keys = accountKeys;
-      const accountManagers = accountKeys.map(ak => getSchnorrAccount(pxe, ak[0], ak[1], 1));
+      const accountManagers = accountKeys.map(ak => getSchnorrAccount(pxe, ak[0], ak[1], SALT));
       this.wallets = await Promise.all(accountManagers.map(a => a.getWallet()));
       this.accounts = accountManagers.map(a => a.getCompleteAddress());
       this.wallets.forEach((w, i) => this.logger.verbose(`Wallet ${i} address: ${w.getAddress()}`));
