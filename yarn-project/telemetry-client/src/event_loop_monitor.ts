@@ -1,35 +1,66 @@
 import { type EventLoopUtilization, IntervalHistogram, monitorEventLoopDelay, performance } from 'node:perf_hooks';
 
-import { EVENT_LOOP_LAG, EVENT_LOOP_LAG_MAX, EVENT_LOOP_UTILIZATION } from './metrics.js';
-import { type BatchObservableResult, type Meter, type ObservableGauge, ValueType } from './telemetry.js';
+import { NODEJS_EVENT_LOOP_STATE } from './attributes.js';
+import * as Metrics from './metrics.js';
+import {
+  type BatchObservableResult,
+  type Meter,
+  type ObservableGauge,
+  ObservableUpDownCounter,
+  ValueType,
+} from './telemetry.js';
 
 /**
  * Detector for custom Aztec attributes
  */
 export class EventLoopMonitor {
-  private eventLoopLag: ObservableGauge;
-  private eventLoopLagMax: ObservableGauge;
+  private eventLoopDelayGauges: {
+    min: ObservableGauge;
+    max: ObservableGauge;
+    mean: ObservableGauge;
+    stddev: ObservableGauge;
+    p50: ObservableGauge;
+    p90: ObservableGauge;
+    p99: ObservableGauge;
+  };
+
   private eventLoopUilization: ObservableGauge;
+  private eventLoopTime: ObservableUpDownCounter;
+
   private started = false;
 
   private lastELU: EventLoopUtilization | undefined;
   private eventLoopDelay: IntervalHistogram;
 
   constructor(private meter: Meter) {
-    this.eventLoopLag = meter.createObservableGauge(EVENT_LOOP_LAG, {
-      unit: 'ns',
-      valueType: ValueType.INT,
-      description: 'Mean event loop delay',
-    });
-    this.eventLoopLagMax = meter.createObservableGauge(EVENT_LOOP_LAG_MAX, {
-      unit: 'ns',
-      valueType: ValueType.INT,
-      description: 'Max event loop delay',
-    });
-    this.eventLoopUilization = meter.createObservableGauge(EVENT_LOOP_UTILIZATION, {
+    const nsObsGauge = (name: (typeof Metrics)[keyof typeof Metrics], description: string) =>
+      meter.createObservableGauge(name, {
+        unit: 'ns',
+        valueType: ValueType.INT,
+        description,
+      });
+
+    this.eventLoopDelayGauges = {
+      min: nsObsGauge(Metrics.NODEJS_EVENT_LOOP_DELAY_MIN, 'Minimum delay of the event loop'),
+      mean: nsObsGauge(Metrics.NODEJS_EVENT_LOOP_DELAY_MEAN, 'Mean delay of the event loop'),
+      max: nsObsGauge(Metrics.NODEJS_EVENT_LOOP_DELAY_MAX, 'Max delay of the event loop'),
+      stddev: nsObsGauge(Metrics.NODEJS_EVENT_LOOP_DELAY_STDDEV, 'Stddev delay of the event loop'),
+      p50: nsObsGauge(Metrics.NODEJS_EVENT_LOOP_DELAY_P50, 'P50 delay of the event loop'),
+      p90: nsObsGauge(Metrics.NODEJS_EVENT_LOOP_DELAY_P90, 'P90 delay of the event loop'),
+      p99: nsObsGauge(Metrics.NODEJS_EVENT_LOOP_DELAY_P99, 'P99 delay of the event loop'),
+    };
+
+    this.eventLoopUilization = meter.createObservableGauge(Metrics.NODEJS_EVENT_LOOP_UTILIZATION, {
       valueType: ValueType.DOUBLE,
       description: 'How busy is the event loop',
     });
+
+    this.eventLoopTime = meter.createObservableUpDownCounter(Metrics.NODEJS_EVENT_LOOP_TIME, {
+      unit: 'ms',
+      valueType: ValueType.INT,
+      description: 'How busy is the event loop',
+    });
+
     this.eventLoopDelay = monitorEventLoopDelay();
   }
 
@@ -41,8 +72,8 @@ export class EventLoopMonitor {
     this.lastELU = performance.eventLoopUtilization();
     this.meter.addBatchObservableCallback(this.measure, [
       this.eventLoopUilization,
-      this.eventLoopLag,
-      this.eventLoopLagMax,
+      this.eventLoopTime,
+      ...Object.values(this.eventLoopDelayGauges),
     ]);
     this.eventLoopDelay.enable();
   }
@@ -53,8 +84,8 @@ export class EventLoopMonitor {
     }
     this.meter.removeBatchObservableCallback(this.measure, [
       this.eventLoopUilization,
-      this.eventLoopLag,
-      this.eventLoopLagMax,
+      this.eventLoopTime,
+      ...Object.values(this.eventLoopDelayGauges),
     ]);
     this.eventLoopDelay.disable();
     this.eventLoopDelay.reset();
@@ -72,9 +103,17 @@ export class EventLoopMonitor {
     // - https://nodesource.com/blog/event-loop-utilization-nodejs
     // - https://youtu.be/WetXnEPraYM
     obs.observe(this.eventLoopUilization, delta.utilization);
+    obs.observe(this.eventLoopTime, Math.floor(delta.idle), { [NODEJS_EVENT_LOOP_STATE]: 'idle' });
+    obs.observe(this.eventLoopTime, Math.floor(delta.active), { [NODEJS_EVENT_LOOP_STATE]: 'active' });
 
-    obs.observe(this.eventLoopLag, Math.floor(this.eventLoopDelay.mean));
-    obs.observe(this.eventLoopLagMax, Math.floor(this.eventLoopDelay.max));
+    obs.observe(this.eventLoopDelayGauges.min, Math.floor(this.eventLoopDelay.min));
+    obs.observe(this.eventLoopDelayGauges.mean, Math.floor(this.eventLoopDelay.mean));
+    obs.observe(this.eventLoopDelayGauges.max, Math.floor(this.eventLoopDelay.max));
+    obs.observe(this.eventLoopDelayGauges.stddev, Math.floor(this.eventLoopDelay.stddev));
+    obs.observe(this.eventLoopDelayGauges.p50, Math.floor(this.eventLoopDelay.percentile(50)));
+    obs.observe(this.eventLoopDelayGauges.p90, Math.floor(this.eventLoopDelay.percentile(90)));
+    obs.observe(this.eventLoopDelayGauges.p99, Math.floor(this.eventLoopDelay.percentile(99)));
+
     this.eventLoopDelay.reset();
   };
 }
