@@ -59,14 +59,13 @@ bool ECCVMVerifier::verify_proof(const ECCVMProof& proof)
 
     libra_commitments[0] = transcript->template receive_from_prover<Commitment>("Libra:concatenation_commitment");
 
-    auto [multivariate_challenge, claimed_evaluations, libra_evaluation, sumcheck_verified] =
-        sumcheck.verify(relation_parameters, alpha, gate_challenges);
+    auto sumcheck_output = sumcheck.verify(relation_parameters, alpha, gate_challenges);
 
     libra_commitments[1] = transcript->template receive_from_prover<Commitment>("Libra:big_sum_commitment");
     libra_commitments[2] = transcript->template receive_from_prover<Commitment>("Libra:quotient_commitment");
 
     // If Sumcheck did not verify, return false
-    if (sumcheck_verified.has_value() && !sumcheck_verified.value()) {
+    if (sumcheck_output.verified.has_value() && !sumcheck_output.verified.value()) {
         vinfo("eccvm sumcheck failed");
         return false;
     }
@@ -77,16 +76,16 @@ bool ECCVMVerifier::verify_proof(const ECCVMProof& proof)
         Shplemini::compute_batch_opening_claim(circuit_size,
                                                commitments.get_unshifted(),
                                                commitments.get_to_be_shifted(),
-                                               claimed_evaluations.get_unshifted(),
-                                               claimed_evaluations.get_shifted(),
-                                               multivariate_challenge,
+                                               sumcheck_output.claimed_evaluations.get_unshifted(),
+                                               sumcheck_output.claimed_evaluations.get_shifted(),
+                                               sumcheck_output.challenge,
                                                key->pcs_verification_key->get_g1_identity(),
                                                transcript,
                                                Flavor::REPEATED_COMMITMENTS,
                                                Flavor::HasZK,
                                                &consistency_checked,
                                                libra_commitments,
-                                               libra_evaluation);
+                                               sumcheck_output.claimed_libra_evaluation);
 
     // Reduce the accumulator to a single opening claim
     const OpeningClaim multivariate_to_univariate_opening_claim =
@@ -134,8 +133,8 @@ bool ECCVMVerifier::verify_proof(const ECCVMProof& proof)
 
     const bool batched_opening_verified =
         PCS::reduce_verify(key->pcs_verification_key, batch_opening_claim, ipa_transcript);
-    vinfo("eccvm sumcheck verified?: ", sumcheck_verified.value());
+    vinfo("eccvm sumcheck verified?: ", sumcheck_output.verified.value());
     vinfo("batch opening verified?: ", batched_opening_verified);
-    return sumcheck_verified.value() && batched_opening_verified && consistency_checked;
+    return sumcheck_output.verified.value() && batched_opening_verified && consistency_checked;
 }
 } // namespace bb
