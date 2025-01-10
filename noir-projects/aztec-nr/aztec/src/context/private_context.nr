@@ -1,7 +1,7 @@
 use dep::protocol_types::debug_log::debug_log_format;
 
 use crate::{
-    oracle::notes::{notify_created_nullifier, notify_nullified_note}, context::{inputs::PrivateContextInputs, packed_returns::PackedReturns},
+    context::{inputs::PrivateContextInputs, packed_returns::PackedReturns},
     hash::{ArgsHasher, hash_args_array},
     keys::constants::{NULLIFIER_INDEX, NUM_KEY_TYPES, OUTGOING_INDEX, sk_generators},
     messaging::process_l1_to_l2_message,
@@ -14,6 +14,7 @@ use crate::{
             set_public_teardown_function_call_internal,
         },
         key_validation_request::get_key_validation_request,
+        notes::{notify_created_nullifier, notify_nullified_note},
         returns::pack_returns,
     },
 };

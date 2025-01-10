@@ -80,16 +80,12 @@ unconstrained fn notify_nullified_note_oracle(
     _counter: u32,
 ) -> Field {}
 
-unconstrained fn notify_created_nullifier_oracle_wrapper(
-    nullifier: Field,
-) {
+unconstrained fn notify_created_nullifier_oracle_wrapper(nullifier: Field) {
     let _ = notify_created_nullifier_oracle(nullifier);
 }
 
 #[oracle(notifyCreatedNullifier)]
-unconstrained fn notify_created_nullifier_oracle(
-    _nullifier: Field,
-) -> Field  {}
+unconstrained fn notify_created_nullifier_oracle(_nullifier: Field) -> Field {}
 
 #[oracle(getNotes)]
 unconstrained fn get_notes_oracle<let N: u32, let S: u32>(
