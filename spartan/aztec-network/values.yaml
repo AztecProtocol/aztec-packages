@@ -195,6 +195,7 @@ bot:
   feePaymentMethod: "none"
   maxErrors: 3
   stopIfUnhealthy: true
+  realProofs: false
   service:
     type: ClusterIP
     nodePort: 8082

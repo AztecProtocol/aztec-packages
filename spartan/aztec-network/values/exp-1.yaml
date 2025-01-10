@@ -143,7 +143,8 @@ bootNode:
   maxOldSpaceSize: "4608"
 
 proverAgent:
-  replicas: 8
+  replicas: 1200
+  pollIntervalMs: 10000
 
 proverBroker:
   resources:
@@ -162,10 +163,15 @@ proverNode:
   maxOldSpaceSize: "11776"
 
 bot:
-  replicas: 10
+  replicas: 20
   followChain: "NONE"
   enabled: true
   txIntervalSeconds: 1
+  realProofs: true
+  resources:
+    requests:
+      memory: "10Gi"
+      cpu: "3.5"
 
 jobs:
   deployL1Verifier:

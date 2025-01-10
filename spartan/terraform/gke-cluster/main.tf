@@ -188,7 +188,7 @@ resource "google_container_node_pool" "aztec_nodes_simulated" {
   # Enable autoscaling
   autoscaling {
     min_node_count = 1
-    max_node_count = 256
+    max_node_count = 2048
   }
 
   # Node configuration
