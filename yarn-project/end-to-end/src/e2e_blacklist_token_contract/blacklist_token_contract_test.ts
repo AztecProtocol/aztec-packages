@@ -15,6 +15,7 @@ import { type TokenContract } from '@aztec/noir-contracts.js/Token';
 import { TokenBlacklistContract } from '@aztec/noir-contracts.js/TokenBlacklist';
 
 import { jest } from '@jest/globals';
+import { strict as assert } from 'assert';
 
 import {
   type ISnapshotManager,
@@ -94,10 +95,20 @@ export class BlacklistTokenContractTest {
     await this.snapshotManager.snapshot('3_accounts', addAccounts(3, this.logger), async ({ accountKeys }, { pxe }) => {
       const accountManagers = accountKeys.map(ak => getSchnorrAccount(pxe, ak[0], ak[1], 1));
       this.wallets = await Promise.all(accountManagers.map(a => a.getWallet()));
-      this.admin = this.wallets[0];
-      this.other = this.wallets[1];
-      this.blacklisted = this.wallets[2];
-      this.accounts = await pxe.getRegisteredAccounts();
+
+      // This Map and loop ensure that this.accounts has the same order as this.wallets and this.keys
+      const registeredAccounts: Map<string, CompleteAddress> = new Map(
+        (await pxe.getRegisteredAccounts()).map(acc => [acc.address.toString(), acc]),
+      );
+      for (let i = 0; i < this.wallets.length; i++) {
+        const wallet = this.wallets[i];
+        const walletAddr = wallet.getAddress().toString();
+        assert(
+          registeredAccounts.has(walletAddr),
+          `Test account ${walletAddr} not registered, but it should have been`,
+        );
+        this.accounts.push(registeredAccounts.get(walletAddr)!);
+      }
     });
 
     await this.snapshotManager.snapshot(
