@@ -50,8 +50,8 @@ fn get_prev_power_2(value: u32) -> u32 {
         get_next_power_exponent(value, 0)
     };
 
-    let prev_power_2 = 1 << (next_power_exponent - 1);
-    let next_power_2 = prev_power_2 * 2;
+    let next_power_2 = 1 << next_power_exponent;
+    let prev_power_2 = next_power_2 / 2;
     assert(prev_power_2 < value);
     assert(value <= next_power_2);
 
