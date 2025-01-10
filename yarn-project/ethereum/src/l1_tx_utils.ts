@@ -437,7 +437,7 @@ export class L1TxUtils {
     let priorityFee: bigint;
     if (gasConfig.fixedPriorityFeePerGas) {
       this.logger?.debug('Using fixed priority fee per gas', {
-        fixedPriorityFeePerGas: gasConfig,
+        fixedPriorityFeePerGas: gasConfig.fixedPriorityFeePerGas,
       });
       // try to maintain precision up to 1000000 wei
       priorityFee = BigInt(gasConfig.fixedPriorityFeePerGas * 1_000_000) * (WEI_CONST / 1_000_000n);
