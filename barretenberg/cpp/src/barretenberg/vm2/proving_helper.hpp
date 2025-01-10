@@ -12,7 +12,6 @@ class AvmProvingHelper {
   public:
     AvmProvingHelper() = default;
     using Proof = AvmProver::Proof;
-    using PublicInputs = PublicInputs;
     using VkData = std::vector<uint8_t>;
 
     std::pair<Proof, VkData> prove(tracegen::TraceContainer&& trace);
