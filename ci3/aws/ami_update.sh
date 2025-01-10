@@ -49,7 +49,7 @@ if [ "${NO_AMI:-0}" -eq 0 ]; then
   export AWS_DEFAULT_REGION=us-east-2
   ami_id=$(aws ec2 create-image \
     --instance-id "$iid" \
-    --name "build-instance-$(uname -m)-$(date +'%d%m%y%H%M')" \
+    --name "build-instance-$(arch)-$(date +'%d%m%y%H%M')" \
     --query "ImageId" \
     --output text)
   echo "Waiting for AMI to be created: $ami_id"

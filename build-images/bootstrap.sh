@@ -19,6 +19,7 @@ function docker_login {
 }
 
 function build_images {
+  cd src
   for target in build devbox sysbox; do
     docker build -t aztecprotocol/$target:$version-$arch --target $target .
   done
