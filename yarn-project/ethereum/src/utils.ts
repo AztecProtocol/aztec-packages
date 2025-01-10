@@ -127,7 +127,7 @@ export function formatViemError(error: any): string {
   };
 
   const truncateHexStringsInText = (text: string): string => {
-    const hexRegex = /0x[a-fA-F0-9]{10,}/g;
+    const hexRegex = /\b0x[a-fA-F0-9]{10,}/g;
     return text.replace(hexRegex, hex => truncateHex(hex));
   };
 
