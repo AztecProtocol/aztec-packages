@@ -500,6 +500,7 @@ end-to-end-base:
   SAVE IMAGE --push aztecprotocol/end-to-end-base:v1.0-$TARGETARCH
 
 all-ci:
+  LOCALLY
   # Build all images needed by ci, pushing them to the registry.
   BUILD +base-build
   BUILD +wasi-sdk
