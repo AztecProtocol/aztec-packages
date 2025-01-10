@@ -1911,7 +1911,7 @@ global y = 1;
 
     #[test]
     fn format_unsafe_one_expression() {
-        let src = "global x = unsafe {
+        let src = "global x = unsafe { 
         1  } ;";
         let expected = "global x = unsafe { 1 };\n";
         assert_format(src, expected);
@@ -1919,7 +1919,7 @@ global y = 1;
 
     #[test]
     fn format_unsafe_two_expressions() {
-        let src = "global x = unsafe {
+        let src = "global x = unsafe { 
         1; 2  } ;";
         let expected = "global x = unsafe {
     1;
@@ -1932,7 +1932,7 @@ global y = 1;
     #[test]
     fn format_unsafe_with_doc_comment() {
         let src = "fn foo() {
-        /// Comment
+        /// Comment 
         unsafe { 1  } }";
         let expected = "fn foo() {
     /// Comment

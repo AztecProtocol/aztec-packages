@@ -605,6 +605,10 @@ jobs:
           fi
         env:
           NARGO_IGNORE_TEST_FAILURES_FROM_FOREIGN_CALLS: true
+      
+      - name: Compare test results
+        working-directory: ./noir-repo
+        run: .github/scripts/check_test_results.sh .github/critical_libraries_status/${{ matrix.project.repo }}/${{ matrix.project.path }}.failures.jsonl .github/critical_libraries_status/${{ matrix.project.repo }}/${{ matrix.project.path }}.actual.jsonl
 
       - name: Compare test results
         working-directory: ./noir-repo
