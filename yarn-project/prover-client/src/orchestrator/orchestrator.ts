@@ -3,12 +3,14 @@ import {
   MerkleTreeId,
   type ProcessedTx,
   type ServerCircuitProver,
+  type Tx,
   toNumBlobFields,
 } from '@aztec/circuit-types';
 import {
   type EpochProver,
   type ForkMerkleTreeOperations,
   type MerkleTreeWriteOperations,
+  type ProofAndVerificationKey,
 } from '@aztec/circuit-types/interfaces';
 import { type CircuitName } from '@aztec/circuit-types/stats';
 import {
@@ -26,6 +28,7 @@ import {
   NUM_BASE_PARITY_PER_ROOT_PARITY,
   PartialStateReference,
   StateReference,
+  type TUBE_PROOF_LENGTH,
   VerificationKeyData,
   makeEmptyRecursiveProof,
 } from '@aztec/circuits.js';
@@ -34,6 +37,7 @@ import {
   EmptyBlockRootRollupInputs,
   PrivateBaseRollupInputs,
   SingleTxBlockRootRollupInputs,
+  TubeInputs,
 } from '@aztec/circuits.js/rollup';
 import { makeTuple } from '@aztec/foundation/array';
 import { padArrayEnd } from '@aztec/foundation/collection';
@@ -267,7 +271,7 @@ export class ProvingOrchestrator implements EpochProver {
         const [hints, treeSnapshots] = await this.prepareTransaction(tx, provingState);
         const txProvingState = new TxProvingState(tx, hints, treeSnapshots);
         const txIndex = provingState.addNewTx(txProvingState);
-        this.enqueueTube(provingState, txIndex);
+        this.getOrEnqueueTube(provingState, txIndex);
         if (txProvingState.requireAvmProof) {
           logger.debug(`Enqueueing public VM for tx ${txIndex}`);
           this.enqueueVM(provingState, txIndex);
@@ -277,6 +281,25 @@ export class ProvingOrchestrator implements EpochProver {
           cause: err,
         });
       }
+    }
+  }
+
+  /**
+   * Kickstarts tube circuits for the specified txs. These will be used during epoch proving.
+   * Note that if the tube circuits are not started this way, they will be started nontheless after processing.
+   */
+  @trackSpan('ProvingOrchestrator.startTubeCircuits')
+  public startTubeCircuits(txs: Tx[]) {
+    if (!this.provingState?.verifyState()) {
+      throw new Error(`Invalid proving state, call startNewEpoch before starting tube circuits`);
+    }
+    for (const tx of txs) {
+      const txHash = tx.getTxHash().toString();
+      const tubeInputs = new TubeInputs(tx.clientIvcProof);
+      const tubeProof = promiseWithResolvers<ProofAndVerificationKey<typeof TUBE_PROOF_LENGTH>>();
+      logger.debug(`Starting tube circuit for tx ${txHash}`);
+      this.doEnqueueTube(txHash, tubeInputs, proof => tubeProof.resolve(proof));
+      this.provingState?.cachedTubeProofs.set(txHash, tubeProof.promise);
     }
   }
 
@@ -567,16 +590,44 @@ export class ProvingOrchestrator implements EpochProver {
     );
   }
 
-  // Enqueues the tube circuit for a given transaction index
+  // Enqueues the tube circuit for a given transaction index, or reuses the one already enqueued
   // Once completed, will enqueue the next circuit, either a public kernel or the base rollup
-  private enqueueTube(provingState: BlockProvingState, txIndex: number) {
+  private getOrEnqueueTube(provingState: BlockProvingState, txIndex: number) {
     if (!provingState.verifyState()) {
       logger.debug('Not running tube circuit, state invalid');
       return;
     }
 
     const txProvingState = provingState.getTxProvingState(txIndex);
+    const txHash = txProvingState.processedTx.hash.toString();
+
+    const handleResult = (result: ProofAndVerificationKey<typeof TUBE_PROOF_LENGTH>) => {
+      logger.debug(`Got tube proof for tx index: ${txIndex}`, { txHash });
+      txProvingState.setTubeProof(result);
+      this.provingState?.cachedTubeProofs.delete(txHash);
+      this.checkAndEnqueueNextTxCircuit(provingState, txIndex);
+    };
+
+    if (this.provingState?.cachedTubeProofs.has(txHash)) {
+      logger.debug(`Tube proof already enqueued for tx index: ${txIndex}`, { txHash });
+      void this.provingState!.cachedTubeProofs.get(txHash)!.then(handleResult);
+      return;
+    }
+
     logger.debug(`Enqueuing tube circuit for tx index: ${txIndex}`);
+    this.doEnqueueTube(txHash, txProvingState.getTubeInputs(), handleResult);
+  }
+
+  private doEnqueueTube(
+    txHash: string,
+    inputs: TubeInputs,
+    handler: (result: ProofAndVerificationKey<typeof TUBE_PROOF_LENGTH>) => void,
+    provingState: EpochProvingState | BlockProvingState = this.provingState!,
+  ) {
+    if (!provingState?.verifyState()) {
+      logger.debug('Not running tube circuit, state invalid');
+      return;
+    }
 
     this.deferredProving(
       provingState,
@@ -584,20 +635,13 @@ export class ProvingOrchestrator implements EpochProver {
         this.tracer,
         'ProvingOrchestrator.prover.getTubeProof',
         {
-          [Attributes.TX_HASH]: txProvingState.processedTx.hash.toString(),
+          [Attributes.TX_HASH]: txHash,
           [Attributes.PROTOCOL_CIRCUIT_TYPE]: 'server',
           [Attributes.PROTOCOL_CIRCUIT_NAME]: 'tube-circuit' satisfies CircuitName,
         },
-        signal => {
-          const inputs = txProvingState.getTubeInputs();
-          return this.prover.getTubeProof(inputs, signal, provingState.epochNumber);
-        },
+        signal => this.prover.getTubeProof(inputs, signal, this.provingState!.epochNumber),
       ),
-      result => {
-        logger.debug(`Completed tube proof for tx index: ${txIndex}`);
-        txProvingState.setTubeProof(result);
-        this.checkAndEnqueueNextTxCircuit(provingState, txIndex);
-      },
+      handler,
     );
   }
 
