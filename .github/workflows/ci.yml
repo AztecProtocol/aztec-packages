@@ -45,7 +45,6 @@ jobs:
     # Set username to a value derived from our github username.
     outputs:
       username: ${{ steps.compute_username.outputs.username }}
-      base-images: ${{ steps.filter.outputs.base-images }}
       noir: ${{ steps.filter.outputs.noir }}
       noir-projects: ${{ steps.filter.outputs.noir-projects }}
       bb: ${{ steps.filter.outputs.bb }}
@@ -111,28 +110,9 @@ jobs:
             non-docs:
               - '!(docs/**)'
 
-  # Used by CI build as a base image.
-  base-images:
-    needs: [configure]
-    if: github.event.pull_request.draft == false
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-        with: { ref: "${{ env.GIT_COMMIT }}" }
-      - name: "Build Images"
-        if: needs.configure.outputs.base-images == 'true'
-        uses: ./.github/ensure-builder
-        timeout-minutes: 120
-        with:
-          runner_type: builder-x86
-          username: ${{ needs.configure.outputs.username }}
-          run: |
-            echo ${{ secrets.DOCKERHUB_PASSWORD }} | docker login -u aztecprotocolci --password-stdin
-            ./build-images/bootstrap-earthly.sh ci
-
   # CI for noir and bb.
   ci-noir-bb:
-    needs: [base-images, configure]
+    needs: [configure, configure]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -363,7 +343,7 @@ jobs:
   # ran on own runner for resource reasons (memory x cpu intensive)
   bb-native-tests:
     runs-on: ubuntu-latest
-    needs: [base-images, configure]
+    needs: [configure, configure]
     steps:
       - uses: actions/checkout@v4
         with: { ref: "${{ env.GIT_COMMIT }}" }
@@ -645,7 +625,7 @@ jobs:
     runs-on: ubuntu-latest
     needs:
       - configure
-      - base-images
+      - configure
       - bootstrap
       - ci-noir-bb
       - ci-rest
