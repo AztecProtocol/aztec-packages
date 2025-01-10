@@ -1,4 +1,4 @@
-FROM aztecprotocol/ci:2.0
+FROM aztecprotocol/ci:2.1
 COPY /usr/src /usr/src
 WORKDIR /usr/src/boxes
 RUN ls /usr/src/boxes

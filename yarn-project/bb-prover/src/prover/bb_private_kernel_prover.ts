@@ -23,6 +23,7 @@ import {
   convertPrivateKernelTailOutputsFromWitnessMapWithAbi,
   convertPrivateKernelTailToPublicInputsToWitnessMapWithAbi,
   getPrivateKernelResetArtifactName,
+  updateResetCircuitSampleInputs,
 } from '@aztec/noir-protocol-circuits-types/client';
 import { type ArtifactProvider, type ClientProtocolArtifact } from '@aztec/noir-protocol-circuits-types/types';
 import { ClientCircuitVks } from '@aztec/noir-protocol-circuits-types/vks';
@@ -100,6 +101,7 @@ export abstract class BBPrivateKernelProver implements PrivateKernelProver {
   public async simulateReset(
     inputs: PrivateKernelResetCircuitPrivateInputs,
   ): Promise<PrivateKernelSimulateOutput<PrivateKernelCircuitPublicInputs>> {
+    updateResetCircuitSampleInputs(inputs);
     const variantInputs = inputs.trimToSizes();
     const artifactName = getPrivateKernelResetArtifactName(inputs.dimensions);
     return await this.simulateCircuitOutput(
