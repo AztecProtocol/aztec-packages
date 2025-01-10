@@ -1,74 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1736453945316,
+  "lastUpdate": 1736514463396,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "98505400+ledwards2225@users.noreply.github.com",
-            "name": "ledwards2225",
-            "username": "ledwards2225"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "1516d7f7bd6a2adbb650bd7cdd572b33db98dbfc",
-          "message": "feat: better initialization for permutation mapping components (#10750)\n\nConstructing the permutation argument polynomials (sigmas/ids) involves\nconstructing an intermediate object of type `PermutationMapping` which\ncontains information about the copy constraints in the circuit. The\ninitialization of this object was inefficient in two ways: (1) the\ncomponents were zero initialized only to be immediately initialized to\nnon-zero values, and (2) the initialization was not multithreaded. This\nPR introduces a minor refactor of the underlying structures in\n`PermutationMapping` so that the zero initialization can be avoided\naltogether and the initialization to non-zero values can be done in\nparallel. (In particular instead of vectors of a struct with components\n{uint32_t, uint8_t, bool, bool}, we now have shared pointers to arrays\nof the corresponding type {*uint32_t[], *uint8_t[], *bool[], *bool[]}.\nThis structure allows for efficient use of the slab allocator and\nremoves the need to default zero initialize).\n\nBenchmark highlights for the case of 2^17 circuits in a 2^20 trace:\n\nMaster:\n```\nClientIVCBench/Full/6      24684 ms        20203 ms\nDeciderProvingKey(Circuit&)(t)          2365\ncompute_permutation_argument_polynomials(t)=912.772M\n```\n\nBranch:\n```\nClientIVCBench/Full/6      23955 ms        19680 ms\nDeciderProvingKey(Circuit&)(t)          1834     8.02%\ncompute_permutation_argument_polynomials(t)=437.54M\n```",
-          "timestamp": "2024-12-17T10:21:30-07:00",
-          "tree_id": "94da91aa41fe393a61a6d77a4507307076601ec5",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/1516d7f7bd6a2adbb650bd7cdd572b33db98dbfc"
-        },
-        "date": 1734459325266,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "nativeClientIVCBench/Ambient_17_in_20/6",
-            "value": 25351.831096000013,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 19706.370672999998 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeClientIVCBench/Full/6",
-            "value": 24453.681662999996,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 22160.444612 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 4465.00308200001,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 4184.896727000001 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmClientIVCBench/Full/6",
-            "value": 89150.73771,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 89150738000 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 16538.883102,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 16538884000 ms\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 2779700237,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 2779700237 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 133622421,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 133622421 ns\nthreads: 1"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -3276,6 +3210,72 @@ window.BENCHMARK_DATA = {
             "value": 144588502,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 144588502 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "sirasistant@gmail.com",
+            "name": "Álvaro Rodríguez",
+            "username": "sirasistant"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "34be2c3800c2d99c11fe3448e01c77abf60c726d",
+          "message": "feat: Use tail public inputs as transaction hash (#11100)\n\nImplements https://github.com/AztecProtocol/aztec-packages/issues/9269\r\nSeparates the role of the first nullifier and the transaction hash. The\r\ntransaction hash is now the hash of the tail public inputs. The first\r\nnullifier is still used for note uniqueness and replayability protection",
+          "timestamp": "2025-01-10T13:51:37+01:00",
+          "tree_id": "954a1d32e2052bd9ff91868bf26ab420d9a69401",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/34be2c3800c2d99c11fe3448e01c77abf60c726d"
+        },
+        "date": 1736514455835,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Ambient_17_in_20/6",
+            "value": 19509.69868100003,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 16789.389673 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 21627.030649999993,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 19110.811681000003 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 4611.245942999972,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 4317.705172999999 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 79875.7591,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 79875759000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 14137.017693999998,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 14137019000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 3067576434,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 3067576434 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 142691413,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 142691413 ns\nthreads: 1"
           }
         ]
       }
