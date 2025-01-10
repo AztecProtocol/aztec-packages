@@ -1,5 +1,10 @@
+import { randomBytes } from '@aztec/foundation/crypto';
 import { bufferSchemaFor } from '@aztec/foundation/schemas';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
+
+// Taken from full.test.ts
+const CLIENT_IVC_PROOF_LENGTH = 172052;
+const CLIENT_IVC_VK_LENGTH = 2730;
 
 /**
  * TODO(https://github.com/AztecProtocol/aztec-packages/issues/7370) refactory this to
@@ -20,6 +25,10 @@ export class ClientIvcProof {
 
   static empty() {
     return new ClientIvcProof(Buffer.from(''), Buffer.from(''));
+  }
+
+  static random() {
+    return new ClientIvcProof(randomBytes(CLIENT_IVC_PROOF_LENGTH), randomBytes(CLIENT_IVC_VK_LENGTH));
   }
 
   static get schema() {

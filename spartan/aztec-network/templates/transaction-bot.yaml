@@ -104,9 +104,9 @@ spec:
             - name: BOT_FEE_PAYMENT_METHOD
               value: "{{ .Values.bot.feePaymentMethod }}"
             - name: PXE_PROVER_ENABLED
-              value: "{{ .Values.bot.realProofs }}"
+              value: "{{ .Values.aztec.realProofs }}"
             - name: PROVER_REAL_PROOFS
-              value: "{{ .Values.bot.realProofs }}"
+              value: "{{ .Values.aztec.realProofs }}"
             - name: BOT_MAX_CONSECUTIVE_ERRORS
               value: "{{ .Values.bot.maxErrors }}"
             - name: BOT_STOP_WHEN_UNHEALTHY

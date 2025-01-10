@@ -10,7 +10,7 @@ aztec:
   realProofs: false
 
 telemetry:
-  enabled: true
+  enabled: false
   otelCollectorEndpoint: http://35.197.100.168:4318
 
 images:
@@ -163,15 +163,10 @@ proverNode:
   maxOldSpaceSize: "11776"
 
 bot:
-  replicas: 20
+  replicas: 10
   followChain: "NONE"
   enabled: true
   txIntervalSeconds: 1
-  realProofs: true
-  resources:
-    requests:
-      memory: "10Gi"
-      cpu: "3.5"
 
 jobs:
   deployL1Verifier:

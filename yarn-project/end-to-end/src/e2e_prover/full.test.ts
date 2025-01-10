@@ -87,8 +87,8 @@ describe('full_prover', () => {
         privateInteraction.prove(provingOpts),
       ]);
 
-      // Verify them
-      logger.info(`Verifying txs`);
+      logger // Verify them
+        .info(`Verifying txs`);
       await expect(t.circuitProofVerifier?.verifyProof(publicProvenTx)).resolves.not.toThrow();
       await expect(t.circuitProofVerifier?.verifyProof(privateProvenTx)).resolves.not.toThrow();
 
