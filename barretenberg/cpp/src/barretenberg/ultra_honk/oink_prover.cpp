@@ -2,6 +2,7 @@
 #include "barretenberg/common/op_count.hpp"
 #include "barretenberg/plonk_honk_shared/proving_key_inspector.hpp"
 #include "barretenberg/relations/logderiv_lookup_relation.hpp"
+#include "barretenberg/ultra_honk/witness_computation.hpp"
 
 namespace bb {
 
@@ -162,7 +163,7 @@ template <IsUltraFlavor Flavor> void OinkProver<Flavor>::execute_sorted_list_acc
     proving_key->relation_parameters.eta_two = eta_two;
     proving_key->relation_parameters.eta_three = eta_three;
 
-    proving_key->proving_key.add_ram_rom_memory_records_to_wire_4(eta, eta_two, eta_three);
+    WitnessComputation<Flavor>::add_ram_rom_memory_records_to_wire_4(proving_key->proving_key, eta, eta_two, eta_three);
 
     // Commit to lookup argument polynomials and the finalized (i.e. with memory records) fourth wire polynomial
     {
@@ -202,7 +203,8 @@ template <IsUltraFlavor Flavor> void OinkProver<Flavor>::execute_log_derivative_
     proving_key->relation_parameters.gamma = gamma;
 
     // Compute the inverses used in log-derivative lookup relations
-    proving_key->proving_key.compute_logderivative_inverses(proving_key->relation_parameters);
+    WitnessComputation<Flavor>::compute_logderivative_inverses(proving_key->proving_key,
+                                                               proving_key->relation_parameters);
 
     {
         PROFILE_THIS_NAME("COMMIT::lookup_inverses");
@@ -236,8 +238,8 @@ template <IsUltraFlavor Flavor> void OinkProver<Flavor>::execute_grand_product_c
     PROFILE_THIS_NAME("OinkProver::execute_grand_product_computation_round");
     // Compute the permutation grand product polynomial
 
-    proving_key->proving_key.compute_grand_product_polynomial(proving_key->relation_parameters,
-                                                              proving_key->final_active_wire_idx + 1);
+    WitnessComputation<Flavor>::compute_grand_product_polynomial(
+        proving_key->proving_key, proving_key->relation_parameters, proving_key->final_active_wire_idx + 1);
 
     {
         PROFILE_THIS_NAME("COMMIT::z_perm");

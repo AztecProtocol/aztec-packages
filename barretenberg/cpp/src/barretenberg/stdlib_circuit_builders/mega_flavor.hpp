@@ -284,8 +284,6 @@ class MegaFlavor {
                               w_o_shift,    // column 2
                               w_4_shift,    // column 3
                               z_perm_shift) // column 4
-
-        auto get_shifted() { return RefArray{ w_l_shift, w_r_shift, w_o_shift, w_4_shift, z_perm_shift }; };
     };
 
   public:
@@ -325,8 +323,6 @@ class MegaFlavor {
         {
             return concatenate(WitnessEntities<DataType>::get_all(), ShiftedEntities<DataType>::get_all());
         };
-        // getter for the complement of all witnesses inside all entities
-        auto get_non_witnesses() { return PrecomputedEntities<DataType>::get_all(); };
     };
 
     /**
@@ -433,85 +429,6 @@ class MegaFlavor {
 
         // Data pertaining to transfer of databus return data via public inputs
         DatabusPropagationData databus_propagation_data;
-
-        /**
-         * @brief Add plookup memory records to the fourth wire polynomial
-         *
-         * @details This operation must be performed after the first three wires have been committed to, hence the
-         * dependence on the `eta` challenge.
-         *
-         * @tparam Flavor
-         * @param eta challenge produced after commitment to first three wire polynomials
-         */
-        void add_ram_rom_memory_records_to_wire_4(const FF& eta, const FF& eta_two, const FF& eta_three)
-        {
-            // The plookup memory record values are computed at the indicated indices as
-            // w4 = w3 * eta^3 + w2 * eta^2 + w1 * eta + read_write_flag;
-            // (See plookup_auxiliary_widget.hpp for details)
-            auto wires = polynomials.get_wires();
-
-            // Compute read record values
-            for (const auto& gate_idx : memory_read_records) {
-                wires[3].at(gate_idx) += wires[2][gate_idx] * eta_three;
-                wires[3].at(gate_idx) += wires[1][gate_idx] * eta_two;
-                wires[3].at(gate_idx) += wires[0][gate_idx] * eta;
-            }
-
-            // Compute write record values
-            for (const auto& gate_idx : memory_write_records) {
-                wires[3].at(gate_idx) += wires[2][gate_idx] * eta_three;
-                wires[3].at(gate_idx) += wires[1][gate_idx] * eta_two;
-                wires[3].at(gate_idx) += wires[0][gate_idx] * eta;
-                wires[3].at(gate_idx) += 1;
-            }
-        }
-
-        /**
-         * @brief Compute the inverse polynomials used in the log derivative lookup relations
-         *
-         * @tparam Flavor
-         * @param beta
-         * @param gamma
-         */
-        void compute_logderivative_inverses(const RelationParameters<FF>& relation_parameters)
-        {
-            PROFILE_THIS_NAME("compute_logderivative_inverses");
-
-            // Compute inverses for conventional lookups
-            LogDerivLookupRelation<FF>::compute_logderivative_inverse(
-                this->polynomials, relation_parameters, this->circuit_size);
-
-            // Compute inverses for calldata reads
-            DatabusLookupRelation<FF>::compute_logderivative_inverse</*bus_idx=*/0>(
-                this->polynomials, relation_parameters, this->circuit_size);
-
-            // Compute inverses for secondary_calldata reads
-            DatabusLookupRelation<FF>::compute_logderivative_inverse</*bus_idx=*/1>(
-                this->polynomials, relation_parameters, this->circuit_size);
-
-            // Compute inverses for return data reads
-            DatabusLookupRelation<FF>::compute_logderivative_inverse</*bus_idx=*/2>(
-                this->polynomials, relation_parameters, this->circuit_size);
-        }
-
-        /**
-         * @brief Computes public_input_delta and the permutation grand product polynomial
-         *
-         * @param relation_parameters
-         * @param size_override override the size of the domain over which to compute the grand product
-         */
-        void compute_grand_product_polynomial(RelationParameters<FF>& relation_parameters, size_t size_override = 0)
-        {
-            relation_parameters.public_input_delta = compute_public_input_delta<MegaFlavor>(this->public_inputs,
-                                                                                            relation_parameters.beta,
-                                                                                            relation_parameters.gamma,
-                                                                                            this->circuit_size,
-                                                                                            this->pub_inputs_offset);
-
-            // Compute permutation grand product polynomial
-            compute_grand_product<MegaFlavor, UltraPermutationRelation<FF>>(
-                this->polynomials, relation_parameters, size_override, this->active_region_data);
-        }
 
         uint64_t estimate_memory()
         {

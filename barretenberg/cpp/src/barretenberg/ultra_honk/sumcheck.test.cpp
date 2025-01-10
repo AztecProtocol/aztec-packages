@@ -9,6 +9,7 @@
 #include "barretenberg/relations/ultra_arithmetic_relation.hpp"
 #include "barretenberg/stdlib_circuit_builders/plookup_tables/fixed_base/fixed_base.hpp"
 #include "barretenberg/transcript/transcript.hpp"
+#include "barretenberg/ultra_honk/witness_computation.hpp"
 
 #include <gtest/gtest.h>
 
@@ -156,12 +157,14 @@ TEST_F(SumcheckTestsRealCircuit, Ultra)
     decider_pk->relation_parameters.beta = FF::random_element();
     decider_pk->relation_parameters.gamma = FF::random_element();
 
-    decider_pk->proving_key.add_ram_rom_memory_records_to_wire_4(decider_pk->relation_parameters.eta,
-                                                                 decider_pk->relation_parameters.eta_two,
-                                                                 decider_pk->relation_parameters.eta_three);
-    decider_pk->proving_key.compute_logderivative_inverses(decider_pk->relation_parameters);
-    decider_pk->proving_key.compute_grand_product_polynomial(decider_pk->relation_parameters,
-                                                             decider_pk->final_active_wire_idx + 1);
+    WitnessComputation<Flavor>::add_ram_rom_memory_records_to_wire_4(decider_pk->proving_key,
+                                                                     decider_pk->relation_parameters.eta,
+                                                                     decider_pk->relation_parameters.eta_two,
+                                                                     decider_pk->relation_parameters.eta_three);
+    WitnessComputation<Flavor>::compute_logderivative_inverses(decider_pk->proving_key,
+                                                               decider_pk->relation_parameters);
+    WitnessComputation<Flavor>::compute_grand_product_polynomial(
+        decider_pk->proving_key, decider_pk->relation_parameters, decider_pk->final_active_wire_idx + 1);
 
     auto prover_transcript = Transcript::prover_init_empty();
     auto circuit_size = decider_pk->proving_key.circuit_size;

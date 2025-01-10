@@ -343,8 +343,6 @@ class ECCVMFlavor {
         {
             return concatenate(WitnessEntities<DataType>::get_all(), ShiftedEntities<DataType>::get_all());
         };
-        // this getter is necessary for a universal ZK Sumcheck
-        auto get_non_witnesses() { return PrecomputedEntities<DataType>::get_all(); };
     };
 
   public:

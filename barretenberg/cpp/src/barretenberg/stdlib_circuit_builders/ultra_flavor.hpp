@@ -255,8 +255,6 @@ class UltraFlavor {
         {
             return concatenate(WitnessEntities<DataType>::get_all(), ShiftedEntities<DataType>::get_shifted());
         };
-        // getter for the complement of all witnesses inside all entities
-        auto get_non_witnesses() { return PrecomputedEntities<DataType>::get_all(); };
     };
 
     /**
@@ -358,71 +356,6 @@ class UltraFlavor {
         std::vector<uint32_t> memory_read_records;
         std::vector<uint32_t> memory_write_records;
         ProverPolynomials polynomials; // storage for all polynomials evaluated by the prover
-
-        /**
-         * @brief Add RAM/ROM memory records to the fourth wire polynomial
-         *
-         * @details This operation must be performed after the first three wires have been
-         * committed to, hence the dependence on the `eta` challenge.
-         *
-         * @tparam Flavor
-         * @param eta challenge produced after commitment to first three wire polynomials
-         */
-        void add_ram_rom_memory_records_to_wire_4(const FF& eta, const FF& eta_two, const FF& eta_three)
-        {
-            // The memory record values are computed at the indicated indices as
-            // w4 = w3 * eta^3 + w2 * eta^2 + w1 * eta + read_write_flag;
-            // (See the Auxiliary relation for details)
-            auto wires = polynomials.get_wires();
-
-            // Compute read record values
-            for (const auto& gate_idx : memory_read_records) {
-                wires[3].at(gate_idx) += wires[2][gate_idx] * eta_three;
-                wires[3].at(gate_idx) += wires[1][gate_idx] * eta_two;
-                wires[3].at(gate_idx) += wires[0][gate_idx] * eta;
-            }
-
-            // Compute write record values
-            for (const auto& gate_idx : memory_write_records) {
-                wires[3].at(gate_idx) += wires[2][gate_idx] * eta_three;
-                wires[3].at(gate_idx) += wires[1][gate_idx] * eta_two;
-                wires[3].at(gate_idx) += wires[0][gate_idx] * eta;
-                wires[3].at(gate_idx) += 1;
-            }
-        }
-
-        /**
-         * @brief Compute the inverse polynomial used in the log derivative lookup argument
-         *
-         * @tparam Flavor
-         * @param beta
-         * @param gamma
-         */
-        void compute_logderivative_inverses(const RelationParameters<FF>& relation_parameters)
-        {
-            // Compute inverses for conventional lookups
-            compute_logderivative_inverse<UltraFlavor, LogDerivLookupRelation<FF>>(
-                this->polynomials, relation_parameters, this->circuit_size);
-        }
-
-        /**
-         * @brief Computes public_input_delta and the permutation grand product polynomial
-         *
-         * @param relation_parameters
-         * @param size_override override the size of the domain over which to compute the grand product
-         */
-        void compute_grand_product_polynomial(RelationParameters<FF>& relation_parameters, size_t size_override = 0)
-        {
-            relation_parameters.public_input_delta = compute_public_input_delta<UltraFlavor>(this->public_inputs,
-                                                                                             relation_parameters.beta,
-                                                                                             relation_parameters.gamma,
-                                                                                             this->circuit_size,
-                                                                                             this->pub_inputs_offset);
-
-            // Compute permutation grand product polynomial
-            compute_grand_product<UltraFlavor, UltraPermutationRelation<FF>>(
-                this->polynomials, relation_parameters, size_override);
-        }
     };
 
     /**

@@ -592,8 +592,6 @@ class TranslatorFlavor {
         {
             return concatenate(WitnessEntities<DataType>::get_all(), ShiftedEntities<DataType>::get_all());
         };
-        // Get all non-witness polynomials. In this case, contains only PrecomputedEntities.
-        auto get_non_witnesses() { return PrecomputedEntities<DataType>::get_all(); };
 
         friend std::ostream& operator<<(std::ostream& os, const AllEntities& a)
         {
