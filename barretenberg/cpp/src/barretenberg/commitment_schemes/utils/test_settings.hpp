@@ -1,15 +1,15 @@
 #pragma once
 
+#include "barretenberg/commitment_schemes/commitment_key.hpp"
 #include "barretenberg/ecc/curves/bn254/bn254.hpp"
 #include "barretenberg/transcript/transcript.hpp"
-#include "commitment_key.test.hpp"
 
 namespace bb {
 /**
  * @brief Mock Flavors to use ZKSumcheckData and SmallSubgroupIPAProver in the PCS tests.
  *
  */
-class TestBn254Flavor {
+class BN254Settings {
   public:
     using Curve = curve::BN254;
     using CommitmentKey = bb::CommitmentKey<curve::BN254>;
@@ -18,7 +18,7 @@ class TestBn254Flavor {
     static constexpr size_t SUBGROUP_SIZE = Curve::SUBGROUP_SIZE;
 };
 
-class TestGrumpkinFlavor {
+class GrumpkinSettings {
   public:
     using Curve = curve::Grumpkin;
     using CommitmentKey = bb::CommitmentKey<curve::Grumpkin>;

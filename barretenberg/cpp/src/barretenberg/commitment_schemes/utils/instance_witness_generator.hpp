@@ -1,9 +1,9 @@
 #pragma once
 
+#include "barretenberg/commitment_schemes/commitment_key.hpp"
 #include "barretenberg/ecc/curves/bn254/bn254.hpp"
 #include "barretenberg/polynomials/polynomial.hpp"
 #include "barretenberg/transcript/transcript.hpp"
-#include "commitment_key.test.hpp"
 
 namespace bb {
 /**
@@ -11,7 +11,7 @@ namespace bb {
  *
  * @tparam Curve
  */
-template <typename Curve> struct PCSInstanceWitnessGenerator {
+template <typename Curve> struct InstanceWitnessGenerator {
   public:
     using CommitmentKey = bb::CommitmentKey<Curve>;
     using Fr = typename Curve::ScalarField;
@@ -19,22 +19,22 @@ template <typename Curve> struct PCSInstanceWitnessGenerator {
     using Polynomial = bb::Polynomial<Fr>;
 
     std::shared_ptr<CommitmentKey> ck;
-    std::vector<Polynomial> polynomials;
-    std::vector<Polynomial> shiftable_polynomials;
+    std::vector<Polynomial> unshifted_polynomials;
+    std::vector<Polynomial> to_be_shifted_polynomials;
     std::vector<Fr> const_size_mle_opening_point;
     std::vector<Commitment> unshifted_commitments;
-    std::vector<Commitment> shifted_commitments;
+    std::vector<Commitment> to_be_shifted_commitments;
     std::vector<Fr> unshifted_evals;
     std::vector<Fr> shifted_evals;
 
-    PCSInstanceWitnessGenerator(const size_t n,
-                                const size_t num_polynomials,
-                                const size_t num_shiftable,
-                                const std::vector<Fr>& mle_opening_point,
-                                std::shared_ptr<CommitmentKey>& commitment_key)
+    InstanceWitnessGenerator(const size_t n,
+                             const size_t num_polynomials,
+                             const size_t num_shiftable,
+                             const std::vector<Fr>& mle_opening_point,
+                             std::shared_ptr<CommitmentKey>& commitment_key)
         : ck(commitment_key) // Initialize the commitment key
-        , polynomials(num_polynomials)
-        , shiftable_polynomials(num_shiftable)
+        , unshifted_polynomials(num_polynomials)
+        , to_be_shifted_polynomials(num_shiftable)
 
     {
         construct_instance_and_witnesses(n, mle_opening_point);
@@ -43,23 +43,23 @@ template <typename Curve> struct PCSInstanceWitnessGenerator {
     void construct_instance_and_witnesses(size_t n, const std::vector<Fr>& mle_opening_point)
     {
 
-        const size_t num_unshifted = polynomials.size() - shiftable_polynomials.size();
+        const size_t num_unshifted = unshifted_polynomials.size() - to_be_shifted_polynomials.size();
 
-        // Process polynomials that are not getting shifted
+        // Constructs polynomials that are not shifted
         for (size_t idx = 0; idx < num_unshifted; idx++) {
-            polynomials[idx] = Polynomial::random(n);
-            unshifted_commitments.push_back(ck->commit(polynomials[idx]));
-            unshifted_evals.push_back(polynomials[idx].evaluate_mle(mle_opening_point));
+            unshifted_polynomials[idx] = Polynomial::random(n);
+            unshifted_commitments.push_back(ck->commit(unshifted_polynomials[idx]));
+            unshifted_evals.push_back(unshifted_polynomials[idx].evaluate_mle(mle_opening_point));
         }
 
-        // Process polynomials that are getting shifted
+        // Constructs polynomials that are being shifted
         size_t idx = num_unshifted;
-        for (auto& poly : shiftable_polynomials) {
+        for (auto& poly : to_be_shifted_polynomials) {
             poly = Polynomial::random(n, /*shiftable*/ 1);
-            polynomials[idx] = poly;
-            auto comm = this->ck->commit(poly);
+            unshifted_polynomials[idx] = poly;
+            const Commitment comm = this->ck->commit(poly);
             unshifted_commitments.push_back(comm);
-            shifted_commitments.push_back(comm);
+            to_be_shifted_commitments.push_back(comm);
             unshifted_evals.push_back(poly.evaluate_mle(mle_opening_point));
             shifted_evals.push_back(poly.evaluate_mle(mle_opening_point, true));
             idx++;

@@ -1,8 +1,10 @@
 #include "barretenberg/commitment_schemes/small_subgroup_ipa/small_subgroup_ipa.hpp"
-#include "barretenberg/commitment_schemes/pcs_test_flavors.hpp"
+#include "../commitment_key.test.hpp"
 #include "barretenberg/commitment_schemes/shplonk/shplemini.hpp"
+#include "barretenberg/commitment_schemes/utils/test_settings.hpp"
 
 #include <array>
+#include <gtest/gtest.h>
 #include <vector>
 
 namespace bb {
@@ -13,35 +15,11 @@ template <typename Flavor> class SmallSubgroupIPATest : public ::testing::Test {
     using FF = typename Curve::ScalarField;
 
     static constexpr size_t log_circuit_size = 7;
+    static constexpr size_t circuit_size = 1ULL << log_circuit_size;
 
     FF evaluation_challenge;
 
     void SetUp() override { evaluation_challenge = FF::random_element(); }
-
-    /**
-     * @brief Comput the sum of the Libra constant term and Libra univariates evaluated at Sumcheck challenges.
-     *
-     * @param zk_sumcheck_data Contains Libra constant term and scaled Libra univariates
-     * @param multivariate_challenge Sumcheck challenge
-     * @param log_circuit_size
-     */
-    static FF compute_claimed_inner_product(ZKSumcheckData<Flavor>& zk_sumcheck_data,
-                                            const std::vector<FF>& multivariate_challenge,
-                                            const size_t& log_circuit_size)
-    {
-        const FF libra_challenge_inv = zk_sumcheck_data.libra_challenge.invert();
-        // Compute claimed inner product similarly to the SumcheckProver
-        FF claimed_inner_product = FF{ 0 };
-        size_t idx = 0;
-        for (const auto& univariate : zk_sumcheck_data.libra_univariates) {
-            claimed_inner_product += univariate.evaluate(multivariate_challenge[idx]);
-            idx++;
-        }
-        // Libra Univariates are mutiplied by the Libra challenge in setup_auxiliary_data(), needs to be undone
-        claimed_inner_product *= libra_challenge_inv / FF(1 << (log_circuit_size - 1));
-        claimed_inner_product += zk_sumcheck_data.constant_term;
-        return claimed_inner_product;
-    }
 
     static std::vector<FF> generate_random_vector(const size_t size)
     {
@@ -53,11 +31,11 @@ template <typename Flavor> class SmallSubgroupIPATest : public ::testing::Test {
     }
 };
 
-// Register the flavors for the test suite
-using TestFlavors = ::testing::Types<TestBn254Flavor, TestGrumpkinFlavor>;
+using TestFlavors = ::testing::Types<BN254Settings, GrumpkinSettings>;
 TYPED_TEST_SUITE(SmallSubgroupIPATest, TestFlavors);
 
-// Implement the tests
+// Check the correctness of the computation of the claimed inner product and various polynomials needed for the
+// SmallSubgroupIPA.
 TYPED_TEST(SmallSubgroupIPATest, ProverComputationsCorrectness)
 {
     using ZKData = ZKSumcheckData<TypeParam>;
@@ -65,30 +43,34 @@ TYPED_TEST(SmallSubgroupIPATest, ProverComputationsCorrectness)
     using FF = typename TypeParam::FF;
     static constexpr size_t SUBGROUP_SIZE = TypeParam::SUBGROUP_SIZE;
 
-    std::shared_ptr<typename TypeParam::CommitmentKey> ck;
+    using CK = typename TypeParam::CommitmentKey;
+
+    // SmallSubgroupIPAProver requires at least CURVE::SUBGROUP_SIZE + 3 elements in the ck.
+    static constexpr size_t log_subgroup_size = static_cast<size_t>(numeric::get_msb(SUBGROUP_SIZE));
+    std::shared_ptr<CK> ck =
+        create_commitment_key<CK>(std::max<size_t>(this->circuit_size, 1ULL << (log_subgroup_size + 1)));
 
     auto prover_transcript = TypeParam::Transcript::prover_init_empty();
-    ck = CreateCommitmentKey<typename TypeParam::CommitmentKey>();
 
     ZKData zk_sumcheck_data(this->log_circuit_size, prover_transcript, ck);
     std::vector<FF> multivariate_challenge = this->generate_random_vector(this->log_circuit_size);
 
-    const FF claimed_inner_product =
-        this->compute_claimed_inner_product(zk_sumcheck_data, multivariate_challenge, this->log_circuit_size);
+    const FF claimed_inner_product = SmallSubgroupIPA::compute_claimed_inner_product(
+        zk_sumcheck_data, multivariate_challenge, this->log_circuit_size);
 
     SmallSubgroupIPA small_subgroup_ipa_prover =
         SmallSubgroupIPA(zk_sumcheck_data, multivariate_challenge, claimed_inner_product, prover_transcript, ck);
 
-    auto batched_polynomial = small_subgroup_ipa_prover.get_batched_polynomial();
-    auto libra_concatenated_polynomial = small_subgroup_ipa_prover.get_witness_polynomials()[0];
-    auto batched_quotient = small_subgroup_ipa_prover.get_witness_polynomials()[3];
-    auto challenge_polynomial = small_subgroup_ipa_prover.get_challenge_polynomial();
+    const Polynomial batched_polynomial = small_subgroup_ipa_prover.get_batched_polynomial();
+    const Polynomial libra_concatenated_polynomial = small_subgroup_ipa_prover.get_witness_polynomials()[0];
+    const Polynomial batched_quotient = small_subgroup_ipa_prover.get_witness_polynomials()[3];
+    const Polynomial challenge_polynomial = small_subgroup_ipa_prover.get_challenge_polynomial();
 
     // Check that claimed inner product coincides with the inner product of libra_concatenated_polynomial and
     // challenge_polynomial. Since libra_concatenated_polynomial is masked, we also check that masking does not affect
     // the evaluations over H
     FF inner_product = FF(0);
-    auto domain = zk_sumcheck_data.interpolation_domain;
+    const std::array<FF, SUBGROUP_SIZE> domain = zk_sumcheck_data.interpolation_domain;
     for (size_t idx = 0; idx < SUBGROUP_SIZE; idx++) {
         inner_product +=
             challenge_polynomial.evaluate(domain[idx]) * libra_concatenated_polynomial.evaluate(domain[idx]);
@@ -121,6 +103,9 @@ TYPED_TEST(SmallSubgroupIPATest, ProverComputationsCorrectness)
     EXPECT_EQ(quotient_is_correct, true);
 }
 
+// Check the correctness of the evaluations of the challenge_polynomial, Lagrange first, and Lagrange last that the
+// verifier has to compute on its own. Compare the values against the evaluations obtaned by applying Lagrange
+// interpolation method used by Polynomial class constructor.
 TYPED_TEST(SmallSubgroupIPATest, VerifierEvaluations)
 {
     using FF = typename TypeParam::FF;
@@ -169,6 +154,8 @@ TYPED_TEST(SmallSubgroupIPATest, VerifierEvaluations)
     EXPECT_EQ(lagrange_last, lagrange_last_monomial.evaluate(this->evaluation_challenge));
 }
 
+// Simulate the interaction between the prover and the verifier leading to the consistency check performed by the
+// verifier.
 TYPED_TEST(SmallSubgroupIPATest, ProverAndVerifierSimple)
 {
     using FF = typename TypeParam::FF;
@@ -176,22 +163,27 @@ TYPED_TEST(SmallSubgroupIPATest, ProverAndVerifierSimple)
     using Verifier = SmallSubgroupIPAVerifier<Curve>;
     using Prover = SmallSubgroupIPAProver<TypeParam>;
     using ZKData = ZKSumcheckData<TypeParam>;
+    using CK = typename TypeParam::CommitmentKey;
 
     auto prover_transcript = TypeParam::Transcript::prover_init_empty();
-    std::shared_ptr<typename TypeParam::CommitmentKey> ck;
-    ck = CreateCommitmentKey<typename TypeParam::CommitmentKey>();
+
+    // SmallSubgroupIPAProver requires at least CURVE::SUBGROUP_SIZE + 3 elements in the ck.
+    static constexpr size_t log_subgroup_size = static_cast<size_t>(numeric::get_msb(Curve::SUBGROUP_SIZE));
+    std::shared_ptr<CK> ck =
+        create_commitment_key<CK>(std::max<size_t>(this->circuit_size, 1ULL << (log_subgroup_size + 1)));
 
     ZKData zk_sumcheck_data(this->log_circuit_size, prover_transcript, ck);
 
     std::vector<FF> multivariate_challenge = this->generate_random_vector(CONST_PROOF_SIZE_LOG_N);
 
     const FF claimed_inner_product =
-        this->compute_claimed_inner_product(zk_sumcheck_data, multivariate_challenge, this->log_circuit_size);
+        Prover::compute_claimed_inner_product(zk_sumcheck_data, multivariate_challenge, this->log_circuit_size);
 
     Prover small_subgroup_ipa_prover =
         Prover(zk_sumcheck_data, multivariate_challenge, claimed_inner_product, prover_transcript, ck);
 
-    auto witness_polynomials = small_subgroup_ipa_prover.get_witness_polynomials();
+    const std::array<Polynomial<FF>, NUM_LIBRA_EVALUATIONS> witness_polynomials =
+        small_subgroup_ipa_prover.get_witness_polynomials();
 
     std::array<FF, NUM_LIBRA_EVALUATIONS> libra_evaluations = {
         witness_polynomials[0].evaluate(this->evaluation_challenge),
@@ -206,6 +198,7 @@ TYPED_TEST(SmallSubgroupIPATest, ProverAndVerifierSimple)
     EXPECT_TRUE(consistency_checked);
 }
 
+// Check that consistency check fails when some of the prover's data is corrupted.
 TYPED_TEST(SmallSubgroupIPATest, ProverAndVerifierSimpleFailure)
 {
     using FF = typename TypeParam::FF;
@@ -213,22 +206,27 @@ TYPED_TEST(SmallSubgroupIPATest, ProverAndVerifierSimpleFailure)
     using Verifier = SmallSubgroupIPAVerifier<Curve>;
     using Prover = SmallSubgroupIPAProver<TypeParam>;
     using ZKData = ZKSumcheckData<TypeParam>;
+    using CK = typename TypeParam::CommitmentKey;
 
     auto prover_transcript = TypeParam::Transcript::prover_init_empty();
-    std::shared_ptr<typename TypeParam::CommitmentKey> ck;
-    ck = CreateCommitmentKey<typename TypeParam::CommitmentKey>();
+
+    // SmallSubgroupIPAProver requires at least CURVE::SUBGROUP_SIZE + 3 elements in the ck.
+    static constexpr size_t log_subgroup_size = static_cast<size_t>(numeric::get_msb(Curve::SUBGROUP_SIZE));
+    std::shared_ptr<CK> ck =
+        create_commitment_key<CK>(std::max<size_t>(this->circuit_size, 1ULL << (log_subgroup_size + 1)));
 
     ZKData zk_sumcheck_data(this->log_circuit_size, prover_transcript, ck);
 
     std::vector<FF> multivariate_challenge = this->generate_random_vector(CONST_PROOF_SIZE_LOG_N);
 
     const FF claimed_inner_product =
-        this->compute_claimed_inner_product(zk_sumcheck_data, multivariate_challenge, this->log_circuit_size);
+        Prover::compute_claimed_inner_product(zk_sumcheck_data, multivariate_challenge, this->log_circuit_size);
 
     Prover small_subgroup_ipa_prover =
         Prover(zk_sumcheck_data, multivariate_challenge, claimed_inner_product, prover_transcript, ck);
 
-    auto witness_polynomials = small_subgroup_ipa_prover.get_witness_polynomials();
+    std::array<Polynomial<FF>, NUM_LIBRA_EVALUATIONS> witness_polynomials =
+        small_subgroup_ipa_prover.get_witness_polynomials();
 
     // Tamper with witness polynomials
     witness_polynomials[0].at(0) = FF::random_element();

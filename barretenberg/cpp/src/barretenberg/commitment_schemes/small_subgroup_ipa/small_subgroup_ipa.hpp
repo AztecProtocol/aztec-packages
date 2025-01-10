@@ -374,6 +374,32 @@ template <typename Flavor> class SmallSubgroupIPAProver {
             remainder.at(idx - SUBGROUP_SIZE) += remainder.at(idx);
         }
     }
+
+    /**
+     * @brief For test purposes: Compute the sum of the Libra constant term and Libra univariates evaluated at Sumcheck
+     * challenges.
+     *
+     * @param zk_sumcheck_data Contains Libra constant term and scaled Libra univariates
+     * @param multivariate_challenge Sumcheck challenge
+     * @param log_circuit_size
+     */
+    static FF compute_claimed_inner_product(ZKSumcheckData<Flavor>& zk_sumcheck_data,
+                                            const std::vector<FF>& multivariate_challenge,
+                                            const size_t& log_circuit_size)
+    {
+        const FF libra_challenge_inv = zk_sumcheck_data.libra_challenge.invert();
+        // Compute claimed inner product similarly to the SumcheckProver
+        FF claimed_inner_product = FF{ 0 };
+        size_t idx = 0;
+        for (const auto& univariate : zk_sumcheck_data.libra_univariates) {
+            claimed_inner_product += univariate.evaluate(multivariate_challenge[idx]);
+            idx++;
+        }
+        // Libra Univariates are mutiplied by the Libra challenge in setup_auxiliary_data(), needs to be undone
+        claimed_inner_product *= libra_challenge_inv / FF(1 << (log_circuit_size - 1));
+        claimed_inner_product += zk_sumcheck_data.constant_term;
+        return claimed_inner_product;
+    }
 };
 
 /**
