@@ -104,7 +104,7 @@ export class TxProvingState {
     }
 
     const tubeData = new PublicTubeData(
-      this.processedTx.data.toPublicKernelCircuitPublicInputs(),
+      this.processedTx.data.toPrivateToPublicKernelCircuitPublicInputs(),
       this.tube.proof,
       this.#getTubeVkData(),
     );

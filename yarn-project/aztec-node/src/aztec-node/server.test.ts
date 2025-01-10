@@ -10,7 +10,14 @@ import {
   type WorldStateSynchronizer,
   mockTxForRollup,
 } from '@aztec/circuit-types';
-import { type ContractDataSource, EthAddress, Fr, GasFees, MaxBlockNumber } from '@aztec/circuits.js';
+import {
+  type ContractDataSource,
+  EthAddress,
+  Fr,
+  GasFees,
+  MaxBlockNumber,
+  RollupValidationRequests,
+} from '@aztec/circuits.js';
 import { type P2P } from '@aztec/p2p';
 import { type GlobalVariableBuilder } from '@aztec/sequencer-client';
 import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
@@ -107,7 +114,7 @@ describe('aztec node', () => {
       expect(await node.isValidTx(doubleSpendTx)).toEqual({ result: 'valid' });
 
       // We push a duplicate nullifier that was created in the same transaction
-      doubleSpendTx.data.forRollup!.end.nullifiers.push(doubleSpendTx.data.forRollup!.end.nullifiers[0]);
+      doubleSpendTx.data.forRollup!.end.nullifiers[1] = doubleSpendTx.data.forRollup!.end.nullifiers[0];
 
       expect(await node.isValidTx(doubleSpendTx)).toEqual({ result: 'invalid', reason: ['Duplicate nullifier in tx'] });
 
@@ -154,19 +161,13 @@ describe('aztec node', () => {
       const invalidMaxBlockNumberMetadata = txs[1];
       const validMaxBlockNumberMetadata = txs[2];
 
-      invalidMaxBlockNumberMetadata.data.rollupValidationRequests = {
-        maxBlockNumber: new MaxBlockNumber(true, new Fr(1)),
-        getSize: () => 1,
-        toBuffer: () => Fr.ZERO.toBuffer(),
-        toString: () => Fr.ZERO.toString(),
-      };
+      invalidMaxBlockNumberMetadata.data.rollupValidationRequests = new RollupValidationRequests(
+        new MaxBlockNumber(true, new Fr(1)),
+      );
 
-      validMaxBlockNumberMetadata.data.rollupValidationRequests = {
-        maxBlockNumber: new MaxBlockNumber(true, new Fr(5)),
-        getSize: () => 1,
-        toBuffer: () => Fr.ZERO.toBuffer(),
-        toString: () => Fr.ZERO.toString(),
-      };
+      validMaxBlockNumberMetadata.data.rollupValidationRequests = new RollupValidationRequests(
+        new MaxBlockNumber(true, new Fr(5)),
+      );
 
       lastBlockNumber = 3;
 

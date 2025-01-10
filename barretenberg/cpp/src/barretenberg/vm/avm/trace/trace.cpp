@@ -288,7 +288,8 @@ void AvmTraceBuilder::insert_private_revertible_state(const std::vector<FF>& sil
 
     for (size_t i = 0; i < siloed_note_hashes.size(); i++) {
         size_t note_index_in_tx = i + get_inserted_note_hashes_count();
-        FF nonce = AvmMerkleTreeTraceBuilder::unconstrained_compute_note_hash_nonce(get_tx_hash(), note_index_in_tx);
+        FF nonce =
+            AvmMerkleTreeTraceBuilder::unconstrained_compute_note_hash_nonce(get_first_nullifier(), note_index_in_tx);
         unique_note_hashes.push_back(
             AvmMerkleTreeTraceBuilder::unconstrained_compute_unique_note_hash(nonce, siloed_note_hashes.at(i)));
     }
@@ -3101,8 +3102,8 @@ AvmError AvmTraceBuilder::op_emit_note_hash(uint8_t indirect, uint32_t note_hash
     AppendTreeHint note_hash_write_hint = execution_hints.note_hash_write_hints.at(note_hash_write_counter++);
     FF siloed_note_hash = AvmMerkleTreeTraceBuilder::unconstrained_silo_note_hash(
         current_public_call_request.contract_address, row.main_ia);
-    FF nonce =
-        AvmMerkleTreeTraceBuilder::unconstrained_compute_note_hash_nonce(get_tx_hash(), inserted_note_hashes_count);
+    FF nonce = AvmMerkleTreeTraceBuilder::unconstrained_compute_note_hash_nonce(get_first_nullifier(),
+                                                                                inserted_note_hashes_count);
     FF unique_note_hash = AvmMerkleTreeTraceBuilder::unconstrained_compute_unique_note_hash(nonce, siloed_note_hash);
 
     ASSERT(unique_note_hash == note_hash_write_hint.leaf_value);

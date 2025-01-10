@@ -219,8 +219,8 @@ export class PublicTxSimulator {
     const callRequests = context.getCallRequestsForPhase(phase);
     const executionRequests = context.getExecutionRequestsForPhase(phase);
 
-    this.log.debug(`Processing phase ${TxExecutionPhase[phase]} for tx ${context.getTxHash()}`, {
-      txHash: context.getTxHash().toString(),
+    this.log.debug(`Processing phase ${TxExecutionPhase[phase]} for tx ${context.txHash}`, {
+      txHash: context.txHash.toString(),
       phase: TxExecutionPhase[phase],
       callRequests: callRequests.length,
       executionRequests: executionRequests.length,
@@ -266,7 +266,7 @@ export class PublicTxSimulator {
    * @returns The result of execution.
    */
   @trackSpan('PublicTxSimulator.simulateEnqueuedCall', (phase, context, _callRequest, executionRequest) => ({
-    [Attributes.TX_HASH]: context.getTxHash().toString(),
+    [Attributes.TX_HASH]: context.txHash.toString(),
     [Attributes.TARGET_ADDRESS]: executionRequest.callContext.contractAddress.toString(),
     [Attributes.SENDER_ADDRESS]: executionRequest.callContext.msgSender.toString(),
     [Attributes.SIMULATOR_PHASE]: TxExecutionPhase[phase].toString(),
