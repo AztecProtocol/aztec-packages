@@ -15,7 +15,7 @@ export class WASMSimulator implements SimulationProvider {
     // web environment. For the node environment, this
     // is a no-op.
     if (typeof initAbi === 'function') {
-      /** @ts-expect-error */
+      /** @ts-expect-error The node bundle doesn't include these default imports, so TS complains */
       await Promise.all([initAbi(), initACVM()]);
     }
   }
