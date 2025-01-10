@@ -3,8 +3,8 @@ source $(git rev-parse --show-toplevel)/ci3/source
 
 cmd=${1:-"./bootstrap.sh ci"}
 postfix=${2:-}
-cores=${CORES:-128}
-arch=${ARCH:-x86_64}
+arch=${ARCH:-amd64}
+cores=${CORES:-$([ "$arch" = "arm64" ] && echo 64 || echo 128)}
 NO_TERMINATE=${NO_TERMINATE:-0}
 BRANCH=${BRANCH:-$(git rev-parse --abbrev-ref HEAD)}
 
@@ -25,7 +25,7 @@ if [[ "$(git fetch origin --negotiate-only --negotiation-tip=$current_commit)" !
   exit 1
 fi
 
-instance_name=$(echo -n "$BRANCH" | tr -c 'a-zA-Z0-9-' '_')
+instance_name=$(echo -n "$BRANCH" | tr -c 'a-zA-Z0-9-' '_')_$arch
 [ -n "$postfix" ] && instance_name+="_$postfix"
 
 echo_header "request build instance"

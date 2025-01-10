@@ -2,11 +2,16 @@
 NO_CD=1 source $(git rev-parse --show-toplevel)/ci3/source
 
 cmd=$1
+# Remove the rebuild hash (first field) to leave the test command.
 test_cmd="${cmd#* }"
 key=$(hash_str "$cmd")
 
-if [ "${USE_TEST_CACHE:-0}" -eq 1 ] && [ "$(redis-cli --raw -h $CI_REDIS EXISTS $key)" == "1" ]; then
-  exit 0
+if [ "${USE_TEST_CACHE:-0}" -eq 1 ]; then
+  log_key=$(redis-cli --raw -h $CI_REDIS GET $key)
+  if [ -n "$log_key" ]; then
+    echo -e "${yellow}SKIPPED${reset}${log_info:-}: $test_cmd"
+    exit 0
+  fi
 fi
 
 # If the test has a verbose mode, we want it enabled.
@@ -17,10 +22,14 @@ output=$(bash -c "$test_cmd" 2>&1)
 code=$?
 
 if [ -n "$CI_REDIS" ]; then
-  # Set success flag for test. This key is unique to the test.
-  redis-cli -h $CI_REDIS SETEX $key 604800 1 &>/dev/null
-  # Set the test log. This key is globally unique.
   log_key=$(uuid)
+
+  if [ $code -eq 0 ]; then
+    # Set success flag for test. This key is unique to the test.
+    redis-cli -h $CI_REDIS SETEX $key 604800 $log_key &>/dev/null
+  fi
+
+  # Set the test log. This key is globally unique.
   echo "$output" | redis-cli -h $CI_REDIS -x SETEX $log_key 604800 &>/dev/null
   log_info=" ${yellow}$log_key${reset}"
 fi

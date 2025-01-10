@@ -5,7 +5,7 @@ NO_CD=1 source $(git rev-parse --show-toplevel)/ci3/source
 
 cd $root
 jobs=$(get_num_cpus_max ${1:-})
-parallel_args="-j$jobs --line-buffer --timeout 600 --joblog joblog.txt --halt now,fail=1"
+parallel_args="-j$jobs --memsuspend 64G --line-buffer --timeout 600 --joblog joblog.txt --halt now,fail=1"
 
 echo "Starting test run with max $jobs jobs..."
 

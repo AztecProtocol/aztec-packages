@@ -1,6 +1,8 @@
 #!/bin/bash
 source $(git rev-parse --show-toplevel)/ci3/source
 
+arch=${ARCH:-$(arch)}
+
 # Trap function to terminate our running instance when the script exits.
 function on_exit {
     [ "${NO_TERMINATE:-0}" -eq 0 ] && aws_terminate_instance $iid $sir
@@ -11,8 +13,20 @@ if [ ! -f $HOME/.aws/build_instance_credentials ]; then
   exit 1
 fi
 
+case "$arch" in
+  "amd64")
+    ami="ami-038da00b90fb68ea6"
+    ;;
+  "arm64")
+    ami="ami-0560690593473ded1"
+    ;;
+  *)
+    echo "Unknown arch: $ARCH"
+    exit 1
+esac
+
 # Request new instance (ami: ubuntu 24.04 LTS).
-ip_sir=$(AMI=ami-036841078a4b68e14 aws_request_instance ami_update 4 x86_64)
+ip_sir=$(AMI=$ami aws_request_instance ami_update 4 $arch)
 parts=(${ip_sir//:/ })
 ip="${parts[0]}"
 sir="${parts[1]}"
@@ -49,7 +63,7 @@ if [ "${NO_AMI:-0}" -eq 0 ]; then
   export AWS_DEFAULT_REGION=us-east-2
   ami_id=$(aws ec2 create-image \
     --instance-id "$iid" \
-    --name "build-instance-$(uname -m)-$(date +'%d%m%y%H%M')" \
+    --name "build-instance-$arch-$(date +'%d%m%y%H%M')" \
     --query "ImageId" \
     --output text)
   echo "Waiting for AMI to be created: $ami_id"

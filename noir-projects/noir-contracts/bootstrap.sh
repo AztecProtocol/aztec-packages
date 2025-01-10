@@ -4,7 +4,7 @@
 # - You can enable BUILD_SYSTEM_DEBUG=1 but the output is quite verbose that it's not much use by default.
 # - This flag however, isn't carried into exported functions. You need to do "set -x" in those functions manually.
 # - You can call ./bootstrap.sh compile <package name> to compile and process a single contract.
-# - You can disable further parallelism by setting PARALLELISM=1.
+# - You can disable further parallelism by setting passing 1 as arg to 'parallelise'.
 # - The exported functions called by parallel must enable their own flags at the start e.g. set -euo pipefail
 # - The exported functions are using stdin/stdout, so be very careful about what's printed where.
 # - The exported functions need to have external variables they require, to have been exported first.
@@ -43,9 +43,7 @@ mkdir -p $tmp_dir
 # Set flags for parallel
 export PARALLELISM=${PARALLELISM:-16}
 export PARALLEL_FLAGS="-j$PARALLELISM --halt now,fail=1"
-if [[ -n "${MEMSUSPEND-}" ]]; then
-  export PARALLEL_FLAGS="$PARALLEL_FLAGS --memsuspend $MEMSUSPEND"
-fi
+[ -n "${MEMSUSPEND-}" ] && export PARALLEL_FLAGS+=" --memsuspend $MEMSUSPEND"
 
 # This computes a vk and adds it to the input function json if it's private, else returns same input.
 # stdin has the function json.

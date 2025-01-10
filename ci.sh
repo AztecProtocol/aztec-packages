@@ -2,6 +2,7 @@
 source $(git rev-parse --show-toplevel)/ci3/source
 
 cmd=${1:-}
+arch=${ARCH:-$(arch)}
 NO_TERMINATE=${NO_TERMINATE:-0}
 BRANCH=${BRANCH:-$(git rev-parse --abbrev-ref HEAD)}
 ci3_workflow_id=128853861
@@ -32,7 +33,7 @@ function print_usage {
 
 [ -n "$cmd" ] && shift
 
-instance_name=$(echo -n "$BRANCH" | tr -c 'a-zA-Z0-9-' '_')
+instance_name=$(echo -n "$BRANCH" | tr -c 'a-zA-Z0-9-' '_')_$arch
 
 function get_ip_for_instance {
   [ -n "${1:-}" ] && instance_name+="_$1"
@@ -161,6 +162,17 @@ case "$cmd" in
       redis-cli --raw GET $1 | $pager
     else
       remote_redis_cli GET $1 | $pager
+    fi
+    ;;
+  "tlog")
+    pager=${PAGER:-less}
+    key=$(hash_str "$1")
+    log_key=$(remote_redis_cli --raw GET $key)
+    if [ -n "$log_key" ]; then
+      remote_redis_cli GET $log_key | $pager
+    else
+      echo "No test log found for: $key"
+      exit 1
     fi
     ;;
   "shell-host")

@@ -92,7 +92,7 @@ foundry:
   LET FOUNDRY_BIN_DIR = "/root/.foundry/bin"
 
   RUN curl -L https://foundry.paradigm.xyz | bash \
-      && $FOUNDRY_BIN_DIR/foundryup -i nightly-$FOUNDRY_TAG \
+      && $FOUNDRY_BIN_DIR/foundryup -b nightly-$FOUNDRY_TAG \
       && mkdir -p /opt/foundry/bin \
       && for t in forge cast anvil chisel; do \
           mv $FOUNDRY_BIN_DIR/$t /opt/foundry/bin/$t; \
@@ -162,7 +162,10 @@ build:
   ENV RUSTUP_HOME=/opt/rust/rustup
   ENV CARGO_HOME=/opt/rust/cargo
   ENV PATH="/opt/rust/cargo/bin:$PATH"
+<<<<<<< HEAD
   RUN apt remove -y cargo rustc
+=======
+>>>>>>> origin/cl/ci3.3
   RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain 1.75.0 && \
       rustup target add wasm32-unknown-unknown wasm32-wasi aarch64-apple-darwin && \
       chmod -R a+w /opt/rust

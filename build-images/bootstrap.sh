@@ -6,7 +6,20 @@ version="3.0"
 arch=$(arch)
 branch=${BRANCH:-$(git rev-parse --abbrev-ref HEAD)}
 
+function check_login {
+  if [ -z "$DOCKERHUB_PASSWORD" ]; then
+    echo "No DOCKERHUB_PASSWORD provided."
+    exit 1
+  fi
+}
+
+function docker_login {
+  check_login
+  echo $DOCKERHUB_PASSWORD | docker login -u aztecprotocolci --password-stdin
+}
+
 function build_images {
+  cd src
   for target in build devbox sysbox; do
     docker build -t aztecprotocol/$target:$version-$arch --target $target .
   done
@@ -41,27 +54,30 @@ function build_ec2 {
 
   ssh -F $ci3/aws/build_instance_ssh_config ubuntu@$ip "
     set -euo pipefail
+    export DOCKERHUB_PASSWORD=$DOCKERHUB_PASSWORD
     mkdir aztec-packages
     cd aztec-packages
     git init . &>/dev/null
     git remote add origin https://github.com/aztecprotocol/aztec-packages
     git fetch --depth 1 origin $current_commit
     git checkout FETCH_HEAD
-    ./build-images/bootstrap.sh
-    ./build-images/bootstrap.sh push-images
+    ./build-images/bootstrap.sh || bash
+    ./build-images/bootstrap.sh push-images || bash
   "
 }
 
-function update_manifest {
-  # We update the manifest to point to the latest arch specific images, pushed above.
-  local image=aztecprotocol/$target:$version
-  # Remove any old local manifest if present.
-  docker manifest rm $image || true
-  # Create new manifest and push.
-  docker manifest create $image \
-    --amend aztecprotocol/$target:$version-amd64 \
-    --amend aztecprotocol/$target:$version-arm64
-  docker manifest push $image
+function update_manifests {
+  for target in build devbox sysbox; do
+    # We update the manifest to point to the latest arch specific images, pushed above.
+    local image=aztecprotocol/$target:$version
+    # Remove any old local manifest if present.
+    docker manifest rm $image || true
+    # Create new manifest and push.
+    docker manifest create $image \
+      --amend aztecprotocol/$target:$version-amd64 \
+      --amend aztecprotocol/$target:$version-arm64
+    docker manifest push $image
+  done
 }
 
 function build_all {
@@ -73,16 +89,24 @@ case "$cmd" in
     build_images
     ;;
   "push-images")
+    docker_login
     push_images
     ;;
+  "push-manifests")
+    docker_login
+    update_manifests
+    ;;
   "ci")
+    docker_login
     build_all
-    update_manifest
+    update_manifests
     ;;
   "ec2-amd64")
+    check_login
     build_ec2 128 amd64
     ;;
   "ec2-arm64")
+    check_login
     build_ec2 64 arm64
     ;;
   *)
