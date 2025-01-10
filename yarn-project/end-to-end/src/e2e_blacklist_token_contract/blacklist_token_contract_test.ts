@@ -1,3 +1,4 @@
+import { getSchnorrAccount } from '@aztec/accounts/schnorr';
 import {
   type AccountWallet,
   type CompleteAddress,
@@ -22,7 +23,6 @@ import {
   createSnapshotManager,
   publicDeployAccounts,
 } from '../fixtures/snapshot_manager.js';
-import { getRegisteredWalletsAndAccountsFromKeys } from '../fixtures/utils.js';
 import { TokenSimulator } from '../simulators/token_simulator.js';
 
 const { E2E_DATA_PATH: dataPath } = process.env;
@@ -92,7 +92,12 @@ export class BlacklistTokenContractTest {
     jest.setTimeout(120_000);
 
     await this.snapshotManager.snapshot('3_accounts', addAccounts(3, this.logger), async ({ accountKeys }, { pxe }) => {
-      [this.wallets, this.accounts] = await getRegisteredWalletsAndAccountsFromKeys(accountKeys, pxe);
+      const accountManagers = accountKeys.map(ak => getSchnorrAccount(pxe, ak[0], ak[1], 1));
+      this.wallets = await Promise.all(accountManagers.map(a => a.getWallet()));
+      this.admin = this.wallets[0];
+      this.other = this.wallets[1];
+      this.blacklisted = this.wallets[2];
+      this.accounts = accountManagers.map(a => a.getCompleteAddress());
     });
 
     await this.snapshotManager.snapshot(

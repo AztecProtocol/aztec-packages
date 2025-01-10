@@ -1,3 +1,4 @@
+import { getSchnorrAccount } from '@aztec/accounts/schnorr';
 import { type AztecNodeConfig } from '@aztec/aztec-node';
 import {
   type AccountWallet,
@@ -24,7 +25,6 @@ import {
   createSnapshotManager,
   publicDeployAccounts,
 } from '../fixtures/snapshot_manager.js';
-import { getRegisteredWalletsAndAccountsFromKeys } from '../fixtures/utils.js';
 import { CrossChainTestHarness } from '../shared/cross_chain_test_harness.js';
 
 const { E2E_DATA_PATH: dataPath } = process.env;
@@ -86,7 +86,9 @@ export class CrossChainMessagingTest {
       '3_accounts',
       addAccounts(3, this.logger),
       async ({ accountKeys }, { pxe, aztecNodeConfig, aztecNode, deployL1ContractsValues }) => {
-        [this.wallets, this.accounts] = await getRegisteredWalletsAndAccountsFromKeys(accountKeys, pxe);
+        const accountManagers = accountKeys.map(ak => getSchnorrAccount(pxe, ak[0], ak[1], 1));
+        this.wallets = await Promise.all(accountManagers.map(a => a.getWallet()));
+        this.accounts = accountManagers.map(a => a.getCompleteAddress());
         this.wallets.forEach((w, i) => this.logger.verbose(`Wallet ${i} address: ${w.getAddress()}`));
 
         this.rollup = getContract({

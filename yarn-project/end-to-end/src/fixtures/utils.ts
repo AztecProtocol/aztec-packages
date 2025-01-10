@@ -1,4 +1,4 @@
-import { SchnorrAccountContractArtifact, getSchnorrAccount } from '@aztec/accounts/schnorr';
+import { SchnorrAccountContractArtifact } from '@aztec/accounts/schnorr';
 import { createAccounts, getDeployedTestAccountsWallets } from '@aztec/accounts/testing';
 import { type Archiver, createArchiver } from '@aztec/archiver';
 import { type AztecNodeConfig, AztecNodeService, getConfigEnvVars } from '@aztec/aztec-node';
@@ -29,15 +29,7 @@ import { DefaultMultiCallEntrypoint } from '@aztec/aztec.js/entrypoint';
 import { type BBNativePrivateKernelProver } from '@aztec/bb-prover';
 import { createBlobSinkClient } from '@aztec/blob-sink/client';
 import { type BlobSinkServer, createBlobSinkServer } from '@aztec/blob-sink/server';
-import {
-  type CompleteAddress,
-  type EthAddress,
-  FEE_JUICE_INITIAL_MINT,
-  Fr,
-  Gas,
-  type GrumpkinScalar,
-  getContractClassFromArtifact,
-} from '@aztec/circuits.js';
+import { type EthAddress, FEE_JUICE_INITIAL_MINT, Fr, Gas, getContractClassFromArtifact } from '@aztec/circuits.js';
 import {
   type DeployL1ContractsArgs,
   NULL_KEY,
@@ -60,7 +52,6 @@ import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
 import { createAndStartTelemetryClient, getConfigEnvVars as getTelemetryConfig } from '@aztec/telemetry-client/start';
 
 import { type Anvil } from '@viem/anvil';
-import { strict as assert } from 'assert';
 import fs from 'fs/promises';
 import getPort from 'get-port';
 import { tmpdir } from 'os';
@@ -783,30 +774,4 @@ export async function createAndSyncProverNode(
   });
   await proverNode.start();
   return proverNode;
-}
-
-/**
- * Gets arrays of wallets and accounts for the provided account keys,
- * ensuring that the order of the wallets and accounts matches the order of the keys.
- */
-export async function getRegisteredWalletsAndAccountsFromKeys(
-  accountKeys: [Fr, GrumpkinScalar][],
-  pxe: PXE,
-): Promise<[AccountWalletWithSecretKey[], CompleteAddress[]]> {
-  const accountManagers = accountKeys.map(ak => getSchnorrAccount(pxe, ak[0], ak[1], 1));
-  const wallets = await Promise.all(accountManagers.map(a => a.getWallet()));
-
-  // This Map and loop ensure that this.accounts has the same order as this.wallets and this.keys
-  const registeredAccounts: Map<string, CompleteAddress> = new Map(
-    (await pxe.getRegisteredAccounts()).map(acc => [acc.address.toString(), acc]),
-  );
-  const accounts: CompleteAddress[] = [];
-  for (let i = 0; i < wallets.length; i++) {
-    const wallet = wallets[i];
-    const walletAddr = wallet.getAddress().toString();
-    assert(registeredAccounts.has(walletAddr), `Test account ${walletAddr} not registered, but it should have been`);
-    accounts.push(registeredAccounts.get(walletAddr)!);
-  }
-
-  return Promise.resolve([wallets, accounts]);
 }
