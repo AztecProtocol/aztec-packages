@@ -50,6 +50,8 @@ fn get_prev_power_2(value: u32) -> u32 {
 
     let next_power_2 = 2 << next_power_exponent;
     let prev_power_2 = next_power_2 / 2;
+    // If value equals 0 or 1, the previous power of 2 is completely unconstrained and we could craft response
+    // of `get_next_power_exponent` such that prev_power_2 is anything in [1, 2, 4, 8, 16, ...].
     assert((value == 0) | (value == 1) | (value > prev_power_2));
     assert(value <= next_power_2);
 
@@ -78,6 +80,10 @@ impl VariableMerkleTree {
         // If we have no num_non_empty_leaves, we return 0
         let mut stop = num_non_empty_leaves == 0;
 
+        // What damage could we cause in the base layer due to the underconstrained bug?
+        // For num_non_empty_leaves = 0, there is no damage because stop is set to true.
+        // For num_non_empty_leaves = 1, this could allow us to hash also the empty leaves. This seems fine as this
+        // is only an optimization. Right? or do we somewhere rely on the other leaves actually being empty?
         let mut nodes = [0; N];
         for i in 0..N / 2 {
             // stop after non zero leaves
@@ -91,12 +97,15 @@ impl VariableMerkleTree {
 
         // hash the other layers
         stop = prev_power_2 == 1;
+        // Here we can cause damage even for num_non_empty_leaves = 0, because it's not part of the stop condition
 
         let mut next_layer_end = prev_power_2 / 2;
         let mut next_layer_size = next_layer_end;
         let mut root = nodes[0];
         for i in 0..(N - 1 - N / 2) {
             if !stop {
+                // For `num_non_empty_leaves` = 0 and 1 we can essentially cause havoc here as prev_power_2 is
+                // directly used in index here and on line 117
                 nodes[prev_power_2 + i] = accumulate_sha256([nodes[2 * i], nodes[2 * i + 1]]);
                 if i == next_layer_end {
                     // Reached next layer => move up one layer
