@@ -375,34 +375,23 @@ describe('GasUtils', () => {
       fail('Should have thrown');
     } catch (err: any) {
       const formattedError = formatViemError(err);
-      const parsed = JSON.parse(formattedError);
 
-      // Check the error chain structure
-      expect(parsed.errorChain).toBeDefined();
-      expect(Array.isArray(parsed.errorChain)).toBe(true);
-      expect(parsed.errorChain.length).toBeGreaterThan(0);
+      // Verify the error contains actual newlines, not escaped \n
+      expect(formattedError).not.toContain('\\n');
+      expect(formattedError.split('\n').length).toBeGreaterThan(1);
 
       // Check that we have the key error information
-      const firstError = parsed.errorChain[0];
-      expect(firstError.name).toBe('TransactionExecutionError');
-      expect(firstError.message).toContain('fee cap');
-
-      // Verify no duplicate messages in error chain
-      const messages = parsed.errorChain.map((e: any) => e.message);
-      expect(new Set(messages).size).toBe(messages.length - 1); // contains duplicate message
+      expect(formattedError).toContain('fee cap');
 
       // Check request body formatting if present
-      if (firstError.requestBody) {
-        const body = JSON.parse(firstError.requestBody);
-        expect(body.method).toBe('eth_sendRawTransaction');
-        expect(body.params).toBeDefined();
-        expect(Array.isArray(body.params)).toBe(true);
+      if (formattedError.includes('Request body:')) {
+        const bodyStart = formattedError.indexOf('Request body:');
+        const body = formattedError.slice(bodyStart);
+        expect(body).toContain('eth_sendRawTransaction');
         // Check params are truncated if too long
-        body.params.forEach((param: string) => {
-          if (param.length > 50) {
-            expect(param).toContain('...');
-          }
-        });
+        if (body.includes('0x')) {
+          expect(body).toContain('...');
+        }
       }
     }
   }, 10_000);
