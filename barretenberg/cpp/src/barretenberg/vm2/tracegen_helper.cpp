@@ -21,6 +21,7 @@
 #include "barretenberg/vm2/generated/relations/perms_execution.hpp"
 #include "barretenberg/vm2/tracegen/alu_trace.hpp"
 #include "barretenberg/vm2/tracegen/bytecode_trace.hpp"
+#include "barretenberg/vm2/tracegen/ecc_trace.hpp"
 #include "barretenberg/vm2/tracegen/execution_trace.hpp"
 #include "barretenberg/vm2/tracegen/lib/interaction_builder.hpp"
 #include "barretenberg/vm2/tracegen/lib/lookup_builder.hpp"
@@ -175,6 +176,11 @@ TraceContainer AvmTraceGenHelper::generate_trace(EventsContainer&& events)
                     Sha256TraceBuilder sha256_builder(trace);
                     AVM_TRACK_TIME("tracegen/sha256_compression", sha256_builder.process(events.sha256_compression));
                     clear_events(events.sha256_compression);
+                },
+                [&]() {
+                    EccTraceBuilder ecc_builder;
+                    AVM_TRACK_TIME("tracegen/ecc_add", ecc_builder.process(events.ecc_add, trace));
+                    clear_events(events.ecc_add);
                 } });
         AVM_TRACK_TIME("tracegen/traces", execute_jobs(jobs));
     }
