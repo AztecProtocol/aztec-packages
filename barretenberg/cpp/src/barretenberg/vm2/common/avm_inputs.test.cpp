@@ -19,7 +19,8 @@ std::vector<uint8_t> string_to_buffer(const std::string& str)
 
 TEST(AvmInputsTest, Deserialization)
 {
-    auto data = read_file("src/barretenberg/vm2/common/avm_inputs.testdata.bin");
+    // cwd is expected to be barretenberg/cpp/build.
+    auto data = read_file("../src/barretenberg/vm2/common/avm_inputs.testdata.bin");
     auto inputs = AvmProvingInputs::from(data);
 
     AvmProvingInputs expected = {
