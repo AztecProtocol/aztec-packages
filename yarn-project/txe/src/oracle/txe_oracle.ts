@@ -560,6 +560,11 @@ export class TXE implements TypedOracle {
     return Promise.resolve();
   }
 
+  notifyCreatedNullifier(innerNullifier: Fr): Promise<void> {
+    this.noteCache.nullifierCreated(this.contractAddress, innerNullifier);
+    return Promise.resolve();
+  }
+
   async checkNullifierExists(innerNullifier: Fr): Promise<boolean> {
     const nullifier = siloNullifier(this.contractAddress, innerNullifier!);
     const db = await this.trees.getLatest();
