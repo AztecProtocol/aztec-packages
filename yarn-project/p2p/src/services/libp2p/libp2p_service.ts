@@ -589,9 +589,7 @@ export class LibP2PService<T extends P2PClientType> extends WithTracer implement
     msg: Message,
   ): Promise<TopicValidatorResult> {
     const tx = Tx.fromBuffer(Buffer.from(msg.data));
-    const startTime = Date.now();
     const isValid = await this.validatePropagatedTx(tx, propagationSource);
-    this.logger.info(`validatePropagatedTx: Took ${Date.now() - startTime}ms is public? ${!!tx.data.forPublic}`);
     this.logger.trace(`validatePropagatedTx: ${isValid}`, {
       [Attributes.TX_HASH]: tx.getTxHash().toString(),
       [Attributes.P2P_ID]: propagationSource.toString(),
