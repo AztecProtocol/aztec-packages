@@ -7,4 +7,6 @@ The `aztec-nargo` utility is packaged with docker and does the following:
 4. Transpiles each artifact using the `avm-transpiler`
 5. Generates verification keys for each artifact using `bb` (`barretenberg`'s binary)
 
+Example usage: `aztec-nargo compile`
+
 Note: uses versions of each tool from this repository (`nargo` version is from `../noir`).
