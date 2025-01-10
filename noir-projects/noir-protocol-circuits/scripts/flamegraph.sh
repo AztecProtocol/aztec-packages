@@ -26,7 +26,7 @@ get_filenames() {
     done
 }
 
-NAUGHTY_LIST=("empty_nested") # files with no opcodes, which break the flamegraph tool.
+NAUGHTY_LIST=("") # files with no opcodes, which break the flamegraph tool.
 
 get_valid_circuit_names() {
     # Capture the output of function call in an array:

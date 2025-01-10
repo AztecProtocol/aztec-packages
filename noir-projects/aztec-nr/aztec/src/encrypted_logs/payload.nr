@@ -207,7 +207,7 @@ pub fn compute_incoming_body_ciphertext<let P: u32>(
     plaintext: [u8; P],
     eph_sk: Scalar,
     address_point: AddressPoint,
-) -> [u8] {
+) -> [u8; P + 16 - P % 16] {
     let full_key = derive_aes_secret(eph_sk, address_point.to_point());
     let mut sym_key = [0; 16];
     let mut iv = [0; 16];

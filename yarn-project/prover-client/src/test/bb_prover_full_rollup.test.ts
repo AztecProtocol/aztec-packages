@@ -6,7 +6,7 @@ import { times } from '@aztec/foundation/collection';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { getTestData, isGenerateTestDataEnabled } from '@aztec/foundation/testing';
 import { writeTestData } from '@aztec/foundation/testing/files';
-import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types';
+import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types/vks';
 import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
 
 import { buildBlock } from '../block_builder/light.js';
