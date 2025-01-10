@@ -5,9 +5,6 @@
 #include "barretenberg/flavor/flavor_macros.hpp"
 #include "barretenberg/flavor/relation_definitions.hpp"
 #include "barretenberg/flavor/repeated_commitments_data.hpp"
-#include "barretenberg/honk/proof_system/types/proof.hpp"
-#include "barretenberg/plonk_honk_shared/library/grand_product_delta.hpp"
-#include "barretenberg/plonk_honk_shared/library/grand_product_library.hpp"
 #include "barretenberg/polynomials/univariate.hpp"
 #include "barretenberg/relations/auxiliary_relation.hpp"
 #include "barretenberg/relations/databus_lookup_relation.hpp"
@@ -18,7 +15,6 @@
 #include "barretenberg/relations/permutation_relation.hpp"
 #include "barretenberg/relations/poseidon2_external_relation.hpp"
 #include "barretenberg/relations/poseidon2_internal_relation.hpp"
-#include "barretenberg/relations/relation_parameters.hpp"
 #include "barretenberg/relations/ultra_arithmetic_relation.hpp"
 #include "barretenberg/stdlib_circuit_builders/mega_circuit_builder.hpp"
 #include "barretenberg/transcript/transcript.hpp"
@@ -86,8 +82,8 @@ class MegaFlavor {
     static constexpr size_t NUM_ALL_WITNESS_ENTITIES = NUM_WITNESS_ENTITIES + NUM_SHIFTED_WITNESSES;
 
     // For instances of this flavour, used in folding, we need a unique sumcheck batching challenges for each
-    // subrelation. This
-    // is because using powers of alpha would increase the degree of Protogalaxy polynomial $G$ (the combiner) too much.
+    // subrelation. This is because using powers of alpha would increase the degree of Protogalaxy polynomial $G$ (the
+    // combiner) too much.
     static constexpr size_t NUM_SUBRELATIONS = compute_number_of_subrelations<Relations>();
     using RelationSeparator = std::array<FF, NUM_SUBRELATIONS - 1>;
 
@@ -172,7 +168,7 @@ class MegaFlavor {
 
     // Mega needs to expose more public classes than most flavors due to MegaRecursive reuse, but these
     // are internal:
-  public:
+
     // WireEntities for basic witness entities
     template <typename DataType> class WireEntities {
       public:
@@ -318,11 +314,6 @@ class MegaFlavor {
         auto get_witness() { return WitnessEntities<DataType>::get_all(); };
         auto get_to_be_shifted() { return WitnessEntities<DataType>::get_to_be_shifted(); };
         auto get_shifted() { return ShiftedEntities<DataType>::get_all(); };
-        // this getter is used in ZK Sumcheck, where all witness evaluations (including shifts) have to be masked
-        auto get_all_witnesses()
-        {
-            return concatenate(WitnessEntities<DataType>::get_all(), ShiftedEntities<DataType>::get_all());
-        };
     };
 
     /**
@@ -432,7 +423,7 @@ class MegaFlavor {
     };
 
     /**
-     * @brief The verification key is responsible for storing the commitments to the precomputed (non-witnessk)
+     * @brief The verification key is responsible for storing the commitments to the precomputed (non-witness)
      * polynomials used by the verifier.
      *
      * @note Note the discrepancy with what sort of data is stored here vs in the proving key. We may want to resolve
@@ -440,7 +431,6 @@ class MegaFlavor {
      * circuits.
      * @todo TODO(https://github.com/AztecProtocol/barretenberg/issues/876)
      */
-    // using VerificationKey = VerificationKey_<PrecomputedEntities<Commitment>, VerifierCommitmentKey>;
     class VerificationKey : public VerificationKey_<PrecomputedEntities<Commitment>, VerifierCommitmentKey> {
       public:
         // Data pertaining to transfer of databus return data via public inputs of the proof being recursively verified
@@ -513,6 +503,7 @@ class MegaFlavor {
         }
 
         // TODO(https://github.com/AztecProtocol/barretenberg/issues/964): Clean the boilerplate up.
+        // Explicit constructor for msgpack serialization
         VerificationKey(const size_t circuit_size,
                         const size_t num_public_inputs,
                         const size_t pub_inputs_offset,

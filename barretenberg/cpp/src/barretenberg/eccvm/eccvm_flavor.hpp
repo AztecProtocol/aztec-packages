@@ -338,11 +338,6 @@ class ECCVMFlavor {
         // this getter is necessary for more uniform zk verifiers
         auto get_shifted_witnesses() { return ShiftedEntities<DataType>::get_all(); };
         auto get_precomputed() { return PrecomputedEntities<DataType>::get_all(); };
-        // the getter for all witnesses including derived and shifted ones
-        auto get_all_witnesses()
-        {
-            return concatenate(WitnessEntities<DataType>::get_all(), ShiftedEntities<DataType>::get_all());
-        };
     };
 
   public:

@@ -249,12 +249,6 @@ class UltraFlavor {
         auto get_precomputed() { return PrecomputedEntities<DataType>::get_all(); }
         auto get_witness() { return WitnessEntities<DataType>::get_all(); };
         auto get_to_be_shifted() { return WitnessEntities<DataType>::get_to_be_shifted(); };
-
-        // getter for all witnesses including shifted ones
-        auto get_all_witnesses()
-        {
-            return concatenate(WitnessEntities<DataType>::get_all(), ShiftedEntities<DataType>::get_shifted());
-        };
     };
 
     /**

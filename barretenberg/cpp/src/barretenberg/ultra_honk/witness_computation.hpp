@@ -2,14 +2,10 @@
 
 #include "barretenberg/flavor/flavor.hpp"
 #include "barretenberg/relations/relation_parameters.hpp"
-#include "barretenberg/stdlib_circuit_builders/ultra_flavor.hpp"
 #include "barretenberg/ultra_honk/decider_proving_key.hpp"
 namespace bb {
 /**
- * @brief Class for all the oink rounds, which are shared between the folding prover and ultra prover.
- * @details This class contains execute_preamble_round(), execute_wire_commitments_round(),
- * execute_sorted_list_accumulator_round(), execute_log_derivative_inverse_round(), and
- * execute_grand_product_computation_round().
+ * @brief Methods for computing derived witness polynomials such as the permutation grand product
  *
  * @tparam Flavor
  */
