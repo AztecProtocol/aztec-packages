@@ -311,7 +311,7 @@ struct Transcript {
 library TranscriptLib {
     function generateTranscript(Honk.Proof memory proof, bytes32[] calldata publicInputs, uint256 publicInputsSize)
         internal
-        view
+        pure
         returns (Transcript memory t)
     {
         Fr previousChallenge;
@@ -348,7 +348,7 @@ library TranscriptLib {
         bytes32[] calldata publicInputs,
         uint256 publicInputsSize,
         Fr previousChallenge
-    ) internal view returns (Honk.RelationParameters memory rp, Fr nextPreviousChallenge) {
+    ) internal pure returns (Honk.RelationParameters memory rp, Fr nextPreviousChallenge) {
         (rp.eta, rp.etaTwo, rp.etaThree, previousChallenge) =
             generateEtaChallenge(proof, publicInputs, publicInputsSize);
 
@@ -367,7 +367,7 @@ library TranscriptLib {
         Fr gamma,
         uint256 circuitSize,
         uint256 offset
-    ) internal view returns (Fr publicInputDelta) {
+    ) internal pure returns (Fr publicInputDelta) {
         Fr numerator = Fr.wrap(1);
         Fr denominator = Fr.wrap(1);
 
@@ -515,7 +515,6 @@ library TranscriptLib {
             Fr[BATCHED_RELATION_PARTIAL_LENGTH + 1] memory univariateChal;
             univariateChal[0] = prevChallenge;
 
-            // TODO(https://github.com/AztecProtocol/barretenberg/issues/1098): memcpy
             for (uint256 j = 0; j < BATCHED_RELATION_PARTIAL_LENGTH; j++) {
                 univariateChal[j + 1] = proof.sumcheckUnivariates[i][j];
             }
@@ -534,7 +533,6 @@ library TranscriptLib {
         Fr[NUMBER_OF_ENTITIES + 1] memory rhoChallengeElements;
         rhoChallengeElements[0] = prevChallenge;
 
-        // TODO(https://github.com/AztecProtocol/barretenberg/issues/1098): memcpy
         for (uint256 i = 0; i < NUMBER_OF_ENTITIES; i++) {
             rhoChallengeElements[i + 1] = proof.sumcheckEvaluations[i];
         }
@@ -599,11 +597,9 @@ library TranscriptLib {
         (shplonkZ, unused) = splitChallenge(nextPreviousChallenge);
     }
 
-    // TODO: mod q proof points
-    // TODO: Preprocess all of the memory locations
-    // TODO: Adjust proof point serde away from poseidon forced field elements
-    // TODO: move this back to probably each instance to avoid dynamic init of arrays in the Transcript Lib
-    function loadProof(bytes calldata proof) internal pure returns (Honk.Proof memory p) {
+    function loadProof(bytes calldata proof) internal pure returns (Honk.Proof memory) {
+        Honk.Proof memory p;
+
         // Metadata
         p.circuitSize = uint256(bytes32(proof[0x00:0x20]));
         p.publicInputsSize = uint256(bytes32(proof[0x20:0x40]));
@@ -621,7 +617,6 @@ library TranscriptLib {
         p.w4 = bytesToG1ProofPoint(proof[0x2e0:0x360]);
         p.lookupInverses = bytesToG1ProofPoint(proof[0x360:0x3e0]);
         p.zPerm = bytesToG1ProofPoint(proof[0x3e0:0x460]);
-        // TEMP the boundary of what has already been read
         uint256 boundary = 0x460;
 
         // Sumcheck univariates
@@ -667,7 +662,6 @@ function bytesToFr(bytes calldata proofSection) pure returns (Fr scalar) {
 }
 
 // EC Point utilities
-
 function convertProofPoint(Honk.G1ProofPoint memory input) pure returns (Honk.G1Point memory) {
     return Honk.G1Point({x: input.x_0 | (input.x_1 << 136), y: input.y_0 | (input.y_1 << 136)});
 }
@@ -756,7 +750,6 @@ library RelationsLib {
      * Ultra Arithmetic Relation
      *
      */
-
     function accumulateArithmeticRelation(
         Fr[NUMBER_OF_ENTITIES] memory p,
         Fr[NUMBER_OF_SUBRELATIONS] memory evals,
@@ -1048,9 +1041,9 @@ library RelationsLib {
 
     function accumulateAuxillaryRelation(
         Fr[NUMBER_OF_ENTITIES] memory p,
-        Honk.RelationParameters memory rp, // sooo we take the relation parameters, if needed, from tramscript
+        Honk.RelationParameters memory rp,
         Fr[NUMBER_OF_SUBRELATIONS] memory evals,
-        Fr domainSep // i guess this is the scaling factor?
+        Fr domainSep
     ) internal pure {
         AuxParams memory ap;
 
@@ -1303,7 +1296,7 @@ library RelationsLib {
     function accumulatePoseidonExternalRelation(
         Fr[NUMBER_OF_ENTITIES] memory p,
         Fr[NUMBER_OF_SUBRELATIONS] memory evals,
-        Fr domainSep // i guess this is the scaling factor?
+        Fr domainSep
     ) internal pure {
         PoseidonExternalParams memory ep;
 
