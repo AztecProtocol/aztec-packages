@@ -112,18 +112,18 @@ describe('Kernel Prover', () => {
   };
 
   const expectExecution = (fns: string[]) => {
-    const callStackItemsInit = proofCreator.simulateProofInit.mock.calls.map(args =>
+    const callStackItemsInit = proofCreator.simulateInit.mock.calls.map(args =>
       String.fromCharCode(args[0].privateCall.publicInputs.callContext.functionSelector.value),
     );
-    const callStackItemsInner = proofCreator.simulateProofInner.mock.calls.map(args =>
+    const callStackItemsInner = proofCreator.simulateInner.mock.calls.map(args =>
       String.fromCharCode(args[0].privateCall.publicInputs.callContext.functionSelector.value),
     );
 
-    expect(proofCreator.simulateProofInit).toHaveBeenCalledTimes(Math.min(1, fns.length));
-    expect(proofCreator.simulateProofInner).toHaveBeenCalledTimes(Math.max(0, fns.length - 1));
+    expect(proofCreator.simulateInit).toHaveBeenCalledTimes(Math.min(1, fns.length));
+    expect(proofCreator.simulateInner).toHaveBeenCalledTimes(Math.max(0, fns.length - 1));
     expect(callStackItemsInit.concat(callStackItemsInner)).toEqual(fns);
-    proofCreator.simulateProofInner.mockClear();
-    proofCreator.simulateProofInit.mockClear();
+    proofCreator.simulateInner.mockClear();
+    proofCreator.simulateInit.mockClear();
   };
 
   const prove = (executionResult: PrivateExecutionResult) => prover.prove(txRequest, executionResult);
@@ -147,12 +147,12 @@ describe('Kernel Prover', () => {
     });
 
     proofCreator = mock<PrivateKernelProver>();
-    proofCreator.simulateProofInit.mockResolvedValue(simulateProofOutput([]));
-    proofCreator.simulateProofInner.mockResolvedValue(simulateProofOutput([]));
-    proofCreator.simulateProofReset.mockResolvedValue(simulateProofOutput([]));
-    proofCreator.simulateProofTail.mockResolvedValue(simulateProofOutputFinal([]));
+    proofCreator.simulateInit.mockResolvedValue(simulateProofOutput([]));
+    proofCreator.simulateInner.mockResolvedValue(simulateProofOutput([]));
+    proofCreator.simulateReset.mockResolvedValue(simulateProofOutput([]));
+    proofCreator.simulateTail.mockResolvedValue(simulateProofOutputFinal([]));
 
-    prover = new KernelProver(oracle, proofCreator);
+    prover = new KernelProver(oracle, proofCreator, true);
   });
 
   it('should create proofs in correct order', async () => {

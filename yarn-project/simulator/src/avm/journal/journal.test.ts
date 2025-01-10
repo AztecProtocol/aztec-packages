@@ -85,7 +85,7 @@ describe('journal', () => {
       persistableState.writeNoteHash(address, utxo);
       expect(trace.traceNewNoteHash).toHaveBeenCalledTimes(1);
       const siloedNotehash = siloNoteHash(address, utxo);
-      const nonce = computeNoteHashNonce(Fr.fromBuffer(persistableState.txHash.toBuffer()), 1);
+      const nonce = computeNoteHashNonce(persistableState.firstNullifier, 1);
       const uniqueNoteHash = computeUniqueNoteHash(nonce, siloedNotehash);
       expect(trace.traceNewNoteHash).toHaveBeenCalledWith(uniqueNoteHash);
     });

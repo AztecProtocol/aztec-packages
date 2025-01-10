@@ -183,3 +183,8 @@ affinity:
         topologyKey: "kubernetes.io/hostname"
         namespaceSelector: {}
 {{- end -}}
+
+{{- define "aztec-network.gcpLocalSsd" -}}
+nodeSelector:
+  cloud.google.com/gke-ephemeral-storage-local-ssd: "true"
+{{- end -}}

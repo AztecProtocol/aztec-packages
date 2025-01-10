@@ -91,7 +91,7 @@ export async function startNode(
   const telemetry = await createAndStartTelemetryClient(telemetryConfig);
 
   // Create and start Aztec Node
-  const node = await createAztecNode(nodeConfig, telemetry);
+  const node = await createAztecNode(nodeConfig, { telemetry });
 
   // Add node and p2p to services list
   services.node = [node, AztecNodeApiSchema];

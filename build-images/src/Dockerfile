@@ -144,13 +144,12 @@ COPY --from=wasi-sdk /opt/wasi-sdk /opt/wasi-sdk
 COPY --from=foundry /opt/foundry /opt/foundry
 ENV PATH="/opt/foundry/bin:$PATH"
 
-# Install rust and cross-compilers. Noir specifically uses 1.74.1.
-# We remove base-build's rust first.
+# Install rust and cross-compilers. Noir specifically uses 1.75.0.
 # We give everyone write ownership so downstream boxes can write.
 ENV RUSTUP_HOME=/opt/rust/rustup
 ENV CARGO_HOME=/opt/rust/cargo
 ENV PATH="/opt/rust/cargo/bin:$PATH"
-RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain 1.74.1 && \
+RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain 1.75.0 && \
     rustup target add wasm32-unknown-unknown wasm32-wasi aarch64-apple-darwin && \
     chmod -R a+w /opt/rust
 

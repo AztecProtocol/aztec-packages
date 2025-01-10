@@ -10,7 +10,7 @@ const indexToKeyHash = (name: string, level: number, index: bigint) => `${name}:
 /**
  * An ephemeral unbalanced Merkle tree implementation.
  * Follows the rollup implementation which greedily hashes pairs of nodes up the tree.
- * Remaining rightmost nodes are shifted up until they can be paired. See proving-state.ts -> findMergeLevel.
+ * Remaining rightmost nodes are shifted up until they can be paired.
  */
 export class UnbalancedTree<T extends Bufferable = Buffer> implements MerkleTree<T> {
   // This map stores index and depth -> value

@@ -54,16 +54,19 @@ export abstract class BaseContractInteraction {
     return await this.wallet.proveTx(txRequest, txSimulationResult.privateExecutionResult);
   }
 
+  // docs:start:prove
   /**
    * Proves a transaction execution request and returns a tx object ready to be sent.
    * @param options - optional arguments to be used in the creation of the transaction
    * @returns The resulting transaction
    */
   public async prove(options: SendMethodOptions = {}): Promise<ProvenTx> {
+    // docs:end:prove
     const txProvingResult = await this.proveInternal(options);
     return new ProvenTx(this.wallet, txProvingResult.toTx());
   }
 
+  // docs:start:send
   /**
    * Sends a transaction to the contract function with the specified options.
    * This function throws an error if called on an unconstrained function.
@@ -74,6 +77,7 @@ export abstract class BaseContractInteraction {
    * @returns A SentTx instance for tracking the transaction status and information.
    */
   public send(options: SendMethodOptions = {}): SentTx {
+    // docs:end:send
     const promise = (async () => {
       const txProvingResult = await this.proveInternal(options);
       return this.wallet.sendTx(txProvingResult.toTx());
@@ -81,6 +85,7 @@ export abstract class BaseContractInteraction {
     return new SentTx(this.wallet, promise);
   }
 
+  // docs:start:estimateGas
   /**
    * Estimates gas for a given tx request and returns gas limits for it.
    * @param opts - Options.
@@ -90,6 +95,7 @@ export abstract class BaseContractInteraction {
   public async estimateGas(
     opts?: Omit<SendMethodOptions, 'estimateGas' | 'skipPublicSimulation'>,
   ): Promise<Pick<GasSettings, 'gasLimits' | 'teardownGasLimits'>> {
+    // docs:end:estimateGas
     const txRequest = await this.create({ ...opts, fee: { ...opts?.fee, estimateGas: false } });
     const simulationResult = await this.wallet.simulateTx(
       txRequest,
@@ -116,6 +122,7 @@ export abstract class BaseContractInteraction {
     return { gasSettings, paymentMethod };
   }
 
+  // docs:start:getFeeOptions
   /**
    * Return fee options based on the user opts, estimating tx gas if needed.
    * @param request - Request to execute for this interaction.
@@ -125,6 +132,7 @@ export abstract class BaseContractInteraction {
   protected async getFeeOptions(
     request: Omit<ExecutionRequestInit, 'fee'> & { /** User-provided fee options */ fee?: UserFeeOptions },
   ): Promise<FeeOptions> {
+    // docs:end:getFeeOptions
     const defaultFeeOptions = await this.getDefaultFeeOptions(request.fee);
     const paymentMethod = defaultFeeOptions.paymentMethod;
     const maxFeesPerGas = defaultFeeOptions.gasSettings.maxFeesPerGas;

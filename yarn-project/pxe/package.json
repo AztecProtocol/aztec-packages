@@ -80,7 +80,6 @@
     "@aztec/simulator": "workspace:^",
     "@aztec/types": "workspace:^",
     "@msgpack/msgpack": "^3.0.0-beta2",
-    "@noir-lang/noirc_abi": "portal:../../noir/packages/noirc_abi",
     "@noir-lang/types": "workspace:*",
     "koa": "^2.14.2",
     "koa-router": "^12.0.0",

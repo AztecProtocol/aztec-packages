@@ -5,8 +5,6 @@ import {
   type NESTED_RECURSIVE_PROOF_LENGTH,
   type NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH,
   type ParityPublicInputs,
-  type PrivateKernelEmptyInputData,
-  type PrivateToRollupKernelCircuitPublicInputs,
   type RECURSIVE_PROOF_LENGTH,
   type RootParityInputs,
   type TUBE_PROOF_LENGTH,
@@ -22,6 +20,7 @@ import {
   type PublicBaseRollupInputs,
   type RootRollupInputs,
   type RootRollupPublicInputs,
+  type SingleTxBlockRootRollupInputs,
   type TubeInputs,
 } from '@aztec/circuits.js/rollup';
 
@@ -106,6 +105,14 @@ export interface ServerCircuitProver {
     PublicInputsAndRecursiveProof<BlockRootOrBlockMergePublicInputs, typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH>
   >;
 
+  getSingleTxBlockRootRollupProof(
+    input: SingleTxBlockRootRollupInputs,
+    signal?: AbortSignal,
+    epochNumber?: number,
+  ): Promise<
+    PublicInputsAndRecursiveProof<BlockRootOrBlockMergePublicInputs, typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH>
+  >;
+
   /**
    * Creates a proof for the given input.
    * @param input - Input to the circuit.
@@ -139,17 +146,6 @@ export interface ServerCircuitProver {
     signal?: AbortSignal,
     epochNumber?: number,
   ): Promise<PublicInputsAndRecursiveProof<RootRollupPublicInputs, typeof NESTED_RECURSIVE_PROOF_LENGTH>>;
-
-  getEmptyPrivateKernelProof(
-    inputs: PrivateKernelEmptyInputData,
-    signal?: AbortSignal,
-    epochNumber?: number,
-  ): Promise<
-    PublicInputsAndRecursiveProof<
-      PrivateToRollupKernelCircuitPublicInputs,
-      typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH
-    >
-  >;
 
   /**
    * Create a proof for the AVM circuit.
