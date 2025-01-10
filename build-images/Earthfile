@@ -501,6 +501,7 @@ end-to-end-base:
 
 all-ci:
   LOCALLY
+  ARG TARGETARCH
   # Build all images needed by ci, pushing them to the registry.
   BUILD +base-build
   BUILD +wasi-sdk
