@@ -1,7 +1,8 @@
 import { Fr } from '@aztec/foundation/fields';
-import { BufferReader, FieldReader, serializeToBuffer } from '@aztec/foundation/serialize';
+import { BufferReader, FieldReader, serializeToBuffer, serializeToFields } from '@aztec/foundation/serialize';
 import { type FieldsOf } from '@aztec/foundation/types';
 
+import { TX_CONSTANT_DATA_LENGTH } from '../../constants.gen.js';
 import { BlockHeader } from '../block_header.js';
 import { TxContext } from '../tx_context.js';
 
@@ -47,6 +48,16 @@ export class TxConstantData {
       reader.readField(),
       reader.readField(),
     );
+  }
+
+  toFields(): Fr[] {
+    const fields = serializeToFields(...TxConstantData.getFields(this));
+    if (fields.length !== TX_CONSTANT_DATA_LENGTH) {
+      throw new Error(
+        `Invalid number of fields for TxConstantData. Expected ${TX_CONSTANT_DATA_LENGTH}, got ${fields.length}`,
+      );
+    }
+    return fields;
   }
 
   static fromBuffer(buffer: Buffer | BufferReader): TxConstantData {
