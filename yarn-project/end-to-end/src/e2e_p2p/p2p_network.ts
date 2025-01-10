@@ -300,7 +300,7 @@ export class P2PNetworkTest {
       this.ctx.deployL1ContractsValues.walletClient,
       this.logger,
       {
-        gasLimitBufferPercentage: 20n,
+        gasLimitBufferPercentage: 20,
         maxGwei: 500n,
         minGwei: 1n,
         maxAttempts: 3,
