@@ -2,8 +2,7 @@ use std::static_assert;
 
 use crate::{
     context::unconstrained_context::UnconstrainedContext, note::note_header::NoteHeader,
-    oracle::note_discovery::deliver_note,
-    utils::array,
+    oracle::note_discovery::deliver_note, utils::array,
 };
 
 use dep::protocol_types::{

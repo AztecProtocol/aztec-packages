@@ -1,5 +1,5 @@
-use dep::protocol_types::address::AztecAddress;
 use crate::note::discovery::MAX_NOTE_SERIALIZED_LEN;
+use dep::protocol_types::address::AztecAddress;
 
 /// Informs PXE of a note's existence so that it can later retrieved by the `getNotes` oracle. The note will be scoped
 /// to `contract_address`, meaning other contracts will not be able to access it unless authorized.
