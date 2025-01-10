@@ -31,11 +31,15 @@ template <typename Curve> class ShpleminiProver_ {
                               const std::shared_ptr<CommitmentKey<Curve>>& commitment_key,
                               const std::shared_ptr<Transcript>& transcript,
                               const std::array<Polynomial, NUM_LIBRA_EVALUATIONS>& libra_polynomials = {},
+                              const std::vector<Polynomial> sumcheck_round_univariates = {},
+                              const std::vector<std::array<FF, 3>> sumcheck_round_evaluations = {},
                               RefSpan<Polynomial> concatenated_polynomials = {},
                               const std::vector<RefVector<Polynomial>>& groups_to_be_concatenated = {})
     {
         // While Shplemini is not templated on Flavor, we derive ZK flag this way
         const bool has_zk = (libra_polynomials[0].size() > 0);
+        const bool is_eccvm = (!sumcheck_round_univariates.empty());
+
         std::vector<OpeningClaim> opening_claims = GeminiProver::prove(circuit_size,
                                                                        f_polynomials,
                                                                        g_polynomials,
@@ -47,7 +51,22 @@ template <typename Curve> class ShpleminiProver_ {
                                                                        has_zk);
         // Create opening claims for Libra masking univariates
         std::vector<OpeningClaim> libra_opening_claims;
+        std::vector<OpeningClaim> sumcheck_round_claims;
         OpeningClaim new_claim;
+        if (is_eccvm) {
+
+            const size_t log_circuit_size = numeric::get_msb(static_cast<uint32_t>(circuit_size));
+            for (size_t idx = 0; idx < log_circuit_size; idx++) {
+                const std::vector<FF> evaluation_points = { FF(0), FF(1), multilinear_challenge[idx] };
+                size_t eval_idx = 0;
+                for (auto& eval_point : evaluation_points) {
+                    new_claim.polynomial = sumcheck_round_univariates[idx];
+                    new_claim.opening_pair.challenge = eval_point;
+                    new_claim.opening_pair.evaluation = sumcheck_round_evaluations[idx][eval_idx];
+                    eval_idx++;
+                }
+            }
+        }
 
         if (has_zk) {
             static constexpr FF subgroup_generator = Curve::subgroup_generator;

@@ -65,7 +65,7 @@ bool ECCVMVerifier::verify_proof(const ECCVMProof& proof)
     libra_commitments[2] = transcript->template receive_from_prover<Commitment>("Libra:quotient_commitment");
 
     // If Sumcheck did not verify, return false
-    if (sumcheck_output.verified.has_value() && !sumcheck_output.verified.value()) {
+    if (!sumcheck_output.verified) {
         vinfo("eccvm sumcheck failed");
         return false;
     }
@@ -133,8 +133,8 @@ bool ECCVMVerifier::verify_proof(const ECCVMProof& proof)
 
     const bool batched_opening_verified =
         PCS::reduce_verify(key->pcs_verification_key, batch_opening_claim, ipa_transcript);
-    vinfo("eccvm sumcheck verified?: ", sumcheck_output.verified.value());
+    vinfo("eccvm sumcheck verified?: ", sumcheck_output.verified);
     vinfo("batch opening verified?: ", batched_opening_verified);
-    return sumcheck_output.verified.value() && batched_opening_verified && consistency_checked;
+    return sumcheck_output.verified && batched_opening_verified && consistency_checked;
 }
 } // namespace bb

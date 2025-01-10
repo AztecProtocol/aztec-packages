@@ -1,5 +1,6 @@
 #pragma once
 #include "barretenberg/flavor/flavor.hpp"
+#include "barretenberg/polynomials/polynomial.hpp"
 #include <array>
 #include <optional>
 #include <vector>
@@ -45,14 +46,13 @@ struct SumcheckOutput<
     std::optional<bool> verified = false; // Optional b/c this struct is shared by the Prover/Verifier
 };
 
-template <typename Flavor>
-struct SumcheckOutput<Flavor, std::enable_if_t<std::is_same_v<Flavor, ECCVMFlavor> || IsECCVMRecursiveFlavor<Flavor>>> {
+template <typename Flavor> struct SumcheckVerifierOutput {
     using FF = typename Flavor::FF;
     using ClaimedEvaluations = typename Flavor::AllValues;
     using Commitment = typename Flavor::Commitment;
 
     std::vector<Commitment> round_univariate_commitments;
-    std::vector<std::array<FF, 2>> round_univariate_evaluations;
+    std::vector<std::array<FF, 3>> round_univariate_evaluations;
     // \f$ \vec u = (u_0, ..., u_{d-1}) \f$
     std::vector<FF> challenge;
     // Evaluations at \f$ \vec u \f$ of the polynomials used in Sumcheck
@@ -60,9 +60,26 @@ struct SumcheckOutput<Flavor, std::enable_if_t<std::is_same_v<Flavor, ECCVMFlavo
     // For ZK Flavors: the sum of the Libra constant term and Libra univariates evaluated at Sumcheck challenges
     FF claimed_libra_evaluation;
 
-    std::optional<FF> full_honk_purported_value = std::nullopt;
+    FF full_honk_purported_value;
     // Whether or not the evaluations of multilinear polynomials \f$ P_1, \ldots, P_N \f$  and final Sumcheck evaluation
     // have been confirmed
-    std::optional<bool> verified = false; // Optional b/c this struct is shared by the Prover/Verifier
+    bool verified; // Optional b/c this struct is shared by the Prover/Verifier
+};
+
+template <typename Flavor>
+struct SumcheckOutput<Flavor, std::enable_if_t<std::is_same_v<Flavor, ECCVMFlavor> || IsECCVMRecursiveFlavor<Flavor>>> {
+    using FF = typename Flavor::FF;
+    using ClaimedEvaluations = typename Flavor::AllValues;
+    using Commitment = typename Flavor::Commitment;
+
+    std::vector<bb::Polynomial<FF>> round_univariates;
+    std::vector<std::array<FF, 3>> round_univariate_evaluations;
+
+    // \f$ \vec u = (u_0, ..., u_{d-1}) \f$
+    std::vector<FF> challenge;
+    // Evaluations at \f$ \vec u \f$ of the polynomials used in Sumcheck
+    ClaimedEvaluations claimed_evaluations;
+    // For ZK Flavors: the sum of the Libra constant term and Libra univariates evaluated at Sumcheck challenges
+    FF claimed_libra_evaluation;
 };
 } // namespace bb
