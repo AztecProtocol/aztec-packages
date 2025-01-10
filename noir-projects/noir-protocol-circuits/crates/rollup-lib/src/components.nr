@@ -1,8 +1,6 @@
 use crate::abis::{
-    base_or_merge_rollup_public_inputs::BaseOrMergeRollupPublicInputs,
     block_root_or_block_merge_public_inputs::{BlockRootOrBlockMergePublicInputs, FeeRecipient},
     previous_rollup_block_data::PreviousRollupBlockData,
-    previous_rollup_data::PreviousRollupData,
 };
 use super::abis::tx_effect::TxEffect;
 use dep::types::{
@@ -22,70 +20,6 @@ use dep::types::{
     utils::{arrays::{array_concat, array_length, array_merge}, field::field_from_bytes},
 };
 use blob::blob_public_inputs::BlockBlobPublicInputs;
-
-/**
- * Asserts that the tree formed by rollup circuits is filled greedily from L to R
- *
- */
-pub fn assert_txs_filled_from_left(
-    left: BaseOrMergeRollupPublicInputs,
-    right: BaseOrMergeRollupPublicInputs,
-) {
-    // assert that the left rollup is either a base (1 tx) or a balanced tree (num txs = power of 2)
-    if (left.rollup_type == 1) {
-        let left_txs = left.num_txs;
-        let right_txs = right.num_txs;
-        // See https://graphics.stanford.edu/~seander/bithacks.html#DetermineIfPowerOf2
-        assert(
-            (left_txs) & (left_txs - 1) == 0,
-            "The rollup should be filled greedily from L to R, but received an unbalanced left subtree",
-        );
-        assert(
-            right_txs <= left_txs,
-            "The rollup should be filled greedily from L to R, but received a L txs < R txs",
-        );
-    } else {
-        assert(
-            right.rollup_type == 0,
-            "The rollup should be filled greedily from L to R, but received a L base and R merge",
-        );
-    }
-}
-
-/**
- * Asserts that the constants used in the left and right child are identical
- *
- */
-pub fn assert_equal_constants(
-    left: BaseOrMergeRollupPublicInputs,
-    right: BaseOrMergeRollupPublicInputs,
-) {
-    assert(left.constants.eq(right.constants), "input proofs have different constants");
-}
-
-// asserts that the end snapshot of previous_rollup 0 equals the start snapshot of previous_rollup 1 (i.e. ensure they
-// follow on from one-another). Ensures that right uses the tree that was updated by left.
-pub fn assert_prev_rollups_follow_on_from_each_other(
-    left: BaseOrMergeRollupPublicInputs,
-    right: BaseOrMergeRollupPublicInputs,
-) {
-    assert(
-        left.end.note_hash_tree.eq(right.start.note_hash_tree),
-        "input proofs have different note hash tree snapshots",
-    );
-    assert(
-        left.end.nullifier_tree.eq(right.start.nullifier_tree),
-        "input proofs have different nullifier tree snapshots",
-    );
-    assert(
-        left.end.public_data_tree.eq(right.start.public_data_tree),
-        "input proofs have different public data tree snapshots",
-    );
-    assert(
-        left.end_sponge_blob.eq(right.start_sponge_blob),
-        "input proofs have different blob data sponges",
-    );
-}
 
 pub fn assert_prev_block_rollups_follow_on_from_each_other(
     left: BlockRootOrBlockMergePublicInputs,
@@ -134,20 +68,6 @@ pub fn assert_prev_block_rollups_follow_on_from_each_other(
     }
 }
 
-pub fn accumulate_fees(
-    left: BaseOrMergeRollupPublicInputs,
-    right: BaseOrMergeRollupPublicInputs,
-) -> Field {
-    left.accumulated_fees + right.accumulated_fees
-}
-
-pub fn accumulate_mana_used(
-    left: BaseOrMergeRollupPublicInputs,
-    right: BaseOrMergeRollupPublicInputs,
-) -> Field {
-    left.accumulated_mana_used + right.accumulated_mana_used
-}
-
 pub fn accumulate_blocks_fees(
     left: BlockRootOrBlockMergePublicInputs,
     right: BlockRootOrBlockMergePublicInputs,
@@ -192,19 +112,6 @@ pub fn accumulate_blob_public_inputs(
     result
 }
 
-/**
- * @brief From two previous rollup data, compute a single out hash
- *
- * @param previous_rollup_data
- * @return out hash stored in 2 fields
- */
-pub fn compute_out_hash(previous_rollup_data: [PreviousRollupData; 2]) -> Field {
-    accumulate_sha256([
-        previous_rollup_data[0].base_or_merge_rollup_public_inputs.out_hash,
-        previous_rollup_data[1].base_or_merge_rollup_public_inputs.out_hash,
-    ])
-}
-
 pub fn compute_blocks_out_hash(previous_rollup_data: [PreviousRollupBlockData; 2]) -> Field {
     if previous_rollup_data[1].block_root_or_block_merge_public_inputs.is_padding() {
         previous_rollup_data[0].block_root_or_block_merge_public_inputs.out_hash
@@ -223,18 +130,6 @@ pub fn compute_kernel_out_hash(l2_to_l1_msgs: [Field; MAX_L2_TO_L1_MSGS_PER_TX])
 }
 
 /**
- * Asserts that the first sponge blob was empty to begin with.
- * This prevents injecting unchecked tx effects in the first base of a rollup.
- */
-pub fn assert_first_sponge_blob_empty(left: BaseOrMergeRollupPublicInputs) {
-    let expected_sponge_blob = SpongeBlob::new(left.start_sponge_blob.expected_fields);
-    assert(
-        left.start_sponge_blob.eq(expected_sponge_blob),
-        "block's first blob sponge was not empty",
-    );
-}
-
-/**
  * Converts given type (e.g. note hashes = 3) and length (e.g. 5) into a prefix: 0x03000005.
  * Uses 2 bytes to encode the length even when we only need 1 to keep uniform.
  */
@@ -245,6 +140,7 @@ pub fn encode_blob_prefix(input_type: u8, array_len: u32) -> Field {
 
 // Tx effects consist of
 // 1 field for revert code
+// 1 field for tx hash
 // 1 field for transaction fee
 // MAX_NOTE_HASHES_PER_TX fields for note hashes
 // MAX_NULLIFIERS_PER_TX fields for nullifiers
@@ -256,6 +152,7 @@ pub fn encode_blob_prefix(input_type: u8, array_len: u32) -> Field {
 // MAX_CONTRACT_CLASS_LOGS_PER_TX fields for contract class logs
 // 7 fields for prefixes for each of the above categories
 pub(crate) global TX_EFFECTS_BLOB_HASH_INPUT_FIELDS: u32 = 1
+    + 1
     + 1
     + MAX_NOTE_HASHES_PER_TX
     + MAX_NULLIFIERS_PER_TX
@@ -277,8 +174,8 @@ pub(crate) fn append_tx_effects_for_blob(
     let mut out_sponge = start_sponge_blob;
 
     // If we have an empty tx (usually a padding tx), we don't want to absorb anything
-    // An empty tx will only have 2 effects - revert code and fee - hence offset = 2
-    if offset != 2 {
+    // An empty tx will only have 3 effects - revert code, tx hash and fee - hence offset = 3
+    if offset != 3 {
         out_sponge.absorb(tx_effects_hash_input, offset);
     }
 
@@ -310,6 +207,9 @@ fn get_tx_effects_hash_input(
     // TX_START_PREFIX | 0 | txlen[0] txlen[1] | 0 | REVERT_CODE_PREFIX | 0 | revert_code
     // Two bytes are used to encode the number of fields appended here, given by 'offset'
     // We only know the value once the appending is complete, hence we overwrite input[0] below
+    offset += 1;
+
+    assert_eq(tx_effects_hash_input[offset], tx_effect.tx_hash);
     offset += 1;
 
     // TX FEE
@@ -504,6 +404,9 @@ unconstrained fn get_tx_effects_hash_input_helper(
     // Two bytes are used to encode the number of fields appended here, given by 'offset'
     // We only know the value once the appending is complete, hence we overwrite input[0] below
     tx_effects_hash_input[offset] = 0;
+    offset += 1;
+
+    tx_effects_hash_input[offset] = tx_effect.tx_hash;
     offset += 1;
 
     // TX FEE

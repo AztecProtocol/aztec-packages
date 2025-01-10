@@ -311,6 +311,21 @@ class UltraFlavor {
             return result;
         }
 
+        [[nodiscard]] AllValues get_row_for_permutation_arg(size_t row_idx)
+        {
+            AllValues result;
+            for (auto [result_field, polynomial] : zip_view(result.get_sigma_polynomials(), get_sigma_polynomials())) {
+                result_field = polynomial[row_idx];
+            }
+            for (auto [result_field, polynomial] : zip_view(result.get_id_polynomials(), get_id_polynomials())) {
+                result_field = polynomial[row_idx];
+            }
+            for (auto [result_field, polynomial] : zip_view(result.get_wires(), get_wires())) {
+                result_field = polynomial[row_idx];
+            }
+            return result;
+        }
+
         // Set all shifted polynomials based on their to-be-shifted counterpart
         void set_shifted()
         {

@@ -1,14 +1,12 @@
 import {
-  type BlockHeader,
-  ClientIvcProof,
+  type ClientIvcProof,
   CombinedConstantData,
   Fr,
   Gas,
-  GlobalVariables,
-  PrivateKernelTailCircuitPublicInputs,
+  type GlobalVariables,
+  type PrivateKernelTailCircuitPublicInputs,
   type PublicDataWrite,
   RevertCode,
-  TxConstantData,
 } from '@aztec/circuits.js';
 import { siloL2ToL1Message } from '@aztec/circuits.js/hash';
 
@@ -17,7 +15,7 @@ import { type SimulationError } from '../simulation_error.js';
 import { TxEffect } from '../tx_effect.js';
 import { type GasUsed } from './gas_used.js';
 import { type Tx } from './tx.js';
-import { TxHash } from './tx_hash.js';
+import { type TxHash } from './tx_hash.js';
 
 export enum TxExecutionPhase {
   SETUP,
@@ -82,44 +80,6 @@ export type FailedTx = {
   error: Error;
 };
 
-/**
- * Makes an empty tx from an empty kernel circuit public inputs.
- * @returns A processed empty tx.
- */
-export function makeEmptyProcessedTx(
-  header: BlockHeader,
-  chainId: Fr,
-  version: Fr,
-  vkTreeRoot: Fr,
-  protocolContractTreeRoot: Fr,
-): ProcessedTx {
-  const constants = TxConstantData.empty();
-  constants.historicalHeader = header;
-  constants.txContext.chainId = chainId;
-  constants.txContext.version = version;
-  constants.vkTreeRoot = vkTreeRoot;
-  constants.protocolContractTreeRoot = protocolContractTreeRoot;
-
-  const clientProofOutput = PrivateKernelTailCircuitPublicInputs.empty();
-  clientProofOutput.constants = constants;
-
-  return {
-    hash: new TxHash(Fr.ZERO),
-    data: clientProofOutput,
-    clientIvcProof: ClientIvcProof.empty(),
-    avmProvingRequest: undefined,
-    constants: CombinedConstantData.combine(constants, GlobalVariables.empty()),
-    txEffect: TxEffect.empty(),
-    gasUsed: {
-      totalGas: Gas.empty(),
-      teardownGas: Gas.empty(),
-      publicGas: Gas.empty(),
-    },
-    revertReason: undefined,
-    isEmpty: true,
-  };
-}
-
 export function makeProcessedTxFromPrivateOnlyTx(
   tx: Tx,
   transactionFee: Fr,
@@ -133,6 +93,7 @@ export function makeProcessedTxFromPrivateOnlyTx(
   const data = tx.data.forRollup!;
   const txEffect = new TxEffect(
     RevertCode.OK,
+    tx.getTxHash(),
     transactionFee,
     data.end.noteHashes.filter(h => !h.isZero()),
     data.end.nullifiers.filter(h => !h.isZero()),
@@ -153,7 +114,7 @@ export function makeProcessedTxFromPrivateOnlyTx(
   } satisfies GasUsed;
 
   return {
-    hash: tx.getTxHash(),
+    hash: txEffect.txHash,
     data: tx.data,
     clientIvcProof: tx.clientIvcProof,
     avmProvingRequest: undefined,
@@ -193,6 +154,7 @@ export function makeProcessedTxFromTxWithPublicCalls(
 
   const txEffect = new TxEffect(
     revertCode,
+    tx.getTxHash(),
     avmOutput.transactionFee,
     avmOutput.accumulatedData.noteHashes.filter(h => !h.isZero()),
     avmOutput.accumulatedData.nullifiers.filter(h => !h.isZero()),
@@ -207,7 +169,7 @@ export function makeProcessedTxFromTxWithPublicCalls(
   );
 
   return {
-    hash: tx.getTxHash(),
+    hash: txEffect.txHash,
     data: tx.data,
     clientIvcProof: tx.clientIvcProof,
     avmProvingRequest,

@@ -74,7 +74,7 @@ export class EpochProvingJob implements Traceable {
 
     const epochNumber = Number(this.epochNumber);
     const epochSizeBlocks = this.blocks.length;
-    const epochSizeTxs = this.blocks.reduce((total, current) => total + current.body.numberOfTxsIncludingPadded, 0);
+    const epochSizeTxs = this.blocks.reduce((total, current) => total + current.body.txEffects.length, 0);
     const [fromBlock, toBlock] = [this.blocks[0].number, this.blocks.at(-1)!.number];
     this.log.info(`Starting epoch ${epochNumber} proving job with blocks ${fromBlock} to ${toBlock}`, {
       fromBlock,
@@ -91,6 +91,7 @@ export class EpochProvingJob implements Traceable {
 
     try {
       this.prover.startNewEpoch(epochNumber, fromBlock, epochSizeBlocks);
+      this.prover.startTubeCircuits(this.txs);
 
       await asyncPool(this.config.parallelBlockLimit, this.blocks, async block => {
         this.checkState();
@@ -131,6 +132,8 @@ export class EpochProvingJob implements Traceable {
         await this.prover.setBlockCompleted(block.number, block.header);
       });
 
+      const executionTime = timer.ms();
+
       this.progressState('awaiting-prover');
       const { publicInputs, proof } = await this.prover.finaliseEpoch();
       this.log.info(`Finalised proof for epoch ${epochNumber}`, { epochNumber, uuid: this.uuid, duration: timer.ms() });
@@ -143,7 +146,7 @@ export class EpochProvingJob implements Traceable {
 
       this.log.info(`Submitted proof for epoch`, { epochNumber, uuid: this.uuid });
       this.state = 'completed';
-      this.metrics.recordProvingJob(timer, epochSizeBlocks, epochSizeTxs);
+      this.metrics.recordProvingJob(executionTime, timer.ms(), epochSizeBlocks, epochSizeTxs);
     } catch (err: any) {
       if (err && err.name === 'HaltExecutionError') {
         this.log.warn(`Halted execution of epoch ${epochNumber} prover job`, { uuid: this.uuid, epochNumber });
@@ -154,6 +157,7 @@ export class EpochProvingJob implements Traceable {
     } finally {
       clearTimeout(this.deadlineTimeoutHandler);
       await this.cleanUp(this);
+      await this.prover.stop();
       resolve();
     }
   }

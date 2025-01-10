@@ -65,8 +65,13 @@ aztec:
   ports:
     - "${PXE_PORT:-8080}:${PXE_PORT:-8080}"
   environment:
+    # Options are 'fatal', 'error', 'warn', 'info', 'verbose', 'debug', 'trace'
     LOG_LEVEL: verbose
   # ...
 ```
 
 and start the sandbox normally.
+
+You can specify different log levels for different services.
+
+For example: `LOG_LEVEL='verbose; info: sequencer'`will use verbose logging for everything except the `sequencer` service, which will use the `info` level.

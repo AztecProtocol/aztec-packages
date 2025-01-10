@@ -12,6 +12,7 @@ use types::{
 };
 
 pub(crate) struct TxEffect {
+    pub(crate) tx_hash: Field,
     pub(crate) revert_code: u8,
     pub(crate) transaction_fee: Field,
     pub(crate) note_hashes: [Field; MAX_NOTE_HASHES_PER_TX],
@@ -27,6 +28,7 @@ pub(crate) struct TxEffect {
 impl Empty for TxEffect {
     fn empty() -> Self {
         TxEffect {
+            tx_hash: 0,
             revert_code: 0,
             transaction_fee: 0,
             note_hashes: [0; MAX_NOTE_HASHES_PER_TX],

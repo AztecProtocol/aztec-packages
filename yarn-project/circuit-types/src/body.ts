@@ -79,7 +79,6 @@ export class Body {
   [inspect.custom]() {
     return `Body {
   txEffects: ${inspect(this.txEffects)},
-  emptyTxEffectsCount: ${this.numberOfTxsIncludingPadded},
 }`;
   }
 
@@ -87,20 +86,6 @@ export class Body {
     const logs = this.txEffects.map(txEffect => txEffect.contractClassLogs);
 
     return new ContractClass2BlockL2Logs(logs);
-  }
-
-  /**
-   * Computes the number of transactions in the block including padding transactions.
-   */
-  get numberOfTxsIncludingPadded() {
-    const numTxEffects = this.txEffects.length;
-
-    // 2 is the minimum number of tx effects
-    if (numTxEffects <= 2) {
-      return 2;
-    }
-
-    return numTxEffects;
   }
 
   static random(txsPerBlock = 4, numPublicCallsPerTx = 3, numPublicLogsPerCall = 1) {

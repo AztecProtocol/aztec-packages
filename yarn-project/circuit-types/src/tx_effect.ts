@@ -56,6 +56,10 @@ export class TxEffect {
      */
     public revertCode: RevertCode,
     /**
+     * The identifier of the transaction.
+     */
+    public txHash: TxHash,
+    /**
      * The transaction fee, denominated in FPA.
      */
     public transactionFee: Fr,
@@ -143,6 +147,7 @@ export class TxEffect {
   toBuffer(): Buffer {
     return serializeToBuffer([
       this.revertCode,
+      this.txHash,
       this.transactionFee,
       serializeArrayOfBufferableToVector(this.noteHashes, 1),
       serializeArrayOfBufferableToVector(this.nullifiers, 1),
@@ -170,6 +175,7 @@ export class TxEffect {
 
     return new TxEffect(
       RevertCode.fromBuffer(reader),
+      TxHash.fromBuffer(reader),
       Fr.fromBuffer(reader),
       reader.readVectorUint8Prefix(Fr),
       reader.readVectorUint8Prefix(Fr),
@@ -214,6 +220,7 @@ export class TxEffect {
     const contractClassLogs = ContractClassTxL2Logs.random(1, 1);
     return new TxEffect(
       RevertCode.random(),
+      TxHash.random(),
       new Fr(Math.floor(Math.random() * 100_000)),
       makeTuple(MAX_NOTE_HASHES_PER_TX, Fr.random),
       makeTuple(MAX_NULLIFIERS_PER_TX, Fr.random),
@@ -227,7 +234,19 @@ export class TxEffect {
   }
 
   static empty(): TxEffect {
-    return new TxEffect(RevertCode.OK, Fr.ZERO, [], [], [], [], [], [], Fr.ZERO, ContractClassTxL2Logs.empty());
+    return new TxEffect(
+      RevertCode.OK,
+      TxHash.zero(),
+      Fr.ZERO,
+      [],
+      [],
+      [],
+      [],
+      [],
+      [],
+      Fr.ZERO,
+      ContractClassTxL2Logs.empty(),
+    );
   }
 
   isEmpty(): boolean {
@@ -327,6 +346,8 @@ export class TxEffect {
     const flattened: Fr[] = [];
     // We reassign the first field when we know the length of all effects - see below
     flattened.push(Fr.ZERO);
+
+    flattened.push(this.txHash.hash);
     // TODO: how long should tx fee be? For now, not using toPrefix()
     flattened.push(
       new Fr(
@@ -393,6 +414,8 @@ export class TxEffect {
     }
     const { length: _, revertCode } = this.decodeFirstField(firstField);
     effect.revertCode = RevertCode.fromField(new Fr(revertCode));
+
+    effect.txHash = new TxHash(reader.readField());
     // TODO: how long should tx fee be? For now, not using fromPrefix()
     const prefixedFee = reader.readField();
     // NB: Fr.fromBuffer hangs here if you provide a buffer less than 32 in len
@@ -475,9 +498,10 @@ export class TxEffect {
     });
   }
 
-  static from(fields: Omit<FieldsOf<TxEffect>, 'txHash'>) {
+  static from(fields: FieldsOf<TxEffect>) {
     return new TxEffect(
       fields.revertCode,
+      fields.txHash,
       fields.transactionFee,
       fields.noteHashes,
       fields.nullifiers,
@@ -494,6 +518,7 @@ export class TxEffect {
     return z
       .object({
         revertCode: RevertCode.schema,
+        txHash: TxHash.schema,
         transactionFee: schemas.Fr,
         noteHashes: z.array(schemas.Fr),
         nullifiers: z.array(schemas.Fr),
@@ -510,6 +535,7 @@ export class TxEffect {
   [inspect.custom]() {
     return `TxEffect {
       revertCode: ${this.revertCode},
+      txHash: ${this.txHash},
       transactionFee: ${this.transactionFee},
       note hashes: [${this.noteHashes.map(h => h.toString()).join(', ')}],
       nullifiers: [${this.nullifiers.map(h => h.toString()).join(', ')}],
@@ -529,9 +555,5 @@ export class TxEffect {
    */
   static fromString(str: string) {
     return TxEffect.fromBuffer(hexToBuffer(str));
-  }
-
-  get txHash(): TxHash {
-    return new TxHash(this.nullifiers[0]);
   }
 }

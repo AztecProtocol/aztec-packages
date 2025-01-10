@@ -561,6 +561,7 @@ export class L1Publisher {
     attestations?: Signature[],
     txHashes?: TxHash[],
     proofQuote?: EpochProofQuote,
+    opts: { txTimeoutAt?: Date } = {},
   ): Promise<boolean> {
     const ctx = {
       blockNumber: block.number,
@@ -602,8 +603,8 @@ export class L1Publisher {
 
     this.log.debug(`Submitting propose transaction`);
     const result = proofQuote
-      ? await this.sendProposeAndClaimTx(proposeTxArgs, proofQuote)
-      : await this.sendProposeTx(proposeTxArgs);
+      ? await this.sendProposeAndClaimTx(proposeTxArgs, proofQuote, opts)
+      : await this.sendProposeTx(proposeTxArgs, opts);
 
     if (!result?.receipt) {
       this.log.info(`Failed to publish block ${block.number} to L1`, ctx);
@@ -1020,6 +1021,7 @@ export class L1Publisher {
 
   private async sendProposeTx(
     encodedData: L1ProcessArgs,
+    opts: { txTimeoutAt?: Date } = {},
   ): Promise<{ receipt: TransactionReceipt | undefined; args: any; functionName: string; data: Hex } | undefined> {
     if (this.interrupted) {
       return undefined;
@@ -1039,6 +1041,7 @@ export class L1Publisher {
         },
         {
           fixedGas: gas,
+          ...opts,
         },
         {
           blobs: encodedData.blobs.map(b => b.dataWithZeros),
@@ -1061,6 +1064,7 @@ export class L1Publisher {
   private async sendProposeAndClaimTx(
     encodedData: L1ProcessArgs,
     quote: EpochProofQuote,
+    opts: { txTimeoutAt?: Date } = {},
   ): Promise<{ receipt: TransactionReceipt | undefined; args: any; functionName: string; data: Hex } | undefined> {
     if (this.interrupted) {
       return undefined;
@@ -1078,7 +1082,10 @@ export class L1Publisher {
           to: this.rollupContract.address,
           data,
         },
-        { fixedGas: gas },
+        {
+          fixedGas: gas,
+          ...opts,
+        },
         {
           blobs: encodedData.blobs.map(b => b.dataWithZeros),
           kzg,

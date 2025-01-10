@@ -117,7 +117,12 @@ export class AztecKVTxPool implements TxPool {
    */
   public getTxByHash(txHash: TxHash): Tx | undefined {
     const buffer = this.#txs.get(txHash.toString());
-    return buffer ? Tx.fromBuffer(buffer) : undefined;
+    if (buffer) {
+      const tx = Tx.fromBuffer(buffer);
+      tx.setTxHash(txHash);
+      return tx;
+    }
+    return undefined;
   }
 
   /**
@@ -190,7 +195,11 @@ export class AztecKVTxPool implements TxPool {
    * @returns Array of tx objects in the order they were added to the pool.
    */
   public getAllTxs(): Tx[] {
-    return Array.from(this.#txs.values()).map(buffer => Tx.fromBuffer(buffer));
+    return Array.from(this.#txs.entries()).map(([hash, buffer]) => {
+      const tx = Tx.fromBuffer(buffer);
+      tx.setTxHash(TxHash.fromString(hash));
+      return tx;
+    });
   }
 
   /**
