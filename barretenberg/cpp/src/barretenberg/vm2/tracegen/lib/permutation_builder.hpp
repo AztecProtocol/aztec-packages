@@ -21,6 +21,7 @@ template <typename PermutationSettings> class PermutationBuilder {
         // Let "src_sel {c1, c2, ...} is dst_sel {d1, d2, ...}" be a permutation.
         trace.visit_column(PermutationSettings::SRC_SELECTOR, [&](uint32_t row, const FF& src_sel_value) {
             assert(src_sel_value == 1);
+            (void)src_sel_value; // Avoid GCC complaining of unused parameter when asserts are disabled.
 
             // We set a dummy value in the inverse column so that the size of the column is right.
             // The correct value will be set by the prover.

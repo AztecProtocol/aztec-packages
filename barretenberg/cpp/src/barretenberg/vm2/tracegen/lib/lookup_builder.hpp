@@ -26,6 +26,7 @@ template <typename LookupSettings_> class BaseLookupTraceBuilder {
         // The complexity is O(|src_selector|) * O(find_in_dst).
         trace.visit_column(LookupSettings::SRC_SELECTOR, [&](uint32_t row, const FF& src_sel_value) {
             assert(src_sel_value == 1);
+            (void)src_sel_value; // Avoid GCC complaining of unused parameter when asserts are disabled.
 
             auto src_values = trace.get_multiple(LookupSettings::SRC_COLUMNS, row);
             uint32_t dst_row = find_in_dst(src_values); // Assumes an efficient implementation.
@@ -63,6 +64,8 @@ template <typename LookupSettings_> class LookupIntoDynamicTable : public BaseLo
         row_idx.reserve(trace.get_column_rows(LookupSettings::DST_SELECTOR));
         trace.visit_column(LookupSettings::DST_SELECTOR, [&](uint32_t row, const FF& dst_sel_value) {
             assert(dst_sel_value == 1);
+            (void)dst_sel_value; // Avoid GCC complaining of unused parameter when asserts are disabled.
+
             auto dst_values = trace.get_multiple(LookupSettings::DST_COLUMNS, row);
             row_idx.insert({ get_key(dst_values), row });
         });

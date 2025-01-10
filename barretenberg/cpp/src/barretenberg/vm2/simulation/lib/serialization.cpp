@@ -332,6 +332,7 @@ Instruction decode_instruction(std::span<const uint8_t> bytecode, size_t pos)
     const auto starting_pos = pos;
 
     assert(pos < bytecode_length);
+    (void)bytecode_length; // Avoid GCC unused parameter warning when asserts are disabled.
     // if (pos >= length) {
     //     info("Position is out of range. Position: " + std::to_string(pos) +
     //          " Bytecode length: " + std::to_string(length));

@@ -15,6 +15,8 @@ ContractInstance HintedRawDataDB::get_contract_instance(const AztecAddress& addr
     assert(contract_instances_idx < contract_instances.size());
     auto contract_instance_hint = contract_instances[contract_instances_idx];
     assert(contract_instance_hint.address == address);
+    (void)address; // Avoid GCC unused parameter warning when asserts are disabled.
+
     return {
         .address = contract_instance_hint.address,
         .salt = contract_instance_hint.salt,
@@ -40,6 +42,8 @@ ContractClass HintedRawDataDB::get_contract_class(const ContractClassId& class_i
     assert(class_id == compute_contract_class_id(contract_class_hint.artifactHash,
                                                  contract_class_hint.privateFunctionsRoot,
                                                  contract_class_hint.publicBytecodeCommitment));
+    (void)class_id; // Avoid GCC unused parameter warning when asserts are disabled.
+
     return {
         .artifact_hash = contract_class_hint.artifactHash,
         .private_function_root = contract_class_hint.privateFunctionsRoot,

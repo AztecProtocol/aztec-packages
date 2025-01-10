@@ -29,7 +29,7 @@ void Execution::mov(ContextInterface& context, MemoryAddress src_addr, MemoryAdd
 {
     auto& memory = context.get_memory();
     auto [value, tag] = memory.get(src_addr);
-    memory.set(dst_addr, std::move(value), tag);
+    memory.set(dst_addr, value, tag);
 }
 
 // TODO: This will need to happen in its own gadget in any case.
@@ -40,7 +40,7 @@ void Execution::call(ContextInterface& context, MemoryAddress addr)
     const auto [contract_address, _] = memory.get(addr);
     std::vector<FF> calldata = {};
 
-    auto nested_context = context_provider.make(std::move(contract_address),
+    auto nested_context = context_provider.make(contract_address,
                                                 /*msg_sender=*/context.get_address(),
                                                 /*calldata=*/calldata,
                                                 /*is_static=*/false);
