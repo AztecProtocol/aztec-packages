@@ -1,9 +1,11 @@
 import {
   type PublicInputsAndRecursiveProof,
   type ServerCircuitProver,
+  type Tx,
   makePublicInputsAndRecursiveProof,
 } from '@aztec/circuit-types';
 import {
+  ClientIvcProof,
   Fr,
   type GlobalVariables,
   NESTED_RECURSIVE_PROOF_LENGTH,
@@ -18,6 +20,7 @@ import { promiseWithResolvers } from '@aztec/foundation/promise';
 import { sleep } from '@aztec/foundation/sleep';
 import { ProtocolCircuitVks } from '@aztec/noir-protocol-circuits-types/vks';
 
+import { jest } from '@jest/globals';
 import { type MockProxy, mock } from 'jest-mock-extended';
 
 import { TestContext } from '../mocks/test_context.js';
@@ -98,9 +101,11 @@ describe('prover/orchestrator', () => {
     });
 
     describe('with simulated prover', () => {
+      let prover: ServerCircuitProver;
+
       beforeEach(async () => {
         context = await TestContext.new(logger);
-        ({ orchestrator, globalVariables } = context);
+        ({ prover, orchestrator, globalVariables } = context);
       });
 
       it('waits for block to be completed before enqueueing block root proof', async () => {
@@ -118,6 +123,27 @@ describe('prover/orchestrator', () => {
 
         const result = await orchestrator.finaliseEpoch();
         expect(result.proof).toBeDefined();
+      });
+
+      it('can start tube proofs before adding processed txs', async () => {
+        const getTubeSpy = jest.spyOn(prover, 'getTubeProof');
+        orchestrator.startNewEpoch(1, 1, 1);
+        const processedTxs = [context.makeProcessedTx(1), context.makeProcessedTx(2)];
+        processedTxs.forEach((tx, i) => (tx.clientIvcProof = ClientIvcProof.fake(i + 1)));
+        const txs = processedTxs.map(tx => ({ getTxHash: () => tx.hash, clientIvcProof: tx.clientIvcProof } as Tx));
+        orchestrator.startTubeCircuits(txs);
+
+        await sleep(100);
+        expect(getTubeSpy).toHaveBeenCalledTimes(2);
+        getTubeSpy.mockReset();
+
+        await orchestrator.startNewBlock(globalVariables, []);
+        await context.setEndTreeRoots(processedTxs);
+        await orchestrator.addTxs(processedTxs);
+        await orchestrator.setBlockCompleted(context.blockNumber);
+        const result = await orchestrator.finaliseEpoch();
+        expect(result.proof).toBeDefined();
+        expect(getTubeSpy).toHaveBeenCalledTimes(0);
       });
     });
   });

@@ -1,4 +1,8 @@
-import { type MerkleTreeId, type PublicInputsAndRecursiveProof } from '@aztec/circuit-types';
+import {
+  type MerkleTreeId,
+  type ProofAndVerificationKey,
+  type PublicInputsAndRecursiveProof,
+} from '@aztec/circuit-types';
 import {
   ARCHIVE_HEIGHT,
   AppendOnlyTreeSnapshot,
@@ -9,6 +13,7 @@ import {
   MembershipWitness,
   type NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH,
   NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
+  type TUBE_PROOF_LENGTH,
   VK_TREE_HEIGHT,
 } from '@aztec/circuits.js';
 import {
@@ -55,6 +60,9 @@ export class EpochProvingState {
     | undefined;
   private rootRollupProvingOutput: PublicInputsAndRecursiveProof<RootRollupPublicInputs> | undefined;
   private provingStateLifecycle = PROVING_STATE_LIFECYCLE.PROVING_STATE_CREATED;
+
+  // Map from tx hash to tube proof promise. Used when kickstarting tube proofs before tx processing.
+  public readonly cachedTubeProofs = new Map<string, Promise<ProofAndVerificationKey<typeof TUBE_PROOF_LENGTH>>>();
 
   public blocks: (BlockProvingState | undefined)[] = [];
 
