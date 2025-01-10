@@ -1,5 +1,6 @@
 #include "barretenberg/vm2/simulation/memory.hpp"
 #include "barretenberg/common/log.hpp"
+#include "barretenberg/vm2/common/memory_types.hpp"
 
 #include <cstdint>
 #include <memory>
@@ -45,7 +46,7 @@ std::pair<std::vector<MemoryValue>, std::vector<MemoryTag>> Memory::get_slice(Me
     std::vector<MemoryValue> values(size);
     std::vector<MemoryTag> tags(size);
     for (size_t i = 0; i < size; ++i) {
-        auto vt = get(start + i);
+        auto vt = get(static_cast<MemoryAddress>(start + i));
         values[i] = vt.value;
         tags[i] = vt.tag;
     }

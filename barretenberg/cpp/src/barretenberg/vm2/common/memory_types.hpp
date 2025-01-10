@@ -16,7 +16,7 @@ enum class MemoryTag {
     U128,
 };
 
-using MemoryAddress = std::size_t;
+using MemoryAddress = uint32_t;
 using MemoryValue = FF;
 constexpr auto MemoryAddressTag = MemoryTag::U32;
 
