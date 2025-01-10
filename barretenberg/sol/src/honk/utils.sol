@@ -73,7 +73,7 @@ function logFr(string memory name, uint256 i, Fr value) pure {
 // Fr utility
 
 function bytesToFr(bytes calldata proofSection) pure returns (Fr scalar) {
-    require(proofSection.length == 0x20, "invalid bytes scalar");
+    require(proofSection.length == 0x20, "invalid number of bytes to construct Fr scalar");
     scalar = FrLib.fromBytes32(bytes32(proofSection));
 }
 
@@ -84,7 +84,7 @@ function convertProofPoint(Honk.G1ProofPoint memory input) pure returns (Honk.G1
 }
 
 function bytesToG1ProofPoint(bytes calldata proofSection) pure returns (Honk.G1ProofPoint memory point) {
-    require(proofSection.length == 0x80, "invalid bytes point");
+    require(proofSection.length == 0x80, "invalid number of bytes to construct a G1 point");
     point = Honk.G1ProofPoint({
         x_0: uint256(bytes32(proofSection[0x00:0x20])),
         x_1: uint256(bytes32(proofSection[0x20:0x40])),

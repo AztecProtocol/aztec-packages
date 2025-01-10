@@ -3,7 +3,6 @@ const { readFileSync, promises: fsPromises } = fs;
 import { spawn } from "child_process";
 import { ethers } from "ethers";
 import solc from "solc";
-import { error } from "console";
 
 // Size excluding number of public inputs
 const NUMBER_OF_FIELDS_IN_PLONK_PROOF = 93;
