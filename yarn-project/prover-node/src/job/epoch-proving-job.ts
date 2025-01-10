@@ -91,6 +91,7 @@ export class EpochProvingJob implements Traceable {
 
     try {
       this.prover.startNewEpoch(epochNumber, fromBlock, epochSizeBlocks);
+      this.prover.startTubeCircuits(this.txs);
 
       await asyncPool(this.config.parallelBlockLimit, this.blocks, async block => {
         this.checkState();
