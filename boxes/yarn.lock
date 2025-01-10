@@ -1670,18 +1670,6 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@noir-lang/acvm_js@link:../../../noir/packages/acvm_js::locator=vite%40workspace%3Aboxes%2Fvite":
-  version: 0.0.0-use.local
-  resolution: "@noir-lang/acvm_js@link:../../../noir/packages/acvm_js::locator=vite%40workspace%3Aboxes%2Fvite"
-  languageName: node
-  linkType: soft
-
-"@noir-lang/noirc_abi@link:../../../noir/packages/noirc_abi::locator=vite%40workspace%3Aboxes%2Fvite":
-  version: 0.0.0-use.local
-  resolution: "@noir-lang/noirc_abi@link:../../../noir/packages/noirc_abi::locator=vite%40workspace%3Aboxes%2Fvite"
-  languageName: node
-  linkType: soft
-
 "@nolyfill/is-core-module@npm:1.0.39":
   version: 1.0.39
   resolution: "@nolyfill/is-core-module@npm:1.0.39"
@@ -12170,12 +12158,9 @@ __metadata:
     "@aztec/pxe": "link:../../../yarn-project/pxe"
     "@aztec/simulator": "link:../../../yarn-project/simulator"
     "@eslint/js": "npm:^9.13.0"
-    "@noir-lang/acvm_js": "link:../../../noir/packages/acvm_js"
-    "@noir-lang/noirc_abi": "link:../../../noir/packages/noirc_abi"
     "@types/react": "npm:^18.3.12"
     "@types/react-dom": "npm:^18.3.1"
     "@vitejs/plugin-react-swc": "npm:^3.7.2"
-    buffer: "npm:^6.0.3"
     eslint: "npm:^9.13.0"
     eslint-plugin-react-hooks: "npm:^5.1.0"
     eslint-plugin-react-refresh: "npm:^0.4.16"
