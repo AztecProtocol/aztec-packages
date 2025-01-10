@@ -65,16 +65,18 @@ function build_ec2 {
   "
 }
 
-function update_manifest {
-  # We update the manifest to point to the latest arch specific images, pushed above.
-  local image=aztecprotocol/$target:$version
-  # Remove any old local manifest if present.
-  docker manifest rm $image || true
-  # Create new manifest and push.
-  docker manifest create $image \
-    --amend aztecprotocol/$target:$version-amd64 \
-    --amend aztecprotocol/$target:$version-arm64
-  docker manifest push $image
+function update_manifests {
+  for target in build devbox sysbox; do
+    # We update the manifest to point to the latest arch specific images, pushed above.
+    local image=aztecprotocol/$target:$version
+    # Remove any old local manifest if present.
+    docker manifest rm $image || true
+    # Create new manifest and push.
+    docker manifest create $image \
+      --amend aztecprotocol/$target:$version-amd64 \
+      --amend aztecprotocol/$target:$version-arm64
+    docker manifest push $image
+  done
 }
 
 function build_all {
@@ -89,10 +91,14 @@ case "$cmd" in
     docker_login
     push_images
     ;;
+  "push-manifests")
+    docker_login
+    update_manifests
+    ;;
   "ci")
     docker_login
     build_all
-    update_manifest
+    update_manifests
     ;;
   "ec2-amd64")
     check_login
