@@ -139,7 +139,7 @@ import {
   TxConstantData,
   VkWitnessData,
 } from '../structs/index.js';
-import { PrivateToRollupKernelCircuitPublicInputs } from '../structs/kernel/kernel_circuit_public_inputs.js';
+import { PrivateToRollupKernelCircuitPublicInputs } from '../structs/kernel/private_to_rollup_kernel_circuit_public_inputs.js';
 import { AvmProofData } from '../structs/rollup/avm_proof_data.js';
 import { BaseOrMergeRollupPublicInputs } from '../structs/rollup/base_or_merge_rollup_public_inputs.js';
 import { PrivateBaseRollupHints, PublicBaseRollupHints } from '../structs/rollup/base_rollup_hints.js';
@@ -422,9 +422,9 @@ export function makePrivateToRollupKernelCircuitPublicInputs(
   fullAccumulatedData = true,
 ): PrivateToRollupKernelCircuitPublicInputs {
   return new PrivateToRollupKernelCircuitPublicInputs(
+    makeTxConstantData(seed + 0x100),
     makeRollupValidationRequests(seed),
     makePrivateToRollupAccumulatedData(seed, fullAccumulatedData),
-    makeTxConstantData(seed + 0x100),
     makeGas(seed + 0x600),
     makeAztecAddress(seed + 0x700),
   );

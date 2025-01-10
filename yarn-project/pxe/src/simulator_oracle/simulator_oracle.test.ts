@@ -490,7 +490,7 @@ describe('Simulator oracle', () => {
     });
 
     function mockTaggedLogs(requests: MockNoteRequest[], nullifiers: number = 0) {
-      const txEffectsMap: { [k: string]: { noteHashes: Fr[]; txHash: TxHash } } = {};
+      const txEffectsMap: { [k: string]: { noteHashes: Fr[]; txHash: TxHash; nullifiers: Fr[] } } = {};
       const taggedLogs: TxScopedL2Log[] = [];
       const groupedByTx = requests.reduce<{ [i: number]: { [j: number]: MockNoteRequest[] } }>((acc, request) => {
         if (!acc[request.blockNumber]) {
@@ -513,6 +513,7 @@ describe('Simulator oracle', () => {
             if (!txEffectsMap[txHash.toString()]) {
               txEffectsMap[txHash.toString()] = {
                 txHash,
+                nullifiers: [new Fr(txHash.hash.toBigInt() + 27n)],
                 noteHashes: Array(maxNoteIndex + 1)
                   .fill(0)
                   .map(() => Fr.random()),
