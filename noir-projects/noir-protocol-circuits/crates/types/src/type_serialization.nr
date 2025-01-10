@@ -5,7 +5,7 @@ global U8_SERIALIZED_LEN: u32 = 1;
 global U16_SERIALIZED_LEN: u32 = 1;
 global U32_SERIALIZED_LEN: u32 = 1;
 global U64_SERIALIZED_LEN: u32 = 1;
-global U128_SERIALIZED_LEN: u32 = 1;
+global U128_SERIALIZED_LEN: u32 = 2;
 global FIELD_SERIALIZED_LEN: u32 = 1;
 global I8_SERIALIZED_LEN: u32 = 1;
 global I16_SERIALIZED_LEN: u32 = 1;
@@ -74,13 +74,14 @@ impl Deserialize<U64_SERIALIZED_LEN> for u64 {
 
 impl Serialize<U128_SERIALIZED_LEN> for U128 {
     fn serialize(self) -> [Field; U128_SERIALIZED_LEN] {
-        [self.to_integer()]
+        // We follow big endian so hi comes first
+        [self.hi, self.lo]
     }
 }
 
 impl Deserialize<U128_SERIALIZED_LEN> for U128 {
     fn deserialize(fields: [Field; U128_SERIALIZED_LEN]) -> Self {
-        U128::from_integer(fields[0])
+        U128::from_u64s_be(fields[0] as u64, fields[1] as u64)
     }
 }
 
