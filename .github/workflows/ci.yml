@@ -90,8 +90,6 @@ jobs:
         id: filter
         with:
           filters: |
-            base-images:
-              - 'build-images/**'
             noir:
               - 'noir/noir-repo/**'
             bb:
