@@ -54,6 +54,11 @@ abstract contract BaseHonkVerifier is IVerifier {
         // Generate the fiat shamir challenges for the whole protocol
         Transcript memory t = TranscriptLib.generateTranscript(p, publicInputs, numPublicInputs);
 
+        // Derive public input delta
+        t.relationParameters.publicInputsDelta = computePublicInputDelta(
+            publicInputs, t.relationParameters.beta, t.relationParameters.gamma, p.publicInputsOffset
+        );
+
         // Sumcheck
         bool sumcheckVerified = verifySumcheck(p, t);
         if (!sumcheckVerified) revert SumcheckFailed();
@@ -62,6 +67,33 @@ abstract contract BaseHonkVerifier is IVerifier {
         if (!shpleminiVerified) revert ShpleminiFailed();
 
         return sumcheckVerified && shpleminiVerified; // Boolean condition not required - nice for vanity :)
+    }
+
+    function computePublicInputDelta(bytes32[] memory publicInputs, Fr beta, Fr gamma, uint256 offset)
+        internal
+        view
+        returns (Fr publicInputDelta)
+    {
+        Fr numerator = Fr.wrap(1);
+        Fr denominator = Fr.wrap(1);
+
+        Fr numeratorAcc = gamma + (beta * FrLib.from(N + offset));
+        Fr denominatorAcc = gamma - (beta * FrLib.from(offset + 1));
+
+        {
+            for (uint256 i = 0; i < numPublicInputs; i++) {
+                Fr pubInput = FrLib.fromBytes32(publicInputs[i]);
+
+                numerator = numerator * (numeratorAcc + pubInput);
+                denominator = denominator * (denominatorAcc + pubInput);
+
+                numeratorAcc = numeratorAcc + beta;
+                denominatorAcc = denominatorAcc - beta;
+            }
+        }
+
+        // Fr delta = numerator / denominator; // TOOO: batch invert later?
+        publicInputDelta = FrLib.div(numerator, denominator);
     }
 
     uint256 constant ROUND_TARGET = 0;

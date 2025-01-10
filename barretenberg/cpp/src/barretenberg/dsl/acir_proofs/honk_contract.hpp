@@ -316,7 +316,8 @@ library TranscriptLib {
     {
         Fr previousChallenge;
         (t.relationParameters, previousChallenge) =
-            generateRelationParameters(proof, publicInputs, publicInputsSize, previousChallenge);
+            generateRelationParametersChallenges(proof, publicInputs, publicInputsSize, previousChallenge);
+
 
         (t.alphas, previousChallenge) = generateAlphaChallenges(previousChallenge, proof);
 
@@ -343,7 +344,7 @@ library TranscriptLib {
         second = FrLib.fromBytes32(bytes32(hi));
     }
 
-    function generateRelationParameters(
+    function generateRelationParametersChallenges(
         Honk.Proof memory proof,
         bytes32[] calldata publicInputs,
         uint256 publicInputsSize,
@@ -354,52 +355,6 @@ library TranscriptLib {
 
         (rp.beta, rp.gamma, nextPreviousChallenge) = generateBetaAndGammaChallenges(previousChallenge, proof);
 
-        // Derive public input delta
-        rp.publicInputsDelta = computePublicInputDelta(
-            publicInputs, publicInputsSize, rp.beta, rp.gamma, proof.circuitSize, proof.publicInputsOffset
-        );
-    }
-
-    function computePublicInputDelta(
-        bytes32[] memory publicInputs,
-        uint256 publicInputsSize,
-        Fr beta,
-        Fr gamma,
-        uint256 circuitSize,
-        uint256 offset
-    ) internal pure returns (Fr publicInputDelta) {
-        Fr numerator = Fr.wrap(1);
-        Fr denominator = Fr.wrap(1);
-
-        Fr numeratorAcc = gamma + (beta * FrLib.from(circuitSize + offset));
-        Fr denominatorAcc = gamma - (beta * FrLib.from(offset + 1));
-
-        {
-            for (uint256 i = 0; i < publicInputsSize; i++) {
-                Fr pubInput = FrLib.fromBytes32(publicInputs[i]);
-
-                numerator = numerator * (numeratorAcc + pubInput);
-                denominator = denominator * (denominatorAcc + pubInput);
-
-                numeratorAcc = numeratorAcc + beta;
-                denominatorAcc = denominatorAcc - beta;
-            }
-        }
-
-        // Fr delta = numerator / denominator; // TOOO: batch invert later?
-        publicInputDelta = FrLib.div(numerator, denominator);
-    }
-
-    function generateChallengeRelationParameters(
-        Honk.Proof memory proof,
-        bytes32[] calldata publicInputs,
-        uint256 publicInputsSize,
-        Fr previousChallenge
-    ) internal pure returns (Honk.RelationParameters memory rp, Fr nextPreviousChallenge) {
-        (rp.eta, rp.etaTwo, rp.etaThree, previousChallenge) =
-            generateEtaChallenge(proof, publicInputs, publicInputsSize);
-
-        (rp.beta, rp.gamma, nextPreviousChallenge) = generateBetaAndGammaChallenges(previousChallenge, proof);
     }
 
     function generateEtaChallenge(Honk.Proof memory proof, bytes32[] calldata publicInputs, uint256 publicInputsSize)
@@ -597,9 +552,7 @@ library TranscriptLib {
         (shplonkZ, unused) = splitChallenge(nextPreviousChallenge);
     }
 
-    function loadProof(bytes calldata proof) internal pure returns (Honk.Proof memory) {
-        Honk.Proof memory p;
-
+    function loadProof(bytes calldata proof) internal pure returns (Honk.Proof memory p) {
         // Metadata
         p.circuitSize = uint256(bytes32(proof[0x00:0x20]));
         p.publicInputsSize = uint256(bytes32(proof[0x20:0x40]));
@@ -1211,9 +1164,6 @@ library RelationsLib {
         Fr access_type = (wire(p, WIRE.W_4) - ap.partial_record_check); // will be 0 or 1 for honest Prover; deg 1 or 4
         ap.access_check = access_type * access_type - access_type; // check value is 0 or 1; deg 2 or 8
 
-        // TODO(htrps://github.com/AztecProtocol/barretenberg/issues/757): If we sorted in
-        // reverse order we could re-use `ap.partial_record_check`  1 -  ((w3' * eta + w2') * eta + w1') * eta
-        // deg 1 or 4
         ap.next_gate_access_type = wire(p, WIRE.W_O_SHIFT) * rp.etaThree;
         ap.next_gate_access_type = ap.next_gate_access_type + (wire(p, WIRE.W_R_SHIFT) * rp.etaTwo);
         ap.next_gate_access_type = ap.next_gate_access_type + (wire(p, WIRE.W_L_SHIFT) * rp.eta);
@@ -1272,7 +1222,6 @@ library RelationsLib {
         evals[12] = ap.auxiliary_identity;
     }
 
-    // Big todo for poseidon params, reduce them
     struct PoseidonExternalParams {
         Fr s1;
         Fr s2;
@@ -1402,6 +1351,7 @@ library RelationsLib {
     }
 }
 
+
 interface IVerifier {
     function verify(bytes calldata _proof, bytes32[] calldata _publicInputs) external view returns (bool);
 }
@@ -1437,6 +1387,11 @@ abstract contract BaseHonkVerifier is IVerifier {
         // Generate the fiat shamir challenges for the whole protocol
         Transcript memory t = TranscriptLib.generateTranscript(p, publicInputs, vk.publicInputsSize);
 
+        // Derive public input delta
+        t.relationParameters.publicInputsDelta = computePublicInputDelta(
+            publicInputs, t.relationParameters.beta, t.relationParameters.gamma, p.publicInputsOffset
+        );
+
         // Sumcheck
         bool sumcheckVerified = verifySumcheck(p, t);
         if (!sumcheckVerified) revert SumcheckFailed();
@@ -1445,6 +1400,33 @@ abstract contract BaseHonkVerifier is IVerifier {
         if (!shpleminiVerified) revert ShpleminiFailed();
 
         return sumcheckVerified && shpleminiVerified; // Boolean condition not required - nice for vanity :)
+    }
+
+    function computePublicInputDelta(bytes32[] memory publicInputs, Fr beta, Fr gamma, uint256 offset)
+        internal
+        view
+        returns (Fr publicInputDelta)
+    {
+        Fr numerator = Fr.wrap(1);
+        Fr denominator = Fr.wrap(1);
+
+        Fr numeratorAcc = gamma + (beta * FrLib.from(N + offset));
+        Fr denominatorAcc = gamma - (beta * FrLib.from(offset + 1));
+
+        {
+            for (uint256 i = 0; i < numPublicInputs; i++) {
+                Fr pubInput = FrLib.fromBytes32(publicInputs[i]);
+
+                numerator = numerator * (numeratorAcc + pubInput);
+                denominator = denominator * (denominatorAcc + pubInput);
+
+                numeratorAcc = numeratorAcc + beta;
+                denominatorAcc = denominatorAcc - beta;
+            }
+        }
+
+        // Fr delta = numerator / denominator; // TOOO: batch invert later?
+        publicInputDelta = FrLib.div(numerator, denominator);
     }
 
     uint256 constant ROUND_TARGET = 0;

@@ -34,7 +34,7 @@ library TranscriptLib {
     {
         Fr previousChallenge;
         (t.relationParameters, previousChallenge) =
-            generateRelationParameters(proof, publicInputs, publicInputsSize, previousChallenge);
+            generateRelationParametersChallenges(proof, publicInputs, publicInputsSize, previousChallenge);
 
         (t.alphas, previousChallenge) = generateAlphaChallenges(previousChallenge, proof);
 
@@ -61,54 +61,7 @@ library TranscriptLib {
         second = FrLib.fromBytes32(bytes32(hi));
     }
 
-    function generateRelationParameters(
-        Honk.Proof memory proof,
-        bytes32[] calldata publicInputs,
-        uint256 publicInputsSize,
-        Fr previousChallenge
-    ) internal pure returns (Honk.RelationParameters memory rp, Fr nextPreviousChallenge) {
-        (rp.eta, rp.etaTwo, rp.etaThree, previousChallenge) =
-            generateEtaChallenge(proof, publicInputs, publicInputsSize);
-
-        (rp.beta, rp.gamma, nextPreviousChallenge) = generateBetaAndGammaChallenges(previousChallenge, proof);
-
-        // Derive public input delta
-        rp.publicInputsDelta = computePublicInputDelta(
-            publicInputs, publicInputsSize, rp.beta, rp.gamma, proof.circuitSize, proof.publicInputsOffset
-        );
-    }
-
-    function computePublicInputDelta(
-        bytes32[] memory publicInputs,
-        uint256 publicInputsSize,
-        Fr beta,
-        Fr gamma,
-        uint256 circuitSize,
-        uint256 offset
-    ) internal view returns (Fr publicInputDelta) {
-        Fr numerator = Fr.wrap(1);
-        Fr denominator = Fr.wrap(1);
-
-        Fr numeratorAcc = gamma + (beta * FrLib.from(circuitSize + offset));
-        Fr denominatorAcc = gamma - (beta * FrLib.from(offset + 1));
-
-        {
-            for (uint256 i = 0; i < publicInputsSize; i++) {
-                Fr pubInput = FrLib.fromBytes32(publicInputs[i]);
-
-                numerator = numerator * (numeratorAcc + pubInput);
-                denominator = denominator * (denominatorAcc + pubInput);
-
-                numeratorAcc = numeratorAcc + beta;
-                denominatorAcc = denominatorAcc - beta;
-            }
-        }
-
-        // Fr delta = numerator / denominator; // TOOO: batch invert later?
-        publicInputDelta = FrLib.div(numerator, denominator);
-    }
-
-    function generateChallengeRelationParameters(
+    function generateRelationParametersChallenges(
         Honk.Proof memory proof,
         bytes32[] calldata publicInputs,
         uint256 publicInputsSize,
