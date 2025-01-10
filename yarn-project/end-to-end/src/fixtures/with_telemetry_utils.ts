@@ -1,28 +1,18 @@
 import { levels, registerLoggingStream } from '@aztec/foundation/log';
-import { type TelemetryClient } from '@aztec/telemetry-client';
-import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
-import { OTelPinoStream } from '@aztec/telemetry-client/otel-pino-stream';
 import {
+  type TelemetryClient,
   type TelemetryClientConfig,
-  createAndStartTelemetryClient,
   getConfigEnvVars as getTelemetryConfig,
-} from '@aztec/telemetry-client/start';
+  initTelemetryClient,
+} from '@aztec/telemetry-client';
+import { OTelPinoStream } from '@aztec/telemetry-client/otel-pino-stream';
 
-let telemetryClient: Promise<TelemetryClient> | undefined;
 export function getEndToEndTestTelemetryClient(metricsPort?: number): Promise<TelemetryClient> {
-  if (!metricsPort) {
-    return Promise.resolve(new NoopTelemetryClient());
+  if (metricsPort) {
+    const otelStream = new OTelPinoStream({ levels });
+    registerLoggingStream(otelStream);
   }
-  if (!telemetryClient) {
-    telemetryClient = createEndToEndTestOtelClient(metricsPort);
-  }
-  return telemetryClient;
-}
-
-function createEndToEndTestOtelClient(metricsPort: number): Promise<TelemetryClient> {
-  const otelStream = new OTelPinoStream({ levels });
-  registerLoggingStream(otelStream);
-  return createAndStartTelemetryClient(getEndToEndTestTelemetryConfig(metricsPort));
+  return initTelemetryClient(getEndToEndTestTelemetryConfig(metricsPort));
 }
 
 /**

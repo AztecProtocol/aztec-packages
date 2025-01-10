@@ -32,7 +32,17 @@ import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { Fr, Point } from '@aztec/foundation/fields';
 import { openTmpStore } from '@aztec/kv-store/lmdb';
 import { AvmTestContractArtifact } from '@aztec/noir-contracts.js/AvmTest';
+<<<<<<< HEAD
 import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
+=======
+import {
+  AvmEphemeralForest,
+  AvmSimulator,
+  PublicEnqueuedCallSideEffectTrace,
+  PublicTxSimulator,
+  WorldStateDB,
+} from '@aztec/simulator';
+>>>>>>> ebdf383f12 (refactor: global telemetry client)
 import { MerkleTrees } from '@aztec/world-state';
 
 import { strict as assert } from 'assert';
@@ -59,17 +69,11 @@ export async function simulateAvmTestContractGenerateCircuitInputs(
   const globals = GlobalVariables.empty();
   globals.timestamp = TIMESTAMP;
 
-  const merkleTrees = await (await MerkleTrees.new(openTmpStore(), new NoopTelemetryClient())).fork();
+  const merkleTrees = await (await MerkleTrees.new(openTmpStore())).fork();
   await contractDataSource.deployContracts(merkleTrees);
   const worldStateDB = new WorldStateDB(merkleTrees, contractDataSource);
 
-  const simulator = new PublicTxSimulator(
-    merkleTrees,
-    worldStateDB,
-    new NoopTelemetryClient(),
-    globals,
-    /*doMerkleOperations=*/ true,
-  );
+  const simulator = new PublicTxSimulator(merkleTrees, worldStateDB, globals, /*doMerkleOperations=*/ true);
 
   const sender = AztecAddress.random();
   const callContext = new CallContext(
@@ -130,7 +134,7 @@ export async function simulateAvmTestContractCall(
   const globals = GlobalVariables.empty();
   globals.timestamp = TIMESTAMP;
 
-  const merkleTrees = await (await MerkleTrees.new(openTmpStore(), new NoopTelemetryClient())).fork();
+  const merkleTrees = await (await MerkleTrees.new(openTmpStore())).fork();
   await contractDataSource.deployContracts(merkleTrees);
   const worldStateDB = new WorldStateDB(merkleTrees, contractDataSource);
 

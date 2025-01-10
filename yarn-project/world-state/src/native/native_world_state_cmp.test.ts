@@ -10,7 +10,7 @@ import { type Logger, createLogger } from '@aztec/foundation/log';
 import { elapsed } from '@aztec/foundation/timer';
 import { type AztecKVStore } from '@aztec/kv-store';
 import { AztecLmdbStore } from '@aztec/kv-store/lmdb';
-import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
+import { getTelemetryClient } from '@aztec/telemetry-client';
 
 import { jest } from '@jest/globals';
 import { mkdtemp, rm } from 'fs/promises';
@@ -53,7 +53,7 @@ describe('NativeWorldState', () => {
   beforeAll(async () => {
     legacyStore = AztecLmdbStore.open(legacyDataDir);
     nativeWS = await NativeWorldStateService.new(EthAddress.random(), nativeDataDir, 1024 * 1024);
-    legacyWS = await MerkleTrees.new(legacyStore, new NoopTelemetryClient());
+    legacyWS = await MerkleTrees.new(legacyStore, getTelemetryClient());
   });
 
   it('has to expected genesis archive tree root', async () => {

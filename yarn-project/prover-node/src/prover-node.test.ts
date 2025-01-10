@@ -25,8 +25,13 @@ import { openTmpStore } from '@aztec/kv-store/lmdb';
 import { type BootstrapNode, InMemoryTxPool, MemoryEpochProofQuotePool, P2PClient } from '@aztec/p2p';
 import { createBootstrapNode, createTestLibP2PService } from '@aztec/p2p/mocks';
 import { type L1Publisher } from '@aztec/sequencer-client';
+<<<<<<< HEAD
 import { type PublicProcessorFactory } from '@aztec/simulator/server';
 import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
+=======
+import { type PublicProcessorFactory } from '@aztec/simulator';
+import { getTelemetryClient } from '@aztec/telemetry-client';
+>>>>>>> ebdf383f12 (refactor: global telemetry client)
 
 import { jest } from '@jest/globals';
 import { type MockProxy, mock } from 'jest-mock-extended';
@@ -52,7 +57,6 @@ describe('prover-node', () => {
   let quoteProvider: MockProxy<QuoteProvider>;
   let quoteSigner: MockProxy<QuoteSigner>;
   let bondManager: MockProxy<BondManager>;
-  let telemetryClient: NoopTelemetryClient;
   let config: ProverNodeOptions;
 
   // Subject under test
@@ -101,7 +105,6 @@ describe('prover-node', () => {
       claimsMonitor,
       epochMonitor,
       bondManager,
-      telemetryClient,
       config,
     );
 
@@ -118,7 +121,6 @@ describe('prover-node', () => {
     quoteSigner = mock<QuoteSigner>();
     bondManager = mock<BondManager>();
 
-    telemetryClient = new NoopTelemetryClient();
     config = {
       maxPendingJobs: 3,
       pollingIntervalMs: 10,
@@ -265,9 +267,8 @@ describe('prover-node', () => {
     let lastEpochComplete: bigint = 0n;
 
     beforeEach(() => {
-      const telemetry = new NoopTelemetryClient();
-      claimsMonitor = new ClaimsMonitor(publisher, telemetry, config);
-      epochMonitor = new EpochMonitor(l2BlockSource, telemetry, config);
+      claimsMonitor = new ClaimsMonitor(publisher, config);
+      epochMonitor = new EpochMonitor(l2BlockSource, config);
 
       l2BlockSource.isEpochComplete.mockImplementation(epochNumber =>
         Promise.resolve(epochNumber <= lastEpochComplete),
@@ -373,8 +374,8 @@ describe('prover-node', () => {
 
     const createP2PClient = async (bootnodeAddr: string, port: number) => {
       const mempools = {
-        txPool: new InMemoryTxPool(telemetryClient),
-        epochProofQuotePool: new MemoryEpochProofQuotePool(telemetryClient),
+        txPool: new InMemoryTxPool(),
+        epochProofQuotePool: new MemoryEpochProofQuotePool(),
       };
       epochCache = mock<EpochCache>();
       const libp2pService = await createTestLibP2PService(
@@ -384,7 +385,7 @@ describe('prover-node', () => {
         worldState,
         epochCache,
         mempools,
-        telemetryClient,
+        getTelemetryClient(),
         port,
       );
       const kvStore = openTmpStore();

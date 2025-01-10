@@ -73,9 +73,21 @@ import {
   createValidatorForAcceptingTxs,
   getDefaultAllowedSetupFunctions,
 } from '@aztec/sequencer-client';
+<<<<<<< HEAD
 import { PublicProcessorFactory } from '@aztec/simulator/server';
 import { Attributes, type TelemetryClient, type Traceable, type Tracer, trackSpan } from '@aztec/telemetry-client';
 import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
+=======
+import { PublicProcessorFactory } from '@aztec/simulator';
+import {
+  Attributes,
+  type TelemetryClient,
+  type Traceable,
+  type Tracer,
+  getTelemetryClient,
+  trackSpan,
+} from '@aztec/telemetry-client';
+>>>>>>> ebdf383f12 (refactor: global telemetry client)
 import { createValidatorClient } from '@aztec/validator-client';
 import { createWorldStateSynchronizer } from '@aztec/world-state';
 
@@ -105,7 +117,7 @@ export class AztecNodeService implements AztecNode, Traceable {
     protected readonly version: number,
     protected readonly globalVariableBuilder: GlobalVariableBuilder,
     private proofVerifier: ClientProtocolCircuitVerifier,
-    private telemetry: TelemetryClient,
+    private telemetry: TelemetryClient = getTelemetryClient(),
     private log = createLogger('node'),
   ) {
     this.packageVersion = getPackageInfo().version;
@@ -142,7 +154,7 @@ export class AztecNodeService implements AztecNode, Traceable {
       blobSinkClient?: BlobSinkClientInterface;
     } = {},
   ): Promise<AztecNodeService> {
-    const telemetry = deps.telemetry ?? new NoopTelemetryClient();
+    const telemetry = deps.telemetry ?? getTelemetryClient();
     const log = deps.logger ?? createLogger('node');
     const dateProvider = deps.dateProvider ?? new DateProvider();
     const blobSinkClient = deps.blobSinkClient ?? createBlobSinkClient(config.blobSinkUrl);
@@ -154,7 +166,7 @@ export class AztecNodeService implements AztecNode, Traceable {
       );
     }
 
-    const archiver = await createArchiver(config, blobSinkClient, telemetry, { blockUntilSync: true });
+    const archiver = await createArchiver(config, blobSinkClient, { blockUntilSync: true }, telemetry);
 
     // we identify the P2P transaction protocol by using the rollup contract address.
     // this may well change in future

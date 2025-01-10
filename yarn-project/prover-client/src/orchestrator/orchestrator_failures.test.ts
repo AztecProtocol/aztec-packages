@@ -2,8 +2,12 @@ import { TestCircuitProver } from '@aztec/bb-prover';
 import { type ServerCircuitProver } from '@aztec/circuit-types';
 import { timesAsync } from '@aztec/foundation/collection';
 import { createLogger } from '@aztec/foundation/log';
+<<<<<<< HEAD
 import { WASMSimulatorWithBlobs } from '@aztec/simulator/server';
 import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
+=======
+import { WASMSimulatorWithBlobs } from '@aztec/simulator';
+>>>>>>> ebdf383f12 (refactor: global telemetry client)
 
 import { jest } from '@jest/globals';
 
@@ -28,8 +32,8 @@ describe('prover/orchestrator/failures', () => {
     let mockProver: ServerCircuitProver;
 
     beforeEach(() => {
-      mockProver = new TestCircuitProver(new NoopTelemetryClient(), new WASMSimulatorWithBlobs());
-      orchestrator = new ProvingOrchestrator(context.worldState, mockProver, new NoopTelemetryClient());
+      mockProver = new TestCircuitProver(new WASMSimulatorWithBlobs());
+      orchestrator = new ProvingOrchestrator(context.worldState, mockProver);
     });
 
     const run = async (message: string) => {

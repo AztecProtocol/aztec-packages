@@ -9,8 +9,7 @@ import { sleep } from '@aztec/foundation/sleep';
 import { type Timer } from '@aztec/foundation/timer';
 import { type P2P } from '@aztec/p2p';
 import { BlockProposalValidator } from '@aztec/p2p/msg_validators';
-import { type TelemetryClient, WithTracer } from '@aztec/telemetry-client';
-import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
+import { type TelemetryClient, WithTracer, getTelemetryClient } from '@aztec/telemetry-client';
 
 import { type ValidatorClientConfig } from './config.js';
 import { ValidationService } from './duties/validation_service.js';
@@ -80,7 +79,7 @@ export class ValidatorClient extends WithTracer implements Validator {
     private epochCache: EpochCache,
     private p2pClient: P2P,
     private config: ValidatorClientConfig,
-    telemetry: TelemetryClient = new NoopTelemetryClient(),
+    telemetry: TelemetryClient = getTelemetryClient(),
     private log = createLogger('validator'),
   ) {
     // Instantiate tracer
@@ -119,7 +118,7 @@ export class ValidatorClient extends WithTracer implements Validator {
     config: ValidatorClientConfig,
     epochCache: EpochCache,
     p2pClient: P2P,
-    telemetry: TelemetryClient = new NoopTelemetryClient(),
+    telemetry: TelemetryClient = getTelemetryClient(),
   ) {
     if (!config.validatorPrivateKey) {
       throw new InvalidValidatorPrivateKeyError();

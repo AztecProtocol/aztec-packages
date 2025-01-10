@@ -8,10 +8,7 @@ import {
   proverBrokerConfigMappings,
 } from '@aztec/prover-client/broker';
 import { getProverNodeBrokerConfigFromEnv } from '@aztec/prover-node';
-import {
-  createAndStartTelemetryClient,
-  getConfigEnvVars as getTelemetryClientConfig,
-} from '@aztec/telemetry-client/start';
+import { getConfigEnvVars as getTelemetryClientConfig, initTelemetryClient } from '@aztec/telemetry-client';
 
 import { extractRelevantOptions } from '../util.js';
 
@@ -31,7 +28,7 @@ export async function startProverBroker(
     ...extractRelevantOptions<ProverBrokerConfig>(options, proverBrokerConfigMappings, 'proverBroker'), // override with command line options
   };
 
-  const client = await createAndStartTelemetryClient(getTelemetryClientConfig());
+  const client = await initTelemetryClient(getTelemetryClientConfig());
   const broker = await createAndStartProvingBroker(config, client);
   services.proverBroker = [broker, ProvingJobBrokerSchema];
   signalHandlers.push(() => broker.stop());

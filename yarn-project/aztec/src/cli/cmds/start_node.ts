@@ -5,9 +5,9 @@ import { type NamespacedApiHandlers } from '@aztec/foundation/json-rpc/server';
 import { type LogFn } from '@aztec/foundation/log';
 import {
   type TelemetryClientConfig,
-  createAndStartTelemetryClient,
+  initTelemetryClient,
   telemetryClientConfigMappings,
-} from '@aztec/telemetry-client/start';
+} from '@aztec/telemetry-client';
 
 import { mnemonicToAccount, privateKeyToAccount } from 'viem/accounts';
 
@@ -88,7 +88,7 @@ export async function startNode(
   }
 
   const telemetryConfig = extractRelevantOptions<TelemetryClientConfig>(options, telemetryClientConfigMappings, 'tel');
-  const telemetry = await createAndStartTelemetryClient(telemetryConfig);
+  const telemetry = await initTelemetryClient(telemetryConfig);
 
   // Create and start Aztec Node
   const node = await createAztecNode(nodeConfig, { telemetry });

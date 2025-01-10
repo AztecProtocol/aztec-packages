@@ -74,6 +74,7 @@ import {
   pickNotes,
   toACVMWitness,
   witnessMapToFields,
+<<<<<<< HEAD
 } from '@aztec/simulator/client';
 import { createTxForPublicCalls } from '@aztec/simulator/public/fixtures';
 import {
@@ -85,6 +86,10 @@ import {
   resolveAssertionMessageFromError,
 } from '@aztec/simulator/server';
 import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
+=======
+} from '@aztec/simulator';
+import { createTxForPublicCall } from '@aztec/simulator/public/fixtures';
+>>>>>>> ebdf383f12 (refactor: global telemetry client)
 import { MerkleTreeSnapshotOperationsFacade, type MerkleTrees } from '@aztec/world-state';
 
 import { TXENode } from '../node/txe_node.js';
@@ -830,7 +835,6 @@ export class TXE implements TypedOracle {
     const simulator = new PublicTxSimulator(
       db,
       new TXEWorldStateDB(db, new TXEPublicContractDataSource(this)),
-      new NoopTelemetryClient(),
       globalVariables,
     );
 
