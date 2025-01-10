@@ -477,7 +477,7 @@ aztec-base:
   ARG TARGETARCH
   SAVE IMAGE --push aztecprotocol/aztec-base:v1.0-$TARGETARCH
 
-# Add a new target for end-to-end-base that corresponds to the portion of Dockerfile.end-to-end before COPY /usr/src
+# Add a new target for end-to-end-base that corresponds to the portion of Dockerfile.end-to-end before COPY /usr/src.
 end-to-end-base:
   FROM ubuntu:noble
   # Add our dev testing dependencies.
