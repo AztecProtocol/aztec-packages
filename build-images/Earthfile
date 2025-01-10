@@ -506,7 +506,7 @@ all-ci:
   BUILD +wasi-sdk
   BUILD +foundry
   BUILD +build
-  IF [ $TARGETARCH = amd64]
+  IF [ $TARGETARCH = amd64 ]
     BUILD +ci
   END
   BUILD +aztec-base
