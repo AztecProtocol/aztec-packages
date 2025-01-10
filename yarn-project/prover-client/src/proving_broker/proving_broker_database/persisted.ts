@@ -1,6 +1,5 @@
 import {
   type ProofUri,
-  type ProverBrokerConfig,
   ProvingJob,
   type ProvingJobId,
   ProvingJobSettledResult,
@@ -15,6 +14,7 @@ import { Attributes, LmdbMetrics, type TelemetryClient } from '@aztec/telemetry-
 import { mkdir, readdir } from 'fs/promises';
 import { join } from 'path';
 
+import { type ProverBrokerConfig } from '../config.js';
 import { type ProvingBrokerDatabase } from '../proving_broker_database.js';
 
 class SingleEpochDatabase {
@@ -83,7 +83,7 @@ export class KVBrokerDatabase implements ProvingBrokerDatabase {
   private estimateSize() {
     const sizes = Array.from(this.epochs.values()).map(x => x.estimateSize());
     return {
-      mappingSize: this.config.proverBrokerDataMapSizeKB,
+      mappingSize: this.config.dataStoreMapSizeKB,
       numItems: sizes.reduce((prev, curr) => prev + curr.numItems, 0),
       actualSize: sizes.reduce((prev, curr) => prev + curr.actualSize, 0),
     };
@@ -95,12 +95,12 @@ export class KVBrokerDatabase implements ProvingBrokerDatabase {
     logger = createLogger('prover-client:proving-broker-database'),
   ) {
     const epochs: Map<number, SingleEpochDatabase> = new Map<number, SingleEpochDatabase>();
-    const files = await readdir(config.proverBrokerDataDirectory!, { recursive: false, withFileTypes: true });
+    const files = await readdir(config.dataDirectory!, { recursive: false, withFileTypes: true });
     for (const file of files) {
       if (!file.isDirectory()) {
         continue;
       }
-      const fullDirectory = join(config.proverBrokerDataDirectory!, file.name);
+      const fullDirectory = join(config.dataDirectory!, file.name);
       const epochDirectory = file.name;
       const epochNumber = parseInt(epochDirectory, 10);
       if (!Number.isSafeInteger(epochNumber) || epochNumber < 0) {
@@ -108,9 +108,9 @@ export class KVBrokerDatabase implements ProvingBrokerDatabase {
         continue;
       }
       logger.info(
-        `Loading broker database for epoch ${epochNumber} from ${fullDirectory} with map size ${config.proverBrokerDataMapSizeKB}KB`,
+        `Loading broker database for epoch ${epochNumber} from ${fullDirectory} with map size ${config.dataStoreMapSizeKB}KB`,
       );
-      const db = AztecLmdbStore.open(fullDirectory, config.proverBrokerDataMapSizeKB, false);
+      const db = AztecLmdbStore.open(fullDirectory, config.dataStoreMapSizeKB, false);
       const epochDb = new SingleEpochDatabase(db);
       epochs.set(epochNumber, epochDb);
     }
@@ -139,12 +139,12 @@ export class KVBrokerDatabase implements ProvingBrokerDatabase {
   async addProvingJob(job: ProvingJob): Promise<void> {
     let epochDb = this.epochs.get(job.epochNumber);
     if (!epochDb) {
-      const newEpochDirectory = join(this.config.proverBrokerDataDirectory!, job.epochNumber.toString());
+      const newEpochDirectory = join(this.config.dataDirectory!, job.epochNumber.toString());
       await mkdir(newEpochDirectory, { recursive: true });
       this.logger.info(
-        `Creating broker database for epoch ${job.epochNumber} at ${newEpochDirectory} with map size ${this.config.proverBrokerDataMapSizeKB}`,
+        `Creating broker database for epoch ${job.epochNumber} at ${newEpochDirectory} with map size ${this.config.dataStoreMapSizeKB}`,
       );
-      const db = AztecLmdbStore.open(newEpochDirectory, this.config.proverBrokerDataMapSizeKB, false);
+      const db = AztecLmdbStore.open(newEpochDirectory, this.config.dataStoreMapSizeKB, false);
       epochDb = new SingleEpochDatabase(db);
       this.epochs.set(job.epochNumber, epochDb);
     }

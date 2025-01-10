@@ -145,8 +145,11 @@ mod tests {
     use dep::types::{
         abis::{
             kernel_circuit_public_inputs::PrivateKernelCircuitPublicInputs,
-            max_block_number::MaxBlockNumber, note_hash::ScopedNoteHash, nullifier::ScopedNullifier,
-            private_log::PrivateLogData, side_effect::scoped::Scoped,
+            max_block_number::MaxBlockNumber,
+            note_hash::ScopedNoteHash,
+            nullifier::ScopedNullifier,
+            private_log::PrivateLogData,
+            side_effect::{OrderedValue, scoped::Scoped},
         },
         address::AztecAddress,
         hash::{compute_unique_siloed_note_hash, silo_note_hash, silo_nullifier, silo_private_log},
@@ -156,8 +159,8 @@ mod tests {
         utils::arrays::find_index_hint,
     };
     use dep::types::constants::{
-        EMPTY_NESTED_INDEX, GENERATOR_INDEX__OVSK_M, MAX_KEY_VALIDATION_REQUESTS_PER_TX,
-        MAX_NOTE_HASHES_PER_TX, MAX_NULLIFIERS_PER_TX, PRIVATE_KERNEL_INNER_INDEX,
+        GENERATOR_INDEX__OVSK_M, MAX_KEY_VALIDATION_REQUESTS_PER_TX, MAX_NOTE_HASHES_PER_TX,
+        MAX_NULLIFIERS_PER_TX, PRIVATE_KERNEL_INNER_INDEX, PRIVATE_KERNEL_TAIL_INDEX,
     };
 
     global NOTE_HASH_PENDING_AMOUNT: u32 = 6;
@@ -670,17 +673,17 @@ mod tests {
 
         let output_nullifiers = public_inputs.end.nullifiers;
         // The 0th nullifier (tx hash) doesn't change.
-        assert(output_nullifiers[0].value() == nullifiers[0].value());
+        assert(OrderedValue::<Field>::value(output_nullifiers[0]) == nullifiers[0].value());
         // The 1st nullifier doesn't change.
-        assert(output_nullifiers[1].value() == nullifiers[1].value());
+        assert(OrderedValue::<Field>::value(output_nullifiers[1]) == nullifiers[1].value());
         // The 2nd nullifier has been siloed
-        assert(output_nullifiers[2].value() != nullifiers[2].value());
+        assert(OrderedValue::<Field>::value(output_nullifiers[2]) != nullifiers[2].value());
     }
 
     #[test(should_fail_with = "Invalid vk index")]
     fn invalid_previous_kernel() {
         let mut builder = PrivateKernelResetInputsBuilder::new();
-        builder.previous_kernel = builder.previous_kernel.in_vk_tree(EMPTY_NESTED_INDEX);
+        builder.previous_kernel = builder.previous_kernel.in_vk_tree(PRIVATE_KERNEL_TAIL_INDEX);
         let _res = builder.execute();
     }
 }

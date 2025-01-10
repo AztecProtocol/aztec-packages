@@ -8,6 +8,7 @@ import {
   ProvingRequestType,
   type PublicInputsAndRecursiveProof,
   type ServerCircuitProver,
+  makeProvingJobId,
 } from '@aztec/circuit-types';
 import {
   type AVM_PROOF_LENGTH_IN_FIELDS,
@@ -16,8 +17,6 @@ import {
   type NESTED_RECURSIVE_PROOF_LENGTH,
   type NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH,
   type ParityPublicInputs,
-  type PrivateKernelEmptyInputData,
-  type PrivateToRollupKernelCircuitPublicInputs,
   type RECURSIVE_PROOF_LENGTH,
   type RootParityInputs,
   type TUBE_PROOF_LENGTH,
@@ -33,6 +32,7 @@ import {
   type PublicBaseRollupInputs,
   type RootRollupInputs,
   type RootRollupPublicInputs,
+  type SingleTxBlockRootRollupInputs,
   type TubeInputs,
 } from '@aztec/circuits.js/rollup';
 import { sha256 } from '@aztec/foundation/crypto';
@@ -438,6 +438,22 @@ export class BrokerCircuitProverFacade implements ServerCircuitProver {
     );
   }
 
+  getSingleTxBlockRootRollupProof(
+    input: SingleTxBlockRootRollupInputs,
+    signal?: AbortSignal,
+    epochNumber?: number,
+  ): Promise<
+    PublicInputsAndRecursiveProof<BlockRootOrBlockMergePublicInputs, typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH>
+  > {
+    return this.enqueueJob(
+      this.generateId(ProvingRequestType.BLOCK_ROOT_ROLLUP, input, epochNumber),
+      ProvingRequestType.SINGLE_TX_BLOCK_ROOT_ROLLUP,
+      input,
+      epochNumber,
+      signal,
+    );
+  }
+
   getEmptyBlockRootRollupProof(
     input: EmptyBlockRootRollupInputs,
     signal?: AbortSignal,
@@ -449,25 +465,6 @@ export class BrokerCircuitProverFacade implements ServerCircuitProver {
       this.generateId(ProvingRequestType.EMPTY_BLOCK_ROOT_ROLLUP, input, epochNumber),
       ProvingRequestType.EMPTY_BLOCK_ROOT_ROLLUP,
       input,
-      epochNumber,
-      signal,
-    );
-  }
-
-  getEmptyPrivateKernelProof(
-    inputs: PrivateKernelEmptyInputData,
-    signal?: AbortSignal,
-    epochNumber?: number,
-  ): Promise<
-    PublicInputsAndRecursiveProof<
-      PrivateToRollupKernelCircuitPublicInputs,
-      typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH
-    >
-  > {
-    return this.enqueueJob(
-      this.generateId(ProvingRequestType.PRIVATE_KERNEL_EMPTY, inputs, epochNumber),
-      ProvingRequestType.PRIVATE_KERNEL_EMPTY,
-      inputs,
       epochNumber,
       signal,
     );
@@ -564,6 +561,6 @@ export class BrokerCircuitProverFacade implements ServerCircuitProver {
 
   private generateId(type: ProvingRequestType, inputs: { toBuffer(): Buffer }, epochNumber = 0) {
     const inputsHash = sha256(inputs.toBuffer());
-    return `${epochNumber}:${ProvingRequestType[type]}:${inputsHash.toString('hex')}`;
+    return makeProvingJobId(epochNumber, type, inputsHash.toString('hex'));
   }
 }

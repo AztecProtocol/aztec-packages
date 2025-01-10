@@ -2,6 +2,7 @@ import { type BlockHeader, type Fr, type Proof } from '@aztec/circuits.js';
 import { type RootRollupPublicInputs } from '@aztec/circuits.js/rollup';
 
 import { type L2Block } from '../l2_block.js';
+import { type Tx } from '../tx/tx.js';
 import { type BlockBuilder } from './block-builder.js';
 
 /** Coordinates the proving of an entire epoch. */
@@ -13,6 +14,12 @@ export interface EpochProver extends Omit<BlockBuilder, 'setBlockCompleted'> {
    * @param totalNumBlocks - The total number of blocks expected in the epoch (must be at least one).
    **/
   startNewEpoch(epochNumber: number, firstBlockNumber: number, totalNumBlocks: number): void;
+
+  /**
+   * Kickstarts tube circuits for the specified txs. These will be used during epoch proving.
+   * Note that if the tube circuits are not started this way, they will be started nontheless after processing.
+   */
+  startTubeCircuits(txs: Tx[]): void;
 
   /** Pads the block with empty txs if it hasn't reached the declared number of txs. */
   setBlockCompleted(blockNumber: number, expectedBlockHeader?: BlockHeader): Promise<L2Block>;

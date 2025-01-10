@@ -1,7 +1,12 @@
-import { type ProverBrokerConfig, type ProvingJobBroker, proverBrokerConfigMappings } from '@aztec/circuit-types';
+import { type ProvingJobBroker } from '@aztec/circuit-types';
 import { type NamespacedApiHandlers } from '@aztec/foundation/json-rpc/server';
 import { type LogFn } from '@aztec/foundation/log';
-import { ProvingJobBrokerSchema, createAndStartProvingBroker } from '@aztec/prover-client/broker';
+import {
+  type ProverBrokerConfig,
+  ProvingJobBrokerSchema,
+  createAndStartProvingBroker,
+  proverBrokerConfigMappings,
+} from '@aztec/prover-client/broker';
 import { getProverNodeBrokerConfigFromEnv } from '@aztec/prover-node';
 import {
   createAndStartTelemetryClient,

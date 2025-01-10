@@ -18,7 +18,6 @@ import {
   MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
   MembershipWitness,
   MerkleTreeCalculator,
-  type NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH,
   NOTE_HASH_SUBTREE_HEIGHT,
   NOTE_HASH_SUBTREE_SIBLING_PATH_LENGTH,
   NULLIFIER_SUBTREE_HEIGHT,
@@ -32,25 +31,17 @@ import {
   PublicDataHint,
   PublicDataTreeLeaf,
   PublicDataTreeLeafPreimage,
-  type RecursiveProof,
   StateReference,
-  VK_TREE_HEIGHT,
-  type VerificationKeyAsFields,
 } from '@aztec/circuits.js';
 import { type SpongeBlob } from '@aztec/circuits.js/blobs';
 import {
   type BaseOrMergeRollupPublicInputs,
-  BlockMergeRollupInputs,
   type BlockRootOrBlockMergePublicInputs,
   ConstantRollupData,
-  MergeRollupInputs,
-  PreviousRollupBlockData,
-  PreviousRollupData,
   PrivateBaseRollupHints,
   PrivateBaseStateDiffHints,
   PublicBaseRollupHints,
   PublicBaseStateDiffHints,
-  RootRollupInputs,
 } from '@aztec/circuits.js/rollup';
 import { makeTuple } from '@aztec/foundation/array';
 import { Blob } from '@aztec/foundation/blob';
@@ -59,7 +50,7 @@ import { sha256Trunc } from '@aztec/foundation/crypto';
 import { type Logger } from '@aztec/foundation/log';
 import { type Tuple, assertLength, serializeToBuffer, toFriendlyJSON } from '@aztec/foundation/serialize';
 import { computeUnbalancedMerkleRoot } from '@aztec/foundation/trees';
-import { getVKIndex, getVKSiblingPath, getVKTreeRoot } from '@aztec/noir-protocol-circuits-types/vks';
+import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types/vks';
 import { protocolContractTreeRoot } from '@aztec/protocol-contracts';
 import { computeFeePayerBalanceLeafSlot } from '@aztec/simulator';
 import { type MerkleTreeReadOperations } from '@aztec/world-state';
@@ -274,66 +265,51 @@ async function getPublicDataHint(db: MerkleTreeWriteOperations, leafSlot: bigint
   return new PublicDataHint(new Fr(leafSlot), value, membershipWitness, leafPreimage);
 }
 
-export function createMergeRollupInputs(
-  left: [
-    BaseOrMergeRollupPublicInputs,
-    RecursiveProof<typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH>,
-    VerificationKeyAsFields,
-  ],
-  right: [
-    BaseOrMergeRollupPublicInputs,
-    RecursiveProof<typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH>,
-    VerificationKeyAsFields,
-  ],
-) {
-  const mergeInputs = new MergeRollupInputs([
-    getPreviousRollupDataFromPublicInputs(left[0], left[1], left[2]),
-    getPreviousRollupDataFromPublicInputs(right[0], right[1], right[2]),
-  ]);
-  return mergeInputs;
-}
-
-export function createBlockMergeRollupInputs(
-  left: [
-    BlockRootOrBlockMergePublicInputs,
-    RecursiveProof<typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH>,
-    VerificationKeyAsFields,
-  ],
-  right: [
-    BlockRootOrBlockMergePublicInputs,
-    RecursiveProof<typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH>,
-    VerificationKeyAsFields,
-  ],
-) {
-  const mergeInputs = new BlockMergeRollupInputs([
-    getPreviousRollupBlockDataFromPublicInputs(left[0], left[1], left[2]),
-    getPreviousRollupBlockDataFromPublicInputs(right[0], right[1], right[2]),
-  ]);
-  return mergeInputs;
+export function buildBlobHints(txEffects: TxEffect[]) {
+  const blobFields = txEffects.flatMap(tx => tx.toBlobFields());
+  const blobs = Blob.getBlobs(blobFields);
+  const blobCommitments = blobs.map(b => b.commitmentToFields());
+  const blobsHash = new Fr(getBlobsHashFromBlobs(blobs));
+  return { blobFields, blobCommitments, blobs, blobsHash };
 }
 
 export function buildHeaderFromCircuitOutputs(
-  previousMergeData: [BaseOrMergeRollupPublicInputs, BaseOrMergeRollupPublicInputs],
+  previousRollupData: BaseOrMergeRollupPublicInputs[],
   parityPublicInputs: ParityPublicInputs,
   rootRollupOutputs: BlockRootOrBlockMergePublicInputs,
-  updatedL1ToL2TreeSnapshot: AppendOnlyTreeSnapshot,
+  endState: StateReference,
   logger?: Logger,
 ) {
+  if (previousRollupData.length > 2) {
+    throw new Error(`There can't be more than 2 previous rollups. Received ${previousRollupData.length}.`);
+  }
+
   const blobsHash = rootRollupOutputs.blobPublicInputs[0].getBlobsHash();
+  const numTxs = previousRollupData.reduce((sum, d) => sum + d.numTxs, 0);
+  const outHash =
+    previousRollupData.length === 0
+      ? Fr.ZERO.toBuffer()
+      : previousRollupData.length === 1
+      ? previousRollupData[0].outHash.toBuffer()
+      : sha256Trunc(
+          Buffer.concat([previousRollupData[0].outHash.toBuffer(), previousRollupData[1].outHash.toBuffer()]),
+        );
   const contentCommitment = new ContentCommitment(
-    new Fr(previousMergeData[0].numTxs + previousMergeData[1].numTxs),
+    new Fr(numTxs),
     blobsHash,
     parityPublicInputs.shaRoot.toBuffer(),
-    sha256Trunc(Buffer.concat([previousMergeData[0].outHash.toBuffer(), previousMergeData[1].outHash.toBuffer()])),
+    outHash,
   );
-  const state = new StateReference(updatedL1ToL2TreeSnapshot, previousMergeData[1].end);
+
+  const accumulatedFees = previousRollupData.reduce((sum, d) => sum.add(d.accumulatedFees), Fr.ZERO);
+  const accumulatedManaUsed = previousRollupData.reduce((sum, d) => sum.add(d.accumulatedManaUsed), Fr.ZERO);
   const header = new BlockHeader(
     rootRollupOutputs.previousArchive,
     contentCommitment,
-    state,
-    previousMergeData[0].constants.globalVariables,
-    previousMergeData[0].accumulatedFees.add(previousMergeData[1].accumulatedFees),
-    previousMergeData[0].accumulatedManaUsed.add(previousMergeData[1].accumulatedManaUsed),
+    endState,
+    rootRollupOutputs.endGlobalVariables,
+    accumulatedFees,
+    accumulatedManaUsed,
   );
   if (!header.hash().equals(rootRollupOutputs.endBlockHash)) {
     logger?.error(
@@ -363,13 +339,19 @@ export async function buildHeaderAndBodyFromTxs(
 
   const previousArchive = await getTreeSnapshot(MerkleTreeId.ARCHIVE, db);
 
-  const nonEmptyTxEffects: TxEffect[] = txs.map(tx => tx.txEffect).filter(txEffect => !txEffect.isEmpty());
-  const body = new Body(nonEmptyTxEffects);
+  const txEffects = txs.map(tx => tx.txEffect);
+  const body = new Body(txEffects);
 
-  const outHash = computeUnbalancedMerkleRoot(
-    body.txEffects.map(tx => tx.txOutHash()),
-    TxEffect.empty().txOutHash(),
-  );
+  const numTxs = body.txEffects.length;
+  const outHash =
+    numTxs === 0
+      ? Fr.ZERO.toBuffer()
+      : numTxs === 1
+      ? body.txEffects[0].txOutHash()
+      : computeUnbalancedMerkleRoot(
+          body.txEffects.map(tx => tx.txOutHash()),
+          TxEffect.empty().txOutHash(),
+        );
 
   l1ToL2Messages = padArrayEnd(l1ToL2Messages, Fr.ZERO, NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP);
   const hasher = (left: Buffer, right: Buffer) => sha256Trunc(Buffer.concat([left, right]));
@@ -379,12 +361,7 @@ export async function buildHeaderAndBodyFromTxs(
   );
   const blobsHash = getBlobsHashFromBlobs(Blob.getBlobs(body.toBlobFields()));
 
-  const contentCommitment = new ContentCommitment(
-    new Fr(body.numberOfTxsIncludingPadded),
-    blobsHash,
-    parityShaRoot,
-    outHash,
-  );
+  const contentCommitment = new ContentCommitment(new Fr(numTxs), blobsHash, parityShaRoot, outHash);
 
   const fees = body.txEffects.reduce((acc, tx) => acc.add(tx.transactionFee), Fr.ZERO);
   const manaUsed = txs.reduce((acc, tx) => acc.add(new Fr(tx.gasUsed.totalGas.l2Gas)), Fr.ZERO);
@@ -432,57 +409,6 @@ export async function getRootTreeSiblingPath<TID extends MerkleTreeId>(treeId: T
   const { size } = await db.getTreeInfo(treeId);
   const path = await db.getSiblingPath(treeId, size);
   return padArrayEnd(path.toFields(), Fr.ZERO, getTreeHeight(treeId));
-}
-
-// Builds the inputs for the final root rollup circuit, without making any changes to trees
-export function getRootRollupInput(
-  rollupOutputLeft: BlockRootOrBlockMergePublicInputs,
-  rollupProofLeft: RecursiveProof<typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH>,
-  verificationKeyLeft: VerificationKeyAsFields,
-  rollupOutputRight: BlockRootOrBlockMergePublicInputs,
-  rollupProofRight: RecursiveProof<typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH>,
-  verificationKeyRight: VerificationKeyAsFields,
-  proverId: Fr,
-) {
-  const previousRollupData: RootRollupInputs['previousRollupData'] = [
-    getPreviousRollupBlockDataFromPublicInputs(rollupOutputLeft, rollupProofLeft, verificationKeyLeft),
-    getPreviousRollupBlockDataFromPublicInputs(rollupOutputRight, rollupProofRight, verificationKeyRight),
-  ];
-
-  return RootRollupInputs.from({
-    previousRollupData,
-    proverId,
-  });
-}
-
-export function getPreviousRollupDataFromPublicInputs(
-  rollupOutput: BaseOrMergeRollupPublicInputs,
-  rollupProof: RecursiveProof<typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH>,
-  vk: VerificationKeyAsFields,
-) {
-  const leafIndex = getVKIndex(vk);
-
-  return new PreviousRollupData(
-    rollupOutput,
-    rollupProof,
-    vk,
-    new MembershipWitness(VK_TREE_HEIGHT, BigInt(leafIndex), getVKSiblingPath(leafIndex)),
-  );
-}
-
-export function getPreviousRollupBlockDataFromPublicInputs(
-  rollupOutput: BlockRootOrBlockMergePublicInputs,
-  rollupProof: RecursiveProof<typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH>,
-  vk: VerificationKeyAsFields,
-) {
-  const leafIndex = getVKIndex(vk);
-
-  return new PreviousRollupBlockData(
-    rollupOutput,
-    rollupProof,
-    vk,
-    new MembershipWitness(VK_TREE_HEIGHT, BigInt(leafIndex), getVKSiblingPath(leafIndex)),
-  );
 }
 
 export async function getConstantRollupData(
