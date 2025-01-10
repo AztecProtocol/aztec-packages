@@ -254,7 +254,7 @@ comptime fn generate_process_log() -> Quoted {
                 log_plaintext,
                 tx_hash,
                 unique_note_hashes_in_tx,
-                first_nullifier_in_tx
+                first_nullifier_in_tx,
                 recipient,
                 |serialized_note_content: BoundedVec<Field, _>, note_header, note_type_id| {
                     let hashes = $if_note_type_id_match_statements
