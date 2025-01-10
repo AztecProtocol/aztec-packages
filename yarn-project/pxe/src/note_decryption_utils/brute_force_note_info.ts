@@ -34,6 +34,7 @@ export async function bruteForceNoteInfo(
   simulator: AcirSimulator,
   uniqueNoteHashes: Fr[],
   txHash: TxHash,
+  firstNullifier: Fr,
   contractAddress: AztecAddress,
   storageSlot: Fr,
   noteTypeId: NoteSelector,
@@ -46,7 +47,6 @@ export async function bruteForceNoteInfo(
   let noteHash: Fr | undefined;
   let uniqueNoteHash: Fr | undefined;
   let innerNullifier: Fr | undefined;
-  const firstNullifier = Fr.fromBuffer(txHash.toBuffer());
 
   for (; noteHashIndex < uniqueNoteHashes.length; ++noteHashIndex) {
     if (excludedIndices.has(noteHashIndex)) {

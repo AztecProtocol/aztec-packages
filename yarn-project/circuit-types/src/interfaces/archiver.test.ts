@@ -21,6 +21,7 @@ import { readFileSync } from 'fs';
 import omit from 'lodash.omit';
 import { resolve } from 'path';
 
+import { EmptyL1RollupConstants, type L1RollupConstants } from '../epoch-helpers/index.js';
 import { type InBlock, randomInBlock } from '../in_block.js';
 import { L2Block } from '../l2_block.js';
 import { type L2Tips } from '../l2_block_source.js';
@@ -248,6 +249,11 @@ describe('ArchiverApiSchema', () => {
       privateFunctions: [],
     });
   });
+
+  it('getL1Constants', async () => {
+    const result = await context.client.getL1Constants();
+    expect(result).toEqual(EmptyL1RollupConstants);
+  });
 });
 
 class MockArchiver implements ArchiverApi {
@@ -387,5 +393,8 @@ class MockArchiver implements ArchiverApi {
   }
   addContractClass(_contractClass: ContractClassPublic): Promise<void> {
     return Promise.resolve();
+  }
+  getL1Constants(): Promise<L1RollupConstants> {
+    return Promise.resolve(EmptyL1RollupConstants);
   }
 }
