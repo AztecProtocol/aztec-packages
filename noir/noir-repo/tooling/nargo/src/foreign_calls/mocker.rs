@@ -1,5 +1,3 @@
-use std::marker::PhantomData;
-
 use acvm::{
     acir::brillig::{ForeignCallParam, ForeignCallResult},
     pwg::ForeignCallWaitInfo,
