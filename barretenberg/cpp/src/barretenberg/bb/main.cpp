@@ -133,7 +133,9 @@ bool proveAndVerifyHonkAcirFormat(acir_format::AcirProgram program, acir_format:
 
     Verifier verifier{ verification_key };
 
-    return verifier.verify_proof(proof);
+    const bool verified = verifier.verify_proof(proof);
+    vinfo(verified ? "\033[32mVERIFIED\033[0m" : "\033[31mNOT VERIFIED\033[0m");
+    return verified;
 }
 
 /**

@@ -25,6 +25,7 @@
     "aztec-faucet",
     "aztec-node",
     "validator-client",
+    "bb-bench",
     "bb-prover",
     "blob-sink",
     "bot",
