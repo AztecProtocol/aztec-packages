@@ -172,7 +172,7 @@ comptime fn generate_compute_note_hash_and_optionally_a_nullifier() -> Quoted {
 comptime fn generate_process_log() -> Quoted {
     // This mandatory function processes a log emitted by the contract. This is currently used to recover note contents
     // and deliver the note to PXE.
-    // The bulk of the work of this function is done by aztec::oracle::management::do_process_log, so all we need to do
+    // The bulk of the work of this function is done by aztec::note::discovery::do_process_log, so all we need to do
     // is call that function. However, one of its parameters is a lambda function that computes note hash and nullifier
     // given note contents and metadata (e.g. note type id), since this behavior is contract-specific (as it
     // depends on the note types implemented by each contract).
@@ -193,7 +193,7 @@ comptime fn generate_process_log() -> Quoted {
     //         panic(f"Unknown note type id {note_type_id}")
     //     };
     //
-    //     Option::some(dep::aztec::oracle::management::NoteHashesAndNullifier {
+    //     Option::some(dep::aztec::note::discovery::NoteHashesAndNullifier {
     //         note_hash: hashes[0],
     //         unique_note_hash: hashes[1],
     //         inner_nullifier: hashes[3],
@@ -245,7 +245,7 @@ comptime fn generate_process_log() -> Quoted {
             // unconstrained execution context since it will not be available otherwise.
             let context = dep::aztec::context::unconstrained_context::UnconstrainedContext::new();
 
-            dep::aztec::oracle::management::do_process_log(
+            dep::aztec::note::discovery::do_process_log(
                 context,
                 log_plaintext,
                 tx_hash,
@@ -258,7 +258,7 @@ comptime fn generate_process_log() -> Quoted {
                     };
 
                     Option::some(
-                        dep::aztec::oracle::management::NoteHashesAndNullifier {
+                        dep::aztec::note::discovery::NoteHashesAndNullifier {
                             note_hash: hashes[0],
                             unique_note_hash: hashes[1],
                             inner_nullifier: hashes[3],
