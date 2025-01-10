@@ -168,4 +168,8 @@ export class FeeRecipient {
     }
     return { recipient: this.recipient.toString(), value: this.value.toString() };
   }
+
+  static random() {
+    return new FeeRecipient(EthAddress.random(), Fr.random());
+  }
 }

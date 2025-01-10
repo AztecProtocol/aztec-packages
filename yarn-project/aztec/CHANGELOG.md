@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.69.1](https://github.com/AztecProtocol/aztec-packages/compare/aztec-package-v0.69.0...aztec-package-v0.69.1) (2025-01-08)
+
+
+### Features
+
+* Optionally handle rpc errors with 200 + err body ([#11083](https://github.com/AztecProtocol/aztec-packages/issues/11083)) ([b42756b](https://github.com/AztecProtocol/aztec-packages/commit/b42756bc10175fea9eb60544759e9dbe41ae5e76))
+
+
+### Miscellaneous
+
+* Representing `TxHash` as `Fr` ([#10954](https://github.com/AztecProtocol/aztec-packages/issues/10954)) ([84e67ac](https://github.com/AztecProtocol/aztec-packages/commit/84e67ac5ea1e9271b1703ca956c5cc3fdc03e78a))
+
 ## [0.69.0](https://github.com/AztecProtocol/aztec-packages/compare/aztec-package-v0.68.2...aztec-package-v0.69.0) (2025-01-03)
 
 

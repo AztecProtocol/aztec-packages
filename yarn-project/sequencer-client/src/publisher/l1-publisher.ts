@@ -1,3 +1,4 @@
+import { type BlobSinkClientInterface, createBlobSinkClient } from '@aztec/blob-sink/client';
 import {
   ConsensusPayload,
   type EpochProofClaim,
@@ -29,6 +30,7 @@ import { InterruptibleSleep } from '@aztec/foundation/sleep';
 import { Timer } from '@aztec/foundation/timer';
 import { EmpireBaseAbi, RollupAbi, SlasherAbi } from '@aztec/l1-artifacts';
 import { type TelemetryClient } from '@aztec/telemetry-client';
+import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
 
 import pick from 'lodash.pick';
 import {
@@ -177,8 +179,7 @@ export class L1Publisher {
   protected account: PrivateKeyAccount;
   protected ethereumSlotDuration: bigint;
 
-  private blobSinkUrl: string | undefined;
-
+  private blobSinkClient: BlobSinkClientInterface;
   // @note - with blobs, the below estimate seems too large.
   // Total used for full block from int_l1_pub e2e test: 1m (of which 86k is 1x blob)
   // Total used for emptier block from above test: 429k (of which 84k is 1x blob)
@@ -189,12 +190,15 @@ export class L1Publisher {
 
   constructor(
     config: TxSenderConfig & PublisherConfig & Pick<L1ContractsConfig, 'ethereumSlotDuration'>,
-    client: TelemetryClient,
+    deps: { telemetry?: TelemetryClient; blobSinkClient?: BlobSinkClientInterface } = {},
   ) {
     this.sleepTimeMs = config?.l1PublishRetryIntervalMS ?? 60_000;
     this.ethereumSlotDuration = BigInt(config.ethereumSlotDuration);
-    this.blobSinkUrl = config.blobSinkUrl;
-    this.metrics = new L1PublisherMetrics(client, 'L1Publisher');
+
+    const telemetry = deps.telemetry ?? new NoopTelemetryClient();
+    this.blobSinkClient = deps.blobSinkClient ?? createBlobSinkClient(config.blobSinkUrl);
+
+    this.metrics = new L1PublisherMetrics(telemetry, 'L1Publisher');
 
     const { l1RpcUrl: rpcUrl, l1ChainId: chainId, publisherPrivateKey, l1Contracts } = config;
     const chain = createEthereumChain(rpcUrl, chainId);
@@ -557,6 +561,7 @@ export class L1Publisher {
     attestations?: Signature[],
     txHashes?: TxHash[],
     proofQuote?: EpochProofQuote,
+    opts: { txTimeoutAt?: Date } = {},
   ): Promise<boolean> {
     const ctx = {
       blockNumber: block.number,
@@ -598,8 +603,8 @@ export class L1Publisher {
 
     this.log.debug(`Submitting propose transaction`);
     const result = proofQuote
-      ? await this.sendProposeAndClaimTx(proposeTxArgs, proofQuote)
-      : await this.sendProposeTx(proposeTxArgs);
+      ? await this.sendProposeAndClaimTx(proposeTxArgs, proofQuote, opts)
+      : await this.sendProposeTx(proposeTxArgs, opts);
 
     if (!result?.receipt) {
       this.log.info(`Failed to publish block ${block.number} to L1`, ctx);
@@ -1016,6 +1021,7 @@ export class L1Publisher {
 
   private async sendProposeTx(
     encodedData: L1ProcessArgs,
+    opts: { txTimeoutAt?: Date } = {},
   ): Promise<{ receipt: TransactionReceipt | undefined; args: any; functionName: string; data: Hex } | undefined> {
     if (this.interrupted) {
       return undefined;
@@ -1035,6 +1041,7 @@ export class L1Publisher {
         },
         {
           fixedGas: gas,
+          ...opts,
         },
         {
           blobs: encodedData.blobs.map(b => b.dataWithZeros),
@@ -1057,6 +1064,7 @@ export class L1Publisher {
   private async sendProposeAndClaimTx(
     encodedData: L1ProcessArgs,
     quote: EpochProofQuote,
+    opts: { txTimeoutAt?: Date } = {},
   ): Promise<{ receipt: TransactionReceipt | undefined; args: any; functionName: string; data: Hex } | undefined> {
     if (this.interrupted) {
       return undefined;
@@ -1074,7 +1082,10 @@ export class L1Publisher {
           to: this.rollupContract.address,
           data,
         },
-        { fixedGas: gas },
+        {
+          fixedGas: gas,
+          ...opts,
+        },
         {
           blobs: encodedData.blobs.map(b => b.dataWithZeros),
           kzg,
@@ -1143,38 +1154,8 @@ export class L1Publisher {
    *   In the future this will move to be the beacon block id - which takes a bit more work
    *   to calculate and will need to be mocked in e2e tests
    */
-  protected async sendBlobsToBlobSink(blockHash: string, blobs: Blob[]): Promise<boolean> {
-    // TODO(md): for now we are assuming the indexes of the blobs will be 0, 1, 2
-    // When in reality they will not, but for testing purposes this is fine
-    if (!this.blobSinkUrl) {
-      this.log.verbose('No blob sink url configured');
-      return false;
-    }
-
-    this.log.verbose(`Sending ${blobs.length} blobs to blob sink`);
-    try {
-      const res = await fetch(`${this.blobSinkUrl}/blob_sidecar`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          // eslint-disable-next-line camelcase
-          block_id: blockHash,
-          blobs: blobs.map((b, i) => ({ blob: b.toBuffer(), index: i })),
-        }),
-      });
-
-      if (res.ok) {
-        return true;
-      }
-
-      this.log.error('Failed to send blobs to blob sink', res.status);
-      return false;
-    } catch (err) {
-      this.log.error(`Error sending blobs to blob sink`, err);
-      return false;
-    }
+  protected sendBlobsToBlobSink(blockHash: string, blobs: Blob[]): Promise<boolean> {
+    return this.blobSinkClient.sendBlobsToBlobSink(blockHash, blobs);
   }
 }
 

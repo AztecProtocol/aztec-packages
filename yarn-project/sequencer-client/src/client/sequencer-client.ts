@@ -1,3 +1,4 @@
+import { type BlobSinkClientInterface } from '@aztec/blob-sink/client';
 import { type L1ToL2MessageSource, type L2BlockSource, type WorldStateSynchronizer } from '@aztec/circuit-types';
 import { type ContractDataSource } from '@aztec/circuits.js';
 import { isAnvilTestChain } from '@aztec/ethereum';
@@ -46,6 +47,7 @@ export class SequencerClient {
       l1ToL2MessageSource: L1ToL2MessageSource;
       telemetry: TelemetryClient;
       publisher?: L1Publisher;
+      blobSinkClient?: BlobSinkClientInterface;
       dateProvider: DateProvider;
     },
   ) {
@@ -59,7 +61,8 @@ export class SequencerClient {
       l1ToL2MessageSource,
       telemetry: telemetryClient,
     } = deps;
-    const publisher = deps.publisher ?? new L1Publisher(config, telemetryClient);
+    const publisher =
+      deps.publisher ?? new L1Publisher(config, { telemetry: telemetryClient, blobSinkClient: deps.blobSinkClient });
     const globalsBuilder = new GlobalVariableBuilder(config);
 
     const publicProcessorFactory = new PublicProcessorFactory(contractDataSource, deps.dateProvider, telemetryClient);

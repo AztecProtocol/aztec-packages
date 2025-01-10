@@ -17,7 +17,7 @@
     "formatting:fix": "run -T eslint --fix ./src && run -T prettier -w ./src",
     "test:node": "NODE_NO_WARNINGS=1 mocha --config ./.mocharc.json",
     "test:browser": "wtr --config ./web-test-runner.config.mjs",
-    "test": "yarn test:node && yarn test:browser"
+    "test": "yarn test:node && yarn test:browser && true"
   },
   "inherits": [
     "../package.common.json",
@@ -28,7 +28,7 @@
     "@aztec/ethereum": "workspace:^",
     "@aztec/foundation": "workspace:^",
     "idb": "^8.0.0",
-    "lmdb": "^3.0.6"
+    "lmdb": "^3.2.0"
   },
   "devDependencies": {
     "@aztec/circuits.js": "workspace:^",

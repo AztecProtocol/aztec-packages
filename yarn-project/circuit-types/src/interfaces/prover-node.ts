@@ -15,9 +15,20 @@ const EpochProvingJobState = [
   'publishing-proof',
   'completed',
   'failed',
+  'stopped',
+  'timed-out',
 ] as const;
 
 export type EpochProvingJobState = (typeof EpochProvingJobState)[number];
+
+export const EpochProvingJobTerminalState: EpochProvingJobState[] = [
+  'completed',
+  'failed',
+  'stopped',
+  'timed-out',
+] as const;
+
+export type EpochProvingJobTerminalState = (typeof EpochProvingJobTerminalState)[number];
 
 /** JSON RPC public interface to a prover node. */
 export interface ProverNodeApi {
