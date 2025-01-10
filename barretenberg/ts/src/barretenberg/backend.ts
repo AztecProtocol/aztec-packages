@@ -118,9 +118,17 @@ export class UltraPlonkBackend {
   }
 
   /** @description Verifies a proof */
-  async verifyProof(proofData: ProofData): Promise<boolean> {
+  async verifyProof(proofData: ProofData, vkey?: Uint8Array): Promise<boolean> {
     await this.instantiate();
-    await this.api.acirInitVerificationKey(this.acirComposer);
+
+    // If vkey exists, use it via acirLoadVerificationKey,
+    // otherwise initialize it in the standard way.
+    if (!vkey) {
+      await this.api.acirInitVerificationKey(this.acirComposer);
+    } else {
+      await this.api.acirLoadVerificationKey(this.acirComposer, vkey);
+    }
+
     const proof = reconstructUltraPlonkProof(proofData);
     return await this.api.acirVerifyProof(this.acirComposer, proof);
   }
@@ -229,7 +237,8 @@ export class UltraHonkBackend {
     return { proof, publicInputs };
   }
 
-  async verifyProof(proofData: ProofData, options?: UltraHonkBackendOptions): Promise<boolean> {
+  /** @description Verifies a proof */
+  async verifyProof(proofData: ProofData, options?: UltraHonkBackendOptions, vkey?: Uint8Array): Promise<boolean> {
     await this.instantiate();
 
     const proof = reconstructHonkProof(flattenFieldsAsArray(proofData.publicInputs), proofData.proof);
@@ -241,7 +250,15 @@ export class UltraHonkBackend {
       ? this.api.acirVerifyUltraKeccakHonk.bind(this.api)
       : this.api.acirVerifyUltraHonk.bind(this.api);
 
-    const vkBuf = await writeVkUltraHonk(this.acirUncompressedBytecode, this.circuitOptions.recursive);
+    // If vkey is not provided, generate vkBuf using writeVkUltraHonk(),
+    // otherwise use the one provided by the user.
+    let vkBuf: Uint8Array;
+    if (!vkey) {
+      vkBuf = await writeVkUltraHonk(this.acirUncompressedBytecode, this.circuitOptions.recursive);
+    } else {
+      vkBuf = vkey;
+    }
+
     return await verifyUltraHonk(proof, new RawBuffer(vkBuf));
   }
 
