@@ -21,7 +21,7 @@ pub struct NoteHashesAndNullifier {
     pub inner_nullifier: Field,
 }
 
-fn for_each_bounded_vec<T, let MaxLen: u32, Env>(
+fn for_each_in_bounded_vec<T, let MaxLen: u32, Env>(
     vec: BoundedVec<T, MaxLen>,
     f: fn[Env](T, u32) -> (),
 ) {
@@ -72,7 +72,7 @@ pub unconstrained fn do_process_log<Env>(
         destructure_log_plaintext(log_plaintext);
 
     // We need to find the note's nonce, which is the one that results in one of the unique note hashes from tx_hash
-    for_each_bounded_vec(
+    for_each_in_bounded_vec(
         unique_note_hashes_in_tx,
         |expected_unique_note_hash, i| {
             let candidate_nonce = compute_note_hash_nonce(tx_hash, i);
