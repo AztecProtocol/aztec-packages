@@ -259,7 +259,7 @@ export class Oracle {
   }
 
   async notifyCreatedNullifier([innerNullifier]: ACVMField[]): Promise<ACVMField> {
-    await this.typedOracle.notifyNullifiedNote(fromACVMField(innerNullifier));
+    await this.typedOracle.notifyCreatedNullifier(fromACVMField(innerNullifier));
     return toACVMField(0);
   }
 
