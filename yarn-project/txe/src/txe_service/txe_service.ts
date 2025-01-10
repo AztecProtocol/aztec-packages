@@ -425,6 +425,11 @@ export class TXEService {
     return toForeignCallResult([toSingle(new Fr(0))]);
   }
 
+  async notifyCreatedNullifier(innerNullifier: ForeignCallSingle) {
+    await this.typedOracle.notifyCreatedNullifier(fromSingle(innerNullifier));
+    return toForeignCallResult([toSingle(new Fr(0))]);
+  }
+
   async checkNullifierExists(innerNullifier: ForeignCallSingle) {
     const exists = await this.typedOracle.checkNullifierExists(fromSingle(innerNullifier));
     return toForeignCallResult([toSingle(new Fr(exists))]);
