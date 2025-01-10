@@ -223,13 +223,14 @@ const config = {
         items: [
           {
             type: "doc",
-            docId: "index",
+            docId: "aztec/index",
             position: "left",
             label: "Learn",
           },
+          
           {
             type: "docSidebar",
-            sidebarId: "guidesSidebar",
+            sidebarId: "buildSidebar",
             position: "left",
             label: "Build",
           },
