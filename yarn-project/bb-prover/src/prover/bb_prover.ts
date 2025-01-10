@@ -69,7 +69,6 @@ import {
   convertSingleTxBlockRootRollupInputsToWitnessMap,
   convertSingleTxBlockRootRollupOutputsFromWitnessMap,
 } from '@aztec/noir-protocol-circuits-types/server';
-import { ProtocolCircuitVks } from '@aztec/noir-protocol-circuits-types/vks';
 import { NativeACVMSimulator } from '@aztec/simulator/server';
 import { Attributes, type TelemetryClient, trackSpan } from '@aztec/telemetry-client';
 
