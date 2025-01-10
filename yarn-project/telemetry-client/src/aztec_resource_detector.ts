@@ -5,7 +5,6 @@ import {
   ATTR_SERVICE_INSTANCE_ID,
 } from '@opentelemetry/semantic-conventions/incubating';
 
-import { NETWORK_NAME } from './attributes.js';
 import { getConfigEnvVars } from './config.js';
 
 /**
@@ -18,6 +17,7 @@ class AztecDetector implements DetectorSync {
     return new Resource({
       [ATTR_K8S_POD_UID]: config.k8sPodUid,
       [ATTR_K8S_POD_NAME]: config.k8sPodName,
+      // this will get set by serviceInstanceIdDetector if not running in K8s
       [ATTR_SERVICE_INSTANCE_ID]: config.k8sPodUid,
     });
   }

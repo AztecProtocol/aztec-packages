@@ -34,17 +34,17 @@ export class EventLoopMonitor {
     }
 
     this.lastELU = performance.eventLoopUtilization();
-    this.meter.addBatchObservableCallback(this.measureLag, [this.eventLoopUilization, this.eventLoopLag]);
+    this.meter.addBatchObservableCallback(this.measure, [this.eventLoopUilization, this.eventLoopLag]);
   }
 
   stop(): void {
     if (!this.started) {
       return;
     }
-    this.meter.removeBatchObservableCallback(this.measureLag, [this.eventLoopUilization, this.eventLoopLag]);
+    this.meter.removeBatchObservableCallback(this.measure, [this.eventLoopUilization, this.eventLoopLag]);
   }
 
-  private measureLag = async (obs: BatchObservableResult): Promise<void> => {
+  private measure = async (obs: BatchObservableResult): Promise<void> => {
     const newELU = performance.eventLoopUtilization();
     const delta = performance.eventLoopUtilization(newELU, this.lastELU);
     this.lastELU = newELU;
@@ -53,13 +53,19 @@ export class EventLoopMonitor {
     const { promise, resolve } = promiseWithResolvers<number>();
     // how long does it take to schedule the next macro task?
     // if this number spikes then we're (1) either blocking the event loop with long running sync code
-    // or (2) spamming the event loop with micro tasks
+    // (2) spamming the event loop with micro or macro tasks
     setImmediate(() => {
       resolve(timer.us());
     });
 
     const lag = await promise;
     obs.observe(this.eventLoopLag, Math.floor(lag));
+    // `utilization` [0,1] represents how much the event loop is busy vs waiting for new events to come in
+    // This should be corelated with CPU usage to gauge the performance characteristics of services
+    // 100% utilization leads to high latency because the event loop is _always_ busy, there's no breathing room for events to be processed quickly.
+    // Docs and examples:
+    // - https://nodesource.com/blog/event-loop-utilization-nodejs
+    // - https://youtu.be/WetXnEPraYM
     obs.observe(this.eventLoopUilization, delta.utilization);
   };
 }
