@@ -553,7 +553,7 @@ jobs:
     name: Upload compilation memory report 
     needs: [generate_memory_report, external_repo_memory_report]
     # We want this job to run even if one variation of the matrix in `external_repo_memory_report` fails
-    if: always()
+    if: always() 
     runs-on: ubuntu-latest
     permissions:
       pull-requests: write
@@ -576,17 +576,19 @@ jobs:
         run: |
           mv ./.github/scripts/merge-bench-reports.sh merge-bench-reports.sh
           ./merge-bench-reports.sh memory_report
+          # Rename the memory report as to not clash with the compilation memory report file name
+          cp memory_report.json execution_memory_report.json
 
       - name: Parse compilation memory report
         id: compilation_mem_report
         uses: noir-lang/noir-bench-report@6ba151d7795042c4ff51864fbeb13c0a6a79246c
         with:
-          report: memory_report.json
+          report: execution_memory_report.json
           header: |
             Compilation Memory Report
           memory_report: true
 
-      - name: Add memory report to sticky comment
+      - name: Add execution memory report to sticky comment
         if: github.event_name == 'pull_request' || github.event_name == 'pull_request_target'
         uses: marocchino/sticky-pull-request-comment@v2
         with:

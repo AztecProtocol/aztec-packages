@@ -230,6 +230,7 @@ impl DataFlowGraph {
         if !self.is_handled_by_runtime(&instruction) {
             return InsertInstructionResult::InstructionRemoved;
         }
+
         match instruction.simplify(self, block, ctrl_typevars.clone(), call_stack) {
             SimplifyResult::SimplifiedTo(simplification) => {
                 InsertInstructionResult::SimplifiedTo(simplification)
@@ -523,6 +524,24 @@ impl DataFlowGraph {
             Type::Array(_, length) => Some(length),
             _ => None,
         }
+    }
+
+    /// If this value points to an array of constant bytes, returns a string
+    /// consisting of those bytes if they form a valid UTF-8 string.
+    pub(crate) fn get_string(&self, value: ValueId) -> Option<String> {
+        let (value_ids, _typ) = self.get_array_constant(value)?;
+
+        let mut bytes = Vec::new();
+        for value_id in value_ids {
+            let field_value = self.get_numeric_constant(value_id)?;
+            let u64_value = field_value.try_to_u64()?;
+            if u64_value > 255 {
+                return None;
+            };
+            let byte = u64_value as u8;
+            bytes.push(byte);
+        }
+        String::from_utf8(bytes).ok()
     }
 
     /// A constant index less than the array length is safe
