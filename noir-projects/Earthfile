@@ -11,7 +11,7 @@ test-protocol-circuits:
   RUN cd /usr/src/noir-projects/noir-protocol-circuits && nargo test --silence-warnings --skip-brillig-constraints-check
 
   # Also execute circuits to ensure that `Prover.toml` files are in sync.
-  LET circuits = "private-kernel-inner private-kernel-tail private-kernel-reset rollup-root rollup-block-root rollup-block-merge rollup-base-private rollup-base-public"
+  LET circuits = "private-kernel-init private-kernel-inner private-kernel-reset private-kernel-tail-to-public private-kernel-tail  rollup-base-private rollup-base-public  rollup-block-root rollup-block-merge rollup-merge rollup-root"
   FOR circuit IN $circuits
       RUN cd /usr/src/noir-projects/noir-protocol-circuits/crates/$circuit && nargo execute --silence-warnings --skip-brillig-constraints-check
   END
