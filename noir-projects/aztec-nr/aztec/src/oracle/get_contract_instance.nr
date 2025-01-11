@@ -59,7 +59,7 @@ pub unconstrained fn get_contract_instance_initialization_hash_internal_avm(
 }
 
 pub fn get_contract_instance_deployer_avm(address: AztecAddress) -> Option<AztecAddress> {
-    let (member, exists) = get_contract_instance_deployer_internal_avm(address);
+    let (member, exists) = unsafe { get_contract_instance_deployer_internal_avm(address) };
     if exists {
         Option::some(AztecAddress::from_field(member))
     } else {
@@ -67,7 +67,7 @@ pub fn get_contract_instance_deployer_avm(address: AztecAddress) -> Option<Aztec
     }
 }
 pub fn get_contract_instance_class_id_avm(address: AztecAddress) -> Option<ContractClassId> {
-    let (member, exists) = get_contract_instance_class_id_internal_avm(address);
+    let (member, exists) = unsafe { get_contract_instance_class_id_internal_avm(address) };
     if exists {
         Option::some(ContractClassId::from_field(member))
     } else {
@@ -75,7 +75,8 @@ pub fn get_contract_instance_class_id_avm(address: AztecAddress) -> Option<Contr
     }
 }
 pub fn get_contract_instance_initialization_hash_avm(address: AztecAddress) -> Option<Field> {
-    let (member, exists) = get_contract_instance_initialization_hash_internal_avm(address);
+    let (member, exists) =
+        unsafe { get_contract_instance_initialization_hash_internal_avm(address) };
     if exists {
         Option::some(member)
     } else {
