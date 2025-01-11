@@ -534,10 +534,13 @@ impl<'a> FunctionContext<'a> {
         self.builder.set_location(for_expr.end_range_location);
         let end_index = self.codegen_non_tuple_expression(&for_expr.end_range)?;
 
-        if let (Some(start_constant), Some(end_constant)) = (self.builder.current_function.dfg.get_numeric_constant(start_index), self.builder.current_function.dfg.get_numeric_constant(end_index)) {
+        if let (Some(start_constant), Some(end_constant)) = (
+            self.builder.current_function.dfg.get_numeric_constant(start_index),
+            self.builder.current_function.dfg.get_numeric_constant(end_index),
+        ) {
             // If we can determine that the loop contains zero iterations then we can short-circuit codegen.
             if start_constant == end_constant {
-                return Ok(Self::unit_value())
+                return Ok(Self::unit_value());
             }
         }
 
@@ -552,7 +555,6 @@ impl<'a> FunctionContext<'a> {
         // Remember the blocks and variable used in case there are break/continue instructions
         // within the loop which need to jump to them.
         self.enter_loop(loop_entry, loop_index, loop_end);
-
 
         // Set the location of the initial jmp instruction to the start range. This is the location
         // used to issue an error if the start range cannot be determined at compile-time.
