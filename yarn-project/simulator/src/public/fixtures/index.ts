@@ -49,22 +49,6 @@ import { initContext, initExecutionEnvironment, initPersistableStateManager } fr
 const TIMESTAMP = new Fr(99833);
 
 export async function simulateAvmTestContractGenerateCircuitInputs(
-  functionName: string,
-  args: Fr[] = [],
-  expectRevert: boolean = false,
-  contractDataSource = new MockedAvmTestContractDataSource(),
-  assertionErrString?: string,
-): Promise<AvmCircuitInputs> {
-  return await simulateAvmTestContractMultipleEnqueuedCallsGenerateCircuitInputs(
-    [functionName],
-    [args],
-    expectRevert,
-    contractDataSource,
-    assertionErrString,
-  );
-}
-
-export async function simulateAvmTestContractMultiplePhasesGenerateCircuitInputs(
   setupFunctionNames: string[],
   setupArgs: Fr[][] = [],
   appFunctionNames: string[],
@@ -131,63 +115,7 @@ export async function simulateAvmTestContractMultiplePhasesGenerateCircuitInputs
     teardownExecutionRequest = new PublicExecutionRequest(callContext, fnArgs);
   }
 
-  const tx: Tx = createTxForMultiplePublicCalls(setupExecutionRequests, appExecutionRequests, teardownExecutionRequest);
-
-  const avmResult = await simulator.simulate(tx);
-
-  if (!expectRevert) {
-    expect(avmResult.revertCode.isOK()).toBe(true);
-  } else {
-    // Explicit revert when an assertion failed.
-    expect(avmResult.revertCode.isOK()).toBe(false);
-    expect(avmResult.revertReason).toBeDefined();
-    if (assertionErrString !== undefined) {
-      expect(avmResult.revertReason?.getMessage()).toContain(assertionErrString);
-    }
-  }
-
-  const avmCircuitInputs: AvmCircuitInputs = avmResult.avmProvingRequest.inputs;
-  return avmCircuitInputs;
-}
-
-export async function simulateAvmTestContractMultipleEnqueuedCallsGenerateCircuitInputs(
-  functionNames: string[],
-  args: Fr[][] = [],
-  expectRevert: boolean = false,
-  contractDataSource = new MockedAvmTestContractDataSource(),
-  assertionErrString?: string,
-): Promise<AvmCircuitInputs> {
-  const globals = GlobalVariables.empty();
-  globals.timestamp = TIMESTAMP;
-
-  const merkleTrees = await (await MerkleTrees.new(openTmpStore(), new NoopTelemetryClient())).fork();
-  await contractDataSource.deployContracts(merkleTrees);
-  const worldStateDB = new WorldStateDB(merkleTrees, contractDataSource);
-
-  const simulator = new PublicTxSimulator(
-    merkleTrees,
-    worldStateDB,
-    new NoopTelemetryClient(),
-    globals,
-    /*doMerkleOperations=*/ true,
-  );
-
-  const sender = AztecAddress.random();
-  const appExecutionRequests: PublicExecutionRequest[] = [];
-  for (let i = 0; i < functionNames.length; i++) {
-    const functionSelector = getAvmTestContractFunctionSelector(functionNames[i]);
-    const fnArgs = [functionSelector.toField(), ...args[i]];
-    const callContext = new CallContext(
-      sender,
-      contractDataSource.firstContractInstance.address,
-      contractDataSource.fnSelector,
-      /*isStaticCall=*/ false,
-    );
-    const executionRequest = new PublicExecutionRequest(callContext, fnArgs);
-    appExecutionRequests.push(executionRequest);
-  }
-
-  const tx: Tx = createTxForMultiplePublicCalls(/*setupExecutionRequests=*/ [], appExecutionRequests);
+  const tx: Tx = createTxForPublicCalls(setupExecutionRequests, appExecutionRequests, teardownExecutionRequest);
 
   const avmResult = await simulator.simulate(tx);
 
@@ -247,25 +175,9 @@ export async function simulateAvmTestContractCall(
 }
 
 /**
- * Craft a carrier transaction for a public call for simulation by PublicTxSimulator.
+ * Craft a carrier transaction for some public calls for simulation by PublicTxSimulator.
  */
-export function createTxForPublicCall(
-  executionRequest: PublicExecutionRequest,
-  gasUsedByPrivate: Gas = Gas.empty(),
-  isTeardown: boolean = false,
-): Tx {
-  const setupExecutionRequests: PublicExecutionRequest[] = [];
-  const appExecutionRequests = isTeardown ? [] : [executionRequest];
-  const teardownExecutionRequest = isTeardown ? executionRequest : undefined;
-  return createTxForMultiplePublicCalls(
-    setupExecutionRequests,
-    appExecutionRequests,
-    teardownExecutionRequest,
-    gasUsedByPrivate,
-  );
-}
-
-export function createTxForMultiplePublicCalls(
+export function createTxForPublicCalls(
   setupExecutionRequests: PublicExecutionRequest[],
   appExecutionRequests: PublicExecutionRequest[],
   teardownExecutionRequest?: PublicExecutionRequest,
