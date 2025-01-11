@@ -2,6 +2,7 @@
 //
 // The features being tested is brillig calls passing arrays around
 fn main(x: [u32; 3]) {
+    /// Safety: testing context
     unsafe {
         //@safety: testing context
         assert(entry_point(x) == 9);
