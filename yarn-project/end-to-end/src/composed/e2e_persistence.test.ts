@@ -6,18 +6,20 @@ import {
   Note,
   type TxHash,
   computeSecretHash,
-  waitForAccountSynch,
 } from '@aztec/aztec.js';
 import { type Salt } from '@aztec/aztec.js/account';
 import { type AztecAddress, type CompleteAddress, Fr, deriveSigningKey } from '@aztec/circuits.js';
 import { type DeployL1Contracts } from '@aztec/ethereum';
-import { TokenContract } from '@aztec/noir-contracts.js/Token';
+// We use TokenBlacklist because we want to test the persistence of manually added notes and standard token no longer
+// implements TransparentNote shield flow.
+import { TokenBlacklistContract } from '@aztec/noir-contracts.js/TokenBlacklist';
 
 import { jest } from '@jest/globals';
 import { mkdtemp } from 'fs/promises';
 import { tmpdir } from 'os';
 import { join } from 'path';
 
+import { BlacklistTokenContractTest, Role } from '../e2e_blacklist_token_contract/blacklist_token_contract_test.js';
 import { type EndToEndContext, setup } from '../fixtures/utils.js';
 
 jest.setTimeout(60_000);
@@ -64,11 +66,16 @@ describe('Aztec persistence', () => {
     ownerAddress = ownerWallet.getCompleteAddress();
     ownerSalt = ownerWallet.salt;
 
-    const contract = await TokenContract.deploy(ownerWallet, ownerWallet.getAddress(), 'Test token', 'TEST', 2)
-      .send()
-      .deployed();
+    const contract = await TokenBlacklistContract.deploy(ownerWallet, ownerWallet.getAddress()).send().deployed();
     contractInstance = contract.instance;
     contractAddress = contract.address;
+
+    await progressBlocksPastDelay(contract);
+
+    const adminMinterRole = new Role().withAdmin().withMinter();
+    await contract.methods.update_roles(ownerWallet.getAddress(), adminMinterRole.toNoirStruct()).send().wait();
+
+    await progressBlocksPastDelay(contract);
 
     const secret = Fr.random();
 
@@ -84,8 +91,16 @@ describe('Aztec persistence', () => {
 
     await contract.methods.redeem_shield(ownerAddress.address, 1000n, secret).send().wait();
 
+    await progressBlocksPastDelay(contract);
+
     await initialContext.teardown();
-  });
+  }, 180_000);
+
+  const progressBlocksPastDelay = async (contract: TokenBlacklistContract) => {
+    for (let i = 0; i < BlacklistTokenContractTest.DELAY; ++i) {
+      await contract.methods.get_roles(ownerAddress.address).send().wait();
+    }
+  };
 
   describe.each([
     [
@@ -102,13 +117,13 @@ describe('Aztec persistence', () => {
     ],
   ])('%s', (_, contextSetup, timeout) => {
     let ownerWallet: AccountWallet;
-    let contract: TokenContract;
+    let contract: TokenBlacklistContract;
 
     beforeEach(async () => {
       context = await contextSetup();
       const signingKey = deriveSigningKey(ownerSecretKey);
       ownerWallet = await getUnsafeSchnorrWallet(context.pxe, ownerAddress.address, signingKey);
-      contract = await TokenContract.at(contractAddress, ownerWallet);
+      contract = await TokenBlacklistContract.at(contractAddress, ownerWallet);
     }, timeout);
 
     afterEach(async () => {
@@ -151,7 +166,7 @@ describe('Aztec persistence', () => {
 
       const initialOwnerBalance = await contract.methods.balance_of_private(ownerWallet.getAddress()).simulate();
 
-      await contract.methods.transfer(otherWallet.getAddress(), 500n).send().wait();
+      await contract.methods.transfer(ownerWallet.getAddress(), otherWallet.getAddress(), 500n, 0).send().wait();
 
       const [ownerBalance, targetBalance] = await Promise.all([
         contract.methods.balance_of_private(ownerWallet.getAddress()).simulate(),
@@ -184,57 +199,48 @@ describe('Aztec persistence', () => {
       await context.teardown();
     });
 
-    it('pxe does not have the owner account', async () => {
-      await expect(context.pxe.getRecipient(ownerAddress.address)).resolves.toBeUndefined();
-    });
-
     it('the node has the contract', async () => {
       await expect(context.aztecNode.getContract(contractAddress)).resolves.toBeDefined();
     });
 
     it('pxe does not know of the deployed contract', async () => {
-      await context.pxe.registerRecipient(ownerAddress);
-
       const wallet = await getUnsafeSchnorrAccount(context.pxe, Fr.random(), Fr.ZERO).waitSetup();
-      await expect(TokenContract.at(contractAddress, wallet)).rejects.toThrow(/has not been registered/);
+      await expect(TokenBlacklistContract.at(contractAddress, wallet)).rejects.toThrow(/has not been registered/);
     });
 
     it("pxe does not have owner's private notes", async () => {
       await context.pxe.registerContract({
-        artifact: TokenContract.artifact,
+        artifact: TokenBlacklistContract.artifact,
         instance: contractInstance,
       });
-      await context.pxe.registerRecipient(ownerAddress);
 
       const wallet = await getUnsafeSchnorrAccount(context.pxe, Fr.random(), Fr.ZERO).waitSetup();
-      const contract = await TokenContract.at(contractAddress, wallet);
+      const contract = await TokenBlacklistContract.at(contractAddress, wallet);
       await expect(contract.methods.balance_of_private(ownerAddress.address).simulate()).resolves.toEqual(0n);
     });
 
     it('has access to public storage', async () => {
       await context.pxe.registerContract({
-        artifact: TokenContract.artifact,
+        artifact: TokenBlacklistContract.artifact,
         instance: contractInstance,
       });
 
       const wallet = await getUnsafeSchnorrAccount(context.pxe, Fr.random(), Fr.ZERO).waitSetup();
-      const contract = await TokenContract.at(contractAddress, wallet);
+      const contract = await TokenBlacklistContract.at(contractAddress, wallet);
 
       await expect(contract.methods.total_supply().simulate()).resolves.toBeGreaterThan(0n);
     });
 
     it('pxe restores notes after registering the owner', async () => {
       await context.pxe.registerContract({
-        artifact: TokenContract.artifact,
+        artifact: TokenBlacklistContract.artifact,
         instance: contractInstance,
       });
 
       const ownerAccount = getUnsafeSchnorrAccount(context.pxe, ownerSecretKey, ownerSalt);
       await ownerAccount.register();
       const ownerWallet = await ownerAccount.getWallet();
-      const contract = await TokenContract.at(contractAddress, ownerWallet);
-
-      await waitForAccountSynch(context.pxe, ownerAddress, { interval: 1, timeout: 10 });
+      const contract = await TokenBlacklistContract.at(contractAddress, ownerWallet);
 
       // check that notes total more than 0 so that this test isn't dependent on run order
       await expect(contract.methods.balance_of_private(ownerAddress.address).simulate()).resolves.toBeGreaterThan(0n);
@@ -256,7 +262,7 @@ describe('Aztec persistence', () => {
       const temporaryContext = await setup(0, { deployL1ContractsValues }, {});
 
       await temporaryContext.pxe.registerContract({
-        artifact: TokenContract.artifact,
+        artifact: TokenBlacklistContract.artifact,
         instance: contractInstance,
       });
 
@@ -264,7 +270,7 @@ describe('Aztec persistence', () => {
       await ownerAccount.register();
       const ownerWallet = await ownerAccount.getWallet();
 
-      const contract = await TokenContract.at(contractAddress, ownerWallet);
+      const contract = await TokenBlacklistContract.at(contractAddress, ownerWallet);
 
       // mint some tokens with a secret we know and redeem later on a separate PXE
       secret = Fr.random();
@@ -281,15 +287,13 @@ describe('Aztec persistence', () => {
     });
 
     let ownerWallet: AccountWallet;
-    let contract: TokenContract;
+    let contract: TokenBlacklistContract;
 
     beforeEach(async () => {
       context = await setup(0, { dataDirectory, deployL1ContractsValues }, { dataDirectory });
       const signingKey = deriveSigningKey(ownerSecretKey);
       ownerWallet = await getUnsafeSchnorrWallet(context.pxe, ownerAddress.address, signingKey);
-      contract = await TokenContract.at(contractAddress, ownerWallet);
-
-      await waitForAccountSynch(context.pxe, ownerAddress, { interval: 0.1, timeout: 5 });
+      contract = await TokenBlacklistContract.at(contractAddress, ownerWallet);
     });
 
     afterEach(async () => {
@@ -323,14 +327,16 @@ async function addPendingShieldNoteToPXE(
   secretHash: Fr,
   txHash: TxHash,
 ) {
+  // docs:start:pxe_add_note
   const note = new Note([new Fr(amount), secretHash]);
   const extendedNote = new ExtendedNote(
     note,
     wallet.getAddress(),
     asset,
-    TokenContract.storage.pending_shields.slot,
-    TokenContract.notes.TransparentNote.id,
+    TokenBlacklistContract.storage.pending_shields.slot,
+    TokenBlacklistContract.notes.TransparentNote.id,
     txHash,
   );
   await wallet.addNote(extendedNote);
+  // docs:end:pxe_add_note
 }

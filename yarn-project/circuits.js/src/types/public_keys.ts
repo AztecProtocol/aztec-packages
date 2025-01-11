@@ -1,6 +1,11 @@
 import { poseidon2HashWithSeparator } from '@aztec/foundation/crypto';
 import { Fr, Point } from '@aztec/foundation/fields';
+import { schemas } from '@aztec/foundation/schemas';
 import { BufferReader, FieldReader, serializeToBuffer } from '@aztec/foundation/serialize';
+import { bufferToHex, withoutHexPrefix } from '@aztec/foundation/string';
+import { type FieldsOf } from '@aztec/foundation/types';
+
+import { z } from 'zod';
 
 import {
   DEFAULT_IVPK_M_X,
@@ -17,7 +22,6 @@ import { type PublicKey } from './public_key.js';
 
 export class PublicKeys {
   public constructor(
-    /** Contract address (typically of an account contract) */
     /** Master nullifier public key */
     public masterNullifierPublicKey: PublicKey,
     /** Master incoming viewing public key */
@@ -27,6 +31,26 @@ export class PublicKeys {
     /** Master tagging viewing public key */
     public masterTaggingPublicKey: PublicKey,
   ) {}
+
+  static get schema() {
+    return z
+      .object({
+        masterNullifierPublicKey: schemas.Point,
+        masterIncomingViewingPublicKey: schemas.Point,
+        masterOutgoingViewingPublicKey: schemas.Point,
+        masterTaggingPublicKey: schemas.Point,
+      })
+      .transform(PublicKeys.from);
+  }
+
+  static from(fields: FieldsOf<PublicKeys>) {
+    return new PublicKeys(
+      fields.masterNullifierPublicKey,
+      fields.masterIncomingViewingPublicKey,
+      fields.masterOutgoingViewingPublicKey,
+      fields.masterTaggingPublicKey,
+    );
+  }
 
   hash() {
     return this.isEmpty()
@@ -161,10 +185,10 @@ export class PublicKeys {
   }
 
   toString() {
-    return this.toBuffer().toString('hex');
+    return bufferToHex(this.toBuffer());
   }
 
   static fromString(keys: string) {
-    return PublicKeys.fromBuffer(Buffer.from(keys, 'hex'));
+    return PublicKeys.fromBuffer(Buffer.from(withoutHexPrefix(keys), 'hex'));
   }
 }

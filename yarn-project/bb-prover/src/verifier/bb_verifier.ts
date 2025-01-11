@@ -2,14 +2,15 @@ import { type ClientProtocolCircuitVerifier, Tx } from '@aztec/circuit-types';
 import { type CircuitVerificationStats } from '@aztec/circuit-types/stats';
 import { type Proof, type VerificationKeyData } from '@aztec/circuits.js';
 import { runInDirectory } from '@aztec/foundation/fs';
-import { type DebugLogger, type LogFn, createDebugLogger } from '@aztec/foundation/log';
+import { type LogFn, type Logger, createLogger } from '@aztec/foundation/log';
+import { ServerCircuitArtifacts } from '@aztec/noir-protocol-circuits-types/server';
 import {
   type ClientProtocolArtifact,
   type ProtocolArtifact,
-  ProtocolCircuitArtifacts,
-} from '@aztec/noir-protocol-circuits-types';
+  type ServerProtocolArtifact,
+} from '@aztec/noir-protocol-circuits-types/types';
 
-import * as fs from 'fs/promises';
+import { promises as fs } from 'fs';
 import * as path from 'path';
 
 import {
@@ -22,21 +23,22 @@ import {
   verifyProof,
 } from '../bb/execute.js';
 import { type BBConfig } from '../config.js';
-import { type UltraKeccakHonkProtocolArtifact, getUltraHonkFlavorForCircuit } from '../honk.js';
-import { mapProtocolArtifactNameToCircuitName } from '../stats.js';
+import { type UltraKeccakHonkServerProtocolArtifact, getUltraHonkFlavorForCircuit } from '../honk.js';
+import { writeToOutputDirectory } from '../prover/client_ivc_proof_utils.js';
+import { isProtocolArtifactRecursive, mapProtocolArtifactNameToCircuitName } from '../stats.js';
 import { extractVkData } from '../verification_key/verification_key_data.js';
 
 export class BBCircuitVerifier implements ClientProtocolCircuitVerifier {
   private constructor(
     private config: BBConfig,
     private verificationKeys = new Map<ProtocolArtifact, Promise<VerificationKeyData>>(),
-    private logger: DebugLogger,
+    private logger: Logger,
   ) {}
 
   public static async new(
     config: BBConfig,
-    initialCircuits: ProtocolArtifact[] = [],
-    logger = createDebugLogger('aztec:bb-verifier'),
+    initialCircuits: ServerProtocolArtifact[] = [],
+    logger = createLogger('bb-prover:verifier'),
   ) {
     await fs.mkdir(config.bbWorkingDirectory, { recursive: true });
     const keys = new Map<ProtocolArtifact, Promise<VerificationKeyData>>();
@@ -53,7 +55,7 @@ export class BBCircuitVerifier implements ClientProtocolCircuitVerifier {
   }
 
   private static async generateVerificationKey(
-    circuit: ProtocolArtifact,
+    circuit: ServerProtocolArtifact,
     bbPath: string,
     workingDirectory: string,
     logFn: LogFn,
@@ -62,7 +64,8 @@ export class BBCircuitVerifier implements ClientProtocolCircuitVerifier {
       bbPath,
       workingDirectory,
       circuit,
-      ProtocolCircuitArtifacts[circuit],
+      ServerCircuitArtifacts[circuit],
+      isProtocolArtifactRecursive(circuit),
       getUltraHonkFlavorForCircuit(circuit),
       logFn,
     ).then(result => {
@@ -74,7 +77,7 @@ export class BBCircuitVerifier implements ClientProtocolCircuitVerifier {
     });
   }
 
-  public async getVerificationKeyData(circuit: ProtocolArtifact) {
+  public async getVerificationKeyData(circuit: ServerProtocolArtifact) {
     let promise = this.verificationKeys.get(circuit);
     if (!promise) {
       promise = BBCircuitVerifier.generateVerificationKey(
@@ -89,7 +92,7 @@ export class BBCircuitVerifier implements ClientProtocolCircuitVerifier {
     return vk.clone();
   }
 
-  public async verifyProofForCircuit(circuit: ProtocolArtifact, proof: Proof) {
+  public async verifyProofForCircuit(circuit: ServerProtocolArtifact, proof: Proof) {
     const operation = async (bbWorkingDirectory: string) => {
       const proofFileName = path.join(bbWorkingDirectory, PROOF_FILENAME);
       const verificationKeyPath = path.join(bbWorkingDirectory, VK_FILENAME);
@@ -127,12 +130,12 @@ export class BBCircuitVerifier implements ClientProtocolCircuitVerifier {
     await runInDirectory(this.config.bbWorkingDirectory, operation, this.config.bbSkipCleanup);
   }
 
-  public async generateSolidityContract(circuit: UltraKeccakHonkProtocolArtifact, contractName: string) {
+  public async generateSolidityContract(circuit: UltraKeccakHonkServerProtocolArtifact, contractName: string) {
     const result = await generateContractForCircuit(
       this.config.bbBinaryPath,
       this.config.bbWorkingDirectory,
       circuit,
-      ProtocolCircuitArtifacts[circuit],
+      ServerCircuitArtifacts[circuit],
       contractName,
       this.logger.debug,
     );
@@ -161,7 +164,7 @@ export class BBCircuitVerifier implements ClientProtocolCircuitVerifier {
           this.logger.debug(`${circuit} BB out - ${message}`);
         };
 
-        await tx.clientIvcProof.writeToOutputDirectory(bbWorkingDirectory);
+        await writeToOutputDirectory(tx.clientIvcProof, bbWorkingDirectory);
         const result = await verifyClientIvcProof(this.config.bbBinaryPath, bbWorkingDirectory, logFunction);
 
         if (result.status === BB_RESULT.FAILURE) {

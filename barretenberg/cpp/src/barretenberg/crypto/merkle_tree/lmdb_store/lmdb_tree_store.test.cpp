@@ -1,3 +1,4 @@
+#include <cstddef>
 #include <cstdint>
 #include <gtest/gtest.h>
 
@@ -14,6 +15,7 @@
 #include "barretenberg/crypto/merkle_tree/indexed_tree/indexed_leaf.hpp"
 #include "barretenberg/crypto/merkle_tree/lmdb_store/callbacks.hpp"
 #include "barretenberg/crypto/merkle_tree/node_store/tree_meta.hpp"
+#include "barretenberg/crypto/merkle_tree/types.hpp"
 #include "barretenberg/numeric/random/engine.hpp"
 #include "barretenberg/numeric/uint128/uint128.hpp"
 #include "barretenberg/numeric/uint256/uint256.hpp"
@@ -102,27 +104,105 @@ TEST_F(LMDBTreeStoreTest, can_write_and_read_meta_data)
     }
 }
 
+TEST_F(LMDBTreeStoreTest, can_write_and_read_multiple_blocks_with_meta)
+{
+    LMDBTreeStore store(_directory, "DB1", _mapSize, _maxReaders);
+    uint64_t start_block = 647810461952355;
+    uint64_t num_blocks = 1000;
+    for (size_t i = 0; i < num_blocks; i++) {
+        BlockPayload blockData;
+        blockData.blockNumber = i + start_block;
+        blockData.root = VALUES[i];
+        blockData.size = 45 + (i * 97);
+        LMDBTreeWriteTransaction::Ptr transaction = store.create_write_transaction();
+        store.write_block_data(i + start_block, blockData, *transaction);
+
+        TreeMeta meta;
+        meta.committedSize = blockData.size;
+        meta.size = blockData.size;
+        meta.root = blockData.root;
+        meta.depth = 32;
+        meta.unfinalisedBlockHeight = i + start_block;
+        meta.name = "NullifierTree";
+        store.write_meta_data(meta, *transaction);
+        transaction->commit();
+    }
+
+    BlockPayload blockData;
+    for (size_t i = 0; i < num_blocks; i++) {
+        LMDBTreeReadTransaction::Ptr transaction = store.create_read_transaction();
+        BlockPayload readBack;
+        bool success = store.read_block_data(i + start_block, readBack, *transaction);
+        EXPECT_TRUE(success);
+
+        blockData.blockNumber = i + start_block;
+        blockData.root = VALUES[i];
+        blockData.size = 45 + (i * 97);
+        EXPECT_EQ(readBack, blockData);
+    }
+
+    {
+        TreeMeta meta;
+        LMDBTreeReadTransaction::Ptr transaction = store.create_read_transaction();
+        store.read_meta_data(meta, *transaction);
+
+        EXPECT_EQ(meta.committedSize, blockData.size);
+        EXPECT_EQ(meta.size, blockData.size);
+        EXPECT_EQ(meta.root, blockData.root);
+        EXPECT_EQ(meta.depth, 32);
+        EXPECT_EQ(meta.unfinalisedBlockHeight, blockData.blockNumber);
+        EXPECT_EQ(meta.name, "NullifierTree");
+    }
+}
+
+uint64_t serde_value(uint64_t value)
+{
+    std::vector<uint8_t> data = serialise_key(value);
+    uint64_t return_value = 0;
+    deserialise_key(data.data(), return_value);
+    return return_value;
+}
+
+TEST_F(LMDBTreeStoreTest, can_serde_64bit_values)
+{
+    union mapped {
+        uint64_t u64;
+        uint8_t arr[8];
+    };
+    mapped value1;
+    mapped value2;
+    value1.arr[0] = value2.arr[7] = 0x11;
+    value1.arr[1] = value2.arr[6] = 0x22;
+    value1.arr[2] = value2.arr[5] = 0x33;
+    value1.arr[3] = value2.arr[4] = 0x44;
+    value1.arr[4] = value2.arr[3] = 0x55;
+    value1.arr[5] = value2.arr[2] = 0x66;
+    value1.arr[6] = value2.arr[1] = 0x77;
+    value1.arr[7] = value2.arr[0] = 0x88;
+
+    EXPECT_EQ(value1.u64, serde_value(value1.u64));
+    EXPECT_EQ(value2.u64, serde_value(value2.u64));
+}
+
 TEST_F(LMDBTreeStoreTest, can_write_and_read_leaf_indices)
 {
-    Indices indices;
-    indices.indices.push_back(47);
-    indices.indices.push_back(86);
+    index_t index = 47;
     bb::fr key = VALUES[5];
     LMDBTreeStore store(_directory, "DB1", _mapSize, _maxReaders);
     {
         LMDBTreeWriteTransaction::Ptr transaction = store.create_write_transaction();
-        store.write_leaf_indices(key, indices, *transaction);
+        store.write_leaf_index(key, index, *transaction);
         transaction->commit();
     }
 
     {
         LMDBTreeReadTransaction::Ptr transaction = store.create_read_transaction();
-        Indices readBack;
-        bool success = store.read_leaf_indices(key, readBack, *transaction);
+        index_t readBack = 0;
+        bool success = store.read_leaf_index(key, readBack, *transaction);
         EXPECT_TRUE(success);
-        EXPECT_EQ(readBack, indices);
+        EXPECT_EQ(readBack, index);
 
-        success = store.read_leaf_indices(VALUES[6], readBack, *transaction);
+        success = store.read_leaf_index(VALUES[6], readBack, *transaction);
         EXPECT_FALSE(success);
     }
 }
@@ -178,372 +258,288 @@ TEST_F(LMDBTreeStoreTest, can_write_and_read_leaves_by_hash)
     }
 }
 
-TEST_F(LMDBTreeStoreTest, can_read_write_key_by_index)
+TEST_F(LMDBTreeStoreTest, can_write_and_retrieve_block_numbers_by_index)
 {
-    bb::fr leafKey = VALUES[0];
-    index_t leafIndex = 45;
+    struct BlockAndIndex {
+        block_number_t blockNumber;
+        // this block contains leaves up to index (0 based)
+        index_t index;
+    };
+
+    std::vector<BlockAndIndex> blocks{ BlockAndIndex{ .blockNumber = 1, .index = 25 },
+                                       BlockAndIndex{ .blockNumber = 2, .index = 60 },
+                                       BlockAndIndex{ .blockNumber = 3, .index = 82 },
+                                       BlockAndIndex{ .blockNumber = 4, .index = 114 },
+                                       BlockAndIndex{ .blockNumber = 5, .index = 130 } };
     LMDBTreeStore store(_directory, "DB1", _mapSize, _maxReaders);
     {
+        // write all of the blocks.
         LMDBTreeWriteTransaction::Ptr transaction = store.create_write_transaction();
-        store.write_leaf_key_by_index(leafKey, leafIndex, *transaction);
+        for (auto block : blocks) {
+            // the arg is block size so add 1
+            store.write_block_index_data(block.blockNumber, block.index + 1, *transaction);
+        }
         transaction->commit();
     }
 
     {
+        // read back some blocks and check them
         LMDBTreeReadTransaction::Ptr transaction = store.create_read_transaction();
-        bb::fr readBack;
-        bool success = store.read_leaf_key_by_index(leafIndex, readBack, *transaction);
-        EXPECT_TRUE(success);
-        EXPECT_EQ(readBack, leafKey);
+        block_number_t readBack = 0;
+        EXPECT_TRUE(store.find_block_for_index(5, readBack, *transaction));
+        EXPECT_EQ(readBack, 1);
 
-        success = store.read_leaf_key_by_index(leafIndex + 1, readBack, *transaction);
-        EXPECT_FALSE(success);
+        EXPECT_TRUE(store.find_block_for_index(30, readBack, *transaction));
+        EXPECT_EQ(readBack, 2);
+
+        EXPECT_TRUE(store.find_block_for_index(82, readBack, *transaction));
+        EXPECT_EQ(readBack, 3);
+
+        EXPECT_TRUE(store.find_block_for_index(83, readBack, *transaction));
+        EXPECT_EQ(readBack, 4);
+
+        EXPECT_TRUE(store.find_block_for_index(130, readBack, *transaction));
+        EXPECT_EQ(readBack, 5);
+
+        EXPECT_FALSE(store.find_block_for_index(131, readBack, *transaction));
+    }
+
+    {
+        // delete the last block
+        LMDBTreeWriteTransaction::Ptr transaction = store.create_write_transaction();
+        // the arg is block size so add 1
+        store.delete_block_index(blocks[4].index + 1, blocks[4].blockNumber, *transaction);
+        transaction->commit();
+    }
+
+    {
+        // check the blocks again
+        LMDBTreeReadTransaction::Ptr transaction = store.create_read_transaction();
+        block_number_t readBack = 0;
+        EXPECT_TRUE(store.find_block_for_index(5, readBack, *transaction));
+        EXPECT_EQ(readBack, 1);
+
+        EXPECT_TRUE(store.find_block_for_index(30, readBack, *transaction));
+        EXPECT_EQ(readBack, 2);
+
+        EXPECT_TRUE(store.find_block_for_index(82, readBack, *transaction));
+        EXPECT_EQ(readBack, 3);
+
+        EXPECT_TRUE(store.find_block_for_index(83, readBack, *transaction));
+        EXPECT_EQ(readBack, 4);
+
+        EXPECT_FALSE(store.find_block_for_index(130, readBack, *transaction));
+
+        EXPECT_FALSE(store.find_block_for_index(131, readBack, *transaction));
+    }
+
+    {
+        // delete 2 more blocks
+        LMDBTreeWriteTransaction::Ptr transaction = store.create_write_transaction();
+        // the arg is block size so add 1
+        store.delete_block_index(blocks[3].index + 1, blocks[3].blockNumber, *transaction);
+        store.delete_block_index(blocks[2].index + 1, blocks[2].blockNumber, *transaction);
+        transaction->commit();
+    }
+
+    {
+        // check the blocks again
+        LMDBTreeReadTransaction::Ptr transaction = store.create_read_transaction();
+        block_number_t readBack = 0;
+        EXPECT_TRUE(store.find_block_for_index(5, readBack, *transaction));
+        EXPECT_EQ(readBack, 1);
+
+        EXPECT_TRUE(store.find_block_for_index(30, readBack, *transaction));
+        EXPECT_EQ(readBack, 2);
+
+        EXPECT_FALSE(store.find_block_for_index(82, readBack, *transaction));
+
+        EXPECT_FALSE(store.find_block_for_index(83, readBack, *transaction));
+
+        EXPECT_FALSE(store.find_block_for_index(130, readBack, *transaction));
+
+        EXPECT_FALSE(store.find_block_for_index(131, readBack, *transaction));
+    }
+
+    {
+        // delete non-exisatent indices to check it does nothing
+        LMDBTreeWriteTransaction::Ptr transaction = store.create_write_transaction();
+        // the arg is block size so add 1
+        store.delete_block_index(blocks[3].index + 1, blocks[3].blockNumber, *transaction);
+        store.delete_block_index(blocks[2].index + 1, blocks[2].blockNumber, *transaction);
+        store.delete_block_index(21, 1, *transaction);
+        store.delete_block_index(150, 6, *transaction);
+        transaction->commit();
+    }
+
+    {
+        // check the blocks again
+        LMDBTreeReadTransaction::Ptr transaction = store.create_read_transaction();
+        block_number_t readBack = 0;
+        EXPECT_TRUE(store.find_block_for_index(5, readBack, *transaction));
+        EXPECT_EQ(readBack, 1);
+
+        EXPECT_TRUE(store.find_block_for_index(30, readBack, *transaction));
+        EXPECT_EQ(readBack, 2);
+
+        EXPECT_FALSE(store.find_block_for_index(82, readBack, *transaction));
+
+        EXPECT_FALSE(store.find_block_for_index(83, readBack, *transaction));
+
+        EXPECT_FALSE(store.find_block_for_index(130, readBack, *transaction));
+
+        EXPECT_FALSE(store.find_block_for_index(131, readBack, *transaction));
     }
 }
 
-TEST_F(LMDBTreeStoreTest, can_retrieve_all_keys_greater_than_index)
+TEST_F(LMDBTreeStoreTest, can_write_and_retrieve_block_numbers_with_duplicate_indices)
 {
-    std::vector<bb::fr> values = create_values(1024);
-    index_t leafIndexStart = 45;
+    struct BlockAndIndex {
+        block_number_t blockNumber;
+        index_t index;
+    };
+
+    std::vector<BlockAndIndex> blocks{ BlockAndIndex{ .blockNumber = 1, .index = 25 },
+                                       BlockAndIndex{ .blockNumber = 2, .index = 60 },
+                                       BlockAndIndex{ .blockNumber = 3, .index = 60 },
+                                       BlockAndIndex{ .blockNumber = 4, .index = 60 },
+                                       BlockAndIndex{ .blockNumber = 5, .index = 130 } };
     LMDBTreeStore store(_directory, "DB1", _mapSize, _maxReaders);
     {
+        // write all of the blocks. we will write them in reverse order
         LMDBTreeWriteTransaction::Ptr transaction = store.create_write_transaction();
-        for (uint32_t i = 0; i < values.size(); i++) {
-            store.write_leaf_key_by_index(values[i], i + leafIndexStart, *transaction);
+        for (auto block : blocks) {
+            // the arg is block size so add 1
+            store.write_block_index_data(block.blockNumber, block.index + 1, *transaction);
         }
         transaction->commit();
     }
 
     {
-        LMDBTreeReadTransaction::Ptr transaction = store.create_read_transaction();
-        // Retrieve all but the first 150 keys
-        uint32_t offset = 150;
-        std::vector<bb::fr> leafKeys;
-        store.read_all_leaf_keys_after_or_equal_index(leafIndexStart + offset, leafKeys, *transaction);
-        EXPECT_EQ(leafKeys.size(), values.size() - offset);
-        for (uint32_t i = offset; i < leafKeys.size(); i++) {
-            EXPECT_EQ(leafKeys[i], values[i + offset]);
-        }
-    }
-
-    {
-        LMDBTreeReadTransaction::Ptr transaction = store.create_read_transaction();
-        // Retrieve all keys
-        uint32_t offset = 0;
-        std::vector<bb::fr> leafKeys;
-        store.read_all_leaf_keys_after_or_equal_index(leafIndexStart + offset, leafKeys, *transaction);
-        EXPECT_EQ(leafKeys.size(), values.size() - offset);
-        for (uint32_t i = offset; i < leafKeys.size(); i++) {
-            EXPECT_EQ(leafKeys[i], values[i + offset]);
-        }
-    }
-
-    {
-        LMDBTreeReadTransaction::Ptr transaction = store.create_read_transaction();
-        // Retrieve no keys
-        uint32_t offset = 10000;
-        std::vector<bb::fr> leafKeys;
-        store.read_all_leaf_keys_after_or_equal_index(leafIndexStart + offset, leafKeys, *transaction);
-        EXPECT_EQ(leafKeys.size(), 0);
-    }
-}
-
-TEST_F(LMDBTreeStoreTest, can_delete_all_keys_greater_than_index)
-{
-    std::vector<bb::fr> values = create_values(1024);
-    index_t leafIndexStart = 45;
-    uint32_t deleteFromIndex = 150;
-    LMDBTreeStore store(_directory, "DB1", _mapSize, _maxReaders);
-    {
+        // we can't add a duplicate block at an index if it is not the next block number
         LMDBTreeWriteTransaction::Ptr transaction = store.create_write_transaction();
-        for (uint32_t i = 0; i < values.size(); i++) {
-            store.write_leaf_key_by_index(values[i], i + leafIndexStart, *transaction);
-        }
+        // the arg is block size so add 1
+        EXPECT_THROW(store.write_block_index_data(3, 60 + 1, *transaction), std::runtime_error);
+        EXPECT_THROW(store.write_block_index_data(6, 60 + 1, *transaction), std::runtime_error);
+        EXPECT_THROW(store.write_block_index_data(1, 25 + 1, *transaction), std::runtime_error);
+        EXPECT_THROW(store.write_block_index_data(3, 25 + 1, *transaction), std::runtime_error);
+        transaction->abort();
+    }
+
+    {
+        // read back some blocks and check them
+        LMDBTreeReadTransaction::Ptr transaction = store.create_read_transaction();
+        block_number_t readBack = 0;
+        EXPECT_TRUE(store.find_block_for_index(5, readBack, *transaction));
+        EXPECT_EQ(readBack, 1);
+
+        // should be the lowest block at this index
+        EXPECT_TRUE(store.find_block_for_index(30, readBack, *transaction));
+        EXPECT_EQ(readBack, 2);
+
+        EXPECT_TRUE(store.find_block_for_index(82, readBack, *transaction));
+        EXPECT_EQ(readBack, 5);
+
+        EXPECT_FALSE(store.find_block_for_index(131, readBack, *transaction));
+    }
+
+    {
+        // attempting to delete block 2 at index 60 should fail as it is not the last block in the series at index 60
+        LMDBTreeWriteTransaction::Ptr transaction = store.create_write_transaction();
+        // the arg is block size so add 1
+        EXPECT_THROW(store.delete_block_index(blocks[1].index + 1, blocks[1].blockNumber, *transaction),
+                     std::runtime_error);
+        transaction->abort();
+    }
+
+    {
+        // read back some blocks and check them
+        LMDBTreeReadTransaction::Ptr transaction = store.create_read_transaction();
+        block_number_t readBack = 0;
+        EXPECT_TRUE(store.find_block_for_index(5, readBack, *transaction));
+        EXPECT_EQ(readBack, 1);
+
+        // should still be the lowest block at this index
+        EXPECT_TRUE(store.find_block_for_index(30, readBack, *transaction));
+        EXPECT_EQ(readBack, 2);
+
+        EXPECT_TRUE(store.find_block_for_index(82, readBack, *transaction));
+        EXPECT_EQ(readBack, 5);
+
+        EXPECT_FALSE(store.find_block_for_index(131, readBack, *transaction));
+    }
+
+    {
+        // try and delete blocks that don't exist at index 60
+        LMDBTreeWriteTransaction::Ptr transaction = store.create_write_transaction();
+        // the arg is block size so add 1
+        EXPECT_THROW(store.delete_block_index(blocks[1].index + 1, 2, *transaction), std::runtime_error);
+        EXPECT_THROW(store.delete_block_index(blocks[1].index + 1, 5, *transaction), std::runtime_error);
+        transaction->abort();
+    }
+
+    {
+        // read back some blocks and check them
+        LMDBTreeReadTransaction::Ptr transaction = store.create_read_transaction();
+        block_number_t readBack = 0;
+        EXPECT_TRUE(store.find_block_for_index(5, readBack, *transaction));
+        EXPECT_EQ(readBack, 1);
+
+        EXPECT_TRUE(store.find_block_for_index(30, readBack, *transaction));
+        EXPECT_EQ(readBack, 2);
+
+        EXPECT_TRUE(store.find_block_for_index(82, readBack, *transaction));
+        EXPECT_EQ(readBack, 5);
+
+        EXPECT_FALSE(store.find_block_for_index(131, readBack, *transaction));
+    }
+
+    {
+        // delete the last 2 blocks at index 60
+        LMDBTreeWriteTransaction::Ptr transaction = store.create_write_transaction();
+        // the arg is block size so add 1
+        store.delete_block_index(blocks[3].index + 1, blocks[3].blockNumber, *transaction);
+        store.delete_block_index(blocks[2].index + 1, blocks[2].blockNumber, *transaction);
         transaction->commit();
     }
 
     {
+        // check the blocks again
+        LMDBTreeReadTransaction::Ptr transaction = store.create_read_transaction();
+        block_number_t readBack = 0;
+        EXPECT_TRUE(store.find_block_for_index(5, readBack, *transaction));
+        EXPECT_EQ(readBack, 1);
+
+        EXPECT_TRUE(store.find_block_for_index(30, readBack, *transaction));
+        EXPECT_EQ(readBack, 2);
+
+        EXPECT_TRUE(store.find_block_for_index(82, readBack, *transaction));
+        EXPECT_EQ(readBack, 5);
+    }
+
+    {
+        // delete the last final block at index 60
         LMDBTreeWriteTransaction::Ptr transaction = store.create_write_transaction();
-        store.delete_all_leaf_keys_after_or_equal_index(deleteFromIndex, *transaction);
+        // the arg is block size so add 1
+        // Only one block remains at index 60, try and delete one that doesn't exist, it should do nothing
+        store.delete_block_index(blocks[3].index + 1, blocks[3].blockNumber, *transaction);
+
+        // Now delete the last block
+        store.delete_block_index(blocks[1].index + 1, blocks[1].blockNumber, *transaction);
         transaction->commit();
     }
 
     {
+        // check the blocks again
         LMDBTreeReadTransaction::Ptr transaction = store.create_read_transaction();
-        std::vector<bb::fr> leafKeys;
-        store.read_all_leaf_keys_after_or_equal_index(leafIndexStart, leafKeys, *transaction);
-        EXPECT_EQ(leafKeys.size(), deleteFromIndex - leafIndexStart);
-        for (uint32_t i = 0; i < leafKeys.size(); i++) {
-            EXPECT_EQ(leafKeys[i], values[i]);
-        }
-    }
+        block_number_t readBack = 0;
+        EXPECT_TRUE(store.find_block_for_index(5, readBack, *transaction));
+        EXPECT_EQ(readBack, 1);
 
-    {
-        LMDBTreeReadTransaction::Ptr transaction = store.create_read_transaction();
-        for (uint32_t i = 0; i < 1024 + leafIndexStart; i++) {
-            bb::fr leafKey;
-            bool success = store.read_leaf_key_by_index(i, leafKey, *transaction);
-            EXPECT_EQ(success, (i >= leafIndexStart && (i < deleteFromIndex)));
-            if (success) {
-                EXPECT_EQ(leafKey, values[i - leafIndexStart]);
-            }
-        }
-    }
-}
+        EXPECT_TRUE(store.find_block_for_index(30, readBack, *transaction));
+        EXPECT_EQ(readBack, 5);
 
-TEST_F(LMDBTreeStoreTest, can_delete_all_keys_less_than_index)
-{
-    std::vector<bb::fr> values = create_values(1024);
-    index_t leafIndexStart = 45;
-    uint32_t deleteFromIndex = 150;
-    LMDBTreeStore store(_directory, "DB1", _mapSize, _maxReaders);
-    {
-        LMDBTreeWriteTransaction::Ptr transaction = store.create_write_transaction();
-        for (uint32_t i = 0; i < values.size(); i++) {
-            store.write_leaf_key_by_index(values[i], i + leafIndexStart, *transaction);
-        }
-        transaction->commit();
-    }
-
-    {
-        LMDBTreeWriteTransaction::Ptr transaction = store.create_write_transaction();
-        store.delete_all_leaf_keys_before_or_equal_index(deleteFromIndex, *transaction);
-        transaction->commit();
-    }
-
-    {
-        LMDBTreeReadTransaction::Ptr transaction = store.create_read_transaction();
-        std::vector<bb::fr> leafKeys;
-        store.read_all_leaf_keys_before_or_equal_index(leafIndexStart + 1023, leafKeys, *transaction);
-        EXPECT_EQ(leafKeys.size(), 1024 - (deleteFromIndex - leafIndexStart + 1));
-        for (uint32_t i = 0; i < leafKeys.size(); i++) {
-            EXPECT_EQ(leafKeys[i], values[1023 - i]);
-        }
-    }
-
-    {
-        LMDBTreeReadTransaction::Ptr transaction = store.create_read_transaction();
-        for (uint32_t i = 0; i < 1024 + leafIndexStart; i++) {
-            bb::fr leafKey;
-            bool success = store.read_leaf_key_by_index(i, leafKey, *transaction);
-            EXPECT_EQ(success, (i > deleteFromIndex && (i <= leafIndexStart + 1023)));
-            if (success) {
-                EXPECT_EQ(leafKey, values[i - leafIndexStart]);
-            }
-        }
-    }
-}
-
-TEST_F(LMDBTreeStoreTest, can_delete_all_keys_greater_than)
-{
-    std::vector<bb::fr> values = create_values(1024);
-    index_t leafIndexStart = 45;
-    uint32_t deleteFromIndex = 0;
-    LMDBTreeStore store(_directory, "DB1", _mapSize, _maxReaders);
-    {
-        LMDBTreeWriteTransaction::Ptr transaction = store.create_write_transaction();
-        for (uint32_t i = 0; i < values.size(); i++) {
-            store.write_leaf_key_by_index(values[i], i + leafIndexStart, *transaction);
-        }
-        transaction->commit();
-    }
-
-    {
-        LMDBTreeWriteTransaction::Ptr transaction = store.create_write_transaction();
-        store.delete_all_leaf_keys_after_or_equal_index(deleteFromIndex, *transaction);
-        transaction->commit();
-    }
-
-    {
-        LMDBTreeReadTransaction::Ptr transaction = store.create_read_transaction();
-        std::vector<bb::fr> leafKeys;
-        store.read_all_leaf_keys_after_or_equal_index(leafIndexStart, leafKeys, *transaction);
-        EXPECT_EQ(leafKeys.size(), 0);
-    }
-
-    {
-        LMDBTreeReadTransaction::Ptr transaction = store.create_read_transaction();
-        std::vector<bb::fr> leafKeys;
-        store.read_all_leaf_keys_after_or_equal_index(0, leafKeys, *transaction);
-        EXPECT_EQ(leafKeys.size(), 0);
-    }
-    {
-        LMDBTreeReadTransaction::Ptr transaction = store.create_read_transaction();
-        std::vector<bb::fr> leafKeys;
-        store.read_all_leaf_keys_after_or_equal_index(10000, leafKeys, *transaction);
-        EXPECT_EQ(leafKeys.size(), 0);
-    }
-}
-
-TEST_F(LMDBTreeStoreTest, can_delete_all_keys_less_than)
-{
-    std::vector<bb::fr> values = create_values(1024);
-    index_t leafIndexStart = 45;
-    uint32_t deleteFromIndex = 2000;
-    LMDBTreeStore store(_directory, "DB1", _mapSize, _maxReaders);
-    {
-        LMDBTreeWriteTransaction::Ptr transaction = store.create_write_transaction();
-        for (uint32_t i = 0; i < values.size(); i++) {
-            store.write_leaf_key_by_index(values[i], i + leafIndexStart, *transaction);
-        }
-        transaction->commit();
-    }
-
-    {
-        LMDBTreeWriteTransaction::Ptr transaction = store.create_write_transaction();
-        store.delete_all_leaf_keys_before_or_equal_index(deleteFromIndex, *transaction);
-        transaction->commit();
-    }
-
-    {
-        LMDBTreeReadTransaction::Ptr transaction = store.create_read_transaction();
-        std::vector<bb::fr> leafKeys;
-        store.read_all_leaf_keys_before_or_equal_index(leafIndexStart + 1023, leafKeys, *transaction);
-        EXPECT_EQ(leafKeys.size(), 0);
-    }
-
-    {
-        LMDBTreeReadTransaction::Ptr transaction = store.create_read_transaction();
-        std::vector<bb::fr> leafKeys;
-        store.read_all_leaf_keys_before_or_equal_index(2000, leafKeys, *transaction);
-        EXPECT_EQ(leafKeys.size(), 0);
-    }
-    {
-        LMDBTreeReadTransaction::Ptr transaction = store.create_read_transaction();
-        std::vector<bb::fr> leafKeys;
-        store.read_all_leaf_keys_before_or_equal_index(10, leafKeys, *transaction);
-        EXPECT_EQ(leafKeys.size(), 0);
-    }
-}
-
-TEST_F(LMDBTreeStoreTest, can_delete_no_keys_greater_than)
-{
-    std::vector<bb::fr> values = create_values(1024);
-    index_t leafIndexStart = 45;
-    uint32_t deleteFromIndex = 2000;
-    LMDBTreeStore store(_directory, "DB1", _mapSize, _maxReaders);
-    {
-        LMDBTreeWriteTransaction::Ptr transaction = store.create_write_transaction();
-        for (uint32_t i = 0; i < values.size(); i++) {
-            store.write_leaf_key_by_index(values[i], i + leafIndexStart, *transaction);
-        }
-        transaction->commit();
-    }
-
-    {
-        LMDBTreeWriteTransaction::Ptr transaction = store.create_write_transaction();
-        store.delete_all_leaf_keys_after_or_equal_index(deleteFromIndex, *transaction);
-        transaction->commit();
-    }
-
-    {
-        LMDBTreeReadTransaction::Ptr transaction = store.create_read_transaction();
-        std::vector<bb::fr> leafKeys;
-        store.read_all_leaf_keys_after_or_equal_index(leafIndexStart, leafKeys, *transaction);
-        EXPECT_EQ(leafKeys.size(), 1024);
-        for (uint32_t i = 0; i < leafKeys.size(); i++) {
-            EXPECT_EQ(leafKeys[i], values[i]);
-        }
-    }
-
-    {
-        LMDBTreeReadTransaction::Ptr transaction = store.create_read_transaction();
-        std::vector<bb::fr> leafKeys;
-        store.read_all_leaf_keys_after_or_equal_index(0, leafKeys, *transaction);
-        EXPECT_EQ(leafKeys.size(), 1024);
-        for (uint32_t i = 0; i < leafKeys.size(); i++) {
-            EXPECT_EQ(leafKeys[i], values[i]);
-        }
-    }
-    {
-        LMDBTreeReadTransaction::Ptr transaction = store.create_read_transaction();
-        std::vector<bb::fr> leafKeys;
-        store.read_all_leaf_keys_after_or_equal_index(10000, leafKeys, *transaction);
-        EXPECT_EQ(leafKeys.size(), 0);
-    }
-}
-
-TEST_F(LMDBTreeStoreTest, can_delete_no_keys_less_than)
-{
-    std::vector<bb::fr> values = create_values(1024);
-    index_t leafIndexStart = 45;
-    uint32_t deleteFromIndex = 20;
-    LMDBTreeStore store(_directory, "DB1", _mapSize, _maxReaders);
-    {
-        LMDBTreeWriteTransaction::Ptr transaction = store.create_write_transaction();
-        for (uint32_t i = 0; i < values.size(); i++) {
-            store.write_leaf_key_by_index(values[i], i + leafIndexStart, *transaction);
-        }
-        transaction->commit();
-    }
-
-    {
-        LMDBTreeWriteTransaction::Ptr transaction = store.create_write_transaction();
-        store.delete_all_leaf_keys_before_or_equal_index(deleteFromIndex, *transaction);
-        transaction->commit();
-    }
-
-    {
-        LMDBTreeReadTransaction::Ptr transaction = store.create_read_transaction();
-        std::vector<bb::fr> leafKeys;
-        store.read_all_leaf_keys_before_or_equal_index(leafIndexStart + 1023, leafKeys, *transaction);
-        EXPECT_EQ(leafKeys.size(), 1024);
-        for (uint32_t i = 0; i < leafKeys.size(); i++) {
-            EXPECT_EQ(leafKeys[i], values[1023 - i]);
-        }
-    }
-
-    {
-        LMDBTreeReadTransaction::Ptr transaction = store.create_read_transaction();
-        std::vector<bb::fr> leafKeys;
-        store.read_all_leaf_keys_before_or_equal_index(2000, leafKeys, *transaction);
-        EXPECT_EQ(leafKeys.size(), 1024);
-        for (uint32_t i = 0; i < leafKeys.size(); i++) {
-            EXPECT_EQ(leafKeys[i], values[1023 - i]);
-        }
-    }
-    {
-        LMDBTreeReadTransaction::Ptr transaction = store.create_read_transaction();
-        std::vector<bb::fr> leafKeys;
-        store.read_all_leaf_keys_before_or_equal_index(10, leafKeys, *transaction);
-        EXPECT_EQ(leafKeys.size(), 0);
-    }
-}
-
-TEST_F(LMDBTreeStoreTest, can_retrieve_all_keys_when_none_are_present)
-{
-    std::vector<bb::fr> values = create_values(1024);
-    LMDBTreeStore store(_directory, "DB1", _mapSize, _maxReaders);
-
-    {
-        LMDBTreeReadTransaction::Ptr transaction = store.create_read_transaction();
-        std::vector<bb::fr> leafKeys;
-        store.read_all_leaf_keys_after_or_equal_index(0, leafKeys, *transaction);
-        EXPECT_EQ(leafKeys.size(), 0);
-    }
-
-    {
-        LMDBTreeReadTransaction::Ptr transaction = store.create_read_transaction();
-        std::vector<bb::fr> leafKeys;
-        store.read_all_leaf_keys_before_or_equal_index(0, leafKeys, *transaction);
-        EXPECT_EQ(leafKeys.size(), 0);
-    }
-}
-
-TEST_F(LMDBTreeStoreTest, can_delete_all_keys_when_none_are_present)
-{
-    std::vector<bb::fr> values = create_values(1024);
-    LMDBTreeStore store(_directory, "DB1", _mapSize, _maxReaders);
-
-    {
-        LMDBTreeWriteTransaction::Ptr transaction = store.create_write_transaction();
-        store.delete_all_leaf_keys_after_or_equal_index(0, *transaction);
-        transaction->commit();
-    }
-
-    {
-        LMDBTreeWriteTransaction::Ptr transaction = store.create_write_transaction();
-        store.delete_all_leaf_keys_before_or_equal_index(0, *transaction);
-        transaction->commit();
+        EXPECT_TRUE(store.find_block_for_index(82, readBack, *transaction));
+        EXPECT_EQ(readBack, 5);
     }
 }

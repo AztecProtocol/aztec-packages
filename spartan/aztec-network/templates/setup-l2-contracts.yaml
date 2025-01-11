@@ -5,6 +5,10 @@ metadata:
   name: {{ include "aztec-network.fullname" . }}-setup-l2-contracts
   labels:
     {{- include "aztec-network.labels" . | nindent 4 }}
+  annotations:
+    "helm.sh/hook": post-install
+    "helm.sh/hook-weight": "0"
+    "helm.sh/hook-delete-policy": before-hook-creation
 spec:
   template:
     metadata:
@@ -13,28 +17,83 @@ spec:
         app: setup-l2-contracts
     spec:
       restartPolicy: OnFailure
+      serviceAccountName: {{ include "aztec-network.fullname" . }}-node
+      volumes:
+        - name: scripts
+          configMap:
+            name: {{ include "aztec-network.fullname" . }}-scripts
+        - name: config
+          emptyDir: {}
       containers:
         - name: setup-l2-contracts
-          image: {{ .Values.images.aztec.image }}
+          {{- include "aztec-network.image" . | nindent 10 }}
+          volumeMounts:
+            - name: config
+              mountPath: /shared/config
+            - name: scripts
+              mountPath: /scripts
           command:
             - /bin/bash
             - -c
             - |
+              # Install kubectl
+              curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
+              chmod +x kubectl
+              mv kubectl /usr/local/bin/
+
+              # Set up kubeconfig using service account credentials
+              export KUBECONFIG=/tmp/kubeconfig
+              kubectl config set-cluster default --server=https://kubernetes.default.svc --certificate-authority=/var/run/secrets/kubernetes.io/serviceaccount/ca.crt
+              kubectl config set-credentials default --token=$(cat /var/run/secrets/kubernetes.io/serviceaccount/token)
+              kubectl config set-context default --cluster=default --user=default
+              kubectl config use-context default
+
+              cp /scripts/setup-service-addresses.sh /tmp/setup-service-addresses.sh
+              chmod +x /tmp/setup-service-addresses.sh
+              /tmp/setup-service-addresses.sh
+              source /shared/config/service-addresses
+              cat /shared/config/service-addresses
+              export AZTEC_NODE_URL=$BOOT_NODE_HOST
+              export PXE_URL=$BOOT_NODE_HOST
               until curl -s -X POST -H 'content-type: application/json' \
                 -d '{"jsonrpc":"2.0","method":"pxe_getNodeInfo","params":[],"id":67}' \
-                {{ include "aztec-network.pxeUrl" . }} | grep -q '"enr:-'; do
-                echo "Waiting for PXE service..."
+                $PXE_URL | grep -q '"enr:-'; do
+                echo "Waiting for PXE service at ${PXE_URL}..."
                 sleep 5
               done
               echo "PXE service is ready!"
               set -e
-              node --no-warnings /usr/src/yarn-project/aztec/dest/bin/index.js setup-protocol-contracts --skipProofWait
+              node --no-warnings /usr/src/yarn-project/aztec/dest/bin/index.js setup-protocol-contracts --skipProofWait --l1-chain-id {{ .Values.ethereum.chainId }}
               echo "L2 contracts initialized"
           env:
-            - name: PXE_URL
-              value: {{ include "aztec-network.pxeUrl" . | quote }}
-            - name: DEBUG
-              value: "aztec:*"
+            - name: K8S_POD_UID
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.uid
+            - name: K8S_POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+            - name: TELEMETRY
+              value: "{{ .Values.telemetry.enabled }}"
             - name: LOG_LEVEL
               value: "debug"
+            - name: NETWORK_PUBLIC
+              value: "{{ .Values.network.public }}"
+            - name: NAMESPACE
+              value: {{ .Release.Namespace }}
+            - name: EXTERNAL_ETHEREUM_HOST
+              value: "{{ .Values.ethereum.externalHost }}"
+            - name: ETHEREUM_PORT
+              value: "{{ .Values.ethereum.service.port }}"
+            - name: EXTERNAL_BOOT_NODE_HOST
+              value: "{{ .Values.bootNode.externalHost }}"
+            - name: BOOT_NODE_PORT
+              value: "{{ .Values.bootNode.service.nodePort }}"
+            - name: EXTERNAL_PROVER_NODE_HOST
+              value: "{{ .Values.proverNode.externalHost }}"
+            - name: PROVER_NODE_PORT
+              value: "{{ .Values.proverNode.service.nodePort }}"
+            - name: SERVICE_NAME
+              value: {{ include "aztec-network.fullname" . }}
 {{ end }}

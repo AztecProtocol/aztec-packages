@@ -6,10 +6,8 @@
 # (then `./forward.sh` if you want to see it)
 telemetry:
   enabled: true
-  otelCollectorEndpoint: http://metrics-opentelemetry-collector.metrics:4318
 
 validator:
-  debug: "aztec:*,-aztec:avm_simulator:*,-aztec:libp2p_service"
   replicas: 48
   validatorKeys:
     - 0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80

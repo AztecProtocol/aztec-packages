@@ -1,21 +1,21 @@
 {
   "name": "@aztec/aztec3-packages",
-  "packageManager": "yarn@3.6.3",
+  "packageManager": "yarn@4.5.2",
   "private": true,
   "scripts": {
-    "prepare": "node ./scripts/update_package_jsons.mjs && yarn workspaces foreach run prepare && workspaces-to-typescript-project-references --tsconfigPath tsconfig.json && prettier -w */tsconfig.json",
+    "prepare": "node ./scripts/update_package_jsons.mjs && yarn workspaces foreach -A run prepare && workspaces-to-typescript-project-references --tsconfigPath tsconfig.json && prettier -w */tsconfig.json",
     "prepare:check": "node ./scripts/update_package_jsons.mjs --check && workspaces-to-typescript-project-references --check --tsconfigPath tsconfig.json",
     "docs": "typedoc --out docs/dist && cd docs && yarn serve",
-    "formatting": "FORCE_COLOR=true yarn workspaces foreach -p -v run formatting",
-    "formatting:fix": "FORCE_COLOR=true yarn workspaces foreach -p -v run formatting:fix",
+    "formatting": "FORCE_COLOR=true yarn workspaces foreach -A -p -v run formatting",
+    "formatting:fix": "FORCE_COLOR=true yarn workspaces foreach -A -p -v run formatting:fix",
     "lint": "yarn eslint --cache --ignore-pattern l1-artifacts .",
     "format": "yarn prettier --cache -w .",
-    "test": "FORCE_COLOR=true yarn workspaces foreach --exclude @aztec/aztec3-packages --exclude @aztec/end-to-end --exclude @aztec/prover-client -p -v run test && yarn workspaces foreach --include @aztec/end-to-end -p -v run test:unit",
-    "build": "FORCE_COLOR=true yarn workspaces foreach --parallel --topological-dev --verbose --exclude @aztec/aztec3-packages --exclude @aztec/docs run build",
-    "build:fast": "cd foundation && yarn build && cd ../circuits.js && yarn build && cd ../l1-artifacts && yarn generate && cd .. && yarn generate && tsc -b",
+    "test": "RAYON_NUM_THREADS=4 FORCE_COLOR=true yarn workspaces foreach -A --exclude @aztec/aztec3-packages --exclude @aztec/bb-prover --exclude @aztec/prover-client -p -v run test --config=../jest.root.config.js",
+    "build": "FORCE_COLOR=true yarn workspaces foreach -A --parallel --topological-dev --verbose --exclude @aztec/aztec3-packages --exclude @aztec/docs run build",
+    "build:fast": "cd foundation && yarn build && cd ../l1-artifacts && yarn build && cd ../circuits.js && yarn build && cd .. && yarn generate && tsc -b",
     "build:dev": "./watch.sh",
-    "generate": "FORCE_COLOR=true yarn workspaces foreach --parallel --topological-dev --verbose run generate",
-    "clean": "yarn workspaces foreach -p -v run clean"
+    "generate": "FORCE_COLOR=true yarn workspaces foreach -A --parallel --topological-dev --verbose run generate",
+    "clean": "yarn workspaces foreach -A -p -v run clean"
   },
   "workspaces": [
     "accounts",
@@ -26,6 +26,7 @@
     "aztec-node",
     "validator-client",
     "bb-prover",
+    "blob-sink",
     "bot",
     "builder",
     "pxe",
@@ -38,6 +39,7 @@
     "docs",
     "end-to-end",
     "entrypoints",
+    "epoch-cache",
     "ethereum",
     "foundation",
     "key-store",
@@ -82,6 +84,6 @@
     "@noir-lang/noirc_abi": "portal:../noir/packages/noirc_abi",
     "@noir-lang/noir_codegen": "portal:../noir/packages/noir_codegen",
     "@noir-lang/noir_js": "file:../noir/packages/noir_js",
-    "jest-runner@^29.7.0": "patch:jest-runner@npm%3A29.7.0#./.yarn/patches/jest-runner-npm-29.7.0-3bc9f82b58.patch"
+    "jest-runner@npm:^29.7.0": "patch:jest-runner@npm%3A29.7.0#~/.yarn/patches/jest-runner-npm-29.7.0-3bc9f82b58.patch"
   }
 }

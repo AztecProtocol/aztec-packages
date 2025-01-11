@@ -11,9 +11,9 @@ It is also worth mentioning Noir's `unconstrained` function type [here (Noir doc
 
 - `#[aztec]` - Defines a contract, placed above `contract ContractName{}`
 - `#[public]` or `#[private]` - Whether the function is to be executed from a public or private context (see Further Reading)
-- `#[initializer]` - If one or more functions are marked as an initializer, then one of them must be called before any non-initilizer functions
+- `#[initializer]` - If one or more functions are marked as an initializer, then one of them must be called before any non-initializer functions
 - `#[noinitcheck]` - The function is able to be called before an initializer (if one exists)
-- `#[view]` - Makes calls to the function static (see also [Static calls in the protocol spec](../../../protocol-specs/calls/static-calls.md))
+- `#[view]` - Makes calls to the function static
 - `#[internal]` - Function can only be called from within the contract
 - `#[note]` - Creates a custom note
 - `#[storage]` - Defines contract storage

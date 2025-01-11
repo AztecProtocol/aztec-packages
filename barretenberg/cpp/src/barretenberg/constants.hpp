@@ -11,7 +11,17 @@ static constexpr uint32_t CONST_PROOF_SIZE_LOG_N = 28;
 // circuits being folded.
 static constexpr uint32_t CONST_PG_LOG_N = 20;
 
-static constexpr uint32_t MAX_LOOKUP_TABLES_SIZE = 70000;
+static constexpr uint32_t CONST_ECCVM_LOG_N = 15;
+
+// TODO(https://github.com/AztecProtocol/barretenberg/issues/1193): potentially reenable for better memory performance
+// static constexpr uint32_t MAX_LOOKUP_TABLES_SIZE = 80000;
 
 static constexpr uint32_t MAX_DATABUS_SIZE = 10000;
+
+// The number of entries in ProverPolynomials reserved for randomness intended to mask witness commitments, witness
+// evaluation at the sumcheck challenge, and, if necessary, the evaluation of the corresponding shift
+static constexpr uint32_t MASKING_OFFSET = 4;
+// For ZK Flavors: the number of the commitments required by Libra and SmallSubgroupIPA.
+static constexpr uint32_t NUM_LIBRA_COMMITMENTS = 3;
+static constexpr uint32_t NUM_LIBRA_EVALUATIONS = 4;
 } // namespace bb

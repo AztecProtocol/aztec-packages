@@ -2,11 +2,14 @@ import { MerkleTreeId, UnencryptedL2Log } from '@aztec/circuit-types';
 import { FunctionSelector, NoteSelector } from '@aztec/foundation/abi';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { Fr } from '@aztec/foundation/fields';
+import { createLogger } from '@aztec/foundation/log';
 
 import { type ACVMField } from '../acvm_types.js';
 import { frToBoolean, frToNumber, fromACVMField } from '../deserialize.js';
 import { toACVMField } from '../serialize.js';
 import { type TypedOracle } from './typed_oracle.js';
+
+const logger = createLogger('simulator:acvm:oracle');
 
 /**
  * A data source that has all the apis required by Aztec.nr.
@@ -92,19 +95,6 @@ export class Oracle {
     return witness.map(toACVMField);
   }
 
-  async getSiblingPath(
-    [blockNumber]: ACVMField[],
-    [treeId]: ACVMField[],
-    [leafIndex]: ACVMField[],
-  ): Promise<ACVMField[]> {
-    const parsedBlockNumber = frToNumber(fromACVMField(blockNumber));
-    const parsedTreeId = frToNumber(fromACVMField(treeId));
-    const parsedLeafIndex = fromACVMField(leafIndex);
-
-    const path = await this.typedOracle.getSiblingPath(parsedBlockNumber, parsedTreeId, parsedLeafIndex);
-    return path.map(toACVMField);
-  }
-
   async getNullifierMembershipWitness(
     [blockNumber]: ACVMField[],
     [nullifier]: ACVMField[], // nullifier, we try to find the witness for (to prove inclusion)
@@ -146,10 +136,10 @@ export class Oracle {
     return witness.toFields().map(toACVMField);
   }
 
-  async getHeader([blockNumber]: ACVMField[]): Promise<ACVMField[]> {
+  async getBlockHeader([blockNumber]: ACVMField[]): Promise<ACVMField[]> {
     const parsedBlockNumber = frToNumber(fromACVMField(blockNumber));
 
-    const header = await this.typedOracle.getHeader(parsedBlockNumber);
+    const header = await this.typedOracle.getBlockHeader(parsedBlockNumber);
     if (!header) {
       throw new Error(`Block header not found for block ${parsedBlockNumber}.`);
     }
@@ -293,7 +283,7 @@ export class Oracle {
     [numberOfElements]: ACVMField[],
   ): Promise<ACVMField[]> {
     const values = await this.typedOracle.storageRead(
-      fromACVMField(contractAddress),
+      new AztecAddress(fromACVMField(contractAddress)),
       fromACVMField(startStorageSlot),
       +blockNumber,
       +numberOfElements,
@@ -306,45 +296,11 @@ export class Oracle {
     return newValues.map(toACVMField);
   }
 
-  emitEncryptedEventLog(
-    [contractAddress]: ACVMField[],
-    [randomness]: ACVMField[],
-    encryptedEvent: ACVMField[],
-    [counter]: ACVMField[],
-  ): void {
-    // Convert each field to a number and then to a buffer (1 byte is stored in 1 field)
-    const processedInput = Buffer.from(encryptedEvent.map(fromACVMField).map(f => f.toNumber()));
-    this.typedOracle.emitEncryptedEventLog(
-      AztecAddress.fromString(contractAddress),
-      Fr.fromString(randomness),
-      processedInput,
-      +counter,
-    );
-  }
-
-  emitEncryptedNoteLog([noteHashCounter]: ACVMField[], encryptedNote: ACVMField[], [counter]: ACVMField[]): void {
-    // Convert each field to a number and then to a buffer (1 byte is stored in 1 field)
-    const processedInput = Buffer.from(encryptedNote.map(fromACVMField).map(f => f.toNumber()));
-    this.typedOracle.emitEncryptedNoteLog(+noteHashCounter, processedInput, +counter);
-  }
-
-  emitUnencryptedLog([contractAddress]: ACVMField[], message: ACVMField[], [counter]: ACVMField[]): ACVMField {
+  emitContractClassLog([contractAddress]: ACVMField[], message: ACVMField[], [counter]: ACVMField[]): ACVMField {
     const logPayload = Buffer.concat(message.map(fromACVMField).map(f => f.toBuffer()));
     const log = new UnencryptedL2Log(AztecAddress.fromString(contractAddress), logPayload);
 
-    this.typedOracle.emitUnencryptedLog(log, +counter);
-    return toACVMField(0);
-  }
-
-  emitContractClassUnencryptedLog(
-    [contractAddress]: ACVMField[],
-    message: ACVMField[],
-    [counter]: ACVMField[],
-  ): ACVMField {
-    const logPayload = Buffer.concat(message.map(fromACVMField).map(f => f.toBuffer()));
-    const log = new UnencryptedL2Log(AztecAddress.fromString(contractAddress), logPayload);
-
-    const logHash = this.typedOracle.emitContractClassUnencryptedLog(log, +counter);
+    const logHash = this.typedOracle.emitContractClassLog(log, +counter);
     return toACVMField(logHash);
   }
 
@@ -409,16 +365,53 @@ export class Oracle {
     this.typedOracle.notifySetMinRevertibleSideEffectCounter(frToNumber(fromACVMField(minRevertibleSideEffectCounter)));
   }
 
-  async getAppTaggingSecret([sender]: ACVMField[], [recipient]: ACVMField[]): Promise<ACVMField[]> {
-    const taggingSecret = await this.typedOracle.getAppTaggingSecret(
+  async getIndexedTaggingSecretAsSender([sender]: ACVMField[], [recipient]: ACVMField[]): Promise<ACVMField[]> {
+    const taggingSecret = await this.typedOracle.getIndexedTaggingSecretAsSender(
       AztecAddress.fromString(sender),
       AztecAddress.fromString(recipient),
     );
     return taggingSecret.toFields().map(toACVMField);
   }
 
-  async getAppTaggingSecretsForSenders([recipient]: ACVMField[]): Promise<ACVMField[]> {
-    const taggingSecrets = await this.typedOracle.getAppTaggingSecretsForSenders(AztecAddress.fromString(recipient));
-    return taggingSecrets.flatMap(taggingSecret => taggingSecret.toFields().map(toACVMField));
+  async incrementAppTaggingSecretIndexAsSender([sender]: ACVMField[], [recipient]: ACVMField[]) {
+    await this.typedOracle.incrementAppTaggingSecretIndexAsSender(
+      AztecAddress.fromString(sender),
+      AztecAddress.fromString(recipient),
+    );
+  }
+
+  async syncNotes() {
+    await this.typedOracle.syncNotes();
+  }
+
+  async store([contract]: ACVMField[], [key]: ACVMField[], values: ACVMField[]) {
+    const processedContract = AztecAddress.fromField(fromACVMField(contract));
+    const processedKey = fromACVMField(key);
+    const processedValues = values.map(fromACVMField);
+    logger.debug(`Storing data for key ${processedKey} in contract ${processedContract}. Data: [${processedValues}]`);
+    await this.typedOracle.store(processedContract, processedKey, processedValues);
+  }
+
+  /**
+   * Load data from pxe db.
+   * @param contract - The contract address.
+   * @param key - The key to load.
+   * @param tSize - The size of the serialized object to return.
+   * @returns The data found flag and the serialized object concatenated in one array.
+   */
+  async load([contract]: ACVMField[], [key]: ACVMField[], [tSize]: ACVMField[]): Promise<(ACVMField | ACVMField[])[]> {
+    const processedContract = AztecAddress.fromField(fromACVMField(contract));
+    const processedKey = fromACVMField(key);
+    const values = await this.typedOracle.load(processedContract, processedKey);
+    if (values === null) {
+      // No data was found so we set the data-found flag to 0 and we pad with zeros get the correct return size.
+      const processedTSize = frToNumber(fromACVMField(tSize));
+      logger.debug(`No data found for key ${processedKey} in contract ${processedContract}`);
+      return [toACVMField(0), Array(processedTSize).fill(toACVMField(0))];
+    } else {
+      // Data was found so we set the data-found flag to 1 and return it along with the data.
+      logger.debug(`Returning data for key ${processedKey} in contract ${processedContract}. Data: [${values}]`);
+      return [toACVMField(1), values.map(toACVMField)];
+    }
   }
 }

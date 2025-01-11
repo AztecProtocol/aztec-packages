@@ -1,4 +1,7 @@
 import { type AztecAddress, type EthAddress, type Fr, type FunctionSelector } from '@aztec/circuits.js';
+import { type ZodFor, schemas } from '@aztec/foundation/schemas';
+
+import { z } from 'zod';
 
 type AllowedInstance = { address: AztecAddress };
 type AllowedInstanceFunction = { address: AztecAddress; selector: FunctionSelector };
@@ -17,10 +20,10 @@ export interface SequencerConfig {
   maxTxsPerBlock?: number;
   /** The minimum number of txs to include in a block. */
   minTxsPerBlock?: number;
-  /** The minimum number of seconds in-between consecutive blocks. */
-  minSecondsBetweenBlocks?: number;
-  /** The maximum number of seconds in-between consecutive blocks. Sequencer will produce a block with less than minTxsPerBlock once this threshold is reached. */
-  maxSecondsBetweenBlocks?: number;
+  /** The maximum L2 block gas. */
+  maxL2BlockGas?: number;
+  /** The maximum DA block gas. */
+  maxDABlockGas?: number;
   /** Recipient of block reward. */
   coinbase?: EthAddress;
   /** Address to receive fees. */
@@ -31,12 +34,39 @@ export interface SequencerConfig {
   acvmBinaryPath?: string;
   /** The list of functions calls allowed to run in setup */
   allowedInSetup?: AllowedElement[];
-  /** The list of functions calls allowed to run teardown */
-  allowedInTeardown?: AllowedElement[];
   /** Max block size */
   maxBlockSizeInBytes?: number;
   /** Whether to require every tx to have a fee payer */
   enforceFees?: boolean;
   /** Payload address to vote for */
-  gerousiaPayload?: EthAddress;
+  governanceProposerPayload?: EthAddress;
+  /** Whether to enforce the time table when building blocks */
+  enforceTimeTable?: boolean;
+  /** How many seconds into an L1 slot we can still send a tx and get it mined. */
+  maxL1TxInclusionTimeIntoSlot?: number;
 }
+
+const AllowedElementSchema = z.union([
+  z.object({ address: schemas.AztecAddress, selector: schemas.FunctionSelector }),
+  z.object({ address: schemas.AztecAddress }),
+  z.object({ classId: schemas.Fr, selector: schemas.FunctionSelector }),
+  z.object({ classId: schemas.Fr }),
+]) satisfies ZodFor<AllowedElement>;
+
+export const SequencerConfigSchema = z.object({
+  transactionPollingIntervalMS: z.number().optional(),
+  maxTxsPerBlock: z.number().optional(),
+  minTxsPerBlock: z.number().optional(),
+  maxL2BlockGas: z.number().optional(),
+  maxDABlockGas: z.number().optional(),
+  coinbase: schemas.EthAddress.optional(),
+  feeRecipient: schemas.AztecAddress.optional(),
+  acvmWorkingDirectory: z.string().optional(),
+  acvmBinaryPath: z.string().optional(),
+  allowedInSetup: z.array(AllowedElementSchema).optional(),
+  maxBlockSizeInBytes: z.number().optional(),
+  enforceFees: z.boolean().optional(),
+  governanceProposerPayload: schemas.EthAddress.optional(),
+  maxL1TxInclusionTimeIntoSlot: z.number().optional(),
+  enforceTimeTable: z.boolean().optional(),
+}) satisfies ZodFor<SequencerConfig>;

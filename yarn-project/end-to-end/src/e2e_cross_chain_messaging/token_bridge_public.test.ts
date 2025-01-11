@@ -38,11 +38,8 @@ describe('e2e_cross_chain_messaging token_bridge_public', () => {
 
   // docs:start:e2e_public_cross_chain
   it('Publicly deposit funds from L1 -> L2 and withdraw back to L1', async () => {
-    // Generate a claim secret using pedersen
     const l1TokenBalance = 1000000n;
     const bridgeAmount = 100n;
-
-    const [secret, secretHash] = crossChainTestHarness.generateClaimSecret();
 
     // 1. Mint tokens on L1
     logger.verbose(`1. Mint tokens on L1`);
@@ -50,25 +47,27 @@ describe('e2e_cross_chain_messaging token_bridge_public', () => {
 
     // 2. Deposit tokens to the TokenPortal
     logger.verbose(`2. Deposit tokens to the TokenPortal`);
-    const msgHash = await crossChainTestHarness.sendTokensToPortalPublic(bridgeAmount, secretHash);
+    const claim = await crossChainTestHarness.sendTokensToPortalPublic(bridgeAmount);
+    const msgHash = Fr.fromHexString(claim.messageHash);
     expect(await crossChainTestHarness.getL1BalanceOf(ethAccount)).toBe(l1TokenBalance - bridgeAmount);
 
     // Wait for the message to be available for consumption
     logger.verbose(`Wait for the message to be available for consumption`);
     await crossChainTestHarness.makeMessageConsumable(msgHash);
 
-    // Get message leaf index, needed for claiming in public
-    const maybeIndexAndPath = await aztecNode.getL1ToL2MessageMembershipWitness('latest', msgHash, 0n);
+    // Check message leaf index matches
+    const maybeIndexAndPath = await aztecNode.getL1ToL2MessageMembershipWitness('latest', msgHash);
     expect(maybeIndexAndPath).toBeDefined();
     const messageLeafIndex = maybeIndexAndPath![0];
+    expect(messageLeafIndex).toEqual(claim.messageLeafIndex);
 
     // 3. Consume L1 -> L2 message and mint public tokens on L2
     logger.verbose('3. Consume L1 -> L2 message and mint public tokens on L2');
-    await crossChainTestHarness.consumeMessageOnAztecAndMintPublicly(bridgeAmount, secret, messageLeafIndex);
+    await crossChainTestHarness.consumeMessageOnAztecAndMintPublicly(claim);
     await crossChainTestHarness.expectPublicBalanceOnL2(ownerAddress, bridgeAmount);
     const afterBalance = bridgeAmount;
 
-    // time to withdraw the funds again!
+    // Time to withdraw the funds again!
     logger.info('Withdrawing funds from L2');
 
     // 4. Give approval to bridge to burn owner's funds:
@@ -112,28 +111,27 @@ describe('e2e_cross_chain_messaging token_bridge_public', () => {
   // docs:end:e2e_public_cross_chain
 
   it('Someone else can mint funds to me on my behalf (publicly)', async () => {
-    // Generate a claim secret using pedersen
     const l1TokenBalance = 1000000n;
     const bridgeAmount = 100n;
 
-    const [secret, secretHash] = crossChainTestHarness.generateClaimSecret();
-
     await crossChainTestHarness.mintTokensOnL1(l1TokenBalance);
-    const msgHash = await crossChainTestHarness.sendTokensToPortalPublic(bridgeAmount, secretHash);
+    const claim = await crossChainTestHarness.sendTokensToPortalPublic(bridgeAmount);
+    const msgHash = Fr.fromHexString(claim.messageHash);
     expect(await crossChainTestHarness.getL1BalanceOf(ethAccount)).toBe(l1TokenBalance - bridgeAmount);
 
     await crossChainTestHarness.makeMessageConsumable(msgHash);
 
-    // get message leaf index, needed for claiming in public
-    const maybeIndexAndPath = await aztecNode.getL1ToL2MessageMembershipWitness('latest', msgHash, 0n);
+    // Check message leaf index matches
+    const maybeIndexAndPath = await aztecNode.getL1ToL2MessageMembershipWitness('latest', msgHash);
     expect(maybeIndexAndPath).toBeDefined();
     const messageLeafIndex = maybeIndexAndPath![0];
+    expect(messageLeafIndex).toEqual(claim.messageLeafIndex);
 
     // user2 tries to consume this message and minting to itself -> should fail since the message is intended to be consumed only by owner.
     await expect(
       l2Bridge
         .withWallet(user2Wallet)
-        .methods.claim_public(user2Wallet.getAddress(), bridgeAmount, secret, messageLeafIndex)
+        .methods.claim_public(user2Wallet.getAddress(), bridgeAmount, claim.claimSecret, messageLeafIndex)
         .prove(),
     ).rejects.toThrow(NO_L1_TO_L2_MSG_ERROR);
 
@@ -141,9 +139,10 @@ describe('e2e_cross_chain_messaging token_bridge_public', () => {
     logger.info("user2 consumes owner's message on L2 Publicly");
     await l2Bridge
       .withWallet(user2Wallet)
-      .methods.claim_public(ownerAddress, bridgeAmount, secret, messageLeafIndex)
+      .methods.claim_public(ownerAddress, bridgeAmount, claim.claimSecret, messageLeafIndex)
       .send()
       .wait();
+
     // ensure funds are gone to owner and not user2.
     await crossChainTestHarness.expectPublicBalanceOnL2(ownerAddress, bridgeAmount);
     await crossChainTestHarness.expectPublicBalanceOnL2(user2Wallet.getAddress(), 0n);

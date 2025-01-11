@@ -1,12 +1,19 @@
 #!/bin/sh
+# Builds the wasm and copies it into it's location in dest.
+# If you want to build the wasm with debug info for stack traces, use NO_STRIP=1.
 set -e
+
+cd $(dirname $0)/..
 
 if [ -z "$SKIP_CPP_BUILD" ]; then
   # Build the wasms and strip debug symbols.
   cd ../cpp
   cmake --preset wasm-threads -DCMAKE_MESSAGE_LOG_LEVEL=Warning && cmake --build --preset wasm-threads
-  cmake --preset wasm -DCMAKE_MESSAGE_LOG_LEVEL=Warning && cmake --build --preset wasm
-  ./scripts/strip-wasm.sh
+  if [ -z "$SKIP_ST_BUILD" ]; then
+    cmake --preset wasm -DCMAKE_MESSAGE_LOG_LEVEL=Warning && cmake --build --preset wasm
+  fi
+  [ -z "$NO_STRIP" ] && ./scripts/strip-wasm.sh
+  ./scripts/gzip-wasm.sh
   cd ../ts
 fi
 
@@ -17,5 +24,5 @@ fi
 # When building the browser bundle, both wasms are inlined directly.
 mkdir -p ./dest/node/barretenberg_wasm
 mkdir -p ./dest/node-cjs/barretenberg_wasm
-cp ../cpp/build-wasm-threads/bin/barretenberg.wasm ./dest/node/barretenberg_wasm/barretenberg-threads.wasm
-cp ../cpp/build-wasm-threads/bin/barretenberg.wasm ./dest/node-cjs/barretenberg_wasm/barretenberg-threads.wasm
+cp ../cpp/build-wasm-threads/bin/barretenberg.wasm.gz ./dest/node/barretenberg_wasm/barretenberg-threads.wasm.gz
+cp ../cpp/build-wasm-threads/bin/barretenberg.wasm.gz ./dest/node-cjs/barretenberg_wasm/barretenberg-threads.wasm.gz

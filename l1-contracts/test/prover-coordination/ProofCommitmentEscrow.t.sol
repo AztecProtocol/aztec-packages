@@ -7,7 +7,7 @@ import {Test} from "forge-std/Test.sol";
 import {ProofCommitmentEscrow} from "@aztec/core/ProofCommitmentEscrow.sol";
 import {Errors} from "@aztec/core/libraries/Errors.sol";
 import {Timestamp} from "@aztec/core/libraries/TimeMath.sol";
-
+import {TestConstants} from "../harnesses/TestConstants.sol";
 import {TestERC20} from "@aztec/mock/TestERC20.sol";
 
 // solhint-disable comprehensive-interface
@@ -31,8 +31,10 @@ contract TestProofCommitmentEscrow is Test {
   }
 
   function setUp() public {
-    TOKEN = new TestERC20();
-    ESCROW = new ProofCommitmentEscrow(TOKEN, address(this));
+    TOKEN = new TestERC20("test", "TEST", address(this));
+    ESCROW = new ProofCommitmentEscrow(
+      TOKEN, address(this), TestConstants.AZTEC_SLOT_DURATION, TestConstants.AZTEC_EPOCH_DURATION
+    );
   }
 
   function testDeposit() public setupWithApproval(address(42), 100) {

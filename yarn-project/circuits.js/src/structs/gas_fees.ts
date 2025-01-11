@@ -1,8 +1,10 @@
 import { Fr } from '@aztec/foundation/fields';
+import { schemas } from '@aztec/foundation/schemas';
 import { BufferReader, FieldReader, serializeToBuffer, serializeToFields } from '@aztec/foundation/serialize';
 import { type FieldsOf } from '@aztec/foundation/types';
 
 import { inspect } from 'util';
+import { z } from 'zod';
 
 import { type GasDimensions } from './gas.js';
 
@@ -14,6 +16,15 @@ export class GasFees {
   constructor(feePerDaGas: Fr | number | bigint, feePerL2Gas: Fr | number | bigint) {
     this.feePerDaGas = new Fr(feePerDaGas);
     this.feePerL2Gas = new Fr(feePerL2Gas);
+  }
+
+  static get schema() {
+    return z
+      .object({
+        feePerDaGas: schemas.Fr,
+        feePerL2Gas: schemas.Fr,
+      })
+      .transform(GasFees.from);
   }
 
   clone(): GasFees {
@@ -33,6 +44,13 @@ export class GasFees {
     }
   }
 
+  mul(scalar: number | bigint) {
+    return new GasFees(
+      new Fr(this.feePerDaGas.toBigInt() * BigInt(scalar)),
+      new Fr(this.feePerL2Gas.toBigInt() * BigInt(scalar)),
+    );
+  }
+
   static from(fields: FieldsOf<GasFees>) {
     return new GasFees(fields.feePerDaGas, fields.feePerL2Gas);
   }
@@ -43,11 +61,6 @@ export class GasFees {
 
   static empty() {
     return new GasFees(Fr.ZERO, Fr.ZERO);
-  }
-
-  /** Fixed gas fee values used until we define how gas fees in the protocol are computed. */
-  static default() {
-    return new GasFees(Fr.ONE, Fr.ONE);
   }
 
   isEmpty() {
@@ -70,17 +83,6 @@ export class GasFees {
 
   toFields() {
     return serializeToFields(this.feePerDaGas, this.feePerL2Gas);
-  }
-
-  static fromJSON(obj: any) {
-    return new GasFees(Fr.fromString(obj.feePerDaGas), Fr.fromString(obj.feePerL2Gas));
-  }
-
-  toJSON() {
-    return {
-      feePerDaGas: this.feePerDaGas.toString(),
-      feePerL2Gas: this.feePerL2Gas.toString(),
-    };
   }
 
   [inspect.custom]() {

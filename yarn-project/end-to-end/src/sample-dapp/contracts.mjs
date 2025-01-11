@@ -7,8 +7,8 @@ import { readFileSync } from 'fs';
 // docs:end:imports
 
 // docs:start:get-tokens
-export async function getToken(client) {
+export async function getToken(wallet) {
   const addresses = JSON.parse(readFileSync('addresses.json'));
-  return TokenContract.at(AztecAddress.fromString(addresses.token), client);
+  return TokenContract.at(AztecAddress.fromString(addresses.token), wallet);
 }
 // docs:end:get-tokens

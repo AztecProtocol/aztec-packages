@@ -1,0 +1,91 @@
+# Checks bb (barretenberg prover library) prover with sanitizers
+# Unlike most jobs uses free 4 core github runners of which we have lots of capacity (of total 1000 concurrency).
+name: BB MSAN
+on:
+#   push:
+#     branches:
+#       - master
+#       - "*/bb-sanitizers*"
+  workflow_dispatch:
+    inputs:
+      branch:
+        required: false
+
+concurrency:
+  # force parallelism in master
+  group: ci-${{ github.ref_name == 'master' && github.run_id || github.ref_name }}
+  cancel-in-progress: true
+jobs:
+  # acts as prover performance baseline
+  bb-baseline:
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.branch || github.sha }}
+      - uses: earthly/actions-setup@v1
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+      - name: "Barretenberg Baseline Performance Check"
+        run: earthly --no-cache ./barretenberg/cpp/+preset-check --preset=clang16
+
+  # memory sanitzer for prover
+  bb-msan-check:
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.branch || github.sha }}
+      - uses: earthly/actions-setup@v1
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+      - name: "Barretenberg Prover MSAN Check"
+
+        run: earthly --no-cache ./barretenberg/cpp/+preset-msan-check || true
+
+  # address sanitzer for prover
+  bb-asan-check:
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.branch || github.sha }}
+      - uses: earthly/actions-setup@v1
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+      - name: "Barretenberg Prover ASAN Check"
+        timeout-minutes: 720 # 12 hour timeout (proving)
+        run: earthly --no-cache ./barretenberg/cpp/+preset-check --preset=asan
+
+  # address sanitzer for prover
+  bb-tsan-check:
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.branch || github.sha }}
+      - uses: earthly/actions-setup@v1
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+      - name: "Barretenberg Prover TSAN Check"
+        timeout-minutes: 720 # 12 hour timeout (proving)
+        run: earthly --no-cache ./barretenberg/cpp/+preset-check --preset=tsan || true
+
+  # undefined behavior sanitzer for prover
+  bb-ubsan-check:
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.branch }}
+      - uses: earthly/actions-setup@v1
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+      - name: "Barretenberg Prover TSAN Check"
+        timeout-minutes: 720 # 12 hour timeout (proving)
+        run: earthly --no-cache ./barretenberg/cpp/+preset-check --preset=ubsan

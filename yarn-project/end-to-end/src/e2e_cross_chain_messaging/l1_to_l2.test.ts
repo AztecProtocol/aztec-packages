@@ -1,13 +1,5 @@
-import {
-  type EthAddressLike,
-  type FieldLike,
-  Fr,
-  L1Actor,
-  L1ToL2Message,
-  L2Actor,
-  computeSecretHash,
-} from '@aztec/aztec.js';
-import { TestContract } from '@aztec/noir-contracts.js';
+import { type AztecAddress, Fr, generateClaimSecret } from '@aztec/aztec.js';
+import { TestContract } from '@aztec/noir-contracts.js/Test';
 
 import { sendL1ToL2Message } from '../fixtures/l1_to_l2_messaging.js';
 import { CrossChainMessagingTest } from './cross_chain_messaging_test.js';
@@ -38,38 +30,26 @@ describe('e2e_cross_chain_messaging l1_to_l2', () => {
       const testContract = await TestContract.deploy(user1Wallet).send().deployed();
 
       const consumeMethod = isPrivate
-        ? (content: FieldLike, secret: FieldLike, sender: EthAddressLike, _leafIndex: FieldLike) =>
-            testContract.methods.consume_message_from_arbitrary_sender_private(content, secret, sender)
+        ? testContract.methods.consume_message_from_arbitrary_sender_private
         : testContract.methods.consume_message_from_arbitrary_sender_public;
 
-      const secret = Fr.random();
+      const [secret, secretHash] = generateClaimSecret();
 
-      const message = new L1ToL2Message(
-        new L1Actor(crossChainTestHarness.ethAccount, crossChainTestHarness.publicClient.chain.id),
-        new L2Actor(testContract.address, 1),
-        Fr.random(), // content
-        computeSecretHash(secret), // secretHash
-      );
+      const message = { recipient: testContract.address, content: Fr.random(), secretHash };
+      const [message1Hash, actualMessage1Index] = await sendL2Message(message);
 
-      const actualMessage1Index = await sendL2Message(message);
-
-      const [message1Index, _1] = (await aztecNode.getL1ToL2MessageMembershipWitness('latest', message.hash(), 0n))!;
+      const [message1Index] = (await aztecNode.getL1ToL2MessageMembershipWitness('latest', message1Hash))!;
       expect(actualMessage1Index.toBigInt()).toBe(message1Index);
 
       // Finally, we consume the L1 -> L2 message using the test contract either from private or public
-      await consumeMethod(message.content, secret, message.sender.sender, message1Index).send().wait();
+      await consumeMethod(message.content, secret, crossChainTestHarness.ethAccount, message1Index).send().wait();
 
       // We send and consume the exact same message the second time to test that oracles correctly return the new
       // non-nullified message
-      const actualMessage2Index = await sendL2Message(message);
+      const [message2Hash, actualMessage2Index] = await sendL2Message(message);
 
-      // We check that the duplicate message was correctly inserted by checking that its message index is defined and
-      // larger than the previous message index
-      const [message2Index, _2] = (await aztecNode.getL1ToL2MessageMembershipWitness(
-        'latest',
-        message.hash(),
-        message1Index + 1n,
-      ))!;
+      // We check that the duplicate message was correctly inserted by checking that its message index is defined
+      const [message2Index] = (await aztecNode.getL1ToL2MessageMembershipWitness('latest', message2Hash))!;
 
       expect(message2Index).toBeDefined();
       expect(message2Index).toBeGreaterThan(message1Index);
@@ -77,14 +57,14 @@ describe('e2e_cross_chain_messaging l1_to_l2', () => {
 
       // Now we consume the message again. Everything should pass because oracle should return the duplicate message
       // which is not nullified
-      await consumeMethod(message.content, secret, message.sender.sender, message2Index).send().wait();
+      await consumeMethod(message.content, secret, crossChainTestHarness.ethAccount, message2Index).send().wait();
     },
     120_000,
   );
 
-  const sendL2Message = async (message: L1ToL2Message) => {
+  const sendL2Message = async (message: { recipient: AztecAddress; content: Fr; secretHash: Fr }) => {
     const [msgHash, globalLeafIndex] = await sendL1ToL2Message(message, crossChainTestHarness);
     await crossChainTestHarness.makeMessageConsumable(msgHash);
-    return globalLeafIndex;
+    return [msgHash, globalLeafIndex];
   };
 });

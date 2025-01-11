@@ -1,30 +1,36 @@
-import { type ServerCircuitProver } from '@aztec/circuit-types';
 import {
+  type PublicInputsAndRecursiveProof,
+  type ServerCircuitProver,
+  type Tx,
+  makePublicInputsAndRecursiveProof,
+} from '@aztec/circuit-types';
+import {
+  ClientIvcProof,
   Fr,
   type GlobalVariables,
   NESTED_RECURSIVE_PROOF_LENGTH,
   NUM_BASE_PARITY_PER_ROOT_PARITY,
+  type ParityPublicInputs,
   RECURSIVE_PROOF_LENGTH,
-  type RootParityInput,
+  makeRecursiveProof,
 } from '@aztec/circuits.js';
-import { makeRootParityInput } from '@aztec/circuits.js/testing';
-import { createDebugLogger } from '@aztec/foundation/log';
+import { makeParityPublicInputs } from '@aztec/circuits.js/testing';
+import { createLogger } from '@aztec/foundation/log';
 import { promiseWithResolvers } from '@aztec/foundation/promise';
 import { sleep } from '@aztec/foundation/sleep';
-import { type MerkleTreeReadOperations } from '@aztec/world-state';
+import { ProtocolCircuitVks } from '@aztec/noir-protocol-circuits-types/vks';
 
+import { jest } from '@jest/globals';
 import { type MockProxy, mock } from 'jest-mock-extended';
 
-import { makeBloatedProcessedTx } from '../mocks/fixtures.js';
 import { TestContext } from '../mocks/test_context.js';
 import { type ProvingOrchestrator } from './orchestrator.js';
 
-const logger = createDebugLogger('aztec:orchestrator-workflow');
+const logger = createLogger('prover-client:test:orchestrator-workflow');
 
 describe('prover/orchestrator', () => {
   describe('workflow', () => {
     let orchestrator: ProvingOrchestrator;
-    let actualDb: MerkleTreeReadOperations;
     let globalVariables: GlobalVariables;
     let context: TestContext;
 
@@ -33,8 +39,8 @@ describe('prover/orchestrator', () => {
 
       beforeEach(async () => {
         mockProver = mock<ServerCircuitProver>();
-        context = await TestContext.new(logger, 'native', 4, () => Promise.resolve(mockProver));
-        ({ actualDb, orchestrator, globalVariables } = context);
+        context = await TestContext.new(logger, 4, () => Promise.resolve(mockProver));
+        ({ orchestrator, globalVariables } = context);
       });
 
       it('calls root parity circuit only when ready', async () => {
@@ -42,21 +48,38 @@ describe('prover/orchestrator', () => {
         const message = Fr.random();
 
         // and delay its proof
-        const pendingBaseParityResult = promiseWithResolvers<RootParityInput<typeof RECURSIVE_PROOF_LENGTH>>();
-        const expectedBaseParityResult = makeRootParityInput(RECURSIVE_PROOF_LENGTH, 0xff);
+        const pendingBaseParityResult =
+          promiseWithResolvers<PublicInputsAndRecursiveProof<ParityPublicInputs, typeof RECURSIVE_PROOF_LENGTH>>();
+        const expectedBaseParityResult = makePublicInputsAndRecursiveProof(
+          makeParityPublicInputs(0xff),
+          makeRecursiveProof(RECURSIVE_PROOF_LENGTH),
+          ProtocolCircuitVks.BaseParityArtifact,
+        );
 
-        mockProver.getRootParityProof.mockResolvedValue(makeRootParityInput(NESTED_RECURSIVE_PROOF_LENGTH));
+        mockProver.getRootParityProof.mockResolvedValue(
+          makePublicInputsAndRecursiveProof(
+            makeParityPublicInputs(),
+            makeRecursiveProof(NESTED_RECURSIVE_PROOF_LENGTH),
+            ProtocolCircuitVks.RootParityArtifact,
+          ),
+        );
 
         mockProver.getBaseParityProof.mockImplementation(inputs => {
           if (inputs.msgs[0].equals(message)) {
             return pendingBaseParityResult.promise;
           } else {
-            return Promise.resolve(makeRootParityInput(RECURSIVE_PROOF_LENGTH));
+            return Promise.resolve(
+              makePublicInputsAndRecursiveProof(
+                makeParityPublicInputs(),
+                makeRecursiveProof(RECURSIVE_PROOF_LENGTH),
+                ProtocolCircuitVks.BaseParityArtifact,
+              ),
+            );
           }
         });
 
-        orchestrator.startNewEpoch(1, 1);
-        await orchestrator.startNewBlock(2, globalVariables, [message]);
+        orchestrator.startNewEpoch(1, 1, 1);
+        await orchestrator.startNewBlock(globalVariables, [message]);
 
         await sleep(10);
         expect(mockProver.getBaseParityProof).toHaveBeenCalledTimes(NUM_BASE_PARITY_PER_ROOT_PARITY);
@@ -78,25 +101,49 @@ describe('prover/orchestrator', () => {
     });
 
     describe('with simulated prover', () => {
+      let prover: ServerCircuitProver;
+
       beforeEach(async () => {
         context = await TestContext.new(logger);
-        ({ actualDb, orchestrator, globalVariables } = context);
+        ({ prover, orchestrator, globalVariables } = context);
       });
 
       it('waits for block to be completed before enqueueing block root proof', async () => {
-        orchestrator.startNewEpoch(1, 1);
-        await orchestrator.startNewBlock(2, globalVariables, []);
-        await orchestrator.addNewTx(makeBloatedProcessedTx(actualDb, 1));
-        await orchestrator.addNewTx(makeBloatedProcessedTx(actualDb, 2));
+        orchestrator.startNewEpoch(1, 1, 1);
+        await orchestrator.startNewBlock(globalVariables, []);
+        const txs = [context.makeProcessedTx(1), context.makeProcessedTx(2)];
+        await context.setEndTreeRoots(txs);
+        await orchestrator.addTxs(txs);
 
         // wait for the block root proof to try to be enqueued
         await sleep(1000);
 
         // now finish the block
-        await orchestrator.setBlockCompleted();
+        await orchestrator.setBlockCompleted(context.blockNumber);
 
         const result = await orchestrator.finaliseEpoch();
         expect(result.proof).toBeDefined();
+      });
+
+      it('can start tube proofs before adding processed txs', async () => {
+        const getTubeSpy = jest.spyOn(prover, 'getTubeProof');
+        orchestrator.startNewEpoch(1, 1, 1);
+        const processedTxs = [context.makeProcessedTx(1), context.makeProcessedTx(2)];
+        processedTxs.forEach((tx, i) => (tx.clientIvcProof = ClientIvcProof.fake(i + 1)));
+        const txs = processedTxs.map(tx => ({ getTxHash: () => tx.hash, clientIvcProof: tx.clientIvcProof } as Tx));
+        orchestrator.startTubeCircuits(txs);
+
+        await sleep(100);
+        expect(getTubeSpy).toHaveBeenCalledTimes(2);
+        getTubeSpy.mockReset();
+
+        await orchestrator.startNewBlock(globalVariables, []);
+        await context.setEndTreeRoots(processedTxs);
+        await orchestrator.addTxs(processedTxs);
+        await orchestrator.setBlockCompleted(context.blockNumber);
+        const result = await orchestrator.finaliseEpoch();
+        expect(result.proof).toBeDefined();
+        expect(getTubeSpy).toHaveBeenCalledTimes(0);
       });
     });
   });

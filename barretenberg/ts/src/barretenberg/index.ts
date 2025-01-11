@@ -5,11 +5,11 @@ import { BarretenbergWasmMain, BarretenbergWasmMainWorker } from '../barretenber
 import { getRemoteBarretenbergWasm } from '../barretenberg_wasm/helpers/index.js';
 import { BarretenbergWasmWorker, fetchModuleAndThreads } from '../barretenberg_wasm/index.js';
 import createDebug from 'debug';
-import { Crs } from '../crs/index.js';
+import { Crs, GrumpkinCrs } from '../crs/index.js';
 import { RawBuffer } from '../types/raw_buffer.js';
 
 export { BarretenbergVerifier } from './verifier.js';
-export { UltraPlonkBackend, UltraHonkBackend } from './backend.js';
+export { UltraPlonkBackend, UltraHonkBackend, AztecClientBackend } from './backend.js';
 
 const debug = createDebug('bb.js:wasm');
 
@@ -22,6 +22,11 @@ export type BackendOptions = {
 
   /** @description Path to download CRS files */
   crsPath?: string;
+};
+
+export type CircuitOptions = {
+  /** @description Whether to produce SNARK friendly proofs */
+  recursive: boolean;
 };
 
 /**
@@ -61,9 +66,20 @@ export class Barretenberg extends BarretenbergApi {
     await this.srsInitSrs(new RawBuffer(crs.getG1Data()), crs.numPoints, new RawBuffer(crs.getG2Data()));
   }
 
-  async acirInitSRS(bytecode: Uint8Array, honkRecursion: boolean): Promise<void> {
+  async initSRSClientIVC(): Promise<void> {
+    // crsPath can be undefined
+    const crs = await Crs.new(2 ** 20 + 1, this.options.crsPath);
+    const grumpkinCrs = await GrumpkinCrs.new(2 ** 15 + 1, this.options.crsPath);
+
+    // Load CRS into wasm global CRS state.
+    // TODO: Make RawBuffer be default behavior, and have a specific Vector type for when wanting length prefixed.
+    await this.srsInitSrs(new RawBuffer(crs.getG1Data()), crs.numPoints, new RawBuffer(crs.getG2Data()));
+    await this.srsInitGrumpkinSrs(new RawBuffer(grumpkinCrs.getG1Data()), grumpkinCrs.numPoints);
+  }
+
+  async acirInitSRS(bytecode: Uint8Array, recursive: boolean, honkRecursion: boolean): Promise<void> {
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    const [_total, subgroupSize] = await this.acirGetCircuitSizes(bytecode, honkRecursion);
+    const [_total, subgroupSize] = await this.acirGetCircuitSizes(bytecode, recursive, honkRecursion);
     return this.initSRSForCircuitSize(subgroupSize);
   }
 

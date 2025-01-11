@@ -1,29 +1,25 @@
-import {
-  EncryptedNoteTxL2Logs,
-  EncryptedTxL2Logs,
-  type MerkleTreeId,
-  type ProcessedTx,
-  type ProofAndVerificationKey,
-  UnencryptedTxL2Logs,
-} from '@aztec/circuit-types';
+import { type MerkleTreeId, type ProcessedTx, type ProofAndVerificationKey } from '@aztec/circuit-types';
+import { type CircuitName } from '@aztec/circuit-types/stats';
 import {
   type AVM_PROOF_LENGTH_IN_FIELDS,
   AVM_VK_INDEX,
   type AppendOnlyTreeSnapshot,
-  AvmProofData,
-  type BaseRollupHints,
-  Fr,
-  PrivateBaseRollupInputs,
-  PrivateTubeData,
-  PublicBaseRollupInputs,
-  type RecursiveProof,
   type TUBE_PROOF_LENGTH,
   TUBE_VK_INDEX,
-  TubeInputs,
-  VMCircuitPublicInputs,
   VkWitnessData,
 } from '@aztec/circuits.js';
-import { getVKIndex, getVKSiblingPath } from '@aztec/noir-protocol-circuits-types';
+import {
+  AvmProofData,
+  type BaseRollupHints,
+  PrivateBaseRollupHints,
+  PrivateBaseRollupInputs,
+  PrivateTubeData,
+  PublicBaseRollupHints,
+  PublicBaseRollupInputs,
+  PublicTubeData,
+  TubeInputs,
+} from '@aztec/circuits.js/rollup';
+import { getVKIndex, getVKSiblingPath } from '@aztec/noir-protocol-circuits-types/vks';
 
 /**
  * Helper class to manage the proving cycle of a transaction
@@ -31,8 +27,8 @@ import { getVKIndex, getVKSiblingPath } from '@aztec/noir-protocol-circuits-type
  * Also stores the inputs to the base rollup for this transaction and the tree snapshots
  */
 export class TxProvingState {
-  private tube?: ProofAndVerificationKey<RecursiveProof<typeof TUBE_PROOF_LENGTH>>;
-  private avm?: ProofAndVerificationKey<RecursiveProof<typeof AVM_PROOF_LENGTH_IN_FIELDS>>;
+  private tube?: ProofAndVerificationKey<typeof TUBE_PROOF_LENGTH>;
+  private avm?: ProofAndVerificationKey<typeof AVM_PROOF_LENGTH_IN_FIELDS>;
 
   constructor(
     public readonly processedTx: ProcessedTx,
@@ -56,22 +52,48 @@ export class TxProvingState {
     return this.processedTx.avmProvingRequest!.inputs;
   }
 
-  public getPrivateBaseInputs() {
+  public getBaseRollupTypeAndInputs() {
     if (this.requireAvmProof) {
-      throw new Error('Should create public base rollup for a tx requiring avm proof.');
+      return {
+        rollupType: 'public-base-rollup' satisfies CircuitName,
+        inputs: this.#getPublicBaseInputs(),
+      };
+    } else {
+      return {
+        rollupType: 'private-base-rollup' satisfies CircuitName,
+        inputs: this.#getPrivateBaseInputs(),
+      };
     }
+  }
+
+  public setTubeProof(tubeProofAndVk: ProofAndVerificationKey<typeof TUBE_PROOF_LENGTH>) {
+    this.tube = tubeProofAndVk;
+  }
+
+  public setAvmProof(avmProofAndVk: ProofAndVerificationKey<typeof AVM_PROOF_LENGTH_IN_FIELDS>) {
+    this.avm = avmProofAndVk;
+  }
+
+  #getPrivateBaseInputs() {
     if (!this.tube) {
       throw new Error('Tx not ready for proving base rollup.');
     }
 
-    const vkData = this.getTubeVkData();
-    const tubeData = new PrivateTubeData(this.processedTx.data, this.tube.proof, vkData);
+    const vkData = this.#getTubeVkData();
+    const tubeData = new PrivateTubeData(
+      this.processedTx.data.toPrivateToRollupKernelCircuitPublicInputs(),
+      this.tube.proof,
+      vkData,
+    );
 
+    if (!(this.baseRollupHints instanceof PrivateBaseRollupHints)) {
+      throw new Error('Mismatched base rollup hints, expected private base rollup hints');
+    }
     return new PrivateBaseRollupInputs(tubeData, this.baseRollupHints);
   }
 
-  public getPublicBaseInputs() {
-    if (!this.requireAvmProof) {
+  #getPublicBaseInputs() {
+    if (!this.processedTx.avmProvingRequest) {
       throw new Error('Should create private base rollup for a tx not requiring avm proof.');
     }
     if (!this.tube) {
@@ -81,63 +103,26 @@ export class TxProvingState {
       throw new Error('Tx not ready for proving base rollup: avm proof undefined');
     }
 
-    // Temporary hack.
-    // Passing this.processedTx.data to the tube, which is the output of the simulated public_kernel_tail,
-    // so that the output of the public base will contain all the side effects.
-    // This should be the output of the private_kernel_tail_to_public when the output of the avm proof is the result of
-    // simulating the entire public call stack.
-    const tubeData = new PrivateTubeData(this.processedTx.data, this.tube.proof, this.getTubeVkData());
+    const tubeData = new PublicTubeData(
+      this.processedTx.data.toPrivateToPublicKernelCircuitPublicInputs(),
+      this.tube.proof,
+      this.#getTubeVkData(),
+    );
 
     const avmProofData = new AvmProofData(
-      VMCircuitPublicInputs.empty(), // TODO
+      this.processedTx.avmProvingRequest.inputs.output,
       this.avm.proof,
-      this.getAvmVkData(),
+      this.#getAvmVkData(),
     );
+
+    if (!(this.baseRollupHints instanceof PublicBaseRollupHints)) {
+      throw new Error('Mismatched base rollup hints, expected public base rollup hints');
+    }
 
     return new PublicBaseRollupInputs(tubeData, avmProofData, this.baseRollupHints);
   }
 
-  public assignTubeProof(tubeProofAndVk: ProofAndVerificationKey<RecursiveProof<typeof TUBE_PROOF_LENGTH>>) {
-    this.tube = tubeProofAndVk;
-  }
-
-  public assignAvmProof(avmProofAndVk: ProofAndVerificationKey<RecursiveProof<typeof AVM_PROOF_LENGTH_IN_FIELDS>>) {
-    this.avm = avmProofAndVk;
-  }
-
-  public verifyStateOrReject(): string | undefined {
-    const kernelPublicInputs = this.processedTx.data;
-
-    const txNoteEncryptedLogs = EncryptedNoteTxL2Logs.hashNoteLogs(
-      kernelPublicInputs.end.noteEncryptedLogsHashes.filter(log => !log.isEmpty()).map(log => log.value.toBuffer()),
-    );
-    if (!txNoteEncryptedLogs.equals(this.processedTx.noteEncryptedLogs.hash())) {
-      return `Note encrypted logs hash mismatch: ${Fr.fromBuffer(txNoteEncryptedLogs)} === ${Fr.fromBuffer(
-        this.processedTx.noteEncryptedLogs.hash(),
-      )}`;
-    }
-
-    const txEncryptedLogs = EncryptedTxL2Logs.hashSiloedLogs(
-      kernelPublicInputs.end.encryptedLogsHashes.filter(log => !log.isEmpty()).map(log => log.getSiloedHash()),
-    );
-    if (!txEncryptedLogs.equals(this.processedTx.encryptedLogs.hash())) {
-      // @todo This rejection messages is never seen. Never making it out to the logs
-      return `Encrypted logs hash mismatch: ${Fr.fromBuffer(txEncryptedLogs)} === ${Fr.fromBuffer(
-        this.processedTx.encryptedLogs.hash(),
-      )}`;
-    }
-
-    const txUnencryptedLogs = UnencryptedTxL2Logs.hashSiloedLogs(
-      kernelPublicInputs.end.unencryptedLogsHashes.filter(log => !log.isEmpty()).map(log => log.getSiloedHash()),
-    );
-    if (!txUnencryptedLogs.equals(this.processedTx.unencryptedLogs.hash())) {
-      return `Unencrypted logs hash mismatch: ${Fr.fromBuffer(txUnencryptedLogs)} === ${Fr.fromBuffer(
-        this.processedTx.unencryptedLogs.hash(),
-      )}`;
-    }
-  }
-
-  private getTubeVkData() {
+  #getTubeVkData() {
     let vkIndex = TUBE_VK_INDEX;
     try {
       vkIndex = getVKIndex(this.tube!.verificationKey);
@@ -149,7 +134,7 @@ export class TxProvingState {
     return new VkWitnessData(this.tube!.verificationKey, vkIndex, vkPath);
   }
 
-  private getAvmVkData() {
+  #getAvmVkData() {
     const vkIndex = AVM_VK_INDEX;
     const vkPath = getVKSiblingPath(vkIndex);
     return new VkWitnessData(this.avm!.verificationKey, AVM_VK_INDEX, vkPath);

@@ -19,8 +19,8 @@ class GoblinRecursiveVerifierTests : public testing::Test {
 
     static void SetUpTestSuite()
     {
-        bb::srs::init_crs_factory("../srs_db/ignition");
-        bb::srs::init_grumpkin_crs_factory("../srs_db/grumpkin");
+        bb::srs::init_crs_factory(bb::srs::get_ignition_crs_path());
+        bb::srs::init_grumpkin_crs_factory(bb::srs::get_grumpkin_crs_path());
     }
 
     static MegaCircuitBuilder construct_mock_circuit(std::shared_ptr<ECCOpQueue> op_queue)
@@ -112,8 +112,8 @@ TEST_F(GoblinRecursiveVerifierTests, ECCVMFailure)
     auto [proof, verifier_input] = create_goblin_prover_output();
 
     // Tamper with the ECCVM proof
-    for (auto& val : proof.eccvm_proof) {
-        if (val > 0) { // tamper by finding the tenth non-zero value and incrementing it by 1
+    for (auto& val : proof.eccvm_proof.pre_ipa_proof) {
+        if (val > 0) { // tamper by finding the first non-zero value and incrementing it by 1
             // tamper by finding the first non-zero value
             // and incrementing it by 1
             val += 1;
@@ -123,8 +123,18 @@ TEST_F(GoblinRecursiveVerifierTests, ECCVMFailure)
 
     Builder builder;
     GoblinRecursiveVerifier verifier{ &builder, verifier_input };
+    GoblinRecursiveVerifierOutput goblin_rec_verifier_output = verifier.verify(proof);
 
-    EXPECT_DEBUG_DEATH(verifier.verify(proof), "(sumcheck_verified && batched_opening_verified)");
+    auto crs_factory = std::make_shared<srs::factories::FileCrsFactory<curve::Grumpkin>>(
+        bb::srs::get_grumpkin_crs_path(), 1 << CONST_ECCVM_LOG_N);
+    auto grumpkin_verifier_commitment_key =
+        std::make_shared<VerifierCommitmentKey<curve::Grumpkin>>(1 << CONST_ECCVM_LOG_N, crs_factory);
+    OpeningClaim<curve::Grumpkin> native_claim = goblin_rec_verifier_output.opening_claim.get_native_opening_claim();
+    auto native_ipa_transcript = std::make_shared<NativeTranscript>(
+        convert_stdlib_proof_to_native(goblin_rec_verifier_output.ipa_transcript->proof_data));
+
+    EXPECT_FALSE(
+        IPA<curve::Grumpkin>::reduce_verify(grumpkin_verifier_commitment_key, native_claim, native_ipa_transcript));
 }
 
 /**

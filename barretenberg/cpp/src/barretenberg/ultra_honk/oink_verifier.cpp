@@ -1,5 +1,11 @@
 #include "barretenberg/ultra_honk/oink_verifier.hpp"
 #include "barretenberg/common/throw_or_abort.hpp"
+#include "barretenberg/stdlib_circuit_builders/mega_zk_flavor.hpp"
+#include "barretenberg/stdlib_circuit_builders/ultra_flavor.hpp"
+#include "barretenberg/stdlib_circuit_builders/ultra_keccak_flavor.hpp"
+#include "barretenberg/stdlib_circuit_builders/ultra_keccak_zk_flavor.hpp"
+#include "barretenberg/stdlib_circuit_builders/ultra_rollup_flavor.hpp"
+#include "barretenberg/stdlib_circuit_builders/ultra_zk_flavor.hpp"
 
 namespace bb {
 
@@ -67,7 +73,7 @@ template <IsUltraFlavor Flavor> void OinkVerifier<Flavor>::execute_wire_commitme
     witness_comms.w_o = transcript->template receive_from_prover<Commitment>(domain_separator + comm_labels.w_o);
 
     // If Goblin, get commitments to ECC op wire polynomials and DataBus columns
-    if constexpr (IsGoblinFlavor<Flavor>) {
+    if constexpr (IsMegaFlavor<Flavor>) {
         // Receive ECC op wire commitments
         for (auto [commitment, label] : zip_view(witness_comms.get_ecc_op_wires(), comm_labels.get_ecc_op_wires())) {
             commitment = transcript->template receive_from_prover<Commitment>(domain_separator + label);
@@ -103,7 +109,7 @@ template <IsUltraFlavor Flavor> void OinkVerifier<Flavor>::execute_sorted_list_a
 }
 
 /**
- * @brief Get log derivative inverse polynomial and its commitment, if GoblinFlavor
+ * @brief Get log derivative inverse polynomial and its commitment, if MegaFlavor
  *
  */
 template <IsUltraFlavor Flavor> void OinkVerifier<Flavor>::execute_log_derivative_inverse_round()
@@ -117,7 +123,7 @@ template <IsUltraFlavor Flavor> void OinkVerifier<Flavor>::execute_log_derivativ
         transcript->template receive_from_prover<Commitment>(domain_separator + comm_labels.lookup_inverses);
 
     // If Goblin (i.e. using DataBus) receive commitments to log-deriv inverses polynomials
-    if constexpr (IsGoblinFlavor<Flavor>) {
+    if constexpr (IsMegaFlavor<Flavor>) {
         for (auto [commitment, label] :
              zip_view(witness_comms.get_databus_inverses(), comm_labels.get_databus_inverses())) {
             commitment = transcript->template receive_from_prover<Commitment>(domain_separator + label);
@@ -156,8 +162,12 @@ template <IsUltraFlavor Flavor> typename Flavor::RelationSeparator OinkVerifier<
 }
 
 template class OinkVerifier<UltraFlavor>;
+template class OinkVerifier<UltraZKFlavor>;
 template class OinkVerifier<UltraKeccakFlavor>;
 template class OinkVerifier<UltraStarknetFlavor>;
+template class OinkVerifier<UltraKeccakZKFlavor>;
+template class OinkVerifier<UltraRollupFlavor>;
 template class OinkVerifier<MegaFlavor>;
+template class OinkVerifier<MegaZKFlavor>;
 
 } // namespace bb

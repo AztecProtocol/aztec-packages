@@ -52,7 +52,7 @@ MemBn254CrsFactory::MemBn254CrsFactory(std::vector<g1::affine_element> const& po
 
     verifier_crs_ = std::make_shared<MemVerifierCrs>(g2_point, g1_identity);
 
-    vinfo("Initializing ",
+    vinfo("Initialized ",
           curve::BN254::name,
           " prover CRS from memory with num points = ",
           prover_crs_->get_monomial_size());

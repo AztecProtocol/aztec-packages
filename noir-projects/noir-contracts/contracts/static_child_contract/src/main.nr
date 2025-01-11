@@ -7,7 +7,6 @@ contract StaticChild {
 
     use dep::aztec::{
         encrypted_logs::encrypted_note_emission::encode_and_encrypt_note,
-        keys::getters::get_public_keys,
         macros::{functions::{private, public, view}, storage::storage},
         note::note_getter_options::NoteGetterOptions,
         utils::comparison::Comparator,
@@ -46,30 +45,23 @@ contract StaticChild {
     #[view]
     fn private_illegal_set_value(new_value: Field, owner: AztecAddress) -> Field {
         let mut note = ValueNote::new(new_value, owner);
-
-        let msg_sender_ovpk_m = get_public_keys(context.msg_sender()).ovpk_m;
         storage.a_private_value.insert(&mut note).emit(encode_and_encrypt_note(
             &mut context,
-            msg_sender_ovpk_m,
             owner,
+            context.msg_sender(),
         ));
         new_value
     }
 
     // Modify a note
     #[private]
-    fn private_set_value(
-        new_value: Field,
-        owner: AztecAddress,
-        outgoing_viewer: AztecAddress,
-    ) -> Field {
+    fn private_set_value(new_value: Field, owner: AztecAddress, sender: AztecAddress) -> Field {
         let mut note = ValueNote::new(new_value, owner);
 
-        let outgoing_viewer_ovpk_m = get_public_keys(outgoing_viewer).ovpk_m;
         storage.a_private_value.insert(&mut note).emit(encode_and_encrypt_note(
             &mut context,
-            outgoing_viewer_ovpk_m,
             owner,
+            sender,
         ));
         new_value
     }

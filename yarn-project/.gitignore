@@ -17,6 +17,7 @@ aztec-faucet/data*
 aztec-node/data*
 aztec/log
 circuits.js/fixtures/*.json
+circuit-types/src/test/artifacts
 docs/dist
 end-to-end/addresses.json
 end-to-end/flame_graph
@@ -27,9 +28,6 @@ end-to-end/src/web/main.js.LICENSE.txt
 l1-artifacts/generated
 l1-contracts/generated
 builder/target/
-builder/proofs/
-builder/Prover.toml
-builder/Verifier.toml
 builder/noir-protocol-circuits-types/.gitignore wow
 builder/proofs/
 builder/Prover.toml
@@ -39,10 +37,14 @@ builder/src/crs
 builder/src/types
 noir-protocol-circuits-types/artifacts
 noir-protocol-circuits-types/src/private_kernel_reset_data.ts
+noir-protocol-circuits-types/src/private_kernel_reset_vks.ts
+noir-protocol-circuits-types/src/private_kernel_reset_types.ts
+noir-protocol-circuits-types/src/client_artifacts_helper.ts
 noir-protocol-circuits-types/src/types/
 ivc-integration/artifacts
 ivc-integration/src/types/
 protocol-contracts/artifacts
+protocol-contracts/src/protocol_contract_data.ts
 scripts/tmp
 noir-contracts.js/src
 noir-contracts.js/artifacts/

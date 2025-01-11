@@ -4,6 +4,7 @@ import { type AztecAddress } from '@aztec/foundation/aztec-address';
 import { sha256ToField } from '@aztec/foundation/crypto';
 import { Fr } from '@aztec/foundation/fields';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
+import { bufferToHex } from '@aztec/foundation/string';
 
 import { type AztecNode } from '../interfaces/aztec-node.js';
 import { MerkleTreeId } from '../merkle_tree_id.js';
@@ -16,22 +17,16 @@ import { L2Actor } from './l2_actor.js';
  */
 export class L1ToL2Message {
   constructor(
-    /**
-     * The sender of the message on L1.
-     */
+    /** The sender of the message on L1. */
     public readonly sender: L1Actor,
-    /**
-     * The recipient of the message on L2.
-     */
+    /** The recipient of the message on L2. */
     public readonly recipient: L2Actor,
-    /**
-     * The message content.
-     */
+    /** The message content. */
     public readonly content: Fr,
-    /**
-     * The hash of the spending secret.
-     */
+    /** The hash of the spending secret. */
     public readonly secretHash: Fr,
+    /** Global index of this message on the tree. */
+    public readonly index: Fr,
   ) {}
 
   /**
@@ -39,11 +34,11 @@ export class L1ToL2Message {
    * @returns The message as an array of fields (in order).
    */
   toFields(): Fr[] {
-    return [...this.sender.toFields(), ...this.recipient.toFields(), this.content, this.secretHash];
+    return [...this.sender.toFields(), ...this.recipient.toFields(), this.content, this.secretHash, this.index];
   }
 
   toBuffer(): Buffer {
-    return serializeToBuffer(this.sender, this.recipient, this.content, this.secretHash);
+    return serializeToBuffer(this.sender, this.recipient, this.content, this.secretHash, this.index);
   }
 
   hash(): Fr {
@@ -56,11 +51,12 @@ export class L1ToL2Message {
     const recipient = reader.readObject(L2Actor);
     const content = Fr.fromBuffer(reader);
     const secretHash = Fr.fromBuffer(reader);
-    return new L1ToL2Message(sender, recipient, content, secretHash);
+    const index = Fr.fromBuffer(reader);
+    return new L1ToL2Message(sender, recipient, content, secretHash, index);
   }
 
   toString(): string {
-    return this.toBuffer().toString('hex');
+    return bufferToHex(this.toBuffer());
   }
 
   static fromString(data: string): L1ToL2Message {
@@ -69,11 +65,11 @@ export class L1ToL2Message {
   }
 
   static empty(): L1ToL2Message {
-    return new L1ToL2Message(L1Actor.empty(), L2Actor.empty(), Fr.ZERO, Fr.ZERO);
+    return new L1ToL2Message(L1Actor.empty(), L2Actor.empty(), Fr.ZERO, Fr.ZERO, Fr.ZERO);
   }
 
   static random(): L1ToL2Message {
-    return new L1ToL2Message(L1Actor.random(), L2Actor.random(), Fr.random(), Fr.random());
+    return new L1ToL2Message(L1Actor.random(), L2Actor.random(), Fr.random(), Fr.random(), Fr.random());
   }
 }
 
@@ -84,26 +80,18 @@ export async function getNonNullifiedL1ToL2MessageWitness(
   messageHash: Fr,
   secret: Fr,
 ): Promise<[bigint, SiblingPath<typeof L1_TO_L2_MSG_TREE_HEIGHT>]> {
-  let nullifierIndex: bigint | undefined;
-  let messageIndex = 0n;
-  let startIndex = 0n;
-  let siblingPath: SiblingPath<typeof L1_TO_L2_MSG_TREE_HEIGHT>;
+  const response = await node.getL1ToL2MessageMembershipWitness('latest', messageHash);
+  if (!response) {
+    throw new Error(`No L1 to L2 message found for message hash ${messageHash.toString()}`);
+  }
+  const [messageIndex, siblingPath] = response;
 
-  // We iterate over messages until we find one whose nullifier is not in the nullifier tree --> we need to check
-  // for nullifiers because messages can have duplicates.
-  do {
-    const response = await node.getL1ToL2MessageMembershipWitness('latest', messageHash, startIndex);
-    if (!response) {
-      throw new Error(`No non-nullified L1 to L2 message found for message hash ${messageHash.toString()}`);
-    }
-    [messageIndex, siblingPath] = response;
+  const messageNullifier = computeL1ToL2MessageNullifier(contractAddress, messageHash, secret);
 
-    const messageNullifier = computeL1ToL2MessageNullifier(contractAddress, messageHash, secret, messageIndex);
-
-    nullifierIndex = await node.findLeafIndex('latest', MerkleTreeId.NULLIFIER_TREE, messageNullifier);
-
-    startIndex = messageIndex + 1n;
-  } while (nullifierIndex !== undefined);
+  const [nullifierIndex] = await node.findLeavesIndexes('latest', MerkleTreeId.NULLIFIER_TREE, [messageNullifier]);
+  if (nullifierIndex !== undefined) {
+    throw new Error(`No non-nullified L1 to L2 message found for message hash ${messageHash.toString()}`);
+  }
 
   return [messageIndex, siblingPath];
 }

@@ -7,7 +7,7 @@ import {
   getFunctionDebugMetadata,
 } from '@aztec/foundation/abi';
 import { type Fr } from '@aztec/foundation/fields';
-import { ContractClassNotFoundError, ContractNotFoundError } from '@aztec/simulator';
+import { ContractClassNotFoundError, ContractNotFoundError } from '@aztec/simulator/client';
 
 import { type ContractArtifactDatabase } from '../database/contracts/contract_artifact_db.js';
 import { type ContractInstanceDatabase } from '../database/contracts/contract_instance_db.js';
@@ -128,6 +128,11 @@ export class ContractDataOracle {
   public async getFunctionMembershipWitness(contractAddress: AztecAddress, selector: FunctionSelector) {
     const tree = await this.getTreeForAddress(contractAddress);
     return tree.getFunctionMembershipWitness(selector);
+  }
+
+  public async getDebugContractName(contractAddress: AztecAddress) {
+    const tree = await this.getTreeForAddress(contractAddress);
+    return tree.getArtifact().name;
   }
 
   public async getDebugFunctionName(contractAddress: AztecAddress, selector: FunctionSelector) {

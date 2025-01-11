@@ -1,31 +1,29 @@
 #!/usr/bin/env -S node --no-warnings
-import { createDebugLogger } from '@aztec/aztec.js';
-import { createStatusRouter } from '@aztec/foundation/json-rpc/server';
-
-import http from 'http';
+import { createLogger } from '@aztec/aztec.js';
+import { startHttpRpcServer } from '@aztec/foundation/json-rpc/server';
 
 import { createTXERpcServer } from '../index.js';
 
 /**
  * Create and start a new TXE HTTP Server
  */
-function main() {
+async function main() {
   const { TXE_PORT = 8080 } = process.env;
 
-  const logger = createDebugLogger('aztec:txe_service');
+  const logger = createLogger('txe:service');
   logger.info(`Setting up TXE...`);
 
   const txeServer = createTXERpcServer(logger);
-  const app = txeServer.getApp();
-  // add status route
-  const statusRouter = createStatusRouter();
-  app.use(statusRouter.routes()).use(statusRouter.allowedMethods());
+  const { port } = await startHttpRpcServer(txeServer, {
+    port: TXE_PORT,
+    timeoutMs: 1e3 * 60 * 5,
+  });
 
-  const httpServer = http.createServer(app.callback());
-  httpServer.timeout = 1e3 * 60 * 5; // 5 minutes
-  httpServer.listen(TXE_PORT);
-
-  logger.info(`TXE listening on port ${TXE_PORT}`);
+  logger.info(`TXE listening on port ${port}`);
 }
 
-main();
+main().catch(err => {
+  // eslint-disable-next-line no-console
+  console.error(err);
+  process.exit(1);
+});

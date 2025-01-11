@@ -11,7 +11,6 @@
  *
  *        To run the Setup run with the `AZTEC_GENERATE_TEST_DATA=1` flag. Without
  *        this flag, we will run in execution.
- *
  *        There is functionality to store the `stats` of a sync, but currently we
  *        will simply be writing it to the log instead.
  *
@@ -36,24 +35,26 @@ import { getSchnorrAccount } from '@aztec/accounts/schnorr';
 import { createArchiver } from '@aztec/archiver';
 import { AztecNodeService } from '@aztec/aztec-node';
 import {
-  type AccountWallet,
   type AccountWalletWithSecretKey,
   AnvilTestWatcher,
   BatchCall,
   type Contract,
-  type DebugLogger,
   Fr,
   GrumpkinScalar,
-  computeSecretHash,
-  createDebugLogger,
+  type Logger,
+  createLogger,
   sleep,
 } from '@aztec/aztec.js';
+import { createBlobSinkClient } from '@aztec/blob-sink/client';
 // eslint-disable-next-line no-restricted-imports
-import { ExtendedNote, L2Block, LogType, Note, type TxHash } from '@aztec/circuit-types';
-import { type AztecAddress, ETHEREUM_SLOT_DURATION } from '@aztec/circuits.js';
+import { L2Block, tryStop } from '@aztec/circuit-types';
+import { type AztecAddress } from '@aztec/circuits.js';
+import { getL1ContractsConfigEnvVars } from '@aztec/ethereum';
 import { Timer } from '@aztec/foundation/timer';
 import { RollupAbi } from '@aztec/l1-artifacts';
-import { SchnorrHardcodedAccountContract, SpamContract, TokenContract } from '@aztec/noir-contracts.js';
+import { SchnorrHardcodedAccountContract } from '@aztec/noir-contracts.js/SchnorrHardcodedAccount';
+import { SpamContract } from '@aztec/noir-contracts.js/Spam';
+import { TokenContract } from '@aztec/noir-contracts.js/Token';
 import { type PXEService } from '@aztec/pxe';
 import { L1Publisher } from '@aztec/sequencer-client';
 import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
@@ -63,13 +64,14 @@ import * as fs from 'fs';
 import { getContract } from 'viem';
 
 import { addAccounts } from './fixtures/snapshot_manager.js';
+import { mintTokensToPrivate } from './fixtures/token_utils.js';
 import { type EndToEndContext, getPrivateKeyFromIndex, setup, setupPXEService } from './fixtures/utils.js';
 
 const SALT = 420;
 const AZTEC_GENERATE_TEST_DATA = !!process.env.AZTEC_GENERATE_TEST_DATA;
 const START_TIME = 1893456000; // 2030 01 01 00 00
 const RUN_THE_BIG_ONE = !!process.env.RUN_THE_BIG_ONE;
-
+const ETHEREUM_SLOT_DURATION = getL1ContractsConfigEnvVars().ethereumSlotDuration;
 const MINT_AMOUNT = 1000n;
 
 enum TxComplexity {
@@ -97,7 +99,7 @@ type VariantDefinition = {
  *
  */
 class TestVariant {
-  private logger: DebugLogger = createDebugLogger(`test_variant`);
+  private logger: Logger = createLogger(`test_variant`);
   private pxe!: PXEService;
   private token!: TokenContract;
   private spam!: SpamContract;
@@ -172,65 +174,15 @@ class TestVariant {
     if (this.txComplexity == TxComplexity.PublicTransfer) {
       await Promise.all(
         this.wallets.map(w =>
-          this.token.methods.mint_public(w.getAddress(), MINT_AMOUNT).send().wait({ timeout: 600 }),
+          this.token.methods.mint_to_public(w.getAddress(), MINT_AMOUNT).send().wait({ timeout: 600 }),
         ),
       );
     }
 
     // Mint tokens privately if needed
     if (this.txComplexity == TxComplexity.PrivateTransfer) {
-      const secrets: Fr[] = this.wallets.map(() => Fr.random());
-
-      const txs = await Promise.all(
-        this.wallets.map((w, i) =>
-          this.token.methods.mint_private(MINT_AMOUNT, computeSecretHash(secrets[i])).send().wait({ timeout: 600 }),
-        ),
-      );
-
-      // We minted all of them and wait. Now we add them all. Do we need to wait for that to have happened?
-      await Promise.all(
-        this.wallets.map((wallet, i) =>
-          this.addPendingShieldNoteToPXE({
-            amount: MINT_AMOUNT,
-            secretHash: computeSecretHash(secrets[i]),
-            txHash: txs[i].txHash,
-            accountAddress: wallet.getAddress(),
-            assetAddress: this.token.address,
-            wallet: wallet,
-          }),
-        ),
-      );
-
-      await Promise.all(
-        this.wallets.map(async (w, i) =>
-          (await TokenContract.at(this.token.address, w)).methods
-            .redeem_shield(w.getAddress(), MINT_AMOUNT, secrets[i])
-            .send()
-            .wait({ timeout: 600 }),
-        ),
-      );
+      await Promise.all(this.wallets.map((w, _) => mintTokensToPrivate(this.token, w, w.getAddress(), MINT_AMOUNT)));
     }
-  }
-
-  private async addPendingShieldNoteToPXE(args: {
-    amount: bigint;
-    secretHash: Fr;
-    txHash: TxHash;
-    accountAddress: AztecAddress;
-    assetAddress: AztecAddress;
-    wallet: AccountWallet;
-  }) {
-    const { accountAddress, assetAddress, amount, secretHash, txHash, wallet } = args;
-    const note = new Note([new Fr(amount), secretHash]);
-    const extendedNote = new ExtendedNote(
-      note,
-      accountAddress,
-      assetAddress,
-      TokenContract.storage.pending_shields.slot,
-      TokenContract.notes.TransparentNote.id,
-      txHash,
-    );
-    await wallet.addNote(extendedNote);
   }
 
   async createAndSendTxs() {
@@ -269,7 +221,7 @@ class TestVariant {
         const sender = this.wallets[i].getAddress();
         const recipient = this.wallets[(i + 1) % this.txCount].getAddress();
         const tk = await TokenContract.at(this.token.address, this.wallets[i]);
-        txs.push(tk.methods.transfer_public(sender, recipient, 1n, 0).send());
+        txs.push(tk.methods.transfer_in_public(sender, recipient, 1n, 0).send());
       }
       return txs;
     } else if (this.txComplexity == TxComplexity.Spam) {
@@ -409,17 +361,29 @@ describe('e2e_synching', () => {
       return;
     }
 
-    const { teardown, logger, deployL1ContractsValues, config, cheatCodes, aztecNode, sequencer, watcher, pxe } =
-      await setup(0, {
-        salt: SALT,
-        l1StartTime: START_TIME,
-        skipProtocolContracts: true,
-        assumeProvenThrough,
-      });
+    const {
+      teardown,
+      logger,
+      deployL1ContractsValues,
+      config,
+      cheatCodes,
+      aztecNode,
+      sequencer,
+      watcher,
+      pxe,
+      blobSink,
+    } = await setup(0, {
+      salt: SALT,
+      l1StartTime: START_TIME,
+      skipProtocolContracts: true,
+      assumeProvenThrough,
+    });
 
     await (aztecNode as any).stop();
     await (sequencer as any).stop();
     await watcher?.stop();
+
+    const blobSinkClient = createBlobSinkClient(`http://localhost:${blobSink?.port ?? 5052}`);
 
     const sequencerPK: `0x${string}` = `0x${getPrivateKeyFromIndex(0)!.toString('hex')}`;
     const publisher = new L1Publisher(
@@ -431,8 +395,10 @@ describe('e2e_synching', () => {
         l1PublishRetryIntervalMS: 100,
         l1ChainId: 31337,
         viemPollingIntervalMS: 100,
+        ethereumSlotDuration: ETHEREUM_SLOT_DURATION,
+        blobSinkUrl: `http://localhost:${blobSink?.port ?? 5052}`,
       },
-      new NoopTelemetryClient(),
+      { telemetry: new NoopTelemetryClient(), blobSinkClient },
     );
 
     const blocks = variant.loadBlocks();
@@ -468,10 +434,7 @@ describe('e2e_synching', () => {
           async (opts: Partial<EndToEndContext>, variant: TestVariant) => {
             // All the blocks have been "re-played" and we are now to simply get a new node up to speed
             const timer = new Timer();
-            const freshNode = await AztecNodeService.createAndSync(
-              { ...opts.config!, disableValidator: true },
-              new NoopTelemetryClient(),
-            );
+            const freshNode = await AztecNodeService.createAndSync({ ...opts.config!, disableValidator: true });
             const syncTime = timer.s();
 
             const blockNumber = await freshNode.getBlockNumber();
@@ -517,7 +480,7 @@ describe('e2e_synching', () => {
             );
             await watcher.start();
 
-            const aztecNode = await AztecNodeService.createAndSync(opts.config!, new NoopTelemetryClient());
+            const aztecNode = await AztecNodeService.createAndSync(opts.config!);
             const sequencer = aztecNode.getSequencer();
 
             const { pxe } = await setupPXEService(aztecNode!);
@@ -538,7 +501,10 @@ describe('e2e_synching', () => {
             await aztecNode.stop();
           }
 
-          const archiver = await createArchiver(opts.config!);
+          const blobSinkClient = createBlobSinkClient(`http://localhost:${opts.blobSink?.port ?? 5052}`);
+          const archiver = await createArchiver(opts.config!, blobSinkClient, new NoopTelemetryClient(), {
+            blockUntilSync: true,
+          });
           const pendingBlockNumber = await rollup.read.getPendingBlockNumber();
 
           const worldState = await createWorldStateSynchronizer(opts.config!, archiver, new NoopTelemetryClient());
@@ -550,8 +516,8 @@ describe('e2e_synching', () => {
           await rollup.write.setAssumeProvenThroughBlockNumber([assumeProvenThrough]);
 
           const timeliness = (await rollup.read.EPOCH_DURATION()) * 2n;
-          const [, , slot] = await rollup.read.blocks([(await rollup.read.getProvenBlockNumber()) + 1n]);
-          const timeJumpTo = await rollup.read.getTimestampForSlot([slot + timeliness]);
+          const blockLog = await rollup.read.getBlock([(await rollup.read.getProvenBlockNumber()) + 1n]);
+          const timeJumpTo = await rollup.read.getTimestampForSlot([blockLog.slotNumber + timeliness]);
 
           await opts.cheatCodes!.eth.warp(Number(timeJumpTo));
 
@@ -566,9 +532,10 @@ describe('e2e_synching', () => {
           });
 
           expect(await archiver.getTxEffect(txHash)).not.toBeUndefined;
-          [LogType.NOTEENCRYPTED, LogType.ENCRYPTED, LogType.UNENCRYPTED].forEach(async t => {
-            expect(await archiver.getLogs(blockTip.number, 1, t)).not.toEqual([]);
-          });
+          expect(await archiver.getPrivateLogs(blockTip.number, 1)).not.toEqual([]);
+          expect(
+            await archiver.getUnencryptedLogs({ fromBlock: blockTip.number, toBlock: blockTip.number + 1 }),
+          ).not.toEqual([]);
 
           await rollup.write.prune();
 
@@ -590,9 +557,10 @@ describe('e2e_synching', () => {
           );
 
           expect(await archiver.getTxEffect(txHash)).toBeUndefined;
-          [LogType.NOTEENCRYPTED, LogType.ENCRYPTED, LogType.UNENCRYPTED].forEach(async t => {
-            expect(await archiver.getLogs(blockTip.number, 1, t)).toEqual([]);
-          });
+          expect(await archiver.getPrivateLogs(blockTip.number, 1)).toEqual([]);
+          expect(
+            await archiver.getUnencryptedLogs({ fromBlock: blockTip.number, toBlock: blockTip.number + 1 }),
+          ).toEqual([]);
 
           // Check world state reverted as well
           expect(await worldState.getLatestBlockNumber()).toEqual(Number(assumeProvenThrough));
@@ -602,7 +570,7 @@ describe('e2e_synching', () => {
             .then(b => b?.hash());
           expect(worldStateLatestBlockHash).toEqual(archiverLatestBlockHash?.toString());
 
-          await archiver.stop();
+          await tryStop(archiver);
           await worldState.stop();
         },
         ASSUME_PROVEN_THROUGH,
@@ -628,14 +596,14 @@ describe('e2e_synching', () => {
           const pendingBlockNumber = await rollup.read.getPendingBlockNumber();
           await rollup.write.setAssumeProvenThroughBlockNumber([pendingBlockNumber - BigInt(variant.blockCount) / 2n]);
 
-          const aztecNode = await AztecNodeService.createAndSync(opts.config!, new NoopTelemetryClient());
+          const aztecNode = await AztecNodeService.createAndSync(opts.config!);
           const sequencer = aztecNode.getSequencer();
 
           const blockBeforePrune = await aztecNode.getBlockNumber();
 
           const timeliness = (await rollup.read.EPOCH_DURATION()) * 2n;
-          const [, , slot] = await rollup.read.blocks([(await rollup.read.getProvenBlockNumber()) + 1n]);
-          const timeJumpTo = await rollup.read.getTimestampForSlot([slot + timeliness]);
+          const blockLog = await rollup.read.getBlock([(await rollup.read.getProvenBlockNumber()) + 1n]);
+          const timeJumpTo = await rollup.read.getTimestampForSlot([blockLog.slotNumber + timeliness]);
 
           await opts.cheatCodes!.eth.warp(Number(timeJumpTo));
 
@@ -694,8 +662,8 @@ describe('e2e_synching', () => {
           await rollup.write.setAssumeProvenThroughBlockNumber([pendingBlockNumber - BigInt(variant.blockCount) / 2n]);
 
           const timeliness = (await rollup.read.EPOCH_DURATION()) * 2n;
-          const [, , slot] = await rollup.read.blocks([(await rollup.read.getProvenBlockNumber()) + 1n]);
-          const timeJumpTo = await rollup.read.getTimestampForSlot([slot + timeliness]);
+          const blockLog = await rollup.read.getBlock([(await rollup.read.getProvenBlockNumber()) + 1n]);
+          const timeJumpTo = await rollup.read.getTimestampForSlot([blockLog.slotNumber + timeliness]);
 
           await opts.cheatCodes!.eth.warp(Number(timeJumpTo));
 
@@ -709,7 +677,7 @@ describe('e2e_synching', () => {
           await watcher.start();
 
           // The sync here could likely be avoided by using the node we just synched.
-          const aztecNode = await AztecNodeService.createAndSync(opts.config!, new NoopTelemetryClient());
+          const aztecNode = await AztecNodeService.createAndSync(opts.config!);
           const sequencer = aztecNode.getSequencer();
 
           const { pxe } = await setupPXEService(aztecNode!);

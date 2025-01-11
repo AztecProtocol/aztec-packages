@@ -1,4 +1,5 @@
-import { createDebugLogger } from '../log/index.js';
+import { TimeoutError } from '../error/index.js';
+import { createLogger } from '../log/index.js';
 import { sleep } from '../sleep/index.js';
 import { Timer } from '../timer/index.js';
 
@@ -48,7 +49,7 @@ export async function retry<Result>(
   fn: () => Promise<Result>,
   name = 'Operation',
   backoff = backoffGenerator(),
-  log = createDebugLogger('aztec:foundation:retry'),
+  log = createLogger('foundation:retry'),
   failSilently = false,
 ) {
   while (true) {
@@ -64,7 +65,7 @@ export async function retry<Result>(
         throw err;
       }
       log.verbose(`${name} failed. Will retry in ${s}s...`);
-      !failSilently && log.error(err);
+      !failSilently && log.error(`Error while retrying ${name}`, err);
       await sleep(s * 1000);
       continue;
     }
@@ -93,7 +94,7 @@ export async function retryUntil<T>(fn: () => Promise<T | undefined>, name = '',
     await sleep(interval * 1000);
 
     if (timeout && timer.s() > timeout) {
-      throw new Error(name ? `Timeout awaiting ${name}` : 'Timeout');
+      throw new TimeoutError(name ? `Timeout awaiting ${name}` : 'Timeout');
     }
   }
 }

@@ -2,16 +2,15 @@
 // Copyright 2024 Aztec Labs.
 pragma solidity >=0.8.27;
 
-import {IERC20} from "@oz/token/ERC20/IERC20.sol";
 import {IFeeJuicePortal} from "@aztec/core/interfaces/IFeeJuicePortal.sol";
-import {IInbox} from "@aztec/core/interfaces/messagebridge/IInbox.sol";
-import {IRegistry} from "@aztec/governance/interfaces/IRegistry.sol";
 import {IRollup} from "@aztec/core/interfaces/IRollup.sol";
-
+import {IInbox} from "@aztec/core/interfaces/messagebridge/IInbox.sol";
 import {Constants} from "@aztec/core/libraries/ConstantsGen.sol";
+import {Hash} from "@aztec/core/libraries/crypto/Hash.sol";
 import {DataStructures} from "@aztec/core/libraries/DataStructures.sol";
 import {Errors} from "@aztec/core/libraries/Errors.sol";
-import {Hash} from "@aztec/core/libraries/crypto/Hash.sol";
+import {IRegistry} from "@aztec/governance/interfaces/IRegistry.sol";
+import {IERC20} from "@oz/token/ERC20/IERC20.sol";
 import {SafeERC20} from "@oz/token/ERC20/utils/SafeERC20.sol";
 
 contract FeeJuicePortal is IFeeJuicePortal {
@@ -59,12 +58,12 @@ contract FeeJuicePortal is IFeeJuicePortal {
    * @param _to - The aztec address of the recipient
    * @param _amount - The amount to deposit
    * @param _secretHash - The hash of the secret consumable message. The hash should be 254 bits (so it can fit in a Field element)
-   * @return - The key of the entry in the Inbox
+   * @return - The key of the entry in the Inbox and its leaf index
    */
   function depositToAztecPublic(bytes32 _to, uint256 _amount, bytes32 _secretHash)
     external
     override(IFeeJuicePortal)
-    returns (bytes32)
+    returns (bytes32, uint256)
   {
     // Preamble
     address rollup = canonicalRollup();
@@ -80,11 +79,11 @@ contract FeeJuicePortal is IFeeJuicePortal {
     UNDERLYING.safeTransferFrom(msg.sender, address(this), _amount);
 
     // Send message to rollup
-    bytes32 key = inbox.sendL2Message(actor, contentHash, _secretHash);
+    (bytes32 key, uint256 index) = inbox.sendL2Message(actor, contentHash, _secretHash);
 
-    emit DepositToAztecPublic(_to, _amount, _secretHash, key);
+    emit DepositToAztecPublic(_to, _amount, _secretHash, key, index);
 
-    return key;
+    return (key, index);
   }
 
   /**
@@ -104,7 +103,7 @@ contract FeeJuicePortal is IFeeJuicePortal {
     emit FeesDistributed(_to, _amount);
   }
 
-  function canonicalRollup() public view returns (address) {
+  function canonicalRollup() public view override(IFeeJuicePortal) returns (address) {
     return REGISTRY.getRollup();
   }
 }

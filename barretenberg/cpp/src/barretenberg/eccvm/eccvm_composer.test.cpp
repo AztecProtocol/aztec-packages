@@ -16,7 +16,7 @@ using namespace bb;
 
 class ECCVMTests : public ::testing::Test {
   protected:
-    void SetUp() override { srs::init_grumpkin_crs_factory("../srs_db/grumpkin"); };
+    void SetUp() override { srs::init_grumpkin_crs_factory(bb::srs::get_grumpkin_crs_path()); };
 };
 namespace {
 auto& engine = numeric::get_debug_randomness();
@@ -63,7 +63,7 @@ TEST_F(ECCVMTests, BaseCase)
 {
     ECCVMCircuitBuilder builder = generate_circuit(&engine);
     ECCVMProver prover(builder);
-    auto proof = prover.construct_proof();
+    ECCVMProof proof = prover.construct_proof();
     ECCVMVerifier verifier(prover.key);
     bool verified = verifier.verify_proof(proof);
 
@@ -79,7 +79,7 @@ TEST_F(ECCVMTests, EqFails)
     builder.op_queue->num_transcript_rows++;
     ECCVMProver prover(builder);
 
-    auto proof = prover.construct_proof();
+    ECCVMProof proof = prover.construct_proof();
     ECCVMVerifier verifier(prover.key);
     bool verified = verifier.verify_proof(proof);
     ASSERT_FALSE(verified);

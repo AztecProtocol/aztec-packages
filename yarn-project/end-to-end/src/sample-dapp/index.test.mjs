@@ -1,9 +1,12 @@
 import { createAccount } from '@aztec/accounts/testing';
-import { Contract, ExtendedNote, Fr, Note, computeSecretHash, createPXEClient, waitForPXE } from '@aztec/aztec.js';
-import { TokenContract, TokenContractArtifact } from '@aztec/noir-contracts.js/Token';
+import { createLogger, createPXEClient, waitForPXE } from '@aztec/aztec.js';
+
+import { deployToken } from '../fixtures/token_utils';
 
 const { PXE_URL = 'http://localhost:8080', ETHEREUM_HOST = 'http://localhost:8545' } = process.env;
 
+// Note: To run this test you need to spin up Aztec sandbox. Build the aztec image (or pull it with aztec-up if on
+// master) and then run this test as usual (yarn test src/sample-dapp/index.test.mjs).
 describe('token', () => {
   // docs:start:setup
   let owner, recipient, token;
@@ -14,26 +17,8 @@ describe('token', () => {
     owner = await createAccount(pxe);
     recipient = await createAccount(pxe);
 
-    token = await TokenContract.deploy(owner, owner.getAddress(), 'TokenName', 'TKN', 18).send().deployed();
-
     const initialBalance = 69;
-    const secret = Fr.random();
-    const secretHash = await computeSecretHash(secret);
-    const receipt = await token.methods.mint_private(initialBalance, secretHash).send().wait();
-
-    const note = new Note([new Fr(initialBalance), secretHash]);
-    const extendedNote = new ExtendedNote(
-      note,
-      owner.getAddress(),
-      token.address,
-      TokenContract.storage.pending_shields.slot,
-      TokenContract.notes.TransparentNote.id,
-      receipt.txHash,
-    );
-
-    await pxe.addNote(extendedNote, owner.getAddress());
-
-    await token.methods.redeem_shield(owner.getAddress(), initialBalance, secret).send().wait();
+    token = await deployToken(owner, initialBalance, createLogger('e2e:sample_dapp'));
   }, 120_000);
   // docs:end:setup
 

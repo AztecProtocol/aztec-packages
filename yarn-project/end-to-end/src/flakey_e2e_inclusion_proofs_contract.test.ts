@@ -9,8 +9,8 @@ import {
 } from '@aztec/aztec.js';
 import { deployInstance, registerContractClass } from '@aztec/aztec.js/deployment';
 import { randomInt } from '@aztec/foundation/crypto';
-import { StatefulTestContract, StatefulTestContractArtifact } from '@aztec/noir-contracts.js';
 import { InclusionProofsContract } from '@aztec/noir-contracts.js/InclusionProofs';
+import { StatefulTestContract, StatefulTestContractArtifact } from '@aztec/noir-contracts.js/StatefulTest';
 
 import { jest } from '@jest/globals';
 import { type MemDown, default as memdown } from 'memdown';
@@ -53,7 +53,7 @@ describe('e2e_inclusion_proofs_contract', () => {
     describe('proves note existence and its nullifier non-existence and nullifier non-existence failure case', () => {
       // Owner of a note
       let noteCreationBlockNumber: number;
-      let noteHashes, visibleIncomingNotes: ExtendedNote[];
+      let noteHashes, visibleNotes: ExtendedNote[];
       const value = 100n;
       let validNoteBlockNumber: any;
 
@@ -62,13 +62,16 @@ describe('e2e_inclusion_proofs_contract', () => {
         const receipt = await contract.methods.create_note(owner, value).send().wait({ debug: true });
 
         noteCreationBlockNumber = receipt.blockNumber!;
-        ({ noteHashes, visibleIncomingNotes } = receipt.debugInfo!);
+        ({ noteHashes } = receipt.debugInfo!);
+
+        await contract.methods.sync_notes().simulate();
+        visibleNotes = await wallets[0].getNotes({ txHash: receipt.txHash });
       });
 
       it('should return the correct values for creating a note', () => {
         expect(noteHashes.length).toBe(1);
-        expect(visibleIncomingNotes.length).toBe(1);
-        const [receivedValue, receivedOwner, _randomness] = visibleIncomingNotes[0].note.items;
+        expect(visibleNotes.length).toBe(1);
+        const [receivedValue, receivedOwner, _randomness] = visibleNotes[0].note.items;
         expect(receivedValue.toBigInt()).toBe(value);
         expect(receivedOwner).toEqual(owner.toField());
       });
@@ -155,11 +158,14 @@ describe('e2e_inclusion_proofs_contract', () => {
         const receipt = await contract.methods.create_note(owner, value).send().wait({ debug: true });
 
         noteCreationBlockNumber = receipt.blockNumber!;
-        const { noteHashes, visibleIncomingNotes } = receipt.debugInfo!;
+        const { noteHashes } = receipt.debugInfo!;
+
+        await contract.methods.sync_notes().simulate();
+        const visibleNotes = await wallets[0].getNotes({ txHash: receipt.txHash });
 
         expect(noteHashes.length).toBe(1);
-        expect(visibleIncomingNotes.length).toBe(1);
-        const [receivedValue, receivedOwner, _randomness] = visibleIncomingNotes[0].note.items;
+        expect(visibleNotes.length).toBe(1);
+        const [receivedValue, receivedOwner, _randomness] = visibleNotes[0].note.items;
         expect(receivedValue.toBigInt()).toBe(value);
         expect(receivedOwner).toEqual(owner.toField());
       }

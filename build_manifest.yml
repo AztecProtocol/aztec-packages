@@ -14,20 +14,20 @@
 noir:
   buildDir: noir
   dockerfile: Dockerfile.native
-  rebuildPatterns: .rebuild_patterns_native
+  rebuildPatterns: .rebuild_patterns
   multiarch: host
 
 # Builds and runs noir native tests.
 noir-tests:
   buildDir: noir
   dockerfile: Dockerfile.native-test
-  rebuildPatterns: .rebuild_patterns_native
+  rebuildPatterns: .rebuild_patterns
 
 # Builds just the noir js packages needed by aztec.
 noir-packages:
   buildDir: noir
   dockerfile: Dockerfile.packages
-  rebuildPatterns: .rebuild_patterns_packages
+  rebuildPatterns: .rebuild_patterns
   dependencies:
     - bb.js
 
@@ -35,7 +35,7 @@ noir-packages:
 noir-packages-tests:
   buildDir: noir
   dockerfile: Dockerfile.packages-test
-  rebuildPatterns: .rebuild_patterns_packages
+  rebuildPatterns: .rebuild_patterns
   dependencies:
     - noir
     - bb.js
@@ -55,11 +55,8 @@ avm-transpiler:
 aztec-nargo:
   buildDir: .
   dockerfile: aztec-nargo/Dockerfile
-  rebuildPatterns:
-    - ^aztec-nargo/
-    - ^avm-transpiler/
-    - ^noir/
   dependencies:
+    - barretenberg-x86_64-linux-clang
     - avm-transpiler
     - noir
   multiarch: buildx
@@ -145,7 +142,7 @@ barretenberg-acir-tests-bb-ultra-plonk:
   dependencies:
     - barretenberg-x86_64-linux-clang-assert
     - noir-compile-acir-tests
-barretenberg-acir-tests-bb-mega-honk:
+barretenberg-acir-tests-bb-client-ivc:
   buildDir: barretenberg/acir_tests
   dockerfile: Dockerfile.bb
   dependencies:
@@ -250,8 +247,10 @@ boxes:
   buildDir: boxes
   dependencies:
     - aztec
-    - noir
     - noir-projects
+    - noir
+    - avm-transpiler
+    - barretenberg-x86_64-linux-clang
   runDependencies:
     - aztec
 

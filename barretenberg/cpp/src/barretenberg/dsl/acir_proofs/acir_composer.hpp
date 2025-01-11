@@ -18,6 +18,7 @@ class AcirComposer {
 
     template <typename Builder = bb::UltraCircuitBuilder>
     void create_finalized_circuit(acir_format::AcirFormat& constraint_system,
+                                  bool recursive,
                                   WitnessVector const& witness = {},
                                   bool collect_gates_per_opcode = false);
 

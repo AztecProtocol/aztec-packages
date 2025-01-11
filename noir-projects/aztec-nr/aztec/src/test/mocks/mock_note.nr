@@ -17,8 +17,8 @@ use dep::std::{embedded_curve_ops::multi_scalar_mul, hash::from_field_unsafe};
 global MOCK_NOTE_LENGTH: u32 = 1;
 
 pub(crate) struct MockNote {
-    header: NoteHeader,
-    value: Field,
+    pub(crate) header: NoteHeader,
+    pub(crate) value: Field,
 }
 
 impl NullifiableNote for MockNote {
@@ -64,8 +64,8 @@ impl NoteInterface<MOCK_NOTE_LENGTH> for MockNote {
     }
 
     fn get_note_type_id() -> Field {
-        // randomly chose note type id
-        4135
+        // randomly chosen note type id --> has to fit within 7 bits
+        76
     }
 
     fn to_be_bytes(self, storage_slot: Field) -> [u8; MOCK_NOTE_LENGTH * 32 + 64] {
@@ -107,28 +107,28 @@ impl Eq for MockNote {
     }
 }
 
-pub struct MockNoteBuilder {
+pub(crate) struct MockNoteBuilder {
     value: Field,
     contract_address: Option<AztecAddress>,
     storage_slot: Option<Field>,
 }
 
 impl MockNoteBuilder {
-    fn new(value: Field) -> Self {
+    pub(crate) fn new(value: Field) -> Self {
         MockNoteBuilder { value, contract_address: Option::none(), storage_slot: Option::none() }
     }
 
-    fn contract_address(&mut self, contract_address: AztecAddress) -> &mut Self {
+    pub(crate) fn contract_address(&mut self, contract_address: AztecAddress) -> &mut Self {
         self.contract_address = Option::some(contract_address);
         self
     }
 
-    fn storage_slot(&mut self, storage_slot: Field) -> &mut Self {
+    pub(crate) fn storage_slot(&mut self, storage_slot: Field) -> &mut Self {
         self.storage_slot = Option::some(storage_slot);
         self
     }
 
-    fn build(self) -> MockNote {
+    pub(crate) fn build(self) -> MockNote {
         let mut header = NoteHeader::empty();
 
         if self.contract_address.is_some() {
@@ -144,7 +144,7 @@ impl MockNoteBuilder {
 }
 
 impl MockNote {
-    pub fn new(value: Field) -> MockNoteBuilder {
+    pub(crate) fn new(value: Field) -> MockNoteBuilder {
         MockNoteBuilder::new(value)
     }
 }

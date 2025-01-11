@@ -1,0 +1,131 @@
+{{- if not .Values.ethereum.externalHost }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "aztec-network.fullname" . }}-faucet
+  labels:
+    {{- include "aztec-network.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.faucet.replicas }}
+  selector:
+    matchLabels:
+      {{- include "aztec-network.selectorLabels" . | nindent 6 }}
+      app: faucet
+  template:
+    metadata:
+      labels:
+        {{- include "aztec-network.selectorLabels" . | nindent 8 }}
+        app: faucet
+    spec:
+      serviceAccountName: {{ include "aztec-network.fullname" . }}-node
+      {{- if .Values.network.public }}
+      hostNetwork: true
+      dnsPolicy: ClusterFirstWithHostNet
+      {{- end }}
+      volumes:
+        - name: config
+          emptyDir: {}
+        - name: scripts
+          configMap:
+            name: {{ include "aztec-network.fullname" . }}-scripts
+        - name: scripts-output
+          emptyDir: {}
+      initContainers:
+        {{- include "aztec-network.serviceAddressSetupContainer" . | nindent 8 }}
+        - name: wait-for-dependencies
+          image: {{ .Values.images.curl.image }}
+          command:
+            - /bin/sh
+            - -c
+            - |
+              source /shared/config/service-addresses
+              cat /shared/config/service-addresses
+
+              echo "Awaiting ethereum node at ${ETHEREUM_HOST}"
+              until curl -s -X POST -H 'Content-Type: application/json' \
+                -d '{"jsonrpc":"2.0","method":"web3_clientVersion","params":[],"id":67}' \
+                ${ETHEREUM_HOST} | grep -q reth; do
+                echo "Waiting for Ethereum node ${ETHEREUM_HOST}..."
+                sleep 5
+              done
+              echo "Ethereum node is ready!"
+          volumeMounts:
+            - name: config
+              mountPath: /shared/config
+            - name: scripts
+              mountPath: /shared/scripts
+      containers:
+        - name: faucet
+          {{ include "aztec-network.image" . | nindent 10 }}
+          volumeMounts:
+            - name: config
+              mountPath: /shared/config
+          command:
+            - "/bin/bash"
+            - "-c"
+            - |
+              source /shared/config/service-addresses
+              cat /shared/config/service-addresses
+              node --no-warnings /usr/src/yarn-project/aztec/dest/bin/index.js start --faucet --faucet.apiServer --faucet.apiServerPort {{ .Values.faucet.apiServerPort }}
+          env:
+            - name: AZTEC_PORT
+              value: "{{ .Values.faucet.service.nodePort }}"
+            - name: L1_CHAIN_ID
+              value: "{{ .Values.ethereum.chainId }}"
+            - name: MNEMONIC
+              value: "{{ .Values.aztec.l1DeploymentMnemonic }}"
+            - name: FAUCET_MNEMONIC_ACCOUNT_INDEX
+              value: "{{ .Values.faucet.accountIndex }}"
+            - name: FAUCET_L1_ASSETS
+              value: "{{ .Values.faucet.l1Assets }}"
+            - name: LOG_JSON
+              value: "1"
+            - name: LOG_LEVEL
+              value: "{{ .Values.faucet.logLevel }}"
+          ports:
+            - name: http
+              containerPort: {{ .Values.faucet.service.nodePort }}
+              protocol: TCP
+          resources:
+            {{- toYaml .Values.faucet.resources | nindent 12 }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "aztec-network.fullname" . }}-faucet
+  labels:
+    {{- include "aztec-network.labels" . | nindent 4 }}
+spec:
+  type: ClusterIP
+  selector:
+    {{- include "aztec-network.selectorLabels" . | nindent 4 }}
+    app: faucet
+  ports:
+    - protocol: TCP
+      port: {{ .Values.faucet.service.nodePort }}
+      targetPort: {{ .Values.faucet.service.nodePort }}
+      {{- if and (eq .Values.faucet.service.type "NodePort") .Values.faucet.service.nodePort }}
+      nodePort: {{ .Values.faucet.service.nodePort }}
+      {{- end }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "aztec-network.fullname" . }}-faucet-api
+  labels:
+    {{- include "aztec-network.labels" . | nindent 4 }}
+spec:
+  {{- if .Values.network.public }}
+  type: LoadBalancer
+  {{- else }}
+  type: ClusterIP
+  clusterIP: None
+  {{- end }}
+  selector:
+    {{- include "aztec-network.selectorLabels" . | nindent 4 }}
+    app: faucet
+  ports:
+    - protocol: TCP
+      port: {{ .Values.faucet.apiServerPort }}
+      targetPort: {{ .Values.faucet.apiServerPort }}
+{{ end }}

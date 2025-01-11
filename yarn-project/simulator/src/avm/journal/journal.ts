@@ -1,20 +1,36 @@
+import { MerkleTreeId } from '@aztec/circuit-types';
 import {
   AztecAddress,
-  type Gas,
+  CANONICAL_AUTH_REGISTRY_ADDRESS,
+  DEPLOYER_CONTRACT_ADDRESS,
+  FEE_JUICE_ADDRESS,
+  MULTI_CALL_ENTRYPOINT_ADDRESS,
+  NullifierLeafPreimage,
+  type PublicCallRequest,
+  type PublicDataTreeLeafPreimage,
+  REGISTERER_CONTRACT_ADDRESS,
+  ROUTER_ADDRESS,
   SerializableContractInstance,
-  computePublicBytecodeCommitment,
 } from '@aztec/circuits.js';
+import {
+  computeNoteHashNonce,
+  computePublicDataTreeLeafSlot,
+  computeUniqueNoteHash,
+  siloNoteHash,
+  siloNullifier,
+} from '@aztec/circuits.js/hash';
 import { Fr } from '@aztec/foundation/fields';
-import { createDebugLogger } from '@aztec/foundation/log';
+import { jsonStringify } from '@aztec/foundation/json-rpc';
+import { createLogger } from '@aztec/foundation/log';
 
-import assert from 'assert';
+import { strict as assert } from 'assert';
 
 import { getPublicFunctionDebugName } from '../../common/debug_fn_name.js';
 import { type WorldStateDB } from '../../public/public_db_sources.js';
 import { type PublicSideEffectTraceInterface } from '../../public/side_effect_trace_interface.js';
-import { type AvmContractCallResult } from '../avm_contract_call_result.js';
 import { type AvmExecutionEnvironment } from '../avm_execution_environment.js';
-import { NullifierManager } from './nullifiers.js';
+import { AvmEphemeralForest } from '../avm_tree.js';
+import { NullifierCollisionError, NullifierManager } from './nullifiers.js';
 import { PublicStorage } from './public_storage.js';
 
 /**
@@ -27,34 +43,45 @@ import { PublicStorage } from './public_storage.js';
  * Manages merging of successful/reverted child state into current state.
  */
 export class AvmPersistableStateManager {
-  private readonly log = createDebugLogger('aztec:avm_simulator:state_manager');
+  private readonly log = createLogger('simulator:avm:state_manager');
+
+  /** Make sure a forked state is never merged twice. */
+  private alreadyMergedIntoParent = false;
 
   constructor(
     /** Reference to node storage */
     private readonly worldStateDB: WorldStateDB,
     /** Side effect trace */
-    private readonly trace: PublicSideEffectTraceInterface,
-    /** Public storage, including cached writes */
     // TODO(5818): make private once no longer accessed in executor
-    public readonly publicStorage: PublicStorage,
+    public readonly trace: PublicSideEffectTraceInterface,
+    /** Public storage, including cached writes */
+    private readonly publicStorage: PublicStorage = new PublicStorage(worldStateDB),
     /** Nullifier set, including cached/recently-emitted nullifiers */
-    private readonly nullifiers: NullifierManager,
+    private readonly nullifiers: NullifierManager = new NullifierManager(worldStateDB),
+    private readonly doMerkleOperations: boolean = false,
+    /** Ephmeral forest for merkle tree operations */
+    public merkleTrees: AvmEphemeralForest,
+    public readonly firstNullifier: Fr,
   ) {}
 
   /**
-   * Create a new state manager with some preloaded pending siloed nullifiers
+   * Create a new state manager
    */
-  public static newWithPendingSiloedNullifiers(
+  public static async create(
     worldStateDB: WorldStateDB,
     trace: PublicSideEffectTraceInterface,
-    pendingSiloedNullifiers: Fr[],
+    doMerkleOperations: boolean = false,
+    firstNullifier: Fr,
   ) {
-    const parentNullifiers = NullifierManager.newWithPendingSiloedNullifiers(worldStateDB, pendingSiloedNullifiers);
+    const ephemeralForest = await AvmEphemeralForest.create(worldStateDB.getMerkleInterface());
     return new AvmPersistableStateManager(
       worldStateDB,
       trace,
       /*publicStorage=*/ new PublicStorage(worldStateDB),
-      /*nullifiers=*/ parentNullifiers.fork(),
+      /*nullifiers=*/ new NullifierManager(worldStateDB),
+      /*doMerkleOperations=*/ doMerkleOperations,
+      ephemeralForest,
+      firstNullifier,
     );
   }
 
@@ -67,7 +94,45 @@ export class AvmPersistableStateManager {
       this.trace.fork(),
       this.publicStorage.fork(),
       this.nullifiers.fork(),
+      this.doMerkleOperations,
+      this.merkleTrees.fork(),
+      this.firstNullifier,
     );
+  }
+
+  /**
+   * Accept forked world state modifications & traced side effects / hints
+   */
+  public merge(forkedState: AvmPersistableStateManager) {
+    this._merge(forkedState, /*reverted=*/ false);
+  }
+
+  /**
+   * Reject forked world state modifications & traced side effects, keep traced hints
+   */
+  public reject(forkedState: AvmPersistableStateManager) {
+    this._merge(forkedState, /*reverted=*/ true);
+  }
+
+  private _merge(forkedState: AvmPersistableStateManager, reverted: boolean) {
+    // sanity check to avoid merging the same forked trace twice
+    assert(
+      !forkedState.alreadyMergedIntoParent,
+      'Cannot merge forked state that has already been merged into its parent!',
+    );
+    forkedState.alreadyMergedIntoParent = true;
+    this.publicStorage.acceptAndMerge(forkedState.publicStorage);
+    this.nullifiers.acceptAndMerge(forkedState.nullifiers);
+    this.trace.merge(forkedState.trace, reverted);
+    if (reverted) {
+      if (this.doMerkleOperations) {
+        this.log.debug(
+          `Rolled back nullifier tree to root ${this.merkleTrees.treeMap.get(MerkleTreeId.NULLIFIER_TREE)!.getRoot()}`,
+        );
+      }
+    } else {
+      this.merkleTrees = forkedState.merkleTrees;
+    }
   }
 
   /**
@@ -77,11 +142,47 @@ export class AvmPersistableStateManager {
    * @param slot - the slot in the contract's storage being written to
    * @param value - the value being written to the slot
    */
-  public writeStorage(contractAddress: Fr, slot: Fr, value: Fr) {
+  public async writeStorage(contractAddress: AztecAddress, slot: Fr, value: Fr, protocolWrite = false): Promise<void> {
     this.log.debug(`Storage write (address=${contractAddress}, slot=${slot}): value=${value}`);
+    const leafSlot = computePublicDataTreeLeafSlot(contractAddress, slot);
+    this.log.debug(`leafSlot=${leafSlot}`);
     // Cache storage writes for later reference/reads
     this.publicStorage.write(contractAddress, slot, value);
-    this.trace.tracePublicStorageWrite(contractAddress, slot, value);
+
+    if (this.doMerkleOperations) {
+      const result = await this.merkleTrees.writePublicStorage(leafSlot, value);
+      assert(result !== undefined, 'Public data tree insertion error. You might want to disable doMerkleOperations.');
+      this.log.debug(`Inserted public data tree leaf at leafSlot ${leafSlot}, value: ${value}`);
+
+      const lowLeafInfo = result.lowWitness;
+      const lowLeafPreimage = result.lowWitness.preimage as PublicDataTreeLeafPreimage;
+      const lowLeafIndex = lowLeafInfo.index;
+      const lowLeafPath = lowLeafInfo.siblingPath;
+
+      const newLeafPreimage = result.element as PublicDataTreeLeafPreimage;
+      let insertionPath: Fr[] | undefined;
+      if (!result.update) {
+        insertionPath = result.insertionPath;
+        assert(
+          newLeafPreimage.value.equals(value),
+          `Value mismatch when performing public data write (got value: ${value}, value in ephemeral tree: ${newLeafPreimage.value})`,
+        );
+      }
+
+      this.trace.tracePublicStorageWrite(
+        contractAddress,
+        slot,
+        value,
+        protocolWrite,
+        lowLeafPreimage,
+        new Fr(lowLeafIndex),
+        lowLeafPath,
+        newLeafPreimage,
+        insertionPath,
+      );
+    } else {
+      this.trace.tracePublicStorageWrite(contractAddress, slot, value, protocolWrite);
+    }
   }
 
   /**
@@ -91,12 +192,51 @@ export class AvmPersistableStateManager {
    * @param slot - the slot in the contract's storage being read from
    * @returns the latest value written to slot, or 0 if never written to before
    */
-  public async readStorage(contractAddress: Fr, slot: Fr): Promise<Fr> {
-    const { value, exists, cached } = await this.publicStorage.read(contractAddress, slot);
-    this.log.debug(
-      `Storage read  (address=${contractAddress}, slot=${slot}): value=${value}, exists=${exists}, cached=${cached}`,
-    );
-    this.trace.tracePublicStorageRead(contractAddress, slot, value, exists, cached);
+  public async readStorage(contractAddress: AztecAddress, slot: Fr): Promise<Fr> {
+    const { value, cached } = await this.publicStorage.read(contractAddress, slot);
+    this.log.debug(`Storage read  (address=${contractAddress}, slot=${slot}): value=${value}, cached=${cached}`);
+    const leafSlot = computePublicDataTreeLeafSlot(contractAddress, slot);
+    this.log.debug(`leafSlot=${leafSlot}`);
+
+    if (this.doMerkleOperations) {
+      // Get leaf if present, low leaf if absent
+      // If leaf is present, hint/trace it. Otherwise, hint/trace the low leaf.
+      const {
+        preimage,
+        index: leafIndex,
+        alreadyPresent,
+      } = await this.merkleTrees.getLeafOrLowLeafInfo(MerkleTreeId.PUBLIC_DATA_TREE, leafSlot);
+      // The index and preimage here is either the low leaf or the leaf itself (depending on the value of update flag)
+      // In either case, we just want the sibling path to this leaf - it's up to the avm to distinguish if it's a low leaf or not
+      const leafPath = await this.merkleTrees.getSiblingPath(MerkleTreeId.PUBLIC_DATA_TREE, leafIndex);
+      const leafPreimage = preimage as PublicDataTreeLeafPreimage;
+
+      this.log.debug(`leafPreimage.slot: ${leafPreimage.slot}, leafPreimage.value: ${leafPreimage.value}`);
+      this.log.debug(
+        `leafPreimage.nextSlot: ${leafPreimage.nextSlot}, leafPreimage.nextIndex: ${Number(leafPreimage.nextIndex)}`,
+      );
+
+      if (alreadyPresent) {
+        assert(
+          leafPreimage.value.equals(value),
+          `Value mismatch when performing public data read (got value: ${value}, value in ephemeral tree: ${leafPreimage.value})`,
+        );
+      } else {
+        this.log.debug(`Slot has never been written before!`);
+        // Sanity check that the leaf slot is skipped by low leaf when it doesn't exist
+        assert(
+          leafPreimage.slot.toBigInt() < leafSlot.toBigInt() &&
+            (leafPreimage.nextIndex === 0n || leafPreimage.nextSlot.toBigInt() > leafSlot.toBigInt()),
+          'Public data tree low leaf should skip the target leaf slot when the target leaf does not exist or is the max value.',
+        );
+      }
+      // On non-existence, AVM circuit will need to recognize that leafPreimage.slot != leafSlot,
+      // prove that this is a low leaf that skips leafSlot, and then prove membership of the leaf.
+      this.trace.tracePublicStorageRead(contractAddress, slot, value, leafPreimage, new Fr(leafIndex), leafPath);
+    } else {
+      this.trace.tracePublicStorageRead(contractAddress, slot, value);
+    }
+
     return Promise.resolve(value);
   }
 
@@ -107,11 +247,9 @@ export class AvmPersistableStateManager {
    * @param slot - the slot in the contract's storage being read from
    * @returns the latest value written to slot, or 0 if never written to before
    */
-  public async peekStorage(contractAddress: Fr, slot: Fr): Promise<Fr> {
-    const { value, exists, cached } = await this.publicStorage.read(contractAddress, slot);
-    this.log.debug(
-      `Storage peek  (address=${contractAddress}, slot=${slot}): value=${value}, exists=${exists}, cached=${cached}`,
-    );
+  public async peekStorage(contractAddress: AztecAddress, slot: Fr): Promise<Fr> {
+    const { value, cached } = await this.publicStorage.read(contractAddress, slot);
+    this.log.debug(`Storage peek  (address=${contractAddress}, slot=${slot}): value=${value},  cached=${cached}`);
     return Promise.resolve(value);
   }
 
@@ -124,25 +262,59 @@ export class AvmPersistableStateManager {
    * @param leafIndex - the leaf index being checked
    * @returns true if the note hash exists at the given leaf index, false otherwise
    */
-  public async checkNoteHashExists(contractAddress: Fr, noteHash: Fr, leafIndex: Fr): Promise<boolean> {
+  public async checkNoteHashExists(contractAddress: AztecAddress, noteHash: Fr, leafIndex: Fr): Promise<boolean> {
     const gotLeafValue = (await this.worldStateDB.getCommitmentValue(leafIndex.toBigInt())) ?? Fr.ZERO;
     const exists = gotLeafValue.equals(noteHash);
     this.log.debug(
       `noteHashes(${contractAddress})@${noteHash} ?? leafIndex: ${leafIndex} | gotLeafValue: ${gotLeafValue}, exists: ${exists}.`,
     );
-    // TODO(8287): We still return exists here, but we need to transmit both the requested noteHash and the gotLeafValue
-    // such that the VM can constrain the equality and decide on exists based on that.
-    this.trace.traceNoteHashCheck(contractAddress, gotLeafValue, leafIndex, exists);
+    if (this.doMerkleOperations) {
+      // TODO(8287): We still return exists here, but we need to transmit both the requested noteHash and the gotLeafValue
+      // such that the VM can constrain the equality and decide on exists based on that.
+      const path = await this.merkleTrees.getSiblingPath(MerkleTreeId.NOTE_HASH_TREE, leafIndex.toBigInt());
+      this.trace.traceNoteHashCheck(contractAddress, gotLeafValue, leafIndex, exists, path);
+    } else {
+      this.trace.traceNoteHashCheck(contractAddress, gotLeafValue, leafIndex, exists);
+    }
     return Promise.resolve(exists);
   }
 
   /**
-   * Write a note hash, trace the write.
+   * Write a raw note hash, silo it and make it unique, then trace the write.
    * @param noteHash - the unsiloed note hash to write
    */
-  public writeNoteHash(contractAddress: Fr, noteHash: Fr) {
-    this.log.debug(`noteHashes(${contractAddress}) += @${noteHash}.`);
-    this.trace.traceNewNoteHash(contractAddress, noteHash);
+  public writeNoteHash(contractAddress: AztecAddress, noteHash: Fr): void {
+    const siloedNoteHash = siloNoteHash(contractAddress, noteHash);
+
+    this.writeSiloedNoteHash(siloedNoteHash);
+  }
+
+  /**
+   * Write a note hash, make it unique, trace the write.
+   * @param noteHash - the non unique note hash to write
+   */
+  public writeSiloedNoteHash(noteHash: Fr): void {
+    const nonce = computeNoteHashNonce(this.firstNullifier, this.trace.getNoteHashCount());
+    const uniqueNoteHash = computeUniqueNoteHash(nonce, noteHash);
+
+    this.writeUniqueNoteHash(uniqueNoteHash);
+  }
+
+  /**
+   * Write a note hash, trace the write.
+   * @param noteHash - the siloed unique hash to write
+   */
+  public writeUniqueNoteHash(noteHash: Fr): void {
+    this.log.debug(`noteHashes += @${noteHash}.`);
+
+    if (this.doMerkleOperations) {
+      // Should write a helper for this
+      const leafIndex = new Fr(this.merkleTrees.treeMap.get(MerkleTreeId.NOTE_HASH_TREE)!.leafCount);
+      const insertionPath = this.merkleTrees.appendNoteHash(noteHash);
+      this.trace.traceNewNoteHash(noteHash, leafIndex, insertionPath);
+    } else {
+      this.trace.traceNewNoteHash(noteHash);
+    }
   }
 
   /**
@@ -151,13 +323,81 @@ export class AvmPersistableStateManager {
    * @param nullifier - the unsiloed nullifier to check
    * @returns exists - whether the nullifier exists in the nullifier set
    */
-  public async checkNullifierExists(contractAddress: Fr, nullifier: Fr): Promise<boolean> {
-    const [exists, isPending, leafIndex] = await this.nullifiers.checkExists(contractAddress, nullifier);
-    this.log.debug(
-      `nullifiers(${contractAddress})@${nullifier} ?? leafIndex: ${leafIndex}, exists: ${exists}, pending: ${isPending}.`,
+  public async checkNullifierExists(contractAddress: AztecAddress, nullifier: Fr): Promise<boolean> {
+    this.log.debug(`Checking existence of nullifier (address=${contractAddress}, nullifier=${nullifier})`);
+    const siloedNullifier = siloNullifier(contractAddress, nullifier);
+    const [exists, leafOrLowLeafPreimage, leafOrLowLeafIndex, leafOrLowLeafPath] = await this.getNullifierMembership(
+      siloedNullifier,
     );
-    this.trace.traceNullifierCheck(contractAddress, nullifier, leafIndex, exists, isPending);
+
+    if (this.doMerkleOperations) {
+      this.trace.traceNullifierCheck(
+        siloedNullifier,
+        exists,
+        leafOrLowLeafPreimage,
+        leafOrLowLeafIndex,
+        leafOrLowLeafPath,
+      );
+    } else {
+      this.trace.traceNullifierCheck(siloedNullifier, exists);
+    }
     return Promise.resolve(exists);
+  }
+
+  /**
+   * Helper to get membership information for a siloed nullifier when checking its existence.
+   * Optionally trace the nullifier check.
+   *
+   * @param siloedNullifier - the siloed nullifier to get membership information for
+   * @returns
+   *     - exists - whether the nullifier exists in the nullifier set
+   *     - leafOrLowLeafPreimage - the preimage of the nullifier leaf or its low-leaf if it doesn't exist
+   *     - leafOrLowLeafIndex - the leaf index of the nullifier leaf or its low-leaf if it doesn't exist
+   *     - leafOrLowLeafPath - the sibling path of the nullifier leaf or its low-leaf if it doesn't exist
+   */
+  private async getNullifierMembership(
+    siloedNullifier: Fr,
+  ): Promise<
+    [
+      /*exists=*/ boolean,
+      /*leafOrLowLeafPreimage=*/ NullifierLeafPreimage,
+      /*leafOrLowLeafIndex=*/ Fr,
+      /*leafOrLowLeafIndexPath=*/ Fr[],
+    ]
+  > {
+    const [exists, isPending, _] = await this.nullifiers.checkExists(siloedNullifier);
+    this.log.debug(`Checked siloed nullifier ${siloedNullifier} (exists=${exists}), pending=${isPending}`);
+
+    if (this.doMerkleOperations) {
+      // Get leaf if present, low leaf if absent
+      // If leaf is present, hint/trace it. Otherwise, hint/trace the low leaf.
+      const {
+        preimage,
+        index: leafIndex,
+        alreadyPresent,
+      } = await this.merkleTrees.getLeafOrLowLeafInfo(MerkleTreeId.NULLIFIER_TREE, siloedNullifier);
+      const leafPreimage = preimage as NullifierLeafPreimage;
+      const leafPath = await this.merkleTrees.getSiblingPath(MerkleTreeId.NULLIFIER_TREE, leafIndex);
+
+      assert(
+        alreadyPresent == exists,
+        'WorldStateDB contains nullifier leaf, but merkle tree does not (or vice versa).... This is a bug!',
+      );
+
+      if (exists) {
+        this.log.debug(`Siloed nullifier ${siloedNullifier} exists at leafIndex=${leafIndex}`);
+      } else {
+        // Sanity check that the leaf value is skipped by low leaf when it doesn't exist
+        assert(
+          leafPreimage.nullifier.toBigInt() < siloedNullifier.toBigInt() &&
+            (leafPreimage.nextIndex === 0n || leafPreimage.nextNullifier.toBigInt() > siloedNullifier.toBigInt()),
+          'Nullifier tree low leaf should skip the target leaf nullifier when the target leaf does not exist.',
+        );
+      }
+      return [exists, leafPreimage, new Fr(leafIndex), leafPath];
+    } else {
+      return [exists, NullifierLeafPreimage.empty(), Fr.ZERO, []];
+    }
   }
 
   /**
@@ -165,12 +405,79 @@ export class AvmPersistableStateManager {
    * @param contractAddress - address of the contract that the nullifier is associated with
    * @param nullifier - the unsiloed nullifier to write
    */
-  public async writeNullifier(contractAddress: Fr, nullifier: Fr) {
-    this.log.debug(`nullifiers(${contractAddress}) += ${nullifier}.`);
-    // Cache pending nullifiers for later access
-    await this.nullifiers.append(contractAddress, nullifier);
-    // Trace all nullifier creations (even reverted ones)
-    this.trace.traceNewNullifier(contractAddress, nullifier);
+  public async writeNullifier(contractAddress: AztecAddress, nullifier: Fr) {
+    this.log.debug(`Inserting new nullifier (address=${nullifier}, nullifier=${contractAddress})`);
+    const siloedNullifier = siloNullifier(contractAddress, nullifier);
+    await this.writeSiloedNullifier(siloedNullifier);
+  }
+
+  /**
+   * Write a nullifier to the nullifier set, trace the write.
+   * @param siloedNullifier - the siloed nullifier to write
+   */
+  public async writeSiloedNullifier(siloedNullifier: Fr) {
+    this.log.debug(`Inserting siloed nullifier=${siloedNullifier}`);
+
+    if (this.doMerkleOperations) {
+      // Maybe overkill, but we should check if the nullifier is already present in the tree before attempting to insert
+      // It might be better to catch the error from the insert operation
+      // Trace all nullifier creations, even duplicate insertions that fail
+      const { preimage, index, alreadyPresent } = await this.merkleTrees.getLeafOrLowLeafInfo(
+        MerkleTreeId.NULLIFIER_TREE,
+        siloedNullifier,
+      );
+      if (alreadyPresent) {
+        this.log.verbose(`Siloed nullifier ${siloedNullifier} already present in tree at index ${index}!`);
+        // If the nullifier is already present, we should not insert it again
+        // instead we provide the direct membership path
+        const path = await this.merkleTrees.getSiblingPath(MerkleTreeId.NULLIFIER_TREE, index);
+        // This just becomes a nullifier read hint
+        this.trace.traceNullifierCheck(
+          siloedNullifier,
+          /*exists=*/ alreadyPresent,
+          preimage as NullifierLeafPreimage,
+          new Fr(index),
+          path,
+        );
+        throw new NullifierCollisionError(
+          `Siloed nullifier ${siloedNullifier} already exists in parent cache or host.`,
+        );
+      } else {
+        // Cache pending nullifiers for later access
+        await this.nullifiers.append(siloedNullifier);
+        // We append the new nullifier
+        this.log.debug(
+          `Nullifier tree root before insertion ${this.merkleTrees.treeMap
+            .get(MerkleTreeId.NULLIFIER_TREE)!
+            .getRoot()}`,
+        );
+        const appendResult = await this.merkleTrees.appendNullifier(siloedNullifier);
+        this.log.debug(
+          `Nullifier tree root after insertion ${this.merkleTrees.treeMap.get(MerkleTreeId.NULLIFIER_TREE)!.getRoot()}`,
+        );
+        const lowLeafPreimage = appendResult.lowWitness.preimage as NullifierLeafPreimage;
+        const lowLeafIndex = appendResult.lowWitness.index;
+        const lowLeafPath = appendResult.lowWitness.siblingPath;
+        const insertionPath = appendResult.insertionPath;
+        this.trace.traceNewNullifier(
+          siloedNullifier,
+          lowLeafPreimage,
+          new Fr(lowLeafIndex),
+          lowLeafPath,
+          insertionPath,
+        );
+      }
+    } else {
+      // Cache pending nullifiers for later access
+      await this.nullifiers.append(siloedNullifier);
+      this.trace.traceNewNullifier(siloedNullifier);
+    }
+  }
+
+  public async writeSiloedNullifiersFromPrivate(siloedNullifiers: Fr[]) {
+    for (const siloedNullifier of siloedNullifiers.filter(n => !n.isEmpty())) {
+      await this.writeSiloedNullifier(siloedNullifier);
+    }
   }
 
   /**
@@ -179,15 +486,29 @@ export class AvmPersistableStateManager {
    * @param msgLeafIndex - the message leaf index to use in the check
    * @returns exists - whether the message exists in the L1 to L2 Messages tree
    */
-  public async checkL1ToL2MessageExists(contractAddress: Fr, msgHash: Fr, msgLeafIndex: Fr): Promise<boolean> {
+  public async checkL1ToL2MessageExists(
+    contractAddress: AztecAddress,
+    msgHash: Fr,
+    msgLeafIndex: Fr,
+  ): Promise<boolean> {
     const valueAtIndex = (await this.worldStateDB.getL1ToL2LeafValue(msgLeafIndex.toBigInt())) ?? Fr.ZERO;
     const exists = valueAtIndex.equals(msgHash);
     this.log.debug(
       `l1ToL2Messages(@${msgLeafIndex}) ?? exists: ${exists}, expected: ${msgHash}, found: ${valueAtIndex}.`,
     );
-    // TODO(8287): We still return exists here, but we need to transmit both the requested msgHash and the value
-    // such that the VM can constrain the equality and decide on exists based on that.
-    this.trace.traceL1ToL2MessageCheck(contractAddress, valueAtIndex, msgLeafIndex, exists);
+
+    if (this.doMerkleOperations) {
+      // TODO(8287): We still return exists here, but we need to transmit both the requested msgHash and the value
+      // such that the VM can constrain the equality and decide on exists based on that.
+      // We should defintely add a helper here
+      const path = await this.merkleTrees.treeDb.getSiblingPath(
+        MerkleTreeId.L1_TO_L2_MESSAGE_TREE,
+        msgLeafIndex.toBigInt(),
+      );
+      this.trace.traceL1ToL2MessageCheck(contractAddress, valueAtIndex, msgLeafIndex, exists, path.toFields());
+    } else {
+      this.trace.traceL1ToL2MessageCheck(contractAddress, valueAtIndex, msgLeafIndex, exists);
+    }
     return Promise.resolve(exists);
   }
 
@@ -197,7 +518,7 @@ export class AvmPersistableStateManager {
    * @param recipient - L1 contract address to send the message to.
    * @param content - Message content.
    */
-  public writeL2ToL1Message(contractAddress: Fr, recipient: Fr, content: Fr) {
+  public writeL2ToL1Message(contractAddress: AztecAddress, recipient: Fr, content: Fr) {
     this.log.debug(`L2ToL1Messages(${contractAddress}) += (recipient: ${recipient}, content: ${content}).`);
     this.trace.traceNewL2ToL1Message(contractAddress, recipient, content);
   }
@@ -208,7 +529,7 @@ export class AvmPersistableStateManager {
    * @param event - log event selector
    * @param log - log contents
    */
-  public writeUnencryptedLog(contractAddress: Fr, log: Fr[]) {
+  public writeUnencryptedLog(contractAddress: AztecAddress, log: Fr[]) {
     this.log.debug(`UnencryptedL2Log(${contractAddress}) += event with ${log.length} fields.`);
     this.trace.traceUnencryptedLog(contractAddress, log);
   }
@@ -218,32 +539,66 @@ export class AvmPersistableStateManager {
    * @param contractAddress - address of the contract instance to retrieve.
    * @returns the contract instance or undefined if it does not exist.
    */
-  public async getContractInstance(contractAddress: Fr): Promise<SerializableContractInstance | undefined> {
+  public async getContractInstance(contractAddress: AztecAddress): Promise<SerializableContractInstance | undefined> {
     this.log.debug(`Getting contract instance for address ${contractAddress}`);
-    const instanceWithAddress = await this.worldStateDB.getContractInstance(AztecAddress.fromField(contractAddress));
+    const instanceWithAddress = await this.worldStateDB.getContractInstance(contractAddress);
     const exists = instanceWithAddress !== undefined;
+
+    let [existsInTree, leafOrLowLeafPreimage, leafOrLowLeafIndex, leafOrLowLeafPath] = [
+      exists,
+      NullifierLeafPreimage.empty(),
+      Fr.ZERO,
+      new Array<Fr>(),
+    ];
+    if (!contractAddressIsCanonical(contractAddress)) {
+      const contractAddressNullifier = siloNullifier(
+        AztecAddress.fromNumber(DEPLOYER_CONTRACT_ADDRESS),
+        contractAddress.toField(),
+      );
+      [existsInTree, leafOrLowLeafPreimage, leafOrLowLeafIndex, leafOrLowLeafPath] = await this.getNullifierMembership(
+        /*siloedNullifier=*/ contractAddressNullifier,
+      );
+      assert(
+        exists == existsInTree,
+        'WorldStateDB contains contract instance, but nullifier tree does not contain contract address (or vice versa).... This is a bug!',
+      );
+    }
 
     if (exists) {
       const instance = new SerializableContractInstance(instanceWithAddress);
       this.log.debug(
-        `Got contract instance (address=${contractAddress}): exists=${exists}, instance=${JSON.stringify(instance)}`,
+        `Got contract instance (address=${contractAddress}): exists=${exists}, instance=${jsonStringify(instance)}`,
       );
-      this.trace.traceGetContractInstance(contractAddress, exists, instance);
+      if (this.doMerkleOperations) {
+        this.trace.traceGetContractInstance(
+          contractAddress,
+          exists,
+          instance,
+          leafOrLowLeafPreimage,
+          leafOrLowLeafIndex,
+          leafOrLowLeafPath,
+        );
+      } else {
+        this.trace.traceGetContractInstance(contractAddress, exists, instance);
+      }
 
       return Promise.resolve(instance);
     } else {
       this.log.debug(`Contract instance NOT FOUND (address=${contractAddress})`);
-      this.trace.traceGetContractInstance(contractAddress, exists);
+      if (this.doMerkleOperations) {
+        this.trace.traceGetContractInstance(
+          contractAddress,
+          exists,
+          /*instance=*/ undefined,
+          leafOrLowLeafPreimage,
+          leafOrLowLeafIndex,
+          leafOrLowLeafPath,
+        );
+      } else {
+        this.trace.traceGetContractInstance(contractAddress, exists);
+      }
       return Promise.resolve(undefined);
     }
-  }
-
-  /**
-   * Accept nested world state modifications
-   */
-  public acceptNestedCallState(nestedState: AvmPersistableStateManager) {
-    this.publicStorage.acceptAndMerge(nestedState.publicStorage);
-    this.nullifiers.acceptAndMerge(nestedState.nullifiers);
   }
 
   /**
@@ -254,69 +609,107 @@ export class AvmPersistableStateManager {
     const instanceWithAddress = await this.worldStateDB.getContractInstance(contractAddress);
     const exists = instanceWithAddress !== undefined;
 
+    let [existsInTree, leafOrLowLeafPreimage, leafOrLowLeafIndex, leafOrLowLeafPath] = [
+      exists,
+      NullifierLeafPreimage.empty(),
+      Fr.ZERO,
+      new Array<Fr>(),
+    ];
+    if (!contractAddressIsCanonical(contractAddress)) {
+      const contractAddressNullifier = siloNullifier(
+        AztecAddress.fromNumber(DEPLOYER_CONTRACT_ADDRESS),
+        contractAddress.toField(),
+      );
+      [existsInTree, leafOrLowLeafPreimage, leafOrLowLeafIndex, leafOrLowLeafPath] = await this.getNullifierMembership(
+        /*siloedNullifier=*/ contractAddressNullifier,
+      );
+      assert(
+        exists == existsInTree,
+        'WorldStateDB contains contract instance, but nullifier tree does not contain contract address (or vice versa).... This is a bug!',
+      );
+    }
+
     if (exists) {
       const instance = new SerializableContractInstance(instanceWithAddress);
-
       const contractClass = await this.worldStateDB.getContractClass(instance.contractClassId);
+      const bytecodeCommitment = await this.worldStateDB.getBytecodeCommitment(instance.contractClassId);
+
       assert(
         contractClass,
         `Contract class not found in DB, but a contract instance was found with this class ID (${instance.contractClassId}). This should not happen!`,
       );
 
+      assert(
+        bytecodeCommitment,
+        `Bytecode commitment was not found in DB for contract class (${instance.contractClassId}). This should not happen!`,
+      );
+
       const contractClassPreimage = {
         artifactHash: contractClass.artifactHash,
         privateFunctionsRoot: contractClass.privateFunctionsRoot,
-        publicBytecodeCommitment: computePublicBytecodeCommitment(contractClass.packedBytecode),
+        publicBytecodeCommitment: bytecodeCommitment,
       };
 
-      this.trace.traceGetBytecode(
-        contractAddress,
-        exists,
-        contractClass.packedBytecode,
-        instance,
-        contractClassPreimage,
-      );
+      if (this.doMerkleOperations) {
+        this.trace.traceGetBytecode(
+          contractAddress,
+          exists,
+          contractClass.packedBytecode,
+          instance,
+          contractClassPreimage,
+          leafOrLowLeafPreimage,
+          leafOrLowLeafIndex,
+          leafOrLowLeafPath,
+        );
+      } else {
+        this.trace.traceGetBytecode(
+          contractAddress,
+          exists,
+          contractClass.packedBytecode,
+          instance,
+          contractClassPreimage,
+        );
+      }
+
       return contractClass.packedBytecode;
     } else {
       // If the contract instance is not found, we assume it has not been deployed.
       // It doesnt matter what the values of the contract instance are in this case, as long as we tag it with exists=false.
       // This will hint to the avm circuit to just perform the non-membership check on the address and disregard the bytecode hash
-      this.trace.traceGetBytecode(contractAddress, exists); // bytecode, instance, class undefined
+      if (this.doMerkleOperations) {
+        this.trace.traceGetBytecode(
+          contractAddress,
+          exists,
+          /*instance=*/ undefined,
+          /*contractClass=*/ undefined,
+          /*bytecode=*/ undefined,
+          leafOrLowLeafPreimage,
+          leafOrLowLeafIndex,
+          leafOrLowLeafPath,
+        );
+      } else {
+        this.trace.traceGetBytecode(contractAddress, exists); // bytecode, instance, class undefined
+      }
       return undefined;
     }
   }
 
-  /**
-   * Accept the nested call's state and trace the nested call
-   */
-  public async processNestedCall(
-    nestedState: AvmPersistableStateManager,
-    nestedEnvironment: AvmExecutionEnvironment,
-    startGasLeft: Gas,
-    endGasLeft: Gas,
-    bytecode: Buffer,
-    avmCallResults: AvmContractCallResult,
-  ) {
-    if (!avmCallResults.reverted) {
-      this.acceptNestedCallState(nestedState);
-    }
-    const functionName = await getPublicFunctionDebugName(
-      this.worldStateDB,
-      nestedEnvironment.address,
-      nestedEnvironment.functionSelector,
-      nestedEnvironment.calldata,
-    );
-
-    this.log.verbose(`[AVM] Calling nested function ${functionName}`);
-
-    this.trace.traceNestedCall(
-      nestedState.trace,
-      nestedEnvironment,
-      startGasLeft,
-      endGasLeft,
-      bytecode,
-      avmCallResults,
-      functionName,
-    );
+  public traceEnqueuedCall(publicCallRequest: PublicCallRequest, calldata: Fr[], reverted: boolean) {
+    this.trace.traceEnqueuedCall(publicCallRequest, calldata, reverted);
   }
+
+  public async getPublicFunctionDebugName(avmEnvironment: AvmExecutionEnvironment): Promise<string> {
+    return await getPublicFunctionDebugName(this.worldStateDB, avmEnvironment.address, avmEnvironment.calldata);
+  }
+}
+
+function contractAddressIsCanonical(contractAddress: AztecAddress): boolean {
+  return (
+    contractAddress.equals(AztecAddress.fromNumber(CANONICAL_AUTH_REGISTRY_ADDRESS)) ||
+    contractAddress.equals(AztecAddress.fromNumber(DEPLOYER_CONTRACT_ADDRESS)) ||
+    contractAddress.equals(AztecAddress.fromNumber(REGISTERER_CONTRACT_ADDRESS)) ||
+    contractAddress.equals(AztecAddress.fromNumber(MULTI_CALL_ENTRYPOINT_ADDRESS)) ||
+    contractAddress.equals(AztecAddress.fromNumber(FEE_JUICE_ADDRESS)) ||
+    contractAddress.equals(AztecAddress.fromNumber(ROUTER_ADDRESS))
+  );
 }

@@ -1,4 +1,4 @@
-import { type IncomingNotesFilter, NoteStatus, type OutgoingNotesFilter, randomTxHash } from '@aztec/circuit-types';
+import { NoteStatus, type NotesFilter, randomTxHash } from '@aztec/circuit-types';
 import {
   AztecAddress,
   CompleteAddress,
@@ -7,14 +7,13 @@ import {
   SerializableContractInstance,
 } from '@aztec/circuits.js';
 import { makeHeader } from '@aztec/circuits.js/testing';
+import { FunctionType } from '@aztec/foundation/abi';
 import { randomInt } from '@aztec/foundation/crypto';
 import { Fr, Point } from '@aztec/foundation/fields';
 import { BenchmarkingContractArtifact } from '@aztec/noir-contracts.js/Benchmarking';
+import { TestContractArtifact } from '@aztec/noir-contracts.js/Test';
 
-import { type IncomingNoteDao } from './incoming_note_dao.js';
-import { randomIncomingNoteDao } from './incoming_note_dao.test.js';
-import { type OutgoingNoteDao } from './outgoing_note_dao.js';
-import { randomOutgoingNoteDao } from './outgoing_note_dao.test.js';
+import { NoteDao } from './note_dao.js';
 import { type PxeDatabase } from './pxe_database.js';
 
 /**
@@ -79,9 +78,9 @@ export function describePxeDatabase(getDatabase: () => PxeDatabase) {
       let owners: CompleteAddress[];
       let contractAddresses: AztecAddress[];
       let storageSlots: Fr[];
-      let notes: IncomingNoteDao[];
+      let notes: NoteDao[];
 
-      const filteringTests: [() => IncomingNotesFilter, () => IncomingNoteDao[]][] = [
+      const filteringTests: [() => NotesFilter, () => NoteDao[]][] = [
         [() => ({}), () => notes],
 
         [
@@ -101,7 +100,7 @@ export function describePxeDatabase(getDatabase: () => PxeDatabase) {
 
         [
           () => ({ owner: owners[0].address }),
-          () => notes.filter(note => note.ivpkM.equals(owners[0].publicKeys.masterIncomingViewingPublicKey)),
+          () => notes.filter(note => note.addressPoint.equals(owners[0].address.toAddressPoint())),
         ],
 
         [
@@ -120,11 +119,12 @@ export function describePxeDatabase(getDatabase: () => PxeDatabase) {
         storageSlots = Array.from({ length: 2 }).map(() => Fr.random());
 
         notes = Array.from({ length: 10 }).map((_, i) =>
-          randomIncomingNoteDao({
+          NoteDao.random({
             contractAddress: contractAddresses[i % contractAddresses.length],
             storageSlot: storageSlots[i % storageSlots.length],
-            ivpkM: owners[i % owners.length].publicKeys.masterIncomingViewingPublicKey,
+            addressPoint: owners[i % owners.length].address.toAddressPoint(),
             index: BigInt(i),
+            l2BlockNumber: i,
           }),
         );
 
@@ -134,8 +134,8 @@ export function describePxeDatabase(getDatabase: () => PxeDatabase) {
       });
 
       it.each(filteringTests)('stores notes in bulk and retrieves notes', async (getFilter, getExpected) => {
-        await database.addNotes(notes, []);
-        const returnedNotes = await database.getIncomingNotes(getFilter());
+        await database.addNotes(notes);
+        const returnedNotes = await database.getNotes(getFilter());
 
         expect(returnedNotes.sort()).toEqual(getExpected().sort());
       });
@@ -145,60 +145,86 @@ export function describePxeDatabase(getDatabase: () => PxeDatabase) {
           await database.addNote(note);
         }
 
-        const returnedNotes = await database.getIncomingNotes(getFilter());
+        const returnedNotes = await database.getNotes(getFilter());
 
         expect(returnedNotes.sort()).toEqual(getExpected().sort());
       });
 
       it.each(filteringTests)('retrieves nullified notes', async (getFilter, getExpected) => {
-        await database.addNotes(notes, []);
+        await database.addNotes(notes);
 
         // Nullify all notes and use the same filter as other test cases
         for (const owner of owners) {
-          const notesToNullify = notes.filter(note =>
-            note.ivpkM.equals(owner.publicKeys.masterIncomingViewingPublicKey),
+          const notesToNullify = notes.filter(note => note.addressPoint.equals(owner.address.toAddressPoint()));
+          const nullifiers = notesToNullify.map(note => ({
+            data: note.siloedNullifier,
+            l2BlockNumber: note.l2BlockNumber,
+            l2BlockHash: note.l2BlockHash,
+          }));
+          await expect(database.removeNullifiedNotes(nullifiers, owner.address.toAddressPoint())).resolves.toEqual(
+            notesToNullify,
           );
-          const nullifiers = notesToNullify.map(note => note.siloedNullifier);
-          await expect(
-            database.removeNullifiedNotes(nullifiers, owner.publicKeys.masterIncomingViewingPublicKey),
-          ).resolves.toEqual(notesToNullify);
         }
 
-        await expect(
-          database.getIncomingNotes({ ...getFilter(), status: NoteStatus.ACTIVE_OR_NULLIFIED }),
-        ).resolves.toEqual(getExpected());
+        await expect(database.getNotes({ ...getFilter(), status: NoteStatus.ACTIVE_OR_NULLIFIED })).resolves.toEqual(
+          getExpected(),
+        );
       });
 
       it('skips nullified notes by default or when requesting active', async () => {
-        await database.addNotes(notes, []);
+        await database.addNotes(notes);
 
-        const notesToNullify = notes.filter(note =>
-          note.ivpkM.equals(owners[0].publicKeys.masterIncomingViewingPublicKey),
-        );
-        const nullifiers = notesToNullify.map(note => note.siloedNullifier);
-        await expect(database.removeNullifiedNotes(nullifiers, notesToNullify[0].ivpkM)).resolves.toEqual(
+        const notesToNullify = notes.filter(note => note.addressPoint.equals(owners[0].address.toAddressPoint()));
+        const nullifiers = notesToNullify.map(note => ({
+          data: note.siloedNullifier,
+          l2BlockNumber: note.l2BlockNumber,
+          l2BlockHash: note.l2BlockHash,
+        }));
+        await expect(database.removeNullifiedNotes(nullifiers, notesToNullify[0].addressPoint)).resolves.toEqual(
           notesToNullify,
         );
 
-        const actualNotesWithDefault = await database.getIncomingNotes({});
-        const actualNotesWithActive = await database.getIncomingNotes({ status: NoteStatus.ACTIVE });
+        const actualNotesWithDefault = await database.getNotes({});
+        const actualNotesWithActive = await database.getNotes({ status: NoteStatus.ACTIVE });
 
         expect(actualNotesWithDefault).toEqual(actualNotesWithActive);
         expect(actualNotesWithActive).toEqual(notes.filter(note => !notesToNullify.includes(note)));
       });
 
-      it('returns active and nullified notes when requesting either', async () => {
-        await database.addNotes(notes, []);
+      it('handles note unnullification', async () => {
+        await database.setHeader(makeHeader(randomInt(1000), 100, 0 /** slot number */));
+        await database.addNotes(notes);
 
-        const notesToNullify = notes.filter(note =>
-          note.ivpkM.equals(owners[0].publicKeys.masterIncomingViewingPublicKey),
+        const notesToNullify = notes.filter(note => note.addressPoint.equals(owners[0].address.toAddressPoint()));
+        const nullifiers = notesToNullify.map(note => ({
+          data: note.siloedNullifier,
+          l2BlockNumber: 99,
+          l2BlockHash: Fr.random().toString(),
+        }));
+        await expect(database.removeNullifiedNotes(nullifiers, notesToNullify[0].addressPoint)).resolves.toEqual(
+          notesToNullify,
         );
-        const nullifiers = notesToNullify.map(note => note.siloedNullifier);
-        await expect(database.removeNullifiedNotes(nullifiers, notesToNullify[0].ivpkM)).resolves.toEqual(
+        await expect(database.unnullifyNotesAfter(98)).resolves.toEqual(undefined);
+
+        const result = await database.getNotes({ status: NoteStatus.ACTIVE, owner: owners[0].address });
+
+        expect(result.sort()).toEqual([...notesToNullify].sort());
+      });
+
+      it('returns active and nullified notes when requesting either', async () => {
+        await database.addNotes(notes);
+
+        const notesToNullify = notes.filter(note => note.addressPoint.equals(owners[0].address.toAddressPoint()));
+        const nullifiers = notesToNullify.map(note => ({
+          data: note.siloedNullifier,
+          l2BlockNumber: note.l2BlockNumber,
+          l2BlockHash: note.l2BlockHash,
+        }));
+        await expect(database.removeNullifiedNotes(nullifiers, notesToNullify[0].addressPoint)).resolves.toEqual(
           notesToNullify,
         );
 
-        const result = await database.getIncomingNotes({
+        const result = await database.getNotes({
           status: NoteStatus.ACTIVE_OR_NULLIFIED,
         });
 
@@ -216,23 +242,23 @@ export function describePxeDatabase(getDatabase: () => PxeDatabase) {
           await database.addNote(note, owners[1].address);
         }
 
-        const owner0IncomingNotes = await database.getIncomingNotes({
+        const owner0Notes = await database.getNotes({
           scopes: [owners[0].address],
         });
 
-        expect(owner0IncomingNotes.sort()).toEqual(notes.slice(0, 5).sort());
+        expect(owner0Notes.sort()).toEqual(notes.slice(0, 5).sort());
 
-        const owner1IncomingNotes = await database.getIncomingNotes({
+        const owner1Notes = await database.getNotes({
           scopes: [owners[1].address],
         });
 
-        expect(owner1IncomingNotes.sort()).toEqual(notes.slice(5).sort());
+        expect(owner1Notes.sort()).toEqual(notes.slice(5).sort());
 
-        const bothOwnerIncomingNotes = await database.getIncomingNotes({
+        const bothOwnerNotes = await database.getNotes({
           scopes: [owners[0].address, owners[1].address],
         });
 
-        expect(bothOwnerIncomingNotes.sort()).toEqual(notes.sort());
+        expect(bothOwnerNotes.sort()).toEqual(notes.sort());
       });
 
       it('a nullified note removes notes from all accounts in the pxe', async () => {
@@ -240,97 +266,47 @@ export function describePxeDatabase(getDatabase: () => PxeDatabase) {
         await database.addNote(notes[0], owners[1].address);
 
         await expect(
-          database.getIncomingNotes({
+          database.getNotes({
             scopes: [owners[0].address],
           }),
         ).resolves.toEqual([notes[0]]);
         await expect(
-          database.getIncomingNotes({
+          database.getNotes({
             scopes: [owners[1].address],
           }),
         ).resolves.toEqual([notes[0]]);
 
         await expect(
           database.removeNullifiedNotes(
-            [notes[0].siloedNullifier],
-            owners[0].publicKeys.masterIncomingViewingPublicKey,
+            [
+              {
+                data: notes[0].siloedNullifier,
+                l2BlockHash: notes[0].l2BlockHash,
+                l2BlockNumber: notes[0].l2BlockNumber,
+              },
+            ],
+            owners[0].address.toAddressPoint(),
           ),
         ).resolves.toEqual([notes[0]]);
 
         await expect(
-          database.getIncomingNotes({
+          database.getNotes({
             scopes: [owners[0].address],
           }),
         ).resolves.toEqual([]);
         await expect(
-          database.getIncomingNotes({
+          database.getNotes({
             scopes: [owners[1].address],
           }),
         ).resolves.toEqual([]);
       });
-    });
 
-    describe('outgoing notes', () => {
-      let owners: CompleteAddress[];
-      let contractAddresses: AztecAddress[];
-      let storageSlots: Fr[];
-      let notes: OutgoingNoteDao[];
+      it('removes notes after a given block', async () => {
+        await database.addNotes(notes, owners[0].address);
 
-      const filteringTests: [() => OutgoingNotesFilter, () => OutgoingNoteDao[]][] = [
-        [() => ({}), () => notes],
-
-        [
-          () => ({ contractAddress: contractAddresses[0] }),
-          () => notes.filter(note => note.contractAddress.equals(contractAddresses[0])),
-        ],
-        [() => ({ contractAddress: AztecAddress.random() }), () => []],
-
-        [
-          () => ({ storageSlot: storageSlots[0] }),
-          () => notes.filter(note => note.storageSlot.equals(storageSlots[0])),
-        ],
-        [() => ({ storageSlot: Fr.random() }), () => []],
-
-        [() => ({ txHash: notes[0].txHash }), () => [notes[0]]],
-        [() => ({ txHash: randomTxHash() }), () => []],
-
-        [
-          () => ({ owner: owners[0].address }),
-          () => notes.filter(note => note.ovpkM.equals(owners[0].publicKeys.masterOutgoingViewingPublicKey)),
-        ],
-
-        [
-          () => ({ contractAddress: contractAddresses[0], storageSlot: storageSlots[0] }),
-          () =>
-            notes.filter(
-              note => note.contractAddress.equals(contractAddresses[0]) && note.storageSlot.equals(storageSlots[0]),
-            ),
-        ],
-        [() => ({ contractAddress: contractAddresses[0], storageSlot: storageSlots[1] }), () => []],
-      ];
-
-      beforeEach(async () => {
-        owners = Array.from({ length: 2 }).map(() => CompleteAddress.random());
-        contractAddresses = Array.from({ length: 2 }).map(() => AztecAddress.random());
-        storageSlots = Array.from({ length: 2 }).map(() => Fr.random());
-
-        notes = Array.from({ length: 10 }).map((_, i) =>
-          randomOutgoingNoteDao({
-            contractAddress: contractAddresses[i % contractAddresses.length],
-            storageSlot: storageSlots[i % storageSlots.length],
-            ovpkM: owners[i % owners.length].publicKeys.masterOutgoingViewingPublicKey,
-            index: BigInt(i),
-          }),
-        );
-
-        for (const owner of owners) {
-          await database.addCompleteAddress(owner);
-        }
-      });
-
-      it.each(filteringTests)('stores notes in bulk and retrieves notes', async (getFilter, getExpected) => {
-        await database.addNotes([], notes);
-        await expect(database.getOutgoingNotes(getFilter())).resolves.toEqual(getExpected());
+        await database.removeNotesAfter(5);
+        const result = await database.getNotes({ scopes: [owners[0].address] });
+        expect(new Set(result)).toEqual(new Set(notes.slice(0, 6)));
       });
     });
 
@@ -339,11 +315,11 @@ export function describePxeDatabase(getDatabase: () => PxeDatabase) {
         const header = makeHeader(randomInt(1000), INITIAL_L2_BLOCK_NUM, 0 /** slot number */);
 
         await database.setHeader(header);
-        expect(database.getHeader()).toEqual(header);
+        await expect(database.getBlockHeader()).resolves.toEqual(header);
       });
 
-      it('rejects getting header if no block set', () => {
-        expect(() => database.getHeader()).toThrow();
+      it('rejects getting header if no block set', async () => {
+        await expect(() => database.getBlockHeader()).rejects.toThrow();
       });
     });
 
@@ -382,6 +358,16 @@ export function describePxeDatabase(getDatabase: () => PxeDatabase) {
         expect(result).toEqual(expect.arrayContaining(addresses));
       });
 
+      it('returns a single address', async () => {
+        const addresses = Array.from({ length: 10 }).map(() => CompleteAddress.random());
+        for (const address of addresses) {
+          await database.addCompleteAddress(address);
+        }
+
+        const result = await database.getCompleteAddress(addresses[3].address);
+        expect(result).toEqual(addresses[3]);
+      });
+
       it("returns an empty array if it doesn't have addresses", async () => {
         expect(await database.getCompleteAddresses()).toEqual([]);
       });
@@ -399,11 +385,85 @@ export function describePxeDatabase(getDatabase: () => PxeDatabase) {
         await expect(database.getContractArtifact(id)).resolves.toEqual(artifact);
       });
 
+      it('does not store a contract artifact with a duplicate private function selector', async () => {
+        const artifact = TestContractArtifact;
+        const index = artifact.functions.findIndex(fn => fn.functionType === FunctionType.PRIVATE);
+
+        const copiedFn = structuredClone(artifact.functions[index]);
+        artifact.functions.push(copiedFn);
+
+        const id = Fr.random();
+        await expect(database.addContractArtifact(id, artifact)).rejects.toThrow(
+          'Repeated function selectors of private functions',
+        );
+      });
+
       it('stores a contract instance', async () => {
         const address = AztecAddress.random();
         const instance = SerializableContractInstance.random().withAddress(address);
         await database.addContractInstance(instance);
         await expect(database.getContractInstance(address)).resolves.toEqual(instance);
+      });
+    });
+
+    describe('contract store', () => {
+      let contract: AztecAddress;
+
+      beforeEach(() => {
+        // Setup mock contract address
+        contract = AztecAddress.random();
+      });
+
+      it('stores and loads a single value', async () => {
+        const key = new Fr(1);
+        const values = [new Fr(42)];
+
+        await database.store(contract, key, values);
+        const result = await database.load(contract, key);
+        expect(result).toEqual(values);
+      });
+
+      it('stores and loads multiple values', async () => {
+        const key = new Fr(1);
+        const values = [new Fr(42), new Fr(43), new Fr(44)];
+
+        await database.store(contract, key, values);
+        const result = await database.load(contract, key);
+        expect(result).toEqual(values);
+      });
+
+      it('overwrites existing values', async () => {
+        const key = new Fr(1);
+        const initialValues = [new Fr(42)];
+        const newValues = [new Fr(100)];
+
+        await database.store(contract, key, initialValues);
+        await database.store(contract, key, newValues);
+
+        const result = await database.load(contract, key);
+        expect(result).toEqual(newValues);
+      });
+
+      it('stores values for different contracts independently', async () => {
+        const anotherContract = AztecAddress.random();
+        const key = new Fr(1);
+        const values1 = [new Fr(42)];
+        const values2 = [new Fr(100)];
+
+        await database.store(contract, key, values1);
+        await database.store(anotherContract, key, values2);
+
+        const result1 = await database.load(contract, key);
+        const result2 = await database.load(anotherContract, key);
+
+        expect(result1).toEqual(values1);
+        expect(result2).toEqual(values2);
+      });
+
+      it('returns null for non-existent keys', async () => {
+        const key = Fr.random();
+        const result = await database.load(contract, key);
+        expect(result).toBeNull();
       });
     });
   });

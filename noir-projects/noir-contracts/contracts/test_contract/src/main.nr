@@ -1,3 +1,4 @@
+mod test;
 mod test_note;
 
 // A contract used for testing a random hodgepodge of small features from simulator and end-to-end tests.
@@ -5,8 +6,10 @@ use dep::aztec::macros::aztec;
 
 #[aztec]
 contract Test {
+    // Note: If you import a new kind of note you will most likely need to update the test_note_type_id test
+    // as the note type ids of current notes might have changed.
 
-    use dep::aztec::encrypted_logs::encrypted_event_emission::encode_and_encrypt_event_with_randomness_unconstrained;
+    use dep::aztec::encrypted_logs::encrypted_event_emission::encode_and_encrypt_event_unconstrained;
     use dep::aztec::encrypted_logs::encrypted_note_emission::encode_and_encrypt_note;
     use dep::aztec::prelude::{
         AztecAddress, EthAddress, FunctionSelector, NoteGetterOptions, NoteViewerOptions,
@@ -14,8 +17,10 @@ contract Test {
     };
 
     use dep::aztec::protocol_types::{
-        constants::MAX_NOTE_HASH_READ_REQUESTS_PER_CALL, point::Point, public_keys::IvpkM,
+        constants::{MAX_NOTE_HASH_READ_REQUESTS_PER_CALL, PRIVATE_LOG_SIZE_IN_FIELDS},
+        point::Point,
         traits::Serialize,
+        utils::arrays::array_concat,
     };
 
     use dep::aztec::keys::getters::get_public_keys;
@@ -30,21 +35,23 @@ contract Test {
             note_getter::{get_notes, view_notes},
             note_getter_options::NoteStatus,
         },
-        oracle::random::random,
+        oracle::pxe_db,
+        test::mocks::mock_struct::MockStruct,
         utils::comparison::Comparator,
     };
     use dep::token_portal_content_hash_lib::{
-        get_mint_private_content_hash, get_mint_public_content_hash,
+        get_mint_to_private_content_hash, get_mint_to_public_content_hash,
     };
     use dep::value_note::value_note::ValueNote;
-    // TODO investigate why the macros require EmbeddedCurvePoint and EmbeddedCurveScalar
-    use std::embedded_curve_ops::{EmbeddedCurvePoint, EmbeddedCurveScalar};
     use std::meta::derive;
 
     use crate::test_note::TestNote;
 
-    #[event]
+    // Imported just to test note type ids
+    use dep::uint_note::uint_note::UintNote;
+
     #[derive(Serialize)]
+    #[event]
     struct ExampleEvent {
         value0: Field,
         value1: Field,
@@ -94,7 +101,7 @@ contract Test {
     fn call_create_note(
         value: Field,
         owner: AztecAddress,
-        outgoing_viewer: AztecAddress,
+        sender: AztecAddress,
         storage_slot: Field,
     ) {
         assert(
@@ -102,13 +109,11 @@ contract Test {
             "this storage slot is reserved for example_constant",
         );
 
-        let outgoing_viewer_ovpk_m = get_public_keys(outgoing_viewer).ovpk_m;
-
         let mut note = ValueNote::new(value, owner);
         create_note(&mut context, storage_slot, &mut note).emit(encode_and_encrypt_note(
             &mut context,
-            outgoing_viewer_ovpk_m,
             owner,
+            sender,
         ));
     }
 
@@ -284,11 +289,9 @@ contract Test {
     fn emit_array_as_encrypted_log(
         fields: [Field; 5],
         owner: AztecAddress,
-        outgoing_viewer: AztecAddress,
+        sender: AztecAddress,
         nest: bool,
     ) {
-        let outgoing_viewer_ovpk_m = get_public_keys(outgoing_viewer).ovpk_m;
-
         let event = ExampleEvent {
             value0: fields[0],
             value1: fields[1],
@@ -297,56 +300,38 @@ contract Test {
             value4: fields[4],
         };
 
-        event.emit(encode_and_encrypt_event_with_randomness_unconstrained(
-            &mut context,
-            // testing only - a secret random value is passed in here to salt / mask the address
-            5,
-            outgoing_viewer_ovpk_m,
-            owner,
-        ));
+        event.emit(encode_and_encrypt_event_unconstrained(&mut context, owner, sender));
 
         // this contract has reached max number of functions, so using this one fn
         // to test nested and non nested encrypted logs
         if nest {
             Test::at(context.this_address())
-                .emit_array_as_encrypted_log([0, 0, 0, 0, 0], owner, outgoing_viewer, false)
+                .emit_array_as_encrypted_log([0, 0, 0, 0, 0], owner, sender, false)
                 .call(&mut context);
 
-            let otherEvent = ExampleEvent { value0: 1, value1: 2, value2: 3, value3: 4, value4: 5 };
-
-            otherEvent.emit(encode_and_encrypt_event_with_randomness_unconstrained(
-                &mut context,
-                // testing only - a randomness of 0 signals the kernels to not mask the address
-                0,
-                outgoing_viewer_ovpk_m,
-                owner,
-            ));
+            // Emit a log with non-encrypted content for testing purpose.
+            let leaky_log = array_concat(event.serialize(), [0; PRIVATE_LOG_SIZE_IN_FIELDS - 5]);
+            context.emit_private_log(leaky_log);
         }
     }
 
     #[private]
-    fn emit_encrypted_logs_nested(
-        value: Field,
-        owner: AztecAddress,
-        outgoing_viewer: AztecAddress,
-    ) {
+    fn emit_encrypted_logs_nested(value: Field, owner: AztecAddress, sender: AztecAddress) {
         let mut storage_slot = storage.example_constant.get_storage_slot() + 1;
-        Test::at(context.this_address())
-            .call_create_note(value, owner, outgoing_viewer, storage_slot)
-            .call(&mut context);
+        Test::at(context.this_address()).call_create_note(value, owner, sender, storage_slot).call(
+            &mut context,
+        );
         storage_slot += 1;
-
-        let msg_sender_ovpk_m = get_public_keys(context.msg_sender()).ovpk_m;
 
         let mut note = ValueNote::new(value + 1, owner);
         create_note(&mut context, storage_slot, &mut note).emit(encode_and_encrypt_note(
             &mut context,
-            msg_sender_ovpk_m,
             owner,
+            sender,
         ));
         storage_slot += 1;
         Test::at(context.this_address())
-            .call_create_note(value + 2, owner, outgoing_viewer, storage_slot)
+            .call_create_note(value + 2, owner, sender, storage_slot)
             .call(&mut context);
     }
 
@@ -368,32 +353,32 @@ contract Test {
     }
 
     #[public]
-    fn consume_mint_public_message(
+    fn consume_mint_to_public_message(
         to: AztecAddress,
         amount: Field,
         secret: Field,
         message_leaf_index: Field,
         portal_address: EthAddress,
     ) {
-        let content_hash = get_mint_public_content_hash(to, amount);
+        let content_hash = get_mint_to_public_content_hash(to, amount);
         // Consume message and emit nullifier
         context.consume_l1_to_l2_message(content_hash, secret, portal_address, message_leaf_index);
     }
 
     #[private]
-    fn consume_mint_private_message(
-        secret_hash_for_redeeming_minted_notes: Field,
+    fn consume_mint_to_private_message(
         amount: Field,
         secret_for_L1_to_L2_message_consumption: Field,
         portal_address: EthAddress,
+        message_leaf_index: Field,
     ) {
         // Consume L1 to L2 message and emit nullifier
-        let content_hash =
-            get_mint_private_content_hash(secret_hash_for_redeeming_minted_notes, amount);
+        let content_hash = get_mint_to_private_content_hash(amount);
         context.consume_l1_to_l2_message(
             content_hash,
             secret_for_L1_to_L2_message_consumption,
             portal_address,
+            message_leaf_index,
         );
     }
 
@@ -413,9 +398,10 @@ contract Test {
         content: Field,
         secret: Field,
         sender: EthAddress,
+        message_leaf_index: Field,
     ) {
         // Consume message and emit nullifier
-        context.consume_l1_to_l2_message(content, secret, sender);
+        context.consume_l1_to_l2_message(content, secret, sender, message_leaf_index);
     }
 
     #[private]
@@ -480,14 +466,19 @@ contract Test {
         constant.value
     }
 
+    unconstrained fn store_in_pxe_db(key: Field, arbitrary_struct: MockStruct) {
+        pxe_db::store(context.this_address(), key, arbitrary_struct);
+    }
+
+    unconstrained fn load_from_pxe_db(key: Field) -> pub [Field; 2] {
+        let maybe_arbitrary_struct: Option<MockStruct> = pxe_db::load(context.this_address(), key);
+        let arbitrary_struct = maybe_arbitrary_struct.unwrap_or(MockStruct::new(0, 0));
+        arbitrary_struct.serialize()
+    }
+
     #[private]
     fn test_nullifier_key_freshness(address: AztecAddress, public_nullifying_key: Point) {
         assert_eq(get_public_keys(address).npk_m.inner, public_nullifying_key);
-    }
-
-    // Purely exists for testing
-    unconstrained fn get_random(kinda_seed: Field) -> pub Field {
-        kinda_seed * random()
     }
 
     pub struct DummyNote {

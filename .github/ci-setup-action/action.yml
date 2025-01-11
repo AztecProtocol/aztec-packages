@@ -19,18 +19,11 @@ runs:
         echo HOME=$RUN_HOME >> $GITHUB_ENV
         mkdir -p $RUN_HOME
 
-    - name: Cache Submodules
-      id: cache-submodules
-      uses: actions/cache@v4
-      with:
-        path: .git/modules
-        key: submodules-${{ hashFiles('.gitmodules') }}-spot-ebs
-
     - name: Checkout Submodules
       shell: bash
       run: |
         git config --global --add safe.directory '*'
-        git submodule sync --recursive && git submodule update --init --recursive
+        git submodule update --init --recursive
 
     # TODO reconsider how jq gets into image
     - name: Setup jq
@@ -63,12 +56,12 @@ runs:
       if: ${{ inputs.concurrency_key }}
       with:
         run: |
-          while [ -f "/home/ubuntu/${{ inputs.concurrency_key }}.lock" ]; do sleep 1 ; echo "Lock is currently held by $(cat '/home/ubuntu/${{ inputs.concurrency_key }}.lock'), waiting..." ; done
-          echo "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}" > "/home/ubuntu/${{ inputs.concurrency_key }}.lock"
-          echo "/home/ubuntu/${{ inputs.concurrency_key }}.lock acquired."
+          while [ -f "/var/lock/${{ inputs.concurrency_key }}.lock" ]; do sleep 1 ; echo "Lock is currently held by $(cat '/var/lock/${{ inputs.concurrency_key }}.lock'), waiting..." ; done
+          echo "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}" > "/var/lock/${{ inputs.concurrency_key }}.lock"
+          echo "/var/lock/${{ inputs.concurrency_key }}.lock acquired."
         post: |
-          rm "/home/ubuntu/${{ inputs.concurrency_key }}.lock" || true
-          echo "/home/ubuntu/${{ inputs.concurrency_key }}.lock removed."
+          rm "/var/lock/${{ inputs.concurrency_key }}.lock" || true
+          echo "/var/lock/${{ inputs.concurrency_key }}.lock removed."
 
     - name: Wait for runner completion
       shell: bash

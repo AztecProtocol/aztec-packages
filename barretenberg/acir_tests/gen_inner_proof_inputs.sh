@@ -20,7 +20,7 @@ export BRANCH
 
 ./clone_test_vectors.sh
 
-cd acir_tests/assert_statement_recursive
+cd acir_tests/assert_statement
 
 PROOF_DIR=$PWD/proofs
 PROOF_PATH=$PROOF_DIR/$PROOF_NAME
@@ -28,7 +28,7 @@ VFLAG=${VERBOSE:+-v}
 RFLAG=${RECURSIVE:+-r}
 
 echo "Write VK to file for assert_statement..."
-$BIN write_vk $VFLAG -c $CRS_PATH -o ./target/vk
+$BIN write_vk $VFLAG -c $CRS_PATH -o ./target/vk --recursive
 
 echo "Write VK as fields for recursion..."
 $BIN vk_as_fields $VFLAG -c $CRS_PATH -k ./target/vk -o ./target/vk_fields.json
@@ -36,7 +36,7 @@ $BIN vk_as_fields $VFLAG -c $CRS_PATH -k ./target/vk -o ./target/vk_fields.json
 echo "Generate proof to file..."
 [ -d "$PROOF_DIR" ] || mkdir $PWD/proofs
 [ -e "$PROOF_PATH" ] || touch $PROOF_PATH
-$BIN prove $VFLAG -c $CRS_PATH -b ./target/program.json -o "./proofs/$PROOF_NAME"
+$BIN prove $VFLAG -c $CRS_PATH -b ./target/program.json -o "./proofs/$PROOF_NAME" --recursive
 
 echo "Write proof as fields for recursion..."
 $BIN proof_as_fields $VFLAG -c $CRS_PATH -p "./proofs/$PROOF_NAME" -k ./target/vk -o "./proofs/${PROOF_NAME}_fields.json"

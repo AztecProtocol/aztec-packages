@@ -24,8 +24,8 @@ struct proving_key_data {
     uint32_t circuit_type;
     uint32_t circuit_size;
     uint32_t num_public_inputs;
-    bool contains_recursive_proof;
-    AggregationObjectPubInputIndices recursive_proof_public_input_indices;
+    bool contains_pairing_point_accumulator;
+    PairingPointAccumulatorPubInputIndices pairing_point_accumulator_public_input_indices;
     std::vector<uint32_t> memory_read_records;
     std::vector<uint32_t> memory_write_records;
 #ifdef __wasm__
@@ -59,8 +59,8 @@ struct proving_key {
     size_t circuit_size;
     size_t log_circuit_size;
     size_t num_public_inputs;
-    bool contains_recursive_proof = false;
-    AggregationObjectPubInputIndices recursive_proof_public_input_indices;
+    bool contains_pairing_point_accumulator = false;
+    PairingPointAccumulatorPubInputIndices pairing_point_accumulator_public_input_indices;
     std::vector<uint32_t> memory_read_records;  // Used by UltraPlonkComposer only; for ROM, RAM reads.
     std::vector<uint32_t> memory_write_records; // Used by UltraPlonkComposer only, for RAM writes.
 

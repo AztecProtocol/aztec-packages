@@ -7,11 +7,15 @@
   },
   "references": [
     {
+      "path": "../ethereum"
+    },
+    {
       "path": "../foundation"
     },
     {
       "path": "../types"
     }
   ],
-  "include": ["src"]
+  "include": ["src"],
+  "exclude": ["src/scripts"]
 }

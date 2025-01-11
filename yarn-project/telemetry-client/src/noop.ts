@@ -15,6 +15,10 @@ export class NoopTelemetryClient implements TelemetryClient {
     return Promise.resolve();
   }
 
+  flush(): Promise<void> {
+    return Promise.resolve();
+  }
+
   isEnabled() {
     return false;
   }

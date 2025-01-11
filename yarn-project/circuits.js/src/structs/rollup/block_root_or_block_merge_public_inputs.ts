@@ -1,11 +1,14 @@
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
+import { bufferSchemaFor } from '@aztec/foundation/schemas';
 import { BufferReader, type Tuple, serializeToBuffer, serializeToFields } from '@aztec/foundation/serialize';
+import { bufferToHex, hexToBuffer } from '@aztec/foundation/string';
 import { type FieldsOf } from '@aztec/foundation/types';
 
-import { AZTEC_EPOCH_DURATION } from '../../constants.gen.js';
+import { AZTEC_MAX_EPOCH_DURATION } from '../../constants.gen.js';
+import { BlockBlobPublicInputs } from '../blobs/blob_public_inputs.js';
 import { GlobalVariables } from '../global_variables.js';
-import { AppendOnlyTreeSnapshot } from './append_only_tree_snapshot.js';
+import { AppendOnlyTreeSnapshot } from '../trees/append_only_tree_snapshot.js';
 
 /**
  * Output of the block root and block merge rollup circuits.
@@ -44,7 +47,7 @@ export class BlockRootOrBlockMergePublicInputs {
     /**
      * The summed `transaction_fee`s and recipients of the constituent blocks.
      */
-    public fees: Tuple<FeeRecipient, typeof AZTEC_EPOCH_DURATION>,
+    public fees: Tuple<FeeRecipient, typeof AZTEC_MAX_EPOCH_DURATION>,
     /**
      * Root of the verification key tree.
      */
@@ -57,6 +60,10 @@ export class BlockRootOrBlockMergePublicInputs {
      * TODO(#7346): Temporarily added prover_id while we verify block-root proofs on L1
      */
     public proverId: Fr,
+    /**
+     * Public inputs required to verify a blob (challenge point z, evaluation y = p(z), and the commitment to p() for each blob)
+     */
+    public blobPublicInputs: Tuple<BlockBlobPublicInputs, typeof AZTEC_MAX_EPOCH_DURATION>,
   ) {}
 
   /**
@@ -74,10 +81,11 @@ export class BlockRootOrBlockMergePublicInputs {
       reader.readObject(GlobalVariables),
       reader.readObject(GlobalVariables),
       Fr.fromBuffer(reader),
-      reader.readArray(AZTEC_EPOCH_DURATION, FeeRecipient),
+      reader.readArray(AZTEC_MAX_EPOCH_DURATION, FeeRecipient),
       Fr.fromBuffer(reader),
       Fr.fromBuffer(reader),
       Fr.fromBuffer(reader),
+      reader.readArray(AZTEC_MAX_EPOCH_DURATION, BlockBlobPublicInputs),
     );
   }
 
@@ -98,6 +106,7 @@ export class BlockRootOrBlockMergePublicInputs {
       this.vkTreeRoot,
       this.protocolContractTreeRoot,
       this.proverId,
+      this.blobPublicInputs,
     );
   }
 
@@ -106,7 +115,7 @@ export class BlockRootOrBlockMergePublicInputs {
    * @returns - The hex string.
    */
   toString() {
-    return this.toBuffer().toString('hex');
+    return bufferToHex(this.toBuffer());
   }
 
   /**
@@ -115,7 +124,17 @@ export class BlockRootOrBlockMergePublicInputs {
    * @returns A new BaseOrMergeRollupPublicInputs instance.
    */
   static fromString(str: string) {
-    return BlockRootOrBlockMergePublicInputs.fromBuffer(Buffer.from(str, 'hex'));
+    return BlockRootOrBlockMergePublicInputs.fromBuffer(hexToBuffer(str));
+  }
+
+  /** Returns a buffer representation for JSON serialization. */
+  toJSON() {
+    return this.toBuffer();
+  }
+
+  /** Creates an instance from a hex string. */
+  static get schema() {
+    return bufferSchemaFor(BlockRootOrBlockMergePublicInputs);
   }
 }
 
@@ -148,5 +167,9 @@ export class FeeRecipient {
       return {};
     }
     return { recipient: this.recipient.toString(), value: this.value.toString() };
+  }
+
+  static random() {
+    return new FeeRecipient(EthAddress.random(), Fr.random());
   }
 }

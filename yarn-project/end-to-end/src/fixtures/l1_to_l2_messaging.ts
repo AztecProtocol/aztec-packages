@@ -1,16 +1,23 @@
-import { type L1ToL2Message } from '@aztec/aztec.js';
 import { type AztecAddress, Fr } from '@aztec/circuits.js';
 import { type L1ContractAddresses } from '@aztec/ethereum';
 import { InboxAbi } from '@aztec/l1-artifacts';
 
 import { expect } from '@jest/globals';
-import { type Hex, type PublicClient, type WalletClient, decodeEventLog, getContract } from 'viem';
+import {
+  type Account,
+  type Chain,
+  type HttpTransport,
+  type PublicClient,
+  type WalletClient,
+  decodeEventLog,
+  getContract,
+} from 'viem';
 
 export async function sendL1ToL2Message(
-  message: L1ToL2Message | { recipient: AztecAddress; content: Fr; secretHash: Fr },
+  message: { recipient: AztecAddress; content: Fr; secretHash: Fr },
   ctx: {
-    walletClient: WalletClient;
-    publicClient: PublicClient;
+    walletClient: WalletClient<HttpTransport, Chain, Account>;
+    publicClient: PublicClient<HttpTransport, Chain>;
     l1ContractAddresses: Pick<L1ContractAddresses, 'inboxAddress'>;
   },
 ) {
@@ -20,18 +27,15 @@ export async function sendL1ToL2Message(
     client: ctx.walletClient,
   });
 
-  const recipient = 'recipient' in message.recipient ? message.recipient.recipient : message.recipient;
-  const version = 'version' in message.recipient ? message.recipient.version : 1;
+  const { recipient, content, secretHash } = message;
+  const version = 1;
 
   // We inject the message to Inbox
-  const txHash = await inbox.write.sendL2Message(
-    [
-      { actor: recipient.toString() as Hex, version: BigInt(version) },
-      message.content.toString() as Hex,
-      message.secretHash.toString() as Hex,
-    ] as const,
-    {} as any,
-  );
+  const txHash = await inbox.write.sendL2Message([
+    { actor: recipient.toString(), version: BigInt(version) },
+    content.toString(),
+    secretHash.toString(),
+  ]);
 
   // We check that the message was correctly injected by checking the emitted event
   const txReceipt = await ctx.publicClient.waitForTransactionReceipt({ hash: txHash });
@@ -49,11 +53,5 @@ export async function sendL1ToL2Message(
   const receivedMsgHash = topics.args.hash;
   const receivedGlobalLeafIndex = topics.args.index;
 
-  // We check that the leaf inserted into the subtree matches the expected message hash
-  if ('hash' in message) {
-    const msgHash = message.hash();
-    expect(receivedMsgHash).toBe(msgHash.toString());
-  }
-
-  return [Fr.fromString(receivedMsgHash), new Fr(receivedGlobalLeafIndex)];
+  return [Fr.fromHexString(receivedMsgHash), new Fr(receivedGlobalLeafIndex)];
 }

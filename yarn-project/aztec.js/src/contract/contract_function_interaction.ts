@@ -1,4 +1,4 @@
-import type { FunctionCall, TxExecutionRequest } from '@aztec/circuit-types';
+import type { FunctionCall, PrivateKernelProverProfileResult, TxExecutionRequest } from '@aztec/circuit-types';
 import { type AztecAddress, type GasSettings } from '@aztec/circuits.js';
 import {
   type FunctionAbi,
@@ -28,6 +28,14 @@ export type SimulateMethodOptions = {
 };
 
 /**
+ * The result of a profile() call.
+ */
+export type ProfileResult = PrivateKernelProverProfileResult & {
+  /** The result of the transaction as returned by the contract function. */
+  returnValues: any;
+};
+
+/**
  * This is the class that is returned when calling e.g. `contract.methods.myMethod(arg0, arg1)`.
  * It contains available interactions one can call on a method, including view.
  */
@@ -44,33 +52,32 @@ export class ContractFunctionInteraction extends BaseContractInteraction {
     }
   }
 
+  // docs:start:create
   /**
    * Create a transaction execution request that represents this call, encoded and authenticated by the
    * user's wallet, ready to be simulated.
    * @param opts - An optional object containing additional configuration for the transaction.
    * @returns A Promise that resolves to a transaction instance.
    */
-  public async create(opts?: SendMethodOptions): Promise<TxExecutionRequest> {
+  public async create(opts: SendMethodOptions = {}): Promise<TxExecutionRequest> {
+    // docs:end:create
     if (this.functionDao.functionType === FunctionType.UNCONSTRAINED) {
       throw new Error("Can't call `create` on an unconstrained function.");
     }
     const calls = [this.request()];
-    const fee = opts?.estimateGas ? await this.getFeeOptionsFromEstimatedGas({ calls, fee: opts?.fee }) : opts?.fee;
-    const txRequest = await this.wallet.createTxExecutionRequest({
-      calls,
-      fee,
-      nonce: opts?.nonce,
-      cancellable: opts?.cancellable,
-    });
-    return txRequest;
+    const fee = await this.getFeeOptions({ calls, ...opts });
+    const { nonce, cancellable } = opts;
+    return await this.wallet.createTxExecutionRequest({ calls, fee, nonce, cancellable });
   }
 
+  // docs:start:request
   /**
    * Returns an execution request that represents this operation. Useful as a building
    * block for constructing batch requests.
    * @returns An execution request wrapped in promise.
    */
   public request(): FunctionCall {
+    // docs:end:request
     const args = encodeArguments(this.functionDao, this.args);
     return {
       name: this.functionDao.name,
@@ -83,6 +90,7 @@ export class ContractFunctionInteraction extends BaseContractInteraction {
     };
   }
 
+  // docs:start:simulate
   /**
    * Simulate a transaction and get its return values
    * Differs from prove in a few important ways:
@@ -93,6 +101,7 @@ export class ContractFunctionInteraction extends BaseContractInteraction {
    * @returns The result of the transaction as returned by the contract function.
    */
   public async simulate(options: SimulateMethodOptions = {}): Promise<any> {
+    // docs:end:simulate
     if (this.functionDao.functionType == FunctionType.UNCONSTRAINED) {
       return this.wallet.simulateUnconstrained(this.functionDao.name, this.args, this.contractAddress, options?.from);
     }
@@ -100,14 +109,54 @@ export class ContractFunctionInteraction extends BaseContractInteraction {
     const txRequest = await this.create();
     const simulatedTx = await this.wallet.simulateTx(txRequest, true, options?.from, options?.skipTxValidation);
 
-    // As account entrypoints are private, for private functions we retrieve the return values from the first nested call
-    // since we're interested in the first set of values AFTER the account entrypoint
-    // For public functions we retrieve the first values directly from the public output.
+    let rawReturnValues;
+    if (this.functionDao.functionType == FunctionType.PRIVATE) {
+      if (simulatedTx.getPrivateReturnValues().nested.length > 0) {
+        // The function invoked is private and it was called via an account contract
+        // TODO(#10631): There is a bug here: this branch might be triggered when there is no-account contract as well
+        rawReturnValues = simulatedTx.getPrivateReturnValues().nested[0].values;
+      } else {
+        // The function invoked is private and it was called directly (without account contract)
+        rawReturnValues = simulatedTx.getPrivateReturnValues().values;
+      }
+    } else {
+      // For public functions we retrieve the first values directly from the public output.
+      rawReturnValues = simulatedTx.getPublicReturnValues()?.[0].values;
+    }
+
+    return rawReturnValues ? decodeFromAbi(this.functionDao.returnTypes, rawReturnValues) : [];
+  }
+
+  /**
+   * Simulate a transaction and profile the gate count for each function in the transaction.
+   * @param options - Same options as `simulate`.
+   *
+   * @returns An object containing the function return value and profile result.
+   */
+  public async simulateWithProfile(options: SimulateMethodOptions = {}): Promise<ProfileResult> {
+    if (this.functionDao.functionType == FunctionType.UNCONSTRAINED) {
+      throw new Error("Can't profile an unconstrained function.");
+    }
+
+    const txRequest = await this.create();
+    const simulatedTx = await this.wallet.simulateTx(
+      txRequest,
+      true,
+      options?.from,
+      options?.skipTxValidation,
+      undefined,
+      true,
+    );
+
     const rawReturnValues =
       this.functionDao.functionType == FunctionType.PRIVATE
         ? simulatedTx.getPrivateReturnValues().nested?.[0].values
         : simulatedTx.getPublicReturnValues()?.[0].values;
+    const rawReturnValuesDecoded = rawReturnValues ? decodeFromAbi(this.functionDao.returnTypes, rawReturnValues) : [];
 
-    return rawReturnValues ? decodeFromAbi(this.functionDao.returnTypes, rawReturnValues) : [];
+    return {
+      returnValues: rawReturnValuesDecoded,
+      gateCounts: simulatedTx.profileResult!.gateCounts,
+    };
   }
 }

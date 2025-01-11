@@ -1,13 +1,11 @@
-use std::{
-    collections::umap::UHashMap,
-    hash::{BuildHasherDefault, poseidon2::Poseidon2Hasher},
-    meta::unquote,
-};
+use std::{collections::umap::UHashMap, hash::{BuildHasherDefault, poseidon2::Poseidon2Hasher}};
 
 use super::utils::get_serialized_size;
 use super::utils::is_note;
 
-comptime mut global STORAGE_LAYOUT_NAME: UHashMap<Module, Quoted, BuildHasherDefault<Poseidon2Hasher>> =
+/// Stores a map from a module to the name of the struct that describes its storage layout.
+/// This is then used when generating a `storage_layout()` getter on the contract struct.
+pub comptime mut global STORAGE_LAYOUT_NAME: UHashMap<Module, Quoted, BuildHasherDefault<Poseidon2Hasher>> =
     UHashMap::default();
 
 /// Marks a struct as the one describing the storage layout of a contract. Only a single struct in the entire contract
@@ -67,23 +65,23 @@ pub comptime fn storage(s: StructDefinition) -> Quoted {
     let module = s.module();
     let module_name = module.name();
     let storage_layout_name = f"STORAGE_LAYOUT_{module_name}".quoted_contents();
-    let module_name_str = module_name.as_str_quote();
+    let (module_name_str, module_name_len) = module_name.as_str_quote();
     STORAGE_LAYOUT_NAME.insert(module, storage_layout_name);
 
     quote {
         $storage_impl
 
-        struct StorageLayoutFields {
+        pub struct StorageLayoutFields {
             $storage_layout_fields
         }
 
-        struct StorageLayout<let N: u32> {
-            contract_name: str<N>,
-            fields: StorageLayoutFields
+        pub struct StorageLayout<let N: u32> {
+            pub contract_name: str<N>,
+            pub fields: StorageLayoutFields
         }
 
         #[abi(storage)]
-        global $storage_layout_name = StorageLayout {
+        pub global $storage_layout_name: StorageLayout<$module_name_len> = StorageLayout {
             contract_name: $module_name_str,
             fields: StorageLayoutFields { $storage_layout_constructors }
         };

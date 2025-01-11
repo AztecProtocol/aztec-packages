@@ -357,10 +357,7 @@ TEST(fr, BatchInvert)
     }
 
     for (size_t i = 0; i < n; ++i) {
-        EXPECT_EQ(coeffs[i].data[0], 0UL);
-        EXPECT_EQ(coeffs[i].data[1], 0UL);
-        EXPECT_EQ(coeffs[i].data[2], 0UL);
-        EXPECT_EQ(coeffs[i].data[3], 0UL);
+        EXPECT_TRUE(coeffs[i].is_zero());
     }
 }
 
@@ -378,4 +375,16 @@ TEST(fr, Uint256Conversions)
 
     static_assert(a == c);
     EXPECT_EQ(a, c);
+}
+// This test shows that ((lo|hi)% modulus) in uint512_t is equivalent to (lo + 2^256 * hi) in field elements so we
+// don't have to use the slow API (uint512_t's modulo operation)
+TEST(fr, EquivalentRandomness)
+{
+    auto& engine = numeric::get_debug_randomness();
+    uint512_t random_uint512 = engine.get_random_uint512();
+    auto random_lo = fr(random_uint512.lo);
+    auto random_hi = fr(random_uint512.hi);
+    uint512_t r(fr::modulus);
+    constexpr auto pow_2_256 = fr(uint256_t(1) << 128).sqr();
+    EXPECT_EQ(random_lo + pow_2_256 * random_hi, fr((random_uint512 % r).lo));
 }

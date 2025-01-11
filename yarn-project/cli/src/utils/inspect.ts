@@ -15,6 +15,7 @@ export async function inspectBlock(pxe: PXE, blockNumber: number, log: LogFn, op
 
   log(`Block ${blockNumber} (${block.hash().toString()})`);
   log(` Total fees: ${block.header.totalFees.toBigInt()}`);
+  log(` Total mana used: ${block.header.totalManaUsed.toBigInt()}`);
   log(
     ` Fee per gas unit: DA=${block.header.globalVariables.gasFees.feePerDaGas.toBigInt()} L2=${block.header.globalVariables.gasFees.feePerL2Gas.toBigInt()}`,
   );
@@ -38,26 +39,27 @@ export async function inspectTx(
   log: LogFn,
   opts: { includeBlockInfo?: boolean; artifactMap?: ArtifactMap } = {},
 ) {
-  const [receipt, effects, notes] = await Promise.all([
+  const [receipt, effectsInBlock, getNotes] = await Promise.all([
     pxe.getTxReceipt(txHash),
     pxe.getTxEffect(txHash),
-    pxe.getIncomingNotes({ txHash, status: NoteStatus.ACTIVE_OR_NULLIFIED }),
+    pxe.getNotes({ txHash, status: NoteStatus.ACTIVE_OR_NULLIFIED }),
   ]);
   // Base tx data
   log(`Tx ${txHash.toString()}`);
-  log(` Status: ${receipt.status} ${effects ? `(${effects.revertCode.getDescription()})` : ''}`);
+  log(` Status: ${receipt.status} ${effectsInBlock ? `(${effectsInBlock.data.revertCode.getDescription()})` : ''}`);
   if (receipt.error) {
     log(` Error: ${receipt.error}`);
   }
 
-  if (!effects) {
+  if (!effectsInBlock) {
     return;
   }
 
+  const effects = effectsInBlock.data;
   const artifactMap = opts?.artifactMap ?? (await getKnownArtifacts(pxe));
 
   if (opts.includeBlockInfo) {
-    log(` Block: ${receipt.blockNumber} (${receipt.blockHash?.toString('hex')})`);
+    log(` Block: ${receipt.blockNumber} (${receipt.blockHash?.toString()})`);
   }
   if (receipt.transactionFee) {
     log(` Fee: ${receipt.transactionFee.toString()}`);
@@ -78,20 +80,20 @@ export async function inspectTx(
   if (writes.length > 0) {
     log(' Public data writes:');
     for (const write of writes) {
-      log(`  Leaf ${write.leafIndex.toString()} = ${write.newValue.toString()}`);
+      log(`  Leaf ${write.leafSlot.toString()} = ${write.value.toString()}`);
     }
   }
 
   // Created notes
-  const noteEncryptedLogsCount = effects.noteEncryptedLogs.unrollLogs().length;
-  if (noteEncryptedLogsCount > 0) {
+  const notes = effects.noteHashes;
+  if (notes.length > 0) {
     log(' Created notes:');
-    const notVisibleNotes = noteEncryptedLogsCount - notes.length;
-    if (notVisibleNotes > 0) {
-      log(`  ${notVisibleNotes} notes not visible in the PXE`);
-    }
-    for (const note of notes) {
-      inspectNote(note, artifactMap, log);
+    log(`  Total: ${notes.length}. Found: ${getNotes.length}.`);
+    if (getNotes.length) {
+      log('  Found notes:');
+      for (const note of getNotes) {
+        inspectNote(note, artifactMap, log);
+      }
     }
   }
 
@@ -101,7 +103,7 @@ export async function inspectTx(
   if (nullifierCount > 0) {
     log(' Nullifiers:');
     for (const nullifier of effects.nullifiers) {
-      const [note] = await pxe.getIncomingNotes({ siloedNullifier: nullifier });
+      const [note] = await pxe.getNotes({ siloedNullifier: nullifier });
       const deployed = deployNullifiers[nullifier.toString()];
       const initialized = initNullifiers[nullifier.toString()];
       const registered = classNullifiers[nullifier.toString()];
@@ -165,8 +167,8 @@ async function getKnownNullifiers(pxe: PXE, artifactMap: ArtifactMap) {
   const deployNullifiers: Record<string, AztecAddress> = {};
   const classNullifiers: Record<string, string> = {};
   for (const contract of knownContracts) {
-    initNullifiers[siloNullifier(contract, contract).toString()] = contract;
-    deployNullifiers[siloNullifier(deployerAddress, contract).toString()] = contract;
+    initNullifiers[siloNullifier(contract, contract.toField()).toString()] = contract;
+    deployNullifiers[siloNullifier(deployerAddress, contract.toField()).toString()] = contract;
   }
   for (const artifact of Object.values(artifactMap)) {
     classNullifiers[

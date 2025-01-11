@@ -6,7 +6,7 @@ cmake_minimum_required(VERSION 3.24 FATAL_ERROR)
 project(
     Barretenberg
     DESCRIPTION "BN254 elliptic curve library, and PLONK SNARK prover"
-    VERSION 0.61.0 # x-release-please-version
+    VERSION 0.69.1 # x-release-please-version
     LANGUAGES CXX C
 )
 # Insert version into `bb` config file
@@ -31,7 +31,7 @@ option(DISABLE_AZTEC_VM "Don't build Aztec VM (acceptable if iterating on core p
 option(MULTITHREADING "Enable multi-threading" ON)
 option(OMP_MULTITHREADING "Enable OMP multi-threading" OFF)
 option(FUZZING "Build ONLY fuzzing harnesses" OFF)
-option(DISABLE_TBB "Intel Thread Building Blocks" ON)
+option(ENABLE_PAR_ALGOS "Enable parallel algorithms" OFF)
 option(COVERAGE "Enable collecting coverage from tests" OFF)
 option(ENABLE_ASAN "Address sanitizer for debugging tricky memory corruption" OFF)
 option(ENABLE_HEAVY_TESTS "Enable heavy tests when collecting coverage" OFF)
@@ -47,7 +47,6 @@ if(CMAKE_SYSTEM_PROCESSOR MATCHES "aarch64" OR CMAKE_SYSTEM_PROCESSOR MATCHES "a
     set(DISABLE_ADX ON)
     set(RUN_HAVE_STD_REGEX 0)
     set(RUN_HAVE_POSIX_REGEX 0)
-    set(DISABLE_TBB 0)
 endif()
 
 if(CHECK_CIRCUIT_STACKTRACES)
@@ -95,7 +94,7 @@ if(CMAKE_SYSTEM_PROCESSOR MATCHES "wasm32")
     set(WASM ON)
     set(DISABLE_ASM ON)
     set(OMP_MULTITHREADING OFF)
-    set(DISABLE_TBB 1)
+    set(ENABLE_PAR_ALGOS 0)
     add_compile_definitions(_WASI_EMULATED_PROCESS_CLOCKS=1)
 endif()
 
@@ -109,6 +108,10 @@ if(CMAKE_CXX_COMPILER_ID MATCHES "Clang")
     add_compile_options(-fbracket-depth=1024)
     if(CMAKE_CXX_COMPILER_VERSION VERSION_LESS "14")
         message(WARNING "Clang <14 is not supported")
+    endif()
+    # Disable std::execution parallel algorithms on AppleClang as it is not supported.
+    if(CMAKE_CXX_COMPILER_ID MATCHES "AppleClang")
+        set(ENABLE_PAR_ALGOS 0)
     endif()
 elseif(CMAKE_CXX_COMPILER_ID MATCHES "GNU")
     if(CMAKE_CXX_COMPILER_VERSION VERSION_LESS "10")

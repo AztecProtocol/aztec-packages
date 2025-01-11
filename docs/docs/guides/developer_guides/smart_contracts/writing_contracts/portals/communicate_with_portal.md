@@ -3,9 +3,7 @@ title: Communicating with L1
 tags: [contracts, portals]
 ---
 
-Is this your first time hearing the word `Portal`? You might want to check out the [protocol specs](../../../../../protocol-specs/l1-smart-contracts/index.md).
-
-Follow the [token bridge tutorial](../../../../../tutorials/codealong/contract_tutorials/advanced/token_bridge/index.md) for hands-on experience writing and deploying a Portal contract.
+Follow the [token bridge tutorial](../../../../../tutorials/codealong/contract_tutorials/token_bridge/index.md) for hands-on experience writing and deploying a Portal contract.
 
 ## Passing data to the rollup
 
@@ -43,7 +41,7 @@ Note that while the `secret` and the `content` are both hashed, they are actuall
 
 ### Token bridge example
 
-Computing the `content` must currently be done manually, as we are still adding a number of bytes utilities. A good example exists within the [Token bridge example (codealong tutorial)](../../../../../tutorials/codealong/contract_tutorials/advanced/token_bridge/index.md).
+Computing the `content` must currently be done manually, as we are still adding a number of bytes utilities. A good example exists within the [Token bridge example (codealong tutorial)](../../../../../tutorials/codealong/contract_tutorials/token_bridge/index.md).
 
 #include_code claim_public /noir-projects/noir-contracts/contracts/token_bridge_contract/src/main.nr rust
 
@@ -53,7 +51,7 @@ The `content_hash` is a sha256 truncated to a field element (~ 254 bits). In Azt
 
 ### Token portal hash library
 
-#include_code mint_public_content_hash_nr /noir-projects/noir-contracts/contracts/token_portal_content_hash_lib/src/lib.nr rust
+#include_code mint_to_public_content_hash_nr /noir-projects/noir-contracts/contracts/token_portal_content_hash_lib/src/lib.nr rust
 
 ### Token Portal contract
 

@@ -4,6 +4,7 @@
 #include "barretenberg/flavor/flavor.hpp"
 #include "barretenberg/flavor/flavor_macros.hpp"
 #include "barretenberg/flavor/relation_definitions.hpp"
+#include "barretenberg/flavor/repeated_commitments_data.hpp"
 #include "barretenberg/honk/proof_system/types/proof.hpp"
 #include "barretenberg/plonk_honk_shared/library/grand_product_delta.hpp"
 #include "barretenberg/plonk_honk_shared/library/grand_product_library.hpp"
@@ -35,14 +36,16 @@ class MegaFlavor {
     using Polynomial = bb::Polynomial<FF>;
     using CommitmentKey = bb::CommitmentKey<Curve>;
     using VerifierCommitmentKey = bb::VerifierCommitmentKey<Curve>;
-    using TraceBlocks = CircuitBuilder::Arithmetization::TraceBlocks;
+    using TraceBlocks = MegaExecutionTraceBlocks;
 
+    // indicates when evaluating sumcheck, edges can be left as degree-1 monomials
+    static constexpr bool USE_SHORT_MONOMIALS = true;
     // Indicates that this flavor runs with non-ZK Sumcheck.
     static constexpr bool HasZK = false;
     static constexpr size_t NUM_WIRES = CircuitBuilder::NUM_WIRES;
     // The number of multivariate polynomials on which a sumcheck prover sumcheck operates (including shifts). We often
     // need containers of this size to hold related data, so we choose a name more agnostic than `NUM_POLYNOMIALS`.
-    static constexpr size_t NUM_ALL_ENTITIES = 63;
+    static constexpr size_t NUM_ALL_ENTITIES = 59;
     // The number of polynomials precomputed to describe a circuit and to aid a prover in constructing a satisfying
     // assignment of witnesses. We again choose a neutral name.
     static constexpr size_t NUM_PRECOMPUTED_ENTITIES = 30;
@@ -50,8 +53,11 @@ class MegaFlavor {
     static constexpr size_t NUM_WITNESS_ENTITIES = 24;
     // Total number of folded polynomials, which is just all polynomials except the shifts
     static constexpr size_t NUM_FOLDED_ENTITIES = NUM_PRECOMPUTED_ENTITIES + NUM_WITNESS_ENTITIES;
+    // The number of shifted witness entities including derived witness entities
+    static constexpr size_t NUM_SHIFTED_WITNESSES = 5;
 
-    using GrandProductRelations = std::tuple<bb::UltraPermutationRelation<FF>>;
+    static constexpr RepeatedCommitmentsData REPEATED_COMMITMENTS = RepeatedCommitmentsData(
+        NUM_PRECOMPUTED_ENTITIES, NUM_PRECOMPUTED_ENTITIES + NUM_WITNESS_ENTITIES, NUM_SHIFTED_WITNESSES);
 
     // define the tuple of Relations that comprise the Sumcheck relation
     // Note: made generic for use in MegaRecursive.
@@ -77,11 +83,11 @@ class MegaFlavor {
     static constexpr size_t BATCHED_RELATION_PARTIAL_LENGTH = MAX_PARTIAL_RELATION_LENGTH + 1;
     static constexpr size_t NUM_RELATIONS = std::tuple_size_v<Relations>;
     // The total number of witnesses including shifts and derived entities.
-    static constexpr size_t NUM_ALL_WITNESS_ENTITIES = 23;
+    static constexpr size_t NUM_ALL_WITNESS_ENTITIES = NUM_WITNESS_ENTITIES + NUM_SHIFTED_WITNESSES;
 
     // For instances of this flavour, used in folding, we need a unique sumcheck batching challenges for each
     // subrelation. This
-    // is because using powers of alpha would increase the degree of Protogalaxy polynomial $G$ (the combiner) to much.
+    // is because using powers of alpha would increase the degree of Protogalaxy polynomial $G$ (the combiner) too much.
     static constexpr size_t NUM_SUBRELATIONS = compute_number_of_subrelations<Relations>();
     using RelationSeparator = std::array<FF, NUM_SUBRELATIONS - 1>;
 
@@ -115,13 +121,13 @@ class MegaFlavor {
                               q_o,                  // column 4
                               q_4,                  // column 5
                               q_busread,            // column 6
-                              q_arith,              // column 7
-                              q_delta_range,        // column 8
-                              q_elliptic,           // column 9
-                              q_aux,                // column 10
-                              q_poseidon2_external, // column 11
-                              q_poseidon2_internal, // column 12
-                              q_lookup,             // column 13
+                              q_lookup,             // column 7
+                              q_arith,              // column 8
+                              q_delta_range,        // column 9
+                              q_elliptic,           // column 10
+                              q_aux,                // column 11
+                              q_poseidon2_external, // column 12
+                              q_poseidon2_internal, // column 13
                               sigma_1,              // column 14
                               sigma_2,              // column 15
                               sigma_3,              // column 16
@@ -146,8 +152,15 @@ class MegaFlavor {
         auto get_gate_selectors()
         {
             return RefArray{
-                q_busread, q_arith, q_delta_range, q_elliptic, q_aux, q_poseidon2_external, q_poseidon2_internal,
-                q_lookup
+                q_busread,
+                q_lookup,
+                q_arith,
+                q_delta_range,
+                q_elliptic,
+                q_aux,
+                q_poseidon2_external,
+                q_poseidon2_internal,
+
             };
         }
         auto get_selectors() { return concatenate(get_non_gate_selectors(), get_gate_selectors()); }
@@ -229,7 +242,10 @@ class MegaFlavor {
                 this->return_data_inverses,
             };
         }
-        auto get_to_be_shifted() { return DerivedEntities<DataType>::get_to_be_shifted(); }
+        auto get_to_be_shifted()
+        {
+            return concatenate(WireEntities<DataType>::get_all(), DerivedEntities<DataType>::get_to_be_shifted());
+        }
 
         MSGPACK_FIELDS(this->w_l,
                        this->w_r,
@@ -258,9 +274,9 @@ class MegaFlavor {
     };
 
     /**
-     * @brief Class for ShiftedWitnessEntities, containing only shifted witness polynomials.
+     * @brief Class for ShiftedEntities, containing the shifted witness polynomials.
      */
-    template <typename DataType> class ShiftedWitnessEntities {
+    template <typename DataType> class ShiftedEntities {
       public:
         DEFINE_FLAVOR_MEMBERS(DataType,
                               w_l_shift,    // column 0
@@ -269,32 +285,7 @@ class MegaFlavor {
                               w_4_shift,    // column 3
                               z_perm_shift) // column 4
 
-        auto get_shifted_witnesses() { return RefArray{ w_l_shift, w_r_shift, w_o_shift, w_4_shift, z_perm_shift }; };
-    };
-
-    /**
-     * @brief Class for ShiftedEntities, containing shifted witness and table polynomials.
-     */
-    template <typename DataType> class ShiftedTables {
-      public:
-        DEFINE_FLAVOR_MEMBERS(DataType,
-                              table_1_shift, // column 0
-                              table_2_shift, // column 1
-                              table_3_shift, // column 2
-                              table_4_shift  // column 3
-        )
-    };
-
-    /**
-     * @brief Class for ShiftedEntities, containing shifted witness and table polynomials.
-     */
-    template <typename DataType>
-    class ShiftedEntities : public ShiftedTables<DataType>, public ShiftedWitnessEntities<DataType> {
-      public:
-        DEFINE_COMPOUND_GET_ALL(ShiftedTables<DataType>, ShiftedWitnessEntities<DataType>)
-
-        auto get_shifted_witnesses() { return ShiftedWitnessEntities<DataType>::get_all(); };
-        auto get_shifted_tables() { return ShiftedTables<DataType>::get_all(); };
+        auto get_shifted() { return RefArray{ w_l_shift, w_r_shift, w_o_shift, w_4_shift, z_perm_shift }; };
     };
 
   public:
@@ -327,29 +318,15 @@ class MegaFlavor {
         };
         auto get_precomputed() { return PrecomputedEntities<DataType>::get_all(); }
         auto get_witness() { return WitnessEntities<DataType>::get_all(); };
-        auto get_to_be_shifted()
-        {
-            return concatenate(PrecomputedEntities<DataType>::get_table_polynomials(),
-                               WitnessEntities<DataType>::get_wires(),
-                               WitnessEntities<DataType>::get_to_be_shifted());
-        };
+        auto get_to_be_shifted() { return WitnessEntities<DataType>::get_to_be_shifted(); };
         auto get_shifted() { return ShiftedEntities<DataType>::get_all(); };
-        // getter for shifted witnesses
-        auto get_shifted_witnesses() { return ShiftedWitnessEntities<DataType>::get_all(); };
-        // getter for shifted tables
-        auto get_shifted_tables() { return ShiftedEntities<DataType>::get_shifted_tables(); };
         // this getter is used in ZK Sumcheck, where all witness evaluations (including shifts) have to be masked
         auto get_all_witnesses()
         {
-            return concatenate(WitnessEntities<DataType>::get_all(),
-                               ShiftedEntities<DataType>::get_shifted_witnesses());
+            return concatenate(WitnessEntities<DataType>::get_all(), ShiftedEntities<DataType>::get_all());
         };
         // getter for the complement of all witnesses inside all entities
-        auto get_non_witnesses()
-        {
-            return concatenate(PrecomputedEntities<DataType>::get_all(),
-                               ShiftedEntities<DataType>::get_shifted_tables());
-        };
+        auto get_non_witnesses() { return PrecomputedEntities<DataType>::get_all(); };
     };
 
     /**
@@ -406,10 +383,32 @@ class MegaFlavor {
             return result;
         }
 
+        [[nodiscard]] AllValues get_row_for_permutation_arg(size_t row_idx)
+        {
+            AllValues result;
+            for (auto [result_field, polynomial] : zip_view(result.get_sigma_polynomials(), get_sigma_polynomials())) {
+                result_field = polynomial[row_idx];
+            }
+            for (auto [result_field, polynomial] : zip_view(result.get_id_polynomials(), get_id_polynomials())) {
+                result_field = polynomial[row_idx];
+            }
+            for (auto [result_field, polynomial] : zip_view(result.get_wires(), get_wires())) {
+                result_field = polynomial[row_idx];
+            }
+            return result;
+        }
+
         void set_shifted()
         {
             for (auto [shifted, to_be_shifted] : zip_view(get_shifted(), get_to_be_shifted())) {
                 shifted = to_be_shifted.shifted();
+            }
+        }
+
+        void increase_polynomials_virtual_size(const size_t size_in)
+        {
+            for (auto& polynomial : this->get_all()) {
+                polynomial.increase_virtual_size(size_in);
             }
         }
     };
@@ -476,6 +475,8 @@ class MegaFlavor {
          */
         void compute_logderivative_inverses(const RelationParameters<FF>& relation_parameters)
         {
+            PROFILE_THIS_NAME("compute_logderivative_inverses");
+
             // Compute inverses for conventional lookups
             LogDerivLookupRelation<FF>::compute_logderivative_inverse(
                 this->polynomials, relation_parameters, this->circuit_size);
@@ -497,18 +498,37 @@ class MegaFlavor {
          * @brief Computes public_input_delta and the permutation grand product polynomial
          *
          * @param relation_parameters
+         * @param size_override override the size of the domain over which to compute the grand product
          */
-        void compute_grand_product_polynomials(RelationParameters<FF>& relation_parameters)
+        void compute_grand_product_polynomial(RelationParameters<FF>& relation_parameters, size_t size_override = 0)
         {
-            auto public_input_delta = compute_public_input_delta<MegaFlavor>(this->public_inputs,
-                                                                             relation_parameters.beta,
-                                                                             relation_parameters.gamma,
-                                                                             this->circuit_size,
-                                                                             this->pub_inputs_offset);
-            relation_parameters.public_input_delta = public_input_delta;
+            relation_parameters.public_input_delta = compute_public_input_delta<MegaFlavor>(this->public_inputs,
+                                                                                            relation_parameters.beta,
+                                                                                            relation_parameters.gamma,
+                                                                                            this->circuit_size,
+                                                                                            this->pub_inputs_offset);
 
-            // Compute permutation and lookup grand product polynomials
-            compute_grand_products<MegaFlavor>(this->polynomials, relation_parameters);
+            // Compute permutation grand product polynomial
+            compute_grand_product<MegaFlavor, UltraPermutationRelation<FF>>(
+                this->polynomials, relation_parameters, size_override, this->active_region_data);
+        }
+
+        uint64_t estimate_memory()
+        {
+            vinfo("++Estimating proving key memory++");
+            for (auto [polynomial, label] : zip_view(polynomials.get_all(), polynomials.get_labels())) {
+                uint64_t size = polynomial.size();
+                vinfo(label, " num: ", size, " size: ", (size * sizeof(FF)) >> 10, " KiB");
+            }
+
+            uint64_t result(0);
+            for (auto& polynomial : polynomials.get_unshifted()) {
+                result += polynomial.size() * sizeof(FF);
+            }
+
+            result += public_inputs.capacity() * sizeof(FF);
+
+            return result;
         }
     };
 
@@ -535,15 +555,16 @@ class MegaFlavor {
 
         VerificationKey(const VerificationKey& vk) = default;
 
-        void set_metadata(ProvingKey& proving_key)
+        void set_metadata(const ProvingKey& proving_key)
         {
             this->pcs_verification_key = std::make_shared<VerifierCommitmentKey>();
             this->circuit_size = proving_key.circuit_size;
             this->log_circuit_size = numeric::get_msb(this->circuit_size);
             this->num_public_inputs = proving_key.num_public_inputs;
             this->pub_inputs_offset = proving_key.pub_inputs_offset;
-            this->contains_recursive_proof = proving_key.contains_recursive_proof;
-            this->recursive_proof_public_input_indices = proving_key.recursive_proof_public_input_indices;
+            this->contains_pairing_point_accumulator = proving_key.contains_pairing_point_accumulator;
+            this->pairing_point_accumulator_public_input_indices =
+                proving_key.pairing_point_accumulator_public_input_indices;
 
             // Databus commitment propagation data
             this->databus_propagation_data = proving_key.databus_propagation_data;
@@ -552,11 +573,12 @@ class MegaFlavor {
         VerificationKey(ProvingKey& proving_key)
         {
             set_metadata(proving_key);
-            if (proving_key.commitment_key == nullptr) {
-                proving_key.commitment_key = std::make_shared<CommitmentKey>(proving_key.circuit_size);
+            auto& ck = proving_key.commitment_key;
+            if (!ck || ck->srs->get_monomial_size() < proving_key.circuit_size) {
+                ck = std::make_shared<CommitmentKey>(proving_key.circuit_size);
             }
             for (auto [polynomial, commitment] : zip_view(proving_key.polynomials.get_precomputed(), this->get_all())) {
-                commitment = proving_key.commitment_key->commit(polynomial);
+                commitment = ck->commit(polynomial);
             }
         }
 
@@ -577,8 +599,8 @@ class MegaFlavor {
             serialize_to_field_buffer(this->circuit_size, elements);
             serialize_to_field_buffer(this->num_public_inputs, elements);
             serialize_to_field_buffer(this->pub_inputs_offset, elements);
-            serialize_to_field_buffer(this->contains_recursive_proof, elements);
-            serialize_to_field_buffer(this->recursive_proof_public_input_indices, elements);
+            serialize_to_field_buffer(this->contains_pairing_point_accumulator, elements);
+            serialize_to_field_buffer(this->pairing_point_accumulator_public_input_indices, elements);
 
             serialize_to_field_buffer(this->databus_propagation_data.app_return_data_public_input_idx, elements);
             serialize_to_field_buffer(this->databus_propagation_data.kernel_return_data_public_input_idx, elements);
@@ -595,8 +617,8 @@ class MegaFlavor {
         VerificationKey(const size_t circuit_size,
                         const size_t num_public_inputs,
                         const size_t pub_inputs_offset,
-                        const bool contains_recursive_proof,
-                        const AggregationObjectPubInputIndices& recursive_proof_public_input_indices,
+                        const bool contains_pairing_point_accumulator,
+                        const PairingPointAccumulatorPubInputIndices& pairing_point_accumulator_public_input_indices,
                         const DatabusPropagationData& databus_propagation_data,
                         const Commitment& q_m,
                         const Commitment& q_c,
@@ -605,13 +627,13 @@ class MegaFlavor {
                         const Commitment& q_o,
                         const Commitment& q_4,
                         const Commitment& q_busread,
+                        const Commitment& q_lookup,
                         const Commitment& q_arith,
                         const Commitment& q_delta_range,
                         const Commitment& q_elliptic,
                         const Commitment& q_aux,
                         const Commitment& q_poseidon2_external,
                         const Commitment& q_poseidon2_internal,
-                        const Commitment& q_lookup,
                         const Commitment& sigma_1,
                         const Commitment& sigma_2,
                         const Commitment& sigma_3,
@@ -633,8 +655,8 @@ class MegaFlavor {
             this->log_circuit_size = numeric::get_msb(this->circuit_size);
             this->num_public_inputs = num_public_inputs;
             this->pub_inputs_offset = pub_inputs_offset;
-            this->contains_recursive_proof = contains_recursive_proof;
-            this->recursive_proof_public_input_indices = recursive_proof_public_input_indices;
+            this->contains_pairing_point_accumulator = contains_pairing_point_accumulator;
+            this->pairing_point_accumulator_public_input_indices = pairing_point_accumulator_public_input_indices;
             this->databus_propagation_data = databus_propagation_data;
             this->q_m = q_m;
             this->q_c = q_c;
@@ -643,13 +665,13 @@ class MegaFlavor {
             this->q_o = q_o;
             this->q_4 = q_4;
             this->q_busread = q_busread;
+            this->q_lookup = q_lookup;
             this->q_arith = q_arith;
             this->q_delta_range = q_delta_range;
             this->q_elliptic = q_elliptic;
             this->q_aux = q_aux;
             this->q_poseidon2_external = q_poseidon2_external;
             this->q_poseidon2_internal = q_poseidon2_internal;
-            this->q_lookup = q_lookup;
             this->sigma_1 = sigma_1;
             this->sigma_2 = sigma_2;
             this->sigma_3 = sigma_3;
@@ -671,8 +693,8 @@ class MegaFlavor {
                        log_circuit_size,
                        num_public_inputs,
                        pub_inputs_offset,
-                       contains_recursive_proof,
-                       recursive_proof_public_input_indices,
+                       contains_pairing_point_accumulator,
+                       pairing_point_accumulator_public_input_indices,
                        databus_propagation_data,
                        q_m,
                        q_c,
@@ -681,13 +703,13 @@ class MegaFlavor {
                        q_o,
                        q_4,
                        q_busread,
+                       q_lookup,
                        q_arith,
                        q_delta_range,
                        q_elliptic,
                        q_aux,
                        q_poseidon2_external,
                        q_poseidon2_internal,
-                       q_lookup,
                        sigma_1,
                        sigma_2,
                        sigma_3,
@@ -787,13 +809,13 @@ class MegaFlavor {
             q_4 = "Q_4";
             q_m = "Q_M";
             q_busread = "Q_BUSREAD";
+            q_lookup = "Q_LOOKUP";
             q_arith = "Q_ARITH";
             q_delta_range = "Q_SORT";
             q_elliptic = "Q_ELLIPTIC";
             q_aux = "Q_AUX";
             q_poseidon2_external = "Q_POSEIDON2_EXTERNAL";
             q_poseidon2_internal = "Q_POSEIDON2_INTERNAL";
-            q_lookup = "Q_LOOKUP";
             sigma_1 = "SIGMA_1";
             sigma_2 = "SIGMA_2";
             sigma_3 = "SIGMA_3";
@@ -843,7 +865,7 @@ class MegaFlavor {
      * Note: Made generic for use in MegaRecursive.
      * TODO(https://github.com/AztecProtocol/barretenberg/issues/877): Remove this Commitment template parameter
      */
-    template <typename Commitment> class Transcript_ : public NativeTranscript {
+    class Transcript : public NativeTranscript {
       public:
         uint32_t circuit_size;
         uint32_t public_input_size;
@@ -880,23 +902,23 @@ class MegaFlavor {
         Commitment shplonk_q_comm;
         Commitment kzg_w_comm;
 
-        Transcript_() = default;
+        Transcript() = default;
 
-        Transcript_(const HonkProof& proof)
+        Transcript(const HonkProof& proof)
             : NativeTranscript(proof)
         {}
 
-        static std::shared_ptr<Transcript_> prover_init_empty()
+        static std::shared_ptr<Transcript> prover_init_empty()
         {
-            auto transcript = std::make_shared<Transcript_>();
+            auto transcript = std::make_shared<Transcript>();
             constexpr uint32_t init{ 42 }; // arbitrary
             transcript->send_to_verifier("Init", init);
             return transcript;
         };
 
-        static std::shared_ptr<Transcript_> verifier_init_empty(const std::shared_ptr<Transcript_>& transcript)
+        static std::shared_ptr<Transcript> verifier_init_empty(const std::shared_ptr<Transcript>& transcript)
         {
-            auto verifier_transcript = std::make_shared<Transcript_>(transcript->proof_data);
+            auto verifier_transcript = std::make_shared<Transcript>(transcript->proof_data);
             [[maybe_unused]] auto _ = verifier_transcript->template receive_from_prover<uint32_t>("Init");
             return verifier_transcript;
         };
@@ -1003,8 +1025,6 @@ class MegaFlavor {
             ASSERT(proof_data.size() == old_proof_length);
         }
     };
-    // Specialize for Mega (general case used in MegaRecursive).
-    using Transcript = Transcript_<Commitment>;
 };
 
 } // namespace bb

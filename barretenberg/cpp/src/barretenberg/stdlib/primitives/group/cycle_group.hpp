@@ -7,6 +7,7 @@
 #include "barretenberg/stdlib/primitives/circuit_builders/circuit_builders.hpp"
 #include "barretenberg/stdlib/primitives/field/field.hpp"
 #include "barretenberg/stdlib_circuit_builders/plookup_tables/fixed_base/fixed_base_params.hpp"
+#include "barretenberg/transcript/origin_tag.hpp"
 #include <optional>
 
 namespace bb::stdlib {
@@ -107,6 +108,22 @@ template <typename Builder> class cycle_group {
         void validate_scalar_is_in_field() const;
 
         explicit cycle_scalar(BigScalarField&);
+        /**
+         * @brief Get the origin tag of the cycle_scalar (a merge of the lo and hi tags)
+         *
+         * @return OriginTag
+         */
+        OriginTag get_origin_tag() const { return OriginTag(lo.get_origin_tag(), hi.get_origin_tag()); }
+        /**
+         * @brief Set the origin tag of lo and hi members of cycle scalar
+         *
+         * @param tag
+         */
+        void set_origin_tag(const OriginTag& tag)
+        {
+            lo.set_origin_tag(tag);
+            hi.set_origin_tag(tag);
+        }
     };
 
     /**
@@ -119,6 +136,7 @@ template <typename Builder> class cycle_group {
         std::optional<field_t> read(size_t index);
         size_t _table_bits;
         std::vector<field_t> slices;
+        std::vector<uint64_t> slices_native;
     };
 
     /**
@@ -148,16 +166,22 @@ template <typename Builder> class cycle_group {
      */
     struct straus_lookup_table {
       public:
+        static std::vector<Element> compute_straus_lookup_table_hints(const Element& base_point,
+                                                                      const Element& offset_generator,
+                                                                      size_t table_bits);
+
         straus_lookup_table() = default;
         straus_lookup_table(Builder* context,
                             const cycle_group& base_point,
                             const cycle_group& offset_generator,
-                            size_t table_bits);
+                            size_t table_bits,
+                            std::optional<std::span<AffineElement>> hints = std::nullopt);
         cycle_group read(const field_t& index);
         size_t _table_bits;
         Builder* _context;
         std::vector<cycle_group> point_table;
         size_t rom_id = 0;
+        OriginTag tag{};
     };
 
   private:
@@ -186,17 +210,22 @@ template <typename Builder> class cycle_group {
     void set_point_at_infinity(const bool_t& is_infinity) { _is_infinity = is_infinity; }
     cycle_group get_standard_form() const;
     void validate_is_on_curve() const;
-    cycle_group dbl() const
+    cycle_group dbl(const std::optional<AffineElement> hint = std::nullopt) const
         requires IsUltraArithmetic<Builder>;
-    cycle_group dbl() const
+    cycle_group dbl(const std::optional<AffineElement> hint = std::nullopt) const
         requires IsNotUltraArithmetic<Builder>;
-    cycle_group unconditional_add(const cycle_group& other) const
+    cycle_group unconditional_add(const cycle_group& other,
+                                  const std::optional<AffineElement> hint = std::nullopt) const
         requires IsUltraArithmetic<Builder>;
-    cycle_group unconditional_add(const cycle_group& other) const
+    cycle_group unconditional_add(const cycle_group& other,
+                                  const std::optional<AffineElement> hint = std::nullopt) const
         requires IsNotUltraArithmetic<Builder>;
-    cycle_group unconditional_subtract(const cycle_group& other) const;
-    cycle_group checked_unconditional_add(const cycle_group& other) const;
-    cycle_group checked_unconditional_subtract(const cycle_group& other) const;
+    cycle_group unconditional_subtract(const cycle_group& other,
+                                       const std::optional<AffineElement> hint = std::nullopt) const;
+    cycle_group checked_unconditional_add(const cycle_group& other,
+                                          const std::optional<AffineElement> hint = std::nullopt) const;
+    cycle_group checked_unconditional_subtract(const cycle_group& other,
+                                               const std::optional<AffineElement> hint = std::nullopt) const;
     cycle_group operator+(const cycle_group& other) const;
     cycle_group operator-(const cycle_group& other) const;
     cycle_group operator-() const;
@@ -223,6 +252,28 @@ template <typename Builder> class cycle_group {
     void assert_equal(const cycle_group& other, std::string const& msg = "cycle_group::assert_equal") const;
     static cycle_group conditional_assign(const bool_t& predicate, const cycle_group& lhs, const cycle_group& rhs);
     cycle_group operator/(const cycle_group& other) const;
+
+    /**
+     * @brief Set the origin tag for x, y and _is_infinity members of cycle_group
+     *
+     * @param tag
+     */
+    void set_origin_tag(OriginTag tag)
+    {
+        x.set_origin_tag(tag);
+        y.set_origin_tag(tag);
+        _is_infinity.set_origin_tag(tag);
+    }
+    /**
+     * @brief Get the origin tag of cycle_group (a merege of origin tags of x, y and _is_infinity members)
+     *
+     * @return OriginTag
+     */
+    OriginTag get_origin_tag() const
+    {
+        return OriginTag(x.get_origin_tag(), y.get_origin_tag(), _is_infinity.get_origin_tag());
+    }
+
     field_t x;
     field_t y;
 

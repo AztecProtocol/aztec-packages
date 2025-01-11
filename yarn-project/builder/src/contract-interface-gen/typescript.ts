@@ -257,12 +257,12 @@ function generateEvents(events: any[] | undefined) {
     `;
 
     const fieldNames = event.fields.map((field: any) => `"${field.name}"`);
-    const eventType = `${eventName}: {decode: (payload: L1EventPayload | UnencryptedL2Log | undefined) => ${eventName} | undefined, eventSelector: EventSelector, fieldNames: string[] }`;
+    const eventType = `${eventName}: {abiType: AbiType, eventSelector: EventSelector, fieldNames: string[] }`;
     // Reusing the decodeFunctionSignature
     const eventSignature = decodeFunctionSignature(eventName, event.fields);
     const eventSelector = `EventSelector.fromSignature('${eventSignature}')`;
     const eventImpl = `${eventName}: {
-        decode: this.decodeEvent(${eventSelector}, ${JSON.stringify(event, null, 4)}),
+        abiType: ${JSON.stringify(event, null, 4)},
         eventSelector: ${eventSelector},
         fieldNames: [${fieldNames}],
       }`;
@@ -277,32 +277,6 @@ function generateEvents(events: any[] | undefined) {
   return {
     eventDefs: eventsMetadata.map(({ eventDef }) => eventDef).join('\n'),
     events: `
-    // Partial application is chosen is to avoid the duplication of so much codegen.
-    private static decodeEvent<T>(
-      eventSelector: EventSelector,
-      eventType: AbiType,
-    ): (payload: L1EventPayload | UnencryptedL2Log | undefined) => T | undefined {
-      return (payload: L1EventPayload | UnencryptedL2Log | undefined): T | undefined => {
-        if (payload === undefined) {
-          return undefined;
-        }
-
-        if (payload instanceof L1EventPayload) {
-          if (!eventSelector.equals(payload.eventTypeId)) {
-            return undefined;
-          }
-          return decodeFromAbi([eventType], payload.event.items) as T;
-        } else {
-          let items = [];
-          for (let i = 0; i < payload.data.length; i += 32) {
-            items.push(new Fr(payload.data.subarray(i, i + 32)));
-          }
-
-          return decodeFromAbi([eventType], items) as T;
-        }
-      };
-    }
-
     public static get events(): { ${eventsMetadata.map(({ eventType }) => eventType).join(', ')} } {
     return {
       ${eventsMetadata.map(({ eventImpl }) => eventImpl).join(',\n')}

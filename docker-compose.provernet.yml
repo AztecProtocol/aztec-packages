@@ -6,9 +6,8 @@ services:
 
   # Anvil instance that serves as L1
   ethereum:
-    image: ghcr.io/foundry-rs/foundry@sha256:29ba6e34379e79c342ec02d437beb7929c9e254261e8032b17e187be71a2609f
-    command: >
-      'anvil --block-time 12 --host 0.0.0.0 --chain-id 31337 --port 8545 --silent'
+    image: aztecprotocol/foundry:25f24e677a6a32a62512ad4f561995589ac2c7dc-${ARCH_TAG:-amd64}
+    entrypoint: 'anvil --block-time 12 --silent -p 8545 --host 0.0.0.0 --chain-id 31337'
     ports:
       - 8545:8545
 
@@ -66,7 +65,8 @@ services:
       ARCHIVER_POLLING_INTERVAL_MS: 1000
       ARCHIVER_VIEM_POLLING_INTERVAL_MS: 1000
       PROVER_VIEM_POLLING_INTERVAL_MS: 1000
-      PROVER_AGENT_ENABLED: false
+      PROVER_AGENT_COUNT: 0
+      PROVER_BROKER_HOST: http://aztec-prover-broker
       PROVER_PUBLISHER_PRIVATE_KEY: "0xdbda1821b80551c9d65939329250298aa3472ba22feea921c0cf5d620ea67b97"
       PROVER_REAL_PROOFS: "${PROVER_REAL_PROOFS:-false}"
       PROVER_MINIMUM_ESCROW_AMOUNT: 1000000000
@@ -77,12 +77,29 @@ services:
     depends_on:
       aztec-node:
         condition: service_healthy
+      aztec-prover-broker:
+        condition: service_healthy
     healthcheck:
       test: [ "CMD", "curl", "-fSs", "http://127.0.0.1:80/status" ]
       interval: 3s
       timeout: 30s
       start_period: 120s
     command: [ "start", "--prover-node", "--archiver" ]
+    restart: on-failure:5
+
+  aztec-prover-broker:
+    image: "aztecprotocol/${IMAGE:-aztec:master}"
+    ports:
+      - "8084:80"
+    environment:
+      LOG_LEVEL: verbose
+      AZTEC_PORT: 80
+    healthcheck:
+      test: [ "CMD", "curl", "-fSs", "http://127.0.0.1:80/status" ]
+      interval: 3s
+      timeout: 30s
+      start_period: 120s
+    command: [ "start", "--prover-broker" ]
     restart: on-failure:5
 
   # Prover agent that connects to the prover-node for fetching proving jobs and executing them
@@ -94,13 +111,11 @@ services:
     environment:
       LOG_LEVEL: verbose
       ETHEREUM_HOST: http://ethereum:8545
-      AZTEC_NODE_URL: http://aztec-prover # Deprecated, use PROVER_JOB_SOURCE_URL
-      PROVER_JOB_SOURCE_URL: http://aztec-prover
+      PROVER_BROKER_HOST: http://aztec-prover-broker
       L1_CHAIN_ID: 31337
       AZTEC_PORT: 80
       PROVER_REAL_PROOFS: "${PROVER_REAL_PROOFS:-false}"
       PROVER_TEST_DELAY_MS: "${PROVER_TEST_DELAY_MS:-0}"
-      PROVER_AGENT_CONCURRENCY: 2
       BB_SKIP_CLEANUP: "${BB_SKIP_CLEANUP:-0}" # Persist tmp dirs for debugging
       PROVER_ID: "${PROVER_ID:-0x01}"
     volumes:
@@ -108,9 +123,12 @@ services:
       - ./cache/bb-crs/:/root/.bb-crs:rw
       - ./workdir/bb-prover/:/usr/src/yarn-project/bb:rw
     depends_on:
-      aztec-prover:
+      aztec-prover-broker:
         condition: service_healthy
-    command: [ "start", "--prover" ]
+    command: [ "start", "--prover-agent" ]
+    deploy:
+      mode: replicated
+      replicas: 2
     restart: on-failure:5
     healthcheck:
       test: [ "CMD", "curl", "-fSs", "http://127.0.0.1:80/status" ]
@@ -136,6 +154,8 @@ services:
       BOT_PUBLIC_TRANSFERS_PER_TX: 0
       BOT_NO_WAIT_FOR_TRANSFERS: true
       BOT_NO_START: false
+      BOT_MAX_CONSECUTIVE_ERRORS: 3
+      BOT_STOP_WHEN_UNHEALTHY: true
       PXE_PROVER_ENABLED: "${PROVER_REAL_PROOFS:-false}"
       PROVER_REAL_PROOFS: "${PROVER_REAL_PROOFS:-false}"
       BB_SKIP_CLEANUP: "${BB_SKIP_CLEANUP:-0}" # Persist tmp dirs for debugging
@@ -150,7 +170,7 @@ services:
       test: [ "CMD", "curl", "-fSs", "http://127.0.0.1:80/status" ]
       interval: 3s
       timeout: 30s
-      start_period: 10s
+      start_period: 90s
     restart: on-failure:5
     command: [ "start", "--bot", "--pxe" ]
 

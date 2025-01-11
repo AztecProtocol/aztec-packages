@@ -1,24 +1,46 @@
 #!/usr/bin/env bash
+# DEPRECATED: USE bootstrap.sh test
+#!/usr/bin/env bash
 # Env var overrides:
 #   BIN: to specify a different binary to test with (e.g. bb.js or bb.js-dev).
 #   VERBOSE: to enable logging for each test.
+#   RECURSIVE: to enable --recursive for each test.
 set -eu
 
 # Catch when running in parallel
 error_file="/tmp/error.$$"
 pids=()
-source ./bash_helpers/catch.sh
+
+# Handler for SIGCHLD, cleanup if child exit with error
+handle_sigchild() {
+    for pid in "${pids[@]}"; do
+        # If process is no longer running
+        if ! kill -0 "$pid" 2>/dev/null; then
+            # Wait for the process and get exit status
+            wait "$pid"
+            status=$?
+
+            # If exit status is error
+            if [ $status -ne 0 ]; then
+                # Create error file
+                touch "$error_file"
+            fi
+        fi
+    done
+}
 trap handle_sigchild SIGCHLD
 
 BIN=${BIN:-../cpp/build/bin/bb}
 FLOW=${FLOW:-prove_and_verify}
 HONK=${HONK:-false}
+CLIENT_IVC_SKIPS=${CLIENT_IVC_SKIPS:-false}
 CRS_PATH=~/.bb-crs
 BRANCH=master
 VERBOSE=${VERBOSE:-}
 TEST_NAMES=("$@")
 # We get little performance benefit over 16 cores (in fact it can be worse).
 HARDWARE_CONCURRENCY=${HARDWARE_CONCURRENCY:-16}
+RECURSIVE=${RECURSIVE:-false}
 
 FLOW_SCRIPT=$(realpath ./flows/${FLOW}.sh)
 
@@ -28,10 +50,7 @@ else
     BIN=$(realpath $(which $BIN))
 fi
 
-export BIN CRS_PATH VERBOSE BRANCH
-
-# copy the gzipped acir test data from noir/noir-repo/test_programs to barretenberg/acir_tests
-./clone_test_vectors.sh
+export BIN CRS_PATH VERBOSE BRANCH RECURSIVE
 
 cd acir_tests
 
@@ -47,13 +66,28 @@ SKIP_ARRAY+=(regression_5045)
 # if HONK is false, we should skip verify_honk_proof
 if [ "$HONK" = false ]; then
     # Don't run programs with Honk recursive verifier
-    SKIP_ARRAY+=(verify_honk_proof double_verify_honk_proof double_verify_honk_proof_recursive)
+    SKIP_ARRAY+=(verify_honk_proof double_verify_honk_proof verify_rollup_honk_proof)
 fi
 
 if [ "$HONK" = true ]; then
     # Don't run programs with Plonk recursive verifier(s)
-    SKIP_ARRAY+=(single_verify_proof double_verify_proof double_verify_proof_recursive double_verify_nested_proof)
+    SKIP_ARRAY+=(single_verify_proof double_verify_proof double_verify_nested_proof verify_rollup_honk_proof)
 fi
+
+if [ "$CLIENT_IVC_SKIPS" = true ]; then
+    # At least for now, skip folding tests that fail when run against ClientIVC.
+    # This is not a regression--folding was not being properly tested.
+    # TODO(https://github.com/AztecProtocol/barretenberg/issues/1164): Resolve this
+    # The reason for failure is that compile-time folding, as initially conceived, is
+    # only supported by ClientIVC through hacks. ClientIVC in Aztec is ultimately to be
+    # used through runtime folding, since the kernels that are needed are detected and
+    # constructed at runtime in Aztec's typescript proving interface. ClientIVC appends
+    # folding verifiers and does databus and Goblin merge work depending on its inputs,
+    # detecting which circuits are Aztec kernels. These tests may simple fail for trivial
+    # reasons, e.g. because  the number of circuits in the stack is odd.
+    SKIP_ARRAY+=(fold_basic_nested_call fold_fibonacci fold_numeric_generic_poseidon ram_blowup_regression)
+fi
+
 
 function test() {
   cd $1
@@ -108,4 +142,9 @@ fi
 wait
 
 # Check for parallel errors
-check_error_file
+# If error file exists, exit with error
+if [ -f "$error_file" ]; then
+    rm "$error_file"
+    echo "Error occurred in one or more child processes. Exiting..."
+    exit 1
+fi

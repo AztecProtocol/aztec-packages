@@ -2,7 +2,11 @@
   "name": "@aztec/sequencer-client",
   "version": "0.1.0",
   "type": "module",
-  "exports": "./dest/index.js",
+  "exports": {
+    ".": "./dest/index.js",
+    "./config": "./dest/config.js",
+    "./test": "./dest/test/index.js"
+  },
   "typedocOptions": {
     "entryPoints": [
       "./src/index.ts"
@@ -19,13 +23,14 @@
     "clean": "rm -rf ./dest .tsbuildinfo",
     "formatting": "run -T prettier --check ./src && run -T eslint ./src",
     "formatting:fix": "run -T eslint --fix ./src && run -T prettier -w ./src",
-    "test": "NODE_NO_WARNINGS=1 node --experimental-vm-modules ../node_modules/.bin/jest --passWithNoTests",
+    "test": "HARDWARE_CONCURRENCY=${HARDWARE_CONCURRENCY:-16} RAYON_NUM_THREADS=${RAYON_NUM_THREADS:-4} NODE_NO_WARNINGS=1 node --experimental-vm-modules ../node_modules/.bin/jest --passWithNoTests --maxWorkers=${JEST_MAX_WORKERS:-8}",
     "test:integration": "concurrently -k -s first -c reset,dim -n test,anvil \"yarn test:integration:run\" \"anvil\"",
     "test:integration:run": "NODE_NO_WARNINGS=1 node --experimental-vm-modules $(yarn bin jest) --no-cache --config jest.integration.config.json"
   },
   "dependencies": {
     "@aztec/aztec.js": "workspace:^",
     "@aztec/bb-prover": "workspace:^",
+    "@aztec/blob-sink": "workspace:^",
     "@aztec/circuit-types": "workspace:^",
     "@aztec/circuits.js": "workspace:^",
     "@aztec/ethereum": "workspace:^",
@@ -50,6 +55,7 @@
     "viem": "^2.7.15"
   },
   "devDependencies": {
+    "@aztec/archiver": "workspace:^",
     "@aztec/kv-store": "workspace:^",
     "@jest/globals": "^29.5.0",
     "@types/jest": "^29.5.0",
@@ -60,6 +66,7 @@
     "@types/node": "^18.7.23",
     "concurrently": "^7.6.0",
     "eslint": "^8.37.0",
+    "express": "^4.21.1",
     "jest": "^29.5.0",
     "jest-mock-extended": "^3.0.3",
     "levelup": "^5.1.1",
@@ -103,12 +110,11 @@
     "testRegex": "./src/.*\\.test\\.(js|mjs|ts)$",
     "rootDir": "./src",
     "reporters": [
-      [
-        "default",
-        {
-          "summaryThreshold": 9999
-        }
-      ]
+      "default"
+    ],
+    "testTimeout": 30000,
+    "setupFiles": [
+      "../../foundation/src/jest/setup.mjs"
     ]
   }
 }

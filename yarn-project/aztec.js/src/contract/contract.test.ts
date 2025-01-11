@@ -11,6 +11,7 @@ import {
   CompleteAddress,
   type ContractInstanceWithAddress,
   EthAddress,
+  GasFees,
   type NodeInfo,
 } from '@aztec/circuits.js';
 import { type L1ContractAddresses } from '@aztec/ethereum';
@@ -40,11 +41,13 @@ describe('Contract Class', () => {
     inboxAddress: EthAddress.random(),
     outboxAddress: EthAddress.random(),
     feeJuiceAddress: EthAddress.random(),
+    stakingAssetAddress: EthAddress.random(),
     feeJuicePortalAddress: EthAddress.random(),
-    apellaAddress: EthAddress.random(),
-    nomismatokopioAddress: EthAddress.random(),
-    sysstiaAddress: EthAddress.random(),
-    gerousiaAddress: EthAddress.random(),
+    governanceAddress: EthAddress.random(),
+    coinIssuerAddress: EthAddress.random(),
+    rewardDistributorAddress: EthAddress.random(),
+    governanceProposerAddress: EthAddress.random(),
+    slashFactoryAddress: EthAddress.random(),
   };
   const mockNodeInfo: NodeInfo = {
     nodeVersion: 'vx.x.x',
@@ -87,6 +90,7 @@ describe('Contract Class', () => {
           },
         ],
         returnTypes: [],
+        errorTypes: {},
         bytecode: Buffer.alloc(8, 0xfa),
       },
       {
@@ -97,6 +101,7 @@ describe('Contract Class', () => {
         isInternal: false,
         parameters: [],
         returnTypes: [],
+        errorTypes: {},
         bytecode: Buffer.alloc(8, 0xfb),
         debugSymbols: '',
       },
@@ -124,6 +129,7 @@ describe('Contract Class', () => {
         ],
         bytecode: Buffer.alloc(8, 0xfc),
         debugSymbols: '',
+        errorTypes: {},
       },
     ],
     outputs: {
@@ -150,6 +156,7 @@ describe('Contract Class', () => {
     wallet.getNodeInfo.mockResolvedValue(mockNodeInfo);
     wallet.proveTx.mockResolvedValue(mockTxProvingResult);
     wallet.getRegisteredAccounts.mockResolvedValue([account]);
+    wallet.getCurrentBaseFees.mockResolvedValue(new GasFees(100, 100));
   });
 
   it('should create and send a contract method tx', async () => {

@@ -1,6 +1,6 @@
 ---
 title: Debugging
-sidebar_position: 2
+sidebar_position: 4
 ---
 
 ## Logging in Aztec.nr
@@ -53,7 +53,7 @@ debug_log_array(my_array);
 
 ### Start Sandbox in debug mode
 
-Update the `DEBUG` environment variable in docker-compose.sandbox.yml to the following:
+Set `LOG_LEVEL` to `verbose` or `debug`:
 
 ```yml
 # ~/.aztec/docker-compose.sandbox.yml
@@ -65,9 +65,13 @@ aztec:
   ports:
     - "${PXE_PORT:-8080}:${PXE_PORT:-8080}"
   environment:
-    DEBUG: aztec:simulator:client_execution_context, aztec:sandbox, aztec:avm_simulator:debug_log
-    LOG_LEVEL: verbose # optionally add this for more logs
+    # Options are 'fatal', 'error', 'warn', 'info', 'verbose', 'debug', 'trace'
+    LOG_LEVEL: verbose
   # ...
 ```
 
 and start the sandbox normally.
+
+You can specify different log levels for different services.
+
+For example: `LOG_LEVEL='verbose; info: sequencer'`will use verbose logging for everything except the `sequencer` service, which will use the `info` level.

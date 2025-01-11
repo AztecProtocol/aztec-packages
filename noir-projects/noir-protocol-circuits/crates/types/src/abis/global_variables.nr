@@ -8,19 +8,19 @@ use crate::{
 
 // docs:start:global-variables
 pub struct GlobalVariables {
-    chain_id: Field,
-    version: Field,
-    block_number: Field,
-    slot_number: Field,
-    timestamp: u64,
-    coinbase: EthAddress,
-    fee_recipient: AztecAddress,
-    gas_fees: GasFees,
+    pub chain_id: Field,
+    pub version: Field,
+    pub block_number: Field,
+    pub slot_number: Field,
+    pub timestamp: u64,
+    pub coinbase: EthAddress,
+    pub fee_recipient: AztecAddress,
+    pub gas_fees: GasFees,
 }
 // docs:end:global-variables
 
 impl GlobalVariables {
-    fn is_empty(self) -> bool {
+    pub fn is_empty(self) -> bool {
         (self.chain_id == 0)
             & (self.version == 0)
             & (self.block_number == 0)
@@ -45,7 +45,7 @@ impl Serialize<GLOBAL_VARIABLES_LENGTH> for GlobalVariables {
         serialized.push(self.fee_recipient.to_field());
         serialized.extend_from_array(self.gas_fees.serialize());
 
-        serialized.storage
+        serialized.storage()
     }
 }
 

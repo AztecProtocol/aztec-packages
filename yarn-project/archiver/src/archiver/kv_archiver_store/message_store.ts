@@ -1,6 +1,6 @@
 import { InboxLeaf } from '@aztec/circuit-types';
 import { Fr, L1_TO_L2_MSG_SUBTREE_HEIGHT } from '@aztec/circuits.js';
-import { createDebugLogger } from '@aztec/foundation/log';
+import { createLogger } from '@aztec/foundation/log';
 import { type AztecKVStore, type AztecMap, type AztecSingleton } from '@aztec/kv-store';
 
 import { type DataRetrieval } from '../structs/data_retrieval.js';
@@ -10,11 +10,11 @@ import { type DataRetrieval } from '../structs/data_retrieval.js';
  */
 export class MessageStore {
   #l1ToL2Messages: AztecMap<string, Buffer>;
-  #l1ToL2MessageIndices: AztecMap<string, bigint[]>; // We store array of bigints here because there can be duplicate messages
+  #l1ToL2MessageIndices: AztecMap<string, bigint>;
   #lastSynchedL1Block: AztecSingleton<bigint>;
   #totalMessageCount: AztecSingleton<bigint>;
 
-  #log = createDebugLogger('aztec:archiver:message_store');
+  #log = createLogger('archiver:message_store');
 
   #l1ToL2MessagesSubtreeSize = 2 ** L1_TO_L2_MSG_SUBTREE_HEIGHT;
 
@@ -57,11 +57,8 @@ export class MessageStore {
 
       for (const message of messages.retrievedData) {
         const key = `${message.index}`;
-        void this.#l1ToL2Messages.setIfNotExists(key, message.leaf.toBuffer());
-
-        const indices = this.#l1ToL2MessageIndices.get(message.leaf.toString()) ?? [];
-        indices.push(message.index);
-        void this.#l1ToL2MessageIndices.set(message.leaf.toString(), indices);
+        void this.#l1ToL2Messages.set(key, message.leaf.toBuffer());
+        void this.#l1ToL2MessageIndices.set(message.leaf.toString(), message.index);
       }
 
       const lastTotalMessageCount = this.getTotalL1ToL2MessageCount();
@@ -72,15 +69,12 @@ export class MessageStore {
   }
 
   /**
-   * Gets the first L1 to L2 message index in the L1 to L2 message tree which is greater than or equal to `startIndex`.
+   * Gets the L1 to L2 message index in the L1 to L2 message tree.
    * @param l1ToL2Message - The L1 to L2 message.
-   * @param startIndex - The index to start searching from.
    * @returns The index of the L1 to L2 message in the L1 to L2 message tree (undefined if not found).
    */
-  getL1ToL2MessageIndex(l1ToL2Message: Fr, startIndex: bigint): Promise<bigint | undefined> {
-    const indices = this.#l1ToL2MessageIndices.get(l1ToL2Message.toString()) ?? [];
-    const index = indices.find(i => i >= startIndex);
-    return Promise.resolve(index);
+  getL1ToL2MessageIndex(l1ToL2Message: Fr): Promise<bigint | undefined> {
+    return Promise.resolve(this.#l1ToL2MessageIndices.get(l1ToL2Message.toString()));
   }
 
   getL1ToL2Messages(blockNumber: bigint): Fr[] {

@@ -1,4 +1,5 @@
 // Make sure this property was not inherited
+// TODO(palla): Delete this file
 
 /**
  * Does this own the property?

@@ -1,13 +1,22 @@
 import { loadContractArtifact } from '@aztec/aztec.js';
-import { Fr } from '@aztec/foundation/fields';
-import { JsonRpcServer } from '@aztec/foundation/json-rpc/server';
+import { createSafeJsonRpcServer } from '@aztec/foundation/json-rpc/server';
 import { type Logger } from '@aztec/foundation/log';
+import { type ApiSchemaFor, type ZodFor } from '@aztec/foundation/schemas';
 
 import { readFile, readdir } from 'fs/promises';
 import { join } from 'path';
+import { z } from 'zod';
 
 import { TXEService } from './txe_service/txe_service.js';
-import { type ForeignCallArray, type ForeignCallResult, fromArray, toForeignCallResult } from './util/encoding.js';
+import {
+  type ForeignCallArgs,
+  ForeignCallArgsSchema,
+  type ForeignCallArray,
+  type ForeignCallResult,
+  ForeignCallResultSchema,
+  fromArray,
+  toForeignCallResult,
+} from './util/encoding.js';
 
 const TXESessions = new Map<number, TXEService>();
 
@@ -20,8 +29,19 @@ type TXEForeignCallInput = {
   function: MethodNames<TXEService> | 'reset';
   root_path: string;
   package_name: string;
-  inputs: any[];
+  inputs: ForeignCallArgs;
 };
+
+const TXEForeignCallInputSchema = z.object({
+  // eslint-disable-next-line camelcase
+  session_id: z.number(),
+  function: z.string() as ZodFor<MethodNames<TXEService> | 'reset'>,
+  // eslint-disable-next-line camelcase
+  root_path: z.string(),
+  // eslint-disable-next-line camelcase
+  package_name: z.string(),
+  inputs: ForeignCallArgsSchema,
+}) satisfies ZodFor<TXEForeignCallInput>;
 
 class TXEDispatcher {
   constructor(private logger: Logger) {}
@@ -89,11 +109,16 @@ class TXEDispatcher {
   }
 }
 
+const TXEDispatcherApiSchema: ApiSchemaFor<TXEDispatcher> = {
+  // eslint-disable-next-line camelcase
+  resolve_foreign_call: z.function().args(TXEForeignCallInputSchema).returns(ForeignCallResultSchema),
+};
+
 /**
  * Creates an RPC server that forwards calls to the TXE.
  * @param logger - Logger to output to
  * @returns A TXE RPC server.
  */
 export function createTXERpcServer(logger: Logger) {
-  return new JsonRpcServer(new TXEDispatcher(logger), { Fr }, {}, ['init']);
+  return createSafeJsonRpcServer(new TXEDispatcher(logger), TXEDispatcherApiSchema, { http200OnError: true });
 }

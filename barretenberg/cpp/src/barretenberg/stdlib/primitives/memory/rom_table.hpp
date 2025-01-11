@@ -1,6 +1,7 @@
 #pragma once
 #include "../circuit_builders/circuit_builders_fwd.hpp"
 #include "../field/field.hpp"
+#include "barretenberg/transcript/origin_tag.hpp"
 
 namespace bb::stdlib {
 
@@ -34,6 +35,8 @@ template <typename Builder> class rom_table {
   private:
     std::vector<field_pt> raw_entries;
     mutable std::vector<field_pt> entries;
+    // Origin Tags for detecting problematic interactions of stdlib primitives
+    mutable std::vector<OriginTag> _tags;
     size_t length = 0;
     mutable size_t rom_id = 0; // Builder identifier for this ROM table
     mutable bool initialized = false;

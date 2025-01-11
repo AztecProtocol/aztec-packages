@@ -49,19 +49,37 @@ std::vector<typename GeminiProver_<Curve>::Claim> GeminiProver_<Curve>::prove(
     const std::shared_ptr<CommitmentKey<Curve>>& commitment_key,
     const std::shared_ptr<Transcript>& transcript,
     RefSpan<Polynomial> concatenated_polynomials,
-    const std::vector<RefVector<Polynomial>>& groups_to_be_concatenated)
+    const std::vector<RefVector<Polynomial>>& groups_to_be_concatenated,
+    bool has_zk)
 
 {
     size_t log_n = numeric::get_msb(static_cast<uint32_t>(circuit_size));
     size_t n = 1 << log_n;
 
-    Fr rho = transcript->template get_challenge<Fr>("rho");
-
     // Compute batched polynomials
     Polynomial batched_unshifted(n);
-    Polynomial batched_to_be_shifted = Polynomial::shiftable(1 << log_n);
+    Polynomial batched_to_be_shifted = Polynomial::shiftable(n);
+
+    // To achieve ZK, we mask the batched polynomial by a random polynomial of the same size
+    if (has_zk) {
+        batched_unshifted = Polynomial::random(n);
+        transcript->send_to_verifier("Gemini:masking_poly_comm", commitment_key->commit(batched_unshifted));
+        // In the provers, the size of multilinear_challenge is CONST_PROOF_SIZE_LOG_N, but we need to evaluate the
+        // hiding polynomial as multilinear in log_n variables
+        std::vector<Fr> multilinear_challenge_resized(multilinear_challenge.begin(), multilinear_challenge.end());
+        multilinear_challenge_resized.resize(log_n);
+        transcript->send_to_verifier("Gemini:masking_poly_eval",
+                                     batched_unshifted.evaluate_mle(multilinear_challenge_resized));
+    }
+
+    // Get the batching challenge
+    const Fr rho = transcript->template get_challenge<Fr>("rho");
 
     Fr rho_challenge{ 1 };
+    if (has_zk) {
+        // ρ⁰ is used to batch the hiding polynomial
+        rho_challenge *= rho;
+    }
     for (size_t i = 0; i < f_polynomials.size(); i++) {
         batched_unshifted.add_scaled(f_polynomials[i], rho_challenge);
         rho_challenge *= rho;
@@ -95,6 +113,7 @@ std::vector<typename GeminiProver_<Curve>::Claim> GeminiProver_<Curve>::prove(
                                                      std::move(batched_to_be_shifted),
                                                      std::move(batched_concatenated));
 
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1159): Decouple constants from primitives.
     for (size_t l = 0; l < CONST_PROOF_SIZE_LOG_N - 1; l++) {
         if (l < log_n - 1) {
             transcript->send_to_verifier("Gemini:FOLD_" + std::to_string(l + 1),
@@ -104,6 +123,15 @@ std::vector<typename GeminiProver_<Curve>::Claim> GeminiProver_<Curve>::prove(
         }
     }
     const Fr r_challenge = transcript->template get_challenge<Fr>("Gemini:r");
+
+    const bool gemini_challenge_in_small_subgroup = (has_zk) && (r_challenge.pow(Curve::SUBGROUP_SIZE) == Fr(1));
+
+    // If Gemini evaluation challenge lands in the multiplicative subgroup used by SmallSubgroupIPA protocol, the
+    // evaluations of prover polynomials at this challenge would leak witness data.
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1194). Handle edge cases in PCS
+    if (gemini_challenge_in_small_subgroup) {
+        throw_or_abort("Gemini evaluation challenge is in the SmallSubgroup.");
+    }
 
     std::vector<Claim> claims =
         compute_fold_polynomial_evaluations(log_n, std::move(fold_polynomials), r_challenge, std::move(batched_group));

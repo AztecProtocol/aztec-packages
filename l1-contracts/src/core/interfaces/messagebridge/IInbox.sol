@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
-// Copyright 2023 Aztec Labs.
+// Copyright 2024 Aztec Labs.
 pragma solidity >=0.8.27;
 
 import {DataStructures} from "../../libraries/DataStructures.sol";
@@ -25,13 +25,13 @@ interface IInbox {
    * @param _recipient - The recipient of the message
    * @param _content - The content of the message (application specific)
    * @param _secretHash - The secret hash of the message (make it possible to hide when a specific message is consumed on L2)
-   * @return The key of the message in the set
+   * @return The key of the message in the set and its leaf index in the tree
    */
   function sendL2Message(
     DataStructures.L2Actor memory _recipient,
     bytes32 _content,
     bytes32 _secretHash
-  ) external returns (bytes32);
+  ) external returns (bytes32, uint256);
   // docs:end:send_l1_to_l2_message
 
   // docs:start:consume

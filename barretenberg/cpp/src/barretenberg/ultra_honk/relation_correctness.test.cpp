@@ -1,4 +1,3 @@
-#include "barretenberg/honk/proof_system/permutation_library.hpp"
 #include "barretenberg/plonk_honk_shared/library/grand_product_library.hpp"
 #include "barretenberg/relations/auxiliary_relation.hpp"
 #include "barretenberg/relations/delta_range_constraint_relation.hpp"
@@ -219,7 +218,7 @@ template <typename Flavor> void create_some_ecc_op_queue_gates(auto& circuit_bui
 {
     using G1 = typename Flavor::Curve::Group;
     using FF = typename Flavor::FF;
-    static_assert(IsGoblinFlavor<Flavor>);
+    static_assert(IsMegaFlavor<Flavor>);
     const size_t num_ecc_operations = 10; // arbitrary
     for (size_t i = 0; i < num_ecc_operations; ++i) {
         auto point = G1::affine_one * FF::random_element();
@@ -230,7 +229,7 @@ template <typename Flavor> void create_some_ecc_op_queue_gates(auto& circuit_bui
 
 class UltraRelationCorrectnessTests : public ::testing::Test {
   protected:
-    static void SetUpTestSuite() { bb::srs::init_crs_factory("../srs_db/ignition"); }
+    static void SetUpTestSuite() { bb::srs::init_crs_factory(bb::srs::get_ignition_crs_path()); }
 };
 
 /**
@@ -249,7 +248,7 @@ TEST_F(UltraRelationCorrectnessTests, Ultra)
     using Flavor = UltraFlavor;
     using FF = typename Flavor::FF;
 
-    // Create a composer and then add an assortment of gates designed to ensure that the constraint(s) represented
+    // Create a builder and then add an assortment of gates designed to ensure that the constraint(s) represented
     // by each relation are non-trivially exercised.
     auto builder = UltraCircuitBuilder();
 
@@ -276,7 +275,8 @@ TEST_F(UltraRelationCorrectnessTests, Ultra)
                                                                  decider_pk->relation_parameters.eta_two,
                                                                  decider_pk->relation_parameters.eta_three);
     decider_pk->proving_key.compute_logderivative_inverses(decider_pk->relation_parameters);
-    decider_pk->proving_key.compute_grand_product_polynomials(decider_pk->relation_parameters);
+    decider_pk->proving_key.compute_grand_product_polynomial(decider_pk->relation_parameters,
+                                                             decider_pk->final_active_wire_idx + 1);
 
     // Check that selectors are nonzero to ensure corresponding relation has nontrivial contribution
     ensure_non_zero(proving_key.polynomials.q_arith);
@@ -329,7 +329,8 @@ TEST_F(UltraRelationCorrectnessTests, Mega)
                                                                  decider_pk->relation_parameters.eta_two,
                                                                  decider_pk->relation_parameters.eta_three);
     decider_pk->proving_key.compute_logderivative_inverses(decider_pk->relation_parameters);
-    decider_pk->proving_key.compute_grand_product_polynomials(decider_pk->relation_parameters);
+    decider_pk->proving_key.compute_grand_product_polynomial(decider_pk->relation_parameters,
+                                                             decider_pk->final_active_wire_idx + 1);
 
     // Check that selectors are nonzero to ensure corresponding relation has nontrivial contribution
     ensure_non_zero(proving_key.polynomials.q_arith);

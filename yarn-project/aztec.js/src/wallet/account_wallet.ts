@@ -34,6 +34,10 @@ export class AccountWallet extends BaseWallet {
     return this.account.getVersion();
   }
 
+  override isL1ToL2MessageSynced(l1ToL2Message: Fr): Promise<boolean> {
+    return this.pxe.isL1ToL2MessageSynced(l1ToL2Message);
+  }
+
   /**
    * Computes an authentication witness from either a message hash or an intent.
    *
@@ -191,6 +195,7 @@ export class AccountWallet extends BaseWallet {
         },
       ],
       returnTypes: [],
+      errorTypes: {},
     };
   }
 
@@ -203,6 +208,7 @@ export class AccountWallet extends BaseWallet {
       isStatic: false,
       parameters: [{ name: 'message_hash', type: { kind: 'field' }, visibility: 'private' as ABIParameterVisibility }],
       returnTypes: [{ kind: 'boolean' }],
+      errorTypes: {},
     };
   }
 
@@ -226,6 +232,7 @@ export class AccountWallet extends BaseWallet {
         { name: 'message_hash', type: { kind: 'field' }, visibility: 'private' as ABIParameterVisibility },
       ],
       returnTypes: [{ kind: 'boolean' }],
+      errorTypes: {},
     };
   }
 }

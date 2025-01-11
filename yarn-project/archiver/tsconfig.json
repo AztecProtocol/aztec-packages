@@ -7,6 +7,9 @@
   },
   "references": [
     {
+      "path": "../blob-sink"
+    },
+    {
       "path": "../circuit-types"
     },
     {
@@ -25,6 +28,9 @@
       "path": "../l1-artifacts"
     },
     {
+      "path": "../noir-contracts.js"
+    },
+    {
       "path": "../protocol-contracts"
     },
     {
@@ -32,9 +38,6 @@
     },
     {
       "path": "../types"
-    },
-    {
-      "path": "../noir-contracts.js"
     }
   ],
   "include": ["src"]

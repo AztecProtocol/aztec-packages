@@ -1,10 +1,11 @@
 import { Fr } from '@aztec/circuits.js';
-import { type DebugLogger, type LogFn } from '@aztec/foundation/log';
+import { type LogFn, type Logger } from '@aztec/foundation/log';
 
 import { type Command } from 'commander';
 
 import {
   logJson,
+  makePxeOption,
   parseAztecAddress,
   parseEthereumAddress,
   parseField,
@@ -13,12 +14,11 @@ import {
   parseOptionalInteger,
   parseOptionalLogId,
   parseOptionalTxHash,
-  parsePartialAddress,
   parsePublicKey,
   pxeOption,
 } from '../../utils/commands.js';
 
-export function injectCommands(program: Command, log: LogFn, debugLogger: DebugLogger) {
+export function injectCommands(program: Command, log: LogFn, debugLogger: Logger) {
   program
     .command('add-contract')
     .description(
@@ -54,11 +54,19 @@ export function injectCommands(program: Command, log: LogFn, debugLogger: DebugL
     .command('get-block')
     .description('Gets info for a given block or latest.')
     .argument('[blockNumber]', 'Block height', parseOptionalInteger)
-    .option('-f, --follow', 'Keep polling for new blocks')
     .addOption(pxeOption)
     .action(async (blockNumber, options) => {
       const { getBlock } = await import('./get_block.js');
-      await getBlock(options.rpcUrl, blockNumber, options.follow, debugLogger, log);
+      await getBlock(options.rpcUrl, blockNumber, debugLogger, log);
+    });
+
+  program
+    .command('get-current-base-fee')
+    .description('Gets the current base fee.')
+    .addOption(pxeOption)
+    .action(async options => {
+      const { getCurrentBaseFee } = await import('./get_current_base_fee.js');
+      await getCurrentBaseFee(options.rpcUrl, debugLogger, log);
     });
 
   program
@@ -92,22 +100,6 @@ export function injectCommands(program: Command, log: LogFn, debugLogger: DebugL
     });
 
   program
-    .command('register-recipient')
-    .description('Register a recipient in the PXE.')
-    .requiredOption('-a, --address <aztecAddress>', "The account's Aztec address.", parseAztecAddress)
-    .requiredOption('-p, --public-key <publicKey>', 'The account public key.', parsePublicKey)
-    .requiredOption(
-      '-pa, --partial-address <partialAddress>',
-      'The partially computed address of the account contract.',
-      parsePartialAddress,
-    )
-    .addOption(pxeOption)
-    .action(async ({ address, publicKey, partialAddress, rpcUrl }) => {
-      const { registerRecipient } = await import('./register_recipient.js');
-      await registerRecipient(address, publicKey, partialAddress, rpcUrl, debugLogger, log);
-    });
-
-  program
     .command('get-accounts')
     .description('Gets all the Aztec accounts stored in the PXE.')
     .addOption(pxeOption)
@@ -125,25 +117,6 @@ export function injectCommands(program: Command, log: LogFn, debugLogger: DebugL
     .action(async (address, options) => {
       const { getAccount } = await import('./get_account.js');
       await getAccount(address, options.rpcUrl, debugLogger, log);
-    });
-
-  program
-    .command('get-recipients')
-    .description('Gets all the recipients stored in the PXE.')
-    .addOption(pxeOption)
-    .action(async (options: any) => {
-      const { getRecipients } = await import('./get_recipients.js');
-      await getRecipients(options.rpcUrl, debugLogger, log);
-    });
-
-  program
-    .command('get-recipient')
-    .description('Gets a recipient given its Aztec address.')
-    .argument('<address>', 'The Aztec address to get recipient for', parseAztecAddress)
-    .addOption(pxeOption)
-    .action(async (address, options) => {
-      const { getRecipient } = await import('./get_recipient.js');
-      await getRecipient(address, options.rpcUrl, debugLogger, log);
     });
 
   program
@@ -169,11 +142,19 @@ export function injectCommands(program: Command, log: LogFn, debugLogger: DebugL
 
   program
     .command('get-node-info')
-    .description('Gets the information of an aztec node at a URL.')
-    .addOption(pxeOption)
+    .description('Gets the information of an Aztec node from a PXE or directly from an Aztec node.')
+    .option('--node-url <string>', 'URL of the node.')
+    .option('--json', 'Emit output as json')
+    .addOption(makePxeOption(false))
     .action(async options => {
       const { getNodeInfo } = await import('./get_node_info.js');
-      await getNodeInfo(options.rpcUrl, debugLogger, log);
+      let url: string;
+      if (options.nodeUrl) {
+        url = options.nodeUrl;
+      } else {
+        url = options.rpcUrl;
+      }
+      await getNodeInfo(url, !options.nodeUrl, debugLogger, options.json, log, logJson(log));
     });
 
   program

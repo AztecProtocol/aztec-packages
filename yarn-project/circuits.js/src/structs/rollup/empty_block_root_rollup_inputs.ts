@@ -1,22 +1,46 @@
 import { Fr } from '@aztec/foundation/fields';
-import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
+import { bufferSchemaFor } from '@aztec/foundation/schemas';
+import { BufferReader, type Tuple, serializeToBuffer } from '@aztec/foundation/serialize';
+import { bufferToHex, hexToBuffer } from '@aztec/foundation/string';
 import { type FieldsOf } from '@aztec/foundation/types';
 
-import { GlobalVariables } from '../global_variables.js';
-import { AppendOnlyTreeSnapshot } from './append_only_tree_snapshot.js';
+import {
+  ARCHIVE_HEIGHT,
+  L1_TO_L2_MSG_SUBTREE_SIBLING_PATH_LENGTH,
+  NESTED_RECURSIVE_PROOF_LENGTH,
+} from '../../constants.gen.js';
+import { RootParityInput } from '../parity/root_parity_input.js';
+import { PartialStateReference } from '../partial_state_reference.js';
+import { AppendOnlyTreeSnapshot } from '../trees/append_only_tree_snapshot.js';
+import { ConstantRollupData } from './constant_rollup_data.js';
 
 /**
  * Represents inputs of the empty block root rollup circuit.
  */
 export class EmptyBlockRootRollupInputs {
   constructor(
-    public readonly archive: AppendOnlyTreeSnapshot,
-    public readonly blockHash: Fr,
-    public readonly globalVariables: GlobalVariables,
-    public readonly vkTreeRoot: Fr,
-    public readonly protocolContractTreeRoot: Fr,
+    /**
+     * The original and converted roots of the L1 to L2 messages subtrees.
+     */
+    public readonly l1ToL2Roots: RootParityInput<typeof NESTED_RECURSIVE_PROOF_LENGTH>,
+    /**
+     * Sibling path of the new L1 to L2 message tree root.
+     */
+    public readonly newL1ToL2MessageTreeRootSiblingPath: Tuple<Fr, typeof L1_TO_L2_MSG_SUBTREE_SIBLING_PATH_LENGTH>,
+    /**
+     * Snapshot of the L1 to L2 message tree at the start of the rollup.
+     */
+    public readonly startL1ToL2MessageTreeSnapshot: AppendOnlyTreeSnapshot,
+    /**
+     * Sibling path of the new block tree root.
+     */
+    public readonly newArchiveSiblingPath: Tuple<Fr, typeof ARCHIVE_HEIGHT>,
+    public readonly previousBlockHash: Fr,
+    public readonly previousPartialState: PartialStateReference,
+    public readonly constants: ConstantRollupData,
     // // TODO(#7346): Temporarily added prover_id while we verify block-root proofs on L1
     public readonly proverId: Fr,
+    public readonly isPadding: boolean,
   ) {}
 
   /**
@@ -32,7 +56,7 @@ export class EmptyBlockRootRollupInputs {
    * @returns The instance serialized to a hex string.
    */
   toString() {
-    return this.toBuffer().toString('hex');
+    return bufferToHex(this.toBuffer());
   }
 
   /**
@@ -51,12 +75,15 @@ export class EmptyBlockRootRollupInputs {
    */
   static getFields(fields: FieldsOf<EmptyBlockRootRollupInputs>) {
     return [
-      fields.archive,
-      fields.blockHash,
-      fields.globalVariables,
-      fields.vkTreeRoot,
-      fields.protocolContractTreeRoot,
+      fields.l1ToL2Roots,
+      fields.newL1ToL2MessageTreeRootSiblingPath,
+      fields.startL1ToL2MessageTreeSnapshot,
+      fields.newArchiveSiblingPath,
+      fields.previousBlockHash,
+      fields.previousPartialState,
+      fields.constants,
       fields.proverId,
+      fields.isPadding,
     ] as const;
   }
 
@@ -68,12 +95,15 @@ export class EmptyBlockRootRollupInputs {
   static fromBuffer(buffer: Buffer | BufferReader): EmptyBlockRootRollupInputs {
     const reader = BufferReader.asReader(buffer);
     return new EmptyBlockRootRollupInputs(
+      RootParityInput.fromBuffer(reader, NESTED_RECURSIVE_PROOF_LENGTH),
+      reader.readArray(L1_TO_L2_MSG_SUBTREE_SIBLING_PATH_LENGTH, Fr),
       reader.readObject(AppendOnlyTreeSnapshot),
+      reader.readArray(ARCHIVE_HEIGHT, Fr),
       Fr.fromBuffer(reader),
-      GlobalVariables.fromBuffer(reader),
+      reader.readObject(PartialStateReference),
+      reader.readObject(ConstantRollupData),
       Fr.fromBuffer(reader),
-      Fr.fromBuffer(reader),
-      Fr.fromBuffer(reader),
+      reader.readBoolean(),
     );
   }
 
@@ -83,6 +113,16 @@ export class EmptyBlockRootRollupInputs {
    * @returns A new RootRollupInputs instance.
    */
   static fromString(str: string) {
-    return EmptyBlockRootRollupInputs.fromBuffer(Buffer.from(str, 'hex'));
+    return EmptyBlockRootRollupInputs.fromBuffer(hexToBuffer(str));
+  }
+
+  /** Returns a buffer representation for JSON serialization. */
+  toJSON() {
+    return this.toBuffer();
+  }
+
+  /** Creates an instance from a buffer string. */
+  static get schema() {
+    return bufferSchemaFor(EmptyBlockRootRollupInputs);
   }
 }

@@ -2,6 +2,7 @@
 #include "barretenberg/common/container.hpp"
 #include "barretenberg/common/op_count.hpp"
 #include "barretenberg/common/thread.hpp"
+#include "barretenberg/plonk_honk_shared/execution_trace/execution_trace_usage_tracker.hpp"
 #include "barretenberg/protogalaxy/prover_verifier_shared.hpp"
 #include "barretenberg/relations/relation_parameters.hpp"
 #include "barretenberg/relations/relation_types.hpp"
@@ -42,18 +43,49 @@ template <class DeciderProvingKeys_> class ProtogalaxyProverInternal {
     // the folded relation batching challenge.
     using ExtendedUnivariateWithRandomization =
         Univariate<FF, (Flavor::MAX_TOTAL_RELATION_LENGTH - 1 + DeciderPKs::NUM - 1) * (DeciderPKs::NUM - 1) + 1>;
-    using ExtendedUnivariatesNoOptimisticSkipping =
-        typename Flavor::template ProverUnivariates<ExtendedUnivariate::LENGTH>;
+
+    /**
+     * @brief ShortUnivariates is an optimisation to improve the evaluation of Flavor relations when the output is a
+     * low-degree monomial
+     * @details Each Flavor relation is computed as a degree-Flavor::MAX_TOTAL_RELATION_LENGTH Univariate monomial in
+     * the Lagrange basis, however it is more efficient if the *input* monomials into the relation are not in this form,
+     * but are instead left as a degree-1 monomial using the *coefficient basis* (i.e. P(X) = a0 + a1.X)
+     *
+     * When computing relation algebra, it is typically more efficient to use the coefficient basis up to
+     * degree-2. If the degree must be extended beyond 2, then the monomials are converted into their higher-degree
+     * representation in the Lagrange basis.
+     *
+     * Not only is the relation algebra more efficient, but we do not have to perform a basis extension on all
+     * the Flavor polynomials each time the Flavor relation algebra is evaluated.
+     * Given the sparse representation of our circuits, many relations are skipped each row which means many polynomials
+     * can go unused. By skipping the basis extension entirely we avoid this unneccessary work.
+     *
+     * Tests indicates that utilizing ShortUnivariates speeds up the `benchmark_client_ivc.sh` benchmark by 10%
+     * @note This only works if DeciderPKs::NUM == 2. The whole protogalaxy class would require substantial revision to
+     * support more PKs so this should be adequate for now
+     */
+    using ShortUnivariates = typename Flavor::template ProverUnivariates<DeciderPKs::NUM>;
+
     using ExtendedUnivariates =
         typename Flavor::template ProverUnivariatesWithOptimisticSkipping<ExtendedUnivariate::LENGTH,
                                                                           /* SKIP_COUNT= */ DeciderPKs::NUM - 1>;
 
+    using ExtendedUnivariatesType =
+        std::conditional_t<Flavor::USE_SHORT_MONOMIALS, ShortUnivariates, ExtendedUnivariates>;
+
+    using TupleOfTuplesOfUnivariates = typename Flavor::template ProtogalaxyTupleOfTuplesOfUnivariates<DeciderPKs::NUM>;
     using TupleOfTuplesOfUnivariatesNoOptimisticSkipping =
         typename Flavor::template ProtogalaxyTupleOfTuplesOfUnivariatesNoOptimisticSkipping<DeciderPKs::NUM>;
-    using TupleOfTuplesOfUnivariates = typename Flavor::template ProtogalaxyTupleOfTuplesOfUnivariates<DeciderPKs::NUM>;
+
     using RelationEvaluations = typename Flavor::TupleOfArraysOfValues;
 
     static constexpr size_t NUM_SUBRELATIONS = DeciderPKs::NUM_SUBRELATIONS;
+
+    ExecutionTraceUsageTracker trace_usage_tracker;
+
+    ProtogalaxyProverInternal(ExecutionTraceUsageTracker trace_usage_tracker = ExecutionTraceUsageTracker{})
+        : trace_usage_tracker(std::move(trace_usage_tracker))
+    {}
 
     /**
      * @brief A scale subrelations evaluations by challenges ('alphas') and part of the linearly dependent relation
@@ -104,16 +136,16 @@ template <class DeciderProvingKeys_> class ProtogalaxyProverInternal {
      * representing the sum f_0(ω) + α_j*g(ω) where f_0 represents the full honk evaluation at row 0, g(ω) is the
      * linearly dependent subrelation and α_j is its corresponding batching challenge.
      */
-    static std::vector<FF> compute_row_evaluations(const ProverPolynomials& polynomials,
-                                                   const RelationSeparator& alphas_,
-                                                   const RelationParameters<FF>& relation_parameters)
+    Polynomial<FF> compute_row_evaluations(const ProverPolynomials& polynomials,
+                                           const RelationSeparator& alphas_,
+                                           const RelationParameters<FF>& relation_parameters)
 
     {
 
         PROFILE_THIS_NAME("ProtogalaxyProver_::compute_row_evaluations");
 
         const size_t polynomial_size = polynomials.get_polynomial_size();
-        std::vector<FF> aggregated_relation_evaluations(polynomial_size);
+        Polynomial<FF> aggregated_relation_evaluations(polynomial_size);
 
         const std::array<FF, NUM_SUBRELATIONS> alphas = [&alphas_]() {
             std::array<FF, NUM_SUBRELATIONS> tmp;
@@ -122,23 +154,67 @@ template <class DeciderProvingKeys_> class ProtogalaxyProverInternal {
             return tmp;
         }();
 
-        const std::vector<FF> linearly_dependent_contribution_accumulators = parallel_for_heuristic(
-            polynomial_size,
-            /*accumulator default*/ FF(0),
-            [&](size_t row_idx, FF& linearly_dependent_contribution_accumulator) {
-                const AllValues row = polynomials.get_row(row_idx);
-                // Evaluate all subrelations on the given row. Separator is 1 since we are not summing across rows here.
-                const RelationEvaluations evals =
-                    RelationUtils::accumulate_relation_evaluations(row, relation_parameters, FF(1));
+        // Determine the number of threads over which to distribute the work
+        const size_t num_threads = compute_num_threads(polynomial_size);
 
-                // Sum against challenges alpha
-                aggregated_relation_evaluations[row_idx] =
-                    process_subrelation_evaluations(evals, alphas, linearly_dependent_contribution_accumulator);
-            },
-            thread_heuristics::ALWAYS_MULTITHREAD);
-        aggregated_relation_evaluations[0] += sum(linearly_dependent_contribution_accumulators);
+        std::vector<FF> linearly_dependent_contribution_accumulators(num_threads);
+
+        // Distribute the execution trace rows across threads so that each handles an equal number of active rows
+        trace_usage_tracker.construct_thread_ranges(
+            num_threads, polynomial_size, /*use_prev_accumulator_tracker=*/true);
+
+        parallel_for(num_threads, [&](size_t thread_idx) {
+            const size_t start = trace_usage_tracker.thread_ranges[thread_idx].first;
+            const size_t end = trace_usage_tracker.thread_ranges[thread_idx].second;
+
+            for (size_t idx = start; idx < end; idx++) {
+                // The contribution is only non-trivial at a given row if the accumulator is active at that row
+                if (trace_usage_tracker.check_is_active(idx, true)) {
+                    const AllValues row = polynomials.get_row(idx);
+                    // Evaluate all subrelations on given row. Separator is 1 since we are not summing across rows here.
+                    const RelationEvaluations evals =
+                        RelationUtils::accumulate_relation_evaluations(row, relation_parameters, FF(1));
+
+                    // Sum against challenges alpha
+                    aggregated_relation_evaluations.at(idx) = process_subrelation_evaluations(
+                        evals, alphas, linearly_dependent_contribution_accumulators[thread_idx]);
+                }
+            }
+        });
+
+        aggregated_relation_evaluations.at(0) += sum(linearly_dependent_contribution_accumulators);
 
         return aggregated_relation_evaluations;
+    }
+
+    /**
+     * @brief Initialise the data structured storing a set of nodes at a given level, in parallel if the width is
+     * sufficiently big
+     *
+     * @param level_width determines the number of nodes for the given level
+     * @param degree determines the degree of the polynomial stored in each node, the number of elements will be
+     * degree+1
+     *
+     * @return std::vector<std::vector<FF>>
+     */
+    static std::vector<std::vector<FF>> initialise_coefficient_tree_level(const size_t level_width, const size_t degree)
+    {
+        PROFILE_THIS_NAME("initialise coefficient tree level");
+        std::vector<std::vector<FF>> level_coeffs(level_width);
+        const size_t num_threads = calculate_num_threads(level_width);
+        const size_t range_per_thread = level_width / num_threads;
+        const size_t leftovers = level_width - (range_per_thread * num_threads);
+        parallel_for(num_threads, [&](size_t j) {
+            const size_t offset = j * range_per_thread;
+            const size_t range = (j == num_threads - 1) ? range_per_thread + leftovers : range_per_thread;
+            ASSERT(offset < level_width || level_width == 0);
+            ASSERT((offset + range) <= level_width);
+            for (size_t idx = offset; idx < offset + range; idx++) {
+                // Representing a polynomial of a certain degree requires degree + 1 coefficients
+                level_coeffs[idx].resize(degree + 1);
+            }
+        });
+        return level_coeffs;
     }
     /**
      * @brief  Recursively compute the parent nodes of each level in the tree, starting from the leaves. Note that at
@@ -150,24 +226,28 @@ template <class DeciderProvingKeys_> class ProtogalaxyProverInternal {
                                                        const std::vector<std::vector<FF>>& prev_level_coeffs,
                                                        size_t level = 1)
     {
+
         if (level == betas.size()) {
             return prev_level_coeffs[0];
         }
-
-        auto degree = level + 1;
-        auto prev_level_width = prev_level_coeffs.size();
-        std::vector<std::vector<FF>> level_coeffs(prev_level_width / 2, std::vector<FF>(degree + 1, 0));
-        parallel_for_heuristic(
-            prev_level_width / 2,
-            [&](size_t parent) {
-                size_t node = parent * 2;
-                std::copy(prev_level_coeffs[node].begin(), prev_level_coeffs[node].end(), level_coeffs[parent].begin());
-                for (size_t d = 0; d < degree; d++) {
-                    level_coeffs[parent][d] += prev_level_coeffs[node + 1][d] * betas[level];
-                    level_coeffs[parent][d + 1] += prev_level_coeffs[node + 1][d] * deltas[level];
-                }
-            },
-            /* overestimate */ thread_heuristics::FF_MULTIPLICATION_COST * degree * 3);
+        const size_t degree = level + 1;
+        const size_t level_width = prev_level_coeffs.size() / 2;
+        std::vector<std::vector<FF>> level_coeffs = initialise_coefficient_tree_level(level_width, degree);
+        {
+            PROFILE_THIS_NAME("other coefficients tree computation");
+            parallel_for_heuristic(
+                level_width,
+                [&](size_t parent) {
+                    size_t node = parent * 2;
+                    std::copy(
+                        prev_level_coeffs[node].begin(), prev_level_coeffs[node].end(), level_coeffs[parent].begin());
+                    for (size_t d = 0; d < degree; d++) {
+                        level_coeffs[parent][d] += prev_level_coeffs[node + 1][d] * betas[level];
+                        level_coeffs[parent][d + 1] += prev_level_coeffs[node + 1][d] * deltas[level];
+                    }
+                },
+                /* overestimate */ thread_heuristics::FF_MULTIPLICATION_COST * degree * 3);
+        }
         return construct_coefficients_tree(betas, deltas, level_coeffs, level + 1);
     }
 
@@ -183,27 +263,31 @@ template <class DeciderProvingKeys_> class ProtogalaxyProverInternal {
      */
     static std::vector<FF> construct_perturbator_coefficients(std::span<const FF> betas,
                                                               std::span<const FF> deltas,
-                                                              const std::vector<FF>& full_honk_evaluations)
+                                                              const Polynomial<FF>& full_honk_evaluations)
     {
-        auto width = full_honk_evaluations.size();
-        std::vector<std::vector<FF>> first_level_coeffs(width / 2, std::vector<FF>(2, 0));
-        parallel_for_heuristic(
-            width / 2,
-            [&](size_t parent) {
-                size_t node = parent * 2;
-                first_level_coeffs[parent][0] =
-                    full_honk_evaluations[node] + full_honk_evaluations[node + 1] * betas[0];
-                first_level_coeffs[parent][1] = full_honk_evaluations[node + 1] * deltas[0];
-            },
-            /* overestimate */ thread_heuristics::FF_MULTIPLICATION_COST * 3);
+
+        const size_t width = full_honk_evaluations.size() / 2;
+        std::vector<std::vector<FF>> first_level_coeffs = initialise_coefficient_tree_level(width, 1);
+        {
+            PROFILE_THIS_NAME("perturbator coefficients first level computation");
+            parallel_for_heuristic(
+                width,
+                [&](size_t parent) {
+                    const size_t node = parent * 2;
+                    first_level_coeffs[parent][0] =
+                        full_honk_evaluations[node] + full_honk_evaluations[node + 1] * betas[0];
+                    first_level_coeffs[parent][1] = full_honk_evaluations[node + 1] * deltas[0];
+                },
+                /* overestimate */ thread_heuristics::FF_MULTIPLICATION_COST * 3);
+        }
         return construct_coefficients_tree(betas, deltas, first_level_coeffs);
     }
 
     /**
      * @brief Construct the power perturbator polynomial F(X) in coefficient form from the accumulator
      */
-    static Polynomial<FF> compute_perturbator(const std::shared_ptr<const DeciderPK>& accumulator,
-                                              const std::vector<FF>& deltas)
+    Polynomial<FF> compute_perturbator(const std::shared_ptr<const DeciderPK>& accumulator,
+                                       const std::vector<FF>& deltas)
     {
         PROFILE_THIS();
         auto full_honk_evaluations = compute_row_evaluations(
@@ -233,17 +317,22 @@ template <class DeciderProvingKeys_> class ProtogalaxyProverInternal {
      */
 
     template <size_t skip_count = 0>
-    static void extend_univariates(
-        std::conditional_t<skip_count != 0, ExtendedUnivariates, ExtendedUnivariatesNoOptimisticSkipping>&
-            extended_univariates,
-        const DeciderPKs& keys,
-        const size_t row_idx)
+    BB_INLINE static void extend_univariates(ExtendedUnivariatesType& extended_univariates,
+                                             const DeciderPKs& keys,
+                                             const size_t row_idx)
     {
-        auto incoming_univariates = keys.template row_to_univariates<ExtendedUnivariate::LENGTH, skip_count>(row_idx);
-        for (auto [extended_univariate, incoming_univariate] :
-             zip_view(extended_univariates.get_all(), incoming_univariates)) {
-            incoming_univariate.template self_extend_from<NUM_KEYS>();
-            extended_univariate = std::move(incoming_univariate);
+        PROFILE_THIS_NAME("PG::extend_univariates");
+
+        if constexpr (Flavor::USE_SHORT_MONOMIALS) {
+            extended_univariates = std::move(keys.row_to_short_univariates(row_idx));
+        } else {
+            auto incoming_univariates =
+                keys.template row_to_univariates<ExtendedUnivariate::LENGTH, skip_count>(row_idx);
+            for (auto [extended_univariate, incoming_univariate] :
+                 zip_view(extended_univariates.get_all(), incoming_univariates)) {
+                incoming_univariate.template self_extend_from<NUM_KEYS>();
+                extended_univariate = std::move(incoming_univariate);
+            }
         }
     }
 
@@ -260,14 +349,11 @@ template <class DeciderProvingKeys_> class ProtogalaxyProverInternal {
      * @param relation_parameters
      * @param scaling_factor
      */
-    template <typename TupleOfTuplesOfUnivariates_,
-              typename ExtendedUnivariates_,
-              typename Parameters,
-              size_t relation_idx = 0>
-    static void accumulate_relation_univariates(TupleOfTuplesOfUnivariates_& univariate_accumulators,
-                                                const ExtendedUnivariates_& extended_univariates,
-                                                const Parameters& relation_parameters,
-                                                const FF& scaling_factor)
+    template <size_t relation_idx = 0>
+    BB_INLINE static void accumulate_relation_univariates(TupleOfTuplesOfUnivariates& univariate_accumulators,
+                                                          const ExtendedUnivariatesType& extended_univariates,
+                                                          const UnivariateRelationParameters& relation_parameters,
+                                                          const FF& scaling_factor)
     {
         using Relation = std::tuple_element_t<relation_idx, Relations>;
 
@@ -290,10 +376,7 @@ template <class DeciderProvingKeys_> class ProtogalaxyProverInternal {
 
         // Repeat for the next relation.
         if constexpr (relation_idx + 1 < Flavor::NUM_RELATIONS) {
-            accumulate_relation_univariates<TupleOfTuplesOfUnivariates_,
-                                            ExtendedUnivariates_,
-                                            Parameters,
-                                            relation_idx + 1>(
+            accumulate_relation_univariates<relation_idx + 1>(
                 univariate_accumulators, extended_univariates, relation_parameters, scaling_factor);
         }
     }
@@ -309,70 +392,57 @@ template <class DeciderProvingKeys_> class ProtogalaxyProverInternal {
      * @param gate_separators
      * @return ExtendedUnivariateWithRandomization
      */
-    template <typename Parameters, typename TupleOfTuples>
-    static ExtendedUnivariateWithRandomization compute_combiner(const DeciderPKs& keys,
-                                                                const GateSeparatorPolynomial<FF>& gate_separators,
-                                                                const Parameters& relation_parameters,
-                                                                const UnivariateRelationSeparator& alphas,
-                                                                TupleOfTuples& univariate_accumulators)
+    ExtendedUnivariateWithRandomization compute_combiner(const DeciderPKs& keys,
+                                                         const GateSeparatorPolynomial<FF>& gate_separators,
+                                                         const UnivariateRelationParameters& relation_parameters,
+                                                         const UnivariateRelationSeparator& alphas,
+                                                         TupleOfTuplesOfUnivariates& univariate_accumulators)
     {
         PROFILE_THIS();
 
-        // Whether to use univariates whose operators ignore some values which an honest prover would compute to be zero
-        constexpr bool skip_zero_computations = std::same_as<TupleOfTuples, TupleOfTuplesOfUnivariates>;
-
-        const size_t common_polynomial_size = keys[0]->proving_key.circuit_size;
-        // Determine number of threads for multithreading.
-        // Note: Multithreading is "on" for every round but we reduce the number of threads from the max available based
-        // on a specified minimum number of iterations per thread. This eventually leads to the use of a
-        // single thread. For now we use a power of 2 number of threads simply to ensure the round size is evenly
-        // divided.
-        const size_t max_num_threads = get_num_cpus_pow2(); // number of available threads (power of 2)
-        const size_t min_iterations_per_thread =
-            1 << 6; // min number of iterations for which we'll spin up a unique thread
-        const size_t desired_num_threads = common_polynomial_size / min_iterations_per_thread;
-        size_t num_threads = std::min(desired_num_threads, max_num_threads);       // fewer than max if justified
-        num_threads = num_threads > 0 ? num_threads : 1;                           // ensure num threads is >= 1
-        const size_t iterations_per_thread = common_polynomial_size / num_threads; // actual iterations per thread
+        // Determine the number of threads over which to distribute the work
+        // The polynomial size is given by the virtual size since the computation includes
+        // the incoming key which could have nontrivial values on the larger domain in case of overflow.
+        const size_t common_polynomial_size = keys[0]->proving_key.polynomials.w_l.virtual_size();
+        const size_t num_threads = compute_num_threads(common_polynomial_size);
 
         // Univariates are optimised for usual PG, but we need the unoptimised version for tests (it's a version that
         // doesn't skip computation), so we need to define types depending on the template instantiation
-        using ThreadAccumulators = TupleOfTuples;
-        using ExtendedUnivatiatesType =
-            std::conditional_t<skip_zero_computations, ExtendedUnivariates, ExtendedUnivariatesNoOptimisticSkipping>;
+        using ThreadAccumulators = TupleOfTuplesOfUnivariates;
 
         // Construct univariate accumulator containers; one per thread
         std::vector<ThreadAccumulators> thread_univariate_accumulators(num_threads);
-        for (auto& accum : thread_univariate_accumulators) {
-            // just normal relation lengths
-            RelationUtils::zero_univariates(accum);
-        }
 
-        // Construct extended univariates containers; one per thread
-        std::vector<ExtendedUnivatiatesType> extended_univariates;
-        extended_univariates.resize(num_threads);
+        // Distribute the execution trace rows across threads so that each handles an equal number of active rows
+        trace_usage_tracker.construct_thread_ranges(num_threads, common_polynomial_size);
 
         // Accumulate the contribution from each sub-relation
         parallel_for(num_threads, [&](size_t thread_idx) {
-            const size_t start = thread_idx * iterations_per_thread;
-            const size_t end = (thread_idx + 1) * iterations_per_thread;
+            // Initialize the thread accumulator to 0
+            RelationUtils::zero_univariates(thread_univariate_accumulators[thread_idx]);
+            // Construct extended univariates containers; one per thread
+            ExtendedUnivariatesType extended_univariates;
 
+            const size_t start = trace_usage_tracker.thread_ranges[thread_idx].first;
+            const size_t end = trace_usage_tracker.thread_ranges[thread_idx].second;
             for (size_t idx = start; idx < end; idx++) {
-                // Instantiate univariates, possibly with skipping toto ignore computation in those indices (they are
-                // still available for skipping relations, but all derived univariate will ignore those evaluations)
-                // No need to initialise extended_univariates to 0, as it's assigned to.
-                constexpr size_t skip_count = skip_zero_computations ? DeciderPKs::NUM - 1 : 0;
-                extend_univariates<skip_count>(extended_univariates[thread_idx], keys, idx);
+                if (trace_usage_tracker.check_is_active(idx)) {
+                    // Instantiate univariates, possibly with skipping toto ignore computation in those indices (they
+                    // are still available for skipping relations, but all derived univariate will ignore those
+                    // evaluations) No need to initialise extended_univariates to 0, as it's assigned to.
+                    constexpr size_t skip_count = DeciderPKs::NUM - 1;
+                    extend_univariates<skip_count>(extended_univariates, keys, idx);
 
-                const FF pow_challenge = gate_separators[idx];
+                    const FF pow_challenge = gate_separators[idx];
 
-                // Accumulate the i-th row's univariate contribution. Note that the relation parameters passed to
-                // this function have already been folded. Moreover, linear-dependent relations that act over the
-                // entire execution trace rather than on rows, will not be multiplied by the pow challenge.
-                accumulate_relation_univariates(thread_univariate_accumulators[thread_idx],
-                                                extended_univariates[thread_idx],
-                                                relation_parameters, // these parameters have already been folded
-                                                pow_challenge);
+                    // Accumulate the i-th row's univariate contribution. Note that the relation parameters passed to
+                    // this function have already been folded. Moreover, linear-dependent relations that act over the
+                    // entire execution trace rather than on rows, will not be multiplied by the pow challenge.
+                    accumulate_relation_univariates(thread_univariate_accumulators[thread_idx],
+                                                    extended_univariates,
+                                                    relation_parameters, // these parameters have already been folded
+                                                    pow_challenge);
+                }
             }
         });
 
@@ -388,24 +458,10 @@ template <class DeciderProvingKeys_> class ProtogalaxyProverInternal {
         return batch_over_relations(deoptimized_univariates, alphas);
     }
 
-    /**
-     * @brief Compute combiner using univariates that do not avoid zero computation in case of valid incoming indices.
-     * @details This is only used for testing the combiner calculation.
-     */
-    static ExtendedUnivariateWithRandomization compute_combiner_no_optimistic_skipping(
-        const DeciderPKs& keys,
-        const GateSeparatorPolynomial<FF>& gate_separators,
-        const UnivariateRelationParametersNoOptimisticSkipping& relation_parameters,
-        const UnivariateRelationSeparator& alphas)
-    {
-        TupleOfTuplesOfUnivariatesNoOptimisticSkipping accumulators;
-        return compute_combiner(keys, gate_separators, relation_parameters, alphas, accumulators);
-    }
-
-    static ExtendedUnivariateWithRandomization compute_combiner(const DeciderPKs& keys,
-                                                                const GateSeparatorPolynomial<FF>& gate_separators,
-                                                                const UnivariateRelationParameters& relation_parameters,
-                                                                const UnivariateRelationSeparator& alphas)
+    ExtendedUnivariateWithRandomization compute_combiner(const DeciderPKs& keys,
+                                                         const GateSeparatorPolynomial<FF>& gate_separators,
+                                                         const UnivariateRelationParameters& relation_parameters,
+                                                         const UnivariateRelationSeparator& alphas)
     {
         TupleOfTuplesOfUnivariates accumulators;
         return compute_combiner(keys, gate_separators, relation_parameters, alphas, accumulators);
@@ -564,6 +620,25 @@ template <class DeciderProvingKeys_> class ProtogalaxyProverInternal {
             alpha_idx++;
         }
         return result;
+    }
+
+    /**
+     * @brief Determine number of threads for multithreading of perterbator/combiner operations
+     * @details Potentially uses fewer threads than are available to avoid distributing very small amounts of work
+     *
+     * @param domain_size
+     * @return size_t
+     */
+    static size_t compute_num_threads(const size_t domain_size)
+    {
+        const size_t max_num_threads = get_num_cpus_pow2(); // number of available threads (power of 2)
+        const size_t min_iterations_per_thread =
+            1 << 6; // min number of iterations for which we'll spin up a unique thread
+        const size_t desired_num_threads = domain_size / min_iterations_per_thread;
+        size_t num_threads = std::min(desired_num_threads, max_num_threads); // fewer than max if justified
+        num_threads = num_threads > 0 ? num_threads : 1;                     // ensure num threads is >= 1
+
+        return num_threads;
     }
 };
 } // namespace bb

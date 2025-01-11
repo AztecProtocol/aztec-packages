@@ -52,7 +52,7 @@ template <typename RecursiveFlavor> class ProtogalaxyRecursiveTests : public tes
     using InnerFoldingVerifier = ProtogalaxyVerifier_<InnerDeciderVerificationKeys>;
     using InnerFoldingProver = ProtogalaxyProver_<InnerDeciderProvingKeys>;
 
-    static void SetUpTestSuite() { bb::srs::init_crs_factory("../srs_db/ignition"); }
+    static void SetUpTestSuite() { bb::srs::init_crs_factory(bb::srs::get_ignition_crs_path()); }
     /**
      * @brief Create a non-trivial arbitrary inner circuit, the proof of which will be recursively verified
      *
@@ -203,7 +203,8 @@ template <typename RecursiveFlavor> class ProtogalaxyRecursiveTests : public tes
         auto recursive_decider_vk_1 = std::make_shared<RecursiveDeciderVerificationKey>(&folding_circuit, decider_vk_1);
         auto recursive_decider_vk_2 =
             std::make_shared<RecursiveVerificationKey>(&folding_circuit, decider_vk_2->verification_key);
-        StdlibProof<OuterBuilder> stdlib_proof = bb::convert_proof_to_witness(&folding_circuit, folding_proof.proof);
+        StdlibProof<OuterBuilder> stdlib_proof =
+            bb::convert_native_proof_to_stdlib(&folding_circuit, folding_proof.proof);
 
         auto verifier =
             FoldingRecursiveVerifier{ &folding_circuit, recursive_decider_vk_1, { recursive_decider_vk_2 } };
@@ -292,7 +293,8 @@ template <typename RecursiveFlavor> class ProtogalaxyRecursiveTests : public tes
         auto recursive_decider_vk_1 = std::make_shared<RecursiveDeciderVerificationKey>(&folding_circuit, decider_vk_1);
         auto recursive_decider_vk_2 =
             std::make_shared<RecursiveVerificationKey>(&folding_circuit, decider_vk_2->verification_key);
-        StdlibProof<OuterBuilder> stdlib_proof = bb::convert_proof_to_witness(&folding_circuit, folding_proof.proof);
+        StdlibProof<OuterBuilder> stdlib_proof =
+            bb::convert_native_proof_to_stdlib(&folding_circuit, folding_proof.proof);
 
         auto verifier =
             FoldingRecursiveVerifier{ &folding_circuit, recursive_decider_vk_1, { recursive_decider_vk_2 } };
@@ -384,6 +386,7 @@ template <typename RecursiveFlavor> class ProtogalaxyRecursiveTests : public tes
         auto verification_key = std::make_shared<InnerVerificationKey>(prover_inst->proving_key);
         auto verifier_inst = std::make_shared<InnerDeciderVerificationKey>(verification_key);
 
+        // Corrupt a wire value in the accumulator
         prover_accumulator->proving_key.polynomials.w_l.at(1) = FF::random_element(&engine);
 
         // Generate a folding proof with the incorrect polynomials which would result in the prover having the wrong
@@ -398,7 +401,8 @@ template <typename RecursiveFlavor> class ProtogalaxyRecursiveTests : public tes
             std::make_shared<RecursiveDeciderVerificationKey>(&folding_circuit, verifier_accumulator);
         auto recursive_decider_vk_2 =
             std::make_shared<RecursiveVerificationKey>(&folding_circuit, verifier_inst->verification_key);
-        StdlibProof<OuterBuilder> stdlib_proof = bb::convert_proof_to_witness(&folding_circuit, folding_proof.proof);
+        StdlibProof<OuterBuilder> stdlib_proof =
+            bb::convert_native_proof_to_stdlib(&folding_circuit, folding_proof.proof);
 
         auto verifier =
             FoldingRecursiveVerifier{ &folding_circuit, recursive_decider_vk_1, { recursive_decider_vk_2 } };
@@ -436,7 +440,8 @@ template <typename RecursiveFlavor> class ProtogalaxyRecursiveTests : public tes
             auto recursive_decider_vk_1 =
                 std::make_shared<RecursiveDeciderVerificationKey>(&verifier_circuit, honk_vk_1);
             auto recursive_decider_vk_2 = std::make_shared<RecursiveVerificationKey>(&verifier_circuit, honk_vk_2);
-            StdlibProof<OuterBuilder> stdlib_proof = bb::convert_proof_to_witness(&verifier_circuit, fold_result.proof);
+            StdlibProof<OuterBuilder> stdlib_proof =
+                bb::convert_native_proof_to_stdlib(&verifier_circuit, fold_result.proof);
 
             auto verifier =
                 FoldingRecursiveVerifier{ &verifier_circuit, recursive_decider_vk_1, { recursive_decider_vk_2 } };

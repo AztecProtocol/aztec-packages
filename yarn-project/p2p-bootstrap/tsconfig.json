@@ -10,7 +10,13 @@
       "path": "../foundation"
     },
     {
+      "path": "../kv-store"
+    },
+    {
       "path": "../p2p"
+    },
+    {
+      "path": "../telemetry-client"
     }
   ],
   "include": ["src"]

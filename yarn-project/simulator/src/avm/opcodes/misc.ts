@@ -1,4 +1,4 @@
-import { applyStringFormatting, createDebugLogger } from '@aztec/foundation/log';
+import { applyStringFormatting, createLogger } from '@aztec/foundation/log';
 
 import { type AvmContext } from '../avm_context.js';
 import { TypeTag } from '../avm_memory_types.js';
@@ -9,24 +9,24 @@ import { Instruction } from './instruction.js';
 export class DebugLog extends Instruction {
   static type: string = 'DEBUGLOG';
   static readonly opcode: Opcode = Opcode.DEBUGLOG;
-  static readonly logger = createDebugLogger('aztec:avm_simulator:debug_log');
+  static readonly logger = createLogger('simulator:avm:debug_log');
 
   // Informs (de)serialization. See Instruction.deserialize.
   static readonly wireFormat: OperandType[] = [
     OperandType.UINT8, // Opcode
     OperandType.UINT8, // Indirect
     OperandType.UINT16, // message memory address
-    OperandType.UINT16, // message size
     OperandType.UINT16, // fields memory address
     OperandType.UINT16, // fields size address
+    OperandType.UINT16, // message size
   ];
 
   constructor(
     private indirect: number,
     private messageOffset: number,
-    private messageSize: number,
     private fieldsOffset: number,
     private fieldsSizeOffset: number,
+    private messageSize: number,
   ) {
     super();
   }
@@ -37,14 +37,16 @@ export class DebugLog extends Instruction {
     const addressing = Addressing.fromWire(this.indirect, operands.length);
     const [messageOffset, fieldsOffset, fieldsSizeOffset] = addressing.resolve(operands, memory);
 
+    memory.checkTag(TypeTag.UINT32, fieldsSizeOffset);
     const fieldsSize = memory.get(fieldsSizeOffset).toNumber();
-    memory.checkTagsRange(TypeTag.UINT8, messageOffset, this.messageSize);
-    memory.checkTagsRange(TypeTag.FIELD, fieldsOffset, fieldsSize);
-
-    context.machineState.consumeGas(this.gasCost());
 
     const rawMessage = memory.getSlice(messageOffset, this.messageSize);
     const fields = memory.getSlice(fieldsOffset, fieldsSize);
+
+    memory.checkTagsRange(TypeTag.UINT8, messageOffset, this.messageSize);
+    memory.checkTagsRange(TypeTag.FIELD, fieldsOffset, fieldsSize);
+
+    context.machineState.consumeGas(this.gasCost(this.messageSize + fieldsSize));
 
     // Interpret str<N> = [u8; N] to string.
     const messageAsStr = rawMessage.map(field => String.fromCharCode(field.toNumber())).join('');
@@ -56,6 +58,5 @@ export class DebugLog extends Instruction {
     DebugLog.logger.verbose(formattedStr);
 
     memory.assert({ reads: 1 + fieldsSize + this.messageSize, addressing });
-    context.machineState.incrementPc();
   }
 }

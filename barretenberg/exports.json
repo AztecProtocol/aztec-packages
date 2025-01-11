@@ -506,6 +506,10 @@
         "type": "const uint8_t *"
       },
       {
+        "name": "recursive",
+        "type": "const bool *"
+      },
+      {
         "name": "honk_recursion",
         "type": "const bool *"
       }
@@ -563,6 +567,10 @@
       {
         "name": "constraint_system_buf",
         "type": "const uint8_t *"
+      },
+      {
+        "name": "recursive",
+        "type": "const bool *"
       }
     ],
     "outArgs": [],
@@ -578,6 +586,10 @@
       {
         "name": "constraint_system_buf",
         "type": "const uint8_t *"
+      },
+      {
+        "name": "recursive",
+        "type": "const bool *"
       },
       {
         "name": "witness_buf",
@@ -600,6 +612,10 @@
         "type": "const uint8_t *"
       },
       {
+        "name": "recursive",
+        "type": "const bool *"
+      },
+      {
         "name": "witness_buf",
         "type": "const uint8_t *"
       }
@@ -620,6 +636,10 @@
         "type": "const uint8_t *"
       },
       {
+        "name": "recursive",
+        "type": "const bool *"
+      },
+      {
         "name": "witness_buf",
         "type": "const uint8_t *"
       }
@@ -638,6 +658,10 @@
       {
         "name": "constraint_system_buf",
         "type": "const uint8_t *"
+      },
+      {
+        "name": "recursive",
+        "type": "const bool *"
       },
       {
         "name": "witness_buf",
@@ -704,6 +728,10 @@
       {
         "name": "acir_vec",
         "type": "const uint8_t *"
+      },
+      {
+        "name": "recursive",
+        "type": "const bool *"
       }
     ],
     "outArgs": [
@@ -802,6 +830,10 @@
         "type": "const uint8_t *"
       },
       {
+        "name": "recursive",
+        "type": "const bool *"
+      },
+      {
         "name": "witness_vec",
         "type": "const uint8_t *"
       }
@@ -840,6 +872,10 @@
       {
         "name": "acir_vec",
         "type": "const uint8_t *"
+      },
+      {
+        "name": "recursive",
+        "type": "const bool *"
       }
     ],
     "outArgs": [
@@ -868,6 +904,22 @@
   },
   {
     "functionName": "acir_vk_as_fields_ultra_honk",
+    "inArgs": [
+      {
+        "name": "vk_buf",
+        "type": "const uint8_t *"
+      }
+    ],
+    "outArgs": [
+      {
+        "name": "out_vkey",
+        "type": "fr::vec_out_buf"
+      }
+    ],
+    "isAsync": false
+  },
+  {
+    "functionName": "acir_vk_as_fields_mega_honk",
     "inArgs": [
       {
         "name": "vk_buf",

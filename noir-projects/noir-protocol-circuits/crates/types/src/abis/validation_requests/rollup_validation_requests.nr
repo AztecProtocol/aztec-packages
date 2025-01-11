@@ -8,7 +8,7 @@ use crate::{
 // These are validation requests that cannot be fulfilled in the current context (private or public), and must be
 // instead forwarded to the rollup for it to take care of them.
 pub struct RollupValidationRequests {
-    max_block_number: MaxBlockNumber,
+    pub max_block_number: MaxBlockNumber,
 }
 
 impl Empty for RollupValidationRequests {

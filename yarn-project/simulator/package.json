@@ -3,8 +3,10 @@
   "version": "0.1.0",
   "type": "module",
   "exports": {
-    ".": "./dest/index.js",
-    "./avm/fixtures": "./dest/avm/fixtures/index.js"
+    "./common": "./dest/common.js",
+    "./server": "./dest/server.js",
+    "./client": "./dest/client/index.js",
+    "./public/fixtures": "./dest/public/fixtures/index.js"
   },
   "typedocOptions": {
     "entryPoints": [
@@ -19,7 +21,7 @@
     "clean": "rm -rf ./dest .tsbuildinfo",
     "formatting": "run -T prettier --check ./src && run -T eslint ./src",
     "formatting:fix": "run -T eslint --fix ./src && run -T prettier -w ./src",
-    "test": "NODE_NO_WARNINGS=1 node --experimental-vm-modules ../node_modules/.bin/jest --passWithNoTests"
+    "test": "HARDWARE_CONCURRENCY=${HARDWARE_CONCURRENCY:-16} RAYON_NUM_THREADS=${RAYON_NUM_THREADS:-4} NODE_NO_WARNINGS=1 node --experimental-vm-modules ../node_modules/.bin/jest --passWithNoTests --maxWorkers=${JEST_MAX_WORKERS:-8}"
   },
   "inherits": [
     "../package.common.json"
@@ -50,12 +52,11 @@
       ".ts"
     ],
     "reporters": [
-      [
-        "default",
-        {
-          "summaryThreshold": 9999
-        }
-      ]
+      "default"
+    ],
+    "testTimeout": 30000,
+    "setupFiles": [
+      "../../foundation/src/jest/setup.mjs"
     ]
   },
   "dependencies": {
@@ -68,8 +69,10 @@
     "@aztec/types": "workspace:^",
     "@aztec/world-state": "workspace:^",
     "@noir-lang/acvm_js": "portal:../../noir/packages/acvm_js",
+    "@noir-lang/noirc_abi": "portal:../../noir/packages/noirc_abi",
     "@noir-lang/types": "portal:../../noir/packages/types",
     "levelup": "^5.1.1",
+    "lodash.clonedeep": "^4.5.0",
     "memdown": "^6.1.1",
     "tslib": "^2.4.0"
   },
@@ -80,6 +83,7 @@
     "@jest/globals": "^29.5.0",
     "@types/jest": "^29.5.0",
     "@types/levelup": "^5.1.3",
+    "@types/lodash.clonedeep": "^4.5.7",
     "@types/lodash.merge": "^4.6.9",
     "@types/memdown": "^3.0.2",
     "@types/node": "^18.7.23",

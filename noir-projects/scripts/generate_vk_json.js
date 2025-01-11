@@ -1,20 +1,24 @@
 const path = require("path");
 const fs = require("fs/promises");
-const fs_stream = require("fs");
 const child_process = require("child_process");
-
-const { fromIni } = require("@aws-sdk/credential-providers");
-const { S3 } = require("@aws-sdk/client-s3");
-
 const crypto = require("crypto");
 
-const megaHonkPatterns = require("../mega_honk_circuits.json");
+const clientIvcPatterns = require("../client_ivc_circuits.json");
+const rollupHonkPatterns = require("../rollup_honk_circuits.json");
 
-const BB_BIN_PATH =
-  process.env.BB_BIN ||
-  path.join(__dirname, "../../barretenberg/cpp/build/bin/bb");
-const BUCKET_NAME = "aztec-ci-artifacts";
-const PREFIX = "protocol";
+const CircuitType = {
+  ClientIVCCircuit: 0,
+  RollupHonkCircuit: 1,
+  HonkCircuit: 2,
+};
+
+const {
+  readVKFromS3,
+  writeVKToS3,
+  getBarretenbergHash,
+  generateArtifactHash,
+  BB_BIN_PATH,
+} = require("./verification_keys");
 
 function vkBinaryFileNameForArtifactName(outputFolder, artifactName) {
   return path.join(outputFolder, `${artifactName}.vk`);
@@ -28,32 +32,6 @@ function vkDataFileNameForArtifactName(outputFolder, artifactName) {
   return path.join(outputFolder, `${artifactName}.vk.data.json`);
 }
 
-function getFunctionArtifactPath(outputFolder, functionName) {
-  return path.join(outputFolder, `${functionName}.tmp.json`);
-}
-
-async function createFunctionArtifact(
-  contractArtifactPath,
-  functionName,
-  outputFolder
-) {
-  const contractArtifact = JSON.parse(await fs.readFile(contractArtifactPath));
-  const artifact = contractArtifact.functions.find(
-    (fn) => fn.name === functionName
-  );
-  if (!artifact) {
-    throw new Error(`Cannot find artifact for function: ${functionName}.`);
-  }
-
-  const artifactPath = getFunctionArtifactPath(outputFolder, functionName);
-  await fs.writeFile(artifactPath, JSON.stringify(artifact, null, 2));
-  return artifactPath;
-}
-
-async function removeFunctionArtifact(artifactPath) {
-  await fs.unlink(artifactPath);
-}
-
 async function getBytecodeHash(artifactPath) {
   const { bytecode } = JSON.parse(await fs.readFile(artifactPath));
   if (!bytecode) {
@@ -62,36 +40,15 @@ async function getBytecodeHash(artifactPath) {
   return crypto.createHash("md5").update(bytecode).digest("hex");
 }
 
-function getBarretenbergHash() {
-  if (process.env.BB_HASH) {
-    return Promise.resolve(process.env.BB_HASH);
-  }
-  return new Promise((res, rej) => {
-    const hash = crypto.createHash("md5");
-
-    const rStream = fs_stream.createReadStream(BB_BIN_PATH);
-    rStream.on("data", (data) => {
-      hash.update(data);
-    });
-    rStream.on("end", () => {
-      res(hash.digest("hex"));
-    });
-    rStream.on("error", (err) => {
-      rej(err);
-    });
-  });
-}
-
-function generateArtifactHash(barretenbergHash, bytecodeHash, isMegaHonk) {
-  return `${barretenbergHash}-${bytecodeHash}-${
-    isMegaHonk ? "mega-honk" : "ultra-honk"
-  }`;
-}
-
-async function getArtifactHash(artifactPath, isMegaHonk) {
+async function getArtifactHash(artifactPath, circuitType, isRecursive) {
   const bytecodeHash = await getBytecodeHash(artifactPath);
   const barretenbergHash = await getBarretenbergHash();
-  return generateArtifactHash(barretenbergHash, bytecodeHash, isMegaHonk);
+  return generateArtifactHash(
+    barretenbergHash,
+    bytecodeHash,
+    circuitType,
+    isRecursive
+  );
 }
 
 async function hasArtifactHashChanged(artifactHash, vkDataPath) {
@@ -112,21 +69,31 @@ async function hasArtifactHashChanged(artifactHash, vkDataPath) {
   return true;
 }
 
-function isMegaHonkCircuit(artifactName) {
-  return megaHonkPatterns.some((pattern) =>
-    artifactName.match(new RegExp(pattern))
-  );
+function typeOfCircuit(artifactName) {
+  if (
+    clientIvcPatterns.some((pattern) => artifactName.match(new RegExp(pattern)))
+  ) {
+    return CircuitType.ClientIVCCircuit;
+  } else if (
+    rollupHonkPatterns.some((pattern) =>
+      artifactName.match(new RegExp(pattern))
+    )
+  ) {
+    return CircuitType.RollupHonkCircuit;
+  } else {
+    return CircuitType.HonkCircuit;
+  }
 }
 
-async function processArtifact(
-  artifactPath,
-  artifactName,
-  outputFolder,
-  syncWithS3
-) {
-  const isMegaHonk = isMegaHonkCircuit(artifactName);
+async function processArtifact(artifactPath, artifactName, outputFolder) {
+  const circuitType = typeOfCircuit(artifactName);
+  const isRecursive = true;
 
-  const artifactHash = await getArtifactHash(artifactPath, isMegaHonk);
+  const artifactHash = await getArtifactHash(
+    artifactPath,
+    circuitType,
+    isRecursive
+  );
 
   const vkDataPath = vkDataFileNameForArtifactName(outputFolder, artifactName);
 
@@ -136,20 +103,17 @@ async function processArtifact(
     return;
   }
 
-  let vkData = syncWithS3
-    ? await readVKFromS3(artifactName, artifactHash)
-    : undefined;
+  let vkData = await readVKFromS3(artifactName, artifactHash);
   if (!vkData) {
     vkData = await generateVKData(
       artifactName,
       outputFolder,
       artifactPath,
       artifactHash,
-      isMegaHonk
+      circuitType,
+      isRecursive
     );
-    if (syncWithS3) {
-      await writeVKToS3(artifactName, artifactHash, JSON.stringify(vkData));
-    }
+    await writeVKToS3(artifactName, artifactHash, JSON.stringify(vkData));
   } else {
     console.log("Using VK from remote cache for", artifactName);
   }
@@ -162,12 +126,15 @@ async function generateVKData(
   outputFolder,
   artifactPath,
   artifactHash,
-  isMegaHonk
+  circuitType,
+  isRecursive
 ) {
-  if (isMegaHonk) {
-    console.log("Generating new mega honk vk for", artifactName);
+  if (circuitType == CircuitType.ClientIVCCircuit) {
+    console.log("Generating new client ivc vk for", artifactName);
+  } else if (circuitType == CircuitType.RollupHonkCircuit) {
+    console.log("Generating new rollup honk vk for", artifactName);
   } else {
-    console.log("Generating new vk for", artifactName);
+    console.log("Generating new honk vk for", artifactName);
   }
 
   const binaryVkPath = vkBinaryFileNameForArtifactName(
@@ -176,12 +143,29 @@ async function generateVKData(
   );
   const jsonVkPath = vkJsonFileNameForArtifactName(outputFolder, artifactName);
 
-  const writeVkCommand = `${BB_BIN_PATH} ${
-    isMegaHonk ? "write_vk_mega_honk" : "write_vk_ultra_honk"
-  } -h -b "${artifactPath}" -o "${binaryVkPath}"`;
-  const vkAsFieldsCommand = `${BB_BIN_PATH} ${
-    isMegaHonk ? "vk_as_fields_mega_honk" : "vk_as_fields_ultra_honk"
-  } -k "${binaryVkPath}" -o "${jsonVkPath}"`;
+  if (circuitType == CircuitType.ClientIVCCircuit) {
+    write_vk_flow = "write_vk_for_ivc";
+    vk_as_fields_flow = "vk_as_fields_mega_honk";
+    honk_recursion = 0;
+  } else if (circuitType == CircuitType.RollupHonkCircuit) {
+    write_vk_flow = "write_vk_ultra_rollup_honk";
+    vk_as_fields_flow = "vk_as_fields_ultra_rollup_honk";
+    honk_recursion = 2;
+  } else {
+    write_vk_flow = "write_vk_ultra_honk";
+    vk_as_fields_flow = "vk_as_fields_ultra_honk";
+    honk_recursion = 1;
+  }
+
+  const writeVkCommand = `${BB_BIN_PATH} ${write_vk_flow} -h ${honk_recursion} -b "${artifactPath}" -o "${binaryVkPath}" ${
+    isRecursive ? "--recursive" : ""
+  }`;
+
+  console.log("WRITE VK CMD: ", writeVkCommand);
+
+  const vkAsFieldsCommand = `${BB_BIN_PATH} ${vk_as_fields_flow} -k "${binaryVkPath}" -o "${jsonVkPath}"`;
+
+  console.log("VK AS FIELDS CMD: ", vkAsFieldsCommand);
 
   await new Promise((resolve, reject) => {
     child_process.exec(`${writeVkCommand} && ${vkAsFieldsCommand}`, (err) => {
@@ -208,84 +192,19 @@ async function generateVKData(
 }
 
 async function main() {
-  let [artifactPath, outputFolder, functionName] = process.argv.slice(2);
+  let [artifactPath, outputFolder] = process.argv.slice(2);
   if (!artifactPath || !outputFolder) {
     console.log(
-      "Usage: node generate_vk_json.js <artifactPath> <outputFolder> [functionName]"
+      "Usage: node generate_vk_json.js <artifactPath> <outputFolder>"
     );
     return;
   }
-
-  const sourceArtifactPath = !functionName
-    ? artifactPath
-    : await createFunctionArtifact(artifactPath, functionName, outputFolder);
-
-  const artifactName = [
-    path.basename(artifactPath, ".json"),
-    functionName ? `-${functionName}` : "",
-  ].join("");
-
-  const syncWithS3 = true;
 
   await processArtifact(
-    sourceArtifactPath,
-    artifactName,
-    outputFolder,
-    syncWithS3
+    artifactPath,
+    path.basename(artifactPath, ".json"),
+    outputFolder
   );
-
-  if (sourceArtifactPath !== artifactPath) {
-    await removeFunctionArtifact(sourceArtifactPath);
-  }
-}
-
-function generateS3Client() {
-  return new S3({
-    credentials: fromIni({
-      profile: "default",
-    }),
-    region: "us-east-2",
-  });
-}
-
-async function writeVKToS3(artifactName, artifactHash, body) {
-  if (process.env.DISABLE_VK_S3_CACHE) {
-    return;
-  }
-  try {
-    const s3 = generateS3Client();
-    await s3.putObject({
-      Bucket: BUCKET_NAME,
-      Key: `${PREFIX}/${artifactName}-${artifactHash}.json`,
-      Body: body,
-    });
-  } catch (err) {
-    console.warn("Could not write to S3 VK remote cache", err.message);
-  }
-}
-
-async function readVKFromS3(artifactName, artifactHash) {
-  if (process.env.DISABLE_VK_S3_CACHE) {
-    return;
-  }
-  const key = `${PREFIX}/${artifactName}-${artifactHash}.json`;
-
-  try {
-    const s3 = generateS3Client();
-    const { Body: response } = await s3.getObject({
-      Bucket: BUCKET_NAME,
-      Key: key,
-    });
-
-    const result = JSON.parse(await response.transformToString());
-    return result;
-  } catch (err) {
-    console.warn(
-      `Could not read VK from remote cache at s3://${BUCKET_NAME}/${key}`,
-      err.message
-    );
-    return undefined;
-  }
 }
 
 main().catch((err) => {

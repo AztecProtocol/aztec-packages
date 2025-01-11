@@ -4,6 +4,8 @@ import { Signature } from '@aztec/foundation/eth-signature';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 import { type FieldsOf } from '@aztec/foundation/types';
 
+import { z } from 'zod';
+
 import { Gossipable } from '../p2p/gossipable.js';
 import { TopicType, createTopicString } from '../p2p/topic_type.js';
 import { EpochProofQuotePayload } from './epoch_proof_quote_payload.js';
@@ -13,6 +15,14 @@ export class EpochProofQuote extends Gossipable {
 
   constructor(public readonly payload: EpochProofQuotePayload, public readonly signature: Signature) {
     super();
+  }
+
+  static empty() {
+    return new EpochProofQuote(EpochProofQuotePayload.empty(), Signature.empty());
+  }
+
+  static random() {
+    return new EpochProofQuote(EpochProofQuotePayload.random(), Signature.random());
   }
 
   static getFields(fields: FieldsOf<EpochProofQuote>) {
@@ -33,15 +43,13 @@ export class EpochProofQuote extends Gossipable {
     return new EpochProofQuote(reader.readObject(EpochProofQuotePayload), reader.readObject(Signature));
   }
 
-  toJSON() {
-    return {
-      payload: this.payload.toJSON(),
-      signature: this.signature.to0xString(),
-    };
-  }
-
-  static fromJSON(obj: any) {
-    return new EpochProofQuote(EpochProofQuotePayload.fromJSON(obj.payload), Signature.from0xString(obj.signature));
+  static get schema() {
+    return z
+      .object({
+        payload: EpochProofQuotePayload.schema,
+        signature: Signature.schema,
+      })
+      .transform(({ payload, signature }) => new EpochProofQuote(payload, signature));
   }
 
   // TODO: https://github.com/AztecProtocol/aztec-packages/issues/8911
@@ -67,6 +75,13 @@ export class EpochProofQuote extends Gossipable {
     return {
       quote: this.payload.toViemArgs(),
       signature: this.signature.toViemSignature(),
+    };
+  }
+
+  toInspect() {
+    return {
+      signature: this.signature.toString(),
+      ...this.payload.toInspect(),
     };
   }
 

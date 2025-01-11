@@ -1,6 +1,6 @@
 import { type AccountWallet, AztecAddress, BatchCall, Fr, TxStatus } from '@aztec/aztec.js';
-import { GasSettings } from '@aztec/circuits.js';
-import { AvmInitializerTestContract, AvmTestContract } from '@aztec/noir-contracts.js';
+import { AvmInitializerTestContract } from '@aztec/noir-contracts.js/AvmInitializerTest';
+import { AvmTestContract } from '@aztec/noir-contracts.js/AvmTest';
 
 import { jest } from '@jest/globals';
 
@@ -33,21 +33,40 @@ describe('e2e_avm_simulator', () => {
     });
 
     describe('Assertions', () => {
-      it('PXE processes failed assertions and fills in the error message with the expression', async () => {
-        await expect(avmContract.methods.assertion_failure().simulate()).rejects.toThrow(
-          "Assertion failed: This assertion should fail! 'not_true == true'",
-        );
+      describe('Not nested', () => {
+        it('PXE processes user code assertions and recovers message', async () => {
+          await expect(avmContract.methods.assertion_failure().simulate()).rejects.toThrow(
+            "Assertion failed: This assertion should fail! 'not_true == true'",
+          );
+        });
+        it('PXE processes user code assertions and recovers message (complex)', async () => {
+          await expect(avmContract.methods.assert_nullifier_exists(123).simulate()).rejects.toThrow(
+            "Assertion failed: Nullifier doesn't exist! 'context.nullifier_exists(nullifier, context.this_address())'",
+          );
+        });
+        it('PXE processes intrinsic assertions and recovers message', async () => {
+          await expect(avmContract.methods.divide_by_zero().simulate()).rejects.toThrow('Division by zero');
+        });
       });
-      it('PXE processes failed assertions and fills in the error message with the expression (even complex ones)', async () => {
-        await expect(avmContract.methods.assert_nullifier_exists(123).simulate()).rejects.toThrow(
-          "Assertion failed: Nullifier doesn't exist! 'context.nullifier_exists(nullifier, context.this_address())'",
-        );
+      describe('Nested', () => {
+        it('PXE processes user code assertions and recovers message', async () => {
+          await expect(avmContract.methods.external_call_to_assertion_failure().simulate()).rejects.toThrow(
+            "Assertion failed: This assertion should fail! 'not_true == true'",
+          );
+        });
+        it('PXE processes intrinsic assertions and recovers message', async () => {
+          await expect(avmContract.methods.external_call_to_divide_by_zero().simulate()).rejects.toThrow(
+            'Division by zero',
+          );
+        });
       });
     });
 
     describe('From private', () => {
       it('Should enqueue a public function correctly', async () => {
-        await avmContract.methods.enqueue_public_from_private().simulate();
+        const request = await avmContract.methods.enqueue_public_from_private().create();
+        const simulation = await wallet.simulateTx(request, true);
+        expect(simulation.publicOutput!.revertReason).toBeUndefined();
       });
     });
 
@@ -55,9 +74,9 @@ describe('e2e_avm_simulator', () => {
       it('Tracks L2 gas usage on simulation', async () => {
         const request = await avmContract.methods.add_args_return(20n, 30n).create();
         const simulation = await wallet.simulateTx(request, true);
-        // Subtract the teardown gas allocation from the gas used to figure out the gas used by the contract logic.
-        const l2TeardownAllocation = GasSettings.simulation().getTeardownLimits().l2Gas;
-        const l2GasUsed = simulation.publicOutput!.end.gasUsed.l2Gas! - l2TeardownAllocation;
+        // Subtract the teardown gas from the total gas to figure out the gas used by the contract logic.
+        const l2TeardownGas = simulation.publicOutput!.gasUsed.teardownGas.l2Gas;
+        const l2GasUsed = simulation.publicOutput!.gasUsed.totalGas.l2Gas - l2TeardownGas;
         // L2 gas used will vary a lot depending on codegen and other factors,
         // so we just set a wide range for it, and check it's not a suspiciously round number.
         expect(l2GasUsed).toBeGreaterThan(150);
@@ -139,6 +158,15 @@ describe('e2e_avm_simulator', () => {
     });
 
     describe('Nested calls', () => {
+      it('Nested call to non-existent contract reverts & rethrows by default', async () => {
+        // The nested call reverts and by default caller rethrows
+        await expect(avmContract.methods.nested_call_to_nothing().send().wait()).rejects.toThrow(/No bytecode/);
+      });
+      it('Nested CALL instruction to non-existent contract returns failure, but caller can recover', async () => {
+        // The nested call reverts (returns failure), but the caller doesn't HAVE to rethrow.
+        const tx = await avmContract.methods.nested_call_to_nothing_recovers().send().wait();
+        expect(tx.status).toEqual(TxStatus.SUCCESS);
+      });
       it('Should NOT be able to emit the same unsiloed nullifier from the same contract', async () => {
         const nullifier = new Fr(1);
         await expect(

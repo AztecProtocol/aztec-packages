@@ -2,24 +2,20 @@ use dep::aztec::macros::aztec;
 
 #[aztec]
 contract ContractInstanceDeployer {
-    use dep::aztec::{
-        hash::compute_unencrypted_log_hash,
-        macros::{events::event, functions::private},
-        oracle::logs::emit_unencrypted_log_private,
-        utils::to_bytes::arr_to_be_bytes_arr,
-    };
+    use dep::aztec::macros::{events::event, functions::private};
     use dep::aztec::protocol_types::{
-        abis::log_hash::LogHash,
-        address::{AztecAddress, PartialAddress, PublicKeysHash},
-        constants::DEPLOYER_CONTRACT_INSTANCE_DEPLOYED_MAGIC_VALUE,
+        address::{AztecAddress, PartialAddress},
+        constants::{DEPLOYER_CONTRACT_INSTANCE_DEPLOYED_MAGIC_VALUE, REGISTERER_CONTRACT_ADDRESS},
         contract_class_id::ContractClassId,
         public_keys::PublicKeys,
         traits::Serialize,
+        utils::arrays::array_concat,
     };
+    use dep::contract_class_registerer::ContractClassRegisterer;
     use std::meta::derive;
 
-    #[event]
     #[derive(Serialize)]
+    #[event]
     struct ContractInstanceDeployed {
         DEPLOYER_CONTRACT_INSTANCE_DEPLOYED_MAGIC_VALUE: Field,
         address: AztecAddress,
@@ -59,6 +55,7 @@ contract ContractInstanceDeployer {
     //   isInfinite: false,
     //   kind: 'point'
     // }
+
     impl Serialize<15> for ContractInstanceDeployed {
         fn serialize(self) -> [Field; 15] {
             [
@@ -89,7 +86,11 @@ contract ContractInstanceDeployer {
         public_keys: PublicKeys,
         universal_deploy: bool,
     ) {
-        // TODO(@spalladino): assert nullifier_exists silo(contract_class_id, ContractClassRegisterer)
+        // contract class must be registered to deploy an instance
+        ContractClassRegisterer::at(REGISTERER_CONTRACT_ADDRESS)
+            .assert_class_id_is_registered(contract_class_id)
+            .call(&mut context);
+
         let deployer = if universal_deploy {
             AztecAddress::zero()
         } else {
@@ -116,23 +117,13 @@ contract ContractInstanceDeployer {
             version: 1,
         };
 
-        let payload = event.serialize();
+        // This is a hack to get around there being two implementations of `Serialize`.
+        // Can be replaced with the below once fixed
+        // let payload = event.serialize();
+        let payload = Serialize::<15>::serialize(event);
         dep::aztec::oracle::debug_log::debug_log_format("ContractInstanceDeployed: {}", payload);
 
-        let contract_address = context.this_address();
-        let counter = context.next_counter();
-
-        // @todo This is very inefficient, we are doing a lot of back and forth conversions.
-        let serialized_log = arr_to_be_bytes_arr(payload);
-        let log_hash = compute_unencrypted_log_hash(contract_address, serialized_log);
-        // 40 = addr (32) + raw log len (4) + processed log len (4)
-        let len = 40 + serialized_log.len().to_field();
-        let side_effect = LogHash { value: log_hash, counter, length: len };
-
-        // We manually push the unencrypted log to the context and inform the execution environment about this because
-        // PrivateContext does not expose an `emit_unencrypted_log` method - this mechanism is considered error-prone
-        // and only some canonical contracts use it.
-        context.unencrypted_logs_hashes.push(side_effect);
-        emit_unencrypted_log_private(contract_address, payload, counter);
+        let padded_log = array_concat(payload, [0; 3]);
+        context.emit_private_log(padded_log);
     }
 }

@@ -4,7 +4,6 @@ import { Fr } from '@aztec/foundation/fields';
 import { type Tuple } from '@aztec/foundation/serialize';
 
 import { MAX_NOTE_HASHES_PER_TX, MAX_NOTE_HASH_READ_REQUESTS_PER_TX } from '../constants.gen.js';
-import { siloNoteHash } from '../hash/index.js';
 import {
   NoteHash,
   type NoteHashReadRequestHints,
@@ -20,8 +19,7 @@ import { buildNoteHashReadRequestHints } from './build_note_hash_read_request_hi
 
 describe('buildNoteHashReadRequestHints', () => {
   const contractAddress = AztecAddress.random();
-  const settledNoteHashInnerValues = [111, 222, 333];
-  const settledNoteHashes = settledNoteHashInnerValues.map(noteHash => siloNoteHash(contractAddress, new Fr(noteHash)));
+  const settledNoteHashes = [111, 222, 333];
   const settledLeafIndexes = [1010n, 2020n, 3030n];
   const oracle = {
     getNoteHashMembershipWitness: (leafIndex: bigint) =>
@@ -60,10 +58,10 @@ describe('buildNoteHashReadRequestHints', () => {
     const readRequestIndex = numReadRequests;
     const hintIndex = numSettledReads;
     const value = settledNoteHashes[noteHashIndex];
-    noteHashLeafIndexMap.set(value.toBigInt(), settledLeafIndexes[noteHashIndex]);
-    noteHashReadRequests[readRequestIndex] = makeReadRequest(settledNoteHashInnerValues[noteHashIndex]);
+    noteHashLeafIndexMap.set(BigInt(value), settledLeafIndexes[noteHashIndex]);
+    noteHashReadRequests[readRequestIndex] = makeReadRequest(settledNoteHashes[noteHashIndex]);
     expectedHints.readRequestStatuses[readRequestIndex] = ReadRequestStatus.settled(hintIndex);
-    expectedHints.settledReadHints[hintIndex] = new SettledReadHint(readRequestIndex, {} as any, value);
+    expectedHints.settledReadHints[hintIndex] = new SettledReadHint(readRequestIndex, {} as any, new Fr(value));
     numReadRequests++;
     numSettledReads++;
   };

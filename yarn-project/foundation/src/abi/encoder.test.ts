@@ -1,6 +1,8 @@
 import { AztecAddress } from '../aztec-address/index.js';
 import { Fr } from '../fields/fields.js';
 import { Point } from '../fields/point.js';
+import { jsonParseWithSchema, jsonStringify } from '../json-rpc/convert.js';
+import { schemas } from '../schemas/schemas.js';
 import { type FunctionAbi, FunctionType } from './abi.js';
 import { encodeArguments } from './encoder.js';
 
@@ -22,10 +24,14 @@ describe('abi/encoder', () => {
         },
       ],
       returnTypes: [],
+      errorTypes: {},
     };
 
     const field = Fr.random();
     expect(encodeArguments(abi, [field])).toEqual([field]);
+
+    const serializedField = jsonParseWithSchema(jsonStringify(field), schemas.Fr);
+    expect(encodeArguments(abi, [serializedField])).toEqual([field]);
   });
 
   it('serializes arrays of fields', () => {
@@ -47,6 +53,7 @@ describe('abi/encoder', () => {
         },
       ],
       returnTypes: [],
+      errorTypes: {},
     };
 
     const arr = [Fr.random(), Fr.random()];
@@ -71,6 +78,7 @@ describe('abi/encoder', () => {
         },
       ],
       returnTypes: [],
+      errorTypes: {},
     };
 
     const str = 'abc';
@@ -103,16 +111,19 @@ describe('abi/encoder', () => {
         },
       ],
       returnTypes: [],
+      errorTypes: {},
     };
 
     const address = AztecAddress.random();
-
     expect(encodeArguments(abi, [address])).toEqual([address.toField()]);
     expect(encodeArguments(abi, [{ address }])).toEqual([address.toField()]);
     expect(encodeArguments(abi, [{ address: address.toField() }])).toEqual([address.toField()]);
 
     const completeAddressLike = { address, publicKey: Point.random(), partialAddress: Fr.random() };
     expect(encodeArguments(abi, [completeAddressLike])).toEqual([address.toField()]);
+
+    const serializedAddress = jsonParseWithSchema(jsonStringify(address), schemas.AztecAddress);
+    expect(encodeArguments(abi, [serializedAddress])).toEqual([address.toField()]);
   });
 
   it('accepts a field for a wrapped field', () => {
@@ -139,6 +150,7 @@ describe('abi/encoder', () => {
         },
       ],
       returnTypes: [],
+      errorTypes: {},
     };
 
     const value = Fr.random();
@@ -164,6 +176,7 @@ describe('abi/encoder', () => {
         },
       ],
       returnTypes: [],
+      errorTypes: {},
     };
     const args = ['garbage'];
 
@@ -189,6 +202,7 @@ describe('abi/encoder', () => {
         },
       ],
       returnTypes: [],
+      errorTypes: {},
     };
     const args = ['garbage'];
     expect(() => encodeArguments(testFunctionAbi, args)).toThrow(`Cannot convert garbage to a BigInt`);
@@ -211,6 +225,7 @@ describe('abi/encoder', () => {
         },
       ],
       returnTypes: [],
+      errorTypes: {},
     };
     const args = [
       {
@@ -218,6 +233,6 @@ describe('abi/encoder', () => {
       },
     ];
 
-    expect(() => encodeArguments(testFunctionAbi, args)).toThrow('Argument for owner cannot be serialized to a field');
+    expect(() => encodeArguments(testFunctionAbi, args)).toThrow(/Invalid hex-encoded string/);
   });
 });

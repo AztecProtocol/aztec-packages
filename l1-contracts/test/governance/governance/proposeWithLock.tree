@@ -1,0 +1,8 @@
+ProposeWithLockTest
+├── when caller has insufficient power
+│   └── it revert
+└── when caller has sufficient power
+    ├── it creates a withdrawal with the lock amount and delay
+    ├── it creates a new proposal with current config
+    ├── it emits a {ProposalCreated} event
+    └── it returns true

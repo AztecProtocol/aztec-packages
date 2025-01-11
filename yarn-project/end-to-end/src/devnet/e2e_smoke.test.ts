@@ -13,12 +13,14 @@ import {
   retryUntil,
 } from '@aztec/aztec.js';
 import { DefaultMultiCallEntrypoint } from '@aztec/aztec.js/entrypoint';
-import { GasSettings, deriveSigningKey } from '@aztec/circuits.js';
-import { startHttpRpcServer } from '@aztec/foundation/json-rpc/server';
-import { type DebugLogger } from '@aztec/foundation/log';
+// eslint-disable-next-line no-restricted-imports
+import { PXESchema } from '@aztec/circuit-types';
+import { deriveSigningKey } from '@aztec/circuits.js';
+import { createNamespacedSafeJsonRpcServer, startHttpRpcServer } from '@aztec/foundation/json-rpc/server';
+import { type Logger } from '@aztec/foundation/log';
 import { promiseWithResolvers } from '@aztec/foundation/promise';
-import { FeeJuiceContract, TestContract } from '@aztec/noir-contracts.js';
-import { createPXERpcServer } from '@aztec/pxe';
+import { FeeJuiceContract } from '@aztec/noir-contracts.js/FeeJuice';
+import { TestContract } from '@aztec/noir-contracts.js/Test';
 
 import getPort from 'get-port';
 import { exec } from 'node:child_process';
@@ -57,7 +59,7 @@ describe('End-to-end tests for devnet', () => {
   // eslint-disable-next-line
   let pxe: PXE;
   let pxeUrl: string; // needed for the CLI
-  let logger: DebugLogger;
+  let logger: Logger;
   let l1ChainId: number;
   let feeJuiceL1: EthAddress;
   let teardown: () => void | Promise<void>;
@@ -109,7 +111,8 @@ describe('End-to-end tests for devnet', () => {
       const localhost = await getLocalhost();
       pxeUrl = `http://${localhost}:${port}`;
       // start a server for the CLI to talk to
-      const server = startHttpRpcServer('pxe', pxe, createPXERpcServer, port);
+      const jsonRpcServer = createNamespacedSafeJsonRpcServer({ pxe: [pxe, PXESchema] });
+      const server = await startHttpRpcServer(jsonRpcServer, { port });
 
       teardown = async () => {
         const { promise, resolve, reject } = promiseWithResolvers<void>();
@@ -155,17 +158,17 @@ describe('End-to-end tests for devnet', () => {
     await expect(getL1Balance(l1Account.address, feeJuiceL1)).resolves.toBeGreaterThan(0n);
 
     const amount = 1_000_000_000_000n;
-    const { claimAmount, claimSecret } = await cli<{ claimAmount: string; claimSecret: { value: string } }>(
-      'bridge-fee-juice',
-      [amount, l2Account.getAddress()],
-      {
-        'l1-rpc-url': ETHEREUM_HOST!,
-        'l1-chain-id': l1ChainId.toString(),
-        'l1-private-key': l1Account.privateKey,
-        'rpc-url': pxeUrl,
-        mint: true,
-      },
-    );
+    const { claimAmount, claimSecret, messageLeafIndex } = await cli<{
+      claimAmount: string;
+      claimSecret: { value: string };
+      messageLeafIndex: string;
+    }>('bridge-fee-juice', [amount, l2Account.getAddress()], {
+      'l1-rpc-url': ETHEREUM_HOST!,
+      'l1-chain-id': l1ChainId.toString(),
+      'l1-private-key': l1Account.privateKey,
+      'rpc-url': pxeUrl,
+      mint: true,
+    });
 
     if (['1', 'true', 'yes'].includes(USE_EMPTY_BLOCKS)) {
       await advanceChainWithEmptyBlocks(pxe);
@@ -176,12 +179,11 @@ describe('End-to-end tests for devnet', () => {
     const txReceipt = await l2Account
       .deploy({
         fee: {
-          gasSettings: GasSettings.default(),
-          paymentMethod: new FeeJuicePaymentMethodWithClaim(
-            l2Account.getAddress(),
-            BigInt(claimAmount),
-            Fr.fromString(claimSecret.value),
-          ),
+          paymentMethod: new FeeJuicePaymentMethodWithClaim(l2Account.getAddress(), {
+            claimAmount: Fr.fromHexString(claimAmount),
+            claimSecret: Fr.fromHexString(claimSecret.value),
+            messageLeafIndex: BigInt(messageLeafIndex),
+          }),
         },
       })
       .wait(waitOpts);

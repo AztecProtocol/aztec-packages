@@ -1,6 +1,6 @@
 use crate::parity_public_inputs::ParityPublicInputs;
 use dep::types::{
-    constants::{ROOT_PARITY_INDEX, VK_TREE_HEIGHT},
+    constants::{PROOF_TYPE_HONK, ROOT_PARITY_INDEX, VK_TREE_HEIGHT},
     merkle_tree::membership::assert_check_membership,
     proof::{
         recursive_proof::NestedRecursiveProof,
@@ -11,10 +11,10 @@ use dep::types::{
 };
 
 pub struct RootRollupParityInput {
-    proof: NestedRecursiveProof,
-    verification_key: HonkVerificationKey,
-    vk_path: [Field; VK_TREE_HEIGHT],
-    public_inputs: ParityPublicInputs,
+    pub proof: NestedRecursiveProof,
+    pub verification_key: HonkVerificationKey,
+    pub vk_path: [Field; VK_TREE_HEIGHT],
+    pub public_inputs: ParityPublicInputs,
 }
 
 impl Empty for RootRollupParityInput {
@@ -31,17 +31,18 @@ impl Empty for RootRollupParityInput {
 impl Verifiable for RootRollupParityInput {
     fn verify(self) {
         let inputs = ParityPublicInputs::serialize(self.public_inputs);
-        std::verify_proof(
+        std::verify_proof_with_type(
             self.verification_key.key,
             self.proof.fields,
             inputs,
             self.verification_key.hash,
+            PROOF_TYPE_HONK,
         );
     }
 }
 
 impl RootRollupParityInput {
-    fn validate_in_vk_tree(self) {
+    pub fn validate_in_vk_tree(self) {
         self.verification_key.check_hash();
         assert_check_membership(
             self.verification_key.hash,

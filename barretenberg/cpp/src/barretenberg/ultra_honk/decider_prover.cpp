@@ -1,4 +1,5 @@
 #include "decider_prover.hpp"
+#include "barretenberg/commitment_schemes/small_subgroup_ipa/small_subgroup_ipa.hpp"
 #include "barretenberg/common/op_count.hpp"
 #include "barretenberg/sumcheck/sumcheck.hpp"
 
@@ -33,10 +34,22 @@ template <IsUltraFlavor Flavor> void DeciderProver_<Flavor>::execute_relation_ch
 
         PROFILE_THIS_NAME("sumcheck.prove");
 
-        sumcheck_output = sumcheck.prove(proving_key->proving_key.polynomials,
-                                         proving_key->relation_parameters,
-                                         proving_key->alphas,
-                                         proving_key->gate_challenges);
+        if constexpr (Flavor::HasZK) {
+            const size_t log_subgroup_size = static_cast<size_t>(numeric::get_msb(Curve::SUBGROUP_SIZE));
+            auto commitment_key = std::make_shared<CommitmentKey>(1 << (log_subgroup_size + 1));
+            zk_sumcheck_data = ZKData(numeric::get_msb(polynomial_size), transcript, commitment_key);
+            sumcheck_output = sumcheck.prove(proving_key->proving_key.polynomials,
+                                             proving_key->relation_parameters,
+                                             proving_key->alphas,
+                                             proving_key->gate_challenges,
+                                             zk_sumcheck_data);
+        } else {
+
+            sumcheck_output = sumcheck.prove(proving_key->proving_key.polynomials,
+                                             proving_key->relation_parameters,
+                                             proving_key->alphas,
+                                             proving_key->gate_challenges);
+        }
     }
 }
 
@@ -48,22 +61,34 @@ template <IsUltraFlavor Flavor> void DeciderProver_<Flavor>::execute_relation_ch
  */
 template <IsUltraFlavor Flavor> void DeciderProver_<Flavor>::execute_pcs_rounds()
 {
-    if (proving_key->proving_key.commitment_key == nullptr) {
-        proving_key->proving_key.commitment_key =
-            std::make_shared<CommitmentKey>(proving_key->proving_key.circuit_size);
-    }
-    vinfo("made commitment key");
     using OpeningClaim = ProverOpeningClaim<Curve>;
 
-    const OpeningClaim prover_opening_claim =
-        ShpleminiProver_<Curve>::prove(proving_key->proving_key.circuit_size,
-                                       proving_key->proving_key.polynomials.get_unshifted(),
-                                       proving_key->proving_key.polynomials.get_to_be_shifted(),
-                                       sumcheck_output.challenge,
-                                       proving_key->proving_key.commitment_key,
-                                       transcript);
-    vinfo("executed multivariate-to-univarite reduction");
-    PCS::compute_opening_proof(proving_key->proving_key.commitment_key, prover_opening_claim, transcript);
+    auto& ck = proving_key->proving_key.commitment_key;
+    ck = ck ? ck : std::make_shared<CommitmentKey>(proving_key->proving_key.circuit_size);
+
+    OpeningClaim prover_opening_claim;
+    if constexpr (!Flavor::HasZK) {
+        prover_opening_claim = ShpleminiProver_<Curve>::prove(proving_key->proving_key.circuit_size,
+                                                              proving_key->proving_key.polynomials.get_unshifted(),
+                                                              proving_key->proving_key.polynomials.get_to_be_shifted(),
+                                                              sumcheck_output.challenge,
+                                                              ck,
+                                                              transcript);
+    } else {
+
+        SmallSubgroupIPA small_subgroup_ipa_prover(
+            zk_sumcheck_data, sumcheck_output.challenge, sumcheck_output.claimed_libra_evaluation, transcript, ck);
+
+        prover_opening_claim = ShpleminiProver_<Curve>::prove(proving_key->proving_key.circuit_size,
+                                                              proving_key->proving_key.polynomials.get_unshifted(),
+                                                              proving_key->proving_key.polynomials.get_to_be_shifted(),
+                                                              sumcheck_output.challenge,
+                                                              ck,
+                                                              transcript,
+                                                              small_subgroup_ipa_prover.get_witness_polynomials());
+    }
+    vinfo("executed multivariate-to-univariate reduction");
+    PCS::compute_opening_proof(ck, prover_opening_claim, transcript);
     vinfo("computed opening proof");
 }
 
@@ -90,8 +115,12 @@ template <IsUltraFlavor Flavor> HonkProof DeciderProver_<Flavor>::construct_proo
 }
 
 template class DeciderProver_<UltraFlavor>;
+template class DeciderProver_<UltraZKFlavor>;
+template class DeciderProver_<UltraRollupFlavor>;
 template class DeciderProver_<UltraKeccakFlavor>;
 template class DeciderProver_<UltraStarknetFlavor>;
+template class DeciderProver_<UltraKeccakZKFlavor>;
 template class DeciderProver_<MegaFlavor>;
+template class DeciderProver_<MegaZKFlavor>;
 
 } // namespace bb

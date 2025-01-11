@@ -10,17 +10,15 @@ use crate::{
 };
 
 use dep::std::embedded_curve_ops::EmbeddedCurvePoint as Point;
-use dep::std::embedded_curve_ops::fixed_base_scalar_mul as derive_public_key;
 use std::default::Default;
-use std::embedded_curve_ops::EmbeddedCurveScalar;
 
 pub global PUBLIC_KEYS_LENGTH: u32 = 12;
 
 pub struct PublicKeys {
-    npk_m: NpkM,
-    ivpk_m: IvpkM,
-    ovpk_m: OvpkM,
-    tpk_m: TpkM,
+    pub npk_m: NpkM,
+    pub ivpk_m: IvpkM,
+    pub ovpk_m: OvpkM,
+    pub tpk_m: TpkM,
 }
 
 pub trait ToPoint {
@@ -28,7 +26,7 @@ pub trait ToPoint {
 }
 
 pub struct NpkM {
-    inner: Point,
+    pub inner: Point,
 }
 
 impl ToPoint for NpkM {
@@ -51,7 +49,7 @@ impl Hash for NpkM {
 }
 
 pub struct IvpkM {
-    inner: Point,
+    pub inner: Point,
 }
 
 impl ToPoint for IvpkM {
@@ -67,7 +65,7 @@ impl Serialize<POINT_LENGTH> for IvpkM {
 }
 
 pub struct OvpkM {
-    inner: Point,
+    pub inner: Point,
 }
 
 impl Hash for OvpkM {
@@ -89,7 +87,7 @@ impl Serialize<POINT_LENGTH> for OvpkM {
 }
 
 pub struct TpkM {
-    inner: Point,
+    pub inner: Point,
 }
 
 impl ToPoint for TpkM {
@@ -196,7 +194,7 @@ impl Deserialize<PUBLIC_KEYS_LENGTH> for PublicKeys {
 }
 
 pub struct AddressPoint {
-    inner: Point,
+    pub inner: Point,
 }
 
 impl ToPoint for AddressPoint {

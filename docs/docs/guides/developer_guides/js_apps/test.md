@@ -8,7 +8,7 @@ In this guide we will cover how to interact with your Aztec.nr smart contracts i
 ## Prerequisites
 
 - A compiled contract with TS interface (read [how to compile](../smart_contracts/how_to_compile_contract.md))
-- Your sandbox running (read [getting started](../getting_started.md))
+- Your sandbox running (read [getting started](../../getting_started.md))
 
 ## Create TS file and install libraries
 
@@ -59,7 +59,7 @@ You can use the `debug` option in the `wait` method to get more information abou
 
 This debug information will be populated in the transaction receipt. You can log it to the console or use it to make assertions about the transaction.
 
-#include_code debug /yarn-project/end-to-end/src/e2e_token_contract/minting.test.ts typescript
+#include_code debug /yarn-project/end-to-end/src/e2e_token_contract/private_transfer_recursion.test.ts typescript
 
 You can also log directly from Aztec contracts. Read [this guide](../../../reference/developer_references/debugging.md#logging-in-aztecnr) for some more information.
 
@@ -107,7 +107,7 @@ To query storage directly, you'll need to know the slot you want to access. This
 
 #### Querying private state
 
-Private state in the Aztec is represented via sets of [private notes](../../../aztec/concepts/state_model/index.md#private-state). We can query the Private Execution Environment (PXE) for all notes encrypted for a given user in a contract slot. For example, this gets all notes encrypted for the `owner` user that are stored on the token contract address and on the slot that was calculated earlier. To calculate the actual balance, it extracts the `value` of each note, which is the first element, and sums them up.
+Private state in the Aztec is represented via sets of [private notes](../../../aztec/concepts/storage/state_model/index.md#private-state). We can query the Private Execution Environment (PXE) for all notes encrypted for a given user in a contract slot. For example, this gets all notes encrypted for the `owner` user that are stored on the token contract address and on the slot that was calculated earlier. To calculate the actual balance, it extracts the `value` of each note, which is the first element, and sums them up.
 
 #include_code private-storage /yarn-project/end-to-end/src/guides/dapp_testing.test.ts typescript
 

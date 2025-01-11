@@ -66,7 +66,7 @@ std::array<typename Flavor::GroupElement, 2> TranslatorRecursiveVerifier_<Flavor
     using VerifierCommitments = typename Flavor::VerifierCommitments;
     using CommitmentLabels = typename Flavor::CommitmentLabels;
 
-    StdlibProof<Builder> stdlib_proof = bb::convert_proof_to_witness(builder, proof);
+    StdlibProof<Builder> stdlib_proof = bb::convert_native_proof_to_stdlib(builder, proof);
     transcript->load_proof(stdlib_proof);
 
     batching_challenge_v = transcript->template get_challenge<BF>("Translation:batching_challenge");
@@ -106,14 +106,22 @@ std::array<typename Flavor::GroupElement, 2> TranslatorRecursiveVerifier_<Flavor
     const size_t log_circuit_size = numeric::get_msb(static_cast<uint32_t>(circuit_size.get_value()));
     auto sumcheck = Sumcheck(log_circuit_size, transcript);
     FF alpha = transcript->template get_challenge<FF>("Sumcheck:alpha");
-    std::vector<FF> gate_challenges(log_circuit_size);
+    std::vector<FF> gate_challenges(CONST_PROOF_SIZE_LOG_N);
     for (size_t idx = 0; idx < gate_challenges.size(); idx++) {
         gate_challenges[idx] = transcript->template get_challenge<FF>("Sumcheck:gate_challenge_" + std::to_string(idx));
     }
 
-    auto [multivariate_challenge, claimed_evaluations, libra_evaluations, sumcheck_verified] =
+    std::array<Commitment, NUM_LIBRA_COMMITMENTS> libra_commitments = {};
+    libra_commitments[0] = transcript->template receive_from_prover<Commitment>("Libra:concatenation_commitment");
+
+    auto [multivariate_challenge, claimed_evaluations, libra_evaluation, sumcheck_verified] =
         sumcheck.verify(relation_parameters, alpha, gate_challenges);
 
+    libra_commitments[1] = transcript->template receive_from_prover<Commitment>("Libra:big_sum_commitment");
+    libra_commitments[2] = transcript->template receive_from_prover<Commitment>("Libra:quotient_commitment");
+
+    // Execute Shplemini
+    bool consistency_checked = true;
     const BatchOpeningClaim<Curve> opening_claim =
         Shplemini::compute_batch_opening_claim(circuit_size,
                                                commitments.get_unshifted_without_concatenated(),
@@ -123,8 +131,14 @@ std::array<typename Flavor::GroupElement, 2> TranslatorRecursiveVerifier_<Flavor
                                                multivariate_challenge,
                                                Commitment::one(builder),
                                                transcript,
+                                               Flavor::REPEATED_COMMITMENTS,
+                                               Flavor::HasZK,
+                                               &consistency_checked,
+                                               libra_commitments,
+                                               libra_evaluation,
                                                commitments.get_groups_to_be_concatenated(),
                                                claimed_evaluations.get_concatenated());
+
     const auto pairing_points = PCS::reduce_verify_batch_opening_claim(opening_claim, transcript);
 
     return pairing_points;
@@ -137,7 +151,8 @@ bool TranslatorRecursiveVerifier_<Flavor>::verify_translation(
         typename Flavor::FF>& translation_evaluations)
 {
     const auto reconstruct_from_array = [&](const auto& arr) {
-        const BF reconstructed = BF(arr[0], arr[1], arr[2], arr[3]);
+        const BF reconstructed = BF::construct_from_limbs(arr[0], arr[1], arr[2], arr[3]);
+
         return reconstructed;
     };
 

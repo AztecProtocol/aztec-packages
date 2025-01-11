@@ -46,8 +46,8 @@ inline void output_vk_sol_standard(std::ostream& os,
     print_g1("0x200", "0x220", key->commitments.at("SIGMA_2"), "vk.SIGMA2");
     print_g1("0x240", "0x260", key->commitments.at("SIGMA_3"), "vk.SIGMA3");
     os <<
-        "            mstore(add(_vk, 0x280), " << (key->contains_recursive_proof ? "0x01" : "0x00") << ") // vk.contains_recursive_proof\n"
-        "            mstore(add(_vk, 0x2a0), " << (key->contains_recursive_proof ? key->recursive_proof_public_input_indices[0] : 0) << ") // vk.recursive_proof_public_input_indices\n"
+        "            mstore(add(_vk, 0x280), " << (key->contains_pairing_point_accumulator ? "0x01" : "0x00") << ") // vk.contains_pairing_point_accumulator\n"
+        "            mstore(add(_vk, 0x2a0), " << (key->contains_pairing_point_accumulator ? key->pairing_point_accumulator_public_input_indices[0] : 0) << ") // vk.pairing_point_accumulator_public_input_indices\n"
         "            mstore(add(_vk, 0x2c0), " <<  key->reference_string->get_g2x().x.c1 << ") // vk.g2_x.X.c1 \n"
         "            mstore(add(_vk, 0x2e0), " <<  key->reference_string->get_g2x().x.c0 << ") // vk.g2_x.X.c0 \n"
         "            mstore(add(_vk, 0x300), " <<  key->reference_string->get_g2x().y.c1 << ") // vk.g2_x.Y.c1 \n"
@@ -120,8 +120,8 @@ inline void output_vk_sol_ultra(std::ostream& os, std::shared_ptr<plonk::verific
     print_g1("0x5c0", "0x5e0", key->commitments.at("ID_3"), "vk.ID3");
     print_g1("0x600", "0x620", key->commitments.at("ID_4"), "vk.ID4");
     os <<
-        "            mstore(add(_vk, 0x640), " << (key->contains_recursive_proof ? "0x01" : "0x00") << ") // vk.contains_recursive_proof\n"
-        "            mstore(add(_vk, 0x660), " << (key->contains_recursive_proof ? key->recursive_proof_public_input_indices[0] : 0) << ") // vk.recursive_proof_public_input_indices\n"
+        "            mstore(add(_vk, 0x640), " << (key->contains_pairing_point_accumulator ? "0x01" : "0x00") << ") // vk.contains_pairing_point_accumulator\n"
+        "            mstore(add(_vk, 0x660), " << (key->contains_pairing_point_accumulator ? key->pairing_point_accumulator_public_input_indices[0] : 0) << ") // vk.pairing_point_accumulator_public_input_indices\n"
         "            mstore(add(_vk, 0x680), " <<  key->reference_string->get_g2x().x.c1 << ") // vk.g2_x.X.c1 \n"
         "            mstore(add(_vk, 0x6a0), " <<  key->reference_string->get_g2x().x.c0 << ") // vk.g2_x.X.c0 \n"
         "            mstore(add(_vk, 0x6c0), " <<  key->reference_string->get_g2x().y.c1 << ") // vk.g2_x.Y.c1 \n"

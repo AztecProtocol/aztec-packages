@@ -45,14 +45,9 @@ CircuitBase::CircuitBase(std::unordered_map<uint32_t, std::string>& variable_nam
  */
 void CircuitBase::init()
 {
-    variable_names.insert({ 0, "zero" });
-    variable_names_inverse.insert({ "zero", 0 });
-    symbolic_vars.insert({ 0, STerm::Var("zero" + this->tag, this->solver, this->type) });
-    optimized.insert({ 0, false });
+    size_t num_vars = this->variables.size();
 
-    size_t num_vars = variables.size();
-
-    for (uint32_t i = 1; i < num_vars; i++) {
+    for (uint32_t i = 0; i < num_vars; i++) {
         uint32_t real_idx = this->real_variable_index[i];
         if (this->symbolic_vars.contains(real_idx)) {
             continue;
@@ -65,7 +60,7 @@ void CircuitBase::init()
         optimized.insert({ real_idx, true });
     }
 
-    symbolic_vars[0] == bb::fr(0);
+    this->symbolic_vars[this->variable_names_inverse["zero"]] == bb::fr::zero();
 }
 
 /**

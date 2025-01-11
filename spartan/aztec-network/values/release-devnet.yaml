@@ -1,0 +1,51 @@
+telemetry:
+  enabled: true
+  otelCollectorEndpoint: http://35.197.100.168:4318
+
+validator:
+  replicas: 1
+  sequencer:
+    enforceFees: false # disabled until the bot can fund itself
+  validatorKeys:
+    - 0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80
+  validatorAddresses:
+    - 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266
+  validator:
+    disabled: false
+
+bootNode:
+  validator:
+    disabled: true
+
+proverAgent:
+  replicas: 10
+  bb:
+    hardwareConcurrency: 31
+  gke:
+    spotEnabled: true
+  resources:
+    requests:
+      memory: "116Gi"
+      cpu: "31"
+
+bot:
+  followChain: "PENDING"
+  feePaymentMethod: "none" # disabled until the bot can fund itself
+  enabled: true
+  txIntervalSeconds: 200
+
+network:
+  public: true
+
+images:
+  aztec:
+    pullPolicy: Always
+
+aztec:
+  slotDuration: 36
+  epochDuration: 32
+  realProofs: false
+
+jobs:
+  deployL1Verifier:
+    enable: false

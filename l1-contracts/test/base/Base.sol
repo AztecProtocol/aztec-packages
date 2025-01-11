@@ -147,6 +147,15 @@ contract TestBase is Test {
     }
   }
 
+  function assertEq(uint256 a, Slot b) internal {
+    if (Slot.wrap(a) != b) {
+      emit log("Error: a == b not satisfied [Slot]");
+      emit log_named_uint("      Left", a);
+      emit log_named_uint("     Right", b.unwrap());
+      fail();
+    }
+  }
+
   function assertEq(Slot a, uint256 b) internal {
     if (a != Slot.wrap(b)) {
       emit log("Error: a == b not satisfied [Slot]");
@@ -158,6 +167,13 @@ contract TestBase is Test {
 
   function assertEq(Slot a, Slot b, string memory err) internal {
     if (a != b) {
+      emit log_named_string("Error", err);
+      assertEq(a, b);
+    }
+  }
+
+  function assertEq(uint256 a, Slot b, string memory err) internal {
+    if (Slot.wrap(a) != b) {
       emit log_named_string("Error", err);
       assertEq(a, b);
     }
@@ -202,5 +218,13 @@ contract TestBase is Test {
       emit log_named_string("Error", err);
       assertEq(a, b);
     }
+  }
+
+  // Blobs
+
+  function skipBlobCheck(address rollup) internal {
+    // 9 is the slot of checkBlob. We force it to be false (=0):
+    // Slot number can be checked by running forge inspect src/core/Rollup.sol:Rollup storage
+    vm.store(rollup, bytes32(uint256(9)), 0);
   }
 }

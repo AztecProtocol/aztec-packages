@@ -1,4 +1,3 @@
-// This will be moved to a separate Read Request Reset Circuit.
 use dep::types::{
     abis::{read_request::ScopedReadRequest, side_effect::Readable},
     merkle_tree::{assert_check_membership, LeafPreimage, MembershipWitness},
@@ -6,16 +5,17 @@ use dep::types::{
 };
 
 pub struct ReadRequestStateEnum {
-    NADA: u8,
-    PENDING: u8,
-    SETTLED: u8,
+    pub NADA: u8,
+    pub PENDING: u8,
+    pub SETTLED: u8,
 }
 
-global ReadRequestState = ReadRequestStateEnum { NADA: 0, PENDING: 1, SETTLED: 2 };
+pub global ReadRequestState: ReadRequestStateEnum =
+    ReadRequestStateEnum { NADA: 0, PENDING: 1, SETTLED: 2 };
 
 pub struct ReadRequestStatus {
-    state: u8,
-    hint_index: u32,
+    pub state: u8,
+    pub hint_index: u32,
 }
 
 impl Empty for ReadRequestStatus {
@@ -34,13 +34,13 @@ impl ReadRequestStatus {
     }
 }
 
-trait ReadValueHint {
+pub trait ReadValueHint {
     fn read_request_index(self) -> u32;
 }
 
 pub struct PendingReadHint {
-    read_request_index: u32,
-    pending_value_index: u32,
+    pub read_request_index: u32,
+    pub pending_value_index: u32,
 }
 
 impl ReadValueHint for PendingReadHint {
@@ -55,7 +55,7 @@ impl PendingReadHint {
     }
 }
 
-trait SettledReadHint<let TREE_HEIGHT: u32, LEAF_PREIMAGE>
+pub trait SettledReadHint<let TREE_HEIGHT: u32, LEAF_PREIMAGE>
 where
     LEAF_PREIMAGE: LeafPreimage,
 {
@@ -189,7 +189,7 @@ pub unconstrained fn get_unverified_read_requests<let READ_REQUEST_LEN: u32>(
             propagated_read_requests.push(read_request);
         }
     }
-    propagated_read_requests.storage
+    propagated_read_requests.storage()
 }
 
 mod tests {

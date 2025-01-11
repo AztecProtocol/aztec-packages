@@ -61,8 +61,8 @@ enum class OpCode : uint8_t {
 
     // Machine State
     // Machine State - Internal Control Flow
-    JUMP_16,
-    JUMPI_16,
+    JUMP_32,
+    JUMPI_32,
     INTERNALCALL,
     INTERNALRETURN,
     // Machine State - Memory
@@ -115,7 +115,6 @@ enum class OpCode : uint8_t {
 enum class EnvironmentVariable {
     ADDRESS,
     SENDER,
-    FUNCTIONSELECTOR,
     TRANSACTIONFEE,
     CHAINID,
     VERSION,

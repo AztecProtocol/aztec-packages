@@ -12,10 +12,10 @@ import {
   computeContractClassIdPreimage,
   computeSaltedInitializationHash,
 } from '@aztec/circuits.js';
-import { createDebugLogger } from '@aztec/foundation/log';
+import { createLogger } from '@aztec/foundation/log';
 import { type Tuple } from '@aztec/foundation/serialize';
 import { type KeyStore } from '@aztec/key-store';
-import { getVKIndex, getVKSiblingPath } from '@aztec/noir-protocol-circuits-types';
+import { getVKIndex, getVKSiblingPath } from '@aztec/noir-protocol-circuits-types/vks';
 
 import { type ContractDataOracle } from '../contract_data_oracle/index.js';
 import { type ProvingDataOracle } from './../kernel_prover/proving_data_oracle.js';
@@ -31,7 +31,7 @@ export class KernelOracle implements ProvingDataOracle {
     private keyStore: KeyStore,
     private node: AztecNode,
     private blockNumber: L2BlockNumber = 'latest',
-    private log = createDebugLogger('aztec:pxe:kernel_oracle'),
+    private log = createLogger('pxe:kernel_oracle'),
   ) {}
 
   public async getContractAddressPreimage(address: AztecAddress) {
@@ -70,7 +70,7 @@ export class KernelOracle implements ProvingDataOracle {
   }
 
   async getNoteHashTreeRoot(): Promise<Fr> {
-    const header = await this.node.getHeader(this.blockNumber);
+    const header = await this.node.getBlockHeader(this.blockNumber);
     return header.state.partial.noteHashTree.root;
   }
 

@@ -1,16 +1,16 @@
-use dep::aztec::{
-    hash::compute_secret_hash,
+use crate::Token;
+use dep::uint_note::uint_note::UintNote;
+use aztec::{
     oracle::{
         execution::{get_block_number, get_contract_address},
         random::random,
         storage::storage_read,
     },
-    prelude::AztecAddress,
+    prelude::{AztecAddress, NoteHeader},
     protocol_types::storage::map::derive_storage_slot_in_map,
     test::helpers::{cheatcodes, test_environment::TestEnvironment},
 };
-
-use crate::{Token, types::transparent_note::TransparentNote};
+use std::test::OracleMock;
 
 pub unconstrained fn setup(
     with_account_contracts: bool,
@@ -44,43 +44,58 @@ pub unconstrained fn setup(
     (&mut env, token_contract_address, owner, recipient)
 }
 
-pub unconstrained fn setup_and_mint_public(
+pub unconstrained fn setup_and_mint_to_public(
     with_account_contracts: bool,
 ) -> (&mut TestEnvironment, AztecAddress, AztecAddress, AztecAddress, Field) {
     // Setup
     let (env, token_contract_address, owner, recipient) = setup(with_account_contracts);
     let mint_amount = 10000;
     // Mint some tokens
-    Token::at(token_contract_address).mint_public(owner, mint_amount).call(&mut env.public());
+    Token::at(token_contract_address).mint_to_public(owner, mint_amount).call(&mut env.public());
 
     (env, token_contract_address, owner, recipient, mint_amount)
 }
 
-pub unconstrained fn setup_and_mint_private(
+pub unconstrained fn setup_and_mint_amount_to_private(
+    with_account_contracts: bool,
+    mint_amount: Field,
+) -> (&mut TestEnvironment, AztecAddress, AztecAddress, AztecAddress, Field) {
+    // Setup the tokens and mint public balance
+    let (env, token_contract_address, owner, recipient) = setup(with_account_contracts);
+
+    // Mint some tokens
+    mint_to_private(env, token_contract_address, owner, mint_amount);
+
+    (env, token_contract_address, owner, recipient, mint_amount)
+}
+
+pub unconstrained fn setup_and_mint_to_private(
     with_account_contracts: bool,
 ) -> (&mut TestEnvironment, AztecAddress, AztecAddress, AztecAddress, Field) {
-    // Setup
-    let (env, token_contract_address, owner, recipient) = setup(with_account_contracts);
-    let mint_amount = 10000;
-    // Mint some tokens
-    let secret = random();
-    let secret_hash = compute_secret_hash(secret);
-    Token::at(token_contract_address).mint_private(mint_amount, secret_hash).call(&mut env.public());
+    setup_and_mint_amount_to_private(with_account_contracts, 10000)
+}
 
-    // docs:start:txe_test_add_note
-    // We need to manually add the note to TXE because `TransparentNote` does not support automatic note log delivery.
-    env.add_note(
-        &mut TransparentNote::new(mint_amount, secret_hash),
-        Token::storage_layout().pending_shields.slot,
-        token_contract_address,
-    );
-    // docs:end:txe_test_add_note
-    // Redeem our shielded tokens
-    Token::at(token_contract_address).redeem_shield(owner, mint_amount, secret).call(
+pub unconstrained fn mint_to_private(
+    env: &mut TestEnvironment,
+    token_contract_address: AztecAddress,
+    recipient: AztecAddress,
+    amount: Field,
+) {
+    let note_randomness = random();
+    let _ = OracleMock::mock("getRandomField").returns(note_randomness);
+
+    let from = recipient; // we are setting from to recipient because of TODO(#9887)
+    Token::at(token_contract_address).mint_to_private(from, recipient, amount).call(
         &mut env.private(),
     );
 
-    (env, token_contract_address, owner, recipient, mint_amount)
+    add_token_note(
+        env,
+        token_contract_address,
+        recipient,
+        amount,
+        note_randomness,
+    );
 }
 
 // docs:start:txe_test_read_public
@@ -115,3 +130,29 @@ pub unconstrained fn check_private_balance(
     cheatcodes::set_contract_address(current_contract_address);
 }
 // docs:end:txe_test_call_unconstrained
+
+// TODO(#8771): We need to manually add the note because in the partial notes flow `notify_created_note_oracle`
+// is not called and we don't have a `NoteProcessor` in TXE.
+pub unconstrained fn add_token_note(
+    env: &mut TestEnvironment,
+    token_contract_address: AztecAddress,
+    owner: AztecAddress,
+    amount: Field,
+    note_randomness: Field,
+) {
+    // docs:start:txe_test_add_note
+    let balances_owner_slot =
+        derive_storage_slot_in_map(Token::storage_layout().balances.slot, owner);
+
+    env.add_note(
+        &mut UintNote {
+            value: U128::from_integer(amount),
+            owner: owner,
+            randomness: note_randomness,
+            header: NoteHeader::empty(),
+        },
+        balances_owner_slot,
+        token_contract_address,
+    );
+    // docs:end:txe_test_add_note
+}

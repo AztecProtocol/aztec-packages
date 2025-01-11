@@ -10,6 +10,7 @@ use crate::{
         resolution::errors::ResolverError,
         type_check::TypeCheckError,
     },
+    parser::ParserErrorReason,
 };
 
 use super::{assert_no_errors, get_program_errors};
@@ -140,4 +141,54 @@ fn errors_if_macros_inject_functions_with_name_collisions() {
             },
         ) if contents == "foo"
     ));
+}
+
+#[test]
+fn uses_correct_type_for_attribute_arguments() {
+    let src = r#"
+    #[foo(32)]
+    comptime fn foo(_f: FunctionDefinition, i: u32) {
+        let y: u32 = 1;
+        let _ = y == i;
+    }
+
+    #[bar([0; 2])]
+    comptime fn bar(_f: FunctionDefinition, i: [u32; 2]) {
+        let y: u32 = 1;
+        let _ = y == i[0];
+    }
+
+    fn main() {}
+    "#;
+    assert_no_errors(src);
+}
+
+#[test]
+fn does_not_fail_to_parse_macro_on_parser_warning() {
+    let src = r#"
+    #[make_bar]
+    pub unconstrained fn foo() {}
+
+    comptime fn make_bar(_: FunctionDefinition) -> Quoted {
+        quote {
+            pub fn bar() {
+                unsafe { 
+                    foo();
+                }
+            }
+        }
+    }
+
+    fn main() {
+        bar()
+    }
+    "#;
+    let errors = get_program_errors(src);
+    assert_eq!(errors.len(), 1);
+
+    let CompilationError::ParseError(parser_error) = &errors[0].0 else {
+        panic!("Expected a ParseError, got {:?}", errors[0].0);
+    };
+
+    assert!(matches!(parser_error.reason(), Some(ParserErrorReason::MissingSafetyComment)));
 }

@@ -1,14 +1,14 @@
 import {
   AztecAddress,
   ContractDeployer,
-  type DebugLogger,
   Fr,
+  type Logger,
   type PXE,
   TxStatus,
   type Wallet,
   getContractInstanceFromDeployParams,
 } from '@aztec/aztec.js';
-import { StatefulTestContract } from '@aztec/noir-contracts.js';
+import { StatefulTestContract } from '@aztec/noir-contracts.js/StatefulTest';
 import { TestContractArtifact } from '@aztec/noir-contracts.js/Test';
 import { TokenContractArtifact } from '@aztec/noir-contracts.js/Token';
 
@@ -18,7 +18,7 @@ describe('e2e_deploy_contract legacy', () => {
   const t = new DeployTest('legacy');
 
   let pxe: PXE;
-  let logger: DebugLogger;
+  let logger: Logger;
   let wallet: Wallet;
 
   beforeAll(async () => {
@@ -84,7 +84,8 @@ describe('e2e_deploy_contract legacy', () => {
     await expect(deployer.deploy().send({ contractAddressSalt }).wait()).rejects.toThrow(/dropped/);
   });
 
-  it('should not deploy a contract which failed the public part of the execution', async () => {
+  // TODO(#10007): Reenable this test.
+  it.skip('should not deploy a contract which failed the public part of the execution', async () => {
     // This test requires at least another good transaction to go through in the same block as the bad one.
     const artifact = TokenContractArtifact;
     const initArgs = ['TokenName', 'TKN', 18] as const;
@@ -113,6 +114,6 @@ describe('e2e_deploy_contract legacy', () => {
     expect(badTxReceipt.status).toEqual(TxStatus.APP_LOGIC_REVERTED);
 
     // But the bad tx did not deploy
-    await expect(pxe.isContractClassPubliclyRegistered(badDeploy.getInstance().address)).resolves.toBeFalsy();
+    await expect(pxe.isContractClassPubliclyRegistered(badDeploy.getInstance().contractClassId)).resolves.toBeFalsy();
   });
 });

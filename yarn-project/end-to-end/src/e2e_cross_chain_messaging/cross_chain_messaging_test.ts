@@ -5,14 +5,15 @@ import {
   AztecAddress,
   type AztecNode,
   type CompleteAddress,
-  type DebugLogger,
   EthAddress,
+  type Logger,
   type PXE,
-  createDebugLogger,
+  createLogger,
 } from '@aztec/aztec.js';
 import { createL1Clients } from '@aztec/ethereum';
-import { InboxAbi, OutboxAbi, RollupAbi, TestERC20Abi, TokenPortalAbi } from '@aztec/l1-artifacts';
-import { TokenBridgeContract, TokenContract } from '@aztec/noir-contracts.js';
+import { InboxAbi, OutboxAbi, RollupAbi } from '@aztec/l1-artifacts';
+import { TokenContract } from '@aztec/noir-contracts.js/Token';
+import { TokenBridgeContract } from '@aztec/noir-contracts.js/TokenBridge';
 
 import { type Chain, type HttpTransport, type PublicClient, getContract } from 'viem';
 
@@ -30,7 +31,7 @@ const { E2E_DATA_PATH: dataPath } = process.env;
 
 export class CrossChainMessagingTest {
   private snapshotManager: ISnapshotManager;
-  logger: DebugLogger;
+  logger: Logger;
   wallets: AccountWallet[] = [];
   accounts: CompleteAddress[] = [];
   aztecNode!: AztecNode;
@@ -52,7 +53,7 @@ export class CrossChainMessagingTest {
   outbox!: any; // GetContractReturnType<typeof OutboxAbi> | undefined;
 
   constructor(testName: string) {
-    this.logger = createDebugLogger(`aztec:e2e_cross_chain_messaging:${testName}`);
+    this.logger = createLogger(`e2e:e2e_cross_chain_messaging:${testName}`);
     this.snapshotManager = createSnapshotManager(`e2e_cross_chain_messaging/${testName}`, dataPath);
   }
 
@@ -87,8 +88,8 @@ export class CrossChainMessagingTest {
       async ({ accountKeys }, { pxe, aztecNodeConfig, aztecNode, deployL1ContractsValues }) => {
         const accountManagers = accountKeys.map(ak => getSchnorrAccount(pxe, ak[0], ak[1], 1));
         this.wallets = await Promise.all(accountManagers.map(a => a.getWallet()));
+        this.accounts = accountManagers.map(a => a.getCompleteAddress());
         this.wallets.forEach((w, i) => this.logger.verbose(`Wallet ${i} address: ${w.getAddress()}`));
-        this.accounts = await pxe.getRegisteredAccounts();
 
         this.rollup = getContract({
           address: deployL1ContractsValues.l1ContractAddresses.rollupAddress.toString(),
@@ -151,17 +152,6 @@ export class CrossChainMessagingTest {
           client: walletClient,
         });
 
-        const tokenPortal = getContract({
-          address: tokenPortalAddress.toString(),
-          abi: TokenPortalAbi,
-          client: walletClient,
-        });
-        const underlyingERC20 = getContract({
-          address: crossChainContext.underlying.toString(),
-          abi: TestERC20Abi,
-          client: walletClient,
-        });
-
         this.crossChainTestHarness = new CrossChainTestHarness(
           this.aztecNode,
           this.pxe,
@@ -170,13 +160,9 @@ export class CrossChainMessagingTest {
           this.l2Bridge,
           this.ethAccount,
           tokenPortalAddress,
-          tokenPortal,
-          underlyingERC20,
-          inbox,
-          outbox,
+          crossChainContext.underlying,
           publicClient,
           walletClient,
-          this.ownerAddress,
           this.aztecNodeConfig.l1Contracts,
           this.user1Wallet,
         );
@@ -192,12 +178,12 @@ export class CrossChainMessagingTest {
     return {
       l2Token: this.crossChainTestHarness.l2Token.address,
       l2Bridge: this.crossChainTestHarness.l2Bridge.address,
-      tokenPortal: this.crossChainTestHarness.tokenPortal.address,
-      underlying: EthAddress.fromString(this.crossChainTestHarness.underlyingERC20.address),
+      tokenPortal: this.crossChainTestHarness.tokenPortalAddress,
+      underlying: this.crossChainTestHarness.underlyingERC20Address,
       ethAccount: this.crossChainTestHarness.ethAccount,
       ownerAddress: this.crossChainTestHarness.ownerAddress,
-      inbox: EthAddress.fromString(this.crossChainTestHarness.inbox.address),
-      outbox: EthAddress.fromString(this.crossChainTestHarness.outbox.address),
+      inbox: this.crossChainTestHarness.l1ContractAddresses.inboxAddress,
+      outbox: this.crossChainTestHarness.l1ContractAddresses.outboxAddress,
     };
   }
 }

@@ -1,36 +1,27 @@
 import {
-  AvmCircuitInputs,
-  Gas,
-  GlobalVariables,
-  type PublicFunction,
-  PublicKeys,
-  SerializableContractInstance,
+  MAX_L2_TO_L1_MSGS_PER_TX,
+  MAX_NOTE_HASHES_PER_TX,
+  MAX_NULLIFIERS_PER_TX,
+  MAX_PUBLIC_CALLS_TO_UNIQUE_CONTRACT_CLASS_IDS,
+  MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
+  MAX_UNENCRYPTED_LOGS_PER_TX,
   VerificationKeyData,
 } from '@aztec/circuits.js';
-import { makeContractClassPublic, makeContractInstanceFromClassId } from '@aztec/circuits.js/testing';
-import { Fr, Point } from '@aztec/foundation/fields';
-import { createDebugLogger } from '@aztec/foundation/log';
-import { AvmSimulator, PublicSideEffectTrace, type WorldStateDB } from '@aztec/simulator';
+import { Fr } from '@aztec/foundation/fields';
+import { createLogger } from '@aztec/foundation/log';
 import {
-  getAvmTestContractBytecode,
-  getAvmTestContractFunctionSelector,
-  initContext,
-  initExecutionEnvironment,
-  initPersistableStateManager,
-  resolveAvmTestContractAssertionMessage,
-} from '@aztec/simulator/avm/fixtures';
+  MockedAvmTestContractDataSource,
+  simulateAvmTestContractGenerateCircuitInputs,
+} from '@aztec/simulator/public/fixtures';
 
-import { mock } from 'jest-mock-extended';
 import fs from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'path';
 
 import { type BBSuccess, BB_RESULT, generateAvmProof, verifyAvmProof } from './bb/execute.js';
-import { getPublicInputs } from './test/test_avm.js';
 import { extractAvmVkData } from './verification_key/verification_key_data.js';
 
-const TIMEOUT = 180_000;
-const TIMESTAMP = new Fr(99833);
+const TIMEOUT = 300_000;
 
 describe('AVM WitGen, proof generation and verification', () => {
   it(
@@ -38,120 +29,188 @@ describe('AVM WitGen, proof generation and verification', () => {
     async () => {
       await proveAndVerifyAvmTestContract(
         'bulk_testing',
-        [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(x => new Fr(x)),
+        /*args=*/ [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(x => new Fr(x)),
+      );
+    },
+    TIMEOUT,
+  );
+  it(
+    'Should prove and verify test that performs too many storage writes and reverts',
+    async () => {
+      await proveAndVerifyAvmTestContract(
+        'n_storage_writes',
+        /*args=*/ [new Fr(MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX + 1)],
+        /*expectRevert=*/ true,
+      );
+    },
+    TIMEOUT,
+  );
+  it(
+    'Should prove and verify test that creates too many note hashes and reverts',
+    async () => {
+      await proveAndVerifyAvmTestContract(
+        'n_new_note_hashes',
+        /*args=*/ [new Fr(MAX_NOTE_HASHES_PER_TX + 1)],
+        /*expectRevert=*/ true,
+      );
+    },
+    TIMEOUT,
+  );
+  it(
+    'Should prove and verify test that creates too many nullifiers and reverts',
+    async () => {
+      await proveAndVerifyAvmTestContract(
+        'n_new_nullifiers',
+        /*args=*/ [new Fr(MAX_NULLIFIERS_PER_TX + 1)],
+        /*expectRevert=*/ true,
+      );
+    },
+    TIMEOUT,
+  );
+  it(
+    'Should prove and verify test that creates too many l2tol1 messages and reverts',
+    async () => {
+      await proveAndVerifyAvmTestContract(
+        'n_new_l2_to_l1_msgs',
+        /*args=*/ [new Fr(MAX_L2_TO_L1_MSGS_PER_TX + 1)],
+        /*expectRevert=*/ true,
+      );
+    },
+    TIMEOUT,
+  );
+  it(
+    'Should prove and verify test that creates too many unencrypted logs and reverts',
+    async () => {
+      await proveAndVerifyAvmTestContract(
+        'n_new_unencrypted_logs',
+        /*args=*/ [new Fr(MAX_UNENCRYPTED_LOGS_PER_TX + 1)],
+        /*expectRevert=*/ true,
+      );
+    },
+    TIMEOUT,
+  );
+  it(
+    'Should prove and verify test that calls the max number of unique contract classes',
+    async () => {
+      const contractDataSource = new MockedAvmTestContractDataSource();
+      // args is initialized to MAX_PUBLIC_CALLS_TO_UNIQUE_CONTRACT_CLASS_IDS contract addresses with unique class IDs
+      const args = Array.from(contractDataSource.contractInstances.values())
+        .map(instance => instance.address.toField())
+        .slice(0, MAX_PUBLIC_CALLS_TO_UNIQUE_CONTRACT_CLASS_IDS);
+      // include the first contract again again at the end to ensure that we can call it even after the limit is reached
+      args.push(args[0]);
+      // include another contract address that reuses a class ID to ensure that we can call it even after the limit is reached
+      args.push(contractDataSource.instanceSameClassAsFirstContract.address.toField());
+      await proveAndVerifyAvmTestContract(
+        'nested_call_to_add_n_times_different_addresses',
+        args,
+        /*expectRevert=*/ false,
+        /*skipContractDeployments=*/ false,
+        contractDataSource,
+      );
+    },
+    TIMEOUT,
+  );
+  it(
+    'Should prove and verify test that attempts too many calls to unique contract class ids',
+    async () => {
+      const contractDataSource = new MockedAvmTestContractDataSource();
+      // args is initialized to MAX_PUBLIC_CALLS_TO_UNIQUE_CONTRACT_CLASS_IDS+1 contract addresses with unique class IDs
+      // should fail because we are trying to call MAX+1 unique class IDs
+      const args = Array.from(contractDataSource.contractInstances.values()).map(instance =>
+        instance.address.toField(),
+      );
+      // push an empty one (just padding to match function calldata size of MAX_PUBLIC_CALLS_TO_UNIQUE_CONTRACT_CLASS_IDS+2)
+      args.push(new Fr(0));
+      await proveAndVerifyAvmTestContract(
+        'nested_call_to_add_n_times_different_addresses',
+        args,
+        /*expectRevert=*/ true,
+        /*skipContractDeployments=*/ false,
+        contractDataSource,
+      );
+    },
+    TIMEOUT,
+  );
+  it(
+    'Should prove and verify a top-level exceptional halt',
+    async () => {
+      await proveAndVerifyAvmTestContract('divide_by_zero', /*args=*/ [], /*expectRevert=*/ true);
+    },
+    TIMEOUT,
+  );
+  it(
+    'Should prove and verify a nested exceptional halt that propagates to top-level',
+    async () => {
+      await proveAndVerifyAvmTestContract('external_call_to_divide_by_zero', /*args=*/ [], /*expectRevert=*/ true);
+    },
+    TIMEOUT,
+  );
+  it(
+    'Should prove and verify a nested exceptional halt that is recovered from in caller',
+    async () => {
+      await proveAndVerifyAvmTestContract(
+        'external_call_to_divide_by_zero_recovers',
+        /*args=*/ [],
+        /*expectRevert=*/ false,
+      );
+    },
+    TIMEOUT,
+  );
+  it(
+    'Should prove and verify an exceptional halt due to a nested call to non-existent contract that is propagated to top-level',
+    async () => {
+      await proveAndVerifyAvmTestContract('nested_call_to_nothing', /*args=*/ [], /*expectRevert=*/ true);
+    },
+    TIMEOUT,
+  );
+  it(
+    'Should prove and verify an exceptional halt due to a nested call to non-existent contract that is recovered from in caller',
+    async () => {
+      await proveAndVerifyAvmTestContract('nested_call_to_nothing_recovers', /*args=*/ [], /*expectRevert=*/ false);
+    },
+    TIMEOUT,
+  );
+  it(
+    'Should prove and verify a top-level exceptional halt due to a non-existent contract',
+    async () => {
+      await proveAndVerifyAvmTestContract(
+        'add_args_return',
+        /*args=*/ [new Fr(1), new Fr(2)],
+        /*expectRevert=*/ true,
+        /*skipContractDeployments=*/ true,
       );
     },
     TIMEOUT,
   );
 });
 
-/************************************************************************
- * Helpers
- ************************************************************************/
-
-/**
- * If assertionErrString is set, we expect a (non exceptional halting) revert due to a failing assertion and
- * we check that the revert reason error contains this string. However, the circuit must correctly prove the
- * execution.
- */
-const proveAndVerifyAvmTestContract = async (
+async function proveAndVerifyAvmTestContract(
   functionName: string,
-  calldata: Fr[] = [],
-  assertionErrString?: string,
-) => {
-  const startSideEffectCounter = 0;
-  const functionSelector = getAvmTestContractFunctionSelector(functionName);
-  calldata = [functionSelector.toField(), ...calldata];
-  const globals = GlobalVariables.empty();
-  globals.timestamp = TIMESTAMP;
+  args: Fr[] = [],
+  expectRevert = false,
+  skipContractDeployments = false,
+  contractDataSource = new MockedAvmTestContractDataSource(skipContractDeployments),
+) {
+  const avmCircuitInputs = await simulateAvmTestContractGenerateCircuitInputs(
+    functionName,
+    args,
+    expectRevert,
+    contractDataSource,
+  );
 
-  const worldStateDB = mock<WorldStateDB>();
-  //
-  // Top level contract call
-  const bytecode = getAvmTestContractBytecode('public_dispatch');
-  const fnSelector = getAvmTestContractFunctionSelector('public_dispatch');
-  const publicFn: PublicFunction = { bytecode, selector: fnSelector };
-  const contractClass = makeContractClassPublic(0, publicFn);
-  const contractInstance = makeContractInstanceFromClassId(contractClass.id);
-
-  // The values here should match those in `avm_simulator.test.ts`
-  const instanceGet = new SerializableContractInstance({
-    version: 1,
-    salt: new Fr(0x123),
-    deployer: new Fr(0x456),
-    contractClassId: new Fr(0x789),
-    initializationHash: new Fr(0x101112),
-    publicKeys: new PublicKeys(
-      new Point(new Fr(0x131415), new Fr(0x161718), false),
-      new Point(new Fr(0x192021), new Fr(0x222324), false),
-      new Point(new Fr(0x252627), new Fr(0x282930), false),
-      new Point(new Fr(0x313233), new Fr(0x343536), false),
-    ),
-  }).withAddress(contractInstance.address);
-
-  worldStateDB.getContractInstance
-    .mockResolvedValueOnce(contractInstance)
-    .mockResolvedValueOnce(instanceGet) // test gets deployer
-    .mockResolvedValueOnce(instanceGet) // test gets class id
-    .mockResolvedValueOnce(instanceGet) // test gets init hash
-    .mockResolvedValue(contractInstance);
-  worldStateDB.getContractClass.mockResolvedValue(contractClass);
-
-  const storageValue = new Fr(5);
-  worldStateDB.storageRead.mockResolvedValue(Promise.resolve(storageValue));
-
-  const trace = new PublicSideEffectTrace(startSideEffectCounter);
-  const persistableState = initPersistableStateManager({ worldStateDB, trace });
-  const environment = initExecutionEnvironment({
-    functionSelector,
-    calldata,
-    globals,
-    address: contractInstance.address,
-  });
-  const context = initContext({ env: environment, persistableState });
-
-  worldStateDB.getBytecode.mockResolvedValue(bytecode);
-
-  const startGas = new Gas(context.machineState.gasLeft.daGas, context.machineState.gasLeft.l2Gas);
-
-  const internalLogger = createDebugLogger('aztec:avm-proving-test');
+  const internalLogger = createLogger('bb-prover:avm-proving-test');
   const logger = (msg: string, _data?: any) => internalLogger.verbose(msg);
 
   // The paths for the barretenberg binary and the write path are hardcoded for now.
   const bbPath = path.resolve('../../barretenberg/cpp/build/bin/bb');
   const bbWorkingDirectory = await fs.mkdtemp(path.join(tmpdir(), 'bb-'));
 
-  // First we simulate (though it's not needed in this simple case).
-  const simulator = new AvmSimulator(context);
-  const avmResult = await simulator.execute();
-
-  if (assertionErrString == undefined) {
-    expect(avmResult.reverted).toBe(false);
-  } else {
-    // Explicit revert when an assertion failed.
-    expect(avmResult.reverted).toBe(true);
-    expect(avmResult.revertReason).toBeDefined();
-    expect(resolveAvmTestContractAssertionMessage(functionName, avmResult.revertReason!)).toContain(assertionErrString);
-  }
-
-  const pxResult = trace.toPublicExecutionResult(
-    environment,
-    startGas,
-    /*endGasLeft=*/ Gas.from(context.machineState.gasLeft),
-    /*bytecode=*/ simulator.getBytecode()!,
-    avmResult,
-    functionName,
-  );
-
-  const avmCircuitInputs = new AvmCircuitInputs(
-    functionName,
-    /*calldata=*/ context.environment.calldata,
-    /*publicInputs=*/ getPublicInputs(pxResult),
-    /*avmHints=*/ pxResult.avmCircuitHints,
-  );
-
   // Then we prove.
-  const proofRes = await generateAvmProof(bbPath, bbWorkingDirectory, avmCircuitInputs, logger);
+  const proofRes = await generateAvmProof(bbPath, bbWorkingDirectory, avmCircuitInputs, internalLogger);
+  if (proofRes.status === BB_RESULT.FAILURE) {
+    internalLogger.error(`Proof generation failed: ${proofRes.reason}`);
+  }
   expect(proofRes.status).toEqual(BB_RESULT.SUCCESS);
 
   // Then we test VK extraction and serialization.
@@ -163,4 +222,4 @@ const proveAndVerifyAvmTestContract = async (
   const rawVkPath = path.join(succeededRes.vkPath!, 'vk');
   const verificationRes = await verifyAvmProof(bbPath, succeededRes.proofPath!, rawVkPath, logger);
   expect(verificationRes.status).toBe(BB_RESULT.SUCCESS);
-};
+}

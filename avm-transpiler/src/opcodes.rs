@@ -40,8 +40,8 @@ pub enum AvmOpcode {
     RETURNDATASIZE,
     RETURNDATACOPY,
     // Control flow
-    JUMP_16,
-    JUMPI_16,
+    JUMP_32,
+    JUMPI_32,
     INTERNALCALL,
     INTERNALRETURN,
     // Memory
@@ -130,8 +130,8 @@ impl AvmOpcode {
 
             // Machine State
             // Machine State - Internal Control Flow
-            AvmOpcode::JUMP_16 => "JUMP_16",
-            AvmOpcode::JUMPI_16 => "JUMPI_16",
+            AvmOpcode::JUMP_32 => "JUMP_32",
+            AvmOpcode::JUMPI_32 => "JUMPI_32",
             AvmOpcode::INTERNALCALL => "INTERNALCALL",
             AvmOpcode::INTERNALRETURN => "INTERNALRETURN",
             // Machine State - Memory

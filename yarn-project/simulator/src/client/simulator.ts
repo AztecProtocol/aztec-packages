@@ -10,10 +10,11 @@ import {
 } from '@aztec/foundation/abi';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { Fr } from '@aztec/foundation/fields';
-import { type DebugLogger, createDebugLogger } from '@aztec/foundation/log';
+import { type Logger, createLogger } from '@aztec/foundation/log';
 
 import { createSimulationError } from '../common/errors.js';
 import { PackedValuesCache } from '../common/packed_values_cache.js';
+import { type SimulationProvider } from '../common/simulation_provider.js';
 import { ClientExecutionContext } from './client_execution_context.js';
 import { type DBOracle } from './db_oracle.js';
 import { ExecutionNoteCache } from './execution_note_cache.js';
@@ -25,10 +26,10 @@ import { ViewDataOracle } from './view_data_oracle.js';
  * The ACIR simulator.
  */
 export class AcirSimulator {
-  private log: DebugLogger;
+  private log: Logger;
 
-  constructor(private db: DBOracle, private node: AztecNode) {
-    this.log = createDebugLogger('aztec:simulator');
+  constructor(private db: DBOracle, private node: AztecNode, private simulationProvider: SimulationProvider) {
+    this.log = createLogger('simulator');
   }
 
   /**
@@ -57,7 +58,7 @@ export class AcirSimulator {
       );
     }
 
-    const header = await this.db.getHeader();
+    const header = await this.db.getBlockHeader();
 
     // reserve the first side effect for the tx hash (inserted by the private kernel)
     const startSideEffectCounter = 1;
@@ -81,6 +82,7 @@ export class AcirSimulator {
       new ExecutionNoteCache(txHash),
       this.db,
       this.node,
+      this.simulationProvider,
       startSideEffectCounter,
       undefined,
       scopes,
@@ -88,6 +90,7 @@ export class AcirSimulator {
 
     try {
       const executionResult = await executePrivateFunction(
+        this.simulationProvider,
         context,
         entryPointArtifact,
         contractAddress,
@@ -120,6 +123,7 @@ export class AcirSimulator {
 
     try {
       return await executeUnconstrainedFunction(
+        this.simulationProvider,
         context,
         entryPointArtifact,
         contractAddress,

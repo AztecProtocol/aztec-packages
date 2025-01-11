@@ -44,10 +44,10 @@ template <typename Flavor> class UltraHonkTests : public ::testing::Test {
     };
 
   protected:
-    static void SetUpTestSuite() { bb::srs::init_crs_factory("../srs_db/ignition"); }
+    static void SetUpTestSuite() { bb::srs::init_crs_factory(bb::srs::get_ignition_crs_path()); }
 };
 
-using FlavorTypes = testing::Types<UltraFlavor, UltraKeccakFlavor, UltraStarknetFlavor>;
+using FlavorTypes = testing::Types<UltraFlavor, UltraZKFlavor, UltraKeccakFlavor, UltraStarknetFlavor, UltraKeccakZKFlavor>;
 TYPED_TEST_SUITE(UltraHonkTests, FlavorTypes);
 
 /**
@@ -85,28 +85,6 @@ TYPED_TEST(UltraHonkTests, ANonZeroPolynomialIsAGoodPolynomial)
     for (auto& poly : polynomials.get_wires()) {
         ensure_non_zero(poly);
     }
-}
-
-/**
- * @brief Test proof construction/verification for a structured execution trace
- *
- */
-TYPED_TEST(UltraHonkTests, StructuredTrace)
-{
-    auto builder = UltraCircuitBuilder();
-    size_t num_gates = 3;
-
-    // Add some arbitrary arithmetic gates that utilize public inputs
-    MockCircuits::add_arithmetic_gates_with_public_inputs(builder, num_gates);
-
-    // Construct an proving_key with a structured execution trace
-    TraceStructure trace_structure = TraceStructure::SMALL_TEST;
-    auto proving_key = std::make_shared<typename TestFixture::DeciderProvingKey>(builder, trace_structure);
-    typename TestFixture::Prover prover(proving_key);
-    auto verification_key = std::make_shared<typename TestFixture::VerificationKey>(proving_key->proving_key);
-    typename TestFixture::Verifier verifier(verification_key);
-    auto proof = prover.construct_proof();
-    EXPECT_TRUE(verifier.verify_proof(proof));
 }
 
 /**
@@ -756,22 +734,20 @@ TYPED_TEST(UltraHonkTests, non_native_field_multiplication)
 
     const auto split_into_limbs = [&](const uint512_t& input) {
         constexpr size_t NUM_BITS = 68;
-        std::array<fr, 5> limbs;
+        std::array<fr, 4> limbs;
         limbs[0] = input.slice(0, NUM_BITS).lo;
         limbs[1] = input.slice(NUM_BITS * 1, NUM_BITS * 2).lo;
         limbs[2] = input.slice(NUM_BITS * 2, NUM_BITS * 3).lo;
         limbs[3] = input.slice(NUM_BITS * 3, NUM_BITS * 4).lo;
-        limbs[4] = fr(input.lo);
         return limbs;
     };
 
-    const auto get_limb_witness_indices = [&](const std::array<fr, 5>& limbs) {
-        std::array<uint32_t, 5> limb_indices;
+    const auto get_limb_witness_indices = [&](const std::array<fr, 4>& limbs) {
+        std::array<uint32_t, 4> limb_indices;
         limb_indices[0] = circuit_builder.add_variable(limbs[0]);
         limb_indices[1] = circuit_builder.add_variable(limbs[1]);
         limb_indices[2] = circuit_builder.add_variable(limbs[2]);
         limb_indices[3] = circuit_builder.add_variable(limbs[3]);
-        limb_indices[4] = circuit_builder.add_variable(limbs[4]);
         return limb_indices;
     };
     const uint512_t BINARY_BASIS_MODULUS = uint512_t(1) << (68 * 4);

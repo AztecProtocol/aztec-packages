@@ -1,9 +1,9 @@
 import { Fr } from '@aztec/aztec.js';
 import { sha256ToField } from '@aztec/foundation/crypto';
 import { OutboxAbi } from '@aztec/l1-artifacts';
-import { TestContract } from '@aztec/noir-contracts.js';
+import { TestContract } from '@aztec/noir-contracts.js/Test';
 
-import { type Hex, decodeEventLog } from 'viem';
+import { type Hex, decodeEventLog, getContract } from 'viem';
 
 import { CrossChainMessagingTest } from './cross_chain_messaging_test.js';
 
@@ -20,7 +20,11 @@ describe('e2e_cross_chain_messaging l2_to_l1', () => {
 
     aztecNode = crossChainTestHarness.aztecNode;
 
-    outbox = crossChainTestHarness.outbox;
+    outbox = getContract({
+      address: crossChainTestHarness.l1ContractAddresses.outboxAddress.toString(),
+      abi: OutboxAbi,
+      client: crossChainTestHarness.walletClient,
+    });
   }, 300_000);
 
   afterAll(async () => {

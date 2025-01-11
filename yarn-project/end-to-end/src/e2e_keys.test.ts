@@ -19,7 +19,7 @@ import {
 } from '@aztec/circuits.js';
 import { siloNullifier } from '@aztec/circuits.js/hash';
 import { poseidon2HashWithSeparator } from '@aztec/foundation/crypto';
-import { TestContract } from '@aztec/noir-contracts.js';
+import { TestContract } from '@aztec/noir-contracts.js/Test';
 
 import { jest } from '@jest/globals';
 
@@ -71,10 +71,10 @@ describe('Keys', () => {
 
       const noteValue = 5;
       const noteOwner = account.getAddress();
-      const outgoingViewer = noteOwner; // Setting the outgoing viewer to owner to not have to bother with setting up another account.
+      const sender = noteOwner;
       const noteStorageSlot = 12;
 
-      await testContract.methods.call_create_note(noteValue, noteOwner, outgoingViewer, noteStorageSlot).send().wait();
+      await testContract.methods.call_create_note(noteValue, noteOwner, sender, noteStorageSlot).send().wait();
 
       expect(await getNumNullifiedNotes(nskApp, testContract.address)).toEqual(0);
 

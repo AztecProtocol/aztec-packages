@@ -5,7 +5,7 @@ use noirc_errors::Span;
 use crate::{
     ast::{Ident, ItemVisibility},
     lexer::{Lexer, SpannedTokenResult},
-    token::{IntType, Keyword, SpannedToken, Token, TokenKind, Tokens},
+    token::{FmtStrFragment, IntType, Keyword, SpannedToken, Token, TokenKind, Tokens},
 };
 
 use super::{labels::ParsingRuleLabel, ParsedModule, ParserError, ParserErrorReason};
@@ -128,9 +128,12 @@ impl<'a> Parser<'a> {
     }
 
     /// Invokes `parsing_function` (`parsing_function` must be some `parse_*` method of the parser)
-    /// and returns the result if the parser has no errors, and if the parser consumed all tokens.
+    /// and returns the result (and any warnings) if the parser has no errors, and if the parser consumed all tokens.
     /// Otherwise returns the list of errors.
-    pub fn parse_result<T, F>(mut self, parsing_function: F) -> Result<T, Vec<ParserError>>
+    pub fn parse_result<T, F>(
+        mut self,
+        parsing_function: F,
+    ) -> Result<(T, Vec<ParserError>), Vec<ParserError>>
     where
         F: FnOnce(&mut Parser<'a>) -> T,
     {
@@ -140,23 +143,11 @@ impl<'a> Parser<'a> {
             return Err(self.errors);
         }
 
-        if self.errors.is_empty() {
-            Ok(item)
+        let all_warnings = self.errors.iter().all(|error| error.is_warning());
+        if all_warnings {
+            Ok((item, self.errors))
         } else {
             Err(self.errors)
-        }
-    }
-
-    /// Invokes `parsing_function` (`parsing_function` must be some `parse_*` method of the parser)
-    /// and returns the result if the parser has no errors, and if the parser consumed all tokens.
-    /// Otherwise returns None.
-    pub fn parse_option<T, F>(self, parsing_function: F) -> Option<T>
-    where
-        F: FnOnce(&mut Parser<'a>) -> Option<T>,
-    {
-        match self.parse_result(parsing_function) {
-            Ok(item) => item,
-            Err(_) => None,
         }
     }
 
@@ -294,11 +285,11 @@ impl<'a> Parser<'a> {
         }
     }
 
-    fn eat_fmt_str(&mut self) -> Option<String> {
+    fn eat_fmt_str(&mut self) -> Option<(Vec<FmtStrFragment>, u32)> {
         if matches!(self.token.token(), Token::FmtStr(..)) {
             let token = self.bump();
             match token.into_token() {
-                Token::FmtStr(string) => Some(string),
+                Token::FmtStr(fragments, length) => Some((fragments, length)),
                 _ => unreachable!(),
             }
         } else {
@@ -311,6 +302,30 @@ impl<'a> Parser<'a> {
             let token = self.bump();
             match token.into_token() {
                 Token::Quote(tokens) => Some(tokens),
+                _ => unreachable!(),
+            }
+        } else {
+            None
+        }
+    }
+
+    fn eat_attribute_start(&mut self) -> Option<bool> {
+        if matches!(self.token.token(), Token::AttributeStart { is_inner: false, .. }) {
+            let token = self.bump();
+            match token.into_token() {
+                Token::AttributeStart { is_tag, .. } => Some(is_tag),
+                _ => unreachable!(),
+            }
+        } else {
+            None
+        }
+    }
+
+    fn eat_inner_attribute_start(&mut self) -> Option<bool> {
+        if matches!(self.token.token(), Token::AttributeStart { is_inner: true, .. }) {
+            let token = self.bump();
+            match token.into_token() {
+                Token::AttributeStart { is_tag, .. } => Some(is_tag),
                 _ => unreachable!(),
             }
         } else {
@@ -472,6 +487,13 @@ impl<'a> Parser<'a> {
 
     fn expected_token_separating_items(&mut self, token: Token, items: &'static str, span: Span) {
         self.push_error(ParserErrorReason::ExpectedTokenSeparatingTwoItems { token, items }, span);
+    }
+
+    fn expected_mut_after_ampersand(&mut self) {
+        self.push_error(
+            ParserErrorReason::ExpectedMutAfterAmpersand { found: self.token.token().clone() },
+            self.current_token_span,
+        );
     }
 
     fn modifiers_not_followed_by_an_item(&mut self, modifiers: Modifiers) {

@@ -1,10 +1,12 @@
 #pragma once
+#include "barretenberg/commitment_schemes/small_subgroup_ipa/small_subgroup_ipa.hpp"
 #include "barretenberg/eccvm/eccvm_flavor.hpp"
 #include "barretenberg/goblin/translation_evaluations.hpp"
 #include "barretenberg/honk/proof_system/types/proof.hpp"
 #include "barretenberg/plonk_honk_shared/library/grand_product_library.hpp"
 #include "barretenberg/relations/relation_parameters.hpp"
 #include "barretenberg/sumcheck/sumcheck_output.hpp"
+#include "barretenberg/sumcheck/zk_sumcheck_data.hpp"
 #include "barretenberg/transcript/transcript.hpp"
 
 namespace bb {
@@ -24,9 +26,12 @@ class ECCVMProver {
     using Transcript = typename Flavor::Transcript;
     using TranslationEvaluations = bb::TranslationEvaluations_<FF, BF>;
     using CircuitBuilder = typename Flavor::CircuitBuilder;
+    using ZKData = ZKSumcheckData<Flavor>;
+    using SmallSubgroupIPA = SmallSubgroupIPAProver<Flavor>;
 
     explicit ECCVMProver(CircuitBuilder& builder,
-                         const std::shared_ptr<Transcript>& transcript = std::make_shared<Transcript>());
+                         const std::shared_ptr<Transcript>& transcript = std::make_shared<Transcript>(),
+                         const std::shared_ptr<Transcript>& ipa_transcript = std::make_shared<Transcript>());
 
     BB_PROFILE void execute_preamble_round();
     BB_PROFILE void execute_wire_commitments_round();
@@ -36,10 +41,11 @@ class ECCVMProver {
     BB_PROFILE void execute_pcs_rounds();
     BB_PROFILE void execute_transcript_consistency_univariate_opening_round();
 
-    HonkProof export_proof();
-    HonkProof construct_proof();
+    ECCVMProof export_proof();
+    ECCVMProof construct_proof();
 
     std::shared_ptr<Transcript> transcript;
+    std::shared_ptr<Transcript> ipa_transcript;
 
     TranslationEvaluations translation_evaluations;
 
@@ -50,6 +56,7 @@ class ECCVMProver {
     std::shared_ptr<ProvingKey> key;
 
     CommitmentLabels commitment_labels;
+    ZKData zk_sumcheck_data;
 
     Polynomial batched_quotient_Q; // batched quotient poly computed by Shplonk
     FF nu_challenge;               // needed in both Shplonk rounds
@@ -60,9 +67,6 @@ class ECCVMProver {
     FF translation_batching_challenge_v; // to be rederived by the translator verifier
 
     SumcheckOutput<Flavor> sumcheck_output;
-
-  private:
-    HonkProof proof;
 };
 
 } // namespace bb

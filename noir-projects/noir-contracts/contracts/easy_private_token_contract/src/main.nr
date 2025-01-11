@@ -18,32 +18,27 @@ contract EasyPrivateToken {
      */
     #[private]
     #[initializer]
-    fn constructor(initial_supply: u64, owner: AztecAddress, outgoing_viewer: AztecAddress) {
+    fn constructor(initial_supply: u64, owner: AztecAddress) {
         let balances = storage.balances;
 
-        balances.at(owner).add(initial_supply, owner, outgoing_viewer);
+        balances.at(owner).add(initial_supply, owner, context.msg_sender());
     }
 
     // Mints `amount` of tokens to `owner`.
     #[private]
-    fn mint(amount: u64, owner: AztecAddress, outgoing_viewer: AztecAddress) {
+    fn mint(amount: u64, owner: AztecAddress) {
         let balances = storage.balances;
 
-        balances.at(owner).add(amount, owner, outgoing_viewer);
+        balances.at(owner).add(amount, owner, context.msg_sender());
     }
 
     // Transfers `amount` of tokens from `sender` to a `recipient`.
     #[private]
-    fn transfer(
-        amount: u64,
-        sender: AztecAddress,
-        recipient: AztecAddress,
-        outgoing_viewer: AztecAddress,
-    ) {
+    fn transfer(amount: u64, sender: AztecAddress, recipient: AztecAddress) {
         let balances = storage.balances;
 
-        balances.at(sender).sub(amount, sender, outgoing_viewer);
-        balances.at(recipient).add(amount, recipient, outgoing_viewer);
+        balances.at(sender).sub(amount, sender, sender);
+        balances.at(recipient).add(amount, recipient, sender);
     }
 
     // Helper function to get the balance of a user ("unconstrained" is a Noir alternative of Solidity's "view" function).

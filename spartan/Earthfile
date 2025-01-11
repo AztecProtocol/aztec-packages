@@ -1,0 +1,7 @@
+VERSION 0.8
+
+charts:
+    FROM ubuntu:noble
+    WORKDIR /usr/src
+    COPY . ./spartan
+    SAVE ARTIFACT /usr/src /usr/src

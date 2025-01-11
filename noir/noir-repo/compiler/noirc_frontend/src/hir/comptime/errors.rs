@@ -3,7 +3,10 @@ use std::rc::Rc;
 
 use crate::{
     ast::TraitBound,
-    hir::{def_collector::dc_crate::CompilationError, type_check::NoMatchingImplFoundError},
+    hir::{
+        def_collector::dc_crate::CompilationError,
+        type_check::{NoMatchingImplFoundError, TypeCheckError},
+    },
     parser::ParserError,
     Type,
 };
@@ -87,6 +90,7 @@ pub enum InterpreterError {
     },
     NonIntegerArrayLength {
         typ: Type,
+        err: Option<Box<TypeCheckError>>,
         location: Location,
     },
     NonNumericCasted {
@@ -196,6 +200,11 @@ pub enum InterpreterError {
         item: String,
         location: Location,
     },
+    InvalidInComptimeContext {
+        item: String,
+        location: Location,
+        explanation: String,
+    },
     TypeAnnotationsNeededForMethodCall {
         location: Location,
     },
@@ -228,6 +237,13 @@ pub enum InterpreterError {
     },
     UnknownArrayLength {
         length: Type,
+        err: Box<TypeCheckError>,
+        location: Location,
+    },
+    CannotInterpretFormatStringWithErrors {
+        location: Location,
+    },
+    GlobalsDependencyCycle {
         location: Location,
     },
 
@@ -286,6 +302,7 @@ impl InterpreterError {
             | InterpreterError::UnsupportedTopLevelItemUnquote { location, .. }
             | InterpreterError::ComptimeDependencyCycle { location, .. }
             | InterpreterError::Unimplemented { location, .. }
+            | InterpreterError::InvalidInComptimeContext { location, .. }
             | InterpreterError::NoImpl { location, .. }
             | InterpreterError::ImplMethodTypeMismatch { location, .. }
             | InterpreterError::DebugEvaluateComptime { location, .. }
@@ -304,7 +321,9 @@ impl InterpreterError {
             | InterpreterError::TypeAnnotationsNeededForMethodCall { location }
             | InterpreterError::CannotResolveExpression { location, .. }
             | InterpreterError::CannotSetFunctionBody { location, .. }
-            | InterpreterError::UnknownArrayLength { location, .. } => *location,
+            | InterpreterError::UnknownArrayLength { location, .. }
+            | InterpreterError::CannotInterpretFormatStringWithErrors { location }
+            | InterpreterError::GlobalsDependencyCycle { location } => *location,
 
             InterpreterError::FailedToParseMacro { error, file, .. } => {
                 Location::new(error.span(), *file)
@@ -435,9 +454,13 @@ impl<'a> From<&'a InterpreterError> for CustomDiagnostic {
                 let secondary = "This is likely a bug".into();
                 CustomDiagnostic::simple_error(msg, secondary, location.span)
             }
-            InterpreterError::NonIntegerArrayLength { typ, location } => {
+            InterpreterError::NonIntegerArrayLength { typ, err, location } => {
                 let msg = format!("Non-integer array length: `{typ}`");
-                let secondary = "Array lengths must be integers".into();
+                let secondary = if let Some(err) = err {
+                    format!("Array lengths must be integers, but evaluating `{typ}` resulted in `{err}`")
+                } else {
+                    "Array lengths must be integers".to_string()
+                };
                 CustomDiagnostic::simple_error(msg, secondary, location.span)
             }
             InterpreterError::NonNumericCasted { typ, location } => {
@@ -530,6 +553,10 @@ impl<'a> From<&'a InterpreterError> for CustomDiagnostic {
             InterpreterError::Unimplemented { item, location } => {
                 let msg = format!("{item} is currently unimplemented");
                 CustomDiagnostic::simple_error(msg, String::new(), location.span)
+            }
+            InterpreterError::InvalidInComptimeContext { item, location, explanation } => {
+                let msg = format!("{item} is invalid in comptime context");
+                CustomDiagnostic::simple_error(msg, explanation.clone(), location.span)
             }
             InterpreterError::BreakNotInLoop { location } => {
                 let msg = "There is no loop to break out of!".into();
@@ -640,9 +667,21 @@ impl<'a> From<&'a InterpreterError> for CustomDiagnostic {
                 let msg = format!("`{expression}` is not a valid function body");
                 CustomDiagnostic::simple_error(msg, String::new(), location.span)
             }
-            InterpreterError::UnknownArrayLength { length, location } => {
+            InterpreterError::UnknownArrayLength { length, err, location } => {
                 let msg = format!("Could not determine array length `{length}`");
-                CustomDiagnostic::simple_error(msg, String::new(), location.span)
+                let secondary = format!("Evaluating the length failed with: `{err}`");
+                CustomDiagnostic::simple_error(msg, secondary, location.span)
+            }
+            InterpreterError::CannotInterpretFormatStringWithErrors { location } => {
+                let msg = "Cannot interpret format string with errors".to_string();
+                let secondary =
+                    "Some of the variables to interpolate could not be evaluated".to_string();
+                CustomDiagnostic::simple_error(msg, secondary, location.span)
+            }
+            InterpreterError::GlobalsDependencyCycle { location } => {
+                let msg = "This global recursively depends on itself".to_string();
+                let secondary = String::new();
+                CustomDiagnostic::simple_error(msg, secondary, location.span)
             }
         }
     }

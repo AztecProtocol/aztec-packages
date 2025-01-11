@@ -1,31 +1,17 @@
 import { type AztecAddress } from '@aztec/foundation/aztec-address';
-import { pedersenHashBuffer, poseidon2HashWithSeparator, sha256Trunc } from '@aztec/foundation/crypto';
+import { poseidon2Hash, poseidon2HashWithSeparator, sha256Trunc } from '@aztec/foundation/crypto';
 import { Fr } from '@aztec/foundation/fields';
-import { numToUInt8, numToUInt16BE, numToUInt32BE } from '@aztec/foundation/serialize';
 
 import { GeneratorIndex } from '../constants.gen.js';
 import { type ScopedL2ToL1Message } from '../structs/l2_to_l1_message.js';
-import { VerificationKey } from '../structs/verification_key.js';
 
 /**
  * Computes a hash of a given verification key.
- * @param vkBuf - The verification key.
+ * @param vkBuf - The verification key as fields.
  * @returns The hash of the verification key.
  */
-export function hashVK(vkBuf: Buffer) {
-  const vk = VerificationKey.fromBuffer(vkBuf);
-  const toHash = Buffer.concat([
-    numToUInt8(vk.circuitType),
-    numToUInt16BE(5), // fr::coset_generator(0)?
-    numToUInt32BE(vk.circuitSize),
-    numToUInt32BE(vk.numPublicInputs),
-    ...Object.values(vk.commitments)
-      .map(e => [e.y.toBuffer(), e.x.toBuffer()])
-      .flat(),
-    // Montgomery form of fr::one()? Not sure. But if so, why?
-    Buffer.from('1418144d5b080fcac24cdb7649bdadf246a6cb2426e324bedb94fb05118f023a', 'hex'),
-  ]);
-  return pedersenHashBuffer(toHash);
+export function hashVK(keyAsFields: Fr[]): Fr {
+  return poseidon2Hash(keyAsFields);
 }
 
 /**
@@ -53,11 +39,11 @@ export function siloNoteHash(contract: AztecAddress, uniqueNoteHash: Fr): Fr {
  * Computes a unique note hash.
  * @dev Includes a nonce which contains data that guarantees the resulting note hash will be unique.
  * @param nonce - A nonce (typically derived from tx hash and note hash index in the tx).
- * @param noteHash - A note hash.
+ * @param siloedNoteHash - A note hash.
  * @returns A unique note hash.
  */
-export function computeUniqueNoteHash(nonce: Fr, noteHash: Fr): Fr {
-  return poseidon2HashWithSeparator([nonce, noteHash], GeneratorIndex.UNIQUE_NOTE_HASH);
+export function computeUniqueNoteHash(nonce: Fr, siloedNoteHash: Fr): Fr {
+  return poseidon2HashWithSeparator([nonce, siloedNoteHash], GeneratorIndex.UNIQUE_NOTE_HASH);
 }
 
 /**
@@ -115,16 +101,8 @@ export function computeSecretHash(secret: Fr) {
   return poseidon2HashWithSeparator([secret], GeneratorIndex.SECRET_HASH);
 }
 
-export function computeL1ToL2MessageNullifier(
-  contract: AztecAddress,
-  messageHash: Fr,
-  secret: Fr,
-  messageIndex: bigint,
-) {
-  const innerMessageNullifier = poseidon2HashWithSeparator(
-    [messageHash, secret, messageIndex],
-    GeneratorIndex.MESSAGE_NULLIFIER,
-  );
+export function computeL1ToL2MessageNullifier(contract: AztecAddress, messageHash: Fr, secret: Fr) {
+  const innerMessageNullifier = poseidon2HashWithSeparator([messageHash, secret], GeneratorIndex.MESSAGE_NULLIFIER);
   return siloNullifier(contract, innerMessageNullifier);
 }
 

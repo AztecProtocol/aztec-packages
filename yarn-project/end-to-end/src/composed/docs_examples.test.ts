@@ -1,3 +1,4 @@
+/* eslint-disable import/no-duplicates */
 // docs:start:create_account_imports
 import { getSchnorrAccount } from '@aztec/accounts/schnorr';
 import { Fr, GrumpkinScalar, createPXEClient } from '@aztec/aztec.js';
@@ -42,7 +43,7 @@ describe('docs_examples', () => {
     // docs:end:full_deploy
 
     // docs:start:send_transaction
-    const _tx = await contract.methods.mint_public(wallet.getAddress(), 1).send().wait();
+    const _tx = await contract.methods.mint_to_public(wallet.getAddress(), 1).send().wait();
     // docs:end:send_transaction
 
     // docs:start:simulate_function

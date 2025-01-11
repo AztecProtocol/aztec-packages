@@ -8,7 +8,7 @@ use dep::aztec::macros::aztec;
 
 #[aztec]
 contract Uniswap {
-    use dep::aztec::prelude::{AztecAddress, EthAddress, FunctionSelector, SharedImmutable};
+    use dep::aztec::prelude::{AztecAddress, EthAddress, FunctionSelector, PublicImmutable};
 
     use dep::authwit::auth::{
         assert_current_call_valid_authwit_public, compute_authwit_message_hash_from_call,
@@ -25,7 +25,7 @@ contract Uniswap {
 
     #[storage]
     struct Storage<Context> {
-        portal_address: SharedImmutable<EthAddress, Context>,
+        portal_address: PublicImmutable<EthAddress, Context>,
     }
 
     #[public]
@@ -62,7 +62,7 @@ contract Uniswap {
 
         // Transfer funds to this contract
         Token::at(input_asset)
-            .transfer_public(
+            .transfer_in_public(
                 sender,
                 context.this_address(),
                 input_amount,
@@ -104,7 +104,7 @@ contract Uniswap {
             secret_hash_for_L1_to_l2_message,
             caller_on_L1,
         );
-        context.message_portal(storage.portal_address.read_public(), content_hash);
+        context.message_portal(storage.portal_address.read(), content_hash);
     }
     // docs:end:swap_public
 
@@ -115,13 +115,12 @@ contract Uniswap {
         input_asset_bridge: AztecAddress,
         input_amount: Field,
         output_asset_bridge: AztecAddress,
-        // params for using the unshield approval
-        nonce_for_unshield_approval: Field,
+        // params for using the transfer_to_public approval
+        nonce_for_transfer_to_public_approval: Field,
         // params for the swap
         uniswap_fee_tier: Field, // which uniswap tier to use (eg 3000 for 0.3% fee)
         minimum_output_amount: Field, // minimum output amount to receive (slippage protection for the swap)
         // params for the depositing output_asset back to Aztec
-        secret_hash_for_redeeming_minted_notes: Field, // secret hash used to redeem minted notes at a later time. This enables anyone to call this function and mint tokens to a user on their behalf
         secret_hash_for_L1_to_l2_message: Field, // for when l1 uniswap portal inserts the message to consume output assets on L2
         caller_on_L1: EthAddress, // ethereum address that can call this function on the L1 portal (0x0 if anyone can call)
     ) {
@@ -133,11 +132,11 @@ contract Uniswap {
 
         // Transfer funds to this contract
         Token::at(input_asset)
-            .unshield(
+            .transfer_to_public(
                 context.msg_sender(),
                 context.this_address(),
                 input_amount,
-                nonce_for_unshield_approval,
+                nonce_for_transfer_to_public_approval,
             )
             .call(&mut context);
 
@@ -172,11 +171,10 @@ contract Uniswap {
             uniswap_fee_tier,
             output_asset_bridge_portal_address,
             minimum_output_amount,
-            secret_hash_for_redeeming_minted_notes,
             secret_hash_for_L1_to_l2_message,
             caller_on_L1,
         );
-        context.message_portal(storage.portal_address.read_private(), content_hash);
+        context.message_portal(storage.portal_address.read(), content_hash);
     }
     // docs:end:swap_private
 
@@ -210,7 +208,7 @@ contract Uniswap {
         // We need to make a call to update it.
         set_authorized(&mut context, message_hash, true);
 
-        let this_portal_address = storage.portal_address.read_public();
+        let this_portal_address = storage.portal_address.read();
         // Exit to L1 Uniswap Portal !
         TokenBridge::at(token_bridge)
             .exit_to_l1_public(this_portal_address, amount, this_portal_address, nonce)

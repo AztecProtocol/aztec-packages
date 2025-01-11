@@ -1,6 +1,6 @@
 ---
 title: Emitting Events
-sidebar_position: 3
+sidebar_position: 4
 tags: [contracts]
 ---
 
@@ -15,24 +15,6 @@ ABI encoded events are a feature that will be added in the future.
 Unlike on Ethereum, there are 2 types of events supported by Aztec: [encrypted](#encrypted-events) and [unencrypted](#unencrypted-events).
 
 ## Encrypted Events
-
-### Register a recipient
-
-Encrypted events can only be emitted by private functions and are encrypted using a public key of a recipient.
-For this reason it is necessary to register a recipient in the Private Execution Environment (PXE) before encrypting the events for them.
-
-First we need to get a hold of recipient's complete address.
-Below are some ways how we could instantiate it after getting the information in a string form from a recipient:
-
-#include_code instantiate-complete-address /yarn-project/circuits.js/src/structs/complete_address.test.ts rust
-
-Then to register the recipient's complete address in PXE we would call `registerRecipient` PXE endpoint using Aztec.js
-
-#include_code register-recipient /yarn-project/aztec.js/src/wallet/create_recipient.ts rust
-
-:::info
-If a note recipient is one of the accounts inside the PXE, we don't need to register it as a recipient because we already have the public key available. You can register a recipient as shown [here](../how_to_deploy_contract.md)
-:::
 
 ### Call emit
 
