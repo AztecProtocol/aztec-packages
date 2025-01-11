@@ -63,7 +63,7 @@ import {
   convertSimulatedSingleTxBlockRootRollupOutputsFromWitnessMap,
 } from '@aztec/noir-protocol-circuits-types/server';
 import { ProtocolCircuitVks } from '@aztec/noir-protocol-circuits-types/vks';
-import { type SimulationProvider, WASMSimulatorWithBlobs, emitCircuitSimulationStats } from '@aztec/simulator';
+import { type SimulationProvider, WASMSimulatorWithBlobs, emitCircuitSimulationStats } from '@aztec/simulator/server';
 import { type TelemetryClient, trackSpan } from '@aztec/telemetry-client';
 
 import { type WitnessMap } from '@noir-lang/types';
@@ -324,7 +324,10 @@ export class TestCircuitProver implements ServerCircuitProver {
       // the blob operations with an oracle. Appears to be no way to provide nativeACVM with a foreign call hander.
       simulationProvider = this.wasmSimulator;
     }
-    const witness = await simulationProvider.simulateCircuit(witnessMap, SimulatedServerCircuitArtifacts[artifactName]);
+    const witness = await simulationProvider.executeProtocolCircuit(
+      witnessMap,
+      SimulatedServerCircuitArtifacts[artifactName],
+    );
 
     const result = convertOutput(witness);
 

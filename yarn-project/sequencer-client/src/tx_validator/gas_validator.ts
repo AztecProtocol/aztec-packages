@@ -1,7 +1,7 @@
 import { type Tx, TxExecutionPhase, type TxValidationResult, type TxValidator } from '@aztec/circuit-types';
 import { type AztecAddress, type Fr, FunctionSelector, type GasFees } from '@aztec/circuits.js';
 import { createLogger } from '@aztec/foundation/log';
-import { computeFeePayerBalanceStorageSlot, getExecutionRequestsByPhase } from '@aztec/simulator';
+import { computeFeePayerBalanceStorageSlot, getExecutionRequestsByPhase } from '@aztec/simulator/server';
 
 /** Provides a view into public contract state */
 export interface PublicStateSource {

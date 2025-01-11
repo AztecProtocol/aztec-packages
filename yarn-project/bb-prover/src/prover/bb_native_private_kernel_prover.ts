@@ -2,6 +2,7 @@ import { type ClientIvcProof } from '@aztec/circuits.js';
 import { runInDirectory } from '@aztec/foundation/fs';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { BundleArtifactProvider } from '@aztec/noir-protocol-circuits-types/client/bundle';
+import { type SimulationProvider } from '@aztec/simulator/server';
 
 import { encode } from '@msgpack/msgpack';
 import { serializeWitness } from '@noir-lang/noirc_abi';
@@ -22,14 +23,21 @@ export class BBNativePrivateKernelProver extends BBPrivateKernelProver {
     private bbBinaryPath: string,
     private bbWorkingDirectory: string,
     private skipCleanup: boolean,
+    protected override simulationProvider: SimulationProvider,
     protected override log = createLogger('bb-prover:native'),
   ) {
-    super(new BundleArtifactProvider(), log);
+    super(new BundleArtifactProvider(), simulationProvider, log);
   }
 
-  public static async new(config: BBConfig, log?: Logger) {
+  public static async new(config: BBConfig, simulationProvider: SimulationProvider, log?: Logger) {
     await fs.mkdir(config.bbWorkingDirectory, { recursive: true });
-    return new BBNativePrivateKernelProver(config.bbBinaryPath, config.bbWorkingDirectory, !!config.bbSkipCleanup, log);
+    return new BBNativePrivateKernelProver(
+      config.bbBinaryPath,
+      config.bbWorkingDirectory,
+      !!config.bbSkipCleanup,
+      simulationProvider,
+      log,
+    );
   }
 
   private async _createClientIvcProof(

@@ -27,7 +27,7 @@ import {
 } from '@aztec/noir-protocol-circuits-types/client';
 import { type ArtifactProvider, type ClientProtocolArtifact } from '@aztec/noir-protocol-circuits-types/types';
 import { ClientCircuitVks } from '@aztec/noir-protocol-circuits-types/vks';
-import { WASMSimulator } from '@aztec/simulator/client';
+import { type SimulationProvider } from '@aztec/simulator/client';
 import { type NoirCompiledCircuit } from '@aztec/types/noir';
 
 import { type Abi, type WitnessMap } from '@noir-lang/types';
@@ -35,9 +35,11 @@ import { type Abi, type WitnessMap } from '@noir-lang/types';
 import { mapProtocolArtifactNameToCircuitName } from '../stats.js';
 
 export abstract class BBPrivateKernelProver implements PrivateKernelProver {
-  protected simulator = new WASMSimulator();
-
-  constructor(protected artifactProvider: ArtifactProvider, protected log = createLogger('bb-prover')) {}
+  constructor(
+    protected artifactProvider: ArtifactProvider,
+    protected simulationProvider: SimulationProvider,
+    protected log = createLogger('bb-prover'),
+  ) {}
 
   public async generateInitOutput(
     inputs: PrivateKernelInitCircuitPrivateInputs,
@@ -164,7 +166,7 @@ export abstract class BBPrivateKernelProver implements PrivateKernelProver {
     const witnessMap = convertInputs(inputs, compiledCircuit.abi);
 
     const timer = new Timer();
-    const outputWitness = await this.simulator.simulateCircuit(witnessMap, compiledCircuit);
+    const outputWitness = await this.simulationProvider.executeProtocolCircuit(witnessMap, compiledCircuit);
     const output = convertOutputs(outputWitness, compiledCircuit.abi);
 
     this.log.debug(`Simulated ${circuitType}`, {
@@ -194,7 +196,7 @@ export abstract class BBPrivateKernelProver implements PrivateKernelProver {
 
     const witnessMap = convertInputs(inputs, compiledCircuit.abi);
     const timer = new Timer();
-    const outputWitness = await this.simulator.simulateCircuit(witnessMap, compiledCircuit);
+    const outputWitness = await this.simulationProvider.executeProtocolCircuit(witnessMap, compiledCircuit);
     const output = convertOutputs(outputWitness, compiledCircuit.abi);
 
     this.log.debug(`Generated witness for ${circuitType}`, {

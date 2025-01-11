@@ -139,6 +139,12 @@ __metadata:
   languageName: unknown
   linkType: soft
 
+"@aztec/simulator@link:../../../yarn-project/simulator::locator=vite%40workspace%3Aboxes%2Fvite":
+  version: 0.0.0-use.local
+  resolution: "@aztec/simulator@link:../../../yarn-project/simulator::locator=vite%40workspace%3Aboxes%2Fvite"
+  languageName: node
+  linkType: soft
+
 "@aztec/types@link:../yarn-project/types::locator=aztec-app%40workspace%3A.":
   version: 0.0.0-use.local
   resolution: "@aztec/types@link:../yarn-project/types::locator=aztec-app%40workspace%3A."
@@ -1663,18 +1669,6 @@ __metadata:
   checksum: 10c0/db9de047c3bb9b51f9335a7bb46f4fcfb6829fb628318c12115fbaf7d369bfce71c15b103d1fc3b464812d936220ee9bc1c8f762d032c9f6be9acc99249095b1
   languageName: node
   linkType: hard
-
-"@noir-lang/acvm_js@link:../../../noir/packages/acvm_js::locator=vite%40workspace%3Aboxes%2Fvite":
-  version: 0.0.0-use.local
-  resolution: "@noir-lang/acvm_js@link:../../../noir/packages/acvm_js::locator=vite%40workspace%3Aboxes%2Fvite"
-  languageName: node
-  linkType: soft
-
-"@noir-lang/noirc_abi@link:../../../noir/packages/noirc_abi::locator=vite%40workspace%3Aboxes%2Fvite":
-  version: 0.0.0-use.local
-  resolution: "@noir-lang/noirc_abi@link:../../../noir/packages/noirc_abi::locator=vite%40workspace%3Aboxes%2Fvite"
-  languageName: node
-  linkType: soft
 
 "@nolyfill/is-core-module@npm:1.0.39":
   version: 1.0.39
@@ -12162,13 +12156,11 @@ __metadata:
     "@aztec/key-store": "link:../../../yarn-project/key-store"
     "@aztec/kv-store": "portal:../../../yarn-project/kv-store"
     "@aztec/pxe": "link:../../../yarn-project/pxe"
+    "@aztec/simulator": "link:../../../yarn-project/simulator"
     "@eslint/js": "npm:^9.13.0"
-    "@noir-lang/acvm_js": "link:../../../noir/packages/acvm_js"
-    "@noir-lang/noirc_abi": "link:../../../noir/packages/noirc_abi"
     "@types/react": "npm:^18.3.12"
     "@types/react-dom": "npm:^18.3.1"
     "@vitejs/plugin-react-swc": "npm:^3.7.2"
-    buffer: "npm:^6.0.3"
     eslint: "npm:^9.13.0"
     eslint-plugin-react-hooks: "npm:^5.1.0"
     eslint-plugin-react-refresh: "npm:^0.4.16"

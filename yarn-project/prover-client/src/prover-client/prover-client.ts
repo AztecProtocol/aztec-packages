@@ -12,7 +12,7 @@ import {
 import { Fr } from '@aztec/circuits.js';
 import { times } from '@aztec/foundation/collection';
 import { createLogger } from '@aztec/foundation/log';
-import { NativeACVMSimulator } from '@aztec/simulator';
+import { NativeACVMSimulator } from '@aztec/simulator/server';
 import { type TelemetryClient } from '@aztec/telemetry-client';
 
 import { type ProverClientConfig } from '../config.js';

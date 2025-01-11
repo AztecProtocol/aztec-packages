@@ -32,7 +32,7 @@ import { pickFromSchema } from '@aztec/foundation/schemas';
 import { type DateProvider, Timer, elapsed } from '@aztec/foundation/timer';
 import { type P2P } from '@aztec/p2p';
 import { type BlockBuilderFactory } from '@aztec/prover-client/block-builder';
-import { type PublicProcessorFactory } from '@aztec/simulator';
+import { type PublicProcessorFactory } from '@aztec/simulator/server';
 import { Attributes, type TelemetryClient, type Tracer, trackSpan } from '@aztec/telemetry-client';
 import { type ValidatorClient } from '@aztec/validator-client';
 
