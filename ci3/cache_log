@@ -8,7 +8,7 @@ if [ -n "$CI_REDIS" ] && [ ! -t 1 ]; then
   redis-cli -h $CI_REDIS SETEX $key 604800 "In progress..." &>/dev/null
   # echo_stderr -e "Log id: ${yellow}$key${reset}"
   tee >(redis-cli -h $CI_REDIS -x SETEX $key 604800 &>/dev/null)
-  echo_stderr -e "Log id: ${yellow}$key${reset}"
+  echo -e "Log id: ${yellow}$key${reset}"
 else
   cat
 fi

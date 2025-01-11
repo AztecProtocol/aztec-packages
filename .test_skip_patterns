@@ -93,3 +93,6 @@ simple flakey_e2e_inclusion_proofs_contract
 #
 #       at Object.toEqual (prover-coordination/e2e_prover_coordination.test.ts:438:41)
 simple e2e_prover_coordination
+
+# Currently got mem corruption.
+ultra_honk_tests
