@@ -1,74 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1736522384848,
+  "lastUpdate": 1736629935801,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "47112877+dbanks12@users.noreply.github.com",
-            "name": "David Banks",
-            "username": "dbanks12"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "b8bdb529719c1f72244e904ea667462458a43317",
-          "message": "fix: AVM witgen track gas for nested calls and external halts (#10731)\n\nResolves https://github.com/AztecProtocol/aztec-packages/issues/10033\nResolves https://github.com/AztecProtocol/aztec-packages/issues/10374\n\nThis PR does the following:\n- Witgen handles out-of-gas errors for all opcodes \n- all halts (return/revert/exceptional) work as follows:\n- charge gas for the problematic instruction as always, adding a row to\nthe gas trace\n    - pop the parent/caller's latest gas from the stack\n- call a helper function on the gas trace to mutate that most recent gas\nrow, returning to the parent's latest gas minus any consumed gas (all\ngas consumed on exceptional halt)\n- `GasTraceEntry` includes a field `is_halt_or_first_row_in_nested_call`\nwhich lets us break gas rules on a halt or when starting a nested call\nbecause in both cases gas will jump.\n- `constrain_gas` returns a bool `out_of_gas` so that opcode\nimplementations can handle out of gas\n- `write_to_memory` now has an option to skip the \"jump back to correct\npc\" which was problematic when halting because the `jump` wouldn't\nresult in a next row with the right pc\n\nExplanation on how gas works for calls:\n- Parent snapshots its gas right before a nested call in\n`ctx.*_gas_left`\n- Nested call is given a `ctx.start_*_gas_left` and the gas trace is\nforced to that same value\n- throughout the nested call, the gas trace operates normally, charging\nper instruction\n- when any halt is encountered, the instruction that halted must have\nits gas charged normally, but then we call a helper function on the gas\ntrace to mutate the most recent row, flagging it to eventually become a\nsort of \"fake\" row that skips some constraints\n- the mutation of the halting row resets the gas to the parents last gas\nbefore the call (minus however much gas was consumed by the nested\ncall... if exceptional halt, that is _all_ allocated gas)\n\n\nFollow-up work\n- properly constrain gas for nested calls, returns, reverts and\nexceptional halts\n- if `jump` exceptionally halts (i.e. out of gas), it should be okay\nthat the next row doesn't have the target pc\n- Handle the edge case when an error is encountered on\nreturn/revert/call, but after the stack has already been modified",
-          "timestamp": "2024-12-17T17:14:42-05:00",
-          "tree_id": "bd71c7a2e1cb3fc04df137e14dbf7807caa7e2e6",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/b8bdb529719c1f72244e904ea667462458a43317"
-        },
-        "date": 1734476721724,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "nativeClientIVCBench/Ambient_17_in_20/6",
-            "value": 25644.359549,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 19862.703634999998 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeClientIVCBench/Full/6",
-            "value": 24815.773396999986,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 22861.514854999998 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 4514.9682639999755,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 4231.020416999999 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmClientIVCBench/Full/6",
-            "value": 91875.45447,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 91875455000 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 16689.201242,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 16689202000 ms\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 2841293749,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 2841293749 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 135609740,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 135609740 ns\nthreads: 1"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -3276,6 +3210,72 @@ window.BENCHMARK_DATA = {
             "value": 145031539,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 145031539 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "fcarreiro@users.noreply.github.com",
+            "name": "Facundo",
+            "username": "fcarreiro"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "231f017d14c3d261b28ab19dcbdf368c561d0cc7",
+          "message": "feat(avm2): avm redesign init (#10906)\n\nThis is a redesign of the witgen/proving part of the AVM. There's still a lot of work to be done, but I have to merge at some point to let others contribute :). Most of the content is PoC, not supposed to be real.\n\nWe'll eventually have a doc explaining everything, but for now, some highlights:\n\n**Architecture**\n\nThe proving process is now divided in 3 parts:\n* Simulation (aka event generation): Intrinsically sequential. Executes bytecode and generates packed information (events) that summarize what happened. Examples would be a bytecode decomposition event, memory access event, etc. This part has no dependencies on BB or PIL beyond FF. It also has, in principle, no knowledge of the circuit or columns.\n* Trace generation: This part is parallelizable. The meat of it is translating events into columns in a (sparse!) trace. It is the glue between events and the circuit. It has knowledge of the columns, but not really about any relation or constrain (**) or PIL.\n* Constraining: This is parallelizable. It's the actual constraining/proving/check circuit. It's dependent on BB and the (currently) autogenerated relations from PIL. We convert the sparse trace to polynomials.\n\n**Possible future standalone simulation**\n\nHints and DB accesses: The simulation/witgen process has no knowledge of hints (so far). We define a DB interface which the simulation process uses. This DB is then \"seeded\" with hints. This means that in the future it should be possible to switch the DB to a real DB and things should \"just work™️\".\n\nI think we should try to follow this philosophy as much as possible and not rely on TS hints that we can compute ourselves.\n\nConfigurability: Other aspects of simulation are configurable. E.g., we can configure a fast simulation only variant that does no event generation and no bytecode hashing whereas for full proving you would do that (incurring in at least 25ms for a single bytecode hashing).\n\n**Philosophy**\n\nDependency injection is used everywhere (without framework). You'll see references stored in classes and may not like it, but it's actually working well. See https://www.youtube.com/watch?v=kCYo2gJ3Y38 as well.\n\nThere are lots of interfaces for mocking. Blame C++ 🤷 .\n\nI'm making it a priority to have the right separation of concerns and engineering practices. There's zero tolerance on hacks. If we need a hack, we trigger a refactor.\n\n**Testing**\n\nWhereas before our tests required setting up everything and basically do full proving or check circuit, now everything can be tested separately. We use a mockist approach (common in C++). Our old tests would take ~0.5s each, now they take microseconds. Simulation, tracegen, and constraining can be tested separate from each other. In particular, you can create tests for constraints at the relation or subrelation level.\n\n**Lookups/permutations**\n\nNot really supported yet. But you don't need to keep counts for lookups.\n\n**TS/C++ communication**\n\nAVM inputs are now (de)serialized with messagepack.\n\n(**) It does require lookup/permutation settings.",
+          "timestamp": "2025-01-11T20:55:45Z",
+          "tree_id": "8f4ae741e32d0a2cb5fb1ef81efd6ce4d8745daf",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/231f017d14c3d261b28ab19dcbdf368c561d0cc7"
+        },
+        "date": 1736629928863,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Ambient_17_in_20/6",
+            "value": 19726.704048999978,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 16905.705488 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 21543.202395000037,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 18804.36867 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 4667.03118800001,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 4268.412715000001 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 81955.39306799999,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 81955394000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 14143.177046999997,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 14143178000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 3337463545,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 3337463545 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 155250859,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 155250859 ns\nthreads: 1"
           }
         ]
       }
