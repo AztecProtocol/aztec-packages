@@ -1,5 +1,32 @@
 # Changelog
 
+## [0.69.1](https://github.com/AztecProtocol/aztec-packages/compare/barretenberg-v0.69.0...barretenberg-v0.69.1) (2025-01-08)
+
+
+### Features
+
+* Acir formal proofs ([#10973](https://github.com/AztecProtocol/aztec-packages/issues/10973)) ([1cb7cd7](https://github.com/AztecProtocol/aztec-packages/commit/1cb7cd78d089fd1e2706d9d5993b6115bcdd6a84))
+* Derive transcript structure between non-zk and zk flavors and between Ultra and UltraKeccak ([#11086](https://github.com/AztecProtocol/aztec-packages/issues/11086)) ([48286c6](https://github.com/AztecProtocol/aztec-packages/commit/48286c671a61dbe18e5f8e0c44e71ab6c3fd109a))
+* Fix commitments and openings of masking polynomials used in zk sumcheck  ([#10773](https://github.com/AztecProtocol/aztec-packages/issues/10773)) ([fc48dcc](https://github.com/AztecProtocol/aztec-packages/commit/fc48dcca537fa790ed6866ad4e184cb89c2617a2))
+* Improve witness generation for cycle_group::batch_mul ([#9563](https://github.com/AztecProtocol/aztec-packages/issues/9563)) ([7da7f2b](https://github.com/AztecProtocol/aztec-packages/commit/7da7f2bb6c26a7c55a5869d21c3a5f546880a001))
+
+
+### Bug Fixes
+
+* Add bytecode instances in reverse ([#11064](https://github.com/AztecProtocol/aztec-packages/issues/11064)) ([036496c](https://github.com/AztecProtocol/aztec-packages/commit/036496ce7496132b7376c9a6708a9a6ed460771d))
+* Reset pc to 0 for next enqueued call in avm witgen ([#11043](https://github.com/AztecProtocol/aztec-packages/issues/11043)) ([44e4816](https://github.com/AztecProtocol/aztec-packages/commit/44e481650e99de0bcae6e5299413e12cb15227b9))
+* Update requests per call should be less than per tx ([#11072](https://github.com/AztecProtocol/aztec-packages/issues/11072)) ([da5e95f](https://github.com/AztecProtocol/aztec-packages/commit/da5e95ffab1694bad22817edd9abdf8e48c992ca))
+
+
+### Miscellaneous
+
+* **avm:** Handle specific MSM errors ([#11068](https://github.com/AztecProtocol/aztec-packages/issues/11068)) ([a5097a9](https://github.com/AztecProtocol/aztec-packages/commit/a5097a994e7ecc0be2b6c7d7b320bd7bad5a27a0)), closes [#10854](https://github.com/AztecProtocol/aztec-packages/issues/10854)
+* **avm:** More column information in permutations ([#11070](https://github.com/AztecProtocol/aztec-packages/issues/11070)) ([8829f24](https://github.com/AztecProtocol/aztec-packages/commit/8829f2421238945f042338bac0c9e7342517248b))
+* Clean up proof lengths and IPA ([#11020](https://github.com/AztecProtocol/aztec-packages/issues/11020)) ([800c834](https://github.com/AztecProtocol/aztec-packages/commit/800c83475c2b23ac6cf501c998f7c57b3803ad8f))
+* Fix write_recursion_inputs flow in bootstrap ([#11080](https://github.com/AztecProtocol/aztec-packages/issues/11080)) ([cd5a615](https://github.com/AztecProtocol/aztec-packages/commit/cd5a615f154446878cb8681d70b9e55c14511690))
+* Restore `prove_then_verify` test on `verify_rollup_honk_proof` ([#11018](https://github.com/AztecProtocol/aztec-packages/issues/11018)) ([79e289d](https://github.com/AztecProtocol/aztec-packages/commit/79e289d4c77c36e847851ec2a910ed0bc122d307))
+* Unify honk verifier contracts ([#11067](https://github.com/AztecProtocol/aztec-packages/issues/11067)) ([9968849](https://github.com/AztecProtocol/aztec-packages/commit/9968849f1e3680ad26edb174d81693f0ced0edd4))
+
 ## [0.69.0](https://github.com/AztecProtocol/aztec-packages/compare/barretenberg-v0.68.2...barretenberg-v0.69.0) (2025-01-03)
 
 

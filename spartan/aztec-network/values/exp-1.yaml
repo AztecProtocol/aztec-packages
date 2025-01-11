@@ -1,6 +1,9 @@
 network:
   public: false
 
+storage:
+  localSsd: true
+
 aztec:
   slotDuration: 36
   epochDuration: 32
@@ -15,7 +18,7 @@ images:
     pullPolicy: Always
 
 validator:
-  storageSize: "100Gi"
+  storageSize: "300Gi"
   replicas: 48
   validatorKeys:
     - 0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80
@@ -117,13 +120,15 @@ validator:
     - 0x3c3E2E178C69D4baD964568415a0f0c84fd6320A
   resources:
     requests:
-      memory: "8Gi"
-      cpu: "3.5"
+      memory: "5Gi"
+      cpu: "1.5"
+      ephemeral-storage: "275Gi"
+  maxOldSpaceSize: "4608"
   validator:
     disabled: false
   sequencer:
-    maxTxsPerBlock: 36
-    enforceTimeTable: false
+    maxTxsPerBlock: 40
+    enforceTimeTable: true
 
 bootNode:
   peerIdPrivateKey: 080212200ba8451c6d62b03c4441f0a466c0bce7a3a595f2cf50a055ded3305c77aa3af0
@@ -132,8 +137,10 @@ bootNode:
     disabled: true
   resources:
     requests:
-      memory: "8Gi"
-      cpu: "3.5"
+      memory: "5Gi"
+      cpu: "1.5"
+      ephemeral-storage: "275Gi"
+  maxOldSpaceSize: "4608"
 
 proverAgent:
   replicas: 8
@@ -141,14 +148,18 @@ proverAgent:
 proverBroker:
   resources:
     requests:
-      memory: "8Gi"
+      memory: "12Gi"
       cpu: "3.5"
+      ephemeral-storage: "275Gi"
+  maxOldSpaceSize: "11776"
 
 proverNode:
   resources:
     requests:
-      memory: "8Gi"
+      memory: "12Gi"
       cpu: "3.5"
+      ephemeral-storage: "275Gi"
+  maxOldSpaceSize: "11776"
 
 bot:
   replicas: 10
@@ -163,5 +174,5 @@ jobs:
 ethereum:
   resources:
     requests:
-      memory: "8Gi"
-      cpu: "3.5"
+      memory: "5Gi"
+      cpu: "1.5"

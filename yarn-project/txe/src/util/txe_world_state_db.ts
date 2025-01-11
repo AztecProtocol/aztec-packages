@@ -7,7 +7,7 @@ import {
   type PublicDataTreeLeafPreimage,
 } from '@aztec/circuits.js';
 import { computePublicDataTreeLeafSlot } from '@aztec/circuits.js/hash';
-import { WorldStateDB } from '@aztec/simulator';
+import { WorldStateDB } from '@aztec/simulator/server';
 
 export class TXEWorldStateDB extends WorldStateDB {
   constructor(private merkleDb: MerkleTreeWriteOperations, dataSource: ContractDataSource) {

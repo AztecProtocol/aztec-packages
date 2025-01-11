@@ -99,6 +99,11 @@ export class Proof {
       this.buffer.length === EMPTY_PROOF_SIZE && this.buffer.every(byte => byte === 0) && this.numPublicInputs === 0
     );
   }
+
+  /** Returns an empty proof. */
+  static empty() {
+    return makeEmptyProof();
+  }
 }
 
 /**

@@ -47,7 +47,7 @@ function build {
       end-to-end/src/web/{main.js,main.js.LICENSE.txt} \
       ivc-integration/src/types/ \
       noir-contracts.js/{codegenCache.json,src/} \
-      noir-protocol-circuits-types/src/{private_kernel_reset_data.ts,types/} \
+      noir-protocol-circuits-types/src/{private_kernel_reset_data.ts,private_kernel_reset_vks.ts,private_kernel_reset_types.ts,client_artifacts_helper.ts,types/} \
       pxe/src/config/package_info.ts \
       protocol-contracts/src/protocol_contract_data.ts
     echo

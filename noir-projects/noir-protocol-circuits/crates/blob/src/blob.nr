@@ -223,67 +223,69 @@ fn barycentric_evaluate_blob_at_z(z: F, ys: [F; FIELDS_PER_BLOB]) -> F {
         __compute_partial_sums(fracs)
     };
 
-    // We split off the first term to check the initial sum
+    if !std::runtime::is_unconstrained() {
+        // We split off the first term to check the initial sum
 
-    //    partial_sums[0] <- (lhs[0] * rhs[0] + ... + lhs[7] * rhs[7])
-    // => (lhs[0] * rhs[0] + ... + lhs[7] * rhs[7]) - partial_sums[0] == 0
-    let lhs = [
-        [ROOTS[0]], [ROOTS[1]], [ROOTS[2]], [ROOTS[3]], [ROOTS[4]], [ROOTS[5]], [ROOTS[6]],
-        [ROOTS[7]],
-    ];
-    let rhs = [
-        [fracs[0]], [fracs[1]], [fracs[2]], [fracs[3]], [fracs[4]], [fracs[5]], [fracs[6]],
-        [fracs[7]],
-    ];
-    BigNum::evaluate_quadratic_expression(
-        lhs,
-        [[false], [false], [false], [false], [false], [false], [false], [false]],
-        rhs,
-        [[false], [false], [false], [false], [false], [false], [false], [false]],
-        [partial_sums[0]],
-        [true],
-    );
-    for i in 1..NUM_PARTIAL_SUMS {
-        // Seeking:
-        //                    ___i*8 - 1              ___i*8 + 7
-        //                    \            omega^i        \            /    y_k    \
-        //      sum_out   =   /   y_i . ---------  +  /     omega^k . |  ---------  |
-        //                   /____       z - omega^i     /____         \  z - omega^k  /
-        //                       0                    k = i*8
-        //                   ^^^^^^^^^^^^^^^^^^^^    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-        //                          sum                         partial_sum
-        //
-        // ... that is:
-        //
-        //                    ___i*8 - 1              ___ 7
-        //                    \            omega^i        \
-        //      sum_out   =   /   y_i . ---------  +  /   lhs[j] . rhs[j]
-        //                   /____       z - omega^i     /____
-        //                       0                    j = 0
-        //                   ^^^^^^^^^^^^^^^^^^^^    ^^^^^^^^^^^^^^^^^^^^
-        //                          sum                   partial_sum
-        //
-
-        let mut lhs: [[F; 1]; 8] = [std::mem::zeroed(); 8];
-        let mut rhs: [[F; 1]; 8] = [std::mem::zeroed(); 8];
-        for j in 0..8 {
-            let k = i * 8 + j;
-            lhs[j] = [ROOTS[k]]; // omega^k
-            rhs[j] = [fracs[k]]; // y_k / (z - omega^k)
-        }
-
-        let linear_terms = [partial_sums[i - 1], partial_sums[i]];
-
-        //    partial_sums[i] <- partial_sums[i-1] + (lhs[8*i] * rhs[8*i] + ... + lhs[8*i + 7] * rhs[8*i + 7])
-        // => (lhs[8*i] * rhs[8*i] + ... + lhs[8*i + 7] * rhs[8*i + 7]) + partial_sums[i-1] - partial_sums[i] == 0
+        //    partial_sums[0] <- (lhs[0] * rhs[0] + ... + lhs[7] * rhs[7])
+        // => (lhs[0] * rhs[0] + ... + lhs[7] * rhs[7]) - partial_sums[0] == 0
+        let lhs = [
+            [ROOTS[0]], [ROOTS[1]], [ROOTS[2]], [ROOTS[3]], [ROOTS[4]], [ROOTS[5]], [ROOTS[6]],
+            [ROOTS[7]],
+        ];
+        let rhs = [
+            [fracs[0]], [fracs[1]], [fracs[2]], [fracs[3]], [fracs[4]], [fracs[5]], [fracs[6]],
+            [fracs[7]],
+        ];
         BigNum::evaluate_quadratic_expression(
             lhs,
             [[false], [false], [false], [false], [false], [false], [false], [false]],
             rhs,
             [[false], [false], [false], [false], [false], [false], [false], [false]],
-            linear_terms,
-            [false, true],
+            [partial_sums[0]],
+            [true],
         );
+        for i in 1..NUM_PARTIAL_SUMS {
+            // Seeking:
+            //                    ___i*8 - 1              ___i*8 + 7
+            //                    \            omega^i        \            /    y_k    \
+            //      sum_out   =   /   y_i . ---------  +  /     omega^k . |  ---------  |
+            //                   /____       z - omega^i     /____         \  z - omega^k  /
+            //                       0                    k = i*8
+            //                   ^^^^^^^^^^^^^^^^^^^^    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+            //                          sum                         partial_sum
+            //
+            // ... that is:
+            //
+            //                    ___i*8 - 1              ___ 7
+            //                    \            omega^i        \
+            //      sum_out   =   /   y_i . ---------  +  /   lhs[j] . rhs[j]
+            //                   /____       z - omega^i     /____
+            //                       0                    j = 0
+            //                   ^^^^^^^^^^^^^^^^^^^^    ^^^^^^^^^^^^^^^^^^^^
+            //                          sum                   partial_sum
+            //
+
+            //    partial_sums[i] <- partial_sums[i-1] + (lhs[8*i] * rhs[8*i] + ... + lhs[8*i + 7] * rhs[8*i + 7])
+            // => (lhs[8*i] * rhs[8*i] + ... + lhs[8*i + 7] * rhs[8*i + 7]) + partial_sums[i-1] - partial_sums[i] == 0
+            let mut lhs: [[F; 1]; 8] = [std::mem::zeroed(); 8];
+            let mut rhs: [[F; 1]; 8] = [std::mem::zeroed(); 8];
+            for j in 0..8 {
+                let k = i * 8 + j;
+                lhs[j] = [ROOTS[k]]; // omega^k
+                rhs[j] = [fracs[k]]; // y_k / (z - omega^k)
+            }
+
+            let linear_terms = [partial_sums[i - 1], partial_sums[i]];
+
+            BigNum::evaluate_quadratic_expression(
+                lhs,
+                [[false], [false], [false], [false], [false], [false], [false], [false]],
+                rhs,
+                [[false], [false], [false], [false], [false], [false], [false], [false]],
+                linear_terms,
+                [false, true],
+            );
+        }
     }
 
     let factor = compute_factor(z);
@@ -313,14 +315,16 @@ fn compute_factor(z: F) -> F {
 
     // (z_pow_d - one) * (D_INV) - factor = 0
     // z_pow_d * D_INV - D_INV - factor = 0
-    BigNum::evaluate_quadratic_expression(
-        [[z_pow_d]],
-        [[false]],
-        [[D_INV]],
-        [[false]],
-        [factor, D_INV],
-        [true, true],
-    );
+    if !std::runtime::is_unconstrained() {
+        BigNum::evaluate_quadratic_expression(
+            [[z_pow_d]],
+            [[false]],
+            [[D_INV]],
+            [[false]],
+            [factor, D_INV],
+            [true, true],
+        );
+    }
 
     // This version doesn't work:
     // BigNum::evaluate_quadratic_expression(
@@ -359,17 +363,19 @@ fn compute_fracs(z: F, ys: [F; FIELDS_PER_BLOB]) -> [F; FIELDS_PER_BLOB] {
         __compute_fracs(z, ys)
     };
 
-    for i in 0..FIELDS_PER_BLOB {
-        // frac <-- ys[i] / (z + neg_roots[i])
-        // frac * (z + neg_roots[i]) - ys[i] = 0
-        BigNum::evaluate_quadratic_expression(
-            [[fracs[i]]],
-            [[false]],
-            [[z, ROOTS[i].neg()]],
-            [[false, false]],
-            [ys[i]],
-            [true],
-        );
+    if !std::runtime::is_unconstrained() {
+        for i in 0..FIELDS_PER_BLOB {
+            // frac <-- ys[i] / (z + neg_roots[i])
+            // frac * (z + neg_roots[i]) - ys[i] = 0
+            BigNum::evaluate_quadratic_expression(
+                [[fracs[i]]],
+                [[false]],
+                [[z, ROOTS[i].neg()]],
+                [[false, false]],
+                [ys[i]],
+                [true],
+            );
+        }
     }
 
     fracs
@@ -443,7 +449,7 @@ mod tests {
             field_to_bignum,
         },
         blob_public_inputs::BlobCommitment,
-        config::{D, D_INV, F, LOG_FIELDS_PER_BLOB},
+        config::{D, D_INV, F},
     };
     use bigint::{BigNum, fields::bls12_381Fr::BLS12_381_Fr_Params};
     use types::{
@@ -452,30 +458,12 @@ mod tests {
         tests::{fixture_builder::FixtureBuilder, utils::pad_end},
     };
 
-    // Helper to return (z^d - 1)/d (unsafe - test only)
-    fn z_d_helper(challenge_z: F) -> F {
-        let mut t1 = unsafe { challenge_z.__mul(challenge_z) };
-        let mut t2: F = BigNum::new();
-        for _i in 0..LOG_FIELDS_PER_BLOB - 1 {
-            t2 = unsafe { t1.__mul(t1) };
-            t1 = t2;
-        }
-
-        let z_pow_d = t1;
-
-        let one: F = BigNum::one();
-
-        t1 = unsafe { z_pow_d.__sub(one) };
-        let factor = unsafe { t1.__mul(D_INV) };
-        factor
-    }
-
     #[test]
     unconstrained fn test_one_note() {
         let mut tx_data = FixtureBuilder::new();
         tx_data.add_new_note_hash(1);
         let mut blob: [Field; FIELDS_PER_BLOB] = [0; FIELDS_PER_BLOB];
-        let blob_fields = tx_data.to_combined_accumulated_data().serialize();
+        let blob_fields = tx_data.to_private_to_rollup_accumulated_data().serialize();
         for i in 0..blob_fields.len() {
             blob[i] = blob_fields[i];
         }
@@ -501,7 +489,7 @@ mod tests {
         //* p(z).(z - 1) = ---------
         //*                    d
         //
-        let rhs = z_d_helper(challenge_z);
+        let rhs = super::compute_factor(challenge_z);
         let z_minus_1 = unsafe { challenge_z.__sub(BigNum::one()) };
         let lhs = y.__mul(z_minus_1);
         assert_eq(lhs, rhs);
@@ -520,7 +508,7 @@ mod tests {
         tx_data.append_l2_to_l1_msgs(5);
         tx_data.append_unencrypted_log_hashes(5);
         let mut blob: [Field; FIELDS_PER_BLOB] = [0; FIELDS_PER_BLOB];
-        let blob_fields = tx_data.to_combined_accumulated_data().serialize();
+        let blob_fields = tx_data.to_private_to_rollup_accumulated_data().serialize();
         for i in 0..blob_fields.len() {
             blob[i] = blob_fields[i];
         }

@@ -7,7 +7,7 @@ import {
   type SimulationError,
   type Tx,
   TxExecutionPhase,
-  TxHash,
+  type TxHash,
 } from '@aztec/circuit-types';
 import {
   AvmCircuitInputs,
@@ -61,6 +61,7 @@ export class PublicTxContext {
   public avmProvingRequest: AvmProvingRequest | undefined; // FIXME(dbanks12): remove
 
   constructor(
+    public readonly txHash: TxHash,
     public readonly state: PhaseStateManager,
     private readonly globalVariables: GlobalVariables,
     private readonly startStateReference: StateReference,
@@ -103,12 +104,14 @@ export class PublicTxContext {
       previousAccumulatedDataArrayLengths,
     );
 
+    const firstNullifier = nonRevertibleAccumulatedDataFromPrivate.nullifiers[0];
+
     // Transaction level state manager that will be forked for revertible phases.
     const txStateManager = await AvmPersistableStateManager.create(
       worldStateDB,
       enqueuedCallTrace,
       doMerkleOperations,
-      fetchTxHash(nonRevertibleAccumulatedDataFromPrivate),
+      firstNullifier,
     );
 
     const gasSettings = tx.data.constants.txContext.gasSettings;
@@ -117,6 +120,7 @@ export class PublicTxContext {
     const gasAllocatedToPublic = applyMaxToAvailableGas(gasSettings.gasLimits.sub(gasUsedByPrivate));
 
     return new PublicTxContext(
+      tx.getTxHash(),
       new PhaseStateManager(txStateManager),
       globalVariables,
       await db.getStateReference(),
@@ -186,14 +190,6 @@ export class PublicTxContext {
   getFinalRevertCode(): RevertCode {
     assert(this.halted, 'Cannot know the final revert code until tx execution ends');
     return this.revertCode;
-  }
-
-  /**
-   * Construct & return transaction hash.
-   * @returns The transaction's hash.
-   */
-  getTxHash(): TxHash {
-    return fetchTxHash(this.nonRevertibleAccumulatedDataFromPrivate);
   }
 
   /**
@@ -451,13 +447,4 @@ function applyMaxToAvailableGas(availableGas: Gas) {
     /*daGas=*/ availableGas.daGas,
     /*l2Gas=*/ Math.min(availableGas.l2Gas, MAX_L2_GAS_PER_TX_PUBLIC_PORTION),
   );
-}
-
-function fetchTxHash(nonRevertibleAccumulatedData: PrivateToPublicAccumulatedData): TxHash {
-  // Private kernel functions are executed client side and for this reason tx hash is already set as first nullifier
-  const firstNullifier = nonRevertibleAccumulatedData.nullifiers[0];
-  if (!firstNullifier || firstNullifier.isZero()) {
-    throw new Error(`Cannot get tx hash since first nullifier is missing`);
-  }
-  return new TxHash(firstNullifier.toBuffer());
 }

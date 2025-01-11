@@ -95,7 +95,7 @@ size_t UltraCircuit::handle_arithmetic_relation(size_t cursor, size_t idx)
         return cursor + 1;
     }
 
-    STerm res = this->symbolic_vars[0];
+    STerm res = this->symbolic_vars[this->variable_names_inverse["zero"]];
     static const bb::fr neg_half = bb::fr(-2).invert();
 
     if (!q_arith.is_zero()) {

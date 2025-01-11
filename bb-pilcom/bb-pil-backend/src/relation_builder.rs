@@ -215,7 +215,7 @@ fn create_identity<F: FieldElement>(
     label: &Option<String>,
     indexed_aliases: &HashMap<&String, &AlgebraicExpression<F>>,
 ) -> Option<BBIdentity> {
-    // We want to read the types of operators and then create the appropiate code
+    // We want to read the types of operators and then create the appropriate code
     if let Some(expr) = &expression.selector {
         let (degree, id, col_aliases) = recurse_expression(expr, indexed_aliases, false);
         collected_aliases.extend(col_aliases);

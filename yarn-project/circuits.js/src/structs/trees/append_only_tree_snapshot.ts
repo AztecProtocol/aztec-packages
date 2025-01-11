@@ -88,4 +88,8 @@ export class AppendOnlyTreeSnapshot {
   public equals(other: this) {
     return this.root.equals(other.root) && this.nextAvailableLeafIndex === other.nextAvailableLeafIndex;
   }
+
+  static random() {
+    return new AppendOnlyTreeSnapshot(Fr.random(), Math.floor(Math.random() * 1000));
+  }
 }

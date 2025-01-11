@@ -6,17 +6,18 @@ import {
   type Gossipable,
   type L2BlockSource,
   MerkleTreeId,
+  P2PClientType,
   PeerErrorSeverity,
   type PeerInfo,
   type RawGossipMessage,
   TopicTypeMap,
   Tx,
   TxHash,
+  type TxValidationResult,
   type WorldStateSynchronizer,
   getTopicTypeForClientType,
   metricsTopicStrToLabels,
 } from '@aztec/circuit-types';
-import { P2PClientType } from '@aztec/circuit-types';
 import { Fr } from '@aztec/circuits.js';
 import { type EpochCache } from '@aztec/epoch-cache';
 import { createLogger } from '@aztec/foundation/log';
@@ -73,14 +74,14 @@ import { GossipSubEvent } from '../types.js';
 
 interface MessageValidator {
   validator: {
-    validateTx(tx: Tx): Promise<boolean>;
+    validateTx(tx: Tx): Promise<TxValidationResult>;
   };
   severity: PeerErrorSeverity;
 }
 
 interface ValidationResult {
   name: string;
-  isValid: boolean;
+  isValid: TxValidationResult;
   severity: PeerErrorSeverity;
 }
 
@@ -568,7 +569,7 @@ export class LibP2PService<T extends P2PClientType> extends WithTracer implement
       return false;
     }
 
-    if (!validProof) {
+    if (validProof.result === 'invalid') {
       // If the proof is invalid, but the txHash is correct, then this is an active attack and we severly punish
       this.peerManager.penalizePeer(peerId, PeerErrorSeverity.LowToleranceError);
       return false;
@@ -704,9 +705,10 @@ export class LibP2PService<T extends P2PClientType> extends WithTracer implement
       },
       doubleSpendValidator: {
         validator: new DoubleSpendTxValidator({
-          getNullifierIndices: (nullifiers: Buffer[]) => {
+          nullifiersExist: async (nullifiers: Buffer[]) => {
             const merkleTree = this.worldStateSynchronizer.getCommitted();
-            return merkleTree.findLeafIndices(MerkleTreeId.NULLIFIER_TREE, nullifiers);
+            const indices = await merkleTree.findLeafIndices(MerkleTreeId.NULLIFIER_TREE, nullifiers);
+            return indices.map(index => index !== undefined);
           },
         }),
         severity: PeerErrorSeverity.HighToleranceError,
@@ -725,8 +727,8 @@ export class LibP2PService<T extends P2PClientType> extends WithTracer implement
     messageValidators: Record<string, MessageValidator>,
   ): Promise<ValidationOutcome> {
     const validationPromises = Object.entries(messageValidators).map(async ([name, { validator, severity }]) => {
-      const isValid = await validator.validateTx(tx);
-      return { name, isValid, severity };
+      const { result } = await validator.validateTx(tx);
+      return { name, isValid: result === 'valid', severity };
     });
 
     // A promise that resolves when all validations have been run
@@ -767,16 +769,17 @@ export class LibP2PService<T extends P2PClientType> extends WithTracer implement
     }
 
     const snapshotValidator = new DoubleSpendTxValidator({
-      getNullifierIndices: (nullifiers: Buffer[]) => {
+      nullifiersExist: async (nullifiers: Buffer[]) => {
         const merkleTree = this.worldStateSynchronizer.getSnapshot(
           blockNumber - this.config.severePeerPenaltyBlockLength,
         );
-        return merkleTree.findLeafIndices(MerkleTreeId.NULLIFIER_TREE, nullifiers);
+        const indices = await merkleTree.findLeafIndices(MerkleTreeId.NULLIFIER_TREE, nullifiers);
+        return indices.map(index => index !== undefined);
       },
     });
 
     const validSnapshot = await snapshotValidator.validateTx(tx);
-    if (!validSnapshot) {
+    if (validSnapshot.result !== 'valid') {
       this.peerManager.penalizePeer(peerId, PeerErrorSeverity.LowToleranceError);
       return false;
     }

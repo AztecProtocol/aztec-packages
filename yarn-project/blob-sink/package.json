@@ -3,7 +3,8 @@
   "version": "0.1.0",
   "type": "module",
   "exports": {
-    ".": "./dest/index.js"
+    "./server": "./dest/server/index.js",
+    "./client": "./dest/client/index.js"
   },
   "inherits": [
     "../package.common.json"

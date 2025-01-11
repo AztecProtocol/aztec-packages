@@ -58,30 +58,32 @@ import {
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { poseidon2Hash } from '@aztec/foundation/crypto';
 import { Fr } from '@aztec/foundation/fields';
-import { type Logger, applyStringFormatting } from '@aztec/foundation/log';
+import { type LogFn, type Logger, applyStringFormatting, createDebugOnlyLogger } from '@aztec/foundation/log';
 import { Timer } from '@aztec/foundation/timer';
 import { type KeyStore } from '@aztec/key-store';
 import { ContractDataOracle, SimulatorOracle, enrichPublicSimulationError } from '@aztec/pxe';
 import {
-  ExecutionError,
   ExecutionNoteCache,
   type MessageLoadOracleInputs,
   type NoteData,
   Oracle,
-  type PackedValuesCache,
-  type PublicTxResult,
-  PublicTxSimulator,
   type TypedOracle,
-  acvm,
-  createSimulationError,
+  WASMSimulator,
   extractCallStack,
   extractPrivateCircuitPublicInputs,
   pickNotes,
-  resolveAssertionMessageFromError,
   toACVMWitness,
   witnessMapToFields,
-} from '@aztec/simulator';
+} from '@aztec/simulator/client';
 import { createTxForPublicCall } from '@aztec/simulator/public/fixtures';
+import {
+  ExecutionError,
+  type PackedValuesCache,
+  type PublicTxResult,
+  PublicTxSimulator,
+  createSimulationError,
+  resolveAssertionMessageFromError,
+} from '@aztec/simulator/server';
 import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
 import { MerkleTreeSnapshotOperationsFacade, type MerkleTrees } from '@aztec/world-state';
 
@@ -116,6 +118,10 @@ export class TXE implements TypedOracle {
 
   private node = new TXENode(this.blockNumber);
 
+  private simulationProvider = new WASMSimulator();
+
+  debug: LogFn;
+
   constructor(
     private logger: Logger,
     private trees: MerkleTrees,
@@ -128,7 +134,15 @@ export class TXE implements TypedOracle {
     this.contractAddress = AztecAddress.random();
     // Default msg_sender (for entrypoints) is now Fr.max_value rather than 0 addr (see #7190 & #7404)
     this.msgSender = AztecAddress.fromField(Fr.MAX_FIELD_VALUE);
-    this.simulatorOracle = new SimulatorOracle(this.contractDataOracle, txeDatabase, keyStore, this.node);
+    this.simulatorOracle = new SimulatorOracle(
+      this.contractDataOracle,
+      txeDatabase,
+      keyStore,
+      this.node,
+      this.simulationProvider,
+    );
+
+    this.debug = createDebugOnlyLogger('aztec:kv-pxe-database');
   }
 
   // Utils
@@ -649,7 +663,7 @@ export class TXE implements TypedOracle {
     // index = await (await this.trees.getLatest()).findLeafIndex(MerkleTreeId.NULLIFIER_TREE, Fr.random().toBuffer());
     // console.log('INDEX OF RANDOM', index);
 
-    this.node.setTxEffect(blockNumber, new TxHash(new Fr(blockNumber).toBuffer()), txEffect);
+    this.node.setTxEffect(blockNumber, new TxHash(new Fr(blockNumber)), txEffect);
     this.node.setNullifiersIndexesWithBlock(blockNumber, txEffect.nullifiers);
     this.node.addNoteLogsByTags(this.blockNumber, this.privateLogs);
     this.node.addPublicLogsByTags(this.blockNumber, this.publicLogs);
@@ -697,21 +711,23 @@ export class TXE implements TypedOracle {
     const initialWitness = await this.getInitialWitness(artifact, argsHash, sideEffectCounter, isStaticCall);
     const acvmCallback = new Oracle(this);
     const timer = new Timer();
-    const acirExecutionResult = await acvm(acir, initialWitness, acvmCallback).catch((err: Error) => {
-      err.message = resolveAssertionMessageFromError(err, artifact);
+    const acirExecutionResult = await this.simulationProvider
+      .executeUserCircuit(acir, initialWitness, acvmCallback)
+      .catch((err: Error) => {
+        err.message = resolveAssertionMessageFromError(err, artifact);
 
-      const execError = new ExecutionError(
-        err.message,
-        {
-          contractAddress: targetContractAddress,
-          functionSelector,
-        },
-        extractCallStack(err, artifact.debug),
-        { cause: err },
-      );
-      this.logger.debug(`Error executing private function ${targetContractAddress}:${functionSelector}`);
-      throw createSimulationError(execError);
-    });
+        const execError = new ExecutionError(
+          err.message,
+          {
+            contractAddress: targetContractAddress,
+            functionSelector,
+          },
+          extractCallStack(err, artifact.debug),
+          { cause: err },
+        );
+        this.logger.debug(`Error executing private function ${targetContractAddress}:${functionSelector}`);
+        throw createSimulationError(execError);
+      });
     const duration = timer.ms();
     const publicInputs = extractPrivateCircuitPublicInputs(artifact, acirExecutionResult.partialWitness);
 
@@ -1050,5 +1066,38 @@ export class TXE implements TypedOracle {
     )) as PublicDataTreeLeafPreimage;
 
     return preimage.value;
+  }
+
+  /**
+   * Used by contracts during execution to store arbitrary data in the local PXE database. The data is siloed/scoped
+   * to a specific `contract`.
+   * @param contract - The contract address to store the data under.
+   * @param key - A field element representing the key to store the data under.
+   * @param values - An array of field elements representing the data to store.
+   */
+  store(contract: AztecAddress, key: Fr, values: Fr[]): Promise<void> {
+    if (!contract.equals(this.contractAddress)) {
+      // TODO(#10727): instead of this check check that this.contractAddress is allowed to process notes for contract
+      throw new Error(
+        `Contract address ${contract} does not match the oracle's contract address ${this.contractAddress}`,
+      );
+    }
+    return this.txeDatabase.store(this.contractAddress, key, values);
+  }
+
+  /**
+   * Used by contracts during execution to load arbitrary data from the local PXE database. The data is siloed/scoped
+   * to a specific `contract`.
+   * @param contract - The contract address to load the data from.
+   * @param key - A field element representing the key under which to load the data..
+   * @returns An array of field elements representing the stored data or `null` if no data is stored under the key.
+   */
+  load(contract: AztecAddress, key: Fr): Promise<Fr[] | null> {
+    if (!contract.equals(this.contractAddress)) {
+      // TODO(#10727): instead of this check check that this.contractAddress is allowed to process notes for contract
+      this.debug(`Data not found for contract ${contract.toString()} and key ${key.toString()}`);
+      return Promise.resolve(null);
+    }
+    return this.txeDatabase.load(this.contractAddress, key);
   }
 }
