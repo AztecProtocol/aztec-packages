@@ -1,0 +1,35 @@
+# A tiny stdlib of useful functions that don't warrant having their own file.
+
+function hash_str {
+  set -eu
+  echo $1 | git hash-object --stdin | cut -c1-16 | tr -d '\n'
+}
+
+function echo_stderr {
+  echo $@ >&2
+}
+
+function uuid {
+  dd if=/dev/urandom count=8 bs=1 status=none | xxd -p
+}
+
+function get_num_cpus {
+  if [ -f /sys/fs/cgroup/cpu.max ]; then
+    read cpu_quota cpu_period < /sys/fs/cgroup/cpu.max
+    if [[ "$cpu_quota" == "max" ]]; then
+      nproc
+    else
+      echo $((cpu_quota / cpu_period))
+    fi
+  else
+    nproc
+  fi
+}
+
+function get_num_cpus_max {
+  local jobs=$(get_num_cpus)
+  [ -n "${1:-}" ] && [ "$1" -lt $jobs ] && jobs=$1
+  echo $jobs
+}
+
+export -f hash_str echo_stderr uuid get_num_cpus get_num_cpus_max

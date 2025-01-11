@@ -124,8 +124,12 @@ function test {
       while ! nc -z 127.0.0.1 $((45730 + i)) &>/dev/null; do sleep 1; done
   done
 
+  # We will start half as many jobs as we have cpu's.
+  # This is based on the slightly magic assumption that many tests can benefit from 2 cpus,
+  # and also that half the cpus are logical, not physical.
   echo "Gathering tests to run..."
-  test_cmds $@ | parallelise 64
+  local num_cpus=$(get_num_cpus)
+  test_cmds $@ | parallelise $((num_cpus / 2))
 }
 
 function build {

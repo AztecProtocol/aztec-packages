@@ -74,11 +74,11 @@ function process_function() {
     # Build hash, check if in cache.
     # If it's in the cache it's extracted to $tmp_dir/$hash
     hash=$((echo "$BB_HASH"; echo "$bytecode_b64") | sha256sum | tr -d ' -')
-    if ! cache_download vk-$hash.tar.gz &> /dev/null; then
+    if ! cache_download vk-$hash.tar.gz; then
       # It's not in the cache. Generate the vk file and upload it to the cache.
       echo_stderr "Generating vk for function: $name..."
       echo "$bytecode_b64" | base64 -d | gunzip | $BB write_vk_for_ivc -b - -o $tmp_dir/$hash 2>/dev/null
-      cache_upload vk-$hash.tar.gz $tmp_dir/$hash &> /dev/null
+      cache_upload vk-$hash.tar.gz $tmp_dir/$hash
     fi
 
     # Return (echo) json containing the base64 encoded verification key.
@@ -114,11 +114,11 @@ function compile {
   local filename="$contract-$contract_name.json"
   local json_path="./target/$filename"
   contract_hash=$(get_contract_hash $contract)
-  if ! cache_download contract-$contract_hash.tar.gz &> /dev/null; then
+  if ! cache_download contract-$contract_hash.tar.gz; then
     [ "${CI:-0}" -eq 1 ] && local args="--silence-warnings"
     $NARGO compile ${args:-} --package $contract --inliner-aggressiveness 0
     $TRANSPILER $json_path $json_path
-    cache_upload contract-$contract_hash.tar.gz $json_path &> /dev/null
+    cache_upload contract-$contract_hash.tar.gz $json_path
   fi
 
   # Pipe each contract function, one per line (jq -c), into parallel calls of process_function.
