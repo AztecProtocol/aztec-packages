@@ -9,7 +9,8 @@ key=$(hash_str "$cmd")
 if [ "${USE_TEST_CACHE:-0}" -eq 1 ]; then
   log_key=$(redis-cli --raw -h $CI_REDIS GET $key)
   if [ -n "$log_key" ]; then
-    echo -e "${yellow}SKIPPED${reset}${log_info:-}: $test_cmd"
+    log_info=" ${yellow}$log_key${reset}"
+    echo -e "${blue}SKIPPED${reset}${log_info:-}: $test_cmd"
     exit 0
   fi
 fi
