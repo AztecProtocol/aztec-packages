@@ -285,7 +285,6 @@ mod tests {
     use crate::abis::tx_effect::TxEffect;
     use dep::types::{
         abis::{
-            accumulated_data::PrivateToRollupAccumulatedData,
             append_only_tree_snapshot::AppendOnlyTreeSnapshot,
             constant_rollup_data::ConstantRollupData,
             nullifier_leaf_preimage::NullifierLeafPreimage, public_data_write::PublicDataWrite,

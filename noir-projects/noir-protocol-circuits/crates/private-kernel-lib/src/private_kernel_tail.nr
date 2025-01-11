@@ -83,6 +83,7 @@ mod tests {
             let mut previous_kernel = FixtureBuilder::new().in_vk_tree(PRIVATE_KERNEL_INNER_INDEX);
             previous_kernel.tx_context.gas_settings.gas_limits = Gas::new(1_000_000, 1_000_000);
             previous_kernel.set_first_nullifier();
+            previous_kernel.set_fee_payer(AztecAddress::from_field(234234));
             previous_kernel.is_private_only = true;
 
             PrivateKernelTailInputsBuilder { previous_kernel }
@@ -281,21 +282,6 @@ mod tests {
         builder.previous_kernel.tx_context.gas_settings.teardown_gas_limits = Gas::new(300, 300);
         builder.previous_kernel.tx_context.gas_settings.gas_limits = Gas::new(1, 1);
         builder.failed();
-    }
-
-    #[test]
-    fn propagate_fee_payer() {
-        // Check that we carry forward if the fee payer is already set
-        let mut builder = PrivateKernelTailInputsBuilder::new();
-        let fee_payer = AztecAddress::from_field(123);
-        builder.previous_kernel.fee_payer = fee_payer;
-        let public_inputs = builder.execute();
-        assert_eq(public_inputs.fee_payer, fee_payer);
-
-        // Check that the fee payer remains empty if unset
-        let mut builder = PrivateKernelTailInputsBuilder::new();
-        let public_inputs = builder.execute();
-        assert_eq(public_inputs.fee_payer, AztecAddress::empty());
     }
 
     #[test]

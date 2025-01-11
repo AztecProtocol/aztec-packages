@@ -179,26 +179,17 @@ impl PrivateBaseRollupInputs {
 
     fn build_fee_public_data_write(self, tx_fee: Field) -> PublicDataWrite {
         let fee_payer = self.tube_data.public_inputs.fee_payer;
+        let leaf_slot = compute_fee_payer_fee_juice_balance_leaf_slot(fee_payer);
 
-        if fee_payer.is_zero() {
-            PublicDataWrite::empty()
-        } else {
-            let read_hint = self.fee_payer_fee_juice_balance_read_hint;
-            let leaf_slot = compute_fee_payer_fee_juice_balance_leaf_slot(fee_payer);
+        let read_hint = self.fee_payer_fee_juice_balance_read_hint;
+        read_hint.validate(self.start.public_data_tree.root);
 
-            // Otherwise, build a new one to be inserted into the protocol update requests at the end of the array.
-            read_hint.validate(self.start.public_data_tree.root);
+        let balance = read_hint.value;
+        assert(read_hint.leaf_slot == leaf_slot, "Wrong leaf slot for Fee Juice balance read hint");
+        assert(!balance.lt(tx_fee), "Not enough balance for fee payer to pay for transaction");
 
-            let balance = read_hint.value;
-            assert(
-                read_hint.leaf_slot == leaf_slot,
-                "Wrong leaf slot for Fee Juice balance read hint",
-            );
-            assert(!balance.lt(tx_fee), "Not enough balance for fee payer to pay for transaction");
-
-            let value = compute_public_data_tree_value(balance - tx_fee);
-            PublicDataWrite { leaf_slot, value }
-        }
+        let value = compute_public_data_tree_value(balance - tx_fee);
+        PublicDataWrite { leaf_slot, value }
     }
 
     fn insert_fee_public_data_write(self, fee_write: PublicDataWrite) -> AppendOnlyTreeSnapshot {
@@ -241,8 +232,8 @@ mod tests {
             NOTE_HASH_SUBTREE_SIBLING_PATH_LENGTH, NOTE_HASH_TREE_HEIGHT, NOTES_PREFIX,
             NULLIFIER_SUBTREE_HEIGHT, NULLIFIER_SUBTREE_SIBLING_PATH_LENGTH, NULLIFIER_TREE_HEIGHT,
             NULLIFIERS_PREFIX, PRIVATE_LOG_SIZE_IN_FIELDS, PRIVATE_LOGS_PREFIX,
-            PUBLIC_DATA_TREE_HEIGHT, REVERT_CODE_PREFIX, TUBE_VK_INDEX, TX_FEE_PREFIX,
-            TX_START_PREFIX,
+            PUBLIC_DATA_TREE_HEIGHT, PUBLIC_DATA_UPDATE_REQUESTS_PREFIX, REVERT_CODE_PREFIX,
+            TUBE_VK_INDEX, TX_FEE_PREFIX, TX_START_PREFIX,
         },
         data::{public_data_hint::PublicDataHint, PublicDataTreeLeaf, PublicDataTreeLeafPreimage},
         hash::silo_l2_to_l1_message,
@@ -254,7 +245,6 @@ mod tests {
             fixtures::{self, merkle_tree::generate_full_sha_tree},
             merkle_tree_utils::NonEmptyMerkleTree,
         },
-        traits::{Empty, is_empty},
         utils::{
             arrays::{array_concat, get_sorted_tuple::get_sorted_tuple},
             field::{field_from_bytes, full_field_less_than},
@@ -274,51 +264,39 @@ mod tests {
     fn update_public_data_tree<let AVAILABLE_LEAVES: u32, let EXISTING_LEAVES: u32, let SUBTREE_SIBLING_PATH_LENGTH: u32, let SUBTREE_HEIGHT: u32>(
         public_data_tree: &mut NonEmptyMerkleTree<AVAILABLE_LEAVES, PUBLIC_DATA_TREE_HEIGHT, SUBTREE_SIBLING_PATH_LENGTH, SUBTREE_HEIGHT>,
         snapshot: AppendOnlyTreeSnapshot,
-        fee_write: (u32, PublicDataTreeLeaf),
-        mut pre_existing_public_data: [PublicDataTreeLeafPreimage; EXISTING_LEAVES],
+        pre_existing_public_data: [PublicDataTreeLeafPreimage; EXISTING_LEAVES],
+        low_leaf_index: u32,
+        fee_write: PublicDataTreeLeaf,
     ) -> (PublicDataTreeLeafPreimage, MembershipWitness<PUBLIC_DATA_TREE_HEIGHT>, [Field; PUBLIC_DATA_TREE_HEIGHT]) {
-        let (low_leaf_index, fee_write) = fee_write;
-        if (!is_empty(fee_write)) {
-            let low_leaf = pre_existing_public_data[low_leaf_index];
-            let mut new_leaf = PublicDataTreeLeafPreimage::empty();
-            if low_leaf.slot == fee_write.slot {
-                pre_existing_public_data[low_leaf_index].value = fee_write.value;
-            } else {
-                new_leaf = PublicDataTreeLeafPreimage {
-                    slot: fee_write.slot,
-                    value: fee_write.value,
-                    next_slot: low_leaf.next_slot,
-                    next_index: low_leaf.next_index,
-                };
-                pre_existing_public_data[low_leaf_index] = PublicDataTreeLeafPreimage {
-                    slot: low_leaf.slot,
-                    value: low_leaf.value,
-                    next_slot: fee_write.slot,
-                    next_index: PRE_EXISTING_PUBLIC_DATA_LEAVES,
-                };
-            }
-            let low_public_data_writes_witness = MembershipWitness {
-                leaf_index: low_leaf_index as Field,
-                sibling_path: public_data_tree.get_sibling_path(low_leaf_index),
-            };
-
-            public_data_tree.update_leaf(
-                low_leaf_index,
-                pre_existing_public_data[low_leaf_index].hash(),
-            );
-
-            let insertion_witness =
-                public_data_tree.get_sibling_path(snapshot.next_available_leaf_index);
-
-            public_data_tree.update_leaf(snapshot.next_available_leaf_index, new_leaf.hash());
-
-            (low_leaf, low_public_data_writes_witness, insertion_witness)
+        let low_leaf = pre_existing_public_data[low_leaf_index];
+        let mut new_low_leaf = pre_existing_public_data[low_leaf_index];
+        let mut new_leaf = PublicDataTreeLeafPreimage::empty();
+        if low_leaf.slot == fee_write.slot {
+            new_low_leaf.value = fee_write.value;
         } else {
-            (
-                PublicDataTreeLeafPreimage::empty(), MembershipWitness::empty(),
-                [0; PUBLIC_DATA_TREE_HEIGHT],
-            )
+            new_low_leaf.next_slot = fee_write.slot;
+            new_low_leaf.next_index = PRE_EXISTING_PUBLIC_DATA_LEAVES;
+
+            new_leaf = PublicDataTreeLeafPreimage {
+                slot: fee_write.slot,
+                value: fee_write.value,
+                next_slot: low_leaf.next_slot,
+                next_index: low_leaf.next_index,
+            };
         }
+
+        // Update low leaf.
+        let low_public_data_writes_witness = MembershipWitness {
+            leaf_index: low_leaf_index as Field,
+            sibling_path: public_data_tree.get_sibling_path(low_leaf_index),
+        };
+        public_data_tree.update_leaf(low_leaf_index, new_low_leaf.hash());
+
+        let insertion_witness =
+            public_data_tree.get_sibling_path(snapshot.next_available_leaf_index);
+        public_data_tree.update_leaf(snapshot.next_available_leaf_index, new_leaf.hash());
+
+        (low_leaf, low_public_data_writes_witness, insertion_witness)
     }
 
     struct PrivateBaseRollupInputsBuilder {
@@ -328,26 +306,69 @@ mod tests {
         pre_existing_contracts: [Field; 2],
         pre_existing_public_data: [PublicDataTreeLeafPreimage; PRE_EXISTING_PUBLIC_DATA_LEAVES],
         pre_existing_blocks: [Field; 2],
-        fee_write: (u32, PublicDataTreeLeaf),
 
         nullifiers: BoundedVec<NullifierInsertion, MAX_NULLIFIERS_PER_TEST>,
         constants: ConstantRollupData,
-        // Index of the item in the pre_existing_public_data array that contains the fee payer's Fee Juice balance.
-        // Used for building the public data hint read for the payment update request. If set to none, no hint is built.
-        fee_payer_fee_juice_balance_pre_existing_public_data_index: Option<u32>,
+
+        fee_payer: AztecAddress,
+        // Index of the low leaf for the leaf that contains the fee payer's Fee Juice balance.
+        // Used for building the public data hint read for the payment update request.
+        fee_payer_balance_leaf_index: u32,
     }
 
     impl PrivateBaseRollupInputsBuilder {
         fn new() -> Self {
-            let mut inputs = PrivateBaseRollupInputsBuilder::empty();
-            inputs.tube_data = FixtureBuilder::new().in_vk_tree(TUBE_VK_INDEX);
-            inputs.constants.global_variables.chain_id = fixtures::CHAIN_ID;
-            inputs.constants.global_variables.version = fixtures::VERSION;
-            inputs.constants.vk_tree_root = inputs.tube_data.vk_tree_root;
+            let mut tube_data = FixtureBuilder::new().in_vk_tree(TUBE_VK_INDEX);
 
-            inputs.pre_existing_blocks[0] = inputs.tube_data.historical_header.hash();
+            let mut constants = ConstantRollupData::empty();
+            constants.global_variables.chain_id = fixtures::CHAIN_ID;
+            constants.global_variables.version = fixtures::VERSION;
+            constants.vk_tree_root = tube_data.vk_tree_root;
 
-            inputs
+            // Gas and fee.
+            tube_data.gas_used = Gas::new(11, 22);
+            let gas_fees = GasFees { fee_per_da_gas: 1, fee_per_l2_gas: 2 };
+            tube_data.tx_context.gas_settings.max_fees_per_gas = gas_fees;
+            constants.global_variables.gas_fees = gas_fees;
+
+            let mut pre_existing_blocks = [0; 2];
+            pre_existing_blocks[0] = tube_data.historical_header.hash();
+
+            let fee_payer = AztecAddress::from_field(234234);
+            tube_data.set_fee_payer(fee_payer);
+            let fee_payer_balance_slot = compute_fee_payer_fee_juice_balance_leaf_slot(fee_payer);
+
+            let mut pre_existing_public_data =
+                [PublicDataTreeLeafPreimage::empty(); PRE_EXISTING_PUBLIC_DATA_LEAVES];
+            // Add the fee payer's balance to the public data at index 1.
+            let fee_payer_balance_leaf_index = 1;
+            let fee_payer_balance = 0x999;
+            pre_existing_public_data[fee_payer_balance_leaf_index] = PublicDataTreeLeafPreimage {
+                slot: fee_payer_balance_slot,
+                value: fee_payer_balance,
+                next_slot: 0,
+                next_index: 0,
+            };
+            // Point the first public data to the above data.
+            pre_existing_public_data[0] = PublicDataTreeLeafPreimage {
+                slot: 0,
+                value: 0,
+                next_slot: fee_payer_balance_slot,
+                next_index: 1,
+            };
+
+            PrivateBaseRollupInputsBuilder {
+                tube_data,
+                pre_existing_notes: [0; MAX_NOTE_HASHES_PER_TX],
+                pre_existing_nullifiers: [NullifierLeafPreimage::empty(); MAX_NULLIFIERS_PER_TX],
+                pre_existing_contracts: [0; 2],
+                pre_existing_public_data,
+                pre_existing_blocks,
+                nullifiers: BoundedVec::new(),
+                constants,
+                fee_payer,
+                fee_payer_balance_leaf_index,
+            }
         }
 
         unconstrained fn new_with_previous_kernel(previous_vk_index: u32) -> Self {
@@ -360,23 +381,20 @@ mod tests {
             self,
             start_public_data_tree: NonEmptyMerkleTree<AVAILABLE_PUBLIC_DATA_LEAVES_FOR_TEST, PUBLIC_DATA_TREE_HEIGHT, PUBLIC_DATA_TREE_HEIGHT - AVAILABLE_PUBLIC_DATA_SUBTREE_HEIGHT_FOR_TEST, AVAILABLE_PUBLIC_DATA_SUBTREE_HEIGHT_FOR_TEST>,
         ) -> PublicDataHint {
-            self.fee_payer_fee_juice_balance_pre_existing_public_data_index.map_or(
-                PublicDataHint::empty(),
-                |leaf_index_u32: u32| {
-                    let leaf_index = leaf_index_u32 as Field;
-                    let leaf_preimage = self.pre_existing_public_data[leaf_index];
-                    let membership_witness = MembershipWitness {
-                        leaf_index,
-                        sibling_path: start_public_data_tree.get_sibling_path(leaf_index_u32),
-                    };
-                    PublicDataHint {
-                        leaf_slot: leaf_preimage.slot,
-                        value: leaf_preimage.value,
-                        membership_witness,
-                        leaf_preimage,
-                    }
-                },
-            )
+            let leaf_index = self.fee_payer_balance_leaf_index as Field;
+            let leaf_preimage = self.pre_existing_public_data[leaf_index];
+            let membership_witness = MembershipWitness {
+                leaf_index,
+                sibling_path: start_public_data_tree.get_sibling_path(
+                    self.fee_payer_balance_leaf_index,
+                ),
+            };
+            PublicDataHint {
+                leaf_slot: leaf_preimage.slot,
+                value: leaf_preimage.value,
+                membership_witness,
+                leaf_preimage,
+            }
         }
 
         fn compute_transaction_fee(self) -> Field {
@@ -515,7 +533,6 @@ mod tests {
             };
 
             let mut pre_existing_leaves = [0; AVAILABLE_PUBLIC_DATA_LEAVES_FOR_TEST];
-
             for i in 0..self.pre_existing_public_data.len() {
                 pre_existing_leaves[i] = self.pre_existing_public_data[i].hash();
             }
@@ -530,9 +547,6 @@ mod tests {
                 root: start_public_data_tree.get_root(),
                 next_available_leaf_index: self.pre_existing_public_data.len(),
             };
-
-            let fee_payer_fee_juice_balance_read_hint =
-                self.build_fee_payer_fee_juice_balance_read_hint(start_public_data_tree);
 
             let start_archive = NonEmptyMerkleTree::new(
                 self.pre_existing_blocks,
@@ -557,11 +571,16 @@ mod tests {
                 [0; NULLIFIER_SUBTREE_SIBLING_PATH_LENGTH],
             );
 
+            let fee_payer_fee_juice_balance_read_hint =
+                self.build_fee_payer_fee_juice_balance_read_hint(start_public_data_tree);
+
+            let fee_write = self.get_fee_write();
             let (fee_write_low_leaf_preimage, fee_write_low_leaf_membership_witness, fee_write_sibling_path) = update_public_data_tree(
                 &mut start_public_data_tree,
                 start_public_data_tree_snapshot,
-                self.fee_write,
                 self.pre_existing_public_data,
+                self.fee_payer_balance_leaf_index,
+                fee_write,
             );
 
             let start = PartialStateReference {
@@ -603,6 +622,18 @@ mod tests {
             }
         }
 
+        fn get_fee_write(self) -> PublicDataTreeLeaf {
+            let pre_public_data = self.pre_existing_public_data[self.fee_payer_balance_leaf_index];
+            let balance = pre_public_data.value;
+            let fee = self.compute_transaction_fee();
+            let value = if balance.lt(fee) { 0 } else { balance - fee };
+            PublicDataTreeLeaf { slot: pre_public_data.slot, value }
+        }
+
+        fn set_fee_payer_balance(&mut self, balance: Field) {
+            self.pre_existing_public_data[self.fee_payer_balance_leaf_index].value = balance;
+        }
+
         fn execute(self) -> BaseOrMergeRollupPublicInputs {
             let inputs = unsafe { self.build_inputs() };
             inputs.execute()
@@ -614,25 +645,6 @@ mod tests {
 
         fn fails(self) {
             let _ = self.execute();
-        }
-    }
-
-    impl Empty for PrivateBaseRollupInputsBuilder {
-        fn empty() -> Self {
-            Self {
-                tube_data: FixtureBuilder::new(),
-                pre_existing_notes: [0; MAX_NOTE_HASHES_PER_TX],
-                pre_existing_nullifiers: [NullifierLeafPreimage::empty(); MAX_NULLIFIERS_PER_TX],
-                pre_existing_contracts: [0; 2],
-                pre_existing_public_data: [
-                    PublicDataTreeLeafPreimage::empty(); PRE_EXISTING_PUBLIC_DATA_LEAVES
-                ],
-                fee_write: (0, PublicDataTreeLeaf::empty()),
-                pre_existing_blocks: [0; 2],
-                nullifiers: BoundedVec::new(),
-                constants: ConstantRollupData::empty(),
-                fee_payer_fee_juice_balance_pre_existing_public_data_index: Option::none(),
-            }
         }
     }
 
@@ -807,23 +819,24 @@ mod tests {
     }
 
     #[test]
-    unconstrained fn empty_tx_effects_sponge() {
-        let outputs = PrivateBaseRollupInputsBuilder::new().execute();
-        let mut expected_sponge = outputs.start_sponge_blob;
-        assert(outputs.end_sponge_blob.eq(expected_sponge));
-    }
-
-    #[test]
     unconstrained fn non_empty_tx_effects_sponge() {
         let mut builder = PrivateBaseRollupInputsBuilder::new();
         builder.tube_data.append_note_hashes(50);
         let inputs = builder.build_inputs();
         let outputs = inputs.execute();
-        let mut tx_effects = [0; 54];
-        // TODO(#8954): This test uses 50 notes and 4 extra absorbed fields
+        let mut tx_effects = [0; 57];
+        // TODO(#8954): This test uses 50 notes and 5 extra absorbed fields
         // This may change when logs are deconstructed
         // Initial field = TX_START_PREFIX | 0 | txlen[0] txlen[1] | 0 | REVERT_CODE_PREFIX | 0 | revert_code
-        // The first 4 are: i=0 init field, i=1: tx hash, i=2: tx fee, i=3: note prefix
+        // The first 3 are:
+        //   - i=0 init field
+        //   - i=1: tx hash
+        //   - i=2: tx fee
+        // Followed by:
+        //   - Note prefix
+        //   - 50 note hashes
+        //   - Public data write prefix
+        //   - 1 public data write (2 fields)
         tx_effects[0] = field_from_bytes(
             array_concat(
                 TX_START_PREFIX.to_be_bytes::<8>(),
@@ -831,18 +844,35 @@ mod tests {
             ),
             true,
         );
+
         // TX hash
         tx_effects[1] = inputs.tube_data.public_inputs.hash();
+
+        // Transaction fee.
+        let transaction_fee = builder.compute_transaction_fee();
         tx_effects[2] = field_from_bytes(
-            array_concat([TX_FEE_PREFIX, 0], (0).to_be_bytes::<29>()),
+            array_concat([TX_FEE_PREFIX, 0], transaction_fee.to_be_bytes::<29>()),
             true,
         );
-        tx_effects[3] = encode_blob_prefix(NOTES_PREFIX, 50);
-        for i in 0..50 {
-            tx_effects[i + 4] = builder.tube_data.note_hashes.storage()[i].value();
-        }
-        let mut expected_sponge = outputs.start_sponge_blob;
 
+        let mut offset = 3;
+
+        // Note hashes.
+        tx_effects[offset] = encode_blob_prefix(NOTES_PREFIX, 50);
+        offset += 1;
+        for i in 0..50 {
+            tx_effects[i + offset] = builder.tube_data.note_hashes.storage()[i].value();
+        }
+        offset += 50;
+
+        // Public data writes.
+        tx_effects[offset] = encode_blob_prefix(PUBLIC_DATA_UPDATE_REQUESTS_PREFIX, 2);
+        offset += 1;
+        let fee_write = builder.get_fee_write();
+        tx_effects[offset] = fee_write.slot;
+        tx_effects[offset + 1] = fee_write.value;
+
+        let mut expected_sponge = outputs.start_sponge_blob;
         expected_sponge.absorb(tx_effects, tx_effects.len());
         assert(outputs.end_sponge_blob.eq(expected_sponge));
     }
@@ -919,6 +949,14 @@ mod tests {
             );
         }
         offset += NUM_MSGS;
+        // Public data writes.
+        reconstructed_tx_effects[offset] =
+            encode_blob_prefix(PUBLIC_DATA_UPDATE_REQUESTS_PREFIX, 2);
+        offset += 1;
+        let fee_write = builder.get_fee_write();
+        reconstructed_tx_effects[offset] = fee_write.slot;
+        reconstructed_tx_effects[offset + 1] = fee_write.value;
+        offset += 2;
         // private logs
         let total_private_logs_len = (NUM_NOTES + NUM_PRIV_EVENT_LOGS) * PRIVATE_LOG_SIZE_IN_FIELDS;
         let private_logs_prefix = encode_blob_prefix(PRIVATE_LOGS_PREFIX, total_private_logs_len);
@@ -1050,126 +1088,21 @@ mod tests {
         assert_eq(outputs.num_txs, 1);
     }
 
-    #[test]
-    unconstrained fn updates_fee_payer_balance_with_new_data_write() {
-        let fee_payer = AztecAddress::from_field(0x1234);
-        let balance_slot = compute_fee_payer_fee_juice_balance_leaf_slot(fee_payer);
-        let initial_balance = 300_000;
-        let gas_fees = GasFees { fee_per_da_gas: 1, fee_per_l2_gas: 2 };
-        let gas_used = Gas::new(50_000, 25_000);
-        let expected_balance = 200_000;
-
-        let mut builder = PrivateBaseRollupInputsBuilder::new();
-
-        // Set gas
-        builder.tube_data.gas_used = gas_used;
-        builder.tube_data.tx_context.gas_settings.max_fees_per_gas = gas_fees;
-        builder.constants.global_variables.gas_fees = gas_fees;
-
-        // Set fee payer
-        builder.tube_data.fee_payer = fee_payer;
-
-        // Set pre-existing balance
-        builder.pre_existing_public_data[0] = PublicDataTreeLeafPreimage {
-            slot: balance_slot,
-            value: initial_balance,
-            next_slot: 0,
-            next_index: 0,
-        };
-        builder.fee_payer_fee_juice_balance_pre_existing_public_data_index = Option::some(0);
-
-        // Set expected protocol data update
-        builder.fee_write = (0, PublicDataTreeLeaf { slot: balance_slot, value: expected_balance });
-
-        let outputs = builder.execute();
-
-        // The new public data tree should have updated the balance of the fee payer
-        let updated_leaf = PublicDataTreeLeafPreimage {
-            slot: balance_slot,
-            value: expected_balance,
-            next_slot: 0,
-            next_index: 0,
-        };
-        let mut expected_public_data_tree = NonEmptyMerkleTree::new(
-            [updated_leaf.hash(), 0],
-            [0; PUBLIC_DATA_TREE_HEIGHT],
-            [0; PUBLIC_DATA_TREE_HEIGHT - 1],
-            [0; 1],
-        );
-
-        assert_eq(outputs.end.public_data_tree.root, expected_public_data_tree.get_root());
-    }
-
     #[test(should_fail_with = "Not enough balance for fee payer to pay for transaction")]
     unconstrained fn fails_to_update_fee_payer_balance_if_not_enough_funds() {
-        let fee_payer = AztecAddress::from_field(0x1234);
-        let balance_slot = compute_fee_payer_fee_juice_balance_leaf_slot(fee_payer);
-        // Set low initial balance so it fails!
-        let initial_balance = 10_000;
-        let gas_fees = GasFees { fee_per_da_gas: 1, fee_per_l2_gas: 2 };
-        let gas_used = Gas::new(50_000, 25_000);
-
         let mut builder = PrivateBaseRollupInputsBuilder::new();
 
-        // Set gas
-        builder.tube_data.gas_used = gas_used;
-        builder.tube_data.tx_context.gas_settings.max_fees_per_gas = gas_fees;
-        builder.constants.global_variables.gas_fees = gas_fees;
-
-        // Set fee payer
-        builder.tube_data.fee_payer = fee_payer;
-
-        // Set pre-existing balance
-        builder.pre_existing_public_data[0] = PublicDataTreeLeafPreimage {
-            slot: balance_slot,
-            value: initial_balance,
-            next_slot: 0,
-            next_index: 0,
-        };
-        builder.fee_payer_fee_juice_balance_pre_existing_public_data_index = Option::some(0);
+        builder.set_fee_payer_balance(1);
 
         builder.fails();
     }
 
     #[test(should_fail_with = "Wrong leaf slot for Fee Juice balance read hint")]
     unconstrained fn fails_to_update_fee_payer_balance_if_wrong_read_hint() {
-        let fee_payer = AztecAddress::from_field(0x1234);
-        let balance_slot = compute_fee_payer_fee_juice_balance_leaf_slot(fee_payer);
-        let initial_balance = 300_000;
-        let expected_balance = 200_000;
-        let gas_fees = GasFees { fee_per_da_gas: 1, fee_per_l2_gas: 2 };
-        let gas_used = Gas::new(50_000, 25_000);
-
         let mut builder = PrivateBaseRollupInputsBuilder::new();
 
-        // Set gas
-        builder.tube_data.gas_used = gas_used;
-        builder.tube_data.tx_context.gas_settings.max_fees_per_gas = gas_fees;
-        builder.constants.global_variables.gas_fees = gas_fees;
-
-        // Set fee payer
-        builder.tube_data.fee_payer = fee_payer;
-
-        // Set pre-existing balance in index 0
-        builder.pre_existing_public_data[0] = PublicDataTreeLeafPreimage {
-            slot: balance_slot,
-            value: initial_balance,
-            next_slot: 0,
-            next_index: 0,
-        };
-
-        builder.pre_existing_public_data[1] = PublicDataTreeLeafPreimage {
-            slot: 1,
-            value: initial_balance,
-            next_slot: balance_slot,
-            next_index: 0,
-        };
-
-        // But point the read hint to the wrong one!
-        builder.fee_payer_fee_juice_balance_pre_existing_public_data_index = Option::some(1);
-
-        // Set expected protocol data update
-        builder.fee_write = (0, PublicDataTreeLeaf { slot: balance_slot, value: expected_balance });
+        // Tweak the leaf index for the fee payer's balance.
+        builder.fee_payer_balance_leaf_index += 1;
 
         builder.fails();
     }
