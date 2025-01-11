@@ -35,10 +35,10 @@ fi
 # Ami's are our custum built build-instance amis. See ami_update.sh.
 if [ "$ARCH" == "x86_64" ] || [ "$ARCH" == "amd64" ]; then
   MACHINE_TYPE="m6a"
-  AMI=${AMI:-"ami-038da00b90fb68ea6"}
+  AMI=${AMI:-$(cat ./aws/ami_id_amd64)}
 elif [ "$ARCH" == "arm64" ]; then
   MACHINE_TYPE="m7g"
-  AMI=${AMI:-"ami-05aa477473a77197e"}
+  AMI=${AMI:-$(cat ./aws/ami_id_arm64)}
 else
   echo "Unknown arch: $ARCH"
   exit 1

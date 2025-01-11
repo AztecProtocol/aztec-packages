@@ -68,5 +68,6 @@ if [ "${NO_AMI:-0}" -eq 0 ]; then
     --output text)
   echo "Waiting for AMI to be created: $ami_id"
   while ! aws ec2 wait image-available --image-ids "$ami_id"; do true; done
+  echo "$ami_id" > ami_id_$arch
   echo "Done."
 fi

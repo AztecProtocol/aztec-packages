@@ -81,7 +81,7 @@ function update_manifests {
 }
 
 function build_all {
-  parallel --tag --line-buffer ./bootstrap.sh {} :: ec2-amd64 ec2-arm64
+  parallel --tag --line-buffer ./bootstrap.sh {} ::: ec2-amd64 ec2-arm64
 }
 
 case "$cmd" in
@@ -108,6 +108,9 @@ case "$cmd" in
   "ec2-arm64")
     check_login
     build_ec2 64 arm64
+    ;;
+  "amis")
+      parallel --tag --line-buffer ARCH={} $ci3/aws/ami_update.sh ::: amd64 arm64
     ;;
   *)
     echo "Unknown command: $cmd"
