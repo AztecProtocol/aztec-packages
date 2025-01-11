@@ -12,6 +12,8 @@ ethereum:
   deployL1ContractsPrivateKey:
 
 validator:
+  l1FixedPriorityFeePerGas: 1
+  l1GasLimitBufferPercentage: 5
   replicas: 48
   validatorKeys:
   validatorAddresses:
@@ -73,4 +75,4 @@ proverNode:
   proverPublisherPrivateKey:
 
 bot:
-  txIntervalSeconds: 20
+  txIntervalSeconds: 5
