@@ -267,20 +267,30 @@ fn barycentric_evaluate_blob_at_z(z: F, ys: [F; FIELDS_PER_BLOB]) -> F {
 
             //    partial_sums[i] <- partial_sums[i-1] + (lhs[8*i] * rhs[8*i] + ... + lhs[8*i + 7] * rhs[8*i + 7])
             // => (lhs[8*i] * rhs[8*i] + ... + lhs[8*i + 7] * rhs[8*i + 7]) + partial_sums[i-1] - partial_sums[i] == 0
-            let mut lhs: [[F; 1]; 8] = [std::mem::zeroed(); 8];
-            let mut rhs: [[F; 1]; 8] = [std::mem::zeroed(); 8];
-            for j in 0..8 {
-                let k = i * 8 + j;
-                lhs[j] = [ROOTS[k]]; // omega^k
-                rhs[j] = [fracs[k]]; // y_k / (z - omega^k)
-            }
-
             let linear_terms = [partial_sums[i - 1], partial_sums[i]];
 
             BigNum::evaluate_quadratic_expression(
-                lhs,
+                [
+                    [ROOTS[i * 8 + 0]],
+                    [ROOTS[i * 8 + 1]],
+                    [ROOTS[i * 8 + 2]],
+                    [ROOTS[i * 8 + 3]],
+                    [ROOTS[i * 8 + 4]],
+                    [ROOTS[i * 8 + 5]],
+                    [ROOTS[i * 8 + 6]],
+                    [ROOTS[i * 8 + 7]],
+                ],
                 [[false], [false], [false], [false], [false], [false], [false], [false]],
-                rhs,
+                [
+                    [fracs[i * 8 + 0]],
+                    [fracs[i * 8 + 1]],
+                    [fracs[i * 8 + 2]],
+                    [fracs[i * 8 + 3]],
+                    [fracs[i * 8 + 4]],
+                    [fracs[i * 8 + 5]],
+                    [fracs[i * 8 + 6]],
+                    [fracs[i * 8 + 7]],
+                ],
                 [[false], [false], [false], [false], [false], [false], [false], [false]],
                 linear_terms,
                 [false, true],
@@ -381,8 +391,10 @@ fn compute_fracs(z: F, ys: [F; FIELDS_PER_BLOB]) -> [F; FIELDS_PER_BLOB] {
     fracs
 }
 
-// TODO: Clean me ... edit: Kill me
-unconstrained fn __compute_partial_sums(fracs: [F; FIELDS_PER_BLOB]) -> [F; FIELDS_PER_BLOB / 8] {
+// TODO: Clean me
+unconstrained fn __compute_partial_sums(
+    fracs: [F; FIELDS_PER_BLOB],
+) -> [F; FIELDS_PER_BLOB / 8] {
     let mut partial_sums: [F; FIELDS_PER_BLOB / 8] = std::mem::zeroed();
 
     // Seeking:
@@ -392,54 +404,39 @@ unconstrained fn __compute_partial_sums(fracs: [F; FIELDS_PER_BLOB]) -> [F; FIEL
     //                   /____       z - omega^k
     //                    k=i*8 + 0
 
+    // Need to split off the first iteration.
     let mut partial_sum: F = BigNum::new();
-    unroll_loop_inner!(0 as u32);
+    for i in 0..8 {
+        // y_k * ( omega^k / (z - omega^k) )
+        let summand = ROOTS[i].__mul(fracs[i]);
+
+        // partial_sum + ( y_k * ( omega^k / (z - omega^k) ) -> partial_sum
+        partial_sum = partial_sum.__add(summand);
+    }
     partial_sums[0] = partial_sum;
 
-    unroll_loop_outer!();
+    let NUM_PARTIAL_SUMS = FIELDS_PER_BLOB / 8;
+    for i in 1..NUM_PARTIAL_SUMS {
+        let mut partial_sum: F = partial_sums[i - 1];
+        // Seeking:
+        //                    ___i*8 + 7
+        //                    \            omega^k
+        //      partial_sum = /   y_k . ---------
+        //                   /____       z - omega^k
+        //                    k=i*8 + 0
+        for j in 0..8 {
+            let k = i * 8 + j;
+            // y_k * ( omega^k / (z - omega^k) )
+            let summand = ROOTS[k].__mul(fracs[k]);
+            // partial_sum + ( y_k * ( omega^k / (z - omega^k) ) -> partial_sum
+            partial_sum = partial_sum.__add(summand);
+        }
+        partial_sums[i] = partial_sum;
+    }
 
     partial_sums
 }
 
-comptime fn unroll_loop_outer() -> Quoted {
-    let mut indices: [u32; 512] = [0; 512];
-    for i in 1..512 {
-        indices[i] = i;
-    }
-
-    indices
-        .as_slice()
-        .map(|index: u32| {
-            quote {
-                let mut partial_sum: F = partial_sums[$index - (1 as u32)];
-
-                unroll_loop_inner!($index * (8 as u32));
-
-                partial_sums[$index] = partial_sum;
-            }
-        })
-        .join(quote { })
-}
-
-comptime fn unroll_loop_inner(loop_index: u32) -> Quoted {
-    let mut indices: [u32; 8] = [0; 8];
-    for i in 0..8 {
-        indices[i] = i;
-    }
-
-    indices
-        .as_slice()
-        .map(|index: u32| {
-            let root = ROOTS[loop_index + index];
-            quote {
-                // y_k * ( omega^k / (z - omega^k) )
-                let summand = $root.__mul(fracs[$loop_index + $index]);
-                // partial_sum + ( y_k * ( omega^k / (z - omega^k) ) -> partial_sum
-                partial_sum = partial_sum.__add(summand);
-            }
-        })
-        .join(quote { })
-}
 
 mod tests {
     // TODO(#9982): Replace unconstrained_config with config and import ROOTS - calculating ROOTS in unconstrained is insecure.
