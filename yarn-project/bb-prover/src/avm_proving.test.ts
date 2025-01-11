@@ -223,6 +223,9 @@ describe('AVM WitGen, proof generation and verification', () => {
   );
 });
 
+/**
+ * Simulate, prove and verify just a single App Logic enqueued call.
+ */
 async function proveAndVerifyAvmTestContractSimple(
   functionName: string,
   args: Fr[] = [],
@@ -243,6 +246,9 @@ async function proveAndVerifyAvmTestContractSimple(
   );
 }
 
+/**
+ * Simulate, prove and verify setup calls, app logic calls and optionally a teardown call in one TX.
+ */
 async function proveAndVerifyAvmTestContract(
   setupFunctionNames: string[],
   setupArgs: Fr[][] = [],
@@ -286,6 +292,7 @@ async function proveAndVerifyAvmTestContract(
   }
   expect(proofRes.status).toEqual(BB_RESULT.SUCCESS);
 
+  // There is no proof to verify if we only check circuit.
   if (!checkCircuitOnly) {
     // Then we test VK extraction and serialization.
     const succeededRes = proofRes as BBSuccess;
