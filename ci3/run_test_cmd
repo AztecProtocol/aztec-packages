@@ -17,8 +17,9 @@ fi
 # If the test has a verbose mode, we want it enabled.
 export VERBOSE=1
 
+# Run the test, capturing output, with a timeout of 10m.
 set +e
-output=$(bash -c "$test_cmd" 2>&1)
+output=$(timeout -v 600s bash -c "$test_cmd" 2>&1)
 code=$?
 
 if [ -n "$CI_REDIS" ]; then
