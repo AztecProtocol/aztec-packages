@@ -294,7 +294,7 @@ export class PublicTxSimulator {
     const gasUsed = allocatedGas.sub(result.gasLeft); // by enqueued call
     context.consumeGas(phase, gasUsed);
     this.log.debug(
-      `Simulated enqueued public call consumed ${gasUsed.l2Gas} L2 gas ending with ${result.gasLeft.l2Gas} L2 gas left.`,
+      `Simulated enqueued public call (${fnName}) consumed ${gasUsed.l2Gas} L2 gas ending with ${result.gasLeft.l2Gas} L2 gas left.`,
     );
 
     stateManager.traceEnqueuedCall(callRequest, executionRequest.args, result.reverted);

@@ -11,7 +11,7 @@ import { Fr } from '@aztec/foundation/fields';
 import { createLogger } from '@aztec/foundation/log';
 import {
   MockedAvmTestContractDataSource,
-  simulateAvmTestContractGenerateCircuitInputs,
+  simulateAvmTestContractMultipleEnqueuedCallsGenerateCircuitInputs,
 } from '@aztec/simulator/public/fixtures';
 
 import fs from 'node:fs/promises';
@@ -149,11 +149,7 @@ describe('AVM WitGen, proof generation and verification', () => {
   it(
     'Should prove and verify a nested exceptional halt that is recovered from in caller',
     async () => {
-      await proveAndVerifyAvmTestContract(
-        'external_call_to_divide_by_zero_recovers',
-        /*args=*/ [],
-        /*expectRevert=*/ false,
-      );
+      await proveAndVerifyAvmTestContract('external_call_to_divide_by_zero_recovers');
     },
     TIMEOUT,
   );
@@ -183,6 +179,16 @@ describe('AVM WitGen, proof generation and verification', () => {
     },
     TIMEOUT,
   );
+  it(
+    'Should prove and verify multiple app logic enqueued calls (like `enqueue_public_from_private`)',
+    async () => {
+      await checkCircuitAvmTestContractMultipleEnqueuedCalls(
+        ['set_opcode_u8', 'set_read_storage_single'],
+        /*args=*/ [[], [new Fr(5)]],
+      );
+    },
+    TIMEOUT,
+  );
 });
 
 async function proveAndVerifyAvmTestContract(
@@ -192,8 +198,52 @@ async function proveAndVerifyAvmTestContract(
   skipContractDeployments = false,
   contractDataSource = new MockedAvmTestContractDataSource(skipContractDeployments),
 ) {
-  const avmCircuitInputs = await simulateAvmTestContractGenerateCircuitInputs(
-    functionName,
+  await proveAndVerifyAvmTestContractMultipleEnqueuedCalls(
+    [functionName],
+    [args],
+    expectRevert,
+    skipContractDeployments,
+    contractDataSource,
+  );
+}
+
+//async function checkCircuitAvmTestContract(
+//  functionName: string,
+//  args: Fr[] = [],
+//  expectRevert = false,
+//  skipContractDeployments = false,
+//  contractDataSource = new MockedAvmTestContractDataSource(skipContractDeployments),
+//) {
+//  await proveAndVerifyAvmTestContractMultipleEnqueuedCalls([functionName], [args], expectRevert, skipContractDeployments, contractDataSource, /*checkCircuitOnly*/true);
+//}
+
+async function checkCircuitAvmTestContractMultipleEnqueuedCalls(
+  functionNames: string[],
+  args: Fr[][] = [],
+  expectRevert = false,
+  skipContractDeployments = false,
+  contractDataSource = new MockedAvmTestContractDataSource(skipContractDeployments),
+) {
+  await proveAndVerifyAvmTestContractMultipleEnqueuedCalls(
+    functionNames,
+    args,
+    expectRevert,
+    skipContractDeployments,
+    contractDataSource,
+    /*checkCircuitOnly*/ true,
+  );
+}
+
+async function proveAndVerifyAvmTestContractMultipleEnqueuedCalls(
+  functionNames: string[],
+  args: Fr[][] = [],
+  expectRevert = false,
+  skipContractDeployments = false,
+  contractDataSource = new MockedAvmTestContractDataSource(skipContractDeployments),
+  checkCircuitOnly = false,
+) {
+  const avmCircuitInputs = await simulateAvmTestContractMultipleEnqueuedCallsGenerateCircuitInputs(
+    functionNames,
     args,
     expectRevert,
     contractDataSource,
@@ -207,19 +257,27 @@ async function proveAndVerifyAvmTestContract(
   const bbWorkingDirectory = await fs.mkdtemp(path.join(tmpdir(), 'bb-'));
 
   // Then we prove.
-  const proofRes = await generateAvmProof(bbPath, bbWorkingDirectory, avmCircuitInputs, internalLogger);
+  const proofRes = await generateAvmProof(
+    bbPath,
+    bbWorkingDirectory,
+    avmCircuitInputs,
+    internalLogger,
+    checkCircuitOnly,
+  );
   if (proofRes.status === BB_RESULT.FAILURE) {
     internalLogger.error(`Proof generation failed: ${proofRes.reason}`);
   }
   expect(proofRes.status).toEqual(BB_RESULT.SUCCESS);
 
-  // Then we test VK extraction and serialization.
-  const succeededRes = proofRes as BBSuccess;
-  const vkData = await extractAvmVkData(succeededRes.vkPath!);
-  VerificationKeyData.fromBuffer(vkData.toBuffer());
+  if (!checkCircuitOnly) {
+    // Then we test VK extraction and serialization.
+    const succeededRes = proofRes as BBSuccess;
+    const vkData = await extractAvmVkData(succeededRes.vkPath!);
+    VerificationKeyData.fromBuffer(vkData.toBuffer());
 
-  // Then we verify.
-  const rawVkPath = path.join(succeededRes.vkPath!, 'vk');
-  const verificationRes = await verifyAvmProof(bbPath, succeededRes.proofPath!, rawVkPath, logger);
-  expect(verificationRes.status).toBe(BB_RESULT.SUCCESS);
+    // Then we verify.
+    const rawVkPath = path.join(succeededRes.vkPath!, 'vk');
+    const verificationRes = await verifyAvmProof(bbPath, succeededRes.proofPath!, rawVkPath, logger);
+    expect(verificationRes.status).toBe(BB_RESULT.SUCCESS);
+  }
 }

@@ -55,6 +55,26 @@ export async function simulateAvmTestContractGenerateCircuitInputs(
   contractDataSource = new MockedAvmTestContractDataSource(),
   assertionErrString?: string,
 ): Promise<AvmCircuitInputs> {
+  return await simulateAvmTestContractMultipleEnqueuedCallsGenerateCircuitInputs(
+    [functionName],
+    [args],
+    expectRevert,
+    contractDataSource,
+    assertionErrString,
+  );
+}
+
+export async function simulateAvmTestContractMultiplePhasesGenerateCircuitInputs(
+  setupFunctionNames: string[],
+  setupArgs: Fr[][] = [],
+  appFunctionNames: string[],
+  appArgs: Fr[][] = [],
+  teardownFunctionName?: string,
+  teardownArgs: Fr[] = [],
+  expectRevert: boolean = false,
+  contractDataSource = new MockedAvmTestContractDataSource(),
+  assertionErrString?: string,
+): Promise<AvmCircuitInputs> {
   const globals = GlobalVariables.empty();
   globals.timestamp = TIMESTAMP;
 
@@ -71,17 +91,103 @@ export async function simulateAvmTestContractGenerateCircuitInputs(
   );
 
   const sender = AztecAddress.random();
-  const functionSelector = getAvmTestContractFunctionSelector(functionName);
-  args = [functionSelector.toField(), ...args];
-  const callContext = new CallContext(
-    sender,
-    contractDataSource.firstContractInstance.address,
-    contractDataSource.fnSelector,
-    /*isStaticCall=*/ false,
-  );
-  const executionRequest = new PublicExecutionRequest(callContext, args);
+  const setupExecutionRequests: PublicExecutionRequest[] = [];
+  for (let i = 0; i < setupFunctionNames.length; i++) {
+    const functionSelector = getAvmTestContractFunctionSelector(setupFunctionNames[i]);
+    const fnArgs = [functionSelector.toField(), ...setupArgs[i]];
+    const callContext = new CallContext(
+      sender,
+      contractDataSource.firstContractInstance.address,
+      contractDataSource.fnSelector,
+      /*isStaticCall=*/ false,
+    );
+    const executionRequest = new PublicExecutionRequest(callContext, fnArgs);
+    setupExecutionRequests.push(executionRequest);
+  }
+  const appExecutionRequests: PublicExecutionRequest[] = [];
+  for (let i = 0; i < appFunctionNames.length; i++) {
+    const functionSelector = getAvmTestContractFunctionSelector(appFunctionNames[i]);
+    const fnArgs = [functionSelector.toField(), ...appArgs[i]];
+    const callContext = new CallContext(
+      sender,
+      contractDataSource.firstContractInstance.address,
+      contractDataSource.fnSelector,
+      /*isStaticCall=*/ false,
+    );
+    const executionRequest = new PublicExecutionRequest(callContext, fnArgs);
+    appExecutionRequests.push(executionRequest);
+  }
 
-  const tx: Tx = createTxForPublicCall(executionRequest);
+  let teardownExecutionRequest: PublicExecutionRequest | undefined = undefined;
+  if (teardownFunctionName) {
+    const functionSelector = getAvmTestContractFunctionSelector(teardownFunctionName);
+    const fnArgs = [functionSelector.toField(), ...teardownArgs];
+    const callContext = new CallContext(
+      sender,
+      contractDataSource.firstContractInstance.address,
+      contractDataSource.fnSelector,
+      /*isStaticCall=*/ false,
+    );
+    teardownExecutionRequest = new PublicExecutionRequest(callContext, fnArgs);
+  }
+
+  const tx: Tx = createTxForMultiplePublicCalls(setupExecutionRequests, appExecutionRequests, teardownExecutionRequest);
+
+  const avmResult = await simulator.simulate(tx);
+
+  if (!expectRevert) {
+    expect(avmResult.revertCode.isOK()).toBe(true);
+  } else {
+    // Explicit revert when an assertion failed.
+    expect(avmResult.revertCode.isOK()).toBe(false);
+    expect(avmResult.revertReason).toBeDefined();
+    if (assertionErrString !== undefined) {
+      expect(avmResult.revertReason?.getMessage()).toContain(assertionErrString);
+    }
+  }
+
+  const avmCircuitInputs: AvmCircuitInputs = avmResult.avmProvingRequest.inputs;
+  return avmCircuitInputs;
+}
+
+export async function simulateAvmTestContractMultipleEnqueuedCallsGenerateCircuitInputs(
+  functionNames: string[],
+  args: Fr[][] = [],
+  expectRevert: boolean = false,
+  contractDataSource = new MockedAvmTestContractDataSource(),
+  assertionErrString?: string,
+): Promise<AvmCircuitInputs> {
+  const globals = GlobalVariables.empty();
+  globals.timestamp = TIMESTAMP;
+
+  const merkleTrees = await (await MerkleTrees.new(openTmpStore(), new NoopTelemetryClient())).fork();
+  await contractDataSource.deployContracts(merkleTrees);
+  const worldStateDB = new WorldStateDB(merkleTrees, contractDataSource);
+
+  const simulator = new PublicTxSimulator(
+    merkleTrees,
+    worldStateDB,
+    new NoopTelemetryClient(),
+    globals,
+    /*doMerkleOperations=*/ true,
+  );
+
+  const sender = AztecAddress.random();
+  const appExecutionRequests: PublicExecutionRequest[] = [];
+  for (let i = 0; i < functionNames.length; i++) {
+    const functionSelector = getAvmTestContractFunctionSelector(functionNames[i]);
+    const fnArgs = [functionSelector.toField(), ...args[i]];
+    const callContext = new CallContext(
+      sender,
+      contractDataSource.firstContractInstance.address,
+      contractDataSource.fnSelector,
+      /*isStaticCall=*/ false,
+    );
+    const executionRequest = new PublicExecutionRequest(callContext, fnArgs);
+    appExecutionRequests.push(executionRequest);
+  }
+
+  const tx: Tx = createTxForMultiplePublicCalls(/*setupExecutionRequests=*/ [], appExecutionRequests);
 
   const avmResult = await simulator.simulate(tx);
 
@@ -148,20 +254,47 @@ export function createTxForPublicCall(
   gasUsedByPrivate: Gas = Gas.empty(),
   isTeardown: boolean = false,
 ): Tx {
-  const callRequest = executionRequest.toCallRequest();
+  const setupExecutionRequests: PublicExecutionRequest[] = [];
+  const appExecutionRequests = isTeardown ? [] : [executionRequest];
+  const teardownExecutionRequest = isTeardown ? executionRequest : undefined;
+  return createTxForMultiplePublicCalls(
+    setupExecutionRequests,
+    appExecutionRequests,
+    teardownExecutionRequest,
+    gasUsedByPrivate,
+  );
+}
+
+export function createTxForMultiplePublicCalls(
+  setupExecutionRequests: PublicExecutionRequest[],
+  appExecutionRequests: PublicExecutionRequest[],
+  teardownExecutionRequest?: PublicExecutionRequest,
+  gasUsedByPrivate: Gas = Gas.empty(),
+): Tx {
+  assert(
+    setupExecutionRequests.length > 0 || appExecutionRequests.length > 0 || teardownExecutionRequest !== undefined,
+    "Can't create public tx with no enqueued calls",
+  );
+  const setupCallRequests = setupExecutionRequests.map(er => er.toCallRequest());
+  const appCallRequests = appExecutionRequests.map(er => er.toCallRequest());
   // use max limits
   const gasLimits = new Gas(DEFAULT_GAS_LIMIT, MAX_L2_GAS_PER_TX_PUBLIC_PORTION);
 
   const forPublic = PartialPrivateTailPublicInputsForPublic.empty();
   // TODO(#9269): Remove this fake nullifier method as we move away from 1st nullifier as hash.
   forPublic.nonRevertibleAccumulatedData.nullifiers[0] = Fr.random(); // fake tx nullifier
-  if (isTeardown) {
-    forPublic.publicTeardownCallRequest = callRequest;
-  } else {
-    forPublic.revertibleAccumulatedData.publicCallRequests[0] = callRequest;
+
+  for (let i = 0; i < setupExecutionRequests.length; i++) {
+    forPublic.nonRevertibleAccumulatedData.publicCallRequests[i] = setupCallRequests[i];
+  }
+  for (let i = 0; i < appCallRequests.length; i++) {
+    forPublic.revertibleAccumulatedData.publicCallRequests[i] = appCallRequests[i];
+  }
+  if (teardownExecutionRequest) {
+    forPublic.publicTeardownCallRequest = teardownExecutionRequest.toCallRequest();
   }
 
-  const teardownGasLimits = isTeardown ? gasLimits : Gas.empty();
+  const teardownGasLimits = teardownExecutionRequest ? gasLimits : Gas.empty();
   const gasSettings = new GasSettings(gasLimits, teardownGasLimits, GasFees.empty(), GasFees.empty());
   const txContext = new TxContext(Fr.zero(), Fr.zero(), gasSettings);
   const constantData = new TxConstantData(BlockHeader.empty(), txContext, Fr.zero(), Fr.zero());
@@ -173,9 +306,13 @@ export function createTxForPublicCall(
     AztecAddress.zero(),
     forPublic,
   );
-  const tx = isTeardown ? Tx.newWithTxData(txData, executionRequest) : Tx.newWithTxData(txData);
-  if (!isTeardown) {
-    tx.enqueuedPublicFunctionCalls[0] = executionRequest;
+  const tx = Tx.newWithTxData(txData, teardownExecutionRequest);
+
+  for (let i = 0; i < setupExecutionRequests.length; i++) {
+    tx.enqueuedPublicFunctionCalls.push(setupExecutionRequests[i]);
+  }
+  for (let i = 0; i < appExecutionRequests.length; i++) {
+    tx.enqueuedPublicFunctionCalls.push(appExecutionRequests[i]);
   }
 
   return tx;
