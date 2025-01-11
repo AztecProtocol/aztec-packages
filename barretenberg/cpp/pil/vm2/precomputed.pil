@@ -1,0 +1,17 @@
+// General/shared precomputed columns.
+namespace precomputed(256);
+
+// From 0 and incrementing up to the size of the circuit (2^21).
+pol constant clk;
+
+// 1 only at row 0.
+pol constant first_row;
+
+// AND/OR/XOR of all 8-bit numbers.
+// The tables are "stacked". First AND, then OR, then XOR.
+// Note: think if we can avoid the selector.
+pol constant sel_bitwise; // 1 in the first 3 * 256 rows.
+pol constant bitwise_op_id; // identifies if operation is AND/OR/XOR.
+pol constant bitwise_input_a; // column of all 8-bit numbers.
+pol constant bitwise_input_b; // column of all 8-bit numbers.
+pol constant bitwise_output; // output = a AND/OR/XOR b.

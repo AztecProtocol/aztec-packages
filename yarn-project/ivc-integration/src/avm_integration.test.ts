@@ -113,7 +113,7 @@ describe('AVM Integration', () => {
       path.join(bbWorkingDirectory, 'proof'),
       path.join(bbWorkingDirectory, 'vk'),
       'ultra_honk',
-      logger.info,
+      logger,
     );
 
     expect(verifyResult.status).toBe(BB_RESULT.SUCCESS);
