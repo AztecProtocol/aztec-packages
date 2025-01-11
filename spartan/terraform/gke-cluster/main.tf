@@ -124,7 +124,7 @@ resource "google_container_node_pool" "aztec_nodes_2core_ssd" {
   # Enable autoscaling
   autoscaling {
     min_node_count = 1
-    max_node_count = 256
+    max_node_count = 32
   }
 
   # Node configuration
@@ -156,7 +156,7 @@ resource "google_container_node_pool" "aztec_nodes_4core_ssd" {
   # Enable autoscaling
   autoscaling {
     min_node_count = 1
-    max_node_count = 256
+    max_node_count = 96
   }
 
   # Node configuration
@@ -216,7 +216,7 @@ resource "google_container_node_pool" "aztec_nodes" {
   # Enable autoscaling
   autoscaling {
     min_node_count = 1
-    max_node_count = 256
+    max_node_count = 1024
   }
 
   # Node configuration

@@ -325,7 +325,7 @@ export class KernelProver {
       const ivcProof = await this.proofCreator.createClientIvcProof(acirs, witnessStack);
       tailOutput.clientIvcProof = ivcProof;
     } else {
-      tailOutput.clientIvcProof = ClientIvcProof.random();
+      tailOutput.clientIvcProof = ClientIvcProof.empty();
     }
 
     return tailOutput;
