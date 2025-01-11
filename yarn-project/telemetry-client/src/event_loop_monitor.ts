@@ -6,7 +6,7 @@ import {
   type BatchObservableResult,
   type Meter,
   type ObservableGauge,
-  ObservableUpDownCounter,
+  type UpDownCounter,
   ValueType,
 } from './telemetry.js';
 
@@ -25,7 +25,7 @@ export class EventLoopMonitor {
   };
 
   private eventLoopUilization: ObservableGauge;
-  private eventLoopTime: ObservableUpDownCounter;
+  private eventLoopTime: UpDownCounter;
 
   private started = false;
 
@@ -55,7 +55,7 @@ export class EventLoopMonitor {
       description: 'How busy is the event loop',
     });
 
-    this.eventLoopTime = meter.createObservableUpDownCounter(Metrics.NODEJS_EVENT_LOOP_TIME, {
+    this.eventLoopTime = meter.createUpDownCounter(Metrics.NODEJS_EVENT_LOOP_TIME, {
       unit: 'ms',
       valueType: ValueType.INT,
       description: 'How busy is the event loop',
@@ -72,7 +72,6 @@ export class EventLoopMonitor {
     this.lastELU = performance.eventLoopUtilization();
     this.meter.addBatchObservableCallback(this.measure, [
       this.eventLoopUilization,
-      this.eventLoopTime,
       ...Object.values(this.eventLoopDelayGauges),
     ]);
     this.eventLoopDelay.enable();
@@ -84,7 +83,6 @@ export class EventLoopMonitor {
     }
     this.meter.removeBatchObservableCallback(this.measure, [
       this.eventLoopUilization,
-      this.eventLoopTime,
       ...Object.values(this.eventLoopDelayGauges),
     ]);
     this.eventLoopDelay.disable();
@@ -103,8 +101,9 @@ export class EventLoopMonitor {
     // - https://nodesource.com/blog/event-loop-utilization-nodejs
     // - https://youtu.be/WetXnEPraYM
     obs.observe(this.eventLoopUilization, delta.utilization);
-    obs.observe(this.eventLoopTime, Math.floor(delta.idle), { [NODEJS_EVENT_LOOP_STATE]: 'idle' });
-    obs.observe(this.eventLoopTime, Math.floor(delta.active), { [NODEJS_EVENT_LOOP_STATE]: 'active' });
+
+    this.eventLoopTime.add(Math.floor(delta.idle), { [NODEJS_EVENT_LOOP_STATE]: 'idle' });
+    this.eventLoopTime.add(Math.floor(delta.active), { [NODEJS_EVENT_LOOP_STATE]: 'active' });
 
     obs.observe(this.eventLoopDelayGauges.min, Math.floor(this.eventLoopDelay.min));
     obs.observe(this.eventLoopDelayGauges.mean, Math.floor(this.eventLoopDelay.mean));
