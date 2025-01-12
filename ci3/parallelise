@@ -31,4 +31,4 @@ if [ -n "$slow_jobs" ]; then
   echo "$slow_jobs"
 fi
 
-echo "Completed run of $(tail -n+2 joblog.txt | wc -l) tests."
+echo "Completed run of $(tail -n+2 joblog.txt | wc -l) tests in $SECONDS seconds."

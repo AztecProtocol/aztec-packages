@@ -20,6 +20,19 @@ ultra_honk_tests
 # Something to do with how I run the tests now. Think these are fine in nextest.
 noir_lsp-.* notifications::notification_tests::test_caches_open_files
 noir_lsp-.* requests::
+# Sometimes see this on ARM. But not when run on it's own...
+# FAILED 6a60c4e796ac0aef: noir/scripts/run_test.sh debug-21ff1948430ded06 tests::debug_ram_blowup_regression (code: 101)
+#                                                                                                                                                                                running 1 test
+# test tests::debug_ram_blowup_regression has been running for over 60 seconds                                                                                                   test tests::debug_ram_blowup_regression ... FAILED
+#                                                                                                                                                                                failures:
+#                                                                                                                                                                                ---- tests::debug_ram_blowup_regression stdout ----
+# thread 'tests::debug_ram_blowup_regression' panicked at tooling/debugger/tests/debug.rs:27:14:                                                                                 Could not start debugger: Timeout { expected: "Regex: \".*\Starting debugger.*\"", got: "`^`[?2004l`\r``\r``\n`
+# Waiting for lock on Nargo.toml...`\r``\n`                                                                                                                                      ", timeout: 30s }
+# note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+#                                                                                                                                                                                failures:
+#     tests::debug_ram_blowup_regression
+# test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 232 filtered out; finished in 60.34s
+tests::debug_ram_blowup_regression
 
 # end-to-end
 # This is just too slow at over 10m, grinding it 32 times it didn't flake.
