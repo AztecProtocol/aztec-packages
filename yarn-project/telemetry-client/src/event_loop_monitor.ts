@@ -1,4 +1,4 @@
-import { type EventLoopUtilization, IntervalHistogram, monitorEventLoopDelay, performance } from 'node:perf_hooks';
+import { type EventLoopUtilization, type IntervalHistogram, monitorEventLoopDelay, performance } from 'node:perf_hooks';
 
 import { NODEJS_EVENT_LOOP_STATE } from './attributes.js';
 import * as Metrics from './metrics.js';
@@ -89,7 +89,7 @@ export class EventLoopMonitor {
     this.eventLoopDelay.reset();
   }
 
-  private measure = async (obs: BatchObservableResult): Promise<void> => {
+  private measure = (obs: BatchObservableResult): void => {
     const newELU = performance.eventLoopUtilization();
     const delta = performance.eventLoopUtilization(newELU, this.lastELU);
     this.lastELU = newELU;
