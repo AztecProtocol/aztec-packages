@@ -203,13 +203,13 @@ describe('AVM WitGen, proof generation and verification', () => {
     TIMEOUT,
   );
   it.skip(
-    'Should prove and verify multiple app logic enqueued calls (like `enqueue_public_from_private`)',
+    'Should prove and verify multiple app logic enqueued calls (set storage in first call, read it in next)',
     async () => {
       await proveAndVerifyAvmTestContract(
         /*setupFunctionNames=*/ [],
         /*setupArgs=*/ [],
-        /*appFunctionNames=*/ ['set_opcode_u8', 'set_read_storage_single'],
-        /*appArgs=*/ [[], [new Fr(5)]],
+        /*appFunctionNames=*/ ['set_storage_single', 'read_assert_storage_single'],
+        /*appArgs=*/ [[new Fr(5)], [new Fr(5)]],
       );
     },
     TIMEOUT,

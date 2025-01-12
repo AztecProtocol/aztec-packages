@@ -79,14 +79,16 @@ export async function simulateAvmTestContractGenerateCircuitInputs(
     /*isStaticCall=*/ false,
   );
   const setupExecutionRequests: PublicExecutionRequest[] = [];
-  for (let i = 0; i < setupFunctionNames.length; i++) {
+  // we reverse order because the simulator expects it to be like a "stack" of calls to pop from
+  for (let i = setupFunctionNames.length - 1; i >= 0; i--) {
     const functionSelector = getAvmTestContractFunctionSelector(setupFunctionNames[i]);
     const fnArgs = [functionSelector.toField(), ...setupArgs[i]];
     const executionRequest = new PublicExecutionRequest(callContext, fnArgs);
     setupExecutionRequests.push(executionRequest);
   }
   const appExecutionRequests: PublicExecutionRequest[] = [];
-  for (let i = 0; i < appFunctionNames.length; i++) {
+  // we reverse order because the simulator expects it to be like a "stack" of calls to pop from
+  for (let i = appFunctionNames.length - 1; i >= 0; i--) {
     const functionSelector = getAvmTestContractFunctionSelector(appFunctionNames[i]);
     const fnArgs = [functionSelector.toField(), ...appArgs[i]];
     const executionRequest = new PublicExecutionRequest(callContext, fnArgs);
