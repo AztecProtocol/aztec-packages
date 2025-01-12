@@ -75,16 +75,16 @@ export async function simulateAvmTestContractGenerateCircuitInputs(
   );
 
   const sender = AztecAddress.random();
+  const callContext = new CallContext(
+    sender,
+    contractDataSource.firstContractInstance.address,
+    contractDataSource.fnSelector,
+    /*isStaticCall=*/ false,
+  );
   const setupExecutionRequests: PublicExecutionRequest[] = [];
   for (let i = 0; i < setupFunctionNames.length; i++) {
     const functionSelector = getAvmTestContractFunctionSelector(setupFunctionNames[i]);
     const fnArgs = [functionSelector.toField(), ...setupArgs[i]];
-    const callContext = new CallContext(
-      sender,
-      contractDataSource.firstContractInstance.address,
-      contractDataSource.fnSelector,
-      /*isStaticCall=*/ false,
-    );
     const executionRequest = new PublicExecutionRequest(callContext, fnArgs);
     setupExecutionRequests.push(executionRequest);
   }
@@ -92,12 +92,6 @@ export async function simulateAvmTestContractGenerateCircuitInputs(
   for (let i = 0; i < appFunctionNames.length; i++) {
     const functionSelector = getAvmTestContractFunctionSelector(appFunctionNames[i]);
     const fnArgs = [functionSelector.toField(), ...appArgs[i]];
-    const callContext = new CallContext(
-      sender,
-      contractDataSource.firstContractInstance.address,
-      contractDataSource.fnSelector,
-      /*isStaticCall=*/ false,
-    );
     const executionRequest = new PublicExecutionRequest(callContext, fnArgs);
     appExecutionRequests.push(executionRequest);
   }
@@ -106,12 +100,6 @@ export async function simulateAvmTestContractGenerateCircuitInputs(
   if (teardownFunctionName) {
     const functionSelector = getAvmTestContractFunctionSelector(teardownFunctionName);
     const fnArgs = [functionSelector.toField(), ...teardownArgs];
-    const callContext = new CallContext(
-      sender,
-      contractDataSource.firstContractInstance.address,
-      contractDataSource.fnSelector,
-      /*isStaticCall=*/ false,
-    );
     teardownExecutionRequest = new PublicExecutionRequest(callContext, fnArgs);
   }
 
