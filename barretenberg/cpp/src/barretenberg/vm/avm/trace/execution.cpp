@@ -1,5 +1,6 @@
 #include "barretenberg/vm/avm/trace/execution.hpp"
 #include "barretenberg/bb/log.hpp"
+#include "barretenberg/common/log.hpp"
 #include "barretenberg/common/serialize.hpp"
 #include "barretenberg/common/thread.hpp"
 #include "barretenberg/common/throw_or_abort.hpp"
@@ -31,6 +32,7 @@
 #include <cstdint>
 #include <cstdlib>
 #include <filesystem>
+#include <iomanip>
 #include <stdexcept>
 #include <string>
 #include <tuple>
@@ -195,7 +197,7 @@ void show_trace_info(const auto& trace)
             std::string fullnesses;
             for (size_t j = i; j < i + 10 && j < column_stats.size(); j++) {
                 const auto& stat = column_stats.at(j);
-                fullnesses += std::format("{:3}: {:3}%  ", stat.column_number, stat.fullness);
+                fullnesses += format(std::setw(3), stat.column_number, ": ", std::setw(3), stat.fullness, "%  ");
             }
             vinfo(fullnesses);
         }

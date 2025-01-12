@@ -14,7 +14,7 @@ import { createLogger } from '@aztec/foundation/log';
 import { promiseWithResolvers } from '@aztec/foundation/promise';
 import { Timer } from '@aztec/foundation/timer';
 import { type L1Publisher } from '@aztec/sequencer-client';
-import { type PublicProcessor, type PublicProcessorFactory } from '@aztec/simulator';
+import { type PublicProcessor, type PublicProcessorFactory } from '@aztec/simulator/server';
 import { Attributes, type Traceable, type Tracer, trackSpan } from '@aztec/telemetry-client';
 
 import * as crypto from 'node:crypto';
@@ -91,6 +91,7 @@ export class EpochProvingJob implements Traceable {
 
     try {
       this.prover.startNewEpoch(epochNumber, fromBlock, epochSizeBlocks);
+      this.prover.startTubeCircuits(this.txs);
 
       await asyncPool(this.config.parallelBlockLimit, this.blocks, async block => {
         this.checkState();

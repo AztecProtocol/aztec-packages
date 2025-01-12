@@ -489,20 +489,7 @@ pub global AVM_PROOF_LENGTH_IN_FIELDS: u32 = 4155;
 pub global AVM_PUBLIC_COLUMN_MAX_SIZE: u32 = 1024;
 pub global AVM_PUBLIC_INPUTS_FLATTENED_SIZE: u32 =
     2 * AVM_PUBLIC_COLUMN_MAX_SIZE + PUBLIC_CIRCUIT_PUBLIC_INPUTS_LENGTH;
-/**
- * Enumerate the hash_indices which are used for pedersen hashing.
- * We start from 1 to avoid the default generators. The generator indices are listed
- * based on the number of elements each index hashes. The following conditions must be met:
- *
- * +-----------+-------------------------------+----------------------+
- * | Hash size | Number of elements hashed (n) | Condition to use     |
- * |-----------+-------------------------------+----------------------|
- * | LOW       | n <= 8                         | 0 < hash_index <= 32  |
- * | MID       | 8 < n <= 16                    | 32 < hash_index <= 40 |
- * | HIGH      | 16 < n <= 48                   | 40 < hash_index <= 48 |
- * +-----------+-------------------------------+----------------------+
- */
-// Indices with size <= 8
+
 pub global GENERATOR_INDEX__NOTE_HASH: u32 = 1;
 pub global GENERATOR_INDEX__NOTE_HASH_NONCE: u32 = 2;
 pub global GENERATOR_INDEX__UNIQUE_NOTE_HASH: u32 = 3;
@@ -535,14 +522,11 @@ pub global GENERATOR_INDEX__SIDE_EFFECT: u32 = 29;
 pub global GENERATOR_INDEX__FEE_PAYLOAD: u32 = 30;
 pub global GENERATOR_INDEX__COMBINED_PAYLOAD: u32 = 31;
 pub global GENERATOR_INDEX__TX_NULLIFIER: u32 = 32;
-// Indices with size <= 16
 pub global GENERATOR_INDEX__TX_REQUEST: u32 = 33;
 pub global GENERATOR_INDEX__SIGNATURE_PAYLOAD: u32 = 34;
-// Indices with size <= 44
 pub global GENERATOR_INDEX__VK: u32 = 41;
 pub global GENERATOR_INDEX__PRIVATE_CIRCUIT_PUBLIC_INPUTS: u32 = 42;
 pub global GENERATOR_INDEX__PUBLIC_CIRCUIT_PUBLIC_INPUTS: u32 = 43;
-// TODO: Function args generator index is being used to hash 64 items
 pub global GENERATOR_INDEX__FUNCTION_ARGS: u32 = 44;
 pub global GENERATOR_INDEX__AUTHWIT_INNER: u32 = 45;
 pub global GENERATOR_INDEX__AUTHWIT_OUTER: u32 = 46;
@@ -556,6 +540,9 @@ pub global GENERATOR_INDEX__PUBLIC_KEYS_HASH: u32 = 52;
 pub global GENERATOR_INDEX__NOTE_NULLIFIER: u32 = 53;
 pub global GENERATOR_INDEX__NOTE_HIDING_POINT: u32 = 54;
 pub global GENERATOR_INDEX__SYMMETRIC_KEY: u8 = 55;
+
+pub global GENERATOR_INDEX__PUBLIC_TX_HASH: u32 = 56;
+pub global GENERATOR_INDEX__PRIVATE_TX_HASH: u32 = 57;
 
 // AVM memory tags
 pub global MEM_TAG_FF: Field = 0;
