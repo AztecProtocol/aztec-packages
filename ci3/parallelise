@@ -13,7 +13,8 @@ echo "Starting test run with max $jobs jobs..."
 # Otherwise use denoise to display dots and save output to redis.
 if [ -t 1 ]; then
   set +e
-  output=$(parallel $parallel_args --bar "run_test_cmd {}" | cache_log)
+  output=$(parallel $parallel_args --bar "run_test_cmd {}")
+  echo -e "$output" | cache_log "Test run" >/dev/null
   if [ $? -ne 0 ]; then
     echo -e "$output"
     exit 1

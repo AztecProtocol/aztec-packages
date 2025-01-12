@@ -67,7 +67,7 @@ if [ -t 1 ]; then
     cmd_postfix="&& exec zsh"
   fi
 else
-  cmd_postfix="2>&1 | ci3/add_timestamps | ci3/cache_log ${LOG_ID:-}"
+  cmd_postfix="2>&1 | ci3/add_timestamps | ci3/cache_log 'CI run' ${LOG_ID:-}"
 fi
 
 # Use ~/.ssh/build_instance_key to ssh into our requested instance.
