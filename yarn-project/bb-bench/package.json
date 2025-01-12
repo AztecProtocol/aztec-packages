@@ -12,6 +12,7 @@
     "generate": "BB=../../../barretenberg/cpp/build/bin/bb && cd main && $BB prove_ultra_honk_output_all -b target/main.json -w target/main.gz --recursive"
   },
   "devDependencies": {
+    "@aztec/foundation": "workspace:^",
     "rollup-plugin-copy": "^3.5.0",
     "vite": "^5.3.4"
   },

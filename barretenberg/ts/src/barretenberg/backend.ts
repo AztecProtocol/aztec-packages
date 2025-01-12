@@ -272,6 +272,7 @@ export class UltraHonkBackend {
     // UltraHonk also does not have public inputs directly prepended to the proof and they are still instead
     // inserted at an offset.
     // const proof = reconstructProofWithPublicInputs(proofData);
+    const proof = await this.api.acirProofNoPIsAsFieldsUltraHonk(_proof);
     // const proofAsFields = (await this.api.acirProofAsFieldsUltraHonk(proof)).slice(numOfPublicInputs);
 
     // TODO: perhaps we should put this in the init function. Need to benchmark
@@ -281,12 +282,12 @@ export class UltraHonkBackend {
 
     return {
       // TODO(https://github.com/noir-lang/noir/issues/5661)
-      proofAsFields: [],
+      proofAsFields: proof.map(proof => proof.toString()),
       vkAsFields: vk.map(vk => vk.toString()),
       // We use an empty string for the vk hash here as it is unneeded as part of the recursive artifacts
       // The user can be expected to hash the vk inside their circuit to check whether the vk is the circuit
       // they expect
-      vkHash: '',
+      vkHash: '0x404',
     };
   }
 

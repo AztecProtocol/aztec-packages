@@ -7832,6 +7832,7 @@ __metadata:
   resolution: "browser@workspace:bb-bench"
   dependencies:
     "@aztec/bb.js": ../barretenberg/ts
+    "@aztec/foundation": "workspace:^"
     "@noir-lang/noir_js": "file:../../noir/packages/noir_js"
     rollup-plugin-copy: "npm:^3.5.0"
     vite: "npm:^5.3.4"

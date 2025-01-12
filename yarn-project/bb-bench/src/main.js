@@ -1,9 +1,85 @@
 import { UltraHonkBackend } from '@aztec/bb.js';
 
 import { Noir } from '@noir-lang/noir_js';
+import createDebug from 'debug';
 
 import main from '../main/target/main.json';
 import recursion from '../recursion/target/recursion.json';
+
+const logger = createDebug('bb-bench:');
+
+/* eslint-disable no-console */
+
+// Function to set up the output element and redirect all console output
+function setupConsoleOutput() {
+  const container = document.createElement('div');
+  container.style.marginBottom = '10px';
+  document.body.appendChild(container);
+
+  const copyButton = document.createElement('button');
+  copyButton.innerText = 'Copy Logs to Clipboard';
+  copyButton.style.marginBottom = '10px';
+  copyButton.addEventListener('click', () => {
+    const logContent = logContainer.textContent || ''; // Get text content of log container
+    navigator.clipboard
+      .writeText(logContent)
+      .then(() => {
+        alert('Logs copied to clipboard!');
+      })
+      .catch(err => {
+        console.error('Failed to copy logs:', err);
+      });
+  });
+  container.appendChild(copyButton);
+
+  const logContainer = document.createElement('pre');
+  logContainer.id = 'logOutput';
+  logContainer.style.border = '1px solid #ccc';
+  logContainer.style.padding = '10px';
+  logContainer.style.maxHeight = '400px';
+  logContainer.style.overflowY = 'auto';
+  container.appendChild(logContainer);
+
+  // Helper to append messages to logContainer
+  function addLogMessage(message) {
+    logContainer.textContent += message + '\n';
+    logContainer.scrollTop = logContainer.scrollHeight; // Auto-scroll to the bottom
+  }
+
+  // Override console methods to output clean logs
+  const originalLog = console.log;
+  const originalDebug = console.debug;
+
+  console.log = function (...args) {
+    const message = args
+      .map(arg =>
+        typeof arg === 'string'
+          ? arg
+              .replace(/%c/g, '')
+              .replace(/color:.*?(;|$)/g, '')
+              .trim()
+          : arg,
+      )
+      .join(' ');
+    originalLog.apply(console, args); // Keep original behavior
+    addLogMessage(message);
+  };
+
+  console.debug = function (...args) {
+    const message = args
+      .map(arg =>
+        typeof arg === 'string'
+          ? arg
+              .replace(/%c/g, '')
+              .replace(/color:.*?(;|$)/g, '')
+              .trim()
+          : arg,
+      )
+      .join(' ');
+    originalDebug.apply(console, args); // Keep original behavior
+    addLogMessage(message);
+  };
+}
 
 document.getElementById('bbProveMulti').addEventListener('click', async () => {
   // Currently if you pass a non-power of 2 number of threads, you only get as many as the nearest smaller power of two
@@ -76,3 +152,7 @@ const prove = async threads => {
     console.error(`Proof generation failed: ${err}`);
   }
 };
+
+document.addEventListener('DOMContentLoaded', function () {
+  setupConsoleOutput(); // Initialize console output capture
+});
