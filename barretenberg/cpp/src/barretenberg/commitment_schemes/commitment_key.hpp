@@ -55,7 +55,6 @@ template <class Curve> class CommitmentKey {
     scalar_multiplication::pippenger_runtime_state<Curve> pippenger_runtime_state;
     std::shared_ptr<srs::factories::CrsFactory<Curve>> crs_factory;
     std::shared_ptr<srs::factories::ProverCrs<Curve>> srs;
-    size_t dyadic_size;
 
     CommitmentKey() = delete;
 
@@ -70,7 +69,6 @@ template <class Curve> class CommitmentKey {
         : pippenger_runtime_state(get_num_needed_srs_points(num_points))
         , crs_factory(srs::get_crs_factory<Curve>())
         , srs(crs_factory->get_prover_crs(get_num_needed_srs_points(num_points)))
-        , dyadic_size(get_num_needed_srs_points(num_points))
     {}
 
     // Note: This constructor is to be used only by Plonk; For Honk the srs lives in the CommitmentKey
@@ -144,48 +142,52 @@ template <class Curve> class CommitmentKey {
         // with our polynomial span.
         std::span<G1> point_table = srs->get_monomial_points().subspan(polynomial.start_index * 2);
 
-        // Define structures needed to multithread the extraction of non-zero inputs
+        // First pass: count non-zero elements
         const size_t num_threads = calculate_num_threads(poly_size);
         const size_t block_size = (poly_size + num_threads - 1) / num_threads; // round up
-        std::vector<std::vector<Fr>> thread_scalars(num_threads);
-        std::vector<std::vector<G1>> thread_points(num_threads);
+        std::vector<size_t> thread_counts(num_threads, 0);
 
-        // Loop over all polynomial coefficients and keep {point, scalar} pairs for which scalar != 0
         parallel_for(num_threads, [&](size_t thread_idx) {
             const size_t start = thread_idx * block_size;
             const size_t end = std::min(poly_size, (thread_idx + 1) * block_size);
 
             for (size_t idx = start; idx < end; ++idx) {
-
-                const Fr& scalar = polynomial.span[idx];
-
-                if (!scalar.is_zero()) {
-                    thread_scalars[thread_idx].emplace_back(scalar);
-                    // Save both the raw srs point and the precomputed endomorphism point from the point table
-                    ASSERT(idx * 2 + 1 < point_table.size());
-                    const G1& point = point_table[idx * 2];
-                    const G1& endo_point = point_table[idx * 2 + 1];
-                    thread_points[thread_idx].emplace_back(point);
-                    thread_points[thread_idx].emplace_back(endo_point);
+                if (!polynomial.span[idx].is_zero()) {
+                    thread_counts[thread_idx]++;
                 }
             }
         });
 
-        // Compute total number of non-trivial input pairs
-        size_t num_nonzero_scalars = 0;
-        for (auto& scalars : thread_scalars) {
-            num_nonzero_scalars += scalars.size();
+        // Calculate total number of non-zero elements and prepare final vectors
+        size_t total_nonzero = 0;
+        std::vector<size_t> thread_offsets(num_threads);
+        for (size_t i = 0; i < num_threads; ++i) {
+            thread_offsets[i] = total_nonzero;
+            total_nonzero += thread_counts[i];
         }
 
-        // Reconstruct the full input to the pippenger from the individual threads
-        std::vector<Fr> scalars;
-        std::vector<G1> points;
-        scalars.reserve(num_nonzero_scalars);
-        points.reserve(2 * num_nonzero_scalars); //  2x accounts for endomorphism points
-        for (size_t idx = 0; idx < num_threads; ++idx) {
-            scalars.insert(scalars.end(), thread_scalars[idx].begin(), thread_scalars[idx].end());
-            points.insert(points.end(), thread_points[idx].begin(), thread_points[idx].end());
-        }
+        // Allocate vectors with exact size needed
+        std::vector<Fr> scalars(total_nonzero);
+        std::vector<G1> points(total_nonzero * 2); // 2x for endomorphism points
+
+        // Second pass: fill vectors directly into their final position
+        parallel_for(num_threads, [&](size_t thread_idx) {
+            const size_t start = thread_idx * block_size;
+            const size_t end = std::min(poly_size, (thread_idx + 1) * block_size);
+            size_t current_offset = thread_offsets[thread_idx];
+
+            for (size_t idx = start; idx < end; ++idx) {
+                const Fr& scalar = polynomial.span[idx];
+                if (!scalar.is_zero()) {
+                    scalars[current_offset] = scalar;
+                    // Save both the raw srs point and the precomputed endomorphism point from the point table
+                    ASSERT(idx * 2 + 1 < point_table.size());
+                    points[current_offset * 2] = point_table[idx * 2];
+                    points[current_offset * 2 + 1] = point_table[idx * 2 + 1];
+                    current_offset++;
+                }
+            }
+        });
 
         // Call the version of pippenger which assumes all points are distinct
         return scalar_multiplication::pippenger_unsafe<Curve>({ 0, scalars }, points, pippenger_runtime_state);
