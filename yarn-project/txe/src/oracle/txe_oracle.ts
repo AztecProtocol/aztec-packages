@@ -374,12 +374,12 @@ export class TXE implements TypedOracle {
     return Fr.random();
   }
 
-  packArgumentsArray(args: Fr[]) {
-    return Promise.resolve(this.executionCache.store(args));
+  storeArrayInExecutionCache(values: Fr[]) {
+    return Promise.resolve(this.executionCache.store(values));
   }
 
-  storeInExecutionCache(returns: Fr[]) {
-    return Promise.resolve(this.executionCache.store(returns));
+  storeInExecutionCache(values: Fr[]) {
+    return Promise.resolve(this.executionCache.store(values));
   }
 
   loadFromExecutionCache(returnsHash: Fr) {

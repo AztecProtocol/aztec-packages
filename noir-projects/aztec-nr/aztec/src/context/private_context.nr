@@ -6,7 +6,6 @@ use crate::{
     keys::constants::{NULLIFIER_INDEX, NUM_KEY_TYPES, OUTGOING_INDEX, sk_generators},
     messaging::process_l1_to_l2_message,
     oracle::{
-        arguments,
         block_header::get_block_header_at,
         call_private_function::call_private_function_internal,
         enqueue_public_function_call::{
@@ -334,7 +333,7 @@ impl PrivateContext {
         args: [Field; ARGS_COUNT],
     ) -> ReturnsHash {
         let args_hash = hash_args_array(args);
-        arguments::pack_arguments_array(args);
+        execution_cache::store_array(args);
         self.call_private_function_with_args_hash(
             contract_address,
             function_selector,
@@ -350,7 +349,7 @@ impl PrivateContext {
         args: [Field; ARGS_COUNT],
     ) -> ReturnsHash {
         let args_hash = hash_args_array(args);
-        arguments::pack_arguments_array(args);
+        execution_cache::store_array(args);
         self.call_private_function_with_args_hash(
             contract_address,
             function_selector,
@@ -437,7 +436,7 @@ impl PrivateContext {
         args: [Field; ARGS_COUNT],
     ) {
         let args_hash = hash_args_array(args);
-        arguments::pack_arguments_array(args);
+        execution_cache::store_array(args);
         self.call_public_function_with_packed_args(
             contract_address,
             function_selector,
@@ -453,7 +452,7 @@ impl PrivateContext {
         args: [Field; ARGS_COUNT],
     ) {
         let args_hash = hash_args_array(args);
-        arguments::pack_arguments_array(args);
+        execution_cache::store_array(args);
         self.call_public_function_with_packed_args(
             contract_address,
             function_selector,
@@ -525,7 +524,7 @@ impl PrivateContext {
         args: [Field; ARGS_COUNT],
     ) {
         let args_hash = hash_args_array(args);
-        arguments::pack_arguments_array(args);
+        execution_cache::store_array(args);
         self.set_public_teardown_function_with_packed_args(
             contract_address,
             function_selector,

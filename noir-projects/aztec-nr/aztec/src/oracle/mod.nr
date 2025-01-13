@@ -2,7 +2,6 @@
 /// Oracles module
 // docs:end:oracles-module
 
-pub mod arguments;
 pub mod call_private_function;
 pub mod execution;
 pub mod get_contract_instance;

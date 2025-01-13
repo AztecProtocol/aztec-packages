@@ -56,8 +56,8 @@ export abstract class TypedOracle {
     return Fr.random();
   }
 
-  packArgumentsArray(_args: Fr[]): Promise<Fr> {
-    throw new OracleMethodNotAvailableError('packArgumentsArray');
+  storeArrayInExecutionCache(_args: Fr[]): Promise<Fr> {
+    throw new OracleMethodNotAvailableError('storeArrayInExecutionCache');
   }
 
   storeInExecutionCache(_values: Fr[]): Promise<Fr> {

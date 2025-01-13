@@ -273,14 +273,9 @@ export class TXEService {
     return toForeignCallResult([toSingle(new Fr(blockNumber))]);
   }
 
-  async packArgumentsArray(args: ForeignCallArray) {
-    const packed = await this.typedOracle.packArgumentsArray(fromArray(args));
-    return toForeignCallResult([toSingle(packed)]);
-  }
-
-  async packArguments(_length: ForeignCallSingle, values: ForeignCallArray) {
-    const packed = await this.typedOracle.packArgumentsArray(fromArray(values));
-    return toForeignCallResult([toSingle(packed)]);
+  async storeArrayInExecutionCache(args: ForeignCallArray) {
+    const hash = await this.typedOracle.storeArrayInExecutionCache(fromArray(args));
+    return toForeignCallResult([toSingle(hash)]);
   }
 
   // Since the argument is a slice, noir automatically adds a length field to oracle call.
