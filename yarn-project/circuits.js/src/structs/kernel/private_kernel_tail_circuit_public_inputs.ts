@@ -7,10 +7,10 @@ import { countAccumulatedItems, mergeAccumulatedData } from '../../utils/index.j
 import { Gas } from '../gas.js';
 import { PublicCallRequest } from '../public_call_request.js';
 import { RollupValidationRequests } from '../rollup_validation_requests.js';
-import { PrivateToRollupKernelCircuitPublicInputs } from './kernel_circuit_public_inputs.js';
 import { PrivateToPublicAccumulatedData } from './private_to_public_accumulated_data.js';
 import { PrivateToPublicKernelCircuitPublicInputs } from './private_to_public_kernel_circuit_public_inputs.js';
 import { PrivateToRollupAccumulatedData } from './private_to_rollup_accumulated_data.js';
+import { PrivateToRollupKernelCircuitPublicInputs } from './private_to_rollup_kernel_circuit_public_inputs.js';
 import { TxConstantData } from './tx_constant_data.js';
 
 export class PartialPrivateTailPublicInputsForPublic {
@@ -144,7 +144,7 @@ export class PrivateKernelTailCircuitPublicInputs {
     );
   }
 
-  toPublicKernelCircuitPublicInputs() {
+  toPrivateToPublicKernelCircuitPublicInputs() {
     if (!this.forPublic) {
       throw new Error('Private tail public inputs is not for public circuit.');
     }
@@ -170,9 +170,9 @@ export class PrivateKernelTailCircuitPublicInputs {
       this.constants.protocolContractTreeRoot,
     );
     return new PrivateToRollupKernelCircuitPublicInputs(
+      constants,
       this.rollupValidationRequests,
       this.forRollup.end,
-      constants,
       this.gasUsed,
       this.feePayer,
     );

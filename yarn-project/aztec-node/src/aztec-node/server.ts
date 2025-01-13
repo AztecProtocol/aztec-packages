@@ -73,7 +73,7 @@ import {
   createValidatorForAcceptingTxs,
   getDefaultAllowedSetupFunctions,
 } from '@aztec/sequencer-client';
-import { PublicProcessorFactory } from '@aztec/simulator';
+import { PublicProcessorFactory } from '@aztec/simulator/server';
 import { Attributes, type TelemetryClient, type Traceable, type Tracer, trackSpan } from '@aztec/telemetry-client';
 import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
 import { createValidatorClient } from '@aztec/validator-client';
@@ -834,7 +834,7 @@ export class AztecNodeService implements AztecNode, Traceable {
    * @param tx - The transaction to simulate.
    **/
   @trackSpan('AztecNodeService.simulatePublicCalls', (tx: Tx) => ({
-    [Attributes.TX_HASH]: tx.tryGetTxHash()?.toString(),
+    [Attributes.TX_HASH]: tx.getTxHash().toString(),
   }))
   public async simulatePublicCalls(tx: Tx, enforceFeePayment = true): Promise<PublicSimulationOutput> {
     const txHash = tx.getTxHash();

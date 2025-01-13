@@ -1,0 +1,21 @@
+// This is a virtual gadget, which is part of the execution trace.
+namespace execution(256);
+
+pol commit stack_pointer_val;
+pol commit stack_pointer_tag;
+pol commit sel_addressing_error;  // true if any error type
+pol commit addressing_error_kind;  // TODO: might need to be selectors
+pol commit addressing_error_idx;  // operand index for error, if any
+
+// whether each operand is an address for the given opcode.
+// retrieved from the instruction spec.
+pol commit sel_op1_is_address;
+pol commit sel_op2_is_address;
+pol commit sel_op3_is_address;
+pol commit sel_op4_is_address;
+// operands after relative resolution
+pol commit op1_after_relative;
+pol commit op2_after_relative;
+pol commit op3_after_relative;
+pol commit op4_after_relative;
+// operands after indirect resolution are the resolved_operands rop1, ...
