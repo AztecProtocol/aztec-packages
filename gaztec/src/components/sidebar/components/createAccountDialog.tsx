@@ -1,0 +1,79 @@
+import DialogTitle from "@mui/material/DialogTitle";
+import Dialog from "@mui/material/Dialog";
+import { AccountWalletWithSecretKey, Fr, PXE } from "@aztec/aztec.js";
+import { getSchnorrAccount } from "@aztec/accounts/schnorr";
+import { Button, CircularProgress, TextField, css } from "@mui/material";
+import { useState } from "react";
+import { deriveSigningKey } from "@aztec/circuits.js";
+
+const creationForm = css({
+  display: "flex",
+  flexDirection: "column",
+  gap: "1rem",
+  padding: "1rem",
+  alignItems: "center",
+});
+
+export function CreateAccountDialog({
+  open,
+  pxe,
+  onClose,
+}: {
+  open: boolean;
+  pxe: PXE;
+  onClose: (
+    account?: AccountWalletWithSecretKey,
+    salt?: Fr,
+    alias?: string
+  ) => void;
+}) {
+  const [alias, setAlias] = useState("");
+  const [secretKey] = useState(Fr.random());
+  const [deployingAccount, setDeployingAccount] = useState(false);
+
+  const createAccount = async () => {
+    setDeployingAccount(true);
+    const salt = Fr.random();
+    const account = getSchnorrAccount(
+      pxe,
+      secretKey,
+      deriveSigningKey(secretKey),
+      salt
+    );
+    await account.deploy().wait();
+    const wallet = await account.getWallet();
+    setDeployingAccount(false);
+    onClose(wallet, salt, alias);
+  };
+
+  const handleClose = () => {
+    onClose();
+  };
+
+  return (
+    <Dialog onClose={handleClose} open={open}>
+      <DialogTitle>Create account</DialogTitle>
+      <div css={creationForm}>
+        {deployingAccount ? (
+          <>
+            <span>Deploying...</span>
+            <CircularProgress />
+          </>
+        ) : (
+          <>
+            <TextField
+              placeholder="Alias"
+              value={alias}
+              onChange={(event) => {
+                setAlias(event.target.value);
+              }}
+            />
+            <Button disabled={alias === ""} onClick={createAccount}>
+              Create
+            </Button>
+          </>
+        )}
+      </div>
+    </Dialog>
+  );
+}
