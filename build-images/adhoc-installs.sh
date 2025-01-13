@@ -5,4 +5,4 @@
 set -eu
 apt update
 # for docs:
-apt install libvips-dev
+apt install -y libvips-dev
