@@ -13,8 +13,8 @@ use crate::{
             enqueue_public_function_call_internal, notify_set_min_revertible_side_effect_counter,
             set_public_teardown_function_call_internal,
         },
+        execution_cache,
         key_validation_request::get_key_validation_request,
-        returns::store_returns,
     },
 };
 use dep::protocol_types::{
@@ -176,7 +176,7 @@ impl PrivateContext {
     }
 
     pub fn set_return_hash(&mut self, returns_hasher: ArgsHasher) {
-        store_returns(returns_hasher.fields);
+        execution_cache::store(returns_hasher.fields);
         self.return_hash = returns_hasher.hash();
     }
 

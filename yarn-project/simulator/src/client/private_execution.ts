@@ -65,7 +65,7 @@ export async function executePrivateFunction(
 
   const contractClassLogs = context.getContractClassLogs();
 
-  const rawReturnValues = await context.getReturns(publicInputs.returnsHash);
+  const rawReturnValues = await context.loadFromExecutionCache(publicInputs.returnsHash);
 
   const noteHashLeafIndexMap = context.getNoteHashLeafIndexMap();
   const newNotes = context.getNewNotes();

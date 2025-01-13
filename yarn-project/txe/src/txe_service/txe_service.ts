@@ -43,7 +43,7 @@ export class TXEService {
   static async init(logger: Logger) {
     const store = openTmpStore(true);
     const trees = await MerkleTrees.new(store, new NoopTelemetryClient(), logger);
-    const hashedValuesCache = new HashedValuesCache();
+    const executionCache = new HashedValuesCache();
     const txHash = new Fr(1); // The txHash is used for computing the revertible nullifiers for non-revertible note hashes. It can be any value for testing.
     const noteCache = new ExecutionNoteCache(txHash);
     const keyStore = new KeyStore(store);
@@ -55,7 +55,7 @@ export class TXEService {
       await txeDatabase.addContractInstance(instance);
     }
     logger.debug(`TXE service initialized`);
-    const txe = new TXE(logger, trees, hashedValuesCache, noteCache, keyStore, txeDatabase);
+    const txe = new TXE(logger, trees, executionCache, noteCache, keyStore, txeDatabase);
     const service = new TXEService(logger, txe);
     await service.advanceBlocksBy(toSingle(new Fr(1n)));
     return service;
@@ -284,13 +284,13 @@ export class TXEService {
   }
 
   // Since the argument is a slice, noir automatically adds a length field to oracle call.
-  async storeReturns(_length: ForeignCallSingle, values: ForeignCallArray) {
-    const returnsHash = await this.typedOracle.storeReturns(fromArray(values));
+  async storeInExecutionCache(_length: ForeignCallSingle, values: ForeignCallArray) {
+    const returnsHash = await this.typedOracle.storeInExecutionCache(fromArray(values));
     return toForeignCallResult([toSingle(returnsHash)]);
   }
 
-  async getReturns(returnsHash: ForeignCallSingle) {
-    const returns = await this.typedOracle.getReturns(fromSingle(returnsHash));
+  async loadFromExecutionCache(hash: ForeignCallSingle) {
+    const returns = await this.typedOracle.loadFromExecutionCache(fromSingle(hash));
     return toForeignCallResult([toArray(returns)]);
   }
 

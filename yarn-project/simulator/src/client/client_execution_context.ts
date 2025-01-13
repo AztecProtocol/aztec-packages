@@ -70,7 +70,7 @@ export class ClientExecutionContext extends ViewDataOracle {
     protected readonly historicalHeader: BlockHeader,
     /** List of transient auth witnesses to be used during this simulation */
     authWitnesses: AuthWitness[],
-    private readonly hashedValuesCache: HashedValuesCache,
+    private readonly executionCache: HashedValuesCache,
     private readonly noteCache: ExecutionNoteCache,
     db: DBOracle,
     private node: AztecNode,
@@ -92,7 +92,7 @@ export class ClientExecutionContext extends ViewDataOracle {
   public getInitialWitness(abi: FunctionAbi) {
     const argumentsSize = countArgumentsSize(abi);
 
-    const args = this.hashedValuesCache.getPreimage(this.argsHash);
+    const args = this.executionCache.getPreimage(this.argsHash);
 
     if (args.length !== argumentsSize) {
       throw new Error('Invalid arguments size');
@@ -165,23 +165,25 @@ export class ClientExecutionContext extends ViewDataOracle {
    * @param args - Arguments to pack
    */
   public override packArgumentsArray(args: Fr[]): Promise<Fr> {
-    return Promise.resolve(this.hashedValuesCache.store(args));
+    return Promise.resolve(this.executionCache.store(args));
   }
 
   /**
-   * Store returns in hash values cache.
-   * @param returns - Returns to store.
+   * Store values in the execution cache.
+   * @param values - Returns to store.
+   * @returns The hash of the values.
    */
-  public override storeReturns(returns: Fr[]): Promise<Fr> {
-    return Promise.resolve(this.hashedValuesCache.store(returns));
+  public override storeInExecutionCache(values: Fr[]): Promise<Fr> {
+    return Promise.resolve(this.executionCache.store(values));
   }
 
   /**
-   * Gets returns from hash values cache.
-   * @param returnsHash - Hash of the returns.
+   * Gets values from the execution cache.
+   * @param hash - Hash of the values.
+   * @returns The values.
    */
-  public override getReturns(returnsHash: Fr): Promise<Fr[]> {
-    return Promise.resolve(this.hashedValuesCache.getPreimage(returnsHash));
+  public override loadFromExecutionCache(hash: Fr): Promise<Fr[]> {
+    return Promise.resolve(this.executionCache.getPreimage(hash));
   }
 
   /**
@@ -371,7 +373,7 @@ export class ClientExecutionContext extends ViewDataOracle {
       derivedCallContext,
       this.historicalHeader,
       this.authWitnesses,
-      this.hashedValuesCache,
+      this.executionCache,
       this.noteCache,
       this.db,
       this.node,
@@ -421,7 +423,7 @@ export class ClientExecutionContext extends ViewDataOracle {
   ) {
     const targetArtifact = await this.db.getFunctionArtifact(targetContractAddress, functionSelector);
     const derivedCallContext = this.deriveCallContext(targetContractAddress, targetArtifact, isStaticCall);
-    const args = this.hashedValuesCache.getPreimage(argsHash);
+    const args = this.executionCache.getPreimage(argsHash);
 
     this.log.verbose(
       `Created ${callType} public execution request to ${targetArtifact.name}@${targetContractAddress}`,
@@ -470,9 +472,9 @@ export class ClientExecutionContext extends ViewDataOracle {
     // new_args = [selector, ...old_args], so as to make it suitable to call the public dispatch function.
     // We don't validate or compute it in the circuit because a) it's harder to do with slices, and
     // b) this is only temporary.
-    const newArgsHash = this.hashedValuesCache.store([
+    const newArgsHash = this.executionCache.store([
       functionSelector.toField(),
-      ...this.hashedValuesCache.getPreimage(argsHash),
+      ...this.executionCache.getPreimage(argsHash),
     ]);
     await this.createPublicExecutionRequest(
       'enqueued',
@@ -509,9 +511,9 @@ export class ClientExecutionContext extends ViewDataOracle {
     // new_args = [selector, ...old_args], so as to make it suitable to call the public dispatch function.
     // We don't validate or compute it in the circuit because a) it's harder to do with slices, and
     // b) this is only temporary.
-    const newArgsHash = this.hashedValuesCache.store([
+    const newArgsHash = this.executionCache.store([
       functionSelector.toField(),
-      ...this.hashedValuesCache.getPreimage(argsHash),
+      ...this.executionCache.getPreimage(argsHash),
     ]);
     await this.createPublicExecutionRequest(
       'teardown',

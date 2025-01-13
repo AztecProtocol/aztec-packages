@@ -125,7 +125,7 @@ export class TXE implements TypedOracle {
   constructor(
     private logger: Logger,
     private trees: MerkleTrees,
-    private hashedValuesCache: HashedValuesCache,
+    private executionCache: HashedValuesCache,
     private noteCache: ExecutionNoteCache,
     private keyStore: KeyStore,
     private txeDatabase: TXEDatabase,
@@ -375,15 +375,15 @@ export class TXE implements TypedOracle {
   }
 
   packArgumentsArray(args: Fr[]) {
-    return Promise.resolve(this.hashedValuesCache.store(args));
+    return Promise.resolve(this.executionCache.store(args));
   }
 
-  storeReturns(returns: Fr[]) {
-    return Promise.resolve(this.hashedValuesCache.store(returns));
+  storeInExecutionCache(returns: Fr[]) {
+    return Promise.resolve(this.executionCache.store(returns));
   }
 
-  getReturns(returnsHash: Fr) {
-    return Promise.resolve(this.hashedValuesCache.getPreimage(returnsHash));
+  loadFromExecutionCache(returnsHash: Fr) {
+    return Promise.resolve(this.executionCache.getPreimage(returnsHash));
   }
 
   getKeyValidationRequest(pkMHash: Fr): Promise<KeyValidationRequest> {
@@ -778,7 +778,7 @@ export class TXE implements TypedOracle {
   async getInitialWitness(abi: FunctionAbi, argsHash: Fr, sideEffectCounter: number, isStaticCall: boolean) {
     const argumentsSize = countArgumentsSize(abi);
 
-    const args = this.hashedValuesCache.getPreimage(argsHash);
+    const args = this.executionCache.getPreimage(argsHash);
 
     if (args.length !== argumentsSize) {
       throw new Error('Invalid arguments size');
@@ -889,8 +889,8 @@ export class TXE implements TypedOracle {
       isStaticCall,
     );
 
-    const args = [this.functionSelector.toField(), ...this.hashedValuesCache.getPreimage(argsHash)];
-    const newArgsHash = this.hashedValuesCache.store(args);
+    const args = [this.functionSelector.toField(), ...this.executionCache.getPreimage(argsHash)];
+    const newArgsHash = this.executionCache.store(args);
 
     const executionResult = await this.executePublicFunction(args, callContext, isTeardown);
 
