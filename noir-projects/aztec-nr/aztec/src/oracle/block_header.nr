@@ -35,7 +35,7 @@ pub fn get_block_header_at(block_number: u32, context: PrivateContext) -> BlockH
         );
 
         // 3) Get the header hint of a given block from an oracle
-        // Safety: The header is constrained against the archive tree root below.
+        // Safety: The header is constrained to be in the archive tree below.
         let header = unsafe { get_block_header_at_internal(block_number) };
 
         // 4) We make sure that the header hint we received from the oracle exists in the state tree and is the actual header
