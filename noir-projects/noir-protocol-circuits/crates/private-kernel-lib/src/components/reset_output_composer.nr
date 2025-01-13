@@ -52,16 +52,16 @@ impl<let NH_RR_PENDING: u32, let NH_RR_SETTLED: u32, let NLL_RR_PENDING: u32, le
 
         output.validation_requests = self.validation_request_processor.compose();
 
-        output.end.note_hashes = if self.note_hash_siloing_amount == 0 {
-            self.hints.kept_note_hashes
-        } else {
-            self.get_sorted_siloed_note_hashes()
-        };
-
         output.end.nullifiers = if self.nullifier_siloing_amount == 0 {
             self.hints.kept_nullifiers
         } else {
             self.get_sorted_siloed_nullifiers()
+        };
+
+        output.end.note_hashes = if self.note_hash_siloing_amount == 0 {
+            self.hints.kept_note_hashes
+        } else {
+            self.get_sorted_siloed_note_hashes(output.end.nullifiers[0].value())
         };
 
         output.end.private_logs = if self.private_log_siloing_amount == 0 {
@@ -75,11 +75,11 @@ impl<let NH_RR_PENDING: u32, let NH_RR_SETTLED: u32, let NLL_RR_PENDING: u32, le
 
     unconstrained fn get_sorted_siloed_note_hashes(
         self,
+        first_nullifier: Field,
     ) -> [ScopedNoteHash; MAX_NOTE_HASHES_PER_TX] {
         let is_private_only = self.previous_kernel.is_private_only;
         let min_revertible_side_effect_counter =
             self.previous_kernel.min_revertible_side_effect_counter;
-        let first_nullifier = self.previous_kernel.end.nullifiers[0].value();
         let mut note_hashes = sort_by_counter_asc(self.hints.kept_note_hashes);
         for i in 0..note_hashes.len() {
             let note_hash = note_hashes[i];
