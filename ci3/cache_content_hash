@@ -39,6 +39,8 @@ if [[ -n "$unstaged_diff" ]] || [[ -n "$staged_diff" ]] || [[ -n "$untracked_dif
 fi
 
 # Calculate a content hash for matched files
+# Use git ls-tree and AWK to filter files matching the rebuild patterns and extract their hashes
+# Sort the hashes and compute the content hash
 CONTENT_HASH="$(
   git ls-tree -r "$AZTEC_CACHE_COMMIT" \
     | awk -v pattern="($AWK_PATTERN)" '$4 ~ pattern {print $3}' \
