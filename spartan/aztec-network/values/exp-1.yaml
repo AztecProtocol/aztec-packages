@@ -143,8 +143,8 @@ bootNode:
   maxOldSpaceSize: "4608"
 
 proverAgent:
-  replicas: 1200
-  pollIntervalMs: 10000
+  replicas: 8
+  pollIntervalMs: 1000
 
 proverBroker:
   resources:
