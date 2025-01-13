@@ -20,7 +20,8 @@ pub struct VariableMerkleTree {
 /// The smallest exponent `n` where `2^n >= input`
 unconstrained fn get_next_power_exponent(input: u32, start: u8) -> u8 {
     let mut next_power_exponent = 0;
-    if input <= 2 << start {
+    // We check if input is less than or equal to 2^start.
+    if input <= (1 << start) {
         next_power_exponent = start;
     } else {
         next_power_exponent = get_next_power_exponent(input, start + 1);
@@ -49,7 +50,7 @@ fn get_prev_power_2(value: u32) -> u32 {
         get_next_power_exponent(value, 0)
     };
 
-    let next_power_2 = 2 << next_power_exponent;
+    let next_power_2 = 1 << next_power_exponent;
     let prev_power_2 = next_power_2 / 2;
     assert(prev_power_2 < value);
     assert(value <= next_power_2);
@@ -122,7 +123,8 @@ impl VariableMerkleTree {
 
 pub mod tests {
     use crate::{
-        hash::accumulate_sha256, merkle_tree::variable_merkle_tree::VariableMerkleTree,
+        hash::accumulate_sha256,
+        merkle_tree::variable_merkle_tree::{get_next_power_exponent, VariableMerkleTree},
         tests::fixtures::merkle_tree::generate_full_sha_tree,
     };
 
@@ -138,6 +140,19 @@ pub mod tests {
             }
         }
         items
+    }
+
+    #[test]
+    unconstrained fn test_get_next_power_exponent() {
+        assert_eq(get_next_power_exponent(0, 0), 0);
+        assert_eq(get_next_power_exponent(1, 0), 0);
+        assert_eq(get_next_power_exponent(2, 0), 1);
+        assert_eq(get_next_power_exponent(3, 0), 2);
+        assert_eq(get_next_power_exponent(4, 0), 2);
+        assert_eq(get_next_power_exponent(5, 0), 3);
+        assert_eq(get_next_power_exponent(8, 0), 3);
+        assert_eq(get_next_power_exponent(9, 0), 4);
+        assert_eq(get_next_power_exponent(16, 0), 4);
     }
 
     #[test]
