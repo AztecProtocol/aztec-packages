@@ -18,7 +18,7 @@ import { openTmpStore } from '@aztec/kv-store/lmdb';
 import { protocolContractNames } from '@aztec/protocol-contracts';
 import { getCanonicalProtocolContract } from '@aztec/protocol-contracts/bundle';
 import { enrichPublicSimulationError } from '@aztec/pxe';
-import { ExecutionNoteCache, type TypedOracle } from '@aztec/simulator/client';
+import { type TypedOracle } from '@aztec/simulator/client';
 import { PackedValuesCache } from '@aztec/simulator/server';
 import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
 import { MerkleTrees } from '@aztec/world-state';
