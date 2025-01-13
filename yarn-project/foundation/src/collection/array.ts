@@ -155,3 +155,16 @@ export function median(arr: number[]) {
   const mid = Math.floor(sorted.length / 2);
   return sorted.length % 2 !== 0 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2;
 }
+
+export function mean(values: number[]): number {
+  return values.reduce((a, b) => a + b, 0) / values.length;
+}
+
+export function variance(values: number[]): number {
+  const avg = mean(values);
+  return mean(values.map(value => Math.pow(value - avg, 2)));
+}
+
+export function stdDev(values: number[]): number {
+  return Math.sqrt(variance(values));
+}

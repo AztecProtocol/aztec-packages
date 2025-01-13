@@ -1,4 +1,4 @@
-import { compactArray, maxBy, removeArrayPaddingEnd, times, unique } from './array.js';
+import { compactArray, maxBy, mean, median, removeArrayPaddingEnd, stdDev, times, unique, variance } from './array.js';
 
 describe('times', () => {
   it('should return an array with the result from all executions', () => {
@@ -77,5 +77,37 @@ describe('maxBy', () => {
 
   it('applies the mapping function', () => {
     expect(maxBy([1, 2, 3], x => -x)).toEqual(1);
+  });
+});
+
+describe('mean', () => {
+  it('calculates the mean of an array of numbers', () => {
+    expect(mean([1, 2, 3, 4, 5])).toBe(3);
+    expect(mean([10, 20, 30, 40, 50])).toBe(30);
+    expect(mean([-1, 0, 1])).toBe(0);
+  });
+});
+
+describe('median', () => {
+  it('calculates the median of an array of numbers', () => {
+    expect(median([1, 2, 3, 4, 5])).toBe(3);
+    expect(median([10, 20, 30, 40, 50])).toBe(30);
+    expect(median([-1, 0, 1])).toBe(0);
+  });
+});
+
+describe('variance', () => {
+  it('calculates the variance of an array of numbers', () => {
+    expect(variance([1, 2, 3, 4, 5])).toBe(2.5);
+    expect(variance([10, 20, 30, 40, 50])).toBe(250);
+    expect(variance([-1, 0, 1])).toBe(2 / 3);
+  });
+});
+
+describe('stdDev', () => {
+  it('calculates the standard deviation of an array of numbers', () => {
+    expect(stdDev([1, 2, 3, 4, 5])).toBeCloseTo(1.5811, 4);
+    expect(stdDev([10, 20, 30, 40, 50])).toBeCloseTo(15.8114, 4);
+    expect(stdDev([-1, 0, 1])).toBeCloseTo(0.8165, 4);
   });
 });
