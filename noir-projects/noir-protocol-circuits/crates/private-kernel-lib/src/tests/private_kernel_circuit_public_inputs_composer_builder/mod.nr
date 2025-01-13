@@ -37,7 +37,6 @@ impl PrivateKernelCircuitPublicInputsComposerBuilder {
     pub fn new_from_tx_request(
         self,
         is_private_only: bool,
-        inject_protocol_nullifier: bool,
     ) -> PrivateKernelCircuitPublicInputsComposer {
         let private_call = self.private_call.to_private_circuit_public_inputs();
         PrivateKernelCircuitPublicInputsComposer::new_from_tx_request(
@@ -46,7 +45,7 @@ impl PrivateKernelCircuitPublicInputsComposerBuilder {
             FixtureBuilder::vk_tree_root(),
             self.private_call.protocol_contract_tree_root,
             is_private_only,
-            inject_protocol_nullifier,
+            27
         )
     }
 
@@ -60,12 +59,11 @@ impl PrivateKernelCircuitPublicInputsComposerBuilder {
     pub fn compose_from_tx_request(
         self,
         is_private_only: bool,
-        inject_protocol_nullifier: bool,
     ) -> PrivateKernelCircuitPublicInputs {
         let private_call = self.private_call.to_private_call_data();
         unsafe {
             self
-                .new_from_tx_request(is_private_only, inject_protocol_nullifier)
+                .new_from_tx_request(is_private_only)
                 .with_private_call(private_call.public_inputs)
                 .finish()
         }

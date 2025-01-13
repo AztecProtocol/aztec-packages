@@ -35,7 +35,7 @@ impl PrivateKernelCircuitOutputValidator {
         vk_tree_root: Field,
         protocol_contract_tree_root: Field,
         is_private_only: bool,
-        with_protocol_nullifier: bool,
+        first_nullifier_hint: Field,
     ) {
         self.validate_initial_values(
             tx_request,
@@ -43,10 +43,10 @@ impl PrivateKernelCircuitOutputValidator {
             vk_tree_root,
             protocol_contract_tree_root,
             is_private_only,
-            with_protocol_nullifier,
+            first_nullifier_hint,
         );
         let mut offsets = PrivateKernelCircuitPublicInputsArrayLengths::empty();
-        if with_protocol_nullifier {
+        if first_nullifier_hint == 0 {
             offsets.nullifiers = 1; // The protocol nullifier is not propagated from the private call.
         }
         self.validate_propagated_from_private_call(
@@ -84,7 +84,7 @@ impl PrivateKernelCircuitOutputValidator {
         vk_tree_root: Field,
         protocol_contract_tree_root: Field,
         is_private_only: bool,
-        with_protocol_nullifier: bool,
+        first_nullifier_hint: Field,
     ) {
         // Constants.
         assert_eq(self.output.is_private_only, is_private_only, "mismatch is_private_only");
@@ -101,12 +101,23 @@ impl PrivateKernelCircuitOutputValidator {
             "mismatch protocol_contract_tree_root",
         );
 
-        if with_protocol_nullifier {
+        if first_nullifier_hint == 0 {
             let protocol_nullifier = create_protocol_nullifier(tx_request);
             assert_eq(
                 self.output.end.nullifiers[0],
                 protocol_nullifier,
                 "protocol nullifier must be the tx request nullifier",
+            );
+            assert_eq(
+                self.output.claimed_first_nullifier,
+                protocol_nullifier.value(),
+                "mismatch claimed_first_nullifier",
+            );
+        } else {
+            assert_eq(
+                self.output.claimed_first_nullifier,
+                first_nullifier_hint,
+                "mismatch claimed_first_nullifier",
             );
         }
 
@@ -207,6 +218,11 @@ impl PrivateKernelCircuitOutputValidator {
             self.output.is_private_only,
             previous_kernel.is_private_only,
             "mismatch is_private_only",
+        );
+        assert_eq(
+            self.output.claimed_first_nullifier,
+            previous_kernel.claimed_first_nullifier,
+            "mismatch claimed_first_nullifier",
         );
         assert_eq(self.output.constants, previous_kernel.constants, "mismatch constants");
 

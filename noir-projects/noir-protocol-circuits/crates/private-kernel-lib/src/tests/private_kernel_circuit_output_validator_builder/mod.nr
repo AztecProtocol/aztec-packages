@@ -31,6 +31,8 @@ impl PrivateKernelCircuitOutputValidatorBuilder {
         let private_call = FixtureBuilder::new();
         let mut output = FixtureBuilder::new();
         let tx_request = output.build_tx_request();
+        output.claimed_first_nullifier = 27;
+        previous_kernel.claimed_first_nullifier = 27;
         previous_kernel = previous_kernel.in_vk_tree(PRIVATE_KERNEL_INIT_INDEX);
 
         PrivateKernelCircuitOutputValidatorBuilder {
@@ -45,6 +47,9 @@ impl PrivateKernelCircuitOutputValidatorBuilder {
         let protocol_nullifier = create_protocol_nullifier(self.tx_request);
         self.output.nullifiers.push(protocol_nullifier);
         self.previous_kernel.nullifiers.push(protocol_nullifier);
+
+        self.previous_kernel.claimed_first_nullifier = protocol_nullifier.value();
+        self.output.claimed_first_nullifier = protocol_nullifier.value();
     }
 
     pub fn with_previous_kernel_vk_index(&mut self, vk_index: u32) {
@@ -59,7 +64,7 @@ impl PrivateKernelCircuitOutputValidatorBuilder {
         self.output.counter = 777;
     }
 
-    pub fn validate_as_first_call(self, is_private_only: bool, injected_protocol_nullifier: bool) {
+    pub fn validate_as_first_call(self, is_private_only: bool) {
         let private_call = self.private_call.to_private_call_data();
         let array_lengths = PrivateCircuitPublicInputsArrayLengths::new(private_call.public_inputs);
         let output = self.output.to_private_kernel_circuit_public_inputs();
@@ -70,7 +75,7 @@ impl PrivateKernelCircuitOutputValidatorBuilder {
             FixtureBuilder::vk_tree_root(),
             self.private_call.protocol_contract_tree_root,
             is_private_only,
-            injected_protocol_nullifier,
+            27,
         );
     }
 

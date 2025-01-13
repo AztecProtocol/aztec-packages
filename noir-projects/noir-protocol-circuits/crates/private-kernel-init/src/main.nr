@@ -10,7 +10,7 @@ fn main(
     protocol_contract_tree_root: Field,
     private_call: PrivateCallDataWithoutPublicInputs,
     is_private_only: bool,
-    inject_protocol_nullifier: bool,
+    first_nullifier_hint: Field,
     app_public_inputs: call_data(1) PrivateCircuitPublicInputs,
 ) -> return_data PrivateKernelCircuitPublicInputs {
     let private_inputs = PrivateKernelInitCircuitPrivateInputs::new(
@@ -20,7 +20,7 @@ fn main(
         private_call,
         app_public_inputs,
         is_private_only,
-        inject_protocol_nullifier,
+        first_nullifier_hint,
     );
     private_inputs.execute()
 }

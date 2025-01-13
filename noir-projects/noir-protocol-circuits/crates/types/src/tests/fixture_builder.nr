@@ -95,6 +95,7 @@ pub struct FixtureBuilder {
     pub msg_sender: AztecAddress,
     pub is_static_call: bool,
     pub is_private_only: bool,
+    pub claimed_first_nullifier: Field,
 
     // Fees.
     pub is_fee_payer: bool,
@@ -478,6 +479,7 @@ impl FixtureBuilder {
             public_teardown_call_request,
             fee_payer: self.fee_payer,
             is_private_only: self.is_private_only,
+            claimed_first_nullifier: self.claimed_first_nullifier,
         }
     }
 
@@ -589,9 +591,11 @@ impl FixtureBuilder {
         let note_hash_to_silo = NoteHash { value, counter: 0 }.scope(self.contract_address);
         let siloed_value = silo_note_hash(note_hash_to_silo);
         let current_index = self.note_hashes.len();
-        let first_nullifier = self.nullifiers.get(0).value();
-        let unique_siloed_value =
-            compute_unique_siloed_note_hash(siloed_value, first_nullifier, current_index);
+        let unique_siloed_value = compute_unique_siloed_note_hash(
+            siloed_value,
+            self.claimed_first_nullifier,
+            current_index,
+        );
 
         self.note_hashes.push(NoteHash { value: unique_siloed_value, counter: self.next_counter() }
             .scope(AztecAddress::zero()));
@@ -1091,6 +1095,7 @@ impl Empty for FixtureBuilder {
             contract_address: AztecAddress::zero(),
             msg_sender: AztecAddress::zero(),
             is_private_only: false,
+            claimed_first_nullifier: 0,
             is_static_call: false,
             is_fee_payer: false,
             fee_payer: AztecAddress::zero(),

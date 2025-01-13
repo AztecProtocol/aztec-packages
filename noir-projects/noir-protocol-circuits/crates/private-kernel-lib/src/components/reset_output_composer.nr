@@ -52,16 +52,16 @@ impl<let NH_RR_PENDING: u32, let NH_RR_SETTLED: u32, let NLL_RR_PENDING: u32, le
 
         output.validation_requests = self.validation_request_processor.compose();
 
+        output.end.note_hashes = if self.note_hash_siloing_amount == 0 {
+            self.hints.kept_note_hashes
+        } else {
+            self.get_sorted_siloed_note_hashes()
+        };
+
         output.end.nullifiers = if self.nullifier_siloing_amount == 0 {
             self.hints.kept_nullifiers
         } else {
             self.get_sorted_siloed_nullifiers()
-        };
-
-        output.end.note_hashes = if self.note_hash_siloing_amount == 0 {
-            self.hints.kept_note_hashes
-        } else {
-            self.get_sorted_siloed_note_hashes(output.end.nullifiers[0].value())
         };
 
         output.end.private_logs = if self.private_log_siloing_amount == 0 {
@@ -75,7 +75,6 @@ impl<let NH_RR_PENDING: u32, let NH_RR_SETTLED: u32, let NLL_RR_PENDING: u32, le
 
     unconstrained fn get_sorted_siloed_note_hashes(
         self,
-        first_nullifier: Field,
     ) -> [ScopedNoteHash; MAX_NOTE_HASHES_PER_TX] {
         let is_private_only = self.previous_kernel.is_private_only;
         let min_revertible_side_effect_counter =
@@ -84,8 +83,11 @@ impl<let NH_RR_PENDING: u32, let NH_RR_SETTLED: u32, let NLL_RR_PENDING: u32, le
         for i in 0..note_hashes.len() {
             let note_hash = note_hashes[i];
             let siloed_note_hash = silo_note_hash(note_hash);
-            let unique_note_hash =
-                compute_unique_siloed_note_hash(siloed_note_hash, first_nullifier, i);
+            let unique_note_hash = compute_unique_siloed_note_hash(
+                siloed_note_hash,
+                self.previous_kernel.claimed_first_nullifier,
+                i,
+            );
             // We don't silo with nonce revertible note hashes, since we don't know their final position in the tx
             note_hashes[i].note_hash.value = if is_private_only
                 | (note_hash.counter() < min_revertible_side_effect_counter) {

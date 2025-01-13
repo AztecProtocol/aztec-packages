@@ -272,6 +272,7 @@ fn validate_propagated_from_private_call_note_hashes_output_one_more_fails() {
 fn validate_propagated_from_private_call_nullifiers_succeeds() {
     let mut builder = PrivateKernelCircuitOutputValidatorBuilder::new();
 
+    builder.offset_values(1); // Offset the first nullifier.
     builder.private_call.append_nullifiers(2);
     builder.output.append_nullifiers(2);
 
@@ -282,6 +283,7 @@ fn validate_propagated_from_private_call_nullifiers_succeeds() {
 fn validate_propagated_from_private_call_nullifiers_output_one_more_fails() {
     let mut builder = PrivateKernelCircuitOutputValidatorBuilder::new();
 
+    builder.offset_values(1); // Offset the first nullifier.
     builder.private_call.append_nullifiers(2);
     // Propagate 1 more item to the output.
     builder.output.append_nullifiers(3);
