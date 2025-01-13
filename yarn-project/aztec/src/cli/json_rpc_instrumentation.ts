@@ -1,54 +1,29 @@
-import { type JsonRpcDiagnosticHooks } from '@aztec/foundation/json-rpc/server';
-import { Span, SpanStatusCode, TelemetryClient, Tracer } from '@aztec/telemetry-client';
+import { type DiagnosticsMiddleware } from '@aztec/foundation/json-rpc/server';
+import { type Span, SpanStatusCode, type TelemetryClient } from '@aztec/telemetry-client';
 
-import { IncomingHttpHeaders } from 'node:http';
+export function jsonRpcTelemetryMiddleware(client: TelemetryClient, name = 'SafeJsonRpcServer'): DiagnosticsMiddleware {
+  const tracer = client.getTracer(name);
 
-export class JsonRpcInstrumentation implements JsonRpcDiagnosticHooks {
-  private spans = new Map<string | number, Span>();
-  private tracer: Tracer;
+  return async (ctx, next) => {
+    return tracer.startActiveSpan('JsonRpcCall', async (span: Span): Promise<void> => {
+      if (ctx.id) {
+        span.setAttribute('jsonrpc_id', ctx.id);
+      }
+      span.setAttribute('jsonrpc_method', ctx.method);
 
-  constructor(telemetry: TelemetryClient) {
-    this.tracer = telemetry.getTracer('JsonRpcServer');
-  }
-
-  onJsonRpcRequest(rpcId: number | string | null, rpcMethod: string, _headers: IncomingHttpHeaders): void {
-    if (rpcId === null) {
-      return;
-    }
-
-    const span = this.tracer.startSpan(rpcMethod);
-    span.setAttribute('jsonrpc_id', rpcId);
-    span.setAttribute('jsonrpc_method', rpcMethod);
-    this.spans.set(rpcId, span);
-  }
-  onJsonRpcResponse(rpcId: number | string | null, rpcMethod: string): void {
-    if (rpcId === null) {
-      return;
-    }
-    const span = this.spans.get(rpcId);
-    if (span) {
-      span.setStatus({
-        code: SpanStatusCode.OK,
-      });
-      span.end();
-    }
-    this.spans.delete(rpcId);
-  }
-  onJsonRpcError(rpcId: number | string | null, _rpcMethod: string, errorCode: number, errorMessage: string): void {
-    if (rpcId === null) {
-      return;
-    }
-
-    const span = this.spans.get(rpcId);
-    if (span) {
-      span.setAttribute('jsonrpc_error_code', errorCode);
-      span.setStatus({
-        code: SpanStatusCode.ERROR,
-        message: errorMessage,
-      });
-      span.end();
-    }
-
-    this.spans.delete(rpcId);
-  }
+      try {
+        await next();
+        span.setStatus({
+          code: SpanStatusCode.OK,
+        });
+      } catch (err) {
+        span.setStatus({
+          code: SpanStatusCode.ERROR,
+          message: String(err),
+        });
+      } finally {
+        span.end();
+      }
+    });
+  };
 }
