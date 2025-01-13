@@ -312,11 +312,6 @@ void AvmTraceBuilder::pay_fee()
     auto tx_fee = (total_fee_per_da_gas * public_inputs.end_gas_used.da_gas) +
                   (total_fee_per_l2_gas * public_inputs.end_gas_used.l2_gas);
 
-    if (public_inputs.fee_payer == 0) {
-        vinfo("No one is paying the fee of ", tx_fee);
-        return;
-    }
-
     // ** Compute the storage slot **
     // using the base slot of the balances map and the fee payer address (map key)
     // TS equivalent:
