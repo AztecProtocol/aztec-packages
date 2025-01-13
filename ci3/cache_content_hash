@@ -21,9 +21,9 @@ for arg in "$@"; do
   fi
 done
 
-# Build a single pattern for grep and awk
+# Build compound patterns for grep and awk
 GREP_PATTERN=$(echo "${patterns[*]}" | grep -v '^$')
-AWK_PATTERN=$(echo $GREP_PATTERN | sed 's/\\/\\\\/g' | tr '\n' '|' | sed 's/|$//')
+AWK_PATTERN=$(echo "${patterns[*]}" | grep -v '^$' | sed 's/\\/\\\\/g' | tr '\n' '|' | sed 's/|$//')
 # Ensure we work in the repo root
 cd "$(git rev-parse --show-toplevel)"
 
