@@ -66,7 +66,7 @@ impl AppPayload {
                         call.is_static,
                     );
                 } else {
-                    let _result = context.call_private_function_with_packed_args(
+                    let _result = context.call_private_function_with_args_hash(
                         call.target_address,
                         call.function_selector,
                         call.args_hash,

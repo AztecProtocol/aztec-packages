@@ -41,7 +41,7 @@ impl<let N: u32, let M: u32> Deployer<N, M> {
         let args = call_interface.get_args();
         let args_hash = if args.len() > 0 { hash_args(args) } else { 0 };
         pack_arguments(args);
-        let _ = private_context.call_private_function_with_packed_args(
+        let _ = private_context.call_private_function_with_args_hash(
             instance.to_address(),
             call_interface.get_selector(),
             args_hash,

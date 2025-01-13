@@ -31,7 +31,7 @@ impl<let N: u32, T> PrivateCallInterface<N, T> {
         T: Deserialize<M>,
     {
         pack_arguments(self.args);
-        let returns = context.call_private_function_with_packed_args(
+        let returns = context.call_private_function_with_args_hash(
             self.target_contract,
             self.selector,
             self.args_hash,
@@ -46,7 +46,7 @@ impl<let N: u32, T> PrivateCallInterface<N, T> {
         T: Deserialize<M>,
     {
         pack_arguments(self.args);
-        let returns = context.call_private_function_with_packed_args(
+        let returns = context.call_private_function_with_args_hash(
             self.target_contract,
             self.selector,
             self.args_hash,
@@ -92,7 +92,7 @@ impl<let N: u32> PrivateVoidCallInterface<N> {
     pub fn call(self, context: &mut PrivateContext) {
         pack_arguments(self.args);
         context
-            .call_private_function_with_packed_args(
+            .call_private_function_with_args_hash(
                 self.target_contract,
                 self.selector,
                 self.args_hash,
@@ -104,7 +104,7 @@ impl<let N: u32> PrivateVoidCallInterface<N> {
     pub fn view(self, context: &mut PrivateContext) {
         pack_arguments(self.args);
         context
-            .call_private_function_with_packed_args(
+            .call_private_function_with_args_hash(
                 self.target_contract,
                 self.selector,
                 self.args_hash,
@@ -152,7 +152,7 @@ impl<let N: u32, T> PrivateStaticCallInterface<N, T> {
         T: Deserialize<M>,
     {
         pack_arguments(self.args);
-        let returns = context.call_private_function_with_packed_args(
+        let returns = context.call_private_function_with_args_hash(
             self.target_contract,
             self.selector,
             self.args_hash,
@@ -198,7 +198,7 @@ impl<let N: u32> PrivateStaticVoidCallInterface<N> {
     pub fn view(self, context: &mut PrivateContext) {
         pack_arguments(self.args);
         context
-            .call_private_function_with_packed_args(
+            .call_private_function_with_args_hash(
                 self.target_contract,
                 self.selector,
                 self.args_hash,

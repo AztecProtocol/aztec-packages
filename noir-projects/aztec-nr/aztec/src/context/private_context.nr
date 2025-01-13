@@ -335,7 +335,7 @@ impl PrivateContext {
     ) -> ReturnsHash {
         let args_hash = hash_args_array(args);
         arguments::pack_arguments_array(args);
-        self.call_private_function_with_packed_args(
+        self.call_private_function_with_args_hash(
             contract_address,
             function_selector,
             args_hash,
@@ -351,7 +351,7 @@ impl PrivateContext {
     ) -> ReturnsHash {
         let args_hash = hash_args_array(args);
         arguments::pack_arguments_array(args);
-        self.call_private_function_with_packed_args(
+        self.call_private_function_with_args_hash(
             contract_address,
             function_selector,
             args_hash,
@@ -364,7 +364,7 @@ impl PrivateContext {
         contract_address: AztecAddress,
         function_selector: FunctionSelector,
     ) -> ReturnsHash {
-        self.call_private_function_with_packed_args(contract_address, function_selector, 0, false)
+        self.call_private_function_with_args_hash(contract_address, function_selector, 0, false)
     }
 
     pub fn static_call_private_function_no_args(
@@ -372,10 +372,10 @@ impl PrivateContext {
         contract_address: AztecAddress,
         function_selector: FunctionSelector,
     ) -> ReturnsHash {
-        self.call_private_function_with_packed_args(contract_address, function_selector, 0, true)
+        self.call_private_function_with_args_hash(contract_address, function_selector, 0, true)
     }
 
-    pub fn call_private_function_with_packed_args(
+    pub fn call_private_function_with_args_hash(
         &mut self,
         contract_address: AztecAddress,
         function_selector: FunctionSelector,
