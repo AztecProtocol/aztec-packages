@@ -450,13 +450,12 @@ contract Token {
         // We create a setup payload with unpopulated/zero `amount` for 'to'
         // TODO(#7775): Manually fetching the randomness here is not great. If we decide to include randomness in all
         // notes we could just inject it in macros.
-        let note_randomness = unsafe {
-            //@safety We use the randomness to preserve the privacy of the note recipient by preventing brute-forcing,
-            // so a malicious sender could use non-random values to make the note less private. But they already know
-            // the full note pre-image anyway, and so the recipient already trusts them to not disclose this
-            // information. We can therefore assume that the sender will cooperate in the random value generation.
-            random()
-        };
+
+        // Safety: We use the randomness to preserve the privacy of the note recipient by preventing brute-forcing,
+        // so a malicious sender could use non-random values to make the note less private. But they already know
+        // the full note pre-image anyway, and so the recipient already trusts them to not disclose this
+        // information. We can therefore assume that the sender will cooperate in the random value generation.
+        let note_randomness = unsafe { random() };
         let note_setup_payload = UintNote::setup_payload().new(to, note_randomness, to_note_slot);
 
         // We get the keys and encrypt the log of the note

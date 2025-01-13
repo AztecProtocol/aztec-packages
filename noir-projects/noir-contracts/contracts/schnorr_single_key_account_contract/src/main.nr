@@ -29,11 +29,9 @@ contract SchnorrSingleKeyAccount {
 
     #[contract_library_method]
     fn is_valid_impl(context: &mut PrivateContext, outer_hash: Field) -> bool {
-        let witness = unsafe {
-            //@safety The witness is only used as a "magical value" that makes the signature verification
-            // in `recover_address` and the address check below pass. Hence it's safe.
-            get_auth_witness(outer_hash)
-        };
+        // Safety: The witness is only used as a "magical value" that makes the signature verification
+        // in `recover_address` and the address check below pass. Hence it's safe.
+        let witness = unsafe { get_auth_witness(outer_hash) };
         recover_address(outer_hash, witness).eq(context.this_address())
     }
 }

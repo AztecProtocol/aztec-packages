@@ -62,12 +62,10 @@ pub fn compute_private_log_payload<let P: u32>(
     let encrypted: [u8; ENCRYPTED_PAYLOAD_SIZE_IN_BYTES] =
         compute_encrypted_log(contract_address, recipient, extended_plaintext);
 
-    let tag = unsafe {
-        //@safety We assume that the sender wants for the recipient to find the tagged note, and therefore that they
-        // will cooperate and use the correct tag. Usage of a bad tag will result in the recipient not being able to
-        // find the note automatically.
-        get_app_tag_as_sender(sender, recipient)
-    };
+    // Safety: We assume that the sender wants for the recipient to find the tagged note, and therefore that they
+    // will cooperate and use the correct tag. Usage of a bad tag will result in the recipient not being able to
+    // find the note automatically.
+    let tag = unsafe { get_app_tag_as_sender(sender, recipient) };
     increment_app_tagging_secret_index_as_sender(sender, recipient);
 
     array_concat([tag], bytes_to_fields(encrypted))
@@ -84,12 +82,10 @@ pub fn compute_partial_public_log_payload<let P: u32, let M: u32>(
     let encrypted: [u8; M - 32] =
         compute_encrypted_log(contract_address, recipient, extended_plaintext);
 
-    let tag = unsafe {
-        //@safety We assume that the sender wants for the recipient to find the tagged note, and therefore that they
-        // will cooperate and use the correct tag. Usage of a bad tag will result in the recipient not being able to
-        // find the note automatically.
-        get_app_tag_as_sender(sender, recipient)
-    };
+    // Safety: We assume that the sender wants for the recipient to find the tagged note, and therefore that they
+    // will cooperate and use the correct tag. Usage of a bad tag will result in the recipient not being able to
+    // find the note automatically.
+    let tag = unsafe { get_app_tag_as_sender(sender, recipient) };
     increment_app_tagging_secret_index_as_sender(sender, recipient);
     // Silo the tag with contract address.
     // This is done by the kernel circuit to the private logs, but since the partial log will be finalized and emitted
@@ -162,11 +158,9 @@ fn compute_encrypted_log<let P: u32, let M: u32>(
 // Prepend the plaintext length as the first byte, then copy the plaintext itself starting from the second byte.
 // Fill the remaining bytes with random values to reach a fixed length of N.
 fn extend_private_log_plaintext<let P: u32, let N: u32>(plaintext: [u8; P]) -> [u8; N] {
-    let mut padded = unsafe {
-        //@safety A malicious sender could reveal the whole contents of the encrypted log so trusting it to set
-        // a random padding in plaintext is fine.
-        get_random_bytes()
-    };
+    // Safety: A malicious sender could reveal the whole contents of the encrypted log so trusting it to set
+    // a random padding in plaintext is fine.
+    let mut padded = unsafe { get_random_bytes() };
     padded[0] = (P >> 8) as u8;
     padded[1] = P as u8;
     for i in 0..P {
@@ -200,13 +194,12 @@ fn fr_to_fq(r: Field) -> Scalar {
 
 fn generate_ephemeral_key_pair() -> (Scalar, Point) {
     // @todo Need to draw randomness from the full domain of Fq not only Fr
-    let randomness = unsafe {
-        //@safety We use the randomness to preserve the privacy of both the sender and recipient via encryption, so
-        // a malicious sender could use non-random values to reveal the plaintext. But they already know it themselves
-        // anyway, and so the recipient already trusts them to not disclose this information. We can therefore assume
-        // that the sender will cooperate in the random value generation.
-        random()
-    };
+
+    // Safety: We use the randomness to preserve the privacy of both the sender and recipient via encryption, so
+    // a malicious sender could use non-random values to reveal the plaintext. But they already know it themselves
+    // anyway, and so the recipient already trusts them to not disclose this information. We can therefore assume
+    // that the sender will cooperate in the random value generation.
+    let randomness = unsafe { random() };
 
     // We use the unsafe version of `fr_to_fq` because multi_scalar_mul (called by derive_public_key) will constrain
     // the scalars.

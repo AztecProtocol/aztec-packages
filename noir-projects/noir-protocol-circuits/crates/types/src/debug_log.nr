@@ -11,11 +11,9 @@ pub fn debug_log<let N: u32>(msg: str<N>) {
 ///   debug_log_format("get_2(slot:{0}) =>\n\t0:{1}\n\t1:{2}", [storage_slot, note0_hash, note1_hash]);
 ///   debug_log_format("whole array: {}", [e1, e2, e3, e4]);
 pub fn debug_log_format<let M: u32, let N: u32>(msg: str<M>, args: [Field; N]) {
-    unsafe {
-        //@safety This oracle call returns nothing: we only call it for its side effects. It is therefore always safe
-        // to call.
-        debug_log_oracle_wrapper(msg, args)
-    };
+    // Safety: This oracle call returns nothing: we only call it for its side effects. It is therefore always safe
+    // to call.
+    unsafe { debug_log_oracle_wrapper(msg, args) };
 }
 
 pub unconstrained fn debug_log_oracle_wrapper<let M: u32, let N: u32>(

@@ -222,8 +222,8 @@ fn barycentric_evaluate_blob_at_z(z: F, ys: [F; FIELDS_PER_BLOB]) -> F {
     //                   /____       z - omega^i
     //                    i=0
     let NUM_PARTIAL_SUMS = FIELDS_PER_BLOB / 8;
-    let partial_sums: [F; FIELDS_PER_BLOB / 8] = unsafe {
         // Safety: This sum is checked by the following `BigNum::evaluate_quadratic_expression` calls.
+    let partial_sums: [F; FIELDS_PER_BLOB / 8] = unsafe {
         __compute_partial_sums(fracs, ROOTS)
     };
 
@@ -312,8 +312,8 @@ fn compute_factor(z: F) -> F {
 
     let z_pow_d = t;
 
-    let factor = unsafe {
         // Safety: We immediately check that this result is correct in the following `BigNum::evaluate_quadratic_expression` call.
+    let factor = unsafe {
         __compute_factor_helper(z_pow_d)
     };
 
@@ -370,8 +370,8 @@ fn compute_fracs(
     ys: [F; FIELDS_PER_BLOB],
     ROOTS: [F; FIELDS_PER_BLOB],
 ) -> [F; FIELDS_PER_BLOB] {
-    let mut fracs: [F; FIELDS_PER_BLOB] = unsafe {
         // Safety: We immediately constrain these `fracs` to be correct in the following call to `BigNum::evaluate_quadratic_expression`.
+    let mut fracs: [F; FIELDS_PER_BLOB] = unsafe {
         __compute_fracs(z, ys, ROOTS)
     };
 

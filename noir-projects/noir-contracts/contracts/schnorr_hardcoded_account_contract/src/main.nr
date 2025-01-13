@@ -38,10 +38,8 @@ contract SchnorrHardcodedAccount {
     #[contract_library_method]
     fn is_valid_impl(_context: &mut PrivateContext, outer_hash: Field) -> bool {
         // Load auth witness and format as an u8 array
-        let witness: [Field; 64] = unsafe {
-            //@safety The witness is only used as a "magical value" that makes the signature verification below pass. Hence it's safe.
-            get_auth_witness(outer_hash)
-        };
+        // Safety: The witness is only used as a "magical value" that makes the signature verification below pass. Hence it's safe.
+        let witness: [Field; 64] = unsafe { get_auth_witness(outer_hash) };
         let mut signature: [u8; 64] = [0; 64];
         for i in 0..64 {
             signature[i] = witness[i] as u8;
