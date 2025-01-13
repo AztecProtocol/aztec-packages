@@ -1393,6 +1393,9 @@ int main(int argc, char* argv[])
         } else if (command == "prove_ultra_keccak_honk_output_all") {
             std::string output_path = get_option(args, "-o", "./proofs/proof");
             prove_honk_output_all<UltraKeccakFlavor>(bytecode_path, witness_path, output_path, recursive);
+        } else if (command == "prove_ultra_starknet_honk_output_all") {
+            std::string output_path = get_option(args, "-o", "./proofs/proof");
+            prove_honk_output_all<UltraStarknetFlavor>(bytecode_path, witness_path, output_path, recursive);
         } else if (command == "prove_mega_honk_output_all") {
             std::string output_path = get_option(args, "-o", "./proofs");
             prove_honk_output_all<MegaFlavor>(bytecode_path, witness_path, output_path, recursive);
@@ -1470,9 +1473,6 @@ int main(int argc, char* argv[])
         } else if (command == "prove_ultra_starknet_honk") {
             std::string output_path = get_option(args, "-o", "./proofs/proof");
             prove_honk<UltraStarknetFlavor>(bytecode_path, witness_path, output_path, recursive);
-        } else if (command == "prove_ultra_starknet_honk_output_all") {
-            std::string output_path = get_option(args, "-o", "./proofs/proof");
-            prove_honk_output_all<UltraStarknetFlavor>(bytecode_path, witness_path, output_path, recursive);
         } else if (command == "prove_ultra_rollup_honk") {
             std::string output_path = get_option(args, "-o", "./proofs/proof");
             prove_honk<UltraRollupFlavor>(bytecode_path, witness_path, output_path, recursive);
