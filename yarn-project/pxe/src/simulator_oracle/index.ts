@@ -794,7 +794,8 @@ export class SimulatorOracle implements DBOracle {
     };
 
     await (
-      simulator ?? getAcirSimulator(this.db, this.aztecNode, this.keyStore, this.contractDataOracle)
+      simulator ??
+      getAcirSimulator(this.db, this.aztecNode, this.keyStore, this.simulationProvider, this.contractDataOracle)
     ).runUnconstrained(
       execRequest,
       artifact,
