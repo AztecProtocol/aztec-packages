@@ -83,18 +83,18 @@ describe('E2E Outbox Tests', () => {
       txReceipt.blockNumber!,
       l2ToL1Messages![0],
     );
-    expect(siblingPath.pathSize).toBe(2);
+    expect(siblingPath.pathSize).toBe(1);
     expect(index).toBe(0n);
-    const expectedRoot = calculateExpectedRoot(l2ToL1Messages![0], siblingPath as SiblingPath<2>, index);
+    const expectedRoot = calculateExpectedRoot(l2ToL1Messages![0], siblingPath, index);
     expect(expectedRoot.toString('hex')).toEqual(block?.header.contentCommitment.outHash.toString('hex'));
 
     const [index2, siblingPath2] = await aztecNode.getL2ToL1MessageMembershipWitness(
       txReceipt.blockNumber!,
       l2ToL1Messages![1],
     );
-    expect(siblingPath2.pathSize).toBe(2);
+    expect(siblingPath2.pathSize).toBe(1);
     expect(index2).toBe(1n);
-    const expectedRoot2 = calculateExpectedRoot(l2ToL1Messages![1], siblingPath2 as SiblingPath<2>, index2);
+    const expectedRoot2 = calculateExpectedRoot(l2ToL1Messages![1], siblingPath2, index2);
     expect(expectedRoot2.toString('hex')).toEqual(block?.header.contentCommitment.outHash.toString('hex'));
 
     // Outbox L1 tests
@@ -403,12 +403,19 @@ describe('E2E Outbox Tests', () => {
     await expect(consumeAgain).rejects.toThrow();
   });
 
-  function calculateExpectedRoot(l2ToL1Message: Fr, siblingPath: SiblingPath<2>, index: bigint): Buffer {
+  function calculateExpectedRoot<N extends number>(
+    l2ToL1Message: Fr,
+    siblingPath: SiblingPath<N>,
+    index: bigint,
+  ): Buffer {
     const firstLayerInput: [Buffer, Buffer] =
       index & 0x1n
         ? [siblingPath.toBufferArray()[0], l2ToL1Message.toBuffer()]
         : [l2ToL1Message.toBuffer(), siblingPath.toBufferArray()[0]];
     const firstLayer = merkleSha256.hash(...firstLayerInput);
+    if (siblingPath.pathSize === 1) {
+      return truncateAndPad(firstLayer);
+    }
     index /= 2n;
     // In the circuit, the 'firstLayer' is the kernel out hash, which is truncated to 31 bytes
     // To match the result, the below preimages and the output are truncated to 31 then padded

@@ -148,7 +148,7 @@ export class P2PNetworkTest {
     this.logger.info('Syncing mock system time');
     const { dateProvider, deployL1ContractsValues } = this.ctx!;
     // Send a tx and only update the time after the tx is mined, as eth time is not continuous
-    const receipt = await this.gasUtils!.sendAndMonitorTransaction({
+    const { receipt } = await this.gasUtils!.sendAndMonitorTransaction({
       to: this.baseAccount.address,
       data: '0x',
       value: 1n,
@@ -300,7 +300,7 @@ export class P2PNetworkTest {
       this.ctx.deployL1ContractsValues.walletClient,
       this.logger,
       {
-        gasLimitBufferPercentage: 20n,
+        gasLimitBufferPercentage: 20,
         maxGwei: 500n,
         minGwei: 1n,
         maxAttempts: 3,

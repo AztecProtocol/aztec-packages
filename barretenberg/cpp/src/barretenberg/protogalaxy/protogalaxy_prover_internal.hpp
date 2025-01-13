@@ -136,16 +136,16 @@ template <class DeciderProvingKeys_> class ProtogalaxyProverInternal {
      * representing the sum f_0(ω) + α_j*g(ω) where f_0 represents the full honk evaluation at row 0, g(ω) is the
      * linearly dependent subrelation and α_j is its corresponding batching challenge.
      */
-    std::vector<FF> compute_row_evaluations(const ProverPolynomials& polynomials,
-                                            const RelationSeparator& alphas_,
-                                            const RelationParameters<FF>& relation_parameters)
+    Polynomial<FF> compute_row_evaluations(const ProverPolynomials& polynomials,
+                                           const RelationSeparator& alphas_,
+                                           const RelationParameters<FF>& relation_parameters)
 
     {
 
         PROFILE_THIS_NAME("ProtogalaxyProver_::compute_row_evaluations");
 
         const size_t polynomial_size = polynomials.get_polynomial_size();
-        std::vector<FF> aggregated_relation_evaluations(polynomial_size);
+        Polynomial<FF> aggregated_relation_evaluations(polynomial_size);
 
         const std::array<FF, NUM_SUBRELATIONS> alphas = [&alphas_]() {
             std::array<FF, NUM_SUBRELATIONS> tmp;
@@ -176,13 +176,13 @@ template <class DeciderProvingKeys_> class ProtogalaxyProverInternal {
                         RelationUtils::accumulate_relation_evaluations(row, relation_parameters, FF(1));
 
                     // Sum against challenges alpha
-                    aggregated_relation_evaluations[idx] = process_subrelation_evaluations(
+                    aggregated_relation_evaluations.at(idx) = process_subrelation_evaluations(
                         evals, alphas, linearly_dependent_contribution_accumulators[thread_idx]);
                 }
             }
         });
 
-        aggregated_relation_evaluations[0] += sum(linearly_dependent_contribution_accumulators);
+        aggregated_relation_evaluations.at(0) += sum(linearly_dependent_contribution_accumulators);
 
         return aggregated_relation_evaluations;
     }
@@ -263,7 +263,7 @@ template <class DeciderProvingKeys_> class ProtogalaxyProverInternal {
      */
     static std::vector<FF> construct_perturbator_coefficients(std::span<const FF> betas,
                                                               std::span<const FF> deltas,
-                                                              const std::vector<FF>& full_honk_evaluations)
+                                                              const Polynomial<FF>& full_honk_evaluations)
     {
 
         const size_t width = full_honk_evaluations.size() / 2;

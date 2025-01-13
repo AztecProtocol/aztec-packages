@@ -21,6 +21,7 @@ import { readFileSync } from 'fs';
 import omit from 'lodash.omit';
 import { resolve } from 'path';
 
+import { EmptyL1RollupConstants, type L1RollupConstants } from '../epoch-helpers/index.js';
 import { type InBlock, randomInBlock } from '../in_block.js';
 import { L2Block } from '../l2_block.js';
 import { type L2Tips } from '../l2_block_source.js';
@@ -222,10 +223,8 @@ describe('ArchiverApiSchema', () => {
     expect(result).toBe(1n);
   });
 
-  it('registerContractFunctionNames', async () => {
-    await context.client.registerContractFunctionNames(AztecAddress.random(), {
-      [FunctionSelector.random().toString()]: 'test_fn',
-    });
+  it('registerContractFunctionSignatures', async () => {
+    await context.client.registerContractFunctionSignatures(AztecAddress.random(), ['test()']);
   });
 
   it('getContract', async () => {
@@ -249,6 +248,11 @@ describe('ArchiverApiSchema', () => {
       unconstrainedFunctions: [],
       privateFunctions: [],
     });
+  });
+
+  it('getL1Constants', async () => {
+    const result = await context.client.getL1Constants();
+    expect(result).toEqual(EmptyL1RollupConstants);
   });
 });
 
@@ -374,9 +378,9 @@ class MockArchiver implements ArchiverApi {
     expect(address).toBeInstanceOf(AztecAddress);
     return Promise.resolve(this.artifact);
   }
-  registerContractFunctionNames(address: AztecAddress, names: Record<string, string>): Promise<void> {
+  registerContractFunctionSignatures(address: AztecAddress, signatures: string[]): Promise<void> {
     expect(address).toBeInstanceOf(AztecAddress);
-    expect(names).toEqual(expect.any(Object));
+    expect(Array.isArray(signatures)).toBe(true);
     return Promise.resolve();
   }
   getL1ToL2Messages(blockNumber: bigint): Promise<Fr[]> {
@@ -389,5 +393,8 @@ class MockArchiver implements ArchiverApi {
   }
   addContractClass(_contractClass: ContractClassPublic): Promise<void> {
     return Promise.resolve();
+  }
+  getL1Constants(): Promise<L1RollupConstants> {
+    return Promise.resolve(EmptyL1RollupConstants);
   }
 }

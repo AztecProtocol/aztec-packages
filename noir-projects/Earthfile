@@ -2,12 +2,19 @@ VERSION 0.8
 test:
   BUILD +test-protocol-circuits
   BUILD +test-aztec-nr
-  # BUILD +test-contracts
+  BUILD +test-contracts
 
 test-protocol-circuits:
   FROM ../+bootstrap
   ENV PATH="/usr/src/noir/noir-repo/target/release:${PATH}"
+  # TODO(#10754): Remove --skip-brillig-constraints-check
   RUN cd /usr/src/noir-projects/noir-protocol-circuits && nargo test --silence-warnings --skip-brillig-constraints-check
+
+  # Also execute circuits to ensure that `Prover.toml` files are in sync.
+  LET circuits = "private-kernel-init private-kernel-inner private-kernel-reset private-kernel-tail-to-public private-kernel-tail  rollup-base-private rollup-base-public rollup-block-root rollup-block-merge rollup-merge rollup-root"
+  FOR circuit IN $circuits
+      RUN cd /usr/src/noir-projects/noir-protocol-circuits/crates/$circuit && nargo execute --silence-warnings --skip-brillig-constraints-check
+  END
 
 test-aztec-nr:
   FROM ../+bootstrap
@@ -52,6 +59,8 @@ gates-report:
 
   # Install bb
   ENV BB_BIN /usr/src/barretenberg/cpp/build/bin/bb
+
+  # TODO(#10754): Remove --skip-brillig-constraints-check
   RUN cd noir-protocol-circuits && yarn && node ./scripts/generate_variants.js tiny && nargo compile --silence-warnings --skip-brillig-constraints-check
 
   COPY ./gates_report.sh ./gates_report.sh

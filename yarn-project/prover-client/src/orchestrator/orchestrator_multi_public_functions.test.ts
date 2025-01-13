@@ -1,7 +1,7 @@
 import { mockTx } from '@aztec/circuit-types';
 import { times } from '@aztec/foundation/collection';
 import { createLogger } from '@aztec/foundation/log';
-import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types';
+import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types/vks';
 import { protocolContractTreeRoot } from '@aztec/protocol-contracts';
 
 import { TestContext } from '../mocks/test_context.js';
