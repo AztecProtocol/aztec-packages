@@ -128,19 +128,19 @@ describe('execution_result', () => {
     });
 
     it('returns a zero counter', () => {
-      const res = getFinalMinRevertibleSideEffectCounter(executionResult.entrypoint);
+      const res = getFinalMinRevertibleSideEffectCounter(executionResult);
       expect(res).toBe(0);
     });
 
     it('returns the actual counter', () => {
       executionResult.entrypoint.publicInputs.minRevertibleSideEffectCounter = new Fr(123);
-      const res = getFinalMinRevertibleSideEffectCounter(executionResult.entrypoint);
+      const res = getFinalMinRevertibleSideEffectCounter(executionResult);
       expect(res).toBe(123);
     });
 
     it('returns the actual counter in a nested call', () => {
       executionResult.entrypoint.nestedExecutions[1].publicInputs.minRevertibleSideEffectCounter = new Fr(123);
-      const res = getFinalMinRevertibleSideEffectCounter(executionResult.entrypoint);
+      const res = getFinalMinRevertibleSideEffectCounter(executionResult);
       expect(res).toBe(123);
     });
   });

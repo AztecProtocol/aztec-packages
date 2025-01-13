@@ -264,11 +264,16 @@ export function collectEnqueuedPublicFunctionCalls(execResult: PrivateExecutionR
   return sortByCounter(countedRequests, false).map(r => r.request);
 }
 
-export function collectPublicTeardownFunctionCall(execResult: PrivateCallExecutionResult): PublicExecutionRequest {
-  const teardownCalls = [
-    execResult.publicTeardownFunctionCall,
-    ...execResult.nestedExecutions.flatMap(collectPublicTeardownFunctionCall),
-  ].filter(call => !call.isEmpty());
+export function collectPublicTeardownFunctionCall(execResult: PrivateExecutionResult): PublicExecutionRequest {
+  const collectPublicTeardownFunctionCallRecursive = (
+    callResult: PrivateCallExecutionResult,
+  ): PublicExecutionRequest[] => {
+    return [
+      callResult.publicTeardownFunctionCall,
+      ...callResult.nestedExecutions.flatMap(collectPublicTeardownFunctionCallRecursive),
+    ].filter(call => !call.isEmpty());
+  };
+  const teardownCalls = collectPublicTeardownFunctionCallRecursive(execResult.entrypoint);
 
   if (teardownCalls.length === 1) {
     return teardownCalls[0];
@@ -281,11 +286,14 @@ export function collectPublicTeardownFunctionCall(execResult: PrivateCallExecuti
   return PublicExecutionRequest.empty();
 }
 
-export function getFinalMinRevertibleSideEffectCounter(execResult: PrivateCallExecutionResult): number {
-  return execResult.nestedExecutions.reduce((counter, exec) => {
-    const nestedCounter = getFinalMinRevertibleSideEffectCounter(exec);
-    return nestedCounter ? nestedCounter : counter;
-  }, execResult.publicInputs.minRevertibleSideEffectCounter.toNumber());
+export function getFinalMinRevertibleSideEffectCounter(execResult: PrivateExecutionResult): number {
+  const collectFinalMinRevertibleSideEffectCounterRecursive = (callResult: PrivateCallExecutionResult): number => {
+    return callResult.nestedExecutions.reduce((counter, exec) => {
+      const nestedCounter = collectFinalMinRevertibleSideEffectCounterRecursive(exec);
+      return nestedCounter ? nestedCounter : counter;
+    }, callResult.publicInputs.minRevertibleSideEffectCounter.toNumber());
+  };
+  return collectFinalMinRevertibleSideEffectCounterRecursive(execResult.entrypoint);
 }
 
 export function collectNested<T>(

@@ -134,8 +134,6 @@ export class KernelProver {
       throw new Error('Cannot simulate and profile at the same time');
     }
 
-    const { entrypoint } = executionResult;
-
     simulate = simulate || this.fakeProofs;
 
     const timer = new Timer();
@@ -159,8 +157,8 @@ export class KernelProver {
     const noteHashNullifierCounterMap = collectNoteHashNullifierCounterMap(executionResult);
     const enqueuedPublicFunctions = collectEnqueuedPublicFunctionCalls(executionResult);
     const hasPublicCalls =
-      enqueuedPublicFunctions.length > 0 || !collectPublicTeardownFunctionCall(entrypoint).isEmpty();
-    const validationRequestsSplitCounter = hasPublicCalls ? getFinalMinRevertibleSideEffectCounter(entrypoint) : 0;
+      enqueuedPublicFunctions.length > 0 || !collectPublicTeardownFunctionCall(executionResult).isEmpty();
+    const validationRequestsSplitCounter = hasPublicCalls ? getFinalMinRevertibleSideEffectCounter(executionResult) : 0;
     // vector of gzipped bincode acirs
     const acirs: Buffer[] = [];
     const witnessStack: WitnessMap[] = [];

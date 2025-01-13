@@ -84,6 +84,10 @@ export const mockPrivateCallExecutionResult = (
   );
 };
 
+export const mockPrivateExecutionResult = (seed = 1) => {
+  return new PrivateExecutionResult(mockPrivateCallExecutionResult(seed), true);
+};
+
 export const mockTx = (
   seed = 1,
   {
@@ -160,7 +164,7 @@ export const mockTxForRollup = (seed = 1) =>
   mockTx(seed, { numberOfNonRevertiblePublicCallRequests: 0, numberOfRevertiblePublicCallRequests: 0 });
 
 export const mockSimulatedTx = (seed = 1) => {
-  const privateExecutionResult = mockPrivateCallExecutionResult(seed);
+  const privateExecutionResult = mockPrivateExecutionResult(seed);
   const tx = mockTx(seed);
   const output = new PublicSimulationOutput(
     undefined,
@@ -173,7 +177,7 @@ export const mockSimulatedTx = (seed = 1) => {
       publicGas: makeGas(),
     },
   );
-  return new TxSimulationResult(new PrivateExecutionResult(privateExecutionResult, true), tx.data, output);
+  return new TxSimulationResult(privateExecutionResult, tx.data, output);
 };
 
 export const mockEpochProofQuote = (
