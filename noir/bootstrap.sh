@@ -4,7 +4,7 @@ source $(git rev-parse --show-toplevel)/ci3/source_bootstrap
 cmd=${1:-}
 
 # WORKTODO(ci3) remove this -2
-export hash=$(cache_content_hash .rebuild_patterns)-2
+export hash=$(cache_content_hash .rebuild_patterns)-3
 export test_hash=$(cache_content_hash .rebuild_patterns .rebuild_patterns_tests)
 
 export js_projects="
