@@ -6,7 +6,7 @@ global three_field: Field = 3;
 
 fn main() {
     comptime {
-        unsafe { foo::<three_field>(5) };
+        foo::<three_field>(5);
         submodule::bar();
     }
 }

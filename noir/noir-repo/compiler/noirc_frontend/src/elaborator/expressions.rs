@@ -32,7 +32,7 @@ use crate::{
     Kind, QuotedType, Shared, StructType, Type,
 };
 
-use super::{Elaborator, LambdaContext};
+use super::{Elaborator, LambdaContext, UnsafeBlockStatus};
 
 impl<'context> Elaborator<'context> {
     pub(crate) fn elaborate_expression(&mut self, expr: Expression) -> (ExprId, Type) {
@@ -58,8 +58,8 @@ impl<'context> Elaborator<'context> {
             ExpressionKind::Comptime(comptime, _) => {
                 return self.elaborate_comptime_block(comptime, expr.span)
             }
-            ExpressionKind::Unsafe(block_expression, _) => {
-                self.elaborate_unsafe_block(block_expression)
+            ExpressionKind::Unsafe(block_expression, span) => {
+                self.elaborate_unsafe_block(block_expression, span)
             }
             ExpressionKind::Resolved(id) => return (id, self.interner.id_type(id)),
             ExpressionKind::Interned(id) => {
@@ -140,15 +140,36 @@ impl<'context> Elaborator<'context> {
         (HirBlockExpression { statements }, block_type)
     }
 
-    fn elaborate_unsafe_block(&mut self, block: BlockExpression) -> (HirExpression, Type) {
+    fn elaborate_unsafe_block(
+        &mut self,
+        block: BlockExpression,
+        span: Span,
+    ) -> (HirExpression, Type) {
         // Before entering the block we cache the old value of `in_unsafe_block` so it can be restored.
-        let old_in_unsafe_block = self.in_unsafe_block;
-        self.in_unsafe_block = true;
+        let old_in_unsafe_block = self.unsafe_block_status;
+        let is_nested_unsafe_block =
+            !matches!(old_in_unsafe_block, UnsafeBlockStatus::NotInUnsafeBlock);
+        if is_nested_unsafe_block {
+            let span = Span::from(span.start()..span.start() + 6); // Only highlight the `unsafe` keyword
+            self.push_err(TypeCheckError::NestedUnsafeBlock { span });
+        }
+
+        self.unsafe_block_status = UnsafeBlockStatus::InUnsafeBlockWithoutUnconstrainedCalls;
 
         let (hir_block_expression, typ) = self.elaborate_block_expression(block);
 
-        // Finally, we restore the original value of `self.in_unsafe_block`.
-        self.in_unsafe_block = old_in_unsafe_block;
+        if let UnsafeBlockStatus::InUnsafeBlockWithoutUnconstrainedCalls = self.unsafe_block_status
+        {
+            let span = Span::from(span.start()..span.start() + 6); // Only highlight the `unsafe` keyword
+            self.push_err(TypeCheckError::UnnecessaryUnsafeBlock { span });
+        }
+
+        // Finally, we restore the original value of `self.in_unsafe_block`,
+        // but only if this isn't a nested unsafe block (that way if we found an unconstrained call
+        // for this unsafe block we'll also consider the outer one as finding one, and we don't double error)
+        if !is_nested_unsafe_block {
+            self.unsafe_block_status = old_in_unsafe_block;
+        }
 
         (HirExpression::Unsafe(hir_block_expression), typ)
     }
@@ -906,7 +927,7 @@ impl<'context> Elaborator<'context> {
         };
 
         let location = Location::new(span, self.file);
-        match value.into_expression(self.interner, location) {
+        match value.into_expression(self, location) {
             Ok(new_expr) => {
                 // At this point the Expression was already elaborated and we got a Value.
                 // We'll elaborate this value turned into Expression to inline it and get
