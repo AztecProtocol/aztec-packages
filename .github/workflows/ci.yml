@@ -267,7 +267,7 @@ jobs:
         continue-on-error: true
         run: tree ./data
       - name: Store benchmark result
-        if: github.ref == 'refs/heads/master'
+        if: github.ref == 'refs/heads/master' || github.ref == 'palla/bench-v2'
         continue-on-error: true
         uses: benchmark-action/github-action-benchmark@4de1bed97a47495fc4c5404952da0499e31f5c29
         with:
