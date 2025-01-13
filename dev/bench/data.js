@@ -1,74 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1736792148819,
+  "lastUpdate": 1736793303599,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "mara@aztecprotocol.com",
-            "name": "maramihali",
-            "username": "maramihali"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "469476bc73606659da58d492b2640dea4ac924c2",
-          "message": "fix: remove table shifts (#10814)\n\nTable shifts have been obsolete since we moved to a log derivative\r\nlookup argument and the table polynomials were still incorrectly\r\nconsidered part of the `to_be_shifted` polynomials set. This PR\r\naddresses the issue and, in turn, the proof size because smaller by 4\r\nfrs. Additionally, this brings some flavor simplifications.",
-          "timestamp": "2024-12-18T09:11:20Z",
-          "tree_id": "00b64cf7c0a9828cfcd420a2e0bf15558d4fbe71",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/469476bc73606659da58d492b2640dea4ac924c2"
-        },
-        "date": 1734516024432,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "nativeClientIVCBench/Ambient_17_in_20/6",
-            "value": 25358.808219999984,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 19374.892241999998 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeClientIVCBench/Full/6",
-            "value": 24471.55405699999,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 22387.463696000003 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 4857.796519000004,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 4533.140636 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmClientIVCBench/Full/6",
-            "value": 84792.790161,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 84792790000 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 15074.171436,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 15074173000 ms\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 2839630147,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 2839630147 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 142449604,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 142449604 ns\nthreads: 1"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -3280,6 +3214,72 @@ window.BENCHMARK_DATA = {
             "value": 157769756,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 157769756 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "mara@aztecprotocol.com",
+            "name": "maramihali",
+            "username": "maramihali"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "58fdf87560fc2c43255675c83dbc36eb370ca5b0",
+          "message": "chore: refactor Solidity Transcript and improve error handling in  sol_honk flow (#11158)\n\nA cleanup PR in preparation for the ZK contract\r\n* create a RelationParameters struct so functions in `RelationsLib`\r\ndon't need to take the Transcript as function argument ( this will be\r\nuseful to reuse this library for both the zk and non-zk contract)\r\n* make `loadProof` less manual and more robust by creating some utility\r\nfunctions\r\n* ensure the `sol_honk` flow actually displays contract compilation\r\nerrors and clear errors (if possible) when deploying to aid debugging",
+          "timestamp": "2025-01-13T18:10:12Z",
+          "tree_id": "57d5e054a68a17745d84b91fa3a6bba6165b74cc",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/58fdf87560fc2c43255675c83dbc36eb370ca5b0"
+        },
+        "date": 1736793295892,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Ambient_17_in_20/6",
+            "value": 19485.702408999998,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 16643.027778 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 21680.76442500001,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 18908.085911000002 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 4477.601942000007,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 4187.847456 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 80369.192673,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 80369193000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 13644.3322,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 13644333000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 3173461811,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 3173461811 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 149391220,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 149391220 ns\nthreads: 1"
           }
         ]
       }
