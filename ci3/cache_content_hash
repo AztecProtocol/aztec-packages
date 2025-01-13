@@ -31,7 +31,7 @@ unstaged_diff="$(git diff --name-only | grep -E "$GREP_PATTERN" || true)"
 staged_diff="$(git diff --staged --name-only | grep -E "$GREP_PATTERN" || true)"
 untracked_diff="$(git ls-files --others --exclude-standard | grep -E "$GREP_PATTERN" || true)"
 
-# Check for untracked files
+# Check for uncommitted files/changes
 if [[ -n "$unstaged_diff" ]] || [[ -n "$staged_diff" ]] || [[ -n "$untracked_diff" ]]; then
   # Signal to cache_upload and cache_download to not touch this file.
   echo "disabled-cache"
