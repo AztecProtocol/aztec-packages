@@ -111,9 +111,34 @@ function test_cmds {
   echo "$test_hash cd noir/noir-repo && GIT_COMMIT=$COMMIT_HASH NARGO=$PWD/target/release/nargo yarn workspaces foreach --parallel --topological-dev --verbose $js_include run test"
 }
 
-function format() {
-
+function format {
+  export PATH="$(pwd)/noir-repo/target/release:${PATH}"
+  arg=${1:-}
+  cd noir-repo/test_programs
+  if [ "$arg" = "--check" ]; then
+    # different passing of check than nargo fmt
+    ./format.sh check
+  else
+    ./format.sh
+  fi
+  cd noir_stdlib
+  nargo fmt $arg
 }
+
+# TODO(ci3,delete-earthly): evaluate if redundant
+# examples:
+#   FROM ../+bootstrap-noir-bb
+#   ENV PATH="/usr/src/noir/noir-repo/target/release:${PATH}"
+#   ENV BACKEND=/usr/src/barretenberg/cpp/build/bin/bb
+#
+#   WORKDIR /usr/src/noir/noir-repo/examples/codegen_verifier
+#   RUN ./test.sh
+#
+#   WORKDIR /usr/src/noir/noir-repo/examples/prove_and_verify
+#   RUN ./test.sh
+#
+#   WORKDIR /usr/src/noir/noir-repo/examples/recursion
+#   RUN ./test.sh
 
 case "$cmd" in
   "clean")
@@ -137,6 +162,10 @@ case "$cmd" in
     ;;
   "test-cmds")
     test_cmds
+    ;;
+  "format")
+    # can take --check as arg
+    format
     ;;
   "hash")
     echo $hash
