@@ -16,7 +16,7 @@ trait ProveNullifierNonInclusion {
 impl ProveNullifierNonInclusion for BlockHeader {
     fn prove_nullifier_non_inclusion(self, nullifier: Field) {
         // 1) Get the membership witness of a low nullifier of the nullifier
-        // Safety: The witness is only used as a "magical value" that makes the proof below pass. Hence it's safe.
+        /// Safety: The witness is only used as a "magical value" that makes the proof below pass. Hence it's safe.
         let witness = unsafe {
             get_low_nullifier_membership_witness(
                 self.global_variables.block_number as u32,

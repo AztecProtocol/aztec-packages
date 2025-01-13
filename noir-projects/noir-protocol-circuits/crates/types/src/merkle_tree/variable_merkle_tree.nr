@@ -43,9 +43,9 @@ unconstrained fn get_next_power_exponent(input: u32, start: u8) -> u8 {
 /// # Returns
 /// The previous power of 2
 fn get_prev_power_2(value: u32) -> u32 {
-    // Safety: This is a hint that we'll use to compute the next and previous powers of two, which we check to be
-    // larger and smaller than respectively. The get_next_power_exponent function happens to return exactly what
-    // we need.
+    /// Safety: This is a hint that we'll use to compute the next and previous powers of two, which we check to be
+    /// larger and smaller than respectively. The get_next_power_exponent function happens to return exactly what
+    /// we need.
     let next_power_exponent = unsafe { get_next_power_exponent(value, 0) };
 
     let next_power_2 = 1 << next_power_exponent;

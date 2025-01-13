@@ -14,8 +14,8 @@ pub fn notify_created_note<let N: u32>(
     note_hash: Field,
     counter: u32,
 ) {
-    // Safety: This oracle call returns nothing: we only call it for its side effects. It is therefore always safe
-    // to call.
+    /// Safety: This oracle call returns nothing: we only call it for its side effects. It is therefore always safe
+    /// to call.
     unsafe {
         notify_created_note_oracle_wrapper(
             storage_slot,
@@ -31,8 +31,8 @@ pub fn notify_created_note<let N: u32>(
 /// the same transaction. This note should only be removed to the non-volatile database if its nullifier is found in an
 /// actual block.
 pub fn notify_nullified_note(nullifier: Field, note_hash: Field, counter: u32) {
-    // Safety: This oracle call returns nothing: we only call it for its side effects. It is therefore always safe
-    // to call.
+    /// Safety: This oracle call returns nothing: we only call it for its side effects. It is therefore always safe
+    /// to call.
     unsafe { notify_nullified_note_oracle_wrapper(nullifier, note_hash, counter) };
 }
 
@@ -249,8 +249,8 @@ unconstrained fn get_indexed_tagging_secret_as_sender_oracle(
 /// otherwise e.g. a reverting transaction can cause the sender to accidentally skip indices and later produce notes
 /// that are not found by the recipient.
 pub fn increment_app_tagging_secret_index_as_sender(sender: AztecAddress, recipient: AztecAddress) {
-    // Safety: This oracle call returns nothing: we only call it for its side effects. It is therefore always safe
-    // to call.
+    /// Safety: This oracle call returns nothing: we only call it for its side effects. It is therefore always safe
+    /// to call.
     unsafe {
         increment_app_tagging_secret_index_as_sender_wrapper(sender, recipient);
     }
@@ -272,8 +272,8 @@ unconstrained fn increment_app_tagging_secret_index_as_sender_oracle(
 /// Finds new notes that may have been sent to all registered accounts in PXE in the current contract and makes them available
 /// for later querying via the `get_notes` oracle.
 pub fn sync_notes() {
-    // Safety: This oracle call returns nothing: we only call it for its side effects. It is therefore always safe
-    // to call.
+    /// Safety: This oracle call returns nothing: we only call it for its side effects. It is therefore always safe
+    /// to call.
     unsafe {
         sync_notes_oracle_wrapper();
     }

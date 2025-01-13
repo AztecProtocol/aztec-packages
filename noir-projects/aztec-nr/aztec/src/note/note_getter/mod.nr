@@ -89,8 +89,8 @@ pub fn get_note<Note, let N: u32>(
 where
     Note: NoteInterface<N> + NullifiableNote,
 {
-    // Safety: Constraining that we got a valid note from the oracle is fairly straightforward: all we need to do
-    // is check that the metadata is correct, and that the note exists.
+    /// Safety: Constraining that we got a valid note from the oracle is fairly straightforward: all we need to do
+    /// is check that the metadata is correct, and that the note exists.
     let note = unsafe { get_note_internal(storage_slot) };
     check_note_header(*context, storage_slot, note);
 
@@ -108,7 +108,7 @@ pub fn get_notes<Note, let N: u32, PREPROCESSOR_ARGS, FILTER_ARGS>(
 where
     Note: NoteInterface<N> + NullifiableNote + Eq,
 {
-    // Safety: The notes are constrained below.
+    /// Safety: The notes are constrained below.
     let opt_notes = unsafe { get_notes_internal(storage_slot, options) };
 
     // We apply the constraints in a separate function instead of inlining them here to make it easier to test that

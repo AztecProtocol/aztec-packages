@@ -110,8 +110,8 @@ where
 {
     // We get the length by checking the index of the first empty element.
 
-    // Safety: This is safe because we have validated the array (see function doc above) and the emptiness
-    // of the element and non-emptiness of the previous element is checked below.
+    /// Safety: This is safe because we have validated the array (see function doc above) and the emptiness
+    /// of the element and non-emptiness of the previous element is checked below.
     let length = unsafe { find_index_hint(array, |elem: T| is_empty(elem)) };
     if length != 0 {
         assert(!is_empty(array[length - 1]));

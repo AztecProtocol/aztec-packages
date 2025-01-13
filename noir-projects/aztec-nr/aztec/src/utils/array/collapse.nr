@@ -15,7 +15,7 @@ where
     // Instead, we use an unconstrained function to produce the final collapsed array, along with some hints, and then
     // verify that the input and collapsed arrays are equivalent.
 
-    // Safety: The hints are verified by the `verify_collapse_hints` function.
+    /// Safety: The hints are verified by the `verify_collapse_hints` function.
     let (collapsed, collapsed_to_input_index_mapping) = unsafe { get_collapse_hints(input) };
     verify_collapse_hints(input, collapsed, collapsed_to_input_index_mapping);
     collapsed
