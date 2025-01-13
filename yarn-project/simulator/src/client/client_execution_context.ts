@@ -6,7 +6,7 @@ import {
   Note,
   NoteAndSlot,
   type NoteStatus,
-  type PrivateExecutionResult,
+  type PrivateCallExecutionResult,
   PublicExecutionRequest,
   type UnencryptedL2Log,
 } from '@aztec/circuit-types';
@@ -57,7 +57,7 @@ export class ClientExecutionContext extends ViewDataOracle {
   private noteHashLeafIndexMap: Map<bigint, bigint> = new Map();
   private noteHashNullifierCounterMap: Map<number, number> = new Map();
   private contractClassLogs: CountedContractClassLog[] = [];
-  private nestedExecutions: PrivateExecutionResult[] = [];
+  private nestedExecutions: PrivateCallExecutionResult[] = [];
   private enqueuedPublicFunctionCalls: CountedPublicExecutionRequest[] = [];
   private publicTeardownFunctionCall: PublicExecutionRequest = PublicExecutionRequest.empty();
 
@@ -334,7 +334,7 @@ export class ClientExecutionContext extends ViewDataOracle {
     return Fr.fromBuffer(log.hash());
   }
 
-  #checkValidStaticCall(childExecutionResult: PrivateExecutionResult) {
+  #checkValidStaticCall(childExecutionResult: PrivateCallExecutionResult) {
     if (
       childExecutionResult.publicInputs.noteHashes.some(item => !item.isEmpty()) ||
       childExecutionResult.publicInputs.nullifiers.some(item => !item.isEmpty()) ||

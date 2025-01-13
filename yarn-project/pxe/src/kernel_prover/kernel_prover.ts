@@ -1,4 +1,5 @@
 import {
+  type PrivateCallExecutionResult,
   type PrivateExecutionResult,
   type PrivateKernelProver,
   type PrivateKernelSimulateOutput,
@@ -133,13 +134,15 @@ export class KernelProver {
       throw new Error('Cannot simulate and profile at the same time');
     }
 
+    const { entrypoint } = executionResult;
+
     simulate = simulate || this.fakeProofs;
 
     const timer = new Timer();
 
     const isPrivateOnlyTx = this.isPrivateOnly(executionResult);
 
-    const executionStack = [executionResult];
+    const executionStack = [executionResult.entrypoint];
     let firstIteration = true;
 
     let output = NULL_PROVE_OUTPUT;
@@ -156,8 +159,8 @@ export class KernelProver {
     const noteHashNullifierCounterMap = collectNoteHashNullifierCounterMap(executionResult);
     const enqueuedPublicFunctions = collectEnqueuedPublicFunctionCalls(executionResult);
     const hasPublicCalls =
-      enqueuedPublicFunctions.length > 0 || !collectPublicTeardownFunctionCall(executionResult).isEmpty();
-    const validationRequestsSplitCounter = hasPublicCalls ? getFinalMinRevertibleSideEffectCounter(executionResult) : 0;
+      enqueuedPublicFunctions.length > 0 || !collectPublicTeardownFunctionCall(entrypoint).isEmpty();
+    const validationRequestsSplitCounter = hasPublicCalls ? getFinalMinRevertibleSideEffectCounter(entrypoint) : 0;
     // vector of gzipped bincode acirs
     const acirs: Buffer[] = [];
     const witnessStack: WitnessMap[] = [];
@@ -217,7 +220,7 @@ export class KernelProver {
           protocolContractTreeRoot,
           privateCallData,
           isPrivateOnlyTx,
-          true,
+          executionResult.usedTxRequestHashForNonces,
         );
 
         pushTestData('private-kernel-inputs-init', proofInput);
@@ -332,7 +335,7 @@ export class KernelProver {
     return tailOutput;
   }
 
-  private async createPrivateCallData({ publicInputs, vk: vkAsBuffer }: PrivateExecutionResult) {
+  private async createPrivateCallData({ publicInputs, vk: vkAsBuffer }: PrivateCallExecutionResult) {
     const { contractAddress, functionSelector } = publicInputs.callContext;
 
     const vkAsFields = vkAsFieldsMegaHonk(vkAsBuffer);
@@ -370,12 +373,15 @@ export class KernelProver {
   }
 
   private isPrivateOnly(executionResult: PrivateExecutionResult): boolean {
-    const makesPublicCalls =
-      executionResult.enqueuedPublicFunctionCalls.some(enqueuedCall => !enqueuedCall.isEmpty()) ||
-      !executionResult.publicTeardownFunctionCall.isEmpty();
-    return (
-      !makesPublicCalls &&
-      executionResult.nestedExecutions.every(nestedExecution => this.isPrivateOnly(nestedExecution))
-    );
+    const isPrivateOnlyRecursive = (callResult: PrivateCallExecutionResult): boolean => {
+      const makesPublicCalls =
+        callResult.enqueuedPublicFunctionCalls.some(enqueuedCall => !enqueuedCall.isEmpty()) ||
+        !callResult.publicTeardownFunctionCall.isEmpty();
+      return (
+        !makesPublicCalls &&
+        callResult.nestedExecutions.every(nestedExecution => isPrivateOnlyRecursive(nestedExecution))
+      );
+    };
+    return isPrivateOnlyRecursive(executionResult.entrypoint);
   }
 }

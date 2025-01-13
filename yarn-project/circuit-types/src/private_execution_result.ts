@@ -89,10 +89,31 @@ export class CountedPublicExecutionRequest {
   }
 }
 
-/**
- * The result of executing a private function.
- */
 export class PrivateExecutionResult {
+  constructor(public entrypoint: PrivateCallExecutionResult, public usedTxRequestHashForNonces: boolean) {}
+
+  static get schema(): ZodFor<PrivateExecutionResult> {
+    return z
+      .object({
+        entrypoint: PrivateCallExecutionResult.schema,
+        usedTxRequestHashForNonces: z.boolean(),
+      })
+      .transform(PrivateExecutionResult.from);
+  }
+
+  static from(fields: FieldsOf<PrivateExecutionResult>) {
+    return new PrivateExecutionResult(fields.entrypoint, fields.usedTxRequestHashForNonces);
+  }
+
+  static random(nested = 1): PrivateExecutionResult {
+    return new PrivateExecutionResult(PrivateCallExecutionResult.random(nested), Math.random() > 0.5);
+  }
+}
+
+/**
+ * The result of executing a call to a private function.
+ */
+export class PrivateCallExecutionResult {
   constructor(
     // Needed for prover
     /** The ACIR bytecode. */
@@ -113,7 +134,7 @@ export class PrivateExecutionResult {
     /** The raw return values of the executed function. */
     public returnValues: Fr[],
     /** The nested executions. */
-    public nestedExecutions: PrivateExecutionResult[],
+    public nestedExecutions: PrivateCallExecutionResult[],
     /** Enqueued public function execution requests to be picked up by the sequencer. */
     public enqueuedPublicFunctionCalls: CountedPublicExecutionRequest[],
     /** Public function execution requested for teardown */
@@ -125,7 +146,7 @@ export class PrivateExecutionResult {
     public contractClassLogs: CountedContractClassLog[],
   ) {}
 
-  static get schema(): ZodFor<PrivateExecutionResult> {
+  static get schema(): ZodFor<PrivateCallExecutionResult> {
     return z
       .object({
         acir: schemas.Buffer,
@@ -136,16 +157,16 @@ export class PrivateExecutionResult {
         newNotes: z.array(NoteAndSlot.schema),
         noteHashNullifierCounterMap: mapSchema(z.coerce.number(), z.number()),
         returnValues: z.array(schemas.Fr),
-        nestedExecutions: z.array(z.lazy(() => PrivateExecutionResult.schema)),
+        nestedExecutions: z.array(z.lazy(() => PrivateCallExecutionResult.schema)),
         enqueuedPublicFunctionCalls: z.array(CountedPublicExecutionRequest.schema),
         publicTeardownFunctionCall: PublicExecutionRequest.schema,
         contractClassLogs: z.array(CountedContractClassLog.schema),
       })
-      .transform(PrivateExecutionResult.from);
+      .transform(PrivateCallExecutionResult.from);
   }
 
-  static from(fields: FieldsOf<PrivateExecutionResult>) {
-    return new PrivateExecutionResult(
+  static from(fields: FieldsOf<PrivateCallExecutionResult>) {
+    return new PrivateCallExecutionResult(
       fields.acir,
       fields.vk,
       fields.partialWitness,
@@ -161,8 +182,8 @@ export class PrivateExecutionResult {
     );
   }
 
-  static random(nested = 1): PrivateExecutionResult {
-    return new PrivateExecutionResult(
+  static random(nested = 1): PrivateCallExecutionResult {
+    return new PrivateCallExecutionResult(
       randomBytes(4),
       randomBytes(4),
       new Map([[1, 'one']]),
@@ -171,7 +192,7 @@ export class PrivateExecutionResult {
       [NoteAndSlot.random()],
       new Map([[0, 0]]),
       [Fr.random()],
-      times(nested, () => PrivateExecutionResult.random(0)),
+      times(nested, () => PrivateCallExecutionResult.random(0)),
       [CountedPublicExecutionRequest.random()],
       PublicExecutionRequest.random(),
       [new CountedContractClassLog(UnencryptedL2Log.random(), randomInt(10))],
@@ -179,21 +200,26 @@ export class PrivateExecutionResult {
   }
 }
 
-export function collectNoteHashLeafIndexMap(
-  execResult: PrivateExecutionResult,
-  accum: Map<bigint, bigint> = new Map(),
-) {
-  execResult.noteHashLeafIndexMap.forEach((value, key) => accum.set(key, value));
-  execResult.nestedExecutions.forEach(nested => collectNoteHashLeafIndexMap(nested, accum));
+export function collectNoteHashLeafIndexMap(execResult: PrivateExecutionResult) {
+  const accum: Map<bigint, bigint> = new Map();
+  const collectNoteHashLeafIndexMapRecursive = (callResult: PrivateCallExecutionResult, accum: Map<bigint, bigint>) => {
+    callResult.noteHashLeafIndexMap.forEach((value, key) => accum.set(key, value));
+    callResult.nestedExecutions.forEach(nested => collectNoteHashLeafIndexMapRecursive(nested, accum));
+  };
+  collectNoteHashLeafIndexMapRecursive(execResult.entrypoint, accum);
   return accum;
 }
 
-export function collectNoteHashNullifierCounterMap(
-  execResult: PrivateExecutionResult,
-  accum: Map<number, number> = new Map(),
-) {
-  execResult.noteHashNullifierCounterMap.forEach((value, key) => accum.set(key, value));
-  execResult.nestedExecutions.forEach(nested => collectNoteHashNullifierCounterMap(nested, accum));
+export function collectNoteHashNullifierCounterMap(execResult: PrivateExecutionResult) {
+  const accum: Map<number, number> = new Map();
+  const collectNoteHashNullifierCounterMapRecursive = (
+    callResult: PrivateCallExecutionResult,
+    accum: Map<number, number>,
+  ) => {
+    callResult.noteHashNullifierCounterMap.forEach((value, key) => accum.set(key, value));
+    callResult.nestedExecutions.forEach(nested => collectNoteHashNullifierCounterMapRecursive(nested, accum));
+  };
+  collectNoteHashNullifierCounterMapRecursive(execResult.entrypoint, accum);
   return accum;
 }
 
@@ -202,7 +228,7 @@ export function collectNoteHashNullifierCounterMap(
  * @param execResult - The topmost execution result.
  * @returns All contract class logs.
  */
-function collectContractClassLogs(execResult: PrivateExecutionResult): CountedContractClassLog[] {
+function collectContractClassLogs(execResult: PrivateCallExecutionResult): CountedContractClassLog[] {
   return [execResult.contractClassLogs, ...execResult.nestedExecutions.flatMap(collectContractClassLogs)].flat();
 }
 
@@ -212,13 +238,13 @@ function collectContractClassLogs(execResult: PrivateExecutionResult): CountedCo
  * @returns All contract class logs.
  */
 export function collectSortedContractClassLogs(execResult: PrivateExecutionResult): UnencryptedFunctionL2Logs {
-  const allLogs = collectContractClassLogs(execResult);
+  const allLogs = collectContractClassLogs(execResult.entrypoint);
   const sortedLogs = sortByCounter(allLogs);
   return new UnencryptedFunctionL2Logs(sortedLogs.map(l => l.log));
 }
 
 function collectEnqueuedCountedPublicExecutionRequests(
-  execResult: PrivateExecutionResult,
+  execResult: PrivateCallExecutionResult,
 ): CountedPublicExecutionRequest[] {
   return [
     ...execResult.enqueuedPublicFunctionCalls,
@@ -232,13 +258,13 @@ function collectEnqueuedCountedPublicExecutionRequests(
  * @returns All enqueued public function calls.
  */
 export function collectEnqueuedPublicFunctionCalls(execResult: PrivateExecutionResult): PublicExecutionRequest[] {
-  const countedRequests = collectEnqueuedCountedPublicExecutionRequests(execResult);
+  const countedRequests = collectEnqueuedCountedPublicExecutionRequests(execResult.entrypoint);
   // without the reverse sort, the logs will be in a queue like fashion which is wrong
   // as the kernel processes it like a stack, popping items off and pushing them to output
   return sortByCounter(countedRequests, false).map(r => r.request);
 }
 
-export function collectPublicTeardownFunctionCall(execResult: PrivateExecutionResult): PublicExecutionRequest {
+export function collectPublicTeardownFunctionCall(execResult: PrivateCallExecutionResult): PublicExecutionRequest {
   const teardownCalls = [
     execResult.publicTeardownFunctionCall,
     ...execResult.nestedExecutions.flatMap(collectPublicTeardownFunctionCall),
@@ -255,7 +281,7 @@ export function collectPublicTeardownFunctionCall(execResult: PrivateExecutionRe
   return PublicExecutionRequest.empty();
 }
 
-export function getFinalMinRevertibleSideEffectCounter(execResult: PrivateExecutionResult): number {
+export function getFinalMinRevertibleSideEffectCounter(execResult: PrivateCallExecutionResult): number {
   return execResult.nestedExecutions.reduce((counter, exec) => {
     const nestedCounter = getFinalMinRevertibleSideEffectCounter(exec);
     return nestedCounter ? nestedCounter : counter;
@@ -263,8 +289,8 @@ export function getFinalMinRevertibleSideEffectCounter(execResult: PrivateExecut
 }
 
 export function collectNested<T>(
-  executionStack: PrivateExecutionResult[],
-  extractExecutionItems: (execution: PrivateExecutionResult) => T[],
+  executionStack: PrivateCallExecutionResult[],
+  extractExecutionItems: (execution: PrivateCallExecutionResult) => T[],
 ): T[] {
   const thisExecutionReads = executionStack.flatMap(extractExecutionItems);
 

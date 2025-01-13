@@ -1,6 +1,7 @@
 import {
   Note,
   NoteAndSlot,
+  PrivateCallExecutionResult,
   PrivateExecutionResult,
   type PrivateKernelProver,
   PublicExecutionRequest,
@@ -51,6 +52,10 @@ describe('Kernel Prover', () => {
   const generateFakeSiloedCommitment = (note: NoteAndSlot) => createFakeSiloedCommitment(generateFakeCommitment(note));
 
   const createExecutionResult = (fnName: string, newNoteIndices: number[] = []): PrivateExecutionResult => {
+    return new PrivateExecutionResult(createCallExecutionResult(fnName, newNoteIndices), true);
+  };
+
+  const createCallExecutionResult = (fnName: string, newNoteIndices: number[] = []): PrivateCallExecutionResult => {
     const publicInputs = PrivateCircuitPublicInputs.empty();
     publicInputs.noteHashes = makeTuple(
       MAX_NOTE_HASHES_PER_CALL,
@@ -61,7 +66,7 @@ describe('Kernel Prover', () => {
       0,
     );
     publicInputs.callContext.functionSelector = new FunctionSelector(fnName.charCodeAt(0));
-    return new PrivateExecutionResult(
+    return new PrivateCallExecutionResult(
       Buffer.alloc(0),
       VerificationKey.makeFake().toBuffer(),
       new Map(),
@@ -70,7 +75,7 @@ describe('Kernel Prover', () => {
       newNoteIndices.map(idx => notesAndSlots[idx]),
       new Map(),
       [],
-      (dependencies[fnName] || []).map(name => createExecutionResult(name)),
+      (dependencies[fnName] || []).map(name => createCallExecutionResult(name)),
       [],
       PublicExecutionRequest.empty(),
       [],

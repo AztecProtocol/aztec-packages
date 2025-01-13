@@ -43,8 +43,8 @@ export class TXEService {
     const store = openTmpStore(true);
     const trees = await MerkleTrees.new(store, new NoopTelemetryClient(), logger);
     const packedValuesCache = new PackedValuesCache();
-    const txHash = new Fr(1); // The txHash is used for computing the revertible nullifiers for non-revertible note hashes. It can be any value for testing.
-    const noteCache = new ExecutionNoteCache(txHash);
+    const txRequestHash = new Fr(1); // The txRequestHash is used for computing the revertible nullifiers for non-revertible note hashes. It can be any value for testing.
+    const noteCache = new ExecutionNoteCache(txRequestHash);
     const keyStore = new KeyStore(store);
     const txeDatabase = new TXEDatabase(store);
     // Register protocol contracts.

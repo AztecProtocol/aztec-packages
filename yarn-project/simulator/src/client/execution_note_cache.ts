@@ -38,7 +38,13 @@ export class ExecutionNoteCache {
 
   private minRevertibleSideEffectCounter = 0;
 
-  constructor(private readonly txHash: Fr) {}
+  /**
+   * We don't need to use the tx request hash for nonces if another non revertible nullifier is emitted.
+   * In that case we disable injecting the tx request hash as a nullifier.
+   */
+  public usedTxRequestHashForNonces = true;
+
+  constructor(private readonly txRequestHash: Fr) {}
 
   public setMinRevertibleSideEffectCounter(minRevertibleSideEffectCounter: number) {
     if (this.minRevertibleSideEffectCounter && this.minRevertibleSideEffectCounter !== minRevertibleSideEffectCounter) {
@@ -49,12 +55,19 @@ export class ExecutionNoteCache {
 
     this.minRevertibleSideEffectCounter = minRevertibleSideEffectCounter;
 
+    let nonceGenerator = this.txRequestHash;
+    const nullifiers = this.getAllNullifiers();
+    if (nullifiers.length > 0) {
+      nonceGenerator = new Fr(nullifiers[nullifiers.length - 1]);
+      this.usedTxRequestHashForNonces = false;
+    }
+
     // The existing pending notes are all non-revertible.
     // They cannot be squashed by nullifiers emitted after minRevertibleSideEffectCounter is set.
     // Their indexes in the tx are known at this point and won't change. So we can assign a nonce to each one of them.
     // The nonces will be used to create the "complete" nullifier.
     const updatedNotes = this.notes.map(({ note, counter }, i) => {
-      const nonce = computeNoteHashNonce(this.txHash, i);
+      const nonce = computeNoteHashNonce(nonceGenerator, i);
       const uniqueNoteHash = computeUniqueNoteHash(nonce, siloNoteHash(note.contractAddress, note.noteHash));
       return {
         counter,

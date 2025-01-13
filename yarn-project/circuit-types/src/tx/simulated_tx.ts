@@ -9,6 +9,7 @@ import {
 } from '../interfaces/private_kernel_prover.js';
 import { ContractClassTxL2Logs, UnencryptedTxL2Logs } from '../logs/tx_l2_logs.js';
 import {
+  type PrivateCallExecutionResult,
   PrivateExecutionResult,
   collectEnqueuedPublicFunctionCalls,
   collectPublicTeardownFunctionCall,
@@ -25,13 +26,13 @@ export class PrivateSimulationResult {
   ) {}
 
   getPrivateReturnValues() {
-    return accumulatePrivateReturnValues(this.privateExecutionResult);
+    return accumulatePrivateReturnValues(this.privateExecutionResult.entrypoint);
   }
 
   toSimulatedTx(): Tx {
     const contractClassLogs = new ContractClassTxL2Logs([collectSortedContractClassLogs(this.privateExecutionResult)]);
     const enqueuedPublicFunctions = collectEnqueuedPublicFunctionCalls(this.privateExecutionResult);
-    const teardownPublicFunction = collectPublicTeardownFunctionCall(this.privateExecutionResult);
+    const teardownPublicFunction = collectPublicTeardownFunctionCall(this.privateExecutionResult.entrypoint);
 
     // NB: no unencrypted logs* come from private, but we keep the property on Tx so enqueued_calls_processor.ts can accumulate public logs
     const tx = new Tx(
@@ -122,7 +123,7 @@ export class TxProvingResult {
   toTx(): Tx {
     const contractClassLogs = new ContractClassTxL2Logs([collectSortedContractClassLogs(this.privateExecutionResult)]);
     const enqueuedPublicFunctions = collectEnqueuedPublicFunctionCalls(this.privateExecutionResult);
-    const teardownPublicFunction = collectPublicTeardownFunctionCall(this.privateExecutionResult);
+    const teardownPublicFunction = collectPublicTeardownFunctionCall(this.privateExecutionResult.entrypoint);
 
     // NB: no unencrypted logs* come from private, but we keep the property on Tx so enqueued_calls_processor.ts can accumulate public logs
     const tx = new Tx(
@@ -165,7 +166,7 @@ export class TxProvingResult {
  * @param executionResult
  * @returns
  */
-export function accumulatePrivateReturnValues(executionResult: PrivateExecutionResult): NestedProcessReturnValues {
+export function accumulatePrivateReturnValues(executionResult: PrivateCallExecutionResult): NestedProcessReturnValues {
   const acc = new NestedProcessReturnValues(executionResult.returnValues);
   acc.nested = executionResult.nestedExecutions.map(nestedExecution => accumulatePrivateReturnValues(nestedExecution));
   return acc;
