@@ -275,9 +275,6 @@ void Execution::check_circuit(AvmPublicInputs const& public_inputs, ExecutionHin
 
     vinfo("------- CHECKING CIRCUIT -------");
     AVM_TRACK_TIME("prove/check_circuit", circuit_builder.check_circuit());
-    // Reclaim memory. Ideally this would be done as soon as the polynomials are created, but the above flow requires
-    // the trace both in creation of the prover and the verifier.
-    circuit_builder.clear_trace();
 }
 
 /**
@@ -389,8 +386,8 @@ std::vector<Row> Execution::gen_trace(AvmPublicInputs const& public_inputs,
     uint32_t start_side_effect_counter = 0;
     // Temporary until we get proper nested call handling
     std::vector<FF> calldata;
-    for (const auto& enqueued_call_hints : execution_hints.enqueued_call_hints) {
-        calldata.insert(calldata.end(), enqueued_call_hints.calldata.begin(), enqueued_call_hints.calldata.end());
+    for (const auto& enqueued_call_hint : execution_hints.enqueued_call_hints) {
+        calldata.insert(calldata.end(), enqueued_call_hint.calldata.begin(), enqueued_call_hint.calldata.end());
     }
     AvmTraceBuilder trace_builder =
         Execution::trace_builder_constructor(public_inputs, execution_hints, start_side_effect_counter);
