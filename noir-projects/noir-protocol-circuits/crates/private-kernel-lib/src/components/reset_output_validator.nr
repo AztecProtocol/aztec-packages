@@ -81,6 +81,10 @@ impl<let NH_RR_PENDING: u32, let NH_RR_SETTLED: u32, let NLL_RR_PENDING: u32, le
 
     fn validate_unchanged_data(self) {
         assert_eq(self.output.is_private_only, self.previous_kernel.is_private_only);
+        assert_eq(
+            self.output.claimed_first_nullifier,
+            self.previous_kernel.claimed_first_nullifier,
+        );
         assert_eq(self.output.constants, self.previous_kernel.constants);
 
         assert_eq(
