@@ -24,7 +24,7 @@ GREP_PATTERN=$(echo "$rebuild_patterns" | grep -v '^$')
 # Concatenate patterns with '|' and double escape backslashes for AWK
 # filter empty lines
 AWK_PATTERN=$(echo "$rebuild_patterns" | grep -v '^$' | sed 's/\\/\\\\/g' | tr '\n' '|' | sed 's/|$//')
-# Ensure we work in the repo root
+# use git repo root because that is where our patterns are focused
 cd "$(git rev-parse --show-toplevel)"
 
 unstaged_diff="$(git diff --name-only | grep -E "$GREP_PATTERN" || true)"
