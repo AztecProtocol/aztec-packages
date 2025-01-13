@@ -54,19 +54,19 @@ type EncodedFunctionCall = {
 
 /** Assembles an entrypoint payload */
 export abstract class EntrypointPayload {
-  #packedArguments: HashedValues[] = [];
+  #hashedArguments: HashedValues[] = [];
   #functionCalls: EncodedFunctionCall[] = [];
   #nonce: Fr;
   #generatorIndex: number;
 
   protected constructor(functionCalls: FunctionCall[], generatorIndex: number, nonce = Fr.random()) {
     for (const call of functionCalls) {
-      this.#packedArguments.push(HashedValues.fromValues(call.args));
+      this.#hashedArguments.push(HashedValues.fromValues(call.args));
     }
 
     /* eslint-disable camelcase */
     this.#functionCalls = functionCalls.map((call, index) => ({
-      args_hash: this.#packedArguments[index].hash,
+      args_hash: this.#hashedArguments[index].hash,
       function_selector: call.selector.toField(),
       target_address: call.to.toField(),
       is_public: call.type == FunctionType.PUBLIC,
@@ -99,8 +99,8 @@ export abstract class EntrypointPayload {
   /**
    * The packed arguments for the function calls
    */
-  get packedArguments() {
-    return this.#packedArguments;
+  get hashedArguments() {
+    return this.#hashedArguments;
   }
 
   /**

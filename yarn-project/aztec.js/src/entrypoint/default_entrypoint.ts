@@ -11,7 +11,7 @@ export class DefaultEntrypoint implements EntrypointInterface {
   constructor(private chainId: number, private protocolVersion: number) {}
 
   createTxExecutionRequest(exec: ExecutionRequestInit): Promise<TxExecutionRequest> {
-    const { fee, calls, authWitnesses = [], packedArguments = [] } = exec;
+    const { fee, calls, authWitnesses = [], hashedArguments = [] } = exec;
 
     if (calls.length > 1) {
       throw new Error(`Expected a single call, got ${calls.length}`);
@@ -31,7 +31,7 @@ export class DefaultEntrypoint implements EntrypointInterface {
         call.selector,
         entrypointPackedValues.hash,
         txContext,
-        [...packedArguments, entrypointPackedValues],
+        [...hashedArguments, entrypointPackedValues],
         authWitnesses,
       ),
     );

@@ -15,7 +15,7 @@ export type ExecutionRequestInit = {
   /** Any transient auth witnesses needed for this execution */
   authWitnesses?: AuthWitness[];
   /** Any transient packed arguments for this execution */
-  packedArguments?: HashedValues[];
+  hashedArguments?: HashedValues[];
   /** How the fee is going to be payed */
   fee: FeeOptions;
   /** An optional nonce. Used to repeat a previous tx with a higher fee so that the first one is cancelled */

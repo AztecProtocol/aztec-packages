@@ -49,7 +49,7 @@ export class DefaultDappEntrypoint implements EntrypointInterface {
       origin: this.dappEntrypointAddress,
       functionSelector,
       txContext: new TxContext(this.chainId, this.version, fee.gasSettings),
-      argsOfCalls: [...payload.packedArguments, entrypointPackedArgs],
+      argsOfCalls: [...payload.hashedArguments, entrypointPackedArgs],
       authWitnesses: [authWitness],
     });
 

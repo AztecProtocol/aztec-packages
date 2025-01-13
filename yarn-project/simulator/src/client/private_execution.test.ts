@@ -121,13 +121,13 @@ describe('Private Execution test suite', () => {
     args?: any[];
     txContext?: Partial<FieldsOf<TxContext>>;
   }) => {
-    const packedArguments = HashedValues.fromValues(encodeArguments(artifact, args));
+    const hashedArguments = HashedValues.fromValues(encodeArguments(artifact, args));
     const txRequest = TxExecutionRequest.from({
       origin: contractAddress,
-      firstCallArgsHash: packedArguments.hash,
+      firstCallArgsHash: hashedArguments.hash,
       functionSelector: FunctionSelector.fromNameAndParameters(artifact.name, artifact.parameters),
       txContext: TxContext.from({ ...txContextFields, ...txContext }),
-      argsOfCalls: [packedArguments],
+      argsOfCalls: [hashedArguments],
       authWitnesses: [],
     });
 

@@ -40,7 +40,7 @@ export class DefaultAccountEntrypoint implements EntrypointInterface {
       origin: this.address,
       functionSelector: FunctionSelector.fromNameAndParameters(abi.name, abi.parameters),
       txContext: new TxContext(this.chainId, this.version, fee.gasSettings),
-      argsOfCalls: [...appPayload.packedArguments, ...feePayload.packedArguments, entrypointPackedArgs],
+      argsOfCalls: [...appPayload.hashedArguments, ...feePayload.hashedArguments, entrypointPackedArgs],
       authWitnesses: [combinedPayloadAuthWitness],
     });
 
