@@ -4,9 +4,9 @@ import {
   type AztecNode,
   type CheatCodes,
   Fr,
+  HashedValues,
   type Logger,
   type PXE,
-  PackedValues,
   TxExecutionRequest,
   type UniqueNote,
   deriveKeys,
@@ -336,7 +336,7 @@ describe('e2e_crowdfunding_and_claim', () => {
     // Instead, we construct a call and impersonate operator by skipping the usual account contract entrypoint...
     const call = crowdfundingContract.withWallet(donorWallets[1]).methods.withdraw(donationAmount).request();
     // ...using the withdraw fn as our entrypoint
-    const entrypointPackedValues = PackedValues.fromValues(call.args);
+    const entrypointPackedValues = HashedValues.fromValues(call.args);
     const maxFeesPerGas = await pxe.getCurrentBaseFees();
     const request = new TxExecutionRequest(
       call.to,

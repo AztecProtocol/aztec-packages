@@ -2,7 +2,7 @@ import { jsonStringify } from '@aztec/foundation/json-rpc';
 
 import { HashedValues } from './hashed_values.js';
 
-describe('PackedValues', () => {
+describe('HashedValues', () => {
   it('serializes and deserializes', () => {
     const values = HashedValues.random();
     const json = jsonStringify(values);
