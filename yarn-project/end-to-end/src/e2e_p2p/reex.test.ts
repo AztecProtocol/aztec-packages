@@ -4,7 +4,7 @@ import { type SentTx, sleep } from '@aztec/aztec.js';
 /* eslint-disable-next-line no-restricted-imports */
 import { BlockProposal, SignatureDomainSeparator, type Tx, getHashedSignaturePayload } from '@aztec/circuit-types';
 import { times } from '@aztec/foundation/collection';
-import { type PublicProcessorFactory, type PublicTxResult, type PublicTxSimulator } from '@aztec/simulator';
+import { type PublicProcessorFactory, type PublicTxResult, type PublicTxSimulator } from '@aztec/simulator/server';
 import { type ValidatorClient } from '@aztec/validator-client';
 import { ReExFailedTxsError, ReExStateMismatchError, ReExTimeoutError } from '@aztec/validator-client/errors';
 
