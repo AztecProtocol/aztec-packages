@@ -2,43 +2,57 @@
 set -euo pipefail
 [ "${BUILD_SYSTEM_DEBUG:-}" = 1 ] && set -x
 
-# Ensure args are set
-if [[ "$#" = 0 ]]; then
-    echo "Error: No arguments provided."
-    exit 1
+if [[ "$#" -eq 0 ]]; then
+  echo "No arguments provided."
+  exit 1
 fi
 
-# If too many spurious cache misses: can be customized to pin artifacts to a specific version
 AZTEC_CACHE_COMMIT=${AZTEC_CACHE_COMMIT:-HEAD}
 PLATFORM_TAG="${PLATFORM_TAG:-${OSTYPE:-unknown}-$(uname -m)}"
 
-rebuild_patterns=()
+# Gather patterns (from direct args or from files)
+patterns=()
 for arg in "$@"; do
   if [[ -f "$arg" ]]; then
-    rebuild_patterns+=$(cat "$arg")
-    rebuild_patterns+=$'\n'
+    patterns+=$(cat "$arg")
+    patterns+=$'\n'
   else
-    rebuild_patterns+="$arg"$'\n'
+    patterns+="$arg"$'\n'
   fi
 done
 
-# Concatenate patterns with '|' and double escape backslashes for AWK
-# filter empty lines
-AWK_PATTERN=$(echo "$rebuild_patterns" | grep -v '^$' | sed 's/\\/\\\\/g' | tr '\n' '|' | sed 's/|$//')
+# Build a single pattern for grep and awk
+GREP_PATTERN=$(echo "${patterns[*]}" | grep -v '^$')
+AWK_PATTERN=$(echo $GREP_PATTERN | sed 's/\\/\\\\/g' | tr '\n' '|' | sed 's/|$//')
+# Ensure we work in the repo root
+cd "$(git rev-parse --show-toplevel)"
 
-# use git repo root because that is where our patterns are focused
-cd $(git rev-parse --show-toplevel)
-# Use git ls-tree and AWK to filter files matching the rebuild patterns and extract their hashes
-# Sort the hashes and compute the content hash
-CONTENT_HASH=$(git ls-tree -r $AZTEC_CACHE_COMMIT | awk -v pattern="($AWK_PATTERN)" '$4 ~ pattern {print $3}' | sort | git hash-object --stdin| cut -c1-16)
+unstaged_diff="$(git diff --name-only | grep -E "$GREP_PATTERN" || true)"
+staged_diff="$(git diff --staged --name-only | grep -E "$GREP_PATTERN" || true)"
+untracked_diff="$(git ls-files --others --exclude-standard | grep -E "$GREP_PATTERN" || true)"
 
-# Check if file list was empty by comparing against the result of 'echo '' | git hash-object --stdin | cut -c1-16'
-ECHO_BLANK_HASH="8b137891791fe969"
-if [ "$CONTENT_HASH" = "$ECHO_BLANK_HASH" ]; then
-    echo "No files matched the rebuild patterns $rebuild_patterns."
-    echo "Awk pattern expanded: $AWK_PATTERN."
-    exit 1
+# Check for untracked files
+if [[ -n "$unstaged_diff" ]] || [[ -n "$staged_diff" ]] || [[ -n "$untracked_diff" ]]; then
+  # Signal to cache_upload and cache_download to not touch this file.
+  echo "disabled-cache"
+  exit 0
 fi
 
-# important: include architecture in content hash because we target x86_64 and arm64
-echo "$CONTENT_HASH-$(echo $PLATFORM_TAG)"
+# Calculate a content hash for matched files
+CONTENT_HASH="$(
+  git ls-tree -r "$AZTEC_CACHE_COMMIT" \
+    | awk -v pattern="($AWK_PATTERN)" '$4 ~ pattern {print $3}' \
+    | sort \
+    | git hash-object --stdin \
+    | cut -c1-16
+)"
+
+# Check if file list was empty by comparing against the result of
+# 'echo '' | git hash-object --stdin | cut -c1-16'
+EMPTY_HASH="8b137891791fe969"
+if [[ "$CONTENT_HASH" == "$EMPTY_HASH" ]]; then
+  echo "No files matched any of the provided patterns."
+  exit 1
+fi
+
+echo "${CONTENT_HASH}-${PLATFORM_TAG}"
