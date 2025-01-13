@@ -14,7 +14,7 @@ function on_exit {
     if [ "$NO_TERMINATE" -eq 0 ]; then
       aws_terminate_instance $iid $sir
     else
-      echo "Remote machine not terminated, connect with: ./ci.sh attach"
+      echo "Remote machine not terminated, connect with: ARCH=$arch ./ci.sh shell"
     fi
 }
 
@@ -61,9 +61,13 @@ fi
 if [ -t 1 ]; then
   ssh_args="-t"
   docker_args+=" -t"
-  cmd_postfix="|| exec zsh"
+  if [ "$NO_TERMINATE" -eq 0 ]; then
+    cmd_postfix="|| exec zsh"
+  else
+    cmd_postfix="&& exec zsh"
+  fi
 else
-  cmd_postfix="2>&1 | ci3/add_timestamps | ci3/cache_log ${LOG_ID:-}"
+  cmd_postfix="2>&1 | ci3/add_timestamps | ci3/cache_log 'CI run' ${LOG_ID:-}"
 fi
 
 # Use ~/.ssh/build_instance_key to ssh into our requested instance.
@@ -91,10 +95,10 @@ ssh ${ssh_args:-} -F $ci3/aws/build_instance_ssh_config ubuntu@$ip "
     --name aztec_build \
     --hostname $instance_name \
     -v bootstrap_ci_local_docker:/var/lib/docker \
+    -v bootstrap_ci_repo:/home/aztec-dev/aztec-packages \
     -v \$HOME/.aws:/home/aztec-dev/.aws:ro \
     -v /mnt/bb-crs:/home/aztec-dev/.bb-crs:ro \
     -v /tmp:/tmp \
-    --tmpfs /home/aztec-dev/aztec-packages:size=16g,exec,uid=1000,gid=1000 \
     -e USE_TEST_CACHE=1 \
     -e CI_REDIS='ci-redis.lzka0i.0001.use2.cache.amazonaws.com' \
     -e SSH_CONNECTION=' ' \
@@ -107,7 +111,9 @@ ssh ${ssh_args:-} -F $ci3/aws/build_instance_ssh_config ubuntu@$ip "
       # When restarting the container, just hang around.
       while [ -f started ]; do sleep 999; done
       touch started
-      cd /home/aztec-dev/aztec-packages
+      sudo chown aztec-dev:aztec-dev aztec-packages
+      cd aztec-packages
+      git config --global advice.detachedHead false
       git init . &>/dev/null
       git remote add origin https://github.com/aztecprotocol/aztec-packages
       git fetch --depth 1 origin $current_commit

@@ -3,6 +3,8 @@ source $(git rev-parse --show-toplevel)/ci3/source
 
 arch=${ARCH:-$(arch)}
 
+[ -t 1 ] && ssh_args="-t" || ssh_args=""
+
 # Trap function to terminate our running instance when the script exits.
 function on_exit {
     [ "${NO_TERMINATE:-0}" -eq 0 ] && aws_terminate_instance $iid $sir
@@ -15,7 +17,7 @@ fi
 
 case "$arch" in
   "amd64")
-    ami="ami-038da00b90fb68ea6"
+    ami="ami-036841078a4b68e14"
     ;;
   "arm64")
     ami="ami-0560690593473ded1"
@@ -26,7 +28,7 @@ case "$arch" in
 esac
 
 # Request new instance (ami: ubuntu 24.04 LTS).
-ip_sir=$(AMI=$ami aws_request_instance ami_update 4 $arch)
+ip_sir=$(AMI=$ami aws_request_instance ami_update_$arch 4 $arch)
 parts=(${ip_sir//:/ })
 ip="${parts[0]}"
 sir="${parts[1]}"
@@ -36,7 +38,7 @@ trap on_exit EXIT
 echo "Instance ip: $ip"
 
 # Initial setup.
-ssh -t -F build_instance_ssh_config ubuntu@$ip '
+ssh $ssh_args -F build_instance_ssh_config ubuntu@$ip '
   set -e
   curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo gpg --dearmor -o /usr/share/keyrings/docker-archive-keyring.gpg
   echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/docker-archive-keyring.gpg] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable" | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
@@ -50,11 +52,11 @@ ssh -t -F build_instance_ssh_config ubuntu@$ip '
 scp -F build_instance_ssh_config $HOME/.aws/build_instance_credentials ubuntu@$ip:.aws/credentials
 
 # Download crs onto machine.
-ssh -t -F build_instance_ssh_config ubuntu@$ip < ../../barretenberg/scripts/download_bb_crs.sh
+ssh $ssh_args -F build_instance_ssh_config ubuntu@$ip < ../../barretenberg/scripts/download_bb_crs.sh
 
 # Pull devbox onto host, and build into docker-in-docker volume.
-ssh -t -F build_instance_ssh_config ubuntu@$ip "
-  docker run --privileged -ti --rm -v bootstrap_ci_local_docker:/var/lib/docker $DEVBOX_IMAGE bash -c \"
+ssh $ssh_args -F build_instance_ssh_config ubuntu@$ip "
+  docker run --privileged --rm -v bootstrap_ci_local_docker:/var/lib/docker $DEVBOX_IMAGE bash -c \"
     docker pull $ISOLATION_IMAGE
   \"
 "
@@ -68,5 +70,6 @@ if [ "${NO_AMI:-0}" -eq 0 ]; then
     --output text)
   echo "Waiting for AMI to be created: $ami_id"
   while ! aws ec2 wait image-available --image-ids "$ami_id"; do true; done
+  echo "$ami_id" > ami_id_$arch
   echo "Done."
 fi

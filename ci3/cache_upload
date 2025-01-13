@@ -1,9 +1,9 @@
 #!/bin/bash
-[ -n "${BUILD_SYSTEM_DEBUG:-}" ] && set -x
-set -eu
+# DO NOT output to stdout. This script is used in contexts where stdout is processed.
+NO_CD=1 source $(git rev-parse --show-toplevel)/ci3/source
 
 if [ "$#" -lt 2 ]; then
-  echo "Usage: $0 <my-artifact.tar.gz> <binary_paths_to_tar_gz_and_upload...>" >&2
+  echo_stderr "Usage: $0 <my-artifact.tar.gz> <binary_paths_to_tar_gz_and_upload...>"
   exit 1
 fi
 
@@ -12,14 +12,15 @@ name="$1"
 # Now $@ = our binary path args
 shift 1
 
-if [ -z ${S3_FORCE_UPLOAD:-} ] && aws ${S3_BUILD_CACHE_AWS_PARAMS:-} s3 ls "s3://aztec-ci-artifacts/build-cache/$name" >/dev/null 2>&1; then
-  echo "Skipping upload, already exists: $name" >&2
-  exit 0
+if [ -z ${S3_FORCE_UPLOAD:-} ] && \
+  aws ${S3_BUILD_CACHE_AWS_PARAMS:-} s3 ls "s3://aztec-ci-artifacts/build-cache/$name" &>/dev/null; then
+    echo_stderr "Skipping upload, already exists: $name"
+    exit 0
 fi
+
 # Pipe tar directly to AWS S3 cp
-if tar -czf - "$@" | aws ${S3_BUILD_CACHE_AWS_PARAMS:-} s3 cp - "s3://aztec-ci-artifacts/build-cache/$name" >&2 ; then
-  echo "Cache upload of $name complete." >&2
+if tar -czf - "$@" | aws ${S3_BUILD_CACHE_AWS_PARAMS:-} s3 cp - "s3://aztec-ci-artifacts/build-cache/$name" >&2; then
+  echo_stderr "Cache upload of $name complete."
 else
-  echo "Cache upload of $name failed." >&2
-  exit 0
+  echo_stderr "Cache upload of $name failed."
 fi

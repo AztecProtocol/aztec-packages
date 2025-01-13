@@ -35,10 +35,10 @@ fi
 # Ami's are our custum built build-instance amis. See ami_update.sh.
 if [ "$ARCH" == "x86_64" ] || [ "$ARCH" == "amd64" ]; then
   MACHINE_TYPE="m6a"
-  AMI=${AMI:-"ami-038da00b90fb68ea6"}
+  AMI=${AMI:-$(cat ./aws/ami_id_amd64)}
 elif [ "$ARCH" == "arm64" ]; then
   MACHINE_TYPE="m7g"
-  AMI=${AMI:-"ami-05aa477473a77197e"}
+  AMI=${AMI:-$(cat ./aws/ami_id_arm64)}
 else
   echo "Unknown arch: $ARCH"
   exit 1
@@ -76,8 +76,10 @@ temp_file=$(mktemp)
 trap "rm -f $temp_file" EXIT
 echo "$launch_spec" > "$temp_file"
 
+info="(name: $NAME) (ami: $AMI) (cpus: $CPUS) (bid: $PRICE)"
+
 if [ "${NO_SPOT:-0}" -ne 1 ]; then
-  >&2 echo "Requesting $INSTANCE_TYPE spot instance (name: $NAME) (cpus: $CPUS) (bid: $PRICE)..."
+  >&2 echo "Requesting $INSTANCE_TYPE spot instance $info..."
   SIR=$(aws ec2 request-spot-instances \
     --spot-price "$PRICE" \
     --instance-count 1 \
@@ -108,7 +110,7 @@ fi
 
 if [ -z "${IID:-}" -o "${IID:-}" == "None" ]; then
   # Request on-demand instance.
-  >&2 echo "Requesting $INSTANCE_TYPE on-demand instance (name: $NAME) (cpus: $CPUS)..."
+  >&2 echo "Requesting $INSTANCE_TYPE on-demand instance $info..."
   IID=$(aws ec2 run-instances \
     --cli-input-json file://$temp_file \
     --query "Instances[*].[InstanceId]" \

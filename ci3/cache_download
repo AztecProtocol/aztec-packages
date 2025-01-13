@@ -1,15 +1,15 @@
 #!/bin/bash
-set -eu -o pipefail
-[ "${BUILD_SYSTEM_DEBUG:-}" = 1 ] && set -x
+# DO NOT output to stdout. This script is used in contexts where stdout is processed.
+NO_CD=1 source $(git rev-parse --show-toplevel)/ci3/source
 
 if [ "$#" -lt 1 ]; then
-  echo "Usage: $0 <tar.gz_file_to_download_and_extract>" >&2
+  echo_stderr "Usage: $0 <tar.gz_file_to_download_and_extract>"
   exit 1
 fi
 
 if [ "${USE_CACHE:-0}" -lt 1 ]; then
   # Only download if USE_CACHE is 1
-  echo "Not using cache for $1 because USE_CACHE=0."
+  echo_stderr "Not using cache for $1 because USE_CACHE=0."
   exit 1
 fi
 # Get the tar.gz file name from the argument
@@ -19,11 +19,14 @@ OUT_DIR="${2:-.}"
 mkdir -p "$OUT_DIR"
 # Extract endpoint URL if S3_BUILD_CACHE_AWS_PARAMS is set
 if [[ -n "${S3_BUILD_CACHE_AWS_PARAMS:-}" ]]; then
-  aws $S3_BUILD_CACHE_AWS_PARAMS s3 cp "s3://aztec-ci-artifacts/build-cache/$TAR_FILE" "-" | tar -xzf - -C "$OUT_DIR" 2>/dev/null
+  aws $S3_BUILD_CACHE_AWS_PARAMS s3 cp "s3://aztec-ci-artifacts/build-cache/$TAR_FILE" "-" | tar -xzf - -C "$OUT_DIR" &>/dev/null
 else
   # Default to AWS S3 URL if no custom endpoint is set
   S3_ENDPOINT="http://aztec-ci-artifacts.s3.amazonaws.com"
   # Attempt to download and extract the cache file
-  (curl -s -f "$S3_ENDPOINT/build-cache/$TAR_FILE" | tar -xzf - -C "$OUT_DIR" 2>/dev/null) || (echo "Cache download of $TAR_FILE failed." >&2 && exit 1)
+  if ! curl -s -f "$S3_ENDPOINT/build-cache/$TAR_FILE" | tar -xzf - -C "$OUT_DIR" &>/dev/null; then
+    echo_stderr "Cache download of $TAR_FILE failed."
+    exit 1
+  fi
 fi
-echo "Cache download and extraction of $TAR_FILE complete." >&2
+echo_stderr "Cache download and extraction of $TAR_FILE complete."

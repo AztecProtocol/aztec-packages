@@ -186,36 +186,6 @@ template <class DeciderProvingKeys_> class ProtogalaxyProverInternal {
 
         return aggregated_relation_evaluations;
     }
-
-    /**
-     * @brief Initialise the data structured storing a set of nodes at a given level, in parallel if the width is
-     * sufficiently big
-     *
-     * @param level_width determines the number of nodes for the given level
-     * @param degree determines the degree of the polynomial stored in each node, the number of elements will be
-     * degree+1
-     *
-     * @return std::vector<std::vector<FF>>
-     */
-    static std::vector<std::vector<FF>> initialise_coefficient_tree_level(const size_t level_width, const size_t degree)
-    {
-        PROFILE_THIS_NAME("initialise coefficient tree level");
-        std::vector<std::vector<FF>> level_coeffs(level_width);
-        const size_t num_threads = calculate_num_threads(level_width);
-        const size_t range_per_thread = level_width / num_threads;
-        const size_t leftovers = level_width - (range_per_thread * num_threads);
-        parallel_for(num_threads, [&](size_t j) {
-            const size_t offset = j * range_per_thread;
-            const size_t range = (j == num_threads - 1) ? range_per_thread + leftovers : range_per_thread;
-            ASSERT(offset < level_width || level_width == 0);
-            ASSERT((offset + range) <= level_width);
-            for (size_t idx = offset; idx < offset + range; idx++) {
-                // Representing a polynomial of a certain degree requires degree + 1 coefficients
-                level_coeffs[idx].resize(degree + 1);
-            }
-        });
-        return level_coeffs;
-    }
     /**
      * @brief  Recursively compute the parent nodes of each level in the tree, starting from the leaves. Note that at
      * each level, the resulting parent nodes will be polynomials of degree (level+1) because we multiply by an
@@ -226,28 +196,24 @@ template <class DeciderProvingKeys_> class ProtogalaxyProverInternal {
                                                        const std::vector<std::vector<FF>>& prev_level_coeffs,
                                                        size_t level = 1)
     {
-
         if (level == betas.size()) {
             return prev_level_coeffs[0];
         }
-        const size_t degree = level + 1;
-        const size_t level_width = prev_level_coeffs.size() / 2;
-        std::vector<std::vector<FF>> level_coeffs = initialise_coefficient_tree_level(level_width, degree);
-        {
-            PROFILE_THIS_NAME("other coefficients tree computation");
-            parallel_for_heuristic(
-                level_width,
-                [&](size_t parent) {
-                    size_t node = parent * 2;
-                    std::copy(
-                        prev_level_coeffs[node].begin(), prev_level_coeffs[node].end(), level_coeffs[parent].begin());
-                    for (size_t d = 0; d < degree; d++) {
-                        level_coeffs[parent][d] += prev_level_coeffs[node + 1][d] * betas[level];
-                        level_coeffs[parent][d + 1] += prev_level_coeffs[node + 1][d] * deltas[level];
-                    }
-                },
-                /* overestimate */ thread_heuristics::FF_MULTIPLICATION_COST * degree * 3);
-        }
+
+        auto degree = level + 1;
+        auto prev_level_width = prev_level_coeffs.size();
+        std::vector<std::vector<FF>> level_coeffs(prev_level_width / 2, std::vector<FF>(degree + 1, 0));
+        parallel_for_heuristic(
+            prev_level_width / 2,
+            [&](size_t parent) {
+                size_t node = parent * 2;
+                std::copy(prev_level_coeffs[node].begin(), prev_level_coeffs[node].end(), level_coeffs[parent].begin());
+                for (size_t d = 0; d < degree; d++) {
+                    level_coeffs[parent][d] += prev_level_coeffs[node + 1][d] * betas[level];
+                    level_coeffs[parent][d + 1] += prev_level_coeffs[node + 1][d] * deltas[level];
+                }
+            },
+            /* overestimate */ thread_heuristics::FF_MULTIPLICATION_COST * degree * 3);
         return construct_coefficients_tree(betas, deltas, level_coeffs, level + 1);
     }
 
@@ -265,21 +231,17 @@ template <class DeciderProvingKeys_> class ProtogalaxyProverInternal {
                                                               std::span<const FF> deltas,
                                                               const Polynomial<FF>& full_honk_evaluations)
     {
-
-        const size_t width = full_honk_evaluations.size() / 2;
-        std::vector<std::vector<FF>> first_level_coeffs = initialise_coefficient_tree_level(width, 1);
-        {
-            PROFILE_THIS_NAME("perturbator coefficients first level computation");
-            parallel_for_heuristic(
-                width,
-                [&](size_t parent) {
-                    const size_t node = parent * 2;
-                    first_level_coeffs[parent][0] =
-                        full_honk_evaluations[node] + full_honk_evaluations[node + 1] * betas[0];
-                    first_level_coeffs[parent][1] = full_honk_evaluations[node + 1] * deltas[0];
-                },
-                /* overestimate */ thread_heuristics::FF_MULTIPLICATION_COST * 3);
-        }
+        auto width = full_honk_evaluations.size();
+        std::vector<std::vector<FF>> first_level_coeffs(width / 2, std::vector<FF>(2, 0));
+        parallel_for_heuristic(
+            width / 2,
+            [&](size_t parent) {
+                size_t node = parent * 2;
+                first_level_coeffs[parent][0] =
+                    full_honk_evaluations[node] + full_honk_evaluations[node + 1] * betas[0];
+                first_level_coeffs[parent][1] = full_honk_evaluations[node + 1] * deltas[0];
+            },
+            /* overestimate */ thread_heuristics::FF_MULTIPLICATION_COST * 3);
         return construct_coefficients_tree(betas, deltas, first_level_coeffs);
     }
 

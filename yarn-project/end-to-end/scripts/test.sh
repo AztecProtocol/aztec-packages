@@ -18,7 +18,8 @@ case "$type" in
     # Strip leading non alpha numerics and replace / with _ for the container name.
     name="$(echo "${TEST}" | sed 's/^[^a-zA-Z0-9]*//' | tr '/' '_')${NAME_POSTFIX:-}"
     name_arg="--name $name"
-    trap 'docker kill $name &>/dev/null; docker rm $name &>/dev/null' SIGINT SIGTERM
+    trap 'docker rm -f $name &>/dev/null' SIGINT SIGTERM
+    docker rm -f $name &>/dev/null || true
     docker run --rm \
       $name_arg \
       --cpus=4 \
@@ -35,6 +36,7 @@ case "$type" in
     name_arg="-p ${TEST//[\/\.]/_}"
     name_arg+="${NAME_POSTFIX:-}"
     trap "docker compose $name_arg down" SIGINT SIGTERM
+    docker compose $name_arg down &> /dev/null
     docker compose $name_arg up --exit-code-from=end-to-end --abort-on-container-exit --force-recreate
   ;;
 esac

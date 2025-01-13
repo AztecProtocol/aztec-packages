@@ -140,9 +140,10 @@ case "$cmd" in
     fi
     ;;
   "shell")
-    get_ip_for_instance ${1:-}
+    get_ip_for_instance ${INSTANCE_POSTFIX:-}
     [ -z "$ip" ] && echo "No instance found: $instance_name" && exit 1
-    ssh -t -F $ci3/aws/build_instance_ssh_config ubuntu@$ip 'docker start aztec_build >/dev/null 2>&1 || true && docker exec -it --user aztec-dev aztec_build zsh'
+    [ "$#" -eq 0 ] && set -- "zsh" || true
+    ssh -tq -F $ci3/aws/build_instance_ssh_config ubuntu@$ip "docker start aztec_build >/dev/null 2>&1 || true && docker exec -it --user aztec-dev aztec_build $@"
     ;;
   # "attach")
   #   get_ip_for_instance ${1:-}

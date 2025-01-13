@@ -3,12 +3,14 @@
 # If a redis cache is available and we're not in a terminal, duplicate output into a cache log.
 NO_CD=1 source $(git rev-parse --show-toplevel)/ci3/source
 
+name=$1
+
 if [ -n "$CI_REDIS" ] && [ ! -t 1 ]; then
-  key=${1:-$(uuid)}
+  key=${2:-$(uuid)}
   redis-cli -h $CI_REDIS SETEX $key 604800 "In progress..." &>/dev/null
   # echo_stderr -e "Log id: ${yellow}$key${reset}"
   tee >(redis-cli -h $CI_REDIS -x SETEX $key 604800 &>/dev/null)
-  echo -e "Log id: ${yellow}$key${reset}"
+  echo_stderr -e "$name log id: ${yellow}$key${reset}"
 else
   cat
 fi

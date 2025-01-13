@@ -147,3 +147,13 @@ To run the tests run `yarn test`.
 
 To run a continuous "stress test" run `yarn simple_test` to do 10 full pk/proof/vk iterations. This is useful for
 inspecting memory growth as we continuously use the library.
+
+## Debugging
+
+Got an unhelpful stack trace in wasm? Run:
+
+```
+NO_STRIP=1 ./script/build_wasm.sh
+```
+
+This will drop unstripped wasms into the dest folder. Run your test again to get a trace.

@@ -1,0 +1,9 @@
+# If debugging we enable bash output.
+[ -n "${BUILD_SYSTEM_DEBUG:-}" ] && set -x || true
+
+# Set best practices for early error exit and undefined variables.
+set -euo pipefail
+
+# Enable extended bash globs.
+shopt -s extglob
+shopt -s globstar
