@@ -118,7 +118,6 @@ export function convertPrivateKernelResetInputsToWitnessMapWithAbi<
     ),
     hints: mapPrivateKernelResetHintsToNoir(privateKernelResetCircuitPrivateInputs.hints),
   };
-  pushTestData('private-kernel-reset', mapped);
   const initialWitnessMap = abiEncode(resetAbi, mapped);
   return initialWitnessMap;
 }

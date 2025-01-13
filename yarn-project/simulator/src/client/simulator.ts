@@ -20,6 +20,7 @@ import { type Logger, createLogger } from '@aztec/foundation/log';
 
 import { createSimulationError } from '../common/errors.js';
 import { PackedValuesCache } from '../common/packed_values_cache.js';
+import { type SimulationProvider } from '../common/simulation_provider.js';
 import { ClientExecutionContext } from './client_execution_context.js';
 import { type DBOracle } from './db_oracle.js';
 import { ExecutionNoteCache } from './execution_note_cache.js';
@@ -33,7 +34,7 @@ import { ViewDataOracle } from './view_data_oracle.js';
 export class AcirSimulator {
   private log: Logger;
 
-  constructor(private db: DBOracle, private node: AztecNode) {
+  constructor(private db: DBOracle, private node: AztecNode, private simulationProvider: SimulationProvider) {
     this.log = createLogger('simulator');
   }
 
@@ -88,6 +89,7 @@ export class AcirSimulator {
       noteCache,
       this.db,
       this.node,
+      this.simulationProvider,
       startSideEffectCounter,
       undefined,
       scopes,
@@ -95,6 +97,7 @@ export class AcirSimulator {
 
     try {
       const executionResult = await executePrivateFunction(
+        this.simulationProvider,
         context,
         entryPointArtifact,
         contractAddress,
@@ -127,6 +130,7 @@ export class AcirSimulator {
 
     try {
       return await executeUnconstrainedFunction(
+        this.simulationProvider,
         context,
         entryPointArtifact,
         contractAddress,

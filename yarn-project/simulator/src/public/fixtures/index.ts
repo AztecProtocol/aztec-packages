@@ -32,19 +32,16 @@ import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { Fr, Point } from '@aztec/foundation/fields';
 import { openTmpStore } from '@aztec/kv-store/lmdb';
 import { AvmTestContractArtifact } from '@aztec/noir-contracts.js/AvmTest';
-import {
-  AvmEphemeralForest,
-  AvmSimulator,
-  PublicEnqueuedCallSideEffectTrace,
-  PublicTxSimulator,
-  WorldStateDB,
-} from '@aztec/simulator';
 import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
 import { MerkleTrees } from '@aztec/world-state';
 
 import { strict as assert } from 'assert';
 
 import { initContext, initExecutionEnvironment, initPersistableStateManager } from '../../avm/fixtures/index.js';
+import { AvmEphemeralForest, AvmSimulator } from '../../server.js';
+import { PublicEnqueuedCallSideEffectTrace } from '../enqueued_call_side_effect_trace.js';
+import { WorldStateDB } from '../public_db_sources.js';
+import { PublicTxSimulator } from '../public_tx_simulator.js';
 
 const TIMESTAMP = new Fr(99833);
 

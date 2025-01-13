@@ -17,6 +17,11 @@ export function writeTestData(targetFileFromRepoRoot: string, contents: string |
   logger(`Wrote test data to ${targetFile}`);
 }
 
+export function readTestData(repoPath: string): Buffer {
+  const targetFile = getPathToFile(repoPath);
+  return readFileSync(targetFile);
+}
+
 /**
  * Looks for a variable assignment in the target file and updates the value, only if test data generation is enabled.
  * Note that a magic inline comment would be a cleaner approach, like `/* TEST-DATA-START *\/` and `/* TEST-DATA-END *\/`,

@@ -208,6 +208,10 @@ spec:
               value: {{ .Values.validator.viemPollingInterval | quote }}
             - name: SEQ_VIEM_POLLING_INTERVAL_MS
               value: {{ .Values.validator.viemPollingInterval | quote }}
+            - name: L1_FIXED_PRIORITY_FEE_PER_GAS
+              value: {{ .Values.validator.l1FixedPriorityFeePerGas | quote }}
+            - name: L1_GAS_LIMIT_BUFFER_PERCENTAGE
+              value: {{ .Values.validator.l1GasLimitBufferPercentage | quote }}
             - name: DATA_DIRECTORY
               value: "{{ .Values.validator.dataDir }}"
             - name: DATA_STORE_MAP_SIZE_KB
