@@ -28,7 +28,7 @@ export async function startProverBroker(
     ...extractRelevantOptions<ProverBrokerConfig>(options, proverBrokerConfigMappings, 'proverBroker'), // override with command line options
   };
 
-  const client = await initTelemetryClient(getTelemetryClientConfig());
+  const client = initTelemetryClient(getTelemetryClientConfig());
   const broker = await createAndStartProvingBroker(config, client);
   services.proverBroker = [broker, ProvingJobBrokerSchema];
   signalHandlers.push(() => broker.stop());

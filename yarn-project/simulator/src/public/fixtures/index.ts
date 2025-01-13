@@ -32,17 +32,6 @@ import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { Fr, Point } from '@aztec/foundation/fields';
 import { openTmpStore } from '@aztec/kv-store/lmdb';
 import { AvmTestContractArtifact } from '@aztec/noir-contracts.js/AvmTest';
-<<<<<<< HEAD
-import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
-=======
-import {
-  AvmEphemeralForest,
-  AvmSimulator,
-  PublicEnqueuedCallSideEffectTrace,
-  PublicTxSimulator,
-  WorldStateDB,
-} from '@aztec/simulator';
->>>>>>> ebdf383f12 (refactor: global telemetry client)
 import { MerkleTrees } from '@aztec/world-state';
 
 import { strict as assert } from 'assert';

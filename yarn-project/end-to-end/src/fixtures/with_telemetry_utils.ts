@@ -7,7 +7,7 @@ import {
 } from '@aztec/telemetry-client';
 import { OTelPinoStream } from '@aztec/telemetry-client/otel-pino-stream';
 
-export function getEndToEndTestTelemetryClient(metricsPort?: number): Promise<TelemetryClient> {
+export function getEndToEndTestTelemetryClient(metricsPort?: number): TelemetryClient {
   if (metricsPort) {
     const otelStream = new OTelPinoStream({ levels });
     registerLoggingStream(otelStream);

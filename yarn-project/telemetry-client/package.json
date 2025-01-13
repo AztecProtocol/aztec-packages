@@ -6,12 +6,7 @@
   "type": "module",
   "exports": {
     ".": "./dest/index.js",
-<<<<<<< HEAD
-    "./start": "./dest/start.js",
-    "./noop": "./dest/noop.js",
     "./bench": "./dest/bench.js",
-=======
->>>>>>> ebdf383f12 (refactor: global telemetry client)
     "./otel-pino-stream": "./dest/vendor/otel-pino-stream.js"
   },
   "scripts": {

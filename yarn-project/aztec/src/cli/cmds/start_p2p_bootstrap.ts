@@ -15,7 +15,7 @@ export async function startP2PBootstrap(
 ) {
   // Start a P2P bootstrap node.
   const config = extractRelevantOptions<BootnodeConfig>(options, bootnodeConfigMappings, 'p2p');
-  const telemetryClient = await initTelemetryClient(getTelemetryClientConfig());
+  const telemetryClient = initTelemetryClient(getTelemetryClientConfig());
   const store = await createStore('p2p-bootstrap', config, createLogger('p2p:bootstrap:store'));
   const node = new BootstrapNode(store, telemetryClient);
   await node.start(config);

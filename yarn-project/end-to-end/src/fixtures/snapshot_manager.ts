@@ -386,7 +386,7 @@ async function setupFromFresh(
     aztecNodeConfig.bbWorkingDirectory = bbConfig.bbWorkingDirectory;
   }
 
-  const telemetry = await getEndToEndTestTelemetryClient(opts.metricsPort);
+  const telemetry = getEndToEndTestTelemetryClient(opts.metricsPort);
 
   logger.verbose('Creating and synching an aztec node...');
   const dateProvider = new TestDateProvider();
@@ -492,7 +492,7 @@ async function setupFromState(statePath: string, logger: Logger): Promise<Subsys
   await watcher.start();
 
   logger.verbose('Creating aztec node...');
-  const telemetry = await initTelemetryClient(getTelemetryConfig());
+  const telemetry = initTelemetryClient(getTelemetryConfig());
   const dateProvider = new TestDateProvider();
   const aztecNode = await AztecNodeService.createAndSync(aztecNodeConfig, { telemetry, dateProvider });
 

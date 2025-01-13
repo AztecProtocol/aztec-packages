@@ -8,7 +8,7 @@ export async function startProofVerifier(options: any, signalHandlers: (() => Pr
   const config = extractRelevantOptions(options, proofVerifierConfigMappings, 'proofVerifier');
 
   const telemetryConfig = extractRelevantOptions(options, telemetryClientConfigMappings, 'tel');
-  const telemetry = await initTelemetryClient(telemetryConfig);
+  const telemetry = initTelemetryClient(telemetryConfig);
   const proofVerifier = await ProofVerifier.new(config, telemetry);
 
   userLog('Starting proof verifier');

@@ -63,13 +63,8 @@ import {
   convertSimulatedSingleTxBlockRootRollupOutputsFromWitnessMap,
 } from '@aztec/noir-protocol-circuits-types/server';
 import { ProtocolCircuitVks } from '@aztec/noir-protocol-circuits-types/vks';
-<<<<<<< HEAD
 import { type SimulationProvider, WASMSimulatorWithBlobs, emitCircuitSimulationStats } from '@aztec/simulator/server';
-import { type TelemetryClient, trackSpan } from '@aztec/telemetry-client';
-=======
-import { type SimulationProvider, WASMSimulatorWithBlobs, emitCircuitSimulationStats } from '@aztec/simulator';
 import { type TelemetryClient, getTelemetryClient, trackSpan } from '@aztec/telemetry-client';
->>>>>>> ebdf383f12 (refactor: global telemetry client)
 
 import { type WitnessMap } from '@noir-lang/types';
 

@@ -69,13 +69,8 @@ import {
   convertSingleTxBlockRootRollupInputsToWitnessMap,
   convertSingleTxBlockRootRollupOutputsFromWitnessMap,
 } from '@aztec/noir-protocol-circuits-types/server';
-<<<<<<< HEAD
 import { NativeACVMSimulator } from '@aztec/simulator/server';
-import { Attributes, type TelemetryClient, trackSpan } from '@aztec/telemetry-client';
-=======
-import { NativeACVMSimulator } from '@aztec/simulator';
 import { Attributes, type TelemetryClient, getTelemetryClient, trackSpan } from '@aztec/telemetry-client';
->>>>>>> ebdf383f12 (refactor: global telemetry client)
 
 import { type WitnessMap } from '@noir-lang/types';
 import { assert } from 'console';

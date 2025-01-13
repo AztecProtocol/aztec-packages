@@ -73,12 +73,7 @@ import {
   createValidatorForAcceptingTxs,
   getDefaultAllowedSetupFunctions,
 } from '@aztec/sequencer-client';
-<<<<<<< HEAD
 import { PublicProcessorFactory } from '@aztec/simulator/server';
-import { Attributes, type TelemetryClient, type Traceable, type Tracer, trackSpan } from '@aztec/telemetry-client';
-import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
-=======
-import { PublicProcessorFactory } from '@aztec/simulator';
 import {
   Attributes,
   type TelemetryClient,
@@ -87,7 +82,6 @@ import {
   getTelemetryClient,
   trackSpan,
 } from '@aztec/telemetry-client';
->>>>>>> ebdf383f12 (refactor: global telemetry client)
 import { createValidatorClient } from '@aztec/validator-client';
 import { createWorldStateSynchronizer } from '@aztec/world-state';
 

@@ -26,13 +26,8 @@ import {
   type SimulationProvider,
   WASMSimulatorWithBlobs,
   type WorldStateDB,
-<<<<<<< HEAD
 } from '@aztec/simulator/server';
-import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
-=======
-} from '@aztec/simulator';
 import { getTelemetryClient } from '@aztec/telemetry-client';
->>>>>>> ebdf383f12 (refactor: global telemetry client)
 import { type MerkleTreeAdminDatabase } from '@aztec/world-state';
 import { NativeWorldStateService } from '@aztec/world-state/native';
 

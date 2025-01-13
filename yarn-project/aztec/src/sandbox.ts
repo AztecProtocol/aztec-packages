@@ -18,7 +18,6 @@ import { ProtocolContractAddress, protocolContractTreeRoot } from '@aztec/protoc
 import { type PXEServiceConfig, createPXEService, getPXEServiceConfig } from '@aztec/pxe';
 import {
   type TelemetryClient,
-  getTelemetryClient,
   getConfigEnvVars as getTelemetryClientConfig,
   initTelemetryClient,
 } from '@aztec/telemetry-client';
@@ -145,7 +144,7 @@ export async function createSandbox(config: Partial<SandboxConfig> = {}) {
     await watcher.start();
   }
 
-  const telemetry = await initTelemetryClient(getTelemetryClientConfig());
+  const telemetry = initTelemetryClient(getTelemetryClientConfig());
   // Create a local blob sink client inside the sandbox, no http connectivity
   const blobSinkClient = createBlobSinkClient();
   const node = await createAztecNode(aztecNodeConfig, { telemetry, blobSinkClient });

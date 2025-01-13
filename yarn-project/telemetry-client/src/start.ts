@@ -10,27 +10,21 @@ export * from './config.js';
 let initialised = false;
 let telemetry: TelemetryClient = new NoopTelemetryClient();
 
-export async function initTelemetryClient(config: TelemetryClientConfig): Promise<TelemetryClient> {
+export function initTelemetryClient(config: TelemetryClientConfig): TelemetryClient {
   const log = createLogger('telemetry:client');
-<<<<<<< HEAD
-  if (config.metricsCollectorUrl || config.useGcloudObservability) {
-    log.info(`Using OpenTelemetry client ${config.useGcloudObservability ? 'with GCP' : 'with custom collector'}`);
-    return await OpenTelemetryClient.createAndStart(config, log);
-=======
   if (initialised) {
     log.warn('Telemetry client has already been initialized once');
     return telemetry;
   }
 
-  initialised = true;
-  if (config.metricsCollectorUrl) {
-    log.info('Using OpenTelemetry client');
-    telemetry = await OpenTelemetryClient.createAndStart(config, log);
->>>>>>> 1f11010e9f (refactor: global telemetry client)
+  if (config.metricsCollectorUrl || config.useGcloudObservability) {
+    log.info(`Using OpenTelemetry client ${config.useGcloudObservability ? 'with GCP' : 'with custom collector'}`);
+    telemetry = OpenTelemetryClient.createAndStart(config, log);
   } else {
     log.info('Using NoopTelemetryClient');
   }
 
+  initialised = true;
   return telemetry;
 }
 

@@ -74,7 +74,6 @@ import {
   pickNotes,
   toACVMWitness,
   witnessMapToFields,
-<<<<<<< HEAD
 } from '@aztec/simulator/client';
 import { createTxForPublicCalls } from '@aztec/simulator/public/fixtures';
 import {
@@ -85,11 +84,6 @@ import {
   createSimulationError,
   resolveAssertionMessageFromError,
 } from '@aztec/simulator/server';
-import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
-=======
-} from '@aztec/simulator';
-import { createTxForPublicCall } from '@aztec/simulator/public/fixtures';
->>>>>>> ebdf383f12 (refactor: global telemetry client)
 import { MerkleTreeSnapshotOperationsFacade, type MerkleTrees } from '@aztec/world-state';
 
 import { TXENode } from '../node/txe_node.js';

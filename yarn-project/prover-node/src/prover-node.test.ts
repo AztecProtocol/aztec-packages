@@ -25,13 +25,8 @@ import { openTmpStore } from '@aztec/kv-store/lmdb';
 import { type BootstrapNode, InMemoryTxPool, MemoryEpochProofQuotePool, P2PClient } from '@aztec/p2p';
 import { createBootstrapNode, createTestLibP2PService } from '@aztec/p2p/mocks';
 import { type L1Publisher } from '@aztec/sequencer-client';
-<<<<<<< HEAD
 import { type PublicProcessorFactory } from '@aztec/simulator/server';
-import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
-=======
-import { type PublicProcessorFactory } from '@aztec/simulator';
 import { getTelemetryClient } from '@aztec/telemetry-client';
->>>>>>> ebdf383f12 (refactor: global telemetry client)
 
 import { jest } from '@jest/globals';
 import { type MockProxy, mock } from 'jest-mock-extended';

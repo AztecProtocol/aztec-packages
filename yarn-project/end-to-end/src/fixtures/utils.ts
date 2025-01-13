@@ -48,10 +48,11 @@ import { type ProverNode, type ProverNodeConfig, createProverNode } from '@aztec
 import { type PXEService, type PXEServiceConfig, createPXEService, getPXEServiceConfig } from '@aztec/pxe';
 import { type SequencerClient } from '@aztec/sequencer-client';
 import { TestL1Publisher } from '@aztec/sequencer-client/test';
-import { type TelemetryClient,
-type TelemetryClientConfig
-  initTelemetryClient,
+import {
+  type TelemetryClient,
+  type TelemetryClientConfig,
   getConfigEnvVars as getTelemetryConfig,
+  initTelemetryClient,
 } from '@aztec/telemetry-client';
 import { BenchmarkTelemetryClient } from '@aztec/telemetry-client/bench';
 
@@ -87,19 +88,17 @@ export { startAnvil };
 const { PXE_URL = '' } = process.env;
 const getAztecUrl = () => PXE_URL;
 
-let telemetryPromise: TelemetryClient | undefined = undefined;
+let telemetry: TelemetryClient | undefined = undefined;
 function getTelemetryClient(partialConfig: Partial<TelemetryClientConfig> & { benchmark?: boolean } = {}) {
-  if (!telemetryPromise) {
+  if (!telemetry) {
     const config = { ...getTelemetryConfig(), ...partialConfig };
-    telemetryPromise = config.benchmark
-      ? new BenchmarkTelemetryClient()
-      : initTelemetryClient(config);
+    telemetry = config.benchmark ? new BenchmarkTelemetryClient() : initTelemetryClient(config);
   }
-  return telemetryPromise;
+  return telemetry;
 }
 if (typeof afterAll === 'function') {
   afterAll(() => {
-    await telemetryPromise?.stop();
+    telemetry?.stop();
   });
 }
 
@@ -472,8 +471,6 @@ export async function setup(
 
   const telemetry = await getTelemetryClient(opts.telemetryConfig);
 
-=======
->>>>>>> ebdf383f12 (refactor: global telemetry client)
   const blobSinkClient = createBlobSinkClient(config.blobSinkUrl);
   const publisher = new TestL1Publisher(config, { blobSinkClient });
   const aztecNode = await AztecNodeService.createAndSync(config, {

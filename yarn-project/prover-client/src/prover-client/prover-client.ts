@@ -12,13 +12,8 @@ import {
 import { Fr } from '@aztec/circuits.js';
 import { times } from '@aztec/foundation/collection';
 import { createLogger } from '@aztec/foundation/log';
-<<<<<<< HEAD
 import { NativeACVMSimulator } from '@aztec/simulator/server';
-import { type TelemetryClient } from '@aztec/telemetry-client';
-=======
-import { NativeACVMSimulator } from '@aztec/simulator';
 import { type TelemetryClient, getTelemetryClient } from '@aztec/telemetry-client';
->>>>>>> ebdf383f12 (refactor: global telemetry client)
 
 import { type ProverClientConfig } from '../config.js';
 import { ProvingOrchestrator } from '../orchestrator/orchestrator.js';

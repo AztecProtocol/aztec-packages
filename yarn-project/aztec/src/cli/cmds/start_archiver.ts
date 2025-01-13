@@ -28,7 +28,7 @@ export async function startArchiver(
   const store = await createStore('archiver', archiverConfig, storeLog);
   const archiverStore = new KVArchiverDataStore(store, archiverConfig.maxLogs);
 
-  const telemetry = await initTelemetryClient(getTelemetryClientConfig());
+  const telemetry = initTelemetryClient(getTelemetryClientConfig());
   // TODO(https://github.com/AztecProtocol/aztec-packages/issues/10056): place CL url in config here
   const blobSinkClient = createBlobSinkClient();
   const archiver = await Archiver.createAndSync(archiverConfig, archiverStore, { telemetry, blobSinkClient }, true);

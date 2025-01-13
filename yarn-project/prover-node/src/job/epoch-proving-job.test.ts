@@ -13,13 +13,8 @@ import { RootRollupPublicInputs } from '@aztec/circuits.js/rollup';
 import { times } from '@aztec/foundation/collection';
 import { sleep } from '@aztec/foundation/sleep';
 import { type L1Publisher } from '@aztec/sequencer-client';
-<<<<<<< HEAD
 import { type PublicProcessor, type PublicProcessorFactory } from '@aztec/simulator/server';
-import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
-=======
-import { type PublicProcessor, type PublicProcessorFactory } from '@aztec/simulator';
 import { getTelemetryClient } from '@aztec/telemetry-client';
->>>>>>> ebdf383f12 (refactor: global telemetry client)
 
 import { type MockProxy, mock } from 'jest-mock-extended';
 

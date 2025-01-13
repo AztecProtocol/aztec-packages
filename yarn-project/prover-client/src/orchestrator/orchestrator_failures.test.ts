@@ -2,12 +2,7 @@ import { TestCircuitProver } from '@aztec/bb-prover';
 import { type ServerCircuitProver } from '@aztec/circuit-types';
 import { timesAsync } from '@aztec/foundation/collection';
 import { createLogger } from '@aztec/foundation/log';
-<<<<<<< HEAD
 import { WASMSimulatorWithBlobs } from '@aztec/simulator/server';
-import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
-=======
-import { WASMSimulatorWithBlobs } from '@aztec/simulator';
->>>>>>> ebdf383f12 (refactor: global telemetry client)
 
 import { jest } from '@jest/globals';
 
