@@ -43,17 +43,30 @@ function encryptedBytesToFields(encrypted: Buffer): Fr[] {
 }
 
 function fieldsToEncryptedBytes(fields: Fr[]) {
-  // TODO(MW): doc and cleanup
-  // bytes_to_fields pads fields smaller than 31 bytes, meaning this fn can give incorrect ciphertext
-  // => ensure final field has no leading 0s
-  // This might cause problems
   return Buffer.concat(
-    fields.map((f, i) =>
-      i == fields.length - 1
-        ? toBufferBE(f.toBigInt(), f.toBigInt().toString(16).length / 2)
-        : f.toBuffer().subarray(1),
-    ),
+    fields.map((f, i) => (i == fields.length - 1 ? trimLastField(fields) : f.toBuffer().subarray(1))),
   );
+}
+
+function trimLastField(fields: Fr[]) {
+  // bytes_to_fields in nr pads fields smaller than 31 bytes, meaning fieldsToEncryptedBytes can give incorrect ciphertext
+  // e.g. input
+  //  Fr<0x003b1cb893d1fdab1d55420181669aa5251acc8beaed8438dca7960f217cfe1f>,
+  //  Fr<0x00000000000000000000a3a3d57e7221e9bb201917f09caa475f2d00658e8f5e>
+  // should ignore the leading 0s from the last field when being converted to bytes.
+  const finalField = fields[fields.length - 1];
+  let finalBytes = toBufferBE(finalField.toBigInt(), Math.ceil(finalField.toBigInt().toString(16).length / 2));
+  // However, this risks removing 0s that should be there. In public logs, ciphertext is variable length, so we cannot
+  // check the length. For now, I'm checking that the ciphertext output is in blocks of 16.
+  // This is not ideal because we may end up incorrectly including/excluding a block of 16 0s.
+  // TODO: Possibly include the ciphertext length as part of the log?
+  const ciphertextBytes = Buffer.concat(fields.slice(0, fields.length - 1).map(f => f.toBuffer().subarray(1))).subarray(
+    OVERHEAD_SIZE,
+  );
+  while ((ciphertextBytes.length + finalBytes.length) % 16 !== 0) {
+    finalBytes = Buffer.concat([Buffer.alloc(1), finalBytes]);
+  }
+  return finalBytes;
 }
 
 class Overhead {
