@@ -2,7 +2,6 @@
 
 #include <cassert>
 #include <cstdint>
-#include <format>
 #include <iomanip>
 #include <span>
 #include <sstream>
@@ -456,7 +455,7 @@ Instruction decode_instruction(std::span<const uint8_t> bytecode, size_t pos)
 std::string Instruction::to_string() const
 {
     std::ostringstream oss;
-    oss << opcode << " indirect: " << std::format("{:b}", indirect) << ", operands: [ ";
+    oss << opcode << " indirect: " << indirect << ", operands: [ ";
     for (const auto& operand : operands) {
         oss << operand.to_string() << " ";
     }
