@@ -34,7 +34,7 @@ template <typename FF_> class executionImpl {
         {
             using Accumulator = typename std::tuple_element_t<2, ContainerOverSubrelations>;
             auto tmp =
-                (new_term.execution_sel * ((FF(1) - new_term.execution_sel_shift) * (FF(1) - new_term.execution_last)));
+                ((new_term.execution_sel * (FF(1) - new_term.execution_sel_shift)) * (FF(1) - new_term.execution_last));
             tmp *= scaling_factor;
             std::get<2>(evals) += typename Accumulator::View(tmp);
         }
