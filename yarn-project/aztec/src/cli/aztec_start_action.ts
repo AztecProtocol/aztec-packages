@@ -14,7 +14,7 @@ import { dirname, resolve } from 'path';
 
 import { createSandbox } from '../sandbox.js';
 import { github, splash } from '../splash.js';
-import { JsonRpcInstrumentation } from './json_rpc_instrumentation.js';
+import { jsonRpcTelemetryMiddleware } from './json_rpc_instrumentation.js';
 import { createAccountLogs, extractNamespacedOptions, installSignalHandlers } from './util.js';
 
 const packageJsonPath = resolve(dirname(fileURLToPath(import.meta.url)), '../../package.json');
@@ -107,7 +107,7 @@ export async function aztecStart(options: any, userLog: LogFn, debugLogger: Logg
     const rpcServer = createNamespacedSafeJsonRpcServer(services, {
       http200OnError: false,
       log: debugLogger,
-      diagnosticHooks: new JsonRpcInstrumentation(getTelemetryClient()),
+      diagnosticHooks: jsonRpcTelemetryMiddleware(getTelemetryClient()),
     });
     const { port } = await startHttpRpcServer(rpcServer, { port: options.port });
     debugLogger.info(`Aztec Server listening on port ${port}`);

@@ -14,11 +14,14 @@ import { type ApiSchema, type ApiSchemaFor, parseWithOptionals, schemaHasMethod 
 import { jsonStringify } from '../convert.js';
 import { assert } from '../js_utils.js';
 
-export interface JsonRpcDiagnosticHooks {
-  onJsonRpcRequest?: (rpcId: number | string | null, rpcMethod: string, headers: http.IncomingHttpHeaders) => void;
-  onJsonRpcResponse?: (rpcId: number | string | null, rpcMethod: string) => void;
-  onJsonRpcError?: (rpcId: number | string | null, rpcMethod: string, errorCode: number, message: string) => void;
-}
+export type DiagnosticsData = {
+  id: number | string | null;
+  method: string;
+  params: any[];
+  headers: http.IncomingHttpHeaders;
+};
+
+export type DiagnosticsMiddleware = (ctx: DiagnosticsData, next: () => Promise<void>) => Promise<void>;
 
 export class SafeJsonRpcServer {
   /**
@@ -38,7 +41,7 @@ export class SafeJsonRpcServer {
     /** Health check function */
     private readonly healthCheck: StatusCheckFn = () => true,
     /** Export diagnostics data */
-    private diagnosticsHooks: JsonRpcDiagnosticHooks = {},
+    private diagnosticsMiddleware?: DiagnosticsMiddleware,
     /** Logger */
     private log = createLogger('json-rpc:server'),
   ) {}
@@ -103,6 +106,21 @@ export class SafeJsonRpcServer {
     app.use(exceptionHandler);
     app.use(bodyParser({ jsonLimit: '50mb', enableTypes: ['json'], detectJSON: () => true }));
     app.use(cors());
+    app.use((ctx, next) => {
+      const { params = [], id, method } = (ctx.request.body as any) ?? {};
+      if (!this.diagnosticsMiddleware || !method) {
+        return next();
+      }
+
+      const diagnosticsContext: DiagnosticsData = {
+        id,
+        params,
+        method,
+        headers: ctx.headers,
+      };
+
+      return this.diagnosticsMiddleware(diagnosticsContext, next);
+    });
     app.use(router.routes());
     app.use(router.allowedMethods());
 
@@ -119,14 +137,12 @@ export class SafeJsonRpcServer {
     // "JSON RPC mode" where a single endpoint is used and the method is given in the request body
     router.post('/', async (ctx: Koa.Context) => {
       const { params = [], jsonrpc, id, method } = ctx.request.body as any;
-      this.diagnosticsHooks.onJsonRpcRequest?.(id, method, ctx.request.headers);
       // Fail if not a registered function in the proxy
       if (typeof method !== 'string' || method === 'constructor' || !this.proxy.hasMethod(method)) {
         ctx.status = 400;
         const code = -32601;
         const message = `Method not found: ${method}`;
         ctx.body = { jsonrpc, id, error: { code, message } };
-        this.diagnosticsHooks.onJsonRpcError?.(id, method, code, message);
       } else {
         ctx.status = 200;
         const result = await this.proxy.call(method, params);
@@ -279,7 +295,7 @@ type SafeJsonRpcServerOptions = {
   http200OnError: boolean;
   healthCheck?: StatusCheckFn;
   log?: Logger;
-  diagnosticHooks?: JsonRpcDiagnosticHooks;
+  diagnosticsMiddleware?: DiagnosticsMiddleware;
 };
 
 /**
@@ -294,10 +310,10 @@ export function createNamespacedSafeJsonRpcServer(
     log: createLogger('json-rpc:server'),
   },
 ): SafeJsonRpcServer {
-  const { diagnosticHooks, http200OnError, log } = options;
+  const { diagnosticsMiddleware, http200OnError, log } = options;
   const proxy = new NamespacedSafeJsonProxy(handlers);
   const healthCheck = makeAggregateHealthcheck(handlers, log);
-  return new SafeJsonRpcServer(proxy, http200OnError, healthCheck, diagnosticHooks, log);
+  return new SafeJsonRpcServer(proxy, http200OnError, healthCheck, diagnosticsMiddleware, log);
 }
 
 export function createSafeJsonRpcServer<T extends object = any>(
@@ -305,9 +321,9 @@ export function createSafeJsonRpcServer<T extends object = any>(
   schema: ApiSchemaFor<T>,
   options: SafeJsonRpcServerOptions = { http200OnError: false },
 ) {
-  const { http200OnError, log, healthCheck, diagnosticHooks } = options;
+  const { http200OnError, log, healthCheck, diagnosticsMiddleware } = options;
   const proxy = new SafeJsonProxy(handler, schema);
-  return new SafeJsonRpcServer(proxy, http200OnError, healthCheck, diagnosticHooks, log);
+  return new SafeJsonRpcServer(proxy, http200OnError, healthCheck, diagnosticsMiddleware, log);
 }
 
 /**
