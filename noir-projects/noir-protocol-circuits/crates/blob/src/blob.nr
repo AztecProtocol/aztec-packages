@@ -4,7 +4,7 @@ use crate::{
     unconstrained_config::{compute_roots_of_unity, D_INV, F, LOG_FIELDS_PER_BLOB},
 };
 
-use bigint::BigNum;
+use bigint::{BigNum, BigNumTrait};
 // Fixed hash method:
 use types::hash::poseidon2_hash_subarray;
 // Variable hash method:
