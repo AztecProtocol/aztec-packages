@@ -38,27 +38,33 @@ export class ExecutionNoteCache {
 
   private minRevertibleSideEffectCounter = 0;
 
+  private inRevertiblePhase = false;
+
   /**
    * We don't need to use the tx request hash for nonces if another non revertible nullifier is emitted.
    * In that case we disable injecting the tx request hash as a nullifier.
    */
-  public usedTxRequestHashForNonces = true;
+  private usedTxRequestHashForNonces = true;
 
   constructor(private readonly txRequestHash: Fr) {}
 
+  /**
+   * Enters the revertible phase of the transaction.
+   * @param minRevertibleSideEffectCounter - The counter at which the transaction enters the revertible phase.
+   */
   public setMinRevertibleSideEffectCounter(minRevertibleSideEffectCounter: number) {
-    if (this.minRevertibleSideEffectCounter && this.minRevertibleSideEffectCounter !== minRevertibleSideEffectCounter) {
+    if (this.inRevertiblePhase) {
       throw new Error(
-        `Cannot override minRevertibleSideEffectCounter. Current value: ${minRevertibleSideEffectCounter}. Previous value: ${this.minRevertibleSideEffectCounter}`,
+        `Cannot enter the revertible phase twice. Current counter: ${minRevertibleSideEffectCounter}. Previous enter counter: ${this.minRevertibleSideEffectCounter}`,
       );
     }
-
+    this.inRevertiblePhase = true;
     this.minRevertibleSideEffectCounter = minRevertibleSideEffectCounter;
 
     let nonceGenerator = this.txRequestHash;
     const nullifiers = this.getAllNullifiers();
     if (nullifiers.length > 0) {
-      nonceGenerator = new Fr(nullifiers[nullifiers.length - 1]);
+      nonceGenerator = new Fr(nullifiers[0]);
       this.usedTxRequestHashForNonces = false;
     }
 
@@ -79,6 +85,17 @@ export class ExecutionNoteCache {
     this.notes = [];
     this.noteMap = new Map();
     updatedNotes.forEach(n => this.#addNote(n));
+  }
+
+  public finish() {
+    // If we never entered the revertible phase, we need to use the tx request hash as a nonce for the notes if no nullifiers have been emitted.
+    if (!this.inRevertiblePhase) {
+      this.usedTxRequestHashForNonces = this.getAllNullifiers().length === 0;
+    }
+    // If we entered the revertible phase, the nonce generator was decided based on wether or not a nullifier was emitted before entering.
+    return {
+      usedTxRequestHashForNonces: this.usedTxRequestHashForNonces,
+    };
   }
 
   /**
@@ -120,7 +137,7 @@ export class ExecutionNoteCache {
       this.notes = this.notes.filter(n => n.counter !== note.counter);
 
       // If the note is non revertible and the nullifier was emitted in the revertible phase, both the note hash and the nullifier will be emitted
-      if (this.minRevertibleSideEffectCounter && note.counter < this.minRevertibleSideEffectCounter) {
+      if (this.inRevertiblePhase && note.counter < this.minRevertibleSideEffectCounter) {
         this.recordNullifier(contractAddress, siloedNullifier);
       }
     } else {

@@ -42,9 +42,9 @@ impl PrivateKernelCircuitOutputValidatorBuilder {
     }
 
     pub fn with_protocol_nullifier(&mut self) {
-        let first_nullifier = create_protocol_nullifier(self.tx_request);
-        self.output.nullifiers.push(first_nullifier);
-        self.previous_kernel.nullifiers.push(first_nullifier);
+        let protocol_nullifier = create_protocol_nullifier(self.tx_request);
+        self.output.nullifiers.push(protocol_nullifier);
+        self.previous_kernel.nullifiers.push(protocol_nullifier);
     }
 
     pub fn with_previous_kernel_vk_index(&mut self, vk_index: u32) {

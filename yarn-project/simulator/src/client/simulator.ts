@@ -103,7 +103,8 @@ export class AcirSimulator {
         contractAddress,
         request.functionSelector,
       );
-      return new PrivateExecutionResult(executionResult, noteCache.usedTxRequestHashForNonces);
+      const { usedTxRequestHashForNonces } = noteCache.finish();
+      return new PrivateExecutionResult(executionResult, usedTxRequestHashForNonces);
     } catch (err) {
       throw createSimulationError(err instanceof Error ? err : new Error('Unknown error during private execution'));
     }
