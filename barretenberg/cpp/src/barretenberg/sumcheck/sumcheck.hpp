@@ -269,7 +269,7 @@ template <typename Flavor> class SumcheckProver {
                                  const RelationSeparator alpha,
                                  const std::vector<FF>& gate_challenges,
                                  ZKData& zk_sumcheck_data)
-        requires FlavorHasZK<Flavor>
+        requires Flavor::HasZK
     {
 
         bb::GateSeparatorPolynomial<FF> gate_separators(gate_challenges, multivariate_d);
