@@ -57,7 +57,6 @@ jobs:
   build-check:
     name: Check builds are successful
     needs: [build-mac-intel, build-mac-m1]
-    # Likewise, only run if it's triggered by push or "macos-ci" label.
     if: always()
     runs-on: ubuntu-latest
     steps:
