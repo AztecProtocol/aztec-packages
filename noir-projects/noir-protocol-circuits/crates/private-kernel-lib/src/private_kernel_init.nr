@@ -38,7 +38,7 @@ impl PrivateKernelInitCircuitPrivateInputs {
             protocol_contract_tree_root,
             private_call: private_call.to_private_call_data(app_public_inputs),
             is_private_only,
-            first_nullifier_hint
+            first_nullifier_hint,
         }
     }
 
@@ -50,7 +50,7 @@ impl PrivateKernelInitCircuitPrivateInputs {
             self.vk_tree_root,
             self.protocol_contract_tree_root,
             self.is_private_only,
-            self.first_nullifier_hint
+            self.first_nullifier_hint,
         )
             .with_private_call(private_call_public_inputs)
             .finish()
@@ -82,7 +82,7 @@ impl PrivateKernelInitCircuitPrivateInputs {
                 self.vk_tree_root,
                 self.protocol_contract_tree_root,
                 self.is_private_only,
-                self.first_nullifier_hint
+                self.first_nullifier_hint,
             );
         }
         output

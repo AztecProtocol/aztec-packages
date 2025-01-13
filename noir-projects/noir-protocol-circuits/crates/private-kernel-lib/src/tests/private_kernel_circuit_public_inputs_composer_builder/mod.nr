@@ -45,7 +45,7 @@ impl PrivateKernelCircuitPublicInputsComposerBuilder {
             FixtureBuilder::vk_tree_root(),
             self.private_call.protocol_contract_tree_root,
             is_private_only,
-            27
+            27,
         )
     }
 

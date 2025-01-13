@@ -259,8 +259,11 @@ mod tests {
             for i in 0..N {
                 let note_hash = note_hashes[i];
                 let siloed_note_hash = silo_note_hash(note_hash);
-                let unique_note_hash =
-                    compute_unique_siloed_note_hash(siloed_note_hash, self.previous_kernel.claimed_first_nullifier, i);
+                let unique_note_hash = compute_unique_siloed_note_hash(
+                    siloed_note_hash,
+                    self.previous_kernel.claimed_first_nullifier,
+                    i,
+                );
                 // We don't silo with nonce revertible note hashes, since we don't know their final position in the tx
                 output[i].note_hash.value = if is_private_only
                     | (note_hash.counter() < min_revertible_side_effect_counter) {

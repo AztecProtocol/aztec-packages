@@ -43,12 +43,16 @@ impl PreviousKernelValidator {
         );
         self.validate_common();
         self.validate_non_empty_data();
-          self.validate_first_nullifier(true);
+        self.validate_first_nullifier(true);
     }
 
     fn validate_first_nullifier(self, tx_can_revert: bool) {
         let first_nullifier = self.previous_kernel.public_inputs.end.nullifiers[0];
-        assert_eq(first_nullifier.value(), self.previous_kernel.public_inputs.claimed_first_nullifier, "First nullifier claim was not satisfied");
+        assert_eq(
+            first_nullifier.value(),
+            self.previous_kernel.public_inputs.claimed_first_nullifier,
+            "First nullifier claim was not satisfied",
+        );
         if tx_can_revert {
             assert(
                 first_nullifier.nullifier.counter()
