@@ -1,74 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1736795833694,
+  "lastUpdate": 1736801661921,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "mara@aztecprotocol.com",
-            "name": "maramihali",
-            "username": "maramihali"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "e8480cbf1ecdee5d7228b08d1c9608308acdd624",
-          "message": "feat: move busread and lookup block construction at the top of the trace (#10707)\n\nConstructing the lookup block and lookup table data at the top of the\r\ntrace removes the dependence of active ranges on the dyadic circuit size\r\nwhich was causing problems for the overflow scenario and also reduces\r\nthe number of active rows to be close to the real size (modulo\r\nhttps://github.com/AztecProtocol/barretenberg/issues/1152 which still\r\nneeds investigation).",
-          "timestamp": "2024-12-18T11:15:45Z",
-          "tree_id": "7b9e38e07add526aab7d999bf58d7a83a4e7430b",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/e8480cbf1ecdee5d7228b08d1c9608308acdd624"
-        },
-        "date": 1734523065330,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "nativeClientIVCBench/Ambient_17_in_20/6",
-            "value": 21469.483932999992,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 18921.031903 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeClientIVCBench/Full/6",
-            "value": 24431.404593999985,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 21786.193354000003 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 4968.941267000019,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 4642.270874999999 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmClientIVCBench/Full/6",
-            "value": 85628.90712,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 85628908000 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 15079.21652,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 15079218000 ms\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 2838666079,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 2838666079 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 142377178,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 142377178 ns\nthreads: 1"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -3280,6 +3214,72 @@ window.BENCHMARK_DATA = {
             "value": 133608330,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 133608330 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "47112877+dbanks12@users.noreply.github.com",
+            "name": "David Banks",
+            "username": "dbanks12"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "3092212d61cb1359d10b1741b48627518e5437d7",
+          "message": "chore(avm): re-enable bb-prover tests in CI, change some to check-circuit-only, enable multi-enqueued call tests (#11180)",
+          "timestamp": "2025-01-13T15:28:29-05:00",
+          "tree_id": "731ea42185078f8e68227e4ba4af8f7c613c1422",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/3092212d61cb1359d10b1741b48627518e5437d7"
+        },
+        "date": 1736801654614,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Ambient_17_in_20/6",
+            "value": 19656.18509799998,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 16866.072859 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 21624.869467999986,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 18756.767578 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 4477.594582999984,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 4131.163767999999 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 72038.890747,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 72038891000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 13551.805078000001,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 13551806000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 3076701508,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 3076701508 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 143002881,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 143002881 ns\nthreads: 1"
           }
         ]
       }
