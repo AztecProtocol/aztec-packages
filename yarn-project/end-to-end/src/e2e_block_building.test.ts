@@ -31,7 +31,12 @@ import { TestContract } from '@aztec/noir-contracts.js/Test';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
 import { type SequencerClient, SequencerState } from '@aztec/sequencer-client';
 import { type TestSequencerClient } from '@aztec/sequencer-client/test';
-import { PublicProcessorFactory, type PublicTxResult, PublicTxSimulator, type WorldStateDB } from '@aztec/simulator';
+import {
+  PublicProcessorFactory,
+  type PublicTxResult,
+  PublicTxSimulator,
+  type WorldStateDB,
+} from '@aztec/simulator/server';
 import { type TelemetryClient } from '@aztec/telemetry-client';
 import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
 

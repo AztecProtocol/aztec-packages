@@ -17,7 +17,14 @@ import {
   type Proof,
 } from '@aztec/circuits.js';
 import { type FeeRecipient, type RootRollupPublicInputs } from '@aztec/circuits.js/rollup';
-import { type EthereumChain, type L1ContractsConfig, L1TxUtils, createEthereumChain } from '@aztec/ethereum';
+import {
+  type EthereumChain,
+  type GasPrice,
+  type L1ContractsConfig,
+  L1TxUtils,
+  createEthereumChain,
+  formatViemError,
+} from '@aztec/ethereum';
 import { makeTuple } from '@aztec/foundation/array';
 import { toHex } from '@aztec/foundation/bigint-buffer';
 import { Blob } from '@aztec/foundation/blob';
@@ -65,7 +72,6 @@ import { privateKeyToAccount } from 'viem/accounts';
 
 import { type PublisherConfig, type TxSenderConfig } from './config.js';
 import { L1PublisherMetrics } from './l1-publisher-metrics.js';
-import { prettyLogViemErrorMsg } from './utils.js';
 
 /**
  * Stats for a sent transaction.
@@ -117,6 +123,14 @@ type L1ProcessArgs = {
   txHashes: TxHash[];
   /** Attestations */
   attestations?: Signature[];
+};
+
+type L1ProcessReturnType = {
+  receipt: TransactionReceipt | undefined;
+  args: any;
+  functionName: string;
+  data: Hex;
+  gasPrice: GasPrice;
 };
 
 /** Arguments to the submitEpochProof method of the rollup contract */
@@ -532,7 +546,7 @@ export class L1Publisher {
         account: this.account,
       });
     } catch (err) {
-      const msg = prettyLogViemErrorMsg(err);
+      const msg = formatViemError(err);
       logger.error(`Failed to vote`, msg);
       this.myLastVotes[voteType] = cachedMyLastVote;
       return false;
@@ -611,7 +625,7 @@ export class L1Publisher {
       return false;
     }
 
-    const { receipt, args, functionName, data } = result;
+    const { receipt, args, functionName, data, gasPrice } = result;
 
     // Tx was mined successfully
     if (receipt.status === 'success') {
@@ -650,7 +664,7 @@ export class L1Publisher {
       {
         blobs: proposeTxArgs.blobs.map(b => b.dataWithZeros),
         kzg,
-        maxFeePerBlobGas: 10000000000n,
+        maxFeePerBlobGas: gasPrice.maxFeePerBlobGas ?? 10000000000n,
       },
     );
     this.log.error(`Rollup process tx reverted. ${errorMsg}`, undefined, {
@@ -664,11 +678,10 @@ export class L1Publisher {
   /** Calls claimEpochProofRight in the Rollup contract to submit a chosen prover quote for the previous epoch. */
   public async claimEpochProofRight(proofQuote: EpochProofQuote) {
     const timer = new Timer();
-
-    let receipt;
+    let result;
     try {
       this.log.debug(`Submitting claimEpochProofRight transaction`);
-      receipt = await this.l1TxUtils.sendAndMonitorTransaction({
+      result = await this.l1TxUtils.sendAndMonitorTransaction({
         to: this.rollupContract.address,
         data: encodeFunctionData({
           abi: RollupAbi,
@@ -677,11 +690,13 @@ export class L1Publisher {
         }),
       });
     } catch (err) {
-      this.log.error(`Failed to claim epoch proof right: ${prettyLogViemErrorMsg(err)}`, err, {
+      this.log.error(`Failed to claim epoch proof right`, err, {
         proofQuote: proofQuote.toInspect(),
       });
       return false;
     }
+
+    const { receipt } = result;
 
     if (receipt.status === 'success') {
       const tx = await this.getTransactionStats(receipt.transactionHash);
@@ -905,35 +920,42 @@ export class L1Publisher {
     publicInputs: RootRollupPublicInputs;
     proof: Proof;
   }): Promise<string | undefined> {
+    const proofHex: Hex = `0x${args.proof.withoutPublicInputs().toString('hex')}`;
+    const argsArray = this.getSubmitEpochProofArgs(args);
+
+    const txArgs = [
+      {
+        epochSize: argsArray[0],
+        args: argsArray[1],
+        fees: argsArray[2],
+        blobPublicInputs: argsArray[3],
+        aggregationObject: argsArray[4],
+        proof: proofHex,
+      },
+    ] as const;
+
+    this.log.info(`SubmitEpochProof proofSize=${args.proof.withoutPublicInputs().length} bytes`);
+    const data = encodeFunctionData({
+      abi: this.rollupContract.abi,
+      functionName: 'submitEpochRootProof',
+      args: txArgs,
+    });
     try {
-      const proofHex: Hex = `0x${args.proof.withoutPublicInputs().toString('hex')}`;
-      const argsArray = this.getSubmitEpochProofArgs(args);
-
-      const txArgs = [
-        {
-          epochSize: argsArray[0],
-          args: argsArray[1],
-          fees: argsArray[2],
-          blobPublicInputs: argsArray[3],
-          aggregationObject: argsArray[4],
-          proof: proofHex,
-        },
-      ] as const;
-
-      this.log.info(`SubmitEpochProof proofSize=${args.proof.withoutPublicInputs().length} bytes`);
-
-      const txReceipt = await this.l1TxUtils.sendAndMonitorTransaction({
+      const { receipt } = await this.l1TxUtils.sendAndMonitorTransaction({
         to: this.rollupContract.address,
-        data: encodeFunctionData({
-          abi: this.rollupContract.abi,
-          functionName: 'submitEpochRootProof',
-          args: txArgs,
-        }),
+        data,
       });
 
-      return txReceipt.transactionHash;
+      return receipt.transactionHash;
     } catch (err) {
       this.log.error(`Rollup submit epoch proof failed`, err);
+      const errorMsg = await this.tryGetErrorFromRevertedTx(data, {
+        args: [...txArgs],
+        functionName: 'submitEpochRootProof',
+        abi: this.rollupContract.abi,
+        address: this.rollupContract.address,
+      });
+      this.log.error(`Rollup submit epoch proof tx reverted. ${errorMsg}`);
       return undefined;
     }
   }
@@ -954,7 +976,6 @@ export class L1Publisher {
       {
         blobs: encodedData.blobs.map(b => b.dataWithZeros),
         kzg,
-        maxFeePerBlobGas: 10000000000n, //This is 10 gwei, taken from DEFAULT_MAX_FEE_PER_GAS
       },
     );
 
@@ -1022,7 +1043,7 @@ export class L1Publisher {
   private async sendProposeTx(
     encodedData: L1ProcessArgs,
     opts: { txTimeoutAt?: Date } = {},
-  ): Promise<{ receipt: TransactionReceipt | undefined; args: any; functionName: string; data: Hex } | undefined> {
+  ): Promise<L1ProcessReturnType | undefined> {
     if (this.interrupted) {
       return undefined;
     }
@@ -1034,7 +1055,7 @@ export class L1Publisher {
         functionName: 'propose',
         args,
       });
-      const receipt = await this.l1TxUtils.sendAndMonitorTransaction(
+      const result = await this.l1TxUtils.sendAndMonitorTransaction(
         {
           to: this.rollupContract.address,
           data,
@@ -1046,17 +1067,17 @@ export class L1Publisher {
         {
           blobs: encodedData.blobs.map(b => b.dataWithZeros),
           kzg,
-          maxFeePerBlobGas: 10000000000n, //This is 10 gwei, taken from DEFAULT_MAX_FEE_PER_GAS
         },
       );
       return {
-        receipt,
+        receipt: result.receipt,
+        gasPrice: result.gasPrice,
         args,
         functionName: 'propose',
         data,
       };
     } catch (err) {
-      this.log.error(`Rollup publish failed: ${prettyLogViemErrorMsg(err)}`, err);
+      this.log.error(`Rollup publish failed.`, err);
       return undefined;
     }
   }
@@ -1065,7 +1086,7 @@ export class L1Publisher {
     encodedData: L1ProcessArgs,
     quote: EpochProofQuote,
     opts: { txTimeoutAt?: Date } = {},
-  ): Promise<{ receipt: TransactionReceipt | undefined; args: any; functionName: string; data: Hex } | undefined> {
+  ): Promise<L1ProcessReturnType | undefined> {
     if (this.interrupted) {
       return undefined;
     }
@@ -1077,7 +1098,7 @@ export class L1Publisher {
         functionName: 'proposeAndClaim',
         args: [...args, quote.toViemArgs()],
       });
-      const receipt = await this.l1TxUtils.sendAndMonitorTransaction(
+      const result = await this.l1TxUtils.sendAndMonitorTransaction(
         {
           to: this.rollupContract.address,
           data,
@@ -1089,18 +1110,18 @@ export class L1Publisher {
         {
           blobs: encodedData.blobs.map(b => b.dataWithZeros),
           kzg,
-          maxFeePerBlobGas: 10000000000n, //This is 10 gwei, taken from DEFAULT_MAX_FEE_PER_GAS
         },
       );
 
       return {
-        receipt,
+        receipt: result.receipt,
+        gasPrice: result.gasPrice,
         args: [...args, quote.toViemArgs()],
         functionName: 'proposeAndClaim',
         data,
       };
     } catch (err) {
-      this.log.error(`Rollup publish failed: ${prettyLogViemErrorMsg(err)}`, err);
+      this.log.error(`Rollup publish failed.`, err);
       return undefined;
     }
   }

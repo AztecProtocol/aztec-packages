@@ -41,8 +41,12 @@ import {
 import { poseidon2Hash } from '@aztec/foundation/crypto';
 import { createLogger } from '@aztec/foundation/log';
 import { type KeyStore } from '@aztec/key-store';
-import { MessageLoadOracleInputs } from '@aztec/simulator/acvm';
-import { type AcirSimulator, type DBOracle } from '@aztec/simulator/client';
+import {
+  type AcirSimulator,
+  type DBOracle,
+  MessageLoadOracleInputs,
+  type SimulationProvider,
+} from '@aztec/simulator/client';
 
 import { ContractDataOracle } from '../contract_data_oracle/index.js';
 import { type PxeDatabase } from '../database/index.js';
@@ -60,6 +64,7 @@ export class SimulatorOracle implements DBOracle {
     private db: PxeDatabase,
     private keyStore: KeyStore,
     private aztecNode: AztecNode,
+    private simulationProvider: SimulationProvider,
     private log = createLogger('pxe:simulator_oracle'),
   ) {}
 
