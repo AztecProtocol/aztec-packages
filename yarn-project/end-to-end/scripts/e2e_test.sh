@@ -72,7 +72,7 @@ else
       -e HARDWARE_CONCURRENCY="$HARDWARE_CONCURRENCY" \
       -e FAKE_PROOFS="$FAKE_PROOFS" \
       $env_args \
-      --volume ./data:/out
+      --volume ./data:/out \
       --rm aztecprotocol/end-to-end:$AZTEC_DOCKER_TAG \
       "$test_path" "$@" || [ "$ignore_failures" = "true" ]
   fi
