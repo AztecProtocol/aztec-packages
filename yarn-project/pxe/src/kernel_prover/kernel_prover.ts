@@ -220,6 +220,9 @@ export class KernelProver {
           isPrivateOnlyTx,
           executionResult.usedTxRequestHashForNonces,
         );
+        this.log.debug(
+          `Calling private kernel init with isPrivateOnly ${isPrivateOnlyTx} and usedTxRequestHashForNonces ${executionResult.usedTxRequestHashForNonces}`,
+        );
 
         pushTestData('private-kernel-inputs-init', proofInput);
 
