@@ -1,22 +1,10 @@
 tests:
   base: {}
-  bench_prover:
-    env:
-      HARDWARE_CONCURRENCY: '32'
-      LOG_LEVEL: 'verbose; debug: aztec:benchmarks,aztec:sequencer,aztec:world_state,aztec:merkle_trees'
-    command: './scripts/e2e_compose_test.sh bench_prover'
-  bench_publish_rollup:
+  bench_build_block:
     env:
       HARDWARE_CONCURRENCY: '32'
       COMPOSE_FILE: 'scripts/docker-compose-no-sandbox.yml'
-      LOG_LEVEL: 'verbose; debug: aztec:benchmarks,aztec:sequencer,aztec:world_state,aztec:merkle_trees'
-    command: './scripts/e2e_compose_test.sh bench_publish_rollup'
-  bench_tx_size:
-    env:
-      HARDWARE_CONCURRENCY: '32'
-      COMPOSE_FILE: 'scripts/docker-compose-no-sandbox.yml'
-      LOG_LEVEL: 'verbose; debug: aztec:benchmarks,aztec:sequencer,aztec:world_state,aztec:merkle_trees'
-    command: './scripts/e2e_compose_test.sh bench_tx_size'
+    command: './scripts/e2e_compose_test.sh bench_build_block'
   e2e_2_pxes: {}
   e2e_account_contracts: {}
   e2e_amm: {}
