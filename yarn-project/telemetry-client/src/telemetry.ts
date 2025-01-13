@@ -20,7 +20,7 @@ import * as Attributes from './attributes.js';
 import * as Metrics from './metrics.js';
 import { getTelemetryClient } from './start.js';
 
-export { Span, ValueType } from '@opentelemetry/api';
+export { Span, SpanStatusCode, ValueType } from '@opentelemetry/api';
 
 type ValuesOf<T> = T extends Record<string, infer U> ? U : never;
 
