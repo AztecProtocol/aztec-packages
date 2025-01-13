@@ -1,0 +1,114 @@
+{
+  "name": "@aztec/bb-bench",
+  "version": "0.1.0",
+  "type": "module",
+  "exports": {
+    ".": "./dest/index.js",
+    "./types": "./dest/types/index.js"
+  },
+  "inherits": [
+    "../package.common.json",
+    "./package.local.json"
+  ],
+  "scripts": {
+    "build": "yarn clean && yarn generate && tsc -b &&  rm -rf dest && webpack",
+    "clean": "rm -rf ./dest .tsbuildinfo src/types artifacts",
+    "formatting": "run -T prettier --check ./src && run -T eslint ./src",
+    "formatting:fix": "run -T eslint --fix ./src && run -T prettier -w ./src",
+    "formatting:fix:types": "NODE_OPTIONS='--max-old-space-size=8096' run -T eslint --fix ./src/types && run -T prettier -w ./src/types",
+    "generate": "yarn generate:noir-circuits",
+    "generate:noir-circuits": "mkdir -p ./artifacts && cp -r ../../noir-projects/mock-protocol-circuits/target/* ./artifacts && node --no-warnings --loader ts-node/esm src/scripts/generate_declaration_files.ts && node --no-warnings --loader ts-node/esm src/scripts/generate_ts_from_abi.ts && run -T prettier -w ./src/types",
+    "codegen": "yarn noir-codegen",
+    "build:dev": "tsc -b --watch",
+    "build:browser-app": "rm -rf dest && webpack",
+    "serve-both": "./serve.sh",
+    "test": "HARDWARE_CONCURRENCY=${HARDWARE_CONCURRENCY:-16} RAYON_NUM_THREADS=${RAYON_NUM_THREADS:-4} NODE_NO_WARNINGS=1 node --experimental-vm-modules ../node_modules/.bin/jest --passWithNoTests --maxWorkers=${JEST_MAX_WORKERS:-8}"
+  },
+  "jest": {
+    "moduleNameMapper": {
+      "^(\\.{1,2}/.*)\\.[cm]?js$": "$1"
+    },
+    "testRegex": "./src/.*\\.test\\.(js|mjs|ts)$",
+    "rootDir": "./src",
+    "extensionsToTreatAsEsm": [
+      ".ts"
+    ],
+    "transform": {
+      "^.+\\.tsx?$": [
+        "@swc/jest",
+        {
+          "jsc": {
+            "parser": {
+              "syntax": "typescript",
+              "decorators": true
+            },
+            "transform": {
+              "decoratorVersion": "2022-03"
+            }
+          }
+        }
+      ]
+    },
+    "reporters": [
+      "default"
+    ],
+    "testTimeout": 30000,
+    "setupFiles": [
+      "../../foundation/src/jest/setup.mjs"
+    ]
+  },
+  "dependencies": {
+    "@aztec/bb.js": "../../ts",
+    "@aztec/circuits.js": "workspace:^",
+    "@aztec/foundation": "workspace:^",
+    "@aztec/types": "workspace:^",
+    "@noir-lang/noir_codegen": "portal:../../noir/packages/noir_codegen",
+    "@noir-lang/noir_js": "file:../../noir/packages/noir_js",
+    "@noir-lang/noirc_abi": "portal:../../noir/packages/noirc_abi",
+    "@noir-lang/types": "portal:../../noir/packages/types",
+    "chalk": "^5.3.0",
+    "change-case": "^5.4.4",
+    "pako": "^2.1.0",
+    "playwright": "^1.48.2",
+    "puppeteer": "^22.4.1",
+    "tslib": "^2.4.0"
+  },
+  "devDependencies": {
+    "@aztec/bb-prover": "workspace:^",
+    "@aztec/kv-store": "workspace:^",
+    "@aztec/simulator": "workspace:^",
+    "@aztec/telemetry-client": "workspace:^",
+    "@aztec/world-state": "workspace:^",
+    "@jest/globals": "^29.5.0",
+    "@msgpack/msgpack": "^3.0.0-beta2",
+    "@playwright/test": "^1.48.2",
+    "@types/jest": "^29.5.0",
+    "@types/node": "^22.8.1",
+    "@types/pako": "^2.0.3",
+    "copy-webpack-plugin": "^12.0.2",
+    "debug": "^4.3.4",
+    "html-webpack-plugin": "^5.6.0",
+    "jest": "^29.5.0",
+    "jest-mock-extended": "^4.0.0-beta1",
+    "levelup": "^5.1.1",
+    "memdown": "^6.1.1",
+    "resolve-typescript-plugin": "^2.0.1",
+    "serve": "^14.2.1",
+    "ts-loader": "^9.5.1",
+    "ts-node": "^10.9.1",
+    "typescript": "^5.0.4",
+    "webpack": "^5.90.3",
+    "webpack-cli": "^5.1.4",
+    "webpack-dev-server": "^5.0.3"
+  },
+  "files": [
+    "dest",
+    "src",
+    "!*.test.*",
+    "artifacts"
+  ],
+  "types": "./dest/index.d.ts",
+  "engines": {
+    "node": ">=18"
+  }
+}

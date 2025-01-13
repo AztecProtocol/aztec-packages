@@ -47,6 +47,7 @@ export class IgnitionFilesCrs {
     const g1Start = 28;
     const g1End = g1Start + this.numPoints * 64;
 
+    console.log(`this.path: ${this.path}`);
     const data = await readFile(this.path + '/transcript00.dat');
     this.data = data.subarray(g1Start, g1End);
 
