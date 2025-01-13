@@ -1,11 +1,4 @@
-import {
-  type BlockAttestation,
-  type BlockProposal,
-  type L2Block,
-  type ProcessedTx,
-  type Tx,
-  type TxHash,
-} from '@aztec/circuit-types';
+import { type BlockAttestation, type BlockProposal, type L2Block, type Tx, type TxHash } from '@aztec/circuit-types';
 import { type BlockHeader, type GlobalVariables } from '@aztec/circuits.js';
 import { type EpochCache } from '@aztec/epoch-cache';
 import { Buffer32 } from '@aztec/foundation/buffer';
@@ -15,6 +8,7 @@ import { RunningPromise } from '@aztec/foundation/running-promise';
 import { sleep } from '@aztec/foundation/sleep';
 import { type Timer } from '@aztec/foundation/timer';
 import { type P2P } from '@aztec/p2p';
+import { BlockProposalValidator } from '@aztec/p2p/msg_validators';
 import { type TelemetryClient, WithTracer } from '@aztec/telemetry-client';
 import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
 
@@ -37,11 +31,11 @@ import { ValidatorMetrics } from './metrics.js';
  * We reuse the sequencer's block building functionality for re-execution
  */
 type BlockBuilderCallback = (
-  txs: Tx[],
+  txs: Iterable<Tx>,
   globalVariables: GlobalVariables,
   historicalHeader?: BlockHeader,
-  interrupt?: (processedTxs: ProcessedTx[]) => Promise<void>,
-) => Promise<{ block: L2Block; publicProcessorDuration: number; numProcessedTxs: number; blockBuildingTimer: Timer }>;
+  opts?: { validateOnly?: boolean },
+) => Promise<{ block: L2Block; publicProcessorDuration: number; numTxs: number; blockBuildingTimer: Timer }>;
 
 export interface Validator {
   start(): Promise<void>;
@@ -71,6 +65,8 @@ export class ValidatorClient extends WithTracer implements Validator {
 
   private epochCacheUpdateLoop: RunningPromise;
 
+  private blockProposalValidator: BlockProposalValidator;
+
   constructor(
     private keyStore: ValidatorKeyStore,
     private epochCache: EpochCache,
@@ -84,6 +80,8 @@ export class ValidatorClient extends WithTracer implements Validator {
     this.metrics = new ValidatorMetrics(telemetry);
 
     this.validationService = new ValidationService(keyStore);
+
+    this.blockProposalValidator = new BlockProposalValidator(epochCache);
 
     // Refresh epoch cache every second to trigger commiteeChanged event
     this.epochCacheUpdateLoop = new RunningPromise(
@@ -180,18 +178,9 @@ export class ValidatorClient extends WithTracer implements Validator {
     }
 
     // Check that the proposal is from the current proposer, or the next proposer.
-    const proposalSender = proposal.getSender();
-    const { currentProposer, nextProposer, currentSlot, nextSlot } =
-      await this.epochCache.getProposerInCurrentOrNextSlot();
-    if (!proposalSender.equals(currentProposer) && !proposalSender.equals(nextProposer)) {
-      this.log.verbose(`Not the current or next proposer, skipping attestation`);
-      return undefined;
-    }
-
-    // Check that the proposal is for the current or next slot
-    const slotNumberBigInt = proposal.slotNumber.toBigInt();
-    if (slotNumberBigInt !== currentSlot && slotNumberBigInt !== nextSlot) {
-      this.log.verbose(`Not the current or next slot, skipping attestation`);
+    const invalidProposal = await this.blockProposalValidator.validate(proposal);
+    if (invalidProposal) {
+      this.log.verbose(`Proposal is not valid, skipping attestation`);
       return undefined;
     }
 
@@ -246,7 +235,7 @@ export class ValidatorClient extends WithTracer implements Validator {
 
     // Use the sequencer's block building logic to re-execute the transactions
     const stopTimer = this.metrics.reExecutionTimer();
-    const { block } = await this.blockBuilder(txs, header.globalVariables);
+    const { block } = await this.blockBuilder(txs, header.globalVariables, undefined, { validateOnly: true });
     stopTimer();
 
     this.log.verbose(`Transaction re-execution complete`);

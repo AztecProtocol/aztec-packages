@@ -11,6 +11,7 @@ spec:
     matchLabels:
       {{- include "aztec-network.selectorLabels" . | nindent 6 }}
       app: boot-node
+  {{- if not .Values.storage.localSsd }}
   volumeClaimTemplates:
     - metadata:
         name: boot-node-data
@@ -19,12 +20,16 @@ spec:
         resources:
           requests:
             storage: {{ .Values.bootNode.storageSize }}
+  {{- end }}
   template:
     metadata:
       labels:
         {{- include "aztec-network.selectorLabels" . | nindent 8 }}
         app: boot-node
     spec:
+      {{- if .Values.storage.localSsd }}
+      {{- include "aztec-network.gcpLocalSsd" . | nindent 6 }}
+      {{- end }}
       dnsPolicy: ClusterFirstWithHostNet
       {{- if .Values.network.public }}
       hostNetwork: true
@@ -44,8 +49,8 @@ spec:
               cat /shared/config/service-addresses
               echo "Awaiting ethereum node at ${ETHEREUM_HOST}"
               until curl -s -X POST -H 'Content-Type: application/json' \
-                -d '{"jsonrpc":"2.0","method":"web3_clientVersion","params":[],"id":67}' \
-                ${ETHEREUM_HOST} | grep -q reth; do
+                -d '{"jsonrpc":"2.0","method":"eth_chainId","params":[],"id":67}' \
+                ${ETHEREUM_HOST} | grep 0x; do
                 echo "Waiting for Ethereum node ${ETHEREUM_HOST}..."
                 sleep 5
               done
@@ -61,14 +66,17 @@ spec:
             - name: config
               mountPath: /shared/config
       {{- if .Values.bootNode.deployContracts }}
-        - name: deploy-create2-delpoyer
+        - name: deploy-create2-deployer
           image: {{ .Values.images.foundry.image }}
           command:
             - /bin/sh
             - -c
             - |
               source /shared/config/service-addresses
-              cast publish --rpc-url ${ETHEREUM_HOST} 0xf8a58085174876e800830186a08080b853604580600e600039806000f350fe7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe03601600081602082378035828234f58015156039578182fd5b8082525050506014600cf31ba02222222222222222222222222222222222222222222222222222222222222222a02222222222222222222222222222222222222222222222222222222222222222
+              if [ "$(cast code --rpc-url ${ETHEREUM_HOST} 0x4e59b44847b379578588920ca78fbf26c0b4956c)" = "0x" ]; then
+                echo "Deploying Deterministic Deployment Proxy"
+                cast publish --rpc-url ${ETHEREUM_HOST} 0xf8a58085174876e800830186a08080b853604580600e600039806000f350fe7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe03601600081602082378035828234f58015156039578182fd5b8082525050506014600cf31ba02222222222222222222222222222222222222222222222222222222222222222a02222222222222222222222222222222222222222222222222222222222222222
+              fi
           volumeMounts:
             - name: config
               mountPath: /shared/config
@@ -97,6 +105,8 @@ spec:
               value: "true"
             - name: MNEMONIC
               value: "{{ .Values.aztec.l1DeploymentMnemonic }}"
+            - name: L1_DEPLOYMENT_PRIVATE_KEY
+              value: "{{ .Values.ethereum.deployL1ContractsPrivateKey }}"
             - name: ETHEREUM_SLOT_DURATION
               value: "{{ .Values.ethereum.blockTime }}"
             - name: AZTEC_SLOT_DURATION
@@ -169,14 +179,14 @@ spec:
               valueFrom:
                 fieldRef:
                   fieldPath: metadata.name
+            - name: NODE_OPTIONS
+              value: "--max-old-space-size={{ .Values.bootNode.maxOldSpaceSize}}"
             - name: AZTEC_PORT
               value: "{{ .Values.bootNode.service.nodePort }}"
             - name: LOG_LEVEL
               value: "{{ .Values.bootNode.logLevel }}"
             - name: LOG_JSON
               value: "1"
-            - name: DEBUG
-              value: "{{ .Values.bootNode.debug }}"
             - name: P2P_ENABLED
               value: "{{ .Values.bootNode.p2p.enabled }}"
             - name: COINBASE
@@ -191,6 +201,8 @@ spec:
               value: "{{ .Values.bootNode.sequencer.minTxsPerBlock }}"
             - name: VALIDATOR_PRIVATE_KEY
               value: "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80"
+            - name: SEQ_PUBLISHER_PRIVATE_KEY
+              value: "{{ .Values.bootNode.seqPublisherPrivateKey }}"
             - name: OTEL_RESOURCE_ATTRIBUTES
               value: service.name={{ .Release.Name }},service.namespace={{ .Release.Namespace }},service.version={{ .Chart.AppVersion }},environment={{ .Values.environment | default "production" }}
             - name: PROVER_REAL_PROOFS
@@ -205,8 +217,22 @@ spec:
               value: "{{ .Values.aztec.epochDuration }}"
             - name: AZTEC_EPOCH_PROOF_CLAIM_WINDOW_IN_L2_SLOTS
               value: "{{ .Values.aztec.epochProofClaimWindow }}"
+            - name: ARCHIVER_POLLING_INTERVAL_MS
+              value: {{ .Values.bootNode.archiverPollingInterval | quote }}
+            - name: ARCHIVER_VIEM_POLLING_INTERVAL_MS
+              value: {{ .Values.bootNode.archiverViemPollingInterval | quote }}
+            - name: L1_READER_VIEM_POLLING_INTERVAL_MS
+              value: {{ .Values.bootNode.archiverViemPollingInterval | quote }}
+            - name: SEQ_VIEM_POLLING_INTERVAL_MS
+              value: {{ .Values.bootNode.viemPollingInterval | quote }}
             - name: PEER_ID_PRIVATE_KEY
               value: "{{ .Values.bootNode.peerIdPrivateKey }}"
+            - name: DATA_DIRECTORY
+              value: "{{ .Values.bootNode.dataDir }}"
+            - name: DATA_STORE_MAP_SIZE_KB
+              value: "{{ .Values.storage.dataStoreMapSize }}"
+            - name: WS_DB_MAP_SIZE_KB
+              value: "{{ .Values.storage.worldStateMapSize }}"
           ports:
             - containerPort: {{ .Values.bootNode.service.nodePort }}
             - containerPort: {{ .Values.bootNode.service.p2pTcpPort }}
@@ -219,9 +245,14 @@ spec:
           emptyDir: {}
         - name: config
           emptyDir: {}
+      {{- if .Values.storage.localSsd }}
+        - name: boot-node-data
+          emptyDir: {}
+      {{ else }}
         - name: boot-node-data
           persistentVolumeClaim:
             claimName: boot-node-data
+      {{- end }}
       {{- if .Values.bootNode.deployContracts }}
         - name: scripts
           configMap:

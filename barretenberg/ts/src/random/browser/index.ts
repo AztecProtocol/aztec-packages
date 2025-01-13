@@ -1,7 +1,7 @@
 export const randomBytes = (len: number) => {
   const getWebCrypto = () => {
     if (typeof window !== 'undefined' && window.crypto) return window.crypto;
-    if (typeof self !== 'undefined' && self.crypto) return self.crypto;
+    if (typeof globalThis !== 'undefined' && globalThis.crypto) return globalThis.crypto;
     return undefined;
   };
 

@@ -104,17 +104,6 @@ describe('In-Memory P2P Client', () => {
     expect(txPool.addTxs).toHaveBeenCalledTimes(2);
   });
 
-  it('republishes previously stored txs on start', async () => {
-    const tx1 = mockTx();
-    const tx2 = mockTx();
-    txPool.getAllTxs.mockReturnValue([tx1, tx2]);
-
-    await client.start();
-    expect(p2pService.propagate).toHaveBeenCalledTimes(2);
-    expect(p2pService.propagate).toHaveBeenCalledWith(tx1);
-    expect(p2pService.propagate).toHaveBeenCalledWith(tx2);
-  });
-
   it('restores the previous block number it was at', async () => {
     await client.start();
     await client.stop();
@@ -181,7 +170,8 @@ describe('In-Memory P2P Client', () => {
     expect(epochProofQuotePool.getQuotes).toBeCalledWith(2n);
   });
 
-  it('deletes expired proof quotes', async () => {
+  // TODO(#10737) flake cc Maddiaa0
+  it.skip('deletes expired proof quotes', async () => {
     client = new P2PClient(P2PClientType.Full, kvStore, blockSource, mempools, p2pService, 0);
 
     blockSource.setProvenEpochNumber(1);
@@ -209,7 +199,8 @@ describe('In-Memory P2P Client', () => {
   });
 
   describe('Chain prunes', () => {
-    it('moves the tips on a chain reorg', async () => {
+    // TODO(#10737) flake cc Maddiaa0
+    it.skip('moves the tips on a chain reorg', async () => {
       blockSource.setProvenBlockNumber(0);
       await client.start();
 

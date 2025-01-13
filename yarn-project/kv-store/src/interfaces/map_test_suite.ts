@@ -21,6 +21,10 @@ export function describeAztecMap(
       map = store.openMultiMap<string | [number, string], string>('test');
     });
 
+    afterEach(async () => {
+      await store.delete();
+    });
+
     async function get(key: Key, sut: AztecAsyncMap<any, any> | AztecMap<any, any> = map) {
       return isSyncStore(store) && !forceAsync
         ? (sut as AztecMultiMap<any, any>).get(key)

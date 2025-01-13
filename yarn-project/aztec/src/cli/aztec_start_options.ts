@@ -1,13 +1,7 @@
-import { type ArchiverConfig, archiverConfigMappings } from '@aztec/archiver';
-import { faucetConfigMapping } from '@aztec/aztec-faucet';
-import { sequencerClientConfigMappings } from '@aztec/aztec-node';
-import { botConfigMappings } from '@aztec/bot';
-import {
-  type ProverAgentConfig,
-  type ProverBrokerConfig,
-  proverAgentConfigMappings,
-  proverBrokerConfigMappings,
-} from '@aztec/circuit-types';
+import { type ArchiverConfig, archiverConfigMappings } from '@aztec/archiver/config';
+import { faucetConfigMapping } from '@aztec/aztec-faucet/config';
+import { sequencerClientConfigMappings } from '@aztec/aztec-node/config';
+import { botConfigMappings } from '@aztec/bot/config';
 import {
   type ConfigMapping,
   type EnvVar,
@@ -15,13 +9,19 @@ import {
   isBooleanConfigValue,
   omitConfigMappings,
 } from '@aztec/foundation/config';
-import { bootnodeConfigMappings, p2pConfigMappings } from '@aztec/p2p';
-import { proofVerifierConfigMappings } from '@aztec/proof-verifier';
-import { proverNodeConfigMappings } from '@aztec/prover-node';
-import { allPxeConfigMappings } from '@aztec/pxe';
+import { bootnodeConfigMappings, p2pConfigMappings } from '@aztec/p2p/config';
+import { proofVerifierConfigMappings } from '@aztec/proof-verifier/config';
+import {
+  type ProverAgentConfig,
+  type ProverBrokerConfig,
+  proverAgentConfigMappings,
+  proverBrokerConfigMappings,
+} from '@aztec/prover-client/broker';
+import { proverNodeConfigMappings } from '@aztec/prover-node/config';
+import { allPxeConfigMappings } from '@aztec/pxe/config';
 import { telemetryClientConfigMappings } from '@aztec/telemetry-client/start';
 
-import { defaultMnemonic } from '../sandbox.js';
+import { DefaultMnemonic } from '../mnemonic.js';
 
 // Define an interface for options
 export interface AztecStartOption {
@@ -115,7 +115,7 @@ export const aztecStartOptions: { [key: string]: AztecStartOption[] } = {
     {
       flag: '--l1-mnemonic <value>',
       description: 'Mnemonic for L1 accounts. Will be used if no publisher private keys are provided',
-      defaultValue: defaultMnemonic,
+      defaultValue: DefaultMnemonic,
       envVar: 'MNEMONIC',
     },
   ],

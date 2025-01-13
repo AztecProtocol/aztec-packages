@@ -19,7 +19,7 @@ import {
   ServerCircuitVks,
   getVKSiblingPath,
   getVKTreeRoot,
-} from '@aztec/noir-protocol-circuits-types';
+} from '@aztec/noir-protocol-circuits-types/vks';
 import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
 
 import { TestContext } from '../mocks/test_context.js';

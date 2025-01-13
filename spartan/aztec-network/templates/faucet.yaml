@@ -1,3 +1,4 @@
+{{- if not .Values.ethereum.externalHost }}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -127,3 +128,4 @@ spec:
     - protocol: TCP
       port: {{ .Values.faucet.apiServerPort }}
       targetPort: {{ .Values.faucet.apiServerPort }}
+{{ end }}

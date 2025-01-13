@@ -1,17 +1,18 @@
 import { ProvingJobSourceSchema, type ServerCircuitProver } from '@aztec/circuit-types';
-import { ClientIvcProof, Fr, PrivateKernelEmptyInputData, TubeInputs } from '@aztec/circuits.js';
+import { ClientIvcProof } from '@aztec/circuits.js';
+import { TubeInputs } from '@aztec/circuits.js/rollup';
 import {
   makeAvmCircuitInputs,
   makeBaseParityInputs,
   makeBlockMergeRollupInputs,
   makeBlockRootRollupInputs,
   makeEmptyBlockRootRollupInputs,
-  makeHeader,
   makeMergeRollupInputs,
   makePrivateBaseRollupInputs,
   makePublicBaseRollupInputs,
   makeRootParityInputs,
   makeRootRollupInputs,
+  makeSingleTxBlockRootRollupInputs,
 } from '@aztec/circuits.js/testing';
 import { createSafeJsonRpcClient } from '@aztec/foundation/json-rpc/client';
 import { type SafeJsonRpcServer } from '@aztec/foundation/json-rpc/server';
@@ -43,8 +44,7 @@ describe('Prover agent <-> queue integration', () => {
     getBlockMergeRollupProof: makeBlockMergeRollupInputs,
     getEmptyBlockRootRollupProof: makeEmptyBlockRootRollupInputs,
     getBlockRootRollupProof: makeBlockRootRollupInputs,
-    getEmptyPrivateKernelProof: () =>
-      new PrivateKernelEmptyInputData(makeHeader(), Fr.random(), Fr.random(), Fr.random(), Fr.random()),
+    getSingleTxBlockRootRollupProof: makeSingleTxBlockRootRollupInputs,
     getMergeRollupProof: makeMergeRollupInputs,
     getRootRollupProof: makeRootRollupInputs,
     getTubeProof: () => new TubeInputs(ClientIvcProof.empty()),

@@ -1,3 +1,4 @@
+import { type BlobSinkClientInterface } from '@aztec/blob-sink/client';
 import {
   type GetUnencryptedLogsResponse,
   type InBlock,
@@ -36,7 +37,6 @@ import {
   isValidUnconstrainedFunctionMembershipProof,
 } from '@aztec/circuits.js';
 import { createEthereumChain } from '@aztec/ethereum';
-import { type ContractArtifact } from '@aztec/foundation/abi';
 import { type AztecAddress } from '@aztec/foundation/aztec-address';
 import { type EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
@@ -47,10 +47,10 @@ import { elapsed } from '@aztec/foundation/timer';
 import { InboxAbi, RollupAbi } from '@aztec/l1-artifacts';
 import {
   ContractClassRegisteredEvent,
-  ContractInstanceDeployedEvent,
   PrivateFunctionBroadcastedEvent,
   UnconstrainedFunctionBroadcastedEvent,
-} from '@aztec/protocol-contracts';
+} from '@aztec/protocol-contracts/class-registerer';
+import { ContractInstanceDeployedEvent } from '@aztec/protocol-contracts/instance-deployer';
 import { Attributes, type TelemetryClient, type Traceable, type Tracer, trackSpan } from '@aztec/telemetry-client';
 
 import groupBy from 'lodash.groupby';
@@ -116,6 +116,7 @@ export class Archiver implements ArchiveSource, Traceable {
     private readonly l1Addresses: { rollupAddress: EthAddress; inboxAddress: EthAddress; registryAddress: EthAddress },
     readonly dataStore: ArchiverDataStore,
     private readonly config: { pollingIntervalMs: number; batchSize: number },
+    private readonly _blobSinkClient: BlobSinkClientInterface,
     private readonly instrumentation: ArchiverInstrumentation,
     private readonly l1constants: L1RollupConstants,
     private readonly log: Logger = createLogger('archiver'),
@@ -146,7 +147,7 @@ export class Archiver implements ArchiveSource, Traceable {
   public static async createAndSync(
     config: ArchiverConfig,
     archiverStore: ArchiverDataStore,
-    telemetry: TelemetryClient,
+    deps: { telemetry: TelemetryClient; blobSinkClient: BlobSinkClientInterface },
     blockUntilSynced = true,
   ): Promise<Archiver> {
     const chain = createEthereumChain(config.l1RpcUrl, config.l1ChainId);
@@ -177,7 +178,8 @@ export class Archiver implements ArchiveSource, Traceable {
         pollingIntervalMs: config.archiverPollingIntervalMS ?? 10_000,
         batchSize: config.archiverBatchSize ?? 100,
       },
-      await ArchiverInstrumentation.new(telemetry, () => archiverStore.estimateSize()),
+      deps.blobSinkClient,
+      await ArchiverInstrumentation.new(deps.telemetry, () => archiverStore.estimateSize()),
       { l1StartBlock, l1GenesisTime, epochDuration, slotDuration, ethereumSlotDuration },
     );
     await archiver.start(blockUntilSynced);
@@ -295,6 +297,7 @@ export class Archiver implements ArchiveSource, Traceable {
           `to ${provenBlockNumber} due to predicted reorg at L1 block ${currentL1BlockNumber}. ` +
           `Updated L2 latest block is ${await this.getBlockNumber()}.`,
       );
+      this.instrumentation.processPrune();
       // TODO(palla/reorg): Do we need to set the block synched L1 block number here?
       // Seems like the next iteration should handle this.
       // await this.store.setBlockSynchedL1BlockNumber(currentL1BlockNumber);
@@ -508,6 +511,10 @@ export class Archiver implements ArchiveSource, Traceable {
     return Promise.resolve();
   }
 
+  public getL1Constants(): Promise<L1RollupConstants> {
+    return Promise.resolve(this.l1constants);
+  }
+
   public getRollupAddress(): Promise<EthAddress> {
     return Promise.resolve(this.l1Addresses.rollupAddress);
   }
@@ -567,17 +574,22 @@ export class Archiver implements ArchiveSource, Traceable {
       return true;
     }
 
+    // If we haven't run an initial sync, just return false.
+    const l1Timestamp = this.l1Timestamp;
+    if (l1Timestamp === undefined) {
+      return false;
+    }
+
     // If not, the epoch may also be complete if the L2 slot has passed without a block
-    // We compute this based on the timestamp for the given epoch and the timestamp of the last L1 block
-    const l1Timestamp = this.getL1Timestamp();
+    // We compute this based on the end timestamp for the given epoch and the timestamp of the last L1 block
     const [_startTimestamp, endTimestamp] = getTimestampRangeForEpoch(epochNumber, this.l1constants);
 
     // For this computation, we throw in a few extra seconds just for good measure,
     // since we know the next L1 block won't be mined within this range. Remember that
-    // l1timestamp is the timestamp of the last l1 block we've seen, so this 3s rely on
-    // the fact that L1 won't mine two blocks within 3s of each other.
+    // l1timestamp is the timestamp of the last l1 block we've seen, so this relies on
+    // the fact that L1 won't mine two blocks within this time of each other.
     // TODO(palla/reorg): Is the above a safe assumption?
-    const leeway = 3n;
+    const leeway = 1n;
     return l1Timestamp + leeway >= endTimestamp;
   }
 
@@ -766,12 +778,8 @@ export class Archiver implements ArchiveSource, Traceable {
     return;
   }
 
-  addContractArtifact(address: AztecAddress, artifact: ContractArtifact): Promise<void> {
-    return this.store.addContractArtifact(address, artifact);
-  }
-
-  getContractArtifact(address: AztecAddress): Promise<ContractArtifact | undefined> {
-    return this.store.getContractArtifact(address);
+  registerContractFunctionSignatures(address: AztecAddress, signatures: string[]): Promise<void> {
+    return this.store.registerContractFunctionSignatures(address, signatures);
   }
 
   getContractFunctionName(address: AztecAddress, selector: FunctionSelector): Promise<string | undefined> {
@@ -1078,11 +1086,8 @@ class ArchiverStoreHelper
   getContractClassIds(): Promise<Fr[]> {
     return this.store.getContractClassIds();
   }
-  addContractArtifact(address: AztecAddress, contract: ContractArtifact): Promise<void> {
-    return this.store.addContractArtifact(address, contract);
-  }
-  getContractArtifact(address: AztecAddress): Promise<ContractArtifact | undefined> {
-    return this.store.getContractArtifact(address);
+  registerContractFunctionSignatures(address: AztecAddress, signatures: string[]): Promise<void> {
+    return this.store.registerContractFunctionSignatures(address, signatures);
   }
   getContractFunctionName(address: AztecAddress, selector: FunctionSelector): Promise<string | undefined> {
     return this.store.getContractFunctionName(address, selector);

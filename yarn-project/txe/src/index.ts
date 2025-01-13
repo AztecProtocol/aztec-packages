@@ -109,7 +109,7 @@ class TXEDispatcher {
   }
 }
 
-const TXEDispatcherApiChema: ApiSchemaFor<TXEDispatcher> = {
+const TXEDispatcherApiSchema: ApiSchemaFor<TXEDispatcher> = {
   // eslint-disable-next-line camelcase
   resolve_foreign_call: z.function().args(TXEForeignCallInputSchema).returns(ForeignCallResultSchema),
 };
@@ -120,5 +120,5 @@ const TXEDispatcherApiChema: ApiSchemaFor<TXEDispatcher> = {
  * @returns A TXE RPC server.
  */
 export function createTXERpcServer(logger: Logger) {
-  return createSafeJsonRpcServer(new TXEDispatcher(logger), TXEDispatcherApiChema);
+  return createSafeJsonRpcServer(new TXEDispatcher(logger), TXEDispatcherApiSchema, { http200OnError: true });
 }

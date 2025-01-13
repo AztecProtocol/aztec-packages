@@ -239,6 +239,7 @@ fn lt_fallback(x: Field, y: Field) -> bool {
     if is_unconstrained() {
         /// Safety: unconstrained context
         unsafe {
+            //@safety : unconstrained context
             field_less_than(x, y)
         }
     } else {

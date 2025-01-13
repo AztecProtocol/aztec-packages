@@ -11,31 +11,34 @@
 #include "barretenberg/ultra_honk/ultra_prover.hpp"
 #include "barretenberg/ultra_honk/ultra_verifier.hpp"
 
+using namespace bb;
 namespace {
-auto& engine = bb::numeric::get_debug_randomness();
-}
+auto& engine = numeric::get_debug_randomness();
 
-namespace bb {
-class DataBusTests : public ::testing::Test {
+using FlavorTypes = ::testing::Types<MegaFlavor, MegaZKFlavor>;
+
+template <typename Flavor> class DataBusTests : public ::testing::Test {
   protected:
-    static void SetUpTestSuite() { bb::srs::init_crs_factory("../srs_db/ignition"); }
+    static void SetUpTestSuite() { bb::srs::init_crs_factory(bb::srs::get_ignition_crs_path()); }
 
     using Curve = curve::BN254;
     using FF = Curve::ScalarField;
-    using Builder = MegaCircuitBuilder;
+    using Builder = typename Flavor::CircuitBuilder;
+    using Prover = UltraProver_<Flavor>;
+    using Verifier = UltraVerifier_<Flavor>;
 
     // Construct and verify a MegaHonk proof for a given circuit
     static bool construct_and_verify_proof(MegaCircuitBuilder& builder)
     {
-        MegaProver prover{ builder };
-        auto verification_key = std::make_shared<MegaFlavor::VerificationKey>(prover.proving_key->proving_key);
-        MegaVerifier verifier{ verification_key };
+        Prover prover{ builder };
+        auto verification_key = std::make_shared<typename Flavor::VerificationKey>(prover.proving_key->proving_key);
+        Verifier verifier{ verification_key };
         auto proof = prover.construct_proof();
         return verifier.verify_proof(proof);
     }
 
     // Construct a Mega circuit with some arbitrary sample gates
-    static MegaCircuitBuilder construct_test_builder()
+    static Builder construct_test_builder()
     {
         auto op_queue = std::make_shared<bb::ECCOpQueue>();
         auto builder = MegaCircuitBuilder{ op_queue };
@@ -111,54 +114,56 @@ class DataBusTests : public ::testing::Test {
     }
 };
 
+TYPED_TEST_SUITE(DataBusTests, FlavorTypes);
+
 /**
  * @brief Test proof construction/verification for a circuit with calldata lookup gates
  *
  */
-TEST_F(DataBusTests, CallDataRead)
+TYPED_TEST(DataBusTests, CallDataRead)
 {
-    Builder builder = construct_test_builder();
-    construct_circuit_with_calldata_reads(builder);
+    typename TypeParam::CircuitBuilder builder = this->construct_test_builder();
+    this->construct_circuit_with_calldata_reads(builder);
 
-    EXPECT_TRUE(construct_and_verify_proof(builder));
+    EXPECT_TRUE(this->construct_and_verify_proof(builder));
 }
 
 /**
  * @brief Test proof construction/verification for a circuit with secondary_calldata lookup gates
  *
  */
-TEST_F(DataBusTests, CallData2Read)
+TYPED_TEST(DataBusTests, CallData2Read)
 {
-    Builder builder = construct_test_builder();
-    construct_circuit_with_secondary_calldata_reads(builder);
+    typename TypeParam::CircuitBuilder builder = this->construct_test_builder();
+    this->construct_circuit_with_secondary_calldata_reads(builder);
 
-    EXPECT_TRUE(construct_and_verify_proof(builder));
+    EXPECT_TRUE(this->construct_and_verify_proof(builder));
 }
 
 /**
  * @brief Test proof construction/verification for a circuit with return data lookup gates
  *
  */
-TEST_F(DataBusTests, ReturnDataRead)
+TYPED_TEST(DataBusTests, ReturnDataRead)
 {
-    Builder builder = construct_test_builder();
-    construct_circuit_with_return_data_reads(builder);
+    typename TypeParam::CircuitBuilder builder = this->construct_test_builder();
+    this->construct_circuit_with_return_data_reads(builder);
 
-    EXPECT_TRUE(construct_and_verify_proof(builder));
+    EXPECT_TRUE(this->construct_and_verify_proof(builder));
 }
 
 /**
  * @brief Test proof construction/verification for a circuit with reads from all bus columns
  *
  */
-TEST_F(DataBusTests, ReadAll)
+TYPED_TEST(DataBusTests, ReadAll)
 {
-    Builder builder = construct_test_builder();
-    construct_circuit_with_calldata_reads(builder);
-    construct_circuit_with_secondary_calldata_reads(builder);
-    construct_circuit_with_return_data_reads(builder);
+    typename TypeParam::CircuitBuilder builder = this->construct_test_builder();
+    this->construct_circuit_with_calldata_reads(builder);
+    this->construct_circuit_with_secondary_calldata_reads(builder);
+    this->construct_circuit_with_return_data_reads(builder);
 
-    EXPECT_TRUE(construct_and_verify_proof(builder));
+    EXPECT_TRUE(this->construct_and_verify_proof(builder));
 }
 
 /**
@@ -166,12 +171,14 @@ TEST_F(DataBusTests, ReadAll)
  * the read results are correct
  *
  */
-TEST_F(DataBusTests, CallDataDuplicateRead)
+TYPED_TEST(DataBusTests, CallDataDuplicateRead)
 {
     // Construct a circuit and add some ecc op gates and arithmetic gates
-    auto builder = construct_test_builder();
+    typename TypeParam::CircuitBuilder builder = this->construct_test_builder();
+    using FF = TypeParam::FF;
 
     // Add some values to calldata
+
     std::vector<FF> calldata_values = { 7, 10, 3, 12, 1 };
     for (auto& val : calldata_values) {
         builder.add_public_calldata(builder.add_variable(val));
@@ -201,8 +208,7 @@ TEST_F(DataBusTests, CallDataDuplicateRead)
     EXPECT_EQ(duplicate_read_result_2, expected_read_result_at_1);
 
     // Construct and verify Honk proof
-    bool result = construct_and_verify_proof(builder);
+    bool result = this->construct_and_verify_proof(builder);
     EXPECT_TRUE(result);
 }
-
-} // namespace bb
+} // namespace

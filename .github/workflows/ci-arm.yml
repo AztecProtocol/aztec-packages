@@ -7,7 +7,7 @@ on:
   workflow_dispatch:
     inputs: {}
 concurrency:
-  group: ci-master-arm
+  group: ci-${{ github.ref_name }}-arm
 env:
   DOCKERHUB_PASSWORD: "${{ secrets.DOCKERHUB_PASSWORD }}"
   RUN_ID: ${{ github.run_id }}
@@ -19,13 +19,11 @@ env:
   AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
   BUILD_INSTANCE_SSH_KEY: ${{ secrets.BUILD_INSTANCE_SSH_KEY }}
   GIT_COMMIT: ${{ github.sha }}
-  # kludge until we move away from runners
-  WAIT_FOR_RUNNERS: false
 jobs:
   setup:
     uses: ./.github/workflows/setup-runner.yml
     with:
-      username: master
+      username: ${{ github.run_id }}
       runner_type: builder-arm
     secrets: inherit
 
@@ -47,10 +45,10 @@ jobs:
             build-images:
               - 'build-images/**'
 
-  build-images:
+  base-images:
     needs: [setup, changes]
     # Note we don't put the 'if' here as that would also apply to dependent jobs, instead we just copy it into each step
-    runs-on: master-arm
+    runs-on: ${{ github.run_id }}-arm
     steps:
       # permission kludge before checkout, see https://github.com/actions/checkout/issues/211#issuecomment-611986243
       - run: sudo chown -R $USER:$USER /home/ubuntu/
@@ -66,11 +64,12 @@ jobs:
         if: needs.changes.outputs.build-images == 'true'
         timeout-minutes: 40
         run: |
-          earthly-ci --push ./build-images/+build
+          ./build-images/bootstrap.sh ci
 
-  build:
-    needs: [build-images]
-    runs-on: master-arm
+  # all the non-bench end-to-end integration tests for aztec
+  e2e:
+    needs: [base-images]
+    runs-on: ${{ github.run_id }}-arm
     steps:
       # permission kludge before checkout, see https://github.com/actions/checkout/issues/211#issuecomment-611986243
       - run: sudo chown -R $USER:$USER /home/ubuntu/
@@ -78,39 +77,22 @@ jobs:
         with: { ref: "${{ env.GIT_COMMIT }}" }
       - uses: ./.github/ci-setup-action
         with:
-          concurrency_key: build-arm
+          concurrency_key: e2e-arm
       # prepare images locally, tagged by commit hash
       - name: "Build E2E Image"
-        timeout-minutes: 60
+        timeout-minutes: 40
         run: |
-          sudo shutdown -P 60 # necessary to get around builtin hard timeout
-          earthly-ci ./yarn-project+export-e2e-test-images
-
-  # TODO(https://github.com/AztecProtocol/aztec-packages/issues/10681)
-  # # all the non-bench end-to-end integration tests for aztec
-  # e2e:
-  #   needs: [build]
-  #   runs-on: master-arm
-  #   steps:
-  #     # permission kludge before checkout, see https://github.com/actions/checkout/issues/211#issuecomment-611986243
-  #     - run: sudo chown -R $USER:$USER /home/ubuntu/
-  #     - uses: actions/checkout@v4
-  #       with: { ref: "${{ env.GIT_COMMIT }}" }
-  #     - uses: ./.github/ci-setup-action
-  #       with:
-  #         concurrency_key: e2e-arm
-  #     # prepare images locally, tagged by commit hash
-  #     - name: "Build E2E Image"
-  #       timeout-minutes: 40
-  #       working-directory: ./yarn-project/end-to-end
-  #       run: |
-  #         ./scripts/e2e_compose_test.sh uniswap_trade_on_l1_from_l2.test.ts
+          ./bootstrap.sh image-e2e
+      - name: "Test"
+        timeout-minutes: 40
+        run: |
+          ./bootstrap.sh test-e2e uniswap_trade_on_l1_from_l2
 
   rerun-check:
     runs-on: ubuntu-20.04
     permissions:
       actions: write
-    needs: [setup, build-images, build] #, e2e]
+    needs: [setup, base-images, e2e]
     if: ${{ !cancelled() }}
     steps:
       - name: Check for Rerun
@@ -127,7 +109,7 @@ jobs:
 
   # NOTE: we only notify failures after a rerun has occurred
   notify:
-    needs: [build] #[e2e]
+    needs: [e2e]
     runs-on: ubuntu-latest
     if: ${{ github.ref == 'refs/heads/master' && failure() && github.run_attempt >= 2 }}
     steps:

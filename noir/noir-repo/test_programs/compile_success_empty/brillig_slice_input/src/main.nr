@@ -18,6 +18,7 @@ fn main() {
     slice = slice.push_back([Point { x: 13, y: 14 }, Point { x: 20, y: 8 }]);
     /// Safety: testing context
     unsafe {
+        //@safety: testing context
         let brillig_sum = sum_slice(slice);
         assert_eq(brillig_sum, 55);
     }
@@ -25,6 +26,7 @@ fn main() {
     slice = slice.push_back([Point { x: 15, y: 5 }, Point { x: 12, y: 13 }]);
     /// Safety: testing context
     unsafe {
+        //@safety: testing context
         let brillig_sum = sum_slice(slice);
         assert_eq(brillig_sum, 100);
     }

@@ -4,7 +4,6 @@ import {
   MerkleTreeId,
   type MerkleTreeReadOperations,
   type MerkleTreeWriteOperations,
-  TxEffect,
 } from '@aztec/circuit-types';
 import {
   BlockHeader,
@@ -21,12 +20,14 @@ import {
 } from '@aztec/circuits.js';
 import { padArrayEnd } from '@aztec/foundation/collection';
 import { createLogger } from '@aztec/foundation/log';
+import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
 
 import assert from 'assert/strict';
 import { mkdir, mkdtemp, rm } from 'fs/promises';
 import { tmpdir } from 'os';
 import { join } from 'path';
 
+import { WorldStateInstrumentation } from '../instrumentation/instrumentation.js';
 import { type MerkleTreeAdminDatabase as MerkleTreeDatabase } from '../world-state-db/merkle_tree_db.js';
 import { MerkleTreesFacade, MerkleTreesForkFacade, serializeLeaf } from './merkle_trees_facade.js';
 import {
@@ -58,6 +59,7 @@ export class NativeWorldStateService implements MerkleTreeDatabase {
 
   protected constructor(
     protected readonly instance: NativeWorldState,
+    protected readonly worldStateInstrumentation: WorldStateInstrumentation,
     protected readonly log = createLogger('world-state:database'),
     private readonly cleanup = () => Promise.resolve(),
   ) {}
@@ -66,6 +68,7 @@ export class NativeWorldStateService implements MerkleTreeDatabase {
     rollupAddress: EthAddress,
     dataDir: string,
     dbMapSizeKb: number,
+    instrumentation = new WorldStateInstrumentation(new NoopTelemetryClient()),
     log = createLogger('world-state:database'),
     cleanup = () => Promise.resolve(),
   ): Promise<NativeWorldStateService> {
@@ -89,8 +92,8 @@ export class NativeWorldStateService implements MerkleTreeDatabase {
     await mkdir(worldStateDirectory, { recursive: true });
     await newWorldStateVersion.writeVersionFile(versionFile);
 
-    const instance = new NativeWorldState(worldStateDirectory, dbMapSizeKb);
-    const worldState = new this(instance, log, cleanup);
+    const instance = new NativeWorldState(worldStateDirectory, dbMapSizeKb, instrumentation);
+    const worldState = new this(instance, instrumentation, log, cleanup);
     try {
       await worldState.init();
     } catch (e) {
@@ -101,7 +104,11 @@ export class NativeWorldStateService implements MerkleTreeDatabase {
     return worldState;
   }
 
-  static async tmp(rollupAddress = EthAddress.ZERO, cleanupTmpDir = true): Promise<NativeWorldStateService> {
+  static async tmp(
+    rollupAddress = EthAddress.ZERO,
+    cleanupTmpDir = true,
+    instrumentation = new WorldStateInstrumentation(new NoopTelemetryClient()),
+  ): Promise<NativeWorldStateService> {
     const log = createLogger('world-state:database');
     const dataDir = await mkdtemp(join(tmpdir(), 'aztec-world-state-'));
     const dbMapSizeKb = 10 * 1024 * 1024;
@@ -117,7 +124,7 @@ export class NativeWorldStateService implements MerkleTreeDatabase {
       }
     };
 
-    return this.new(rollupAddress, dataDir, dbMapSizeKb, log, cleanup);
+    return this.new(rollupAddress, dataDir, dbMapSizeKb, instrumentation, log, cleanup);
   }
 
   protected async init() {
@@ -162,24 +169,17 @@ export class NativeWorldStateService implements MerkleTreeDatabase {
   }
 
   public async handleL2BlockAndMessages(l2Block: L2Block, l1ToL2Messages: Fr[]): Promise<WorldStateStatusFull> {
-    // We have to pad both the tx effects and the values within tx effects because that's how the trees are built
-    // by circuits.
-    const paddedTxEffects = padArrayEnd(
-      l2Block.body.txEffects,
-      TxEffect.empty(),
-      l2Block.body.numberOfTxsIncludingPadded,
-    );
-
-    const paddedNoteHashes = paddedTxEffects.flatMap(txEffect =>
+    // We have to pad both the values within tx effects because that's how the trees are built by circuits.
+    const paddedNoteHashes = l2Block.body.txEffects.flatMap(txEffect =>
       padArrayEnd(txEffect.noteHashes, Fr.ZERO, MAX_NOTE_HASHES_PER_TX),
     );
     const paddedL1ToL2Messages = padArrayEnd(l1ToL2Messages, Fr.ZERO, NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP);
 
-    const paddedNullifiers = paddedTxEffects
+    const paddedNullifiers = l2Block.body.txEffects
       .flatMap(txEffect => padArrayEnd(txEffect.nullifiers, Fr.ZERO, MAX_NULLIFIERS_PER_TX))
       .map(nullifier => new NullifierLeaf(nullifier));
 
-    const publicDataWrites: PublicDataTreeLeaf[] = paddedTxEffects.flatMap(txEffect => {
+    const publicDataWrites: PublicDataTreeLeaf[] = l2Block.body.txEffects.flatMap(txEffect => {
       return txEffect.publicDataWrites.map(write => {
         if (write.isEmpty()) {
           throw new Error('Public data write must not be empty when syncing');

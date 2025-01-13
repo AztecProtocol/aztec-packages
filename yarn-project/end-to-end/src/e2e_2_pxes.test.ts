@@ -10,7 +10,9 @@ import {
   type Wallet,
   sleep,
 } from '@aztec/aztec.js';
-import { ChildContract, TestContract, TokenContract } from '@aztec/noir-contracts.js';
+import { ChildContract } from '@aztec/noir-contracts.js/Child';
+import { TestContract } from '@aztec/noir-contracts.js/Test';
+import { TokenContract } from '@aztec/noir-contracts.js/Token';
 
 import { expect, jest } from '@jest/globals';
 
@@ -47,8 +49,8 @@ describe('e2e_2_pxes', () => {
      What is a more robust solution? */
     await sleep(5000);
 
-    await walletA.registerContact(walletB.getAddress());
-    await walletB.registerContact(walletA.getAddress());
+    await walletA.registerSender(walletB.getAddress());
+    await walletB.registerSender(walletA.getAddress());
   });
 
   afterEach(async () => {
@@ -180,13 +182,13 @@ describe('e2e_2_pxes', () => {
     const sharedAccountAddress = sharedAccountOnA.getCompleteAddress();
     const sharedWalletOnA = await sharedAccountOnA.waitSetup();
 
-    await sharedWalletOnA.registerContact(walletA.getAddress());
+    await sharedWalletOnA.registerSender(walletA.getAddress());
 
     const sharedAccountOnB = getUnsafeSchnorrAccount(pxeB, sharedSecretKey, sharedAccountOnA.salt);
     await sharedAccountOnB.register();
     const sharedWalletOnB = await sharedAccountOnB.getWallet();
 
-    await sharedWalletOnB.registerContact(sharedWalletOnA.getAddress());
+    await sharedWalletOnB.registerSender(sharedWalletOnA.getAddress());
 
     // deploy the contract on PXE A
     const token = await deployToken(walletA, initialBalance, logger);
@@ -242,9 +244,9 @@ describe('e2e_2_pxes', () => {
         .send()
         .wait();
       await testContract.methods.sync_notes().simulate();
-      const incomingNotes = await walletA.getIncomingNotes({ txHash: receipt.txHash });
-      expect(incomingNotes).toHaveLength(1);
-      note = incomingNotes[0];
+      const notes = await walletA.getNotes({ txHash: receipt.txHash });
+      expect(notes).toHaveLength(1);
+      note = notes[0];
     }
 
     // 3. Nullify the note

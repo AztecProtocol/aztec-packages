@@ -2,6 +2,7 @@
 #include "barretenberg/common/assert.hpp"
 #include "barretenberg/common/serialize.hpp"
 #include "barretenberg/polynomials/barycentric.hpp"
+#include "barretenberg/polynomials/univariate_coefficient_basis.hpp"
 #include <span>
 
 namespace bb {
@@ -30,6 +31,8 @@ template <class Fr, size_t domain_end, size_t domain_start = 0, size_t skip_coun
     static constexpr size_t LENGTH = domain_end - domain_start;
     static constexpr size_t SKIP_COUNT = skip_count;
     using View = UnivariateView<Fr, domain_end, domain_start, skip_count>;
+    static constexpr size_t MONOMIAL_LENGTH = LENGTH > 1 ? 2 : 1;
+    using CoefficientAccumulator = UnivariateCoefficientBasis<Fr, MONOMIAL_LENGTH, true>;
 
     using value_type = Fr; // used to get the type of the elements consistently with std::array
 
@@ -46,6 +49,58 @@ template <class Fr, size_t domain_end, size_t domain_start = 0, size_t skip_coun
     Univariate(Univariate&& other) noexcept = default;
     Univariate& operator=(const Univariate& other) = default;
     Univariate& operator=(Univariate&& other) noexcept = default;
+
+    explicit operator UnivariateCoefficientBasis<Fr, 2, true>() const
+        requires(LENGTH > 1)
+    {
+        static_assert(domain_end >= 2);
+        static_assert(domain_start == 0);
+
+        UnivariateCoefficientBasis<Fr, 2, true> result;
+        result.coefficients[0] = evaluations[0];
+        result.coefficients[1] = evaluations[1] - evaluations[0];
+        result.coefficients[2] = evaluations[1];
+        return result;
+    }
+
+    template <bool has_a0_plus_a1> Univariate(UnivariateCoefficientBasis<Fr, 2, has_a0_plus_a1> monomial)
+    {
+        static_assert(domain_start == 0);
+        Fr to_add = monomial.coefficients[1];
+        evaluations[0] = monomial.coefficients[0];
+        auto prev = evaluations[0];
+        for (size_t i = 1; i < skip_count + 1; ++i) {
+            evaluations[i] = 0;
+            prev = prev + to_add;
+        }
+
+        for (size_t i = skip_count + 1; i < domain_end; ++i) {
+            prev = prev + to_add;
+            evaluations[i] = prev;
+        }
+    }
+
+    template <bool has_a0_plus_a1> Univariate(UnivariateCoefficientBasis<Fr, 3, has_a0_plus_a1> monomial)
+    {
+        static_assert(domain_start == 0);
+        Fr to_add = monomial.coefficients[1];                                // a1 + a2
+        Fr derivative = monomial.coefficients[2] + monomial.coefficients[2]; // 2a2
+        evaluations[0] = monomial.coefficients[0];
+        auto prev = evaluations[0];
+        for (size_t i = 1; i < skip_count + 1; ++i) {
+            evaluations[i] = 0;
+            prev += to_add;
+            to_add += derivative;
+        }
+
+        for (size_t i = skip_count + 1; i < domain_end - 1; ++i) {
+            prev += to_add;
+            evaluations[i] = prev;
+            to_add += derivative;
+        }
+        prev += to_add;
+        evaluations[domain_end - 1] = prev;
+    }
 
     /**
      * @brief Convert from a version with skipped evaluations to one without skipping (with zeroes in previously skipped
@@ -104,15 +159,12 @@ template <class Fr, size_t domain_end, size_t domain_start = 0, size_t skip_coun
     // Check if the univariate is identically zero
     bool is_zero() const
     {
-        if (!evaluations[0].is_zero()) {
-            return false;
-        }
         for (size_t i = skip_count + 1; i < LENGTH; ++i) {
             if (!evaluations[i].is_zero()) {
                 return false;
             }
         }
-        return true;
+        return evaluations[0].is_zero();
     }
 
     // Write the Univariate evaluations to a buffer
@@ -350,6 +402,13 @@ template <class Fr, size_t domain_end, size_t domain_start = 0, size_t skip_coun
         return os;
     }
 
+    template <size_t EXTENDED_DOMAIN_END, size_t NUM_SKIPPED_INDICES = 0>
+    explicit operator Univariate<Fr, EXTENDED_DOMAIN_END, 0, NUM_SKIPPED_INDICES>()
+        requires(domain_start == 0 && domain_end == 2)
+    {
+        return extend_to<EXTENDED_DOMAIN_END, NUM_SKIPPED_INDICES>();
+    }
+
     /**
      * @brief Given a univariate f represented by {f(domain_start), ..., f(domain_end - 1)}, compute the
      * evaluations {f(domain_end),..., f(extended_domain_end -1)} and return the Univariate represented by
@@ -576,14 +635,41 @@ template <class Fr, size_t domain_end, size_t domain_start = 0, size_t skip_coun
   public:
     static constexpr size_t LENGTH = domain_end - domain_start;
     std::span<const Fr, LENGTH> evaluations;
+    static constexpr size_t MONOMIAL_LENGTH = LENGTH > 1 ? 2 : 1;
+    using CoefficientAccumulator = UnivariateCoefficientBasis<Fr, MONOMIAL_LENGTH, true>;
 
     UnivariateView() = default;
+
+    bool operator==(const UnivariateView& other) const
+    {
+        bool r = true;
+        r = r && (evaluations[0] == other.evaluations[0]);
+        // a view might have nonzero terms in its skip_count if accessing an original monomial
+        for (size_t i = skip_count + 1; i < LENGTH; ++i) {
+            r = r && (evaluations[i] == other.evaluations[i]);
+        }
+        return r;
+    };
 
     const Fr& value_at(size_t i) const { return evaluations[i]; };
 
     template <size_t full_domain_end, size_t full_domain_start = 0>
     explicit UnivariateView(const Univariate<Fr, full_domain_end, full_domain_start, skip_count>& univariate_in)
         : evaluations(std::span<const Fr>(univariate_in.evaluations.data(), LENGTH)){};
+
+    explicit operator UnivariateCoefficientBasis<Fr, 2, true>() const
+        requires(LENGTH > 1)
+    {
+        static_assert(domain_end >= 2);
+        static_assert(domain_start == 0);
+
+        UnivariateCoefficientBasis<Fr, 2, true> result;
+
+        result.coefficients[0] = evaluations[0];
+        result.coefficients[1] = evaluations[1] - evaluations[0];
+        result.coefficients[2] = evaluations[1];
+        return result;
+    }
 
     Univariate<Fr, domain_end, domain_start, skip_count> operator+(const UnivariateView& other) const
     {
