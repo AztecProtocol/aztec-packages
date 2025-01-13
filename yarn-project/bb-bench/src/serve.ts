@@ -2,7 +2,8 @@ import createDebug from 'debug';
 
 import { generate3FunctionTestingIVCStack, proveThenVerifyAztecClient } from './index.js';
 
-const logger = createDebug('aztec:ivc-test');
+createDebug.enable('*'); // needed for logging in Firefox but not Chrome
+const logger = createDebug('aztec:bb-bench');
 
 /* eslint-disable no-console */
 

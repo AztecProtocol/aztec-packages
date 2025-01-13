@@ -28,7 +28,7 @@ export class NetCrs {
 
     const g1End = this.numPoints * 64 - 1;
 
-    console.log("fetching CRS");
+    // const response = await fetch('https://aztec-ignition.s3.amazonaws.com/MAIN%20IGNITION/flat/g1.dat', {
     const response = await fetch('http://localhost:8081/g1.dat', {
       headers: {
         Range: `bytes=0-${g1End}`,

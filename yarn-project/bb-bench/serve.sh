@@ -31,7 +31,7 @@ PID1=$!
 echo "Started yarn serve on port 8081 with PID $PID1."
 
 # Start the second yarn serve process on port 8080 in the background
-yarn serve -n -L -p 8080 -c ../serve.mt.json dest &
+yarn serve -n -L -p 8080 --cors -c ../serve.mt.json dest &
 PID2=$!
 echo "Started yarn serve on port 8080 with PID $PID2."
 
