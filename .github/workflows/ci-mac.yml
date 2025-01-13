@@ -35,7 +35,7 @@ jobs:
 
   build-mac-m1:
     name: Build on Mac aarch64-apple-darwin
-    # Same label check as above
+    # Run this job if it's a direct push OR if a PR is labeled with "macos-ci".
     if: >
       github.event_name == 'push' ||
       (github.event_name == 'pull_request' &&
