@@ -1,0 +1,16 @@
+namespace alu(256);
+
+pol commit sel_op_add;
+pol commit ia;
+pol commit ib;
+pol commit ic;
+pol commit op;
+pol commit ia_addr;
+pol commit ib_addr;
+pol commit dst_addr;
+
+#[SEL_ADD_BINARY]
+sel_op_add * (1 - sel_op_add) = 0;
+
+#[ALU_ADD]
+ia + ib = ic;

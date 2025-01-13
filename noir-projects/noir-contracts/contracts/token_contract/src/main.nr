@@ -22,7 +22,9 @@ contract Token {
         context::{PrivateCallInterface, PrivateContext},
         encrypted_logs::{
             encrypted_event_emission::encode_and_encrypt_event_unconstrained,
-            encrypted_note_emission::encode_and_encrypt_note_unconstrained,
+            encrypted_note_emission::{
+                encode_and_encrypt_note, encode_and_encrypt_note_unconstrained,
+            },
         },
         macros::{
             events::event,
@@ -250,10 +252,8 @@ contract Token {
             assert(nonce == 0, "invalid nonce");
         }
 
-        // TODO: constrain encryption below - we are using unconstrained here only because of the following Noir issue
-        // https://github.com/noir-lang/noir/issues/5771
         storage.balances.at(from).sub(from, U128::from_integer(amount)).emit(
-            encode_and_encrypt_note_unconstrained(&mut context, from, from),
+            encode_and_encrypt_note(&mut context, from, from),
         );
         Token::at(context.this_address())._increase_public_balance(to, amount).enqueue(&mut context);
     }
@@ -376,22 +376,14 @@ contract Token {
         let amount = U128::from_integer(amount);
         // docs:start:increase_private_balance
         // docs:start:encrypted
-        // TODO: constrain encryption below - we are using unconstrained here only becuase of the following Noir issue
-        // https://github.com/noir-lang/noir/issues/5771
-        storage.balances.at(from).sub(from, amount).emit(encode_and_encrypt_note_unconstrained(
+        storage.balances.at(from).sub(from, amount).emit(encode_and_encrypt_note(
             &mut context,
             from,
             from,
         ));
         // docs:end:encrypted
         // docs:end:increase_private_balance
-        // TODO: constrain encryption below - we are using unconstrained here only becuase of the following Noir issue
-        // https://github.com/noir-lang/noir/issues/5771
-        storage.balances.at(to).add(to, amount).emit(encode_and_encrypt_note_unconstrained(
-            &mut context,
-            to,
-            from,
-        ));
+        storage.balances.at(to).add(to, amount).emit(encode_and_encrypt_note(&mut context, to, from));
     }
     // docs:end:transfer_in_private
 
@@ -403,10 +395,8 @@ contract Token {
         } else {
             assert(nonce == 0, "invalid nonce");
         }
-        // TODO: constrain encryption below - we are using unconstrained here only becuase of the following Noir issue
-        // https://github.com/noir-lang/noir/issues/5771
         storage.balances.at(from).sub(from, U128::from_integer(amount)).emit(
-            encode_and_encrypt_note_unconstrained(&mut context, from, from),
+            encode_and_encrypt_note(&mut context, from, from),
         );
         Token::at(context.this_address())._reduce_total_supply(amount).enqueue(&mut context);
     }

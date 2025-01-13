@@ -1,7 +1,7 @@
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 
 import { NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH } from '../../constants.gen.js';
-import { PrivateToRollupKernelCircuitPublicInputs } from '../kernel/kernel_circuit_public_inputs.js';
+import { PrivateToRollupKernelCircuitPublicInputs } from '../kernel/private_to_rollup_kernel_circuit_public_inputs.js';
 import { RecursiveProof, makeEmptyRecursiveProof } from '../recursive_proof.js';
 import { VkWitnessData } from '../vk_witness_data.js';
 

@@ -63,25 +63,27 @@ import { Timer } from '@aztec/foundation/timer';
 import { type KeyStore } from '@aztec/key-store';
 import { ContractDataOracle, SimulatorOracle, enrichPublicSimulationError } from '@aztec/pxe';
 import {
-  ExecutionError,
   ExecutionNoteCache,
   type MessageLoadOracleInputs,
   type NoteData,
   Oracle,
-  type PackedValuesCache,
-  type PublicTxResult,
-  PublicTxSimulator,
   type TypedOracle,
-  acvm,
-  createSimulationError,
+  WASMSimulator,
   extractCallStack,
   extractPrivateCircuitPublicInputs,
   pickNotes,
-  resolveAssertionMessageFromError,
   toACVMWitness,
   witnessMapToFields,
-} from '@aztec/simulator';
+} from '@aztec/simulator/client';
 import { createTxForPublicCall } from '@aztec/simulator/public/fixtures';
+import {
+  ExecutionError,
+  type PackedValuesCache,
+  type PublicTxResult,
+  PublicTxSimulator,
+  createSimulationError,
+  resolveAssertionMessageFromError,
+} from '@aztec/simulator/server';
 import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
 import { MerkleTreeSnapshotOperationsFacade, type MerkleTrees } from '@aztec/world-state';
 
@@ -116,6 +118,8 @@ export class TXE implements TypedOracle {
 
   private node = new TXENode(this.blockNumber);
 
+  private simulationProvider = new WASMSimulator();
+
   debug: LogFn;
 
   constructor(
@@ -130,7 +134,13 @@ export class TXE implements TypedOracle {
     this.contractAddress = AztecAddress.random();
     // Default msg_sender (for entrypoints) is now Fr.max_value rather than 0 addr (see #7190 & #7404)
     this.msgSender = AztecAddress.fromField(Fr.MAX_FIELD_VALUE);
-    this.simulatorOracle = new SimulatorOracle(this.contractDataOracle, txeDatabase, keyStore, this.node);
+    this.simulatorOracle = new SimulatorOracle(
+      this.contractDataOracle,
+      txeDatabase,
+      keyStore,
+      this.node,
+      this.simulationProvider,
+    );
 
     this.debug = createDebugOnlyLogger('aztec:kv-pxe-database');
   }
@@ -701,21 +711,23 @@ export class TXE implements TypedOracle {
     const initialWitness = await this.getInitialWitness(artifact, argsHash, sideEffectCounter, isStaticCall);
     const acvmCallback = new Oracle(this);
     const timer = new Timer();
-    const acirExecutionResult = await acvm(acir, initialWitness, acvmCallback).catch((err: Error) => {
-      err.message = resolveAssertionMessageFromError(err, artifact);
+    const acirExecutionResult = await this.simulationProvider
+      .executeUserCircuit(acir, initialWitness, acvmCallback)
+      .catch((err: Error) => {
+        err.message = resolveAssertionMessageFromError(err, artifact);
 
-      const execError = new ExecutionError(
-        err.message,
-        {
-          contractAddress: targetContractAddress,
-          functionSelector,
-        },
-        extractCallStack(err, artifact.debug),
-        { cause: err },
-      );
-      this.logger.debug(`Error executing private function ${targetContractAddress}:${functionSelector}`);
-      throw createSimulationError(execError);
-    });
+        const execError = new ExecutionError(
+          err.message,
+          {
+            contractAddress: targetContractAddress,
+            functionSelector,
+          },
+          extractCallStack(err, artifact.debug),
+          { cause: err },
+        );
+        this.logger.debug(`Error executing private function ${targetContractAddress}:${functionSelector}`);
+        throw createSimulationError(execError);
+      });
     const duration = timer.ms();
     const publicInputs = extractPrivateCircuitPublicInputs(artifact, acirExecutionResult.partialWitness);
 

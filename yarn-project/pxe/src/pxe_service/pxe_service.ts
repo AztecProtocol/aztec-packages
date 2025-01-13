@@ -65,7 +65,7 @@ import { type KeyStore } from '@aztec/key-store';
 import { type L2TipsStore } from '@aztec/kv-store/stores';
 import { ProtocolContractAddress, protocolContractNames } from '@aztec/protocol-contracts';
 import { getCanonicalProtocolContract } from '@aztec/protocol-contracts/bundle';
-import { type AcirSimulator } from '@aztec/simulator/client';
+import { type AcirSimulator, type SimulationProvider } from '@aztec/simulator/client';
 
 import { inspect } from 'util';
 
@@ -97,13 +97,14 @@ export class PXEService implements PXE {
     private db: PxeDatabase,
     tipsStore: L2TipsStore,
     private proofCreator: PrivateKernelProver,
+    private simulationProvider: SimulationProvider,
     config: PXEServiceConfig,
     logSuffix?: string,
   ) {
     this.log = createLogger(logSuffix ? `pxe:service:${logSuffix}` : `pxe:service`);
     this.synchronizer = new Synchronizer(node, db, tipsStore, config, logSuffix);
     this.contractDataOracle = new ContractDataOracle(db);
-    this.simulator = getAcirSimulator(db, node, keyStore, this.contractDataOracle);
+    this.simulator = getAcirSimulator(db, node, keyStore, this.simulationProvider, this.contractDataOracle);
     this.packageVersion = getPackageInfo().version;
     this.proverEnabled = !!config.proverEnabled;
   }
@@ -517,8 +518,8 @@ export class PXEService implements PXE {
         }
       }
 
-      this.log.info(`Simulation completed for ${simulatedTx.tryGetTxHash()} in ${timer.ms()}ms`, {
-        txHash: simulatedTx.tryGetTxHash(),
+      this.log.info(`Simulation completed for ${simulatedTx.getTxHash()} in ${timer.ms()}ms`, {
+        txHash: simulatedTx.getTxHash(),
         ...txInfo,
         ...(profileResult ? { gateCounts: profileResult.gateCounts } : {}),
         ...(publicOutput
