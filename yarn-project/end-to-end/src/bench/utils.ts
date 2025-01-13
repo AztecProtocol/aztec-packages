@@ -22,7 +22,7 @@ import { type EndToEndContext, type SetupOptions, setup } from '../fixtures/util
  * Setup for benchmarks. Initializes a remote node with a single account and deploys a benchmark contract.
  */
 export async function benchmarkSetup(
-  opts: Partial<SetupOptions> & { /** What metrics to export */ metrics: Metrics[] },
+  opts: Partial<SetupOptions> & { /** What metrics to export */ metrics: (Metrics | MetricFilter)[] },
 ) {
   const context = await setup(1, { ...opts, telemetryConfig: { benchmark: true } });
   const contract = await BenchmarkingContract.deploy(context.wallet).send().deployed();
@@ -35,7 +35,7 @@ export async function benchmarkSetup(
   context.teardown = async () => {
     await telemetry.flush();
     const data = telemetry.getMeters();
-    const formatted = formatMetrics(data, opts.metrics);
+    const formatted = formatMetricsForGithubBenchmarkAction(data, opts.metrics);
     writeFileSync('bench.json', JSON.stringify(formatted));
     context.logger.info(`Wrote ${data.length} metrics to bench.json`);
     await origTeardown();
@@ -43,6 +43,14 @@ export async function benchmarkSetup(
   return { telemetry, context, contract, sequencer };
 }
 
+type MetricFilter = {
+  source: Metrics;
+  transform: (value: number) => number;
+  name: string;
+  unit?: string;
+};
+
+// See https://github.com/benchmark-action/github-action-benchmark/blob/e3c661617bc6aa55f26ae4457c737a55545a86a4/src/extract.ts#L659-L670
 type GithubActionBenchmarkResult = {
   name: string;
   value: number;
@@ -51,15 +59,21 @@ type GithubActionBenchmarkResult = {
   extra?: string;
 };
 
-function formatMetrics(data: BenchmarkMetrics, filter: Metrics[]): GithubActionBenchmarkResult[] {
+function formatMetricsForGithubBenchmarkAction(
+  data: BenchmarkMetrics,
+  filter: (Metrics | MetricFilter)[],
+): GithubActionBenchmarkResult[] {
+  const allFilters: MetricFilter[] = filter.map(f =>
+    typeof f === 'string' ? { name: f, source: f, transform: (x: number) => x, unit: undefined } : f,
+  );
   return data.flatMap(meter => {
-    const name = meter.name;
     return meter.metrics
-      .filter(metric => filter.includes(metric.name as Metrics))
-      .map(metric => ({
-        name: `${name}/${metric.name}`,
-        unit: metric.unit ?? 'unknown',
-        ...getMetricValues(metric.points),
+      .filter(metric => allFilters.map(f => f.source).includes(metric.name as Metrics))
+      .map(metric => [metric, allFilters.find(f => f.source === metric.name)!] as const)
+      .map(([metric, filter]) => ({
+        name: `${meter.name}/${filter.name}`,
+        unit: filter.unit ?? metric.unit ?? 'unknown',
+        ...getMetricValues(metric.points.map(p => ({ ...p, value: filter.transform(p.value) }))),
       }))
       .filter((metric): metric is GithubActionBenchmarkResult => metric.value !== undefined);
   });
