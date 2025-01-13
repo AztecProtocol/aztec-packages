@@ -9,7 +9,10 @@ import { type BotRunner } from './runner.js';
  * @returns An JSON-RPC HTTP server
  */
 export function createBotRunnerRpcServer(botRunner: BotRunner) {
-  createSafeJsonRpcServer(botRunner, BotRunnerApiSchema, false, botRunner.isHealthy.bind(botRunner));
+  createSafeJsonRpcServer(botRunner, BotRunnerApiSchema, {
+    http200OnError: false,
+    healthCheck: botRunner.isHealthy.bind(botRunner),
+  });
 }
 
 export function getBotRunnerApiHandler(botRunner: BotRunner): ApiHandler {

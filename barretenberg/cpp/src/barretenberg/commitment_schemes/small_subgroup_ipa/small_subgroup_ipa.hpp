@@ -374,6 +374,32 @@ template <typename Flavor> class SmallSubgroupIPAProver {
             remainder.at(idx - SUBGROUP_SIZE) += remainder.at(idx);
         }
     }
+
+    /**
+     * @brief For test purposes: Compute the sum of the Libra constant term and Libra univariates evaluated at Sumcheck
+     * challenges.
+     *
+     * @param zk_sumcheck_data Contains Libra constant term and scaled Libra univariates
+     * @param multivariate_challenge Sumcheck challenge
+     * @param log_circuit_size
+     */
+    static FF compute_claimed_inner_product(ZKSumcheckData<Flavor>& zk_sumcheck_data,
+                                            const std::vector<FF>& multivariate_challenge,
+                                            const size_t& log_circuit_size)
+    {
+        const FF libra_challenge_inv = zk_sumcheck_data.libra_challenge.invert();
+        // Compute claimed inner product similarly to the SumcheckProver
+        FF claimed_inner_product = FF{ 0 };
+        size_t idx = 0;
+        for (const auto& univariate : zk_sumcheck_data.libra_univariates) {
+            claimed_inner_product += univariate.evaluate(multivariate_challenge[idx]);
+            idx++;
+        }
+        // Libra Univariates are mutiplied by the Libra challenge in setup_auxiliary_data(), needs to be undone
+        claimed_inner_product *= libra_challenge_inv / FF(1 << (log_circuit_size - 1));
+        claimed_inner_product += zk_sumcheck_data.constant_term;
+        return claimed_inner_product;
+    }
 };
 
 /**
@@ -426,6 +452,18 @@ template <typename Curve> class SmallSubgroupIPAVerifier {
         // Compute the evaluation of the vanishing polynomia Z_H(X) at X = gemini_evaluation_challenge
         const FF vanishing_poly_eval = gemini_evaluation_challenge.pow(SUBGROUP_SIZE) - FF(1);
 
+        // TODO(https://github.com/AztecProtocol/barretenberg/issues/1194). Handle edge cases in PCS
+        // TODO(https://github.com/AztecProtocol/barretenberg/issues/1186). Insecure pattern.
+        bool gemini_challenge_in_small_subgroup = false;
+        if constexpr (Curve::is_stdlib_type) {
+            gemini_challenge_in_small_subgroup = (vanishing_poly_eval.get_value() == FF(0).get_value());
+        } else {
+            gemini_challenge_in_small_subgroup = (vanishing_poly_eval == FF(0));
+        }
+        // The probability of this event is negligible but it has to be processed correctly
+        if (gemini_challenge_in_small_subgroup) {
+            throw_or_abort("Gemini evaluation challenge is in the SmallSubgroup.");
+        }
         // Construct the challenge polynomial from the sumcheck challenge, the verifier has to evaluate it on its own
         const std::vector<FF> challenge_polynomial_lagrange = compute_challenge_polynomial(multilinear_challenge);
 

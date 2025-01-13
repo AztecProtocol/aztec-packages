@@ -1,6 +1,6 @@
 import { Fr } from '@aztec/foundation/fields';
 
-import type { CommitmentsDB } from '../../index.js';
+import type { CommitmentsDB } from '../../server.js';
 
 /**
  * A class to manage new nullifier staging and existence checks during a contract call's AVM simulation.
