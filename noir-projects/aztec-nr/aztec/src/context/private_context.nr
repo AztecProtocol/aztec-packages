@@ -1,7 +1,7 @@
 use dep::protocol_types::debug_log::debug_log_format;
 
 use crate::{
-    context::{inputs::PrivateContextInputs, packed_returns::PackedReturns},
+    context::{inputs::PrivateContextInputs, returns_hash::ReturnsHash},
     hash::{ArgsHasher, hash_args_array},
     keys::constants::{NULLIFIER_INDEX, NUM_KEY_TYPES, OUTGOING_INDEX, sk_generators},
     messaging::process_l1_to_l2_message,
@@ -14,7 +14,7 @@ use crate::{
             set_public_teardown_function_call_internal,
         },
         key_validation_request::get_key_validation_request,
-        returns::pack_returns,
+        returns::store_returns,
     },
 };
 use dep::protocol_types::{
@@ -176,7 +176,7 @@ impl PrivateContext {
     }
 
     pub fn set_return_hash(&mut self, returns_hasher: ArgsHasher) {
-        pack_returns(returns_hasher.fields);
+        store_returns(returns_hasher.fields);
         self.return_hash = returns_hasher.hash();
     }
 
@@ -332,7 +332,7 @@ impl PrivateContext {
         contract_address: AztecAddress,
         function_selector: FunctionSelector,
         args: [Field; ARGS_COUNT],
-    ) -> PackedReturns {
+    ) -> ReturnsHash {
         let args_hash = hash_args_array(args);
         arguments::pack_arguments_array(args);
         self.call_private_function_with_packed_args(
@@ -348,7 +348,7 @@ impl PrivateContext {
         contract_address: AztecAddress,
         function_selector: FunctionSelector,
         args: [Field; ARGS_COUNT],
-    ) -> PackedReturns {
+    ) -> ReturnsHash {
         let args_hash = hash_args_array(args);
         arguments::pack_arguments_array(args);
         self.call_private_function_with_packed_args(
@@ -363,7 +363,7 @@ impl PrivateContext {
         &mut self,
         contract_address: AztecAddress,
         function_selector: FunctionSelector,
-    ) -> PackedReturns {
+    ) -> ReturnsHash {
         self.call_private_function_with_packed_args(contract_address, function_selector, 0, false)
     }
 
@@ -371,7 +371,7 @@ impl PrivateContext {
         &mut self,
         contract_address: AztecAddress,
         function_selector: FunctionSelector,
-    ) -> PackedReturns {
+    ) -> ReturnsHash {
         self.call_private_function_with_packed_args(contract_address, function_selector, 0, true)
     }
 
@@ -381,7 +381,7 @@ impl PrivateContext {
         function_selector: FunctionSelector,
         args_hash: Field,
         is_static_call: bool,
-    ) -> PackedReturns {
+    ) -> ReturnsHash {
         let mut is_static_call = is_static_call | self.inputs.call_context.is_static_call;
         let start_side_effect_counter = self.side_effect_counter;
 
@@ -427,7 +427,7 @@ impl PrivateContext {
         //     self.min_revertible_side_effect_counter = item.public_inputs.min_revertible_side_effect_counter;
         // }
         self.side_effect_counter = end_side_effect_counter + 1;
-        PackedReturns::new(returns_hash)
+        ReturnsHash::new(returns_hash)
     }
 
     pub fn call_public_function<let ARGS_COUNT: u32>(

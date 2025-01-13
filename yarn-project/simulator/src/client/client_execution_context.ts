@@ -26,7 +26,7 @@ import { Fr } from '@aztec/foundation/fields';
 import { createLogger } from '@aztec/foundation/log';
 
 import { type NoteData, toACVMWitness } from '../acvm/index.js';
-import { type PackedValuesCache } from '../common/packed_values_cache.js';
+import { type HashedValuesCache } from '../common/hashed_values_cache.js';
 import { type SimulationProvider } from '../server.js';
 import { type DBOracle } from './db_oracle.js';
 import { type ExecutionNoteCache } from './execution_note_cache.js';
@@ -70,7 +70,7 @@ export class ClientExecutionContext extends ViewDataOracle {
     protected readonly historicalHeader: BlockHeader,
     /** List of transient auth witnesses to be used during this simulation */
     authWitnesses: AuthWitness[],
-    private readonly packedValuesCache: PackedValuesCache,
+    private readonly hashedValuesCache: HashedValuesCache,
     private readonly noteCache: ExecutionNoteCache,
     db: DBOracle,
     private node: AztecNode,
@@ -92,7 +92,7 @@ export class ClientExecutionContext extends ViewDataOracle {
   public getInitialWitness(abi: FunctionAbi) {
     const argumentsSize = countArgumentsSize(abi);
 
-    const args = this.packedValuesCache.unpack(this.argsHash);
+    const args = this.hashedValuesCache.getPreimage(this.argsHash);
 
     if (args.length !== argumentsSize) {
       throw new Error('Invalid arguments size');
@@ -165,23 +165,23 @@ export class ClientExecutionContext extends ViewDataOracle {
    * @param args - Arguments to pack
    */
   public override packArgumentsArray(args: Fr[]): Promise<Fr> {
-    return Promise.resolve(this.packedValuesCache.pack(args));
+    return Promise.resolve(this.hashedValuesCache.store(args));
   }
 
   /**
-   * Pack the given returns.
-   * @param returns - Returns to pack
+   * Store returns in hash values cache.
+   * @param returns - Returns to store.
    */
-  public override packReturns(returns: Fr[]): Promise<Fr> {
-    return Promise.resolve(this.packedValuesCache.pack(returns));
+  public override storeReturns(returns: Fr[]): Promise<Fr> {
+    return Promise.resolve(this.hashedValuesCache.store(returns));
   }
 
   /**
-   * Unpack the given returns.
-   * @param returnsHash - Returns hash to unpack
+   * Gets returns from hash values cache.
+   * @param returnsHash - Hash of the returns.
    */
-  public override unpackReturns(returnsHash: Fr): Promise<Fr[]> {
-    return Promise.resolve(this.packedValuesCache.unpack(returnsHash));
+  public override getReturns(returnsHash: Fr): Promise<Fr[]> {
+    return Promise.resolve(this.hashedValuesCache.getPreimage(returnsHash));
   }
 
   /**
@@ -371,7 +371,7 @@ export class ClientExecutionContext extends ViewDataOracle {
       derivedCallContext,
       this.historicalHeader,
       this.authWitnesses,
-      this.packedValuesCache,
+      this.hashedValuesCache,
       this.noteCache,
       this.db,
       this.node,
@@ -421,7 +421,7 @@ export class ClientExecutionContext extends ViewDataOracle {
   ) {
     const targetArtifact = await this.db.getFunctionArtifact(targetContractAddress, functionSelector);
     const derivedCallContext = this.deriveCallContext(targetContractAddress, targetArtifact, isStaticCall);
-    const args = this.packedValuesCache.unpack(argsHash);
+    const args = this.hashedValuesCache.getPreimage(argsHash);
 
     this.log.verbose(
       `Created ${callType} public execution request to ${targetArtifact.name}@${targetContractAddress}`,
@@ -470,9 +470,9 @@ export class ClientExecutionContext extends ViewDataOracle {
     // new_args = [selector, ...old_args], so as to make it suitable to call the public dispatch function.
     // We don't validate or compute it in the circuit because a) it's harder to do with slices, and
     // b) this is only temporary.
-    const newArgsHash = this.packedValuesCache.pack([
+    const newArgsHash = this.hashedValuesCache.store([
       functionSelector.toField(),
-      ...this.packedValuesCache.unpack(argsHash),
+      ...this.hashedValuesCache.getPreimage(argsHash),
     ]);
     await this.createPublicExecutionRequest(
       'enqueued',
@@ -509,9 +509,9 @@ export class ClientExecutionContext extends ViewDataOracle {
     // new_args = [selector, ...old_args], so as to make it suitable to call the public dispatch function.
     // We don't validate or compute it in the circuit because a) it's harder to do with slices, and
     // b) this is only temporary.
-    const newArgsHash = this.packedValuesCache.pack([
+    const newArgsHash = this.hashedValuesCache.store([
       functionSelector.toField(),
-      ...this.packedValuesCache.unpack(argsHash),
+      ...this.hashedValuesCache.getPreimage(argsHash),
     ]);
     await this.createPublicExecutionRequest(
       'teardown',

@@ -1,11 +1,11 @@
 import { jsonStringify } from '@aztec/foundation/json-rpc';
 
-import { PackedValues } from './packed_values.js';
+import { HashedValues } from './hashed_values.js';
 
 describe('PackedValues', () => {
   it('serializes and deserializes', () => {
-    const values = PackedValues.random();
+    const values = HashedValues.random();
     const json = jsonStringify(values);
-    expect(PackedValues.schema.parse(JSON.parse(json))).toEqual(values);
+    expect(HashedValues.schema.parse(JSON.parse(json))).toEqual(values);
   });
 });

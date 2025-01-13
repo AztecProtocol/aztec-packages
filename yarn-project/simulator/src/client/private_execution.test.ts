@@ -1,10 +1,10 @@
 import {
   type AztecNode,
   CountedPublicExecutionRequest,
+  HashedValues,
   type L1ToL2Message,
   type L2BlockNumber,
   Note,
-  PackedValues,
   PublicExecutionRequest,
   TxExecutionRequest,
 } from '@aztec/circuit-types';
@@ -121,7 +121,7 @@ describe('Private Execution test suite', () => {
     args?: any[];
     txContext?: Partial<FieldsOf<TxContext>>;
   }) => {
-    const packedArguments = PackedValues.fromValues(encodeArguments(artifact, args));
+    const packedArguments = HashedValues.fromValues(encodeArguments(artifact, args));
     const txRequest = TxExecutionRequest.from({
       origin: contractAddress,
       firstCallArgsHash: packedArguments.hash,

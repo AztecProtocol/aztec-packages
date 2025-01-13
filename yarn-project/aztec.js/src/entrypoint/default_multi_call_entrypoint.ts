@@ -1,5 +1,5 @@
 import { type EntrypointInterface, EntrypointPayload, type ExecutionRequestInit } from '@aztec/aztec.js/entrypoint';
-import { PackedValues, TxExecutionRequest } from '@aztec/circuit-types';
+import { HashedValues, TxExecutionRequest } from '@aztec/circuit-types';
 import { type AztecAddress, TxContext } from '@aztec/circuits.js';
 import { type FunctionAbi, FunctionSelector, encodeArguments } from '@aztec/foundation/abi';
 import { ProtocolContractAddress } from '@aztec/protocol-contracts';
@@ -18,7 +18,7 @@ export class DefaultMultiCallEntrypoint implements EntrypointInterface {
     const { fee, calls, authWitnesses = [], packedArguments = [] } = executions;
     const payload = EntrypointPayload.fromAppExecution(calls);
     const abi = this.getEntrypointAbi();
-    const entrypointPackedArgs = PackedValues.fromValues(encodeArguments(abi, [payload]));
+    const entrypointPackedArgs = HashedValues.fromValues(encodeArguments(abi, [payload]));
 
     const txRequest = TxExecutionRequest.from({
       firstCallArgsHash: entrypointPackedArgs.hash,

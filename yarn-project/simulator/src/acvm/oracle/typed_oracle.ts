@@ -60,12 +60,12 @@ export abstract class TypedOracle {
     throw new OracleMethodNotAvailableError('packArgumentsArray');
   }
 
-  packReturns(_returns: Fr[]): Promise<Fr> {
-    throw new OracleMethodNotAvailableError('packReturns');
+  storeReturns(_returns: Fr[]): Promise<Fr> {
+    throw new OracleMethodNotAvailableError('storeReturns');
   }
 
-  unpackReturns(_returnsHash: Fr): Promise<Fr[]> {
-    throw new OracleMethodNotAvailableError('unpackReturns');
+  getReturns(_returnsHash: Fr): Promise<Fr[]> {
+    throw new OracleMethodNotAvailableError('getReturns');
   }
 
   getBlockNumber(): Promise<number> {

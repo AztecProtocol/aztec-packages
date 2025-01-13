@@ -109,7 +109,7 @@ export {
   LogId,
   MerkleTreeId,
   Note,
-  PackedValues,
+  HashedValues as PackedValues,
   SiblingPath,
   Tx,
   TxExecutionRequest,

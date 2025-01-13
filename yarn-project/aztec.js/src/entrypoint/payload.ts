@@ -1,4 +1,4 @@
-import { FunctionCall, PackedValues } from '@aztec/circuit-types';
+import { FunctionCall, HashedValues } from '@aztec/circuit-types';
 import { type AztecAddress, Fr, type GasSettings, GeneratorIndex } from '@aztec/circuits.js';
 import { FunctionType } from '@aztec/foundation/abi';
 import { padArrayEnd } from '@aztec/foundation/collection';
@@ -54,14 +54,14 @@ type EncodedFunctionCall = {
 
 /** Assembles an entrypoint payload */
 export abstract class EntrypointPayload {
-  #packedArguments: PackedValues[] = [];
+  #packedArguments: HashedValues[] = [];
   #functionCalls: EncodedFunctionCall[] = [];
   #nonce: Fr;
   #generatorIndex: number;
 
   protected constructor(functionCalls: FunctionCall[], generatorIndex: number, nonce = Fr.random()) {
     for (const call of functionCalls) {
-      this.#packedArguments.push(PackedValues.fromValues(call.args));
+      this.#packedArguments.push(HashedValues.fromValues(call.args));
     }
 
     /* eslint-disable camelcase */

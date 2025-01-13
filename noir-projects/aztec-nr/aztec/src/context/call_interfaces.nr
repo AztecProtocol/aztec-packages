@@ -37,7 +37,7 @@ impl<let N: u32, T> PrivateCallInterface<N, T> {
             self.args_hash,
             false,
         );
-        let unpacked: T = returns.unpack_into();
+        let unpacked: T = returns.get_preimage();
         unpacked
     }
 
@@ -52,7 +52,7 @@ impl<let N: u32, T> PrivateCallInterface<N, T> {
             self.args_hash,
             true,
         );
-        returns.unpack_into()
+        returns.get_preimage()
     }
 }
 
@@ -158,7 +158,7 @@ impl<let N: u32, T> PrivateStaticCallInterface<N, T> {
             self.args_hash,
             true,
         );
-        returns.unpack_into()
+        returns.get_preimage()
     }
 }
 

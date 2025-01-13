@@ -78,7 +78,7 @@ import {
 import { createTxForPublicCalls } from '@aztec/simulator/public/fixtures';
 import {
   ExecutionError,
-  type PackedValuesCache,
+  type HashedValuesCache,
   type PublicTxResult,
   PublicTxSimulator,
   createSimulationError,
@@ -125,7 +125,7 @@ export class TXE implements TypedOracle {
   constructor(
     private logger: Logger,
     private trees: MerkleTrees,
-    private packedValuesCache: PackedValuesCache,
+    private hashedValuesCache: HashedValuesCache,
     private noteCache: ExecutionNoteCache,
     private keyStore: KeyStore,
     private txeDatabase: TXEDatabase,
@@ -375,15 +375,15 @@ export class TXE implements TypedOracle {
   }
 
   packArgumentsArray(args: Fr[]) {
-    return Promise.resolve(this.packedValuesCache.pack(args));
+    return Promise.resolve(this.hashedValuesCache.store(args));
   }
 
-  packReturns(returns: Fr[]) {
-    return Promise.resolve(this.packedValuesCache.pack(returns));
+  storeReturns(returns: Fr[]) {
+    return Promise.resolve(this.hashedValuesCache.store(returns));
   }
 
-  unpackReturns(returnsHash: Fr) {
-    return Promise.resolve(this.packedValuesCache.unpack(returnsHash));
+  getReturns(returnsHash: Fr) {
+    return Promise.resolve(this.hashedValuesCache.getPreimage(returnsHash));
   }
 
   getKeyValidationRequest(pkMHash: Fr): Promise<KeyValidationRequest> {
@@ -778,7 +778,7 @@ export class TXE implements TypedOracle {
   async getInitialWitness(abi: FunctionAbi, argsHash: Fr, sideEffectCounter: number, isStaticCall: boolean) {
     const argumentsSize = countArgumentsSize(abi);
 
-    const args = this.packedValuesCache.unpack(argsHash);
+    const args = this.hashedValuesCache.getPreimage(argsHash);
 
     if (args.length !== argumentsSize) {
       throw new Error('Invalid arguments size');
@@ -889,8 +889,8 @@ export class TXE implements TypedOracle {
       isStaticCall,
     );
 
-    const args = [this.functionSelector.toField(), ...this.packedValuesCache.unpack(argsHash)];
-    const newArgsHash = this.packedValuesCache.pack(args);
+    const args = [this.functionSelector.toField(), ...this.hashedValuesCache.getPreimage(argsHash)];
+    const newArgsHash = this.hashedValuesCache.store(args);
 
     const executionResult = await this.executePublicFunction(args, callContext, isTeardown);
 

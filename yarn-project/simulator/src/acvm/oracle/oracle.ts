@@ -33,14 +33,14 @@ export class Oracle {
   }
 
   // Since the argument is a slice, noir automatically adds a length field to oracle call.
-  async packReturns(_length: ACVMField[], values: ACVMField[]): Promise<ACVMField> {
-    const packed = await this.typedOracle.packReturns(values.map(fromACVMField));
-    return toACVMField(packed);
+  async storeReturns(_length: ACVMField[], values: ACVMField[]): Promise<ACVMField> {
+    const returnsHash = await this.typedOracle.storeReturns(values.map(fromACVMField));
+    return toACVMField(returnsHash);
   }
 
-  async unpackReturns([returnsHash]: ACVMField[]): Promise<ACVMField[]> {
-    const unpacked = await this.typedOracle.unpackReturns(fromACVMField(returnsHash));
-    return unpacked.map(toACVMField);
+  async getReturns([returnsHash]: ACVMField[]): Promise<ACVMField[]> {
+    const returns = await this.typedOracle.getReturns(fromACVMField(returnsHash));
+    return returns.map(toACVMField);
   }
 
   async getBlockNumber(): Promise<ACVMField> {

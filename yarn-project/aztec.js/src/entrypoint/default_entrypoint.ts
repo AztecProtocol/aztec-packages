@@ -1,4 +1,4 @@
-import { PackedValues, TxExecutionRequest } from '@aztec/circuit-types';
+import { HashedValues, TxExecutionRequest } from '@aztec/circuit-types';
 import { TxContext } from '@aztec/circuits.js';
 import { FunctionType } from '@aztec/foundation/abi';
 
@@ -23,7 +23,7 @@ export class DefaultEntrypoint implements EntrypointInterface {
       throw new Error('Public entrypoints are not allowed');
     }
 
-    const entrypointPackedValues = PackedValues.fromValues(call.args);
+    const entrypointPackedValues = HashedValues.fromValues(call.args);
     const txContext = new TxContext(this.chainId, this.protocolVersion, fee.gasSettings);
     return Promise.resolve(
       new TxExecutionRequest(

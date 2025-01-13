@@ -1,7 +1,7 @@
 import { computeAuthWitMessageHash, computeInnerAuthWitHash } from '@aztec/aztec.js';
 import { type AuthWitnessProvider } from '@aztec/aztec.js/account';
 import { type EntrypointInterface, EntrypointPayload, type ExecutionRequestInit } from '@aztec/aztec.js/entrypoint';
-import { PackedValues, TxExecutionRequest } from '@aztec/circuit-types';
+import { HashedValues, TxExecutionRequest } from '@aztec/circuit-types';
 import { type AztecAddress, Fr, TxContext } from '@aztec/circuits.js';
 import { type FunctionAbi, FunctionSelector, encodeArguments } from '@aztec/foundation/abi';
 
@@ -29,7 +29,7 @@ export class DefaultDappEntrypoint implements EntrypointInterface {
     const payload = EntrypointPayload.fromFunctionCalls(calls);
 
     const abi = this.getEntrypointAbi();
-    const entrypointPackedArgs = PackedValues.fromValues(encodeArguments(abi, [payload, this.userAddress]));
+    const entrypointPackedArgs = HashedValues.fromValues(encodeArguments(abi, [payload, this.userAddress]));
     const functionSelector = FunctionSelector.fromNameAndParameters(abi.name, abi.parameters);
     // Default msg_sender for entrypoints is now Fr.max_value rather than 0 addr (see #7190 & #7404)
     const innerHash = computeInnerAuthWitHash([
