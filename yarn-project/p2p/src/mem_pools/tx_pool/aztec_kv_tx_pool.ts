@@ -1,15 +1,23 @@
 import { Tx, TxHash } from '@aztec/circuit-types';
 import { type TxAddedToPoolStats } from '@aztec/circuit-types/stats';
+import { ClientIvcProof } from '@aztec/circuits.js';
 import { type Logger, createLogger } from '@aztec/foundation/log';
-import { type AztecKVStore, type AztecMap, type AztecMultiMap } from '@aztec/kv-store';
+import {
+  type AztecKVStore,
+  type AztecMap,
+  type AztecMapWithSize,
+  type AztecMultiMap,
+  type AztecSingleton,
+} from '@aztec/kv-store';
 import { type TelemetryClient, getTelemetryClient } from '@aztec/telemetry-client';
 
+import { getP2PConfigFromEnv } from '../../config.js';
 import { PoolInstrumentation, PoolName } from '../instrumentation.js';
 import { getPendingTxPriority } from './priority.js';
 import { type TxPool } from './tx_pool.js';
 
 /**
- * In-memory implementation of the Transaction Pool.
+ * KV implementation of the Transaction Pool.
  */
 export class AztecKVTxPool implements TxPool {
   #store: AztecKVStore;
@@ -23,23 +31,45 @@ export class AztecKVTxPool implements TxPool {
   /** Index from tx priority (stored as hex) to its tx hash, filtered by pending txs. */
   #pendingTxPriorityToHash: AztecMultiMap<string, string>;
 
+  /** Archived txs map for future lookup. */
+  #archivedTxs: AztecMapWithSize<string, Buffer>;
+
+  /** Indexes of the archived txs by insertion order. */
+  #archivedTxIndices: AztecMap<number, string>;
+
+  /** Index of the most recently inserted archived tx. */
+  #archivedTxHead: AztecSingleton<number>;
+
+  /** Index of the oldest archived tx. */
+  #archivedTxTail: AztecSingleton<number>;
+
+  /** Number of txs to archive. */
+  #archivedTxLimit: number;
+
   #log: Logger;
 
   #metrics: PoolInstrumentation<Tx>;
 
   /**
-   * Class constructor for in-memory TxPool. Initiates our transaction pool as a JS Map.
+   * Class constructor for KV TxPool. Initiates our transaction pool as an AztecMap.
    * @param store - A KV store.
    * @param log - A logger.
    */
   constructor(
     store: AztecKVStore,
     telemetry: TelemetryClient = getTelemetryClient(),
+    archivedTxLimit = getP2PConfigFromEnv().archivedTxLimit,
     log = createLogger('p2p:tx_pool'),
   ) {
     this.#txs = store.openMap('txs');
     this.#minedTxHashToBlock = store.openMap('txHashToBlockMined');
     this.#pendingTxPriorityToHash = store.openMultiMap('pendingTxFeeToHash');
+
+    this.#archivedTxs = store.openMapWithSize('archivedTxs');
+    this.#archivedTxIndices = store.openMap('archivedTxIndicies');
+    this.#archivedTxHead = store.openSingleton('archivedTxHead');
+    this.#archivedTxTail = store.openSingleton('archivedTxTail');
+    this.#archivedTxLimit = archivedTxLimit;
 
     this.#store = store;
     this.#log = log;
@@ -130,6 +160,21 @@ export class AztecKVTxPool implements TxPool {
   }
 
   /**
+   * Checks if an archived tx exists and returns it.
+   * @param txHash - The tx hash.
+   * @returns The transaction metadata, if found, 'undefined' otherwise.
+   */
+  public getArchivedTxByHash(txHash: TxHash): Tx | undefined {
+    const buffer = this.#archivedTxs.get(txHash.toString());
+    if (buffer) {
+      const tx = Tx.fromBuffer(buffer);
+      tx.setTxHash(txHash);
+      return tx;
+    }
+    return undefined;
+  }
+
+  /**
    * Adds a list of transactions to the pool. Duplicates are ignored.
    * @param txs - An array of txs to be added to the pool.
    * @returns Empty promise.
@@ -152,6 +197,10 @@ export class AztecKVTxPool implements TxPool {
           // REFACTOR: Use an lmdb conditional write to avoid race conditions with this write tx
           void this.#pendingTxPriorityToHash.set(getPendingTxPriority(tx), key);
           this.#metrics.recordSize(tx);
+        }
+
+        if (this.#archivedTxLimit) {
+          void this.archiveTx(tx);
         }
       }
 
@@ -212,5 +261,35 @@ export class AztecKVTxPool implements TxPool {
    */
   public getAllTxHashes(): TxHash[] {
     return Array.from(this.#txs.keys()).map(x => TxHash.fromString(x));
+  }
+
+  /**
+   * Archive a tx for future reference.
+   * @param tx - The transaction to archive.
+   */
+  private archiveTx(tx: Tx) {
+    while (this.#archivedTxs.size() >= this.#archivedTxLimit) {
+      const tailIdx = this.#archivedTxTail.get() ?? 0;
+      const txHash = this.#archivedTxIndices.get(tailIdx);
+      if (txHash) {
+        void this.#archivedTxs.delete(txHash);
+        void this.#archivedTxIndices.delete(tailIdx);
+      }
+      void this.#archivedTxTail.set(tailIdx + 1);
+    }
+
+    const archivedTx: Tx = new Tx(
+      tx.data,
+      ClientIvcProof.empty(),
+      tx.unencryptedLogs,
+      tx.contractClassLogs,
+      tx.enqueuedPublicFunctionCalls,
+      tx.publicTeardownFunctionCall,
+    );
+    const txHash = tx.getTxHash().toString();
+    void this.#archivedTxs.set(txHash, archivedTx.toBuffer());
+    const headIdx = this.#archivedTxHead.get() ?? 0;
+    void this.#archivedTxIndices.set(headIdx, txHash);
+    void this.#archivedTxHead.set(headIdx + 1);
   }
 }
