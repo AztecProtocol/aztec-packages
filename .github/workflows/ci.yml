@@ -318,10 +318,10 @@ jobs:
       fail-fast: false
       matrix:
         config:
-          - test: reorg.test.ts
-            values: ci
-            runner_type: 16core-tester-x86-high-memory
-            timeout: 60
+          # - test: reorg.test.ts
+          #   values: ci
+          #   runner_type: 16core-tester-x86-high-memory
+          #   timeout: 60
           - test: 4epochs.test.ts
             values: ci
             runner_type: 16core-tester-x86

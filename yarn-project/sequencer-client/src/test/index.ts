@@ -1,4 +1,4 @@
-import { type PublicProcessorFactory } from '@aztec/simulator';
+import { type PublicProcessorFactory } from '@aztec/simulator/server';
 
 import { SequencerClient } from '../client/sequencer-client.js';
 import { type L1Publisher } from '../publisher/l1-publisher.js';

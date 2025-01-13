@@ -2,9 +2,9 @@ import { type Logger, createLogger } from '@aztec/foundation/log';
 
 import { promises as fs } from 'fs';
 
+import { type SimulationProvider } from '../common/simulation_provider.js';
 import { NativeACVMSimulator } from './acvm_native.js';
 import { WASMSimulator } from './acvm_wasm.js';
-import { type SimulationProvider } from './simulation_provider.js';
 
 export type SimulationProviderConfig = {
   acvmBinaryPath?: string;

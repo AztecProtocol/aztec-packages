@@ -454,6 +454,7 @@ __metadata:
     "@types/node": "npm:^18.7.23"
     eslint: "npm:^8.35.0"
     jest: "npm:^29.5.0"
+    msgpackr: "npm:^1.11.2"
     prettier: "npm:^2.8.4"
     ts-node: "npm:^10.9.1"
     tslib: "npm:^2.4.0"
