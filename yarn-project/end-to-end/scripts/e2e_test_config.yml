@@ -4,6 +4,7 @@ tests:
     env:
       HARDWARE_CONCURRENCY: '32'
       COMPOSE_FILE: 'scripts/docker-compose-no-sandbox.yml'
+      BENCH_OUTPUT: '/out/bench.json'
     command: './scripts/e2e_compose_test.sh bench_build_block'
   e2e_2_pxes: {}
   e2e_account_contracts: {}

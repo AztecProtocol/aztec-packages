@@ -22,7 +22,11 @@ import { type EndToEndContext, type SetupOptions, setup } from '../fixtures/util
  * Setup for benchmarks. Initializes a remote node with a single account and deploys a benchmark contract.
  */
 export async function benchmarkSetup(
-  opts: Partial<SetupOptions> & { /** What metrics to export */ metrics: (Metrics | MetricFilter)[] },
+  opts: Partial<SetupOptions> & {
+    /** What metrics to export */ metrics: (Metrics | MetricFilter)[];
+    /** Where to output the benchmark data (defaults to BENCH_OUTPUT or bench.json) */
+    benchOutput?: string;
+  },
 ) {
   const context = await setup(1, { ...opts, telemetryConfig: { benchmark: true } });
   const contract = await BenchmarkingContract.deploy(context.wallet).send().deployed();
@@ -36,8 +40,9 @@ export async function benchmarkSetup(
     await telemetry.flush();
     const data = telemetry.getMeters();
     const formatted = formatMetricsForGithubBenchmarkAction(data, opts.metrics);
-    writeFileSync('bench.json', JSON.stringify(formatted));
-    context.logger.info(`Wrote ${data.length} metrics to bench.json`);
+    const benchOutput = opts.benchOutput ?? process.env.BENCH_OUTPUT ?? 'bench.json';
+    writeFileSync(benchOutput, JSON.stringify(formatted));
+    context.logger.info(`Wrote ${data.length} metrics to ${benchOutput}`);
     await origTeardown();
   };
   return { telemetry, context, contract, sequencer };

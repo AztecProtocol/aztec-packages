@@ -263,6 +263,25 @@ jobs:
             FORCE_COLOR=1 ./yarn-project/end-to-end/scripts/e2e_test.sh ${{ matrix.test }}
             ci3/cache_upload_flag "$artifact"
           fi
+      - name: Inspect data folder
+        continue-on-error: true
+        run: tree ./data
+      - name: Store benchmark result
+        if: github.ref == 'refs/heads/master'
+        continue-on-error: true
+        uses: benchmark-action/github-action-benchmark@4de1bed97a47495fc4c5404952da0499e31f5c29
+        with:
+          name: "End-to-end Benchmark"
+          benchmark-data-dir-path: "dev/e2e-bench"
+          tool: "customSmallerIsBetter"
+          output-file-path: ./data/bench.json
+          github-token: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
+          auto-push: true
+          alert-threshold: "150%"
+          comment-on-alert: true
+          fail-on-alert: false
+          alert-comment-cc-users: "@philwindle @spalladino"
+          max-items-in-chart: 50
 
   # Only e2e test that can't run on standard github runner
   e2e-prover-full:
