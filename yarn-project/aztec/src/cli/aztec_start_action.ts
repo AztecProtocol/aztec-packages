@@ -7,12 +7,14 @@ import {
 } from '@aztec/foundation/json-rpc/server';
 import { type LogFn, type Logger } from '@aztec/foundation/log';
 import { fileURLToPath } from '@aztec/foundation/url';
+import { getTelemetryClient } from '@aztec/telemetry-client';
 
 import { readFileSync } from 'fs';
 import { dirname, resolve } from 'path';
 
 import { createSandbox } from '../sandbox.js';
 import { github, splash } from '../splash.js';
+import { JsonRpcInstrumentation } from './json_rpc_instrumentation.js';
 import { createAccountLogs, extractNamespacedOptions, installSignalHandlers } from './util.js';
 
 const packageJsonPath = resolve(dirname(fileURLToPath(import.meta.url)), '../../package.json');
@@ -102,7 +104,11 @@ export async function aztecStart(options: any, userLog: LogFn, debugLogger: Logg
   installSignalHandlers(debugLogger.info, signalHandlers);
 
   if (Object.entries(services).length > 0) {
-    const rpcServer = createNamespacedSafeJsonRpcServer(services, { http200OnError: false, log: debugLogger });
+    const rpcServer = createNamespacedSafeJsonRpcServer(services, {
+      http200OnError: false,
+      log: debugLogger,
+      diagnosticHooks: new JsonRpcInstrumentation(getTelemetryClient()),
+    });
     const { port } = await startHttpRpcServer(rpcServer, { port: options.port });
     debugLogger.info(`Aztec Server listening on port ${port}`);
   }

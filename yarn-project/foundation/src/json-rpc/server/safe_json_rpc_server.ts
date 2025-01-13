@@ -14,6 +14,12 @@ import { type ApiSchema, type ApiSchemaFor, parseWithOptionals, schemaHasMethod 
 import { jsonStringify } from '../convert.js';
 import { assert } from '../js_utils.js';
 
+export interface JsonRpcDiagnosticHooks {
+  onJsonRpcRequest?: (rpcId: number | string | null, rpcMethod: string, headers: http.IncomingHttpHeaders) => void;
+  onJsonRpcResponse?: (rpcId: number | string | null, rpcMethod: string) => void;
+  onJsonRpcError?: (rpcId: number | string | null, rpcMethod: string, errorCode: number, message: string) => void;
+}
+
 export class SafeJsonRpcServer {
   /**
    * The HTTP server accepting remote requests.
@@ -31,6 +37,8 @@ export class SafeJsonRpcServer {
     private http200OnError = false,
     /** Health check function */
     private readonly healthCheck: StatusCheckFn = () => true,
+    /** Export diagnostics data */
+    private diagnosticsHooks: JsonRpcDiagnosticHooks = {},
     /** Logger */
     private log = createLogger('json-rpc:server'),
   ) {}
@@ -90,7 +98,7 @@ export class SafeJsonRpcServer {
       this.log.error(`Error on API handler: ${error}`);
     });
 
-    app.use(compress({ br: false } as any));
+    app.use(compress({ br: false }));
     app.use(jsonResponse);
     app.use(exceptionHandler);
     app.use(bodyParser({ jsonLimit: '50mb', enableTypes: ['json'], detectJSON: () => true }));
@@ -111,10 +119,14 @@ export class SafeJsonRpcServer {
     // "JSON RPC mode" where a single endpoint is used and the method is given in the request body
     router.post('/', async (ctx: Koa.Context) => {
       const { params = [], jsonrpc, id, method } = ctx.request.body as any;
+      this.diagnosticsHooks.onJsonRpcRequest?.(id, method, ctx.request.headers);
       // Fail if not a registered function in the proxy
       if (typeof method !== 'string' || method === 'constructor' || !this.proxy.hasMethod(method)) {
         ctx.status = 400;
-        ctx.body = { jsonrpc, id, error: { code: -32601, message: `Method not found: ${method}` } };
+        const code = -32601;
+        const message = `Method not found: ${method}`;
+        ctx.body = { jsonrpc, id, error: { code, message } };
+        this.diagnosticsHooks.onJsonRpcError?.(id, method, code, message);
       } else {
         ctx.status = 200;
         const result = await this.proxy.call(method, params);
@@ -267,6 +279,7 @@ type SafeJsonRpcServerOptions = {
   http200OnError: boolean;
   healthCheck?: StatusCheckFn;
   log?: Logger;
+  diagnosticHooks?: JsonRpcDiagnosticHooks;
 };
 
 /**
@@ -281,10 +294,10 @@ export function createNamespacedSafeJsonRpcServer(
     log: createLogger('json-rpc:server'),
   },
 ): SafeJsonRpcServer {
-  const { http200OnError, log } = options;
+  const { diagnosticHooks, http200OnError, log } = options;
   const proxy = new NamespacedSafeJsonProxy(handlers);
   const healthCheck = makeAggregateHealthcheck(handlers, log);
-  return new SafeJsonRpcServer(proxy, http200OnError, healthCheck, log);
+  return new SafeJsonRpcServer(proxy, http200OnError, healthCheck, diagnosticHooks, log);
 }
 
 export function createSafeJsonRpcServer<T extends object = any>(
@@ -292,9 +305,9 @@ export function createSafeJsonRpcServer<T extends object = any>(
   schema: ApiSchemaFor<T>,
   options: SafeJsonRpcServerOptions = { http200OnError: false },
 ) {
-  const { http200OnError, log, healthCheck } = options;
+  const { http200OnError, log, healthCheck, diagnosticHooks } = options;
   const proxy = new SafeJsonProxy(handler, schema);
-  return new SafeJsonRpcServer(proxy, http200OnError, healthCheck, log);
+  return new SafeJsonRpcServer(proxy, http200OnError, healthCheck, diagnosticHooks, log);
 }
 
 /**
