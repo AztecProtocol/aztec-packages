@@ -1,74 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1736801661921,
+  "lastUpdate": 1736803170630,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "santiago@aztecprotocol.com",
-            "name": "Santiago Palladino",
-            "username": "spalladino"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "970ad77966a17fd5c8071a7c3c3a405f83630c5d",
-          "message": "fix: toBlock argument in L1 getLogs is inclusive (#10828)\n\nAs @alexghr identified, we got a spurious reorg on a node in the exp1\r\nnetwork. This was caused by the node getting a current\r\n`l1BlockNumber=245`, but then fetching an L2 block mined at 246.\r\n\r\nThis caused the `canPrune` check to fail: \r\n\r\n```\r\nconst canPrune =\r\n      localPendingBlockNumber > provenBlockNumber &&\r\n      (await this.rollup.read.canPruneAtTime([time], { blockNumber: currentL1BlockNumber }));\r\n```\r\n\r\nThe `canPruneAtTime` was evaluated at L1 block number 245, and it\r\ncorrectly returned true, since there had been a reorg shortly before (at\r\n240), and no new L2 block had been mined so the rollup hadn't reset its\r\nstate by then. However, the `localPendingBlockNumber` was incorrectly\r\nincreased due to the block mined at 246, which caused the archiver to\r\nincorrectly reorg it.\r\n\r\nThis PR fixes the L1 event queries so the `toBlock` is inclusive. A\r\nquick test with cast shows that this is the case:\r\n```\r\n$ cast logs -r https://mainnet.infura.io/v3/$INFURA_API_KEY --from-block 0x146eade --to-block 0x146eadf --address 0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48 --json | jq .[].blockNumber | uniq\r\n\"0x146eade\"\r\n\"0x146eadf\"\r\n```\r\n\r\nAnd just for good measure, we also filter the logs returned by the block\r\nrange searched.",
-          "timestamp": "2024-12-18T09:11:04-03:00",
-          "tree_id": "88fcc9cac8e1e230915fc3ec5831be1d3b43f54b",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/970ad77966a17fd5c8071a7c3c3a405f83630c5d"
-        },
-        "date": 1734525442139,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "nativeClientIVCBench/Ambient_17_in_20/6",
-            "value": 21512.632263,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 18789.880754 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeClientIVCBench/Full/6",
-            "value": 24456.08347000001,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 21644.320863 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 4951.82334499998,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 4605.475333 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmClientIVCBench/Full/6",
-            "value": 85072.53844,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 85072539000 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 15053.910278,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 15053911000 ms\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 2831719351,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 2831719351 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 142050591,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 142050591 ns\nthreads: 1"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -3280,6 +3214,72 @@ window.BENCHMARK_DATA = {
             "value": 143002881,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 143002881 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "fcarreiro@users.noreply.github.com",
+            "name": "Facundo",
+            "username": "fcarreiro"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "0a4b763a39fde0f37ac5baa3bd1e3052c01ca946",
+          "message": "fix(avm): mac build (retry) (#11197)\n\nPlease read [contributing guidelines](CONTRIBUTING.md) and remove this line.",
+          "timestamp": "2025-01-13T20:55:03Z",
+          "tree_id": "03cf20b5db15d1076724ffff223c3ca690a8961f",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/0a4b763a39fde0f37ac5baa3bd1e3052c01ca946"
+        },
+        "date": 1736803163340,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Ambient_17_in_20/6",
+            "value": 19638.100054000035,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 16898.049203000002 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 21589.71449500001,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 18931.158215 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 4429.515860999999,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 4019.953415 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 71694.107147,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 71694108000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 13539.790007,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 13539790000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 3170936703,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 3170936703 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 152752627,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 152752627 ns\nthreads: 1"
           }
         ]
       }
