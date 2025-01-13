@@ -13,6 +13,7 @@ export interface RollupCommandArgs {
   privateKey?: string;
   mnemonic?: string;
   rollupAddress: EthAddress;
+  withdrawerAddress: EthAddress;
 }
 
 export interface LoggerArgs {
@@ -37,9 +38,10 @@ export async function addL1Validator({
   mnemonic,
   validatorAddress,
   rollupAddress,
+  withdrawerAddress,
   log,
   debugLogger,
-}: RollupCommandArgs & LoggerArgs & { validatorAddress: EthAddress }) {
+}: RollupCommandArgs & LoggerArgs & { validatorAddress: EthAddress}) {
   const config = getL1ContractsConfigEnvVars();
   const dualLog = makeDualLog(log, debugLogger);
   const publicClient = getPublicClient(rpcUrl, chainId);
@@ -67,7 +69,7 @@ export async function addL1Validator({
   const txHash = await rollup.write.deposit([
     validatorAddress.toString(),
     validatorAddress.toString(),
-    validatorAddress.toString(),
+    withdrawerAddress.toString(),
     config.minimumStake,
   ]);
   dualLog(`Transaction hash: ${txHash}`);
