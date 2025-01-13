@@ -10,20 +10,19 @@ fi
 AZTEC_CACHE_COMMIT=${AZTEC_CACHE_COMMIT:-HEAD}
 PLATFORM_TAG="${PLATFORM_TAG:-${OSTYPE:-unknown}-$(uname -m)}"
 
-# Gather patterns (from direct args or from files)
-patterns=()
+rebuild_patterns=()
 for arg in "$@"; do
   if [[ -f "$arg" ]]; then
-    patterns+=$(cat "$arg")
-    patterns+=$'\n'
+    rebuild_patterns+=$(cat "$arg")
+    rebuild_patterns+=$'\n'
   else
-    patterns+="$arg"$'\n'
+    rebuild_patterns+="$arg"$'\n'
   fi
 done
 
 # Build compound patterns for grep and awk
-GREP_PATTERN=$(echo "${patterns[*]}" | grep -v '^$')
-AWK_PATTERN=$(echo "${patterns[*]}" | grep -v '^$' | sed 's/\\/\\\\/g' | tr '\n' '|' | sed 's/|$//')
+GREP_PATTERN=$(echo "$rebuild_patterns" | grep -v '^$')
+AWK_PATTERN=$(echo "$rebuild_patterns" | grep -v '^$' | sed 's/\\/\\\\/g' | tr '\n' '|' | sed 's/|$//')
 # Ensure we work in the repo root
 cd "$(git rev-parse --show-toplevel)"
 
