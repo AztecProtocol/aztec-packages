@@ -136,6 +136,13 @@ export type P2P<T extends P2PClientType = P2PClientType.Full> = P2PApi<T> & {
   getTxByHash(txHash: TxHash): Promise<Tx | undefined>;
 
   /**
+   * Returns an archived transaction from the transaction pool by its hash.
+   * @param txHash  - Hash of tx to return.
+   * @returns A single tx or undefined.
+   */
+  getArchivedTxByHash(txHash: TxHash): Promise<Tx | undefined>;
+
+  /**
    * Returns whether the given tx hash is flagged as pending or mined.
    * @param txHash - Hash of the tx to query.
    * @returns Pending or mined depending on its status, or undefined if not found.
@@ -521,6 +528,15 @@ export class P2PClient<T extends P2PClientType = P2PClientType.Full>
       return Promise.resolve(tx);
     }
     return this.requestTxByHash(txHash);
+  }
+
+  /**
+   * Returns an archived transaction in the transaction pool by its hash.
+   * @param txHash - Hash of the archived transaction to look for.
+   * @returns A single tx or undefined.
+   */
+  getArchivedTxByHash(txHash: TxHash): Promise<Tx | undefined> {
+    return Promise.resolve(this.txPool.getArchivedTxByHash(txHash));
   }
 
   /**
