@@ -147,6 +147,11 @@ export class ExecutionNoteCache {
     return nullifiedNoteHashCounter;
   }
 
+  /**
+   * Adds a nullifier to the cache. Note cache needs to track all nullifiers to decide which nullifier to use for note siloing.
+   * @param contractAddress - Contract address that emitted the nullifier.
+   * @param innerNullifier
+   */
   public nullifierCreated(contractAddress: AztecAddress, innerNullifier: Fr) {
     const siloedNullifier = siloNullifier(contractAddress, innerNullifier);
     this.recordNullifier(contractAddress, siloedNullifier);
