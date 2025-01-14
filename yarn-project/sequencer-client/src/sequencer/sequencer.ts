@@ -36,6 +36,8 @@ import { type PublicProcessorFactory } from '@aztec/simulator/server';
 import { Attributes, type TelemetryClient, type Tracer, trackSpan } from '@aztec/telemetry-client';
 import { type ValidatorClient } from '@aztec/validator-client';
 
+import assert from 'assert';
+
 import { type GlobalVariableBuilder } from '../global_variable_builder/global_builder.js';
 import { type L1Publisher, VoteType } from '../publisher/l1-publisher.js';
 import { type SlasherClient } from '../slasher/slasher_client.js';
@@ -86,6 +88,7 @@ export class Sequencer {
   private maxBlockSizeInBytes: number = 1024 * 1024;
   private maxBlockGas: Gas = new Gas(10e9, 10e9);
   protected processTxTime: number = 12;
+  private attestationPropagationTime: number = 2;
   private metrics: SequencerMetrics;
   private isFlushing: boolean = false;
 
@@ -168,7 +171,9 @@ export class Sequencer {
     if (config.maxL1TxInclusionTimeIntoSlot !== undefined) {
       this.maxL1TxInclusionTimeIntoSlot = config.maxL1TxInclusionTimeIntoSlot;
     }
-    this.enforceTimeTable = config.enforceTimeTable === true;
+    if (config.enforceTimeTable !== undefined) {
+      this.enforceTimeTable = config.enforceTimeTable;
+    }
 
     this.setTimeTable();
 
@@ -183,15 +188,17 @@ export class Sequencer {
     // How long it takes to get ready to start building
     const blockPrepareTime = 1;
 
-    // How long it takes to for attestations to travel across the p2p layer.
+    // How long it takes to for proposals and attestations to travel across the p2p layer (one-way)
     const attestationPropagationTime = 2;
+    this.attestationPropagationTime = attestationPropagationTime;
 
     // How long it takes to get a published block into L1. L1 builders typically accept txs up to 4 seconds into their slot,
     // but we'll timeout sooner to give it more time to propagate (remember we also have blobs!). Still, when working in anvil,
-    // we can just post in the very last second of the L1 slot.
+    // we can just post in the very last second of the L1 slot and still expect the tx to be accepted.
     const l1PublishingTime = this.l1Constants.ethereumSlotDuration - this.maxL1TxInclusionTimeIntoSlot;
 
-    // How much time we spend validating and processing a block after building it
+    // How much time we spend validating and processing a block after building it,
+    // and assembling the proposal to send to attestors
     const blockValidationTime = 1;
 
     // How much time we have left in the slot for actually processing txs and building the block.
@@ -199,11 +206,11 @@ export class Sequencer {
       this.aztecSlotDuration -
       initialTime -
       blockPrepareTime -
-      l1PublishingTime -
+      blockValidationTime -
       2 * attestationPropagationTime -
-      blockValidationTime;
+      l1PublishingTime;
 
-    // Check that numbers make sense
+    // Check that we actually have time left for processing txs
     if (this.enforceTimeTable && remainingTimeInSlot < 0) {
       throw new Error(`Not enough time for block building in ${this.aztecSlotDuration}s slot`);
     }
@@ -211,6 +218,22 @@ export class Sequencer {
     // How much time we have for actually processing txs. Note that we need both the sequencer and the validators to execute txs.
     const processTxsTime = remainingTimeInSlot / 2;
     this.processTxTime = processTxsTime;
+
+    // Sanity check
+    const totalSlotTime =
+      initialTime + // Archiver, world-state, and p2p sync
+      blockPrepareTime + // Setup globals, initial checks, etc
+      processTxsTime + // Processing public txs for building the block
+      blockValidationTime + // Validating the block produced
+      attestationPropagationTime + // Propagating the block proposal to validators
+      processTxsTime + // Validators run public txs before signing
+      attestationPropagationTime + // Attestations fly back to the proposer
+      l1PublishingTime; // The publish tx sits on the L1 mempool waiting to be picked up
+
+    assert(
+      totalSlotTime === this.aztecSlotDuration,
+      `Computed total slot time does not match slot duration: ${totalSlotTime}s`,
+    );
 
     const newTimeTable: Record<SequencerState, number> = {
       // No checks needed for any of these transitions
@@ -472,7 +495,12 @@ export class Sequencer {
     const l1ToL2Messages = await this.l1ToL2MessageSource.getL1ToL2Messages(blockNumber);
     const msgCount = l1ToL2Messages.length;
 
-    this.log.verbose(`Building block ${blockNumber} for slot ${slot}`, { slot, blockNumber, msgCount });
+    this.log.verbose(`Building block ${blockNumber} for slot ${slot}`, {
+      slot,
+      blockNumber,
+      msgCount,
+      validator: opts.validateOnly,
+    });
 
     // Sync to the previous block at least
     await this.worldState.syncImmediate(newGlobalVariables.blockNumber.toNumber() - 1);
@@ -493,12 +521,19 @@ export class Sequencer {
       const blockBuilder = this.blockBuilderFactory.create(orchestratorFork);
       await blockBuilder.startNewBlock(newGlobalVariables, l1ToL2Messages);
 
-      // We set the deadline for tx processing to the start of the CREATING_BLOCK phase, plus the expected time for tx processing.
+      // When building a block as a proposer, we set the deadline for tx processing to the start of the
+      // CREATING_BLOCK phase, plus the expected time for tx processing. When validating, we start counting
+      // the time for tx processing from the start of the COLLECTING_ATTESTATIONS phase plus the attestation
+      // propagation time. See the comments in setTimeTable for more details.
+      const processingEndTimeWithinSlot = opts.validateOnly
+        ? this.timeTable[SequencerState.COLLECTING_ATTESTATIONS] + this.attestationPropagationTime + this.processTxTime
+        : this.timeTable[SequencerState.CREATING_BLOCK] + this.processTxTime;
+
       // Deadline is only set if enforceTimeTable is enabled.
-      const processingEndTimeWithinSlot = this.timeTable[SequencerState.CREATING_BLOCK] + this.processTxTime;
       const deadline = this.enforceTimeTable
         ? new Date((this.getSlotStartTimestamp(slot) + processingEndTimeWithinSlot) * 1000)
         : undefined;
+
       this.log.verbose(`Processing pending txs`, {
         slot,
         slotStart: new Date(this.getSlotStartTimestamp(slot) * 1000),
@@ -514,7 +549,7 @@ export class Sequencer {
         this.allowedInSetup,
       );
 
-      // REFACTOR: Public processor should just handle processing, one tx at a time. It should be responsibility
+      // TODO(#11000): Public processor should just handle processing, one tx at a time. It should be responsibility
       // of the sequencer to update world state and iterate over txs. We should refactor this along with unifying the
       // publicProcessorFork and orchestratorFork, to avoid doing tree insertions twice when building the block.
       const limits = { deadline, maxTransactions: this.maxTxsPerBlock, maxBlockSize: this.maxBlockSizeInBytes };
@@ -522,7 +557,7 @@ export class Sequencer {
         processor.process(pendingTxs, limits, validators),
       );
 
-      if (failedTxs.length > 0) {
+      if (!opts.validateOnly && failedTxs.length > 0) {
         const failedTxData = failedTxs.map(fail => fail.tx);
         this.log.verbose(`Dropping failed txs ${Tx.getHashes(failedTxData).join(', ')}`);
         await this.p2pClient.deleteTxs(Tx.getHashes(failedTxData));
@@ -555,6 +590,7 @@ export class Sequencer {
         publicProcessorDuration,
         numMsgs: l1ToL2Messages.length,
         numTxs: processedTxs.length,
+        numFailedTxs: failedTxs.length,
         blockBuildingTimer,
       };
     } finally {

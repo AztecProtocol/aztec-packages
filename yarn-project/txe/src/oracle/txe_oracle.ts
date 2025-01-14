@@ -75,7 +75,7 @@ import {
   toACVMWitness,
   witnessMapToFields,
 } from '@aztec/simulator/client';
-import { createTxForPublicCall } from '@aztec/simulator/public/fixtures';
+import { createTxForPublicCalls } from '@aztec/simulator/public/fixtures';
 import {
   ExecutionError,
   type PackedValuesCache,
@@ -852,7 +852,12 @@ export class TXE implements TypedOracle {
     // When setting up a teardown call, we tell it that
     // private execution used Gas(1, 1) so it can compute a tx fee.
     const gasUsedByPrivate = isTeardown ? new Gas(1, 1) : Gas.empty();
-    const tx = createTxForPublicCall(executionRequest, gasUsedByPrivate, isTeardown);
+    const tx = createTxForPublicCalls(
+      /*setupExecutionRequests=*/ [],
+      /*appExecutionRequests=*/ isTeardown ? [] : [executionRequest],
+      /*teardownExecutionRequests=*/ isTeardown ? executionRequest : undefined,
+      gasUsedByPrivate,
+    );
 
     const result = await simulator.simulate(tx);
 
