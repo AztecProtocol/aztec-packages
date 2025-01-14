@@ -7,6 +7,9 @@
   },
   "references": [
     {
+      "path": "../blob-sink"
+    },
+    {
       "path": "../circuit-types"
     },
     {

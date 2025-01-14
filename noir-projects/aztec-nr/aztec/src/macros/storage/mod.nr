@@ -3,6 +3,8 @@ use std::{collections::umap::UHashMap, hash::{BuildHasherDefault, poseidon2::Pos
 use super::utils::get_serialized_size;
 use super::utils::is_note;
 
+/// Stores a map from a module to the name of the struct that describes its storage layout.
+/// This is then used when generating a `storage_layout()` getter on the contract struct.
 pub comptime mut global STORAGE_LAYOUT_NAME: UHashMap<Module, Quoted, BuildHasherDefault<Poseidon2Hasher>> =
     UHashMap::default();
 

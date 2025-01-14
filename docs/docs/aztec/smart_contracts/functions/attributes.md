@@ -232,8 +232,8 @@ impl CustomNote {
     }
 
     fn get_note_type_id() -> Field {
-        // Automatically generated unique ID based on Keccak hash of the struct name
-        0xd2de93eaab1d59abddf06134e737665f076f556feb7b6d3d72ca557b430b14d2
+        // Assigned by macros by incrementing a counter
+        2
     }
 
     fn get_header(note: CustomNote) -> aztec::note::note_header::NoteHeader {

@@ -48,7 +48,7 @@ import { TxReceipt } from '../tx/tx_receipt.js';
 import { TxEffect } from '../tx_effect.js';
 import { type AztecNode, AztecNodeApiSchema } from './aztec-node.js';
 import { type SequencerConfig } from './configs.js';
-import { NullifierMembershipWitness } from './nullifier_tree.js';
+import { NullifierMembershipWitness } from './nullifier_membership_witness.js';
 import { type ProverConfig } from './prover-client.js';
 
 describe('AztecNodeApiSchema', () => {

@@ -41,7 +41,7 @@ export const MEMPOOL_PROVER_QUOTE_SIZE = 'aztec.mempool.prover_quote_size';
 export const ARCHIVER_SYNC_DURATION = 'aztec.archiver.sync_duration';
 export const ARCHIVER_L1_BLOCKS_SYNCED = 'aztec.archiver.l1_blocks_synced';
 export const ARCHIVER_BLOCK_HEIGHT = 'aztec.archiver.block_height';
-export const ARCHIVER_BLOCK_SIZE = 'aztec.archiver.block_size';
+export const ARCHIVER_TX_COUNT = 'aztec.archiver.tx_count';
 export const ARCHIVER_ROLLUP_PROOF_DELAY = 'aztec.archiver.rollup_proof_delay';
 export const ARCHIVER_ROLLUP_PROOF_COUNT = 'aztec.archiver.rollup_proof_count';
 export const ARCHIVER_PRUNE_COUNT = 'aztec.archiver.prune_count';
@@ -103,6 +103,7 @@ export const PROVING_QUEUE_DB_USED_SIZE = 'aztec.proving_queue.db.used_size';
 
 export const PROVING_AGENT_IDLE = 'aztec.proving_queue.agent.idle';
 
+export const PROVER_NODE_EXECUTION_DURATION = 'aztec.prover_node.execution.duration';
 export const PROVER_NODE_JOB_DURATION = 'aztec.prover_node.job_duration';
 export const PROVER_NODE_JOB_BLOCKS = 'aztec.prover_node.job_blocks';
 export const PROVER_NODE_JOB_TRANSACTIONS = 'aztec.prover_node.job_transactions';
@@ -124,3 +125,5 @@ export const PROOF_VERIFIER_COUNT = 'aztec.proof_verifier.count';
 
 export const VALIDATOR_RE_EXECUTION_TIME = 'aztec.validator.re_execution_time';
 export const VALIDATOR_FAILED_REEXECUTION_COUNT = 'aztec.validator.failed_reexecution_count';
+
+export const EVENT_LOOP_LAG = 'aztec.event_loop_lag';

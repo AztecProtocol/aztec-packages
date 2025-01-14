@@ -287,15 +287,18 @@ This is a brief summary to understand what the validator is doing at a high leve
 Validators are selected through a committee selection process:
 
 - **Epoch Initialization**:
+
   - At the start of each epoch, the rollup contract computes a random seed using `block.prevrandao`.
   - The seed is used to select a committee of validators using the Swap-or-Not algorithm.
   - The committee size is fixed for the duration of the epoch.
 
 - **Proposer Selection**:
+
   - Each validator in the committee is assigned proposer duties for specific slots within the epoch.
   - Proposers know in advance when they will be required to propose a block.
 
 - **Validator Registration**:
+
   - The rollup contract maintains the active set of validators.
   - Updates to the validator set occur at the beginning of new epochs.
   - Registration includes staking a minimum threshold of collateral (amount to be determined).

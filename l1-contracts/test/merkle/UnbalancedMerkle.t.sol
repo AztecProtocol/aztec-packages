@@ -54,6 +54,14 @@ contract UnbalancedMerkleTest is Test {
     (min, max) = merkleLibHelper.computeMinMaxPathLength(numTxs);
     assertEq(min, 1);
     assertEq(max, 9);
+    numTxs = 1;
+    (min, max) = merkleLibHelper.computeMinMaxPathLength(numTxs);
+    assertEq(min, 0);
+    assertEq(max, 0);
+    numTxs = 0;
+    (min, max) = merkleLibHelper.computeMinMaxPathLength(numTxs);
+    assertEq(min, 0);
+    assertEq(max, 0);
   }
 
   // Example - 2 txs:

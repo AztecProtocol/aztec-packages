@@ -68,7 +68,7 @@ template <typename Fr> class Polynomial {
     Polynomial(size_t size, size_t virtual_size, size_t start_index = 0);
     // Intended just for plonk, where size == virtual_size always
     Polynomial(size_t size)
-        : Polynomial(size, size){};
+        : Polynomial(size, size) {};
 
     // Constructor that does not initialize values, use with caution to save time.
     Polynomial(size_t size, size_t virtual_size, size_t start_index, DontZeroMemory flag);
@@ -387,10 +387,6 @@ template <typename Fr> class Polynomial {
 
     // safety check for in place operations
     bool in_place_operation_viable(size_t domain_size) { return (size() >= domain_size); }
-
-    // When a polynomial is instantiated from a size alone, the memory allocated corresponds to
-    // input size + MAXIMUM_COEFFICIENT_SHIFT to support 'shifted' coefficients efficiently.
-    const static size_t MAXIMUM_COEFFICIENT_SHIFT = 1;
 
     // The underlying memory, with a bespoke (but minimal) shared array struct that fits our needs.
     // Namely, it supports polynomial shifts and 'virtual' zeroes past a size up until a 'virtual' size.

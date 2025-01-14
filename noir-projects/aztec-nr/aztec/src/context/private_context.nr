@@ -494,13 +494,15 @@ impl PrivateContext {
         // new_args = [selector, ...old_args], so as to make it suitable to call the public dispatch function.
         // We don't validate or compute it in the circuit because a) it's harder to do with slices, and
         // b) this is only temporary.
-        let args_hash = enqueue_public_function_call_internal(
-            contract_address,
-            function_selector,
-            args_hash,
-            counter,
-            is_static_call,
-        );
+        let args_hash = unsafe {
+            enqueue_public_function_call_internal(
+                contract_address,
+                function_selector,
+                args_hash,
+                counter,
+                is_static_call,
+            )
+        };
 
         // Public calls are rerouted through the dispatch function.
         let function_selector = comptime { FunctionSelector::from_field(PUBLIC_DISPATCH_SELECTOR) };
@@ -548,13 +550,15 @@ impl PrivateContext {
         // new_args = [selector, ...old_args], so as to make it suitable to call the public dispatch function.
         // We don't validate or compute it in the circuit because a) it's harder to do with slices, and
         // b) this is only temporary.
-        let args_hash = set_public_teardown_function_call_internal(
-            contract_address,
-            function_selector,
-            args_hash,
-            counter,
-            is_static_call,
-        );
+        let args_hash = unsafe {
+            set_public_teardown_function_call_internal(
+                contract_address,
+                function_selector,
+                args_hash,
+                counter,
+                is_static_call,
+            )
+        };
 
         let function_selector = comptime { FunctionSelector::from_field(PUBLIC_DISPATCH_SELECTOR) };
 
