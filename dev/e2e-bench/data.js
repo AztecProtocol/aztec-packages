@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1736881819525,
+  "lastUpdate": 1736882419906,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "End-to-end Benchmark": [
@@ -268,6 +268,45 @@ window.BENCHMARK_DATA = {
           {
             "name": "Sequencer/aztec.sequencer.block_builder_tree_insertion_duration",
             "value": 670257,
+            "unit": "us"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "84764772+aminsammara@users.noreply.github.com",
+            "name": "Amin Sammara",
+            "username": "aminsammara"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "107f1754c7fc33cda1c3afb820b3b099745882ed",
+          "message": "chore: Add cli option to specify withdrawer address in the add-l1-validator … (#11199)\n\nPreviously all three of the `proposer` `attester` and `withdrawer`\r\naddresses were the same. It meant I couldn't exit (external) validators\r\nout myself so I changed it.\r\n\r\n---------\r\n\r\nCo-authored-by: Mitch <mitchell@aztecprotocol.com>",
+          "timestamp": "2025-01-14T13:56:16-05:00",
+          "tree_id": "d5d1ab502ed76c1390365fe5dc43ac80bcf12756",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/107f1754c7fc33cda1c3afb820b3b099745882ed"
+        },
+        "date": 1736882412746,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sequencer/aztec.sequencer.block.build_duration",
+            "value": 4599,
+            "unit": "ms"
+          },
+          {
+            "name": "Sequencer/aztec.sequencer.block.time_per_mana",
+            "value": 3.4556160672324663,
+            "unit": "us/mana"
+          },
+          {
+            "name": "Sequencer/aztec.sequencer.block_builder_tree_insertion_duration",
+            "value": 660554,
             "unit": "us"
           }
         ]
