@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1736880124756,
+  "lastUpdate": 1736881758143,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "End-to-end Benchmark": [
@@ -190,6 +190,45 @@ window.BENCHMARK_DATA = {
           {
             "name": "Sequencer/aztec.sequencer.block_builder_tree_insertion_duration",
             "value": 663670,
+            "unit": "us"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "sirasistant@gmail.com",
+            "name": "Álvaro Rodríguez",
+            "username": "sirasistant"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "93ade26408ace2ddd0d9dfe6ce7100e76c775cc0",
+          "message": "feat: Inject protocol nullifier conditionally (#11155)\n\nResolves https://github.com/AztecProtocol/aztec-packages/issues/9269\r\nAvoids inserting the tx request hash as nullifier (protocol nullifier)\r\nwhen the tx already generates a nonrevertible nullifier. The simulator's\r\nnote cache detects this while simulating the private functions and\r\nchooses a nonce generating nullifier appropiately.\r\n\r\nCircuits flow:\r\n- Private kernel init receives a claim on what will be the first\r\nnullifier (or zero indicating that it needs to generate and append the\r\nprotocol nullifier)\r\n- That claim gets passed through the databus\r\n- Reset uses the claimed value to make unique note hashes\r\n- Tail verifies that the first nullifier is the claimed one. Tail to\r\npublic additionally verifies that it's non revertible",
+          "timestamp": "2025-01-14T19:46:32+01:00",
+          "tree_id": "308299d8b6bd62792dfcff4d1d44f092b888c701",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/93ade26408ace2ddd0d9dfe6ce7100e76c775cc0"
+        },
+        "date": 1736881750636,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sequencer/aztec.sequencer.block.build_duration",
+            "value": 4752,
+            "unit": "ms"
+          },
+          {
+            "name": "Sequencer/aztec.sequencer.block.time_per_mana",
+            "value": 3.5710587117762804,
+            "unit": "us/mana"
+          },
+          {
+            "name": "Sequencer/aztec.sequencer.block_builder_tree_insertion_duration",
+            "value": 689573,
             "unit": "us"
           }
         ]
