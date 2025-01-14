@@ -2,7 +2,6 @@
 source $(git rev-parse --show-toplevel)/ci3/source
 
 cmd=${1:-"./bootstrap.sh ci"}
-postfix=${2:-}
 arch=${ARCH:-amd64}
 cores=${CORES:-$([ "$arch" = "arm64" ] && echo 64 || echo 128)}
 NO_TERMINATE=${NO_TERMINATE:-0}
@@ -26,7 +25,7 @@ if [[ "$(git fetch origin --negotiate-only --negotiation-tip=$current_commit)" !
 fi
 
 instance_name=$(echo -n "$BRANCH" | tr -c 'a-zA-Z0-9-' '_')_$arch
-[ -n "$postfix" ] && instance_name+="_$postfix"
+[ -n "${INSTANCE_POSTFIX:-}" ] && instance_name+="_$INSTANCE_POSTFIX"
 
 echo_header "request build instance"
 # Terminate any existing instance with the same name.

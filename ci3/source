@@ -9,13 +9,6 @@ export root="$(git rev-parse --show-toplevel)"
 export ci3="$root/ci3"
 [[ "$PATH" != *"$ci3:" ]] && export PATH=$ci3:$PATH
 
-# Our redis cache for e.g. test run tracking, denoise, etc.
-# If not set and redis running on localhost, use it.
-export CI_REDIS=${CI_REDIS:-}
-if [ -z "$CI_REDIS" ] && nc -z localhost 6379 &>/dev/null; then
-  CI_REDIS=localhost
-fi
-
 # For when we need to reference our devbox and test isolation images.
 export DEVBOX_IMAGE=aztecprotocol/devbox:3.0
 export ISOLATION_IMAGE=aztecprotocol/build:3.0
@@ -26,3 +19,4 @@ export FORCE_COLOR=true
 source $ci3/source_options
 source $ci3/source_stdlib
 source $ci3/source_color
+source $ci3/source_redis

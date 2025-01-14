@@ -5,23 +5,11 @@ NO_CD=1 source $(git rev-parse --show-toplevel)/ci3/source
 
 name=$1
 
-if [ -n "$CI_REDIS" ] && [ ! -t 1 ]; then
+if [ "$CI_REDIS_AVAILABLE" -eq 1 ] && [ ! -t 1 ]; then
   key=${2:-$(uuid)}
-  redis-cli -h $CI_REDIS SETEX $key 604800 "In progress..." &>/dev/null
-  # echo_stderr -e "Log id: ${yellow}$key${reset}"
-  tee >(redis-cli -h $CI_REDIS -x SETEX $key 604800 &>/dev/null)
+  redis_cli SETEX $key 604800 "In progress..." &>/dev/null
+  tee >(redis_cli -x SETEX $key 604800 &>/dev/null)
   echo_stderr -e "$name log id: ${yellow}$key${reset}"
 else
   cat
 fi
-
-# NO_CD=1 source $(git rev-parse --show-toplevel)/ci3/source
-
-# if [ -n "$CI_REDIS" ] && [ ! -t 1 ]; then
-#   key=$(uuid)
-#   echo -e "Executing: $1 (${yellow}$key${reset})"
-#   bash -c "$1" | tee >(redis-cli -h $CI_REDIS -x SETEX $key 604800 &>/dev/null)
-#   echo -e "Complete: $1 (${yellow}$key${reset})"
-# else
-#   exec bash -c "$1"
-# fi

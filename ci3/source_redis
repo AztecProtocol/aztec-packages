@@ -1,0 +1,44 @@
+# We use a redis cache for e.g. test run tracking, denoise logs, etc.
+
+# Declare CI_REDIS host, allowing override.
+export CI_REDIS=${CI_REDIS:-localhost}
+
+# If we haven't yet checked for redis availablility.
+if [ -z "${CI_REDIS_AVAILABLE:-}" ]; then
+  # Start by setting it as not available.
+  export CI_REDIS_AVAILABLE=0
+
+  if nc -z $CI_REDIS 6379 &>/dev/null; then
+    # Redis is found at given host, we're done.
+    export CI_REDIS_AVAILABLE=1
+  elif [ -f ~/.ssh/build_instance_key ]; then
+    # We have the build_instance_key.
+    # Attempt to open a port to the remote redis cache via ssh through the bastion.
+    echo "Opening port to remote redis..."
+    ssh -N -L 6379:ci-redis.lzka0i.0001.use2.cache.amazonaws.com:6379 \
+      -o ControlMaster=auto -o ControlPath=/tmp/ssh_mux_%h_%p_%r -o ControlPersist=480m \
+      -F $ci3/aws/build_instance_ssh_config ci-bastion.aztecprotocol.com true && true
+    if nc -z $CI_REDIS 6379 &>/dev/null; then
+      export CI_REDIS_AVAILABLE=1
+    else
+      echo -e "${yellow}Failed to establish connection to remote redis. Log and test cache will be disabled.${reset}"
+    fi
+  else
+    echo "Starting local redis container..."
+    docker run -d --rm --name ci-redis -p 6379:6379 redis:latest &>/dev/null && true
+    if nc -z $CI_REDIS 6379 &>/dev/null; then
+      export CI_REDIS_AVAILABLE=1
+    else
+      echo -e "${yellow}Failed to start a local redis. Log and test cache will be disabled.${reset}"
+    fi
+  fi
+fi
+
+# Help function to avoid having to constantly specify args.
+# Noop when redis is unavailable.
+function redis_cli {
+  if [ "$CI_REDIS_AVAILABLE" -eq 1 ]; then
+    redis-cli --raw -h $CI_REDIS "$@"
+  fi
+}
+export -f redis_cli

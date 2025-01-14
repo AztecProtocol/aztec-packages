@@ -6,8 +6,8 @@ cmd=$1
 test_cmd="${cmd#* }"
 key=$(hash_str "$cmd")
 
-if [ "${USE_TEST_CACHE:-0}" -eq 1 ]; then
-  log_key=$(redis-cli --raw -h $CI_REDIS GET $key)
+if [ "${USE_TEST_CACHE:-0}" -eq 1 ] && [ "$CI_REDIS_AVAILABLE" -eq 1 ]; then
+  log_key=$(redis_cli GET $key)
   if [ -n "$log_key" ]; then
     log_info=" ${yellow}$log_key${reset}"
     echo -e "${blue}SKIPPED${reset}${log_info:-}: $test_cmd"
@@ -23,16 +23,16 @@ set +e
 output=$(timeout -v 600s bash -c "$test_cmd" 2>&1)
 code=$?
 
-if [ -n "$CI_REDIS" ]; then
+if [ "$CI_REDIS_AVAILABLE" -eq 1 ]; then
   log_key=$(uuid)
 
   if [ $code -eq 0 ]; then
     # Set success flag for test. This key is unique to the test.
-    redis-cli -h $CI_REDIS SETEX $key 604800 $log_key &>/dev/null
+    redis_cli SETEX $key 604800 $log_key &>/dev/null
   fi
 
   # Set the test log. This key is globally unique.
-  echo "$output" | redis-cli -h $CI_REDIS -x SETEX $log_key 604800 &>/dev/null
+  echo "$output" | redis_cli -x SETEX $log_key 604800 &>/dev/null
   log_info=" ${yellow}$log_key${reset}"
 fi
 
