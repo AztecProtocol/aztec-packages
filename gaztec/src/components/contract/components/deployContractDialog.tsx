@@ -15,6 +15,7 @@ import {
   MenuItem,
   Select,
   TextField,
+  Typography,
   css,
 } from "@mui/material";
 import { useContext, useEffect, useState } from "react";
@@ -25,14 +26,10 @@ import {
   encodeArguments,
   getDefaultInitializer,
   getInitializer,
-  isAddressStruct,
 } from "@aztec/foundation/abi";
 import { GITHUB_TAG_PREFIX } from "../../../utils/interactions";
 import { PrivateContext } from "../../home/home";
-import {
-  formatAddressAsString,
-  parseAliasedAddresses,
-} from "../../../utils/addresses";
+import { parseAliasedBufferAsString } from "../../../utils/conversion";
 import { FunctionParameter } from "../../common/fnParameter";
 
 const creationForm = css({
@@ -68,7 +65,7 @@ export function DeployContractDialog({
       const accountAliases = await walletDB.listAliases("accounts");
       const contractAliases = await walletDB.listAliases("contracts");
       setAliasedAddresses(
-        parseAliasedAddresses([...accountAliases, ...contractAliases])
+        parseAliasedBufferAsString([...accountAliases, ...contractAliases])
       );
     };
     setAliases();
@@ -156,6 +153,7 @@ export function DeployContractDialog({
                   initializer.parameters.map((param, i) => (
                     <FunctionParameter
                       parameter={param}
+                      key={param.name}
                       onParameterChange={(newValue) => {
                         handleParameterChange(i, newValue);
                       }}

@@ -1,8 +1,12 @@
 import { ContractArtifact } from "@aztec/aztec.js";
-import { type AuthWitness, type TxHash } from "@aztec/circuit-types";
+import { TxReceipt, type AuthWitness, type TxHash } from "@aztec/circuit-types";
 import { type AztecAddress, Fr, GasSettings } from "@aztec/circuits.js";
 import { type LogFn } from "@aztec/foundation/log";
-import { type AztecAsyncMap, type AztecAsyncKVStore } from "@aztec/kv-store";
+import {
+  type AztecAsyncMap,
+  type AztecAsyncKVStore,
+  AztecAsyncMultiMap,
+} from "@aztec/kv-store";
 
 export const Aliases = [
   "accounts",
@@ -26,6 +30,7 @@ export class WalletDB {
   #aliases!: AztecAsyncMap<string, Buffer>;
   #bridgedFeeJuice!: AztecAsyncMap<string, Buffer>;
   #transactions!: AztecAsyncMap<string, Buffer>;
+  #transactionsPerContract!: AztecAsyncMultiMap<string, Buffer>;
   #userLog!: LogFn;
 
   private static instance: WalletDB;
@@ -43,6 +48,9 @@ export class WalletDB {
     this.#aliases = store.openMap("aliases");
     this.#bridgedFeeJuice = store.openMap("bridgedFeeJuice");
     this.#transactions = store.openMap("transactions");
+    this.#transactionsPerContract = store.openMultiMap(
+      "transactionsPerContract"
+    );
     this.#userLog = userLog;
   }
 
@@ -132,7 +140,6 @@ export class WalletDB {
     await this.#accounts.set(`${address.toString()}:type`, Buffer.from(type));
     await this.#accounts.set(`${address.toString()}:sk`, secretKey.toBuffer());
     await this.#accounts.set(`${address.toString()}:salt`, salt.toBuffer());
-    await this.#aliases.set("accounts:last", Buffer.from(address.toString()));
     log(
       `Account stored in database with alias${
         alias ? `es last & ${alias}` : " last"
@@ -168,11 +175,6 @@ export class WalletDB {
         Buffer.from(JSON.stringify(artifact))
       );
     }
-    await this.#aliases.set(`contracts:last`, Buffer.from(address.toString()));
-    await this.#aliases.set(
-      `artifacts:last`,
-      Buffer.from(JSON.stringify(artifact))
-    );
     await this.#aliases.set(
       `artifacts:${address.toString()}`,
       Buffer.from(JSON.stringify(artifact))
@@ -195,7 +197,6 @@ export class WalletDB {
         Buffer.from(authWit.toString())
       );
     }
-    await this.#aliases.set(`authwits:last`, Buffer.from(authWit.toString()));
     log(
       `Authorization witness stored in database with alias${
         alias ? `es last & ${alias}` : " last"
@@ -205,15 +206,15 @@ export class WalletDB {
 
   async storeTx(
     {
+      contractAddress,
       txHash,
-      nonce,
-      cancellable,
-      gasSettings,
+      fnName,
+      receipt,
     }: {
+      contractAddress: AztecAddress;
       txHash: TxHash;
-      nonce: Fr;
-      cancellable: boolean;
-      gasSettings: GasSettings;
+      fnName: string;
+      receipt: TxReceipt;
     },
     log: LogFn = this.#userLog,
     alias?: string
@@ -224,21 +225,18 @@ export class WalletDB {
         Buffer.from(txHash.toString())
       );
     }
-    await this.#transactions.set(
-      `${txHash.toString()}:nonce`,
-      nonce.toBuffer()
-    );
-    await this.#transactions.set(
-      `${txHash.toString()}:cancellable`,
-      Buffer.from(cancellable ? "true" : "false")
-    );
-    await this.#transactions.set(
-      `${txHash.toString()}:gasSettings`,
-      gasSettings.toBuffer()
-    );
-    await this.#aliases.set(
-      `transactions:last`,
+    await this.#transactionsPerContract.set(
+      `${contractAddress.toString()}`,
       Buffer.from(txHash.toString())
+    );
+
+    await this.#transactions.set(
+      `${txHash.toString()}:fnName`,
+      Buffer.from(fnName)
+    );
+    await this.#transactions.set(
+      `${txHash.toString()}:status`,
+      Buffer.from(receipt.status.toString())
     );
     log(
       `Transaction hash stored in database with alias${
@@ -247,28 +245,34 @@ export class WalletDB {
     );
   }
 
+  async retrieveTxsPerContract(contractAddress: AztecAddress) {
+    const result = [];
+    for await (const txHash of this.#transactionsPerContract.getValuesAsync(
+      contractAddress.toString()
+    )) {
+      result.push(txHash.toString());
+    }
+    return result;
+  }
+
   async retrieveTxData(txHash: TxHash) {
-    const nonceBuffer = await this.#transactions.getAsync(
-      `${txHash.toString()}:nonce`
+    const fnNameBuffer = await this.#transactions.getAsync(
+      `${txHash.toString()}:fnName`
     );
-    if (!nonceBuffer) {
+    if (!fnNameBuffer) {
       throw new Error(
-        `Could not find ${txHash.toString()}:nonce. Transaction with hash "${txHash.toString()}" does not exist on this wallet.`
+        `Could not find ${txHash.toString()}:fnName. Transaction with hash "${txHash.toString()}" does not exist on this wallet.`
       );
     }
-    const nonce = Fr.fromBuffer(nonceBuffer);
-    const cancellable =
-      (await this.#transactions
-        .getAsync(`${txHash.toString()}:cancellable`)!
-        .toString()) === "true";
-    const gasBuffer = await this.#transactions.getAsync(
-      `${txHash.toString()}:gasSettings`
-    )!;
+    const fnName = fnNameBuffer.toString();
+    const status = (await this.#transactions.getAsync(
+      `${txHash.toString()}:status`
+    ))!.toString();
+
     return {
       txHash,
-      nonce,
-      cancellable,
-      gasSettings: GasSettings.fromBuffer(gasBuffer),
+      fnName,
+      status,
     };
   }
 

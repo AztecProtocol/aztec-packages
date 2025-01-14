@@ -7,11 +7,14 @@ import { L2TipsStore } from "@aztec/kv-store/stores";
 import { createStore } from "@aztec/kv-store/indexeddb";
 import { BBWASMLazyPrivateKernelProver } from "@aztec/bb-prover/wasm/lazy";
 import { WASMSimulator } from "@aztec/simulator/client";
+import { debug } from "debug";
 
 process.env = Object.keys(import.meta.env).reduce((acc, key) => {
   acc[key.replace("VITE_", "")] = import.meta.env[key];
   return acc;
 }, {});
+
+debug.enable("*");
 
 export class PrivateEnv {
   static async initPXE(nodeURL: string): Promise<PXE> {

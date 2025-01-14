@@ -6,7 +6,7 @@ import {
   capitalize,
   css,
 } from "@mui/material";
-import { formatAddressAsString } from "../../utils/addresses";
+import { formatFrAsString } from "../../utils/conversion";
 import { useState } from "react";
 import EditIcon from "@mui/icons-material/Edit";
 
@@ -35,7 +35,7 @@ export function FunctionParameter({
           key={parameter.name}
           options={aliasedAddresses.map((alias) => ({
             id: alias.value,
-            label: `${alias.key} (${formatAddressAsString(alias.value)})`,
+            label: `${alias.key} (${formatFrAsString(alias.value)})`,
           }))}
           onChange={(_, newValue) => onParameterChange(newValue.id)}
           sx={{ width: 300, marginTop: "1rem" }}
@@ -50,14 +50,13 @@ export function FunctionParameter({
           type="text"
           label={capitalize(parameter.name)}
           onChange={(e) => onParameterChange(e.target.value)}
-          sx={{ marginTop: "1rem" }}
+          sx={{ marginTop: "1rem", marginRight: "1rem" }}
           fullWidth
         />
       )}
       {isAddressStruct(parameter.type) && (
         <>
           <div css={{ flex: "1 1 auto" }} />
-
           <IconButton
             sx={{ marginTop: "1rem" }}
             onClick={() => setManualInput(!manualInput)}

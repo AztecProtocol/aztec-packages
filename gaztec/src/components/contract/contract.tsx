@@ -1,9 +1,8 @@
 import { css } from "@emotion/react";
 import { useDropzone } from "react-dropzone";
 import "./dropzone.css";
-import { useContext, useState } from "react";
+import { useContext, useEffect, useState } from "react";
 import {
-  AztecAddress,
   Contract,
   ContractArtifact,
   ContractInstanceWithAddress,
@@ -11,27 +10,29 @@ import {
 } from "@aztec/aztec.js";
 import { PrivateContext } from "../home/home";
 import {
-  Accordion,
-  AccordionDetails,
-  AccordionSummary,
   Button,
   Card,
   CardActions,
   CardContent,
   Checkbox,
+  CircularProgress,
   Divider,
   FormControlLabel,
   FormGroup,
+  IconButton,
   Input,
   InputAdornment,
   Typography,
 } from "@mui/material";
 import FindInPageIcon from "@mui/icons-material/FindInPage";
-import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
-import { ABIParameter } from "@aztec/foundation/abi";
 import { prepTx } from "../../utils/interactions";
-import { formatAddressAsString } from "../../utils/addresses";
+import {
+  formatFrAsString,
+  parseAliasedBufferAsString,
+} from "../../utils/conversion";
 import { DeployContractDialog } from "./components/deployContractDialog";
+import { FunctionParameter } from "../common/fnParameter";
+import ClearIcon from "@mui/icons-material/Clear";
 
 const container = css({
   display: "flex",
@@ -63,12 +64,13 @@ const contractFnContainer = css({
 const header = css({
   display: "flex",
   alignItems: "center",
-  justifyContent: "space-around",
+  justifyContent: "space-between",
+  margin: "0 1rem",
 });
 
-const visibilityFilters = css({
+const simulationContainer = css({
   display: "flex",
-  flexDirection: "column",
+  flexDirection: "row",
 });
 
 const FORBIDDEN_FUNCTIONS = [
@@ -92,11 +94,36 @@ export function ContractComponent() {
   const [simulationResults, setSimulationResults] = useState({});
   const [parameters, setParameters] = useState({});
 
-  const [contractAddress, setContractAddress] = useState(AztecAddress.ZERO);
   const [openDeployContractDialog, setOpenDeployContractDialog] =
     useState(false);
 
-  const { wallet, walletDB } = useContext(PrivateContext);
+  const {
+    wallet,
+    walletDB,
+    currentContract,
+    setCurrentContract,
+    setCurrentTx,
+  } = useContext(PrivateContext);
+  const [aliasedAddresses, setAliasedAddresses] = useState([]);
+
+  useEffect(() => {
+    const setAliases = async () => {
+      const accountAliases = await walletDB.listAliases("accounts");
+      const contractAliases = await walletDB.listAliases("contracts");
+      setAliasedAddresses(
+        parseAliasedBufferAsString([...accountAliases, ...contractAliases])
+      );
+    };
+    if (walletDB) {
+      setAliases();
+    }
+  }, [walletDB, wallet]);
+
+  useEffect(() => {
+    if (currentContract) {
+      setContractArtifact(currentContract.artifact);
+    }
+  }, [currentContract]);
 
   const { getRootProps, getInputProps } = useDropzone({
     onDrop: async (files) => {
@@ -107,37 +134,94 @@ export function ContractComponent() {
           JSON.parse(e.target?.result as string)
         );
         setContractArtifact(contractArtifact);
-        setContractAddress(AztecAddress.ZERO);
       };
       reader.readAsText(file);
     },
   });
 
-  const handleParameterChange = (
-    fnName: string,
-    param: ABIParameter,
-    value: any
-  ) => {
-    const fnParameters = parameters[fnName] || {};
-    fnParameters[param.name] = value;
+  const handleParameterChange = (fnName: string, index: number, value: any) => {
+    const fnParameters = parameters[fnName] || [];
+    fnParameters[index] = value;
     setParameters({ ...parameters, [fnName]: fnParameters });
   };
 
   const simulate = async (fnName: string) => {
     setIsWorking(true);
-    const { encodedArgs } = await prepTx(
-      contractArtifact,
-      fnName,
-      parameters[fnName]
-    );
-    const contract = await Contract.at(
-      contractAddress,
-      contractArtifact,
-      wallet
-    );
-    const call = contract.methods[fnName](...encodedArgs);
-    const result = await call.simulate();
-    setSimulationResults({ ...simulationResults, ...{ [fnName]: result } });
+    let result;
+    try {
+      const { encodedArgs } = await prepTx(
+        contractArtifact,
+        fnName,
+        parameters[fnName]
+      );
+      const call = currentContract.methods[fnName](...encodedArgs);
+
+      result = await call.simulate();
+      setSimulationResults({
+        ...simulationResults,
+        ...{ [fnName]: { success: true, data: result } },
+      });
+    } catch (e) {
+      setSimulationResults({
+        ...simulationResults,
+        ...{ [fnName]: { success: false, error: e.message } },
+      });
+    }
+
+    setIsWorking(false);
+  };
+
+  const send = async (fnName: string) => {
+    setIsWorking(true);
+    let receipt;
+    let txHash;
+    const currentTx = {
+      status: "proving" as const,
+      fnName: fnName,
+      contractAddress: currentContract.address,
+    };
+    setCurrentTx(currentTx);
+    try {
+      const { encodedArgs } = await prepTx(
+        contractArtifact,
+        fnName,
+        parameters[fnName]
+      );
+      const call = currentContract.methods[fnName](...encodedArgs);
+
+      const provenCall = await call.prove();
+      txHash = provenCall.getTxHash();
+      setCurrentTx({
+        ...currentTx,
+        ...{ txHash, status: "sending" },
+      });
+      receipt = await provenCall.send().wait({ dontThrowOnRevert: true });
+      await walletDB.storeTx({
+        contractAddress: currentContract.address,
+        txHash,
+        fnName,
+        receipt,
+      });
+      setCurrentTx({
+        ...currentTx,
+        ...{
+          txHash,
+          status: receipt.status,
+          receipt,
+          error: receipt.error,
+        },
+      });
+    } catch (e) {
+      setCurrentTx({
+        ...currentTx,
+        ...{
+          txHash,
+          status: "error",
+          error: e.message,
+        },
+      });
+    }
+
     setIsWorking(false);
   };
 
@@ -154,7 +238,9 @@ export function ContractComponent() {
       undefined,
       alias
     );
-    setContractAddress(contract.address);
+    setCurrentContract(
+      await Contract.at(contract.address, contractArtifact, wallet)
+    );
     setOpenDeployContractDialog(false);
   };
 
@@ -223,7 +309,7 @@ export function ContractComponent() {
                 label="Unconstrained"
               />
             </FormGroup>
-            {contractAddress === AztecAddress.ZERO && wallet ? (
+            {!currentContract && wallet ? (
               <>
                 <Divider orientation="vertical"></Divider>
                 <Button onClick={() => setOpenDeployContractDialog(true)}>
@@ -237,9 +323,19 @@ export function ContractComponent() {
                 />
               </>
             ) : (
-              <Typography color="text.secondary">
-                {formatAddressAsString(contractAddress.toString())}
-              </Typography>
+              <>
+                <Typography color="text.secondary">
+                  {formatFrAsString(currentContract.address.toString())}
+                </Typography>
+                <IconButton
+                  onClick={(e) => {
+                    setCurrentContract(null);
+                    setContractArtifact(null);
+                  }}
+                >
+                  <ClearIcon />
+                </IconButton>
+              </>
             )}
           </div>
           {contractArtifact.functions
@@ -283,52 +379,42 @@ export function ContractComponent() {
                     Parameters
                   </Typography>
                   <FormGroup row css={{ marginBottom: "1rem" }}>
-                    {fn.parameters.map((param) => (
-                      <Input
+                    {fn.parameters.map((param, i) => (
+                      <FunctionParameter
+                        parameter={param}
                         key={param.name}
-                        type="text"
-                        placeholder={param.name}
-                        onChange={(e) =>
-                          handleParameterChange(fn.name, param, e.target.value)
-                        }
-                        sx={{ marginRight: "1rem" }}
+                        onParameterChange={(newValue) => {
+                          handleParameterChange(fn.name, i, newValue);
+                        }}
+                        aliasedAddresses={aliasedAddresses}
                       />
                     ))}
                   </FormGroup>
-                  <Accordion>
-                    <AccordionSummary expandIcon={<ExpandMoreIcon />}>
-                      <Typography component="span">
-                        Simulation results
+                  {!isWorking && simulationResults?.[fn.name] !== undefined ? (
+                    <div css={{ simulationContainer }}>
+                      <Typography component="h5">
+                        Simulation results:
                       </Typography>
-                    </AccordionSummary>
-                    <AccordionDetails>
-                      Lorem ipsum dolor sit amet, consectetur adipiscing elit.
-                      Suspendisse malesuada lacus ex, sit amet blandit leo
-                      lobortis eget.
-                    </AccordionDetails>
-                  </Accordion>
-                  <Accordion>
-                    <AccordionSummary
-                      expandIcon={<ExpandMoreIcon />}
-                      aria-controls="panel2-content"
-                      id="panel2-header"
-                    >
-                      <Typography component="span">Tx History</Typography>
-                    </AccordionSummary>
-                    <AccordionDetails>
-                      Lorem ipsum dolor sit amet, consectetur adipiscing elit.
-                      Suspendisse malesuada lacus ex, sit amet blandit leo
-                      lobortis eget.
-                    </AccordionDetails>
-                  </Accordion>
+                      {simulationResults[fn.name].success ? (
+                        <Typography component="span">
+                          {simulationResults?.[fn.name]?.data.length === 0
+                            ? "-"
+                            : simulationResults?.[fn.name].data.toString()}
+                        </Typography>
+                      ) : (
+                        <Typography component="h5" color="error">
+                          {simulationResults?.[fn.name]?.error}
+                        </Typography>
+                      )}
+                    </div>
+                  ) : (
+                    <></>
+                  )}
+                  {isWorking ? <CircularProgress /> : <></>}
                 </CardContent>
                 <CardActions>
                   <Button
-                    disabled={
-                      !wallet ||
-                      isWorking ||
-                      contractAddress.equals(AztecAddress.ZERO)
-                    }
+                    disabled={!wallet || !currentContract || isWorking}
                     color="secondary"
                     variant="contained"
                     onClick={() => simulate(fn.name)}
@@ -338,11 +424,13 @@ export function ContractComponent() {
                   <Button
                     disabled={
                       !wallet ||
+                      !currentContract ||
                       isWorking ||
-                      contractAddress.equals(AztecAddress.ZERO)
+                      fn.functionType === "unconstrained"
                     }
                     color="secondary"
                     variant="contained"
+                    onClick={() => send(fn.name)}
                   >
                     Send
                   </Button>
