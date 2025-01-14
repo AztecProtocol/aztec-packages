@@ -55,13 +55,6 @@ spec:
                 sleep 5
               done
               echo "Ethereum node is ready!"
-              {{- if .Values.telemetry.enabled }}
-              until curl --head --silent $OTEL_COLLECTOR_ENDPOINT > /dev/null; do
-                echo "Waiting for OpenTelemetry collector $OTEL_COLLECTOR_ENDPOINT..."
-                sleep 5
-              done
-              echo "OpenTelemetry collector is ready!"
-              {{- end }}
           volumeMounts:
             - name: config
               mountPath: /shared/config
@@ -123,6 +116,12 @@ spec:
               valueFrom:
                 fieldRef:
                   fieldPath: metadata.name
+            - name: K8S_NAMESPACE_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+            - name: USE_GCLOUD_OBSERVABILITY
+              value: "{{ .Values.telemetry.useGcloudObservability }}"
       {{- end }}
       containers:
         - name: boot-node
@@ -181,6 +180,10 @@ spec:
                   fieldPath: metadata.name
             - name: OTEL_SERVICE_NAME
               value: boot-node
+            - name: K8S_NAMESPACE_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
             - name: NODE_OPTIONS
               value: "--max-old-space-size={{ .Values.bootNode.maxOldSpaceSize}}"
             - name: AZTEC_PORT
@@ -235,6 +238,8 @@ spec:
               value: "{{ .Values.storage.dataStoreMapSize }}"
             - name: WS_DB_MAP_SIZE_KB
               value: "{{ .Values.storage.worldStateMapSize }}"
+            - name: USE_GCLOUD_OBSERVABILITY
+              value: "{{ .Values.telemetry.useGcloudObservability }}"
           ports:
             - containerPort: {{ .Values.bootNode.service.nodePort }}
             - containerPort: {{ .Values.bootNode.service.p2pTcpPort }}
