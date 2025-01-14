@@ -184,7 +184,11 @@ export class ProverNode implements ClaimsMonitorHandler, EpochMonitorHandler, Pr
       );
       await this.doSendEpochProofQuote(signed);
     } catch (err) {
-      this.log.error(`Error handling epoch completed`, err);
+      if (err instanceof EmptyEpochError) {
+        this.log.info(`Not producing quote for ${epochNumber} since no blocks were found`);
+      } else {
+        this.log.error(`Error handling epoch completed`, err);
+      }
     }
   }
 
@@ -316,7 +320,7 @@ export class ProverNode implements ClaimsMonitorHandler, EpochMonitorHandler, Pr
   private async gatherBlocks(epochNumber: bigint) {
     const blocks = await this.l2BlockSource.getBlocksForEpoch(epochNumber);
     if (blocks.length === 0) {
-      throw new Error(`No blocks found for epoch ${epochNumber}`);
+      throw new EmptyEpochError(epochNumber);
     }
     return blocks;
   }
@@ -416,5 +420,12 @@ export class ProverNode implements ClaimsMonitorHandler, EpochMonitorHandler, Pr
   protected async triggerMonitors() {
     await this.epochsMonitor.work();
     await this.claimsMonitor.work();
+  }
+}
+
+class EmptyEpochError extends Error {
+  constructor(epochNumber: bigint) {
+    super(`No blocks found for epoch ${epochNumber}`);
+    this.name = 'EmptyEpochError';
   }
 }
