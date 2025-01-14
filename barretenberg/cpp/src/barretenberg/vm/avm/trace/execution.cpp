@@ -546,7 +546,11 @@ AvmError Execution::execute_enqueued_call(TxExecutionPhase phase,
         // This error was encountered before any opcodes were executed, but
         // we need at least one row in the execution trace to then mutate and say "it halted and consumed all gas!"
         trace_builder.op_add(0, 0, 0, 0, OpCode::ADD_8);
-        trace_builder.handle_exceptional_halt();
+        if (phase == TxExecutionPhase::TEARDOWN) {
+            trace_builder.handle_end_of_teardown(l2_gas_left_before_enqueued_call, da_gas_left_before_enqueued_call);
+        } else {
+            trace_builder.handle_exceptional_halt();
+        }
         return AvmError::FAILED_BYTECODE_RETRIEVAL;
     }
 
@@ -1159,7 +1163,6 @@ AvmError Execution::execute_enqueued_call(TxExecutionPhase phase,
         }
     }
     if (phase == TxExecutionPhase::TEARDOWN) {
-        // todo does this work on exceptional halt too?
         trace_builder.handle_end_of_teardown(l2_gas_left_before_enqueued_call, da_gas_left_before_enqueued_call);
     }
     return error;

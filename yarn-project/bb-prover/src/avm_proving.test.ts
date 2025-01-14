@@ -261,6 +261,22 @@ describe('AVM WitGen, proof generation and verification', () => {
     },
     TIMEOUT,
   );
+  it(
+    'Should prove and verify a TX that reverts in teardown',
+    async () => {
+      await proveAndVerifyAvmTestContract(
+        /*checkCircuitOnly=*/ true,
+        /*setupFunctionNames=*/ [],
+        /*setupArgs=*/ [],
+        /*appFunctionNames=*/ [],
+        /*appArgs=*/ [],
+        /*teardownFunctionName=*/ 'read_assert_storage_single',
+        /*teardownArgs=*/ [new Fr(10)],
+        /*expectRevert=*/ true,
+      );
+    },
+    TIMEOUT,
+  );
 });
 
 /**
