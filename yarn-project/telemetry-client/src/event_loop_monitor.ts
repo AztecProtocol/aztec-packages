@@ -58,7 +58,7 @@ export class EventLoopMonitor {
     this.eventLoopTime = meter.createUpDownCounter(Metrics.NODEJS_EVENT_LOOP_TIME, {
       unit: 'ms',
       valueType: ValueType.INT,
-      description: 'How busy is the event loop',
+      description: 'How much time the event loop has spent in a given state',
     });
 
     this.eventLoopDelay = monitorEventLoopDelay();
@@ -70,11 +70,11 @@ export class EventLoopMonitor {
     }
 
     this.lastELU = performance.eventLoopUtilization();
+    this.eventLoopDelay.enable();
     this.meter.addBatchObservableCallback(this.measure, [
       this.eventLoopUilization,
       ...Object.values(this.eventLoopDelayGauges),
     ]);
-    this.eventLoopDelay.enable();
   }
 
   stop(): void {
@@ -87,6 +87,7 @@ export class EventLoopMonitor {
     ]);
     this.eventLoopDelay.disable();
     this.eventLoopDelay.reset();
+    this.lastELU = undefined;
   }
 
   private measure = (obs: BatchObservableResult): void => {
