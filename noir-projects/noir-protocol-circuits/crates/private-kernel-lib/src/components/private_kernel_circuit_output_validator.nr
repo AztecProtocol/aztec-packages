@@ -101,8 +101,8 @@ impl PrivateKernelCircuitOutputValidator {
             "mismatch protocol_contract_tree_root",
         );
 
+        let protocol_nullifier = create_protocol_nullifier(tx_request);
         if first_nullifier_hint == 0 {
-            let protocol_nullifier = create_protocol_nullifier(tx_request);
             assert_eq(
                 self.output.end.nullifiers[0],
                 protocol_nullifier,
