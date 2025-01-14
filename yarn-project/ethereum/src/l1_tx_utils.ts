@@ -12,11 +12,14 @@ import { sleep } from '@aztec/foundation/sleep';
 import {
   type Account,
   type Address,
+  BaseError,
   type BlockOverrides,
   type Chain,
   type GetTransactionReturnType,
   type Hex,
   type HttpTransport,
+  MethodNotFoundRpcError,
+  MethodNotSupportedRpcError,
   type PublicClient,
   type TransactionReceipt,
   type WalletClient,
@@ -565,22 +568,39 @@ export class L1TxUtils {
     return withBuffer;
   }
 
-  public async simulateGasUsed(request: L1TxRequest, blockOverrides: BlockOverrides<bigint, number>): Promise<bigint> {
-    const result = await this.publicClient.simulate({
-      validation: true,
-      blocks: [
-        {
-          blockOverrides,
-          calls: [
-            {
-              from: this.walletClient.account.address,
-              to: request.to!,
-              data: request.data,
-            },
-          ],
-        },
-      ],
-    });
-    return result[0].calls[0].gasUsed;
+  public async simulateGasUsed(
+    request: L1TxRequest,
+    _gasConfig?: L1TxUtilsConfig,
+    blockOverrides: BlockOverrides<bigint, number> = {},
+  ): Promise<bigint> {
+    const gasConfig = { ...this.config, ..._gasConfig };
+    const gasPrice = await this.getGasPrice(gasConfig, false);
+    try {
+      const result = await this.publicClient.simulate({
+        validation: true,
+        blocks: [
+          {
+            blockOverrides,
+            calls: [
+              {
+                from: this.walletClient.account.address,
+                to: request.to!,
+                data: request.data,
+                maxFeePerGas: gasPrice.maxFeePerGas,
+                maxPriorityFeePerGas: gasPrice.maxPriorityFeePerGas,
+              },
+            ],
+          },
+        ],
+      });
+      return result[0].calls[0].gasUsed;
+    } catch (err) {
+      if (err instanceof MethodNotFoundRpcError || err instanceof MethodNotSupportedRpcError) {
+        // Node doesn't support simulation, return -1n gas estimate
+        this.logger?.error('Node does not support simulation API');
+        return -1n;
+      }
+      throw err;
+    }
   }
 }

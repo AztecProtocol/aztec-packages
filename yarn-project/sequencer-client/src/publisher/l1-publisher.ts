@@ -1081,15 +1081,21 @@ export class L1Publisher {
         args,
       });
       const time = BigInt((await this.publicClient.getBlock()).timestamp + this.ethereumSlotDuration);
-      const simulationResult = await this.l1TxUtils.simulateGasUsed(
+      let simulationResult = await this.l1TxUtils.simulateGasUsed(
         {
           to: this.rollupContract.address,
           data,
         },
+        undefined,
         {
           time,
         },
       );
+
+      if (simulationResult === -1n) {
+        this.log.warn('Node does not support simulation API. Using gas guesstimate');
+        simulationResult = L1Publisher.PROPOSE_GAS_GUESS;
+      }
 
       const result = await this.l1TxUtils.sendAndMonitorTransaction(
         {
@@ -1135,15 +1141,23 @@ export class L1Publisher {
         args: [...args, quote.toViemArgs()],
       });
       const time = BigInt((await this.publicClient.getBlock()).timestamp + this.ethereumSlotDuration);
-      const simulationResult = await this.l1TxUtils.simulateGasUsed(
+
+      let simulationResult = await this.l1TxUtils.simulateGasUsed(
         {
           to: this.rollupContract.address,
           data,
         },
+        undefined,
         {
           time,
         },
       );
+
+      if (simulationResult === -1n) {
+        this.log.warn('Node does not support simulation API. Using gas guesstimate');
+        simulationResult = L1Publisher.PROPOSE_GAS_GUESS;
+      }
+
       const result = await this.l1TxUtils.sendAndMonitorTransaction(
         {
           to: this.rollupContract.address,
