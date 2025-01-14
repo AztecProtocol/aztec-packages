@@ -110,10 +110,10 @@ export class DeployMethod<TContract extends ContractBase = Contract> extends Bas
 
     const calls = [...deployment.calls, ...bootstrap.calls];
     const authWitnesses = [...(deployment.authWitnesses ?? []), ...(bootstrap.authWitnesses ?? [])];
-    const packedArguments = [...(deployment.packedArguments ?? []), ...(bootstrap.packedArguments ?? [])];
+    const hashedArguments = [...(deployment.hashedArguments ?? []), ...(bootstrap.hashedArguments ?? [])];
     const { cancellable, nonce, fee: userFee } = options;
 
-    const request = { calls, authWitnesses, packedArguments, cancellable, fee: userFee, nonce };
+    const request = { calls, authWitnesses, hashedArguments, cancellable, fee: userFee, nonce };
 
     const fee = await this.getFeeOptions(request);
     return { ...request, fee };
@@ -136,7 +136,7 @@ export class DeployMethod<TContract extends ContractBase = Contract> extends Bas
    */
   protected async getDeploymentFunctionCalls(
     options: DeployOptions = {},
-  ): Promise<Pick<ExecutionRequestInit, 'calls' | 'authWitnesses' | 'packedArguments'>> {
+  ): Promise<Pick<ExecutionRequestInit, 'calls' | 'authWitnesses' | 'hashedArguments'>> {
     const calls: FunctionCall[] = [];
 
     // Set contract instance object so it's available for populating the DeploySendTx object
@@ -180,7 +180,7 @@ export class DeployMethod<TContract extends ContractBase = Contract> extends Bas
    */
   protected getInitializeFunctionCalls(
     options: DeployOptions,
-  ): Promise<Pick<ExecutionRequestInit, 'calls' | 'authWitnesses' | 'packedArguments'>> {
+  ): Promise<Pick<ExecutionRequestInit, 'calls' | 'authWitnesses' | 'hashedArguments'>> {
     const { address } = this.getInstance(options);
     const calls: FunctionCall[] = [];
     if (this.constructorArtifact && !options.skipInitialization) {

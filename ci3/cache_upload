@@ -7,6 +7,11 @@ if [ "$#" -lt 2 ]; then
   exit 1
 fi
 
+if [[ "$1" == *"disabled-cache"* ]]; then
+  echo "Skipping upload of $1 due to uncommitted changes/files."
+  exit 0
+fi
+
 # Name, intended to have .tar.gz ending
 name="$1"
 # Now $@ = our binary path args

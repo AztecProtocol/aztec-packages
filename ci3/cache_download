@@ -7,6 +7,10 @@ if [ "$#" -lt 1 ]; then
   exit 1
 fi
 
+if [[ "$1" == *"disabled-cache"* ]]; then
+  echo "Not using cache for $1 due to uncommitted changes/files."
+  exit 1
+fi
 if [ "${USE_CACHE:-0}" -lt 1 ]; then
   # Only download if USE_CACHE is 1
   echo_stderr "Not using cache for $1 because USE_CACHE=0."

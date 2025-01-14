@@ -16,7 +16,7 @@ import { type ORACLE_NAMES } from './oracle/index.js';
 /**
  * The callback interface for the ACIR.
  */
-type ACIRCallback = Record<
+export type ACIRCallback = Record<
   ORACLE_NAMES,
   (
     ...args: ForeignCallInput[]
