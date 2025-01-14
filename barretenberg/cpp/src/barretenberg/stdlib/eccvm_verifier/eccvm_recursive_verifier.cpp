@@ -76,18 +76,19 @@ ECCVMRecursiveVerifier_<Flavor>::verify_proof(const ECCVMProof& proof)
     }
 
     // Receive commitments to Libra masking polynomials
-    std::vector<Commitment> libra_commitments;
-    for (size_t idx = 0; idx < log_circuit_size; idx++) {
-        Commitment libra_commitment =
-            transcript->template receive_from_prover<Commitment>("Libra:commitment_" + std::to_string(idx));
-        libra_commitments.push_back(libra_commitment);
-    }
+    std::array<Commitment, NUM_LIBRA_COMMITMENTS> libra_commitments = {};
 
-    auto [multivariate_challenge, claimed_evaluations, libra_evaluations, sumcheck_verified] =
+    libra_commitments[0] = transcript->template receive_from_prover<Commitment>("Libra:concatenation_commitment");
+
+    auto [multivariate_challenge, claimed_evaluations, claimed_libra_evaluation, sumcheck_verified] =
         sumcheck.verify(relation_parameters, alpha, gate_challenges);
+
+    libra_commitments[1] = transcript->template receive_from_prover<Commitment>("Libra:big_sum_commitment");
+    libra_commitments[2] = transcript->template receive_from_prover<Commitment>("Libra:quotient_commitment");
 
     // Compute the Shplemini accumulator consisting of the Shplonk evaluation and the commitments and scalars vector
     // produced by the unified protocol
+    bool consistency_checked = true;
     BatchOpeningClaim<Curve> sumcheck_batch_opening_claims =
         Shplemini::compute_batch_opening_claim(circuit_size,
                                                commitments.get_unshifted(),
@@ -98,8 +99,10 @@ ECCVMRecursiveVerifier_<Flavor>::verify_proof(const ECCVMProof& proof)
                                                key->pcs_verification_key->get_g1_identity(),
                                                transcript,
                                                Flavor::REPEATED_COMMITMENTS,
-                                               RefVector(libra_commitments),
-                                               libra_evaluations);
+                                               Flavor::HasZK,
+                                               &consistency_checked,
+                                               libra_commitments,
+                                               claimed_libra_evaluation);
 
     // Reduce the accumulator to a single opening claim
     const OpeningClaim multivariate_to_univariate_opening_claim =

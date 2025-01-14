@@ -253,7 +253,7 @@ contract AMM {
         let sender = context.msg_sender();
 
         // Liquidity tokens are burned when liquidity is removed in order to reduce the total supply. However, we lack
-        // a function to privately burn, so we instead transfer the tokens into the AMM's public balance, and them have
+        // a function to privately burn, so we instead transfer the tokens into the AMM's public balance, and then have
         // the AMM publicly burn its own tokens.
         // TODO(#10287): consider adding a private burn
         liquidity_token.transfer_to_public(sender, context.this_address(), liquidity, nonce).call(

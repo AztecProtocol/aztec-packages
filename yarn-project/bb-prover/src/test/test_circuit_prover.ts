@@ -10,13 +10,9 @@ import {
   AVM_VERIFICATION_KEY_LENGTH_IN_FIELDS,
   type AvmCircuitInputs,
   type BaseParityInputs,
-  EmptyNestedData,
-  type KernelCircuitPublicInputs,
   NESTED_RECURSIVE_PROOF_LENGTH,
   NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH,
   type ParityPublicInputs,
-  type PrivateKernelEmptyInputData,
-  PrivateKernelEmptyInputs,
   type Proof,
   RECURSIVE_PROOF_LENGTH,
   type RootParityInputs,
@@ -36,13 +32,13 @@ import {
   type PublicBaseRollupInputs,
   type RootRollupInputs,
   type RootRollupPublicInputs,
+  type SingleTxBlockRootRollupInputs,
   type TubeInputs,
 } from '@aztec/circuits.js/rollup';
 import { createLogger } from '@aztec/foundation/log';
 import { sleep } from '@aztec/foundation/sleep';
 import { Timer } from '@aztec/foundation/timer';
 import {
-  ProtocolCircuitVks,
   type ServerProtocolArtifact,
   SimulatedServerCircuitArtifacts,
   convertBaseParityInputsToWitnessMap,
@@ -53,7 +49,6 @@ import {
   convertEmptyBlockRootRollupOutputsFromWitnessMap,
   convertMergeRollupInputsToWitnessMap,
   convertMergeRollupOutputsFromWitnessMap,
-  convertPrivateKernelEmptyInputsToWitnessMap,
   convertRootParityInputsToWitnessMap,
   convertRootParityOutputsFromWitnessMap,
   convertRootRollupInputsToWitnessMap,
@@ -62,11 +57,13 @@ import {
   convertSimulatedBlockRootRollupOutputsFromWitnessMap,
   convertSimulatedPrivateBaseRollupInputsToWitnessMap,
   convertSimulatedPrivateBaseRollupOutputsFromWitnessMap,
-  convertSimulatedPrivateKernelEmptyOutputsFromWitnessMap,
   convertSimulatedPublicBaseRollupInputsToWitnessMap,
   convertSimulatedPublicBaseRollupOutputsFromWitnessMap,
-} from '@aztec/noir-protocol-circuits-types';
-import { type SimulationProvider, WASMSimulatorWithBlobs, emitCircuitSimulationStats } from '@aztec/simulator';
+  convertSimulatedSingleTxBlockRootRollupInputsToWitnessMap,
+  convertSimulatedSingleTxBlockRootRollupOutputsFromWitnessMap,
+} from '@aztec/noir-protocol-circuits-types/server';
+import { ProtocolCircuitVks } from '@aztec/noir-protocol-circuits-types/vks';
+import { type SimulationProvider, WASMSimulatorWithBlobs, emitCircuitSimulationStats } from '@aztec/simulator/server';
 import { type TelemetryClient, trackSpan } from '@aztec/telemetry-client';
 
 import { type WitnessMap } from '@noir-lang/types';
@@ -93,33 +90,6 @@ export class TestCircuitProver implements ServerCircuitProver {
 
   get tracer() {
     return this.instrumentation.tracer;
-  }
-
-  public async getEmptyPrivateKernelProof(
-    inputs: PrivateKernelEmptyInputData,
-  ): Promise<
-    PublicInputsAndRecursiveProof<KernelCircuitPublicInputs, typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH>
-  > {
-    const emptyNested = new EmptyNestedData(
-      makeRecursiveProof(NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH),
-      ProtocolCircuitVks['EmptyNestedArtifact'].keyAsFields,
-    );
-    const kernelInputs = new PrivateKernelEmptyInputs(
-      emptyNested,
-      inputs.header,
-      inputs.chainId,
-      inputs.version,
-      inputs.vkTreeRoot,
-      inputs.protocolContractTreeRoot,
-    );
-
-    return await this.simulate(
-      kernelInputs,
-      'PrivateKernelEmptyArtifact',
-      NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH,
-      convertPrivateKernelEmptyInputsToWitnessMap,
-      convertSimulatedPrivateKernelEmptyOutputsFromWitnessMap,
-    );
   }
 
   /**
@@ -236,6 +206,21 @@ export class TestCircuitProver implements ServerCircuitProver {
     );
   }
 
+  @trackSpan('TestCircuitProver.getSingleTxBlockRootRollupProof')
+  public async getSingleTxBlockRootRollupProof(
+    input: SingleTxBlockRootRollupInputs,
+  ): Promise<
+    PublicInputsAndRecursiveProof<BlockRootOrBlockMergePublicInputs, typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH>
+  > {
+    return await this.simulate(
+      input,
+      'SingleTxBlockRootRollupArtifact',
+      NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH,
+      convertSimulatedSingleTxBlockRootRollupInputsToWitnessMap,
+      convertSimulatedSingleTxBlockRootRollupOutputsFromWitnessMap,
+    );
+  }
+
   /**
    * Simulates the empty block root rollup circuit from its inputs.
    * @param input - Inputs to the circuit.
@@ -334,12 +319,15 @@ export class TestCircuitProver implements ServerCircuitProver {
     const circuitName = mapProtocolArtifactNameToCircuitName(artifactName);
 
     let simulationProvider = this.simulationProvider ?? this.wasmSimulator;
-    if (artifactName == 'BlockRootRollupArtifact') {
+    if (['BlockRootRollupArtifact', 'SingleTxBlockRootRollupArtifact'].includes(artifactName)) {
       // TODO(#10323): temporarily force block root to use wasm while we simulate
       // the blob operations with an oracle. Appears to be no way to provide nativeACVM with a foreign call hander.
       simulationProvider = this.wasmSimulator;
     }
-    const witness = await simulationProvider.simulateCircuit(witnessMap, SimulatedServerCircuitArtifacts[artifactName]);
+    const witness = await simulationProvider.executeProtocolCircuit(
+      witnessMap,
+      SimulatedServerCircuitArtifacts[artifactName],
+    );
 
     const result = convertOutput(witness);
 

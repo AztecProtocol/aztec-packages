@@ -11,12 +11,25 @@ spec:
     matchLabels:
       {{- include "aztec-network.selectorLabels" . | nindent 6 }}
       app: prover-node
+  {{- if not .Values.storage.localSsd }}
+  volumeClaimTemplates:
+    - metadata:
+        name: prover-node-data
+      spec:
+        accessModes: [ "ReadWriteOnce" ]
+        resources:
+          requests:
+            storage: {{ .Values.proverNode.storageSize }}
+  {{- end }}
   template:
     metadata:
       labels:
         {{- include "aztec-network.selectorLabels" . | nindent 8 }}
         app: prover-node
     spec:
+      {{- if .Values.storage.localSsd }}
+      {{- include "aztec-network.gcpLocalSsd" . | nindent 6 }}
+      {{- end }}
       {{- if .Values.network.public }}
       hostNetwork: true
       dnsPolicy: ClusterFirstWithHostNet
@@ -106,6 +119,8 @@ spec:
               mountPath: /shared/p2p
             - name: config
               mountPath: /shared/config
+            - name: prover-node-data
+              mountPath: {{ .Values.proverNode.dataDir }}
           env:
             - name: K8S_POD_UID
               valueFrom:
@@ -119,6 +134,8 @@ spec:
               valueFrom:
                 fieldRef:
                   fieldPath: status.podIP
+            - name: NODE_OPTIONS
+              value: "--max-old-space-size={{ .Values.proverNode.maxOldSpaceSize}}"
             - name: AZTEC_PORT
               value: "{{ .Values.proverNode.service.nodePort }}"
             - name: LOG_LEVEL
@@ -141,10 +158,16 @@ spec:
               value: "{{ .Values.proverNode.proverBroker.jobTimeoutMs }}"
             - name: PROVER_BROKER_JOB_MAX_RETRIES
               value: "{{ .Values.proverNode.proverBroker.jobMaxRetries }}"
-            - name: PROVER_BROKER_DATA_DIRECTORY
+            - name: DATA_DIRECTORY
               value: "{{ .Values.proverNode.proverBroker.dataDirectory }}"
             - name: PROVER_PUBLISHER_PRIVATE_KEY
               value: "{{ .Values.proverNode.proverPublisherPrivateKey }}"
+            - name: PROVER_NODE_TX_GATHERING_TIMEOUT_MS
+              value: "{{ .Values.proverNode.txGathering.timeoutMs }}"
+            - name: PROVER_NODE_TX_GATHERING_INTERVAL_MS
+              value: "{{ .Values.proverNode.txGathering.intervalMs }}"
+            - name: PROVER_NODE_TX_GATHERING_MAX_PARALLEL_REQUESTS
+              value: "{{ .Values.proverNode.txGathering.maxParallelRequests }}"
             - name: OTEL_RESOURCE_ATTRIBUTES
               value: service.name={{ .Release.Name }},service.namespace={{ .Release.Namespace }},service.version={{ .Chart.AppVersion }},environment={{ .Values.environment | default "production" }}
             - name: L1_CHAIN_ID
@@ -165,6 +188,12 @@ spec:
               value: "{{ .Values.aztec.epochProofClaimWindow }}"
             - name: PROVER_VIEM_POLLING_INTERVAL_MS
               value: {{ .Values.proverNode.viemPollingInterval | quote }}
+            - name: DATA_DIRECTORY
+              value: "{{ .Values.proverNode.dataDir }}"
+            - name: DATA_STORE_MAP_SIZE_KB
+              value: "{{ .Values.storage.dataStoreMapSize }}"
+            - name: WS_DB_MAP_SIZE_KB
+              value: "{{ .Values.storage.worldStateMapSize }}"
           ports:
             - containerPort: {{ .Values.proverNode.service.nodePort }}
             - containerPort: {{ .Values.proverNode.service.p2pTcpPort }}
@@ -182,16 +211,14 @@ spec:
           emptyDir: {}
         - name: config
           emptyDir: {}
-  volumeClaimTemplates:
-  - metadata:
-      name: shared-volume
-      labels:
-        {{- include "aztec-network.labels" . | nindent 8 }}
-    spec:
-      accessModes: ["ReadWriteOnce"]
-      resources:
-        requests:
-          storage: {{ .Values.proverNode.storage }}
+      {{- if .Values.storage.localSsd }}
+        - name: prover-node-data
+          emptyDir: {}
+      {{ else }}
+        - name: prover-node-data
+          persistentVolumeClaim:
+            claimName: prover-node-data
+      {{- end }}
 {{if not .Values.network.public }}
 ---
 apiVersion: v1

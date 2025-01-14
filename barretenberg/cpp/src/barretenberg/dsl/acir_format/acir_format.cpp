@@ -439,31 +439,13 @@ HonkRecursionConstraintsOutput<Builder> process_honk_recursion_constraints(
     } else if (nested_ipa_claims.size() > 2) {
         throw_or_abort("Too many nested IPA claims to accumulate");
     } else {
-        // TODO(https://github.com/AztecProtocol/barretenberg/issues/1184): Move to IPA class.
         if (honk_recursion == 2) {
             info("Proving with UltraRollupHonk but no IPA claims exist.");
-            // just create some fake IPA claim and proof
-            using NativeCurve = curve::Grumpkin;
-            using Curve = stdlib::grumpkin<Builder>;
-            auto ipa_transcript = std::make_shared<NativeTranscript>();
-            auto ipa_commitment_key = std::make_shared<CommitmentKey<NativeCurve>>(1 << CONST_ECCVM_LOG_N);
-            size_t n = 4;
-            auto poly = Polynomial<fq>(n);
-            for (size_t i = 0; i < n; i++) {
-                poly.at(i) = fq::random_element();
-            }
-            fq x = fq::random_element();
-            fq eval = poly.evaluate(x);
-            auto commitment = ipa_commitment_key->commit(poly);
-            const OpeningPair<NativeCurve> opening_pair = { x, eval };
-            IPA<NativeCurve>::compute_opening_proof(ipa_commitment_key, { poly, opening_pair }, ipa_transcript);
+            auto [stdlib_opening_claim, ipa_proof] =
+                IPA<stdlib::grumpkin<Builder>>::create_fake_ipa_claim_and_proof(builder);
 
-            auto stdlib_comm = Curve::Group::from_witness(&builder, commitment);
-            auto stdlib_x = Curve::ScalarField::from_witness(&builder, x);
-            auto stdlib_eval = Curve::ScalarField::from_witness(&builder, eval);
-            OpeningClaim<Curve> stdlib_opening_claim{ { stdlib_x, stdlib_eval }, stdlib_comm };
             output.ipa_claim = stdlib_opening_claim;
-            output.ipa_proof = ipa_transcript->export_proof();
+            output.ipa_proof = ipa_proof;
         }
     }
     output.agg_obj_indices = current_aggregation_object;

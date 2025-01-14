@@ -13,19 +13,13 @@ import {
   AVM_PROOF_LENGTH_IN_FIELDS,
   type AvmCircuitInputs,
   type BaseParityInputs,
-  EmptyNestedCircuitInputs,
-  EmptyNestedData,
   Fr,
   IPA_CLAIM_LENGTH,
-  type KernelCircuitPublicInputs,
   NESTED_RECURSIVE_PROOF_LENGTH,
   NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH,
   type ParityPublicInputs,
-  type PrivateKernelEmptyInputData,
-  PrivateKernelEmptyInputs,
   Proof,
   RECURSIVE_PROOF_LENGTH,
-  RECURSIVE_ROLLUP_HONK_PROOF_LENGTH,
   RecursiveProof,
   type RootParityInputs,
   TUBE_PROOF_LENGTH,
@@ -44,6 +38,7 @@ import {
   type PublicBaseRollupInputs,
   type RootRollupInputs,
   type RootRollupPublicInputs,
+  type SingleTxBlockRootRollupInputs,
   type TubeInputs,
 } from '@aztec/circuits.js/rollup';
 import { runInDirectory } from '@aztec/foundation/fs';
@@ -51,7 +46,6 @@ import { createLogger } from '@aztec/foundation/log';
 import { BufferReader } from '@aztec/foundation/serialize';
 import { Timer } from '@aztec/foundation/timer';
 import {
-  ProtocolCircuitVks,
   ServerCircuitArtifacts,
   type ServerProtocolArtifact,
   convertBaseParityInputsToWitnessMap,
@@ -66,20 +60,19 @@ import {
   convertMergeRollupOutputsFromWitnessMap,
   convertPrivateBaseRollupInputsToWitnessMap,
   convertPrivateBaseRollupOutputsFromWitnessMap,
-  convertPrivateKernelEmptyInputsToWitnessMap,
-  convertPrivateKernelEmptyOutputsFromWitnessMap,
   convertPublicBaseRollupInputsToWitnessMap,
   convertPublicBaseRollupOutputsFromWitnessMap,
   convertRootParityInputsToWitnessMap,
   convertRootParityOutputsFromWitnessMap,
   convertRootRollupInputsToWitnessMap,
   convertRootRollupOutputsFromWitnessMap,
-} from '@aztec/noir-protocol-circuits-types';
-import { NativeACVMSimulator } from '@aztec/simulator';
+  convertSingleTxBlockRootRollupInputsToWitnessMap,
+  convertSingleTxBlockRootRollupOutputsFromWitnessMap,
+} from '@aztec/noir-protocol-circuits-types/server';
+import { NativeACVMSimulator } from '@aztec/simulator/server';
 import { Attributes, type TelemetryClient, trackSpan } from '@aztec/telemetry-client';
 
-import { abiEncode } from '@noir-lang/noirc_abi';
-import { type Abi, type WitnessMap } from '@noir-lang/types';
+import { type WitnessMap } from '@noir-lang/types';
 import { assert } from 'console';
 import crypto from 'crypto';
 import { promises as fs } from 'fs';
@@ -313,6 +306,26 @@ export class BBNativeRollupProver implements ServerCircuitProver {
     return makePublicInputsAndRecursiveProof(circuitOutput, proof, verificationKey);
   }
 
+  public async getSingleTxBlockRootRollupProof(
+    input: SingleTxBlockRootRollupInputs,
+  ): Promise<
+    PublicInputsAndRecursiveProof<BlockRootOrBlockMergePublicInputs, typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH>
+  > {
+    const { circuitOutput, proof } = await this.createRecursiveProof(
+      input,
+      'SingleTxBlockRootRollupArtifact',
+      NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH,
+      convertSingleTxBlockRootRollupInputsToWitnessMap,
+      convertSingleTxBlockRootRollupOutputsFromWitnessMap,
+    );
+
+    const verificationKey = await this.getVerificationKeyDataForCircuit('SingleTxBlockRootRollupArtifact');
+
+    await this.verifyProof('SingleTxBlockRootRollupArtifact', proof.binaryProof);
+
+    return makePublicInputsAndRecursiveProof(circuitOutput, proof, verificationKey);
+  }
+
   /**
    * Simulates the empty block root rollup circuit from its inputs.
    * @param input - Inputs to the circuit.
@@ -387,61 +400,6 @@ export class BBNativeRollupProver implements ServerCircuitProver {
     return makePublicInputsAndRecursiveProof(circuitOutput, recursiveProof, verificationKey);
   }
 
-  public async getEmptyPrivateKernelProof(
-    inputs: PrivateKernelEmptyInputData,
-  ): Promise<
-    PublicInputsAndRecursiveProof<KernelCircuitPublicInputs, typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH>
-  > {
-    const emptyNested = await this.getEmptyNestedProof();
-    const emptyPrivateKernelProof = await this.getEmptyPrivateKernelProofFromEmptyNested(
-      PrivateKernelEmptyInputs.from({
-        ...inputs,
-        emptyNested,
-      }),
-    );
-
-    return emptyPrivateKernelProof;
-  }
-
-  private async getEmptyNestedProof(): Promise<EmptyNestedData> {
-    const inputs = new EmptyNestedCircuitInputs();
-    const { proof } = await this.createRecursiveProof(
-      inputs,
-      'EmptyNestedArtifact',
-      RECURSIVE_ROLLUP_HONK_PROOF_LENGTH,
-      (nothing: any) => abiEncode(ServerCircuitArtifacts.EmptyNestedArtifact.abi as Abi, { _inputs: nothing as any }),
-      () => new EmptyNestedCircuitInputs(),
-    );
-
-    const verificationKey = await this.getVerificationKeyDataForCircuit('EmptyNestedArtifact');
-    await this.verifyProof('EmptyNestedArtifact', proof.binaryProof);
-    // logger.debug(`EmptyNestedData proof size: ${proof.proof.length}`);
-    // logger.debug(`EmptyNestedData proof: ${proof.proof}`);
-    // logger.debug(`EmptyNestedData vk size: ${verificationKey.keyAsFields.key.length}`);
-    // logger.debug(`EmptyNestedData vk: ${verificationKey.keyAsFields.key}`);
-
-    return new EmptyNestedData(proof, verificationKey.keyAsFields);
-  }
-
-  private async getEmptyPrivateKernelProofFromEmptyNested(
-    inputs: PrivateKernelEmptyInputs,
-  ): Promise<
-    PublicInputsAndRecursiveProof<KernelCircuitPublicInputs, typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH>
-  > {
-    const { circuitOutput, proof } = await this.createRecursiveProof(
-      inputs,
-      'PrivateKernelEmptyArtifact',
-      NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH,
-      convertPrivateKernelEmptyInputsToWitnessMap,
-      convertPrivateKernelEmptyOutputsFromWitnessMap,
-    );
-    //info(`proof: ${proof.proof}`);
-    const verificationKey = ProtocolCircuitVks['PrivateKernelEmptyArtifact'];
-    await this.verifyProof('PrivateKernelEmptyArtifact', proof.binaryProof);
-
-    return makePublicInputsAndRecursiveProof(circuitOutput, proof, verificationKey);
-  }
-
   private async generateProofWithBB<
     Input extends { toBuffer: () => Buffer },
     Output extends { toBuffer: () => Buffer },
@@ -469,7 +427,7 @@ export class BBNativeRollupProver implements ServerCircuitProver {
 
     const inputWitness = convertInput(input);
     const timer = new Timer();
-    const outputWitness = await simulator.simulateCircuit(inputWitness, artifact);
+    const outputWitness = await simulator.executeProtocolCircuit(inputWitness, artifact);
     const output = convertOutput(outputWitness);
 
     const circuitName = mapProtocolArtifactNameToCircuitName(circuitType);
@@ -722,13 +680,13 @@ export class BBNativeRollupProver implements ServerCircuitProver {
 
   public async verifyAvmProof(proof: Proof, verificationKey: VerificationKeyData) {
     return await this.verifyWithKeyInternal(proof, verificationKey, (proofPath, vkPath) =>
-      verifyAvmProof(this.config.bbBinaryPath, proofPath, vkPath, logger.debug),
+      verifyAvmProof(this.config.bbBinaryPath, proofPath, vkPath, logger),
     );
   }
 
   public async verifyWithKey(flavor: UltraHonkFlavor, verificationKey: VerificationKeyData, proof: Proof) {
     return await this.verifyWithKeyInternal(proof, verificationKey, (proofPath, vkPath) =>
-      verifyProof(this.config.bbBinaryPath, proofPath, vkPath, flavor, logger.debug),
+      verifyProof(this.config.bbBinaryPath, proofPath, vkPath, flavor, logger),
     );
   }
 

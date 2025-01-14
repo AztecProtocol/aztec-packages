@@ -5,7 +5,8 @@ import { LogHistory } from './log_history.js';
 
 jest.useFakeTimers({ doNotFake: ['performance'] });
 
-describe('log history', () => {
+// We skip log history tests since this class is not used and it pollutes the logs in CI.
+describe.skip('log history', () => {
   let debug: (msg: string) => void;
   let logHistory: LogHistory;
   const timestamp = new Date().toISOString();

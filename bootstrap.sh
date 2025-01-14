@@ -47,11 +47,11 @@ function check_toolchains {
     exit 1
   fi
   # Check rust version.
-  if ! rustup show | grep "1.74" > /dev/null; then
+  if ! rustup show | grep "1.75" > /dev/null; then
     encourage_dev_container
-    echo "Rust version 1.74 not installed."
+    echo "Rust version 1.75 not installed."
     echo "Installation:"
-    echo "  curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain 1.74.1"
+    echo "  curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain 1.75.0"
     exit 1
   fi
   # Check wasi-sdk version.
@@ -201,9 +201,34 @@ case "$cmd" in
   ;;
   "image-aztec")
     image=aztecprotocol/aztec:$(git rev-parse HEAD)
+    check_arch=false
+
+    # Check for --check-arch flag in args
+    for arg in "$@"; do
+      if [ "$arg" = "--check-arch" ]; then
+        check_arch=true
+        break
+      fi
+    done
+
     docker pull $image &>/dev/null || true
     if docker_has_image $image; then
-      exit
+      if [ "$check_arch" = true ]; then
+        # Check we're on the correct architecture
+        image_arch=$(docker inspect $image --format '{{.Architecture}}')
+        host_arch=$(uname -m | sed 's/x86_64/amd64/' | sed 's/aarch64/arm64/')
+
+        if [ "$image_arch" != "$host_arch" ]; then
+          echo "Warning: Image architecture ($image_arch) doesn't match host architecture ($host_arch)"
+          echo "Rebuilding image for correct architecture..."
+        else
+          echo "Image $image already exists and has been downloaded with correct architecture." && exit
+        fi
+      else
+        echo "Image $image already exists and has been downloaded." && exit
+      fi
+    else
+      echo "Image $image does not exist, building..."
     fi
     github_group "image-aztec"
     source $ci3/source_tmp

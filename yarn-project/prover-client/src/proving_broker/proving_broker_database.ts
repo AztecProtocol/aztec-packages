@@ -11,10 +11,10 @@ export interface ProvingBrokerDatabase {
   addProvingJob(request: ProvingJob): Promise<void>;
 
   /**
-   * Removes a proof request from the backend
-   * @param id - The ID of the proof request to remove
+   * Deletes all proving jobs belonging to epochs older than the given epoch
+   * @param epochNumber - The epoch number beyond which jobs should be deleted
    */
-  deleteProvingJobAndResult(id: ProvingJobId): Promise<void>;
+  deleteAllProvingJobsOlderThanEpoch(epochNumber: number): Promise<void>;
 
   /**
    * Returns an iterator over all saved proving jobs
@@ -36,4 +36,9 @@ export interface ProvingBrokerDatabase {
    * @param err - The error that occurred while processing the proof request
    */
   setProvingJobError(id: ProvingJobId, err: string): Promise<void>;
+
+  /**
+   * Closes the database
+   */
+  close(): Promise<void>;
 }

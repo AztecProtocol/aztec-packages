@@ -12,11 +12,9 @@ import type {
   AVM_PROOF_LENGTH_IN_FIELDS,
   AvmCircuitInputs,
   BaseParityInputs,
-  KernelCircuitPublicInputs,
   NESTED_RECURSIVE_PROOF_LENGTH,
   NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH,
   ParityPublicInputs,
-  PrivateKernelEmptyInputData,
   RECURSIVE_PROOF_LENGTH,
   RootParityInputs,
   TUBE_PROOF_LENGTH,
@@ -32,6 +30,7 @@ import {
   type PublicBaseRollupInputs,
   type RootRollupInputs,
   type RootRollupPublicInputs,
+  type SingleTxBlockRootRollupInputs,
   type TubeInputs,
 } from '@aztec/circuits.js/rollup';
 import { randomBytes } from '@aztec/foundation/crypto';
@@ -271,16 +270,6 @@ export class MemoryProvingQueue implements ServerCircuitProver, ProvingJobSource
     return promise.then(({ result }) => result);
   }
 
-  getEmptyPrivateKernelProof(
-    inputs: PrivateKernelEmptyInputData,
-    signal?: AbortSignal,
-    epochNumber?: number,
-  ): Promise<
-    PublicInputsAndRecursiveProof<KernelCircuitPublicInputs, typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH>
-  > {
-    return this.enqueue(ProvingRequestType.PRIVATE_KERNEL_EMPTY, inputs, signal, epochNumber);
-  }
-
   getTubeProof(
     inputs: TubeInputs,
     signal?: AbortSignal,
@@ -359,6 +348,16 @@ export class MemoryProvingQueue implements ServerCircuitProver, ProvingJobSource
     PublicInputsAndRecursiveProof<BlockRootOrBlockMergePublicInputs, typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH>
   > {
     return this.enqueue(ProvingRequestType.BLOCK_ROOT_ROLLUP, inputs, signal, epochNumber);
+  }
+
+  getSingleTxBlockRootRollupProof(
+    inputs: SingleTxBlockRootRollupInputs,
+    signal?: AbortSignal,
+    epochNumber?: number,
+  ): Promise<
+    PublicInputsAndRecursiveProof<BlockRootOrBlockMergePublicInputs, typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH>
+  > {
+    return this.enqueue(ProvingRequestType.SINGLE_TX_BLOCK_ROOT_ROLLUP, inputs, signal, epochNumber);
   }
 
   getEmptyBlockRootRollupProof(

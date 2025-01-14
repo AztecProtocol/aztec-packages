@@ -27,6 +27,7 @@ import { BatchSpanProcessor, NodeTracerProvider } from '@opentelemetry/sdk-trace
 import { ATTR_SERVICE_NAME, ATTR_SERVICE_VERSION } from '@opentelemetry/semantic-conventions';
 
 import { type TelemetryClientConfig } from './config.js';
+import { EventLoopMonitor } from './event_loop_monitor.js';
 import { linearBuckets } from './histogram_utils.js';
 import { registerOtelLoggerProvider } from './otel_logger_provider.js';
 import { getOtelResource } from './otel_resource.js';
@@ -34,6 +35,7 @@ import { type Gauge, type TelemetryClient } from './telemetry.js';
 
 export class OpenTelemetryClient implements TelemetryClient {
   hostMetrics: HostMetrics | undefined;
+  eventLoopMonitor: EventLoopMonitor | undefined;
   targetInfo: Gauge | undefined;
   private meters: Map<string, Meter> = new Map<string, Meter>();
   private tracers: Map<string, Tracer> = new Map<string, Tracer>();
@@ -87,6 +89,10 @@ export class OpenTelemetryClient implements TelemetryClient {
       meterProvider: this.meterProvider,
     });
 
+    this.eventLoopMonitor = new EventLoopMonitor(
+      this.meterProvider.getMeter(this.resource.attributes[ATTR_SERVICE_NAME] as string),
+    );
+
     // See these two links for more information on providing target information:
     // https://opentelemetry.io/docs/specs/otel/compatibility/prometheus_and_openmetrics/#resource-attributes
     // https://github.com/OpenObservability/OpenMetrics/blob/main/specification/OpenMetrics.md#supporting-target-metadata-in-both-push-based-and-pull-based-systems
@@ -96,6 +102,7 @@ export class OpenTelemetryClient implements TelemetryClient {
 
     this.targetInfo.record(1, this.resource.attributes);
     this.hostMetrics.start();
+    this.eventLoopMonitor.start();
   }
 
   public isEnabled() {
@@ -111,6 +118,8 @@ export class OpenTelemetryClient implements TelemetryClient {
   }
 
   public async stop() {
+    this.eventLoopMonitor?.stop();
+
     const flushAndShutdown = async (provider: { forceFlush: () => Promise<void>; shutdown: () => Promise<void> }) => {
       await provider.forceFlush();
       await provider.shutdown();
