@@ -93,8 +93,6 @@ spec:
               value: "{{ .Values.proverBroker.service.nodePort }}"
             - name: LOG_LEVEL
               value: "{{ .Values.proverBroker.logLevel }}"
-            - name: DATA_DIRECTORY
-              value: "{{ .Values.proverBroker.dataDir }}"
             - name: LOG_JSON
               value: "1"
             - name: PROVER_BROKER_POLL_INTERVAL_MS
