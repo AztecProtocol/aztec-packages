@@ -20,7 +20,7 @@ import { type L1ReaderConfig } from '../l1_reader.js';
 export class RollupContract {
   private readonly rollup: GetContractReturnType<typeof RollupAbi, PublicClient<HttpTransport, Chain>>;
 
-  constructor(public readonly client: PublicClient, address: Hex) {
+  constructor(public readonly client: PublicClient<HttpTransport, Chain>, address: Hex) {
     this.rollup = getContract({ address, abi: RollupAbi, client });
   }
 

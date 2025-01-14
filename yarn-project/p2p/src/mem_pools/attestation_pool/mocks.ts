@@ -9,14 +9,14 @@ import { makeHeader } from '@aztec/circuits.js/testing';
 import { type Secp256k1Signer } from '@aztec/foundation/crypto';
 import { Fr } from '@aztec/foundation/fields';
 
-import { generatePrivateKey, privateKeyToAccount } from 'viem/accounts';
+import { type LocalAccount, generatePrivateKey, privateKeyToAccount } from 'viem/accounts';
 
 /** Generate Account
  *
  * Create a random signer
  * @returns A random viem signer
  */
-export const generateAccount = () => {
+export const generateAccount = (): LocalAccount => {
   const privateKey = generatePrivateKey();
   return privateKeyToAccount(privateKey);
 };
