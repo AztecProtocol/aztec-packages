@@ -13,7 +13,7 @@ export interface RollupCommandArgs {
   privateKey?: string;
   mnemonic?: string;
   rollupAddress: EthAddress;
-  withdrawerAddress: EthAddress;
+  withdrawerAddress?: EthAddress;
 }
 
 export interface LoggerArgs {
@@ -69,7 +69,7 @@ export async function addL1Validator({
   const txHash = await rollup.write.deposit([
     validatorAddress.toString(),
     validatorAddress.toString(),
-    withdrawerAddress.toString(),
+    withdrawerAddress?.toString() ?? validatorAddress.toString(),
     config.minimumStake,
   ]);
   dualLog(`Transaction hash: ${txHash}`);
