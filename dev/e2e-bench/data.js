@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1736866757570,
+  "lastUpdate": 1736875820601,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "End-to-end Benchmark": [
@@ -34,6 +34,45 @@ window.BENCHMARK_DATA = {
           {
             "name": "Sequencer/aztec.sequencer.block_builder_tree_insertion_duration",
             "value": 649730,
+            "unit": "us"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "santiago@aztecprotocol.com",
+            "name": "Santiago Palladino",
+            "username": "spalladino"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "c107b6bb84f68d4d9bf8dca604f86fbdc7a8e88c",
+          "message": "chore: Block building benchmark via github-action-benchmark (#11202)\n\nDeletes old benchmarks, along with the benchmark-related scripts and\r\ntypes.\r\n\r\nAdds a single benchmark for block building, with a stubbed\r\n`TelemetryClient` that collects all datapoints in memory, and then\r\nflushes a set of specified metrics into the custom format expected by\r\n[github-action-benchmark](https://github.com/benchmark-action/github-action-benchmark),\r\nwhich we're currently using for bb.\r\n\r\nBenchmarks get published to\r\nhttps://aztecprotocol.github.io/aztec-packages/dev/e2e-bench/\r\n\r\nFixes #11154",
+          "timestamp": "2025-01-14T17:09:23Z",
+          "tree_id": "105c00ceaf27c7fbb6bfcab761bfd28e40a4adae",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/c107b6bb84f68d4d9bf8dca604f86fbdc7a8e88c"
+        },
+        "date": 1736875813179,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sequencer/aztec.sequencer.block.build_duration",
+            "value": 4526,
+            "unit": "ms"
+          },
+          {
+            "name": "Sequencer/aztec.sequencer.block.time_per_mana",
+            "value": 3.401117607245741,
+            "unit": "us/mana"
+          },
+          {
+            "name": "Sequencer/aztec.sequencer.block_builder_tree_insertion_duration",
+            "value": 657931,
             "unit": "us"
           }
         ]
