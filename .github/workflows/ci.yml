@@ -256,7 +256,7 @@ jobs:
         run: |
           echo ${{ secrets.DOCKERHUB_PASSWORD }} | docker login -u aztecprotocolci --password-stdin
           export CI=1 USE_CACHE=1
-          artifact="bench-${{matrix.test}}-$(./yarn-project/bootstrap.sh hash)"
+          artifact="bench-2-${{matrix.test}}-$(./yarn-project/bootstrap.sh hash)"
           if ci3/test_should_run "$artifact"; then
             docker pull aztecprotocol/aztec:${{ env.GIT_COMMIT }}
             docker pull aztecprotocol/end-to-end:${{ env.GIT_COMMIT }}
