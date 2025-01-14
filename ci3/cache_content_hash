@@ -58,4 +58,5 @@ if [[ "$CONTENT_HASH" == "$EMPTY_HASH" ]]; then
   exit 1
 fi
 
+# important: include architecture in content hash because we target x86_64 and arm64
 echo "${CONTENT_HASH}-${PLATFORM_TAG}"
