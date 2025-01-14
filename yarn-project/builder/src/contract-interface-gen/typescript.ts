@@ -39,11 +39,11 @@ function abiTypeToTypescript(type: ABIParameter['type']): string {
       if (isFunctionSelectorStruct(type)) {
         return 'FunctionSelectorLike';
       }
-      if (isWrappedFieldStruct(type)) {
-        return 'WrappedFieldLike';
-      }
       if (isU128Struct(type)) {
         return 'U128Like';
+      }
+      if (isWrappedFieldStruct(type)) {
+        return 'WrappedFieldLike';
       }
       return `{ ${type.fields.map(f => `${f.name}: ${abiTypeToTypescript(f.type)}`).join(', ')} }`;
     default:
@@ -344,6 +344,7 @@ import {
   PublicKeys,
   type UnencryptedL2Log,
   type Wallet,
+  type U128Like,
   type WrappedFieldLike,
 } from '@aztec/aztec.js';
 ${artifactStatement}
