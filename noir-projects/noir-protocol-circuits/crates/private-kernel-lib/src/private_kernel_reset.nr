@@ -187,7 +187,6 @@ mod tests {
     impl PrivateKernelResetInputsBuilder {
         pub fn new() -> Self {
             let mut previous_kernel = FixtureBuilder::new().in_vk_tree(PRIVATE_KERNEL_INNER_INDEX);
-            previous_kernel.set_protocol_nullifier();
 
             Self {
                 previous_kernel,
@@ -221,8 +220,7 @@ mod tests {
                 ReadRequestStatus { state: ReadRequestState.PENDING, hint_index };
         }
 
-        pub fn add_pending_nullifier_read_request(&mut self, nullifier_index_offset_one: u32) {
-            let nullifier_index = nullifier_index_offset_one + 1; // + 1 is for the first nullifier
+        pub fn add_pending_nullifier_read_request(&mut self, nullifier_index: u32) {
             let read_request_index =
                 self.previous_kernel.add_read_request_for_pending_nullifier(nullifier_index);
             let hint_index = self.nullifier_read_request_hints_builder.pending_read_hints.len();
@@ -402,8 +400,8 @@ mod tests {
         builder.previous_kernel.append_nullifiers(3);
         builder.add_pending_nullifier_read_request(1);
         let mut hint = builder.nullifier_read_request_hints_builder.pending_read_hints.pop();
-        assert(hint.pending_value_index == 2);
-        hint.pending_value_index = 1;
+        assert(hint.pending_value_index == 1);
+        hint.pending_value_index = 0;
         builder.nullifier_read_request_hints_builder.pending_read_hints.push(hint);
 
         builder.failed();
@@ -470,15 +468,15 @@ mod tests {
         let mut builder = PrivateKernelResetInputsBuilder::new();
         builder.previous_kernel.append_note_hashes_with_logs(1);
         builder.previous_kernel.append_nullifiers(2);
-        // The nullifier at index 1 is nullifying the hash at index 0;
-        builder.nullify_pending_note_hash(1, 0);
+        // The nullifier at index 0 is nullifying the hash at index 0;
+        builder.nullify_pending_note_hash(0, 0);
         let nullifiers = builder.previous_kernel.nullifiers.storage();
         let public_inputs = builder.execute();
 
         assert(is_empty_array(public_inputs.end.note_hashes));
 
-        // The nullifier at index 1 is chopped.
-        assert_array_eq(public_inputs.end.nullifiers, [nullifiers[0], nullifiers[2]]);
+        // The nullifier at index 0 is chopped.
+        assert_array_eq(public_inputs.end.nullifiers, [nullifiers[1]]);
         assert(is_empty_array(public_inputs.end.private_logs));
     }
 
@@ -488,7 +486,7 @@ mod tests {
         builder.previous_kernel.append_note_hashes_with_logs(2);
         builder.previous_kernel.append_nullifiers(2);
         // The nullifier at index 1 is nullifying the hash at index 0;
-        builder.nullify_pending_note_hash(1, 0);
+        builder.nullify_pending_note_hash(0, 0);
         let note_hashes = builder.previous_kernel.note_hashes.storage();
         let nullifiers = builder.previous_kernel.nullifiers.storage();
         let private_logs = builder.previous_kernel.private_logs.storage();
@@ -497,8 +495,8 @@ mod tests {
         // The 0th hash is chopped.
         assert_array_eq(public_inputs.end.note_hashes, [note_hashes[1]]);
 
-        // The nullifier at index 1 is chopped.
-        assert_array_eq(public_inputs.end.nullifiers, [nullifiers[0], nullifiers[2]]);
+        // The nullifier at index 0 is chopped.
+        assert_array_eq(public_inputs.end.nullifiers, [nullifiers[1]]);
 
         // The 0th log is chopped.
         assert_array_eq(public_inputs.end.private_logs, [private_logs[1]]);
@@ -509,17 +507,16 @@ mod tests {
         let mut builder = PrivateKernelResetInputsBuilder::new();
         builder.previous_kernel.append_note_hashes_with_logs(2);
         builder.previous_kernel.append_nullifiers(2);
-        // The nullifier at index 1 is nullifying the hash at index 1;
-        builder.nullify_pending_note_hash(1, 1);
-        // The nullifier at index 2 is nullifying the hash at index 0;
-        builder.nullify_pending_note_hash(2, 0);
-        let nullifiers = builder.previous_kernel.nullifiers.storage();
+        // The nullifier at index 0 is nullifying the hash at index 1;
+        builder.nullify_pending_note_hash(0, 1);
+        // The nullifier at index 1 is nullifying the hash at index 0;
+        builder.nullify_pending_note_hash(1, 0);
         let public_inputs = builder.execute();
 
         assert(is_empty_array(public_inputs.end.note_hashes));
 
-        // Only the first nullifier is left after squashing.
-        assert_array_eq(public_inputs.end.nullifiers, [nullifiers[0]]);
+        // No nullifiers left after squashing.
+        assert_array_eq(public_inputs.end.nullifiers, []);
         assert(is_empty_array(public_inputs.end.private_logs));
     }
 
@@ -536,25 +533,24 @@ mod tests {
 
         builder.previous_kernel.append_nullifiers(3);
         // Shuffle the nullifiers so they will have to be re-ordered.
-        let tmp = builder.previous_kernel.nullifiers.get(1);
-        builder.previous_kernel.nullifiers.set(1, builder.previous_kernel.nullifiers.get(3));
-        builder.previous_kernel.nullifiers.set(3, builder.previous_kernel.nullifiers.get(2));
-        builder.previous_kernel.nullifiers.set(2, tmp);
+        let tmp = builder.previous_kernel.nullifiers.get(0);
+        builder.previous_kernel.nullifiers.set(0, builder.previous_kernel.nullifiers.get(2));
+        builder.previous_kernel.nullifiers.set(2, builder.previous_kernel.nullifiers.get(1));
+        builder.previous_kernel.nullifiers.set(1, tmp);
 
-        // The nullifier at index 1 is nullifying the note hash at index 1;
-        builder.nullify_pending_note_hash(1, 1);
-        // The nullifier at index 2 is nullifying the note hash at index 2;
-        builder.nullify_pending_note_hash(2, 2);
-        // The nullifier at index 3 is nullifying the note hash at index 0;
-        builder.nullify_pending_note_hash(3, 0);
+        // The nullifier at index 0 is nullifying the note hash at index 1;
+        builder.nullify_pending_note_hash(0, 1);
+        // The nullifier at index 1 is nullifying the note hash at index 2;
+        builder.nullify_pending_note_hash(1, 2);
+        // The nullifier at index 2 is nullifying the note hash at index 0;
+        builder.nullify_pending_note_hash(2, 0);
 
-        let nullifiers = builder.previous_kernel.nullifiers.storage();
         let public_inputs = builder.execute();
 
         assert(is_empty_array(public_inputs.end.note_hashes));
 
-        // Only the first nullifier is left after squashing.
-        assert_array_eq(public_inputs.end.nullifiers, [nullifiers[0]]);
+        // No nullifiers left after squashing.
+        assert_array_eq(public_inputs.end.nullifiers, []);
         assert(is_empty_array(public_inputs.end.private_logs));
     }
 
@@ -599,6 +595,7 @@ mod tests {
     #[test]
     fn squashing_and_siloing_and_ordering_succeeds() {
         let mut builder = PrivateKernelResetInputsBuilder::new().with_siloing();
+        builder.previous_kernel.set_protocol_nullifier();
 
         builder.previous_kernel.append_note_hashes_with_logs(1);
         builder.previous_kernel.append_private_logs(1); // Log at index 1 is a non-note log.
@@ -644,6 +641,22 @@ mod tests {
         assert_array_eq(public_inputs.end.private_logs, output_logs);
     }
 
+    #[test]
+    fn siloing_without_protocol_nullifier_succeeds() {
+        let mut builder = PrivateKernelResetInputsBuilder::new().with_siloing();
+
+        builder.previous_kernel.append_note_hashes(1);
+        let note_hash = builder.previous_kernel.note_hashes.get(0);
+
+        let public_inputs = builder.execute();
+
+        // The note hash at index 2 is chopped.
+        let output_note_hash =
+            builder.compute_output_note_hashes([note_hash])[0];
+        assert_array_eq(public_inputs.end.note_hashes, [output_note_hash]);
+    }
+
+
     #[test(should_fail_with = "note hashes have been siloed in a previous reset")]
     fn siloing_note_hashes_again_fails() {
         let mut builder = PrivateKernelResetInputsBuilder::new().with_siloing();
@@ -664,22 +677,20 @@ mod tests {
 
         builder.previous_kernel.append_nullifiers(2);
 
-        // The nullifier at index 1 is siloed.
-        let mut nullifier = builder.previous_kernel.nullifiers.get(1);
+        // The nullifier at index 0 is siloed.
+        let mut nullifier = builder.previous_kernel.nullifiers.get(0);
         nullifier.contract_address = AztecAddress::zero();
-        builder.previous_kernel.nullifiers.set(1, nullifier);
+        builder.previous_kernel.nullifiers.set(0, nullifier);
 
         let nullifiers = builder.previous_kernel.nullifiers.storage();
 
         let public_inputs = builder.execute();
 
         let output_nullifiers = public_inputs.end.nullifiers;
-        // The 0th nullifier (tx hash) doesn't change.
+        // The 0th nullifier doesn't change.
         assert(OrderedValue::<Field>::value(output_nullifiers[0]) == nullifiers[0].value());
-        // The 1st nullifier doesn't change.
-        assert(OrderedValue::<Field>::value(output_nullifiers[1]) == nullifiers[1].value());
-        // The 2nd nullifier has been siloed
-        assert(OrderedValue::<Field>::value(output_nullifiers[2]) != nullifiers[2].value());
+        // The 1st nullifier has been siloed
+        assert(OrderedValue::<Field>::value(output_nullifiers[1]) != nullifiers[1].value());
     }
 
     #[test(should_fail_with = "Invalid vk index")]
