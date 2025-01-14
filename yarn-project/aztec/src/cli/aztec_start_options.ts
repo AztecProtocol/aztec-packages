@@ -3,12 +3,6 @@ import { faucetConfigMapping } from '@aztec/aztec-faucet/config';
 import { sequencerClientConfigMappings } from '@aztec/aztec-node/config';
 import { botConfigMappings } from '@aztec/bot/config';
 import {
-  type ProverAgentConfig,
-  type ProverBrokerConfig,
-  proverAgentConfigMappings,
-  proverBrokerConfigMappings,
-} from '@aztec/circuit-types/config';
-import {
   type ConfigMapping,
   type EnvVar,
   booleanConfigHelper,
@@ -17,6 +11,12 @@ import {
 } from '@aztec/foundation/config';
 import { bootnodeConfigMappings, p2pConfigMappings } from '@aztec/p2p/config';
 import { proofVerifierConfigMappings } from '@aztec/proof-verifier/config';
+import {
+  type ProverAgentConfig,
+  type ProverBrokerConfig,
+  proverAgentConfigMappings,
+  proverBrokerConfigMappings,
+} from '@aztec/prover-client/broker';
 import { proverNodeConfigMappings } from '@aztec/prover-node/config';
 import { allPxeConfigMappings } from '@aztec/pxe/config';
 import { telemetryClientConfigMappings } from '@aztec/telemetry-client/start';

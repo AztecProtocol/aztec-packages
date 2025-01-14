@@ -85,9 +85,8 @@ jobs:
           ./bootstrap.sh image-e2e
       - name: "Test"
         timeout-minutes: 40
-        continue-on-error: true
         run: |
-          ./bootstrap.sh e2e-test uniswap_trade_on_l1_from_l2
+          ./bootstrap.sh test-e2e uniswap_trade_on_l1_from_l2
 
   rerun-check:
     runs-on: ubuntu-20.04

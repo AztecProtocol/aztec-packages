@@ -40,7 +40,7 @@ export class BlockRootOrBlockMergePublicInputs {
      */
     public endGlobalVariables: GlobalVariables,
     /**
-     * SHA256 hash of outhash. Used to make public inputs constant-sized (to then be unpacked on-chain).
+     * SHA256 hash of L2 to L1 messages. Used to make public inputs constant-sized (to then be opened on-chain).
      * Note: Truncated to 31 bytes to fit in Fr.
      */
     public outHash: Fr,
@@ -167,5 +167,9 @@ export class FeeRecipient {
       return {};
     }
     return { recipient: this.recipient.toString(), value: this.value.toString() };
+  }
+
+  static random() {
+    return new FeeRecipient(EthAddress.random(), Fr.random());
   }
 }

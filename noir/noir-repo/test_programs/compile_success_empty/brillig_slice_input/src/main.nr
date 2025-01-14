@@ -16,6 +16,7 @@ unconstrained fn sum_slice(slice: [[Point; 2]]) -> Field {
 fn main() {
     let mut slice = &[];
     slice = slice.push_back([Point { x: 13, y: 14 }, Point { x: 20, y: 8 }]);
+    /// Safety: testing context
     unsafe {
         //@safety: testing context
         let brillig_sum = sum_slice(slice);
@@ -23,6 +24,7 @@ fn main() {
     }
 
     slice = slice.push_back([Point { x: 15, y: 5 }, Point { x: 12, y: 13 }]);
+    /// Safety: testing context
     unsafe {
         //@safety: testing context
         let brillig_sum = sum_slice(slice);

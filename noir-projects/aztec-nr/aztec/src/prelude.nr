@@ -1,6 +1,6 @@
 // docs:start:prelude
 pub use crate::{
-    context::{PackedReturns, PrivateContext, PublicContext},
+    context::{PrivateContext, PublicContext, ReturnsHash},
     note::{
         note_getter_options::NoteGetterOptions,
         note_header::NoteHeader,
