@@ -161,6 +161,7 @@ export class NativeWorldStateService implements MerkleTreeDatabase {
     const resp = await this.instance.call(WorldStateMessageType.CREATE_FORK, {
       latest: blockNumber === undefined,
       blockNumber: blockNumber ?? 0,
+      canonical: true,
     });
     return new MerkleTreesForkFacade(this.instance, this.initialHeader!, worldStateRevision(true, resp.forkId, 0));
   }
@@ -206,6 +207,7 @@ export class NativeWorldStateService implements MerkleTreeDatabase {
         paddedNullifiers: paddedNullifiers.map(serializeLeaf),
         publicDataWrites: publicDataWrites.map(serializeLeaf),
         blockStateRef: blockStateReference(l2Block.header.state),
+        canonical: true,
       },
       this.sanitiseAndCacheSummaryFromFull.bind(this),
       this.deleteCachedSummary.bind(this),
@@ -248,6 +250,7 @@ export class NativeWorldStateService implements MerkleTreeDatabase {
       WorldStateMessageType.FINALISE_BLOCKS,
       {
         toBlockNumber,
+        canonical: true,
       },
       this.sanitiseAndCacheSummary.bind(this),
       this.deleteCachedSummary.bind(this),
@@ -265,6 +268,7 @@ export class NativeWorldStateService implements MerkleTreeDatabase {
       WorldStateMessageType.REMOVE_HISTORICAL_BLOCKS,
       {
         toBlockNumber,
+        canonical: true,
       },
       this.sanitiseAndCacheSummaryFromFull.bind(this),
       this.deleteCachedSummary.bind(this),
@@ -281,6 +285,7 @@ export class NativeWorldStateService implements MerkleTreeDatabase {
       WorldStateMessageType.UNWIND_BLOCKS,
       {
         toBlockNumber,
+        canonical: true,
       },
       this.sanitiseAndCacheSummaryFromFull.bind(this),
       this.deleteCachedSummary.bind(this),
@@ -291,7 +296,11 @@ export class NativeWorldStateService implements MerkleTreeDatabase {
     if (this.cachedStatusSummary !== undefined) {
       return { ...this.cachedStatusSummary };
     }
-    return await this.instance.call(WorldStateMessageType.GET_STATUS, void 0, this.sanitiseAndCacheSummary.bind(this));
+    return await this.instance.call(
+      WorldStateMessageType.GET_STATUS,
+      { canonical: true },
+      this.sanitiseAndCacheSummary.bind(this),
+    );
   }
 
   updateLeaf<ID extends IndexedTreeId>(
@@ -303,7 +312,7 @@ export class NativeWorldStateService implements MerkleTreeDatabase {
   }
 
   private async getInitialStateReference(): Promise<StateReference> {
-    const resp = await this.instance.call(WorldStateMessageType.GET_INITIAL_STATE_REFERENCE, void 0);
+    const resp = await this.instance.call(WorldStateMessageType.GET_INITIAL_STATE_REFERENCE, { canonical: true });
 
     return new StateReference(
       treeStateReferenceToSnapshot(resp.state[MerkleTreeId.L1_TO_L2_MESSAGE_TREE]),

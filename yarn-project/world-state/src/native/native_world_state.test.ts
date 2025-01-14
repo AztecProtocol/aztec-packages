@@ -709,4 +709,54 @@ describe('NativeWorldState', () => {
       await ws.close();
     });
   });
+
+  describe('Concurrent requests', () => {
+    let ws: NativeWorldStateService;
+
+    beforeEach(async () => {
+      ws = await NativeWorldStateService.tmp();
+    });
+
+    afterEach(async () => {
+      await ws.close();
+    });
+
+    it('Mutating and non-mutating requests are correctly queued', async () => {
+      const numReads = 64;
+      const fork = await ws.fork();
+
+      const { block: block1 } = await mockBlock(1, 8, fork);
+      const { block: block2 } = await mockBlock(2, 8, fork);
+
+      await fork.sequentialInsert(
+        MerkleTreeId.PUBLIC_DATA_TREE,
+        block1.body.txEffects.map(write => {
+          return write.toBuffer();
+        }),
+      );
+
+      const initialPath = await fork.getSiblingPath(MerkleTreeId.PUBLIC_DATA_TREE, 0n);
+
+      const firstReads = Array.from({ length: numReads }, () => fork.getSiblingPath(MerkleTreeId.PUBLIC_DATA_TREE, 0n));
+      const write = fork.sequentialInsert(
+        MerkleTreeId.PUBLIC_DATA_TREE,
+        block2.body.txEffects.map(write => {
+          return write.toBuffer();
+        }),
+      );
+      const secondReads = Array.from({ length: numReads }, () =>
+        fork.getSiblingPath(MerkleTreeId.PUBLIC_DATA_TREE, 0n),
+      );
+      await Promise.all([...firstReads, write, ...secondReads]);
+
+      const finalPath = await fork.getSiblingPath(MerkleTreeId.PUBLIC_DATA_TREE, 0n);
+
+      for (let i = 0; i < numReads; i++) {
+        const firstPath = await firstReads[i];
+        const secondPath = await secondReads[i];
+        expect(firstPath).toEqual(initialPath);
+        expect(secondPath).toEqual(finalPath);
+      }
+    }, 30_000);
+  });
 });

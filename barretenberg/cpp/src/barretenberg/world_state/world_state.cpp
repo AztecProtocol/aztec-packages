@@ -46,7 +46,8 @@ WorldState::WorldState(uint64_t thread_pool_size,
     , _forkId(CANONICAL_FORK_ID)
     , _initial_header_generator_point(initial_header_generator_point)
 {
-    create_canonical_fork(data_dir, map_size, thread_pool_size);
+    uint64_t maxReaders = std::max(thread_pool_size, DEFAULT_MIN_NUMBER_OF_READERS);
+    create_canonical_fork(data_dir, map_size, maxReaders);
 }
 
 WorldState::WorldState(uint64_t thread_pool_size,
