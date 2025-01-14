@@ -8,31 +8,55 @@ importance: 1
 
 import Image from "@theme/IdealImage";
 
-The Private Execution Environment (or PXE, pronounced 'pixie') is a client-side library for the execution of private operations. It is a TypeScript library and can be run within Node, such as when you run the sandbox. In the future it could be run inside wallet software or a browser.
+This page describes the Private Execution Environment (PXE), a client-side library for the execution of private operations.
 
-The PXE generates proofs of private function execution, and sends these proofs along with public function requests to the sequencer. Private inputs never leave the client-side PXE.
+The Private Execution Environment (or PXE, pronounced 'pixie') is a client-side library for the execution of private operations. It is a TypeScript library that can be run within Node.js, inside wallet software or a browser.
 
-<Image img={require("/img/pxe.png")} />
+The PXE is a client-side interface of the PXE Service, which is a set of server-side APIs for interacting with the network. The PXE generates proofs of private function execution, and sends these proofs along with public function requests to the sequencer. Private inputs never leave the client-side PXE.
 
-## PXE Service
+The PXE is responsible for:
 
-The PXE is a client-side interface of the PXE Service, which is a set of server-side APIs for interacting with the network. It provides functions for account management, contract and transaction interactions, note management, and more.
+- storing secrets (e.g. encryption keys, notes, tagging secrets for note discovery) and exposing an interface for safely accessing them
+- orchestrating private function (circuit) execution and proof generation, including implementing [oracles](../../smart_contracts/oracles/index.md) needed for transaction execution
+- syncing relevant network state, obtained from an Aztec node
+
+One PXE can handle data and secrets for multiple accounts.
+
+## System architecture
+
+```mermaid
+flowchart TB
+    User --Interacts with--> Wallet
+    Wallet --Prompts--> User
+    subgraph Browser
+    Dapp
+    end
+    Dapp --Calls\n(requires auth)--> Wallet
+    subgraph Extension
+        Wallet --Scoped--> PXE
+        PXE --Execute/Prove--> Circuits
+        Circuits --Oracle--> PXE
+    end
+    PXE --Queries world-state\n(causes privacy leaks)--> Node
+    Wallet --Track tx state\n(may be handled via PXE)--> Node
+
+```
 
 ## Components
 
 ### ACIR simulator
 
-The ACIR (Abstract Circuit Intermediate Representation) simulator handles the accurate execution of smart contract functions by simulating transactions. It generates the required data and inputs for these functions. You can find more details about how it works [here](./acir_simulator.md).
+The ACIR (Abstract Circuit Intermediate Representation) simulator handles the execution of smart contract functions by simulating transactions. It generates the required data and inputs for these functions. You can find more details about how it works [here](./acir_simulator.md).
 
 ### Database
 
-The database stores transactional data and notes within the user's PXE. In the Aztec protocol, the database is implemented as a key-value database backed by LMDB. There is an interface ([GitHub](https://github.com/AztecProtocol/aztec-packages/blob/ca8b5d9dbff8d8062dbf1cb1bd39d93a4a636e86/yarn-project/pxe/src/database/pxe_database.ts)) for this PXE database that can be implemented in other ways, such as an in-memory database that can be used for testing.
+The database stores transactional data and notes within the user's PXE.
 
 The database stores various types of data, including:
 
 - **Notes**: Encrypted representations of assets.
 - **Deferred Notes**: Notes that are intended for a user but cannot yet be decoded due to the associated contract not being present in the database. When new contracts are deployed, there may be some time before it is accessible from the PXE database. When the PXE database is updated, deferred note are decoded.
-- **Authentication Witnesses**: Data used to approve others from executing transactions on your behalf.
+- **Authentication Witnesses**: Data used to approve others for executing transactions on your behalf.
 - **Capsules**: External data or data injected into the system via [oracles](#oracles).
 
 ### Note discovery
