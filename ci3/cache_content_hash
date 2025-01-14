@@ -2,7 +2,7 @@
 set -euo pipefail
 [ "${BUILD_SYSTEM_DEBUG:-}" = 1 ] && set -x
 
-if [[ "$#" -eq 0 ]]; then
+if [[ "$#" = 0 ]]; then
   echo "Error: No arguments provided."
   exit 1
 fi
