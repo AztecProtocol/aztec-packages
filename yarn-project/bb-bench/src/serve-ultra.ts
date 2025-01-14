@@ -1,6 +1,6 @@
 import createDebug from 'debug';
 
-import { generateCircuit, proveThenVerifyUltraHonk } from './index.js';
+import { generateFirstCircuit, proveThenVerifyUltraHonk } from './index.js';
 
 createDebug.enable('*'); // needed for logging in Firefox but not Chrome
 const logger = createDebug('aztec:bb-bench');
@@ -87,7 +87,7 @@ document.addEventListener('DOMContentLoaded', function () {
   button.innerText = 'Run Test';
   button.addEventListener('click', async () => {
     logger(`generating circuit and witness...`);
-    const [bytecodes, witnessStack] = await generateCircuit();
+    const [bytecodes, witnessStack] = await generateFirstCircuit();
     logger(`done. proving and verifying...`);
     const verified = await proveThenVerifyUltraHonk(bytecodes, witnessStack);
     logger(`verified? ${verified}`);

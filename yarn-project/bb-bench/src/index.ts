@@ -17,6 +17,7 @@ import MockPrivateKernelInnerCircuit from '../artifacts/mock_private_kernel_inne
 import MockPrivateKernelResetCircuit from '../artifacts/mock_private_kernel_reset.json' assert { type: 'json' };
 import MockPrivateKernelTailCircuit from '../artifacts/mock_private_kernel_tail.json' assert { type: 'json' };
 import MockPublicBaseCircuit from '../artifacts/mock_public_base.json' assert { type: 'json' };
+import FirstCircuit from '../circuits/first/target/first.json' assert { type: 'json' };
 import SecondCircuit from '../circuits/second/target/second.json' assert { type: 'json' };
 import type {
   AppCreatorInputType,
@@ -95,6 +96,20 @@ export async function witnessGenMockPrivateKernelTailCircuit(
 }
 export type Field = string;
 
+export type FirstCircuitInputType = {
+  x: Field;
+  y: Field;
+};
+
+export async function witnessGenFirstCircuit(args: FirstCircuitInputType): Promise<WitnessGenResult<u8>> {
+  const program = new Noir(FirstCircuit);
+  const { witness, returnValue } = await program.execute(args, foreignCallHandler);
+  return {
+    witness,
+    publicInputs: returnValue as u8,
+  };
+}
+
 export type SecondCircuitInputType = {
   verification_key: FixedLengthArray<Field, 128>;
   key_hash: Field;
@@ -118,7 +133,22 @@ export function getVkAsFields(vk: {
   return vk.keyAsFields as FixedLengthArray<string, typeof CLIENT_IVC_VERIFICATION_KEY_LENGTH_IN_FIELDS>;
 }
 
-export async function generateCircuit(): Promise<[string, Uint8Array]> {
+export async function generateFirstCircuit(): Promise<[string, Uint8Array]> {
+  // Witness gen app and kernels
+  const witnessGenResult = await witnessGenFirstCircuit({
+    x: '0x1',
+    y: '0x2',
+  });
+  logger('generated first circuit');
+
+  // Create client IVC proof
+  const bytecode = FirstCircuit.bytecode;
+  const witness = witnessGenResult.witness;
+
+  return [bytecode, witness];
+}
+
+export async function generateSecondCircuit(): Promise<[string, Uint8Array]> {
   // Witness gen app and kernels
   const witnessGenResult = await witnessGenSecondCircuit({
     public_inputs: ['0x2'],
