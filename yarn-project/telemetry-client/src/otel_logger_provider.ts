@@ -4,11 +4,7 @@ import { CompressionAlgorithm } from '@opentelemetry/otlp-exporter-base';
 import { type IResource } from '@opentelemetry/resources';
 import { BatchLogRecordProcessor, LoggerProvider } from '@opentelemetry/sdk-logs';
 
-import { getOtelResource } from './otel_resource.js';
-
-export async function registerOtelLoggerProvider(resource?: IResource, otelLogsUrl?: URL) {
-  resource ??= await getOtelResource();
-
+export function registerOtelLoggerProvider(resource: IResource, otelLogsUrl?: URL) {
   const loggerProvider = new LoggerProvider({ resource });
   if (!otelLogsUrl) {
     // If no URL provided, return it disconnected.
