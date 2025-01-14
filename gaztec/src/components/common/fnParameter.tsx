@@ -9,6 +9,7 @@ import {
 import { formatFrAsString } from "../../utils/conversion";
 import { useState } from "react";
 import EditIcon from "@mui/icons-material/Edit";
+import { AbiType } from "@noir-lang/types";
 
 const container = css({
   display: "flex",
@@ -27,6 +28,21 @@ export function FunctionParameter({
   onParameterChange: (value: string) => void;
 }) {
   const [manualInput, setManualInput] = useState(false);
+
+  const handleParameterChange = (value: string, type: AbiType) => {
+    switch (type.kind) {
+      case "field": {
+        console.log(BigInt(value).toString(16));
+        onParameterChange(BigInt(value).toString(16));
+        break;
+      }
+      default: {
+        onParameterChange(value);
+        break;
+      }
+    }
+  };
+
   return (
     <div css={container}>
       {isAddressStruct(parameter.type) && !manualInput ? (
@@ -37,7 +53,9 @@ export function FunctionParameter({
             id: alias.value,
             label: `${alias.key} (${formatFrAsString(alias.value)})`,
           }))}
-          onChange={(_, newValue) => onParameterChange(newValue.id)}
+          onChange={(_, newValue) =>
+            handleParameterChange(newValue.id, parameter.type)
+          }
           sx={{ width: 300, marginTop: "1rem" }}
           renderInput={(params) => (
             <TextField {...params} label={capitalize(parameter.name)} />
@@ -46,10 +64,13 @@ export function FunctionParameter({
       ) : (
         <TextField
           variant="outlined"
+          disabled={["array", "struct", "tuple"].includes(parameter.type.kind)}
           key={parameter.name}
           type="text"
           label={capitalize(parameter.name)}
-          onChange={(e) => onParameterChange(e.target.value)}
+          onChange={(e) =>
+            handleParameterChange(e.target.value, parameter.type)
+          }
           sx={{ marginTop: "1rem", marginRight: "1rem" }}
           fullWidth
         />
