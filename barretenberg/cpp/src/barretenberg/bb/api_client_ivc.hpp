@@ -93,8 +93,7 @@ class ClientIVCAPI : public API {
 
         // TODO(https://github.com/AztecProtocol/barretenberg/issues/1162): Efficiently unify ACIR stack parsing
         if (input_type == "compiletime_stack") {
-            auto program_stack =
-                acir_format::get_acir_program_stack(bytecode_path, witness_path, /*honk_recursion=*/false);
+            auto program_stack = acir_format::get_acir_program_stack(bytecode_path, witness_path, /*honk_recursion=*/0);
             // Accumulate the entire program stack into the IVC
             while (!program_stack.empty()) {
                 auto stack_item = program_stack.back();
@@ -116,7 +115,7 @@ class ClientIVCAPI : public API {
                 std::vector<uint8_t> witness_buf =
                     decompress(reinterpret_cast<uint8_t*>(wit.data()), wit.size()); // NOLINT
 
-                AcirFormat constraints = circuit_buf_to_acir_format(constraint_buf, /*honk_recursion=*/false);
+                AcirFormat constraints = circuit_buf_to_acir_format(constraint_buf, /*honk_recursion=*/0);
                 WitnessVector witness = witness_buf_to_witness_data(witness_buf);
 
                 folding_stack.push_back(AcirProgram{ constraints, witness });

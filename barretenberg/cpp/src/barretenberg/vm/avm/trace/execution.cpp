@@ -1,11 +1,15 @@
 #include "barretenberg/vm/avm/trace/execution.hpp"
 #include "barretenberg/bb/log.hpp"
+#include "barretenberg/common/log.hpp"
 #include "barretenberg/common/serialize.hpp"
+#include "barretenberg/common/thread.hpp"
 #include "barretenberg/common/throw_or_abort.hpp"
 #include "barretenberg/numeric/uint256/uint256.hpp"
 #include "barretenberg/vm/avm/generated/circuit_builder.hpp"
+#include "barretenberg/vm/avm/generated/columns.hpp"
 #include "barretenberg/vm/avm/generated/composer.hpp"
 #include "barretenberg/vm/avm/generated/flavor.hpp"
+#include "barretenberg/vm/avm/generated/full_row.hpp"
 #include "barretenberg/vm/avm/generated/verifier.hpp"
 #include "barretenberg/vm/avm/trace/common.hpp"
 #include "barretenberg/vm/avm/trace/deserialization.hpp"
@@ -28,6 +32,7 @@
 #include <cstdint>
 #include <cstdlib>
 #include <filesystem>
+#include <iomanip>
 #include <stdexcept>
 #include <string>
 #include <tuple>
@@ -139,44 +144,79 @@ void show_trace_info(const auto& trace)
         return;
     }
 
-    const size_t total_elements = trace.front().SIZE * trace.size();
-    const size_t nonzero_elements = [&]() {
-        size_t count = 0;
-        for (auto const& row : trace) {
-            for (const auto& ff : row.as_vector()) {
-                if (!ff.is_zero()) {
-                    count++;
-                }
+    // Calculate number of non-zero entries in each column.
+    struct ColumnStats {
+        size_t column_number = 0;
+        size_t non_zero_entries = 0;
+        size_t total_entries = 0;
+        size_t fullness = 0; // 0 to 100.
+    };
+    std::vector<ColumnStats> column_stats(static_cast<size_t>(avm::ColumnAndShifts::NUM_COLUMNS));
+    bb::parallel_for(static_cast<size_t>(avm::ColumnAndShifts::NUM_COLUMNS), [&](size_t col) {
+        size_t non_zero_entries = 0;
+        ssize_t last_non_zero_row = -1;
+        for (uint32_t row_n = 0; row_n < trace.size(); row_n++) {
+            const auto& row = trace.at(row_n);
+            if (!row.get_column(static_cast<avm::ColumnAndShifts>(col)).is_zero()) {
+                non_zero_entries++;
+                last_non_zero_row = row_n;
             }
         }
-        return count;
-    }();
-    vinfo("Number of non-zero elements: ",
-          nonzero_elements,
-          "/",
-          total_elements,
-          " (",
-          100 * nonzero_elements / total_elements,
-          "%)");
-    const size_t non_zero_columns = [&]() {
-        std::vector<bool> column_is_nonzero(trace.front().SIZE, false);
-        for (auto const& row : trace) {
-            const auto row_vec = row.as_vector();
-            for (size_t col = 0; col < row.SIZE; col++) {
-                if (!row_vec[col].is_zero()) {
-                    column_is_nonzero[col] = true;
-                }
+        size_t size = static_cast<size_t>(last_non_zero_row + 1);
+        column_stats[col] = { .column_number = col,
+                              .non_zero_entries = non_zero_entries,
+                              .total_entries = size,
+                              .fullness = size > 0 ? non_zero_entries * 100 / size : 0 };
+    });
+    // ignore empty columns because they don't cost anything.
+    std::erase_if(column_stats, [](const ColumnStats& stat) { return stat.total_entries == 0; });
+    std::sort(column_stats.begin(), column_stats.end(), [](const ColumnStats& a, const ColumnStats& b) {
+        return a.fullness > b.fullness;
+    });
+    vinfo(
+        "Median column fullness: ",
+        [&]() {
+            const auto& median_stat = column_stats.at(column_stats.size() / 2);
+            return median_stat.fullness;
+        }(),
+        "%");
+    vinfo(
+        "Average column fullness: ",
+        [&]() {
+            size_t fullness_sum = 0;
+            for (const auto& stat : column_stats) {
+                fullness_sum += stat.fullness;
             }
+            return static_cast<int>(fullness_sum / column_stats.size());
+        }(),
+        "%");
+    if (getenv("AVM_FULL_COLUMN_STATS") != nullptr) {
+        vinfo("Fullness of all columns, ignoring empty ones:");
+        // Print fullness of all columns in descending order and batches of 10.
+        for (size_t i = 0; i < column_stats.size(); i += 10) {
+            std::string fullnesses;
+            for (size_t j = i; j < i + 10 && j < column_stats.size(); j++) {
+                const auto& stat = column_stats.at(j);
+                fullnesses += format(std::setw(3), stat.column_number, ": ", std::setw(3), stat.fullness, "%  ");
+            }
+            vinfo(fullnesses);
         }
-        return static_cast<size_t>(std::count(column_is_nonzero.begin(), column_is_nonzero.end(), true));
-    }();
-    vinfo("Number of non-zero columns: ",
-          non_zero_columns,
-          "/",
-          trace.front().SIZE,
-          " (",
-          100 * non_zero_columns / trace.front().SIZE,
-          "%)");
+
+        vinfo("Details for 20 most sparse columns:");
+        const auto names = AvmFullRow<FF>::names();
+        for (size_t i = 0; i < 20; i++) {
+            const auto& stat = column_stats.at(column_stats.size() - i - 1);
+            vinfo("Column \"",
+                  names.at(stat.column_number),
+                  "\": ",
+                  stat.non_zero_entries,
+                  " non-zero entries out of ",
+                  stat.total_entries,
+                  " (",
+                  stat.fullness,
+                  "%)");
+        }
+    }
 }
 
 } // namespace
@@ -201,6 +241,40 @@ std::vector<FF> Execution::getDefaultPublicInputs()
     public_inputs_vec.at(DA_START_GAS_LEFT_PCPI_OFFSET) = 1000000000;
     public_inputs_vec.at(L2_START_GAS_LEFT_PCPI_OFFSET) = 1000000000;
     return public_inputs_vec;
+}
+
+/**
+ * @brief Run the bytecode, generate the corresponding execution trace and check the circuit for
+ *        execution of the supplied bytecode.
+ *
+ * @throws runtime_error exception when the bytecode is invalid.
+ */
+void Execution::check_circuit(AvmPublicInputs const& public_inputs, ExecutionHints const& execution_hints)
+{
+    std::vector<FF> returndata;
+    std::vector<FF> calldata;
+    for (const auto& enqueued_call_hints : execution_hints.enqueued_call_hints) {
+        calldata.insert(calldata.end(), enqueued_call_hints.calldata.begin(), enqueued_call_hints.calldata.end());
+    }
+    std::vector<Row> trace = AVM_TRACK_TIME_V(
+        "prove/gen_trace", gen_trace(public_inputs, returndata, execution_hints, /*apply_e2e_assertions=*/true));
+    if (!avm_dump_trace_path.empty()) {
+        info("Dumping trace as CSV to: " + avm_dump_trace_path.string());
+        dump_trace_as_csv(trace, avm_dump_trace_path);
+    }
+    auto circuit_builder = bb::avm::AvmCircuitBuilder();
+    circuit_builder.set_trace(std::move(trace));
+    vinfo("Circuit subgroup size: 2^",
+          // this calculates the integer log2
+          std::bit_width(circuit_builder.get_circuit_subgroup_size()) - 1);
+
+    if (circuit_builder.get_circuit_subgroup_size() > SRS_SIZE) {
+        throw_or_abort("Circuit subgroup size (" + std::to_string(circuit_builder.get_circuit_subgroup_size()) +
+                       ") exceeds SRS_SIZE (" + std::to_string(SRS_SIZE) + ")");
+    }
+
+    vinfo("------- CHECKING CIRCUIT -------");
+    AVM_TRACK_TIME("prove/check_circuit", circuit_builder.check_circuit());
 }
 
 /**
@@ -312,8 +386,8 @@ std::vector<Row> Execution::gen_trace(AvmPublicInputs const& public_inputs,
     uint32_t start_side_effect_counter = 0;
     // Temporary until we get proper nested call handling
     std::vector<FF> calldata;
-    for (const auto& enqueued_call_hints : execution_hints.enqueued_call_hints) {
-        calldata.insert(calldata.end(), enqueued_call_hints.calldata.begin(), enqueued_call_hints.calldata.end());
+    for (const auto& enqueued_call_hint : execution_hints.enqueued_call_hints) {
+        calldata.insert(calldata.end(), enqueued_call_hint.calldata.begin(), enqueued_call_hint.calldata.end());
     }
     AvmTraceBuilder trace_builder =
         Execution::trace_builder_constructor(public_inputs, execution_hints, start_side_effect_counter);
@@ -427,13 +501,13 @@ AvmError Execution::execute_enqueued_call(AvmTraceBuilder& trace_builder,
     AvmError error = AvmError::NO_ERROR;
 
     // These hints help us to set up first call ctx
-    uint32_t clk = trace_builder.get_clk();
-    auto context_id = static_cast<uint8_t>(clk);
+    auto context_id = trace_builder.next_context_id;
     uint32_t l2_gas_allocated_to_enqueued_call = trace_builder.get_l2_gas_left();
     uint32_t da_gas_allocated_to_enqueued_call = trace_builder.get_da_gas_left();
     trace_builder.current_ext_call_ctx = AvmTraceBuilder::ExtCallCtx{
         .context_id = context_id,
         .parent_id = 0,
+        .is_top_level = true,
         .contract_address = enqueued_call_hint.contract_address,
         .calldata = enqueued_call_hint.calldata,
         .nested_returndata = {},
@@ -445,13 +519,14 @@ AvmError Execution::execute_enqueued_call(AvmTraceBuilder& trace_builder,
         .da_gas_left = da_gas_allocated_to_enqueued_call,
         .internal_return_ptr_stack = {},
     };
+    trace_builder.next_context_id++;
     // Find the bytecode based on contract address of the public call request
     std::vector<uint8_t> bytecode;
     try {
         bytecode =
             trace_builder.get_bytecode(trace_builder.current_ext_call_ctx.contract_address, check_bytecode_membership);
     } catch ([[maybe_unused]] const std::runtime_error& e) {
-        info("AVM enqueued call exceptionally halted. Error: No bytecode found for enqueued call");
+        info("AVM enqueued call exceptionally halted. Failed bytecode retrieval.");
         // FIXME: properly handle case when bytecode is not found!
         // For now, we add a dummy row in main trace to mutate later.
         // Dummy row in main trace to mutate afterwards.
@@ -459,8 +534,7 @@ AvmError Execution::execute_enqueued_call(AvmTraceBuilder& trace_builder,
         // we need at least one row in the execution trace to then mutate and say "it halted and consumed all gas!"
         trace_builder.op_add(0, 0, 0, 0, OpCode::ADD_8);
         trace_builder.handle_exceptional_halt();
-        return AvmError::NO_BYTECODE_FOUND;
-        ;
+        return AvmError::FAILED_BYTECODE_RETRIEVAL;
     }
 
     trace_builder.allocate_gas_for_call(l2_gas_allocated_to_enqueued_call, da_gas_allocated_to_enqueued_call);
@@ -471,7 +545,9 @@ AvmError Execution::execute_enqueued_call(AvmTraceBuilder& trace_builder,
     uint32_t pc = 0;
     std::stack<uint32_t> debug_counter_stack;
     uint32_t counter = 0;
-    trace_builder.set_call_ptr(context_id);
+    // FIXME: this cast means that we can have duplicate call ptrs since clk will end up way bigger than 256
+    trace_builder.set_pc(pc);
+    trace_builder.set_call_ptr(static_cast<uint8_t>(context_id));
     while (is_ok(error) && (pc = trace_builder.get_pc()) < bytecode.size()) {
         auto [inst, parse_error] = Deserialization::parse(bytecode, pc);
 
@@ -881,7 +957,8 @@ AvmError Execution::execute_enqueued_call(AvmTraceBuilder& trace_builder,
                     bytecode = trace_builder.get_bytecode(trace_builder.current_ext_call_ctx.contract_address,
                                                           /*check_membership=*/true);
                 } catch ([[maybe_unused]] const std::runtime_error& e) {
-                    error = AvmError::NO_BYTECODE_FOUND;
+                    info("AVM CALL failed bytecode retrieval.");
+                    error = AvmError::FAILED_BYTECODE_RETRIEVAL;
                 }
                 debug_counter_stack.push(counter);
                 counter = 0;
@@ -901,7 +978,8 @@ AvmError Execution::execute_enqueued_call(AvmTraceBuilder& trace_builder,
                     bytecode = trace_builder.get_bytecode(trace_builder.current_ext_call_ctx.contract_address,
                                                           /*check_membership=*/true);
                 } catch ([[maybe_unused]] const std::runtime_error& e) {
-                    error = AvmError::NO_BYTECODE_FOUND;
+                    info("AVM STATICCALL failed bytecode retrieval.");
+                    error = AvmError::FAILED_BYTECODE_RETRIEVAL;
                 }
                 debug_counter_stack.push(counter);
                 counter = 0;
@@ -1033,7 +1111,7 @@ AvmError Execution::execute_enqueued_call(AvmTraceBuilder& trace_builder,
         }
 
         if (!is_ok(error)) {
-            const bool is_top_level = trace_builder.current_ext_call_ctx.context_id == 0;
+            const bool is_top_level = trace_builder.current_ext_call_ctx.is_top_level;
 
             auto const error_ic = counter - 1; // Need adjustement as counter increment occurs in loop body
             std::string call_type = is_top_level ? "enqueued" : "nested";

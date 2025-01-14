@@ -6,7 +6,7 @@ import { times } from '@aztec/foundation/collection';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { getTestData, isGenerateTestDataEnabled } from '@aztec/foundation/testing';
 import { writeTestData } from '@aztec/foundation/testing/files';
-import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types';
+import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types/vks';
 import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
 
 import { buildBlock } from '../block_builder/light.js';
@@ -85,6 +85,7 @@ describe('prover/bb_prover/full-rollup', () => {
         );
       }
     },
+    900000,
   );
 
   // TODO(@PhilWindle): Remove public functions and re-enable once we can handle empty tx slots

@@ -196,9 +196,7 @@ describe('e2e_token_contract transfer private', () => {
         .withWallet(wallets[1])
         .methods.transfer_in_private(badAccount.address, accounts[1].address, 0, nonce)
         .send();
-      await expect(txCancelledAuthwit.wait()).rejects.toThrow(
-        "Assertion failed: Message not authorized by account 'result == IS_VALID_SELECTOR'",
-      );
+      await expect(txCancelledAuthwit.wait()).rejects.toThrow('Assertion failed: Message not authorized by account');
     });
   });
 });

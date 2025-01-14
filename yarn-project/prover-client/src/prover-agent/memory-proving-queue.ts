@@ -12,12 +12,12 @@ import type {
   AVM_PROOF_LENGTH_IN_FIELDS,
   AvmCircuitInputs,
   BaseParityInputs,
-  KernelCircuitPublicInputs,
   NESTED_RECURSIVE_PROOF_LENGTH,
+  NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH,
   ParityPublicInputs,
-  PrivateKernelEmptyInputData,
   RECURSIVE_PROOF_LENGTH,
   RootParityInputs,
+  TUBE_PROOF_LENGTH,
 } from '@aztec/circuits.js';
 import {
   type BaseOrMergeRollupPublicInputs,
@@ -30,6 +30,7 @@ import {
   type PublicBaseRollupInputs,
   type RootRollupInputs,
   type RootRollupPublicInputs,
+  type SingleTxBlockRootRollupInputs,
   type TubeInputs,
 } from '@aztec/circuits.js/rollup';
 import { randomBytes } from '@aztec/foundation/crypto';
@@ -269,19 +270,11 @@ export class MemoryProvingQueue implements ServerCircuitProver, ProvingJobSource
     return promise.then(({ result }) => result);
   }
 
-  getEmptyPrivateKernelProof(
-    inputs: PrivateKernelEmptyInputData,
-    signal?: AbortSignal,
-    epochNumber?: number,
-  ): Promise<PublicInputsAndRecursiveProof<KernelCircuitPublicInputs>> {
-    return this.enqueue(ProvingRequestType.PRIVATE_KERNEL_EMPTY, inputs, signal, epochNumber);
-  }
-
   getTubeProof(
     inputs: TubeInputs,
     signal?: AbortSignal,
     epochNumber?: number,
-  ): Promise<ProofAndVerificationKey<typeof RECURSIVE_PROOF_LENGTH>> {
+  ): Promise<ProofAndVerificationKey<typeof TUBE_PROOF_LENGTH>> {
     return this.enqueue(ProvingRequestType.TUBE_PROOF, inputs, signal, epochNumber);
   }
 
@@ -313,7 +306,9 @@ export class MemoryProvingQueue implements ServerCircuitProver, ProvingJobSource
     inputs: PrivateBaseRollupInputs,
     signal?: AbortSignal,
     epochNumber?: number,
-  ): Promise<PublicInputsAndRecursiveProof<BaseOrMergeRollupPublicInputs>> {
+  ): Promise<
+    PublicInputsAndRecursiveProof<BaseOrMergeRollupPublicInputs, typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH>
+  > {
     return this.enqueue(ProvingRequestType.PRIVATE_BASE_ROLLUP, inputs, signal, epochNumber);
   }
 
@@ -321,7 +316,9 @@ export class MemoryProvingQueue implements ServerCircuitProver, ProvingJobSource
     inputs: PublicBaseRollupInputs,
     signal?: AbortSignal,
     epochNumber?: number,
-  ): Promise<PublicInputsAndRecursiveProof<BaseOrMergeRollupPublicInputs>> {
+  ): Promise<
+    PublicInputsAndRecursiveProof<BaseOrMergeRollupPublicInputs, typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH>
+  > {
     return this.enqueue(ProvingRequestType.PUBLIC_BASE_ROLLUP, inputs, signal, epochNumber);
   }
 
@@ -333,7 +330,9 @@ export class MemoryProvingQueue implements ServerCircuitProver, ProvingJobSource
     inputs: MergeRollupInputs,
     signal?: AbortSignal,
     epochNumber?: number,
-  ): Promise<PublicInputsAndRecursiveProof<BaseOrMergeRollupPublicInputs>> {
+  ): Promise<
+    PublicInputsAndRecursiveProof<BaseOrMergeRollupPublicInputs, typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH>
+  > {
     return this.enqueue(ProvingRequestType.MERGE_ROLLUP, inputs, signal, epochNumber);
   }
 
@@ -345,15 +344,29 @@ export class MemoryProvingQueue implements ServerCircuitProver, ProvingJobSource
     inputs: BlockRootRollupInputs,
     signal?: AbortSignal,
     epochNumber?: number,
-  ): Promise<PublicInputsAndRecursiveProof<BlockRootOrBlockMergePublicInputs>> {
+  ): Promise<
+    PublicInputsAndRecursiveProof<BlockRootOrBlockMergePublicInputs, typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH>
+  > {
     return this.enqueue(ProvingRequestType.BLOCK_ROOT_ROLLUP, inputs, signal, epochNumber);
+  }
+
+  getSingleTxBlockRootRollupProof(
+    inputs: SingleTxBlockRootRollupInputs,
+    signal?: AbortSignal,
+    epochNumber?: number,
+  ): Promise<
+    PublicInputsAndRecursiveProof<BlockRootOrBlockMergePublicInputs, typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH>
+  > {
+    return this.enqueue(ProvingRequestType.SINGLE_TX_BLOCK_ROOT_ROLLUP, inputs, signal, epochNumber);
   }
 
   getEmptyBlockRootRollupProof(
     inputs: EmptyBlockRootRollupInputs,
     signal?: AbortSignal,
     epochNumber?: number,
-  ): Promise<PublicInputsAndRecursiveProof<BlockRootOrBlockMergePublicInputs>> {
+  ): Promise<
+    PublicInputsAndRecursiveProof<BlockRootOrBlockMergePublicInputs, typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH>
+  > {
     return this.enqueue(ProvingRequestType.EMPTY_BLOCK_ROOT_ROLLUP, inputs, signal, epochNumber);
   }
 
@@ -365,7 +378,9 @@ export class MemoryProvingQueue implements ServerCircuitProver, ProvingJobSource
     inputs: BlockMergeRollupInputs,
     signal?: AbortSignal,
     epochNumber?: number,
-  ): Promise<PublicInputsAndRecursiveProof<BlockRootOrBlockMergePublicInputs>> {
+  ): Promise<
+    PublicInputsAndRecursiveProof<BlockRootOrBlockMergePublicInputs, typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH>
+  > {
     return this.enqueue(ProvingRequestType.BLOCK_MERGE_ROLLUP, inputs, signal, epochNumber);
   }
 

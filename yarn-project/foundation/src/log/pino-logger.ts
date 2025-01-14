@@ -10,7 +10,7 @@ import { type LogLevel } from './log-levels.js';
 import { type LogData, type LogFn } from './log_fn.js';
 
 export function createLogger(module: string): Logger {
-  module = module.replace(/^aztec:/, '');
+  module = logNameHandlers.reduce((moduleName, handler) => handler(moduleName), module.replace(/^aztec:/, ''));
   const pinoLogger = logger.child({ module }, { level: getLogLevelFromFilters(logFilters, module) });
 
   // We check manually for isLevelEnabled to avoid calling processLogData unnecessarily.
@@ -54,6 +54,22 @@ export function addLogDataHandler(handler: LogDataHandler): void {
 
 function processLogData(data: LogData): LogData {
   return logDataHandlers.reduce((accum, handler) => handler(accum), data);
+}
+
+// Allow global hooks for tweaking module names.
+// Used in tests to add a uid to modules, so we can differentiate multiple nodes in the same process.
+type LogNameHandler = (module: string) => string;
+const logNameHandlers: LogNameHandler[] = [];
+
+export function addLogNameHandler(handler: LogNameHandler): void {
+  logNameHandlers.push(handler);
+}
+
+export function removeLogNameHandler(handler: LogNameHandler) {
+  const index = logNameHandlers.indexOf(handler);
+  if (index !== -1) {
+    logNameHandlers.splice(index, 1);
+  }
 }
 
 // Patch isLevelEnabled missing from pino/browser.
@@ -122,7 +138,7 @@ export const pinoPrettyOpts = {
   destination: 2,
   sync: true,
   colorize: useColor,
-  ignore: 'module,pid,hostname,trace_id,span_id,trace_flags',
+  ignore: 'module,pid,hostname,trace_id,span_id,trace_flags,severity',
   messageFormat: `${bold('{module}')} ${reset('{msg}')}`,
   customLevels: 'fatal:60,error:50,warn:40,info:30,verbose:25,debug:20,trace:10',
   customColors: 'fatal:bgRed,error:red,warn:yellow,info:green,verbose:magenta,debug:blue,trace:gray',

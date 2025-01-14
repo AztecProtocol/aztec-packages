@@ -26,6 +26,8 @@ import {
   RollupAbi,
   RollupBytecode,
   RollupLinkReferences,
+  SlashFactoryAbi,
+  SlashFactoryBytecode,
   TestERC20Abi,
   TestERC20Bytecode,
 } from '@aztec/l1-artifacts';
@@ -53,7 +55,6 @@ import { type HDAccount, type PrivateKeyAccount, mnemonicToAccount, privateKeyTo
 import { foundry } from 'viem/chains';
 
 import { type L1ContractsConfig } from './config.js';
-import { MINIMUM_STAKE } from './constants.js';
 import { isAnvilTestChain } from './ethereum_chain.js';
 import { type L1ContractAddresses } from './l1_contract_addresses.js';
 import { L1TxUtils } from './l1_tx_utils.js';
@@ -156,6 +157,10 @@ export interface L1ContractArtifactsForDeployment {
    * Governance contract artifacts.
    */
   governance: ContractArtifacts;
+  /**
+   * SlashFactory contract artifacts.
+   */
+  slashFactory: ContractArtifacts;
 }
 
 export const l1Artifacts: L1ContractArtifactsForDeployment = {
@@ -215,6 +220,10 @@ export const l1Artifacts: L1ContractArtifactsForDeployment = {
   governance: {
     contractAbi: GovernanceAbi,
     contractBytecode: GovernanceBytecode,
+  },
+  slashFactory: {
+    contractAbi: SlashFactoryAbi,
+    contractBytecode: SlashFactoryBytecode,
   },
 };
 
@@ -331,14 +340,10 @@ export const deployL1Contracts = async (
   ]);
   logger.verbose(`Deployed Staking Asset at ${stakingAssetAddress}`);
 
-  // @todo  #8084
-  // @note These numbers are just chosen to make testing simple.
-  const quorumSize = 6n;
-  const roundSize = 10n;
   const governanceProposerAddress = await govDeployer.deploy(l1Artifacts.governanceProposer, [
     registryAddress.toString(),
-    quorumSize,
-    roundSize,
+    args.governanceProposerQuorum,
+    args.governanceProposerRoundSize,
   ]);
   logger.verbose(`Deployed GovernanceProposer at ${governanceProposerAddress}`);
 
@@ -382,7 +387,9 @@ export const deployL1Contracts = async (
     aztecEpochDuration: args.aztecEpochDuration,
     targetCommitteeSize: args.aztecTargetCommitteeSize,
     aztecEpochProofClaimWindowInL2Slots: args.aztecEpochProofClaimWindowInL2Slots,
-    minimumStake: MINIMUM_STAKE,
+    minimumStake: args.minimumStake,
+    slashingQuorum: args.slashingQuorum,
+    slashingRoundSize: args.slashingRoundSize,
   };
   const rollupArgs = [
     feeJuicePortalAddress.toString(),
@@ -395,6 +402,9 @@ export const deployL1Contracts = async (
   ];
   const rollupAddress = await deployer.deploy(l1Artifacts.rollup, rollupArgs);
   logger.verbose(`Deployed Rollup at ${rollupAddress}`, rollupConfigArgs);
+
+  const slashFactoryAddress = await deployer.deploy(l1Artifacts.slashFactory, [rollupAddress.toString()]);
+  logger.verbose(`Deployed SlashFactory at ${slashFactoryAddress}`);
 
   await deployer.waitForDeployments();
   logger.verbose(`All core contracts have been deployed`);
@@ -434,7 +444,7 @@ export const deployL1Contracts = async (
 
   if (args.initialValidators && args.initialValidators.length > 0) {
     // Mint tokens, approve them, use cheat code to initialise validator set without setting up the epoch.
-    const stakeNeeded = MINIMUM_STAKE * BigInt(args.initialValidators.length);
+    const stakeNeeded = args.minimumStake * BigInt(args.initialValidators.length);
     await Promise.all(
       [
         await stakingAsset.write.mint([walletClient.account.address, stakeNeeded], {} as any),
@@ -447,7 +457,7 @@ export const deployL1Contracts = async (
         attester: v.toString(),
         proposer: v.toString(),
         withdrawer: v.toString(),
-        amount: MINIMUM_STAKE,
+        amount: args.minimumStake,
       })),
     ]);
     txHashes.push(initiateValidatorSetTxHash);
@@ -560,6 +570,7 @@ export const deployL1Contracts = async (
     rewardDistributorAddress,
     governanceProposerAddress,
     governanceAddress,
+    slashFactoryAddress,
   };
 
   logger.info(`Aztec L1 contracts initialized`, l1Contracts);
@@ -751,7 +762,7 @@ export async function deployL1Contract(
   } else {
     // Regular deployment path
     const deployData = encodeDeployData({ abi, bytecode, args });
-    const receipt = await l1TxUtils.sendAndMonitorTransaction({
+    const { receipt } = await l1TxUtils.sendAndMonitorTransaction({
       to: null,
       data: deployData,
     });

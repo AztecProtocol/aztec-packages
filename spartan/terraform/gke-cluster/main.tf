@@ -115,6 +115,98 @@ resource "google_container_node_pool" "primary_nodes" {
   }
 }
 
+# Create 2 core node pool with local ssd
+resource "google_container_node_pool" "aztec_nodes_2core_ssd" {
+  name     = "aztec-nodes-2core-ssd"
+  location = var.zone
+  cluster  = google_container_cluster.primary.name
+
+  # Enable autoscaling
+  autoscaling {
+    min_node_count = 1
+    max_node_count = 256
+  }
+
+  # Node configuration
+  node_config {
+    machine_type = "n2d-standard-2"
+    ephemeral_storage_local_ssd_config {
+      local_ssd_count = 1
+    }
+
+    service_account = google_service_account.gke_sa.email
+    oauth_scopes = [
+      "https://www.googleapis.com/auth/cloud-platform"
+    ]
+
+    labels = {
+      env = "production"
+
+    }
+    tags = ["aztec-gke-node", "aztec"]
+  }
+}
+
+# Create 4 core node pool with local ssd
+resource "google_container_node_pool" "aztec_nodes_4core_ssd" {
+  name     = "aztec-nodes-4core-ssd"
+  location = var.zone
+  cluster  = google_container_cluster.primary.name
+
+  # Enable autoscaling
+  autoscaling {
+    min_node_count = 1
+    max_node_count = 256
+  }
+
+  # Node configuration
+  node_config {
+    machine_type = "n2d-standard-4"
+    ephemeral_storage_local_ssd_config {
+      local_ssd_count = 1
+    }
+
+    service_account = google_service_account.gke_sa.email
+    oauth_scopes = [
+      "https://www.googleapis.com/auth/cloud-platform"
+    ]
+
+    labels = {
+      env = "production"
+
+    }
+    tags = ["aztec-gke-node", "aztec"]
+  }
+}
+
+# Create node pool for simulated aztec nodes (validators, prover nodes, boot nodes)
+resource "google_container_node_pool" "aztec_nodes_simulated" {
+  name     = "aztec-node-pool-simulated"
+  location = var.zone
+  cluster  = google_container_cluster.primary.name
+
+  # Enable autoscaling
+  autoscaling {
+    min_node_count = 1
+    max_node_count = 256
+  }
+
+  # Node configuration
+  node_config {
+    machine_type = "t2d-standard-2"
+
+    service_account = google_service_account.gke_sa.email
+    oauth_scopes = [
+      "https://www.googleapis.com/auth/cloud-platform"
+    ]
+
+    labels = {
+      env = "production"
+    }
+    tags = ["aztec-gke-node", "aztec"]
+  }
+}
+
 # Create node pool for aztec nodes (validators, prover nodes, boot nodes)
 resource "google_container_node_pool" "aztec_nodes" {
   name     = "aztec-node-pool"
@@ -158,7 +250,7 @@ resource "google_container_node_pool" "spot_nodes" {
   # Enable autoscaling
   autoscaling {
     min_node_count = 0
-    max_node_count = 10
+    max_node_count = 1500
   }
 
   # Node configuration

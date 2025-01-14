@@ -17,7 +17,7 @@ export class ArchiverInstrumentation {
   public readonly tracer: Tracer;
 
   private blockHeight: Gauge;
-  private blockSize: Gauge;
+  private txCount: UpDownCounter;
   private syncDuration: Histogram;
   private l1BlocksSynced: UpDownCounter;
   private proofsSubmittedDelay: Histogram;
@@ -35,8 +35,8 @@ export class ArchiverInstrumentation {
       valueType: ValueType.INT,
     });
 
-    this.blockSize = meter.createGauge(Metrics.ARCHIVER_BLOCK_SIZE, {
-      description: 'The number of transactions in a block',
+    this.txCount = meter.createUpDownCounter(Metrics.ARCHIVER_TX_COUNT, {
+      description: 'The total number of transactions',
       valueType: ValueType.INT,
     });
 
@@ -95,7 +95,7 @@ export class ArchiverInstrumentation {
     this.blockHeight.record(Math.max(...blocks.map(b => b.number)));
     this.l1BlocksSynced.add(blocks.length);
     for (const block of blocks) {
-      this.blockSize.record(block.body.txEffects.length);
+      this.txCount.add(block.body.txEffects.length);
     }
   }
 

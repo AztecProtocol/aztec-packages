@@ -12,14 +12,16 @@ import { createLogger } from '@aztec/foundation/log';
 import { Timer } from '@aztec/foundation/timer';
 
 import { fromACVMField, witnessMapToFields } from '../acvm/deserialize.js';
-import { type ACVMWitness, Oracle, acvm, extractCallStack } from '../acvm/index.js';
+import { type ACVMWitness, Oracle, extractCallStack } from '../acvm/index.js';
 import { ExecutionError, resolveAssertionMessageFromError } from '../common/errors.js';
+import { type SimulationProvider } from '../server.js';
 import { type ClientExecutionContext } from './client_execution_context.js';
 
 /**
  * Execute a private function and return the execution result.
  */
 export async function executePrivateFunction(
+  simulator: SimulationProvider,
   context: ClientExecutionContext,
   artifact: FunctionArtifact,
   contractAddress: AztecAddress,
@@ -32,18 +34,20 @@ export async function executePrivateFunction(
   const initialWitness = context.getInitialWitness(artifact);
   const acvmCallback = new Oracle(context);
   const timer = new Timer();
-  const acirExecutionResult = await acvm(acir, initialWitness, acvmCallback).catch((err: Error) => {
-    err.message = resolveAssertionMessageFromError(err, artifact);
-    throw new ExecutionError(
-      err.message,
-      {
-        contractAddress,
-        functionSelector,
-      },
-      extractCallStack(err, artifact.debug),
-      { cause: err },
-    );
-  });
+  const acirExecutionResult = await simulator
+    .executeUserCircuit(acir, initialWitness, acvmCallback)
+    .catch((err: Error) => {
+      err.message = resolveAssertionMessageFromError(err, artifact);
+      throw new ExecutionError(
+        err.message,
+        {
+          contractAddress,
+          functionSelector,
+        },
+        extractCallStack(err, artifact.debug),
+        { cause: err },
+      );
+    });
   const duration = timer.ms();
   const partialWitness = acirExecutionResult.partialWitness;
   const publicInputs = extractPrivateCircuitPublicInputs(artifact, partialWitness);
@@ -61,7 +65,7 @@ export async function executePrivateFunction(
 
   const contractClassLogs = context.getContractClassLogs();
 
-  const rawReturnValues = await context.unpackReturns(publicInputs.returnsHash);
+  const rawReturnValues = await context.loadFromExecutionCache(publicInputs.returnsHash);
 
   const noteHashLeafIndexMap = context.getNoteHashLeafIndexMap();
   const newNotes = context.getNewNotes();

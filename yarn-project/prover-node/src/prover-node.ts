@@ -10,16 +10,24 @@ import {
   type ProverCoordination,
   type ProverNodeApi,
   type Service,
+  type Tx,
+  type TxHash,
   type WorldStateSynchronizer,
+  getTimestampRangeForEpoch,
   tryStop,
 } from '@aztec/circuit-types';
 import { type ContractDataSource } from '@aztec/circuits.js';
+import { asyncPool } from '@aztec/foundation/async-pool';
 import { compact } from '@aztec/foundation/collection';
+import { memoize } from '@aztec/foundation/decorators';
+import { TimeoutError } from '@aztec/foundation/error';
 import { createLogger } from '@aztec/foundation/log';
+import { retryUntil } from '@aztec/foundation/retry';
+import { DateProvider } from '@aztec/foundation/timer';
 import { type Maybe } from '@aztec/foundation/types';
 import { type P2P } from '@aztec/p2p';
 import { type L1Publisher } from '@aztec/sequencer-client';
-import { PublicProcessorFactory } from '@aztec/simulator';
+import { PublicProcessorFactory } from '@aztec/simulator/server';
 import { Attributes, type TelemetryClient, type Traceable, type Tracer, trackSpan } from '@aztec/telemetry-client';
 
 import { type BondManager } from './bond/bond-manager.js';
@@ -34,6 +42,9 @@ export type ProverNodeOptions = {
   pollingIntervalMs: number;
   maxPendingJobs: number;
   maxParallelBlocksPerEpoch: number;
+  txGatheringTimeoutMs: number;
+  txGatheringIntervalMs: number;
+  txGatheringMaxParallelRequests: number;
 };
 
 /**
@@ -44,34 +55,39 @@ export type ProverNodeOptions = {
  */
 export class ProverNode implements ClaimsMonitorHandler, EpochMonitorHandler, ProverNodeApi, Traceable {
   private log = createLogger('prover-node');
+  private dateProvider = new DateProvider();
 
   private latestEpochWeAreProving: bigint | undefined;
   private jobs: Map<string, EpochProvingJob> = new Map();
+  private cachedEpochData: { epochNumber: bigint; blocks: L2Block[]; txs: Tx[] } | undefined = undefined;
   private options: ProverNodeOptions;
   private metrics: ProverNodeMetrics;
 
   public readonly tracer: Tracer;
 
   constructor(
-    private readonly prover: EpochProverManager,
-    private readonly publisher: L1Publisher,
-    private readonly l2BlockSource: L2BlockSource & Maybe<Service>,
-    private readonly l1ToL2MessageSource: L1ToL2MessageSource,
-    private readonly contractDataSource: ContractDataSource,
-    private readonly worldState: WorldStateSynchronizer,
-    private readonly coordination: ProverCoordination & Maybe<Service>,
-    private readonly quoteProvider: QuoteProvider,
-    private readonly quoteSigner: QuoteSigner,
-    private readonly claimsMonitor: ClaimsMonitor,
-    private readonly epochsMonitor: EpochMonitor,
-    private readonly bondManager: BondManager,
-    private readonly telemetryClient: TelemetryClient,
+    protected readonly prover: EpochProverManager,
+    protected readonly publisher: L1Publisher,
+    protected readonly l2BlockSource: L2BlockSource & Maybe<Service>,
+    protected readonly l1ToL2MessageSource: L1ToL2MessageSource,
+    protected readonly contractDataSource: ContractDataSource,
+    protected readonly worldState: WorldStateSynchronizer,
+    protected readonly coordination: ProverCoordination & Maybe<Service>,
+    protected readonly quoteProvider: QuoteProvider,
+    protected readonly quoteSigner: QuoteSigner,
+    protected readonly claimsMonitor: ClaimsMonitor,
+    protected readonly epochsMonitor: EpochMonitor,
+    protected readonly bondManager: BondManager,
+    protected readonly telemetryClient: TelemetryClient,
     options: Partial<ProverNodeOptions> = {},
   ) {
     this.options = {
       pollingIntervalMs: 1_000,
       maxPendingJobs: 100,
       maxParallelBlocksPerEpoch: 32,
+      txGatheringTimeoutMs: 60_000,
+      txGatheringIntervalMs: 1_000,
+      txGatheringMaxParallelRequests: 100,
       ...compact(options),
     };
 
@@ -137,13 +153,12 @@ export class ProverNode implements ClaimsMonitorHandler, EpochMonitorHandler, Pr
    */
   async handleEpochCompleted(epochNumber: bigint): Promise<void> {
     try {
-      // Construct a quote for the epoch
-      const blocks = await this.l2BlockSource.getBlocksForEpoch(epochNumber);
-      if (blocks.length === 0) {
-        this.log.info(`No blocks found for epoch ${epochNumber}`);
-        return;
-      }
+      // Gather data for the epoch
+      const epochData = await this.gatherEpochData(epochNumber);
+      const { blocks } = epochData;
+      this.cachedEpochData = { epochNumber, ...epochData };
 
+      // Construct a quote for the epoch
       const partialQuote = await this.quoteProvider.getQuote(Number(epochNumber), blocks);
       if (!partialQuote) {
         this.log.info(`No quote produced for epoch ${epochNumber}`);
@@ -169,7 +184,11 @@ export class ProverNode implements ClaimsMonitorHandler, EpochMonitorHandler, Pr
       );
       await this.doSendEpochProofQuote(signed);
     } catch (err) {
-      this.log.error(`Error handling epoch completed`, err);
+      if (err instanceof EmptyEpochError) {
+        this.log.info(`Not producing quote for ${epochNumber} since no blocks were found`);
+      } else {
+        this.log.error(`Error handling epoch completed`, err);
+      }
     }
   }
 
@@ -254,10 +273,9 @@ export class ProverNode implements ClaimsMonitorHandler, EpochMonitorHandler, Pr
     }
 
     // Gather blocks for this epoch
-    const blocks = await this.l2BlockSource.getBlocksForEpoch(epochNumber);
-    if (blocks.length === 0) {
-      throw new Error(`No blocks found for epoch ${epochNumber}`);
-    }
+    const cachedEpochData = this.cachedEpochData?.epochNumber === epochNumber ? this.cachedEpochData : undefined;
+    const { blocks, txs } = cachedEpochData ?? (await this.gatherEpochData(epochNumber));
+
     const fromBlock = blocks[0].number;
     const toBlock = blocks.at(-1)!.number;
 
@@ -266,22 +284,118 @@ export class ProverNode implements ClaimsMonitorHandler, EpochMonitorHandler, Pr
     await this.worldState.syncImmediate(fromBlock - 1);
 
     // Create a processor using the forked world state
-    const publicProcessorFactory = new PublicProcessorFactory(this.contractDataSource, this.telemetryClient);
+    const publicProcessorFactory = new PublicProcessorFactory(
+      this.contractDataSource,
+      this.dateProvider,
+      this.telemetryClient,
+    );
 
     const cleanUp = () => {
       this.jobs.delete(job.getId());
       return Promise.resolve();
     };
 
-    const job = this.doCreateEpochProvingJob(epochNumber, blocks, publicProcessorFactory, cleanUp);
+    const [_, endTimestamp] = getTimestampRangeForEpoch(epochNumber + 1n, await this.getL1Constants());
+    const deadline = new Date(Number(endTimestamp) * 1000);
+
+    const job = this.doCreateEpochProvingJob(epochNumber, deadline, blocks, txs, publicProcessorFactory, cleanUp);
     this.jobs.set(job.getId(), job);
     return job;
+  }
+
+  @memoize
+  private getL1Constants() {
+    return this.l2BlockSource.getL1Constants();
+  }
+
+  @trackSpan('ProverNode.gatherEpochData', epochNumber => ({ [Attributes.EPOCH_NUMBER]: Number(epochNumber) }))
+  private async gatherEpochData(epochNumber: bigint) {
+    // Gather blocks for this epoch and their txs
+    const blocks = await this.gatherBlocks(epochNumber);
+    const txs = await this.gatherTxs(epochNumber, blocks);
+
+    return { blocks, txs };
+  }
+
+  private async gatherBlocks(epochNumber: bigint) {
+    const blocks = await this.l2BlockSource.getBlocksForEpoch(epochNumber);
+    if (blocks.length === 0) {
+      throw new EmptyEpochError(epochNumber);
+    }
+    return blocks;
+  }
+
+  private async gatherTxs(epochNumber: bigint, blocks: L2Block[]) {
+    let txsToFind: TxHash[] = [];
+    const txHashToBlock = new Map<string, number>();
+    const results = new Map<string, Tx>();
+
+    for (const block of blocks) {
+      for (const tx of block.body.txEffects) {
+        txsToFind.push(tx.txHash);
+        txHashToBlock.set(tx.txHash.toString(), block.number);
+      }
+    }
+
+    const totalTxsRequired = txsToFind.length;
+    this.log.info(
+      `Gathering a total of ${totalTxsRequired} txs for epoch=${epochNumber} made up of ${blocks.length} blocks`,
+      { epochNumber },
+    );
+
+    let iteration = 0;
+    try {
+      await retryUntil(
+        async () => {
+          const batch = [...txsToFind];
+          txsToFind = [];
+          const batchResults = await asyncPool(this.options.txGatheringMaxParallelRequests, batch, async txHash => {
+            const tx = await this.coordination.getTxByHash(txHash);
+            return [txHash, tx] as const;
+          });
+          let found = 0;
+          for (const [txHash, maybeTx] of batchResults) {
+            if (maybeTx) {
+              found++;
+              results.set(txHash.toString(), maybeTx);
+            } else {
+              txsToFind.push(txHash);
+            }
+          }
+
+          this.log.verbose(
+            `Gathered ${found}/${batch.length} txs in iteration ${iteration} for epoch ${epochNumber}. In total ${results.size}/${totalTxsRequired} have been retrieved.`,
+            { epochNumber },
+          );
+          iteration++;
+
+          // stop when we found all transactions
+          return txsToFind.length === 0;
+        },
+        'Gather txs',
+        this.options.txGatheringTimeoutMs / 1_000,
+        this.options.txGatheringIntervalMs / 1_000,
+      );
+    } catch (err) {
+      if (err && err instanceof TimeoutError) {
+        const notFoundList = txsToFind
+          .map(txHash => `${txHash.toString()} (block ${txHashToBlock.get(txHash.toString())})`)
+          .join(', ');
+        throw new Error(`Txs not found for epoch ${epochNumber}: ${notFoundList}`);
+      } else {
+        throw err;
+      }
+    }
+
+    return Array.from(results.values());
   }
 
   /** Extracted for testing purposes. */
   protected doCreateEpochProvingJob(
     epochNumber: bigint,
+    deadline: Date | undefined,
     blocks: L2Block[],
+    txs: Tx[],
     publicProcessorFactory: PublicProcessorFactory,
     cleanUp: () => Promise<void>,
   ) {
@@ -289,13 +403,14 @@ export class ProverNode implements ClaimsMonitorHandler, EpochMonitorHandler, Pr
       this.worldState,
       epochNumber,
       blocks,
+      txs,
       this.prover.createEpochProver(),
       publicProcessorFactory,
       this.publisher,
       this.l2BlockSource,
       this.l1ToL2MessageSource,
-      this.coordination,
       this.metrics,
+      deadline,
       { parallelBlockLimit: this.options.maxParallelBlocksPerEpoch },
       cleanUp,
     );
@@ -305,5 +420,12 @@ export class ProverNode implements ClaimsMonitorHandler, EpochMonitorHandler, Pr
   protected async triggerMonitors() {
     await this.epochsMonitor.work();
     await this.claimsMonitor.work();
+  }
+}
+
+class EmptyEpochError extends Error {
+  constructor(epochNumber: bigint) {
+    super(`No blocks found for epoch ${epochNumber}`);
+    this.name = 'EmptyEpochError';
   }
 }

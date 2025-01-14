@@ -2,7 +2,7 @@ import { MerkleTreeId, type MerkleTreeWriteOperations } from '@aztec/circuit-typ
 import {
   DEPLOYER_CONTRACT_ADDRESS,
   GasFees,
-  GlobalVariables,
+  MAX_PUBLIC_CALLS_TO_UNIQUE_CONTRACT_CLASS_IDS,
   PublicDataTreeLeafPreimage,
   PublicKeys,
   SerializableContractInstance,
@@ -30,8 +30,8 @@ import { randomInt } from 'crypto';
 import { mock } from 'jest-mock-extended';
 
 import { PublicEnqueuedCallSideEffectTrace } from '../public/enqueued_call_side_effect_trace.js';
-import { MockedAvmTestContractDataSource } from '../public/fixtures/index.js';
-import { WorldStateDB } from '../public/public_db_sources.js';
+import { MockedAvmTestContractDataSource, simulateAvmTestContractCall } from '../public/fixtures/index.js';
+import { type WorldStateDB } from '../public/public_db_sources.js';
 import { type PublicSideEffectTraceInterface } from '../public/side_effect_trace_interface.js';
 import { type AvmContext } from './avm_context.js';
 import { type MemoryValue, TypeTag, type Uint8, type Uint64 } from './avm_memory_types.js';
@@ -41,7 +41,6 @@ import { isAvmBytecode, markBytecodeAsAvm } from './bytecode_utils.js';
 import {
   getAvmTestContractArtifact,
   getAvmTestContractBytecode,
-  getAvmTestContractFunctionSelector,
   initContext,
   initExecutionEnvironment,
   initGlobalVariables,
@@ -148,54 +147,43 @@ describe('AVM simulator: injected bytecode', () => {
   });
 });
 
-const TIMESTAMP = new Fr(99833);
-
 describe('AVM simulator: transpiled Noir contracts', () => {
   it('bulk testing', async () => {
-    const functionName = 'bulk_testing';
-    const functionSelector = getAvmTestContractFunctionSelector(functionName);
     const args = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(x => new Fr(x));
-    const calldata = [functionSelector.toField(), ...args];
-    const globals = GlobalVariables.empty();
-    globals.timestamp = TIMESTAMP;
+    await simulateAvmTestContractCall('bulk_testing', args, /*expectRevert=*/ false);
+  });
 
-    const telemetry = new NoopTelemetryClient();
-    const merkleTrees = await (await MerkleTrees.new(openTmpStore(), telemetry)).fork();
+  it('call max unique contract classes', async () => {
     const contractDataSource = new MockedAvmTestContractDataSource();
-    const worldStateDB = new WorldStateDB(merkleTrees, contractDataSource);
-
-    const contractInstance = contractDataSource.contractInstance;
-    const contractAddressNullifier = siloNullifier(
-      AztecAddress.fromNumber(DEPLOYER_CONTRACT_ADDRESS),
-      contractInstance.address.toField(),
+    // args is initialized to MAX_PUBLIC_CALLS_TO_UNIQUE_CONTRACT_CLASS_IDS contract addresses with unique class IDs
+    const args = Array.from(contractDataSource.contractInstances.values())
+      .map(instance => instance.address.toField())
+      .slice(0, MAX_PUBLIC_CALLS_TO_UNIQUE_CONTRACT_CLASS_IDS);
+    // include the first contract again again at the end to ensure that we can call it even after the limit is reached
+    args.push(args[0]);
+    // include another contract address that reuses a class ID to ensure that we can call it even after the limit is reached
+    args.push(contractDataSource.instanceSameClassAsFirstContract.address.toField());
+    await simulateAvmTestContractCall(
+      'nested_call_to_add_n_times_different_addresses',
+      args,
+      /*expectRevert=*/ false,
+      contractDataSource,
     );
-    await merkleTrees.batchInsert(MerkleTreeId.NULLIFIER_TREE, [contractAddressNullifier.toBuffer()], 0);
-    // other contract address used by the bulk test's GETCONTRACTINSTANCE test
-    const otherContractAddressNullifier = siloNullifier(
-      AztecAddress.fromNumber(DEPLOYER_CONTRACT_ADDRESS),
-      contractDataSource.otherContractInstance.address.toField(),
+  });
+
+  it('call too many unique contract classes fails', async () => {
+    const contractDataSource = new MockedAvmTestContractDataSource();
+    // args is initialized to MAX_PUBLIC_CALLS_TO_UNIQUE_CONTRACT_CLASS_IDS+1 contract addresses with unique class IDs
+    // should fail because we are trying to call MAX+1 unique class IDs
+    const args = Array.from(contractDataSource.contractInstances.values()).map(instance => instance.address.toField());
+    // push an empty one (just padding to match function calldata size of MAX_PUBLIC_CALLS_TO_UNIQUE_CONTRACT_CLASS_IDS+2)
+    args.push(new Fr(0));
+    await simulateAvmTestContractCall(
+      'nested_call_to_add_n_times_different_addresses',
+      args,
+      /*expectRevert=*/ true,
+      contractDataSource,
     );
-    await merkleTrees.batchInsert(MerkleTreeId.NULLIFIER_TREE, [otherContractAddressNullifier.toBuffer()], 0);
-
-    const trace = mock<PublicSideEffectTraceInterface>();
-    const nestedTrace = mock<PublicSideEffectTraceInterface>();
-    mockNoteHashCount(trace, 0);
-    mockTraceFork(trace, nestedTrace);
-    const ephemeralTrees = await AvmEphemeralForest.create(worldStateDB.getMerkleInterface());
-    const persistableState = initPersistableStateManager({ worldStateDB, trace, merkleTrees: ephemeralTrees });
-    const environment = initExecutionEnvironment({
-      calldata,
-      globals,
-      address: contractInstance.address,
-      sender: AztecAddress.fromNumber(42),
-    });
-    const context = initContext({ env: environment, persistableState });
-
-    // First we simulate (though it's not needed in this simple case).
-    const simulator = new AvmSimulator(context);
-    const results = await simulator.execute();
-
-    expect(results.reverted).toBe(false);
   });
 
   it('execution of a non-existent contract immediately reverts and consumes all allocated gas', async () => {
@@ -654,7 +642,7 @@ describe('AVM simulator: transpiled Noir contracts', () => {
 
       expect(trace.traceNewNoteHash).toHaveBeenCalledTimes(1);
       const siloedNotehash = siloNoteHash(address, value0);
-      const nonce = computeNoteHashNonce(Fr.fromBuffer(context.persistableState.txHash.toBuffer()), 0);
+      const nonce = computeNoteHashNonce(context.persistableState.firstNullifier, 0);
       const uniqueNoteHash = computeUniqueNoteHash(nonce, siloedNotehash);
       expect(trace.traceNewNoteHash).toHaveBeenCalledWith(uniqueNoteHash);
     });

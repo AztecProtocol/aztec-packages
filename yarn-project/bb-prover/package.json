@@ -4,7 +4,8 @@
   "type": "module",
   "exports": {
     ".": "./dest/index.js",
-    "./wasm": "./dest/wasm/index.js",
+    "./wasm/bundle": "./dest/wasm/bundle.js",
+    "./wasm/lazy": "./dest/wasm/lazy.js",
     "./prover": "./dest/prover/index.js",
     "./verifier": "./dest/verifier/index.js",
     "./test": "./dest/test/index.js",
@@ -30,7 +31,7 @@
     "formatting": "run -T prettier --check ./src && run -T eslint ./src",
     "formatting:fix": "run -T eslint --fix ./src && run -T prettier -w ./src",
     "bb": "node --no-warnings ./dest/bb/index.js",
-    "test": "HARDWARE_CONCURRENCY=16 RAYON_NUM_THREADS=4 NODE_NO_WARNINGS=1 node --experimental-vm-modules ../node_modules/.bin/jest --passWithNoTests --maxWorkers=8"
+    "test": "HARDWARE_CONCURRENCY=${HARDWARE_CONCURRENCY:-16} RAYON_NUM_THREADS=${RAYON_NUM_THREADS:-4} NODE_NO_WARNINGS=1 node --experimental-vm-modules ../node_modules/.bin/jest --passWithNoTests --maxWorkers=${JEST_MAX_WORKERS:-8}"
   },
   "jest": {
     "moduleNameMapper": {
@@ -58,12 +59,7 @@
       ".ts"
     ],
     "reporters": [
-      [
-        "jest-silent-reporter",
-        {
-          "useDots": true
-        }
-      ]
+      "default"
     ],
     "testTimeout": 30000,
     "setupFiles": [

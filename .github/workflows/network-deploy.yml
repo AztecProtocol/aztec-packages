@@ -43,8 +43,8 @@ on:
       sepolia_deployment:
         description: "Whether to deploy on Sepolia network (default: false)"
         required: false
-        type: boolean
-        default: false
+        type: string
+        default: "false"
     secrets:
       GCP_SA_KEY:
         required: true
@@ -84,8 +84,8 @@ on:
       sepolia_deployment:
         description: "Whether to deploy on Sepolia network (default: false)"
         required: false
-        type: boolean
-        default: false
+        type: string
+        default: "false"
 
 jobs:
   network_deployment:
@@ -164,7 +164,7 @@ jobs:
         # Destroy fails if the resources are already destroyed, so we continue on error
         continue-on-error: true
         run: |
-          if ${{ inputs.sepolia_deployment }}; then
+          if ${{ inputs.sepolia_deployment == 'true' }}; then
             terraform destroy -auto-approve \
               -var="RELEASE_NAME=${{ env.NAMESPACE }}" \
               -var="VALUES_FILE=${{ env.VALUES_FILE }}" \
@@ -189,7 +189,7 @@ jobs:
       - name: Terraform Plan
         working-directory: ./spartan/terraform/deploy-release
         run: |
-          if ${{ inputs.sepolia_deployment }}; then
+          if ${{ inputs.sepolia_deployment == 'true' }}; then
             terraform plan \
               -var="RELEASE_NAME=${{ env.NAMESPACE }}" \
               -var="VALUES_FILE=${{ env.VALUES_FILE }}" \

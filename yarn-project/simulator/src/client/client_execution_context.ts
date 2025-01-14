@@ -23,10 +23,11 @@ import { computeUniqueNoteHash, siloNoteHash } from '@aztec/circuits.js/hash';
 import { type FunctionAbi, type FunctionArtifact, type NoteSelector, countArgumentsSize } from '@aztec/foundation/abi';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { Fr } from '@aztec/foundation/fields';
-import { applyStringFormatting, createLogger } from '@aztec/foundation/log';
+import { createLogger } from '@aztec/foundation/log';
 
 import { type NoteData, toACVMWitness } from '../acvm/index.js';
-import { type PackedValuesCache } from '../common/packed_values_cache.js';
+import { type HashedValuesCache } from '../common/hashed_values_cache.js';
+import { type SimulationProvider } from '../server.js';
 import { type DBOracle } from './db_oracle.js';
 import { type ExecutionNoteCache } from './execution_note_cache.js';
 import { pickNotes } from './pick_notes.js';
@@ -69,10 +70,11 @@ export class ClientExecutionContext extends ViewDataOracle {
     protected readonly historicalHeader: BlockHeader,
     /** List of transient auth witnesses to be used during this simulation */
     authWitnesses: AuthWitness[],
-    private readonly packedValuesCache: PackedValuesCache,
+    private readonly executionCache: HashedValuesCache,
     private readonly noteCache: ExecutionNoteCache,
     db: DBOracle,
     private node: AztecNode,
+    private provider: SimulationProvider,
     protected sideEffectCounter: number = 0,
     log = createLogger('simulator:client_execution_context'),
     scopes?: AztecAddress[],
@@ -90,7 +92,7 @@ export class ClientExecutionContext extends ViewDataOracle {
   public getInitialWitness(abi: FunctionAbi) {
     const argumentsSize = countArgumentsSize(abi);
 
-    const args = this.packedValuesCache.unpack(this.argsHash);
+    const args = this.executionCache.getPreimage(this.argsHash);
 
     if (args.length !== argumentsSize) {
       throw new Error('Invalid arguments size');
@@ -159,27 +161,29 @@ export class ClientExecutionContext extends ViewDataOracle {
   }
 
   /**
-   * Pack the given array of arguments.
-   * @param args - Arguments to pack
+   * Store values in the execution cache.
+   * @param values - Values to store.
    */
-  public override packArgumentsArray(args: Fr[]): Promise<Fr> {
-    return Promise.resolve(this.packedValuesCache.pack(args));
+  public override storeArrayInExecutionCache(args: Fr[]): Promise<Fr> {
+    return Promise.resolve(this.executionCache.store(args));
   }
 
   /**
-   * Pack the given returns.
-   * @param returns - Returns to pack
+   * Store values in the execution cache.
+   * @param values - Values to store.
+   * @returns The hash of the values.
    */
-  public override packReturns(returns: Fr[]): Promise<Fr> {
-    return Promise.resolve(this.packedValuesCache.pack(returns));
+  public override storeInExecutionCache(values: Fr[]): Promise<Fr> {
+    return Promise.resolve(this.executionCache.store(values));
   }
 
   /**
-   * Unpack the given returns.
-   * @param returnsHash - Returns hash to unpack
+   * Gets values from the execution cache.
+   * @param hash - Hash of the values.
+   * @returns The values.
    */
-  public override unpackReturns(returnsHash: Fr): Promise<Fr[]> {
-    return Promise.resolve(this.packedValuesCache.unpack(returnsHash));
+  public override loadFromExecutionCache(hash: Fr): Promise<Fr[]> {
+    return Promise.resolve(this.executionCache.getPreimage(hash));
   }
 
   /**
@@ -339,7 +343,7 @@ export class ClientExecutionContext extends ViewDataOracle {
    * Calls a private function as a nested execution.
    * @param targetContractAddress - The address of the contract to call.
    * @param functionSelector - The function selector of the function to call.
-   * @param argsHash - The packed arguments to pass to the function.
+   * @param argsHash - The arguments hash to pass to the function.
    * @param sideEffectCounter - The side effect counter at the start of the call.
    * @param isStaticCall - Whether the call is a static call.
    * @returns The execution result.
@@ -369,16 +373,18 @@ export class ClientExecutionContext extends ViewDataOracle {
       derivedCallContext,
       this.historicalHeader,
       this.authWitnesses,
-      this.packedValuesCache,
+      this.executionCache,
       this.noteCache,
       this.db,
       this.node,
+      this.provider,
       sideEffectCounter,
       this.log,
       this.scopes,
     );
 
     const childExecutionResult = await executePrivateFunction(
+      this.provider,
       context,
       targetArtifact,
       targetContractAddress,
@@ -402,7 +408,7 @@ export class ClientExecutionContext extends ViewDataOracle {
    * Creates a PublicExecutionRequest object representing the request to call a public function.
    * @param targetContractAddress - The address of the contract to call.
    * @param functionSelector - The function selector of the function to call.
-   * @param argsHash - The packed arguments to pass to the function.
+   * @param argsHash - The arguments hash to pass to the function.
    * @param sideEffectCounter - The side effect counter at the start of the call.
    * @param isStaticCall - Whether the call is a static call.
    * @returns The public call stack item with the request information.
@@ -417,7 +423,7 @@ export class ClientExecutionContext extends ViewDataOracle {
   ) {
     const targetArtifact = await this.db.getFunctionArtifact(targetContractAddress, functionSelector);
     const derivedCallContext = this.deriveCallContext(targetContractAddress, targetArtifact, isStaticCall);
-    const args = this.packedValuesCache.unpack(argsHash);
+    const args = this.executionCache.getPreimage(argsHash);
 
     this.log.verbose(
       `Created ${callType} public execution request to ${targetArtifact.name}@${targetContractAddress}`,
@@ -448,7 +454,7 @@ export class ClientExecutionContext extends ViewDataOracle {
    * of the execution are empty.
    * @param targetContractAddress - The address of the contract to call.
    * @param functionSelector - The function selector of the function to call.
-   * @param argsHash - The packed arguments to pass to the function.
+   * @param argsHash - The arguments hash to pass to the function.
    * @param sideEffectCounter - The side effect counter at the start of the call.
    * @param isStaticCall - Whether the call is a static call.
    * @returns The public call stack item with the request information.
@@ -462,13 +468,13 @@ export class ClientExecutionContext extends ViewDataOracle {
   ): Promise<Fr> {
     // TODO(https://github.com/AztecProtocol/aztec-packages/issues/8985): Fix this.
     // WARNING: This is insecure and should be temporary!
-    // The oracle repacks the arguments and returns a new args_hash.
+    // The oracle re-hashes the arguments and returns a new args_hash.
     // new_args = [selector, ...old_args], so as to make it suitable to call the public dispatch function.
     // We don't validate or compute it in the circuit because a) it's harder to do with slices, and
     // b) this is only temporary.
-    const newArgsHash = this.packedValuesCache.pack([
+    const newArgsHash = this.executionCache.store([
       functionSelector.toField(),
-      ...this.packedValuesCache.unpack(argsHash),
+      ...this.executionCache.getPreimage(argsHash),
     ]);
     await this.createPublicExecutionRequest(
       'enqueued',
@@ -487,7 +493,7 @@ export class ClientExecutionContext extends ViewDataOracle {
    * of the execution are empty.
    * @param targetContractAddress - The address of the contract to call.
    * @param functionSelector - The function selector of the function to call.
-   * @param argsHash - The packed arguments to pass to the function.
+   * @param argsHash - The arguments hash to pass to the function.
    * @param sideEffectCounter - The side effect counter at the start of the call.
    * @param isStaticCall - Whether the call is a static call.
    * @returns The public call stack item with the request information.
@@ -501,13 +507,13 @@ export class ClientExecutionContext extends ViewDataOracle {
   ): Promise<Fr> {
     // TODO(https://github.com/AztecProtocol/aztec-packages/issues/8985): Fix this.
     // WARNING: This is insecure and should be temporary!
-    // The oracle repacks the arguments and returns a new args_hash.
+    // The oracle rehashes the arguments and returns a new args_hash.
     // new_args = [selector, ...old_args], so as to make it suitable to call the public dispatch function.
     // We don't validate or compute it in the circuit because a) it's harder to do with slices, and
     // b) this is only temporary.
-    const newArgsHash = this.packedValuesCache.pack([
+    const newArgsHash = this.executionCache.store([
       functionSelector.toField(),
-      ...this.packedValuesCache.unpack(argsHash),
+      ...this.executionCache.getPreimage(argsHash),
     ]);
     await this.createPublicExecutionRequest(
       'teardown',
@@ -542,10 +548,6 @@ export class ClientExecutionContext extends ViewDataOracle {
       FunctionSelector.fromNameAndParameters(targetArtifact.name, targetArtifact.parameters),
       isStaticCall,
     );
-  }
-
-  public override debugLog(message: string, fields: Fr[]) {
-    this.log.verbose(`${applyStringFormatting(message, fields)}`, { module: `${this.log.module}:debug_log` });
   }
 
   public getDebugFunctionName() {

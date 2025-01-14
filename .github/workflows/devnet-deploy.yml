@@ -23,10 +23,9 @@ on:
         required: false
         default: "true"
       sepolia_deployment:
-        description: "Whether to deploy on Sepolia network (default: false)"
+        description: Whether to deploy to Sepolia
         required: false
-        type: boolean
-        default: false
+        default: "false"
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -51,6 +50,7 @@ jobs:
       deployment_mnemonic_secret_name: ${{ github.event.inputs.deployment_mnemonic_secret_name }}
       deployment_salt: ${{ github.event.inputs.deployment_salt }}
       respect_tf_lock: ${{ github.event.inputs.respect_tf_lock }}
+      run_terraform_destroy: "true"
       sepolia_deployment: ${{ github.event.inputs.sepolia_deployment }}
     secrets:
       GCP_SA_KEY: ${{ secrets.GCP_SA_KEY }}
@@ -90,17 +90,13 @@ jobs:
         run: |
           set -eu -o pipefail
 
-          pxe_port_forward_pid=""
-          ethereum_port_forward_pid=""
+          port_forward_pids=()
 
           cleanup() {
-              echo "Cleaning up port-forward processes..."
-              if [ -n "$pxe_port_forward_pid" ]; then
-                  kill $pxe_port_forward_pid 2>/dev/null || true
-              fi
-              if [ -n "$ethereum_port_forward_pid" ]; then
-                  kill $ethereum_port_forward_pid 2>/dev/null || true
-              fi
+              echo "Cleaning up port-forwards..."
+              for pid in "${port_forward_pids[@]}"; do
+                  kill $pid 2>/dev/null
+              done
           }
 
           trap cleanup EXIT
@@ -114,6 +110,7 @@ jobs:
           helm get values $NAMESPACE -n $NAMESPACE -o json --all > helm_values.json
 
           PXE_PORT="$(jq -r .pxe.service.nodePort helm_values.json)"
+          FAUCET_PORT="$(jq -r .faucet.apiServerPort helm_values.json)"
           ETHEREUM_PORT="$(jq -r .ethereum.service.port helm_values.json)"
           L1_CHAIN_ID="$(jq -r .ethereum.chainId helm_values.json)"
 
@@ -122,31 +119,30 @@ jobs:
 
           rm helm_values.json
 
-          kubectl port-forward -n $NAMESPACE svc/$NAMESPACE-aztec-network-pxe $PXE_PORT &
-          pxe_port_forward_pid=$!
+          kubectl port-forward -n $NAMESPACE svc/$NAMESPACE-aztec-network-pxe $PXE_PORT &>/dev/null &
+          port_forward_pids+=($!)
+
+          kubectl port-forward -n $NAMESPACE svc/$NAMESPACE-aztec-network-faucet-api $FAUCET_PORT &>/dev/null &
+          port_forward_pids+=($!)
 
           # port-forward directly to the pod because the Eth node does not have a service definition
           ETH_POD_NAME=$(kubectl get pods -n $NAMESPACE -l app=ethereum -o jsonpath='{.items[0].metadata.name}')
-          kubectl port-forward -n $NAMESPACE pod/$ETH_POD_NAME $ETHEREUM_PORT &
-          ethereum_port_forward_pid=$!
+          kubectl port-forward -n $NAMESPACE pod/$ETH_POD_NAME $ETHEREUM_PORT &>/dev/null &
+          port_forward_pids+=($!)
 
           # wait for port-forwards to establish
           sleep 5
 
-          if ${{ inputs.sepolia_deployment }}; then
-            docker run --rm --network host $AZTEC_DOCKER_IMAGE bootstrap-network \
-              --rpc-url http://127.0.0.1:$PXE_PORT \
-              --l1-rpc-url ${{ secrets.SEPOLIA_EXTERNAL_HOST }} \
-              --l1-chain-id "$L1_CHAIN_ID" \
-              --l1-private-key ${{ secrets.SEPOLIA_L1_DEPLOYMENT_PRIVATE_KEY }} \
-              --json | tee ./basic_contracts.json
-          else
-            docker run --rm --network host $AZTEC_DOCKER_IMAGE bootstrap-network \
-              --rpc-url http://127.0.0.1:$PXE_PORT \
-              --l1-rpc-url http://127.0.0.1:$ETHEREUM_PORT \
-              --l1-chain-id "$L1_CHAIN_ID" \
-              --mnemonic "$MNEMONIC" \
-              --json | tee ./basic_contracts.json
-          fi
+          docker run --rm --network host $AZTEC_DOCKER_IMAGE bootstrap-network \
+            --rpc-url http://127.0.0.1:$PXE_PORT \
+            --l1-rpc-url http://127.0.0.1:$ETHEREUM_PORT \
+            --l1-chain-id "$L1_CHAIN_ID" \
+            --mnemonic "$MNEMONIC" \
+            --json | tee ./basic_contracts.json
 
           aws s3 cp ./basic_contracts.json ${{ env.CONTRACT_S3_BUCKET }}/devnet/basic_contracts.json
+
+          DEVCOIN_L1_ADDRESS=$(jq -r .devCoinL1 ./basic_contracts.json)
+          DEVCOIN_DRIP_AMOUNT=1000000000
+          curl -X POST -d address=$DEVCOIN_L1_ADDRESS -d amount=$DEVCOIN_DRIP_AMOUNT \
+            http://127.0.0.1:$FAUCET_PORT/l1-asset

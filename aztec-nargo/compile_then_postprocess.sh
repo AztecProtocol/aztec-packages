@@ -19,7 +19,7 @@ fi
 shift # remove the compile arg so we can inject --show-artifact-paths
 
 # Forward all arguments to nargo, tee output to console.
-# Nargo should be outputing errors to stderr, but it doesn't. Use tee to duplicate stdout to stderr to display errors.
+# Nargo should be outputting errors to stderr, but it doesn't. Use tee to duplicate stdout to stderr to display errors.
 artifacts_to_process=$($NARGO compile --inliner-aggressiveness 0 --show-artifact-paths $@ | tee >(cat >&2) | grep -oP 'Saved contract artifact to: \K.*')
 
 # Postprocess each artifact
@@ -39,7 +39,7 @@ for artifact in $artifacts_to_process; do
 
     echo "Generating verification key for function $fn_name"
     # BB outputs the verification key to stdout as raw bytes, however, we need to base64 encode it before storing it in the artifact
-    verification_key=$($BB write_vk_for_ivc -h -b ${fn_artifact_path} -o - | base64)
+    verification_key=$($BB write_vk_for_ivc -b ${fn_artifact_path} -o - | base64)
     rm $fn_artifact_path
     jq ".functions[$fn_index].verification_key = \"$verification_key\"" $artifact > $artifact.tmp
     mv $artifact.tmp $artifact

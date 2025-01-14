@@ -8,12 +8,15 @@ import {
   type CompleteAddress,
   type DeployL1Contracts,
   Fr,
+  type FunctionCall,
   GrumpkinScalar,
   type Logger,
   type PXE,
   type Wallet,
+  getContractClassFromArtifact,
 } from '@aztec/aztec.js';
 import { deployInstance, registerContractClass } from '@aztec/aztec.js/deployment';
+import { type BlobSinkServer, createBlobSinkServer } from '@aztec/blob-sink/server';
 import { type DeployL1ContractsArgs, createL1Clients, getL1ContractsConfigEnvVars, l1Artifacts } from '@aztec/ethereum';
 import { EthCheatCodesWithState, startAnvil } from '@aztec/ethereum/test';
 import { asyncMap } from '@aztec/foundation/async-map';
@@ -29,6 +32,7 @@ import { type Anvil } from '@viem/anvil';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'fs';
 import { copySync, removeSync } from 'fs-extra/esm';
 import fs from 'fs/promises';
+import getPort from 'get-port';
 import { tmpdir } from 'os';
 import path, { join } from 'path';
 import { type Hex, getContract } from 'viem';
@@ -53,6 +57,7 @@ export type SubsystemsContext = {
   watcher: AnvilTestWatcher;
   cheatCodes: CheatCodes;
   dateProvider: TestDateProvider;
+  blobSink: BlobSinkServer;
   directoryToCleanup?: string;
 };
 
@@ -254,6 +259,7 @@ async function teardown(context: SubsystemsContext | undefined) {
     await context.bbConfig?.cleanup();
     await context.anvil.stop();
     await context.watcher.stop();
+    await context.blobSink.stop();
     if (context.directoryToCleanup) {
       await fs.rm(context.directoryToCleanup, { recursive: true, force: true });
     }
@@ -278,6 +284,8 @@ async function setupFromFresh(
 ): Promise<SubsystemsContext> {
   logger.verbose(`Initializing state...`);
 
+  const blobSinkPort = await getPort();
+
   // Fetch the AztecNode config.
   // TODO: For some reason this is currently the union of a bunch of subsystems. That needs fixing.
   const aztecNodeConfig: AztecNodeConfig & SetupOptions = { ...getConfigEnvVars(), ...opts };
@@ -291,6 +299,17 @@ async function setupFromFresh(
   } else {
     aztecNodeConfig.dataDirectory = statePath;
   }
+  aztecNodeConfig.blobSinkUrl = `http://localhost:${blobSinkPort}`;
+
+  // Setup blob sink service
+  const blobSink = await createBlobSinkServer({
+    port: blobSinkPort,
+    dataStoreConfig: {
+      dataDirectory: aztecNodeConfig.dataDirectory,
+      dataStoreMapSizeKB: aztecNodeConfig.dataStoreMapSizeKB,
+    },
+  });
+  await blobSink.start();
 
   // Start anvil. We go via a wrapper script to ensure if the parent dies, anvil dies.
   logger.verbose('Starting anvil...');
@@ -317,9 +336,9 @@ async function setupFromFresh(
   }
 
   const deployL1ContractsValues = await setupL1Contracts(aztecNodeConfig.l1RpcUrl, hdAccount, logger, {
+    ...getL1ContractsConfigEnvVars(),
     salt: opts.salt,
     ...deployL1ContractsArgs,
-    ...getL1ContractsConfigEnvVars(),
     initialValidators: opts.initialValidators,
   });
   aztecNodeConfig.l1Contracts = deployL1ContractsValues.l1ContractAddresses;
@@ -407,6 +426,7 @@ async function setupFromFresh(
     watcher,
     cheatCodes,
     dateProvider,
+    blobSink,
     directoryToCleanup,
   };
 }
@@ -420,12 +440,25 @@ async function setupFromState(statePath: string, logger: Logger): Promise<Subsys
   const directoryToCleanup = path.join(tmpdir(), randomBytes(8).toString('hex'));
   await fs.mkdir(directoryToCleanup, { recursive: true });
 
+  // Run the blob sink on a random port
+  const blobSinkPort = await getPort();
+
   // TODO: For some reason this is currently the union of a bunch of subsystems. That needs fixing.
   const aztecNodeConfig: AztecNodeConfig & SetupOptions = JSON.parse(
     readFileSync(`${statePath}/aztec_node_config.json`, 'utf-8'),
     reviver,
   );
   aztecNodeConfig.dataDirectory = statePath;
+  aztecNodeConfig.blobSinkUrl = `http://127.0.0.1:${blobSinkPort}`;
+
+  const blobSink = await createBlobSinkServer({
+    port: blobSinkPort,
+    dataStoreConfig: {
+      dataDirectory: statePath,
+      dataStoreMapSizeKB: aztecNodeConfig.dataStoreMapSizeKB,
+    },
+  });
+  await blobSink.start();
 
   // Start anvil. We go via a wrapper script to ensure if the parent dies, anvil dies.
   const { anvil, rpcUrl } = await startAnvil();
@@ -499,6 +532,7 @@ async function setupFromState(statePath: string, logger: Logger): Promise<Subsys
     watcher,
     cheatCodes,
     dateProvider,
+    blobSink,
     directoryToCleanup,
   };
 }
@@ -518,13 +552,22 @@ export const addAccounts =
 
     logger.verbose('Simulating account deployment...');
     const provenTxs = await Promise.all(
-      accountKeys.map(async ([secretKey, signPk]) => {
+      accountKeys.map(async ([secretKey, signPk], index) => {
         const account = getSchnorrAccount(pxe, secretKey, signPk, 1);
-        const deployMethod = await account.getDeployMethod();
 
+        // only register the contract class once
+        let skipClassRegistration = true;
+        if (index === 0) {
+          // for the first account, check if the contract class is already registered, otherwise we should register now
+          if (!(await pxe.isContractClassPubliclyRegistered(account.getInstance().contractClassId))) {
+            skipClassRegistration = false;
+          }
+        }
+
+        const deployMethod = await account.getDeployMethod();
         const provenTx = await deployMethod.prove({
           contractAddressSalt: account.salt,
-          skipClassRegistration: true,
+          skipClassRegistration,
           skipPublicDeployment: true,
           universalDeploy: true,
         });
@@ -557,9 +600,16 @@ export async function publicDeployAccounts(
 ) {
   const accountAddressesToDeploy = accountsToDeploy.map(a => ('address' in a ? a.address : a));
   const instances = await Promise.all(accountAddressesToDeploy.map(account => sender.getContractInstance(account)));
-  const batch = new BatchCall(sender, [
-    (await registerContractClass(sender, SchnorrAccountContractArtifact)).request(),
-    ...instances.map(instance => deployInstance(sender, instance!).request()),
-  ]);
+
+  const contractClass = getContractClassFromArtifact(SchnorrAccountContractArtifact);
+  const alreadyRegistered = await sender.isContractClassPubliclyRegistered(contractClass.id);
+
+  const calls: FunctionCall[] = [];
+  if (!alreadyRegistered) {
+    calls.push((await registerContractClass(sender, SchnorrAccountContractArtifact)).request());
+  }
+  calls.push(...instances.map(instance => deployInstance(sender, instance!).request()));
+
+  const batch = new BatchCall(sender, calls);
   await batch.send().wait({ proven: waitUntilProven });
 }

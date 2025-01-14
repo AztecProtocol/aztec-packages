@@ -1,9 +1,14 @@
-import { type ProverAgentConfig, proverAgentConfigMappings } from '@aztec/circuit-types';
 import { times } from '@aztec/foundation/collection';
 import { type NamespacedApiHandlers } from '@aztec/foundation/json-rpc/server';
 import { type LogFn } from '@aztec/foundation/log';
 import { buildServerCircuitProver } from '@aztec/prover-client';
-import { InlineProofStore, ProvingAgent, createProvingJobBrokerClient } from '@aztec/prover-client/broker';
+import {
+  InlineProofStore,
+  type ProverAgentConfig,
+  ProvingAgent,
+  createProvingJobBrokerClient,
+  proverAgentConfigMappings,
+} from '@aztec/prover-client/broker';
 import { getProverNodeAgentConfigFromEnv } from '@aztec/prover-node';
 import { createAndStartTelemetryClient, telemetryClientConfigMappings } from '@aztec/telemetry-client/start';
 

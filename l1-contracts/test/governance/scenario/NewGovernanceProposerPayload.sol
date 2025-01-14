@@ -4,7 +4,7 @@ pragma solidity >=0.8.27;
 import {IPayload} from "@aztec/governance/interfaces/IPayload.sol";
 import {IRegistry} from "@aztec/governance/interfaces/IRegistry.sol";
 import {Governance} from "@aztec/governance/Governance.sol";
-import {GovernanceProposer} from "@aztec/governance/GovernanceProposer.sol";
+import {GovernanceProposer} from "@aztec/governance/proposer/GovernanceProposer.sol";
 
 /**
  * @title NewGovernanceProposerPayload

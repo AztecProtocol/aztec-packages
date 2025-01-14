@@ -23,7 +23,7 @@
     "clean": "rm -rf ./dest .tsbuildinfo ./src/config/package_info.ts",
     "formatting": "run -T prettier --check ./src && run -T eslint ./src",
     "formatting:fix": "run -T eslint --fix ./src && run -T prettier -w ./src",
-    "test": "HARDWARE_CONCURRENCY=16 RAYON_NUM_THREADS=4 NODE_NO_WARNINGS=1 node --experimental-vm-modules ../node_modules/.bin/jest --passWithNoTests --maxWorkers=8",
+    "test": "HARDWARE_CONCURRENCY=${HARDWARE_CONCURRENCY:-16} RAYON_NUM_THREADS=${RAYON_NUM_THREADS:-4} NODE_NO_WARNINGS=1 node --experimental-vm-modules ../node_modules/.bin/jest --passWithNoTests --maxWorkers=${JEST_MAX_WORKERS:-8}",
     "start": "LOG_LEVEL=${LOG_LEVEL:-debug} && node ./dest/bin/index.js",
     "generate": "node ./scripts/generate_package_info.js"
   },
@@ -58,12 +58,7 @@
       ".ts"
     ],
     "reporters": [
-      [
-        "jest-silent-reporter",
-        {
-          "useDots": true
-        }
-      ]
+      "default"
     ],
     "testTimeout": 30000,
     "setupFiles": [
@@ -85,7 +80,6 @@
     "@aztec/simulator": "workspace:^",
     "@aztec/types": "workspace:^",
     "@msgpack/msgpack": "^3.0.0-beta2",
-    "@noir-lang/noirc_abi": "portal:../../noir/packages/noirc_abi",
     "@noir-lang/types": "workspace:*",
     "koa": "^2.14.2",
     "koa-router": "^12.0.0",

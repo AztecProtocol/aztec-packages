@@ -1,6 +1,6 @@
 {{- if .Values.proverBroker.enabled }}
 apiVersion: apps/v1
-kind: ReplicaSet
+kind: StatefulSet
 metadata:
   name: {{ include "aztec-network.fullname" . }}-prover-broker
   labels:
@@ -11,6 +11,16 @@ spec:
     matchLabels:
       {{- include "aztec-network.selectorLabels" . | nindent 6 }}
       app: prover-broker
+  {{- if not .Values.storage.localSsd }}
+  volumeClaimTemplates:
+    - metadata:
+        name: prover-broker-data
+      spec:
+        accessModes: [ "ReadWriteOnce" ]
+        resources:
+          requests:
+            storage: {{ .Values.proverBroker.storageSize }}
+  {{- end }}
   template:
     metadata:
       labels:
@@ -18,6 +28,9 @@ spec:
         app: prover-broker
     spec:
       serviceAccountName: {{ include "aztec-network.fullname" . }}-node
+      {{- if .Values.storage.localSsd }}
+      {{- include "aztec-network.gcpLocalSsd" . | nindent 6 }}
+      {{- end }}
       {{- if .Values.network.public }}
       hostNetwork: true
       dnsPolicy: ClusterFirstWithHostNet
@@ -25,6 +38,8 @@ spec:
       {{- end }}
       volumes:
         - name: config
+          emptyDir: {}
+        - name: prover-broker-data
           emptyDir: {}
         - name: scripts
           configMap:
@@ -55,6 +70,8 @@ spec:
           volumeMounts:
             - name: config
               mountPath: /shared/config
+            - name: prover-broker-data
+              mountPath: {{ .Values.proverBroker.dataDir }}
           command:
             - "/bin/bash"
             - "-c"
@@ -70,6 +87,10 @@ spec:
               valueFrom:
                 fieldRef:
                   fieldPath: metadata.name
+            - name: OTEL_SERVICE_NAME
+              value: prover-broker
+            - name: NODE_OPTIONS
+              value: "--max-old-space-size={{ .Values.proverBroker.maxOldSpaceSize}}"
             - name: AZTEC_PORT
               value: "{{ .Values.proverBroker.service.nodePort }}"
             - name: LOG_LEVEL
@@ -82,12 +103,28 @@ spec:
               value: "{{ .Values.proverBroker.jobTimeoutMs }}"
             - name: PROVER_BROKER_JOB_MAX_RETRIES
               value: "{{ .Values.proverBroker.jobMaxRetries }}"
-            - name: PROVER_BROKER_DATA_DIRECTORY
-              value: "{{ .Values.proverBroker.dataDirectory }}"
+            - name: DATA_DIRECTORY
+              value: "{{ .Values.proverBroker.dataDir }}"
+            - name: DATA_STORE_MAP_SIZE_KB
+              value: "{{ .Values.storage.dataStoreMapSize }}"
             - name: OTEL_RESOURCE_ATTRIBUTES
               value: service.name={{ .Release.Name }},service.namespace={{ .Release.Namespace }},service.version={{ .Chart.AppVersion }},environment={{ .Values.environment | default "production" }}
           resources:
             {{- toYaml .Values.proverBroker.resources | nindent 12 }}
+      volumes:
+        - name: scripts
+          configMap:
+            name: {{ include "aztec-network.fullname" . }}-scripts
+        - name: config
+          emptyDir: {}
+      {{- if .Values.storage.localSsd }}
+        - name: prover-broker-data
+          emptyDir: {}
+      {{ else }}
+        - name: prover-broker-data
+          persistentVolumeClaim:
+            claimName: prover-broker-data
+      {{- end }}
 {{- end }}
 ---
 # Headless service for StatefulSet DNS entries

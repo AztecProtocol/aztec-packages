@@ -7,7 +7,10 @@ use dep::types::tests::fixtures;
 use types::abis::sponge_blob::SpongeBlob;
 use types::merkle_tree::merkle_tree::MerkleTree;
 
-pub fn default_previous_rollup_data() -> [PreviousRollupData; 2] {
+pub fn default_previous_rollup_data<let N: u32, let M: u32>(
+    blob_fields_0: [Field; N],
+    blob_fields_1: [Field; M],
+) -> [PreviousRollupData; 2] {
     let mut previous_rollup_data = [PreviousRollupData::empty(); 2];
 
     let vk_index = PUBLIC_BASE_ROLLUP_VK_INDEX;
@@ -21,8 +24,10 @@ pub fn default_previous_rollup_data() -> [PreviousRollupData; 2] {
     previous_rollup_data[1].base_or_merge_rollup_public_inputs.constants.vk_tree_root =
         vk_tree_root;
 
-    previous_rollup_data[0].vk = fixtures::vk_tree::generate_fake_honk_vk_for_index(vk_index);
-    previous_rollup_data[1].vk = fixtures::vk_tree::generate_fake_honk_vk_for_index(vk_index);
+    previous_rollup_data[0].vk =
+        fixtures::vk_tree::generate_fake_rollup_honk_vk_for_index(vk_index);
+    previous_rollup_data[1].vk =
+        fixtures::vk_tree::generate_fake_rollup_honk_vk_for_index(vk_index);
 
     previous_rollup_data[0].vk_witness =
         MembershipWitness { leaf_index: vk_index as Field, sibling_path: vk_path };
@@ -70,14 +75,14 @@ pub fn default_previous_rollup_data() -> [PreviousRollupData; 2] {
     previous_rollup_data[0].base_or_merge_rollup_public_inputs.num_txs = 1;
     previous_rollup_data[1].base_or_merge_rollup_public_inputs.num_txs = 1;
 
-    let mut sponge_blob = SpongeBlob::new(2);
+    let mut sponge_blob = SpongeBlob::new(N + M);
     previous_rollup_data[0].base_or_merge_rollup_public_inputs.start_sponge_blob = sponge_blob;
 
-    sponge_blob.absorb([1], 1);
+    sponge_blob.absorb(blob_fields_0, N);
     previous_rollup_data[0].base_or_merge_rollup_public_inputs.end_sponge_blob = sponge_blob;
     previous_rollup_data[1].base_or_merge_rollup_public_inputs.start_sponge_blob = sponge_blob;
 
-    sponge_blob.absorb([2], 1);
+    sponge_blob.absorb(blob_fields_1, M);
     previous_rollup_data[1].base_or_merge_rollup_public_inputs.end_sponge_blob = sponge_blob;
 
     previous_rollup_data[0].base_or_merge_rollup_public_inputs.out_hash = 1;

@@ -15,9 +15,9 @@
     "clean": "rm -rf ./dest .tsbuildinfo",
     "formatting": "run -T prettier --check ./src && run -T eslint ./src",
     "formatting:fix": "run -T eslint --fix ./src && run -T prettier -w ./src",
-    "test:node": "NODE_NO_WARNINGS=1 mocha --config ./.mocharc.json",
+    "test:node": "NODE_NO_WARNINGS=1 mocha --config ./.mocharc.json --reporter dot",
     "test:browser": "wtr --config ./web-test-runner.config.mjs",
-    "test": "yarn test:node && yarn test:browser"
+    "test": "yarn test:node && yarn test:browser && true"
   },
   "inherits": [
     "../package.common.json",
@@ -28,7 +28,7 @@
     "@aztec/ethereum": "workspace:^",
     "@aztec/foundation": "workspace:^",
     "idb": "^8.0.0",
-    "lmdb": "^3.0.6"
+    "lmdb": "^3.2.0"
   },
   "devDependencies": {
     "@aztec/circuits.js": "workspace:^",
@@ -82,12 +82,7 @@
       "^(\\.{1,2}/.*)\\.[cm]?js$": "$1"
     },
     "reporters": [
-      [
-        "jest-silent-reporter",
-        {
-          "useDots": true
-        }
-      ]
+      "default"
     ],
     "testRegex": "./src/.*\\.test\\.(js|mjs|ts)$",
     "rootDir": "./src",

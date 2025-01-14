@@ -22,6 +22,10 @@ export class ClientIvcProof {
     return new ClientIvcProof(Buffer.from(''), Buffer.from(''));
   }
 
+  static fake(fill = Math.floor(Math.random() * 255)) {
+    return new ClientIvcProof(Buffer.alloc(1, fill), Buffer.alloc(1, fill));
+  }
+
   static get schema() {
     return bufferSchemaFor(ClientIvcProof);
   }

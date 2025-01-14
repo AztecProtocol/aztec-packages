@@ -89,13 +89,8 @@ impl NoteInterface<ECDSA_PUBLIC_KEY_NOTE_LEN> for EcdsaPublicKeyNote {
     }
 
     fn get_note_type_id() -> Field {
-        comptime
-        {
-            let bytes = "EcdsaPublicKeyNote".as_bytes();
-            let hash = aztec::protocol_types::hash::poseidon2_hash_bytes(bytes);
-            let hash_bytes = hash.to_be_bytes::<4>();
-            aztec::protocol_types::utils::field::field_from_bytes(hash_bytes, true)
-        }
+        // randomly chosen note type id --> has to fit within 7 bits
+        76
     }
 
     fn get_header(self) -> NoteHeader {

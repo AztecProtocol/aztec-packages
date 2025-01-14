@@ -45,7 +45,7 @@ void ClientIVC::instantiate_stdlib_verification_queue(
  *
  * @param circuit The circuit to which the constraints are appended
  * @param proof A stdlib proof to be recursively verified (either oink or PG)
- * @param vkey The stdlib verfication key associated with the proof
+ * @param vkey The stdlib verification key associated with the proof
  * @param type The type of the proof (equivalently, the type of the verifier)
  */
 void ClientIVC::perform_recursive_verification_and_databus_consistency_checks(
@@ -93,8 +93,9 @@ void ClientIVC::perform_recursive_verification_and_databus_consistency_checks(
     }
     }
 
-    // Set the return data commitment to be propagated on the public inputs of the present kernel and peform consistency
-    // checks between the calldata commitments and the return data commitments contained within the public inputs
+    // Set the return data commitment to be propagated on the public inputs of the present kernel and perform
+    // consistency checks between the calldata commitments and the return data commitments contained within the public
+    // inputs
     bus_depot.set_return_data_to_be_propagated_and_perform_consistency_checks(
         decider_vk->witness_commitments.return_data,
         decider_vk->witness_commitments.calldata,

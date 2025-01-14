@@ -1,11 +1,4 @@
-import {
-  type BlockAttestation,
-  type BlockProposal,
-  type L2Block,
-  type ProcessedTx,
-  type Tx,
-  type TxHash,
-} from '@aztec/circuit-types';
+import { type BlockAttestation, type BlockProposal, type L2Block, type Tx, type TxHash } from '@aztec/circuit-types';
 import { type BlockHeader, type GlobalVariables } from '@aztec/circuits.js';
 import { type EpochCache } from '@aztec/epoch-cache';
 import { Buffer32 } from '@aztec/foundation/buffer';
@@ -25,7 +18,9 @@ import {
   AttestationTimeoutError,
   BlockBuilderNotProvidedError,
   InvalidValidatorPrivateKeyError,
+  ReExFailedTxsError,
   ReExStateMismatchError,
+  ReExTimeoutError,
   TransactionsNotAvailableError,
 } from './errors/validator.error.js';
 import { type ValidatorKeyStore } from './key_store/interface.js';
@@ -38,11 +33,17 @@ import { ValidatorMetrics } from './metrics.js';
  * We reuse the sequencer's block building functionality for re-execution
  */
 type BlockBuilderCallback = (
-  txs: Tx[],
+  txs: Iterable<Tx>,
   globalVariables: GlobalVariables,
   historicalHeader?: BlockHeader,
-  interrupt?: (processedTxs: ProcessedTx[]) => Promise<void>,
-) => Promise<{ block: L2Block; publicProcessorDuration: number; numProcessedTxs: number; blockBuildingTimer: Timer }>;
+  opts?: { validateOnly?: boolean },
+) => Promise<{
+  block: L2Block;
+  publicProcessorDuration: number;
+  numTxs: number;
+  numFailedTxs: number;
+  blockBuildingTimer: Timer;
+}>;
 
 export interface Validator {
   start(): Promise<void>;
@@ -242,10 +243,22 @@ export class ValidatorClient extends WithTracer implements Validator {
 
     // Use the sequencer's block building logic to re-execute the transactions
     const stopTimer = this.metrics.reExecutionTimer();
-    const { block } = await this.blockBuilder(txs, header.globalVariables);
+    const { block, numFailedTxs } = await this.blockBuilder(txs, header.globalVariables, undefined, {
+      validateOnly: true,
+    });
     stopTimer();
 
     this.log.verbose(`Transaction re-execution complete`);
+
+    if (numFailedTxs > 0) {
+      this.metrics.recordFailedReexecution(proposal);
+      throw new ReExFailedTxsError(numFailedTxs);
+    }
+
+    if (block.body.txEffects.length !== txHashes.length) {
+      this.metrics.recordFailedReexecution(proposal);
+      throw new ReExTimeoutError();
+    }
 
     // This function will throw an error if state updates do not match
     if (!block.archive.root.equals(proposal.archive)) {
