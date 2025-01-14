@@ -4,9 +4,9 @@ import {
   type AztecNode,
   type CheatCodes,
   Fr,
+  HashedValues,
   type Logger,
   type PXE,
-  PackedValues,
   TxExecutionRequest,
   type UniqueNote,
   deriveKeys,
@@ -336,14 +336,14 @@ describe('e2e_crowdfunding_and_claim', () => {
     // Instead, we construct a call and impersonate operator by skipping the usual account contract entrypoint...
     const call = crowdfundingContract.withWallet(donorWallets[1]).methods.withdraw(donationAmount).request();
     // ...using the withdraw fn as our entrypoint
-    const entrypointPackedValues = PackedValues.fromValues(call.args);
+    const entrypointHashedValues = HashedValues.fromValues(call.args);
     const maxFeesPerGas = await pxe.getCurrentBaseFees();
     const request = new TxExecutionRequest(
       call.to,
       call.selector,
-      entrypointPackedValues.hash,
+      entrypointHashedValues.hash,
       new TxContext(donorWallets[1].getChainId(), donorWallets[1].getVersion(), GasSettings.default({ maxFeesPerGas })),
-      [entrypointPackedValues],
+      [entrypointHashedValues],
       [],
     );
     // NB: Removing the msg_sender assertion from private_init will still result in a throw, as we are using
