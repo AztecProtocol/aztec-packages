@@ -127,4 +127,13 @@ export const PROOF_VERIFIER_COUNT = 'aztec.proof_verifier.count';
 export const VALIDATOR_RE_EXECUTION_TIME = 'aztec.validator.re_execution_time';
 export const VALIDATOR_FAILED_REEXECUTION_COUNT = 'aztec.validator.failed_reexecution_count';
 
-export const EVENT_LOOP_LAG = 'aztec.event_loop_lag';
+export const NODEJS_EVENT_LOOP_DELAY_MIN = 'nodejs.eventloop.delay.min';
+export const NODEJS_EVENT_LOOP_DELAY_MEAN = 'nodejs.eventloop.delay.mean';
+export const NODEJS_EVENT_LOOP_DELAY_MAX = 'nodejs.eventloop.delay.max';
+export const NODEJS_EVENT_LOOP_DELAY_STDDEV = 'nodejs.eventloop.delay.stddev';
+export const NODEJS_EVENT_LOOP_DELAY_P50 = 'nodejs.eventloop.delay.p50';
+export const NODEJS_EVENT_LOOP_DELAY_P90 = 'nodejs.eventloop.delay.p90';
+export const NODEJS_EVENT_LOOP_DELAY_P99 = 'nodejs.eventloop.delay.p99';
+
+export const NODEJS_EVENT_LOOP_UTILIZATION = 'nodejs.eventloop.utilization';
+export const NODEJS_EVENT_LOOP_TIME = 'nodejs.eventloop.time';

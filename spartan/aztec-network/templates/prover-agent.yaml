@@ -88,6 +88,8 @@ spec:
               valueFrom:
                 fieldRef:
                   fieldPath: metadata.name
+            - name: OTEL_SERVICE_NAME
+              value: prover-agent
             - name: AZTEC_PORT
               value: "{{ .Values.proverAgent.service.nodePort }}"
             - name: LOG_LEVEL

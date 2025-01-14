@@ -89,6 +89,8 @@ spec:
               valueFrom:
                 fieldRef:
                   fieldPath: metadata.name
+            - name: OTEL_SERVICE_NAME
+              value: pxe
             - name: AZTEC_PORT
               value: "{{ .Values.pxe.service.nodePort }}"
             - name: LOG_JSON

@@ -158,6 +158,8 @@ spec:
               valueFrom:
                 fieldRef:
                   fieldPath: metadata.name
+            - name: OTEL_SERVICE_NAME
+              value: validator
             - name: POD_IP
               valueFrom:
                 fieldRef:
