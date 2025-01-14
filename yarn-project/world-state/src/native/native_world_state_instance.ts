@@ -137,7 +137,12 @@ export class NativeWorldState implements NativeWorldStateInstance {
     // Here we determine which fork the request is being executed against and whether it requires uncommitted data
     // We use the fork Id to select the appropriate request queue and the uncommitted data flag to pass to the queue
     let forkId = -1;
+    // We assume it includes uncommitted unless explicitly told otherwise
     let committedOnly = false;
+
+    // Canonical requests ALWAYS go against the canonical fork
+    // These include things like block syncs/unwinds etc
+    // These requests don't contain a fork ID
     if (isWithCanonical(body)) {
       forkId = 0;
     } else if (isWithForkId(body)) {
@@ -174,6 +179,8 @@ export class NativeWorldState implements NativeWorldStateInstance {
       messageType,
       committedOnly,
     );
+
+    // If the request was to delete the fork then we clean it up here
     if (messageType === WorldStateMessageType.DELETE_FORK) {
       await requestQueue.stop();
       this.queues.delete(forkId);
