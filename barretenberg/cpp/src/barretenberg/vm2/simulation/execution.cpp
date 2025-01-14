@@ -53,7 +53,7 @@ void Execution::ret(ContextInterface& context, MemoryAddress ret_offset, MemoryA
     auto& memory = context.get_memory();
 
     // TODO: check tags and types (only for size, the return data is converted to FF).
-    size_t size = static_cast<size_t>(memory.get(ret_size_offset).value);
+    uint32_t size = static_cast<uint32_t>(memory.get(ret_size_offset).value);
     auto [values, _] = memory.get_slice(ret_offset, size);
 
     context_stack.pop();

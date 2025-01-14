@@ -1,7 +1,6 @@
 #include "barretenberg/vm2/constraining/check_circuit.hpp"
 
 #include <array>
-#include <bits/utility.h>
 #include <functional>
 #include <span>
 #include <stdexcept>

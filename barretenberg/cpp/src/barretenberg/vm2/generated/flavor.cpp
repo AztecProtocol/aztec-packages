@@ -23,31 +23,31 @@ AvmFlavor::AllConstRefValues::AllConstRefValues(
     , alu_sel_op_add(il[15])
     , execution_addressing_error_idx(il[16])
     , execution_addressing_error_kind(il[17])
-    , execution_clk(il[18])
-    , execution_ex_opcode(il[19])
-    , execution_indirect(il[20])
-    , execution_last(il[21])
-    , execution_op1(il[22])
-    , execution_op1_after_relative(il[23])
-    , execution_op2(il[24])
-    , execution_op2_after_relative(il[25])
-    , execution_op3(il[26])
-    , execution_op3_after_relative(il[27])
-    , execution_op4(il[28])
-    , execution_op4_after_relative(il[29])
-    , execution_pc(il[30])
-    , execution_rop1(il[31])
-    , execution_rop2(il[32])
-    , execution_rop3(il[33])
-    , execution_rop4(il[34])
-    , execution_sel(il[35])
-    , execution_sel_addressing_error(il[36])
-    , execution_sel_op1_is_address(il[37])
-    , execution_sel_op2_is_address(il[38])
-    , execution_sel_op3_is_address(il[39])
-    , execution_sel_op4_is_address(il[40])
-    , execution_stack_pointer_tag(il[41])
-    , execution_stack_pointer_val(il[42])
+    , execution_base_address_tag(il[18])
+    , execution_base_address_val(il[19])
+    , execution_clk(il[20])
+    , execution_ex_opcode(il[21])
+    , execution_indirect(il[22])
+    , execution_last(il[23])
+    , execution_op1(il[24])
+    , execution_op1_after_relative(il[25])
+    , execution_op2(il[26])
+    , execution_op2_after_relative(il[27])
+    , execution_op3(il[28])
+    , execution_op3_after_relative(il[29])
+    , execution_op4(il[30])
+    , execution_op4_after_relative(il[31])
+    , execution_pc(il[32])
+    , execution_rop1(il[33])
+    , execution_rop2(il[34])
+    , execution_rop3(il[35])
+    , execution_rop4(il[36])
+    , execution_sel(il[37])
+    , execution_sel_addressing_error(il[38])
+    , execution_sel_op1_is_address(il[39])
+    , execution_sel_op2_is_address(il[40])
+    , execution_sel_op3_is_address(il[41])
+    , execution_sel_op4_is_address(il[42])
     , lookup_dummy_precomputed_counts(il[43])
     , lookup_dummy_dynamic_counts(il[44])
     , perm_dummy_dynamic_inv(il[45])
@@ -88,6 +88,8 @@ AvmFlavor::AllConstRefValues AvmFlavor::ProverPolynomials::get_row(size_t row_id
                      alu_sel_op_add[row_idx],
                      execution_addressing_error_idx[row_idx],
                      execution_addressing_error_kind[row_idx],
+                     execution_base_address_tag[row_idx],
+                     execution_base_address_val[row_idx],
                      execution_clk[row_idx],
                      execution_ex_opcode[row_idx],
                      execution_indirect[row_idx],
@@ -111,8 +113,6 @@ AvmFlavor::AllConstRefValues AvmFlavor::ProverPolynomials::get_row(size_t row_id
                      execution_sel_op2_is_address[row_idx],
                      execution_sel_op3_is_address[row_idx],
                      execution_sel_op4_is_address[row_idx],
-                     execution_stack_pointer_tag[row_idx],
-                     execution_stack_pointer_val[row_idx],
                      lookup_dummy_precomputed_counts[row_idx],
                      lookup_dummy_dynamic_counts[row_idx],
                      perm_dummy_dynamic_inv[row_idx],
@@ -141,6 +141,8 @@ AvmFlavor::CommitmentLabels::CommitmentLabels()
     Base::alu_sel_op_add = "ALU_SEL_OP_ADD";
     Base::execution_addressing_error_idx = "EXECUTION_ADDRESSING_ERROR_IDX";
     Base::execution_addressing_error_kind = "EXECUTION_ADDRESSING_ERROR_KIND";
+    Base::execution_base_address_tag = "EXECUTION_BASE_ADDRESS_TAG";
+    Base::execution_base_address_val = "EXECUTION_BASE_ADDRESS_VAL";
     Base::execution_clk = "EXECUTION_CLK";
     Base::execution_ex_opcode = "EXECUTION_EX_OPCODE";
     Base::execution_indirect = "EXECUTION_INDIRECT";
@@ -164,8 +166,6 @@ AvmFlavor::CommitmentLabels::CommitmentLabels()
     Base::execution_sel_op2_is_address = "EXECUTION_SEL_OP2_IS_ADDRESS";
     Base::execution_sel_op3_is_address = "EXECUTION_SEL_OP3_IS_ADDRESS";
     Base::execution_sel_op4_is_address = "EXECUTION_SEL_OP4_IS_ADDRESS";
-    Base::execution_stack_pointer_tag = "EXECUTION_STACK_POINTER_TAG";
-    Base::execution_stack_pointer_val = "EXECUTION_STACK_POINTER_VAL";
     Base::perm_dummy_dynamic_inv = "PERM_DUMMY_DYNAMIC_INV";
     Base::lookup_dummy_precomputed_inv = "LOOKUP_DUMMY_PRECOMPUTED_INV";
     Base::lookup_dummy_dynamic_inv = "LOOKUP_DUMMY_DYNAMIC_INV";

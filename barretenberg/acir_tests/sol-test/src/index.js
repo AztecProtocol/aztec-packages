@@ -8,6 +8,10 @@ import solc from "solc";
 const NUMBER_OF_FIELDS_IN_PLONK_PROOF = 93;
 const NUMBER_OF_FIELDS_IN_HONK_PROOF = 443;
 
+const WRONG_PUBLIC_INPUTS_LENGTH = "0xfa066593";
+const SUMCHECK_FAILED = "0x9fc3a218";
+const SHPLEMINI_FAILED = "0xa5d82e8a";
+
 // We use the solcjs compiler version in this test, although it is slower than foundry, to run the test end to end
 // it simplifies of parallelising the test suite
 
@@ -94,7 +98,7 @@ if (!testingHonk) {
 }
 
 var output = JSON.parse(solc.compile(JSON.stringify(compilationInput)));
-if (output.errors.some((e) => e.type == "Error")) {
+if (output.errors.some((e) => e.severity == "error")) {
   throw new Error(JSON.stringify(output.errors, null, 2));
 }
 const contract = output.contracts["Test.sol"]["Test"];
@@ -236,8 +240,20 @@ try {
   const result = await contract.test(proofStr, publicInputs);
   if (!result) throw new Error("Test failed");
 } catch (e) {
-  console.error(testName, " failed");
-  console.log(e);
+  console.error(testName, "failed");
+  if (testingHonk) {
+    var errorType = e.data;
+    switch (errorType) {
+      case WRONG_PUBLIC_INPUTS_LENGTH:
+        throw new Error("Number of inputs in the proof is wrong");
+      case SUMCHECK_FAILED:
+        throw new Error("Sumcheck round failed");
+      case SHPLEMINI_FAILED:
+        throw new Error("PCS round failed");
+      default:
+        throw e;
+    }
+  }
   throw e;
 } finally {
   // Kill anvil at the end of running
