@@ -192,7 +192,7 @@ fn compute_fn_signature_hash(fn_name: &str, parameters: &[Type]) -> u32 {
 
 - A string representation of the function is created, including the function name and parameter types
 - This signature string is then hashed using Keccak-256
-- The first 4 bytes of the resulting hash are converted to a u32 integer
+- The first 4 bytes of the resulting hash are coverted to a u32 integer
 
 ### Integration into contract interface
 
