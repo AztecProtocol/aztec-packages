@@ -2,7 +2,7 @@ include "alu.pil";
 include "addressing.pil";
 include "precomputed.pil";
 
-namespace execution(256);
+namespace execution;
 
 pol commit sel; // subtrace selector
 
