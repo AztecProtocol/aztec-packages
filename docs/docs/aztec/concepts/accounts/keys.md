@@ -59,7 +59,7 @@ All the keys below are Grumpkin keys (public keys derived on the Grumpkin curve)
 ## Nullifier keys
 
 Whenever a note is consumed, a nullifier deterministically derived from it is emitted.
-This mechanisms prevents double-spends, since nullifiers are checked by the protocol to be unique.
+This mechanism prevents double-spends, since nullifiers are checked by the protocol to be unique.
 Now, in order to preserve privacy, a third party should not be able to link a note hash to its nullifier - this link is enforced by the note implementation.
 Therefore, calculating the nullifier for a note requires a secret from its owner.
 
