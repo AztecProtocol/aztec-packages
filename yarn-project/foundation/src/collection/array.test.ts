@@ -86,6 +86,10 @@ describe('mean', () => {
     expect(mean([10, 20, 30, 40, 50])).toBe(30);
     expect(mean([-1, 0, 1])).toBe(0);
   });
+
+  it('handles empty array', () => {
+    expect(mean([])).toBeUndefined();
+  });
 });
 
 describe('median', () => {
@@ -94,13 +98,25 @@ describe('median', () => {
     expect(median([10, 20, 30, 40, 50])).toBe(30);
     expect(median([-1, 0, 1])).toBe(0);
   });
+
+  it('handles empty array', () => {
+    expect(median([])).toBeUndefined();
+  });
 });
 
 describe('variance', () => {
   it('calculates the variance of an array of numbers', () => {
     expect(variance([1, 2, 3, 4, 5])).toBe(2.5);
     expect(variance([10, 20, 30, 40, 50])).toBe(250);
-    expect(variance([-1, 0, 1])).toBe(2 / 3);
+    expect(variance([-1, 0, 1])).toBe(1);
+  });
+
+  it('handles empty array', () => {
+    expect(variance([])).toBeUndefined();
+  });
+
+  it('handles single element', () => {
+    expect(variance([1])).toBeUndefined();
   });
 });
 
@@ -108,6 +124,14 @@ describe('stdDev', () => {
   it('calculates the standard deviation of an array of numbers', () => {
     expect(stdDev([1, 2, 3, 4, 5])).toBeCloseTo(1.5811, 4);
     expect(stdDev([10, 20, 30, 40, 50])).toBeCloseTo(15.8114, 4);
-    expect(stdDev([-1, 0, 1])).toBeCloseTo(0.8165, 4);
+    expect(stdDev([-1, 0, 1])).toBeCloseTo(1, 4);
+  });
+
+  it('handles empty array', () => {
+    expect(stdDev([])).toBeUndefined();
+  });
+
+  it('handles single element', () => {
+    expect(stdDev([1])).toBeUndefined();
   });
 });
