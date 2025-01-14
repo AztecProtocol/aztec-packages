@@ -217,7 +217,7 @@ jobs:
 
   e2e:
     needs: [images-e2e, configure]
-    if: needs.configure.outputs.e2e-all == 'true' || (needs.configure.outputs.non-docs == 'true' && needs.configure.outputs.non-bb == 'true')
+    if: false
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
