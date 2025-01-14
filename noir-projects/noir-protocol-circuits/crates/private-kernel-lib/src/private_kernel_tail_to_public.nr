@@ -286,11 +286,11 @@ mod tests {
     fn first_nullifier_non_revertible_validation() {
         let mut builder = PrivateKernelTailToPublicInputsBuilder::new();
         let mut first_nullifier = builder.previous_kernel.nullifiers.get(0);
-        first_nullifier.nullifier.counter = builder.previous_kernel.min_revertible_side_effect_counter + 1;
+        first_nullifier.nullifier.counter =
+            builder.previous_kernel.min_revertible_side_effect_counter + 1;
         builder.previous_kernel.nullifiers.set(0, first_nullifier);
         builder.failed();
     }
-
 
     #[test]
     fn empty_tx_consumes_fixed_gas() {

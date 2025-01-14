@@ -217,7 +217,6 @@ mod tests {
         builder.failed();
     }
 
-
     #[test(should_fail_with = "First nullifier claim was not satisfied")]
     fn first_nullifier_validation() {
         let mut builder = PrivateKernelTailInputsBuilder::new();

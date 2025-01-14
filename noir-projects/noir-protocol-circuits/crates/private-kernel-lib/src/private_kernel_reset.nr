@@ -651,11 +651,9 @@ mod tests {
         let public_inputs = builder.execute();
 
         // The note hash at index 2 is chopped.
-        let output_note_hash =
-            builder.compute_output_note_hashes([note_hash])[0];
+        let output_note_hash = builder.compute_output_note_hashes([note_hash])[0];
         assert_array_eq(public_inputs.end.note_hashes, [output_note_hash]);
     }
-
 
     #[test(should_fail_with = "note hashes have been siloed in a previous reset")]
     fn siloing_note_hashes_again_fails() {
