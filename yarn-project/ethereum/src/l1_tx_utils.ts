@@ -12,7 +12,6 @@ import { sleep } from '@aztec/foundation/sleep';
 import {
   type Account,
   type Address,
-  BaseError,
   type BlockOverrides,
   type Chain,
   type GetTransactionReturnType,
