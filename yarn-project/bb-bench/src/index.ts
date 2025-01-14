@@ -20,12 +20,9 @@ import MockPublicBaseCircuit from '../artifacts/mock_public_base.json' assert { 
 import type {
   AppCreatorInputType,
   AppPublicInputs,
-  AppReaderInputType,
   FixedLengthArray,
   KernelPublicInputs,
   MockPrivateKernelInitInputType,
-  MockPrivateKernelInnerInputType,
-  MockPrivateKernelResetInputType,
   MockPrivateKernelTailInputType,
   MockPublicBaseInputType,
   PrivateKernelPublicInputs,
@@ -49,7 +46,7 @@ export {
   MockPrivateKernelTailVk,
 };
 
-const logger = createDebug('aztec:ivc-test');
+const logger = createDebug('aztec:bb-bench');
 
 /* eslint-disable camelcase */
 
@@ -75,43 +72,10 @@ export async function witnessGenCreatorAppMockCircuit(
   };
 }
 
-export async function witnessGenReaderAppMockCircuit(
-  args: AppReaderInputType,
-): Promise<WitnessGenResult<AppPublicInputs>> {
-  const program = new Noir(MockAppReaderCircuit);
-  const { witness, returnValue } = await program.execute(args, foreignCallHandler);
-  return {
-    witness,
-    publicInputs: returnValue as AppPublicInputs,
-  };
-}
-
 export async function witnessGenMockPrivateKernelInitCircuit(
   args: MockPrivateKernelInitInputType,
 ): Promise<WitnessGenResult<PrivateKernelPublicInputs>> {
   const program = new Noir(MockPrivateKernelInitCircuit);
-  const { witness, returnValue } = await program.execute(args, foreignCallHandler);
-  return {
-    witness,
-    publicInputs: returnValue as PrivateKernelPublicInputs,
-  };
-}
-
-export async function witnessGenMockPrivateKernelInnerCircuit(
-  args: MockPrivateKernelInnerInputType,
-): Promise<WitnessGenResult<PrivateKernelPublicInputs>> {
-  const program = new Noir(MockPrivateKernelInnerCircuit);
-  const { witness, returnValue } = await program.execute(args, foreignCallHandler);
-  return {
-    witness,
-    publicInputs: returnValue as PrivateKernelPublicInputs,
-  };
-}
-
-export async function witnessGenMockPrivateKernelResetCircuit(
-  args: MockPrivateKernelResetInputType,
-): Promise<WitnessGenResult<PrivateKernelPublicInputs>> {
-  const program = new Noir(MockPrivateKernelResetCircuit);
   const { witness, returnValue } = await program.execute(args, foreignCallHandler);
   return {
     witness,
@@ -144,6 +108,18 @@ export function getVkAsFields(vk: {
   keyAsFields: string[];
 }): FixedLengthArray<string, typeof CLIENT_IVC_VERIFICATION_KEY_LENGTH_IN_FIELDS> {
   return vk.keyAsFields as FixedLengthArray<string, typeof CLIENT_IVC_VERIFICATION_KEY_LENGTH_IN_FIELDS>;
+}
+
+export async function generateCircuit(): Promise<[string, Uint8Array]> {
+  // Witness gen app and kernels
+  const appWitnessGenResult = await witnessGenCreatorAppMockCircuit({ commitments_to_create: ['0x1', '0x2'] });
+  logger('generated app mock circuit witness');
+
+  // Create client IVC proof
+  const bytecode = MockAppCreatorCircuit.bytecode;
+  const witness = appWitnessGenResult.witness;
+
+  return [bytecode, witness];
 }
 
 export async function generate3FunctionTestingIVCStack(): Promise<[string[], Uint8Array[]]> {
@@ -179,63 +155,6 @@ export async function generate3FunctionTestingIVCStack(): Promise<[string[], Uin
   return [bytecodes, witnessStack];
 }
 
-export async function generate6FunctionTestingIVCStack(): Promise<[string[], Uint8Array[]]> {
-  const tx = {
-    number_of_calls: '0x2',
-  };
-  // Witness gen app and kernels
-  const creatorAppWitnessGenResult = await witnessGenCreatorAppMockCircuit({ commitments_to_create: ['0x1', '0x2'] });
-  const readerAppWitnessGenResult = await witnessGenReaderAppMockCircuit({ commitments_to_read: ['0x2', '0x0'] });
-
-  const initWitnessGenResult = await witnessGenMockPrivateKernelInitCircuit({
-    app_inputs: creatorAppWitnessGenResult.publicInputs,
-    tx,
-    app_vk: getVkAsFields(MockAppCreatorVk),
-  });
-  const innerWitnessGenResult = await witnessGenMockPrivateKernelInnerCircuit({
-    prev_kernel_public_inputs: initWitnessGenResult.publicInputs,
-    app_inputs: readerAppWitnessGenResult.publicInputs,
-    app_vk: getVkAsFields(MockAppReaderVk),
-    kernel_vk: getVkAsFields(MockPrivateKernelInitVk),
-  });
-
-  const resetWitnessGenResult = await witnessGenMockPrivateKernelResetCircuit({
-    prev_kernel_public_inputs: innerWitnessGenResult.publicInputs,
-    commitment_read_hints: [
-      '0x1', // Reader reads commitment 0x2, which is at index 1 of the created commitments
-      MOCK_MAX_COMMITMENTS_PER_TX.toString(), // Pad with no-ops
-      MOCK_MAX_COMMITMENTS_PER_TX.toString(),
-      MOCK_MAX_COMMITMENTS_PER_TX.toString(),
-    ],
-    kernel_vk: getVkAsFields(MockPrivateKernelInnerVk),
-  });
-
-  const tailWitnessGenResult = await witnessGenMockPrivateKernelTailCircuit({
-    prev_kernel_public_inputs: resetWitnessGenResult.publicInputs,
-    kernel_vk: getVkAsFields(MockPrivateKernelResetVk),
-  });
-
-  // Create client IVC proof
-  const bytecodes = [
-    MockAppCreatorCircuit.bytecode,
-    MockPrivateKernelInitCircuit.bytecode,
-    MockAppReaderCircuit.bytecode,
-    MockPrivateKernelInnerCircuit.bytecode,
-    MockPrivateKernelResetCircuit.bytecode,
-    MockPrivateKernelTailCircuit.bytecode,
-  ];
-  const witnessStack = [
-    creatorAppWitnessGenResult.witness,
-    initWitnessGenResult.witness,
-    readerAppWitnessGenResult.witness,
-    innerWitnessGenResult.witness,
-    resetWitnessGenResult.witness,
-    tailWitnessGenResult.witness,
-  ];
-
-  return [bytecodes, witnessStack];
-}
-
 function base64ToUint8Array(base64: string): Uint8Array {
   return Uint8Array.from(atob(base64), c => c.charCodeAt(0));
 }
@@ -253,6 +172,29 @@ export async function proveThenVerifyAztecClient(
   try {
     const [proof, vk] = await backend.prove(witnessStack.map((arr: Uint8Array) => ungzip(arr)));
     const verified = await backend.verify(proof, vk);
+    return verified;
+  } finally {
+    await backend.destroy();
+  }
+}
+
+export async function proveThenVerifyUltraHonk(
+  bytecode: string,
+  witness: Uint8Array,
+  threads?: number,
+): Promise<boolean> {
+  const { UltraHonkBackend, BarretenbergVerifier } = await import('@aztec/bb.js');
+  const backend = new UltraHonkBackend(bytecode, { threads });
+  try {
+    logger(`computing the verification key (could be precomputed)...`);
+    const vk = await backend.getVerificationKey();
+    logger(`proving...`);
+    const proof = await backend.generateProof(witness);
+    logger(`done proving. verifying...`);
+    const verifier = new BarretenbergVerifier({ threads });
+    const verified = await verifier.verifyUltraHonkProof(proof, vk);
+    logger(`verified: ${verified}`);
+    await verifier.destroy();
     return verified;
   } finally {
     await backend.destroy();

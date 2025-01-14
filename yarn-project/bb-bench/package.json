@@ -17,6 +17,7 @@
     "formatting:fix": "run -T eslint --fix ./src && run -T prettier -w ./src",
     "formatting:fix:types": "NODE_OPTIONS='--max-old-space-size=8096' run -T eslint --fix ./src/types && run -T prettier -w ./src/types",
     "generate": "yarn generate:noir-circuits",
+    "compile-circuits": "NARGO=../../../../noir/noir-repo/target/release/nargo && cd circuits/first && $NARGO compile && $NARGO execute && cd ../second && $NARGO compile && $NARGO execute",
     "generate:noir-circuits": "mkdir -p ./artifacts && cp -r ../../noir-projects/mock-protocol-circuits/target/* ./artifacts && node --no-warnings --loader ts-node/esm src/scripts/generate_declaration_files.ts && node --no-warnings --loader ts-node/esm src/scripts/generate_ts_from_abi.ts && run -T prettier -w ./src/types",
     "codegen": "yarn noir-codegen",
     "build:dev": "tsc -b --watch",
