@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1736875820601,
+  "lastUpdate": 1736877029851,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "End-to-end Benchmark": [
@@ -73,6 +73,45 @@ window.BENCHMARK_DATA = {
           {
             "name": "Sequencer/aztec.sequencer.block_builder_tree_insertion_duration",
             "value": 657931,
+            "unit": "us"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "alexghr@users.noreply.github.com",
+            "name": "Alex Gherghisan",
+            "username": "alexghr"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "1d24fab7152b827e91738ff87fb9aef9398c589a",
+          "message": "feat: track nodejs runtime metrics (#11160)\n\nThis PR implements the OTEL nodejs runtime recommended metrics\nhttps://opentelemetry.io/docs/specs/semconv/runtime/nodejs-metrics/",
+          "timestamp": "2025-01-14T17:26:12Z",
+          "tree_id": "bc666e1ddaf3fc73dff872de32202e139236fae7",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/1d24fab7152b827e91738ff87fb9aef9398c589a"
+        },
+        "date": 1736877021810,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sequencer/aztec.sequencer.block.build_duration",
+            "value": 4763,
+            "unit": "ms"
+          },
+          {
+            "name": "Sequencer/aztec.sequencer.block.time_per_mana",
+            "value": 3.5795080324160247,
+            "unit": "us/mana"
+          },
+          {
+            "name": "Sequencer/aztec.sequencer.block_builder_tree_insertion_duration",
+            "value": 684259,
             "unit": "us"
           }
         ]
