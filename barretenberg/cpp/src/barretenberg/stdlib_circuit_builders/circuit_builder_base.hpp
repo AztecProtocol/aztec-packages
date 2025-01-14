@@ -18,6 +18,7 @@ template <typename FF_> class CircuitBuilderBase {
     using EmbeddedCurve = std::conditional_t<std::same_as<FF, bb::g1::coordinate_field>, curve::BN254, curve::Grumpkin>;
 
     size_t num_gates = 0;
+    bool has_dummy_witnesses;
 
     std::vector<uint32_t> public_inputs;
     std::vector<FF> variables;
@@ -56,7 +57,7 @@ template <typename FF_> class CircuitBuilderBase {
     static constexpr uint32_t REAL_VARIABLE = UINT32_MAX - 1;
     static constexpr uint32_t FIRST_VARIABLE_IN_CLASS = UINT32_MAX - 2;
 
-    CircuitBuilderBase(size_t size_hint = 0);
+    CircuitBuilderBase(size_t size_hint = 0, bool has_dummy_witnesses = false);
 
     CircuitBuilderBase(const CircuitBuilderBase& other) = default;
     CircuitBuilderBase(CircuitBuilderBase&& other) noexcept = default;
