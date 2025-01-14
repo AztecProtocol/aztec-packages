@@ -8,6 +8,7 @@
     ".": "./dest/index.js",
     "./start": "./dest/start.js",
     "./noop": "./dest/noop.js",
+    "./bench": "./dest/bench.js",
     "./otel-pino-stream": "./dest/vendor/otel-pino-stream.js"
   },
   "scripts": {

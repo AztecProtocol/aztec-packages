@@ -1,25 +1,98 @@
-import { type AztecNodeConfig, type AztecNodeService } from '@aztec/aztec-node';
-import { type AztecNode, BatchCall, INITIAL_L2_BLOCK_NUM, type SentTx, sleep } from '@aztec/aztec.js';
-import { times } from '@aztec/foundation/collection';
+import { type AztecNodeService } from '@aztec/aztec-node';
+import { type AztecNode, BatchCall, INITIAL_L2_BLOCK_NUM, type SentTx, type WaitOpts } from '@aztec/aztec.js';
+import { mean, stdDev, times } from '@aztec/foundation/collection';
 import { randomInt } from '@aztec/foundation/crypto';
 import { BenchmarkingContract } from '@aztec/noir-contracts.js/Benchmarking';
 import { type PXEService, type PXEServiceConfig, createPXEService } from '@aztec/pxe';
+import { type Metrics } from '@aztec/telemetry-client';
+import {
+  type BenchmarkDataPoint,
+  type BenchmarkMetrics,
+  type BenchmarkTelemetryClient,
+} from '@aztec/telemetry-client/bench';
 
+import { writeFileSync } from 'fs';
 import { mkdirpSync } from 'fs-extra';
 import { globSync } from 'glob';
 import { join } from 'path';
 
-import { type EndToEndContext, setup } from '../fixtures/utils.js';
+import { type EndToEndContext, type SetupOptions, setup } from '../fixtures/utils.js';
 
 /**
  * Setup for benchmarks. Initializes a remote node with a single account and deploys a benchmark contract.
  */
-export async function benchmarkSetup(opts: Partial<AztecNodeConfig>) {
-  const context = await setup(1, { ...opts });
+export async function benchmarkSetup(
+  opts: Partial<SetupOptions> & {
+    /** What metrics to export */ metrics: (Metrics | MetricFilter)[];
+    /** Where to output the benchmark data (defaults to BENCH_OUTPUT or bench.json) */
+    benchOutput?: string;
+  },
+) {
+  const context = await setup(1, { ...opts, telemetryConfig: { benchmark: true } });
   const contract = await BenchmarkingContract.deploy(context.wallet).send().deployed();
   context.logger.info(`Deployed benchmarking contract at ${contract.address}`);
   const sequencer = (context.aztecNode as AztecNodeService).getSequencer()!;
-  return { context, contract, sequencer };
+  const telemetry = context.telemetryClient! as BenchmarkTelemetryClient;
+  context.logger.warn(`Cleared benchmark data points from setup`);
+  telemetry.clear();
+  const origTeardown = context.teardown.bind(context);
+  context.teardown = async () => {
+    await telemetry.flush();
+    const data = telemetry.getMeters();
+    const formatted = formatMetricsForGithubBenchmarkAction(data, opts.metrics);
+    const benchOutput = opts.benchOutput ?? process.env.BENCH_OUTPUT ?? 'bench.json';
+    writeFileSync(benchOutput, JSON.stringify(formatted));
+    context.logger.info(`Wrote ${data.length} metrics to ${benchOutput}`);
+    await origTeardown();
+  };
+  return { telemetry, context, contract, sequencer };
+}
+
+type MetricFilter = {
+  source: Metrics;
+  transform: (value: number) => number;
+  name: string;
+  unit?: string;
+};
+
+// See https://github.com/benchmark-action/github-action-benchmark/blob/e3c661617bc6aa55f26ae4457c737a55545a86a4/src/extract.ts#L659-L670
+type GithubActionBenchmarkResult = {
+  name: string;
+  value: number;
+  range?: string;
+  unit: string;
+  extra?: string;
+};
+
+function formatMetricsForGithubBenchmarkAction(
+  data: BenchmarkMetrics,
+  filter: (Metrics | MetricFilter)[],
+): GithubActionBenchmarkResult[] {
+  const allFilters: MetricFilter[] = filter.map(f =>
+    typeof f === 'string' ? { name: f, source: f, transform: (x: number) => x, unit: undefined } : f,
+  );
+  return data.flatMap(meter => {
+    return meter.metrics
+      .filter(metric => allFilters.map(f => f.source).includes(metric.name as Metrics))
+      .map(metric => [metric, allFilters.find(f => f.source === metric.name)!] as const)
+      .map(([metric, filter]) => ({
+        name: `${meter.name}/${filter.name}`,
+        unit: filter.unit ?? metric.unit ?? 'unknown',
+        ...getMetricValues(metric.points.map(p => ({ ...p, value: filter.transform(p.value) }))),
+      }))
+      .filter((metric): metric is GithubActionBenchmarkResult => metric.value !== undefined);
+  });
+}
+
+function getMetricValues(points: BenchmarkDataPoint[]) {
+  if (points.length === 0) {
+    return {};
+  } else if (points.length === 1) {
+    return { value: points[0].value };
+  } else {
+    const values = points.map(point => point.value);
+    return { value: mean(values), range: `± ${stdDev(values)}` };
+  }
 }
 
 /**
@@ -79,14 +152,16 @@ export async function sendTxs(
   contract: BenchmarkingContract,
 ): Promise<SentTx[]> {
   const calls = times(txCount, index => makeCall(index, context, contract));
+  context.logger.info(`Creating ${txCount} txs`);
   const provenTxs = await Promise.all(calls.map(call => call.prove({ skipPublicSimulation: true })));
-  const sentTxs = provenTxs.map(tx => tx.send());
+  context.logger.info(`Sending ${txCount} txs`);
+  return provenTxs.map(tx => tx.send());
+}
 
-  // Awaiting txHash waits until the aztec node has received the tx into its p2p pool
-  await Promise.all(sentTxs.map(tx => tx.getTxHash()));
-  await sleep(100);
-
-  return sentTxs;
+export async function waitTxs(txs: SentTx[], context: EndToEndContext, txWaitOpts?: WaitOpts) {
+  context.logger.info(`Awaiting ${txs.length} txs to be mined`);
+  await Promise.all(txs.map(tx => tx.wait(txWaitOpts)));
+  context.logger.info(`All ${txs.length} txs have been mined`);
 }
 
 /**
