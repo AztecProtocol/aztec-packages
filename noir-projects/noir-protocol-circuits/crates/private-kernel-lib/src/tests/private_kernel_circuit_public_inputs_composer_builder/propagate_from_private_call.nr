@@ -13,11 +13,11 @@ fn propagate_from_private_call_empty_data_succeeds() {
     builder.with_protocol_nullifier();
 
     let tx_request = builder.tx_request;
-    let first_nullifier = create_protocol_nullifier(tx_request);
+    let protocol_nullifier = create_protocol_nullifier(tx_request);
 
     let output = builder.compose_from_tx_request(false);
 
-    assert_eq(output.end.nullifiers[0], first_nullifier);
+    assert_eq(output.end.nullifiers[0], protocol_nullifier);
 
     let array_lengths = PrivateKernelCircuitPublicInputsArrayLengths::new(output);
     let mut expected_array_lengths = PrivateKernelCircuitPublicInputsArrayLengths::empty();
