@@ -26,7 +26,10 @@ To increase the probability of diagrams being up-to-date we encourage you to wri
 You simply create a codeblock specifying the language as `mermaid` and write your diagram in the codeblock. For example:
 
 ````txt
-```mermaid
+```mdx
+import { Mermaid } from '@docusaurus/theme-mermaid';
+
+<Mermaid>
 graph LR
     A --> B
     B --> C
@@ -34,7 +37,10 @@ graph LR
 ```
 ````
 
-```mermaid
+```mdx
+import { Mermaid } from '@docusaurus/theme-mermaid';
+
+<Mermaid>
 graph LR
     A --> B
     B --> C
@@ -46,7 +52,10 @@ Mermaid supports multiple types of diagrams, so finding one that suits your need
 When writing class diagrams, we recommend using the `classDiagram` type and composition arrows `*--` to represent extensions. Also for the sake of readability, add all the components in the class itself, including composite types. For example:
 
 ````txt
-```mermaid
+```mdx
+import { Mermaid } from '@docusaurus/theme-mermaid';
+
+<Mermaid>
 classDiagram
     class A{
         foo: Bar
@@ -65,7 +74,10 @@ classDiagram
 ```
 ````
 
-```mermaid
+```mdx
+import { Mermaid } from '@docusaurus/theme-mermaid';
+
+<Mermaid>
 classDiagram
     class A{
         foo: Bar
