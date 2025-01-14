@@ -7,15 +7,7 @@ import { promises as fs } from 'fs';
 
 const log = createConsoleLogger('mock-circuits');
 
-const circuits = [
-  'app_creator',
-  'app_reader',
-  'mock_private_kernel_init',
-  'mock_private_kernel_inner',
-  'mock_private_kernel_reset',
-  'mock_private_kernel_tail',
-  'mock_public_base',
-];
+const circuits = ['first', 'second'];
 
 const main = async () => {
   try {
