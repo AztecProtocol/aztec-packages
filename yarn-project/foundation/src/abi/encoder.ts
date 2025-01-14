@@ -1,6 +1,6 @@
 import { Fr } from '../fields/index.js';
 import { type AbiType, type FunctionAbi } from './abi.js';
-import { isAddressStruct, isFunctionSelectorStruct, isWrappedFieldStruct } from './utils.js';
+import { isAddressStruct, isFunctionSelectorStruct, isU128Struct, isWrappedFieldStruct } from './utils.js';
 
 /**
  * Encodes arguments for a function call.
@@ -105,6 +105,14 @@ class ArgumentEncoder {
           this.encodeArgument({ kind: 'integer', sign: 'unsigned', width: 32 }, arg.value ?? arg, `${name}.inner`);
           break;
         }
+        if (isU128Struct(abiType)) {
+          // U128 struct has low and high limbs - so we first convert the value to the 2 limbs and then we encode them
+          // --> this results in the limbs being added to the final flat array as [..., lo, hi, ...].
+          const { lo, hi } = convertToU128Limbs(arg);
+          this.encodeArgument({ kind: 'field' }, lo, `${name}.lo`);
+          this.encodeArgument({ kind: 'field' }, hi, `${name}.hi`);
+          break;
+        }
         if (isWrappedFieldStruct(abiType)) {
           this.encodeArgument({ kind: 'field' }, arg.inner ?? arg, `${name}.inner`);
           break;
@@ -157,4 +165,19 @@ export function encodeArguments(abi: FunctionAbi, args: any[]) {
  */
 export function countArgumentsSize(abi: FunctionAbi) {
   return abi.parameters.reduce((acc, parameter) => acc + ArgumentEncoder.typeSize(parameter.type), 0);
+}
+
+export function convertToU128Limbs(value: bigint | number): { lo: bigint; hi: bigint } {
+  if (typeof value === 'number') {
+    value = BigInt(value);
+  }
+
+  // Check value is within 128 bits
+  if (value < 0 || value >= 2n ** 128n) {
+    throw new Error(`Value ${value} is not within 128 bits and hence cannot be converted to U128 limbs.`);
+  }
+
+  const lo = value & BigInt('0xFFFFFFFFFFFFFFFF');
+  const hi = value >> BigInt(64);
+  return { lo, hi };
 }

@@ -8,6 +8,7 @@ import {
   isAztecAddressStruct,
   isEthAddressStruct,
   isFunctionSelectorStruct,
+  isU128Struct,
   isWrappedFieldStruct,
 } from '@aztec/foundation/abi';
 
@@ -40,6 +41,9 @@ function abiTypeToTypescript(type: ABIParameter['type']): string {
       }
       if (isWrappedFieldStruct(type)) {
         return 'WrappedFieldLike';
+      }
+      if (isU128Struct(type)) {
+        return 'U128Like';
       }
       return `{ ${type.fields.map(f => `${f.name}: ${abiTypeToTypescript(f.type)}`).join(', ')} }`;
     default:
