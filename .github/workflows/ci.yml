@@ -361,7 +361,7 @@ jobs:
 
   kind-network-smoke:
     needs: [images-e2e, configure]
-    if: needs.configure.outputs.e2e-all == 'true' || needs.configure.outputs.yarn-project == 'true'
+    if: true
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
