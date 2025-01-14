@@ -1,12 +1,10 @@
 import { type BlobSinkClientInterface, createBlobSinkClient } from '@aztec/blob-sink/client';
 import {
-  ConsensusPayload,
+  // ConsensusPayload,
   type EpochProofClaim,
   type EpochProofQuote,
-  type L2Block,
-  SignatureDomainSeparator,
-  type TxHash,
-  getHashedSignaturePayload,
+  type L2Block, // SignatureDomainSeparator,
+  type TxHash, // getHashedSignaturePayload,
 } from '@aztec/circuit-types';
 import { type L1PublishBlockStats, type L1PublishProofStats, type L1PublishStats } from '@aztec/circuit-types/stats';
 import {
@@ -583,9 +581,9 @@ export class L1Publisher {
       blockHash: block.hash().toString(),
     };
 
-    const consensusPayload = new ConsensusPayload(block.header, block.archive.root, txHashes ?? []);
+    // const consensusPayload = new ConsensusPayload(block.header, block.archive.root, txHashes ?? []);
 
-    const digest = getHashedSignaturePayload(consensusPayload, SignatureDomainSeparator.blockAttestation);
+    // const digest = getHashedSignaturePayload(consensusPayload, SignatureDomainSeparator.blockAttestation);
 
     const blobs = Blob.getBlobs(block.body.toBlobFields());
     const proposeTxArgs = {
@@ -610,10 +608,10 @@ export class L1Publisher {
     //        This means that we can avoid the simulation issues in later checks.
     //        By simulation issue, I mean the fact that the block.timestamp is equal to the last block, not the next, which
     //        make time consistency checks break.
-    await this.validateBlockForSubmission(block.header, {
-      digest: digest.toBuffer(),
-      signatures: attestations ?? [],
-    });
+    // await this.validateBlockForSubmission(block.header, {
+    //   digest: digest.toBuffer(),
+    //   signatures: attestations ?? [],
+    // });
 
     this.log.debug(`Submitting propose transaction`);
     const result = proofQuote
@@ -984,7 +982,32 @@ export class L1Publisher {
     //        we will fail estimation in the case where we are simulating for the
     //        first ethereum block within our slot (as current time is not in the
     //        slot yet).
-    const gasGuesstimate = blobEvaluationGas + L1Publisher.PROPOSE_GAS_GUESS;
+    // const gasGuesstimate = blobEvaluationGas + L1Publisher.PROPOSE_GAS_GUESS;
+
+    // const timestamp = BigInt((await this.publicClient.getBlock()).timestamp + this.ethereumSlotDuration);
+
+    // const simulationResult = await this.publicClient.simulate({
+    //   validation: true,
+    //   blocks: [
+    //     {
+    //       blockOverrides: {
+    //         time: timestamp,
+    //       },
+    //       calls: [
+    //         {
+    //           from: this.account.address,
+    //           to: this.rollupContract.address,
+    //           data: encodeFunctionData({
+    //             abi: this.rollupContract.abi,
+    //             functionName: 'validateBlobs',
+    //             args: [Blob.getEthBlobEvaluationInputs(encodedData.blobs)],
+    //           }),
+    //         },
+    //       ],
+    //     },
+    //   ],
+    // });
+
     const attestations = encodedData.attestations
       ? encodedData.attestations.map(attest => attest.toViemSignature())
       : [];
@@ -1007,7 +1030,7 @@ export class L1Publisher {
       Blob.getEthBlobEvaluationInputs(encodedData.blobs),
     ] as const;
 
-    return { args, gas: gasGuesstimate };
+    return { args, blobEvaluationGas };
   }
 
   private getSubmitEpochProofArgs(args: {
@@ -1049,19 +1072,30 @@ export class L1Publisher {
     }
     try {
       const kzg = Blob.getViemKzgInstance();
-      const { args, gas } = await this.prepareProposeTx(encodedData);
+      const { args, blobEvaluationGas } = await this.prepareProposeTx(encodedData);
       const data = encodeFunctionData({
         abi: this.rollupContract.abi,
         functionName: 'propose',
         args,
       });
+      const time = BigInt((await this.publicClient.getBlock()).timestamp + this.ethereumSlotDuration);
+      const simulationResult = await this.l1TxUtils.simulateGasUsed(
+        {
+          to: this.rollupContract.address,
+          data,
+        },
+        {
+          time,
+        },
+      );
+
       const result = await this.l1TxUtils.sendAndMonitorTransaction(
         {
           to: this.rollupContract.address,
           data,
         },
         {
-          fixedGas: gas,
+          fixedGas: simulationResult + blobEvaluationGas,
           ...opts,
         },
         {
@@ -1092,19 +1126,29 @@ export class L1Publisher {
     }
     try {
       const kzg = Blob.getViemKzgInstance();
-      const { args, gas } = await this.prepareProposeTx(encodedData);
+      const { args, blobEvaluationGas } = await this.prepareProposeTx(encodedData);
       const data = encodeFunctionData({
         abi: this.rollupContract.abi,
         functionName: 'proposeAndClaim',
         args: [...args, quote.toViemArgs()],
       });
+      const time = BigInt((await this.publicClient.getBlock()).timestamp + this.ethereumSlotDuration);
+      const simulationResult = await this.l1TxUtils.simulateGasUsed(
+        {
+          to: this.rollupContract.address,
+          data,
+        },
+        {
+          time,
+        },
+      );
       const result = await this.l1TxUtils.sendAndMonitorTransaction(
         {
           to: this.rollupContract.address,
           data,
         },
         {
-          fixedGas: gas,
+          fixedGas: simulationResult + blobEvaluationGas,
           ...opts,
         },
         {

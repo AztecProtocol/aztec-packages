@@ -12,6 +12,7 @@ import { sleep } from '@aztec/foundation/sleep';
 import {
   type Account,
   type Address,
+  type BlockOverrides,
   type Chain,
   type GetTransactionReturnType,
   type Hex,
@@ -224,6 +225,7 @@ export class L1TxUtils {
         txHash = await this.walletClient.sendTransaction({
           ...request,
           ...blobInputs,
+          blobs: [],
           gas: gasLimit,
           maxFeePerGas: gasPrice.maxFeePerGas,
           maxPriorityFeePerGas: gasPrice.maxPriorityFeePerGas,
@@ -562,5 +564,24 @@ export class L1TxUtils {
       initialEstimate + (initialEstimate * BigInt((gasConfig.gasLimitBufferPercentage || 0) * 1_00)) / 100_00n;
 
     return withBuffer;
+  }
+
+  public async simulateGasUsed(request: L1TxRequest, blockOverrides: BlockOverrides<bigint, number>): Promise<bigint> {
+    const result = await this.publicClient.simulate({
+      validation: true,
+      blocks: [
+        {
+          blockOverrides,
+          calls: [
+            {
+              from: this.walletClient.account.address,
+              to: request.to!,
+              data: request.data,
+            },
+          ],
+        },
+      ],
+    });
+    return result[0].calls[0].gasUsed;
   }
 }

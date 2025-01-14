@@ -34,7 +34,7 @@
     "@viem/anvil": "^0.0.10",
     "dotenv": "^16.0.3",
     "tslib": "^2.4.0",
-    "viem": "^2.7.15",
+    "viem": "2.22",
     "zod": "^3.23.8"
   },
   "devDependencies": {
