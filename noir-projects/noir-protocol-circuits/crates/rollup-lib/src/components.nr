@@ -186,13 +186,9 @@ pub(crate) fn append_tx_effects_for_blob(
 fn get_tx_effects_hash_input(
     tx_effect: TxEffect,
 ) -> ([Field; TX_EFFECTS_BLOB_HASH_INPUT_FIELDS], u32) {
-    let prefixed_tx_fee: Field = field_from_bytes(
-            array_concat(
-                [TX_FEE_PREFIX, 0],
-                tx_effect.transaction_fee.to_be_bytes::<29>(),
-            ),
-            true,
-        );
+    tx_effect.transaction_fee.assert_max_bit_size::<29*8>();
+    let TWO_POW_240 = 1766847064778384329583297500742918515827483896875618958121606201292619776;
+    let prefixed_tx_fee: Field = TX_FEE_PREFIX * TWO_POW_240 + tx_effect.transaction_fee;
 
     let note_hashes = tx_effect.note_hashes;
     let nullifiers = tx_effect.nullifiers;
