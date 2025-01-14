@@ -14,7 +14,7 @@ use crate::{
         },
         execution_cache,
         key_validation_request::get_key_validation_request,
-        notes::{notify_nullified_note, notify_created_nullifier}
+        notes::{notify_created_nullifier, notify_nullified_note},
     },
 };
 use dep::protocol_types::{
