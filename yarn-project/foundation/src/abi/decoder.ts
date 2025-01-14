@@ -1,7 +1,8 @@
 import { AztecAddress } from '../aztec-address/index.js';
 import { type Fr } from '../fields/index.js';
 import { type ABIParameter, type ABIVariable, type AbiType } from './abi.js';
-import { isAztecAddressStruct, parseSignedInt } from './utils.js';
+import { U128 } from './u128.js';
+import { isAztecAddressStruct, isU128Struct, parseSignedInt } from './utils.js';
 
 /**
  * The type of our decoded ABI.
@@ -43,6 +44,12 @@ class AbiDecoder {
         return array;
       }
       case 'struct': {
+        if (isU128Struct(abiType)) {
+          const lo = this.decodeNext({ kind: 'field' }) as bigint;
+          const hi = this.decodeNext({ kind: 'field' }) as bigint;
+          return U128.fromU64sLE(lo, hi).toInteger();
+        }
+
         const struct: { [key: string]: AbiDecoded } = {};
         if (isAztecAddressStruct(abiType)) {
           return new AztecAddress(this.getNextField().toBuffer());
