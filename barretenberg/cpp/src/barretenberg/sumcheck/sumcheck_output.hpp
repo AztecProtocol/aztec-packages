@@ -12,9 +12,11 @@ namespace bb {
  * =(u_0,\ldots, u_{d-1})\f$. These are computed by \ref bb::SumcheckProver< Flavor > "Sumcheck Prover" and need to be
  * checked using Shplemini.
  */
-template <typename Flavor, typename = void> struct SumcheckOutput {
+template <typename Flavor> struct SumcheckOutput {
     using FF = typename Flavor::FF;
     using ClaimedEvaluations = typename Flavor::AllValues;
+    using Commitment = typename Flavor::Commitment;
+
     // \f$ \vec u = (u_0, ..., u_{d-1}) \f$
     std::vector<FF> challenge;
     // Evaluations at \f$ \vec u \f$ of the polynomials used in Sumcheck
@@ -22,64 +24,13 @@ template <typename Flavor, typename = void> struct SumcheckOutput {
     // Whether or not the evaluations of multilinear polynomials \f$ P_1, \ldots, P_N \f$  and final Sumcheck evaluation
     // have been confirmed
     std::optional<bool> verified = false; // optional b/c this struct is shared by the Prover/Verifier
-};
-/**
- * @brief A modification of SumcheckOutput required by ZK Flavors where a vector of evaluations of Libra univariates is
- * included.
- *
- * @tparam Flavor
- */
-template <typename Flavor>
-struct SumcheckOutput<
-    Flavor,
-    std::enable_if_t<FlavorHasZK<Flavor> && !(std::is_same_v<Flavor, ECCVMFlavor> || IsECCVMRecursiveFlavor<Flavor>)>> {
-    using FF = typename Flavor::FF;
-    using ClaimedEvaluations = typename Flavor::AllValues;
-    // \f$ \vec u = (u_0, ..., u_{d-1}) \f$
-    std::vector<FF> challenge;
-    // Evaluations at \f$ \vec u \f$ of the polynomials used in Sumcheck
-    ClaimedEvaluations claimed_evaluations;
     // For ZK Flavors: the sum of the Libra constant term and Libra univariates evaluated at Sumcheck challenges
-    FF claimed_libra_evaluation;
-    // Whether or not the evaluations of multilinear polynomials \f$ P_1, \ldots, P_N \f$  and final Sumcheck evaluation
-    // have been confirmed
-    std::optional<bool> verified = false; // Optional b/c this struct is shared by the Prover/Verifier
-};
-
-template <typename Flavor> struct SumcheckVerifierOutput {
-    using FF = typename Flavor::FF;
-    using ClaimedEvaluations = typename Flavor::AllValues;
-    using Commitment = typename Flavor::Commitment;
-
+    FF claimed_libra_evaluation = FF{ 0 };
+    // For ECCVMVerifier: Commitments to round univariates
     std::vector<Commitment> round_univariate_commitments;
-    std::vector<std::array<FF, 3>> round_univariate_evaluations;
-    // \f$ \vec u = (u_0, ..., u_{d-1}) \f$
-    std::vector<FF> challenge;
-    // Evaluations at \f$ \vec u \f$ of the polynomials used in Sumcheck
-    ClaimedEvaluations claimed_evaluations;
-    // For ZK Flavors: the sum of the Libra constant term and Libra univariates evaluated at Sumcheck challenges
-    FF claimed_libra_evaluation;
-
-    FF full_honk_purported_value;
-    // Whether or not the evaluations of multilinear polynomials \f$ P_1, \ldots, P_N \f$  and final Sumcheck evaluation
-    // have been confirmed
-    bool verified; // Optional b/c this struct is shared by the Prover/Verifier
-};
-
-template <typename Flavor>
-struct SumcheckOutput<Flavor, std::enable_if_t<std::is_same_v<Flavor, ECCVMFlavor> || IsECCVMRecursiveFlavor<Flavor>>> {
-    using FF = typename Flavor::FF;
-    using ClaimedEvaluations = typename Flavor::AllValues;
-    using Commitment = typename Flavor::Commitment;
-
-    std::vector<bb::Polynomial<FF>> round_univariates;
-    std::vector<std::array<FF, 3>> round_univariate_evaluations;
-
-    // \f$ \vec u = (u_0, ..., u_{d-1}) \f$
-    std::vector<FF> challenge;
-    // Evaluations at \f$ \vec u \f$ of the polynomials used in Sumcheck
-    ClaimedEvaluations claimed_evaluations;
-    // For ZK Flavors: the sum of the Libra constant term and Libra univariates evaluated at Sumcheck challenges
-    FF claimed_libra_evaluation;
+    // For ECCVMProver: Round univariates in monomial basis
+    std::vector<bb::Polynomial<FF>> round_univariates = {};
+    // For ECCVMProver/Verifier: evaluations of round univariates at 0, 1, and round challenge
+    std::vector<std::array<FF, 3>> round_univariate_evaluations = {};
 };
 } // namespace bb

@@ -114,8 +114,7 @@ std::array<typename Flavor::GroupElement, 2> TranslatorRecursiveVerifier_<Flavor
     std::array<Commitment, NUM_LIBRA_COMMITMENTS> libra_commitments = {};
     libra_commitments[0] = transcript->template receive_from_prover<Commitment>("Libra:concatenation_commitment");
 
-    auto [multivariate_challenge, claimed_evaluations, libra_evaluation, sumcheck_verified] =
-        sumcheck.verify(relation_parameters, alpha, gate_challenges);
+    auto sumcheck_output = sumcheck.verify(relation_parameters, alpha, gate_challenges);
 
     libra_commitments[1] = transcript->template receive_from_prover<Commitment>("Libra:big_sum_commitment");
     libra_commitments[2] = transcript->template receive_from_prover<Commitment>("Libra:quotient_commitment");
@@ -126,20 +125,20 @@ std::array<typename Flavor::GroupElement, 2> TranslatorRecursiveVerifier_<Flavor
         Shplemini::compute_batch_opening_claim(circuit_size,
                                                commitments.get_unshifted_without_concatenated(),
                                                commitments.get_to_be_shifted(),
-                                               claimed_evaluations.get_unshifted_without_concatenated(),
-                                               claimed_evaluations.get_shifted(),
-                                               multivariate_challenge,
+                                               sumcheck_output.claimed_evaluations.get_unshifted_without_concatenated(),
+                                               sumcheck_output.claimed_evaluations.get_shifted(),
+                                               sumcheck_output.challenge,
                                                Commitment::one(builder),
                                                transcript,
                                                Flavor::REPEATED_COMMITMENTS,
                                                Flavor::HasZK,
                                                &consistency_checked,
                                                libra_commitments,
-                                               libra_evaluation,
+                                               sumcheck_output.claimed_libra_evaluation,
                                                {},
                                                {},
                                                commitments.get_groups_to_be_concatenated(),
-                                               claimed_evaluations.get_concatenated());
+                                               sumcheck_output.claimed_evaluations.get_concatenated());
 
     const auto pairing_points = PCS::reduce_verify_batch_opening_claim(opening_claim, transcript);
 

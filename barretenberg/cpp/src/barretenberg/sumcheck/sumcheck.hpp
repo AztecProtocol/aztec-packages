@@ -242,7 +242,8 @@ template <typename Flavor> class SumcheckProver {
         transcript->send_to_verifier("Sumcheck:evaluations", multivariate_evaluations.get_all());
         // For ZK Flavors: the evaluations of Libra univariates are included in the Sumcheck Output
 
-        return SumcheckOutput<Flavor>{ multivariate_challenge, multivariate_evaluations };
+        return SumcheckOutput<Flavor>{ .challenge = multivariate_challenge,
+                                       .claimed_evaluations = multivariate_evaluations };
         vinfo("finished sumcheck");
     };
 
@@ -388,13 +389,15 @@ template <typename Flavor> class SumcheckProver {
         // The sum of the Libra constant term and the evaluations of Libra univariates at corresponding sumcheck
         // challenges is included in the Sumcheck Output
         if constexpr (!IS_ECCVM) {
-            return SumcheckOutput<Flavor>{ multivariate_challenge, multivariate_evaluations, libra_evaluation };
+            return SumcheckOutput<Flavor>{ .challenge = multivariate_challenge,
+                                           .claimed_evaluations = multivariate_evaluations,
+                                           .claimed_libra_evaluation = libra_evaluation };
         } else {
-            return SumcheckOutput<Flavor>{ round_univariates,
-                                           round_univariate_evaluations,
-                                           multivariate_challenge,
-                                           multivariate_evaluations,
-                                           libra_evaluation };
+            return SumcheckOutput<Flavor>{ .challenge = multivariate_challenge,
+                                           .claimed_evaluations = multivariate_evaluations,
+                                           .claimed_libra_evaluation = libra_evaluation,
+                                           .round_univariates = round_univariates,
+                                           .round_univariate_evaluations = round_univariate_evaluations };
         }
         vinfo("finished sumcheck");
     };
@@ -759,9 +762,14 @@ template <typename Flavor> class SumcheckVerifier {
         verified = final_check && verified;
         // For ZK Flavors: the evaluations of Libra univariates are included in the Sumcheck Output
         if constexpr (!Flavor::HasZK) {
-            return SumcheckOutput<Flavor>{ multivariate_challenge, purported_evaluations, verified };
+            return SumcheckOutput<Flavor>{ .challenge = multivariate_challenge,
+                                           .claimed_evaluations = purported_evaluations,
+                                           .verified = verified };
         } else {
-            return SumcheckOutput<Flavor>{ multivariate_challenge, purported_evaluations, libra_evaluation, verified };
+            return SumcheckOutput<Flavor>{ .challenge = multivariate_challenge,
+                                           .claimed_evaluations = purported_evaluations,
+                                           .verified = verified,
+                                           .claimed_libra_evaluation = libra_evaluation };
         }
     };
 
@@ -780,9 +788,9 @@ template <typename Flavor> class SumcheckVerifier {
      * @param gate_challenges
      * @return SumcheckOutput<Flavor>
      */
-    SumcheckVerifierOutput<Flavor> verify(const bb::RelationParameters<FF>& relation_parameters,
-                                          RelationSeparator alpha,
-                                          const std::vector<FF>& gate_challenges)
+    SumcheckOutput<Flavor> verify(const bb::RelationParameters<FF>& relation_parameters,
+                                  RelationSeparator alpha,
+                                  const std::vector<FF>& gate_challenges)
         requires std::is_same_v<Flavor, ECCVMFlavor> || IsECCVMRecursiveFlavor<Flavor>
     {
         bool verified(true);
@@ -854,7 +862,6 @@ template <typename Flavor> class SumcheckVerifier {
             round.target_total_sum.self_reduce();
             first_sumcheck_round_evaluations_sum.assert_equal(round.target_total_sum);
             verified = (first_sumcheck_round_evaluations_sum.get_value() == round.target_total_sum.get_value());
-            info("verified?", verified);
         } else {
             verified = verified && (round_univariate_evaluations[0][0] + round_univariate_evaluations[0][1] ==
                                     round.target_total_sum);
@@ -887,13 +894,12 @@ template <typename Flavor> class SumcheckVerifier {
 
         //! [Final Verification Step]
         // For ZK Flavors: the evaluations of Libra univariates are included in the Sumcheck Output
-        return SumcheckVerifierOutput<Flavor>{ round_univariate_commitments,
-                                               round_univariate_evaluations,
-                                               multivariate_challenge,
-                                               purported_evaluations,
-                                               libra_evaluation,
-                                               full_honk_purported_value,
-                                               verified };
+        return SumcheckOutput<Flavor>{ .challenge = multivariate_challenge,
+                                       .claimed_evaluations = purported_evaluations,
+                                       .verified = verified,
+                                       .claimed_libra_evaluation = libra_evaluation,
+                                       .round_univariate_commitments = round_univariate_commitments,
+                                       .round_univariate_evaluations = round_univariate_evaluations };
     };
 };
 } // namespace bb

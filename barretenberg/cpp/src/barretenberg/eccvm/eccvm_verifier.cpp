@@ -135,7 +135,7 @@ bool ECCVMVerifier::verify_proof(const ECCVMProof& proof)
 
     const bool batched_opening_verified =
         PCS::reduce_verify(key->pcs_verification_key, batch_opening_claim, ipa_transcript);
-    vinfo("eccvm sumcheck verified?: ", sumcheck_output.verified);
+    vinfo("eccvm sumcheck verified?: ", sumcheck_output.verified.value());
     vinfo("batch opening verified?: ", batched_opening_verified);
     return sumcheck_output.verified && batched_opening_verified && consistency_checked;
 }

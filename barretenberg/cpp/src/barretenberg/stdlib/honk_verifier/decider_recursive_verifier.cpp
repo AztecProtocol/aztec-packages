@@ -27,20 +27,21 @@ std::array<typename Flavor::GroupElement, 2> DeciderRecursiveVerifier_<Flavor>::
     auto sumcheck = Sumcheck(
         static_cast<size_t>(accumulator->verification_key->log_circuit_size), transcript, accumulator->target_sum);
 
-    auto [multivariate_challenge, claimed_evaluations, sumcheck_verified] =
+    auto sumcheck_output =
         sumcheck.verify(accumulator->relation_parameters, accumulator->alphas, accumulator->gate_challenges);
 
     // Execute Shplemini rounds.
-    const auto opening_claim = Shplemini::compute_batch_opening_claim(accumulator->verification_key->circuit_size,
-                                                                      commitments.get_unshifted(),
-                                                                      commitments.get_to_be_shifted(),
-                                                                      claimed_evaluations.get_unshifted(),
-                                                                      claimed_evaluations.get_shifted(),
-                                                                      multivariate_challenge,
-                                                                      Commitment::one(builder),
-                                                                      transcript,
-                                                                      Flavor::REPEATED_COMMITMENTS,
-                                                                      Flavor::HasZK);
+    const auto opening_claim =
+        Shplemini::compute_batch_opening_claim(accumulator->verification_key->circuit_size,
+                                               commitments.get_unshifted(),
+                                               commitments.get_to_be_shifted(),
+                                               sumcheck_output.claimed_evaluations.get_unshifted(),
+                                               sumcheck_output.claimed_evaluations.get_shifted(),
+                                               sumcheck_output.challenge,
+                                               Commitment::one(builder),
+                                               transcript,
+                                               Flavor::REPEATED_COMMITMENTS,
+                                               Flavor::HasZK);
     auto pairing_points = PCS::reduce_verify_batch_opening_claim(opening_claim, transcript);
 
     return pairing_points;
