@@ -287,6 +287,8 @@ template <typename FF_> void CircuitBuilderBase<FF_>::set_err(std::string msg)
 template <typename FF_> void CircuitBuilderBase<FF_>::failure(std::string msg)
 {
     _failed = true;
+    debug("Builder failed to build. This is not an error for the write_vk flow. Are you building the circuit with "
+          "invalid witnesses?");
     set_err(std::move(msg));
 }
 } // namespace bb
