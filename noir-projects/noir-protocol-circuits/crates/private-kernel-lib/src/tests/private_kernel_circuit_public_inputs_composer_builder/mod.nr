@@ -16,7 +16,7 @@ pub struct PrivateKernelCircuitPublicInputsComposerBuilder {
     tx_request: TxRequest,
     previous_kernel: FixtureBuilder,
     private_call: FixtureBuilder,
-    first_nullifier_hint: Field
+    first_nullifier_hint: Field,
 }
 
 impl PrivateKernelCircuitPublicInputsComposerBuilder {
