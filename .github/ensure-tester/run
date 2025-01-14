@@ -5,6 +5,7 @@ ttl=$1
 scripts/run_on_tester "
   set -eu;
   sudo shutdown -P $ttl;
+  sudo sysctl fs.inotify.max_user_watches=65536
   function clone {
     if ! [ -d ~/run-$RUN_ID ]; then
       mkdir -p ~/run-$RUN_ID;
