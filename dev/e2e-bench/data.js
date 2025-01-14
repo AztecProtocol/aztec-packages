@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1736882419906,
+  "lastUpdate": 1736885353745,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "End-to-end Benchmark": [
@@ -307,6 +307,45 @@ window.BENCHMARK_DATA = {
           {
             "name": "Sequencer/aztec.sequencer.block_builder_tree_insertion_duration",
             "value": 660554,
+            "unit": "us"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "santiago@aztecprotocol.com",
+            "name": "Santiago Palladino",
+            "username": "spalladino"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "1389a5b797fd89397a2c53c2b42299dda75bc53e",
+          "message": "chore: Save kind smoke test logs as artifact (#11212)\n\nSaves the logs from the kind-smoke test as an artifact so we can debug\r\nfailures. See\r\n[here](https://github.com/AztecProtocol/aztec-packages/actions/runs/12768996955?pr=11212)\r\nfor an example run.",
+          "timestamp": "2025-01-14T19:48:25Z",
+          "tree_id": "04cc3b3f1910aa0ce5c31da044a1ccf5a4d6118c",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/1389a5b797fd89397a2c53c2b42299dda75bc53e"
+        },
+        "date": 1736885346505,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sequencer/aztec.sequencer.block.build_duration",
+            "value": 4790,
+            "unit": "ms"
+          },
+          {
+            "name": "Sequencer/aztec.sequencer.block.time_per_mana",
+            "value": 3.5993103721326993,
+            "unit": "us/mana"
+          },
+          {
+            "name": "Sequencer/aztec.sequencer.block_builder_tree_insertion_duration",
+            "value": 701771,
             "unit": "us"
           }
         ]
