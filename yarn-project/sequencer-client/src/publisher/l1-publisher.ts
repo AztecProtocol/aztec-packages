@@ -1,10 +1,12 @@
 import { type BlobSinkClientInterface, createBlobSinkClient } from '@aztec/blob-sink/client';
 import {
-  // ConsensusPayload,
+  ConsensusPayload,
   type EpochProofClaim,
   type EpochProofQuote,
-  type L2Block, // SignatureDomainSeparator,
-  type TxHash, // getHashedSignaturePayload,
+  type L2Block,
+  SignatureDomainSeparator,
+  type TxHash,
+  getHashedSignaturePayload,
 } from '@aztec/circuit-types';
 import { type L1PublishBlockStats, type L1PublishProofStats, type L1PublishStats } from '@aztec/circuit-types/stats';
 import {
@@ -581,9 +583,9 @@ export class L1Publisher {
       blockHash: block.hash().toString(),
     };
 
-    // const consensusPayload = new ConsensusPayload(block.header, block.archive.root, txHashes ?? []);
+    const consensusPayload = new ConsensusPayload(block.header, block.archive.root, txHashes ?? []);
 
-    // const digest = getHashedSignaturePayload(consensusPayload, SignatureDomainSeparator.blockAttestation);
+    const digest = getHashedSignaturePayload(consensusPayload, SignatureDomainSeparator.blockAttestation);
 
     const blobs = Blob.getBlobs(block.body.toBlobFields());
     const proposeTxArgs = {
@@ -608,10 +610,10 @@ export class L1Publisher {
     //        This means that we can avoid the simulation issues in later checks.
     //        By simulation issue, I mean the fact that the block.timestamp is equal to the last block, not the next, which
     //        make time consistency checks break.
-    // await this.validateBlockForSubmission(block.header, {
-    //   digest: digest.toBuffer(),
-    //   signatures: attestations ?? [],
-    // });
+    await this.validateBlockForSubmission(block.header, {
+      digest: digest.toBuffer(),
+      signatures: attestations ?? [],
+    });
 
     this.log.debug(`Submitting propose transaction`);
     const result = proofQuote
