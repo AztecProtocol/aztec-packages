@@ -75,7 +75,7 @@ export function CreateAccountDialog({
               }}
             />
             <Button disabled={alias === ""} onClick={createAccount}>
-              Create
+              Deploy
             </Button>
           </>
         )}

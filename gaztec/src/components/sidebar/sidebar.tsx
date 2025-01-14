@@ -170,7 +170,11 @@ export function SidebarComponent() {
           } as ContractFunctionInteractionTx;
         })
       );
-      if (currentTx && !txs.find((tx) => tx.txHash.equals(currentTx.txHash))) {
+      if (
+        currentTx &&
+        (!currentTx.txHash ||
+          !txs.find((tx) => tx.txHash.equals(currentTx.txHash)))
+      ) {
         txs.unshift(currentTx);
       }
       setTransactions(txs);

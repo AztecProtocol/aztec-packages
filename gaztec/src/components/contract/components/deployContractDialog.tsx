@@ -174,7 +174,7 @@ export function DeployContractDialog({
               </FormControl>
             </FormGroup>
             <Button disabled={alias === ""} onClick={deploy}>
-              Create
+              Deploy
             </Button>
           </>
         )}
