@@ -134,7 +134,8 @@ export class NativeWorldState implements NativeWorldStateInstance {
     responseHandler = (response: WorldStateResponse[T]): WorldStateResponse[T] => response,
     errorHandler = (_: string) => {},
   ): Promise<WorldStateResponse[T]> {
-    // determine the fork id and committed/uncommitted nature of the request
+    // Here we determine which fork the request is being executed against and whether it requires uncommitted data
+    // We use the fork Id to select the appropriate request queue and the uncommitted data flag to pass to the queue
     let forkId = -1;
     let committedOnly = false;
     if (isWithCanonical(body)) {
@@ -149,12 +150,14 @@ export class NativeWorldState implements NativeWorldStateInstance {
       throw new Error(`Unable to determine forkId for message=${WorldStateMessageType[messageType]}`);
     }
 
+    // Get the queue or create a new one
     let requestQueue = this.queues.get(forkId);
     if (requestQueue === undefined) {
       requestQueue = new WorldStateOpsQueue();
       this.queues.set(forkId, requestQueue);
     }
 
+    // Enqueue the request and wait for the response
     const response = await requestQueue.execute(
       async () => {
         assert.notEqual(messageType, WorldStateMessageType.CLOSE, 'Use close() to close the native instance');
