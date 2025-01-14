@@ -225,7 +225,6 @@ export class L1TxUtils {
         txHash = await this.walletClient.sendTransaction({
           ...request,
           ...blobInputs,
-          blobs: [],
           gas: gasLimit,
           maxFeePerGas: gasPrice.maxFeePerGas,
           maxPriorityFeePerGas: gasPrice.maxPriorityFeePerGas,
