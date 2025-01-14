@@ -48,6 +48,9 @@ if [ "$ignore_failures" = "true" ]; then
   echo "Ignoring failures for test $TEST"
 fi
 
+# Init output folder
+mkdir -p ./out
+
 # Check if the test uses docker compose
 if [ "$(echo "$test_config" | yq e '.use_compose // false' -)" = "true" ]; then
   "$e2e_root/scripts/e2e_compose_test.sh" "$test_path" "$@" || [ "$ignore_failures" = "true" ]
@@ -66,7 +69,6 @@ else
     /bin/bash -c "$custom_command" || [ "$ignore_failures" = "true" ]
   else
     set -x
-    mkdir -p ./out
     # Run the default docker command
     docker run \
       -e HARDWARE_CONCURRENCY="$HARDWARE_CONCURRENCY" \
