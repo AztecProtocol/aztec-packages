@@ -187,7 +187,7 @@ mod tests {
     impl PrivateKernelResetInputsBuilder {
         pub fn new() -> Self {
             let mut previous_kernel = FixtureBuilder::new().in_vk_tree(PRIVATE_KERNEL_INNER_INDEX);
-            previous_kernel.set_first_nullifier();
+            previous_kernel.set_protocol_nullifier();
 
             Self {
                 previous_kernel,

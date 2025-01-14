@@ -111,7 +111,7 @@ impl PrivateKernelCircuitOutputValidator {
             assert_eq(
                 self.output.claimed_first_nullifier,
                 protocol_nullifier.value(),
-                "mismatch claimed_first_nullifier",
+                "claimed_first_nullifier does not match the protocol nullifier",
             );
         } else {
             assert_eq(

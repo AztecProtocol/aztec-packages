@@ -10,6 +10,7 @@ use dep::types::{
 #[test]
 fn propagate_from_private_call_empty_data_succeeds() {
     let mut builder = PrivateKernelCircuitPublicInputsComposerBuilder::new();
+    builder.with_protocol_nullifier();
 
     let tx_request = builder.tx_request;
     let first_nullifier = create_protocol_nullifier(tx_request);
@@ -116,12 +117,9 @@ fn propagate_from_private_call_nullifiers_succeeds() {
     builder.private_call.append_nullifiers(2);
     let res = builder.private_call.nullifiers.storage();
 
-    let tx_request = builder.tx_request;
-    let first_nullifier = create_protocol_nullifier(tx_request);
-
     let output = builder.compose_from_tx_request(false);
 
-    assert_array_eq(output.end.nullifiers, [first_nullifier, res[0], res[1]]);
+    assert_array_eq(output.end.nullifiers, [res[0], res[1]]);
 }
 
 #[test]

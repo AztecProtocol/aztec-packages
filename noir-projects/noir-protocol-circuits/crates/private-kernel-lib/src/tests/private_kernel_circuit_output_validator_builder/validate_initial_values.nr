@@ -40,9 +40,10 @@ fn validate_initial_values_constants_mismatch_out_hash_fails() {
 /**
  * First nullifier.
  */
-#[test(should_fail_with = "first nullifier must be the tx request nullifier")]
-fn validate_initial_values_constants_incorrect_first_nullifier_fails() {
+#[test(should_fail_with = "protocol nullifier must be the tx request nullifier")]
+fn validate_initial_values_constants_incorrect_protocol_nullifier_fails() {
     let mut builder = PrivateKernelCircuitOutputValidatorBuilder::new();
+    builder.with_protocol_nullifier();
 
     let mut nullifier = builder.output.nullifiers.get(0);
     nullifier.nullifier.value += 1;
@@ -51,11 +52,21 @@ fn validate_initial_values_constants_incorrect_first_nullifier_fails() {
     builder.validate_as_first_call(false);
 }
 
-#[test(should_fail_with = "first nullifier must be the tx request nullifier")]
-fn validate_initial_values_constants_empty_first_nullifier_fails() {
+#[test(should_fail_with = "claimed_first_nullifier does not match the protocol nullifier")]
+fn validate_initial_values_constants_incorrect_protocol_nullifier_claim_fails() {
+    let mut builder = PrivateKernelCircuitOutputValidatorBuilder::new();
+    builder.with_protocol_nullifier();
+
+    builder.output.claimed_first_nullifier += 1;
+
+    builder.validate_as_first_call(false);
+}
+
+#[test(should_fail_with = "mismatch claimed_first_nullifier")]
+fn validate_initial_values_constants_incorrect_first_nullifier_claim_fails() {
     let mut builder = PrivateKernelCircuitOutputValidatorBuilder::new();
 
-    builder.output.nullifiers = BoundedVec::new();
+    builder.output.claimed_first_nullifier += 1;
 
     builder.validate_as_first_call(false);
 }

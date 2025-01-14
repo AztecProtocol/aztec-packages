@@ -84,7 +84,7 @@ mod tests {
         pub fn new() -> Self {
             let mut previous_kernel = FixtureBuilder::new().in_vk_tree(PRIVATE_KERNEL_INNER_INDEX);
             previous_kernel.tx_context.gas_settings.gas_limits = Gas::new(1_000_000, 1_000_000);
-            previous_kernel.set_first_nullifier();
+            previous_kernel.set_protocol_nullifier();
             previous_kernel.end_setup();
             previous_kernel.append_public_call_requests(1);
 

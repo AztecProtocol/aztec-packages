@@ -23,6 +23,7 @@ pub struct PrivateKernelCircuitOutputValidatorBuilder {
     private_call: FixtureBuilder,
     output: FixtureBuilder,
     tx_request: TxRequest,
+    first_nullifier_hint: Field,
 }
 
 impl PrivateKernelCircuitOutputValidatorBuilder {
@@ -40,6 +41,7 @@ impl PrivateKernelCircuitOutputValidatorBuilder {
             private_call,
             output,
             tx_request,
+            first_nullifier_hint: 27,
         }
     }
 
@@ -50,6 +52,8 @@ impl PrivateKernelCircuitOutputValidatorBuilder {
 
         self.previous_kernel.claimed_first_nullifier = protocol_nullifier.value();
         self.output.claimed_first_nullifier = protocol_nullifier.value();
+        // First nullifier hint of zero signals that the protocol nullifier will be used as the first nullifier.
+        self.first_nullifier_hint = 0;
     }
 
     pub fn with_previous_kernel_vk_index(&mut self, vk_index: u32) {
@@ -75,7 +79,7 @@ impl PrivateKernelCircuitOutputValidatorBuilder {
             FixtureBuilder::vk_tree_root(),
             self.private_call.protocol_contract_tree_root,
             is_private_only,
-            27,
+            self.first_nullifier_hint,
         );
     }
 

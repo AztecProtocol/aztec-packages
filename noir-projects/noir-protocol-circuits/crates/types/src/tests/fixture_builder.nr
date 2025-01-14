@@ -642,12 +642,13 @@ impl FixtureBuilder {
         }
     }
 
-    pub fn set_first_nullifier(&mut self) {
+    pub fn set_protocol_nullifier(&mut self) {
         assert_eq(self.nullifiers.len(), 0, "first nullifier already set");
         let value = self.mock_nullifier_value(0);
         let first_nullifier =
             Nullifier { value, counter: 0, note_hash: 0 }.scope(AztecAddress::zero());
         self.nullifiers.push(first_nullifier);
+        self.claimed_first_nullifier = value;
     }
 
     pub fn add_nullifier(&mut self, value: Field) {
