@@ -132,7 +132,7 @@ Then we just emit `P_a.x` and `P_b.x` as a note hashes, and we're done!
 
 ### Private Fee Payment Implementation
 
-[`NoteInterface.nr`](https://github.com/AztecProtocol/aztec-packages/blob/#include_aztec_version/noir-projects/aztec-nr/aztec/src/note/note_interface.nr) implements `compute_note_hiding_point`, which takes a note and computes the point "hides" it.
+[`NoteInterface.nr`](https://github.com/AztecProtocol/aztec-packages/blob/master/noir-projects/aztec-nr/aztec/src/note/note_interface.nr) implements `compute_note_hiding_point`, which takes a note and computes the point "hides" it.
 
 This is implemented by applying the `partial_note` attribute:
 
