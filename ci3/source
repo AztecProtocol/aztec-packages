@@ -19,7 +19,12 @@ export ci3="$root/ci3"
 
 function hash_str {
   set -eu
-  echo $1 | git hash-object --stdin | cut -c1-16 | tr -d '\n'
+  if [[ "$1" == *"disabled-cache"* ]]; then
+    # We want to propagate cache being disabled so that cache_upload and cache_download can catch this
+    echo "disabled-cache"
+  else
+    echo $1 | git hash-object --stdin | cut -c1-16 | tr -d '\n'
+  fi
 }
 
 function echo_stderr {
