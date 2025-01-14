@@ -6,9 +6,9 @@ import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 import { z } from 'zod';
 
 /**
- * Packs a set of values into a hash.
+ * A container for storing a list of values and their hash.
  */
-export class PackedValues {
+export class HashedValues {
   private constructor(
     /**
      *  Raw values.
@@ -21,7 +21,7 @@ export class PackedValues {
   ) {}
 
   static get schema() {
-    return z.array(schemas.Fr).transform(PackedValues.fromValues);
+    return z.array(schemas.Fr).transform(HashedValues.fromValues);
   }
 
   toJSON() {
@@ -29,19 +29,19 @@ export class PackedValues {
   }
 
   static random() {
-    return PackedValues.fromValues([Fr.random(), Fr.random()]);
+    return HashedValues.fromValues([Fr.random(), Fr.random()]);
   }
 
   static fromValues(values: Fr[]) {
-    return new PackedValues(values, computeVarArgsHash(values));
+    return new HashedValues(values, computeVarArgsHash(values));
   }
 
   toBuffer() {
     return serializeToBuffer(new Vector(this.values), this.hash);
   }
 
-  static fromBuffer(buffer: Buffer | BufferReader): PackedValues {
+  static fromBuffer(buffer: Buffer | BufferReader): HashedValues {
     const reader = BufferReader.asReader(buffer);
-    return new PackedValues(reader.readVector(Fr), Fr.fromBuffer(reader));
+    return new HashedValues(reader.readVector(Fr), Fr.fromBuffer(reader));
   }
 }
