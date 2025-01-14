@@ -1,11 +1,9 @@
-import { type CLIENT_IVC_VERIFICATION_KEY_LENGTH_IN_FIELDS } from '@aztec/circuits.js';
-
 import { type ForeignCallOutput, Noir } from '@noir-lang/noir_js';
 import createDebug from 'debug';
 
-import FirstCircuit from '../circuits/first/target/first.json' assert { type: 'json' };
-import SecondCircuit from '../circuits/second/target/second.json' assert { type: 'json' };
-import type { FixedLengthArray, u8 } from './types/index.js';
+import FirstCircuit from '../artifacts/first.json' assert { type: 'json' };
+import SecondCircuit from '../artifacts/second.json' assert { type: 'json' };
+import type { FirstInputType, SecondInputType } from './types/index.js';
 
 const logger = createDebug('aztec:bb-bench');
 
@@ -22,14 +20,9 @@ export interface WitnessGenResult<PublicInputsType> {
   publicInputs: PublicInputsType;
 }
 
-export type Field = string;
+export type u8 = string;
 
-export type FirstCircuitInputType = {
-  x: Field;
-  y: Field;
-};
-
-export async function witnessGenFirstCircuit(args: FirstCircuitInputType): Promise<WitnessGenResult<u8>> {
+export async function witnessGenFirstCircuit(args: FirstInputType): Promise<WitnessGenResult<u8>> {
   const program = new Noir(FirstCircuit);
   const { witness, returnValue } = await program.execute(args, foreignCallHandler);
   return {
@@ -38,14 +31,7 @@ export async function witnessGenFirstCircuit(args: FirstCircuitInputType): Promi
   };
 }
 
-export type SecondCircuitInputType = {
-  verification_key: FixedLengthArray<Field, 128>;
-  key_hash: Field;
-  public_inputs: FixedLengthArray<Field, 1>;
-  proof: FixedLengthArray<Field, 459>;
-};
-
-export async function witnessGenSecondCircuit(args: SecondCircuitInputType): Promise<WitnessGenResult<u8>> {
+export async function witnessGenSecondCircuit(args: SecondInputType): Promise<WitnessGenResult<u8>> {
   const program = new Noir(SecondCircuit);
   const { witness, returnValue } = await program.execute(args, foreignCallHandler);
   return {

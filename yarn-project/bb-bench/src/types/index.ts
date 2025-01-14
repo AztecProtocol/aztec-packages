@@ -7,157 +7,40 @@ export { ForeignCallHandler } from '@noir-lang/noir_js';
 
 export type FixedLengthArray<T, L extends number> = L extends 0 ? never[] : T[] & { length: L };
 export type Field = string;
-export type u32 = string;
-export type u8 = string;
 
-export type AppPublicInputs = {
-  commitments: FixedLengthArray<Field, 2>;
-  read_requests: FixedLengthArray<Field, 2>;
+export type FirstInputType = {
+  x: Field;
+  y: Field;
 };
 
-export type TxRequest = {
-  number_of_calls: u32;
-};
-
-export type PrivateKernelPublicInputs = {
-  remaining_calls: u32;
-  commitments: FixedLengthArray<Field, 4>;
-  read_requests: FixedLengthArray<Field, 4>;
-};
-
-export type KernelPublicInputs = {
-  commitments: FixedLengthArray<Field, 4>;
-};
-
-export type AppCreatorInputType = {
-  commitments_to_create: FixedLengthArray<Field, 2>;
-};
-
-export type AppCreatorReturnType = AppPublicInputs;
-
-export async function AppCreator(
-  commitments_to_create: FixedLengthArray<Field, 2>,
-  AppCreator_circuit: CompiledCircuit,
+export async function First(
+  x: Field,
+  y: Field,
+  First_circuit: CompiledCircuit,
   foreignCallHandler?: ForeignCallHandler,
-): Promise<AppPublicInputs> {
-  const program = new Noir(AppCreator_circuit);
-  const args: InputMap = { commitments_to_create };
+): Promise<null> {
+  const program = new Noir(First_circuit);
+  const args: InputMap = { x, y };
   const { returnValue } = await program.execute(args, foreignCallHandler);
-  return returnValue as AppPublicInputs;
+  return returnValue as null;
 }
-export type AppReaderInputType = {
-  commitments_to_read: FixedLengthArray<Field, 2>;
+export type SecondInputType = {
+  verification_key: FixedLengthArray<Field, 128>;
+  proof: FixedLengthArray<Field, 459>;
+  public_inputs: FixedLengthArray<Field, 1>;
+  key_hash: Field;
 };
 
-export type AppReaderReturnType = AppPublicInputs;
-
-export async function AppReader(
-  commitments_to_read: FixedLengthArray<Field, 2>,
-  AppReader_circuit: CompiledCircuit,
+export async function Second(
+  verification_key: FixedLengthArray<Field, 128>,
+  proof: FixedLengthArray<Field, 459>,
+  public_inputs: FixedLengthArray<Field, 1>,
+  key_hash: Field,
+  Second_circuit: CompiledCircuit,
   foreignCallHandler?: ForeignCallHandler,
-): Promise<AppPublicInputs> {
-  const program = new Noir(AppReader_circuit);
-  const args: InputMap = { commitments_to_read };
+): Promise<null> {
+  const program = new Noir(Second_circuit);
+  const args: InputMap = { verification_key, proof, public_inputs, key_hash };
   const { returnValue } = await program.execute(args, foreignCallHandler);
-  return returnValue as AppPublicInputs;
-}
-export type MockPrivateKernelInitInputType = {
-  tx: TxRequest;
-  app_inputs: AppPublicInputs;
-  app_vk: FixedLengthArray<Field, 143>;
-};
-
-export type MockPrivateKernelInitReturnType = PrivateKernelPublicInputs;
-
-export async function MockPrivateKernelInit(
-  tx: TxRequest,
-  app_inputs: AppPublicInputs,
-  app_vk: FixedLengthArray<Field, 143>,
-  MockPrivateKernelInit_circuit: CompiledCircuit,
-  foreignCallHandler?: ForeignCallHandler,
-): Promise<PrivateKernelPublicInputs> {
-  const program = new Noir(MockPrivateKernelInit_circuit);
-  const args: InputMap = { tx, app_inputs, app_vk };
-  const { returnValue } = await program.execute(args, foreignCallHandler);
-  return returnValue as PrivateKernelPublicInputs;
-}
-export type MockPrivateKernelInnerInputType = {
-  prev_kernel_public_inputs: PrivateKernelPublicInputs;
-  kernel_vk: FixedLengthArray<Field, 143>;
-  app_inputs: AppPublicInputs;
-  app_vk: FixedLengthArray<Field, 143>;
-};
-
-export type MockPrivateKernelInnerReturnType = PrivateKernelPublicInputs;
-
-export async function MockPrivateKernelInner(
-  prev_kernel_public_inputs: PrivateKernelPublicInputs,
-  kernel_vk: FixedLengthArray<Field, 143>,
-  app_inputs: AppPublicInputs,
-  app_vk: FixedLengthArray<Field, 143>,
-  MockPrivateKernelInner_circuit: CompiledCircuit,
-  foreignCallHandler?: ForeignCallHandler,
-): Promise<PrivateKernelPublicInputs> {
-  const program = new Noir(MockPrivateKernelInner_circuit);
-  const args: InputMap = { prev_kernel_public_inputs, kernel_vk, app_inputs, app_vk };
-  const { returnValue } = await program.execute(args, foreignCallHandler);
-  return returnValue as PrivateKernelPublicInputs;
-}
-export type MockPrivateKernelResetInputType = {
-  prev_kernel_public_inputs: PrivateKernelPublicInputs;
-  kernel_vk: FixedLengthArray<Field, 143>;
-  commitment_read_hints: FixedLengthArray<u32, 4>;
-};
-
-export type MockPrivateKernelResetReturnType = PrivateKernelPublicInputs;
-
-export async function MockPrivateKernelReset(
-  prev_kernel_public_inputs: PrivateKernelPublicInputs,
-  kernel_vk: FixedLengthArray<Field, 143>,
-  commitment_read_hints: FixedLengthArray<u32, 4>,
-  MockPrivateKernelReset_circuit: CompiledCircuit,
-  foreignCallHandler?: ForeignCallHandler,
-): Promise<PrivateKernelPublicInputs> {
-  const program = new Noir(MockPrivateKernelReset_circuit);
-  const args: InputMap = { prev_kernel_public_inputs, kernel_vk, commitment_read_hints };
-  const { returnValue } = await program.execute(args, foreignCallHandler);
-  return returnValue as PrivateKernelPublicInputs;
-}
-export type MockPrivateKernelTailInputType = {
-  prev_kernel_public_inputs: PrivateKernelPublicInputs;
-  kernel_vk: FixedLengthArray<Field, 143>;
-};
-
-export type MockPrivateKernelTailReturnType = KernelPublicInputs;
-
-export async function MockPrivateKernelTail(
-  prev_kernel_public_inputs: PrivateKernelPublicInputs,
-  kernel_vk: FixedLengthArray<Field, 143>,
-  MockPrivateKernelTail_circuit: CompiledCircuit,
-  foreignCallHandler?: ForeignCallHandler,
-): Promise<KernelPublicInputs> {
-  const program = new Noir(MockPrivateKernelTail_circuit);
-  const args: InputMap = { prev_kernel_public_inputs, kernel_vk };
-  const { returnValue } = await program.execute(args, foreignCallHandler);
-  return returnValue as KernelPublicInputs;
-}
-export type MockPublicBaseInputType = {
-  verification_key: FixedLengthArray<Field, 86>;
-  proof: FixedLengthArray<Field, 4155>;
-  pub_cols_flattened: FixedLengthArray<Field, 2912>;
-};
-
-export type MockPublicBaseReturnType = u8;
-
-export async function MockPublicBase(
-  verification_key: FixedLengthArray<Field, 86>,
-  proof: FixedLengthArray<Field, 4155>,
-  pub_cols_flattened: FixedLengthArray<Field, 2912>,
-  MockPublicBase_circuit: CompiledCircuit,
-  foreignCallHandler?: ForeignCallHandler,
-): Promise<u8> {
-  const program = new Noir(MockPublicBase_circuit);
-  const args: InputMap = { verification_key, proof, pub_cols_flattened };
-  const { returnValue } = await program.execute(args, foreignCallHandler);
-  return returnValue as u8;
+  return returnValue as null;
 }
