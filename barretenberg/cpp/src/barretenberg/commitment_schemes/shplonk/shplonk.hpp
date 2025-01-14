@@ -41,7 +41,8 @@ template <typename Curve> class ShplonkProver_ {
      */
     static Polynomial compute_batched_quotient(std::span<const ProverOpeningClaim<Curve>> opening_claims,
                                                const Fr& nu,
-                                               std::span<const ProverOpeningClaim<Curve>> libra_opening_claims)
+                                               std::span<const ProverOpeningClaim<Curve>> libra_opening_claims,
+                                               std::span<const ProverOpeningClaim<Curve>> sumcheck_round_claims)
     {
         // Find n, the maximum size of all polynomials fⱼ(X)
         size_t max_poly_size{ 0 };
@@ -86,6 +87,20 @@ template <typename Curve> class ShplonkProver_ {
             Q.add_scaled(tmp, current_nu);
             current_nu *= nu;
         }
+        // size_t counter = 0;
+        for (const auto& claim : sumcheck_round_claims) {
+
+            // Compute individual claim quotient tmp = ( fⱼ(X) − vⱼ) / ( X − xⱼ )
+            tmp = claim.polynomial;
+            tmp.at(0) = tmp[0] - claim.opening_pair.evaluation;
+            // info("prover const term", tmp.at(0));
+            tmp.factor_roots(claim.opening_pair.challenge);
+
+            // Add the claim quotient to the batched quotient polynomial
+            Q.add_scaled(tmp, current_nu);
+            current_nu *= nu;
+            // counter++;
+        }
         // Return batched quotient polynomial Q(X)
         return Q;
     };
@@ -105,7 +120,8 @@ template <typename Curve> class ShplonkProver_ {
         Polynomial& batched_quotient_Q,
         const Fr& nu_challenge,
         const Fr& z_challenge,
-        std::span<const ProverOpeningClaim<Curve>> libra_opening_claims = {})
+        std::span<const ProverOpeningClaim<Curve>> libra_opening_claims = {},
+        std::span<const ProverOpeningClaim<Curve>> sumcheck_opening_claims = {})
     {
         const size_t num_opening_claims = opening_claims.size();
 
@@ -120,6 +136,11 @@ template <typename Curve> class ShplonkProver_ {
         for (const auto& claim : libra_opening_claims) {
             inverse_vanishing_evals.emplace_back(z_challenge - claim.opening_pair.challenge);
         }
+
+        for (const auto& claim : sumcheck_opening_claims) {
+            inverse_vanishing_evals.emplace_back(z_challenge - claim.opening_pair.challenge);
+        }
+
         Fr::batch_invert(inverse_vanishing_evals);
 
         // G(X) = Q(X) - Q_z(X) = Q(X) - ∑ⱼ νʲ ⋅ ( fⱼ(X) − vⱼ) / ( z − xⱼ ),
@@ -160,6 +181,17 @@ template <typename Curve> class ShplonkProver_ {
             idx++;
             current_nu *= nu_challenge;
         }
+
+        for (const auto& claim : sumcheck_opening_claims) {
+            tmp = claim.polynomial;
+            tmp.at(0) = tmp[0] - claim.opening_pair.evaluation;
+            Fr scaling_factor = current_nu * inverse_vanishing_evals[idx]; // = νʲ / (z − xⱼ )
+
+            // Add the claim quotient to the batched quotient polynomial
+            G.add_scaled(tmp, -scaling_factor);
+            idx++;
+            current_nu *= nu_challenge;
+        }
         // Return opening pair (z, 0) and polynomial G(X) = Q(X) - Q_z(X)
         return { .polynomial = G, .opening_pair = { .challenge = z_challenge, .evaluation = Fr::zero() } };
     };
@@ -177,15 +209,17 @@ template <typename Curve> class ShplonkProver_ {
     static ProverOpeningClaim<Curve> prove(const std::shared_ptr<CommitmentKey<Curve>>& commitment_key,
                                            std::span<const ProverOpeningClaim<Curve>> opening_claims,
                                            const std::shared_ptr<Transcript>& transcript,
-                                           std::span<const ProverOpeningClaim<Curve>> libra_opening_claims = {})
+                                           std::span<const ProverOpeningClaim<Curve>> libra_opening_claims = {},
+                                           std::span<const ProverOpeningClaim<Curve>> sumcheck_round_claims = {})
     {
         const Fr nu = transcript->template get_challenge<Fr>("Shplonk:nu");
-        auto batched_quotient = compute_batched_quotient(opening_claims, nu, libra_opening_claims);
+        auto batched_quotient =
+            compute_batched_quotient(opening_claims, nu, libra_opening_claims, sumcheck_round_claims);
         auto batched_quotient_commitment = commitment_key->commit(batched_quotient);
         transcript->send_to_verifier("Shplonk:Q", batched_quotient_commitment);
         const Fr z = transcript->template get_challenge<Fr>("Shplonk:z");
         return compute_partially_evaluated_batched_quotient(
-            opening_claims, batched_quotient, nu, z, libra_opening_claims);
+            opening_claims, batched_quotient, nu, z, libra_opening_claims, sumcheck_round_claims);
     }
 };
 

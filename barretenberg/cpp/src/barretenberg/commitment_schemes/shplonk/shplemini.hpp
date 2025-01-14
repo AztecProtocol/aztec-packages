@@ -23,7 +23,7 @@ template <typename Curve> class ShpleminiProver_ {
     using ShplonkProver = ShplonkProver_<Curve>;
     using GeminiProver = GeminiProver_<Curve>;
 
-    template <typename Transcript, size_t LENGTH = 0>
+    template <typename Transcript>
     static OpeningClaim prove(const FF circuit_size,
                               RefSpan<Polynomial> f_polynomials,
                               RefSpan<Polynomial> g_polynomials,
@@ -52,6 +52,8 @@ template <typename Curve> class ShpleminiProver_ {
         // Create opening claims for Libra masking univariates
         std::vector<OpeningClaim> libra_opening_claims;
         std::vector<OpeningClaim> sumcheck_round_claims;
+
+        info(sumcheck_round_univariates.size());
         OpeningClaim new_claim;
         if (is_eccvm) {
 
@@ -59,10 +61,12 @@ template <typename Curve> class ShpleminiProver_ {
             for (size_t idx = 0; idx < log_circuit_size; idx++) {
                 const std::vector<FF> evaluation_points = { FF(0), FF(1), multilinear_challenge[idx] };
                 size_t eval_idx = 0;
+                new_claim.polynomial = std::move(sumcheck_round_univariates[idx]);
+
                 for (auto& eval_point : evaluation_points) {
-                    new_claim.polynomial = sumcheck_round_univariates[idx];
                     new_claim.opening_pair.challenge = eval_point;
                     new_claim.opening_pair.evaluation = sumcheck_round_evaluations[idx][eval_idx];
+                    sumcheck_round_claims.push_back(new_claim);
                     eval_idx++;
                 }
             }
@@ -85,8 +89,8 @@ template <typename Curve> class ShpleminiProver_ {
             }
         }
 
-        const OpeningClaim batched_claim =
-            ShplonkProver::prove(commitment_key, opening_claims, transcript, libra_opening_claims);
+        const OpeningClaim batched_claim = ShplonkProver::prove(
+            commitment_key, opening_claims, transcript, libra_opening_claims, sumcheck_round_claims);
         return batched_claim;
     };
 };
@@ -169,6 +173,8 @@ template <typename Curve> class ShpleminiVerifier_ {
                                              // Shplemini Refactoring: Remove bool pointer
         const std::array<Commitment, NUM_LIBRA_COMMITMENTS>& libra_commitments = {},
         const Fr& libra_univariate_evaluation = Fr{ 0 },
+        const std::vector<Commitment>& sumcheck_round_commitments = {},
+        const std::vector<std::array<Fr, 3>>& sumcheck_round_evaluations = {},
         const std::vector<RefVector<Commitment>>& concatenation_group_commitments = {},
         RefSpan<Fr> concatenated_evaluations = {})
 
@@ -346,6 +352,16 @@ template <typename Curve> class ShpleminiVerifier_ {
                 libra_evaluations, gemini_evaluation_challenge, multivariate_challenge, libra_univariate_evaluation);
         }
 
+        if (!sumcheck_round_evaluations.empty()) {
+            batch_sumcheck_round_claims(log_circuit_size,
+                                        commitments,
+                                        scalars,
+                                        multivariate_challenge,
+                                        shplonk_batching_challenge,
+                                        shplonk_evaluation_challenge,
+                                        sumcheck_round_commitments,
+                                        sumcheck_round_evaluations);
+        }
         return { commitments, scalars, shplonk_evaluation_challenge };
     };
     /**
@@ -683,5 +699,62 @@ template <typename Curve> class ShpleminiVerifier_ {
         scalars.push_back(batching_scalars[1] + batching_scalars[2]);
         scalars.push_back(batching_scalars[3]);
     }
+
+    static void batch_sumcheck_round_claims(const size_t log_circuit_size,
+                                            std::vector<Commitment>& commitments,
+                                            std::vector<Fr>& scalars,
+                                            const std::vector<Fr>& multilinear_challenge,
+                                            const Fr& shplonk_batching_challenge,
+                                            const Fr& shplonk_evaluation_challenge,
+                                            const std::vector<Commitment>& sumcheck_round_commitments,
+                                            const std::vector<std::array<Fr, 3>>& sumcheck_round_evaluations)
+    {
+        std::vector<Commitment> round_commitments = {};
+        std::vector<Fr> truncated_challenge = {};
+        std::vector<std::array<Fr, 3>> round_evals = {};
+
+        for (size_t idx = 0; idx < log_circuit_size; idx++) {
+            round_commitments.emplace_back(sumcheck_round_commitments[idx]);
+            round_evals.emplace_back(sumcheck_round_evaluations[idx]);
+            truncated_challenge.emplace_back(multilinear_challenge[idx]);
+        }
+
+        std::vector<Fr> denominators = {};
+        Fr shplonk_challenge_power = Fr{ 1 };
+        for (size_t j = 0; j < CONST_PROOF_SIZE_LOG_N + 2 + NUM_LIBRA_COMMITMENTS + 1; ++j) {
+            shplonk_challenge_power *= shplonk_batching_challenge;
+        }
+
+        Fr& constant_term = scalars[scalars.size() - 4];
+
+        std::array<Fr, 2> const_denominators;
+
+        const_denominators[0] = Fr(1) / (shplonk_evaluation_challenge);
+        const_denominators[1] = Fr(1) / (shplonk_evaluation_challenge - Fr{ 1 });
+
+        for (const auto& [challenge, comm] : zip_view(truncated_challenge, round_commitments)) {
+            denominators.push_back(shplonk_evaluation_challenge - challenge);
+            commitments.push_back(comm);
+        }
+
+        Fr::batch_invert(denominators);
+        for (const auto& [eval_array, denominator] : zip_view(round_evals, denominators)) {
+            Fr batched_scaling_factor = Fr(0);
+            for (size_t idx = 0; idx < 2; idx++) {
+                Fr current_scaling_factor = const_denominators[idx] * shplonk_challenge_power;
+                batched_scaling_factor -= current_scaling_factor;
+                shplonk_challenge_power *= shplonk_batching_challenge;
+                constant_term += current_scaling_factor * eval_array[idx];
+            }
+            Fr current_scaling_factor = denominator * shplonk_challenge_power;
+
+            batched_scaling_factor -= current_scaling_factor;
+            shplonk_challenge_power *= shplonk_batching_challenge;
+
+            constant_term += current_scaling_factor * eval_array[2];
+
+            scalars.push_back(batched_scaling_factor);
+        }
+    };
 };
 } // namespace bb

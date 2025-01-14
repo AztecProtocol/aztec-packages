@@ -85,7 +85,9 @@ bool ECCVMVerifier::verify_proof(const ECCVMProof& proof)
                                                Flavor::HasZK,
                                                &consistency_checked,
                                                libra_commitments,
-                                               sumcheck_output.claimed_libra_evaluation);
+                                               sumcheck_output.claimed_libra_evaluation,
+                                               sumcheck_output.round_univariate_commitments,
+                                               sumcheck_output.round_univariate_evaluations);
 
     // Reduce the accumulator to a single opening claim
     const OpeningClaim multivariate_to_univariate_opening_claim =
