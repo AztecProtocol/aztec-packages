@@ -136,6 +136,8 @@ std::array<typename Flavor::GroupElement, 2> TranslatorRecursiveVerifier_<Flavor
                                                &consistency_checked,
                                                libra_commitments,
                                                libra_evaluation,
+                                               {},
+                                               {},
                                                commitments.get_groups_to_be_concatenated(),
                                                claimed_evaluations.get_concatenated());
 

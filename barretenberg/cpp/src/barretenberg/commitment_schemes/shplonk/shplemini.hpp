@@ -736,8 +736,13 @@ template <typename Curve> class ShpleminiVerifier_ {
             denominators.push_back(shplonk_evaluation_challenge - challenge);
             commitments.push_back(comm);
         }
-
-        Fr::batch_invert(denominators);
+        if constexpr (!Curve::is_stdlib_type) {
+            Fr::batch_invert(denominators);
+        } else {
+            for (auto& denominator : denominators) {
+                denominator = Fr{ 1 } / denominator;
+            }
+        }
         for (const auto& [eval_array, denominator] : zip_view(round_evals, denominators)) {
             Fr batched_scaling_factor = Fr(0);
             for (size_t idx = 0; idx < 2; idx++) {

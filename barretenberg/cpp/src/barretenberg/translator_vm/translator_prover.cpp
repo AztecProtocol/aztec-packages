@@ -154,6 +154,8 @@ void TranslatorProver::execute_pcs_rounds()
                                        key->proving_key->commitment_key,
                                        transcript,
                                        small_subgroup_ipa_prover.get_witness_polynomials(),
+                                       {},
+                                       {},
                                        key->proving_key->polynomials.get_concatenated(),
                                        key->proving_key->polynomials.get_groups_to_be_concatenated());
 

@@ -129,6 +129,8 @@ bool TranslatorVerifier::verify_proof(const HonkProof& proof)
                                                &consistency_checked,
                                                libra_commitments,
                                                libra_evaluation,
+                                               {},
+                                               {},
                                                commitments.get_groups_to_be_concatenated(),
                                                claimed_evaluations.get_concatenated());
     const auto pairing_points = PCS::reduce_verify_batch_opening_claim(opening_claim, transcript);
