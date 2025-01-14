@@ -28,7 +28,7 @@ function emptyCallExecutionResult(): PrivateCallExecutionResult {
 }
 
 function emptyExecutionResult(): PrivateExecutionResult {
-  return new PrivateExecutionResult(emptyCallExecutionResult(), false);
+  return new PrivateExecutionResult(emptyCallExecutionResult(), Fr.zero());
 }
 
 describe('execution_result', () => {

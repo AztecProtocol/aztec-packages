@@ -30,11 +30,9 @@ export class PrivateKernelInitCircuitPrivateInputs {
      */
     public isPrivateOnly: boolean,
     /**
-     * Wether to inject the protocol nullifier into the circuit.
-     * The protocol nullifier needs to be injected if the apps don't generate any non revertible nullifier.
-     * As TXs need at least one non revertible nullifier for protection against replays
+     * A hint to what will be the first nullifier of the transaction, used for nonce generation.
      */
-    public injectProtocolNullifier: boolean,
+    public firstNullifierHint: Fr,
   ) {}
 
   /**
@@ -47,7 +45,7 @@ export class PrivateKernelInitCircuitPrivateInputs {
       this.vkTreeRoot,
       this.protocolContractTreeRoot,
       this.privateCall,
-      this.injectProtocolNullifier,
+      this.firstNullifierHint,
     );
   }
 
@@ -64,7 +62,7 @@ export class PrivateKernelInitCircuitPrivateInputs {
       Fr.fromBuffer(reader),
       reader.readObject(PrivateCallData),
       reader.readBoolean(),
-      reader.readBoolean(),
+      Fr.fromBuffer(reader),
     );
   }
 }

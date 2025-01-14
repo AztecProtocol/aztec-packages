@@ -218,10 +218,10 @@ export class KernelProver {
           protocolContractTreeRoot,
           privateCallData,
           isPrivateOnlyTx,
-          executionResult.usedTxRequestHashForNonces,
+          executionResult.firstNullifier,
         );
         this.log.debug(
-          `Calling private kernel init with isPrivateOnly ${isPrivateOnlyTx} and usedTxRequestHashForNonces ${executionResult.usedTxRequestHashForNonces}`,
+          `Calling private kernel init with isPrivateOnly ${isPrivateOnlyTx} and firstNullifierHint ${proofInput.firstNullifierHint}`,
         );
 
         pushTestData('private-kernel-inputs-init', proofInput);

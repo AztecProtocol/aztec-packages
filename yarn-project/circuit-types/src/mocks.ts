@@ -85,7 +85,7 @@ export const mockPrivateCallExecutionResult = (
 };
 
 export const mockPrivateExecutionResult = (seed = 1) => {
-  return new PrivateExecutionResult(mockPrivateCallExecutionResult(seed), true);
+  return new PrivateExecutionResult(mockPrivateCallExecutionResult(seed), Fr.zero());
 };
 
 export const mockTx = (

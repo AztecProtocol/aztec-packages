@@ -104,7 +104,8 @@ export class AcirSimulator {
         request.functionSelector,
       );
       const { usedTxRequestHashForNonces } = noteCache.finish();
-      return new PrivateExecutionResult(executionResult, usedTxRequestHashForNonces);
+      const firstNullifierHint = usedTxRequestHashForNonces ? Fr.ZERO : noteCache.getAllNullifiers()[0];
+      return new PrivateExecutionResult(executionResult, firstNullifierHint);
     } catch (err) {
       throw createSimulationError(err instanceof Error ? err : new Error('Unknown error during private execution'));
     }

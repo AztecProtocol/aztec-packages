@@ -90,23 +90,27 @@ export class CountedPublicExecutionRequest {
 }
 
 export class PrivateExecutionResult {
-  constructor(public entrypoint: PrivateCallExecutionResult, public usedTxRequestHashForNonces: boolean) {}
+  constructor(
+    public entrypoint: PrivateCallExecutionResult,
+    /** The first non revertible nullifier, or zero if there was none. */
+    public firstNullifier: Fr,
+  ) {}
 
   static get schema(): ZodFor<PrivateExecutionResult> {
     return z
       .object({
         entrypoint: PrivateCallExecutionResult.schema,
-        usedTxRequestHashForNonces: z.boolean(),
+        firstNullifier: Fr.schema,
       })
       .transform(PrivateExecutionResult.from);
   }
 
   static from(fields: FieldsOf<PrivateExecutionResult>) {
-    return new PrivateExecutionResult(fields.entrypoint, fields.usedTxRequestHashForNonces);
+    return new PrivateExecutionResult(fields.entrypoint, fields.firstNullifier);
   }
 
   static random(nested = 1): PrivateExecutionResult {
-    return new PrivateExecutionResult(PrivateCallExecutionResult.random(nested), Math.random() > 0.5);
+    return new PrivateExecutionResult(PrivateCallExecutionResult.random(nested), Fr.random());
   }
 }
 

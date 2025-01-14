@@ -52,7 +52,7 @@ describe('Kernel Prover', () => {
   const generateFakeSiloedCommitment = (note: NoteAndSlot) => createFakeSiloedCommitment(generateFakeCommitment(note));
 
   const createExecutionResult = (fnName: string, newNoteIndices: number[] = []): PrivateExecutionResult => {
-    return new PrivateExecutionResult(createCallExecutionResult(fnName, newNoteIndices), true);
+    return new PrivateExecutionResult(createCallExecutionResult(fnName, newNoteIndices), Fr.zero());
   };
 
   const createCallExecutionResult = (fnName: string, newNoteIndices: number[] = []): PrivateCallExecutionResult => {

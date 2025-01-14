@@ -54,7 +54,7 @@ export function convertPrivateKernelInitInputsToWitnessMapWithAbi(
     protocol_contract_tree_root: mapFieldToNoir(privateKernelInitCircuitPrivateInputs.protocolContractTreeRoot),
     private_call: mapPrivateCallDataToNoir(privateKernelInitCircuitPrivateInputs.privateCall),
     is_private_only: privateKernelInitCircuitPrivateInputs.isPrivateOnly,
-    inject_protocol_nullifier: privateKernelInitCircuitPrivateInputs.injectProtocolNullifier,
+    first_nullifier_hint: mapFieldToNoir(privateKernelInitCircuitPrivateInputs.firstNullifierHint),
     app_public_inputs: mapPrivateCircuitPublicInputsToNoir(
       privateKernelInitCircuitPrivateInputs.privateCall.publicInputs,
     ),
