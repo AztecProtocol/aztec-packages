@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1736885353745,
+  "lastUpdate": 1736888177561,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "End-to-end Benchmark": [
@@ -346,6 +346,45 @@ window.BENCHMARK_DATA = {
           {
             "name": "Sequencer/aztec.sequencer.block_builder_tree_insertion_duration",
             "value": 701771,
+            "unit": "us"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "68168980+just-mitch@users.noreply.github.com",
+            "name": "just-mitch",
+            "username": "just-mitch"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "2790bd7382195706d569207a2a48ffe2053cb3ea",
+          "message": "feat: dashboard in gcp (#11201)\n\n[new\r\ndashboard](https://console.cloud.google.com/monitoring/dashboards/builder/30d2d0d2-8dd2-4535-8074-e551dbc773aa;duration=PT15M?f.mlabel.k8s_namespace_name.namespace=mitch&f.mlabel.aztec_circuit_protocol_circuit_name.protocol_circuit=&project=testnet-440309)\r\n\r\nIt also has\r\n[traces](https://console.cloud.google.com/traces/list?project=testnet-440309),\r\nand the [logs](https://cloudlogging.app.goo.gl/kV6xa4jZzP8ScDLM8) are\r\nmuch nicer looking now.\r\n\r\nWe have a new env var, USE_GCLOUD_OBSERVABILITY, which takes precedence\r\nover the otel stuff. The \"old\" otel env vars can be used to use a custom\r\nmetrics stack, e.g. in local testing or in CI.",
+          "timestamp": "2025-01-14T20:32:28Z",
+          "tree_id": "8dc0491cdc8a9561ad5b982ba4288500769e6e29",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/2790bd7382195706d569207a2a48ffe2053cb3ea"
+        },
+        "date": 1736888170315,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sequencer/aztec.sequencer.block.build_duration",
+            "value": 4573,
+            "unit": "ms"
+          },
+          {
+            "name": "Sequencer/aztec.sequencer.block.time_per_mana",
+            "value": 3.4363788813899467,
+            "unit": "us/mana"
+          },
+          {
+            "name": "Sequencer/aztec.sequencer.block_builder_tree_insertion_duration",
+            "value": 629689,
             "unit": "us"
           }
         ]
