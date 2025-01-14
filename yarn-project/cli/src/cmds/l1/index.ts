@@ -15,7 +15,7 @@ import {
 } from '../../utils/commands.js';
 
 export function injectCommands(program: Command, log: LogFn, debugLogger: Logger) {
-  const { BB_BINARY_PATH, BB_WORKING_DIRECTORY } = process.env;
+  const { BB_BINARY_PATH, BB_WORKING_DIfRECTORY } = process.env;
 
   program
     .command('deploy-l1-contracts')
