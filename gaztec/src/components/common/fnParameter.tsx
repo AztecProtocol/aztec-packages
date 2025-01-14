@@ -1,4 +1,4 @@
-import { ABIParameter, isAddressStruct } from "@aztec/foundation/abi";
+import { ABIParameter, AbiType, isAddressStruct } from "@aztec/foundation/abi";
 import {
   Autocomplete,
   IconButton,
@@ -9,7 +9,6 @@ import {
 import { formatFrAsString } from "../../utils/conversion";
 import { useState } from "react";
 import EditIcon from "@mui/icons-material/Edit";
-import { AbiType } from "@noir-lang/types";
 
 const container = css({
   display: "flex",
