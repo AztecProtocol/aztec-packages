@@ -24,7 +24,7 @@ template <typename RecursiveFlavor> class SimulatorFixture : public benchmark::F
 
     void SetUp([[maybe_unused]] const ::benchmark::State& state) override
     {
-        bb::srs::init_crs_factory(bb::srs::get_ignition_crs_path());
+        bb::srs::init_crs_factory("../srs_db/ignition");
     }
 
     /**

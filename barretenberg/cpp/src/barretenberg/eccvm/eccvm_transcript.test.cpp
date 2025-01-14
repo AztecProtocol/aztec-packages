@@ -11,7 +11,7 @@ using namespace bb;
 
 class ECCVMTranscriptTests : public ::testing::Test {
   public:
-    void SetUp() override { srs::init_grumpkin_crs_factory(bb::srs::get_grumpkin_crs_path()); };
+    void SetUp() override { srs::init_grumpkin_crs_factory("../srs_db/grumpkin"); };
     using FF = grumpkin::fr;
     using Flavor = ECCVMFlavor;
 
@@ -26,9 +26,10 @@ class ECCVMTranscriptTests : public ::testing::Test {
      *
      * @return TranscriptManifest
      */
-    TranscriptManifest construct_eccvm_honk_manifest()
+    TranscriptManifest construct_eccvm_honk_manifest(size_t circuit_size)
     {
         TranscriptManifest manifest_expected;
+        auto log_n = numeric::get_msb(circuit_size);
         size_t MAX_PARTIAL_RELATION_LENGTH = Flavor::BATCHED_RELATION_PARTIAL_LENGTH;
         // Size of types is number of bb::frs needed to represent the type
         size_t frs_per_Fr = bb::field_conversion::calc_num_bn254_frs<FF>();
@@ -138,7 +139,10 @@ class ECCVMTranscriptTests : public ::testing::Test {
         }
         round++;
 
-        manifest_expected.add_entry(round, "Libra:concatenation_commitment", frs_per_G);
+        for (size_t i = 0; i < log_n; i++) {
+            std::string idx = std::to_string(i);
+            manifest_expected.add_entry(round, "Libra:commitment_" + idx, frs_per_G);
+        }
         manifest_expected.add_entry(round, "Libra:Sum", frs_per_Fr);
         // get the challenge for the ZK Sumcheck claim
         manifest_expected.add_challenge(round, "Libra:Challenge");
@@ -153,10 +157,13 @@ class ECCVMTranscriptTests : public ::testing::Test {
 
         round++;
 
-        manifest_expected.add_entry(round, "Libra:claimed_evaluation", frs_per_Fr);
+        for (size_t i = 0; i < log_n; i++) {
+            std::string idx = std::to_string(i);
+            manifest_expected.add_entry(round, "Libra:evaluation_" + idx, frs_per_Fr);
+        }
+        // manifest_expected.add_entry(round, "Libra:evaluation", log_n * frs_per_Fr);
+
         manifest_expected.add_entry(round, "Sumcheck:evaluations", frs_per_evals);
-        manifest_expected.add_entry(round, "Libra:big_sum_commitment", frs_per_G);
-        manifest_expected.add_entry(round, "Libra:quotient_commitment", frs_per_G);
         manifest_expected.add_entry(round, "Gemini:masking_poly_comm", frs_per_G);
         manifest_expected.add_entry(round, "Gemini:masking_poly_eval", frs_per_Fr);
 
@@ -173,10 +180,7 @@ class ECCVMTranscriptTests : public ::testing::Test {
             std::string idx = std::to_string(i);
             manifest_expected.add_entry(round, "Gemini:a_" + idx, frs_per_Fr);
         }
-        manifest_expected.add_entry(round, "Libra:concatenation_eval", frs_per_Fr);
-        manifest_expected.add_entry(round, "Libra:shifted_big_sum_eval", frs_per_Fr);
-        manifest_expected.add_entry(round, "Libra:big_sum_eval", frs_per_Fr);
-        manifest_expected.add_entry(round, "Libra:quotient_eval", frs_per_Fr);
+
         manifest_expected.add_challenge(round, "Shplonk:nu");
         round++;
         manifest_expected.add_entry(round, "Shplonk:Q", frs_per_G);
@@ -281,7 +285,7 @@ TEST_F(ECCVMTranscriptTests, ProverManifestConsistency)
     ECCVMProof proof = prover.construct_proof();
 
     // Check that the prover generated manifest agrees with the manifest hard coded in this suite
-    auto manifest_expected = this->construct_eccvm_honk_manifest();
+    auto manifest_expected = this->construct_eccvm_honk_manifest(prover.key->circuit_size);
     auto prover_manifest = prover.transcript->get_manifest();
 
     // Note: a manifest can be printed using manifest.print()

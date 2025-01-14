@@ -5,6 +5,9 @@
 #include "barretenberg/flavor/flavor_macros.hpp"
 #include "barretenberg/flavor/relation_definitions.hpp"
 #include "barretenberg/flavor/repeated_commitments_data.hpp"
+#include "barretenberg/honk/proof_system/types/proof.hpp"
+#include "barretenberg/plonk_honk_shared/library/grand_product_delta.hpp"
+#include "barretenberg/plonk_honk_shared/library/grand_product_library.hpp"
 #include "barretenberg/polynomials/univariate.hpp"
 #include "barretenberg/relations/auxiliary_relation.hpp"
 #include "barretenberg/relations/databus_lookup_relation.hpp"
@@ -15,6 +18,7 @@
 #include "barretenberg/relations/permutation_relation.hpp"
 #include "barretenberg/relations/poseidon2_external_relation.hpp"
 #include "barretenberg/relations/poseidon2_internal_relation.hpp"
+#include "barretenberg/relations/relation_parameters.hpp"
 #include "barretenberg/relations/ultra_arithmetic_relation.hpp"
 #include "barretenberg/stdlib_circuit_builders/mega_circuit_builder.hpp"
 #include "barretenberg/transcript/transcript.hpp"
@@ -82,8 +86,8 @@ class MegaFlavor {
     static constexpr size_t NUM_ALL_WITNESS_ENTITIES = NUM_WITNESS_ENTITIES + NUM_SHIFTED_WITNESSES;
 
     // For instances of this flavour, used in folding, we need a unique sumcheck batching challenges for each
-    // subrelation. This is because using powers of alpha would increase the degree of Protogalaxy polynomial $G$ (the
-    // combiner) too much.
+    // subrelation. This
+    // is because using powers of alpha would increase the degree of Protogalaxy polynomial $G$ (the combiner) too much.
     static constexpr size_t NUM_SUBRELATIONS = compute_number_of_subrelations<Relations>();
     using RelationSeparator = std::array<FF, NUM_SUBRELATIONS - 1>;
 
@@ -168,7 +172,7 @@ class MegaFlavor {
 
     // Mega needs to expose more public classes than most flavors due to MegaRecursive reuse, but these
     // are internal:
-
+  public:
     // WireEntities for basic witness entities
     template <typename DataType> class WireEntities {
       public:
@@ -280,6 +284,8 @@ class MegaFlavor {
                               w_o_shift,    // column 2
                               w_4_shift,    // column 3
                               z_perm_shift) // column 4
+
+        auto get_shifted() { return RefArray{ w_l_shift, w_r_shift, w_o_shift, w_4_shift, z_perm_shift }; };
     };
 
   public:
@@ -314,6 +320,13 @@ class MegaFlavor {
         auto get_witness() { return WitnessEntities<DataType>::get_all(); };
         auto get_to_be_shifted() { return WitnessEntities<DataType>::get_to_be_shifted(); };
         auto get_shifted() { return ShiftedEntities<DataType>::get_all(); };
+        // this getter is used in ZK Sumcheck, where all witness evaluations (including shifts) have to be masked
+        auto get_all_witnesses()
+        {
+            return concatenate(WitnessEntities<DataType>::get_all(), ShiftedEntities<DataType>::get_all());
+        };
+        // getter for the complement of all witnesses inside all entities
+        auto get_non_witnesses() { return PrecomputedEntities<DataType>::get_all(); };
     };
 
     /**
@@ -370,21 +383,6 @@ class MegaFlavor {
             return result;
         }
 
-        [[nodiscard]] AllValues get_row_for_permutation_arg(size_t row_idx)
-        {
-            AllValues result;
-            for (auto [result_field, polynomial] : zip_view(result.get_sigma_polynomials(), get_sigma_polynomials())) {
-                result_field = polynomial[row_idx];
-            }
-            for (auto [result_field, polynomial] : zip_view(result.get_id_polynomials(), get_id_polynomials())) {
-                result_field = polynomial[row_idx];
-            }
-            for (auto [result_field, polynomial] : zip_view(result.get_wires(), get_wires())) {
-                result_field = polynomial[row_idx];
-            }
-            return result;
-        }
-
         void set_shifted()
         {
             for (auto [shifted, to_be_shifted] : zip_view(get_shifted(), get_to_be_shifted())) {
@@ -412,7 +410,7 @@ class MegaFlavor {
         ProvingKey(const size_t circuit_size,
                    const size_t num_public_inputs,
                    std::shared_ptr<CommitmentKey> commitment_key = nullptr)
-            : Base(circuit_size, num_public_inputs, commitment_key) {};
+            : Base(circuit_size, num_public_inputs, commitment_key){};
 
         std::vector<uint32_t> memory_read_records;
         std::vector<uint32_t> memory_write_records;
@@ -420,10 +418,107 @@ class MegaFlavor {
 
         // Data pertaining to transfer of databus return data via public inputs
         DatabusPropagationData databus_propagation_data;
+
+        /**
+         * @brief Add plookup memory records to the fourth wire polynomial
+         *
+         * @details This operation must be performed after the first three wires have been committed to, hence the
+         * dependence on the `eta` challenge.
+         *
+         * @tparam Flavor
+         * @param eta challenge produced after commitment to first three wire polynomials
+         */
+        void add_ram_rom_memory_records_to_wire_4(const FF& eta, const FF& eta_two, const FF& eta_three)
+        {
+            // The plookup memory record values are computed at the indicated indices as
+            // w4 = w3 * eta^3 + w2 * eta^2 + w1 * eta + read_write_flag;
+            // (See plookup_auxiliary_widget.hpp for details)
+            auto wires = polynomials.get_wires();
+
+            // Compute read record values
+            for (const auto& gate_idx : memory_read_records) {
+                wires[3].at(gate_idx) += wires[2][gate_idx] * eta_three;
+                wires[3].at(gate_idx) += wires[1][gate_idx] * eta_two;
+                wires[3].at(gate_idx) += wires[0][gate_idx] * eta;
+            }
+
+            // Compute write record values
+            for (const auto& gate_idx : memory_write_records) {
+                wires[3].at(gate_idx) += wires[2][gate_idx] * eta_three;
+                wires[3].at(gate_idx) += wires[1][gate_idx] * eta_two;
+                wires[3].at(gate_idx) += wires[0][gate_idx] * eta;
+                wires[3].at(gate_idx) += 1;
+            }
+        }
+
+        /**
+         * @brief Compute the inverse polynomials used in the log derivative lookup relations
+         *
+         * @tparam Flavor
+         * @param beta
+         * @param gamma
+         */
+        void compute_logderivative_inverses(const RelationParameters<FF>& relation_parameters)
+        {
+            PROFILE_THIS_NAME("compute_logderivative_inverses");
+
+            // Compute inverses for conventional lookups
+            LogDerivLookupRelation<FF>::compute_logderivative_inverse(
+                this->polynomials, relation_parameters, this->circuit_size);
+
+            // Compute inverses for calldata reads
+            DatabusLookupRelation<FF>::compute_logderivative_inverse</*bus_idx=*/0>(
+                this->polynomials, relation_parameters, this->circuit_size);
+
+            // Compute inverses for secondary_calldata reads
+            DatabusLookupRelation<FF>::compute_logderivative_inverse</*bus_idx=*/1>(
+                this->polynomials, relation_parameters, this->circuit_size);
+
+            // Compute inverses for return data reads
+            DatabusLookupRelation<FF>::compute_logderivative_inverse</*bus_idx=*/2>(
+                this->polynomials, relation_parameters, this->circuit_size);
+        }
+
+        /**
+         * @brief Computes public_input_delta and the permutation grand product polynomial
+         *
+         * @param relation_parameters
+         * @param size_override override the size of the domain over which to compute the grand product
+         */
+        void compute_grand_product_polynomial(RelationParameters<FF>& relation_parameters, size_t size_override = 0)
+        {
+            relation_parameters.public_input_delta = compute_public_input_delta<MegaFlavor>(this->public_inputs,
+                                                                                            relation_parameters.beta,
+                                                                                            relation_parameters.gamma,
+                                                                                            this->circuit_size,
+                                                                                            this->pub_inputs_offset);
+
+            // Compute permutation grand product polynomial
+            compute_grand_product<MegaFlavor, UltraPermutationRelation<FF>>(
+                this->polynomials, relation_parameters, size_override, this->active_block_ranges);
+        }
+
+        uint64_t estimate_memory()
+        {
+            vinfo("++Estimating proving key memory++");
+            for (auto [polynomial, label] : zip_view(polynomials.get_all(), polynomials.get_labels())) {
+                uint64_t size = polynomial.size();
+                vinfo(label, " num: ", size, " size: ", (size * sizeof(FF)) >> 10, " KiB");
+            }
+
+            uint64_t result(0);
+            for (auto& polynomial : polynomials.get_unshifted()) {
+                result += polynomial.size() * sizeof(FF);
+            }
+
+            result += public_inputs.capacity() * sizeof(FF);
+
+            return result;
+        }
     };
 
     /**
-     * @brief The verification key is responsible for storing the commitments to the precomputed (non-witness)
+     * @brief The verification key is responsible for storing the commitments to the precomputed (non-witnessk)
      * polynomials used by the verifier.
      *
      * @note Note the discrepancy with what sort of data is stored here vs in the proving key. We may want to resolve
@@ -431,6 +526,7 @@ class MegaFlavor {
      * circuits.
      * @todo TODO(https://github.com/AztecProtocol/barretenberg/issues/876)
      */
+    // using VerificationKey = VerificationKey_<PrecomputedEntities<Commitment>, VerifierCommitmentKey>;
     class VerificationKey : public VerificationKey_<PrecomputedEntities<Commitment>, VerifierCommitmentKey> {
       public:
         // Data pertaining to transfer of databus return data via public inputs of the proof being recursively verified
@@ -503,7 +599,6 @@ class MegaFlavor {
         }
 
         // TODO(https://github.com/AztecProtocol/barretenberg/issues/964): Clean the boilerplate up.
-        // Explicit constructor for msgpack serialization
         VerificationKey(const size_t circuit_size,
                         const size_t num_public_inputs,
                         const size_t pub_inputs_offset,
@@ -755,7 +850,7 @@ class MegaFlavor {
      * Note: Made generic for use in MegaRecursive.
      * TODO(https://github.com/AztecProtocol/barretenberg/issues/877): Remove this Commitment template parameter
      */
-    class Transcript : public NativeTranscript {
+    template <typename Commitment> class Transcript_ : public NativeTranscript {
       public:
         uint32_t circuit_size;
         uint32_t public_input_size;
@@ -792,23 +887,23 @@ class MegaFlavor {
         Commitment shplonk_q_comm;
         Commitment kzg_w_comm;
 
-        Transcript() = default;
+        Transcript_() = default;
 
-        Transcript(const HonkProof& proof)
+        Transcript_(const HonkProof& proof)
             : NativeTranscript(proof)
         {}
 
-        static std::shared_ptr<Transcript> prover_init_empty()
+        static std::shared_ptr<Transcript_> prover_init_empty()
         {
-            auto transcript = std::make_shared<Transcript>();
+            auto transcript = std::make_shared<Transcript_>();
             constexpr uint32_t init{ 42 }; // arbitrary
             transcript->send_to_verifier("Init", init);
             return transcript;
         };
 
-        static std::shared_ptr<Transcript> verifier_init_empty(const std::shared_ptr<Transcript>& transcript)
+        static std::shared_ptr<Transcript_> verifier_init_empty(const std::shared_ptr<Transcript_>& transcript)
         {
-            auto verifier_transcript = std::make_shared<Transcript>(transcript->proof_data);
+            auto verifier_transcript = std::make_shared<Transcript_>(transcript->proof_data);
             [[maybe_unused]] auto _ = verifier_transcript->template receive_from_prover<uint32_t>("Init");
             return verifier_transcript;
         };
@@ -915,6 +1010,8 @@ class MegaFlavor {
             ASSERT(proof_data.size() == old_proof_length);
         }
     };
+    // Specialize for Mega (general case used in MegaRecursive).
+    using Transcript = Transcript_<Commitment>;
 };
 
 } // namespace bb

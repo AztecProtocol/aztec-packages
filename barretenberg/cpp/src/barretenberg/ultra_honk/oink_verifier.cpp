@@ -3,9 +3,7 @@
 #include "barretenberg/stdlib_circuit_builders/mega_zk_flavor.hpp"
 #include "barretenberg/stdlib_circuit_builders/ultra_flavor.hpp"
 #include "barretenberg/stdlib_circuit_builders/ultra_keccak_flavor.hpp"
-#include "barretenberg/stdlib_circuit_builders/ultra_keccak_zk_flavor.hpp"
 #include "barretenberg/stdlib_circuit_builders/ultra_rollup_flavor.hpp"
-#include "barretenberg/stdlib_circuit_builders/ultra_zk_flavor.hpp"
 
 namespace bb {
 
@@ -162,9 +160,7 @@ template <IsUltraFlavor Flavor> typename Flavor::RelationSeparator OinkVerifier<
 }
 
 template class OinkVerifier<UltraFlavor>;
-template class OinkVerifier<UltraZKFlavor>;
 template class OinkVerifier<UltraKeccakFlavor>;
-template class OinkVerifier<UltraKeccakZKFlavor>;
 template class OinkVerifier<UltraRollupFlavor>;
 template class OinkVerifier<MegaFlavor>;
 template class OinkVerifier<MegaZKFlavor>;

@@ -3,7 +3,6 @@
 #include "barretenberg/ecc/curves/bn254/pairing.hpp"
 #include "barretenberg/srs/factories/mem_bn254_crs_factory.hpp"
 #include "barretenberg/srs/factories/mem_grumpkin_crs_factory.hpp"
-#include "barretenberg/srs/global_crs.hpp"
 #include "file_crs_factory.hpp"
 #include <fstream>
 #include <gtest/gtest.h>
@@ -15,14 +14,14 @@ using namespace bb::curve;
 TEST(reference_string, mem_bn254_file_consistency)
 {
     // Load 1024 from file.
-    auto file_crs = FileCrsFactory<BN254>(bb::srs::get_ignition_crs_path(), 1024);
+    auto file_crs = FileCrsFactory<BN254>("../srs_db/ignition", 1024);
 
     // Use low level io lib to read 1024 from file.
     std::vector<g1::affine_element> points(1024);
-    ::srs::IO<BN254>::read_transcript_g1(points.data(), 1024, bb::srs::get_ignition_crs_path());
+    ::srs::IO<BN254>::read_transcript_g1(points.data(), 1024, "../srs_db/ignition");
 
     g2::affine_element g2_point;
-    ::srs::IO<BN254>::read_transcript_g2(g2_point, bb::srs::get_ignition_crs_path());
+    ::srs::IO<BN254>::read_transcript_g2(g2_point, "../srs_db/ignition");
 
     MemBn254CrsFactory mem_crs(points, g2_point);
     auto file_prover_crs = file_crs.get_prover_crs(1024);
@@ -49,11 +48,11 @@ TEST(reference_string, mem_bn254_file_consistency)
 TEST(reference_string, mem_grumpkin_file_consistency)
 {
     // Load 1024 from file.
-    auto file_crs = FileCrsFactory<Grumpkin>(bb::srs::get_grumpkin_crs_path(), 1024);
+    auto file_crs = FileCrsFactory<Grumpkin>("../srs_db/grumpkin", 1024);
 
     // Use low level io lib to read 1024 from file.
     std::vector<Grumpkin::AffineElement> points(1024);
-    ::srs::IO<Grumpkin>::read_transcript_g1(points.data(), 1024, bb::srs::get_grumpkin_crs_path());
+    ::srs::IO<Grumpkin>::read_transcript_g1(points.data(), 1024, "../srs_db/grumpkin");
 
     MemGrumpkinCrsFactory mem_crs(points);
     auto file_prover_crs = file_crs.get_prover_crs(1024);

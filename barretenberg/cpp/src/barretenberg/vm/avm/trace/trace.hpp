@@ -395,7 +395,7 @@ class AvmTraceBuilder {
     uint32_t get_inserted_note_hashes_count();
     uint32_t get_inserted_nullifiers_count();
     uint32_t get_public_data_writes_count();
-    FF get_first_nullifier() const { return public_inputs.previous_non_revertible_accumulated_data.nullifiers[0]; }
+    FF get_tx_hash() const { return public_inputs.previous_non_revertible_accumulated_data.nullifiers[0]; }
 
     // TODO: remove these once everything is constrained.
     AvmMemoryTag unconstrained_get_memory_tag(AddressWithMode addr);

@@ -8,7 +8,6 @@ test:
 benches-bb:
   FROM ../../+bootstrap-noir-bb
   WORKDIR /usr/src/barretenberg/acir_tests
-  RUN ./bootstrap.sh prepare-benches
 
 bench:
   # This target is used for debugging the benchmarking target.

@@ -170,9 +170,6 @@ template <typename Fq_, typename Fr_, typename Params> class alignas(64) affine_
     }
     Fq x;
     Fq y;
-
-    // Note: this serialization from typescript does not support infinity.
-    MSGPACK_FIELDS(x, y);
 };
 
 template <typename B, typename Fq_, typename Fr_, typename Params>

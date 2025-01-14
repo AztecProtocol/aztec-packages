@@ -15,7 +15,6 @@
 #include "barretenberg/ecc/scalar_multiplication/point_table.hpp"
 #include "barretenberg/numeric/random/engine.hpp"
 #include "barretenberg/srs/factories/file_crs_factory.hpp"
-#include "barretenberg/srs/global_crs.hpp"
 #include "barretenberg/srs/io.hpp"
 
 #include <cstddef>
@@ -31,9 +30,9 @@ template <typename Curve> class ScalarMultiplicationTests : public ::testing::Te
   public:
     const std::string SRS_PATH = []() {
         if constexpr (std::same_as<Curve, curve::BN254>) {
-            return bb::srs::get_ignition_crs_path();
+            return "../srs_db/ignition";
         } else if constexpr (std::same_as<Curve, curve::Grumpkin>) {
-            return bb::srs::get_grumpkin_crs_path();
+            return "../srs_db/grumpkin";
         }
     }();
 

@@ -3,17 +3,14 @@
 #include "barretenberg/common/throw_or_abort.hpp"
 #include "barretenberg/dsl/acir_format/ivc_recursion_constraint.hpp"
 #include "barretenberg/flavor/flavor.hpp"
-#include "barretenberg/stdlib/eccvm_verifier/verifier_commitment_key.hpp"
 #include "barretenberg/stdlib/plonk_recursion/aggregation_state/aggregation_state.hpp"
 #include "barretenberg/stdlib/primitives/curves/grumpkin.hpp"
 #include "barretenberg/stdlib/primitives/field/field_conversion.hpp"
 #include "barretenberg/stdlib_circuit_builders/mega_circuit_builder.hpp"
 #include "barretenberg/stdlib_circuit_builders/ultra_circuit_builder.hpp"
-#include "barretenberg/transcript/transcript.hpp"
 #include "proof_surgeon.hpp"
 #include <cstddef>
 #include <cstdint>
-#include <memory>
 
 namespace acir_format {
 
@@ -273,8 +270,9 @@ void build_constraints(Builder& builder, AcirProgram& program, const ProgramMeta
             // final recursion output.
             builder.add_pairing_point_accumulator(current_aggregation_object);
         }
-        // If we are proving with UltraRollupFlavor, the IPA proof should have nonzero size.
-        ASSERT((metadata.honk_recursion == 2) == (output.ipa_proof.size() > 0));
+        // TODO(https://github.com/AztecProtocol/barretenberg/issues/1183): This assertion should be true, except for
+        // the root rollup as of now since the root rollup will not output a ipa proof.
+        // ASSERT((metadata.honk_recursion == 2) == (output.ipa_proof.size() > 0));
         if (metadata.honk_recursion == 2) {
             builder.add_ipa_claim(output.ipa_claim.get_witness_indices());
             builder.ipa_proof = output.ipa_proof;
@@ -381,17 +379,13 @@ HonkRecursionConstraintsOutput<Builder> process_honk_recursion_constraints(
     size_t idx = 0;
     std::vector<OpeningClaim<stdlib::grumpkin<Builder>>> nested_ipa_claims;
     std::vector<StdlibProof<Builder>> nested_ipa_proofs;
-    bool is_root_rollup = false;
     for (auto& constraint : constraint_system.honk_recursion_constraints) {
         if (constraint.proof_type == HONK) {
             auto [next_aggregation_object, _ipa_claim, _ipa_proof] =
                 create_honk_recursion_constraints<UltraRecursiveFlavor_<Builder>>(
                     builder, constraint, current_aggregation_object, has_valid_witness_assignments);
             current_aggregation_object = next_aggregation_object;
-        } else if (constraint.proof_type == ROLLUP_HONK || constraint.proof_type == ROOT_ROLLUP_HONK) {
-            if (constraint.proof_type == ROOT_ROLLUP_HONK) {
-                is_root_rollup = true;
-            }
+        } else if (constraint.proof_type == ROLLUP_HONK || constraint.proof_type == ROLLUP_ROOT_HONK) {
             auto [next_aggregation_object, ipa_claim, ipa_proof] =
                 create_honk_recursion_constraints<UltraRollupRecursiveFlavor_<Builder>>(
                     builder, constraint, current_aggregation_object, has_valid_witness_assignments);
@@ -406,7 +400,6 @@ HonkRecursionConstraintsOutput<Builder> process_honk_recursion_constraints(
         gate_counter.track_diff(constraint_system.gates_per_opcode,
                                 constraint_system.original_opcode_indices.honk_recursion_constraints.at(idx++));
     }
-    ASSERT(!(is_root_rollup && nested_ipa_claims.size() != 2) && "Root rollup must accumulate two IPA proofs.");
     // Accumulate the claims
     if (nested_ipa_claims.size() == 2) {
         auto commitment_key = std::make_shared<CommitmentKey<curve::Grumpkin>>(1 << CONST_ECCVM_LOG_N);
@@ -416,21 +409,8 @@ HonkRecursionConstraintsOutput<Builder> process_honk_recursion_constraints(
         auto ipa_transcript_2 = std::make_shared<StdlibTranscript>(nested_ipa_proofs[1]);
         auto [ipa_claim, ipa_proof] = IPA<stdlib::grumpkin<Builder>>::accumulate(
             commitment_key, ipa_transcript_1, nested_ipa_claims[0], ipa_transcript_2, nested_ipa_claims[1]);
-        // If this is the root rollup, do full IPA verification
-        if (is_root_rollup) {
-            auto verifier_commitment_key = std::make_shared<VerifierCommitmentKey<stdlib::grumpkin<Builder>>>(
-                &builder,
-                1 << CONST_ECCVM_LOG_N,
-                std::make_shared<VerifierCommitmentKey<curve::Grumpkin>>(1 << CONST_ECCVM_LOG_N));
-            // do full IPA verification
-            auto accumulated_ipa_transcript =
-                std::make_shared<StdlibTranscript>(convert_native_proof_to_stdlib(&builder, ipa_proof));
-            IPA<stdlib::grumpkin<Builder>>::full_verify_recursive(
-                verifier_commitment_key, ipa_claim, accumulated_ipa_transcript);
-        } else {
-            output.ipa_claim = ipa_claim;
-            output.ipa_proof = ipa_proof;
-        }
+        output.ipa_claim = ipa_claim;
+        output.ipa_proof = ipa_proof;
     } else if (nested_ipa_claims.size() == 1) {
         output.ipa_claim = nested_ipa_claims[0];
         // This conversion looks suspicious but there's no need to make this an output of the circuit since its a proof
@@ -439,13 +419,31 @@ HonkRecursionConstraintsOutput<Builder> process_honk_recursion_constraints(
     } else if (nested_ipa_claims.size() > 2) {
         throw_or_abort("Too many nested IPA claims to accumulate");
     } else {
+        // TODO(https://github.com/AztecProtocol/barretenberg/issues/1184): Move to IPA class.
         if (honk_recursion == 2) {
             info("Proving with UltraRollupHonk but no IPA claims exist.");
-            auto [stdlib_opening_claim, ipa_proof] =
-                IPA<stdlib::grumpkin<Builder>>::create_fake_ipa_claim_and_proof(builder);
+            // just create some fake IPA claim and proof
+            using NativeCurve = curve::Grumpkin;
+            using Curve = stdlib::grumpkin<Builder>;
+            auto ipa_transcript = std::make_shared<NativeTranscript>();
+            auto ipa_commitment_key = std::make_shared<CommitmentKey<NativeCurve>>(1 << CONST_ECCVM_LOG_N);
+            size_t n = 4;
+            auto poly = Polynomial<fq>(n);
+            for (size_t i = 0; i < n; i++) {
+                poly.at(i) = fq::random_element();
+            }
+            fq x = fq::random_element();
+            fq eval = poly.evaluate(x);
+            auto commitment = ipa_commitment_key->commit(poly);
+            const OpeningPair<NativeCurve> opening_pair = { x, eval };
+            IPA<NativeCurve>::compute_opening_proof(ipa_commitment_key, { poly, opening_pair }, ipa_transcript);
 
+            auto stdlib_comm = Curve::Group::from_witness(&builder, commitment);
+            auto stdlib_x = Curve::ScalarField::from_witness(&builder, x);
+            auto stdlib_eval = Curve::ScalarField::from_witness(&builder, eval);
+            OpeningClaim<Curve> stdlib_opening_claim{ { stdlib_x, stdlib_eval }, stdlib_comm };
             output.ipa_claim = stdlib_opening_claim;
-            output.ipa_proof = ipa_proof;
+            output.ipa_proof = ipa_transcript->export_proof();
         }
     }
     output.agg_obj_indices = current_aggregation_object;

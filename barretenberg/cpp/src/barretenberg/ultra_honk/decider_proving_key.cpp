@@ -99,8 +99,8 @@ void DeciderProvingKey_<Flavor>::allocate_table_lookup_polynomials(const Circuit
     PROFILE_THIS_NAME("allocate_table_lookup_polynomials");
 
     size_t table_offset = circuit.blocks.lookup.trace_offset;
-    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1193): can potentially improve memory footprint
-    const size_t max_tables_size = dyadic_circuit_size - table_offset;
+    const size_t max_tables_size =
+        std::min(static_cast<size_t>(MAX_LOOKUP_TABLES_SIZE), dyadic_circuit_size - table_offset);
     ASSERT(dyadic_circuit_size > max_tables_size);
 
     // Allocate the polynomials containing the actual table data
@@ -328,9 +328,8 @@ void DeciderProvingKey_<Flavor>::move_structured_trace_overflow_to_overflow_bloc
 }
 
 template class DeciderProvingKey_<UltraFlavor>;
-template class DeciderProvingKey_<UltraZKFlavor>;
+template class DeciderProvingKey_<UltraFlavorWithZK>;
 template class DeciderProvingKey_<UltraKeccakFlavor>;
-template class DeciderProvingKey_<UltraKeccakZKFlavor>;
 template class DeciderProvingKey_<UltraRollupFlavor>;
 template class DeciderProvingKey_<MegaFlavor>;
 template class DeciderProvingKey_<MegaZKFlavor>;

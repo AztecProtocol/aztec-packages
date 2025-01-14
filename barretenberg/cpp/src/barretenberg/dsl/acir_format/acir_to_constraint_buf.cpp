@@ -635,7 +635,7 @@ void handle_blackbox_func_call(Program::Opcode::BlackBoxFuncCall const& arg,
                 // be the only means for setting the proof type. use of honk_recursion flag in this context can go
                 // away once all noir programs (e.g. protocol circuits) are updated to use the new pattern.
                 if (proof_type_in != HONK && proof_type_in != AVM && proof_type_in != ROLLUP_HONK &&
-                    proof_type_in != ROOT_ROLLUP_HONK) {
+                    proof_type_in != ROLLUP_ROOT_HONK) {
                     if (honk_recursion == 1) {
                         proof_type_in = HONK;
                     } else if (honk_recursion == 2) {
@@ -659,7 +659,7 @@ void handle_blackbox_func_call(Program::Opcode::BlackBoxFuncCall const& arg,
                     break;
                 case HONK:
                 case ROLLUP_HONK:
-                case ROOT_ROLLUP_HONK:
+                case ROLLUP_ROOT_HONK:
                     af.honk_recursion_constraints.push_back(c);
                     af.original_opcode_indices.honk_recursion_constraints.push_back(opcode_index);
                     break;

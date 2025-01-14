@@ -289,7 +289,7 @@ bool Graph_<FF>::check_is_not_constant_variable(bb::UltraCircuitBuilder& ultra_c
 }
 
 /**
- * @brief this method adds connection between 2 variables, if they are in one gate, they are not constraint variables,
+ * @brief this method adds connection between 2 variables, if they are in one gate, they are not constrant variables,
  * and they have different indexes
  * @tparam FF
  * @param ultra_circuit_builder

@@ -202,11 +202,10 @@ template <typename Builder> cycle_group<Builder> cycle_group<Builder>::get_stand
  * @brief Evaluates a doubling. Does not use Ultra double gate
  *
  * @tparam Builder
- * @param unused param is due to interface-compatibility with the UltraArithmetic version of `dbl`
  * @return cycle_group<Builder>
  */
 template <typename Builder>
-cycle_group<Builder> cycle_group<Builder>::dbl([[maybe_unused]] const std::optional<AffineElement> /*unused*/) const
+cycle_group<Builder> cycle_group<Builder>::dbl() const
     requires IsNotUltraArithmetic<Builder>
 {
     auto modified_y = field_t::conditional_assign(is_point_at_infinity(), 1, y);
@@ -220,54 +219,35 @@ cycle_group<Builder> cycle_group<Builder>::dbl([[maybe_unused]] const std::optio
  * @brief Evaluates a doubling. Uses Ultra double gate
  *
  * @tparam Builder
- * @param hint : value of output point witness, if known ahead of time (used to avoid modular inversions during witgen)
  * @return cycle_group<Builder>
  */
 template <typename Builder>
-cycle_group<Builder> cycle_group<Builder>::dbl(const std::optional<AffineElement> hint) const
+cycle_group<Builder> cycle_group<Builder>::dbl() const
     requires IsUltraArithmetic<Builder>
 {
     // ensure we use a value of y that is not zero. (only happens if point at infinity)
     // this costs 0 gates if `is_infinity` is a circuit constant
     auto modified_y = field_t::conditional_assign(is_point_at_infinity(), 1, y).normalize();
+    auto x1 = x.get_value();
+    auto y1 = modified_y.get_value();
 
-    cycle_group result;
-    if (hint.has_value()) {
-        auto x3 = hint.value().x;
-        auto y3 = hint.value().y;
-        if (is_constant()) {
-            result = cycle_group(x3, y3, is_point_at_infinity());
-            // We need to manually propagate the origin tag
-            result.set_origin_tag(get_origin_tag());
-
-            return result;
-        }
-
-        result = cycle_group(witness_t(context, x3), witness_t(context, y3), is_point_at_infinity());
-    } else {
-        auto x1 = x.get_value();
-        auto y1 = modified_y.get_value();
-
-        // N.B. the formula to derive the witness value for x3 mirrors the formula in elliptic_relation.hpp
-        // Specifically, we derive x^4 via the Short Weierstrass curve formula `y^2 = x^3 + b`
-        // i.e. x^4 = x * (y^2 - b)
-        // We must follow this pattern exactly to support the edge-case where the input is the point at infinity.
-        auto y_pow_2 = y1.sqr();
-        auto x_pow_4 = x1 * (y_pow_2 - Group::curve_b);
-        auto lambda_squared = (x_pow_4 * 9) / (y_pow_2 * 4);
-        auto lambda = (x1 * x1 * 3) / (y1 + y1);
-        auto x3 = lambda_squared - x1 - x1;
-        auto y3 = lambda * (x1 - x3) - y1;
-        if (is_constant()) {
-            auto result = cycle_group(x3, y3, is_point_at_infinity().get_value());
-            // We need to manually propagate the origin tag
-            result.set_origin_tag(get_origin_tag());
-            return result;
-        }
-
-        result = cycle_group(witness_t(context, x3), witness_t(context, y3), is_point_at_infinity());
+    // N.B. the formula to derive the witness value for x3 mirrors the formula in elliptic_relation.hpp
+    // Specifically, we derive x^4 via the Short Weierstrass curve formula `y^2 = x^3 + b`
+    // i.e. x^4 = x * (y^2 - b)
+    // We must follow this pattern exactly to support the edge-case where the input is the point at infinity.
+    auto y_pow_2 = y1.sqr();
+    auto x_pow_4 = x1 * (y_pow_2 - Group::curve_b);
+    auto lambda_squared = (x_pow_4 * 9) / (y_pow_2 * 4);
+    auto lambda = (x1 * x1 * 3) / (y1 + y1);
+    auto x3 = lambda_squared - x1 - x1;
+    auto y3 = lambda * (x1 - x3) - y1;
+    if (is_constant()) {
+        auto result = cycle_group(x3, y3, is_point_at_infinity().get_value());
+        // We need to manually propagate the origin tag
+        result.set_origin_tag(get_origin_tag());
+        return result;
     }
-
+    cycle_group result(witness_t(context, x3), witness_t(context, y3), is_point_at_infinity());
     context->create_ecc_dbl_gate(bb::ecc_dbl_gate_<FF>{
         .x1 = x.get_witness_index(),
         .y1 = modified_y.normalize().get_witness_index(),
@@ -292,8 +272,7 @@ cycle_group<Builder> cycle_group<Builder>::dbl(const std::optional<AffineElement
  * @return cycle_group<Builder>
  */
 template <typename Builder>
-cycle_group<Builder> cycle_group<Builder>::unconditional_add(
-    const cycle_group& other, [[maybe_unused]] const std::optional<AffineElement> /*unused*/) const
+cycle_group<Builder> cycle_group<Builder>::unconditional_add(const cycle_group& other) const
     requires IsNotUltraArithmetic<Builder>
 {
     auto x_diff = other.x - x;
@@ -315,12 +294,10 @@ cycle_group<Builder> cycle_group<Builder>::unconditional_add(
  *
  * @tparam Builder
  * @param other
- * @param hint : value of output point witness, if known ahead of time (used to avoid modular inversions during witgen)
  * @return cycle_group<Builder>
  */
 template <typename Builder>
-cycle_group<Builder> cycle_group<Builder>::unconditional_add(const cycle_group& other,
-                                                             const std::optional<AffineElement> hint) const
+cycle_group<Builder> cycle_group<Builder>::unconditional_add(const cycle_group& other) const
     requires IsUltraArithmetic<Builder>
 {
     auto context = get_context(other);
@@ -331,36 +308,28 @@ cycle_group<Builder> cycle_group<Builder>::unconditional_add(const cycle_group& 
         auto lhs = cycle_group::from_constant_witness(context, get_value());
         // We need to manually propagate the origin tag
         lhs.set_origin_tag(get_origin_tag());
-        return lhs.unconditional_add(other, hint);
+        return lhs.unconditional_add(other);
     }
     if (!lhs_constant && rhs_constant) {
         auto rhs = cycle_group::from_constant_witness(context, other.get_value());
         // We need to manually propagate the origin tag
         rhs.set_origin_tag(other.get_origin_tag());
-        return unconditional_add(rhs, hint);
+        return unconditional_add(rhs);
     }
-    cycle_group result;
-    if (hint.has_value()) {
-        auto x3 = hint.value().x;
-        auto y3 = hint.value().y;
-        if (lhs_constant && rhs_constant) {
-            return cycle_group(x3, y3, false);
-        }
-        result = cycle_group(witness_t(context, x3), witness_t(context, y3), false);
-    } else {
-        const auto p1 = get_value();
-        const auto p2 = other.get_value();
-        AffineElement p3(Element(p1) + Element(p2));
-        if (lhs_constant && rhs_constant) {
-            auto result = cycle_group(p3);
-            // We need to manually propagate the origin tag
-            result.set_origin_tag(OriginTag(get_origin_tag(), other.get_origin_tag()));
-            return result;
-        }
-        field_t r_x(witness_t(context, p3.x));
-        field_t r_y(witness_t(context, p3.y));
-        result = cycle_group(r_x, r_y, false);
+
+    const auto p1 = get_value();
+    const auto p2 = other.get_value();
+    AffineElement p3(Element(p1) + Element(p2));
+    if (lhs_constant && rhs_constant) {
+        auto result = cycle_group(p3);
+        // We need to manually propagate the origin tag
+        result.set_origin_tag(OriginTag(get_origin_tag(), other.get_origin_tag()));
+        return result;
     }
+    field_t r_x(witness_t(context, p3.x));
+    field_t r_y(witness_t(context, p3.y));
+    cycle_group result(r_x, r_y, false);
+
     bb::ecc_add_gate_<FF> add_gate{
         .x1 = x.get_witness_index(),
         .y1 = y.get_witness_index(),
@@ -384,15 +353,13 @@ cycle_group<Builder> cycle_group<Builder>::unconditional_add(const cycle_group& 
  *
  * @tparam Builder
  * @param other
- * @param hint : value of output point witness, if known ahead of time (used to avoid modular inversions during witgen)
  * @return cycle_group<Builder>
  */
 template <typename Builder>
-cycle_group<Builder> cycle_group<Builder>::unconditional_subtract(const cycle_group& other,
-                                                                  const std::optional<AffineElement> hint) const
+cycle_group<Builder> cycle_group<Builder>::unconditional_subtract(const cycle_group& other) const
 {
     if constexpr (!IS_ULTRA) {
-        return unconditional_add(-other, hint);
+        return unconditional_add(-other);
     } else {
         auto context = get_context(other);
 
@@ -403,7 +370,7 @@ cycle_group<Builder> cycle_group<Builder>::unconditional_subtract(const cycle_gr
             auto lhs = cycle_group<Builder>::from_constant_witness(context, get_value());
             // We need to manually propagate the origin tag
             lhs.set_origin_tag(get_origin_tag());
-            return lhs.unconditional_subtract(other, hint);
+            return lhs.unconditional_subtract(other);
         }
         if (!lhs_constant && rhs_constant) {
             auto rhs = cycle_group<Builder>::from_constant_witness(context, other.get_value());
@@ -411,28 +378,19 @@ cycle_group<Builder> cycle_group<Builder>::unconditional_subtract(const cycle_gr
             rhs.set_origin_tag(other.get_origin_tag());
             return unconditional_subtract(rhs);
         }
-        cycle_group result;
-        if (hint.has_value()) {
-            auto x3 = hint.value().x;
-            auto y3 = hint.value().y;
-            if (lhs_constant && rhs_constant) {
-                return cycle_group(x3, y3, false);
-            }
-            result = cycle_group(witness_t(context, x3), witness_t(context, y3), is_point_at_infinity());
-        } else {
-            auto p1 = get_value();
-            auto p2 = other.get_value();
-            AffineElement p3(Element(p1) - Element(p2));
-            if (lhs_constant && rhs_constant) {
-                auto result = cycle_group(p3);
-                // We need to manually propagate the origin tag
-                result.set_origin_tag(OriginTag(get_origin_tag(), other.get_origin_tag()));
-                return result;
-            }
-            field_t r_x(witness_t(context, p3.x));
-            field_t r_y(witness_t(context, p3.y));
-            result = cycle_group(r_x, r_y, false);
+        auto p1 = get_value();
+        auto p2 = other.get_value();
+        AffineElement p3(Element(p1) - Element(p2));
+        if (lhs_constant && rhs_constant) {
+            auto result = cycle_group(p3);
+            // We need to manually propagate the origin tag
+            result.set_origin_tag(OriginTag(get_origin_tag(), other.get_origin_tag()));
+            return result;
         }
+        field_t r_x(witness_t(context, p3.x));
+        field_t r_y(witness_t(context, p3.y));
+        cycle_group result(r_x, r_y, false);
+
         bb::ecc_add_gate_<FF> add_gate{
             .x1 = x.get_witness_index(),
             .y1 = y.get_witness_index(),
@@ -460,16 +418,14 @@ cycle_group<Builder> cycle_group<Builder>::unconditional_subtract(const cycle_gr
  *
  * @tparam Builder
  * @param other
- * @param hint : value of output point witness, if known ahead of time (used to avoid modular inversions during witgen)
  * @return cycle_group<Builder>
  */
 template <typename Builder>
-cycle_group<Builder> cycle_group<Builder>::checked_unconditional_add(const cycle_group& other,
-                                                                     const std::optional<AffineElement> hint) const
+cycle_group<Builder> cycle_group<Builder>::checked_unconditional_add(const cycle_group& other) const
 {
     field_t x_delta = x - other.x;
     x_delta.assert_is_not_zero("cycle_group::checked_unconditional_add, x-coordinate collision");
-    return unconditional_add(other, hint);
+    return unconditional_add(other);
 }
 
 /**
@@ -482,16 +438,14 @@ cycle_group<Builder> cycle_group<Builder>::checked_unconditional_add(const cycle
  *
  * @tparam Builder
  * @param other
- * @param hint : value of output point witness, if known ahead of time (used to avoid modular inversions during witgen)
  * @return cycle_group<Builder>
  */
 template <typename Builder>
-cycle_group<Builder> cycle_group<Builder>::checked_unconditional_subtract(const cycle_group& other,
-                                                                          const std::optional<AffineElement> hint) const
+cycle_group<Builder> cycle_group<Builder>::checked_unconditional_subtract(const cycle_group& other) const
 {
     field_t x_delta = x - other.x;
     x_delta.assert_is_not_zero("cycle_group::checked_unconditional_subtract, x-coordinate collision");
-    return unconditional_subtract(other, hint);
+    return unconditional_subtract(other);
 }
 
 /**
@@ -947,13 +901,7 @@ cycle_group<Builder>::straus_scalar_slice::straus_scalar_slice(Builder* context,
     // convert an input cycle_scalar object into a vector of slices, each containing `table_bits` bits.
     // this also performs an implicit range check on the input slices
     const auto slice_scalar = [&](const field_t& scalar, const size_t num_bits) {
-        // we record the scalar slices both as field_t circuit elements and u64 values
-        // (u64 values are used to index arrays and we don't want to repeatedly cast a stdlib value to a numeric
-        // primitive as this gets expensive when repeated enough times)
-        std::pair<std::vector<field_t>, std::vector<uint64_t>> result;
-        result.first.reserve(static_cast<size_t>(1ULL) << table_bits);
-        result.second.reserve(static_cast<size_t>(1ULL) << table_bits);
-
+        std::vector<field_t> result;
         if (num_bits == 0) {
             return result;
         }
@@ -963,22 +911,12 @@ cycle_group<Builder>::straus_scalar_slice::straus_scalar_slice(Builder* context,
             uint256_t raw_value = scalar.get_value();
             for (size_t i = 0; i < num_slices; ++i) {
                 uint64_t slice_v = static_cast<uint64_t>(raw_value.data[0]) & table_mask;
-                result.first.push_back(field_t(slice_v));
-                result.second.push_back(slice_v);
+                result.push_back(field_t(slice_v));
                 raw_value = raw_value >> table_bits;
             }
 
             return result;
         }
-        uint256_t raw_value = scalar.get_value();
-        const uint64_t table_mask = (1ULL << table_bits) - 1ULL;
-        const size_t num_slices = (num_bits + table_bits - 1) / table_bits;
-        for (size_t i = 0; i < num_slices; ++i) {
-            uint64_t slice_v = static_cast<uint64_t>(raw_value.data[0]) & table_mask;
-            result.second.push_back(slice_v);
-            raw_value = raw_value >> table_bits;
-        }
-
         if constexpr (IS_ULTRA) {
             const auto slice_indices =
                 context->decompose_into_default_range(scalar.normalize().get_witness_index(),
@@ -986,22 +924,26 @@ cycle_group<Builder>::straus_scalar_slice::straus_scalar_slice(Builder* context,
                                                       table_bits,
                                                       "straus_scalar_slice decompose_into_default_range");
             for (auto& idx : slice_indices) {
-                result.first.emplace_back(field_t::from_witness_index(context, idx));
+                result.emplace_back(field_t::from_witness_index(context, idx));
             }
         } else {
+            uint256_t raw_value = scalar.get_value();
+            const uint64_t table_mask = (1ULL << table_bits) - 1ULL;
+            const size_t num_slices = (num_bits + table_bits - 1) / table_bits;
             for (size_t i = 0; i < num_slices; ++i) {
-                uint64_t slice_v = result.second[i];
+                uint64_t slice_v = static_cast<uint64_t>(raw_value.data[0]) & table_mask;
                 field_t slice(witness_t(context, slice_v));
 
                 context->create_range_constraint(
                     slice.get_witness_index(), table_bits, "straus_scalar_slice create_range_constraint");
 
-                result.first.push_back(slice);
+                result.emplace_back(slice);
+                raw_value = raw_value >> table_bits;
             }
             std::vector<field_t> linear_elements;
             FF scaling_factor = 1;
             for (size_t i = 0; i < num_slices; ++i) {
-                linear_elements.emplace_back(result.first[i] * scaling_factor);
+                linear_elements.emplace_back(result[i] * scaling_factor);
                 scaling_factor += scaling_factor;
             }
             field_t::accumulate(linear_elements).assert_equal(scalar);
@@ -1014,10 +956,8 @@ cycle_group<Builder>::straus_scalar_slice::straus_scalar_slice(Builder* context,
     auto hi_slices = slice_scalar(scalar.hi, hi_bits);
     auto lo_slices = slice_scalar(scalar.lo, lo_bits);
 
-    std::copy(lo_slices.first.begin(), lo_slices.first.end(), std::back_inserter(slices));
-    std::copy(hi_slices.first.begin(), hi_slices.first.end(), std::back_inserter(slices));
-    std::copy(lo_slices.second.begin(), lo_slices.second.end(), std::back_inserter(slices_native));
-    std::copy(hi_slices.second.begin(), hi_slices.second.end(), std::back_inserter(slices_native));
+    std::copy(lo_slices.begin(), lo_slices.end(), std::back_inserter(slices));
+    std::copy(hi_slices.begin(), hi_slices.end(), std::back_inserter(slices));
     const auto tag = scalar.get_origin_tag();
     for (auto& element : slices) {
         // All slices need to have the same origin tag
@@ -1044,35 +984,6 @@ std::optional<field_t<Builder>> cycle_group<Builder>::straus_scalar_slice::read(
 }
 
 /**
- * @brief Compute the output points generated when computing the Straus lookup table
- * @details When performing an MSM, we first compute all the witness values as Element types (with a Z-coordinate),
- *          and then we batch-convert the points into affine representation `AffineElement`
- *          This avoids the need to compute a modular inversion for every group operation,
- *          which dramatically cuts witness generation times
- *
- * @tparam Builder
- * @param base_point
- * @param offset_generator
- * @param table_bits
- * @return std::vector<typename cycle_group<Builder>::Element>
- */
-template <typename Builder>
-std::vector<typename cycle_group<Builder>::Element> cycle_group<
-    Builder>::straus_lookup_table::compute_straus_lookup_table_hints(const Element& base_point,
-                                                                     const Element& offset_generator,
-                                                                     size_t table_bits)
-{
-    const size_t table_size = 1UL << table_bits;
-    Element base = base_point.is_point_at_infinity() ? Group::one : base_point;
-    std::vector<Element> hints;
-    hints.emplace_back(offset_generator);
-    for (size_t i = 1; i < table_size; ++i) {
-        hints.emplace_back(hints[i - 1] + base);
-    }
-    return hints;
-}
-
-/**
  * @brief Construct a new cycle group<Builder>::straus lookup table::straus lookup table object
  *
  * @details Constructs a `table_bits` lookup table.
@@ -1090,8 +1001,7 @@ template <typename Builder>
 cycle_group<Builder>::straus_lookup_table::straus_lookup_table(Builder* context,
                                                                const cycle_group& base_point,
                                                                const cycle_group& offset_generator,
-                                                               size_t table_bits,
-                                                               std::optional<std::span<AffineElement>> hints)
+                                                               size_t table_bits)
     : _table_bits(table_bits)
     , _context(context)
     , tag(OriginTag(base_point.get_origin_tag(), offset_generator.get_origin_tag()))
@@ -1112,41 +1022,11 @@ cycle_group<Builder>::straus_lookup_table::straus_lookup_table(Builder* context,
     field_t modded_x = field_t::conditional_assign(base_point.is_point_at_infinity(), fallback_point.x, base_point.x);
     field_t modded_y = field_t::conditional_assign(base_point.is_point_at_infinity(), fallback_point.y, base_point.y);
     cycle_group modded_base_point(modded_x, modded_y, false);
-
-    // if the input point is constant, it is cheaper to fix the point as a witness and then derive the table, than it is
-    // to derive the table and fix its witnesses to be constant! (due to group additions = 1 gate, and fixing x/y coords
-    // to be constant = 2 gates)
-    if (modded_base_point.is_constant() && !base_point.is_point_at_infinity().get_value()) {
-        modded_base_point = cycle_group::from_constant_witness(_context, modded_base_point.get_value());
-        point_table[0] = cycle_group::from_constant_witness(_context, offset_generator.get_value());
-        for (size_t i = 1; i < table_size; ++i) {
-            std::optional<AffineElement> hint =
-                hints.has_value() ? std::optional<AffineElement>(hints.value()[i - 1]) : std::nullopt;
-            point_table[i] = point_table[i - 1].unconditional_add(modded_base_point, hint);
-        }
-    } else {
-        std::vector<std::tuple<field_t, field_t>> x_coordinate_checks;
-        // ensure all of the ecc add gates are lined up so that we can pay 1 gate per add and not 2
-        for (size_t i = 1; i < table_size; ++i) {
-            std::optional<AffineElement> hint =
-                hints.has_value() ? std::optional<AffineElement>(hints.value()[i - 1]) : std::nullopt;
-            x_coordinate_checks.emplace_back(point_table[i - 1].x, modded_base_point.x);
-            point_table[i] = point_table[i - 1].unconditional_add(modded_base_point, hint);
-        }
-
-        // batch the x-coordinate checks together
-        // because `assert_is_not_zero` witness generation needs a modular inversion (expensive)
-        field_t coordinate_check_product = 1;
-        for (auto& [x1, x2] : x_coordinate_checks) {
-            auto x_diff = x2 - x1;
-            coordinate_check_product *= x_diff;
-        }
-        coordinate_check_product.assert_is_not_zero("straus_lookup_table x-coordinate collision");
-
-        for (size_t i = 1; i < table_size; ++i) {
-            point_table[i] =
-                cycle_group::conditional_assign(base_point.is_point_at_infinity(), offset_generator, point_table[i]);
-        }
+    for (size_t i = 1; i < table_size; ++i) {
+        auto add_output = point_table[i - 1].checked_unconditional_add(modded_base_point);
+        field_t x = field_t::conditional_assign(base_point.is_point_at_infinity(), offset_generator.x, add_output.x);
+        field_t y = field_t::conditional_assign(base_point.is_point_at_infinity(), offset_generator.y, add_output.y);
+        point_table[i] = cycle_group(x, y, false);
     }
     if constexpr (IS_ULTRA) {
         rom_id = context->create_ROM_array(table_size);
@@ -1257,78 +1137,16 @@ typename cycle_group<Builder>::batch_mul_internal_output cycle_group<Builder>::_
     const size_t num_points = scalars.size();
 
     std::vector<straus_scalar_slice> scalar_slices;
-
-    /**
-     * Compute the witness values of the batch_mul algorithm natively, as Element types with a Z-coordinate.
-     * We then batch-convert to AffineElement types, and feed these points as "hints" into the cycle_group methods.
-     * This avoids the need to compute modular inversions for every group operation, which dramatically reduces witness
-     * generation times
-     */
-    std::vector<Element> operation_transcript;
-    std::vector<std::vector<Element>> native_straus_tables;
-    Element offset_generator_accumulator = offset_generators[0];
-    {
-        for (size_t i = 0; i < num_points; ++i) {
-            std::vector<Element> native_straus_table;
-            native_straus_table.emplace_back(offset_generators[i + 1]);
-            size_t table_size = 1ULL << TABLE_BITS;
-            for (size_t j = 1; j < table_size; ++j) {
-                native_straus_table.emplace_back(native_straus_table[j - 1] + base_points[i].get_value());
-            }
-            native_straus_tables.emplace_back(native_straus_table);
-        }
-        for (size_t i = 0; i < num_points; ++i) {
-            scalar_slices.emplace_back(straus_scalar_slice(context, scalars[i], TABLE_BITS));
-
-            auto table_transcript = straus_lookup_table::compute_straus_lookup_table_hints(
-                base_points[i].get_value(), offset_generators[i + 1], TABLE_BITS);
-            std::copy(table_transcript.begin() + 1, table_transcript.end(), std::back_inserter(operation_transcript));
-        }
-        Element accumulator = offset_generators[0];
-
-        for (size_t i = 0; i < num_rounds; ++i) {
-            if (i != 0) {
-                for (size_t j = 0; j < TABLE_BITS; ++j) {
-                    // offset_generator_accuulator is a regular Element, so dbl() won't add constraints
-                    accumulator = accumulator.dbl();
-                    operation_transcript.emplace_back(accumulator);
-                    offset_generator_accumulator = offset_generator_accumulator.dbl();
-                }
-            }
-            for (size_t j = 0; j < num_points; ++j) {
-
-                const Element point =
-                    native_straus_tables[j][static_cast<size_t>(scalar_slices[j].slices_native[num_rounds - i - 1])];
-
-                accumulator += point;
-
-                operation_transcript.emplace_back(accumulator);
-                offset_generator_accumulator = offset_generator_accumulator + Element(offset_generators[j + 1]);
-            }
-        }
-    }
-
-    // Normalize the computed witness points and convert into AffineElement type
-    Element::batch_normalize(&operation_transcript[0], operation_transcript.size());
-
-    std::vector<AffineElement> operation_hints;
-    operation_hints.reserve(operation_transcript.size());
-    for (auto& element : operation_transcript) {
-        operation_hints.emplace_back(AffineElement(element.x, element.y));
-    }
-
     std::vector<straus_lookup_table> point_tables;
-    const size_t hints_per_table = (1ULL << TABLE_BITS) - 1;
     OriginTag tag{};
     for (size_t i = 0; i < num_points; ++i) {
-        std::span<AffineElement> table_hints(&operation_hints[i * hints_per_table], hints_per_table);
         // Merge tags
         tag = OriginTag(tag, scalars[i].get_origin_tag(), base_points[i].get_origin_tag());
         scalar_slices.emplace_back(straus_scalar_slice(context, scalars[i], TABLE_BITS));
         point_tables.emplace_back(straus_lookup_table(context, base_points[i], offset_generators[i + 1], TABLE_BITS));
     }
 
-    AffineElement* hint_ptr = &operation_hints[num_points * hints_per_table];
+    Element offset_generator_accumulator = offset_generators[0];
     cycle_group accumulator = offset_generators[0];
 
     // populate the set of points we are going to add into our accumulator, *before* we do any ECC operations
@@ -1347,42 +1165,36 @@ typename cycle_group<Builder>::batch_mul_internal_output cycle_group<Builder>::_
             }
         }
     }
-
     std::vector<std::tuple<field_t, field_t>> x_coordinate_checks;
     size_t point_counter = 0;
     for (size_t i = 0; i < num_rounds; ++i) {
         if (i != 0) {
             for (size_t j = 0; j < TABLE_BITS; ++j) {
-                accumulator = accumulator.dbl(*hint_ptr);
-                hint_ptr++;
+                // offset_generator_accuulator is a regular Element, so dbl() won't add constraints
+                accumulator = accumulator.dbl();
+                offset_generator_accumulator = offset_generator_accumulator.dbl();
             }
         }
 
         for (size_t j = 0; j < num_points; ++j) {
             const std::optional<field_t> scalar_slice = scalar_slices[j].read(num_rounds - i - 1);
-            // if we are doing a batch mul over scalars of different bit-lengths, we may not have a bit slice
-            // for a given round and a given scalar
-            ASSERT(scalar_slice.value().get_value() == scalar_slices[j].slices_native[num_rounds - i - 1]);
+            // if we are doing a batch mul over scalars of different bit-lengths, we may not have a bit slice for a
+            // given round and a given scalar
             if (scalar_slice.has_value()) {
                 const auto& point = points_to_add[point_counter++];
                 if (!unconditional_add) {
                     x_coordinate_checks.push_back({ accumulator.x, point.x });
                 }
-                accumulator = accumulator.unconditional_add(point, *hint_ptr);
-                hint_ptr++;
+                accumulator = accumulator.unconditional_add(point);
+                offset_generator_accumulator = offset_generator_accumulator + Element(offset_generators[j + 1]);
             }
         }
     }
 
-    // validate that none of the x-coordinate differences are zero
-    // we batch the x-coordinate checks together
-    // because `assert_is_not_zero` witness generation needs a modular inversion (expensive)
-    field_t coordinate_check_product = 1;
     for (auto& [x1, x2] : x_coordinate_checks) {
         auto x_diff = x2 - x1;
-        coordinate_check_product *= x_diff;
+        x_diff.assert_is_not_zero("_variable_base_batch_mul_internal x-coordinate collision");
     }
-    coordinate_check_product.assert_is_not_zero("_variable_base_batch_mul_internal x-coordinate collision");
 
     // Set the final accumulator's tag to the union of all points' and scalars' tags
     accumulator.set_origin_tag(tag);
@@ -1456,33 +1268,12 @@ typename cycle_group<Builder>::batch_mul_internal_output cycle_group<Builder>::_
         ASSERT(offset_1.has_value());
         offset_generator_accumulator += offset_1.value();
     }
-    /**
-     * Compute the witness values of the batch_mul algorithm natively, as Element types with a Z-coordinate.
-     * We then batch-convert to AffineElement types, and feed these points as "hints" into the cycle_group methods.
-     * This avoids the need to compute modular inversions for every group operation, which dramatically reduces witness
-     * generation times
-     */
-    std::vector<Element> operation_transcript;
-    {
-        Element accumulator = lookup_points[0].get_value();
-        for (size_t i = 1; i < lookup_points.size(); ++i) {
-            accumulator = accumulator + (lookup_points[i].get_value());
-            operation_transcript.emplace_back(accumulator);
-        }
-    }
-    Element::batch_normalize(&operation_transcript[0], operation_transcript.size());
-    std::vector<AffineElement> operation_hints;
-    operation_hints.reserve(operation_transcript.size());
-    for (auto& element : operation_transcript) {
-        operation_hints.emplace_back(AffineElement(element.x, element.y));
-    }
-
     cycle_group accumulator = lookup_points[0];
     // Perform all point additions sequentially. The Ultra ecc_addition relation costs 1 gate iff additions are chained
     // and output point of previous addition = input point of current addition.
     // If this condition is not met, the addition relation costs 2 gates. So it's good to do these sequentially!
     for (size_t i = 1; i < lookup_points.size(); ++i) {
-        accumulator = accumulator.unconditional_add(lookup_points[i], operation_hints[i - 1]);
+        accumulator = accumulator.unconditional_add(lookup_points[i]);
     }
     /**
      * offset_generator_accumulator represents the sum of all the offset generator terms present in `accumulator`.

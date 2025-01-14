@@ -49,14 +49,16 @@ UltraRecursiveVerifier_<Flavor>::Output UltraRecursiveVerifier_<Flavor>::verify_
     Output output;
     StdlibProof<Builder> honk_proof;
     if constexpr (HasIPAAccumulator<Flavor>) {
-        const size_t HONK_PROOF_LENGTH = Flavor::NativeFlavor::PROOF_LENGTH_WITHOUT_PUB_INPUTS - IPA_PROOF_LENGTH;
+        // TODO(https://github.com/AztecProtocol/barretenberg/issues/1168): Add formula to flavor
+        const size_t HONK_PROOF_LENGTH = 469;
         const size_t num_public_inputs = static_cast<uint32_t>(proof[1].get_value());
         // The extra calculation is for the IPA proof length.
         // TODO(https://github.com/AztecProtocol/barretenberg/issues/1182): Handle in ProofSurgeon.
-        ASSERT(proof.size() == HONK_PROOF_LENGTH + IPA_PROOF_LENGTH + num_public_inputs);
+        ASSERT(proof.size() == HONK_PROOF_LENGTH + (1 + 4 * (CONST_ECCVM_LOG_N) + 2 + 2) + num_public_inputs -
+                                   (PAIRING_POINT_ACCUMULATOR_SIZE + IPA_CLAIM_SIZE));
         // split out the ipa proof
-        const std::ptrdiff_t honk_proof_with_pub_inputs_length =
-            static_cast<std::ptrdiff_t>(HONK_PROOF_LENGTH + num_public_inputs);
+        const std::ptrdiff_t honk_proof_with_pub_inputs_length = static_cast<std::ptrdiff_t>(
+            HONK_PROOF_LENGTH + num_public_inputs - (PAIRING_POINT_ACCUMULATOR_SIZE + IPA_CLAIM_SIZE));
         output.ipa_proof = StdlibProof<Builder>(proof.begin() + honk_proof_with_pub_inputs_length, proof.end());
         honk_proof = StdlibProof<Builder>(proof.begin(), proof.end() + honk_proof_with_pub_inputs_length);
     } else {
@@ -106,22 +108,24 @@ UltraRecursiveVerifier_<Flavor>::Output UltraRecursiveVerifier_<Flavor>::verify_
     auto sumcheck = Sumcheck(log_circuit_size, transcript);
 
     // Receive commitments to Libra masking polynomials
-    std::array<Commitment, NUM_LIBRA_COMMITMENTS> libra_commitments = {};
-    FF libra_evaluation{ 0 };
+    std::vector<Commitment> libra_commitments = {};
     if constexpr (Flavor::HasZK) {
-        libra_commitments[0] = transcript->template receive_from_prover<Commitment>("Libra:concatenation_commitment");
+        for (size_t idx = 0; idx < log_circuit_size; idx++) {
+            Commitment libra_commitment =
+                transcript->template receive_from_prover<Commitment>("Libra:commitment_" + std::to_string(idx));
+            libra_commitments.push_back(libra_commitment);
+        };
     }
     SumcheckOutput<Flavor> sumcheck_output =
         sumcheck.verify(verification_key->relation_parameters, verification_key->alphas, gate_challenges);
 
     // For MegaZKFlavor: the sumcheck output contains claimed evaluations of the Libra polynomials
+    std::vector<FF> libra_evaluations = {};
     if constexpr (Flavor::HasZK) {
-        libra_evaluation = std::move(sumcheck_output.claimed_libra_evaluation);
-        libra_commitments[1] = transcript->template receive_from_prover<Commitment>("Libra:big_sum_commitment");
-        libra_commitments[2] = transcript->template receive_from_prover<Commitment>("Libra:quotient_commitment");
+        libra_evaluations = std::move(sumcheck_output.claimed_libra_evaluations);
     }
+
     // Execute Shplemini to produce a batch opening claim subsequently verified by a univariate PCS
-    bool consistency_checked = true;
     const BatchOpeningClaim<Curve> opening_claim =
         Shplemini::compute_batch_opening_claim(key->circuit_size,
                                                commitments.get_unshifted(),
@@ -132,10 +136,8 @@ UltraRecursiveVerifier_<Flavor>::Output UltraRecursiveVerifier_<Flavor>::verify_
                                                Commitment::one(builder),
                                                transcript,
                                                Flavor::REPEATED_COMMITMENTS,
-                                               Flavor::HasZK,
-                                               &consistency_checked,
-                                               libra_commitments,
-                                               libra_evaluation);
+                                               RefVector(libra_commitments),
+                                               libra_evaluations);
 
     auto pairing_points = PCS::reduce_verify_batch_opening_claim(opening_claim, transcript);
 

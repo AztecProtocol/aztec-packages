@@ -8,7 +8,6 @@
 #include "barretenberg/stdlib_circuit_builders/mock_circuits.hpp"
 #include "barretenberg/ultra_honk/decider_prover.hpp"
 #include "barretenberg/ultra_honk/decider_verifier.hpp"
-#include "barretenberg/ultra_honk/witness_computation.hpp"
 
 #include <gtest/gtest.h>
 
@@ -45,7 +44,7 @@ template <typename Flavor> class ProtogalaxyTests : public testing::Test {
     using TupleOfKeys = std::tuple<std::vector<std::shared_ptr<DeciderProvingKey>>,
                                    std::vector<std::shared_ptr<DeciderVerificationKey>>>;
 
-    static void SetUpTestSuite() { bb::srs::init_crs_factory(bb::srs::get_ignition_crs_path()); }
+    static void SetUpTestSuite() { bb::srs::init_crs_factory("../srs_db/ignition"); }
 
     static void construct_circuit(Builder& builder)
     {
@@ -117,7 +116,18 @@ template <typename Flavor> class ProtogalaxyTests : public testing::Test {
 
         auto decider_pk = std::make_shared<DeciderProvingKey>(builder);
 
-        WitnessComputation<Flavor>::complete_proving_key_for_test(decider_pk);
+        decider_pk->relation_parameters.eta = FF::random_element();
+        decider_pk->relation_parameters.eta_two = FF::random_element();
+        decider_pk->relation_parameters.eta_three = FF::random_element();
+        decider_pk->relation_parameters.beta = FF::random_element();
+        decider_pk->relation_parameters.gamma = FF::random_element();
+
+        decider_pk->proving_key.add_ram_rom_memory_records_to_wire_4(decider_pk->relation_parameters.eta,
+                                                                     decider_pk->relation_parameters.eta_two,
+                                                                     decider_pk->relation_parameters.eta_three);
+        decider_pk->proving_key.compute_logderivative_inverses(decider_pk->relation_parameters);
+        decider_pk->proving_key.compute_grand_product_polynomial(decider_pk->relation_parameters,
+                                                                 decider_pk->final_active_wire_idx + 1);
 
         for (auto& alpha : decider_pk->alphas) {
             alpha = FF::random_element();
@@ -127,7 +137,7 @@ template <typename Flavor> class ProtogalaxyTests : public testing::Test {
             decider_pk->proving_key.polynomials, decider_pk->alphas, decider_pk->relation_parameters);
 
         // Evaluations should be 0 for valid circuit
-        for (const auto& eval : full_honk_evals.coeffs()) {
+        for (const auto& eval : full_honk_evals) {
             EXPECT_EQ(eval, FF(0));
         }
     }
@@ -142,11 +152,7 @@ template <typename Flavor> class ProtogalaxyTests : public testing::Test {
         std::vector<FF> betas = { FF(5), FF(8), FF(11) };
         std::vector<FF> deltas = { FF(2), FF(4), FF(8) };
         std::vector<FF> full_honk_evaluations = { FF(1), FF(1), FF(1), FF(1), FF(1), FF(1), FF(1), FF(1) };
-        Polynomial honk_evaluations_poly(full_honk_evaluations.size());
-        for (auto [poly_val, val] : zip_view(honk_evaluations_poly.coeffs(), full_honk_evaluations)) {
-            poly_val = val;
-        }
-        auto perturbator = PGInternal::construct_perturbator_coefficients(betas, deltas, honk_evaluations_poly);
+        auto perturbator = PGInternal::construct_perturbator_coefficients(betas, deltas, full_honk_evaluations);
         std::vector<FF> expected_values = { FF(648), FF(936), FF(432), FF(64) };
         EXPECT_EQ(perturbator.size(), 4); // log(size) + 1
         for (size_t i = 0; i < perturbator.size(); i++) {

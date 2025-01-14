@@ -24,8 +24,6 @@ enum class AvmError : uint32_t {
     OUT_OF_GAS,
     STATIC_CALL_ALTERATION,
     FAILED_BYTECODE_RETRIEVAL,
-    MSM_POINTS_LEN_INVALID,
-    MSM_POINT_NOT_ON_CURVE,
 };
 
 } // namespace bb::avm_trace

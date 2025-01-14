@@ -37,8 +37,6 @@ template <IsUltraFlavor Flavor_> class UltraProver_ {
 
     std::shared_ptr<CommitmentKey> commitment_key;
 
-    UltraProver_(const std::shared_ptr<DeciderPK>&, const std::shared_ptr<CommitmentKey>&);
-
     explicit UltraProver_(const std::shared_ptr<DeciderPK>&,
                           const std::shared_ptr<Transcript>& transcript = std::make_shared<Transcript>());
 

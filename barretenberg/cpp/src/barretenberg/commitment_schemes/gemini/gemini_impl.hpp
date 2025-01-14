@@ -124,15 +124,6 @@ std::vector<typename GeminiProver_<Curve>::Claim> GeminiProver_<Curve>::prove(
     }
     const Fr r_challenge = transcript->template get_challenge<Fr>("Gemini:r");
 
-    const bool gemini_challenge_in_small_subgroup = (has_zk) && (r_challenge.pow(Curve::SUBGROUP_SIZE) == Fr(1));
-
-    // If Gemini evaluation challenge lands in the multiplicative subgroup used by SmallSubgroupIPA protocol, the
-    // evaluations of prover polynomials at this challenge would leak witness data.
-    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1194). Handle edge cases in PCS
-    if (gemini_challenge_in_small_subgroup) {
-        throw_or_abort("Gemini evaluation challenge is in the SmallSubgroup.");
-    }
-
     std::vector<Claim> claims =
         compute_fold_polynomial_evaluations(log_n, std::move(fold_polynomials), r_challenge, std::move(batched_group));
 

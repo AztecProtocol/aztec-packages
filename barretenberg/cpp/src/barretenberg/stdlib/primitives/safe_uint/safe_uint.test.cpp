@@ -95,7 +95,7 @@ TYPED_TEST(SafeUintTest, TestMultiplyOperationOutOfRangeFails)
 {
     STDLIB_TYPE_ALIASES
     auto builder = Builder();
-    // Since max is initially set to (1 << 2) - 1 = 3 (as bit range checks are easier than generic integer bounds),
+    // Since max is initally set to (1 << 2) - 1 = 3 (as bit range checks are easier than generic integer bounds),
     // should allow largest power of 3 smaller than r iterations, which is 159. Hence below we should exceed r, and
     // expect a throw
     field_ct a(witness_ct(&builder, 2));

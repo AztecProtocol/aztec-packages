@@ -15,7 +15,7 @@ using namespace smt_solver;
 enum class TermType { FFTerm, FFITerm, BVTerm, ITerm };
 std::ostream& operator<<(std::ostream& os, TermType type);
 
-enum class OpType : int32_t { ADD, SUB, MUL, DIV, NEG, XOR, AND, OR, GT, GE, LT, LE, MOD, RSH, LSH, ROTR, ROTL, NOT };
+enum class OpType : int32_t { ADD, SUB, MUL, DIV, NEG, XOR, AND, OR, GT, GE, LT, LE, MOD, RSH, LSH, ROTR, ROTL };
 
 /**
  * @brief precomputed map that contains allowed
@@ -73,9 +73,7 @@ const std::unordered_map<TermType, std::unordered_map<OpType, cvc5::Kind>> typed
           { OpType::ROTL, cvc5::Kind::BITVECTOR_ROTATE_LEFT },
           { OpType::ROTR, cvc5::Kind::BITVECTOR_ROTATE_RIGHT },
           { OpType::MOD, cvc5::Kind::BITVECTOR_UREM },
-          { OpType::DIV, cvc5::Kind::BITVECTOR_UDIV },
-          { OpType::NOT, cvc5::Kind::BITVECTOR_NOT },
-      } }
+          { OpType::DIV, cvc5::Kind::BITVECTOR_UDIV } } }
 };
 
 /**
@@ -162,10 +160,6 @@ class STerm {
     void operator&=(const STerm& other);
     STerm operator|(const STerm& other) const;
     void operator|=(const STerm& other);
-    void operator<(const STerm& other) const;
-    void operator>(const STerm& other) const;
-    STerm operator%(const STerm& other) const;
-    STerm operator~() const;
     STerm operator<<(const uint32_t& n) const;
     void operator<<=(const uint32_t& n);
     STerm operator>>(const uint32_t& n) const;

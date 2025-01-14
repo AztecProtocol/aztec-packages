@@ -18,7 +18,7 @@ class MockKernelTest : public ::testing::Test {
     using MockCircuitProducer = PrivateFunctionExecutionMockCircuitProducer;
 
   protected:
-    static void SetUpTestSuite() { srs::init_crs_factory(bb::srs::get_ignition_crs_path()); }
+    static void SetUpTestSuite() { srs::init_crs_factory("../srs_db/ignition"); }
 };
 
 TEST_F(MockKernelTest, PinFoldingKernelSizes)

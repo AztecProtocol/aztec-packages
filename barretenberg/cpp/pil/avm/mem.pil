@@ -92,7 +92,7 @@ namespace mem(256);
               + sel_op_slice;
 
     // Maximum one memory operation enabled per row
-    sel_mem * (sel_mem - 1) = 0; // TODO: might be inferred by the main trace
+    sel_mem * (sel_mem - 1) = 0; // TODO: might be infered by the main trace
 
     // Enforce the memory entries to be contiguous, i.e., as soon as
     // sel_mem is disabled all subsequent rows have sel_mem disabled.

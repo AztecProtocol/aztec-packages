@@ -2,7 +2,6 @@
 #include "barretenberg/commitment_schemes/claim.hpp"
 #include "barretenberg/commitment_schemes/commitment_key.hpp"
 #include "barretenberg/commitment_schemes/shplonk/shplemini.hpp"
-#include "barretenberg/commitment_schemes/small_subgroup_ipa/small_subgroup_ipa.hpp"
 #include "barretenberg/plonk_honk_shared/library/grand_product_library.hpp"
 #include "barretenberg/sumcheck/sumcheck.hpp"
 
@@ -120,7 +119,8 @@ void TranslatorProver::execute_relation_check_rounds()
     }
 
     // // create masking polynomials for sumcheck round univariates and auxiliary data
-    zk_sumcheck_data = ZKData(key->proving_key->log_circuit_size, transcript, key->proving_key->commitment_key);
+    zk_sumcheck_data =
+        ZKSumcheckData<Flavor>(key->proving_key->log_circuit_size, transcript, key->proving_key->commitment_key);
 
     sumcheck_output =
         sumcheck.prove(key->proving_key->polynomials, relation_parameters, alpha, gate_challenges, zk_sumcheck_data);
@@ -138,14 +138,6 @@ void TranslatorProver::execute_pcs_rounds()
 
     using OpeningClaim = ProverOpeningClaim<Curve>;
 
-    using SmallSubgroupIPA = SmallSubgroupIPAProver<Flavor>;
-
-    SmallSubgroupIPA small_subgroup_ipa_prover(zk_sumcheck_data,
-                                               sumcheck_output.challenge,
-                                               sumcheck_output.claimed_libra_evaluation,
-                                               transcript,
-                                               key->proving_key->commitment_key);
-
     const OpeningClaim prover_opening_claim =
         ShpleminiProver_<Curve>::prove(key->proving_key->circuit_size,
                                        key->proving_key->polynomials.get_unshifted_without_concatenated(),
@@ -153,7 +145,8 @@ void TranslatorProver::execute_pcs_rounds()
                                        sumcheck_output.challenge,
                                        key->proving_key->commitment_key,
                                        transcript,
-                                       small_subgroup_ipa_prover.get_witness_polynomials(),
+                                       zk_sumcheck_data.libra_univariates_monomial,
+                                       sumcheck_output.claimed_libra_evaluations,
                                        key->proving_key->polynomials.get_concatenated(),
                                        key->proving_key->polynomials.get_groups_to_be_concatenated());
 

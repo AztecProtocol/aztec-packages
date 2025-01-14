@@ -288,8 +288,7 @@ void AvmTraceBuilder::insert_private_revertible_state(const std::vector<FF>& sil
 
     for (size_t i = 0; i < siloed_note_hashes.size(); i++) {
         size_t note_index_in_tx = i + get_inserted_note_hashes_count();
-        FF nonce =
-            AvmMerkleTreeTraceBuilder::unconstrained_compute_note_hash_nonce(get_first_nullifier(), note_index_in_tx);
+        FF nonce = AvmMerkleTreeTraceBuilder::unconstrained_compute_note_hash_nonce(get_tx_hash(), note_index_in_tx);
         unique_note_hashes.push_back(
             AvmMerkleTreeTraceBuilder::unconstrained_compute_unique_note_hash(nonce, siloed_note_hashes.at(i)));
     }
@@ -3102,8 +3101,8 @@ AvmError AvmTraceBuilder::op_emit_note_hash(uint8_t indirect, uint32_t note_hash
     AppendTreeHint note_hash_write_hint = execution_hints.note_hash_write_hints.at(note_hash_write_counter++);
     FF siloed_note_hash = AvmMerkleTreeTraceBuilder::unconstrained_silo_note_hash(
         current_public_call_request.contract_address, row.main_ia);
-    FF nonce = AvmMerkleTreeTraceBuilder::unconstrained_compute_note_hash_nonce(get_first_nullifier(),
-                                                                                inserted_note_hashes_count);
+    FF nonce =
+        AvmMerkleTreeTraceBuilder::unconstrained_compute_note_hash_nonce(get_tx_hash(), inserted_note_hashes_count);
     FF unique_note_hash = AvmMerkleTreeTraceBuilder::unconstrained_compute_unique_note_hash(nonce, siloed_note_hash);
 
     ASSERT(unique_note_hash == note_hash_write_hint.leaf_value);
@@ -4781,11 +4780,6 @@ AvmError AvmTraceBuilder::op_variable_msm(uint8_t indirect,
 
     const FF points_length = is_ok(error) ? unconstrained_read_from_memory(resolved_point_length_offset) : 0;
 
-    // Unconstrained check that points_length must be a multiple of 3.
-    if (is_ok(error) && static_cast<uint32_t>(points_length) % 3 != 0) {
-        error = AvmError::MSM_POINTS_LEN_INVALID;
-    }
-
     if (is_ok(error) && !check_slice_mem_range(resolved_points_offset, static_cast<uint32_t>(points_length))) {
         error = AvmError::MEM_SLICE_OUT_OF_RANGE;
     }
@@ -4869,10 +4863,6 @@ AvmError AvmTraceBuilder::op_variable_msm(uint8_t indirect,
             points.emplace_back(grumpkin::g1::affine_element::infinity());
         } else {
             points.emplace_back(x, y);
-            // Unconstrained check that this point lies on the Grumpkin curve.
-            if (!points.back().on_curve()) {
-                return AvmError::MSM_POINT_NOT_ON_CURVE;
-            }
         }
     }
     // Reconstruct Grumpkin scalars

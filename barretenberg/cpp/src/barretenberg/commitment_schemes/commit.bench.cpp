@@ -9,7 +9,7 @@ namespace bb {
 
 template <typename Curve> std::shared_ptr<CommitmentKey<Curve>> create_commitment_key(const size_t num_points)
 {
-    bb::srs::init_crs_factory(bb::srs::get_ignition_crs_path());
+    bb::srs::init_crs_factory("../srs_db/ignition");
     std::string srs_path;
     return std::make_shared<CommitmentKey<Curve>>(num_points);
 }

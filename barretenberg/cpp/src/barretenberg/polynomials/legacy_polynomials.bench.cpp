@@ -8,7 +8,6 @@
 #include "barretenberg/ecc/scalar_multiplication/scalar_multiplication.hpp"
 #include "barretenberg/numeric/bitop/get_msb.hpp"
 #include "barretenberg/polynomials/polynomial_arithmetic.hpp"
-#include "barretenberg/srs/global_crs.hpp"
 #include "barretenberg/srs/io.hpp"
 #include <benchmark/benchmark.h>
 
@@ -64,7 +63,7 @@ const auto init = []() {
     printf("generating test data\n");
     g2::affine_element g2_x;
     globals.monomials = (g1::affine_element*)(aligned_alloc(64, sizeof(g1::affine_element) * MAX_GATES * 2));
-    srs::IO<curve::BN254>::read_transcript(&globals.monomials[0], g2_x, MAX_GATES, bb::srs::get_ignition_crs_path());
+    srs::IO<curve::BN254>::read_transcript(&globals.monomials[0], g2_x, MAX_GATES, "../srs_db/ignition");
     globals.scalars = (fr*)(aligned_alloc(32, sizeof(fr) * MAX_GATES * MAX_ROUNDS));
     globals.data = (fr*)(aligned_alloc(32, sizeof(fr) * (8 * 17 * MAX_GATES)));
     memset((void*)globals.monomials, 0x00, MAX_GATES * 2 * sizeof(globals.monomials));

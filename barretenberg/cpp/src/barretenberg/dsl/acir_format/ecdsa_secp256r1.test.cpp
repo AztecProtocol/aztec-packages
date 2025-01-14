@@ -98,7 +98,7 @@ size_t generate_ecdsa_constraint(EcdsaSecp256r1Constraint& ecdsa_r1_constraint, 
 
 TEST(ECDSASecp256r1, test_hardcoded)
 {
-    bb::srs::init_crs_factory(bb::srs::get_ignition_crs_path());
+    bb::srs::init_crs_factory("../srs_db/ignition");
     EcdsaSecp256r1Constraint ecdsa_r1_constraint;
     WitnessVector witness_values;
 
@@ -177,7 +177,7 @@ TEST(ECDSASecp256r1, test_hardcoded)
 
 TEST(ECDSASecp256r1, TestECDSAConstraintSucceed)
 {
-    bb::srs::init_crs_factory(bb::srs::get_ignition_crs_path());
+    bb::srs::init_crs_factory("../srs_db/ignition");
     EcdsaSecp256r1Constraint ecdsa_r1_constraint;
     WitnessVector witness_values;
     size_t num_variables = generate_ecdsa_constraint(ecdsa_r1_constraint, witness_values);
@@ -230,7 +230,7 @@ TEST(ECDSASecp256r1, TestECDSAConstraintSucceed)
 // even though we are just building the circuit.
 TEST(ECDSASecp256r1, TestECDSACompilesForVerifier)
 {
-    bb::srs::init_crs_factory(bb::srs::get_ignition_crs_path());
+    bb::srs::init_crs_factory("../srs_db/ignition");
     EcdsaSecp256r1Constraint ecdsa_r1_constraint;
     WitnessVector witness_values;
     size_t num_variables = generate_ecdsa_constraint(ecdsa_r1_constraint, witness_values);
@@ -272,7 +272,7 @@ TEST(ECDSASecp256r1, TestECDSACompilesForVerifier)
 
 TEST(ECDSASecp256r1, TestECDSAConstraintFail)
 {
-    bb::srs::init_crs_factory(bb::srs::get_ignition_crs_path());
+    bb::srs::init_crs_factory("../srs_db/ignition");
     EcdsaSecp256r1Constraint ecdsa_r1_constraint;
     WitnessVector witness_values;
     size_t num_variables = generate_ecdsa_constraint(ecdsa_r1_constraint, witness_values);

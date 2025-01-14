@@ -338,6 +338,13 @@ class ECCVMFlavor {
         // this getter is necessary for more uniform zk verifiers
         auto get_shifted_witnesses() { return ShiftedEntities<DataType>::get_all(); };
         auto get_precomputed() { return PrecomputedEntities<DataType>::get_all(); };
+        // the getter for all witnesses including derived and shifted ones
+        auto get_all_witnesses()
+        {
+            return concatenate(WitnessEntities<DataType>::get_all(), ShiftedEntities<DataType>::get_all());
+        };
+        // this getter is necessary for a universal ZK Sumcheck
+        auto get_non_witnesses() { return PrecomputedEntities<DataType>::get_all(); };
     };
 
   public:
@@ -948,17 +955,11 @@ class ECCVMFlavor {
         Commitment transcript_msm_count_at_transition_inverse_comm;
         Commitment z_perm_comm;
         Commitment lookup_inverses_comm;
-        Commitment libra_concatenation_commitment;
+        std::vector<Commitment> libra_commitments;
         FF libra_sum;
         std::vector<bb::Univariate<FF, BATCHED_RELATION_PARTIAL_LENGTH>> sumcheck_univariates;
-        FF libra_claimed_evaluation;
-        Commitment libra_big_sum_commitment;
-        Commitment libra_quotient_commitment;
+        std::vector<FF> libra_evaluations;
         std::array<FF, NUM_ALL_ENTITIES> sumcheck_evaluations;
-        FF libra_concatenation_eval;
-        FF libra_shifted_big_sum_eval;
-        FF libra_big_sum_eval;
-        FF libra_quotient_eval;
         Commitment hiding_polynomial_commitment;
         FF hiding_polynomial_eval;
         std::vector<Commitment> gemini_fold_comms;
@@ -1159,8 +1160,11 @@ class ECCVMFlavor {
                 NativeTranscript::proof_data, num_frs_read);
             z_perm_comm = NativeTranscript::template deserialize_from_buffer<Commitment>(NativeTranscript::proof_data,
                                                                                          num_frs_read);
-            libra_concatenation_commitment =
-                NativeTranscript::template deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
+            size_t log_circuit_size = static_cast<size_t>(numeric::get_msb(circuit_size));
+            for (size_t i = 0; i < log_circuit_size; i++) {
+                libra_commitments.emplace_back(NativeTranscript::template deserialize_from_buffer<Commitment>(
+                    NativeTranscript::proof_data, num_frs_read));
+            };
             libra_sum =
                 NativeTranscript::template deserialize_from_buffer<FF>(NativeTranscript::proof_data, num_frs_read);
             for (size_t i = 0; i < CONST_PROOF_SIZE_LOG_N; ++i) {
@@ -1169,13 +1173,12 @@ class ECCVMFlavor {
                     NativeTranscript::proof_data, num_frs_read));
             }
 
-            libra_claimed_evaluation = NativeTranscript::template deserialize_from_buffer<FF>(proof_data, num_frs_read);
+            for (size_t i = 0; i < log_circuit_size; i++) {
+                libra_evaluations.emplace_back(
+                    NativeTranscript::template deserialize_from_buffer<FF>(NativeTranscript::proof_data, num_frs_read));
+            }
             sumcheck_evaluations = NativeTranscript::template deserialize_from_buffer<std::array<FF, NUM_ALL_ENTITIES>>(
                 NativeTranscript::proof_data, num_frs_read);
-            libra_big_sum_commitment =
-                NativeTranscript::template deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
-            libra_quotient_commitment =
-                NativeTranscript::template deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
             hiding_polynomial_commitment =
                 deserialize_from_buffer<Commitment>(NativeTranscript::proof_data, num_frs_read);
             hiding_polynomial_eval = deserialize_from_buffer<FF>(NativeTranscript::proof_data, num_frs_read);
@@ -1186,10 +1189,6 @@ class ECCVMFlavor {
             for (size_t i = 0; i < CONST_PROOF_SIZE_LOG_N; ++i) {
                 gemini_fold_evals.push_back(deserialize_from_buffer<FF>(proof_data, num_frs_read));
             }
-            libra_concatenation_eval = deserialize_from_buffer<FF>(proof_data, num_frs_read);
-            libra_shifted_big_sum_eval = deserialize_from_buffer<FF>(proof_data, num_frs_read);
-            libra_big_sum_eval = deserialize_from_buffer<FF>(proof_data, num_frs_read);
-            libra_quotient_eval = deserialize_from_buffer<FF>(proof_data, num_frs_read);
             shplonk_q_comm = deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
 
             translation_eval_op =
@@ -1209,6 +1208,7 @@ class ECCVMFlavor {
         void serialize_full_transcript()
         {
             size_t old_proof_length = NativeTranscript::proof_data.size();
+            size_t log_circuit_size = static_cast<size_t>(numeric::get_msb(circuit_size));
 
             NativeTranscript::proof_data.clear();
 
@@ -1313,7 +1313,9 @@ class ECCVMFlavor {
             NativeTranscript::template serialize_to_buffer(lookup_inverses_comm, NativeTranscript::proof_data);
             NativeTranscript::template serialize_to_buffer(z_perm_comm, NativeTranscript::proof_data);
 
-            NativeTranscript::template serialize_to_buffer(libra_concatenation_commitment, proof_data);
+            for (size_t i = 0; i < log_circuit_size; ++i) {
+                NativeTranscript::template serialize_to_buffer(libra_commitments[i], NativeTranscript::proof_data);
+            }
 
             NativeTranscript::template serialize_to_buffer(libra_sum, NativeTranscript::proof_data);
 
@@ -1321,11 +1323,10 @@ class ECCVMFlavor {
                 NativeTranscript::template serialize_to_buffer(sumcheck_univariates[i], NativeTranscript::proof_data);
             }
 
-            NativeTranscript::template serialize_to_buffer(libra_claimed_evaluation, proof_data);
-
+            for (size_t i = 0; i < log_circuit_size; ++i) {
+                NativeTranscript::template serialize_to_buffer(libra_evaluations[i], NativeTranscript::proof_data);
+            }
             NativeTranscript::template serialize_to_buffer(sumcheck_evaluations, NativeTranscript::proof_data);
-            NativeTranscript::template serialize_to_buffer(libra_big_sum_commitment, proof_data);
-            NativeTranscript::template serialize_to_buffer(libra_quotient_commitment, proof_data);
             NativeTranscript::template serialize_to_buffer(hiding_polynomial_commitment, NativeTranscript::proof_data);
             NativeTranscript::template serialize_to_buffer(hiding_polynomial_eval, NativeTranscript::proof_data);
             for (size_t i = 0; i < CONST_PROOF_SIZE_LOG_N - 1; ++i) {
@@ -1334,10 +1335,6 @@ class ECCVMFlavor {
             for (size_t i = 0; i < CONST_PROOF_SIZE_LOG_N; ++i) {
                 NativeTranscript::template serialize_to_buffer(gemini_fold_evals[i], proof_data);
             }
-            NativeTranscript::template serialize_to_buffer(libra_concatenation_eval, proof_data);
-            NativeTranscript::template serialize_to_buffer(libra_shifted_big_sum_eval, proof_data);
-            NativeTranscript::template serialize_to_buffer(libra_big_sum_eval, proof_data);
-            NativeTranscript::template serialize_to_buffer(libra_quotient_eval, proof_data);
             NativeTranscript::template serialize_to_buffer(shplonk_q_comm, proof_data);
 
             NativeTranscript::template serialize_to_buffer(translation_eval_op, NativeTranscript::proof_data);

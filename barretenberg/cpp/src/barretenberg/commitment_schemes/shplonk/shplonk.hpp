@@ -45,13 +45,6 @@ template <typename Curve> class ShplonkProver_ {
     {
         // Find n, the maximum size of all polynomials fⱼ(X)
         size_t max_poly_size{ 0 };
-
-        if (!libra_opening_claims.empty()) {
-            // Max size of the polynomials in Libra opening claims is Curve::SUBGROUP_SIZE*2 + 2; we round it up to the
-            // next power of 2
-            const size_t log_subgroup_size = static_cast<size_t>(numeric::get_msb(Curve::SUBGROUP_SIZE));
-            max_poly_size = 1 << (log_subgroup_size + 1);
-        };
         for (const auto& claim : opening_claims) {
             max_poly_size = std::max(max_poly_size, claim.polynomial.size());
         }

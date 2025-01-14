@@ -8,7 +8,6 @@
 #include "barretenberg/crypto/merkle_tree/merkle_tree.hpp"
 #include "barretenberg/srs/global_crs.hpp"
 #include "barretenberg/stdlib/encryption/ecdsa/ecdsa.hpp"
-#include "barretenberg/stdlib/hash/keccak/keccak.hpp"
 #include "barretenberg/stdlib/hash/sha256/sha256.hpp"
 #include "barretenberg/stdlib/honk_verifier/ultra_recursive_verifier.hpp"
 #include "barretenberg/stdlib/primitives/curves/secp256k1.hpp"
@@ -151,7 +150,7 @@ class GoblinMockCircuits {
         op_queue->set_size_data();
 
         // Manually compute the op queue transcript commitments (which would normally be done by the merge prover)
-        bb::srs::init_crs_factory(bb::srs::get_ignition_crs_path());
+        bb::srs::init_crs_factory("../srs_db/ignition");
         auto bn254_commitment_key =
             commitment_key ? commitment_key : std::make_shared<CommitmentKey>(op_queue->get_current_size());
         std::array<Point, Flavor::NUM_WIRES> op_queue_commitments;
@@ -191,6 +190,7 @@ class GoblinMockCircuits {
     static void construct_simple_circuit(MegaBuilder& builder)
     {
         PROFILE_THIS();
+
         add_some_ecc_op_gates(builder);
         MockCircuits::construct_arithmetic_circuit(builder);
     }

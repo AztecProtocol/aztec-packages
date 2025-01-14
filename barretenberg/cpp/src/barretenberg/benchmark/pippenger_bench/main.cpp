@@ -65,7 +65,7 @@ const auto init = []() {
 // constexpr double add_to_mixed_add_complexity = 1.36;
 
 auto reference_string =
-    std::make_shared<bb::srs::factories::FileProverCrs<curve::BN254>>(NUM_POINTS, bb::srs::get_ignition_crs_path());
+    std::make_shared<bb::srs::factories::FileProverCrs<curve::BN254>>(NUM_POINTS, "../srs_db/ignition");
 
 int pippenger()
 {
@@ -104,7 +104,7 @@ int coset_fft_regular()
 
 int main()
 {
-    bb::srs::init_crs_factory(bb::srs::get_ignition_crs_path());
+    bb::srs::init_crs_factory("../srs_db/ignition");
     std::cout << "initializing" << std::endl;
     init();
     std::cout << "executing normal fft" << std::endl;

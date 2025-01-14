@@ -29,7 +29,7 @@ template <typename FF_> struct AvmFullRow {
     const FF& get_column(ColumnAndShifts col) const
     {
         static_assert(sizeof(*this) == sizeof(FF) * static_cast<size_t>(ColumnAndShifts::NUM_COLUMNS));
-        return reinterpret_cast<const FF*>(this)[static_cast<size_t>(col)];
+        return reinterpret_cast<FF*>(this)[static_cast<size_t>(col)];
     }
 };
 

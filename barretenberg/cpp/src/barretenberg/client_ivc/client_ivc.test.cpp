@@ -13,8 +13,8 @@ class ClientIVCTests : public ::testing::Test {
   protected:
     static void SetUpTestSuite()
     {
-        srs::init_crs_factory(bb::srs::get_ignition_crs_path());
-        srs::init_grumpkin_crs_factory(bb::srs::get_grumpkin_crs_path());
+        srs::init_crs_factory("../srs_db/ignition");
+        srs::init_grumpkin_crs_factory("../srs_db/grumpkin");
     }
 
     using Flavor = ClientIVC::Flavor;
@@ -112,7 +112,7 @@ class ClientIVCTests : public ::testing::Test {
 /**
  * @brief A simple-as-possible test demonstrating IVC for two mock circuits
  * @details When accumulating only two circuits, only a single round of folding is performed thus no recursive
- * verification occurs.
+ * verfication occurs.
  *
  */
 TEST_F(ClientIVCTests, Basic)
@@ -346,8 +346,8 @@ TEST_F(ClientIVCTests, StructuredPrecomputedVKs)
  */
 TEST(ClientIVCBenchValidation, Full6)
 {
-    bb::srs::init_crs_factory(bb::srs::get_ignition_crs_path());
-    bb::srs::init_grumpkin_crs_factory(bb::srs::get_grumpkin_crs_path());
+    bb::srs::init_crs_factory("../srs_db/ignition");
+    bb::srs::init_grumpkin_crs_factory("../srs_db/grumpkin");
 
     ClientIVC ivc{ { CLIENT_IVC_BENCH_STRUCTURE } };
     size_t total_num_circuits{ 12 };
@@ -365,8 +365,8 @@ TEST(ClientIVCBenchValidation, Full6)
 TEST(ClientIVCBenchValidation, Full6MockedVKs)
 {
     const auto run_test = []() {
-        bb::srs::init_crs_factory(bb::srs::get_ignition_crs_path());
-        bb::srs::init_grumpkin_crs_factory(bb::srs::get_grumpkin_crs_path());
+        bb::srs::init_crs_factory("../srs_db/ignition");
+        bb::srs::init_grumpkin_crs_factory("../srs_db/grumpkin");
 
         ClientIVC ivc{ { CLIENT_IVC_BENCH_STRUCTURE } };
         size_t total_num_circuits{ 12 };

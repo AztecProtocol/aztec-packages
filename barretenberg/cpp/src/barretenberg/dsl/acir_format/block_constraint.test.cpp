@@ -16,7 +16,7 @@ using Composer = plonk::UltraComposer;
 
 class UltraPlonkRAM : public ::testing::Test {
   protected:
-    static void SetUpTestSuite() { bb::srs::init_crs_factory(bb::srs::get_ignition_crs_path()); }
+    static void SetUpTestSuite() { bb::srs::init_crs_factory("../srs_db/ignition"); }
 };
 
 class MegaHonk : public ::testing::Test {
@@ -40,7 +40,7 @@ class MegaHonk : public ::testing::Test {
     }
 
   protected:
-    static void SetUpTestSuite() { bb::srs::init_crs_factory(bb::srs::get_ignition_crs_path()); }
+    static void SetUpTestSuite() { bb::srs::init_crs_factory("../srs_db/ignition"); }
 };
 size_t generate_block_constraint(BlockConstraint& constraint, WitnessVector& witness_values)
 {

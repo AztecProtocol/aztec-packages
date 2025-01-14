@@ -14,7 +14,7 @@ using namespace bb::join_split_example::proofs::notes::circuit::value;
 
 class ValueNote : public ::testing::Test {
   protected:
-    static void SetUpTestSuite() { bb::srs::init_crs_factory(bb::srs::get_ignition_crs_path()); }
+    static void SetUpTestSuite() { bb::srs::init_crs_factory("../srs_db/ignition"); }
 };
 
 TEST_F(ValueNote, Commits)

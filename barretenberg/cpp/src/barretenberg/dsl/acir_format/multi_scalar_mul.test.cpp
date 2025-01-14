@@ -18,7 +18,7 @@ using Composer = plonk::UltraComposer;
 
 class MSMTests : public ::testing::Test {
   protected:
-    static void SetUpTestSuite() { srs::init_crs_factory(bb::srs::get_ignition_crs_path()); }
+    static void SetUpTestSuite() { srs::init_crs_factory("../srs_db/ignition"); }
 };
 using fr = field<Bn254FrParams>;
 

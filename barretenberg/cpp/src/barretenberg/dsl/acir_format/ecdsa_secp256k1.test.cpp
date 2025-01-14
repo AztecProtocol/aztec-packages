@@ -18,7 +18,7 @@ using Composer = plonk::UltraComposer;
 
 class ECDSASecp256k1 : public ::testing::Test {
   protected:
-    static void SetUpTestSuite() { bb::srs::init_crs_factory(bb::srs::get_ignition_crs_path()); }
+    static void SetUpTestSuite() { bb::srs::init_crs_factory("../srs_db/ignition"); }
 };
 
 size_t generate_ecdsa_constraint(EcdsaSecp256k1Constraint& ecdsa_constraint, WitnessVector& witness_values)

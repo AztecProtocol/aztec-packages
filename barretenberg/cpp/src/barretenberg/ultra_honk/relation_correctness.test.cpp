@@ -11,7 +11,6 @@
 #include "barretenberg/stdlib_circuit_builders/plookup_tables/fixed_base/fixed_base.hpp"
 #include "barretenberg/stdlib_circuit_builders/ultra_flavor.hpp"
 #include "barretenberg/ultra_honk/decider_proving_key.hpp"
-#include "barretenberg/ultra_honk/witness_computation.hpp"
 
 #include <gtest/gtest.h>
 using namespace bb;
@@ -230,7 +229,7 @@ template <typename Flavor> void create_some_ecc_op_queue_gates(auto& circuit_bui
 
 class UltraRelationCorrectnessTests : public ::testing::Test {
   protected:
-    static void SetUpTestSuite() { bb::srs::init_crs_factory(bb::srs::get_ignition_crs_path()); }
+    static void SetUpTestSuite() { bb::srs::init_crs_factory("../srs_db/ignition"); }
 };
 
 /**
@@ -265,7 +264,19 @@ TEST_F(UltraRelationCorrectnessTests, Ultra)
     auto& proving_key = decider_pk->proving_key;
     auto circuit_size = proving_key.circuit_size;
 
-    WitnessComputation<Flavor>::complete_proving_key_for_test(decider_pk);
+    // Generate eta, beta and gamma
+    decider_pk->relation_parameters.eta = FF::random_element();
+    decider_pk->relation_parameters.eta_two = FF::random_element();
+    decider_pk->relation_parameters.eta_three = FF::random_element();
+    decider_pk->relation_parameters.beta = FF::random_element();
+    decider_pk->relation_parameters.gamma = FF::random_element();
+
+    decider_pk->proving_key.add_ram_rom_memory_records_to_wire_4(decider_pk->relation_parameters.eta,
+                                                                 decider_pk->relation_parameters.eta_two,
+                                                                 decider_pk->relation_parameters.eta_three);
+    decider_pk->proving_key.compute_logderivative_inverses(decider_pk->relation_parameters);
+    decider_pk->proving_key.compute_grand_product_polynomial(decider_pk->relation_parameters,
+                                                             decider_pk->final_active_wire_idx + 1);
 
     // Check that selectors are nonzero to ensure corresponding relation has nontrivial contribution
     ensure_non_zero(proving_key.polynomials.q_arith);
@@ -307,7 +318,19 @@ TEST_F(UltraRelationCorrectnessTests, Mega)
     auto& proving_key = decider_pk->proving_key;
     auto circuit_size = proving_key.circuit_size;
 
-    WitnessComputation<Flavor>::complete_proving_key_for_test(decider_pk);
+    // Generate eta, beta and gamma
+    decider_pk->relation_parameters.eta = FF::random_element();
+    decider_pk->relation_parameters.eta_two = FF::random_element();
+    decider_pk->relation_parameters.eta_three = FF::random_element();
+    decider_pk->relation_parameters.beta = FF::random_element();
+    decider_pk->relation_parameters.gamma = FF::random_element();
+
+    decider_pk->proving_key.add_ram_rom_memory_records_to_wire_4(decider_pk->relation_parameters.eta,
+                                                                 decider_pk->relation_parameters.eta_two,
+                                                                 decider_pk->relation_parameters.eta_three);
+    decider_pk->proving_key.compute_logderivative_inverses(decider_pk->relation_parameters);
+    decider_pk->proving_key.compute_grand_product_polynomial(decider_pk->relation_parameters,
+                                                             decider_pk->final_active_wire_idx + 1);
 
     // Check that selectors are nonzero to ensure corresponding relation has nontrivial contribution
     ensure_non_zero(proving_key.polynomials.q_arith);

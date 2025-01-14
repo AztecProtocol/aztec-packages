@@ -20,12 +20,12 @@ function build {
 }
 
 function test {
-  test_should_run bb.js-tests-$hash || return 0
-
-  github_group "bb.js test"
-  denoise yarn test
-  cache_upload_flag bb.js-tests-$hash
-  github_endgroup
+  if test_should_run bb.js-tests-$hash; then
+    github_group "bb.js test"
+    denoise yarn test
+    cache_upload_flag bb.js-tests-$hash
+    github_endgroup
+  fi
 }
 
 case "$cmd" in
@@ -37,13 +37,6 @@ case "$cmd" in
     ;;
   "test")
     test
-    ;;
-  "test-cmds")
-    wd=$(realpath --relative-to=$root $PWD)
-    ./node_modules/.bin/jest --listTests --testRegex '\.test\.js$' --rootDir ./dest/node | \
-      sed "s|$(pwd)/||" | while read -r test; do
-        echo "$wd/scripts/run_test.sh $test"
-      done
     ;;
   "ci")
     build

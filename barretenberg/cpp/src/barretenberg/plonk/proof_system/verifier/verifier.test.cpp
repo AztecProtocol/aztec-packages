@@ -39,7 +39,7 @@ plonk::Verifier generate_verifier(std::shared_ptr<proving_key> circuit_proving_k
             state));
     }
 
-    auto crs = std::make_shared<bb::srs::factories::FileVerifierCrs<curve::BN254>>(bb::srs::get_ignition_crs_path());
+    auto crs = std::make_shared<bb::srs::factories::FileVerifierCrs<curve::BN254>>("../srs_db/ignition");
     std::shared_ptr<verification_key> circuit_verification_key =
         std::make_shared<verification_key>(circuit_proving_key->circuit_size,
                                            circuit_proving_key->num_public_inputs,
@@ -75,8 +75,7 @@ plonk::Prover generate_test_data(const size_t n)
 
     // even indices = mul gates, odd incides = add gates
 
-    auto crs =
-        std::make_shared<bb::srs::factories::FileProverCrs<curve::BN254>>(n + 1, bb::srs::get_ignition_crs_path());
+    auto crs = std::make_shared<bb::srs::factories::FileProverCrs<curve::BN254>>(n + 1, "../srs_db/ignition");
     std::shared_ptr<proving_key> key = std::make_shared<proving_key>(n, 0, crs, CircuitType::STANDARD);
 
     polynomial w_l(n);

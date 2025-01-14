@@ -1,4 +1,3 @@
-#include "barretenberg/benchmark/mega_memory_bench/memory_estimator.hpp"
 #include "barretenberg/stdlib/primitives/field/field.hpp"
 #include "barretenberg/stdlib/primitives/plookup/plookup.hpp"
 #include "barretenberg/stdlib_circuit_builders/plookup_tables/fixed_base/fixed_base.hpp"
@@ -313,10 +312,10 @@ void fill_trace(State& state, TraceSettings settings)
     }
 
     builder.finalize_circuit(/* ensure_nonzero */ true);
-    uint64_t builder_estimate = MegaMemoryEstimator::estimate_builder_memory(builder);
+    uint64_t builder_estimate = builder.estimate_memory();
     for (auto _ : state) {
         DeciderProvingKey proving_key(builder, settings);
-        uint64_t memory_estimate = MegaMemoryEstimator::estimate_proving_key_memory(proving_key.proving_key);
+        uint64_t memory_estimate = proving_key.proving_key.estimate_memory();
         state.counters["poly_mem_est"] = static_cast<double>(memory_estimate);
         state.counters["builder_mem_est"] = static_cast<double>(builder_estimate);
         benchmark::DoNotOptimize(proving_key);

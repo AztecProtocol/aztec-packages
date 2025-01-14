@@ -8,7 +8,7 @@
 
 #include <benchmark/benchmark.h>
 
-#define BARRETENBERG_SRS_PATH bb::srs::get_ignition_crs_path()
+#define BARRETENBERG_SRS_PATH "../srs_db/ignition"
 
 using namespace benchmark;
 using namespace bb;

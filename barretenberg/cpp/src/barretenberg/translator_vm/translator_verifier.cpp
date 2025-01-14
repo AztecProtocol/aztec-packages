@@ -99,22 +99,22 @@ bool TranslatorVerifier::verify_proof(const HonkProof& proof)
     }
 
     // Receive commitments to Libra masking polynomials
-    std::array<Commitment, NUM_LIBRA_COMMITMENTS> libra_commitments = {};
-    libra_commitments[0] = transcript->template receive_from_prover<Commitment>("Libra:concatenation_commitment");
+    std::vector<Commitment> libra_commitments;
+    for (size_t idx = 0; idx < log_circuit_size; idx++) {
+        Commitment libra_commitment =
+            transcript->receive_from_prover<Commitment>("Libra:commitment_" + std::to_string(idx));
+        libra_commitments.push_back(libra_commitment);
+    }
 
-    auto [multivariate_challenge, claimed_evaluations, libra_evaluation, sumcheck_verified] =
+    auto [multivariate_challenge, claimed_evaluations, libra_evaluations, sumcheck_verified] =
         sumcheck.verify(relation_parameters, alpha, gate_challenges);
 
     // If Sumcheck did not verify, return false
     if (sumcheck_verified.has_value() && !sumcheck_verified.value()) {
         return false;
     }
-
-    libra_commitments[1] = transcript->template receive_from_prover<Commitment>("Libra:big_sum_commitment");
-    libra_commitments[2] = transcript->template receive_from_prover<Commitment>("Libra:quotient_commitment");
-
     // Execute Shplemini
-    bool consistency_checked = false;
+
     const BatchOpeningClaim<Curve> opening_claim =
         Shplemini::compute_batch_opening_claim(circuit_size,
                                                commitments.get_unshifted_without_concatenated(),
@@ -125,17 +125,15 @@ bool TranslatorVerifier::verify_proof(const HonkProof& proof)
                                                Commitment::one(),
                                                transcript,
                                                Flavor::REPEATED_COMMITMENTS,
-                                               Flavor::HasZK,
-                                               &consistency_checked,
-                                               libra_commitments,
-                                               libra_evaluation,
+                                               RefVector(libra_commitments),
+                                               libra_evaluations,
                                                commitments.get_groups_to_be_concatenated(),
                                                claimed_evaluations.get_concatenated());
     const auto pairing_points = PCS::reduce_verify_batch_opening_claim(opening_claim, transcript);
 
     auto verified = key->pcs_verification_key->pairing_check(pairing_points[0], pairing_points[1]);
 
-    return verified && consistency_checked;
+    return verified;
 }
 
 bool TranslatorVerifier::verify_translation(const TranslationEvaluations& translation_evaluations)

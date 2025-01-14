@@ -19,7 +19,7 @@ using FlavorTypes = ::testing::Types<MegaFlavor, MegaZKFlavor>;
 
 template <typename Flavor> class DataBusTests : public ::testing::Test {
   protected:
-    static void SetUpTestSuite() { bb::srs::init_crs_factory(bb::srs::get_ignition_crs_path()); }
+    static void SetUpTestSuite() { bb::srs::init_crs_factory("../srs_db/ignition"); }
 
     using Curve = curve::BN254;
     using FF = Curve::ScalarField;

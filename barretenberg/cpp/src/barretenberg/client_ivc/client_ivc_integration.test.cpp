@@ -17,8 +17,8 @@ class ClientIVCIntegrationTests : public ::testing::Test {
   protected:
     static void SetUpTestSuite()
     {
-        srs::init_crs_factory(bb::srs::get_ignition_crs_path());
-        srs::init_grumpkin_crs_factory(bb::srs::get_grumpkin_crs_path());
+        srs::init_crs_factory("../srs_db/ignition");
+        srs::init_grumpkin_crs_factory("../srs_db/grumpkin");
     }
 
     using Flavor = ClientIVC::Flavor;
