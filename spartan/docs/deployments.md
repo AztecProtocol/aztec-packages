@@ -14,31 +14,9 @@
 
 Masternet is deployed from the `master` branch each night. If it died last night, and there hasn't been something to fix the problem, then it is not safe to cut a release.
 
-You can check it by going to [Grafana](http://35.203.137.58/d/cdtxao66xa1ogc/aztec-network-dashboard?orgId=1) and setting the namespace to `masternet`.
+You can check it by going to [GCP Monitoring](https://console.cloud.google.com/monitoring/dashboards/builder/30d2d0d2-8dd2-4535-8074-e551dbc773aa) and setting the namespace to `masternet`.
 
 Check that everything looks calm, stable, and that the first epoch was proven (you may need to expand the time range).
-
-### Canary
-
-When you think we should cut a release, you should:
-
-Go [here](https://github.com/AztecProtocol/aztec-packages/actions/workflows/network-deploy.yml).
-
-Click "Run workflow".
-
-| Field                  | Value                         |
-| ---------------------- | ----------------------------- |
-| Use workflow from      | `master`                      |
-| Namespace              | `canary`                      |
-| Values file            | `rc-1.yaml`                   |
-| Image                  | `aztecprotocol/aztec:master`  |
-| Secret Name            | `testnet-deployment-mnemonic` |
-| Salt                   | `42`                          |
-| Respect Terraform Lock | `true`                        |
-| Run terraform destroy  | `true`                        |
-| Deploy from branch     | `master`                      |
-
-Make sure it lives.
 
 ## Cutting a release
 
@@ -46,6 +24,22 @@ Make sure it lives.
 2. Message in `#product-sequencers-and-provers` that we're good to release, tagging Product and DevRel.
 3. After they merge the release please branch for master, create a named release branch (eg: `release/sassy-salamander`) from the desired `master` release (eg:`v0.64.0`).
 4. Push this branch to github.
+
+## Build the release images
+
+Go [here](https://github.com/AztecProtocol/aztec-packages/actions/workflows/publish-aztec-packages.yml)
+
+Click "Run workflow".
+
+| Field          | Value                      |
+| -------------- | -------------------------- |
+| Branch         | `release/adjective-animal` |
+| Tag to release | `aztec-packages-v0.64.0`   |
+| Publish        | `true`                     |
+
+Adjust the tag to release to the version you're cutting.
+
+Note, this will publish to npm as `v0.64.0-devnet`.
 
 ## Deploy Networks
 

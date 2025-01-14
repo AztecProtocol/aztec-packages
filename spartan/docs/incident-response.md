@@ -10,8 +10,8 @@ When the incident is resolved, the volunteer will give a ✅ to the message.
 
 ## Helpful links
 
-- [Grafana](http://35.203.137.58/d/cdtxao66xa1ogc/aztec-network-dashboard?orgId=1) (password is in `#network-alerts` description)
-- [GCP](https://console.cloud.google.com/kubernetes/workload/overview?hl=en&inv=1&invt=AbkUYg&project=testnet-440309)
+- [GCP Monitoring](https://console.cloud.google.com/monitoring/dashboards/builder/30d2d0d2-8dd2-4535-8074-e551dbc773aa)
+- [GKE Workloads](https://console.cloud.google.com/kubernetes/workload/overview?hl=en&inv=1&invt=AbkUYg&project=testnet-440309)
 
 ## If the pending chain is alive
 
