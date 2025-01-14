@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1736881758143,
+  "lastUpdate": 1736881819525,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "End-to-end Benchmark": [
@@ -229,6 +229,45 @@ window.BENCHMARK_DATA = {
           {
             "name": "Sequencer/aztec.sequencer.block_builder_tree_insertion_duration",
             "value": 689573,
+            "unit": "us"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "47112877+dbanks12@users.noreply.github.com",
+            "name": "David Banks",
+            "username": "dbanks12"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "10c8afed6ea5fd186e4f14820c4eb259cba85460",
+          "message": "docs: enable protocol specs for docs in dev mode (#11219)\n\n`yarn dev` or `yarn dev:local` now show protocol specs, but `yarn build`\nor `yarn docs` does not. You can also enable via\n`SHOW_PROTOCOL_SPECS=1`. Moved protocol specs back to original folder.",
+          "timestamp": "2025-01-14T13:47:36-05:00",
+          "tree_id": "9e5e7a6424bf32b9473f77351b4001dfb2e9a33c",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/10c8afed6ea5fd186e4f14820c4eb259cba85460"
+        },
+        "date": 1736881811775,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sequencer/aztec.sequencer.block.build_duration",
+            "value": 4711,
+            "unit": "ms"
+          },
+          {
+            "name": "Sequencer/aztec.sequencer.block.time_per_mana",
+            "value": 3.5396977098155817,
+            "unit": "us/mana"
+          },
+          {
+            "name": "Sequencer/aztec.sequencer.block_builder_tree_insertion_duration",
+            "value": 670257,
             "unit": "us"
           }
         ]
