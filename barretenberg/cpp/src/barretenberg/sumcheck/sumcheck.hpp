@@ -301,9 +301,10 @@ template <typename Flavor> class SumcheckProver {
             }
 
             const FF round_challenge = transcript->template get_challenge<FF>("Sumcheck:u_0");
-
-            // Store the evaluation at the challenge. Could be optimized
-            round_univariate_evaluations[0][2] = round_univariate.evaluate(round_challenge);
+            if constexpr (IS_ECCVM) {
+                // Store the evaluation at the challenge. Could be optimized
+                round_univariate_evaluations[0][2] = round_univariate.evaluate(round_challenge);
+            }
 
             multivariate_challenge.emplace_back(round_challenge);
             // Prepare sumcheck book-keeping table for the next round
@@ -337,8 +338,10 @@ template <typename Flavor> class SumcheckProver {
             }
             const FF round_challenge =
                 transcript->template get_challenge<FF>("Sumcheck:u_" + std::to_string(round_idx));
-
-            round_univariate_evaluations[round_idx][2] = round_univariate.evaluate(round_challenge);
+            if constexpr (IS_ECCVM) {
+                // Store the evaluation at the challenge. Could be optimized
+                round_univariate_evaluations[round_idx][2] = round_univariate.evaluate(round_challenge);
+            }
 
             multivariate_challenge.emplace_back(round_challenge);
             // Prepare sumcheck book-keeping table for the next round
@@ -849,7 +852,7 @@ template <typename Flavor> class SumcheckVerifier {
                 round_univariate_evaluations[0][0] + round_univariate_evaluations[0][1];
             first_sumcheck_round_evaluations_sum.self_reduce();
             round.target_total_sum.self_reduce();
-
+            first_sumcheck_round_evaluations_sum.assert_equal(round.target_total_sum);
             verified = (first_sumcheck_round_evaluations_sum.get_value() == round.target_total_sum.get_value());
             info("verified?", verified);
         } else {
