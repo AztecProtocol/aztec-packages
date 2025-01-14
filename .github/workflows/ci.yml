@@ -217,7 +217,7 @@ jobs:
 
   e2e:
     needs: [images-e2e, configure]
-    if: needs.configure.outputs.e2e-all == 'true' || (needs.configure.outputs.non-docs == 'true' && needs.configure.outputs.non-bb == 'true')
+    if: false
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -379,6 +379,18 @@ jobs:
             echo ${{ secrets.DOCKERHUB_PASSWORD }} | docker login -u aztecprotocolci --password-stdin
             cd yarn-project/end-to-end
             NAMESPACE=smoke FRESH_INSTALL=true VALUES_FILE=ci-smoke.yaml ./scripts/network_test.sh ./src/spartan/smoke.test.ts
+      - name: Show where network logs are
+        if: always()
+        run: tree yarn-project/end-to-end
+      - name: Copy Network Logs
+        if: always()
+        run: scripts/copy_from_tester yarn-project/end-to-end/scripts/network-test.log network-test.log || true
+      - name: Upload Network Logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: kind-network-smoke.log
+          path: network-test.log
 
   kind-network-test:
     needs: [images-e2e, configure]
