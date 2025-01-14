@@ -60,7 +60,7 @@ template <typename Event> class NoopEventEmitter : public EventEmitterInterface<
 
     virtual ~NoopEventEmitter() = default;
 
-    void emit(Event&&) override {};
+    void emit(Event&&) override{};
     Container dump_events() override { return {}; }
 };
 

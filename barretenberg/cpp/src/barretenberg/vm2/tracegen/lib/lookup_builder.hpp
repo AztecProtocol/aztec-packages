@@ -47,7 +47,7 @@ template <typename LookupSettings_> class BaseLookupTraceBuilder {
   protected:
     using LookupSettings = LookupSettings_;
     virtual uint32_t find_in_dst(const std::array<FF, LookupSettings::LOOKUP_TUPLE_SIZE>& tup) const = 0;
-    virtual void init(TraceContainer&) {}; // Optional initialization step.
+    virtual void init(TraceContainer&){}; // Optional initialization step.
 };
 
 // This class is used when the lookup is into a non-precomputed table.

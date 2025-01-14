@@ -1128,9 +1128,8 @@ class table : public std::conditional_t<is_map_v<T>, base_table_type_map<T>, bas
     }
 
     template <typename... Args>
-    auto do_place_element(dist_and_fingerprint_type dist_and_fingerprint,
-                          value_idx_type bucket_idx,
-                          Args&&... args) -> std::pair<iterator, bool>
+    auto do_place_element(dist_and_fingerprint_type dist_and_fingerprint, value_idx_type bucket_idx, Args&&... args)
+        -> std::pair<iterator, bool>
     {
 
         // emplace the new value. If that throws an exception, no harm done; index is still in a valid state
@@ -1345,9 +1344,9 @@ class table : public std::conditional_t<is_map_v<T>, base_table_type_map<T>, bas
         return *this;
     }
 
-    auto operator=(table&& other) noexcept(noexcept(std::is_nothrow_move_assignable_v<value_container_type> &&
-                                                    std::is_nothrow_move_assignable_v<Hash> &&
-                                                    std::is_nothrow_move_assignable_v<KeyEqual>)) -> table&
+    auto operator=(table&& other) noexcept(
+        noexcept(std::is_nothrow_move_assignable_v<value_container_type>&& std::is_nothrow_move_assignable_v<Hash>&&
+                     std::is_nothrow_move_assignable_v<KeyEqual>)) -> table&
     {
         if (&other != this) {
             deallocate_buckets(); // deallocate before m_values is set (might have another allocator)
@@ -1765,9 +1764,9 @@ class table : public std::conditional_t<is_map_v<T>, base_table_type_map<T>, bas
         return tmp;
     }
 
-    void swap(table& other) noexcept(noexcept(std::is_nothrow_swappable_v<value_container_type> &&
-                                              std::is_nothrow_swappable_v<Hash> &&
-                                              std::is_nothrow_swappable_v<KeyEqual>))
+    void swap(table& other) noexcept(
+        noexcept(std::is_nothrow_swappable_v<value_container_type>&& std::is_nothrow_swappable_v<Hash>&&
+                     std::is_nothrow_swappable_v<KeyEqual>))
     {
         using std::swap;
         swap(other, *this);

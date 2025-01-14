@@ -14,7 +14,7 @@ struct Tx {
 class TxExecution final {
   public:
     TxExecution(ExecutionInterface& call_execution)
-        : call_execution(call_execution) {};
+        : call_execution(call_execution){};
 
     void simulate(const Tx& tx);
 

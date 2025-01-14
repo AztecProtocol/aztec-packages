@@ -3,6 +3,7 @@
 #include "barretenberg/bb/file_io.hpp"
 #include "barretenberg/client_ivc/client_ivc.hpp"
 #include "barretenberg/common/benchmark.hpp"
+#include "barretenberg/common/log.hpp"
 #include "barretenberg/common/map.hpp"
 #include "barretenberg/common/serialize.hpp"
 #include "barretenberg/common/timer.hpp"
@@ -13,7 +14,6 @@
 #include "barretenberg/dsl/acir_format/proof_surgeon.hpp"
 #include "barretenberg/dsl/acir_proofs/acir_composer.hpp"
 #include "barretenberg/dsl/acir_proofs/honk_contract.hpp"
-#include "barretenberg/flavor/flavor.hpp"
 #include "barretenberg/honk/proof_system/types/proof.hpp"
 #include "barretenberg/numeric/bitop/get_msb.hpp"
 #include "barretenberg/plonk/proof_system/proving_key/serialize.hpp"
@@ -24,15 +24,17 @@
 #include "barretenberg/stdlib_circuit_builders/ultra_flavor.hpp"
 #include "barretenberg/stdlib_circuit_builders/ultra_keccak_flavor.hpp"
 #include "barretenberg/stdlib_circuit_builders/ultra_rollup_flavor.hpp"
-#include "barretenberg/vm/avm/trace/public_inputs.hpp"
-#include <cstdint>
 
 #ifndef DISABLE_AZTEC_VM
 #include "barretenberg/vm/avm/generated/flavor.hpp"
 #include "barretenberg/vm/avm/trace/common.hpp"
 #include "barretenberg/vm/avm/trace/execution.hpp"
+#include "barretenberg/vm/avm/trace/public_inputs.hpp"
 #include "barretenberg/vm/aztec_constants.hpp"
 #include "barretenberg/vm/stats.hpp"
+#include "barretenberg/vm2/avm_api.hpp"
+#include "barretenberg/vm2/common/aztec_types.hpp"
+#include "barretenberg/vm2/common/constants.hpp"
 #endif
 
 using namespace bb;
@@ -228,10 +230,10 @@ void prove_tube(const std::string& output_path)
     // circuit
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/1048): INSECURE - make this tube proof actually use
     // these public inputs by turning proof into witnesses and calling set_public on each witness
-    auto num_public_inputs = static_cast<uint32_t>(static_cast<uint256_t>(proof.mega_proof[1]));
-    num_public_inputs -= bb::PAIRING_POINT_ACCUMULATOR_SIZE; // don't add the agg object
+    auto num_inner_public_inputs = static_cast<uint32_t>(static_cast<uint256_t>(proof.mega_proof[1]));
+    num_inner_public_inputs -= bb::PAIRING_POINT_ACCUMULATOR_SIZE; // don't add the agg object
 
-    for (size_t i = 0; i < num_public_inputs; i++) {
+    for (size_t i = 0; i < num_inner_public_inputs; i++) {
         auto offset = bb::HONK_PROOF_PUBLIC_INPUT_OFFSET;
         builder->add_public_variable(proof.mega_proof[i + offset]);
     }
@@ -278,13 +280,13 @@ void prove_tube(const std::string& output_path)
     Verifier tube_verifier(tube_verification_key, ipa_verification_key);
 
     // Break up the tube proof into the honk portion and the ipa portion
-    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1168): Add formula to flavor
-    const size_t HONK_PROOF_LENGTH = 469;
+    const size_t HONK_PROOF_LENGTH_WITHOUT_INNER_PUB_INPUTS =
+        UltraRollupFlavor::PROOF_LENGTH_WITHOUT_PUB_INPUTS + PAIRING_POINT_ACCUMULATOR_SIZE + IPA_CLAIM_SIZE;
     // The extra calculation is for the IPA proof length.
-    ASSERT(tube_proof.size() == HONK_PROOF_LENGTH + 1 + 4 * (CONST_ECCVM_LOG_N) + 2 + 2 + num_public_inputs);
+    ASSERT(tube_proof.size() == HONK_PROOF_LENGTH_WITHOUT_INNER_PUB_INPUTS + num_inner_public_inputs);
     // split out the ipa proof
-    const std::ptrdiff_t honk_proof_with_pub_inputs_length =
-        static_cast<std::ptrdiff_t>(HONK_PROOF_LENGTH + num_public_inputs);
+    const std::ptrdiff_t honk_proof_with_pub_inputs_length = static_cast<std::ptrdiff_t>(
+        HONK_PROOF_LENGTH_WITHOUT_INNER_PUB_INPUTS - IPA_PROOF_LENGTH + num_inner_public_inputs);
     auto ipa_proof = HonkProof(tube_proof.begin() + honk_proof_with_pub_inputs_length, tube_proof.end());
     auto tube_honk_proof = HonkProof(tube_proof.begin(), tube_proof.end() + honk_proof_with_pub_inputs_length);
     bool verified = tube_verifier.verify_proof(tube_honk_proof, ipa_proof);
@@ -671,6 +673,37 @@ void vk_as_fields(const std::string& vk_path, const std::string& output_path)
 }
 
 #ifndef DISABLE_AZTEC_VM
+void print_avm_stats()
+{
+#ifdef AVM_TRACK_STATS
+    info("------- STATS -------");
+    const auto& stats = avm_trace::Stats::get();
+    const int levels = std::getenv("AVM_STATS_DEPTH") != nullptr ? std::stoi(std::getenv("AVM_STATS_DEPTH")) : 2;
+    info(stats.to_string(levels));
+#endif
+}
+
+/**
+ * @brief Performs "check circuit" on the AVM circuit for the given public inputs and hints.
+ *
+ * @param public_inputs_path Path to the file containing the serialised avm public inputs
+ * @param hints_path Path to the file containing the serialised avm circuit hints
+ */
+void avm_check_circuit(const std::filesystem::path& public_inputs_path, const std::filesystem::path& hints_path)
+{
+
+    const auto avm_public_inputs = AvmPublicInputs::from(read_file(public_inputs_path));
+    const auto avm_hints = bb::avm_trace::ExecutionHints::from(read_file(hints_path));
+    avm_hints.print_sizes();
+
+    vinfo("initializing crs with size: ", avm_trace::Execution::SRS_SIZE);
+    init_bn254_crs(avm_trace::Execution::SRS_SIZE);
+
+    avm_trace::Execution::check_circuit(avm_public_inputs, avm_hints);
+
+    print_avm_stats();
+}
+
 /**
  * @brief Writes an avm proof and corresponding (incomplete) verification key to files.
  *
@@ -688,18 +721,7 @@ void avm_prove(const std::filesystem::path& public_inputs_path,
 
     const auto avm_public_inputs = AvmPublicInputs::from(read_file(public_inputs_path));
     const auto avm_hints = bb::avm_trace::ExecutionHints::from(read_file(hints_path));
-
-    // Using [0] is fine now for the top-level call, but we might need to index by address in future
-    vinfo("bytecode size: ", avm_hints.all_contract_bytecode[0].bytecode.size());
-    vinfo("hints.storage_read_hints size: ", avm_hints.storage_read_hints.size());
-    vinfo("hints.storage_write_hints size: ", avm_hints.storage_write_hints.size());
-    vinfo("hints.nullifier_read_hints size: ", avm_hints.nullifier_read_hints.size());
-    vinfo("hints.nullifier_write_hints size: ", avm_hints.nullifier_write_hints.size());
-    vinfo("hints.note_hash_read_hints size: ", avm_hints.note_hash_read_hints.size());
-    vinfo("hints.note_hash_write_hints size: ", avm_hints.note_hash_write_hints.size());
-    vinfo("hints.l1_to_l2_message_read_hints size: ", avm_hints.l1_to_l2_message_read_hints.size());
-    vinfo("hints.contract_instance_hints size: ", avm_hints.contract_instance_hints.size());
-    vinfo("hints.contract_bytecode_hints size: ", avm_hints.all_contract_bytecode.size());
+    avm_hints.print_sizes();
 
     vinfo("initializing crs with size: ", avm_trace::Execution::SRS_SIZE);
     init_bn254_crs(avm_trace::Execution::SRS_SIZE);
@@ -726,12 +748,34 @@ void avm_prove(const std::filesystem::path& public_inputs_path,
     write_file(vk_fields_path, { vk_json.begin(), vk_json.end() });
     vinfo("vk as fields written to: ", vk_fields_path);
 
-#ifdef AVM_TRACK_STATS
-    info("------- STATS -------");
-    const auto& stats = avm_trace::Stats::get();
-    const int levels = std::getenv("AVM_STATS_DEPTH") != nullptr ? std::stoi(std::getenv("AVM_STATS_DEPTH")) : 2;
-    info(stats.to_string(levels));
-#endif
+    print_avm_stats();
+}
+
+void avm2_prove(const std::filesystem::path& inputs_path, const std::filesystem::path& output_path)
+{
+    avm2::AvmAPI avm;
+    auto inputs = avm2::AvmAPI::ProvingInputs::from(read_file(inputs_path));
+
+    // This is bigger than CIRCUIT_SUBGROUP_SIZE because of BB inefficiencies.
+    init_bn254_crs(avm2::CIRCUIT_SUBGROUP_SIZE * 2);
+    auto [proof, vk] = avm.prove(inputs);
+
+    // NOTE: As opposed to Avm1 and other proof systems, the public inputs are NOT part of the proof.
+    write_file(output_path / "proof", to_buffer(proof));
+    write_file(output_path / "vk", vk);
+
+    print_avm_stats();
+}
+
+void avm2_check_circuit(const std::filesystem::path& inputs_path)
+{
+    avm2::AvmAPI avm;
+    auto inputs = avm2::AvmAPI::ProvingInputs::from(read_file(inputs_path));
+
+    bool res = avm.check_circuit(inputs);
+    info("circuit check: ", res ? "success" : "failure");
+
+    print_avm_stats();
 }
 
 /**
@@ -783,7 +827,27 @@ bool avm_verify(const std::filesystem::path& proof_path, const std::filesystem::
 
     const bool verified = AVM_TRACK_TIME_V("verify/all", avm_trace::Execution::verify(vk, proof));
     vinfo("verified: ", verified);
+
+    print_avm_stats();
     return verified;
+}
+
+// NOTE: The proof should NOT include the public inputs.
+bool avm2_verify(const std::filesystem::path& proof_path,
+                 const std::filesystem::path& public_inputs_path,
+                 const std::filesystem::path& vk_path)
+{
+    const auto proof = many_from_buffer<fr>(read_file(proof_path));
+    std::vector<uint8_t> vk_bytes = read_file(vk_path);
+    auto public_inputs = avm2::PublicInputs::from(read_file(public_inputs_path));
+
+    init_bn254_crs(1);
+    avm2::AvmAPI avm;
+    bool res = avm.verify(proof, public_inputs, vk_bytes);
+    info("verification: ", res ? "success" : "failure");
+
+    print_avm_stats();
+    return res;
 }
 #endif
 
@@ -895,15 +959,13 @@ template <IsUltraFlavor Flavor> bool verify_honk(const std::string& proof_path, 
     bool verified;
     if constexpr (HasIPAAccumulator<Flavor>) {
         // Break up the tube proof into the honk portion and the ipa portion
-        // TODO(https://github.com/AztecProtocol/barretenberg/issues/1168): Add formula to flavor
-        const size_t HONK_PROOF_LENGTH = 469;
-        const size_t num_public_inputs =
-            static_cast<size_t>(uint64_t(proof[1])) - PAIRING_POINT_ACCUMULATOR_SIZE - IPA_CLAIM_SIZE;
+        const size_t HONK_PROOF_LENGTH = Flavor::PROOF_LENGTH_WITHOUT_PUB_INPUTS - IPA_PROOF_LENGTH;
+        const size_t num_public_inputs = static_cast<size_t>(uint64_t(proof[1]));
         // The extra calculation is for the IPA proof length.
         debug("proof size: ", proof.size());
         debug("num public inputs: ", num_public_inputs);
         // TODO(https://github.com/AztecProtocol/barretenberg/issues/1182): Move to ProofSurgeon.
-        ASSERT(proof.size() == HONK_PROOF_LENGTH + 1 + 4 * (CONST_ECCVM_LOG_N) + 2 + 2 + num_public_inputs);
+        ASSERT(proof.size() == HONK_PROOF_LENGTH + IPA_PROOF_LENGTH + num_public_inputs);
         // split out the ipa proof
         const std::ptrdiff_t honk_proof_with_pub_inputs_length =
             static_cast<std::ptrdiff_t>(HONK_PROOF_LENGTH + num_public_inputs);
@@ -1384,6 +1446,25 @@ int main(int argc, char* argv[])
             std::string output_path = get_option(args, "-o", "./target");
             write_recursion_inputs_honk<UltraRollupFlavor>(bytecode_path, witness_path, output_path, recursive);
 #ifndef DISABLE_AZTEC_VM
+        } else if (command == "avm2_prove") {
+            std::filesystem::path inputs_path = get_option(args, "--avm-inputs", "./target/avm_inputs.bin");
+            // This outputs both files: proof and vk, under the given directory.
+            std::filesystem::path output_path = get_option(args, "-o", "./proofs");
+            avm2_prove(inputs_path, output_path);
+        } else if (command == "avm2_check_circuit") {
+            std::filesystem::path inputs_path = get_option(args, "--avm-inputs", "./target/avm_inputs.bin");
+            avm2_check_circuit(inputs_path);
+        } else if (command == "avm2_verify") {
+            std::filesystem::path public_inputs_path =
+                get_option(args, "--avm-public-inputs", "./target/avm_public_inputs.bin");
+            return avm2_verify(proof_path, public_inputs_path, vk_path) ? 0 : 1;
+        } else if (command == "avm_check_circuit") {
+            std::filesystem::path avm_public_inputs_path =
+                get_option(args, "--avm-public-inputs", "./target/avm_public_inputs.bin");
+            std::filesystem::path avm_hints_path = get_option(args, "--avm-hints", "./target/avm_hints.bin");
+            extern std::filesystem::path avm_dump_trace_path;
+            avm_dump_trace_path = get_option(args, "--avm-dump-trace", "");
+            avm_check_circuit(avm_public_inputs_path, avm_hints_path);
         } else if (command == "avm_prove") {
             std::filesystem::path avm_public_inputs_path =
                 get_option(args, "--avm-public-inputs", "./target/avm_public_inputs.bin");

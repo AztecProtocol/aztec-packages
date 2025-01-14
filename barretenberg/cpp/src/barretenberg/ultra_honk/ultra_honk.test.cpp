@@ -44,10 +44,10 @@ template <typename Flavor> class UltraHonkTests : public ::testing::Test {
     };
 
   protected:
-    static void SetUpTestSuite() { bb::srs::init_crs_factory("../srs_db/ignition"); }
+    static void SetUpTestSuite() { bb::srs::init_crs_factory(bb::srs::get_ignition_crs_path()); }
 };
 
-using FlavorTypes = testing::Types<UltraFlavor, UltraKeccakFlavor>;
+using FlavorTypes = testing::Types<UltraFlavor, UltraZKFlavor, UltraKeccakFlavor, UltraKeccakZKFlavor>;
 TYPED_TEST_SUITE(UltraHonkTests, FlavorTypes);
 
 /**

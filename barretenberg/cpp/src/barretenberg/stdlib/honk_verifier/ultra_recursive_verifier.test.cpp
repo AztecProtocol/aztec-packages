@@ -44,6 +44,8 @@ template <typename RecursiveFlavor> class RecursiveVerifierTest : public testing
     using RecursiveVerifier = UltraRecursiveVerifier_<RecursiveFlavor>;
     using VerificationKey = typename RecursiveVerifier::VerificationKey;
 
+    using AggState = aggregation_state<typename RecursiveFlavor::Curve>;
+    using VerifierOutput = bb::stdlib::recursion::honk::UltraRecursiveVerifierOutput<RecursiveFlavor>;
     /**
      * @brief Create a non-trivial arbitrary inner circuit, the proof of which will be recursively verified
      *
@@ -75,29 +77,11 @@ template <typename RecursiveFlavor> class RecursiveVerifierTest : public testing
         PairingPointAccumulatorIndices agg_obj_indices = stdlib::recursion::init_default_agg_obj_indices(builder);
         builder.add_pairing_point_accumulator(agg_obj_indices);
 
-        // TODO(https://github.com/AztecProtocol/barretenberg/issues/1184): Move to IPA class.
         if constexpr (HasIPAAccumulator<RecursiveFlavor>) {
-            using NativeCurve = curve::Grumpkin;
-            using Curve = stdlib::grumpkin<InnerBuilder>;
-            auto ipa_transcript = std::make_shared<NativeTranscript>();
-            auto ipa_commitment_key = std::make_shared<CommitmentKey<NativeCurve>>(1 << CONST_ECCVM_LOG_N);
-            size_t n = 4;
-            auto poly = Polynomial<fq>(n);
-            for (size_t i = 0; i < n; i++) {
-                poly.at(i) = fq::random_element();
-            }
-            fq x = fq::random_element();
-            fq eval = poly.evaluate(x);
-            auto commitment = ipa_commitment_key->commit(poly);
-            const OpeningPair<NativeCurve> opening_pair = { x, eval };
-            IPA<NativeCurve>::compute_opening_proof(ipa_commitment_key, { poly, opening_pair }, ipa_transcript);
-
-            auto stdlib_comm = Curve::Group::from_witness(&builder, commitment);
-            auto stdlib_x = Curve::ScalarField::from_witness(&builder, x);
-            auto stdlib_eval = Curve::ScalarField::from_witness(&builder, eval);
-            OpeningClaim<Curve> stdlib_opening_claim{ { stdlib_x, stdlib_eval }, stdlib_comm };
+            auto [stdlib_opening_claim, ipa_proof] =
+                IPA<grumpkin<InnerBuilder>>::create_fake_ipa_claim_and_proof(builder);
             builder.add_ipa_claim(stdlib_opening_claim.get_witness_indices());
-            builder.ipa_proof = ipa_transcript->export_proof();
+            builder.ipa_proof = ipa_proof;
         }
         return builder;
     };
@@ -105,7 +89,7 @@ template <typename RecursiveFlavor> class RecursiveVerifierTest : public testing
   public:
     static void SetUpTestSuite()
     {
-        bb::srs::init_crs_factory("../srs_db/ignition");
+        bb::srs::init_crs_factory(bb::srs::get_ignition_crs_path());
         if constexpr (HasIPAAccumulator<RecursiveFlavor>) {
             bb::srs::init_grumpkin_crs_factory("../srs_db/grumpkin");
         }
@@ -252,11 +236,9 @@ template <typename RecursiveFlavor> class RecursiveVerifierTest : public testing
         OuterBuilder outer_circuit;
         RecursiveVerifier verifier{ &outer_circuit, verification_key };
 
-        aggregation_state<typename RecursiveFlavor::Curve> agg_obj =
-            init_default_aggregation_state<OuterBuilder, typename RecursiveFlavor::Curve>(outer_circuit);
-        bb::stdlib::recursion::honk::UltraRecursiveVerifierOutput<RecursiveFlavor> output =
-            verifier.verify_proof(inner_proof, agg_obj);
-        aggregation_state<typename RecursiveFlavor::Curve> pairing_points = output.agg_obj;
+        AggState agg_obj = init_default_aggregation_state<OuterBuilder, typename RecursiveFlavor::Curve>(outer_circuit);
+        VerifierOutput output = verifier.verify_proof(inner_proof, agg_obj);
+        AggState pairing_points = output.agg_obj;
         if constexpr (HasIPAAccumulator<OuterFlavor>) {
             outer_circuit.add_ipa_claim(output.ipa_opening_claim.get_witness_indices());
             outer_circuit.ipa_proof = convert_stdlib_proof_to_native(output.ipa_proof);
