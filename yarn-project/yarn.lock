@@ -1177,9 +1177,6 @@ __metadata:
     tslib: "npm:^2.4.0"
     typescript: "npm:^5.0.4"
   bin:
-    bench-aggregate: ./dest/bin/bench-aggregate.js
-    bench-comment: ./dest/bin/bench-comment.js
-    bench-markdown: ./dest/bin/bench-markdown.js
     docs-preview-comment: ./dest/bin/docs-preview.js
   languageName: unknown
   linkType: soft

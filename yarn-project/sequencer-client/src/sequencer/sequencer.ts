@@ -585,8 +585,12 @@ export class Sequencer {
       // All real transactions have been added, set the block as full and pad if needed
       const block = await blockBuilder.setBlockCompleted();
 
+      // How much public gas was processed
+      const publicGas = processedTxs.reduce((acc, tx) => acc.add(tx.gasUsed.publicGas), Gas.empty());
+
       return {
         block,
+        publicGas,
         publicProcessorDuration,
         numMsgs: l1ToL2Messages.length,
         numTxs: processedTxs.length,
@@ -641,7 +645,7 @@ export class Sequencer {
 
     try {
       const buildBlockRes = await this.buildBlock(pendingTxs, newGlobalVariables, historicalHeader);
-      const { block, publicProcessorDuration, numTxs, numMsgs, blockBuildingTimer } = buildBlockRes;
+      const { publicGas, block, publicProcessorDuration, numTxs, numMsgs, blockBuildingTimer } = buildBlockRes;
 
       // TODO(@PhilWindle) We should probably periodically check for things like another
       // block being published before ours instead of just waiting on our block
@@ -683,16 +687,19 @@ export class Sequencer {
       const proofQuote = await proofQuotePromise;
 
       await this.publishL2Block(block, attestations, txHashes, proofQuote);
-      this.metrics.recordPublishedBlock(workDuration);
+      this.metrics.recordPublishedBlock(workDuration, publicGas.l2Gas);
+      const duration = Math.ceil(workDuration);
+      const manaPerSecond = Math.ceil((publicGas.l2Gas * 1000) / duration);
       this.log.info(
-        `Published block ${block.number} with ${numTxs} txs and ${numMsgs} messages in ${Math.ceil(workDuration)}ms`,
+        `Published block ${block.number} with ${numTxs} txs and ${numMsgs} messages in ${duration} ms at ${manaPerSecond} mana/s`,
         {
+          publicGas,
           blockNumber: block.number,
           blockHash: blockHash,
           slot,
           txCount: txHashes.length,
           msgCount: numMsgs,
-          duration: Math.ceil(workDuration),
+          duration,
           submitter: this.publisher.getSenderAddress().toString(),
         },
       );
