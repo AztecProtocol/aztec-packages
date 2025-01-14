@@ -19,8 +19,8 @@ scripts/run_on_tester "
   export -f clone
 
   # update fs limits for k8s
-  sudo sysctl fs.inotify.max_user_watches=65536
-  sudo sysctl fs.inotify.max_user_instances=65536
+  sudo sysctl -w fs.inotify.max_user_watches=65536
+  sudo sysctl -w fs.inotify.max_user_instances=65536
   ulimit -n 32768
 
   flock /var/lock/clone.lock bash -c clone
