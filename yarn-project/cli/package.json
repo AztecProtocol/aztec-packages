@@ -82,7 +82,7 @@
     "solc": "^0.8.27",
     "source-map-support": "^0.5.21",
     "tslib": "^2.4.0",
-    "viem": "^2.7.15"
+    "viem": "2.22.8"
   },
   "devDependencies": {
     "@aztec/accounts": "workspace:^",
