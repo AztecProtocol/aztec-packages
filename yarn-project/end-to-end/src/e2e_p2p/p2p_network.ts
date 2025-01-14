@@ -1,7 +1,8 @@
 import { getSchnorrAccount } from '@aztec/accounts/schnorr';
 import { type AztecNodeConfig, type AztecNodeService } from '@aztec/aztec-node';
 import { type AccountWalletWithSecretKey } from '@aztec/aztec.js';
-import { L1TxUtils, getL1ContractsConfigEnvVars } from '@aztec/ethereum';
+import { ChainMonitor } from '@aztec/aztec.js/utils';
+import { L1TxUtils, RollupContract, getL1ContractsConfigEnvVars } from '@aztec/ethereum';
 import { EthCheatCodesWithState } from '@aztec/ethereum/test';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { RollupAbi, TestERC20Abi } from '@aztec/l1-artifacts';
@@ -38,6 +39,7 @@ export class P2PNetworkTest {
   private baseAccount;
 
   public logger: Logger;
+  public monitor!: ChainMonitor;
 
   public ctx!: SubsystemsContext;
   public attesterPrivateKeys: `0x${string}`[] = [];
@@ -308,6 +310,9 @@ export class P2PNetworkTest {
         stallTimeMs: 1000,
       },
     );
+
+    this.monitor = new ChainMonitor(RollupContract.getFromL1ContractsValues(this.ctx.deployL1ContractsValues));
+    this.monitor.start();
   }
 
   async stopNodes(nodes: AztecNodeService[]) {
@@ -325,6 +330,7 @@ export class P2PNetworkTest {
   }
 
   async teardown() {
+    this.monitor.stop();
     await this.bootstrapNode.stop();
     await this.snapshotManager.teardown();
     if (this.cleanupInterval) {

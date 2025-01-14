@@ -47,9 +47,6 @@ where
     compute_payload(context, note, recipient, sender)
 }
 
-// This function seems to be affected by the following Noir bug:
-// https://github.com/noir-lang/noir/issues/5771
-// If you get weird behavior it might be because of it.
 pub fn encode_and_encrypt_note<Note, let N: u32>(
     context: &mut PrivateContext,
     recipient: AztecAddress,

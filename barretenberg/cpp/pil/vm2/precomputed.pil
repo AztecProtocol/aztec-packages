@@ -1,5 +1,5 @@
 // General/shared precomputed columns.
-namespace precomputed(256);
+namespace precomputed;
 
 // From 0 and incrementing up to the size of the circuit (2^21).
 pol constant clk;
