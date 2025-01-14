@@ -36,6 +36,18 @@ export class ReExStateMismatchError extends ValidatorError {
   }
 }
 
+export class ReExFailedTxsError extends ValidatorError {
+  constructor(numFailedTxs: number) {
+    super(`Re-execution failed to process ${numFailedTxs} txs`);
+  }
+}
+
+export class ReExTimeoutError extends ValidatorError {
+  constructor() {
+    super('Re-execution timed out or failed to process all txs in the proposal');
+  }
+}
+
 export class BlockBuilderNotProvidedError extends ValidatorError {
   constructor() {
     super('Block builder not provided');

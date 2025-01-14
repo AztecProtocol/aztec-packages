@@ -32,20 +32,20 @@ std::vector<Operand> Addressing::resolve(const Instruction& instruction, MemoryI
         // We retrieve, cache first because this is probably what we'll do in the circuit.
         // However, we can't check the value and tag yet! This should be done only if it's used.
         // This is because the first few instructions might not YET have a valid stack pointer.
-        auto stack_pointer = memory.get(0);
-        event.stack_pointer_tag = stack_pointer.tag;
-        event.stack_pointer_val = stack_pointer.value;
+        auto base_address = memory.get(0);
+        event.base_address_tag = base_address.tag;
+        event.base_address_val = base_address.value;
 
         // First process relative addressing for all the addresses.
         event.after_relative = instruction.operands;
         for (size_t i = 0; i < spec.num_addresses; ++i) {
             if ((instruction.indirect >> i) & 1) {
-                if (!memory.is_valid_address(stack_pointer)) {
-                    throw AddressingException(AddressingEventError::STACK_POINTER_INVALID_ADDRESS, i);
+                if (!memory.is_valid_address(base_address)) {
+                    throw AddressingException(AddressingEventError::BASE_ADDRESS_INVALID_ADDRESS, i);
                 }
 
                 MemoryValue offset(event.after_relative[i]);
-                offset += stack_pointer.value;
+                offset += base_address.value;
                 event.after_relative[i] = Operand::ff(offset);
                 if (!memory.is_valid_address(offset)) {
                     throw AddressingException(AddressingEventError::RELATIVE_COMPUTATION_OOB, i);

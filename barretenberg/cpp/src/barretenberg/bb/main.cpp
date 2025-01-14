@@ -684,6 +684,27 @@ void print_avm_stats()
 }
 
 /**
+ * @brief Performs "check circuit" on the AVM circuit for the given public inputs and hints.
+ *
+ * @param public_inputs_path Path to the file containing the serialised avm public inputs
+ * @param hints_path Path to the file containing the serialised avm circuit hints
+ */
+void avm_check_circuit(const std::filesystem::path& public_inputs_path, const std::filesystem::path& hints_path)
+{
+
+    const auto avm_public_inputs = AvmPublicInputs::from(read_file(public_inputs_path));
+    const auto avm_hints = bb::avm_trace::ExecutionHints::from(read_file(hints_path));
+    avm_hints.print_sizes();
+
+    vinfo("initializing crs with size: ", avm_trace::Execution::SRS_SIZE);
+    init_bn254_crs(avm_trace::Execution::SRS_SIZE);
+
+    avm_trace::Execution::check_circuit(avm_public_inputs, avm_hints);
+
+    print_avm_stats();
+}
+
+/**
  * @brief Writes an avm proof and corresponding (incomplete) verification key to files.
  *
  * Communication:
@@ -700,18 +721,7 @@ void avm_prove(const std::filesystem::path& public_inputs_path,
 
     const auto avm_public_inputs = AvmPublicInputs::from(read_file(public_inputs_path));
     const auto avm_hints = bb::avm_trace::ExecutionHints::from(read_file(hints_path));
-
-    // Using [0] is fine now for the top-level call, but we might need to index by address in future
-    vinfo("bytecode size: ", avm_hints.all_contract_bytecode[0].bytecode.size());
-    vinfo("hints.storage_read_hints size: ", avm_hints.storage_read_hints.size());
-    vinfo("hints.storage_write_hints size: ", avm_hints.storage_write_hints.size());
-    vinfo("hints.nullifier_read_hints size: ", avm_hints.nullifier_read_hints.size());
-    vinfo("hints.nullifier_write_hints size: ", avm_hints.nullifier_write_hints.size());
-    vinfo("hints.note_hash_read_hints size: ", avm_hints.note_hash_read_hints.size());
-    vinfo("hints.note_hash_write_hints size: ", avm_hints.note_hash_write_hints.size());
-    vinfo("hints.l1_to_l2_message_read_hints size: ", avm_hints.l1_to_l2_message_read_hints.size());
-    vinfo("hints.contract_instance_hints size: ", avm_hints.contract_instance_hints.size());
-    vinfo("hints.contract_bytecode_hints size: ", avm_hints.all_contract_bytecode.size());
+    avm_hints.print_sizes();
 
     vinfo("initializing crs with size: ", avm_trace::Execution::SRS_SIZE);
     init_bn254_crs(avm_trace::Execution::SRS_SIZE);
@@ -1448,6 +1458,13 @@ int main(int argc, char* argv[])
             std::filesystem::path public_inputs_path =
                 get_option(args, "--avm-public-inputs", "./target/avm_public_inputs.bin");
             return avm2_verify(proof_path, public_inputs_path, vk_path) ? 0 : 1;
+        } else if (command == "avm_check_circuit") {
+            std::filesystem::path avm_public_inputs_path =
+                get_option(args, "--avm-public-inputs", "./target/avm_public_inputs.bin");
+            std::filesystem::path avm_hints_path = get_option(args, "--avm-hints", "./target/avm_hints.bin");
+            extern std::filesystem::path avm_dump_trace_path;
+            avm_dump_trace_path = get_option(args, "--avm-dump-trace", "");
+            avm_check_circuit(avm_public_inputs_path, avm_hints_path);
         } else if (command == "avm_prove") {
             std::filesystem::path avm_public_inputs_path =
                 get_option(args, "--avm-public-inputs", "./target/avm_public_inputs.bin");

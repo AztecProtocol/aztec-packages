@@ -1,7 +1,6 @@
 #pragma once
 
 #include <array>
-#include <bits/utility.h>
 #include <span>
 #include <stdexcept>
 
