@@ -191,7 +191,7 @@ fn get_tx_effects_hash_input(
 ) -> ([Field; TX_EFFECTS_BLOB_HASH_INPUT_FIELDS], u32) {
     tx_effect.transaction_fee.assert_max_bit_size::<29 * 8>();
     let TWO_POW_240 = 1766847064778384329583297500742918515827483896875618958121606201292619776;
-    let prefixed_tx_fee: Field = TX_FEE_PREFIX * TWO_POW_240 + tx_effect.transaction_fee;
+    let prefixed_tx_fee: Field = (TX_FEE_PREFIX as Field) * TWO_POW_240 + (tx_effect.transaction_fee as Field);
 
     let note_hashes = tx_effect.note_hashes;
     let nullifiers = tx_effect.nullifiers;
@@ -361,22 +361,22 @@ fn get_tx_effects_hash_input(
     }
 
     // Now we know the number of fields appended, we can assign the first value:
-    let expected_revert_code =
-        generate_padded_revert_code(offset as Field, tx_effect.revert_code as Field);
+    let expected_tx_start_field =
+        generate_tx_start_field(offset as Field, tx_effect.revert_code as Field);
     // REVERT CODE
-    assert_eq(tx_effects_hash_input[0], expected_revert_code);
+    assert_eq(tx_effects_hash_input[0], expected_tx_start_field);
 
     (tx_effects_hash_input, offset)
 }
 
-fn generate_padded_revert_code(offset: Field, revert_code: Field) -> Field {
+fn generate_tx_start_field(offset: Field, revert_code: Field) -> Field {
     // TX_START_PREFIX | 0 | 0 | 0 | 0 | REVERT_CODE_PREFIX | 0 | 0
     let constant = (TX_START_PREFIX as Field) * (256 * 256 * 256 * 256 * 256 * 256 * 256)
         + (REVERT_CODE_PREFIX as Field) * (256 * 256);
 
-    let padded_revert_code = constant + offset * (256 * 256 * 256 * 256) + revert_code;
+    let tx_start_field = constant + offset * (256 * 256 * 256 * 256) + revert_code;
 
-    padded_revert_code
+    tx_start_field
 }
 
 unconstrained fn get_tx_effects_hash_input_helper(
@@ -386,7 +386,7 @@ unconstrained fn get_tx_effects_hash_input_helper(
     nullifiers: [Field; MAX_NULLIFIERS_PER_TX],
     l2_to_l1_msgs: [Field; MAX_L2_TO_L1_MSGS_PER_TX],
     public_data_update_requests: [PublicDataWrite; MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX],
-    private_logs: [Log<18>; MAX_PRIVATE_LOGS_PER_TX],
+    private_logs: [Log<PRIVATE_LOG_SIZE_IN_FIELDS>; MAX_PRIVATE_LOGS_PER_TX],
     unencrypted_logs: [Field; MAX_UNENCRYPTED_LOGS_PER_TX],
     contract_class_logs: [Field; MAX_CONTRACT_CLASS_LOGS_PER_TX],
     revert_code: Field,
@@ -506,7 +506,7 @@ unconstrained fn get_tx_effects_hash_input_helper(
     }
 
     // Now we know the number of fields appended, we can assign the first value:
-    tx_effects_hash_input[0] = generate_padded_revert_code(offset as Field, revert_code);
+    tx_effects_hash_input[0] = generate_tx_start_field(offset as Field, revert_code);
 
     tx_effects_hash_input
 }
