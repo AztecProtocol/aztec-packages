@@ -616,7 +616,7 @@ comptime fn generate_finalization_payload(
     let name = s.name();
     let finalization_payload_name = f"{name}FinalizationPayload".quoted_contents();
 
-    // We compute serialization of the nullable fields which are to be emitted as an unencrypted log. We do that by
+    // We compute serialization of the nullable fields which are to be emitted as a public log. We do that by
     // passing the whole note struct to the `flatten_to_fields(...)` function but we omit the `NoteHeader` and
     // the fixed fields.
     let to_omit = indexed_fixed_fields.map(|(name, _, _): (Quoted, Type, u32)| name).push_back(
@@ -721,7 +721,7 @@ comptime fn generate_finalization_payload(
                 // We load the setup log from storage
                 let setup_log_fields: [Field; $setup_log_field_length] = self.context.storage_read(self.setup_log_slot);
 
-                // We append the public value to the log and emit it as unencrypted log
+                // We append the public value to the log and emit it as public log
                 let mut finalization_log = [0; $finalization_log_field_length];
 
                 // Iterate over the partial log and copy it to the final log
@@ -747,7 +747,7 @@ comptime fn generate_finalization_payload(
                     ciphertext_bytes_length as u8,
                 ], true);
 
-                // We emit the finalization log via the unencrypted logs stream
+                // We emit the finalization log via the public logs stream
                 self.context.emit_unencrypted_log(finalization_log);
 
                 // We reset public storage to zero to achieve the effect of transient storage - kernels will squash

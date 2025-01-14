@@ -119,7 +119,7 @@ describe('e2e_ordering', () => {
         'set_value_twice_with_nested_first',
         'set_value_twice_with_nested_last',
         'set_value_with_two_nested_calls',
-      ] as const)('orders unencrypted logs in %s', async method => {
+      ] as const)('orders public logs in %s', async method => {
         const expectedOrder = expectedOrders[method];
 
         await child.methods[method]().send().wait();

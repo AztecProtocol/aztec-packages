@@ -217,7 +217,7 @@ ${getWarningsSummary(benchmark, baseBenchmark)}
 
 <summary>Detailed results</summary>
 
-All benchmarks are run on txs on the \`Benchmarking\` contract on the repository. Each tx consists of a batch call  to \`create_note\` and \`increment_balance\`, which guarantees that each tx has a private call, a nested private call, a public call, and a nested public call, as well as an emitted private note, an unencrypted log, and public storage read and write.
+All benchmarks are run on txs on the \`Benchmarking\` contract on the repository. Each tx consists of a batch call  to \`create_note\` and \`increment_balance\`, which guarantees that each tx has a private call, a nested private call, a public call, and a nested public call, as well as an emitted private note, a public log, and public storage read and write.
 ${prSourceDataText}
 ${baseCommitText}
 

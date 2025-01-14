@@ -16,7 +16,7 @@ pub struct AvmAccumulatedData {
     pub nullifiers: [Field; MAX_NULLIFIERS_PER_TX],
     // The L2 to L1 messages from private combining with those made in the AVM execution.
     pub l2_to_l1_msgs: [ScopedL2ToL1Message; MAX_L2_TO_L1_MSGS_PER_TX],
-    // The unencrypted logs emitted from the AVM execution.
+    // The public logs emitted from the AVM execution.
     pub public_logs: [PublicLog; MAX_PUBLIC_LOGS_PER_TX],
     // The public data writes made in the AVM execution.
     pub public_data_writes: [PublicDataWrite; MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX],

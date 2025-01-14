@@ -79,7 +79,7 @@ export class LogStore {
           // The first elt stores lengths => tag is in fields[1]
           const tag = log.log[1];
 
-          this.#log.debug(`Found tagged unencrypted log with tag ${tag.toString()} in block ${block.number}`);
+          this.#log.debug(`Found tagged public log with tag ${tag.toString()} in block ${block.number}`);
           const currentLogs = taggedLogs.get(tag.toString()) ?? [];
           currentLogs.push(
             new TxScopedL2Log(

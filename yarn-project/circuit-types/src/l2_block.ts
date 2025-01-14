@@ -75,7 +75,7 @@ export class L2Block {
    * @param l2BlockNum - The number of the L2 block.
    * @param txsPerBlock - The number of transactions to include in the block.
    * @param numPublicCallsPerTx - The number of public function calls to include in each transaction.
-   * @param numPublicLogsPerCall - The number of unencrypted logs per 1 public function invocation.
+   * @param numPublicLogsPerCall - The number of public logs per 1 public function invocation.
    * @param inHash - The hash of the L1 to L2 messages subtree which got inserted in this block.
    * @returns The L2 block.
    */

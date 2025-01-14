@@ -49,7 +49,7 @@ export function getFolderSize(path: string): number {
 /**
  * Returns a call to the benchmark contract. Each call has a private execution (account entrypoint),
  * a nested private call (create_note), a public call (increment_balance), and a nested public
- * call (broadcast). These include emitting one private note and one unencrypted log, two storage
+ * call (broadcast). These include emitting one private note and one public log, two storage
  * reads and one write.
  * @param index - Index of the call within a block.
  * @param context - End to end context.

@@ -10,6 +10,7 @@ import { type UnencryptedL2Log } from './unencrypted_l2_log.js';
 
 /**
  * Data container of logs emitted in 1 tx.
+ * TODO(#8945): Currently only used for contract class logs. When these are fields, delete this class.
  */
 export abstract class TxL2Logs {
   abstract hash(): Buffer;
