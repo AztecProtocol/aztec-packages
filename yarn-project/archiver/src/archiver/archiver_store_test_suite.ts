@@ -375,14 +375,14 @@ export function describeArchiverDataStore(testName: string, getStore: () => Arch
       const makePrivateLog = (tag: Fr) =>
         PrivateLog.fromFields([tag, ...times(PRIVATE_LOG_SIZE_IN_FIELDS - 1, i => new Fr(tag.toNumber() + i))]);
 
-      // The tag seems to live in field 1, not 0, of a public log
+      // The tag lives in field 1, not 0, of a public log
       // See extractTaggedLogsFromPublic and noir-projects/aztec-nr/aztec/src/macros/notes/mod.nr -> emit_log
       const makePublicLog = (tag: Fr) =>
         PublicLog.fromFields([
-          AztecAddress.fromNumber(1).toField(),
-          Fr.ONE,
-          tag,
-          ...times(PUBLIC_LOG_DATA_SIZE_IN_FIELDS - 1, i => new Fr(tag.toNumber() + i)),
+          AztecAddress.fromNumber(1).toField(), // log address
+          Fr.ONE, // field 0
+          tag, // field 1
+          ...times(PUBLIC_LOG_DATA_SIZE_IN_FIELDS - 1, i => new Fr(tag.toNumber() + i)), // fields 2 to end
         ]);
 
       const mockPrivateLogs = (blockNumber: number, txIndex: number) => {
