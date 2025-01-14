@@ -53,6 +53,9 @@ std::vector<typename GeminiProver_<Curve>::Claim> GeminiProver_<Curve>::prove(
     bool has_zk)
 
 {
+    PolynomialBatch unshifted_polys(f_polynomials);
+    PolynomialBatch to_be_shifted_polys(g_polynomials, &Polynomial::shifted);
+
     size_t log_n = numeric::get_msb(static_cast<uint32_t>(circuit_size));
     size_t n = 1 << log_n;
 
@@ -70,6 +73,7 @@ std::vector<typename GeminiProver_<Curve>::Claim> GeminiProver_<Curve>::prove(
         multilinear_challenge_resized.resize(log_n);
         transcript->send_to_verifier("Gemini:masking_poly_eval",
                                      batched_unshifted.evaluate_mle(multilinear_challenge_resized));
+        info("In here!");
     }
 
     // Get the batching challenge
@@ -80,10 +84,14 @@ std::vector<typename GeminiProver_<Curve>::Claim> GeminiProver_<Curve>::prove(
         // ρ⁰ is used to batch the hiding polynomial
         rho_challenge *= rho;
     }
-    for (size_t i = 0; i < f_polynomials.size(); i++) {
-        batched_unshifted.add_scaled(f_polynomials[i], rho_challenge);
-        rho_challenge *= rho;
-    }
+    // WORKTODO: potentially do this in PolyBatch class
+
+    unshifted_polys.compute_batched(rho, rho_challenge);
+    batched_unshifted += unshifted_polys.batched;
+    // for (size_t i = 0; i < f_polynomials.size(); i++) {
+    //     batched_unshifted.add_scaled(f_polynomials[i], rho_challenge);
+    //     rho_challenge *= rho;
+    // }
     for (size_t i = 0; i < g_polynomials.size(); i++) {
         batched_to_be_shifted.add_scaled(g_polynomials[i], rho_challenge);
         rho_challenge *= rho;
@@ -106,6 +114,8 @@ std::vector<typename GeminiProver_<Curve>::Claim> GeminiProver_<Curve>::prove(
         }
         rho_challenge *= rho;
     }
+
+    // WORKTODO: construct A_0 here, pass const& to below, return fold polys
 
     auto fold_polynomials = compute_fold_polynomials(log_n,
                                                      multilinear_challenge,
@@ -132,6 +142,8 @@ std::vector<typename GeminiProver_<Curve>::Claim> GeminiProver_<Curve>::prove(
     if (gemini_challenge_in_small_subgroup) {
         throw_or_abort("Gemini evaluation challenge is in the SmallSubgroup.");
     }
+
+    // WORKTODO: reuse A_0
 
     std::vector<Claim> claims =
         compute_fold_polynomial_evaluations(log_n, std::move(fold_polynomials), r_challenge, std::move(batched_group));

@@ -99,6 +99,36 @@ template <typename Curve> class GeminiProver_ {
     using Polynomial = bb::Polynomial<Fr>;
     using Claim = ProverOpeningClaim<Curve>;
 
+    struct PolynomialBatch {
+        RefSpan<Polynomial> polynomials;
+        Polynomial batched;
+        std::function<Polynomial(const Polynomial&)> get_form_to_open;
+
+        PolynomialBatch(
+            RefSpan<Polynomial> polynomials,
+            std::function<Polynomial(const Polynomial&)> func = [](const Polynomial& poly) { return poly; })
+            : polynomials(polynomials)
+            , get_form_to_open(func)
+        {}
+
+        void initialize_batched()
+        {
+            auto poly = polynomials[0];
+            batched = Polynomial(poly.size(), poly.virtual_size(), poly.start_index());
+        }
+
+        Polynomial get_batched_to_open() { return get_form_to_open(batched); }
+
+        void compute_batched(const Fr& challenge, Fr& running_scalar)
+        {
+            initialize_batched();
+            for (auto poly : polynomials) {
+                batched.add_scaled(poly, running_scalar);
+                running_scalar *= challenge;
+            }
+        }
+    };
+
   public:
     static std::vector<Polynomial> compute_fold_polynomials(const size_t log_N,
                                                             std::span<const Fr> multilinear_challenge,
