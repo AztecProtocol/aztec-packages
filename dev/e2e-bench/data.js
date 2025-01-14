@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1736878725601,
+  "lastUpdate": 1736880124756,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "End-to-end Benchmark": [
@@ -151,6 +151,45 @@ window.BENCHMARK_DATA = {
           {
             "name": "Sequencer/aztec.sequencer.block_builder_tree_insertion_duration",
             "value": 655408,
+            "unit": "us"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "santiago@aztecprotocol.com",
+            "name": "Santiago Palladino",
+            "username": "spalladino"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "60bdf1da7460303f9a478f83c0f6754e0985118a",
+          "message": "fix: Bump inotify limits on tester (#11217)\n\nAssuming the current default for inotify max user watches on the tester\r\nmachine is 8192, this PR bumps it to 64k. We were getting errors when\r\ntrying to tail k8s logs caused by hitting inotify limits, for example:\r\n\r\n```\r\nspartan-aztec-network-boot-node-0 wait-for-ethereum export ETHEREUM_HOST=http://spartan-aztec-network-ethereum.smoke:8545\r\nspartan-aztec-network-boot-node-0 wait-for-ethereum export BOOT_NODE_HOST=http://spartan-aztec-network-boot-node.smoke:8080\r\nspartan-aztec-network-boot-node-0 wait-for-ethereum export PROVER_NODE_HOST=http://spartan-aztec-network-prover-node.smoke:8080\r\nspartan-aztec-network-boot-node-0 wait-for-ethereum export PROVER_BROKER_HOST=http://spartan-aztec-network-prover-broker.smoke:8084\r\nspartan-aztec-network-boot-node-0 wait-for-ethereum Awaiting ethereum node at http://spartan-aztec-network-ethereum.smoke:8545\r\nspartan-aztec-network-boot-node-0 wait-for-ethereum Waiting for Ethereum node http://spartan-aztec-network-ethereum.smoke:8545...\r\nspartan-aztec-network-boot-node-0 wait-for-ethereum to create fsnotify watcher: too many open files\r\n```",
+          "timestamp": "2025-01-14T18:19:15Z",
+          "tree_id": "668cac92b7c7256fbee123d4df4c44d6f8d480b9",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/60bdf1da7460303f9a478f83c0f6754e0985118a"
+        },
+        "date": 1736880117430,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sequencer/aztec.sequencer.block.build_duration",
+            "value": 4565,
+            "unit": "ms"
+          },
+          {
+            "name": "Sequencer/aztec.sequencer.block.time_per_mana",
+            "value": 3.4300492898082946,
+            "unit": "us/mana"
+          },
+          {
+            "name": "Sequencer/aztec.sequencer.block_builder_tree_insertion_duration",
+            "value": 663670,
             "unit": "us"
           }
         ]
