@@ -1,3 +1,4 @@
+import { ContractArtifact } from "@aztec/aztec.js";
 import { type AuthWitness, type TxHash } from "@aztec/circuit-types";
 import { type AztecAddress, Fr, GasSettings } from "@aztec/circuits.js";
 import { type LogFn } from "@aztec/foundation/log";
@@ -153,7 +154,7 @@ export class WalletDB {
 
   async storeContract(
     address: AztecAddress,
-    artifactPath: string,
+    artifact: ContractArtifact,
     log: LogFn = this.#userLog,
     alias?: string
   ) {
@@ -162,13 +163,19 @@ export class WalletDB {
         `contracts:${alias}`,
         Buffer.from(address.toString())
       );
-      await this.#aliases.set(`artifacts:${alias}`, Buffer.from(artifactPath));
+      await this.#aliases.set(
+        `artifacts:${alias}`,
+        Buffer.from(JSON.stringify(artifact))
+      );
     }
     await this.#aliases.set(`contracts:last`, Buffer.from(address.toString()));
-    await this.#aliases.set(`artifacts:last`, Buffer.from(artifactPath));
+    await this.#aliases.set(
+      `artifacts:last`,
+      Buffer.from(JSON.stringify(artifact))
+    );
     await this.#aliases.set(
       `artifacts:${address.toString()}`,
-      Buffer.from(artifactPath)
+      Buffer.from(JSON.stringify(artifact))
     );
     log(
       `Contract stored in database with alias${

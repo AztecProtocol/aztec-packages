@@ -14,13 +14,18 @@ import { getSchnorrAccount } from "@aztec/accounts/schnorr";
 import { AztecAddress, deriveSigningKey } from "@aztec/circuits.js";
 import AddIcon from "@mui/icons-material/Add";
 import logoURL from "../../assets/Aztec_logo.png";
+import { Typography } from "@mui/material";
+import {
+  formatAddressAsString,
+  parseAliasedAddresses,
+} from "../../utils/addresses";
 
 const container = css({
   display: "flex",
   flexDirection: "column",
   height: "100%",
   width: "25vw",
-  backgroundColor: "var(--main-accent-color)",
+  backgroundColor: "var(--mui-palette-primary-light)",
   overflow: "hidden",
   padding: "0 0.5rem",
 });
@@ -34,12 +39,14 @@ const header = css({
   display: "flex",
   flexDirection: "row",
   height: "5rem",
+  width: "100%",
   alignItems: "center",
+  marginBottom: "1rem",
 });
 
 const logo = css({
   height: "90%",
-  margin: "0.5rem 0.5rem 0rem 0rem",
+  margin: "0.5rem 1rem 0rem 0rem",
 });
 
 const NETWORKS = [
@@ -49,25 +56,6 @@ const NETWORKS = [
   },
   { nodeURL: "http://34.145.98.34:8080", name: "Devnet" },
 ];
-
-const convertAztecAddressFromUTF8BufferAsString = (bufferAsString: string) => {
-  return String.fromCharCode(...bufferAsString.split(",").map((x) => +x));
-};
-
-const parseAliasedAccounts = (
-  aliasedAccounts: { key: string; value: string }[]
-) => {
-  return aliasedAccounts
-    .filter((account) => account.key !== "accounts:last")
-    .map(({ key, value }) => ({
-      key,
-      value: convertAztecAddressFromUTF8BufferAsString(value),
-    }));
-};
-
-const formatAddressAsString = (addressAsString: string) => {
-  return `${addressAsString.slice(0, 4)}...${addressAsString.slice(-4)}`;
-};
 
 export function SidebarComponent() {
   const {
@@ -101,7 +89,7 @@ export function SidebarComponent() {
     const walletDB = WalletDB.getInstance();
     walletDB.init(walletDBStore, walletLogger.info);
     const aliasedAccounts = await walletDB.listAliases("accounts");
-    setAccounts(parseAliasedAccounts(aliasedAccounts));
+    setAccounts(parseAliasedAddresses(aliasedAccounts));
     setWalletDB(walletDB);
     setPXE(pxe);
     setPXEInitialized(true);
@@ -137,7 +125,7 @@ export function SidebarComponent() {
       salt,
     });
     const aliasedAccounts = await walletDB.listAliases("accounts");
-    setAccounts(parseAliasedAccounts(aliasedAccounts));
+    setAccounts(parseAliasedAddresses(aliasedAccounts));
     setOpenCreateAccountDialog(false);
   };
 
@@ -145,8 +133,12 @@ export function SidebarComponent() {
     <div css={container}>
       <div css={header}>
         <img css={logo} src={logoURL} />
-
-        <h1>GAztec</h1>
+        <Typography
+          variant="h1"
+          sx={{ fontSize: "65px", padding: 0, marginTop: "0.5rem" }}
+        >
+          GAztec
+        </Typography>
       </div>
       <FormControl css={select}>
         <InputLabel>Network</InputLabel>

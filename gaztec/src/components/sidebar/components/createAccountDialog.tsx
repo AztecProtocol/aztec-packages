@@ -2,7 +2,13 @@ import DialogTitle from "@mui/material/DialogTitle";
 import Dialog from "@mui/material/Dialog";
 import { AccountWalletWithSecretKey, Fr, PXE } from "@aztec/aztec.js";
 import { getSchnorrAccount } from "@aztec/accounts/schnorr";
-import { Button, CircularProgress, TextField, css } from "@mui/material";
+import {
+  Button,
+  CircularProgress,
+  TextField,
+  Typography,
+  css,
+} from "@mui/material";
 import { useState } from "react";
 import { deriveSigningKey } from "@aztec/circuits.js";
 
@@ -56,7 +62,7 @@ export function CreateAccountDialog({
       <div css={creationForm}>
         {deployingAccount ? (
           <>
-            <span>Deploying...</span>
+            <Typography>Deploying...</Typography>
             <CircularProgress />
           </>
         ) : (

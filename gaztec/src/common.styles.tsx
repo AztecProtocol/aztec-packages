@@ -5,17 +5,31 @@ import "@fontsource/roboto/700.css";
 
 import { css } from "@emotion/react";
 
+import { ThemeOptions, createTheme } from "@mui/material/styles";
+
+const themeOptions: ThemeOptions & { cssVariables: boolean } = {
+  palette: {
+    mode: "light",
+    primary: {
+      main: "#646cff",
+    },
+    secondary: {
+      main: "#f50057",
+    },
+  },
+  cssVariables: true,
+};
+
+export const theme = createTheme(themeOptions);
+
 export const globalStyle = css({
   ":root": {
-    fontFamily: "Inter, system-ui, Avenir, Helvetica, Arial, sans-serif",
     lineHeight: 1.5,
     fontWeight: 400,
     margin: 0,
     padding: 0,
 
     colorScheme: "light dark",
-    "--main-text-color": "rgba(255, 255, 255, 0.87)",
-    color: "var(--main-text-color)",
 
     "--main-accent-color": "#646cff",
 
@@ -27,24 +41,10 @@ export const globalStyle = css({
     MozOsxFontSmoothing: "grayscale",
   },
 
-  a: {
-    fontWeight: 500,
-    color: "#646cff",
-    textDecoration: "inherit",
-  },
-  "a:hover": {
-    color: "#535bf2",
-  },
-
   body: {
     margin: 0,
     display: "flex",
     minWidth: "100vw",
     minHeight: "100vh",
-  },
-
-  h1: {
-    fontSize: "3.2em",
-    lineHeight: 1.1,
   },
 });
