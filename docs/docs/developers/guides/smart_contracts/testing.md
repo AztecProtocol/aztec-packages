@@ -216,7 +216,7 @@ You can also use the `assert_public_call_fails` or `assert_private_call_fails` m
 ### Logging
 
 <<<<<<<< HEAD:docs/docs/developers/guides/smart_contracts/testing_contracts/testing.md
-You can use `aztec.nr`'s oracles as usual for debug logging, as explained [here](../../../reference/debugging.md)
+You can use `aztec.nr`'s oracles as usual for debug logging, as explained [here](../../reference/debugging.md)
 ========
 You can use `aztec.nr`'s oracles as usual for debug logging, as explained [here](../../../reference/developer_references/debugging.md)
 >>>>>>>> origin:docs/docs/developers/guides/smart_contracts/testing.md
