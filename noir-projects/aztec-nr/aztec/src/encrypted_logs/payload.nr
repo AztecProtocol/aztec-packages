@@ -66,6 +66,9 @@ pub fn compute_private_log_payload<let P: u32>(
     array_concat([tag], bytes_to_fields(encrypted))
 }
 
+// We return [Field; 1 + (M + 30) / 31], where M is the byte length of output of encryption because
+// each field (apart from the tag) contains 31 bytes so the length in fields is computed as ceil(setup_log_byte_length / 31)
+// --> we achieve rounding by adding 30 and then dividing without remainder, then add one for the 32 byte tag
 pub fn compute_partial_public_log_payload<let P: u32, let M: u32>(
     contract_address: AztecAddress,
     recipient: AztecAddress,
