@@ -304,7 +304,6 @@ template <typename Flavor> class SumcheckProver {
 
             // Store the evaluation at the challenge. Could be optimized
             round_univariate_evaluations[0][2] = round_univariate.evaluate(round_challenge);
-            info("prover eval at challenge", round_idx, " ", round_univariate.evaluate(round_challenge));
 
             multivariate_challenge.emplace_back(round_challenge);
             // Prepare sumcheck book-keeping table for the next round
@@ -340,7 +339,6 @@ template <typename Flavor> class SumcheckProver {
                 transcript->template get_challenge<FF>("Sumcheck:u_" + std::to_string(round_idx));
 
             round_univariate_evaluations[round_idx][2] = round_univariate.evaluate(round_challenge);
-            info("prover eval at challenge", round_idx, " ", round_univariate.evaluate(round_challenge));
 
             multivariate_challenge.emplace_back(round_challenge);
             // Prepare sumcheck book-keeping table for the next round
@@ -841,12 +839,19 @@ template <typename Flavor> class SumcheckVerifier {
         for (size_t round_idx = 1; round_idx < CONST_PROOF_SIZE_LOG_N; round_idx++) {
             round_univariate_evaluations[round_idx - 1][2] =
                 round_univariate_evaluations[round_idx][0] + round_univariate_evaluations[round_idx][1];
+            if constexpr (IsRecursiveFlavor<Flavor>) {
+                round_univariate_evaluations[round_idx - 1][2].self_reduce();
+            };
         }
 
         if constexpr (IsRecursiveFlavor<Flavor>) {
-            verified =
-                (round_univariate_evaluations[0][0].get_value() + round_univariate_evaluations[0][1].get_value() ==
-                 round.target_total_sum.get_value());
+            FF first_sumcheck_round_evaluations_sum =
+                round_univariate_evaluations[0][0] + round_univariate_evaluations[0][1];
+            first_sumcheck_round_evaluations_sum.self_reduce();
+            round.target_total_sum.self_reduce();
+
+            verified = (first_sumcheck_round_evaluations_sum.get_value() == round.target_total_sum.get_value());
+            info("verified?", verified);
         } else {
             verified = verified && (round_univariate_evaluations[0][0] + round_univariate_evaluations[0][1] ==
                                     round.target_total_sum);
@@ -876,9 +881,6 @@ template <typename Flavor> class SumcheckVerifier {
                                                                                          correcting_factor);
 
         round_univariate_evaluations[multivariate_d - 1][2] = full_honk_purported_value;
-        info("last eval at 0", round_univariate_evaluations[multivariate_d - 1][0]);
-        info("last eval at 1", round_univariate_evaluations[multivariate_d - 1][1]);
-        info("last eval at challenge", round_univariate_evaluations[multivariate_d - 1][2]);
 
         //! [Final Verification Step]
         // For ZK Flavors: the evaluations of Libra univariates are included in the Sumcheck Output
