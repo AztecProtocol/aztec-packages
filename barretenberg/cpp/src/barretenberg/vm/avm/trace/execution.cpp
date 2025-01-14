@@ -403,6 +403,7 @@ std::vector<Row> Execution::gen_trace(AvmPublicInputs const& public_inputs,
 
     // Loop over all the public call requests
     auto const phases = { TxExecutionPhase::SETUP, TxExecutionPhase::APP_LOGIC, TxExecutionPhase::TEARDOWN };
+    size_t enqueued_call_hint_index = 0;
     for (auto phase : phases) {
         const auto public_call_requests = phase == TxExecutionPhase::SETUP       ? setup_call_requests
                                           : phase == TxExecutionPhase::APP_LOGIC ? app_logic_call_requests
@@ -447,11 +448,11 @@ std::vector<Row> Execution::gen_trace(AvmPublicInputs const& public_inputs,
             auto public_call_request = public_call_requests.at(i);
             trace_builder.set_public_call_request(public_call_request);
             // At the start of each enqueued call, we read the enqueued call hints
-            auto enqueued_call_hint = execution_hints.enqueued_call_hints.at(i);
+            auto enqueued_call_hint = execution_hints.enqueued_call_hints.at(enqueued_call_hint_index++);
             ASSERT(public_call_request.contract_address == enqueued_call_hint.contract_address);
             // Execute!
-            phase_error =
-                Execution::execute_enqueued_call(trace_builder, enqueued_call_hint, returndata, apply_e2e_assertions);
+            phase_error = Execution::execute_enqueued_call(
+                phase, trace_builder, enqueued_call_hint, returndata, apply_e2e_assertions);
 
             if (!is_ok(phase_error)) {
                 info("Phase ", to_name(phase), " reverted.");
@@ -468,6 +469,13 @@ std::vector<Row> Execution::gen_trace(AvmPublicInputs const& public_inputs,
             throw std::runtime_error("A revert was encountered in the SETUP phase, killing the entire TX");
             break;
         }
+        vinfo("Ended phase ",
+              to_name(phase),
+              " with ",
+              trace_builder.get_l2_gas_left(),
+              " L2 gas left and ",
+              trace_builder.get_da_gas_left(),
+              " DA gas left");
     }
 
     if (apply_e2e_assertions) {
@@ -493,12 +501,17 @@ std::vector<Row> Execution::gen_trace(AvmPublicInputs const& public_inputs,
  * @returns the error/result of the enqueued call
  *
  */
-AvmError Execution::execute_enqueued_call(AvmTraceBuilder& trace_builder,
+AvmError Execution::execute_enqueued_call(TxExecutionPhase phase,
+                                          AvmTraceBuilder& trace_builder,
                                           AvmEnqueuedCallHint& enqueued_call_hint,
                                           std::vector<FF>& returndata,
                                           bool check_bytecode_membership)
 {
     AvmError error = AvmError::NO_ERROR;
+
+    // save gas before phase for use after teardown (teardown shouldn't  affect end gas)
+    const auto l2_gas_left_before_enqueued_call = trace_builder.get_l2_gas_left();
+    const auto da_gas_left_before_enqueued_call = trace_builder.get_da_gas_left();
 
     // These hints help us to set up first call ctx
     auto context_id = trace_builder.next_context_id;
@@ -1124,7 +1137,12 @@ AvmError Execution::execute_enqueued_call(AvmTraceBuilder& trace_builder,
                  " IC: ",
                  error_ic);
 
-            trace_builder.handle_exceptional_halt();
+            // For nested calls or non-teardown-enqueued-calls, handle the exceptional halt
+            // (consume all gas). Don't  do it for teardown enqueued call because gas needs
+            // to be reset after teardown (teardown doesn't count towards end-gas).
+            if (!is_top_level || phase != TxExecutionPhase::TEARDOWN) {
+                trace_builder.handle_exceptional_halt();
+            }
 
             if (is_top_level) {
                 break;
@@ -1139,6 +1157,10 @@ AvmError Execution::execute_enqueued_call(AvmTraceBuilder& trace_builder,
             // reset error as we've now returned to caller
             error = AvmError::NO_ERROR;
         }
+    }
+    if (phase == TxExecutionPhase::TEARDOWN) {
+        // todo does this work on exceptional halt too?
+        trace_builder.handle_end_of_teardown(l2_gas_left_before_enqueued_call, da_gas_left_before_enqueued_call);
     }
     return error;
 }
