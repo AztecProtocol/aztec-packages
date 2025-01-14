@@ -41,7 +41,7 @@ export async function addL1Validator({
   withdrawerAddress,
   log,
   debugLogger,
-}: RollupCommandArgs & LoggerArgs & { validatorAddress: EthAddress}) {
+}: RollupCommandArgs & LoggerArgs & { validatorAddress: EthAddress }) {
   const config = getL1ContractsConfigEnvVars();
   const dualLog = makeDualLog(log, debugLogger);
   const publicClient = getPublicClient(rpcUrl, chainId);
