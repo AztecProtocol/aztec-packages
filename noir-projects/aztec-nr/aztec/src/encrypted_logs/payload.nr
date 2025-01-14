@@ -128,6 +128,9 @@ fn compute_encrypted_log<let P: u32, let M: u32>(
     // Then we fill in the rest as the incoming body ciphertext
     let size = M - offset;
     assert_eq(size, incoming_body_ciphertext.len(), "ciphertext length mismatch");
+    // Nargo seems to struggle with realizing that `offset` is a constant at this point.
+    // We then redefine it in terms of the assertion above to give nargo a hint.
+    let offset = M - incoming_body_ciphertext.len();
     for i in 0..size {
         encrypted_bytes[offset + i] = incoming_body_ciphertext[i];
     }

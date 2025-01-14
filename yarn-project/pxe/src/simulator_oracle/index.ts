@@ -31,8 +31,12 @@ import { type FunctionArtifact, getFunctionArtifact } from '@aztec/foundation/ab
 import { poseidon2Hash } from '@aztec/foundation/crypto';
 import { createLogger } from '@aztec/foundation/log';
 import { type KeyStore } from '@aztec/key-store';
-import { MessageLoadOracleInputs } from '@aztec/simulator/acvm';
-import { type AcirSimulator, type DBOracle } from '@aztec/simulator/client';
+import {
+  type AcirSimulator,
+  type DBOracle,
+  MessageLoadOracleInputs,
+  type SimulationProvider,
+} from '@aztec/simulator/client';
 
 import { type ContractDataOracle } from '../contract_data_oracle/index.js';
 import { type PxeDatabase } from '../database/index.js';
@@ -50,6 +54,7 @@ export class SimulatorOracle implements DBOracle {
     private db: PxeDatabase,
     private keyStore: KeyStore,
     private aztecNode: AztecNode,
+    private simulationProvider: SimulationProvider,
     private log = createLogger('pxe:simulator_oracle'),
   ) {}
 
@@ -606,7 +611,8 @@ export class SimulatorOracle implements DBOracle {
           // I don't like this at all, but we need a simulator to run `computeNoteHashAndOptionallyANullifier`. This generates
           // a chicken-and-egg problem due to this oracle requiring a simulator, which in turn requires this oracle. Furthermore, since jest doesn't allow
           // mocking ESM exports, we have to pollute the method even more by providing a simulator parameter so tests can inject a fake one.
-          simulator ?? getAcirSimulator(this.db, this.aztecNode, this.keyStore, this.contractDataOracle),
+          simulator ??
+            getAcirSimulator(this.db, this.aztecNode, this.keyStore, this.simulationProvider, this.contractDataOracle),
           this.db,
           notePayload ? recipient.toAddressPoint() : undefined,
           payload!,

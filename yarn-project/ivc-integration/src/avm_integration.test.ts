@@ -113,7 +113,7 @@ describe('AVM Integration', () => {
       path.join(bbWorkingDirectory, 'proof'),
       path.join(bbWorkingDirectory, 'vk'),
       'ultra_honk',
-      logger.info,
+      logger,
     );
 
     expect(verifyResult.status).toBe(BB_RESULT.SUCCESS);
@@ -121,7 +121,15 @@ describe('AVM Integration', () => {
 });
 
 async function proveAvmTestContract(functionName: string, calldata: Fr[] = []): Promise<BBSuccess> {
-  const avmCircuitInputs = await simulateAvmTestContractGenerateCircuitInputs(functionName, calldata);
+  const avmCircuitInputs = await simulateAvmTestContractGenerateCircuitInputs(
+    /*setupFunctionNames=*/ [],
+    /*setupArgs=*/ [],
+    /*appFunctionNames=*/ [functionName],
+    /*appArgs=*/ [calldata],
+    /*teardownFunctionName=*/ undefined,
+    /*teardownArgs=*/ [],
+    /*expectRevert=*/ false,
+  );
 
   const internalLogger = createLogger('ivc-integration:test:avm-proving');
 

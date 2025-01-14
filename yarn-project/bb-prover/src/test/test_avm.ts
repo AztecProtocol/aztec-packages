@@ -28,7 +28,7 @@ import {
 } from '@aztec/circuits.js';
 import { computeVarArgsHash } from '@aztec/circuits.js/hash';
 import { padArrayEnd } from '@aztec/foundation/collection';
-import { type PublicFunctionCallResult } from '@aztec/simulator';
+import { type PublicFunctionCallResult } from '@aztec/simulator/server';
 
 // TODO: pub somewhere more usable - copied from abstract phase manager
 export function getPublicInputs(result: PublicFunctionCallResult): PublicCircuitPublicInputs {

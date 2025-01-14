@@ -73,7 +73,7 @@ jobs:
           ./rebuild.sh
           ./gates_report.sh
           mv gates_report.json ../gates_report.json
-      
+
       - name: Compare gates reports
         id: gates_diff
         uses: noir-lang/noir-gates-diff@7e4ddaa91c69380f15ccba514eac17bc7432a8cc
@@ -139,7 +139,7 @@ jobs:
           message: ${{ steps.brillig_bytecode_diff.outputs.markdown }}
 
   compare_brillig_execution_reports:
-    name: Brillig execution trace sizes  
+    name: Brillig execution trace sizes
     needs: [build-nargo]
     runs-on: ubuntu-22.04
     permissions:
@@ -188,7 +188,7 @@ jobs:
           message: ${{ steps.brillig_execution_diff.outputs.markdown }}
 
   generate_memory_report:
-    name: Peak memory usage  
+    name: Peak memory usage
     needs: [build-nargo]
     runs-on: ubuntu-22.04
     permissions:
@@ -303,11 +303,11 @@ jobs:
           - project: { repo: AztecProtocol/aztec-packages, path: noir-projects/noir-protocol-circuits/crates/private-kernel-inner, take_average: true }
           - project: { repo: AztecProtocol/aztec-packages, path: noir-projects/noir-protocol-circuits/crates/private-kernel-tail, take_average: true  }
           - project: { repo: AztecProtocol/aztec-packages, path: noir-projects/noir-protocol-circuits/crates/private-kernel-reset, take_average: true }
-          - project: { repo: AztecProtocol/aztec-packages, path: noir-projects/noir-protocol-circuits/crates/rollup-root }
+          - project: { repo: AztecProtocol/aztec-packages, path: noir-projects/noir-protocol-circuits/crates/rollup-root, take_average: true }
           #- project: { repo: AztecProtocol/aztec-packages, path: noir-projects/noir-protocol-circuits/crates/rollup-block-root }
-          - project: { repo: AztecProtocol/aztec-packages, path: noir-projects/noir-protocol-circuits/crates/rollup-block-merge }
-          - project: { repo: AztecProtocol/aztec-packages, path: noir-projects/noir-protocol-circuits/crates/rollup-base-private }
-          - project: { repo: AztecProtocol/aztec-packages, path: noir-projects/noir-protocol-circuits/crates/rollup-base-public }
+          - project: { repo: AztecProtocol/aztec-packages, path: noir-projects/noir-protocol-circuits/crates/rollup-block-merge, take_average: true }
+          - project: { repo: AztecProtocol/aztec-packages, path: noir-projects/noir-protocol-circuits/crates/rollup-base-private, take_average: true }
+          - project: { repo: AztecProtocol/aztec-packages, path: noir-projects/noir-protocol-circuits/crates/rollup-base-public, take_average: true }
 
     name: External repo compilation and execution reports - ${{ matrix.project.repo }}/${{ matrix.project.path }}
     steps:
@@ -576,17 +576,19 @@ jobs:
         run: |
           mv ./.github/scripts/merge-bench-reports.sh merge-bench-reports.sh
           ./merge-bench-reports.sh memory_report
+          # Rename the memory report as to not clash with the compilation memory report file name
+          cp memory_report.json execution_memory_report.json
 
       - name: Parse compilation memory report
         id: compilation_mem_report
         uses: noir-lang/noir-bench-report@6ba151d7795042c4ff51864fbeb13c0a6a79246c
         with:
-          report: memory_report.json
+          report: execution_memory_report.json
           header: |
             Compilation Memory Report
           memory_report: true
 
-      - name: Add memory report to sticky comment
+      - name: Add execution memory report to sticky comment
         if: github.event_name == 'pull_request' || github.event_name == 'pull_request_target'
         uses: marocchino/sticky-pull-request-comment@v2
         with:

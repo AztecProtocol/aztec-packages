@@ -115,7 +115,7 @@ export class FullProverTest {
       this.keys = accountKeys;
       const accountManagers = accountKeys.map(ak => getSchnorrAccount(pxe, ak[0], ak[1], SALT));
       this.wallets = await Promise.all(accountManagers.map(a => a.getWallet()));
-      this.accounts = await pxe.getRegisteredAccounts();
+      this.accounts = accountManagers.map(a => a.getCompleteAddress());
       this.wallets.forEach((w, i) => this.logger.verbose(`Wallet ${i} address: ${w.getAddress()}`));
     });
 
