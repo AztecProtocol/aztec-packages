@@ -78,9 +78,9 @@ export function injectCommands(program: Command, log: LogFn, debugLogger: Logger
       'test test test test test test test test test test test junk',
     )
     .addOption(l1ChainIdOption)
-    .option('--validator <addresse>', 'ethereum address of the validator', parseEthereumAddress)
+    .option('--validator <address>', 'ethereum address of the validator', parseEthereumAddress)
     .option('--rollup <address>', 'ethereum address of the rollup contract', parseEthereumAddress)
-    .option(`--withdrawer <address>', 'ethereum address of the withdrawer`, parseEthereumAddress)
+    .option('--withdrawer <address>', 'ethereum address of the withdrawer', parseEthereumAddress)
     .action(async options => {
       const { addL1Validator } = await import('./update_l1_validators.js');
       await addL1Validator({
