@@ -19,6 +19,7 @@ storage:
 telemetry:
   enabled: false
   otelCollectorEndpoint:
+  useGcloudObservability: false
 
 images:
   aztec:
