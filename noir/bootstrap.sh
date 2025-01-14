@@ -4,7 +4,7 @@ source $(git rev-parse --show-toplevel)/ci3/source_bootstrap
 cmd=${1:-}
 
 # WORKTODO(ci3) remove this -2
-export hash=$(cache_content_hash .rebuild_patterns)-3
+export hash=$(cache_content_hash .rebuild_patterns)
 export test_hash=$(cache_content_hash .rebuild_patterns .rebuild_patterns_tests)
 
 export js_projects="
@@ -17,7 +17,7 @@ export js_projects="
 export js_include=$(printf " --include %s" $js_projects)
 
 # Fake this so artifacts have a consistent hash in the cache and not git hash dependent.
-export COMMIT_HASH="0000000000000000000000000000000000000000"
+export GIT_COMMIT="0000000000000000000000000000000000000000"
 export SOURCE_DATE_EPOCH=0
 export GIT_DIRTY=false
 export RUSTFLAGS="-Dwarnings"
@@ -108,7 +108,8 @@ function test_cmds {
         "noir/scripts/run_test.sh \($binary) \(.key)"' | \
       sed "s|$PWD/target/release/deps/||" | \
       awk "{print \"$test_hash \" \$0 }"
-  echo "$test_hash cd noir/noir-repo && GIT_COMMIT=$COMMIT_HASH NARGO=$PWD/target/release/nargo yarn workspaces foreach --parallel --topological-dev --verbose $js_include run test"
+  echo "$test_hash cd noir/noir-repo && GIT_COMMIT=$GIT_COMMIT NARGO=$PWD/target/release/nargo yarn workspaces foreach --parallel --topological-dev --verbose $js_include run test"
+  echo "$test_hash noir/bootstrap.sh format --check"
 }
 
 function format {
@@ -121,7 +122,7 @@ function format {
   else
     ./format.sh
   fi
-  cd noir_stdlib
+  cd ../noir_stdlib
   nargo fmt $arg
 }
 

@@ -15,7 +15,7 @@ set -eux
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 # Main positional parameter
-TEST=${1:-}
+TEST="$1"
 
 REPO=$(git rev-parse --show-toplevel)
 if [ "$(uname)" = "Linux" ] && [ "$(uname -m)" = "x86_64" ]; then
@@ -39,15 +39,9 @@ if [ -z "${NAMESPACE:-}" ]; then
   exit 1
 fi
 
-# Always check for the aztec image
-if ! docker image ls --format '{{.Repository}}:{{.Tag}}' | grep -q "aztecprotocol/aztec:$AZTEC_DOCKER_TAG"; then
-  echo "Aztec Docker image not found. It needs to be built with 'earthly ./yarn-project/+export-e2e-test-images' or otherwise tagged with aztecprotocol/aztec:$AZTEC_DOCKER_TAG."
-  exit 1
-fi
-
-# Only check for end-to-end image if a test is specified
-if [ -n "$TEST" ] && ! docker image ls --format '{{.Repository}}:{{.Tag}}' | grep -q "aztecprotocol/end-to-end:$AZTEC_DOCKER_TAG"; then
-  echo "End-to-end Docker image not found. It needs to be built with 'earthly ./yarn-project/+export-e2e-test-images' or otherwise tagged with aztecprotocol/end-to-end:$AZTEC_DOCKER_TAG."
+if ! docker image ls --format '{{.Repository}}:{{.Tag}}' | grep -q "aztecprotocol/aztec:$AZTEC_DOCKER_TAG" || \
+   ! docker image ls --format '{{.Repository}}:{{.Tag}}' | grep -q "aztecprotocol/end-to-end:$AZTEC_DOCKER_TAG"; then
+  echo "Docker images not found."
   exit 1
 fi
 
@@ -62,16 +56,16 @@ fi
 STERN_PID=""
 function copy_stern_to_log() {
   ulimit -n 4096
-  stern spartan -n $NAMESPACE >$SCRIPT_DIR/network-test.log &
-  echo "disabled until less resource intensive solution than stern implemented" >$SCRIPT_DIR/network-test.log &
+  stern spartan -n $NAMESPACE > $SCRIPT_DIR/network-test.log &
+  echo "disabled until less resource intensive solution than stern implemented" > $SCRIPT_DIR/network-test.log &
   STERN_PID=$!
 }
 
 function show_status_until_pxe_ready() {
-  set +x   # don't spam with our commands
+  set +x # don't spam with our commands
   sleep 15 # let helm upgrade start
-  for i in {1..100}; do
-    if kubectl wait pod -l app==pxe --for=condition=Ready -n "$NAMESPACE" --timeout=20s >/dev/null 2>/dev/null; then
+  for i in {1..100} ; do
+    if kubectl wait pod -l app==pxe --for=condition=Ready -n "$NAMESPACE" --timeout=20s >/dev/null 2>/dev/null ; then
       break # we are up, stop showing status
     fi
     # show startup status
@@ -79,40 +73,42 @@ function show_status_until_pxe_ready() {
   done
 }
 
+# Handle and check chaos mesh setup
 handle_network_shaping() {
-  if [ -n "${CHAOS_VALUES:-}" ]; then
-    echo "Checking chaos-mesh setup..."
+    if [ -n "${CHAOS_VALUES:-}" ]; then
+        echo "Checking chaos-mesh setup..."
 
-    if ! kubectl get service chaos-daemon -n chaos-mesh &>/dev/null; then
-      # If chaos mesh is not installed, we check the INSTALL_CHAOS_MESH flag
-      # to determine if we should install it.
-      if [ "$INSTALL_CHAOS_MESH" ]; then
-        echo "Installing chaos-mesh..."
-        cd "$REPO/spartan/chaos-mesh" && ./install.sh
-      else
-        echo "Error: chaos-mesh namespace not found!"
-        echo "Please set up chaos-mesh first. You can do this by running:"
-        echo "cd $REPO/spartan/chaos-mesh && ./install.sh"
-        exit 1
-      fi
+        if ! kubectl get service chaos-daemon -n chaos-mesh &>/dev/null; then
+            # If chaos mesh is not installed, we check the INSTALL_CHAOS_MESH flag
+            # to determine if we should install it.
+            if [ "$INSTALL_CHAOS_MESH" ]; then
+              echo "Installing chaos-mesh..."
+              cd "$REPO/spartan/chaos-mesh" && ./install.sh
+            else
+              echo "Error: chaos-mesh namespace not found!"
+              echo "Please set up chaos-mesh first. You can do this by running:"
+              echo "cd $REPO/spartan/chaos-mesh && ./install.sh"
+              exit 1
+            fi
+        fi
+
+        echo "Deploying Aztec Chaos Scenarios..."
+        if ! helm upgrade --install aztec-chaos-scenarios "$REPO/spartan/aztec-chaos-scenarios/" \
+            --namespace chaos-mesh \
+            --values "$REPO/spartan/aztec-chaos-scenarios/values/$CHAOS_VALUES" \
+            --set global.targetNamespace="$NAMESPACE" \
+            --wait \
+            --timeout=5m; then
+            echo "Error: failed to deploy Aztec Chaos Scenarios!"
+            return 1
+        fi
+
+        echo "Aztec Chaos Scenarios applied successfully"
+        return 0
     fi
-
-    echo "Deploying Aztec Chaos Scenarios..."
-    if ! helm upgrade --install aztec-chaos-scenarios "$REPO/spartan/aztec-chaos-scenarios/" \
-      --namespace chaos-mesh \
-      --values "$REPO/spartan/aztec-chaos-scenarios/values/$CHAOS_VALUES" \
-      --set global.targetNamespace="$NAMESPACE" \
-      --wait \
-      --timeout=5m; then
-      echo "Error: failed to deploy Aztec Chaos Scenarios!"
-      return 1
-    fi
-
-    echo "Aztec Chaos Scenarios applied successfully"
     return 0
-  fi
-  return 0
 }
+
 copy_stern_to_log
 show_status_until_pxe_ready &
 
@@ -136,13 +132,13 @@ VALUES_PATH="$REPO/spartan/aztec-network/values/$VALUES_FILE"
 
 # Install the Helm chart
 helm upgrade --install spartan "$REPO/spartan/aztec-network/" \
-  --namespace "$NAMESPACE" \
-  --create-namespace \
-  --values "$VALUES_PATH" \
-  --set images.aztec.image="aztecprotocol/aztec:$AZTEC_DOCKER_TAG" \
-  --wait \
-  --wait-for-jobs=true \
-  --timeout="$INSTALL_TIMEOUT"
+      --namespace "$NAMESPACE" \
+      --create-namespace \
+      --values "$VALUES_PATH" \
+      --set images.aztec.image="aztecprotocol/aztec:$AZTEC_DOCKER_TAG" \
+      --wait \
+      --wait-for-jobs=true \
+      --timeout="$INSTALL_TIMEOUT"
 
 kubectl wait pod -l app==pxe --for=condition=Ready -n "$NAMESPACE" --timeout=10m
 
@@ -172,33 +168,30 @@ fi
 
 # Get the values from the values file
 VALUES=$(cat "$VALUES_PATH")
-ETHEREUM_SLOT_DURATION=$(yq -r '.ethereum.blockTime' <<<"$VALUES")
-AZTEC_SLOT_DURATION=$(yq -r '.aztec.slotDuration' <<<"$VALUES")
-AZTEC_EPOCH_DURATION=$(yq -r '.aztec.epochDuration' <<<"$VALUES")
-AZTEC_EPOCH_PROOF_CLAIM_WINDOW_IN_L2_SLOTS=$(yq -r '.aztec.epochProofClaimWindow' <<<"$VALUES")
+ETHEREUM_SLOT_DURATION=$(yq -r '.ethereum.blockTime' <<< "$VALUES")
+AZTEC_SLOT_DURATION=$(yq -r '.aztec.slotDuration' <<< "$VALUES")
+AZTEC_EPOCH_DURATION=$(yq -r '.aztec.epochDuration' <<< "$VALUES")
+AZTEC_EPOCH_PROOF_CLAIM_WINDOW_IN_L2_SLOTS=$(yq -r '.aztec.epochProofClaimWindow' <<< "$VALUES")
 
-# Run the test if $TEST is not empty
-if [ -n "$TEST" ]; then
-  echo "RUNNING TEST: $TEST"
-  docker run --rm --network=host \
-    -v ~/.kube:/root/.kube \
-    -e K8S=local \
-    -e INSTANCE_NAME="spartan" \
-    -e SPARTAN_DIR="/usr/src/spartan" \
-    -e NAMESPACE="$NAMESPACE" \
-    -e HOST_PXE_PORT=$PXE_PORT \
-    -e CONTAINER_PXE_PORT=8081 \
-    -e HOST_ETHEREUM_PORT=$ANVIL_PORT \
-    -e CONTAINER_ETHEREUM_PORT=8545 \
-    -e HOST_METRICS_PORT=$METRICS_PORT \
-    -e CONTAINER_METRICS_PORT=80 \
-    -e GRAFANA_PASSWORD=$GRAFANA_PASSWORD \
-    -e DEBUG=${DEBUG:-""} \
-    -e LOG_JSON=1 \
-    -e LOG_LEVEL=${LOG_LEVEL:-"debug; info: aztec:simulator, json-rpc"} \
-    -e ETHEREUM_SLOT_DURATION=$ETHEREUM_SLOT_DURATION \
-    -e AZTEC_SLOT_DURATION=$AZTEC_SLOT_DURATION \
-    -e AZTEC_EPOCH_DURATION=$AZTEC_EPOCH_DURATION \
-    -e AZTEC_EPOCH_PROOF_CLAIM_WINDOW_IN_L2_SLOTS=$AZTEC_EPOCH_PROOF_CLAIM_WINDOW_IN_L2_SLOTS \
-    aztecprotocol/end-to-end:$AZTEC_DOCKER_TAG $TEST
-fi
+
+docker run --rm --network=host \
+  -v ~/.kube:/root/.kube \
+  -e K8S=local \
+  -e INSTANCE_NAME="spartan" \
+  -e SPARTAN_DIR="/usr/src/spartan" \
+  -e NAMESPACE="$NAMESPACE" \
+  -e HOST_PXE_PORT=$PXE_PORT \
+  -e CONTAINER_PXE_PORT=8081 \
+  -e HOST_ETHEREUM_PORT=$ANVIL_PORT \
+  -e CONTAINER_ETHEREUM_PORT=8545 \
+  -e HOST_METRICS_PORT=$METRICS_PORT \
+  -e CONTAINER_METRICS_PORT=80 \
+  -e GRAFANA_PASSWORD=$GRAFANA_PASSWORD \
+  -e DEBUG=${DEBUG:-""} \
+  -e LOG_JSON=1 \
+  -e LOG_LEVEL=${LOG_LEVEL:-"debug; info: aztec:simulator, json-rpc"} \
+  -e ETHEREUM_SLOT_DURATION=$ETHEREUM_SLOT_DURATION \
+  -e AZTEC_SLOT_DURATION=$AZTEC_SLOT_DURATION \
+  -e AZTEC_EPOCH_DURATION=$AZTEC_EPOCH_DURATION \
+  -e AZTEC_EPOCH_PROOF_CLAIM_WINDOW_IN_L2_SLOTS=$AZTEC_EPOCH_PROOF_CLAIM_WINDOW_IN_L2_SLOTS \
+  aztecprotocol/end-to-end:$AZTEC_DOCKER_TAG $TEST
