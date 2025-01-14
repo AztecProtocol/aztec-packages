@@ -54,8 +54,10 @@ abstract contract BaseHonkVerifier is IVerifier {
         // Generate the fiat shamir challenges for the whole protocol
         Transcript memory t = TranscriptLib.generateTranscript(p, publicInputs, numPublicInputs);
 
-        // Compute the public input delta
-        t.publicInputsDelta = computePublicInputDelta(publicInputs, t.beta, t.gamma, p.publicInputsOffset);
+        // Derive public input delta
+        t.relationParameters.publicInputsDelta = computePublicInputDelta(
+            publicInputs, t.relationParameters.beta, t.relationParameters.gamma, p.publicInputsOffset
+        );
 
         // Sumcheck
         bool sumcheckVerified = verifySumcheck(p, t);
@@ -114,7 +116,8 @@ abstract contract BaseHonkVerifier is IVerifier {
         }
 
         // Last round
-        Fr grandHonkRelationSum = RelationsLib.accumulateRelationEvaluations(proof, tp, powPartialEvaluation);
+        Fr grandHonkRelationSum =
+            RelationsLib.accumulateRelationEvaluations(proof, tp.relationParameters, tp.alphas, powPartialEvaluation);
         verified = (grandHonkRelationSum == roundTarget);
     }
 

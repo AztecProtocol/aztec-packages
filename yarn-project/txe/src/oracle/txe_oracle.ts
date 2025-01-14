@@ -63,25 +63,27 @@ import { Timer } from '@aztec/foundation/timer';
 import { type KeyStore } from '@aztec/key-store';
 import { ContractDataOracle, SimulatorOracle, enrichPublicSimulationError } from '@aztec/pxe';
 import {
-  ExecutionError,
   ExecutionNoteCache,
   type MessageLoadOracleInputs,
   type NoteData,
   Oracle,
-  type PackedValuesCache,
-  type PublicTxResult,
-  PublicTxSimulator,
   type TypedOracle,
-  acvm,
-  createSimulationError,
+  WASMSimulator,
   extractCallStack,
   extractPrivateCircuitPublicInputs,
   pickNotes,
-  resolveAssertionMessageFromError,
   toACVMWitness,
   witnessMapToFields,
-} from '@aztec/simulator';
-import { createTxForPublicCall } from '@aztec/simulator/public/fixtures';
+} from '@aztec/simulator/client';
+import { createTxForPublicCalls } from '@aztec/simulator/public/fixtures';
+import {
+  ExecutionError,
+  type HashedValuesCache,
+  type PublicTxResult,
+  PublicTxSimulator,
+  createSimulationError,
+  resolveAssertionMessageFromError,
+} from '@aztec/simulator/server';
 import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
 import { MerkleTreeSnapshotOperationsFacade, type MerkleTrees } from '@aztec/world-state';
 
@@ -116,12 +118,14 @@ export class TXE implements TypedOracle {
 
   private node = new TXENode(this.blockNumber);
 
+  private simulationProvider = new WASMSimulator();
+
   debug: LogFn;
 
   constructor(
     private logger: Logger,
     private trees: MerkleTrees,
-    private packedValuesCache: PackedValuesCache,
+    private executionCache: HashedValuesCache,
     private noteCache: ExecutionNoteCache,
     private keyStore: KeyStore,
     private txeDatabase: TXEDatabase,
@@ -130,7 +134,13 @@ export class TXE implements TypedOracle {
     this.contractAddress = AztecAddress.random();
     // Default msg_sender (for entrypoints) is now Fr.max_value rather than 0 addr (see #7190 & #7404)
     this.msgSender = AztecAddress.fromField(Fr.MAX_FIELD_VALUE);
-    this.simulatorOracle = new SimulatorOracle(this.contractDataOracle, txeDatabase, keyStore, this.node);
+    this.simulatorOracle = new SimulatorOracle(
+      this.contractDataOracle,
+      txeDatabase,
+      keyStore,
+      this.node,
+      this.simulationProvider,
+    );
 
     this.debug = createDebugOnlyLogger('aztec:kv-pxe-database');
   }
@@ -364,16 +374,16 @@ export class TXE implements TypedOracle {
     return Fr.random();
   }
 
-  packArgumentsArray(args: Fr[]) {
-    return Promise.resolve(this.packedValuesCache.pack(args));
+  storeArrayInExecutionCache(values: Fr[]) {
+    return Promise.resolve(this.executionCache.store(values));
   }
 
-  packReturns(returns: Fr[]) {
-    return Promise.resolve(this.packedValuesCache.pack(returns));
+  storeInExecutionCache(values: Fr[]) {
+    return Promise.resolve(this.executionCache.store(values));
   }
 
-  unpackReturns(returnsHash: Fr) {
-    return Promise.resolve(this.packedValuesCache.unpack(returnsHash));
+  loadFromExecutionCache(returnsHash: Fr) {
+    return Promise.resolve(this.executionCache.getPreimage(returnsHash));
   }
 
   getKeyValidationRequest(pkMHash: Fr): Promise<KeyValidationRequest> {
@@ -701,21 +711,23 @@ export class TXE implements TypedOracle {
     const initialWitness = await this.getInitialWitness(artifact, argsHash, sideEffectCounter, isStaticCall);
     const acvmCallback = new Oracle(this);
     const timer = new Timer();
-    const acirExecutionResult = await acvm(acir, initialWitness, acvmCallback).catch((err: Error) => {
-      err.message = resolveAssertionMessageFromError(err, artifact);
+    const acirExecutionResult = await this.simulationProvider
+      .executeUserCircuit(acir, initialWitness, acvmCallback)
+      .catch((err: Error) => {
+        err.message = resolveAssertionMessageFromError(err, artifact);
 
-      const execError = new ExecutionError(
-        err.message,
-        {
-          contractAddress: targetContractAddress,
-          functionSelector,
-        },
-        extractCallStack(err, artifact.debug),
-        { cause: err },
-      );
-      this.logger.debug(`Error executing private function ${targetContractAddress}:${functionSelector}`);
-      throw createSimulationError(execError);
-    });
+        const execError = new ExecutionError(
+          err.message,
+          {
+            contractAddress: targetContractAddress,
+            functionSelector,
+          },
+          extractCallStack(err, artifact.debug),
+          { cause: err },
+        );
+        this.logger.debug(`Error executing private function ${targetContractAddress}:${functionSelector}`);
+        throw createSimulationError(execError);
+      });
     const duration = timer.ms();
     const publicInputs = extractPrivateCircuitPublicInputs(artifact, acirExecutionResult.partialWitness);
 
@@ -766,7 +778,7 @@ export class TXE implements TypedOracle {
   async getInitialWitness(abi: FunctionAbi, argsHash: Fr, sideEffectCounter: number, isStaticCall: boolean) {
     const argumentsSize = countArgumentsSize(abi);
 
-    const args = this.packedValuesCache.unpack(argsHash);
+    const args = this.executionCache.getPreimage(argsHash);
 
     if (args.length !== argumentsSize) {
       throw new Error('Invalid arguments size');
@@ -840,7 +852,12 @@ export class TXE implements TypedOracle {
     // When setting up a teardown call, we tell it that
     // private execution used Gas(1, 1) so it can compute a tx fee.
     const gasUsedByPrivate = isTeardown ? new Gas(1, 1) : Gas.empty();
-    const tx = createTxForPublicCall(executionRequest, gasUsedByPrivate, isTeardown);
+    const tx = createTxForPublicCalls(
+      /*setupExecutionRequests=*/ [],
+      /*appExecutionRequests=*/ isTeardown ? [] : [executionRequest],
+      /*teardownExecutionRequests=*/ isTeardown ? executionRequest : undefined,
+      gasUsedByPrivate,
+    );
 
     const result = await simulator.simulate(tx);
 
@@ -872,8 +889,8 @@ export class TXE implements TypedOracle {
       isStaticCall,
     );
 
-    const args = [this.functionSelector.toField(), ...this.packedValuesCache.unpack(argsHash)];
-    const newArgsHash = this.packedValuesCache.pack(args);
+    const args = [this.functionSelector.toField(), ...this.executionCache.getPreimage(argsHash)];
+    const newArgsHash = this.executionCache.store(args);
 
     const executionResult = await this.executePublicFunction(args, callContext, isTeardown);
 

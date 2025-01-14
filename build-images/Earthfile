@@ -234,8 +234,8 @@ ci:
   ENV CI=1
 
   ARG TARGETARCH
-  SAVE IMAGE --push aztecprotocol/ci:2.0-$TARGETARCH
-  SAVE IMAGE --push aztecprotocol/ci:2.0
+  SAVE IMAGE --push aztecprotocol/ci:2.2-$TARGETARCH
+  SAVE IMAGE --push aztecprotocol/ci:2.2
 
 ########################################################################################################################
 # We want to produce downstream images: devbox and sysbox. This image is the base image for each.
@@ -477,7 +477,7 @@ aztec-base:
   ARG TARGETARCH
   SAVE IMAGE --push aztecprotocol/aztec-base:v1.0-$TARGETARCH
 
-# Add a new target for end-to-end-base that corresponds to the portion of Dockerfile.end-to-end before COPY /usr/src
+# Add a new target for end-to-end-base that corresponds to the portion of Dockerfile.end-to-end before COPY /usr/src.
 end-to-end-base:
   FROM ubuntu:noble
   # Add our dev testing dependencies.
@@ -500,11 +500,15 @@ end-to-end-base:
   SAVE IMAGE --push aztecprotocol/end-to-end-base:v1.0-$TARGETARCH
 
 all-ci:
+  LOCALLY
+  ARG TARGETARCH
   # Build all images needed by ci, pushing them to the registry.
   BUILD +base-build
   BUILD +wasi-sdk
   BUILD +foundry
   BUILD +build
-  BUILD +ci
+  IF [ $TARGETARCH = amd64 ]
+    BUILD +ci
+  END
   BUILD +aztec-base
   BUILD +end-to-end-base

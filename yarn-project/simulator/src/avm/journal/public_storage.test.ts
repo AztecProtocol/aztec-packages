@@ -3,7 +3,7 @@ import { Fr } from '@aztec/foundation/fields';
 
 import { type MockProxy, mock } from 'jest-mock-extended';
 
-import { type PublicStateDB } from '../../index.js';
+import { type PublicStateDB } from '../../server.js';
 import { PublicStorage } from './public_storage.js';
 
 describe('avm public storage', () => {

@@ -127,6 +127,8 @@ validator:
   viemPollingInterval: 1000
   storageSize: "1Gi"
   dataDir: "/data"
+  l1FixedPriorityFeePerGas: ""
+  l1GasLimitBufferPercentage: ""
 
 proverNode:
   proverPublisherPrivateKey: "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80"
@@ -147,7 +149,6 @@ proverNode:
     jobTimeoutMs: 30000
     pollIntervalMs: 1000
     jobMaxRetries: 3
-    dataDirectory: ""
   resources:
     requests:
       memory: "4Gi"
