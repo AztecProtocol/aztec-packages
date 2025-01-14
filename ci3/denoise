@@ -44,12 +44,12 @@ output=$(
 # Get the exit status of the command
 status=${PIPESTATUS[0]}
 
-if [ -n "$CI_REDIS" ]; then
+if [ "$CI_REDIS_AVAILABLE" -eq 1 ]; then
   key=$(uuid)
   {
     echo "Command: $1 (exit: $status)"
     echo "$output"
-  } | redis-cli -h $CI_REDIS -x SETEX $key 604800 &>/dev/null
+  } | redis_cli -x SETEX $key 604800 &>/dev/null
 fi
 
 # Handle non-zero exit status
@@ -61,7 +61,7 @@ else
   echo -e -n ". ${green}done${reset} (${SECONDS}s)"
 fi
 
-[ -n "$CI_REDIS" ] && echo -e -n " (${yellow}$key${reset})"
+[ "$CI_REDIS_AVAILABLE" -eq 1 ] && echo -e -n " (${yellow}$key${reset})" || true
 echo
 
 exit $status
