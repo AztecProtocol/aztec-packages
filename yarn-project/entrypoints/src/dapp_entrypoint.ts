@@ -29,13 +29,13 @@ export class DefaultDappEntrypoint implements EntrypointInterface {
     const payload = EntrypointPayload.fromFunctionCalls(calls);
 
     const abi = this.getEntrypointAbi();
-    const entrypointPackedArgs = HashedValues.fromValues(encodeArguments(abi, [payload, this.userAddress]));
+    const entrypointHashedArgs = HashedValues.fromValues(encodeArguments(abi, [payload, this.userAddress]));
     const functionSelector = FunctionSelector.fromNameAndParameters(abi.name, abi.parameters);
     // Default msg_sender for entrypoints is now Fr.max_value rather than 0 addr (see #7190 & #7404)
     const innerHash = computeInnerAuthWitHash([
       Fr.MAX_FIELD_VALUE,
       functionSelector.toField(),
-      entrypointPackedArgs.hash,
+      entrypointHashedArgs.hash,
     ]);
     const outerHash = computeAuthWitMessageHash(
       { consumer: this.dappEntrypointAddress, innerHash },
@@ -45,11 +45,11 @@ export class DefaultDappEntrypoint implements EntrypointInterface {
     const authWitness = await this.userAuthWitnessProvider.createAuthWit(outerHash);
 
     const txRequest = TxExecutionRequest.from({
-      firstCallArgsHash: entrypointPackedArgs.hash,
+      firstCallArgsHash: entrypointHashedArgs.hash,
       origin: this.dappEntrypointAddress,
       functionSelector,
       txContext: new TxContext(this.chainId, this.version, fee.gasSettings),
-      argsOfCalls: [...payload.hashedArguments, entrypointPackedArgs],
+      argsOfCalls: [...payload.hashedArguments, entrypointHashedArgs],
       authWitnesses: [authWitness],
     });
 

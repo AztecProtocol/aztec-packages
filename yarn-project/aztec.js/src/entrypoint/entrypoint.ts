@@ -14,7 +14,7 @@ export type ExecutionRequestInit = {
   calls: FunctionCall[];
   /** Any transient auth witnesses needed for this execution */
   authWitnesses?: AuthWitness[];
-  /** Any transient packed arguments for this execution */
+  /** Any transient hashed arguments for this execution */
   hashedArguments?: HashedValues[];
   /** How the fee is going to be payed */
   fee: FeeOptions;

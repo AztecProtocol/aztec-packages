@@ -343,7 +343,7 @@ export class ClientExecutionContext extends ViewDataOracle {
    * Calls a private function as a nested execution.
    * @param targetContractAddress - The address of the contract to call.
    * @param functionSelector - The function selector of the function to call.
-   * @param argsHash - The packed arguments to pass to the function.
+   * @param argsHash - The arguments hash to pass to the function.
    * @param sideEffectCounter - The side effect counter at the start of the call.
    * @param isStaticCall - Whether the call is a static call.
    * @returns The execution result.
@@ -408,7 +408,7 @@ export class ClientExecutionContext extends ViewDataOracle {
    * Creates a PublicExecutionRequest object representing the request to call a public function.
    * @param targetContractAddress - The address of the contract to call.
    * @param functionSelector - The function selector of the function to call.
-   * @param argsHash - The packed arguments to pass to the function.
+   * @param argsHash - The arguments hash to pass to the function.
    * @param sideEffectCounter - The side effect counter at the start of the call.
    * @param isStaticCall - Whether the call is a static call.
    * @returns The public call stack item with the request information.
@@ -454,7 +454,7 @@ export class ClientExecutionContext extends ViewDataOracle {
    * of the execution are empty.
    * @param targetContractAddress - The address of the contract to call.
    * @param functionSelector - The function selector of the function to call.
-   * @param argsHash - The packed arguments to pass to the function.
+   * @param argsHash - The arguments hash to pass to the function.
    * @param sideEffectCounter - The side effect counter at the start of the call.
    * @param isStaticCall - Whether the call is a static call.
    * @returns The public call stack item with the request information.
@@ -468,7 +468,7 @@ export class ClientExecutionContext extends ViewDataOracle {
   ): Promise<Fr> {
     // TODO(https://github.com/AztecProtocol/aztec-packages/issues/8985): Fix this.
     // WARNING: This is insecure and should be temporary!
-    // The oracle repacks the arguments and returns a new args_hash.
+    // The oracle re-hashes the arguments and returns a new args_hash.
     // new_args = [selector, ...old_args], so as to make it suitable to call the public dispatch function.
     // We don't validate or compute it in the circuit because a) it's harder to do with slices, and
     // b) this is only temporary.
@@ -493,7 +493,7 @@ export class ClientExecutionContext extends ViewDataOracle {
    * of the execution are empty.
    * @param targetContractAddress - The address of the contract to call.
    * @param functionSelector - The function selector of the function to call.
-   * @param argsHash - The packed arguments to pass to the function.
+   * @param argsHash - The arguments hash to pass to the function.
    * @param sideEffectCounter - The side effect counter at the start of the call.
    * @param isStaticCall - Whether the call is a static call.
    * @returns The public call stack item with the request information.
@@ -507,7 +507,7 @@ export class ClientExecutionContext extends ViewDataOracle {
   ): Promise<Fr> {
     // TODO(https://github.com/AztecProtocol/aztec-packages/issues/8985): Fix this.
     // WARNING: This is insecure and should be temporary!
-    // The oracle repacks the arguments and returns a new args_hash.
+    // The oracle rehashes the arguments and returns a new args_hash.
     // new_args = [selector, ...old_args], so as to make it suitable to call the public dispatch function.
     // We don't validate or compute it in the circuit because a) it's harder to do with slices, and
     // b) this is only temporary.

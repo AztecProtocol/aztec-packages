@@ -29,18 +29,18 @@ export class DefaultAccountEntrypoint implements EntrypointInterface {
     const feePayload = await EntrypointPayload.fromFeeOptions(this.address, fee);
 
     const abi = this.getEntrypointAbi();
-    const entrypointPackedArgs = HashedValues.fromValues(encodeArguments(abi, [appPayload, feePayload, !!cancellable]));
+    const entrypointHashedArgs = HashedValues.fromValues(encodeArguments(abi, [appPayload, feePayload, !!cancellable]));
 
     const combinedPayloadAuthWitness = await this.auth.createAuthWit(
       computeCombinedPayloadHash(appPayload, feePayload),
     );
 
     const txRequest = TxExecutionRequest.from({
-      firstCallArgsHash: entrypointPackedArgs.hash,
+      firstCallArgsHash: entrypointHashedArgs.hash,
       origin: this.address,
       functionSelector: FunctionSelector.fromNameAndParameters(abi.name, abi.parameters),
       txContext: new TxContext(this.chainId, this.version, fee.gasSettings),
-      argsOfCalls: [...appPayload.hashedArguments, ...feePayload.hashedArguments, entrypointPackedArgs],
+      argsOfCalls: [...appPayload.hashedArguments, ...feePayload.hashedArguments, entrypointHashedArgs],
       authWitnesses: [combinedPayloadAuthWitness],
     });
 

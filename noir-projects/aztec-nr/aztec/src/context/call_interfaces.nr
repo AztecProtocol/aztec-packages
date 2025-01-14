@@ -31,14 +31,14 @@ impl<let N: u32, T> PrivateCallInterface<N, T> {
         T: Deserialize<M>,
     {
         execution_cache::store(self.args);
-        let returns = context.call_private_function_with_args_hash(
+        let returns_hash = context.call_private_function_with_args_hash(
             self.target_contract,
             self.selector,
             self.args_hash,
             false,
         );
-        let unpacked: T = returns.get_preimage();
-        unpacked
+        let returns: T = returns_hash.get_preimage();
+        returns
     }
 
     pub fn view<let M: u32>(self, context: &mut PrivateContext) -> T
@@ -46,13 +46,13 @@ impl<let N: u32, T> PrivateCallInterface<N, T> {
         T: Deserialize<M>,
     {
         execution_cache::store(self.args);
-        let returns = context.call_private_function_with_args_hash(
+        let returns_hash = context.call_private_function_with_args_hash(
             self.target_contract,
             self.selector,
             self.args_hash,
             true,
         );
-        returns.get_preimage()
+        returns_hash.get_preimage()
     }
 }
 

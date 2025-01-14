@@ -489,7 +489,7 @@ impl PrivateContext {
         let mut is_static_call = is_static_call | self.inputs.call_context.is_static_call;
         // TODO(https://github.com/AztecProtocol/aztec-packages/issues/8985): Fix this.
         // WARNING: This is insecure and should be temporary!
-        // The oracle repacks the arguments and returns a new args_hash.
+        // The oracle hashes the arguments and returns a new args_hash.
         // new_args = [selector, ...old_args], so as to make it suitable to call the public dispatch function.
         // We don't validate or compute it in the circuit because a) it's harder to do with slices, and
         // b) this is only temporary.
@@ -545,7 +545,7 @@ impl PrivateContext {
         let mut is_static_call = is_static_call | self.inputs.call_context.is_static_call;
         // TODO(https://github.com/AztecProtocol/aztec-packages/issues/8985): Fix this.
         // WARNING: This is insecure and should be temporary!
-        // The oracle repacks the arguments and returns a new args_hash.
+        // The oracle hashes the arguments and returns a new args_hash.
         // new_args = [selector, ...old_args], so as to make it suitable to call the public dispatch function.
         // We don't validate or compute it in the circuit because a) it's harder to do with slices, and
         // b) this is only temporary.

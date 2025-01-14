@@ -97,7 +97,7 @@ export abstract class EntrypointPayload {
   }
 
   /**
-   * The packed arguments for the function calls
+   * The hashed arguments for the function calls
    */
   get hashedArguments() {
     return this.#hashedArguments;

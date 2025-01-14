@@ -18,14 +18,14 @@ export class DefaultMultiCallEntrypoint implements EntrypointInterface {
     const { fee, calls, authWitnesses = [], hashedArguments = [] } = executions;
     const payload = EntrypointPayload.fromAppExecution(calls);
     const abi = this.getEntrypointAbi();
-    const entrypointPackedArgs = HashedValues.fromValues(encodeArguments(abi, [payload]));
+    const entrypointHashedArgs = HashedValues.fromValues(encodeArguments(abi, [payload]));
 
     const txRequest = TxExecutionRequest.from({
-      firstCallArgsHash: entrypointPackedArgs.hash,
+      firstCallArgsHash: entrypointHashedArgs.hash,
       origin: this.address,
       functionSelector: FunctionSelector.fromNameAndParameters(abi.name, abi.parameters),
       txContext: new TxContext(this.chainId, this.version, fee.gasSettings),
-      argsOfCalls: [...payload.hashedArguments, ...hashedArguments, entrypointPackedArgs],
+      argsOfCalls: [...payload.hashedArguments, ...hashedArguments, entrypointHashedArgs],
       authWitnesses,
     });
 
