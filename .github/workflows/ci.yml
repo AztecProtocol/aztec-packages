@@ -265,7 +265,7 @@ jobs:
           fi
       - name: Inspect data folder
         continue-on-error: true
-        run: tree ./data
+        run: tree ./yarn-project/end-to-end/out
       - name: Store benchmark result
         if: github.ref == 'refs/heads/master' || github.ref == 'palla/bench-v2'
         continue-on-error: true
@@ -274,7 +274,7 @@ jobs:
           name: "End-to-end Benchmark"
           benchmark-data-dir-path: "dev/e2e-bench"
           tool: "customSmallerIsBetter"
-          output-file-path: ./data/bench.json
+          output-file-path: ./yarn-project/end-to-end/out/bench.json
           github-token: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
           auto-push: true
           alert-threshold: "150%"
