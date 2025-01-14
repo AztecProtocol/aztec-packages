@@ -22,6 +22,7 @@ function build {
 
   if ! cache_download $tests_tar; then
     rm -rf acir_tests
+    denoise "cd ../../noir/noir-repo/test_programs/execution_success && git clean -fdx"
     cp -R ../../noir/noir-repo/test_programs/execution_success acir_tests
     # Running these requires extra gluecode so they're skipped.
     rm -rf acir_tests/{diamond_deps_0,workspace,workspace_default_member}
@@ -133,7 +134,6 @@ function test_cmds_internal {
 case "$cmd" in
   "clean")
     git clean -fdx
-    (cd ../../noir/noir-repo/test_programs/execution_success && git clean -fdx)
     ;;
   "ci")
     build
