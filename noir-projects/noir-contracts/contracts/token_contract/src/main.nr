@@ -249,9 +249,11 @@ contract Token {
             assert(nonce == 0, "invalid nonce");
         }
 
-        storage.balances.at(from).sub(from, amount).emit(
-            encode_and_encrypt_note(&mut context, from, from),
-        );
+        storage.balances.at(from).sub(from, amount).emit(encode_and_encrypt_note(
+            &mut context,
+            from,
+            from,
+        ));
         Token::at(context.this_address())._increase_public_balance(to, amount).enqueue(&mut context);
     }
     // docs:end:transfer_to_public
@@ -390,9 +392,11 @@ contract Token {
         } else {
             assert(nonce == 0, "invalid nonce");
         }
-        storage.balances.at(from).sub(from, amount).emit(
-            encode_and_encrypt_note(&mut context, from, from),
-        );
+        storage.balances.at(from).sub(from, amount).emit(encode_and_encrypt_note(
+            &mut context,
+            from,
+            from,
+        ));
         Token::at(context.this_address())._reduce_total_supply(amount).enqueue(&mut context);
     }
     // docs:end:burn_private
