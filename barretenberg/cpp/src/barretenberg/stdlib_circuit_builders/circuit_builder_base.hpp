@@ -18,7 +18,8 @@ template <typename FF_> class CircuitBuilderBase {
     using EmbeddedCurve = std::conditional_t<std::same_as<FF, bb::g1::coordinate_field>, curve::BN254, curve::Grumpkin>;
 
     size_t num_gates = 0;
-    bool has_dummy_witnesses;
+    // true if we have dummy witnesses (in the write_vk case)
+    bool has_dummy_witnesses = false;
 
     std::vector<uint32_t> public_inputs;
     std::vector<FF> variables;
