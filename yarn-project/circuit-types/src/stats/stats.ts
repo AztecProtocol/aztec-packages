@@ -206,8 +206,6 @@ export type TxStats = {
   size: number;
   /** Size of the proof. */
   proofSize: number;
-  /** Number of public logs. */
-  publicLogCount: number;
   /** Number of note hashes */
   noteHashCount: number;
   /** Number of nullifiers */

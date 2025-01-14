@@ -120,7 +120,6 @@ export class PublicTxSimulator {
     const endStateReference = await this.db.getStateReference();
 
     const avmProvingRequest = context.generateProvingRequest(endStateReference);
-    const avmCircuitPublicInputs = avmProvingRequest.inputs.output!;
 
     const revertCode = context.getFinalRevertCode();
     if (!revertCode.isOK()) {
@@ -130,13 +129,8 @@ export class PublicTxSimulator {
       // FIXME: we shouldn't need to directly modify worldStateDb here!
       await this.worldStateDB.removeNewContracts(tx);
       // FIXME(dbanks12): should not be changing immutable tx
-      tx.filterRevertedLogs(
-        tx.data.forPublic!.nonRevertibleAccumulatedData,
-        avmCircuitPublicInputs.accumulatedData.publicLogs,
-      );
+      tx.filterRevertedLogs(tx.data.forPublic!.nonRevertibleAccumulatedData);
     }
-    // FIXME(dbanks12): should not be changing immutable tx
-    tx.publicLogs.push(...context.trace.getPublicLogs());
 
     return {
       avmProvingRequest,

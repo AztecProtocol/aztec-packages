@@ -143,7 +143,6 @@ export const mockTx = (
   const tx = new Tx(
     data,
     ClientIvcProof.empty(),
-    [],
     ContractClassTxL2Logs.empty(),
     enqueuedPublicFunctionCalls,
     publicTeardownFunctionCall,

@@ -163,7 +163,7 @@ export function makeProcessedTxFromTxWithPublicCalls(
       .filter(h => !h.isZero()),
     publicDataWrites,
     privateLogs,
-    tx.publicLogs, // Logs emitted from public functions are inserted to tx.publicLogs directly :(
+    avmOutput.accumulatedData.publicLogs.filter(l => !l.isEmpty()),
     new Fr(contractClassLogPreimagesLength),
     tx.contractClassLogs,
   );

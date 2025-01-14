@@ -849,7 +849,7 @@ export class TXE implements TypedOracle {
 
     const result = await simulator.simulate(tx);
 
-    this.addPublicLogs(tx.publicLogs);
+    this.addPublicLogs(result.avmProvingRequest.inputs.publicInputs.publicLogs);
 
     return Promise.resolve(result);
   }
