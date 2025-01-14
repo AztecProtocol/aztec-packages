@@ -217,6 +217,16 @@ mod tests {
         builder.failed();
     }
 
+
+    #[test(should_fail_with = "First nullifier claim was not satisfied")]
+    fn first_nullifier_validation() {
+        let mut builder = PrivateKernelTailInputsBuilder::new();
+        let mut first_nullifier = builder.previous_kernel.nullifiers.get(0);
+        first_nullifier.nullifier.value += 1;
+        builder.previous_kernel.nullifiers.set(0, first_nullifier);
+        builder.failed();
+    }
+
     #[test]
     fn empty_tx_consumes_fixed_gas() {
         let mut builder = PrivateKernelTailInputsBuilder::new();
