@@ -36,6 +36,7 @@ import {
   computeSecretHash,
   computeVarArgsHash,
   deriveStorageSlotInMap,
+  siloNullifier,
 } from '@aztec/circuits.js/hash';
 import { makeHeader } from '@aztec/circuits.js/testing';
 import {
@@ -381,12 +382,14 @@ describe('Private Execution test suite', () => {
       await insertLeaves(consumedNotes.map(n => n.uniqueNoteHash));
 
       const args = [recipient, amountToTransfer];
-      const { entrypoint: result } = await runSimulator({ args, artifact, msgSender: owner });
+      const { entrypoint: result, firstNullifier } = await runSimulator({ args, artifact, msgSender: owner });
 
       // The two notes were nullified
       const nullifiers = getNonEmptyItems(result.publicInputs.nullifiers).map(n => n.value);
       expect(nullifiers).toHaveLength(consumedNotes.length);
       expect(nullifiers).toEqual(expect.arrayContaining(consumedNotes.map(n => n.innerNullifier)));
+      // Uses one of the notes as first nullifier, not requiring a protocol injected nullifier.
+      expect(consumedNotes.map(n => siloNullifier(contractAddress, n.innerNullifier))).toContainEqual(firstNullifier);
 
       expect(result.newNotes).toHaveLength(2);
       const [changeNote, recipientNote] = result.newNotes;
