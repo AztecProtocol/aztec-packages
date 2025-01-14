@@ -111,7 +111,6 @@ export class TXE implements TypedOracle {
 
   private uniqueNoteHashesFromPublic: Fr[] = [];
   private siloedNullifiersFromPublic: Fr[] = [];
-  private siloedNullifiersFromPrivate: Set<string> = new Set();
   private privateLogs: PrivateLog[] = [];
   private publicLogs: PublicLog[] = [];
 
@@ -121,16 +120,18 @@ export class TXE implements TypedOracle {
 
   private simulationProvider = new WASMSimulator();
 
+  private noteCache: ExecutionNoteCache;
+
   debug: LogFn;
 
   constructor(
     private logger: Logger,
     private trees: MerkleTrees,
     private executionCache: HashedValuesCache,
-    private noteCache: ExecutionNoteCache,
     private keyStore: KeyStore,
     private txeDatabase: TXEDatabase,
   ) {
+    this.noteCache = new ExecutionNoteCache(this.getTxRequestHash());
     this.contractDataOracle = new ContractDataOracle(txeDatabase);
     this.contractAddress = AztecAddress.random();
     // Default msg_sender (for entrypoints) is now Fr.max_value rather than 0 addr (see #7190 & #7404)
@@ -275,18 +276,14 @@ export class TXE implements TypedOracle {
     );
   }
 
-  async addNullifiersFromPrivate(contractAddress: AztecAddress, nullifiers: Fr[]) {
+  async checkNullifiersNotInTree(contractAddress: AztecAddress, nullifiers: Fr[]) {
     const siloedNullifiers = nullifiers.map(nullifier => siloNullifier(contractAddress, nullifier));
     const db = await this.trees.getLatest();
     const nullifierIndexesInTree = await db.findLeafIndices(
       MerkleTreeId.NULLIFIER_TREE,
       siloedNullifiers.map(n => n.toBuffer()),
     );
-    const notInTree = nullifierIndexesInTree.every(index => index === undefined);
-    const notInCache = siloedNullifiers.every(n => !this.siloedNullifiersFromPrivate.has(n.toString()));
-    if (notInTree && notInCache) {
-      siloedNullifiers.forEach(n => this.siloedNullifiersFromPrivate.add(n.toString()));
-    } else {
+    if (nullifierIndexesInTree.some(index => index !== undefined)) {
       throw new Error(`Rejecting tx for emitting duplicate nullifiers`);
     }
   }
@@ -552,9 +549,15 @@ export class TXE implements TypedOracle {
   }
 
   async notifyNullifiedNote(innerNullifier: Fr, noteHash: Fr, counter: number) {
-    await this.addNullifiersFromPrivate(this.contractAddress, [innerNullifier]);
+    await this.checkNullifiersNotInTree(this.contractAddress, [innerNullifier]);
     this.noteCache.nullifyNote(this.contractAddress, innerNullifier, noteHash);
     this.sideEffectCounter = counter + 1;
+    return Promise.resolve();
+  }
+
+  async notifyCreatedNullifier(innerNullifier: Fr): Promise<void> {
+    await this.checkNullifiersNotInTree(this.contractAddress, [innerNullifier]);
+    this.noteCache.nullifierCreated(this.contractAddress, innerNullifier);
     return Promise.resolve();
   }
 
@@ -619,6 +622,7 @@ export class TXE implements TypedOracle {
 
   async commitState() {
     const blockNumber = await this.getBlockNumber();
+    const { usedTxRequestHashForNonces } = this.noteCache.finish();
     if (this.committedBlocks.has(blockNumber)) {
       throw new Error('Already committed state');
     } else {
@@ -627,30 +631,25 @@ export class TXE implements TypedOracle {
 
     const txEffect = TxEffect.empty();
 
+    const nonceGenerator = usedTxRequestHashForNonces ? this.getTxRequestHash() : this.noteCache.getAllNullifiers()[0];
+
     let i = 0;
     txEffect.noteHashes = [
       ...this.noteCache
         .getAllNotes()
         .map(pendingNote =>
           computeUniqueNoteHash(
-            computeNoteHashNonce(new Fr(this.blockNumber + 6969), i++),
+            computeNoteHashNonce(nonceGenerator, i++),
             siloNoteHash(pendingNote.note.contractAddress, pendingNote.noteHashForConsumption),
           ),
         ),
       ...this.uniqueNoteHashesFromPublic,
     ];
-    txEffect.nullifiers = [
-      new Fr(blockNumber + 6969),
-      ...Array.from(this.siloedNullifiersFromPrivate).map(n => Fr.fromString(n)),
-    ];
 
-    // Using block number itself, (without adding 6969) gets killed at 1 as it says the slot is already used,
-    // it seems like we commit a 1 there to the trees before ? To see what I mean, uncomment these lines below
-    // let index = await (await this.trees.getLatest()).findLeafIndex(MerkleTreeId.NULLIFIER_TREE, Fr.ONE.toBuffer());
-    // console.log('INDEX OF ONE', index);
-    // index = await (await this.trees.getLatest()).findLeafIndex(MerkleTreeId.NULLIFIER_TREE, Fr.random().toBuffer());
-    // console.log('INDEX OF RANDOM', index);
-
+    txEffect.nullifiers = this.noteCache.getAllNullifiers();
+    if (usedTxRequestHashForNonces) {
+      txEffect.nullifiers.unshift(this.getTxRequestHash());
+    }
     this.node.setTxEffect(blockNumber, new TxHash(new Fr(blockNumber)), txEffect);
     this.node.setNullifiersIndexesWithBlock(blockNumber, txEffect.nullifiers);
     this.node.addNoteLogsByTags(this.blockNumber, this.privateLogs);
@@ -661,10 +660,14 @@ export class TXE implements TypedOracle {
 
     this.privateLogs = [];
     this.publicLogs = [];
-    this.siloedNullifiersFromPrivate = new Set();
     this.uniqueNoteHashesFromPublic = [];
     this.siloedNullifiersFromPublic = [];
-    this.noteCache = new ExecutionNoteCache(new Fr(1));
+    this.noteCache = new ExecutionNoteCache(this.getTxRequestHash());
+  }
+
+  getTxRequestHash() {
+    // Using block number itself is invalid since indexed trees come prefilled with the first slots.
+    return new Fr(this.blockNumber + 6969);
   }
 
   emitContractClassLog(_log: UnencryptedL2Log, _counter: number): Fr {
@@ -737,24 +740,6 @@ export class TXE implements TypedOracle {
       targetContractAddress,
       publicInputs.privateLogs.filter(privateLog => !privateLog.isEmpty()).map(privateLog => privateLog.log),
     );
-
-    const executionNullifiers = publicInputs.nullifiers
-      .filter(nullifier => !nullifier.isEmpty())
-      .map(nullifier => nullifier.value);
-    // We inject nullifiers into siloedNullifiersFromPrivate from notifyNullifiedNote,
-    // so top level calls to destroyNote work as expected. As such, we are certain
-    // that we would insert duplicates if we just took the nullifiers from the public inputs and
-    // blindly inserted them into siloedNullifiersFromPrivate. To avoid this, we extract the first
-    // (and only the first!) duplicated nullifier from the public inputs, so we can just push
-    // the ones that were not created by deleting a note
-    const firstDuplicateIndexes = executionNullifiers
-      .map((nullifier, index) => {
-        const siloedNullifier = siloNullifier(targetContractAddress, nullifier);
-        return this.siloedNullifiersFromPrivate.has(siloedNullifier.toString()) ? index : -1;
-      })
-      .filter(index => index !== -1);
-    const nonNoteNullifiers = executionNullifiers.filter((_, index) => !firstDuplicateIndexes.includes(index));
-    await this.addNullifiersFromPrivate(targetContractAddress, nonNoteNullifiers);
 
     this.setContractAddress(currentContractAddress);
     this.setMsgSender(currentMessageSender);

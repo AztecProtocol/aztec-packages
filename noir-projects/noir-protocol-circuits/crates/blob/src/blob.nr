@@ -502,7 +502,7 @@ mod tests {
         let mut tx_data = FixtureBuilder::new();
         // Add some random bits of state
         tx_data.append_note_hashes(50);
-        tx_data.set_first_nullifier();
+        tx_data.set_protocol_nullifier();
         tx_data.append_nullifiers(50);
         tx_data.append_l2_to_l1_msgs(5);
         tx_data.append_public_logs(5);

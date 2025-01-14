@@ -65,13 +65,13 @@ pub fn compute_siloed_note_hash(app: AztecAddress, note_hash: Field) -> Field {
 /// Computes unique note hashes from siloed note hashes
 pub fn compute_unique_siloed_note_hash(
     siloed_note_hash: Field,
-    tx_hash: Field,
+    first_nullifier: Field,
     note_index_in_tx: u32,
 ) -> Field {
     if siloed_note_hash == 0 {
         0
     } else {
-        let nonce = compute_note_hash_nonce(tx_hash, note_index_in_tx);
+        let nonce = compute_note_hash_nonce(first_nullifier, note_index_in_tx);
         compute_unique_note_hash(nonce, siloed_note_hash)
     }
 }

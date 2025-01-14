@@ -61,7 +61,6 @@ fi
 
 STERN_PID=""
 function copy_stern_to_log() {
-  ulimit -n 4096
   stern spartan -n $NAMESPACE >$SCRIPT_DIR/network-test.log &
   echo "disabled until less resource intensive solution than stern implemented" >$SCRIPT_DIR/network-test.log &
   STERN_PID=$!
