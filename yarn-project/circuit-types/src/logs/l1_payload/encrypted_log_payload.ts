@@ -9,7 +9,6 @@ import {
   type PublicKey,
   derivePublicKeyFromSecretKey,
 } from '@aztec/circuits.js';
-import { toBufferBE } from '@aztec/foundation/bigint-buffer';
 import { randomBytes } from '@aztec/foundation/crypto';
 import { BufferReader, type Tuple, numToUInt16BE, serializeToBuffer } from '@aztec/foundation/serialize';
 
@@ -43,30 +42,21 @@ function encryptedBytesToFields(encrypted: Buffer): Fr[] {
 }
 
 function fieldsToEncryptedBytes(fields: Fr[]) {
-  return Buffer.concat(
-    fields.map((f, i) => (i == fields.length - 1 ? trimLastField(fields) : f.toBuffer().subarray(1))),
-  );
+  return Buffer.concat(fields.map(f => f.toBuffer().subarray(1)));
 }
 
-function trimLastField(fields: Fr[]) {
+function trimCiphertext(buf: Buffer, ciphertextLength: number) {
   // bytes_to_fields in nr pads fields smaller than 31 bytes, meaning fieldsToEncryptedBytes can give incorrect ciphertext
   // e.g. input
   //  Fr<0x003b1cb893d1fdab1d55420181669aa5251acc8beaed8438dca7960f217cfe1f>,
   //  Fr<0x00000000000000000000a3a3d57e7221e9bb201917f09caa475f2d00658e8f5e>
-  // should ignore the leading 0s from the last field when being converted to bytes.
-  const finalField = fields[fields.length - 1];
-  let finalBytes = toBufferBE(finalField.toBigInt(), Math.ceil(finalField.toBigInt().toString(16).length / 2));
-  // However, this risks removing 0s that should be there. In public logs, ciphertext is variable length, so we cannot
-  // check the length. For now, I'm checking that the ciphertext output is in blocks of 16.
-  // This is not ideal because we may end up incorrectly including/excluding a block of 16 0s.
-  // TODO: Possibly include the ciphertext length as part of the log?
-  const ciphertextBytes = Buffer.concat(fields.slice(0, fields.length - 1).map(f => f.toBuffer().subarray(1))).subarray(
-    OVERHEAD_SIZE,
-  );
-  while ((ciphertextBytes.length + finalBytes.length) % 16 !== 0) {
-    finalBytes = Buffer.concat([Buffer.alloc(1), finalBytes]);
-  }
-  return finalBytes;
+  // becomes: 3b1cb893d1fdab1d55420181669aa5251acc8beaed8438dca7960f217cfe1f00000000000000000a3a3d57e7221e9bb201917f09caa475f2d00658e8f5e
+  // but should be: 3b1cb893d1fdab1d55420181669aa5251acc8beaed8438dca7960f217cfe1fa3a3d57e7221e9bb201917f09caa475f2d00658e8f5e
+  // This fn trims the correct number of zeroes.
+  const zeroesToTrim = buf.length - ciphertextLength;
+  const finalFieldBytes = buf.subarray(-31).subarray(zeroesToTrim);
+  const ciphertextBytes = Buffer.concat([buf.subarray(0, -31), finalFieldBytes]);
+  return ciphertextBytes;
 }
 
 class Overhead {
@@ -159,9 +149,14 @@ export class EncryptedLogPayload {
    *
    * @param payload - The payload for the log
    * @param addressSecret - The address secret, used to decrypt the logs
+   * @param ciphertextLength - Optionally supply the ciphertext length (see trimCiphertext())
    * @returns The decrypted log payload
    */
-  public static decryptAsIncoming(payload: Fr[], addressSecret: GrumpkinScalar): EncryptedLogPayload | undefined {
+  public static decryptAsIncoming(
+    payload: Fr[],
+    addressSecret: GrumpkinScalar,
+    ciphertextLength?: number,
+  ): EncryptedLogPayload | undefined {
     try {
       const tag = payload[0];
       const reader = BufferReader.asReader(fieldsToEncryptedBytes(payload.slice(1)));
@@ -169,7 +164,10 @@ export class EncryptedLogPayload {
       const overhead = Overhead.fromBuffer(reader);
       const { contractAddress } = this.#decryptOverhead(overhead, { addressSecret });
 
-      const ciphertext = reader.readToEnd();
+      let ciphertext = reader.readToEnd();
+      if (ciphertextLength && ciphertext.length !== ciphertextLength) {
+        ciphertext = trimCiphertext(ciphertext, ciphertextLength);
+      }
       const incomingBodyPlaintext = this.#decryptIncomingBody(ciphertext, addressSecret, overhead.ephPk);
 
       return new EncryptedLogPayload(tag, contractAddress, incomingBodyPlaintext);

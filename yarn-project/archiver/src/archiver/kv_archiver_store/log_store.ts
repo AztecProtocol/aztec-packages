@@ -76,7 +76,7 @@ export class LogStore {
       const dataStartIndexForTx = dataStartIndexForBlock + txIndex * MAX_NOTE_HASHES_PER_TX;
       txEffect.publicLogs.forEach(log => {
         try {
-          // TODO(MW): For now, the first elt is the length of public fields => tag is in fields[1]?
+          // The first elt stores lengths => tag is in fields[1]
           const tag = log.log[1];
 
           this.#log.debug(`Found tagged unencrypted log with tag ${tag.toString()} in block ${block.number}`);

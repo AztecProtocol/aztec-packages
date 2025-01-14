@@ -1,11 +1,6 @@
 use dep::protocol_types::{
-    address::AztecAddress,
-    constants::{PRIVATE_LOG_SIZE_IN_FIELDS, PUBLIC_LOG_DATA_SIZE_IN_FIELDS},
-    hash::poseidon2_hash,
-    point::Point,
-    public_keys::AddressPoint,
-    scalar::Scalar,
-    utils::arrays::array_concat,
+    address::AztecAddress, constants::PRIVATE_LOG_SIZE_IN_FIELDS, hash::poseidon2_hash,
+    point::Point, public_keys::AddressPoint, scalar::Scalar, utils::arrays::array_concat,
 };
 use std::{
     aes128::aes128_encrypt, embedded_curve_ops::fixed_base_scalar_mul as derive_public_key,
@@ -77,11 +72,6 @@ pub fn compute_partial_public_log_payload<let P: u32, let M: u32>(
     sender: AztecAddress,
     plaintext: [u8; P],
 ) -> [Field; 1 + (M + 30) / 31] {
-    // TODO(MW): cleanup the ugly eqs here
-    assert(
-        1 + (M + 30) / 31 <= PUBLIC_LOG_DATA_SIZE_IN_FIELDS,
-        f"partial public log must not exceed {PUBLIC_LOG_DATA_SIZE_IN_FIELDS} fields",
-    );
     let extended_plaintext: [u8; P + PLAINTEXT_LENGTH_SIZE] =
         extend_private_log_plaintext(plaintext);
     let encrypted: [u8; M] = compute_encrypted_log(contract_address, recipient, extended_plaintext);

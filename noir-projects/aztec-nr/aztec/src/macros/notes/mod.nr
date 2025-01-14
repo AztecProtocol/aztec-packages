@@ -711,6 +711,13 @@ comptime fn generate_finalization_payload(
             }
 
             pub fn emit_log(self) {
+                let max_log_len = aztec::protocol_types::constants::PUBLIC_LOG_DATA_SIZE_IN_FIELDS;
+                // Make sure we aren't overflowing the public log maximum
+                assert(
+                    $finalization_log_field_length <= max_log_len,
+                    f"finalization public log must not exceed {max_log_len} fields",
+                );
+
                 // We load the setup log from storage
                 let setup_log_fields: [Field; $setup_log_field_length] = self.context.storage_read(self.setup_log_slot);
 
@@ -723,12 +730,22 @@ comptime fn generate_finalization_payload(
                 }
 
                 // Iterate over the public values and append them to the log
-                for i in 0..$public_values_length {
+                for i in 0..self.public_values.len() {
                     finalization_log[1 + $setup_log_field_length + i] = self.public_values[i];
                 }
 
-                // Populate the first field with number of public values
-                finalization_log[0] = $public_values_length;
+                // Populate the first field with number of public values, private values, and ciphertext length
+                let ciphertext_bytes_length = $untagged_setup_log_byte_length - aztec::encrypted_logs::payload::OVERHEAD_SIZE;
+                finalization_log[0] = aztec::protocol_types::utils::field::field_from_bytes([
+                    ($public_values_length >> 8) as u8,
+                    $public_values_length as u8,
+                    0,
+                    ($setup_log_field_length >> 8) as u8,
+                    $setup_log_field_length as u8,
+                    0,
+                    (ciphertext_bytes_length >> 8) as u8,
+                    ciphertext_bytes_length as u8,
+                ], true);
 
                 // We emit the finalization log via the unencrypted logs stream
                 self.context.emit_unencrypted_log(finalization_log);

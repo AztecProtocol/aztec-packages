@@ -319,10 +319,10 @@ export class TXE implements TypedOracle {
   addPublicLogs(logs: PublicLog[]) {
     logs.forEach(log => {
       try {
-        // TODO(MW): For now, the first elt is the length of public fields => tag is in fields[1]?
+        // The first elt stores lengths => tag is in fields[1]
         const tag = log.log[1];
 
-        this.logger.verbose(`Found tagged unencrypted log with tag ${tag.toString()} in block ${this.blockNumber}`);
+        this.logger.verbose(`Found tagged public log with tag ${tag.toString()} in block ${this.blockNumber}`);
         this.publicLogs.push(log);
       } catch (err) {
         this.logger.warn(`Failed to add tagged log to store: ${err}`);

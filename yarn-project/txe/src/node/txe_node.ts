@@ -173,12 +173,10 @@ export class TXENode implements AztecNode {
   addPublicLogsByTags(blockNumber: number, publicLogs: PublicLog[]) {
     publicLogs.forEach(log => {
       try {
-        // TODO(MW): For now, the first elt is the length of public fields => tag is in fields[1]?
+        // The first elt stores lengths => tag is in fields[1]
         const tag = log.log[1];
 
-        this.#logger.verbose(
-          `Found tagged unencrypted log with tag ${tag.toString()} in block ${this.getBlockNumber()}`,
-        );
+        this.#logger.verbose(`Found tagged public log with tag ${tag.toString()} in block ${this.getBlockNumber()}`);
 
         const currentLogs = this.#logsByTags.get(tag.toString()) ?? [];
         const scopedLog = new TxScopedL2Log(

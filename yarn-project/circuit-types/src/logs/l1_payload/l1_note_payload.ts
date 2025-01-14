@@ -73,12 +73,12 @@ export class L1NotePayload {
   }
 
   static decryptAsIncomingFromPublic(log: PublicLog, sk: Fq): L1NotePayload | undefined {
-    const { privateValues, publicValues } = parseLogFromPublic(log);
+    const { privateValues, publicValues, ciphertextLength } = parseLogFromPublic(log);
     if (!privateValues) {
       return undefined;
     }
 
-    const decryptedLog = EncryptedLogPayload.decryptAsIncoming(privateValues, sk);
+    const decryptedLog = EncryptedLogPayload.decryptAsIncoming(privateValues, sk, ciphertextLength);
     if (!decryptedLog) {
       return undefined;
     }
@@ -150,23 +150,23 @@ export class L1NotePayload {
  * Parse the given log into an array of public values and an encrypted log.
  *
  * @param log - Log to be parsed.
- * @returns An object containing the public values and the encrypted log.
+ * @returns An object containing the public values, encrypted log, and ciphertext length.
  */
 function parseLogFromPublic(log: PublicLog) {
-  //TODO(MW): Ensure len
-  const logFields = log.log.slice(0, 12);
-
-  // Extract public values from the log
-  const publicValuesLength = logFields[0].toNumber();
-
-  // Minus 1 for the public values length in position 0
-  const privateValuesLength = logFields.length - publicValuesLength - 1;
+  // Extract lengths from the log
+  // Each length is stored in 2 bytes with a 0 separator byte between them:
+  // [ publicLen[0], publicLen[1], 0, privateLen[0], privateLen[1], 0, ciphertextLen[0], ciphertextLen[1]]
+  const lengths = log.log[0].toBuffer().subarray(-8);
+  const publicValuesLength = lengths.readUint16BE();
+  const privateValuesLength = lengths.readUint16BE(3);
+  const ciphertextLength = lengths.readUint16BE(6);
 
   // Now we get the fields corresponding to the values generated from private.
-  const privateValues = logFields.slice(1, privateValuesLength + 1);
+  // Note: +1 for the length values in position 0
+  const privateValues = log.log.slice(1, privateValuesLength + 1);
 
   // At last we load the public values
-  const publicValues = logFields.slice(privateValuesLength + 1);
+  const publicValues = log.log.slice(privateValuesLength + 1, privateValuesLength + 1 + publicValuesLength);
 
-  return { publicValues, privateValues };
+  return { publicValues, privateValues, ciphertextLength };
 }

@@ -256,11 +256,7 @@ export class MemoryArchiverStore implements ArchiverDataStore {
       const dataStartIndexForTx = dataStartIndexForBlock + txIndex * MAX_NOTE_HASHES_PER_TX;
       txEffect.publicLogs.forEach(log => {
         try {
-          // TODO remove when #9835 and #9836 are fixed. The partial note logs are emitted as bytes, but encoded as Fields.
-          // This means that for every 32 bytes of payload, we only have 1 byte of data.
-          // Also, the tag is not stored in the first 32 bytes of the log, (that's the length of public fields now) but in the next 32.
-
-          // TODO(MW): For now, the first elt is the length of public fields => tag is in fields[1]?
+          // The first elt stores lengths => tag is in fields[1]
           const tag = log.log[1];
           this.#log.verbose(`Storing public tagged log with tag ${tag.toString()} in block ${block.number}`);
           const currentLogs = this.taggedLogs.get(tag.toString()) || [];
