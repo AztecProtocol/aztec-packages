@@ -4,7 +4,10 @@ use crate::abis::{
 };
 use super::abis::tx_effect::TxEffect;
 use dep::types::{
-    abis::{log::Log, log_hash::ScopedLogHash, public_data_write::PublicDataWrite, sponge_blob::SpongeBlob},
+    abis::{
+        log::Log, log_hash::ScopedLogHash, public_data_write::PublicDataWrite,
+        sponge_blob::SpongeBlob,
+    },
     constants::{
         AZTEC_MAX_EPOCH_DURATION, CONTRACT_CLASS_LOGS_PREFIX, L2_L1_MSGS_PREFIX,
         MAX_CONTRACT_CLASS_LOGS_PER_TX, MAX_L2_TO_L1_MSGS_PER_TX, MAX_NOTE_HASHES_PER_TX,
@@ -136,7 +139,7 @@ pub fn compute_kernel_out_hash(l2_to_l1_msgs: [Field; MAX_L2_TO_L1_MSGS_PER_TX])
 pub fn encode_blob_prefix(input_type: u8, array_len: u32) -> Field {
     let array_len = array_len as Field;
     array_len.assert_max_bit_size::<16>();
-    (input_type as Field) * (256 *256*256) + array_len
+    (input_type as Field) * (256 * 256 * 256) + array_len
 }
 
 // Tx effects consist of
@@ -186,7 +189,7 @@ pub(crate) fn append_tx_effects_for_blob(
 fn get_tx_effects_hash_input(
     tx_effect: TxEffect,
 ) -> ([Field; TX_EFFECTS_BLOB_HASH_INPUT_FIELDS], u32) {
-    tx_effect.transaction_fee.assert_max_bit_size::<29*8>();
+    tx_effect.transaction_fee.assert_max_bit_size::<29 * 8>();
     let TWO_POW_240 = 1766847064778384329583297500742918515827483896875618958121606201292619776;
     let prefixed_tx_fee: Field = TX_FEE_PREFIX * TWO_POW_240 + tx_effect.transaction_fee;
 
@@ -215,7 +218,7 @@ fn get_tx_effects_hash_input(
             private_logs,
             unencrypted_logs,
             contract_class_logs,
-            tx_effect.revert_code as Field
+            tx_effect.revert_code as Field,
         )
     };
 
@@ -233,10 +236,7 @@ fn get_tx_effects_hash_input(
 
     // TX FEE
     // Using 29 bytes to encompass all reasonable fee lengths
-    assert_eq(
-        tx_effects_hash_input[offset],
-        prefixed_tx_fee,
-    );
+    assert_eq(tx_effects_hash_input[offset], prefixed_tx_fee);
     offset += 1;
 
     // NB: The array_length function does NOT constrain we have a sorted left-packed array.
@@ -361,23 +361,22 @@ fn get_tx_effects_hash_input(
     }
 
     // Now we know the number of fields appended, we can assign the first value:
-    let expected_revert_code = generate_padded_revert_code(offset as Field, tx_effect.revert_code as Field);
+    let expected_revert_code =
+        generate_padded_revert_code(offset as Field, tx_effect.revert_code as Field);
     // REVERT CODE
-    assert_eq(
-        tx_effects_hash_input[0], expected_revert_code
-    );
+    assert_eq(tx_effects_hash_input[0], expected_revert_code);
 
     (tx_effects_hash_input, offset)
 }
 
 fn generate_padded_revert_code(offset: Field, revert_code: Field) -> Field {
     // TX_START_PREFIX | 0 | 0 | 0 | 0 | REVERT_CODE_PREFIX | 0 | 0
-    let constant = (TX_START_PREFIX as Field) * (256 * 256 * 256 * 256 * 256 * 256 * 256) + (REVERT_CODE_PREFIX as Field) * (256 * 256);
+    let constant = (TX_START_PREFIX as Field) * (256 * 256 * 256 * 256 * 256 * 256 * 256)
+        + (REVERT_CODE_PREFIX as Field) * (256 * 256);
 
     let padded_revert_code = constant + offset * (256 * 256 * 256 * 256) + revert_code;
 
     padded_revert_code
-
 }
 
 unconstrained fn get_tx_effects_hash_input_helper(
@@ -505,7 +504,6 @@ unconstrained fn get_tx_effects_hash_input_helper(
         }
         offset += array_len;
     }
-
 
     // Now we know the number of fields appended, we can assign the first value:
     tx_effects_hash_input[0] = generate_padded_revert_code(offset as Field, revert_code);
