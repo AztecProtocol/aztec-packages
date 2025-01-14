@@ -437,7 +437,7 @@ impl PrivateContext {
     ) {
         let args_hash = hash_args_array(args);
         execution_cache::store_array(args);
-        self.call_public_function_with_packed_args(
+        self.call_public_function_with_args_hash(
             contract_address,
             function_selector,
             args_hash,
@@ -453,7 +453,7 @@ impl PrivateContext {
     ) {
         let args_hash = hash_args_array(args);
         execution_cache::store_array(args);
-        self.call_public_function_with_packed_args(
+        self.call_public_function_with_args_hash(
             contract_address,
             function_selector,
             args_hash,
@@ -466,7 +466,7 @@ impl PrivateContext {
         contract_address: AztecAddress,
         function_selector: FunctionSelector,
     ) {
-        self.call_public_function_with_packed_args(contract_address, function_selector, 0, false)
+        self.call_public_function_with_args_hash(contract_address, function_selector, 0, false)
     }
 
     pub fn static_call_public_function_no_args(
@@ -474,10 +474,10 @@ impl PrivateContext {
         contract_address: AztecAddress,
         function_selector: FunctionSelector,
     ) {
-        self.call_public_function_with_packed_args(contract_address, function_selector, 0, true)
+        self.call_public_function_with_args_hash(contract_address, function_selector, 0, true)
     }
 
-    pub fn call_public_function_with_packed_args(
+    pub fn call_public_function_with_args_hash(
         &mut self,
         contract_address: AztecAddress,
         function_selector: FunctionSelector,
@@ -525,7 +525,7 @@ impl PrivateContext {
     ) {
         let args_hash = hash_args_array(args);
         execution_cache::store_array(args);
-        self.set_public_teardown_function_with_packed_args(
+        self.set_public_teardown_function_with_args_hash(
             contract_address,
             function_selector,
             args_hash,
@@ -533,7 +533,7 @@ impl PrivateContext {
         )
     }
 
-    pub fn set_public_teardown_function_with_packed_args(
+    pub fn set_public_teardown_function_with_args_hash(
         &mut self,
         contract_address: AztecAddress,
         function_selector: FunctionSelector,

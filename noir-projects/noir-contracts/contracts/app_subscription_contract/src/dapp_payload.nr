@@ -60,7 +60,7 @@ impl DAppPayload {
             // whitelist the calls that the user can do only go to the expected Dapp contract
             assert(call.target_address == target_address);
             if call.is_public {
-                context.call_public_function_with_packed_args(
+                context.call_public_function_with_args_hash(
                     call.target_address,
                     call.function_selector,
                     call.args_hash,

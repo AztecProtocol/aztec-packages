@@ -275,7 +275,7 @@ impl<let N: u32, T> PublicCallInterface<N, T> {
     pub fn enqueue(self, context: &mut PrivateContext) {
         let args_hash = hash_args(self.args);
         execution_cache::store(self.args);
-        context.call_public_function_with_packed_args(
+        context.call_public_function_with_args_hash(
             self.target_contract,
             self.selector,
             args_hash,
@@ -287,7 +287,7 @@ impl<let N: u32, T> PublicCallInterface<N, T> {
     pub fn enqueue_view(self, context: &mut PrivateContext) {
         let args_hash = hash_args(self.args);
         execution_cache::store(self.args);
-        context.call_public_function_with_packed_args(
+        context.call_public_function_with_args_hash(
             self.target_contract,
             self.selector,
             args_hash,
@@ -358,7 +358,7 @@ impl<let N: u32> PublicVoidCallInterface<N> {
     pub fn enqueue(self, context: &mut PrivateContext) {
         let args_hash = hash_args(self.args);
         execution_cache::store(self.args);
-        context.call_public_function_with_packed_args(
+        context.call_public_function_with_args_hash(
             self.target_contract,
             self.selector,
             args_hash,
@@ -370,7 +370,7 @@ impl<let N: u32> PublicVoidCallInterface<N> {
     pub fn enqueue_view(self, context: &mut PrivateContext) {
         let args_hash = hash_args(self.args);
         execution_cache::store(self.args);
-        context.call_public_function_with_packed_args(
+        context.call_public_function_with_args_hash(
             self.target_contract,
             self.selector,
             args_hash,
@@ -434,7 +434,7 @@ impl<let N: u32, T> PublicStaticCallInterface<N, T> {
     pub fn enqueue_view(self, context: &mut PrivateContext) {
         let args_hash = hash_args(self.args);
         execution_cache::store(self.args);
-        context.call_public_function_with_packed_args(
+        context.call_public_function_with_args_hash(
             self.target_contract,
             self.selector,
             args_hash,
@@ -495,7 +495,7 @@ impl<let N: u32> PublicStaticVoidCallInterface<N> {
     pub fn enqueue_view(self, context: &mut PrivateContext) {
         let args_hash = hash_args(self.args);
         execution_cache::store(self.args);
-        context.call_public_function_with_packed_args(
+        context.call_public_function_with_args_hash(
             self.target_contract,
             self.selector,
             args_hash,
