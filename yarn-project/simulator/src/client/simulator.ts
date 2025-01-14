@@ -19,7 +19,7 @@ import { Fr } from '@aztec/foundation/fields';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 
 import { createSimulationError } from '../common/errors.js';
-import { PackedValuesCache } from '../common/packed_values_cache.js';
+import { HashedValuesCache } from '../common/hashed_values_cache.js';
 import { type SimulationProvider } from '../common/simulation_provider.js';
 import { ClientExecutionContext } from './client_execution_context.js';
 import { type DBOracle } from './db_oracle.js';
@@ -85,7 +85,7 @@ export class AcirSimulator {
       callContext,
       header,
       request.authWitnesses,
-      PackedValuesCache.create(request.argsOfCalls),
+      HashedValuesCache.create(request.argsOfCalls),
       noteCache,
       this.db,
       this.node,

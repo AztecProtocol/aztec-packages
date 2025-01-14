@@ -78,7 +78,7 @@ import {
 import { createTxForPublicCalls } from '@aztec/simulator/public/fixtures';
 import {
   ExecutionError,
-  type PackedValuesCache,
+  type HashedValuesCache,
   type PublicTxResult,
   PublicTxSimulator,
   createSimulationError,
@@ -126,7 +126,7 @@ export class TXE implements TypedOracle {
   constructor(
     private logger: Logger,
     private trees: MerkleTrees,
-    private packedValuesCache: PackedValuesCache,
+    private executionCache: HashedValuesCache,
     private keyStore: KeyStore,
     private txeDatabase: TXEDatabase,
   ) {
@@ -371,16 +371,16 @@ export class TXE implements TypedOracle {
     return Fr.random();
   }
 
-  packArgumentsArray(args: Fr[]) {
-    return Promise.resolve(this.packedValuesCache.pack(args));
+  storeArrayInExecutionCache(values: Fr[]) {
+    return Promise.resolve(this.executionCache.store(values));
   }
 
-  packReturns(returns: Fr[]) {
-    return Promise.resolve(this.packedValuesCache.pack(returns));
+  storeInExecutionCache(values: Fr[]) {
+    return Promise.resolve(this.executionCache.store(values));
   }
 
-  unpackReturns(returnsHash: Fr) {
-    return Promise.resolve(this.packedValuesCache.unpack(returnsHash));
+  loadFromExecutionCache(returnsHash: Fr) {
+    return Promise.resolve(this.executionCache.getPreimage(returnsHash));
   }
 
   getKeyValidationRequest(pkMHash: Fr): Promise<KeyValidationRequest> {
@@ -763,7 +763,7 @@ export class TXE implements TypedOracle {
   async getInitialWitness(abi: FunctionAbi, argsHash: Fr, sideEffectCounter: number, isStaticCall: boolean) {
     const argumentsSize = countArgumentsSize(abi);
 
-    const args = this.packedValuesCache.unpack(argsHash);
+    const args = this.executionCache.getPreimage(argsHash);
 
     if (args.length !== argumentsSize) {
       throw new Error('Invalid arguments size');
@@ -874,8 +874,8 @@ export class TXE implements TypedOracle {
       isStaticCall,
     );
 
-    const args = [this.functionSelector.toField(), ...this.packedValuesCache.unpack(argsHash)];
-    const newArgsHash = this.packedValuesCache.pack(args);
+    const args = [this.functionSelector.toField(), ...this.executionCache.getPreimage(argsHash)];
+    const newArgsHash = this.executionCache.store(args);
 
     const executionResult = await this.executePublicFunction(args, callContext, isTeardown);
 

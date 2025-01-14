@@ -19,7 +19,7 @@ import { protocolContractNames } from '@aztec/protocol-contracts';
 import { getCanonicalProtocolContract } from '@aztec/protocol-contracts/bundle';
 import { enrichPublicSimulationError } from '@aztec/pxe';
 import { type TypedOracle } from '@aztec/simulator/client';
-import { PackedValuesCache } from '@aztec/simulator/server';
+import { HashedValuesCache } from '@aztec/simulator/server';
 import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
 import { MerkleTrees } from '@aztec/world-state';
 
@@ -43,7 +43,7 @@ export class TXEService {
   static async init(logger: Logger) {
     const store = openTmpStore(true);
     const trees = await MerkleTrees.new(store, new NoopTelemetryClient(), logger);
-    const packedValuesCache = new PackedValuesCache();
+    const executionCache = new HashedValuesCache();
     const keyStore = new KeyStore(store);
     const txeDatabase = new TXEDatabase(store);
     // Register protocol contracts.
@@ -53,7 +53,7 @@ export class TXEService {
       await txeDatabase.addContractInstance(instance);
     }
     logger.debug(`TXE service initialized`);
-    const txe = new TXE(logger, trees, packedValuesCache, keyStore, txeDatabase);
+    const txe = new TXE(logger, trees, executionCache, keyStore, txeDatabase);
     const service = new TXEService(logger, txe);
     await service.advanceBlocksBy(toSingle(new Fr(1n)));
     return service;
@@ -271,25 +271,20 @@ export class TXEService {
     return toForeignCallResult([toSingle(new Fr(blockNumber))]);
   }
 
-  async packArgumentsArray(args: ForeignCallArray) {
-    const packed = await this.typedOracle.packArgumentsArray(fromArray(args));
-    return toForeignCallResult([toSingle(packed)]);
-  }
-
-  async packArguments(_length: ForeignCallSingle, values: ForeignCallArray) {
-    const packed = await this.typedOracle.packArgumentsArray(fromArray(values));
-    return toForeignCallResult([toSingle(packed)]);
+  async storeArrayInExecutionCache(args: ForeignCallArray) {
+    const hash = await this.typedOracle.storeArrayInExecutionCache(fromArray(args));
+    return toForeignCallResult([toSingle(hash)]);
   }
 
   // Since the argument is a slice, noir automatically adds a length field to oracle call.
-  async packReturns(_length: ForeignCallSingle, values: ForeignCallArray) {
-    const packed = await this.typedOracle.packReturns(fromArray(values));
-    return toForeignCallResult([toSingle(packed)]);
+  async storeInExecutionCache(_length: ForeignCallSingle, values: ForeignCallArray) {
+    const returnsHash = await this.typedOracle.storeInExecutionCache(fromArray(values));
+    return toForeignCallResult([toSingle(returnsHash)]);
   }
 
-  async unpackReturns(returnsHash: ForeignCallSingle) {
-    const unpacked = await this.typedOracle.unpackReturns(fromSingle(returnsHash));
-    return toForeignCallResult([toArray(unpacked)]);
+  async loadFromExecutionCache(hash: ForeignCallSingle) {
+    const returns = await this.typedOracle.loadFromExecutionCache(fromSingle(hash));
+    return toForeignCallResult([toArray(returns)]);
   }
 
   // Since the argument is a slice, noir automatically adds a length field to oracle call.
