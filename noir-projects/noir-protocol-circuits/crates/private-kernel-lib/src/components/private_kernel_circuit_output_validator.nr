@@ -102,22 +102,13 @@ impl PrivateKernelCircuitOutputValidator {
         );
 
         let protocol_nullifier = create_protocol_nullifier(tx_request);
+        // No need to check claimed_first_nullifier if the hint is nonzero, since it's just a prover hint that will be verified in tail.
+        // Also, a first_nullifier_hint of 0 with a manipulated claimed_first_nullifier will result in an always failing check in tail.
         if first_nullifier_hint == 0 {
             assert_eq(
                 self.output.end.nullifiers[0],
                 protocol_nullifier,
                 "protocol nullifier must be the tx request nullifier",
-            );
-            assert_eq(
-                self.output.claimed_first_nullifier,
-                protocol_nullifier.value(),
-                "claimed_first_nullifier does not match the protocol nullifier",
-            );
-        } else {
-            assert_eq(
-                self.output.claimed_first_nullifier,
-                first_nullifier_hint,
-                "mismatch claimed_first_nullifier",
             );
         }
 
