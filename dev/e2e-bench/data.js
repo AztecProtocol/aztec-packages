@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1736941013199,
+  "lastUpdate": 1736951381452,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "End-to-end Benchmark": [
@@ -463,6 +463,45 @@ window.BENCHMARK_DATA = {
           {
             "name": "Sequencer/aztec.sequencer.block_builder_tree_insertion_duration",
             "value": 658785,
+            "unit": "us"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "15848336+TomAFrench@users.noreply.github.com",
+            "name": "Tom French",
+            "username": "TomAFrench"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "5becb99dabf9ea75f23cc2b94e96b00f57733175",
+          "message": "chore: refactor `get_tx_effects_hash_input_helper` (#11213)\n\nThis PR does some of the refactoring mentioned in #11037. I've removed\nsome of the fixed length for-loops and avoided unnecessary byte\ndecompositions.",
+          "timestamp": "2025-01-15T13:58:08Z",
+          "tree_id": "6f9fcbc6f3b21d9382198a71e1b738aabe55655b",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/5becb99dabf9ea75f23cc2b94e96b00f57733175"
+        },
+        "date": 1736951373761,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sequencer/aztec.sequencer.block.build_duration",
+            "value": 4479,
+            "unit": "ms"
+          },
+          {
+            "name": "Sequencer/aztec.sequencer.block.time_per_mana",
+            "value": 3.3659947019243392,
+            "unit": "us/mana"
+          },
+          {
+            "name": "Sequencer/aztec.sequencer.block_builder_tree_insertion_duration",
+            "value": 641768,
             "unit": "us"
           }
         ]
