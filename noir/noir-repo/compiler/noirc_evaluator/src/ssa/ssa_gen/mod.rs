@@ -538,8 +538,8 @@ impl<'a> FunctionContext<'a> {
             self.builder.current_function.dfg.get_numeric_constant(start_index),
             self.builder.current_function.dfg.get_numeric_constant(end_index),
         ) {
-            // If we can determine that the loop contains zero iterations then we can short-circuit codegen.
-            if start_constant == end_constant {
+            // If we can determine that the loop contains zero iterations then there's no need to codegen the loop.
+            if start_constant >= end_constant {
                 return Ok(Self::unit_value());
             }
         }

@@ -220,7 +220,7 @@ describe('AVM WitGen, proof generation and verification', () => {
     },
     TIMEOUT,
   );
-  it.skip(
+  it(
     'Should prove and verify multiple app logic enqueued calls (set storage in first call, read it in next)',
     async () => {
       await proveAndVerifyAvmTestContract(
@@ -233,7 +233,7 @@ describe('AVM WitGen, proof generation and verification', () => {
     },
     TIMEOUT,
   );
-  it.skip(
+  it(
     'Should prove and verify multiple app logic enqueued calls (like `enqueue_public_from_private`)',
     async () => {
       await proveAndVerifyAvmTestContract(
