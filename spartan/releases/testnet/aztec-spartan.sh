@@ -220,13 +220,18 @@ configure_environment() {
     COINBASE="$CLI_COINBASE"
     else
         while true; do
-            read -p "Validator Address (default: 0xbaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa): " COINBASE
-            COINBASE=${COINBASE:-0xbaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa}
-            if [[ "$COINBASE" =~ ^0x[a-fA-F0-9]{40}$ ]]; then
-                break
+            read -p "Validator Address (Coinbase): " COINBASE
+
+            if [ -z "$COINBASE" ]; then
+                echo -e "${RED}Error: Validator Address (Coinbase) is required${NC}"
             else
-                echo -e "${RED}Error: Invalid COINBASE address. Please enter a valid Ethereum address.${NC}"
+                if [[ "$COINBASE" =~ ^0x[a-fA-F0-9]{40}$ ]]; then
+                    break
+                else
+                    echo -e "${RED}Error: Invalid COINBASE address. Please enter a valid Ethereum address.${NC}"
+                fi
             fi
+
         done
     fi
 
@@ -295,6 +300,7 @@ P2P_UDP_LISTEN_ADDR=0.0.0.0:${P2P_PORT}
 P2P_TCP_LISTEN_ADDR=0.0.0.0:${P2P_PORT}
 DATA_DIRECTORY=/var/lib/aztec
 PEER_ID_PRIVATE_KEY=${PEER_ID_PRIVATE_KEY}
+COINBASE=${COINBASE}
 EOF
 
     # Generate docker-compose.yml
