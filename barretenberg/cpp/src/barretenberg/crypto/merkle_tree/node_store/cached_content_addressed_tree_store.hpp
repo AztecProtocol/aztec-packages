@@ -284,9 +284,10 @@ index_t ContentAddressedCachedTreeStore<LeafValueType>::constrain_tree_size_to_o
         // We are a fork. Take from constant data
         sizeLimit = forkConstantData_.initialised_from_block_.value().size;
     } else {
-        // We are the main tree. Read from the store
+        // We are the main tree. Read from the store, only use committed so as to not violate any requests for purely
+        // committed data
         TreeMeta m;
-        get_meta(m, tx, true);
+        get_meta(m, tx, false);
         sizeLimit = m.committedSize;
     }
     if (requestContext.maxIndex.has_value() && requestContext.maxIndex.value() < sizeLimit) {
