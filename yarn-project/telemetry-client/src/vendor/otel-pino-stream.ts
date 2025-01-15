@@ -275,7 +275,7 @@ export class OTelPinoStream extends Writable {
 // nodejs loop, as opposed to in a worker as pino recommends.
 export default async function (options: OTelPinoStreamOptions) {
   const url = process.env.OTEL_EXPORTER_OTLP_LOGS_ENDPOINT;
-  const resource = await getOtelResource();
+  const resource = getOtelResource();
   // We re-register here because this runs on a worker thread
   registerOtelLoggerProvider(resource, url ? new URL(url) : undefined);
   return new OTelPinoStream(options);

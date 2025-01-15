@@ -97,8 +97,8 @@ function getTelemetryClient(partialConfig: Partial<TelemetryClientConfig> & { be
   return telemetry;
 }
 if (typeof afterAll === 'function') {
-  afterAll(() => {
-    telemetry?.stop();
+  afterAll(async () => {
+    await telemetry?.stop();
   });
 }
 
@@ -469,7 +469,7 @@ export async function setup(
   }
   config.l1PublishRetryIntervalMS = 100;
 
-  const telemetry = await getTelemetryClient(opts.telemetryConfig);
+  const telemetry = getTelemetryClient(opts.telemetryConfig);
 
   const blobSinkClient = createBlobSinkClient(config.blobSinkUrl);
   const publisher = new TestL1Publisher(config, { blobSinkClient });
