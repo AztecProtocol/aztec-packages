@@ -20,6 +20,7 @@
 #include <array>
 #include <cstddef>
 #include <cstdint>
+#include <exception>
 #include <filesystem>
 #include <gtest/gtest.h>
 #include <memory>
@@ -1823,4 +1824,78 @@ TEST_F(PersistedContentAddressedAppendOnlyTreeTest, can_not_historically_remove_
         remove_historic_block(tree, i + 1);
     }
     remove_historic_block(tree, blockToFinalise, false);
+}
+
+TEST_F(PersistedContentAddressedAppendOnlyTreeTest, can_checkpoint_and_revert_forks)
+{
+    constexpr size_t depth = 10;
+    uint32_t blockSize = 16;
+    std::string name = random_string();
+    ThreadPoolPtr pool = make_thread_pool(1);
+    LMDBTreeStore::SharedPtr db = std::make_shared<LMDBTreeStore>(_directory, name, _mapSize, _maxReaders);
+    MemoryTree<Poseidon2HashPolicy> memdb(depth);
+
+    {
+        std::unique_ptr<Store> store = std::make_unique<Store>(name, depth, db);
+        TreeType tree(std::move(store), pool);
+
+        std::vector<fr> values = create_values(blockSize);
+        add_values(tree, values);
+
+        commit_tree(tree);
+    }
+
+    std::unique_ptr<Store> store = std::make_unique<Store>(name, depth, db);
+    TreeType tree(std::move(store), pool);
+
+    std::vector<fr_sibling_path> paths(20);
+    uint32_t index = 0;
+    for (; index < 10; index++) {
+        std::vector<fr> values = create_values(blockSize);
+        add_values(tree, values);
+
+        paths[index] = get_sibling_path(tree, 3);
+
+        std::cout << "Checkpointing " << index << std::endl;
+        try {
+            store->checkpoint();
+        } catch (std::exception& e) {
+            std::cout << e.what() << std::endl;
+        }
+    }
+
+    {
+        std::vector<fr> values = create_values(blockSize);
+        add_values(tree, values);
+
+        std::cout << "Reverting " << index << std::endl;
+
+        store->revert();
+
+        EXPECT_EQ(get_sibling_path(tree, 3), paths[index - 1]);
+    }
+
+    for (; index > 7; index--) {
+        std::cout << "Reverting " << index << std::endl;
+        store->revert();
+
+        EXPECT_EQ(get_sibling_path(tree, 3), paths[index - 2]);
+    }
+
+    for (; index < 20; index++) {
+        std::vector<fr> values = create_values(blockSize);
+        add_values(tree, values);
+
+        paths[index] = get_sibling_path(tree, 3);
+
+        store->checkpoint();
+    }
+
+    for (; index > 1; index--) {
+        store->revert();
+
+        EXPECT_EQ(get_sibling_path(tree, 3), paths[index - 2]);
+    }
+
+    EXPECT_THROW(store->revert(), std::runtime_error);
 }

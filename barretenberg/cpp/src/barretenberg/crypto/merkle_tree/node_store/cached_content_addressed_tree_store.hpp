@@ -1,9 +1,11 @@
 #pragma once
 #include "./tree_meta.hpp"
+#include "barretenberg/common/log.hpp"
 #include "barretenberg/crypto/merkle_tree/indexed_tree/indexed_leaf.hpp"
 #include "barretenberg/crypto/merkle_tree/lmdb_store/callbacks.hpp"
 #include "barretenberg/crypto/merkle_tree/lmdb_store/lmdb_transaction.hpp"
 #include "barretenberg/crypto/merkle_tree/lmdb_store/lmdb_tree_store.hpp"
+#include "barretenberg/crypto/merkle_tree/node_store/content_addressed_cache.hpp"
 #include "barretenberg/crypto/merkle_tree/types.hpp"
 #include "barretenberg/ecc/curves/bn254/fr.hpp"
 #include "barretenberg/numeric/uint256/uint256.hpp"
@@ -21,17 +23,6 @@
 #include <unordered_map>
 #include <utility>
 #include <vector>
-
-template <> struct std::hash<uint256_t> {
-    std::size_t operator()(const uint256_t& k) const { return k.data[0]; }
-};
-template <> struct std::hash<bb::fr> {
-    std::size_t operator()(const bb::fr& k) const
-    {
-        bb::numeric::uint256_t val(k);
-        return val.data[0];
-    }
-};
 
 namespace bb::crypto::merkle_tree {
 
@@ -186,33 +177,28 @@ template <typename LeafValueType> class ContentAddressedCachedTreeStore {
 
     std::optional<block_number_t> find_block_for_index(const index_t& index, ReadTransaction& tx) const;
 
+    void checkpoint();
+
+    void revert();
+
   private:
+    using Cache = ContentAddressedCache<LeafValueType>;
+    using CachePtr = typename Cache::UniquePtr;
+
     struct ForkConstantData {
         std::string name_;
         uint32_t depth_;
         std::optional<BlockPayload> initialised_from_block_;
     };
     ForkConstantData forkConstantData_;
-
-    // This is a mapping between the node hash and it's payload (children and ref count) for every node in the tree,
-    // including leaves. As indexed trees are updated, this will end up containing many nodes that are not part of the
-    // final tree so they need to be omitted from what is committed.
-    std::unordered_map<fr, NodePayload> nodes_;
-
-    // This is a store mapping the leaf key (e.g. slot for public data or nullifier value for nullifier tree) to the
-    // index in the tree
-    std::map<uint256_t, index_t> indices_;
-
-    // This is a mapping from leaf hash to leaf pre-image. This will contain entries that need to be omitted when
-    // commiting updates
-    std::unordered_map<fr, IndexedLeafValueType> leaves_;
-    PersistedStoreType::SharedPtr dataStore_;
-    TreeMeta meta_;
     mutable std::mutex mtx_;
 
-    // The following stores are not persisted, just cached until commit
-    std::vector<std::unordered_map<index_t, fr>> nodes_by_index_;
-    std::unordered_map<index_t, IndexedLeafValueType> leaf_pre_image_by_index_;
+    PersistedStoreType::SharedPtr dataStore_;
+
+    std::vector<CachePtr> caches_;
+    std::vector<size_t> stacks_;
+    const Cache& get_readable_cache() const;
+    Cache& get_writable_cache();
 
     void initialise();
 
@@ -256,8 +242,9 @@ ContentAddressedCachedTreeStore<LeafValueType>::ContentAddressedCachedTreeStore(
                                                                                 PersistedStoreType::SharedPtr dataStore)
     : forkConstantData_{ .name_ = (std::move(name)), .depth_ = levels }
     , dataStore_(dataStore)
-    , nodes_by_index_(std::vector<std::unordered_map<index_t, fr>>(levels + 1, std::unordered_map<index_t, fr>()))
 {
+    caches_.emplace_back(std::make_unique<ContentAddressedCache<LeafValueType>>(levels));
+    stacks_.emplace_back(0);
     initialise();
 }
 
@@ -268,9 +255,47 @@ ContentAddressedCachedTreeStore<LeafValueType>::ContentAddressedCachedTreeStore(
                                                                                 PersistedStoreType::SharedPtr dataStore)
     : forkConstantData_{ .name_ = (std::move(name)), .depth_ = levels }
     , dataStore_(dataStore)
-    , nodes_by_index_(std::vector<std::unordered_map<index_t, fr>>(levels + 1, std::unordered_map<index_t, fr>()))
 {
+    caches_.emplace_back(std::make_unique<ContentAddressedCache<LeafValueType>>(levels));
+    stacks_.emplace_back(0);
     initialise_from_block(referenceBlockNumber);
+}
+
+template <typename LeafValueType>
+const ContentAddressedCachedTreeStore<LeafValueType>::Cache& ContentAddressedCachedTreeStore<
+    LeafValueType>::get_readable_cache() const
+{
+    std::cout << "Here " << stacks_.size() << std::endl;
+    size_t stackDepth = stacks_.size() - 1;
+    std::cout << "Stack depth " << stackDepth << " size " << caches_.size() << std::endl;
+    return *caches_[stacks_[stackDepth]];
+}
+
+template <typename LeafValueType>
+ContentAddressedCachedTreeStore<LeafValueType>::Cache& ContentAddressedCachedTreeStore<
+    LeafValueType>::get_writable_cache()
+{
+    size_t stackDepth = stacks_.size() - 1;
+    return *caches_[stacks_[stackDepth]];
+}
+
+template <typename LeafValueType> void ContentAddressedCachedTreeStore<LeafValueType>::checkpoint()
+{
+    std::cout << "Getting cache" << std::endl;
+    const Cache& cache = get_readable_cache();
+    std::cout << "Copying" << std::endl;
+    caches_.emplace_back(std::make_unique<ContentAddressedCache<LeafValueType>>(cache));
+    std::cout << "Copied" << std::endl;
+    stacks_.emplace_back(caches_.size() - 1);
+}
+
+template <typename LeafValueType> void ContentAddressedCachedTreeStore<LeafValueType>::revert()
+{
+    if (caches_.size() == 1) {
+        throw std::runtime_error(format("Reverting without a checkpoint is prohibited"));
+    }
+    caches_.pop_back();
+    stacks_.pop_back();
 }
 
 template <typename LeafValueType>
@@ -344,13 +369,14 @@ std::pair<bool, index_t> ContentAddressedCachedTreeStore<LeafValueType>::find_lo
 
     // Accessing indices_ from here under a lock
     std::unique_lock lock(mtx_);
-    if (!requestContext.includeUncommitted || retrieved_value == new_value_as_number || indices_.empty()) {
+    const std::map<uint256_t, index_t>& indices = get_readable_cache().indices_;
+    if (!requestContext.includeUncommitted || retrieved_value == new_value_as_number || indices.empty()) {
         return std::make_pair(new_value_as_number == retrieved_value, db_index);
     }
 
     // At this stage, we have been asked to include uncommitted and the value was not exactly found in the db
-    auto it = indices_.lower_bound(new_value_as_number);
-    if (it == indices_.end()) {
+    auto it = indices.lower_bound(new_value_as_number);
+    if (it == indices.end()) {
         // there is no element >= the requested value.
         // decrement the iterator to get the value preceeding the requested value
         --it;
@@ -367,7 +393,7 @@ std::pair<bool, index_t> ContentAddressedCachedTreeStore<LeafValueType>::find_lo
     // We need to return the highest value from
     // 1. The next lowest cached value, if there is one
     // 2. The value retrieved from the db
-    if (it == indices_.begin()) {
+    if (it == indices.begin()) {
         // No cached lower value, return the db index
         return std::make_pair(false, db_index);
     }
@@ -386,8 +412,9 @@ ContentAddressedCachedTreeStore<LeafValueType>::get_leaf_by_hash(const fr& leaf_
     if (includeUncommitted) {
         // Accessing leaves_ here under a lock
         std::unique_lock lock(mtx_);
-        typename std::unordered_map<fr, IndexedLeafValueType>::const_iterator it = leaves_.find(leaf_hash);
-        if (it != leaves_.end()) {
+        const std::unordered_map<fr, IndexedLeafValueType>& leaves = get_readable_cache().leaves_;
+        typename std::unordered_map<fr, IndexedLeafValueType>::const_iterator it = leaves.find(leaf_hash);
+        if (it != leaves.end()) {
             leaf = it->second;
             return leaf;
         }
@@ -406,7 +433,8 @@ void ContentAddressedCachedTreeStore<LeafValueType>::put_leaf_by_hash(const fr& 
 {
     // Accessing leaves_ under a lock
     std::unique_lock lock(mtx_);
-    leaves_[leaf_hash] = leafPreImage;
+    std::unordered_map<fr, IndexedLeafValueType>& leaves = get_writable_cache().leaves_;
+    leaves[leaf_hash] = leafPreImage;
 }
 
 template <typename LeafValueType>
@@ -415,8 +443,10 @@ ContentAddressedCachedTreeStore<LeafValueType>::get_cached_leaf_by_index(const i
 {
     // Accessing leaf_pre_image_by_index_ under a lock
     std::unique_lock lock(mtx_);
-    auto it = leaf_pre_image_by_index_.find(index);
-    if (it == leaf_pre_image_by_index_.end()) {
+    const std::unordered_map<index_t, IndexedLeafValueType>& leaf_pre_image_by_index =
+        get_readable_cache().leaf_pre_image_by_index_;
+    auto it = leaf_pre_image_by_index.find(index);
+    if (it == leaf_pre_image_by_index.end()) {
         return std::nullopt;
     }
     return it->second;
@@ -428,7 +458,9 @@ void ContentAddressedCachedTreeStore<LeafValueType>::put_cached_leaf_by_index(co
 {
     // Accessing leaf_pre_image_by_index_ under a lock
     std::unique_lock lock(mtx_);
-    leaf_pre_image_by_index_[index] = leafPreImage;
+    std::unordered_map<index_t, IndexedLeafValueType>& leaf_pre_image_by_index =
+        get_writable_cache().leaf_pre_image_by_index_;
+    leaf_pre_image_by_index[index] = leafPreImage;
 }
 
 template <typename LeafValueType>
@@ -445,7 +477,8 @@ void ContentAddressedCachedTreeStore<LeafValueType>::update_index(const index_t&
     // std::cout << "update_index at index " << index << " leaf " << leaf << std::endl;
     //  Accessing indices_ under a lock
     std::unique_lock lock(mtx_);
-    indices_.insert({ uint256_t(leaf), index });
+    std::map<uint256_t, index_t>& indices = get_writable_cache().indices_;
+    indices.insert({ uint256_t(leaf), index });
 }
 
 template <typename LeafValueType>
@@ -465,8 +498,9 @@ std::optional<index_t> ContentAddressedCachedTreeStore<LeafValueType>::find_leaf
     if (requestContext.includeUncommitted) {
         // Accessing indices_ under a lock
         std::unique_lock lock(mtx_);
-        auto it = indices_.find(uint256_t(leaf));
-        if (it != indices_.end()) {
+        const std::map<uint256_t, index_t>& indices = get_readable_cache().indices_;
+        auto it = indices.find(uint256_t(leaf));
+        if (it != indices.end()) {
             // we have an uncommitted value, we will return from here
             if (it->second >= start_index) {
                 // we have a qualifying value
@@ -501,7 +535,8 @@ void ContentAddressedCachedTreeStore<LeafValueType>::put_node_by_hash(const fr& 
 {
     // Accessing nodes_ under a lock
     std::unique_lock lock(mtx_);
-    nodes_[nodeHash] = payload;
+    std::unordered_map<fr, NodePayload>& nodes = get_writable_cache().nodes_;
+    nodes[nodeHash] = payload;
 }
 
 template <typename LeafValueType>
@@ -513,8 +548,9 @@ bool ContentAddressedCachedTreeStore<LeafValueType>::get_node_by_hash(const fr& 
     if (includeUncommitted) {
         // Accessing nodes_ under a lock
         std::unique_lock lock(mtx_);
-        auto it = nodes_.find(nodeHash);
-        if (it != nodes_.end()) {
+        const std::unordered_map<fr, NodePayload>& nodes = get_readable_cache().nodes_;
+        auto it = nodes.find(nodeHash);
+        if (it != nodes.end()) {
             payload = it->second;
             return true;
         }
@@ -531,13 +567,13 @@ void ContentAddressedCachedTreeStore<LeafValueType>::put_cached_node_by_index(ui
     // Accessing nodes_by_index_ under a lock
     std::unique_lock lock(mtx_);
     if (!overwriteIfPresent) {
-        const auto& level_map = nodes_by_index_[level];
+        const auto& level_map = get_readable_cache().nodes_by_index_[level];
         auto it = level_map.find(index);
         if (it != level_map.end()) {
             return;
         }
     }
-    nodes_by_index_[level][index] = data;
+    get_writable_cache().nodes_by_index_[level][index] = data;
 }
 
 template <typename LeafValueType>
@@ -547,7 +583,7 @@ bool ContentAddressedCachedTreeStore<LeafValueType>::get_cached_node_by_index(ui
 {
     // Accessing nodes_by_index_ under a lock
     std::unique_lock lock(mtx_);
-    const auto& level_map = nodes_by_index_[level];
+    const auto& level_map = get_readable_cache().nodes_by_index_[level];
     auto it = level_map.find(index);
     if (it == level_map.end()) {
         return false;
@@ -560,7 +596,8 @@ template <typename LeafValueType> void ContentAddressedCachedTreeStore<LeafValue
 {
     // Accessing meta_ under a lock
     std::unique_lock lock(mtx_);
-    meta_ = m;
+    TreeMeta& meta = get_writable_cache().meta_;
+    meta = m;
 }
 
 template <typename LeafValueType>
@@ -571,7 +608,7 @@ void ContentAddressedCachedTreeStore<LeafValueType>::get_meta(TreeMeta& m,
     if (includeUncommitted) {
         // Accessing meta_ under a lock
         std::unique_lock lock(mtx_);
-        m = meta_;
+        m = get_readable_cache().meta_;
         return;
     }
     read_persisted_meta(m, tx);
@@ -650,8 +687,9 @@ void ContentAddressedCachedTreeStore<LeafValueType>::commit(TreeMeta& finalMeta,
             return;
         }
 
-        auto currentRootIter = nodes_.find(uncommittedMeta.root);
-        dataPresent = currentRootIter != nodes_.end();
+        const std::unordered_map<fr, NodePayload>& nodes = get_readable_cache().nodes_;
+        auto currentRootIter = nodes.find(uncommittedMeta.root);
+        dataPresent = currentRootIter != nodes.end();
     }
     {
         WriteTransactionPtr tx = create_write_transaction();
@@ -711,7 +749,8 @@ void ContentAddressedCachedTreeStore<LeafValueType>::extract_db_stats(TreeDBStat
 template <typename LeafValueType>
 void ContentAddressedCachedTreeStore<LeafValueType>::persist_leaf_indices(WriteTransaction& tx)
 {
-    for (auto& idx : indices_) {
+    const std::map<uint256_t, index_t>& indices = get_readable_cache().indices_;
+    for (auto& idx : indices) {
         FrKeyType key = idx.first;
         dataStore_->write_leaf_index(key, idx.second, tx);
     }
@@ -721,8 +760,9 @@ template <typename LeafValueType>
 void ContentAddressedCachedTreeStore<LeafValueType>::persist_leaf_pre_image(const fr& hash, WriteTransaction& tx)
 {
     // Now persist the leaf pre-image
-    auto leafPreImageIter = leaves_.find(hash);
-    if (leafPreImageIter == leaves_.end()) {
+    const std::unordered_map<fr, IndexedLeafValueType>& leaves = get_readable_cache().leaves_;
+    auto leafPreImageIter = leaves.find(hash);
+    if (leafPreImageIter == leaves.end()) {
         return;
     }
     dataStore_->write_leaf_by_hash(hash, leafPreImageIter->second, tx);
@@ -739,6 +779,8 @@ void ContentAddressedCachedTreeStore<LeafValueType>::persist_node(const std::opt
     };
     std::vector<StackObject> stack;
     stack.push_back({ .opHash = optional_hash, .lvl = level });
+
+    const std::unordered_map<fr, NodePayload>& nodes = get_readable_cache().nodes_;
 
     while (!stack.empty()) {
         StackObject so = stack.back();
@@ -758,8 +800,8 @@ void ContentAddressedCachedTreeStore<LeafValueType>::persist_node(const std::opt
         }
 
         // std::cout << "Persisting node hash " << hash << " at level " << so.lvl << std::endl;
-        auto nodePayloadIter = nodes_.find(hash);
-        if (nodePayloadIter == nodes_.end()) {
+        auto nodePayloadIter = nodes.find(hash);
+        if (nodePayloadIter == nodes.end()) {
             //  need to increase the stored node's reference count here
             dataStore_->increment_node_reference_count(hash, tx);
             continue;
@@ -780,16 +822,12 @@ void ContentAddressedCachedTreeStore<LeafValueType>::persist_node(const std::opt
 template <typename LeafValueType> void ContentAddressedCachedTreeStore<LeafValueType>::rollback()
 {
     // Extract the committed meta data and destroy the cache
+    Cache& cache = get_writable_cache();
     {
         ReadTransactionPtr tx = create_read_transaction();
-        read_persisted_meta(meta_, *tx);
+        read_persisted_meta(cache.meta_, *tx);
     }
-    nodes_ = std::unordered_map<fr, NodePayload>();
-    indices_ = std::map<uint256_t, index_t>();
-    leaves_ = std::unordered_map<fr, IndexedLeafValueType>();
-    nodes_by_index_ =
-        std::vector<std::unordered_map<index_t, fr>>(forkConstantData_.depth_ + 1, std::unordered_map<index_t, fr>());
-    leaf_pre_image_by_index_ = std::unordered_map<index_t, IndexedLeafValueType>();
+    cache.reset(forkConstantData_.depth_);
 }
 
 template <typename LeafValueType>
@@ -1122,11 +1160,12 @@ template <typename LeafValueType> void ContentAddressedCachedTreeStore<LeafValue
     // Read the persisted meta data, if the name or depth of the tree is not consistent with what was provided during
     // construction then we throw
     std::vector<uint8_t> data;
+    TreeMeta& meta = get_writable_cache().meta_;
     {
         ReadTransactionPtr tx = create_read_transaction();
-        bool success = read_persisted_meta(meta_, *tx);
+        bool success = read_persisted_meta(meta, *tx);
         if (success) {
-            if (forkConstantData_.name_ == meta_.name && forkConstantData_.depth_ == meta_.depth) {
+            if (forkConstantData_.name_ == meta.name && forkConstantData_.depth_ == meta.depth) {
                 return;
             }
             throw std::runtime_error(
@@ -1135,19 +1174,19 @@ template <typename LeafValueType> void ContentAddressedCachedTreeStore<LeafValue
     }
 
     // No meta data available. Write the initial state down
-    meta_.name = forkConstantData_.name_;
-    meta_.size = 0;
-    meta_.committedSize = 0;
-    meta_.root = fr::zero();
-    meta_.initialRoot = fr::zero();
-    meta_.depth = forkConstantData_.depth_;
-    meta_.initialSize = 0;
-    meta_.oldestHistoricBlock = 0;
-    meta_.unfinalisedBlockHeight = 0;
-    meta_.finalisedBlockHeight = 0;
+    meta.name = forkConstantData_.name_;
+    meta.size = 0;
+    meta.committedSize = 0;
+    meta.root = fr::zero();
+    meta.initialRoot = fr::zero();
+    meta.depth = forkConstantData_.depth_;
+    meta.initialSize = 0;
+    meta.oldestHistoricBlock = 0;
+    meta.unfinalisedBlockHeight = 0;
+    meta.finalisedBlockHeight = 0;
     WriteTransactionPtr tx = create_write_transaction();
     try {
-        persist_meta(meta_, *tx);
+        persist_meta(meta, *tx);
         tx->commit();
     } catch (std::exception& e) {
         tx->try_abort();
@@ -1161,11 +1200,12 @@ void ContentAddressedCachedTreeStore<LeafValueType>::initialise_from_block(const
     // Read the persisted meta data, if the name or depth of the tree is not consistent with what was provided during
     // construction then we throw
     std::vector<uint8_t> data;
+    TreeMeta& meta = get_writable_cache().meta_;
     {
         ReadTransactionPtr tx = create_read_transaction();
-        bool success = read_persisted_meta(meta_, *tx);
+        bool success = read_persisted_meta(meta, *tx);
         if (success) {
-            if (forkConstantData_.name_ != meta_.name || forkConstantData_.depth_ != meta_.depth) {
+            if (forkConstantData_.name_ != meta.name || forkConstantData_.depth_ != meta.depth) {
                 throw std::runtime_error(format("Inconsistent tree meta data when initialising ",
                                                 forkConstantData_.name_,
                                                 " with depth ",
@@ -1173,9 +1213,9 @@ void ContentAddressedCachedTreeStore<LeafValueType>::initialise_from_block(const
                                                 " from block ",
                                                 blockNumber,
                                                 " stored name: ",
-                                                meta_.name,
+                                                meta.name,
                                                 "stored depth: ",
-                                                meta_.depth));
+                                                meta.depth));
             }
 
         } else {
@@ -1185,34 +1225,34 @@ void ContentAddressedCachedTreeStore<LeafValueType>::initialise_from_block(const
                                             blockNumber));
         }
 
-        if (meta_.unfinalisedBlockHeight < blockNumber) {
+        if (meta.unfinalisedBlockHeight < blockNumber) {
             throw std::runtime_error(format("Unable to initialise from future block: ",
                                             blockNumber,
                                             " unfinalisedBlockHeight: ",
-                                            meta_.unfinalisedBlockHeight,
+                                            meta.unfinalisedBlockHeight,
                                             ". Tree name: ",
                                             forkConstantData_.name_));
         }
-        if (meta_.oldestHistoricBlock > blockNumber && blockNumber != 0) {
+        if (meta.oldestHistoricBlock > blockNumber && blockNumber != 0) {
             throw std::runtime_error(format("Unable to fork from expired historical block: ",
                                             blockNumber,
                                             " unfinalisedBlockHeight: ",
-                                            meta_.oldestHistoricBlock,
+                                            meta.oldestHistoricBlock,
                                             ". Tree name: ",
                                             forkConstantData_.name_));
         }
         BlockPayload blockData;
         if (blockNumber == 0) {
             blockData.blockNumber = 0;
-            blockData.root = meta_.initialRoot;
-            blockData.size = meta_.initialSize;
+            blockData.root = meta.initialRoot;
+            blockData.size = meta.initialSize;
         } else if (get_block_data(blockNumber, blockData, *tx) == false) {
             throw std::runtime_error(
                 format("Failed to retrieve block data: ", blockNumber, ". Tree name: ", forkConstantData_.name_));
         }
         forkConstantData_.initialised_from_block_ = blockData;
         // Ensure the meta reflects the fork constant data
-        enrich_meta_from_fork_constant_data(meta_);
+        enrich_meta_from_fork_constant_data(meta);
     }
 }
 

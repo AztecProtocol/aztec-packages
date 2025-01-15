@@ -125,26 +125,6 @@ fr_sibling_path get_historic_sibling_path(TypeOfTree& tree,
     return h;
 }
 
-template <typename TypeOfTree>
-fr_sibling_path get_sibling_path(TypeOfTree& tree,
-                                 index_t index,
-                                 bool includeUncommitted = true,
-                                 bool expected_success = true)
-{
-    fr_sibling_path h;
-    Signal signal;
-    auto completion = [&](const TypedResponse<GetSiblingPathResponse>& response) -> void {
-        EXPECT_EQ(response.success, expected_success);
-        if (response.success) {
-            h = response.inner.path;
-        }
-        signal.signal_level();
-    };
-    tree.get_sibling_path(index, completion, includeUncommitted);
-    signal.wait_for_level();
-    return h;
-}
-
 template <typename LeafValueType, typename TypeOfTree>
 IndexedLeaf<LeafValueType> get_leaf(TypeOfTree& tree,
                                     index_t index,
