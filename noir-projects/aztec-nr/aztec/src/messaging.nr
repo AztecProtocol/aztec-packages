@@ -31,6 +31,7 @@ pub fn process_l1_to_l2_message(
 
     // We prove that `message_hash` is in the tree by showing the derivation of the tree root, using a merkle path we
     // get from an oracle.
+    /// Safety: The witness is only used as a "magical value" that makes the merkle proof below pass. Hence it's safe.
     let (_leaf_index, sibling_path) =
         unsafe { get_l1_to_l2_membership_witness(contract_address, message_hash, secret) };
 
