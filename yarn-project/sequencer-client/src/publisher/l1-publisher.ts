@@ -417,7 +417,7 @@ export class L1Publisher {
       digest: Buffer.alloc(32),
       signatures: [],
     },
-  ): Promise<void> {
+  ): Promise<bigint> {
     const ts = BigInt((await this.publicClient.getBlock()).timestamp + this.ethereumSlotDuration);
 
     const formattedSignatures = attestationData.signatures.map(attest => attest.toViemSignature());
@@ -442,6 +442,7 @@ export class L1Publisher {
       }
       throw error;
     }
+    return ts;
   }
 
   public async getCurrentEpochCommittee(): Promise<EthAddress[]> {
@@ -610,15 +611,15 @@ export class L1Publisher {
     //        This means that we can avoid the simulation issues in later checks.
     //        By simulation issue, I mean the fact that the block.timestamp is equal to the last block, not the next, which
     //        make time consistency checks break.
-    await this.validateBlockForSubmission(block.header, {
+    const ts = await this.validateBlockForSubmission(block.header, {
       digest: digest.toBuffer(),
       signatures: attestations ?? [],
     });
 
     this.log.debug(`Submitting propose transaction`);
     const result = proofQuote
-      ? await this.sendProposeAndClaimTx(proposeTxArgs, proofQuote, opts)
-      : await this.sendProposeTx(proposeTxArgs, opts);
+      ? await this.sendProposeAndClaimTx(proposeTxArgs, proofQuote, opts, ts)
+      : await this.sendProposeTx(proposeTxArgs, opts, ts);
 
     if (!result?.receipt) {
       this.log.info(`Failed to publish block ${block.number} to L1`, ctx);
@@ -1068,6 +1069,7 @@ export class L1Publisher {
   private async sendProposeTx(
     encodedData: L1ProcessArgs,
     opts: { txTimeoutAt?: Date } = {},
+    timestamp: bigint,
   ): Promise<L1ProcessReturnType | undefined> {
     if (this.interrupted) {
       return undefined;
@@ -1080,7 +1082,6 @@ export class L1Publisher {
         functionName: 'propose',
         args,
       });
-      const time = BigInt((await this.publicClient.getBlock()).timestamp + this.ethereumSlotDuration);
       let simulationResult = await this.l1TxUtils.simulateGasUsed(
         {
           to: this.rollupContract.address,
@@ -1088,7 +1089,7 @@ export class L1Publisher {
         },
         undefined,
         {
-          time,
+          time: timestamp,
         },
       );
 
@@ -1129,6 +1130,7 @@ export class L1Publisher {
     encodedData: L1ProcessArgs,
     quote: EpochProofQuote,
     opts: { txTimeoutAt?: Date } = {},
+    timestamp: bigint,
   ): Promise<L1ProcessReturnType | undefined> {
     if (this.interrupted) {
       return undefined;
@@ -1141,7 +1143,6 @@ export class L1Publisher {
         functionName: 'proposeAndClaim',
         args: [...args, quote.toViemArgs()],
       });
-      const time = BigInt((await this.publicClient.getBlock()).timestamp + this.ethereumSlotDuration);
 
       let simulationResult = await this.l1TxUtils.simulateGasUsed(
         {
@@ -1150,7 +1151,7 @@ export class L1Publisher {
         },
         undefined,
         {
-          time,
+          time: timestamp,
         },
       );
 

@@ -600,7 +600,13 @@ export class L1TxUtils {
         gasUsed: result[0].calls[0].gasUsed,
         result: result,
       });
-      return result[0].calls[0].gasUsed;
+      if (result[0].calls[0].status === 'failure') {
+        this.logger?.error('Simulation failed', {
+          error: result[0].calls[0].error,
+        });
+        throw new Error(`Simulation failed with error: ${result[0].calls[0].error.message}`);
+      }
+      return result[0].gasUsed;
     } catch (err) {
       if (err instanceof MethodNotFoundRpcError || err instanceof MethodNotSupportedRpcError) {
         // Node doesn't support simulation, return -1n gas estimate
