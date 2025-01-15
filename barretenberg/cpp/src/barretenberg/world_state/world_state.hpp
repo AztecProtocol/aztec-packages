@@ -18,7 +18,6 @@
 #include "barretenberg/world_state/tree_with_store.hpp"
 #include "barretenberg/world_state/types.hpp"
 #include "barretenberg/world_state/world_state_stores.hpp"
-#include "barretenberg/world_state_napi/message.hpp"
 #include <algorithm>
 #include <cstdint>
 #include <exception>
