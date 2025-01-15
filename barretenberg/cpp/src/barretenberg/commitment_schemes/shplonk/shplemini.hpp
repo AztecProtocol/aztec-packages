@@ -709,15 +709,6 @@ template <typename Curve> class ShpleminiVerifier_ {
                                             const std::vector<Commitment>& sumcheck_round_commitments,
                                             const std::vector<std::array<Fr, 3>>& sumcheck_round_evaluations)
     {
-        std::vector<Commitment> round_commitments = {};
-        std::vector<Fr> truncated_challenge = {};
-        std::vector<std::array<Fr, 3>> round_evals = {};
-
-        for (size_t idx = 0; idx < log_circuit_size; idx++) {
-            round_commitments.emplace_back(sumcheck_round_commitments[idx]);
-            round_evals.emplace_back(sumcheck_round_evaluations[idx]);
-            truncated_challenge.emplace_back(multilinear_challenge[idx]);
-        }
 
         std::vector<Fr> denominators = {};
         Fr shplonk_challenge_power = Fr{ 1 };
@@ -732,7 +723,7 @@ template <typename Curve> class ShpleminiVerifier_ {
         const_denominators[0] = Fr(1) / (shplonk_evaluation_challenge);
         const_denominators[1] = Fr(1) / (shplonk_evaluation_challenge - Fr{ 1 });
 
-        for (const auto& [challenge, comm] : zip_view(truncated_challenge, round_commitments)) {
+        for (const auto& [challenge, comm] : zip_view(multilinear_challenge, sumcheck_round_commitments)) {
             denominators.push_back(shplonk_evaluation_challenge - challenge);
             commitments.push_back(comm);
         }
@@ -743,23 +734,44 @@ template <typename Curve> class ShpleminiVerifier_ {
                 denominator = Fr{ 1 } / denominator;
             }
         }
-        for (const auto& [eval_array, denominator] : zip_view(round_evals, denominators)) {
+        size_t round_idx = 0;
+        for (const auto& [eval_array, denominator] : zip_view(sumcheck_round_evaluations, denominators)) {
             Fr batched_scaling_factor = Fr(0);
+            Fr const_term_contribution = Fr(0);
+
             for (size_t idx = 0; idx < 2; idx++) {
                 Fr current_scaling_factor = const_denominators[idx] * shplonk_challenge_power;
                 batched_scaling_factor -= current_scaling_factor;
                 shplonk_challenge_power *= shplonk_batching_challenge;
-                constant_term += current_scaling_factor * eval_array[idx];
+                const_term_contribution += current_scaling_factor * eval_array[idx];
             }
             Fr current_scaling_factor = denominator * shplonk_challenge_power;
 
             batched_scaling_factor -= current_scaling_factor;
             shplonk_challenge_power *= shplonk_batching_challenge;
 
-            constant_term += current_scaling_factor * eval_array[2];
+            const_term_contribution += current_scaling_factor * eval_array[2];
 
+            if constexpr (Curve::is_stdlib_type) {
+                auto builder = shplonk_batching_challenge.get_context();
+                // TODO(https://github.com/AztecProtocol/barretenberg/issues/1114): insecure!
+                stdlib::bool_t dummy_round = stdlib::witness_t(builder, round_idx >= log_circuit_size);
+                Fr zero = Fr(0);
+                const_term_contribution = Fr::conditional_assign(dummy_round, zero, const_term_contribution);
+                batched_scaling_factor = Fr::conditional_assign(dummy_round, zero, batched_scaling_factor);
+            } else {
+                if (round_idx >= log_circuit_size) {
+                    const_term_contribution = 0;
+                    batched_scaling_factor = 0;
+                }
+            }
+            constant_term += const_term_contribution;
             scalars.push_back(batched_scaling_factor);
+            round_idx++;
         }
+
+        info(commitments.size());
+        info(scalars.size());
     };
 };
 } // namespace bb
