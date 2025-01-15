@@ -90,6 +90,7 @@ template <class Curve> class CommitmentKey {
         PROFILE_THIS_NAME("commit");
         // We must have a power-of-2 SRS points *after* subtracting by start_index.
         size_t dyadic_poly_size = numeric::round_up_power_2(polynomial.size());
+        ASSERT(dyadic_poly_size <= dyadic_size && "Polynomial size exceeds commitment key size.");
         // Because pippenger prefers a power-of-2 size, we must choose a starting index for the points so that we don't
         // exceed the dyadic_circuit_size. The actual start index of the points will be the smallest it can be so that
         // the window of points is a power of 2 and still contains the scalars. The best we can do is pick a start index
