@@ -9,7 +9,7 @@ WORLD_STATE_LIB_PATH=../../barretenberg/cpp/build-pic/lib/world_state_napi.node
 PRESET=${PRESET:-clang16-pic}
 
 build_addon() {
-  (cd ../../barretenberg/cpp; cmake --preset $PRESET -DCMAKE_BUILD_TYPE=RelWithAssert; cmake --build --preset $PRESET --target world_state_napi; echo $PWD; mkdir -p build/bin;  cp ./build-pic/lib/world_state_napi.node ./build/bin/world_state_napi.node)
+  (cd ../../barretenberg/cpp; cmake --preset $PRESET; cmake --build --preset $PRESET --target world_state_napi; echo $PWD; mkdir -p build/bin;  cp ./build-pic/lib/world_state_napi.node ./build/bin/world_state_napi.node)
 }
 
 cp_addon_lib() {

@@ -1,4 +1,4 @@
-#include "barretenberg/world_state_napi/addon.hpp"
+#include "barretenberg/world_state_napi/world_state/world_state.hpp"
 #include "barretenberg/crypto/merkle_tree/hash_path.hpp"
 #include "barretenberg/crypto/merkle_tree/indexed_tree/indexed_leaf.hpp"
 #include "barretenberg/crypto/merkle_tree/response.hpp"
@@ -9,7 +9,7 @@
 #include "barretenberg/world_state/types.hpp"
 #include "barretenberg/world_state/world_state.hpp"
 #include "barretenberg/world_state_napi/async_op.hpp"
-#include "barretenberg/world_state_napi/message.hpp"
+#include "barretenberg/world_state_napi/world_state/world_state_message.hpp"
 #include "msgpack/v3/pack_decl.hpp"
 #include "msgpack/v3/sbuffer_decl.hpp"
 #include "napi.h"
@@ -29,7 +29,7 @@ using namespace bb::world_state;
 using namespace bb::crypto::merkle_tree;
 using namespace bb::messaging;
 
-const uint64_t DEFAULT_MAP_SIZE = 1024 * 1024;
+const uint64_t DEFAULT_MAP_SIZE = 1024UL * 1024;
 
 WorldStateAddon::WorldStateAddon(const Napi::CallbackInfo& info)
     : ObjectWrap(info)
