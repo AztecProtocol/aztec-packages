@@ -425,17 +425,31 @@ describe('Memory instructions', () => {
     it('Should return error when memory slice calldatacopy target is out-of-range', async () => {
       const calldata = [new Fr(1n), new Fr(2n), new Fr(3n)];
       context = initContext({ env: initExecutionEnvironment({ calldata }) });
-      context.machineState.memory.set(0, new Uint32(0)); // cdoffset
-      context.machineState.memory.set(1, new Uint32(3)); // size
+      context.machineState.memory.set(0, new Uint32(0)); // cdStart = 0
+      context.machineState.memory.set(1, new Uint32(3)); // copySize = 3
 
       await expect(
         new CalldataCopy(
           /*indirect=*/ 0,
-          /*cdOffset=*/ 0,
-          /*copySize=*/ 1,
+          /*cdStartOffset=*/ 0,
+          /*copySizeOffset=*/ 1,
           /*dstOffset=*/ TaggedMemory.MAX_MEMORY_SIZE - 2,
         ).execute(context),
       ).rejects.toThrow(MemorySliceOutOfRangeError);
+    });
+
+    it('Should return error when the calldata slice is out-of-range', async () => {
+      const calldata = [new Fr(1n), new Fr(2n), new Fr(3n)];
+      context = initContext({ env: initExecutionEnvironment({ calldata }) });
+      context.machineState.memory.set(0, new Uint32(2)); // cdStart = 2
+      context.machineState.memory.set(1, new Uint32(3)); // copySize = 3
+
+      await new CalldataCopy(/*indirect=*/ 0, /*cdStartOffset=*/ 0, /*copySizeOffset=*/ 1, /*dstOffset=*/ 0).execute(
+        context,
+      );
+
+      const actual = context.machineState.memory.getSlice(/*offset=*/ 0, /*size=*/ 3);
+      expect(actual).toEqual([new Field(3), new Field(0), new Field(0)]);
     });
   });
 
@@ -523,17 +537,31 @@ describe('Memory instructions', () => {
     it('Should return error when memory slice target is out-of-range', async () => {
       context = initContext();
       context.machineState.nestedReturndata = [new Fr(1n), new Fr(2n), new Fr(3n)];
-      context.machineState.memory.set(0, new Uint32(1)); // rdoffset
-      context.machineState.memory.set(1, new Uint32(2)); // size
+      context.machineState.memory.set(0, new Uint32(1)); // rdStart = 1
+      context.machineState.memory.set(1, new Uint32(2)); // copySize = 2
 
       await expect(
         new ReturndataCopy(
           /*indirect=*/ 0,
-          /*rdOffset=*/ 0,
-          /*copySize=*/ 1,
+          /*rdStartOffset=*/ 0,
+          /*copySizeOffset=*/ 1,
           /*dstOffset=*/ TaggedMemory.MAX_MEMORY_SIZE - 1,
         ).execute(context),
       ).rejects.toThrow(MemorySliceOutOfRangeError);
+    });
+
+    it('Should return error when returndata slice is out-of-range', async () => {
+      context = initContext();
+      context.machineState.nestedReturndata = [new Fr(1n), new Fr(2n), new Fr(3n)];
+      context.machineState.memory.set(0, new Uint32(2)); // rdStart = 2
+      context.machineState.memory.set(1, new Uint32(3)); // copySize = 3
+
+      await new ReturndataCopy(/*indirect=*/ 0, /*rdStartOffset=*/ 0, /*copySizeOffset=*/ 1, /*dstOffset=*/ 0).execute(
+        context,
+      );
+
+      const actual = context.machineState.memory.getSlice(/*offset=*/ 0, /*size=*/ 3);
+      expect(actual).toEqual([new Field(3), new Field(0), new Field(0)]);
     });
   });
 });

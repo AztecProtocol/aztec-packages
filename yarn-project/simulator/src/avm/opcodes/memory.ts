@@ -190,7 +190,18 @@ export class CalldataCopy extends Instruction {
     const copySize = memory.get(copySizeOffset).toNumber();
     context.machineState.consumeGas(this.gasCost(copySize));
 
-    const transformedData = context.environment.calldata.slice(cdStart, cdStart + copySize).map(f => new Field(f));
+    const calldata = context.environment.calldata;
+    let zeroPaddingLength = 0;
+    let inRangeLength = copySize;
+
+    // Values which are out-of-range of the calldata array will be set with Field(0);
+    if (calldata.length < cdStart + copySize) {
+      zeroPaddingLength = cdStart + copySize - calldata.length;
+      inRangeLength = copySize - zeroPaddingLength;
+    }
+
+    const transformedData = calldata.slice(cdStart, cdStart + inRangeLength).map(f => new Field(f));
+    transformedData.push(...Array(zeroPaddingLength).fill(new Field(0)));
 
     memory.setSlice(dstOffset, transformedData);
 
@@ -253,9 +264,18 @@ export class ReturndataCopy extends Instruction {
     const copySize = memory.get(copySizeOffset).toNumber();
     context.machineState.consumeGas(this.gasCost(copySize));
 
-    const transformedData = context.machineState.nestedReturndata
-      .slice(rdStart, rdStart + copySize)
-      .map(f => new Field(f));
+    const returndata = context.machineState.nestedReturndata;
+    let zeroPaddingLength = 0;
+    let inRangeLength = copySize;
+
+    // Values which are out-of-range of the returndata array will be set with Field(0);
+    if (returndata.length < rdStart + copySize) {
+      zeroPaddingLength = rdStart + copySize - returndata.length;
+      inRangeLength = copySize - zeroPaddingLength;
+    }
+
+    const transformedData = returndata.slice(rdStart, rdStart + inRangeLength).map(f => new Field(f));
+    transformedData.push(...Array(zeroPaddingLength).fill(new Field(0)));
 
     memory.setSlice(dstOffset, transformedData);
 
