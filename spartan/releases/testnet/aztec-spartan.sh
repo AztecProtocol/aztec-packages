@@ -165,15 +165,15 @@ configure_environment() {
     if [ -n "$NETWORK" ]; then
         NETWORK="$NETWORK"
     else
-        read -p "Network [troll-turtle]: " NETWORK
-        NETWORK=${NETWORK:-troll-turtle}
+        read -p "Network [unhinged-unicorn]: " NETWORK
+        NETWORK=${NETWORK:-unhinged-unicorn}
     fi
 
     # if the network is `troll-turtle`
-    if [ "$NETWORK" = "troll-turtle" ]; then
-        BOOTNODE_URL="${BOOTNODE_URL:-http://34.82.108.83:8080}"
-        ETHEREUM_HOST="${ETHEREUM_HOST:-http://34.82.53.127:8545}"
-        IMAGE="${IMAGE:-aztecprotocol/aztec:troll-turtle}"
+    if [ "$NETWORK" = "unhinged-unicorn" ]; then
+        BOOTNODE_URL="${BOOTNODE_URL:-http://34.169.19.201:8080}"
+        ETHEREUM_HOST="${ETHEREUM_HOST:-http://34.82.214.254:8545}"
+        IMAGE="${IMAGE:-aztecprotocol/aztec:unhinged-unicorn}"
     else
         # unknown network
         echo -e "${RED}Unknown network: $NETWORK${NC}"
@@ -220,7 +220,7 @@ configure_environment() {
     COINBASE="$CLI_COINBASE"
     else
         while true; do
-            read -p "COINBASE (default: 0xbaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa): " COINBASE
+            read -p "Validator Address (default: 0xbaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa): " COINBASE
             COINBASE=${COINBASE:-0xbaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa}
             if [[ "$COINBASE" =~ ^0x[a-fA-F0-9]{40}$ ]]; then
                 break
