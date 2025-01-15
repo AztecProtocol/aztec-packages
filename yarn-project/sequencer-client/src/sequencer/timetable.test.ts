@@ -99,9 +99,32 @@ describe('sequencer-timetable', () => {
     it('sets deadline', () => {
       const actual = timetable.getValidatorReexecTimeEnd(10);
       const available = aztecSlotDuration - timetable.attestationPropagationTime - timetable.l1PublishingTime - 10;
-      const expected = available / 2 + 10;
+      const expected = available + 10;
       expect(actual).toEqual(expected);
-      expect(expected).toEqual(16);
+      expect(expected).toEqual(22);
+    });
+
+    it('sets time available equal to block building', () => {
+      const { blockValidationTime, attestationPropagationTime, l1PublishingTime } = timetable;
+
+      const intoSlot = 3;
+      const blockBuildDeadline = timetable.getBlockProposalExecTimeEnd(intoSlot);
+      const blockBuildAvailable = blockBuildDeadline - intoSlot;
+
+      const validatorIntoSlot = blockBuildDeadline + blockValidationTime + attestationPropagationTime;
+      const validatorDeadline = timetable.getValidatorReexecTimeEnd(validatorIntoSlot);
+      const validatorAvailable = validatorDeadline - validatorIntoSlot;
+
+      expect(blockBuildAvailable).toEqual(validatorAvailable);
+
+      expect(
+        blockBuildAvailable +
+          validatorAvailable +
+          intoSlot +
+          blockValidationTime +
+          attestationPropagationTime * 2 +
+          l1PublishingTime,
+      ).toEqual(aztecSlotDuration);
     });
   });
 });

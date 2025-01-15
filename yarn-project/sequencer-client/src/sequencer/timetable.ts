@@ -61,7 +61,7 @@ export class SequencerTimetable {
     // We are N seconds into the slot. We need to account for `afterBlockReexecTimeNeeded` seconds.
     const maxAllowed = this.aztecSlotDuration - this.afterBlockReexecTimeNeeded;
     const available = maxAllowed - secondsIntoSlot;
-    const validationTimeEnd = secondsIntoSlot + available / 2;
+    const validationTimeEnd = secondsIntoSlot + available;
     this.log.debug(`Validator re-execution time deadline is ${validationTimeEnd}`, {
       secondsIntoSlot,
       maxAllowed,
