@@ -90,12 +90,12 @@ LMDBTreeStore::LMDBTreeStore(std::string directory, std::string name, uint64_t m
 
 LMDBTreeStore::WriteTransaction::Ptr LMDBTreeStore::create_write_transaction() const
 {
-    return std::make_unique<LMDBTreeWriteTransaction>(_environment);
+    return std::make_unique<LMDBWriteTransaction>(_environment);
 }
 LMDBTreeStore::ReadTransaction::Ptr LMDBTreeStore::create_read_transaction()
 {
     _environment->wait_for_reader();
-    return std::make_unique<LMDBTreeReadTransaction>(_environment);
+    return std::make_unique<LMDBReadTransaction>(_environment);
 }
 
 void LMDBTreeStore::get_stats(TreeDBStats& stats, ReadTransaction& tx)

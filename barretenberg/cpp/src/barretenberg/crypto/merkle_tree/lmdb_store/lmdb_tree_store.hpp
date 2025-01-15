@@ -161,8 +161,8 @@ class LMDBTreeStore {
   public:
     using Ptr = std::unique_ptr<LMDBTreeStore>;
     using SharedPtr = std::shared_ptr<LMDBTreeStore>;
-    using ReadTransaction = LMDBTreeReadTransaction;
-    using WriteTransaction = LMDBTreeWriteTransaction;
+    using ReadTransaction = LMDBReadTransaction;
+    using WriteTransaction = LMDBWriteTransaction;
     LMDBTreeStore(std::string directory, std::string name, uint64_t mapSizeKb, uint64_t maxNumReaders);
     LMDBTreeStore(const LMDBTreeStore& other) = delete;
     LMDBTreeStore(LMDBTreeStore&& other) = delete;
