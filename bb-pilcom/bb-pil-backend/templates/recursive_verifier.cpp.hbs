@@ -128,7 +128,7 @@ AvmRecursiveVerifier_<Flavor>::AggregationObject AvmRecursiveVerifier_<Flavor>::
 
     {{#each public_cols}}
     FF {{col}}_evaluation = evaluate_public_input_column(public_inputs[{{idx}}], mle_challenge);
-    {{col}}_evaluation.assert_equal(claimed_evaluations.{{col}},
+    {{col}}_evaluation.assert_equal(output.claimed_evaluations.{{col}},
                                                "{{col}}_evaluation failed");
 
     {{/each}}
@@ -139,7 +139,7 @@ AvmRecursiveVerifier_<Flavor>::AggregationObject AvmRecursiveVerifier_<Flavor>::
                                                                 commitments.get_to_be_shifted(),
                                                                 output.claimed_evaluations.get_unshifted(),
                                                                 output.claimed_evaluations.get_shifted(),
-                                                               output.challenge,
+                                                                output.challenge,
                                                                 Commitment::one(builder),
                                                                 transcript);
     auto pairing_points = PCS::reduce_verify_batch_opening_claim(opening_claim, transcript);

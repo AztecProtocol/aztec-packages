@@ -673,7 +673,7 @@ template <typename Flavor> class SumcheckVerifier {
             full_honk_purported_value =
                 full_honk_purported_value * correcting_factor + libra_evaluation * libra_challenge;
             if constexpr (IsECCVMRecursiveFlavor<Flavor>) {
-                // TODO: investigate why this is needed
+                // TODO(https://github.com/AztecProtocol/barretenberg/issues/1197)
                 full_honk_purported_value.self_reduce();
             }
         }

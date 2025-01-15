@@ -53,8 +53,8 @@ std::vector<typename GeminiProver_<Curve>::Claim> GeminiProver_<Curve>::prove(
     bool has_zk)
 
 {
-    size_t log_n = numeric::get_msb(static_cast<uint32_t>(circuit_size));
-    size_t n = 1 << log_n;
+    const size_t log_n = numeric::get_msb(static_cast<uint32_t>(circuit_size));
+    const size_t n = 1 << log_n;
 
     // Compute batched polynomials
     Polynomial batched_unshifted(n);

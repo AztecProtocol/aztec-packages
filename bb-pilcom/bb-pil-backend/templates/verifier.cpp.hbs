@@ -99,7 +99,7 @@ bool AvmVerifier::verify_proof(const HonkProof& proof, const std::vector<std::ve
 
     {{#each public_cols}}
     FF {{col}}_evaluation = evaluate_public_input_column(public_inputs[{{idx}}], mle_challenge);
-        if ({{col}}_evaluation != claimed_evaluations.{{col}}) {
+        if ({{col}}_evaluation != output.claimed_evaluations.{{col}}) {
             vinfo("{{col}}_evaluation failed");
             return false;
         }
