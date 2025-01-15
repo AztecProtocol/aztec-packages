@@ -44,9 +44,10 @@ export const createP2PClient = async <T extends P2PClientType>(
   let config = { ..._config };
   const logger = createLogger('p2p');
   const store = deps.store ?? (await createStore('p2p', config, createLogger('p2p:lmdb')));
+  const archive = await createStore('p2p-archive', config, createLogger('p2p-archive:lmdb'));
 
   const mempools: MemPools<T> = {
-    txPool: deps.txPool ?? new AztecKVTxPool(store, telemetry),
+    txPool: deps.txPool ?? new AztecKVTxPool(store, archive, telemetry, config.archivedTxLimit),
     epochProofQuotePool: deps.epochProofQuotePool ?? new MemoryEpochProofQuotePool(telemetry),
     attestationPool:
       clientType === P2PClientType.Full
