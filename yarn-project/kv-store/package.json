@@ -10,14 +10,16 @@
     "./config": "./dest/config.js"
   },
   "scripts": {
-    "build": "yarn clean && tsc -b",
+    "build": "yarn clean && yarn generate && tsc -b",
     "build:dev": "tsc -b --watch",
+    "build:cpp": "PROJECT=$(pwd); cd $(git rev-parse --show-toplevel)/barretenberg/cpp; cmake --preset ${PRESET:-clang16-pic} && cmake --build --preset ${PRESET:-clang16-pic} --target nodejs_module && cd $PROJECT && yarn generate",
     "clean": "rm -rf ./dest .tsbuildinfo",
     "formatting": "run -T prettier --check ./src && run -T eslint ./src",
     "formatting:fix": "run -T eslint --fix ./src && run -T prettier -w ./src",
     "test:node": "NODE_NO_WARNINGS=1 mocha --config ./.mocharc.json --reporter dot",
     "test:browser": "wtr --config ./web-test-runner.config.mjs",
-    "test": "yarn test:node && yarn test:browser && true"
+    "test": "yarn test:node && yarn test:browser && true",
+    "generate": "mkdir -p build && cp -v ../../barretenberg/cpp/build-pic/lib/nodejs_module.node build"
   },
   "inherits": [
     "../package.common.json",
@@ -27,12 +29,15 @@
     "@aztec/circuit-types": "workspace:^",
     "@aztec/ethereum": "workspace:^",
     "@aztec/foundation": "workspace:^",
+    "bindings": "^1.5.0",
     "idb": "^8.0.0",
-    "lmdb": "^3.2.0"
+    "lmdb": "^3.2.0",
+    "msgpackr": "*"
   },
   "devDependencies": {
     "@aztec/circuits.js": "workspace:^",
     "@jest/globals": "^29.5.0",
+    "@types/bindings": "^1.5.5",
     "@types/chai": "^5.0.1",
     "@types/chai-as-promised": "^8.0.1",
     "@types/jest": "^29.5.0",
