@@ -18,7 +18,7 @@ import { type TelemetryClient, getTelemetryClient } from '@aztec/telemetry-clien
 import { type ProverClientConfig } from '../config.js';
 import { ProvingOrchestrator } from '../orchestrator/orchestrator.js';
 import { BrokerCircuitProverFacade } from '../proving_broker/broker_prover_facade.js';
-import { InlineProofStore } from '../proving_broker/proof_store.js';
+import { InlineProofStore, type ProofStore, createProofStore } from '../proving_broker/proof_store/index.js';
 import { ProvingAgent } from '../proving_broker/proving_agent.js';
 import { ServerEpochProver } from './server-epoch-prover.js';
 
@@ -27,6 +27,9 @@ export class ProverClient implements EpochProverManager {
   private running = false;
   private agents: ProvingAgent[] = [];
 
+  private proofStore: ProofStore;
+  private failedProofStore: ProofStore | undefined;
+
   private constructor(
     private config: ProverClientConfig,
     private worldState: ForkMerkleTreeOperations,
@@ -34,7 +37,10 @@ export class ProverClient implements EpochProverManager {
     private agentClient?: ProvingJobConsumer,
     private telemetry: TelemetryClient = getTelemetryClient(),
     private log = createLogger('prover-client:tx-prover'),
-  ) {}
+  ) {
+    this.proofStore = new InlineProofStore();
+    this.failedProofStore = this.config.failedProofStore ? createProofStore(this.config.failedProofStore) : undefined;
+  }
 
   public createEpochProver(): EpochProver {
     const facade = new BrokerCircuitProverFacade(this.orchestratorClient);
