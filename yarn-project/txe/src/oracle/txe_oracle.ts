@@ -1084,36 +1084,36 @@ export class TXE implements TypedOracle {
     return preimage.value;
   }
 
-  /**
-   * Used by contracts during execution to store arbitrary data in the local PXE database. The data is siloed/scoped
-   * to a specific `contract`.
-   * @param contract - The contract address to store the data under.
-   * @param key - A field element representing the key to store the data under.
-   * @param values - An array of field elements representing the data to store.
-   */
-  store(contract: AztecAddress, key: Fr, values: Fr[]): Promise<void> {
-    if (!contract.equals(this.contractAddress)) {
-      // TODO(#10727): instead of this check check that this.contractAddress is allowed to process notes for contract
-      throw new Error(
-        `Contract address ${contract} does not match the oracle's contract address ${this.contractAddress}`,
-      );
+  dbStore(contractAddress: AztecAddress, slot: Fr, values: Fr[]): Promise<void> {
+    if (!contractAddress.equals(this.contractAddress)) {
+      // TODO(#10727): instead of this check that this.contractAddress is allowed to access the external DB
+      throw new Error(`Contract ${contractAddress} is not allowed to access ${this.contractAddress}'s PXE DB`);
     }
-    return this.txeDatabase.store(this.contractAddress, key, values);
+    return this.txeDatabase.dbStore(this.contractAddress, slot, values);
   }
 
-  /**
-   * Used by contracts during execution to load arbitrary data from the local PXE database. The data is siloed/scoped
-   * to a specific `contract`.
-   * @param contract - The contract address to load the data from.
-   * @param key - A field element representing the key under which to load the data..
-   * @returns An array of field elements representing the stored data or `null` if no data is stored under the key.
-   */
-  load(contract: AztecAddress, key: Fr): Promise<Fr[] | null> {
-    if (!contract.equals(this.contractAddress)) {
-      // TODO(#10727): instead of this check check that this.contractAddress is allowed to process notes for contract
-      this.debug(`Data not found for contract ${contract.toString()} and key ${key.toString()}`);
+  dbLoad(contractAddress: AztecAddress, slot: Fr): Promise<Fr[] | null> {
+    if (!contractAddress.equals(this.contractAddress)) {
+      // TODO(#10727): instead of this check that this.contractAddress is allowed to access the external DB
+      this.debug(`Data not found for contract ${contractAddress.toString()} and slot ${slot.toString()}`);
       return Promise.resolve(null);
     }
-    return this.txeDatabase.load(this.contractAddress, key);
+    return this.txeDatabase.dbLoad(this.contractAddress, slot);
+  }
+
+  dbDelete(contractAddress: AztecAddress, slot: Fr): Promise<void> {
+    if (!contractAddress.equals(this.contractAddress)) {
+      // TODO(#10727): instead of this check that this.contractAddress is allowed to access the external DB
+      throw new Error(`Contract ${contractAddress} is not allowed to access ${this.contractAddress}'s PXE DB`);
+    }
+    return this.txeDatabase.dbDelete(this.contractAddress, slot);
+  }
+
+  dbCopy(contractAddress: AztecAddress, srcSlot: Fr, dstSlot: Fr, numEntries: number): Promise<void> {
+    if (!contractAddress.equals(this.contractAddress)) {
+      // TODO(#10727): instead of this check that this.contractAddress is allowed to access the external DB
+      throw new Error(`Contract ${contractAddress} is not allowed to access ${this.contractAddress}'s PXE DB`);
+    }
+    return this.txeDatabase.dbCopy(this.contractAddress, srcSlot, dstSlot, numEntries);
   }
 }

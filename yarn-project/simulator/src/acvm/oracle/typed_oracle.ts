@@ -246,11 +246,19 @@ export abstract class TypedOracle {
     throw new OracleMethodNotAvailableError('deliverNote');
   }
 
-  store(_contract: AztecAddress, _key: Fr, _values: Fr[]): Promise<void> {
-    throw new OracleMethodNotAvailableError('store');
+  dbStore(_contractAddress: AztecAddress, _key: Fr, _values: Fr[]): Promise<void> {
+    throw new OracleMethodNotAvailableError('dbStore');
   }
 
-  load(_contract: AztecAddress, _key: Fr): Promise<Fr[] | null> {
-    throw new OracleMethodNotAvailableError('load');
+  dbLoad(_contractAddress: AztecAddress, _key: Fr): Promise<Fr[] | null> {
+    throw new OracleMethodNotAvailableError('dbLoad');
+  }
+
+  dbDelete(_contractAddress: AztecAddress, _key: Fr): Promise<void> {
+    throw new OracleMethodNotAvailableError('dbDelete');
+  }
+
+  dbCopy(_contractAddress: AztecAddress, _srcKey: Fr, _dstKey: Fr, _numEntries: number): Promise<void> {
+    throw new OracleMethodNotAvailableError('dbCopy');
   }
 }

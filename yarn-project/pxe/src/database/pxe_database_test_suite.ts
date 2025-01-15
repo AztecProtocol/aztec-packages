@@ -406,7 +406,7 @@ export function describePxeDatabase(getDatabase: () => PxeDatabase) {
       });
     });
 
-    describe('contract store', () => {
+    describe('contract non-volatile database', () => {
       let contract: AztecAddress;
 
       beforeEach(() => {
@@ -415,55 +415,154 @@ export function describePxeDatabase(getDatabase: () => PxeDatabase) {
       });
 
       it('stores and loads a single value', async () => {
-        const key = new Fr(1);
+        const slot = new Fr(1);
         const values = [new Fr(42)];
 
-        await database.store(contract, key, values);
-        const result = await database.load(contract, key);
+        await database.dbStore(contract, slot, values);
+        const result = await database.dbLoad(contract, slot);
         expect(result).toEqual(values);
       });
 
       it('stores and loads multiple values', async () => {
-        const key = new Fr(1);
+        const slot = new Fr(1);
         const values = [new Fr(42), new Fr(43), new Fr(44)];
 
-        await database.store(contract, key, values);
-        const result = await database.load(contract, key);
+        await database.dbStore(contract, slot, values);
+        const result = await database.dbLoad(contract, slot);
         expect(result).toEqual(values);
       });
 
       it('overwrites existing values', async () => {
-        const key = new Fr(1);
+        const slot = new Fr(1);
         const initialValues = [new Fr(42)];
         const newValues = [new Fr(100)];
 
-        await database.store(contract, key, initialValues);
-        await database.store(contract, key, newValues);
+        await database.dbStore(contract, slot, initialValues);
+        await database.dbStore(contract, slot, newValues);
 
-        const result = await database.load(contract, key);
+        const result = await database.dbLoad(contract, slot);
         expect(result).toEqual(newValues);
       });
 
       it('stores values for different contracts independently', async () => {
         const anotherContract = AztecAddress.random();
-        const key = new Fr(1);
+        const slot = new Fr(1);
         const values1 = [new Fr(42)];
         const values2 = [new Fr(100)];
 
-        await database.store(contract, key, values1);
-        await database.store(anotherContract, key, values2);
+        await database.dbStore(contract, slot, values1);
+        await database.dbStore(anotherContract, slot, values2);
 
-        const result1 = await database.load(contract, key);
-        const result2 = await database.load(anotherContract, key);
+        const result1 = await database.dbLoad(contract, slot);
+        const result2 = await database.dbLoad(anotherContract, slot);
 
         expect(result1).toEqual(values1);
         expect(result2).toEqual(values2);
       });
 
-      it('returns null for non-existent keys', async () => {
-        const key = Fr.random();
-        const result = await database.load(contract, key);
+      it('returns null for non-existent slots', async () => {
+        const slot = Fr.random();
+        const result = await database.dbLoad(contract, slot);
         expect(result).toBeNull();
+      });
+
+      it('deletes a slot', async () => {
+        const slot = new Fr(1);
+        const values = [new Fr(42)];
+
+        await database.dbStore(contract, slot, values);
+        await database.dbDelete(contract, slot);
+
+        expect(await database.dbLoad(contract, slot)).toBeNull();
+      });
+
+      it('deletes an empty slot', async () => {
+        const slot = new Fr(1);
+        await database.dbDelete(contract, slot);
+
+        expect(await database.dbLoad(contract, slot)).toBeNull();
+      });
+
+      it('copies a single value', async () => {
+        const slot = new Fr(1);
+        const values = [new Fr(42)];
+
+        await database.dbStore(contract, slot, values);
+
+        const dstSlot = new Fr(5);
+        await database.dbCopy(contract, slot, dstSlot, 1);
+
+        expect(await database.dbLoad(contract, dstSlot)).toEqual(values);
+      });
+
+      it('copies multiple non-overlapping values', async () => {
+        const src = new Fr(1);
+        const valuesArray = [[new Fr(42)], [new Fr(1337)], [new Fr(13)]];
+
+        await database.dbStore(contract, src, valuesArray[0]);
+        await database.dbStore(contract, src.add(new Fr(1)), valuesArray[1]);
+        await database.dbStore(contract, src.add(new Fr(2)), valuesArray[2]);
+
+        const dst = new Fr(5);
+        await database.dbCopy(contract, src, dst, 3);
+
+        expect(await database.dbLoad(contract, dst)).toEqual(valuesArray[0]);
+        expect(await database.dbLoad(contract, dst.add(new Fr(1)))).toEqual(valuesArray[1]);
+        expect(await database.dbLoad(contract, dst.add(new Fr(2)))).toEqual(valuesArray[2]);
+      });
+
+      it('copies overlapping values with src ahead', async () => {
+        const src = new Fr(1);
+        const valuesArray = [[new Fr(42)], [new Fr(1337)], [new Fr(13)]];
+
+        await database.dbStore(contract, src, valuesArray[0]);
+        await database.dbStore(contract, src.add(new Fr(1)), valuesArray[1]);
+        await database.dbStore(contract, src.add(new Fr(2)), valuesArray[2]);
+
+        const dst = new Fr(2);
+        await database.dbCopy(contract, src, dst, 3);
+
+        expect(await database.dbLoad(contract, dst)).toEqual(valuesArray[0]);
+        expect(await database.dbLoad(contract, dst.add(new Fr(1)))).toEqual(valuesArray[1]);
+        expect(await database.dbLoad(contract, dst.add(new Fr(2)))).toEqual(valuesArray[2]);
+
+        // Slots 2 and 3 (src[1] and src[2]) should have been overwritten since they are also dst[0] and dst[1]
+        expect(await database.dbLoad(contract, src)).toEqual(valuesArray[0]); // src[0] (unchanged)
+        expect(await database.dbLoad(contract, src.add(new Fr(1)))).toEqual(valuesArray[0]); // dst[0]
+        expect(await database.dbLoad(contract, src.add(new Fr(2)))).toEqual(valuesArray[1]); // dst[1]
+      });
+
+      it('copies overlapping values with dst ahead', async () => {
+        const src = new Fr(5);
+        const valuesArray = [[new Fr(42)], [new Fr(1337)], [new Fr(13)]];
+
+        await database.dbStore(contract, src, valuesArray[0]);
+        await database.dbStore(contract, src.add(new Fr(1)), valuesArray[1]);
+        await database.dbStore(contract, src.add(new Fr(2)), valuesArray[2]);
+
+        const dst = new Fr(4);
+        await database.dbCopy(contract, src, dst, 3);
+
+        expect(await database.dbLoad(contract, dst)).toEqual(valuesArray[0]);
+        expect(await database.dbLoad(contract, dst.add(new Fr(1)))).toEqual(valuesArray[1]);
+        expect(await database.dbLoad(contract, dst.add(new Fr(2)))).toEqual(valuesArray[2]);
+
+        // Slots 5 and 6 (src[0] and src[1]) should have been overwritten since they are also dst[1] and dst[2]
+        expect(await database.dbLoad(contract, src)).toEqual(valuesArray[1]); // dst[1]
+        expect(await database.dbLoad(contract, src.add(new Fr(1)))).toEqual(valuesArray[2]); // dst[2]
+        expect(await database.dbLoad(contract, src.add(new Fr(2)))).toEqual(valuesArray[2]); // src[2] (unchanged)
+      });
+
+      it('copying fails if any value is empty', async () => {
+        const src = new Fr(1);
+        const valuesArray = [[new Fr(42)], [new Fr(1337)], [new Fr(13)]];
+
+        await database.dbStore(contract, src, valuesArray[0]);
+        // We skip src[1]
+        await database.dbStore(contract, src.add(new Fr(2)), valuesArray[2]);
+
+        const dst = new Fr(5);
+        await expect(database.dbCopy(contract, src, dst, 3)).rejects.toThrow('Attempted to copy empty slot');
       });
     });
   });
