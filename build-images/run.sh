@@ -41,5 +41,5 @@ else
     -vdevbox-var-lib-docker:/var/lib/docker \
     -v$HOME/.ssh/id_rsa:/home/aztec-dev/.ssh/id_rsa:ro \
     --privileged \
-    aztecprotocol/devbox:2.2
+    aztecprotocol/devbox:3.0
 fi
