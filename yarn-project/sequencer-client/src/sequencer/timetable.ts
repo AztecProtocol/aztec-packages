@@ -5,10 +5,10 @@ import { SequencerState } from './utils.js';
 
 export class SequencerTimetable {
   /** How late into the slot can we be to start working */
-  public readonly initialTime = 2;
+  public readonly initialTime = 3;
 
   /** How long it takes to get ready to start building */
-  public readonly blockPrepareTime = 2;
+  public readonly blockPrepareTime = 1;
 
   /** How long it takes to for proposals and attestations to travel across the p2p layer (one-way) */
   public readonly attestationPropagationTime = 2;
