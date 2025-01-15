@@ -10,7 +10,7 @@ template <typename FF_> class mem_sliceImpl {
   public:
     using FF = FF_;
 
-    static constexpr std::array<size_t, 11> SUBRELATION_PARTIAL_LENGTHS = { 2, 3, 3, 3, 3, 3, 3, 3, 4, 4, 4 };
+    static constexpr std::array<size_t, 10> SUBRELATION_PARTIAL_LENGTHS = { 2, 3, 3, 3, 3, 3, 3, 4, 4, 4 };
 
     template <typename ContainerOverSubrelations, typename AllEntities>
     void static accumulate(ContainerOverSubrelations& evals,
@@ -51,43 +51,36 @@ template <typename FF_> class mem_sliceImpl {
         }
         {
             using Accumulator = typename std::tuple_element_t<5, ContainerOverSubrelations>;
-            auto tmp = (new_term.slice_sel_mem_active *
-                        ((new_term.slice_col_offset + FF(1)) - new_term.slice_col_offset_shift));
+            auto tmp = (new_term.slice_sel_mem_active * (new_term.slice_clk - new_term.slice_clk_shift));
             tmp *= scaling_factor;
             std::get<5>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<6, ContainerOverSubrelations>;
-            auto tmp = (new_term.slice_sel_mem_active * (new_term.slice_clk - new_term.slice_clk_shift));
+            auto tmp = (new_term.slice_sel_mem_active * (new_term.slice_space_id - new_term.slice_space_id_shift));
             tmp *= scaling_factor;
             std::get<6>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<7, ContainerOverSubrelations>;
-            auto tmp = (new_term.slice_sel_mem_active * (new_term.slice_space_id - new_term.slice_space_id_shift));
+            auto tmp = ((new_term.slice_sel_mem_active * new_term.slice_sel_mem_active_shift) *
+                        (new_term.slice_sel_return - new_term.slice_sel_return_shift));
             tmp *= scaling_factor;
             std::get<7>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<8, ContainerOverSubrelations>;
             auto tmp = ((new_term.slice_sel_mem_active * new_term.slice_sel_mem_active_shift) *
-                        (new_term.slice_sel_return - new_term.slice_sel_return_shift));
+                        (new_term.slice_sel_cd_cpy - new_term.slice_sel_cd_cpy_shift));
             tmp *= scaling_factor;
             std::get<8>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<9, ContainerOverSubrelations>;
-            auto tmp = ((new_term.slice_sel_mem_active * new_term.slice_sel_mem_active_shift) *
-                        (new_term.slice_sel_cd_cpy - new_term.slice_sel_cd_cpy_shift));
-            tmp *= scaling_factor;
-            std::get<9>(evals) += typename Accumulator::View(tmp);
-        }
-        {
-            using Accumulator = typename std::tuple_element_t<10, ContainerOverSubrelations>;
             auto tmp = (((FF(1) - new_term.slice_sel_mem_active) * new_term.slice_sel_mem_active_shift) *
                         (FF(1) - new_term.slice_sel_start_shift));
             tmp *= scaling_factor;
-            std::get<10>(evals) += typename Accumulator::View(tmp);
+            std::get<9>(evals) += typename Accumulator::View(tmp);
         }
     }
 };
@@ -108,16 +101,14 @@ template <typename FF> class mem_slice : public Relation<mem_sliceImpl<FF>> {
         case 4:
             return "ADDR_INCREMENT";
         case 5:
-            return "COL_OFFSET_INCREMENT";
-        case 6:
             return "SAME_CLK";
-        case 7:
+        case 6:
             return "SAME_SPACE_ID";
-        case 8:
+        case 7:
             return "SAME_SEL_RETURN";
-        case 9:
+        case 8:
             return "SAME_SEL_CD_CPY";
-        case 10:
+        case 9:
             return "SEL_MEM_INACTIVE";
         }
         return std::to_string(index);
@@ -128,12 +119,11 @@ template <typename FF> class mem_slice : public Relation<mem_sliceImpl<FF>> {
     static constexpr size_t SR_SLICE_CNT_ZERO_TEST2 = 2;
     static constexpr size_t SR_SLICE_CNT_DECREMENT = 3;
     static constexpr size_t SR_ADDR_INCREMENT = 4;
-    static constexpr size_t SR_COL_OFFSET_INCREMENT = 5;
-    static constexpr size_t SR_SAME_CLK = 6;
-    static constexpr size_t SR_SAME_SPACE_ID = 7;
-    static constexpr size_t SR_SAME_SEL_RETURN = 8;
-    static constexpr size_t SR_SAME_SEL_CD_CPY = 9;
-    static constexpr size_t SR_SEL_MEM_INACTIVE = 10;
+    static constexpr size_t SR_SAME_CLK = 5;
+    static constexpr size_t SR_SAME_SPACE_ID = 6;
+    static constexpr size_t SR_SAME_SEL_RETURN = 7;
+    static constexpr size_t SR_SAME_SEL_CD_CPY = 8;
+    static constexpr size_t SR_SEL_MEM_INACTIVE = 9;
 };
 
 } // namespace bb::avm
