@@ -1,16 +1,16 @@
 #pragma once
 #include "barretenberg/common/serialize.hpp"
-#include "barretenberg/crypto/merkle_tree/lmdb_store/callbacks.hpp"
-#include "barretenberg/crypto/merkle_tree/lmdb_store/lmdb_database.hpp"
-#include "barretenberg/crypto/merkle_tree/lmdb_store/lmdb_environment.hpp"
-#include "barretenberg/crypto/merkle_tree/lmdb_store/lmdb_transaction.hpp"
-#include "barretenberg/crypto/merkle_tree/lmdb_store/queries.hpp"
 #include "barretenberg/crypto/merkle_tree/types.hpp"
+#include "barretenberg/lmdblib/lmdb_database.hpp"
+#include "barretenberg/lmdblib/lmdb_environment.hpp"
+#include "barretenberg/lmdblib/lmdb_helpers.hpp"
+#include "barretenberg/lmdblib/lmdb_transaction.hpp"
+#include "barretenberg/lmdblib/queries.hpp"
 #include "lmdb.h"
 #include <cstdint>
 #include <exception>
 
-namespace bb::crypto::merkle_tree {
+namespace bb::lmdblib {
 
 /**
  * RAII wrapper for an LMDB write transaction.
@@ -32,11 +32,11 @@ class LMDBTreeWriteTransaction : public LMDBTransaction {
 
     template <typename T> void put_value(T& key, std::vector<uint8_t>& data, const LMDBDatabase& db);
 
-    template <typename T> void put_value(T& key, const index_t& data, const LMDBDatabase& db);
+    template <typename T> void put_value(T& key, const uint64_t& data, const LMDBDatabase& db);
 
     void put_value(std::vector<uint8_t>& key, std::vector<uint8_t>& data, const LMDBDatabase& db);
 
-    void put_value(std::vector<uint8_t>& key, const index_t& data, const LMDBDatabase& db);
+    void put_value(std::vector<uint8_t>& key, const uint64_t& data, const LMDBDatabase& db);
 
     template <typename T> void delete_value(T& key, const LMDBDatabase& db);
 
@@ -58,7 +58,7 @@ void LMDBTreeWriteTransaction::put_value(T& key, std::vector<uint8_t>& data, con
     put_value(keyBuffer, data, db);
 }
 
-template <typename T> void LMDBTreeWriteTransaction::put_value(T& key, const index_t& data, const LMDBDatabase& db)
+template <typename T> void LMDBTreeWriteTransaction::put_value(T& key, const uint64_t& data, const LMDBDatabase& db)
 {
     std::vector<uint8_t> keyBuffer = serialise_key(key);
     put_value(keyBuffer, data, db);
@@ -81,4 +81,4 @@ void LMDBTreeWriteTransaction::delete_all_values_lesser_or_equal_key(const T& ke
 {
     lmdb_queries::delete_all_values_lesser_or_equal_key(key, db, *this);
 }
-} // namespace bb::crypto::merkle_tree
+} // namespace bb::lmdblib

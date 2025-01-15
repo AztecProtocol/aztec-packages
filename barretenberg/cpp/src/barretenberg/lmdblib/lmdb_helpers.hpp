@@ -1,18 +1,10 @@
+
 #pragma once
-
-#include "barretenberg/crypto/merkle_tree/types.hpp"
-#include "barretenberg/numeric/uint128/uint128.hpp"
 #include "barretenberg/numeric/uint256/uint256.hpp"
-#include <cstdint>
-#include <lmdb.h>
+#include "lmdb.h"
+#include <string>
 #include <vector>
-
-namespace bb::crypto::merkle_tree {
-using LeafIndexKeyType = uint64_t;
-using BlockMetaKeyType = uint64_t;
-using FrKeyType = uint256_t;
-using MetaKeyType = uint8_t;
-
+namespace bb::lmdblib {
 void throw_error(const std::string& errorString, int error);
 
 int size_cmp(const MDB_val* a, const MDB_val* b);
@@ -66,4 +58,4 @@ template <typename... TArgs> void call_lmdb_func(void (*f)(TArgs...), TArgs... a
 {
     f(args...);
 }
-} // namespace bb::crypto::merkle_tree
+} // namespace bb::lmdblib

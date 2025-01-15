@@ -1,13 +1,13 @@
 #pragma once
 
-#include "barretenberg/crypto/merkle_tree/lmdb_store/callbacks.hpp"
-#include "barretenberg/crypto/merkle_tree/lmdb_store/lmdb_database.hpp"
+#include "barretenberg/lmdblib/lmdb_database.hpp"
+#include "barretenberg/lmdblib/lmdb_helpers.hpp"
 #include "lmdb.h"
 #include <cstdint>
 #include <functional>
 #include <vector>
 
-namespace bb::crypto::merkle_tree {
+namespace bb::lmdblib {
 
 class LMDBTransaction;
 class LMDBTreeWriteTransaction;
@@ -445,7 +445,7 @@ void put_value(std::vector<uint8_t>& key,
                const LMDBDatabase& db,
                LMDBTreeWriteTransaction& tx);
 
-void put_value(std::vector<uint8_t>& key, const index_t& data, const LMDBDatabase& db, LMDBTreeWriteTransaction& tx);
+void put_value(std::vector<uint8_t>& key, const uint64_t& data, const LMDBDatabase& db, LMDBTreeWriteTransaction& tx);
 
 void delete_value(std::vector<uint8_t>& key, const LMDBDatabase& db, LMDBTreeWriteTransaction& tx);
 
@@ -454,6 +454,6 @@ bool get_value(std::vector<uint8_t>& key,
                const LMDBDatabase& db,
                const LMDBTransaction& tx);
 
-bool get_value(std::vector<uint8_t>& key, index_t& data, const LMDBDatabase& db, const LMDBTransaction& tx);
+bool get_value(std::vector<uint8_t>& key, uint64_t& data, const LMDBDatabase& db, const LMDBTransaction& tx);
 } // namespace lmdb_queries
-} // namespace bb::crypto::merkle_tree
+} // namespace bb::lmdblib

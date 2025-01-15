@@ -1,15 +1,15 @@
 
 
-#include "barretenberg/crypto/merkle_tree/lmdb_store/lmdb_tree_write_transaction.hpp"
+#include "barretenberg/lmdblib/lmdb_write_transaction.hpp"
 
-#include "barretenberg/crypto/merkle_tree/lmdb_store/callbacks.hpp"
-#include "barretenberg/crypto/merkle_tree/lmdb_store/lmdb_database.hpp"
-#include "barretenberg/crypto/merkle_tree/lmdb_store/lmdb_environment.hpp"
-#include "barretenberg/crypto/merkle_tree/lmdb_store/queries.hpp"
+#include "barretenberg/lmdblib/lmdb_database.hpp"
+#include "barretenberg/lmdblib/lmdb_environment.hpp"
+#include "barretenberg/lmdblib/lmdb_helpers.hpp"
+#include "barretenberg/lmdblib/queries.hpp"
 #include "lmdb.h"
 #include <utility>
 
-namespace bb::crypto::merkle_tree {
+namespace bb::lmdblib {
 
 LMDBTreeWriteTransaction::LMDBTreeWriteTransaction(LMDBEnvironment::SharedPtr env)
     : LMDBTransaction(std::move(env))
@@ -42,7 +42,7 @@ void LMDBTreeWriteTransaction::put_value(std::vector<uint8_t>& key, std::vector<
     lmdb_queries::put_value(key, data, db, *this);
 }
 
-void LMDBTreeWriteTransaction::put_value(std::vector<uint8_t>& key, const index_t& data, const LMDBDatabase& db)
+void LMDBTreeWriteTransaction::put_value(std::vector<uint8_t>& key, const uint64_t& data, const LMDBDatabase& db)
 {
     lmdb_queries::put_value(key, data, db, *this);
 }
@@ -51,4 +51,4 @@ void LMDBTreeWriteTransaction::delete_value(std::vector<uint8_t>& key, const LMD
 {
     lmdb_queries::delete_value(key, db, *this);
 }
-} // namespace bb::crypto::merkle_tree
+} // namespace bb::lmdblib

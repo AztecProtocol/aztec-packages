@@ -7,6 +7,10 @@
 namespace bb::crypto::merkle_tree {
 using index_t = uint64_t;
 using block_number_t = uint64_t;
+using LeafIndexKeyType = uint64_t;
+using BlockMetaKeyType = uint64_t;
+using FrKeyType = uint256_t;
+using MetaKeyType = uint8_t;
 
 struct RequestContext {
     bool includeUncommitted;

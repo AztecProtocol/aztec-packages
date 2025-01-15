@@ -1,12 +1,13 @@
 #pragma once
-#include "barretenberg/crypto/merkle_tree/lmdb_store/lmdb_database.hpp"
-#include "barretenberg/crypto/merkle_tree/lmdb_store/lmdb_environment.hpp"
-#include "barretenberg/crypto/merkle_tree/lmdb_store/queries.hpp"
+#include "barretenberg/lmdblib/lmdb_database.hpp"
+#include "barretenberg/lmdblib/lmdb_environment.hpp"
+#include "barretenberg/lmdblib/queries.hpp"
 #include "lmdb.h"
+#include <cstdint>
 #include <functional>
 #include <vector>
 
-namespace bb::crypto::merkle_tree {
+namespace bb::lmdblib {
 
 /*
  * Abstract base class to represent and LMDB transaction.
@@ -50,7 +51,7 @@ class LMDBTransaction {
 
     template <typename T> bool get_value(T& key, std::vector<uint8_t>& data, const LMDBDatabase& db) const;
 
-    template <typename T> bool get_value(T& key, index_t& data, const LMDBDatabase& db) const;
+    template <typename T> bool get_value(T& key, uint64_t& data, const LMDBDatabase& db) const;
 
     template <typename T>
     void get_all_values_greater_or_equal_key(const T& key,
@@ -64,7 +65,7 @@ class LMDBTransaction {
 
     bool get_value(std::vector<uint8_t>& key, std::vector<uint8_t>& data, const LMDBDatabase& db) const;
 
-    bool get_value(std::vector<uint8_t>& key, index_t& data, const LMDBDatabase& db) const;
+    bool get_value(std::vector<uint8_t>& key, uint64_t& data, const LMDBDatabase& db) const;
 
   protected:
     std::shared_ptr<LMDBEnvironment> _environment;
@@ -78,7 +79,7 @@ template <typename T> bool LMDBTransaction::get_value(T& key, std::vector<uint8_
     return get_value(keyBuffer, data, db);
 }
 
-template <typename T> bool LMDBTransaction::get_value(T& key, index_t& data, const LMDBDatabase& db) const
+template <typename T> bool LMDBTransaction::get_value(T& key, uint64_t& data, const LMDBDatabase& db) const
 {
     std::vector<uint8_t> keyBuffer = serialise_key(key);
     return get_value(keyBuffer, data, db);
@@ -120,4 +121,4 @@ void LMDBTransaction::get_all_values_lesser_or_equal_key(const T& key,
 {
     lmdb_queries::get_all_values_lesser_or_equal_key(key, data, db, *this);
 }
-} // namespace bb::crypto::merkle_tree
+} // namespace bb::lmdblib

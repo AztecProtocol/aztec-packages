@@ -1,9 +1,9 @@
-#include "barretenberg/crypto/merkle_tree/lmdb_store/lmdb_tree_read_transaction.hpp"
-#include "barretenberg/crypto/merkle_tree/lmdb_store/callbacks.hpp"
-#include "barretenberg/crypto/merkle_tree/lmdb_store/lmdb_environment.hpp"
+#include "barretenberg/lmdblib/lmdb_read_transaction.hpp"
+#include "barretenberg/lmdblib/lmdb_environment.hpp"
+#include "barretenberg/lmdblib/lmdb_helpers.hpp"
 #include <cstdint>
 
-namespace bb::crypto::merkle_tree {
+namespace bb::lmdblib {
 LMDBTreeReadTransaction::LMDBTreeReadTransaction(LMDBEnvironment::SharedPtr env)
     : LMDBTransaction(env, true)
 {}
@@ -18,4 +18,4 @@ void LMDBTreeReadTransaction::abort()
     LMDBTransaction::abort();
     _environment->release_reader();
 }
-} // namespace bb::crypto::merkle_tree
+} // namespace bb::lmdblib

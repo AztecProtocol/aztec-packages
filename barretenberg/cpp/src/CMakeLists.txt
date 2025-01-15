@@ -78,6 +78,7 @@ add_subdirectory(barretenberg/examples)
 add_subdirectory(barretenberg/flavor)
 add_subdirectory(barretenberg/goblin)
 add_subdirectory(barretenberg/grumpkin_srs_gen)
+add_subdirectory(barretenberg/lmdblib)
 add_subdirectory(barretenberg/numeric)
 add_subdirectory(barretenberg/plonk)
 add_subdirectory(barretenberg/plonk_honk_shared)
@@ -176,8 +177,9 @@ if(NOT DISABLE_AZTEC_VM)
 endif()
 
 if(NOT WASM)
-    # enable merkle trees
+    # enable merkle trees and lmdb
     list(APPEND BARRETENBERG_TARGET_OBJECTS $<TARGET_OBJECTS:crypto_merkle_tree_objects>)
+    list(APPEND BARRETENBERG_TARGET_OBJECTS $<TARGET_OBJECTS:lmdblib_objects>)
 endif()
 
 add_library(

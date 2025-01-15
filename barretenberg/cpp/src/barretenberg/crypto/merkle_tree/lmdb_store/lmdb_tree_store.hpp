@@ -2,14 +2,13 @@
 #include "barretenberg/common/log.hpp"
 #include "barretenberg/common/serialize.hpp"
 #include "barretenberg/crypto/merkle_tree/indexed_tree/indexed_leaf.hpp"
-#include "barretenberg/crypto/merkle_tree/lmdb_store/callbacks.hpp"
-#include "barretenberg/crypto/merkle_tree/lmdb_store/lmdb_database.hpp"
-#include "barretenberg/crypto/merkle_tree/lmdb_store/lmdb_environment.hpp"
-#include "barretenberg/crypto/merkle_tree/lmdb_store/lmdb_tree_read_transaction.hpp"
-#include "barretenberg/crypto/merkle_tree/lmdb_store/lmdb_tree_write_transaction.hpp"
 #include "barretenberg/crypto/merkle_tree/node_store/tree_meta.hpp"
 #include "barretenberg/crypto/merkle_tree/types.hpp"
 #include "barretenberg/ecc/curves/bn254/fr.hpp"
+#include "barretenberg/lmdblib/lmdb_database.hpp"
+#include "barretenberg/lmdblib/lmdb_environment.hpp"
+#include "barretenberg/lmdblib/lmdb_read_transaction.hpp"
+#include "barretenberg/lmdblib/lmdb_write_transaction.hpp"
 #include "barretenberg/serialize/msgpack.hpp"
 #include "barretenberg/world_state/types.hpp"
 #include "lmdb.h"
@@ -23,6 +22,8 @@
 #include <utility>
 
 namespace bb::crypto::merkle_tree {
+
+using namespace bb::lmdblib;
 
 struct BlockPayload {
 

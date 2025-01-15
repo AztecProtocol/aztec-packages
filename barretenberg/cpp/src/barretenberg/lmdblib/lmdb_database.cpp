@@ -1,10 +1,10 @@
-#include "barretenberg/crypto/merkle_tree/lmdb_store/lmdb_database.hpp"
-#include "barretenberg/crypto/merkle_tree/lmdb_store/callbacks.hpp"
-#include "barretenberg/crypto/merkle_tree/lmdb_store/lmdb_db_transaction.hpp"
-#include "barretenberg/crypto/merkle_tree/lmdb_store/lmdb_environment.hpp"
+#include "barretenberg/lmdblib/lmdb_database.hpp"
+#include "barretenberg/lmdblib/lmdb_db_transaction.hpp"
+#include "barretenberg/lmdblib/lmdb_environment.hpp"
+#include "barretenberg/lmdblib/lmdb_helpers.hpp"
 #include <utility>
 
-namespace bb::crypto::merkle_tree {
+namespace bb::lmdblib {
 LMDBDatabase::LMDBDatabase(LMDBEnvironment::SharedPtr env,
                            const LMDBDatabaseCreationTransaction& transaction,
                            const std::string& name,
@@ -35,4 +35,4 @@ const MDB_dbi& LMDBDatabase::underlying() const
 {
     return _dbi;
 }
-} // namespace bb::crypto::merkle_tree
+} // namespace bb::lmdblib

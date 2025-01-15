@@ -1,14 +1,15 @@
-#include "barretenberg/crypto/merkle_tree/lmdb_store/queries.hpp"
-#include "barretenberg/crypto/merkle_tree/lmdb_store/callbacks.hpp"
-#include "barretenberg/crypto/merkle_tree/lmdb_store/lmdb_tree_write_transaction.hpp"
+#include "barretenberg/lmdblib/queries.hpp"
+#include "barretenberg/lmdblib/lmdb_helpers.hpp"
+#include "barretenberg/lmdblib/lmdb_write_transaction.hpp"
+#include <cstdint>
 #include <vector>
 
-namespace bb::crypto::merkle_tree::lmdb_queries {
+namespace bb::lmdblib::lmdb_queries {
 
 void put_value(std::vector<uint8_t>& key,
                std::vector<uint8_t>& data,
                const LMDBDatabase& db,
-               bb::crypto::merkle_tree::LMDBTreeWriteTransaction& tx)
+               bb::lmdblib::LMDBTreeWriteTransaction& tx)
 {
     MDB_val dbKey;
     dbKey.mv_size = key.size();
@@ -21,9 +22,9 @@ void put_value(std::vector<uint8_t>& key,
 }
 
 void put_value(std::vector<uint8_t>& key,
-               const index_t& data,
+               const uint64_t& data,
                const LMDBDatabase& db,
-               bb::crypto::merkle_tree::LMDBTreeWriteTransaction& tx)
+               bb::lmdblib::LMDBTreeWriteTransaction& tx)
 {
     MDB_val dbKey;
     dbKey.mv_size = key.size();
@@ -38,9 +39,7 @@ void put_value(std::vector<uint8_t>& key,
     call_lmdb_func("mdb_put", mdb_put, tx.underlying(), db.underlying(), &dbKey, &dbVal, 0U);
 }
 
-void delete_value(std::vector<uint8_t>& key,
-                  const LMDBDatabase& db,
-                  bb::crypto::merkle_tree::LMDBTreeWriteTransaction& tx)
+void delete_value(std::vector<uint8_t>& key, const LMDBDatabase& db, bb::lmdblib::LMDBTreeWriteTransaction& tx)
 {
     MDB_val dbKey;
     dbKey.mv_size = key.size();
@@ -56,7 +55,7 @@ void delete_value(std::vector<uint8_t>& key,
 bool get_value(std::vector<uint8_t>& key,
                std::vector<uint8_t>& data,
                const LMDBDatabase& db,
-               const bb::crypto::merkle_tree::LMDBTransaction& tx)
+               const bb::lmdblib::LMDBTransaction& tx)
 {
     MDB_val dbKey;
     dbKey.mv_size = key.size();
@@ -71,9 +70,9 @@ bool get_value(std::vector<uint8_t>& key,
 }
 
 bool get_value(std::vector<uint8_t>& key,
-               index_t& data,
+               uint64_t& data,
                const LMDBDatabase& db,
-               const bb::crypto::merkle_tree::LMDBTransaction& tx)
+               const bb::lmdblib::LMDBTransaction& tx)
 {
     MDB_val dbKey;
     dbKey.mv_size = key.size();
@@ -87,4 +86,4 @@ bool get_value(std::vector<uint8_t>& key,
     deserialise_key(dbVal.mv_data, data);
     return true;
 }
-} // namespace bb::crypto::merkle_tree::lmdb_queries
+} // namespace bb::lmdblib::lmdb_queries

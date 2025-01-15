@@ -1,4 +1,4 @@
-#include "barretenberg/crypto/merkle_tree/lmdb_store/callbacks.hpp"
+#include "barretenberg/lmdblib/lmdb_helpers.hpp"
 #include "barretenberg/numeric/uint256/uint256.hpp"
 #include "lmdb.h"
 #include <algorithm>
@@ -15,7 +15,7 @@
 #include <sys/types.h>
 #endif
 
-namespace bb::crypto::merkle_tree {
+namespace bb::lmdblib {
 void throw_error(const std::string& errorString, int error)
 {
     std::stringstream ss;
@@ -80,4 +80,4 @@ void copy_to_vector(const MDB_val& dbVal, std::vector<uint8_t>& target)
     std::vector<uint8_t> temp = mdb_val_to_vector(dbVal);
     target.swap(temp);
 }
-} // namespace bb::crypto::merkle_tree
+} // namespace bb::lmdblib

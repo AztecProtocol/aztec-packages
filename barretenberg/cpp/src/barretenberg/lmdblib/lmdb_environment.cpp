@@ -1,10 +1,11 @@
-#include "barretenberg/crypto/merkle_tree/lmdb_store/lmdb_environment.hpp"
-#include "barretenberg/crypto/merkle_tree/lmdb_store/callbacks.hpp"
+#include "barretenberg/lmdblib/lmdb_environment.hpp"
+#include "barretenberg/lmdblib/lmdb_helpers.hpp"
 #include "lmdb.h"
 #include <stdexcept>
 #include <sys/stat.h>
 
-namespace bb::crypto::merkle_tree {
+namespace bb::lmdblib {
+
 LMDBEnvironment::LMDBEnvironment(const std::string& directory,
                                  uint64_t mapSizeKB,
                                  uint32_t maxNumDBs,
@@ -58,4 +59,4 @@ MDB_env* LMDBEnvironment::underlying() const
     return _mdbEnv;
 }
 
-} // namespace bb::crypto::merkle_tree
+} // namespace bb::lmdblib

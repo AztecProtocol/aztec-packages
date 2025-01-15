@@ -5,7 +5,7 @@
 #include <memory>
 #include <mutex>
 #include <string>
-namespace bb::crypto::merkle_tree {
+namespace bb::lmdblib {
 /*
  * RAII wrapper around an LMDB environment.
  * Opens/creates the environemnt and manages read access to the enviroment.
@@ -44,4 +44,4 @@ class LMDBEnvironment {
     std::mutex _readersLock;
     std::condition_variable _readersCondition;
 };
-} // namespace bb::crypto::merkle_tree
+} // namespace bb::lmdblib

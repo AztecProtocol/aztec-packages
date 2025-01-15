@@ -1,8 +1,7 @@
 #pragma once
-#include "barretenberg/crypto/merkle_tree/lmdb_store/callbacks.hpp"
-#include "barretenberg/crypto/merkle_tree/lmdb_store/lmdb_environment.hpp"
+#include "barretenberg/lmdblib/lmdb_environment.hpp"
 
-namespace bb::crypto::merkle_tree {
+namespace bb::lmdblib {
 
 class LMDBDatabaseCreationTransaction;
 /**
@@ -33,4 +32,4 @@ class LMDBDatabase {
     MDB_dbi _dbi;
     LMDBEnvironment::SharedPtr _environment;
 };
-} // namespace bb::crypto::merkle_tree
+} // namespace bb::lmdblib

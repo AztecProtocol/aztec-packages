@@ -1,18 +1,18 @@
 #pragma once
 #include "barretenberg/common/serialize.hpp"
-#include "barretenberg/crypto/merkle_tree/lmdb_store/callbacks.hpp"
-#include "barretenberg/crypto/merkle_tree/lmdb_store/lmdb_database.hpp"
-#include "barretenberg/crypto/merkle_tree/lmdb_store/lmdb_environment.hpp"
-#include "barretenberg/crypto/merkle_tree/lmdb_store/lmdb_transaction.hpp"
-#include "barretenberg/crypto/merkle_tree/lmdb_store/queries.hpp"
 #include "barretenberg/crypto/merkle_tree/types.hpp"
+#include "barretenberg/lmdblib/lmdb_database.hpp"
+#include "barretenberg/lmdblib/lmdb_environment.hpp"
+#include "barretenberg/lmdblib/lmdb_helpers.hpp"
+#include "barretenberg/lmdblib/lmdb_transaction.hpp"
+#include "barretenberg/lmdblib/queries.hpp"
 #include <cstdint>
 #include <cstring>
 #include <exception>
 #include <functional>
 #include <vector>
 
-namespace bb::crypto::merkle_tree {
+namespace bb::lmdblib {
 
 /**
  * RAII wrapper around a read transaction.
@@ -33,4 +33,4 @@ class LMDBTreeReadTransaction : public LMDBTransaction {
 
     void abort() override;
 };
-} // namespace bb::crypto::merkle_tree
+} // namespace bb::lmdblib

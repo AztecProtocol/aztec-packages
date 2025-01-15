@@ -1,7 +1,7 @@
 #pragma once
-#include "barretenberg/crypto/merkle_tree/lmdb_store/lmdb_transaction.hpp"
+#include "barretenberg/lmdblib/lmdb_transaction.hpp"
 
-namespace bb::crypto::merkle_tree {
+namespace bb::lmdblib {
 
 /*
  * RAII wrapper to construct a transaction for the purpose of creating/opening a database
@@ -20,4 +20,4 @@ class LMDBDatabaseCreationTransaction : public LMDBTransaction {
     void commit() const;
 };
 
-} // namespace bb::crypto::merkle_tree
+} // namespace bb::lmdblib
