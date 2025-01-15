@@ -116,6 +116,7 @@ export class NativeWorldState implements NativeWorldStateInstance {
       dbMapSizeKb,
       threads,
     );
+    // Manually create the queue for the canonical fork
     this.queues.set(0, new WorldStateOpsQueue());
   }
 

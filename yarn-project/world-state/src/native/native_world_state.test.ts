@@ -723,39 +723,66 @@ describe('NativeWorldState', () => {
 
     it('Mutating and non-mutating requests are correctly queued', async () => {
       const numReads = 64;
-      const fork = await ws.fork();
+      const setupFork = await ws.fork();
 
-      const { block: block1 } = await mockBlock(1, 8, fork);
-      const { block: block2 } = await mockBlock(2, 8, fork);
+      const { block: block1 } = await mockBlock(1, 8, setupFork);
+      const { block: block2 } = await mockBlock(2, 8, setupFork);
+      const { block: block3 } = await mockBlock(3, 8, setupFork);
 
-      await fork.sequentialInsert(
-        MerkleTreeId.PUBLIC_DATA_TREE,
-        block1.body.txEffects.map(write => {
-          return write.toBuffer();
-        }),
-      );
+      await ws.handleL2BlockAndMessages(block1, []);
 
-      const initialPath = await fork.getSiblingPath(MerkleTreeId.PUBLIC_DATA_TREE, 0n);
+      const testFork = await ws.fork();
+      const commitmentDb = ws.getCommitted();
 
-      const firstReads = Array.from({ length: numReads }, () => fork.getSiblingPath(MerkleTreeId.PUBLIC_DATA_TREE, 0n));
-      const write = fork.sequentialInsert(
+      const committedPath = await commitmentDb.getSiblingPath(MerkleTreeId.PUBLIC_DATA_TREE, 0n);
+
+      await testFork.sequentialInsert(
         MerkleTreeId.PUBLIC_DATA_TREE,
         block2.body.txEffects.map(write => {
           return write.toBuffer();
         }),
       );
-      const secondReads = Array.from({ length: numReads }, () =>
-        fork.getSiblingPath(MerkleTreeId.PUBLIC_DATA_TREE, 0n),
-      );
-      await Promise.all([...firstReads, write, ...secondReads]);
 
-      const finalPath = await fork.getSiblingPath(MerkleTreeId.PUBLIC_DATA_TREE, 0n);
+      const initialPath = await testFork.getSiblingPath(MerkleTreeId.PUBLIC_DATA_TREE, 0n);
+
+      const firstReadsUncommitted = Array.from({ length: numReads }, () =>
+        testFork.getSiblingPath(MerkleTreeId.PUBLIC_DATA_TREE, 0n),
+      );
+      const firstReadsCommitted = Array.from({ length: numReads }, () =>
+        commitmentDb.getSiblingPath(MerkleTreeId.PUBLIC_DATA_TREE, 0n),
+      );
+      const write = testFork.sequentialInsert(
+        MerkleTreeId.PUBLIC_DATA_TREE,
+        block3.body.txEffects.map(write => {
+          return write.toBuffer();
+        }),
+      );
+      const secondReadsUncommitted = Array.from({ length: numReads }, () =>
+        testFork.getSiblingPath(MerkleTreeId.PUBLIC_DATA_TREE, 0n),
+      );
+      const secondReadsCommitted = Array.from({ length: numReads }, () =>
+        commitmentDb.getSiblingPath(MerkleTreeId.PUBLIC_DATA_TREE, 0n),
+      );
+      await Promise.all([
+        ...firstReadsUncommitted,
+        ...firstReadsCommitted,
+        write,
+        ...secondReadsUncommitted,
+        ...secondReadsCommitted,
+      ]);
+
+      const finalPath = await testFork.getSiblingPath(MerkleTreeId.PUBLIC_DATA_TREE, 0n);
 
       for (let i = 0; i < numReads; i++) {
-        const firstPath = await firstReads[i];
-        const secondPath = await secondReads[i];
-        expect(firstPath).toEqual(initialPath);
-        expect(secondPath).toEqual(finalPath);
+        const firstPathUncommitted = await firstReadsUncommitted[i];
+        const secondPathUncommitted = await secondReadsUncommitted[i];
+        expect(firstPathUncommitted).toEqual(initialPath);
+        expect(secondPathUncommitted).toEqual(finalPath);
+
+        const firstPathCommitted = await firstReadsCommitted[i];
+        const secondPathCommitted = await secondReadsCommitted[i];
+        expect(firstPathCommitted).toEqual(committedPath);
+        expect(secondPathCommitted).toEqual(committedPath);
       }
     }, 30_000);
   });
