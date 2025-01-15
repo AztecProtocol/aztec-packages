@@ -1,9 +1,9 @@
 import createDebug from 'debug';
 
-import { generateFirstCircuit, generateSecondCircuit, proveThenVerifyUltraHonk } from './index.js';
+import SecondVk from '../artifacts/keys/second.vk.data.json' assert { type: 'json' };
+import { generateSecondCircuit, logger, proveThenVerifyUltraHonk } from './index.js';
 
 createDebug.enable('*'); // needed for logging in Firefox but not Chrome
-const logger = createDebug('aztec:bb-bench');
 
 /* eslint-disable no-console */
 
@@ -78,7 +78,17 @@ function setupConsoleOutput() {
   };
 }
 
-(window as any).proveThenVerifyUltraHonk = proveThenVerifyUltraHonk;
+function hexStringToUint8Array(hex: string): Uint8Array {
+  const length = hex.length / 2;
+  const uint8Array = new Uint8Array(length);
+
+  for (let i = 0; i < length; i++) {
+    const byte = hex.substr(i * 2, 2);
+    uint8Array[i] = parseInt(byte, 16);
+  }
+
+  return uint8Array;
+}
 
 document.addEventListener('DOMContentLoaded', function () {
   setupConsoleOutput(); // Initialize console output capture
@@ -88,8 +98,12 @@ document.addEventListener('DOMContentLoaded', function () {
   button.addEventListener('click', async () => {
     logger(`generating circuit and witness...`);
     const [bytecodes, witnessStack] = await generateSecondCircuit();
-    logger(`done. proving and verifying...`);
-    const verified = await proveThenVerifyUltraHonk(bytecodes, witnessStack);
+    logger(`done generating circuit and witness... proving then verifying...`);
+    const verified = await proveThenVerifyUltraHonk(
+      bytecodes,
+      witnessStack,
+      hexStringToUint8Array(SecondVk.keyAsBytes),
+    );
     logger(`verified? ${verified}`);
   });
   document.body.appendChild(button);

@@ -5,7 +5,7 @@ import FirstCircuit from '../artifacts/first.json' assert { type: 'json' };
 import SecondCircuit from '../artifacts/second.json' assert { type: 'json' };
 import type { FirstInputType, SecondInputType } from './types/index.js';
 
-const logger = createDebug('aztec:bb-bench');
+export const logger = createDebug('aztec:bb-bench');
 
 /* eslint-disable camelcase */
 
@@ -662,14 +662,13 @@ export async function generateSecondCircuit(): Promise<[string, Uint8Array]> {
 export async function proveThenVerifyUltraHonk(
   bytecode: string,
   witness: Uint8Array,
+  vk: Uint8Array,
   threads?: number,
 ): Promise<boolean> {
   const { UltraHonkBackend, BarretenbergVerifier } = await import('@aztec/bb.js');
   const backend = new UltraHonkBackend(bytecode, { threads });
   try {
-    logger(`computing the verification key (could be precomputed)...`);
-    const vk = await backend.getVerificationKey();
-    logger(`done computing verification key. proving...`);
+    logger(`proving...`);
     const proof = await backend.generateProof(witness);
     logger(`done proving. verifying...`);
     const verifier = new BarretenbergVerifier({ threads });
