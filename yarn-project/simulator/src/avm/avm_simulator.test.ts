@@ -39,6 +39,7 @@ import { AvmSimulator } from './avm_simulator.js';
 import { AvmEphemeralForest } from './avm_tree.js';
 import { isAvmBytecode, markBytecodeAsAvm } from './bytecode_utils.js';
 import {
+  getAvmGadgetsTestContractBytecode,
   getAvmTestContractArtifact,
   getAvmTestContractBytecode,
   initContext,
@@ -422,19 +423,43 @@ describe('AVM simulator: transpiled Noir contracts', () => {
     });
   });
 
+  /*
+   * Can run these as follows to measure sha256 instruction execution counts:
+   * for i in 10 20 30 40 50 60 70 80 90 100 255 256 511 512 2048; do
+   *   echo sha-ing $i...;
+   *   LOG_LEVEL=debug yarn test src/avm/avm_simulator.test.ts -t "sha256_hash_$i " &> sha$i.log;
+   * done
+   * for i in 10 20 30 40 50 60 70 80 90 100 255 256 511 512 2048; do
+   *   echo sha256 of $i bytes $(grep -Eo 'Executed .* instructions.* Gas' sha$i.log);
+   * done
+   */
   describe.each([
-    ['sha256_hash', /*input=*/ randomMemoryBytes(10), /*output=*/ sha256FromMemoryBytes],
+    ['sha256_hash_10', /*input=*/ randomMemoryBytes(10), /*output=*/ sha256FromMemoryBytes],
+    ['sha256_hash_20', /*input=*/ randomMemoryBytes(20), /*output=*/ sha256FromMemoryBytes],
+    ['sha256_hash_30', /*input=*/ randomMemoryBytes(30), /*output=*/ sha256FromMemoryBytes],
+    ['sha256_hash_40', /*input=*/ randomMemoryBytes(40), /*output=*/ sha256FromMemoryBytes],
+    ['sha256_hash_50', /*input=*/ randomMemoryBytes(50), /*output=*/ sha256FromMemoryBytes],
+    ['sha256_hash_60', /*input=*/ randomMemoryBytes(60), /*output=*/ sha256FromMemoryBytes],
+    ['sha256_hash_70', /*input=*/ randomMemoryBytes(70), /*output=*/ sha256FromMemoryBytes],
+    ['sha256_hash_80', /*input=*/ randomMemoryBytes(80), /*output=*/ sha256FromMemoryBytes],
+    ['sha256_hash_90', /*input=*/ randomMemoryBytes(90), /*output=*/ sha256FromMemoryBytes],
+    ['sha256_hash_100', /*input=*/ randomMemoryBytes(100), /*output=*/ sha256FromMemoryBytes],
+    ['sha256_hash_255', /*input=*/ randomMemoryBytes(255), /*output=*/ sha256FromMemoryBytes],
+    ['sha256_hash_256', /*input=*/ randomMemoryBytes(256), /*output=*/ sha256FromMemoryBytes],
+    ['sha256_hash_511', /*input=*/ randomMemoryBytes(511), /*output=*/ sha256FromMemoryBytes],
+    ['sha256_hash_512', /*input=*/ randomMemoryBytes(512), /*output=*/ sha256FromMemoryBytes],
+    ['sha256_hash_2048', /*input=*/ randomMemoryBytes(2048), /*output=*/ sha256FromMemoryBytes],
     ['keccak_hash', /*input=*/ randomMemoryBytes(10), /*output=*/ keccak256FromMemoryBytes],
     ['keccak_f1600', /*input=*/ randomMemoryUint64s(25), /*output=*/ keccakF1600FromMemoryUint64s],
     ['poseidon2_hash', /*input=*/ randomMemoryFields(10), /*output=*/ poseidon2FromMemoryFields],
     ['pedersen_hash', /*input=*/ randomMemoryFields(10), /*output=*/ pedersenFromMemoryFields],
     ['pedersen_hash_with_index', /*input=*/ randomMemoryFields(10), /*output=*/ indexedPedersenFromMemoryFields],
   ])('Hashes in noir contracts', (name: string, input: MemoryValue[], output: (msg: any[]) => Fr[]) => {
-    it(`Should execute contract function that performs ${name}`, async () => {
+    it(`Should execute contract function that performs ${name} on input of length ${input.length}`, async () => {
       const calldata = input.map(e => e.toFr());
 
       const context = initContext({ env: initExecutionEnvironment({ calldata }) });
-      const bytecode = getAvmTestContractBytecode(name);
+      const bytecode = getAvmGadgetsTestContractBytecode(name);
       const results = await new AvmSimulator(context).executeBytecode(bytecode);
 
       expect(results.reverted).toBe(false);

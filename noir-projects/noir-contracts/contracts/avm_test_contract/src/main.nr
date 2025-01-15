@@ -315,39 +315,6 @@ contract AvmTest {
     }
 
     /************************************************************************
-     * Hashing functions
-     ************************************************************************/
-    #[public]
-    fn keccak_hash(data: [u8; 10]) -> [u8; 32] {
-        std::hash::keccak256(data, data.len() as u32)
-    }
-
-    #[public]
-    fn keccak_f1600(data: [u64; 25]) -> [u64; 25] {
-        std::hash::keccak::keccakf1600(data)
-    }
-
-    #[public]
-    fn poseidon2_hash(data: [Field; 10]) -> Field {
-        std::hash::poseidon2::Poseidon2::hash(data, data.len())
-    }
-
-    #[public]
-    fn sha256_hash(data: [u8; 10]) -> [u8; 32] {
-        std::hash::sha256(data)
-    }
-
-    #[public]
-    fn pedersen_hash(data: [Field; 10]) -> Field {
-        std::hash::pedersen_hash(data)
-    }
-
-    #[public]
-    fn pedersen_hash_with_index(data: [Field; 10]) -> Field {
-        std::hash::pedersen_hash_with_separator(data, /*index=*/ 20)
-    }
-
-    /************************************************************************
      * Contract instance
      ************************************************************************/
     #[public]
@@ -671,15 +638,15 @@ contract AvmTest {
         dep::aztec::oracle::debug_log::debug_log("read_storage_map");
         let _ = read_storage_map(context.this_address());
         dep::aztec::oracle::debug_log::debug_log("keccak_hash");
-        let _ = keccak_hash(args_u8);
+        let _ = std::hash::keccak256(args_u8, args_u8.len() as u32);
         dep::aztec::oracle::debug_log::debug_log("sha256_hash");
-        let _ = sha256_hash(args_u8);
+        let _ = std::hash::sha256(args_u8);
         dep::aztec::oracle::debug_log::debug_log("poseidon2_hash");
-        let _ = poseidon2_hash(args_field);
+        let _ = std::hash::poseidon2::Poseidon2::hash(args_field, args_field.len());
         dep::aztec::oracle::debug_log::debug_log("pedersen_hash");
-        let _ = pedersen_hash(args_field);
+        let _ = std::hash::pedersen_hash(args_field);
         dep::aztec::oracle::debug_log::debug_log("pedersen_hash_with_index");
-        let _ = pedersen_hash_with_index(args_field);
+        let _ = std::hash::pedersen_hash_with_separator(args_field, /*index=*/ 20);
         dep::aztec::oracle::debug_log::debug_log("test_get_contract_instance");
         // address should match yarn-project/simulator/src/public/fixtures/index.ts's
         // MockedAvmTestContractDataSource.otherContractInstance

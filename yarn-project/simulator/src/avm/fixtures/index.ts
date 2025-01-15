@@ -4,6 +4,7 @@ import { type FunctionArtifact, FunctionSelector } from '@aztec/foundation/abi';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
+import { AvmGadgetsTestContractArtifact } from '@aztec/noir-contracts.js/AvmGadgetsTest';
 import { AvmTestContractArtifact } from '@aztec/noir-contracts.js/AvmTest';
 
 import { strict as assert } from 'assert';
@@ -131,6 +132,13 @@ export function getAvmTestContractFunctionSelector(functionName: string): Functi
   return FunctionSelector.fromNameAndParameters(artifact.name, params);
 }
 
+export function getAvmGadgetsTestContractFunctionSelector(functionName: string): FunctionSelector {
+  const artifact = AvmGadgetsTestContractArtifact.functions.find(f => f.name === functionName)!;
+  assert(!!artifact, `Function ${functionName} not found in AvmGadgetsTestContractArtifact`);
+  const params = artifact.parameters;
+  return FunctionSelector.fromNameAndParameters(artifact.name, params);
+}
+
 export function getAvmTestContractArtifact(functionName: string): FunctionArtifact {
   const artifact = AvmTestContractArtifact.functions.find(f => f.name === functionName)!;
   assert(
@@ -140,8 +148,22 @@ export function getAvmTestContractArtifact(functionName: string): FunctionArtifa
   return artifact;
 }
 
+export function getAvmGadgetsTestContractArtifact(functionName: string): FunctionArtifact {
+  const artifact = AvmGadgetsTestContractArtifact.functions.find(f => f.name === functionName)!;
+  assert(
+    !!artifact?.bytecode,
+    `No bytecode found for function ${functionName}. Try re-running bootstrap.sh on the repository root.`,
+  );
+  return artifact;
+}
+
 export function getAvmTestContractBytecode(functionName: string): Buffer {
   const artifact = getAvmTestContractArtifact(functionName);
+  return artifact.bytecode;
+}
+
+export function getAvmGadgetsTestContractBytecode(functionName: string): Buffer {
+  const artifact = getAvmGadgetsTestContractArtifact(functionName);
   return artifact.bytecode;
 }
 
@@ -155,6 +177,23 @@ export function resolveAvmTestContractAssertionMessage(
   });
 
   const functionArtifact = AvmTestContractArtifact.functions.find(f => f.name === functionName);
+  if (!functionArtifact || !revertReason.noirCallStack || !isNoirCallStackUnresolved(revertReason.noirCallStack)) {
+    return undefined;
+  }
+
+  return resolveAssertionMessageFromRevertData(output, functionArtifact);
+}
+
+export function resolveAvmGadgetsTestContractAssertionMessage(
+  functionName: string,
+  revertReason: AvmRevertReason,
+  output: Fr[],
+): string | undefined {
+  traverseCauseChain(revertReason, cause => {
+    revertReason = cause as AvmRevertReason;
+  });
+
+  const functionArtifact = AvmGadgetsTestContractArtifact.functions.find(f => f.name === functionName);
   if (!functionArtifact || !revertReason.noirCallStack || !isNoirCallStackUnresolved(revertReason.noirCallStack)) {
     return undefined;
   }
