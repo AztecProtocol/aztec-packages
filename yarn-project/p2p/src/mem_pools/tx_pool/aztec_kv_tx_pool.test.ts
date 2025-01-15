@@ -19,7 +19,8 @@ describe('KV TX pool', () => {
     const tx1 = mockTx(1);
     const tx2 = mockTx(2);
     const tx3 = mockTx(3);
-    await txPool.addTxs([tx1, tx2, tx3]);
+    const tx4 = mockTx(4);
+    await txPool.addTxs([tx1, tx2, tx3, tx4]);
 
     // delete two txs and assert that they are properly archived
     await txPool.deleteTxs([tx1.getTxHash(), tx2.getTxHash()]);
@@ -31,5 +32,12 @@ describe('KV TX pool', () => {
     expect(txPool.getArchivedTxByHash(tx1.getTxHash())).toBeUndefined();
     expect(txPool.getArchivedTxByHash(tx2.getTxHash())).toEqual(tx2);
     expect(txPool.getArchivedTxByHash(tx3.getTxHash())).toEqual(tx3);
+
+    // delete another tx and assert that the second tx is purged and the new tx is archived
+    await txPool.deleteTxs([tx4.getTxHash()]);
+    expect(txPool.getArchivedTxByHash(tx1.getTxHash())).toBeUndefined();
+    expect(txPool.getArchivedTxByHash(tx2.getTxHash())).toBeUndefined();
+    expect(txPool.getArchivedTxByHash(tx3.getTxHash())).toEqual(tx3);
+    expect(txPool.getArchivedTxByHash(tx4.getTxHash())).toEqual(tx4);
   });
 });
