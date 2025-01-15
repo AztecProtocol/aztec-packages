@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1736966505068,
+  "lastUpdate": 1736969446080,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "End-to-end Benchmark": [
@@ -654,6 +654,45 @@ window.BENCHMARK_DATA = {
           {
             "name": "Sequencer/aztec.sequencer.block_builder_tree_insertion_duration",
             "value": 627962,
+            "unit": "us"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "janbenes1234@gmail.com",
+            "name": "Jan Beneš",
+            "username": "benesjan"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "5de24e017afe9b5bd165a44caa7c96a6d5657589",
+          "message": "chore: fixing `@safety` warnings (#11094)\n\nFixes #11087\r\n\r\n## Note for reviewer\r\nI originally addressed a bunch of other stuff in this PR but as\r\n@nventuro pointed out it became too messy so I separated those changes\r\ninto a PR up the stack.\r\n\r\n~**Merging currently blocked by** [this nargo fmt\r\nbug](https://github.com/noir-lang/noir/issues/7045)~\r\n\r\n---------\r\n\r\nCo-authored-by: Santiago Palladino <santiago@aztecprotocol.com>",
+          "timestamp": "2025-01-15T16:07:39-03:00",
+          "tree_id": "e161b2d4d1820b3e9d899f878870263654e12394",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/5de24e017afe9b5bd165a44caa7c96a6d5657589"
+        },
+        "date": 1736969439030,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sequencer/aztec.sequencer.block.build_duration",
+            "value": 4661,
+            "unit": "ms"
+          },
+          {
+            "name": "Sequencer/aztec.sequencer.block.time_per_mana",
+            "value": 3.5027619277800546,
+            "unit": "us/mana"
+          },
+          {
+            "name": "Sequencer/aztec.sequencer.block_builder_tree_insertion_duration",
+            "value": 666608,
             "unit": "us"
           }
         ]
