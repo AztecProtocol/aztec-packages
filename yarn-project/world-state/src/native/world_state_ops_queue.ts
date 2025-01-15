@@ -6,6 +6,7 @@ import { WorldStateMessageType } from './message.js';
  * This is the implementation for queueing requests to the world state.
  * Requests need to be queued for the world state to ensure that writes are correctly ordered
  * and reads return the correct data.
+ * Due to the nature of the NAPI we can't really do this there.
  *
  * The rules for queueing are as follows:
  *
