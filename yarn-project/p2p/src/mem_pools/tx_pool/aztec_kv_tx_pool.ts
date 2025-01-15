@@ -2,7 +2,7 @@ import { Tx, TxHash } from '@aztec/circuit-types';
 import { type TxAddedToPoolStats } from '@aztec/circuit-types/stats';
 import { ClientIvcProof } from '@aztec/circuits.js';
 import { type Logger, createLogger } from '@aztec/foundation/log';
-import { type AztecKVStore, type AztecMap, type AztecMultiMap, type AztecSingleton } from '@aztec/kv-store';
+import { type AztecKVStore, type AztecMap, type AztecMultiMap } from '@aztec/kv-store';
 import { type TelemetryClient, getTelemetryClient } from '@aztec/telemetry-client';
 
 import { PoolInstrumentation, PoolName } from '../instrumentation.js';
@@ -33,12 +33,6 @@ export class AztecKVTxPool implements TxPool {
   /** Indexes of the archived txs by insertion order. */
   #archivedTxIndices: AztecMap<number, string>;
 
-  /** Index of the most recently inserted archived tx. */
-  #archivedTxHead: AztecSingleton<number>;
-
-  /** Index of the oldest archived tx. */
-  #archivedTxTail: AztecSingleton<number>;
-
   /** Number of txs to archive. */
   #archivedTxLimit: number;
 
@@ -51,6 +45,7 @@ export class AztecKVTxPool implements TxPool {
    * @param store - A KV store for live txs in the pool.
    * @param archive - A KV store for archived txs.
    * @param telemetry - A telemetry client.
+   * @param archivedTxLimit - The number of txs to archive.
    * @param log - A logger.
    */
   constructor(
@@ -66,8 +61,6 @@ export class AztecKVTxPool implements TxPool {
 
     this.#archivedTxs = archive.openMap('archivedTxs');
     this.#archivedTxIndices = archive.openMap('archivedTxIndices');
-    this.#archivedTxHead = archive.openSingleton('archivedTxHead');
-    this.#archivedTxTail = archive.openSingleton('archivedTxTail');
     this.#archivedTxLimit = archivedTxLimit;
 
     this.#store = store;
@@ -273,8 +266,9 @@ export class AztecKVTxPool implements TxPool {
    */
   private archiveTxs(txs: Tx[]): Promise<void> {
     return this.#archive.transaction(() => {
-      let headIdx = this.#archivedTxHead.get() ?? 0;
-      let tailIdx = this.#archivedTxTail.get() ?? 0;
+      // calcualte the head and tail indices of the archived txs by insertion order.
+      let headIdx = (this.#archivedTxIndices.entries({ limit: 1, reverse: true }).next().value?.[0] ?? -1) + 1;
+      let tailIdx = this.#archivedTxIndices.entries({ limit: 1 }).next().value?.[0] ?? 0;
 
       for (const tx of txs) {
         while (headIdx - tailIdx >= this.#archivedTxLimit) {
@@ -299,9 +293,6 @@ export class AztecKVTxPool implements TxPool {
         void this.#archivedTxIndices.set(headIdx, txHash);
         headIdx++;
       }
-
-      void this.#archivedTxHead.set(headIdx);
-      void this.#archivedTxTail.set(tailIdx);
     });
   }
 }
