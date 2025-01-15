@@ -13,16 +13,15 @@
   "scripts": {
     "build": "yarn clean && yarn generate && tsc -b && yarn build:app && cp ../../barretenberg/favicon.ico dest",
     "clean": "rm -rf ./dest .tsbuildinfo src/types artifacts",
+    "generate": "yarn generate:artifacts && yarn generate:code",
+    "generate:artifacts": "mkdir -p artifacts/keys && ls circuits | xargs -n 1 ./generate_artifacts.sh",
+    "generate:code": "node --no-warnings --loader ts-node/esm src/scripts/generate_declaration_files.ts && node --no-warnings --loader ts-node/esm src/scripts/generate_ts_from_abi.ts && run -T prettier -w ./src/types",
+    "build:app": "rm -rf dest && webpack",
+    "build:dev": "tsc -b --watch",
+    "serve-both": "./serve.sh",
     "formatting": "run -T prettier --check ./src && run -T eslint ./src",
     "formatting:fix": "run -T eslint --fix ./src && run -T prettier -w ./src",
     "formatting:fix:types": "NODE_OPTIONS='--max-old-space-size=8096' run -T eslint --fix ./src/types && run -T prettier -w ./src/types",
-    "generate": "yarn compile-circuits && yarn generate:noir-circuits",
-    "compile-circuits": "NARGO=../../../../noir/noir-repo/target/release/nargo && mkdir artifacts && cd circuits/first && $NARGO compile && mv ./target/first.json ../../artifacts && cd ../second && $NARGO compile && mv ./target/second.json ../../artifacts",
-    "generate:noir-circuits": "mkdir -p ./artifacts/keys && node --no-warnings --loader ts-node/esm src/scripts/generate_declaration_files.ts && node --no-warnings --loader ts-node/esm src/scripts/generate_ts_from_abi.ts && run -T prettier -w ./src/types",
-    "codegen": "yarn noir-codegen",
-    "build:dev": "tsc -b --watch",
-    "build:app": "rm -rf dest && webpack",
-    "serve-both": "./serve.sh",
     "test": "HARDWARE_CONCURRENCY=${HARDWARE_CONCURRENCY:-16} RAYON_NUM_THREADS=${RAYON_NUM_THREADS:-4} NODE_NO_WARNINGS=1 node --experimental-vm-modules ../node_modules/.bin/jest --passWithNoTests --maxWorkers=${JEST_MAX_WORKERS:-8}"
   },
   "dependencies": {
