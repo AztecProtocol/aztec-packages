@@ -351,6 +351,7 @@ class AvmFlavor {
     class VerificationKey : public VerificationKey_<PrecomputedEntities<Commitment>, VerifierCommitmentKey> {
       public:
         using FF = VerificationKey_::FF;
+        static constexpr size_t NUM_PRECOMPUTED_COMMITMENTS = NUM_PRECOMPUTED_ENTITIES;
 
         VerificationKey() = default;
 
@@ -366,7 +367,7 @@ class AvmFlavor {
 
         VerificationKey(const size_t circuit_size,
                         const size_t num_public_inputs,
-                        std::array<Commitment, NUM_PRECOMPUTED_ENTITIES> const& precomputed_cmts)
+                        std::array<Commitment, NUM_PRECOMPUTED_COMMITMENTS> const& precomputed_cmts)
             : VerificationKey_(circuit_size, num_public_inputs)
         {
             for (auto [vk_cmt, cmt] : zip_view(this->get_all(), precomputed_cmts)) {
