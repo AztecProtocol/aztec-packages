@@ -22,7 +22,7 @@ describe('sequencer-timetable', () => {
       expect(timetable.getMaxAllowedTime(SequencerState.COLLECTING_ATTESTATIONS)).toEqual(
         aztecSlotDuration -
           (ethereumSlotDuration - maxL1TxInclusionTimeIntoSlot) -
-          timetable.attestationPropagationTime,
+          timetable.attestationPropagationTime * 2,
       );
     });
   });
