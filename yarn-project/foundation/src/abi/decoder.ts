@@ -45,9 +45,9 @@ class AbiDecoder {
       }
       case 'struct': {
         if (isU128Struct(abiType)) {
-          const lo = this.decodeNext({ kind: 'field' }) as bigint;
           const hi = this.decodeNext({ kind: 'field' }) as bigint;
-          return U128.fromU64sLE(lo, hi).toInteger();
+          const lo = this.decodeNext({ kind: 'field' }) as bigint;
+          return U128.fromU64sBE(hi, lo).toInteger();
         }
 
         const struct: { [key: string]: AbiDecoded } = {};

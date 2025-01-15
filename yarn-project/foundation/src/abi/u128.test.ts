@@ -29,11 +29,11 @@ describe('U128', () => {
     });
   });
 
-  describe('fromU64sLE', () => {
+  describe('fromU64sBE', () => {
     it('correctly combines valid limbs', () => {
-      const lo = 0xdeadbeefn;
       const hi = 0xcafebaben;
-      const combined = U128.fromU64sLE(lo, hi);
+      const lo = 0xdeadbeefn;
+      const combined = U128.fromU64sBE(hi, lo);
 
       expect(combined.lo).toBe(lo);
       expect(combined.hi).toBe(hi);
@@ -42,41 +42,41 @@ describe('U128', () => {
 
     it('accepts maximum valid limb values', () => {
       const maxLimb = 2n ** 64n - 1n;
-      const value = U128.fromU64sLE(maxLimb, maxLimb);
+      const value = U128.fromU64sBE(maxLimb, maxLimb);
 
-      expect(value.lo).toBe(maxLimb);
       expect(value.hi).toBe(maxLimb);
+      expect(value.lo).toBe(maxLimb);
       expect(value.toInteger()).toBe(2n ** 128n - 1n);
     });
 
     it('throws for invalid lower limb', () => {
       const invalid = 2n ** 64n;
-      expect(() => U128.fromU64sLE(invalid, 0n)).toThrow(`Lower limb ${invalid} is not within valid range`);
+      expect(() => U128.fromU64sBE(0n, invalid)).toThrow(`Lower limb ${invalid} is not within valid range`);
 
-      expect(() => U128.fromU64sLE(-1n, 0n)).toThrow('Lower limb -1 is not within valid range');
+      expect(() => U128.fromU64sBE(0n, -1n)).toThrow('Lower limb -1 is not within valid range');
     });
 
     it('throws for invalid higher limb', () => {
       const invalid = 2n ** 64n;
-      expect(() => U128.fromU64sLE(0n, invalid)).toThrow(`Higher limb ${invalid} is not within valid range`);
+      expect(() => U128.fromU64sBE(invalid, 0n)).toThrow(`Higher limb ${invalid} is not within valid range`);
 
-      expect(() => U128.fromU64sLE(0n, -1n)).toThrow('Higher limb -1 is not within valid range');
+      expect(() => U128.fromU64sBE(-1n, 0n)).toThrow('Higher limb -1 is not within valid range');
     });
   });
 
   describe('getters', () => {
-    it('correctly extracts lo and hi components', () => {
+    it('correctly extracts hi and lo components', () => {
       const testCases = [
-        { lo: 0xdeadbeefn, hi: 0xcafebaben },
-        { lo: 0n, hi: 1n },
-        { lo: 1n, hi: 0n },
-        { lo: 2n ** 64n - 1n, hi: 2n ** 64n - 1n },
+        { hi: 0xcafebaben, lo: 0xdeadbeefn },
+        { hi: 1n, lo: 0n },
+        { hi: 0n, lo: 1n },
+        { hi: 2n ** 64n - 1n, lo: 2n ** 64n - 1n },
       ];
 
-      for (const { lo, hi } of testCases) {
-        const value = U128.fromU64sLE(lo, hi);
-        expect(value.lo).toBe(lo);
+      for (const { hi, lo } of testCases) {
+        const value = U128.fromU64sBE(hi, lo);
         expect(value.hi).toBe(hi);
+        expect(value.lo).toBe(lo);
       }
     });
   });
