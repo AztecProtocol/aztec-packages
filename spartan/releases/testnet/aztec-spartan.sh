@@ -88,7 +88,7 @@ show_banner() {
 # Check if Docker is installed
 check_docker() {
     echo -e "${BLUE}Checking Docker installation...${NC}"
-    if command -v docker >/dev/null 2>&1 && command -v docker compose >/dev/null 2>&1; then
+    if command -v docker >/dev/null 2>&1 && docker compose version >/dev/null 2>&1; then
         echo -e "${GREEN}Docker and Docker Compose are installed${NC}"
         return 0
     else
