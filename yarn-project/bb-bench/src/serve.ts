@@ -1,7 +1,13 @@
 import createDebug from 'debug';
 
 import SecondVk from '../artifacts/keys/second.vk.data.json' assert { type: 'json' };
-import { generateSecondCircuit, logger, proveThenVerifyUltraHonk } from './index.js';
+import {
+  generateFirstCircuit,
+  generateSecondCircuit,
+  logger,
+  proveThenVerifyUltraHonk,
+  proveUltraHonk,
+} from './index.js';
 
 createDebug.enable('*'); // needed for logging in Firefox but not Chrome
 
@@ -97,13 +103,11 @@ document.addEventListener('DOMContentLoaded', function () {
   button.innerText = 'Run Test';
   button.addEventListener('click', async () => {
     logger(`generating circuit and witness...`);
-    const [bytecodes, witnessStack] = await generateSecondCircuit();
+    const [bytecode1, witness1] = await generateFirstCircuit();
+    const _ = await proveUltraHonk(bytecode1, witness1);
+    const [bytecode2, witness2] = await generateSecondCircuit();
     logger(`done generating circuit and witness... proving then verifying...`);
-    const verified = await proveThenVerifyUltraHonk(
-      bytecodes,
-      witnessStack,
-      hexStringToUint8Array(SecondVk.keyAsBytes),
-    );
+    const verified = await proveThenVerifyUltraHonk(bytecode2, witness2, hexStringToUint8Array(SecondVk.keyAsBytes));
     logger(`verified? ${verified}`);
   });
   document.body.appendChild(button);

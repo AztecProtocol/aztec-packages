@@ -1,3 +1,5 @@
+import { ProofData } from '@aztec/bb.js';
+
 import { type ForeignCallOutput, Noir } from '@noir-lang/noir_js';
 import createDebug from 'debug';
 
@@ -657,6 +659,18 @@ export async function generateSecondCircuit(): Promise<[string, Uint8Array]> {
   const witness = witnessGenResult.witness;
 
   return [bytecode, witness];
+}
+
+export async function proveUltraHonk(bytecode: string, witness: Uint8Array, threads?: number): Promise<ProofData> {
+  const { UltraHonkBackend } = await import('@aztec/bb.js');
+  const backend = new UltraHonkBackend(bytecode, { threads });
+  try {
+    logger(`proving...`);
+    const proof = await backend.generateProof(witness);
+    return proof;
+  } finally {
+    await backend.destroy();
+  }
 }
 
 export async function proveThenVerifyUltraHonk(
