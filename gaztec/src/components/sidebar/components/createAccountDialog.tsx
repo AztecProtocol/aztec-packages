@@ -68,8 +68,8 @@ export function CreateAccountDialog({
         ) : (
           <>
             <TextField
-              placeholder="Alias"
               value={alias}
+              label="Alias"
               onChange={(event) => {
                 setAlias(event.target.value);
               }}

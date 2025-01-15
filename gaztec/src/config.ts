@@ -1,4 +1,9 @@
-import { createLogger, createAztecNodeClient, type PXE } from "@aztec/aztec.js";
+import {
+  createLogger,
+  createAztecNodeClient,
+  type PXE,
+  AztecNode,
+} from "@aztec/aztec.js";
 import { PXEService } from "@aztec/pxe/service";
 import { PXEServiceConfig, getPXEServiceConfig } from "@aztec/pxe/config";
 import { KVPxeDatabase } from "@aztec/pxe/database";
@@ -16,12 +21,17 @@ process.env = Object.keys(import.meta.env).reduce((acc, key) => {
 
 debug.enable("*");
 
-export class PrivateEnv {
-  static async initPXE(nodeURL: string): Promise<PXE> {
+export class AztecEnv {
+  static async connectToNode(nodeURL: string): Promise<AztecNode> {
+    const aztecNode = await createAztecNodeClient(nodeURL);
+    return aztecNode;
+  }
+
+  static async initPXE(aztecNode: AztecNode): Promise<PXE> {
     const config = getPXEServiceConfig();
     config.dataDirectory = "pxe";
     config.proverEnabled = true;
-    const aztecNode = await createAztecNodeClient(nodeURL);
+
     const simulationProvider = new WASMSimulator();
     const proofCreator = new BBWASMLazyPrivateKernelProver(
       simulationProvider,

@@ -8,7 +8,7 @@ import {
   ContractInstanceWithAddress,
   loadContractArtifact,
 } from "@aztec/aztec.js";
-import { PrivateContext } from "../home/home";
+import { AztecContext } from "../home/home";
 import {
   Button,
   Card,
@@ -33,6 +33,8 @@ import {
 import { DeployContractDialog } from "./components/deployContractDialog";
 import { FunctionParameter } from "../common/fnParameter";
 import ClearIcon from "@mui/icons-material/Clear";
+import { RegisterContractDialog } from "./components/registerContractDialog";
+import { CopyToClipboardButton } from "../common/copyToClipboardButton";
 
 const container = css({
   display: "flex",
@@ -64,13 +66,17 @@ const contractFnContainer = css({
 const header = css({
   display: "flex",
   alignItems: "center",
-  justifyContent: "space-between",
   margin: "0 1rem",
+  padding: "1rem",
 });
 
 const simulationContainer = css({
   display: "flex",
   flexDirection: "row",
+});
+
+const checkBoxLabel = css({
+  height: "1.5rem",
 });
 
 const FORBIDDEN_FUNCTIONS = [
@@ -96,6 +102,8 @@ export function ContractComponent() {
 
   const [openDeployContractDialog, setOpenDeployContractDialog] =
     useState(false);
+  const [openRegisterContractDialog, setOpenRegisterContractDialog] =
+    useState(false);
 
   const {
     wallet,
@@ -103,7 +111,7 @@ export function ContractComponent() {
     currentContract,
     setCurrentContract,
     setCurrentTx,
-  } = useContext(PrivateContext);
+  } = useContext(AztecContext);
   const [aliasedAddresses, setAliasedAddresses] = useState([]);
 
   useEffect(() => {
@@ -225,23 +233,23 @@ export function ContractComponent() {
     setIsWorking(false);
   };
 
-  const handleContractDeployment = async (
+  const handleContractCreation = async (
     contract?: ContractInstanceWithAddress,
     alias?: string
   ) => {
-    if (!contract || !alias) {
-      return;
+    if (contract && alias) {
+      await walletDB.storeContract(
+        contract.address,
+        contractArtifact,
+        undefined,
+        alias
+      );
+      setCurrentContract(
+        await Contract.at(contract.address, contractArtifact, wallet)
+      );
     }
-    await walletDB.storeContract(
-      contract.address,
-      contractArtifact,
-      undefined,
-      alias
-    );
-    setCurrentContract(
-      await Contract.at(contract.address, contractArtifact, wallet)
-    );
     setOpenDeployContractDialog(false);
+    setOpenRegisterContractDialog(false);
   };
 
   return (
@@ -258,75 +266,109 @@ export function ContractComponent() {
       ) : (
         <div css={contractFnContainer}>
           <div css={header}>
-            <Typography variant="h2">{contractArtifact.name}</Typography>
-            <Input
-              type="text"
-              placeholder="Search function"
-              onChange={(e) =>
-                setFilters({ ...filters, searchTerm: e.target.value })
-              }
-              endAdornment={
-                <InputAdornment position="end">
-                  <FindInPageIcon />
-                </InputAdornment>
-              }
-            />
-            <FormGroup row>
-              <FormControlLabel
-                control={
-                  <Checkbox
-                    checked={filters.private}
-                    onChange={(e) =>
-                      setFilters({ ...filters, private: e.target.checked })
-                    }
-                  />
+            <Typography variant="h2" css={{ marginRight: "4rem" }}>
+              {contractArtifact.name}
+            </Typography>
+
+            <FormGroup>
+              <Input
+                type="text"
+                placeholder="Search function"
+                onChange={(e) =>
+                  setFilters({ ...filters, searchTerm: e.target.value })
                 }
-                label="Private"
-              />
-              <FormControlLabel
-                control={
-                  <Checkbox
-                    checked={filters.public}
-                    onChange={(e) =>
-                      setFilters({ ...filters, public: e.target.checked })
-                    }
-                  />
+                endAdornment={
+                  <InputAdornment position="end">
+                    <FindInPageIcon />
+                  </InputAdornment>
                 }
-                label="Public"
               />
-              <FormControlLabel
-                control={
-                  <Checkbox
-                    checked={filters.unconstrained}
-                    onChange={(e) =>
-                      setFilters({
-                        ...filters,
-                        unconstrained: e.target.checked,
-                      })
-                    }
-                  />
-                }
-                label="Unconstrained"
-              />
+              <div
+                css={{
+                  display: "flex",
+                  flexDirection: "row",
+                  marginTop: "0.5rem",
+                }}
+              >
+                <FormControlLabel
+                  css={checkBoxLabel}
+                  control={
+                    <Checkbox
+                      checked={filters.private}
+                      onChange={(e) =>
+                        setFilters({ ...filters, private: e.target.checked })
+                      }
+                    />
+                  }
+                  label="Private"
+                />
+                <FormControlLabel
+                  css={checkBoxLabel}
+                  control={
+                    <Checkbox
+                      checked={filters.public}
+                      onChange={(e) =>
+                        setFilters({ ...filters, public: e.target.checked })
+                      }
+                    />
+                  }
+                  label="Public"
+                />
+                <FormControlLabel
+                  css={checkBoxLabel}
+                  control={
+                    <Checkbox
+                      checked={filters.unconstrained}
+                      onChange={(e) =>
+                        setFilters({
+                          ...filters,
+                          unconstrained: e.target.checked,
+                        })
+                      }
+                    />
+                  }
+                  label="Unconstrained"
+                />
+              </div>
             </FormGroup>
-            {!currentContract && wallet ? (
+            <div css={{ flexGrow: 1 }}></div>
+            {!currentContract && wallet && (
               <>
-                <Divider orientation="vertical"></Divider>
-                <Button onClick={() => setOpenDeployContractDialog(true)}>
+                <Button
+                  variant="contained"
+                  css={{ marginRight: "1rem" }}
+                  onClick={() => setOpenDeployContractDialog(true)}
+                >
                   Deploy
+                </Button>
+                <Button
+                  variant="contained"
+                  onClick={() => setOpenRegisterContractDialog(true)}
+                >
+                  Register
                 </Button>
                 <DeployContractDialog
                   contractArtifact={contractArtifact}
                   open={openDeployContractDialog}
                   wallet={wallet}
-                  onClose={handleContractDeployment}
+                  onClose={handleContractCreation}
+                />
+                <RegisterContractDialog
+                  contractArtifact={contractArtifact}
+                  open={openRegisterContractDialog}
+                  wallet={wallet}
+                  onClose={handleContractCreation}
                 />
               </>
-            ) : (
+            )}
+            {currentContract && (
               <>
                 <Typography color="text.secondary">
                   {formatFrAsString(currentContract.address.toString())}
                 </Typography>
+                <CopyToClipboardButton
+                  data={currentContract.address.toString()}
+                />
                 <IconButton
                   onClick={(e) => {
                     setCurrentContract(null);
@@ -365,9 +407,7 @@ export function ContractComponent() {
                   >
                     {fn.functionType}
                   </Typography>
-                  <Typography variant="h5" component="div">
-                    {fn.name}
-                  </Typography>
+                  <Typography variant="h5">{fn.name}</Typography>
                   <Typography
                     gutterBottom
                     sx={{
@@ -392,9 +432,7 @@ export function ContractComponent() {
                   </FormGroup>
                   {!isWorking && simulationResults?.[fn.name] !== undefined ? (
                     <div css={{ simulationContainer }}>
-                      <Typography component="h5">
-                        Simulation results:
-                      </Typography>
+                      <Typography variant="h5">Simulation results:</Typography>
                       {simulationResults[fn.name].success ? (
                         <Typography component="span">
                           {simulationResults?.[fn.name]?.data.length === 0
@@ -402,7 +440,7 @@ export function ContractComponent() {
                             : simulationResults?.[fn.name].data.toString()}
                         </Typography>
                       ) : (
-                        <Typography component="h5" color="error">
+                        <Typography variant="h5" color="error">
                           {simulationResults?.[fn.name]?.error}
                         </Typography>
                       )}

@@ -6,6 +6,7 @@ import {
   type PXE,
   type AccountWalletWithSecretKey,
   Contract,
+  AztecNode,
 } from "@aztec/aztec.js";
 import { type WalletDB } from "../../utils/storage";
 import { ContractFunctionInteractionTx } from "../../utils/txs";
@@ -16,9 +17,10 @@ const layout = css({
   height: "100%",
 });
 
-export const PrivateContext = createContext<{
+export const AztecContext = createContext<{
   pxe: PXE | null;
   nodeURL: string;
+  node: AztecNode;
   wallet: AccountWalletWithSecretKey | null;
   isPXEInitialized: boolean;
   walletDB: WalletDB | null;
@@ -27,6 +29,7 @@ export const PrivateContext = createContext<{
   setWalletDB: (walletDB: WalletDB) => void;
   setPXEInitialized: (isPXEInitialized: boolean) => void;
   setWallet: (wallet: AccountWalletWithSecretKey) => void;
+  setAztecNode: (node: AztecNode) => void;
   setPXE: (pxe: PXE) => void;
   setNodeURL: (nodeURL: string) => void;
   setCurrentTx: (currentTx: ContractFunctionInteractionTx) => void;
@@ -34,6 +37,7 @@ export const PrivateContext = createContext<{
 }>({
   pxe: null,
   nodeURL: "",
+  node: null,
   wallet: null,
   isPXEInitialized: false,
   walletDB: null,
@@ -44,6 +48,7 @@ export const PrivateContext = createContext<{
   setWallet: (wallet: AccountWalletWithSecretKey) => {},
   setNodeURL: (nodeURL: string) => {},
   setPXE: (pxe: PXE) => {},
+  setAztecNode: (node: AztecNode) => {},
   setCurrentTx: (currentTx: ContractFunctionInteractionTx) => {},
   setCurrentContract: (currentContract: Contract) => {},
 });
@@ -52,13 +57,14 @@ export function Home() {
   const [pxe, setPXE] = useState(null);
   const [wallet, setWallet] = useState(null);
   const [nodeURL, setNodeURL] = useState("");
+  const [node, setAztecNode] = useState(null);
   const [isPXEInitialized, setPXEInitialized] = useState(false);
   const [walletAlias, setWalletAlias] = useState("");
   const [walletDB, setWalletDB] = useState(null);
   const [currentContract, setCurrentContract] = useState(null);
   const [currentTx, setCurrentTx] = useState(null);
 
-  const privateContextInitialValue = {
+  const AztecContextInitialValue = {
     pxe,
     nodeURL,
     wallet,
@@ -67,6 +73,8 @@ export function Home() {
     walletDB,
     currentContract,
     currentTx,
+    node,
+    setAztecNode,
     setCurrentTx,
     setWalletDB,
     setPXEInitialized,
@@ -79,10 +87,10 @@ export function Home() {
 
   return (
     <div css={layout}>
-      <PrivateContext.Provider value={privateContextInitialValue}>
+      <AztecContext.Provider value={AztecContextInitialValue}>
         <SidebarComponent />
         <ContractComponent />
-      </PrivateContext.Provider>
+      </AztecContext.Provider>
     </div>
   );
 }

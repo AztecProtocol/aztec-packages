@@ -28,7 +28,7 @@ import {
   getInitializer,
 } from "@aztec/foundation/abi";
 import { GITHUB_TAG_PREFIX } from "../../../utils/interactions";
-import { PrivateContext } from "../../home/home";
+import { AztecContext } from "../../home/home";
 import { parseAliasedBufferAsString } from "../../../utils/conversion";
 import { FunctionParameter } from "../../common/fnParameter";
 
@@ -56,7 +56,7 @@ export function DeployContractDialog({
   const [parameters, setParameters] = useState([]);
   const [deploying, setDeploying] = useState(false);
   const [aliasedAddresses, setAliasedAddresses] = useState([]);
-  const { walletDB } = useContext(PrivateContext);
+  const { walletDB } = useContext(AztecContext);
 
   useEffect(() => {
     const defaultInitializer = getDefaultInitializer(contractArtifact);
@@ -175,6 +175,9 @@ export function DeployContractDialog({
             </FormGroup>
             <Button disabled={alias === ""} onClick={deploy}>
               Deploy
+            </Button>
+            <Button color="error" onClick={handleClose}>
+              Cancel
             </Button>
           </>
         )}

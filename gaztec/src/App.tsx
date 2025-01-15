@@ -1,6 +1,3 @@
-import { ToastContainer } from "react-toastify";
-import "react-toastify/dist/ReactToastify.css";
-import "./App.css";
 import { Home } from "./components/home/home";
 import { Global } from "@emotion/react";
 import { ThemeProvider } from "@mui/material/styles";
@@ -11,7 +8,6 @@ function App() {
     <ThemeProvider theme={theme}>
       <Global styles={globalStyle}></Global>
       <Home />
-      <ToastContainer />
     </ThemeProvider>
   );
 }

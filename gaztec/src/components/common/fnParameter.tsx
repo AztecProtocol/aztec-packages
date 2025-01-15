@@ -52,9 +52,11 @@ export function FunctionParameter({
             id: alias.value,
             label: `${alias.key} (${formatFrAsString(alias.value)})`,
           }))}
-          onChange={(_, newValue) =>
-            handleParameterChange(newValue.id, parameter.type)
-          }
+          onChange={(_, newValue) => {
+            if (newValue) {
+              handleParameterChange(newValue.id, parameter.type);
+            }
+          }}
           sx={{ width: 300, marginTop: "1rem" }}
           renderInput={(params) => (
             <TextField {...params} label={capitalize(parameter.name)} />

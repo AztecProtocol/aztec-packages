@@ -3,8 +3,8 @@ import InputLabel from "@mui/material/InputLabel";
 import MenuItem from "@mui/material/MenuItem";
 import FormControl from "@mui/material/FormControl";
 import Select, { SelectChangeEvent } from "@mui/material/Select";
-import { PrivateContext } from "../home/home";
-import { PrivateEnv } from "../../config";
+import { AztecContext } from "../home/home";
+import { AztecEnv } from "../../config";
 import { createStore } from "@aztec/kv-store/indexeddb";
 import {
   AccountWalletWithSecretKey,
@@ -21,13 +21,14 @@ import { getSchnorrAccount } from "@aztec/accounts/schnorr";
 import { AztecAddress, deriveSigningKey } from "@aztec/circuits.js";
 import AddIcon from "@mui/icons-material/Add";
 import logoURL from "../../assets/Aztec_logo.png";
-import { Divider, Typography } from "@mui/material";
+import { Button, Divider, Typography } from "@mui/material";
 import {
   formatFrAsString,
   parseAliasedBufferAsString,
 } from "../../utils/conversion";
 import { convertFromUTF8BufferAsString } from "../../utils/conversion";
 import { ContractFunctionInteractionTx } from "../../utils/txs";
+import ContactsIcon from "@mui/icons-material/Contacts";
 
 const container = css({
   display: "flex",
@@ -37,6 +38,7 @@ const container = css({
   backgroundColor: "var(--mui-palette-primary-light)",
   overflow: "hidden",
   padding: "0 0.5rem",
+  textAlign: "center",
 });
 
 const select = css({
@@ -59,11 +61,10 @@ const logo = css({
 });
 
 const txPanel = css({
-  marginTop: "auto",
   marginBottom: "0.5rem",
   width: "100%",
   backgroundColor: "var(--mui-palette-primary-main)",
-  maxHeight: "50vh",
+  maxHeight: "30vh",
   overflowY: "auto",
   borderRadius: "0.5rem",
 });
@@ -94,6 +95,7 @@ export function SidebarComponent() {
     setWalletDB,
     setWallet,
     setCurrentContract,
+    setAztecNode,
     currentTx,
     currentContract,
     wallet,
@@ -101,7 +103,7 @@ export function SidebarComponent() {
     nodeURL,
     isPXEInitialized,
     pxe,
-  } = useContext(PrivateContext);
+  } = useContext(AztecContext);
   const [accounts, setAccounts] = useState([]);
   const [contracts, setContracts] = useState([]);
   const [transactions, setTransactions] = useState([]);
@@ -111,7 +113,9 @@ export function SidebarComponent() {
     setPXEInitialized(false);
     const nodeURL = event.target.value;
     setNodeURL(nodeURL);
-    const pxe = await PrivateEnv.initPXE(nodeURL);
+    const node = await AztecEnv.connectToNode(nodeURL);
+    setAztecNode(node);
+    const pxe = await AztecEnv.initPXE(node);
     const rollupAddress = (await pxe.getNodeInfo()).l1ContractAddresses
       .rollupAddress;
     const walletLogger = createLogger("wallet:data:indexeddb");
@@ -249,6 +253,7 @@ export function SidebarComponent() {
           GAztec
         </Typography>
       </div>
+      <Typography variant="overline">Connect</Typography>
       <FormControl css={select}>
         <InputLabel>Network</InputLabel>
         <Select value={nodeURL} label="Network" onChange={handleNetworkChange}>
@@ -294,43 +299,50 @@ export function SidebarComponent() {
         <></>
       )}
       {wallet && (
-        <FormControl css={select}>
-          <InputLabel>Contracts</InputLabel>
-          <Select
-            value={currentContract?.address.toString() ?? ""}
-            label="Contract"
-            onChange={handleContractChange}
-          >
-            {contracts.map((contract) => (
-              <MenuItem
-                key={`${contract.key}-${contract.value}`}
-                value={contract.value}
-              >
-                {contract.key.split(":")[1]}&nbsp;(
-                {formatFrAsString(contract.value)})
-              </MenuItem>
-            ))}
-          </Select>
-        </FormControl>
+        <>
+          <Typography variant="overline">Tools</Typography>
+          <FormControl css={select}>
+            <InputLabel>Contracts</InputLabel>
+            <Select
+              value={currentContract?.address.toString() ?? ""}
+              label="Contract"
+              onChange={handleContractChange}
+            >
+              {contracts.map((contract) => (
+                <MenuItem
+                  key={`${contract.key}-${contract.value}`}
+                  value={contract.value}
+                >
+                  {contract.key.split(":")[1]}&nbsp;(
+                  {formatFrAsString(contract.value)})
+                </MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+          <Button variant="contained" endIcon={<ContactsIcon />}>
+            Senders
+          </Button>
+        </>
       )}
+      <div css={{ flex: "1 0 auto", margin: "auto" }} />
+      <Typography variant="overline">Transactions</Typography>
+      <Divider />
       <div css={txPanel}>
-        <Typography component="h2">Transactions</Typography>
-        <Divider />
         {transactions.map((tx) => (
           <div css={txData} key={tx.txHash ?? ""}>
             <div css={{ display: "flex" }}>
-              <Typography component="h4">
+              <Typography variant="body2">
                 {tx.txHash ? formatFrAsString(tx.txHash.toString()) : "()"}
                 &nbsp;-&nbsp;
               </Typography>
-              <Typography component="h5" sx={{ fontWeight: 800 }}>
+              <Typography variant="subtitle2" sx={{ fontWeight: 800 }}>
                 {tx.receipt
                   ? tx.receipt.status.toUpperCase()
                   : tx.status.toUpperCase()}
                 {tx.receipt?.error}
               </Typography>
             </div>
-            <Typography component="h5">
+            <Typography variant="body2">
               {tx.fnName}@{formatFrAsString(tx.contractAddress.toString())}
             </Typography>
           </div>

@@ -23,28 +23,15 @@ const themeOptions: ThemeOptions & { cssVariables: boolean } = {
 export const theme = createTheme(themeOptions);
 
 export const globalStyle = css({
-  ":root": {
-    lineHeight: 1.5,
-    fontWeight: 400,
-    margin: 0,
-    padding: 0,
-
-    colorScheme: "light dark",
-
-    "--main-accent-color": "#646cff",
-
-    backgroundColor: "#242424",
-
-    fontSynthesis: "none",
-    textRendering: "optimizeLegibility",
-    WebkitFontSmoothing: "antialiased",
-    MozOsxFontSmoothing: "grayscale",
-  },
-
   body: {
     margin: 0,
     display: "flex",
     minWidth: "100vw",
     minHeight: "100vh",
+    background: "linear-gradient(#f6fbfc, #d8d4e7)"
   },
+
+  "#root": {
+    width: "100%",
+  }
 });
