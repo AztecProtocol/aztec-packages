@@ -19,6 +19,7 @@ storage:
 telemetry:
   enabled: false
   otelCollectorEndpoint:
+  useGcloudObservability: false
 
 images:
   aztec:
@@ -149,7 +150,6 @@ proverNode:
     jobTimeoutMs: 30000
     pollIntervalMs: 1000
     jobMaxRetries: 3
-    dataDirectory: ""
   resources:
     requests:
       memory: "4Gi"

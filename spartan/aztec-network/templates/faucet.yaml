@@ -82,6 +82,18 @@ spec:
               value: "1"
             - name: LOG_LEVEL
               value: "{{ .Values.faucet.logLevel }}"
+            - name: K8S_POD_UID
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.uid
+            - name: K8S_POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+            - name: OTEL_SERVICE_NAME
+              value: faucet
+            - name: USE_GCLOUD_OBSERVABILITY
+              value: "{{ .Values.telemetry.useGcloudObservability }}"
           ports:
             - name: http
               containerPort: {{ .Values.faucet.service.nodePort }}

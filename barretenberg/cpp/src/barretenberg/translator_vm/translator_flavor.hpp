@@ -587,14 +587,6 @@ class TranslatorFlavor {
             return WitnessEntities<DataType>::get_wires_and_ordered_range_constraints();
         };
 
-        // Get witness polynomials including shifts. This getter is required by ZK-Sumcheck.
-        auto get_all_witnesses()
-        {
-            return concatenate(WitnessEntities<DataType>::get_all(), ShiftedEntities<DataType>::get_all());
-        };
-        // Get all non-witness polynomials. In this case, contains only PrecomputedEntities.
-        auto get_non_witnesses() { return PrecomputedEntities<DataType>::get_all(); };
-
         friend std::ostream& operator<<(std::ostream& os, const AllEntities& a)
         {
             os << "{ ";
