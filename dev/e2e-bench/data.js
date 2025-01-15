@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1736969446080,
+  "lastUpdate": 1736970564055,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "End-to-end Benchmark": [
@@ -693,6 +693,45 @@ window.BENCHMARK_DATA = {
           {
             "name": "Sequencer/aztec.sequencer.block_builder_tree_insertion_duration",
             "value": 666608,
+            "unit": "us"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "santiago@aztecprotocol.com",
+            "name": "Santiago Palladino",
+            "username": "spalladino"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "946a418d138c1b2bee3a5dc14096616a902cc0b7",
+          "message": "chore!: Attestation collection times out based on sequencer timetable (#11248)\n\nRemoves the env var `VALIDATOR_ATTESTATIONS_WAIT_TIMEOUT_MS` and\r\nreplaces it with the deadline for publishing the block to L1. This\r\nensures the sequencer does not get stuck waiting for attestations where\r\nthe validators have given up due to a reexecution timeout.\r\n\r\nIf timetable is not enforced, this value defaults to one aztec slot.",
+          "timestamp": "2025-01-15T19:26:54Z",
+          "tree_id": "374758d87a6cc69d6359da31636d6c7f81b9340b",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/946a418d138c1b2bee3a5dc14096616a902cc0b7"
+        },
+        "date": 1736970556715,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sequencer/aztec.sequencer.block.build_duration",
+            "value": 4840,
+            "unit": "ms"
+          },
+          {
+            "name": "Sequencer/aztec.sequencer.block.time_per_mana",
+            "value": 3.6367339219993307,
+            "unit": "us/mana"
+          },
+          {
+            "name": "Sequencer/aztec.sequencer.block_builder_tree_insertion_duration",
+            "value": 713663,
             "unit": "us"
           }
         ]
