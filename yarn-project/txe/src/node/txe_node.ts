@@ -172,26 +172,38 @@ export class TXENode implements AztecNode {
    */
   addPublicLogsByTags(blockNumber: number, publicLogs: PublicLog[]) {
     publicLogs.forEach(log => {
-      try {
-        // The first elt stores lengths => tag is in fields[1]
-        const tag = log.log[1];
-
-        this.#logger.verbose(`Found tagged public log with tag ${tag.toString()} in block ${this.getBlockNumber()}`);
-
-        const currentLogs = this.#logsByTags.get(tag.toString()) ?? [];
-        const scopedLog = new TxScopedL2Log(
-          new TxHash(new Fr(blockNumber)),
-          this.#noteIndex,
-          blockNumber,
-          true,
-          log.toBuffer(),
-        );
-
-        currentLogs.push(scopedLog);
-        this.#logsByTags.set(tag.toString(), currentLogs);
-      } catch (err) {
-        this.#logger.warn(`Failed to add tagged log to store: ${err}`);
+      // Check that each log stores 3 lengths in its first field. If not, it's not a tagged log:
+      const firstFieldBuf = log.log[0].toBuffer();
+      if (
+        !firstFieldBuf.subarray(0, 24).equals(Buffer.alloc(24)) ||
+        firstFieldBuf[26] !== 0 ||
+        firstFieldBuf[29] !== 0
+      ) {
+        // See parseLogFromPublic - the first field of a tagged log is 8 bytes structured:
+        // [ publicLen[0], publicLen[1], 0, privateLen[0], privateLen[1], 0, ciphertextLen[0], ciphertextLen[1]]
+        this.#logger.warn(`Skipping public log with invalid first field: ${log.log[0]}`);
+        return;
       }
+      if (!log.log[1]) {
+        this.#logger.warn(`Skipping public log with single field`);
+        return;
+      }
+      // The first elt stores lengths => tag is in fields[1]
+      const tag = log.log[1];
+
+      this.#logger.verbose(`Found tagged public log with tag ${tag.toString()} in block ${this.getBlockNumber()}`);
+
+      const currentLogs = this.#logsByTags.get(tag.toString()) ?? [];
+      const scopedLog = new TxScopedL2Log(
+        new TxHash(new Fr(blockNumber)),
+        this.#noteIndex,
+        blockNumber,
+        true,
+        log.toBuffer(),
+      );
+
+      currentLogs.push(scopedLog);
+      this.#logsByTags.set(tag.toString(), currentLogs);
     });
   }
   /**

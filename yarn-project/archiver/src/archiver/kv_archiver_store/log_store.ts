@@ -13,7 +13,7 @@ import {
 import { type Fr, PrivateLog, PublicLog } from '@aztec/circuits.js';
 import { INITIAL_L2_BLOCK_NUM, MAX_NOTE_HASHES_PER_TX } from '@aztec/circuits.js/constants';
 import { createLogger } from '@aztec/foundation/log';
-import { BufferReader } from '@aztec/foundation/serialize';
+import { BufferReader, numToUInt32BE } from '@aztec/foundation/serialize';
 import { type AztecKVStore, type AztecMap } from '@aztec/kv-store';
 
 import { type BlockStore } from './block_store.js';
@@ -75,25 +75,38 @@ export class LogStore {
       const txHash = txEffect.txHash;
       const dataStartIndexForTx = dataStartIndexForBlock + txIndex * MAX_NOTE_HASHES_PER_TX;
       txEffect.publicLogs.forEach(log => {
-        try {
-          // The first elt stores lengths => tag is in fields[1]
-          const tag = log.log[1];
-
-          this.#log.debug(`Found tagged public log with tag ${tag.toString()} in block ${block.number}`);
-          const currentLogs = taggedLogs.get(tag.toString()) ?? [];
-          currentLogs.push(
-            new TxScopedL2Log(
-              txHash,
-              dataStartIndexForTx,
-              block.number,
-              /* isFromPublic */ true,
-              log.toBuffer(),
-            ).toBuffer(),
-          );
-          taggedLogs.set(tag.toString(), currentLogs);
-        } catch (err) {
-          this.#log.warn(`Failed to add tagged log to store: ${err}`);
+        // Check that each log stores 3 lengths in its first field. If not, it's not a tagged log:
+        const firstFieldBuf = log.log[0].toBuffer();
+        if (
+          !firstFieldBuf.subarray(0, 24).equals(Buffer.alloc(24)) ||
+          firstFieldBuf[26] !== 0 ||
+          firstFieldBuf[29] !== 0
+        ) {
+          // See parseLogFromPublic - the first field of a tagged log is 8 bytes structured:
+          // [ publicLen[0], publicLen[1], 0, privateLen[0], privateLen[1], 0, ciphertextLen[0], ciphertextLen[1]]
+          this.#log.warn(`Skipping public log with invalid first field: ${log.log[0]}`);
+          return;
         }
+        if (!log.log[1]) {
+          this.#log.warn(`Skipping public log with single field`);
+          return;
+        }
+
+        // The first elt stores lengths as above => tag is in fields[1]
+        const tag = log.log[1];
+
+        this.#log.debug(`Found tagged public log with tag ${tag.toString()} in block ${block.number}`);
+        const currentLogs = taggedLogs.get(tag.toString()) ?? [];
+        currentLogs.push(
+          new TxScopedL2Log(
+            txHash,
+            dataStartIndexForTx,
+            block.number,
+            /* isFromPublic */ true,
+            log.toBuffer(),
+          ).toBuffer(),
+        );
+        taggedLogs.set(tag.toString(), currentLogs);
       });
     });
     return taggedLogs;
@@ -142,9 +155,14 @@ export class LogStore {
         void this.#privateLogsByBlock.set(block.number, Buffer.concat(privateLogsInBlock));
 
         const publicLogsInBlock = block.body.txEffects
-          .map(txEffect => txEffect.publicLogs)
-          .flat()
-          .map(log => log.toBuffer());
+          .map((txEffect, txIndex) =>
+            [
+              numToUInt32BE(txIndex),
+              numToUInt32BE(txEffect.publicLogs.length),
+              txEffect.publicLogs.map(log => log.toBuffer()),
+            ].flat(),
+          )
+          .flat();
 
         void this.#publicLogsByBlock.set(block.number, Buffer.concat(publicLogsInBlock));
         void this.#contractClassLogsByBlock.set(block.number, block.body.contractClassLogs.toBuffer());
@@ -225,20 +243,23 @@ export class LogStore {
     }
 
     const [blockNumber, txIndex] = this.blockStore.getTxLocation(filter.txHash) ?? [];
-    const { data: txEffect } = this.blockStore.getTxEffect(filter.txHash) ?? {};
-    if (typeof blockNumber !== 'number' || typeof txIndex !== 'number' || !txEffect) {
+    if (typeof blockNumber !== 'number' || typeof txIndex !== 'number') {
       return { logs: [], maxLogsHit: false };
     }
 
     const buffer = this.#publicLogsByBlock.get(blockNumber) ?? Buffer.alloc(0);
-    const publicLogsInBlock = [];
+    const publicLogsInBlock: [PublicLog[]] = [[]];
     const reader = new BufferReader(buffer);
     while (reader.remainingBytes() > 0) {
-      publicLogsInBlock.push(reader.readObject(PublicLog));
+      const indexOfTx = reader.readNumber();
+      const numLogsInTx = reader.readNumber();
+      publicLogsInBlock[indexOfTx] = [];
+      for (let i = 0; i < numLogsInTx; i++) {
+        publicLogsInBlock[indexOfTx].push(reader.readObject(PublicLog));
+      }
     }
-    // Seems silly to separate logs per tx by comparing w/ txs that already include logs...
-    // ...but this code already used the logsByBlock mapping when it could have used blockStore, so I'll keep it as is
-    const txLogs = publicLogsInBlock.filter(log => txEffect.publicLogs.find(effectLog => effectLog.equals(log)));
+
+    const txLogs = publicLogsInBlock[txIndex];
 
     const logs: ExtendedPublicLog[] = [];
     const maxLogsHit = this.#accumulateLogs(logs, blockNumber, txIndex, txLogs, filter);
@@ -262,18 +283,18 @@ export class LogStore {
 
     let maxLogsHit = false;
     loopOverBlocks: for (const [blockNumber, logBuffer] of this.#publicLogsByBlock.entries({ start, end })) {
-      const publicLogsInBlock = [];
+      const publicLogsInBlock: [PublicLog[]] = [[]];
       const reader = new BufferReader(logBuffer);
       while (reader.remainingBytes() > 0) {
-        publicLogsInBlock.push(reader.readObject(PublicLog));
+        const indexOfTx = reader.readNumber();
+        const numLogsInTx = reader.readNumber();
+        publicLogsInBlock[indexOfTx] = [];
+        for (let i = 0; i < numLogsInTx; i++) {
+          publicLogsInBlock[indexOfTx].push(reader.readObject(PublicLog));
+        }
       }
-      // Seems silly to separate logs per tx by comparing w/ txs that already include logs...
-      // ...but this code already used the logsByBlock mapping when it could have used blockStore, so I'll keep it as is
-      const txEffects = this.blockStore.getBlock(blockNumber)?.data.body.txEffects || [];
-      for (let txIndex = filter.afterLog?.txIndex ?? 0; txIndex < txEffects.length; txIndex++) {
-        const txLogs = publicLogsInBlock.filter(log =>
-          txEffects[txIndex].publicLogs.find(blockLog => blockLog.equals(log)),
-        );
+      for (let txIndex = filter.afterLog?.txIndex ?? 0; txIndex < publicLogsInBlock.length; txIndex++) {
+        const txLogs = publicLogsInBlock[txIndex];
         maxLogsHit = this.#accumulateLogs(logs, blockNumber, txIndex, txLogs, filter);
         if (maxLogsHit) {
           this.#log.debug(`Max logs hit at block ${blockNumber}`);

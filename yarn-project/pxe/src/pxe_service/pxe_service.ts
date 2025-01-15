@@ -911,13 +911,15 @@ export class PXEService implements PXE {
 
     const decodedEvents = logs
       .map(log => {
-        const logFields = log.log.log.filter(f => !f.isZero());
+        // +1 for the event selector
+        const expectedLength = eventMetadata.fieldNames.length + 1;
+        const logFields = log.log.log.slice(0, expectedLength);
         // We are assuming here that event logs are the last 4 bytes of the event. This is not enshrined but is a function of aztec.nr raw log emission.
         if (!EventSelector.fromField(logFields[logFields.length - 1]).equals(eventMetadata.eventSelector)) {
           return undefined;
         }
-        // +1 for the event selector
-        if (logFields.length !== eventMetadata.fieldNames.length + 1) {
+        // If any of the remaining fields, are non-zero, the payload does match expected:
+        if (log.log.log.slice(expectedLength + 1).find(f => !f.isZero())) {
           throw new Error(
             'Something is weird here, we have matching EventSelectors, but the actual payload has mismatched length',
           );

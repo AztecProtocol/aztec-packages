@@ -88,7 +88,6 @@ pub fn compute_partial_public_log_payload<let P: u32, let M: u32>(
     // This is done by the kernel circuit to the private logs, but since the partial log will be finalized and emitted
     // in public as unencrypted log, its tag is not siloed at the moment.
     // To avoid querying logs using two types of tags, we silo the tag manually here.
-    // TODO(#10273/#11124) This should be done by the AVM when it's processing the raw logs instead of their hashes.
     let siloed_tag = poseidon2_hash([contract_address.to_field(), tag]);
 
     array_concat([siloed_tag], bytes_to_fields(encrypted))

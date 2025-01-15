@@ -372,6 +372,15 @@ export function describeArchiverDataStore(testName: string, getStore: () => Arch
       const makeTag = (blockNumber: number, txIndex: number, logIndex: number, isPublic = false) =>
         new Fr((blockNumber * 100 + txIndex * 10 + logIndex) * (isPublic ? 123 : 1));
 
+      // See parseLogFromPublic
+      const makeLengthsField = (publicValuesLen: number, privateValuesLen: number, ciphertextLen: number) => {
+        const buf = Buffer.alloc(32);
+        buf.writeUint16BE(publicValuesLen, 24);
+        buf.writeUint16BE(privateValuesLen, 27);
+        buf.writeUint16BE(ciphertextLen, 30);
+        return Fr.fromBuffer(buf);
+      };
+
       const makePrivateLog = (tag: Fr) =>
         PrivateLog.fromFields([tag, ...times(PRIVATE_LOG_SIZE_IN_FIELDS - 1, i => new Fr(tag.toNumber() + i))]);
 
@@ -380,7 +389,7 @@ export function describeArchiverDataStore(testName: string, getStore: () => Arch
       const makePublicLog = (tag: Fr) =>
         PublicLog.fromFields([
           AztecAddress.fromNumber(1).toField(), // log address
-          Fr.ONE, // field 0
+          makeLengthsField(2, PUBLIC_LOG_DATA_SIZE_IN_FIELDS - 3, 42), // field 0
           tag, // field 1
           ...times(PUBLIC_LOG_DATA_SIZE_IN_FIELDS - 1, i => new Fr(tag.toNumber() + i)), // fields 2 to end
         ]);
