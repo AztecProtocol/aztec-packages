@@ -1,74 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1736939840334,
+  "lastUpdate": 1736956361851,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "132435771+jeanmon@users.noreply.github.com",
-            "name": "Jean M",
-            "username": "jeanmon"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "7a9506c6f400a88cbdbc9fad75d7b2bd35bea2cf",
-          "message": "chore(avm): Conditionally enable avm recursion unit tests based on an env variable (#10873)",
-          "timestamp": "2024-12-19T12:57:10+01:00",
-          "tree_id": "7367ac20097ce413d80f63880e0ea231f9ca6d68",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/7a9506c6f400a88cbdbc9fad75d7b2bd35bea2cf"
-        },
-        "date": 1734610769721,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "nativeClientIVCBench/Ambient_17_in_20/6",
-            "value": 21416.303787000004,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 18956.300385 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeClientIVCBench/Full/6",
-            "value": 24393.417599999964,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 21576.290522999996 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 4944.460961999994,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 4635.3334970000005 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmClientIVCBench/Full/6",
-            "value": 83881.326274,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 83881397000 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 15006.525647999999,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 15006526000 ms\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 2849739376,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 2849739376 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 144576089,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 144576089 ns\nthreads: 1"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -3280,6 +3214,72 @@ window.BENCHMARK_DATA = {
             "value": 139567856,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 139567856 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "60546371+PhilWindle@users.noreply.github.com",
+            "name": "PhilWindle",
+            "username": "PhilWindle"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "17aa4b4cf2164d29d24d4da29d4b55d273802747",
+          "message": "feat: Allow concurrent world state access (#11216)\n\nImplements per-fork queues for requests to the native world state\r\nfollowing it's concurrency rules. Also tightens up aspects of the cached\r\nstore to ensure reads of committed data don't access anything\r\nuncommitted.\r\n\r\n```\r\n1. Reads of committed state never need to be queued. LMDB uses MVCC to ensure readers see a consistent view of the DB.\r\n2. Reads of uncommitted state can happen concurrently with other reads of uncommitted state on the same fork (or reads of committed state)\r\n3. All writes require exclusive access to their respective fork\r\n ```",
+          "timestamp": "2025-01-15T15:35:02Z",
+          "tree_id": "6d3c54fb931d0cdda99e1f6c0c836e40f27d9f3f",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/17aa4b4cf2164d29d24d4da29d4b55d273802747"
+        },
+        "date": 1736956354774,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Ambient_17_in_20/6",
+            "value": 19332.53660599996,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 16409.672425 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 21979.59810499998,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 19107.235116 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 4117.8455220000105,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 3806.751225 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 75169.475552,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 75169475000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 14693.273232,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 14693273000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 3156390705,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 3156390705 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 137016716,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 137016716 ns\nthreads: 1"
           }
         ]
       }
