@@ -669,12 +669,12 @@ export async function proveThenVerifyUltraHonk(
   try {
     logger(`computing the verification key (could be precomputed)...`);
     const vk = await backend.getVerificationKey();
-    logger(`done. generating proof...`);
+    logger(`done computing verification key. proving...`);
     const proof = await backend.generateProof(witness);
-    logger(`done. verifying...`);
+    logger(`done proving. verifying...`);
     const verifier = new BarretenbergVerifier({ threads });
     const verified = await verifier.verifyUltraHonkProof(proof, vk);
-    logger(`verified: ${verified}`);
+    logger(`done verifying. verified: ${verified}`);
     await verifier.destroy();
     return verified;
   } finally {

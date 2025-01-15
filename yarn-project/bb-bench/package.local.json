@@ -1,7 +1,8 @@
 {
   "scripts": {
-    "build": "yarn clean && yarn generate && tsc -b &&  rm -rf dest && webpack && cp ../../barretenberg/favicon.ico dest",
-    "clean": "rm -rf ./dest .tsbuildinfo src/types artifacts"
+    "build": "yarn clean && yarn generate && tsc -b && yarn build:app && cp ../../barretenberg/favicon.ico dest",
+    "clean": "rm -rf ./dest .tsbuildinfo src/types artifacts",
+    "build:app": "rm -rf dest && webpack"
   },
   "files": ["dest", "src", "artifacts", "!*.test.*"]
 }
