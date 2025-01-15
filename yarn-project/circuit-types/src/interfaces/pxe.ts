@@ -255,6 +255,14 @@ export interface PXE {
   ): Promise<[bigint, SiblingPath<typeof L1_TO_L2_MSG_TREE_HEIGHT>]>;
 
   /**
+   * Gets the membership witness for a message that was emitted at a particular block
+   * @param blockNumber - The block number in which to search for the message
+   * @param l2Tol1Message - The message to search for
+   * @returns The membership witness for the message
+   */
+  getL2ToL1MembershipWitness(blockNumber: number, l2Tol1Message: Fr): Promise<[bigint, SiblingPath<number>]>;
+
+  /**
    * Adds a note to the database.
    * @throws If the note hash of the note doesn't exist in the tree.
    * @param note - The note to add.
@@ -490,6 +498,10 @@ export const PXESchema: ApiSchemaFor<PXE> = {
     .function()
     .args(schemas.AztecAddress, schemas.Fr, schemas.Fr)
     .returns(z.tuple([schemas.BigInt, SiblingPath.schemaFor(L1_TO_L2_MSG_TREE_HEIGHT)])),
+  getL2ToL1MembershipWitness: z
+    .function()
+    .args(z.number(), schemas.Fr)
+    .returns(z.tuple([schemas.BigInt, SiblingPath.schema])),
   addNote: z.function().args(ExtendedNote.schema, optional(schemas.AztecAddress)).returns(z.void()),
   addNullifiedNote: z.function().args(ExtendedNote.schema).returns(z.void()),
   getBlock: z

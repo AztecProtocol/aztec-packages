@@ -46,6 +46,7 @@ export {
   type L2AmountClaimWithRecipient,
   type L2Claim,
   type WrappedFieldLike,
+  type IntentAction,
 } from './utils/index.js';
 
 export { NoteSelector } from '@aztec/foundation/abi';

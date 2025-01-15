@@ -47,21 +47,7 @@ spec:
             - |
               source /shared/config/service-addresses
               cat /shared/config/service-addresses
-              echo "Awaiting ethereum node at ${ETHEREUM_HOST}"
-              until curl -s -X POST -H 'Content-Type: application/json' \
-                -d '{"jsonrpc":"2.0","method":"eth_chainId","params":[],"id":67}' \
-                ${ETHEREUM_HOST} | grep 0x; do
-                echo "Waiting for Ethereum node ${ETHEREUM_HOST}..."
-                sleep 5
-              done
-              echo "Ethereum node is ready!"
-              {{- if .Values.telemetry.enabled }}
-              until curl --head --silent $OTEL_COLLECTOR_ENDPOINT > /dev/null; do
-                echo "Waiting for OpenTelemetry collector $OTEL_COLLECTOR_ENDPOINT..."
-                sleep 5
-              done
-              echo "OpenTelemetry collector is ready!"
-              {{- end }}
+              {{- include "aztec-network.waitForEthereum" . | nindent 14 }}
           volumeMounts:
             - name: config
               mountPath: /shared/config
@@ -72,7 +58,16 @@ spec:
             - /bin/sh
             - -c
             - |
+              set -eux
               source /shared/config/service-addresses
+              # it is possible that even though we asserted this above, the DNS resolver of *this* pod
+              # is not yet ready to resolve the ethereum host.
+              # so we need to wait for it to be ready.
+              until cast rpc --rpc-url ${ETHEREUM_HOST} eth_chainId | grep 0x; do
+                echo "Waiting for Ethereum node ${ETHEREUM_HOST}..."
+                sleep 5
+              done
+              echo "Ethereum node is ready!"
               if [ "$(cast code --rpc-url ${ETHEREUM_HOST} 0x4e59b44847b379578588920ca78fbf26c0b4956c)" = "0x" ]; then
                 echo "Deploying Deterministic Deployment Proxy"
                 cast publish --rpc-url ${ETHEREUM_HOST} 0xf8a58085174876e800830186a08080b853604580600e600039806000f350fe7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe03601600081602082378035828234f58015156039578182fd5b8082525050506014600cf31ba02222222222222222222222222222222222222222222222222222222222222222a02222222222222222222222222222222222222222222222222222222222222222
@@ -89,6 +84,7 @@ spec:
               cp /scripts/deploy-l1-contracts.sh /tmp/deploy-l1-contracts.sh
               chmod +x /tmp/deploy-l1-contracts.sh
               source /shared/config/service-addresses
+              {{- include "aztec-network.waitForEthereum" . | nindent 14 }}
 
               /tmp/deploy-l1-contracts.sh "{{ .Values.aztec.l1Salt }}" "{{ .Values.ethereum.chainId }}" "{{ join "," .Values.validator.validatorAddresses }}"
           volumeMounts:
@@ -123,6 +119,12 @@ spec:
               valueFrom:
                 fieldRef:
                   fieldPath: metadata.name
+            - name: K8S_NAMESPACE_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+            - name: USE_GCLOUD_OBSERVABILITY
+              value: "{{ .Values.telemetry.useGcloudObservability }}"
       {{- end }}
       containers:
         - name: boot-node
@@ -181,6 +183,10 @@ spec:
                   fieldPath: metadata.name
             - name: OTEL_SERVICE_NAME
               value: boot-node
+            - name: K8S_NAMESPACE_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
             - name: NODE_OPTIONS
               value: "--max-old-space-size={{ .Values.bootNode.maxOldSpaceSize}}"
             - name: AZTEC_PORT
@@ -235,6 +241,8 @@ spec:
               value: "{{ .Values.storage.dataStoreMapSize }}"
             - name: WS_DB_MAP_SIZE_KB
               value: "{{ .Values.storage.worldStateMapSize }}"
+            - name: USE_GCLOUD_OBSERVABILITY
+              value: "{{ .Values.telemetry.useGcloudObservability }}"
           ports:
             - containerPort: {{ .Values.bootNode.service.nodePort }}
             - containerPort: {{ .Values.bootNode.service.p2pTcpPort }}

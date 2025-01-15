@@ -382,13 +382,21 @@ export class Archiver implements ArchiveSource, Traceable {
         localBlockForDestinationProvenBlockNumber &&
         provenArchive === localBlockForDestinationProvenBlockNumber.archive.root.toString()
       ) {
-        await this.store.setProvenL2BlockNumber(Number(provenBlockNumber));
-        // if we are here then we must have a valid proven epoch number
-        await this.store.setProvenL2EpochNumber(Number(provenEpochNumber));
-        this.log.info(`Updated proven chain to block ${provenBlockNumber} (epoch ${provenEpochNumber})`, {
-          provenBlockNumber,
-          provenEpochNumber,
-        });
+        const [localProvenEpochNumber, localProvenBlockNumber] = await Promise.all([
+          this.store.getProvenL2EpochNumber(),
+          this.store.getProvenL2BlockNumber(),
+        ]);
+        if (
+          localProvenEpochNumber !== Number(provenEpochNumber) ||
+          localProvenBlockNumber !== Number(provenBlockNumber)
+        ) {
+          await this.store.setProvenL2BlockNumber(Number(provenBlockNumber));
+          await this.store.setProvenL2EpochNumber(Number(provenEpochNumber));
+          this.log.info(`Updated proven chain to block ${provenBlockNumber} (epoch ${provenEpochNumber})`, {
+            provenBlockNumber,
+            provenEpochNumber,
+          });
+        }
       }
       this.instrumentation.updateLastProvenBlock(Number(provenBlockNumber));
     };

@@ -308,6 +308,10 @@ export class PXEService implements PXE {
     return await getNonNullifiedL1ToL2MessageWitness(this.node, contractAddress, messageHash, secret);
   }
 
+  public getL2ToL1MembershipWitness(blockNumber: number, l2Tol1Message: Fr): Promise<[bigint, SiblingPath<number>]> {
+    return this.node.getL2ToL1MessageMembershipWitness(blockNumber, l2Tol1Message);
+  }
+
   public async addNote(note: ExtendedNote, scope?: AztecAddress) {
     const owner = await this.db.getCompleteAddress(note.owner);
     if (!owner) {
