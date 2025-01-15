@@ -118,14 +118,13 @@ AvmRecursiveVerifier_<Flavor>::AggregationObject AvmRecursiveVerifier_<Flavor>::
 
     // No need to constrain that sumcheck_verified is true as this is guaranteed by the implementation of
     // when called over a "circuit field" types.
-    auto [multivariate_challenge, claimed_evaluations, sumcheck_verified] =
-        sumcheck.verify(relation_parameters, alpha, gate_challenges);
+    SumcheckOutput<Flavor> output = sumcheck.verify(relation_parameters, alpha, gate_challenges);
 
-    vinfo("verified sumcheck: ", (sumcheck_verified.has_value() && sumcheck_verified.value()));
+    vinfo("verified sumcheck: ", (output.verified.has_value() && output.verified.value()));
 
     // Public columns evaluation checks
-    std::vector<FF> mle_challenge(multivariate_challenge.begin(),
-                                  multivariate_challenge.begin() + static_cast<int>(log_circuit_size));
+    std::vector<FF> mle_challenge(output.challenge.begin(),
+                                  output.challenge.begin() + static_cast<int>(log_circuit_size));
 
     {{#each public_cols}}
     FF {{col}}_evaluation = evaluate_public_input_column(public_inputs[{{idx}}], mle_challenge);
@@ -138,9 +137,9 @@ AvmRecursiveVerifier_<Flavor>::AggregationObject AvmRecursiveVerifier_<Flavor>::
     auto opening_claim = Shplemini::compute_batch_opening_claim(circuit_size,
                                                                 commitments.get_unshifted(),
                                                                 commitments.get_to_be_shifted(),
-                                                                claimed_evaluations.get_unshifted(),
-                                                                claimed_evaluations.get_shifted(),
-                                                                multivariate_challenge,
+                                                                output.claimed_evaluations.get_unshifted(),
+                                                                output.claimed_evaluations.get_shifted(),
+                                                               output.challenge,
                                                                 Commitment::one(builder),
                                                                 transcript);
     auto pairing_points = PCS::reduce_verify_batch_opening_claim(opening_claim, transcript);
