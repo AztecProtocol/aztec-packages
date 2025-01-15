@@ -1,4 +1,4 @@
-// import { gcpDetector } from '@opentelemetry/resource-detector-gcp';
+import { GcpDetectorSync } from '@google-cloud/opentelemetry-resource-util';
 import {
   type IResource,
   detectResourcesSync,
@@ -17,8 +17,8 @@ export async function getOtelResource(): Promise<IResource> {
       envDetectorSync,
       processDetectorSync,
       serviceInstanceIdDetectorSync,
-      // gcpDetector,
       aztecDetector,
+      new GcpDetectorSync(),
     ],
   });
 

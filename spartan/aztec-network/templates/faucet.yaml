@@ -92,6 +92,8 @@ spec:
                   fieldPath: metadata.name
             - name: OTEL_SERVICE_NAME
               value: faucet
+            - name: USE_GCLOUD_OBSERVABILITY
+              value: "{{ .Values.telemetry.useGcloudObservability }}"
           ports:
             - name: http
               containerPort: {{ .Values.faucet.service.nodePort }}

@@ -18,7 +18,7 @@ import { openTmpStore } from '@aztec/kv-store/lmdb';
 import { protocolContractNames } from '@aztec/protocol-contracts';
 import { getCanonicalProtocolContract } from '@aztec/protocol-contracts/bundle';
 import { enrichPublicSimulationError } from '@aztec/pxe';
-import { ExecutionNoteCache, type TypedOracle } from '@aztec/simulator/client';
+import { type TypedOracle } from '@aztec/simulator/client';
 import { HashedValuesCache } from '@aztec/simulator/server';
 import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
 import { MerkleTrees } from '@aztec/world-state';
@@ -44,8 +44,6 @@ export class TXEService {
     const store = openTmpStore(true);
     const trees = await MerkleTrees.new(store, new NoopTelemetryClient(), logger);
     const executionCache = new HashedValuesCache();
-    const txHash = new Fr(1); // The txHash is used for computing the revertible nullifiers for non-revertible note hashes. It can be any value for testing.
-    const noteCache = new ExecutionNoteCache(txHash);
     const keyStore = new KeyStore(store);
     const txeDatabase = new TXEDatabase(store);
     // Register protocol contracts.
@@ -55,7 +53,7 @@ export class TXEService {
       await txeDatabase.addContractInstance(instance);
     }
     logger.debug(`TXE service initialized`);
-    const txe = new TXE(logger, trees, executionCache, noteCache, keyStore, txeDatabase);
+    const txe = new TXE(logger, trees, executionCache, keyStore, txeDatabase);
     const service = new TXEService(logger, txe);
     await service.advanceBlocksBy(toSingle(new Fr(1n)));
     return service;
@@ -418,6 +416,11 @@ export class TXEService {
       fromSingle(noteHash),
       fromSingle(counter).toNumber(),
     );
+    return toForeignCallResult([toSingle(new Fr(0))]);
+  }
+
+  async notifyCreatedNullifier(innerNullifier: ForeignCallSingle) {
+    await this.typedOracle.notifyCreatedNullifier(fromSingle(innerNullifier));
     return toForeignCallResult([toSingle(new Fr(0))]);
   }
 
