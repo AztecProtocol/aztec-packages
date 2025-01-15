@@ -17,7 +17,7 @@ COPY --from=noir-projects /usr/src/noir-projects /usr/src/noir-projects
 # We want the native ACVM and BB binaries
 COPY --from=noir /usr/src/noir/noir-repo/target/release/acvm /usr/src/noir/noir-repo/target/release/acvm
 COPY --from=barretenberg /usr/src/barretenberg/cpp/build/bin/bb /usr/src/barretenberg/cpp/build/bin/bb
-COPY --from=barretenberg /usr/src/barretenberg/cpp/build-pic/lib/world_state_napi.node /usr/src/barretenberg/cpp/build-pic/lib/world_state_napi.node
+COPY --from=barretenberg /usr/src/barretenberg/cpp/build-pic/lib/nodejs_module.node /usr/src/barretenberg/cpp/build-pic/lib/nodejs_module.node
 
 WORKDIR /usr/src/yarn-project
 COPY . .

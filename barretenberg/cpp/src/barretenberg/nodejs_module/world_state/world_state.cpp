@@ -1,15 +1,15 @@
-#include "barretenberg/world_state_napi/world_state/world_state.hpp"
+#include "barretenberg/nodejs_module/world_state/world_state.hpp"
 #include "barretenberg/crypto/merkle_tree/hash_path.hpp"
 #include "barretenberg/crypto/merkle_tree/indexed_tree/indexed_leaf.hpp"
 #include "barretenberg/crypto/merkle_tree/response.hpp"
 #include "barretenberg/crypto/merkle_tree/types.hpp"
 #include "barretenberg/ecc/curves/bn254/fr.hpp"
 #include "barretenberg/messaging/header.hpp"
+#include "barretenberg/nodejs_module/async_op.hpp"
+#include "barretenberg/nodejs_module/world_state/world_state_message.hpp"
 #include "barretenberg/world_state/fork.hpp"
 #include "barretenberg/world_state/types.hpp"
 #include "barretenberg/world_state/world_state.hpp"
-#include "barretenberg/world_state_napi/async_op.hpp"
-#include "barretenberg/world_state_napi/world_state/world_state_message.hpp"
 #include "msgpack/v3/pack_decl.hpp"
 #include "msgpack/v3/sbuffer_decl.hpp"
 #include "napi.h"
@@ -25,13 +25,14 @@
 #include <sys/types.h>
 #include <unordered_map>
 
+using namespace bb::nodejs;
 using namespace bb::world_state;
 using namespace bb::crypto::merkle_tree;
 using namespace bb::messaging;
 
 const uint64_t DEFAULT_MAP_SIZE = 1024UL * 1024;
 
-WorldStateAddon::WorldStateAddon(const Napi::CallbackInfo& info)
+WorldStateWrapper::WorldStateWrapper(const Napi::CallbackInfo& info)
     : ObjectWrap(info)
 {
     uint64_t thread_pool_size = 16;
@@ -217,7 +218,7 @@ WorldStateAddon::WorldStateAddon(const Napi::CallbackInfo& info)
                                [this](msgpack::object& obj, msgpack::sbuffer& buffer) { return close(obj, buffer); });
 }
 
-Napi::Value WorldStateAddon::call(const Napi::CallbackInfo& info)
+Napi::Value WorldStateWrapper::call(const Napi::CallbackInfo& info)
 {
     Napi::Env env = info.Env();
     // keep this in a shared pointer so that AsyncOperation can resolve/reject the promise once the execution is
@@ -252,7 +253,7 @@ Napi::Value WorldStateAddon::call(const Napi::CallbackInfo& info)
     return deferred->Promise();
 }
 
-bool WorldStateAddon::get_tree_info(msgpack::object& obj, msgpack::sbuffer& buffer) const
+bool WorldStateWrapper::get_tree_info(msgpack::object& obj, msgpack::sbuffer& buffer) const
 {
     TypedMessage<GetTreeInfoRequest> request;
     obj.convert(request);
@@ -269,7 +270,7 @@ bool WorldStateAddon::get_tree_info(msgpack::object& obj, msgpack::sbuffer& buff
     return true;
 }
 
-bool WorldStateAddon::get_state_reference(msgpack::object& obj, msgpack::sbuffer& buffer) const
+bool WorldStateWrapper::get_state_reference(msgpack::object& obj, msgpack::sbuffer& buffer) const
 {
     TypedMessage<GetStateReferenceRequest> request;
     obj.convert(request);
@@ -284,7 +285,7 @@ bool WorldStateAddon::get_state_reference(msgpack::object& obj, msgpack::sbuffer
     return true;
 }
 
-bool WorldStateAddon::get_initial_state_reference(msgpack::object& obj, msgpack::sbuffer& buffer) const
+bool WorldStateWrapper::get_initial_state_reference(msgpack::object& obj, msgpack::sbuffer& buffer) const
 {
     HeaderOnlyMessage request;
     obj.convert(request);
@@ -299,7 +300,7 @@ bool WorldStateAddon::get_initial_state_reference(msgpack::object& obj, msgpack:
     return true;
 }
 
-bool WorldStateAddon::get_leaf_value(msgpack::object& obj, msgpack::sbuffer& buffer) const
+bool WorldStateWrapper::get_leaf_value(msgpack::object& obj, msgpack::sbuffer& buffer) const
 {
     TypedMessage<GetLeafValueRequest> request;
     obj.convert(request);
@@ -343,7 +344,7 @@ bool WorldStateAddon::get_leaf_value(msgpack::object& obj, msgpack::sbuffer& buf
     return true;
 }
 
-bool WorldStateAddon::get_leaf_preimage(msgpack::object& obj, msgpack::sbuffer& buffer) const
+bool WorldStateWrapper::get_leaf_preimage(msgpack::object& obj, msgpack::sbuffer& buffer) const
 {
     TypedMessage<GetLeafPreimageRequest> request;
     obj.convert(request);
@@ -377,7 +378,7 @@ bool WorldStateAddon::get_leaf_preimage(msgpack::object& obj, msgpack::sbuffer& 
     return true;
 }
 
-bool WorldStateAddon::get_sibling_path(msgpack::object& obj, msgpack::sbuffer& buffer) const
+bool WorldStateWrapper::get_sibling_path(msgpack::object& obj, msgpack::sbuffer& buffer) const
 {
     TypedMessage<GetSiblingPathRequest> request;
     obj.convert(request);
@@ -392,7 +393,7 @@ bool WorldStateAddon::get_sibling_path(msgpack::object& obj, msgpack::sbuffer& b
     return true;
 }
 
-bool WorldStateAddon::get_block_numbers_for_leaf_indices(msgpack::object& obj, msgpack::sbuffer& buffer) const
+bool WorldStateWrapper::get_block_numbers_for_leaf_indices(msgpack::object& obj, msgpack::sbuffer& buffer) const
 {
     TypedMessage<GetBlockNumbersForLeafIndicesRequest> request;
     obj.convert(request);
@@ -410,7 +411,7 @@ bool WorldStateAddon::get_block_numbers_for_leaf_indices(msgpack::object& obj, m
     return true;
 }
 
-bool WorldStateAddon::find_leaf_indices(msgpack::object& obj, msgpack::sbuffer& buffer) const
+bool WorldStateWrapper::find_leaf_indices(msgpack::object& obj, msgpack::sbuffer& buffer) const
 {
     TypedMessage<TreeIdAndRevisionRequest> request;
     obj.convert(request);
@@ -452,7 +453,7 @@ bool WorldStateAddon::find_leaf_indices(msgpack::object& obj, msgpack::sbuffer& 
     return true;
 }
 
-bool WorldStateAddon::find_low_leaf(msgpack::object& obj, msgpack::sbuffer& buffer) const
+bool WorldStateWrapper::find_low_leaf(msgpack::object& obj, msgpack::sbuffer& buffer) const
 {
     TypedMessage<FindLowLeafRequest> request;
     obj.convert(request);
@@ -468,7 +469,7 @@ bool WorldStateAddon::find_low_leaf(msgpack::object& obj, msgpack::sbuffer& buff
     return true;
 }
 
-bool WorldStateAddon::append_leaves(msgpack::object& obj, msgpack::sbuffer& buf)
+bool WorldStateWrapper::append_leaves(msgpack::object& obj, msgpack::sbuffer& buf)
 {
     TypedMessage<TreeIdOnlyRequest> request;
     obj.convert(request);
@@ -503,7 +504,7 @@ bool WorldStateAddon::append_leaves(msgpack::object& obj, msgpack::sbuffer& buf)
     return true;
 }
 
-bool WorldStateAddon::batch_insert(msgpack::object& obj, msgpack::sbuffer& buffer)
+bool WorldStateWrapper::batch_insert(msgpack::object& obj, msgpack::sbuffer& buffer)
 {
     TypedMessage<TreeIdOnlyRequest> request;
     obj.convert(request);
@@ -539,7 +540,7 @@ bool WorldStateAddon::batch_insert(msgpack::object& obj, msgpack::sbuffer& buffe
     return true;
 }
 
-bool WorldStateAddon::sequential_insert(msgpack::object& obj, msgpack::sbuffer& buffer)
+bool WorldStateWrapper::sequential_insert(msgpack::object& obj, msgpack::sbuffer& buffer)
 {
     TypedMessage<TreeIdOnlyRequest> request;
     obj.convert(request);
@@ -575,7 +576,7 @@ bool WorldStateAddon::sequential_insert(msgpack::object& obj, msgpack::sbuffer& 
     return true;
 }
 
-bool WorldStateAddon::update_archive(msgpack::object& obj, msgpack::sbuffer& buf)
+bool WorldStateWrapper::update_archive(msgpack::object& obj, msgpack::sbuffer& buf)
 {
     TypedMessage<UpdateArchiveRequest> request;
     obj.convert(request);
@@ -589,7 +590,7 @@ bool WorldStateAddon::update_archive(msgpack::object& obj, msgpack::sbuffer& buf
     return true;
 }
 
-bool WorldStateAddon::commit(msgpack::object& obj, msgpack::sbuffer& buf)
+bool WorldStateWrapper::commit(msgpack::object& obj, msgpack::sbuffer& buf)
 {
     HeaderOnlyMessage request;
     obj.convert(request);
@@ -604,7 +605,7 @@ bool WorldStateAddon::commit(msgpack::object& obj, msgpack::sbuffer& buf)
     return true;
 }
 
-bool WorldStateAddon::rollback(msgpack::object& obj, msgpack::sbuffer& buf)
+bool WorldStateWrapper::rollback(msgpack::object& obj, msgpack::sbuffer& buf)
 {
     HeaderOnlyMessage request;
     obj.convert(request);
@@ -618,7 +619,7 @@ bool WorldStateAddon::rollback(msgpack::object& obj, msgpack::sbuffer& buf)
     return true;
 }
 
-bool WorldStateAddon::sync_block(msgpack::object& obj, msgpack::sbuffer& buf)
+bool WorldStateWrapper::sync_block(msgpack::object& obj, msgpack::sbuffer& buf)
 {
     TypedMessage<SyncBlockRequest> request;
     obj.convert(request);
@@ -637,7 +638,7 @@ bool WorldStateAddon::sync_block(msgpack::object& obj, msgpack::sbuffer& buf)
     return true;
 }
 
-bool WorldStateAddon::create_fork(msgpack::object& obj, msgpack::sbuffer& buf)
+bool WorldStateWrapper::create_fork(msgpack::object& obj, msgpack::sbuffer& buf)
 {
     TypedMessage<CreateForkRequest> request;
     obj.convert(request);
@@ -654,7 +655,7 @@ bool WorldStateAddon::create_fork(msgpack::object& obj, msgpack::sbuffer& buf)
     return true;
 }
 
-bool WorldStateAddon::delete_fork(msgpack::object& obj, msgpack::sbuffer& buf)
+bool WorldStateWrapper::delete_fork(msgpack::object& obj, msgpack::sbuffer& buf)
 {
     TypedMessage<DeleteForkRequest> request;
     obj.convert(request);
@@ -668,7 +669,7 @@ bool WorldStateAddon::delete_fork(msgpack::object& obj, msgpack::sbuffer& buf)
     return true;
 }
 
-bool WorldStateAddon::close(msgpack::object& obj, msgpack::sbuffer& buf)
+bool WorldStateWrapper::close(msgpack::object& obj, msgpack::sbuffer& buf)
 {
     HeaderOnlyMessage request;
     obj.convert(request);
@@ -684,7 +685,7 @@ bool WorldStateAddon::close(msgpack::object& obj, msgpack::sbuffer& buf)
     return true;
 }
 
-bool WorldStateAddon::set_finalised(msgpack::object& obj, msgpack::sbuffer& buf) const
+bool WorldStateWrapper::set_finalised(msgpack::object& obj, msgpack::sbuffer& buf) const
 {
     TypedMessage<BlockShiftRequest> request;
     obj.convert(request);
@@ -697,7 +698,7 @@ bool WorldStateAddon::set_finalised(msgpack::object& obj, msgpack::sbuffer& buf)
     return true;
 }
 
-bool WorldStateAddon::unwind(msgpack::object& obj, msgpack::sbuffer& buf) const
+bool WorldStateWrapper::unwind(msgpack::object& obj, msgpack::sbuffer& buf) const
 {
     TypedMessage<BlockShiftRequest> request;
     obj.convert(request);
@@ -711,7 +712,7 @@ bool WorldStateAddon::unwind(msgpack::object& obj, msgpack::sbuffer& buf) const
     return true;
 }
 
-bool WorldStateAddon::remove_historical(msgpack::object& obj, msgpack::sbuffer& buf) const
+bool WorldStateWrapper::remove_historical(msgpack::object& obj, msgpack::sbuffer& buf) const
 {
     TypedMessage<BlockShiftRequest> request;
     obj.convert(request);
@@ -725,7 +726,7 @@ bool WorldStateAddon::remove_historical(msgpack::object& obj, msgpack::sbuffer& 
     return true;
 }
 
-bool WorldStateAddon::get_status(msgpack::object& obj, msgpack::sbuffer& buf) const
+bool WorldStateWrapper::get_status(msgpack::object& obj, msgpack::sbuffer& buf) const
 {
     HeaderOnlyMessage request;
     obj.convert(request);
@@ -740,11 +741,11 @@ bool WorldStateAddon::get_status(msgpack::object& obj, msgpack::sbuffer& buf) co
     return true;
 }
 
-Napi::Function WorldStateAddon::get_class(Napi::Env env)
+Napi::Function WorldStateWrapper::get_class(Napi::Env env)
 {
     return DefineClass(env,
                        "WorldState",
                        {
-                           WorldStateAddon::InstanceMethod("call", &WorldStateAddon::call),
+                           WorldStateWrapper::InstanceMethod("call", &WorldStateWrapper::call),
                        });
 }

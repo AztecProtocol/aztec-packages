@@ -59,10 +59,10 @@ test-cache-read:
     --command="exit 1"
   SAVE ARTIFACT build/bin
 
-preset-release-world-state:
+preset-release-nodejs-module:
   FROM +source
-  DO +CACHE_BUILD_BIN --prefix=preset-release-world-state \
-    --command="cmake --preset clang16-pic -Bbuild && cmake --build build --target world_state_napi && mv ./build/lib/world_state_napi.node ./build/bin"
+  DO +CACHE_BUILD_BIN --prefix=preset-release-nodejs-module \
+    --command="cmake --preset clang16-pic -Bbuild && cmake --build build --target nodejs_module && mv ./build/lib/nodejs_module.node ./build/bin"
   SAVE ARTIFACT build/bin
 
 preset-release-assert:
@@ -317,4 +317,4 @@ build:
   BUILD +preset-wasm
   BUILD +preset-wasm-threads
   BUILD +preset-release
-  BUILD +preset-release-world-state
+  BUILD +preset-release-nodejs-module
