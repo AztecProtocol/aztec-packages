@@ -1,74 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1736803170630,
+  "lastUpdate": 1736939840334,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "47112877+dbanks12@users.noreply.github.com",
-            "name": "David Banks",
-            "username": "dbanks12"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "8820bd5f3004fedd6c286e2dbf5f8b24fc767fd2",
-          "message": "fix: handle calls to non-existent contracts in AVM witgen (#10862)\n\nExceptionally halt & consume all gas on a call to a non-existent\ncontract. Should be able to prove.\n\nHacked this to work for top-level/enqueued-calls by adding a dummy row\n(`op_add`) and then raising an exceptional halt.\n\nResolves https://github.com/AztecProtocol/aztec-packages/issues/10373\nResolves https://github.com/AztecProtocol/aztec-packages/issues/10044\n\nFollow-up work:\n- Add tests for bytecode deserialization failures (sim & witgen)",
-          "timestamp": "2024-12-19T06:36:48-05:00",
-          "tree_id": "895b9543d9e3a2d453c93791371cd2b084e935b1",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/8820bd5f3004fedd6c286e2dbf5f8b24fc767fd2"
-        },
-        "date": 1734609525000,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "nativeClientIVCBench/Ambient_17_in_20/6",
-            "value": 21746.67925900002,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 19073.500444 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeClientIVCBench/Full/6",
-            "value": 24511.337944000017,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 21797.343171 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 5007.585204999998,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 4645.667925 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmClientIVCBench/Full/6",
-            "value": 84614.78080800001,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 84614782000 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 15131.664287000001,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 15131665000 ms\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 2853639406,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 2853639406 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 141955268,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 141955268 ns\nthreads: 1"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -3280,6 +3214,72 @@ window.BENCHMARK_DATA = {
             "value": 152752627,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 152752627 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "132435771+jeanmon@users.noreply.github.com",
+            "name": "Jean M",
+            "username": "jeanmon"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "2f05dc02fe7b147c7cd6fc235134279dbf332c08",
+          "message": "fix(avm): AVM circuit fixes related calldata, returndata and call_ptr (#11207)\n\nThe AVM circuit code did not correctly compute col_offset (defined in\r\nmem_slice.pil) in the context of multiple enqueued calls. In this case,\r\nthe calldata of these top-level calls are concatenated and therefore\r\ncol_offset needs to take into account the previous concatenated\r\ncalldata. We needed also to relax the constraint #[COL_OFFSET_INCREMENT]\r\nwhich needs to be \"reset\" at call boundaries.\r\n\r\nSimilar fix applies for returndata.\r\n\r\nIn addition, we identified some missing call_ptr member in trace row of\r\nseveral opcodes.",
+          "timestamp": "2025-01-15T12:00:38+01:00",
+          "tree_id": "b36e5fbd90d5dcadb4709b7f428354c704715518",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/2f05dc02fe7b147c7cd6fc235134279dbf332c08"
+        },
+        "date": 1736939832774,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Ambient_17_in_20/6",
+            "value": 18981.46464500002,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 15964.644898 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 21595.547462000013,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 19208.274018 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 4068.078853999992,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 3752.102518 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 80074.753179,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 80074753000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 14569.986035,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 14569986000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 3252506078,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 3252506078 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 139567856,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 139567856 ns\nthreads: 1"
           }
         ]
       }
