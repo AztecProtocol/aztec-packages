@@ -533,6 +533,7 @@ AvmError Execution::execute_enqueued_call(TxExecutionPhase phase,
         .internal_return_ptr_stack = {},
     };
     trace_builder.next_context_id++;
+    trace_builder.update_calldata_size_values(static_cast<uint32_t>(enqueued_call_hint.calldata.size()));
     // Find the bytecode based on contract address of the public call request
     std::vector<uint8_t> bytecode;
     try {

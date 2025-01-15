@@ -146,6 +146,11 @@ export function maxBy<T>(arr: T[], fn: (x: T) => number): T | undefined {
   return arr.reduce((max, x) => (fn(x) > fn(max) ? x : max), arr[0]);
 }
 
+/** Computes the sum of a numeric array. */
+export function sum(arr: number[]): number {
+  return arr.reduce((a, b) => a + b, 0);
+}
+
 /** Computes the median of a numeric array. Returns undefined if array is empty. */
 export function median(arr: number[]) {
   if (arr.length === 0) {
@@ -154,4 +159,30 @@ export function median(arr: number[]) {
   const sorted = [...arr].sort((a, b) => a - b);
   const mid = Math.floor(sorted.length / 2);
   return sorted.length % 2 !== 0 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2;
+}
+
+/** Computes the mean of a numeric array. Returns undefined if the array is empty. */
+export function mean(values: number[]) {
+  if (values.length === 0) {
+    return undefined;
+  }
+  return values.reduce((a, b) => a + b, 0) / values.length;
+}
+
+/** Computes the variance of a numeric array. Returns undefined if there are less than 2 points. */
+export function variance(values: number[]) {
+  if (values.length < 2) {
+    return undefined;
+  }
+  const avg = mean(values)!;
+  const points = values.map(value => value * value + avg * avg - 2 * value * avg);
+  return sum(points) / (values.length - 1);
+}
+
+/** Computes the standard deviation of a numeric array. Returns undefined if there are less than 2 points. */
+export function stdDev(values: number[]) {
+  if (values.length < 2) {
+    return undefined;
+  }
+  return Math.sqrt(variance(values)!);
 }
