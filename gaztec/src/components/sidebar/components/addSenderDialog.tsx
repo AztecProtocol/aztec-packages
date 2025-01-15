@@ -33,11 +33,11 @@ export function AddSendersDialog({
 
   return (
     <Dialog onClose={handleClose} open={open}>
-      <DialogTitle>Create account</DialogTitle>
+      <DialogTitle>Add contact</DialogTitle>
       <div css={creationForm}>
         <TextField
           value={sender}
-          label="Sender"
+          label="Contact"
           onChange={(event) => {
             setSender(event.target.value);
           }}

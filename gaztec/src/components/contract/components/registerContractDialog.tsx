@@ -1,23 +1,19 @@
 import DialogTitle from "@mui/material/DialogTitle";
 import Dialog from "@mui/material/Dialog";
-import { AccountWalletWithSecretKey, Contract } from "@aztec/aztec.js";
+import { Contract } from "@aztec/aztec.js";
 import {
   Button,
   CircularProgress,
   FormControl,
   FormGroup,
-  InputLabel,
-  MenuItem,
-  Select,
   TextField,
   Typography,
   css,
 } from "@mui/material";
 import { useContext, useState } from "react";
 import { AztecAddress, ContractInstanceWithAddress } from "@aztec/circuits.js";
-import { ContractArtifact, getInitializer } from "@aztec/foundation/abi";
+import { ContractArtifact } from "@aztec/foundation/abi";
 import { GITHUB_TAG_PREFIX } from "../../../utils/interactions";
-import { FunctionParameter } from "../../common/fnParameter";
 import { AztecContext } from "../../home/home";
 
 const creationForm = css({
@@ -67,6 +63,7 @@ export function RegisterContractDialog({
 
     await wallet.registerContract({
       instance: contractInstance,
+      artifact: contractArtifact,
     });
 
     const contract = await Contract.at(
@@ -80,7 +77,7 @@ export function RegisterContractDialog({
 
   return (
     <Dialog onClose={handleClose} open={open}>
-      <DialogTitle>Deploy contract</DialogTitle>
+      <DialogTitle>Register contract</DialogTitle>
       <div css={creationForm}>
         {registering ? (
           <>

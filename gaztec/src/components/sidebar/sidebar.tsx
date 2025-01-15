@@ -273,6 +273,8 @@ export function SidebarComponent() {
         alias,
         Buffer.from(sender.toString())
       );
+      const { ourAccounts } = await getAccountsAndSenders();
+      setAccounts(ourAccounts);
     }
     setOpenAddSendersDialog(false);
   };
@@ -364,8 +366,12 @@ export function SidebarComponent() {
               ))}
             </Select>
           </FormControl>
-          <Button variant="contained" endIcon={<ContactsIcon />}>
-            Senders
+          <Button
+            variant="contained"
+            onClick={() => setOpenAddSendersDialog(true)}
+            endIcon={<ContactsIcon />}
+          >
+            Contacts
           </Button>
           <AddSendersDialog
             open={openAddSendersDialog}
