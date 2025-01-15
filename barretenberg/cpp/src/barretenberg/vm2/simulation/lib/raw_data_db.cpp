@@ -24,14 +24,12 @@ ContractInstance HintedRawDataDB::get_contract_instance(const AztecAddress& addr
         .contract_class_id = contract_instance_hint.contractClassId,
         .initialisation_hash = contract_instance_hint.initializationHash,
         .public_keys =
-            [](const auto& pk) {
-                return PublicKeys{
-                    .nullifier_key = pk.masterNullifierPublicKey,
-                    .incoming_viewing_key = pk.masterIncomingViewingPublicKey,
-                    .outgoing_viewing_key = pk.masterOutgoingViewingPublicKey,
-                    .tagging_key = pk.masterTaggingPublicKey,
-                };
-            }(contract_instance_hint.publicKeys),
+            PublicKeys{
+                .nullifier_key = contract_instance_hint.publicKeys.masterNullifierPublicKey,
+                .incoming_viewing_key = contract_instance_hint.publicKeys.masterIncomingViewingPublicKey,
+                .outgoing_viewing_key = contract_instance_hint.publicKeys.masterOutgoingViewingPublicKey,
+                .tagging_key = contract_instance_hint.publicKeys.masterTaggingPublicKey,
+            },
     };
 }
 

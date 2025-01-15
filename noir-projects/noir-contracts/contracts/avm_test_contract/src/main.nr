@@ -71,6 +71,11 @@ contract AvmTest {
         storage.single.read()
     }
 
+    #[public]
+    fn read_assert_storage_single(a: Field) {
+        assert(a == storage.single.read(), "Storage value does not match input");
+    }
+
     // should still be able to use ` -> pub *` for return type even though macro forces `pub`
     #[public]
     fn set_read_storage_single(a: Field) -> pub Field {
