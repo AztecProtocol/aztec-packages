@@ -207,14 +207,14 @@ export class AztecKVTxPool implements TxPool {
   /**
    * Deletes transactions from the pool. Tx hashes that are not present are ignored.
    * @param txHashes - An array of tx hashes to be removed from the tx pool.
-   * @returns The number of transactions that was deleted from the pool.
+   * @returns Empty promise.
    */
   public deleteTxs(txHashes: TxHash[]): Promise<void> {
     let pendingDeleted = 0;
     let minedDeleted = 0;
 
-    const archiveTxs: Promise<void>[] = [];
-    const poolTxs = this.#store.transaction(() => {
+    const deletedTxs: Tx[] = [];
+    const poolDbTx = this.#store.transaction(() => {
       for (const hash of txHashes) {
         const key = hash.toString();
         const tx = this.getTxByHash(hash);
@@ -231,7 +231,7 @@ export class AztecKVTxPool implements TxPool {
           }
 
           if (this.#archivedTxLimit) {
-            archiveTxs.push(this.archiveTx(tx));
+            deletedTxs.push(tx);
           }
 
           void this.#txs.delete(key);
@@ -243,12 +243,7 @@ export class AztecKVTxPool implements TxPool {
       this.#metrics.recordRemovedObjects(minedDeleted, 'mined');
     });
 
-    return poolTxs.then(() =>
-      archiveTxs.reduce(
-        (archiveTx, remainingArchiveTxs) => archiveTx.then(() => remainingArchiveTxs),
-        Promise.resolve(),
-      ),
-    );
+    return this.#archivedTxLimit ? poolDbTx.then(() => this.archiveTxs(deletedTxs)) : poolDbTx;
   }
 
   /**
@@ -272,35 +267,41 @@ export class AztecKVTxPool implements TxPool {
   }
 
   /**
-   * Archives a tx for future reference. The number of archived txs is limited by the specified archivedTxLimit.
-   * @param tx - The transaction to archive.
+   * Archives a list of txs for future reference. The number of archived txs is limited by the specified archivedTxLimit.
+   * @param txs - The list of transactions to archive.
+   * @returns Empty promise.
    */
-  private archiveTx(tx: Tx): Promise<void> {
+  private archiveTxs(txs: Tx[]): Promise<void> {
     return this.#archive.transaction(() => {
       let headIdx = this.#archivedTxHead.get() ?? 0;
       let tailIdx = this.#archivedTxTail.get() ?? 0;
 
-      while (headIdx - tailIdx >= this.#archivedTxLimit) {
-        const txHash = this.#archivedTxIndices.get(tailIdx);
-        if (txHash) {
-          void this.#archivedTxs.delete(txHash);
-          void this.#archivedTxIndices.delete(tailIdx);
+      for (const tx of txs) {
+        while (headIdx - tailIdx >= this.#archivedTxLimit) {
+          const txHash = this.#archivedTxIndices.get(tailIdx);
+          if (txHash) {
+            void this.#archivedTxs.delete(txHash);
+            void this.#archivedTxIndices.delete(tailIdx);
+          }
+          tailIdx++;
         }
-        void this.#archivedTxTail.set(++tailIdx);
+
+        const archivedTx: Tx = new Tx(
+          tx.data,
+          ClientIvcProof.empty(),
+          tx.unencryptedLogs,
+          tx.contractClassLogs,
+          tx.enqueuedPublicFunctionCalls,
+          tx.publicTeardownFunctionCall,
+        );
+        const txHash = tx.getTxHash().toString();
+        void this.#archivedTxs.set(txHash, archivedTx.toBuffer());
+        void this.#archivedTxIndices.set(headIdx, txHash);
+        headIdx++;
       }
 
-      const archivedTx: Tx = new Tx(
-        tx.data,
-        ClientIvcProof.empty(),
-        tx.unencryptedLogs,
-        tx.contractClassLogs,
-        tx.enqueuedPublicFunctionCalls,
-        tx.publicTeardownFunctionCall,
-      );
-      const txHash = tx.getTxHash().toString();
-      void this.#archivedTxs.set(txHash, archivedTx.toBuffer());
-      void this.#archivedTxIndices.set(headIdx, txHash);
-      void this.#archivedTxHead.set(++headIdx);
+      void this.#archivedTxHead.set(headIdx);
+      void this.#archivedTxTail.set(tailIdx);
     });
   }
 }
