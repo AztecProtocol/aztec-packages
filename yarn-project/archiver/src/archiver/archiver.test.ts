@@ -142,7 +142,7 @@ describe('Archiver', () => {
     );
     mockRollupEvents = mock<MockRollupContractEvents>();
     mockRollupEvents.L2BlockProposed.mockImplementation(async (filter: any, { fromBlock, toBlock }) => {
-      return Promise.resolve(
+      return await Promise.resolve(
         l2BlockProposedLogs.filter(log => log.blockNumber! >= fromBlock && log.blockNumber! <= toBlock),
       );
     });
@@ -157,7 +157,7 @@ describe('Archiver', () => {
     mockInboxRead.totalMessagesInserted.mockImplementation(() => Promise.resolve(123n));
     mockInboxEvents = mock<MockInboxContractEvents>();
     mockInboxEvents.MessageSent.mockImplementation(async (filter: any, { fromBlock, toBlock }) => {
-      return Promise.resolve(
+      return await Promise.resolve(
         l2MessageSentLogs.filter(log => log.blockNumber! >= fromBlock && log.blockNumber! <= toBlock),
       );
     });

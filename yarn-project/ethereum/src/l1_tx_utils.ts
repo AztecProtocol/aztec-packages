@@ -98,9 +98,9 @@ export interface L1TxUtilsConfig {
 
 export const l1TxUtilsConfigMappings: ConfigMappingsType<L1TxUtilsConfig> = {
   gasLimitBufferPercentage: {
-    description: 'How much to increase gas price by each attempt (percentage)',
+    description: 'How much to increase calculated gas limit by (percentage)',
     env: 'L1_GAS_LIMIT_BUFFER_PERCENTAGE',
-    ...numberConfigHelper(10),
+    ...numberConfigHelper(15),
   },
   minGwei: {
     description: 'Minimum gas price in gwei',
@@ -202,7 +202,7 @@ export class L1TxUtils {
    */
   public async sendTransaction(
     request: L1TxRequest,
-    _gasConfig?: Partial<L1TxUtilsConfig> & { fixedGas?: bigint; txTimeoutAt?: Date },
+    _gasConfig?: Partial<L1TxUtilsConfig> & { fixedGas?: bigint; gasLimit?: bigint; txTimeoutAt?: Date },
     blobInputs?: L1BlobInputs,
   ): Promise<{ txHash: Hex; gasLimit: bigint; gasPrice: GasPrice }> {
     try {
@@ -212,6 +212,8 @@ export class L1TxUtils {
 
       if (gasConfig.fixedGas) {
         gasLimit = gasConfig.fixedGas;
+      } else if (gasConfig.gasLimit) {
+        gasLimit = this.bumpGasLimit(gasConfig.gasLimit, gasConfig);
       } else {
         gasLimit = await this.estimateGas(account, request);
       }
@@ -406,7 +408,7 @@ export class L1TxUtils {
    */
   public async sendAndMonitorTransaction(
     request: L1TxRequest,
-    gasConfig?: Partial<L1TxUtilsConfig> & { fixedGas?: bigint; txTimeoutAt?: Date },
+    gasConfig?: Partial<L1TxUtilsConfig> & { fixedGas?: bigint; gasLimit?: bigint; txTimeoutAt?: Date },
     blobInputs?: L1BlobInputs,
   ): Promise<{ receipt: TransactionReceipt; gasPrice: GasPrice }> {
     const { txHash, gasLimit, gasPrice } = await this.sendTransaction(request, gasConfig, blobInputs);
@@ -561,8 +563,7 @@ export class L1TxUtils {
     }
 
     // Add buffer based on either fixed amount or percentage
-    const withBuffer =
-      initialEstimate + (initialEstimate * BigInt((gasConfig.gasLimitBufferPercentage || 0) * 1_00)) / 100_00n;
+    const withBuffer = this.bumpGasLimit(initialEstimate, gasConfig);
 
     return withBuffer;
   }
@@ -601,5 +602,9 @@ export class L1TxUtils {
       }
       throw err;
     }
+  }
+
+  private bumpGasLimit(gasLimit: bigint, gasConfig: L1TxUtilsConfig): bigint {
+    return gasLimit + (gasLimit * BigInt((gasConfig.gasLimitBufferPercentage || 0) * 1_00)) / 100_00n;
   }
 }

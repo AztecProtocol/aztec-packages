@@ -1103,7 +1103,7 @@ export class L1Publisher {
           data,
         },
         {
-          fixedGas: simulationResult + blobEvaluationGas,
+          gasLimit: simulationResult + blobEvaluationGas,
           ...opts,
         },
         {
@@ -1164,7 +1164,7 @@ export class L1Publisher {
           data,
         },
         {
-          fixedGas: simulationResult + blobEvaluationGas,
+          gasLimit: simulationResult + blobEvaluationGas,
           ...opts,
         },
         {
