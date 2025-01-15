@@ -134,7 +134,7 @@ get_node_info() {
     echo -e "${BLUE}Fetching node info...${NC}"
     CMD="get-node-info --node-url ${BOOTNODE_URL} --json"
     # TODO: use the correct (corresponding) image
-    # Can't do it today because `release/troll-turtle` doesn't support --json flag
+    # Can't do it today because `release/unhinged-unicorn` doesn't support --json flag
     NODE_INFO=$(curl -X POST -H 'Content-Type: application/json' -d '{"jsonrpc":"2.0","method":"node_getNodeInfo","params":[],"id":1}' -s ${BOOTNODE_URL})
 
     # Extract the relevant fields
@@ -169,7 +169,7 @@ configure_environment() {
         NETWORK=${NETWORK:-unhinged-unicorn}
     fi
 
-    # if the network is `troll-turtle`
+    # if the network is `unhinged-unicorn`
     if [ "$NETWORK" = "unhinged-unicorn" ]; then
         BOOTNODE_URL="${BOOTNODE_URL:-http://34.169.19.201:8080}"
         ETHEREUM_HOST="${ETHEREUM_HOST:-http://34.82.214.254:8545}"
