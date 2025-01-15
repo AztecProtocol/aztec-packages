@@ -14,6 +14,7 @@ use crate::{
         },
         execution_cache,
         key_validation_request::get_key_validation_request,
+        notes::{notify_created_nullifier, notify_nullified_note},
     },
 };
 use dep::protocol_types::{
@@ -147,17 +148,20 @@ impl PrivateContext {
     }
 
     pub fn push_nullifier(&mut self, nullifier: Field) {
+        notify_created_nullifier(nullifier);
         self.nullifiers.push(
             Nullifier { value: nullifier, note_hash: 0, counter: self.next_counter() },
         );
     }
 
     pub fn push_nullifier_for_note_hash(&mut self, nullifier: Field, nullified_note_hash: Field) {
+        let nullifier_counter = self.next_counter();
+        notify_nullified_note(nullifier, nullified_note_hash, nullifier_counter);
         self.nullifiers.push(
             Nullifier {
                 value: nullifier,
                 note_hash: nullified_note_hash,
-                counter: self.next_counter(),
+                counter: nullifier_counter,
             },
         );
     }

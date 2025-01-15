@@ -54,13 +54,6 @@ spec:
             - |
               source /shared/config/service-addresses
               cat /shared/config/service-addresses
-              {{- if .Values.telemetry.enabled }}
-              until curl --head --silent $OTEL_COLLECTOR_ENDPOINT > /dev/null; do
-                echo "Waiting for OpenTelemetry collector $OTEL_COLLECTOR_ENDPOINT..."
-                sleep 5
-              done
-              echo "OpenTelemetry collector is ready!"
-              {{- end }}
           volumeMounts:
             - name: config
               mountPath: /shared/config
@@ -87,6 +80,12 @@ spec:
               valueFrom:
                 fieldRef:
                   fieldPath: metadata.name
+            - name: OTEL_SERVICE_NAME
+              value: prover-broker
+            - name: K8S_NAMESPACE_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
             - name: NODE_OPTIONS
               value: "--max-old-space-size={{ .Values.proverBroker.maxOldSpaceSize}}"
             - name: AZTEC_PORT
@@ -107,6 +106,8 @@ spec:
               value: "{{ .Values.storage.dataStoreMapSize }}"
             - name: OTEL_RESOURCE_ATTRIBUTES
               value: service.name={{ .Release.Name }},service.namespace={{ .Release.Namespace }},service.version={{ .Chart.AppVersion }},environment={{ .Values.environment | default "production" }}
+            - name: USE_GCLOUD_OBSERVABILITY
+              value: "{{ .Values.telemetry.useGcloudObservability }}"
           resources:
             {{- toYaml .Values.proverBroker.resources | nindent 12 }}
       volumes:

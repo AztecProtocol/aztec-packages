@@ -57,13 +57,6 @@ spec:
                 sleep 5
               done
               echo "Broker is ready!"
-              {{- if .Values.telemetry.enabled }}
-              until curl --head --silent $OTEL_COLLECTOR_ENDPOINT > /dev/null; do
-                echo "Waiting for OpenTelemetry collector $OTEL_COLLECTOR_ENDPOINT..."
-                sleep 5
-              done
-              echo "OpenTelemetry collector is ready!"
-              {{- end }}
           volumeMounts:
             - name: config
               mountPath: /shared/config
@@ -88,6 +81,12 @@ spec:
               valueFrom:
                 fieldRef:
                   fieldPath: metadata.name
+            - name: OTEL_SERVICE_NAME
+              value: prover-agent
+            - name: K8S_NAMESPACE_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
             - name: AZTEC_PORT
               value: "{{ .Values.proverAgent.service.nodePort }}"
             - name: LOG_LEVEL
@@ -104,6 +103,8 @@ spec:
               value: {{ join "," .Values.proverAgent.proofTypes | quote }}
             - name: OTEL_RESOURCE_ATTRIBUTES
               value: service.name={{ .Release.Name }},service.namespace={{ .Release.Namespace }},service.version={{ .Chart.AppVersion }},environment={{ .Values.environment | default "production" }}
+            - name: USE_GCLOUD_OBSERVABILITY
+              value: "{{ .Values.telemetry.useGcloudObservability }}"
           resources:
             {{- toYaml .Values.proverAgent.resources | nindent 12 }}
 {{- end }}
