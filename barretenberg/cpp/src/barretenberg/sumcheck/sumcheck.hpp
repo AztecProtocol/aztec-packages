@@ -850,16 +850,12 @@ template <typename Flavor> class SumcheckVerifier {
         for (size_t round_idx = 1; round_idx < CONST_PROOF_SIZE_LOG_N; round_idx++) {
             round_univariate_evaluations[round_idx - 1][2] =
                 round_univariate_evaluations[round_idx][0] + round_univariate_evaluations[round_idx][1];
-            if constexpr (IsRecursiveFlavor<Flavor>) {
-                round_univariate_evaluations[round_idx - 1][2].self_reduce();
-            };
         }
 
         if constexpr (IsRecursiveFlavor<Flavor>) {
             FF first_sumcheck_round_evaluations_sum =
                 round_univariate_evaluations[0][0] + round_univariate_evaluations[0][1];
-            first_sumcheck_round_evaluations_sum.self_reduce();
-            round.target_total_sum.self_reduce();
+
             first_sumcheck_round_evaluations_sum.assert_equal(round.target_total_sum);
             verified = (first_sumcheck_round_evaluations_sum.get_value() == round.target_total_sum.get_value());
         } else {
