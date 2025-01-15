@@ -212,6 +212,7 @@ template <class Curve> class CommitmentKey {
     {
         PROFILE_THIS_NAME("commit_structured");
         ASSERT(polynomial.end_index() <= srs->get_monomial_size());
+        ASSERT(polynomial.end_index() <= dyadic_size && "Polynomial size exceeds commitment key size.");
 
         // Percentage of nonzero coefficients beyond which we resort to the conventional commit method
         constexpr size_t NONZERO_THRESHOLD = 75;
