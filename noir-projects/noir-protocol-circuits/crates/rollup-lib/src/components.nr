@@ -6,7 +6,7 @@ use super::abis::tx_effect::TxEffect;
 use dep::types::{
     abis::{
         log::Log, log_hash::ScopedLogHash, public_data_write::PublicDataWrite,
-        sponge_blob::SpongeBlob,
+        public_log::PublicLog, sponge_blob::SpongeBlob,
     },
     constants::{
         AZTEC_MAX_EPOCH_DURATION, CONTRACT_CLASS_LOGS_PREFIX, L2_L1_MSGS_PREFIX,
@@ -19,7 +19,7 @@ use dep::types::{
     },
     hash::{accumulate_sha256, silo_contract_class_log_hash},
     merkle_tree::VariableMerkleTree,
-    traits::is_empty,
+    traits::{is_empty, Serialize},
     utils::arrays::{array_length, array_merge},
 };
 use blob::blob_public_inputs::BlockBlobPublicInputs;
@@ -216,7 +216,7 @@ fn get_tx_effects_hash_input(
             tx_effect.l2_to_l1_msgs,
             public_data_update_requests,
             private_logs,
-            unencrypted_logs,
+            public_logs,
             contract_class_logs,
             tx_effect.revert_code as Field,
         )
@@ -390,7 +390,7 @@ unconstrained fn get_tx_effects_hash_input_helper(
     l2_to_l1_msgs: [Field; MAX_L2_TO_L1_MSGS_PER_TX],
     public_data_update_requests: [PublicDataWrite; MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX],
     private_logs: [Log<PRIVATE_LOG_SIZE_IN_FIELDS>; MAX_PRIVATE_LOGS_PER_TX],
-    unencrypted_logs: [Field; MAX_UNENCRYPTED_LOGS_PER_TX],
+    public_logs: [PublicLog; MAX_PUBLIC_LOGS_PER_TX],
     contract_class_logs: [Field; MAX_CONTRACT_CLASS_LOGS_PER_TX],
     revert_code: Field,
 ) -> [Field; TX_EFFECTS_BLOB_HASH_INPUT_FIELDS] {
@@ -482,12 +482,13 @@ unconstrained fn get_tx_effects_hash_input_helper(
     }
 
     // PUBLIC LOGS
-    let array_len = array_length(public_logs) * PUBLIC_LOG_SIZE_IN_FIELDS;
-    if array_len != 0 {
+    let num_public_logs = array_length(public_logs);
+    if num_public_logs != 0 {
+        let array_len = num_public_logs * PUBLIC_LOG_SIZE_IN_FIELDS;
         let public_logs_prefix = encode_blob_prefix(PUBLIC_LOGS_PREFIX, array_len);
         tx_effects_hash_input[offset] = public_logs_prefix;
         offset += 1;
-        for j in 0..array_len {
+        for j in 0..num_public_logs {
             let log = public_logs[j].serialize();
             for k in 0..PUBLIC_LOG_SIZE_IN_FIELDS {
                 let index = offset + j * PUBLIC_LOG_SIZE_IN_FIELDS + k;
