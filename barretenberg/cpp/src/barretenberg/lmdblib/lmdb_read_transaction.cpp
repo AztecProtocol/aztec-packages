@@ -4,16 +4,16 @@
 #include <cstdint>
 
 namespace bb::lmdblib {
-LMDBTreeReadTransaction::LMDBTreeReadTransaction(LMDBEnvironment::SharedPtr env)
+LMDBReadTransaction::LMDBReadTransaction(LMDBEnvironment::SharedPtr env)
     : LMDBTransaction(env, true)
 {}
 
-LMDBTreeReadTransaction::~LMDBTreeReadTransaction()
+LMDBReadTransaction::~LMDBReadTransaction()
 {
     abort();
 }
 
-void LMDBTreeReadTransaction::abort()
+void LMDBReadTransaction::abort()
 {
     LMDBTransaction::abort();
     _environment->release_reader();

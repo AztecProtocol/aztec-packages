@@ -11,16 +11,16 @@
 
 namespace bb::lmdblib {
 
-LMDBTreeWriteTransaction::LMDBTreeWriteTransaction(LMDBEnvironment::SharedPtr env)
+LMDBWriteTransaction::LMDBWriteTransaction(LMDBEnvironment::SharedPtr env)
     : LMDBTransaction(std::move(env))
 {}
 
-LMDBTreeWriteTransaction::~LMDBTreeWriteTransaction()
+LMDBWriteTransaction::~LMDBWriteTransaction()
 {
     try_abort();
 }
 
-void LMDBTreeWriteTransaction::commit()
+void LMDBWriteTransaction::commit()
 {
     if (state == TransactionState::ABORTED) {
         throw std::runtime_error("Tried to commit reverted transaction");
@@ -29,7 +29,7 @@ void LMDBTreeWriteTransaction::commit()
     state = TransactionState::COMMITTED;
 }
 
-void LMDBTreeWriteTransaction::try_abort()
+void LMDBWriteTransaction::try_abort()
 {
     if (state != TransactionState::OPEN) {
         return;
@@ -37,17 +37,17 @@ void LMDBTreeWriteTransaction::try_abort()
     LMDBTransaction::abort();
 }
 
-void LMDBTreeWriteTransaction::put_value(std::vector<uint8_t>& key, std::vector<uint8_t>& data, const LMDBDatabase& db)
+void LMDBWriteTransaction::put_value(std::vector<uint8_t>& key, std::vector<uint8_t>& data, const LMDBDatabase& db)
 {
     lmdb_queries::put_value(key, data, db, *this);
 }
 
-void LMDBTreeWriteTransaction::put_value(std::vector<uint8_t>& key, const uint64_t& data, const LMDBDatabase& db)
+void LMDBWriteTransaction::put_value(std::vector<uint8_t>& key, const uint64_t& data, const LMDBDatabase& db)
 {
     lmdb_queries::put_value(key, data, db, *this);
 }
 
-void LMDBTreeWriteTransaction::delete_value(std::vector<uint8_t>& key, const LMDBDatabase& db)
+void LMDBWriteTransaction::delete_value(std::vector<uint8_t>& key, const LMDBDatabase& db)
 {
     lmdb_queries::delete_value(key, db, *this);
 }

@@ -19,17 +19,17 @@ namespace bb::lmdblib {
  * Contains various methods for retrieving values by their keys.
  * Aborts the transaction upon object destruction.
  */
-class LMDBTreeReadTransaction : public LMDBTransaction {
+class LMDBReadTransaction : public LMDBTransaction {
   public:
-    using Ptr = std::unique_ptr<LMDBTreeReadTransaction>;
+    using Ptr = std::unique_ptr<LMDBReadTransaction>;
 
-    LMDBTreeReadTransaction(LMDBEnvironment::SharedPtr env);
-    LMDBTreeReadTransaction(const LMDBTreeReadTransaction& other) = delete;
-    LMDBTreeReadTransaction(LMDBTreeReadTransaction&& other) = delete;
-    LMDBTreeReadTransaction& operator=(const LMDBTreeReadTransaction& other) = delete;
-    LMDBTreeReadTransaction& operator=(LMDBTreeReadTransaction&& other) = delete;
+    LMDBReadTransaction(LMDBEnvironment::SharedPtr env);
+    LMDBReadTransaction(const LMDBReadTransaction& other) = delete;
+    LMDBReadTransaction(LMDBReadTransaction&& other) = delete;
+    LMDBReadTransaction& operator=(const LMDBReadTransaction& other) = delete;
+    LMDBReadTransaction& operator=(LMDBReadTransaction&& other) = delete;
 
-    ~LMDBTreeReadTransaction() override;
+    ~LMDBReadTransaction() override;
 
     void abort() override;
 };

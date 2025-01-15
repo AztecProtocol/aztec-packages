@@ -9,7 +9,7 @@ namespace bb::lmdblib::lmdb_queries {
 void put_value(std::vector<uint8_t>& key,
                std::vector<uint8_t>& data,
                const LMDBDatabase& db,
-               bb::lmdblib::LMDBTreeWriteTransaction& tx)
+               bb::lmdblib::LMDBWriteTransaction& tx)
 {
     MDB_val dbKey;
     dbKey.mv_size = key.size();
@@ -24,7 +24,7 @@ void put_value(std::vector<uint8_t>& key,
 void put_value(std::vector<uint8_t>& key,
                const uint64_t& data,
                const LMDBDatabase& db,
-               bb::lmdblib::LMDBTreeWriteTransaction& tx)
+               bb::lmdblib::LMDBWriteTransaction& tx)
 {
     MDB_val dbKey;
     dbKey.mv_size = key.size();
@@ -39,7 +39,7 @@ void put_value(std::vector<uint8_t>& key,
     call_lmdb_func("mdb_put", mdb_put, tx.underlying(), db.underlying(), &dbKey, &dbVal, 0U);
 }
 
-void delete_value(std::vector<uint8_t>& key, const LMDBDatabase& db, bb::lmdblib::LMDBTreeWriteTransaction& tx)
+void delete_value(std::vector<uint8_t>& key, const LMDBDatabase& db, bb::lmdblib::LMDBWriteTransaction& tx)
 {
     MDB_val dbKey;
     dbKey.mv_size = key.size();

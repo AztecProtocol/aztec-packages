@@ -10,7 +10,7 @@
 namespace bb::lmdblib {
 
 class LMDBTransaction;
-class LMDBTreeWriteTransaction;
+class LMDBWriteTransaction;
 
 namespace lmdb_queries {
 
@@ -440,14 +440,11 @@ void delete_all_values_lesser_or_equal_key(const TKey& key, const LMDBDatabase& 
     call_lmdb_func(mdb_cursor_close, cursor);
 }
 
-void put_value(std::vector<uint8_t>& key,
-               std::vector<uint8_t>& data,
-               const LMDBDatabase& db,
-               LMDBTreeWriteTransaction& tx);
+void put_value(std::vector<uint8_t>& key, std::vector<uint8_t>& data, const LMDBDatabase& db, LMDBWriteTransaction& tx);
 
-void put_value(std::vector<uint8_t>& key, const uint64_t& data, const LMDBDatabase& db, LMDBTreeWriteTransaction& tx);
+void put_value(std::vector<uint8_t>& key, const uint64_t& data, const LMDBDatabase& db, LMDBWriteTransaction& tx);
 
-void delete_value(std::vector<uint8_t>& key, const LMDBDatabase& db, LMDBTreeWriteTransaction& tx);
+void delete_value(std::vector<uint8_t>& key, const LMDBDatabase& db, LMDBWriteTransaction& tx);
 
 bool get_value(std::vector<uint8_t>& key,
                std::vector<uint8_t>& data,
