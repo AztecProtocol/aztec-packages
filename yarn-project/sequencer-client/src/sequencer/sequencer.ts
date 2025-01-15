@@ -641,7 +641,15 @@ export class Sequencer {
     this.log.debug('Broadcasting block proposal to validators');
     this.validatorClient.broadcastBlockProposal(proposal);
 
-    const attestations = await this.validatorClient.collectAttestations(proposal, numberOfRequiredAttestations);
+    const attestationTimeAllowed = this.enforceTimeTable
+      ? this.timetable.getMaxAllowedTime(SequencerState.PUBLISHING_BLOCK)!
+      : this.aztecSlotDuration;
+    const attestationDeadline = new Date(this.dateProvider.now() + attestationTimeAllowed * 1000);
+    const attestations = await this.validatorClient.collectAttestations(
+      proposal,
+      numberOfRequiredAttestations,
+      attestationDeadline,
+    );
 
     // note: the smart contract requires that the signatures are provided in the order of the committee
     return orderAttestations(attestations, committee);
