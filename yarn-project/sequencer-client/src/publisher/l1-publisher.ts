@@ -1103,8 +1103,9 @@ export class L1Publisher {
           data,
         },
         {
-          gasLimit: simulationResult + blobEvaluationGas,
           ...opts,
+          gasLimit: simulationResult + blobEvaluationGas,
+          gasLimitBufferPercentage: 100,
         },
         {
           blobs: encodedData.blobs.map(b => b.dataWithZeros),
@@ -1164,8 +1165,9 @@ export class L1Publisher {
           data,
         },
         {
-          gasLimit: simulationResult + blobEvaluationGas,
           ...opts,
+          gasLimit: simulationResult + blobEvaluationGas,
+          gasLimitBufferPercentage: 100,
         },
         {
           blobs: encodedData.blobs.map(b => b.dataWithZeros),

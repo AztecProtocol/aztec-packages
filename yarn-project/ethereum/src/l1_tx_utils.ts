@@ -311,15 +311,16 @@ export class L1TxUtils {
             try {
               const receipt = await this.publicClient.getTransactionReceipt({ hash });
               if (receipt) {
-                this.logger?.debug(`L1 transaction ${hash} mined`);
                 if (receipt.status === 'reverted') {
-                  this.logger?.error(`L1 transaction ${hash} reverted`);
+                  this.logger?.error(`L1 transaction ${hash} reverted`, receipt);
+                } else {
+                  this.logger?.debug(`L1 transaction ${hash} mined`);
                 }
                 return receipt;
               }
             } catch (err) {
               if (err instanceof Error && err.message.includes('reverted')) {
-                throw err;
+                throw formatViemError(err);
               }
             }
           }
@@ -558,8 +559,10 @@ export class L1TxUtils {
           maxFeePerBlobGas: gasPrice.maxFeePerBlobGas!,
         })
       )?.gas;
+      this.logger?.debug('Gas used in estimateGas by blob tx', { gas: initialEstimate });
     } else {
       initialEstimate = await this.publicClient.estimateGas({ account, ...request });
+      this.logger?.debug('Gas used in estimateGas by non-blob tx', { gas: initialEstimate });
     }
 
     // Add buffer based on either fixed amount or percentage
