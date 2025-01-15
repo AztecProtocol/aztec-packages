@@ -203,7 +203,8 @@ comptime fn generate_note_properties(s: StructDefinition) -> Quoted {
     let property_selector_type = type_of(PropertySelector { index: 0, offset: 0, length: 0 });
     let note_header_type: Type = type_of(NoteHeader::empty());
 
-    let non_header_fields = s.fields_as_written().filter(|(_, typ): (Quoted, Type)| typ != note_header_type);
+    let non_header_fields =
+        s.fields_as_written().filter(|(_, typ): (Quoted, Type)| typ != note_header_type);
 
     let properties_types = non_header_fields
         .map(|(name, _): (Quoted, Type)| quote { pub $name: $property_selector_type })
@@ -845,7 +846,8 @@ comptime fn index_note_fields(
 
 /// Injects `NoteHeader` to the note struct if not present.
 comptime fn inject_note_header(s: StructDefinition) {
-    let filtered_header = s.fields_as_written().filter(|(_, typ): (Quoted, Type)| typ == NOTE_HEADER_TYPE);
+    let filtered_header =
+        s.fields_as_written().filter(|(_, typ): (Quoted, Type)| typ == NOTE_HEADER_TYPE);
     if (filtered_header.len() == 0) {
         let new_fields = s.fields_as_written().push_back((quote { header }, NOTE_HEADER_TYPE));
         s.set_fields(new_fields);

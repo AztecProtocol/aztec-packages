@@ -129,8 +129,10 @@ comptime fn signature_of_type(typ: Type) -> Quoted {
         f"[{element_typ_quote};{array_len}]".quoted_contents()
     } else if typ.as_struct().is_some() {
         let (s, generics) = typ.as_struct().unwrap();
-        let field_signatures =
-            s.fields(generics).map(|(_, typ): (Quoted, Type)| signature_of_type(typ)).join(quote {,});
+        let field_signatures = s
+            .fields(generics)
+            .map(|(_, typ): (Quoted, Type)| signature_of_type(typ))
+            .join(quote {,});
         f"({field_signatures})".quoted_contents()
     } else if typ.as_tuple().is_some() {
         // Note that tuples are handled the same way as structs
@@ -205,7 +207,7 @@ pub(crate) comptime fn compute_event_selector(s: StructDefinition) -> Field {
         .map(|(_, typ): (Quoted, Type)| {
             // signature_of_type can handle structs, so this supports nested structs
             // FIXME: Field generics are not handled here!
-            signature_of_type(typ) 
+            signature_of_type(typ)
         })
         .join(quote {,});
     let signature_quote = quote { $event_name($args_signatures) };
