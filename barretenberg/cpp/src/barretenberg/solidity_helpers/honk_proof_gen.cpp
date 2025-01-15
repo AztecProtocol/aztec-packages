@@ -13,17 +13,16 @@
 #include <sstream>
 
 using namespace bb;
-using numeric::uint256_t;
+using numeric::uint256_t; // is this really
 
-using DeciderProvingKey = DeciderProvingKey_<UltraKeccakFlavor>;
-using VerificationKey = UltraKeccakFlavor::VerificationKey;
-using Prover = UltraKeccakProver;
-using Verifier = UltraKeccakVerifier;
-
-template <template <typename> typename Circuit> void generate_proof(uint256_t inputs[])
+template <typename Circuit, typename Flavor> void generate_proof(uint256_t inputs[])
 {
+    using DeciderProvingKey = DeciderProvingKey_<Flavor>;
+    using VerificationKey = typename Flavor::VerificationKey;
+    using Prover = UltraProver_<Flavor>;
+    using Verifier = UltraVerifier_<Flavor>;
 
-    UltraCircuitBuilder builder = Circuit<UltraCircuitBuilder>::generate(inputs);
+    UltraCircuitBuilder builder = Circuit::generate(inputs);
 
     auto instance = std::make_shared<DeciderProvingKey>(builder);
     Prover prover(instance);
@@ -50,8 +49,8 @@ std::string pad_left(std::string input, size_t length)
 /**
  * @brief Main entry point for the proof generator.
  * Expected inputs:
- * 1. plonk_flavour: ultra
- * 2. circuit_flavour: blake, add2
+ * 1. flavor: ultra_keccak
+ * 2. circuit_type: blake, add2
  * 3. public_inputs: comma separated list of public inputs
  * 4. project_root_path: path to the solidity project root
  * 5. srs_path: path to the srs db
@@ -61,12 +60,12 @@ int main(int argc, char** argv)
     std::vector<std::string> args(argv, argv + argc);
 
     if (args.size() < 5) {
-        info("usage: ", args[0], "[plonk flavour] [circuit flavour] [srs path] [public inputs]");
+        info("usage: ", args[0], "[honk flavor] [circuit type] [srs path] [public inputs]");
         return 1;
     }
 
-    const std::string plonk_flavour = args[1];
-    const std::string circuit_flavour = args[2];
+    const std::string flavor = args[1];
+    const std::string circuit_type = args[2];
     const std::string srs_path = args[3];
     const std::string string_input = args[4];
 
@@ -87,19 +86,19 @@ int main(int argc, char** argv)
         inputs[count++] = uint256_t(padded);
     }
 
-    if (plonk_flavour != "honk") {
+    if (flavor != "honk") {
         info("Only honk flavor allowed");
         return 1;
     }
 
-    if (circuit_flavour == "blake") {
-        generate_proof<BlakeCircuit>(inputs);
-    } else if (circuit_flavour == "add2") {
-        generate_proof<Add2Circuit>(inputs);
-    } else if (circuit_flavour == "ecdsa") {
-        generate_proof<EcdsaCircuit>(inputs);
+    if (circuit_type == "blake") {
+        generate_proof<BlakeCircuit, UltraKeccakFlavor>(inputs);
+    } else if (circuit_type == "add2") {
+        generate_proof<Add2Circuit, UltraKeccakFlavor>(inputs);
+    } else if (circuit_type == "ecdsa") {
+        generate_proof<EcdsaCircuit, UltraKeccakFlavor>(inputs);
     } else {
-        info("Invalid circuit flavour: " + circuit_flavour);
+        info("Invalid circuit flavour: " + circuit_type);
         return 1;
     }
 }

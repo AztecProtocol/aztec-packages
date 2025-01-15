@@ -29,6 +29,8 @@ struct ShpleminiIntermediates {
     Fr batchingChallenge;
     // Linear combination of multilinear (sumcheck) evaluations and powers of rho
     Fr batchedEvaluation;
+    Fr[4] denominators;
+    Fr[4] batchingScalars;
 }
 
 library CommitmentSchemeLib {

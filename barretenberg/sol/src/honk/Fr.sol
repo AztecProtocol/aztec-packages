@@ -12,7 +12,9 @@ using {exp as ^} for Fr global;
 using {notEqual as !=} for Fr global;
 using {equal as ==} for Fr global;
 
+uint256 constant SUBGROUP_SIZE = 256;
 uint256 constant MODULUS = 21888242871839275222246405745257275088548364400416034343698204186575808495617; // Prime field order
+Fr constant SUBGROUP_GENERATOR = Fr.wrap(0x07b0c561a6148404f086204a9f36ffb0617942546750f230c893619174a57a76);
 Fr constant MINUS_ONE = Fr.wrap(MODULUS - 1);
 // Instantiation
 

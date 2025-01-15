@@ -17,7 +17,7 @@ import {
 import {ecMul, ecAdd, ecSub, negateInplace, convertProofPoint, pairing} from "./utils.sol";
 
 // Field arithmetic libraries - prevent littering the code with modmul / addmul
-import {MODULUS as P, MINUS_ONE, Fr, FrLib} from "./Fr.sol";
+import {MODULUS as P, MINUS_ONE, SUBGROUP_GENERATOR, SUBGROUP_SIZE, Fr, FrLib} from "./Fr.sol";
 
 import {ZKTranscript, ZKTranscriptLib} from "./ZKTranscript.sol";
 
@@ -213,6 +213,9 @@ abstract contract BaseHonkVerifier is IVerifier {
         return one - evaluation;
     }
 
+    uint256 constant LIBRA_COMMITMENTS = 3;
+    uint256 constant LIBRA_EVALUATIONS = 4;
+
     function verifyShplemini(Honk.ZKProof memory proof, Honk.VerificationKey memory vk, ZKTranscript memory tp)
         internal
         view
@@ -224,8 +227,8 @@ abstract contract BaseHonkVerifier is IVerifier {
         Fr[CONST_PROOF_SIZE_LOG_N] memory powers_of_evaluation_challenge = PCS.computeSquares(tp.geminiR);
 
         // Arrays hold values that will be linearly combined for the gemini and shplonk batch openings
-        Fr[NUMBER_OF_ENTITIES + CONST_PROOF_SIZE_LOG_N + 2] memory scalars;
-        Honk.G1Point[NUMBER_OF_ENTITIES + CONST_PROOF_SIZE_LOG_N + 2] memory commitments;
+        Fr[NUMBER_OF_ENTITIES + CONST_PROOF_SIZE_LOG_N + LIBRA_COMMITMENTS + 3] memory scalars;
+        Honk.G1Point[NUMBER_OF_ENTITIES + CONST_PROOF_SIZE_LOG_N + LIBRA_COMMITMENTS + 3] memory commitments;
 
         Fr[CONST_PROOF_SIZE_LOG_N + 1] memory inverse_vanishing_evals =
             PCS.computeInvertedGeminiDenominators(tp.shplonkZ, powers_of_evaluation_challenge, logN);
@@ -362,7 +365,7 @@ abstract contract BaseHonkVerifier is IVerifier {
 
             mem.constantTermAccumulator =
                 mem.constantTermAccumulator + (scalingFactor * proof.geminiAEvaluations[i + 1]);
-            mem.batchingChallenge = mem.batchingChallenge * tp.shplonkNu;
+            mem.batchingChallenge = mem.batchingChallenge * tp.shplonkNu; // this is prepared
 
             commitments[NUMBER_OF_ENTITIES + 1 + i] = convertProofPoint(proof.geminiFoldComms[i]);
         }
@@ -382,13 +385,37 @@ abstract contract BaseHonkVerifier is IVerifier {
             mem.constantTermAccumulator + (proof.geminiAEvaluations[0] * tp.shplonkNu * inverse_vanishing_evals[1]);
 
         // Finalise the batch opening claim
-        commitments[NUMBER_OF_ENTITIES + CONST_PROOF_SIZE_LOG_N + 1] = Honk.G1Point({x: 1, y: 2});
-        scalars[NUMBER_OF_ENTITIES + CONST_PROOF_SIZE_LOG_N + 1] = mem.constantTermAccumulator;
+        uint256 boundary = NUMBER_OF_ENTITIES + CONST_PROOF_SIZE_LOG_N + 1;
+        mem.denominators[0] = Fr.wrap(1).div(tp.shplonkZ - tp.geminiR);
+        mem.denominators[1] = Fr.wrap(1).div(tp.shplonkZ - SUBGROUP_GENERATOR * tp.geminiR);
+        mem.denominators[2] = mem.denominators[0];
+        mem.denominators[3] = mem.denominators[0];
+        for (uint256 i = 0; i < LIBRA_EVALUATIONS; i++) {
+            Fr scalingFactor = mem.denominators[i] * mem.batchingChallenge;
+            mem.batchingScalars[i] = scalingFactor.neg();
+            mem.batchingChallenge = mem.batchingChallenge * tp.shplonkNu;
+            mem.constantTermAccumulator = mem.constantTermAccumulator + scalingFactor;
+        }
+        scalars[boundary] = mem.batchingScalars[0];
+        scalars[boundary + 1] = mem.batchingScalars[1] + mem.batchingScalars[2];
+        scalars[boundary + 2] = mem.batchingScalars[3];
+
+        for (uint256 i = 0; i < LIBRA_COMMITMENTS; i++) {
+            commitments[boundary + i] = convertProofPoint(proof.libraCommitments[i]);
+        }
+
+        boundary += LIBRA_COMMITMENTS;
+        commitments[boundary] = Honk.G1Point({x: 1, y: 2});
+        scalars[boundary] = mem.constantTermAccumulator;
+        boundary += 1;
+
+        bool consistencyVerified =
+            checkEvalsConsistency(proof.libraPolyEvals, tp.geminiR, tp.sumCheckUChallenges, proof.libraEvaluation);
 
         Honk.G1Point memory quotient_commitment = convertProofPoint(proof.kzgQuotient);
 
-        commitments[NUMBER_OF_ENTITIES + CONST_PROOF_SIZE_LOG_N + 2] = quotient_commitment;
-        scalars[NUMBER_OF_ENTITIES + CONST_PROOF_SIZE_LOG_N + 2] = tp.shplonkZ; // evaluation challenge
+        commitments[boundary] = quotient_commitment;
+        scalars[boundary] = tp.shplonkZ; // evaluation challenge
 
         Honk.G1Point memory P_0 = batchMul(commitments, scalars);
         Honk.G1Point memory P_1 = negateInplace(quotient_commitment);
@@ -396,12 +423,25 @@ abstract contract BaseHonkVerifier is IVerifier {
         return pairing(P_0, P_1);
     }
 
+    function checkEvalsConsistency(
+        Fr[LIBRA_EVALUATIONS] libraPolyEvals,
+        Fr geminiR,
+        Fr[CONST_PROOF_SIZE_LOG_N] uChallenges,
+        Fr libraEval
+    ) internal view returns (bool) {
+        Fr vanishingPolyEval = geminiR.pow(SUBGROUP_SIZE); // will this cause problems?
+
+        // TODO: abort if gemini challenge in subgroup
+
+
+    }
+
     // This implementation is the same as above with different constants
     function batchMul(
-        Honk.G1Point[NUMBER_OF_ENTITIES + CONST_PROOF_SIZE_LOG_N + 2] memory base,
-        Fr[NUMBER_OF_ENTITIES + CONST_PROOF_SIZE_LOG_N + 2] memory scalars
+        Honk.G1Point[NUMBER_OF_ENTITIES + CONST_PROOF_SIZE_LOG_N + LIBRA_COMMITMENTS + 3] memory base,
+        Fr[NUMBER_OF_ENTITIES + CONST_PROOF_SIZE_LOG_N + LIBRA_COMMITMENTS + 3] memory scalars
     ) internal view returns (Honk.G1Point memory result) {
-        uint256 limit = NUMBER_OF_ENTITIES + CONST_PROOF_SIZE_LOG_N + 2;
+        uint256 limit = NUMBER_OF_ENTITIES + CONST_PROOF_SIZE_LOG_N + LIBRA_COMMITMENTS + 3;
         assembly {
             let success := 0x01
             let free := mload(0x40)

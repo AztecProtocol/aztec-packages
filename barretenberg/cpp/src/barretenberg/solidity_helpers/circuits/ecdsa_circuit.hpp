@@ -14,8 +14,9 @@
 
 namespace bb {
 
-template <typename Builder> class EcdsaCircuit {
+class EcdsaCircuit {
   public:
+    using Builder = UltraCircuitBuilder;
     using field_ct = stdlib::field_t<Builder>;
     using bool_ct = stdlib::bool_t<Builder>;
     using public_witness_ct = stdlib::public_witness_t<Builder>;
@@ -86,7 +87,7 @@ template <typename Builder> class EcdsaCircuit {
             sig);
 
         // Assert the signature is true, we hash the message inside the verify sig stdlib call
-        bool_ct is_true = bool_ct(1);
+        bool_ct is_true = bool_ct(true);
         signature_result.must_imply(is_true, "signature verification failed");
 
         return builder;

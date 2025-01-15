@@ -7,13 +7,13 @@ contract DifferentialFuzzer is TestBase {
     using strings for *;
     using Strings for uint256;
 
-    enum PlonkFlavour {
+    enum Flavor {
         Invalid,
         Standard,
         Ultra,
         Honk
     }
-    enum CircuitFlavour {
+    enum CircuitType {
         Invalid,
         Blake,
         Add2,
@@ -24,21 +24,21 @@ contract DifferentialFuzzer is TestBase {
     constructor() {}
 
     /// @notice the fuzzing flavour
-    PlonkFlavour public plonkFlavour;
+    Flavor public flavor;
 
-    /// @notice the circuit flavour
-    CircuitFlavour public circuitFlavour;
+    /// @notice the circuit type
+    CircuitType public circuitType;
 
     /// @notice the proofs public inputs
     uint256[] public inputs;
 
-    function with_plonk_flavour(PlonkFlavour _flavour) public returns (DifferentialFuzzer) {
-        plonkFlavour = _flavour;
+    function with_flavour(Flavor _flavour) public returns (DifferentialFuzzer) {
+        flavor = _flavour;
         return this;
     }
 
-    function with_circuit_flavour(CircuitFlavour _flavour) public returns (DifferentialFuzzer) {
-        circuitFlavour = _flavour;
+    function with_circuit_type(CircuitType _flavour) public returns (DifferentialFuzzer) {
+        circuitType = _flavour;
         return this;
     }
 
@@ -47,26 +47,26 @@ contract DifferentialFuzzer is TestBase {
         return this;
     }
 
-    function get_plonk_flavour() internal view returns (string memory) {
-        if (plonkFlavour == PlonkFlavour.Standard) {
+    function get_flavor() internal view returns (string memory) {
+        if (flavor == Flavor.Standard) {
             return "standard";
-        } else if (plonkFlavour == PlonkFlavour.Ultra) {
+        } else if (flavor == Flavor.Ultra) {
             return "ultra";
-        } else if (plonkFlavour == PlonkFlavour.Honk) {
+        } else if (flavor == Flavor.Honk) {
             return "honk";
         } else {
             revert("Invalid flavour");
         }
     }
 
-    function get_circuit_flavour() internal view returns (string memory) {
-        if (circuitFlavour == CircuitFlavour.Blake) {
+    function get_circuit_type() internal view returns (string memory) {
+        if (circuitType == CircuitType.Blake) {
             return "blake";
-        } else if (circuitFlavour == CircuitFlavour.Add2) {
+        } else if (circuitType == CircuitType.Add2) {
             return "add2";
-        } else if (circuitFlavour == CircuitFlavour.Recursive) {
+        } else if (circuitType == CircuitType.Recursive) {
             return "recursive";
-        } else if (circuitFlavour == CircuitFlavour.Ecdsa) {
+        } else if (circuitType == CircuitType.Ecdsa) {
             return "ecdsa";
         } else {
             revert("Invalid circuit flavour");
@@ -85,18 +85,12 @@ contract DifferentialFuzzer is TestBase {
     }
 
     function generate_proof() public returns (bytes memory proof) {
-        // Craft an ffi call to the prover binary
-        string memory prover_path = "./scripts/run_fuzzer.sh";
-        string memory plonk_flavour = get_plonk_flavour();
-        string memory circuit_flavour = get_circuit_flavour();
-        string memory input_params = get_inputs();
-
         // Execute the c++ prover binary
         string[] memory ffi_cmds = new string[](4);
-        ffi_cmds[0] = prover_path;
-        ffi_cmds[1] = plonk_flavour;
-        ffi_cmds[2] = circuit_flavour;
-        ffi_cmds[3] = input_params;
+        ffi_cmds[0] = "./scripts/run_fuzzer.sh";
+        ffi_cmds[1] = get_flavor();
+        ffi_cmds[2] = get_circuit_type();
+        ffi_cmds[3] = get_inputs();
 
         proof = vm.ffi(ffi_cmds);
     }

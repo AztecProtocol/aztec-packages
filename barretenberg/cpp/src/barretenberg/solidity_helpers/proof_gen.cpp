@@ -13,7 +13,6 @@
 
 using namespace bb::numeric;
 using numeric::uint256_t;
-
 template <typename Composer, template <typename> typename Circuit> void generate_proof(uint256_t inputs[])
 {
     auto builder = Circuit<typename Composer::CircuitBuilder>::generate(inputs);
@@ -91,7 +90,7 @@ int main(int argc, char** argv)
     } else if (circuit_flavour == "ecdsa") {
         generate_proof<UltraComposer, EcdsaCircuit>(inputs);
     } else if (circuit_flavour == "recursive") {
-        generate_proof<UltraComposer, RecursiveCircuit>(inputs);
+        generate_proof<UltraComposer, RecursiveCircuit<UltraCircuitBuilder>>(inputs);
     } else {
         info("Invalid circuit flavour: " + circuit_flavour);
         return 1;

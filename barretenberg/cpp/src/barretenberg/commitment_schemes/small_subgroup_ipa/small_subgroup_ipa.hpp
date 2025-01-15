@@ -442,8 +442,8 @@ template <typename Curve> class SmallSubgroupIPAVerifier {
      * @return True if the consistency check passes, false otherwise.
      */
     static bool check_evaluations_consistency(const std::array<FF, NUM_LIBRA_EVALUATIONS>& libra_evaluations,
-                                              const FF& gemini_evaluation_challenge,
-                                              const std::vector<FF>& multilinear_challenge,
+                                              const FF& gemini_evaluation_challenge,        // r
+                                              const std::vector<FF>& multilinear_challenge, // u
                                               const FF& inner_product_eval_claim)
     {
 
@@ -511,14 +511,15 @@ template <typename Curve> class SmallSubgroupIPAVerifier {
         challenge_polynomial_lagrange[0] = FF{ 1 };
 
         // Populate the vector with the powers of the challenges
-        for (size_t idx_poly = 0; idx_poly < CONST_PROOF_SIZE_LOG_N; idx_poly++) {
-            size_t current_idx = 1 + LIBRA_UNIVARIATES_LENGTH * idx_poly;
+        size_t round_idx = 0;
+        for (auto challenge : multivariate_challenge) {
+            size_t current_idx = 1 + LIBRA_UNIVARIATES_LENGTH * round_idx;
             challenge_polynomial_lagrange[current_idx] = FF(1);
-            for (size_t idx = 1; idx < LIBRA_UNIVARIATES_LENGTH; idx++) {
+            for (size_t idx = current_idx; idx < current_idx + LIBRA_UNIVARIATES_LENGTH; idx++) {
                 // Recursively compute the powers of the challenge
-                challenge_polynomial_lagrange[current_idx + idx] =
-                    challenge_polynomial_lagrange[current_idx + idx - 1] * multivariate_challenge[idx_poly];
+                challenge_polynomial_lagrange[idx] = challenge_polynomial_lagrange[idx - 1] * challenge;
             }
+            round_idx++;
         }
         return challenge_polynomial_lagrange;
     }
