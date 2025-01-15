@@ -5,7 +5,7 @@
 #include <napi.h>
 #include <utility>
 
-namespace bb::world_state {
+namespace bb::nodejs {
 
 using async_fn = std::function<void(msgpack::sbuffer&)>;
 
@@ -61,4 +61,4 @@ class AsyncOperation : public Napi::AsyncWorker {
     msgpack::sbuffer _result;
 };
 
-} // namespace bb::world_state
+} // namespace bb::nodejs

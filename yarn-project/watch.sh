@@ -63,7 +63,7 @@ run_generate() {
 
 cp_barretenberg_artifacts() {
   mkdir -p world-state/build
-  cp $BARRETENBERG_OUT_DIR/lib/world_state_napi.node world-state/build/world_state_napi.node
+  cp $BARRETENBERG_OUT_DIR/lib/nodejs_module.node world-state/build/nodejs_module.node
 }
 
 # Remove all temp files with process or run ids on exit

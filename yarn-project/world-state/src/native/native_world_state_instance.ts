@@ -42,7 +42,7 @@ export interface NativeInstance {
   call(msg: Buffer | Uint8Array): Promise<any>;
 }
 
-const NATIVE_LIBRARY_NAME = 'world_state_napi';
+const NATIVE_LIBRARY_NAME = 'nodejs_module';
 const NATIVE_CLASS_NAME = 'WorldState';
 
 const NATIVE_MODULE = bindings(NATIVE_LIBRARY_NAME);
@@ -53,7 +53,7 @@ export interface NativeWorldStateInstance {
 }
 
 /**
- * Strongly-typed interface to access the WorldState class in the native world_state_napi module.
+ * Strongly-typed interface to access the WorldState class in the native nodejs_module library.
  */
 export class NativeWorldState implements NativeWorldStateInstance {
   private open = true;

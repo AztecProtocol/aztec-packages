@@ -1,21 +1,21 @@
 #pragma once
 
 #include "barretenberg/messaging/dispatcher.hpp"
+#include "barretenberg/nodejs_module/world_state/world_state_message.hpp"
 #include "barretenberg/world_state/types.hpp"
 #include "barretenberg/world_state/world_state.hpp"
-#include "barretenberg/world_state_napi/message.hpp"
 #include <cstdint>
 #include <memory>
 #include <napi.h>
 
-namespace bb::world_state {
+namespace bb::nodejs {
 
 /**
  * @brief Manages the interaction between the JavaScript runtime and the WorldState class.
  */
-class WorldStateAddon : public Napi::ObjectWrap<WorldStateAddon> {
+class WorldStateWrapper : public Napi::ObjectWrap<WorldStateWrapper> {
   public:
-    WorldStateAddon(const Napi::CallbackInfo&);
+    WorldStateWrapper(const Napi::CallbackInfo&);
 
     /**
      * @brief The only instance method exposed to JavaScript. Takes a msgpack Message and returns a Promise
@@ -66,4 +66,4 @@ class WorldStateAddon : public Napi::ObjectWrap<WorldStateAddon> {
     bool get_status(msgpack::object& obj, msgpack::sbuffer& buffer) const;
 };
 
-} // namespace bb::world_state
+} // namespace bb::nodejs

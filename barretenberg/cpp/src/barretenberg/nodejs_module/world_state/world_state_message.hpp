@@ -4,14 +4,16 @@
 #include "barretenberg/ecc/curves/bn254/fr.hpp"
 #include "barretenberg/messaging/header.hpp"
 #include "barretenberg/serialize/msgpack.hpp"
+#include "barretenberg/world_state/fork.hpp"
 #include "barretenberg/world_state/types.hpp"
 #include <cstdint>
 #include <optional>
 #include <string>
 
-namespace bb::world_state {
+namespace bb::nodejs {
 
 using namespace bb::messaging;
+using namespace bb::world_state;
 
 enum WorldStateMessageType {
     GET_TREE_INFO = FIRST_APP_MSG_TYPE,
@@ -220,6 +222,6 @@ struct SyncBlockRequest {
                    publicDataWrites);
 };
 
-} // namespace bb::world_state
+} // namespace bb::nodejs
 
-MSGPACK_ADD_ENUM(bb::world_state::WorldStateMessageType)
+MSGPACK_ADD_ENUM(bb::nodejs::WorldStateMessageType)

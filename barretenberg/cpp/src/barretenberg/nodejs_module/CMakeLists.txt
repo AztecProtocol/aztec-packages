@@ -24,7 +24,7 @@ execute_process(
 string(REGEX REPLACE "[\r\n\"]" "" NODE_ADDON_API_DIR ${NODE_ADDON_API_DIR})
 string(REGEX REPLACE "[\r\n\"]" "" NODE_API_HEADERS_DIR ${NODE_API_HEADERS_DIR})
 
-add_library(world_state_napi SHARED ${SOURCE_FILES})
-set_target_properties(world_state_napi PROPERTIES PREFIX "" SUFFIX ".node")
-target_include_directories(world_state_napi PRIVATE ${NODE_API_HEADERS_DIR} ${NODE_ADDON_API_DIR})
-target_link_libraries(world_state_napi PRIVATE world_state)
+add_library(nodejs_module SHARED ${SOURCE_FILES})
+set_target_properties(nodejs_module PROPERTIES PREFIX "" SUFFIX ".node")
+target_include_directories(nodejs_module PRIVATE ${NODE_API_HEADERS_DIR} ${NODE_ADDON_API_DIR})
+target_link_libraries(nodejs_module PRIVATE world_state)
