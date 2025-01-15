@@ -1,10 +1,12 @@
 #pragma once
 
+#include "barretenberg/lmdblib/lmdb_database.hpp"
 #include "barretenberg/lmdblib/lmdb_environment.hpp"
 #include "barretenberg/lmdblib/lmdb_read_transaction.hpp"
 #include "barretenberg/lmdblib/lmdb_write_transaction.hpp"
 #include "barretenberg/lmdblib/queries.hpp"
 #include <memory>
+#include <unordered_map>
 namespace bb::lmdblib {
 class LMDBStore {
   public:
@@ -20,6 +22,8 @@ class LMDBStore {
     LMDBStore& operator=(LMDBStore&& other) = delete;
     ~LMDBStore() = default;
 
+    void open_database(const std::string& name);
+
     WriteTransaction::Ptr create_write_transaction() const;
     ReadTransaction::Ptr create_read_transaction();
 
@@ -27,5 +31,6 @@ class LMDBStore {
     std::string _name;
     std::string _directory;
     LMDBEnvironment::SharedPtr _environment;
+    std::unordered_map<std::string, LMDBDatabase::Ptr> _databases;
 };
 } // namespace bb::lmdblib

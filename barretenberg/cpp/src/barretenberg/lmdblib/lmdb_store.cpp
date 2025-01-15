@@ -8,6 +8,15 @@ LMDBStore::LMDBStore(
     , _environment(std::make_shared<LMDBEnvironment>(_directory, mapSizeKb, maxDbs, maxNumReaders))
 {}
 
+void LMDBStore::open_database(const std::string& name)
+{
+    {
+        LMDBDatabaseCreationTransaction tx(_environment);
+        db = std::make_unique<LMDBDatabase>(_environment, tx, _name + BLOCKS_DB, false, false, block_key_cmp);
+        tx.commit();
+    }
+}
+
 LMDBStore::WriteTransaction::Ptr LMDBStore::create_write_transaction() const
 {
     return std::make_unique<LMDBWriteTransaction>(_environment);
