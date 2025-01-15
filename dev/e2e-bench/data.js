@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1736956766697,
+  "lastUpdate": 1736959153275,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "End-to-end Benchmark": [
@@ -541,6 +541,45 @@ window.BENCHMARK_DATA = {
           {
             "name": "Sequencer/aztec.sequencer.block_builder_tree_insertion_duration",
             "value": 657479,
+            "unit": "us"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "49558828+AztecBot@users.noreply.github.com",
+            "name": "Aztec Bot",
+            "username": "AztecBot"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "3ed22edf614df01161844785226c9a705a5d9f0e",
+          "message": "feat: Sync from noir (#11196)\n\nAutomated pull of development from the\n[noir](https://github.com/noir-lang/noir) programming language, a\ndependency of Aztec.\nBEGIN_COMMIT_OVERRIDE\nchore: add end step for formatting workflow\n(https://github.com/noir-lang/noir/pull/7070)\nfeat(LSP): code action to import trait in a method call\n(https://github.com/noir-lang/noir/pull/7066)\nfeat!: Handle generic fields in `StructDefinition::fields` and move old\nfunctionality to `StructDefinition::fields_as_written`\n(https://github.com/noir-lang/noir/pull/7067)\nchore(ci): Check various inliner aggressiveness setttings in Brillig\nreports (https://github.com/noir-lang/noir/pull/7049)\nchore: reenable reports on rollup root circuits\n(https://github.com/noir-lang/noir/pull/7061)\nfix: don't always select trait impl when verifying trait constraints\n(https://github.com/noir-lang/noir/pull/7041)\nchore: mark some critical libraries as good again\n(https://github.com/noir-lang/noir/pull/7065)\nfix: Reduce memory usage in mem2reg\n(https://github.com/noir-lang/noir/pull/7053)\nfeat: Allow associated types to be ellided from trait constraints\n(https://github.com/noir-lang/noir/pull/7026)\nchore(perf): try using vec-collections's VecSet in AliasSet\n(https://github.com/noir-lang/noir/pull/7058)\nchore: reduce number of iterations of `acvm::compiler::compile`\n(https://github.com/noir-lang/noir/pull/7050)\nchore: add `noir_check_shuffle` as a critical library\n(https://github.com/noir-lang/noir/pull/7056)\nchore: clippy warning fix (https://github.com/noir-lang/noir/pull/7051)\nchore(ci): Unify compilation/execution report jobs that take averages\nwith single runs (https://github.com/noir-lang/noir/pull/7048)\nfix(nargo_fmt): let doc comment could come after regular comment\n(https://github.com/noir-lang/noir/pull/7046)\nfix(nargo_fmt): don't consider identifiers the same if they are equal…\n(https://github.com/noir-lang/noir/pull/7043)\nfeat: auto-import traits when suggesting trait methods\n(https://github.com/noir-lang/noir/pull/7037)\nfeat: avoid inserting `inc_rc` instructions into ACIR\n(https://github.com/noir-lang/noir/pull/7036)\nfix(lsp): suggest all possible trait methods, but only visible ones\n(https://github.com/noir-lang/noir/pull/7027)\nchore: add more protocol circuits to reports\n(https://github.com/noir-lang/noir/pull/6977)\nfeat: avoid generating a new witness when checking if linear expression\nis zero (https://github.com/noir-lang/noir/pull/7031)\nfeat: skip codegen of zero iteration loops\n(https://github.com/noir-lang/noir/pull/7030)\nEND_COMMIT_OVERRIDE\n\n---------\n\nCo-authored-by: Tom French <tom@tomfren.ch>\nCo-authored-by: Tom French <15848336+TomAFrench@users.noreply.github.com>\nCo-authored-by: Jake Fecher <jfecher11@gmail.com>",
+          "timestamp": "2025-01-15T16:12:49Z",
+          "tree_id": "5511c9b2690ea808949d09243df222772c73a203",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/3ed22edf614df01161844785226c9a705a5d9f0e"
+        },
+        "date": 1736959145288,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sequencer/aztec.sequencer.block.build_duration",
+            "value": 4521,
+            "unit": "ms"
+          },
+          {
+            "name": "Sequencer/aztec.sequencer.block.time_per_mana",
+            "value": 3.397616232451312,
+            "unit": "us/mana"
+          },
+          {
+            "name": "Sequencer/aztec.sequencer.block_builder_tree_insertion_duration",
+            "value": 654561,
             "unit": "us"
           }
         ]
