@@ -27,7 +27,8 @@ pub comptime fn storage(s: StructDefinition) -> Quoted {
     // TODO(#8658): uncomment the code below to inject the Context type parameter.
     //let mut new_storage_fields = &[];
     //let context_generic = s.add_generic("Context");
-    for field in s.fields() {
+    for field in s.fields_as_written() {
+        // FIXME: This doesn't handle field types with generics
         let (name, typ) = field;
         let (storage_field_constructor, serialized_size) =
             generate_storage_field_constructor(typ, quote { $slot }, false);
