@@ -159,7 +159,7 @@ describe('sequencer', () => {
     publisher.getSenderAddress.mockImplementation(() => EthAddress.random());
     publisher.getCurrentEpochCommittee.mockResolvedValue(committee);
     publisher.canProposeAtNextEthBlock.mockResolvedValue([BigInt(newSlotNumber), BigInt(newBlockNumber)]);
-    publisher.validateBlockForSubmission.mockResolvedValue();
+    publisher.validateBlockForSubmission.mockResolvedValue(1n);
     publisher.proposeL2Block.mockResolvedValue(true);
 
     globalVariableBuilder = mock<GlobalVariableBuilder>();
@@ -316,7 +316,7 @@ describe('sequencer', () => {
 
     // Now it is!
     publisher.validateBlockForSubmission.mockClear();
-    publisher.validateBlockForSubmission.mockResolvedValue();
+    publisher.validateBlockForSubmission.mockResolvedValue(1n);
 
     await sequencer.doRealWork();
     expect(blockBuilder.startNewBlock).toHaveBeenCalledWith(
@@ -453,7 +453,7 @@ describe('sequencer', () => {
     block = await makeBlock([tx]);
 
     // This could practically be for any reason, e.g., could also be that we have entered a new slot.
-    publisher.validateBlockForSubmission.mockResolvedValueOnce().mockRejectedValueOnce(new Error('No block for you'));
+    publisher.validateBlockForSubmission.mockResolvedValueOnce(1n).mockRejectedValueOnce(new Error('No block for you'));
 
     await sequencer.doRealWork();
 
