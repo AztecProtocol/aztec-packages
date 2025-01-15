@@ -11,7 +11,7 @@
     "./package.local.json"
   ],
   "scripts": {
-    "build": "yarn clean && yarn generate && tsc -b &&  rm -rf dest && webpack",
+    "build": "yarn clean && yarn generate && tsc -b &&  rm -rf dest && webpack && cp ../../barretenberg/favicon.ico dest",
     "clean": "rm -rf ./dest .tsbuildinfo src/types artifacts",
     "formatting": "run -T prettier --check ./src && run -T eslint ./src",
     "formatting:fix": "run -T eslint --fix ./src && run -T prettier -w ./src",
@@ -70,8 +70,6 @@
     "chalk": "^5.3.0",
     "change-case": "^5.4.4",
     "pako": "^2.1.0",
-    "playwright": "^1.48.2",
-    "puppeteer": "^22.4.1",
     "tslib": "^2.4.0"
   },
   "devDependencies": {
@@ -88,6 +86,7 @@
     "@types/pako": "^2.0.3",
     "copy-webpack-plugin": "^12.0.2",
     "debug": "^4.3.4",
+    "favicon-emoji": "2.3.1",
     "html-webpack-plugin": "^5.6.0",
     "jest": "^29.5.0",
     "jest-mock-extended": "^4.0.0-beta1",

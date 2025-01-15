@@ -9,7 +9,7 @@ export default {
   target: 'web',
   mode: 'production',
   entry: {
-    index: './src/serve-ultra.ts',
+    index: './src/serve.ts',
   },
   module: {
     rules: [
