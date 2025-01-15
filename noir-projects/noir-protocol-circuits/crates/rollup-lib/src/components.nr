@@ -20,7 +20,7 @@ use dep::types::{
     hash::{accumulate_sha256, silo_unencrypted_log_hash},
     merkle_tree::VariableMerkleTree,
     traits::is_empty,
-    utils::{arrays::{array_concat, array_length, array_merge}, field::field_from_bytes},
+    utils::arrays::{array_length, array_merge},
 };
 use blob::blob_public_inputs::BlockBlobPublicInputs;
 
@@ -463,13 +463,14 @@ unconstrained fn get_tx_effects_hash_input_helper(
 
     // TODO(Miranda): squash 0s in a nested loop and add len prefix?
     // PRIVATE_LOGS
-    let array_len = array_length(private_logs) * PRIVATE_LOG_SIZE_IN_FIELDS;
-    if array_len != 0 {
+    let num_private_logs = array_length(private_logs);
+    if num_private_logs != 0 {
+        let array_len = num_private_logs * PRIVATE_LOG_SIZE_IN_FIELDS;
         let private_logs_prefix = encode_blob_prefix(PRIVATE_LOGS_PREFIX, array_len);
         tx_effects_hash_input[offset] = private_logs_prefix;
         offset += 1;
 
-        for j in 0..array_len {
+        for j in 0..num_private_logs {
             for k in 0..PRIVATE_LOG_SIZE_IN_FIELDS {
                 let index = offset + j * PRIVATE_LOG_SIZE_IN_FIELDS + k;
                 tx_effects_hash_input[index] = private_logs[j].fields[k];
