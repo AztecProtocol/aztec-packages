@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+export ARCH_TAG=$(uname -m)
+
 # Directory of env_var file
 TS_ENV_VAR_FILE=/usr/src/yarn-project/foundation/src/config/env_var.ts
 LOCAL_TS_FILE=./env_var.ts
