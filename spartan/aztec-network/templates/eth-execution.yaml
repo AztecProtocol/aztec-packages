@@ -90,7 +90,6 @@ spec:
       protocol: TCP
       port: 8551
       targetPort: 8551
-{{ end }}
 ---
 apiVersion: v1
 kind: ConfigMap
