@@ -748,13 +748,3 @@ Napi::Function WorldStateAddon::get_class(Napi::Env env)
                            WorldStateAddon::InstanceMethod("call", &WorldStateAddon::call),
                        });
 }
-
-Napi::Object Init(Napi::Env env, Napi::Object exports)
-{
-    Napi::String name = Napi::String::New(env, "WorldState");
-    exports.Set(name, WorldStateAddon::get_class(env));
-    return exports;
-}
-
-// NOLINTNEXTLINE
-NODE_API_MODULE(addon, Init)
