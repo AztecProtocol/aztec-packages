@@ -191,7 +191,8 @@ fn get_tx_effects_hash_input(
 ) -> ([Field; TX_EFFECTS_BLOB_HASH_INPUT_FIELDS], u32) {
     tx_effect.transaction_fee.assert_max_bit_size::<29 * 8>();
     let TWO_POW_240 = 1766847064778384329583297500742918515827483896875618958121606201292619776;
-    let prefixed_tx_fee: Field = (TX_FEE_PREFIX as Field) * TWO_POW_240 + (tx_effect.transaction_fee as Field);
+    let prefixed_tx_fee: Field =
+        (TX_FEE_PREFIX as Field) * TWO_POW_240 + (tx_effect.transaction_fee as Field);
 
     let note_hashes = tx_effect.note_hashes;
     let nullifiers = tx_effect.nullifiers;
