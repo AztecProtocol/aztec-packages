@@ -31,7 +31,6 @@ export function FunctionParameter({
   const handleParameterChange = (value: string, type: AbiType) => {
     switch (type.kind) {
       case "field": {
-        console.log(BigInt(value).toString(16));
         onParameterChange(BigInt(value).toString(16));
         break;
       }

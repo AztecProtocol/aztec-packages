@@ -1241,24 +1241,10 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@types/browser-util-inspect@npm:^0":
-  version: 0.2.4
-  resolution: "@types/browser-util-inspect@npm:0.2.4"
-  checksum: 10c0/a607d56970a9a25909cdb6fdd9d2b7b3394d86bdc8913545e7101f0f984427df8f9a4a08af9cb2901df925eebeef4dcc706f760b4703ebf50acf90b30d2ae90a
-  languageName: node
-  linkType: hard
-
 "@types/estree@npm:1.0.6, @types/estree@npm:^1.0.0, @types/estree@npm:^1.0.6":
   version: 1.0.6
   resolution: "@types/estree@npm:1.0.6"
   checksum: 10c0/cdfd751f6f9065442cd40957c07fd80361c962869aa853c1c2fd03e101af8b9389d8ff4955a43a6fcfa223dd387a089937f95be0f3eec21ca527039fd2d9859a
-  languageName: node
-  linkType: hard
-
-"@types/format-util@npm:^1":
-  version: 1.0.4
-  resolution: "@types/format-util@npm:1.0.4"
-  checksum: 10c0/173d1f67155c82311aaa5e90467351a18db17253c7d10174dc5a54d942415f1aa1f693f33ac4b15855e6f90363becb925651337692b3817271037f3d86b6e9f5
   languageName: node
   linkType: hard
 
@@ -1646,13 +1632,6 @@ __metadata:
   languageName: node
   linkType: hard
 
-"browser-util-inspect@npm:^0.2.0":
-  version: 0.2.0
-  resolution: "browser-util-inspect@npm:0.2.0"
-  checksum: 10c0/712a8df6b91edebc3c7eb9e7492f6566c798beb8195697949df299faee036a18fe6b8de6fe58dea280b30d2ed37021cb2d4b2c4fa0976eb511c3fa4420927d37
-  languageName: node
-  linkType: hard
-
 "browserify-aes@npm:^1.0.4, browserify-aes@npm:^1.2.0":
   version: 1.2.0
   resolution: "browserify-aes@npm:1.2.0"
@@ -1838,7 +1817,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"clsx@npm:^2.1.0, clsx@npm:^2.1.1":
+"clsx@npm:^2.1.1":
   version: 2.1.1
   resolution: "clsx@npm:2.1.1"
   checksum: 10c0/c4c8eb865f8c82baab07e71bfa8897c73454881c4f99d6bc81585aecd7c441746c1399d08363dc096c550cceaf97bd4ce1e8854e1771e9998d9f94c4fe075839
@@ -2561,13 +2540,6 @@ __metadata:
     cross-spawn: "npm:^7.0.0"
     signal-exit: "npm:^4.0.1"
   checksum: 10c0/028f1d41000553fcfa6c4bb5c372963bf3d9bf0b1f25a87d1a6253014343fb69dfb1b42d9625d7cf44c8ba429940f3d0ff718b62105d4d4a4f6ef8ca0a53faa2
-  languageName: node
-  linkType: hard
-
-"format-util@npm:^1.0.5":
-  version: 1.0.5
-  resolution: "format-util@npm:1.0.5"
-  checksum: 10c0/89b9d73799bb51fba141029bbc358d6c5e591863156a806d0eece4718e9c8c7daacf3b0581ddde481e5183dd530072fc2cca8630434122b328bc3110d16ab38e
   languageName: node
   linkType: hard
 
@@ -3955,18 +3927,6 @@ __metadata:
   languageName: node
   linkType: hard
 
-"react-toastify@npm:^10.0.6":
-  version: 10.0.6
-  resolution: "react-toastify@npm:10.0.6"
-  dependencies:
-    clsx: "npm:^2.1.0"
-  peerDependencies:
-    react: ">=18"
-    react-dom: ">=18"
-  checksum: 10c0/4042b716d008295d0feab32488d1e88ec655a1b7a9176fa7d253c70387578a8a0c04aca0ff86d20e1722f3b4baadae8970f50f462940d67a90453c307dd350a9
-  languageName: node
-  linkType: hard
-
 "react-transition-group@npm:^4.4.5":
   version: 4.4.5
   resolution: "react-transition-group@npm:4.4.5"
@@ -4771,22 +4731,17 @@ __metadata:
     "@mui/icons-material": "npm:^6.3.1"
     "@mui/material": "npm:^6.3.1"
     "@mui/styles": "npm:^6.3.1"
-    "@types/browser-util-inspect": "npm:^0"
-    "@types/format-util": "npm:^1"
     "@types/node": "npm:^22.10.5"
     "@types/react": "npm:^19.0.6"
     "@types/react-dom": "npm:^19.0.3"
     "@vitejs/plugin-react-swc": "npm:^3.7.2"
-    browser-util-inspect: "npm:^0.2.0"
     eslint: "npm:^9.13.0"
     eslint-plugin-react-hooks: "npm:^5.1.0"
     eslint-plugin-react-refresh: "npm:^0.4.18"
-    format-util: "npm:^1.0.5"
     globals: "npm:^15.14.0"
     react: "npm:^18.3.1"
     react-dom: "npm:^18.3.1"
     react-dropzone: "npm:^14.3.5"
-    react-toastify: "npm:^10.0.6"
     typescript: "npm:~5.7.3"
     typescript-eslint: "npm:^8.11.0"
     vite: "npm:^6.0.7"
