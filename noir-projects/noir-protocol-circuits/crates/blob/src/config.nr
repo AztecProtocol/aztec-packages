@@ -13,7 +13,7 @@ pub global D: F = BigNum { limbs: [4096, 0, 0] };
 pub global D_INV: F =
     BigNum { limbs: [0x686828bfce5c19400fffff00100001, 0x6878b46ae3705eb6a46a89213de7d3, 0x73e6] };
 
-pub comptime global ROOTS: [F; FIELDS_PER_BLOB] = [
+pub global ROOTS: [F; FIELDS_PER_BLOB] = [
     BigNum {
         limbs: [0x000000000000000000000000000001, 0x000000000000000000000000000000, 0x000000],
     },
