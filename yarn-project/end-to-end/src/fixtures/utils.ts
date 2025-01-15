@@ -42,13 +42,20 @@ import { randomBytes } from '@aztec/foundation/crypto';
 import { retryUntil } from '@aztec/foundation/retry';
 import { TestDateProvider } from '@aztec/foundation/timer';
 import { FeeJuiceContract } from '@aztec/noir-contracts.js/FeeJuice';
-import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types';
+import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types/vks';
 import { ProtocolContractAddress, protocolContractTreeRoot } from '@aztec/protocol-contracts';
 import { type ProverNode, type ProverNodeConfig, createProverNode } from '@aztec/prover-node';
 import { type PXEService, type PXEServiceConfig, createPXEService, getPXEServiceConfig } from '@aztec/pxe';
-import { type SequencerClient, TestL1Publisher } from '@aztec/sequencer-client';
+import { type SequencerClient } from '@aztec/sequencer-client';
+import { TestL1Publisher } from '@aztec/sequencer-client/test';
+import { type TelemetryClient } from '@aztec/telemetry-client';
+import { BenchmarkTelemetryClient } from '@aztec/telemetry-client/bench';
 import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
-import { createAndStartTelemetryClient, getConfigEnvVars as getTelemetryConfig } from '@aztec/telemetry-client/start';
+import {
+  type TelemetryClientConfig,
+  createAndStartTelemetryClient,
+  getConfigEnvVars as getTelemetryConfig,
+} from '@aztec/telemetry-client/start';
 
 import { type Anvil } from '@viem/anvil';
 import fs from 'fs/promises';
@@ -80,18 +87,23 @@ export { deployAndInitializeTokenAndBridgeContracts } from '../shared/cross_chai
 export { startAnvil };
 
 const { PXE_URL = '' } = process.env;
+const getAztecUrl = () => PXE_URL;
 
-const telemetryPromise = createAndStartTelemetryClient(getTelemetryConfig());
+let telemetryPromise: Promise<TelemetryClient> | undefined = undefined;
+function getTelemetryClient(partialConfig: Partial<TelemetryClientConfig> & { benchmark?: boolean } = {}) {
+  if (!telemetryPromise) {
+    const config = { ...getTelemetryConfig(), ...partialConfig };
+    telemetryPromise = config.benchmark
+      ? Promise.resolve(new BenchmarkTelemetryClient())
+      : createAndStartTelemetryClient(config);
+  }
+  return telemetryPromise;
+}
 if (typeof afterAll === 'function') {
   afterAll(async () => {
-    const client = await telemetryPromise;
-    await client.stop();
+    await (await telemetryPromise)?.stop();
   });
 }
-
-const getAztecUrl = () => {
-  return PXE_URL;
-};
 
 export const getPrivateKeyFromIndex = (index: number): Buffer | null => {
   const hdAccount = mnemonicToAccount(MNEMONIC, { addressIndex: index });
@@ -245,6 +257,7 @@ async function setupWithRemoteEnvironment(
     watcher: undefined,
     dateProvider: undefined,
     blobSink: undefined,
+    telemetryClient: undefined,
     teardown,
   };
 }
@@ -273,6 +286,8 @@ export type SetupOptions = {
   startProverNode?: boolean;
   /** Whether to fund the rewardDistributor */
   fundRewardDistributor?: boolean;
+  /** Manual config for the telemetry client */
+  telemetryConfig?: Partial<TelemetryClientConfig> & { benchmark?: boolean };
 } & Partial<AztecNodeConfig>;
 
 /** Context for an end-to-end test as returned by the `setup` function */
@@ -303,6 +318,8 @@ export type EndToEndContext = {
   dateProvider: TestDateProvider | undefined;
   /** The blob sink (undefined if connected to remote environment) */
   blobSink: BlobSinkServer | undefined;
+  /** Telemetry client */
+  telemetryClient: TelemetryClient | undefined;
   /** Function to stop the started services. */
   teardown: () => Promise<void>;
 };
@@ -536,6 +553,7 @@ export async function setup(
     watcher,
     dateProvider,
     blobSink,
+    telemetryClient: telemetry,
     teardown,
   };
 }

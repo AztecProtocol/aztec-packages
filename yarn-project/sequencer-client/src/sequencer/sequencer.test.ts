@@ -38,7 +38,7 @@ import { type Logger, createLogger } from '@aztec/foundation/log';
 import { TestDateProvider } from '@aztec/foundation/timer';
 import { type P2P, P2PClientState } from '@aztec/p2p';
 import { type BlockBuilderFactory } from '@aztec/prover-client/block-builder';
-import { type PublicProcessor, type PublicProcessorFactory } from '@aztec/simulator';
+import { type PublicProcessor, type PublicProcessorFactory } from '@aztec/simulator/server';
 import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
 import { type ValidatorClient } from '@aztec/validator-client';
 
@@ -128,6 +128,13 @@ describe('sequencer', () => {
     const tx = mockTxForRollup(seed);
     tx.data.constants.txContext.chainId = chainId;
     return tx;
+  };
+
+  const expectPublisherProposeL2Block = (txHashes: TxHash[], proofQuote?: EpochProofQuote) => {
+    expect(publisher.proposeL2Block).toHaveBeenCalledTimes(1);
+    expect(publisher.proposeL2Block).toHaveBeenCalledWith(block, getSignatures(), txHashes, proofQuote, {
+      txTimeoutAt: expect.any(Date),
+    });
   };
 
   beforeEach(() => {
@@ -257,8 +264,7 @@ describe('sequencer', () => {
       Array(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP).fill(new Fr(0n)),
     );
 
-    expect(publisher.proposeL2Block).toHaveBeenCalledTimes(1);
-    expect(publisher.proposeL2Block).toHaveBeenCalledWith(block, getSignatures(), [txHash], undefined);
+    expectPublisherProposeL2Block([txHash]);
   });
 
   it.each([
@@ -317,7 +323,7 @@ describe('sequencer', () => {
       globalVariables,
       Array(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP).fill(new Fr(0n)),
     );
-    expect(publisher.proposeL2Block).toHaveBeenCalledWith(block, getSignatures(), [txHash], undefined);
+    expectPublisherProposeL2Block([txHash]);
   });
 
   it('builds a block out of several txs rejecting invalid txs', async () => {
@@ -340,7 +346,7 @@ describe('sequencer', () => {
       globalVariables,
       Array(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP).fill(new Fr(0n)),
     );
-    expect(publisher.proposeL2Block).toHaveBeenCalledWith(block, getSignatures(), validTxHashes, undefined);
+    expectPublisherProposeL2Block(validTxHashes);
     expect(p2p.deleteTxs).toHaveBeenCalledWith([invalidTx.getTxHash()]);
   });
 
@@ -370,13 +376,8 @@ describe('sequencer', () => {
       globalVariables,
       times(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP, Fr.zero),
     );
-    expect(publisher.proposeL2Block).toHaveBeenCalledTimes(1);
-    expect(publisher.proposeL2Block).toHaveBeenCalledWith(
-      block,
-      getSignatures(),
-      neededTxs.map(tx => tx.getTxHash()),
-      undefined,
-    );
+
+    expectPublisherProposeL2Block(neededTxs.map(tx => tx.getTxHash()));
   });
 
   it('builds a block that contains zero real transactions once flushed', async () => {
@@ -409,8 +410,7 @@ describe('sequencer', () => {
       times(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP, Fr.zero),
     );
     expect(blockBuilder.addTxs).toHaveBeenCalledWith([]);
-    expect(publisher.proposeL2Block).toHaveBeenCalledTimes(1);
-    expect(publisher.proposeL2Block).toHaveBeenCalledWith(block, getSignatures(), [], undefined);
+    expectPublisherProposeL2Block([]);
   });
 
   it('builds a block that contains less than the minimum number of transactions once flushed', async () => {
@@ -443,9 +443,8 @@ describe('sequencer', () => {
       globalVariables,
       Array(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP).fill(new Fr(0n)),
     );
-    expect(publisher.proposeL2Block).toHaveBeenCalledTimes(1);
 
-    expect(publisher.proposeL2Block).toHaveBeenCalledWith(block, getSignatures(), postFlushTxHashes, undefined);
+    expectPublisherProposeL2Block(postFlushTxHashes);
   });
 
   it('aborts building a block if the chain moves underneath it', async () => {
@@ -533,7 +532,7 @@ describe('sequencer', () => {
       publisher.getClaimableEpoch.mockImplementation(() => Promise.resolve(currentEpoch - 1n));
 
       await sequencer.doRealWork();
-      expect(publisher.proposeL2Block).toHaveBeenCalledWith(block, getSignatures(), [txHash], proofQuote);
+      expectPublisherProposeL2Block([txHash], proofQuote);
     });
 
     it('submits a valid proof quote even without a block', async () => {
@@ -568,7 +567,7 @@ describe('sequencer', () => {
       publisher.getClaimableEpoch.mockImplementation(() => Promise.resolve(undefined));
 
       await sequencer.doRealWork();
-      expect(publisher.proposeL2Block).toHaveBeenCalledWith(block, getSignatures(), [txHash], undefined);
+      expectPublisherProposeL2Block([txHash]);
     });
 
     it('does not submit a quote with an expired slot number', async () => {
@@ -585,7 +584,7 @@ describe('sequencer', () => {
       publisher.getClaimableEpoch.mockImplementation(() => Promise.resolve(currentEpoch - 1n));
 
       await sequencer.doRealWork();
-      expect(publisher.proposeL2Block).toHaveBeenCalledWith(block, getSignatures(), [txHash], undefined);
+      expectPublisherProposeL2Block([txHash]);
     });
 
     it('does not submit a valid quote if unable to claim epoch', async () => {
@@ -600,7 +599,7 @@ describe('sequencer', () => {
       publisher.getClaimableEpoch.mockResolvedValue(undefined);
 
       await sequencer.doRealWork();
-      expect(publisher.proposeL2Block).toHaveBeenCalledWith(block, getSignatures(), [txHash], undefined);
+      expectPublisherProposeL2Block([txHash]);
     });
 
     it('does not submit an invalid quote', async () => {
@@ -619,7 +618,7 @@ describe('sequencer', () => {
       publisher.getClaimableEpoch.mockImplementation(() => Promise.resolve(currentEpoch - 1n));
 
       await sequencer.doRealWork();
-      expect(publisher.proposeL2Block).toHaveBeenCalledWith(block, getSignatures(), [txHash], undefined);
+      expectPublisherProposeL2Block([txHash]);
     });
 
     it('selects the lowest cost valid quote', async () => {
@@ -652,7 +651,7 @@ describe('sequencer', () => {
       publisher.getClaimableEpoch.mockImplementation(() => Promise.resolve(currentEpoch - 1n));
 
       await sequencer.doRealWork();
-      expect(publisher.proposeL2Block).toHaveBeenCalledWith(block, getSignatures(), [txHash], validQuotes[0]);
+      expectPublisherProposeL2Block([txHash], validQuotes[0]);
     });
   });
 });

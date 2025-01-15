@@ -12,6 +12,7 @@ spec:
     matchLabels:
       {{- include "aztec-network.selectorLabels" . | nindent 6 }}
       app: validator
+  {{- if not .Values.storage.localSsd }}
   volumeClaimTemplates:
     - metadata:
         name: validator-data
@@ -20,12 +21,17 @@ spec:
         resources:
           requests:
             storage: {{ .Values.validator.storageSize }}
+  {{- end }}
   template:
     metadata:
       labels:
         {{- include "aztec-network.selectorLabels" . | nindent 8 }}
         app: validator
     spec:
+      {{- if .Values.storage.localSsd }}
+      {{- include "aztec-network.gcpLocalSsd" . | nindent 6 }}
+      {{- end }}
+
       {{- if .Values.network.public }}
       hostNetwork: true
       dnsPolicy: ClusterFirstWithHostNet
@@ -52,13 +58,6 @@ spec:
               done
               echo "Ethereum node is ready!"
 
-              {{- if .Values.telemetry.enabled }}
-              until curl --head --silent $OTEL_COLLECTOR_ENDPOINT > /dev/null; do
-                echo "Waiting for OpenTelemetry collector $OTEL_COLLECTOR_ENDPOINT..."
-                sleep 5
-              done
-              echo "OpenTelemetry collector is ready!"
-              {{- end }}
 
               if [ "{{ .Values.validator.dynamicBootNode }}" = "true" ]; then
                 echo "{{ include "aztec-network.pxeUrl" . }}" > /shared/pxe/pxe_url
@@ -152,10 +151,18 @@ spec:
               valueFrom:
                 fieldRef:
                   fieldPath: metadata.name
+            - name: OTEL_SERVICE_NAME
+              value: validator
             - name: POD_IP
               valueFrom:
                 fieldRef:
                   fieldPath: status.podIP
+            - name: K8S_NAMESPACE_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+            - name: NODE_OPTIONS
+              value: "--max-old-space-size={{ .Values.validator.maxOldSpaceSize}}"
             - name: AZTEC_PORT
               value: "{{ .Values.validator.service.nodePort }}"
             - name: LOG_LEVEL
@@ -200,6 +207,18 @@ spec:
               value: {{ .Values.validator.viemPollingInterval | quote }}
             - name: SEQ_VIEM_POLLING_INTERVAL_MS
               value: {{ .Values.validator.viemPollingInterval | quote }}
+            - name: L1_FIXED_PRIORITY_FEE_PER_GAS
+              value: {{ .Values.validator.l1FixedPriorityFeePerGas | quote }}
+            - name: L1_GAS_LIMIT_BUFFER_PERCENTAGE
+              value: {{ .Values.validator.l1GasLimitBufferPercentage | quote }}
+            - name: DATA_DIRECTORY
+              value: "{{ .Values.validator.dataDir }}"
+            - name: DATA_STORE_MAP_SIZE_KB
+              value: "{{ .Values.storage.dataStoreMapSize }}"
+            - name: WS_DB_MAP_SIZE_KB
+              value: "{{ .Values.storage.worldStateMapSize }}"
+            - name: USE_GCLOUD_OBSERVABILITY
+              value: "{{ .Values.telemetry.useGcloudObservability }}"
           ports:
             - containerPort: {{ .Values.validator.service.nodePort }}
             - containerPort: {{ .Values.validator.service.p2pTcpPort }}
@@ -222,9 +241,14 @@ spec:
           emptyDir: {}
         - name: config
           emptyDir: {}
+      {{- if .Values.storage.localSsd }}
+        - name: validator-data
+          emptyDir: {}
+      {{ else }}
         - name: validator-data
           persistentVolumeClaim:
             claimName: validator-data
+      {{- end }}
 ---
 # If this is not a public network, create a headless service for StatefulSet DNS entries
 {{ if not .Values.network.public }}

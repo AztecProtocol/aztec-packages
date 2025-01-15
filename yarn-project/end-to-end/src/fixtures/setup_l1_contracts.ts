@@ -1,6 +1,6 @@
 import { type Logger, deployL1Contracts } from '@aztec/aztec.js';
 import { type DeployL1ContractsArgs, type L1ContractsConfig } from '@aztec/ethereum';
-import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types';
+import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types/vks';
 import { ProtocolContractAddress, protocolContractTreeRoot } from '@aztec/protocol-contracts';
 
 import { type HDAccount, type PrivateKeyAccount } from 'viem';

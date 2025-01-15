@@ -66,7 +66,6 @@ spec:
         - name: genesis
           configMap:
             name: {{ include "aztec-network.fullname" . }}-eth-beacon-genesis
-{{if not .Values.network.public }}
 ---
 apiVersion: v1
 kind: Service
@@ -75,7 +74,11 @@ metadata:
   labels:
     {{- include "aztec-network.labels" . | nindent 4 }}
 spec:
-  type: {{ .Values.ethereum.beacon.service.type }}
+  {{ - if .Values.network.public}}
+  type: LoadBalancer
+  {{ else }}
+  type: ClusterIP
+  {{ end }}
   selector:
     {{- include "aztec-network.selectorLabels" . | nindent 4 }}
     app: eth-beacon
@@ -83,10 +86,6 @@ spec:
     - protocol: TCP
       port: {{ .Values.ethereum.beacon.service.port }}
       targetPort: {{ .Values.ethereum.beacon.service.targetPort }}
-      {{- if and (eq .Values.ethereum.beacon.service.type "NodePort") .Values.ethereum.beacon.service.nodePort }}
-      nodePort: {{ .Values.ethereum.beacon.service.nodePort }}
-      {{- end }}
-{{ end }}
 ---
 apiVersion: v1
 kind: ConfigMap
@@ -115,7 +114,7 @@ spec:
   accessModes: ["ReadWriteOnce"]
   resources:
     requests:
-      storage: {{ .Values.ethereum.beacon.storage }}
+      storage: {{ .Values.ethereum.beacon.storageSize }}
 {{- end }}
 ---
 {{ end }}

@@ -1,4 +1,5 @@
 import {
+  EmptyL1RollupConstants,
   type EpochProofClaim,
   EpochProofQuote,
   EpochProofQuotePayload,
@@ -24,7 +25,7 @@ import { openTmpStore } from '@aztec/kv-store/lmdb';
 import { type BootstrapNode, InMemoryTxPool, MemoryEpochProofQuotePool, P2PClient } from '@aztec/p2p';
 import { createBootstrapNode, createTestLibP2PService } from '@aztec/p2p/mocks';
 import { type L1Publisher } from '@aztec/sequencer-client';
-import { type PublicProcessorFactory } from '@aztec/simulator';
+import { type PublicProcessorFactory } from '@aztec/simulator/server';
 import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
 
 import { jest } from '@jest/globals';
@@ -150,11 +151,10 @@ describe('prover-node', () => {
 
     // Archiver returns a bunch of fake blocks
     l2BlockSource.getBlocksForEpoch.mockResolvedValue(blocks);
+    l2BlockSource.getL1Constants.mockResolvedValue(EmptyL1RollupConstants);
 
     // Coordination plays along and returns a tx whenever requested
-    mockCoordination.getTxByHash.mockImplementation(hash =>
-      Promise.resolve(mock<Tx>({ getTxHash: () => hash, tryGetTxHash: () => hash })),
-    );
+    mockCoordination.getTxByHash.mockImplementation(hash => Promise.resolve(mock<Tx>({ getTxHash: () => hash })));
 
     // A sample claim
     claim = { epochToProve: 10n, bondProvider: address } as EpochProofClaim;
@@ -472,6 +472,7 @@ describe('prover-node', () => {
   class TestProverNode extends ProverNode {
     protected override doCreateEpochProvingJob(
       epochNumber: bigint,
+      _deadline: Date | undefined,
       _blocks: L2Block[],
       _txs: Tx[],
       _publicProcessorFactory: PublicProcessorFactory,

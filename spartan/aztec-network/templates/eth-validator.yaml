@@ -17,9 +17,6 @@ spec:
         {{- include "aztec-network.selectorLabels" . | nindent 8 }}
         app: eth-validator
     spec:
-      {{- if .Values.network.public }}
-      hostNetwork: true
-      {{- end }}
       initContainers:
         - name: create-genesis
           image: maddiaa/eth2-val-tools:latest
@@ -98,7 +95,7 @@ spec:
   accessModes: ["ReadWriteOnce"]
   resources:
     requests:
-      storage: {{ .Values.ethereum.validator.storage }}
+      storage: {{ .Values.ethereum.validator.storageSize }}
 {{- end }}
 ---
 {{ end }}

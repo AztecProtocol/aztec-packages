@@ -9,8 +9,8 @@ export * from './config.js';
 
 export async function createAndStartTelemetryClient(config: TelemetryClientConfig): Promise<TelemetryClient> {
   const log = createLogger('telemetry:client');
-  if (config.metricsCollectorUrl) {
-    log.info('Using OpenTelemetry client');
+  if (config.metricsCollectorUrl || config.useGcloudObservability) {
+    log.info(`Using OpenTelemetry client ${config.useGcloudObservability ? 'with GCP' : 'with custom collector'}`);
     return await OpenTelemetryClient.createAndStart(config, log);
   } else {
     log.info('Using NoopTelemetryClient');

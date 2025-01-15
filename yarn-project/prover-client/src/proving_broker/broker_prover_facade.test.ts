@@ -25,6 +25,12 @@ describe('BrokerCircuitProverFacade', () => {
     facade = new BrokerCircuitProverFacade(broker, proofStore);
 
     await broker.start();
+    facade.start();
+  });
+
+  afterEach(async () => {
+    await broker.stop();
+    await facade.stop();
   });
 
   it('sends jobs to the broker', async () => {
@@ -55,14 +61,6 @@ describe('BrokerCircuitProverFacade', () => {
       promises.push(facade.getBaseParityProof(inputs, controller.signal, 42));
     }
 
-    await sleep(agentPollInterval);
-    // the broker should have received all of them
-    expect(broker.enqueueProvingJob).toHaveBeenCalledTimes(CALLS);
-
-    // but really, it should have only enqueued just one
-    expect(prover.getBaseParityProof).toHaveBeenCalledTimes(1);
-    expect(prover.getBaseParityProof).toHaveBeenCalledWith(inputs, expect.anything(), 42);
-
     // now we have 50 promises all waiting on the same result
     // resolve the proof
     const result = makePublicInputsAndRecursiveProof(
@@ -72,18 +70,26 @@ describe('BrokerCircuitProverFacade', () => {
     );
     resultPromise.resolve(result);
 
+    await Promise.all(promises);
+
+    // the broker will only have been told about one of the calls
+    expect(broker.enqueueProvingJob).toHaveBeenCalledTimes(1);
+
+    expect(prover.getBaseParityProof).toHaveBeenCalledWith(inputs, expect.anything(), 42);
+
     // enqueue another N requests for the same jobs
     for (let i = 0; i < CALLS; i++) {
       promises.push(facade.getBaseParityProof(inputs, controller.signal, 42));
     }
 
-    await sleep(agentPollInterval);
-    // the broker will have received the new requests
-    expect(broker.enqueueProvingJob).toHaveBeenCalledTimes(2 * CALLS);
+    await Promise.all(promises);
+
+    // the broker will have received one new request
+    expect(broker.enqueueProvingJob).toHaveBeenCalledTimes(2);
     // but no new jobs where created
     expect(prover.getBaseParityProof).toHaveBeenCalledTimes(1);
 
-    // and all 2 * N requests will have been resolved with the same result
+    // and all requests will have been resolved with the same result
     for (const promise of promises) {
       await expect(promise).resolves.toEqual(result);
     }
@@ -106,30 +112,30 @@ describe('BrokerCircuitProverFacade', () => {
     }
 
     await sleep(agentPollInterval);
-    // the broker should have received all of them
-    expect(broker.enqueueProvingJob).toHaveBeenCalledTimes(CALLS);
-
-    // but really, it should have only enqueued just one
-    expect(prover.getBaseParityProof).toHaveBeenCalledTimes(1);
-    expect(prover.getBaseParityProof).toHaveBeenCalledWith(inputs, expect.anything(), 42);
 
     resultPromise.reject(new Error('TEST ERROR'));
+
+    await Promise.all(promises);
+
+    // the broker should only have been called once
+    expect(broker.enqueueProvingJob).toHaveBeenCalledTimes(1);
+
+    expect(prover.getBaseParityProof).toHaveBeenCalledWith(inputs, expect.anything(), 42);
 
     // enqueue another N requests for the same jobs
     for (let i = 0; i < CALLS; i++) {
       promises.push(facade.getBaseParityProof(inputs, controller.signal, 42).catch(err => ({ err })));
     }
 
-    await sleep(agentPollInterval);
-    // the broker will have received the new requests
-    expect(broker.enqueueProvingJob).toHaveBeenCalledTimes(2 * CALLS);
-    // but no new jobs where created
-    expect(prover.getBaseParityProof).toHaveBeenCalledTimes(1);
-
     // and all 2 * N requests will have been resolved with the same result
     for (const promise of promises) {
       await expect(promise).resolves.toEqual({ err: new Error('TEST ERROR') });
     }
+
+    // the broker will have received one new request
+    expect(broker.enqueueProvingJob).toHaveBeenCalledTimes(2);
+    // but no new jobs where created
+    expect(prover.getBaseParityProof).toHaveBeenCalledTimes(1);
   });
 
   it('handles aborts', async () => {
@@ -148,5 +154,20 @@ describe('BrokerCircuitProverFacade', () => {
     controller.abort();
 
     await expect(promise).resolves.toEqual({ err: new Error('Aborted') });
+  });
+
+  it('rejects jobs when the facade is stopped', async () => {
+    const inputs = makeBaseParityInputs();
+    const controller = new AbortController();
+
+    const resultPromise = promiseWithResolvers<any>();
+    jest.spyOn(broker, 'enqueueProvingJob');
+    jest.spyOn(prover, 'getBaseParityProof').mockReturnValue(resultPromise.promise);
+
+    const promise = facade.getBaseParityProof(inputs, controller.signal, 42).catch(err => ({ err }));
+
+    await facade.stop();
+
+    await expect(promise).resolves.toEqual({ err: new Error('Broker facade stopped') });
   });
 });

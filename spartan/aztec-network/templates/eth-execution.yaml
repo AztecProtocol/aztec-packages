@@ -61,7 +61,6 @@ spec:
         - name: genesis
           configMap:
             name: {{ include "aztec-network.fullname" . }}-eth-execution-genesis
-{{if not .Values.network.public }}
 ---
 apiVersion: v1
 kind: Service
@@ -70,7 +69,11 @@ metadata:
   labels:
     {{- include "aztec-network.labels" . | nindent 4 }}
 spec:
-  type: {{ .Values.ethereum.execution.service.type }}
+  {{- if .Values.network.public }}
+  type: LoadBalancer
+  {{- else }}
+  type: ClusterIP
+  {{- end }}
   selector:
     {{- include "aztec-network.selectorLabels" . | nindent 4 }}
     app: eth-execution
@@ -112,7 +115,7 @@ spec:
   accessModes: ["ReadWriteOnce"]
   resources:
     requests:
-      storage: {{ .Values.ethereum.execution.storage }}
+      storage: {{ .Values.ethereum.execution.storageSize }}
 {{- end }}
 ---
 {{ end }}

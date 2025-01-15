@@ -22,25 +22,20 @@ export class Oracle {
     return toACVMField(val);
   }
 
-  async packArgumentsArray(args: ACVMField[]): Promise<ACVMField> {
-    const packed = await this.typedOracle.packArgumentsArray(args.map(fromACVMField));
-    return toACVMField(packed);
-  }
-
-  async packArguments(_length: ACVMField[], values: ACVMField[]): Promise<ACVMField> {
-    const packed = await this.typedOracle.packArgumentsArray(values.map(fromACVMField));
-    return toACVMField(packed);
+  async storeArrayInExecutionCache(values: ACVMField[]): Promise<ACVMField> {
+    const hash = await this.typedOracle.storeArrayInExecutionCache(values.map(fromACVMField));
+    return toACVMField(hash);
   }
 
   // Since the argument is a slice, noir automatically adds a length field to oracle call.
-  async packReturns(_length: ACVMField[], values: ACVMField[]): Promise<ACVMField> {
-    const packed = await this.typedOracle.packReturns(values.map(fromACVMField));
-    return toACVMField(packed);
+  async storeInExecutionCache(_length: ACVMField[], values: ACVMField[]): Promise<ACVMField> {
+    const hash = await this.typedOracle.storeInExecutionCache(values.map(fromACVMField));
+    return toACVMField(hash);
   }
 
-  async unpackReturns([returnsHash]: ACVMField[]): Promise<ACVMField[]> {
-    const unpacked = await this.typedOracle.unpackReturns(fromACVMField(returnsHash));
-    return unpacked.map(toACVMField);
+  async loadFromExecutionCache([returnsHash]: ACVMField[]): Promise<ACVMField[]> {
+    const values = await this.typedOracle.loadFromExecutionCache(fromACVMField(returnsHash));
+    return values.map(toACVMField);
   }
 
   async getBlockNumber(): Promise<ACVMField> {
@@ -93,19 +88,6 @@ export class Oracle {
       );
     }
     return witness.map(toACVMField);
-  }
-
-  async getSiblingPath(
-    [blockNumber]: ACVMField[],
-    [treeId]: ACVMField[],
-    [leafIndex]: ACVMField[],
-  ): Promise<ACVMField[]> {
-    const parsedBlockNumber = frToNumber(fromACVMField(blockNumber));
-    const parsedTreeId = frToNumber(fromACVMField(treeId));
-    const parsedLeafIndex = fromACVMField(leafIndex);
-
-    const path = await this.typedOracle.getSiblingPath(parsedBlockNumber, parsedTreeId, parsedLeafIndex);
-    return path.map(toACVMField);
   }
 
   async getNullifierMembershipWitness(
@@ -268,6 +250,11 @@ export class Oracle {
     [counter]: ACVMField[],
   ): Promise<ACVMField> {
     await this.typedOracle.notifyNullifiedNote(fromACVMField(innerNullifier), fromACVMField(noteHash), +counter);
+    return toACVMField(0);
+  }
+
+  async notifyCreatedNullifier([innerNullifier]: ACVMField[]): Promise<ACVMField> {
+    await this.typedOracle.notifyCreatedNullifier(fromACVMField(innerNullifier));
     return toACVMField(0);
   }
 

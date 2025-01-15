@@ -209,6 +209,10 @@ export class ProverAgent implements ProverAgentApi, Traceable {
         return this.circuitProver.getBlockRootRollupProof(inputs);
       }
 
+      case ProvingRequestType.SINGLE_TX_BLOCK_ROOT_ROLLUP: {
+        return this.circuitProver.getSingleTxBlockRootRollupProof(inputs);
+      }
+
       case ProvingRequestType.BLOCK_MERGE_ROLLUP: {
         return this.circuitProver.getBlockMergeRollupProof(inputs);
       }
@@ -223,10 +227,6 @@ export class ProverAgent implements ProverAgentApi, Traceable {
 
       case ProvingRequestType.ROOT_PARITY: {
         return this.circuitProver.getRootParityProof(inputs);
-      }
-
-      case ProvingRequestType.PRIVATE_KERNEL_EMPTY: {
-        return this.circuitProver.getEmptyPrivateKernelProof(inputs);
       }
 
       case ProvingRequestType.TUBE_PROOF: {

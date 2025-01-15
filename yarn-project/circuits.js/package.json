@@ -46,6 +46,7 @@
     "@aztec/foundation": "workspace:^",
     "@aztec/types": "workspace:^",
     "eslint": "^8.35.0",
+    "msgpackr": "^1.11.2",
     "tslib": "^2.4.0",
     "zod": "^3.23.8"
   },

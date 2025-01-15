@@ -104,17 +104,6 @@ describe('In-Memory P2P Client', () => {
     expect(txPool.addTxs).toHaveBeenCalledTimes(2);
   });
 
-  it('republishes previously stored txs on start', async () => {
-    const tx1 = mockTx();
-    const tx2 = mockTx();
-    txPool.getAllTxs.mockReturnValue([tx1, tx2]);
-
-    await client.start();
-    expect(p2pService.propagate).toHaveBeenCalledTimes(2);
-    expect(p2pService.propagate).toHaveBeenCalledWith(tx1);
-    expect(p2pService.propagate).toHaveBeenCalledWith(tx2);
-  });
-
   it('restores the previous block number it was at', async () => {
     await client.start();
     await client.stop();

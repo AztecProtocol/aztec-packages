@@ -274,7 +274,10 @@ export class Archiver implements ArchiveSource, Traceable {
     }
 
     if (initialRun) {
-      this.log.info(`Initial archiver sync to L1 block ${currentL1BlockNumber} complete.`);
+      this.log.info(`Initial archiver sync to L1 block ${currentL1BlockNumber} complete.`, {
+        l1BlockNumber: currentL1BlockNumber,
+        ...(await this.getL2Tips()),
+      });
     }
   }
 
@@ -364,6 +367,16 @@ export class Archiver implements ArchiveSource, Traceable {
 
     const updateProvenBlock = async () => {
       const localBlockForDestinationProvenBlockNumber = await this.getBlock(Number(provenBlockNumber));
+
+      // Sanity check. I've hit what seems to be a state where the proven block is set to a value greater than the latest
+      // synched block when requesting L2Tips from the archiver. This is the only place where the proven block is set.
+      const synched = await this.store.getSynchedL2BlockNumber();
+      if (localBlockForDestinationProvenBlockNumber && synched < localBlockForDestinationProvenBlockNumber?.number) {
+        this.log.error(
+          `Hit local block greater than last synched block: ${localBlockForDestinationProvenBlockNumber.number} > ${synched}`,
+        );
+      }
+
       if (
         localBlockForDestinationProvenBlockNumber &&
         provenArchive === localBlockForDestinationProvenBlockNumber.archive.root.toString()
@@ -511,8 +524,8 @@ export class Archiver implements ArchiveSource, Traceable {
     return Promise.resolve();
   }
 
-  public getL1Constants(): L1RollupConstants {
-    return this.l1constants;
+  public getL1Constants(): Promise<L1RollupConstants> {
+    return Promise.resolve(this.l1constants);
   }
 
   public getRollupAddress(): Promise<EthAddress> {
@@ -798,11 +811,13 @@ export class Archiver implements ArchiveSource, Traceable {
     ] as const);
 
     if (latestBlockNumber > 0 && !latestBlockHeader) {
-      throw new Error('Failed to retrieve latest block header');
+      throw new Error(`Failed to retrieve latest block header for block ${latestBlockNumber}`);
     }
 
     if (provenBlockNumber > 0 && !provenBlockHeader) {
-      throw new Error('Failed to retrieve proven block header');
+      throw new Error(
+        `Failed to retrieve proven block header for block ${provenBlockNumber} (latest block is ${latestBlockNumber})`,
+      );
     }
 
     return {
