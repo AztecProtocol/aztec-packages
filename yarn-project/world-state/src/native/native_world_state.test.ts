@@ -725,11 +725,11 @@ describe('NativeWorldState', () => {
       const numReads = 64;
       const setupFork = await ws.fork();
 
-      const { block: block1 } = await mockBlock(1, 8, setupFork);
+      const { block: block1, messages } = await mockBlock(1, 8, setupFork);
       const { block: block2 } = await mockBlock(2, 8, setupFork);
       const { block: block3 } = await mockBlock(3, 8, setupFork);
 
-      await ws.handleL2BlockAndMessages(block1, []);
+      await ws.handleL2BlockAndMessages(block1, messages);
 
       const testFork = await ws.fork();
       const commitmentDb = ws.getCommitted();
@@ -784,6 +784,8 @@ describe('NativeWorldState', () => {
         expect(firstPathCommitted).toEqual(committedPath);
         expect(secondPathCommitted).toEqual(committedPath);
       }
+
+      await Promise.all([setupFork.close(), testFork.close()]);
     }, 30_000);
   });
 });
