@@ -1,7 +1,7 @@
 # Deploy metrics helm chart before using this values file.
 telemetry:
   enabled: true
-  otelCollectorEndpoint: http://34.150.160.154:4318
+  otelCollectorEndpoint: http://34.169.5.154:4318
 
 images:
   aztec:
