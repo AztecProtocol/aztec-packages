@@ -200,6 +200,11 @@ describe('PXESchema', () => {
     expect(result).toEqual([expect.any(BigInt), expect.any(SiblingPath)]);
   });
 
+  it('getL2ToL1MembershipWitness', async () => {
+    const result = await context.client.getL2ToL1MembershipWitness(42, Fr.random());
+    expect(result).toEqual([expect.any(BigInt), expect.any(SiblingPath)]);
+  });
+
   it('addNote', async () => {
     await context.client.addNote(ExtendedNote.random(), address);
   });
@@ -422,6 +427,11 @@ class MockPXE implements PXE {
     expect(messageHash).toBeInstanceOf(Fr);
     expect(secret).toBeInstanceOf(Fr);
     return Promise.resolve([1n, SiblingPath.random(L1_TO_L2_MSG_TREE_HEIGHT)]);
+  }
+  getL2ToL1MembershipWitness(blockNumber: number, l2Tol1Message: Fr): Promise<[bigint, SiblingPath<number>]> {
+    expect(typeof blockNumber).toEqual('number');
+    expect(l2Tol1Message).toBeInstanceOf(Fr);
+    return Promise.resolve([1n, SiblingPath.random<number>(4)]);
   }
   addNote(note: ExtendedNote, scope?: AztecAddress | undefined): Promise<void> {
     expect(note).toBeInstanceOf(ExtendedNote);

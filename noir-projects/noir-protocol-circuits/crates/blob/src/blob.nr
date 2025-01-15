@@ -4,7 +4,7 @@ use crate::{
     unconstrained_config::{compute_roots_of_unity, D_INV, F, LOG_FIELDS_PER_BLOB},
 };
 
-use bigint::BigNum;
+use bigint::{BigNum, BigNumTrait};
 // Fixed hash method:
 use types::hash::poseidon2_hash_subarray;
 // Variable hash method:
@@ -502,7 +502,7 @@ mod tests {
         let mut tx_data = FixtureBuilder::new();
         // Add some random bits of state
         tx_data.append_note_hashes(50);
-        tx_data.set_first_nullifier();
+        tx_data.set_protocol_nullifier();
         tx_data.append_nullifiers(50);
         tx_data.append_l2_to_l1_msgs(5);
         tx_data.append_unencrypted_log_hashes(5);
