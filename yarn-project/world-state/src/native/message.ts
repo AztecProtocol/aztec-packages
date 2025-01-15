@@ -447,10 +447,6 @@ interface CreateForkResponse {
 
 interface DeleteForkRequest extends WithForkId {}
 
-interface DeleteForkRequest {
-  forkId: number;
-}
-
 export type WorldStateRequestCategories = WithForkId | WithWorldStateRevision | WithCanonicalForkId;
 
 export function isWithForkId(body: WorldStateRequestCategories): body is WithForkId {
