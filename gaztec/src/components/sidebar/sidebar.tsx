@@ -10,6 +10,7 @@ import {
   AccountWalletWithSecretKey,
   Contract,
   Fr,
+  PXE,
   TxHash,
   createLogger,
   loadContractArtifact,
@@ -24,11 +25,13 @@ import logoURL from "../../assets/Aztec_logo.png";
 import { Button, Divider, Typography } from "@mui/material";
 import {
   formatFrAsString,
-  parseAliasedBufferAsString,
+  parseAliasedBuffersAsString,
 } from "../../utils/conversion";
 import { convertFromUTF8BufferAsString } from "../../utils/conversion";
 import { ContractFunctionInteractionTx } from "../../utils/txs";
 import ContactsIcon from "@mui/icons-material/Contacts";
+import { CopyToClipboardButton } from "../common/copyToClipboardButton";
+import { AddSendersDialog } from "./components/addSenderDialog";
 
 const container = css({
   display: "flex",
@@ -42,6 +45,8 @@ const container = css({
 });
 
 const select = css({
+  display: "flex",
+  flexDirection: "row",
   width: "100%",
   margin: "0.5rem 0rem",
 });
@@ -108,6 +113,27 @@ export function SidebarComponent() {
   const [contracts, setContracts] = useState([]);
   const [transactions, setTransactions] = useState([]);
   const [openCreateAccountDialog, setOpenCreateAccountDialog] = useState(false);
+  const [openAddSendersDialog, setOpenAddSendersDialog] = useState(false);
+
+  const getAccountsAndSenders = async () => {
+    const aliasedBuffers = await walletDB.listAliases("accounts");
+    const aliasedAccounts = parseAliasedBuffersAsString(aliasedBuffers);
+    const pxeAccounts = await pxe.getRegisteredAccounts();
+    const ourAccounts = [];
+    const senders = [];
+    aliasedAccounts.forEach(({ key, value }) => {
+      if (
+        pxeAccounts.find((account) =>
+          account.address.equals(AztecAddress.fromString(value))
+        )
+      ) {
+        ourAccounts.push({ key, value });
+      } else {
+        senders.push(key, value);
+      }
+    });
+    return { ourAccounts, senders };
+  };
 
   const handleNetworkChange = async (event: SelectChangeEvent) => {
     setPXEInitialized(false);
@@ -126,34 +152,30 @@ export function SidebarComponent() {
     );
     const walletDB = WalletDB.getInstance();
     walletDB.init(walletDBStore, walletLogger.info);
-    const aliasedAccounts = await walletDB.listAliases("accounts");
-    const aliasedContracts = await walletDB.listAliases("contracts");
-    setContracts(parseAliasedBufferAsString(aliasedContracts));
-    setAccounts(parseAliasedBufferAsString(aliasedAccounts));
-    setWalletDB(walletDB);
     setPXE(pxe);
+    setWalletDB(walletDB);
     setPXEInitialized(true);
   };
 
   useEffect(() => {
     const refreshContracts = async () => {
       const aliasedContracts = await walletDB.listAliases("contracts");
-      setContracts(parseAliasedBufferAsString(aliasedContracts));
+      setContracts(parseAliasedBuffersAsString(aliasedContracts));
     };
     if (walletDB) {
       refreshContracts();
     }
-  }, [currentContract]);
+  }, [currentContract, walletDB]);
 
   useEffect(() => {
     const refreshAccounts = async () => {
-      const aliasedAccounts = await walletDB.listAliases("accounts");
-      setAccounts(parseAliasedBufferAsString(aliasedAccounts));
+      const { ourAccounts } = await getAccountsAndSenders();
+      setAccounts(ourAccounts);
     };
-    if (walletDB) {
+    if (walletDB && walletDB && pxe) {
       refreshAccounts();
     }
-  }, [wallet]);
+  }, [wallet, walletDB, pxe]);
 
   useEffect(() => {
     const refreshTransactions = async () => {
@@ -176,6 +198,7 @@ export function SidebarComponent() {
       );
       if (
         currentTx &&
+        currentTx.contractAddress === currentContract.address &&
         (!currentTx.txHash ||
           !txs.find((tx) => tx.txHash.equals(currentTx.txHash)))
       ) {
@@ -208,18 +231,18 @@ export function SidebarComponent() {
     salt?: Fr,
     alias?: string
   ) => {
-    if (!account || !salt || !alias) {
-      return;
+    if (account && salt && alias) {
+      await walletDB.storeAccount(account.getAddress(), {
+        type: "schnorr",
+        secretKey: account.getSecretKey(),
+        alias,
+        salt,
+      });
+      const aliasedAccounts = await walletDB.listAliases("accounts");
+      setAccounts(parseAliasedBuffersAsString(aliasedAccounts));
+      setWallet(account);
     }
-    await walletDB.storeAccount(account.getAddress(), {
-      type: "schnorr",
-      secretKey: account.getSecretKey(),
-      alias,
-      salt,
-    });
-    const aliasedAccounts = await walletDB.listAliases("accounts");
-    setAccounts(parseAliasedBufferAsString(aliasedAccounts));
-    setWallet(account);
+
     setOpenCreateAccountDialog(false);
   };
 
@@ -242,6 +265,18 @@ export function SidebarComponent() {
     setCurrentContract(contract);
   };
 
+  const handleSenderAdded = async (sender?: AztecAddress, alias?: string) => {
+    if (sender && alias) {
+      await wallet.registerSender(sender);
+      await walletDB.storeAlias(
+        "accounts",
+        alias,
+        Buffer.from(sender.toString())
+      );
+    }
+    setOpenAddSendersDialog(false);
+  };
+
   return (
     <div css={container}>
       <div css={header}>
@@ -256,7 +291,12 @@ export function SidebarComponent() {
       <Typography variant="overline">Connect</Typography>
       <FormControl css={select}>
         <InputLabel>Network</InputLabel>
-        <Select value={nodeURL} label="Network" onChange={handleNetworkChange}>
+        <Select
+          fullWidth
+          value={nodeURL}
+          label="Network"
+          onChange={handleNetworkChange}
+        >
           {NETWORKS.map((network) => (
             <MenuItem key={network.name} value={network.nodeURL}>
               {network.name} ({network.nodeURL})
@@ -269,6 +309,7 @@ export function SidebarComponent() {
           <FormControl css={select}>
             <InputLabel>Account</InputLabel>
             <Select
+              fullWidth
               value={wallet?.getAddress().toString() ?? ""}
               label="Account"
               onChange={handleAccountChange}
@@ -288,9 +329,12 @@ export function SidebarComponent() {
                 &nbsp;Create
               </MenuItem>
             </Select>
+            <CopyToClipboardButton
+              disabled={!wallet}
+              data={wallet?.getAddress().toString()}
+            />
           </FormControl>
           <CreateAccountDialog
-            pxe={pxe}
             open={openCreateAccountDialog}
             onClose={handleAccountCreation}
           />
@@ -307,6 +351,7 @@ export function SidebarComponent() {
               value={currentContract?.address.toString() ?? ""}
               label="Contract"
               onChange={handleContractChange}
+              fullWidth
             >
               {contracts.map((contract) => (
                 <MenuItem
@@ -322,6 +367,10 @@ export function SidebarComponent() {
           <Button variant="contained" endIcon={<ContactsIcon />}>
             Senders
           </Button>
+          <AddSendersDialog
+            open={openAddSendersDialog}
+            onClose={handleSenderAdded}
+          />
         </>
       )}
       <div css={{ flex: "1 0 auto", margin: "auto" }} />

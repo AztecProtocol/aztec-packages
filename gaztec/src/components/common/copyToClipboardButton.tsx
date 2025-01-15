@@ -2,7 +2,13 @@ import { useState } from "react";
 import { IconButton, Snackbar } from "@mui/material";
 import ContentPasteIcon from "@mui/icons-material/ContentPaste";
 
-export function CopyToClipboardButton({ data }: { data: string }) {
+export function CopyToClipboardButton({
+  data,
+  disabled,
+}: {
+  data: string;
+  disabled: boolean;
+}) {
   const [open, setOpen] = useState(false);
 
   const handleClick = () => {
@@ -12,11 +18,11 @@ export function CopyToClipboardButton({ data }: { data: string }) {
 
   return (
     <>
-      <IconButton onClick={handleClick} color="primary">
+      <IconButton disabled={disabled} onClick={handleClick} color="primary">
         <ContentPasteIcon />
       </IconButton>
       <Snackbar
-        message="Copied to clibboard"
+        message="Copied to clipboard"
         anchorOrigin={{ vertical: "top", horizontal: "center" }}
         autoHideDuration={2000}
         onClose={() => setOpen(false)}

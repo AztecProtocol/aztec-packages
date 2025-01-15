@@ -9,8 +9,9 @@ import {
   Typography,
   css,
 } from "@mui/material";
-import { useState } from "react";
+import { useContext, useState } from "react";
 import { deriveSigningKey } from "@aztec/circuits.js";
+import { AztecContext } from "../../home/home";
 
 const creationForm = css({
   display: "flex",
@@ -22,11 +23,9 @@ const creationForm = css({
 
 export function CreateAccountDialog({
   open,
-  pxe,
   onClose,
 }: {
   open: boolean;
-  pxe: PXE;
   onClose: (
     account?: AccountWalletWithSecretKey,
     salt?: Fr,
@@ -36,6 +35,7 @@ export function CreateAccountDialog({
   const [alias, setAlias] = useState("");
   const [secretKey] = useState(Fr.random());
   const [deployingAccount, setDeployingAccount] = useState(false);
+  const { pxe } = useContext(AztecContext);
 
   const createAccount = async () => {
     setDeployingAccount(true);

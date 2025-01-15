@@ -29,7 +29,7 @@ import {
 } from "@aztec/foundation/abi";
 import { GITHUB_TAG_PREFIX } from "../../../utils/interactions";
 import { AztecContext } from "../../home/home";
-import { parseAliasedBufferAsString } from "../../../utils/conversion";
+import { parseAliasedBuffersAsString } from "../../../utils/conversion";
 import { FunctionParameter } from "../../common/fnParameter";
 
 const creationForm = css({
@@ -42,12 +42,10 @@ const creationForm = css({
 
 export function DeployContractDialog({
   open,
-  wallet,
   contractArtifact,
   onClose,
 }: {
   open: boolean;
-  wallet: AccountWalletWithSecretKey;
   contractArtifact: ContractArtifact;
   onClose: (contract?: ContractInstanceWithAddress, alias?: string) => void;
 }) {
@@ -56,7 +54,7 @@ export function DeployContractDialog({
   const [parameters, setParameters] = useState([]);
   const [deploying, setDeploying] = useState(false);
   const [aliasedAddresses, setAliasedAddresses] = useState([]);
-  const { walletDB } = useContext(AztecContext);
+  const { walletDB, wallet } = useContext(AztecContext);
 
   useEffect(() => {
     const defaultInitializer = getDefaultInitializer(contractArtifact);
@@ -65,7 +63,7 @@ export function DeployContractDialog({
       const accountAliases = await walletDB.listAliases("accounts");
       const contractAliases = await walletDB.listAliases("contracts");
       setAliasedAddresses(
-        parseAliasedBufferAsString([...accountAliases, ...contractAliases])
+        parseAliasedBuffersAsString([...accountAliases, ...contractAliases])
       );
     };
     setAliases();

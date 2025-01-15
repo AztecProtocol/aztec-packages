@@ -16,7 +16,6 @@ import {
   CardContent,
   Checkbox,
   CircularProgress,
-  Divider,
   FormControlLabel,
   FormGroup,
   IconButton,
@@ -28,7 +27,7 @@ import FindInPageIcon from "@mui/icons-material/FindInPage";
 import { prepTx } from "../../utils/interactions";
 import {
   formatFrAsString,
-  parseAliasedBufferAsString,
+  parseAliasedBuffersAsString,
 } from "../../utils/conversion";
 import { DeployContractDialog } from "./components/deployContractDialog";
 import { FunctionParameter } from "../common/fnParameter";
@@ -119,7 +118,7 @@ export function ContractComponent() {
       const accountAliases = await walletDB.listAliases("accounts");
       const contractAliases = await walletDB.listAliases("contracts");
       setAliasedAddresses(
-        parseAliasedBufferAsString([...accountAliases, ...contractAliases])
+        parseAliasedBuffersAsString([...accountAliases, ...contractAliases])
       );
     };
     if (walletDB) {
@@ -350,13 +349,11 @@ export function ContractComponent() {
                 <DeployContractDialog
                   contractArtifact={contractArtifact}
                   open={openDeployContractDialog}
-                  wallet={wallet}
                   onClose={handleContractCreation}
                 />
                 <RegisterContractDialog
                   contractArtifact={contractArtifact}
                   open={openRegisterContractDialog}
-                  wallet={wallet}
                   onClose={handleContractCreation}
                 />
               </>
@@ -367,6 +364,7 @@ export function ContractComponent() {
                   {formatFrAsString(currentContract.address.toString())}
                 </Typography>
                 <CopyToClipboardButton
+                  disabled={false}
                   data={currentContract.address.toString()}
                 />
                 <IconButton
@@ -432,15 +430,17 @@ export function ContractComponent() {
                   </FormGroup>
                   {!isWorking && simulationResults?.[fn.name] !== undefined ? (
                     <div css={{ simulationContainer }}>
-                      <Typography variant="h5">Simulation results:</Typography>
+                      <Typography variant="h5" sx={{ fontSize: "1rem" }}>
+                        Simulation results:
+                      </Typography>
                       {simulationResults[fn.name].success ? (
-                        <Typography component="span">
+                        <Typography variant="body1">
                           {simulationResults?.[fn.name]?.data.length === 0
                             ? "-"
                             : simulationResults?.[fn.name].data.toString()}
                         </Typography>
                       ) : (
-                        <Typography variant="h5" color="error">
+                        <Typography variant="body1" color="error">
                           {simulationResults?.[fn.name]?.error}
                         </Typography>
                       )}

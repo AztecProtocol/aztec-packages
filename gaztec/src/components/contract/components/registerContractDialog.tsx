@@ -67,7 +67,6 @@ export function RegisterContractDialog({
 
     await wallet.registerContract({
       instance: contractInstance,
-      artifact: contractArtifact,
     });
 
     const contract = await Contract.at(

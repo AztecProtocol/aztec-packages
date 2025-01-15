@@ -356,7 +356,12 @@ export class WalletDB {
     return { address, secretKey, salt, type };
   }
 
-  async storeAlias(type: AliasType, key: string, value: Buffer, log: LogFn) {
+  async storeAlias(
+    type: AliasType,
+    key: string,
+    value: Buffer,
+    log: LogFn = this.#userLog
+  ) {
     await this.#aliases.set(`${type}:${key}`, value);
     log(`Data stored in database with alias ${type}:${key}`);
   }
