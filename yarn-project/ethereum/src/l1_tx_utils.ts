@@ -595,7 +595,6 @@ export class L1TxUtils {
       });
       this.logger?.debug('Gas used in simulation', {
         gasUsed: result[0].calls[0].gasUsed,
-        gasLimit: result[0].calls[0].gasLimit,
         result: result,
       });
       return result[0].calls[0].gasUsed;
