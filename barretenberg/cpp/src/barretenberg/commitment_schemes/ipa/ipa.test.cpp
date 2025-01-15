@@ -1,7 +1,9 @@
 
+#include "barretenberg/commitment_schemes/ipa/ipa.hpp"
 #include "./mock_transcript.hpp"
 #include "barretenberg/commitment_schemes/commitment_key.test.hpp"
 #include "barretenberg/commitment_schemes/shplonk/shplemini.hpp"
+#include "barretenberg/commitment_schemes/utils/instance_witness_generator.hpp"
 using namespace bb;
 
 namespace {
@@ -15,6 +17,26 @@ class IPATest : public CommitmentTest<Curve> {
     using VK = VerifierCommitmentKey<Curve>;
     using Polynomial = bb::Polynomial<Fr>;
     using Commitment = typename Curve::AffineElement;
+    using IPA = IPA<Curve>;
+
+    using ShplonkProver = ShplonkProver_<Curve>;
+    using ShplonkVerifier = ShplonkVerifier_<Curve>;
+    using GeminiProver = GeminiProver_<Curve>;
+    using GeminiVerifier = GeminiVerifier_<Curve>;
+    using ShpleminiVerifier = ShpleminiVerifier_<Curve>;
+
+    static std::shared_ptr<CK> ck;
+    static std::shared_ptr<VK> vk;
+    static constexpr size_t n = 128;
+
+    static constexpr size_t small_n = 8;
+    static constexpr size_t small_log_n = 3;
+
+    static void SetUpTestSuite()
+    {
+        ck = create_commitment_key<CK>(n);
+        vk = create_verifier_commitment_key<VK>();
+    }
 };
 } // namespace
 
@@ -30,7 +52,7 @@ TEST_F(IPATest, CommitOnManyZeroCoeffPolyWorks)
     }
     p.at(3) = Fr::one();
     GroupElement commitment = this->commit(p);
-    auto srs_elements = this->ck()->srs->get_monomial_points();
+    auto srs_elements = ck->srs->get_monomial_points();
     GroupElement expected = srs_elements[0] * p[0];
     // The SRS stored in the commitment key is the result after applying the pippenger point table so the
     // values at odd indices contain the point {srs[i-1].x * beta, srs[i-1].y}, where beta is the endomorphism
@@ -45,9 +67,7 @@ TEST_F(IPATest, CommitOnManyZeroCoeffPolyWorks)
 // detects those.
 TEST_F(IPATest, OpenZeroPolynomial)
 {
-    using IPA = IPA<Curve>;
-    constexpr size_t n = 4;
-    Polynomial poly(n);
+    Polynomial poly(small_n);
     // Commit to a zero polynomial
     Commitment commitment = this->commit(poly);
     EXPECT_TRUE(commitment.is_point_at_infinity());
@@ -59,12 +79,12 @@ TEST_F(IPATest, OpenZeroPolynomial)
 
     // initialize empty prover transcript
     auto prover_transcript = std::make_shared<NativeTranscript>();
-    IPA::compute_opening_proof(this->ck(), { poly, opening_pair }, prover_transcript);
+    IPA::compute_opening_proof(ck, { poly, opening_pair }, prover_transcript);
 
     // initialize verifier transcript from proof data
     auto verifier_transcript = std::make_shared<NativeTranscript>(prover_transcript->proof_data);
 
-    auto result = IPA::reduce_verify(this->vk(), opening_claim, verifier_transcript);
+    bool result = IPA::reduce_verify(vk, opening_claim, verifier_transcript);
     EXPECT_TRUE(result);
 }
 
@@ -72,24 +92,22 @@ TEST_F(IPATest, OpenZeroPolynomial)
 // is zero, IPA behaves
 TEST_F(IPATest, OpenAtZero)
 {
-    using IPA = IPA<Curve>;
     // generate a random polynomial, degree needs to be a power of two
-    size_t n = 128;
     auto poly = Polynomial::random(n);
-    Fr x = Fr::zero();
-    auto eval = poly.evaluate(x);
-    auto commitment = this->commit(poly);
+    const Fr x = Fr::zero();
+    const Fr eval = poly.evaluate(x);
+    const Commitment commitment = this->commit(poly);
     const OpeningPair<Curve> opening_pair = { x, eval };
     const OpeningClaim<Curve> opening_claim{ opening_pair, commitment };
 
     // initialize empty prover transcript
     auto prover_transcript = std::make_shared<NativeTranscript>();
-    IPA::compute_opening_proof(this->ck(), { poly, opening_pair }, prover_transcript);
+    IPA::compute_opening_proof(ck, { poly, opening_pair }, prover_transcript);
 
     // initialize verifier transcript from proof data
     auto verifier_transcript = std::make_shared<NativeTranscript>(prover_transcript->proof_data);
 
-    auto result = IPA::reduce_verify(this->vk(), opening_claim, verifier_transcript);
+    bool result = IPA::reduce_verify(vk, opening_claim, verifier_transcript);
     EXPECT_TRUE(result);
 }
 
@@ -98,9 +116,7 @@ namespace bb {
 // This test ensures that IPA throws or aborts when a challenge is zero, since it breaks the logic of the argument
 TEST_F(IPATest, ChallengesAreZero)
 {
-    using IPA = IPA<Curve>;
     // generate a random polynomial, degree needs to be a power of two
-    size_t n = 128;
     auto poly = Polynomial::random(n);
     auto [x, eval] = this->random_eval(poly);
     auto commitment = this->commit(poly);
@@ -123,7 +139,7 @@ TEST_F(IPATest, ChallengesAreZero)
         auto new_random_vector = random_vector;
         new_random_vector[i] = Fr::zero();
         transcript->initialize(new_random_vector);
-        EXPECT_ANY_THROW(IPA::compute_opening_proof_internal(this->ck(), { poly, opening_pair }, transcript));
+        EXPECT_ANY_THROW(IPA::compute_opening_proof_internal(ck, { poly, opening_pair }, transcript));
     }
     // Fill out a vector of affine elements that the verifier receives from the prover with generators (we don't care
     // about them right now)
@@ -137,16 +153,15 @@ TEST_F(IPATest, ChallengesAreZero)
         auto new_random_vector = random_vector;
         new_random_vector[i] = Fr::zero();
         transcript->initialize(new_random_vector, lrs, { uint256_t(n) });
-        EXPECT_ANY_THROW(IPA::reduce_verify_internal_native(this->vk(), opening_claim, transcript));
+        EXPECT_ANY_THROW(IPA::reduce_verify_internal_native(vk, opening_claim, transcript));
     }
 }
 
 // This test checks that if the vector \vec{a_new} becomes zero after one round, it doesn't break IPA.
 TEST_F(IPATest, AIsZeroAfterOneRound)
 {
-    using IPA = IPA<Curve>;
     // generate a random polynomial, degree needs to be a power of two
-    size_t n = 4;
+    constexpr size_t n = 4;
     auto poly = Polynomial(n);
     for (size_t i = 0; i < n / 2; i++) {
         poly.at(i) = Fr::random_element();
@@ -174,23 +189,22 @@ TEST_F(IPATest, AIsZeroAfterOneRound)
     transcript->initialize(random_vector);
 
     // Compute opening proof
-    IPA::compute_opening_proof_internal(this->ck(), { poly, opening_pair }, transcript);
+    IPA::compute_opening_proof_internal(ck, { poly, opening_pair }, transcript);
 
     // Reset indices
     transcript->reset_indices();
 
     // Verify
-    EXPECT_TRUE(IPA::reduce_verify_internal_native(this->vk(), opening_claim, transcript));
+    EXPECT_TRUE(IPA::reduce_verify_internal_native(vk, opening_claim, transcript));
 }
 #endif
 } // namespace bb
 
 TEST_F(IPATest, Commit)
 {
-    constexpr size_t n = 128;
     auto poly = Polynomial::random(n);
-    GroupElement commitment = this->commit(poly);
-    auto srs_elements = this->ck()->srs->get_monomial_points();
+    const GroupElement commitment = this->commit(poly);
+    auto srs_elements = ck->srs->get_monomial_points();
     GroupElement expected = srs_elements[0] * poly[0];
     // The SRS stored in the commitment key is the result after applying the pippenger point table so the
     // values at odd indices contain the point {srs[i-1].x * beta, srs[i-1].y}, where beta is the endomorphism
@@ -203,9 +217,7 @@ TEST_F(IPATest, Commit)
 
 TEST_F(IPATest, Open)
 {
-    using IPA = IPA<Curve>;
     // generate a random polynomial, degree needs to be a power of two
-    size_t n = 128;
     auto poly = Polynomial::random(n);
     auto [x, eval] = this->random_eval(poly);
     auto commitment = this->commit(poly);
@@ -214,12 +226,12 @@ TEST_F(IPATest, Open)
 
     // initialize empty prover transcript
     auto prover_transcript = std::make_shared<NativeTranscript>();
-    IPA::compute_opening_proof(this->ck(), { poly, opening_pair }, prover_transcript);
+    IPA::compute_opening_proof(ck, { poly, opening_pair }, prover_transcript);
 
     // initialize verifier transcript from proof data
     auto verifier_transcript = std::make_shared<NativeTranscript>(prover_transcript->proof_data);
 
-    auto result = IPA::reduce_verify(this->vk(), opening_claim, verifier_transcript);
+    auto result = IPA::reduce_verify(vk, opening_claim, verifier_transcript);
     EXPECT_TRUE(result);
 
     EXPECT_EQ(prover_transcript->get_manifest(), verifier_transcript->get_manifest());
@@ -227,29 +239,11 @@ TEST_F(IPATest, Open)
 
 TEST_F(IPATest, GeminiShplonkIPAWithShift)
 {
-    using IPA = IPA<Curve>;
-    using ShplonkProver = ShplonkProver_<Curve>;
-    using ShplonkVerifier = ShplonkVerifier_<Curve>;
-    using GeminiProver = GeminiProver_<Curve>;
-    using GeminiVerifier = GeminiVerifier_<Curve>;
-
-    const size_t n = 8;
-    const size_t log_n = 3;
-
     // Generate multilinear polynomials, their commitments (genuine and mocked) and evaluations (genuine) at a random
     // point.
-    auto mle_opening_point = this->random_evaluation_point(log_n); // sometimes denoted 'u'
-    auto poly1 = Polynomial::random(n);
-    auto poly2 = Polynomial::random(n, /*shiftable*/ 1);
+    auto mle_opening_point = this->random_evaluation_point(small_log_n); // sometimes denoted 'u'
 
-    Commitment commitment1 = this->commit(poly1);
-    Commitment commitment2 = this->commit(poly2);
-
-    auto eval1 = poly1.evaluate_mle(mle_opening_point);
-    auto eval2 = poly2.evaluate_mle(mle_opening_point);
-    auto eval2_shift = poly2.evaluate_mle(mle_opening_point, true);
-
-    std::vector<Fr> multilinear_evaluations = { eval1, eval2, eval2_shift };
+    auto instance_witness = InstanceWitnessGenerator(small_n, 2, 0, mle_opening_point, ck);
 
     auto prover_transcript = NativeTranscript::prover_init_empty();
 
@@ -258,50 +252,38 @@ TEST_F(IPATest, GeminiShplonkIPAWithShift)
     // Compute:
     // - (d+1) opening pairs: {r, \hat{a}_0}, {-r^{2^i}, a_i}, i = 0, ..., d-1
     // - (d+1) Fold polynomials Fold_{r}^(0), Fold_{-r}^(0), and Fold^(i), i = 0, ..., d-1
-    auto prover_opening_claims = GeminiProver::prove(
-        n, RefArray{ poly1, poly2 }, RefArray{ poly2 }, mle_opening_point, this->ck(), prover_transcript);
+    auto prover_opening_claims = GeminiProver::prove(small_n,
+                                                     RefVector(instance_witness.unshifted_polynomials),
+                                                     RefVector(instance_witness.to_be_shifted_polynomials),
+                                                     mle_opening_point,
+                                                     ck,
+                                                     prover_transcript);
 
-    const auto opening_claim = ShplonkProver::prove(this->ck(), prover_opening_claims, prover_transcript);
-    IPA::compute_opening_proof(this->ck(), opening_claim, prover_transcript);
+    const auto opening_claim = ShplonkProver::prove(ck, prover_opening_claims, prover_transcript);
+    IPA::compute_opening_proof(ck, opening_claim, prover_transcript);
 
     auto verifier_transcript = NativeTranscript::verifier_init_empty(prover_transcript);
 
-    auto gemini_verifier_claim = GeminiVerifier::reduce_verification(mle_opening_point,
-                                                                     RefArray{ eval1, eval2 },
-                                                                     RefArray{ eval2_shift },
-                                                                     RefArray{ commitment1, commitment2 },
-                                                                     RefArray{ commitment2 },
-                                                                     verifier_transcript);
+    auto gemini_verifier_claim =
+        GeminiVerifier::reduce_verification(mle_opening_point,
+                                            RefVector(instance_witness.unshifted_evals),
+                                            RefVector(instance_witness.shifted_evals),
+                                            RefVector(instance_witness.unshifted_commitments),
+                                            RefVector(instance_witness.to_be_shifted_commitments),
+                                            verifier_transcript);
 
     const auto shplonk_verifier_claim =
-        ShplonkVerifier::reduce_verification(this->vk()->get_g1_identity(), gemini_verifier_claim, verifier_transcript);
-    auto result = IPA::reduce_verify(this->vk(), shplonk_verifier_claim, verifier_transcript);
+        ShplonkVerifier::reduce_verification(vk->get_g1_identity(), gemini_verifier_claim, verifier_transcript);
+    auto result = IPA::reduce_verify(vk, shplonk_verifier_claim, verifier_transcript);
 
     EXPECT_EQ(result, true);
 }
 TEST_F(IPATest, ShpleminiIPAWithShift)
 {
-    using IPA = IPA<Curve>;
-    using ShplonkProver = ShplonkProver_<Curve>;
-    using ShpleminiVerifier = ShpleminiVerifier_<Curve>;
-    using GeminiProver = GeminiProver_<Curve>;
-
-    const size_t n = 8;
-    const size_t log_n = 3;
-
     // Generate multilinear polynomials, their commitments (genuine and mocked) and evaluations (genuine) at a random
     // point.
-    auto mle_opening_point = this->random_evaluation_point(log_n); // sometimes denoted 'u'
-    auto poly1 = Polynomial::random(n);
-    auto poly2 = Polynomial::random(n, /*shiftable*/ 1);
-    Commitment commitment1 = this->commit(poly1);
-    Commitment commitment2 = this->commit(poly2);
-    std::vector<Commitment> unshifted_commitments = { commitment1, commitment2 };
-    std::vector<Commitment> shifted_commitments = { commitment2 };
-    auto eval1 = poly1.evaluate_mle(mle_opening_point);
-    auto eval2 = poly2.evaluate_mle(mle_opening_point);
-    auto eval2_shift = poly2.evaluate_mle(mle_opening_point, true);
-
+    auto mle_opening_point = this->random_evaluation_point(small_log_n); // sometimes denoted 'u'
+    auto instance_witness = InstanceWitnessGenerator(small_n, 2, 0, mle_opening_point, ck);
     auto prover_transcript = NativeTranscript::prover_init_empty();
 
     // Run the full prover PCS protocol:
@@ -309,25 +291,29 @@ TEST_F(IPATest, ShpleminiIPAWithShift)
     // Compute:
     // - (d+1) opening pairs: {r, \hat{a}_0}, {-r^{2^i}, a_i}, i = 0, ..., d-1
     // - (d+1) Fold polynomials Fold_{r}^(0), Fold_{-r}^(0), and Fold^(i), i = 0, ..., d-1
-    auto prover_opening_claims = GeminiProver::prove(
-        n, RefArray{ poly1, poly2 }, RefArray{ poly2 }, mle_opening_point, this->ck(), prover_transcript);
-
-    const auto opening_claim = ShplonkProver::prove(this->ck(), prover_opening_claims, prover_transcript);
-    IPA::compute_opening_proof(this->ck(), opening_claim, prover_transcript);
+    auto prover_opening_claims = GeminiProver::prove(small_n,
+                                                     RefVector(instance_witness.unshifted_polynomials),
+                                                     RefVector(instance_witness.to_be_shifted_polynomials),
+                                                     mle_opening_point,
+                                                     ck,
+                                                     prover_transcript);
+    const auto opening_claim = ShplonkProver::prove(ck, prover_opening_claims, prover_transcript);
+    IPA::compute_opening_proof(ck, opening_claim, prover_transcript);
 
     auto verifier_transcript = NativeTranscript::verifier_init_empty(prover_transcript);
 
-    const auto batch_opening_claim = ShpleminiVerifier::compute_batch_opening_claim(n,
-                                                                                    RefVector(unshifted_commitments),
-                                                                                    RefVector(shifted_commitments),
-                                                                                    RefArray{ eval1, eval2 },
-                                                                                    RefArray{ eval2_shift },
-                                                                                    mle_opening_point,
-                                                                                    this->vk()->get_g1_identity(),
-                                                                                    verifier_transcript);
+    const auto batch_opening_claim =
+        ShpleminiVerifier::compute_batch_opening_claim(small_n,
+                                                       RefVector(instance_witness.unshifted_commitments),
+                                                       RefVector(instance_witness.to_be_shifted_commitments),
+                                                       RefVector(instance_witness.unshifted_evals),
+                                                       RefVector(instance_witness.shifted_evals),
+                                                       mle_opening_point,
+                                                       vk->get_g1_identity(),
+                                                       verifier_transcript);
 
-    auto result = IPA::reduce_verify_batch_opening_claim(batch_opening_claim, this->vk(), verifier_transcript);
-    // auto result = IPA::reduce_verify(this->vk(), shplonk_verifier_claim, verifier_transcript);
+    auto result = IPA::reduce_verify_batch_opening_claim(batch_opening_claim, vk, verifier_transcript);
+    // auto result = IPA::reduce_verify(vk, shplonk_verifier_claim, verifier_transcript);
 
     EXPECT_EQ(result, true);
 }
@@ -337,36 +323,10 @@ TEST_F(IPATest, ShpleminiIPAWithShift)
  */
 TEST_F(IPATest, ShpleminiIPAShiftsRemoval)
 {
-    using IPA = IPA<Curve>;
-    using ShplonkProver = ShplonkProver_<Curve>;
-    using ShpleminiVerifier = ShpleminiVerifier_<Curve>;
-    using GeminiProver = GeminiProver_<Curve>;
-
-    const size_t n = 8;
-    const size_t log_n = 3;
-
     // Generate multilinear polynomials, their commitments (genuine and mocked) and evaluations (genuine) at a random
     // point.
-    auto mle_opening_point = this->random_evaluation_point(log_n); // sometimes denoted 'u'
-    auto poly1 = Polynomial::random(n);
-    auto poly2 = Polynomial::random(n, /*shiftable*/ 1);
-    auto poly3 = Polynomial::random(n, /*shiftable*/ 1);
-    auto poly4 = Polynomial::random(n);
-
-    Commitment commitment1 = this->commit(poly1);
-    Commitment commitment2 = this->commit(poly2);
-    Commitment commitment3 = this->commit(poly3);
-    Commitment commitment4 = this->commit(poly4);
-
-    std::vector<Commitment> unshifted_commitments = { commitment1, commitment2, commitment3, commitment4 };
-    std::vector<Commitment> shifted_commitments = { commitment2, commitment3 };
-    auto eval1 = poly1.evaluate_mle(mle_opening_point);
-    auto eval2 = poly2.evaluate_mle(mle_opening_point);
-    auto eval3 = poly3.evaluate_mle(mle_opening_point);
-    auto eval4 = poly4.evaluate_mle(mle_opening_point);
-
-    auto eval2_shift = poly2.evaluate_mle(mle_opening_point, true);
-    auto eval3_shift = poly3.evaluate_mle(mle_opening_point, true);
+    auto mle_opening_point = this->random_evaluation_point(small_log_n); // sometimes denoted 'u'
+    auto instance_witness = InstanceWitnessGenerator(small_n, 4, 2, mle_opening_point, ck);
 
     auto prover_transcript = NativeTranscript::prover_init_empty();
 
@@ -375,19 +335,19 @@ TEST_F(IPATest, ShpleminiIPAShiftsRemoval)
     // Compute:
     // - (d+1) opening pairs: {r, \hat{a}_0}, {-r^{2^i}, a_i}, i = 0, ..., d-1
     // - (d+1) Fold polynomials Fold_{r}^(0), Fold_{-r}^(0), and Fold^(i), i = 0, ..., d-1
-    auto prover_opening_claims = GeminiProver::prove(n,
-                                                     RefArray{ poly1, poly2, poly3, poly4 },
-                                                     RefArray{ poly2, poly3 },
+    auto prover_opening_claims = GeminiProver::prove(small_n,
+                                                     RefVector(instance_witness.unshifted_polynomials),
+                                                     RefVector(instance_witness.to_be_shifted_polynomials),
                                                      mle_opening_point,
-                                                     this->ck(),
+                                                     ck,
                                                      prover_transcript);
 
-    const auto opening_claim = ShplonkProver::prove(this->ck(), prover_opening_claims, prover_transcript);
-    IPA::compute_opening_proof(this->ck(), opening_claim, prover_transcript);
+    const auto opening_claim = ShplonkProver::prove(ck, prover_opening_claims, prover_transcript);
+    IPA::compute_opening_proof(ck, opening_claim, prover_transcript);
 
     // the index of the first commitment to a polynomial to be shifted in the union of unshifted_commitments and
     // shifted_commitments. in our case, it is poly2
-    const size_t to_be_shifted_commitments_start = 1;
+    const size_t to_be_shifted_commitments_start = 2;
     // the index of the first commitment to a shifted polynomial in the union of unshifted_commitments and
     // shifted_commitments. in our case, it is the second occurence of poly2
     const size_t shifted_commitments_start = 4;
@@ -400,16 +360,19 @@ TEST_F(IPATest, ShpleminiIPAShiftsRemoval)
     // vectors corresponding to the "shifted" commitment
     auto verifier_transcript = NativeTranscript::verifier_init_empty(prover_transcript);
 
-    auto batch_opening_claim = ShpleminiVerifier::compute_batch_opening_claim(n,
-                                                                              RefVector(unshifted_commitments),
-                                                                              RefVector(shifted_commitments),
-                                                                              RefArray{ eval1, eval2, eval3, eval4 },
-                                                                              RefArray{ eval2_shift, eval3_shift },
-                                                                              mle_opening_point,
-                                                                              this->vk()->get_g1_identity(),
-                                                                              verifier_transcript,
-                                                                              repeated_commitments);
+    const auto batch_opening_claim =
+        ShpleminiVerifier::compute_batch_opening_claim(small_n,
+                                                       RefVector(instance_witness.unshifted_commitments),
+                                                       RefVector(instance_witness.to_be_shifted_commitments),
+                                                       RefVector(instance_witness.unshifted_evals),
+                                                       RefVector(instance_witness.shifted_evals),
+                                                       mle_opening_point,
+                                                       vk->get_g1_identity(),
+                                                       verifier_transcript,
+                                                       repeated_commitments);
 
-    auto result = IPA::reduce_verify_batch_opening_claim(batch_opening_claim, this->vk(), verifier_transcript);
+    auto result = IPA::reduce_verify_batch_opening_claim(batch_opening_claim, vk, verifier_transcript);
     EXPECT_EQ(result, true);
 }
+std::shared_ptr<typename IPATest::CK> IPATest::ck = nullptr;
+std::shared_ptr<typename IPATest::VK> IPATest::vk = nullptr;
