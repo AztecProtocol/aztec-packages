@@ -392,9 +392,7 @@ fn compute_fracs(z: F, ys: [F; FIELDS_PER_BLOB]) -> [F; FIELDS_PER_BLOB] {
 }
 
 // TODO: Clean me
-unconstrained fn __compute_partial_sums(
-    fracs: [F; FIELDS_PER_BLOB],
-) -> [F; FIELDS_PER_BLOB / 8] {
+unconstrained fn __compute_partial_sums(fracs: [F; FIELDS_PER_BLOB]) -> [F; FIELDS_PER_BLOB / 8] {
     let mut partial_sums: [F; FIELDS_PER_BLOB / 8] = std::mem::zeroed();
 
     // Seeking:
@@ -436,7 +434,6 @@ unconstrained fn __compute_partial_sums(
 
     partial_sums
 }
-
 
 mod tests {
     // TODO(#9982): Replace unconstrained_config with config and import ROOTS - calculating ROOTS in unconstrained is insecure.
