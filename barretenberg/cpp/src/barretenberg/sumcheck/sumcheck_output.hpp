@@ -27,7 +27,7 @@ template <typename Flavor> struct SumcheckOutput {
     // For ZK Flavors: the sum of the Libra constant term and Libra univariates evaluated at Sumcheck challenges
     FF claimed_libra_evaluation = FF{ 0 };
     // For ECCVMVerifier: Commitments to round univariates
-    std::vector<Commitment> round_univariate_commitments;
+    std::vector<Commitment> round_univariate_commitments = {};
     // For ECCVMProver: Round univariates in monomial basis
     std::vector<bb::Polynomial<FF>> round_univariates = {};
     // For ECCVMProver/Verifier: evaluations of round univariates at 0, 1, and round challenge

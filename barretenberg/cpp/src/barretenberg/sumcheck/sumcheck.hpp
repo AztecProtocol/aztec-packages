@@ -862,7 +862,6 @@ template <typename Flavor> class SumcheckVerifier {
             eval = transcript_eval;
         }
         // For ZK Flavors: the evaluation of the Row Disabling Polynomial at the sumcheck challenge
-        RowDisablingPolynomial<FF> row_disabler = RowDisablingPolynomial<FF>();
         // Evaluate the Honk relation at the point (u_0, ..., u_{d-1}) using claimed evaluations of prover polynomials.
         // In ZK Flavors, the evaluation is corrected by full_libra_purported_value
         FF full_honk_purported_value = round.compute_full_relation_purported_value(
