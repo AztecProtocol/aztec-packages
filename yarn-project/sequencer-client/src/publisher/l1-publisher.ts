@@ -1060,7 +1060,6 @@ export class L1Publisher {
         functionName: 'propose',
         args,
       });
-      this.log.debug('simulateGasUsed with blob inputs', { blobInputs: args[3] });
       let simulationResult = await this.l1TxUtils.simulateGasUsed(
         {
           to: this.rollupContract.address,
@@ -1070,6 +1069,18 @@ export class L1Publisher {
         {
           time: timestamp,
         },
+        [
+          {
+            address: this.rollupContract.address,
+            // @note we override checkBlob to false since blobs are not part simulate()
+            stateDiff: [
+              {
+                slot: toHex(9n, true),
+                value: toHex(0n, true),
+              },
+            ],
+          },
+        ],
       );
 
       if (simulationResult === -1n) {
@@ -1132,6 +1143,18 @@ export class L1Publisher {
         {
           time: timestamp,
         },
+        [
+          {
+            address: this.rollupContract.address,
+            // @note we override checkBlob to false since blobs are not part simulate()
+            stateDiff: [
+              {
+                slot: toHex(9n, true),
+                value: toHex(0n, true),
+              },
+            ],
+          },
+        ],
       );
 
       if (simulationResult === -1n) {

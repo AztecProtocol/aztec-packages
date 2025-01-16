@@ -20,6 +20,7 @@ import {
   MethodNotFoundRpcError,
   MethodNotSupportedRpcError,
   type PublicClient,
+  type StateOverride,
   type TransactionReceipt,
   type WalletClient,
   formatGwei,
@@ -575,6 +576,7 @@ export class L1TxUtils {
     request: L1TxRequest,
     _gasConfig?: L1TxUtilsConfig,
     blockOverrides: BlockOverrides<bigint, number> = {},
+    stateOverrides: StateOverride = [],
   ): Promise<bigint> {
     const gasConfig = { ...this.config, ..._gasConfig };
     const gasPrice = await this.getGasPrice(gasConfig, false);
@@ -584,6 +586,7 @@ export class L1TxUtils {
         blocks: [
           {
             blockOverrides,
+            stateOverrides,
             calls: [
               {
                 from: this.walletClient.account.address,
@@ -596,9 +599,8 @@ export class L1TxUtils {
           },
         ],
       });
-      this.logger?.debug('Gas used in simulation', {
-        gasUsed: result[0].calls[0].gasUsed,
-        result: result,
+      this.logger?.debug(`Gas used in simulation: ${result[0].calls[0].gasUsed}`, {
+        result,
       });
       if (result[0].calls[0].status === 'failure') {
         this.logger?.error('Simulation failed', {
