@@ -117,6 +117,20 @@ pub unconstrained fn check_public_balance(
 }
 // docs:end:txe_test_read_public
 
+pub unconstrained fn check_total_supply(
+    token_contract_address: AztecAddress,
+    expected_total_supply: U128,
+) {
+    let current_contract_address = get_contract_address();
+    cheatcodes::set_contract_address(token_contract_address);
+    let block_number = get_block_number();
+
+    let total_supply_slot = Token::storage_layout().total_supply.slot;
+    let total_supply: U128 = storage_read(token_contract_address, total_supply_slot, block_number);
+    assert(total_supply == expected_total_supply, "Total supply is not correct");
+    cheatcodes::set_contract_address(current_contract_address);
+}
+
 // docs:start:txe_test_call_unconstrained
 pub unconstrained fn check_private_balance(
     token_contract_address: AztecAddress,

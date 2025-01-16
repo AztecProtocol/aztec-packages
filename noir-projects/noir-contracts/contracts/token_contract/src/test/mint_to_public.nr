@@ -32,25 +32,24 @@ unconstrained fn mint_to_public_failures() {
     env.impersonate(owner);
 
     // Overflow recipient
-    let mint_amount = U128::from_integer(2.pow_32(128));
+
+    // We have to do this in 2 steps because we have to pass in a valid U128
+    let amount_until_overflow = U128::from_integer(1000);
+    let mint_amount = U128::from_integer(2.pow_32(128) - amount_until_overflow.to_integer());
+
+    Token::at(token_contract_address).mint_to_public(recipient, mint_amount).call(&mut env.public());
+
     let mint_to_public_call_interface =
-        Token::at(token_contract_address).mint_to_public(owner, mint_amount);
+        Token::at(token_contract_address).mint_to_public(owner, amount_until_overflow);
     env.assert_public_call_fails(mint_to_public_call_interface);
 
     utils::check_public_balance(token_contract_address, owner, U128::zero());
+    utils::check_total_supply(token_contract_address, mint_amount);
 
     // Overflow total supply
-    let mint_for_recipient_amount = U128::from_integer(1_000);
-
-    Token::at(token_contract_address).mint_to_public(recipient, mint_for_recipient_amount).call(
-        &mut env.public(),
-    );
-
-    let mint_amount = U128::from_integer(2.pow_32(128)) - mint_for_recipient_amount;
     let mint_to_public_call_interface =
         Token::at(token_contract_address).mint_to_public(owner, mint_amount);
     env.assert_public_call_fails(mint_to_public_call_interface);
 
-    utils::check_public_balance(token_contract_address, recipient, mint_for_recipient_amount);
     utils::check_public_balance(token_contract_address, owner, U128::zero());
 }
