@@ -30,7 +30,7 @@ jobs:
       ref: master
       namespace: masternet
       values_file: rc-1.yaml
-      aztec_docker_image: aztecprotocol/aztec:${{ needs.get-latest-commit.outputs.commit }}
+      aztec_docker_image: aztecprotocol/aztec@${{ needs.get-latest-commit.outputs.commit }}
       deployment_mnemonic_secret_name: testnet-deployment-mnemonic
       respect_tf_lock: "false"
       run_terraform_destroy: "true"
