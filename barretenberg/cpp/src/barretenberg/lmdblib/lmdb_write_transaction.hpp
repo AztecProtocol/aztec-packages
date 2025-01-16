@@ -9,6 +9,7 @@
 #include "lmdb.h"
 #include <cstdint>
 #include <exception>
+#include <memory>
 
 namespace bb::lmdblib {
 

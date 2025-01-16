@@ -1,1 +1,1 @@
-barretenberg_module(lmdblib lmdb)
+barretenberg_module(lmdblib lmdb numeric)

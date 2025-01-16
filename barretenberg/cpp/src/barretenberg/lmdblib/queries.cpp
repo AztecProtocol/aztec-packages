@@ -1,6 +1,8 @@
 #include "barretenberg/lmdblib/queries.hpp"
 #include "barretenberg/lmdblib/lmdb_helpers.hpp"
 #include "barretenberg/lmdblib/lmdb_write_transaction.hpp"
+#include "barretenberg/lmdblib/types.hpp"
+#include "lmdb.h"
 #include <cstdint>
 #include <vector>
 
@@ -85,5 +87,44 @@ bool get_value(std::vector<uint8_t>& key,
     // use the deserialise key method for deserialising the index
     deserialise_key(dbVal.mv_data, data);
     return true;
+}
+
+bool set_at_key(const LMDBCursor& cursor, std::vector<uint8_t>& key)
+{
+    MDB_val dbKey;
+    dbKey.mv_size = key.size();
+    dbKey.mv_data = (void*)key.data();
+
+    MDB_val dbVal;
+    int code = mdb_cursor_get(cursor.underlying(), &dbKey, &dbVal, MDB_SET);
+    return code == 0;
+}
+
+void read_next(const LMDBCursor& cursor, KeyValuesVector& keyValues, uint64_t numToRead, MDB_cursor_op op)
+{
+    uint64_t numValuesRead = 0;
+    MDB_val dbKey;
+    MDB_val dbVal;
+    int code = mdb_cursor_get(cursor.underlying(), &dbKey, &dbVal, MDB_GET_CURRENT);
+    while (numValuesRead < numToRead && code == 0) {
+        // extract the key and value
+        Value value;
+        Key key;
+        copy_to_vector(dbVal, value);
+        copy_to_vector(dbKey, key);
+        keyValues.emplace_back(std::move(key), std::move(value));
+        ++numValuesRead;
+        // move to the next key
+        code = mdb_cursor_get(cursor.underlying(), &dbKey, &dbVal, op);
+    }
+}
+
+void read_next(const LMDBCursor& cursor, KeyValuesVector& keyValues, uint64_t numToRead)
+{
+    read_next(cursor, keyValues, numToRead, MDB_NEXT);
+}
+void read_prev(const LMDBCursor& cursor, KeyValuesVector& keyValues, uint64_t numToRead)
+{
+    read_next(cursor, keyValues, numToRead, MDB_PREV);
 }
 } // namespace bb::lmdblib::lmdb_queries

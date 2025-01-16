@@ -1,5 +1,6 @@
 #pragma once
 
+#include <atomic>
 #include <condition_variable>
 #include <lmdb.h>
 #include <memory>
@@ -37,7 +38,10 @@ class LMDBEnvironment {
 
     void release_reader();
 
+    uint64_t getNextId() { return _id++; }
+
   private:
+    std::atomic_uint64_t _id;
     MDB_env* _mdbEnv;
     uint32_t _maxReaders;
     uint32_t _numReaders;

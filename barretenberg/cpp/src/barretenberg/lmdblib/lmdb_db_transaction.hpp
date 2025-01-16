@@ -16,8 +16,9 @@ class LMDBDatabaseCreationTransaction : public LMDBTransaction {
     LMDBDatabaseCreationTransaction& operator=(const LMDBDatabaseCreationTransaction& other) = delete;
     LMDBDatabaseCreationTransaction& operator=(LMDBDatabaseCreationTransaction&& other) = delete;
 
-    ~LMDBDatabaseCreationTransaction() override = default;
-    void commit() const;
+    ~LMDBDatabaseCreationTransaction() override;
+    void commit();
+    void try_abort();
 };
 
 } // namespace bb::lmdblib

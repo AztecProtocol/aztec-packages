@@ -32,6 +32,8 @@ class LMDBTransaction {
 
     MDB_txn* underlying() const;
 
+    uint64_t id() const;
+
     /*
      * Rolls back the transaction.
      * Must be called by read transactions to signal the end of the transaction.
@@ -69,6 +71,7 @@ class LMDBTransaction {
 
   protected:
     std::shared_ptr<LMDBEnvironment> _environment;
+    uint64_t _id;
     MDB_txn* _transaction;
     TransactionState state;
 };

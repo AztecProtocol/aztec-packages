@@ -10,7 +10,8 @@ LMDBEnvironment::LMDBEnvironment(const std::string& directory,
                                  uint64_t mapSizeKB,
                                  uint32_t maxNumDBs,
                                  uint32_t maxNumReaders)
-    : _maxReaders(maxNumReaders)
+    : _id(0)
+    , _maxReaders(maxNumReaders)
     , _numReaders(0)
 {
     call_lmdb_func("mdb_env_create", mdb_env_create, &_mdbEnv);

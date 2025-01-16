@@ -1,0 +1,419 @@
+#include <cstddef>
+#include <cstdint>
+#include <gtest/gtest.h>
+
+#include <chrono>
+#include <cstdlib>
+#include <filesystem>
+#include <memory>
+#include <optional>
+#include <sstream>
+#include <stdexcept>
+#include <vector>
+
+#include "barretenberg/common/serialize.hpp"
+#include "barretenberg/common/streams.hpp"
+#include "barretenberg/common/test.hpp"
+#include "barretenberg/lmdblib/fixtures.hpp"
+#include "barretenberg/lmdblib/lmdb_database.hpp"
+#include "barretenberg/lmdblib/lmdb_db_transaction.hpp"
+#include "barretenberg/lmdblib/lmdb_environment.hpp"
+#include "barretenberg/lmdblib/lmdb_read_transaction.hpp"
+#include "barretenberg/lmdblib/lmdb_store.hpp"
+#include "barretenberg/lmdblib/lmdb_write_transaction.hpp"
+#include "barretenberg/lmdblib/queries.hpp"
+#include "barretenberg/lmdblib/types.hpp"
+
+using namespace bb::lmdblib;
+
+class LMDBStoreTest : public testing::Test {
+  protected:
+    void SetUp() override
+    {
+        _directory = random_temp_directory();
+        _mapSize = 1024 * 1024;
+        _maxReaders = 16;
+        std::filesystem::create_directories(_directory);
+    }
+
+    void TearDown() override { std::filesystem::remove_all(_directory); }
+
+  public:
+    static std::string _directory;
+    static uint32_t _maxReaders;
+    static uint64_t _mapSize;
+};
+
+std::string LMDBStoreTest::_directory;
+uint32_t LMDBStoreTest::_maxReaders;
+uint64_t LMDBStoreTest::_mapSize;
+
+LMDBStore::Ptr create_store(uint32_t maxNumDbs = 1)
+{
+    return std::make_unique<LMDBStore>(
+        LMDBStoreTest::_directory, LMDBStoreTest::_mapSize, LMDBStoreTest::_maxReaders, maxNumDbs);
+}
+
+TEST_F(LMDBStoreTest, can_create_store)
+{
+    EXPECT_NO_THROW(LMDBStore store(LMDBStoreTest::_directory, LMDBStoreTest::_mapSize, LMDBStoreTest::_maxReaders, 1));
+}
+
+TEST_F(LMDBStoreTest, can_create_database)
+{
+    LMDBStore::Ptr store = create_store();
+    const std::string name = "Test Database";
+    EXPECT_NO_THROW(store->open_database(name));
+}
+
+TEST_F(LMDBStoreTest, can_not_create_more_databases_then_specified)
+{
+    LMDBStore::Ptr store = create_store(2);
+    const std::string name1 = "Test Database 1";
+    EXPECT_NO_THROW(store->open_database(name1));
+    const std::string name2 = "Test Database 2";
+    EXPECT_NO_THROW(store->open_database(name2));
+    const std::string name3 = "Test Database 3";
+    EXPECT_THROW(store->open_database(name3), std::runtime_error);
+}
+
+TEST_F(LMDBStoreTest, can_write_to_database)
+{
+    LMDBStore::Ptr store = create_store();
+    const std::string name = "Test Database";
+    store->open_database(name);
+
+    auto key = serialise(std::string("Key"));
+    auto data = serialise(std::string("TestData"));
+    KeyValuesVector toWrite = { { { key, data } } };
+    KeysVector toDelete;
+    EXPECT_NO_THROW(store->put(toWrite, toDelete, name));
+}
+
+TEST_F(LMDBStoreTest, can_read_from_database)
+{
+    LMDBStore::Ptr store = create_store();
+    const std::string dbName = "Test Database";
+    store->open_database(dbName);
+
+    auto key = serialise(std::string("Key"));
+    auto expected = serialise(std::string("TestData"));
+    KeyValuesVector toWrite = { { { key, expected } } };
+    KeysVector toDelete;
+    store->put(toWrite, toDelete, dbName);
+
+    OptionalValuesVector data;
+    KeysVector keys = { { key } };
+    store->get(keys, data, dbName);
+    EXPECT_EQ(data.size(), 1);
+    EXPECT_TRUE(data[0].has_value());
+    EXPECT_EQ(data[0].value(), expected);
+}
+
+TEST_F(LMDBStoreTest, can_write_and_read_multiple)
+{
+    LMDBStore::Ptr store = create_store(2);
+
+    const std::vector<std::string> dbNames = { "Test Database 1", "Test Database 2" };
+    for (auto& s : dbNames) {
+        EXPECT_NO_THROW(store->open_database(s));
+    }
+
+    uint64_t numValues = 10;
+
+    {
+        KeyValuesVector toWrite;
+        KeysVector toDelete;
+        for (uint64_t count = 0; count < numValues; count++) {
+            auto key = serialise((std::stringstream() << "Key" << count).str());
+            auto data = serialise((std::stringstream() << "TestData" << count).str());
+            toWrite.emplace_back(key, data);
+        }
+        store->put(toWrite, toDelete, dbNames[0]);
+        store->put(toWrite, toDelete, dbNames[1]);
+    }
+
+    {
+        KeysVector keys;
+        OptionalValuesVector values;
+        for (uint64_t count = 0; count < numValues; count++) {
+            auto key = serialise((std::stringstream() << "Key" << count).str());
+            auto expected = serialise((std::stringstream() << "TestData" << count).str());
+            keys.push_back(key);
+            values.emplace_back(expected);
+        }
+
+        {
+            OptionalValuesVector retrieved;
+            store->get(keys, retrieved, dbNames[0]);
+            EXPECT_EQ(retrieved.size(), numValues);
+            EXPECT_EQ(retrieved, values);
+        }
+        {
+            OptionalValuesVector retrieved;
+            store->get(keys, retrieved, dbNames[1]);
+            EXPECT_EQ(retrieved.size(), numValues);
+            EXPECT_EQ(retrieved, values);
+        }
+    }
+}
+
+TEST_F(LMDBStoreTest, can_read_missing_keys_from_database)
+{
+    LMDBStore::Ptr store = create_store();
+    const std::string dbName = "Test Database";
+    store->open_database(dbName);
+
+    auto key = serialise(std::string("Key"));
+    auto expected = serialise(std::string("TestData"));
+    KeyValuesVector toWrite = { { { key, expected } } };
+    KeysVector toDelete;
+    store->put(toWrite, toDelete, dbName);
+
+    OptionalValuesVector data;
+    auto missing = serialise(std::string("Missing Key"));
+    KeysVector keys = { { key }, { missing } };
+    store->get(keys, data, dbName);
+    EXPECT_EQ(data.size(), 2);
+    EXPECT_TRUE(data[0].has_value());
+    EXPECT_EQ(data[0].value(), expected);
+    EXPECT_FALSE(data[1].has_value());
+}
+
+TEST_F(LMDBStoreTest, can_write_and_delete)
+{
+    LMDBStore::Ptr store = create_store(2);
+
+    const std::vector<std::string> dbNames = { "Test Database 1", "Test Database 2" };
+    for (auto& s : dbNames) {
+        store->open_database(s);
+    }
+
+    uint64_t numValues = 10;
+
+    {
+        KeyValuesVector toWrite;
+        KeysVector toDelete;
+        for (uint64_t count = 0; count < numValues; count++) {
+            auto key = serialise((std::stringstream() << "Key" << count).str());
+            auto data = serialise((std::stringstream() << "TestData" << count).str());
+            toWrite.emplace_back(key, data);
+        }
+        store->put(toWrite, toDelete, dbNames[0]);
+    }
+
+    {
+        // Write 2 more and delete some
+        KeyValuesVector toWrite;
+        KeysVector toDelete;
+        for (uint64_t count = 10; count < numValues + 2; count++) {
+            auto key = serialise((std::stringstream() << "Key" << count).str());
+            auto data = serialise((std::stringstream() << "TestData" << count).str());
+            toWrite.emplace_back(key, data);
+        }
+        for (uint64_t count = 3; count < numValues - 2; count++) {
+            auto key = serialise((std::stringstream() << "Key" << count).str());
+            auto data = serialise((std::stringstream() << "TestData" << count).str());
+            toDelete.emplace_back(key);
+        }
+        store->put(toWrite, toDelete, dbNames[0]);
+    }
+
+    {
+        KeysVector keys;
+        OptionalValuesVector values;
+        for (uint64_t count = 0; count < numValues + 2; count++) {
+            auto key = serialise((std::stringstream() << "Key" << count).str());
+            auto expected = serialise((std::stringstream() << "TestData" << count).str());
+            keys.push_back(key);
+            values.emplace_back((count < 3 || count >= (numValues - 2)) ? OptionalValue(expected) : std::nullopt);
+        }
+
+        {
+            OptionalValuesVector retrieved;
+            store->get(keys, retrieved, dbNames[0]);
+            EXPECT_EQ(retrieved.size(), numValues + 2);
+            EXPECT_EQ(retrieved, values);
+        }
+    }
+}
+
+TEST_F(LMDBStoreTest, can_read_forwards_with_cursors)
+{
+    LMDBStore::Ptr store = create_store(2);
+
+    const std::vector<std::string> dbNames = { "Test Database 1", "Test Database 2" };
+    for (auto& s : dbNames) {
+        store->open_database(s);
+    }
+
+    int64_t numValues = 10;
+
+    {
+        KeyValuesVector toWrite;
+        KeysVector toDelete;
+        for (int64_t count = 0; count < numValues; count++) {
+            auto key = serialise((std::stringstream() << "Key" << count).str());
+            auto data = serialise((std::stringstream() << "TestData" << count).str());
+            toWrite.emplace_back(key, data);
+        }
+        store->put(toWrite, toDelete, dbNames[0]);
+    }
+
+    {
+        // read from a key mid-way through
+        int64_t startKey = 3;
+        auto key = serialise((std::stringstream() << "Key" << startKey).str());
+        LMDBStore::ReadTransaction::SharedPtr tx = store->create_shared_read_transaction();
+        LMDBStore::Cursor::Ptr cursor = store->create_cursor(tx, dbNames[0]);
+        bool setResult = cursor->set_at_key(key);
+        EXPECT_TRUE(setResult);
+
+        int64_t batchSize = 4;
+        KeyValuesVector keyValues;
+        cursor->read_next((uint64_t)batchSize, keyValues);
+
+        KeyValuesVector expected;
+        for (int64_t count = startKey; count < startKey + batchSize; count++) {
+            auto key = serialise((std::stringstream() << "Key" << count).str());
+            auto data = serialise((std::stringstream() << "TestData" << count).str());
+            expected.emplace_back(key, data);
+        }
+        EXPECT_EQ(keyValues, expected);
+    }
+}
+
+TEST_F(LMDBStoreTest, can_read_backwards_with_cursors)
+{
+    LMDBStore::Ptr store = create_store(2);
+
+    const std::vector<std::string> dbNames = { "Test Database 1", "Test Database 2" };
+    for (auto& s : dbNames) {
+        store->open_database(s);
+    }
+
+    int64_t numValues = 10;
+
+    {
+        KeyValuesVector toWrite;
+        KeysVector toDelete;
+        for (int64_t count = 0; count < numValues; count++) {
+            auto key = serialise((std::stringstream() << "Key" << count).str());
+            auto data = serialise((std::stringstream() << "TestData" << count).str());
+            toWrite.emplace_back(key, data);
+        }
+        store->put(toWrite, toDelete, dbNames[0]);
+    }
+
+    {
+        // read from a key mid-way through
+        int64_t startKey = 7;
+        auto key = serialise((std::stringstream() << "Key" << startKey).str());
+        LMDBStore::ReadTransaction::SharedPtr tx = store->create_shared_read_transaction();
+        LMDBStore::Cursor::Ptr cursor = store->create_cursor(tx, dbNames[0]);
+        bool setResult = cursor->set_at_key(key);
+        EXPECT_TRUE(setResult);
+
+        int64_t batchSize = 4;
+        KeyValuesVector keyValues;
+        cursor->read_prev((uint64_t)batchSize, keyValues);
+
+        KeyValuesVector expected;
+        for (int64_t count = startKey; count > startKey - batchSize; count--) {
+            auto key = serialise((std::stringstream() << "Key" << count).str());
+            auto data = serialise((std::stringstream() << "TestData" << count).str());
+            expected.emplace_back(key, data);
+        }
+        EXPECT_EQ(keyValues, expected);
+    }
+}
+
+TEST_F(LMDBStoreTest, can_read_past_the_end_with_cursors)
+{
+    LMDBStore::Ptr store = create_store(2);
+
+    const std::vector<std::string> dbNames = { "Test Database 1", "Test Database 2" };
+    for (auto& s : dbNames) {
+        store->open_database(s);
+    }
+
+    int64_t numValues = 10;
+
+    {
+        KeyValuesVector toWrite;
+        KeysVector toDelete;
+        for (int64_t count = 0; count < numValues; count++) {
+            auto key = serialise((std::stringstream() << "Key" << count).str());
+            auto data = serialise((std::stringstream() << "TestData" << count).str());
+            toWrite.emplace_back(key, data);
+        }
+        store->put(toWrite, toDelete, dbNames[0]);
+    }
+
+    {
+        // read from a key mid-way through
+        int64_t startKey = 3;
+        auto key = serialise((std::stringstream() << "Key" << startKey).str());
+        LMDBStore::ReadTransaction::SharedPtr tx = store->create_shared_read_transaction();
+        LMDBStore::Cursor::Ptr cursor = store->create_cursor(tx, dbNames[0]);
+        bool setResult = cursor->set_at_key(key);
+        EXPECT_TRUE(setResult);
+
+        int64_t batchSize = 50;
+        KeyValuesVector keyValues;
+        cursor->read_next((uint64_t)batchSize, keyValues);
+
+        KeyValuesVector expected;
+        for (int64_t count = startKey; count < numValues; count++) {
+            auto key = serialise((std::stringstream() << "Key" << count).str());
+            auto data = serialise((std::stringstream() << "TestData" << count).str());
+            expected.emplace_back(key, data);
+        }
+        EXPECT_EQ(keyValues, expected);
+    }
+}
+
+TEST_F(LMDBStoreTest, can_read_past_the_start_with_cursors)
+{
+    LMDBStore::Ptr store = create_store(2);
+
+    const std::vector<std::string> dbNames = { "Test Database 1", "Test Database 2" };
+    for (auto& s : dbNames) {
+        store->open_database(s);
+    }
+
+    int64_t numValues = 10;
+
+    {
+        KeyValuesVector toWrite;
+        KeysVector toDelete;
+        for (int64_t count = 0; count < numValues; count++) {
+            auto key = serialise((std::stringstream() << "Key" << count).str());
+            auto data = serialise((std::stringstream() << "TestData" << count).str());
+            toWrite.emplace_back(key, data);
+        }
+        store->put(toWrite, toDelete, dbNames[0]);
+    }
+
+    {
+        // read from a key mid-way through
+        int64_t startKey = 7;
+        auto key = serialise((std::stringstream() << "Key" << startKey).str());
+        LMDBStore::ReadTransaction::SharedPtr tx = store->create_shared_read_transaction();
+        LMDBStore::Cursor::Ptr cursor = store->create_cursor(tx, dbNames[0]);
+        bool setResult = cursor->set_at_key(key);
+        EXPECT_TRUE(setResult);
+
+        int64_t batchSize = 50;
+        KeyValuesVector keyValues;
+        cursor->read_prev((uint64_t)batchSize, keyValues);
+
+        KeyValuesVector expected;
+        for (int64_t count = startKey; count >= 0; count--) {
+            auto key = serialise((std::stringstream() << "Key" << count).str());
+            auto data = serialise((std::stringstream() << "TestData" << count).str());
+            expected.emplace_back(key, data);
+        }
+        EXPECT_EQ(keyValues, expected);
+    }
+}

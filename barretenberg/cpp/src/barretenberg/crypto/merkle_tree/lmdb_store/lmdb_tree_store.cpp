@@ -56,34 +56,35 @@ LMDBTreeStore::LMDBTreeStore(std::string directory, std::string name, uint64_t m
     {
         LMDBDatabaseCreationTransaction tx(_environment);
         _blockDatabase =
-            std::make_unique<LMDBDatabase>(_environment, tx, _name + BLOCKS_DB, false, false, block_key_cmp);
+            std::make_unique<LMDBDatabase>(_environment, tx, _name + BLOCKS_DB, false, false, false, block_key_cmp);
         tx.commit();
     }
 
     {
         LMDBDatabaseCreationTransaction tx(_environment);
-        _nodeDatabase = std::make_unique<LMDBDatabase>(_environment, tx, _name + NODES_DB, false, false, fr_key_cmp);
+        _nodeDatabase =
+            std::make_unique<LMDBDatabase>(_environment, tx, _name + NODES_DB, false, false, false, fr_key_cmp);
         tx.commit();
     }
 
     {
         LMDBDatabaseCreationTransaction tx(_environment);
         _leafKeyToIndexDatabase =
-            std::make_unique<LMDBDatabase>(_environment, tx, _name + LEAF_INDICES_DB, false, false, fr_key_cmp);
+            std::make_unique<LMDBDatabase>(_environment, tx, _name + LEAF_INDICES_DB, false, false, false, fr_key_cmp);
         tx.commit();
     }
 
     {
         LMDBDatabaseCreationTransaction tx(_environment);
-        _leafHashToPreImageDatabase =
-            std::make_unique<LMDBDatabase>(_environment, tx, _name + LEAF_PREIMAGES_DB, false, false, fr_key_cmp);
+        _leafHashToPreImageDatabase = std::make_unique<LMDBDatabase>(
+            _environment, tx, _name + LEAF_PREIMAGES_DB, false, false, false, fr_key_cmp);
         tx.commit();
     }
 
     {
         LMDBDatabaseCreationTransaction tx(_environment);
-        _indexToBlockDatabase =
-            std::make_unique<LMDBDatabase>(_environment, tx, _name + BLOCK_INDICES_DB, false, false, index_key_cmp);
+        _indexToBlockDatabase = std::make_unique<LMDBDatabase>(
+            _environment, tx, _name + BLOCK_INDICES_DB, false, false, false, index_key_cmp);
         tx.commit();
     }
 }

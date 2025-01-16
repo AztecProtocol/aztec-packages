@@ -29,7 +29,7 @@ static std::vector<fr> VALUES = create_values();
 inline std::string random_string()
 {
     std::stringstream ss;
-    ss << random_engine.get_random_uint256();
+    ss << random_engine.get_random_uint32();
     return ss.str();
 }
 

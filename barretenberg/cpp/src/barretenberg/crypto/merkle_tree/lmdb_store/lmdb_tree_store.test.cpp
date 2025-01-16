@@ -118,7 +118,7 @@ TEST_F(LMDBTreeStoreTest, can_read_data_from_multiple_threads)
     metaData.size = 60;
     LMDBTreeStore store(_directory, "DB1", _mapSize, 2);
     {
-        LMDBTreeWriteTransaction::Ptr transaction = store.create_write_transaction();
+        LMDBWriteTransaction::Ptr transaction = store.create_write_transaction();
         store.write_meta_data(metaData, *transaction);
         transaction->commit();
     }
@@ -129,7 +129,7 @@ TEST_F(LMDBTreeStoreTest, can_read_data_from_multiple_threads)
     {
         auto func = [&]() -> void {
             for (uint64_t iteration = 0; iteration < numIterationsPerThread; iteration++) {
-                LMDBTreeReadTransaction::Ptr transaction = store.create_read_transaction();
+                LMDBReadTransaction::Ptr transaction = store.create_read_transaction();
                 TreeMeta readBack;
                 bool success = store.read_meta_data(readBack, *transaction);
                 EXPECT_TRUE(success);

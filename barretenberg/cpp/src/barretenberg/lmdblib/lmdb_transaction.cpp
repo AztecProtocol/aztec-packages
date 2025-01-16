@@ -1,11 +1,13 @@
 #include "barretenberg/lmdblib/lmdb_transaction.hpp"
 #include "barretenberg/lmdblib/lmdb_environment.hpp"
 #include "barretenberg/lmdblib/lmdb_helpers.hpp"
+#include <cstdint>
 #include <utility>
 
 namespace bb::lmdblib {
 LMDBTransaction::LMDBTransaction(std::shared_ptr<LMDBEnvironment> env, bool readOnly)
     : _environment(std::move(env))
+    , _id(_environment->getNextId())
     , state(TransactionState::OPEN)
 {
     MDB_txn* p = nullptr;
@@ -18,6 +20,11 @@ LMDBTransaction::~LMDBTransaction() = default;
 MDB_txn* LMDBTransaction::underlying() const
 {
     return _transaction;
+}
+
+uint64_t LMDBTransaction::id() const
+{
+    return _id;
 }
 
 void LMDBTransaction::abort()

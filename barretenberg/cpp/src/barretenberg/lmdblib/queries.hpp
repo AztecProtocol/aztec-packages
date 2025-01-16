@@ -1,7 +1,9 @@
 #pragma once
 
+#include "barretenberg/lmdblib/lmdb_cursor.hpp"
 #include "barretenberg/lmdblib/lmdb_database.hpp"
 #include "barretenberg/lmdblib/lmdb_helpers.hpp"
+#include "barretenberg/lmdblib/types.hpp"
 #include "lmdb.h"
 #include <cstdint>
 #include <functional>
@@ -178,10 +180,10 @@ bool get_value_or_previous(TKey& key,
 }
 
 template <typename TKey, typename TxType>
-bool get_value_or_greater(TKey& key, std::vector<uint8_t>& data, const LMDBDatabase& db, const TxType& tx)
+bool get_value_or_greater(TKey& key, Value& data, const LMDBDatabase& db, const TxType& tx)
 {
     bool success = false;
-    std::vector<uint8_t> keyBuffer = serialise_key(key);
+    Key keyBuffer = serialise_key(key);
     uint32_t keySize = static_cast<uint32_t>(keyBuffer.size());
     MDB_cursor* cursor = nullptr;
     call_lmdb_func("mdb_cursor_open", mdb_cursor_open, tx.underlying(), db.underlying(), &cursor);
@@ -217,12 +219,9 @@ bool get_value_or_greater(TKey& key, std::vector<uint8_t>& data, const LMDBDatab
 }
 
 template <typename TKey, typename TxType>
-void get_all_values_greater_or_equal_key(const TKey& key,
-                                         std::vector<std::vector<uint8_t>>& data,
-                                         const LMDBDatabase& db,
-                                         const TxType& tx)
+void get_all_values_greater_or_equal_key(const TKey& key, ValuesVector& data, const LMDBDatabase& db, const TxType& tx)
 {
-    std::vector<uint8_t> keyBuffer = serialise_key(key);
+    Key keyBuffer = serialise_key(key);
     uint32_t keySize = static_cast<uint32_t>(keyBuffer.size());
     MDB_cursor* cursor = nullptr;
     call_lmdb_func("mdb_cursor_open", mdb_cursor_open, tx.underlying(), db.underlying(), &cursor);
@@ -243,7 +242,7 @@ void get_all_values_greater_or_equal_key(const TKey& key,
                     break;
                 }
                 // this is data that we need to extract
-                std::vector<uint8_t> temp;
+                Value temp;
                 copy_to_vector(dbVal, temp);
                 data.emplace_back(temp);
 
@@ -266,7 +265,7 @@ void get_all_values_greater_or_equal_key(const TKey& key,
 template <typename TKey, typename TxType>
 void delete_all_values_greater_or_equal_key(const TKey& key, const LMDBDatabase& db, const TxType& tx)
 {
-    std::vector<uint8_t> keyBuffer = serialise_key(key);
+    Key keyBuffer = serialise_key(key);
     uint32_t keySize = static_cast<uint32_t>(keyBuffer.size());
     MDB_cursor* cursor = nullptr;
     call_lmdb_func("mdb_cursor_open", mdb_cursor_open, tx.underlying(), db.underlying(), &cursor);
@@ -310,12 +309,9 @@ void delete_all_values_greater_or_equal_key(const TKey& key, const LMDBDatabase&
 }
 
 template <typename TKey, typename TxType>
-void get_all_values_lesser_or_equal_key(const TKey& key,
-                                        std::vector<std::vector<uint8_t>>& data,
-                                        const LMDBDatabase& db,
-                                        const TxType& tx)
+void get_all_values_lesser_or_equal_key(const TKey& key, ValuesVector& data, const LMDBDatabase& db, const TxType& tx)
 {
-    std::vector<uint8_t> keyBuffer = serialise_key(key);
+    Key keyBuffer = serialise_key(key);
     uint32_t keySize = static_cast<uint32_t>(keyBuffer.size());
     MDB_cursor* cursor = nullptr;
     call_lmdb_func("mdb_cursor_open", mdb_cursor_open, tx.underlying(), db.underlying(), &cursor);
@@ -330,10 +326,10 @@ void get_all_values_lesser_or_equal_key(const TKey& key,
         int code = mdb_cursor_get(cursor, &dbKey, &dbVal, MDB_SET_RANGE);
         if (code == 0) {
             // we found the key, now determine if it is the exact key
-            std::vector<uint8_t> temp = mdb_val_to_vector(dbKey);
+            Key temp = mdb_val_to_vector(dbKey);
             if (keyBuffer == temp) {
                 // we have the exact key, copy it's data
-                std::vector<uint8_t> temp;
+                Value temp;
                 copy_to_vector(dbVal, temp);
                 data.push_back(temp);
             } else {
@@ -356,7 +352,7 @@ void get_all_values_lesser_or_equal_key(const TKey& key,
                     break;
                 }
                 // the same size, grab the value and go round again
-                std::vector<uint8_t> temp;
+                Value temp;
                 copy_to_vector(dbVal, temp);
                 data.push_back(temp);
 
@@ -377,7 +373,7 @@ void get_all_values_lesser_or_equal_key(const TKey& key,
 template <typename TKey, typename TxType>
 void delete_all_values_lesser_or_equal_key(const TKey& key, const LMDBDatabase& db, const TxType& tx)
 {
-    std::vector<uint8_t> keyBuffer = serialise_key(key);
+    Key keyBuffer = serialise_key(key);
     uint32_t keySize = static_cast<uint32_t>(keyBuffer.size());
     MDB_cursor* cursor = nullptr;
     call_lmdb_func("mdb_cursor_open", mdb_cursor_open, tx.underlying(), db.underlying(), &cursor);
@@ -392,7 +388,7 @@ void delete_all_values_lesser_or_equal_key(const TKey& key, const LMDBDatabase& 
         int code = mdb_cursor_get(cursor, &dbKey, &dbVal, MDB_SET_RANGE);
         if (code == 0) {
             // we found the key, now determine if it is the exact key
-            std::vector<uint8_t> temp = mdb_val_to_vector(dbKey);
+            Key temp = mdb_val_to_vector(dbKey);
             if (keyBuffer == temp) {
                 // we have the exact key, delete it's data
                 code = mdb_cursor_del(cursor, 0);
@@ -440,17 +436,19 @@ void delete_all_values_lesser_or_equal_key(const TKey& key, const LMDBDatabase& 
     call_lmdb_func(mdb_cursor_close, cursor);
 }
 
-void put_value(std::vector<uint8_t>& key, std::vector<uint8_t>& data, const LMDBDatabase& db, LMDBWriteTransaction& tx);
+void put_value(Key& key, Value& data, const LMDBDatabase& db, LMDBWriteTransaction& tx);
 
-void put_value(std::vector<uint8_t>& key, const uint64_t& data, const LMDBDatabase& db, LMDBWriteTransaction& tx);
+void put_value(Key& key, const uint64_t& data, const LMDBDatabase& db, LMDBWriteTransaction& tx);
 
-void delete_value(std::vector<uint8_t>& key, const LMDBDatabase& db, LMDBWriteTransaction& tx);
+void delete_value(Key& key, const LMDBDatabase& db, LMDBWriteTransaction& tx);
 
-bool get_value(std::vector<uint8_t>& key,
-               std::vector<uint8_t>& data,
-               const LMDBDatabase& db,
-               const LMDBTransaction& tx);
+bool get_value(Key& key, Value& data, const LMDBDatabase& db, const LMDBTransaction& tx);
 
-bool get_value(std::vector<uint8_t>& key, uint64_t& data, const LMDBDatabase& db, const LMDBTransaction& tx);
+bool get_value(Key& key, uint64_t& data, const LMDBDatabase& db, const LMDBTransaction& tx);
+
+bool set_at_key(const LMDBCursor& cursor, Key& key);
+
+void read_next(const LMDBCursor& cursor, KeyValuesVector& keyValues, uint64_t numToRead);
+void read_prev(const LMDBCursor& cursor, KeyValuesVector& keyValues, uint64_t numToRead);
 } // namespace lmdb_queries
 } // namespace bb::lmdblib

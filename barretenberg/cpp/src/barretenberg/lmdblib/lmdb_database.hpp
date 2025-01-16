@@ -18,6 +18,7 @@ class LMDBDatabase {
                  const std::string& name,
                  bool integerKeys = false,
                  bool reverseKeys = false,
+                 bool duplicateValuesPermitted = false,
                  MDB_cmp_func* cmp = nullptr);
 
     LMDBDatabase(const LMDBDatabase& other) = delete;
@@ -28,8 +29,10 @@ class LMDBDatabase {
     ~LMDBDatabase();
 
     const MDB_dbi& underlying() const;
+    const std::string& name() const;
 
   private:
+    std::string dbName;
     MDB_dbi _dbi;
     LMDBEnvironment::SharedPtr _environment;
 };

@@ -10,6 +10,7 @@
 #include <cstring>
 #include <exception>
 #include <functional>
+#include <memory>
 #include <vector>
 
 namespace bb::lmdblib {
@@ -22,6 +23,7 @@ namespace bb::lmdblib {
 class LMDBReadTransaction : public LMDBTransaction {
   public:
     using Ptr = std::unique_ptr<LMDBReadTransaction>;
+    using SharedPtr = std::shared_ptr<LMDBReadTransaction>;
 
     LMDBReadTransaction(LMDBEnvironment::SharedPtr env);
     LMDBReadTransaction(const LMDBReadTransaction& other) = delete;
