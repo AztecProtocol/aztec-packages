@@ -35,7 +35,7 @@ export class FeeJuicePaymentMethodWithClaim extends FeeJuicePaymentMethod {
         isStatic: false,
         args: [
           this.sender.toField(),
-          this.claim.claimAmount,
+          new Fr(this.claim.claimAmount),
           this.claim.claimSecret,
           new Fr(this.claim.messageLeafIndex),
         ],
