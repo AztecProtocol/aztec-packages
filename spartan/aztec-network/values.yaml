@@ -165,6 +165,7 @@ proverNode:
     timeoutMs: 60000
     intervalMs: 1000
     maxParallelRequests: 100
+  failedProofStore: ""
 
 pxe:
   logLevel: "debug; info: aztec:simulator, json-rpc"
