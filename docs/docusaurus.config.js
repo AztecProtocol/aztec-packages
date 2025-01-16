@@ -246,6 +246,12 @@ const config = {
             position: "right",
           },
           {
+            to: "https://github.com/AztecProtocol/aztec-starter",
+            label: "Aztec Starter",
+            position: "right",
+            className: "github-item",
+          },
+          {
             type: "dropdown",
             label: "Resources",
             position: "right",

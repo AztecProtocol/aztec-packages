@@ -1,7 +1,6 @@
 ---
 sidebar_position: 4
 title: Reacting to upgrades 
-draft: true
 ---
 
 This is a guide for sequencer nodes to understand how to react to protocol upgrades. To learn about how upgrades work, read the [concept section](../concepts/governance/upgrades.md).

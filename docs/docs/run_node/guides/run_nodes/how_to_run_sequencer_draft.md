@@ -38,19 +38,19 @@ Run `./aztec-spartan.sh` without any command to see all available options, and p
 
 For more options, see the [Node Configuration](#node-configuration) section.
 
-::tip
+:::tip
 Ensure that each validator instance uses unique ports to avoid conflicts.
-::
+:::
 
 ## Running
 
 You can use `npx aztec-spartan [start/stop/logs/update]` to start, stop, output logs or pull the latest docker images.
 
-::note
+:::note
 The above deploy script will connect your node to the p2p network where it will register peers and start receiving messages from other nodes on the network. You will not be in the validator set just yet.
 
 Once you connect and begin to see gossiped messages such as attestations, proposals etc notify notify a team member and they will add you to the validator set.
-::
+:::
 
 ## Node Configuration
 
@@ -141,9 +141,9 @@ To participate in the governance vote, sequencers must change the variable `GOVE
 
 ## Troubleshooting
 
-::tip
-> Please make sure you are in the Discord server and that you have been assigned the role `S&P Participant`. Say gm in the `sequencer-and-prover` channel and turn on notifications for the announcements channel.
-::
+:::tip
+Please make sure you are in the Discord server and that you have been assigned the role `S&P Participant`. Say gm in the `sequencer-and-prover` channel and turn on notifications for the announcements channel.
+:::
 
 If you encounter any errors or bugs, please try basic troubleshooting steps like restarting your node, checking ports and configs.
 

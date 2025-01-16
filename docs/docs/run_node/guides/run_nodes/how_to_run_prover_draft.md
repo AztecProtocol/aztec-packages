@@ -6,7 +6,7 @@ draft: true
 
 !! We will update and publish this when ready !!
 
-It is recommended to read the concepts before running a node, specifically the [provers and sequencers](../concepts/provers-and-sequencers/index.md) section.
+It is recommended to read the concepts before running a node, specifically the [provers and sequencers](../../concepts/provers-and-sequencers/index.md) section.
 
 The Aztec client can be run as a Prover Node. In this mode, the client will automatically monitor L1 for unclaimed epochs and propose bids (i.e. EpochProofQuote) for proving them. The prover node watches the L1 to see when a bid they submitted has been accepted by a sequencer, the prover node will then kick off an epoch proving job which performs the following tasks:
 
@@ -77,9 +77,9 @@ The Aztec client is configured via environment variables, the following ones bei
 - **BOOT_NODE_URL**: The URL of the boot node for peer discovery.
 - **AZTEC_NODE_URL**: Used by the Prover Node to fetch the L1 contract addresses if they were not manually set via environment variables.
 
-::note
-> For S&P Testnet, we will be providing an Ethereum host, a Boot Node URL and a specific Aztec Image.
-::
+:::note
+For S&P Testnet, we will be providing an Ethereum host, a Boot Node URL and a specific Aztec Image.
+:::
 
 The prover agent, on the other hand, relies on the following environment variables:
 

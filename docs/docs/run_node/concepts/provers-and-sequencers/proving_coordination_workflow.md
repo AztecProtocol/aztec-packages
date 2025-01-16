@@ -12,9 +12,9 @@ However, Aztec Nodes will support two optional mechanisms that provers can use t
 
 To send a quote via the P2P, do not set the environment variable `PROVER_COORDINATION_NODE_URL` and make sure that `P2P_ENABLED` is set to `true`.
 
-::note
+:::note
 For S&P Testnet, please make sure that you are gossiping quotes via the P2P. Set `P2P_ENABLED` to `true` and do not use `PROVER_COORDINATION_NODE_URL`.
-::
+:::
 
 
 ```rust
@@ -86,9 +86,9 @@ The response is also expected in JSON and to contain `basisPointFee` and `bondAm
 
 If no `QUOTE_PROVIDER_URL` is passed along to the Prover Node, then a `SimpleQuoteProvider` is used, which always returns the same `basisPointFee` and `bondAmount` as set in the `QUOTE_PROVIDER_BASIS_POINT_FEE` and `QUOTE_PROVIDER_BOND_AMOUNT` environment variables.
 
-::warning
+:::warning
 If the `QuoteProvider` does not return a `bondAmount` or a `basisPointFee`, the Prover Node will not generate nor submit a quote to the proposer.
-::
+:::
 
 Separately, the Prover Node needs a watcher on L1 to detect if its quote has been selected.
 
