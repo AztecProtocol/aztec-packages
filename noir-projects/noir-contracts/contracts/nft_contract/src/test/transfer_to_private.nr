@@ -48,22 +48,6 @@ unconstrained fn transfer_to_private_external_orchestration() {
         &mut env.public(),
     );
 
-    // TODO(#8771): We need to manually add the note because in the partial notes flow `notify_created_note_oracle`
-    // is not called and we don't have a `NoteProcessor` in TXE.
-    let private_nfts_recipient_slot =
-        derive_storage_slot_in_map(NFT::storage_layout().private_nfts.slot, recipient);
-
-    env.add_note(
-        &mut NFTNote {
-            token_id,
-            owner: recipient,
-            randomness: note_randomness,
-            header: NoteHeader::empty(),
-        },
-        private_nfts_recipient_slot,
-        nft_contract_address,
-    );
-
     // Recipient should have the note in their private nfts
     utils::assert_owns_private_nft(nft_contract_address, recipient, token_id);
 

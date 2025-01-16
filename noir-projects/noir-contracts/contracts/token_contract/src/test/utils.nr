@@ -88,14 +88,6 @@ pub unconstrained fn mint_to_private(
     Token::at(token_contract_address).mint_to_private(from, recipient, amount).call(
         &mut env.private(),
     );
-
-    add_token_note(
-        env,
-        token_contract_address,
-        recipient,
-        amount,
-        note_randomness,
-    );
 }
 
 // docs:start:txe_test_read_public
@@ -130,29 +122,3 @@ pub unconstrained fn check_private_balance(
     cheatcodes::set_contract_address(current_contract_address);
 }
 // docs:end:txe_test_call_unconstrained
-
-// TODO(#8771): We need to manually add the note because in the partial notes flow `notify_created_note_oracle`
-// is not called and we don't have a `NoteProcessor` in TXE.
-pub unconstrained fn add_token_note(
-    env: &mut TestEnvironment,
-    token_contract_address: AztecAddress,
-    owner: AztecAddress,
-    amount: Field,
-    note_randomness: Field,
-) {
-    // docs:start:txe_test_add_note
-    let balances_owner_slot =
-        derive_storage_slot_in_map(Token::storage_layout().balances.slot, owner);
-
-    env.add_note(
-        &mut UintNote {
-            value: U128::from_integer(amount),
-            owner: owner,
-            randomness: note_randomness,
-            header: NoteHeader::empty(),
-        },
-        balances_owner_slot,
-        token_contract_address,
-    );
-    // docs:end:txe_test_add_note
-}
