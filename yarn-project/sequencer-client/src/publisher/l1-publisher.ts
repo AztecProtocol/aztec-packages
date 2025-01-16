@@ -963,6 +963,8 @@ export class L1Publisher {
 
   private async prepareProposeTx(encodedData: L1ProcessArgs) {
     const kzg = Blob.getViemKzgInstance();
+    const blobInput = Blob.getEthBlobEvaluationInputs(encodedData.blobs);
+    this.log.debug('validating blob input', { blobInput });
     const blobEvaluationGas = await this.l1TxUtils.estimateGas(
       this.account,
       {
@@ -970,7 +972,7 @@ export class L1Publisher {
         data: encodeFunctionData({
           abi: this.rollupContract.abi,
           functionName: 'validateBlobs',
-          args: [Blob.getEthBlobEvaluationInputs(encodedData.blobs)],
+          args: [blobInput],
         }),
       },
       {},
@@ -986,30 +988,6 @@ export class L1Publisher {
     //        first ethereum block within our slot (as current time is not in the
     //        slot yet).
     // const gasGuesstimate = blobEvaluationGas + L1Publisher.PROPOSE_GAS_GUESS;
-
-    // const timestamp = BigInt((await this.publicClient.getBlock()).timestamp + this.ethereumSlotDuration);
-
-    // const simulationResult = await this.publicClient.simulate({
-    //   validation: true,
-    //   blocks: [
-    //     {
-    //       blockOverrides: {
-    //         time: timestamp,
-    //       },
-    //       calls: [
-    //         {
-    //           from: this.account.address,
-    //           to: this.rollupContract.address,
-    //           data: encodeFunctionData({
-    //             abi: this.rollupContract.abi,
-    //             functionName: 'validateBlobs',
-    //             args: [Blob.getEthBlobEvaluationInputs(encodedData.blobs)],
-    //           }),
-    //         },
-    //       ],
-    //     },
-    //   ],
-    // });
 
     const attestations = encodedData.attestations
       ? encodedData.attestations.map(attest => attest.toViemSignature())
@@ -1030,7 +1008,7 @@ export class L1Publisher {
       attestations,
       // TODO(#9101): Extract blobs from beacon chain => calldata will only contain what's needed to verify blob and body input can be removed
       `0x${encodedData.body.toString('hex')}`,
-      Blob.getEthBlobEvaluationInputs(encodedData.blobs),
+      blobInput,
     ] as const;
 
     return { args, blobEvaluationGas };

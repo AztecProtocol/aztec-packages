@@ -551,7 +551,6 @@ export class L1TxUtils {
     // See: https://github.com/wevm/viem/issues/2075
     if (_blobInputs) {
       const gasPrice = await this.getGasPrice(gasConfig, true, 0);
-      this.logger?.debug('estimateGas with blob inputs', { gasPrice, blobInputs: _blobInputs });
       initialEstimate = (
         await this.walletClient.prepareTransactionRequest({
           account,
