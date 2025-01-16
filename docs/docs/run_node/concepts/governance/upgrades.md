@@ -1,39 +1,38 @@
 ---
-sidebar_position: 3
+sidebar_position: 4
 title: Upgrades
 ---
 
-Letʼs walk through an example where there is an upgrade to a new Rollup contract.
+Upgrades involve transitioning the network to a new instance of the Rollup contract. They might fix vulnerabilities, introduce new features, or enhance performance.
 
-## Deploying the initial contracts
+## AZIP
 
-Assume that there is an  initial deployment, which is a set of contracts as described in the Aztec Deployment section.
-Offline coordination
+It is expected that the community will coordinate upgrade proposals via an AZIP process, which is a design document outlining the upgrade rationale and one that allows for collecting technical input from and by the community. 
 
-It is expected that the community will coordinate upgrade proposals via an AZIP process which will be outlined separately. In summary, an AZIP is a design document outlining the upgrade rationale and one that allows for collecting technical input from and by the community. Please see here for a preliminary overview of an example AZIP proposal process.
+Once developers of client software agree to support the upgrade, sequencers can begin signaling to table this proposal from a certain block height.
 
-Once an AZIP garners enough buy-in from the community, and developers of client software agree to support the upgrade, sequencers can begin signaling to table this proposal from a certain block height.
+## Initial Contract Deployment
 
-## New Rollup contract is deployed to L1 and a proposal is initiated
+The initial deployment creates a set of contracts, as described in the [Deployment section](../deployments/what_is_deployment.md).
 
-To upgrade to a new Rollup instance is to:
+## Upgrading the Rollup Contract
 
-1. Convince the Governance contract to call `Registry.upgrade(_addressOfNewRollup)`
+1. **Proposal Creation:**
+   - A new Rollup contract is deployed to the network (e.g., `0xRollup`).
+   - Proposal code to execute the upgrade is deployed separately (e.g., `0xProposal`).
 
-2. Sequencers move stake to the new Rollup contract to be eligible for any Hypothetical Asset rewards.
+2. **Governance Approval:**
+   - Governance contract holders vote to approve or reject the proposal. Votes are proportional to the amount of Hypothetical Asset locked in the Governance contract.
 
-To achieve 1, a new Rollup contract is deployed at address `0xRollup` (for example) and the code for calling `Registry.upgrade(_addressOfNewRollup)` is deployed at address `0xProposal`.
+3. **Sequencer Participation:**
+   - Sequencers must signal their readiness by voting through the Proposals contract.
+   - This vote occurs during their assigned L2 slot, as dictated by the L1 Rollup smart contract.
 
-Sequencers of the current canonical rollup, that is the current rollup as pointed to by the Registry, must then call `vote(0xProposal)` on the Proposals contract. Sequencers can only vote during L2 slots for which they’ve been assigned as the block proposer by the L1 Rollup smart contract. For any given L2 slot, there is only one such sequencer. 
+## Proposal Execution
 
-Sequencers vote by updating an environment variable `PROPOSAL_PAYLOAD` in their client software. If enough votes are received by the Proposals contract, any Ethereum account can call `pushProposal(_roundNumber)` where `_roundNumber` can be read from the L1.
+After governance approval and a delay period, the proposal becomes executable:
 
-## Voting starts and proposal executed after delay
+- Any Ethereum account can call `execute(_proposalId)` on the Governance contract.
+- The `execute` function calls the proposal code (e.g., at `0xProposal`), transitioning the network to the new Rollup instance.
 
-Holders who locked their Hypothetical Assets in the Governance contract can vote on proposals. Each vote specifies whether it is in support of the upgrade or not, and the amount of locked Hypothetical Assets the holder wishes to vote.
-
-If the vote passes, a proposal is moved to an Executable state after some delay.
- 
-## Proposal executed
-
-Anyone can call `execute(_proposalId)` on the Governance contract which in turn will call the code deployed to `0xProposal`.
+For a more hands-on guide to reacting to upgrades as a sequencer/validators, read [this](../../guides/reacting_to_upgrades.md).

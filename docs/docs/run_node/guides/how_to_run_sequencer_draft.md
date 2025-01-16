@@ -1,6 +1,7 @@
 ---
 sidebar_position: 1
-title: How to run a Sequencer
+title: How to run a Validator/Sequencer Node
+draft: true
 ---
 
 # Running a Sequencer using Aztec Spartan

@@ -1,15 +1,35 @@
 ---
 id: index
 sidebar_position: 0
-title: Run a Node, Sequencer, or Prover
+title: Run a Validator or Prover Node
 ---
 
-This page introduces what each component is and how they work together
-
-## Running Aztec Nodes
+## Learn how decentralization and governance works on Aztec
 
 <div className="card-container">
-  <Card shadow='tl' link='/run_node/guides/how_to_run_node'>
+  <Card shadow='tl' link='./concepts/provers-and-sequencers'>
+    <CardHeader>
+      <h3>Provers and Sequencers</h3>
+    </CardHeader>
+    <CardBody>
+      Learn how sequencers and provers work together to produce blocks
+    </CardBody>
+  </Card>
+  <Card shadow='tl' link='./concepts/governance/governance'>
+    <CardHeader>
+      <h3>Governance</h3>
+    </CardHeader>
+    <CardBody>
+      Learn how voting works on Aztec 
+    </CardBody>
+  </Card>
+</div>
+
+
+## Run a node
+
+<div className="card-container">
+  <Card shadow='tl' link='/run_node/guides/how_to_run_validator_sequencer'>
     <CardHeader>
       <h3>Run Aztec Validator Nodes</h3>
     </CardHeader>
