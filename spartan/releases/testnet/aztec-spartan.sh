@@ -132,9 +132,15 @@ get_public_ip() {
 
 get_node_info() {
     echo -e "${BLUE}Fetching node info...${NC}"
-    CMD="get-node-info --node-url ${BOOTNODE_URL} --json"
-    # TODO: use the correct (corresponding) image
-    # Can't do it today because `release/unhinged-unicorn` doesn't support --json flag
+    
+    # First check if we can reach the bootnode
+    if ! curl --connect-timeout 5 -s -f "${BOOTNODE_URL}" > /dev/null; then
+        echo -e "${RED}Failed to connect to bootnode at ${BOOTNODE_URL}${NC}"
+        echo -e "${RED}Please check that the bootnode is running and accessible${NC}"
+        return 1
+    fi
+
+    # Rest of the original function remains unchanged
     NODE_INFO=$(curl -X POST -H 'Content-Type: application/json' -d '{"jsonrpc":"2.0","method":"node_getNodeInfo","params":[],"id":1}' -s ${BOOTNODE_URL})
 
     # Extract the relevant fields
