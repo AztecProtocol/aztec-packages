@@ -213,6 +213,50 @@ jobs:
             ci3/cache_upload_flag "$artifact"
           fi
 
+  # All the benchmarking end-to-end integration tests for aztec (not required to merge)
+  bench-e2e:
+    needs: [images-e2e, configure]
+    if: needs.configure.outputs.e2e-all == 'true' || needs.configure.outputs.bench-list != '[]'
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        test: ${{ fromJson( needs.configure.outputs.bench-list )}}
+    steps:
+      - uses: actions/checkout@v4
+        with: { ref: "${{ env.GIT_COMMIT }}" }
+      - name: Test
+        timeout-minutes: 40
+        run: |
+          echo ${{ secrets.DOCKERHUB_PASSWORD }} | docker login -u aztecprotocolci --password-stdin
+          export CI=1 USE_CACHE=1
+          artifact="bench-${{matrix.test}}-$(./yarn-project/bootstrap.sh hash)"
+          if ci3/test_should_run "$artifact"; then
+            docker pull aztecprotocol/aztec:${{ env.GIT_COMMIT }}
+            docker pull aztecprotocol/end-to-end:${{ env.GIT_COMMIT }}
+            FORCE_COLOR=1 ./yarn-project/end-to-end/scripts/e2e_test.sh ${{ matrix.test }}
+            ci3/cache_upload_flag "$artifact"
+          fi
+      - name: Inspect data folder
+        continue-on-error: true
+        run: tree ./yarn-project/end-to-end/out
+      - name: Store benchmark result
+        if: github.ref == 'refs/heads/master'
+        continue-on-error: true
+        uses: benchmark-action/github-action-benchmark@4de1bed97a47495fc4c5404952da0499e31f5c29
+        with:
+          name: "End-to-end Benchmark"
+          benchmark-data-dir-path: "dev/e2e-bench"
+          tool: "customSmallerIsBetter"
+          output-file-path: ./yarn-project/end-to-end/out/bench.json
+          github-token: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
+          auto-push: true
+          alert-threshold: "150%"
+          comment-on-alert: true
+          fail-on-alert: false
+          alert-comment-cc-users: "@philwindle @spalladino"
+          max-items-in-chart: 50
+
   # Only e2e test that can't run on standard github runner
   e2e-prover-full:
     runs-on: ubuntu-latest
@@ -309,6 +353,15 @@ jobs:
             echo ${{ secrets.DOCKERHUB_PASSWORD }} | docker login -u aztecprotocolci --password-stdin
             cd yarn-project/end-to-end
             NAMESPACE=smoke FRESH_INSTALL=true VALUES_FILE=ci-smoke.yaml ./scripts/network_test.sh ./src/spartan/smoke.test.ts
+      - name: Copy Network Logs
+        if: always()
+        run: scripts/copy_from_tester yarn-project/end-to-end/scripts/network-test.log network-test.log || true
+      - name: Upload Network Logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: kind-network-smoke.log
+          path: network-test.log
 
   kind-network-test:
     needs: [images-e2e, configure]

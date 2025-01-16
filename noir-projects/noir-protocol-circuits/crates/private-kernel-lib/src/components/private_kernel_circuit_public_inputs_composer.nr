@@ -15,7 +15,7 @@ use dep::types::{
     utils::arrays::{array_length, array_to_bounded_vec, sort_by_counter_asc, sort_by_counter_desc},
 };
 
-pub fn create_first_nullifier(tx_request: TxRequest) -> ScopedNullifier {
+pub fn create_protocol_nullifier(tx_request: TxRequest) -> ScopedNullifier {
     Nullifier { value: tx_request.hash(), note_hash: 0, counter: 0 }.scope(AztecAddress::zero())
 }
 
@@ -48,6 +48,7 @@ impl PrivateKernelCircuitPublicInputsComposer {
         vk_tree_root: Field,
         protocol_contract_tree_root: Field,
         is_private_only: bool,
+        first_nullifier_hint: Field,
     ) -> Self {
         let mut public_inputs = PrivateKernelCircuitPublicInputsBuilder::empty();
         public_inputs.is_private_only = is_private_only;
@@ -59,8 +60,15 @@ impl PrivateKernelCircuitPublicInputsComposer {
             protocol_contract_tree_root,
         };
 
-        // Since it's the first iteration, we need to push the tx hash nullifier into the `nullifiers` array
-        public_inputs.end.nullifiers.push(create_first_nullifier(tx_request));
+        // If no non revertible nullifiers are created, the PXE can instruct the protocol to create a nullifier
+        // The existence of at least 1 non revertible nullifier will be checked in tail.
+        if first_nullifier_hint == 0 {
+            let protocol_nullifier = create_protocol_nullifier(tx_request);
+            public_inputs.end.nullifiers.push(protocol_nullifier);
+            public_inputs.claimed_first_nullifier = protocol_nullifier.value();
+        } else {
+            public_inputs.claimed_first_nullifier = first_nullifier_hint;
+        }
         // Note that we do not need to nullify the transaction request nonce anymore.
         // Should an account want to additionally use nonces for replay protection or handling cancellations,
         // they will be able to do so in the account contract logic:
@@ -74,6 +82,8 @@ impl PrivateKernelCircuitPublicInputsComposer {
         let mut public_inputs = PrivateKernelCircuitPublicInputsBuilder::empty();
 
         public_inputs.is_private_only = previous_kernel_public_inputs.is_private_only;
+        public_inputs.claimed_first_nullifier =
+            previous_kernel_public_inputs.claimed_first_nullifier;
         public_inputs.constants = previous_kernel_public_inputs.constants;
         public_inputs.min_revertible_side_effect_counter =
             previous_kernel_public_inputs.min_revertible_side_effect_counter;

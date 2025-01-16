@@ -6,6 +6,10 @@ if [ "$#" -lt 1 ]; then
   exit 1
 fi
 
+if [[ "$1" == *"disabled-cache"* ]]; then
+  echo "Running test $1 due to uncommitted changes/files."
+  exit 1
+fi
 if [ "${USE_CACHE:-0}" != 1 ] ; then
   # Don't look if CI isn't set. No need to muddle with dev runs.
   echo_stderr "Running test $1 because USE_CACHE is not 1."
