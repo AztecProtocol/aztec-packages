@@ -296,7 +296,10 @@ Key:
 
 <div style={{width: '40%'}}>
 
-```mermaid
+```mdx
+import { Mermaid } from '@docusaurus/theme-mermaid';
+
+<Mermaid>
 classDiagram
 direction LR
 class ParentClass {
@@ -320,6 +323,7 @@ class D {
 ParentClass *-- ChildClass: Composition.
 A .. B: Perform a consistency check on values in these classes.
 C ..> D: Copy the data from the inputs A to the outputs B\n(possibly with some modification along the way).
+</Mermaid>
 ```
 
 </div>
@@ -335,7 +339,10 @@ The diagram:
 <div style={{overflowX: 'auto'}}>
 <div style={{width: '200%'}}>
 
-```mermaid
+```mdx
+import { Mermaid } from '@docusaurus/theme-mermaid';
+
+<Mermaid>
 classDiagram
 direction TB
 
@@ -694,7 +701,7 @@ class PublicInputs {
 }
 ConstantData --* PublicInputs : constant_data
 TransientAccumulatedData --* PublicInputs: transient_accumulated_data
-
+</Mermaid>
 ```
 
 </div>

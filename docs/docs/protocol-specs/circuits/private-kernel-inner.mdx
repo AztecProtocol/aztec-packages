@@ -130,7 +130,10 @@ NOTE TO ANYONE EDITING THIS DIAGRAM:
 To save repeating yourself, you only need to edit the END of this diagram (demarcated clearly, further down the page - you'll see it). COPY-PASTE the beginning of this diagram (up to the demarcation) from ../private-kernel-initial.
 -->
 
-```mermaid
+```mdx
+import { Mermaid } from '@docusaurus/theme-mermaid';
+
+<Mermaid>
 classDiagram
 direction TB
 
@@ -548,7 +551,6 @@ PrivateKernelPublicInputs ..> KERNEL_PROOF_VERIFICATION
 
 KernelVerificationKey ..> KERNEL_VK_EXISTENCE_CHECK
 KernelVKMembershipWitness ..> KERNEL_VK_EXISTENCE_CHECK
-
 
 ```
 
