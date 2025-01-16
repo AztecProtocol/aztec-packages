@@ -99,11 +99,19 @@ where
 }
 
 // Helper function to count the number of non-empty elements in a validated array.
-// Important: Only use it for validated arrays: validate_array(array) should be true.
+// Important: Only use it for validated arrays where validate_array(array) returns true,
+// which ensures that:
+// 1. All elements before the first empty element are non-empty
+// 2. All elements after and including the first empty element are empty
+// 3. The array forms a contiguous sequence of non-empty elements followed by empty elements
 pub fn array_length<T, let N: u32>(array: [T; N]) -> u32
 where
     T: Empty + Eq,
 {
+    // We get the length by checking the index of the first empty element.
+
+    /// Safety: This is safe because we have validated the array (see function doc above) and the emptiness
+    /// of the element and non-emptiness of the previous element is checked below.
     let length = unsafe { find_index_hint(array, |elem: T| is_empty(elem)) };
     if length != 0 {
         assert(!is_empty(array[length - 1]));
@@ -240,18 +248,18 @@ fn test_array_length_invalid_arrays() {
 }
 
 #[test]
-fn find_index_greater_than_min() {
+unconstrained fn find_index_greater_than_min() {
     let values = [10, 20, 30, 40];
     let min = 22;
-    let index = unsafe { find_index_hint(values, |v: Field| min.lt(v)) };
+    let index = find_index_hint(values, |v: Field| min.lt(v));
     assert_eq(index, 2);
 }
 
 #[test]
-fn find_index_not_found() {
+unconstrained fn find_index_not_found() {
     let values = [10, 20, 30, 40];
     let min = 100;
-    let index = unsafe { find_index_hint(values, |v: Field| min.lt(v)) };
+    let index = find_index_hint(values, |v: Field| min.lt(v));
     assert_eq(index, 4);
 }
 
@@ -259,8 +267,8 @@ fn find_index_not_found() {
 fn test_array_concat() {
     let array0 = [1, 2, 3];
     let array1 = [4, 5];
-    let concated = array_concat(array0, array1);
-    assert_eq(concated, [1, 2, 3, 4, 5]);
+    let concatenated = array_concat(array0, array1);
+    assert_eq(concatenated, [1, 2, 3, 4, 5]);
 }
 
 #[test]

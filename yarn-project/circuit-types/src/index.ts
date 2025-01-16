@@ -13,7 +13,7 @@ export * from './messaging/index.js';
 export * from './mocks.js';
 export * from './notes/index.js';
 export * from './p2p/index.js';
-export * from './packed_values.js';
+export * from './hashed_values.js';
 export * from './prover_coordination/index.js';
 export * from './public_data_witness.js';
 export * from './public_execution_request.js';
