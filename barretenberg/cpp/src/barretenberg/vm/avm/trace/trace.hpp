@@ -248,6 +248,7 @@ class AvmTraceBuilder {
     void pad_trees();
     void allocate_gas_for_call(uint32_t l2_gas, uint32_t da_gas);
     void handle_exceptional_halt();
+    void handle_end_of_teardown(uint32_t pre_teardown_l2_gas_left, uint32_t pre_teardown_da_gas_left);
 
     // These are used for testing only.
     AvmTraceBuilder& set_range_check_required(bool required)

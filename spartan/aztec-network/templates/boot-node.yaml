@@ -58,6 +58,7 @@ spec:
             - /bin/sh
             - -c
             - |
+              set -eux
               source /shared/config/service-addresses
               # it is possible that even though we asserted this above, the DNS resolver of *this* pod
               # is not yet ready to resolve the ethereum host.
