@@ -72,6 +72,7 @@ const header = css({
 const simulationContainer = css({
   display: "flex",
   flexDirection: "row",
+  alignItems: "center",
 });
 
 const checkBoxLabel = css({
@@ -111,20 +112,6 @@ export function ContractComponent() {
     setCurrentContract,
     setCurrentTx,
   } = useContext(AztecContext);
-  const [aliasedAddresses, setAliasedAddresses] = useState([]);
-
-  useEffect(() => {
-    const setAliases = async () => {
-      const accountAliases = await walletDB.listAliases("accounts");
-      const contractAliases = await walletDB.listAliases("contracts");
-      setAliasedAddresses(
-        parseAliasedBuffersAsString([...accountAliases, ...contractAliases])
-      );
-    };
-    if (walletDB) {
-      setAliases();
-    }
-  }, [walletDB, wallet]);
 
   useEffect(() => {
     if (currentContract) {
@@ -405,50 +392,56 @@ export function ContractComponent() {
                   >
                     {fn.functionType}
                   </Typography>
-                  <Typography variant="h5">{fn.name}</Typography>
-                  <Typography
-                    gutterBottom
-                    sx={{
-                      color: "text.secondary",
-                      fontSize: 14,
-                      marginTop: "1rem",
-                    }}
-                  >
-                    Parameters
+                  <Typography variant="h5" sx={{ marginBottom: "1rem" }}>
+                    {fn.name}
                   </Typography>
-                  <FormGroup row css={{ marginBottom: "1rem" }}>
-                    {fn.parameters.map((param, i) => (
-                      <FunctionParameter
-                        parameter={param}
-                        key={param.name}
-                        onParameterChange={(newValue) => {
-                          handleParameterChange(fn.name, i, newValue);
+                  {fn.parameters.length > 0 && (
+                    <>
+                      <Typography
+                        gutterBottom
+                        sx={{
+                          color: "text.secondary",
+                          fontSize: 14,
+                          marginTop: "1rem",
                         }}
-                        aliasedAddresses={aliasedAddresses}
-                      />
-                    ))}
-                  </FormGroup>
-                  {!isWorking && simulationResults?.[fn.name] !== undefined ? (
-                    <div css={{ simulationContainer }}>
-                      <Typography variant="h5" sx={{ fontSize: "1rem" }}>
-                        Simulation results:
+                      >
+                        Parameters
                       </Typography>
-                      {simulationResults[fn.name].success ? (
-                        <Typography variant="body1">
-                          {simulationResults?.[fn.name]?.data.length === 0
-                            ? "-"
-                            : simulationResults?.[fn.name].data.toString()}
-                        </Typography>
-                      ) : (
-                        <Typography variant="body1" color="error">
-                          {simulationResults?.[fn.name]?.error}
-                        </Typography>
-                      )}
-                    </div>
-                  ) : (
-                    <></>
+                      <FormGroup row css={{ marginBottom: "1rem" }}>
+                        {fn.parameters.map((param, i) => (
+                          <FunctionParameter
+                            parameter={param}
+                            key={param.name}
+                            onParameterChange={(newValue) => {
+                              handleParameterChange(fn.name, i, newValue);
+                            }}
+                          />
+                        ))}
+                      </FormGroup>
+                    </>
                   )}
-                  {isWorking ? <CircularProgress /> : <></>}
+
+                  <div css={simulationContainer}>
+                    <Typography variant="body1" sx={{ fontWeight: 200 }}>
+                      Simulation results:&nbsp;
+                    </Typography>
+                    {!isWorking && simulationResults[fn.name] !== undefined && (
+                      <>
+                        {simulationResults[fn.name].success ? (
+                          <Typography variant="body1">
+                            {simulationResults?.[fn.name]?.data.length === 0
+                              ? "-"
+                              : simulationResults?.[fn.name].data.toString()}
+                          </Typography>
+                        ) : (
+                          <Typography variant="body1" color="error">
+                            {simulationResults?.[fn.name]?.error}
+                          </Typography>
+                        )}
+                      </>
+                    )}
+                    {isWorking ? <CircularProgress size={"1rem"} /> : <></>}
+                  </div>
                 </CardContent>
                 <CardActions>
                   <Button

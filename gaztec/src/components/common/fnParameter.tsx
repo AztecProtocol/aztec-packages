@@ -1,32 +1,39 @@
 import { ABIParameter, AbiType, isAddressStruct } from "@aztec/foundation/abi";
 import {
   Autocomplete,
+  CircularProgress,
   IconButton,
   TextField,
   capitalize,
   css,
 } from "@mui/material";
-import { formatFrAsString } from "../../utils/conversion";
-import { useState } from "react";
+import {
+  formatFrAsString,
+  parseAliasedBuffersAsString,
+} from "../../utils/conversion";
+import { Fragment, useContext, useState } from "react";
 import EditIcon from "@mui/icons-material/Edit";
+import { AztecContext } from "../home/home";
 
 const container = css({
   display: "flex",
   flexDirection: "row",
   alignItems: "center",
   justifyContent: "center",
+  marginRight: "1rem",
 });
 
 export function FunctionParameter({
-  aliasedAddresses,
   parameter,
   onParameterChange,
 }: {
-  aliasedAddresses: { key: string; value: string }[];
   parameter: ABIParameter;
   onParameterChange: (value: string) => void;
 }) {
+  const { walletDB } = useContext(AztecContext);
+
   const [manualInput, setManualInput] = useState(false);
+  const [loading, setLoading] = useState(false);
 
   const handleParameterChange = (value: string, type: AbiType) => {
     switch (type.kind) {
@@ -38,6 +45,23 @@ export function FunctionParameter({
         onParameterChange(value);
         break;
       }
+    }
+  };
+
+  const [aliasedAddresses, setAliasedAddresses] = useState([]);
+
+  const handleOpen = () => {
+    const setAliases = async () => {
+      setLoading(true);
+      const accountAliases = await walletDB.listAliases("accounts");
+      const contractAliases = await walletDB.listAliases("contracts");
+      setAliasedAddresses(
+        parseAliasedBuffersAsString([...accountAliases, ...contractAliases])
+      );
+      setLoading(false);
+    };
+    if (walletDB) {
+      setAliases();
     }
   };
 
@@ -56,13 +80,33 @@ export function FunctionParameter({
               handleParameterChange(newValue.id, parameter.type);
             }
           }}
-          sx={{ width: 300, marginTop: "1rem" }}
+          onOpen={handleOpen}
+          loading={loading}
+          fullWidth
+          sx={{ width: "226px" }}
           renderInput={(params) => (
-            <TextField {...params} label={capitalize(parameter.name)} />
+            <TextField
+              {...params}
+              label={capitalize(parameter.name)}
+              slotProps={{
+                input: {
+                  ...params.InputProps,
+                  endAdornment: (
+                    <>
+                      {loading ? (
+                        <CircularProgress color="inherit" size={20} />
+                      ) : null}
+                      {params.InputProps.endAdornment}
+                    </>
+                  ),
+                },
+              }}
+            />
           )}
         />
       ) : (
         <TextField
+          fullWidth
           variant="outlined"
           disabled={["array", "struct", "tuple"].includes(parameter.type.kind)}
           key={parameter.name}
@@ -71,17 +115,11 @@ export function FunctionParameter({
           onChange={(e) =>
             handleParameterChange(e.target.value, parameter.type)
           }
-          sx={{ marginTop: "1rem", marginRight: "1rem" }}
-          fullWidth
         />
       )}
       {isAddressStruct(parameter.type) && (
         <>
-          <div css={{ flex: "1 1 auto" }} />
-          <IconButton
-            sx={{ marginTop: "1rem" }}
-            onClick={() => setManualInput(!manualInput)}
-          >
+          <IconButton onClick={() => setManualInput(!manualInput)}>
             <EditIcon />
           </IconButton>
         </>

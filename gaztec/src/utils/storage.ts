@@ -238,6 +238,10 @@ export class WalletDB {
       `${txHash.toString()}:status`,
       Buffer.from(receipt.status.toString())
     );
+    await this.#transactions.set(
+      `${txHash.toString()}:date`,
+      Buffer.from(Date.now().toString())
+    );
     log(
       `Transaction hash stored in database with alias${
         alias ? `es last & ${alias}` : " last"
@@ -269,10 +273,15 @@ export class WalletDB {
       `${txHash.toString()}:status`
     ))!.toString();
 
+    const date = await this.#transactions
+      .getAsync(`${txHash.toString()}:date`)!
+      .toString();
+
     return {
       txHash,
       fnName,
       status,
+      date,
     };
   }
 

@@ -193,9 +193,11 @@ export function SidebarComponent() {
             txHash: txData.txHash,
             status: convertFromUTF8BufferAsString(txData.status),
             fnName: convertFromUTF8BufferAsString(txData.fnName),
+            date: parseInt(convertFromUTF8BufferAsString(txData.date)),
           } as ContractFunctionInteractionTx;
         })
       );
+      txs.sort((a, b) => (b.date >= a.date ? -1 : 1));
       if (
         currentTx &&
         currentTx.contractAddress === currentContract.address &&
