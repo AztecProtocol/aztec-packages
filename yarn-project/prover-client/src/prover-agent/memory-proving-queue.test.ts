@@ -9,7 +9,7 @@ import {
 } from '@aztec/circuits.js/testing';
 import { AbortError } from '@aztec/foundation/error';
 import { sleep } from '@aztec/foundation/sleep';
-import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
+import { getTelemetryClient } from '@aztec/telemetry-client';
 
 import { InlineProofStore, type ProofStore } from '../proving_broker/proof_store.js';
 import { MemoryProvingQueue } from './memory-proving-queue.js';
@@ -25,7 +25,7 @@ describe('MemoryProvingQueue', () => {
     pollingIntervalMs = 10;
     proofStore = new InlineProofStore();
     queue = new MemoryProvingQueue(
-      new NoopTelemetryClient(),
+      getTelemetryClient(),
       jobTimeoutMs,
       pollingIntervalMs,
       undefined,

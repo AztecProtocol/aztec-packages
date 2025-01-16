@@ -1,4 +1,4 @@
-use crate::address::AztecAddress;
+use crate::{address::AztecAddress, traits::FromField};
 
 pub global MAX_FIELD_VALUE: Field =
     21888242871839275222246405745257275088548364400416034343698204186575808495616;

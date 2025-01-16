@@ -81,7 +81,7 @@ import type {
   Field as NoirField,
   ParityPublicInputs as ParityPublicInputsNoir,
   RootParityInput as ParityRootParityInputNoir,
-  Poseidon2 as Poseidon2SpongeNoir,
+  Poseidon2Sponge as Poseidon2SpongeNoir,
   PreviousRollupBlockData as PreviousRollupBlockDataNoir,
   PreviousRollupData as PreviousRollupDataNoir,
   PrivateBaseRollupInputs as PrivateBaseRollupInputsNoir,

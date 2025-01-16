@@ -13,7 +13,7 @@ import { Fr } from '@aztec/circuits.js';
 import { times } from '@aztec/foundation/collection';
 import { createLogger } from '@aztec/foundation/log';
 import { NativeACVMSimulator } from '@aztec/simulator/server';
-import { type TelemetryClient } from '@aztec/telemetry-client';
+import { type TelemetryClient, getTelemetryClient } from '@aztec/telemetry-client';
 
 import { type ProverClientConfig } from '../config.js';
 import { ProvingOrchestrator } from '../orchestrator/orchestrator.js';
@@ -30,18 +30,15 @@ export class ProverClient implements EpochProverManager {
   private constructor(
     private config: ProverClientConfig,
     private worldState: ForkMerkleTreeOperations,
-    private telemetry: TelemetryClient,
     private orchestratorClient: ProvingJobProducer,
     private agentClient?: ProvingJobConsumer,
+    private telemetry: TelemetryClient = getTelemetryClient(),
     private log = createLogger('prover-client:tx-prover'),
-  ) {
-    // TODO(palla/prover-node): Cache the paddingTx here, and not in each proving orchestrator,
-    // so it can be reused across multiple ones and not recomputed every time.
-  }
+  ) {}
 
   public createEpochProver(): EpochProver {
     const facade = new BrokerCircuitProverFacade(this.orchestratorClient);
-    const orchestrator = new ProvingOrchestrator(this.worldState, facade, this.telemetry, this.config.proverId);
+    const orchestrator = new ProvingOrchestrator(this.worldState, facade, this.config.proverId, this.telemetry);
     return new ServerEpochProver(facade, orchestrator);
   }
 
@@ -58,10 +55,6 @@ export class ProverClient implements EpochProverManager {
     ) {
       await this.stopAgents();
       await this.createAndStartAgents();
-    }
-
-    if (!this.config.realProofs && newConfig.realProofs) {
-      // TODO(palla/prover-node): Reset padding tx here once we cache it at this class
     }
 
     this.config = newConfig;
@@ -100,9 +93,9 @@ export class ProverClient implements EpochProverManager {
     config: ProverClientConfig,
     worldState: ForkMerkleTreeOperations,
     broker: ProvingJobBroker,
-    telemetry: TelemetryClient,
+    telemetry: TelemetryClient = getTelemetryClient(),
   ) {
-    const prover = new ProverClient(config, worldState, telemetry, broker, broker);
+    const prover = new ProverClient(config, worldState, broker, broker, telemetry);
     await prover.start();
     return prover;
   }
@@ -133,9 +126,9 @@ export class ProverClient implements EpochProverManager {
           this.agentClient!,
           proofStore,
           prover,
-          this.telemetry,
           [],
           this.config.proverAgentPollIntervalMs,
+          this.telemetry,
         ),
     );
 
@@ -159,5 +152,5 @@ export function buildServerCircuitProver(
     ? new NativeACVMSimulator(config.acvmWorkingDirectory, config.acvmBinaryPath)
     : undefined;
 
-  return Promise.resolve(new TestCircuitProver(telemetry, simulationProvider, config));
+  return Promise.resolve(new TestCircuitProver(simulationProvider, config, telemetry));
 }

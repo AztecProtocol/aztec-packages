@@ -18,7 +18,7 @@ use crate::{
         MAX_ENQUEUED_CALLS_PER_TX,
     },
     proof::{avm_proof::AvmProof, traits::Verifiable, vk_data::VkData},
-    traits::{Deserialize, Empty, Serialize},
+    traits::{Deserialize, Empty, FromField, Serialize, ToField},
     utils::reader::Reader,
 };
 
