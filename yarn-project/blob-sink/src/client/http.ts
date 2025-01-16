@@ -57,8 +57,7 @@ export class HttpBlobSinkClient implements BlobSinkClientInterface {
    *
    * 1. First atttempts to get blobs from a configured blob sink
    * 2. If no blob sink is configured, attempts to get blobs from a configured consensus host
-
-   * // TODO(md): blow up?
+   *
    * 3. If none configured, fails
    *
    * @param blockHash - The block hash
