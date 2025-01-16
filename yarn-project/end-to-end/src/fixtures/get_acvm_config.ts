@@ -1,4 +1,5 @@
 import { type Logger } from '@aztec/aztec.js';
+import { parseBooleanEnv } from '@aztec/foundation/config';
 import { randomBytes } from '@aztec/foundation/crypto';
 
 import { promises as fs } from 'fs';
@@ -23,7 +24,7 @@ export async function getACVMConfig(logger: Logger): Promise<
   | undefined
 > {
   try {
-    if (['1', 'true'].includes(ACVM_FORCE_WASM)) {
+    if (parseBooleanEnv(ACVM_FORCE_WASM)) {
       return undefined;
     }
     const acvmBinaryPath = ACVM_BINARY_PATH ? ACVM_BINARY_PATH : `../../noir/${NOIR_RELEASE_DIR}/acvm`;
