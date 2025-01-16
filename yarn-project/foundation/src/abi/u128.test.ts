@@ -80,4 +80,23 @@ describe('U128', () => {
       }
     });
   });
+
+  it('round-trips through field conversion', () => {
+    const testCases = [
+      U128.fromU64sLE(0xdeadbeefn, 0xcafebaben),
+      new U128(0),
+      new U128(2n ** 128n - 1n),
+      U128.fromU64sLE(2n ** 64n - 1n, 0n),
+      U128.fromU64sLE(0n, 2n ** 64n - 1n),
+    ];
+
+    for (const original of testCases) {
+      const fields = original.toFields();
+      const reconstructed = U128.fromFields(fields);
+
+      expect(reconstructed.lo).toBe(original.lo);
+      expect(reconstructed.hi).toBe(original.hi);
+      expect(reconstructed.toInteger()).toBe(original.toInteger());
+    }
+  });
 });
