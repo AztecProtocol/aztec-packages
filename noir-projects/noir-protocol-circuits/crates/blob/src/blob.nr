@@ -1,6 +1,7 @@
 use crate::{
     blob_public_inputs::{BlobCommitment, BlobPublicInputs, BlockBlobPublicInputs},
-    config::{D_INV, F, LOG_FIELDS_PER_BLOB, ROOTS}, unconstrained_config::compute_roots_of_unity
+    config::{D_INV, F, LOG_FIELDS_PER_BLOB, ROOTS},
+    unconstrained_config::compute_roots_of_unity,
 };
 
 use bigint::{BigNum, BigNumTrait};
@@ -352,7 +353,11 @@ fn compute_factor(z: F) -> F {
     factor
 }
 
-unconstrained fn __compute_fracs(z: F, ys: [F; FIELDS_PER_BLOB], unconstrained_roots: [F; FIELDS_PER_BLOB],) -> [F; FIELDS_PER_BLOB] {
+unconstrained fn __compute_fracs(
+    z: F,
+    ys: [F; FIELDS_PER_BLOB],
+    unconstrained_roots: [F; FIELDS_PER_BLOB],
+) -> [F; FIELDS_PER_BLOB] {
     let mut denoms = [BigNum::new(); FIELDS_PER_BLOB];
     for i in 0..FIELDS_PER_BLOB {
         denoms[i] = z.__sub(unconstrained_roots[i]); // (z - omega^i)
@@ -370,10 +375,14 @@ unconstrained fn __compute_fracs(z: F, ys: [F; FIELDS_PER_BLOB], unconstrained_r
     fracs
 }
 
-fn compute_fracs(z: F, ys: [F; FIELDS_PER_BLOB],unconstrained_roots: [F; FIELDS_PER_BLOB],) -> [F; FIELDS_PER_BLOB] {
+fn compute_fracs(
+    z: F,
+    ys: [F; FIELDS_PER_BLOB],
+    unconstrained_roots: [F; FIELDS_PER_BLOB],
+) -> [F; FIELDS_PER_BLOB] {
     let mut fracs: [F; FIELDS_PER_BLOB] = unsafe {
         // Safety: We immediately constrain these `fracs` to be correct in the following call to `BigNum::evaluate_quadratic_expression`.
-        __compute_fracs(z, ys, unconstrained_roots )
+        __compute_fracs(z, ys, unconstrained_roots)
     };
 
     if !std::runtime::is_unconstrained() {
@@ -395,7 +404,10 @@ fn compute_fracs(z: F, ys: [F; FIELDS_PER_BLOB],unconstrained_roots: [F; FIELDS_
 }
 
 // TODO: Clean me
-unconstrained fn __compute_partial_sums(fracs: [F; FIELDS_PER_BLOB], unconstrained_roots: [F; FIELDS_PER_BLOB],) -> [F; FIELDS_PER_BLOB / 8] {
+unconstrained fn __compute_partial_sums(
+    fracs: [F; FIELDS_PER_BLOB],
+    unconstrained_roots: [F; FIELDS_PER_BLOB],
+) -> [F; FIELDS_PER_BLOB / 8] {
     let mut partial_sums: [F; FIELDS_PER_BLOB / 8] = std::mem::zeroed();
 
     // Seeking:
