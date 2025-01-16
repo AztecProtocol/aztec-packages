@@ -14,14 +14,14 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "@aztec/accounts": "latest",
-    "@aztec/aztec.js": "latest",
-    "@aztec/bb-prover": "latest",
-    "@aztec/circuit-types": "latest",
-    "@aztec/key-store": "latest",
-    "@aztec/kv-store": "latest",
-    "@aztec/pxe": "latest",
-    "@aztec/simulator": "latest",
+    "@aztec/accounts": "portal:../../../yarn-project/accounts",
+    "@aztec/aztec.js": "portal:../../../yarn-project/aztec.js",
+    "@aztec/bb-prover": "link:../../../yarn-project/bb-prover",
+    "@aztec/circuit-types": "portal:../../../yarn-project/circuit-types",
+    "@aztec/key-store": "link:../../../yarn-project/key-store",
+    "@aztec/kv-store": "portal:../../../yarn-project/kv-store",
+    "@aztec/pxe": "link:../../../yarn-project/pxe",
+    "@aztec/simulator": "link:../../../yarn-project/simulator",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "react-toastify": "^10.0.6"

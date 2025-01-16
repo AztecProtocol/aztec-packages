@@ -10,7 +10,6 @@ import {
   AccountWalletWithSecretKey,
   Contract,
   Fr,
-  PXE,
   TxHash,
   createLogger,
   loadContractArtifact,
@@ -364,6 +363,10 @@ export function SidebarComponent() {
                 </MenuItem>
               ))}
             </Select>
+            <CopyToClipboardButton
+              disabled={!currentContract}
+              data={currentContract?.address.toString()}
+            />
           </FormControl>
           <Button
             variant="contained"
