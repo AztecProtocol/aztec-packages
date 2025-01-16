@@ -190,3 +190,14 @@ affinity:
 nodeSelector:
   cloud.google.com/gke-ephemeral-storage-local-ssd: "true"
 {{- end -}}
+
+{{- define "aztec-network.waitForEthereum" -}}
+echo "Awaiting ethereum node at ${ETHEREUM_HOST}"
+until curl -s -X POST -H 'Content-Type: application/json' \
+  -d '{"jsonrpc":"2.0","method":"eth_chainId","params":[],"id":67}' \
+  ${ETHEREUM_HOST} | grep 0x; do
+  echo "Waiting for Ethereum node ${ETHEREUM_HOST}..."
+  sleep 5
+done
+echo "Ethereum node is ready!"
+{{- end -}}

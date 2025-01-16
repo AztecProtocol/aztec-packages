@@ -46,13 +46,8 @@ spec:
             - -c
             - |
               source /shared/config/service-addresses
-              until curl -s -X POST -H 'Content-Type: application/json' \
-                -d '{"jsonrpc":"2.0","method":"eth_chainId","params":[],"id":67}' \
-                ${ETHEREUM_HOST} | grep 0x; do
-                echo "Waiting for Ethereum node ${ETHEREUM_HOST}..."
-                sleep 5
-              done
-              echo "Ethereum node is ready!"
+              cat /shared/config/service-addresses
+              {{- include "aztec-network.waitForEthereum" . | nindent 14 }}
 
               if [ "${PROVER_BROKER_ENABLED}" == "false" ]; then
                 until curl -s -X POST ${PROVER_BROKER_HOST}/status; do

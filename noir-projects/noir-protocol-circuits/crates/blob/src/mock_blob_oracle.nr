@@ -1,8 +1,10 @@
 use crate::blob_public_inputs::{BlobCommitment, BlockBlobPublicInputs};
+use super::blob_public_inputs::Deserialize;
 use types::{
     abis::sponge_blob::SpongeBlob,
     constants::{BLOB_PUBLIC_INPUTS, BLOBS_PER_BLOCK, FIELDS_PER_BLOB},
 };
+
 // TODO(#10323): this was added to save simulation time (~1min in ACVM, ~3mins in wasm -> 500ms).
 // The use of bignum adds a lot of unconstrained code which overloads limits when simulating.
 // If/when simulation times of unconstrained are improved, remove this.
