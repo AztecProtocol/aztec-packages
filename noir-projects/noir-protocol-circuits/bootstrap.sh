@@ -146,6 +146,11 @@ function test {
 
   RAYON_NUM_THREADS= $NARGO test --skip-brillig-constraints-check
   cache_upload_flag $name-tests-$CIRCUITS_HASH
+
+  circuits="private-kernel-init private-kernel-inner private-kernel-reset private-kernel-tail-to-public private-kernel-tail rollup-base-private rollup-base-public rollup-block-root rollup-block-merge rollup-merge rollup-root"
+  for circuit in $circuits; do
+    $NARGO execute --program-dir noir-projects/noir-protocol-circuits/crates/$circuit --silence-warnings --skip-brillig-constraints-check
+  done
 }
 
 export -f compile test build
@@ -170,6 +175,10 @@ case "$CMD" in
   "test-cmds")
     $NARGO test --list-tests --silence-warnings | while read -r package test; do
       echo "noir-projects/scripts/run_test.sh noir-protocol-circuits $package $test"
+    done
+    circuits="private-kernel-init private-kernel-inner private-kernel-reset private-kernel-tail-to-public private-kernel-tail rollup-base-private rollup-base-public rollup-block-root rollup-block-merge rollup-merge rollup-root"
+    for circuit in $circuits; do
+      echo "$NARGO execute --program-dir noir-projects/noir-protocol-circuits/crates/$circuit --silence-warnings --skip-brillig-constraints-check"
     done
     ;;
   "ci")
