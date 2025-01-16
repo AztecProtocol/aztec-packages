@@ -6,7 +6,7 @@ import { Addressing } from './addressing_mode.js';
 import { Instruction } from './instruction.js';
 
 export class ToRadixBE extends Instruction {
-  static type: string = 'TORADIXLE';
+  static type: string = 'TORADIXBE';
   static readonly opcode: Opcode = Opcode.TORADIXBE;
 
   // Informs (de)serialization. See Instruction.deserialize.

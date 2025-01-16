@@ -382,7 +382,7 @@ template <typename FF> struct CircuitSchemaInternal {
  * ComposerBase naming conventions:
  *   - n = 5 gates (4 gates plus the 'zero' gate).
  *   - variables <-- A.k.a. "witnesses". Indices of this variables vector are referred to as `witness_indices`.
- * Example of varibales in this example (a 3,4,5 triangle):
+ * Example of variables in this example (a 3,4,5 triangle):
  *   - variables      = [  0,   3,   4,   5,   9,  16,  25,  25]
  *   - public_inputs  = [6] <-- points to variables[6].
  *
