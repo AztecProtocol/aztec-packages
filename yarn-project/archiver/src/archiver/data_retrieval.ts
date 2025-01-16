@@ -130,7 +130,15 @@ async function getBlockFromRollupTx(
   txHash: `0x${string}`,
   l2BlockNum: bigint,
 ): Promise<L2Block> {
-  const { input: data } = await publicClient.getTransaction({ hash: txHash });
+  // WORKNOTES:
+  // - the plan
+  // - read the tx
+  // - Get the block number
+  // - The block number will incldue the previous beacon block route in it
+  // - Get the slot number for this block route
+  //
+  const { input: data, blockHash } = await publicClient.getTransaction({ hash: txHash });
+
   const { functionName, args } = decodeFunctionData({ abi: RollupAbi, data });
 
   const allowedMethods = ['propose', 'proposeAndClaim'];

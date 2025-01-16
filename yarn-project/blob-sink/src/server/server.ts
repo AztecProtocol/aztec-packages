@@ -47,8 +47,28 @@ export class BlobSinkServer {
   }
 
   private setupRoutes() {
+    // TODO(md): needed?
+    this.app.get('/eth/v1/beacon/headers/:block_id', this.handleGetBlockHeader.bind(this));
     this.app.get('/eth/v1/beacon/blob_sidecars/:block_id', this.handleGetBlobSidecar.bind(this));
     this.app.post('/blob_sidecar', this.handlePostBlobSidecar.bind(this));
+  }
+
+  // TODO(md): needed?
+  /**
+   * This is a placeholder for the block header endpoint.
+   * It is not supported by the blob sink.
+   *
+   * The blob sink http client will ping this endpoint to check if it is talking to a beacon node
+   * or a blob sink
+   *
+   * @param _req - The request object
+   * @param res - The response object
+   */
+  private handleGetBlockHeader(_req: Request, res: Response) {
+    res.status(400).json({
+      error: 'Not Supported',
+    });
+    return;
   }
 
   private async handleGetBlobSidecar(req: Request, res: Response) {

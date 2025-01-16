@@ -57,8 +57,14 @@ export class Blob {
         `Attempted to overfill blob with ${fields.length} elements. The maximum is ${FIELD_ELEMENTS_PER_BLOB}`,
       );
     }
+
     const dataWithoutZeros = serializeToBuffer(fields);
-    const data = Buffer.concat([dataWithoutZeros], BYTES_PER_BLOB);
+    return Blob.fromBlobBuffer(dataWithoutZeros, multiBlobFieldsHash);
+  }
+
+  static fromBlobBuffer(blob: BlobBuffer, multiBlobFieldsHash?: Fr): Blob {
+    const fields: Fr[] = deserializeBlobFieldsFromBuffer(blob);
+    const data = Buffer.concat([blob], BYTES_PER_BLOB);
 
     // This matches the output of SpongeBlob.squeeze() in the blob circuit
     const fieldsHash = multiBlobFieldsHash ? multiBlobFieldsHash : poseidon2Hash(fields);
@@ -71,7 +77,23 @@ export class Blob {
     const proof = Buffer.from(res[0]);
     const evaluationY = Buffer.from(res[1]);
 
-    return new Blob(dataWithoutZeros, fieldsHash, challengeZ, evaluationY, commitment, proof);
+    return new Blob(data, fieldsHash, challengeZ, evaluationY, commitment, proof);
+  }
+
+  // TODO: add unit test
+  static fromJson(json: { blob: string; kzg_commitment: string; kzg_proof: string }): Blob {
+    const blobBuffer = Buffer.from(json.blob.slice(2), 'hex');
+
+    const blob = Blob.fromBlobBuffer(blobBuffer);
+
+    if (blob.commitment.toString('hex') !== json.kzg_commitment.slice(2)) {
+      throw new Error('KZG commitment does not match');
+    }
+    if (blob.proof.toString('hex') !== json.kzg_proof.slice(2)) {
+      throw new Error('KZG proof does not match');
+    }
+
+    return blob;
   }
 
   // 48 bytes encoded in fields as [Fr, Fr] = [0->31, 31->48]
@@ -119,13 +141,6 @@ export class Blob {
       reader.readBuffer(),
       reader.readBuffer(),
     );
-  }
-
-  /**
-   * Pad the blob data to it's full size before posting
-   */
-  get dataWithZeros(): BlobBuffer {
-    return Buffer.concat([this.data], BYTES_PER_BLOB);
   }
 
   /**
@@ -196,4 +211,18 @@ export class Blob {
 // 48 bytes encoded in fields as [Fr, Fr] = [0->31, 31->48]
 function commitmentToFields(commitment: Buffer): [Fr, Fr] {
   return [new Fr(commitment.subarray(0, 31)), new Fr(commitment.subarray(31, 48))];
+}
+
+function deserializeBlobFieldsFromBuffer(blob: BlobBuffer): Fr[] {
+  const reader = BufferReader.asReader(blob);
+  const array = reader.readArray(blob.length >> 5, Fr);
+
+  // Find the index of the last non-zero field
+  let lastNonZeroIndex = array.length - 1;
+  while (lastNonZeroIndex >= 0 && array[lastNonZeroIndex].isZero()) {
+    lastNonZeroIndex--;
+  }
+
+  // Return the trimmed array
+  return array.slice(0, lastNonZeroIndex + 1);
 }

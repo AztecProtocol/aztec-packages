@@ -40,12 +40,12 @@ export class BlobWithIndex {
   // Follows the structure the beacon node api expects
   public toJSON(): { blob: string; index: number; kzg_commitment: string; kzg_proof: string } {
     return {
-      blob: this.blob.toBuffer().toString('hex'),
+      blob: `0x${Buffer.from(this.blob.data).toString('hex')}`,
       index: this.index,
       // eslint-disable-next-line camelcase
-      kzg_commitment: this.blob.commitment.toString('hex'),
+      kzg_commitment: `0x${this.blob.commitment.toString('hex')}`,
       // eslint-disable-next-line camelcase
-      kzg_proof: this.blob.proof.toString('hex'),
+      kzg_proof: `0x${this.blob.proof.toString('hex')}`,
     };
   }
 }
