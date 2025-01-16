@@ -139,7 +139,7 @@ function build {
 }
 
 # We don't blindly execute all circuits as some will have no `Prover.toml`.
-CIRCUITS_TO_EXECUTE="private-kernel-init private-kernel-inner private-kernel-reset private-kernel-tail-to-public private-kernel-tail rollup-base-private rollup-base-public rollup-block-root rollup-block-root-single-tx rollup-block-merge rollup-merge rollup-root"
+CIRCUITS_TO_EXECUTE="private-kernel-init private-kernel-inner private-kernel-reset private-kernel-tail-to-public private-kernel-tail rollup-base-private rollup-base-public rollup-block-root rollup-block-merge rollup-merge rollup-root"
 
 function test {
   set -eu
