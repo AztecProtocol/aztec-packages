@@ -263,11 +263,6 @@ export class ProvingOrchestrator implements EpochProver {
 
         logger.info(`Received transaction: ${tx.hash}`);
 
-        if (tx.isEmpty) {
-          logger.warn(`Ignoring empty transaction ${tx.hash} - it will not be added to this block`);
-          continue;
-        }
-
         const [hints, treeSnapshots] = await this.prepareTransaction(tx, provingState);
         const txProvingState = new TxProvingState(tx, hints, treeSnapshots);
         const txIndex = provingState.addNewTx(txProvingState);
@@ -521,9 +516,7 @@ export class ProvingOrchestrator implements EpochProver {
       buildBaseRollupHints(tx, provingState.globalVariables, db, provingState.spongeBlobState),
     );
 
-    if (!tx.isEmpty) {
-      this.metrics.recordBaseRollupInputs(ms);
-    }
+    this.metrics.recordBaseRollupInputs(ms);
 
     const promises = [MerkleTreeId.NOTE_HASH_TREE, MerkleTreeId.NULLIFIER_TREE, MerkleTreeId.PUBLIC_DATA_TREE].map(
       async (id: MerkleTreeId) => {
@@ -551,11 +544,7 @@ export class ProvingOrchestrator implements EpochProver {
     const { processedTx } = txProvingState;
     const { rollupType, inputs } = txProvingState.getBaseRollupTypeAndInputs();
 
-    logger.debug(
-      `Enqueuing deferred proving base rollup${
-        processedTx.isEmpty ? ' with padding tx' : ''
-      } for ${processedTx.hash.toString()}`,
-    );
+    logger.debug(`Enqueuing deferred proving base rollup for ${processedTx.hash.toString()}`);
 
     this.deferredProving(
       provingState,

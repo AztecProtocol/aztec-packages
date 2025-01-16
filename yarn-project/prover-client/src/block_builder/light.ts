@@ -48,9 +48,7 @@ export class LightweightBlockBuilder implements BlockBuilder {
   async addTxs(txs: ProcessedTx[]): Promise<void> {
     this.spongeBlobState = SpongeBlob.init(toNumBlobFields(txs));
     for (const tx of txs) {
-      this.logger.debug(tx.hash.equals(TxHash.zero()) ? 'Adding padding tx to block' : 'Adding new tx to block', {
-        txHash: tx.hash.toString(),
-      });
+      this.logger.debug('Adding new tx to block', { txHash: tx.hash.toString() });
       this.txs.push(tx);
       await buildBaseRollupHints(tx, this.globalVariables!, this.db, this.spongeBlobState!);
     }
@@ -92,7 +90,6 @@ export class LightweightBlockBuilderFactory {
 
 /**
  * Creates a block builder under the hood with the given txs and messages and creates a block.
- * Automatically adds padding txs to get to a minimum of 2 txs in the block.
  * @param db - A db fork to use for block building.
  */
 export async function buildBlock(
