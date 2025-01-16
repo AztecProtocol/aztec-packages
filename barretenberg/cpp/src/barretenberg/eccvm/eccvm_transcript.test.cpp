@@ -29,11 +29,9 @@ class ECCVMTranscriptTests : public ::testing::Test {
     TranscriptManifest construct_eccvm_honk_manifest()
     {
         TranscriptManifest manifest_expected;
-        size_t MAX_PARTIAL_RELATION_LENGTH = Flavor::BATCHED_RELATION_PARTIAL_LENGTH;
         // Size of types is number of bb::frs needed to represent the type
         size_t frs_per_Fr = bb::field_conversion::calc_num_bn254_frs<FF>();
         size_t frs_per_G = bb::field_conversion::calc_num_bn254_frs<typename Flavor::Commitment>();
-        size_t frs_per_uni = MAX_PARTIAL_RELATION_LENGTH * frs_per_Fr;
         size_t frs_per_evals = (Flavor::NUM_ALL_ENTITIES)*frs_per_Fr;
         size_t frs_per_uint32 = bb::field_conversion::calc_num_bn254_frs<uint32_t>();
 
@@ -146,7 +144,9 @@ class ECCVMTranscriptTests : public ::testing::Test {
         for (size_t i = 0; i < CONST_PROOF_SIZE_LOG_N; ++i) {
             round++;
             std::string idx = std::to_string(i);
-            manifest_expected.add_entry(round, "Sumcheck:univariate_" + idx, frs_per_uni);
+            manifest_expected.add_entry(round, "Sumcheck:univariate_comm_" + idx, frs_per_G);
+            manifest_expected.add_entry(round, "Sumcheck:univariate_" + idx + "_eval_0", frs_per_Fr);
+            manifest_expected.add_entry(round, "Sumcheck:univariate_" + idx + "_eval_1", frs_per_Fr);
             std::string label = "Sumcheck:u_" + idx;
             manifest_expected.add_challenge(round, label);
         }
@@ -284,6 +284,9 @@ TEST_F(ECCVMTranscriptTests, ProverManifestConsistency)
     auto manifest_expected = this->construct_eccvm_honk_manifest();
     auto prover_manifest = prover.transcript->get_manifest();
 
+    manifest_expected.print();
+    info("=====");
+    prover_manifest.print();
     // Note: a manifest can be printed using manifest.print()
     for (size_t round = 0; round < manifest_expected.size(); ++round) {
         ASSERT_EQ(prover_manifest[round], manifest_expected[round]) << "Prover manifest discrepency in round " << round;

@@ -53,7 +53,6 @@ template <typename Curve> class ShpleminiProver_ {
         std::vector<OpeningClaim> libra_opening_claims;
         std::vector<OpeningClaim> sumcheck_round_claims;
 
-        info(sumcheck_round_univariates.size());
         OpeningClaim new_claim;
         if (is_eccvm) {
 
@@ -769,9 +768,6 @@ template <typename Curve> class ShpleminiVerifier_ {
             scalars.push_back(batched_scaling_factor);
             round_idx++;
         }
-
-        info(commitments.size());
-        info(scalars.size());
     };
 };
 } // namespace bb

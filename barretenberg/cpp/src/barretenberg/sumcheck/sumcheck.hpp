@@ -148,7 +148,7 @@ template <typename Flavor> class SumcheckProver {
 
     static constexpr bool IS_ECCVM = std::is_same_v<Flavor, ECCVMFlavor>;
     std::vector<typename Flavor::Commitment> round_univariate_commitments = {};
-    std::vector<std::array<FF, 3>> round_univariate_evaluations = {};
+    std::vector<std::array<FF, 3>> round_evaluations = {};
     std::vector<Polynomial<FF>> round_univariates = {};
     std::vector<FF> eval_domain = {};
 
@@ -298,14 +298,10 @@ template <typename Flavor> class SumcheckProver {
                 }
 
                 commit_to_round_univariate(
-                    round_univariate, eval_domain, transcript, ck, round_univariates, round_univariate_evaluations);
+                    round_idx, round_univariate, eval_domain, transcript, ck, round_univariates, round_evaluations);
             }
 
             const FF round_challenge = transcript->template get_challenge<FF>("Sumcheck:u_0");
-            if constexpr (IS_ECCVM) {
-                // Store the evaluation at the challenge. Could be optimized
-                round_univariate_evaluations[0][2] = round_univariate.evaluate(round_challenge);
-            }
 
             multivariate_challenge.emplace_back(round_challenge);
             // Prepare sumcheck book-keeping table for the next round
@@ -335,9 +331,7 @@ template <typename Flavor> class SumcheckProver {
                 transcript->send_to_verifier("Sumcheck:univariate_" + std::to_string(round_idx), round_univariate);
             } else {
                 commit_to_round_univariate(
-                    round_univariate, eval_domain, transcript, ck, round_univariates, round_univariate_evaluations);
-                round_univariate_evaluations[round_idx - 1][2] =
-                    round_univariate.value_at(0) + round_univariate.value_at(1);
+                    round_idx, round_univariate, eval_domain, transcript, ck, round_univariates, round_evaluations);
             }
             const FF round_challenge =
                 transcript->template get_challenge<FF>("Sumcheck:u_" + std::to_string(round_idx));
@@ -353,7 +347,7 @@ template <typename Flavor> class SumcheckProver {
         }
 
         if constexpr (IS_ECCVM) {
-            round_univariate_evaluations[multivariate_d - 1][2] =
+            round_evaluations[multivariate_d - 1][2] =
                 round_univariate.evaluate(multivariate_challenge[multivariate_d - 1]);
         }
         vinfo("completed ", multivariate_d, " rounds of sumcheck");
@@ -399,7 +393,7 @@ template <typename Flavor> class SumcheckProver {
                                            .claimed_evaluations = multivariate_evaluations,
                                            .claimed_libra_evaluation = libra_evaluation,
                                            .round_univariates = round_univariates,
-                                           .round_univariate_evaluations = round_univariate_evaluations };
+                                           .round_univariate_evaluations = round_evaluations };
         }
         vinfo("finished sumcheck");
     };
@@ -544,28 +538,35 @@ polynomials that are sent in clear.
         };
     }
 
-    void commit_to_round_univariate(bb::Univariate<FF, BATCHED_RELATION_PARTIAL_LENGTH>& round_univariate,
+    void commit_to_round_univariate(const size_t round_idx,
+                                    bb::Univariate<FF, BATCHED_RELATION_PARTIAL_LENGTH>& round_univariate,
                                     const std::vector<FF>& eval_domain,
                                     const std::shared_ptr<Transcript>& transcript,
                                     const std::shared_ptr<CommitmentKey>& ck,
                                     std::vector<bb::Polynomial<FF>>& round_univariates,
                                     std::vector<std::array<FF, 3>>& round_univariate_evaluations)
     {
+
+        const std::string idx = std::to_string(round_idx);
         Polynomial<FF> round_poly_monomial =
             Polynomial<FF>(eval_domain, std::span<FF>(round_univariate.evaluations), BATCHED_RELATION_PARTIAL_LENGTH);
         auto round_univariate_commitment = ck->commit(round_poly_monomial);
-        transcript->send_to_verifier("Sumcheck:univariate_comm_0", round_univariate_commitment);
+        transcript->send_to_verifier("Sumcheck:univariate_comm_" + idx, round_univariate_commitment);
 
         // Store round univariate in monomial, as it is required for Shplonk
         round_univariates.push_back(std::move(round_poly_monomial));
 
         // Send the evaluations of the rounds univariate at 0 and 1
-        transcript->send_to_verifier("Sumcheck:univariate_0_eval_0", round_univariate.value_at(0));
-        transcript->send_to_verifier("Sumcheck:univariate_0_eval_1", round_univariate.value_at(1));
+        transcript->send_to_verifier("Sumcheck:univariate_" + idx + "_eval_0", round_univariate.value_at(0));
+        transcript->send_to_verifier("Sumcheck:univariate_" + idx + "_eval_1", round_univariate.value_at(1));
 
         // Store the evaluations to be used in Shplonk. Third value will be computed after getting the round
         // challenge
         round_univariate_evaluations.push_back({ round_univariate.value_at(0), round_univariate.value_at(1), FF(0) });
+        if (round_idx > 0) {
+            round_univariate_evaluations[round_idx - 1][2] =
+                round_univariate.value_at(0) + round_univariate.value_at(1);
+        };
     }
 };
 /*! \brief Implementation of the sumcheck Verifier for statements of the form \f$\sum_{\vec \ell \in \{0,1\}^d}
