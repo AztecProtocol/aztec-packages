@@ -129,6 +129,8 @@ struct PerFunctionContext<'function> {
 
     /// True if we're currently working on the entry point function.
     inlining_entry: bool,
+
+    globals: &'function Function,
 }
 
 /// Utility function to find out the direct calls of a function.
@@ -358,10 +360,12 @@ impl InlineContext {
         entry_point: FunctionId,
         inline_no_predicates_functions: bool,
         functions_not_to_inline: BTreeSet<FunctionId>,
-    ) -> InlineContext {
+    ) -> Self {
         let source = &ssa.functions[&entry_point];
         let mut builder = FunctionBuilder::new(source.name().to_owned(), entry_point);
         builder.set_runtime(source.runtime());
+        builder.current_function.set_globals(source.dfg.globals.clone());
+
         Self {
             builder,
             recursion_level: 0,
@@ -376,8 +380,13 @@ impl InlineContext {
     fn inline_all(mut self, ssa: &Ssa) -> Function {
         let entry_point = &ssa.functions[&self.entry_point];
 
-        let mut context = PerFunctionContext::new(&mut self, entry_point);
+        // let globals = self.globals;
+        let mut context = PerFunctionContext::new(&mut self, entry_point, &ssa.globals);
         context.inlining_entry = true;
+
+        for (_, value) in entry_point.dfg.globals.values_iter() {
+            context.context.builder.current_function.dfg.make_global(value.get_type().into_owned());
+        }
 
         // The entry block is already inserted so we have to add it to context.blocks and add
         // its parameters here. Failing to do so would cause context.translate_block() to add
@@ -422,7 +431,7 @@ impl InlineContext {
             );
         }
 
-        let mut context = PerFunctionContext::new(self, source_function);
+        let mut context = PerFunctionContext::new(self, source_function, &ssa.globals);
 
         let parameters = source_function.parameters();
         assert_eq!(parameters.len(), arguments.len());
@@ -442,13 +451,18 @@ impl<'function> PerFunctionContext<'function> {
     /// The value and block mappings for this context are initially empty except
     /// for containing the mapping between parameters in the source_function and
     /// the arguments of the destination function.
-    fn new(context: &'function mut InlineContext, source_function: &'function Function) -> Self {
+    fn new(
+        context: &'function mut InlineContext,
+        source_function: &'function Function,
+        globals: &'function Function,
+    ) -> Self {
         Self {
             context,
             source_function,
             blocks: HashMap::default(),
             values: HashMap::default(),
             inlining_entry: false,
+            globals,
         }
     }
 
@@ -458,24 +472,45 @@ impl<'function> PerFunctionContext<'function> {
     /// and blocks respectively. If these assertions trigger it means a value is being used before
     /// the instruction or block that defines the value is inserted.
     fn translate_value(&mut self, id: ValueId) -> ValueId {
+        let id = self.source_function.dfg.resolve(id);
         if let Some(value) = self.values.get(&id) {
             return *value;
         }
 
         let new_value = match &self.source_function.dfg[id] {
-            value @ Value::Instruction { .. } => {
+            value @ Value::Instruction { instruction, .. } => {
+                // TODO: Inlining the global into the function is only a temporary measure
+                // until Brillig gen with globals is working end to end
+                if self.source_function.dfg.is_global(id) {
+                    let Instruction::MakeArray { elements, typ } = &self.globals.dfg[*instruction]
+                    else {
+                        panic!("Only expect Instruction::MakeArray for a global");
+                    };
+                    let elements = elements
+                        .iter()
+                        .map(|element| self.translate_value(*element))
+                        .collect::<im::Vector<_>>();
+                    return self.context.builder.insert_make_array(elements, typ.clone());
+                }
                 unreachable!("All Value::Instructions should already be known during inlining after creating the original inlined instruction. Unknown value {id} = {value:?}")
             }
             value @ Value::Param { .. } => {
                 unreachable!("All Value::Params should already be known from previous calls to translate_block. Unknown value {id} = {value:?}")
             }
             Value::NumericConstant { constant, typ } => {
+                // TODO: Inlining the global into the function is only a temporary measure
+                // until Brillig gen with globals is working end to end.
+                // The dfg indexes a global's inner value directly, so we will need to check here
+                // whether we have a global.
                 self.context.builder.numeric_constant(*constant, *typ)
             }
             Value::Function(function) => self.context.builder.import_function(*function),
             Value::Intrinsic(intrinsic) => self.context.builder.import_intrinsic_id(*intrinsic),
             Value::ForeignFunction(function) => {
                 self.context.builder.import_foreign_function(function)
+            }
+            Value::Global(_) => {
+                panic!("Expected a global to be resolved to its inner value");
             }
         };
 
@@ -935,7 +970,8 @@ mod test {
         // Compiling square f1
         builder.new_function("square".into(), square_id, InlineType::default());
         let square_v0 = builder.add_parameter(Type::field());
-        let square_v2 = builder.insert_binary(square_v0, BinaryOp::Mul, square_v0);
+        let square_v2 =
+            builder.insert_binary(square_v0, BinaryOp::Mul { unchecked: false }, square_v0);
         builder.terminate_with_return(vec![square_v2]);
 
         // Compiling id1 f2
@@ -1000,9 +1036,9 @@ mod test {
 
         builder.switch_to_block(b2);
         let factorial_id = builder.import_function(factorial_id);
-        let v2 = builder.insert_binary(v0, BinaryOp::Sub, one);
+        let v2 = builder.insert_binary(v0, BinaryOp::Sub { unchecked: false }, one);
         let v3 = builder.insert_call(factorial_id, vec![v2], vec![Type::field()])[0];
-        let v4 = builder.insert_binary(v0, BinaryOp::Mul, v3);
+        let v4 = builder.insert_binary(v0, BinaryOp::Mul { unchecked: false }, v3);
         builder.terminate_with_return(vec![v4]);
 
         let ssa = builder.finish();
