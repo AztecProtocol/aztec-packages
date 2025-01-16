@@ -100,6 +100,7 @@ where
 mod tests {
     use crate::{
         tests::{types::TestValue, utils::pad_end},
+        traits::Empty,
         utils::arrays::assert_split_sorted_transformed_value_arrays::get_split_order_hints::{
             get_split_order_hints_asc, get_split_order_hints_desc, SplitOrderHints,
         },

@@ -36,6 +36,7 @@ where
 mod tests {
     use crate::{
         tests::{types::TestValue, utils::pad_end},
+        traits::Empty,
         utils::arrays::assert_combined_array::{assert_combined_array, combine_arrays},
     };
 

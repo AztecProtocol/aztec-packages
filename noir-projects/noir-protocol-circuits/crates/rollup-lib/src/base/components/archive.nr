@@ -2,6 +2,7 @@ use types::{
     block_header::BlockHeader,
     constants::ARCHIVE_HEIGHT,
     merkle_tree::membership::{assert_check_membership, MembershipWitness},
+    traits::Hash,
 };
 
 // Check that the block header used is a member of the blocks tree --> since the block header

@@ -31,6 +31,7 @@ where
 mod tests {
     use crate::{
         tests::types::TestValue,
+        traits::Empty,
         utils::arrays::sort_by_counter::{
             compare_by_counter_empty_padded_asc, compare_by_counter_empty_padded_desc,
             sort_by_counter_asc, sort_by_counter_desc,
