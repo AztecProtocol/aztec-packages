@@ -573,7 +573,7 @@ export async function generateAvmProofV2(
 }
 
 /**
- * Used for generating AVM proofs.
+ * Used for generating AVM proofs (or doing check-circuit).
  * It is assumed that the working directory is a temporary and/or random directory used solely for generating this proof.
  * @param pathToBB - The full path to the bb binary
  * @param workingDirectory - A working directory for use by bb
@@ -586,6 +586,7 @@ export async function generateAvmProof(
   workingDirectory: string,
   input: AvmCircuitInputs,
   logger: Logger,
+  checkCircuitOnly: boolean = false,
 ): Promise<BBFailure | BBSuccess> {
   // Check that the working directory exists
   try {
@@ -633,12 +634,14 @@ export async function generateAvmProof(
       '-o',
       outputPath,
       logger.level === 'debug' || logger.level === 'trace' ? '-d' : logger.level === 'verbose' ? '-v' : '',
+      checkCircuitOnly ? '--check-circuit-only' : '',
     ];
     const timer = new Timer();
+    const cmd = checkCircuitOnly ? 'check_circuit' : 'prove';
     const logFunction = (message: string) => {
-      logger.verbose(`AvmCircuit (prove) BB out - ${message}`);
+      logger.verbose(`AvmCircuit (${cmd}) BB out - ${message}`);
     };
-    const result = await executeBB(pathToBB, 'avm_prove', args, logFunction);
+    const result = await executeBB(pathToBB, `avm_${cmd}`, args, logFunction);
     const duration = timer.ms();
 
     if (result.status == BB_RESULT.SUCCESS) {

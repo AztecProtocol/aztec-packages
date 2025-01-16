@@ -10,7 +10,7 @@ use crate::{
     },
 };
 use blob::blob_public_inputs::BlobPublicInputs;
-use types::abis::constant_rollup_data::ConstantRollupData;
+use types::{abis::constant_rollup_data::ConstantRollupData, traits::Empty};
 
 pub global EMPTY_EFFECT_BLOBS_HASH: Field =
     0x001cedbd7ea5309ef9d1d159209835409bf41b6b1802597a52fa70cc82e934d9;

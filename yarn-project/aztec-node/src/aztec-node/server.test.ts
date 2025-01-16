@@ -20,7 +20,6 @@ import {
 } from '@aztec/circuits.js';
 import { type P2P } from '@aztec/p2p';
 import { type GlobalVariableBuilder } from '@aztec/sequencer-client';
-import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
 
 import { type MockProxy, mock } from 'jest-mock-extended';
 
@@ -97,7 +96,6 @@ describe('aztec node', () => {
       1,
       globalVariablesBuilder,
       new TestCircuitVerifier(),
-      new NoopTelemetryClient(),
     );
   });
 

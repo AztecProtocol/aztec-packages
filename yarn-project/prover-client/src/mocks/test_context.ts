@@ -27,7 +27,7 @@ import {
   WASMSimulatorWithBlobs,
   type WorldStateDB,
 } from '@aztec/simulator/server';
-import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
+import { getTelemetryClient } from '@aztec/telemetry-client';
 import { type MerkleTreeAdminDatabase } from '@aztec/world-state';
 import { NativeWorldStateService } from '@aztec/world-state/native';
 
@@ -69,14 +69,13 @@ export class TestContext {
     logger: Logger,
     proverCount = 4,
     createProver: (bbConfig: BBProverConfig) => Promise<ServerCircuitProver> = _ =>
-      Promise.resolve(new TestCircuitProver(new NoopTelemetryClient(), new WASMSimulatorWithBlobs())),
+      Promise.resolve(new TestCircuitProver(new WASMSimulatorWithBlobs())),
     blockNumber = 1,
   ) {
     const directoriesToCleanup: string[] = [];
     const globalVariables = makeGlobals(blockNumber);
 
     const worldStateDB = mock<WorldStateDB>();
-    const telemetry = new NoopTelemetryClient();
 
     // Separated dbs for public processor and prover - see public_processor for context
     const ws = await NativeWorldStateService.tmp();
@@ -84,14 +83,13 @@ export class TestContext {
 
     worldStateDB.getMerkleInterface.mockReturnValue(publicDb);
 
-    const publicTxSimulator = new PublicTxSimulator(publicDb, worldStateDB, telemetry, globalVariables, true);
+    const publicTxSimulator = new PublicTxSimulator(publicDb, worldStateDB, globalVariables, true);
     const processor = new PublicProcessor(
       publicDb,
       globalVariables,
       worldStateDB,
       publicTxSimulator,
       new TestDateProvider(),
-      telemetry,
     );
 
     let localProver: ServerCircuitProver;
@@ -101,7 +99,7 @@ export class TestContext {
       acvmBinaryPath: config?.expectedAcvmPath,
     });
     if (!config) {
-      localProver = new TestCircuitProver(new NoopTelemetryClient(), simulationProvider);
+      localProver = new TestCircuitProver(simulationProvider);
     } else {
       const bbConfig: BBProverConfig = {
         acvmBinaryPath: config.expectedAcvmPath,
@@ -117,9 +115,9 @@ export class TestContext {
       directoriesToCleanup.push(config.directoryToCleanup);
     }
 
-    const queue = new MemoryProvingQueue(telemetry);
-    const orchestrator = new TestProvingOrchestrator(ws, queue, telemetry, Fr.ZERO);
-    const agent = new ProverAgent(localProver, proverCount, undefined, telemetry);
+    const queue = new MemoryProvingQueue(getTelemetryClient());
+    const orchestrator = new TestProvingOrchestrator(ws, queue, Fr.ZERO);
+    const agent = new ProverAgent(localProver, proverCount, undefined);
 
     queue.start();
     agent.start(queue);

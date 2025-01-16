@@ -21,7 +21,7 @@ export interface EpochProver extends Omit<BlockBuilder, 'setBlockCompleted'> {
    */
   startTubeCircuits(txs: Tx[]): void;
 
-  /** Pads the block with empty txs if it hasn't reached the declared number of txs. */
+  /** Returns the block. */
   setBlockCompleted(blockNumber: number, expectedBlockHeader?: BlockHeader): Promise<L2Block>;
 
   /** Pads the epoch with empty block roots if needed and blocks until proven. Throws if proving has failed. */

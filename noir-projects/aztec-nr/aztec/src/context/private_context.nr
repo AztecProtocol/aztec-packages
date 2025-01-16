@@ -1,20 +1,20 @@
 use dep::protocol_types::debug_log::debug_log_format;
 
 use crate::{
-    context::{inputs::PrivateContextInputs, packed_returns::PackedReturns},
+    context::{inputs::PrivateContextInputs, returns_hash::ReturnsHash},
     hash::{ArgsHasher, hash_args_array},
     keys::constants::{NULLIFIER_INDEX, NUM_KEY_TYPES, OUTGOING_INDEX, sk_generators},
     messaging::process_l1_to_l2_message,
     oracle::{
-        arguments,
         block_header::get_block_header_at,
         call_private_function::call_private_function_internal,
         enqueue_public_function_call::{
             enqueue_public_function_call_internal, notify_set_min_revertible_side_effect_counter,
             set_public_teardown_function_call_internal,
         },
+        execution_cache,
         key_validation_request::get_key_validation_request,
-        returns::pack_returns,
+        notes::{notify_created_nullifier, notify_nullified_note},
     },
 };
 use dep::protocol_types::{
@@ -148,17 +148,20 @@ impl PrivateContext {
     }
 
     pub fn push_nullifier(&mut self, nullifier: Field) {
+        notify_created_nullifier(nullifier);
         self.nullifiers.push(
             Nullifier { value: nullifier, note_hash: 0, counter: self.next_counter() },
         );
     }
 
     pub fn push_nullifier_for_note_hash(&mut self, nullifier: Field, nullified_note_hash: Field) {
+        let nullifier_counter = self.next_counter();
+        notify_nullified_note(nullifier, nullified_note_hash, nullifier_counter);
         self.nullifiers.push(
             Nullifier {
                 value: nullifier,
                 note_hash: nullified_note_hash,
-                counter: self.next_counter(),
+                counter: nullifier_counter,
             },
         );
     }
@@ -176,7 +179,7 @@ impl PrivateContext {
     }
 
     pub fn set_return_hash(&mut self, returns_hasher: ArgsHasher) {
-        pack_returns(returns_hasher.fields);
+        execution_cache::store(returns_hasher.fields);
         self.return_hash = returns_hasher.hash();
     }
 
@@ -264,6 +267,9 @@ impl PrivateContext {
             // about secrets from other contracts. We therefore silo secret keys, and rely on the private kernel to
             // validate that we siloed secret key corresponds to correct siloing of the master secret key that hashes
             // to `pk_m_hash`.
+
+            /// Safety: Kernels verify that the key validation request is valid and below we verify that a request
+            /// for the correct public key has been received.
             let request = unsafe { get_key_validation_request(pk_m_hash, key_index) };
             assert(request.pk_m.hash() == pk_m_hash);
 
@@ -332,10 +338,10 @@ impl PrivateContext {
         contract_address: AztecAddress,
         function_selector: FunctionSelector,
         args: [Field; ARGS_COUNT],
-    ) -> PackedReturns {
+    ) -> ReturnsHash {
         let args_hash = hash_args_array(args);
-        arguments::pack_arguments_array(args);
-        self.call_private_function_with_packed_args(
+        execution_cache::store_array(args);
+        self.call_private_function_with_args_hash(
             contract_address,
             function_selector,
             args_hash,
@@ -348,10 +354,10 @@ impl PrivateContext {
         contract_address: AztecAddress,
         function_selector: FunctionSelector,
         args: [Field; ARGS_COUNT],
-    ) -> PackedReturns {
+    ) -> ReturnsHash {
         let args_hash = hash_args_array(args);
-        arguments::pack_arguments_array(args);
-        self.call_private_function_with_packed_args(
+        execution_cache::store_array(args);
+        self.call_private_function_with_args_hash(
             contract_address,
             function_selector,
             args_hash,
@@ -363,33 +369,33 @@ impl PrivateContext {
         &mut self,
         contract_address: AztecAddress,
         function_selector: FunctionSelector,
-    ) -> PackedReturns {
-        self.call_private_function_with_packed_args(contract_address, function_selector, 0, false)
+    ) -> ReturnsHash {
+        self.call_private_function_with_args_hash(contract_address, function_selector, 0, false)
     }
 
     pub fn static_call_private_function_no_args(
         &mut self,
         contract_address: AztecAddress,
         function_selector: FunctionSelector,
-    ) -> PackedReturns {
-        self.call_private_function_with_packed_args(contract_address, function_selector, 0, true)
+    ) -> ReturnsHash {
+        self.call_private_function_with_args_hash(contract_address, function_selector, 0, true)
     }
 
-    pub fn call_private_function_with_packed_args(
+    pub fn call_private_function_with_args_hash(
         &mut self,
         contract_address: AztecAddress,
         function_selector: FunctionSelector,
         args_hash: Field,
         is_static_call: bool,
-    ) -> PackedReturns {
+    ) -> ReturnsHash {
         let mut is_static_call = is_static_call | self.inputs.call_context.is_static_call;
         let start_side_effect_counter = self.side_effect_counter;
 
-        // The oracle simulates the private call and returns the value of the side effects counter after execution of
-        // the call (which means that end_side_effect_counter - start_side_effect_counter is the number of side effects
-        // that took place), along with the hash of the return values. We validate these by requesting a private kernel
-        // iteration in which the return values are constrained to hash to `returns_hash` and the side effects counter
-        // to increment from start to end.
+        /// Safety: The oracle simulates the private call and returns the value of the side effects counter after
+        /// execution of the call (which means that end_side_effect_counter - start_side_effect_counter is
+        /// the number of side effects that took place), along with the hash of the return values. We validate these
+        /// by requesting a private kernel iteration in which the return values are constrained to hash
+        /// to `returns_hash` and the side effects counter to increment from start to end.
         let (end_side_effect_counter, returns_hash) = unsafe {
             call_private_function_internal(
                 contract_address,
@@ -427,7 +433,7 @@ impl PrivateContext {
         //     self.min_revertible_side_effect_counter = item.public_inputs.min_revertible_side_effect_counter;
         // }
         self.side_effect_counter = end_side_effect_counter + 1;
-        PackedReturns::new(returns_hash)
+        ReturnsHash::new(returns_hash)
     }
 
     pub fn call_public_function<let ARGS_COUNT: u32>(
@@ -437,8 +443,8 @@ impl PrivateContext {
         args: [Field; ARGS_COUNT],
     ) {
         let args_hash = hash_args_array(args);
-        arguments::pack_arguments_array(args);
-        self.call_public_function_with_packed_args(
+        execution_cache::store_array(args);
+        self.call_public_function_with_args_hash(
             contract_address,
             function_selector,
             args_hash,
@@ -453,8 +459,8 @@ impl PrivateContext {
         args: [Field; ARGS_COUNT],
     ) {
         let args_hash = hash_args_array(args);
-        arguments::pack_arguments_array(args);
-        self.call_public_function_with_packed_args(
+        execution_cache::store_array(args);
+        self.call_public_function_with_args_hash(
             contract_address,
             function_selector,
             args_hash,
@@ -467,7 +473,7 @@ impl PrivateContext {
         contract_address: AztecAddress,
         function_selector: FunctionSelector,
     ) {
-        self.call_public_function_with_packed_args(contract_address, function_selector, 0, false)
+        self.call_public_function_with_args_hash(contract_address, function_selector, 0, false)
     }
 
     pub fn static_call_public_function_no_args(
@@ -475,10 +481,10 @@ impl PrivateContext {
         contract_address: AztecAddress,
         function_selector: FunctionSelector,
     ) {
-        self.call_public_function_with_packed_args(contract_address, function_selector, 0, true)
+        self.call_public_function_with_args_hash(contract_address, function_selector, 0, true)
     }
 
-    pub fn call_public_function_with_packed_args(
+    pub fn call_public_function_with_args_hash(
         &mut self,
         contract_address: AztecAddress,
         function_selector: FunctionSelector,
@@ -488,12 +494,12 @@ impl PrivateContext {
         let counter = self.next_counter();
 
         let mut is_static_call = is_static_call | self.inputs.call_context.is_static_call;
-        // TODO(https://github.com/AztecProtocol/aztec-packages/issues/8985): Fix this.
-        // WARNING: This is insecure and should be temporary!
-        // The oracle repacks the arguments and returns a new args_hash.
-        // new_args = [selector, ...old_args], so as to make it suitable to call the public dispatch function.
-        // We don't validate or compute it in the circuit because a) it's harder to do with slices, and
-        // b) this is only temporary.
+        /// Safety: TODO(https://github.com/AztecProtocol/aztec-packages/issues/8985): Fix this.
+        /// WARNING: This is insecure and should be temporary!
+        /// The oracle repacks the arguments and returns a new args_hash.
+        /// new_args = [selector, ...old_args], so as to make it suitable to call the public dispatch function.
+        /// We don't validate or compute it in the circuit because a) it's harder to do with slices, and
+        /// b) this is only temporary.
         let args_hash = unsafe {
             enqueue_public_function_call_internal(
                 contract_address,
@@ -525,8 +531,8 @@ impl PrivateContext {
         args: [Field; ARGS_COUNT],
     ) {
         let args_hash = hash_args_array(args);
-        arguments::pack_arguments_array(args);
-        self.set_public_teardown_function_with_packed_args(
+        execution_cache::store_array(args);
+        self.set_public_teardown_function_with_args_hash(
             contract_address,
             function_selector,
             args_hash,
@@ -534,7 +540,7 @@ impl PrivateContext {
         )
     }
 
-    pub fn set_public_teardown_function_with_packed_args(
+    pub fn set_public_teardown_function_with_args_hash(
         &mut self,
         contract_address: AztecAddress,
         function_selector: FunctionSelector,
@@ -544,12 +550,12 @@ impl PrivateContext {
         let counter = self.next_counter();
 
         let mut is_static_call = is_static_call | self.inputs.call_context.is_static_call;
-        // TODO(https://github.com/AztecProtocol/aztec-packages/issues/8985): Fix this.
-        // WARNING: This is insecure and should be temporary!
-        // The oracle repacks the arguments and returns a new args_hash.
-        // new_args = [selector, ...old_args], so as to make it suitable to call the public dispatch function.
-        // We don't validate or compute it in the circuit because a) it's harder to do with slices, and
-        // b) this is only temporary.
+        /// Safety: TODO(https://github.com/AztecProtocol/aztec-packages/issues/8985): Fix this.
+        /// WARNING: This is insecure and should be temporary!
+        /// The oracle repacks the arguments and returns a new args_hash.
+        /// new_args = [selector, ...old_args], so as to make it suitable to call the public dispatch function.
+        /// We don't validate or compute it in the circuit because a) it's harder to do with slices, and
+        /// b) this is only temporary.
         let args_hash = unsafe {
             set_public_teardown_function_call_internal(
                 contract_address,

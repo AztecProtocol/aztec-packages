@@ -70,7 +70,7 @@ import {
   convertSingleTxBlockRootRollupOutputsFromWitnessMap,
 } from '@aztec/noir-protocol-circuits-types/server';
 import { NativeACVMSimulator } from '@aztec/simulator/server';
-import { Attributes, type TelemetryClient, trackSpan } from '@aztec/telemetry-client';
+import { Attributes, type TelemetryClient, getTelemetryClient, trackSpan } from '@aztec/telemetry-client';
 
 import { type WitnessMap } from '@noir-lang/types';
 import { assert } from 'console';
@@ -129,7 +129,7 @@ export class BBNativeRollupProver implements ServerCircuitProver {
     return this.instrumentation.tracer;
   }
 
-  static async new(config: BBProverConfig, telemetry: TelemetryClient) {
+  static async new(config: BBProverConfig, telemetry: TelemetryClient = getTelemetryClient()) {
     await fs.access(config.acvmBinaryPath, fs.constants.R_OK);
     await fs.mkdir(config.acvmWorkingDirectory, { recursive: true });
     await fs.access(config.bbBinaryPath, fs.constants.R_OK);

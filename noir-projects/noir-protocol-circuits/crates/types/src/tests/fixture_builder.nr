@@ -31,7 +31,7 @@ use crate::{
         public_call_request::PublicCallRequest,
         public_data_write::PublicDataWrite,
         read_request::{ReadRequest, ScopedReadRequest},
-        side_effect::{Counted, scoped::Scoped},
+        side_effect::{Counted, OrderedValue, scoped::Scoped},
         tube::{PrivateTubeData, PublicTubeData},
         tx_constant_data::TxConstantData,
         validation_requests::{
@@ -66,7 +66,7 @@ use crate::{
     },
     public_keys::PublicKeys,
     tests::fixtures::{self, contract_functions::ContractFunction, contracts::ContractData},
-    traits::Empty,
+    traits::{Deserialize, Empty, FromField},
     transaction::{tx_context::TxContext, tx_request::TxRequest},
 };
 
@@ -95,6 +95,7 @@ pub struct FixtureBuilder {
     pub msg_sender: AztecAddress,
     pub is_static_call: bool,
     pub is_private_only: bool,
+    pub claimed_first_nullifier: Field,
 
     // Fees.
     pub is_fee_payer: bool,
@@ -478,6 +479,7 @@ impl FixtureBuilder {
             public_teardown_call_request,
             fee_payer: self.fee_payer,
             is_private_only: self.is_private_only,
+            claimed_first_nullifier: self.claimed_first_nullifier,
         }
     }
 
@@ -589,9 +591,11 @@ impl FixtureBuilder {
         let note_hash_to_silo = NoteHash { value, counter: 0 }.scope(self.contract_address);
         let siloed_value = silo_note_hash(note_hash_to_silo);
         let current_index = self.note_hashes.len();
-        let first_nullifier = self.nullifiers.get(0).value();
-        let unique_siloed_value =
-            compute_unique_siloed_note_hash(siloed_value, first_nullifier, current_index);
+        let unique_siloed_value = compute_unique_siloed_note_hash(
+            siloed_value,
+            self.claimed_first_nullifier,
+            current_index,
+        );
 
         self.note_hashes.push(NoteHash { value: unique_siloed_value, counter: self.next_counter() }
             .scope(AztecAddress::zero()));
@@ -638,12 +642,13 @@ impl FixtureBuilder {
         }
     }
 
-    pub fn set_first_nullifier(&mut self) {
+    pub fn set_protocol_nullifier(&mut self) {
         assert_eq(self.nullifiers.len(), 0, "first nullifier already set");
         let value = self.mock_nullifier_value(0);
         let first_nullifier =
             Nullifier { value, counter: 0, note_hash: 0 }.scope(AztecAddress::zero());
         self.nullifiers.push(first_nullifier);
+        self.claimed_first_nullifier = value;
     }
 
     pub fn add_nullifier(&mut self, value: Field) {
@@ -1091,6 +1096,7 @@ impl Empty for FixtureBuilder {
             contract_address: AztecAddress::zero(),
             msg_sender: AztecAddress::zero(),
             is_private_only: false,
+            claimed_first_nullifier: 0,
             is_static_call: false,
             is_fee_payer: false,
             fee_payer: AztecAddress::zero(),

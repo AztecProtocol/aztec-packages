@@ -21,6 +21,7 @@ use types::{
     merkle_tree::{MembershipWitness, MerkleTree},
     partial_state_reference::PartialStateReference,
     tests::{fixtures, merkle_tree_utils::{compute_zero_hashes, NonEmptyMerkleTree}},
+    traits::{Empty, Hash},
 };
 
 pub struct RollupFixtureBuilder {
@@ -279,8 +280,8 @@ impl RollupFixtureBuilder {
     }
 
     pub fn mock_evaluate_blobs(_self: Self) {
+        /// Safety: Mock the oracle call when the blob data is not relevant to the test.
         unsafe {
-            //@safety: Mock the oracle call when the blob data is not relevant to the test.
             let _ = OracleMock::mock("evaluateBlobs").returns(BlockBlobPublicInputs::empty());
         }
     }

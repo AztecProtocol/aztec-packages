@@ -49,6 +49,8 @@ template <typename LeafValueType> struct SequentialInsertionResult {
     MSGPACK_FIELDS(low_leaf_witness_data, insertion_witness_data);
 };
 
+const uint64_t DEFAULT_MIN_NUMBER_OF_READERS = 128;
+
 /**
  * @brief Holds the Merkle trees responsible for storing the state of the Aztec protocol.
  *

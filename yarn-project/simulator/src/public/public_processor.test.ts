@@ -22,7 +22,7 @@ import { computePublicDataTreeLeafSlot } from '@aztec/circuits.js/hash';
 import { times } from '@aztec/foundation/collection';
 import { sleep } from '@aztec/foundation/sleep';
 import { TestDateProvider } from '@aztec/foundation/timer';
-import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
+import { getTelemetryClient } from '@aztec/telemetry-client';
 
 import { type MockProxy, mock } from 'jest-mock-extended';
 
@@ -86,7 +86,7 @@ describe('public_processor', () => {
       worldStateDB,
       publicTxSimulator,
       new TestDateProvider(),
-      new NoopTelemetryClient(),
+      getTelemetryClient(),
     );
   });
 

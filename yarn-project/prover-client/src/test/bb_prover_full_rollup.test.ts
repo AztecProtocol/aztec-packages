@@ -7,7 +7,7 @@ import { type Logger, createLogger } from '@aztec/foundation/log';
 import { getTestData, isGenerateTestDataEnabled } from '@aztec/foundation/testing';
 import { writeTestData } from '@aztec/foundation/testing/files';
 import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types/vks';
-import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
+import { getTelemetryClient } from '@aztec/telemetry-client';
 
 import { buildBlock } from '../block_builder/light.js';
 import { makeGlobals } from '../mocks/fixtures.js';
@@ -20,7 +20,7 @@ describe('prover/bb_prover/full-rollup', () => {
 
   beforeEach(async () => {
     const buildProver = async (bbConfig: BBProverConfig) => {
-      prover = await BBNativeRollupProver.new(bbConfig, new NoopTelemetryClient());
+      prover = await BBNativeRollupProver.new(bbConfig, getTelemetryClient());
       return prover;
     };
     log = createLogger('prover-client:test:bb-prover-full-rollup');

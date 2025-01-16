@@ -1,7 +1,13 @@
 import { type L2BlockSource } from '@aztec/circuit-types';
 import { createLogger } from '@aztec/foundation/log';
 import { RunningPromise } from '@aztec/foundation/running-promise';
-import { type TelemetryClient, type Traceable, type Tracer, trackSpan } from '@aztec/telemetry-client';
+import {
+  type TelemetryClient,
+  type Traceable,
+  type Tracer,
+  getTelemetryClient,
+  trackSpan,
+} from '@aztec/telemetry-client';
 
 export interface EpochMonitorHandler {
   handleInitialEpochSync(epochNumber: bigint): Promise<void>;
@@ -19,8 +25,8 @@ export class EpochMonitor implements Traceable {
 
   constructor(
     private readonly l2BlockSource: L2BlockSource,
-    telemetry: TelemetryClient,
     private options: { pollingIntervalMs: number },
+    telemetry: TelemetryClient = getTelemetryClient(),
   ) {
     this.tracer = telemetry.getTracer('EpochMonitor');
     this.runningPromise = new RunningPromise(this.work.bind(this), this.log, this.options.pollingIntervalMs);

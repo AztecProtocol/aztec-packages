@@ -17,6 +17,7 @@ use types::{
     merkle_tree::{append_only_tree, calculate_empty_tree_root},
     partial_state_reference::PartialStateReference,
     state_reference::StateReference,
+    traits::{Empty, Hash},
 };
 
 pub struct BlockRootRollupOutputComposer {
@@ -206,7 +207,7 @@ impl BlockRootRollupOutputComposer {
                 self.merged_rollup.end_sponge_blob,
             )
         } else {
-            // TODO(#10323): this was added to save simulation time, if/when simulation times of unconstrained are improved, remove this.
+            /// Safety: TODO(#10323): this was added to save simulation time, if/when simulation times of unconstrained are improved, remove this.
             unsafe {
                 blob::mock_blob_oracle::evaluate_blobs(
                     data.blobs_fields,

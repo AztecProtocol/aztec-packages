@@ -5,6 +5,7 @@ use crate::merge::utils::{
 };
 use dep::types::{
     constants::{MERGE_ROLLUP_INDEX, PRIVATE_BASE_ROLLUP_VK_INDEX, PUBLIC_BASE_ROLLUP_VK_INDEX},
+    proof::traits::Verifiable,
     traits::Empty,
 };
 
