@@ -135,7 +135,8 @@ template <typename Flavor> class SmallSubgroupIPAProver {
         , batched_quotient(QUOTIENT_LENGTH)
 
     {
-        // Reallocate the commitment key if necessary. This is an edge case with SmallSubgroupIPA
+        // Reallocate the commitment key if necessary. This is an edge case with SmallSubgroupIPA since it has
+        // polynomials that may exceed the circuit size.
         if (commitment_key->dyadic_size < SUBGROUP_SIZE + 3) {
             commitment_key = std::make_shared<typename Flavor::CommitmentKey>(SUBGROUP_SIZE + 3);
         }
