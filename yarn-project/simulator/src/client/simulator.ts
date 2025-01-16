@@ -1,4 +1,10 @@
-import type { AztecNode, FunctionCall, Note, PrivateExecutionResult, TxExecutionRequest } from '@aztec/circuit-types';
+import {
+  type AztecNode,
+  type FunctionCall,
+  type Note,
+  PrivateExecutionResult,
+  type TxExecutionRequest,
+} from '@aztec/circuit-types';
 import { CallContext } from '@aztec/circuits.js';
 import {
   type ArrayType,
@@ -70,7 +76,8 @@ export class AcirSimulator {
       entryPointArtifact.isStatic,
     );
 
-    const txHash = request.toTxRequest().hash();
+    const txRequestHash = request.toTxRequest().hash();
+    const noteCache = new ExecutionNoteCache(txRequestHash);
 
     const context = new ClientExecutionContext(
       request.firstCallArgsHash,
@@ -79,7 +86,7 @@ export class AcirSimulator {
       header,
       request.authWitnesses,
       HashedValuesCache.create(request.argsOfCalls),
-      new ExecutionNoteCache(txHash),
+      noteCache,
       this.db,
       this.node,
       this.simulationProvider,
@@ -96,7 +103,9 @@ export class AcirSimulator {
         contractAddress,
         request.functionSelector,
       );
-      return executionResult;
+      const { usedTxRequestHashForNonces } = noteCache.finish();
+      const firstNullifierHint = usedTxRequestHashForNonces ? Fr.ZERO : noteCache.getAllNullifiers()[0];
+      return new PrivateExecutionResult(executionResult, firstNullifierHint);
     } catch (err) {
       throw createSimulationError(err instanceof Error ? err : new Error('Unknown error during private execution'));
     }

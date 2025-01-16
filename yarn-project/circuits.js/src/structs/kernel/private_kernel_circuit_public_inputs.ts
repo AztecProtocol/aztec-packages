@@ -41,6 +41,10 @@ export class PrivateKernelCircuitPublicInputs {
      * Wether this is a private only tx or not
      */
     public isPrivateOnly: boolean,
+    /**
+     * The nullifier that will be used for nonce generation
+     */
+    public claimedFirstNullifier: Fr,
   ) {}
 
   static get schema() {
@@ -59,6 +63,8 @@ export class PrivateKernelCircuitPublicInputs {
       this.end,
       this.publicTeardownCallRequest,
       this.feePayer,
+      this.isPrivateOnly,
+      this.claimedFirstNullifier,
     );
   }
 
@@ -77,6 +83,7 @@ export class PrivateKernelCircuitPublicInputs {
       reader.readObject(PublicCallRequest),
       reader.readObject(AztecAddress),
       reader.readBoolean(),
+      reader.readObject(Fr),
     );
   }
 
@@ -89,6 +96,7 @@ export class PrivateKernelCircuitPublicInputs {
       PublicCallRequest.empty(),
       AztecAddress.ZERO,
       false,
+      Fr.zero(),
     );
   }
 }

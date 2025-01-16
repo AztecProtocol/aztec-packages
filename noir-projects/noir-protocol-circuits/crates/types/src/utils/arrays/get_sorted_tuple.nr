@@ -20,7 +20,7 @@ pub unconstrained fn get_sorted_tuple<T, let N: u32, Env>(
 }
 
 #[test]
-fn get_sorted_tuple_asc() {
+unconstrained fn get_sorted_tuple_asc() {
     let original = [3, 2, 9, 5];
     let expected = [
         SortedTuple { elem: 2, original_index: 1 },
@@ -28,7 +28,7 @@ fn get_sorted_tuple_asc() {
         SortedTuple { elem: 5, original_index: 3 },
         SortedTuple { elem: 9, original_index: 2 },
     ];
-    let sorted = unsafe { get_sorted_tuple(original, |a: u64, b: u64| a < b) };
+    let sorted = get_sorted_tuple(original, |a: u64, b: u64| a < b);
     for i in 0..4 {
         assert_eq(sorted[i].elem, expected[i].elem);
         assert_eq(sorted[i].original_index, expected[i].original_index);
