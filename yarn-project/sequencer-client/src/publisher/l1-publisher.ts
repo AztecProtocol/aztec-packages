@@ -1082,6 +1082,7 @@ export class L1Publisher {
         functionName: 'propose',
         args,
       });
+      this.log.debug('simulateGasUsed with blob inputs', { blobInputs: args[3] });
       let simulationResult = await this.l1TxUtils.simulateGasUsed(
         {
           to: this.rollupContract.address,
