@@ -86,7 +86,9 @@ Returns the current value in a public, private or unconstrained execution contex
 
 #include_code shared_mutable_get_current_public /noir-projects/noir-contracts/contracts/auth_contract/src/main.nr rust
 
-Calling this function in a private execution context will set the `max_block_number` property of the transaction request, introducing a new validity condition to the entire transaction: it cannot be included in any block with a block number larger than `max_block_number`. This could [potentially leak some privacy](#privacy-considerations).
+Calling this function in a private execution context will have a 1 block delay, as compared to calling in the public context. This is because calling `get_current_value` in private constructs a historical state proof, using the latest proven block, for the public value, so the "current value" in private execution will be delayed by 1 block when compared to what the public value is.
+
+Also, calling in private will set the `max_block_number` property of the transaction request, introducing a new validity condition to the entire transaction: it cannot be included in any block with a block number larger than `max_block_number`. This could [potentially leak some privacy](#privacy-considerations).
 
 #include_code shared_mutable_get_current_private /noir-projects/noir-contracts/contracts/auth_contract/src/main.nr rust
 
