@@ -892,6 +892,23 @@ __metadata:
   languageName: unknown
   linkType: soft
 
+"@aztec/native@workspace:^, @aztec/native@workspace:native":
+  version: 0.0.0-use.local
+  resolution: "@aztec/native@workspace:native"
+  dependencies:
+    "@aztec/foundation": "workspace:^"
+    "@jest/globals": "npm:^29.5.0"
+    "@types/bindings": "npm:^1.5.5"
+    "@types/jest": "npm:^29.5.0"
+    "@types/node": "npm:^18.7.23"
+    bindings: "npm:^1.5.0"
+    jest: "npm:^29.5.0"
+    msgpackr: "npm:^1.11.2"
+    ts-node: "npm:^10.9.1"
+    typescript: "npm:^5.0.4"
+  languageName: unknown
+  linkType: soft
+
 "@aztec/noir-contracts.js@workspace:^, @aztec/noir-contracts.js@workspace:noir-contracts.js":
   version: 0.0.0-use.local
   resolution: "@aztec/noir-contracts.js@workspace:noir-contracts.js"
@@ -1400,6 +1417,7 @@ __metadata:
     "@aztec/foundation": "workspace:^"
     "@aztec/kv-store": "workspace:^"
     "@aztec/merkle-tree": "workspace:^"
+    "@aztec/native": "workspace:^"
     "@aztec/telemetry-client": "workspace:^"
     "@aztec/types": "workspace:^"
     "@jest/globals": "npm:^29.5.0"

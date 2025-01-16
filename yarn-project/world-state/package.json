@@ -67,6 +67,7 @@
     "@aztec/foundation": "workspace:^",
     "@aztec/kv-store": "workspace:^",
     "@aztec/merkle-tree": "workspace:^",
+    "@aztec/native": "workspace:^",
     "@aztec/telemetry-client": "workspace:^",
     "@aztec/types": "workspace:^",
     "bindings": "^1.5.0",

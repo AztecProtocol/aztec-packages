@@ -22,6 +22,9 @@
       "path": "../merkle-tree"
     },
     {
+      "path": "../native"
+    },
+    {
       "path": "../telemetry-client"
     },
     {
