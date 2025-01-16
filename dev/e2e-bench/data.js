@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1737027048512,
+  "lastUpdate": 1737031002349,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "End-to-end Benchmark": [
@@ -888,6 +888,45 @@ window.BENCHMARK_DATA = {
           {
             "name": "Sequencer/aztec.sequencer.block_builder_tree_insertion_duration",
             "value": 647386,
+            "unit": "us"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "15848336+TomAFrench@users.noreply.github.com",
+            "name": "Tom French",
+            "username": "TomAFrench"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "a6ebc2e7dc453e55ad3b3872f1d78b9fa0b8abdf",
+          "message": "feat: reenable constrained config for roots (#10605)\n\nThis PR replaces the oracle calls used to calculate the roots of unity\nwith constants which can be written directly into the bytecode now that\nwe're not passing it across the unconstrained boundary.\n\n---------\n\nCo-authored-by: Michael Connor <mike@aztecprotocol.com>",
+          "timestamp": "2025-01-16T12:13:30Z",
+          "tree_id": "7f93f325668072769352797dbb482766ec3bdcbc",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/a6ebc2e7dc453e55ad3b3872f1d78b9fa0b8abdf"
+        },
+        "date": 1737030994905,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sequencer/aztec.sequencer.block.build_duration",
+            "value": 4514,
+            "unit": "ms"
+          },
+          {
+            "name": "Sequencer/aztec.sequencer.block.time_per_mana",
+            "value": 3.3921072448626535,
+            "unit": "us/mana"
+          },
+          {
+            "name": "Sequencer/aztec.sequencer.block_builder_tree_insertion_duration",
+            "value": 654693,
             "unit": "us"
           }
         ]
