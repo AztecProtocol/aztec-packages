@@ -26,12 +26,14 @@ AWK_PATTERN=$(echo "$rebuild_patterns" | grep -v '^$' | sed 's/\\/\\\\/g' | tr '
 # use git repo root because that is where our patterns are focused
 cd "$(git rev-parse --show-toplevel)"
 
-unstaged_diff="$(git diff --name-only | grep -E "$GREP_PATTERN" || true)"
-staged_diff="$(git diff --staged --name-only | grep -E "$GREP_PATTERN" || true)"
-untracked_diff="$(git ls-files --others --exclude-standard | grep -E "$GREP_PATTERN" || true)"
+diff="$({
+  git diff --name-only
+  git diff --staged --name-only
+  git ls-files --others --exclude-standard
+} | grep -E "$GREP_PATTERN" || true)"
 
 # Check for uncommitted files/changes
-if [[ -n "$unstaged_diff" ]] || [[ -n "$staged_diff" ]] || [[ -n "$untracked_diff" ]]; then
+if [ -n "$diff" ]; then
   # Signal to cache_upload and cache_download to not touch this file.
   echo "disabled-cache"
   exit 0
