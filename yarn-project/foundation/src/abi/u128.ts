@@ -1,3 +1,5 @@
+import { Fr } from '../fields/fields.js';
+
 // A typescript version of noir::std::U128
 export class U128 {
   private readonly value: bigint;
@@ -39,5 +41,9 @@ export class U128 {
 
   toInteger(): bigint {
     return this.value;
+  }
+
+  toFields(): Fr[] {
+    return [new Fr(this.lo), new Fr(this.hi)];
   }
 }
