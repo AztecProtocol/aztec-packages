@@ -14,6 +14,7 @@ use types::{
     constants::{BLOBS_PER_BLOCK, FIELDS_PER_BLOB},
     utils::arrays::array_splice,
 };
+use std::ops::{Neg, Mul};
 
 global LIMB_MAX: Field = 0x1000000000000000000000000000000; // 2^120
 global TWO_POW_56: u64 = 0x100000000000000; // u64 to aid integer only modulo in __field_to_bignum_limbs
@@ -466,6 +467,8 @@ mod tests {
         constants::{BLOBS_PER_BLOCK, FIELDS_PER_BLOB},
         tests::{fixture_builder::FixtureBuilder, utils::pad_end},
     };
+    use types::traits::Serialize;
+    use bigint::bignum::BigNumTrait;
 
     #[test]
     unconstrained fn test_one_note() {
