@@ -118,44 +118,44 @@ AvmRecursiveVerifier_<Flavor>::AggregationObject AvmRecursiveVerifier_<Flavor>::
 
     // No need to constrain that sumcheck_verified is true as this is guaranteed by the implementation of
     // when called over a "circuit field" types.
-    auto [multivariate_challenge, claimed_evaluations, sumcheck_verified] =
-        sumcheck.verify(relation_parameters, alpha, gate_challenges);
+    SumcheckOutput<Flavor> output = sumcheck.verify(relation_parameters, alpha, gate_challenges);
 
-    vinfo("verified sumcheck: ", (sumcheck_verified.has_value() && sumcheck_verified.value()));
+    vinfo("verified sumcheck: ", (output.verified.has_value() && output.verified.value()));
 
     // Public columns evaluation checks
-    std::vector<FF> mle_challenge(multivariate_challenge.begin(),
-                                  multivariate_challenge.begin() + static_cast<int>(log_circuit_size));
+    std::vector<FF> mle_challenge(output.challenge.begin(),
+                                  output.challenge.begin() + static_cast<int>(log_circuit_size));
 
     FF main_kernel_inputs_evaluation = evaluate_public_input_column(public_inputs[0], mle_challenge);
-    main_kernel_inputs_evaluation.assert_equal(claimed_evaluations.main_kernel_inputs,
+    main_kernel_inputs_evaluation.assert_equal(output.claimed_evaluations.main_kernel_inputs,
                                                "main_kernel_inputs_evaluation failed");
 
     FF main_kernel_value_out_evaluation = evaluate_public_input_column(public_inputs[1], mle_challenge);
-    main_kernel_value_out_evaluation.assert_equal(claimed_evaluations.main_kernel_value_out,
+    main_kernel_value_out_evaluation.assert_equal(output.claimed_evaluations.main_kernel_value_out,
                                                   "main_kernel_value_out_evaluation failed");
 
     FF main_kernel_side_effect_out_evaluation = evaluate_public_input_column(public_inputs[2], mle_challenge);
-    main_kernel_side_effect_out_evaluation.assert_equal(claimed_evaluations.main_kernel_side_effect_out,
+    main_kernel_side_effect_out_evaluation.assert_equal(output.claimed_evaluations.main_kernel_side_effect_out,
                                                         "main_kernel_side_effect_out_evaluation failed");
 
     FF main_kernel_metadata_out_evaluation = evaluate_public_input_column(public_inputs[3], mle_challenge);
-    main_kernel_metadata_out_evaluation.assert_equal(claimed_evaluations.main_kernel_metadata_out,
+    main_kernel_metadata_out_evaluation.assert_equal(output.claimed_evaluations.main_kernel_metadata_out,
                                                      "main_kernel_metadata_out_evaluation failed");
 
     FF main_calldata_evaluation = evaluate_public_input_column(public_inputs[4], mle_challenge);
-    main_calldata_evaluation.assert_equal(claimed_evaluations.main_calldata, "main_calldata_evaluation failed");
+    main_calldata_evaluation.assert_equal(output.claimed_evaluations.main_calldata, "main_calldata_evaluation failed");
 
     FF main_returndata_evaluation = evaluate_public_input_column(public_inputs[5], mle_challenge);
-    main_returndata_evaluation.assert_equal(claimed_evaluations.main_returndata, "main_returndata_evaluation failed");
+    main_returndata_evaluation.assert_equal(output.claimed_evaluations.main_returndata,
+                                            "main_returndata_evaluation failed");
 
     // Execute Shplemini rounds.
     auto opening_claim = Shplemini::compute_batch_opening_claim(circuit_size,
                                                                 commitments.get_unshifted(),
                                                                 commitments.get_to_be_shifted(),
-                                                                claimed_evaluations.get_unshifted(),
-                                                                claimed_evaluations.get_shifted(),
-                                                                multivariate_challenge,
+                                                                output.claimed_evaluations.get_unshifted(),
+                                                                output.claimed_evaluations.get_shifted(),
+                                                                output.challenge,
                                                                 Commitment::one(builder),
                                                                 transcript);
     auto pairing_points = PCS::reduce_verify_batch_opening_claim(opening_claim, transcript);
