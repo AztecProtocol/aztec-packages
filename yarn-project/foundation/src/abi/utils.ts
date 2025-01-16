@@ -37,7 +37,7 @@ export function isFunctionSelectorStruct(abiType: AbiType) {
 }
 
 /**
- * Returns whether the ABI type is a U128 defined in noir::std.
+ * Returns whether the ABI type is the U128 defined in noir::std.
  * @param abiType - Type to check.
  */
 export function isU128Struct(abiType: AbiType) {

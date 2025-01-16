@@ -109,6 +109,15 @@ class ArgumentEncoder {
         if (isU128Struct(abiType)) {
           // U128 struct has low and high limbs - so we first convert the value to the 2 limbs and then we encode them
           // --> this results in the limbs being added to the final flat array as [..., lo, hi, ...].
+          //
+          // We use little-endian ordering to match the order in which U128 defines its limbs.
+          // This is necessary because of how Noir handles serialization:
+          // - When calling a contract function from TypeScript, the serialization below gets used and then Noir
+          //   deserializes using its intrinsic serialization logic (based on the limb order in the struct).
+          // - When calling a contract function from another function, the `serialize` method is invoked
+          //   on the type first.
+          // For this reason if we didn't use the ordering of U128 limbs here and in the implementation of Serialize
+          // trait for U128 we would get an arguments hash mismatch.
           const value = new U128(arg);
           this.encodeArgument({ kind: 'field' }, value.lo, `${name}.lo`);
           this.encodeArgument({ kind: 'field' }, value.hi, `${name}.hi`);

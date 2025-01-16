@@ -49,7 +49,7 @@ pub unconstrained fn setup_and_mint_to_public(
 ) -> (&mut TestEnvironment, AztecAddress, AztecAddress, AztecAddress, U128) {
     // Setup
     let (env, token_contract_address, owner, recipient) = setup(with_account_contracts);
-    let mint_amount: U128 = U128::from_integer(10000);
+    let mint_amount = U128::from_integer(10000);
     // Mint some tokens
     Token::at(token_contract_address).mint_to_public(owner, mint_amount).call(&mut env.public());
 
@@ -72,7 +72,7 @@ pub unconstrained fn setup_and_mint_amount_to_private(
 pub unconstrained fn setup_and_mint_to_private(
     with_account_contracts: bool,
 ) -> (&mut TestEnvironment, AztecAddress, AztecAddress, AztecAddress, U128) {
-    let mint_amount: U128 = U128::from_integer(10000);
+    let mint_amount = U128::from_integer(10000);
     setup_and_mint_amount_to_private(with_account_contracts, mint_amount)
 }
 
