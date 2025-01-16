@@ -1,4 +1,4 @@
-import { BlobSinkClientInterface } from '@aztec/blob-sink/client';
+import { type BlobSinkClientInterface } from '@aztec/blob-sink/client';
 import { Body, InboxLeaf, L2Block } from '@aztec/circuit-types';
 import { AppendOnlyTreeSnapshot, BlockHeader, Fr, Proof } from '@aztec/circuits.js';
 import { asyncPool } from '@aztec/foundation/async-pool';
@@ -21,6 +21,7 @@ import {
   hexToBytes,
 } from 'viem';
 
+import { NoBlobBodiesFoundError } from './errors.js';
 import { type DataRetrieval } from './structs/data_retrieval.js';
 import { type L1Published, type L1PublishedData } from './structs/published.js';
 
@@ -100,13 +101,7 @@ export async function processL2BlockProposedLogs(
 
     // The value from the event and contract will match only if the block is in the chain.
     if (archive === archiveFromChain) {
-      const block = await getBlockFromRollupTx(
-        publicClient,
-        blobSinkClient,
-        log.transactionHash!,
-        l2BlockNumber,
-        logger,
-      );
+      const block = await getBlockFromRollupTx(publicClient, blobSinkClient, log.transactionHash!, l2BlockNumber);
 
       const l1: L1PublishedData = {
         blockNumber: log.blockNumber,
@@ -145,7 +140,6 @@ async function getBlockFromRollupTx(
   blobSinkClient: BlobSinkClientInterface,
   txHash: `0x${string}`,
   l2BlockNum: bigint,
-  logger: Logger,
 ): Promise<L2Block> {
   const { input: data, blockHash } = await publicClient.getTransaction({ hash: txHash });
 
@@ -175,7 +169,7 @@ async function getBlockFromRollupTx(
 
   const blobBodies = await blobSinkClient.getBlobSidecar(blockHash);
   if (blobBodies.length === 0) {
-    throw new Error(`No blob bodies found for block ${l2BlockNum}`);
+    throw new NoBlobBodiesFoundError(Number(l2BlockNum));
   }
 
   const blockFields = blobBodies.flatMap(b => b.toFields());
@@ -185,14 +179,6 @@ async function getBlockFromRollupTx(
   // either a beacon chain client or link to some blob store. Web2 is ok because we will
   // verify the block body vs the blob as below.
   const blockBody = Body.fromBuffer(Buffer.from(hexToBytes(bodyHex)));
-
-  const legacyBlockFields = blockBody.toBlobFields();
-
-  logger.verbose(`Legacy block fields length: ${legacyBlockFields.length}`);
-  logger.verbose(`Block fields length: ${blockFields.length}`);
-
-  logger.verbose(`Legacy block fields: ${legacyBlockFields.map(f => f.toString())}`);
-  logger.verbose(`Block fields: ${blockFields.map(f => f.toString())}`);
 
   // TODO(#9101): The below reconstruction is currently redundant, but once we extract blobs will be the way to construct blocks.
   // The blob source will give us blockFields, and we must construct the body from them:

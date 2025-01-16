@@ -17,6 +17,7 @@ export class RunningPromise {
     private fn: () => void | Promise<void>,
     private logger = createLogger('running-promise'),
     private pollingIntervalMS = 10000,
+    private ignoredErrors: (new (...args: any[]) => Error)[] = [],
   ) {}
 
   /**
@@ -35,7 +36,9 @@ export class RunningPromise {
         try {
           await this.fn();
         } catch (err) {
-          this.logger.error('Error in running promise', err);
+          if (err instanceof Error && !this.ignoredErrors.some(ErrorType => err instanceof ErrorType)) {
+            this.logger.error('Error in running promise', err);
+          }
         }
 
         // If an immediate run had been requested *before* the function started running, resolve the request.

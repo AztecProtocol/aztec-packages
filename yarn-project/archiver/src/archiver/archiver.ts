@@ -67,6 +67,7 @@ import {
 import { type ArchiverDataStore, type ArchiverL1SynchPoint } from './archiver_store.js';
 import { type ArchiverConfig } from './config.js';
 import { retrieveBlocksFromRollup, retrieveL1ToL2Messages } from './data_retrieval.js';
+import { NoBlobBodiesFoundError } from './errors.js';
 import { ArchiverInstrumentation } from './instrumentation.js';
 import { type DataRetrieval } from './structs/data_retrieval.js';
 import { type L1Published } from './structs/published.js';
@@ -199,7 +200,13 @@ export class Archiver implements ArchiveSource, Traceable {
       await this.sync(blockUntilSynced);
     }
 
-    this.runningPromise = new RunningPromise(() => this.sync(false), this.log, this.config.pollingIntervalMs);
+    this.runningPromise = new RunningPromise(() => this.sync(false), this.log, this.config.pollingIntervalMs, [
+      // TODO(md): Instead do retries in the blob sink rather than this hack?
+      // Ignored errors will not log to the console
+      // We ignore NoBlobBodiesFound as the message may not have been passed to the blob sink yet
+      NoBlobBodiesFoundError,
+    ]);
+
     this.runningPromise.start();
   }
 
@@ -469,6 +476,8 @@ export class Archiver implements ArchiveSource, Traceable {
       [searchStartBlock, searchEndBlock] = this.nextRange(searchEndBlock, currentL1BlockNumber);
 
       this.log.trace(`Retrieving L2 blocks from L1 block ${searchStartBlock} to ${searchEndBlock}`);
+
+      // TODO(md): Retreive from blob sink then from consensus client, then from peers
       const retrievedBlocks = await retrieveBlocksFromRollup(
         this.rollup,
         this.publicClient,

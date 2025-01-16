@@ -62,6 +62,7 @@ import { createWorldStateSynchronizer } from '@aztec/world-state';
 import * as fs from 'fs';
 import { getContract } from 'viem';
 
+import { DEFAULT_BLOB_SINK_PORT } from './fixtures/fixtures.js';
 import { addAccounts } from './fixtures/snapshot_manager.js';
 import { mintTokensToPrivate } from './fixtures/token_utils.js';
 import { type EndToEndContext, getPrivateKeyFromIndex, setup, setupPXEService } from './fixtures/utils.js';
@@ -382,7 +383,9 @@ describe('e2e_synching', () => {
     await (sequencer as any).stop();
     await watcher?.stop();
 
-    const blobSinkClient = createBlobSinkClient(`http://localhost:${blobSink?.port ?? 5052}`);
+    const blobSinkClient = createBlobSinkClient({
+      blobSinkUrl: `http://localhost:${blobSink?.port ?? DEFAULT_BLOB_SINK_PORT}`,
+    });
 
     const sequencerPK: `0x${string}` = `0x${getPrivateKeyFromIndex(0)!.toString('hex')}`;
     const publisher = new L1Publisher(
@@ -500,7 +503,9 @@ describe('e2e_synching', () => {
             await aztecNode.stop();
           }
 
-          const blobSinkClient = createBlobSinkClient(`http://localhost:${opts.blobSink?.port ?? 5052}`);
+          const blobSinkClient = createBlobSinkClient({
+            blobSinkUrl: `http://localhost:${opts.blobSink?.port ?? DEFAULT_BLOB_SINK_PORT}`,
+          });
           const archiver = await createArchiver(opts.config!, blobSinkClient, {
             blockUntilSync: true,
           });

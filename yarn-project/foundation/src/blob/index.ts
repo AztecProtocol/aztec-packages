@@ -3,7 +3,6 @@ import type { Blob as BlobBuffer } from 'c-kzg';
 
 import { poseidon2Hash, sha256 } from '../crypto/index.js';
 import { Fr } from '../fields/index.js';
-import { createLogger } from '../log/index.js';
 import { BufferReader, FieldReader, serializeToBuffer } from '../serialize/index.js';
 
 // Importing directly from 'c-kzg' does not work, ignoring import/no-named-as-default-member err:
@@ -64,31 +63,14 @@ export class Blob {
   }
 
   static fromBlobBuffer(blob: BlobBuffer, multiBlobFieldsHash?: Fr): Blob {
-    const log = createLogger('Creating Blob');
-
     const fields: Fr[] = deserializeBlobFieldsFromBuffer(blob);
-    log.info(`Fields length: ${fields.length}`);
-    log.info(`Fields: ${fields.map(f => f.toString()).join(', ')}`);
     const data = Buffer.concat([blob], BYTES_PER_BLOB);
 
     // This matches the output of SpongeBlob.squeeze() in the blob circuit
     const fieldsHash = multiBlobFieldsHash ? multiBlobFieldsHash : poseidon2Hash(fields);
-    log.info(`Multi blob fields hash: ${multiBlobFieldsHash?.toString()}`);
-    log.info(`Fields hash: ${fieldsHash.toString()}`);
-
     const commitment = Buffer.from(blobToKzgCommitment(data));
-
-    log.info(`Commitment: ${commitment.toString('hex')}`);
-
     const challengeZ = poseidon2Hash([fieldsHash, ...commitmentToFields(commitment)]);
-
-    log.info(`Challenge Z: ${challengeZ.toString()}`);
-
     const res = computeKzgProof(data, challengeZ.toBuffer());
-
-    log.info(`Proof: ${Buffer.from(res[0]).toString('hex')}`);
-    log.info(`Evaluation Y: ${Buffer.from(res[1]).toString('hex')}`);
-
     if (!verifyKzgProof(commitment, challengeZ.toBuffer(), res[1], res[0])) {
       throw new Error(`KZG proof did not verify.`);
     }
@@ -114,12 +96,6 @@ export class Blob {
   toFields(): Fr[] {
     return deserializeBlobFieldsFromBuffer(this.data);
   }
-
-  // toPaddedFields(): Fr[] {
-  //   const fields = this.toFields();
-  //   const paddedFields = [...fields, ...new Array(FIELD_ELEMENTS_PER_BLOB - fields.length).fill(Fr.ZERO)];
-  //   return paddedFields;
-  // }
 
   // 48 bytes encoded in fields as [Fr, Fr] = [0->31, 31->48]
   commitmentToFields(): [Fr, Fr] {
@@ -222,11 +198,7 @@ export class Blob {
   // Returns as many blobs as we require to broadcast the given fields
   // Assumes we share the fields hash between all blobs
   static getBlobs(fields: Fr[]): Blob[] {
-    const log = createLogger('GET BLOBS');
     const numBlobs = Math.max(Math.ceil(fields.length / FIELD_ELEMENTS_PER_BLOB), 1);
-    log.info(`num blobs: ${numBlobs}`);
-    log.info(`num blobs: ${numBlobs}`);
-    log.info(`num blobs: ${numBlobs}`);
     const multiBlobFieldsHash = poseidon2Hash(fields);
     const res = [];
     for (let i = 0; i < numBlobs; i++) {

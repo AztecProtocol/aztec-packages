@@ -16,7 +16,9 @@ describe('HttpBlobSinkClient', () => {
     });
     await server.start();
 
-    const client = new HttpBlobSinkClient(`http://localhost:${server.port}`);
+    const client = new HttpBlobSinkClient({
+      blobSinkUrl: `http://localhost:${server.port}`,
+    });
 
     return {
       client,
@@ -27,7 +29,7 @@ describe('HttpBlobSinkClient', () => {
   });
 
   it('should handle server connection errors gracefully', async () => {
-    const client = new HttpBlobSinkClient('http://localhost:12345'); // Invalid port
+    const client = new HttpBlobSinkClient({ blobSinkUrl: 'http://localhost:12345' }); // Invalid port
     const blob = Blob.fromFields([Fr.random()]);
 
     const success = await client.sendBlobsToBlobSink('0x1234', [blob]);
@@ -123,11 +125,10 @@ describe('HttpBlobSinkClient', () => {
 
       await startExecutionHostServer();
 
-      const client = new HttpBlobSinkClient(
-        `http://localhost:${blobSinkServer.port}`,
-        undefined,
-        `http://localhost:${executionHostPort}`,
-      );
+      const client = new HttpBlobSinkClient({
+        blobSinkUrl: `http://localhost:${blobSinkServer.port}`,
+        l1RpcUrl: `http://localhost:${executionHostPort}`,
+      });
 
       const success = await client.sendBlobsToBlobSink('0x1234', [testBlob]);
       expect(success).toBe(true);
@@ -150,11 +151,11 @@ describe('HttpBlobSinkClient', () => {
       await startExecutionHostServer();
       await startConsensusHostServer();
 
-      const client = new HttpBlobSinkClient(
-        `http://localhost:${blobSinkServer.port}`,
-        `http://localhost:${consensusHostPort}`,
-        `http://localhost:${executionHostPort}`,
-      );
+      const client = new HttpBlobSinkClient({
+        blobSinkUrl: `http://localhost:${blobSinkServer.port}`,
+        l1RpcUrl: `http://localhost:${executionHostPort}`,
+        l1ConsensusHostUrl: `http://localhost:${consensusHostPort}`,
+      });
       const blob = Blob.fromFields([Fr.random()]);
 
       const success = await client.sendBlobsToBlobSink('0x1234', [blob]);

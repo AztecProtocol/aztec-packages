@@ -471,7 +471,7 @@ export async function setup(
 
   const telemetry = getTelemetryClient(opts.telemetryConfig);
 
-  const blobSinkClient = createBlobSinkClient(config.blobSinkUrl);
+  const blobSinkClient = createBlobSinkClient(config);
   const publisher = new TestL1Publisher(config, { blobSinkClient });
   const aztecNode = await AztecNodeService.createAndSync(config, {
     publisher,

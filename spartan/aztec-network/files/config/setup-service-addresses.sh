@@ -52,13 +52,22 @@ get_service_address() {
     echo "http://${NODE_IP}:${PORT}"
 }
 
-# Configure Ethereum address
+# Configure Ethereum execution client address
 if [ "${EXTERNAL_ETHEREUM_HOST}" != "" ]; then
     ETHEREUM_ADDR="${EXTERNAL_ETHEREUM_HOST}"
 elif [ "${NETWORK_PUBLIC}" = "true" ]; then
     ETHEREUM_ADDR=$(get_service_address "eth-execution" "${ETHEREUM_PORT}")
 else
     ETHEREUM_ADDR="http://${SERVICE_NAME}-eth-execution.${NAMESPACE}:${ETHEREUM_PORT}"
+fi
+
+# Configure Ethereum Consensus address
+if [ "${EXTERNAL_ETHEREUM_CONSENSUS_HOST}" != "" ]; then
+    ETHEREUM_CONSENSUS_ADDR="${EXTERNAL_ETHEREUM_CONSENSUS_HOST}"
+elif [ "${NETWORK_PUBLIC}" = "true" ]; then
+    ETHEREUM_CONSENSUS_ADDR=$(get_service_address "eth-beacon" "${ETHEREUM_CONSENSUS_PORT}")
+else
+    ETHEREUM_CONSENSUS_ADDR="http://${SERVICE_NAME}-eth-beacon.${NAMESPACE}:${ETHEREUM_CONSENSUS_PORT}"
 fi
 
 # Configure Boot Node address
@@ -93,6 +102,7 @@ fi
 
 # Write addresses to file for sourcing
 echo "export ETHEREUM_HOST=${ETHEREUM_ADDR}" >> /shared/config/service-addresses
+echo "export ETHEREUM_CONSENSUS_HOST=${ETHEREUM_CONSENSUS_ADDR}" >> /shared/config/service-addresses
 echo "export BOOT_NODE_HOST=${BOOT_NODE_ADDR}" >> /shared/config/service-addresses
 echo "export PROVER_NODE_HOST=${PROVER_NODE_ADDR}" >> /shared/config/service-addresses
 echo "export PROVER_BROKER_HOST=${PROVER_BROKER_ADDR}" >> /shared/config/service-addresses

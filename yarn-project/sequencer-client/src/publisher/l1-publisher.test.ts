@@ -102,7 +102,7 @@ describe('L1Publisher', () => {
 
   beforeEach(() => {
     mockBlobSinkServer = undefined;
-    blobSinkClient = new HttpBlobSinkClient(BLOB_SINK_URL);
+    blobSinkClient = new HttpBlobSinkClient({ blobSinkUrl: BLOB_SINK_URL });
 
     l2Block = L2Block.random(42);
 

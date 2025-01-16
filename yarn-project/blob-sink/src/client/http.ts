@@ -1,30 +1,29 @@
 import { Blob } from '@aztec/foundation/blob';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 
+import { BlobSinkConfig, getBlobSinkConfigFromEnv } from './config.js';
 import { type BlobSinkClientInterface } from './interface.js';
 
 export class HttpBlobSinkClient implements BlobSinkClientInterface {
   private readonly log: Logger;
+  private readonly config: BlobSinkConfig;
 
-  constructor(
-    private readonly blobSinkUrl: string,
-    private readonly consensusHostUrl?: string,
-    private readonly executionHostUrl?: string,
-  ) {
+  constructor(config?: BlobSinkConfig) {
+    this.config = config ?? getBlobSinkConfigFromEnv();
     this.log = createLogger('aztec:blob-sink-client');
   }
 
   public async sendBlobsToBlobSink(blockHash: string, blobs: Blob[]): Promise<boolean> {
     // TODO(md): for now we are assuming the indexes of the blobs will be 0, 1, 2
     // When in reality they will not, but for testing purposes this is fine
-    if (!this.blobSinkUrl) {
+    if (!this.config.blobSinkUrl) {
       this.log.verbose('No blob sink url configured');
       return false;
     }
 
     this.log.verbose(`Sending ${blobs.length} blobs to blob sink`);
     try {
-      const res = await fetch(`${this.blobSinkUrl}/blob_sidecar`, {
+      const res = await fetch(`${this.config.blobSinkUrl}/blob_sidecar`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -59,14 +58,14 @@ export class HttpBlobSinkClient implements BlobSinkClientInterface {
    * @returns The blobs
    */
   public async getBlobSidecar(blockHash: string, indices?: number[]): Promise<Blob[]> {
-    if (!this.blobSinkUrl) {
+    if (!this.config.blobSinkUrl) {
       this.log.verbose('No blob sink url configured');
       return [];
     }
 
     // If no slot number is found, we query with the block hash
     const blockHashOrSlot = (await this.getSlotNumber(blockHash)) ?? blockHash;
-    const hostUrl = this.consensusHostUrl ?? this.blobSinkUrl;
+    const hostUrl = this.config.l1ConsensusHostUrl ?? this.config.blobSinkUrl;
 
     try {
       let url = `${hostUrl}/eth/v1/beacon/blob_sidecars/${blockHashOrSlot}`;
@@ -108,12 +107,12 @@ export class HttpBlobSinkClient implements BlobSinkClientInterface {
    * @returns The slot number
    */
   private async getSlotNumber(blockHash: string): Promise<number | undefined> {
-    if (!this.consensusHostUrl) {
+    if (!this.config.l1ConsensusHostUrl) {
       this.log.debug('No consensus host url configured');
       return undefined;
     }
 
-    if (!this.executionHostUrl) {
+    if (!this.config.l1RpcUrl) {
       this.log.debug('No execution host url configured');
       return undefined;
     }
@@ -121,7 +120,7 @@ export class HttpBlobSinkClient implements BlobSinkClientInterface {
     // Ping execution node to get the parentBeaconBlockRoot for this block
     let parentBeaconBlockRoot: string | undefined;
     try {
-      const res = await fetch(`${this.executionHostUrl}`, {
+      const res = await fetch(`${this.config.l1RpcUrl}`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -149,7 +148,7 @@ export class HttpBlobSinkClient implements BlobSinkClientInterface {
 
     // Query beacon chain to get the slot number for that block root
     try {
-      const res = await fetch(`${this.consensusHostUrl}/eth/v1/beacon/headers/${blockHash}`);
+      const res = await fetch(`${this.config.l1ConsensusHostUrl}/eth/v1/beacon/headers/${blockHash}`);
       if (res.ok) {
         const body = await res.json();
 

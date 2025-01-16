@@ -1,13 +1,14 @@
 import { MemoryBlobStore } from '../blobstore/memory_blob_store.js';
+import { BlobSinkConfig } from './config.js';
 import { HttpBlobSinkClient } from './http.js';
 import { type BlobSinkClientInterface } from './interface.js';
 import { LocalBlobSinkClient } from './local.js';
 
-export function createBlobSinkClient(blobSinkUrl?: string): BlobSinkClientInterface {
-  if (!blobSinkUrl) {
+export function createBlobSinkClient(config?: BlobSinkConfig): BlobSinkClientInterface {
+  if (!config?.blobSinkUrl) {
     const blobStore = new MemoryBlobStore();
     return new LocalBlobSinkClient(blobStore);
   }
 
-  return new HttpBlobSinkClient(blobSinkUrl);
+  return new HttpBlobSinkClient(config);
 }

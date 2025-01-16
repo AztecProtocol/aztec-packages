@@ -168,7 +168,7 @@ export class FullProverTest {
       blobSink: this.blobSink,
     } = this.context);
 
-    const blobSinkClient = createBlobSinkClient(`http://localhost:${this.blobSink.port}`);
+    const blobSinkClient = createBlobSinkClient({ blobSinkUrl: `http://localhost:${this.blobSink.port}` });
 
     // Configure a full prover PXE
     let acvmConfig: Awaited<ReturnType<typeof getACVMConfig>> | undefined;

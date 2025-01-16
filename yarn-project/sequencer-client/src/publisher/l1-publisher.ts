@@ -209,7 +209,7 @@ export class L1Publisher {
     this.ethereumSlotDuration = BigInt(config.ethereumSlotDuration);
 
     const telemetry = deps.telemetry ?? getTelemetryClient();
-    this.blobSinkClient = deps.blobSinkClient ?? createBlobSinkClient(config.blobSinkUrl);
+    this.blobSinkClient = deps.blobSinkClient ?? createBlobSinkClient(config);
 
     this.metrics = new L1PublisherMetrics(telemetry, 'L1Publisher');
 
@@ -1175,11 +1175,6 @@ export class L1Publisher {
    *   to calculate and will need to be mocked in e2e tests
    */
   protected sendBlobsToBlobSink(blockHash: string, blobs: Blob[]): Promise<boolean> {
-    blobs.forEach(b => {
-      this.log.verbose(`Blob: ${Buffer.from(b.data).toString('hex').slice(0, 100)}`);
-      this.log.verbose(`Blob commitment: ${Buffer.from(b.commitment).toString('hex')}`);
-      this.log.verbose(`Blob proof: ${Buffer.from(b.proof).toString('hex')}`);
-    });
     return this.blobSinkClient.sendBlobsToBlobSink(blockHash, blobs);
   }
 }
