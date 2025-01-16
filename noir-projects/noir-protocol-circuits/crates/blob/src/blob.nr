@@ -9,12 +9,12 @@ use bigint::{BigNum, BigNumTrait};
 use types::hash::poseidon2_hash_subarray;
 // Variable hash method:
 // use types::hash::poseidon2_cheaper_variable_hash;
+use std::ops::{Mul, Neg};
 use types::{
     abis::sponge_blob::SpongeBlob,
     constants::{BLOBS_PER_BLOCK, FIELDS_PER_BLOB},
     utils::arrays::array_splice,
 };
-use std::ops::{Neg, Mul};
 
 global LIMB_MAX: Field = 0x1000000000000000000000000000000; // 2^120
 global TWO_POW_56: u64 = 0x100000000000000; // u64 to aid integer only modulo in __field_to_bignum_limbs
@@ -224,9 +224,8 @@ fn barycentric_evaluate_blob_at_z(z: F, ys: [F; FIELDS_PER_BLOB]) -> F {
     //                    i=0
     let NUM_PARTIAL_SUMS = FIELDS_PER_BLOB / 8;
     /// Safety: This sum is checked by the following `BigNum::evaluate_quadratic_expression` calls.
-    let partial_sums: [F; FIELDS_PER_BLOB / 8] = unsafe {
-        __compute_partial_sums(fracs, UNCONSTRAINED_ROOTS)
-    };
+    let partial_sums: [F; FIELDS_PER_BLOB / 8] =
+        unsafe { __compute_partial_sums(fracs, UNCONSTRAINED_ROOTS) };
 
     if !std::runtime::is_unconstrained() {
         // We split off the first term to check the initial sum
@@ -460,13 +459,13 @@ mod tests {
         config::{D, D_INV, F},
     };
     use bigint::{BigNum, fields::bls12_381Fr::BLS12_381_Fr_Params};
+    use bigint::bignum::BigNumTrait;
     use types::{
         abis::sponge_blob::SpongeBlob,
         constants::{BLOBS_PER_BLOCK, FIELDS_PER_BLOB},
         tests::{fixture_builder::FixtureBuilder, utils::pad_end},
     };
     use types::traits::Serialize;
-    use bigint::bignum::BigNumTrait;
 
     #[test]
     unconstrained fn test_one_note() {
