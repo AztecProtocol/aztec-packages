@@ -23,10 +23,14 @@ const nodePolyfillsFix = (options?: PolyfillOptions | undefined): Plugin => {
 // https://vite.dev/config/
 export default defineConfig({
   server: {
+    // Headers needed for bb WASM to work in multithreaded mode
     headers: {
       "Cross-Origin-Opener-Policy": "same-origin",
       "Cross-Origin-Embedder-Policy": "require-corp",
     },
+    // Allow vite to serve files from these directories, since they are symlinked
+    // These are the protocol circuit artifacts
+    // and noir WASMs.
     fs: {
       allow: [
         searchForWorkspaceRoot(process.cwd()),
@@ -41,6 +45,9 @@ export default defineConfig({
     nodePolyfillsFix({ include: ["buffer", "process", "path"] }),
   ],
   build: {
+    // Needed to support bb.js top level await until
+    // https://github.com/Menci/vite-plugin-top-level-await/pull/63 is merged
+    // and we can use the plugin again (or we get rid of TLA)
     target: "esnext",
     rollupOptions: {
       output: {
