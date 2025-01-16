@@ -211,4 +211,7 @@ export abstract class BaseWallet implements Wallet {
   ): Promise<[bigint, SiblingPath<typeof L1_TO_L2_MSG_TREE_HEIGHT>]> {
     return this.pxe.getL1ToL2MembershipWitness(contractAddress, messageHash, secret);
   }
+  getL2ToL1MembershipWitness(blockNumber: number, l2Tol1Message: Fr): Promise<[bigint, SiblingPath<number>]> {
+    return this.pxe.getL2ToL1MembershipWitness(blockNumber, l2Tol1Message);
+  }
 }

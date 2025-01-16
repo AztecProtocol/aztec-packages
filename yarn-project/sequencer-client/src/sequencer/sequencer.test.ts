@@ -265,13 +265,10 @@ describe('sequencer', () => {
     expectPublisherProposeL2Block([txHash]);
   });
 
-  it.each([
-    { delayedState: SequencerState.INITIALIZING_PROPOSAL },
-    // It would be nice to add the other states, but we would need to inject delays within the `work` loop
-  ])('does not build a block if it does not have enough time left in the slot', async ({ delayedState }) => {
-    // trick the sequencer into thinking that we are just too far into slot 1
+  it('does not build a block if it does not have enough time left in the slot', async () => {
+    // Trick the sequencer into thinking that we are just too far into slot 1
     sequencer.setL1GenesisTime(
-      Math.floor(Date.now() / 1000) - slotDuration * 1 - (sequencer.getTimeTable()[delayedState] + 1),
+      Math.floor(Date.now() / 1000) - slotDuration * 1 - (sequencer.getTimeTable().initialTime + 1),
     );
 
     const tx = makeTx();
@@ -281,7 +278,7 @@ describe('sequencer', () => {
     await expect(sequencer.doRealWork()).rejects.toThrow(
       expect.objectContaining({
         name: 'SequencerTooSlowError',
-        message: expect.stringContaining(`Too far into slot to transition to ${delayedState}`),
+        message: expect.stringContaining(`Too far into slot`),
       }),
     );
 
@@ -656,7 +653,7 @@ describe('sequencer', () => {
 
 class TestSubject extends Sequencer {
   public getTimeTable() {
-    return this.timeTable;
+    return this.timetable;
   }
 
   public setL1GenesisTime(l1GenesisTime: number) {

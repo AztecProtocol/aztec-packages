@@ -6,7 +6,7 @@ import { type Fr } from '@aztec/foundation/fields';
 import { createLogger } from '@aztec/foundation/log';
 import { RunningPromise } from '@aztec/foundation/running-promise';
 import { sleep } from '@aztec/foundation/sleep';
-import { type Timer } from '@aztec/foundation/timer';
+import { DateProvider, type Timer } from '@aztec/foundation/timer';
 import { type P2P } from '@aztec/p2p';
 import { BlockProposalValidator } from '@aztec/p2p/msg_validators';
 import { type TelemetryClient, WithTracer, getTelemetryClient } from '@aztec/telemetry-client';
@@ -54,7 +54,7 @@ export interface Validator {
   attestToProposal(proposal: BlockProposal): void;
 
   broadcastBlockProposal(proposal: BlockProposal): void;
-  collectAttestations(proposal: BlockProposal, numberOfRequiredAttestations: number): Promise<BlockAttestation[]>;
+  collectAttestations(proposal: BlockProposal, required: number, deadline: Date): Promise<BlockAttestation[]>;
 }
 
 /**
@@ -79,6 +79,7 @@ export class ValidatorClient extends WithTracer implements Validator {
     private epochCache: EpochCache,
     private p2pClient: P2P,
     private config: ValidatorClientConfig,
+    private dateProvider: DateProvider = new DateProvider(),
     telemetry: TelemetryClient = getTelemetryClient(),
     private log = createLogger('validator'),
   ) {
@@ -118,6 +119,7 @@ export class ValidatorClient extends WithTracer implements Validator {
     config: ValidatorClientConfig,
     epochCache: EpochCache,
     p2pClient: P2P,
+    dateProvider: DateProvider = new DateProvider(),
     telemetry: TelemetryClient = getTelemetryClient(),
   ) {
     if (!config.validatorPrivateKey) {
@@ -127,7 +129,7 @@ export class ValidatorClient extends WithTracer implements Validator {
     const privateKey = validatePrivateKey(config.validatorPrivateKey);
     const localKeyStore = new LocalKeyStore(privateKey);
 
-    const validator = new ValidatorClient(localKeyStore, epochCache, p2pClient, config, telemetry);
+    const validator = new ValidatorClient(localKeyStore, epochCache, p2pClient, config, dateProvider, telemetry);
     validator.registerBlockProposalHandler();
     return validator;
   }
@@ -308,18 +310,20 @@ export class ValidatorClient extends WithTracer implements Validator {
   }
 
   // TODO(https://github.com/AztecProtocol/aztec-packages/issues/7962)
-  async collectAttestations(
-    proposal: BlockProposal,
-    numberOfRequiredAttestations: number,
-  ): Promise<BlockAttestation[]> {
+  async collectAttestations(proposal: BlockProposal, required: number, deadline: Date): Promise<BlockAttestation[]> {
     // Wait and poll the p2pClient's attestation pool for this block until we have enough attestations
     const slot = proposal.payload.header.globalVariables.slotNumber.toBigInt();
-    this.log.debug(`Collecting ${numberOfRequiredAttestations} attestations for slot ${slot}`);
+    this.log.debug(`Collecting ${required} attestations for slot ${slot} with deadline ${deadline.toISOString()}`);
+
+    if (+deadline < this.dateProvider.now()) {
+      this.log.error(
+        `Deadline ${deadline.toISOString()} for collecting ${required} attestations for slot ${slot} is in the past`,
+      );
+      throw new AttestationTimeoutError(required, slot);
+    }
 
     const proposalId = proposal.archive.toString();
     const myAttestation = await this.validationService.attestToProposal(proposal);
-
-    const startTime = Date.now();
 
     let attestations: BlockAttestation[] = [];
     while (true) {
@@ -332,15 +336,14 @@ export class ValidatorClient extends WithTracer implements Validator {
       }
       attestations = collectedAttestations;
 
-      if (attestations.length >= numberOfRequiredAttestations) {
-        this.log.verbose(`Collected all ${numberOfRequiredAttestations} attestations for slot ${slot}`);
+      if (attestations.length >= required) {
+        this.log.verbose(`Collected all ${required} attestations for slot ${slot}`);
         return attestations;
       }
 
-      const elapsedTime = Date.now() - startTime;
-      if (elapsedTime > this.config.attestationWaitTimeoutMs) {
-        this.log.error(`Timeout waiting for ${numberOfRequiredAttestations} attestations for slot ${slot}`);
-        throw new AttestationTimeoutError(numberOfRequiredAttestations, slot);
+      if (+deadline < this.dateProvider.now()) {
+        this.log.error(`Timeout ${deadline.toISOString()} waiting for ${required} attestations for slot ${slot}`);
+        throw new AttestationTimeoutError(required, slot);
       }
 
       this.log.debug(`Collected ${attestations.length} attestations so far`);
