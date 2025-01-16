@@ -286,6 +286,7 @@ export class TestCircuitProver implements ServerCircuitProver {
     // We just return an empty proof and VK data.
     this.logger.debug('Skipping AVM simulation in TestCircuitProver.');
     await this.delay();
+    throw new Error(`Fake avm proof error`);
     return makeProofAndVerificationKey(
       makeEmptyRecursiveProof(AVM_PROOF_LENGTH_IN_FIELDS),
       VerificationKeyData.makeFake(AVM_VERIFICATION_KEY_LENGTH_IN_FIELDS),
