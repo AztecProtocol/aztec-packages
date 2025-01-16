@@ -56,7 +56,7 @@ describe('prover/bb_prover/full-rollup', () => {
 
         log.info(`Starting new block #${blockNum}`);
 
-        await context.orchestrator.startNewBlock(globals, l1ToL2Messages);
+        await context.orchestrator.startNewBlock(globals, l1ToL2Messages, context.getPreviousBlockHeader(blockNum));
         log.info(`Processing public functions`);
         const [processed, failed] = await context.processPublicFunctions(txs, nonEmptyTxs);
         expect(processed.length).toBe(nonEmptyTxs);
@@ -108,7 +108,7 @@ describe('prover/bb_prover/full-rollup', () => {
 
     context.orchestrator.startNewEpoch(1, 1, 1);
 
-    await context.orchestrator.startNewBlock(context.globalVariables, l1ToL2Messages);
+    await context.orchestrator.startNewBlock(context.globalVariables, l1ToL2Messages, context.getPreviousBlockHeader());
 
     const [processed, failed] = await context.processPublicFunctions(txs, numTransactions);
 

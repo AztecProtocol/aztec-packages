@@ -849,7 +849,6 @@ export class AztecNodeService implements AztecNode, Traceable {
       coinbase,
       feeRecipient,
     );
-    const prevHeader = (await this.blockSource.getBlock(-1))?.header;
     const publicProcessorFactory = new PublicProcessorFactory(
       this.contractDataSource,
       new DateProvider(),
@@ -864,7 +863,7 @@ export class AztecNodeService implements AztecNode, Traceable {
     });
 
     try {
-      const processor = publicProcessorFactory.create(fork, prevHeader, newGlobalVariables, enforceFeePayment);
+      const processor = publicProcessorFactory.create(fork, newGlobalVariables, enforceFeePayment);
 
       // REFACTOR: Consider merging ProcessReturnValues into ProcessedTx
       const [processedTxs, failedTxs, returns] = await processor.process([tx]);

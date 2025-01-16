@@ -12,7 +12,6 @@ import {
 } from '@aztec/circuit-types';
 import {
   type AztecAddress,
-  type BlockHeader,
   type ContractDataSource,
   Fr,
   Gas,
@@ -53,12 +52,9 @@ export class PublicProcessorFactory {
    */
   public create(
     merkleTree: MerkleTreeWriteOperations,
-    maybeHistoricalHeader: BlockHeader | undefined,
     globalVariables: GlobalVariables,
     enforceFeePayment: boolean,
   ): PublicProcessor {
-    const historicalHeader = maybeHistoricalHeader ?? merkleTree.getInitialHeader();
-
     const worldStateDB = new WorldStateDB(merkleTree, this.contractDataSource);
     const publicTxSimulator = this.createPublicTxSimulator(
       merkleTree,
@@ -72,7 +68,6 @@ export class PublicProcessorFactory {
     return new PublicProcessor(
       merkleTree,
       globalVariables,
-      historicalHeader,
       worldStateDB,
       publicTxSimulator,
       this.dateProvider,
@@ -115,7 +110,6 @@ export class PublicProcessor implements Traceable {
   constructor(
     protected db: MerkleTreeWriteOperations,
     protected globalVariables: GlobalVariables,
-    protected historicalHeader: BlockHeader,
     protected worldStateDB: WorldStateDB,
     protected publicTxSimulator: PublicTxSimulator,
     private dateProvider: DateProvider,

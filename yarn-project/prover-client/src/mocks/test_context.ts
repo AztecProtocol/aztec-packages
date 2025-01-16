@@ -9,7 +9,7 @@ import {
 import { makeBloatedProcessedTx } from '@aztec/circuit-types/test';
 import {
   type AppendOnlyTreeSnapshot,
-  BlockHeader,
+  type BlockHeader,
   type Gas,
   type GlobalVariables,
   TreeSnapshots,
@@ -88,7 +88,6 @@ export class TestContext {
     const processor = new PublicProcessor(
       publicDb,
       globalVariables,
-      BlockHeader.empty(),
       worldStateDB,
       publicTxSimulator,
       new TestDateProvider(),
@@ -148,6 +147,10 @@ export class TestContext {
   public getBlockHeader(blockNumber: number): BlockHeader | undefined;
   public getBlockHeader(blockNumber = 0) {
     return blockNumber === 0 ? this.worldState.getCommitted().getInitialHeader() : this.headers.get(blockNumber);
+  }
+
+  public getPreviousBlockHeader(currentBlockNumber = this.blockNumber): BlockHeader {
+    return this.getBlockHeader(currentBlockNumber - 1)!;
   }
 
   async cleanup() {

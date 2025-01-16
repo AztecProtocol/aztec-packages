@@ -42,7 +42,11 @@ describe('prover/orchestrator/failures', () => {
       for (const { block, txs, msgs } of blocks) {
         // these operations could fail if the target circuit fails before adding all blocks or txs
         try {
-          await orchestrator.startNewBlock(block.header.globalVariables, msgs);
+          await orchestrator.startNewBlock(
+            block.header.globalVariables,
+            msgs,
+            context.getPreviousBlockHeader(block.number),
+          );
           let allTxsAdded = true;
           try {
             await orchestrator.addTxs(txs);

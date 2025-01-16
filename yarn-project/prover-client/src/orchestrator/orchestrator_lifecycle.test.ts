@@ -38,7 +38,7 @@ describe('prover/orchestrator/lifecycle', () => {
       });
 
       orchestrator.startNewEpoch(1, 1, 1);
-      await orchestrator.startNewBlock(context.globalVariables, []);
+      await orchestrator.startNewBlock(context.globalVariables, [], context.getPreviousBlockHeader());
 
       await sleep(1);
 

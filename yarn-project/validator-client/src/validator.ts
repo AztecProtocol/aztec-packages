@@ -33,7 +33,6 @@ import { ValidatorMetrics } from './metrics.js';
 type BlockBuilderCallback = (
   txs: Iterable<Tx>,
   globalVariables: GlobalVariables,
-  historicalHeader?: BlockHeader,
   opts?: { validateOnly?: boolean },
 ) => Promise<{ block: L2Block; publicProcessorDuration: number; numTxs: number; blockBuildingTimer: Timer }>;
 
@@ -235,7 +234,7 @@ export class ValidatorClient extends WithTracer implements Validator {
 
     // Use the sequencer's block building logic to re-execute the transactions
     const stopTimer = this.metrics.reExecutionTimer();
-    const { block } = await this.blockBuilder(txs, header.globalVariables, undefined, { validateOnly: true });
+    const { block } = await this.blockBuilder(txs, header.globalVariables, { validateOnly: true });
     stopTimer();
 
     this.log.verbose(`Transaction re-execution complete`);

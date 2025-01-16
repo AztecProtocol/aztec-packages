@@ -1,7 +1,7 @@
 use blob::blob_public_inputs::BlobCommitment;
 use parity_lib::root::root_rollup_parity_input::RootRollupParityInput;
 use types::{
-    abis::append_only_tree_snapshot::AppendOnlyTreeSnapshot,
+    block_header::BlockHeader,
     constants::{
         ARCHIVE_HEIGHT, BLOBS_PER_BLOCK, FIELDS_PER_BLOB, L1_TO_L2_MSG_SUBTREE_SIBLING_PATH_LENGTH,
     },
@@ -10,19 +10,25 @@ use types::{
 pub struct BlockRootRollupData {
     // Inputs required to process l1 to l2 messages.
     pub l1_to_l2_roots: RootRollupParityInput,
+    // Hint for inserting the new l1 to l2 message subtree.
     pub l1_to_l2_message_subtree_sibling_path: [Field; L1_TO_L2_MSG_SUBTREE_SIBLING_PATH_LENGTH],
-    pub start_l1_to_l2_message_tree_snapshot: AppendOnlyTreeSnapshot,
 
-    // Hint for updating the archive tree.
+    // Hint for checking the previous block hash is in the last archive.
+    pub last_archive_sibling_path: [Field; ARCHIVE_HEIGHT],
+    // Hint for inserting the new block hash to the last archive.
     pub new_archive_sibling_path: [Field; ARCHIVE_HEIGHT],
 
-    // Added previous_block_hash to be passed through to the final root, where it will be either:
-    // - checked on L1 for first block in batch
-    // - checked against previous block_root.end_block_hash in a block_merge
-    pub previous_block_hash: Field,
+    // Previous block header is used to verify the start state of the first tx in a block.
+    // Its hash will be included in the public inputs. It will be checked:
+    // - against previous block hash on L1 for the first block in batch.
+    // - against previous block_root.end_block_hash in a block_merge.
+    pub previous_block_header: BlockHeader,
+
     // TODO(#7346): Temporarily added prover_id while we verify block-root proofs on L1
     pub prover_id: Field,
+}
 
+pub struct BlockRootRollupBlobData {
     // Fields for blob verification made of all tx effects in this block
     // (will likely change to be accumulated and sent up to the final root)
     pub blobs_fields: [Field; FIELDS_PER_BLOB * BLOBS_PER_BLOCK],
