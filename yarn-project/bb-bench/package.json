@@ -11,14 +11,14 @@
     "./package.local.json"
   ],
   "scripts": {
-    "build": "yarn clean && yarn generate && tsc -b && yarn build:app",
+    "build": "yarn clean && yarn generate && yarn build:app",
     "clean": "rm -rf ./dest .tsbuildinfo src/types artifacts",
     "generate": "yarn generate:artifacts && yarn generate:code",
     "generate:artifacts": "mkdir -p artifacts/keys && ls circuits | xargs -n 1 ./generate_artifacts.sh",
     "generate:code": "node --no-warnings --loader ts-node/esm src/scripts/generate_declaration_files.ts && node --no-warnings --loader ts-node/esm src/scripts/generate_ts_from_abi.ts && run -T prettier -w ./src/types",
-    "build:app": "rm -rf dest && webpack && cp ../../barretenberg/favicon.ico dest",
+    "build:app": "tsc -b && rm -rf dest && webpack && cp ../../barretenberg/favicon.ico dest",
     "build:dev": "tsc -b --watch",
-    "serve-both": "./serve.sh",
+    "serve:app": "./serve.sh",
     "formatting": "run -T prettier --check ./src && run -T eslint ./src",
     "formatting:fix": "run -T eslint --fix ./src && run -T prettier -w ./src",
     "formatting:fix:types": "NODE_OPTIONS='--max-old-space-size=8096' run -T eslint --fix ./src/types && run -T prettier -w ./src/types",

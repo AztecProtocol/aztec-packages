@@ -425,9 +425,13 @@ WASM_EXPORT void acir_honk_solidity_verifier(uint8_t const* proof_buf, uint8_t c
 WASM_EXPORT void acir_proof_no_pis_as_fields_ultra_honk(uint8_t const* proof_buf, fr::vec_out_buf out)
 {
     auto proof = from_buffer<std::vector<bb::fr>>(from_buffer<std::vector<uint8_t>>(proof_buf));
+    info("starting proof size: ", proof.size());
     const auto num_public_inputs = static_cast<uint32_t>(proof[1] - 16);
-    const auto offset = static_cast<uint32_t>(proof[2]);
+    info("num_public_inputs: ", num_public_inputs);
+    const auto offset = static_cast<uint32_t>(proof[2]) + bb::HONK_PROOF_PUBLIC_INPUT_OFFSET;
+    info("offset: ", offset);
     proof.erase(proof.begin() + static_cast<int>(offset), proof.begin() + static_cast<int>(offset + num_public_inputs));
+    info("ending proof size: ", proof.size());
 
     *out = to_heap_buffer(proof);
 }

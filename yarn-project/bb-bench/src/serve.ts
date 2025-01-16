@@ -1,5 +1,6 @@
 import createDebug from 'debug';
 
+import FirstVk from '../artifacts/keys/first.vk.data.json' assert { type: 'json' };
 import SecondVk from '../artifacts/keys/second.vk.data.json' assert { type: 'json' };
 import {
   generateFirstCircuit,
@@ -104,9 +105,11 @@ document.addEventListener('DOMContentLoaded', function () {
   button.addEventListener('click', async () => {
     logger(`generating circuit and witness...`);
     const [bytecode1, witness1] = await generateFirstCircuit();
-    const _ = await proveUltraHonk(bytecode1, witness1);
-    const [bytecode2, witness2] = await generateSecondCircuit();
-    logger(`done generating circuit and witness... proving then verifying...`);
+    logger(`done generating circuit and witness. proving...`);
+    const proverOutput = await proveUltraHonk(bytecode1, witness1);
+    logger(`done proving. generating second circuit and witness...`);
+    const [bytecode2, witness2] = await generateSecondCircuit(proverOutput, FirstVk.keyAsFields);
+    logger(`done. generating circuit and witness. proving then verifying...`);
     const verified = await proveThenVerifyUltraHonk(bytecode2, witness2, hexStringToUint8Array(SecondVk.keyAsBytes));
     logger(`verified? ${verified}`);
   });
