@@ -10,7 +10,9 @@ import {
   computeSecretHash,
   createLogger,
 } from '@aztec/aztec.js';
-import { DocsExampleContract, TokenBlacklistContract, type TokenContract } from '@aztec/noir-contracts.js';
+import { DocsExampleContract } from '@aztec/noir-contracts.js/DocsExample';
+import { type TokenContract } from '@aztec/noir-contracts.js/Token';
+import { TokenBlacklistContract } from '@aztec/noir-contracts.js/TokenBlacklist';
 
 import { jest } from '@jest/globals';
 
@@ -95,7 +97,7 @@ export class BlacklistTokenContractTest {
       this.admin = this.wallets[0];
       this.other = this.wallets[1];
       this.blacklisted = this.wallets[2];
-      this.accounts = await pxe.getRegisteredAccounts();
+      this.accounts = accountManagers.map(a => a.getCompleteAddress());
     });
 
     await this.snapshotManager.snapshot(

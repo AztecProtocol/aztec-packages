@@ -73,7 +73,7 @@ jobs:
           ./rebuild.sh
           ./gates_report.sh
           mv gates_report.json ../gates_report.json
-      
+
       - name: Compare gates reports
         id: gates_diff
         uses: noir-lang/noir-gates-diff@7e4ddaa91c69380f15ccba514eac17bc7432a8cc
@@ -150,7 +150,7 @@ jobs:
           message: ${{ steps.brillig_bytecode_diff.outputs.markdown }}
 
   compare_brillig_execution_reports:
-    name: Brillig execution trace sizes  
+    name: Brillig execution trace sizes
     needs: [build-nargo]
     runs-on: ubuntu-22.04
     permissions:
@@ -210,7 +210,7 @@ jobs:
           message: ${{ steps.brillig_execution_diff.outputs.markdown }}
 
   generate_memory_report:
-    name: Peak memory usage  
+    name: Peak memory usage
     needs: [build-nargo]
     runs-on: ubuntu-22.04
     permissions:
@@ -366,8 +366,9 @@ jobs:
           path: test-repo
           ref: ${{ matrix.project.ref }}
 
-      - name: Generate compilation report
+      - name: Generate compilation report without averages
         working-directory: ./test-repo/${{ matrix.project.path }}
+        if: ${{ !matrix.project.take_average }}
         run: |
           mv /home/runner/work/noir/noir/scripts/test_programs/compilation_report.sh ./compilation_report.sh
           touch parse_time.sh
@@ -594,17 +595,19 @@ jobs:
         run: |
           mv ./.github/scripts/merge-bench-reports.sh merge-bench-reports.sh
           ./merge-bench-reports.sh memory_report
+          # Rename the memory report as to not clash with the compilation memory report file name
+          cp memory_report.json execution_memory_report.json
 
       - name: Parse compilation memory report
         id: compilation_mem_report
         uses: noir-lang/noir-bench-report@6ba151d7795042c4ff51864fbeb13c0a6a79246c
         with:
-          report: memory_report.json
+          report: execution_memory_report.json
           header: |
             Compilation Memory Report
           memory_report: true
 
-      - name: Add memory report to sticky comment
+      - name: Add execution memory report to sticky comment
         if: github.event_name == 'pull_request' || github.event_name == 'pull_request_target'
         uses: marocchino/sticky-pull-request-comment@v2
         with:

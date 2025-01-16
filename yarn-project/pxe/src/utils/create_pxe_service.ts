@@ -1,14 +1,15 @@
 import { BBNativePrivateKernelProver } from '@aztec/bb-prover';
+import { BBWASMBundlePrivateKernelProver } from '@aztec/bb-prover/wasm/bundle';
 import { type AztecNode, type PrivateKernelProver } from '@aztec/circuit-types';
 import { randomBytes } from '@aztec/foundation/crypto';
 import { createLogger } from '@aztec/foundation/log';
 import { KeyStore } from '@aztec/key-store';
 import { createStore } from '@aztec/kv-store/lmdb';
 import { L2TipsStore } from '@aztec/kv-store/stores';
+import { type SimulationProvider, WASMSimulator } from '@aztec/simulator/client';
 
 import { type PXEServiceConfig } from '../config/index.js';
 import { KVPxeDatabase } from '../database/kv_pxe_database.js';
-import { TestPrivateKernelProver } from '../kernel_prover/test/test_circuit_prover.js';
 import { PXEService } from '../pxe_service/pxe_service.js';
 
 /**
@@ -45,23 +46,20 @@ export async function createPXEService(
 
   const db = await KVPxeDatabase.create(store);
   const tips = new L2TipsStore(store, 'pxe');
-
-  const prover = proofCreator ?? (await createProver(config, logSuffix));
-  const pxe = new PXEService(keyStore, aztecNode, db, tips, prover, config, logSuffix);
+  const simulationProvider = new WASMSimulator();
+  const prover = proofCreator ?? (await createProver(config, simulationProvider, logSuffix));
+  const pxe = new PXEService(keyStore, aztecNode, db, tips, prover, simulationProvider, config, logSuffix);
   await pxe.init();
   return pxe;
 }
 
-function createProver(config: PXEServiceConfig, logSuffix?: string) {
-  if (!config.proverEnabled) {
-    return new TestPrivateKernelProver();
-  }
-
-  // (@PhilWindle) Temporary validation until WASM is implemented
+function createProver(config: PXEServiceConfig, simulationProvider: SimulationProvider, logSuffix?: string) {
   if (!config.bbBinaryPath || !config.bbWorkingDirectory) {
-    throw new Error(`Prover must be configured with binary path and working directory`);
+    return new BBWASMBundlePrivateKernelProver(simulationProvider, 16);
+  } else {
+    const bbConfig = config as Required<Pick<PXEServiceConfig, 'bbBinaryPath' | 'bbWorkingDirectory'>> &
+      PXEServiceConfig;
+    const log = createLogger('pxe:bb-native-prover' + (logSuffix ? `:${logSuffix}` : ''));
+    return BBNativePrivateKernelProver.new({ bbSkipCleanup: false, ...bbConfig }, simulationProvider, log);
   }
-  const bbConfig = config as Required<Pick<PXEServiceConfig, 'bbBinaryPath' | 'bbWorkingDirectory'>> & PXEServiceConfig;
-  const log = createLogger('pxe:bb-native-prover' + (logSuffix ? `:${logSuffix}` : ''));
-  return BBNativePrivateKernelProver.new({ bbSkipCleanup: false, ...bbConfig }, log);
 }

@@ -1,10 +1,13 @@
 import { PublicDataTreeLeafPreimage } from '@aztec/circuits.js';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
-import { Fr } from '@aztec/foundation/fields';
+import { Fq, Fr, Point } from '@aztec/foundation/fields';
 import { bufferSchemaFor } from '@aztec/foundation/schemas';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 import { bufferToHex, hexToBuffer } from '@aztec/foundation/string';
 import { type FieldsOf } from '@aztec/foundation/types';
+
+import { strict as assert } from 'assert';
+import { Encoder, addExtension } from 'msgpackr';
 
 import { type ContractClassIdPreimage } from '../../contract/contract_class_id.js';
 import { PublicKeys } from '../../types/public_keys.js';
@@ -683,7 +686,6 @@ export class AvmExecutionHints {
   public readonly enqueuedCalls: Vector<AvmEnqueuedCallHint>;
 
   public readonly contractInstances: Vector<AvmContractInstanceHint>;
-  public readonly contractBytecodeHints: Vector<AvmContractBytecodeHints>;
 
   public readonly publicDataReads: Vector<AvmPublicDataReadTreeHint>;
   public readonly publicDataWrites: Vector<AvmPublicDataWriteTreeHint>;
@@ -696,7 +698,8 @@ export class AvmExecutionHints {
   constructor(
     enqueuedCalls: AvmEnqueuedCallHint[],
     contractInstances: AvmContractInstanceHint[],
-    contractBytecodeHints: AvmContractBytecodeHints[],
+    // string here is the contract class id
+    public contractBytecodeHints: Map<string, AvmContractBytecodeHints>,
     publicDataReads: AvmPublicDataReadTreeHint[],
     publicDataWrites: AvmPublicDataWriteTreeHint[],
     nullifierReads: AvmNullifierReadTreeHint[],
@@ -707,7 +710,6 @@ export class AvmExecutionHints {
   ) {
     this.enqueuedCalls = new Vector(enqueuedCalls);
     this.contractInstances = new Vector(contractInstances);
-    this.contractBytecodeHints = new Vector(contractBytecodeHints);
     this.publicDataReads = new Vector(publicDataReads);
     this.publicDataWrites = new Vector(publicDataWrites);
     this.nullifierReads = new Vector(nullifierReads);
@@ -722,7 +724,7 @@ export class AvmExecutionHints {
    * @returns an empty instance.
    */
   static empty() {
-    return new AvmExecutionHints([], [], [], [], [], [], [], [], [], []);
+    return new AvmExecutionHints([], [], new Map(), [], [], [], [], [], [], []);
   }
 
   /**
@@ -749,7 +751,7 @@ export class AvmExecutionHints {
     return (
       this.enqueuedCalls.items.length == 0 &&
       this.contractInstances.items.length == 0 &&
-      this.contractBytecodeHints.items.length == 0 &&
+      this.contractBytecodeHints.size == 0 &&
       this.publicDataReads.items.length == 0 &&
       this.publicDataWrites.items.length == 0 &&
       this.nullifierReads.items.length == 0 &&
@@ -769,7 +771,7 @@ export class AvmExecutionHints {
     return new AvmExecutionHints(
       fields.enqueuedCalls.items,
       fields.contractInstances.items,
-      fields.contractBytecodeHints.items,
+      fields.contractBytecodeHints,
       fields.publicDataReads.items,
       fields.publicDataWrites.items,
       fields.nullifierReads.items,
@@ -789,7 +791,7 @@ export class AvmExecutionHints {
     return [
       fields.enqueuedCalls,
       fields.contractInstances,
-      fields.contractBytecodeHints,
+      new Vector(Array.from(fields.contractBytecodeHints.values())),
       fields.publicDataReads,
       fields.publicDataWrites,
       fields.nullifierReads,
@@ -807,10 +809,20 @@ export class AvmExecutionHints {
    */
   static fromBuffer(buff: Buffer | BufferReader): AvmExecutionHints {
     const reader = BufferReader.asReader(buff);
+
+    const readMap = (r: BufferReader) => {
+      const map = new Map();
+      const values = r.readVector(AvmContractBytecodeHints);
+      for (const value of values) {
+        map.set(value.contractInstanceHint.address.toString(), value);
+      }
+      return map;
+    };
+
     return new AvmExecutionHints(
       reader.readVector(AvmEnqueuedCallHint),
       reader.readVector(AvmContractInstanceHint),
-      reader.readVector(AvmContractBytecodeHints),
+      readMap(reader),
       reader.readVector(AvmPublicDataReadTreeHint),
       reader.readVector(AvmPublicDataWriteTreeHint),
       reader.readVector(AvmNullifierReadTreeHint),
@@ -927,4 +939,96 @@ export class AvmCircuitInputs {
   static get schema() {
     return bufferSchemaFor(AvmCircuitInputs);
   }
+
+  /** Serializes in format for the Avm2 */
+  serializeForAvm2(): Buffer {
+    // logger(`original: ${inspect(input)}`);
+    // logger.verbose(`original: ${inspect(this.avmHints.enqueuedCalls.items)}`);
+    // Convert the inputs to something that works with vm2 and messagepack.
+    // const inputSubset = {
+    //   ffs: [new Fr(0x123456789), new Fr(0x987654321)],
+    //   affine: new Point(new Fr(0x123456789), new Fr(0x987654321), false),
+    //   fq: new Fq(0x123456789),
+    //   addr: AztecAddress.fromBigInt(0x123456789n),
+    //   contract_instance_hints: this.avmHints.contractInstances,
+    // };
+    const hints = {
+      contractInstances: [] as any[],
+      contractClasses: [] as any[],
+    };
+    const inputs = {
+      hints: hints,
+      enqueuedCalls: [] as any[],
+      // Placeholder for now.
+      publicInputs: {
+        dummy: [] as any[],
+      },
+    };
+    // For now we only transform bytecode requests. If we ever have any other
+    // contract instance hint, this will clash!
+    // See https://aztecprotocol.slack.com/archives/C04DL2L1UP2/p1733485524309389.
+    for (const bytecodeHint of this.avmHints.contractBytecodeHints.values()) {
+      hints.contractInstances.push(bytecodeHint.contractInstanceHint);
+      hints.contractClasses.push({
+        artifactHash: bytecodeHint.contractClassHint.artifactHash,
+        privateFunctionsRoot: bytecodeHint.contractClassHint.privateFunctionsRoot,
+        publicBytecodeCommitment: bytecodeHint.contractClassHint.publicBytecodeCommitment,
+        packedBytecode: bytecodeHint.bytecode,
+      });
+    }
+    // TODO: for now I only convert app logic requests?
+    for (const enqueuedCall of this.avmHints.enqueuedCalls.items) {
+      inputs.enqueuedCalls.push({
+        contractAddress: enqueuedCall.contractAddress,
+        sender: new Fr(0), // FIXME
+        args: enqueuedCall.calldata.items,
+        isStatic: false, // FIXME
+      });
+    }
+
+    const inputsBuffer = serializeWithMessagePack(inputs);
+
+    return inputsBuffer;
+  }
+}
+
+export function serializeWithMessagePack(obj: any): Buffer {
+  setUpMessagePackExtensions();
+  const encoder = new Encoder({
+    // always encode JS objects as MessagePack maps
+    // this makes it compatible with other MessagePack decoders
+    useRecords: false,
+    int64AsType: 'bigint',
+  });
+  return encoder.encode(obj);
+}
+
+function setUpMessagePackExtensions() {
+  // C++ Fr and Fq classes work well with the buffer serialization.
+  addExtension({
+    Class: Fr,
+    write: (fr: Fr) => fr.toBuffer(),
+  });
+  addExtension({
+    Class: Fq,
+    write: (fq: Fq) => fq.toBuffer(),
+  });
+  // AztecAddress is a class that has a field in TS, but just a field in C++.
+  addExtension({
+    Class: AztecAddress,
+    write: (addr: AztecAddress) => addr.toField(),
+  });
+  // If we find a vector, we just use the underlying list.
+  addExtension({
+    Class: Vector,
+    write: v => v.items,
+  });
+  // Affine points are a mess, we do our best.
+  addExtension({
+    Class: Point,
+    write: (p: Point) => {
+      assert(!p.inf, 'Cannot serialize infinity');
+      return { x: new Fq(p.x.toBigInt()), y: new Fq(p.y.toBigInt()) };
+    },
+  });
 }

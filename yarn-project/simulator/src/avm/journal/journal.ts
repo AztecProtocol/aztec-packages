@@ -1,4 +1,4 @@
-import { MerkleTreeId, type TxHash } from '@aztec/circuit-types';
+import { MerkleTreeId } from '@aztec/circuit-types';
 import {
   AztecAddress,
   CANONICAL_AUTH_REGISTRY_ADDRESS,
@@ -61,31 +61,8 @@ export class AvmPersistableStateManager {
     private readonly doMerkleOperations: boolean = false,
     /** Ephmeral forest for merkle tree operations */
     public merkleTrees: AvmEphemeralForest,
-    public readonly txHash: TxHash,
+    public readonly firstNullifier: Fr,
   ) {}
-
-  /**
-   * Create a new state manager with some preloaded pending siloed nullifiers
-   */
-  public static async newWithPendingSiloedNullifiers(
-    worldStateDB: WorldStateDB,
-    trace: PublicSideEffectTraceInterface,
-    pendingSiloedNullifiers: Fr[],
-    doMerkleOperations: boolean = false,
-    txHash: TxHash,
-  ) {
-    const parentNullifiers = NullifierManager.newWithPendingSiloedNullifiers(worldStateDB, pendingSiloedNullifiers);
-    const ephemeralForest = await AvmEphemeralForest.create(worldStateDB.getMerkleInterface());
-    return new AvmPersistableStateManager(
-      worldStateDB,
-      trace,
-      /*publicStorage=*/ new PublicStorage(worldStateDB),
-      /*nullifiers=*/ parentNullifiers.fork(),
-      doMerkleOperations,
-      ephemeralForest,
-      txHash,
-    );
-  }
 
   /**
    * Create a new state manager
@@ -94,7 +71,7 @@ export class AvmPersistableStateManager {
     worldStateDB: WorldStateDB,
     trace: PublicSideEffectTraceInterface,
     doMerkleOperations: boolean = false,
-    txHash: TxHash,
+    firstNullifier: Fr,
   ) {
     const ephemeralForest = await AvmEphemeralForest.create(worldStateDB.getMerkleInterface());
     return new AvmPersistableStateManager(
@@ -104,7 +81,7 @@ export class AvmPersistableStateManager {
       /*nullifiers=*/ new NullifierManager(worldStateDB),
       /*doMerkleOperations=*/ doMerkleOperations,
       ephemeralForest,
-      txHash,
+      firstNullifier,
     );
   }
 
@@ -119,7 +96,7 @@ export class AvmPersistableStateManager {
       this.nullifiers.fork(),
       this.doMerkleOperations,
       this.merkleTrees.fork(),
-      this.txHash,
+      this.firstNullifier,
     );
   }
 
@@ -147,13 +124,14 @@ export class AvmPersistableStateManager {
     this.publicStorage.acceptAndMerge(forkedState.publicStorage);
     this.nullifiers.acceptAndMerge(forkedState.nullifiers);
     this.trace.merge(forkedState.trace, reverted);
-    if (!reverted) {
-      this.merkleTrees = forkedState.merkleTrees;
+    if (reverted) {
       if (this.doMerkleOperations) {
         this.log.debug(
           `Rolled back nullifier tree to root ${this.merkleTrees.treeMap.get(MerkleTreeId.NULLIFIER_TREE)!.getRoot()}`,
         );
       }
+    } else {
+      this.merkleTrees = forkedState.merkleTrees;
     }
   }
 
@@ -316,8 +294,7 @@ export class AvmPersistableStateManager {
    * @param noteHash - the non unique note hash to write
    */
   public writeSiloedNoteHash(noteHash: Fr): void {
-    const txHash = Fr.fromBuffer(this.txHash.toBuffer());
-    const nonce = computeNoteHashNonce(txHash, this.trace.getNoteHashCount());
+    const nonce = computeNoteHashNonce(this.firstNullifier, this.trace.getNoteHashCount());
     const uniqueNoteHash = computeUniqueNoteHash(nonce, noteHash);
 
     this.writeUniqueNoteHash(uniqueNoteHash);

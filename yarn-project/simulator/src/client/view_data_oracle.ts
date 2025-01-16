@@ -2,7 +2,7 @@ import {
   type AuthWitness,
   type AztecNode,
   type CompleteAddress,
-  MerkleTreeId,
+  type MerkleTreeId,
   type NoteStatus,
   type NullifierMembershipWitness,
   type PublicDataWitness,
@@ -72,24 +72,8 @@ export class ViewDataOracle extends TypedOracle {
    * @param leafValue - The leaf value
    * @returns The index and sibling path concatenated [index, sibling_path]
    */
-  public override async getMembershipWitness(blockNumber: number, treeId: MerkleTreeId, leafValue: Fr): Promise<Fr[]> {
-    const index = await this.db.findLeafIndex(blockNumber, treeId, leafValue);
-    if (!index) {
-      throw new Error(`Leaf value: ${leafValue} not found in ${MerkleTreeId[treeId]}`);
-    }
-    const siblingPath = await this.db.getSiblingPath(blockNumber, treeId, index);
-    return [new Fr(index), ...siblingPath];
-  }
-
-  /**
-   * Fetches a sibling path at a given block and index from a tree specified by `treeId`.
-   * @param blockNumber - The block number at which to get the membership witness.
-   * @param treeId - Id of the tree to get the sibling path from.
-   * @param leafIndex - Index of the leaf to get sibling path for
-   * @returns The sibling path.
-   */
-  public override getSiblingPath(blockNumber: number, treeId: MerkleTreeId, leafIndex: Fr): Promise<Fr[]> {
-    return this.db.getSiblingPath(blockNumber, treeId, leafIndex.toBigInt());
+  public override getMembershipWitness(blockNumber: number, treeId: MerkleTreeId, leafValue: Fr): Promise<Fr[]> {
+    return this.db.getMembershipWitness(blockNumber, treeId, leafValue);
   }
 
   /**
@@ -290,6 +274,10 @@ export class ViewDataOracle extends TypedOracle {
   }
 
   public override debugLog(message: string, fields: Fr[]): void {
+    // TODO(#10558) Remove this check once the debug log is fixed
+    if (message.startsWith('Context.note_hashes, after pushing new note hash:')) {
+      return;
+    }
     this.log.verbose(`${applyStringFormatting(message, fields)}`, { module: `${this.log.module}:debug_log` });
   }
 
@@ -320,5 +308,43 @@ export class ViewDataOracle extends TypedOracle {
     }
 
     await this.db.removeNullifiedNotes(this.contractAddress);
+  }
+
+  public override async deliverNote(
+    contractAddress: AztecAddress,
+    storageSlot: Fr,
+    nonce: Fr,
+    content: Fr[],
+    noteHash: Fr,
+    nullifier: Fr,
+    txHash: Fr,
+    recipient: AztecAddress,
+  ) {
+    // TODO(#10727): allow other contracts to deliver notes
+    if (!this.contractAddress.equals(contractAddress)) {
+      throw new Error(`Got a note delivery request from ${contractAddress}, expected ${this.contractAddress}`);
+    }
+
+    await this.db.deliverNote(contractAddress, storageSlot, nonce, content, noteHash, nullifier, txHash, recipient);
+  }
+
+  public override store(contract: AztecAddress, key: Fr, values: Fr[]): Promise<void> {
+    if (!contract.equals(this.contractAddress)) {
+      // TODO(#10727): instead of this check check that this.contractAddress is allowed to process notes for contract
+      throw new Error(
+        `Contract address ${contract} does not match the oracle's contract address ${this.contractAddress}`,
+      );
+    }
+    return this.db.store(this.contractAddress, key, values);
+  }
+
+  public override load(contract: AztecAddress, key: Fr): Promise<Fr[] | null> {
+    if (!contract.equals(this.contractAddress)) {
+      // TODO(#10727): instead of this check check that this.contractAddress is allowed to process notes for contract
+      throw new Error(
+        `Contract address ${contract} does not match the oracle's contract address ${this.contractAddress}`,
+      );
+    }
+    return this.db.load(this.contractAddress, key);
   }
 }

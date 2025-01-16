@@ -12,71 +12,47 @@ class MegaZKFlavor : public bb::MegaFlavor {
   public:
     // Indicates that this flavor runs with non-ZK Sumcheck.
     static constexpr bool HasZK = true;
+    // The degree has to be increased because the relation is multiplied by the Row Disabling Polynomial
+    static constexpr size_t BATCHED_RELATION_PARTIAL_LENGTH = MegaFlavor::BATCHED_RELATION_PARTIAL_LENGTH + 1;
     /**
      * @brief Derived class that defines proof structure for Mega proofs, as well as supporting functions.
      * Note: Made generic for use in MegaRecursive.
      * TODO(https://github.com/AztecProtocol/barretenberg/issues/877): Remove this Commitment template parameter
      */
-    template <typename Commitment> class Transcript_ : public NativeTranscript {
+    class Transcript : public MegaFlavor::Transcript {
       public:
-        uint32_t circuit_size;
-        uint32_t public_input_size;
-        uint32_t pub_inputs_offset;
-        std::vector<FF> public_inputs;
-        Commitment w_l_comm;
-        Commitment w_r_comm;
-        Commitment w_o_comm;
-        Commitment ecc_op_wire_1_comm;
-        Commitment ecc_op_wire_2_comm;
-        Commitment ecc_op_wire_3_comm;
-        Commitment ecc_op_wire_4_comm;
-        Commitment calldata_comm;
-        Commitment calldata_read_counts_comm;
-        Commitment calldata_read_tags_comm;
-        Commitment calldata_inverses_comm;
-        Commitment secondary_calldata_comm;
-        Commitment secondary_calldata_read_counts_comm;
-        Commitment secondary_calldata_read_tags_comm;
-        Commitment secondary_calldata_inverses_comm;
-        Commitment return_data_comm;
-        Commitment return_data_read_counts_comm;
-        Commitment return_data_read_tags_comm;
-        Commitment return_data_inverses_comm;
-        Commitment w_4_comm;
-        Commitment z_perm_comm;
-        Commitment lookup_inverses_comm;
-        Commitment lookup_read_counts_comm;
-        Commitment lookup_read_tags_comm;
-        std::vector<Commitment> libra_commitments;
+        // Note: we have a different vector of univariates because the degree for ZK flavors differs
+        std::vector<bb::Univariate<FF, BATCHED_RELATION_PARTIAL_LENGTH>> zk_sumcheck_univariates;
+        Commitment libra_concatenation_commitment;
         FF libra_sum;
-        std::vector<bb::Univariate<FF, BATCHED_RELATION_PARTIAL_LENGTH>> sumcheck_univariates;
-        std::vector<FF> libra_evaluations;
-        std::array<FF, NUM_ALL_ENTITIES> sumcheck_evaluations;
+        FF libra_claimed_evaluation;
+        Commitment libra_big_sum_commitment;
+        Commitment libra_quotient_commitment;
+        FF libra_concatenation_eval;
+        FF libra_shifted_big_sum_eval;
+        FF libra_big_sum_eval;
+        FF libra_quotient_eval;
         Commitment hiding_polynomial_commitment;
         FF hiding_polynomial_eval;
-        std::vector<Commitment> gemini_fold_comms;
-        std::vector<FF> gemini_fold_evals;
-        Commitment shplonk_q_comm;
-        Commitment kzg_w_comm;
 
-        Transcript_() = default;
+        Transcript() = default;
 
-        Transcript_(const HonkProof& proof)
-            : NativeTranscript(proof)
+        Transcript(const HonkProof& proof)
+            : MegaFlavor::Transcript(proof)
         {}
 
-        static std::shared_ptr<Transcript_> prover_init_empty()
+        static std::shared_ptr<Transcript> prover_init_empty()
         {
-            auto transcript = std::make_shared<Transcript_>();
+            auto transcript = std::make_shared<Transcript>();
             constexpr uint32_t init{ 42 }; // arbitrary
             transcript->send_to_verifier("Init", init);
             return transcript;
         };
 
-        static std::shared_ptr<Transcript_> verifier_init_empty(const std::shared_ptr<Transcript_>& transcript)
+        static std::shared_ptr<Transcript> verifier_init_empty(const std::shared_ptr<Transcript>& transcript)
         {
-            auto verifier_transcript = std::make_shared<Transcript_>(transcript->proof_data);
-            [[maybe_unused]] auto _ = verifier_transcript->template receive_from_prover<uint32_t>("Init");
+            auto verifier_transcript = std::make_shared<Transcript>(transcript->proof_data);
+            verifier_transcript->template receive_from_prover<uint32_t>("Init");
             return verifier_transcript;
         };
 
@@ -84,133 +60,131 @@ class MegaZKFlavor : public bb::MegaFlavor {
         {
             // take current proof and put them into the struct
             size_t num_frs_read = 0;
-            circuit_size = deserialize_from_buffer<uint32_t>(proof_data, num_frs_read);
-            size_t log_circuit_size = static_cast<size_t>(numeric::get_msb(circuit_size));
+            this->circuit_size = deserialize_from_buffer<uint32_t>(proof_data, num_frs_read);
 
-            public_input_size = deserialize_from_buffer<uint32_t>(proof_data, num_frs_read);
-            pub_inputs_offset = deserialize_from_buffer<uint32_t>(proof_data, num_frs_read);
+            this->public_input_size = deserialize_from_buffer<uint32_t>(proof_data, num_frs_read);
+            this->pub_inputs_offset = deserialize_from_buffer<uint32_t>(proof_data, num_frs_read);
             for (size_t i = 0; i < public_input_size; ++i) {
-                public_inputs.push_back(deserialize_from_buffer<FF>(proof_data, num_frs_read));
+                this->public_inputs.push_back(deserialize_from_buffer<FF>(proof_data, num_frs_read));
             }
-            w_l_comm = deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
-            w_r_comm = deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
-            w_o_comm = deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
-            ecc_op_wire_1_comm = deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
-            ecc_op_wire_2_comm = deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
-            ecc_op_wire_3_comm = deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
-            ecc_op_wire_4_comm = deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
-            calldata_comm = deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
-            calldata_read_counts_comm = deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
-            calldata_read_tags_comm = deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
-            calldata_inverses_comm = deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
-            secondary_calldata_comm = deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
-            secondary_calldata_read_counts_comm = deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
-            secondary_calldata_read_tags_comm = deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
-            secondary_calldata_inverses_comm = deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
-            return_data_comm = deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
-            return_data_read_counts_comm = deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
-            return_data_read_tags_comm = deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
-            return_data_inverses_comm = deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
-            lookup_read_counts_comm = deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
-            lookup_read_tags_comm = deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
-            w_4_comm = deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
-            lookup_inverses_comm = deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
-            z_perm_comm = deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
-            for (size_t i = 0; i < log_circuit_size; i++) {
-                libra_commitments.emplace_back(NativeTranscript::template deserialize_from_buffer<Commitment>(
-                    NativeTranscript::proof_data, num_frs_read));
-            };
-            libra_sum =
-                NativeTranscript::template deserialize_from_buffer<FF>(NativeTranscript::proof_data, num_frs_read);
+            this->w_l_comm = deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
+            this->w_r_comm = deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
+            this->w_o_comm = deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
+            this->ecc_op_wire_1_comm = deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
+            this->ecc_op_wire_2_comm = deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
+            this->ecc_op_wire_3_comm = deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
+            this->ecc_op_wire_4_comm = deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
+            this->calldata_comm = deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
+            this->calldata_read_counts_comm = deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
+            this->calldata_read_tags_comm = deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
+            this->calldata_inverses_comm = deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
+            this->secondary_calldata_comm = deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
+            this->secondary_calldata_read_counts_comm = deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
+            this->secondary_calldata_read_tags_comm = deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
+            this->secondary_calldata_inverses_comm = deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
+            this->return_data_comm = deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
+            this->return_data_read_counts_comm = deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
+            this->return_data_read_tags_comm = deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
+            this->return_data_inverses_comm = deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
+            this->lookup_read_counts_comm = deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
+            this->lookup_read_tags_comm = deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
+            this->w_4_comm = deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
+            this->lookup_inverses_comm = deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
+            this->z_perm_comm = deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
+            libra_concatenation_commitment = deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
+            libra_sum = deserialize_from_buffer<FF>(proof_data, num_frs_read);
 
             for (size_t i = 0; i < CONST_PROOF_SIZE_LOG_N; ++i) {
-                sumcheck_univariates.push_back(
+                zk_sumcheck_univariates.push_back(
                     deserialize_from_buffer<bb::Univariate<FF, BATCHED_RELATION_PARTIAL_LENGTH>>(proof_data,
                                                                                                  num_frs_read));
             }
-            for (size_t i = 0; i < log_circuit_size; i++) {
-                libra_evaluations.emplace_back(
-                    NativeTranscript::template deserialize_from_buffer<FF>(NativeTranscript::proof_data, num_frs_read));
-            }
-            sumcheck_evaluations = deserialize_from_buffer<std::array<FF, NUM_ALL_ENTITIES>>(proof_data, num_frs_read);
+            libra_claimed_evaluation = deserialize_from_buffer<FF>(proof_data, num_frs_read);
+            this->sumcheck_evaluations =
+                deserialize_from_buffer<std::array<FF, NUM_ALL_ENTITIES>>(proof_data, num_frs_read);
+            libra_big_sum_commitment = deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
+            libra_quotient_commitment = deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
             hiding_polynomial_commitment = deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
-            hiding_polynomial_eval = deserialize_from_buffer<FF>(NativeTranscript::proof_data, num_frs_read);
+            hiding_polynomial_eval = deserialize_from_buffer<FF>(proof_data, num_frs_read);
             for (size_t i = 0; i < CONST_PROOF_SIZE_LOG_N - 1; ++i) {
-                gemini_fold_comms.push_back(deserialize_from_buffer<Commitment>(proof_data, num_frs_read));
+                this->gemini_fold_comms.push_back(deserialize_from_buffer<Commitment>(proof_data, num_frs_read));
             }
             for (size_t i = 0; i < CONST_PROOF_SIZE_LOG_N; ++i) {
-                gemini_fold_evals.push_back(deserialize_from_buffer<FF>(proof_data, num_frs_read));
+                this->gemini_fold_evals.push_back(deserialize_from_buffer<FF>(proof_data, num_frs_read));
             }
-            shplonk_q_comm = deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
+            libra_concatenation_eval = deserialize_from_buffer<FF>(proof_data, num_frs_read);
+            libra_shifted_big_sum_eval = deserialize_from_buffer<FF>(proof_data, num_frs_read);
+            libra_big_sum_eval = deserialize_from_buffer<FF>(proof_data, num_frs_read);
+            libra_quotient_eval = deserialize_from_buffer<FF>(proof_data, num_frs_read);
+            this->shplonk_q_comm = deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
 
-            kzg_w_comm = deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
+            this->kzg_w_comm = deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
         }
 
         void serialize_full_transcript()
         {
             size_t old_proof_length = proof_data.size();
-            size_t log_circuit_size = static_cast<size_t>(numeric::get_msb(circuit_size));
             proof_data.clear();
-            serialize_to_buffer(circuit_size, proof_data);
-            serialize_to_buffer(public_input_size, proof_data);
-            serialize_to_buffer(pub_inputs_offset, proof_data);
+            serialize_to_buffer(this->circuit_size, proof_data);
+            serialize_to_buffer(this->public_input_size, proof_data);
+            serialize_to_buffer(this->pub_inputs_offset, proof_data);
             for (size_t i = 0; i < public_input_size; ++i) {
-                serialize_to_buffer(public_inputs[i], proof_data);
+                serialize_to_buffer(this->public_inputs[i], proof_data);
             }
-            serialize_to_buffer(w_l_comm, proof_data);
-            serialize_to_buffer(w_r_comm, proof_data);
-            serialize_to_buffer(w_o_comm, proof_data);
-            serialize_to_buffer(ecc_op_wire_1_comm, proof_data);
-            serialize_to_buffer(ecc_op_wire_2_comm, proof_data);
-            serialize_to_buffer(ecc_op_wire_3_comm, proof_data);
-            serialize_to_buffer(ecc_op_wire_4_comm, proof_data);
-            serialize_to_buffer(calldata_comm, proof_data);
-            serialize_to_buffer(calldata_read_counts_comm, proof_data);
-            serialize_to_buffer(calldata_read_tags_comm, proof_data);
-            serialize_to_buffer(calldata_inverses_comm, proof_data);
-            serialize_to_buffer(secondary_calldata_comm, proof_data);
-            serialize_to_buffer(secondary_calldata_read_counts_comm, proof_data);
-            serialize_to_buffer(secondary_calldata_read_tags_comm, proof_data);
-            serialize_to_buffer(secondary_calldata_inverses_comm, proof_data);
-            serialize_to_buffer(return_data_comm, proof_data);
-            serialize_to_buffer(return_data_read_counts_comm, proof_data);
-            serialize_to_buffer(return_data_read_tags_comm, proof_data);
-            serialize_to_buffer(return_data_inverses_comm, proof_data);
-            serialize_to_buffer(lookup_read_counts_comm, proof_data);
-            serialize_to_buffer(lookup_read_tags_comm, proof_data);
-            serialize_to_buffer(w_4_comm, proof_data);
-            serialize_to_buffer(lookup_inverses_comm, proof_data);
-            serialize_to_buffer(z_perm_comm, proof_data);
+            serialize_to_buffer(this->w_l_comm, proof_data);
+            serialize_to_buffer(this->w_r_comm, proof_data);
+            serialize_to_buffer(this->w_o_comm, proof_data);
+            serialize_to_buffer(this->ecc_op_wire_1_comm, proof_data);
+            serialize_to_buffer(this->ecc_op_wire_2_comm, proof_data);
+            serialize_to_buffer(this->ecc_op_wire_3_comm, proof_data);
+            serialize_to_buffer(this->ecc_op_wire_4_comm, proof_data);
+            serialize_to_buffer(this->calldata_comm, proof_data);
+            serialize_to_buffer(this->calldata_read_counts_comm, proof_data);
+            serialize_to_buffer(this->calldata_read_tags_comm, proof_data);
+            serialize_to_buffer(this->calldata_inverses_comm, proof_data);
+            serialize_to_buffer(this->secondary_calldata_comm, proof_data);
+            serialize_to_buffer(this->secondary_calldata_read_counts_comm, proof_data);
+            serialize_to_buffer(this->secondary_calldata_read_tags_comm, proof_data);
+            serialize_to_buffer(this->secondary_calldata_inverses_comm, proof_data);
+            serialize_to_buffer(this->return_data_comm, proof_data);
+            serialize_to_buffer(this->return_data_read_counts_comm, proof_data);
+            serialize_to_buffer(this->return_data_read_tags_comm, proof_data);
+            serialize_to_buffer(this->return_data_inverses_comm, proof_data);
+            serialize_to_buffer(this->lookup_read_counts_comm, proof_data);
+            serialize_to_buffer(this->lookup_read_tags_comm, proof_data);
+            serialize_to_buffer(this->w_4_comm, proof_data);
+            serialize_to_buffer(this->lookup_inverses_comm, proof_data);
+            serialize_to_buffer(this->z_perm_comm, proof_data);
 
-            for (size_t i = 0; i < log_circuit_size; ++i) {
-                NativeTranscript::template serialize_to_buffer(libra_commitments[i], NativeTranscript::proof_data);
-            }
-            NativeTranscript::template serialize_to_buffer(libra_sum, NativeTranscript::proof_data);
+            serialize_to_buffer(libra_concatenation_commitment, proof_data);
+            serialize_to_buffer(libra_sum, proof_data);
 
             for (size_t i = 0; i < CONST_PROOF_SIZE_LOG_N; ++i) {
-                serialize_to_buffer(sumcheck_univariates[i], proof_data);
+                serialize_to_buffer(zk_sumcheck_univariates[i], proof_data);
             }
-            for (size_t i = 0; i < log_circuit_size; ++i) {
-                NativeTranscript::template serialize_to_buffer(libra_evaluations[i], NativeTranscript::proof_data);
-            }
+            serialize_to_buffer(libra_claimed_evaluation, proof_data);
 
-            serialize_to_buffer(sumcheck_evaluations, proof_data);
-            serialize_to_buffer(hiding_polynomial_commitment, NativeTranscript::proof_data);
-            serialize_to_buffer(hiding_polynomial_eval, NativeTranscript::proof_data);
+            serialize_to_buffer(this->sumcheck_evaluations, proof_data);
+            serialize_to_buffer(libra_big_sum_commitment, proof_data);
+            serialize_to_buffer(libra_quotient_commitment, proof_data);
+            serialize_to_buffer(hiding_polynomial_commitment, proof_data);
+            serialize_to_buffer(hiding_polynomial_eval, proof_data);
             for (size_t i = 0; i < CONST_PROOF_SIZE_LOG_N - 1; ++i) {
-                serialize_to_buffer(gemini_fold_comms[i], proof_data);
+                serialize_to_buffer(this->gemini_fold_comms[i], proof_data);
             }
             for (size_t i = 0; i < CONST_PROOF_SIZE_LOG_N; ++i) {
-                serialize_to_buffer(gemini_fold_evals[i], proof_data);
+                serialize_to_buffer(this->gemini_fold_evals[i], proof_data);
             }
-            serialize_to_buffer(shplonk_q_comm, proof_data);
-            serialize_to_buffer(kzg_w_comm, proof_data);
+            serialize_to_buffer(libra_concatenation_eval, proof_data);
+            serialize_to_buffer(libra_shifted_big_sum_eval, proof_data);
+            serialize_to_buffer(libra_big_sum_eval, proof_data);
+            serialize_to_buffer(libra_quotient_eval, proof_data);
+            serialize_to_buffer(this->shplonk_q_comm, proof_data);
+            serialize_to_buffer(this->kzg_w_comm, proof_data);
 
             ASSERT(proof_data.size() == old_proof_length);
         }
     };
-    // Specialize for Mega (general case used in MegaRecursive).
-    using Transcript = Transcript_<Commitment>;
 };
 
 } // namespace bb

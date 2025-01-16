@@ -16,10 +16,13 @@ contract StakingBase is TestBase {
   address internal constant ATTESTER = address(bytes20("ATTESTER"));
   address internal constant WITHDRAWER = address(bytes20("WITHDRAWER"));
   address internal constant RECIPIENT = address(bytes20("RECIPIENT"));
-  address internal constant SLASHER = address(bytes20("SLASHER"));
+
+  address internal SLASHER;
 
   function setUp() public virtual {
     stakingAsset = new TestERC20("test", "TEST", address(this));
-    staking = new StakingCheater(SLASHER, stakingAsset, MINIMUM_STAKE);
+    staking = new StakingCheater(stakingAsset, MINIMUM_STAKE, 1, 1);
+
+    SLASHER = address(staking.SLASHER());
   }
 }

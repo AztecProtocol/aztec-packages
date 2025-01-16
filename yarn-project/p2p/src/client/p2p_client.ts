@@ -21,19 +21,19 @@ import {
   type TelemetryClient,
   TraceableL2BlockStream,
   WithTracer,
+  getTelemetryClient,
   trackSpan,
 } from '@aztec/telemetry-client';
-import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
 
 import { type ENR } from '@chainsafe/enr';
 
-import { getP2PConfigFromEnv } from '../config.js';
+import { type P2PConfig, getP2PDefaultConfig } from '../config.js';
 import { type AttestationPool } from '../mem_pools/attestation_pool/attestation_pool.js';
 import { type EpochProofQuotePool } from '../mem_pools/epoch_proof_quote_pool/epoch_proof_quote_pool.js';
 import { type MemPools } from '../mem_pools/interface.js';
 import { type TxPool } from '../mem_pools/tx_pool/index.js';
-import { TX_REQ_PROTOCOL } from '../service/reqresp/interface.js';
-import type { P2PService } from '../service/service.js';
+import { TX_REQ_PROTOCOL } from '../services/reqresp/interface.js';
+import type { P2PService } from '../services/service.js';
 
 /**
  * Enum defining the possible states of the p2p client.
@@ -136,11 +136,24 @@ export type P2P<T extends P2PClientType = P2PClientType.Full> = P2PApi<T> & {
   getTxByHash(txHash: TxHash): Promise<Tx | undefined>;
 
   /**
+   * Returns an archived transaction from the transaction pool by its hash.
+   * @param txHash  - Hash of tx to return.
+   * @returns A single tx or undefined.
+   */
+  getArchivedTxByHash(txHash: TxHash): Promise<Tx | undefined>;
+
+  /**
    * Returns whether the given tx hash is flagged as pending or mined.
    * @param txHash - Hash of the tx to query.
    * @returns Pending or mined depending on its status, or undefined if not found.
    */
   getTxStatus(txHash: TxHash): 'pending' | 'mined' | undefined;
+
+  /** Returns an iterator over pending txs on the mempool. */
+  iteratePendingTxs(): Iterable<Tx>;
+
+  /** Returns the number of pending txs in the mempool. */
+  getPendingTxCount(): number;
 
   /**
    * Starts the p2p client.
@@ -203,6 +216,8 @@ export class P2PClient<T extends P2PClientType = P2PClientType.Full>
 
   /** How many slots to keep attestations for. */
   private keepAttestationsInPoolFor: number;
+  /** How many slots to keep proven txs for. */
+  private keepProvenTxsFor: number;
 
   private blockStream;
 
@@ -221,14 +236,17 @@ export class P2PClient<T extends P2PClientType = P2PClientType.Full>
     private l2BlockSource: L2BlockSource,
     mempools: MemPools<T>,
     private p2pService: P2PService,
-    private keepProvenTxsFor: number,
-    telemetry: TelemetryClient = new NoopTelemetryClient(),
+    config: Partial<P2PConfig> = {},
+    telemetry: TelemetryClient = getTelemetryClient(),
     private log = createLogger('p2p'),
   ) {
     super(telemetry, 'P2PClient');
 
-    const { blockCheckIntervalMS, blockRequestBatchSize, keepAttestationsInPoolFor } = getP2PConfigFromEnv();
-
+    const { keepProvenTxsInPoolFor, blockCheckIntervalMS, blockRequestBatchSize, keepAttestationsInPoolFor } = {
+      ...getP2PDefaultConfig(),
+      ...config,
+    };
+    this.keepProvenTxsFor = keepProvenTxsInPoolFor;
     this.keepAttestationsInPoolFor = keepAttestationsInPoolFor;
 
     const tracer = telemetry.getTracer('P2PL2BlockStream');
@@ -374,9 +392,6 @@ export class P2PClient<T extends P2PClientType = P2PClientType.Full>
       this.log.debug(`Block ${syncedLatestBlock} (proven ${syncedProvenBlock}) already beyond current block`);
     }
 
-    // publish any txs in TxPool after its doing initial sync
-    this.syncPromise = this.syncPromise.then(() => this.publishStoredTxs());
-
     this.blockStream.start();
     this.log.verbose(`Started block downloader from block ${syncedLatestBlock}`);
 
@@ -460,6 +475,20 @@ export class P2PClient<T extends P2PClientType = P2PClientType.Full>
     return Promise.resolve(this.getTxs('pending'));
   }
 
+  public getPendingTxCount(): number {
+    return this.txPool.getPendingTxHashes().length;
+  }
+
+  public *iteratePendingTxs() {
+    const pendingTxHashes = this.txPool.getPendingTxHashes();
+    for (const txHash of pendingTxHashes) {
+      const tx = this.txPool.getTxByHash(txHash);
+      if (tx) {
+        yield tx;
+      }
+    }
+  }
+
   /**
    * Returns all transactions in the transaction pool.
    * @returns An array of Txs.
@@ -504,6 +533,15 @@ export class P2PClient<T extends P2PClientType = P2PClientType.Full>
       return Promise.resolve(tx);
     }
     return this.requestTxByHash(txHash);
+  }
+
+  /**
+   * Returns an archived transaction in the transaction pool by its hash.
+   * @param txHash - Hash of the archived transaction to look for.
+   * @returns A single tx or undefined.
+   */
+  getArchivedTxByHash(txHash: TxHash): Promise<Tx | undefined> {
+    return Promise.resolve(this.txPool.getArchivedTxByHash(txHash));
   }
 
   /**
@@ -659,12 +697,13 @@ export class P2PClient<T extends P2PClientType = P2PClientType.Full>
       await this.attestationPool?.deleteAttestationsOlderThan(lastBlockSlotMinusKeepAttestationsInPoolFor);
     }
 
-    await this.synchedProvenBlockNumber.set(lastBlockNum);
-    this.log.debug(`Synched to proven block ${lastBlockNum}`);
     const provenEpochNumber = await this.l2BlockSource.getProvenL2EpochNumber();
     if (provenEpochNumber !== undefined) {
       this.epochProofQuotePool.deleteQuotesToEpoch(BigInt(provenEpochNumber));
     }
+
+    await this.synchedProvenBlockNumber.set(lastBlockNum);
+    this.log.debug(`Synched to proven block ${lastBlockNum}`);
 
     await this.startServiceIfSynched();
   }

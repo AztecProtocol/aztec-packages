@@ -11,7 +11,6 @@ import {
   CheatCodes,
   type ContractMethod,
   type DeployL1Contracts,
-  EthCheatCodes,
   type Logger,
   NoFeePaymentMethod,
   type PXE,
@@ -28,6 +27,8 @@ import {
 import { deployInstance, registerContractClass } from '@aztec/aztec.js/deployment';
 import { DefaultMultiCallEntrypoint } from '@aztec/aztec.js/entrypoint';
 import { type BBNativePrivateKernelProver } from '@aztec/bb-prover';
+import { createBlobSinkClient } from '@aztec/blob-sink/client';
+import { type BlobSinkServer, createBlobSinkServer } from '@aztec/blob-sink/server';
 import { type EthAddress, FEE_JUICE_INITIAL_MINT, Fr, Gas, getContractClassFromArtifact } from '@aztec/circuits.js';
 import {
   type DeployL1ContractsArgs,
@@ -36,20 +37,31 @@ import {
   isAnvilTestChain,
   l1Artifacts,
 } from '@aztec/ethereum';
-import { startAnvil } from '@aztec/ethereum/test';
+import { EthCheatCodesWithState, startAnvil } from '@aztec/ethereum/test';
+import { randomBytes } from '@aztec/foundation/crypto';
 import { retryUntil } from '@aztec/foundation/retry';
 import { TestDateProvider } from '@aztec/foundation/timer';
 import { FeeJuiceContract } from '@aztec/noir-contracts.js/FeeJuice';
-import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types';
+import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types/vks';
 import { ProtocolContractAddress, protocolContractTreeRoot } from '@aztec/protocol-contracts';
 import { type ProverNode, type ProverNodeConfig, createProverNode } from '@aztec/prover-node';
 import { type PXEService, type PXEServiceConfig, createPXEService, getPXEServiceConfig } from '@aztec/pxe';
-import { type SequencerClient, TestL1Publisher } from '@aztec/sequencer-client';
-import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
-import { createAndStartTelemetryClient, getConfigEnvVars as getTelemetryConfig } from '@aztec/telemetry-client/start';
+import { type SequencerClient } from '@aztec/sequencer-client';
+import { TestL1Publisher } from '@aztec/sequencer-client/test';
+import {
+  type TelemetryClient,
+  type TelemetryClientConfig,
+  getConfigEnvVars as getTelemetryConfig,
+  initTelemetryClient,
+} from '@aztec/telemetry-client';
+import { BenchmarkTelemetryClient } from '@aztec/telemetry-client/bench';
 
 import { type Anvil } from '@viem/anvil';
+import fs from 'fs/promises';
+import getPort from 'get-port';
+import { tmpdir } from 'os';
 import * as path from 'path';
+import { inspect } from 'util';
 import {
   type Account,
   type Chain,
@@ -65,7 +77,7 @@ import {
 import { mnemonicToAccount, privateKeyToAccount } from 'viem/accounts';
 import { foundry } from 'viem/chains';
 
-import { MNEMONIC } from './fixtures.js';
+import { MNEMONIC, TEST_PEER_CHECK_INTERVAL_MS } from './fixtures.js';
 import { getACVMConfig } from './get_acvm_config.js';
 import { getBBConfig } from './get_bb_config.js';
 import { isMetricsLoggingRequested, setupMetricsLogger } from './logging.js';
@@ -74,18 +86,21 @@ export { deployAndInitializeTokenAndBridgeContracts } from '../shared/cross_chai
 export { startAnvil };
 
 const { PXE_URL = '' } = process.env;
+const getAztecUrl = () => PXE_URL;
 
-const telemetryPromise = createAndStartTelemetryClient(getTelemetryConfig());
+let telemetry: TelemetryClient | undefined = undefined;
+function getTelemetryClient(partialConfig: Partial<TelemetryClientConfig> & { benchmark?: boolean } = {}) {
+  if (!telemetry) {
+    const config = { ...getTelemetryConfig(), ...partialConfig };
+    telemetry = config.benchmark ? new BenchmarkTelemetryClient() : initTelemetryClient(config);
+  }
+  return telemetry;
+}
 if (typeof afterAll === 'function') {
   afterAll(async () => {
-    const client = await telemetryPromise;
-    await client.stop();
+    await telemetry?.stop();
   });
 }
-
-const getAztecUrl = () => {
-  return PXE_URL;
-};
 
 export const getPrivateKeyFromIndex = (index: number): Buffer | null => {
   const hdAccount = mnemonicToAccount(MNEMONIC, { addressIndex: index });
@@ -145,9 +160,20 @@ export async function setupPXEService(
   teardown: () => Promise<void>;
 }> {
   const pxeServiceConfig = { ...getPXEServiceConfig(), ...opts };
+
+  // If no data directory provided, create a temp directory and clean up afterwards
+  const configuredDataDirectory = pxeServiceConfig.dataDirectory;
+  if (!configuredDataDirectory) {
+    pxeServiceConfig.dataDirectory = path.join(tmpdir(), randomBytes(8).toString('hex'));
+  }
+
   const pxe = await createPXEService(aztecNode, pxeServiceConfig, useLogSuffix, proofCreator);
 
-  const teardown = async () => {};
+  const teardown = async () => {
+    if (!configuredDataDirectory) {
+      await fs.rm(pxeServiceConfig.dataDirectory!, { recursive: true, force: true });
+    }
+  };
 
   return {
     pxe,
@@ -227,6 +253,8 @@ async function setupWithRemoteEnvironment(
     cheatCodes,
     watcher: undefined,
     dateProvider: undefined,
+    blobSink: undefined,
+    telemetryClient: undefined,
     teardown,
   };
 }
@@ -255,6 +283,8 @@ export type SetupOptions = {
   startProverNode?: boolean;
   /** Whether to fund the rewardDistributor */
   fundRewardDistributor?: boolean;
+  /** Manual config for the telemetry client */
+  telemetryConfig?: Partial<TelemetryClientConfig> & { benchmark?: boolean };
 } & Partial<AztecNodeConfig>;
 
 /** Context for an end-to-end test as returned by the `setup` function */
@@ -283,6 +313,10 @@ export type EndToEndContext = {
   watcher: AnvilTestWatcher | undefined;
   /** Allows tweaking current system time, used by the epoch cache only (undefined if connected to remote environment) */
   dateProvider: TestDateProvider | undefined;
+  /** The blob sink (undefined if connected to remote environment) */
+  blobSink: BlobSinkServer | undefined;
+  /** Telemetry client */
+  telemetryClient: TelemetryClient | undefined;
   /** Function to stop the started services. */
   teardown: () => Promise<void>;
 };
@@ -302,7 +336,16 @@ export async function setup(
   chain: Chain = foundry,
 ): Promise<EndToEndContext> {
   const config = { ...getConfigEnvVars(), ...opts };
+  config.peerCheckIntervalMS = TEST_PEER_CHECK_INTERVAL_MS;
+
   const logger = getLogger();
+
+  // Create a temp directory for any services that need it and cleanup later
+  const directoryToCleanup = path.join(tmpdir(), randomBytes(8).toString('hex'));
+  await fs.mkdir(directoryToCleanup, { recursive: true });
+  if (!config.dataDirectory) {
+    config.dataDirectory = directoryToCleanup;
+  }
 
   let anvil: Anvil | undefined;
 
@@ -328,7 +371,7 @@ export async function setup(
     setupMetricsLogger(filename);
   }
 
-  const ethCheatCodes = new EthCheatCodes(config.l1RpcUrl);
+  const ethCheatCodes = new EthCheatCodesWithState(config.l1RpcUrl);
 
   if (opts.stateLoad) {
     await ethCheatCodes.loadChainState(opts.stateLoad);
@@ -359,6 +402,12 @@ export async function setup(
     // we are setting up against a remote environment, l1 contracts are assumed to already be deployed
     return await setupWithRemoteEnvironment(publisherHdAccount!, config, logger, numberOfAccounts);
   }
+
+  // Blob sink service - blobs get posted here and served from here
+  const blobSinkPort = await getPort();
+  const blobSink = await createBlobSinkServer({ port: blobSinkPort });
+  await blobSink.start();
+  config.blobSinkUrl = `http://localhost:${blobSinkPort}`;
 
   const deployL1ContractsValues =
     opts.deployL1ContractsValues ?? (await setupL1Contracts(config.l1RpcUrl, publisherHdAccount!, logger, opts, chain));
@@ -394,10 +443,13 @@ export async function setup(
     await ethCheatCodes.warp(opts.l2StartTime);
   }
 
+  const dateProvider = new TestDateProvider();
+
   const watcher = new AnvilTestWatcher(
-    new EthCheatCodes(config.l1RpcUrl),
+    new EthCheatCodesWithState(config.l1RpcUrl),
     deployL1ContractsValues.l1ContractAddresses.rollupAddress,
     deployL1ContractsValues.publicClient,
+    dateProvider,
   );
 
   await watcher.start();
@@ -417,10 +469,15 @@ export async function setup(
   }
   config.l1PublishRetryIntervalMS = 100;
 
-  const telemetry = await telemetryPromise;
-  const publisher = new TestL1Publisher(config, telemetry);
-  const dateProvider = new TestDateProvider();
-  const aztecNode = await AztecNodeService.createAndSync(config, { telemetry, publisher, dateProvider });
+  const telemetry = getTelemetryClient(opts.telemetryConfig);
+
+  const blobSinkClient = createBlobSinkClient(config.blobSinkUrl);
+  const publisher = new TestL1Publisher(config, { blobSinkClient });
+  const aztecNode = await AztecNodeService.createAndSync(config, {
+    publisher,
+    dateProvider,
+    blobSinkClient,
+  });
   const sequencer = aztecNode.getSequencer();
 
   let proverNode: ProverNode | undefined = undefined;
@@ -428,11 +485,16 @@ export async function setup(
     logger.verbose('Creating and syncing a simulated prover node...');
     const proverNodePrivateKey = getPrivateKeyFromIndex(2);
     const proverNodePrivateKeyHex: Hex = `0x${proverNodePrivateKey!.toString('hex')}`;
-    proverNode = await createAndSyncProverNode(proverNodePrivateKeyHex, config, aztecNode);
+    proverNode = await createAndSyncProverNode(
+      proverNodePrivateKeyHex,
+      config,
+      aztecNode,
+      path.join(directoryToCleanup, randomBytes(8).toString('hex')),
+    );
   }
 
   logger.verbose('Creating a pxe...');
-  const { pxe } = await setupPXEService(aztecNode!, pxeOpts, logger);
+  const { pxe, teardown: pxeTeardown } = await setupPXEService(aztecNode!, pxeOpts, logger);
 
   if (!config.skipProtocolContracts) {
     logger.verbose('Setting up Fee Juice...');
@@ -445,6 +507,8 @@ export async function setup(
   const cheatCodes = await CheatCodes.create(config.l1RpcUrl, pxe!);
 
   const teardown = async () => {
+    await pxeTeardown();
+
     if (aztecNode instanceof AztecNodeService) {
       await aztecNode?.stop();
     }
@@ -455,8 +519,20 @@ export async function setup(
       await acvmConfig.cleanup();
     }
 
+    if (bbConfig?.cleanup) {
+      // remove the temp directory created for the acvm
+      logger.verbose(`Cleaning up BB state`);
+      await bbConfig.cleanup();
+    }
+
     await anvil?.stop();
     await watcher.stop();
+    await blobSink?.stop();
+
+    if (directoryToCleanup) {
+      logger.verbose(`Cleaning up data directory at ${directoryToCleanup}`);
+      await fs.rm(directoryToCleanup, { recursive: true, force: true });
+    }
   };
 
   return {
@@ -472,6 +548,8 @@ export async function setup(
     sequencer,
     watcher,
     dateProvider,
+    blobSink,
+    telemetryClient: telemetry,
     teardown,
   };
 }
@@ -641,7 +719,7 @@ export async function setupCanonicalFeeJuice(pxe: PXE) {
       .wait();
     getLogger().info(`Fee Juice successfully setup. Portal address: ${feeJuicePortalAddress}`);
   } catch (error) {
-    getLogger().info(`Fee Juice might have already been setup.`);
+    getLogger().warn(`Fee Juice might have already been setup. Got error: ${inspect(error)}.`);
   }
 }
 
@@ -660,6 +738,7 @@ export async function createAndSyncProverNode(
   proverNodePrivateKey: `0x${string}`,
   aztecNodeConfig: AztecNodeConfig,
   aztecNode: AztecNode,
+  dataDirectory: string,
 ) {
   // Disable stopping the aztec node as the prover coordination test will kill it otherwise
   // This is only required when stopping the prover node for testing
@@ -669,9 +748,12 @@ export async function createAndSyncProverNode(
     stop: () => Promise.resolve(),
   };
 
+  const blobSinkClient = createBlobSinkClient();
   // Creating temp store and archiver for simulated prover node
-  const archiverConfig = { ...aztecNodeConfig, dataDirectory: undefined };
-  const archiver = await createArchiver(archiverConfig, new NoopTelemetryClient(), { blockUntilSync: true });
+  const archiverConfig = { ...aztecNodeConfig, dataDirectory };
+  const archiver = await createArchiver(archiverConfig, blobSinkClient, {
+    blockUntilSync: true,
+  });
 
   // Prover node config is for simulated proofs
   const proverConfig: ProverNodeConfig = {
@@ -689,10 +771,13 @@ export async function createAndSyncProverNode(
     quoteProviderBondAmount: 1000n,
     proverMinimumEscrowAmount: 1000n,
     proverTargetEscrowAmount: 2000n,
+    txGatheringTimeoutMs: 60000,
+    txGatheringIntervalMs: 1000,
+    txGatheringMaxParallelRequests: 100,
   };
 
   // Use testing l1 publisher
-  const publisher = new TestL1Publisher(proverConfig, new NoopTelemetryClient());
+  const publisher = new TestL1Publisher(proverConfig, { blobSinkClient });
 
   const proverNode = await createProverNode(proverConfig, {
     aztecNodeTxProvider: aztecNodeWithoutStop,

@@ -27,16 +27,20 @@ import { Fr } from '@aztec/foundation/fields';
 
 import { ContractClassTxL2Logs, Note, UnencryptedTxL2Logs } from './logs/index.js';
 import { ExtendedNote, UniqueNote } from './notes/index.js';
-import { CountedPublicExecutionRequest, PrivateExecutionResult } from './private_execution_result.js';
+import {
+  CountedPublicExecutionRequest,
+  PrivateCallExecutionResult,
+  PrivateExecutionResult,
+} from './private_execution_result.js';
 import { EpochProofQuote } from './prover_coordination/epoch_proof_quote.js';
 import { EpochProofQuotePayload } from './prover_coordination/epoch_proof_quote_payload.js';
 import { PublicExecutionRequest } from './public_execution_request.js';
 import { PublicSimulationOutput, Tx, TxHash, TxSimulationResult, accumulatePrivateReturnValues } from './tx/index.js';
 import { TxEffect } from './tx_effect.js';
 
-export const randomTxHash = (): TxHash => new TxHash(randomBytes(32));
+export const randomTxHash = (): TxHash => TxHash.random();
 
-export const mockPrivateExecutionResult = (
+export const mockPrivateCallExecutionResult = (
   seed = 1,
   numberOfNonRevertiblePublicCallRequests = MAX_ENQUEUED_CALLS_PER_TX / 2,
   numberOfRevertiblePublicCallRequests = MAX_ENQUEUED_CALLS_PER_TX / 2,
@@ -64,7 +68,7 @@ export const mockPrivateExecutionResult = (
       (r, i) => new PublicExecutionRequest(CallContext.fromFields(r.toFields()), publicFunctionArgs[i]),
     );
   }
-  return new PrivateExecutionResult(
+  return new PrivateCallExecutionResult(
     Buffer.from(''),
     Buffer.from(''),
     new Map(),
@@ -78,6 +82,10 @@ export const mockPrivateExecutionResult = (
     publicTeardownFunctionCall,
     [],
   );
+};
+
+export const mockPrivateExecutionResult = (seed = 1) => {
+  return new PrivateExecutionResult(mockPrivateCallExecutionResult(seed), Fr.zero());
 };
 
 export const mockTx = (
@@ -166,6 +174,7 @@ export const mockSimulatedTx = (seed = 1) => {
     {
       totalGas: makeGas(),
       teardownGas: makeGas(),
+      publicGas: makeGas(),
     },
   );
   return new TxSimulationResult(privateExecutionResult, tx.data, output);

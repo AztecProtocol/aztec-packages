@@ -55,6 +55,7 @@ mod tests {
             types::{is_summed_from_two_values, sum_two_values, TestTwoValues, TestValue},
             utils::pad_end,
         },
+        traits::Empty,
         utils::arrays::assert_combined_transformed_array::{
             assert_combined_transformed_array, combine_and_transform_arrays,
         },
@@ -115,14 +116,12 @@ mod tests {
             );
         }
 
-        pub fn check_and_execute(self) {
-            let combined = unsafe {
-                combine_and_transform_arrays(
-                    self.original_array_lt,
-                    self.original_array_gte,
-                    sum_two_values,
-                )
-            };
+        pub unconstrained fn check_and_execute(self) {
+            let combined = combine_and_transform_arrays(
+                self.original_array_lt,
+                self.original_array_gte,
+                sum_two_values,
+            );
             assert_eq(combined, self.combined_array);
 
             self.execute();
@@ -130,19 +129,19 @@ mod tests {
     }
 
     #[test]
-    fn assert_combined_transformed_array_empty_succeeds() {
+    unconstrained fn assert_combined_transformed_array_empty_succeeds() {
         let builder = TestBuilder::new_empty();
         builder.check_and_execute();
     }
 
     #[test]
-    fn assert_combined_transformed_array_succeeds() {
+    unconstrained fn assert_combined_transformed_array_succeeds() {
         let builder = TestBuilder::new();
         builder.check_and_execute();
     }
 
     #[test(should_fail_with = "hinted item in the commbined array does not match")]
-    fn assert_combined_transformed_array_extra_item_fails() {
+    unconstrained fn assert_combined_transformed_array_extra_item_fails() {
         let mut builder = TestBuilder::new();
 
         // Add random value to an empty item.
@@ -152,7 +151,7 @@ mod tests {
     }
 
     #[test(should_fail_with = "hinted item in the commbined array does not match")]
-    fn assert_combined_transformed_array_missing_item_fails() {
+    unconstrained fn assert_combined_transformed_array_missing_item_fails() {
         let mut builder = TestBuilder::new();
 
         // Clear the last item.
@@ -162,7 +161,7 @@ mod tests {
     }
 
     #[test(should_fail_with = "hinted item in the commbined array does not match")]
-    fn assert_combined_transformed_array_unordered_fails() {
+    unconstrained fn assert_combined_transformed_array_unordered_fails() {
         let mut builder = TestBuilder::new();
 
         // Swap the two items.

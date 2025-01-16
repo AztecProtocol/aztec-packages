@@ -25,13 +25,14 @@ describe('prover/orchestrator/errors', () => {
   describe('errors', () => {
     it('throws if adding too many transactions', async () => {
       const txs = times(4, i => context.makeProcessedTx(i + 1));
+      await context.setEndTreeRoots(txs);
 
       orchestrator.startNewEpoch(1, 1, 1);
       await orchestrator.startNewBlock(context.globalVariables, []);
       await orchestrator.addTxs(txs);
 
       await expect(async () => await orchestrator.addTxs([context.makeProcessedTx()])).rejects.toThrow(
-        `Block ${context.blockNumber} already initalised.`,
+        `Block ${context.blockNumber} has been initialized with transactions.`,
       );
 
       const block = await orchestrator.setBlockCompleted(context.blockNumber);

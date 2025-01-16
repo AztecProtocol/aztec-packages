@@ -18,7 +18,7 @@ import {
   type PrivateLog,
   type UnconstrainedFunctionWithMembershipProof,
 } from '@aztec/circuits.js';
-import { type ContractArtifact, type FunctionSelector } from '@aztec/foundation/abi';
+import { type FunctionSelector } from '@aztec/foundation/abi';
 import { type AztecAddress } from '@aztec/foundation/aztec-address';
 
 import { type DataRetrieval } from './structs/data_retrieval.js';
@@ -261,12 +261,10 @@ export interface ArchiverDataStore {
   /** Returns the list of all class ids known by the archiver. */
   getContractClassIds(): Promise<Fr[]>;
 
-  addContractArtifact(address: AztecAddress, contract: ContractArtifact): Promise<void>;
-  getContractArtifact(address: AztecAddress): Promise<ContractArtifact | undefined>;
-
   // TODO:  These function names are in memory only as they are for development/debugging. They require the full contract
   //        artifact supplied to the node out of band. This should be reviewed and potentially removed as part of
   //        the node api cleanup process.
+  registerContractFunctionSignatures(address: AztecAddress, signatures: string[]): Promise<void>;
   getContractFunctionName(address: AztecAddress, selector: FunctionSelector): Promise<string | undefined>;
 
   /**

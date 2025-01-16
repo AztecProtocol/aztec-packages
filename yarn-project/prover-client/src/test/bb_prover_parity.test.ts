@@ -19,8 +19,7 @@ import {
   ServerCircuitVks,
   getVKSiblingPath,
   getVKTreeRoot,
-} from '@aztec/noir-protocol-circuits-types';
-import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
+} from '@aztec/noir-protocol-circuits-types/vks';
 
 import { TestContext } from '../mocks/test_context.js';
 
@@ -33,7 +32,7 @@ describe('prover/bb_prover/parity', () => {
   beforeAll(async () => {
     const buildProver = async (bbConfig: BBProverConfig) => {
       bbConfig.circuitFilter = ['BaseParityArtifact', 'RootParityArtifact'];
-      bbProver = await BBNativeRollupProver.new(bbConfig, new NoopTelemetryClient());
+      bbProver = await BBNativeRollupProver.new(bbConfig);
       return bbProver;
     };
     context = await TestContext.new(logger, 1, buildProver);

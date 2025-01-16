@@ -19,7 +19,7 @@ class AvmInterTableTests : public ::testing::Test {
         : public_inputs(generate_base_public_inputs())
         , trace_builder(AvmTraceBuilder(public_inputs))
     {
-        srs::init_crs_factory("../srs_db/ignition");
+        srs::init_crs_factory(bb::srs::get_ignition_crs_path());
     }
 
     AvmPublicInputs public_inputs;

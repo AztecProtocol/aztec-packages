@@ -20,7 +20,9 @@ import {
   Fq,
   type GasSettings,
 } from '@aztec/circuits.js';
-import { type TokenContract as BananaCoin, type FPCContract, SchnorrAccountContract } from '@aztec/noir-contracts.js';
+import { type FPCContract } from '@aztec/noir-contracts.js/FPC';
+import { SchnorrAccountContract } from '@aztec/noir-contracts.js/SchnorrAccount';
+import { type TokenContract as BananaCoin } from '@aztec/noir-contracts.js/Token';
 
 import { jest } from '@jest/globals';
 
@@ -64,13 +66,11 @@ describe('e2e_fees account_init', () => {
   // Seeded by initBalances below in a beforeEach hook
   let fpcsInitialGas: bigint;
   let fpcsInitialPublicBananas: bigint;
-  let sequencerInitialPrivateBananas: bigint;
 
   async function initBalances() {
-    [[fpcsInitialGas], [fpcsInitialPublicBananas], [sequencerInitialPrivateBananas]] = await Promise.all([
+    [[fpcsInitialGas], [fpcsInitialPublicBananas]] = await Promise.all([
       t.getGasBalanceFn(bananaFPC.address),
       t.getBananaPublicBalanceFn(bananaFPC.address),
-      t.getBananaPrivateBalanceFn(t.sequencerAddress),
     ]);
   }
 
@@ -115,12 +115,7 @@ describe('e2e_fees account_init', () => {
       await t.mintPrivateBananas(mintedBananas, bobsAddress);
 
       // Bob deploys his account through the private FPC
-      const paymentMethod = new PrivateFeePaymentMethod(
-        bananaCoin.address,
-        bananaFPC.address,
-        await bobsAccountManager.getWallet(),
-        t.sequencerAddress, // Sequencer is the recipient of the refund fee notes because it's the FPC admin.
-      );
+      const paymentMethod = new PrivateFeePaymentMethod(bananaFPC.address, await bobsAccountManager.getWallet());
 
       const tx = await bobsAccountManager.deploy({ fee: { gasSettings, paymentMethod } }).wait();
       const actualFee = tx.transactionFee!;
@@ -130,8 +125,8 @@ describe('e2e_fees account_init', () => {
       await expect(t.getBananaPrivateBalanceFn(bobsAddress)).resolves.toEqual([mintedBananas - actualFee]);
 
       // the FPC admin (set to sequencer) got the banana fee note so his private balance should have increased by the actual fee
-      await expect(t.getBananaPrivateBalanceFn(t.sequencerAddress)).resolves.toEqual([
-        sequencerInitialPrivateBananas + actualFee,
+      await expect(t.getBananaPublicBalanceFn(t.bananaFPC.address)).resolves.toEqual([
+        fpcsInitialPublicBananas + actualFee,
       ]);
 
       // the FPC should have been the fee payer
@@ -142,7 +137,7 @@ describe('e2e_fees account_init', () => {
       const mintedBananas = FEE_FUNDING_FOR_TESTER_ACCOUNT;
       await bananaCoin.methods.mint_to_public(bobsAddress, mintedBananas).send().wait();
 
-      const paymentMethod = new PublicFeePaymentMethod(bananaCoin.address, bananaFPC.address, bobsWallet);
+      const paymentMethod = new PublicFeePaymentMethod(bananaFPC.address, bobsWallet);
       const tx = await bobsAccountManager
         .deploy({
           skipPublicDeployment: false,

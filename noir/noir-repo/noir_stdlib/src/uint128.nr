@@ -216,6 +216,9 @@ impl Div for U128 {
         /// Safety: euclidian division is asserted to be correct: assert(a == b * q + r); and assert(r < b);
         /// Furthermore, U128 addition and multiplication ensures that b * q + r does not overflow
         unsafe {
+            /*@safety : euclidian division is asserted to be correct: assert(a == b * q + r); and assert(r < b);
+                Furthermore, U128 addition and multiplication ensures that b * q + r does not overflow
+            */
             let (q, r) = self.unconstrained_div(b);
             let a = b * q + r;
             assert_eq(self, a);
@@ -229,6 +232,7 @@ impl Rem for U128 {
     fn rem(self: Self, b: U128) -> U128 {
         /// Safety: cf div() above
         unsafe {
+            //@safety : cf div() above
             let (q, r) = self.unconstrained_div(b);
             let a = b * q + r;
             assert_eq(self, a);
@@ -457,6 +461,7 @@ mod tests {
         let d = U128::from_u64s_le(0x0, 0x1);
         /// Safety: testing context
         unsafe {
+            //@safety: testing context
             let (q, r) = a.unconstrained_div(b);
             assert_eq(q, c);
             assert_eq(r, d);
@@ -467,6 +472,7 @@ mod tests {
         // Check the case where a is a multiple of b
         /// Safety: testing context
         unsafe {
+            //@safety: testing context
             let (c, d) = a.unconstrained_div(b);
             assert_eq((c, d), (a, U128::zero()));
         }
@@ -474,6 +480,7 @@ mod tests {
         // Check where b is a multiple of a
         /// Safety: testing context
         unsafe {
+            //@safety: testing context
             let (c, d) = b.unconstrained_div(a);
             assert_eq((c, d), (U128::zero(), b));
         }
@@ -483,6 +490,7 @@ mod tests {
         let b = U128::zero();
         /// Safety: testing context
         unsafe {
+            //@safety: testing context
             let (c, d) = a.unconstrained_div(b);
             assert_eq((c, d), (U128::zero(), U128::zero()));
         }
@@ -491,6 +499,7 @@ mod tests {
         let b = U128::from_u64s_le(0x0, pow63 as u64);
         /// Safety: testing context
         unsafe {
+            //@safety: testing context
             let (c, d) = a.unconstrained_div(b);
             assert_eq((c, d), (U128::one(), U128::zero()));
         }

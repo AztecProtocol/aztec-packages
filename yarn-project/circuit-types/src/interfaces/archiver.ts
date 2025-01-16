@@ -6,11 +6,11 @@ import {
   PrivateLog,
   PublicFunctionSchema,
 } from '@aztec/circuits.js';
-import { ContractArtifactSchema } from '@aztec/foundation/abi';
 import { type ApiSchemaFor, optional, schemas } from '@aztec/foundation/schemas';
 
 import { z } from 'zod';
 
+import { L1RollupConstantsSchema } from '../epoch-helpers/index.js';
 import { inBlockSchemaFor } from '../in_block.js';
 import { L2Block } from '../l2_block.js';
 import { type L2BlockSource, L2TipsSchema } from '../l2_block_source.js';
@@ -69,8 +69,7 @@ export const ArchiverApiSchema: ApiSchemaFor<ArchiverApi> = {
   getBytecodeCommitment: z.function().args(schemas.Fr).returns(schemas.Fr),
   getContract: z.function().args(schemas.AztecAddress).returns(ContractInstanceWithAddressSchema.optional()),
   getContractClassIds: z.function().args().returns(z.array(schemas.Fr)),
-  getContractArtifact: z.function().args(schemas.AztecAddress).returns(ContractArtifactSchema.optional()),
-  addContractArtifact: z.function().args(schemas.AztecAddress, ContractArtifactSchema).returns(z.void()),
+  registerContractFunctionSignatures: z.function().args(schemas.AztecAddress, z.array(z.string())).returns(z.void()),
   getL1ToL2Messages: z.function().args(schemas.BigInt).returns(z.array(schemas.Fr)),
   getL1ToL2MessageIndex: z.function().args(schemas.Fr).returns(schemas.BigInt.optional()),
   // TODO(#10007): Remove this method
@@ -79,4 +78,5 @@ export const ArchiverApiSchema: ApiSchemaFor<ArchiverApi> = {
     .function()
     .args(schemas.AztecAddress, schemas.FunctionSelector)
     .returns(optional(z.string())),
+  getL1Constants: z.function().args().returns(L1RollupConstantsSchema),
 };

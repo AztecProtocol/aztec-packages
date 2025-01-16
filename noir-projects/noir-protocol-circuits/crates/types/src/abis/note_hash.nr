@@ -2,7 +2,7 @@ use crate::{
     abis::{read_request::ScopedReadRequest, side_effect::{Ordered, OrderedValue, Readable, Scoped}},
     address::AztecAddress,
     constants::{NOTE_HASH_LENGTH, SCOPED_NOTE_HASH_LENGTH},
-    traits::{Deserialize, Empty, Serialize},
+    traits::{Deserialize, Empty, Serialize, ToField},
     utils::{arrays::array_concat, reader::Reader},
 };
 
@@ -70,9 +70,6 @@ impl Ordered for ScopedNoteHash {
 impl OrderedValue<Field> for ScopedNoteHash {
     fn value(self) -> Field {
         self.note_hash.value
-    }
-    fn counter(self) -> u32 {
-        self.note_hash.counter
     }
 }
 

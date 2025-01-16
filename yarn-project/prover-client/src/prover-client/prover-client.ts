@@ -4,7 +4,6 @@ import {
   type EpochProver,
   type EpochProverManager,
   type ForkMerkleTreeOperations,
-  type ProverCache,
   type ProvingJobBroker,
   type ProvingJobConsumer,
   type ProvingJobProducer,
@@ -13,45 +12,34 @@ import {
 import { Fr } from '@aztec/circuits.js';
 import { times } from '@aztec/foundation/collection';
 import { createLogger } from '@aztec/foundation/log';
-import { NativeACVMSimulator } from '@aztec/simulator';
-import { type TelemetryClient } from '@aztec/telemetry-client';
-
-import { join } from 'path';
+import { NativeACVMSimulator } from '@aztec/simulator/server';
+import { type TelemetryClient, getTelemetryClient } from '@aztec/telemetry-client';
 
 import { type ProverClientConfig } from '../config.js';
 import { ProvingOrchestrator } from '../orchestrator/orchestrator.js';
-import { CachingBrokerFacade } from '../proving_broker/caching_broker_facade.js';
+import { BrokerCircuitProverFacade } from '../proving_broker/broker_prover_facade.js';
 import { InlineProofStore } from '../proving_broker/proof_store.js';
-import { InMemoryProverCache } from '../proving_broker/prover_cache/memory.js';
 import { ProvingAgent } from '../proving_broker/proving_agent.js';
+import { ServerEpochProver } from './server-epoch-prover.js';
 
 /** Manages proving of epochs by orchestrating the proving of individual blocks relying on a pool of prover agents. */
 export class ProverClient implements EpochProverManager {
   private running = false;
   private agents: ProvingAgent[] = [];
 
-  private cacheDir?: string;
-
   private constructor(
     private config: ProverClientConfig,
     private worldState: ForkMerkleTreeOperations,
-    private telemetry: TelemetryClient,
     private orchestratorClient: ProvingJobProducer,
     private agentClient?: ProvingJobConsumer,
+    private telemetry: TelemetryClient = getTelemetryClient(),
     private log = createLogger('prover-client:tx-prover'),
-  ) {
-    // TODO(palla/prover-node): Cache the paddingTx here, and not in each proving orchestrator,
-    // so it can be reused across multiple ones and not recomputed every time.
-    this.cacheDir = this.config.cacheDir ? join(this.config.cacheDir, `tx_prover_${this.config.proverId}`) : undefined;
-  }
+  ) {}
 
-  public createEpochProver(cache: ProverCache = new InMemoryProverCache()): EpochProver {
-    return new ProvingOrchestrator(
-      this.worldState,
-      new CachingBrokerFacade(this.orchestratorClient, cache),
-      this.telemetry,
-      this.config.proverId,
-    );
+  public createEpochProver(): EpochProver {
+    const facade = new BrokerCircuitProverFacade(this.orchestratorClient);
+    const orchestrator = new ProvingOrchestrator(this.worldState, facade, this.config.proverId, this.telemetry);
+    return new ServerEpochProver(facade, orchestrator);
   }
 
   public getProverId(): Fr {
@@ -67,10 +55,6 @@ export class ProverClient implements EpochProverManager {
     ) {
       await this.stopAgents();
       await this.createAndStartAgents();
-    }
-
-    if (!this.config.realProofs && newConfig.realProofs) {
-      // TODO(palla/prover-node): Reset padding tx here once we cache it at this class
     }
 
     this.config = newConfig;
@@ -109,9 +93,9 @@ export class ProverClient implements EpochProverManager {
     config: ProverClientConfig,
     worldState: ForkMerkleTreeOperations,
     broker: ProvingJobBroker,
-    telemetry: TelemetryClient,
+    telemetry: TelemetryClient = getTelemetryClient(),
   ) {
-    const prover = new ProverClient(config, worldState, telemetry, broker, broker);
+    const prover = new ProverClient(config, worldState, broker, broker, telemetry);
     await prover.start();
     return prover;
   }
@@ -142,9 +126,9 @@ export class ProverClient implements EpochProverManager {
           this.agentClient!,
           proofStore,
           prover,
-          this.telemetry,
           [],
           this.config.proverAgentPollIntervalMs,
+          this.telemetry,
         ),
     );
 
@@ -168,5 +152,5 @@ export function buildServerCircuitProver(
     ? new NativeACVMSimulator(config.acvmWorkingDirectory, config.acvmBinaryPath)
     : undefined;
 
-  return Promise.resolve(new TestCircuitProver(telemetry, simulationProvider, config));
+  return Promise.resolve(new TestCircuitProver(simulationProvider, config, telemetry));
 }

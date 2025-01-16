@@ -11,6 +11,22 @@ const logger = createLogger('prover-client:test:orchestrator-mixed-blocks');
 describe('prover/orchestrator/mixed-blocks', () => {
   let context: TestContext;
 
+  const runTest = async (numTxs: number) => {
+    const txs = times(numTxs, i => context.makeProcessedTx(i + 1));
+    await context.setEndTreeRoots(txs);
+
+    const l1ToL2Messages = range(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP, 1 + 0x400).map(fr);
+
+    context.orchestrator.startNewEpoch(1, 1, 1);
+    await context.orchestrator.startNewBlock(context.globalVariables, l1ToL2Messages);
+
+    await context.orchestrator.addTxs(txs);
+
+    const block = await context.orchestrator.setBlockCompleted(context.blockNumber);
+    await context.orchestrator.finaliseEpoch();
+    expect(block.number).toEqual(context.blockNumber);
+  };
+
   beforeEach(async () => {
     context = await TestContext.new(logger);
   });
@@ -20,33 +36,12 @@ describe('prover/orchestrator/mixed-blocks', () => {
   });
 
   describe('blocks', () => {
-    it('builds an unbalanced L2 block', async () => {
-      const txs = times(3, i => context.makeProcessedTx(i + 1));
-
-      const l1ToL2Messages = range(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP, 1 + 0x400).map(fr);
-
-      context.orchestrator.startNewEpoch(1, 1, 1);
-      await context.orchestrator.startNewBlock(context.globalVariables, l1ToL2Messages);
-      await context.orchestrator.addTxs(txs);
-
-      const block = await context.orchestrator.setBlockCompleted(context.blockNumber);
-      await context.orchestrator.finaliseEpoch();
-      expect(block.number).toEqual(context.blockNumber);
+    it.each([0, 1, 3, 5])('builds an unbalanced L2 block with %i bloated txs', async (numTxs: number) => {
+      await runTest(numTxs);
     });
 
-    it.each([2, 4, 5, 8] as const)('builds an L2 block with %i bloated txs', async (totalCount: number) => {
-      const txs = times(totalCount, i => context.makeProcessedTx(i + 1));
-
-      const l1ToL2Messages = range(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP, 1 + 0x400).map(fr);
-
-      context.orchestrator.startNewEpoch(1, 1, 1);
-      await context.orchestrator.startNewBlock(context.globalVariables, l1ToL2Messages);
-
-      await context.orchestrator.addTxs(txs);
-
-      const block = await context.orchestrator.setBlockCompleted(context.blockNumber);
-      await context.orchestrator.finaliseEpoch();
-      expect(block.number).toEqual(context.blockNumber);
+    it.each([2, 4, 8])('builds a balanced L2 block with %i bloated txs', async (numTxs: number) => {
+      await runTest(numTxs);
     });
   });
 });

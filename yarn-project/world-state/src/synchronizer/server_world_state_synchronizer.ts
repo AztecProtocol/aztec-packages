@@ -23,12 +23,12 @@ import { createLogger } from '@aztec/foundation/log';
 import { promiseWithResolvers } from '@aztec/foundation/promise';
 import { elapsed } from '@aztec/foundation/timer';
 import { SHA256Trunc } from '@aztec/merkle-tree';
-import { type TelemetryClient, TraceableL2BlockStream } from '@aztec/telemetry-client';
+import { TraceableL2BlockStream, getTelemetryClient } from '@aztec/telemetry-client';
 
+import { WorldStateInstrumentation } from '../instrumentation/instrumentation.js';
 import { type WorldStateStatusFull } from '../native/message.js';
 import { type MerkleTreeAdminDatabase } from '../world-state-db/merkle_tree_db.js';
 import { type WorldStateConfig } from './config.js';
-import { WorldStateInstrumentation } from './instrumentation.js';
 
 /**
  * Synchronizes the world state with the L2 blocks from a L2BlockSource via a block stream.
@@ -47,16 +47,14 @@ export class ServerWorldStateSynchronizer
 
   private syncPromise = promiseWithResolvers<void>();
   protected blockStream: L2BlockStream | undefined;
-  private instrumentation: WorldStateInstrumentation;
 
   constructor(
     private readonly merkleTreeDb: MerkleTreeAdminDatabase,
     private readonly l2BlockSource: L2BlockSource & L1ToL2MessageSource,
     private readonly config: WorldStateConfig,
-    telemetry: TelemetryClient,
+    private instrumentation = new WorldStateInstrumentation(getTelemetryClient()),
     private readonly log = createLogger('world_state'),
   ) {
-    this.instrumentation = new WorldStateInstrumentation(telemetry);
     this.merkleTreeCommitted = this.merkleTreeDb.getCommitted();
     this.historyToKeep = config.worldStateBlockHistory < 1 ? undefined : config.worldStateBlockHistory;
     this.log.info(

@@ -1,6 +1,5 @@
 import {
   type L2Block,
-  type L2BlockNumber,
   type MerkleTreeId,
   type NoteStatus,
   type NullifierMembershipWitness,
@@ -141,22 +140,13 @@ export interface DBOracle extends CommitmentsDB {
   getBlockHeader(): Promise<BlockHeader>;
 
   /**
-   * Fetch the index of the leaf in the respective tree
-   * @param blockNumber - The block number at which to get the leaf index.
-   * @param treeId - The id of the tree to search.
-   * @param leafValue - The leaf value buffer.
-   * @returns - The index of the leaf. Undefined if it does not exist in the tree.
+   * Fetches the index and sibling path of a leaf at a given block from a given tree.
+   * @param blockNumber - The block number at which to get the membership witness.
+   * @param treeId - Id of the tree to get the sibling path from.
+   * @param leafValue - The leaf value
+   * @returns The index and sibling path concatenated [index, sibling_path]
    */
-  findLeafIndex(blockNumber: L2BlockNumber, treeId: MerkleTreeId, leafValue: Fr): Promise<bigint | undefined>;
-
-  /**
-   * Fetch the sibling path of the leaf in the respective tree
-   * @param blockNumber - The block number at which to get the sibling path.
-   * @param treeId - The id of the tree to search.
-   * @param leafIndex - The index of the leaf.
-   * @returns - The sibling path of the leaf.
-   */
-  getSiblingPath(blockNumber: number, treeId: MerkleTreeId, leafIndex: bigint): Promise<Fr[]>;
+  getMembershipWitness(blockNumber: number, treeId: MerkleTreeId, leafValue: Fr): Promise<Fr[]>;
 
   /**
    * Returns a nullifier membership witness for a given nullifier at a given block.
@@ -224,7 +214,7 @@ export interface DBOracle extends CommitmentsDB {
   ): Promise<void>;
 
   /**
-   * Synchronizes the logs tagged with the recipient's address and all the senders in the addressbook.
+   * Synchronizes the logs tagged with the recipient's address and all the senders in the address book.
    * Returns the unsynched logs and updates the indexes of the secrets used to tag them until there are no more logs to sync.
    * @param contractAddress - The address of the contract that the logs are tagged for
    * @param recipient - The address of the recipient
@@ -244,7 +234,49 @@ export interface DBOracle extends CommitmentsDB {
   processTaggedLogs(logs: TxScopedL2Log[], recipient: AztecAddress): Promise<void>;
 
   /**
+   * Delivers the preimage and metadata of a committed note so that it can be later requested via the `getNotes`
+   * oracle.
+   *
+   * @param contractAddress - The address of the contract that created the note (i.e. the siloing contract)
+   * @param storageSlot - The storage slot of the note - used for indexing in `getNotes`
+   * @param nonce - The nonce of the note used by the kernel to compute the unique note hash
+   * @param content - The note's content: this is the primary item to return in `getNotes`
+   * @param noteHash - The non-unique non-siloed note hash
+   * @param nullifier - The inner (non-siloed) note nullifier
+   * @param txHash - The transaction in which the note was added to the note hash tree
+   * @param recipient - The account that discovered the note
+   */
+  deliverNote(
+    contractAddress: AztecAddress,
+    storageSlot: Fr,
+    nonce: Fr,
+    content: Fr[],
+    noteHash: Fr,
+    nullifier: Fr,
+    txHash: Fr,
+    recipient: AztecAddress,
+  ): Promise<void>;
+
+  /**
    * Removes all of a contract's notes that have been nullified from the note database.
    */
   removeNullifiedNotes(contractAddress: AztecAddress): Promise<void>;
+
+  /**
+   * Used by contracts during execution to store arbitrary data in the local PXE database. The data is siloed/scoped
+   * to a specific `contract`.
+   * @param contract - An address of a contract that is requesting to store the data.
+   * @param key - A field element representing the key to store the data under.
+   * @param values - An array of field elements representing the data to store.
+   */
+  store(contract: AztecAddress, key: Fr, values: Fr[]): Promise<void>;
+
+  /**
+   * Used by contracts during execution to load arbitrary data from the local PXE database. The data is siloed/scoped
+   * to a specific `contract`.
+   * @param contract - An address of a contract that is requesting to load the data.
+   * @param key - A field element representing the key under which to load the data..
+   * @returns An array of field elements representing the stored data or `null` if no data is stored under the key.
+   */
+  load(contract: AztecAddress, key: Fr): Promise<Fr[] | null>;
 }
