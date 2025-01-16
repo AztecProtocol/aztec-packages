@@ -3,6 +3,7 @@
 #include "barretenberg/messaging/dispatcher.hpp"
 #include "barretenberg/messaging/header.hpp"
 #include "barretenberg/nodejs_module/lmdb/lmdb_message.hpp"
+#include "barretenberg/nodejs_module/util/message_processor.hpp"
 #include <map>
 #include <napi.h>
 
@@ -23,11 +24,8 @@ class LmdbWrapper : public Napi::ObjectWrap<LmdbWrapper> {
     static Napi::Function get_class(Napi::Env env);
 
   private:
-    bb::messaging::MessageDispatcher _dispatcher;
+    bb::nodejs::AsyncMessageProcessor _msg_processor;
     std::map<std::string, std::map<std::string, std::vector<std::byte>>> _dbs;
-
-    // helper function to register message handlers on the dispatcher. Claude helped
-    template <typename T, typename R> void register_handler(uint32_t msgType, R (LmdbWrapper::*handler)(const T&));
 
     EmptyResponse open_database(const OpenDatabaseRequest& req);
     EmptyResponse close_database(const CloseDatabaseRequest& req);
@@ -35,22 +33,5 @@ class LmdbWrapper : public Napi::ObjectWrap<LmdbWrapper> {
     GetResponse get(const GetRequest& req);
     EmptyResponse remove(const RemoveRequest& req);
 };
-
-template <typename T, typename R>
-void LmdbWrapper::register_handler(uint32_t msgType, R (LmdbWrapper::*handler)(const T&))
-{
-    _dispatcher.registerTarget(msgType, [this, handler, msgType](msgpack::object& obj, msgpack::sbuffer& buffer) {
-        messaging::TypedMessage<T> req_msg;
-        obj.convert(req_msg);
-
-        R response = (this->*handler)(req_msg.value);
-
-        messaging::MsgHeader header(req_msg.header.messageId);
-        messaging::TypedMessage<R> resp_msg(msgType, header, response);
-        msgpack::pack(buffer, resp_msg);
-
-        return true;
-    });
-}
 
 } // namespace bb::nodejs::lmdb

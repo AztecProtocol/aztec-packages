@@ -3,6 +3,7 @@
 #include "napi.h"
 #include <stdexcept>
 
+using namespace bb::nodejs;
 using namespace bb::nodejs::lmdb;
 
 LmdbWrapper::LmdbWrapper(const Napi::CallbackInfo& info)
@@ -18,31 +19,16 @@ LmdbWrapper::LmdbWrapper(const Napi::CallbackInfo& info)
         throw Napi::TypeError::New(env, "Directory needs to be a string");
     }
 
-    register_handler(LmdbMessageType::OPEN_DATABASE, &LmdbWrapper::open_database);
-    register_handler(LmdbMessageType::CLOSE_DATABASE, &LmdbWrapper::close_database);
-    register_handler(LmdbMessageType::SET, &LmdbWrapper::set);
-    register_handler(LmdbMessageType::GET, &LmdbWrapper::get);
-    register_handler(LmdbMessageType::REMOVE, &LmdbWrapper::remove);
+    _msg_processor.register_handler(LmdbMessageType::OPEN_DATABASE, this, &LmdbWrapper::open_database);
+    _msg_processor.register_handler(LmdbMessageType::CLOSE_DATABASE, this, &LmdbWrapper::close_database);
+    _msg_processor.register_handler(LmdbMessageType::SET, this, &LmdbWrapper::set);
+    _msg_processor.register_handler(LmdbMessageType::GET, this, &LmdbWrapper::get);
+    _msg_processor.register_handler(LmdbMessageType::REMOVE, this, &LmdbWrapper::remove);
 }
 
 Napi::Value LmdbWrapper::call(const Napi::CallbackInfo& info)
 {
-    if (info.Length() < 1) {
-        throw std::runtime_error("Wrong number of arguments");
-    }
-    if (!info[0].IsBuffer()) {
-        throw std::runtime_error("Argument must be a buffer");
-    }
-
-    auto buffer = info[0].As<Napi::Buffer<char>>();
-    msgpack::object_handle obj_handle = msgpack::unpack(buffer.Data(), buffer.Length());
-    msgpack::object obj = obj_handle.get();
-
-    msgpack::sbuffer result;
-    _dispatcher.onNewData(obj, result);
-
-    auto buf = Napi::Buffer<char>::Copy(info.Env(), result.data(), result.size());
-    return buf;
+    return _msg_processor.process_message(info);
 }
 
 Napi::Function LmdbWrapper::get_class(Napi::Env env)

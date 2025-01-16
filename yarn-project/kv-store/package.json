@@ -13,6 +13,7 @@
     "build": "yarn clean && yarn generate && tsc -b",
     "build:dev": "tsc -b --watch",
     "build:cpp": "PROJECT=$(pwd); cd $(git rev-parse --show-toplevel)/barretenberg/cpp; cmake --preset ${PRESET:-clang16-pic} && cmake --build --preset ${PRESET:-clang16-pic} --target nodejs_module && cd $PROJECT && yarn generate",
+    "clean:cpp": "rm -rf $(git rev-parse --show-toplevel)/barretenberg/cpp/build-pic",
     "clean": "rm -rf ./dest .tsbuildinfo",
     "formatting": "run -T prettier --check ./src && run -T eslint ./src",
     "formatting:fix": "run -T eslint --fix ./src && run -T prettier -w ./src",

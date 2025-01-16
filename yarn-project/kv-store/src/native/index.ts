@@ -24,11 +24,11 @@ db.call(
   ),
 );
 
-const resp = db.call(
+const resp = await db.call(
   encode(
     new TypedMessage(101, new MessageHeader({ messageId: 102 }), {
       db_name: 'foo',
-      key: '1234',
+      key: '123',
     }),
   ),
 );
