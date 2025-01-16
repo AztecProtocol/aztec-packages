@@ -71,7 +71,7 @@ export class Sequencer {
   private state = SequencerState.STOPPED;
   private allowedInSetup: AllowedElement[] = getDefaultAllowedSetupFunctions();
   private maxBlockSizeInBytes: number = 1024 * 1024;
-  private maxBlockGas: Gas = new Gas(10e9, 10e9);
+  private maxBlockGas: Gas = new Gas(100e9, 100e9);
   private metrics: SequencerMetrics;
   private isFlushing: boolean = false;
 
@@ -443,7 +443,12 @@ export class Sequencer {
       // TODO(#11000): Public processor should just handle processing, one tx at a time. It should be responsibility
       // of the sequencer to update world state and iterate over txs. We should refactor this along with unifying the
       // publicProcessorFork and orchestratorFork, to avoid doing tree insertions twice when building the block.
-      const limits = { deadline, maxTransactions: this.maxTxsPerBlock, maxBlockSize: this.maxBlockSizeInBytes };
+      const proposerLimits = {
+        maxTransactions: this.maxTxsPerBlock,
+        maxBlockSize: this.maxBlockSizeInBytes,
+        maxBlockGas: this.maxBlockGas,
+      };
+      const limits = opts.validateOnly ? { deadline } : { deadline, ...proposerLimits };
       const [publicProcessorDuration, [processedTxs, failedTxs]] = await elapsed(() =>
         processor.process(pendingTxs, limits, validators),
       );
