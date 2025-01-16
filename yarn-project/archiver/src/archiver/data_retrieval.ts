@@ -140,7 +140,6 @@ async function getBlockFromRollupTx(
   blobSinkClient: BlobSinkClientInterface,
   txHash: `0x${string}`,
   l2BlockNum: bigint,
-  logger: Logger,
 ): Promise<L2Block> {
   const { input: data, blockHash } = await publicClient.getTransaction({ hash: txHash });
 
