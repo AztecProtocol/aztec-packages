@@ -426,7 +426,7 @@ export async function setup(
       client: deployL1ContractsValues.publicClient,
     });
 
-    const blockReward = await rewardDistributor.read.BLOCK_REWARD([]);
+    const blockReward = await rewardDistributor.read.BLOCK_REWARD();
     const mintAmount = 10_000n * (blockReward as bigint);
 
     const feeJuice = getContract({
