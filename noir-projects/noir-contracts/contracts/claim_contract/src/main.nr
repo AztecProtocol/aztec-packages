@@ -8,7 +8,7 @@ contract Claim {
         protocol_types::address::AztecAddress,
         state_vars::PublicImmutable,
     };
-    use dep::value_note::value_note::ValueNote;
+    use dep::uint_note::uint_note::UintNote;
     use token::Token;
 
     #[storage]
@@ -27,7 +27,7 @@ contract Claim {
     }
 
     #[private]
-    fn claim(proof_note: ValueNote, recipient: AztecAddress) {
+    fn claim(proof_note: UintNote, recipient: AztecAddress) {
         // 1) Check that the note corresponds to the target contract and belongs to the sender
         let target_address = storage.target_contract.read();
         assert(
@@ -51,9 +51,8 @@ contract Claim {
         context.push_nullifier(nullifier);
 
         // 4) Finally we mint the reward token to the sender of the transaction
-        // TODO(benesjan): Instead of ValueNote use UintNote to avoid the conversion to U128 below.
-        Token::at(storage.reward_token.read())
-            .mint_to_public(recipient, U128::from_integer(proof_note.value))
-            .enqueue(&mut context);
+        Token::at(storage.reward_token.read()).mint_to_public(recipient, proof_note.value).enqueue(
+            &mut context,
+        );
     }
 }
