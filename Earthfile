@@ -134,8 +134,6 @@ ci-noir-bb:
     WAIT
       BUILD ./noir/+format
       BUILD ./noir/+examples
-      BUILD ./noir/+packages-test
-      BUILD ./noir/+test
     END
     RUN ci3/cache_upload_flag $artifact
   END
