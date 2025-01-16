@@ -63,7 +63,7 @@ export class Sequencer {
   private runningPromise?: RunningPromise;
   private pollingIntervalMs: number = 1000;
   private maxTxsPerBlock = 32;
-  private minTxsPerBLock = 1;
+  private minTxsPerBlock = 1;
   private maxL1TxInclusionTimeIntoSlot = 0;
   // TODO: zero values should not be allowed for the following 2 values in PROD
   private _coinbase = EthAddress.ZERO;
@@ -126,7 +126,7 @@ export class Sequencer {
       this.maxTxsPerBlock = config.maxTxsPerBlock;
     }
     if (config.minTxsPerBlock !== undefined) {
-      this.minTxsPerBLock = config.minTxsPerBlock;
+      this.minTxsPerBlock = config.minTxsPerBlock;
     }
     if (config.maxDABlockGas !== undefined) {
       this.maxBlockGas = new Gas(config.maxDABlockGas, this.maxBlockGas.l2Gas);
@@ -267,8 +267,8 @@ export class Sequencer {
 
     // Check the pool has enough txs to build a block
     const pendingTxCount = this.p2pClient.getPendingTxCount();
-    if (pendingTxCount < this.minTxsPerBLock && !this.isFlushing) {
-      this.log.verbose(`Not enough txs to propose block. Got ${pendingTxCount} min ${this.minTxsPerBLock}.`, {
+    if (pendingTxCount < this.minTxsPerBlock && !this.isFlushing) {
+      this.log.verbose(`Not enough txs to propose block. Got ${pendingTxCount} min ${this.minTxsPerBlock}.`, {
         slot,
         blockNumber: newBlockNumber,
       });
@@ -375,7 +375,7 @@ export class Sequencer {
    * @param historicalHeader - The historical header of the parent
    * @param opts - Whether to just validate the block as a validator, as opposed to building it as a proposal
    */
-  private async buildBlock(
+  protected async buildBlock(
     pendingTxs: Iterable<Tx>,
     newGlobalVariables: GlobalVariables,
     historicalHeader?: BlockHeader,
@@ -462,11 +462,11 @@ export class Sequencer {
       if (
         !opts.validateOnly && // We check for minTxCount only if we are proposing a block, not if we are validating it
         !this.isFlushing && // And we skip the check when flushing, since we want all pending txs to go out, no matter if too few
-        this.minTxsPerBLock !== undefined &&
-        processedTxs.length < this.minTxsPerBLock
+        this.minTxsPerBlock !== undefined &&
+        processedTxs.length < this.minTxsPerBlock
       ) {
         this.log.warn(
-          `Block ${blockNumber} has too few txs to be proposed (got ${processedTxs.length} but required ${this.minTxsPerBLock})`,
+          `Block ${blockNumber} has too few txs to be proposed (got ${processedTxs.length} but required ${this.minTxsPerBlock})`,
           { slot, blockNumber, processedTxCount: processedTxs.length },
         );
         throw new Error(`Block has too few successful txs to be proposed`);
