@@ -438,7 +438,7 @@ describe('Memory instructions', () => {
       ).rejects.toThrow(MemorySliceOutOfRangeError);
     });
 
-    it('Should return error when the calldata slice is out-of-range', async () => {
+    it('Should pad with zeros when the calldata slice is out-of-range', async () => {
       const calldata = [new Fr(1n), new Fr(2n), new Fr(3n)];
       context = initContext({ env: initExecutionEnvironment({ calldata }) });
       context.machineState.memory.set(0, new Uint32(2)); // cdStart = 2
@@ -550,7 +550,7 @@ describe('Memory instructions', () => {
       ).rejects.toThrow(MemorySliceOutOfRangeError);
     });
 
-    it('Should return error when returndata slice is out-of-range', async () => {
+    it('Should pad with zeros when returndata slice is out-of-range', async () => {
       context = initContext();
       context.machineState.nestedReturndata = [new Fr(1n), new Fr(2n), new Fr(3n)];
       context.machineState.memory.set(0, new Uint32(2)); // rdStart = 2

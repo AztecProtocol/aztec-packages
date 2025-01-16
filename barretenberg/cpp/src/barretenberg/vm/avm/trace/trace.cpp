@@ -2181,7 +2181,7 @@ AvmError AvmTraceBuilder::op_calldata_copy(uint8_t indirect,
     // TODO: Properly constrain this use case. Currently, for top level calls we do not add any padding in
     // calldata public columns but concatenate the calldata vectors of the top-level calls.
     if (cd_offset + copy_size > calldata.size()) {
-        calldata.insert(calldata.end(), cd_offset + copy_size - calldata.size(), FF(0));
+        calldata.resize(cd_offset + copy_size, FF(0));
     }
 
     if (is_ok(error)) {
@@ -2323,7 +2323,7 @@ AvmError AvmTraceBuilder::op_returndata_copy(uint8_t indirect,
         // Any out-of-range values from returndata is replaced by a zero value.
         // We append zeros in this case to returndata.
         if (rd_offset + copy_size > returndata.size()) {
-            returndata.insert(returndata.end(), rd_offset + copy_size - returndata.size(), FF(0));
+            returndata.resize(rd_offset + copy_size, FF(0));
         }
 
         auto returndata_slice = std::vector(returndata.begin() + rd_offset, returndata.begin() + rd_offset + copy_size);
