@@ -1,74 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1736965029266,
+  "lastUpdate": 1736993045394,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "fcarreiro@users.noreply.github.com",
-            "name": "Facundo",
-            "username": "fcarreiro"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "ef247d4d68ce4aadb4c45b1f75d71a411e7102b6",
-          "message": "chore(avm): extra column information in lookups (#10905)\n\nNeeded for vm2. This helps derive a lookup class from the settings.",
-          "timestamp": "2024-12-20T12:40:40Z",
-          "tree_id": "56999a44a08648832134df54a69c7ecfa7b847e8",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/ef247d4d68ce4aadb4c45b1f75d71a411e7102b6"
-        },
-        "date": 1734699417335,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "nativeClientIVCBench/Ambient_17_in_20/6",
-            "value": 20294.08005800002,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 17774.308369 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeClientIVCBench/Full/6",
-            "value": 21876.17391399999,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 19281.479867 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 4655.666172999986,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 4343.510282 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmClientIVCBench/Full/6",
-            "value": 73152.726453,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 73152726000 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 14069.454980000002,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 14069455000 ms\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 3250698225,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 3250698225 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 145886537,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 145886537 ns\nthreads: 1"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -3276,6 +3210,72 @@ window.BENCHMARK_DATA = {
             "value": 138935166,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 138935166 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "47112877+dbanks12@users.noreply.github.com",
+            "name": "David Banks",
+            "username": "dbanks12"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "29bc4bdd5b59ee1050951e0c143654ef3cdd25b0",
+          "message": "fix: resolve misc bugs handling phases in avm witgen (#11218)\n\n* At the end of teardown, witgen needs to reset gas back to parent's end\ngas.\n* Make sure that order of enqueued calls is right in TX for bb-prover\ntests (should be a stack)\n* Add a test that reverts in teardown and can still be proven",
+          "timestamp": "2025-01-15T20:47:53-05:00",
+          "tree_id": "d7053ba6d77d627e2e00a99e681b4af89b9db362",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/29bc4bdd5b59ee1050951e0c143654ef3cdd25b0"
+        },
+        "date": 1736993037779,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Ambient_17_in_20/6",
+            "value": 19275.749757,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 16459.422211 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 21755.228163000025,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 19269.637791 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 4085.3707659999827,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 3755.367747 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 85896.261767,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 85896262000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 14658.592575000002,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 14658593000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 3186801836,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 3186801836 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 140395392,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 140395392 ns\nthreads: 1"
           }
         ]
       }
