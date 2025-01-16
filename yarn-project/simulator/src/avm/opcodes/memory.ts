@@ -192,7 +192,7 @@ export class CalldataCopy extends Instruction {
 
     // Values which are out-of-range of the calldata array will be set with Field(0);
     const slice = context.environment.calldata.slice(cdStart, cdStart + copySize).map(f => new Field(f));
-    // slice has size = MAX(copySize, calldata.length - cdStart) as TS truncates out-of-range portion
+    // slice has size = MIN(copySize, calldata.length - cdStart) as TS truncates out-of-range portion
     const transformedData = [...slice, ...Array(copySize - slice.length).fill(new Field(0))];
 
     memory.setSlice(dstOffset, transformedData);
@@ -258,7 +258,7 @@ export class ReturndataCopy extends Instruction {
 
     // Values which are out-of-range of the returndata array will be set with Field(0);
     const slice = context.machineState.nestedReturndata.slice(rdStart, rdStart + copySize).map(f => new Field(f));
-    // slice has size = MAX(copySize, returndata.length - rdStart) as TS truncates out-of-range portion
+    // slice has size = MIN(copySize, returndata.length - rdStart) as TS truncates out-of-range portion
     const transformedData = [...slice, ...Array(copySize - slice.length).fill(new Field(0))];
 
     memory.setSlice(dstOffset, transformedData);
