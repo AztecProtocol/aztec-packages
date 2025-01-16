@@ -79,16 +79,14 @@ export async function simulateAvmTestContractGenerateCircuitInputs(
     /*isStaticCall=*/ false,
   );
   const setupExecutionRequests: PublicExecutionRequest[] = [];
-  // we reverse order because the simulator expects it to be like a "stack" of calls to pop from
-  for (let i = setupFunctionNames.length - 1; i >= 0; i--) {
+  for (let i = 0; i < setupFunctionNames.length; i++) {
     const functionSelector = getAvmTestContractFunctionSelector(setupFunctionNames[i]);
     const fnArgs = [functionSelector.toField(), ...setupArgs[i]];
     const executionRequest = new PublicExecutionRequest(callContext, fnArgs);
     setupExecutionRequests.push(executionRequest);
   }
   const appExecutionRequests: PublicExecutionRequest[] = [];
-  // we reverse order because the simulator expects it to be like a "stack" of calls to pop from
-  for (let i = appFunctionNames.length - 1; i >= 0; i--) {
+  for (let i = 0; i < appFunctionNames.length; i++) {
     const functionSelector = getAvmTestContractFunctionSelector(appFunctionNames[i]);
     const fnArgs = [functionSelector.toField(), ...appArgs[i]];
     const executionRequest = new PublicExecutionRequest(callContext, fnArgs);
@@ -183,10 +181,11 @@ export function createTxForPublicCalls(
   // TODO(#9269): Remove this fake nullifier method as we move away from 1st nullifier as hash.
   forPublic.nonRevertibleAccumulatedData.nullifiers[0] = Fr.random(); // fake tx nullifier
 
-  for (let i = 0; i < setupExecutionRequests.length; i++) {
+  // We reverse order because the simulator expects it to be like a "stack" of calls to pop from
+  for (let i = setupCallRequests.length - 1; i >= 0; i--) {
     forPublic.nonRevertibleAccumulatedData.publicCallRequests[i] = setupCallRequests[i];
   }
-  for (let i = 0; i < appCallRequests.length; i++) {
+  for (let i = appCallRequests.length - 1; i >= 0; i--) {
     forPublic.revertibleAccumulatedData.publicCallRequests[i] = appCallRequests[i];
   }
   if (teardownExecutionRequest) {
@@ -207,11 +206,13 @@ export function createTxForPublicCalls(
   );
   const tx = Tx.newWithTxData(txData, teardownExecutionRequest);
 
-  for (let i = 0; i < setupExecutionRequests.length; i++) {
-    tx.enqueuedPublicFunctionCalls.push(setupExecutionRequests[i]);
-  }
-  for (let i = 0; i < appExecutionRequests.length; i++) {
+  // Reverse order because the simulator expects it to be like a "stack" of calls to pop from.
+  // Also push app calls before setup calls for this reason.
+  for (let i = appExecutionRequests.length - 1; i >= 0; i--) {
     tx.enqueuedPublicFunctionCalls.push(appExecutionRequests[i]);
+  }
+  for (let i = setupExecutionRequests.length - 1; i >= 0; i--) {
+    tx.enqueuedPublicFunctionCalls.push(setupExecutionRequests[i]);
   }
 
   return tx;

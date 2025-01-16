@@ -27,7 +27,7 @@ export class NoopTelemetryClient implements TelemetryClient {
 // @opentelemetry/api internally uses NoopTracer and NoopSpan but they're not exported
 // make our own versions
 // https://github.com/open-telemetry/opentelemetry-js/issues/4518#issuecomment-2179405444
-class NoopTracer implements Tracer {
+export class NoopTracer implements Tracer {
   startSpan(): Span {
     return new NoopSpan();
   }

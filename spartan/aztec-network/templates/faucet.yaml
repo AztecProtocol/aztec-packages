@@ -40,15 +40,7 @@ spec:
             - |
               source /shared/config/service-addresses
               cat /shared/config/service-addresses
-
-              echo "Awaiting ethereum node at ${ETHEREUM_HOST}"
-              until curl -s -X POST -H 'Content-Type: application/json' \
-                -d '{"jsonrpc":"2.0","method":"web3_clientVersion","params":[],"id":67}' \
-                ${ETHEREUM_HOST} | grep -q reth; do
-                echo "Waiting for Ethereum node ${ETHEREUM_HOST}..."
-                sleep 5
-              done
-              echo "Ethereum node is ready!"
+              {{- include "aztec-network.waitForEthereum" . | nindent 14 }}
           volumeMounts:
             - name: config
               mountPath: /shared/config
@@ -82,6 +74,18 @@ spec:
               value: "1"
             - name: LOG_LEVEL
               value: "{{ .Values.faucet.logLevel }}"
+            - name: K8S_POD_UID
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.uid
+            - name: K8S_POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+            - name: OTEL_SERVICE_NAME
+              value: faucet
+            - name: USE_GCLOUD_OBSERVABILITY
+              value: "{{ .Values.telemetry.useGcloudObservability }}"
           ports:
             - name: http
               containerPort: {{ .Values.faucet.service.nodePort }}
