@@ -1,74 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1737049537605,
+  "lastUpdate": 1737062091756,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "mara@aztecprotocol.com",
-            "name": "maramihali",
-            "username": "maramihali"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "5da4d1b661cb27b81c657adacf928a74f98c264c",
-          "message": "chore: reorganise translator proving key construction (#10853)\n\nTranslator ProverPolynomials were constructed in three different files: \r\n* `permutation_lib.hpp` which was part of the honk target\r\n* the witness was constructed in the `TranslatorProver` class\r\n* some polynomials were constructed in `TranslatorFlavor`\r\n\r\nThis PR introduces a `TranslatorProvingKey` aimed to unify the logic in\r\na manner similar to `DeciderProvingKey`, in an attempt to make\r\nnavigating state less confusing.",
-          "timestamp": "2024-12-23T15:58:07+01:00",
-          "tree_id": "acb3e4a424141ede7a93de01026623d740b2b2ac",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/5da4d1b661cb27b81c657adacf928a74f98c264c"
-        },
-        "date": 1734967451673,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "nativeClientIVCBench/Ambient_17_in_20/6",
-            "value": 20232.947851000004,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 17634.279267 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeClientIVCBench/Full/6",
-            "value": 21819.305328000042,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 19323.144963 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 4625.779651000016,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 4276.178236999999 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmClientIVCBench/Full/6",
-            "value": 72986.298089,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 72986298000 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 13980.891083999999,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 13980892000 ms\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 2850525774,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 2850525774 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 147333302,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 147333302 ns\nthreads: 1"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -3280,6 +3214,72 @@ window.BENCHMARK_DATA = {
             "value": 135321411,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 135321411 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "lucasxia01@gmail.com",
+            "name": "Lucas Xia",
+            "username": "lucasxia01"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "8fc2011fbe0e3545924898a53e851279b8cc0084",
+          "message": "fix: Reallocate commitment key to avoid pippenger error (#11249)\n\nFixes recent bug introduced by the SmallSubgroupIPA work which added an\r\nedge case where we always commit to polynomials of some fixed degree (of\r\n259 or whatever). Pippenger was set up to work for circuit_size amount\r\nof points, which could be lower than the SmallSubgroupIPA poly sizes, so\r\nit led to buffer overflows.\r\n\r\nFixes it by reallocating commitment key if necessary in SmallSubgroupIPA\r\nprover. Also adds an assert to commit() to check for any potential\r\noverflows.",
+          "timestamp": "2025-01-16T20:48:50Z",
+          "tree_id": "0de09b9fee4310a0b72681bb3e5959da428e840b",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/8fc2011fbe0e3545924898a53e851279b8cc0084"
+        },
+        "date": 1737062084190,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Ambient_17_in_20/6",
+            "value": 20000.256567999997,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 16987.316242999997 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 22658.276625999973,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 20024.910694 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 4256.645685000023,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 3906.7042120000006 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 74261.96217600002,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 74261961000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 14884.678045,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 14884679000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 3100965554,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 3100965554 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 134928807,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 134928807 ns\nthreads: 1"
           }
         ]
       }
