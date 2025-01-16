@@ -1,74 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1736993045394,
+  "lastUpdate": 1737036327640,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "49558828+AztecBot@users.noreply.github.com",
-            "name": "Aztec Bot",
-            "username": "AztecBot"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "9ed43bce2545f908d6351c6d330470b19510d216",
-          "message": "chore(master): Release 0.68.0 (#10834)\n\nThis release is too large to preview in the pull request body. View the\nfull release notes here:\nhttps://github.com/AztecProtocol/aztec-packages/blob/release-please--branches--master--release-notes/release-notes.md",
-          "timestamp": "2024-12-20T18:20:26Z",
-          "tree_id": "b75f467a03f4f7d7156fde301c3cb4f537ff1159",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/9ed43bce2545f908d6351c6d330470b19510d216"
-        },
-        "date": 1734719799818,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "nativeClientIVCBench/Ambient_17_in_20/6",
-            "value": 20322.919189999993,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 17695.727963999998 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeClientIVCBench/Full/6",
-            "value": 21812.926538,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 19041.610996 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 4630.180110999959,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 4317.738614999999 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmClientIVCBench/Full/6",
-            "value": 81610.981691,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 81610982000 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 13894.379013,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 13894378000 ms\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 3352309391,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 3352309391 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 142453198,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 142453198 ns\nthreads: 1"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -3276,6 +3210,72 @@ window.BENCHMARK_DATA = {
             "value": 140395392,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 140395392 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "mara@aztecprotocol.com",
+            "name": "maramihali",
+            "username": "maramihali"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "507ae9df9c369603da20f25ccc228729ee2733cd",
+          "message": "chore:  move shared pcs functionality to internal library in solidity and small refactorings in sumcheck (#11230)\n\n* functionality that is shared in PCS between the ZK and non-ZK contract\r\nhas been moved to a separate internal library.\r\n* simplified ZK sumcheck and pcs logic",
+          "timestamp": "2025-01-16T13:49:22Z",
+          "tree_id": "0e2de66dabc433e3e0a421e6157821ddac7af3a8",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/507ae9df9c369603da20f25ccc228729ee2733cd"
+        },
+        "date": 1737036320369,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Ambient_17_in_20/6",
+            "value": 19000.743424999997,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 16130.476988000002 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 21541.346078999966,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 19117.154511999997 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 4078.367284999985,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 3768.6865319999993 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 83965.810647,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 83965810000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 14609.333038,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 14609333000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 3066862317,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 3066862317 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 134279785,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 134279785 ns\nthreads: 1"
           }
         ]
       }
