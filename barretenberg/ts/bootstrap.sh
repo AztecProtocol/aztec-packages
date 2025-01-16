@@ -32,6 +32,7 @@ function test_cmds {
   for test in **/*.test.js; do
     echo "$hash barretenberg/ts/scripts/run_test.sh $test"
   done
+  echo "$hash barretenberg/ts/bootstrap.sh format --check"
 }
 
 function test {
@@ -55,6 +56,14 @@ case "$cmd" in
     ;;
   "test-cmds")
     test_cmds
+    ;;
+  "format")
+    shift 1
+    if [ "${1-:}" = "--check" ]; then
+      yarn formatting
+    else
+      yarn formatting:fix
+    fi
     ;;
   "hash")
     echo "$hash"

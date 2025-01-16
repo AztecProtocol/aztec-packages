@@ -20,7 +20,7 @@ export class BarretenbergVerifier {
   /** @ignore */
   async instantiate(): Promise<void> {
     if (!this.api) {
-      const api = BarretenbergSync.getSingleton()
+      const api = BarretenbergSync.getSingleton();
       const crs = await Crs.new(1);
       api.srsInitSrs(new RawBuffer(crs.getG1Data()), crs.numPoints, new RawBuffer(crs.getG2Data()));
 
