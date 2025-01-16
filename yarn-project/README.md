@@ -93,7 +93,7 @@ BUILD_SYSTEM_DEBUG=1
 COMMIT_TAG=<RELEASE_TAG_NUMBER_YOU_WANT e.g. aztec-packages-v0.8.8>
 ```
 
-4. Follow the [`deploy-npm` script](./deploy_npm.sh).
+4. Follow the [`deploy-npm` script](https://github.com/AztecProtocol/aztec-packages/blob/master/build-system/scripts/deploy_npm).
    - Best to run the `deploy_package()` method line by line by manually setting `REPOSITORY` var.
    - Extract `VERSION` as the script shows (in the eg it should be 0.8.8)
    - Skip the version existing checks like `if [ "$VERSION" == "$PUBLISHED_VERSION" ]` and `if [ "$VERSION" != "$HIGHER_VERSION" ]`. Since this is our first time deploying the package, `PUBLISHED_VERSION` and `HIGHER_VERSION` will be empty and hence these checks would fail. These checks are necessary in the CI for continual releases.
