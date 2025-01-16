@@ -274,8 +274,7 @@ fn barycentric_evaluate_blob_at_z(z: F, ys: [F; FIELDS_PER_BLOB]) -> F {
             let linear_terms = [partial_sums[i - 1], partial_sums[i]];
 
             BigNum::evaluate_quadratic_expression(
-                /* lhs */
-                [
+                /* lhs */ [
                     [ROOTS[i * 8 + 0]],
                     [ROOTS[i * 8 + 1]],
                     [ROOTS[i * 8 + 2]],
