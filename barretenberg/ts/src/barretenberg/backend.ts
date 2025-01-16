@@ -209,7 +209,7 @@ export class UltraHonkBackend {
     const proofAsStrings = deflattenFields(proofWithPublicInputs.slice(4));
     console.log(`size of proofWithPublicInputs: ${proofWithPublicInputs.length}`);
 
-    const numPublicInputs = Number(proofAsStrings[1]);
+    const numPublicInputs = Number(proofAsStrings[1]) - 16;
     console.log(`numPublicInputs in generateProof: ${numPublicInputs}`);
 
     // Account for the serialized buffer size at start

@@ -97,7 +97,7 @@ export async function proveUltraHonk(
     logger(`artifacts.proofAsFields[3]: ${artifacts.proofAsFields[3]}`);
     return {
       proof: artifacts.proofAsFields as FixedLengthArray<string, 459>,
-      public_inputs: proverOutput.publicInputs.slice(0, -16) as FixedLengthArray<string, 1>,
+      public_inputs: proverOutput.publicInputs as FixedLengthArray<string, 1>,
       // public_inputs: proverOutput.publicInputs as FixedLengthArray<string, 17>,
     };
   } finally {
