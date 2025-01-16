@@ -339,10 +339,6 @@ export function SidebarComponent() {
               data={wallet?.getAddress().toString()}
             />
           </FormControl>
-          <CreateAccountDialog
-            open={openCreateAccountDialog}
-            onClose={handleAccountCreation}
-          />
         </>
       ) : (
         <></>
@@ -406,6 +402,10 @@ export function SidebarComponent() {
           </div>
         ))}
       </div>
+      <CreateAccountDialog
+        open={openCreateAccountDialog}
+        onClose={handleAccountCreation}
+      />
     </div>
   );
 }

@@ -77,6 +77,9 @@ export function CreateAccountDialog({
             <Button disabled={alias === ""} onClick={createAccount}>
               Deploy
             </Button>
+            <Button color="error" onClick={handleClose}>
+              Cancel
+            </Button>
           </>
         )}
       </div>

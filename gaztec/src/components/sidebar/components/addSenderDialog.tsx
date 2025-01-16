@@ -24,10 +24,14 @@ export function AddSendersDialog({
 
   const addSender = async () => {
     const parsed = AztecAddress.fromString(sender);
+    setAlias("");
+    setSender("");
     onClose(parsed, alias);
   };
 
   const handleClose = () => {
+    setAlias("");
+    setSender("");
     onClose();
   };
 

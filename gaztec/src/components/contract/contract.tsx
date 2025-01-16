@@ -3,6 +3,8 @@ import { useDropzone } from "react-dropzone";
 import "./dropzone.css";
 import { useContext, useEffect, useState } from "react";
 import {
+  AuthWitness,
+  AztecAddress,
   Contract,
   ContractArtifact,
   ContractInstanceWithAddress,
@@ -31,6 +33,10 @@ import { FunctionParameter } from "../common/fnParameter";
 import ClearIcon from "@mui/icons-material/Clear";
 import { RegisterContractDialog } from "./components/registerContractDialog";
 import { CopyToClipboardButton } from "../common/copyToClipboardButton";
+import VpnKeyIcon from "@mui/icons-material/VpnKey";
+import SendIcon from "@mui/icons-material/Send";
+import PsychologyIcon from "@mui/icons-material/Psychology";
+import { CreateAuthwitDialog } from "./components/createAuthwitDialog";
 
 const container = css({
   display: "flex",
@@ -101,6 +107,12 @@ export function ContractComponent() {
     useState(false);
   const [openRegisterContractDialog, setOpenRegisterContractDialog] =
     useState(false);
+  const [openCreateAuthwitDialog, setOpenCreateAuthwitDialog] = useState(false);
+  const [authwitFnData, setAuthwitFnData] = useState({
+    name: "",
+    parameters: [],
+    isPrivate: false,
+  });
 
   const {
     wallet,
@@ -134,6 +146,25 @@ export function ContractComponent() {
     const fnParameters = parameters[fnName] || [];
     fnParameters[index] = value;
     setParameters({ ...parameters, [fnName]: fnParameters });
+  };
+
+  const handleContractCreation = async (
+    contract?: ContractInstanceWithAddress,
+    alias?: string
+  ) => {
+    if (contract && alias) {
+      await walletDB.storeContract(
+        contract.address,
+        contractArtifact,
+        undefined,
+        alias
+      );
+      setCurrentContract(
+        await Contract.at(contract.address, contractArtifact, wallet)
+      );
+    }
+    setOpenDeployContractDialog(false);
+    setOpenRegisterContractDialog(false);
   };
 
   const simulate = async (fnName: string) => {
@@ -216,23 +247,25 @@ export function ContractComponent() {
     setIsWorking(false);
   };
 
-  const handleContractCreation = async (
-    contract?: ContractInstanceWithAddress,
+  const handleAuthwitFnDataChanged = (
+    fnName: string,
+    parameters: any[],
+    isPrivate: boolean
+  ) => {
+    setAuthwitFnData({ name: fnName, parameters, isPrivate });
+    setOpenCreateAuthwitDialog(true);
+  };
+
+  const handleAuthwitCreation = async (
+    witness?: AuthWitness,
     alias?: string
   ) => {
-    if (contract && alias) {
-      await walletDB.storeContract(
-        contract.address,
-        contractArtifact,
-        undefined,
-        alias
-      );
-      setCurrentContract(
-        await Contract.at(contract.address, contractArtifact, wallet)
-      );
+    if (witness && alias) {
+      await wallet.addAuthWitness(witness);
+      await walletDB.storeAuthwitness(witness, undefined, alias);
     }
-    setOpenDeployContractDialog(false);
-    setOpenRegisterContractDialog(false);
+    setAuthwitFnData({ name: "", parameters: [], isPrivate: false });
+    setOpenCreateAuthwitDialog(false);
   };
 
   return (
@@ -444,6 +477,7 @@ export function ContractComponent() {
                     color="secondary"
                     variant="contained"
                     onClick={() => simulate(fn.name)}
+                    endIcon={<PsychologyIcon />}
                   >
                     Simulate
                   </Button>
@@ -457,14 +491,42 @@ export function ContractComponent() {
                     color="secondary"
                     variant="contained"
                     onClick={() => send(fn.name)}
+                    endIcon={<SendIcon />}
                   >
                     Send
+                  </Button>
+                  <Button
+                    disabled={
+                      !wallet ||
+                      !currentContract ||
+                      isWorking ||
+                      fn.functionType === "unconstrained"
+                    }
+                    color="secondary"
+                    variant="contained"
+                    onClick={() =>
+                      handleAuthwitFnDataChanged(
+                        fn.name,
+                        parameters[fn.name],
+                        fn.functionType === "private"
+                      )
+                    }
+                    endIcon={<VpnKeyIcon />}
+                  >
+                    Create authwit
                   </Button>
                 </CardActions>
               </Card>
             ))}
         </div>
       )}
+      <CreateAuthwitDialog
+        open={openCreateAuthwitDialog}
+        onClose={handleAuthwitCreation}
+        fnName={authwitFnData.name}
+        args={authwitFnData.parameters}
+        isPrivate={authwitFnData.isPrivate}
+      />
     </div>
   );
 }
