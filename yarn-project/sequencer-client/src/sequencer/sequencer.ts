@@ -497,7 +497,8 @@ export class Sequencer {
           await publicProcessorFork.close();
           await orchestratorFork.close();
         } catch (err) {
-          this.log.error(`Error closing forks`, err);
+          // This can happen if the sequencer is stopped before we hit this timeout.
+          this.log.warn(`Error closing forks for block processing`, err);
         }
       }, 5000);
     }
