@@ -207,6 +207,15 @@ case "$cmd" in
     fi
     echo "$run_url"
     ;;
+  "pr-url")
+    # Fetch the current PR associated with the branch
+    pr_url=$(gh pr list --head "$BRANCH" --limit 1 --json url -q '.[0].url')
+    if [ -z "$pr_url" ]; then
+      echo "No pull request found for branch '$BRANCH'."
+      exit 1
+    fi
+    echo "$pr_url"
+    ;;
   "help"|"")
     print_usage
     ;;

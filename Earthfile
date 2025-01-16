@@ -15,6 +15,7 @@ bootstrap-base:
     chmod 600 $HOME/.aws/credentials'
   RUN --secret AWS_ACCESS_KEY_ID --secret AWS_SECRET_ACCESS_KEY \
     bash -c "$bootstrap_aws"
+
 bootstrap-noir-bb:
   FROM +bootstrap-base
   ARG EARTHLY_GIT_HASH

@@ -181,16 +181,6 @@ case "$cmd" in
   ;;
   "image-aztec")
     image=aztecprotocol/aztec:$(git rev-parse HEAD)
-    check_arch=false
-
-    # Check for --check-arch flag in args
-    for arg in "$@"; do
-      if [ "$arg" = "--check-arch" ]; then
-        check_arch=true
-        break
-      fi
-    done
-
     docker pull --platform linux/$(arch) $image &>/dev/null || true
     if docker_has_image $image; then
       echo "Image $image already exists and has been downloaded." && exit
