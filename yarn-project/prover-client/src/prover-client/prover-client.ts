@@ -34,10 +34,7 @@ export class ProverClient implements EpochProverManager {
     private agentClient?: ProvingJobConsumer,
     private telemetry: TelemetryClient = getTelemetryClient(),
     private log = createLogger('prover-client:tx-prover'),
-  ) {
-    // TODO(palla/prover-node): Cache the paddingTx here, and not in each proving orchestrator,
-    // so it can be reused across multiple ones and not recomputed every time.
-  }
+  ) {}
 
   public createEpochProver(): EpochProver {
     const facade = new BrokerCircuitProverFacade(this.orchestratorClient);
@@ -58,10 +55,6 @@ export class ProverClient implements EpochProverManager {
     ) {
       await this.stopAgents();
       await this.createAndStartAgents();
-    }
-
-    if (!this.config.realProofs && newConfig.realProofs) {
-      // TODO(palla/prover-node): Reset padding tx here once we cache it at this class
     }
 
     this.config = newConfig;
