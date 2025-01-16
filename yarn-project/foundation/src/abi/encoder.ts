@@ -107,12 +107,11 @@ class ArgumentEncoder {
           break;
         }
         if (isU128Struct(abiType)) {
-          // U128 struct has high and low limbs - so we first convert the value to the 2 limbs and then we encode them
-          // --> this results in the limbs being added to the final flat array as [..., hi, lo, ...] (we stick to big
-          // endian!).
+          // U128 struct has low and high limbs - so we first convert the value to the 2 limbs and then we encode them
+          // --> this results in the limbs being added to the final flat array as [..., lo, hi, ...].
           const value = new U128(arg);
-          this.encodeArgument({ kind: 'field' }, value.hi, `${name}.hi`);
           this.encodeArgument({ kind: 'field' }, value.lo, `${name}.lo`);
+          this.encodeArgument({ kind: 'field' }, value.hi, `${name}.hi`);
           break;
         }
         if (isWrappedFieldStruct(abiType)) {
