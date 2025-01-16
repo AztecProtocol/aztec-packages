@@ -4,7 +4,6 @@ import {
   MerkleTreeId,
   type MerkleTreeWriteOperations,
   type ProcessedTx,
-  TxHash,
   toNumBlobFields,
 } from '@aztec/circuit-types';
 import { Fr, type GlobalVariables, NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP } from '@aztec/circuits.js';
