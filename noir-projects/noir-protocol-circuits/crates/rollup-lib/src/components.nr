@@ -19,7 +19,7 @@ use dep::types::{
     },
     hash::{accumulate_sha256, silo_unencrypted_log_hash},
     merkle_tree::VariableMerkleTree,
-    traits::is_empty,
+    traits::{Empty, is_empty},
     utils::arrays::{array_length, array_merge},
 };
 use blob::blob_public_inputs::BlockBlobPublicInputs;
@@ -208,6 +208,7 @@ fn get_tx_effects_hash_input(
         silo_unencrypted_log_hash(log)
     });
 
+    /// Safety: This constructs the array of effects and is constrained below.
     let mut tx_effects_hash_input = unsafe {
         get_tx_effects_hash_input_helper(
             tx_effect.tx_hash,

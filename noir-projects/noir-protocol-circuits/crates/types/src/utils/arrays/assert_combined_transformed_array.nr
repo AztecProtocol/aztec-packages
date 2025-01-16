@@ -55,6 +55,7 @@ mod tests {
             types::{is_summed_from_two_values, sum_two_values, TestTwoValues, TestValue},
             utils::pad_end,
         },
+        traits::Empty,
         utils::arrays::assert_combined_transformed_array::{
             assert_combined_transformed_array, combine_and_transform_arrays,
         },
