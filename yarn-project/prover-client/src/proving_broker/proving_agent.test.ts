@@ -19,7 +19,6 @@ import { makeBaseParityInputs, makeParityPublicInputs } from '@aztec/circuits.js
 import { randomBytes } from '@aztec/foundation/crypto';
 import { AbortError } from '@aztec/foundation/error';
 import { promiseWithResolvers } from '@aztec/foundation/promise';
-import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
 
 import { jest } from '@jest/globals';
 
@@ -51,7 +50,7 @@ describe('ProvingAgent', () => {
       saveProofOutput: jest.fn(),
     };
 
-    agent = new ProvingAgent(jobSource, proofDB, prover, new NoopTelemetryClient(), [ProvingRequestType.BASE_PARITY]);
+    agent = new ProvingAgent(jobSource, proofDB, prover, [ProvingRequestType.BASE_PARITY]);
   });
 
   afterEach(async () => {

@@ -39,7 +39,6 @@ import { TestDateProvider } from '@aztec/foundation/timer';
 import { type P2P, P2PClientState } from '@aztec/p2p';
 import { type BlockBuilderFactory } from '@aztec/prover-client/block-builder';
 import { type PublicProcessor, type PublicProcessorFactory } from '@aztec/simulator/server';
-import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
 import { type ValidatorClient } from '@aztec/validator-client';
 
 import { expect } from '@jest/globals';
@@ -245,7 +244,6 @@ describe('sequencer', () => {
       contractSource,
       l1Constants,
       new TestDateProvider(),
-      new NoopTelemetryClient(),
       { enforceTimeTable: true, maxTxsPerBlock: 4 },
     );
   });

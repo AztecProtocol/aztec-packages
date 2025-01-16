@@ -2,7 +2,7 @@ import { Tx, TxHash } from '@aztec/circuit-types';
 import { type TxAddedToPoolStats } from '@aztec/circuit-types/stats';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { type AztecKVStore, type AztecMap, type AztecMultiMap } from '@aztec/kv-store';
-import { type TelemetryClient } from '@aztec/telemetry-client';
+import { type TelemetryClient, getTelemetryClient } from '@aztec/telemetry-client';
 
 import { PoolInstrumentation, PoolName } from '../instrumentation.js';
 import { getPendingTxPriority } from './priority.js';
@@ -32,7 +32,11 @@ export class AztecKVTxPool implements TxPool {
    * @param store - A KV store.
    * @param log - A logger.
    */
-  constructor(store: AztecKVStore, telemetry: TelemetryClient, log = createLogger('p2p:tx_pool')) {
+  constructor(
+    store: AztecKVStore,
+    telemetry: TelemetryClient = getTelemetryClient(),
+    log = createLogger('p2p:tx_pool'),
+  ) {
     this.#txs = store.openMap('txs');
     this.#minedTxHashToBlock = store.openMap('txHashToBlockMined');
     this.#pendingTxPriorityToHash = store.openMultiMap('pendingTxFeeToHash');

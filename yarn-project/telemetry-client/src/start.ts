@@ -7,13 +7,27 @@ import { type TelemetryClient } from './telemetry.js';
 
 export * from './config.js';
 
-export async function createAndStartTelemetryClient(config: TelemetryClientConfig): Promise<TelemetryClient> {
+let initialised = false;
+let telemetry: TelemetryClient = new NoopTelemetryClient();
+
+export function initTelemetryClient(config: TelemetryClientConfig): TelemetryClient {
   const log = createLogger('telemetry:client');
+  if (initialised) {
+    log.warn('Telemetry client has already been initialized once');
+    return telemetry;
+  }
+
   if (config.metricsCollectorUrl || config.useGcloudObservability) {
     log.info(`Using OpenTelemetry client ${config.useGcloudObservability ? 'with GCP' : 'with custom collector'}`);
-    return await OpenTelemetryClient.createAndStart(config, log);
+    telemetry = OpenTelemetryClient.createAndStart(config, log);
   } else {
     log.info('Using NoopTelemetryClient');
-    return new NoopTelemetryClient();
   }
+
+  initialised = true;
+  return telemetry;
+}
+
+export function getTelemetryClient(): TelemetryClient {
+  return telemetry;
 }

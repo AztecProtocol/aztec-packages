@@ -21,9 +21,9 @@ import {
   type TelemetryClient,
   TraceableL2BlockStream,
   WithTracer,
+  getTelemetryClient,
   trackSpan,
 } from '@aztec/telemetry-client';
-import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
 
 import { type ENR } from '@chainsafe/enr';
 
@@ -228,7 +228,7 @@ export class P2PClient<T extends P2PClientType = P2PClientType.Full>
     mempools: MemPools<T>,
     private p2pService: P2PService,
     private keepProvenTxsFor: number,
-    telemetry: TelemetryClient = new NoopTelemetryClient(),
+    telemetry: TelemetryClient = getTelemetryClient(),
     private log = createLogger('p2p'),
   ) {
     super(telemetry, 'P2PClient');
