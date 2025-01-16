@@ -19,6 +19,8 @@ import {
   INITIAL_L2_BLOCK_NUM,
   IndexedTaggingSecret,
   MAX_NOTE_HASHES_PER_TX,
+  PUBLIC_LOG_DATA_SIZE_IN_FIELDS,
+  PublicLog,
   computeAddress,
   computeTaggingSecretPoint,
   deriveKeys,
@@ -458,6 +460,27 @@ describe('Simulator oracle', () => {
 
       // Only NUM_SENDERS + 1 logs should be synched, since the rest have blockNumber > 1
       expect(syncedLogs.get(recipient.address.toString())).toHaveLength(NUM_SENDERS + 1);
+    });
+
+    it('should not sync public tagged logs with incorrect contract address', async () => {
+      const logs: { [k: string]: TxScopedL2Log[] } = {};
+      const tag = computeSiloedTagForIndex(senders[0], recipient.address, contractAddress, 0);
+      // Create a public log with an address which doesn't match the tag
+      const logData = PublicLog.fromFields([
+        AztecAddress.fromNumber(2).toField(),
+        Fr.ONE,
+        tag,
+        ...Array(PUBLIC_LOG_DATA_SIZE_IN_FIELDS - 2).fill(Fr.random()),
+      ]).toBuffer();
+      const log = new TxScopedL2Log(TxHash.random(), 1, 0, true, logData);
+      logs[tag.toString()] = [log];
+      aztecNode.getLogsByTags.mockImplementation(tags => {
+        return Promise.resolve(tags.map(tag => logs[tag.toString()] ?? []));
+      });
+      const syncedLogs = await simulatorOracle.syncTaggedLogs(contractAddress, 1);
+
+      // We expect the above log to be discarded, and so none to be synced
+      expect(syncedLogs.get(recipient.address.toString())).toHaveLength(0);
     });
   });
 
