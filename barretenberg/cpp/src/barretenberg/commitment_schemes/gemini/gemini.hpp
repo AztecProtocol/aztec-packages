@@ -134,18 +134,18 @@ template <typename Curve> class GeminiProver_ {
                                                             std::span<const Fr> multilinear_challenge,
                                                             const Polynomial& A_0);
 
-    static std::vector<Polynomial> compute_partially_evaluated_batch_polynomials(
+    static std::pair<Polynomial, Polynomial> compute_partially_evaluated_batch_polynomials(
         const size_t log_n,
         Polynomial&& batched_F,
         Polynomial&& batched_G,
         const Fr& r_challenge,
         std::vector<Polynomial> batched_groups_to_be_concatenated = {});
 
-    static std::vector<Claim> construct_univariate_opening_claims(
-        const size_t log_n,
-        std::vector<Polynomial>&& partially_evaluated_batch_polynomials,
-        std::vector<Polynomial>&& fold_polynomials,
-        const Fr& r_challenge);
+    static std::vector<Claim> construct_univariate_opening_claims(const size_t log_n,
+                                                                  Polynomial&& A_0_pos,
+                                                                  Polynomial&& A_0_neg,
+                                                                  std::vector<Polynomial>&& fold_polynomials,
+                                                                  const Fr& r_challenge);
 
     template <typename Transcript>
     static std::vector<Claim> prove(const Fr circuit_size,
