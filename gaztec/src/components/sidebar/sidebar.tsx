@@ -90,6 +90,7 @@ const NETWORKS = [
     name: "Local",
   },
   { nodeURL: "http://34.145.98.34:8080", name: "Devnet" },
+  { nodeURL: "http://35.197.121.62:8080", name: "Masternet" },
 ];
 
 export function SidebarComponent() {

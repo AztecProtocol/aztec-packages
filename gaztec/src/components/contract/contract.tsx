@@ -25,10 +25,7 @@ import {
 } from "@mui/material";
 import FindInPageIcon from "@mui/icons-material/FindInPage";
 import { prepTx } from "../../utils/interactions";
-import {
-  formatFrAsString,
-  parseAliasedBuffersAsString,
-} from "../../utils/conversion";
+import { formatFrAsString } from "../../utils/conversion";
 import { DeployContractDialog } from "./components/deployContractDialog";
 import { FunctionParameter } from "../common/fnParameter";
 import ClearIcon from "@mui/icons-material/Clear";
@@ -421,27 +418,25 @@ export function ContractComponent() {
                     </>
                   )}
 
-                  <div css={simulationContainer}>
-                    <Typography variant="body1" sx={{ fontWeight: 200 }}>
-                      Simulation results:&nbsp;
-                    </Typography>
-                    {!isWorking && simulationResults[fn.name] !== undefined && (
-                      <>
-                        {simulationResults[fn.name].success ? (
-                          <Typography variant="body1">
-                            {simulationResults?.[fn.name]?.data.length === 0
-                              ? "-"
-                              : simulationResults?.[fn.name].data.toString()}
-                          </Typography>
-                        ) : (
-                          <Typography variant="body1" color="error">
-                            {simulationResults?.[fn.name]?.error}
-                          </Typography>
-                        )}
-                      </>
-                    )}
-                    {isWorking ? <CircularProgress size={"1rem"} /> : <></>}
-                  </div>
+                  {!isWorking && simulationResults[fn.name] !== undefined && (
+                    <div css={simulationContainer}>
+                      <Typography variant="body1" sx={{ fontWeight: 200 }}>
+                        Simulation results:&nbsp;
+                      </Typography>
+                      {simulationResults[fn.name].success ? (
+                        <Typography variant="body1">
+                          {simulationResults?.[fn.name]?.data.length === 0
+                            ? "-"
+                            : simulationResults?.[fn.name].data.toString()}
+                        </Typography>
+                      ) : (
+                        <Typography variant="body1" color="error">
+                          {simulationResults?.[fn.name]?.error}
+                        </Typography>
+                      )}{" "}
+                    </div>
+                  )}
+                  {isWorking ? <CircularProgress size={"1rem"} /> : <></>}
                 </CardContent>
                 <CardActions>
                   <Button

@@ -155,7 +155,6 @@ export function DeployContractDialog({
                       onParameterChange={(newValue) => {
                         handleParameterChange(i, newValue);
                       }}
-                      aliasedAddresses={aliasedAddresses}
                     />
                   ))}
               </FormControl>

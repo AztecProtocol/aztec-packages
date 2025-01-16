@@ -14,6 +14,7 @@ import {
 import { Fragment, useContext, useState } from "react";
 import EditIcon from "@mui/icons-material/Edit";
 import { AztecContext } from "../home/home";
+import { SerializedStyles } from "@emotion/react";
 
 const container = css({
   display: "flex",
@@ -21,6 +22,7 @@ const container = css({
   alignItems: "center",
   justifyContent: "center",
   marginRight: "1rem",
+  marginTop: "1rem",
 });
 
 export function FunctionParameter({
@@ -84,6 +86,7 @@ export function FunctionParameter({
           loading={loading}
           fullWidth
           sx={{ width: "226px" }}
+          css={css}
           renderInput={(params) => (
             <TextField
               {...params}
@@ -107,6 +110,7 @@ export function FunctionParameter({
       ) : (
         <TextField
           fullWidth
+          css={css}
           variant="outlined"
           disabled={["array", "struct", "tuple"].includes(parameter.type.kind)}
           key={parameter.name}
