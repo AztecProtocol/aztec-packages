@@ -237,6 +237,19 @@ export abstract class TypedOracle {
     throw new OracleMethodNotAvailableError('syncNotes');
   }
 
+  deliverNote(
+    _contractAddress: AztecAddress,
+    _storageSlot: Fr,
+    _nonce: Fr,
+    _content: Fr[],
+    _noteHash: Fr,
+    _nullifier: Fr,
+    _txHash: Fr,
+    _recipient: AztecAddress,
+  ): Promise<void> {
+    throw new OracleMethodNotAvailableError('deliverNote');
+  }
+
   store(_contract: AztecAddress, _key: Fr, _values: Fr[]): Promise<void> {
     throw new OracleMethodNotAvailableError('store');
   }
