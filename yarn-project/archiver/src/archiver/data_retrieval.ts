@@ -1,3 +1,4 @@
+import { BlobSinkClientInterface } from '@aztec/blob-sink/client';
 import { Body, InboxLeaf, L2Block } from '@aztec/circuit-types';
 import { AppendOnlyTreeSnapshot, BlockHeader, Fr, Proof } from '@aztec/circuits.js';
 import { asyncPool } from '@aztec/foundation/async-pool';
@@ -35,6 +36,7 @@ import { type L1Published, type L1PublishedData } from './structs/published.js';
 export async function retrieveBlocksFromRollup(
   rollup: GetContractReturnType<typeof RollupAbi, PublicClient<HttpTransport, Chain>>,
   publicClient: PublicClient,
+  blobSinkClient: BlobSinkClientInterface,
   searchStartBlock: bigint,
   searchEndBlock: bigint,
   logger: Logger = createLogger('archiver'),
@@ -63,7 +65,13 @@ export async function retrieveBlocksFromRollup(
       `Got ${l2BlockProposedLogs.length} L2 block processed logs for L2 blocks ${l2BlockProposedLogs[0].args.blockNumber}-${lastLog.args.blockNumber} between L1 blocks ${searchStartBlock}-${searchEndBlock}`,
     );
 
-    const newBlocks = await processL2BlockProposedLogs(rollup, publicClient, l2BlockProposedLogs, logger);
+    const newBlocks = await processL2BlockProposedLogs(
+      rollup,
+      publicClient,
+      blobSinkClient,
+      l2BlockProposedLogs,
+      logger,
+    );
     retrievedBlocks.push(...newBlocks);
     searchStartBlock = lastLog.blockNumber! + 1n;
   } while (searchStartBlock <= searchEndBlock);
@@ -80,6 +88,7 @@ export async function retrieveBlocksFromRollup(
 export async function processL2BlockProposedLogs(
   rollup: GetContractReturnType<typeof RollupAbi, PublicClient<HttpTransport, Chain>>,
   publicClient: PublicClient,
+  blobSinkClient: BlobSinkClientInterface,
   logs: GetContractEventsReturnType<typeof RollupAbi, 'L2BlockProposed'>,
   logger: Logger,
 ): Promise<L1Published<L2Block>[]> {
@@ -91,7 +100,13 @@ export async function processL2BlockProposedLogs(
 
     // The value from the event and contract will match only if the block is in the chain.
     if (archive === archiveFromChain) {
-      const block = await getBlockFromRollupTx(publicClient, log.transactionHash!, l2BlockNumber);
+      const block = await getBlockFromRollupTx(
+        publicClient,
+        blobSinkClient,
+        log.transactionHash!,
+        l2BlockNumber,
+        logger,
+      );
 
       const l1: L1PublishedData = {
         blockNumber: log.blockNumber,
@@ -127,16 +142,11 @@ export async function getL1BlockTime(publicClient: PublicClient, blockNumber: bi
  */
 async function getBlockFromRollupTx(
   publicClient: PublicClient,
+  blobSinkClient: BlobSinkClientInterface,
   txHash: `0x${string}`,
   l2BlockNum: bigint,
+  logger: Logger,
 ): Promise<L2Block> {
-  // WORKNOTES:
-  // - the plan
-  // - read the tx
-  // - Get the block number
-  // - The block number will incldue the previous beacon block route in it
-  // - Get the slot number for this block route
-  //
   const { input: data, blockHash } = await publicClient.getTransaction({ hash: txHash });
 
   const { functionName, args } = decodeFunctionData({ abi: RollupAbi, data });
@@ -163,13 +173,27 @@ async function getBlockFromRollupTx(
     Hex,
   ];
 
+  const blobBodies = await blobSinkClient.getBlobSidecar(blockHash);
+  if (blobBodies.length === 0) {
+    throw new Error(`No blob bodies found for block ${l2BlockNum}`);
+  }
+
+  const blockFields = blobBodies.flatMap(b => b.toFields());
+
   const header = BlockHeader.fromBuffer(Buffer.from(hexToBytes(decodedArgs.header)));
   // TODO(#9101): Retreiving the block body from calldata is a temporary soln before we have
   // either a beacon chain client or link to some blob store. Web2 is ok because we will
   // verify the block body vs the blob as below.
   const blockBody = Body.fromBuffer(Buffer.from(hexToBytes(bodyHex)));
 
-  const blockFields = blockBody.toBlobFields();
+  const legacyBlockFields = blockBody.toBlobFields();
+
+  logger.verbose(`Legacy block fields length: ${legacyBlockFields.length}`);
+  logger.verbose(`Block fields length: ${blockFields.length}`);
+
+  logger.verbose(`Legacy block fields: ${legacyBlockFields.map(f => f.toString())}`);
+  logger.verbose(`Block fields: ${blockFields.map(f => f.toString())}`);
+
   // TODO(#9101): The below reconstruction is currently redundant, but once we extract blobs will be the way to construct blocks.
   // The blob source will give us blockFields, and we must construct the body from them:
   // TODO(#8954): When logs are refactored into fields, we won't need to inject them here.

@@ -72,7 +72,7 @@ class MockRollupContract {
   }
 }
 
-const BLOB_SINK_PORT = 5052;
+const BLOB_SINK_PORT = 50525;
 const BLOB_SINK_URL = `http://localhost:${BLOB_SINK_PORT}`;
 
 describe('L1Publisher', () => {
@@ -238,7 +238,7 @@ describe('L1Publisher', () => {
         data: encodeFunctionData({ abi: rollupContract.abi, functionName: 'propose', args }),
       },
       { fixedGas: GAS_GUESS + L1Publisher.PROPOSE_GAS_GUESS },
-      { blobs: expectedBlobs.map(b => b.dataWithZeros), kzg },
+      { blobs: expectedBlobs.map(b => b.data), kzg },
     );
 
     expect(sendToBlobSinkSpy).toHaveBeenCalledTimes(1);

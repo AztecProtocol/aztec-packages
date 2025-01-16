@@ -85,10 +85,10 @@ export class HttpBlobSinkClient implements BlobSinkClientInterface {
         return blobs;
       }
 
-      this.log.error('Failed to get blob sidecar', res.status);
+      this.log.warn(`Unable to get blob sidecar`, res.status);
       return [];
-    } catch (err) {
-      this.log.error(`Error getting blob sidecar`, err);
+    } catch (err: any) {
+      this.log.error(`Unable to get blob sidecar`, err.message);
       return [];
     }
   }
@@ -109,12 +109,12 @@ export class HttpBlobSinkClient implements BlobSinkClientInterface {
    */
   private async getSlotNumber(blockHash: string): Promise<number | undefined> {
     if (!this.consensusHostUrl) {
-      this.log.verbose('No consensus host url configured');
+      this.log.debug('No consensus host url configured');
       return undefined;
     }
 
     if (!this.executionHostUrl) {
-      this.log.verbose('No execution host url configured');
+      this.log.debug('No execution host url configured');
       return undefined;
     }
 

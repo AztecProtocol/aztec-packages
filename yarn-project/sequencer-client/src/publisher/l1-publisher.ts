@@ -661,7 +661,7 @@ export class L1Publisher {
         address: this.rollupContract.address,
       },
       {
-        blobs: proposeTxArgs.blobs.map(b => b.dataWithZeros),
+        blobs: proposeTxArgs.blobs.map(b => b.data),
         kzg,
         maxFeePerBlobGas: gasPrice.maxFeePerBlobGas ?? 10000000000n,
       },
@@ -973,7 +973,7 @@ export class L1Publisher {
       },
       {},
       {
-        blobs: encodedData.blobs.map(b => b.dataWithZeros),
+        blobs: encodedData.blobs.map(b => b.data),
         kzg,
       },
     );
@@ -1064,7 +1064,7 @@ export class L1Publisher {
           ...opts,
         },
         {
-          blobs: encodedData.blobs.map(b => b.dataWithZeros),
+          blobs: encodedData.blobs.map(b => b.data),
           kzg,
         },
       );
@@ -1107,7 +1107,7 @@ export class L1Publisher {
           ...opts,
         },
         {
-          blobs: encodedData.blobs.map(b => b.dataWithZeros),
+          blobs: encodedData.blobs.map(b => b.data),
           kzg,
         },
       );
@@ -1175,6 +1175,11 @@ export class L1Publisher {
    *   to calculate and will need to be mocked in e2e tests
    */
   protected sendBlobsToBlobSink(blockHash: string, blobs: Blob[]): Promise<boolean> {
+    blobs.forEach(b => {
+      this.log.verbose(`Blob: ${Buffer.from(b.data).toString('hex').slice(0, 100)}`);
+      this.log.verbose(`Blob commitment: ${Buffer.from(b.commitment).toString('hex')}`);
+      this.log.verbose(`Blob proof: ${Buffer.from(b.proof).toString('hex')}`);
+    });
     return this.blobSinkClient.sendBlobsToBlobSink(blockHash, blobs);
   }
 }

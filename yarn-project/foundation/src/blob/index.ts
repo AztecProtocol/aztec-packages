@@ -3,7 +3,8 @@ import type { Blob as BlobBuffer } from 'c-kzg';
 
 import { poseidon2Hash, sha256 } from '../crypto/index.js';
 import { Fr } from '../fields/index.js';
-import { BufferReader, serializeToBuffer } from '../serialize/index.js';
+import { createLogger } from '../log/index.js';
+import { BufferReader, FieldReader, serializeToBuffer } from '../serialize/index.js';
 
 // Importing directly from 'c-kzg' does not work, ignoring import/no-named-as-default-member err:
 /* eslint-disable import/no-named-as-default-member */
@@ -63,14 +64,31 @@ export class Blob {
   }
 
   static fromBlobBuffer(blob: BlobBuffer, multiBlobFieldsHash?: Fr): Blob {
+    const log = createLogger('Creating Blob');
+
     const fields: Fr[] = deserializeBlobFieldsFromBuffer(blob);
+    log.info(`Fields length: ${fields.length}`);
+    log.info(`Fields: ${fields.map(f => f.toString()).join(', ')}`);
     const data = Buffer.concat([blob], BYTES_PER_BLOB);
 
     // This matches the output of SpongeBlob.squeeze() in the blob circuit
     const fieldsHash = multiBlobFieldsHash ? multiBlobFieldsHash : poseidon2Hash(fields);
+    log.info(`Multi blob fields hash: ${multiBlobFieldsHash?.toString()}`);
+    log.info(`Fields hash: ${fieldsHash.toString()}`);
+
     const commitment = Buffer.from(blobToKzgCommitment(data));
+
+    log.info(`Commitment: ${commitment.toString('hex')}`);
+
     const challengeZ = poseidon2Hash([fieldsHash, ...commitmentToFields(commitment)]);
+
+    log.info(`Challenge Z: ${challengeZ.toString()}`);
+
     const res = computeKzgProof(data, challengeZ.toBuffer());
+
+    log.info(`Proof: ${Buffer.from(res[0]).toString('hex')}`);
+    log.info(`Evaluation Y: ${Buffer.from(res[1]).toString('hex')}`);
+
     if (!verifyKzgProof(commitment, challengeZ.toBuffer(), res[1], res[0])) {
       throw new Error(`KZG proof did not verify.`);
     }
@@ -89,12 +107,19 @@ export class Blob {
     if (blob.commitment.toString('hex') !== json.kzg_commitment.slice(2)) {
       throw new Error('KZG commitment does not match');
     }
-    if (blob.proof.toString('hex') !== json.kzg_proof.slice(2)) {
-      throw new Error('KZG proof does not match');
-    }
 
     return blob;
   }
+
+  toFields(): Fr[] {
+    return deserializeBlobFieldsFromBuffer(this.data);
+  }
+
+  // toPaddedFields(): Fr[] {
+  //   const fields = this.toFields();
+  //   const paddedFields = [...fields, ...new Array(FIELD_ELEMENTS_PER_BLOB - fields.length).fill(Fr.ZERO)];
+  //   return paddedFields;
+  // }
 
   // 48 bytes encoded in fields as [Fr, Fr] = [0->31, 31->48]
   commitmentToFields(): [Fr, Fr] {
@@ -197,7 +222,11 @@ export class Blob {
   // Returns as many blobs as we require to broadcast the given fields
   // Assumes we share the fields hash between all blobs
   static getBlobs(fields: Fr[]): Blob[] {
+    const log = createLogger('GET BLOBS');
     const numBlobs = Math.max(Math.ceil(fields.length / FIELD_ELEMENTS_PER_BLOB), 1);
+    log.info(`num blobs: ${numBlobs}`);
+    log.info(`num blobs: ${numBlobs}`);
+    log.info(`num blobs: ${numBlobs}`);
     const multiBlobFieldsHash = poseidon2Hash(fields);
     const res = [];
     for (let i = 0; i < numBlobs; i++) {
@@ -213,16 +242,35 @@ function commitmentToFields(commitment: Buffer): [Fr, Fr] {
   return [new Fr(commitment.subarray(0, 31)), new Fr(commitment.subarray(31, 48))];
 }
 
+const TX_START_PREFIX = 8392562855083340404n;
+const TX_START_PREFIX_BYTES_LENGTH = TX_START_PREFIX.toString(16).length / 2;
+const TX_EFFECT_PREFIX_BYTE_LENGTH = TX_START_PREFIX_BYTES_LENGTH + 7;
+
+function getLengthFromFirstField(firstField: Fr): number {
+  const buf = firstField.toBuffer().subarray(-TX_EFFECT_PREFIX_BYTE_LENGTH);
+  return new Fr(buf.subarray(TX_START_PREFIX_BYTES_LENGTH + 1, TX_START_PREFIX_BYTES_LENGTH + 3)).toNumber();
+}
+
 function deserializeBlobFieldsFromBuffer(blob: BlobBuffer): Fr[] {
   const reader = BufferReader.asReader(blob);
+  // >> 5 = / 32
   const array = reader.readArray(blob.length >> 5, Fr);
+  const fieldReader = FieldReader.asReader(array);
 
-  // Find the index of the last non-zero field
-  let lastNonZeroIndex = array.length - 1;
-  while (lastNonZeroIndex >= 0 && array[lastNonZeroIndex].isZero()) {
-    lastNonZeroIndex--;
+  // Trim the zeros from the end
+  // TODO: optimise
+
+  // tODO: tidy up
+  let currentField = fieldReader.readField();
+  let len = getLengthFromFirstField(currentField);
+  fieldReader.skip(len - 1);
+
+  while (!fieldReader.isFinished() && currentField && !currentField.isZero()) {
+    currentField = fieldReader.readField();
+    len = getLengthFromFirstField(currentField);
+    fieldReader.skip(len - 1);
   }
 
-  // Return the trimmed array
-  return array.slice(0, lastNonZeroIndex + 1);
+  // Do not return the end zeros
+  return array.slice(0, fieldReader.cursor);
 }
