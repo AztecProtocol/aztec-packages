@@ -1,4 +1,5 @@
 import {
+  type PrivateCallExecutionResult,
   type PrivateExecutionResult,
   type PrivateKernelProver,
   type PrivateKernelSimulateOutput,
@@ -10,6 +11,7 @@ import {
 } from '@aztec/circuit-types';
 import {
   CLIENT_IVC_VERIFICATION_KEY_LENGTH_IN_FIELDS,
+  ClientIvcProof,
   Fr,
   PROTOCOL_CONTRACT_TREE_HEIGHT,
   PrivateCallData,
@@ -31,7 +33,8 @@ import { vkAsFieldsMegaHonk } from '@aztec/foundation/crypto';
 import { createLogger } from '@aztec/foundation/log';
 import { assertLength } from '@aztec/foundation/serialize';
 import { pushTestData } from '@aztec/foundation/testing';
-import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types';
+import { Timer } from '@aztec/foundation/timer';
+import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types/vks';
 import {
   getProtocolContractSiblingPath,
   isProtocolContract,
@@ -88,6 +91,12 @@ const NULL_PROVE_OUTPUT: PrivateKernelSimulateOutput<PrivateKernelCircuitPublicI
   bytecode: Buffer.from([]),
 };
 
+export type ProvingConfig = {
+  simulate: boolean;
+  profile: boolean;
+  dryRun: boolean;
+};
+
 /**
  * The KernelProver class is responsible for generating kernel proofs.
  * It takes a transaction request, its signature, and the simulation result as inputs, and outputs a proof
@@ -97,7 +106,11 @@ const NULL_PROVE_OUTPUT: PrivateKernelSimulateOutput<PrivateKernelCircuitPublicI
 export class KernelProver {
   private log = createLogger('pxe:kernel-prover');
 
-  constructor(private oracle: ProvingDataOracle, private proofCreator: PrivateKernelProver) {}
+  constructor(
+    private oracle: ProvingDataOracle,
+    private proofCreator: PrivateKernelProver,
+    private fakeProofs = false,
+  ) {}
 
   /**
    * Generate a proof for a given transaction request and execution result.
@@ -115,10 +128,19 @@ export class KernelProver {
   async prove(
     txRequest: TxRequest,
     executionResult: PrivateExecutionResult,
-    profile: boolean = false,
-    dryRun: boolean = false,
+    { simulate, profile, dryRun }: ProvingConfig = { simulate: false, profile: false, dryRun: false },
   ): Promise<PrivateKernelSimulateOutput<PrivateKernelTailCircuitPublicInputs>> {
-    const executionStack = [executionResult];
+    if (simulate && profile) {
+      throw new Error('Cannot simulate and profile at the same time');
+    }
+
+    simulate = simulate || this.fakeProofs;
+
+    const timer = new Timer();
+
+    const isPrivateOnlyTx = this.isPrivateOnly(executionResult);
+
+    const executionStack = [executionResult.entrypoint];
     let firstIteration = true;
 
     let output = NULL_PROVE_OUTPUT;
@@ -151,7 +173,9 @@ export class KernelProver {
         );
         while (resetBuilder.needsReset()) {
           const privateInputs = await resetBuilder.build(this.oracle, noteHashLeafIndexMap);
-          output = await this.proofCreator.simulateProofReset(privateInputs);
+          output = simulate
+            ? await this.proofCreator.simulateReset(privateInputs)
+            : await this.proofCreator.generateResetOutput(privateInputs);
           // TODO(#7368) consider refactoring this redundant bytecode pushing
           acirs.push(output.bytecode);
           witnessStack.push(output.outputWitness);
@@ -193,9 +217,18 @@ export class KernelProver {
           getVKTreeRoot(),
           protocolContractTreeRoot,
           privateCallData,
+          isPrivateOnlyTx,
+          executionResult.firstNullifier,
         );
+        this.log.debug(
+          `Calling private kernel init with isPrivateOnly ${isPrivateOnlyTx} and firstNullifierHint ${proofInput.firstNullifierHint}`,
+        );
+
         pushTestData('private-kernel-inputs-init', proofInput);
-        output = await this.proofCreator.simulateProofInit(proofInput);
+
+        output = simulate
+          ? await this.proofCreator.simulateInit(proofInput)
+          : await this.proofCreator.generateInitOutput(proofInput);
 
         acirs.push(output.bytecode);
         witnessStack.push(output.outputWitness);
@@ -211,8 +244,12 @@ export class KernelProver {
           assertLength<Fr, typeof VK_TREE_HEIGHT>(previousVkMembershipWitness.siblingPath, VK_TREE_HEIGHT),
         );
         const proofInput = new PrivateKernelInnerCircuitPrivateInputs(previousKernelData, privateCallData);
+
         pushTestData('private-kernel-inputs-inner', proofInput);
-        output = await this.proofCreator.simulateProofInner(proofInput);
+
+        output = simulate
+          ? await this.proofCreator.simulateInner(proofInput)
+          : await this.proofCreator.generateInnerOutput(proofInput);
 
         acirs.push(output.bytecode);
         witnessStack.push(output.outputWitness);
@@ -232,7 +269,9 @@ export class KernelProver {
     );
     while (resetBuilder.needsReset()) {
       const privateInputs = await resetBuilder.build(this.oracle, noteHashLeafIndexMap);
-      output = await this.proofCreator.simulateProofReset(privateInputs);
+      output = simulate
+        ? await this.proofCreator.simulateReset(privateInputs)
+        : await this.proofCreator.generateResetOutput(privateInputs);
 
       acirs.push(output.bytecode);
       witnessStack.push(output.outputWitness);
@@ -264,7 +303,10 @@ export class KernelProver {
     const privateInputs = new PrivateKernelTailCircuitPrivateInputs(previousKernelData);
 
     pushTestData('private-kernel-inputs-ordering', privateInputs);
-    const tailOutput = await this.proofCreator.simulateProofTail(privateInputs);
+
+    const tailOutput = simulate
+      ? await this.proofCreator.simulateTail(privateInputs)
+      : await this.proofCreator.generateTailOutput(privateInputs);
     if (tailOutput.publicInputs.forPublic) {
       const privateLogs = privateInputs.previousKernel.publicInputs.end.privateLogs;
       const nonRevertiblePrivateLogs = tailOutput.publicInputs.forPublic.nonRevertibleAccumulatedData.privateLogs;
@@ -279,16 +321,22 @@ export class KernelProver {
       tailOutput.profileResult = { gateCounts };
     }
 
+    if (!simulate) {
+      this.log.info(`Private kernel witness generation took ${timer.ms()}ms`);
+    }
+
     // TODO(#7368) how do we 'bincode' encode these inputs?
-    if (!dryRun) {
+    if (!dryRun && !simulate) {
       const ivcProof = await this.proofCreator.createClientIvcProof(acirs, witnessStack);
       tailOutput.clientIvcProof = ivcProof;
+    } else {
+      tailOutput.clientIvcProof = ClientIvcProof.empty();
     }
 
     return tailOutput;
   }
 
-  private async createPrivateCallData({ publicInputs, vk: vkAsBuffer }: PrivateExecutionResult) {
+  private async createPrivateCallData({ publicInputs, vk: vkAsBuffer }: PrivateCallExecutionResult) {
     const { contractAddress, functionSelector } = publicInputs.callContext;
 
     const vkAsFields = vkAsFieldsMegaHonk(vkAsBuffer);
@@ -323,5 +371,18 @@ export class KernelProver {
       protocolContractSiblingPath,
       acirHash,
     });
+  }
+
+  private isPrivateOnly(executionResult: PrivateExecutionResult): boolean {
+    const isPrivateOnlyRecursive = (callResult: PrivateCallExecutionResult): boolean => {
+      const makesPublicCalls =
+        callResult.enqueuedPublicFunctionCalls.some(enqueuedCall => !enqueuedCall.isEmpty()) ||
+        !callResult.publicTeardownFunctionCall.isEmpty();
+      return (
+        !makesPublicCalls &&
+        callResult.nestedExecutions.every(nestedExecution => isPrivateOnlyRecursive(nestedExecution))
+      );
+    };
+    return isPrivateOnlyRecursive(executionResult.entrypoint);
   }
 }

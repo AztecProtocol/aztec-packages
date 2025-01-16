@@ -1,20 +1,36 @@
-import { type MerkleTreeId } from '@aztec/circuit-types';
 import {
-  type ARCHIVE_HEIGHT,
-  type AppendOnlyTreeSnapshot,
-  type BlockRootOrBlockMergePublicInputs,
+  type MerkleTreeId,
+  type ProofAndVerificationKey,
+  type PublicInputsAndRecursiveProof,
+} from '@aztec/circuit-types';
+import {
+  ARCHIVE_HEIGHT,
+  AppendOnlyTreeSnapshot,
+  type BlockHeader,
   Fr,
   type GlobalVariables,
-  type L1_TO_L2_MSG_SUBTREE_SIBLING_PATH_LENGTH,
-  type NESTED_RECURSIVE_PROOF_LENGTH,
+  L1_TO_L2_MSG_SUBTREE_SIBLING_PATH_LENGTH,
+  MembershipWitness,
+  type NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH,
   NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
-  type Proof,
-  type RecursiveProof,
-  type RootRollupPublicInputs,
-  type VerificationKeyAsFields,
+  type TUBE_PROOF_LENGTH,
+  VK_TREE_HEIGHT,
 } from '@aztec/circuits.js';
+import {
+  BlockMergeRollupInputs,
+  type BlockRootOrBlockMergePublicInputs,
+  ConstantRollupData,
+  EmptyBlockRootRollupInputs,
+  PreviousRollupBlockData,
+  RootRollupInputs,
+  type RootRollupPublicInputs,
+} from '@aztec/circuits.js/rollup';
+import { makeTuple } from '@aztec/foundation/array';
 import { padArrayEnd } from '@aztec/foundation/collection';
 import { type Tuple } from '@aztec/foundation/serialize';
+import { type TreeNodeLocation, UnbalancedTreeStore } from '@aztec/foundation/trees';
+import { getVKIndex, getVKSiblingPath, getVKTreeRoot } from '@aztec/noir-protocol-circuits-types/vks';
+import { protocolContractTreeRoot } from '@aztec/protocol-contracts';
 
 import { BlockProvingState } from './block-proving-state.js';
 
@@ -27,15 +43,6 @@ enum PROVING_STATE_LIFECYCLE {
   PROVING_STATE_REJECTED,
 }
 
-export type BlockMergeRollupInputData = {
-  inputs: [BlockRootOrBlockMergePublicInputs | undefined, BlockRootOrBlockMergePublicInputs | undefined];
-  proofs: [
-    RecursiveProof<typeof NESTED_RECURSIVE_PROOF_LENGTH> | undefined,
-    RecursiveProof<typeof NESTED_RECURSIVE_PROOF_LENGTH> | undefined,
-  ];
-  verificationKeys: [VerificationKeyAsFields | undefined, VerificationKeyAsFields | undefined];
-};
-
 export type ProvingResult = { status: 'success' } | { status: 'failure'; reason: string };
 
 /**
@@ -45,11 +52,18 @@ export type ProvingResult = { status: 'success' } | { status: 'failure'; reason:
  * Captures resolve and reject callbacks to provide a promise base interface to the consumer of our proving.
  */
 export class EpochProvingState {
+  private blockRootOrMergeProvingOutputs: UnbalancedTreeStore<
+    PublicInputsAndRecursiveProof<BlockRootOrBlockMergePublicInputs, typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH>
+  >;
+  private paddingBlockRootProvingOutput:
+    | PublicInputsAndRecursiveProof<BlockRootOrBlockMergePublicInputs, typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH>
+    | undefined;
+  private rootRollupProvingOutput: PublicInputsAndRecursiveProof<RootRollupPublicInputs> | undefined;
   private provingStateLifecycle = PROVING_STATE_LIFECYCLE.PROVING_STATE_CREATED;
 
-  private mergeRollupInputs: BlockMergeRollupInputData[] = [];
-  public rootRollupPublicInputs: RootRollupPublicInputs | undefined;
-  public finalProof: Proof | undefined;
+  // Map from tx hash to tube proof promise. Used when kickstarting tube proofs before tx processing.
+  public readonly cachedTubeProofs = new Map<string, Promise<ProofAndVerificationKey<typeof TUBE_PROOF_LENGTH>>>();
+
   public blocks: (BlockProvingState | undefined)[] = [];
 
   constructor(
@@ -58,46 +72,13 @@ export class EpochProvingState {
     public readonly totalNumBlocks: number,
     private completionCallback: (result: ProvingResult) => void,
     private rejectionCallback: (reason: string) => void,
-  ) {}
-
-  // Returns the number of levels of merge rollups
-  public get numMergeLevels() {
-    const totalLeaves = Math.max(2, this.totalNumBlocks);
-    return BigInt(Math.ceil(Math.log2(totalLeaves)) - 1);
-  }
-
-  // Calculates the index and level of the parent rollup circuit
-  // Based on tree implementation in unbalanced_tree.ts -> batchInsert()
-  // REFACTOR: This is repeated from the block orchestrator
-  public findMergeLevel(currentLevel: bigint, currentIndex: bigint) {
-    const totalLeaves = Math.max(2, this.totalNumBlocks);
-    const moveUpMergeLevel = (levelSize: number, index: bigint, nodeToShift: boolean) => {
-      levelSize /= 2;
-      if (levelSize & 1) {
-        [levelSize, nodeToShift] = nodeToShift ? [levelSize + 1, false] : [levelSize - 1, true];
-      }
-      index >>= 1n;
-      return { thisLevelSize: levelSize, thisIndex: index, shiftUp: nodeToShift };
-    };
-    let [thisLevelSize, shiftUp] = totalLeaves & 1 ? [totalLeaves - 1, true] : [totalLeaves, false];
-    const maxLevel = this.numMergeLevels + 1n;
-    let placeholder = currentIndex;
-    for (let i = 0; i < maxLevel - currentLevel; i++) {
-      ({ thisLevelSize, thisIndex: placeholder, shiftUp } = moveUpMergeLevel(thisLevelSize, placeholder, shiftUp));
-    }
-    let thisIndex = currentIndex;
-    let mergeLevel = currentLevel;
-    while (thisIndex >= thisLevelSize && mergeLevel != 0n) {
-      mergeLevel -= 1n;
-      ({ thisLevelSize, thisIndex, shiftUp } = moveUpMergeLevel(thisLevelSize, thisIndex, shiftUp));
-    }
-    return [mergeLevel - 1n, thisIndex >> 1n, thisIndex & 1n];
+  ) {
+    this.blockRootOrMergeProvingOutputs = new UnbalancedTreeStore(totalNumBlocks);
   }
 
   // Adds a block to the proving state, returns its index
   // Will update the proving life cycle if this is the last block
   public startNewBlock(
-    numTxs: number,
     globalVariables: GlobalVariables,
     l1ToL2Messages: Fr[],
     messageTreeSnapshot: AppendOnlyTreeSnapshot,
@@ -105,12 +86,12 @@ export class EpochProvingState {
     messageTreeSnapshotAfterInsertion: AppendOnlyTreeSnapshot,
     archiveTreeSnapshot: AppendOnlyTreeSnapshot,
     archiveTreeRootSiblingPath: Tuple<Fr, typeof ARCHIVE_HEIGHT>,
+    previousBlockHeader: BlockHeader,
     previousBlockHash: Fr,
   ): BlockProvingState {
     const index = globalVariables.blockNumber.toNumber() - this.firstBlockNumber;
     const block = new BlockProvingState(
       index,
-      numTxs,
       globalVariables,
       padArrayEnd(l1ToL2Messages, Fr.ZERO, NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP),
       messageTreeSnapshot,
@@ -118,6 +99,7 @@ export class EpochProvingState {
       messageTreeSnapshotAfterInsertion,
       archiveTreeSnapshot,
       archiveTreeRootSiblingPath,
+      previousBlockHeader,
       previousBlockHash,
       this,
     );
@@ -141,39 +123,89 @@ export class EpochProvingState {
     return this.provingStateLifecycle === PROVING_STATE_LIFECYCLE.PROVING_STATE_CREATED;
   }
 
-  /**
-   * Stores the inputs to a merge circuit and determines if the circuit is ready to be executed
-   * @param mergeInputs - The inputs to store
-   * @param indexWithinMerge - The index in the set of inputs to this merge circuit
-   * @param indexOfMerge - The global index of this merge circuit
-   * @returns True if the merge circuit is ready to be executed, false otherwise
-   */
-  public storeMergeInputs(
-    mergeInputs: [
+  public setBlockRootRollupProof(
+    blockIndex: number,
+    proof: PublicInputsAndRecursiveProof<
       BlockRootOrBlockMergePublicInputs,
-      RecursiveProof<typeof NESTED_RECURSIVE_PROOF_LENGTH>,
-      VerificationKeyAsFields,
-    ],
-    indexWithinMerge: number,
-    indexOfMerge: number,
+      typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH
+    >,
+  ): TreeNodeLocation {
+    return this.blockRootOrMergeProvingOutputs.setLeaf(blockIndex, proof);
+  }
+
+  public setBlockMergeRollupProof(
+    location: TreeNodeLocation,
+    proof: PublicInputsAndRecursiveProof<
+      BlockRootOrBlockMergePublicInputs,
+      typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH
+    >,
   ) {
-    if (!this.mergeRollupInputs[indexOfMerge]) {
-      const mergeInputData: BlockMergeRollupInputData = {
-        inputs: [undefined, undefined],
-        proofs: [undefined, undefined],
-        verificationKeys: [undefined, undefined],
-      };
-      mergeInputData.inputs[indexWithinMerge] = mergeInputs[0];
-      mergeInputData.proofs[indexWithinMerge] = mergeInputs[1];
-      mergeInputData.verificationKeys[indexWithinMerge] = mergeInputs[2];
-      this.mergeRollupInputs[indexOfMerge] = mergeInputData;
-      return false;
+    this.blockRootOrMergeProvingOutputs.setNode(location, proof);
+  }
+
+  public setRootRollupProof(proof: PublicInputsAndRecursiveProof<RootRollupPublicInputs>) {
+    this.rootRollupProvingOutput = proof;
+  }
+
+  public setPaddingBlockRootProof(
+    proof: PublicInputsAndRecursiveProof<
+      BlockRootOrBlockMergePublicInputs,
+      typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH
+    >,
+  ) {
+    this.paddingBlockRootProvingOutput = proof;
+  }
+
+  public getParentLocation(location: TreeNodeLocation) {
+    return this.blockRootOrMergeProvingOutputs.getParentLocation(location);
+  }
+
+  public getBlockMergeRollupInputs(mergeLocation: TreeNodeLocation) {
+    const [left, right] = this.blockRootOrMergeProvingOutputs.getChildren(mergeLocation);
+    if (!left || !right) {
+      throw new Error('At lease one child is not ready.');
     }
-    const mergeInputData = this.mergeRollupInputs[indexOfMerge];
-    mergeInputData.inputs[indexWithinMerge] = mergeInputs[0];
-    mergeInputData.proofs[indexWithinMerge] = mergeInputs[1];
-    mergeInputData.verificationKeys[indexWithinMerge] = mergeInputs[2];
-    return true;
+
+    return new BlockMergeRollupInputs([this.#getPreviousRollupData(left), this.#getPreviousRollupData(right)]);
+  }
+
+  public getRootRollupInputs(proverId: Fr) {
+    const [left, right] = this.#getChildProofsForRoot();
+    if (!left || !right) {
+      throw new Error('At lease one child is not ready.');
+    }
+
+    return RootRollupInputs.from({
+      previousRollupData: [this.#getPreviousRollupData(left), this.#getPreviousRollupData(right)],
+      proverId,
+    });
+  }
+
+  public getPaddingBlockRootInputs(proverId: Fr) {
+    const { block } = this.blocks[0] ?? {};
+    const l1ToL2Roots = this.blocks[0]?.getL1ToL2Roots();
+    if (!block || !l1ToL2Roots) {
+      throw new Error('Epoch needs one completed block in order to be padded.');
+    }
+
+    const constants = ConstantRollupData.from({
+      lastArchive: block.archive,
+      globalVariables: block.header.globalVariables,
+      vkTreeRoot: getVKTreeRoot(),
+      protocolContractTreeRoot,
+    });
+
+    return EmptyBlockRootRollupInputs.from({
+      l1ToL2Roots,
+      newL1ToL2MessageTreeRootSiblingPath: makeTuple(L1_TO_L2_MSG_SUBTREE_SIBLING_PATH_LENGTH, Fr.zero),
+      startL1ToL2MessageTreeSnapshot: AppendOnlyTreeSnapshot.zero(),
+      newArchiveSiblingPath: makeTuple(ARCHIVE_HEIGHT, Fr.zero),
+      previousBlockHash: block.header.hash(),
+      previousPartialState: block.header.state.partial,
+      constants,
+      proverId,
+      isPadding: true,
+    });
   }
 
   // Returns a specific transaction proving state
@@ -181,14 +213,25 @@ export class EpochProvingState {
     return this.blocks.find(block => block?.blockNumber === blockNumber);
   }
 
-  // Returns a set of merge rollup inputs
-  public getMergeInputs(indexOfMerge: number) {
-    return this.mergeRollupInputs[indexOfMerge];
+  public getEpochProofResult() {
+    if (!this.rootRollupProvingOutput) {
+      throw new Error('Unable to get epoch proof result. Root rollup is not ready.');
+    }
+
+    return {
+      proof: this.rootRollupProvingOutput.proof.binaryProof,
+      publicInputs: this.rootRollupProvingOutput.inputs,
+    };
+  }
+
+  public isReadyForBlockMerge(location: TreeNodeLocation) {
+    return this.blockRootOrMergeProvingOutputs.getSibling(location) !== undefined;
   }
 
   // Returns true if we have sufficient inputs to execute the block root rollup
   public isReadyForRootRollup() {
-    return !(this.mergeRollupInputs[0] === undefined || this.mergeRollupInputs[0].inputs.findIndex(p => !p) !== -1);
+    const childProofs = this.#getChildProofsForRoot();
+    return childProofs.every(p => !!p);
   }
 
   // Attempts to reject the proving state promise with a reason of 'cancelled'
@@ -214,5 +257,30 @@ export class EpochProvingState {
     }
     this.provingStateLifecycle = PROVING_STATE_LIFECYCLE.PROVING_STATE_RESOLVED;
     this.completionCallback(result);
+  }
+
+  #getChildProofsForRoot() {
+    const rootLocation = { level: 0, index: 0 };
+    // If there's only 1 block, its block root proof will be stored at the root.
+    return this.totalNumBlocks === 1
+      ? [this.blockRootOrMergeProvingOutputs.getNode(rootLocation), this.paddingBlockRootProvingOutput]
+      : this.blockRootOrMergeProvingOutputs.getChildren(rootLocation);
+  }
+
+  #getPreviousRollupData({
+    inputs,
+    proof,
+    verificationKey,
+  }: PublicInputsAndRecursiveProof<
+    BlockRootOrBlockMergePublicInputs,
+    typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH
+  >) {
+    const leafIndex = getVKIndex(verificationKey.keyAsFields);
+    return new PreviousRollupBlockData(
+      inputs,
+      proof,
+      verificationKey.keyAsFields,
+      new MembershipWitness(VK_TREE_HEIGHT, BigInt(leafIndex), getVKSiblingPath(leafIndex)),
+    );
   }
 }

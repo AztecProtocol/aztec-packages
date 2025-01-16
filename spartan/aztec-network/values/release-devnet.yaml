@@ -1,14 +1,10 @@
-##########
-# BEWARE #
-##########
-# You need to deploy the metrics helm chart before using this values file.
-# head to spartan/metrics and run `./install.sh`
-# (then `./forward.sh` if you want to see it)
 telemetry:
   enabled: true
 
 validator:
   replicas: 1
+  sequencer:
+    enforceFees: false # disabled until the bot can fund itself
   validatorKeys:
     - 0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80
   validatorAddresses:
@@ -20,16 +16,20 @@ bootNode:
   validator:
     disabled: true
 
-# use small provers to produce fake proofs
 proverAgent:
-  replicas: 1
+  replicas: 10
+  bb:
+    hardwareConcurrency: 31
+  gke:
+    spotEnabled: true
   resources:
     requests:
-      memory: "4Gi"
-      cpu: "1"
+      memory: "116Gi"
+      cpu: "31"
 
 bot:
   followChain: "PENDING"
+  feePaymentMethod: "none" # disabled until the bot can fund itself
   enabled: true
   txIntervalSeconds: 200
 
@@ -43,7 +43,7 @@ images:
 aztec:
   slotDuration: 36
   epochDuration: 32
-  realProofs: false # devnet does not use real proofs
+  realProofs: false
 
 jobs:
   deployL1Verifier:

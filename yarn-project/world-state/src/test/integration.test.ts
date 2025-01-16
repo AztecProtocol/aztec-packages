@@ -8,6 +8,7 @@ import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
 
 import { jest } from '@jest/globals';
 
+import { WorldStateInstrumentation } from '../instrumentation/instrumentation.js';
 import { NativeWorldStateService } from '../native/native_world_state.js';
 import { type WorldStateConfig } from '../synchronizer/config.js';
 import { createWorldState } from '../synchronizer/factory.js';
@@ -52,8 +53,16 @@ describe('world-state integration', () => {
 
     archiver = new MockPrefilledArchiver(blocks, messages);
 
-    db = (await createWorldState(config)) as NativeWorldStateService;
-    synchronizer = new TestWorldStateSynchronizer(db, archiver, config, new NoopTelemetryClient());
+    db = (await createWorldState(
+      config,
+      new WorldStateInstrumentation(new NoopTelemetryClient()),
+    )) as NativeWorldStateService;
+    synchronizer = new TestWorldStateSynchronizer(
+      db,
+      archiver,
+      config,
+      new WorldStateInstrumentation(new NoopTelemetryClient()),
+    );
     log.info(`Created synchronizer`);
   }, 30_000);
 
@@ -62,7 +71,7 @@ describe('world-state integration', () => {
     await db.close();
   });
 
-  const awaitSync = async (blockToSyncTo: number, finalized?: number, maxTimeoutMS = 5000) => {
+  const awaitSync = async (blockToSyncTo: number, finalized?: number, maxTimeoutMS = 30000) => {
     const startTime = Date.now();
     let sleepTime = 0;
     let tips = await synchronizer.getL2Tips();
@@ -146,7 +155,12 @@ describe('world-state integration', () => {
       await expectSynchedToBlock(5);
       await synchronizer.stopBlockStream();
 
-      synchronizer = new TestWorldStateSynchronizer(db, archiver, config, new NoopTelemetryClient());
+      synchronizer = new TestWorldStateSynchronizer(
+        db,
+        archiver,
+        config,
+        new WorldStateInstrumentation(new NoopTelemetryClient()),
+      );
 
       archiver.createBlocks(3);
       await synchronizer.start();
@@ -167,7 +181,7 @@ describe('world-state integration', () => {
         db,
         archiver,
         { ...config, worldStateProvenBlocksOnly: true },
-        new NoopTelemetryClient(),
+        new WorldStateInstrumentation(new NoopTelemetryClient()),
       );
 
       archiver.createBlocks(5);
@@ -206,7 +220,7 @@ describe('world-state integration', () => {
         db,
         archiver,
         { ...config, worldStateBlockCheckIntervalMS: 1000 },
-        new NoopTelemetryClient(),
+        new WorldStateInstrumentation(new NoopTelemetryClient()),
       );
     });
 

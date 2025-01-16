@@ -1,3 +1,4 @@
+import { type BlobSinkClientInterface } from '@aztec/blob-sink/client';
 import {
   type GetUnencryptedLogsResponse,
   type InBlock,
@@ -36,7 +37,6 @@ import {
   isValidUnconstrainedFunctionMembershipProof,
 } from '@aztec/circuits.js';
 import { createEthereumChain } from '@aztec/ethereum';
-import { type ContractArtifact } from '@aztec/foundation/abi';
 import { type AztecAddress } from '@aztec/foundation/aztec-address';
 import { type EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
@@ -47,11 +47,11 @@ import { elapsed } from '@aztec/foundation/timer';
 import { InboxAbi, RollupAbi } from '@aztec/l1-artifacts';
 import {
   ContractClassRegisteredEvent,
-  ContractInstanceDeployedEvent,
   PrivateFunctionBroadcastedEvent,
   UnconstrainedFunctionBroadcastedEvent,
-} from '@aztec/protocol-contracts';
-import { type TelemetryClient } from '@aztec/telemetry-client';
+} from '@aztec/protocol-contracts/class-registerer';
+import { ContractInstanceDeployedEvent } from '@aztec/protocol-contracts/instance-deployer';
+import { Attributes, type TelemetryClient, type Traceable, type Tracer, trackSpan } from '@aztec/telemetry-client';
 
 import groupBy from 'lodash.groupby';
 import {
@@ -85,7 +85,7 @@ export type ArchiveSource = L2BlockSource &
  * Responsible for handling robust L1 polling so that other components do not need to
  * concern themselves with it.
  */
-export class Archiver implements ArchiveSource {
+export class Archiver implements ArchiveSource, Traceable {
   /**
    * A promise in which we will be continually fetching new L2 blocks.
    */
@@ -98,6 +98,8 @@ export class Archiver implements ArchiveSource {
 
   public l1BlockNumber: bigint | undefined;
   public l1Timestamp: bigint | undefined;
+
+  public readonly tracer: Tracer;
 
   /**
    * Creates a new instance of the Archiver.
@@ -114,10 +116,12 @@ export class Archiver implements ArchiveSource {
     private readonly l1Addresses: { rollupAddress: EthAddress; inboxAddress: EthAddress; registryAddress: EthAddress },
     readonly dataStore: ArchiverDataStore,
     private readonly config: { pollingIntervalMs: number; batchSize: number },
+    private readonly _blobSinkClient: BlobSinkClientInterface,
     private readonly instrumentation: ArchiverInstrumentation,
     private readonly l1constants: L1RollupConstants,
     private readonly log: Logger = createLogger('archiver'),
   ) {
+    this.tracer = instrumentation.tracer;
     this.store = new ArchiverStoreHelper(dataStore);
 
     this.rollup = getContract({
@@ -143,7 +147,7 @@ export class Archiver implements ArchiveSource {
   public static async createAndSync(
     config: ArchiverConfig,
     archiverStore: ArchiverDataStore,
-    telemetry: TelemetryClient,
+    deps: { telemetry: TelemetryClient; blobSinkClient: BlobSinkClientInterface },
     blockUntilSynced = true,
   ): Promise<Archiver> {
     const chain = createEthereumChain(config.l1RpcUrl, config.l1ChainId);
@@ -174,7 +178,8 @@ export class Archiver implements ArchiveSource {
         pollingIntervalMs: config.archiverPollingIntervalMS ?? 10_000,
         batchSize: config.archiverBatchSize ?? 100,
       },
-      await ArchiverInstrumentation.new(telemetry, () => archiverStore.estimateSize()),
+      deps.blobSinkClient,
+      await ArchiverInstrumentation.new(deps.telemetry, () => archiverStore.estimateSize()),
       { l1StartBlock, l1GenesisTime, epochDuration, slotDuration, ethereumSlotDuration },
     );
     await archiver.start(blockUntilSynced);
@@ -194,24 +199,14 @@ export class Archiver implements ArchiveSource {
       await this.sync(blockUntilSynced);
     }
 
-    this.runningPromise = new RunningPromise(() => this.safeSync(), this.config.pollingIntervalMs);
+    this.runningPromise = new RunningPromise(() => this.sync(false), this.log, this.config.pollingIntervalMs);
     this.runningPromise.start();
-  }
-
-  /**
-   * Syncs and catches exceptions.
-   */
-  private async safeSync() {
-    try {
-      await this.sync(false);
-    } catch (error) {
-      this.log.error('Error syncing archiver', error);
-    }
   }
 
   /**
    * Fetches logs from L1 contracts and processes them.
    */
+  @trackSpan('Archiver.sync', initialRun => ({ [Attributes.INITIAL_SYNC]: initialRun }))
   private async sync(initialRun: boolean) {
     /**
      * We keep track of three "pointers" to L1 blocks:
@@ -279,7 +274,10 @@ export class Archiver implements ArchiveSource {
     }
 
     if (initialRun) {
-      this.log.info(`Initial archiver sync to L1 block ${currentL1BlockNumber} complete.`);
+      this.log.info(`Initial archiver sync to L1 block ${currentL1BlockNumber} complete.`, {
+        l1BlockNumber: currentL1BlockNumber,
+        ...(await this.getL2Tips()),
+      });
     }
   }
 
@@ -302,6 +300,7 @@ export class Archiver implements ArchiveSource {
           `to ${provenBlockNumber} due to predicted reorg at L1 block ${currentL1BlockNumber}. ` +
           `Updated L2 latest block is ${await this.getBlockNumber()}.`,
       );
+      this.instrumentation.processPrune();
       // TODO(palla/reorg): Do we need to set the block synched L1 block number here?
       // Seems like the next iteration should handle this.
       // await this.store.setBlockSynchedL1BlockNumber(currentL1BlockNumber);
@@ -368,17 +367,35 @@ export class Archiver implements ArchiveSource {
 
     const updateProvenBlock = async () => {
       const localBlockForDestinationProvenBlockNumber = await this.getBlock(Number(provenBlockNumber));
+
+      // Sanity check. I've hit what seems to be a state where the proven block is set to a value greater than the latest
+      // synched block when requesting L2Tips from the archiver. This is the only place where the proven block is set.
+      const synched = await this.store.getSynchedL2BlockNumber();
+      if (localBlockForDestinationProvenBlockNumber && synched < localBlockForDestinationProvenBlockNumber?.number) {
+        this.log.error(
+          `Hit local block greater than last synched block: ${localBlockForDestinationProvenBlockNumber.number} > ${synched}`,
+        );
+      }
+
       if (
         localBlockForDestinationProvenBlockNumber &&
         provenArchive === localBlockForDestinationProvenBlockNumber.archive.root.toString()
       ) {
-        await this.store.setProvenL2BlockNumber(Number(provenBlockNumber));
-        // if we are here then we must have a valid proven epoch number
-        await this.store.setProvenL2EpochNumber(Number(provenEpochNumber));
-        this.log.info(`Updated proven chain to block ${provenBlockNumber} (epoch ${provenEpochNumber})`, {
-          provenBlockNumber,
-          provenEpochNumber,
-        });
+        const [localProvenEpochNumber, localProvenBlockNumber] = await Promise.all([
+          this.store.getProvenL2EpochNumber(),
+          this.store.getProvenL2BlockNumber(),
+        ]);
+        if (
+          localProvenEpochNumber !== Number(provenEpochNumber) ||
+          localProvenBlockNumber !== Number(provenBlockNumber)
+        ) {
+          await this.store.setProvenL2BlockNumber(Number(provenBlockNumber));
+          await this.store.setProvenL2EpochNumber(Number(provenEpochNumber));
+          this.log.info(`Updated proven chain to block ${provenBlockNumber} (epoch ${provenEpochNumber})`, {
+            provenBlockNumber,
+            provenEpochNumber,
+          });
+        }
       }
       this.instrumentation.updateLastProvenBlock(Number(provenBlockNumber));
     };
@@ -491,6 +508,8 @@ export class Archiver implements ArchiveSource {
         this.log.info(`Downloaded L2 block ${block.data.number}`, {
           blockHash: block.data.hash(),
           blockNumber: block.data.number,
+          txCount: block.data.body.txEffects.length,
+          globalVariables: block.data.header.globalVariables.toInspect(),
         });
       }
     } while (searchEndBlock < currentL1BlockNumber);
@@ -511,6 +530,10 @@ export class Archiver implements ArchiveSource {
 
     this.log.info('Stopped.');
     return Promise.resolve();
+  }
+
+  public getL1Constants(): Promise<L1RollupConstants> {
+    return Promise.resolve(this.l1constants);
   }
 
   public getRollupAddress(): Promise<EthAddress> {
@@ -572,17 +595,22 @@ export class Archiver implements ArchiveSource {
       return true;
     }
 
+    // If we haven't run an initial sync, just return false.
+    const l1Timestamp = this.l1Timestamp;
+    if (l1Timestamp === undefined) {
+      return false;
+    }
+
     // If not, the epoch may also be complete if the L2 slot has passed without a block
-    // We compute this based on the timestamp for the given epoch and the timestamp of the last L1 block
-    const l1Timestamp = this.getL1Timestamp();
+    // We compute this based on the end timestamp for the given epoch and the timestamp of the last L1 block
     const [_startTimestamp, endTimestamp] = getTimestampRangeForEpoch(epochNumber, this.l1constants);
 
     // For this computation, we throw in a few extra seconds just for good measure,
     // since we know the next L1 block won't be mined within this range. Remember that
-    // l1timestamp is the timestamp of the last l1 block we've seen, so this 3s rely on
-    // the fact that L1 won't mine two blocks within 3s of each other.
+    // l1timestamp is the timestamp of the last l1 block we've seen, so this relies on
+    // the fact that L1 won't mine two blocks within this time of each other.
     // TODO(palla/reorg): Is the above a safe assumption?
-    const leeway = 3n;
+    const leeway = 1n;
     return l1Timestamp + leeway >= endTimestamp;
   }
 
@@ -771,12 +799,8 @@ export class Archiver implements ArchiveSource {
     return;
   }
 
-  addContractArtifact(address: AztecAddress, artifact: ContractArtifact): Promise<void> {
-    return this.store.addContractArtifact(address, artifact);
-  }
-
-  getContractArtifact(address: AztecAddress): Promise<ContractArtifact | undefined> {
-    return this.store.getContractArtifact(address);
+  registerContractFunctionSignatures(address: AztecAddress, signatures: string[]): Promise<void> {
+    return this.store.registerContractFunctionSignatures(address, signatures);
   }
 
   getContractFunctionName(address: AztecAddress, selector: FunctionSelector): Promise<string | undefined> {
@@ -795,11 +819,13 @@ export class Archiver implements ArchiveSource {
     ] as const);
 
     if (latestBlockNumber > 0 && !latestBlockHeader) {
-      throw new Error('Failed to retrieve latest block header');
+      throw new Error(`Failed to retrieve latest block header for block ${latestBlockNumber}`);
     }
 
     if (provenBlockNumber > 0 && !provenBlockHeader) {
-      throw new Error('Failed to retrieve proven block header');
+      throw new Error(
+        `Failed to retrieve proven block header for block ${provenBlockNumber} (latest block is ${latestBlockNumber})`,
+      );
     }
 
     return {
@@ -919,7 +945,7 @@ class ArchiverStoreHelper
     for (const [classIdString, classEvents] of Object.entries(
       groupBy([...privateFnEvents, ...unconstrainedFnEvents], e => e.contractClassId.toString()),
     )) {
-      const contractClassId = Fr.fromString(classIdString);
+      const contractClassId = Fr.fromHexString(classIdString);
       const contractClass = await this.getContractClass(contractClassId);
       if (!contractClass) {
         this.#log.warn(`Skipping broadcasted functions as contract class ${contractClassId.toString()} was not found`);
@@ -1083,11 +1109,8 @@ class ArchiverStoreHelper
   getContractClassIds(): Promise<Fr[]> {
     return this.store.getContractClassIds();
   }
-  addContractArtifact(address: AztecAddress, contract: ContractArtifact): Promise<void> {
-    return this.store.addContractArtifact(address, contract);
-  }
-  getContractArtifact(address: AztecAddress): Promise<ContractArtifact | undefined> {
-    return this.store.getContractArtifact(address);
+  registerContractFunctionSignatures(address: AztecAddress, signatures: string[]): Promise<void> {
+    return this.store.registerContractFunctionSignatures(address, signatures);
   }
   getContractFunctionName(address: AztecAddress, selector: FunctionSelector): Promise<string | undefined> {
     return this.store.getContractFunctionName(address, selector);

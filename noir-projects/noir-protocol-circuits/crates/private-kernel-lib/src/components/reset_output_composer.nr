@@ -11,7 +11,10 @@ use dep::types::{
     },
     address::AztecAddress,
     constants::{MAX_NOTE_HASHES_PER_TX, MAX_NULLIFIERS_PER_TX, MAX_PRIVATE_LOGS_PER_TX},
-    hash::{compute_siloed_private_log_field, silo_note_hash, silo_nullifier},
+    hash::{
+        compute_siloed_private_log_field, compute_unique_siloed_note_hash, silo_note_hash,
+        silo_nullifier,
+    },
     utils::arrays::sort_by_counter_asc,
 };
 
@@ -73,10 +76,25 @@ impl<let NH_RR_PENDING: u32, let NH_RR_SETTLED: u32, let NLL_RR_PENDING: u32, le
     unconstrained fn get_sorted_siloed_note_hashes(
         self,
     ) -> [ScopedNoteHash; MAX_NOTE_HASHES_PER_TX] {
+        let is_private_only = self.previous_kernel.is_private_only;
+        let min_revertible_side_effect_counter =
+            self.previous_kernel.min_revertible_side_effect_counter;
         let mut note_hashes = sort_by_counter_asc(self.hints.kept_note_hashes);
-        let first_nullifier = self.previous_kernel.end.nullifiers[0].value();
         for i in 0..note_hashes.len() {
-            note_hashes[i].note_hash.value = silo_note_hash(note_hashes[i], first_nullifier, i);
+            let note_hash = note_hashes[i];
+            let siloed_note_hash = silo_note_hash(note_hash);
+            let unique_note_hash = compute_unique_siloed_note_hash(
+                siloed_note_hash,
+                self.previous_kernel.claimed_first_nullifier,
+                i,
+            );
+            // We don't silo with nonce revertible note hashes, since we don't know their final position in the tx
+            note_hashes[i].note_hash.value = if is_private_only
+                | (note_hash.counter() < min_revertible_side_effect_counter) {
+                unique_note_hash
+            } else {
+                siloed_note_hash
+            };
             note_hashes[i].contract_address = AztecAddress::zero();
         }
         note_hashes

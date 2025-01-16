@@ -1,10 +1,13 @@
 import {
   ClientIvcProof,
+  Fr,
+  type GasSettings,
   PrivateKernelTailCircuitPublicInputs,
+  PrivateLog,
   type PrivateToPublicAccumulatedData,
   type ScopedLogHash,
 } from '@aztec/circuits.js';
-import { type Buffer32 } from '@aztec/foundation/buffer';
+import { Buffer32 } from '@aztec/foundation/buffer';
 import { arraySerializedSizeOfNonEmpty } from '@aztec/foundation/collection';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 import { type FieldsOf } from '@aztec/foundation/types';
@@ -25,6 +28,8 @@ import { TxHash } from './tx_hash.js';
  */
 export class Tx extends Gossipable {
   static override p2pTopic: string;
+  // For memoization
+  private txHash: TxHash | undefined;
 
   constructor(
     /**
@@ -65,7 +70,7 @@ export class Tx extends Gossipable {
 
   // Gossipable method
   override p2pMessageIdentifier(): Buffer32 {
-    return this.getTxHash();
+    return new Buffer32(this.getTxHash().toBuffer());
   }
 
   hasPublicCalls() {
@@ -84,6 +89,10 @@ export class Tx extends Gossipable {
 
   getPublicTeardownExecutionRequest(): PublicExecutionRequest | undefined {
     return this.publicTeardownFunctionCall.isEmpty() ? undefined : this.publicTeardownFunctionCall;
+  }
+
+  getGasSettings(): GasSettings {
+    return this.data.constants.txContext.gasSettings;
   }
 
   /**
@@ -167,16 +176,27 @@ export class Tx extends Gossipable {
   }
 
   /**
-   * Construct & return transaction hash.
-   * @returns The transaction's hash.
+   * Computes (if necessary) & return transaction hash.
+   * @returns The hash of the public inputs of the private kernel tail circuit.
    */
-  getTxHash(): TxHash {
-    // Private kernel functions are executed client side and for this reason tx hash is already set as first nullifier
-    const firstNullifier = this.data.getNonEmptyNullifiers()[0];
-    if (!firstNullifier || firstNullifier.isZero()) {
-      throw new Error(`Cannot get tx hash since first nullifier is missing`);
+  getTxHash(forceRecompute = false): TxHash {
+    if (!this.txHash || forceRecompute) {
+      const hash = this.data.forPublic
+        ? this.data.toPrivateToPublicKernelCircuitPublicInputs().hash()
+        : this.data.toPrivateToRollupKernelCircuitPublicInputs().hash();
+      this.txHash = new TxHash(hash);
     }
-    return new TxHash(firstNullifier.toBuffer());
+    return this.txHash!;
+  }
+
+  /**
+   * Allows setting the hash of the Tx.
+   * Use this when you want to skip computing it from the original data.
+   * Don't set a Tx hash received from an untrusted source.
+   * @param hash - The hash to set.
+   */
+  setTxHash(hash: TxHash) {
+    this.txHash = hash;
   }
 
   /** Returns stats about this tx. */
@@ -222,6 +242,20 @@ export class Tx extends Gossipable {
   }
 
   /**
+   * Estimates the tx size based on its private effects. Note that the actual size of the tx
+   * after processing will probably be larger, as public execution would generate more data.
+   */
+  getEstimatedPrivateTxEffectsSize() {
+    return (
+      this.unencryptedLogs.getSerializedLength() +
+      this.contractClassLogs.getSerializedLength() +
+      this.data.getNonEmptyNoteHashes().length * Fr.SIZE_IN_BYTES +
+      this.data.getNonEmptyNullifiers().length * Fr.SIZE_IN_BYTES +
+      this.data.getNonEmptyPrivateLogs().length * PrivateLog.SIZE_IN_BYTES
+    );
+  }
+
+  /**
    * Convenience function to get a hash out of a tx or a tx-like.
    * @param tx - Tx-like object.
    * @returns - The hash.
@@ -253,7 +287,7 @@ export class Tx extends Gossipable {
       PublicExecutionRequest.fromBuffer(x.toBuffer()),
     );
     const publicTeardownFunctionCall = PublicExecutionRequest.fromBuffer(tx.publicTeardownFunctionCall.toBuffer());
-    return new Tx(
+    const clonedTx = new Tx(
       publicInputs,
       clientIvcProof,
       unencryptedLogs,
@@ -261,6 +295,11 @@ export class Tx extends Gossipable {
       enqueuedPublicFunctionCalls,
       publicTeardownFunctionCall,
     );
+    if (tx.txHash) {
+      clonedTx.setTxHash(TxHash.fromBuffer(tx.txHash.toBuffer()));
+    }
+
+    return clonedTx;
   }
 
   static random() {

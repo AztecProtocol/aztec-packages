@@ -81,6 +81,20 @@ spec:
               echo "AZTEC_NODE_URL=${AZTEC_NODE_URL}"
               node --no-warnings /usr/src/yarn-project/aztec/dest/bin/index.js start --pxe
           env:
+            - name: K8S_POD_UID
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.uid
+            - name: K8S_POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+            - name: OTEL_SERVICE_NAME
+              value: pxe
+            - name: K8S_NAMESPACE_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
             - name: AZTEC_PORT
               value: "{{ .Values.pxe.service.nodePort }}"
             - name: LOG_JSON
@@ -89,6 +103,8 @@ spec:
               value: "{{ .Values.pxe.logLevel }}"
             - name: PXE_PROVER_ENABLED
               value: "{{ .Values.aztec.realProofs }}"
+            - name: USE_GCLOUD_OBSERVABILITY
+              value: "{{ .Values.telemetry.useGcloudObservability }}"
           ports:
             - name: http
               containerPort: {{ .Values.pxe.service.nodePort }}
@@ -100,8 +116,8 @@ spec:
                 - -c
                 - |
                   curl -s -X POST -H 'content-type: application/json' \
-                  -d '{"jsonrpc":"2.0","method":"pxe_isGlobalStateSynchronized","params":[],"id":67}' \
-                  127.0.0.1:{{ .Values.pxe.service.nodePort }} | grep -q '"result":true'
+                  -d '{"jsonrpc":"2.0","method":"pxe_getNodeInfo","params":[],"id":67}' \
+                  127.0.0.1:{{ .Values.pxe.service.nodePort }} | grep -q '"protocolVersion":1'
             initialDelaySeconds: {{ .Values.pxe.readinessProbe.initialDelaySeconds }}
             periodSeconds: {{ .Values.pxe.readinessProbe.periodSeconds }}
             timeoutSeconds: {{ .Values.pxe.readinessProbe.timeoutSeconds }}

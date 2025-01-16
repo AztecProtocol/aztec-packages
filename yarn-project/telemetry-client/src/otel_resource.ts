@@ -1,4 +1,4 @@
-import { awsEc2Detector, awsEcsDetector } from '@opentelemetry/resource-detector-aws';
+import { GcpDetectorSync } from '@google-cloud/opentelemetry-resource-util';
 import {
   type IResource,
   detectResourcesSync,
@@ -11,16 +11,14 @@ import {
 import { aztecDetector } from './aztec_resource_detector.js';
 
 export async function getOtelResource(): Promise<IResource> {
-  // TODO(palla/log): Do we really need *all* this info?
   const resource = detectResourcesSync({
     detectors: [
       osDetectorSync,
       envDetectorSync,
       processDetectorSync,
       serviceInstanceIdDetectorSync,
-      awsEc2Detector,
-      awsEcsDetector,
       aztecDetector,
+      new GcpDetectorSync(),
     ],
   });
 

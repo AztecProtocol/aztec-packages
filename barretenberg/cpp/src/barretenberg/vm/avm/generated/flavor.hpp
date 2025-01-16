@@ -111,16 +111,19 @@ class AvmFlavor {
     using VerifierCommitmentKey = AvmFlavorSettings::VerifierCommitmentKey;
     using RelationSeparator = AvmFlavorSettings::RelationSeparator;
 
+    // indicates when evaluating sumcheck, edges must be extended to be MAX_TOTAL_RELATION_LENGTH
+    static constexpr bool USE_SHORT_MONOMIALS = false;
+
     // This flavor would not be used with ZK Sumcheck
     static constexpr bool HasZK = false;
 
     static constexpr size_t NUM_PRECOMPUTED_ENTITIES = 21;
     static constexpr size_t NUM_WITNESS_ENTITIES = 743;
-    static constexpr size_t NUM_SHIFTED_ENTITIES = 50;
+    static constexpr size_t NUM_SHIFTED_ENTITIES = 49;
     static constexpr size_t NUM_WIRES = NUM_WITNESS_ENTITIES + NUM_PRECOMPUTED_ENTITIES;
     // We have two copies of the witness entities, so we subtract the number of fixed ones (they have no shift), one for
     // the unshifted and one for the shifted
-    static constexpr size_t NUM_ALL_ENTITIES = 814;
+    static constexpr size_t NUM_ALL_ENTITIES = 813;
     // The total number of witnesses including shifts and derived entities.
     static constexpr size_t NUM_ALL_WITNESS_ENTITIES = NUM_WITNESS_ENTITIES + NUM_SHIFTED_ENTITIES;
 
@@ -348,6 +351,7 @@ class AvmFlavor {
     class VerificationKey : public VerificationKey_<PrecomputedEntities<Commitment>, VerifierCommitmentKey> {
       public:
         using FF = VerificationKey_::FF;
+        static constexpr size_t NUM_PRECOMPUTED_COMMITMENTS = NUM_PRECOMPUTED_ENTITIES;
 
         VerificationKey() = default;
 
@@ -363,7 +367,7 @@ class AvmFlavor {
 
         VerificationKey(const size_t circuit_size,
                         const size_t num_public_inputs,
-                        std::array<Commitment, NUM_PRECOMPUTED_ENTITIES> const& precomputed_cmts)
+                        std::array<Commitment, NUM_PRECOMPUTED_COMMITMENTS> const& precomputed_cmts)
             : VerificationKey_(circuit_size, num_public_inputs)
         {
             for (auto [vk_cmt, cmt] : zip_view(this->get_all(), precomputed_cmts)) {

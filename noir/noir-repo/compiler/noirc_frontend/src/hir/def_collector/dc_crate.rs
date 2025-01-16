@@ -119,9 +119,11 @@ pub struct ModuleAttribute {
     pub file_id: FileId,
     // The module this attribute is attached to
     pub module_id: LocalModuleId,
+
     // The file where the attribute exists (it could be the same as `file_id`
-    // or a different one if it's an inner attribute in a different file)
+    // or a different one if it is an outer attribute in the parent of the module it applies to)
     pub attribute_file_id: FileId,
+
     // The module where the attribute is defined (similar to `attribute_file_id`,
     // it could be different than `module_id` for inner attributes)
     pub attribute_module_id: LocalModuleId,
@@ -273,7 +275,7 @@ impl DefCollector {
         ast: SortedModule,
         root_file_id: FileId,
         debug_comptime_in_file: Option<&str>,
-        error_on_unused_items: bool,
+        pedantic_solving: bool,
     ) -> Vec<(CompilationError, FileId)> {
         let mut errors: Vec<(CompilationError, FileId)> = vec![];
         let crate_id = def_map.krate;
@@ -286,12 +288,11 @@ impl DefCollector {
         let crate_graph = &context.crate_graph[crate_id];
 
         for dep in crate_graph.dependencies.clone() {
-            let error_on_usage_tracker = false;
             errors.extend(CrateDefMap::collect_defs(
                 dep.crate_id,
                 context,
                 debug_comptime_in_file,
-                error_on_usage_tracker,
+                pedantic_solving,
             ));
 
             let dep_def_map =
@@ -457,14 +458,17 @@ impl DefCollector {
             })
         });
 
-        let mut more_errors =
-            Elaborator::elaborate(context, crate_id, def_collector.items, debug_comptime_in_file);
+        let mut more_errors = Elaborator::elaborate(
+            context,
+            crate_id,
+            def_collector.items,
+            debug_comptime_in_file,
+            pedantic_solving,
+        );
 
         errors.append(&mut more_errors);
 
-        if error_on_unused_items {
-            Self::check_unused_items(context, crate_id, &mut errors);
-        }
+        Self::check_unused_items(context, crate_id, &mut errors);
 
         errors
     }

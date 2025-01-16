@@ -1,5 +1,5 @@
-use crate::abis::constant_rollup_data::ConstantRollupData;
 use dep::types::{
+    abis::{constant_rollup_data::ConstantRollupData, sponge_blob::SpongeBlob},
     constants::BASE_OR_MERGE_PUBLIC_INPUTS_LENGTH,
     partial_state_reference::PartialStateReference,
     traits::{Deserialize, Empty, Serialize},
@@ -19,12 +19,15 @@ pub struct BaseOrMergeRollupPublicInputs {
     pub(crate) start: PartialStateReference,
     pub(crate) end: PartialStateReference,
 
-    // We hash public inputs to make them constant-sized (to then be unpacked on-chain)
+    // A poseidon sponge of all tx effects to be opened in block root, then added to blob(s)
+    // In sponge form so we can check left.end == right.start, rather than recreate a tree later
+    pub(crate) start_sponge_blob: SpongeBlob,
+    pub(crate) end_sponge_blob: SpongeBlob,
+
+    // We hash public inputs to make them constant-sized (to then be opened on-chain)
     // U128 isn't safe if it's an input to the circuit (it won't automatically constrain the witness)
     // So we want to constrain it when casting these fields to U128
 
-    // We hash public inputs to make them constant-sized (to then be unpacked on-chain)
-    pub(crate) txs_effects_hash: Field,
     pub(crate) out_hash: Field,
 
     pub(crate) accumulated_fees: Field,
@@ -39,7 +42,8 @@ impl Empty for BaseOrMergeRollupPublicInputs {
             constants: ConstantRollupData::empty(),
             start: PartialStateReference::empty(),
             end: PartialStateReference::empty(),
-            txs_effects_hash: 0,
+            start_sponge_blob: SpongeBlob::empty(),
+            end_sponge_blob: SpongeBlob::empty(),
             out_hash: 0,
             accumulated_fees: 0,
             accumulated_mana_used: 0,
@@ -54,7 +58,8 @@ impl Eq for BaseOrMergeRollupPublicInputs {
             & (self.constants.eq(other.constants))
             & (self.start.eq(other.start))
             & (self.end.eq(other.end))
-            & (self.txs_effects_hash == other.txs_effects_hash)
+            & (self.start_sponge_blob.eq(other.start_sponge_blob))
+            & (self.end_sponge_blob.eq(other.end_sponge_blob))
             & (self.out_hash == other.out_hash)
             & (self.accumulated_fees == other.accumulated_fees)
             & (self.accumulated_mana_used == other.accumulated_mana_used)
@@ -70,7 +75,8 @@ impl Serialize<BASE_OR_MERGE_PUBLIC_INPUTS_LENGTH> for BaseOrMergeRollupPublicIn
         fields.extend_from_array(self.constants.serialize());
         fields.extend_from_array(self.start.serialize());
         fields.extend_from_array(self.end.serialize());
-        fields.push(self.txs_effects_hash as Field);
+        fields.extend_from_array(self.start_sponge_blob.serialize());
+        fields.extend_from_array(self.end_sponge_blob.serialize());
         fields.push(self.out_hash as Field);
         fields.push(self.accumulated_fees as Field);
         fields.push(self.accumulated_mana_used as Field);
@@ -91,7 +97,8 @@ impl Deserialize<BASE_OR_MERGE_PUBLIC_INPUTS_LENGTH> for BaseOrMergeRollupPublic
             constants: reader.read_struct(ConstantRollupData::deserialize),
             start: reader.read_struct(PartialStateReference::deserialize),
             end: reader.read_struct(PartialStateReference::deserialize),
-            txs_effects_hash: reader.read(),
+            start_sponge_blob: reader.read_struct(SpongeBlob::deserialize),
+            end_sponge_blob: reader.read_struct(SpongeBlob::deserialize),
             out_hash: reader.read(),
             accumulated_fees: reader.read(),
             accumulated_mana_used: reader.read(),

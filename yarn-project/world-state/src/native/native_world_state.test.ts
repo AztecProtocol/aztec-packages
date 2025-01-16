@@ -47,6 +47,14 @@ describe('NativeWorldState', () => {
     let block: L2Block;
     let messages: Fr[];
 
+    const findLeafIndex = async (leaf: Fr, ws: NativeWorldStateService) => {
+      const indices = await ws.getCommitted().findLeafIndices(MerkleTreeId.NOTE_HASH_TREE, [leaf]);
+      if (indices.length === 0) {
+        return undefined;
+      }
+      return indices[0];
+    };
+
     beforeAll(async () => {
       const ws = await NativeWorldStateService.new(rollupAddress, dataDir, defaultDBMapSize);
       const fork = await ws.fork();
@@ -59,9 +67,7 @@ describe('NativeWorldState', () => {
 
     it('correctly restores committed state', async () => {
       const ws = await NativeWorldStateService.new(rollupAddress, dataDir, defaultDBMapSize);
-      await expect(
-        ws.getCommitted().findLeafIndex(MerkleTreeId.NOTE_HASH_TREE, block.body.txEffects[0].noteHashes[0]),
-      ).resolves.toBeDefined();
+      await expect(findLeafIndex(block.body.txEffects[0].noteHashes[0], ws)).resolves.toBeDefined();
       const status = await ws.getStatusSummary();
       expect(status.unfinalisedBlockNumber).toBe(1n);
       await ws.close();
@@ -71,18 +77,14 @@ describe('NativeWorldState', () => {
       // open ws against the same data dir but a different rollup
       let ws = await NativeWorldStateService.new(EthAddress.random(), dataDir, defaultDBMapSize);
       // db should be empty
-      await expect(
-        ws.getCommitted().findLeafIndex(MerkleTreeId.NOTE_HASH_TREE, block.body.txEffects[0].noteHashes[0]),
-      ).resolves.toBeUndefined();
+      await expect(findLeafIndex(block.body.txEffects[0].noteHashes[0], ws)).resolves.toBeUndefined();
 
       await ws.close();
 
       // later on, open ws against the original rollup and same data dir
       // db should be empty because we wiped all its files earlier
       ws = await NativeWorldStateService.new(rollupAddress, dataDir, defaultDBMapSize);
-      await expect(
-        ws.getCommitted().findLeafIndex(MerkleTreeId.NOTE_HASH_TREE, block.body.txEffects[0].noteHashes[0]),
-      ).resolves.toBeUndefined();
+      await expect(findLeafIndex(block.body.txEffects[0].noteHashes[0], ws)).resolves.toBeUndefined();
       const status = await ws.getStatusSummary();
       expect(status.unfinalisedBlockNumber).toBe(0n);
       await ws.close();
@@ -490,6 +492,43 @@ describe('NativeWorldState', () => {
     });
   });
 
+  describe('finding leaves', () => {
+    let block: L2Block;
+    let messages: Fr[];
+
+    it('retrieves leaf indices', async () => {
+      const ws = await NativeWorldStateService.new(rollupAddress, dataDir, defaultDBMapSize);
+      const numBlocks = 2;
+      const txsPerBlock = 2;
+      const noteHashes: Fr[] = [];
+      for (let i = 0; i < numBlocks; i++) {
+        const fork = await ws.fork();
+        ({ block, messages } = await mockBlock(1, txsPerBlock, fork));
+        noteHashes.push(...block.body.txEffects.flatMap(x => x.noteHashes.flatMap(x => x)));
+        await fork.close();
+        await ws.handleL2BlockAndMessages(block, messages);
+      }
+
+      const leavesToRequest: Fr[] = [
+        noteHashes[0],
+        Fr.random(),
+        noteHashes[45],
+        noteHashes[89],
+        Fr.random(),
+        noteHashes[102],
+      ];
+      const expectedIndices = [0n, undefined, 45n, 89n, undefined, 102n];
+      const indices = await ws.getCommitted().findLeafIndices(MerkleTreeId.NOTE_HASH_TREE, leavesToRequest);
+      expect(indices).toEqual(expectedIndices);
+
+      const expectedIndicesAfter = [undefined, undefined, undefined, 89n, undefined, 102n];
+      const indicesAfter = await ws
+        .getCommitted()
+        .findLeafIndicesAfter(MerkleTreeId.NOTE_HASH_TREE, leavesToRequest, 89n);
+      expect(indicesAfter).toEqual(expectedIndicesAfter);
+    });
+  });
+
   describe('block numbers for indices', () => {
     let block: L2Block;
     let messages: Fr[];
@@ -669,5 +708,84 @@ describe('NativeWorldState', () => {
 
       await ws.close();
     });
+  });
+
+  describe('Concurrent requests', () => {
+    let ws: NativeWorldStateService;
+
+    beforeEach(async () => {
+      ws = await NativeWorldStateService.tmp();
+    });
+
+    afterEach(async () => {
+      await ws.close();
+    });
+
+    it('Mutating and non-mutating requests are correctly queued', async () => {
+      const numReads = 64;
+      const setupFork = await ws.fork();
+
+      const { block: block1, messages } = await mockBlock(1, 8, setupFork);
+      const { block: block2 } = await mockBlock(2, 8, setupFork);
+      const { block: block3 } = await mockBlock(3, 8, setupFork);
+
+      await ws.handleL2BlockAndMessages(block1, messages);
+
+      const testFork = await ws.fork();
+      const commitmentDb = ws.getCommitted();
+
+      const committedPath = await commitmentDb.getSiblingPath(MerkleTreeId.PUBLIC_DATA_TREE, 0n);
+
+      await testFork.sequentialInsert(
+        MerkleTreeId.PUBLIC_DATA_TREE,
+        block2.body.txEffects.map(write => {
+          return write.toBuffer();
+        }),
+      );
+
+      const initialPath = await testFork.getSiblingPath(MerkleTreeId.PUBLIC_DATA_TREE, 0n);
+
+      const firstReadsUncommitted = Array.from({ length: numReads }, () =>
+        testFork.getSiblingPath(MerkleTreeId.PUBLIC_DATA_TREE, 0n),
+      );
+      const firstReadsCommitted = Array.from({ length: numReads }, () =>
+        commitmentDb.getSiblingPath(MerkleTreeId.PUBLIC_DATA_TREE, 0n),
+      );
+      const write = testFork.sequentialInsert(
+        MerkleTreeId.PUBLIC_DATA_TREE,
+        block3.body.txEffects.map(write => {
+          return write.toBuffer();
+        }),
+      );
+      const secondReadsUncommitted = Array.from({ length: numReads }, () =>
+        testFork.getSiblingPath(MerkleTreeId.PUBLIC_DATA_TREE, 0n),
+      );
+      const secondReadsCommitted = Array.from({ length: numReads }, () =>
+        commitmentDb.getSiblingPath(MerkleTreeId.PUBLIC_DATA_TREE, 0n),
+      );
+      await Promise.all([
+        ...firstReadsUncommitted,
+        ...firstReadsCommitted,
+        write,
+        ...secondReadsUncommitted,
+        ...secondReadsCommitted,
+      ]);
+
+      const finalPath = await testFork.getSiblingPath(MerkleTreeId.PUBLIC_DATA_TREE, 0n);
+
+      for (let i = 0; i < numReads; i++) {
+        const firstPathUncommitted = await firstReadsUncommitted[i];
+        const secondPathUncommitted = await secondReadsUncommitted[i];
+        expect(firstPathUncommitted).toEqual(initialPath);
+        expect(secondPathUncommitted).toEqual(finalPath);
+
+        const firstPathCommitted = await firstReadsCommitted[i];
+        const secondPathCommitted = await secondReadsCommitted[i];
+        expect(firstPathCommitted).toEqual(committedPath);
+        expect(secondPathCommitted).toEqual(committedPath);
+      }
+
+      await Promise.all([setupFork.close(), testFork.close()]);
+    }, 30_000);
   });
 });

@@ -18,7 +18,7 @@ export interface NoteInfo {
  * @dev Finds the index in the note hash tree by computing the note hash with different nonce and see which hash for
  * the current tx matches this value.
  * @remarks This method assists in identifying spent notes in the note hash tree.
- * @param siloedNoteHashes - Note hashes in the tx. One of them should correspond to the note we are looking for
+ * @param uniqueNoteHashes - Note hashes in the tx. One of them should correspond to the note we are looking for
  * @param txHash - Hash of a tx the note was emitted in.
  * @param contractAddress - Address of the contract the note was emitted in.
  * @param storageSlot - Storage slot of the note.
@@ -32,8 +32,9 @@ export interface NoteInfo {
  */
 export async function bruteForceNoteInfo(
   simulator: AcirSimulator,
-  siloedNoteHashes: Fr[],
+  uniqueNoteHashes: Fr[],
   txHash: TxHash,
+  firstNullifier: Fr,
   contractAddress: AztecAddress,
   storageSlot: Fr,
   noteTypeId: NoteSelector,
@@ -44,22 +45,21 @@ export async function bruteForceNoteInfo(
   let noteHashIndex = 0;
   let nonce: Fr | undefined;
   let noteHash: Fr | undefined;
-  let siloedNoteHash: Fr | undefined;
+  let uniqueNoteHash: Fr | undefined;
   let innerNullifier: Fr | undefined;
-  const firstNullifier = Fr.fromBuffer(txHash.toBuffer());
 
-  for (; noteHashIndex < siloedNoteHashes.length; ++noteHashIndex) {
+  for (; noteHashIndex < uniqueNoteHashes.length; ++noteHashIndex) {
     if (excludedIndices.has(noteHashIndex)) {
       continue;
     }
 
-    const siloedNoteHashFromTxEffect = siloedNoteHashes[noteHashIndex];
-    if (siloedNoteHashFromTxEffect.equals(Fr.ZERO)) {
+    const uniqueNoteHashFromTxEffect = uniqueNoteHashes[noteHashIndex];
+    if (uniqueNoteHashFromTxEffect.equals(Fr.ZERO)) {
       break;
     }
 
     const expectedNonce = computeNoteHashNonce(firstNullifier, noteHashIndex);
-    ({ noteHash, siloedNoteHash, innerNullifier } = await simulator.computeNoteHashAndOptionallyANullifier(
+    ({ noteHash, uniqueNoteHash, innerNullifier } = await simulator.computeNoteHashAndOptionallyANullifier(
       contractAddress,
       expectedNonce,
       storageSlot,
@@ -68,7 +68,7 @@ export async function bruteForceNoteInfo(
       note,
     ));
 
-    if (siloedNoteHashFromTxEffect.equals(siloedNoteHash)) {
+    if (uniqueNoteHashFromTxEffect.equals(uniqueNoteHash)) {
       nonce = expectedNonce;
       break;
     }

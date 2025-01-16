@@ -3,7 +3,7 @@ import {
   type L2Block,
   type L2BlockId,
   type L2BlockSource,
-  L2BlockStream,
+  type L2BlockStream,
   type L2BlockStreamEvent,
   type L2BlockStreamEventHandler,
   type L2BlockStreamLocalDataProvider,
@@ -23,12 +23,13 @@ import { createLogger } from '@aztec/foundation/log';
 import { promiseWithResolvers } from '@aztec/foundation/promise';
 import { elapsed } from '@aztec/foundation/timer';
 import { SHA256Trunc } from '@aztec/merkle-tree';
-import { type TelemetryClient } from '@aztec/telemetry-client';
+import { TraceableL2BlockStream } from '@aztec/telemetry-client';
+import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
 
+import { WorldStateInstrumentation } from '../instrumentation/instrumentation.js';
 import { type WorldStateStatusFull } from '../native/message.js';
 import { type MerkleTreeAdminDatabase } from '../world-state-db/merkle_tree_db.js';
 import { type WorldStateConfig } from './config.js';
-import { WorldStateInstrumentation } from './instrumentation.js';
 
 /**
  * Synchronizes the world state with the L2 blocks from a L2BlockSource via a block stream.
@@ -47,16 +48,14 @@ export class ServerWorldStateSynchronizer
 
   private syncPromise = promiseWithResolvers<void>();
   protected blockStream: L2BlockStream | undefined;
-  private instrumentation: WorldStateInstrumentation;
 
   constructor(
     private readonly merkleTreeDb: MerkleTreeAdminDatabase,
     private readonly l2BlockSource: L2BlockSource & L1ToL2MessageSource,
     private readonly config: WorldStateConfig,
-    telemetry: TelemetryClient,
+    private instrumentation = new WorldStateInstrumentation(new NoopTelemetryClient()),
     private readonly log = createLogger('world_state'),
   ) {
-    this.instrumentation = new WorldStateInstrumentation(telemetry);
     this.merkleTreeCommitted = this.merkleTreeDb.getCommitted();
     this.historyToKeep = config.worldStateBlockHistory < 1 ? undefined : config.worldStateBlockHistory;
     this.log.info(
@@ -110,8 +109,10 @@ export class ServerWorldStateSynchronizer
     return this.syncPromise.promise;
   }
 
-  protected createBlockStream() {
-    return new L2BlockStream(this.l2BlockSource, this, this, {
+  protected createBlockStream(): L2BlockStream {
+    const tracer = this.instrumentation.telemetry.getTracer('WorldStateL2BlockStream');
+    const logger = createLogger('world-state:block_stream');
+    return new TraceableL2BlockStream(this.l2BlockSource, this, this, tracer, 'WorldStateL2BlockStream', logger, {
       proven: this.config.worldStateProvenBlocksOnly,
       pollIntervalMS: this.config.worldStateBlockCheckIntervalMS,
       batchSize: this.config.worldStateBlockRequestBatchSize,
@@ -224,14 +225,13 @@ export class ServerWorldStateSynchronizer
    * @returns Whether the block handled was produced by this same node.
    */
   private async handleL2Blocks(l2Blocks: L2Block[]) {
-    this.log.verbose(`Handling new L2 blocks from ${l2Blocks[0].number} to ${l2Blocks[l2Blocks.length - 1].number}`);
     const messagePromises = l2Blocks.map(block => this.l2BlockSource.getL1ToL2Messages(BigInt(block.number)));
     const l1ToL2Messages: Fr[][] = await Promise.all(messagePromises);
     let updateStatus: WorldStateStatusFull | undefined = undefined;
 
     for (let i = 0; i < l2Blocks.length; i++) {
       const [duration, result] = await elapsed(() => this.handleL2Block(l2Blocks[i], l1ToL2Messages[i]));
-      this.log.verbose(`Handled new L2 block`, {
+      this.log.verbose(`World state updated with L2 block ${l2Blocks[i].number}`, {
         eventName: 'l2-block-handled',
         duration,
         unfinalisedBlockNumber: result.summary.unfinalisedBlockNumber,
@@ -272,7 +272,7 @@ export class ServerWorldStateSynchronizer
   }
 
   private async handleChainFinalized(blockNumber: number) {
-    this.log.verbose(`Chain finalized at block ${blockNumber}`);
+    this.log.verbose(`Finalized chain is now at block ${blockNumber}`);
     const summary = await this.merkleTreeDb.setFinalised(BigInt(blockNumber));
     if (this.historyToKeep === undefined) {
       return;
@@ -286,12 +286,12 @@ export class ServerWorldStateSynchronizer
   }
 
   private handleChainProven(blockNumber: number) {
-    this.log.verbose(`Chain proven at block ${blockNumber}`);
+    this.log.debug(`Proven chain is now at block ${blockNumber}`);
     return Promise.resolve();
   }
 
   private async handleChainPruned(blockNumber: number) {
-    this.log.info(`Chain pruned to block ${blockNumber}`);
+    this.log.warn(`Chain pruned to block ${blockNumber}`);
     const status = await this.merkleTreeDb.unwindBlocks(BigInt(blockNumber));
     this.latestBlockHashQuery = undefined;
     this.instrumentation.updateWorldStateMetrics(status);

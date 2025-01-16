@@ -14,7 +14,8 @@ pub fn notify_created_note<let N: u32>(
     note_hash: Field,
     counter: u32,
 ) {
-    // This oracle call returns nothing: we only call it for its side effects. It is therefore always safe to call.
+    /// Safety: This oracle call returns nothing: we only call it for its side effects. It is therefore always safe
+    /// to call.
     unsafe {
         notify_created_note_oracle_wrapper(
             storage_slot,
@@ -30,8 +31,15 @@ pub fn notify_created_note<let N: u32>(
 /// the same transaction. This note should only be removed to the non-volatile database if its nullifier is found in an
 /// actual block.
 pub fn notify_nullified_note(nullifier: Field, note_hash: Field, counter: u32) {
-    // This oracle call returns nothing: we only call it for its side effects. It is therefore always safe to call.
+    /// Safety: This oracle call returns nothing: we only call it for its side effects. It is therefore always safe
+    /// to call.
     unsafe { notify_nullified_note_oracle_wrapper(nullifier, note_hash, counter) };
+}
+
+/// Notifies the simulator that a non-note nullifier has been created, so that it can be used for note nonces.
+pub fn notify_created_nullifier(nullifier: Field) {
+    // This oracle call returns nothing: we only call it for its side effects. It is therefore always safe to call.
+    unsafe { notify_created_nullifier_oracle_wrapper(nullifier) };
 }
 
 unconstrained fn notify_created_note_oracle_wrapper<let N: u32>(
@@ -73,6 +81,13 @@ unconstrained fn notify_nullified_note_oracle(
     _note_hash: Field,
     _counter: u32,
 ) -> Field {}
+
+unconstrained fn notify_created_nullifier_oracle_wrapper(nullifier: Field) {
+    let _ = notify_created_nullifier_oracle(nullifier);
+}
+
+#[oracle(notifyCreatedNullifier)]
+unconstrained fn notify_created_nullifier_oracle(_nullifier: Field) -> Field {}
 
 #[oracle(getNotes)]
 unconstrained fn get_notes_oracle<let N: u32, let S: u32>(
@@ -205,25 +220,25 @@ pub unconstrained fn check_nullifier_exists(inner_nullifier: Field) -> bool {
 #[oracle(checkNullifierExists)]
 unconstrained fn check_nullifier_exists_oracle(_inner_nullifier: Field) -> Field {}
 
-/// Same as `get_app_tagging_secret_as_sender`, except it returns the derived tag, ready to be included in a log.
+/// Same as `get_indexed_tagging_secret_as_sender`, except it returns the derived tag, ready to be included in a log.
 pub unconstrained fn get_app_tag_as_sender(sender: AztecAddress, recipient: AztecAddress) -> Field {
-    get_app_tagging_secret_as_sender(sender, recipient).compute_tag(recipient)
+    get_indexed_tagging_secret_as_sender(sender, recipient).compute_tag(recipient)
 }
 
 /// Returns the tagging secret for a given sender and recipient pair, siloed for the current contract address.
 /// Includes the last known index used to send a note tagged with this secret.
-/// For this to work, PXE must know the ivpsk_m of the sender.
+/// For this to work, PXE must know the ivsk_m of the sender.
 /// For the recipient's side, only the address is needed.
-pub unconstrained fn get_app_tagging_secret_as_sender(
+pub unconstrained fn get_indexed_tagging_secret_as_sender(
     sender: AztecAddress,
     recipient: AztecAddress,
 ) -> IndexedTaggingSecret {
-    let result = get_app_tagging_secret_as_sender_oracle(sender, recipient);
+    let result = get_indexed_tagging_secret_as_sender_oracle(sender, recipient);
     IndexedTaggingSecret::deserialize(result)
 }
 
-#[oracle(getAppTaggingSecretAsSender)]
-unconstrained fn get_app_tagging_secret_as_sender_oracle(
+#[oracle(getIndexedTaggingSecretAsSender)]
+unconstrained fn get_indexed_tagging_secret_as_sender_oracle(
     _sender: AztecAddress,
     _recipient: AztecAddress,
 ) -> [Field; INDEXED_TAGGING_SECRET_LENGTH] {}
@@ -234,7 +249,8 @@ unconstrained fn get_app_tagging_secret_as_sender_oracle(
 /// otherwise e.g. a reverting transaction can cause the sender to accidentally skip indices and later produce notes
 /// that are not found by the recipient.
 pub fn increment_app_tagging_secret_index_as_sender(sender: AztecAddress, recipient: AztecAddress) {
-    // This oracle call returns nothing: we only call it for its side effects. It is therefore always safe to call.
+    /// Safety: This oracle call returns nothing: we only call it for its side effects. It is therefore always safe
+    /// to call.
     unsafe {
         increment_app_tagging_secret_index_as_sender_wrapper(sender, recipient);
     }
@@ -256,7 +272,8 @@ unconstrained fn increment_app_tagging_secret_index_as_sender_oracle(
 /// Finds new notes that may have been sent to all registered accounts in PXE in the current contract and makes them available
 /// for later querying via the `get_notes` oracle.
 pub fn sync_notes() {
-    // This oracle call returns nothing: we only call it for its side effects. It is therefore always safe to call.
+    /// Safety: This oracle call returns nothing: we only call it for its side effects. It is therefore always safe
+    /// to call.
     unsafe {
         sync_notes_oracle_wrapper();
     }

@@ -1,271 +1,92 @@
 VERSION 0.8
-
-nargo-src:
-    FROM ../build-images/+from-registry
-    WORKDIR /usr/src/noir
-    COPY noir-repo/.github/scripts/*.sh noir-repo/.github/scripts/
-    # First install wasm bindgen
-    RUN ./noir-repo/.github/scripts/wasm-bindgen-install.sh
-    # Relevant source
-    COPY --dir \
-      noir-repo/acvm-repo \
-      noir-repo/compiler \
-      noir-repo/noir_stdlib \
-      noir-repo/tooling \
-      noir-repo/test_programs \
-      noir-repo/utils \
-      noir-repo/Cargo.lock \
-      noir-repo/Cargo.toml \
-      noir-repo/.github \
-      noir-repo
-
-    # Fetch any dependencies so that they can be cached
-    RUN cd noir-repo && cargo fetch && cd ../
-
-    # NOTE: we use a fake commit hash here
-    # we don't want Noir to rebuild everytime the parent repo changes
-    # just only when it changes
-    # the commit hash gets injected into version strings
-    DO ../build-system/s3-cache-scripts/+WRITE_CONTENT_HASH --rebuild_patterns=".rebuild_patterns_native"
-    # We use our content hash as a fake commit hash, stripped of non-semver characters
-    ENV COMMIT_HASH=$(cat .content-hash | sed 's/[^a-zA-Z0-9.-]//g')
-
-    # # borrow Nix's approach to build everything in 1970
-    ENV SOURCE_TIMESTAMP=1
-    ENV SOURCE_DATE_EPOCH=1
-
-nargo:
-    FROM +nargo-src
-    COPY ./scripts/bootstrap_native.sh ./scripts/bootstrap_native.sh
-    # Note: build is decoupled from barretenberg
-    LET rebuild_patterns=".rebuild_patterns_native"
-    # build noir nargo & acvm, and make sure the big build and deps folders don't hit cache
-    DO ../build-system/s3-cache-scripts/+WITH_CACHE \
-      --prefix="noir-nargo" \
-      --rebuild_patterns="$rebuild_patterns" \
-      --command="./scripts/bootstrap_native.sh && rm -rf noir-repo/target/release/{build,deps}" \
-      --build_artifacts="noir-repo/target/release/nargo noir-repo/target/release/acvm"
-
-    SAVE ARTIFACT noir-repo/target/release/nargo nargo
-    SAVE ARTIFACT noir-repo/target/release/acvm acvm
-
 test:
-  FROM +nargo-src
-  COPY ./scripts/test_native.sh ./scripts/test_native.sh
-  COPY noir-repo/.rustfmt.toml noir-repo/.rustfmt.toml
-
+  FROM ../+bootstrap-noir-bb
+  WORKDIR /usr/src/noir
   # Some of the debugger tests are a little flaky wrt to timeouts so we allow a couple of retries.
   ENV NEXTEST_RETRIES=2
+  ENV PATH="/usr/src/noir/noir-repo/target/release:${PATH}"
+  ENV GIT_COMMIT="$(../bootstrap.sh hash | sed 's/-.*//g')"
   RUN ./scripts/test_native.sh
 
 examples:
-  FROM +nargo
+  FROM ../+bootstrap-noir-bb
   ENV PATH="/usr/src/noir/noir-repo/target/release:${PATH}"
-
-  COPY --dir noir-repo/examples noir-repo
-  COPY ../barretenberg/cpp/+preset-clang-assert/bin/bb /usr/src/barretenberg/cpp/build/bin/bb
-
   ENV BACKEND=/usr/src/barretenberg/cpp/build/bin/bb
 
-  WORKDIR noir-repo/examples/codegen_verifier
+  WORKDIR /usr/src/noir/noir-repo/examples/codegen_verifier
   RUN ./test.sh
 
-  WORKDIR ../prove_and_verify
+  WORKDIR /usr/src/noir/noir-repo/examples/prove_and_verify
   RUN ./test.sh
 
-  WORKDIR ../recursion
+  WORKDIR /usr/src/noir/noir-repo/examples/recursion
   RUN ./test.sh
 
 format:
-  FROM +nargo
+  FROM ../+bootstrap-noir-bb
   ENV PATH="/usr/src/noir/noir-repo/target/release:${PATH}"
-
-  COPY ./noir-repo/test_programs ./noir-repo/test_programs
-  COPY ./noir-repo/noir_stdlib ./noir-repo/noir_stdlib
-
-  WORKDIR ./noir-repo/test_programs
+  ENV GIT_COMMIT="$(../bootstrap.sh hash | sed 's/-.*//g')"
+  WORKDIR /usr/src/noir/noir-repo/test_programs
   RUN ./format.sh check
 
-  WORKDIR ../noir_stdlib
+  WORKDIR /usr/src/noir/noir-repo/noir_stdlib
   RUN nargo fmt --check
 
 packages-deps:
-    BUILD ../barretenberg/ts/+build # prefetch
-
-    LOCALLY
-    LET packages = $(git ls-files "**/package*.json" package*.json)
-    LET tsconfigs = $(git ls-files "**/tsconfig*.json" tsconfig*.json)
-
-    FROM +nargo-src
-
-    COPY ../barretenberg/ts/+build/build /usr/src/barretenberg/ts
-
-    WORKDIR /usr/src/noir
-
-    COPY --dir \
-      ./noir-repo/package.json \
-      ./noir-repo/yarn.lock \
-      ./noir-repo/.yarnrc.yml \
-      ./noir-repo/.yarn \
-      ./noir-repo
-
-    FOR file IN $packages
-        COPY $file $file
-    END
-
-    RUN cd noir-repo && yarn install --immutable && cd ../
-
-    FOR file IN $tsconfigs
-      COPY $file $file
-    END
-
-    # Relevant source (TODO finer-grained)
-    COPY --dir \
-      noir-repo/acvm-repo \
-      noir-repo/compiler \
-      noir-repo/docs \
-      noir-repo/noir_stdlib \
-      noir-repo/scripts \
-      noir-repo/test_programs \
-      noir-repo/tooling \
-      noir-repo/utils \
-      noir-repo/Cargo.lock \
-      noir-repo/.yarnrc.yml \
-      noir-repo/.yarn \
-      noir-repo/yarn.lock \
-      noir-repo/package.json \
-      noir-repo/LICENSE* \
-      noir-repo/*.toml \
-      noir-repo/*.json \
-      noir-repo/*.js \
-      noir-repo/.github \
-      noir-repo
-
-packages:
-  FROM +packages-deps
-  COPY ./scripts/bootstrap_packages.sh ./scripts/bootstrap_packages.sh
-  ENV REBUILD_PATTERNS="../barretenberg/cpp/.rebuild_patterns ../barretenberg/ts/.rebuild_patterns .rebuild_patterns_packages"
-      # build noir nargo & acvm, and make sure the big build and deps folders don't hit cache
-  DO ../build-system/s3-cache-scripts/+WITH_CACHE \
-    --prefix="noir-packages" \
-    --rebuild_patterns="$REBUILD_PATTERNS" \
-    --command="./scripts/bootstrap_packages.sh" \
-    --build_artifacts="packages"
-  SAVE ARTIFACT packages
+  FROM ../+bootstrap-noir-bb
+  COPY noir-repo/.github/scripts/wasm-bindgen-install.sh /usr/src/noir/noir-repo/.github/scripts/wasm-bindgen-install.sh
+  WORKDIR /usr/src/noir/noir-repo
+  RUN .github/scripts/wasm-bindgen-install.sh
+  ENV GIT_COMMIT="$(../bootstrap.sh hash | sed 's/-.*//g')"
+  RUN yarn install --immutable
 
 packages-test-build:
-    FROM +packages-deps
+  FROM +packages-deps
+  ENV NARGO_BACKEND_PATH=/usr/src/barretenberg/ts/dest/node/main.js
+  ENV PATH=$PATH:/usr/src/noir/noir-repo/target/release
+  WORKDIR /usr/src/barretenberg/ts
+  RUN yarn --immutable
 
-    COPY +nargo/nargo noir-repo/target/release/nargo
-    COPY +nargo/acvm noir-repo/target/release/acvm
+  WORKDIR /usr/src/noir/noir-repo
 
-    ENV NARGO_BACKEND_PATH=/usr/src/barretenberg/ts/dest/node/main.js
-    ENV PATH=$PATH:/usr/src/noir/noir-repo/target/release
+  ENV SOURCE_DATE_EPOCH=$(date +%s)
+  ENV GIT_DIRTY=false
+  RUN yarn build
+  # this builds text fixtures to be used in tests
+  RUN yarn workspace @noir-lang/noir_wasm run test:build_fixtures
 
-    WORKDIR /usr/src/barretenberg/ts
-    RUN yarn --immutable
-
-    WORKDIR /usr/src/noir/noir-repo
-
-    ENV SOURCE_DATE_EPOCH=$(date +%s)
-    ENV GIT_DIRTY=false
-    ENV GIT_COMMIT=$COMMIT_HASH
-    RUN yarn build
-    # this builds text fixtures to be used in tests
-    RUN yarn workspace @noir-lang/noir_wasm run test:build_fixtures
-
-    SAVE ARTIFACT /usr/src /usr/src
+  SAVE ARTIFACT /usr/src /usr/src
 
 packages-test-node:
-    FROM +packages-test-build
-    ENV NODE_OPTIONS=--max_old_space_size=8192
-    WORKDIR /usr/src/noir/noir-repo
-    RUN yarn workspaces foreach \
-      --parallel \
-      --verbose \
-      --exclude @noir-lang/root \ # foreach includes the root workspace, ignore it
-      --exclude @noir-lang/noir_js \ # noir_js OOMs
-      --exclude integration-tests \ # separate node and browser tests
-      --exclude @noir-lang/noir_wasm \
-      run test
-    RUN yarn workspaces foreach \
-      --parallel \
-      --verbose \
-      --include integration-tests \
-      --include @noir-lang/noir_wasm \
-      run test:node
+  FROM +packages-test-build
+  ENV NODE_OPTIONS=--max_old_space_size=8192
+  WORKDIR /usr/src/noir/noir-repo
+  RUN yarn workspaces foreach \
+    --parallel \
+    --verbose \
+    --exclude @noir-lang/root \ # foreach includes the root workspace, ignore it
+    --exclude @noir-lang/noir_js \ # noir_js OOMs
+    --exclude integration-tests \ # separate node and browser tests
+    --exclude @noir-lang/noir_wasm \
+    run test
+  RUN yarn workspaces foreach \
+    --parallel \
+    --verbose \
+    --include integration-tests \
+    --include @noir-lang/noir_wasm \
+    run test:node
 
 packages-test-browser:
-    FROM ../build-images/+base-slim-node
-    WORKDIR /usr/src/noir/noir-repo
-    # cache playwright install
-    COPY noir-repo/.github/scripts/*.sh .github/scripts/
-    RUN ./.github/scripts/playwright-install.sh
-    COPY --dir +packages-test-build/usr/src /usr
-    RUN yarn workspaces foreach \
-      --verbose \
-      --include integration-tests \
-      --include @noir-lang/noir_wasm \
-      run test:browser
+  FROM +packages-test-build
+  WORKDIR /usr/src/noir/noir-repo
+  RUN yarn install
+  RUN npx playwright install chromium
+  RUN yarn workspaces foreach \
+    --verbose \
+    --include integration-tests \
+    --include @noir-lang/noir_wasm \
+    run test:browser
 
 packages-test:
-    BUILD +packages-test-node
-    BUILD +packages-test-browser
-
-build-acir-tests:
-    LOCALLY
-    # Prepare our exact dependency formula, this avoids problems with copied empty folders or build artifacts
-    RUN rm -rf .earthly-staging && mkdir -p .earthly-staging
-    RUN cp --parents $(git ls-files "noir-repo/test_programs/*.toml" "noir-repo/test_programs/*.nr" "noir-repo/test_programs/rebuild.sh") .earthly-staging
-    FROM ../build-images/+from-registry
-    COPY +nargo/ /usr/src/noir/noir-repo/target/release
-    ENV PATH="/usr/src/noir/noir-repo/target/release:${PATH}"
-    WORKDIR /usr/src/noir/noir-repo/test_programs
-    COPY .earthly-staging/noir-repo/test_programs /usr/src/noir/noir-repo/test_programs/
-    RUN /usr/src/noir/noir-repo/target/release/nargo --version
-    # TODO(#6225): We have trouble with concurrency and pass 'true' to build in serial, see #6225 for details
-    RUN ./rebuild.sh
-    SAVE ARTIFACT /usr/src/noir/noir-repo/test_programs/acir_artifacts/*
-
-barretenberg-acir-benches-bb:
-  FROM ubuntu:noble
-  RUN apt update && \
-      apt install -y curl git jq unzip
-  COPY ../barretenberg/cpp/+preset-clang-assert/bin/bb /usr/src/barretenberg/cpp/build/bin/bb
-  COPY ../barretenberg/+acir-tests/ /usr/src/barretenberg/acir_tests
-  COPY +build-acir-tests/ /usr/src/acir_artifacts
-
-  ENV TEST_SRC=/usr/src/acir_artifacts
-
-  WORKDIR /usr/src/barretenberg/acir_tests
-
-bench-acir-bb:
-  # This target is used for debugging the benchmarking target.
-  # For precise benchmarks in CI use `bench-publish-acir-bb`
-  FROM +barretenberg-acir-benches-bb
-  RUN ./bench_acir_tests.sh
-
-export-bench-acir-bb:
-  ARG EARTHLY_GIT_HASH
-  FROM +barretenberg-acir-benches-bb
-  SAVE IMAGE aztecprotocol/barretenberg-acir-benches:$EARTHLY_GIT_HASH
-
-bench-publish-acir-bb:
-  ARG PULL_REQUEST
-  ARG BRANCH
-  ARG COMMIT_HASH
-  LOCALLY
-
-  # Let docker compose know about the pushed tags above
-  ENV AZTEC_DOCKER_TAG=$(git rev-parse HEAD)
-  # Optimize to not cause serial behavior if image already exists
-  IF ! docker image ls --format '{{.Repository}}:{{.Tag}}' | grep "aztecprotocol/barretenberg-acir-benches:$AZTEC_DOCKER_TAG"
-    WAIT
-      BUILD +export-bench-acir-bb
-    END
-  END
-
-  RUN mkdir -p ./log
-  RUN docker run -v "$(pwd)/log":/log -e LOG_FILE=/log/bench-acir.jsonl --rm aztecprotocol/barretenberg-acir-benches:$AZTEC_DOCKER_TAG ./bench_acir_tests.sh
-
-  DO ../+UPLOAD_LOGS --PULL_REQUEST=$PULL_REQUEST --BRANCH=$BRANCH --COMMIT_HASH=$COMMIT_HASH
+  BUILD +packages-test-node
+  BUILD +packages-test-browser

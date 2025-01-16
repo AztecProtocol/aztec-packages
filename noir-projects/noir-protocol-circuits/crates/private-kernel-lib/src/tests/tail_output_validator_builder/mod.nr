@@ -1,4 +1,3 @@
-mod validate_empty_values;
 mod validate_gas_used;
 mod validate_propagated_sorted_values;
 mod validate_propagated_values;
@@ -13,7 +12,7 @@ use crate::components::{
 use dep::types::{
     abis::{
         gas::Gas, gas_fees::GasFees, gas_settings::GasSettings,
-        kernel_circuit_public_inputs::KernelCircuitPublicInputs,
+        kernel_circuit_public_inputs::PrivateToRollupKernelCircuitPublicInputs,
     },
     constants::{DEFAULT_GAS_LIMIT, DEFAULT_TEARDOWN_GAS_LIMIT},
     tests::fixture_builder::FixtureBuilder,
@@ -30,14 +29,15 @@ impl TailOutputValidatorBuilder {
             Gas::new(DEFAULT_GAS_LIMIT, DEFAULT_GAS_LIMIT),
             Gas::new(DEFAULT_TEARDOWN_GAS_LIMIT, DEFAULT_TEARDOWN_GAS_LIMIT),
             GasFees::new(10, 10),
+            GasFees::new(3, 3),
         );
 
         let mut output = FixtureBuilder::new();
         let mut previous_kernel = FixtureBuilder::new();
         output.tx_context.gas_settings = gas_settings;
         previous_kernel.tx_context.gas_settings = gas_settings;
-        output.set_first_nullifier();
-        previous_kernel.set_first_nullifier();
+        output.set_protocol_nullifier();
+        previous_kernel.set_protocol_nullifier();
         TailOutputValidatorBuilder { output, previous_kernel }
     }
 
@@ -48,8 +48,8 @@ impl TailOutputValidatorBuilder {
         }
     }
 
-    pub fn export_output(self) -> KernelCircuitPublicInputs {
-        let mut output = self.output.to_kernel_circuit_public_inputs();
+    pub fn export_output(self) -> PrivateToRollupKernelCircuitPublicInputs {
+        let mut output = self.output.to_private_to_rollup_kernel_circuit_public_inputs();
         output.gas_used = meter_gas_used(output.end);
         output
     }
@@ -59,7 +59,7 @@ impl TailOutputValidatorBuilder {
         self.validate_with_output(output);
     }
 
-    pub fn validate_with_output(self, output: KernelCircuitPublicInputs) {
+    pub fn validate_with_output(self, output: PrivateToRollupKernelCircuitPublicInputs) {
         let previous_kernel = self.previous_kernel.to_private_kernel_circuit_public_inputs();
         TailOutputValidator::new(output, previous_kernel).validate();
     }

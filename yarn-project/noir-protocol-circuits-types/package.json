@@ -3,25 +3,32 @@
   "version": "0.1.0",
   "type": "module",
   "exports": {
-    ".": "./dest/index.js",
-    "./types": "./dest/types/index.js"
+    "./server": "./dest/entrypoint/server.js",
+    "./client": "./dest/entrypoint/client/common.js",
+    "./client/bundle": "./dest/entrypoint/client/bundle.js",
+    "./client/lazy": "./dest/entrypoint/client/lazy.js",
+    "./types": "./dest/types/index.js",
+    "./vks": "./dest/entrypoint/vks.js"
   },
   "inherits": [
     "../package.common.json",
     "./package.local.json"
   ],
   "scripts": {
-    "build": "yarn clean && yarn generate && tsc -b",
+    "build": "yarn clean && yarn generate && yarn generate:cleanup-artifacts && tsc -b",
+    "build:keep-debug-symbols": "yarn clean && yarn generate && tsc -b",
     "clean": "rm -rf ./dest .tsbuildinfo src/types artifacts",
     "formatting": "run -T prettier --check ./src && run -T eslint ./src",
     "formatting:fix": "run -T eslint --fix ./src && run -T prettier -w ./src",
     "formatting:fix:types": "NODE_OPTIONS='--max-old-space-size=8096' run -T eslint --fix ./src/types && run -T prettier -w ./src/types",
-    "generate": "yarn generate:copy-artifacts && yarn generate:vk-hashes && yarn generate:noir-circuits && yarn generate:reset-data",
+    "generate": "yarn generate:copy-artifacts && yarn generate:vk-hashes && yarn generate:noir-circuits && yarn generate:reset-data && yarn generate:client-artifacts-helper",
     "generate:copy-artifacts": "mkdir -p ./artifacts && cp -r ../../noir-projects/noir-protocol-circuits/target/* ./artifacts && node --no-warnings --loader ts-node/esm src/scripts/generate_declaration_files.ts ",
+    "generate:cleanup-artifacts": "node --no-warnings --loader ts-node/esm src/scripts/cleanup_artifacts.ts",
     "generate:vk-hashes": "node --no-warnings --loader ts-node/esm src/scripts/generate_vk_hashes.ts",
     "generate:noir-circuits": "node --no-warnings --loader ts-node/esm src/scripts/generate_ts_from_abi.ts && run -T prettier -w ./src/types",
-    "generate:reset-data": "node --no-warnings --loader ts-node/esm src/scripts/generate_private_kernel_reset_data.ts && run -T prettier -w src/private_kernel_reset_data.ts",
-    "test": "NODE_NO_WARNINGS=1 node --experimental-vm-modules ../node_modules/.bin/jest --passWithNoTests",
+    "generate:reset-data": "node --no-warnings --loader ts-node/esm src/scripts/generate_private_kernel_reset_data.ts && run -T prettier -w src/private_kernel_reset_*.ts",
+    "generate:client-artifacts-helper": "node --no-warnings --loader ts-node/esm src/scripts/generate_client_artifacts_helper.ts && run -T prettier -w src/client_artifacts_helper.ts",
+    "test": "HARDWARE_CONCURRENCY=${HARDWARE_CONCURRENCY:-16} RAYON_NUM_THREADS=${RAYON_NUM_THREADS:-4} NODE_NO_WARNINGS=1 node --experimental-vm-modules ../node_modules/.bin/jest --passWithNoTests --maxWorkers=${JEST_MAX_WORKERS:-8}",
     "codegen": "yarn noir-codegen",
     "build:dev": "tsc -b --watch"
   },
@@ -51,12 +58,7 @@
       ]
     },
     "reporters": [
-      [
-        "default",
-        {
-          "summaryThreshold": 9999
-        }
-      ]
+      "default"
     ],
     "testTimeout": 30000,
     "setupFiles": [
@@ -69,7 +71,6 @@
     "@aztec/types": "workspace:^",
     "@noir-lang/acvm_js": "portal:../../noir/packages/acvm_js",
     "@noir-lang/noir_codegen": "portal:../../noir/packages/noir_codegen",
-    "@noir-lang/noir_js": "file:../../noir/packages/noir_js",
     "@noir-lang/noirc_abi": "portal:../../noir/packages/noirc_abi",
     "@noir-lang/types": "portal:../../noir/packages/types",
     "change-case": "^5.4.4",
@@ -91,7 +92,8 @@
     "dest",
     "src",
     "!*.test.*",
-    "artifacts"
+    "artifacts",
+    "!src/scripts/*"
   ],
   "types": "./dest/index.d.ts",
   "engines": {

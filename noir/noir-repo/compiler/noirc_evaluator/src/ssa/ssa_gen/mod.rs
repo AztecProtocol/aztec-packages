@@ -2,6 +2,7 @@ pub(crate) mod context;
 mod program;
 mod value;
 
+use acvm::AcirField;
 use noirc_frontend::token::FmtStrFragment;
 pub(crate) use program::Ssa;
 
@@ -23,6 +24,7 @@ use self::{
 };
 
 use super::ir::instruction::ErrorType;
+use super::ir::types::NumericType;
 use super::{
     function_builder::data_bus::DataBus,
     ir::{
@@ -38,10 +40,7 @@ pub(crate) const SSA_WORD_SIZE: u32 = 32;
 /// Generates SSA for the given monomorphized program.
 ///
 /// This function will generate the SSA but does not perform any optimizations on it.
-pub(crate) fn generate_ssa(
-    program: Program,
-    force_brillig_runtime: bool,
-) -> Result<Ssa, RuntimeError> {
+pub(crate) fn generate_ssa(program: Program) -> Result<Ssa, RuntimeError> {
     // see which parameter has call_data/return_data attribute
     let is_databus = DataBusBuilder::is_databus(&program.main_function_signature);
 
@@ -55,16 +54,13 @@ pub(crate) fn generate_ssa(
 
     // Queue the main function for compilation
     context.get_or_queue_function(main_id);
-    let mut function_context = FunctionContext::new(
-        main.name.clone(),
-        &main.parameters,
-        if force_brillig_runtime || main.unconstrained {
-            RuntimeType::Brillig(main.inline_type)
-        } else {
-            RuntimeType::Acir(main.inline_type)
-        },
-        &context,
-    );
+    let main_runtime = if main.unconstrained {
+        RuntimeType::Brillig(main.inline_type)
+    } else {
+        RuntimeType::Acir(main.inline_type)
+    };
+    let mut function_context =
+        FunctionContext::new(main.name.clone(), &main.parameters, main_runtime, &context);
 
     // Generate the call_data bus from the relevant parameters. We create it *before* processing the function body
     let call_data = function_context.builder.call_data_bus(is_databus);
@@ -90,12 +86,18 @@ pub(crate) fn generate_ssa(
                 None,
             );
         }
+        let return_call_stack = function_context
+            .builder
+            .current_function
+            .dfg
+            .call_stack_data
+            .add_location_to_root(return_location);
         let return_instruction =
             function_context.builder.current_function.dfg[block].unwrap_terminator_mut();
+
         match return_instruction {
             TerminatorInstruction::Return { return_values, call_stack } => {
-                call_stack.clear();
-                call_stack.push_back(return_location);
+                *call_stack = return_call_stack;
                 // replace the returned values with the return data array
                 if let Some(return_data_bus) = return_data.databus {
                     return_values.clear();
@@ -115,11 +117,13 @@ pub(crate) fn generate_ssa(
     // to generate SSA for each function used within the program.
     while let Some((src_function_id, dest_id)) = context.pop_next_function_in_queue() {
         let function = &context.program[src_function_id];
-        function_context.new_function(dest_id, function, force_brillig_runtime);
+        function_context.new_function(dest_id, function);
         function_context.codegen_function_body(&function.body)?;
     }
 
-    Ok(function_context.builder.finish())
+    let mut ssa = function_context.builder.finish();
+    ssa.globals = context.globals_context;
+    Ok(ssa)
 }
 
 impl<'a> FunctionContext<'a> {
@@ -177,6 +181,7 @@ impl<'a> FunctionContext<'a> {
     fn codegen_ident_reference(&mut self, ident: &ast::Ident) -> Values {
         match &ident.definition {
             ast::Definition::Local(id) => self.lookup(*id),
+            ast::Definition::Global(id) => self.lookup_global(*id),
             ast::Definition::Function(id) => self.get_or_queue_function(*id),
             ast::Definition::Oracle(name) => self.builder.import_foreign_function(name).into(),
             ast::Definition::Builtin(name) | ast::Definition::LowLevel(name) => {
@@ -223,12 +228,12 @@ impl<'a> FunctionContext<'a> {
             }
             ast::Literal::Integer(value, negative, typ, location) => {
                 self.builder.set_location(*location);
-                let typ = Self::convert_non_tuple_type(typ);
+                let typ = Self::convert_non_tuple_type(typ).unwrap_numeric();
                 self.checked_numeric_constant(*value, *negative, typ).map(Into::into)
             }
             ast::Literal::Bool(value) => {
                 // Don't need to call checked_numeric_constant here since `value` can only be true or false
-                Ok(self.builder.numeric_constant(*value as u128, Type::bool()).into())
+                Ok(self.builder.numeric_constant(*value as u128, NumericType::bool()).into())
             }
             ast::Literal::Str(string) => Ok(self.codegen_string(string)),
             ast::Literal::FmtStr(fragments, number_of_fields, fields) => {
@@ -272,7 +277,7 @@ impl<'a> FunctionContext<'a> {
 
     fn codegen_string(&mut self, string: &str) -> Values {
         let elements = vecmap(string.as_bytes(), |byte| {
-            let char = self.builder.numeric_constant(*byte as u128, Type::unsigned(8));
+            let char = self.builder.numeric_constant(*byte as u128, NumericType::char());
             (char.into(), false)
         });
         let typ = Self::convert_non_tuple_type(&ast::Type::String(elements.len() as u32));
@@ -349,7 +354,7 @@ impl<'a> FunctionContext<'a> {
             UnaryOp::Minus => {
                 let rhs = self.codegen_expression(&unary.rhs)?;
                 let rhs = rhs.into_leaf().eval(self);
-                let typ = self.builder.type_of_value(rhs);
+                let typ = self.builder.type_of_value(rhs).unwrap_numeric();
                 let zero = self.builder.numeric_constant(0u128, typ);
                 Ok(self.insert_binary(
                     zero,
@@ -443,9 +448,14 @@ impl<'a> FunctionContext<'a> {
         let index = self.make_array_index(index);
         let type_size = Self::convert_type(element_type).size_of_type();
         let type_size =
-            self.builder.numeric_constant(type_size as u128, Type::unsigned(SSA_WORD_SIZE));
-        let base_index =
-            self.builder.set_location(location).insert_binary(index, BinaryOp::Mul, type_size);
+            self.builder.numeric_constant(type_size as u128, NumericType::length_type());
+        // This shouldn't overflow as we are reaching for an initial array offset
+        // (otherwise it would have overflowed when creating the array)
+        let base_index = self.builder.set_location(location).insert_binary(
+            index,
+            BinaryOp::Mul { unchecked: true },
+            type_size,
+        );
 
         let mut field_index = 0u128;
         Ok(Self::map_type(element_type, |typ| {
@@ -482,7 +492,7 @@ impl<'a> FunctionContext<'a> {
             .make_array_index(length.expect("ICE: a length must be supplied for indexing slices"));
 
         let is_offset_out_of_bounds = self.builder.insert_binary(index, BinaryOp::Lt, array_len);
-        let true_const = self.builder.numeric_constant(true, Type::bool());
+        let true_const = self.builder.numeric_constant(true, NumericType::bool());
 
         self.builder.insert_constrain(
             is_offset_out_of_bounds,
@@ -493,7 +503,7 @@ impl<'a> FunctionContext<'a> {
 
     fn codegen_cast(&mut self, cast: &ast::Cast) -> Result<Values, RuntimeError> {
         let lhs = self.codegen_non_tuple_expression(&cast.lhs)?;
-        let typ = Self::convert_non_tuple_type(&cast.r#type);
+        let typ = Self::convert_non_tuple_type(&cast.r#type).unwrap_numeric();
 
         Ok(self.insert_safe_cast(lhs, typ, cast.location).into())
     }
@@ -518,6 +528,22 @@ impl<'a> FunctionContext<'a> {
     ///   ... This is the current insert point after codegen_for finishes ...
     /// ```
     fn codegen_for(&mut self, for_expr: &ast::For) -> Result<Values, RuntimeError> {
+        self.builder.set_location(for_expr.start_range_location);
+        let start_index = self.codegen_non_tuple_expression(&for_expr.start_range)?;
+
+        self.builder.set_location(for_expr.end_range_location);
+        let end_index = self.codegen_non_tuple_expression(&for_expr.end_range)?;
+
+        if let (Some(start_constant), Some(end_constant)) = (
+            self.builder.current_function.dfg.get_numeric_constant(start_index),
+            self.builder.current_function.dfg.get_numeric_constant(end_index),
+        ) {
+            // If we can determine that the loop contains zero iterations then there's no need to codegen the loop.
+            if start_constant >= end_constant {
+                return Ok(Self::unit_value());
+            }
+        }
+
         let loop_entry = self.builder.insert_block();
         let loop_body = self.builder.insert_block();
         let loop_end = self.builder.insert_block();
@@ -529,12 +555,6 @@ impl<'a> FunctionContext<'a> {
         // Remember the blocks and variable used in case there are break/continue instructions
         // within the loop which need to jump to them.
         self.enter_loop(loop_entry, loop_index, loop_end);
-
-        self.builder.set_location(for_expr.start_range_location);
-        let start_index = self.codegen_non_tuple_expression(&for_expr.start_range)?;
-
-        self.builder.set_location(for_expr.end_range_location);
-        let end_index = self.codegen_non_tuple_expression(&for_expr.end_range)?;
 
         // Set the location of the initial jmp instruction to the start range. This is the location
         // used to issue an error if the start range cannot be determined at compile-time.
@@ -594,6 +614,9 @@ impl<'a> FunctionContext<'a> {
     /// ```
     fn codegen_if(&mut self, if_expr: &ast::If) -> Result<Values, RuntimeError> {
         let condition = self.codegen_non_tuple_expression(&if_expr.condition)?;
+        if let Some(result) = self.try_codegen_constant_if(condition, if_expr) {
+            return result;
+        }
 
         let then_block = self.builder.insert_block();
         let else_block = self.builder.insert_block();
@@ -630,6 +653,25 @@ impl<'a> FunctionContext<'a> {
         }
 
         Ok(result)
+    }
+
+    /// If the condition is known, skip codegen for the then/else branch and only compile the
+    /// relevant branch.
+    fn try_codegen_constant_if(
+        &mut self,
+        condition: ValueId,
+        if_expr: &ast::If,
+    ) -> Option<Result<Values, RuntimeError>> {
+        let condition = self.builder.current_function.dfg.get_numeric_constant(condition)?;
+
+        Some(if condition.is_zero() {
+            match if_expr.alternative.as_ref() {
+                Some(alternative) => self.codegen_expression(alternative),
+                None => Ok(Self::unit_value()),
+            }
+        } else {
+            self.codegen_expression(&if_expr.consequence)
+        })
     }
 
     fn codegen_tuple(&mut self, tuple: &[Expression]) -> Result<Values, RuntimeError> {
@@ -678,7 +720,12 @@ impl<'a> FunctionContext<'a> {
 
                     // We add one here in the case of a slice insert as a slice insert at the length of the slice
                     // can be converted to a slice push back
-                    let len_plus_one = self.builder.insert_binary(arguments[0], BinaryOp::Add, one);
+                    // This is unchecked as the slice length could be u32::max
+                    let len_plus_one = self.builder.insert_binary(
+                        arguments[0],
+                        BinaryOp::Add { unchecked: false },
+                        one,
+                    );
 
                     self.codegen_slice_access_check(arguments[2], Some(len_plus_one));
                 }
@@ -730,7 +777,7 @@ impl<'a> FunctionContext<'a> {
         assert_payload: &Option<Box<(Expression, HirType)>>,
     ) -> Result<Values, RuntimeError> {
         let expr = self.codegen_non_tuple_expression(expr)?;
-        let true_literal = self.builder.numeric_constant(true, Type::bool());
+        let true_literal = self.builder.numeric_constant(true, NumericType::bool());
 
         // Set the location here for any errors that may occur when we codegen the assert message
         self.builder.set_location(location);

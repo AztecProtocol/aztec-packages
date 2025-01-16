@@ -155,6 +155,8 @@ Service Address Setup Container
       value: "{{ .Values.proverNode.service.nodePort }}"
     - name: PROVER_BROKER_PORT
       value: "{{ .Values.proverBroker.service.nodePort }}"
+    - name: USE_GCLOUD_OBSERVABILITY
+      value: "{{ .Values.telemetry.useGcloudObservability }}"
     - name: SERVICE_NAME
       value: {{ include "aztec-network.fullname" . }}
   volumeMounts:
@@ -182,4 +184,20 @@ affinity:
                 - prover-broker
         topologyKey: "kubernetes.io/hostname"
         namespaceSelector: {}
+{{- end -}}
+
+{{- define "aztec-network.gcpLocalSsd" -}}
+nodeSelector:
+  cloud.google.com/gke-ephemeral-storage-local-ssd: "true"
+{{- end -}}
+
+{{- define "aztec-network.waitForEthereum" -}}
+echo "Awaiting ethereum node at ${ETHEREUM_HOST}"
+until curl -s -X POST -H 'Content-Type: application/json' \
+  -d '{"jsonrpc":"2.0","method":"eth_chainId","params":[],"id":67}' \
+  ${ETHEREUM_HOST} | grep 0x; do
+  echo "Waiting for Ethereum node ${ETHEREUM_HOST}..."
+  sleep 5
+done
+echo "Ethereum node is ready!"
 {{- end -}}

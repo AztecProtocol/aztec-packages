@@ -5,7 +5,7 @@ use dep::protocol_types::{
     scalar::Scalar,
 };
 
-use crate::keys::point_to_symmetric_key::point_to_symmetric_key;
+use crate::keys::secret_derivation::derive_aes_secret;
 
 use std::aes128::aes128_encrypt;
 
@@ -22,7 +22,7 @@ impl EncryptedLogHeader {
     where
         T: ToPoint,
     {
-        let full_key = point_to_symmetric_key(secret, pk.to_point());
+        let full_key = derive_aes_secret(secret, pk.to_point());
         let mut sym_key = [0; 16];
         let mut iv = [0; 16];
 
@@ -32,7 +32,7 @@ impl EncryptedLogHeader {
         }
 
         let input: [u8; 32] = self.address.to_field().to_be_bytes();
-        aes128_encrypt(input, iv, sym_key).as_array()
+        aes128_encrypt(input, iv, sym_key)
     }
 }
 

@@ -1,19 +1,22 @@
 use crate::{
     abis::{
         accumulated_data::{
-            avm_accumulated_data::AvmAccumulatedData, CombinedAccumulatedData,
-            PrivateAccumulatedData, PrivateAccumulatedDataBuilder, PrivateToPublicAccumulatedData,
+            avm_accumulated_data::AvmAccumulatedData, PrivateAccumulatedData,
+            PrivateAccumulatedDataBuilder, PrivateToPublicAccumulatedData,
+            PrivateToRollupAccumulatedData,
         },
+        append_only_tree_snapshot::AppendOnlyTreeSnapshot,
         avm_circuit_public_inputs::AvmProofData,
         call_context::CallContext,
         combined_constant_data::CombinedConstantData,
+        constant_rollup_data::ConstantRollupData,
         function_data::FunctionData,
         gas::Gas,
         gas_settings::GasSettings,
         global_variables::GlobalVariables,
         kernel_circuit_public_inputs::{
-            KernelCircuitPublicInputs, PrivateKernelCircuitPublicInputs,
-            PrivateToPublicKernelCircuitPublicInputs,
+            PrivateKernelCircuitPublicInputs, PrivateToPublicKernelCircuitPublicInputs,
+            PrivateToRollupKernelCircuitPublicInputs,
         },
         log::Log,
         log_hash::{LogHash, ScopedLogHash},
@@ -51,7 +54,7 @@ use crate::{
     },
     hash::{
         compute_l2_to_l1_hash, compute_siloed_nullifier, compute_siloed_private_log_field,
-        silo_note_hash,
+        compute_unique_siloed_note_hash, silo_note_hash,
     },
     merkle_tree::{membership::MembershipWitness, MerkleTree},
     messaging::l2_to_l1_message::{L2ToL1Message, ScopedL2ToL1Message},
@@ -91,6 +94,8 @@ pub struct FixtureBuilder {
     pub contract_address: AztecAddress,
     pub msg_sender: AztecAddress,
     pub is_static_call: bool,
+    pub is_private_only: bool,
+    pub claimed_first_nullifier: Field,
 
     // Fees.
     pub is_fee_payer: bool,
@@ -156,6 +161,9 @@ pub struct FixtureBuilder {
     pub protocol_contract_tree_root: Field,
     pub protocol_contract_sibling_path: [Field; PROTOCOL_CONTRACT_TREE_HEIGHT],
 
+    // Tree snapshots.
+    pub archive_tree: AppendOnlyTreeSnapshot,
+
     // Counters.
     pub min_revertible_side_effect_counter: u32,
     pub counter_start: u32,
@@ -213,6 +221,10 @@ impl FixtureBuilder {
         self.vk_tree_root = vk_tree.get_root();
 
         *self
+    }
+
+    pub fn vk_tree_root() -> Field {
+        fixtures::vk_tree::get_vk_merkle_tree().get_root()
     }
 
     pub fn set_protocol_contract_root(&mut self) {
@@ -282,6 +294,15 @@ impl FixtureBuilder {
         CombinedConstantData {
             historical_header: self.historical_header,
             tx_context: self.tx_context,
+            vk_tree_root: self.vk_tree_root,
+            protocol_contract_tree_root: self.protocol_contract_tree_root,
+            global_variables: self.global_variables,
+        }
+    }
+
+    pub fn to_constant_rollup_data(self) -> ConstantRollupData {
+        ConstantRollupData {
+            last_archive: self.archive_tree,
             vk_tree_root: self.vk_tree_root,
             protocol_contract_tree_root: self.protocol_contract_tree_root,
             global_variables: self.global_variables,
@@ -417,23 +438,18 @@ impl FixtureBuilder {
         }
     }
 
-    pub fn to_combined_accumulated_data(self) -> CombinedAccumulatedData {
-        CombinedAccumulatedData {
+    pub fn to_private_to_rollup_accumulated_data(self) -> PrivateToRollupAccumulatedData {
+        PrivateToRollupAccumulatedData {
             note_hashes: self.note_hashes.storage().map(|n: ScopedNoteHash| n.note_hash.value),
             nullifiers: self.nullifiers.storage().map(|n: ScopedNullifier| n.nullifier.value),
             l2_to_l1_msgs: self.l2_to_l1_msgs.storage().map(|m: ScopedL2ToL1Message| {
                 m.expose_to_public()
             }),
             private_logs: self.private_logs.storage().map(|l: Scoped<PrivateLogData>| l.inner.log),
-            unencrypted_logs_hashes: self.unencrypted_logs_hashes.storage().map(|l: ScopedLogHash| {
-                l.expose_to_public()
-            }),
             contract_class_logs_hashes: self.contract_class_logs_hashes.storage().map(
                 |l: ScopedLogHash| l.expose_to_public(),
             ),
-            unencrypted_log_preimages_length: self.unencrypted_log_preimages_length,
             contract_class_log_preimages_length: self.contract_class_log_preimages_length,
-            public_data_writes: self.public_data_writes.storage(),
         }
     }
 
@@ -462,6 +478,8 @@ impl FixtureBuilder {
             validation_requests,
             public_teardown_call_request,
             fee_payer: self.fee_payer,
+            is_private_only: self.is_private_only,
+            claimed_first_nullifier: self.claimed_first_nullifier,
         }
     }
 
@@ -507,20 +525,52 @@ impl FixtureBuilder {
         RollupValidationRequests { max_block_number: self.max_block_number }
     }
 
-    pub fn to_kernel_circuit_public_inputs(self) -> KernelCircuitPublicInputs {
+    pub fn to_private_to_rollup_kernel_circuit_public_inputs(
+        self,
+    ) -> PrivateToRollupKernelCircuitPublicInputs {
         let rollup_validation_requests = self.to_rollup_validation_requests();
-        let end = self.to_combined_accumulated_data();
-        let constants = self.to_constant_data();
+        let end = self.to_private_to_rollup_accumulated_data();
+        let constants = self.to_tx_constant_data();
 
-        KernelCircuitPublicInputs {
+        PrivateToRollupKernelCircuitPublicInputs {
             rollup_validation_requests,
             end,
             constants,
-            start_state: self.start_state,
-            revert_code: self.revert_code,
             gas_used: self.gas_used,
             fee_payer: self.fee_payer,
         }
+    }
+
+    pub fn to_private_tube_data(self) -> PrivateTubeData {
+        let mut result: PrivateTubeData = std::mem::zeroed();
+        result.public_inputs = self.to_private_to_rollup_kernel_circuit_public_inputs();
+        result
+    }
+
+    pub fn to_public_tube_data(self) -> PublicTubeData {
+        let mut result: PublicTubeData = std::mem::zeroed();
+        result.public_inputs = self.to_private_to_public_kernel_circuit_public_inputs(true);
+        result
+    }
+
+    pub fn to_avm_accumulated_data(self) -> AvmAccumulatedData {
+        AvmAccumulatedData {
+            note_hashes: self.note_hashes.storage().map(|n: ScopedNoteHash| n.note_hash.value),
+            nullifiers: self.nullifiers.storage().map(|n: ScopedNullifier| n.nullifier.value),
+            l2_to_l1_msgs: self.l2_to_l1_msgs.storage(),
+            unencrypted_logs_hashes: self.unencrypted_logs_hashes.storage(),
+            public_data_writes: self.public_data_writes.storage(),
+        }
+    }
+
+    pub fn to_avm_proof_data(self, reverted: bool) -> AvmProofData {
+        let mut result: AvmProofData = std::mem::zeroed();
+
+        result.public_inputs.reverted = reverted;
+        result.public_inputs.global_variables = self.global_variables;
+        result.public_inputs.accumulated_data = self.to_avm_accumulated_data();
+
+        result
     }
 
     pub fn add_new_note_hash(&mut self, value: Field) {
@@ -530,14 +580,25 @@ impl FixtureBuilder {
     }
 
     pub fn add_siloed_note_hash(&mut self, value: Field) {
-        // First nullifier is tx hash.
-        let tx_hash = self.nullifiers.get(0).value();
-        let index = self.note_hashes.len();
         let note_hash_to_silo = NoteHash { value, counter: 0 }.scope(self.contract_address);
-        let siloed_value = silo_note_hash(note_hash_to_silo, tx_hash, index);
+        let siloed_value = silo_note_hash(note_hash_to_silo);
         self.note_hashes.push(NoteHash { value: siloed_value, counter: self.next_counter() }.scope(
             AztecAddress::zero(),
         ));
+    }
+
+    pub fn add_siloed_unique_note_hash(&mut self, value: Field) {
+        let note_hash_to_silo = NoteHash { value, counter: 0 }.scope(self.contract_address);
+        let siloed_value = silo_note_hash(note_hash_to_silo);
+        let current_index = self.note_hashes.len();
+        let unique_siloed_value = compute_unique_siloed_note_hash(
+            siloed_value,
+            self.claimed_first_nullifier,
+            current_index,
+        );
+
+        self.note_hashes.push(NoteHash { value: unique_siloed_value, counter: self.next_counter() }
+            .scope(AztecAddress::zero()));
     }
 
     pub fn append_note_hashes(&mut self, num_note_hashes: u32) {
@@ -560,6 +621,16 @@ impl FixtureBuilder {
         }
     }
 
+    pub fn append_siloed_unique_note_hashes(&mut self, num_note_hashes: u32) {
+        let index_offset = self.note_hashes.len();
+        for i in 0..self.note_hashes.max_len() {
+            if i < num_note_hashes {
+                let value = self.mock_note_hash_value(index_offset + i);
+                self.add_siloed_unique_note_hash(value);
+            }
+        }
+    }
+
     pub fn append_note_hashes_with_logs(&mut self, num_note_hashes: u32) {
         let index_offset = self.note_hashes.len();
         for i in 0..self.note_hashes.max_len() {
@@ -571,12 +642,13 @@ impl FixtureBuilder {
         }
     }
 
-    pub fn set_first_nullifier(&mut self) {
+    pub fn set_protocol_nullifier(&mut self) {
         assert_eq(self.nullifiers.len(), 0, "first nullifier already set");
         let value = self.mock_nullifier_value(0);
         let first_nullifier =
             Nullifier { value, counter: 0, note_hash: 0 }.scope(AztecAddress::zero());
         self.nullifiers.push(first_nullifier);
+        self.claimed_first_nullifier = value;
     }
 
     pub fn add_nullifier(&mut self, value: Field) {
@@ -881,6 +953,10 @@ impl FixtureBuilder {
         self.contract_address
     }
 
+    pub fn set_gas_used(&mut self, da_gas: u32, l2_gas: u32) {
+        self.gas_used = Gas { da_gas, l2_gas };
+    }
+
     pub fn set_public_teardown_call_request(&mut self) {
         self.public_teardown_call_request = self.mock_public_teardown_call_request();
     }
@@ -1012,42 +1088,6 @@ impl FixtureBuilder {
         self.counter += 1;
         counter
     }
-
-    fn vk_tree_root() -> Field {
-        fixtures::vk_tree::get_vk_merkle_tree().get_root()
-    }
-
-    pub fn to_private_tube_data(self) -> PrivateTubeData {
-        let mut result: PrivateTubeData = std::mem::zeroed();
-        result.public_inputs = self.to_kernel_circuit_public_inputs();
-        result
-    }
-
-    pub fn to_public_tube_data(self) -> PublicTubeData {
-        let mut result: PublicTubeData = std::mem::zeroed();
-        result.public_inputs = self.to_private_to_public_kernel_circuit_public_inputs(true);
-        result
-    }
-
-    pub fn to_avm_accumulated_data(self) -> AvmAccumulatedData {
-        AvmAccumulatedData {
-            note_hashes: self.note_hashes.storage().map(|n: ScopedNoteHash| n.note_hash.value),
-            nullifiers: self.nullifiers.storage().map(|n: ScopedNullifier| n.nullifier.value),
-            l2_to_l1_msgs: self.l2_to_l1_msgs.storage(),
-            unencrypted_logs_hashes: self.unencrypted_logs_hashes.storage(),
-            public_data_writes: self.public_data_writes.storage(),
-        }
-    }
-
-    pub fn to_avm_proof_data(self, reverted: bool) -> AvmProofData {
-        let mut result: AvmProofData = std::mem::zeroed();
-
-        result.public_inputs.reverted = reverted;
-        result.public_inputs.global_variables = self.global_variables;
-        result.public_inputs.accumulated_data = self.to_avm_accumulated_data();
-
-        result
-    }
 }
 
 impl Empty for FixtureBuilder {
@@ -1055,6 +1095,8 @@ impl Empty for FixtureBuilder {
         FixtureBuilder {
             contract_address: AztecAddress::zero(),
             msg_sender: AztecAddress::zero(),
+            is_private_only: false,
+            claimed_first_nullifier: 0,
             is_static_call: false,
             is_fee_payer: false,
             fee_payer: AztecAddress::zero(),
@@ -1097,6 +1139,7 @@ impl Empty for FixtureBuilder {
             vk_tree_root: FixtureBuilder::vk_tree_root(),
             protocol_contract_tree_root: 0,
             protocol_contract_sibling_path: [0; PROTOCOL_CONTRACT_TREE_HEIGHT],
+            archive_tree: AppendOnlyTreeSnapshot::zero(),
             revert_code: 0,
             min_revertible_side_effect_counter: 0,
             counter_start: 0,

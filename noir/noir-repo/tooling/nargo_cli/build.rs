@@ -7,7 +7,7 @@ const GIT_COMMIT: &&str = &"GIT_COMMIT";
 
 fn main() {
     // Only use build_data if the environment variable isn't set.
-    if std::env::var(GIT_COMMIT).is_err() {
+    if env::var(GIT_COMMIT).is_err() {
         build_data::set_GIT_COMMIT();
         build_data::set_GIT_DIRTY();
         build_data::no_debug_rebuilds();
@@ -19,9 +19,9 @@ fn main() {
 
     // Try to find the directory that Cargo sets when it is running; otherwise fallback to assuming the CWD
     // is the root of the repository and append the crate path
-    let root_dir = match std::env::var("CARGO_MANIFEST_DIR") {
+    let root_dir = match env::var("CARGO_MANIFEST_DIR") {
         Ok(dir) => PathBuf::from(dir).parent().unwrap().parent().unwrap().to_path_buf(),
-        Err(_) => std::env::current_dir().unwrap(),
+        Err(_) => env::current_dir().unwrap(),
     };
     let test_dir = root_dir.join("test_programs");
 
@@ -36,14 +36,13 @@ fn main() {
     generate_compile_success_empty_tests(&mut test_file, &test_dir);
     generate_compile_success_contract_tests(&mut test_file, &test_dir);
     generate_compile_success_no_bug_tests(&mut test_file, &test_dir);
+    generate_compile_success_with_bug_tests(&mut test_file, &test_dir);
     generate_compile_failure_tests(&mut test_file, &test_dir);
 }
 
 /// Some tests are explicitly ignored in brillig due to them failing.
 /// These should be fixed and removed from this list.
-const IGNORED_BRILLIG_TESTS: [&str; 11] = [
-    // Takes a very long time to execute as large loops do not get simplified.
-    "regression_4709",
+const IGNORED_BRILLIG_TESTS: [&str; 10] = [
     // bit sizes for bigint operation doesn't match up.
     "bigint",
     // ICE due to looking for function which doesn't exist.
@@ -178,37 +177,19 @@ fn generate_test_cases(
     }
     let test_cases = test_cases.join("\n");
 
-    // We need to isolate test cases in the same group, otherwise they overwrite each other's artifacts.
-    // On CI we use `cargo nextest`, which runs tests in different processes; for this we use a file lock.
-    // Locally we might be using `cargo test`, which run tests in the same process; in this case the file lock
-    // wouldn't work, becuase the process itself has the lock, and it looks like it can have N instances without
-    // any problems; for this reason we also use a `Mutex`.
-    let mutex_name = format! {"TEST_MUTEX_{}", test_name.to_uppercase()};
     write!(
         test_file,
         r#"
-lazy_static::lazy_static! {{
-    /// Prevent concurrent tests in the matrix from overwriting the compilation artifacts in {test_dir}
-    static ref {mutex_name}: std::sync::Mutex<()> = std::sync::Mutex::new(());
-}}
-
 {test_cases}
 fn test_{test_name}(force_brillig: ForceBrillig, inliner_aggressiveness: Inliner) {{
     let test_program_dir = PathBuf::from("{test_dir}");
-
-    // Ignore poisoning errors if some of the matrix cases failed.
-    let mutex_guard = {mutex_name}.lock().unwrap_or_else(|e| e.into_inner());
-
-    let file_guard = file_lock::FileLock::lock(
-        test_program_dir.join("Nargo.toml"),
-        true,
-        file_lock::FileOptions::new().read(true).write(true).append(true)
-    ).expect("failed to lock Nargo.toml");
 
     let mut nargo = Command::cargo_bin("nargo").unwrap();
     nargo.arg("--program-dir").arg(test_program_dir);
     nargo.arg("{test_command}").arg("--force");
     nargo.arg("--inliner-aggressiveness").arg(inliner_aggressiveness.0.to_string());
+    // Check whether the test case is non-deterministic
+    nargo.arg("--check-non-determinism");
 
     if force_brillig.0 {{
         nargo.arg("--force-brillig");
@@ -216,12 +197,11 @@ fn test_{test_name}(force_brillig: ForceBrillig, inliner_aggressiveness: Inliner
         // Set the maximum increase so that part of the optimization is exercised (it might fail).
         nargo.arg("--max-bytecode-increase-percent");
         nargo.arg("50");
+
+        // Check whether the test case is non-deterministic
     }}
 
     {test_content}
-
-    drop(file_guard);
-    drop(mutex_guard);
 }}
 "#
     )
@@ -381,7 +361,7 @@ fn generate_compile_success_empty_tests(test_file: &mut File, test_data_dir: &Pa
             panic!("JSON was not well-formatted {:?}\n\n{:?}", e, std::str::from_utf8(&output.stdout))
         }});
         let num_opcodes = &json["programs"][0]["functions"][0]["opcodes"];
-        assert_eq!(num_opcodes.as_u64().expect("number of opcodes should fit in a u64"), 0);
+        assert_eq!(num_opcodes.as_u64().expect("number of opcodes should fit in a u64"), 0, "expected the number of opcodes to be 0");
         "#;
 
         generate_test_cases(
@@ -451,6 +431,35 @@ fn generate_compile_success_no_bug_tests(test_file: &mut File, test_data_dir: &P
             "compile",
             r#"
                 nargo.assert().success().stderr(predicate::str::contains("bug:").not());
+            "#,
+            &MatrixConfig::default(),
+        );
+    }
+    writeln!(test_file, "}}").unwrap();
+}
+
+/// Generate tests for checking that the contract compiles and there are "bugs" in stderr
+fn generate_compile_success_with_bug_tests(test_file: &mut File, test_data_dir: &Path) {
+    let test_type = "compile_success_with_bug";
+    let test_cases = read_test_cases(test_data_dir, test_type);
+
+    writeln!(
+        test_file,
+        "mod {test_type} {{
+        use super::*;
+    "
+    )
+    .unwrap();
+    for (test_name, test_dir) in test_cases {
+        let test_dir = test_dir.display();
+
+        generate_test_cases(
+            test_file,
+            &test_name,
+            &test_dir,
+            "compile",
+            r#"
+                nargo.assert().success().stderr(predicate::str::contains("bug:"));
             "#,
             &MatrixConfig::default(),
         );

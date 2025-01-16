@@ -16,9 +16,7 @@ const REPO = 'aztec-packages';
 const log = createConsoleLogger();
 
 async function getMarkdown(prNumber: number, commentType: COMMENT_TYPES) {
-  if (commentType === COMMENT_TYPES.BENCH) {
-    return (await import('../benchmarks/markdown.js')).getMarkdown(prNumber);
-  } else if (commentType === COMMENT_TYPES.DOCS) {
+  if (commentType === COMMENT_TYPES.DOCS) {
     if (!DOCS_PREVIEW_URL) {
       throw new Error('DOCS_PREVIEW_URL is not set');
     } else {
@@ -110,7 +108,7 @@ function sendGitHubRequest(url: string, method = 'GET', data?: object): Promise<
 }
 
 /** Entrypoint */
-export default async function main(prNumber: number, commentType: COMMENT_TYPES = COMMENT_TYPES.BENCH) {
+export default async function main(prNumber: number, commentType: COMMENT_TYPES) {
   const existingComment = await getExistingComment(prNumber, commentType);
   await upsertComment(prNumber, existingComment?.id, commentType);
 }

@@ -1,6 +1,7 @@
 import { type EthCheatCodes, type Logger, createLogger } from '@aztec/aztec.js';
 import { type EthAddress } from '@aztec/circuits.js';
 import { RunningPromise } from '@aztec/foundation/running-promise';
+import { type TestDateProvider } from '@aztec/foundation/timer';
 import { RollupAbi } from '@aztec/l1-artifacts';
 
 import { type GetContractReturnType, type HttpTransport, type PublicClient, getAddress, getContract } from 'viem';
@@ -24,6 +25,7 @@ export class AnvilTestWatcher {
     private cheatcodes: EthCheatCodes,
     rollupAddress: EthAddress,
     publicClient: PublicClient<HttpTransport, chains.Chain>,
+    private dateProvider?: TestDateProvider,
   ) {
     this.rollup = getContract({
       address: getAddress(rollupAddress.toString()),
@@ -46,7 +48,7 @@ export class AnvilTestWatcher {
     const isAutoMining = await this.cheatcodes.isAutoMining();
 
     if (isAutoMining) {
-      this.filledRunningPromise = new RunningPromise(() => this.mineIfSlotFilled(), 1000);
+      this.filledRunningPromise = new RunningPromise(() => this.mineIfSlotFilled(), this.logger, 1000);
       this.filledRunningPromise.start();
       this.logger.info(`Watcher started for rollup at ${this.rollup.address}`);
     } else {
@@ -69,6 +71,7 @@ export class AnvilTestWatcher {
         const timestamp = await this.rollup.read.getTimestampForSlot([currentSlot + 1n]);
         try {
           await this.cheatcodes.warp(Number(timestamp));
+          this.dateProvider?.setTime(Number(timestamp) * 1000);
         } catch (e) {
           this.logger.error(`Failed to warp to timestamp ${timestamp}: ${e}`);
         }

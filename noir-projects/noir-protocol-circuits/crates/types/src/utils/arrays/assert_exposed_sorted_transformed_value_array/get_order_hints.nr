@@ -98,19 +98,19 @@ mod tests {
     }
 
     impl<let N: u32> TestBuilder<N> {
-        pub fn asc_to_equal(self, expected: [OrderHint; N]) {
-            let hints = unsafe { get_order_hints_asc(self.array) };
+        pub unconstrained fn asc_to_equal(self, expected: [OrderHint; N]) {
+            let hints = get_order_hints_asc(self.array);
             assert_eq(hints, expected);
         }
 
-        pub fn desc_to_equal(self, expected: [OrderHint; N]) {
-            let hints = unsafe { get_order_hints_desc(self.array) };
+        pub unconstrained fn desc_to_equal(self, expected: [OrderHint; N]) {
+            let hints = get_order_hints_desc(self.array);
             assert_eq(hints, expected);
         }
     }
 
     #[test]
-    fn get_order_hints_asc_full_non_empty() {
+    unconstrained fn get_order_hints_asc_full_non_empty() {
         let builder = TestBuilder::new();
         let expected_hints = [
             OrderHint { counter: 3, sorted_index: 2 },
@@ -121,7 +121,7 @@ mod tests {
     }
 
     #[test]
-    fn get_order_hints_asc_padded_empty() {
+    unconstrained fn get_order_hints_asc_padded_empty() {
         let builder = TestBuilder::new_padded();
         let expected_hints = [
             OrderHint { counter: 3, sorted_index: 2 },
@@ -134,7 +134,7 @@ mod tests {
     }
 
     #[test]
-    fn get_order_hints_desc_full_non_empty() {
+    unconstrained fn get_order_hints_desc_full_non_empty() {
         let builder = TestBuilder::new();
         let expected_hints = [
             OrderHint { counter: 9, sorted_index: 0 },
@@ -145,7 +145,7 @@ mod tests {
     }
 
     #[test]
-    fn get_order_hints_desc_padded_empty() {
+    unconstrained fn get_order_hints_desc_padded_empty() {
         let builder = TestBuilder::new_padded();
         let expected_hints = [
             OrderHint { counter: 9, sorted_index: 0 },

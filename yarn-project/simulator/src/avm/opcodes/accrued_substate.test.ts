@@ -1,5 +1,5 @@
 import { AztecAddress, Fr } from '@aztec/circuits.js';
-import { siloNullifier } from '@aztec/circuits.js/hash';
+import { computeNoteHashNonce, computeUniqueNoteHash, siloNoteHash, siloNullifier } from '@aztec/circuits.js/hash';
 
 import { mock } from 'jest-mock-extended';
 
@@ -10,7 +10,7 @@ import { Field, Uint8, Uint32 } from '../avm_memory_types.js';
 import { InstructionExecutionError, StaticCallAlterationError } from '../errors.js';
 import { initContext, initExecutionEnvironment, initPersistableStateManager } from '../fixtures/index.js';
 import { type AvmPersistableStateManager } from '../journal/journal.js';
-import { mockL1ToL2MessageExists, mockNoteHashExists, mockNullifierExists } from '../test_utils.js';
+import { mockL1ToL2MessageExists, mockNoteHashCount, mockNoteHashExists, mockNullifierExists } from '../test_utils.js';
 import {
   EmitNoteHash,
   EmitNullifier,
@@ -120,10 +120,14 @@ describe('Accrued Substate', () => {
     });
 
     it('Should append a new note hash correctly', async () => {
+      mockNoteHashCount(trace, 0);
       context.machineState.memory.set(value0Offset, new Field(value0));
       await new EmitNoteHash(/*indirect=*/ 0, /*offset=*/ value0Offset).execute(context);
       expect(trace.traceNewNoteHash).toHaveBeenCalledTimes(1);
-      expect(trace.traceNewNoteHash).toHaveBeenCalledWith(expect.objectContaining(address), /*noteHash=*/ value0);
+      const siloedNotehash = siloNoteHash(address, value0);
+      const nonce = computeNoteHashNonce(persistableState.firstNullifier, 0);
+      const uniqueNoteHash = computeUniqueNoteHash(nonce, siloedNotehash);
+      expect(trace.traceNewNoteHash).toHaveBeenCalledWith(uniqueNoteHash);
     });
   });
 

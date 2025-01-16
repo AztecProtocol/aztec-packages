@@ -53,9 +53,10 @@ pub(crate) fn collect_variables_of_value(
     let value = &dfg[value_id];
 
     match value {
-        Value::Instruction { .. } | Value::Param { .. } | Value::NumericConstant { .. } => {
-            Some(value_id)
-        }
+        Value::Instruction { .. }
+        | Value::Param { .. }
+        | Value::NumericConstant { .. }
+        | Value::Global(_) => Some(value_id),
         // Functions are not variables in a defunctionalized SSA. Only constant function values should appear.
         Value::ForeignFunction(_) | Value::Function(_) | Value::Intrinsic(..) => None,
     }
@@ -372,7 +373,7 @@ mod test {
 
         let v3 = builder.insert_allocate(Type::field());
 
-        let zero = builder.numeric_constant(0u128, Type::field());
+        let zero = builder.field_constant(0u128);
         builder.insert_store(v3, zero);
 
         let v4 = builder.insert_binary(v0, BinaryOp::Eq, zero);
@@ -381,15 +382,15 @@ mod test {
 
         builder.switch_to_block(b2);
 
-        let twenty_seven = builder.numeric_constant(27u128, Type::field());
-        let v7 = builder.insert_binary(v0, BinaryOp::Add, twenty_seven);
+        let twenty_seven = builder.field_constant(27u128);
+        let v7 = builder.insert_binary(v0, BinaryOp::Add { unchecked: false }, twenty_seven);
         builder.insert_store(v3, v7);
 
         builder.terminate_with_jmp(b3, vec![]);
 
         builder.switch_to_block(b1);
 
-        let v6 = builder.insert_binary(v1, BinaryOp::Add, twenty_seven);
+        let v6 = builder.insert_binary(v1, BinaryOp::Add { unchecked: false }, twenty_seven);
         builder.insert_store(v3, v6);
 
         builder.terminate_with_jmp(b3, vec![]);
@@ -487,7 +488,7 @@ mod test {
 
         let v3 = builder.insert_allocate(Type::field());
 
-        let zero = builder.numeric_constant(0u128, Type::field());
+        let zero = builder.field_constant(0u128);
         builder.insert_store(v3, zero);
 
         builder.terminate_with_jmp(b1, vec![zero]);
@@ -501,7 +502,7 @@ mod test {
 
         builder.switch_to_block(b2);
 
-        let v6 = builder.insert_binary(v4, BinaryOp::Mul, v4);
+        let v6 = builder.insert_binary(v4, BinaryOp::Mul { unchecked: false }, v4);
 
         builder.terminate_with_jmp(b4, vec![v0]);
 
@@ -515,7 +516,7 @@ mod test {
 
         builder.switch_to_block(b5);
 
-        let twenty_seven = builder.numeric_constant(27u128, Type::field());
+        let twenty_seven = builder.field_constant(27u128);
         let v10 = builder.insert_binary(v7, BinaryOp::Eq, twenty_seven);
 
         let v11 = builder.insert_not(v10);
@@ -526,7 +527,7 @@ mod test {
 
         let v12 = builder.insert_load(v3, Type::field());
 
-        let v13 = builder.insert_binary(v12, BinaryOp::Add, v6);
+        let v13 = builder.insert_binary(v12, BinaryOp::Add { unchecked: false }, v6);
 
         builder.insert_store(v3, v13);
 
@@ -534,14 +535,14 @@ mod test {
 
         builder.switch_to_block(b8);
 
-        let one = builder.numeric_constant(1u128, Type::field());
-        let v15 = builder.insert_binary(v7, BinaryOp::Add, one);
+        let one = builder.field_constant(1u128);
+        let v15 = builder.insert_binary(v7, BinaryOp::Add { unchecked: false }, one);
 
         builder.terminate_with_jmp(b4, vec![v15]);
 
         builder.switch_to_block(b6);
 
-        let v16 = builder.insert_binary(v4, BinaryOp::Add, one);
+        let v16 = builder.insert_binary(v4, BinaryOp::Add { unchecked: false }, one);
 
         builder.terminate_with_jmp(b1, vec![v16]);
 

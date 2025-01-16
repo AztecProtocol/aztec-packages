@@ -4,7 +4,8 @@
   "type": "module",
   "exports": {
     ".": "./dest/index.js",
-    "./native": "./dest/native/index.js"
+    "./native": "./dest/native/index.js",
+    "./config": "./dest/synchronizer/config.js"
   },
   "typedocOptions": {
     "entryPoints": [
@@ -20,8 +21,8 @@
     "clean": "rm -rf ./dest ./build .tsbuildinfo",
     "formatting": "run -T prettier --check ./src && run -T eslint ./src",
     "formatting:fix": "run -T eslint --fix ./src && run -T prettier -w ./src",
-    "test": "NODE_NO_WARNINGS=1 node --experimental-vm-modules ../node_modules/.bin/jest --passWithNoTests",
-    "generate": "mkdir -p build && (([ -f ../../barretenberg/cpp/build/bin/world_state_napi.node ] && cp -v ../../barretenberg/cpp/build/bin/world_state_napi.node build) || ([ -f ../../barretenberg/cpp/build-pic/lib/world_state_napi.node ] && cp -v ../../barretenberg/cpp/build-pic/lib/world_state_napi.node build) || true)"
+    "generate": "mkdir -p build && cp -v ../../barretenberg/cpp/build-pic/lib/world_state_napi.node build",
+    "test": "HARDWARE_CONCURRENCY=${HARDWARE_CONCURRENCY:-16} RAYON_NUM_THREADS=${RAYON_NUM_THREADS:-4} NODE_NO_WARNINGS=1 node --experimental-vm-modules ../node_modules/.bin/jest --passWithNoTests --maxWorkers=${JEST_MAX_WORKERS:-8}"
   },
   "inherits": [
     "../package.common.json",
@@ -53,12 +54,7 @@
       ".ts"
     ],
     "reporters": [
-      [
-        "default",
-        {
-          "summaryThreshold": 9999
-        }
-      ]
+      "default"
     ],
     "testTimeout": 30000,
     "setupFiles": [

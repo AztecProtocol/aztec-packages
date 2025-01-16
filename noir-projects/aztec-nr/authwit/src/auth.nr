@@ -232,7 +232,7 @@ pub fn assert_inner_hash_valid_authwit(
             comptime { FunctionSelector::from_signature("verify_private_authwit(Field)") },
             [inner_hash],
         )
-        .unpack_into();
+        .get_preimage();
     assert(result == IS_VALID_SELECTOR, "Message not authorized by account");
     // Compute the nullifier, similar computation to the outer hash, but without the chain_id and version.
     // Those should already be handled in the verification, so we just need something to nullify, that allows the same inner_hash for multiple actors.

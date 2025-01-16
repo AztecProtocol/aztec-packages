@@ -45,27 +45,29 @@ export class MerkleTreesFacade implements MerkleTreeReadOperations {
     return this.initialHeader;
   }
 
-  findLeafIndex(treeId: MerkleTreeId, value: MerkleTreeLeafType<MerkleTreeId>): Promise<bigint | undefined> {
-    return this.findLeafIndexAfter(treeId, value, 0n);
+  findLeafIndices(treeId: MerkleTreeId, values: MerkleTreeLeafType<MerkleTreeId>[]): Promise<(bigint | undefined)[]> {
+    return this.findLeafIndicesAfter(treeId, values, 0n);
   }
 
-  async findLeafIndexAfter(
+  async findLeafIndicesAfter(
     treeId: MerkleTreeId,
-    leaf: MerkleTreeLeafType<MerkleTreeId>,
+    leaves: MerkleTreeLeafType<MerkleTreeId>[],
     startIndex: bigint,
-  ): Promise<bigint | undefined> {
-    const index = await this.instance.call(WorldStateMessageType.FIND_LEAF_INDEX, {
-      leaf: serializeLeaf(hydrateLeaf(treeId, leaf)),
+  ): Promise<(bigint | undefined)[]> {
+    const response = await this.instance.call(WorldStateMessageType.FIND_LEAF_INDICES, {
+      leaves: leaves.map(leaf => serializeLeaf(hydrateLeaf(treeId, leaf))),
       revision: this.revision,
       treeId,
       startIndex,
     });
 
-    if (typeof index === 'number' || typeof index === 'bigint') {
-      return BigInt(index);
-    } else {
-      return undefined;
-    }
+    return response.indices.map(index => {
+      if (typeof index === 'number' || typeof index === 'bigint') {
+        return BigInt(index);
+      } else {
+        return undefined;
+      }
+    });
   }
 
   async getLeafPreimage(treeId: IndexedTreeId, leafIndex: bigint): Promise<IndexedTreeLeafPreimage | undefined> {
@@ -141,7 +143,7 @@ export class MerkleTreesFacade implements MerkleTreeReadOperations {
   }
 
   async getInitialStateReference(): Promise<StateReference> {
-    const resp = await this.instance.call(WorldStateMessageType.GET_INITIAL_STATE_REFERENCE, void 0);
+    const resp = await this.instance.call(WorldStateMessageType.GET_INITIAL_STATE_REFERENCE, { canonical: true });
 
     return new StateReference(
       treeStateReferenceToSnapshot(resp.state[MerkleTreeId.L1_TO_L2_MESSAGE_TREE]),

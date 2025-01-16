@@ -6,7 +6,6 @@ import {
   type ProvingJobConsumer,
   ProvingJobId,
   type ProvingJobProducer,
-  ProvingJobSettledResult,
   ProvingJobStatus,
   ProvingRequestType,
 } from '@aztec/circuit-types';
@@ -26,10 +25,10 @@ const GetProvingJobResponse = z.object({
 });
 
 export const ProvingJobProducerSchema: ApiSchemaFor<ProvingJobProducer> = {
-  enqueueProvingJob: z.function().args(ProvingJob).returns(z.void()),
+  enqueueProvingJob: z.function().args(ProvingJob).returns(ProvingJobStatus),
   getProvingJobStatus: z.function().args(ProvingJobId).returns(ProvingJobStatus),
-  removeAndCancelProvingJob: z.function().args(ProvingJobId).returns(z.void()),
-  waitForJobToSettle: z.function().args(ProvingJobId).returns(ProvingJobSettledResult),
+  cancelProvingJob: z.function().args(ProvingJobId).returns(z.void()),
+  getCompletedJobs: z.function().args(z.array(ProvingJobId)).returns(z.array(ProvingJobId)),
 };
 
 export const ProvingJobConsumerSchema: ApiSchemaFor<ProvingJobConsumer> = {

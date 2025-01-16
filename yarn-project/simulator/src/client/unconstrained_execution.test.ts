@@ -7,10 +7,13 @@ import { StatefulTestContractArtifact } from '@aztec/noir-contracts.js/StatefulT
 
 import { mock } from 'jest-mock-extended';
 
+import { WASMSimulator } from '../providers/acvm_wasm.js';
 import { type DBOracle } from './db_oracle.js';
 import { AcirSimulator } from './simulator.js';
 
 describe('Unconstrained Execution test suite', () => {
+  const simulationProvider = new WASMSimulator();
+
   let oracle: ReturnType<typeof mock<DBOracle>>;
   let node: ReturnType<typeof mock<AztecNode>>;
   let acirSimulator: AcirSimulator;
@@ -23,11 +26,11 @@ describe('Unconstrained Execution test suite', () => {
     node.getChainId.mockResolvedValue(1);
     node.getVersion.mockResolvedValue(1);
 
-    acirSimulator = new AcirSimulator(oracle, node);
+    acirSimulator = new AcirSimulator(oracle, node, simulationProvider);
   });
 
   describe('private token contract', () => {
-    const ownerSecretKey = Fr.fromString('2dcc5485a58316776299be08c78fa3788a1a7961ae30dc747fb1be17692a8d32');
+    const ownerSecretKey = Fr.fromHexString('2dcc5485a58316776299be08c78fa3788a1a7961ae30dc747fb1be17692a8d32');
 
     let owner: AztecAddress;
 

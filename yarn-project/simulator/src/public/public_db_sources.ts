@@ -22,13 +22,11 @@ import {
 import { computeL1ToL2MessageNullifier, computePublicDataTreeLeafSlot } from '@aztec/circuits.js/hash';
 import { createLogger } from '@aztec/foundation/log';
 import { Timer } from '@aztec/foundation/timer';
-import { ContractClassRegisteredEvent, ContractInstanceDeployedEvent } from '@aztec/protocol-contracts';
-import {
-  type CommitmentsDB,
-  MessageLoadOracleInputs,
-  type PublicContractsDB,
-  type PublicStateDB,
-} from '@aztec/simulator';
+import { ContractClassRegisteredEvent } from '@aztec/protocol-contracts/class-registerer';
+import { ContractInstanceDeployedEvent } from '@aztec/protocol-contracts/instance-deployer';
+
+import { MessageLoadOracleInputs } from '../common/message_load_oracle_inputs.js';
+import { type CommitmentsDB, type PublicContractsDB, type PublicStateDB } from './db_interfaces.js';
 
 /**
  * Implements the PublicContractsDB using a ContractDataSource.
@@ -207,7 +205,7 @@ export class WorldStateDB extends ContractsDataSourcePublicDB implements PublicS
     nullifier: Fr,
   ): Promise<NullifierMembershipWitness | undefined> {
     const timer = new Timer();
-    const index = await this.db.findLeafIndex(MerkleTreeId.NULLIFIER_TREE, nullifier.toBuffer());
+    const index = (await this.db.findLeafIndices(MerkleTreeId.NULLIFIER_TREE, [nullifier.toBuffer()]))[0];
     if (!index) {
       return undefined;
     }
@@ -240,7 +238,7 @@ export class WorldStateDB extends ContractsDataSourcePublicDB implements PublicS
   ): Promise<MessageLoadOracleInputs<typeof L1_TO_L2_MSG_TREE_HEIGHT>> {
     const timer = new Timer();
 
-    const messageIndex = await this.db.findLeafIndex(MerkleTreeId.L1_TO_L2_MESSAGE_TREE, messageHash);
+    const messageIndex = (await this.db.findLeafIndices(MerkleTreeId.L1_TO_L2_MESSAGE_TREE, [messageHash]))[0];
     if (messageIndex === undefined) {
       throw new Error(`No L1 to L2 message found for message hash ${messageHash.toString()}`);
     }
@@ -279,7 +277,7 @@ export class WorldStateDB extends ContractsDataSourcePublicDB implements PublicS
 
   public async getCommitmentIndex(commitment: Fr): Promise<bigint | undefined> {
     const timer = new Timer();
-    const index = await this.db.findLeafIndex(MerkleTreeId.NOTE_HASH_TREE, commitment);
+    const index = (await this.db.findLeafIndices(MerkleTreeId.NOTE_HASH_TREE, [commitment]))[0];
     this.logger.debug(`[DB] Fetched commitment index`, {
       eventName: 'public-db-access',
       duration: timer.ms(),
@@ -301,7 +299,7 @@ export class WorldStateDB extends ContractsDataSourcePublicDB implements PublicS
 
   public async getNullifierIndex(nullifier: Fr): Promise<bigint | undefined> {
     const timer = new Timer();
-    const index = await this.db.findLeafIndex(MerkleTreeId.NULLIFIER_TREE, nullifier.toBuffer());
+    const index = (await this.db.findLeafIndices(MerkleTreeId.NULLIFIER_TREE, [nullifier.toBuffer()]))[0];
     this.logger.debug(`[DB] Fetched nullifier index`, {
       eventName: 'public-db-access',
       duration: timer.ms(),

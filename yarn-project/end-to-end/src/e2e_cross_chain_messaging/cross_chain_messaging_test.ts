@@ -12,7 +12,8 @@ import {
 } from '@aztec/aztec.js';
 import { createL1Clients } from '@aztec/ethereum';
 import { InboxAbi, OutboxAbi, RollupAbi } from '@aztec/l1-artifacts';
-import { TokenBridgeContract, TokenContract } from '@aztec/noir-contracts.js';
+import { TokenContract } from '@aztec/noir-contracts.js/Token';
+import { TokenBridgeContract } from '@aztec/noir-contracts.js/TokenBridge';
 
 import { type Chain, type HttpTransport, type PublicClient, getContract } from 'viem';
 
@@ -87,8 +88,8 @@ export class CrossChainMessagingTest {
       async ({ accountKeys }, { pxe, aztecNodeConfig, aztecNode, deployL1ContractsValues }) => {
         const accountManagers = accountKeys.map(ak => getSchnorrAccount(pxe, ak[0], ak[1], 1));
         this.wallets = await Promise.all(accountManagers.map(a => a.getWallet()));
+        this.accounts = accountManagers.map(a => a.getCompleteAddress());
         this.wallets.forEach((w, i) => this.logger.verbose(`Wallet ${i} address: ${w.getAddress()}`));
-        this.accounts = await pxe.getRegisteredAccounts();
 
         this.rollup = getContract({
           address: deployL1ContractsValues.l1ContractAddresses.rollupAddress.toString(),

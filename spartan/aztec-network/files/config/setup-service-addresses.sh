@@ -53,8 +53,8 @@ get_service_address() {
 }
 
 # Configure Ethereum address
-if [ "${ETHEREUM_EXTERNAL_HOST}" != "" ]; then
-    ETHEREUM_ADDR="${ETHEREUM_EXTERNAL_HOST}"
+if [ "${EXTERNAL_ETHEREUM_HOST}" != "" ]; then
+    ETHEREUM_ADDR="${EXTERNAL_ETHEREUM_HOST}"
 elif [ "${NETWORK_PUBLIC}" = "true" ]; then
     ETHEREUM_ADDR=$(get_service_address "ethereum" "${ETHEREUM_PORT}")
 else
@@ -86,7 +86,7 @@ else
 fi
 
 # Configure OTEL_COLLECTOR_ENDPOINT if not set in values file
-if [ "${TELEMETRY:-false}" = "true" ] && [ "${OTEL_COLLECTOR_ENDPOINT}" = "" ]; then
+if [ "${TELEMETRY:-false}" = "true" ] && [ "${OTEL_COLLECTOR_ENDPOINT}" = "" ] && [ "${USE_GCLOUD_OBSERVABILITY:-false}" = "false" ]; then
     OTEL_COLLECTOR_PORT=${OTEL_COLLECTOR_PORT:-4318}
     OTEL_COLLECTOR_ENDPOINT="http://metrics-opentelemetry-collector.metrics:$OTEL_COLLECTOR_PORT"
 fi

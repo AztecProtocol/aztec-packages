@@ -17,7 +17,7 @@ where
     C: CallInterface<M>,
 {
     let target = call_interface.get_contract_address();
-    let inputs = cheatcodes::get_private_context_inputs(get_block_number());
+    let inputs = unsafe { cheatcodes::get_private_context_inputs(get_block_number()) };
     let chain_id = inputs.tx_context.chain_id;
     let version = inputs.tx_context.version;
     let args_hash = hash_args(call_interface.get_args());
@@ -25,7 +25,7 @@ where
     let inner_hash =
         compute_inner_authwit_hash([caller.to_field(), selector.to_field(), args_hash]);
     let message_hash = compute_authwit_message_hash(target, chain_id, version, inner_hash);
-    cheatcodes::add_authwit(on_behalf_of, message_hash);
+    unsafe { cheatcodes::add_authwit(on_behalf_of, message_hash) };
 }
 
 pub unconstrained fn add_public_authwit_from_call_interface<C, let M: u32>(

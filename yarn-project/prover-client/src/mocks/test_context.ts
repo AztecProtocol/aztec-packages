@@ -2,26 +2,31 @@ import { type BBProverConfig } from '@aztec/bb-prover';
 import {
   type L2Block,
   type ProcessedTx,
-  type ProcessedTxHandler,
   type PublicExecutionRequest,
   type ServerCircuitProver,
   type Tx,
-  type TxValidator,
 } from '@aztec/circuit-types';
 import { makeBloatedProcessedTx } from '@aztec/circuit-types/test';
-import { type AppendOnlyTreeSnapshot, BlockHeader, type Gas, type GlobalVariables } from '@aztec/circuits.js';
+import {
+  type AppendOnlyTreeSnapshot,
+  BlockHeader,
+  type Gas,
+  type GlobalVariables,
+  TreeSnapshots,
+} from '@aztec/circuits.js';
 import { times } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/fields';
 import { type Logger } from '@aztec/foundation/log';
-import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types';
+import { TestDateProvider } from '@aztec/foundation/timer';
+import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types/vks';
 import { protocolContractTreeRoot } from '@aztec/protocol-contracts';
 import {
   PublicProcessor,
   PublicTxSimulator,
   type SimulationProvider,
-  WASMSimulator,
+  WASMSimulatorWithBlobs,
   type WorldStateDB,
-} from '@aztec/simulator';
+} from '@aztec/simulator/server';
 import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
 import { type MerkleTreeAdminDatabase } from '@aztec/world-state';
 import { NativeWorldStateService } from '@aztec/world-state/native';
@@ -37,7 +42,7 @@ import { buildBlock } from '../block_builder/light.js';
 import { ProvingOrchestrator } from '../orchestrator/index.js';
 import { MemoryProvingQueue } from '../prover-agent/memory-proving-queue.js';
 import { ProverAgent } from '../prover-agent/prover-agent.js';
-import { getEnvironmentConfig, getSimulationProvider, makeGlobals } from './fixtures.js';
+import { getEnvironmentConfig, getSimulationProvider, makeGlobals, updateExpectedTreesFromTxs } from './fixtures.js';
 
 export class TestContext {
   private headers: Map<number, BlockHeader> = new Map();
@@ -64,7 +69,7 @@ export class TestContext {
     logger: Logger,
     proverCount = 4,
     createProver: (bbConfig: BBProverConfig) => Promise<ServerCircuitProver> = _ =>
-      Promise.resolve(new TestCircuitProver(new NoopTelemetryClient(), new WASMSimulator())),
+      Promise.resolve(new TestCircuitProver(new NoopTelemetryClient(), new WASMSimulatorWithBlobs())),
     blockNumber = 1,
   ) {
     const directoriesToCleanup: string[] = [];
@@ -79,13 +84,14 @@ export class TestContext {
 
     worldStateDB.getMerkleInterface.mockReturnValue(publicDb);
 
-    const publicTxSimulator = new PublicTxSimulator(publicDb, worldStateDB, telemetry, globalVariables);
+    const publicTxSimulator = new PublicTxSimulator(publicDb, worldStateDB, telemetry, globalVariables, true);
     const processor = new PublicProcessor(
       publicDb,
       globalVariables,
       BlockHeader.empty(),
       worldStateDB,
       publicTxSimulator,
+      new TestDateProvider(),
       telemetry,
     );
 
@@ -114,7 +120,7 @@ export class TestContext {
 
     const queue = new MemoryProvingQueue(telemetry);
     const orchestrator = new TestProvingOrchestrator(ws, queue, telemetry, Fr.ZERO);
-    const agent = new ProverAgent(localProver, proverCount);
+    const agent = new ProverAgent(localProver, proverCount, undefined, telemetry);
 
     queue.start();
     agent.start(queue);
@@ -180,6 +186,7 @@ export class TestContext {
     const txs = times(numTxs, i =>
       this.makeProcessedTx({ seed: i + blockNum * 1000, globalVariables, ...makeProcessedTxOpts(i) }),
     );
+    await this.setEndTreeRoots(txs);
 
     const block = await buildBlock(txs, globalVariables, msgs, db);
     this.headers.set(blockNum, block.header);
@@ -187,12 +194,7 @@ export class TestContext {
     return { block, txs, msgs };
   }
 
-  public async processPublicFunctions(
-    txs: Tx[],
-    maxTransactions: number,
-    txHandler?: ProcessedTxHandler,
-    txValidator?: TxValidator<ProcessedTx>,
-  ) {
+  public async processPublicFunctions(txs: Tx[], maxTransactions: number) {
     const defaultExecutorImplementation = (
       _stateManager: AvmPersistableStateManager,
       executionRequest: PublicExecutionRequest,
@@ -217,17 +219,29 @@ export class TestContext {
     return await this.processPublicFunctionsWithMockExecutorImplementation(
       txs,
       maxTransactions,
-      txHandler,
-      txValidator,
       defaultExecutorImplementation,
     );
+  }
+
+  public async setEndTreeRoots(txs: ProcessedTx[]) {
+    const db = await this.worldState.fork();
+    for (const tx of txs) {
+      await updateExpectedTreesFromTxs(db, [tx]);
+      const stateReference = await db.getStateReference();
+      if (tx.avmProvingRequest) {
+        tx.avmProvingRequest.inputs.output.endTreeSnapshots = new TreeSnapshots(
+          stateReference.l1ToL2MessageTree,
+          stateReference.partial.noteHashTree,
+          stateReference.partial.nullifierTree,
+          stateReference.partial.publicDataTree,
+        );
+      }
+    }
   }
 
   private async processPublicFunctionsWithMockExecutorImplementation(
     txs: Tx[],
     maxTransactions: number,
-    txHandler?: ProcessedTxHandler,
-    txValidator?: TxValidator<ProcessedTx>,
     executorMock?: (
       stateManager: AvmPersistableStateManager,
       executionRequest: PublicExecutionRequest,
@@ -254,7 +268,7 @@ export class TestContext {
     if (executorMock) {
       simulateInternal.mockImplementation(executorMock);
     }
-    return await this.publicProcessor.process(txs, maxTransactions, txHandler, txValidator);
+    return await this.publicProcessor.process(txs, { maxTransactions });
   }
 }
 

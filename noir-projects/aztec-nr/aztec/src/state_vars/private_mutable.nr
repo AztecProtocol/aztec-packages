@@ -27,7 +27,11 @@ mod test;
 impl<T, Context, let N: u32> Storage<T, N> for PrivateMutable<T, Context>
 where
     T: Serialize<N> + Deserialize<N>,
-{}
+{
+    fn get_storage_slot(self) -> Field {
+        self.storage_slot
+    }
+}
 
 impl<Note, Context> PrivateMutable<Note, Context> {
     // docs:start:new
@@ -81,16 +85,17 @@ where
     // docs:end:replace
 
     pub fn initialize_or_replace(self, note: &mut Note) -> NoteEmission<Note> {
-        // `check_nullifier_exists` is an unconstrained function - we can constrain a true value by providing an
-        // inclusion proof of the nullifier, but cannot constrain a false value since a non-inclusion proof would only
-        // be valid if done in public.
-        // Ultimately, this is not an issue ginen that we'll either:
-        //  - initialize the state variable, which would fail if it was already initialized due to the duplicate
-        //    nullifier, or
-        //  - replace the current value, which would fail if it was not initialized since we wouldn't be able to produce
-        //    an inclusion proof for the current note
-        // This means that an honest oracle will assist the prover to produce a valid proof, while a malicious oracle
-        // (i.e. one that returns an incorrect value for is_initialized) will simply fail to produce a proof.
+        /// Safety: `check_nullifier_exists` is an unconstrained function - we can constrain a true value
+        /// by providing an inclusion proof of the nullifier, but cannot constrain a false value since
+        /// a non-inclusion proof would only be valid if done in public.
+        /// Ultimately, this is not an issue given that we'll either:
+        ///  - initialize the state variable, which would fail if it was already initialized due to the duplicate
+        ///    nullifier, or
+        ///  - replace the current value, which would fail if it was not initialized since we wouldn't be able
+        ///    to produce an inclusion proof for the current note
+        /// This means that an honest oracle will assist the prover to produce a valid proof, while a malicious
+        /// oracle (i.e. one that returns an incorrect value for is_initialized) will simply fail to produce
+        /// a proof.
         let is_initialized =
             unsafe { check_nullifier_exists(self.compute_initialization_nullifier()) };
 

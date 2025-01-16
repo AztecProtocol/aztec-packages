@@ -8,10 +8,11 @@ import {
   type Logger,
   type PXE,
   type Wallet,
-  retryUntil,
   sleep,
 } from '@aztec/aztec.js';
-import { ChildContract, TestContract, TokenContract } from '@aztec/noir-contracts.js';
+import { ChildContract } from '@aztec/noir-contracts.js/Child';
+import { TestContract } from '@aztec/noir-contracts.js/Test';
+import { TokenContract } from '@aztec/noir-contracts.js/Token';
 
 import { expect, jest } from '@jest/globals';
 
@@ -48,8 +49,8 @@ describe('e2e_2_pxes', () => {
      What is a more robust solution? */
     await sleep(5000);
 
-    await walletA.registerContact(walletB.getAddress());
-    await walletB.registerContact(walletA.getAddress());
+    await walletA.registerSender(walletB.getAddress());
+    await walletB.registerSender(walletA.getAddress());
   });
 
   afterEach(async () => {
@@ -57,8 +58,7 @@ describe('e2e_2_pxes', () => {
     await teardownA();
   });
 
-  // TODO #10296
-  it.skip('transfers funds from user A to B via PXE A followed by transfer from B to A via PXE B', async () => {
+  it('transfers funds from user A to B via PXE A followed by transfer from B to A via PXE B', async () => {
     const initialBalance = 987n;
     const transferAmount1 = 654n;
     const transferAmount2 = 323n;
@@ -103,20 +103,11 @@ describe('e2e_2_pxes', () => {
     return contract.instance;
   };
 
-  const awaitServerSynchronized = async (server: PXE) => {
-    const isServerSynchronized = async () => {
-      return await server.isGlobalStateSynchronized();
-    };
-    await retryUntil(isServerSynchronized, 'server sync', 10);
-  };
-
   const getChildStoredValue = (child: { address: AztecAddress }, pxe: PXE) =>
     pxe.getPublicStorageAt(child.address, new Fr(1));
 
   it('user calls a public function on a contract deployed by a different user using a different PXE', async () => {
     const childCompleteAddress = await deployChildContractViaServerA();
-
-    await awaitServerSynchronized(pxeA);
 
     // Add Child to PXE B
     await pxeB.registerContract({
@@ -128,8 +119,6 @@ describe('e2e_2_pxes', () => {
 
     const childContractWithWalletB = await ChildContract.at(childCompleteAddress.address, walletB);
     await childContractWithWalletB.methods.pub_inc_value(newValueToSet).send().wait({ interval: 0.1 });
-
-    await awaitServerSynchronized(pxeA);
 
     const storedValueOnB = await getChildStoredValue(childCompleteAddress, pxeB);
     expect(storedValueOnB).toEqual(newValueToSet);
@@ -193,13 +182,13 @@ describe('e2e_2_pxes', () => {
     const sharedAccountAddress = sharedAccountOnA.getCompleteAddress();
     const sharedWalletOnA = await sharedAccountOnA.waitSetup();
 
-    await sharedWalletOnA.registerContact(walletA.getAddress());
+    await sharedWalletOnA.registerSender(walletA.getAddress());
 
     const sharedAccountOnB = getUnsafeSchnorrAccount(pxeB, sharedSecretKey, sharedAccountOnA.salt);
     await sharedAccountOnB.register();
     const sharedWalletOnB = await sharedAccountOnB.getWallet();
 
-    await sharedWalletOnB.registerContact(sharedWalletOnA.getAddress());
+    await sharedWalletOnB.registerSender(sharedWalletOnA.getAddress());
 
     // deploy the contract on PXE A
     const token = await deployToken(walletA, initialBalance, logger);
@@ -255,9 +244,9 @@ describe('e2e_2_pxes', () => {
         .send()
         .wait();
       await testContract.methods.sync_notes().simulate();
-      const incomingNotes = await walletA.getIncomingNotes({ txHash: receipt.txHash });
-      expect(incomingNotes).toHaveLength(1);
-      note = incomingNotes[0];
+      const notes = await walletA.getNotes({ txHash: receipt.txHash });
+      expect(notes).toHaveLength(1);
+      note = notes[0];
     }
 
     // 3. Nullify the note
