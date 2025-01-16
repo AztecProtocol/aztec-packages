@@ -813,12 +813,11 @@ AvmFlavor::AllConstRefValues::AllConstRefValues(
     , slice_addr_shift(il[805])
     , slice_clk_shift(il[806])
     , slice_cnt_shift(il[807])
-    , slice_col_offset_shift(il[808])
-    , slice_sel_cd_cpy_shift(il[809])
-    , slice_sel_mem_active_shift(il[810])
-    , slice_sel_return_shift(il[811])
-    , slice_sel_start_shift(il[812])
-    , slice_space_id_shift(il[813])
+    , slice_sel_cd_cpy_shift(il[808])
+    , slice_sel_mem_active_shift(il[809])
+    , slice_sel_return_shift(il[810])
+    , slice_sel_start_shift(il[811])
+    , slice_space_id_shift(il[812])
 {}
 
 AvmFlavor::ProverPolynomials::ProverPolynomials(ProvingKey& proving_key)
@@ -1643,7 +1642,6 @@ AvmFlavor::AllConstRefValues AvmFlavor::ProverPolynomials::get_row(size_t row_id
                      slice_addr_shift[row_idx],
                      slice_clk_shift[row_idx],
                      slice_cnt_shift[row_idx],
-                     slice_col_offset_shift[row_idx],
                      slice_sel_cd_cpy_shift[row_idx],
                      slice_sel_mem_active_shift[row_idx],
                      slice_sel_return_shift[row_idx],

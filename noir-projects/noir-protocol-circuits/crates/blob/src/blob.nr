@@ -4,7 +4,7 @@ use crate::{
     unconstrained_config::{compute_roots_of_unity, D_INV, F, LOG_FIELDS_PER_BLOB},
 };
 
-use bigint::BigNum;
+use bigint::{BigNum, BigNumTrait};
 // Fixed hash method:
 use types::hash::poseidon2_hash_subarray;
 // Variable hash method:
@@ -322,10 +322,9 @@ fn compute_factor(z: F) -> F {
 
     let z_pow_d = t;
 
-    let factor = unsafe {
-        // Safety: We immediately check that this result is correct in the following `BigNum::evaluate_quadratic_expression` call.
-        __compute_factor_helper(z_pow_d)
-    };
+    /// Safety: We immediately check that this result is correct in the following
+    /// `BigNum::evaluate_quadratic_expression` call.
+    let factor = unsafe { __compute_factor_helper(z_pow_d) };
 
     // (z_pow_d - one) * (D_INV) - factor = 0
     // z_pow_d * D_INV - D_INV - factor = 0
@@ -380,10 +379,9 @@ fn compute_fracs(
     ys: [F; FIELDS_PER_BLOB],
     ROOTS: [F; FIELDS_PER_BLOB],
 ) -> [F; FIELDS_PER_BLOB] {
-    let mut fracs: [F; FIELDS_PER_BLOB] = unsafe {
-        // Safety: We immediately constrain these `fracs` to be correct in the following call to `BigNum::evaluate_quadratic_expression`.
-        __compute_fracs(z, ys, ROOTS)
-    };
+    /// Safety: We immediately constrain these `fracs` to be correct in the following call
+    /// to `BigNum::evaluate_quadratic_expression`.
+    let mut fracs: [F; FIELDS_PER_BLOB] = unsafe { __compute_fracs(z, ys, ROOTS) };
 
     if !std::runtime::is_unconstrained() {
         for i in 0..FIELDS_PER_BLOB {
