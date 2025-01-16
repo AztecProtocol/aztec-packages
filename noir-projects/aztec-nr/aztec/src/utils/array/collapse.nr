@@ -9,11 +9,13 @@ pub fn collapse<T, let N: u32>(input: [Option<T>; N]) -> BoundedVec<T, N>
 where
     T: Eq,
 {
-    // Computing the collpased BoundedVec would result in a very large number of constraints, since we'd need to loop
+    // Computing the collapsed BoundedVec would result in a very large number of constraints, since we'd need to loop
     // over the input array and conditionally write to a dynamic vec index, which is a very unfriendly pattern to the
     // proving backend.
     // Instead, we use an unconstrained function to produce the final collapsed array, along with some hints, and then
     // verify that the input and collapsed arrays are equivalent.
+
+    /// Safety: The hints are verified by the `verify_collapse_hints` function.
     let (collapsed, collapsed_to_input_index_mapping) = unsafe { get_collapse_hints(input) };
     verify_collapse_hints(input, collapsed, collapsed_to_input_index_mapping);
     collapsed

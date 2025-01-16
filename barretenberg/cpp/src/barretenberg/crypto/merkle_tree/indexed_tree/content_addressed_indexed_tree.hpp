@@ -344,7 +344,7 @@ void ContentAddressedIndexedTree<Store, HashingPolicy>::get_leaf(const index_t& 
                 RequestContext requestContext;
                 requestContext.includeUncommitted = includeUncommitted;
                 requestContext.root = store_->get_current_root(*tx, includeUncommitted);
-                std::optional<fr> leaf_hash = find_leaf_hash(index, requestContext, *tx);
+                std::optional<fr> leaf_hash = find_leaf_hash(index, requestContext, *tx, false);
                 if (!leaf_hash.has_value()) {
                     response.success = false;
                     response.message = "Failed to find leaf hash for current root";
@@ -390,7 +390,7 @@ void ContentAddressedIndexedTree<Store, HashingPolicy>::get_leaf(const index_t& 
                 requestContext.blockNumber = blockNumber;
                 requestContext.includeUncommitted = includeUncommitted;
                 requestContext.root = blockData.root;
-                std::optional<fr> leaf_hash = find_leaf_hash(index, requestContext, *tx);
+                std::optional<fr> leaf_hash = find_leaf_hash(index, requestContext, *tx, false);
                 if (!leaf_hash.has_value()) {
                     response.success = false;
                     response.message = format("Failed to find leaf hash for root of block ", blockNumber);
