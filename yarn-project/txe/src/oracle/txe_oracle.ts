@@ -85,7 +85,6 @@ import {
   createSimulationError,
   resolveAssertionMessageFromError,
 } from '@aztec/simulator/server';
-import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
 import { MerkleTreeSnapshotOperationsFacade, type MerkleTrees } from '@aztec/world-state';
 
 import { TXENode } from '../node/txe_node.js';
@@ -106,9 +105,6 @@ export class TXE implements TypedOracle {
   private contractDataOracle: ContractDataOracle;
   private simulatorOracle: SimulatorOracle;
 
-  private version: Fr = Fr.ONE;
-  private chainId: Fr = Fr.ONE;
-
   private uniqueNoteHashesFromPublic: Fr[] = [];
   private siloedNullifiersFromPublic: Fr[] = [];
   private privateLogs: PrivateLog[] = [];
@@ -116,7 +112,10 @@ export class TXE implements TypedOracle {
 
   private committedBlocks = new Set<number>();
 
-  private node = new TXENode(this.blockNumber);
+  private VERSION = 1;
+  private CHAIN_ID = 1;
+
+  private node: TXENode;
 
   private simulationProvider = new WASMSimulator();
 
@@ -134,6 +133,9 @@ export class TXE implements TypedOracle {
     this.noteCache = new ExecutionNoteCache(this.getTxRequestHash());
     this.contractDataOracle = new ContractDataOracle(txeDatabase);
     this.contractAddress = AztecAddress.random();
+
+    this.node = new TXENode(this.blockNumber, this.VERSION, this.CHAIN_ID, this.trees);
+
     // Default msg_sender (for entrypoints) is now Fr.max_value rather than 0 addr (see #7190 & #7404)
     this.msgSender = AztecAddress.fromField(Fr.MAX_FIELD_VALUE);
     this.simulatorOracle = new SimulatorOracle(
@@ -157,12 +159,12 @@ export class TXE implements TypedOracle {
     return db;
   }
 
-  getChainId() {
-    return Promise.resolve(this.chainId);
+  getChainId(): Promise<Fr> {
+    return Promise.resolve(this.node.getChainId().then(id => new Fr(id)));
   }
 
-  getVersion() {
-    return Promise.resolve(this.version);
+  getVersion(): Promise<Fr> {
+    return Promise.resolve(this.node.getVersion().then(v => new Fr(v)));
   }
 
   getMsgSender() {
@@ -233,8 +235,8 @@ export class TXE implements TypedOracle {
 
     const stateReference = await db.getStateReference();
     const inputs = PrivateContextInputs.empty();
-    inputs.txContext.chainId = this.chainId;
-    inputs.txContext.version = this.version;
+    inputs.txContext.chainId = new Fr(await this.node.getChainId());
+    inputs.txContext.version = new Fr(await this.node.getVersion());
     inputs.historicalHeader.globalVariables.blockNumber = new Fr(blockNumber);
     inputs.historicalHeader.state = stateReference;
     inputs.historicalHeader.lastArchive.root = Fr.fromBuffer(
@@ -394,11 +396,11 @@ export class TXE implements TypedOracle {
     return [new Fr(index), ...siblingPath.toFields()];
   }
 
-  async getSiblingPath(blockNumber: number, treeId: MerkleTreeId, leafIndex: Fr) {
-    const committedDb = new MerkleTreeSnapshotOperationsFacade(this.trees, blockNumber);
-    const result = await committedDb.getSiblingPath(treeId, leafIndex.toBigInt());
-    return result.toFields();
-  }
+  // async getSiblingPath(blockNumber: number, treeId: MerkleTreeId, leafIndex: Fr) {
+  //   const committedDb = new MerkleTreeSnapshotOperationsFacade(this.trees, blockNumber);
+  //   const result = await committedDb.getSiblingPath(treeId, leafIndex.toBigInt());
+  //   return result.toFields();
+  // }
 
   async getNullifierMembershipWitness(
     blockNumber: number,
@@ -798,8 +800,8 @@ export class TXE implements TypedOracle {
     const worldStateDb = new TXEWorldStateDB(db, new TXEPublicContractDataSource(this));
 
     const globalVariables = GlobalVariables.empty();
-    globalVariables.chainId = this.chainId;
-    globalVariables.version = this.version;
+    globalVariables.chainId = new Fr(await this.node.getChainId());
+    globalVariables.version = new Fr(await this.node.getVersion());
     globalVariables.blockNumber = new Fr(this.blockNumber);
     globalVariables.gasFees = new GasFees(1, 1);
 
@@ -818,7 +820,6 @@ export class TXE implements TypedOracle {
     const simulator = new PublicTxSimulator(
       db,
       new TXEWorldStateDB(db, new TXEPublicContractDataSource(this)),
-      new NoopTelemetryClient(),
       globalVariables,
     );
 
@@ -960,6 +961,19 @@ export class TXE implements TypedOracle {
     await this.simulatorOracle.removeNullifiedNotes(this.contractAddress);
 
     return Promise.resolve();
+  }
+
+  deliverNote(
+    _contractAddress: AztecAddress,
+    _storageSlot: Fr,
+    _nonce: Fr,
+    _content: Fr[],
+    _noteHash: Fr,
+    _nullifier: Fr,
+    _txHash: Fr,
+    _recipient: AztecAddress,
+  ): Promise<void> {
+    throw new Error('deliverNote');
   }
 
   // AVM oracles

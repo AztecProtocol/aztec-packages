@@ -19,7 +19,7 @@ import {
 } from '@aztec/prover-client/broker';
 import { proverNodeConfigMappings } from '@aztec/prover-node/config';
 import { allPxeConfigMappings } from '@aztec/pxe/config';
-import { telemetryClientConfigMappings } from '@aztec/telemetry-client/start';
+import { telemetryClientConfigMappings } from '@aztec/telemetry-client';
 
 import { DefaultMnemonic } from '../mnemonic.js';
 

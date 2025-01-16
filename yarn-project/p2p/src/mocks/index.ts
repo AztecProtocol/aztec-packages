@@ -8,8 +8,7 @@ import {
 import { type EpochCache } from '@aztec/epoch-cache';
 import { type DataStoreConfig } from '@aztec/kv-store/config';
 import { openTmpStore } from '@aztec/kv-store/lmdb';
-import { type TelemetryClient } from '@aztec/telemetry-client';
-import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
+import { type TelemetryClient, getTelemetryClient } from '@aztec/telemetry-client';
 
 import { gossipsub } from '@chainsafe/libp2p-gossipsub';
 import { noise } from '@chainsafe/libp2p-noise';
@@ -247,7 +246,7 @@ export function createBootstrapNodeConfig(privateKey: string, port: number): Boo
 export function createBootstrapNodeFromPrivateKey(
   privateKey: string,
   port: number,
-  telemetry: TelemetryClient = new NoopTelemetryClient(),
+  telemetry: TelemetryClient = getTelemetryClient(),
 ): Promise<BootstrapNode> {
   const config = createBootstrapNodeConfig(privateKey, port);
   return startBootstrapNode(config, telemetry);
@@ -255,7 +254,7 @@ export function createBootstrapNodeFromPrivateKey(
 
 export async function createBootstrapNode(
   port: number,
-  telemetry: TelemetryClient = new NoopTelemetryClient(),
+  telemetry: TelemetryClient = getTelemetryClient(),
 ): Promise<BootstrapNode> {
   const peerId = await createSecp256k1PeerId();
   const config = createBootstrapNodeConfig(Buffer.from(peerId.privateKey!).toString('hex'), port);

@@ -26,7 +26,7 @@ import { resolver, reviver } from '@aztec/foundation/serialize';
 import { TestDateProvider } from '@aztec/foundation/timer';
 import { type ProverNode } from '@aztec/prover-node';
 import { type PXEService, createPXEService, getPXEServiceConfig } from '@aztec/pxe';
-import { createAndStartTelemetryClient, getConfigEnvVars as getTelemetryConfig } from '@aztec/telemetry-client/start';
+import { getConfigEnvVars as getTelemetryConfig, initTelemetryClient } from '@aztec/telemetry-client';
 
 import { type Anvil } from '@viem/anvil';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'fs';
@@ -386,7 +386,7 @@ async function setupFromFresh(
     aztecNodeConfig.bbWorkingDirectory = bbConfig.bbWorkingDirectory;
   }
 
-  const telemetry = await getEndToEndTestTelemetryClient(opts.metricsPort);
+  const telemetry = getEndToEndTestTelemetryClient(opts.metricsPort);
 
   logger.verbose('Creating and synching an aztec node...');
   const dateProvider = new TestDateProvider();
@@ -492,7 +492,7 @@ async function setupFromState(statePath: string, logger: Logger): Promise<Subsys
   await watcher.start();
 
   logger.verbose('Creating aztec node...');
-  const telemetry = await createAndStartTelemetryClient(getTelemetryConfig());
+  const telemetry = initTelemetryClient(getTelemetryConfig());
   const dateProvider = new TestDateProvider();
   const aztecNode = await AztecNodeService.createAndSync(aztecNodeConfig, { telemetry, dateProvider });
 

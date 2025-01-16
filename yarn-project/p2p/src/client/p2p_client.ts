@@ -21,13 +21,13 @@ import {
   type TelemetryClient,
   TraceableL2BlockStream,
   WithTracer,
+  getTelemetryClient,
   trackSpan,
 } from '@aztec/telemetry-client';
-import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
 
 import { type ENR } from '@chainsafe/enr';
 
-import { getP2PConfigFromEnv } from '../config.js';
+import { type P2PConfig, getP2PDefaultConfig } from '../config.js';
 import { type AttestationPool } from '../mem_pools/attestation_pool/attestation_pool.js';
 import { type EpochProofQuotePool } from '../mem_pools/epoch_proof_quote_pool/epoch_proof_quote_pool.js';
 import { type MemPools } from '../mem_pools/interface.js';
@@ -209,6 +209,8 @@ export class P2PClient<T extends P2PClientType = P2PClientType.Full>
 
   /** How many slots to keep attestations for. */
   private keepAttestationsInPoolFor: number;
+  /** How many slots to keep proven txs for. */
+  private keepProvenTxsFor: number;
 
   private blockStream;
 
@@ -227,14 +229,17 @@ export class P2PClient<T extends P2PClientType = P2PClientType.Full>
     private l2BlockSource: L2BlockSource,
     mempools: MemPools<T>,
     private p2pService: P2PService,
-    private keepProvenTxsFor: number,
-    telemetry: TelemetryClient = new NoopTelemetryClient(),
+    config: Partial<P2PConfig> = {},
+    telemetry: TelemetryClient = getTelemetryClient(),
     private log = createLogger('p2p'),
   ) {
     super(telemetry, 'P2PClient');
 
-    const { blockCheckIntervalMS, blockRequestBatchSize, keepAttestationsInPoolFor } = getP2PConfigFromEnv();
-
+    const { keepProvenTxsInPoolFor, blockCheckIntervalMS, blockRequestBatchSize, keepAttestationsInPoolFor } = {
+      ...getP2PDefaultConfig(),
+      ...config,
+    };
+    this.keepProvenTxsFor = keepProvenTxsInPoolFor;
     this.keepAttestationsInPoolFor = keepAttestationsInPoolFor;
 
     const tracer = telemetry.getTracer('P2PL2BlockStream');

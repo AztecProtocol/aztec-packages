@@ -60,10 +60,6 @@ export type ProcessedTx = {
    * Reason the tx was reverted.
    */
   revertReason: SimulationError | undefined;
-  /**
-   * Flag indicating the tx is 'empty' meaning it's a padding tx to take us to a power of 2.
-   */
-  isEmpty: boolean;
 };
 
 /**
@@ -122,7 +118,6 @@ export function makeProcessedTxFromPrivateOnlyTx(
     txEffect,
     gasUsed,
     revertReason: undefined,
-    isEmpty: false,
   };
 }
 
@@ -177,6 +172,5 @@ export function makeProcessedTxFromTxWithPublicCalls(
     txEffect,
     gasUsed,
     revertReason,
-    isEmpty: false,
   };
 }

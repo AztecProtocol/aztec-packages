@@ -1,6 +1,5 @@
 import { type L2BlockSource } from '@aztec/circuit-types';
 import { sleep } from '@aztec/foundation/sleep';
-import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
 
 import { type MockProxy, mock } from 'jest-mock-extended';
 
@@ -21,7 +20,7 @@ describe('EpochMonitor', () => {
       },
     });
 
-    epochMonitor = new EpochMonitor(l2BlockSource, new NoopTelemetryClient(), { pollingIntervalMs: 10 });
+    epochMonitor = new EpochMonitor(l2BlockSource, { pollingIntervalMs: 10 });
   });
 
   afterEach(async () => {

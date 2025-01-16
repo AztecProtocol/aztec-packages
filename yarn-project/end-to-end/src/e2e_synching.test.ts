@@ -57,7 +57,6 @@ import { SpamContract } from '@aztec/noir-contracts.js/Spam';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
 import { type PXEService } from '@aztec/pxe';
 import { L1Publisher } from '@aztec/sequencer-client';
-import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
 import { createWorldStateSynchronizer } from '@aztec/world-state';
 
 import * as fs from 'fs';
@@ -398,7 +397,7 @@ describe('e2e_synching', () => {
         ethereumSlotDuration: ETHEREUM_SLOT_DURATION,
         blobSinkUrl: `http://localhost:${blobSink?.port ?? 5052}`,
       },
-      { telemetry: new NoopTelemetryClient(), blobSinkClient },
+      { blobSinkClient },
     );
 
     const blocks = variant.loadBlocks();
@@ -502,12 +501,12 @@ describe('e2e_synching', () => {
           }
 
           const blobSinkClient = createBlobSinkClient(`http://localhost:${opts.blobSink?.port ?? 5052}`);
-          const archiver = await createArchiver(opts.config!, blobSinkClient, new NoopTelemetryClient(), {
+          const archiver = await createArchiver(opts.config!, blobSinkClient, {
             blockUntilSync: true,
           });
           const pendingBlockNumber = await rollup.read.getPendingBlockNumber();
 
-          const worldState = await createWorldStateSynchronizer(opts.config!, archiver, new NoopTelemetryClient());
+          const worldState = await createWorldStateSynchronizer(opts.config!, archiver);
           await worldState.start();
           expect(await worldState.getLatestBlockNumber()).toEqual(Number(pendingBlockNumber));
 

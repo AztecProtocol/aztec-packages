@@ -13,7 +13,7 @@ import { type Fr, type Gas, type GlobalVariables, type PublicCallRequest, type R
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { Timer } from '@aztec/foundation/timer';
 import { ProtocolContractAddress } from '@aztec/protocol-contracts';
-import { Attributes, type TelemetryClient, type Tracer, trackSpan } from '@aztec/telemetry-client';
+import { Attributes, type TelemetryClient, type Tracer, getTelemetryClient, trackSpan } from '@aztec/telemetry-client';
 
 import { strict as assert } from 'assert';
 
@@ -52,10 +52,10 @@ export class PublicTxSimulator {
   constructor(
     private db: MerkleTreeReadOperations,
     private worldStateDB: WorldStateDB,
-    telemetryClient: TelemetryClient,
     private globalVariables: GlobalVariables,
     private doMerkleOperations: boolean = false,
     private enforceFeePayment: boolean = true,
+    telemetryClient: TelemetryClient = getTelemetryClient(),
   ) {
     this.log = createLogger(`simulator:public_tx_simulator`);
     this.metrics = new ExecutorMetrics(telemetryClient, 'PublicTxSimulator');
