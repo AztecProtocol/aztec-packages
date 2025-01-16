@@ -40,8 +40,10 @@ namespace slice(256);
     sel_mem_active * (cnt - 1 - cnt') = 0;
     #[ADDR_INCREMENT]
     sel_mem_active * (addr + 1 - addr') = 0;
-    #[COL_OFFSET_INCREMENT]
-    sel_mem_active * (col_offset + 1 - col_offset') = 0;
+
+    // #[COL_OFFSET_INCREMENT]
+    // sel_mem_active * (col_offset + 1 - col_offset') = 0;
+
     #[SAME_CLK]
     sel_mem_active * (clk - clk') = 0;
     #[SAME_SPACE_ID]

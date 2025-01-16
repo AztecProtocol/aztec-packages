@@ -42,7 +42,7 @@ export class BaseOrMergeRollupPublicInputs {
      */
     public endSpongeBlob: SpongeBlob,
     /**
-     * SHA256 hash of outhash. Used to make public inputs constant-sized (to then be unpacked on-chain).
+     * SHA256 hash of L2 to L1 messages. Used to make public inputs constant-sized (to then be opened on-chain).
      * Note: Truncated to 31 bytes to fit in Fr.
      */
     public outHash: Fr,

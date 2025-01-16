@@ -307,6 +307,10 @@ export class PXEService implements PXE {
     return await getNonNullifiedL1ToL2MessageWitness(this.node, contractAddress, messageHash, secret);
   }
 
+  public getL2ToL1MembershipWitness(blockNumber: number, l2Tol1Message: Fr): Promise<[bigint, SiblingPath<number>]> {
+    return this.node.getL2ToL1MessageMembershipWitness(blockNumber, l2Tol1Message);
+  }
+
   public async addNote(note: ExtendedNote, scope?: AztecAddress) {
     const owner = await this.db.getCompleteAddress(note.owner);
     if (!owner) {
@@ -804,7 +808,8 @@ export class PXEService implements PXE {
     { simulate, profile, dryRun }: ProvingConfig,
   ): Promise<PrivateKernelSimulateOutput<PrivateKernelTailCircuitPublicInputs>> {
     // use the block the tx was simulated against
-    const block = privateExecutionResult.publicInputs.historicalHeader.globalVariables.blockNumber.toNumber();
+    const block =
+      privateExecutionResult.entrypoint.publicInputs.historicalHeader.globalVariables.blockNumber.toNumber();
     const kernelOracle = new KernelOracle(this.contractDataOracle, this.keyStore, this.node, block);
     const kernelProver = new KernelProver(kernelOracle, proofCreator, !this.proverEnabled);
     this.log.debug(`Executing kernel prover (simulate: ${simulate}, profile: ${profile}, dryRun: ${dryRun})...`);

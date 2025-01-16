@@ -56,16 +56,16 @@ export abstract class TypedOracle {
     return Fr.random();
   }
 
-  packArgumentsArray(_args: Fr[]): Promise<Fr> {
-    throw new OracleMethodNotAvailableError('packArgumentsArray');
+  storeArrayInExecutionCache(_args: Fr[]): Promise<Fr> {
+    throw new OracleMethodNotAvailableError('storeArrayInExecutionCache');
   }
 
-  packReturns(_returns: Fr[]): Promise<Fr> {
-    throw new OracleMethodNotAvailableError('packReturns');
+  storeInExecutionCache(_values: Fr[]): Promise<Fr> {
+    throw new OracleMethodNotAvailableError('storeInExecutionCache');
   }
 
-  unpackReturns(_returnsHash: Fr): Promise<Fr[]> {
-    throw new OracleMethodNotAvailableError('unpackReturns');
+  loadFromExecutionCache(_hash: Fr): Promise<Fr[]> {
+    throw new OracleMethodNotAvailableError('loadFromExecutionCache');
   }
 
   getBlockNumber(): Promise<number> {
@@ -152,6 +152,10 @@ export abstract class TypedOracle {
 
   notifyNullifiedNote(_innerNullifier: Fr, _noteHash: Fr, _counter: number): Promise<void> {
     throw new OracleMethodNotAvailableError('notifyNullifiedNote');
+  }
+
+  notifyCreatedNullifier(_innerNullifier: Fr): Promise<void> {
+    throw new OracleMethodNotAvailableError('notifyCreatedNullifier');
   }
 
   checkNullifierExists(_innerNullifier: Fr): Promise<boolean> {

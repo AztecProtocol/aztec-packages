@@ -48,7 +48,7 @@ export class DeployAccountMethod extends DeployMethod {
 
   protected override async getInitializeFunctionCalls(
     options: DeployOptions,
-  ): Promise<Pick<ExecutionRequestInit, 'calls' | 'authWitnesses' | 'packedArguments'>> {
+  ): Promise<Pick<ExecutionRequestInit, 'calls' | 'authWitnesses' | 'hashedArguments'>> {
     const exec = await super.getInitializeFunctionCalls(options);
 
     if (options.fee && this.#feePaymentArtifact) {
@@ -71,14 +71,14 @@ export class DeployAccountMethod extends DeployMethod {
       });
 
       exec.authWitnesses ??= [];
-      exec.packedArguments ??= [];
+      exec.hashedArguments ??= [];
 
       exec.authWitnesses.push(
         await this.#authWitnessProvider.createAuthWit(computeCombinedPayloadHash(emptyAppPayload, feePayload)),
       );
 
-      exec.packedArguments.push(...emptyAppPayload.packedArguments);
-      exec.packedArguments.push(...feePayload.packedArguments);
+      exec.hashedArguments.push(...emptyAppPayload.hashedArguments);
+      exec.hashedArguments.push(...feePayload.hashedArguments);
     }
 
     return exec;

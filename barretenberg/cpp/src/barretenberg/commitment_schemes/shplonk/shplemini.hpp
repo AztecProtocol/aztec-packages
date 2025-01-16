@@ -169,7 +169,7 @@ template <typename Curve> class ShpleminiVerifier_ {
         if (has_zk) {
             hiding_polynomial_commitment =
                 transcript->template receive_from_prover<Commitment>("Gemini:masking_poly_comm");
-            batched_evaluation += transcript->template receive_from_prover<Fr>("Gemini:masking_poly_eval");
+            batched_evaluation = transcript->template receive_from_prover<Fr>("Gemini:masking_poly_eval");
         }
 
         // Get the challenge ρ to batch commitments to multilinear polynomials and their shifts
@@ -399,7 +399,7 @@ template <typename Curve> class ShpleminiVerifier_ {
         Fr current_batching_challenge = Fr(1);
 
         if (has_zk) {
-            // ρ⁰ is used to batch the hiding polynomial
+            // ρ⁰ is used to batch the hiding polynomial which has already been added to the commitments vector
             current_batching_challenge *= multivariate_batching_challenge;
         }
 
@@ -635,12 +635,12 @@ template <typename Curve> class ShpleminiVerifier_ {
         // need to keep track of the contribution to the constant term
         Fr& constant_term = scalars.back();
 
-        // add Libra commitments to the vector of commitments; compute corresponding scalars and the correction to
-        // the constant term
+        // add Libra commitments to the vector of commitments
         for (size_t idx = 0; idx < libra_commitments.size(); idx++) {
             commitments.push_back(libra_commitments[idx]);
         }
 
+        // compute corresponding scalars and the correction to the constant term
         std::array<Fr, NUM_LIBRA_EVALUATIONS> denominators;
         std::array<Fr, NUM_LIBRA_EVALUATIONS> batching_scalars;
         // compute Shplonk denominators and invert them

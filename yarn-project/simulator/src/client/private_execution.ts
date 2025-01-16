@@ -1,4 +1,4 @@
-import { PrivateExecutionResult } from '@aztec/circuit-types';
+import { PrivateCallExecutionResult } from '@aztec/circuit-types';
 import { type CircuitWitnessGenerationStats } from '@aztec/circuit-types/stats';
 import {
   Fr,
@@ -27,7 +27,7 @@ export async function executePrivateFunction(
   contractAddress: AztecAddress,
   functionSelector: FunctionSelector,
   log = createLogger('simulator:private_execution'),
-): Promise<PrivateExecutionResult> {
+): Promise<PrivateCallExecutionResult> {
   const functionName = await context.getDebugFunctionName();
   log.verbose(`Executing private function ${functionName}`, { contract: contractAddress });
   const acir = artifact.bytecode;
@@ -65,7 +65,7 @@ export async function executePrivateFunction(
 
   const contractClassLogs = context.getContractClassLogs();
 
-  const rawReturnValues = await context.unpackReturns(publicInputs.returnsHash);
+  const rawReturnValues = await context.loadFromExecutionCache(publicInputs.returnsHash);
 
   const noteHashLeafIndexMap = context.getNoteHashLeafIndexMap();
   const newNotes = context.getNewNotes();
@@ -76,7 +76,7 @@ export async function executePrivateFunction(
 
   log.debug(`Returning from call to ${contractAddress.toString()}:${functionSelector}`);
 
-  return new PrivateExecutionResult(
+  return new PrivateCallExecutionResult(
     acir,
     Buffer.from(artifact.verificationKey!, 'base64'),
     partialWitness,
