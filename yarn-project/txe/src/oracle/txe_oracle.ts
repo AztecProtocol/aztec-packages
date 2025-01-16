@@ -84,7 +84,6 @@ import {
   createSimulationError,
   resolveAssertionMessageFromError,
 } from '@aztec/simulator/server';
-import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
 import { MerkleTreeSnapshotOperationsFacade, type MerkleTrees } from '@aztec/world-state';
 
 import { TXENode } from '../node/txe_node.js';
@@ -830,7 +829,6 @@ export class TXE implements TypedOracle {
     const simulator = new PublicTxSimulator(
       db,
       new TXEWorldStateDB(db, new TXEPublicContractDataSource(this)),
-      new NoopTelemetryClient(),
       globalVariables,
     );
 

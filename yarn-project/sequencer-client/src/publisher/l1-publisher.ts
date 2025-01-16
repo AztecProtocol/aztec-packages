@@ -36,8 +36,7 @@ import { type Tuple, serializeToBuffer } from '@aztec/foundation/serialize';
 import { InterruptibleSleep } from '@aztec/foundation/sleep';
 import { Timer } from '@aztec/foundation/timer';
 import { EmpireBaseAbi, RollupAbi, SlasherAbi } from '@aztec/l1-artifacts';
-import { type TelemetryClient } from '@aztec/telemetry-client';
-import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
+import { type TelemetryClient, getTelemetryClient } from '@aztec/telemetry-client';
 
 import pick from 'lodash.pick';
 import {
@@ -209,7 +208,7 @@ export class L1Publisher {
     this.sleepTimeMs = config?.l1PublishRetryIntervalMS ?? 60_000;
     this.ethereumSlotDuration = BigInt(config.ethereumSlotDuration);
 
-    const telemetry = deps.telemetry ?? new NoopTelemetryClient();
+    const telemetry = deps.telemetry ?? getTelemetryClient();
     this.blobSinkClient = deps.blobSinkClient ?? createBlobSinkClient(config.blobSinkUrl);
 
     this.metrics = new L1PublisherMetrics(telemetry, 'L1Publisher');

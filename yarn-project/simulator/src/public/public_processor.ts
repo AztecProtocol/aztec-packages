@@ -27,7 +27,14 @@ import { createLogger } from '@aztec/foundation/log';
 import { type DateProvider, Timer, elapsed, executeTimeout } from '@aztec/foundation/timer';
 import { ProtocolContractAddress } from '@aztec/protocol-contracts';
 import { ContractClassRegisteredEvent } from '@aztec/protocol-contracts/class-registerer';
-import { Attributes, type TelemetryClient, type Traceable, type Tracer, trackSpan } from '@aztec/telemetry-client';
+import {
+  Attributes,
+  type TelemetryClient,
+  type Traceable,
+  type Tracer,
+  getTelemetryClient,
+  trackSpan,
+} from '@aztec/telemetry-client';
 
 import { computeFeePayerBalanceLeafSlot, computeFeePayerBalanceStorageSlot } from './fee_payment.js';
 import { WorldStateDB } from './public_db_sources.js';
@@ -41,7 +48,7 @@ export class PublicProcessorFactory {
   constructor(
     private contractDataSource: ContractDataSource,
     private dateProvider: DateProvider,
-    private telemetryClient: TelemetryClient,
+    private telemetryClient: TelemetryClient = getTelemetryClient(),
   ) {}
 
   /**
@@ -63,10 +70,10 @@ export class PublicProcessorFactory {
     const publicTxSimulator = this.createPublicTxSimulator(
       merkleTree,
       worldStateDB,
-      this.telemetryClient,
       globalVariables,
       /*doMerkleOperations=*/ true,
       enforceFeePayment,
+      this.telemetryClient,
     );
 
     return new PublicProcessor(
@@ -83,18 +90,18 @@ export class PublicProcessorFactory {
   protected createPublicTxSimulator(
     db: MerkleTreeWriteOperations,
     worldStateDB: WorldStateDB,
-    telemetryClient: TelemetryClient,
     globalVariables: GlobalVariables,
     doMerkleOperations: boolean,
     enforceFeePayment: boolean,
+    telemetryClient: TelemetryClient,
   ) {
     return new PublicTxSimulator(
       db,
       worldStateDB,
-      telemetryClient,
       globalVariables,
       doMerkleOperations,
       enforceFeePayment,
+      telemetryClient,
     );
   }
 }
@@ -119,7 +126,7 @@ export class PublicProcessor implements Traceable {
     protected worldStateDB: WorldStateDB,
     protected publicTxSimulator: PublicTxSimulator,
     private dateProvider: DateProvider,
-    telemetryClient: TelemetryClient,
+    telemetryClient: TelemetryClient = getTelemetryClient(),
     private log = createLogger('simulator:public-processor'),
   ) {
     this.metrics = new PublicProcessorMetrics(telemetryClient, 'PublicProcessor');

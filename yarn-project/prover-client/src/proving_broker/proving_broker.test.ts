@@ -6,7 +6,6 @@ import {
   ProvingRequestType,
 } from '@aztec/circuit-types';
 import { sleep } from '@aztec/foundation/sleep';
-import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
 
 import { jest } from '@jest/globals';
 import { mkdtemp } from 'fs/promises';
@@ -31,7 +30,7 @@ describe.each([
       proverBrokerJobTimeoutMs: 1000,
       proverBrokerPollIntervalMs: 1000,
     };
-    const database = await KVBrokerDatabase.new(config, new NoopTelemetryClient());
+    const database = await KVBrokerDatabase.new(config);
     const cleanup = () => {};
     return { database, cleanup };
   },
@@ -51,7 +50,7 @@ describe.each([
     brokerIntervalMs = jobTimeoutMs / 4;
     ({ database, cleanup } = await createDb());
 
-    broker = new ProvingBroker(database, new NoopTelemetryClient(), {
+    broker = new ProvingBroker(database, {
       jobTimeoutMs,
       timeoutIntervalMs: brokerIntervalMs,
       maxRetries,
@@ -472,7 +471,7 @@ describe.each([
       // time passes while the broker restarts
       await sleep(10 * jobTimeoutMs);
 
-      broker = new ProvingBroker(database, new NoopTelemetryClient());
+      broker = new ProvingBroker(database);
       await broker.start();
 
       await assertJobStatus(job1.id, 'in-queue');
@@ -533,7 +532,7 @@ describe.each([
       // time passes while the broker restarts
       await sleep(10 * jobTimeoutMs);
 
-      broker = new ProvingBroker(database, new NoopTelemetryClient());
+      broker = new ProvingBroker(database);
       await broker.start();
 
       await assertJobStatus(job1.id, 'in-queue');
@@ -584,7 +583,7 @@ describe.each([
       // time passes while the broker restarts
       await sleep(10 * jobTimeoutMs);
 
-      broker = new ProvingBroker(database, new NoopTelemetryClient());
+      broker = new ProvingBroker(database);
       await broker.start();
       await assertJobStatus(job1.id, 'in-queue');
 
