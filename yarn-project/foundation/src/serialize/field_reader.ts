@@ -34,6 +34,14 @@ export class FieldReader {
     return new FieldReader(fields);
   }
 
+  public skip(n: number) {
+    this.index += n;
+  }
+
+  get cursor() {
+    return this.index;
+  }
+
   /**
    * Skips the next n fields.
    *
