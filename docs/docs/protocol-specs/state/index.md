@@ -83,7 +83,10 @@ To recall, the global state in Aztec is represented by a set of Merkle trees: th
 
 <!-- NOTE: If you're editing this diagram, there will be other diagrams (e.g. in the rollup-circuits / circuits sections) that will need to be updated too. There are also class definitions in other sections which will need to be updated. -->
 
-```mermaid
+```mdx
+import { Mermaid } from '@docusaurus/theme-mermaid';
+
+<Mermaid>
 classDiagram
 direction TB
 
@@ -208,6 +211,7 @@ State *-- ArchiveTree : archive_tree
 State *-- NoteHashTree : note_hash_tree
 State *-- NullifierTree : nullifier_tree
 State *-- PublicDataTree : public_data_tree
+</Mermaid>
 ```
 
 import DocCardList from '@theme/DocCardList';
