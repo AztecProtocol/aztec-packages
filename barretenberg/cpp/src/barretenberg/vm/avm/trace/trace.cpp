@@ -429,6 +429,22 @@ void AvmTraceBuilder::handle_exceptional_halt()
     }
 }
 
+void AvmTraceBuilder::handle_end_of_teardown(uint32_t pre_teardown_l2_gas_left, uint32_t pre_teardown_da_gas_left)
+{
+    vinfo("Handling end of teardown");
+
+    // modify the last row of the gas trace to reset back to pre-teardown gas
+    // since gas used by teardown doesn't contribute to end-gas
+    gas_trace_builder.constrain_gas_for_halt(/*exceptional_halt=*/true, // not really an exceptional halt
+                                             pre_teardown_l2_gas_left,
+                                             pre_teardown_da_gas_left,
+                                             /*l2_gas_allocated_to_nested_call=*/0,
+                                             /*da_gas_allocated_to_nested_call=*/0);
+
+    // max out the pc to signify "done"
+    pc = UINT32_MAX;
+}
+
 /**
  * @brief Loads a value from memory into a given intermediate register at a specified clock cycle.
  * Handles both direct and indirect memory access.
