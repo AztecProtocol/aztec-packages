@@ -43,7 +43,7 @@ export class ProverClient implements EpochProverManager {
   }
 
   public createEpochProver(): EpochProver {
-    const facade = new BrokerCircuitProverFacade(this.orchestratorClient);
+    const facade = new BrokerCircuitProverFacade(this.orchestratorClient, this.proofStore, this.failedProofStore);
     const orchestrator = new ProvingOrchestrator(this.worldState, facade, this.config.proverId, this.telemetry);
     return new ServerEpochProver(facade, orchestrator);
   }
