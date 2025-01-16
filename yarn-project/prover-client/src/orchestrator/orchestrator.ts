@@ -49,7 +49,14 @@ import { pushTestData } from '@aztec/foundation/testing';
 import { elapsed } from '@aztec/foundation/timer';
 import { type TreeNodeLocation } from '@aztec/foundation/trees';
 import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types/vks';
-import { Attributes, type TelemetryClient, type Tracer, trackSpan, wrapCallbackInSpan } from '@aztec/telemetry-client';
+import {
+  Attributes,
+  type TelemetryClient,
+  type Tracer,
+  getTelemetryClient,
+  trackSpan,
+  wrapCallbackInSpan,
+} from '@aztec/telemetry-client';
 
 import { inspect } from 'util';
 
@@ -94,8 +101,8 @@ export class ProvingOrchestrator implements EpochProver {
   constructor(
     private dbProvider: ForkMerkleTreeOperations,
     private prover: ServerCircuitProver,
-    telemetryClient: TelemetryClient,
     private readonly proverId: Fr = Fr.ZERO,
+    telemetryClient: TelemetryClient = getTelemetryClient(),
   ) {
     this.metrics = new ProvingOrchestratorMetrics(telemetryClient, 'ProvingOrchestrator');
   }

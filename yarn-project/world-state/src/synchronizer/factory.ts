@@ -1,6 +1,6 @@
 import { type L1ToL2MessageSource, type L2BlockSource } from '@aztec/circuit-types';
 import { type DataStoreConfig } from '@aztec/kv-store/config';
-import { type TelemetryClient } from '@aztec/telemetry-client';
+import { type TelemetryClient, getTelemetryClient } from '@aztec/telemetry-client';
 
 import { WorldStateInstrumentation } from '../instrumentation/instrumentation.js';
 import { NativeWorldStateService } from '../native/native_world_state.js';
@@ -10,7 +10,7 @@ import { ServerWorldStateSynchronizer } from './server_world_state_synchronizer.
 export async function createWorldStateSynchronizer(
   config: WorldStateConfig & DataStoreConfig,
   l2BlockSource: L2BlockSource & L1ToL2MessageSource,
-  client: TelemetryClient,
+  client: TelemetryClient = getTelemetryClient(),
 ) {
   const instrumentation = new WorldStateInstrumentation(client);
   const merkleTrees = await createWorldState(config, instrumentation);

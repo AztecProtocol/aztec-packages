@@ -1,7 +1,7 @@
 import { Tx, TxHash } from '@aztec/circuit-types';
 import { type TxAddedToPoolStats } from '@aztec/circuit-types/stats';
 import { createLogger } from '@aztec/foundation/log';
-import { type TelemetryClient } from '@aztec/telemetry-client';
+import { type TelemetryClient, getTelemetryClient } from '@aztec/telemetry-client';
 
 import { PoolInstrumentation, PoolName } from '../instrumentation.js';
 import { getPendingTxPriority } from './priority.js';
@@ -24,7 +24,7 @@ export class InMemoryTxPool implements TxPool {
    * Class constructor for in-memory TxPool. Initiates our transaction pool as a JS Map.
    * @param log - A logger.
    */
-  constructor(telemetry: TelemetryClient, private log = createLogger('p2p:tx_pool')) {
+  constructor(telemetry: TelemetryClient = getTelemetryClient(), private log = createLogger('p2p:tx_pool')) {
     this.txs = new Map<bigint, Tx>();
     this.minedTxs = new Map();
     this.pendingTxs = new Set();

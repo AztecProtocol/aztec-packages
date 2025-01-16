@@ -11,8 +11,7 @@ import { Fr, type GlobalVariables, NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP } from '@
 import { SpongeBlob } from '@aztec/circuits.js/blobs';
 import { padArrayEnd } from '@aztec/foundation/collection';
 import { createLogger } from '@aztec/foundation/log';
-import { type TelemetryClient } from '@aztec/telemetry-client';
-import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
+import { type TelemetryClient, getTelemetryClient } from '@aztec/telemetry-client';
 
 import {
   buildBaseRollupHints,
@@ -32,7 +31,7 @@ export class LightweightBlockBuilder implements BlockBuilder {
 
   private readonly logger = createLogger('prover-client:block_builder');
 
-  constructor(private db: MerkleTreeWriteOperations, private telemetry: TelemetryClient) {}
+  constructor(private db: MerkleTreeWriteOperations, private telemetry: TelemetryClient = getTelemetryClient()) {}
 
   async startNewBlock(globalVariables: GlobalVariables, l1ToL2Messages: Fr[]): Promise<void> {
     this.logger.debug('Starting new block', { globalVariables: globalVariables.toInspect(), l1ToL2Messages });
@@ -83,10 +82,10 @@ export class LightweightBlockBuilder implements BlockBuilder {
 }
 
 export class LightweightBlockBuilderFactory {
-  constructor(private telemetry?: TelemetryClient) {}
+  constructor(private telemetry: TelemetryClient = getTelemetryClient()) {}
 
   create(db: MerkleTreeWriteOperations): BlockBuilder {
-    return new LightweightBlockBuilder(db, this.telemetry ?? new NoopTelemetryClient());
+    return new LightweightBlockBuilder(db, this.telemetry);
   }
 }
 
@@ -100,7 +99,7 @@ export async function buildBlock(
   globalVariables: GlobalVariables,
   l1ToL2Messages: Fr[],
   db: MerkleTreeWriteOperations,
-  telemetry: TelemetryClient = new NoopTelemetryClient(),
+  telemetry: TelemetryClient = getTelemetryClient(),
 ) {
   const builder = new LightweightBlockBuilder(db, telemetry);
   await builder.startNewBlock(globalVariables, l1ToL2Messages);
