@@ -224,7 +224,7 @@ export function wrapCallbackInSpan<F extends (...args: any[]) => any>(
   }) as F;
 }
 
-export function runInSpan<A extends any[], R extends any>(
+export function runInSpan<A extends any[], R>(
   tracer: Tracer | string,
   spanName: string,
   callback: (span: Span, ...args: A) => R,

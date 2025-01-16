@@ -53,7 +53,7 @@ import { computeUnbalancedMerkleRoot } from '@aztec/foundation/trees';
 import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types/vks';
 import { protocolContractTreeRoot } from '@aztec/protocol-contracts';
 import { computeFeePayerBalanceLeafSlot } from '@aztec/simulator/server';
-import { Attributes, Span, runInSpan } from '@aztec/telemetry-client';
+import { Attributes, type Span, runInSpan } from '@aztec/telemetry-client';
 import { type MerkleTreeReadOperations } from '@aztec/world-state';
 
 import { inspect } from 'util';
