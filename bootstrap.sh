@@ -146,6 +146,7 @@ function build {
     noir-projects
     yarn-project
     boxes
+    docs
   )
 
   # Build projects.

@@ -115,7 +115,9 @@ function compile {
   local json_path="./target/$filename"
   contract_hash=$(get_contract_hash $contract)
   if ! cache_download contract-$contract_hash.tar.gz; then
-    [ "${CI:-0}" -eq 1 ] && local args="--silence-warnings"
+    if [ "${VERBOSE:-0}" -eq 0 ]; then
+      local args="--silence-warnings"
+    fi
     $NARGO compile ${args:-} --package $contract --inliner-aggressiveness 0
     $TRANSPILER $json_path $json_path
     cache_upload contract-$contract_hash.tar.gz $json_path
@@ -137,17 +139,13 @@ export -f compile
 # If given an argument, it's the contract to compile.
 # Otherwise parse out all relevant contracts from the root Nargo.toml and process them in parallel.
 function build {
-  if [ -n "${1:-}" ]; then
-    compile $1
-  else
-    set +e
-    echo_stderr "Compiling contracts (bb-hash: $BB_HASH)..."
-    grep -oP '(?<=contracts/)[^"]+' Nargo.toml | \
-      parallel $PARALLEL_FLAGS --joblog joblog.txt -v --line-buffer --tag compile {}
-    code=$?
-    cat joblog.txt
-    return $code
-  fi
+  set +e
+  echo_stderr "Compiling contracts (bb-hash: $BB_HASH)..."
+  grep -oP '(?<=contracts/)[^"]+' Nargo.toml | \
+    parallel $PARALLEL_FLAGS --joblog joblog.txt -v --line-buffer --tag compile {}
+  code=$?
+  cat joblog.txt
+  return $code
 
   # For testing. Small parallel case.
   # echo -e "uniswap_contract\ncontract_class_registerer_contract" | parallel --joblog joblog.txt -v --line-buffer --tag --halt now,fail=1 compile {}
@@ -199,7 +197,7 @@ case "$cmd" in
     ;;
   "compile")
     shift
-    build $1
+    VERBOSE=1 compile $1
     ;;
   "test")
     test

@@ -403,6 +403,7 @@ std::vector<Row> Execution::gen_trace(AvmPublicInputs const& public_inputs,
 
     // Loop over all the public call requests
     auto const phases = { TxExecutionPhase::SETUP, TxExecutionPhase::APP_LOGIC, TxExecutionPhase::TEARDOWN };
+    size_t enqueued_call_hint_index = 0;
     for (auto phase : phases) {
         const auto public_call_requests = phase == TxExecutionPhase::SETUP       ? setup_call_requests
                                           : phase == TxExecutionPhase::APP_LOGIC ? app_logic_call_requests
@@ -447,11 +448,15 @@ std::vector<Row> Execution::gen_trace(AvmPublicInputs const& public_inputs,
             auto public_call_request = public_call_requests.at(i);
             trace_builder.set_public_call_request(public_call_request);
             // At the start of each enqueued call, we read the enqueued call hints
-            auto enqueued_call_hint = execution_hints.enqueued_call_hints.at(i);
+            auto enqueued_call_hint = execution_hints.enqueued_call_hints.at(enqueued_call_hint_index++);
             ASSERT(public_call_request.contract_address == enqueued_call_hint.contract_address);
             // Execute!
-            phase_error =
-                Execution::execute_enqueued_call(trace_builder, enqueued_call_hint, returndata, apply_e2e_assertions);
+            phase_error = Execution::execute_enqueued_call(phase,
+                                                           trace_builder,
+                                                           enqueued_call_hint,
+                                                           public_inputs.gas_settings.teardown_gas_limits,
+                                                           returndata,
+                                                           apply_e2e_assertions);
 
             if (!is_ok(phase_error)) {
                 info("Phase ", to_name(phase), " reverted.");
@@ -468,6 +473,13 @@ std::vector<Row> Execution::gen_trace(AvmPublicInputs const& public_inputs,
             throw std::runtime_error("A revert was encountered in the SETUP phase, killing the entire TX");
             break;
         }
+        vinfo("Ended phase ",
+              to_name(phase),
+              " with ",
+              trace_builder.get_l2_gas_left(),
+              " L2 gas left and ",
+              trace_builder.get_da_gas_left(),
+              " DA gas left");
     }
 
     if (apply_e2e_assertions) {
@@ -493,17 +505,31 @@ std::vector<Row> Execution::gen_trace(AvmPublicInputs const& public_inputs,
  * @returns the error/result of the enqueued call
  *
  */
-AvmError Execution::execute_enqueued_call(AvmTraceBuilder& trace_builder,
+AvmError Execution::execute_enqueued_call(TxExecutionPhase& phase,
+                                          AvmTraceBuilder& trace_builder,
                                           AvmEnqueuedCallHint& enqueued_call_hint,
+                                          Gas const teardown_gas_limits,
                                           std::vector<FF>& returndata,
                                           bool check_bytecode_membership)
 {
     AvmError error = AvmError::NO_ERROR;
 
+    // save gas before phase for use after teardown (teardown shouldn't  affect end gas)
+    const auto l2_gas_left_before_enqueued_call = trace_builder.get_l2_gas_left();
+    const auto da_gas_left_before_enqueued_call = trace_builder.get_da_gas_left();
+
+    // TODO(dbanks12): use this below for teardown instead of raw limits.l2_gas
+    // auto const teardown_allocated_l2_gas = std::min(
+    //    teardown_gas_limits.l2_gas,
+    //    static_cast<uint32_t>(MAX_L2_GAS_PER_TX_PUBLIC_PORTION));
+
     // These hints help us to set up first call ctx
     auto context_id = trace_builder.next_context_id;
-    uint32_t l2_gas_allocated_to_enqueued_call = trace_builder.get_l2_gas_left();
-    uint32_t da_gas_allocated_to_enqueued_call = trace_builder.get_da_gas_left();
+    uint32_t l2_gas_allocated_to_enqueued_call =
+        phase == TxExecutionPhase::TEARDOWN ? teardown_gas_limits.l2_gas : l2_gas_left_before_enqueued_call;
+    uint32_t da_gas_allocated_to_enqueued_call =
+        phase == TxExecutionPhase::TEARDOWN ? teardown_gas_limits.da_gas : da_gas_left_before_enqueued_call;
+    ;
     trace_builder.current_ext_call_ctx = AvmTraceBuilder::ExtCallCtx{
         .context_id = context_id,
         .parent_id = 0,
@@ -513,13 +539,14 @@ AvmError Execution::execute_enqueued_call(AvmTraceBuilder& trace_builder,
         .nested_returndata = {},
         .last_pc = 0,
         .success_offset = 0,
-        .start_l2_gas_left = l2_gas_allocated_to_enqueued_call,
-        .start_da_gas_left = da_gas_allocated_to_enqueued_call,
-        .l2_gas_left = l2_gas_allocated_to_enqueued_call,
-        .da_gas_left = da_gas_allocated_to_enqueued_call,
+        .start_l2_gas_left = l2_gas_left_before_enqueued_call,
+        .start_da_gas_left = da_gas_left_before_enqueued_call,
+        .l2_gas_left = l2_gas_left_before_enqueued_call,
+        .da_gas_left = da_gas_left_before_enqueued_call,
         .internal_return_ptr_stack = {},
     };
     trace_builder.next_context_id++;
+    trace_builder.update_calldata_size_values(static_cast<uint32_t>(enqueued_call_hint.calldata.size()));
     // Find the bytecode based on contract address of the public call request
     std::vector<uint8_t> bytecode;
     try {
@@ -533,7 +560,11 @@ AvmError Execution::execute_enqueued_call(AvmTraceBuilder& trace_builder,
         // This error was encountered before any opcodes were executed, but
         // we need at least one row in the execution trace to then mutate and say "it halted and consumed all gas!"
         trace_builder.op_add(0, 0, 0, 0, OpCode::ADD_8);
-        trace_builder.handle_exceptional_halt();
+        if (phase == TxExecutionPhase::TEARDOWN) {
+            trace_builder.handle_end_of_teardown(l2_gas_left_before_enqueued_call, da_gas_left_before_enqueued_call);
+        } else {
+            trace_builder.handle_exceptional_halt();
+        }
         return AvmError::FAILED_BYTECODE_RETRIEVAL;
     }
 
@@ -1124,7 +1155,12 @@ AvmError Execution::execute_enqueued_call(AvmTraceBuilder& trace_builder,
                  " IC: ",
                  error_ic);
 
-            trace_builder.handle_exceptional_halt();
+            // For nested calls or non-teardown-enqueued-calls, handle the exceptional halt
+            // (consume all gas). Don't do it for teardown enqueued call because gas needs
+            // to be reset after teardown (teardown doesn't count towards end-gas).
+            if (!is_top_level || phase != TxExecutionPhase::TEARDOWN) {
+                trace_builder.handle_exceptional_halt();
+            }
 
             if (is_top_level) {
                 break;
@@ -1139,6 +1175,9 @@ AvmError Execution::execute_enqueued_call(AvmTraceBuilder& trace_builder,
             // reset error as we've now returned to caller
             error = AvmError::NO_ERROR;
         }
+    }
+    if (phase == TxExecutionPhase::TEARDOWN) {
+        trace_builder.handle_end_of_teardown(l2_gas_left_before_enqueued_call, da_gas_left_before_enqueued_call);
     }
     return error;
 }

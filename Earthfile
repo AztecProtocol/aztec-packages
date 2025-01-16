@@ -24,8 +24,8 @@ bootstrap-noir-bb:
     (git fetch --depth 1 origin $EARTHLY_GIT_HASH >/dev/null 2>&1 || (echo "The commit was not pushed, run aborted." && exit 1)) &&
     git reset --hard FETCH_HEAD >/dev/null 2>&1 &&
     ./build-images/adhoc-installs.sh &&
-    DENOISE=1 CI=1 ./noir/bootstrap.sh fast &&
-    DENOISE=1 CI=1 ./barretenberg/bootstrap.sh fast &&
+    DENOISE=1 CI=1 ./noir/bootstrap.sh ci &&
+    DENOISE=1 CI=1 ./barretenberg/bootstrap.sh ci &&
     mv $(ls -A) /usr/src'
   # Use a mounted volume for performance.
   # Note: Assumes EARTHLY_GIT_HASH has been pushed!
@@ -47,10 +47,11 @@ bootstrap:
   ARG EARTHLY_GIT_HASH
   LET bootstrap='rm -rf $(ls -A) &&
     mv $(find /usr/src -mindepth 1 -maxdepth 1) . &&
-    DENOISE=1 CI=1 ./l1-contracts/bootstrap.sh fast &&
-    DENOISE=1 CI=1 ./avm-transpiler/bootstrap.sh fast &&
-    DENOISE=1 CI=1 ./noir-projects/bootstrap.sh fast &&
-    DENOISE=1 CI=1 ./yarn-project/bootstrap.sh fast &&
+    DENOISE=1 CI=1 ./l1-contracts/bootstrap.sh ci &&
+    DENOISE=1 CI=1 ./avm-transpiler/bootstrap.sh ci &&
+    DENOISE=1 CI=1 ./noir-projects/bootstrap.sh ci &&
+    DENOISE=1 CI=1 ./yarn-project/bootstrap.sh ci &&
+    DENOISE=1 CI=1 ./boxes/bootstrap.sh ci &&
     mv $(ls -A) /usr/src'
   # Use a mounted volume for performance.
   # TODO don't retry noir projects. It seems to have been flakey.

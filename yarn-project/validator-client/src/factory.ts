@@ -24,5 +24,5 @@ export function createValidatorClient(
     config.validatorPrivateKey = generatePrivateKey();
   }
 
-  return ValidatorClient.new(config, deps.epochCache, deps.p2pClient, deps.telemetry);
+  return ValidatorClient.new(config, deps.epochCache, deps.p2pClient, deps.dateProvider, deps.telemetry);
 }
