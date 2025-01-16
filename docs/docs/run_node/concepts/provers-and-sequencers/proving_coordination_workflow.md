@@ -104,4 +104,4 @@ The Prover Node will call this method at least once per L2 slot to check for unc
 
 ## Run a prover
 
-Go to the [Prover Guide](../../guides/how_to_run_prover.md) to run a prover.
+Go to the [Prover Guide](../../guides/run_nodes/how_to_run_prover.md) to run a prover.

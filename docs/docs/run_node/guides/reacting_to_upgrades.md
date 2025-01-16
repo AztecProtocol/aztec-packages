@@ -7,7 +7,7 @@ This is a guide for sequencer nodes to understand how to react to protocol upgra
 
 ## Deploying the initial contracts
 
-Assume that there is an  initial deployment, which is a set of contracts as described in the [Deployment section](../deployments/what_is_deployment.md).
+Assume that there is an  initial deployment, which is a set of contracts as described in the [Deployment section](../concepts/deployments/what_is_deployment.md).
 
 Once an AZIP garners enough buy-in from the community, sequencers can begin adpting the upgrade.
 
