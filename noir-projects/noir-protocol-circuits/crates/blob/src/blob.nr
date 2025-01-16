@@ -1,6 +1,6 @@
 use crate::{
     blob_public_inputs::{BlobCommitment, BlobPublicInputs, BlockBlobPublicInputs},
-    config::{D_INV, F, LOG_FIELDS_PER_BLOB, ROOTS},
+    config::{D_INV, F, LOG_FIELDS_PER_BLOB, ROOTS}, unconstrained_config::compute_roots_of_unity
 };
 
 use bigint::{BigNum, BigNumTrait};
@@ -183,6 +183,9 @@ pub fn evaluate_blobs(
  * @return y = p(z)
  */
 fn barycentric_evaluate_blob_at_z(z: F, ys: [F; FIELDS_PER_BLOB]) -> F {
+    // TODO(#9982): Delete below and go back to using config.nr - calculating ROOTS in unconstrained is insecure.
+    let UNCONSTRAINED_ROOTS = unsafe { compute_roots_of_unity() };
+
     // Note: it's more efficient (saving 30k constraints) to compute:
     //    ___d-1
     //    \     /    y_i    \
@@ -201,7 +204,7 @@ fn barycentric_evaluate_blob_at_z(z: F, ys: [F; FIELDS_PER_BLOB]) -> F {
     //    i=0
     //
     // perhaps because all the omega^i terms are constant witnesses?
-    let fracs = compute_fracs(z, ys);
+    let fracs = compute_fracs(z, ys, UNCONSTRAINED_ROOTS);
 
     // OK so...we can add multiple product terms into a sum...but I am not sure how many!
     // we are computing 254 * 254 bit products and we need to ensure each product limb doesn't overflow
@@ -220,7 +223,7 @@ fn barycentric_evaluate_blob_at_z(z: F, ys: [F; FIELDS_PER_BLOB]) -> F {
     let NUM_PARTIAL_SUMS = FIELDS_PER_BLOB / 8;
     let partial_sums: [F; FIELDS_PER_BLOB / 8] = unsafe {
         // Safety: This sum is checked by the following `BigNum::evaluate_quadratic_expression` calls.
-        __compute_partial_sums(fracs)
+        __compute_partial_sums(fracs, UNCONSTRAINED_ROOTS)
     };
 
     if !std::runtime::is_unconstrained() {
@@ -349,10 +352,10 @@ fn compute_factor(z: F) -> F {
     factor
 }
 
-unconstrained fn __compute_fracs(z: F, ys: [F; FIELDS_PER_BLOB]) -> [F; FIELDS_PER_BLOB] {
+unconstrained fn __compute_fracs(z: F, ys: [F; FIELDS_PER_BLOB], unconstrained_roots: [F; FIELDS_PER_BLOB],) -> [F; FIELDS_PER_BLOB] {
     let mut denoms = [BigNum::new(); FIELDS_PER_BLOB];
     for i in 0..FIELDS_PER_BLOB {
-        denoms[i] = z.__sub(ROOTS[i]); // (z - omega^i)
+        denoms[i] = z.__sub(unconstrained_roots[i]); // (z - omega^i)
     }
     let inv_denoms = __batch_invert_impl(denoms); // 1 / (z - omega^i), for all i
 
@@ -367,10 +370,10 @@ unconstrained fn __compute_fracs(z: F, ys: [F; FIELDS_PER_BLOB]) -> [F; FIELDS_P
     fracs
 }
 
-fn compute_fracs(z: F, ys: [F; FIELDS_PER_BLOB]) -> [F; FIELDS_PER_BLOB] {
+fn compute_fracs(z: F, ys: [F; FIELDS_PER_BLOB],unconstrained_roots: [F; FIELDS_PER_BLOB],) -> [F; FIELDS_PER_BLOB] {
     let mut fracs: [F; FIELDS_PER_BLOB] = unsafe {
         // Safety: We immediately constrain these `fracs` to be correct in the following call to `BigNum::evaluate_quadratic_expression`.
-        __compute_fracs(z, ys)
+        __compute_fracs(z, ys, unconstrained_roots )
     };
 
     if !std::runtime::is_unconstrained() {
@@ -392,7 +395,7 @@ fn compute_fracs(z: F, ys: [F; FIELDS_PER_BLOB]) -> [F; FIELDS_PER_BLOB] {
 }
 
 // TODO: Clean me
-unconstrained fn __compute_partial_sums(fracs: [F; FIELDS_PER_BLOB]) -> [F; FIELDS_PER_BLOB / 8] {
+unconstrained fn __compute_partial_sums(fracs: [F; FIELDS_PER_BLOB], unconstrained_roots: [F; FIELDS_PER_BLOB],) -> [F; FIELDS_PER_BLOB / 8] {
     let mut partial_sums: [F; FIELDS_PER_BLOB / 8] = std::mem::zeroed();
 
     // Seeking:
@@ -406,7 +409,7 @@ unconstrained fn __compute_partial_sums(fracs: [F; FIELDS_PER_BLOB]) -> [F; FIEL
     let mut partial_sum: F = BigNum::new();
     for i in 0..8 {
         // y_k * ( omega^k / (z - omega^k) )
-        let summand = ROOTS[i].__mul(fracs[i]);
+        let summand = unconstrained_roots[i].__mul(fracs[i]);
 
         // partial_sum + ( y_k * ( omega^k / (z - omega^k) ) -> partial_sum
         partial_sum = partial_sum.__add(summand);
@@ -425,7 +428,7 @@ unconstrained fn __compute_partial_sums(fracs: [F; FIELDS_PER_BLOB]) -> [F; FIEL
         for j in 0..8 {
             let k = i * 8 + j;
             // y_k * ( omega^k / (z - omega^k) )
-            let summand = ROOTS[k].__mul(fracs[k]);
+            let summand = unconstrained_roots[k].__mul(fracs[k]);
             // partial_sum + ( y_k * ( omega^k / (z - omega^k) ) -> partial_sum
             partial_sum = partial_sum.__add(summand);
         }
