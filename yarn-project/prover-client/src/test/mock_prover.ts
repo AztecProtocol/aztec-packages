@@ -3,7 +3,6 @@ import {
   type ProvingJob,
   type ProvingJobId,
   type ProvingJobProducer,
-  type ProvingJobSettledResult,
   type ProvingJobStatus,
   type PublicInputsAndRecursiveProof,
   type ServerCircuitProver,
@@ -17,8 +16,6 @@ import {
   type BaseParityInputs,
   NESTED_RECURSIVE_PROOF_LENGTH,
   NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH,
-  type PrivateKernelEmptyInputData,
-  type PrivateToRollupKernelCircuitPublicInputs,
   RECURSIVE_PROOF_LENGTH,
   type RootParityInputs,
   TUBE_PROOF_LENGTH,
@@ -37,12 +34,12 @@ import {
   type PublicBaseRollupInputs,
   type RootRollupInputs,
   type RootRollupPublicInputs,
+  type SingleTxBlockRootRollupInputs,
 } from '@aztec/circuits.js/rollup';
 import {
   makeBaseOrMergeRollupPublicInputs,
   makeBlockRootOrBlockMergeRollupPublicInputs,
   makeParityPublicInputs,
-  makePrivateToRollupKernelCircuitPublicInputs,
   makeRootRollupPublicInputs,
 } from '@aztec/circuits.js/testing';
 import { times } from '@aztec/foundation/collection';
@@ -83,7 +80,7 @@ export class TestBroker implements ProvingJobProducer {
     return this.proofStore;
   }
 
-  enqueueProvingJob(job: ProvingJob): Promise<void> {
+  enqueueProvingJob(job: ProvingJob): Promise<ProvingJobStatus> {
     return this.broker.enqueueProvingJob(job);
   }
   getProvingJobStatus(id: ProvingJobId): Promise<ProvingJobStatus> {
@@ -92,8 +89,9 @@ export class TestBroker implements ProvingJobProducer {
   cancelProvingJob(id: string): Promise<void> {
     return this.broker.cancelProvingJob(id);
   }
-  waitForJobToSettle(id: ProvingJobId): Promise<ProvingJobSettledResult> {
-    return this.broker.waitForJobToSettle(id);
+
+  getCompletedJobs(ids: ProvingJobId[]): Promise<ProvingJobId[]> {
+    return this.broker.getCompletedJobs(ids);
   }
 }
 
@@ -219,19 +217,16 @@ export class MockProver implements ServerCircuitProver {
     );
   }
 
-  getEmptyPrivateKernelProof(
-    _inputs: PrivateKernelEmptyInputData,
+  getSingleTxBlockRootRollupProof(
+    _input: SingleTxBlockRootRollupInputs,
     _signal?: AbortSignal,
     _epochNumber?: number,
   ): Promise<
-    PublicInputsAndRecursiveProof<
-      PrivateToRollupKernelCircuitPublicInputs,
-      typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH
-    >
+    PublicInputsAndRecursiveProof<BlockRootOrBlockMergePublicInputs, typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH>
   > {
     return Promise.resolve(
       makePublicInputsAndRecursiveProof(
-        makePrivateToRollupKernelCircuitPublicInputs(),
+        makeBlockRootOrBlockMergeRollupPublicInputs(),
         makeRecursiveProof(NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH),
         VerificationKeyData.makeFakeHonk(),
       ),

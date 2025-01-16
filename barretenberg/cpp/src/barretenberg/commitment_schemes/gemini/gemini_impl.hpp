@@ -53,8 +53,8 @@ std::vector<typename GeminiProver_<Curve>::Claim> GeminiProver_<Curve>::prove(
     bool has_zk)
 
 {
-    size_t log_n = numeric::get_msb(static_cast<uint32_t>(circuit_size));
-    size_t n = 1 << log_n;
+    const size_t log_n = numeric::get_msb(static_cast<uint32_t>(circuit_size));
+    const size_t n = 1 << log_n;
 
     // Compute batched polynomials
     Polynomial batched_unshifted(n);
@@ -66,10 +66,8 @@ std::vector<typename GeminiProver_<Curve>::Claim> GeminiProver_<Curve>::prove(
         transcript->send_to_verifier("Gemini:masking_poly_comm", commitment_key->commit(batched_unshifted));
         // In the provers, the size of multilinear_challenge is CONST_PROOF_SIZE_LOG_N, but we need to evaluate the
         // hiding polynomial as multilinear in log_n variables
-        std::vector<Fr> multilinear_challenge_resized(multilinear_challenge.begin(), multilinear_challenge.end());
-        multilinear_challenge_resized.resize(log_n);
         transcript->send_to_verifier("Gemini:masking_poly_eval",
-                                     batched_unshifted.evaluate_mle(multilinear_challenge_resized));
+                                     batched_unshifted.evaluate_mle(multilinear_challenge.subspan(0, log_n)));
     }
 
     // Get the batching challenge
@@ -123,6 +121,15 @@ std::vector<typename GeminiProver_<Curve>::Claim> GeminiProver_<Curve>::prove(
         }
     }
     const Fr r_challenge = transcript->template get_challenge<Fr>("Gemini:r");
+
+    const bool gemini_challenge_in_small_subgroup = (has_zk) && (r_challenge.pow(Curve::SUBGROUP_SIZE) == Fr(1));
+
+    // If Gemini evaluation challenge lands in the multiplicative subgroup used by SmallSubgroupIPA protocol, the
+    // evaluations of prover polynomials at this challenge would leak witness data.
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1194). Handle edge cases in PCS
+    if (gemini_challenge_in_small_subgroup) {
+        throw_or_abort("Gemini evaluation challenge is in the SmallSubgroup.");
+    }
 
     std::vector<Claim> claims =
         compute_fold_polynomial_evaluations(log_n, std::move(fold_polynomials), r_challenge, std::move(batched_group));

@@ -264,7 +264,7 @@ template <typename Flavor> class SumcheckProver {
                                  const std::vector<FF>& gate_challenges,
                                  ZKData& zk_sumcheck_data,
                                  const std::shared_ptr<CommitmentKey>& ck = nullptr)
-        requires FlavorHasZK<Flavor>
+        requires Flavor::HasZK
     {
 
         bb::GateSeparatorPolynomial<FF> gate_separators(gate_challenges, multivariate_d);
@@ -372,22 +372,22 @@ template <typename Flavor> class SumcheckProver {
             FF round_challenge = transcript->template get_challenge<FF>("Sumcheck:u_" + std::to_string(idx));
             multivariate_challenge.emplace_back(round_challenge);
         }
-        // The evaluations of Libra uninvariates at \f$ g_0(u_0), \ldots, g_{d-1} (u_{d-1}) \f$ are added to the
-        // transcript.
-        FF libra_evaluation{ 0 };
-
-        for (auto& libra_eval : zk_sumcheck_data.libra_evaluations) {
-            libra_evaluation += libra_eval;
-        }
-        libra_evaluation += zk_sumcheck_data.constant_term;
-        std::string libra_evaluation_label = "Libra:claimed_evaluation";
-        transcript->send_to_verifier(libra_evaluation_label, libra_evaluation);
 
         // Claimed evaluations of Prover polynomials are extracted and added to the transcript. When Flavor has ZK, the
         // evaluations of all witnesses are masked.
         ClaimedEvaluations multivariate_evaluations;
         multivariate_evaluations = extract_claimed_evaluations(partially_evaluated_polynomials);
         transcript->send_to_verifier("Sumcheck:evaluations", multivariate_evaluations.get_all());
+
+        // The evaluations of Libra uninvariates at \f$ g_0(u_0), \ldots, g_{d-1} (u_{d-1}) \f$ are added to the
+        // transcript.
+        FF libra_evaluation{ 0 };
+        for (const auto& libra_eval : zk_sumcheck_data.libra_evaluations) {
+            libra_evaluation += libra_eval;
+        }
+        libra_evaluation += zk_sumcheck_data.constant_term;
+        transcript->send_to_verifier("Libra:claimed_evaluation", libra_evaluation);
+
         // The sum of the Libra constant term and the evaluations of Libra univariates at corresponding sumcheck
         // challenges is included in the Sumcheck Output
         if constexpr (!IS_ECCVM) {
@@ -677,22 +677,18 @@ template <typename Flavor> class SumcheckVerifier {
         }
 
         FF libra_challenge;
-        FF libra_total_sum;
         bb::Univariate<FF, BATCHED_RELATION_PARTIAL_LENGTH> round_univariate;
 
         if constexpr (Flavor::HasZK) {
-            // get the claimed sum of libra masking multivariate over the hypercube
-            libra_total_sum = transcript->template receive_from_prover<FF>("Libra:Sum");
-            // get the challenge for the ZK Sumcheck claim
+            // If running zero-knowledge sumcheck the target total sum is corrected by the claimed sum of libra masking
+            // multivariate over the hypercube
+            FF libra_total_sum = transcript->template receive_from_prover<FF>("Libra:Sum");
             libra_challenge = transcript->template get_challenge<FF>("Libra:Challenge");
+            round.target_total_sum += libra_total_sum * libra_challenge;
         }
+
         std::vector<FF> multivariate_challenge;
         multivariate_challenge.reserve(multivariate_d);
-        // if Flavor has ZK, the target total sum is corrected by Libra total sum multiplied by the Libra
-        // challenge
-        if constexpr (Flavor::HasZK) {
-            round.target_total_sum += libra_total_sum * libra_challenge;
-        };
         for (size_t round_idx = 0; round_idx < CONST_PROOF_SIZE_LOG_N; round_idx++) {
             // Obtain the round univariate from the transcript
             std::string round_univariate_label = "Sumcheck:univariate_" + std::to_string(round_idx);
@@ -725,13 +721,6 @@ template <typename Flavor> class SumcheckVerifier {
             }
         }
         // Extract claimed evaluations of Libra univariates and compute their sum multiplied by the Libra challenge
-        FF libra_evaluation{ 0 };
-        FF full_libra_purported_value = FF(0);
-        if constexpr (Flavor::HasZK) {
-            libra_evaluation = transcript->template receive_from_prover<FF>("Libra:claimed_evaluation");
-            full_libra_purported_value += libra_evaluation;
-            full_libra_purported_value *= libra_challenge;
-        };
         // Final round
         ClaimedEvaluations purported_evaluations;
         auto transcript_evaluations =
@@ -739,40 +728,37 @@ template <typename Flavor> class SumcheckVerifier {
         for (auto [eval, transcript_eval] : zip_view(purported_evaluations.get_all(), transcript_evaluations)) {
             eval = transcript_eval;
         }
-        // For ZK Flavors: the evaluation of the Row Disabling Polynomial at the sumcheck challenge
-        FF correcting_factor{ 1 };
-        if constexpr (Flavor::HasZK) {
-            RowDisablingPolynomial<FF> row_disabler = RowDisablingPolynomial<FF>();
-            correcting_factor = row_disabler.evaluate_at_challenge(multivariate_challenge, multivariate_d);
-        }
 
         // Evaluate the Honk relation at the point (u_0, ..., u_{d-1}) using claimed evaluations of prover polynomials.
         // In ZK Flavors, the evaluation is corrected by full_libra_purported_value
-        FF full_honk_purported_value = round.compute_full_relation_purported_value(purported_evaluations,
-                                                                                   relation_parameters,
-                                                                                   gate_separators,
-                                                                                   alpha,
-                                                                                   full_libra_purported_value,
-                                                                                   correcting_factor);
-        bool final_check(false);
+        FF full_honk_purported_value = round.compute_full_relation_purported_value(
+            purported_evaluations, relation_parameters, gate_separators, alpha);
+
+        // For ZK Flavors: the evaluation of the Row Disabling Polynomial at the sumcheck challenge
+        FF libra_evaluation{ 0 };
+        if constexpr (Flavor::HasZK) {
+            libra_evaluation = transcript->template receive_from_prover<FF>("Libra:claimed_evaluation");
+            FF correcting_factor =
+                RowDisablingPolynomial<FF>::evaluate_at_challenge(multivariate_challenge, multivariate_d);
+            full_honk_purported_value =
+                full_honk_purported_value * correcting_factor + libra_evaluation * libra_challenge;
+            if constexpr (IsECCVMRecursiveFlavor<Flavor>) {
+                // TODO(https://github.com/AztecProtocol/barretenberg/issues/1197)
+                full_honk_purported_value.self_reduce();
+            }
+        }
+
         //! [Final Verification Step]
         if constexpr (IsRecursiveFlavor<Flavor>) {
-            final_check = (full_honk_purported_value.get_value() == round.target_total_sum.get_value());
+            verified = verified && (full_honk_purported_value.get_value() == round.target_total_sum.get_value());
         } else {
-            final_check = (full_honk_purported_value == round.target_total_sum);
+            verified = verified && (full_honk_purported_value == round.target_total_sum);
         }
-        verified = final_check && verified;
-        // For ZK Flavors: the evaluations of Libra univariates are included in the Sumcheck Output
-        if constexpr (!Flavor::HasZK) {
-            return SumcheckOutput<Flavor>{ .challenge = multivariate_challenge,
-                                           .claimed_evaluations = purported_evaluations,
-                                           .verified = verified };
-        } else {
-            return SumcheckOutput<Flavor>{ .challenge = multivariate_challenge,
-                                           .claimed_evaluations = purported_evaluations,
-                                           .verified = verified,
-                                           .claimed_libra_evaluation = libra_evaluation };
-        }
+
+        return SumcheckOutput<Flavor>{ .challenge = multivariate_challenge,
+                                       .claimed_evaluations = purported_evaluations,
+                                       .verified = verified,
+                                       .claimed_libra_evaluation = libra_evaluation };
     };
 
     /**
@@ -848,6 +834,12 @@ template <typename Flavor> class SumcheckVerifier {
             }
         }
 
+        // Populate claimed evaluations at the challenge
+        for (size_t round_idx = 1; round_idx < CONST_PROOF_SIZE_LOG_N; round_idx++) {
+            round_univariate_evaluations[round_idx - 1][2] =
+                round_univariate_evaluations[round_idx][0] + round_univariate_evaluations[round_idx][1];
+        }
+
         if constexpr (IsRecursiveFlavor<Flavor>) {
             FF first_sumcheck_round_evaluations_sum =
                 round_univariate_evaluations[0][0] + round_univariate_evaluations[0][1];
@@ -861,8 +853,6 @@ template <typename Flavor> class SumcheckVerifier {
         }
 
         // Extract claimed evaluations of Libra univariates and compute their sum multiplied by the Libra challenge
-        const FF libra_evaluation = transcript->template receive_from_prover<FF>("Libra:claimed_evaluation");
-        const FF full_libra_purported_value = libra_evaluation * libra_challenge;
 
         // Final round
         ClaimedEvaluations purported_evaluations;
@@ -873,37 +863,22 @@ template <typename Flavor> class SumcheckVerifier {
         }
         // For ZK Flavors: the evaluation of the Row Disabling Polynomial at the sumcheck challenge
         RowDisablingPolynomial<FF> row_disabler = RowDisablingPolynomial<FF>();
-        const FF correcting_factor = row_disabler.evaluate_at_challenge(multivariate_challenge, multivariate_d);
         // Evaluate the Honk relation at the point (u_0, ..., u_{d-1}) using claimed evaluations of prover polynomials.
         // In ZK Flavors, the evaluation is corrected by full_libra_purported_value
-        const FF full_honk_purported_value = round.compute_full_relation_purported_value(purported_evaluations,
-                                                                                         relation_parameters,
-                                                                                         gate_separators,
-                                                                                         alpha,
-                                                                                         full_libra_purported_value,
-                                                                                         correcting_factor);
-        // Populate claimed evaluations at the challenge
-        for (size_t round_idx = 1; round_idx < CONST_PROOF_SIZE_LOG_N; round_idx++) {
-            if constexpr (IsRecursiveFlavor<Flavor>) {
+        FF full_honk_purported_value = round.compute_full_relation_purported_value(
+            purported_evaluations, relation_parameters, gate_separators, alpha);
 
-                FF claimed_sum =
-                    round_univariate_evaluations[round_idx][0] + round_univariate_evaluations[round_idx][1];
-                typename Flavor::CircuitBuilder* builder = libra_evaluation.get_context();
-                // TODO(https://github.com/AztecProtocol/barretenberg/issues/1114): insecure dummy_round derivation!
-                stdlib::bool_t dummy_round = stdlib::witness_t(builder, round_idx >= multivariate_d);
-                round_univariate_evaluations[round_idx - 1][2] =
-                    FF::conditional_assign(dummy_round, full_honk_purported_value, claimed_sum);
-            } else {
-                if (round_idx < multivariate_d) {
-                    round_univariate_evaluations[round_idx - 1][2] =
-                        round_univariate_evaluations[round_idx][0] + round_univariate_evaluations[round_idx][1];
-                    ;
-                } else {
-                    round_univariate_evaluations[round_idx - 1][2] = full_honk_purported_value;
-                }
-            }
+        const FF libra_evaluation = transcript->template receive_from_prover<FF>("Libra:claimed_evaluation");
+        const FF correcting_factor =
+            RowDisablingPolynomial<FF>::evaluate_at_challenge(multivariate_challenge, multivariate_d);
+        full_honk_purported_value = full_honk_purported_value * correcting_factor + libra_evaluation * libra_challenge;
+        if constexpr (IsECCVMRecursiveFlavor<Flavor>) {
+            // TODO(https://github.com/AztecProtocol/barretenberg/issues/1197)
+            full_honk_purported_value.self_reduce();
         }
+        round_univariate_evaluations[multivariate_d - 1][2] = full_honk_purported_value;
 
+        //! [Final Verification Step]
         // For ZK Flavors: the evaluations of Libra univariates are included in the Sumcheck Output
         return SumcheckOutput<Flavor>{ .challenge = multivariate_challenge,
                                        .claimed_evaluations = purported_evaluations,
@@ -913,4 +888,5 @@ template <typename Flavor> class SumcheckVerifier {
                                        .round_univariate_evaluations = round_univariate_evaluations };
     };
 };
+
 } // namespace bb

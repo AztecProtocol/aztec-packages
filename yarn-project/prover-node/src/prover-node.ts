@@ -13,11 +13,13 @@ import {
   type Tx,
   type TxHash,
   type WorldStateSynchronizer,
+  getTimestampRangeForEpoch,
   tryStop,
 } from '@aztec/circuit-types';
 import { type ContractDataSource } from '@aztec/circuits.js';
 import { asyncPool } from '@aztec/foundation/async-pool';
 import { compact } from '@aztec/foundation/collection';
+import { memoize } from '@aztec/foundation/decorators';
 import { TimeoutError } from '@aztec/foundation/error';
 import { createLogger } from '@aztec/foundation/log';
 import { retryUntil } from '@aztec/foundation/retry';
@@ -25,7 +27,7 @@ import { DateProvider } from '@aztec/foundation/timer';
 import { type Maybe } from '@aztec/foundation/types';
 import { type P2P } from '@aztec/p2p';
 import { type L1Publisher } from '@aztec/sequencer-client';
-import { PublicProcessorFactory } from '@aztec/simulator';
+import { PublicProcessorFactory } from '@aztec/simulator/server';
 import { Attributes, type TelemetryClient, type Traceable, type Tracer, trackSpan } from '@aztec/telemetry-client';
 
 import { type BondManager } from './bond/bond-manager.js';
@@ -64,19 +66,19 @@ export class ProverNode implements ClaimsMonitorHandler, EpochMonitorHandler, Pr
   public readonly tracer: Tracer;
 
   constructor(
-    private readonly prover: EpochProverManager,
-    private readonly publisher: L1Publisher,
-    private readonly l2BlockSource: L2BlockSource & Maybe<Service>,
-    private readonly l1ToL2MessageSource: L1ToL2MessageSource,
-    private readonly contractDataSource: ContractDataSource,
-    private readonly worldState: WorldStateSynchronizer,
-    private readonly coordination: ProverCoordination & Maybe<Service>,
-    private readonly quoteProvider: QuoteProvider,
-    private readonly quoteSigner: QuoteSigner,
-    private readonly claimsMonitor: ClaimsMonitor,
-    private readonly epochsMonitor: EpochMonitor,
-    private readonly bondManager: BondManager,
-    private readonly telemetryClient: TelemetryClient,
+    protected readonly prover: EpochProverManager,
+    protected readonly publisher: L1Publisher,
+    protected readonly l2BlockSource: L2BlockSource & Maybe<Service>,
+    protected readonly l1ToL2MessageSource: L1ToL2MessageSource,
+    protected readonly contractDataSource: ContractDataSource,
+    protected readonly worldState: WorldStateSynchronizer,
+    protected readonly coordination: ProverCoordination & Maybe<Service>,
+    protected readonly quoteProvider: QuoteProvider,
+    protected readonly quoteSigner: QuoteSigner,
+    protected readonly claimsMonitor: ClaimsMonitor,
+    protected readonly epochsMonitor: EpochMonitor,
+    protected readonly bondManager: BondManager,
+    protected readonly telemetryClient: TelemetryClient,
     options: Partial<ProverNodeOptions> = {},
   ) {
     this.options = {
@@ -182,7 +184,11 @@ export class ProverNode implements ClaimsMonitorHandler, EpochMonitorHandler, Pr
       );
       await this.doSendEpochProofQuote(signed);
     } catch (err) {
-      this.log.error(`Error handling epoch completed`, err);
+      if (err instanceof EmptyEpochError) {
+        this.log.info(`Not producing quote for ${epochNumber} since no blocks were found`);
+      } else {
+        this.log.error(`Error handling epoch completed`, err);
+      }
     }
   }
 
@@ -289,9 +295,17 @@ export class ProverNode implements ClaimsMonitorHandler, EpochMonitorHandler, Pr
       return Promise.resolve();
     };
 
-    const job = this.doCreateEpochProvingJob(epochNumber, blocks, txs, publicProcessorFactory, cleanUp);
+    const [_, endTimestamp] = getTimestampRangeForEpoch(epochNumber + 1n, await this.getL1Constants());
+    const deadline = new Date(Number(endTimestamp) * 1000);
+
+    const job = this.doCreateEpochProvingJob(epochNumber, deadline, blocks, txs, publicProcessorFactory, cleanUp);
     this.jobs.set(job.getId(), job);
     return job;
+  }
+
+  @memoize
+  private getL1Constants() {
+    return this.l2BlockSource.getL1Constants();
   }
 
   @trackSpan('ProverNode.gatherEpochData', epochNumber => ({ [Attributes.EPOCH_NUMBER]: Number(epochNumber) }))
@@ -306,7 +320,7 @@ export class ProverNode implements ClaimsMonitorHandler, EpochMonitorHandler, Pr
   private async gatherBlocks(epochNumber: bigint) {
     const blocks = await this.l2BlockSource.getBlocksForEpoch(epochNumber);
     if (blocks.length === 0) {
-      throw new Error(`No blocks found for epoch ${epochNumber}`);
+      throw new EmptyEpochError(epochNumber);
     }
     return blocks;
   }
@@ -379,6 +393,7 @@ export class ProverNode implements ClaimsMonitorHandler, EpochMonitorHandler, Pr
   /** Extracted for testing purposes. */
   protected doCreateEpochProvingJob(
     epochNumber: bigint,
+    deadline: Date | undefined,
     blocks: L2Block[],
     txs: Tx[],
     publicProcessorFactory: PublicProcessorFactory,
@@ -395,6 +410,7 @@ export class ProverNode implements ClaimsMonitorHandler, EpochMonitorHandler, Pr
       this.l2BlockSource,
       this.l1ToL2MessageSource,
       this.metrics,
+      deadline,
       { parallelBlockLimit: this.options.maxParallelBlocksPerEpoch },
       cleanUp,
     );
@@ -404,5 +420,12 @@ export class ProverNode implements ClaimsMonitorHandler, EpochMonitorHandler, Pr
   protected async triggerMonitors() {
     await this.epochsMonitor.work();
     await this.claimsMonitor.work();
+  }
+}
+
+class EmptyEpochError extends Error {
+  constructor(epochNumber: bigint) {
+    super(`No blocks found for epoch ${epochNumber}`);
+    this.name = 'EmptyEpochError';
   }
 }

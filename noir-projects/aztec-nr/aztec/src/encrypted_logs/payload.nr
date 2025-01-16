@@ -62,9 +62,9 @@ pub fn compute_private_log_payload<let P: u32>(
     let encrypted: [u8; ENCRYPTED_PAYLOAD_SIZE_IN_BYTES] =
         compute_encrypted_log(contract_address, recipient, extended_plaintext);
 
-    // We assume that the sender wants for the recipient to find the tagged note, and therefore that they will cooperate
-    // and use the correct tag. Usage of a bad tag will result in the recipient not being able to find the note
-    // automatically.
+    /// Safety: We assume that the sender wants for the recipient to find the tagged note, and therefore that they
+    /// will cooperate and use the correct tag. Usage of a bad tag will result in the recipient not being able to
+    /// find the note automatically.
     let tag = unsafe { get_app_tag_as_sender(sender, recipient) };
     increment_app_tagging_secret_index_as_sender(sender, recipient);
 
@@ -82,9 +82,9 @@ pub fn compute_partial_public_log_payload<let P: u32, let M: u32>(
     let encrypted: [u8; M - 32] =
         compute_encrypted_log(contract_address, recipient, extended_plaintext);
 
-    // We assume that the sender wants for the recipient to find the tagged note, and therefore that they will cooperate
-    // and use the correct tag. Usage of a bad tag will result in the recipient not being able to find the note
-    // automatically.
+    /// Safety: We assume that the sender wants for the recipient to find the tagged note, and therefore that they
+    /// will cooperate and use the correct tag. Usage of a bad tag will result in the recipient not being able to
+    /// find the note automatically.
     let tag = unsafe { get_app_tag_as_sender(sender, recipient) };
     increment_app_tagging_secret_index_as_sender(sender, recipient);
     // Silo the tag with contract address.
@@ -145,6 +145,9 @@ fn compute_encrypted_log<let P: u32, let M: u32>(
     // Then we fill in the rest as the incoming body ciphertext
     let size = M - offset;
     assert_eq(size, incoming_body_ciphertext.len(), "ciphertext length mismatch");
+    // Nargo seems to struggle with realizing that `offset` is a constant at this point.
+    // We then redefine it in terms of the assertion above to give nargo a hint.
+    let offset = M - incoming_body_ciphertext.len();
     for i in 0..size {
         encrypted_bytes[offset + i] = incoming_body_ciphertext[i];
     }
@@ -155,6 +158,8 @@ fn compute_encrypted_log<let P: u32, let M: u32>(
 // Prepend the plaintext length as the first byte, then copy the plaintext itself starting from the second byte.
 // Fill the remaining bytes with random values to reach a fixed length of N.
 fn extend_private_log_plaintext<let P: u32, let N: u32>(plaintext: [u8; P]) -> [u8; N] {
+    /// Safety: A malicious sender could reveal the whole contents of the encrypted log so trusting it to set
+    /// a random padding in plaintext is fine.
     let mut padded = unsafe { get_random_bytes() };
     padded[0] = (P >> 8) as u8;
     padded[1] = P as u8;
@@ -189,10 +194,11 @@ fn fr_to_fq(r: Field) -> Scalar {
 
 fn generate_ephemeral_key_pair() -> (Scalar, Point) {
     // @todo Need to draw randomness from the full domain of Fq not only Fr
-    // We use the randomness to preserve the privacy of both the sender and recipient via encryption, so a malicious
-    // sender could use non-random values to reveal the plaintext. But they already know it themselves anyway, and so
-    // the recipient already trusts them to not disclose this information. We can therefore assume that the sender will
-    // cooperate in the random value generation.
+
+    /// Safety: We use the randomness to preserve the privacy of both the sender and recipient via encryption, so
+    /// a malicious sender could use non-random values to reveal the plaintext. But they already know it themselves
+    /// anyway, and so the recipient already trusts them to not disclose this information. We can therefore assume
+    /// that the sender will cooperate in the random value generation.
     let randomness = unsafe { random() };
 
     // We use the unsafe version of `fr_to_fq` because multi_scalar_mul (called by derive_public_key) will constrain
@@ -207,7 +213,7 @@ pub fn compute_incoming_body_ciphertext<let P: u32>(
     plaintext: [u8; P],
     eph_sk: Scalar,
     address_point: AddressPoint,
-) -> [u8] {
+) -> [u8; P + 16 - P % 16] {
     let full_key = derive_aes_secret(eph_sk, address_point.to_point());
     let mut sym_key = [0; 16];
     let mut iv = [0; 16];

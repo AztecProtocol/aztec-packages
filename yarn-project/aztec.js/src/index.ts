@@ -46,6 +46,7 @@ export {
   type L2AmountClaimWithRecipient,
   type L2Claim,
   type WrappedFieldLike,
+  type IntentAction,
 } from './utils/index.js';
 
 export { NoteSelector } from '@aztec/foundation/abi';
@@ -109,7 +110,7 @@ export {
   LogId,
   MerkleTreeId,
   Note,
-  PackedValues,
+  HashedValues,
   SiblingPath,
   Tx,
   TxExecutionRequest,
@@ -125,7 +126,6 @@ export {
   mockEpochProofQuote,
   mockTx,
   type AztecNode,
-  type EpochConstants,
   type LogFilter,
   type PXE,
   type PartialAddress,

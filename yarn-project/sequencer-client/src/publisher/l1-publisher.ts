@@ -1,3 +1,4 @@
+import { type BlobSinkClientInterface, createBlobSinkClient } from '@aztec/blob-sink/client';
 import {
   ConsensusPayload,
   type EpochProofClaim,
@@ -16,7 +17,14 @@ import {
   type Proof,
 } from '@aztec/circuits.js';
 import { type FeeRecipient, type RootRollupPublicInputs } from '@aztec/circuits.js/rollup';
-import { type EthereumChain, type L1ContractsConfig, L1TxUtils, createEthereumChain } from '@aztec/ethereum';
+import {
+  type EthereumChain,
+  type GasPrice,
+  type L1ContractsConfig,
+  L1TxUtils,
+  createEthereumChain,
+  formatViemError,
+} from '@aztec/ethereum';
 import { makeTuple } from '@aztec/foundation/array';
 import { toHex } from '@aztec/foundation/bigint-buffer';
 import { Blob } from '@aztec/foundation/blob';
@@ -29,6 +37,7 @@ import { InterruptibleSleep } from '@aztec/foundation/sleep';
 import { Timer } from '@aztec/foundation/timer';
 import { EmpireBaseAbi, RollupAbi, SlasherAbi } from '@aztec/l1-artifacts';
 import { type TelemetryClient } from '@aztec/telemetry-client';
+import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
 
 import pick from 'lodash.pick';
 import {
@@ -63,7 +72,6 @@ import { privateKeyToAccount } from 'viem/accounts';
 
 import { type PublisherConfig, type TxSenderConfig } from './config.js';
 import { L1PublisherMetrics } from './l1-publisher-metrics.js';
-import { prettyLogViemErrorMsg } from './utils.js';
 
 /**
  * Stats for a sent transaction.
@@ -115,6 +123,14 @@ type L1ProcessArgs = {
   txHashes: TxHash[];
   /** Attestations */
   attestations?: Signature[];
+};
+
+type L1ProcessReturnType = {
+  receipt: TransactionReceipt | undefined;
+  args: any;
+  functionName: string;
+  data: Hex;
+  gasPrice: GasPrice;
 };
 
 /** Arguments to the submitEpochProof method of the rollup contract */
@@ -177,8 +193,7 @@ export class L1Publisher {
   protected account: PrivateKeyAccount;
   protected ethereumSlotDuration: bigint;
 
-  private blobSinkUrl: string | undefined;
-
+  private blobSinkClient: BlobSinkClientInterface;
   // @note - with blobs, the below estimate seems too large.
   // Total used for full block from int_l1_pub e2e test: 1m (of which 86k is 1x blob)
   // Total used for emptier block from above test: 429k (of which 84k is 1x blob)
@@ -189,12 +204,15 @@ export class L1Publisher {
 
   constructor(
     config: TxSenderConfig & PublisherConfig & Pick<L1ContractsConfig, 'ethereumSlotDuration'>,
-    client: TelemetryClient,
+    deps: { telemetry?: TelemetryClient; blobSinkClient?: BlobSinkClientInterface } = {},
   ) {
     this.sleepTimeMs = config?.l1PublishRetryIntervalMS ?? 60_000;
     this.ethereumSlotDuration = BigInt(config.ethereumSlotDuration);
-    this.blobSinkUrl = config.blobSinkUrl;
-    this.metrics = new L1PublisherMetrics(client, 'L1Publisher');
+
+    const telemetry = deps.telemetry ?? new NoopTelemetryClient();
+    this.blobSinkClient = deps.blobSinkClient ?? createBlobSinkClient(config.blobSinkUrl);
+
+    this.metrics = new L1PublisherMetrics(telemetry, 'L1Publisher');
 
     const { l1RpcUrl: rpcUrl, l1ChainId: chainId, publisherPrivateKey, l1Contracts } = config;
     const chain = createEthereumChain(rpcUrl, chainId);
@@ -528,7 +546,7 @@ export class L1Publisher {
         account: this.account,
       });
     } catch (err) {
-      const msg = prettyLogViemErrorMsg(err);
+      const msg = formatViemError(err);
       logger.error(`Failed to vote`, msg);
       this.myLastVotes[voteType] = cachedMyLastVote;
       return false;
@@ -557,6 +575,7 @@ export class L1Publisher {
     attestations?: Signature[],
     txHashes?: TxHash[],
     proofQuote?: EpochProofQuote,
+    opts: { txTimeoutAt?: Date } = {},
   ): Promise<boolean> {
     const ctx = {
       blockNumber: block.number,
@@ -598,15 +617,15 @@ export class L1Publisher {
 
     this.log.debug(`Submitting propose transaction`);
     const result = proofQuote
-      ? await this.sendProposeAndClaimTx(proposeTxArgs, proofQuote)
-      : await this.sendProposeTx(proposeTxArgs);
+      ? await this.sendProposeAndClaimTx(proposeTxArgs, proofQuote, opts)
+      : await this.sendProposeTx(proposeTxArgs, opts);
 
     if (!result?.receipt) {
       this.log.info(`Failed to publish block ${block.number} to L1`, ctx);
       return false;
     }
 
-    const { receipt, args, functionName, data } = result;
+    const { receipt, args, functionName, data, gasPrice } = result;
 
     // Tx was mined successfully
     if (receipt.status === 'success') {
@@ -645,7 +664,7 @@ export class L1Publisher {
       {
         blobs: proposeTxArgs.blobs.map(b => b.dataWithZeros),
         kzg,
-        maxFeePerBlobGas: 10000000000n,
+        maxFeePerBlobGas: gasPrice.maxFeePerBlobGas ?? 10000000000n,
       },
     );
     this.log.error(`Rollup process tx reverted. ${errorMsg}`, undefined, {
@@ -659,11 +678,10 @@ export class L1Publisher {
   /** Calls claimEpochProofRight in the Rollup contract to submit a chosen prover quote for the previous epoch. */
   public async claimEpochProofRight(proofQuote: EpochProofQuote) {
     const timer = new Timer();
-
-    let receipt;
+    let result;
     try {
       this.log.debug(`Submitting claimEpochProofRight transaction`);
-      receipt = await this.l1TxUtils.sendAndMonitorTransaction({
+      result = await this.l1TxUtils.sendAndMonitorTransaction({
         to: this.rollupContract.address,
         data: encodeFunctionData({
           abi: RollupAbi,
@@ -672,11 +690,13 @@ export class L1Publisher {
         }),
       });
     } catch (err) {
-      this.log.error(`Failed to claim epoch proof right: ${prettyLogViemErrorMsg(err)}`, err, {
+      this.log.error(`Failed to claim epoch proof right`, err, {
         proofQuote: proofQuote.toInspect(),
       });
       return false;
     }
+
+    const { receipt } = result;
 
     if (receipt.status === 'success') {
       const tx = await this.getTransactionStats(receipt.transactionHash);
@@ -900,35 +920,42 @@ export class L1Publisher {
     publicInputs: RootRollupPublicInputs;
     proof: Proof;
   }): Promise<string | undefined> {
+    const proofHex: Hex = `0x${args.proof.withoutPublicInputs().toString('hex')}`;
+    const argsArray = this.getSubmitEpochProofArgs(args);
+
+    const txArgs = [
+      {
+        epochSize: argsArray[0],
+        args: argsArray[1],
+        fees: argsArray[2],
+        blobPublicInputs: argsArray[3],
+        aggregationObject: argsArray[4],
+        proof: proofHex,
+      },
+    ] as const;
+
+    this.log.info(`SubmitEpochProof proofSize=${args.proof.withoutPublicInputs().length} bytes`);
+    const data = encodeFunctionData({
+      abi: this.rollupContract.abi,
+      functionName: 'submitEpochRootProof',
+      args: txArgs,
+    });
     try {
-      const proofHex: Hex = `0x${args.proof.withoutPublicInputs().toString('hex')}`;
-      const argsArray = this.getSubmitEpochProofArgs(args);
-
-      const txArgs = [
-        {
-          epochSize: argsArray[0],
-          args: argsArray[1],
-          fees: argsArray[2],
-          blobPublicInputs: argsArray[3],
-          aggregationObject: argsArray[4],
-          proof: proofHex,
-        },
-      ] as const;
-
-      this.log.info(`SubmitEpochProof proofSize=${args.proof.withoutPublicInputs().length} bytes`);
-
-      const txReceipt = await this.l1TxUtils.sendAndMonitorTransaction({
+      const { receipt } = await this.l1TxUtils.sendAndMonitorTransaction({
         to: this.rollupContract.address,
-        data: encodeFunctionData({
-          abi: this.rollupContract.abi,
-          functionName: 'submitEpochRootProof',
-          args: txArgs,
-        }),
+        data,
       });
 
-      return txReceipt.transactionHash;
+      return receipt.transactionHash;
     } catch (err) {
       this.log.error(`Rollup submit epoch proof failed`, err);
+      const errorMsg = await this.tryGetErrorFromRevertedTx(data, {
+        args: [...txArgs],
+        functionName: 'submitEpochRootProof',
+        abi: this.rollupContract.abi,
+        address: this.rollupContract.address,
+      });
+      this.log.error(`Rollup submit epoch proof tx reverted. ${errorMsg}`);
       return undefined;
     }
   }
@@ -949,7 +976,6 @@ export class L1Publisher {
       {
         blobs: encodedData.blobs.map(b => b.dataWithZeros),
         kzg,
-        maxFeePerBlobGas: 10000000000n, //This is 10 gwei, taken from DEFAULT_MAX_FEE_PER_GAS
       },
     );
 
@@ -1016,7 +1042,8 @@ export class L1Publisher {
 
   private async sendProposeTx(
     encodedData: L1ProcessArgs,
-  ): Promise<{ receipt: TransactionReceipt | undefined; args: any; functionName: string; data: Hex } | undefined> {
+    opts: { txTimeoutAt?: Date } = {},
+  ): Promise<L1ProcessReturnType | undefined> {
     if (this.interrupted) {
       return undefined;
     }
@@ -1028,28 +1055,29 @@ export class L1Publisher {
         functionName: 'propose',
         args,
       });
-      const receipt = await this.l1TxUtils.sendAndMonitorTransaction(
+      const result = await this.l1TxUtils.sendAndMonitorTransaction(
         {
           to: this.rollupContract.address,
           data,
         },
         {
           fixedGas: gas,
+          ...opts,
         },
         {
           blobs: encodedData.blobs.map(b => b.dataWithZeros),
           kzg,
-          maxFeePerBlobGas: 10000000000n, //This is 10 gwei, taken from DEFAULT_MAX_FEE_PER_GAS
         },
       );
       return {
-        receipt,
+        receipt: result.receipt,
+        gasPrice: result.gasPrice,
         args,
         functionName: 'propose',
         data,
       };
     } catch (err) {
-      this.log.error(`Rollup publish failed: ${prettyLogViemErrorMsg(err)}`, err);
+      this.log.error(`Rollup publish failed.`, err);
       return undefined;
     }
   }
@@ -1057,7 +1085,8 @@ export class L1Publisher {
   private async sendProposeAndClaimTx(
     encodedData: L1ProcessArgs,
     quote: EpochProofQuote,
-  ): Promise<{ receipt: TransactionReceipt | undefined; args: any; functionName: string; data: Hex } | undefined> {
+    opts: { txTimeoutAt?: Date } = {},
+  ): Promise<L1ProcessReturnType | undefined> {
     if (this.interrupted) {
       return undefined;
     }
@@ -1069,27 +1098,30 @@ export class L1Publisher {
         functionName: 'proposeAndClaim',
         args: [...args, quote.toViemArgs()],
       });
-      const receipt = await this.l1TxUtils.sendAndMonitorTransaction(
+      const result = await this.l1TxUtils.sendAndMonitorTransaction(
         {
           to: this.rollupContract.address,
           data,
         },
-        { fixedGas: gas },
+        {
+          fixedGas: gas,
+          ...opts,
+        },
         {
           blobs: encodedData.blobs.map(b => b.dataWithZeros),
           kzg,
-          maxFeePerBlobGas: 10000000000n, //This is 10 gwei, taken from DEFAULT_MAX_FEE_PER_GAS
         },
       );
 
       return {
-        receipt,
+        receipt: result.receipt,
+        gasPrice: result.gasPrice,
         args: [...args, quote.toViemArgs()],
         functionName: 'proposeAndClaim',
         data,
       };
     } catch (err) {
-      this.log.error(`Rollup publish failed: ${prettyLogViemErrorMsg(err)}`, err);
+      this.log.error(`Rollup publish failed.`, err);
       return undefined;
     }
   }
@@ -1143,38 +1175,8 @@ export class L1Publisher {
    *   In the future this will move to be the beacon block id - which takes a bit more work
    *   to calculate and will need to be mocked in e2e tests
    */
-  protected async sendBlobsToBlobSink(blockHash: string, blobs: Blob[]): Promise<boolean> {
-    // TODO(md): for now we are assuming the indexes of the blobs will be 0, 1, 2
-    // When in reality they will not, but for testing purposes this is fine
-    if (!this.blobSinkUrl) {
-      this.log.verbose('No blob sink url configured');
-      return false;
-    }
-
-    this.log.verbose(`Sending ${blobs.length} blobs to blob sink`);
-    try {
-      const res = await fetch(`${this.blobSinkUrl}/blob_sidecar`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          // eslint-disable-next-line camelcase
-          block_id: blockHash,
-          blobs: blobs.map((b, i) => ({ blob: b.toBuffer(), index: i })),
-        }),
-      });
-
-      if (res.ok) {
-        return true;
-      }
-
-      this.log.error('Failed to send blobs to blob sink', res.status);
-      return false;
-    } catch (err) {
-      this.log.error(`Error sending blobs to blob sink`, err);
-      return false;
-    }
+  protected sendBlobsToBlobSink(blockHash: string, blobs: Blob[]): Promise<boolean> {
+    return this.blobSinkClient.sendBlobsToBlobSink(blockHash, blobs);
   }
 }
 

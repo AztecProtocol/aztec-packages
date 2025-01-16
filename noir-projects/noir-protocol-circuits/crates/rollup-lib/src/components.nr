@@ -1,12 +1,13 @@
 use crate::abis::{
-    base_or_merge_rollup_public_inputs::BaseOrMergeRollupPublicInputs,
     block_root_or_block_merge_public_inputs::{BlockRootOrBlockMergePublicInputs, FeeRecipient},
     previous_rollup_block_data::PreviousRollupBlockData,
-    previous_rollup_data::PreviousRollupData,
 };
 use super::abis::tx_effect::TxEffect;
 use dep::types::{
-    abis::{log_hash::ScopedLogHash, public_data_write::PublicDataWrite, sponge_blob::SpongeBlob},
+    abis::{
+        log::Log, log_hash::ScopedLogHash, public_data_write::PublicDataWrite,
+        sponge_blob::SpongeBlob,
+    },
     constants::{
         AZTEC_MAX_EPOCH_DURATION, CONTRACT_CLASS_LOGS_PREFIX, L2_L1_MSGS_PREFIX,
         MAX_CONTRACT_CLASS_LOGS_PER_TX, MAX_L2_TO_L1_MSGS_PER_TX, MAX_NOTE_HASHES_PER_TX,
@@ -19,73 +20,9 @@ use dep::types::{
     hash::{accumulate_sha256, silo_unencrypted_log_hash},
     merkle_tree::VariableMerkleTree,
     traits::is_empty,
-    utils::{arrays::{array_concat, array_length, array_merge}, field::field_from_bytes},
+    utils::arrays::{array_length, array_merge},
 };
 use blob::blob_public_inputs::BlockBlobPublicInputs;
-
-/**
- * Asserts that the tree formed by rollup circuits is filled greedily from L to R
- *
- */
-pub fn assert_txs_filled_from_left(
-    left: BaseOrMergeRollupPublicInputs,
-    right: BaseOrMergeRollupPublicInputs,
-) {
-    // assert that the left rollup is either a base (1 tx) or a balanced tree (num txs = power of 2)
-    if (left.rollup_type == 1) {
-        let left_txs = left.num_txs;
-        let right_txs = right.num_txs;
-        // See https://graphics.stanford.edu/~seander/bithacks.html#DetermineIfPowerOf2
-        assert(
-            (left_txs) & (left_txs - 1) == 0,
-            "The rollup should be filled greedily from L to R, but received an unbalanced left subtree",
-        );
-        assert(
-            right_txs <= left_txs,
-            "The rollup should be filled greedily from L to R, but received a L txs < R txs",
-        );
-    } else {
-        assert(
-            right.rollup_type == 0,
-            "The rollup should be filled greedily from L to R, but received a L base and R merge",
-        );
-    }
-}
-
-/**
- * Asserts that the constants used in the left and right child are identical
- *
- */
-pub fn assert_equal_constants(
-    left: BaseOrMergeRollupPublicInputs,
-    right: BaseOrMergeRollupPublicInputs,
-) {
-    assert(left.constants.eq(right.constants), "input proofs have different constants");
-}
-
-// asserts that the end snapshot of previous_rollup 0 equals the start snapshot of previous_rollup 1 (i.e. ensure they
-// follow on from one-another). Ensures that right uses the tree that was updated by left.
-pub fn assert_prev_rollups_follow_on_from_each_other(
-    left: BaseOrMergeRollupPublicInputs,
-    right: BaseOrMergeRollupPublicInputs,
-) {
-    assert(
-        left.end.note_hash_tree.eq(right.start.note_hash_tree),
-        "input proofs have different note hash tree snapshots",
-    );
-    assert(
-        left.end.nullifier_tree.eq(right.start.nullifier_tree),
-        "input proofs have different nullifier tree snapshots",
-    );
-    assert(
-        left.end.public_data_tree.eq(right.start.public_data_tree),
-        "input proofs have different public data tree snapshots",
-    );
-    assert(
-        left.end_sponge_blob.eq(right.start_sponge_blob),
-        "input proofs have different blob data sponges",
-    );
-}
 
 pub fn assert_prev_block_rollups_follow_on_from_each_other(
     left: BlockRootOrBlockMergePublicInputs,
@@ -134,20 +71,6 @@ pub fn assert_prev_block_rollups_follow_on_from_each_other(
     }
 }
 
-pub fn accumulate_fees(
-    left: BaseOrMergeRollupPublicInputs,
-    right: BaseOrMergeRollupPublicInputs,
-) -> Field {
-    left.accumulated_fees + right.accumulated_fees
-}
-
-pub fn accumulate_mana_used(
-    left: BaseOrMergeRollupPublicInputs,
-    right: BaseOrMergeRollupPublicInputs,
-) -> Field {
-    left.accumulated_mana_used + right.accumulated_mana_used
-}
-
 pub fn accumulate_blocks_fees(
     left: BlockRootOrBlockMergePublicInputs,
     right: BlockRootOrBlockMergePublicInputs,
@@ -192,19 +115,6 @@ pub fn accumulate_blob_public_inputs(
     result
 }
 
-/**
- * @brief From two previous rollup data, compute a single out hash
- *
- * @param previous_rollup_data
- * @return out hash stored in 2 fields
- */
-pub fn compute_out_hash(previous_rollup_data: [PreviousRollupData; 2]) -> Field {
-    accumulate_sha256([
-        previous_rollup_data[0].base_or_merge_rollup_public_inputs.out_hash,
-        previous_rollup_data[1].base_or_merge_rollup_public_inputs.out_hash,
-    ])
-}
-
 pub fn compute_blocks_out_hash(previous_rollup_data: [PreviousRollupBlockData; 2]) -> Field {
     if previous_rollup_data[1].block_root_or_block_merge_public_inputs.is_padding() {
         previous_rollup_data[0].block_root_or_block_merge_public_inputs.out_hash
@@ -223,28 +133,18 @@ pub fn compute_kernel_out_hash(l2_to_l1_msgs: [Field; MAX_L2_TO_L1_MSGS_PER_TX])
 }
 
 /**
- * Asserts that the first sponge blob was empty to begin with.
- * This prevents injecting unchecked tx effects in the first base of a rollup.
- */
-pub fn assert_first_sponge_blob_empty(left: BaseOrMergeRollupPublicInputs) {
-    let expected_sponge_blob = SpongeBlob::new(left.start_sponge_blob.expected_fields);
-    assert(
-        left.start_sponge_blob.eq(expected_sponge_blob),
-        "block's first blob sponge was not empty",
-    );
-}
-
-/**
  * Converts given type (e.g. note hashes = 3) and length (e.g. 5) into a prefix: 0x03000005.
  * Uses 2 bytes to encode the length even when we only need 1 to keep uniform.
  */
 pub fn encode_blob_prefix(input_type: u8, array_len: u32) -> Field {
-    let len_bytes = (array_len as Field).to_be_bytes::<2>();
-    field_from_bytes([input_type, 0, len_bytes[0], len_bytes[1]], true)
+    let array_len = array_len as Field;
+    array_len.assert_max_bit_size::<16>();
+    (input_type as Field) * (256 * 256 * 256) + array_len
 }
 
 // Tx effects consist of
 // 1 field for revert code
+// 1 field for tx hash
 // 1 field for transaction fee
 // MAX_NOTE_HASHES_PER_TX fields for note hashes
 // MAX_NULLIFIERS_PER_TX fields for nullifiers
@@ -256,6 +156,7 @@ pub fn encode_blob_prefix(input_type: u8, array_len: u32) -> Field {
 // MAX_CONTRACT_CLASS_LOGS_PER_TX fields for contract class logs
 // 7 fields for prefixes for each of the above categories
 pub(crate) global TX_EFFECTS_BLOB_HASH_INPUT_FIELDS: u32 = 1
+    + 1
     + 1
     + MAX_NOTE_HASHES_PER_TX
     + MAX_NULLIFIERS_PER_TX
@@ -277,8 +178,8 @@ pub(crate) fn append_tx_effects_for_blob(
     let mut out_sponge = start_sponge_blob;
 
     // If we have an empty tx (usually a padding tx), we don't want to absorb anything
-    // An empty tx will only have 2 effects - revert code and fee - hence offset = 2
-    if offset != 2 {
+    // An empty tx will only have 3 effects - revert code, tx hash and fee - hence offset = 3
+    if offset != 3 {
         out_sponge.absorb(tx_effects_hash_input, offset);
     }
 
@@ -288,7 +189,10 @@ pub(crate) fn append_tx_effects_for_blob(
 fn get_tx_effects_hash_input(
     tx_effect: TxEffect,
 ) -> ([Field; TX_EFFECTS_BLOB_HASH_INPUT_FIELDS], u32) {
-    let mut tx_effects_hash_input = unsafe { get_tx_effects_hash_input_helper(tx_effect) };
+    tx_effect.transaction_fee.assert_max_bit_size::<29 * 8>();
+    let TWO_POW_240 = 1766847064778384329583297500742918515827483896875618958121606201292619776;
+    let prefixed_tx_fee: Field =
+        (TX_FEE_PREFIX as Field) * TWO_POW_240 + (tx_effect.transaction_fee as Field);
 
     let note_hashes = tx_effect.note_hashes;
     let nullifiers = tx_effect.nullifiers;
@@ -304,6 +208,21 @@ fn get_tx_effects_hash_input(
         silo_unencrypted_log_hash(log)
     });
 
+    let mut tx_effects_hash_input = unsafe {
+        get_tx_effects_hash_input_helper(
+            tx_effect.tx_hash,
+            prefixed_tx_fee,
+            tx_effect.note_hashes,
+            tx_effect.nullifiers,
+            tx_effect.l2_to_l1_msgs,
+            public_data_update_requests,
+            private_logs,
+            unencrypted_logs,
+            contract_class_logs,
+            tx_effect.revert_code as Field,
+        )
+    };
+
     let mut offset = 0;
     let mut array_len = 0;
 
@@ -313,18 +232,12 @@ fn get_tx_effects_hash_input(
     // We only know the value once the appending is complete, hence we overwrite input[0] below
     offset += 1;
 
+    assert_eq(tx_effects_hash_input[offset], tx_effect.tx_hash);
+    offset += 1;
+
     // TX FEE
     // Using 29 bytes to encompass all reasonable fee lengths
-    assert_eq(
-        tx_effects_hash_input[offset],
-        field_from_bytes(
-            array_concat(
-                [TX_FEE_PREFIX, 0],
-                tx_effect.transaction_fee.to_be_bytes::<29>(),
-            ),
-            true,
-        ),
-    );
+    assert_eq(tx_effects_hash_input[offset], prefixed_tx_fee);
     offset += 1;
 
     // NB: The array_length function does NOT constrain we have a sorted left-packed array.
@@ -449,123 +362,99 @@ fn get_tx_effects_hash_input(
     }
 
     // Now we know the number of fields appended, we can assign the first value:
-    // TX_START_PREFIX | 0 | txlen[0] txlen[1] | 0 | REVERT_CODE_PREFIX | 0 | revert_code
-    // Start prefix is "tx_start".to_field() => 8 bytes
-    let prefix_bytes = TX_START_PREFIX.to_be_bytes::<8>();
-    let length_bytes = (offset as Field).to_be_bytes::<2>();
+    let expected_tx_start_field =
+        generate_tx_start_field(offset as Field, tx_effect.revert_code as Field);
     // REVERT CODE
-    assert_eq(
-        tx_effects_hash_input[0],
-        field_from_bytes(
-            array_concat(
-                prefix_bytes,
-                [
-                    0,
-                    length_bytes[0],
-                    length_bytes[1],
-                    0,
-                    REVERT_CODE_PREFIX,
-                    0,
-                    tx_effect.revert_code,
-                ],
-            ),
-            true,
-        ),
-    );
+    assert_eq(tx_effects_hash_input[0], expected_tx_start_field);
 
     (tx_effects_hash_input, offset)
 }
 
+fn generate_tx_start_field(offset: Field, revert_code: Field) -> Field {
+    // TX_START_PREFIX | 0 | 0 | 0 | 0 | REVERT_CODE_PREFIX | 0 | 0
+    let constant = (TX_START_PREFIX as Field) * (256 * 256 * 256 * 256 * 256 * 256 * 256)
+        + (REVERT_CODE_PREFIX as Field) * (256 * 256);
+
+    let tx_start_field = constant + offset * (256 * 256 * 256 * 256) + revert_code;
+
+    tx_start_field
+}
+
 unconstrained fn get_tx_effects_hash_input_helper(
-    tx_effect: TxEffect,
+    tx_hash: Field,
+    prefixed_tx_fee: Field,
+    note_hashes: [Field; MAX_NOTE_HASHES_PER_TX],
+    nullifiers: [Field; MAX_NULLIFIERS_PER_TX],
+    l2_to_l1_msgs: [Field; MAX_L2_TO_L1_MSGS_PER_TX],
+    public_data_update_requests: [PublicDataWrite; MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX],
+    private_logs: [Log<PRIVATE_LOG_SIZE_IN_FIELDS>; MAX_PRIVATE_LOGS_PER_TX],
+    unencrypted_logs: [Field; MAX_UNENCRYPTED_LOGS_PER_TX],
+    contract_class_logs: [Field; MAX_CONTRACT_CLASS_LOGS_PER_TX],
+    revert_code: Field,
 ) -> [Field; TX_EFFECTS_BLOB_HASH_INPUT_FIELDS] {
     let mut tx_effects_hash_input = [0; TX_EFFECTS_BLOB_HASH_INPUT_FIELDS];
 
-    let note_hashes = tx_effect.note_hashes;
-    let nullifiers = tx_effect.nullifiers;
-
     // Public writes are the concatenation of all non-empty user update requests and protocol update requests, then padded with zeroes.
     // The incoming all_public_data_update_requests may have empty update requests in the middle, so we move those to the end of the array.
-    let public_data_update_requests =
-        get_all_update_requests_for_tx_effects(tx_effect.public_data_writes);
-    let private_logs = tx_effect.private_logs;
-    let unencrypted_logs =
-        tx_effect.unencrypted_logs_hashes.map(|log: ScopedLogHash| silo_unencrypted_log_hash(log));
-    let contract_class_logs = tx_effect.contract_class_logs_hashes.map(|log: ScopedLogHash| {
-        silo_unencrypted_log_hash(log)
-    });
 
-    let mut offset = 0;
-    let mut array_len = 0;
-
-    // NB: for publishing fields of blob data we use the first element of the blob to encode:
-    // TX_START_PREFIX | 0 | txlen[0] txlen[1] | 0 | REVERT_CODE_PREFIX | 0 | revert_code
-    // Two bytes are used to encode the number of fields appended here, given by 'offset'
-    // We only know the value once the appending is complete, hence we overwrite input[0] below
-    tx_effects_hash_input[offset] = 0;
-    offset += 1;
+    tx_effects_hash_input[1] = tx_hash;
 
     // TX FEE
     // Using 29 bytes to encompass all reasonable fee lengths
-    tx_effects_hash_input[offset] = field_from_bytes(
-        array_concat(
-            [TX_FEE_PREFIX, 0],
-            tx_effect.transaction_fee.to_be_bytes::<29>(),
-        ),
-        true,
-    );
-    offset += 1;
+    tx_effects_hash_input[2] = prefixed_tx_fee;
+
+    let mut offset = 3;
 
     // NB: The array_length function does NOT constrain we have a sorted left-packed array.
     // We can use it because all inputs here come from the kernels which DO constrain left-packing.
     // If that ever changes, we will have to constrain it by counting items differently.
     // NOTE HASHES
-    array_len = array_length(note_hashes);
+    let array_len = array_length(note_hashes);
     if array_len != 0 {
         let notes_prefix = encode_blob_prefix(NOTES_PREFIX, array_len);
         tx_effects_hash_input[offset] = notes_prefix;
         offset += 1;
 
-        for j in 0..MAX_NOTE_HASHES_PER_TX {
+        for j in 0..array_len {
             tx_effects_hash_input[offset + j] = note_hashes[j];
         }
         offset += array_len;
     }
 
     // NULLIFIERS
-    array_len = array_length(nullifiers);
+    let array_len = array_length(nullifiers);
     if array_len != 0 {
         let nullifiers_prefix = encode_blob_prefix(NULLIFIERS_PREFIX, array_len);
         tx_effects_hash_input[offset] = nullifiers_prefix;
         offset += 1;
 
-        for j in 0..MAX_NULLIFIERS_PER_TX {
+        for j in 0..array_len {
             tx_effects_hash_input[offset + j] = nullifiers[j];
         }
         offset += array_len;
     }
 
     // L2 TO L1 MESSAGES
-    array_len = array_length(tx_effect.l2_to_l1_msgs);
+    let array_len = array_length(l2_to_l1_msgs);
     if array_len != 0 {
         let l2_to_l1_msgs_prefix = encode_blob_prefix(L2_L1_MSGS_PREFIX, array_len);
         tx_effects_hash_input[offset] = l2_to_l1_msgs_prefix;
         offset += 1;
 
-        for j in 0..MAX_L2_TO_L1_MSGS_PER_TX {
-            tx_effects_hash_input[offset + j] = tx_effect.l2_to_l1_msgs[j];
+        for j in 0..array_len {
+            tx_effects_hash_input[offset + j] = l2_to_l1_msgs[j];
         }
         offset += array_len;
     }
 
     // PUBLIC DATA UPDATE REQUESTS
-    array_len = array_length(public_data_update_requests);
+    let array_len = array_length(public_data_update_requests);
     if array_len != 0 {
         let public_data_update_requests_prefix =
             encode_blob_prefix(PUBLIC_DATA_UPDATE_REQUESTS_PREFIX, array_len * 2);
         tx_effects_hash_input[offset] = public_data_update_requests_prefix;
         offset += 1;
-        for j in 0..MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX {
+        for j in 0..array_len {
             tx_effects_hash_input[offset + j * 2] = public_data_update_requests[j].leaf_slot;
             tx_effects_hash_input[offset + j * 2 + 1] = public_data_update_requests[j].value;
         }
@@ -574,13 +463,14 @@ unconstrained fn get_tx_effects_hash_input_helper(
 
     // TODO(Miranda): squash 0s in a nested loop and add len prefix?
     // PRIVATE_LOGS
-    array_len = array_length(private_logs) * PRIVATE_LOG_SIZE_IN_FIELDS;
-    if array_len != 0 {
+    let num_private_logs = array_length(private_logs);
+    if num_private_logs != 0 {
+        let array_len = num_private_logs * PRIVATE_LOG_SIZE_IN_FIELDS;
         let private_logs_prefix = encode_blob_prefix(PRIVATE_LOGS_PREFIX, array_len);
         tx_effects_hash_input[offset] = private_logs_prefix;
         offset += 1;
 
-        for j in 0..MAX_PRIVATE_LOGS_PER_TX {
+        for j in 0..num_private_logs {
             for k in 0..PRIVATE_LOG_SIZE_IN_FIELDS {
                 let index = offset + j * PRIVATE_LOG_SIZE_IN_FIELDS + k;
                 tx_effects_hash_input[index] = private_logs[j].fields[k];
@@ -592,44 +482,33 @@ unconstrained fn get_tx_effects_hash_input_helper(
     // TODO(#8954): When logs are refactored into fields, we will append the values here
     // Currently appending the single log hash as an interim solution
     // UNENCRYPTED LOGS
-    array_len = array_length(unencrypted_logs);
+    let array_len = array_length(unencrypted_logs);
     if array_len != 0 {
         let unencrypted_logs_prefix = encode_blob_prefix(UNENCRYPTED_LOGS_PREFIX, array_len);
         tx_effects_hash_input[offset] = unencrypted_logs_prefix;
         offset += 1;
 
-        for j in 0..MAX_UNENCRYPTED_LOGS_PER_TX {
+        for j in 0..array_len {
             tx_effects_hash_input[offset + j] = unencrypted_logs[j];
         }
         offset += array_len;
     }
 
     // CONTRACT CLASS LOGS
-    array_len = array_length(contract_class_logs);
+    let array_len = array_length(contract_class_logs);
     if array_len != 0 {
         let contract_class_logs_prefix = encode_blob_prefix(CONTRACT_CLASS_LOGS_PREFIX, array_len);
         tx_effects_hash_input[offset] = contract_class_logs_prefix;
         offset += 1;
 
-        for j in 0..MAX_CONTRACT_CLASS_LOGS_PER_TX {
+        for j in 0..array_len {
             tx_effects_hash_input[offset + j] = contract_class_logs[j];
         }
         offset += array_len;
     }
 
     // Now we know the number of fields appended, we can assign the first value:
-    // TX_START_PREFIX | 0 | txlen[0] txlen[1] | 0 | REVERT_CODE_PREFIX | 0 | revert_code
-    // Start prefix is "tx_start".to_field() => 8 bytes
-    let prefix_bytes = TX_START_PREFIX.to_be_bytes::<8>();
-    let length_bytes = (offset as Field).to_be_bytes::<2>();
-    // REVERT CODE
-    tx_effects_hash_input[0] = field_from_bytes(
-        array_concat(
-            prefix_bytes,
-            [0, length_bytes[0], length_bytes[1], 0, REVERT_CODE_PREFIX, 0, tx_effect.revert_code],
-        ),
-        true,
-    );
+    tx_effects_hash_input[0] = generate_tx_start_field(offset as Field, revert_code);
 
     tx_effects_hash_input
 }

@@ -29,8 +29,14 @@ import { type TestDateProvider } from '@aztec/foundation/timer';
 import { StatefulTestContract, StatefulTestContractArtifact } from '@aztec/noir-contracts.js/StatefulTest';
 import { TestContract } from '@aztec/noir-contracts.js/Test';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
-import { type Sequencer, type SequencerClient, SequencerState } from '@aztec/sequencer-client';
-import { PublicProcessorFactory, type PublicTxResult, PublicTxSimulator, type WorldStateDB } from '@aztec/simulator';
+import { type SequencerClient } from '@aztec/sequencer-client';
+import { type TestSequencerClient } from '@aztec/sequencer-client/test';
+import {
+  PublicProcessorFactory,
+  type PublicTxResult,
+  PublicTxSimulator,
+  type WorldStateDB,
+} from '@aztec/simulator/server';
 import { type TelemetryClient } from '@aztec/telemetry-client';
 import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
 
@@ -55,11 +61,15 @@ describe('e2e_block_building', () => {
 
   const { aztecEpochProofClaimWindowInL2Slots } = getL1ContractsConfigEnvVars();
 
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
+
   describe('multi-txs block', () => {
     const artifact = StatefulTestContractArtifact;
 
     beforeAll(async () => {
-      let sequencerClient;
+      let sequencerClient: SequencerClient | undefined;
       ({
         teardown,
         pxe,
@@ -70,8 +80,7 @@ describe('e2e_block_building', () => {
         dateProvider,
         cheatCodes,
       } = await setup(2));
-      // Bypass accessibility modifiers in sequencer
-      sequencer = sequencerClient! as unknown as TestSequencerClient;
+      sequencer = sequencerClient! as TestSequencerClient;
     });
 
     afterEach(() => aztecNode.setConfig({ minTxsPerBlock: 1 }));
@@ -204,12 +213,10 @@ describe('e2e_block_building', () => {
       // We also cheat the sequencer's timetable so it allocates little time to processing.
       // This will leave the sequencer with just a few seconds to build the block, so it shouldn't
       // be able to squeeze in more than ~12 txs in each. This is sensitive to the time it takes
-      // to pick up and validate the txs, so we may need to bump it to work on CI. Note that we need
-      // at least 3s here so the archiver has time to loop once and sync, and the sequencer has at
-      // least 1s to loop.
-      sequencer.sequencer.timeTable[SequencerState.INITIALIZING_PROPOSAL] = 4;
-      sequencer.sequencer.timeTable[SequencerState.CREATING_BLOCK] = 4;
-      sequencer.sequencer.processTxTime = 1;
+      // to pick up and validate the txs, so we may need to bump it to work on CI.
+      jest
+        .spyOn(sequencer.sequencer.timetable, 'getBlockProposalExecTimeEnd')
+        .mockImplementation((secondsIntoSlot: number) => secondsIntoSlot + 1);
 
       // Flood the mempool with TX_COUNT simultaneous txs
       const methods = times(TX_COUNT, i => contract.methods.increment_public_value(ownerAddress, i));
@@ -609,13 +616,6 @@ async function sendAndWait(calls: ContractFunctionInteraction[]) {
       .map(p => p.wait()),
   );
 }
-
-type TestSequencer = Omit<Sequencer, 'publicProcessorFactory' | 'timeTable'> & {
-  publicProcessorFactory: PublicProcessorFactory;
-  timeTable: Record<SequencerState, number>;
-  processTxTime: number;
-};
-type TestSequencerClient = Omit<SequencerClient, 'sequencer'> & { sequencer: TestSequencer };
 
 const TEST_PUBLIC_TX_SIMULATION_DELAY_MS = 300;
 

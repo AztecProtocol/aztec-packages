@@ -751,7 +751,11 @@ impl<'context> Elaborator<'context> {
                 let function = self.interner.function_meta(&function);
                 for mut constraint in function.trait_constraints.clone() {
                     constraint.apply_bindings(&bindings);
-                    self.push_trait_constraint(constraint, expr_id);
+
+                    self.push_trait_constraint(
+                        constraint, expr_id,
+                        false, // This constraint shouldn't lead to choosing a trait impl method
+                    );
                 }
             }
         }
@@ -767,7 +771,11 @@ impl<'context> Elaborator<'context> {
                 // Currently only one impl can be selected per expr_id, so this
                 // constraint needs to be pushed after any other constraints so
                 // that monomorphization can resolve this trait method to the correct impl.
-                self.push_trait_constraint(method.constraint, expr_id);
+                self.push_trait_constraint(
+                    method.constraint,
+                    expr_id,
+                    true, // this constraint should lead to choosing a trait impl method
+                );
             }
         }
 
@@ -856,7 +864,7 @@ impl<'context> Elaborator<'context> {
 
         let impl_kind = match method {
             HirMethodReference::FuncId(_) => ImplKind::NotATraitMethod,
-            HirMethodReference::TraitMethodId(method_id, generics) => {
+            HirMethodReference::TraitMethodId(method_id, generics, _) => {
                 let mut constraint =
                     self.interner.get_trait(method_id.trait_id).as_constraint(span);
                 constraint.trait_bound.trait_generics = generics;

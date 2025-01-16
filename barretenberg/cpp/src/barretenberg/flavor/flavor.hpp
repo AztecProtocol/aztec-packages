@@ -98,6 +98,29 @@ class PrecomputedEntitiesBase {
     uint64_t log_circuit_size;
     uint64_t num_public_inputs;
 };
+// Specifies the regions of the execution trace containing non-trivial wire values
+struct ActiveRegionData {
+    void add_range(const size_t start, const size_t end)
+    {
+        ASSERT(start >= current_end); // ranges should be non-overlapping and increasing
+        ranges.emplace_back(start, end);
+        for (size_t i = start; i < end; ++i) {
+            idxs.push_back(i);
+        }
+        current_end = end;
+    }
+
+    std::vector<std::pair<size_t, size_t>> get_ranges() const { return ranges; }
+    size_t get_idx(const size_t idx) const { return idxs[idx]; }
+    std::pair<size_t, size_t> get_range(const size_t idx) const { return ranges.at(idx); }
+    size_t size() const { return idxs.size(); }
+    size_t num_ranges() const { return ranges.size(); }
+
+  private:
+    std::vector<std::pair<size_t, size_t>> ranges; // active ranges [start_i, end_i) of the execution trace
+    std::vector<size_t> idxs;                      // full set of poly indices corresposponding to active ranges
+    size_t current_end{ 0 };                       // end of last range; for ensuring monotonicity of ranges
+};
 
 /**
  * @brief Base proving key class.
@@ -123,8 +146,7 @@ template <typename FF, typename CommitmentKey_> class ProvingKey_ {
     // folded element by element.
     std::vector<FF> public_inputs;
 
-    // Ranges of the form [start, end) where witnesses have non-zero values (hence the execution trace is "active")
-    std::vector<std::pair<size_t, size_t>> active_block_ranges;
+    ActiveRegionData active_region_data; // specifies active regions of execution trace
 
     ProvingKey_() = default;
     ProvingKey_(const size_t dyadic_circuit_size,
@@ -418,8 +440,6 @@ template <typename T> concept IsFoldingFlavor = IsAnyOf<T, UltraFlavor,
                                                             MegaRecursiveFlavor_<CircuitSimulatorBN254>,
                                                             MegaZKRecursiveFlavor_<MegaCircuitBuilder>,
                                                             MegaZKRecursiveFlavor_<UltraCircuitBuilder>>;
-template <typename T>
-concept FlavorHasZK =  T::HasZK;
 
 template <typename Container, typename Element>
 inline std::string flavor_get_label(Container&& container, const Element& element) {
