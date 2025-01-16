@@ -1,4 +1,8 @@
-use crate::{note::{note_header::NoteHeader, note_interface::NoteInterface}, utils::array};
+use crate::{
+    note::{discovery::discover_new_notes, note_header::NoteHeader, note_interface::NoteInterface},
+    oracle,
+    utils::array,
+};
 
 use dep::protocol_types::{
     address::AztecAddress,
@@ -169,7 +173,9 @@ pub unconstrained fn get_notes<Note, let N: u32, let M: u32, let S: u32, let NS:
 where
     Note: NoteInterface<N>,
 {
-    sync_notes_oracle_wrapper();
+    // TODO(#10727): allow other contracts to discover notes
+    discover_new_notes(oracle::execution::get_contract_address());
+
     let fields = get_notes_oracle_wrapper(
         storage_slot,
         num_selects,
@@ -268,20 +274,3 @@ unconstrained fn increment_app_tagging_secret_index_as_sender_oracle(
     _sender: AztecAddress,
     _recipient: AztecAddress,
 ) {}
-
-/// Finds new notes that may have been sent to all registered accounts in PXE in the current contract and makes them available
-/// for later querying via the `get_notes` oracle.
-pub fn sync_notes() {
-    /// Safety: This oracle call returns nothing: we only call it for its side effects. It is therefore always safe
-    /// to call.
-    unsafe {
-        sync_notes_oracle_wrapper();
-    }
-}
-
-unconstrained fn sync_notes_oracle_wrapper() {
-    sync_notes_oracle();
-}
-
-#[oracle(syncNotes)]
-unconstrained fn sync_notes_oracle() {}

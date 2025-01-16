@@ -1,6 +1,6 @@
 use protocol_types::{address::AztecAddress, traits::{Deserialize, Serialize}};
 
-#[oracle(store)]
+#[oracle(dbStore)]
 unconstrained fn store_oracle<let N: u32>(
     contract_address: AztecAddress,
     key: Field,
@@ -25,7 +25,7 @@ where
 /// the shape of T would affect the expected oracle response (e.g. if we were returning a struct of 3 u32 values
 /// then the expected response shape would be 3 single items. If instead we had a struct containing
 /// `u32, [Field;10], u32`, then the expected shape would be single, array, single.).
-#[oracle(load)]
+#[oracle(dbLoad)]
 unconstrained fn load_oracle<let N: u32>(
     contract_address: AztecAddress,
     key: Field,
@@ -40,6 +40,28 @@ where
 {
     let serialized_option = load_oracle::<N>(contract_address, key, N);
     serialized_option.map(|arr| Deserialize::deserialize(arr))
+}
+
+#[oracle(dbDelete)]
+unconstrained fn delete_oracle(
+    contract_address: AztecAddress,
+    key: Field,
+) {}
+
+pub unconstrained fn delete(contract_address: AztecAddress, key: Field) {
+    delete_oracle(contract_address, key);
+}
+
+#[oracle(dbCopy)]
+unconstrained fn copy_oracle(
+    contract_address: AztecAddress,
+    src_key: Field,
+    dst_key: Field,
+    num_entries: u32,
+) {}
+
+pub unconstrained fn copy(contract_address: AztecAddress, src_key: Field, dst_key: Field, num_entries: u32) {
+    copy_oracle(contract_address, src_key, dst_key, num_entries);
 }
 
 mod test {

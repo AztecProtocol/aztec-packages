@@ -588,35 +588,47 @@ export class TXEService {
     return toForeignCallResult([]);
   }
 
-  async store(contract: ForeignCallSingle, key: ForeignCallSingle, values: ForeignCallArray) {
-    const processedContract = AztecAddress.fromField(fromSingle(contract));
-    const processedKey = fromSingle(key);
-    const processedValues = fromArray(values);
-    await this.typedOracle.store(processedContract, processedKey, processedValues);
+  async dbStore(contractAddress: ForeignCallSingle, slot: ForeignCallSingle, values: ForeignCallArray) {
+    await this.typedOracle.dbStore(
+      AztecAddress.fromField(fromSingle(contractAddress)),
+      fromSingle(slot),
+      fromArray(values),
+    );
     return toForeignCallResult([]);
   }
 
-  /**
-   * Load data from pxe db.
-   * @param contract - The contract address.
-   * @param key - The key to load.
-   * @param tSize - The size of the serialized object to return.
-   * @returns The data found flag and the serialized object concatenated in one array.
-   */
-  async load(contract: ForeignCallSingle, key: ForeignCallSingle, tSize: ForeignCallSingle) {
-    const processedContract = AztecAddress.fromField(fromSingle(contract));
-    const processedKey = fromSingle(key);
-    const values = await this.typedOracle.load(processedContract, processedKey);
+  async dbLoad(contractAddress: ForeignCallSingle, slot: ForeignCallSingle, tSize: ForeignCallSingle) {
+    const values = await this.typedOracle.dbLoad(AztecAddress.fromField(fromSingle(contractAddress)), fromSingle(slot));
     // We are going to return a Noir Option struct to represent the possibility of null values. Options are a struct
     // with two fields: `some` (a boolean) and `value` (a field array in this case).
     if (values === null) {
       // No data was found so we set `some` to 0 and pad `value` with zeros get the correct return size.
-      const processedTSize = fromSingle(tSize).toNumber();
-      return toForeignCallResult([toSingle(new Fr(0)), toArray(Array(processedTSize).fill(new Fr(0)))]);
+      return toForeignCallResult([toSingle(new Fr(0)), toArray(Array(fromSingle(tSize).toNumber()).fill(new Fr(0)))]);
     } else {
       // Data was found so we set `some` to 1 and return it along with `value`.
       return toForeignCallResult([toSingle(new Fr(1)), toArray(values)]);
     }
+  }
+
+  async dbDelete(contractAddress: ForeignCallSingle, slot: ForeignCallSingle) {
+    await this.typedOracle.dbDelete(AztecAddress.fromField(fromSingle(contractAddress)), fromSingle(slot));
+    return toForeignCallResult([]);
+  }
+
+  async dbCopy(
+    contractAddress: ForeignCallSingle,
+    srcSlot: ForeignCallSingle,
+    dstSlot: ForeignCallSingle,
+    numEntries: ForeignCallSingle,
+  ) {
+    await this.typedOracle.dbCopy(
+      AztecAddress.fromField(fromSingle(contractAddress)),
+      fromSingle(srcSlot),
+      fromSingle(dstSlot),
+      fromSingle(numEntries).toNumber(),
+    );
+
+    return toForeignCallResult([]);
   }
 
   // AVM opcodes
