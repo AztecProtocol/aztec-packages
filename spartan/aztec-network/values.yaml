@@ -165,7 +165,7 @@ proverNode:
     timeoutMs: 60000
     intervalMs: 1000
     maxParallelRequests: 100
-  failedProofStore: ""
+  failedProofStore: "gs://aztec-develop/spartan/failed-proofs"
 
 pxe:
   logLevel: "debug; info: aztec:simulator, json-rpc"
