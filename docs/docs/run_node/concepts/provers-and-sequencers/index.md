@@ -13,4 +13,4 @@ The proposers in the first `C=13` slots in epoch `N+1` will accept quotes to pro
 
 At 1 TPS, each epoch is 1,152 txs. Based on timeliness requirements and depending on proof computational complexity, we should expect the number of prover agents to be up to 1,000 at 1TPS.
 
-If are you interested in running a validator node (also known as a sequencer node) or a prover node, you can refer to [the guides section](../../guides/)
+If are you interested in running a validator node (also known as a sequencer node) or a prover node, you can refer to [the guides section](./../../guides/run_nodes/index.md).
