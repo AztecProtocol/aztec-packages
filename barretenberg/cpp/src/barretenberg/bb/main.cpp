@@ -409,7 +409,7 @@ void gate_count_for_ivc(const std::string& bytecodePath)
 
     // Initialize an SRS to make the ClientIVC constructor happy
     init_bn254_crs(1 << 20);
-    init_grumpkin_crs(1 << 15);
+    init_grumpkin_crs(1 << 16);
     TraceSettings trace_settings{ E2E_FULL_TEST_STRUCTURE };
 
     size_t i = 0;
@@ -1028,7 +1028,7 @@ void write_vk_for_ivc(const std::string& bytecodePath, const std::string& output
 
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/1163) set these dynamically
     init_bn254_crs(1 << 20);
-    init_grumpkin_crs(1 << 15);
+    init_grumpkin_crs(1 << 16);
 
     Program program{ get_constraint_system(bytecodePath, /*honk_recursion=*/0), /*witness=*/{} };
     auto& ivc_constraints = program.constraints.ivc_recursion_constraints;

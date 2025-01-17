@@ -165,7 +165,7 @@ class ClientIVCAPI : public API {
 
         // TODO(https://github.com/AztecProtocol/barretenberg/issues/1163) set these dynamically
         init_bn254_crs(1 << 20);
-        init_grumpkin_crs(1 << 15);
+        init_grumpkin_crs(1 << 16);
 
         std::vector<acir_format::AcirProgram> folding_stack =
             _build_folding_stack(*flags.input_type, bytecode_path, witness_path);
@@ -203,7 +203,7 @@ class ClientIVCAPI : public API {
     {
         // TODO(https://github.com/AztecProtocol/barretenberg/issues/1163): Set these dynamically
         init_bn254_crs(1);
-        init_grumpkin_crs(1 << 15);
+        init_grumpkin_crs(1 << 16);
 
         const auto proof = from_buffer<ClientIVC::Proof>(read_file(proof_path));
         const auto vk = from_buffer<ClientIVC::VerificationKey>(read_file(vk_path));
@@ -228,7 +228,7 @@ class ClientIVCAPI : public API {
 
         // TODO(https://github.com/AztecProtocol/barretenberg/issues/1163) set these dynamically
         init_bn254_crs(1 << 20);
-        init_grumpkin_crs(1 << 15);
+        init_grumpkin_crs(1 << 16);
 
         std::vector<acir_format::AcirProgram> folding_stack =
             _build_folding_stack(*flags.input_type, bytecode_path, witness_path);
@@ -257,7 +257,7 @@ class ClientIVCAPI : public API {
 
         // TODO(https://github.com/AztecProtocol/barretenberg/issues/1163) set these dynamically
         init_bn254_crs(1 << 20);
-        init_grumpkin_crs(1 << 15);
+        init_grumpkin_crs(1 << 16);
 
         ClientIVC ivc{ { CLIENT_IVC_BENCH_STRUCTURE } };
 
