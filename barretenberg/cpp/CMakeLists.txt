@@ -39,6 +39,7 @@ option(ENABLE_HEAVY_TESTS "Enable heavy tests when collecting coverage" OFF)
 option(CHECK_CIRCUIT_STACKTRACES "Enable (slow) stack traces for check circuit" OFF)
 option(ENABLE_TRACY "Enable low-medium overhead profiling for memory and performance with tracy" OFF)
 option(ENABLE_PIC "Builds with position independent code" OFF)
+option(SYNTAX_ONLY "only check syntax (-fsyntax-only)" OFF)
 
 if(CMAKE_SYSTEM_PROCESSOR MATCHES "aarch64" OR CMAKE_SYSTEM_PROCESSOR MATCHES "arm64")
     message(STATUS "Compiling for ARM.")
@@ -193,4 +194,30 @@ if (ENABLE_ASAN AND NOT(FUZZING))
     else()
         message(AUTHOR_WARNING "Run `export ASAN_SYMBOLIZER_PATH=\"${LLVM_SYMBOLIZER_PATH}\"` before running tests for better ASAN output (at which lines the bugs are).")
     endif()
+endif()
+
+# adapted from https://gitlab.kitware.com/cmake/cmake/-/issues/21717
+if(SYNTAX_ONLY)
+  if (NOT ((CMAKE_CXX_COMPILER_ID STREQUAL "Clang") OR
+    (CMAKE_CXX_COMPILER_ID STREQUAL "GNU")))
+    message(FATAL_ERROR
+      "only clang and gcc support -fsyntax-only, using ${CMAKE_CXX_COMPILER_ID}")
+  endif()
+
+  add_compile_options(-fsyntax-only)
+
+  set(CMAKE_CXX_COMPILE_OBJECT "${CMAKE_CXX_COMPILE_OBJECT} && touch <OBJECT>")
+  set(CMAKE_CXX_CREATE_SHARED_LIBRARY "touch <TARGET>")
+  set(CMAKE_CXX_CREATE_SHARED_MODULE "touch <TARGET>")
+  set(CMAKE_CXX_LINK_EXECUTABLE "touch <TARGET>")
+  set(CMAKE_CXX_ARCHIVE_CREATE "touch <TARGET>")
+  set(CMAKE_CXX_ARCHIVE_APPEND "touch <TARGET>")
+  set(CMAKE_CXX_ARCHIVE_FINISH "touch <TARGET>")
+  set(CMAKE_C_COMPILE_OBJECT "${CMAKE_CXX_COMPILE_OBJECT} && touch <OBJECT>")
+  set(CMAKE_C_CREATE_SHARED_LIBRARY "touch <TARGET>")
+  set(CMAKE_C_CREATE_SHARED_MODULE "touch <TARGET>")
+  set(CMAKE_C_LINK_EXECUTABLE "touch <TARGET>")
+  set(CMAKE_C_ARCHIVE_CREATE "touch <TARGET>")
+  set(CMAKE_C_ARCHIVE_APPEND "touch <TARGET>")
+  set(CMAKE_C_ARCHIVE_FINISH "touch <TARGET>")
 endif()
