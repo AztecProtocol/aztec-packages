@@ -67,7 +67,6 @@ impl<'local, 'context> Interpreter<'local, 'context> {
             "array_len" => array_len(interner, arguments, location),
             "array_refcount" => Ok(Value::U32(0)),
             "assert_constant" => Ok(Value::Bool(true)),
-            "as_field" => as_field(interner, arguments, location),
             "as_slice" => as_slice(interner, arguments, location),
             "ctstring_eq" => ctstring_eq(arguments, location),
             "ctstring_hash" => ctstring_hash(arguments, location),
@@ -120,7 +119,6 @@ impl<'local, 'context> Interpreter<'local, 'context> {
             "field_less_than" => field_less_than(arguments, location),
             "fmtstr_as_ctstring" => fmtstr_as_ctstring(interner, arguments, location),
             "fmtstr_quoted_contents" => fmtstr_quoted_contents(interner, arguments, location),
-            "from_field" => from_field(interner, arguments, return_type, location),
             "fresh_type_variable" => fresh_type_variable(interner),
             "function_def_add_attribute" => function_def_add_attribute(self, arguments, location),
             "function_def_body" => function_def_body(interner, arguments, location),
@@ -187,7 +185,9 @@ impl<'local, 'context> Interpreter<'local, 'context> {
             "struct_def_fields_as_written" => {
                 struct_def_fields_as_written(interner, arguments, location)
             }
-            "struct_def_generics" => struct_def_generics(interner, arguments, location),
+            "struct_def_generics" => {
+                struct_def_generics(interner, arguments, return_type, location)
+            }
             "struct_def_has_named_attribute" => {
                 struct_def_has_named_attribute(interner, arguments, location)
             }
@@ -295,16 +295,6 @@ fn array_as_str_unchecked(
     let string_bytes = try_vecmap(array, |byte| get_u8((byte, location)))?;
     let string = String::from_utf8_lossy(&string_bytes).into_owned();
     Ok(Value::String(Rc::new(string)))
-}
-
-// fn as_field<T>(x: T) -> Field {}
-fn as_field(
-    interner: &NodeInterner,
-    arguments: Vec<(Value, Location)>,
-    location: Location,
-) -> IResult<Value> {
-    let (value, value_location) = check_one_argument(arguments, location)?;
-    Interpreter::evaluate_cast_one_step(&Type::FieldElement, value_location, value, interner)
 }
 
 fn as_slice(
@@ -457,10 +447,11 @@ fn struct_def_as_type(
     Ok(Value::Type(Type::Struct(struct_def_rc, generics)))
 }
 
-/// fn generics(self) -> [Type]
+/// fn generics(self) -> [(Type, Option<Type>)]
 fn struct_def_generics(
     interner: &NodeInterner,
     arguments: Vec<(Value, Location)>,
+    return_type: Type,
     location: Location,
 ) -> IResult<Value> {
     let argument = check_one_argument(arguments, location)?;
@@ -468,11 +459,38 @@ fn struct_def_generics(
     let struct_def = interner.get_struct(struct_id);
     let struct_def = struct_def.borrow();
 
-    let generics =
-        struct_def.generics.iter().map(|generic| Value::Type(generic.clone().as_named_generic()));
+    let expected = Type::Slice(Box::new(Type::Tuple(vec![
+        Type::Quoted(QuotedType::Type),
+        interner.next_type_variable(), // Option
+    ])));
 
-    let typ = Type::Slice(Box::new(Type::Quoted(QuotedType::Type)));
-    Ok(Value::Slice(generics.collect(), typ))
+    let actual = return_type.clone();
+
+    let slice_item_type = match return_type {
+        Type::Slice(item_type) => *item_type,
+        _ => return Err(InterpreterError::TypeMismatch { expected, actual, location }),
+    };
+
+    let option_typ = match &slice_item_type {
+        Type::Tuple(types) if types.len() == 2 => types[1].clone(),
+        _ => return Err(InterpreterError::TypeMismatch { expected, actual, location }),
+    };
+
+    let generics: IResult<_> = struct_def
+        .generics
+        .iter()
+        .map(|generic| -> IResult<Value> {
+            let generic_as_named = generic.clone().as_named_generic();
+            let numeric_type = match generic_as_named.kind() {
+                Kind::Numeric(numeric_type) => Some(Value::Type(*numeric_type)),
+                _ => None,
+            };
+            let numeric_type = option(option_typ.clone(), numeric_type, location.span)?;
+            Ok(Value::Tuple(vec![Value::Type(generic_as_named), numeric_type]))
+        })
+        .collect();
+
+    Ok(Value::Slice(generics?, slice_item_type))
 }
 
 fn struct_def_hash(arguments: Vec<(Value, Location)>, location: Location) -> IResult<Value> {
@@ -2318,17 +2336,6 @@ fn fmtstr_quoted_contents(
     let (string, _) = get_format_string(interner, self_argument)?;
     let tokens = lex(&string);
     Ok(Value::Quoted(Rc::new(tokens)))
-}
-
-// fn from_field<T>(x: Field) -> T {}
-fn from_field(
-    interner: &NodeInterner,
-    arguments: Vec<(Value, Location)>,
-    return_type: Type,
-    location: Location,
-) -> IResult<Value> {
-    let (value, value_location) = check_one_argument(arguments, location)?;
-    Interpreter::evaluate_cast_one_step(&return_type, value_location, value, interner)
 }
 
 // fn fresh_type_variable() -> Type

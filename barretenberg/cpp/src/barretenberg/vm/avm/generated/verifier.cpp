@@ -88,7 +88,7 @@ bool AvmVerifier::verify_proof(const HonkProof& proof, const std::vector<std::ve
     SumcheckOutput<Flavor> output = sumcheck.verify(relation_parameters, alpha, gate_challenges);
 
     // If Sumcheck did not verify, return false
-    if (!output.verified.has_value() || !output.verified.value()) {
+    if (!output.verified) {
         vinfo("Sumcheck verification failed");
         return false;
     }

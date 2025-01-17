@@ -1,5 +1,65 @@
 # Changelog
 
+## [0.72.1](https://github.com/AztecProtocol/aztec-packages/compare/barretenberg-v0.72.0...barretenberg-v0.72.1) (2025-01-24)
+
+
+### Miscellaneous
+
+* **barretenberg:** Synchronize aztec-packages versions
+
+## [0.72.0](https://github.com/AztecProtocol/aztec-packages/compare/barretenberg-v0.71.0...barretenberg-v0.72.0) (2025-01-24)
+
+
+### ⚠ BREAKING CHANGES
+
+* public logs ([#11091](https://github.com/AztecProtocol/aztec-packages/issues/11091))
+
+### Features
+
+* **avm:** Address and class id derivation setup ([#11354](https://github.com/AztecProtocol/aztec-packages/issues/11354)) ([5f3cffc](https://github.com/AztecProtocol/aztec-packages/commit/5f3cffc42bf2280367d44603ae6f509c46b6fede))
+* **avm:** Bytecode manager changes ([#11347](https://github.com/AztecProtocol/aztec-packages/issues/11347)) ([4a9c072](https://github.com/AztecProtocol/aztec-packages/commit/4a9c0724e3dd6fa3ea8753fc17a090c33c307d01))
+* **avm:** Include initial tree roots in DB ([#11360](https://github.com/AztecProtocol/aztec-packages/issues/11360)) ([4d149be](https://github.com/AztecProtocol/aztec-packages/commit/4d149be20e73321fece072a1b7e410225b5dc8c9))
+* **avm:** Interactive debugger ([#11477](https://github.com/AztecProtocol/aztec-packages/issues/11477)) ([53e57d3](https://github.com/AztecProtocol/aztec-packages/commit/53e57d3d52dd477714bc984c4a13bc8e5664877e))
+* Eccvm sumcheck with commitments to round univariates ([#11206](https://github.com/AztecProtocol/aztec-packages/issues/11206)) ([fe34b05](https://github.com/AztecProtocol/aztec-packages/commit/fe34b0580a308665c655a897c72f06bd05dcd4c4))
+* Lazy wasm pt. 2 ([#11410](https://github.com/AztecProtocol/aztec-packages/issues/11410)) ([01510f4](https://github.com/AztecProtocol/aztec-packages/commit/01510f45aa5d385a08584df674d9caf9522e6be2))
+* Public logs ([#11091](https://github.com/AztecProtocol/aztec-packages/issues/11091)) ([f4725d2](https://github.com/AztecProtocol/aztec-packages/commit/f4725d2237c6e9c6b7b17248f8c33343cb9ea7f1))
+* UH recursion in the browser ([#11049](https://github.com/AztecProtocol/aztec-packages/issues/11049)) ([c3c04a4](https://github.com/AztecProtocol/aztec-packages/commit/c3c04a4cb92f0447431160d425bda66a997c0d66))
+
+
+### Bug Fixes
+
+* Hackily fix the public input columns of avm recursion constraint ([#11428](https://github.com/AztecProtocol/aztec-packages/issues/11428)) ([436c3c6](https://github.com/AztecProtocol/aztec-packages/commit/436c3c63b76e36d172619436b3237133f295aca7))
+* Verify start state of a block ([#11290](https://github.com/AztecProtocol/aztec-packages/issues/11290)) ([5eb3e8f](https://github.com/AztecProtocol/aztec-packages/commit/5eb3e8f498093ae52b8a29939051cd8c66aed3c1))
+
+
+### Miscellaneous
+
+* Add a couple of comments in the AVM range check gadget ([#11402](https://github.com/AztecProtocol/aztec-packages/issues/11402)) ([f1fd2d1](https://github.com/AztecProtocol/aztec-packages/commit/f1fd2d104d01a4582d8a48a6ab003d8791010967))
+* **avm:** Do not use commit_sparse ([#11447](https://github.com/AztecProtocol/aztec-packages/issues/11447)) ([9796e1e](https://github.com/AztecProtocol/aztec-packages/commit/9796e1ea2720e6ee01be20b4c9226257c9efb0a9))
+* **avm:** Remove some codegen bloat ([#11418](https://github.com/AztecProtocol/aztec-packages/issues/11418)) ([6b0106c](https://github.com/AztecProtocol/aztec-packages/commit/6b0106c1eedf098779e7903ac37e96e6b3a9d478))
+* Bump CRS and constants ([#11306](https://github.com/AztecProtocol/aztec-packages/issues/11306)) ([9e5ea3a](https://github.com/AztecProtocol/aztec-packages/commit/9e5ea3a6a45c1266504ec3c259b9c11aa4fd9f7a))
+* Fixed VK in MegaZK/ECCVM/Translator/Tube Recursive Verifier circuits ([#11377](https://github.com/AztecProtocol/aztec-packages/issues/11377)) ([5018c94](https://github.com/AztecProtocol/aztec-packages/commit/5018c94db30ea80c93d194453d1c837a51fbe3a0))
+* Minor Gemini refactor to prep for opening k-shifts ([#11393](https://github.com/AztecProtocol/aztec-packages/issues/11393)) ([30a063a](https://github.com/AztecProtocol/aztec-packages/commit/30a063a65f95403773d13da0d9a896da45d9608d))
+* More granular error handling for toradixBE ([#11378](https://github.com/AztecProtocol/aztec-packages/issues/11378)) ([64f4052](https://github.com/AztecProtocol/aztec-packages/commit/64f4052d498496724ec56b207ca0f89c3fe87ac8)), closes [#11295](https://github.com/AztecProtocol/aztec-packages/issues/11295)
+* Print warning in builder when failure happens. ([#11205](https://github.com/AztecProtocol/aztec-packages/issues/11205)) ([5a52e95](https://github.com/AztecProtocol/aztec-packages/commit/5a52e950428b511ea3024efb32c6d1c9b810fd89))
+* Redo typo PR by Daulox92 ([#11458](https://github.com/AztecProtocol/aztec-packages/issues/11458)) ([f3ba327](https://github.com/AztecProtocol/aztec-packages/commit/f3ba32709a9776d6b737e976fb652ae466ca916e))
+* Redo typo PR by teenager-ETH ([#11320](https://github.com/AztecProtocol/aztec-packages/issues/11320)) ([77854e2](https://github.com/AztecProtocol/aztec-packages/commit/77854e2c92ccf11dea3770845928ca5077a606d8))
+* **sol:** Generate & compile verifier contract in bootstrap ([#11364](https://github.com/AztecProtocol/aztec-packages/issues/11364)) ([bf3b12a](https://github.com/AztecProtocol/aztec-packages/commit/bf3b12a374dddb8f7993e0c1537cfa6042f86f38))
+
+## [0.71.0](https://github.com/AztecProtocol/aztec-packages/compare/barretenberg-v0.70.0...barretenberg-v0.71.0) (2025-01-17)
+
+
+### Bug Fixes
+
+* Reallocate commitment key to avoid pippenger error ([#11249](https://github.com/AztecProtocol/aztec-packages/issues/11249)) ([8fc2011](https://github.com/AztecProtocol/aztec-packages/commit/8fc2011fbe0e3545924898a53e851279b8cc0084))
+* Resolve misc bugs handling phases in avm witgen ([#11218](https://github.com/AztecProtocol/aztec-packages/issues/11218)) ([29bc4bd](https://github.com/AztecProtocol/aztec-packages/commit/29bc4bdd5b59ee1050951e0c143654ef3cdd25b0))
+
+
+### Miscellaneous
+
+* **avm:** Calldata, returndata slices out of range padded with zeros ([#11265](https://github.com/AztecProtocol/aztec-packages/issues/11265)) ([a469c94](https://github.com/AztecProtocol/aztec-packages/commit/a469c94ccfa37723aa79f132e55c31ae7c4c6693)), closes [#10933](https://github.com/AztecProtocol/aztec-packages/issues/10933)
+* Move shared pcs functionality to internal library in solidity and small refactorings in sumcheck ([#11230](https://github.com/AztecProtocol/aztec-packages/issues/11230)) ([507ae9d](https://github.com/AztecProtocol/aztec-packages/commit/507ae9df9c369603da20f25ccc228729ee2733cd))
+
 ## [0.70.0](https://github.com/AztecProtocol/aztec-packages/compare/barretenberg-v0.69.1...barretenberg-v0.70.0) (2025-01-15)
 
 

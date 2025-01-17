@@ -3,7 +3,7 @@ network:
 
 aztec:
   slotDuration: 36
-  epochDuration: 48
+  epochDuration: 32
   realProofs: true
 
 images:
@@ -125,7 +125,7 @@ bootNode:
   storageSize: "100Gi"
 
 proverAgent:
-  replicas: 60
+  replicas: 2
   bb:
     hardwareConcurrency: 31
   gke:
@@ -138,7 +138,7 @@ proverAgent:
 bot:
   followChain: "PENDING"
   enabled: true
-  txIntervalSeconds: 10
+  txIntervalSeconds: 900
 
 jobs:
   deployL1Verifier:

@@ -72,7 +72,7 @@ export class AvmPersistableStateManager {
     trace: PublicSideEffectTraceInterface,
     doMerkleOperations: boolean = false,
     firstNullifier: Fr,
-  ) {
+  ): Promise<AvmPersistableStateManager> {
     const ephemeralForest = await AvmEphemeralForest.create(worldStateDB.getMerkleInterface());
     return new AvmPersistableStateManager(
       worldStateDB,
@@ -126,11 +126,12 @@ export class AvmPersistableStateManager {
     this.trace.merge(forkedState.trace, reverted);
     if (reverted) {
       if (this.doMerkleOperations) {
-        this.log.debug(
+        this.log.trace(
           `Rolled back nullifier tree to root ${this.merkleTrees.treeMap.get(MerkleTreeId.NULLIFIER_TREE)!.getRoot()}`,
         );
       }
     } else {
+      this.log.trace('Merging forked state into parent...');
       this.merkleTrees = forkedState.merkleTrees;
     }
   }
@@ -524,14 +525,13 @@ export class AvmPersistableStateManager {
   }
 
   /**
-   * Write an unencrypted log
+   * Write a public log
    * @param contractAddress - address of the contract that emitted the log
-   * @param event - log event selector
    * @param log - log contents
    */
-  public writeUnencryptedLog(contractAddress: AztecAddress, log: Fr[]) {
-    this.log.debug(`UnencryptedL2Log(${contractAddress}) += event with ${log.length} fields.`);
-    this.trace.traceUnencryptedLog(contractAddress, log);
+  public writePublicLog(contractAddress: AztecAddress, log: Fr[]) {
+    this.log.debug(`PublicLog(${contractAddress}) += event with ${log.length} fields.`);
+    this.trace.tracePublicLog(contractAddress, log);
   }
 
   /**

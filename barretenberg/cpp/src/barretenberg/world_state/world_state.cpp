@@ -123,7 +123,7 @@ void WorldState::create_canonical_fork(const std::string& dataDir,
     }
     {
         uint32_t levels = _tree_heights.at(MerkleTreeId::ARCHIVE);
-        std::vector<bb::fr> initial_values{ compute_initial_archive(
+        std::vector<bb::fr> initial_values{ compute_initial_block_header_hash(
             get_state_reference(WorldStateRevision::committed(), fork, true), _initial_header_generator_point) };
         auto store = std::make_unique<FrStore>(
             getMerkleTreeName(MerkleTreeId::ARCHIVE), levels, _persistentStores->archiveStore);
@@ -876,9 +876,10 @@ bool WorldState::remove_historical_block(const block_number_t& blockNumber, Worl
     return true;
 }
 
-bb::fr WorldState::compute_initial_archive(const StateReference& initial_state_ref, uint32_t generator_point)
+bb::fr WorldState::compute_initial_block_header_hash(const StateReference& initial_state_ref, uint32_t generator_point)
 {
-    // NOTE: this hash operations needs to match the one in yarn-project/circuits.js/src/structs/header.ts
+    // NOTE: this hash operations needs to match the one in
+    // noir-project/noir-protocol-circuits/crates/types/src/block_header.nr
     return HashPolicy::hash({ generator_point,
                               // last archive - which, at genesis, is all 0s
                               0,

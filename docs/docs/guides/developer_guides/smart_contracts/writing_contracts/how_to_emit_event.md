@@ -38,17 +38,17 @@ Aztec.nr enables smart contract developers to design custom notes, meaning devel
 
 Unencrypted events are events which can be read by anyone. They can be emitted **only** by public functions.
 
-### Call emit_unencrypted_log
+### Call emit_public_log
 
-To emit unencrypted logs you don't need to import any library. You call the context method `emit_unencrypted_log`:
+To emit public logs you don't need to import any library. You call the context method `emit_public_log`:
 
-#include_code emit_unencrypted /noir-projects/noir-contracts/contracts/test_contract/src/main.nr rust
+#include_code emit_public /noir-projects/noir-contracts/contracts/test_contract/src/main.nr rust
 
 ### Querying the unencrypted event
 
 Once emitted, unencrypted events are stored in AztecNode and can be queried by anyone:
 
-#include_code get_logs /yarn-project/end-to-end/src/fixtures/utils.ts typescript
+#include_code get_logs /yarn-project/end-to-end/src/e2e_ordering.test.ts typescript
 
 ## Costs
 

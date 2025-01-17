@@ -66,14 +66,16 @@ fn constrain_get_block_header_at_internal(
     let witness = unsafe { get_archive_membership_witness(last_archive_block_number, block_hash) };
 
     // 3) Check that the block is in the archive (i.e. the witness is valid)
-    assert(
-        last_archive_root == root_from_sibling_path(block_hash, witness.index, witness.path),
+    assert_eq(
+        last_archive_root,
+        root_from_sibling_path(block_hash, witness.index, witness.path),
         "Proving membership of a block in archive failed",
     );
 
     // 4) Check that the header hint has the same block number as the block number we are looking for, ensuring we are actually grabbing the header we specify
-    assert(
-        header_hint.global_variables.block_number as u32 == block_number,
+    assert_eq(
+        header_hint.global_variables.block_number as u32,
+        block_number,
         "Block number provided is not the same as the block number from the header hint",
     );
 }

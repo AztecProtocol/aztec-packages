@@ -1,15 +1,10 @@
 use dep::protocol_types::{
-    address::AztecAddress,
-    constants::{GENERATOR_INDEX__SYMMETRIC_KEY, PRIVATE_LOG_SIZE_IN_FIELDS},
-    hash::poseidon2_hash,
-    point::Point,
-    public_keys::AddressPoint,
-    scalar::Scalar,
-    utils::arrays::array_concat,
+    address::AztecAddress, constants::PRIVATE_LOG_SIZE_IN_FIELDS, hash::poseidon2_hash,
+    point::Point, public_keys::AddressPoint, scalar::Scalar, utils::arrays::array_concat,
 };
 use std::{
     aes128::aes128_encrypt, embedded_curve_ops::fixed_base_scalar_mul as derive_public_key,
-    field::bn254::decompose, hash::from_field_unsafe as fr_to_fq_unsafe,
+    hash::from_field_unsafe as fr_to_fq_unsafe,
 };
 
 use crate::{
@@ -71,16 +66,18 @@ pub fn compute_private_log_payload<let P: u32>(
     array_concat([tag], bytes_to_fields(encrypted))
 }
 
+// We return [Field; 1 + (M + 30) / 31], where M is the byte length of output of encryption because
+// each field (apart from the tag) contains 31 bytes so the length in fields is computed as ceil(setup_log_byte_length / 31)
+// --> we achieve rounding by adding 30 and then dividing without remainder, then add one for the 32 byte tag
 pub fn compute_partial_public_log_payload<let P: u32, let M: u32>(
     contract_address: AztecAddress,
     recipient: AztecAddress,
     sender: AztecAddress,
     plaintext: [u8; P],
-) -> [u8; M] {
+) -> [Field; 1 + (M + 30) / 31] {
     let extended_plaintext: [u8; P + PLAINTEXT_LENGTH_SIZE] =
         extend_private_log_plaintext(plaintext);
-    let encrypted: [u8; M - 32] =
-        compute_encrypted_log(contract_address, recipient, extended_plaintext);
+    let encrypted: [u8; M] = compute_encrypted_log(contract_address, recipient, extended_plaintext);
 
     /// Safety: We assume that the sender wants for the recipient to find the tagged note, and therefore that they
     /// will cooperate and use the correct tag. Usage of a bad tag will result in the recipient not being able to
@@ -91,21 +88,9 @@ pub fn compute_partial_public_log_payload<let P: u32, let M: u32>(
     // This is done by the kernel circuit to the private logs, but since the partial log will be finalized and emitted
     // in public as unencrypted log, its tag is not siloed at the moment.
     // To avoid querying logs using two types of tags, we silo the tag manually here.
-    // TODO(#10273) This should be done by the AVM when it's processing the raw logs instead of their hashes.
-    let siloed_tag_bytes: [u8; 32] =
-        poseidon2_hash([contract_address.to_field(), tag]).to_be_bytes();
+    let siloed_tag = poseidon2_hash([contract_address.to_field(), tag]);
 
-    // Temporary hack so that the partial public log remains the same format.
-    // It should return field array and make the tag the first field as compute_private_log_payload does.
-    let mut log_bytes = [0; M];
-    for i in 0..32 {
-        log_bytes[i] = siloed_tag_bytes[i];
-    }
-    for i in 0..encrypted.len() {
-        log_bytes[i + 32] = encrypted[i];
-    }
-
-    log_bytes
+    array_concat([siloed_tag], bytes_to_fields(encrypted))
 }
 
 fn compute_encrypted_log<let P: u32, let M: u32>(
@@ -117,7 +102,7 @@ fn compute_encrypted_log<let P: u32, let M: u32>(
 
     let header = EncryptedLogHeader::new(contract_address);
 
-    let incoming_header_ciphertext: [u8; 48] =
+    let incoming_header_ciphertext: [u8; HEADER_SIZE] =
         header.compute_ciphertext(eph_sk, recipient.to_address_point());
     let incoming_body_ciphertext =
         compute_incoming_body_ciphertext(plaintext, eph_sk, recipient.to_address_point());
@@ -182,14 +167,6 @@ unconstrained fn get_random_bytes<let N: u32>() -> [u8; N] {
         idx += 1;
     }
     bytes
-}
-
-/// Converts a base field element to scalar field element.
-/// This is fine because modulus of the base field is smaller than the modulus of the scalar field.
-fn fr_to_fq(r: Field) -> Scalar {
-    let (lo, hi) = decompose(r);
-
-    Scalar { lo, hi }
 }
 
 fn generate_ephemeral_key_pair() -> (Scalar, Point) {
