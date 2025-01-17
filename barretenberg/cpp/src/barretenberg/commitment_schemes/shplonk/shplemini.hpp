@@ -686,7 +686,7 @@ template <typename Curve> class ShpleminiVerifier_ {
 
         // compute the scalars to be multiplied against the commitments [libra_concatenated], [big_sum], [big_sum], and
         // [libra_quotient]
-        for (size_t idx = 0; idx < libra_evaluations.size(); idx++) {
+        for (size_t idx = 0; idx < NUM_LIBRA_EVALUATIONS; idx++) {
             Fr scaling_factor = denominators[idx] * shplonk_challenge_power;
             batching_scalars[idx] = -scaling_factor;
             shplonk_challenge_power *= shplonk_batching_challenge;
