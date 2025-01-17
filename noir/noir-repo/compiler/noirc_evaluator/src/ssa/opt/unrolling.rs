@@ -18,6 +18,8 @@
 //!
 //! When unrolling ACIR code, we remove reference count instructions because they are
 //! only used by Brillig bytecode.
+use std::collections::BTreeSet;
+
 use acvm::{acir::AcirField, FieldElement};
 use im::HashSet;
 
@@ -117,7 +119,7 @@ pub(super) struct Loop {
     back_edge_start: BasicBlockId,
 
     /// All the blocks contained within the loop, including `header` and `back_edge_start`.
-    pub(super) blocks: HashSet<BasicBlockId>,
+    pub(super) blocks: BTreeSet<BasicBlockId>,
 }
 
 pub(super) struct Loops {
@@ -238,7 +240,7 @@ impl Loop {
         back_edge_start: BasicBlockId,
         cfg: &ControlFlowGraph,
     ) -> Self {
-        let mut blocks = HashSet::default();
+        let mut blocks = BTreeSet::default();
         blocks.insert(header);
 
         let mut insert = |block, stack: &mut Vec<BasicBlockId>| {
@@ -617,10 +619,16 @@ impl Loop {
         let header = &function.dfg[self.header];
         let induction_var = header.parameters()[0];
 
-        back.instructions().iter().filter(|instruction|  {
-            let instruction = &function.dfg[**instruction];
-            matches!(instruction, Instruction::Binary(Binary { lhs, operator: BinaryOp::Add, rhs: _ }) if *lhs == induction_var)
-        }).count()
+        back.instructions()
+            .iter()
+            .filter(|instruction| {
+                let instruction = &function.dfg[**instruction];
+                matches!(instruction,
+                    Instruction::Binary(Binary { lhs, operator: BinaryOp::Add { .. }, rhs: _ })
+                        if *lhs == induction_var
+                )
+            })
+            .count()
     }
 
     /// Decide if this loop is small enough that it can be inlined in a way that the number

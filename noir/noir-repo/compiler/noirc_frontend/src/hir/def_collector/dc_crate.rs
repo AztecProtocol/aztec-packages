@@ -3,7 +3,7 @@ use super::errors::{DefCollectorErrorKind, DuplicateType};
 use crate::elaborator::Elaborator;
 use crate::graph::CrateId;
 use crate::hir::comptime::InterpreterError;
-use crate::hir::def_map::{CrateDefMap, LocalModuleId, ModuleId};
+use crate::hir::def_map::{CrateDefMap, LocalModuleId, ModuleDefId, ModuleId};
 use crate::hir::resolution::errors::ResolverError;
 use crate::hir::type_check::TypeCheckError;
 use crate::locations::ReferencesTracker;
@@ -275,7 +275,7 @@ impl DefCollector {
         ast: SortedModule,
         root_file_id: FileId,
         debug_comptime_in_file: Option<&str>,
-        error_on_unused_items: bool,
+        pedantic_solving: bool,
     ) -> Vec<(CompilationError, FileId)> {
         let mut errors: Vec<(CompilationError, FileId)> = vec![];
         let crate_id = def_map.krate;
@@ -288,12 +288,11 @@ impl DefCollector {
         let crate_graph = &context.crate_graph[crate_id];
 
         for dep in crate_graph.dependencies.clone() {
-            let error_on_usage_tracker = false;
             errors.extend(CrateDefMap::collect_defs(
                 dep.crate_id,
                 context,
                 debug_comptime_in_file,
-                error_on_usage_tracker,
+                pedantic_solving,
             ));
 
             let dep_def_map =
@@ -413,13 +412,24 @@ impl DefCollector {
                                 visibility,
                             );
 
-                            if visibility != ItemVisibility::Private {
+                            if context.def_interner.is_in_lsp_mode()
+                                && visibility != ItemVisibility::Private
+                            {
                                 context.def_interner.register_name_for_auto_import(
                                     name.to_string(),
                                     module_def_id,
                                     visibility,
                                     Some(defining_module),
                                 );
+
+                                if let ModuleDefId::TraitId(trait_id) = module_def_id {
+                                    context.def_interner.add_trait_reexport(
+                                        trait_id,
+                                        defining_module,
+                                        name.clone(),
+                                        visibility,
+                                    );
+                                }
                             }
                         }
 
@@ -459,14 +469,17 @@ impl DefCollector {
             })
         });
 
-        let mut more_errors =
-            Elaborator::elaborate(context, crate_id, def_collector.items, debug_comptime_in_file);
+        let mut more_errors = Elaborator::elaborate(
+            context,
+            crate_id,
+            def_collector.items,
+            debug_comptime_in_file,
+            pedantic_solving,
+        );
 
         errors.append(&mut more_errors);
 
-        if error_on_unused_items {
-            Self::check_unused_items(context, crate_id, &mut errors);
-        }
+        Self::check_unused_items(context, crate_id, &mut errors);
 
         errors
     }
