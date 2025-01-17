@@ -1,5 +1,6 @@
 import { type Tx, mockTx } from '@aztec/circuit-types';
 import { AztecAddress, Fr, FunctionSelector, GasFees, GasSettings, PUBLIC_DISPATCH_SELECTOR } from '@aztec/circuits.js';
+import { U128 } from '@aztec/foundation/abi';
 import { poseidon2Hash } from '@aztec/foundation/crypto';
 import { type Writeable } from '@aztec/foundation/types';
 import { FeeJuiceContract } from '@aztec/noir-contracts.js/FeeJuice';
@@ -72,7 +73,7 @@ describe('GasTxValidator', () => {
     patchNonRevertibleFn(tx, 0, {
       address: ProtocolContractAddress.FeeJuice,
       selector: FunctionSelector.fromField(new Fr(PUBLIC_DISPATCH_SELECTOR)),
-      args: [selector.toField(), payer.toField(), new Fr(1n)],
+      args: [selector.toField(), payer.toField(), ...new U128(1n).toFields()],
       msgSender: ProtocolContractAddress.FeeJuice,
     });
     await expectValid(tx);
@@ -91,7 +92,7 @@ describe('GasTxValidator', () => {
     mockBalance(feeLimit - 1n);
     patchRevertibleFn(tx, 0, {
       selector: FunctionSelector.fromSignature('_increase_public_balance((Field),(Field,Field))'),
-      args: [payer.toField(), new Fr(1n)],
+      args: [payer.toField(), ...new U128(1n).toFields()],
     });
     await expectInvalid(tx, 'Insufficient fee payer balance');
   });
