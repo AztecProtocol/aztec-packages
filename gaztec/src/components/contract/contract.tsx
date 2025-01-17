@@ -125,6 +125,12 @@ export function ContractComponent() {
   useEffect(() => {
     if (currentContract) {
       setContractArtifact(currentContract.artifact);
+      setFilters({
+        searchTerm: "",
+        private: true,
+        public: true,
+        unconstrained: true,
+      });
     }
   }, [currentContract]);
 
@@ -290,6 +296,7 @@ export function ContractComponent() {
               <Input
                 type="text"
                 placeholder="Search function"
+                value={filters.searchTerm}
                 onChange={(e) =>
                   setFilters({ ...filters, searchTerm: e.target.value })
                 }
