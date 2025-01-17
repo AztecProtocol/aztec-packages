@@ -265,12 +265,11 @@ export class UltraHonkBackend {
   // TODO(https://github.com/noir-lang/noir/issues/5661): Update this to handle Honk recursive aggregation in the browser once it is ready in the backend itself
   async generateRecursiveProofArtifacts(proof: Uint8Array): Promise<{ proofAsFields: string[] }> {
     await this.instantiate();
-    // const proofAsFrs = await this.api.acirProofAsFieldsUltraHonk(proof);
-    const proofAsFrs = await this.api.acirProofNoPIsAsFieldsUltraHonk(proof);
+    const proofAsFrs = await this.api.acirProofAsFieldsUltraHonk(proof);
 
     return {
       // TODO(https://github.com/noir-lang/noir/issues/5661)
-      proofAsFields: proofAsFrs.map(proofAsFrs => proofAsFrs.toString()),
+      proofAsFields: proofAsFrs.map(proofAsFrs => proofAsFrs.toString()).slice(0,-1) // WORKTODO, why this?
     };
   }
 

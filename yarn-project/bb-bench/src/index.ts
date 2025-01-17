@@ -91,10 +91,6 @@ export async function proveUltraHonk(
     logger(`done proving. generating recursive proof artifacts...`);
     const artifacts = await backend.generateRecursiveProofArtifacts(proverOutput.proof);
     logger(`done generating recursive proof artifacts.`);
-    logger(`artifacts.proofAsFields[0]: ${artifacts.proofAsFields[0]}`);
-    logger(`artifacts.proofAsFields[1]: ${artifacts.proofAsFields[1]}`);
-    logger(`artifacts.proofAsFields[2]: ${artifacts.proofAsFields[2]}`);
-    logger(`artifacts.proofAsFields[3]: ${artifacts.proofAsFields[3]}`);
     return {
       proof: artifacts.proofAsFields as FixedLengthArray<string, 459>,
       public_inputs: proverOutput.publicInputs as FixedLengthArray<string, 1>,
