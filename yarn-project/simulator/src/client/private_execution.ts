@@ -29,7 +29,7 @@ export async function executePrivateFunction(
   log = createLogger('simulator:private_execution'),
 ): Promise<PrivateCallExecutionResult> {
   const functionName = await context.getDebugFunctionName();
-  log.verbose(`Executing private function ${functionName}@${contractAddress}`);
+  log.verbose(`Executing private function ${functionName}`, { contract: contractAddress });
   const acir = artifact.bytecode;
   const initialWitness = context.getInitialWitness(artifact);
   const acvmCallback = new Oracle(context);

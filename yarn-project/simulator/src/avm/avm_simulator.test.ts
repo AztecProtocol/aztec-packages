@@ -23,7 +23,7 @@ import { keccak256, keccakf1600, pedersenCommit, pedersenHash, poseidon2Hash, sh
 import { Fq, Fr, Point } from '@aztec/foundation/fields';
 import { type Fieldable } from '@aztec/foundation/serialize';
 import { openTmpStore } from '@aztec/kv-store/lmdb';
-import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
+import { getTelemetryClient } from '@aztec/telemetry-client';
 import { MerkleTrees } from '@aztec/world-state';
 
 import { randomInt } from 'crypto';
@@ -1144,7 +1144,7 @@ describe('AVM simulator: transpiled Noir contracts', () => {
 
       worldStateDB = mock<WorldStateDB>();
       const tmp = openTmpStore();
-      const telemetryClient = new NoopTelemetryClient();
+      const telemetryClient = getTelemetryClient();
       merkleTrees = await (await MerkleTrees.new(tmp, telemetryClient)).fork();
       (worldStateDB as jest.Mocked<WorldStateDB>).getMerkleInterface.mockReturnValue(merkleTrees);
       ephemeralForest = await AvmEphemeralForest.create(worldStateDB.getMerkleInterface());

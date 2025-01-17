@@ -40,7 +40,10 @@ authentication_witness_action = H(
 
 Given the action, the developer can ask the `on_behalf_of` account contract if the action is authenticated or not.
 
-```mermaid
+```mdx
+import { Mermaid } from '@docusaurus/theme-mermaid';
+
+<Mermaid>
 sequenceDiagram
     actor Alice
     participant AC as Alice Account
@@ -65,6 +68,7 @@ sequenceDiagram
     Defi->>Defi: deposit(Token, 1000);
     deactivate Defi
     deactivate AC
+</Mermaid>
 ```
 
 :::info
@@ -185,7 +189,10 @@ An example of this would be our Uniswap example which performs a cross chain swa
 
 Outlining more of the `swap` flow: this simplified diagram shows how it will look for contracts that are not wallets but also need to support authentication witnesses.
 
-```mermaid
+```mdx
+import { Mermaid } from '@docusaurus/theme-mermaid';
+
+<Mermaid>
 sequenceDiagram
     actor A as Alice
     participant AC as Alice Account
@@ -220,6 +227,7 @@ sequenceDiagram
     CC-->>CC: Emit L2->L1 message
     deactivate CC;
     deactivate AC;
+</Mermaid>
 ```
 
 :::info **TODO**

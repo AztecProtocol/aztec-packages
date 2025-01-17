@@ -84,7 +84,6 @@ import {
   createSimulationError,
   resolveAssertionMessageFromError,
 } from '@aztec/simulator/server';
-import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
 import { MerkleTreeSnapshotOperationsFacade, type MerkleTrees } from '@aztec/world-state';
 
 import { TXENode } from '../node/txe_node.js';
@@ -105,9 +104,6 @@ export class TXE implements TypedOracle {
   private contractDataOracle: ContractDataOracle;
   private simulatorOracle: SimulatorOracle;
 
-  private version: Fr = Fr.ONE;
-  private chainId: Fr = Fr.ONE;
-
   private uniqueNoteHashesFromPublic: Fr[] = [];
   private siloedNullifiersFromPublic: Fr[] = [];
   private privateLogs: PrivateLog[] = [];
@@ -115,7 +111,10 @@ export class TXE implements TypedOracle {
 
   private committedBlocks = new Set<number>();
 
-  private node = new TXENode(this.blockNumber);
+  private VERSION = 1;
+  private CHAIN_ID = 1;
+
+  private node: TXENode;
 
   private simulationProvider = new WASMSimulator();
 
@@ -133,6 +132,9 @@ export class TXE implements TypedOracle {
     this.noteCache = new ExecutionNoteCache(this.getTxRequestHash());
     this.contractDataOracle = new ContractDataOracle(txeDatabase);
     this.contractAddress = AztecAddress.random();
+
+    this.node = new TXENode(this.blockNumber, this.VERSION, this.CHAIN_ID, this.trees);
+
     // Default msg_sender (for entrypoints) is now Fr.max_value rather than 0 addr (see #7190 & #7404)
     this.msgSender = AztecAddress.fromField(Fr.MAX_FIELD_VALUE);
     this.simulatorOracle = new SimulatorOracle(
@@ -156,12 +158,12 @@ export class TXE implements TypedOracle {
     return db;
   }
 
-  getChainId() {
-    return Promise.resolve(this.chainId);
+  getChainId(): Promise<Fr> {
+    return Promise.resolve(this.node.getChainId().then(id => new Fr(id)));
   }
 
-  getVersion() {
-    return Promise.resolve(this.version);
+  getVersion(): Promise<Fr> {
+    return Promise.resolve(this.node.getVersion().then(v => new Fr(v)));
   }
 
   getMsgSender() {
@@ -232,8 +234,8 @@ export class TXE implements TypedOracle {
 
     const stateReference = await db.getStateReference();
     const inputs = PrivateContextInputs.empty();
-    inputs.txContext.chainId = this.chainId;
-    inputs.txContext.version = this.version;
+    inputs.txContext.chainId = new Fr(await this.node.getChainId());
+    inputs.txContext.version = new Fr(await this.node.getVersion());
     inputs.historicalHeader.globalVariables.blockNumber = new Fr(blockNumber);
     inputs.historicalHeader.state = stateReference;
     inputs.historicalHeader.lastArchive.root = Fr.fromBuffer(
@@ -406,11 +408,11 @@ export class TXE implements TypedOracle {
     return [new Fr(index), ...siblingPath.toFields()];
   }
 
-  async getSiblingPath(blockNumber: number, treeId: MerkleTreeId, leafIndex: Fr) {
-    const committedDb = new MerkleTreeSnapshotOperationsFacade(this.trees, blockNumber);
-    const result = await committedDb.getSiblingPath(treeId, leafIndex.toBigInt());
-    return result.toFields();
-  }
+  // async getSiblingPath(blockNumber: number, treeId: MerkleTreeId, leafIndex: Fr) {
+  //   const committedDb = new MerkleTreeSnapshotOperationsFacade(this.trees, blockNumber);
+  //   const result = await committedDb.getSiblingPath(treeId, leafIndex.toBigInt());
+  //   return result.toFields();
+  // }
 
   async getNullifierMembershipWitness(
     blockNumber: number,
@@ -810,8 +812,8 @@ export class TXE implements TypedOracle {
     const worldStateDb = new TXEWorldStateDB(db, new TXEPublicContractDataSource(this));
 
     const globalVariables = GlobalVariables.empty();
-    globalVariables.chainId = this.chainId;
-    globalVariables.version = this.version;
+    globalVariables.chainId = new Fr(await this.node.getChainId());
+    globalVariables.version = new Fr(await this.node.getVersion());
     globalVariables.blockNumber = new Fr(this.blockNumber);
     globalVariables.gasFees = new GasFees(1, 1);
 
@@ -830,7 +832,6 @@ export class TXE implements TypedOracle {
     const simulator = new PublicTxSimulator(
       db,
       new TXEWorldStateDB(db, new TXEPublicContractDataSource(this)),
-      new NoopTelemetryClient(),
       globalVariables,
     );
 
@@ -974,6 +975,19 @@ export class TXE implements TypedOracle {
     return Promise.resolve();
   }
 
+  deliverNote(
+    _contractAddress: AztecAddress,
+    _storageSlot: Fr,
+    _nonce: Fr,
+    _content: Fr[],
+    _noteHash: Fr,
+    _nullifier: Fr,
+    _txHash: Fr,
+    _recipient: AztecAddress,
+  ): Promise<void> {
+    throw new Error('deliverNote');
+  }
+
   // AVM oracles
 
   async avmOpcodeCall(targetContractAddress: AztecAddress, args: Fr[], isStaticCall: boolean): Promise<PublicTxResult> {
@@ -1058,36 +1072,35 @@ export class TXE implements TypedOracle {
     return preimage.value;
   }
 
-  /**
-   * Used by contracts during execution to store arbitrary data in the local PXE database. The data is siloed/scoped
-   * to a specific `contract`.
-   * @param contract - The contract address to store the data under.
-   * @param key - A field element representing the key to store the data under.
-   * @param values - An array of field elements representing the data to store.
-   */
-  store(contract: AztecAddress, key: Fr, values: Fr[]): Promise<void> {
-    if (!contract.equals(this.contractAddress)) {
-      // TODO(#10727): instead of this check check that this.contractAddress is allowed to process notes for contract
-      throw new Error(
-        `Contract address ${contract} does not match the oracle's contract address ${this.contractAddress}`,
-      );
+  dbStore(contractAddress: AztecAddress, slot: Fr, values: Fr[]): Promise<void> {
+    if (!contractAddress.equals(this.contractAddress)) {
+      // TODO(#10727): instead of this check that this.contractAddress is allowed to access the external DB
+      throw new Error(`Contract ${contractAddress} is not allowed to access ${this.contractAddress}'s PXE DB`);
     }
-    return this.txeDatabase.store(this.contractAddress, key, values);
+    return this.txeDatabase.dbStore(this.contractAddress, slot, values);
   }
 
-  /**
-   * Used by contracts during execution to load arbitrary data from the local PXE database. The data is siloed/scoped
-   * to a specific `contract`.
-   * @param contract - The contract address to load the data from.
-   * @param key - A field element representing the key under which to load the data..
-   * @returns An array of field elements representing the stored data or `null` if no data is stored under the key.
-   */
-  load(contract: AztecAddress, key: Fr): Promise<Fr[] | null> {
-    if (!contract.equals(this.contractAddress)) {
-      // TODO(#10727): instead of this check check that this.contractAddress is allowed to process notes for contract
-      this.debug(`Data not found for contract ${contract.toString()} and key ${key.toString()}`);
-      return Promise.resolve(null);
+  dbLoad(contractAddress: AztecAddress, slot: Fr): Promise<Fr[] | null> {
+    if (!contractAddress.equals(this.contractAddress)) {
+      // TODO(#10727): instead of this check that this.contractAddress is allowed to access the external DB
+      throw new Error(`Contract ${contractAddress} is not allowed to access ${this.contractAddress}'s PXE DB`);
     }
-    return this.txeDatabase.load(this.contractAddress, key);
+    return this.txeDatabase.dbLoad(this.contractAddress, slot);
+  }
+
+  dbDelete(contractAddress: AztecAddress, slot: Fr): Promise<void> {
+    if (!contractAddress.equals(this.contractAddress)) {
+      // TODO(#10727): instead of this check that this.contractAddress is allowed to access the external DB
+      throw new Error(`Contract ${contractAddress} is not allowed to access ${this.contractAddress}'s PXE DB`);
+    }
+    return this.txeDatabase.dbDelete(this.contractAddress, slot);
+  }
+
+  dbCopy(contractAddress: AztecAddress, srcSlot: Fr, dstSlot: Fr, numEntries: number): Promise<void> {
+    if (!contractAddress.equals(this.contractAddress)) {
+      // TODO(#10727): instead of this check that this.contractAddress is allowed to access the external DB
+      throw new Error(`Contract ${contractAddress} is not allowed to access ${this.contractAddress}'s PXE DB`);
+    }
+    return this.txeDatabase.dbCopy(this.contractAddress, srcSlot, dstSlot, numEntries);
   }
 }

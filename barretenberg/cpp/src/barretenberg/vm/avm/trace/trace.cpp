@@ -429,6 +429,22 @@ void AvmTraceBuilder::handle_exceptional_halt()
     }
 }
 
+void AvmTraceBuilder::handle_end_of_teardown(uint32_t pre_teardown_l2_gas_left, uint32_t pre_teardown_da_gas_left)
+{
+    vinfo("Handling end of teardown");
+
+    // modify the last row of the gas trace to reset back to pre-teardown gas
+    // since gas used by teardown doesn't contribute to end-gas
+    gas_trace_builder.constrain_gas_for_halt(/*exceptional_halt=*/true, // not really an exceptional halt
+                                             pre_teardown_l2_gas_left,
+                                             pre_teardown_da_gas_left,
+                                             /*l2_gas_allocated_to_nested_call=*/0,
+                                             /*da_gas_allocated_to_nested_call=*/0);
+
+    // max out the pc to signify "done"
+    pc = UINT32_MAX;
+}
+
 /**
  * @brief Loads a value from memory into a given intermediate register at a specified clock cycle.
  * Handles both direct and indirect memory access.
@@ -2122,11 +2138,7 @@ AvmError AvmTraceBuilder::op_fee_per_da_gas(uint8_t indirect, uint32_t dst_offse
  *        Simplified version with exclusively memory store operations and
  *        values from calldata passed by an array and loaded into
  *        intermediate registers.
- *        Assume that caller passes call_data_mem which is large enough so that
- *        no out-of-bound memory issues occur.
- *        TODO: error handling if dst_offset + copy_size > 2^32 which would lead to
- *              out-of-bound memory write. Similarly, if cd_offset + copy_size is larger
- *              than call_data_mem.size()
+ *        Slice calldata portion which is out-of-range will be filled with zero values.
  *
  * @param indirect A byte encoding information about indirect/direct memory access.
  * @param cd_offset_address The starting index of the region in calldata to be copied.
@@ -2161,8 +2173,17 @@ AvmError AvmTraceBuilder::op_calldata_copy(uint8_t indirect,
 
     bool is_top_level = current_ext_call_ctx.is_top_level;
 
-    // Do not take a reference as calldata might be resized below.
+    // No reference as we mutate calldata
     auto calldata = current_ext_call_ctx.calldata;
+
+    // Any out-of-range values from calldata is replaced by a zero value.
+    // We append zeros in this case to calldata.
+    // TODO: Properly constrain this use case. Currently, for top level calls we do not add any padding in
+    // calldata public columns but concatenate the calldata vectors of the top-level calls.
+    if (cd_offset + copy_size > calldata.size()) {
+        calldata.resize(cd_offset + copy_size, FF(0));
+    }
+
     if (is_ok(error)) {
         if (is_top_level) {
             if (!check_slice_mem_range(dst_offset_resolved, copy_size)) {
@@ -2174,9 +2195,11 @@ AvmError AvmTraceBuilder::op_calldata_copy(uint8_t indirect,
                     calldata, clk, call_ptr, cd_offset, copy_size, dst_offset_resolved);
             }
         } else {
-            calldata.resize(copy_size);
             // If we are not at the top level, we write to memory directly
-            error = write_slice_to_memory(dst_offset_resolved, AvmMemoryTag::FF, calldata);
+            error = write_slice_to_memory(
+                dst_offset_resolved,
+                AvmMemoryTag::FF,
+                std::vector<FF>(calldata.begin() + cd_offset, calldata.begin() + cd_offset + copy_size));
         }
     }
 
@@ -2293,9 +2316,17 @@ AvmError AvmTraceBuilder::op_returndata_copy(uint8_t indirect,
 
     if (is_ok(error)) {
         // Write the return data to memory
-        // TODO: validate bounds
-        auto returndata_slice = std::vector(current_ext_call_ctx.nested_returndata.begin() + rd_offset,
-                                            current_ext_call_ctx.nested_returndata.begin() + rd_offset + copy_size);
+
+        // No reference as we potentially mutate.
+        auto returndata = current_ext_call_ctx.nested_returndata;
+
+        // Any out-of-range values from returndata is replaced by a zero value.
+        // We append zeros in this case to returndata.
+        if (rd_offset + copy_size > returndata.size()) {
+            returndata.resize(rd_offset + copy_size, FF(0));
+        }
+
+        auto returndata_slice = std::vector(returndata.begin() + rd_offset, returndata.begin() + rd_offset + copy_size);
 
         pc += Deserialization::get_pc_increment(OpCode::RETURNDATACOPY);
 

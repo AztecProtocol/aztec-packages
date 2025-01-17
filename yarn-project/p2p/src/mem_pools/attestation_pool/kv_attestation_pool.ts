@@ -2,7 +2,7 @@ import { BlockAttestation } from '@aztec/circuit-types';
 import { Fr } from '@aztec/foundation/fields';
 import { createLogger } from '@aztec/foundation/log';
 import { type AztecKVStore, type AztecMapWithSize, type AztecMultiMap } from '@aztec/kv-store';
-import { type TelemetryClient } from '@aztec/telemetry-client';
+import { type TelemetryClient, getTelemetryClient } from '@aztec/telemetry-client';
 
 import { PoolInstrumentation, PoolName } from '../instrumentation.js';
 import { type AttestationPool } from './attestation_pool.js';
@@ -15,7 +15,7 @@ export class KvAttestationPool implements AttestationPool {
 
   constructor(
     private store: AztecKVStore,
-    telemetry: TelemetryClient,
+    telemetry: TelemetryClient = getTelemetryClient(),
     private log = createLogger('aztec:attestation_pool'),
   ) {
     this.attestations = store.openMultiMap('attestations');
