@@ -47,8 +47,7 @@ import {
   loadTree,
   newTree,
 } from '@aztec/merkle-tree';
-import { type TelemetryClient } from '@aztec/telemetry-client';
-import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
+import { type TelemetryClient, getTelemetryClient } from '@aztec/telemetry-client';
 import { type Hasher } from '@aztec/types/interfaces';
 
 import {
@@ -123,7 +122,7 @@ export class MerkleTrees implements MerkleTreeAdminDatabase {
    */
   public static async new(
     store: AztecKVStore,
-    client: TelemetryClient,
+    client: TelemetryClient = getTelemetryClient(),
     log = createLogger('world-state:merkle_trees'),
   ) {
     const merkleTrees = new MerkleTrees(store, client, log);
@@ -136,7 +135,7 @@ export class MerkleTrees implements MerkleTreeAdminDatabase {
    */
   public static tmp() {
     const store = openTmpStore();
-    return MerkleTrees.new(store, new NoopTelemetryClient());
+    return MerkleTrees.new(store, getTelemetryClient());
   }
 
   /**

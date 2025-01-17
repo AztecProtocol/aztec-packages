@@ -6,7 +6,7 @@ use crate::{
         note_hash::ScopedNoteHash,
         nullifier::ScopedNullifier,
         private_log::{PrivateLog, PrivateLogData},
-        side_effect::scoped::Scoped,
+        side_effect::{OrderedValue, scoped::Scoped},
     },
     address::{AztecAddress, EthAddress},
     constants::{
@@ -15,10 +15,11 @@ use crate::{
     },
     merkle_tree::root::root_from_sibling_path,
     messaging::l2_to_l1_message::{L2ToL1Message, ScopedL2ToL1Message},
-    traits::{is_empty, ToField},
+    poseidon2::Poseidon2Sponge,
+    traits::{FromField, Hash, is_empty, ToField},
     utils::field::field_from_bytes_32_trunc,
 };
-use super::utils::{arrays::array_concat, field::field_from_bytes};
+use super::{constants::TWO_POW_64, utils::{arrays::array_concat, field::field_from_bytes}};
 
 pub fn sha256_to_field<let N: u32>(bytes_to_hash: [u8; N]) -> Field {
     let sha256_hashed = std::hash::sha256(bytes_to_hash);
@@ -42,10 +43,11 @@ pub fn private_functions_root_from_siblings(
     )
 }
 
-fn compute_note_hash_nonce(tx_hash: Field, note_index_in_tx: u32) -> Field {
-    // Hashing tx hash with note index in tx is guaranteed to be unique
+pub fn compute_note_hash_nonce(first_nullifier_in_tx: Field, note_index_in_tx: u32) -> Field {
+    // Hashing the first nullifier with note index in tx is guaranteed to be unique (because all nullifiers are also
+    // unique).
     poseidon2_hash_with_separator(
-        [tx_hash, note_index_in_tx as Field],
+        [first_nullifier_in_tx, note_index_in_tx as Field],
         GENERATOR_INDEX__NOTE_HASH_NONCE,
     )
 }
@@ -285,10 +287,9 @@ fn poseidon2_absorb_chunks<let N: u32>(
     input: [Field; N],
     in_len: u32,
     variable: bool,
-) -> std::hash::poseidon2::Poseidon2 {
-    let two_pow_64 = 18446744073709551616;
-    let iv: Field = (in_len as Field) * two_pow_64;
-    let mut sponge = std::hash::poseidon2::Poseidon2::new(iv);
+) -> Poseidon2Sponge {
+    let iv: Field = (in_len as Field) * TWO_POW_64;
+    let mut sponge = Poseidon2Sponge::new(iv);
     // Even though shift is always 1 here, if we input in_len = 0 we get an underflow
     // since we cannot isolate computation branches. The below is just to avoid that.
     let shift = if in_len == 0 { 0 } else { 1 };
@@ -314,11 +315,11 @@ fn poseidon2_absorb_chunks<let N: u32>(
 // NB: If it's not required to check that the non-absorbed elts of 'input' are 0s, set skip_0_check=true
 #[no_predicates]
 pub fn poseidon2_absorb_chunks_existing_sponge<let N: u32>(
-    in_sponge: std::hash::poseidon2::Poseidon2,
+    in_sponge: Poseidon2Sponge,
     input: [Field; N],
     in_len: u32,
     skip_0_check: bool,
-) -> std::hash::poseidon2::Poseidon2 {
+) -> Poseidon2Sponge {
     let mut sponge = in_sponge;
     // 'shift' is to account for already added inputs
     let mut shift = 0;
@@ -355,12 +356,12 @@ pub fn poseidon2_absorb_chunks_existing_sponge<let N: u32>(
 // for 0s costs 3N gates. Current approach is approx 2N gates.
 #[no_predicates]
 fn poseidon2_absorb_chunks_loop<let N: u32, let M: u32>(
-    in_sponge: std::hash::poseidon2::Poseidon2,
+    in_sponge: Poseidon2Sponge,
     input: [Field; N],
     in_len: u32,
     variable: bool,
     shift: u32,
-) -> std::hash::poseidon2::Poseidon2 {
+) -> Poseidon2Sponge {
     assert(in_len <= N, "Given in_len to absorb is larger than the input array len");
     // When we have an existing sponge, we may have a shift of 0, and the final 'k+2' below = N
     // The below avoids an overflow
@@ -422,9 +423,8 @@ where
     T: ToField,
 {
     let in_len = inputs.len() + 1;
-    let two_pow_64 = 18446744073709551616;
-    let iv: Field = (in_len as Field) * two_pow_64;
-    let mut sponge = std::hash::poseidon2::Poseidon2::new(iv);
+    let iv: Field = (in_len as Field) * TWO_POW_64;
+    let mut sponge = Poseidon2Sponge::new(iv);
     sponge.absorb(separator.to_field());
 
     for i in 0..inputs.len() {
@@ -490,12 +490,11 @@ fn existing_sponge_poseidon_chunks_matches_fixed() {
         input[i] = 3;
     }
     // absorb 250 of the 501 things
-    let two_pow_64 = 18446744073709551616;
-    let empty_sponge = std::hash::poseidon2::Poseidon2::new((in_len as Field) * two_pow_64);
+    let empty_sponge = Poseidon2Sponge::new((in_len as Field) * TWO_POW_64);
     let first_sponge = poseidon2_absorb_chunks_existing_sponge(empty_sponge, input, 250, true);
     // now absorb the final 251 (since they are all 3s, im being lazy and not making a new array)
     let mut final_sponge = poseidon2_absorb_chunks_existing_sponge(first_sponge, input, 251, true);
-    let fixed_len_hash = std::hash::poseidon2::Poseidon2::hash(fixed_input, fixed_input.len());
+    let fixed_len_hash = Poseidon2Sponge::hash(fixed_input, fixed_input.len());
     assert(final_sponge.squeeze() == fixed_len_hash);
 }
 

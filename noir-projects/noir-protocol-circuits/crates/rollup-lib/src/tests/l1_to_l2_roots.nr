@@ -1,6 +1,7 @@
 use dep::parity_lib::root::root_rollup_parity_input::RootRollupParityInput;
 use dep::types::constants::ROOT_PARITY_INDEX;
 use dep::types::tests::fixtures;
+use dep::types::traits::Empty;
 use types::merkle_tree::merkle_tree::MerkleTree;
 
 pub fn default_root_rollup_parity_input() -> RootRollupParityInput {

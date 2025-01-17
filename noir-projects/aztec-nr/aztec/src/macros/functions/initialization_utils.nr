@@ -60,10 +60,7 @@ pub fn assert_initialization_matches_address_preimage_private(context: PrivateCo
     );
 }
 
-pub fn compute_initialization_hash(
-    init_selector: FunctionSelector,
-    init_args_hash: Field,
-) -> Field {
+fn compute_initialization_hash(init_selector: FunctionSelector, init_args_hash: Field) -> Field {
     poseidon2_hash_with_separator(
         [init_selector.to_field(), init_args_hash],
         GENERATOR_INDEX__CONSTRUCTOR,

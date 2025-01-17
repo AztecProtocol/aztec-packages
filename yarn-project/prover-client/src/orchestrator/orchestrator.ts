@@ -49,7 +49,14 @@ import { pushTestData } from '@aztec/foundation/testing';
 import { elapsed } from '@aztec/foundation/timer';
 import { type TreeNodeLocation } from '@aztec/foundation/trees';
 import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types/vks';
-import { Attributes, type TelemetryClient, type Tracer, trackSpan, wrapCallbackInSpan } from '@aztec/telemetry-client';
+import {
+  Attributes,
+  type TelemetryClient,
+  type Tracer,
+  getTelemetryClient,
+  trackSpan,
+  wrapCallbackInSpan,
+} from '@aztec/telemetry-client';
 
 import { inspect } from 'util';
 
@@ -94,8 +101,8 @@ export class ProvingOrchestrator implements EpochProver {
   constructor(
     private dbProvider: ForkMerkleTreeOperations,
     private prover: ServerCircuitProver,
-    telemetryClient: TelemetryClient,
     private readonly proverId: Fr = Fr.ZERO,
+    telemetryClient: TelemetryClient = getTelemetryClient(),
   ) {
     this.metrics = new ProvingOrchestratorMetrics(telemetryClient, 'ProvingOrchestrator');
   }
@@ -262,11 +269,6 @@ export class ProvingOrchestrator implements EpochProver {
         validateTx(tx);
 
         logger.info(`Received transaction: ${tx.hash}`);
-
-        if (tx.isEmpty) {
-          logger.warn(`Ignoring empty transaction ${tx.hash} - it will not be added to this block`);
-          continue;
-        }
 
         const [hints, treeSnapshots] = await this.prepareTransaction(tx, provingState);
         const txProvingState = new TxProvingState(tx, hints, treeSnapshots);
@@ -521,9 +523,7 @@ export class ProvingOrchestrator implements EpochProver {
       buildBaseRollupHints(tx, provingState.globalVariables, db, provingState.spongeBlobState),
     );
 
-    if (!tx.isEmpty) {
-      this.metrics.recordBaseRollupInputs(ms);
-    }
+    this.metrics.recordBaseRollupInputs(ms);
 
     const promises = [MerkleTreeId.NOTE_HASH_TREE, MerkleTreeId.NULLIFIER_TREE, MerkleTreeId.PUBLIC_DATA_TREE].map(
       async (id: MerkleTreeId) => {
@@ -551,11 +551,7 @@ export class ProvingOrchestrator implements EpochProver {
     const { processedTx } = txProvingState;
     const { rollupType, inputs } = txProvingState.getBaseRollupTypeAndInputs();
 
-    logger.debug(
-      `Enqueuing deferred proving base rollup${
-        processedTx.isEmpty ? ' with padding tx' : ''
-      } for ${processedTx.hash.toString()}`,
-    );
+    logger.debug(`Enqueuing deferred proving base rollup for ${processedTx.hash.toString()}`);
 
     this.deferredProving(
       provingState,

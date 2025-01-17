@@ -267,8 +267,11 @@ impl PrivateContext {
             // about secrets from other contracts. We therefore silo secret keys, and rely on the private kernel to
             // validate that we siloed secret key corresponds to correct siloing of the master secret key that hashes
             // to `pk_m_hash`.
+
+            /// Safety: Kernels verify that the key validation request is valid and below we verify that a request
+            /// for the correct public key has been received.
             let request = unsafe { get_key_validation_request(pk_m_hash, key_index) };
-            assert(request.pk_m.hash() == pk_m_hash);
+            assert_eq(request.pk_m.hash(), pk_m_hash, "Obtained invalid key validation request");
 
             self.key_validation_requests_and_generators.push(
                 KeyValidationRequestAndGenerator {
@@ -388,11 +391,11 @@ impl PrivateContext {
         let mut is_static_call = is_static_call | self.inputs.call_context.is_static_call;
         let start_side_effect_counter = self.side_effect_counter;
 
-        // The oracle simulates the private call and returns the value of the side effects counter after execution of
-        // the call (which means that end_side_effect_counter - start_side_effect_counter is the number of side effects
-        // that took place), along with the hash of the return values. We validate these by requesting a private kernel
-        // iteration in which the return values are constrained to hash to `returns_hash` and the side effects counter
-        // to increment from start to end.
+        /// Safety: The oracle simulates the private call and returns the value of the side effects counter after
+        /// execution of the call (which means that end_side_effect_counter - start_side_effect_counter is
+        /// the number of side effects that took place), along with the hash of the return values. We validate these
+        /// by requesting a private kernel iteration in which the return values are constrained to hash
+        /// to `returns_hash` and the side effects counter to increment from start to end.
         let (end_side_effect_counter, returns_hash) = unsafe {
             call_private_function_internal(
                 contract_address,
@@ -491,12 +494,12 @@ impl PrivateContext {
         let counter = self.next_counter();
 
         let mut is_static_call = is_static_call | self.inputs.call_context.is_static_call;
-        // TODO(https://github.com/AztecProtocol/aztec-packages/issues/8985): Fix this.
-        // WARNING: This is insecure and should be temporary!
-        // The oracle hashes the arguments and returns a new args_hash.
-        // new_args = [selector, ...old_args], so as to make it suitable to call the public dispatch function.
-        // We don't validate or compute it in the circuit because a) it's harder to do with slices, and
-        // b) this is only temporary.
+        /// Safety: TODO(https://github.com/AztecProtocol/aztec-packages/issues/8985): Fix this.
+        /// WARNING: This is insecure and should be temporary!
+        /// The oracle hashes the arguments and returns a new args_hash.
+        /// new_args = [selector, ...old_args], so as to make it suitable to call the public dispatch function.
+        /// We don't validate or compute it in the circuit because a) it's harder to do with slices, and
+        /// b) this is only temporary.
         let args_hash = unsafe {
             enqueue_public_function_call_internal(
                 contract_address,
@@ -547,12 +550,12 @@ impl PrivateContext {
         let counter = self.next_counter();
 
         let mut is_static_call = is_static_call | self.inputs.call_context.is_static_call;
-        // TODO(https://github.com/AztecProtocol/aztec-packages/issues/8985): Fix this.
-        // WARNING: This is insecure and should be temporary!
-        // The oracle hashes the arguments and returns a new args_hash.
-        // new_args = [selector, ...old_args], so as to make it suitable to call the public dispatch function.
-        // We don't validate or compute it in the circuit because a) it's harder to do with slices, and
-        // b) this is only temporary.
+        /// Safety: TODO(https://github.com/AztecProtocol/aztec-packages/issues/8985): Fix this.
+        /// WARNING: This is insecure and should be temporary!
+        /// The oracle hashes the arguments and returns a new args_hash.
+        /// new_args = [selector, ...old_args], so as to make it suitable to call the public dispatch function.
+        /// We don't validate or compute it in the circuit because a) it's harder to do with slices, and
+        /// b) this is only temporary.
         let args_hash = unsafe {
             set_public_teardown_function_call_internal(
                 contract_address,

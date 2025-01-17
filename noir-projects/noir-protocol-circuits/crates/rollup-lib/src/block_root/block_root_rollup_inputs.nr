@@ -65,6 +65,7 @@ pub(crate) mod tests {
         },
         hash::accumulate_sha256,
         tests::{merkle_tree_utils::compute_zero_hashes, utils::assert_array_eq},
+        traits::Empty,
         utils::arrays::array_concat,
     };
 
@@ -156,6 +157,7 @@ pub(crate) mod tests {
         }
 
         pub fn mock_evaluate_blobs(self) -> Self {
+            /// Safety: This is a mock for testing only
             unsafe {
                 let _ = OracleMock::mock("evaluateBlobs").returns(BlockBlobPublicInputs::empty());
             }

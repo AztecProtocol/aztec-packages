@@ -47,7 +47,7 @@ export const sequencerConfigMappings: ConfigMappingsType<SequencerConfig> = {
   transactionPollingIntervalMS: {
     env: 'SEQ_TX_POLLING_INTERVAL_MS',
     description: 'The number of ms to wait between polling for pending txs.',
-    ...numberConfigHelper(1_000),
+    ...numberConfigHelper(500),
   },
   maxTxsPerBlock: {
     env: 'SEQ_MAX_TX_PER_BLOCK',
