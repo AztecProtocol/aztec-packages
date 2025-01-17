@@ -11,12 +11,11 @@ import {
   PUBLIC_DATA_TREE_HEIGHT,
 } from '@aztec/circuits.js';
 import { createLogger } from '@aztec/foundation/log';
+import { NativeWorldState as BaseNativeWorldState } from '@aztec/native';
 
 import assert from 'assert';
-import bindings from 'bindings';
-import { Decoder, Encoder, addExtension } from 'msgpackr';
+import { addExtension } from 'msgpackr';
 import { cpus } from 'os';
-import { isAnyArrayBuffer } from 'util/types';
 
 import { type WorldStateInstrumentation } from '../instrumentation/instrumentation.js';
 import {
@@ -42,15 +41,8 @@ addExtension({
   write: fr => fr.toBuffer(),
 });
 
-export interface NativeInstance {
-  call(msg: Buffer | Uint8Array): Promise<any>;
-}
-
-const NATIVE_LIBRARY_NAME = 'nodejs_module';
-const NATIVE_CLASS_NAME = 'WorldState';
-
-const NATIVE_MODULE = bindings(NATIVE_LIBRARY_NAME);
 const MAX_WORLD_STATE_THREADS = +(process.env.HARDWARE_CONCURRENCY || '16');
+const THREADS = Math.min(cpus().length, MAX_WORLD_STATE_THREADS);
 
 export interface NativeWorldStateInstance {
   call<T extends WorldStateMessageType>(
@@ -62,28 +54,11 @@ export interface NativeWorldStateInstance {
 /**
  * Strongly-typed interface to access the WorldState class in the native nodejs_module library.
  */
-export class NativeWorldState implements NativeWorldStateInstance {
+export class NativeWorldState extends BaseNativeWorldState implements NativeWorldStateInstance {
   private open = true;
 
   /** Each message needs a unique ID */
   private nextMessageId = 0;
-
-  /** A long-lived msgpack encoder */
-  private encoder = new Encoder({
-    // always encode JS objects as MessagePack maps
-    // this makes it compatible with other MessagePack decoders
-    useRecords: false,
-    int64AsType: 'bigint',
-  });
-
-  /** A long-lived msgpack decoder */
-  private decoder = new Decoder({
-    useRecords: false,
-    int64AsType: 'bigint',
-  });
-
-  /** The actual native instance */
-  private instance: any;
 
   // We maintain a map of queue to fork
   private queues = new Map<number, WorldStateOpsQueue>();
@@ -95,11 +70,11 @@ export class NativeWorldState implements NativeWorldStateInstance {
     private instrumentation: WorldStateInstrumentation,
     private log = createLogger('world-state:database'),
   ) {
-    const threads = Math.min(cpus().length, MAX_WORLD_STATE_THREADS);
     log.info(
-      `Creating world state data store at directory ${dataDir} with map size ${dbMapSizeKb} KB and ${threads} threads.`,
+      `Creating world state data store at directory ${dataDir} with map size ${dbMapSizeKb} KB and ${THREADS} threads.`,
     );
-    this.instance = new NATIVE_MODULE[NATIVE_CLASS_NAME](
+
+    super(
       dataDir,
       {
         [MerkleTreeId.NULLIFIER_TREE]: NULLIFIER_TREE_HEIGHT,
@@ -114,7 +89,7 @@ export class NativeWorldState implements NativeWorldStateInstance {
       },
       GeneratorIndex.BLOCK_HASH,
       dbMapSizeKb,
-      threads,
+      THREADS,
     );
     // Manually create the queue for the canonical fork
     this.queues.set(0, new WorldStateOpsQueue());
@@ -133,13 +108,10 @@ export class NativeWorldState implements NativeWorldStateInstance {
     body: WorldStateRequest[T] & WorldStateRequestCategories,
     // allows for the pre-processing of responses on the job queue before being passed back
     responseHandler = (response: WorldStateResponse[T]): WorldStateResponse[T] => response,
-    errorHandler = (_: string) => {},
   ): Promise<WorldStateResponse[T]> {
     // Here we determine which fork the request is being executed against and whether it requires uncommitted data
-    // We use the fork Id to select the appropriate request queue and the uncommitted data flag to pass to the queue
     let forkId = -1;
     // We assume it includes uncommitted unless explicitly told otherwise
-    let committedOnly = false;
 
     // Canonical requests ALWAYS go against the canonical fork
     // These include things like block syncs/unwinds etc
@@ -261,70 +233,23 @@ export class NativeWorldState implements NativeWorldStateInstance {
       this.log.trace(`Calling messageId=${messageId} ${WorldStateMessageType[messageType]}`);
     }
 
-    const start = process.hrtime.bigint();
-
-    const request = new TypedMessage(messageType, new MessageHeader({ messageId }), body);
-    const encodedRequest = this.encoder.encode(request);
-    const encodingEnd = process.hrtime.bigint();
-    const encodingDuration = Number(encodingEnd - start) / 1_000_000;
-
-    let encodedResponse: any;
     try {
-      encodedResponse = await this.instance.call(encodedRequest);
+      const request = new TypedMessage(messageType, new MessageHeader({ messageId }), body);
+      const { duration, response } = await this.sendMessage<T, WorldStateRequest[T], WorldStateResponse[T]>(request);
+
+      this.log.trace(`Call messageId=${messageId} ${WorldStateMessageType[messageType]} took (ms)`, {
+        totalDuration: duration.totalUs / 1e3,
+        encodingDuration: duration.encodingUs / 1e3,
+        callDuration: duration.callUs / 1e3,
+        decodingDuration: duration.decodingUs / 1e3,
+      });
+
+      this.instrumentation.recordRoundTrip(duration.callUs, messageType);
+
+      return response.value;
     } catch (error) {
       this.log.error(`Call messageId=${messageId} ${WorldStateMessageType[messageType]} failed: ${error}`);
       throw error;
     }
-
-    const callEnd = process.hrtime.bigint();
-
-    const callDuration = Number(callEnd - encodingEnd) / 1_000_000;
-
-    const buf = Buffer.isBuffer(encodedResponse)
-      ? encodedResponse
-      : isAnyArrayBuffer(encodedResponse)
-      ? Buffer.from(encodedResponse)
-      : encodedResponse;
-
-    if (!Buffer.isBuffer(buf)) {
-      throw new TypeError(
-        'Invalid encoded response: expected Buffer or ArrayBuffer, got ' +
-          (encodedResponse === null ? 'null' : typeof encodedResponse),
-      );
-    }
-
-    const decodedResponse = this.decoder.unpack(buf);
-    if (!TypedMessage.isTypedMessageLike(decodedResponse)) {
-      throw new TypeError(
-        'Invalid response: expected TypedMessageLike, got ' +
-          (decodedResponse === null ? 'null' : typeof decodedResponse),
-      );
-    }
-
-    const response = TypedMessage.fromMessagePack<T, WorldStateResponse[T]>(decodedResponse);
-    const decodingEnd = process.hrtime.bigint();
-    const decodingDuration = Number(decodingEnd - callEnd) / 1_000_000;
-    const totalDuration = Number(decodingEnd - start) / 1_000_000;
-    this.log.trace(`Call messageId=${messageId} ${WorldStateMessageType[messageType]} took (ms)`, {
-      totalDuration,
-      encodingDuration,
-      callDuration,
-      decodingDuration,
-    });
-
-    if (response.header.requestId !== request.header.messageId) {
-      throw new Error(
-        'Response ID does not match request: ' + response.header.requestId + ' != ' + request.header.messageId,
-      );
-    }
-
-    if (response.msgType !== messageType) {
-      throw new Error('Invalid response message type: ' + response.msgType + ' != ' + messageType);
-    }
-
-    const callDurationUs = Number(callEnd - encodingEnd) / 1000;
-    this.instrumentation.recordRoundTrip(callDurationUs, messageType);
-
-    return response.value;
   }
 }

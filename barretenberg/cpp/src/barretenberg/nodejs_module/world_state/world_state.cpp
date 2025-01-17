@@ -5,7 +5,7 @@
 #include "barretenberg/crypto/merkle_tree/types.hpp"
 #include "barretenberg/ecc/curves/bn254/fr.hpp"
 #include "barretenberg/messaging/header.hpp"
-#include "barretenberg/nodejs_module/async_op.hpp"
+#include "barretenberg/nodejs_module/util/async_op.hpp"
 #include "barretenberg/nodejs_module/world_state/world_state_message.hpp"
 #include "barretenberg/world_state/fork.hpp"
 #include "barretenberg/world_state/types.hpp"

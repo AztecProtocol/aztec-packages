@@ -51,7 +51,8 @@
     "./array": "./dest/array/index.js",
     "./validation": "./dest/validation/index.js",
     "./promise": "./dest/promise/index.js",
-    "./string": "./dest/string/index.js"
+    "./string": "./dest/string/index.js",
+    "./message": "./dest/message/index.js"
   },
   "scripts": {
     "build": "yarn clean && tsc -b",
