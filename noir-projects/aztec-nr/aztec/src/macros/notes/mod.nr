@@ -1,8 +1,4 @@
-use crate::{
-    encrypted_logs::payload::OVERHEAD_SIZE,
-    note::{note_getter_options::PropertySelector, note_header::NoteHeader},
-    prelude::Point,
-};
+use crate::{note::{note_getter_options::PropertySelector, note_header::NoteHeader}, prelude::Point};
 use protocol_types::meta::{flatten_to_fields, pack_from_fields};
 use std::{
     collections::umap::UHashMap,
@@ -334,6 +330,7 @@ comptime fn generate_multi_scalar_mul(
                 aztec::protocol_types::point::Point { x: $generator_x, y: $generator_y, is_infinite: false }
                 },
             );
+            // TODO: explain why it's ok to use the unsafe `from_field_unsafe`, here.
             scalars_list =
                 scalars_list.push_back(quote { std::hash::from_field_unsafe($flattened_as_field) });
         }
@@ -350,6 +347,9 @@ comptime fn generate_multi_scalar_mul(
     (generators_list, scalars_list, args_list, aux_vars)
 }
 
+/// TODO: The macros shouldn't have a hard-coded opinion of a log layout; not even for partial notes.
+/// Since partial notes are about to be refactored, I won't tackle it yet.
+//
 /// Generates setup payload for a given note struct `s`. The setup payload contains log plaintext and hiding point.
 ///
 /// Example:
@@ -395,13 +395,14 @@ comptime fn generate_multi_scalar_mul(
 ///
 ///     fn encrypt_log(self, context: &mut PrivateContext, recipient_keys: aztec::protocol_types::public_keys::PublicKeys, recipient: aztec::protocol_types::address::AztecAddress) -> [Field; 17] {
 ///
-///         let encrypted_log_bytes: [u8; 513] = aztec::encrypted_logs::payload::compute_partial_public_log_payload(
+///         let encrypted_log_bytes: [u8; 513] = aztec::encrypted_logs::log_assembly_strategies::default_aes128::partial_note::::compute_partial_public_log_payload(
 ///             context.this_address(),
+///             self.log_plaintext,
 ///             recipient,
-///             self.log_plaintext
+///             sender
 ///         );
 ///
-///         aztec::utils::bytes::bytes_to_fields(encrypted_log_bytes)
+///         aztec::utils::bytes::be_bytes_31_to_fields(encrypted_log_bytes)
 ///     }
 ///
 /// impl aztec::protocol_types::traits::Empty for TokenNoteSetupPayload {
@@ -433,17 +434,22 @@ comptime fn generate_setup_payload(
 
     // Then the log plaintext ones
     let log_plaintext_length = indexed_fixed_fields.len() * 32 + 64;
-    let setup_log_plaintext =
+    let setup_log_plaintext: Quoted =
         get_setup_log_plaintext_body(s, log_plaintext_length, indexed_nullable_fields);
 
-    // Then we compute values for `encrypt_log(...)` function
-    let untagged_encrypted_log_byte_length = OVERHEAD_SIZE
+    // Then we compute values for `encrypt_log(...)` function.
+    // First, the length of the items that are broken into bytes:
+    let encrypted_log_bytes_length = 1 /* eph_pk_sign */
+        + 48 /* header_ciphertext */
         + log_plaintext_length /* log_plaintext */
-        + 2 /* log_plaintext_length */
-        + 14 /* AES padding */;
-    // Each field (apart from the tag) contains 31 bytes so the length in fields is computed as ceil(encrypted_log_byte_length / 31)
-    // --> we achieve rounding by adding 30 and then dividing without remainder, then add one for the 32 byte tag
-    let encrypted_log_field_length = 1 + (untagged_encrypted_log_byte_length + 30) / 31;
+        + 16
+        - (log_plaintext_length % 16); /* pkcs#7 aes padding */
+
+    // Each field contains 31 bytes so the length in fields is computed as ceil(encrypted_log_byte_length / 31)
+    // Recall: ceil(x / y) = (x + y - 1) // y (integer division).
+    let encrypted_log_fields_length = 1 /* tag */
+        + 1 /* eph_pk.x */
+        + (encrypted_log_bytes_length + 30) / 31;
 
     (
         quote {
@@ -467,12 +473,12 @@ comptime fn generate_setup_payload(
                 }
             }
 
-            pub fn encrypt_log(self, context: &mut PrivateContext, recipient: aztec::protocol_types::address::AztecAddress, sender: aztec::protocol_types::address::AztecAddress) -> [Field; $encrypted_log_field_length] {
-                aztec::encrypted_logs::payload::compute_partial_public_log_payload::<$log_plaintext_length, $untagged_encrypted_log_byte_length>(
+            pub fn encrypt_log(self, context: &mut PrivateContext, recipient: aztec::protocol_types::address::AztecAddress, sender: aztec::protocol_types::address::AztecAddress) -> [Field; $encrypted_log_fields_length] {
+                aztec::encrypted_logs::log_assembly_strategies::default_aes128::partial_note::compute_partial_public_log_payload(
                     context.this_address(),
+                    self.log_plaintext,
                     recipient,
                     sender,
-                    self.log_plaintext,
                 )
             }
         }
@@ -624,7 +630,7 @@ comptime fn generate_finalization_payload(
     let to_omit = indexed_fixed_fields.map(|(name, _, _): (Quoted, Type, u32)| name).push_back(
         quote { header },
     );
-    let (fields_list, aux_vars) = flatten_to_fields(quote { }, s.as_type(), to_omit);
+    let (nullable_fields_list, aux_vars) = flatten_to_fields(quote { }, s.as_type(), to_omit);
 
     // If there are `aux_vars` we need to join them with `;` and add a trailing `;` to the joined string.
     let aux_vars_for_serialization = if aux_vars.len() > 0 {
@@ -635,8 +641,8 @@ comptime fn generate_finalization_payload(
     };
 
     // We compute the log length and we concatenate the fields into a single quote.
-    let public_values_length = fields_list.len();
-    let fields = fields_list.join(quote {,});
+    let public_values_length = nullable_fields_list.len();
+    let nullable_fields = nullable_fields_list.join(quote {,});
 
     // Now we compute quotes relevant to the multi-scalar multiplication.
     let (generators_list, _, args_list, msm_aux_vars) =
@@ -655,14 +661,21 @@ comptime fn generate_finalization_payload(
 
     // Then we compute values for `encrypt_log(...)` function
     let setup_log_plaintext_length = indexed_fixed_fields.len() * 32 + 64;
-    let untagged_setup_log_byte_length = OVERHEAD_SIZE
-        + setup_log_plaintext_length
-        + 2 /* log_plaintext_length */
-        + 14 /* AES padding */;
-    // Each field (apart from the tag) contains 31 bytes so the length in fields is computed as ceil(setup_log_byte_length / 31)
-    // --> we achieve rounding by adding 30 and then dividing without remainder, then add one for the 32 byte tag
-    let setup_log_field_length = 1 + (untagged_setup_log_byte_length + 30) / 31;
-    let finalization_log_field_length = 1 + setup_log_field_length + public_values_length;
+
+    let setup_log_bytes_length = 1 /* eph_pk_sign */
+        + 48 /* header_ciphertext */
+        + setup_log_plaintext_length /* log_plaintext */
+        + 16
+        - (setup_log_plaintext_length % 16); /* pkcs#7 aes padding */
+
+    // Each field contains 31 bytes so the length in fields is computed as ceil(encrypted_log_byte_length / 31)
+    // Recall: ceil(x / y) = (x + y - 1) // y (integer division).
+    let setup_log_fields_length = 1 /* tag */
+        + 1 /* eph_pk.x */
+        + (setup_log_bytes_length + 30) / 31;
+
+    let finalization_log_fields_length =
+        1 /* some length encodings (see below) */ + setup_log_fields_length + public_values_length;
 
     (
         quote {
@@ -681,7 +694,7 @@ comptime fn generate_finalization_payload(
                 self.setup_log_slot = slot + aztec::protocol_types::point::POINT_LENGTH as Field;
 
                 $aux_vars_for_serialization
-                self.public_values = [$fields];
+                self.public_values = [$nullable_fields];
 
                 self
             }
@@ -713,41 +726,59 @@ comptime fn generate_finalization_payload(
             }
 
             pub fn emit_log(self) {
+                aztec::protocol_types::debug_log::debug_log_format("\nsetup_log_plaintext_length: {0}", [$setup_log_plaintext_length as Field]);
+                aztec::protocol_types::debug_log::debug_log_format("\nsetup_log_fields_length: {0}", [$setup_log_fields_length as Field]);
+                aztec::protocol_types::debug_log::debug_log_format("\npublic_values_length: {0}", [$public_values_length as Field]);
+                aztec::protocol_types::debug_log::debug_log_format("\nfinalization_log_fields_length: {0}", [$finalization_log_fields_length as Field]);
+
                 let max_log_len = aztec::protocol_types::constants::PUBLIC_LOG_DATA_SIZE_IN_FIELDS;
                 // Make sure we aren't overflowing the public log maximum
                 assert(
-                    $finalization_log_field_length <= max_log_len,
+                    $finalization_log_fields_length <= max_log_len,
                     f"finalization public log must not exceed {max_log_len} fields",
                 );
 
                 // We load the setup log from storage
-                let setup_log_fields: [Field; $setup_log_field_length] = self.context.storage_read(self.setup_log_slot);
+                let setup_log_fields: [Field; $setup_log_fields_length] = self.context.storage_read(self.setup_log_slot);
 
-                // We append the public value to the log and emit it as public log
-                let mut finalization_log = [0; $finalization_log_field_length];
+                // We append the public value to the log and emit it as unencrypted log
+                let mut finalization_log = [0; $finalization_log_fields_length];
 
-                // Iterate over the partial log and copy it to the final log
-                for i in 0..setup_log_fields.len() {
-                    finalization_log[i + 1] = setup_log_fields[i];
-                }
+                aztec::protocol_types::debug_log::debug_log("Pushing to finalization_log[0]");
 
-                // Iterate over the public values and append them to the log
-                for i in 0..self.public_values.len() {
-                    finalization_log[1 + $setup_log_field_length + i] = self.public_values[i];
-                }
-
-                // Populate the first field with number of public values, private values, and ciphertext length
-                let ciphertext_bytes_length = $untagged_setup_log_byte_length - aztec::encrypted_logs::payload::OVERHEAD_SIZE;
+                // Populate the first field with number of public values and private values:
                 finalization_log[0] = aztec::protocol_types::utils::field::field_from_bytes([
                     ($public_values_length >> 8) as u8,
                     $public_values_length as u8,
                     0,
-                    ($setup_log_field_length >> 8) as u8,
-                    $setup_log_field_length as u8,
+                    ($setup_log_fields_length >> 8) as u8,
+                    $setup_log_fields_length as u8,
                     0,
-                    (ciphertext_bytes_length >> 8) as u8,
-                    ciphertext_bytes_length as u8,
                 ], true);
+                let mut offset = 1;
+
+                aztec::protocol_types::debug_log::debug_log("Pushing setup_log_fields to finalization_log");
+                // Iterate over the partial log and copy it to the final log
+                for i in 0..setup_log_fields.len() {
+                    finalization_log[offset + i] = setup_log_fields[i];
+                }
+                offset += setup_log_fields.len();
+
+                aztec::protocol_types::debug_log::debug_log("Pushing self.public_values to finalization_log");
+                // Iterate over the public values and append them to the log
+                for i in 0..self.public_values.len() {
+                    finalization_log[offset + i] = self.public_values[i];
+                }
+
+                aztec::protocol_types::debug_log::debug_log("Done. Now converting to bytes:");
+
+
+                // We emit the finalization log via the public logs stream.
+                // Well, we can't do that until Miranda's PR is merged, so until then, let's convert back to bytes and then push:
+
+                let finalization_log_bytes = aztec::utils::bytes::fields_to_be_bytes_32(finalization_log);
+
+                aztec::protocol_types::debug_log::debug_log("Done. Now pushing to the context:");
 
                 // We emit the finalization log via the public logs stream
                 self.context.emit_public_log(finalization_log);

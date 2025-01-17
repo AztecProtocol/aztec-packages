@@ -73,12 +73,12 @@ export class L1NotePayload {
   }
 
   static async decryptAsIncomingFromPublic(log: PublicLog, sk: Fq): Promise<L1NotePayload | undefined> {
-    const { privateValues, publicValues, ciphertextLength } = parseLogFromPublic(log);
+    const { privateValues, publicValues } = parseLogFromPublic(log);
     if (!privateValues) {
       return undefined;
     }
 
-    const decryptedLog = await EncryptedLogPayload.decryptAsIncoming(privateValues, sk, ciphertextLength);
+    const decryptedLog = await EncryptedLogPayload.decryptAsIncoming(privateValues, sk);
     if (!decryptedLog) {
       return undefined;
     }
@@ -160,19 +160,19 @@ export class L1NotePayload {
  */
 function parseLogFromPublic(log: PublicLog) {
   // Extract lengths from the log
+  // See aztec_nr/aztec/src/macros/note/mod.nr to see how the "finalization_log" is encoded.
   // Each length is stored in 2 bytes with a 0 separator byte between them:
-  // [ publicLen[0], publicLen[1], 0, privateLen[0], privateLen[1], 0, ciphertextLen[0], ciphertextLen[1]]
-  const lengths = log.log[0].toBuffer().subarray(-8);
+  // [ publicLen[0], publicLen[1], 0, privateLen[0], privateLen[1], 0 ]
+  const lengths = log.log[0].toBuffer().subarray(-6);
   const publicValuesLength = lengths.readUint16BE();
   const privateValuesLength = lengths.readUint16BE(3);
-  const ciphertextLength = lengths.readUint16BE(6);
 
   // Now we get the fields corresponding to the values generated from private.
   // Note: +1 for the length values in position 0
-  const privateValues = log.log.slice(1, privateValuesLength + 1);
+  const privateValues = log.log.slice(1, 1 + privateValuesLength);
 
   // At last we load the public values
-  const publicValues = log.log.slice(privateValuesLength + 1, privateValuesLength + 1 + publicValuesLength);
+  const publicValues = log.log.slice(1 + privateValuesLength, 1 + privateValuesLength + publicValuesLength);
 
-  return { publicValues, privateValues, ciphertextLength };
+  return { publicValues, privateValues };
 }

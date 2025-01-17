@@ -1,5 +1,6 @@
 use dep::aztec::{
-    context::PrivateContext, encrypted_logs::encrypted_note_emission::encode_and_encrypt_note,
+    context::PrivateContext,
+    encrypted_logs::log_assembly_strategies::default_aes128::note::encode_and_encrypt_note,
     note::note_getter_options::NoteGetterOptions, protocol_types::address::AztecAddress,
     state_vars::PrivateSet,
 };
@@ -28,6 +29,7 @@ impl EasyPrivateUint<&mut PrivateContext> {
 
         // Insert the new note to the owner's set of notes.
         // docs:start:insert
+        // TODO: consider how to give devs choice over this `encode_and_encrypt_note` function. At the moment, it's hard-coded as one of many potential strategies.
         self.set.insert(&mut addend_note).emit(encode_and_encrypt_note(self.context, owner, sender));
         // docs:end:insert
     }

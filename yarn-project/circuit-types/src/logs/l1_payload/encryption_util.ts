@@ -1,7 +1,27 @@
-import { type GrumpkinScalar, type PublicKey } from '@aztec/circuits.js';
+import { GeneratorIndex, type Point } from '@aztec/circuits.js';
 import { Aes128 } from '@aztec/circuits.js/barretenberg';
+import { sha256 } from '@aztec/foundation/crypto';
+import { numToUInt8 } from '@aztec/foundation/serialize';
 
-import { deriveAESSecret } from './shared_secret_derivation.js';
+function extractCloseToUniformlyRandom256BitsFromEcdhSharedSecretUsingSha256(sharedSecret: Point): Buffer {
+  const secretBuffer = Buffer.concat([sharedSecret.toCompressedBuffer(), numToUInt8(GeneratorIndex.SYMMETRIC_KEY)]);
+  const hash = sha256(secretBuffer);
+  return hash;
+}
+
+function deriveAesSymmetricKeyAndIvFromEcdhSharedSecret(sharedSecret: Point, randomnessExtractionFunction: (sharedSecret: Point) => Buffer): [Buffer, Buffer] {
+  const random256Bits = randomnessExtractionFunction(sharedSecret);
+  const symKey = random256Bits.subarray(0, 16);
+  const iv = random256Bits.subarray(16, 32);
+  return [symKey, iv];
+}
+
+export function deriveAesSymmetricKeyAndIvFromEcdhSharedSecretUsingSha256(sharedSecret: Point): [Buffer, Buffer] {
+  return deriveAesSymmetricKeyAndIvFromEcdhSharedSecret(
+    sharedSecret,
+    extractCloseToUniformlyRandom256BitsFromEcdhSharedSecretUsingSha256
+  );
+}
 
 /**
  * Encrypts the plaintext using the secret key and public key
@@ -12,18 +32,13 @@ import { deriveAESSecret } from './shared_secret_derivation.js';
  * @param deriveSecret - Function to derive the AES secret from the ephemeral secret key and public key
  * @returns The ciphertext
  */
-export function encrypt(
+export function aes128Encrypt(
   plaintext: Buffer,
-  secret: GrumpkinScalar,
-  publicKey: PublicKey,
-  deriveSecret: (secret: GrumpkinScalar, publicKey: PublicKey) => Buffer = deriveAESSecret,
+  iv: Buffer,
+  symKey: Buffer,
 ): Buffer {
-  const aesSecret = deriveSecret(secret, publicKey);
-  const key = aesSecret.subarray(0, 16);
-  const iv = aesSecret.subarray(16, 32);
-
   const aes128 = new Aes128();
-  return aes128.encryptBufferCBC(plaintext, iv, key);
+  return aes128.encryptBufferCBC(plaintext, iv, symKey);
 }
 
 /**
@@ -34,16 +49,11 @@ export function encrypt(
  * @param deriveSecret - Function to derive the AES secret from the ephemeral secret key and public key
  * @returns
  */
-export function decrypt(
+export function aes128Decrypt(
   ciphertext: Buffer,
-  secret: GrumpkinScalar,
-  publicKey: PublicKey,
-  deriveSecret: (secret: GrumpkinScalar, publicKey: PublicKey) => Buffer = deriveAESSecret,
+  iv: Buffer,
+  symKey: Buffer,
 ): Buffer {
-  const aesSecret = deriveSecret(secret, publicKey);
-  const key = aesSecret.subarray(0, 16);
-  const iv = aesSecret.subarray(16, 32);
-
   const aes128 = new Aes128();
-  return aes128.decryptBufferCBC(ciphertext, iv, key);
+  return aes128.decryptBufferCBC(ciphertext, iv, symKey);
 }

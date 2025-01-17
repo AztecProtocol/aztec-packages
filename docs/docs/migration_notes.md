@@ -37,6 +37,19 @@ This PR also renamed encrypted events to private events:
 + getPrivateEvents<T>(eventMetadata: EventMetadataDefinition, from: number, limit: number, vpks: Point[]): Promise<T[]>
 ```
 
+### Logs for notes, partial notes, and events have been refactored.
+
+We're preparing to make log assembly more customisable. These paths have changed.
+```diff
+- use dep::aztec::encrypted_logs::encrypted_note_emission::encode_and_encrypt_note,
++ use dep::aztec::encrypted_logs::log_assembly_strategies::default_aes128::note::encode_and_encrypt_note,
+```
+
+And similar paths for `encode_and_encrypt_note_unconstrained`, and for events and partial notes.
+
+The way in which logs are assembled in this "default_aes128" strategy is has also changed. I repeat: **Encrypted log layouts have changed**. The corresponding typescript for note discovery has also been changed, but if you've rolled your own functions for parsing and decrypting logs, those will be broken by this change.
+
+
 ## 0.70.0
 ### [Aztec.nr] Removal of `getSiblingPath` oracle
 Use `getMembershipWitness` oracle instead that returns both the sibling path and index.

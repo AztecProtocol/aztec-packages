@@ -14,7 +14,7 @@ contract NFT {
         compute_authwit_nullifier,
     };
     use dep::aztec::{
-        encrypted_logs::encrypted_note_emission::encode_and_encrypt_note,
+        encrypted_logs::log_assembly_strategies::default_aes128::note::encode_and_encrypt_note,
         macros::{
             events::event,
             functions::{initializer, internal, private, public, view},
@@ -26,11 +26,12 @@ contract NFT {
             AztecAddress, Map, NoteGetterOptions, NoteViewerOptions, PrivateContext, PrivateSet,
             PublicContext, PublicImmutable, PublicMutable,
         },
-        protocol_types::{point::Point, traits::Serialize},
+        protocol_types::{debug_log::{debug_log, debug_log_format}, point::Point, traits::Serialize},
         utils::comparison::Comparator,
     };
     use dep::compressed_string::FieldCompressedString;
     use std::meta::derive;
+
     // docs:end:imports
 
     // TODO(#8467): Rename this to Transfer - calling this NFTTransfer to avoid export conflict with the Transfer event
@@ -67,6 +68,7 @@ contract NFT {
     #[public]
     #[initializer]
     fn constructor(admin: AztecAddress, name: str<31>, symbol: str<31>) {
+        debug_log("MIKE: I am in the constructor. Wassup.");
         assert(!admin.is_zero(), "invalid admin");
         storage.admin.write(admin);
         storage.minters.at(admin).write(true);
@@ -164,6 +166,7 @@ contract NFT {
     // docs:start:transfer_to_private
     #[private]
     fn transfer_to_private(to: AztecAddress, token_id: Field) {
+        debug_log("Hi Mum, I'm in transfer_to_private");
         let from = context.msg_sender();
 
         let nft = NFT::at(context.this_address());
@@ -198,6 +201,7 @@ contract NFT {
         context: &mut PrivateContext,
         storage: Storage<&mut PrivateContext>,
     ) -> Field {
+        debug_log("Hi Mum, I'm doing _prepare_private_balance_increase");
         let to_note_slot = storage.private_nfts.at(to).storage_slot;
 
         // We create a setup payload with unpopulated/zero token id for 'to'
@@ -319,11 +323,13 @@ contract NFT {
     // docs:start:transfer_in_private
     #[private]
     fn transfer_in_private(from: AztecAddress, to: AztecAddress, token_id: Field, nonce: Field) {
+        debug_log("MIKE: Hello there, Michael");
         if (!from.eq(context.msg_sender())) {
             assert_current_call_valid_authwit(&mut context, from);
         } else {
             assert(nonce == 0, "invalid nonce");
         }
+        debug_log("MIKE: we're past the authwit stage");
 
         let nfts = storage.private_nfts;
 
@@ -332,7 +338,12 @@ contract NFT {
             .set_limit(1));
         assert(notes.len() == 1, "NFT not found when transferring");
 
+        debug_log("MIKE: we've grabbed some notes, hopefully...");
+
         let mut new_note = NFTNote::new(token_id, to);
+
+        debug_log("MIKE: about to encode and encrypt a note...");
+
         nfts.at(to).insert(&mut new_note).emit(encode_and_encrypt_note(&mut context, to, from));
     }
     // docs:end:transfer_in_private
