@@ -117,7 +117,9 @@ export class Blob {
     return {
       blob: `0x${Buffer.from(this.data).toString('hex')}`,
       index,
+      // eslint-disable-next-line camelcase
       kzg_commitment: `0x${this.commitment.toString('hex')}`,
+      // eslint-disable-next-line camelcase
       kzg_proof: `0x${this.proof.toString('hex')}`,
     };
   }
