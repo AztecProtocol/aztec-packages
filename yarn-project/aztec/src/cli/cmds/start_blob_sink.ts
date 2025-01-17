@@ -1,10 +1,9 @@
 import {
-  BlobSinkConfig,
+  type BlobSinkConfig,
   blobSinkConfigMappings,
   createBlobSinkServer,
   getBlobSinkConfigFromEnv,
 } from '@aztec/blob-sink/server';
-import { type NamespacedApiHandlers } from '@aztec/foundation/json-rpc/server';
 import { type LogFn } from '@aztec/foundation/log';
 import { createAndStartTelemetryClient, telemetryClientConfigMappings } from '@aztec/telemetry-client/start';
 
