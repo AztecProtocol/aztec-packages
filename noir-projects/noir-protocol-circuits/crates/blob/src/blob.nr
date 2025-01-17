@@ -310,7 +310,7 @@ fn barycentric_evaluate_blob_at_z(z: F, ys: [F; FIELDS_PER_BLOB]) -> F {
 
         /// Safety: We're running under the condition that `std::runtime::is_unconstrained()` is true.
         unsafe {
-            __compute_sum(fracs, ROOTS)
+            __compute_sum(fracs, UNCONSTRAINED_ROOTS)
         }
     };
 
