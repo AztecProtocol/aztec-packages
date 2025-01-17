@@ -22,7 +22,7 @@ export interface BlobSinkConfig {
 
 export const blobSinkConfigMapping: ConfigMappingsType<BlobSinkConfig> = {
   blobSinkUrl: {
-    env: 'SEQ_BLOB_SINK_URL',
+    env: 'BLOB_SINK_URL',
     description: 'The URL of the blob sink',
   },
   l1RpcUrl: {
