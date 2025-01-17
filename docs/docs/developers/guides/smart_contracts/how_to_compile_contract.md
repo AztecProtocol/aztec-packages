@@ -8,7 +8,7 @@ Once you have written a contract in Aztec.nr, you will need to compile it into a
 
 In this guide we will cover how to do so, both using the `aztec-nargo` command and programmatically.
 
-We'll also cover how to generate a helper [TypeScript interface](#typescript-interfaces) and an [Aztec.nr interface](#noir-interfaces) for easily interacting with your contract from your typescript app and from other Aztec.nr contracts, respectively.
+We'll also cover how to generate a helper [TypeScript interface](#typescript-interfaces) and an [Aztec.nr interface](#aztecnr-interfaces) for easily interacting with your contract from your typescript app and from other Aztec.nr contracts, respectively.
 
 ## Compile using aztec-nargo
 

@@ -141,7 +141,7 @@ let storage = Storage::init(&mut context);
 
 ## Constrained `view` Functions #[view]
 
-The `#[view]` attribute is used to define constrained view functions in Aztec contracts. These functions are similar to view functions in Solidity, in that they are read-only and do not modify the contract's state. They are similar to the [`unconstrained`](#unconstrained-functions-aztecunconstrained) keyword but are executed in a constrained environment. It is not possible to update state within an `#[view]` function.
+The `#[view]` attribute is used to define constrained view functions in Aztec contracts. These functions are similar to view functions in Solidity, in that they are read-only and do not modify the contract's state. They are similar to the [`unconstrained`](#unconstrained-functions) keyword but are executed in a constrained environment. It is not possible to update state within an `#[view]` function.
 
 This means the results of these functions are verifiable and can be trusted, as they are part of the proof generation and verification process. This is unlike unconstrained functions, where results are provided by the PXE and are not verified.
 
@@ -159,7 +159,7 @@ This is used to designate functions as initializers (or constructors) for an Azt
 Key things to keep in mind:
 
 - A contract can have multiple initializer functions defined, but only one initializer function should be called for the lifetime of a contract instance
-- Other functions in the contract will have an initialization check inserted, ie they cannot be called until the contract is initialized, unless they are marked with [`#[noinitcheck]`](#aztecnoinitcheck)
+- Other functions in the contract will have an initialization check inserted, ie they cannot be called until the contract is initialized, unless they are marked with [`#[noinitcheck]`](#noinitcheck)
 
 ## #[noinitcheck]
 
@@ -167,7 +167,7 @@ In normal circumstances, all functions in an Aztec contract (except initializers
 
 When a function is annotated with `#[noinitcheck]`:
 
-- The Aztec macro processor skips the [insertion of the initialization check](#initializer-functions-aztecinitializer) for this specific function
+- The Aztec macro processor skips the [insertion of the initialization check](#initializer-functions-initializer) for this specific function
 - The function can be called at any time, even if the contract hasn't been initialized yet
 
 ## `Internal` functions #[internal]

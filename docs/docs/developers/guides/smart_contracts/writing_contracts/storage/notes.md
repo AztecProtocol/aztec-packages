@@ -34,7 +34,7 @@ A couple of things to unpack here:
 
 #### Storage "slot"
 
-Storage slots are more literal for public storage, a place where a value is stored. For private storage, a storage slot is logical (more [here](../../../../../aztec/concepts/storage/index.md#private-state-slots---slots-arent-real)).
+Storage slots are more literal for public storage, a place where a value is stored. For private storage, a storage slot is logical (more [here](../../../../../aztec/concepts/advanced/storage/storage_slots.md)).
 
 #### Silos
 

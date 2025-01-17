@@ -146,7 +146,7 @@
     from = "/reference/sandbox_reference"
     to = "/developers/getting_started" 
 
-[[redirects]]sx
+[[redirects]]
     from = "/guides/getting_started/*"
     to = "/developers/getting_started/*" 
 

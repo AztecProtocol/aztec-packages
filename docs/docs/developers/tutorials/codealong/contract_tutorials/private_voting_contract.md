@@ -174,5 +174,5 @@ Follow the crowdfunding contracts tutorial on the [next page](./crowdfunding_con
 
 - [Unconstrained functions](../../../../aztec/smart_contracts/functions/attributes.md#unconstrained-functions).
 - [Oracles](../../../../aztec/smart_contracts/oracles/index.md)
-- [Nullifier secrets](../../../../aztec/concepts/accounts/keys.md#nullifier-secrets).
+- [Nullifier secrets](../../../../aztec/concepts/accounts/keys.md#nullifier-keys).
 - [How to deploy a contract to the sandbox](../../../guides/smart_contracts/how_to_deploy_contract.md)

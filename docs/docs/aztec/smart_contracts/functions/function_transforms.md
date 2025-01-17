@@ -12,7 +12,7 @@ Below, we go more into depth of what is happening under the hood when you create
 When you define a function in an Aztec contract, it undergoes several transformations when it is compiled. These transformations prepare the function for execution. These transformations include:
 
 - [Creating a context for the function](#context-creation)
-- [Handling function inputs](#input-handling)
+- [Handling function inputs](#private-and-public-input-injection)
 - [Processing return values](#return-value-handling)
 - [Computing note hashes and nullifiers](#computing-note-hash-and-nullifier)
 - [Generating function signatures](#function-signature-generation)
