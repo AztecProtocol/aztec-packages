@@ -1,4 +1,4 @@
-use crate::address::AztecAddress;
+use crate::{address::AztecAddress, traits::FromField};
 
 pub global MAX_FIELD_VALUE: Field =
     21888242871839275222246405745257275088548364400416034343698204186575808495616;
@@ -130,8 +130,9 @@ pub global FIELDS_PER_BLOB: u32 = 4096;
 pub global BLOBS_PER_BLOCK: u32 = 3;
 pub global PRIVATE_LOG_SIZE_IN_FIELDS: u32 = 18; // This is currently affected by the size of the log overhead defined in aztec-nr/aztec/src/encrypted_logs/payload.nr.
 pub global AZTEC_MAX_EPOCH_DURATION: u32 = 48;
-// The following is taken from building a block and looking at the `lastArchive` value in it.
-// You can run the `integration_l1_publisher.test.ts` and look at the first blocks in the fixtures.
+// The following genesis values are taken from world_state.test.cpp > WorldStateTest.GetInitialTreeInfoForAllTrees
+pub global GENESIS_BLOCK_HASH: Field =
+    0x2da55666630fdf8594065c377958c827dc1c130dac91f17c6699b53dce60ef75;
 pub global GENESIS_ARCHIVE_ROOT: Field =
     0x0237797d6a2c04d20d4fa06b74482bd970ccd51a43d9b05b57e9b91fa1ae1cae;
 // The following and the value in `deploy_l1_contracts` must match. We should not have the code both places, but
@@ -486,7 +487,7 @@ pub global MAX_PUBLIC_CALLS_TO_UNIQUE_CONTRACT_CLASS_IDS: u32 = 21;
 // `AVM_PROOF_LENGTH_IN_FIELDS` must be updated when AVM circuit changes.
 // To determine latest value, hover `COMPUTED_AVM_PROOF_LENGTH_IN_FIELDS`
 // in barretenberg/cpp/src/barretenberg/vm/avm/generated/flavor.hpp
-pub global AVM_PROOF_LENGTH_IN_FIELDS: u32 = 4155;
+pub global AVM_PROOF_LENGTH_IN_FIELDS: u32 = 4154;
 pub global AVM_PUBLIC_COLUMN_MAX_SIZE: u32 = 1024;
 pub global AVM_PUBLIC_INPUTS_FLATTENED_SIZE: u32 =
     2 * AVM_PUBLIC_COLUMN_MAX_SIZE + PUBLIC_CIRCUIT_PUBLIC_INPUTS_LENGTH;
@@ -754,6 +755,8 @@ pub global PROOF_TYPE_PG: u32 = 3;
 pub global PROOF_TYPE_AVM: u32 = 4;
 pub global PROOF_TYPE_ROLLUP_HONK: u32 = 5;
 pub global PROOF_TYPE_ROOT_ROLLUP_HONK: u32 = 6;
+
+pub global TWO_POW_64: Field = 2.pow_32(64);
 
 mod test {
     use crate::constants::{

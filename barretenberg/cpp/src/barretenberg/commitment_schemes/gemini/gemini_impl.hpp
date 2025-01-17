@@ -52,8 +52,8 @@ std::vector<typename GeminiProver_<Curve>::Claim> GeminiProver_<Curve>::prove(
     const std::vector<RefVector<Polynomial>>& groups_to_be_concatenated,
     bool has_zk)
 {
-    size_t log_n = numeric::get_msb(static_cast<uint32_t>(circuit_size));
-    size_t n = 1 << log_n;
+    const size_t log_n = numeric::get_msb(static_cast<uint32_t>(circuit_size));
+    const size_t n = 1 << log_n;
 
     const bool has_concatenations = concatenated_polynomials.size() > 0;
 
@@ -67,10 +67,8 @@ std::vector<typename GeminiProver_<Curve>::Claim> GeminiProver_<Curve>::prove(
         transcript->send_to_verifier("Gemini:masking_poly_comm", commitment_key->commit(batched_unshifted));
         // In the provers, the size of multilinear_challenge is CONST_PROOF_SIZE_LOG_N, but we need to evaluate the
         // hiding polynomial as multilinear in log_n variables
-        std::vector<Fr> multilinear_challenge_resized(multilinear_challenge.begin(), multilinear_challenge.end());
-        multilinear_challenge_resized.resize(log_n);
         transcript->send_to_verifier("Gemini:masking_poly_eval",
-                                     batched_unshifted.evaluate_mle(multilinear_challenge_resized));
+                                     batched_unshifted.evaluate_mle(multilinear_challenge.subspan(0, log_n)));
     }
 
     // Get the batching challenge

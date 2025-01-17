@@ -651,7 +651,7 @@ void ContentAddressedAppendOnlyTree<Store, HashingPolicy>::get_leaf(const index_
                 RequestContext requestContext;
                 requestContext.includeUncommitted = includeUncommitted;
                 requestContext.root = store_->get_current_root(*tx, includeUncommitted);
-                std::optional<fr> leaf_hash = find_leaf_hash(leaf_index, requestContext, *tx);
+                std::optional<fr> leaf_hash = find_leaf_hash(leaf_index, requestContext, *tx, false);
                 response.success = leaf_hash.has_value();
                 if (response.success) {
                     response.inner.leaf = leaf_hash.value();
@@ -690,7 +690,7 @@ void ContentAddressedAppendOnlyTree<Store, HashingPolicy>::get_leaf(const index_
                                               leaf_index,
                                               " for block ",
                                               blockNumber,
-                                              ", leaf index is too high.");
+                                              ", leaf index out of range.");
                     response.success = false;
                     return;
                 }
@@ -698,7 +698,7 @@ void ContentAddressedAppendOnlyTree<Store, HashingPolicy>::get_leaf(const index_
                 requestContext.blockNumber = blockNumber;
                 requestContext.includeUncommitted = includeUncommitted;
                 requestContext.root = blockData.root;
-                std::optional<fr> leaf_hash = find_leaf_hash(leaf_index, requestContext, *tx);
+                std::optional<fr> leaf_hash = find_leaf_hash(leaf_index, requestContext, *tx, false);
                 response.success = leaf_hash.has_value();
                 if (response.success) {
                     response.inner.leaf = leaf_hash.value();
@@ -746,7 +746,6 @@ void ContentAddressedAppendOnlyTree<Store, HashingPolicy>::find_leaf_indices_fro
 
                 RequestContext requestContext;
                 requestContext.includeUncommitted = includeUncommitted;
-                requestContext.root = store_->get_current_root(*tx, includeUncommitted);
 
                 for (const auto& leaf : leaves) {
                     std::optional<index_t> leaf_index =
@@ -787,7 +786,6 @@ void ContentAddressedAppendOnlyTree<Store, HashingPolicy>::find_leaf_indices_fro
                 RequestContext requestContext;
                 requestContext.blockNumber = blockNumber;
                 requestContext.includeUncommitted = includeUncommitted;
-                requestContext.root = blockData.root;
                 requestContext.maxIndex = blockData.size;
 
                 for (const auto& leaf : leaves) {

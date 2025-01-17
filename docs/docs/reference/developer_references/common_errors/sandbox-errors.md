@@ -38,7 +38,7 @@ You cannot execute a public Aztec.nr function in the private kernel
 
 #### 2011 - PRIVATE_KERNEL\_\_UNSUPPORTED_OP
 
-You are trying to do something that is currently unsupported in the private kernel. If this is a blocker feel free to open up an issue on our monorepo [aztec-packages (GitHub link)](https://github.com/AztecProtocol/aztec3-packages/tree/master) or reach out to us on discord
+You are trying to do something that is currently unsupported in the private kernel. If this is a blocker feel free to open up an issue on our monorepo [aztec-packages (GitHub link)](https://github.com/AztecProtocol/aztec-packages/tree/master) or reach out to us on discord
 
 Note that certain operations are unsupported on certain versions of the private kernel. Eg static calls are allowed for all but the initial iteration of the private kernel (which initializes the kernel for subsequent function calls).
 
@@ -80,7 +80,7 @@ But for non transient reads, we do a merkle membership check. Reads are done at 
 
 #### 3001 - PUBLIC_KERNEL\_\_UNSUPPORTED_OP
 
-You are trying to do something that is currently unsupported in the public kernel. If this is a blocker feel free to open up an issue on our monorepo [aztec-packages (GitHub link)](https://github.com/AztecProtocol/aztec3-packages/tree/master) or reach out to us on discord
+You are trying to do something that is currently unsupported in the public kernel. If this is a blocker feel free to open up an issue on our monorepo [aztec-packages (GitHub link)](https://github.com/AztecProtocol/aztec-packages/tree/master) or reach out to us on discord
 
 #### 3002 - PUBLIC_KERNEL\_\_PRIVATE_FUNCTION_NOT_ALLOWED
 

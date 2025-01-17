@@ -47,14 +47,7 @@ spec:
             - |
               source /shared/config/service-addresses
               cat /shared/config/service-addresses
-              echo "Awaiting ethereum node at ${ETHEREUM_HOST}"
-              until curl -s -X POST -H 'Content-Type: application/json' \
-                -d '{"jsonrpc":"2.0","method":"eth_chainId","params":[],"id":67}' \
-                ${ETHEREUM_HOST} | grep 0x; do
-                echo "Waiting for Ethereum node ${ETHEREUM_HOST}..."
-                sleep 5
-              done
-              echo "Ethereum node is ready!"
+              {{- include "aztec-network.waitForEthereum" . | nindent 14 }}
           volumeMounts:
             - name: config
               mountPath: /shared/config
@@ -65,8 +58,18 @@ spec:
             - /bin/sh
             - -c
             - |
+              set -eux
               source /shared/config/service-addresses
-              if [ "$(cast code --rpc-url ${ETHEREUM_HOST} 0x4e59b44847b379578588920ca78fbf26c0b4956c)" = "0x" ]; then
+              # it is possible that even though we asserted this above, the DNS resolver of *this* pod
+              # is not yet ready to resolve the ethereum host.
+              # so we need to wait for it to be ready.
+              until cast rpc --rpc-url ${ETHEREUM_HOST} eth_chainId | grep 0x; do
+                echo "Waiting for Ethereum node ${ETHEREUM_HOST}..."
+                sleep 5
+              done
+              echo "Ethereum node is ready!"
+              PROXY_CODE="$(cast code --rpc-url ${ETHEREUM_HOST} 0x4e59b44847b379578588920ca78fbf26c0b4956c)"
+              if [ "$PROXY_CODE" = "0x" ]; then
                 echo "Deploying Deterministic Deployment Proxy"
                 cast publish --rpc-url ${ETHEREUM_HOST} 0xf8a58085174876e800830186a08080b853604580600e600039806000f350fe7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe03601600081602082378035828234f58015156039578182fd5b8082525050506014600cf31ba02222222222222222222222222222222222222222222222222222222222222222a02222222222222222222222222222222222222222222222222222222222222222
               fi
@@ -82,6 +85,7 @@ spec:
               cp /scripts/deploy-l1-contracts.sh /tmp/deploy-l1-contracts.sh
               chmod +x /tmp/deploy-l1-contracts.sh
               source /shared/config/service-addresses
+              {{- include "aztec-network.waitForEthereum" . | nindent 14 }}
 
               /tmp/deploy-l1-contracts.sh "{{ .Values.aztec.l1Salt }}" "{{ .Values.ethereum.chainId }}" "{{ join "," .Values.validator.validatorAddresses }}"
           volumeMounts:

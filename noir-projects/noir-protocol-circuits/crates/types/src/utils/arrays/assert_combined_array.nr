@@ -36,6 +36,7 @@ where
 mod tests {
     use crate::{
         tests::{types::TestValue, utils::pad_end},
+        traits::Empty,
         utils::arrays::assert_combined_array::{assert_combined_array, combine_arrays},
     };
 
@@ -90,9 +91,8 @@ mod tests {
             );
         }
 
-        pub fn check_and_execute(self) {
-            let combined =
-                unsafe { combine_arrays(self.original_array_lt, self.original_array_gte) };
+        pub unconstrained fn check_and_execute(self) {
+            let combined = combine_arrays(self.original_array_lt, self.original_array_gte);
             assert_eq(combined, self.combined_array);
 
             self.execute();
@@ -100,18 +100,18 @@ mod tests {
     }
 
     #[test]
-    fn assert_combined_array_empty_succeeds() {
+    unconstrained fn assert_combined_array_empty_succeeds() {
         let builder = TestBuilder::new_empty();
         builder.check_and_execute();
     }
 
     #[test]
-    fn assert_combined_array_succeeds() {
+    unconstrained fn assert_combined_array_succeeds() {
         let builder = TestBuilder::new();
         builder.check_and_execute();
     }
 
-    #[test(should_fail_with = "hinted item in the commbined array does not match")]
+    #[test(should_fail_with = "hinted item in the combined array does not match")]
     fn assert_combined_array_extra_item_fails() {
         let mut builder = TestBuilder::new();
 
@@ -121,7 +121,7 @@ mod tests {
         builder.execute();
     }
 
-    #[test(should_fail_with = "hinted item in the commbined array does not match")]
+    #[test(should_fail_with = "hinted item in the combined array does not match")]
     fn assert_combined_array_missing_item_fails() {
         let mut builder = TestBuilder::new();
 
@@ -131,7 +131,7 @@ mod tests {
         builder.execute();
     }
 
-    #[test(should_fail_with = "hinted item in the commbined array does not match")]
+    #[test(should_fail_with = "hinted item in the combined array does not match")]
     fn assert_combined_array_unordered_fails() {
         let mut builder = TestBuilder::new();
 

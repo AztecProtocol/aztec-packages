@@ -60,7 +60,7 @@ pub unconstrained fn derive_keys(secret: Field) -> PublicKeys {
 }
 
 pub unconstrained fn add_authwit(address: AztecAddress, message_hash: Field) {
-    orable_add_authwit(address, message_hash)
+    oracle_add_authwit(address, message_hash)
 }
 
 pub unconstrained fn assert_public_call_fails(
@@ -130,7 +130,7 @@ unconstrained fn oracle_add_account(secret: Field) -> TestAccount {}
 unconstrained fn oracle_derive_keys(secret: Field) -> PublicKeys {}
 
 #[oracle(addAuthWitness)]
-unconstrained fn orable_add_authwit(address: AztecAddress, message_hash: Field) {}
+unconstrained fn oracle_add_authwit(address: AztecAddress, message_hash: Field) {}
 
 #[oracle(assertPublicCallFails)]
 unconstrained fn oracle_assert_public_call_fails(
