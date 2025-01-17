@@ -172,7 +172,7 @@ async function getBlockFromRollupTx(
     throw new NoBlobBodiesFoundError(Number(l2BlockNum));
   }
 
-  const blockFields = blobBodies.flatMap(b => b.toFields());
+  const blockFields = blobBodies.flatMap(b => b.toEncodedFields());
 
   const header = BlockHeader.fromBuffer(Buffer.from(hexToBytes(decodedArgs.header)));
   // TODO(#9101): Retreiving the block body from calldata is a temporary soln before we have

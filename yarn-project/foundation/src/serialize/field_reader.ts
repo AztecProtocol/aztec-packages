@@ -179,6 +179,6 @@ export class FieldReader {
    * @returns A bool.
    */
   public isFinished(): boolean {
-    return this.index === this.length;
+    return this.index >= this.length;
   }
 }

@@ -53,7 +53,7 @@ export function deserializeEncodedBlobFields(blob: BlobBuffer): Fr[] {
     const currentField = fieldReader.peekField();
 
     // Stop when we hit a zero field
-    if (currentField.isZero()) {
+    if (!currentField || currentField.isZero()) {
       break;
     }
 

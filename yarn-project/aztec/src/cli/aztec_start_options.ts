@@ -1,6 +1,7 @@
 import { type ArchiverConfig, archiverConfigMappings } from '@aztec/archiver/config';
 import { faucetConfigMapping } from '@aztec/aztec-faucet/config';
 import { sequencerClientConfigMappings } from '@aztec/aztec-node/config';
+import { blobSinkConfigMapping } from '@aztec/blob-sink/client';
 import { botConfigMappings } from '@aztec/bot/config';
 import {
   type ConfigMapping,
@@ -256,6 +257,15 @@ export const aztecStartOptions: { [key: string]: AztecStartOption[] } = {
       envVar: undefined,
     },
     ...getOptions('sequencer', sequencerClientConfigMappings),
+  ],
+  BLOB_SINK: [
+    {
+      flag: '--blob-sink',
+      description: 'Starts Aztec Blob Sink with options',
+      defaultValue: undefined,
+      envVar: undefined,
+    },
+    ...getOptions('blobSink', blobSinkConfigMapping),
   ],
   'PROVER NODE': [
     {
