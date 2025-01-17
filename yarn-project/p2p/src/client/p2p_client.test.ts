@@ -1,5 +1,11 @@
 import { MockL2BlockSource } from '@aztec/archiver/test';
-import { L2Block, P2PClientType, mockEpochProofQuote, mockTx } from '@aztec/circuit-types';
+import {
+  type ClientProtocolCircuitVerifier,
+  L2Block,
+  P2PClientType,
+  mockEpochProofQuote,
+  mockTx,
+} from '@aztec/circuit-types';
 import { Fr } from '@aztec/circuits.js';
 import { retryUntil } from '@aztec/foundation/retry';
 import { sleep } from '@aztec/foundation/sleep';
@@ -22,6 +28,7 @@ describe('In-Memory P2P Client', () => {
   let mempools: MemPools;
   let blockSource: MockL2BlockSource;
   let p2pService: MockProxy<P2PService>;
+  let proofVerifier: MockProxy<ClientProtocolCircuitVerifier>;
   let kvStore: AztecKVStore;
   let client: P2PClient;
 
@@ -42,6 +49,9 @@ describe('In-Memory P2P Client', () => {
     blockSource = new MockL2BlockSource();
     blockSource.createBlocks(100);
 
+    proofVerifier = mock<ClientProtocolCircuitVerifier>();
+    proofVerifier.verifyProof.mockResolvedValue(true);
+
     mempools = {
       txPool,
       attestationPool,
@@ -49,7 +59,7 @@ describe('In-Memory P2P Client', () => {
     };
 
     kvStore = openTmpStore();
-    client = new P2PClient(P2PClientType.Full, kvStore, blockSource, mempools, p2pService);
+    client = new P2PClient(P2PClientType.Full, kvStore, blockSource, mempools, p2pService, proofVerifier);
   });
 
   const advanceToProvenBlock = async (getProvenBlockNumber: number, provenEpochNumber = getProvenBlockNumber) => {
@@ -108,7 +118,7 @@ describe('In-Memory P2P Client', () => {
     await client.start();
     await client.stop();
 
-    const client2 = new P2PClient(P2PClientType.Full, kvStore, blockSource, mempools, p2pService);
+    const client2 = new P2PClient(P2PClientType.Full, kvStore, blockSource, mempools, p2pService, proofVerifier);
     expect(client2.getSyncedLatestBlockNum()).toEqual(client.getSyncedLatestBlockNum());
   });
 
@@ -123,7 +133,7 @@ describe('In-Memory P2P Client', () => {
   });
 
   it('deletes txs after waiting the set number of blocks', async () => {
-    client = new P2PClient(P2PClientType.Full, kvStore, blockSource, mempools, p2pService, {
+    client = new P2PClient(P2PClientType.Full, kvStore, blockSource, mempools, p2pService, proofVerifier, {
       keepProvenTxsInPoolFor: 10,
     });
     blockSource.setProvenBlockNumber(0);
@@ -142,7 +152,7 @@ describe('In-Memory P2P Client', () => {
   });
 
   it('stores and returns epoch proof quotes', async () => {
-    client = new P2PClient(P2PClientType.Full, kvStore, blockSource, mempools, p2pService);
+    client = new P2PClient(P2PClientType.Full, kvStore, blockSource, mempools, p2pService, proofVerifier);
 
     blockSource.setProvenEpochNumber(2);
     await client.start();
@@ -174,7 +184,7 @@ describe('In-Memory P2P Client', () => {
 
   // TODO(#10737) flake cc Maddiaa0
   it.skip('deletes expired proof quotes', async () => {
-    client = new P2PClient(P2PClientType.Full, kvStore, blockSource, mempools, p2pService);
+    client = new P2PClient(P2PClientType.Full, kvStore, blockSource, mempools, p2pService, proofVerifier);
 
     blockSource.setProvenEpochNumber(1);
     blockSource.setProvenBlockNumber(1);
@@ -238,7 +248,7 @@ describe('In-Memory P2P Client', () => {
     });
 
     it('deletes txs created from a pruned block', async () => {
-      client = new P2PClient(P2PClientType.Full, kvStore, blockSource, mempools, p2pService, {
+      client = new P2PClient(P2PClientType.Full, kvStore, blockSource, mempools, p2pService, proofVerifier, {
         keepProvenTxsInPoolFor: 10,
       });
       blockSource.setProvenBlockNumber(0);
@@ -262,7 +272,7 @@ describe('In-Memory P2P Client', () => {
     });
 
     it('moves mined and valid txs back to the pending set', async () => {
-      client = new P2PClient(P2PClientType.Full, kvStore, blockSource, mempools, p2pService, {
+      client = new P2PClient(P2PClientType.Full, kvStore, blockSource, mempools, p2pService, proofVerifier, {
         keepProvenTxsInPoolFor: 10,
       });
       blockSource.setProvenBlockNumber(0);
@@ -291,6 +301,27 @@ describe('In-Memory P2P Client', () => {
       expect(txPool.deleteTxs).toHaveBeenCalledWith([badTx.getTxHash()]);
       await sleep(150);
       expect(txPool.markMinedAsPending).toHaveBeenCalledWith([goodTx.getTxHash()]);
+      await client.stop();
+    });
+
+    it('discards invalid txs already in the mempool when started', async () => {
+      const goodTx = mockTx(1);
+      const badTx = mockTx(2);
+      const invalidTx = mockTx(3);
+      txPool.getAllTxs.mockReturnValue([goodTx, badTx, invalidTx]);
+
+      proofVerifier.verifyProof.mockImplementation(tx =>
+        tx.getTxHash().equals(invalidTx.getTxHash())
+          ? Promise.reject(new Error('test error'))
+          : tx.getTxHash().equals(badTx.getTxHash())
+          ? Promise.resolve(false)
+          : Promise.resolve(true),
+      );
+
+      await client.start();
+
+      expect(txPool.deleteTxs).toHaveBeenCalledWith([badTx.getTxHash(), invalidTx.getTxHash()]);
+
       await client.stop();
     });
   });

@@ -1,6 +1,7 @@
 import {
   type BlockAttestation,
   type BlockProposal,
+  type ClientProtocolCircuitVerifier,
   type EpochProofQuote,
   type L2Block,
   type L2BlockId,
@@ -236,6 +237,7 @@ export class P2PClient<T extends P2PClientType = P2PClientType.Full>
     private l2BlockSource: L2BlockSource,
     mempools: MemPools<T>,
     private p2pService: P2PService,
+    private proofVerifier: ClientProtocolCircuitVerifier,
     config: Partial<P2PConfig> = {},
     telemetry: TelemetryClient = getTelemetryClient(),
     private log = createLogger('p2p'),
@@ -368,6 +370,25 @@ export class P2PClient<T extends P2PClientType = P2PClientType.Full>
     }
     if (this.currentState !== P2PClientState.IDLE) {
       return this.syncPromise;
+    }
+
+    const badTxHashes: TxHash[] = [];
+    for (const tx of this.txPool.getAllTxs()) {
+      let ok = false;
+      try {
+        ok = await this.proofVerifier.verifyProof(tx);
+      } catch (err) {
+        this.log.warn(`Error encountered validating proof of tx ${tx.getTxHash}: ${err}`);
+      }
+
+      if (!ok) {
+        this.log.info(`Could not verify ClientIVC proof for tx ${tx.getTxHash}. Dropping`);
+        badTxHashes.push(tx.getTxHash());
+      }
+    }
+
+    if (badTxHashes.length > 0) {
+      await this.txPool.deleteTxs(badTxHashes);
     }
 
     // get the current latest block numbers
