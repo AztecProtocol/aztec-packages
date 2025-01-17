@@ -20,7 +20,7 @@ import {
   trackSpan,
 } from '@aztec/telemetry-client';
 
-import { type ProofStore } from './proof_store.js';
+import { type ProofStore } from './proof_store/index.js';
 import { ProvingAgentInstrumentation } from './proving_agent_instrumentation.js';
 import { ProvingJobController, ProvingJobControllerStatus } from './proving_job_controller.js';
 

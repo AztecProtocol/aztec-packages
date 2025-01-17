@@ -44,7 +44,7 @@ import {
 } from '@aztec/circuits.js/testing';
 import { times } from '@aztec/foundation/collection';
 
-import { InlineProofStore, type ProofStore } from '../proving_broker/proof_store.js';
+import { InlineProofStore, type ProofStore } from '../proving_broker/proof_store/index.js';
 import { ProvingAgent } from '../proving_broker/proving_agent.js';
 import { ProvingBroker } from '../proving_broker/proving_broker.js';
 import { InMemoryBrokerDatabase } from '../proving_broker/proving_broker_database/memory.js';

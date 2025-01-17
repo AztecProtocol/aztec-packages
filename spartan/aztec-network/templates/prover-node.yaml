@@ -160,6 +160,8 @@ spec:
               value: "{{ .Values.proverNode.txGathering.intervalMs }}"
             - name: PROVER_NODE_TX_GATHERING_MAX_PARALLEL_REQUESTS
               value: "{{ .Values.proverNode.txGathering.maxParallelRequests }}"
+            - name: PROVER_FAILED_PROOF_STORE
+              value: "{{ .Values.proverNode.failedProofStore }}"
             - name: OTEL_RESOURCE_ATTRIBUTES
               value: service.name={{ .Release.Name }},service.namespace={{ .Release.Namespace }},service.version={{ .Chart.AppVersion }},environment={{ .Values.environment | default "production" }}
             - name: L1_CHAIN_ID

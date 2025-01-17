@@ -20,7 +20,7 @@ import {
   trackSpan,
 } from '@aztec/telemetry-client';
 
-import { InlineProofStore } from '../proving_broker/proof_store.js';
+import { InlineProofStore } from '../proving_broker/proof_store/index.js';
 
 const PRINT_THRESHOLD_NS = 6e10; // 60 seconds
 
