@@ -1,5 +1,7 @@
+use crate::constants::TWO_POW_64;
+
 // NB: This is a clone of noir/noir-repo/noir_stdlib/src/hash/poseidon2.nr
-// It exists as we sometimes need to perform custom absorbtion, but the stdlib version
+// It exists as we sometimes need to perform custom absorption, but the stdlib version
 // has a private absorb() method (it's also designed to just be a hasher)
 // Can be removed when standalone noir poseidon lib exists: See noir#6679
 

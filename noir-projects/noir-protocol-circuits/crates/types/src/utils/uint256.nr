@@ -1,3 +1,5 @@
+use crate::constants::TWO_POW_64;
+
 // This is a quick struct made to pack 32 bytes into 4 u64s
 // and then pack those into two u128s.
 //
