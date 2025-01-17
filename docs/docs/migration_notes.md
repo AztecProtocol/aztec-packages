@@ -6,7 +6,24 @@ keywords: [sandbox, aztec, notes, migration, updating, upgrading]
 
 Aztec is in full-speed development. Literally every version breaks compatibility with the previous ones. This page attempts to target errors and difficulties you might encounter when upgrading, and how to resolve them.
 
-## TBD
+## 0.71.0
+### Public logs replace unencrypted logs
+Any log emitted from public is now known as a public log, rather than an unencrypted log. This means methods relating to these logs have been renamed e.g. in the pxe, archiver, txe:
+```diff
+- getUnencryptedLogs(filter: LogFilter): Promise<GetUnencryptedLogsResponse>
++ getPublicLogs(filter: LogFilter): Promise<GetPublicLogsResponse>
+```
+
+These logs were treated as bytes in the node and as hashes in the protocol circuits. Now, public logs are treated as fields everywhere:
+```diff
+- unencryptedLogs: UnencryptedTxL2Logs
+- unencrypted_logs_hashes: [ScopedLogHash; MAX_UNENCRYPTED_LOGS_PER_TX]
++ publicLogs: PublicLog[]
++ public_logs: [PublicLog; MAX_PUBLIC_LOGS_PER_TX]
+```
+A `PublicLog` contains the log (as an array of fields) and the app address.
+
+## 0.70.0
 ### [Aztec.nr] Removal of `getSiblingPath` oracle
 Use `getMembershipWitness` oracle instead that returns both the sibling path and index.
 
