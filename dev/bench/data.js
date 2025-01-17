@@ -1,74 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1737062091756,
+  "lastUpdate": 1737134014379,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "ilyas@aztecprotocol.com",
-            "name": "Ilyas Ridhuan",
-            "username": "IlyasRidhuan"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "d340f0b0c2c97b59d2a8830bdae452d85945322c",
-          "message": "feat: add limit to unique contract call (#10640)\n\nResolves https://github.com/AztecProtocol/aztec-packages/issues/10369\n\nNote from @dbanks12:\nOnce the limit has been reached for contract calls to unique class IDs,\nyou can still call repeat contract addresses or even other contract\naddresses that reuse an already checked class ID.\n\nI had to change the call-ptr/space-id to just use a counter instead of\nclk because space-id is uint8 and we were getting collisions.\n\nFollow-up work:\n- constrain that user-called address can be derived from the hinted\nclass ID & instance\n\n---------\n\nCo-authored-by: dbanks12 <david@aztecprotocol.com>",
-          "timestamp": "2024-12-23T11:31:43-05:00",
-          "tree_id": "68a082cb55164e4b8f30b258c0cf7e0827b1dea5",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/d340f0b0c2c97b59d2a8830bdae452d85945322c"
-        },
-        "date": 1734973073087,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "nativeClientIVCBench/Ambient_17_in_20/6",
-            "value": 20471.22738400003,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 17957.367361 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeClientIVCBench/Full/6",
-            "value": 21974.129255000036,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 19420.415213 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 4805.8454459999775,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 4480.75968 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmClientIVCBench/Full/6",
-            "value": 82513.43422000001,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 82513434000 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 14027.516520000001,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 14027517000 ms\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 3056525550,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 3056525550 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 144956508,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 144956508 ns\nthreads: 1"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -3280,6 +3214,68 @@ window.BENCHMARK_DATA = {
             "value": 134928807,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 134928807 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "AztecProtocol",
+            "username": "AztecProtocol"
+          },
+          "committer": {
+            "name": "AztecProtocol",
+            "username": "AztecProtocol"
+          },
+          "id": "a4f9169657beb4e8bf2411b26f4069516b0e9531",
+          "message": "chore(master): Release 0.71.0",
+          "timestamp": "2025-01-17T17:02:19Z",
+          "url": "https://github.com/AztecProtocol/aztec-packages/pull/11247/commits/a4f9169657beb4e8bf2411b26f4069516b0e9531"
+        },
+        "date": 1737134006667,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Ambient_17_in_20/6",
+            "value": 18836.50583100001,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 15933.004078 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 21390.992309000012,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 18982.980503 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 4042.190370999975,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 3685.672178 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 73519.047903,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 73519049000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 14508.577811,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 14508579000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 3055457303,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 3055457303 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 134157800,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 134157800 ns\nthreads: 1"
           }
         ]
       }
