@@ -3,7 +3,7 @@ network:
 
 aztec:
   slotDuration: 36
-  epochDuration: 48
+  epochDuration: 32
   realProofs: true
 
 images:
@@ -126,7 +126,7 @@ bootNode:
   storageSize: "100Gi"
 
 proverAgent:
-  replicas: 60
+  replicas: 20
   bb:
     hardwareConcurrency: 31
   gke:
