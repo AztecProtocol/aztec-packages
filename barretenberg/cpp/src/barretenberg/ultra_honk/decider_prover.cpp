@@ -107,7 +107,6 @@ template <IsUltraFlavor Flavor> HonkProof DeciderProver_<Flavor>::construct_proo
 
     // Fiat-Shamir: rho, y, x, z
     // Execute Shplemini PCS
-    vinfo("executing pcs opening rounds...");
     execute_pcs_rounds();
 
     return export_proof();

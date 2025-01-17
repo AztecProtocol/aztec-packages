@@ -23,17 +23,6 @@ function setupConsoleOutput() {
   const copyButton = document.createElement('button');
   copyButton.innerText = 'Copy Logs to Clipboard';
   copyButton.style.marginBottom = '10px';
-  copyButton.addEventListener('click', () => {
-    const logContent = logContainer.textContent || ''; // Get text content of log container
-    navigator.clipboard
-      .writeText(logContent)
-      .then(() => {
-        alert('Logs copied to clipboard!');
-      })
-      .catch(err => {
-        console.error('Failed to copy logs:', err);
-      });
-  });
   container.appendChild(copyButton);
 
   const logContainer = document.createElement('pre');
@@ -44,43 +33,87 @@ function setupConsoleOutput() {
   logContainer.style.overflowY = 'auto';
   container.appendChild(logContainer);
 
-  // Helper to append messages to logContainer
-  function addLogMessage(message: string) {
-    logContainer.textContent += message + '\n';
+  /**
+   * Appends a message to the log container and auto-scrolls to the bottom.
+   * @param message - The log message to append.
+   */
+  function addLogMessage(message: string): void {
+    logContainer.textContent += `${message}\n`;
     logContainer.scrollTop = logContainer.scrollHeight; // Auto-scroll to the bottom
   }
 
-  // Override console methods to output clean logs
-  const originalLog = console.log;
-  const originalDebug = console.debug;
+  // Add event listener to the copy button
+  copyButton.addEventListener('click', () => {
+    const logContent: string = logContainer.textContent || ''; // Get text content of log container
+    navigator.clipboard
+      .writeText(logContent)
+      .then(() => {
+        alert('Logs copied to clipboard!');
+      })
+      .catch((err: unknown) => {
+        console.error('Failed to copy logs:', err);
+      });
+  });
 
-  console.log = (...args: any[]) => {
-    const message = args
+  // List of console methods to override
+  const methodsToOverride = ['log', 'debug', 'info', 'warn', 'error'] as const;
+  type ConsoleMethod = (typeof methodsToOverride)[number];
+
+  // Override each console method
+  methodsToOverride.forEach((method: ConsoleMethod) => {
+    // Preserve the original console method
+    const originalMethod = console[method].bind(console);
+
+    // Override the console method with type assertions
+    console[method] = ((...args: any[]) => {
+      // Process each argument to create a clean message
+      const message: string = args
+        .map(arg =>
+          typeof arg === 'string'
+            ? arg
+                .replace(/%c/g, '')
+                .replace(/color:.*?(;|$)/g, '')
+                .trim()
+            : JSON.stringify(arg),
+        )
+        .join(' ');
+
+      // Call the original console method with the original arguments
+      originalMethod(...args);
+
+      // Append the formatted message to the log container with a prefix indicating the method
+      addLogMessage(message);
+    }) as Console[ConsoleMethod];
+  });
+
+  // Override the createDebug log function to capture its logs
+  overrideCreateDebugLog(addLogMessage);
+}
+
+/**
+ * Overrides the createDebug library's log function to capture debug logs.
+ * @param addLogMessage - Function to append messages to the log container.
+ */
+function overrideCreateDebugLog(addLogMessage: (message: string) => void): void {
+  // Preserve the original createDebug log function
+  const originalDebugLog = createDebug.log.bind(createDebug);
+
+  // Override the createDebug log function
+  createDebug.log = (...args: any[]) => {
+    // Call the original createDebug log function
+    originalDebugLog(...args);
+
+    // Process the arguments to form a message
+    const message: string = args
       .map(arg =>
         typeof arg === 'string'
           ? arg
               .replace(/%c/g, '')
               .replace(/color:.*?(;|$)/g, '')
               .trim()
-          : arg,
+          : JSON.stringify(arg),
       )
       .join(' ');
-    originalLog.apply(console, args); // Keep original behavior
-    addLogMessage(message);
-  };
-
-  console.debug = (...args: any[]) => {
-    const message = args
-      .map(arg =>
-        typeof arg === 'string'
-          ? arg
-              .replace(/%c/g, '')
-              .replace(/color:.*?(;|$)/g, '')
-              .trim()
-          : arg,
-      )
-      .join(' ');
-    originalDebug.apply(console, args); // Keep original behavior
     addLogMessage(message);
   };
 }

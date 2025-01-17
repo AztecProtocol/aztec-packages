@@ -115,7 +115,7 @@ export async function proveThenVerifyUltraHonk(
     logger(`done proving. verifying...`);
     const verifier = new BarretenbergVerifier({ threads });
     const verified = await verifier.verifyUltraHonkProof(proof, vk);
-    logger(`done verifying. verified: ${verified}`);
+    logger(`done verifying.`);
     await verifier.destroy();
     return verified;
   } finally {
