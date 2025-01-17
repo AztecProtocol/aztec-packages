@@ -45,15 +45,14 @@ function build_wasm {
 # as they were useful historically, and we have sanitizers.
 function build_gcc_syntax_check_only {
   set -eu
-  # Note: There's no real artifact here, we fake one for consistency.
   if cache_download barretenberg-gcc-$hash.tar.gz; then
     return
   fi
   cmake --preset gcc -DSYNTAX_ONLY=1
   cmake --build --preset gcc
-  # Fake an artifact for consistency.
-  echo success > build-wasm/syntax-check-success.flag
-  cache_upload barretenberg-gcc-$hash.tar.gz build-wasm/syntax-check-success.flag
+  # Note: There's no real artifact here, we fake one for consistency.
+  echo success > build-gcc/syntax-check-success.flag
+  cache_upload barretenberg-gcc-$hash.tar.gz build-gcc/syntax-check-success.flag
 }
 
 # Build multi-threaded wasm. Requires shared memory.

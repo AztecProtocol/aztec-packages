@@ -25,8 +25,8 @@ bootstrap-noir-bb:
     (git fetch --depth 1 origin $EARTHLY_GIT_HASH >/dev/null 2>&1 || (echo "The commit was not pushed, run aborted." && exit 1)) &&
     git reset --hard FETCH_HEAD >/dev/null 2>&1 &&
     ./build-images/adhoc-installs.sh &&
-    DENOISE=1 CI=1 ./noir/bootstrap.sh ci &&
-    DENOISE=1 CI=1 ./barretenberg/bootstrap.sh ci &&
+    DENOISE=1 CI=1 ./noir/bootstrap.sh fast &&
+    DENOISE=1 CI=1 ./barretenberg/bootstrap.sh fast &&
     mv $(ls -A) /usr/src'
   # Use a mounted volume for performance.
   # Note: Assumes EARTHLY_GIT_HASH has been pushed!
@@ -132,7 +132,6 @@ ci-noir-bb:
   LET artifact=noir-ci-tests-$(./noir/bootstrap.sh hash-test)
   IF ci3/test_should_run $artifact
     WAIT
-      BUILD ./noir/+format
       BUILD ./noir/+examples
     END
     RUN ci3/cache_upload_flag $artifact
@@ -141,20 +140,6 @@ ci-noir-bb:
   IF ci3/test_should_run $artifact
     WAIT
       BUILD ./barretenberg/cpp/+preset-gcc
-    END
-    RUN ci3/cache_upload_flag $artifact
-  END
-  SET artifact=bb-ts-ci-$(./barretenberg/ts/bootstrap.sh hash)
-  IF ci3/test_should_run $artifact
-    WAIT
-      BUILD ./barretenberg/ts/+test
-    END
-    RUN ci3/cache_upload_flag $artifact
-  END
-  SET artifact=bb-ci-acir-tests-$(./barretenberg/acir_tests/bootstrap.sh hash)
-  IF ci3/test_should_run $artifact
-    WAIT
-      BUILD ./barretenberg/acir_tests/+test
     END
     RUN ci3/cache_upload_flag $artifact
   END

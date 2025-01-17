@@ -1,13 +1,4 @@
 VERSION 0.8
-test:
-  FROM ../+bootstrap-noir-bb
-  WORKDIR /usr/src/noir
-  # Some of the debugger tests are a little flaky wrt to timeouts so we allow a couple of retries.
-  ENV NEXTEST_RETRIES=2
-  ENV PATH="/usr/src/noir/noir-repo/target/release:${PATH}"
-  ENV GIT_COMMIT="$(../bootstrap.sh hash | sed 's/-.*//g')"
-  RUN ./scripts/test_native.sh
-
 examples:
   FROM ../+bootstrap-noir-bb
   ENV PATH="/usr/src/noir/noir-repo/target/release:${PATH}"
@@ -21,72 +12,3 @@ examples:
 
   WORKDIR /usr/src/noir/noir-repo/examples/recursion
   RUN ./test.sh
-
-format:
-  FROM ../+bootstrap-noir-bb
-  ENV PATH="/usr/src/noir/noir-repo/target/release:${PATH}"
-  ENV GIT_COMMIT="$(../bootstrap.sh hash | sed 's/-.*//g')"
-  WORKDIR /usr/src/noir/noir-repo/test_programs
-  RUN ./format.sh check
-
-  WORKDIR /usr/src/noir/noir-repo/noir_stdlib
-  RUN nargo fmt --check
-
-packages-deps:
-  FROM ../+bootstrap-noir-bb
-  COPY noir-repo/.github/scripts/wasm-bindgen-install.sh /usr/src/noir/noir-repo/.github/scripts/wasm-bindgen-install.sh
-  WORKDIR /usr/src/noir/noir-repo
-  RUN .github/scripts/wasm-bindgen-install.sh
-  ENV GIT_COMMIT="$(../bootstrap.sh hash | sed 's/-.*//g')"
-  RUN yarn install --immutable
-
-packages-test-build:
-  FROM +packages-deps
-  ENV NARGO_BACKEND_PATH=/usr/src/barretenberg/ts/dest/node/main.js
-  ENV PATH=$PATH:/usr/src/noir/noir-repo/target/release
-  WORKDIR /usr/src/barretenberg/ts
-  RUN yarn --immutable
-
-  WORKDIR /usr/src/noir/noir-repo
-
-  ENV SOURCE_DATE_EPOCH=$(date +%s)
-  ENV GIT_DIRTY=false
-  RUN yarn build
-  # this builds text fixtures to be used in tests
-  RUN yarn workspace @noir-lang/noir_wasm run test:build_fixtures
-
-  SAVE ARTIFACT /usr/src /usr/src
-
-packages-test-node:
-  FROM +packages-test-build
-  ENV NODE_OPTIONS=--max_old_space_size=8192
-  WORKDIR /usr/src/noir/noir-repo
-  RUN yarn workspaces foreach \
-    --parallel \
-    --verbose \
-    --exclude @noir-lang/root \ # foreach includes the root workspace, ignore it
-    --exclude @noir-lang/noir_js \ # noir_js OOMs
-    --exclude integration-tests \ # separate node and browser tests
-    --exclude @noir-lang/noir_wasm \
-    run test
-  RUN yarn workspaces foreach \
-    --parallel \
-    --verbose \
-    --include integration-tests \
-    --include @noir-lang/noir_wasm \
-    run test:node
-
-packages-test-browser:
-  FROM +packages-test-build
-  WORKDIR /usr/src/noir/noir-repo
-  RUN yarn install
-  RUN npx playwright install chromium
-  RUN yarn workspaces foreach \
-    --verbose \
-    --include integration-tests \
-    --include @noir-lang/noir_wasm \
-    run test:browser
-
-packages-test:
-  BUILD +packages-test-node
-  BUILD +packages-test-browser
