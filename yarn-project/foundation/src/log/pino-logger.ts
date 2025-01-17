@@ -5,6 +5,8 @@ import { type Writable } from 'stream';
 import { inspect } from 'util';
 
 import { compactArray } from '../collection/array.js';
+import { type EnvVar, parseBooleanEnv } from '../config/index.js';
+import { GoogleCloudLoggerConfig } from './gcloud-logger-config.js';
 import { getLogLevelFromFilters, parseEnv } from './log-filters.js';
 import { type LogLevel } from './log-levels.js';
 import { type LogData, type LogFn } from './log_fn.js';
@@ -86,46 +88,14 @@ const [logLevel, logFilters] = parseEnv(process.env.LOG_LEVEL, defaultLogLevel);
 // Define custom logging levels for pino.
 const customLevels = { verbose: 25 };
 
-// inspired by https://github.com/pinojs/pino/issues/726#issuecomment-605814879
-const levelToSeverityFormatter = (label: string, level: number): object => {
-  // Severity labels https://cloud.google.com/logging/docs/reference/v2/rest/v2/LogEntry#LogSeverity
-  let severity: string;
-
-  switch (label as pino.Level | keyof typeof customLevels) {
-    case 'trace':
-    case 'debug':
-      severity = 'DEBUG';
-      break;
-    case 'verbose':
-    case 'info':
-      severity = 'INFO';
-      break;
-    case 'warn':
-      severity = 'WARNING';
-      break;
-    case 'error':
-      severity = 'ERROR';
-      break;
-    case 'fatal':
-      severity = 'CRITICAL';
-      break;
-    default:
-      severity = 'DEFAULT';
-      break;
-  }
-
-  return { severity, level };
-};
-
-const useGcloudObservability = process.env.USE_GCLOUD_OBSERVABILITY === 'true';
+// Global pino options, tweaked for google cloud if running there.
+const useGcloudObservability = parseBooleanEnv(process.env['USE_GCLOUD_OBSERVABILITY' satisfies EnvVar]);
 const pinoOpts: pino.LoggerOptions<keyof typeof customLevels> = {
   customLevels,
-  messageKey: useGcloudObservability ? 'message' : 'msg',
+  messageKey: 'msg',
   useOnlyCustomLevels: false,
   level: logLevel,
-  formatters: {
-    level: levelToSeverityFormatter,
-  },
+  ...(useGcloudObservability ? GoogleCloudLoggerConfig : {}),
 };
 
 export const levels = {
@@ -145,7 +115,7 @@ export const pinoPrettyOpts = {
   customLevels: 'fatal:60,error:50,warn:40,info:30,verbose:25,debug:20,trace:10',
   customColors: 'fatal:bgRed,error:red,warn:yellow,info:green,verbose:magenta,debug:blue,trace:gray',
   minimumLevel: 'trace' as const,
-  singleLine: !['1', 'true'].includes(process.env.LOG_MULTILINE ?? ''),
+  singleLine: !parseBooleanEnv(process.env['LOG_MULTILINE' satisfies EnvVar]),
 };
 
 const prettyTransport: pino.TransportTargetOptions = {
@@ -167,7 +137,8 @@ const stdioTransport: pino.TransportTargetOptions = {
 // would mean that all child loggers created before the telemetry-client is initialized would not have
 // this transport configured. Note that the target is defined as the export in the telemetry-client,
 // since pino will load this transport separately on a worker thread, to minimize disruption to the main loop.
-const otlpEndpoint = process.env.OTEL_EXPORTER_OTLP_LOGS_ENDPOINT;
+const otlpEndpoint = process.env['OTEL_EXPORTER_OTLP_LOGS_ENDPOINT' satisfies EnvVar];
+const otlpEnabled = !!otlpEndpoint && !useGcloudObservability;
 const otelOpts = { levels };
 const otelTransport: pino.TransportTargetOptions = {
   target: '@aztec/telemetry-client/otel-pino-stream',
@@ -185,10 +156,10 @@ function makeLogger() {
     return pino(pinoOpts, pino.destination(2));
   } else {
     // Regular nodejs with transports on worker thread, using pino-pretty for console logging if LOG_JSON
-    // is not set, and an optional OTLP transport if the OTLP endpoint is provided.
+    // is not set, and an optional OTLP transport if the OTLP endpoint is set.
     const targets: pino.TransportSingleOptions[] = compactArray([
-      ['1', 'true', 'TRUE'].includes(process.env.LOG_JSON ?? '') ? stdioTransport : prettyTransport,
-      otlpEndpoint ? otelTransport : undefined,
+      parseBooleanEnv(process.env.LOG_JSON) ? stdioTransport : prettyTransport,
+      otlpEnabled ? otelTransport : undefined,
     ]);
     return pino(pinoOpts, pino.transport({ targets, levels: levels.values }));
   }
@@ -203,7 +174,7 @@ logger.verbose(
     ...logFilters.reduce((accum, [module, level]) => ({ ...accum, [`log.${module}`]: level }), {}),
   },
   isNode
-    ? `Logger initialized with level ${logLevel}` + (otlpEndpoint ? ` with OTLP exporter to ${otlpEndpoint}` : '')
+    ? `Logger initialized with level ${logLevel}` + (otlpEnabled ? ` with OTLP exporter to ${otlpEndpoint}` : '')
     : `Browser console logger initialized with level ${logLevel}`,
 );
 

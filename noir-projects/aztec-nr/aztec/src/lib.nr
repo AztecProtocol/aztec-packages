@@ -3,7 +3,6 @@ mod deploy;
 mod generators;
 mod hash;
 mod history;
-mod initializer;
 mod keys;
 mod messaging;
 mod note;

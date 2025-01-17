@@ -216,6 +216,7 @@ export interface PxeDatabase extends ContractArtifactDatabase, ContractInstanceD
 
   /**
    * Stores arbitrary information in a per-contract non-volatile database, which can later be retrieved with `dbLoad`.
+   * If data was already stored at this slot, it is overwrriten.
    * @param contractAddress - The contract address to scope the data under.
    * @param slot - The slot in the database in which to store the value. Slots need not be contiguous.
    * @param values - The data to store.

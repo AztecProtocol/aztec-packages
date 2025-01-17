@@ -1083,8 +1083,7 @@ export class TXE implements TypedOracle {
   dbLoad(contractAddress: AztecAddress, slot: Fr): Promise<Fr[] | null> {
     if (!contractAddress.equals(this.contractAddress)) {
       // TODO(#10727): instead of this check that this.contractAddress is allowed to access the external DB
-      this.debug(`Data not found for contract ${contractAddress.toString()} and slot ${slot.toString()}`);
-      return Promise.resolve(null);
+      throw new Error(`Contract ${contractAddress} is not allowed to access ${this.contractAddress}'s PXE DB`);
     }
     return this.txeDatabase.dbLoad(this.contractAddress, slot);
   }
