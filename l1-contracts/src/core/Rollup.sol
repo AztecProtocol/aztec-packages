@@ -149,7 +149,7 @@ contract Rollup is EIP712("Aztec Rollup", "1"), Ownable, Leonidas, IRollup, ITes
         congestionCost: 0
       }),
       archive: bytes32(Constants.GENESIS_ARCHIVE_ROOT),
-      blockHash: bytes32(0), // TODO(palla/prover): The first block does not have hash zero
+      blockHash: bytes32(Constants.GENESIS_BLOCK_HASH),
       slotNumber: Slot.wrap(0)
     });
     rollupStore.l1GasOracleValues = L1GasOracleValues({
