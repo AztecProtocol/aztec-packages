@@ -78,7 +78,6 @@ export class EpochProvingState {
     l1ToL2MessageSubtreeSiblingPath: Tuple<Fr, typeof L1_TO_L2_MSG_SUBTREE_SIBLING_PATH_LENGTH>,
     l1ToL2MessageTreeSnapshotAfterInsertion: AppendOnlyTreeSnapshot,
     lastArchiveSnapshot: AppendOnlyTreeSnapshot,
-    lastArchiveSiblingPath: Tuple<Fr, typeof ARCHIVE_HEIGHT>,
     newArchiveSiblingPath: Tuple<Fr, typeof ARCHIVE_HEIGHT>,
     previousBlockHeader: BlockHeader,
   ): BlockProvingState {
@@ -90,7 +89,6 @@ export class EpochProvingState {
       l1ToL2MessageSubtreeSiblingPath,
       l1ToL2MessageTreeSnapshotAfterInsertion,
       lastArchiveSnapshot,
-      lastArchiveSiblingPath,
       newArchiveSiblingPath,
       previousBlockHeader,
       this,

@@ -672,7 +672,6 @@ function mapBlockRootRollupDataToNoir(data: BlockRootRollupData): BlockRootRollu
   return {
     l1_to_l2_roots: mapRootRollupParityInputToNoir(data.l1ToL2Roots),
     l1_to_l2_message_subtree_sibling_path: mapTuple(data.l1ToL2MessageSubtreeSiblingPath, mapFieldToNoir),
-    last_archive_sibling_path: mapTuple(data.lastArchiveSiblingPath, mapFieldToNoir),
     new_archive_sibling_path: mapTuple(data.newArchiveSiblingPath, mapFieldToNoir),
     previous_block_header: mapHeaderToNoir(data.previousBlockHeader),
     prover_id: mapFieldToNoir(data.proverId),

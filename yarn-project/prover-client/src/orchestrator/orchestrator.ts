@@ -59,7 +59,6 @@ import { inspect } from 'util';
 import {
   buildBaseRollupHints,
   buildHeaderAndBodyFromTxs,
-  getLastSiblingPath,
   getRootTreeSiblingPath,
   getSubtreeSiblingPath,
   getTreeSnapshot,
@@ -160,7 +159,6 @@ export class ProvingOrchestrator implements EpochProver {
 
     // Get archive snapshot before this block lands
     const lastArchive = await getTreeSnapshot(MerkleTreeId.ARCHIVE, db);
-    const lastArchiveSiblingPath = await getLastSiblingPath(MerkleTreeId.ARCHIVE, db);
     const newArchiveSiblingPath = await getRootTreeSiblingPath(MerkleTreeId.ARCHIVE, db);
 
     const blockProvingState = this.provingState!.startNewBlock(
@@ -169,7 +167,6 @@ export class ProvingOrchestrator implements EpochProver {
       l1ToL2MessageSubtreeSiblingPath,
       l1ToL2MessageTreeSnapshotAfterInsertion,
       lastArchive,
-      lastArchiveSiblingPath,
       newArchiveSiblingPath,
       previousBlockHeader,
     );

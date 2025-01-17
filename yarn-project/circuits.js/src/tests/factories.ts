@@ -806,18 +806,17 @@ function makeBlockRootRollupData(seed = 0) {
   return new BlockRootRollupData(
     makeRootParityInput<typeof NESTED_RECURSIVE_PROOF_LENGTH>(NESTED_RECURSIVE_PROOF_LENGTH, seed + 0x2000),
     makeTuple(L1_TO_L2_MSG_SUBTREE_SIBLING_PATH_LENGTH, fr, 0x2100),
-    makeTuple(ARCHIVE_HEIGHT, fr, 0x2300),
-    makeTuple(ARCHIVE_HEIGHT, fr, 0x2400),
-    makeHeader(seed + 0x2500),
-    fr(seed + 0x2600),
+    makeTuple(ARCHIVE_HEIGHT, fr, 0x2200),
+    makeHeader(seed + 0x2300),
+    fr(seed + 0x2400),
   );
 }
 
 function makeBlockRootRollupBlobData(seed = 0) {
   return new BlockRootRollupBlobData(
-    makeTuple(FIELDS_PER_BLOB * BLOBS_PER_BLOCK, fr, 0x2400),
-    makeTuple(BLOBS_PER_BLOCK, () => makeTuple(2, fr, 0x2500)),
-    fr(seed + 0x2600),
+    makeTuple(FIELDS_PER_BLOB * BLOBS_PER_BLOCK, fr, 0x2500),
+    makeTuple(BLOBS_PER_BLOCK, () => makeTuple(2, fr, 0x2600)),
+    fr(seed + 0x2700),
   );
 }
 

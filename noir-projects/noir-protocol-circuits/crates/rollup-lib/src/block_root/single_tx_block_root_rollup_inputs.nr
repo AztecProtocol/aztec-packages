@@ -7,7 +7,6 @@ use crate::{
     block_root::components::{
         block_root_rollup_inputs_validator::BlockRootRollupInputsValidator,
         block_root_rollup_output_composer::BlockRootRollupOutputComposer,
-        block_root_rollup_output_validator::BlockRootRollupOutputValidator,
     },
 };
 use types::constants::{PRIVATE_BASE_ROLLUP_VK_INDEX, PUBLIC_BASE_ROLLUP_VK_INDEX};
@@ -32,15 +31,11 @@ impl SingleTxBlockRootRollupInputs {
         )
             .validate();
 
-        let composer = BlockRootRollupOutputComposer::new_from_single_tx_rollup(
+        BlockRootRollupOutputComposer::new_from_single_tx_rollup(
             self.previous_rollup_data[0].base_or_merge_rollup_public_inputs,
             self.data,
-        );
-        let output = composer.finish(self.blob_data);
-
-        BlockRootRollupOutputValidator::new(output, self.data).validate();
-
-        output
+        )
+            .finish(self.blob_data)
     }
 }
 

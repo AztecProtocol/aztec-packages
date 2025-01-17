@@ -7,7 +7,6 @@ use crate::{
     block_root::components::{
         block_root_rollup_inputs_validator::BlockRootRollupInputsValidator,
         block_root_rollup_output_composer::BlockRootRollupOutputComposer,
-        block_root_rollup_output_validator::BlockRootRollupOutputValidator,
     },
 };
 use types::constants::{
@@ -37,13 +36,9 @@ impl BlockRootRollupInputs {
             self.previous_rollup_data[0].base_or_merge_rollup_public_inputs,
             self.previous_rollup_data[1].base_or_merge_rollup_public_inputs,
         ];
-        let composer =
-            BlockRootRollupOutputComposer::new_from_two_rollups(previous_rollups, self.data);
-        let output = composer.finish(self.blob_data);
-
-        BlockRootRollupOutputValidator::new(output, self.data).validate();
-
-        output
+        BlockRootRollupOutputComposer::new_from_two_rollups(previous_rollups, self.data).finish(
+            self.blob_data,
+        )
     }
 }
 
@@ -195,17 +190,6 @@ pub(crate) mod tests {
 
         builder.inputs.previous_rollup_data[0].base_or_merge_rollup_public_inputs.start.note_hash_tree.root +=
             1;
-
-        let _ = builder.execute();
-    }
-
-    #[test(should_fail_with = "previous block hash does not match the last leaf in the archive tree")]
-    unconstrained fn random_block_header_fails() {
-        let mut builder = TestBuilder::new();
-
-        builder.inputs.previous_rollup_data[0].base_or_merge_rollup_public_inputs.start.note_hash_tree.root +=
-            1;
-        builder.inputs.previous_block_header.state.partial.note_hash_tree.root += 1;
 
         let _ = builder.execute();
     }

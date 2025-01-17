@@ -268,7 +268,7 @@ describe('sequencer', () => {
 
   it('builds a block for proposal setting limits', async () => {
     const txs = times(5, i => makeTx(i * 0x10000));
-    await sequencer.buildBlock(txs, globalVariables, undefined, { validateOnly: false });
+    await sequencer.buildBlock(txs, globalVariables, { validateOnly: false });
 
     expect(publicProcessor.process).toHaveBeenCalledWith(
       txs,
@@ -284,7 +284,7 @@ describe('sequencer', () => {
 
   it('builds a block for validation ignoring limits', async () => {
     const txs = times(5, i => makeTx(i * 0x10000));
-    await sequencer.buildBlock(txs, globalVariables, undefined, { validateOnly: true });
+    await sequencer.buildBlock(txs, globalVariables, { validateOnly: true });
 
     expect(publicProcessor.process).toHaveBeenCalledWith(txs, { deadline: expect.any(Date) }, expect.anything());
   });
@@ -692,7 +692,6 @@ class TestSubject extends Sequencer {
   public override buildBlock(
     pendingTxs: Iterable<Tx>,
     newGlobalVariables: GlobalVariables,
-    historicalHeader?: BlockHeader | undefined,
     opts?: { validateOnly?: boolean | undefined },
   ): Promise<{
     block: L2Block;
@@ -703,6 +702,6 @@ class TestSubject extends Sequencer {
     numFailedTxs: number;
     blockBuildingTimer: Timer;
   }> {
-    return super.buildBlock(pendingTxs, newGlobalVariables, historicalHeader, opts);
+    return super.buildBlock(pendingTxs, newGlobalVariables, opts);
   }
 }

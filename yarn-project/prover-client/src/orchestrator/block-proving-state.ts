@@ -72,7 +72,6 @@ export class BlockProvingState {
     private readonly l1ToL2MessageSubtreeSiblingPath: Tuple<Fr, typeof L1_TO_L2_MSG_SUBTREE_SIBLING_PATH_LENGTH>,
     private readonly l1ToL2MessageTreeSnapshotAfterInsertion: AppendOnlyTreeSnapshot,
     private readonly lastArchiveSnapshot: AppendOnlyTreeSnapshot,
-    private readonly lastArchiveSiblingPath: Tuple<Fr, typeof ARCHIVE_HEIGHT>,
     private readonly newArchiveSiblingPath: Tuple<Fr, typeof ARCHIVE_HEIGHT>,
     private readonly previousBlockHeader: BlockHeader,
     private readonly parentEpoch: EpochProvingState,
@@ -237,7 +236,6 @@ export class BlockProvingState {
     const data = BlockRootRollupData.from({
       l1ToL2Roots: this.#getRootParityData(this.rootParityProvingOutput!),
       l1ToL2MessageSubtreeSiblingPath: this.l1ToL2MessageSubtreeSiblingPath,
-      lastArchiveSiblingPath: this.newArchiveSiblingPath,
       newArchiveSiblingPath: this.newArchiveSiblingPath,
       previousBlockHeader: newBlockHeader,
       proverId,
@@ -330,7 +328,6 @@ export class BlockProvingState {
     return BlockRootRollupData.from({
       l1ToL2Roots: this.#getRootParityData(this.rootParityProvingOutput!),
       l1ToL2MessageSubtreeSiblingPath: this.l1ToL2MessageSubtreeSiblingPath,
-      lastArchiveSiblingPath: this.lastArchiveSiblingPath,
       newArchiveSiblingPath: this.newArchiveSiblingPath,
       previousBlockHeader: this.previousBlockHeader,
       proverId,

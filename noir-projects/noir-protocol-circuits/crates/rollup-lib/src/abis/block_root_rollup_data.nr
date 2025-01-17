@@ -13,8 +13,6 @@ pub struct BlockRootRollupData {
     // Hint for inserting the new l1 to l2 message subtree.
     pub l1_to_l2_message_subtree_sibling_path: [Field; L1_TO_L2_MSG_SUBTREE_SIBLING_PATH_LENGTH],
 
-    // Hint for checking the previous block hash is in the last archive.
-    pub last_archive_sibling_path: [Field; ARCHIVE_HEIGHT],
     // Hint for inserting the new block hash to the last archive.
     pub new_archive_sibling_path: [Field; ARCHIVE_HEIGHT],
 

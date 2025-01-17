@@ -70,7 +70,6 @@ import { jest } from '@jest/globals';
 import {
   buildBaseRollupHints,
   buildHeaderFromCircuitOutputs,
-  getLastSiblingPath,
   getRootTreeSiblingPath,
   getSubtreeSiblingPath,
   getTreeSnapshot,
@@ -333,7 +332,6 @@ describe('LightBlockBuilder', () => {
     );
 
     const startArchiveSnapshot = await getTreeSnapshot(MerkleTreeId.ARCHIVE, expectsFork);
-    const lastArchiveSiblingPath = await getLastSiblingPath(MerkleTreeId.ARCHIVE, expectsFork);
     const newArchiveSiblingPath = await getRootTreeSiblingPath(MerkleTreeId.ARCHIVE, expectsFork);
     const blobFields = txs.map(tx => tx.txEffect.toBlobFields()).flat();
     const blobs = Blob.getBlobs(blobFields);
@@ -353,7 +351,6 @@ describe('LightBlockBuilder', () => {
     const data = BlockRootRollupData.from({
       l1ToL2Roots: rootParityInput,
       l1ToL2MessageSubtreeSiblingPath: l1ToL2Snapshot.l1ToL2MessageSubtreeSiblingPath,
-      lastArchiveSiblingPath,
       newArchiveSiblingPath,
       previousBlockHeader,
       proverId: Fr.ZERO,

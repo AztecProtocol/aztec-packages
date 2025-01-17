@@ -6,7 +6,6 @@ use crate::{
     block_root::components::{
         block_root_rollup_inputs_validator::BlockRootRollupInputsValidator,
         block_root_rollup_output_composer::BlockRootRollupOutputComposer,
-        block_root_rollup_output_validator::BlockRootRollupOutputValidator,
     },
 };
 use blob::blob_public_inputs::BlobPublicInputs;
@@ -42,16 +41,12 @@ impl EmptyBlockRootRollupInputs {
         blob_public_input.z = EMPTY_EFFECT_BLOB_CHALLENGE_Z;
 
         let composer = BlockRootRollupOutputComposer::new_from_empty_rollup(self.data);
-        let output = composer.finish_empty(
+        composer.finish_empty(
             self.constants,
             EMPTY_EFFECT_BLOBS_HASH,
             blob_public_input,
             self.is_padding,
-        );
-
-        BlockRootRollupOutputValidator::new(output, self.data).validate();
-
-        output
+        )
     }
 }
 

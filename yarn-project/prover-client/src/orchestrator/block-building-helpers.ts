@@ -431,12 +431,6 @@ export const validateState = runInSpan(
   },
 );
 
-export async function getLastSiblingPath<TID extends MerkleTreeId>(treeId: TID, db: MerkleTreeReadOperations) {
-  const { size } = await db.getTreeInfo(treeId);
-  const path = await db.getSiblingPath(treeId, size - 1n);
-  return padArrayEnd(path.toFields(), Fr.ZERO, getTreeHeight(treeId));
-}
-
 export async function getRootTreeSiblingPath<TID extends MerkleTreeId>(treeId: TID, db: MerkleTreeReadOperations) {
   const { size } = await db.getTreeInfo(treeId);
   const path = await db.getSiblingPath(treeId, size);
