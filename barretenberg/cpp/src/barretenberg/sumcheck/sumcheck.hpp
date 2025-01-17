@@ -782,7 +782,7 @@ template <typename Flavor> class SumcheckVerifier {
                                   const std::vector<FF>& gate_challenges)
         requires std::is_same_v<Flavor, ECCVMFlavor> || IsECCVMRecursiveFlavor<Flavor>
     {
-        bool verified(true);
+        bool verified(false);
 
         bb::GateSeparatorPolynomial<FF> gate_separators(gate_challenges);
 
@@ -801,6 +801,7 @@ template <typename Flavor> class SumcheckVerifier {
         multivariate_challenge.reserve(CONST_PROOF_SIZE_LOG_N);
         // if Flavor has ZK, the target total sum is corrected by Libra total sum multiplied by the Libra
         // challenge
+        info(round.target_total_sum);
         round.target_total_sum += libra_total_sum * libra_challenge;
 
         for (size_t round_idx = 0; round_idx < CONST_PROOF_SIZE_LOG_N; round_idx++) {
@@ -840,17 +841,18 @@ template <typename Flavor> class SumcheckVerifier {
             round_univariate_evaluations[round_idx - 1][2] =
                 round_univariate_evaluations[round_idx][0] + round_univariate_evaluations[round_idx][1];
         }
-
+        FF first_sumcheck_round_evaluations_sum =
+            round_univariate_evaluations[0][0] + round_univariate_evaluations[0][1];
+        info("sum of evals", first_sumcheck_round_evaluations_sum);
         if constexpr (IsRecursiveFlavor<Flavor>) {
-            FF first_sumcheck_round_evaluations_sum =
-                round_univariate_evaluations[0][0] + round_univariate_evaluations[0][1];
             first_sumcheck_round_evaluations_sum.self_reduce();
             round.target_total_sum.self_reduce();
             first_sumcheck_round_evaluations_sum.assert_equal(round.target_total_sum);
             verified = (first_sumcheck_round_evaluations_sum.get_value() == round.target_total_sum.get_value());
         } else {
-            verified = verified && (round_univariate_evaluations[0][0] + round_univariate_evaluations[0][1] ==
-                                    round.target_total_sum);
+            info(round.target_total_sum);
+            verified = (first_sumcheck_round_evaluations_sum == round.target_total_sum);
+            info(verified);
         }
 
         // Extract claimed evaluations of Libra univariates and compute their sum multiplied by the Libra challenge
