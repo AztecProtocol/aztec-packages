@@ -90,6 +90,31 @@ This PR also renamed encrypted events to private events:
 + getPrivateEvents<T>(eventMetadata: EventMetadataDefinition, from: number, limit: number, vpks: Point[]): Promise<T[]>
 ```
 
+## 0.71.0
+### Don't insert protocol nullifier if tx inserts nonrevertible nullifier
+
+Insert wise words based on [11155](https://github.com/AztecProtocol/aztec-packages/pull/11155)
+(Or remove subsection)
+
+### Transaction identifier to use tx object hash (previously was tx request)
+
+Insert wise words based on [11100](https://github.com/AztecProtocol/aztec-packages/pull/11100) (implements [9269](https://github.com/AztecProtocol/aztec-packages/pull/9269))
+(Or remove subsection)
+
+### Note type id now an incrementing u32 (previously name hash as field)
+
+Insert wise words based on [10951](https://github.com/AztecProtocol/aztec-packages/pull/10951)
+(Or remove subsection)
+
+### Limit unique class ID calls in a tx
+
+Insert wise words based on [10640](https://github.com/AztecProtocol/aztec-packages/pull/10640)
+(Or remove subsection)
+
+### Add any other important/relevant release notes
+
+(Or remove subsection)
+
 ## 0.70.0
 ### [Aztec.nr] Removal of `getSiblingPath` oracle
 Use `getMembershipWitness` oracle instead that returns both the sibling path and index.
