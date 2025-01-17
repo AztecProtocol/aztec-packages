@@ -307,7 +307,7 @@ template <typename Flavor> class SumcheckProver {
             // Prepare sumcheck book-keeping table for the next round
             partially_evaluate(full_polynomials, multivariate_n, round_challenge);
             // Prepare ZK Sumcheck data for the next round
-            update_zk_sumcheck_data(zk_sumcheck_data, round_challenge, round_idx);
+            zk_sumcheck_data.update_zk_sumcheck_data(round_challenge, round_idx);
             row_disabling_polynomial.update_evaluations(round_challenge, round_idx);
             gate_separators.partially_evaluate(round_challenge);
             round.round_size = round.round_size >> 1; // TODO(#224)(Cody): Maybe partially_evaluate should do this and
@@ -339,7 +339,7 @@ template <typename Flavor> class SumcheckProver {
             // Prepare sumcheck book-keeping table for the next round
             partially_evaluate(partially_evaluated_polynomials, round.round_size, round_challenge);
             // Prepare evaluation masking and libra structures for the next round (for ZK Flavors)
-            update_zk_sumcheck_data(zk_sumcheck_data, round_challenge, round_idx);
+            zk_sumcheck_data.update_zk_sumcheck_data(round_challenge, round_idx);
             row_disabling_polynomial.update_evaluations(round_challenge, round_idx);
 
             gate_separators.partially_evaluate(round_challenge);
@@ -480,63 +480,6 @@ polynomials that are sent in clear.
         };
         return multivariate_evaluations;
     };
-
-    /**
-     * @brief Upon receiving the challenge \f$u_i\f$, the prover updates Libra data. If \f$ i < d-1\f$
-
-        -  update the table of Libra univariates by multiplying every term by \f$1/2\f$.
-        -  computes the value \f$2^{d-i - 2} \cdot \texttt{libra_challenge} \cdot g_0(u_0)\f$ applying \ref
-        bb::Univariate::evaluate "evaluate" method to the first univariate in the table \f$\texttt{libra_univariates}\f$
-        -  places the value \f$ g_0(u_0)\f$ to the vector \f$ \texttt{libra_evaluations}\f$
-        -  update the running sum
-        \f{align}{
-                \texttt{libra_running_sum} \gets  2^{d-i-2} \cdot \texttt{libra_challenge} \cdot g_0(u_0) +  2^{-1}
-     \cdot \left( \texttt{libra_running_sum} - (\texttt{libra_univariates}_{i+1}(0) +
-     \texttt{libra_univariates}_{i+1}(1)) \right) \f} If \f$ i = d-1\f$
-        -  compute the value \f$ g_{d-1}(u_{d-1})\f$ applying \ref bb::Univariate::evaluate "evaluate" method to the
-     last univariate in the table \f$\texttt{libra_univariates}\f$ and dividing the result by \f$
-     \texttt{libra_challenge} \f$.
-        -  update the table of Libra univariates by multiplying every term by \f$\texttt{libra_challenge}^{-1}\f$.
-     @todo Refactor once the Libra univariates are extracted from the Proving Key. Then the prover does not need to
-        update the first round_idx - 1 univariates and could release the memory. Also, use batch_invert / reduce
-        the number of divisions by 2.
-     * @param libra_univariates
-     * @param round_challenge
-     * @param round_idx
-     * @param libra_running_sum
-     * @param libra_evaluations
-     */
-    void update_zk_sumcheck_data(ZKData& zk_sumcheck_data, const FF round_challenge, size_t round_idx)
-    {
-        static constexpr FF two_inv = FF(1) / FF(2);
-        // when round_idx = d - 1, the update is not needed
-        if (round_idx < zk_sumcheck_data.libra_univariates.size() - 1) {
-            for (auto& univariate : zk_sumcheck_data.libra_univariates) {
-                univariate *= two_inv;
-            };
-            // compute the evaluation \f$ \rho \cdot 2^{d-2-i} \çdot g_i(u_i) \f$
-            auto libra_evaluation = zk_sumcheck_data.libra_univariates[round_idx].evaluate(round_challenge);
-            auto next_libra_univariate = zk_sumcheck_data.libra_univariates[round_idx + 1];
-            // update the running sum by adding g_i(u_i) and subtracting (g_i(0) + g_i(1))
-            zk_sumcheck_data.libra_running_sum +=
-                -next_libra_univariate.evaluate(FF(0)) - next_libra_univariate.evaluate(FF(1));
-            zk_sumcheck_data.libra_running_sum *= two_inv;
-
-            zk_sumcheck_data.libra_running_sum += libra_evaluation;
-            zk_sumcheck_data.libra_scaling_factor *= two_inv;
-
-            zk_sumcheck_data.libra_evaluations.emplace_back(libra_evaluation / zk_sumcheck_data.libra_scaling_factor);
-        } else {
-            // compute the evaluation of the last Libra univariate at the challenge u_{d-1}
-            auto libra_evaluation = zk_sumcheck_data.libra_univariates[round_idx].evaluate(round_challenge) /
-                                    zk_sumcheck_data.libra_scaling_factor;
-            // place the evalution into the vector of Libra evaluations
-            zk_sumcheck_data.libra_evaluations.emplace_back(libra_evaluation);
-            for (auto univariate : zk_sumcheck_data.libra_univariates) {
-                univariate *= FF(1) / zk_sumcheck_data.libra_challenge;
-            }
-        };
-    }
 
     void commit_to_round_univariate(const size_t round_idx,
                                     bb::Univariate<FF, BATCHED_RELATION_PARTIAL_LENGTH>& round_univariate,

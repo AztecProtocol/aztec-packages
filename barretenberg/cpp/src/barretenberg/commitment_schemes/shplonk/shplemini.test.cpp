@@ -10,6 +10,7 @@
 #include "barretenberg/commitment_schemes/utils/instance_witness_generator.hpp"
 #include "barretenberg/commitment_schemes/utils/test_settings.hpp"
 #include "barretenberg/ecc/curves/bn254/g1.hpp"
+#include "barretenberg/sumcheck/sumcheck.hpp"
 
 #include <gtest/gtest.h>
 #include <vector>
@@ -226,7 +227,88 @@ TYPED_TEST(ShpleminiTest, CorrectnessOfGeminiClaimBatching)
 
     EXPECT_EQ(shplemini_result, expected_result);
 }
+TYPED_TEST(ShpleminiTest, OpeningSumcheckUnivariates)
+{
+    using Curve = TypeParam::Curve;
+    using Fr = typename Curve::ScalarField;
+    using Commitment = typename Curve::AffineElement;
+    using CK = typename TypeParam::CommitmentKey;
 
+    using ShpleminiProver = ShpleminiProver_<Curve>;
+    using ShpleminiVerifier = ShpleminiVerifier_<Curve>;
+
+    constexpr size_t length = 24;
+    std::shared_ptr<CK> ck = create_commitment_key<CK>(4096);
+
+    // generate sumcheck polys
+    auto zk_sumcheck_data = ZKSumcheckData<TypeParam>(this->log_n, length);
+    std::vector<Fr> challenge = this->random_evaluation_point(CONST_PROOF_SIZE_LOG_N);
+    std::vector<bb::Polynomial<Fr>> round_univariates = {};
+    std::vector<Commitment> sumcheck_commitments = {};
+    std::vector<std::array<Fr, 3>> sumcheck_evaluations = {};
+
+    for (size_t idx = 0; idx < this->log_n; idx++) {
+        bb::Polynomial<Fr> round_univariate = zk_sumcheck_data.libra_univariates[idx];
+
+        round_univariate.at(0) += zk_sumcheck_data.libra_running_sum;
+
+        round_univariates.push_back(std::move(round_univariate));
+        sumcheck_commitments.push_back(ck->commit(round_univariate));
+        sumcheck_evaluations.push_back(
+            { round_univariate.at(0), round_univariate.evaluate(Fr(1)), round_univariate.evaluate(challenge[idx]) });
+
+        zk_sumcheck_data.update_zk_sumcheck_data(challenge[idx], idx);
+    }
+    auto round_univariate = bb::Polynomial<Fr>(this->n);
+    for (size_t idx = this->log_n; idx < CONST_PROOF_SIZE_LOG_N; idx++) {
+        round_univariates.push_back(std::move(round_univariate));
+        sumcheck_commitments.push_back(ck->commit(round_univariate));
+        sumcheck_evaluations.push_back({ Fr(0), Fr(0), Fr(0) });
+    }
+
+    auto prover_transcript = TypeParam::Transcript::prover_init_empty();
+
+    const auto opening_claim = ShpleminiProver::prove(
+        this->n, {}, {}, challenge, ck, prover_transcript, {}, round_univariates, sumcheck_evaluations);
+
+    if constexpr (std::is_same_v<TypeParam, GrumpkinSettings>) {
+        IPA<Curve>::compute_opening_proof(this->ck(), opening_claim, prover_transcript);
+    } else {
+        KZG<Curve>::compute_opening_proof(this->ck(), opening_claim, prover_transcript);
+    }
+
+    // Initialize verifier's transcript
+    auto verifier_transcript = NativeTranscript::verifier_init_empty(prover_transcript);
+    // bool consistency_checked = true;
+
+    // Run Shplemini
+    const auto batch_opening_claim = ShpleminiVerifier::compute_batch_opening_claim(this->n,
+                                                                                    {},
+                                                                                    {},
+                                                                                    {},
+                                                                                    {},
+                                                                                    challenge,
+                                                                                    this->vk()->get_g1_identity(),
+                                                                                    verifier_transcript,
+                                                                                    {},
+                                                                                    true,
+                                                                                    nullptr,
+                                                                                    {},
+                                                                                    {},
+                                                                                    sumcheck_commitments,
+                                                                                    sumcheck_evaluations);
+    // Verify claim using KZG or IPA
+    if constexpr (std::is_same_v<TypeParam, GrumpkinSettings>) {
+        auto result =
+            IPA<Curve>::reduce_verify_batch_opening_claim(batch_opening_claim, this->vk(), verifier_transcript);
+        EXPECT_EQ(result, true);
+    } else {
+        const auto pairing_points =
+            KZG<Curve>::reduce_verify_batch_opening_claim(batch_opening_claim, verifier_transcript);
+        // Final pairing check: e([Q] - [Q_z] + z[W], [1]_2) = e([W], [x]_2)
+        EXPECT_EQ(this->vk()->pairing_check(pairing_points[0], pairing_points[1]), true);
+    }
+}
 /**
  * @brief Test Shplemini with ZK data consisting of a hiding polynomial generated by GeminiProver and Libra polynomials
  * used to mask Sumcheck Round Univariates.

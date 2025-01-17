@@ -45,17 +45,19 @@ template <typename Flavor> struct ZKSumcheckData {
     FF libra_running_sum;
     ClaimedLibraEvaluations libra_evaluations;
 
+    size_t univariate_length;
     // Default constructor
     ZKSumcheckData() = default;
 
     // Main constructor
     ZKSumcheckData(const size_t multivariate_d,
-                   std::shared_ptr<typename Flavor::Transcript> transcript,
+                   std::shared_ptr<typename Flavor::Transcript> transcript = nullptr,
                    std::shared_ptr<typename Flavor::CommitmentKey> commitment_key = nullptr)
         : constant_term(FF::random_element())
-        , libra_concatenated_monomial_form(SUBGROUP_SIZE + 2)           // includes masking
-        , libra_univariates(generate_libra_univariates(multivariate_d)) // random univariates of degree 2
+        , libra_concatenated_monomial_form(SUBGROUP_SIZE + 2) // includes masking
+        , libra_univariates(generate_libra_univariates(multivariate_d, LIBRA_UNIVARIATES_LENGTH))
         , log_circuit_size(multivariate_d)
+        , univariate_length(LIBRA_UNIVARIATES_LENGTH)
 
     {
         create_interpolation_domain();
@@ -81,21 +83,38 @@ template <typename Flavor> struct ZKSumcheckData {
         libra_running_sum = libra_total_sum * libra_challenge;
 
         // Setup the Libra data
+
         setup_auxiliary_data(libra_univariates, libra_scaling_factor, libra_challenge, libra_running_sum);
     }
 
+    // Constructor for test purposes. Creates log_circuit size polynomials g_i(X_i) of length univariate_length,
+    // computes the sum \sum_H (constant_term + \sum g_i).
+    ZKSumcheckData(const size_t multivariate_d, const size_t univariate_length)
+        : constant_term(FF::random_element())
+        , libra_univariates(generate_libra_univariates(multivariate_d, univariate_length))
+        , log_circuit_size(multivariate_d)
+        , libra_scaling_factor(FF(1))
+        , libra_challenge(FF::random_element())
+        , libra_total_sum(compute_libra_total_sum(libra_univariates, libra_scaling_factor, constant_term))
+        , libra_running_sum(libra_total_sum * libra_challenge)
+        , univariate_length(univariate_length)
+
+    {
+        setup_auxiliary_data(libra_univariates, libra_scaling_factor, libra_challenge, libra_running_sum);
+    }
     /**
      * @brief Given number of univariate polynomials and the number of their evaluations meant to be hidden, this method
      * produces a vector of univariate polynomials of length Flavor::BATCHED_RELATION_PARTIAL_LENGTH with
      * independent uniformly random coefficients.
      *
      */
-    static std::vector<Polynomial<FF>> generate_libra_univariates(const size_t number_of_polynomials)
+    static std::vector<Polynomial<FF>> generate_libra_univariates(const size_t number_of_polynomials,
+                                                                  const size_t univariate_length)
     {
         std::vector<Polynomial<FF>> libra_full_polynomials(number_of_polynomials);
 
         for (auto& libra_polynomial : libra_full_polynomials) {
-            libra_polynomial = Polynomial<FF>::random(LIBRA_UNIVARIATES_LENGTH);
+            libra_polynomial = Polynomial<FF>::random(univariate_length);
         };
         return libra_full_polynomials;
     };
@@ -116,7 +135,7 @@ template <typename Flavor> struct ZKSumcheckData {
         scaling_factor *= one_half;
 
         for (auto& univariate : libra_univariates) {
-            total_sum += univariate.evaluate(FF(0)) + univariate.evaluate(FF(1));
+            total_sum += univariate.at(0) + univariate.evaluate(FF(1));
             scaling_factor *= 2;
         }
         total_sum *= scaling_factor;
@@ -146,7 +165,7 @@ template <typename Flavor> struct ZKSumcheckData {
             univariate *= libra_scaling_factor;
         };
         // subtract the contribution of the first libra univariate from libra total sum
-        libra_running_sum += -libra_univariates[0].evaluate(FF(0)) - libra_univariates[0].evaluate(FF(1));
+        libra_running_sum += -libra_univariates[0].at(0) - libra_univariates[0].evaluate(FF(1));
         libra_running_sum *= one_half;
     }
 
@@ -213,6 +232,37 @@ template <typename Flavor> struct ZKSumcheckData {
             libra_concatenated_monomial_form.at(idx) -= masking_scalars.value_at(idx);
             libra_concatenated_monomial_form.at(SUBGROUP_SIZE + idx) += masking_scalars.value_at(idx);
         }
+    }
+
+    void update_zk_sumcheck_data(const FF round_challenge, const size_t round_idx)
+    {
+        static constexpr FF two_inv = FF(1) / FF(2);
+        // when round_idx = d - 1, the update is not needed
+        if (round_idx < this->log_circuit_size - 1) {
+            for (auto& univariate : this->libra_univariates) {
+                univariate *= two_inv;
+            };
+            // compute the evaluation \f$ \rho \cdot 2^{d-2-i} \çdot g_i(u_i) \f$
+            const FF libra_evaluation = this->libra_univariates[round_idx].evaluate(round_challenge);
+            const auto& next_libra_univariate = this->libra_univariates[round_idx + 1];
+            // update the running sum by adding g_i(u_i) and subtracting (g_i(0) + g_i(1))
+            this->libra_running_sum += -next_libra_univariate.at(0) - next_libra_univariate.evaluate(FF(1));
+            this->libra_running_sum *= two_inv;
+
+            this->libra_running_sum += libra_evaluation;
+            this->libra_scaling_factor *= two_inv;
+
+            this->libra_evaluations.emplace_back(libra_evaluation / this->libra_scaling_factor);
+        } else {
+            // compute the evaluation of the last Libra univariate at the challenge u_{d-1}
+            const FF libra_evaluation =
+                this->libra_univariates[round_idx].evaluate(round_challenge) / this->libra_scaling_factor;
+            // place the evalution into the vector of Libra evaluations
+            this->libra_evaluations.emplace_back(libra_evaluation);
+            for (auto univariate : this->libra_univariates) {
+                univariate *= FF(1) / this->libra_challenge;
+            }
+        };
     }
 };
 
