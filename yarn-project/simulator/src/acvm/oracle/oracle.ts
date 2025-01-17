@@ -5,7 +5,7 @@ import { Fr } from '@aztec/foundation/fields';
 import { createLogger } from '@aztec/foundation/log';
 
 import { type ACVMField } from '../acvm_types.js';
-import { frToBoolean, frToNumber, fromACVMField } from '../deserialize.js';
+import { frToBoolean, frToNumber, fromACVMField, fromBoundedVec } from '../deserialize.js';
 import { toACVMField } from '../serialize.js';
 import { type TypedOracle } from './typed_oracle.js';
 
@@ -382,6 +382,34 @@ export class Oracle {
 
   async syncNotes() {
     await this.typedOracle.syncNotes();
+  }
+
+  async deliverNote(
+    [contractAddress]: ACVMField[],
+    [storageSlot]: ACVMField[],
+    [nonce]: ACVMField[],
+    content: ACVMField[],
+    [contentLength]: ACVMField[],
+    [noteHash]: ACVMField[],
+    [nullifier]: ACVMField[],
+    [txHash]: ACVMField[],
+    [recipient]: ACVMField[],
+  ): Promise<ACVMField> {
+    // TODO(#10728): try-catch this block and return false if we get an exception so that the contract can decide what
+    // to do if a note fails delivery (e.g. not increment the tagging index, or add it to some pending work list).
+    // Delivery might fail due to temporary issues, such as poor node connectivity.
+    await this.typedOracle.deliverNote(
+      AztecAddress.fromString(contractAddress),
+      fromACVMField(storageSlot),
+      fromACVMField(nonce),
+      fromBoundedVec(content, contentLength),
+      fromACVMField(noteHash),
+      fromACVMField(nullifier),
+      fromACVMField(txHash),
+      AztecAddress.fromString(recipient),
+    );
+
+    return toACVMField(true);
   }
 
   async store([contract]: ACVMField[], [key]: ACVMField[], values: ACVMField[]) {

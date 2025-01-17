@@ -18,6 +18,7 @@ use types::{
         ARCHIVE_HEIGHT, BLOBS_PER_BLOCK, FIELDS_PER_BLOB, L1_TO_L2_MSG_SUBTREE_SIBLING_PATH_LENGTH,
     },
     partial_state_reference::PartialStateReference,
+    traits::Empty,
 };
 
 pub global EMPTY_BLOBS_HASH: Field =
@@ -101,6 +102,7 @@ mod tests {
         },
         partial_state_reference::PartialStateReference,
         tests::{merkle_tree_utils::compute_zero_hashes, utils::assert_array_eq},
+        traits::Empty,
     };
 
     fn compute_l1_l2_empty_snapshot() -> (AppendOnlyTreeSnapshot, [Field; L1_TO_L2_MSG_SUBTREE_SIBLING_PATH_LENGTH]) {

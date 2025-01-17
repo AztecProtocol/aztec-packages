@@ -61,7 +61,7 @@ import {
   getVKTreeRoot,
 } from '@aztec/noir-protocol-circuits-types/vks';
 import { protocolContractTreeRoot } from '@aztec/protocol-contracts';
-import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
+import { getTelemetryClient } from '@aztec/telemetry-client';
 import { type MerkleTreeAdminDatabase, NativeWorldStateService } from '@aztec/world-state';
 
 import { jest } from '@jest/globals';
@@ -94,7 +94,7 @@ describe('LightBlockBuilder', () => {
 
   beforeAll(async () => {
     logger = createLogger('prover-client:test:block-builder');
-    simulator = new TestCircuitProver(new NoopTelemetryClient());
+    simulator = new TestCircuitProver();
     vkTreeRoot = getVKTreeRoot();
     emptyProof = makeEmptyRecursiveProof(NESTED_RECURSIVE_PROOF_LENGTH);
     emptyRollupProof = makeEmptyRecursiveProof(NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH);
@@ -106,7 +106,7 @@ describe('LightBlockBuilder', () => {
     l1ToL2Messages = times(7, i => new Fr(i + 1));
     fork = await db.fork();
     expectsFork = await db.fork();
-    builder = new LightweightBlockBuilder(fork, new NoopTelemetryClient());
+    builder = new LightweightBlockBuilder(fork, getTelemetryClient());
   });
 
   afterEach(async () => {

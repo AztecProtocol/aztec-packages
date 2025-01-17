@@ -48,14 +48,13 @@ import { type ProverNode, type ProverNodeConfig, createProverNode } from '@aztec
 import { type PXEService, type PXEServiceConfig, createPXEService, getPXEServiceConfig } from '@aztec/pxe';
 import { type SequencerClient } from '@aztec/sequencer-client';
 import { TestL1Publisher } from '@aztec/sequencer-client/test';
-import { type TelemetryClient } from '@aztec/telemetry-client';
-import { BenchmarkTelemetryClient } from '@aztec/telemetry-client/bench';
-import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
 import {
+  type TelemetryClient,
   type TelemetryClientConfig,
-  createAndStartTelemetryClient,
   getConfigEnvVars as getTelemetryConfig,
-} from '@aztec/telemetry-client/start';
+  initTelemetryClient,
+} from '@aztec/telemetry-client';
+import { BenchmarkTelemetryClient } from '@aztec/telemetry-client/bench';
 
 import { type Anvil } from '@viem/anvil';
 import fs from 'fs/promises';
@@ -89,19 +88,17 @@ export { startAnvil };
 const { PXE_URL = '' } = process.env;
 const getAztecUrl = () => PXE_URL;
 
-let telemetryPromise: Promise<TelemetryClient> | undefined = undefined;
+let telemetry: TelemetryClient | undefined = undefined;
 function getTelemetryClient(partialConfig: Partial<TelemetryClientConfig> & { benchmark?: boolean } = {}) {
-  if (!telemetryPromise) {
+  if (!telemetry) {
     const config = { ...getTelemetryConfig(), ...partialConfig };
-    telemetryPromise = config.benchmark
-      ? Promise.resolve(new BenchmarkTelemetryClient())
-      : createAndStartTelemetryClient(config);
+    telemetry = config.benchmark ? new BenchmarkTelemetryClient() : initTelemetryClient(config);
   }
-  return telemetryPromise;
+  return telemetry;
 }
 if (typeof afterAll === 'function') {
   afterAll(async () => {
-    await (await telemetryPromise)?.stop();
+    await telemetry?.stop();
   });
 }
 
@@ -472,12 +469,11 @@ export async function setup(
   }
   config.l1PublishRetryIntervalMS = 100;
 
-  const telemetry = await getTelemetryClient(opts.telemetryConfig);
+  const telemetry = getTelemetryClient(opts.telemetryConfig);
 
   const blobSinkClient = createBlobSinkClient(config.blobSinkUrl);
-  const publisher = new TestL1Publisher(config, { telemetry, blobSinkClient });
+  const publisher = new TestL1Publisher(config, { blobSinkClient });
   const aztecNode = await AztecNodeService.createAndSync(config, {
-    telemetry,
     publisher,
     dateProvider,
     blobSinkClient,
@@ -755,8 +751,7 @@ export async function createAndSyncProverNode(
   const blobSinkClient = createBlobSinkClient();
   // Creating temp store and archiver for simulated prover node
   const archiverConfig = { ...aztecNodeConfig, dataDirectory };
-  const telemetry = new NoopTelemetryClient();
-  const archiver = await createArchiver(archiverConfig, blobSinkClient, telemetry, {
+  const archiver = await createArchiver(archiverConfig, blobSinkClient, {
     blockUntilSync: true,
   });
 
@@ -782,7 +777,7 @@ export async function createAndSyncProverNode(
   };
 
   // Use testing l1 publisher
-  const publisher = new TestL1Publisher(proverConfig, { telemetry, blobSinkClient });
+  const publisher = new TestL1Publisher(proverConfig, { blobSinkClient });
 
   const proverNode = await createProverNode(proverConfig, {
     aztecNodeTxProvider: aztecNodeWithoutStop,
