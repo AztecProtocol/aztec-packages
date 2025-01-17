@@ -140,9 +140,11 @@ std::vector<typename GeminiProver_<Curve>::Claim> GeminiProver_<Curve>::prove(
         throw_or_abort("Gemini evaluation challenge is in the SmallSubgroup.");
     }
 
+    // Compute polynomials A₀₊(X) = F(X) + G(X)/r and A₀₋(X) = F(X) - G(X)/r
     auto [A_0_pos, A_0_neg] = compute_partially_evaluated_batch_polynomials(
         log_n, std::move(batched_unshifted), std::move(batched_to_be_shifted), r_challenge, batched_group);
 
+    // Construct claims for the d + 1 univariate evaluations A₀₊(r), A₀₋(-r), and Foldₗ(−r^{2ˡ}), l = 1, ..., d-1
     std::vector<Claim> claims = construct_univariate_opening_claims(
         log_n, std::move(A_0_pos), std::move(A_0_neg), std::move(fold_polynomials), r_challenge);
 
