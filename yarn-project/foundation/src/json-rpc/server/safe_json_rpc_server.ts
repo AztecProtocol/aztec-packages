@@ -1,6 +1,6 @@
 import cors from '@koa/cors';
 import http from 'http';
-import Koa from 'koa';
+import { type default as Application, default as Koa } from 'koa';
 import bodyParser from 'koa-bodyparser';
 import compress from 'koa-compress';
 import Router from 'koa-router';
@@ -40,8 +40,8 @@ export class SafeJsonRpcServer {
     private http200OnError = false,
     /** Health check function */
     private readonly healthCheck: StatusCheckFn = () => true,
-    /** Export diagnostics data */
-    private diagnosticsMiddleware?: DiagnosticsMiddleware,
+    /** Additional middlewares */
+    private extraMiddlewares: Application.Middleware[] = [],
     /** Logger */
     private log = createLogger('json-rpc:server'),
   ) {}
@@ -103,24 +103,12 @@ export class SafeJsonRpcServer {
 
     app.use(compress({ br: false }));
     app.use(jsonResponse);
+    for (const middleware of this.extraMiddlewares) {
+      app.use(middleware);
+    }
     app.use(exceptionHandler);
     app.use(bodyParser({ jsonLimit: '50mb', enableTypes: ['json'], detectJSON: () => true }));
     app.use(cors());
-    app.use((ctx, next) => {
-      const { params = [], id, method } = (ctx.request.body as any) ?? {};
-      if (!this.diagnosticsMiddleware || !method) {
-        return next();
-      }
-
-      const diagnosticsContext: DiagnosticsData = {
-        id,
-        params,
-        method,
-        headers: ctx.headers,
-      };
-
-      return this.diagnosticsMiddleware(diagnosticsContext, next);
-    });
     app.use(router.routes());
     app.use(router.allowedMethods());
 
@@ -291,11 +279,11 @@ function makeAggregateHealthcheck(namedHandlers: NamespacedApiHandlers, log?: Lo
   };
 }
 
-type SafeJsonRpcServerOptions = {
+export type SafeJsonRpcServerOptions = {
   http200OnError: boolean;
   healthCheck?: StatusCheckFn;
   log?: Logger;
-  diagnosticsMiddleware?: DiagnosticsMiddleware;
+  middlewares?: Application.Middleware[];
 };
 
 /**
@@ -305,25 +293,24 @@ type SafeJsonRpcServerOptions = {
  */
 export function createNamespacedSafeJsonRpcServer(
   handlers: NamespacedApiHandlers,
-  options: Omit<SafeJsonRpcServerOptions, 'healthcheck'> = {
-    http200OnError: false,
+  options: Partial<Omit<SafeJsonRpcServerOptions, 'healthcheck'>> = {
     log: createLogger('json-rpc:server'),
   },
 ): SafeJsonRpcServer {
-  const { diagnosticsMiddleware, http200OnError, log } = options;
+  const { middlewares, http200OnError, log } = options;
   const proxy = new NamespacedSafeJsonProxy(handlers);
   const healthCheck = makeAggregateHealthcheck(handlers, log);
-  return new SafeJsonRpcServer(proxy, http200OnError, healthCheck, diagnosticsMiddleware, log);
+  return new SafeJsonRpcServer(proxy, http200OnError, healthCheck, middlewares, log);
 }
 
 export function createSafeJsonRpcServer<T extends object = any>(
   handler: T,
   schema: ApiSchemaFor<T>,
-  options: SafeJsonRpcServerOptions = { http200OnError: false },
+  options: Partial<SafeJsonRpcServerOptions> = {},
 ) {
-  const { http200OnError, log, healthCheck, diagnosticsMiddleware } = options;
+  const { http200OnError, log, healthCheck, middlewares: extraMiddlewares } = options;
   const proxy = new SafeJsonProxy(handler, schema);
-  return new SafeJsonRpcServer(proxy, http200OnError, healthCheck, diagnosticsMiddleware, log);
+  return new SafeJsonRpcServer(proxy, http200OnError, healthCheck, extraMiddlewares, log);
 }
 
 /**
