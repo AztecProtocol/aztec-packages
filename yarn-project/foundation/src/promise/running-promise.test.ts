@@ -78,5 +78,23 @@ describe('RunningPromise', () => {
       expect(counter).toEqual(1);
       expect(loggerSpy).not.toHaveBeenCalled();
     });
+
+    class IgnoredError extends Error {
+      constructor() {
+        super('ignored');
+        this.name = 'IgnoredError';
+      }
+    }
+
+    it('handles ignored errors', async () => {
+      const failingFn = async () => {
+        await fn();
+        throw new IgnoredError();
+      };
+      runningPromise = new RunningPromise(failingFn, logger, 50, [IgnoredError]);
+      runningPromise.start();
+      await sleep(90);
+      expect(counter).toEqual(0);
+    });
   });
 });
