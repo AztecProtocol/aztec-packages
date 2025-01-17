@@ -157,6 +157,9 @@ export interface P2PConfig extends P2PReqRespConfig {
 
   /** Limit of transactions to archive in the tx pool. Once the archived tx limit is reached, the oldest archived txs will be purged. */
   archivedTxLimit: number;
+
+  /** How many txs can be verified at the same time when starting the client */
+  verifyTxConcurrencyLimit: number;
 }
 
 export const p2pConfigMappings: ConfigMappingsType<P2PConfig> = {
@@ -313,6 +316,11 @@ export const p2pConfigMappings: ConfigMappingsType<P2PConfig> = {
     description:
       'The number of transactions that will be archived. If the limit is set to 0 then archiving will be disabled.',
     ...numberConfigHelper(0),
+  },
+  verifyTxConcurrencyLimit: {
+    env: 'P2P_VERIFY_TX_CONCURRENCY_LIMIT',
+    description: 'The number of txs that can be verified simultaneously when starting the client',
+    ...numberConfigHelper(16),
   },
   ...p2pReqRespConfigMappings,
 };
