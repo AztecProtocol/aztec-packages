@@ -225,12 +225,12 @@ where
             // scheduled. Therefore, the hints must then correspond to uninitialized scheduled changes.
             assert_eq(
                 value_change_hint,
-                ScheduledValueChange::deserialize(zeroed()),
+                ScheduledValueChange::unpack(zeroed()),
                 "Non-zero value change for zero hash",
             );
             assert_eq(
                 delay_change_hint,
-                ScheduledDelayChange::deserialize(zeroed()),
+                ScheduledDelayChange::unpack(zeroed()),
                 "Non-zero delay change for zero hash",
             );
         };
@@ -242,8 +242,7 @@ where
         value_change: ScheduledValueChange<T>,
         delay_change: ScheduledDelayChange<INITIAL_DELAY>,
     ) -> Field {
-        let concatenated: [Field; 4] =
-            array_concat(value_change.serialize(), delay_change.serialize());
+        let concatenated: [Field; 4] = array_concat(value_change.pack(), delay_change.pack());
         poseidon2_hash(concatenated)
     }
 }

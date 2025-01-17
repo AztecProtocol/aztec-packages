@@ -1,4 +1,4 @@
-use dep::aztec::protocol_types::{traits::{Deserialize, Serialize}, utils::field::field_from_bytes};
+use dep::aztec::protocol_types::{traits::Packable, utils::field::field_from_bytes};
 
 // A Fixedsize Compressed String.
 // Essentially a special version of Compressed String for practical use.
@@ -6,14 +6,12 @@ pub struct FieldCompressedString {
     value: Field,
 }
 
-impl Serialize<1> for FieldCompressedString {
-    fn serialize(self) -> [Field; 1] {
+impl Packable<1> for FieldCompressedString {
+    fn pack(self) -> [Field; 1] {
         [self.value]
     }
-}
 
-impl Deserialize<1> for FieldCompressedString {
-    fn deserialize(input: [Field; 1]) -> Self {
+    fn unpack(input: [Field; 1]) -> Self {
         Self { value: input[0] }
     }
 }

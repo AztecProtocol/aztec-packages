@@ -1,4 +1,4 @@
-use dep::aztec::protocol_types::{address::AztecAddress, traits::{Deserialize, Serialize}};
+use dep::aztec::protocol_types::{address::AztecAddress, traits::{FromField, Packable, ToField}};
 
 global CONFIG_LENGTH: u32 = 3;
 
@@ -11,15 +11,12 @@ pub struct Config {
     pub liquidity_token: AztecAddress,
 }
 
-// Note: I could not get #[derive(Serialize)] to work so I had to implement it manually.
-impl Serialize<CONFIG_LENGTH> for Config {
-    fn serialize(self: Self) -> [Field; CONFIG_LENGTH] {
+impl Packable<CONFIG_LENGTH> for Config {
+    fn pack(self: Self) -> [Field; CONFIG_LENGTH] {
         [self.token0.to_field(), self.token1.to_field(), self.liquidity_token.to_field()]
     }
-}
 
-impl Deserialize<CONFIG_LENGTH> for Config {
-    fn deserialize(fields: [Field; CONFIG_LENGTH]) -> Self {
+    fn unpack(fields: [Field; CONFIG_LENGTH]) -> Self {
         Self {
             token0: AztecAddress::from_field(fields[0]),
             token1: AztecAddress::from_field(fields[1]),
