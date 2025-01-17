@@ -450,5 +450,8 @@ bool set_at_key(const LMDBCursor& cursor, Key& key);
 
 void read_next(const LMDBCursor& cursor, KeyValuesVector& keyValues, uint64_t numToRead);
 void read_prev(const LMDBCursor& cursor, KeyValuesVector& keyValues, uint64_t numToRead);
+
+void read_next(const LMDBCursor& cursor, KeyDupValuesVector& keyValues, uint64_t numToRead);
+void read_prev(const LMDBCursor& cursor, KeyDupValuesVector& keyValues, uint64_t numToRead);
 } // namespace lmdb_queries
 } // namespace bb::lmdblib

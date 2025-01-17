@@ -10,6 +10,9 @@ using OptionalValue = std::optional<Value>;
 using KeyValuePair = std::pair<Key, Value>;
 using KeysVector = std::vector<Key>;
 using ValuesVector = std::vector<Value>;
+using DupValue = std::vector<Value>;
+using KeyDupValuePair = std::pair<Key, DupValue>;
 using OptionalValuesVector = std::vector<OptionalValue>;
 using KeyValuesVector = std::vector<KeyValuePair>;
+using KeyDupValuesVector = std::vector<KeyDupValuePair>;
 } // namespace bb::lmdblib
