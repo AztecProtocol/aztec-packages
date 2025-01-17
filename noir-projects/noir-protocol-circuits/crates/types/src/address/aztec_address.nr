@@ -11,7 +11,7 @@ use crate::{
     hash::{poseidon2_hash_with_separator, private_functions_root_from_siblings},
     merkle_tree::membership::MembershipWitness,
     public_keys::{IvpkM, NpkM, OvpkM, PublicKeys, ToPoint, TpkM},
-    traits::{Deserialize, Empty, FromField, Serialize, ToField},
+    traits::{Deserialize, Empty, FromField, Packable, Serialize, ToField},
 };
 
 // We do below because `use crate::point::Point;` does not work
@@ -65,6 +65,15 @@ impl Deserialize<AZTEC_ADDRESS_LENGTH> for AztecAddress {
     }
 }
 
+impl Packable<AZTEC_ADDRESS_LENGTH> for AztecAddress {
+    fn pack(self) -> [Field; AZTEC_ADDRESS_LENGTH] {
+        [self.to_field()]
+    }
+
+    fn unpack(fields: [Field; AZTEC_ADDRESS_LENGTH]) -> Self {
+        AztecAddress::from_field(fields[0])
+    }
+}
 impl AztecAddress {
     pub fn zero() -> Self {
         Self { inner: 0 }

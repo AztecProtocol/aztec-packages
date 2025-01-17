@@ -1,4 +1,4 @@
-use dep::aztec::protocol_types::traits::{Deserialize, Serialize};
+use dep::aztec::protocol_types::traits::{Deserialize, Packable, Serialize};
 
 pub struct Note {
     a: Field,
@@ -14,6 +14,16 @@ impl Serialize<2> for Note {
 impl Deserialize<2> for Note {
     fn deserialize(wire: [Field; 2]) -> Note {
         Note { a: wire[0], b: wire[1] }
+    }
+}
+
+impl Packable<2> for Note {
+    fn pack(self) -> [Field; 2] {
+        [self.a, self.b]
+    }
+
+    fn unpack(fields: [Field; 2]) -> Self {
+        Note { a: fields[0], b: fields[1] }
     }
 }
 

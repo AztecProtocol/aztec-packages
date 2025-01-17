@@ -1,5 +1,5 @@
 pub use dep::std::embedded_curve_ops::EmbeddedCurvePoint as Point;
-use crate::{hash::poseidon2_hash, traits::{Deserialize, Empty, Hash, Serialize}};
+use crate::{hash::poseidon2_hash, traits::{Deserialize, Empty, Hash, Packable, Serialize}};
 
 pub global POINT_LENGTH: u32 = 3;
 
@@ -26,5 +26,15 @@ impl Empty for Point {
 impl Deserialize<POINT_LENGTH> for Point {
     fn deserialize(serialized: [Field; POINT_LENGTH]) -> Point {
         Point { x: serialized[0], y: serialized[1], is_infinite: serialized[2] as bool }
+    }
+}
+// TODO(benesjan): use compact representation here. Like point_to_bytes fn but to fields
+impl Packable<POINT_LENGTH> for Point {
+    fn pack(self) -> [Field; POINT_LENGTH] {
+        self.serialize()
+    }
+
+    fn unpack(packed: [Field; POINT_LENGTH]) -> Self {
+        Self::deserialize(packed)
     }
 }

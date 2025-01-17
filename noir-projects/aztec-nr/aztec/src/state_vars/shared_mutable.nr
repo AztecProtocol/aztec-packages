@@ -1,7 +1,7 @@
 use dep::protocol_types::{
     address::AztecAddress,
     hash::{poseidon2_hash, poseidon2_hash_with_separator},
-    traits::{Deserialize, FromField, Serialize, ToField},
+    traits::{FromField, Packable, ToField},
     utils::arrays::array_concat,
 };
 
@@ -38,7 +38,7 @@ global HASH_SEPARATOR: u32 = 2;
 // can actually use it here
 impl<T, let INITIAL_DELAY: u32, Context, let N: u32> Storage<T, N> for SharedMutable<T, INITIAL_DELAY, Context>
 where
-    T: Serialize<N> + Deserialize<N>,
+    T: Packable<N>,
 {
     fn get_storage_slot(self) -> Field {
         self.storage_slot
