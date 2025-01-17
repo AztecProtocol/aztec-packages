@@ -574,9 +574,9 @@ export class L1TxUtils {
 
   public async simulateGasUsed(
     request: L1TxRequest,
-    _gasConfig?: L1TxUtilsConfig,
     blockOverrides: BlockOverrides<bigint, number> = {},
     stateOverrides: StateOverride = [],
+    _gasConfig?: L1TxUtilsConfig,
   ): Promise<bigint> {
     const gasConfig = { ...this.config, ..._gasConfig };
     const gasPrice = await this.getGasPrice(gasConfig, false);

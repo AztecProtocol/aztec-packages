@@ -1065,9 +1065,8 @@ export class L1Publisher {
           to: this.rollupContract.address,
           data,
         },
-        undefined,
         {
-          time: timestamp,
+          time: timestamp + 1n,
         },
         [
           {
@@ -1096,7 +1095,6 @@ export class L1Publisher {
         {
           ...opts,
           gasLimit: simulationResult + blobEvaluationGas,
-          gasLimitBufferPercentage: 100,
         },
         {
           blobs: encodedData.blobs.map(b => b.dataWithZeros),
@@ -1139,9 +1137,8 @@ export class L1Publisher {
           to: this.rollupContract.address,
           data,
         },
-        undefined,
         {
-          time: timestamp,
+          time: timestamp + 1n,
         },
         [
           {
@@ -1170,7 +1167,6 @@ export class L1Publisher {
         {
           ...opts,
           gasLimit: simulationResult + blobEvaluationGas,
-          gasLimitBufferPercentage: 100,
         },
         {
           blobs: encodedData.blobs.map(b => b.dataWithZeros),
