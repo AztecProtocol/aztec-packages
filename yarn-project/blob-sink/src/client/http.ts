@@ -70,16 +70,19 @@ export class HttpBlobSinkClient implements BlobSinkClientInterface {
       this.log.debug('Getting blob sidecar from blob sink');
       const blobs = await this.getBlobSidecarFrom(this.config.blobSinkUrl, blockHash, indices);
       if (blobs.length > 0) {
+        this.log.debug(`Got ${blobs.length} blobs from blob sink`);
         return blobs;
       }
     }
 
     if (this.config.l1ConsensusHostUrl) {
       // The beacon api can query by slot number, so we get that first
+      this.log.debug('Getting slot number from consensus host');
       const slotNumber = await this.getSlotNumber(blockHash);
       if (slotNumber) {
         const blobs = await this.getBlobSidecarFrom(this.config.l1ConsensusHostUrl, slotNumber, indices);
         if (blobs.length > 0) {
+          this.log.debug(`Got ${blobs.length} blobs from consensus host`);
           return blobs;
         }
       }
@@ -94,6 +97,7 @@ export class HttpBlobSinkClient implements BlobSinkClientInterface {
     blockHashOrSlot: string | number,
     indices?: number[],
   ): Promise<Blob[]> {
+    // TODO(md): right now we assume all blobs are ours, this will not yet work on sepolia
     try {
       let url = `${hostUrl}/eth/v1/beacon/blob_sidecars/${blockHashOrSlot}`;
       if (indices && indices.length > 0) {
@@ -104,7 +108,6 @@ export class HttpBlobSinkClient implements BlobSinkClientInterface {
 
       if (res.ok) {
         const body = await res.json();
-        this.log.debug(`Blob sidecar for block ${blockHashOrSlot} is ${body}`);
         const blobs = body.data.map((b: BlobJson) => Blob.fromJson(b));
         return blobs;
       }

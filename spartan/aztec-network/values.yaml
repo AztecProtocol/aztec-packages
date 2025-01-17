@@ -228,6 +228,8 @@ ethereum:
   # 1 billion gas limit
   # helps ensure we can deploy public contracts
   gasLimit: "1000000000"
+  # 10 times the default of 131072
+  maxTxInputSizeBytes: "1310720"
   args: ""
   execution:
     externalHost: ""

@@ -33,6 +33,7 @@ spec:
               --http.addr="0.0.0.0"
               --http.api="admin,net,eth,web3,debug,trace"
               --http.corsdomain="*"
+              --txpool.max-tx-input-bytes={{ .Values.ethereum.maxTxInputSizeBytes }}
               --max-outbound-peers=0
               --max-inbound-peers=0
               --ipcdisable

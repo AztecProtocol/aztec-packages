@@ -102,7 +102,7 @@ fi
 
 # Write addresses to file for sourcing
 echo "export ETHEREUM_HOST=${ETHEREUM_ADDR}" >> /shared/config/service-addresses
-echo "export ETHEREUM_CONSENSUS_HOST=${ETHEREUM_CONSENSUS_ADDR}" >> /shared/config/service-addresses
+echo "export L1_CONSENSUS_HOST_URL=${ETHEREUM_CONSENSUS_ADDR}" >> /shared/config/service-addresses
 echo "export BOOT_NODE_HOST=${BOOT_NODE_ADDR}" >> /shared/config/service-addresses
 echo "export PROVER_NODE_HOST=${PROVER_NODE_ADDR}" >> /shared/config/service-addresses
 echo "export PROVER_BROKER_HOST=${PROVER_BROKER_ADDR}" >> /shared/config/service-addresses

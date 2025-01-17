@@ -135,15 +135,11 @@ if $METRICS; then
 fi
 
 # If an ethereum rpc url is provided, use it
-if $ETHEREUM_HOST; then
-  export ETHEREUM_HOST
-fi
-if $L1_CONSENSUS_HOST_URL; then
-  export L1_CONSENSUS_HOST_URL
-fi
+export ETHEREUM_HOST
+export L1_CONSENSUS_HOST_URL
 
 # If an ethereum url has been provided, do not run the ethereum.sh script
-if $ETHEREUM_HOST && $L1_CONSENSUS_HOST_URL; then
+if [ -n "$ETHEREUM_HOST" ]; then
   ETHEREUM_SCRIPT=""
 else
   ETHEREUM_SCRIPT="./ethereum.sh"
