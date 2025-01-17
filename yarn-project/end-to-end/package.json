@@ -54,6 +54,7 @@
     "@aztec/simulator": "workspace:^",
     "@aztec/telemetry-client": "workspace:^",
     "@aztec/types": "workspace:^",
+    "@aztec/validator-client": "workspace:^",
     "@aztec/world-state": "workspace:^",
     "@iarna/toml": "^2.2.5",
     "@jest/globals": "^29.5.0",

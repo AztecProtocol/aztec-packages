@@ -29,7 +29,7 @@ contract StaticParent {
         target_selector: FunctionSelector,
         args: [Field; 2],
     ) -> Field {
-        context.call_private_function(target_contract, target_selector, args).unpack_into()
+        context.call_private_function(target_contract, target_selector, args).get_preimage()
     }
 
     // Just like function above but with 3 args.
@@ -39,7 +39,7 @@ contract StaticParent {
         target_selector: FunctionSelector,
         args: [Field; 3],
     ) -> Field {
-        context.call_private_function(target_contract, target_selector, args).unpack_into()
+        context.call_private_function(target_contract, target_selector, args).get_preimage()
     }
 
     // Private function to enqueue a call to a public function of another contract, passing the target arguments provided
@@ -58,7 +58,7 @@ contract StaticParent {
         target_selector: FunctionSelector,
         args: [Field; 2],
     ) -> Field {
-        context.static_call_private_function(target_contract, target_selector, args).unpack_into()
+        context.static_call_private_function(target_contract, target_selector, args).get_preimage()
     }
 
     // Private function to statically call another private function to the target_contract using the selector and values provided
@@ -68,7 +68,7 @@ contract StaticParent {
         target_selector: FunctionSelector,
         args: [Field; 3],
     ) -> Field {
-        context.static_call_private_function(target_contract, target_selector, args).unpack_into()
+        context.static_call_private_function(target_contract, target_selector, args).get_preimage()
     }
 
     // Same as above but using a specific function from the interface

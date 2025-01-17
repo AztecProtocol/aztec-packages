@@ -83,6 +83,12 @@ spec:
               valueFrom:
                 fieldRef:
                   fieldPath: metadata.name
+            - name: OTEL_SERVICE_NAME
+              value: bot
+            - name: K8S_NAMESPACE_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
             - name: AZTEC_PORT
               value: "{{ .Values.bot.service.nodePort }}"
             - name: LOG_JSON
@@ -111,6 +117,8 @@ spec:
               value: "{{ .Values.bot.maxErrors }}"
             - name: BOT_STOP_WHEN_UNHEALTHY
               value: "{{ .Values.bot.stopIfUnhealthy }}"
+            - name: USE_GCLOUD_OBSERVABILITY
+              value: "{{ .Values.telemetry.useGcloudObservability }}"
           ports:
             - name: http
               containerPort: {{ .Values.bot.service.nodePort }}

@@ -2,6 +2,7 @@ import { Fr, PrivateCircuitPublicInputs } from '@aztec/circuits.js';
 import { jsonParseWithSchema, jsonStringify } from '@aztec/foundation/json-rpc';
 
 import {
+  PrivateCallExecutionResult,
   PrivateExecutionResult,
   collectNoteHashLeafIndexMap,
   collectNoteHashNullifierCounterMap,
@@ -9,8 +10,8 @@ import {
 } from './private_execution_result.js';
 import { PublicExecutionRequest } from './public_execution_request.js';
 
-function emptyExecutionResult(): PrivateExecutionResult {
-  return new PrivateExecutionResult(
+function emptyCallExecutionResult(): PrivateCallExecutionResult {
+  return new PrivateCallExecutionResult(
     Buffer.from(''),
     Buffer.from(''),
     new Map(),
@@ -24,6 +25,10 @@ function emptyExecutionResult(): PrivateExecutionResult {
     PublicExecutionRequest.empty(),
     [],
   );
+}
+
+function emptyExecutionResult(): PrivateExecutionResult {
+  return new PrivateExecutionResult(emptyCallExecutionResult(), Fr.zero());
 }
 
 describe('execution_result', () => {
@@ -43,9 +48,9 @@ describe('execution_result', () => {
 
   describe('collectNoteHashLeafIndexMap', () => {
     it('returns a map for note hash leaf indexes', () => {
-      executionResult.noteHashLeafIndexMap = new Map();
-      executionResult.noteHashLeafIndexMap.set(12n, 99n);
-      executionResult.noteHashLeafIndexMap.set(34n, 88n);
+      executionResult.entrypoint.noteHashLeafIndexMap = new Map();
+      executionResult.entrypoint.noteHashLeafIndexMap.set(12n, 99n);
+      executionResult.entrypoint.noteHashLeafIndexMap.set(34n, 88n);
       const res = collectNoteHashLeafIndexMap(executionResult);
       expect(res.size).toBe(2);
       expect(res.get(12n)).toBe(99n);
@@ -53,19 +58,19 @@ describe('execution_result', () => {
     });
 
     it('returns a map containing note hash leaf indexes for nested executions', () => {
-      executionResult.noteHashLeafIndexMap.set(12n, 99n);
-      executionResult.noteHashLeafIndexMap.set(34n, 88n);
+      executionResult.entrypoint.noteHashLeafIndexMap.set(12n, 99n);
+      executionResult.entrypoint.noteHashLeafIndexMap.set(34n, 88n);
 
-      const childExecution0 = emptyExecutionResult();
+      const childExecution0 = emptyCallExecutionResult();
       childExecution0.noteHashLeafIndexMap.set(56n, 77n);
 
-      const childExecution1 = emptyExecutionResult();
+      const childExecution1 = emptyCallExecutionResult();
       childExecution1.noteHashLeafIndexMap.set(78n, 66n);
-      const grandchildExecution = emptyExecutionResult();
+      const grandchildExecution = emptyCallExecutionResult();
       grandchildExecution.noteHashLeafIndexMap.set(90n, 55n);
       childExecution1.nestedExecutions = [grandchildExecution];
 
-      executionResult.nestedExecutions = [childExecution0, childExecution1];
+      executionResult.entrypoint.nestedExecutions = [childExecution0, childExecution1];
 
       const res = collectNoteHashLeafIndexMap(executionResult);
       expect(res.size).toBe(5);
@@ -79,9 +84,9 @@ describe('execution_result', () => {
 
   describe('collectNoteHashNullifierCounterMap', () => {
     it('returns a map for note hash leaf indexes', () => {
-      executionResult.noteHashNullifierCounterMap = new Map();
-      executionResult.noteHashNullifierCounterMap.set(12, 99);
-      executionResult.noteHashNullifierCounterMap.set(34, 88);
+      executionResult.entrypoint.noteHashNullifierCounterMap = new Map();
+      executionResult.entrypoint.noteHashNullifierCounterMap.set(12, 99);
+      executionResult.entrypoint.noteHashNullifierCounterMap.set(34, 88);
       const res = collectNoteHashNullifierCounterMap(executionResult);
       expect(res.size).toBe(2);
       expect(res.get(12)).toBe(99);
@@ -89,19 +94,19 @@ describe('execution_result', () => {
     });
 
     it('returns a map containing note hash leaf indexes for nested executions', () => {
-      executionResult.noteHashNullifierCounterMap.set(12, 99);
-      executionResult.noteHashNullifierCounterMap.set(34, 88);
+      executionResult.entrypoint.noteHashNullifierCounterMap.set(12, 99);
+      executionResult.entrypoint.noteHashNullifierCounterMap.set(34, 88);
 
-      const childExecution0 = emptyExecutionResult();
+      const childExecution0 = emptyCallExecutionResult();
       childExecution0.noteHashNullifierCounterMap.set(56, 77);
 
-      const childExecution1 = emptyExecutionResult();
+      const childExecution1 = emptyCallExecutionResult();
       childExecution1.noteHashNullifierCounterMap.set(78, 66);
-      const grandchildExecution = emptyExecutionResult();
+      const grandchildExecution = emptyCallExecutionResult();
       grandchildExecution.noteHashNullifierCounterMap.set(90, 55);
       childExecution1.nestedExecutions = [grandchildExecution];
 
-      executionResult.nestedExecutions = [childExecution0, childExecution1];
+      executionResult.entrypoint.nestedExecutions = [childExecution0, childExecution1];
 
       const res = collectNoteHashNullifierCounterMap(executionResult);
       expect(res.size).toBe(5);
@@ -115,11 +120,11 @@ describe('execution_result', () => {
 
   describe('getFinalMinRevertibleSideEffectCounter', () => {
     beforeEach(() => {
-      const childExecution0 = emptyExecutionResult();
-      const childExecution1 = emptyExecutionResult();
-      const grandchildExecution = emptyExecutionResult();
+      const childExecution0 = emptyCallExecutionResult();
+      const childExecution1 = emptyCallExecutionResult();
+      const grandchildExecution = emptyCallExecutionResult();
       childExecution1.nestedExecutions = [grandchildExecution];
-      executionResult.nestedExecutions = [childExecution0, childExecution1];
+      executionResult.entrypoint.nestedExecutions = [childExecution0, childExecution1];
     });
 
     it('returns a zero counter', () => {
@@ -128,13 +133,13 @@ describe('execution_result', () => {
     });
 
     it('returns the actual counter', () => {
-      executionResult.publicInputs.minRevertibleSideEffectCounter = new Fr(123);
+      executionResult.entrypoint.publicInputs.minRevertibleSideEffectCounter = new Fr(123);
       const res = getFinalMinRevertibleSideEffectCounter(executionResult);
       expect(res).toBe(123);
     });
 
     it('returns the actual counter in a nested call', () => {
-      executionResult.nestedExecutions[1].publicInputs.minRevertibleSideEffectCounter = new Fr(123);
+      executionResult.entrypoint.nestedExecutions[1].publicInputs.minRevertibleSideEffectCounter = new Fr(123);
       const res = getFinalMinRevertibleSideEffectCounter(executionResult);
       expect(res).toBe(123);
     });

@@ -11,7 +11,7 @@ the user's `PATH` variable in their shell startup script so they can be found.
 
 - `aztec` - The infrastructure container.
 - `aztec-cli` - A command-line tool for interacting with infrastructure.
-- `aztec-nargo` - A build of `nargo` from `noir` that is guaranteed to be version-aligned. Provides compiler, lsp and more.
+- `aztec-nargo` - A build of `nargo` from `noir` that is guaranteed to be version-aligned. Provides compiler, lsp and more. On `aztec-nargo compile <...>`, automatically transpiles artifacts using `avm-transpiler` and generates verification keys using `bb`.
 - `aztec-sandbox` - A wrapper around docker-compose that launches services needed for sandbox testing.
 - `aztec-up` - A tool to upgrade the aztec toolchain to the latest, or specific versions.
 - `aztec-builder` - A useful tool for projects to generate ABIs and update their dependencies.

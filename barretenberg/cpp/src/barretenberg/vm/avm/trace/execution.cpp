@@ -244,6 +244,40 @@ std::vector<FF> Execution::getDefaultPublicInputs()
 }
 
 /**
+ * @brief Run the bytecode, generate the corresponding execution trace and check the circuit for
+ *        execution of the supplied bytecode.
+ *
+ * @throws runtime_error exception when the bytecode is invalid.
+ */
+void Execution::check_circuit(AvmPublicInputs const& public_inputs, ExecutionHints const& execution_hints)
+{
+    std::vector<FF> returndata;
+    std::vector<FF> calldata;
+    for (const auto& enqueued_call_hints : execution_hints.enqueued_call_hints) {
+        calldata.insert(calldata.end(), enqueued_call_hints.calldata.begin(), enqueued_call_hints.calldata.end());
+    }
+    std::vector<Row> trace = AVM_TRACK_TIME_V(
+        "prove/gen_trace", gen_trace(public_inputs, returndata, execution_hints, /*apply_e2e_assertions=*/true));
+    if (!avm_dump_trace_path.empty()) {
+        info("Dumping trace as CSV to: " + avm_dump_trace_path.string());
+        dump_trace_as_csv(trace, avm_dump_trace_path);
+    }
+    auto circuit_builder = bb::avm::AvmCircuitBuilder();
+    circuit_builder.set_trace(std::move(trace));
+    vinfo("Circuit subgroup size: 2^",
+          // this calculates the integer log2
+          std::bit_width(circuit_builder.get_circuit_subgroup_size()) - 1);
+
+    if (circuit_builder.get_circuit_subgroup_size() > SRS_SIZE) {
+        throw_or_abort("Circuit subgroup size (" + std::to_string(circuit_builder.get_circuit_subgroup_size()) +
+                       ") exceeds SRS_SIZE (" + std::to_string(SRS_SIZE) + ")");
+    }
+
+    vinfo("------- CHECKING CIRCUIT -------");
+    AVM_TRACK_TIME("prove/check_circuit", circuit_builder.check_circuit());
+}
+
+/**
  * @brief Run the bytecode, generate the corresponding execution trace and prove the correctness
  *        of the execution of the supplied bytecode.
  *
@@ -352,8 +386,8 @@ std::vector<Row> Execution::gen_trace(AvmPublicInputs const& public_inputs,
     uint32_t start_side_effect_counter = 0;
     // Temporary until we get proper nested call handling
     std::vector<FF> calldata;
-    for (const auto& enqueued_call_hints : execution_hints.enqueued_call_hints) {
-        calldata.insert(calldata.end(), enqueued_call_hints.calldata.begin(), enqueued_call_hints.calldata.end());
+    for (const auto& enqueued_call_hint : execution_hints.enqueued_call_hints) {
+        calldata.insert(calldata.end(), enqueued_call_hint.calldata.begin(), enqueued_call_hint.calldata.end());
     }
     AvmTraceBuilder trace_builder =
         Execution::trace_builder_constructor(public_inputs, execution_hints, start_side_effect_counter);

@@ -5,7 +5,8 @@
 #include "barretenberg/ultra_honk/decider_proving_key.hpp"
 namespace bb {
 /**
- * @brief Methods for computing derived witness polynomials such as the permutation grand product
+ * @brief Methods for managing the compututation of derived witness polynomials such as the permutation grand product,
+ * log-derivative lookup inverses, and RAM/RAM memory records
  *
  * @tparam Flavor
  */
