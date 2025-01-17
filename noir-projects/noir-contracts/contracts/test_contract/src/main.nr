@@ -20,7 +20,7 @@ contract Test {
     use dep::aztec::protocol_types::{
         constants::{MAX_NOTE_HASH_READ_REQUESTS_PER_CALL, PRIVATE_LOG_SIZE_IN_FIELDS},
         point::Point,
-        traits::{Deserialize, Serialize},
+        traits::{Deserialize, Hash, Serialize},
         utils::arrays::array_concat,
     };
 
