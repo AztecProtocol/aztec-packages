@@ -91,10 +91,12 @@ describe('RunningPromise', () => {
         await fn();
         throw new IgnoredError();
       };
+      const loggerSpy = jest.spyOn(logger, 'error');
       runningPromise = new RunningPromise(failingFn, logger, 50, [IgnoredError]);
       runningPromise.start();
-      await sleep(90);
-      expect(counter).toEqual(0);
+      await sleep(150);
+      expect(counter).toEqual(1);
+      expect(loggerSpy).not.toHaveBeenCalled();
     });
   });
 });
