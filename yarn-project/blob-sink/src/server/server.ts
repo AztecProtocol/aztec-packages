@@ -10,6 +10,7 @@ import { z } from 'zod';
 
 import { type BlobStore, DiskBlobStore } from '../blobstore/index.js';
 import { MemoryBlobStore } from '../blobstore/memory_blob_store.js';
+import { inboundTransform } from '../encoding/index.js';
 import { type PostBlobSidecarRequest, blockIdSchema, indicesSchema } from '../types/api.js';
 import { BlobWithIndex } from '../types/index.js';
 import { type BlobSinkConfig } from './config.js';
@@ -150,8 +151,23 @@ export class BlobSinkServer {
     }
   }
 
+  /**
+   * Parse the blob data
+   *
+   * The blob sink http client will compress the blobs it sends
+   *
+   * @param blobs - The blob data
+   * @returns The parsed blob data
+   */
   private parseBlobData(blobs: PostBlobSidecarRequest['blobs']): BlobWithIndex[] {
-    return blobs.map(({ index, blob }) => new BlobWithIndex(Blob.fromBuffer(Buffer.from(blob.data)), index));
+    return blobs.map(
+      ({ index, blob }) =>
+        new BlobWithIndex(
+          // Snappy decompress the blob buffer
+          Blob.fromBuffer(inboundTransform(Buffer.from(blob.data))),
+          index,
+        ),
+    );
   }
 
   public start(): Promise<void> {

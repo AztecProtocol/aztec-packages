@@ -628,6 +628,11 @@ export class L1Publisher {
 
     // Tx was mined successfully
     if (receipt.status === 'success') {
+      // Send the blobs to the blob sink
+      this.sendBlobsToBlobSink(receipt.blockHash, blobs).catch(_err => {
+        this.log.error('Failed to send blobs to blob sink');
+      });
+
       const tx = await this.getTransactionStats(receipt.transactionHash);
       const stats: L1PublishBlockStats = {
         gasPrice: receipt.effectiveGasPrice,
@@ -641,11 +646,6 @@ export class L1Publisher {
       };
       this.log.verbose(`Published L2 block to L1 rollup contract`, { ...stats, ...ctx });
       this.metrics.recordProcessBlockTx(timer.ms(), stats);
-
-      // Send the blobs to the blob sink
-      this.sendBlobsToBlobSink(receipt.blockHash, blobs).catch(_err => {
-        this.log.error('Failed to send blobs to blob sink');
-      });
 
       return true;
     }

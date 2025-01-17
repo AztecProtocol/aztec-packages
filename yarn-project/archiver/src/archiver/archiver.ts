@@ -201,7 +201,6 @@ export class Archiver implements ArchiveSource, Traceable {
     }
 
     this.runningPromise = new RunningPromise(() => this.sync(false), this.log, this.config.pollingIntervalMs, [
-      // TODO(md): Instead do retries in the blob sink rather than this hack?
       // Ignored errors will not log to the console
       // We ignore NoBlobBodiesFound as the message may not have been passed to the blob sink yet
       NoBlobBodiesFoundError,

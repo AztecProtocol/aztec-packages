@@ -1,3 +1,5 @@
+import { jest } from '@jest/globals';
+
 import { type Logger, createLogger } from '../log/pino-logger.js';
 import { sleep } from '../sleep/index.js';
 import { RunningPromise } from './running-promise.js';
@@ -49,10 +51,12 @@ describe('RunningPromise', () => {
         await fn();
         throw new Error('ouch');
       };
+      const loggerSpy = jest.spyOn(logger, 'error');
       runningPromise = new RunningPromise(failingFn, logger, 50);
       runningPromise.start();
-      await sleep(90);
+      await sleep(150);
       expect(counter).toEqual(1);
+      expect(loggerSpy).toHaveBeenCalledTimes(1);
     });
 
     class IgnoredError extends Error {
@@ -67,10 +71,12 @@ describe('RunningPromise', () => {
         await fn();
         throw new IgnoredError();
       };
+      const loggerSpy = jest.spyOn(logger, 'error');
       runningPromise = new RunningPromise(failingFn, logger, 50, [IgnoredError]);
       runningPromise.start();
-      await sleep(90);
-      expect(counter).toEqual(0);
+      await sleep(150);
+      expect(counter).toEqual(1);
+      expect(loggerSpy).not.toHaveBeenCalled();
     });
   });
 });

@@ -1,6 +1,7 @@
 import { Blob, type BlobJson } from '@aztec/foundation/blob';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 
+import { outboundTransform } from '../encoding/index.js';
 import { type BlobSinkConfig, getBlobSinkConfigFromEnv } from './config.js';
 import { type BlobSinkClientInterface } from './interface.js';
 
@@ -31,7 +32,8 @@ export class HttpBlobSinkClient implements BlobSinkClientInterface {
         body: JSON.stringify({
           // eslint-disable-next-line camelcase
           block_id: blockHash,
-          blobs: blobs.map((b, i) => ({ blob: b.toBuffer(), index: i })),
+          // Snappy compress the blob buffer
+          blobs: blobs.map((b, i) => ({ blob: outboundTransform(b.toBuffer()), index: i })),
         }),
       });
 
@@ -81,7 +83,7 @@ export class HttpBlobSinkClient implements BlobSinkClientInterface {
         return blobs;
       }
 
-      this.log.warn(`Unable to get blob sidecar`, res.status);
+      this.log.debug(`Unable to get blob sidecar`, res.status);
       return [];
     } catch (err: any) {
       this.log.error(`Unable to get blob sidecar`, err.message);

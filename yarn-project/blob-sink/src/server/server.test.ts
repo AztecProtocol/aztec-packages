@@ -2,6 +2,7 @@ import { Blob, makeEncodedBlob } from '@aztec/foundation/blob';
 
 import request from 'supertest';
 
+import { outboundTransform } from '../encoding/index.js';
 import { BlobSinkServer } from './server.js';
 
 describe('BlobSinkService', () => {
@@ -33,11 +34,11 @@ describe('BlobSinkService', () => {
           blobs: [
             {
               index: 0,
-              blob: blob.toBuffer(),
+              blob: outboundTransform(blob.toBuffer()),
             },
             {
               index: 1,
-              blob: blob2.toBuffer(),
+              blob: outboundTransform(blob2.toBuffer()),
             },
           ],
         });

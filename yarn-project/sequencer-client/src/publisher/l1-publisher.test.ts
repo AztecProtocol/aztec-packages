@@ -1,4 +1,5 @@
 import { HttpBlobSinkClient } from '@aztec/blob-sink/client';
+import { inboundTransform } from '@aztec/blob-sink/encoding';
 import { L2Block } from '@aztec/circuit-types';
 import { EthAddress } from '@aztec/circuits.js';
 import {
@@ -182,7 +183,7 @@ describe('L1Publisher', () => {
 
     app.post('/blob_sidecar', (req, res) => {
       const blobsBuffers = req.body.blobs.map((b: { index: number; blob: { type: string; data: string } }) =>
-        Blob.fromBuffer(Buffer.from(b.blob.data)),
+        Blob.fromBuffer(inboundTransform(Buffer.from(b.blob.data))),
       );
 
       expect(blobsBuffers).toEqual(blobs);

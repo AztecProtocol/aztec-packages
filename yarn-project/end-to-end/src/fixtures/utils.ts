@@ -748,7 +748,7 @@ export async function createAndSyncProverNode(
     stop: () => Promise.resolve(),
   };
 
-  const blobSinkClient = createBlobSinkClient();
+  const blobSinkClient = createBlobSinkClient(aztecNodeConfig);
   // Creating temp store and archiver for simulated prover node
   const archiverConfig = { ...aztecNodeConfig, dataDirectory };
   const archiver = await createArchiver(archiverConfig, blobSinkClient, {

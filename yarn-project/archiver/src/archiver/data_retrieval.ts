@@ -167,14 +167,14 @@ async function getBlockFromRollupTx(
     Hex,
   ];
 
+  const header = BlockHeader.fromBuffer(Buffer.from(hexToBytes(decodedArgs.header)));
+
   const blobBodies = await blobSinkClient.getBlobSidecar(blockHash);
   if (blobBodies.length === 0) {
     throw new NoBlobBodiesFoundError(Number(l2BlockNum));
   }
 
   const blockFields = blobBodies.flatMap(b => b.toEncodedFields());
-
-  const header = BlockHeader.fromBuffer(Buffer.from(hexToBytes(decodedArgs.header)));
   // TODO(#9101): Retreiving the block body from calldata is a temporary soln before we have
   // either a beacon chain client or link to some blob store. Web2 is ok because we will
   // verify the block body vs the blob as below.
