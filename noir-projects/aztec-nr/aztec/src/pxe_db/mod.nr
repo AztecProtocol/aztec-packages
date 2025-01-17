@@ -6,7 +6,7 @@ use protocol_types::{address::AztecAddress, traits::{Deserialize, Serialize}};
 /// per contract address, so external contracts cannot access them.
 pub struct DBArray<T> {
     contract_address: AztecAddress,
-    /// An array's base slot is the slot in PXE's database in which the array lenght is stored. Array elements are
+    /// An array's base slot is the slot in PXE's database in which the array length is stored. Array elements are
     /// stored contiguously in the following slots, so e.g. if the base slot is 5, then the length is stored at slot 5,
     /// the first element (index 0) at slot 6, the second (index 1) at slot 7, and so on.
     base_slot: Field,
