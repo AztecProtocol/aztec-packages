@@ -40,7 +40,7 @@ describe('epoch-proving-job', () => {
   let proof: Proof;
   let blocks: L2Block[];
   let txs: Tx[];
-  let header: BlockHeader;
+  let initialHeader: BlockHeader;
   let epochNumber: number;
 
   // Constants
@@ -78,8 +78,8 @@ describe('epoch-proving-job', () => {
 
     publicInputs = RootRollupPublicInputs.random();
     proof = Proof.empty();
-    header = BlockHeader.empty();
     epochNumber = 1;
+    initialHeader = BlockHeader.empty();
     blocks = times(NUM_BLOCKS, i => L2Block.random(i + 1, TXS_PER_BLOCK));
     txs = times(NUM_TXS, i =>
       mock<Tx>({
@@ -88,8 +88,9 @@ describe('epoch-proving-job', () => {
     );
 
     l1ToL2MessageSource.getL1ToL2Messages.mockResolvedValue([]);
-    l2BlockSource.getBlockHeader.mockResolvedValue(header);
+    l2BlockSource.getBlockHeader.mockResolvedValue(initialHeader);
     publicProcessorFactory.create.mockReturnValue(publicProcessor);
+    db.getInitialHeader.mockReturnValue(initialHeader);
     worldState.fork.mockResolvedValue(db);
     prover.finaliseEpoch.mockResolvedValue({ publicInputs, proof });
     publisher.submitEpochProof.mockResolvedValue(true);
