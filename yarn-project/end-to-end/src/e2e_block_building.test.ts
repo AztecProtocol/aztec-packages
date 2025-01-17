@@ -78,7 +78,12 @@ describe('e2e_block_building', () => {
         sequencer: sequencerClient,
         dateProvider,
         cheatCodes,
-      } = await setup(2));
+      } = await setup(2, {
+        archiverPollingIntervalMS: 200,
+        transactionPollingIntervalMS: 200,
+        worldStateBlockCheckIntervalMS: 200,
+        blockCheckIntervalMS: 200,
+      }));
       sequencer = sequencerClient! as TestSequencerClient;
     });
 
@@ -466,7 +471,7 @@ describe('e2e_block_building', () => {
     });
 
     // Regression for https://github.com/AztecProtocol/aztec-packages/issues/7918
-    it('publishes two blocks with only padding txs', async () => {
+    it('publishes two empty blocks', async () => {
       ({ teardown, pxe, logger, aztecNode } = await setup(0, {
         minTxsPerBlock: 0,
         skipProtocolContracts: true,

@@ -20,7 +20,6 @@ export interface BlockBuilder extends ProcessedTxHandler {
   addTxs(txs: ProcessedTx[]): Promise<void>;
 
   /**
-   * Pads the block with empty txs if it hasn't reached the declared number of txs.
    * Assembles the block and updates the archive tree.
    */
   setBlockCompleted(expectedBlockHeader?: BlockHeader): Promise<L2Block>;

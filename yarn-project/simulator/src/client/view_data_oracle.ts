@@ -310,6 +310,24 @@ export class ViewDataOracle extends TypedOracle {
     await this.db.removeNullifiedNotes(this.contractAddress);
   }
 
+  public override async deliverNote(
+    contractAddress: AztecAddress,
+    storageSlot: Fr,
+    nonce: Fr,
+    content: Fr[],
+    noteHash: Fr,
+    nullifier: Fr,
+    txHash: Fr,
+    recipient: AztecAddress,
+  ) {
+    // TODO(#10727): allow other contracts to deliver notes
+    if (!this.contractAddress.equals(contractAddress)) {
+      throw new Error(`Got a note delivery request from ${contractAddress}, expected ${this.contractAddress}`);
+    }
+
+    await this.db.deliverNote(contractAddress, storageSlot, nonce, content, noteHash, nullifier, txHash, recipient);
+  }
+
   public override store(contract: AztecAddress, key: Fr, values: Fr[]): Promise<void> {
     if (!contract.equals(this.contractAddress)) {
       // TODO(#10727): instead of this check check that this.contractAddress is allowed to process notes for contract
