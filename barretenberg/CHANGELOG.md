@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.71.0](https://github.com/AztecProtocol/aztec-packages/compare/barretenberg-v0.70.0...barretenberg-v0.71.0) (2025-01-17)
+
+
+### Bug Fixes
+
+* Reallocate commitment key to avoid pippenger error ([#11249](https://github.com/AztecProtocol/aztec-packages/issues/11249)) ([8fc2011](https://github.com/AztecProtocol/aztec-packages/commit/8fc2011fbe0e3545924898a53e851279b8cc0084))
+* Resolve misc bugs handling phases in avm witgen ([#11218](https://github.com/AztecProtocol/aztec-packages/issues/11218)) ([29bc4bd](https://github.com/AztecProtocol/aztec-packages/commit/29bc4bdd5b59ee1050951e0c143654ef3cdd25b0))
+
+
+### Miscellaneous
+
+* **avm:** Calldata, returndata slices out of range padded with zeros ([#11265](https://github.com/AztecProtocol/aztec-packages/issues/11265)) ([a469c94](https://github.com/AztecProtocol/aztec-packages/commit/a469c94ccfa37723aa79f132e55c31ae7c4c6693)), closes [#10933](https://github.com/AztecProtocol/aztec-packages/issues/10933)
+* Move shared pcs functionality to internal library in solidity and small refactorings in sumcheck ([#11230](https://github.com/AztecProtocol/aztec-packages/issues/11230)) ([507ae9d](https://github.com/AztecProtocol/aztec-packages/commit/507ae9df9c369603da20f25ccc228729ee2733cd))
+
 ## [0.70.0](https://github.com/AztecProtocol/aztec-packages/compare/barretenberg-v0.69.1...barretenberg-v0.70.0) (2025-01-15)
 
 
