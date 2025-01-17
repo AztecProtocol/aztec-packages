@@ -31,17 +31,21 @@ class LMDBWriteTransaction : public LMDBTransaction {
     LMDBWriteTransaction& operator=(LMDBWriteTransaction&& other) = delete;
     ~LMDBWriteTransaction() override;
 
-    template <typename T> void put_value(T& key, std::vector<uint8_t>& data, const LMDBDatabase& db);
+    template <typename T> void put_value(T& key, Value& data, const LMDBDatabase& db);
 
     template <typename T> void put_value(T& key, const uint64_t& data, const LMDBDatabase& db);
 
-    void put_value(std::vector<uint8_t>& key, std::vector<uint8_t>& data, const LMDBDatabase& db);
+    void put_value(Key& key, Value& data, const LMDBDatabase& db);
 
-    void put_value(std::vector<uint8_t>& key, const uint64_t& data, const LMDBDatabase& db);
+    void put_value(Key& key, const uint64_t& data, const LMDBDatabase& db);
 
     template <typename T> void delete_value(T& key, const LMDBDatabase& db);
 
-    void delete_value(std::vector<uint8_t>& key, const LMDBDatabase& db);
+    template <typename T> void delete_value(T& key, Value& value, const LMDBDatabase& db);
+
+    void delete_value(Key& key, const LMDBDatabase& db);
+
+    void delete_value(Key& key, Value& value, const LMDBDatabase& db);
 
     template <typename T> void delete_all_values_greater_or_equal_key(const T& key, const LMDBDatabase& db) const;
 
@@ -52,22 +56,28 @@ class LMDBWriteTransaction : public LMDBTransaction {
     void try_abort();
 };
 
-template <typename T> void LMDBWriteTransaction::put_value(T& key, std::vector<uint8_t>& data, const LMDBDatabase& db)
+template <typename T> void LMDBWriteTransaction::put_value(T& key, Value& data, const LMDBDatabase& db)
 {
-    std::vector<uint8_t> keyBuffer = serialise_key(key);
+    Key keyBuffer = serialise_key(key);
     put_value(keyBuffer, data, db);
 }
 
 template <typename T> void LMDBWriteTransaction::put_value(T& key, const uint64_t& data, const LMDBDatabase& db)
 {
-    std::vector<uint8_t> keyBuffer = serialise_key(key);
+    Key keyBuffer = serialise_key(key);
     put_value(keyBuffer, data, db);
 }
 
 template <typename T> void LMDBWriteTransaction::delete_value(T& key, const LMDBDatabase& db)
 {
-    std::vector<uint8_t> keyBuffer = serialise_key(key);
+    Key keyBuffer = serialise_key(key);
     lmdb_queries::delete_value(keyBuffer, db, *this);
+}
+
+template <typename T> void LMDBWriteTransaction::delete_value(T& key, Value& value, const LMDBDatabase& db)
+{
+    Key keyBuffer = serialise_key(key);
+    lmdb_queries::delete_value(keyBuffer, value, db, *this);
 }
 
 template <typename T>

@@ -37,18 +37,23 @@ void LMDBWriteTransaction::try_abort()
     LMDBTransaction::abort();
 }
 
-void LMDBWriteTransaction::put_value(std::vector<uint8_t>& key, std::vector<uint8_t>& data, const LMDBDatabase& db)
+void LMDBWriteTransaction::put_value(Key& key, Value& data, const LMDBDatabase& db)
 {
-    lmdb_queries::put_value(key, data, db, *this);
+    lmdb_queries::put_value(key, data, db, *this, db.duplicate_keys_permitted());
 }
 
-void LMDBWriteTransaction::put_value(std::vector<uint8_t>& key, const uint64_t& data, const LMDBDatabase& db)
+void LMDBWriteTransaction::put_value(Key& key, const uint64_t& data, const LMDBDatabase& db)
 {
-    lmdb_queries::put_value(key, data, db, *this);
+    lmdb_queries::put_value(key, data, db, *this, db.duplicate_keys_permitted());
 }
 
-void LMDBWriteTransaction::delete_value(std::vector<uint8_t>& key, const LMDBDatabase& db)
+void LMDBWriteTransaction::delete_value(Key& key, const LMDBDatabase& db)
 {
     lmdb_queries::delete_value(key, db, *this);
+}
+
+void LMDBWriteTransaction::delete_value(Key& key, Value& value, const LMDBDatabase& db)
+{
+    lmdb_queries::delete_value(key, value, db, *this);
 }
 } // namespace bb::lmdblib

@@ -18,7 +18,7 @@ class LMDBDatabase {
                  const std::string& name,
                  bool integerKeys = false,
                  bool reverseKeys = false,
-                 bool duplicateValuesPermitted = false,
+                 bool duplicateKeysPermitted = false,
                  MDB_cmp_func* cmp = nullptr);
 
     LMDBDatabase(const LMDBDatabase& other) = delete;
@@ -30,10 +30,12 @@ class LMDBDatabase {
 
     const MDB_dbi& underlying() const;
     const std::string& name() const;
+    bool duplicate_keys_permitted() const;
 
   private:
     std::string dbName;
+    bool duplicateKeysPermitted;
     MDB_dbi _dbi;
-    LMDBEnvironment::SharedPtr _environment;
+    LMDBEnvironment::SharedPtr environment;
 };
 } // namespace bb::lmdblib

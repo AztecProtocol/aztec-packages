@@ -33,7 +33,7 @@ class LMDBStore {
 
     void open_database(const std::string& name, bool duplicateKeysPermitted = false);
 
-    void put(KeyValuesVector& toWrite, KeysVector& toDelete, const std::string& name);
+    void put(KeyDupValuesVector& toWrite, KeyDupValuesVector& toDelete, const std::string& name);
     void get(KeysVector& keys, OptionalValuesVector& values, const std::string& name);
 
     ReadTransaction::Ptr create_read_transaction();
@@ -47,8 +47,8 @@ class LMDBStore {
     LMDBEnvironment::SharedPtr environment;
     std::unordered_map<std::string, LMDBDatabase::SharedPtr> databases;
 
-    void put(KeyValuesVector& toWrite, KeysVector& toDelete, const LMDBDatabase& db);
-    void get(KeysVector& keys, OptionalValuesVector& values, const LMDBDatabase& db);
+    void put(KeyDupValuesVector& toWrite, KeyDupValuesVector& toDelete, const LMDBDatabase& db);
+    void get(KeysVector& keys, OptionalValuesVector& values, LMDBDatabase::SharedPtr db);
     Database::SharedPtr get_database(const std::string& name);
 };
 } // namespace bb::lmdblib

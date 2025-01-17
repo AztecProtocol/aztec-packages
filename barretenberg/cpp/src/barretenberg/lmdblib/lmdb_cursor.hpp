@@ -24,8 +24,10 @@ class LMDBCursor {
     uint64_t id() const;
 
     bool set_at_key(Key& key) const;
-    void read_next(uint64_t batchSize, KeyValuesVector& keyValuePairs) const;
-    void read_prev(uint64_t batchSize, KeyValuesVector& keyValuePairs) const;
+    void read_next(uint64_t numKeysToRead, KeyValuesVector& keyValuePairs) const;
+    void read_prev(uint64_t numKeysToRead, KeyValuesVector& keyValuePairs) const;
+    void read_next(uint64_t numKeysToRead, KeyDupValuesVector& keyValuePairs) const;
+    void read_prev(uint64_t numKeysToRead, KeyDupValuesVector& keyValuePairs) const;
 
   private:
     std::shared_ptr<LMDBReadTransaction> _tx;

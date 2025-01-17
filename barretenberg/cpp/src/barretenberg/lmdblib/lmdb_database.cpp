@@ -10,10 +10,11 @@ LMDBDatabase::LMDBDatabase(LMDBEnvironment::SharedPtr env,
                            const std::string& name,
                            bool integerKeys,
                            bool reverseKeys,
-                           bool duplicateValuesPermitted,
+                           bool duplicateKeysPermitted,
                            MDB_cmp_func* cmp)
     : dbName(name)
-    , _environment(std::move(env))
+    , duplicateKeysPermitted(duplicateKeysPermitted)
+    , environment(std::move(env))
 {
     unsigned int flags = MDB_CREATE;
     if (integerKeys) {
@@ -22,7 +23,7 @@ LMDBDatabase::LMDBDatabase(LMDBEnvironment::SharedPtr env,
     if (reverseKeys) {
         flags |= MDB_REVERSEKEY;
     }
-    if (duplicateValuesPermitted) {
+    if (duplicateKeysPermitted) {
         flags |= MDB_DUPSORT;
     }
     call_lmdb_func("mdb_dbi_open", mdb_dbi_open, transaction.underlying(), name.c_str(), flags, &_dbi);
@@ -33,7 +34,7 @@ LMDBDatabase::LMDBDatabase(LMDBEnvironment::SharedPtr env,
 
 LMDBDatabase::~LMDBDatabase()
 {
-    call_lmdb_func(mdb_dbi_close, _environment->underlying(), _dbi);
+    call_lmdb_func(mdb_dbi_close, environment->underlying(), _dbi);
 }
 
 const MDB_dbi& LMDBDatabase::underlying() const
@@ -44,5 +45,10 @@ const MDB_dbi& LMDBDatabase::underlying() const
 const std::string& LMDBDatabase::name() const
 {
     return dbName;
+}
+
+bool LMDBDatabase::duplicate_keys_permitted() const
+{
+    return duplicateKeysPermitted;
 }
 } // namespace bb::lmdblib

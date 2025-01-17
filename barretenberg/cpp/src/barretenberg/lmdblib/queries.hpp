@@ -436,11 +436,15 @@ void delete_all_values_lesser_or_equal_key(const TKey& key, const LMDBDatabase& 
     call_lmdb_func(mdb_cursor_close, cursor);
 }
 
-void put_value(Key& key, Value& data, const LMDBDatabase& db, LMDBWriteTransaction& tx);
+void put_value(
+    Key& key, Value& data, const LMDBDatabase& db, LMDBWriteTransaction& tx, bool duplicatesPermitted = false);
 
-void put_value(Key& key, const uint64_t& data, const LMDBDatabase& db, LMDBWriteTransaction& tx);
+void put_value(
+    Key& key, const uint64_t& data, const LMDBDatabase& db, LMDBWriteTransaction& tx, bool duplicatesPermitted = false);
 
 void delete_value(Key& key, const LMDBDatabase& db, LMDBWriteTransaction& tx);
+
+void delete_value(Key& key, Value& value, const LMDBDatabase& db, LMDBWriteTransaction& tx);
 
 bool get_value(Key& key, Value& data, const LMDBDatabase& db, const LMDBTransaction& tx);
 
@@ -448,10 +452,10 @@ bool get_value(Key& key, uint64_t& data, const LMDBDatabase& db, const LMDBTrans
 
 bool set_at_key(const LMDBCursor& cursor, Key& key);
 
-void read_next(const LMDBCursor& cursor, KeyValuesVector& keyValues, uint64_t numToRead);
-void read_prev(const LMDBCursor& cursor, KeyValuesVector& keyValues, uint64_t numToRead);
+void read_next(const LMDBCursor& cursor, KeyValuesVector& keyValues, uint64_t numKeysToRead);
+void read_prev(const LMDBCursor& cursor, KeyValuesVector& keyValues, uint64_t numKeysToRead);
 
-void read_next(const LMDBCursor& cursor, KeyDupValuesVector& keyValues, uint64_t numToRead);
-void read_prev(const LMDBCursor& cursor, KeyDupValuesVector& keyValues, uint64_t numToRead);
+void read_next(const LMDBCursor& cursor, KeyDupValuesVector& keyValues, uint64_t numKeysToRead);
+void read_prev(const LMDBCursor& cursor, KeyDupValuesVector& keyValues, uint64_t numKeysToRead);
 } // namespace lmdb_queries
 } // namespace bb::lmdblib

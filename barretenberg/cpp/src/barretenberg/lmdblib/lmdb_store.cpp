@@ -2,6 +2,7 @@
 #include "barretenberg/lmdblib/lmdb_database.hpp"
 #include "barretenberg/lmdblib/lmdb_db_transaction.hpp"
 #include "barretenberg/lmdblib/lmdb_write_transaction.hpp"
+#include "barretenberg/lmdblib/types.hpp"
 #include <cstdint>
 #include <memory>
 #include <mutex>
@@ -34,13 +35,13 @@ void LMDBStore::open_database(const std::string& name, bool duplicateKeysPermitt
     }
 }
 
-void LMDBStore::put(KeyValuesVector& toWrite, KeysVector& toDelete, const std::string& name)
+void LMDBStore::put(KeyDupValuesVector& toWrite, KeyDupValuesVector& toDelete, const std::string& name)
 {
     put(toWrite, toDelete, *get_database(name));
 }
 void LMDBStore::get(KeysVector& keys, OptionalValuesVector& values, const std::string& name)
 {
-    get(keys, values, *get_database(name));
+    get(keys, values, get_database(name));
 }
 
 LMDBStore::Database::SharedPtr LMDBStore::get_database(const std::string& name)
@@ -52,17 +53,21 @@ LMDBStore::Database::SharedPtr LMDBStore::get_database(const std::string& name)
     return it->second;
 }
 
-void LMDBStore::put(KeyValuesVector& toWrite, KeysVector& toDelete, const LMDBDatabase& db)
+void LMDBStore::put(KeyDupValuesVector& toWrite, KeyDupValuesVector& toDelete, const LMDBDatabase& db)
 {
     // lock used to ensure single write transaction
     std::unique_lock<std::mutex> lock(writersMtx);
     LMDBWriteTransaction tx(environment);
     try {
-        for (auto& p : toWrite) {
-            tx.put_value(p.first, p.second, db);
+        for (auto& kd : toWrite) {
+            for (auto& p : kd.second) {
+                tx.put_value(kd.first, p, db);
+            }
         }
-        for (auto& d : toDelete) {
-            tx.delete_value(d, db);
+        for (auto& kd : toDelete) {
+            for (auto& p : kd.second) {
+                tx.delete_value(kd.first, p, db);
+            }
         }
         tx.commit();
     } catch (std::exception& e) {
@@ -70,16 +75,45 @@ void LMDBStore::put(KeyValuesVector& toWrite, KeysVector& toDelete, const LMDBDa
         throw std::runtime_error(format("Failed to commit data to ", db.name(), " Error: ", e.what()));
     }
 }
-void LMDBStore::get(KeysVector& keys, OptionalValuesVector& values, const LMDBDatabase& db)
+void LMDBStore::get(KeysVector& keys, OptionalValuesVector& values, LMDBDatabase::SharedPtr db)
 {
     values.reserve(keys.size());
-    ReadTransaction::Ptr tx = create_read_transaction();
-    for (auto& k : keys) {
-        OptionalValue optional;
-        Value value;
-        bool result = tx->get_value(k, value, db);
-        optional = result ? OptionalValue(value) : std::nullopt;
-        values.emplace_back(optional);
+    ReadTransaction::SharedPtr tx = create_read_transaction();
+    if (!db->duplicate_keys_permitted()) {
+        const LMDBDatabase& dbRef = *db;
+        for (auto& k : keys) {
+            OptionalValues optional;
+            Value value;
+            bool result = tx->get_value(k, value, dbRef);
+            optional = result ? OptionalValues(ValuesVector{ value }) : std::nullopt;
+            values.emplace_back(optional);
+        }
+        return;
+    }
+    {
+        Cursor::Ptr cursor = std::make_unique<Cursor>(tx, db, environment->getNextId());
+        for (auto& k : keys) {
+            if (!cursor->set_at_key(k)) {
+                values.emplace_back(std::nullopt);
+                continue;
+            }
+            KeyDupValuesVector keyValuePairs;
+            cursor->read_next(1, keyValuePairs);
+            if (keyValuePairs.empty()) {
+                // this shouldn't happen but return the null optional anyway
+                values.emplace_back(std::nullopt);
+                continue;
+            }
+            ValuesVector retrievedValues;
+            values.reserve(keyValuePairs.size());
+            for (auto& kv : keyValuePairs) {
+                for (auto& vals : kv.second) {
+                    retrievedValues.push_back(std::move(vals));
+                }
+            }
+            OptionalValues optionalValues = retrievedValues;
+            values.emplace_back(optionalValues);
+        }
     }
 }
 

@@ -8,10 +8,8 @@
 
 namespace bb::lmdblib::lmdb_queries {
 
-void put_value(std::vector<uint8_t>& key,
-               std::vector<uint8_t>& data,
-               const LMDBDatabase& db,
-               bb::lmdblib::LMDBWriteTransaction& tx)
+void put_value(
+    Key& key, Value& data, const LMDBDatabase& db, bb::lmdblib::LMDBWriteTransaction& tx, bool duplicatesPermitted)
 {
     MDB_val dbKey;
     dbKey.mv_size = key.size();
@@ -20,28 +18,37 @@ void put_value(std::vector<uint8_t>& key,
     MDB_val dbVal;
     dbVal.mv_size = data.size();
     dbVal.mv_data = (void*)data.data();
-    call_lmdb_func("mdb_put", mdb_put, tx.underlying(), db.underlying(), &dbKey, &dbVal, 0U);
+
+    // The database has been configured to allow duplicate keys, but we don't permit duplicate key/value pairs
+    // If we create a duplicate it will not insert it
+    unsigned int flags = duplicatesPermitted ? MDB_NODUPDATA : 0U;
+    call_lmdb_func("mdb_put", mdb_put, tx.underlying(), db.underlying(), &dbKey, &dbVal, flags);
 }
 
-void put_value(std::vector<uint8_t>& key,
+void put_value(Key& key,
                const uint64_t& data,
                const LMDBDatabase& db,
-               bb::lmdblib::LMDBWriteTransaction& tx)
+               bb::lmdblib::LMDBWriteTransaction& tx,
+               bool duplicatesPermitted)
 {
     MDB_val dbKey;
     dbKey.mv_size = key.size();
     dbKey.mv_data = (void*)key.data();
 
     // use the serialise key method for serialising the index
-    std::vector<uint8_t> serialised = serialise_key(data);
+    Value serialised = serialise_key(data);
 
     MDB_val dbVal;
     dbVal.mv_size = serialised.size();
     dbVal.mv_data = (void*)serialised.data();
-    call_lmdb_func("mdb_put", mdb_put, tx.underlying(), db.underlying(), &dbKey, &dbVal, 0U);
+
+    // The database has been configured to allow duplicate keys, but we don't permit duplicate key/value pairs
+    // If we create a duplicate it will not insert it
+    unsigned int flags = duplicatesPermitted ? MDB_NODUPDATA : 0U;
+    call_lmdb_func("mdb_put", mdb_put, tx.underlying(), db.underlying(), &dbKey, &dbVal, flags);
 }
 
-void delete_value(std::vector<uint8_t>& key, const LMDBDatabase& db, bb::lmdblib::LMDBWriteTransaction& tx)
+void delete_value(Key& key, const LMDBDatabase& db, bb::lmdblib::LMDBWriteTransaction& tx)
 {
     MDB_val dbKey;
     dbKey.mv_size = key.size();
@@ -49,15 +56,28 @@ void delete_value(std::vector<uint8_t>& key, const LMDBDatabase& db, bb::lmdblib
 
     MDB_val* dbVal = nullptr;
     int code = call_lmdb_func_with_return(mdb_del, tx.underlying(), db.underlying(), &dbKey, dbVal);
-    if (code != 0 && code != MDB_NOTFOUND) {
+    if (code != MDB_SUCCESS && code != MDB_NOTFOUND) {
         throw_error("mdb_del", code);
     }
 }
 
-bool get_value(std::vector<uint8_t>& key,
-               std::vector<uint8_t>& data,
-               const LMDBDatabase& db,
-               const bb::lmdblib::LMDBTransaction& tx)
+void delete_value(Key& key, Value& value, const LMDBDatabase& db, bb::lmdblib::LMDBWriteTransaction& tx)
+{
+    MDB_val dbKey;
+    dbKey.mv_size = key.size();
+    dbKey.mv_data = (void*)key.data();
+
+    MDB_val dbVal;
+    dbVal.mv_size = value.size();
+    dbVal.mv_data = (void*)value.data();
+
+    int code = call_lmdb_func_with_return(mdb_del, tx.underlying(), db.underlying(), &dbKey, &dbVal);
+    if (code != MDB_SUCCESS && code != MDB_NOTFOUND) {
+        throw_error("mdb_del", code);
+    }
+}
+
+bool get_value(Key& key, Value& data, const LMDBDatabase& db, const bb::lmdblib::LMDBTransaction& tx)
 {
     MDB_val dbKey;
     dbKey.mv_size = key.size();
@@ -71,10 +91,7 @@ bool get_value(std::vector<uint8_t>& key,
     return true;
 }
 
-bool get_value(std::vector<uint8_t>& key,
-               uint64_t& data,
-               const LMDBDatabase& db,
-               const bb::lmdblib::LMDBTransaction& tx)
+bool get_value(Key& key, uint64_t& data, const LMDBDatabase& db, const bb::lmdblib::LMDBTransaction& tx)
 {
     MDB_val dbKey;
     dbKey.mv_size = key.size();
@@ -89,7 +106,7 @@ bool get_value(std::vector<uint8_t>& key,
     return true;
 }
 
-bool set_at_key(const LMDBCursor& cursor, std::vector<uint8_t>& key)
+bool set_at_key(const LMDBCursor& cursor, Key& key)
 {
     MDB_val dbKey;
     dbKey.mv_size = key.size();
@@ -97,62 +114,74 @@ bool set_at_key(const LMDBCursor& cursor, std::vector<uint8_t>& key)
 
     MDB_val dbVal;
     int code = mdb_cursor_get(cursor.underlying(), &dbKey, &dbVal, MDB_SET);
-    return code == 0;
+    return code == MDB_SUCCESS;
 }
 
-void read_next(const LMDBCursor& cursor, KeyValuesVector& keyValues, uint64_t numToRead, MDB_cursor_op op)
+void read_next(const LMDBCursor& cursor, KeyValuesVector& keyValues, uint64_t numKeysToRead, MDB_cursor_op op)
 {
-    uint64_t numValuesRead = 0;
+    uint64_t numKeysRead = 0;
     MDB_val dbKey;
     MDB_val dbVal;
     int code = mdb_cursor_get(cursor.underlying(), &dbKey, &dbVal, MDB_GET_CURRENT);
-    while (numValuesRead < numToRead && code == 0) {
+    while (numKeysRead < numKeysToRead && code == MDB_SUCCESS) {
         // extract the key and value
         Value value;
         Key key;
         copy_to_vector(dbVal, value);
         copy_to_vector(dbKey, key);
         keyValues.emplace_back(std::move(key), std::move(value));
-        ++numValuesRead;
+        ++numKeysRead;
         // move to the next key
         code = mdb_cursor_get(cursor.underlying(), &dbKey, &dbVal, op);
     }
 }
 
-void read_next(const LMDBCursor& cursor, KeyDupValuesVector& keyValues, uint64_t numToRead, MDB_cursor_op op)
+void read_next(const LMDBCursor& cursor, KeyDupValuesVector& keyValues, uint64_t numKeysToRead, MDB_cursor_op op)
 {
-    uint64_t numValuesRead = 0;
+    uint64_t numKeysRead = 0;
     MDB_val dbKey;
     MDB_val dbVal;
+    DupValue values;
 
     // ensure we are positioned at first data item of current key
     int code = mdb_cursor_get(cursor.underlying(), &dbKey, &dbVal, MDB_FIRST_DUP);
-    if (code != 0) {
-        return;
-    }
-
-    while (numValuesRead < numToRead && code == 0) {
+    while (numKeysRead < numKeysToRead && code == MDB_SUCCESS) {
+        code = mdb_cursor_get(cursor.underlying(), &dbKey, &dbVal, MDB_GET_CURRENT);
         // extract the key and value
         Value value;
         Key key;
         copy_to_vector(dbVal, value);
         copy_to_vector(dbKey, key);
-        keyValues.emplace_back(std::move(key), std::move(value));
-        ++numValuesRead;
-        // move to the next key
-        code = mdb_cursor_get(cursor.underlying(), &dbKey, &dbVal, op);
+        values.push_back(value);
+
+        // move to the next value at this key
+        code = mdb_cursor_get(cursor.underlying(), &dbKey, &dbVal, MDB_NEXT_DUP);
+        if (code == MDB_NOTFOUND) {
+            // No more values at this key
+            ++numKeysRead;
+            keyValues.emplace_back(std::move(key), std::move(values));
+            values = DupValue();
+            // move to the next key
+            code = mdb_cursor_get(cursor.underlying(), &dbKey, &dbVal, op);
+        }
     }
 }
 
-void read_next(const LMDBCursor& cursor, KeyValuesVector& keyValues, uint64_t numToRead)
+void read_next(const LMDBCursor& cursor, KeyValuesVector& keyValues, uint64_t numKeysToRead)
 {
-    read_next(cursor, keyValues, numToRead, MDB_NEXT);
+    read_next(cursor, keyValues, numKeysToRead, MDB_NEXT);
 }
-void read_prev(const LMDBCursor& cursor, KeyValuesVector& keyValues, uint64_t numToRead)
+void read_prev(const LMDBCursor& cursor, KeyValuesVector& keyValues, uint64_t numKeysToRead)
 {
-    read_next(cursor, keyValues, numToRead, MDB_PREV);
+    read_next(cursor, keyValues, numKeysToRead, MDB_PREV);
 }
 
-void read_next(const LMDBCursor& cursor, KeyDupValuesVector& keyValues, uint64_t numToRead);
-void read_prev(const LMDBCursor& cursor, KeyDupValuesVector& keyValues, uint64_t numToRead);
+void read_next(const LMDBCursor& cursor, KeyDupValuesVector& keyValues, uint64_t numKeysToRead)
+{
+    read_next(cursor, keyValues, numKeysToRead, MDB_NEXT);
+}
+void read_prev(const LMDBCursor& cursor, KeyDupValuesVector& keyValues, uint64_t numKeysToRead)
+{
+    read_next(cursor, keyValues, numKeysToRead, MDB_PREV);
+}
 } // namespace bb::lmdblib::lmdb_queries
