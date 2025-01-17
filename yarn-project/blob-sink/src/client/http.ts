@@ -107,6 +107,7 @@ export class HttpBlobSinkClient implements BlobSinkClientInterface {
 
       if (res.ok) {
         const body = await res.json();
+        this.log.debug(`Blob sidecar for block ${blockHashOrSlot} is ${body}`);
         const blobs = body.data.map((b: BlobJson) => Blob.fromJson(b));
         return blobs;
       }
