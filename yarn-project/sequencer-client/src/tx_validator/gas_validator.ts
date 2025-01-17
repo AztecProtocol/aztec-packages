@@ -108,6 +108,7 @@ export class GasTxValidator implements TxValidator<Tx> {
         !fn.callContext.isStaticCall,
     );
 
+    // `amount` in the claim function call arguments occupies 2 fields as it is represented as U128.
     const balance = claimFunctionCall
       ? initialBalance.add(new Fr(U128.fromFields(claimFunctionCall.args.slice(2, 4)).toInteger()))
       : initialBalance;
