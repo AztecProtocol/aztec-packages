@@ -2,14 +2,11 @@ import { MerkleTreeId, UnencryptedL2Log } from '@aztec/circuit-types';
 import { FunctionSelector, NoteSelector } from '@aztec/foundation/abi';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { Fr } from '@aztec/foundation/fields';
-import { createLogger } from '@aztec/foundation/log';
 
 import { type ACVMField } from '../acvm_types.js';
 import { frToBoolean, frToNumber, fromACVMField, fromBoundedVec } from '../deserialize.js';
 import { toACVMField } from '../serialize.js';
 import { type TypedOracle } from './typed_oracle.js';
-
-const logger = createLogger('simulator:acvm:oracle');
 
 /**
  * A data source that has all the apis required by Aztec.nr.
@@ -412,34 +409,50 @@ export class Oracle {
     return toACVMField(true);
   }
 
-  async store([contract]: ACVMField[], [key]: ACVMField[], values: ACVMField[]) {
-    const processedContract = AztecAddress.fromField(fromACVMField(contract));
-    const processedKey = fromACVMField(key);
-    const processedValues = values.map(fromACVMField);
-    logger.debug(`Storing data for key ${processedKey} in contract ${processedContract}. Data: [${processedValues}]`);
-    await this.typedOracle.store(processedContract, processedKey, processedValues);
+  async dbStore([contractAddress]: ACVMField[], [slot]: ACVMField[], values: ACVMField[]) {
+    await this.typedOracle.dbStore(
+      AztecAddress.fromField(fromACVMField(contractAddress)),
+      fromACVMField(slot),
+      values.map(fromACVMField),
+    );
   }
 
-  /**
-   * Load data from pxe db.
-   * @param contract - The contract address.
-   * @param key - The key to load.
-   * @param tSize - The size of the serialized object to return.
-   * @returns The data found flag and the serialized object concatenated in one array.
-   */
-  async load([contract]: ACVMField[], [key]: ACVMField[], [tSize]: ACVMField[]): Promise<(ACVMField | ACVMField[])[]> {
-    const processedContract = AztecAddress.fromField(fromACVMField(contract));
-    const processedKey = fromACVMField(key);
-    const values = await this.typedOracle.load(processedContract, processedKey);
+  async dbLoad(
+    [contractAddress]: ACVMField[],
+    [slot]: ACVMField[],
+    [tSize]: ACVMField[],
+  ): Promise<(ACVMField | ACVMField[])[]> {
+    const values = await this.typedOracle.dbLoad(
+      AztecAddress.fromField(fromACVMField(contractAddress)),
+      fromACVMField(slot),
+    );
+
+    // We are going to return a Noir Option struct to represent the possibility of null values. Options are a struct
+    // with two fields: `some` (a boolean) and `value` (a field array in this case).
     if (values === null) {
-      // No data was found so we set the data-found flag to 0 and we pad with zeros get the correct return size.
-      const processedTSize = frToNumber(fromACVMField(tSize));
-      logger.debug(`No data found for key ${processedKey} in contract ${processedContract}`);
-      return [toACVMField(0), Array(processedTSize).fill(toACVMField(0))];
+      // No data was found so we set `some` to 0 and pad `value` with zeros get the correct return size.
+      return [toACVMField(0), Array(frToNumber(fromACVMField(tSize))).fill(toACVMField(0))];
     } else {
-      // Data was found so we set the data-found flag to 1 and return it along with the data.
-      logger.debug(`Returning data for key ${processedKey} in contract ${processedContract}. Data: [${values}]`);
+      // Data was found so we set `some` to 1 and return it along with `value`.
       return [toACVMField(1), values.map(toACVMField)];
     }
+  }
+
+  async dbDelete([contractAddress]: ACVMField[], [slot]: ACVMField[]) {
+    await this.typedOracle.dbDelete(AztecAddress.fromField(fromACVMField(contractAddress)), fromACVMField(slot));
+  }
+
+  async dbCopy(
+    [contractAddress]: ACVMField[],
+    [srcSlot]: ACVMField[],
+    [dstSlot]: ACVMField[],
+    [numEntries]: ACVMField[],
+  ) {
+    await this.typedOracle.dbCopy(
+      AztecAddress.fromField(fromACVMField(contractAddress)),
+      fromACVMField(srcSlot),
+      fromACVMField(dstSlot),
+      frToNumber(fromACVMField(numEntries)),
+    );
   }
 }
