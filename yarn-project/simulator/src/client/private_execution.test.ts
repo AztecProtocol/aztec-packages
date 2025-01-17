@@ -565,7 +565,7 @@ describe('Private Execution test suite', () => {
 
       let preimage: L1ToL2Message;
 
-      let args: Fr[];
+      let args: any[];
 
       beforeEach(() => {
         bridgedAmount = 100n;
