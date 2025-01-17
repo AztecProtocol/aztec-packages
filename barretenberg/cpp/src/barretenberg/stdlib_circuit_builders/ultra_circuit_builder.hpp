@@ -694,7 +694,6 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename ExecutionTrace_:
         ASSERT(circuit_finalized);
         auto minimum_circuit_size = get_tables_size() + get_lookups_size();
         auto num_filled_gates = get_num_finalized_gates() + this->public_inputs.size();
-        info("num_filled_gates: ", num_filled_gates);
         return std::max(minimum_circuit_size, num_filled_gates) + NUM_RESERVED_GATES;
     }
 

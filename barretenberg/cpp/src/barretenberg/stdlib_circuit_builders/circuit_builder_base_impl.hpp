@@ -239,7 +239,6 @@ template <typename FF_>
 void CircuitBuilderBase<FF_>::add_pairing_point_accumulator(
     const PairingPointAccumulatorIndices& pairing_point_accum_witness_indices)
 {
-    info("calling add_pairing_point_accumulator");
     if (contains_pairing_point_accumulator) {
         failure("added pairing point accumulator when one already exists");
         ASSERT(0);

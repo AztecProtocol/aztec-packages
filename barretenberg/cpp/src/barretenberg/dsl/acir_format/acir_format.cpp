@@ -264,9 +264,6 @@ void build_constraints(Builder& builder, AcirProgram& program, const ProgramMeta
 #endif
         // If the circuit has either honk or avm recursion constraints, add the aggregation object. Otherwise, add a
         // default one if the circuit is recursive and honk_recursion is true.
-        info("metadata.honk_recursion != 0: ", metadata.honk_recursion != 0);
-        info("builder.is_recursive_circuit: ", builder.is_recursive_circuit);
-
         if (!constraint_system.honk_recursion_constraints.empty() ||
             !constraint_system.avm_recursion_constraints.empty()) {
             ASSERT(metadata.honk_recursion != 0);

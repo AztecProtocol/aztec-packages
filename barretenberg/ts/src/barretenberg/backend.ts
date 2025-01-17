@@ -207,10 +207,8 @@ export class UltraHonkBackend {
     );
 
     const proofAsStrings = deflattenFields(proofWithPublicInputs.slice(4));
-    console.log(`size of proofWithPublicInputs: ${proofWithPublicInputs.length}`);
 
     const numPublicInputs = Number(proofAsStrings[1]) - 16;
-    console.log(`numPublicInputs in generateProof: ${numPublicInputs}`);
 
     // Account for the serialized buffer size at start
     const publicInputsOffset = publicInputsOffsetBytes + serializedBufferSize;
@@ -227,8 +225,6 @@ export class UltraHonkBackend {
       publicInputsOffset + publicInputsSplitIndex,
     );
     const publicInputs = deflattenFields(publicInputsConcatenated);
-    console.log(`size of publicInputs in generateProof: ${publicInputs.length}`);
-    console.log(`size of proof: ${proof.length}`);
 
     return { proof, publicInputs };
   }
