@@ -5,7 +5,8 @@ import type { Blob as BlobBuffer } from 'c-kzg';
 import { poseidon2Hash, sha256 } from '../crypto/index.js';
 import { Fr } from '../fields/index.js';
 import { BufferReader, serializeToBuffer } from '../serialize/index.js';
-import { deserializeEncodedBlobFields } from './encoding.js';
+import { deserializeEncodedBlobFields, extractBlobFieldsFromBuffer } from './encoding.js';
+import { type BlobJson } from './interface.js';
 
 /* eslint-disable import/no-named-as-default-member */
 const { BYTES_PER_BLOB, FIELD_ELEMENTS_PER_BLOB, blobToKzgCommitment, computeKzgProof, verifyKzgProof } = cKzg;
@@ -32,11 +33,29 @@ export class Blob {
     public readonly proof: Buffer,
   ) {}
 
+  /**
+   * The encoded version of the blob will determine the end of the blob based on the transaction encoding.
+   * This is required when the fieldsHash of a blob will contain trailing zeros.
+   *
+   * See `./encoding.ts` for more details.
+   *
+   * This method is used to create a Blob from a buffer.
+   * @param blob - The buffer to create the Blob from.
+   * @param multiBlobFieldsHash - The fields hash to use for the Blob.
+   * @returns A Blob created from the buffer.
+   */
   static fromEncodedBlobBuffer(blob: BlobBuffer, multiBlobFieldsHash?: Fr): Blob {
     const fields: Fr[] = deserializeEncodedBlobFields(blob);
     return Blob.fromFields(fields, multiBlobFieldsHash);
   }
 
+  /**
+   * Create a Blob from an array of fields.
+   *
+   * @param fields - The array of fields to create the Blob from.
+   * @param multiBlobFieldsHash - The fields hash to use for the Blob.
+   * @returns A Blob created from the array of fields.
+   */
   static fromFields(fields: Fr[], multiBlobFieldsHash?: Fr): Blob {
     if (fields.length > FIELD_ELEMENTS_PER_BLOB) {
       throw new Error(
@@ -60,8 +79,19 @@ export class Blob {
     return new Blob(data, fieldsHash, challengeZ, evaluationY, commitment, proof);
   }
 
-  // TODO: add unit test
-  static fromJson(json: { blob: string; kzg_commitment: string; kzg_proof: string }): Blob {
+  /**
+   * Create a Blob from a JSON object.
+   *
+   * Blobs will be in this form when requested from the blob sink, or from
+   * the beacon chain via `getBlobSidecars`
+   * https://ethereum.github.io/beacon-APIs/?urls.primaryName=dev#/Beacon/getBlobSidecars
+   *
+   * @dev WARNING: by default json deals with encoded buffers
+   *
+   * @param json - The JSON object to create the Blob from.
+   * @returns A Blob created from the JSON object.
+   */
+  static fromJson(json: BlobJson): Blob {
     const blobBuffer = Buffer.from(json.blob.slice(2), 'hex');
 
     const blob = Blob.fromEncodedBlobBuffer(blobBuffer);
@@ -70,19 +100,62 @@ export class Blob {
       throw new Error('KZG commitment does not match');
     }
 
+    // We do not check the proof, as it will be different if the challenge is shared
+    // across multiple blobs
+
     return blob;
   }
 
-  // TODO: think if naming should change for encoded / non encoded blob payloads
-  toFields(): Fr[] {
-    return deserializeEncodedBlobFields(this.data);
+  /**
+   * Get the JSON representation of the blob.
+   *
+   * @dev WARNING: by default json deals with encoded buffers
+   * @param index - optional - The index of the blob in the block.
+   * @returns The JSON representation of the blob.
+   */
+  toJson(index?: number): BlobJson {
+    return {
+      blob: `0x${Buffer.from(this.data).toString('hex')}`,
+      index,
+      kzg_commitment: `0x${this.commitment.toString('hex')}`,
+      kzg_proof: `0x${this.proof.toString('hex')}`,
+    };
   }
 
+  /**
+   * Get the fields from the blob.
+   *
+   * @dev WARNING: this method does not take into account trailing zeros
+   *
+   * @returns The fields from the blob.
+   */
+  toFields(): Fr[] {
+    return extractBlobFieldsFromBuffer(this.data);
+  }
+
+  /**
+   * Get the encoded fields from the blob.
+   *
+   * @dev This method takes into account trailing zeros
+   *
+   * @returns The encoded fields from the blob.
+   */
   toEncodedFields(): Fr[] {
     return deserializeEncodedBlobFields(this.data);
   }
 
-  // 48 bytes encoded in fields as [Fr, Fr] = [0->31, 31->48]
+  /**
+   * Get the commitment fields from the blob.
+   *
+   * The 48-byte commitment is encoded into two field elements:
+   * +------------------+------------------+
+   * | Field Element 1  | Field Element 2  |
+   * | [bytes 0-31]     | [bytes 32-47]   |
+   * +------------------+------------------+
+   * |     32 bytes     |     16 bytes    |
+   * +------------------+------------------+
+   * @returns The commitment fields from the blob.
+   */
   commitmentToFields(): [Fr, Fr] {
     return commitmentToFields(this.commitment);
   }
@@ -100,6 +173,13 @@ export class Blob {
     return hash;
   }
 
+  /**
+   * Get the buffer representation of the ENTIRE blob.
+   *
+   * @dev WARNING: this buffer contains all metadata aswell as the data itself
+   *
+   * @returns The buffer representation of the blob.
+   */
   toBuffer(): Buffer {
     return Buffer.from(
       serializeToBuffer(
@@ -117,6 +197,14 @@ export class Blob {
     );
   }
 
+  /**
+   * Create a Blob from a buffer.
+   *
+   * @dev WARNING: this method contains all metadata aswell as the data itself
+   *
+   * @param buf - The buffer to create the Blob from.
+   * @returns A Blob created from the buffer.
+   */
   static fromBuffer(buf: Buffer | BufferReader): Blob {
     const reader = BufferReader.asReader(buf);
     return new Blob(
@@ -136,13 +224,17 @@ export class Blob {
     return this.data.length;
   }
 
-  // Returns a proof of opening of the blob to verify on L1 using the point evaluation precompile:
-  //  * input[:32]     - versioned_hash
-  //  * input[32:64]   - z
-  //  * input[64:96]   - y
-  //  * input[96:144]  - commitment C
-  //  * input[144:192] - proof (a commitment to the quotient polynomial q(X))
-  // See https://eips.ethereum.org/EIPS/eip-4844#point-evaluation-precompile
+  /**
+   * Returns a proof of opening of the blob to verify on L1 using the point evaluation precompile:
+   *
+   * input[:32]     - versioned_hash
+   * input[32:64]   - z
+   * input[64:96]   - y
+   * input[96:144]  - commitment C
+   * input[144:192] - proof (a commitment to the quotient polynomial q(X))
+   *
+   * See https://eips.ethereum.org/EIPS/eip-4844#point-evaluation-precompile
+   */
   getEthBlobEvaluationInputs(): `0x${string}` {
     const buf = Buffer.concat([
       this.getEthVersionedBlobHash(),

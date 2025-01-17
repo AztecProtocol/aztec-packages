@@ -1,5 +1,4 @@
-import { Blob, makeEncodedBlob } from '@aztec/foundation/blob';
-import { Fr } from '@aztec/foundation/fields';
+import { makeEncodedBlob } from '@aztec/foundation/blob';
 
 import { type BlobSinkClientInterface } from './interface.js';
 

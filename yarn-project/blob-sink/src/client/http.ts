@@ -1,7 +1,7 @@
-import { Blob } from '@aztec/foundation/blob';
+import { Blob, type BlobJson } from '@aztec/foundation/blob';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 
-import { BlobSinkConfig, getBlobSinkConfigFromEnv } from './config.js';
+import { type BlobSinkConfig, getBlobSinkConfigFromEnv } from './config.js';
 import { type BlobSinkClientInterface } from './interface.js';
 
 export class HttpBlobSinkClient implements BlobSinkClientInterface {
@@ -77,10 +77,7 @@ export class HttpBlobSinkClient implements BlobSinkClientInterface {
 
       if (res.ok) {
         const body = await res.json();
-        // TODO: sort by index???
-        const blobs = body.data.map((b: { blob: string; index: number; kzg_commitment: string; kzg_proof: string }) =>
-          Blob.fromJson(b),
-        );
+        const blobs = body.data.map((b: BlobJson) => Blob.fromJson(b));
         return blobs;
       }
 

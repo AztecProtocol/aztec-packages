@@ -1,5 +1,4 @@
 import { Blob, makeEncodedBlob } from '@aztec/foundation/blob';
-import { Fr } from '@aztec/foundation/fields';
 
 import request from 'supertest';
 

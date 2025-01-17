@@ -3,6 +3,7 @@ import { BufferReader, FieldReader } from '@aztec/foundation/serialize';
 
 import type { Blob as BlobBuffer } from 'c-kzg';
 
+// This will appear as 0x74785f7374617274 in logs
 export const TX_START_PREFIX = 8392562855083340404n;
 // These are helper constants to decode tx effects from blob encoded fields
 export const TX_START_PREFIX_BYTES_LENGTH = TX_START_PREFIX.toString(16).length / 2;
@@ -32,7 +33,7 @@ export const TX_EFFECT_PREFIX_BYTE_LENGTH = TX_START_PREFIX_BYTES_LENGTH + 7;
  *
  * +------------------+------------------+------------------+------------------+
  * | TX1 Start Prefix | TX1 Log Fields   | TX2 Start Prefix | Padded zeros     |
- * | [3 a,b,c]        | [3, a, b, c]     | [4 d,e,f,g]      | [0, 0, 0, .., 0] |
+ * | [3 a,b,c]        | [3, a, b, c]     | [5 d,e,f,0,0]    | [0, 0, 0, .., 0] |
  * +------------------+------------------+------------------+------------------+
  *                                                          ^
  *                                                          |
@@ -68,4 +69,30 @@ export function deserializeEncodedBlobFields(blob: BlobBuffer): Fr[] {
 export function getLengthFromFirstField(firstField: Fr): number {
   const buf = firstField.toBuffer().subarray(-TX_EFFECT_PREFIX_BYTE_LENGTH);
   return new Fr(buf.subarray(TX_START_PREFIX_BYTES_LENGTH + 1, TX_START_PREFIX_BYTES_LENGTH + 3)).toNumber();
+}
+
+/**
+ * Extract the fields from a blob buffer, but do not take into account encoding
+ * that will include trailing zeros.
+ *
+ * +------------------+------------------+------------------+------------------+
+ * |                  |                  |                  | Padded zeros     |
+ * | [3 a,b,c]        | [3, a, b, c]     | [5 d,e,f,0,0]    | [0, 0, 0, .., 0] |
+ * +------------------+------------------+------------------+------------------+
+ *                                                ^
+ *                                                |
+ * Function reads until here ----------------------
+ */
+export function extractBlobFieldsFromBuffer(blob: BlobBuffer): Fr[] {
+  const reader = BufferReader.asReader(blob);
+  const array = reader.readArray(blob.length >> 5, Fr);
+
+  // Find the index of the last non-zero field
+  let lastNonZeroIndex = array.length - 1;
+  while (lastNonZeroIndex >= 0 && array[lastNonZeroIndex].isZero()) {
+    lastNonZeroIndex--;
+  }
+
+  // Return the trimmed array
+  return array.slice(0, lastNonZeroIndex + 1);
 }

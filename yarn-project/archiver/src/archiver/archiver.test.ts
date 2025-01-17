@@ -168,6 +168,8 @@ describe('Archiver', () => {
 
     inboxRead.totalMessagesInserted.mockResolvedValueOnce(2n).mockResolvedValueOnce(6n);
 
+    blocks.forEach(b => blobSinkClient.getBlobSidecar.mockResolvedValueOnce([makeBlobFromBlock(b)]));
+
     makeMessageSentEvent(98n, 1n, 0n);
     makeMessageSentEvent(99n, 1n, 1n);
     makeL2BlockProposedEvent(101n, 1n, blocks[0].archive.root.toString());
@@ -265,6 +267,7 @@ describe('Archiver', () => {
     makeL2BlockProposedEvent(90n, 3n, badArchive);
 
     rollupTxs.forEach(tx => publicClient.getTransaction.mockResolvedValueOnce(tx));
+    blocks.forEach(b => blobSinkClient.getBlobSidecar.mockResolvedValueOnce([makeBlobFromBlock(b)]));
 
     await archiver.start(false);
 
@@ -303,6 +306,7 @@ describe('Archiver', () => {
     makeL2BlockProposedEvent(80n, 2n, blocks[1].archive.root.toString());
 
     rollupTxs.forEach(tx => publicClient.getTransaction.mockResolvedValueOnce(tx));
+    blocks.forEach(b => blobSinkClient.getBlobSidecar.mockResolvedValueOnce([makeBlobFromBlock(b)]));
 
     await archiver.start(false);
 
@@ -351,6 +355,7 @@ describe('Archiver', () => {
     makeL2BlockProposedEvent(80n, 2n, blocks[1].archive.root.toString());
 
     rollupTxs.forEach(tx => publicClient.getTransaction.mockResolvedValueOnce(tx));
+    blocks.forEach(b => blobSinkClient.getBlobSidecar.mockResolvedValueOnce([makeBlobFromBlock(b)]));
 
     await archiver.start(false);
 
@@ -397,6 +402,7 @@ describe('Archiver', () => {
     rollupRead.status.mockResolvedValueOnce([0n, GENESIS_ROOT, 1n, l2Block.archive.root.toString(), GENESIS_ROOT]);
     makeL2BlockProposedEvent(l1BlockForL2Block, 1n, l2Block.archive.root.toString());
     rollupTxs.forEach(tx => publicClient.getTransaction.mockResolvedValueOnce(tx));
+    blocks.forEach(b => blobSinkClient.getBlobSidecar.mockResolvedValueOnce([makeBlobFromBlock(b)]));
 
     await archiver.start(false);
 
@@ -427,7 +433,9 @@ describe('Archiver', () => {
     publicClient.getBlockNumber.mockResolvedValueOnce(l1BlockForL2Block);
     rollupRead.status.mockResolvedValueOnce([0n, GENESIS_ROOT, 1n, l2Block.archive.root.toString(), GENESIS_ROOT]);
     makeL2BlockProposedEvent(l1BlockForL2Block, 1n, l2Block.archive.root.toString());
+
     rollupTxs.forEach(tx => publicClient.getTransaction.mockResolvedValueOnce(tx));
+    blocks.forEach(b => blobSinkClient.getBlobSidecar.mockResolvedValueOnce([makeBlobFromBlock(b)]));
 
     await archiver.start(false);
 
@@ -529,4 +537,14 @@ function makeRollupTx(l2Block: L2Block) {
     ],
   });
   return { input } as Transaction<bigint, number>;
+}
+
+/**
+ * Blob response to be returned from the blob sink based on the expected block.
+ * @param block - The block.
+ * @returns The blob.
+ */
+function makeBlobFromBlock(block: L2Block) {
+  const blob = block.body.toBlobFields();
+  return Blob.fromFields(blob);
 }

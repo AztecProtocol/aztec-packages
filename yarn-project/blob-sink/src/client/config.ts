@@ -1,4 +1,4 @@
-import { ConfigMappingsType, getConfigFromMappings } from '@aztec/foundation/config';
+import { type ConfigMappingsType, getConfigFromMappings } from '@aztec/foundation/config';
 
 /**
  * The configuration for the blob sink client

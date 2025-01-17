@@ -3,7 +3,7 @@ import type { Blob as BlobBuffer, Bytes48, KZGProof } from 'c-kzg';
 
 import { poseidon2Hash } from '../crypto/index.js';
 import { Fr } from '../fields/index.js';
-import { Blob } from './index.js';
+import { Blob, makeEncodedBlob } from './index.js';
 
 // Importing directly from 'c-kzg' does not work, ignoring import/no-named-as-default-member err:
 /* eslint-disable import/no-named-as-default-member */
@@ -142,6 +142,13 @@ describe('blob', () => {
     const blob = Blob.fromFields([Fr.random(), Fr.random(), Fr.random()]);
     const blobBuffer = blob.toBuffer();
     const deserialisedBlob = Blob.fromBuffer(blobBuffer);
+    expect(blob.fieldsHash.equals(deserialisedBlob.fieldsHash)).toBe(true);
+  });
+
+  it('Should create a blob from a JSON object', () => {
+    const blob = makeEncodedBlob(3);
+    const blobJson = blob.toJson();
+    const deserialisedBlob = Blob.fromJson(blobJson);
     expect(blob.fieldsHash.equals(deserialisedBlob.fieldsHash)).toBe(true);
   });
 });
