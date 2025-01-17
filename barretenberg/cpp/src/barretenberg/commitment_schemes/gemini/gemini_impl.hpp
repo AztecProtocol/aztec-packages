@@ -164,7 +164,7 @@ std::vector<typename GeminiProver_<Curve>::Claim> GeminiProver_<Curve>::prove(
  * @brief Computes d-1 fold polynomials Fold_i, i = 1, ..., d-1
  *
  * @param multilinear_challenge multilinear opening point 'u'
- * @param A_0 = ∑ⱼ ρʲ fⱼ(X) + ∑ⱼ ρᵏ⁺ʲ gⱼ(X)
+ * @param A_0 = F(X) + G↺(X) = F(X) + G(X)/X
  * @return std::vector<Polynomial>
  */
 template <typename Curve>
