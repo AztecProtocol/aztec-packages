@@ -1,6 +1,6 @@
 ---
 sidebar_position: 2
-title: How to run a prover node
+title: How to run a prover node (draft)
 draft: true
 ---
 
@@ -17,6 +17,7 @@ The Aztec client can be run as a Prover Node. In this mode, the client will auto
 - Submits the root rollup proof to L1 to advance the proven chain.
 
 ```mermaid
+flowchart TD
     style prover-node stroke:#333,stroke-width:4px
 
     prover-node[Prover Node]

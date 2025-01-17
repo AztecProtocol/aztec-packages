@@ -1,6 +1,6 @@
 ---
 sidebar_position: 1
-title: How to run a Validator/Sequencer Node
+title: How to run a Validator/Sequencer Node (draft)
 draft: true
 ---
 

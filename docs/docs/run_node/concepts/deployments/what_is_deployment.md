@@ -190,18 +190,11 @@ The Proposals contract will then count votes specifying that same `_proposal`. F
 
 Note that a sequencer’s ability to vote is not affected by the rollupʼs availability since voting happens on the L1.
 
-// TODO fix this mermaid
-
 ```mermaid
-sequenceDiagram
-    participant Proposals
-    participant Sequencers
-    participant Governance
-
-    Proposals->>Sequencers: 1. Vote()
-    Sequencers->>Governance: 2. If N votes in a single round, call Governance.propose(round.leader)
-    
-    note over Sequencers: Round == M L2 Slots
+flowchart TD
+    Issuer[Issuer] -->|1. Calls mint| HypotheticalAsset[Hypothetical Asset]
+    Issuer -->|2. Transfer Hypothetical Asset| RewardDistribution[Reward Distribution]
+    RewardDistribution -->|3. Calls claim| RollupContract[RollupContract]
 ```
 
 If the quorum has been reahed, anyone can call `pushProposal(uint256 _roundNumber)` on the Proposals contract to send the proposal to the Governance contract for voting. As a result, only one proposal can be nominated for voting at any given round.

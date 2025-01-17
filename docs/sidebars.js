@@ -59,6 +59,10 @@ export default {
       label: "Building in Public",
       id: "building_in_public",
     },
+    {
+      type: "doc",
+      id: "aztec_connect_sunset",
+    },
   ],
 
   buildSidebar: [
@@ -76,6 +80,11 @@ export default {
       type: "doc",
       label: "Quickstart",
       id: "developers/getting_started"
+    },
+    {
+      type: "link",
+      label: "Aztec Starter GitHub repo",
+      href: "https://github.com/AztecProtocol/aztec-starter",
     },
     {
       type: "html",
@@ -118,20 +127,11 @@ export default {
     },
     {
       type: "html",
-      value: '<span class="sidebar-title">Considerations</span>',
-      className: "sidebar-title",
-    },
-    {
-      type: "doc",
-      id: "migration_notes",
-    },
-    {
-      type: "html",
       value: '<span class="sidebar-divider" />',
     },
     {
       type: "doc",
-      id: "aztec_connect_sunset",
+      id: "migration_notes",
     },
   ],
 

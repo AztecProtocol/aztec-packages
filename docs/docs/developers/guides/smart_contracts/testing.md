@@ -215,7 +215,7 @@ You can also use the `assert_public_call_fails` or `assert_private_call_fails` m
 
 ### Logging
 
-You can use `aztec.nr`'s oracles as usual for debug logging, as explained [here](../../reference/debugging.md)
+You can use `aztec.nr`'s oracles as usual for debug logging, as explained [here](../../reference/debugging/index.md)
 
 
 :::warning
