@@ -55,6 +55,18 @@ export class FieldReader {
   }
 
   /**
+   * Peeks at the next field without advancing the cursor.
+   *
+   * @returns A field.
+   */
+  public peekField(): Fr {
+    if (this.index === this.length) {
+      throw new Error('Not enough fields to be consumed.');
+    }
+    return this.fields[this.index];
+  }
+
+  /**
    * Reads a Fq from the array.
    *
    * @returns An Fq.

@@ -1,4 +1,4 @@
-import { Blob } from '@aztec/foundation/blob';
+import { Blob, makeEncodedBlob } from '@aztec/foundation/blob';
 import { Fr } from '@aztec/foundation/fields';
 
 import { type BlobSinkClientInterface } from './interface.js';
@@ -25,8 +25,7 @@ export function runBlobSinkClientTests(
   });
 
   it('should send and retrieve blobs', async () => {
-    const testFields = [Fr.random(), Fr.random(), Fr.random()];
-    const blob = Blob.fromFields(testFields);
+    const blob = makeEncodedBlob(3);
     const blockId = '0x1234';
 
     const success = await client.sendBlobsToBlobSink(blockId, [blob]);
@@ -39,11 +38,7 @@ export function runBlobSinkClientTests(
   });
 
   it('should handle multiple blobs', async () => {
-    const blobs = [
-      Blob.fromFields([Fr.random(), Fr.random()]),
-      Blob.fromFields([Fr.random(), Fr.random()]),
-      Blob.fromFields([Fr.random(), Fr.random()]),
-    ];
+    const blobs = [makeEncodedBlob(2), makeEncodedBlob(2), makeEncodedBlob(2)];
     const blockId = '0x5678';
 
     const success = await client.sendBlobsToBlobSink(blockId, blobs);

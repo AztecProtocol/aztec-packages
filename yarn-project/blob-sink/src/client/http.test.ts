@@ -1,4 +1,4 @@
-import { Blob } from '@aztec/foundation/blob';
+import { Blob, makeEncodedBlob } from '@aztec/foundation/blob';
 import { Fr } from '@aztec/foundation/fields';
 
 import { jest } from '@jest/globals';
@@ -53,7 +53,7 @@ describe('HttpBlobSinkClient', () => {
     const MOCK_SLOT_NUMBER = 1;
 
     beforeEach(() => {
-      testBlob = Blob.fromFields([Fr.random()]);
+      testBlob = makeEncodedBlob(3);
     });
 
     const startExecutionHostServer = (): Promise<void> => {
@@ -156,9 +156,8 @@ describe('HttpBlobSinkClient', () => {
         l1RpcUrl: `http://localhost:${executionHostPort}`,
         l1ConsensusHostUrl: `http://localhost:${consensusHostPort}`,
       });
-      const blob = Blob.fromFields([Fr.random()]);
 
-      const success = await client.sendBlobsToBlobSink('0x1234', [blob]);
+      const success = await client.sendBlobsToBlobSink('0x1234', [testBlob]);
       expect(success).toBe(true);
 
       const retrievedBlobs = await client.getBlobSidecar('0x1234');
