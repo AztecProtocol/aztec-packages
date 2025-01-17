@@ -17,6 +17,11 @@ echo "Waiting for l1 contracts to be deployed..."
 until [ -f "$REPO"/yarn-project/end-to-end/scripts/native-network/state/l1-contracts.env ]; do
   sleep 1
 done
+
+# Get the chain ID from the Ethereum node
+export ETHEREUM_HOST=${ETHEREUM_HOST:-"http://127.0.0.1:8545"}
+source "$REPO"/yarn-project/end-to-end/scripts/native-network/utils/get-chain-id.sh
+
 echo "Waiting for Aztec Node..."
 until curl -s http://127.0.0.1:8080/status >/dev/null; do
   sleep 1
@@ -34,12 +39,12 @@ export BOOTSTRAP_NODES=$(echo "$output" | grep -oP 'Node ENR: \K.*')
 # Set environment variables
 export LOG_LEVEL=${LOG_LEVEL:-"verbose"}
 export DEBUG=${DEBUG:-""}
-export ETHEREUM_HOST=${ETHEREUM_HOST:-"http://127.0.0.1:8545"}
+export L1_CONSENSUS_HOST_URL=${L1_CONSENSUS_HOST_URL:-}
 export PROVER_AGENT_COUNT="1"
 export PROVER_AGENT_ENABLED="true"
 export PROVER_PUBLISHER_PRIVATE_KEY=${PROVER_PUBLISHER_PRIVATE_KEY:-"0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80"}
 export PROVER_COORDINATION_NODE_URL="http://127.0.0.1:8080"
-export PROVER_BLOB_SINK_URL="http://127.0.0.1:${BLOB_SINK_PORT:-5052}"
+export PROVER_BLOB_SINK_URL="http://127.0.0.1:${BLOB_SINK_PORT:-5053}"
 export AZTEC_NODE_URL="http://127.0.0.1:8080"
 export OTEL_RESOURCE_ATTRIBUTES="service.name=prover-node-${PORT}"
 export OTEL_EXPORTER_OTLP_METRICS_ENDPOINT="${OTEL_EXPORTER_OTLP_METRICS_ENDPOINT:-}"

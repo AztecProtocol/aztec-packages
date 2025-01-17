@@ -55,20 +55,45 @@ export class HttpBlobSinkClient implements BlobSinkClientInterface {
    * If requesting from the blob sink, we send the blobkHash
    * If requesting from the beacon node, we send the slot number
    *
+   * 1. First atttempts to get blobs from a configured blob sink
+   * 2. If no blob sink is configured, attempts to get blobs from a configured consensus host
+
+   * // TODO(md): blow up?
+   * 3. If none configured, fails
+   *
    * @param blockHash - The block hash
    * @param indices - The indices of the blobs to get
    * @returns The blobs
    */
   public async getBlobSidecar(blockHash: string, indices?: number[]): Promise<Blob[]> {
-    if (!this.config.blobSinkUrl) {
-      this.log.verbose('No blob sink url configured');
-      return [];
+    if (this.config.blobSinkUrl) {
+      this.log.debug('Getting blob sidecar from blob sink');
+      const blobs = await this.getBlobSidecarFrom(this.config.blobSinkUrl, blockHash, indices);
+      if (blobs.length > 0) {
+        return blobs;
+      }
     }
 
-    // If no slot number is found, we query with the block hash
-    const blockHashOrSlot = (await this.getSlotNumber(blockHash)) ?? blockHash;
-    const hostUrl = this.config.l1ConsensusHostUrl ?? this.config.blobSinkUrl;
+    if (this.config.l1ConsensusHostUrl) {
+      // The beacon api can query by slot number, so we get that first
+      const slotNumber = await this.getSlotNumber(blockHash);
+      if (slotNumber) {
+        const blobs = await this.getBlobSidecarFrom(this.config.l1ConsensusHostUrl, slotNumber, indices);
+        if (blobs.length > 0) {
+          return blobs;
+        }
+      }
+    }
 
+    this.log.verbose('No blob sources configured');
+    return [];
+  }
+
+  public async getBlobSidecarFrom(
+    hostUrl: string,
+    blockHashOrSlot: string | number,
+    indices?: number[],
+  ): Promise<Blob[]> {
     try {
       let url = `${hostUrl}/eth/v1/beacon/blob_sidecars/${blockHashOrSlot}`;
       if (indices && indices.length > 0) {
@@ -79,6 +104,7 @@ export class HttpBlobSinkClient implements BlobSinkClientInterface {
 
       if (res.ok) {
         const body = await res.json();
+        this.log.debug(`Blob sidecar for block ${blockHashOrSlot} is ${body}`);
         const blobs = body.data.map((b: BlobJson) => Blob.fromJson(b));
         return blobs;
       }
@@ -147,12 +173,12 @@ export class HttpBlobSinkClient implements BlobSinkClientInterface {
 
     // Query beacon chain to get the slot number for that block root
     try {
-      const res = await fetch(`${this.config.l1ConsensusHostUrl}/eth/v1/beacon/headers/${blockHash}`);
+      const res = await fetch(`${this.config.l1ConsensusHostUrl}/eth/v1/beacon/headers/${parentBeaconBlockRoot}`);
       if (res.ok) {
         const body = await res.json();
 
         // Add one to get the slot number of the original block hash
-        return body.data.header.message.slot + 1;
+        return Number(body.data.header.message.slot) + 1;
       }
     } catch (err) {
       this.log.error(`Error getting slot number`, err);

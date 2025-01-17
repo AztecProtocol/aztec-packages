@@ -22,7 +22,7 @@ else
 fi
 
 export ETHEREUM_HOST=${ETHEREUM_HOST:-"http://127.0.0.1:8545"}
-export L1_CHAIN_ID=${L1_CHAIN_ID:-"31337"}
+# Remove hardcoded L1_CHAIN_ID and fetch it from the node
 export PRIVATE_KEY=${PRIVATE_KEY:-""}
 export SALT=${SALT:-"1337"}
 
@@ -33,6 +33,9 @@ until curl -s -X POST -H 'Content-Type: application/json' \
   sleep 1
 done
 echo "Done waiting."
+
+# Fetch chain ID from the Ethereum node
+source "$REPO"/yarn-project/end-to-end/scripts/native-network/utils/get-chain-id.sh
 
 # Construct base command
 COMMAND="node --no-warnings $(git rev-parse --show-toplevel)/yarn-project/aztec/dest/bin/index.js \
@@ -47,7 +50,17 @@ COMMAND="node --no-warnings $(git rev-parse --show-toplevel)/yarn-project/aztec/
 # Add private key if provided
 [ -n "$PRIVATE_KEY" ] && COMMAND="$COMMAND --private-key $PRIVATE_KEY"
 
-output=$($COMMAND)
+MAX_RETRIES=5
+RETRY_DELAY=24
+
+for attempt in $(seq 1 $MAX_RETRIES); do
+  output=$(eval $COMMAND) && break
+  echo "Attempt $attempt failed. Retrying in $RETRY_DELAY seconds..."
+  sleep "$RETRY_DELAY"
+done || {
+  echo "All l1 contract deploy attempts failed."
+  exit 1
+}
 
 echo "$output"
 

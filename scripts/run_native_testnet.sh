@@ -32,7 +32,11 @@ PROVER_SCRIPT="\"./prover-node.sh 8078 false\""
 NUM_VALIDATORS=3
 INTERLEAVED=false
 METRICS=false
+DISABLE_BLOB_SINK=false
 LOG_LEVEL="info"
+ETHEREUM_HOST="http://localhost:8545"
+L1_CONSENSUS_HOST_URL=
+
 OTEL_COLLECTOR_ENDPOINT=${OTEL_COLLECTOR_ENDPOINT:-"http://localhost:4318"}
 
 # Function to display help message
@@ -49,6 +53,9 @@ display_help() {
     echo "  -i     Run interleaved (default: $INTERLEAVED)"
     echo "  -m     Run with metrics (default: $METRICS) will use $OTEL_COLLECTOR_ENDPOINT as default otel endpoint"
     echo "  -c     Specify the otel collector endpoint (default: $OTEL_COLLECTOR_ENDPOINT)"
+    echo "  -b     Disable the blob sink (default: false)"
+    echo "  -e     Specify the ethereum host url (default: $ETHEREUM_HOST)"
+    echo "  -cl    Specify the l1 consensus host url (default: $L1_CONSENSUS_HOST_URL)"
     echo
     echo "Example:"
     echo "  $0 -t ./test-4epochs.sh -val 5 -v"
@@ -97,6 +104,18 @@ while [[ $# -gt 0 ]]; do
       OTEL_COLLECTOR_ENDPOINT="$2"
       shift 2
       ;;
+    -e)
+      ETHEREUM_HOST="$2"
+      shift 2
+      ;;
+    -cl)
+      L1_CONSENSUS_HOST_URL="$2"
+      shift 2
+      ;;
+    -b)
+      DISABLE_BLOB_SINK=true
+      shift
+      ;;
     *)
       echo "Invalid option: $1" >&2
       display_help
@@ -115,6 +134,28 @@ if $METRICS; then
   export LOG_JSON=1
 fi
 
+# If an ethereum rpc url is provided, use it
+if $ETHEREUM_HOST; then
+  export ETHEREUM_HOST
+fi
+if $L1_CONSENSUS_HOST_URL; then
+  export L1_CONSENSUS_HOST_URL
+fi
+
+# If an ethereum url has been provided, do not run the ethereum.sh script
+if $ETHEREUM_HOST && $L1_CONSENSUS_HOST_URL; then
+  ETHEREUM_SCRIPT=""
+else
+  ETHEREUM_SCRIPT="./ethereum.sh"
+fi
+
+# If the blob sink is disabled, do not run the blob-sink.sh script
+if $DISABLE_BLOB_SINK; then
+  BLOB_SINK_SCRIPT=""
+else
+  BLOB_SINK_SCRIPT="./blob-sink.sh"
+fi
+
 # Go to repo root
 cd $(git rev-parse --show-toplevel)
 
@@ -124,12 +165,12 @@ BASE_CMD="INTERLEAVED=$INTERLEAVED ./yarn-project/end-to-end/scripts/native_netw
         \"./deploy-l1-contracts.sh $NUM_VALIDATORS\" \
         ./deploy-l2-contracts.sh \
         ./boot-node.sh \
-        ./ethereum.sh \
+        $ETHEREUM_SCRIPT \
         \"./validators.sh $NUM_VALIDATORS\" \
         $PROVER_SCRIPT \
         ./pxe.sh \
         ./transaction-bot.sh \
-        ./blob-sink.sh"
+        $BLOB_SINK_SCRIPT"
 
 # Execute the command
 eval $BASE_CMD

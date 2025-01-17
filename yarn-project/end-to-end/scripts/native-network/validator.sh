@@ -29,6 +29,13 @@ until curl -s http://127.0.0.1:8080/status >/dev/null; do
 done
 echo "Done waiting."
 
+# Ethereum host required for the chain id script
+export ETHEREUM_HOST=${ETHEREUM_HOST:-"http://127.0.0.1:8545"}
+
+# Get the chain ID from the Ethereum node
+source "$REPO"/yarn-project/end-to-end/scripts/native-network/utils/get-chain-id.sh
+export L1_CHAIN_ID=${L1_CHAIN_ID:-31337}
+
 # Set the boot node URL
 BOOT_NODE_URL="http://127.0.0.1:8080"
 
@@ -51,7 +58,9 @@ export L1_PRIVATE_KEY=$VALIDATOR_PRIVATE_KEY
 export SEQ_PUBLISHER_PRIVATE_KEY=$VALIDATOR_PRIVATE_KEY
 export DEBUG=${DEBUG:-""}
 export LOG_LEVEL=${LOG_LEVEL:-"verbose"}
-export ETHEREUM_HOST=${ETHEREUM_HOST:-"http://127.0.0.1:8545"}
+export L1_CONSENSUS_HOST_URL=${L1_CONSENSUS_HOST_URL:-}
+
+
 
 # Automatically detect if we're using Anvil
 if curl -s -H "Content-Type: application/json" -X POST --data '{"method":"web3_clientVersion","params":[],"id":49,"jsonrpc":"2.0"}' $ETHEREUM_HOST | jq .result | grep -q anvil; then
@@ -68,7 +77,8 @@ export P2P_TCP_ANNOUNCE_ADDR="127.0.0.1:$P2P_PORT"
 export P2P_UDP_ANNOUNCE_ADDR="127.0.0.1:$P2P_PORT"
 export P2P_TCP_LISTEN_ADDR="0.0.0.0:$P2P_PORT"
 export P2P_UDP_LISTEN_ADDR="0.0.0.0:$P2P_PORT"
-export SEQ_BLOB_SINK_URL="http://127.0.0.1:${BLOB_SINK_PORT:-5052}"
+export SEQ_BLOB_SINK_URL="http://127.0.0.1:${BLOB_SINK_PORT:-5053}"
+export L1_CHAIN_ID=${L1_CHAIN_ID:-31337}
 export OTEL_RESOURCE_ATTRIBUTES="service.name=validator-node-${PORT}"
 export OTEL_EXPORTER_OTLP_METRICS_ENDPOINT="${OTEL_EXPORTER_OTLP_METRICS_ENDPOINT:-}"
 export OTEL_EXPORTER_OTLP_TRACES_ENDPOINT="${OTEL_EXPORTER_OTLP_TRACES_ENDPOINT:-}"
