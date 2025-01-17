@@ -11,30 +11,32 @@ export type Field = string;
 export type FirstInputType = {
   x: Field;
   y: Field;
+  z: Field;
 };
 
 export async function First(
   x: Field,
   y: Field,
+  z: Field,
   First_circuit: CompiledCircuit,
   foreignCallHandler?: ForeignCallHandler,
 ): Promise<null> {
   const program = new Noir(First_circuit);
-  const args: InputMap = { x, y };
+  const args: InputMap = { x, y, z };
   const { returnValue } = await program.execute(args, foreignCallHandler);
   return returnValue as null;
 }
 export type SecondInputType = {
   verification_key: FixedLengthArray<Field, 128>;
   proof: FixedLengthArray<Field, 459>;
-  public_inputs: FixedLengthArray<Field, 1>;
+  public_inputs: FixedLengthArray<Field, 2>;
   key_hash: Field;
 };
 
 export async function Second(
   verification_key: FixedLengthArray<Field, 128>,
   proof: FixedLengthArray<Field, 459>,
-  public_inputs: FixedLengthArray<Field, 1>,
+  public_inputs: FixedLengthArray<Field, 2>,
   key_hash: Field,
   Second_circuit: CompiledCircuit,
   foreignCallHandler?: ForeignCallHandler,

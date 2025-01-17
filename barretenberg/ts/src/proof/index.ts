@@ -9,6 +9,17 @@ export type ProofData = {
   proof: Uint8Array;
 };
 
+/**
+ * @description
+ * The representation of a proof
+ * */
+export type ProofDataForRecursion = {
+  /** @description Public inputs of a proof */
+  publicInputs: string[];
+  /** @description An byte array representing the proof */
+  proof: string[];
+};
+
 // Buffers are prepended with their size. The size takes 4 bytes.
 const serializedBufferSize = 4;
 const fieldByteSize = 32;

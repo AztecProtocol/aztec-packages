@@ -43,7 +43,8 @@ export async function witnessGenSecondCircuit(args: SecondInputType): Promise<Wi
 export async function generateFirstCircuit(): Promise<[string, Uint8Array]> {
   const witnessGenResult = await witnessGenFirstCircuit({
     x: '0x1',
-    y: '0x2',
+    y: '0x10',
+    z: '0x100',
   });
   logger('generated first circuit');
 
@@ -74,7 +75,7 @@ export async function generateSecondCircuit(
 
 export type ProverOutputForRecursion = {
   proof: FixedLengthArray<string, 459>;
-  public_inputs: FixedLengthArray<string, 1>;
+  public_inputs: FixedLengthArray<string, 2>;
   // public_inputs: FixedLengthArray<string, 17>;
 };
 
@@ -87,13 +88,11 @@ export async function proveUltraHonk(
   const backend = new UltraHonkBackend(bytecode, { threads: threads }, { recursive: true });
   try {
     logger(`proving...`);
-    const proverOutput = await backend.generateProof(witness);
-    logger(`done proving. generating recursive proof artifacts...`);
-    const artifacts = await backend.generateRecursiveProofArtifacts(proverOutput.proof);
+    const proverOutput = await backend.generateProofForRecursiveAggregation(witness);
     logger(`done generating recursive proof artifacts.`);
     return {
-      proof: artifacts.proofAsFields as FixedLengthArray<string, 459>,
-      public_inputs: proverOutput.publicInputs as FixedLengthArray<string, 1>,
+      proof: proverOutput.proof as FixedLengthArray<string, 459>,
+      public_inputs: proverOutput.publicInputs as FixedLengthArray<string, 2>,
       // public_inputs: proverOutput.publicInputs as FixedLengthArray<string, 17>,
     };
   } finally {

@@ -5,6 +5,7 @@ import {
   deflattenFields,
   flattenFieldsAsArray,
   ProofData,
+  ProofDataForRecursion,
   reconstructHonkProof,
   reconstructUltraPlonkProof,
 } from '../proof/index.js';
@@ -208,7 +209,7 @@ export class UltraHonkBackend {
 
     const proofAsStrings = deflattenFields(proofWithPublicInputs.slice(4));
 
-    const numPublicInputs = Number(proofAsStrings[1]) - 16;
+    const numPublicInputs = Number(proofAsStrings[1]) - 16; // WORKTODO
 
     // Account for the serialized buffer size at start
     const publicInputsOffset = publicInputsOffsetBytes + serializedBufferSize;
@@ -216,8 +217,64 @@ export class UltraHonkBackend {
     const proofStart = proofWithPublicInputs.slice(0, publicInputsOffset);
     const publicInputsSplitIndex = numPublicInputs * fieldByteSize;
     const proofEnd = proofWithPublicInputs.slice(publicInputsOffset + publicInputsSplitIndex);
+
     // Construct the proof without the public inputs
     const proof = new Uint8Array([...proofStart, ...proofEnd]);
+
+    // Fetch the number of public inputs out of the proof string
+    const publicInputsConcatenated = proofWithPublicInputs.slice(
+      publicInputsOffset,
+      publicInputsOffset + publicInputsSplitIndex,
+    );
+    const publicInputs = deflattenFields(publicInputsConcatenated);
+
+    return { proof, publicInputs };
+  }
+
+  async generateProofForRecursiveAggregation(
+    compressedWitness: Uint8Array,
+    options?: UltraHonkBackendOptions,
+  ): Promise<ProofDataForRecursion> {
+    await this.instantiate();
+
+    const proveUltraHonk = options?.keccak
+      ? this.api.acirProveUltraKeccakHonk.bind(this.api)
+      : this.api.acirProveUltraHonk.bind(this.api);
+
+    const proofWithPublicInputs = await proveUltraHonk(
+      this.acirUncompressedBytecode,
+      this.circuitOptions.recursive,
+      gunzip(compressedWitness),
+    );
+
+    // proofWithPublicInputs starts with a four-byte size
+    const numSerdeHeaderBytes = 4;
+    // some public inputs are handled specially
+    const numKZGAccumulatorFieldElements = 16;
+    // proof begins with: size, num public inputs, public input offset
+    const numProofPreambleElements = 3;
+    const publicInputsSizeIndex = 1;
+
+    // Slice serde header and convert to fields
+    const proofAsStrings = deflattenFields(proofWithPublicInputs.slice(numSerdeHeaderBytes));
+    const numPublicInputs = Number(proofAsStrings[publicInputsSizeIndex]) - numKZGAccumulatorFieldElements;
+
+    // Account for the serialized buffer size at start
+    const publicInputsOffset = publicInputsOffsetBytes + serializedBufferSize;
+    const publicInputsSplitIndex = numPublicInputs * fieldByteSize;
+
+    // Construct the proof without the public inputs
+    const numPublicInputsBytes = numPublicInputs * fieldByteSize;
+    const numHeaderPlusPreambleBytes = numSerdeHeaderBytes + numProofPreambleElements * fieldByteSize;
+    const proofNoPIs = new Uint8Array(proofWithPublicInputs.length - numPublicInputsBytes);
+    // copy the elements before the public inputs
+    proofNoPIs.set(proofWithPublicInputs.subarray(0, numHeaderPlusPreambleBytes), 0);
+    // copy the elements after the public inputs
+    proofNoPIs.set(
+      proofWithPublicInputs.subarray(numHeaderPlusPreambleBytes + numPublicInputsBytes),
+      numHeaderPlusPreambleBytes,
+    );
+    const proof: string[] = deflattenFields(proofNoPIs.slice(numSerdeHeaderBytes));
 
     // Fetch the number of public inputs out of the proof string
     const publicInputsConcatenated = proofWithPublicInputs.slice(
@@ -265,7 +322,7 @@ export class UltraHonkBackend {
 
     return {
       // TODO(https://github.com/noir-lang/noir/issues/5661)
-      proofAsFields: proofAsFrs.map(proofAsFrs => proofAsFrs.toString()).slice(0,-1) // WORKTODO, why this?
+      proofAsFields: proofAsFrs.map(proofAsFrs => proofAsFrs.toString()), // WORKTODO, why this?
     };
   }
 

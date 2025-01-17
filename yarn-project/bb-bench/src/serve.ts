@@ -23,6 +23,8 @@ function setupConsoleOutput() {
   const copyButton = document.createElement('button');
   copyButton.innerText = 'Copy Logs to Clipboard';
   copyButton.style.marginBottom = '10px';
+  copyButton.style.padding = '5px 10px';
+  copyButton.style.cursor = 'pointer';
   container.appendChild(copyButton);
 
   const logContainer = document.createElement('pre');
