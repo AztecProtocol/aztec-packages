@@ -236,20 +236,15 @@ export class Sequencer {
     this.setState(SequencerState.PROPOSER_CHECK, 0n);
 
     const chainTip = await this.l2BlockSource.getBlock(-1);
-    const historicalHeader = chainTip?.header;
 
-    const newBlockNumber =
-      (historicalHeader === undefined
-        ? await this.l2BlockSource.getBlockNumber()
-        : Number(historicalHeader.globalVariables.blockNumber.toBigInt())) + 1;
+    const newBlockNumber = (chainTip?.header.globalVariables.blockNumber.toNumber() ?? 0) + 1;
 
     // If we cannot find a tip archive, assume genesis.
-    const chainTipArchive =
-      chainTip == undefined ? new Fr(GENESIS_ARCHIVE_ROOT).toBuffer() : chainTip?.archive.root.toBuffer();
+    const chainTipArchive = chainTip?.archive.root ?? new Fr(GENESIS_ARCHIVE_ROOT);
 
     let slot: bigint;
     try {
-      slot = await this.mayProposeBlock(chainTipArchive, BigInt(newBlockNumber));
+      slot = await this.mayProposeBlock(chainTipArchive.toBuffer(), BigInt(newBlockNumber));
     } catch (err) {
       this.log.debug(`Cannot propose for block ${newBlockNumber}`);
       return;
@@ -278,7 +273,7 @@ export class Sequencer {
 
     this.setState(SequencerState.INITIALIZING_PROPOSAL, slot);
     this.log.verbose(`Preparing proposal for block ${newBlockNumber} at slot ${slot}`, {
-      chainTipArchive: new Fr(chainTipArchive),
+      chainTipArchive,
       blockNumber: newBlockNumber,
       slot,
     });
@@ -289,7 +284,7 @@ export class Sequencer {
 
     // If I created a "partial" header here that should make our job much easier.
     const proposalHeader = new BlockHeader(
-      new AppendOnlyTreeSnapshot(Fr.fromBuffer(chainTipArchive), 1),
+      new AppendOnlyTreeSnapshot(chainTipArchive, 1),
       ContentCommitment.empty(),
       StateReference.empty(),
       newGlobalVariables,
@@ -302,7 +297,7 @@ export class Sequencer {
       // @note  It is very important that the following function will FAIL and not just return early
       //        if it have made any state changes. If not, we won't rollback the state, and you will
       //        be in for a world of pain.
-      await this.buildBlockAndAttemptToPublish(pendingTxs, proposalHeader, historicalHeader);
+      await this.buildBlockAndAttemptToPublish(pendingTxs, proposalHeader);
     } catch (err) {
       this.log.error(`Error assembling block`, err, { blockNumber: newBlockNumber, slot });
     }
@@ -378,14 +373,13 @@ export class Sequencer {
   protected async buildBlock(
     pendingTxs: Iterable<Tx>,
     newGlobalVariables: GlobalVariables,
-    historicalHeader?: BlockHeader,
     opts: { validateOnly?: boolean } = {},
   ) {
-    const blockNumber = newGlobalVariables.blockNumber.toBigInt();
+    const blockNumber = newGlobalVariables.blockNumber.toNumber();
     const slot = newGlobalVariables.slotNumber.toBigInt();
 
     this.log.debug(`Requesting L1 to L2 messages from contract for block ${blockNumber}`);
-    const l1ToL2Messages = await this.l1ToL2MessageSource.getL1ToL2Messages(blockNumber);
+    const l1ToL2Messages = await this.l1ToL2MessageSource.getL1ToL2Messages(BigInt(blockNumber));
     const msgCount = l1ToL2Messages.length;
 
     this.log.verbose(`Building block ${blockNumber} for slot ${slot}`, {
@@ -396,23 +390,21 @@ export class Sequencer {
     });
 
     // Sync to the previous block at least
-    await this.worldState.syncImmediate(newGlobalVariables.blockNumber.toNumber() - 1);
-    this.log.debug(`Synced to previous block ${newGlobalVariables.blockNumber.toNumber() - 1}`);
+    await this.worldState.syncImmediate(blockNumber - 1);
+    this.log.debug(`Synced to previous block ${blockNumber - 1}`);
 
     // NB: separating the dbs because both should update the state
     const publicProcessorFork = await this.worldState.fork();
     const orchestratorFork = await this.worldState.fork();
 
+    const previousBlockHeader =
+      (await this.l2BlockSource.getBlock(blockNumber - 1))?.header ?? orchestratorFork.getInitialHeader();
+
     try {
-      const processor = this.publicProcessorFactory.create(
-        publicProcessorFork,
-        historicalHeader,
-        newGlobalVariables,
-        true,
-      );
+      const processor = this.publicProcessorFactory.create(publicProcessorFork, newGlobalVariables, true);
       const blockBuildingTimer = new Timer();
       const blockBuilder = this.blockBuilderFactory.create(orchestratorFork);
-      await blockBuilder.startNewBlock(newGlobalVariables, l1ToL2Messages);
+      await blockBuilder.startNewBlock(newGlobalVariables, l1ToL2Messages, previousBlockHeader);
 
       // Deadline for processing depends on whether we're proposing a block
       const secondsIntoSlot = this.getSecondsIntoSlot(slot);
@@ -517,16 +509,11 @@ export class Sequencer {
    *
    * @param pendingTxs - Iterable of pending transactions to construct the block from
    * @param proposalHeader - The partial header constructed for the proposal
-   * @param historicalHeader - The historical header of the parent
    */
-  @trackSpan('Sequencer.buildBlockAndAttemptToPublish', (_validTxs, proposalHeader, _historicalHeader) => ({
+  @trackSpan('Sequencer.buildBlockAndAttemptToPublish', (_validTxs, proposalHeader) => ({
     [Attributes.BLOCK_NUMBER]: proposalHeader.globalVariables.blockNumber.toNumber(),
   }))
-  private async buildBlockAndAttemptToPublish(
-    pendingTxs: Iterable<Tx>,
-    proposalHeader: BlockHeader,
-    historicalHeader: BlockHeader | undefined,
-  ): Promise<void> {
+  private async buildBlockAndAttemptToPublish(pendingTxs: Iterable<Tx>, proposalHeader: BlockHeader): Promise<void> {
     await this.publisher.validateBlockForSubmission(proposalHeader);
 
     const newGlobalVariables = proposalHeader.globalVariables;
@@ -541,7 +528,7 @@ export class Sequencer {
     const proofQuotePromise = this.createProofClaimForPreviousEpoch(slot);
 
     try {
-      const buildBlockRes = await this.buildBlock(pendingTxs, newGlobalVariables, historicalHeader);
+      const buildBlockRes = await this.buildBlock(pendingTxs, newGlobalVariables);
       const { publicGas, block, publicProcessorDuration, numTxs, numMsgs, blockBuildingTimer } = buildBlockRes;
 
       // TODO(@PhilWindle) We should probably periodically check for things like another

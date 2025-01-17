@@ -3,12 +3,13 @@ use crate::{
     merge::utils::validate_consecutive_rollups::validate_consecutive_rollups,
 };
 use parity_lib::root::root_rollup_parity_input::RootRollupParityInput;
-use types::{abis::sponge_blob::SpongeBlob, proof::traits::Verifiable};
+use types::{abis::sponge_blob::SpongeBlob, block_header::BlockHeader, proof::traits::Verifiable};
 
 pub struct BlockRootRollupInputsValidator<let NUM_ROLLUPS: u32, let N: u32> {
     previous_rollups: [PreviousRollupData; NUM_ROLLUPS],
     allowed_vk_indices: [u32; N],
     l1_to_l2_roots: RootRollupParityInput,
+    previous_block_header: BlockHeader,
 }
 
 impl<let NUM_ROLLUPS: u32, let N: u32> BlockRootRollupInputsValidator<NUM_ROLLUPS, N> {
@@ -16,8 +17,14 @@ impl<let NUM_ROLLUPS: u32, let N: u32> BlockRootRollupInputsValidator<NUM_ROLLUP
         previous_rollups: [PreviousRollupData; NUM_ROLLUPS],
         allowed_vk_indices: [u32; N],
         l1_to_l2_roots: RootRollupParityInput,
+        previous_block_header: BlockHeader,
     ) -> Self {
-        BlockRootRollupInputsValidator { previous_rollups, allowed_vk_indices, l1_to_l2_roots }
+        BlockRootRollupInputsValidator {
+            previous_rollups,
+            allowed_vk_indices,
+            l1_to_l2_roots,
+            previous_block_header,
+        }
     }
 
     pub fn validate(self) {
@@ -67,6 +74,12 @@ impl<let NUM_ROLLUPS: u32, let N: u32> BlockRootRollupInputsValidator<NUM_ROLLUP
 
     fn validate_first_rollup(self) {
         let first_rollup = self.previous_rollups[0].base_or_merge_rollup_public_inputs;
+
+        assert_eq(
+            first_rollup.start,
+            self.previous_block_header.state.partial,
+            "the start state of the block's first tx does not match the state in previous header",
+        );
 
         // Asserts that the first sponge blob was empty to begin with.
         // This prevents injecting unchecked tx effects in the first base of a rollup.
