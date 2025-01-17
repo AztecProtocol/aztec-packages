@@ -15,10 +15,7 @@ deps:
     FROM ../../+bootstrap-noir-bb
     WORKDIR /usr/src/barretenberg/ts
 
-test-prettier-format:
-    FROM +deps
-    RUN yarn formatting
-
+# WORKTODO(adam) remove once publish-aztec-packages is refactored
 publish-npm:
     FROM +deps
     ARG VERSION
@@ -32,9 +29,3 @@ publish-npm:
     else \
         npm publish --tag $DIST_TAG --access public; \
     fi
-
-test:
-    FROM +deps
-    BUILD +test-prettier-format
-    # We frequently get tests timing out in GA, increase the timeout here
-    RUN yarn test --testTimeout=300000
