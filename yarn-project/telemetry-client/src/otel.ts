@@ -1,7 +1,7 @@
 import { type LogData, type Logger, addLogDataHandler } from '@aztec/foundation/log';
 
-import { MetricExporter } from '@google-cloud/opentelemetry-cloud-monitoring-exporter';
-import { TraceExporter } from '@google-cloud/opentelemetry-cloud-trace-exporter';
+import { MetricExporter as GoogleCloudMetricExporter } from '@google-cloud/opentelemetry-cloud-monitoring-exporter';
+import { TraceExporter as GoogleCloudTraceExporter } from '@google-cloud/opentelemetry-cloud-trace-exporter';
 import {
   DiagConsoleLogger,
   DiagLogLevel,
@@ -237,17 +237,17 @@ export class OpenTelemetryClient implements TelemetryClient {
     });
   }
 
-  public static getGcloudClientFactory(config: TelemetryClientConfig): OpenTelemetryClientFactory {
+  private static getGcloudClientFactory(config: TelemetryClientConfig): OpenTelemetryClientFactory {
     return (resource: IResource, log: Logger) => {
       const tracerProvider = new NodeTracerProvider({
         resource,
-        spanProcessors: [new BatchSpanProcessor(new TraceExporter({ resourceFilter: /.*/ }))],
+        spanProcessors: [new BatchSpanProcessor(new GoogleCloudTraceExporter({ resourceFilter: /.*/ }))],
       });
 
       tracerProvider.register();
 
       const meterProvider = OpenTelemetryClient.createMeterProvider(resource, {
-        exporter: new MetricExporter(),
+        exporter: new GoogleCloudMetricExporter(),
         exportTimeoutMillis: config.otelExportTimeoutMs,
         exportIntervalMillis: config.otelCollectIntervalMs,
       });
@@ -256,7 +256,7 @@ export class OpenTelemetryClient implements TelemetryClient {
     };
   }
 
-  public static getCustomClientFactory(config: TelemetryClientConfig): OpenTelemetryClientFactory {
+  private static getCustomClientFactory(config: TelemetryClientConfig): OpenTelemetryClientFactory {
     return (resource: IResource, log: Logger) => {
       const tracerProvider = new NodeTracerProvider({
         resource,
@@ -281,8 +281,8 @@ export class OpenTelemetryClient implements TelemetryClient {
     };
   }
 
-  public static async createAndStart(config: TelemetryClientConfig, log: Logger): Promise<OpenTelemetryClient> {
-    const resource = await getOtelResource();
+  public static createAndStart(config: TelemetryClientConfig, log: Logger): OpenTelemetryClient {
+    const resource = getOtelResource();
     const factory = config.useGcloudObservability
       ? OpenTelemetryClient.getGcloudClientFactory(config)
       : OpenTelemetryClient.getCustomClientFactory(config);

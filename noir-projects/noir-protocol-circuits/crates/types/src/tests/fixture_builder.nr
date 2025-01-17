@@ -31,7 +31,7 @@ use crate::{
         public_call_request::PublicCallRequest,
         public_data_write::PublicDataWrite,
         read_request::{ReadRequest, ScopedReadRequest},
-        side_effect::{Counted, scoped::Scoped},
+        side_effect::{Counted, OrderedValue, scoped::Scoped},
         tube::{PrivateTubeData, PublicTubeData},
         tx_constant_data::TxConstantData,
         validation_requests::{
@@ -66,7 +66,7 @@ use crate::{
     },
     public_keys::PublicKeys,
     tests::fixtures::{self, contract_functions::ContractFunction, contracts::ContractData},
-    traits::Empty,
+    traits::{Deserialize, Empty, FromField},
     transaction::{tx_context::TxContext, tx_request::TxRequest},
 };
 

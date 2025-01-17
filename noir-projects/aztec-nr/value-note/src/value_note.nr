@@ -13,7 +13,7 @@ use dep::aztec::{
     },
 };
 
-global VALUE_NOTE_LEN: u32 = 3; // 3 plus a header.
+pub(crate) global VALUE_NOTE_LEN: u32 = 3; // 3 plus a header.
 
 // docs:start:value-note-def
 // ValueNote is used as fn parameter in the Claim contract, so it has to implement the Serialize trait.

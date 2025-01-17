@@ -43,7 +43,10 @@ Therefore, we can probably remove the `contract_tree` and `ContractData` referen
 
 <!-- NOTE: If you're editing this diagram, there will be other diagrams (e.g. in the rollup-circuits / circuits sections) that will need to be updated too. There are also class definitions in other sections which will need to be updated. -->
 
-```mermaid
+```mdx
+import { Mermaid } from '@docusaurus/theme-mermaid';
+
+<Mermaid>
 classDiagram
 direction TB
 
@@ -122,4 +125,5 @@ class ArchiveTree {
   leaves: List~Header~
 }
 ArchiveTree *.. "m" Header : leaves
+</Mermaid>
 ```

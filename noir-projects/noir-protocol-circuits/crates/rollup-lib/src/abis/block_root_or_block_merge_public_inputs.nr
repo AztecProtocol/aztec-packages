@@ -5,7 +5,7 @@ use dep::types::{
         AZTEC_MAX_EPOCH_DURATION, BLOCK_ROOT_OR_BLOCK_MERGE_PUBLIC_INPUTS_LENGTH,
         FEE_RECIPIENT_LENGTH,
     },
-    traits::{Deserialize, Empty, Serialize},
+    traits::{Deserialize, Empty, Serialize, ToField},
     utils::reader::Reader,
 };
 use blob::blob_public_inputs::BlockBlobPublicInputs;

@@ -14,8 +14,7 @@ import { TokenContractArtifact } from '@aztec/noir-contracts.js/Token';
 import { TokenBridgeContractArtifact } from '@aztec/noir-contracts.js/TokenBridge';
 import { protocolContractNames } from '@aztec/protocol-contracts';
 import { getCanonicalProtocolContract } from '@aztec/protocol-contracts/bundle';
-import { type TelemetryClient } from '@aztec/telemetry-client';
-import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
+import { type TelemetryClient, getTelemetryClient } from '@aztec/telemetry-client';
 
 import { Archiver } from './archiver/archiver.js';
 import { type ArchiverConfig } from './archiver/config.js';
@@ -25,8 +24,8 @@ import { createArchiverClient } from './rpc/index.js';
 export async function createArchiver(
   config: ArchiverConfig & DataStoreConfig,
   blobSinkClient: BlobSinkClientInterface,
-  telemetry: TelemetryClient = new NoopTelemetryClient(),
   opts: { blockUntilSync: boolean } = { blockUntilSync: true },
+  telemetry: TelemetryClient = getTelemetryClient(),
 ): Promise<ArchiverApi & Maybe<Service>> {
   if (!config.archiverUrl) {
     const store = await createStore('archiver', config, createLogger('archiver:lmdb'));

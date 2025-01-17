@@ -3,7 +3,7 @@ use crate::{
     merge::utils::validate_consecutive_rollups::validate_consecutive_rollups,
 };
 use parity_lib::root::root_rollup_parity_input::RootRollupParityInput;
-use types::abis::sponge_blob::SpongeBlob;
+use types::{abis::sponge_blob::SpongeBlob, proof::traits::Verifiable};
 
 pub struct BlockRootRollupInputsValidator<let NUM_ROLLUPS: u32, let N: u32> {
     previous_rollups: [PreviousRollupData; NUM_ROLLUPS],

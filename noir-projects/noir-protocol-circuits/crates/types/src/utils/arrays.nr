@@ -65,12 +65,15 @@ where
     BoundedVec::from_parts_unchecked(array, len)
 }
 
+// Helper function to find the index of the first element in an array that satisfies a given predicate. If the element
+// is not found, the function returns N as the index.
 pub unconstrained fn find_index_hint<T, let N: u32, Env>(
     array: [T; N],
     find: fn[Env](T) -> bool,
 ) -> u32 {
     let mut index = N;
     for i in 0..N {
+        // We check `index == N` to ensure that we only update the index if we haven't found a match yet.
         if (index == N) & find(array[i]) {
             index = i;
         }
