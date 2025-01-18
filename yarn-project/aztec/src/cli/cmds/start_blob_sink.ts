@@ -5,13 +5,15 @@ import {
   getBlobSinkConfigFromEnv,
 } from '@aztec/blob-sink/server';
 import { type LogFn } from '@aztec/foundation/log';
-import { createAndStartTelemetryClient, telemetryClientConfigMappings } from '@aztec/telemetry-client/start';
+import { getConfigEnvVars as getTelemetryClientConfig, initTelemetryClient } from '@aztec/telemetry-client';
 
 import { extractRelevantOptions } from '../util.js';
 
 export async function startBlobSink(options: any, signalHandlers: (() => Promise<void>)[], userLog: LogFn) {
   if (options.prover || options.node || options.sequencer || options.pxe || options.p2pBootstrap || options.txe) {
-    userLog(`Starting a prover-node with --node, --sequencer, --pxe, --p2p-bootstrap, or --txe is not supported.`);
+    userLog(
+      `Starting a blob sink with --node, --sequencer, --pxe, --p2p-bootstrap, --prover or --txe is not supported.`,
+    );
     process.exit(1);
   }
 
@@ -20,9 +22,7 @@ export async function startBlobSink(options: any, signalHandlers: (() => Promise
     ...extractRelevantOptions<BlobSinkConfig>(options, blobSinkConfigMappings, 'blobSink'), // override with command line options
   };
 
-  const telemetry = await createAndStartTelemetryClient(
-    extractRelevantOptions(options, telemetryClientConfigMappings, 'tel'),
-  );
+  const telemetry = initTelemetryClient(getTelemetryClientConfig());
 
   const blobSink = await createBlobSinkServer(blobSinkConfig, telemetry);
   signalHandlers.push(blobSink.stop.bind(blobSink));
