@@ -1,13 +1,12 @@
+/* eslint-disable camelcase */
 import { type ForeignCallOutput, Noir } from '@noir-lang/noir_js';
 import createDebug from 'debug';
 
-import FirstCircuit from '../artifacts/first.json' assert { type: 'json' };
-import SecondCircuit from '../artifacts/second.json' assert { type: 'json' };
-import type { FirstInputType, FixedLengthArray, SecondInputType } from './types/index.js';
+import Circuit1 from '../artifacts/circuit_1.json' assert { type: 'json' };
+import Circuit2 from '../artifacts/circuit_2.json' assert { type: 'json' };
+import type { Circuit_1InputType, Circuit_2InputType, FixedLengthArray } from './types/index.js';
 
 export const logger = createDebug('aztec:bb-bench');
-
-/* eslint-disable camelcase */
 
 export const MOCK_MAX_COMMITMENTS_PER_TX = 4;
 
@@ -22,8 +21,8 @@ export interface WitnessGenResult<PublicInputsType> {
 
 export type u8 = string;
 
-export async function witnessGenFirstCircuit(args: FirstInputType): Promise<WitnessGenResult<u8>> {
-  const program = new Noir(FirstCircuit);
+export async function witnessGenCircuit1(args: Circuit_1InputType): Promise<WitnessGenResult<u8>> {
+  const program = new Noir(Circuit1);
   const { witness, returnValue } = await program.execute(args, foreignCallHandler);
   return {
     witness,
@@ -31,8 +30,8 @@ export async function witnessGenFirstCircuit(args: FirstInputType): Promise<Witn
   };
 }
 
-export async function witnessGenSecondCircuit(args: SecondInputType): Promise<WitnessGenResult<u8>> {
-  const program = new Noir(SecondCircuit);
+export async function witnessGenCircuit2(args: Circuit_2InputType): Promise<WitnessGenResult<u8>> {
+  const program = new Noir(Circuit2);
   const { witness, returnValue } = await program.execute(args, foreignCallHandler);
   return {
     witness,
@@ -40,33 +39,33 @@ export async function witnessGenSecondCircuit(args: SecondInputType): Promise<Wi
   };
 }
 
-export async function generateFirstCircuit(): Promise<[string, Uint8Array]> {
-  const witnessGenResult = await witnessGenFirstCircuit({
+export async function generateCircuit1(): Promise<[string, Uint8Array]> {
+  const witnessGenResult = await witnessGenCircuit1({
     x: '0x1',
     y: '0x10',
     z: '0x100',
   });
-  logger('generated first circuit');
+  logger('generated circuit 1');
 
-  const bytecode = FirstCircuit.bytecode;
+  const bytecode = Circuit1.bytecode;
   const witness = witnessGenResult.witness;
 
   return [bytecode, witness];
 }
 
-export async function generateSecondCircuit(
+export async function generateCircuit2(
   proverOutput: ProverOutputForRecursion,
   previousVk: string[],
 ): Promise<[string, Uint8Array]> {
-  const witnessGenResult = await witnessGenSecondCircuit({
+  const witnessGenResult = await witnessGenCircuit2({
     public_inputs: proverOutput.public_inputs,
     key_hash: '0x0',
     proof: proverOutput.proof,
     verification_key: previousVk as FixedLengthArray<string, 128>,
   });
-  logger('generated second circuit');
+  logger('generated circuit 2');
 
-  const bytecode = SecondCircuit.bytecode;
+  const bytecode = Circuit2.bytecode;
   const witness = witnessGenResult.witness;
 
   return [bytecode, witness];
@@ -78,7 +77,7 @@ export type ProverOutputForRecursion = {
   public_inputs: FixedLengthArray<string, 2>;
 };
 
-export async function proveFirstCircuit(
+export async function proveCircuit1(
   bytecode: string,
   witness: Uint8Array,
   threads?: number,
@@ -98,7 +97,7 @@ export async function proveFirstCircuit(
   }
 }
 
-export async function proveThenVerifySecondCircuit(
+export async function proveThenVerifyCircuit2(
   bytecode: string,
   witness: Uint8Array,
   vk: Uint8Array,

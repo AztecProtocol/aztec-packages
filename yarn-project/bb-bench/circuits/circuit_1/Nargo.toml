@@ -1,5 +1,5 @@
 [package]
-name = "first"
+name = "circuit_1"
 type = "bin"
 authors = [""]
 compiler_version = ">=0.31.0"

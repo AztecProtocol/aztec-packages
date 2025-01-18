@@ -8,40 +8,40 @@ export { ForeignCallHandler } from '@noir-lang/noir_js';
 export type FixedLengthArray<T, L extends number> = L extends 0 ? never[] : T[] & { length: L };
 export type Field = string;
 
-export type FirstInputType = {
+export type Circuit_1InputType = {
   x: Field;
   y: Field;
   z: Field;
 };
 
-export async function First(
+export async function Circuit_1(
   x: Field,
   y: Field,
   z: Field,
-  First_circuit: CompiledCircuit,
+  Circuit_1_circuit: CompiledCircuit,
   foreignCallHandler?: ForeignCallHandler,
 ): Promise<null> {
-  const program = new Noir(First_circuit);
+  const program = new Noir(Circuit_1_circuit);
   const args: InputMap = { x, y, z };
   const { returnValue } = await program.execute(args, foreignCallHandler);
   return returnValue as null;
 }
-export type SecondInputType = {
+export type Circuit_2InputType = {
   verification_key: FixedLengthArray<Field, 128>;
   proof: FixedLengthArray<Field, 459>;
   public_inputs: FixedLengthArray<Field, 2>;
   key_hash: Field;
 };
 
-export async function Second(
+export async function Circuit_2(
   verification_key: FixedLengthArray<Field, 128>,
   proof: FixedLengthArray<Field, 459>,
   public_inputs: FixedLengthArray<Field, 2>,
   key_hash: Field,
-  Second_circuit: CompiledCircuit,
+  Circuit_2_circuit: CompiledCircuit,
   foreignCallHandler?: ForeignCallHandler,
 ): Promise<null> {
-  const program = new Noir(Second_circuit);
+  const program = new Noir(Circuit_2_circuit);
   const args: InputMap = { verification_key, proof, public_inputs, key_hash };
   const { returnValue } = await program.execute(args, foreignCallHandler);
   return returnValue as null;

@@ -1,14 +1,8 @@
 import createDebug from 'debug';
 
-import FirstVk from '../artifacts/keys/first.vk.data.json' assert { type: 'json' };
-import SecondVk from '../artifacts/keys/second.vk.data.json' assert { type: 'json' };
-import {
-  generateFirstCircuit,
-  generateSecondCircuit,
-  logger,
-  proveFirstCircuit,
-  proveThenVerifySecondCircuit,
-} from './index.js';
+import Vk1 from '../artifacts/keys/circuit_1.vk.data.json' assert { type: 'json' };
+import Vk2 from '../artifacts/keys/circuit_2.vk.data.json' assert { type: 'json' };
+import { generateCircuit1, generateCircuit2, logger, proveCircuit1, proveThenVerifyCircuit2 } from './index.js';
 
 createDebug.enable('*'); // needed for logging in Firefox but not Chrome
 
@@ -139,17 +133,13 @@ document.addEventListener('DOMContentLoaded', function () {
   button.innerText = 'Run Test';
   button.addEventListener('click', async () => {
     logger(`generating circuit and witness...`);
-    const [bytecode1, witness1] = await generateFirstCircuit();
+    const [bytecode1, witness1] = await generateCircuit1();
     logger(`done generating circuit and witness. proving...`);
-    const proverOutput = await proveFirstCircuit(bytecode1, witness1);
-    logger(`done proving. generating second circuit and witness...`);
-    const [bytecode2, witness2] = await generateSecondCircuit(proverOutput, FirstVk.keyAsFields);
+    const proverOutput = await proveCircuit1(bytecode1, witness1);
+    logger(`done proving. generating circuit 2 and witness...`);
+    const [bytecode2, witness2] = await generateCircuit2(proverOutput, Vk1.keyAsFields);
     logger(`done. generating circuit and witness. proving then verifying...`);
-    const verified = await proveThenVerifySecondCircuit(
-      bytecode2,
-      witness2,
-      hexStringToUint8Array(SecondVk.keyAsBytes),
-    );
+    const verified = await proveThenVerifyCircuit2(bytecode2, witness2, hexStringToUint8Array(Vk2.keyAsBytes));
     logger(`verified? ${verified}`);
   });
   document.body.appendChild(button);
