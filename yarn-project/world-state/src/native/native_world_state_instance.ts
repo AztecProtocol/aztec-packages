@@ -12,7 +12,6 @@ import {
   type PublicDataTreeLeaf,
 } from '@aztec/circuits.js';
 import { createLogger } from '@aztec/foundation/log';
-import { SerialQueue } from '@aztec/foundation/queue';
 
 import assert from 'assert';
 import bindings from 'bindings';
@@ -26,8 +25,13 @@ import {
   TypedMessage,
   WorldStateMessageType,
   type WorldStateRequest,
+  type WorldStateRequestCategories,
   type WorldStateResponse,
+  isWithCanonical,
+  isWithForkId,
+  isWithRevision,
 } from './message.js';
+import { WorldStateOpsQueue } from './world_state_ops_queue.js';
 
 // small extension to pack an NodeJS Fr instance to a representation that the C++ code can understand
 // this only works for writes. Unpacking from C++ can't create Fr instances because the data is passed
@@ -50,7 +54,10 @@ const NATIVE_MODULE = bindings(NATIVE_LIBRARY_NAME);
 const MAX_WORLD_STATE_THREADS = +(process.env.HARDWARE_CONCURRENCY || '16');
 
 export interface NativeWorldStateInstance {
-  call<T extends WorldStateMessageType>(messageType: T, body: WorldStateRequest[T]): Promise<WorldStateResponse[T]>;
+  call<T extends WorldStateMessageType>(
+    messageType: T,
+    body: WorldStateRequest[T] & WorldStateRequestCategories,
+  ): Promise<WorldStateResponse[T]>;
 }
 
 /**
@@ -79,8 +86,8 @@ export class NativeWorldState implements NativeWorldStateInstance {
   /** The actual native instance */
   private instance: any;
 
-  /** Calls to the same instance are serialized */
-  private queue = new SerialQueue();
+  // We maintain a map of queue to fork
+  private queues = new Map<number, WorldStateOpsQueue>();
 
   /** Creates a new native WorldState instance */
   constructor(
@@ -113,7 +120,8 @@ export class NativeWorldState implements NativeWorldStateInstance {
       dbMapSizeKb,
       threads,
     );
-    this.queue.start();
+    // Manually create the queue for the canonical fork
+    this.queues.set(0, new WorldStateOpsQueue());
   }
 
   /**
@@ -124,25 +132,65 @@ export class NativeWorldState implements NativeWorldStateInstance {
    * @param errorHandler - A callback called on request error, executed on the job queue
    * @returns The response to the message
    */
-  public call<T extends WorldStateMessageType>(
+  public async call<T extends WorldStateMessageType>(
     messageType: T,
-    body: WorldStateRequest[T],
+    body: WorldStateRequest[T] & WorldStateRequestCategories,
     // allows for the pre-processing of responses on the job queue before being passed back
     responseHandler = (response: WorldStateResponse[T]): WorldStateResponse[T] => response,
     errorHandler = (_: string) => {},
   ): Promise<WorldStateResponse[T]> {
-    return this.queue.put(async () => {
-      assert.notEqual(messageType, WorldStateMessageType.CLOSE, 'Use close() to close the native instance');
-      assert.equal(this.open, true, 'Native instance is closed');
-      let response: WorldStateResponse[T];
-      try {
-        response = await this._sendMessage(messageType, body);
-      } catch (error: any) {
-        errorHandler(error.message);
-        throw error;
-      }
-      return responseHandler(response);
-    });
+    // Here we determine which fork the request is being executed against and whether it requires uncommitted data
+    // We use the fork Id to select the appropriate request queue and the uncommitted data flag to pass to the queue
+    let forkId = -1;
+    // We assume it includes uncommitted unless explicitly told otherwise
+    let committedOnly = false;
+
+    // Canonical requests ALWAYS go against the canonical fork
+    // These include things like block syncs/unwinds etc
+    // These requests don't contain a fork ID
+    if (isWithCanonical(body)) {
+      forkId = 0;
+    } else if (isWithForkId(body)) {
+      forkId = body.forkId;
+    } else if (isWithRevision(body)) {
+      forkId = body.revision.forkId;
+      committedOnly = body.revision.includeUncommitted === false;
+    } else {
+      const _: never = body;
+      throw new Error(`Unable to determine forkId for message=${WorldStateMessageType[messageType]}`);
+    }
+
+    // Get the queue or create a new one
+    let requestQueue = this.queues.get(forkId);
+    if (requestQueue === undefined) {
+      requestQueue = new WorldStateOpsQueue();
+      this.queues.set(forkId, requestQueue);
+    }
+
+    // Enqueue the request and wait for the response
+    const response = await requestQueue.execute(
+      async () => {
+        assert.notEqual(messageType, WorldStateMessageType.CLOSE, 'Use close() to close the native instance');
+        assert.equal(this.open, true, 'Native instance is closed');
+        let response: WorldStateResponse[T];
+        try {
+          response = await this._sendMessage(messageType, body);
+        } catch (error: any) {
+          errorHandler(error.message);
+          throw error;
+        }
+        return responseHandler(response);
+      },
+      messageType,
+      committedOnly,
+    );
+
+    // If the request was to delete the fork then we clean it up here
+    if (messageType === WorldStateMessageType.DELETE_FORK) {
+      await requestQueue.stop();
+      this.queues.delete(forkId);
+    }
+    return response;
   }
 
   /**
@@ -153,13 +201,21 @@ export class NativeWorldState implements NativeWorldStateInstance {
       return;
     }
     this.open = false;
-    await this._sendMessage(WorldStateMessageType.CLOSE, undefined);
-    await this.queue.end();
+    const queue = this.queues.get(0)!;
+
+    await queue.execute(
+      async () => {
+        await this._sendMessage(WorldStateMessageType.CLOSE, { canonical: true });
+      },
+      WorldStateMessageType.CLOSE,
+      false,
+    );
+    await queue.stop();
   }
 
   private async _sendMessage<T extends WorldStateMessageType>(
     messageType: T,
-    body: WorldStateRequest[T],
+    body: WorldStateRequest[T] & WorldStateRequestCategories,
   ): Promise<WorldStateResponse[T]> {
     const messageId = this.nextMessageId++;
     if (body) {

@@ -1,11 +1,19 @@
 import { BBWASMBundlePrivateKernelProver } from '@aztec/bb-prover/wasm/bundle';
-import { type AztecNode, type PXE, TxEffect, mockTx, randomInBlock } from '@aztec/circuit-types';
+import {
+  type AztecNode,
+  type PXE,
+  type PrivateKernelProver,
+  TxEffect,
+  mockTx,
+  randomInBlock,
+} from '@aztec/circuit-types';
 import { INITIAL_L2_BLOCK_NUM } from '@aztec/circuits.js/constants';
 import { type L1ContractAddresses } from '@aztec/ethereum/l1-contract-addresses';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { KeyStore } from '@aztec/key-store';
 import { openTmpStore } from '@aztec/kv-store/lmdb';
 import { L2TipsStore } from '@aztec/kv-store/stores';
+import { type SimulationProvider, WASMSimulator } from '@aztec/simulator/client';
 
 import { type MockProxy, mock } from 'jest-mock-extended';
 
@@ -20,6 +28,8 @@ async function createPXEService(): Promise<PXE> {
   const keyStore = new KeyStore(kvStore);
   const node = mock<AztecNode>();
   const db = await KVPxeDatabase.create(kvStore);
+  const simulationProvider = new WASMSimulator();
+  const kernelProver = new BBWASMBundlePrivateKernelProver(simulationProvider);
   const tips = new L2TipsStore(kvStore, 'pxe');
   const config: PXEServiceConfig = {
     l2StartingBlock: INITIAL_L2_BLOCK_NUM,
@@ -48,7 +58,7 @@ async function createPXEService(): Promise<PXE> {
   };
   node.getL1ContractAddresses.mockResolvedValue(mockedContracts);
 
-  return Promise.resolve(new PXEService(keyStore, node, db, tips, new BBWASMBundlePrivateKernelProver(), config));
+  return Promise.resolve(new PXEService(keyStore, node, db, tips, kernelProver, simulationProvider, config));
 }
 
 pxeTestSuite('PXEService', createPXEService);
@@ -57,6 +67,8 @@ describe('PXEService', () => {
   let keyStore: KeyStore;
   let node: MockProxy<AztecNode>;
   let db: PxeDatabase;
+  let simulationProvider: SimulationProvider;
+  let kernelProver: PrivateKernelProver;
   let config: PXEServiceConfig;
   let tips: L2TipsStore;
 
@@ -66,6 +78,9 @@ describe('PXEService', () => {
     node = mock<AztecNode>();
     tips = new L2TipsStore(kvStore, 'pxe');
     db = await KVPxeDatabase.create(kvStore);
+    simulationProvider = new WASMSimulator();
+    kernelProver = new BBWASMBundlePrivateKernelProver(simulationProvider);
+
     config = {
       l2StartingBlock: INITIAL_L2_BLOCK_NUM,
       proverEnabled: false,
@@ -81,7 +96,7 @@ describe('PXEService', () => {
 
     node.getTxEffect.mockResolvedValue(randomInBlock(settledTx));
 
-    const pxe = new PXEService(keyStore, node, db, tips, new BBWASMBundlePrivateKernelProver(), config);
+    const pxe = new PXEService(keyStore, node, db, tips, kernelProver, simulationProvider, config);
     await expect(pxe.sendTx(duplicateTx)).rejects.toThrow(/A settled tx with equal hash/);
   });
 });

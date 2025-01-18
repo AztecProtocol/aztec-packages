@@ -48,7 +48,7 @@ contract ContractClassRegisterer {
         // TODO: We should be able to remove public_bytecode_commitment from the input if it's calculated in this function
         // docs:start:pop_capsule
         let packed_public_bytecode: [Field; MAX_PACKED_PUBLIC_BYTECODE_SIZE_IN_FIELDS] =
-            pop_capsule();
+            unsafe { pop_capsule() };
         // docs:end:pop_capsule
         // First field element contains the length of the bytecode
         let bytecode_length_in_bytes: u32 = packed_public_bytecode[0] as u32;
@@ -121,7 +121,7 @@ contract ContractClassRegisterer {
         function_data: InnerPrivateFunction,
     ) {
         let private_bytecode: [Field; MAX_PACKED_BYTECODE_SIZE_PER_PRIVATE_FUNCTION_IN_FIELDS] =
-            pop_capsule();
+            unsafe { pop_capsule() };
 
         let event = ClassPrivateFunctionBroadcasted {
             contract_class_id,
@@ -162,7 +162,7 @@ contract ContractClassRegisterer {
         function_data: InnerUnconstrainedFunction,
     ) {
         let unconstrained_bytecode: [Field; MAX_PACKED_BYTECODE_SIZE_PER_UNCONSTRAINED_FUNCTION_IN_FIELDS] =
-            pop_capsule();
+            unsafe { pop_capsule() };
         let event = ClassUnconstrainedFunctionBroadcasted {
             contract_class_id,
             artifact_metadata_hash,
@@ -203,11 +203,17 @@ contract ContractClassRegisterer {
         // cannot prove non-registration. Therefore, it is possible that a malicious oracle might prevent sequencers
         // from including transactions with calls to certain badly-broadcasted contracts.
         // TODO(#8978): review correctness
-        let log_hash = emit_contract_class_unencrypted_log_private(contract_address, log, counter);
+        let log_hash =
+            unsafe { emit_contract_class_unencrypted_log_private(contract_address, log, counter) };
 
         // 40 = addr (32) + raw log len (4) + processed log len (4)
         context.contract_class_logs_hashes.push(
             LogHash { value: log_hash, counter, length: 40 + (N as Field) * 32 },
         );
+    }
+
+    #[private]
+    fn assert_class_id_is_registered(contract_class_id: ContractClassId) {
+        context.push_nullifier_read_request(contract_class_id.to_field());
     }
 }

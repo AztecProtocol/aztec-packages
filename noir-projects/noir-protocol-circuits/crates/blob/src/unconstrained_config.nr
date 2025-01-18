@@ -1,4 +1,4 @@
-use bigint::{BigNum, fields::bls12_381Fr::BLS12_381_Fr_Params};
+use bigint::{bignum::{BigNum, BigNumTrait}, fields::bls12_381Fr::BLS12_381_Fr_Params};
 use types::constants::FIELDS_PER_BLOB;
 
 // TODO(#9982): Delete this file and go back to using config.nr - calculating ROOTS in unconstrained is insecure.

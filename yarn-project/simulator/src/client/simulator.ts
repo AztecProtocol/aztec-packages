@@ -1,4 +1,10 @@
-import type { AztecNode, FunctionCall, Note, PrivateExecutionResult, TxExecutionRequest } from '@aztec/circuit-types';
+import {
+  type AztecNode,
+  type FunctionCall,
+  type Note,
+  PrivateExecutionResult,
+  type TxExecutionRequest,
+} from '@aztec/circuit-types';
 import { CallContext } from '@aztec/circuits.js';
 import {
   type ArrayType,
@@ -13,7 +19,8 @@ import { Fr } from '@aztec/foundation/fields';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 
 import { createSimulationError } from '../common/errors.js';
-import { PackedValuesCache } from '../common/packed_values_cache.js';
+import { HashedValuesCache } from '../common/hashed_values_cache.js';
+import { type SimulationProvider } from '../common/simulation_provider.js';
 import { ClientExecutionContext } from './client_execution_context.js';
 import { type DBOracle } from './db_oracle.js';
 import { ExecutionNoteCache } from './execution_note_cache.js';
@@ -27,7 +34,7 @@ import { ViewDataOracle } from './view_data_oracle.js';
 export class AcirSimulator {
   private log: Logger;
 
-  constructor(private db: DBOracle, private node: AztecNode) {
+  constructor(private db: DBOracle, private node: AztecNode, private simulationProvider: SimulationProvider) {
     this.log = createLogger('simulator');
   }
 
@@ -69,7 +76,8 @@ export class AcirSimulator {
       entryPointArtifact.isStatic,
     );
 
-    const txHash = request.toTxRequest().hash();
+    const txRequestHash = request.toTxRequest().hash();
+    const noteCache = new ExecutionNoteCache(txRequestHash);
 
     const context = new ClientExecutionContext(
       request.firstCallArgsHash,
@@ -77,10 +85,11 @@ export class AcirSimulator {
       callContext,
       header,
       request.authWitnesses,
-      PackedValuesCache.create(request.argsOfCalls),
-      new ExecutionNoteCache(txHash),
+      HashedValuesCache.create(request.argsOfCalls),
+      noteCache,
       this.db,
       this.node,
+      this.simulationProvider,
       startSideEffectCounter,
       undefined,
       scopes,
@@ -88,12 +97,15 @@ export class AcirSimulator {
 
     try {
       const executionResult = await executePrivateFunction(
+        this.simulationProvider,
         context,
         entryPointArtifact,
         contractAddress,
         request.functionSelector,
       );
-      return executionResult;
+      const { usedTxRequestHashForNonces } = noteCache.finish();
+      const firstNullifierHint = usedTxRequestHashForNonces ? Fr.ZERO : noteCache.getAllNullifiers()[0];
+      return new PrivateExecutionResult(executionResult, firstNullifierHint);
     } catch (err) {
       throw createSimulationError(err instanceof Error ? err : new Error('Unknown error during private execution'));
     }
@@ -120,6 +132,7 @@ export class AcirSimulator {
 
     try {
       return await executeUnconstrainedFunction(
+        this.simulationProvider,
         context,
         entryPointArtifact,
         contractAddress,
@@ -179,7 +192,7 @@ export class AcirSimulator {
     const execRequest: FunctionCall = {
       name: artifact.name,
       to: contractAddress,
-      selector: FunctionSelector.empty(),
+      selector: FunctionSelector.fromNameAndParameters(artifact),
       type: FunctionType.UNCONSTRAINED,
       isStatic: artifact.isStatic,
       args: encodeArguments(artifact, [

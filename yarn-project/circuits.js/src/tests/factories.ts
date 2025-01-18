@@ -149,6 +149,7 @@ import {
   FeeRecipient,
 } from '../structs/rollup/block_root_or_block_merge_public_inputs.js';
 import {
+  BlockRootRollupBlobData,
   BlockRootRollupData,
   BlockRootRollupInputs,
   SingleTxBlockRootRollupInputs,
@@ -805,13 +806,17 @@ function makeBlockRootRollupData(seed = 0) {
   return new BlockRootRollupData(
     makeRootParityInput<typeof NESTED_RECURSIVE_PROOF_LENGTH>(NESTED_RECURSIVE_PROOF_LENGTH, seed + 0x2000),
     makeTuple(L1_TO_L2_MSG_SUBTREE_SIBLING_PATH_LENGTH, fr, 0x2100),
-    makeAppendOnlyTreeSnapshot(seed + 0x2200),
-    makeTuple(ARCHIVE_HEIGHT, fr, 0x2300),
+    makeTuple(ARCHIVE_HEIGHT, fr, 0x2200),
+    makeHeader(seed + 0x2300),
     fr(seed + 0x2400),
-    fr(seed + 0x2500),
-    makeTuple(FIELDS_PER_BLOB * BLOBS_PER_BLOCK, fr, 0x2400),
-    makeTuple(BLOBS_PER_BLOCK, () => makeTuple(2, fr, 0x2500)),
-    fr(seed + 0x2600),
+  );
+}
+
+function makeBlockRootRollupBlobData(seed = 0) {
+  return new BlockRootRollupBlobData(
+    makeTuple(FIELDS_PER_BLOB * BLOBS_PER_BLOCK, fr, 0x2500),
+    makeTuple(BLOBS_PER_BLOCK, () => makeTuple(2, fr, 0x2600)),
+    fr(seed + 0x2700),
   );
 }
 
@@ -825,6 +830,7 @@ export function makeBlockRootRollupInputs(seed = 0, globalVariables?: GlobalVari
   return new BlockRootRollupInputs(
     [makePreviousRollupData(seed, globalVariables), makePreviousRollupData(seed + 0x1000, globalVariables)],
     makeBlockRootRollupData(seed + 0x2000),
+    makeBlockRootRollupBlobData(seed + 0x4000),
   );
 }
 
@@ -832,6 +838,7 @@ export function makeSingleTxBlockRootRollupInputs(seed = 0, globalVariables?: Gl
   return new SingleTxBlockRootRollupInputs(
     [makePreviousRollupData(seed, globalVariables)],
     makeBlockRootRollupData(seed + 0x2000),
+    makeBlockRootRollupBlobData(seed + 0x4000),
   );
 }
 
@@ -846,14 +853,8 @@ export function makeEmptyBlockRootRollupInputs(
   globalVariables?: GlobalVariables,
 ): EmptyBlockRootRollupInputs {
   return new EmptyBlockRootRollupInputs(
-    makeRootParityInput<typeof NESTED_RECURSIVE_PROOF_LENGTH>(NESTED_RECURSIVE_PROOF_LENGTH, seed + 0x2000),
-    makeTuple(L1_TO_L2_MSG_SUBTREE_SIBLING_PATH_LENGTH, fr, 0x2100),
-    makeAppendOnlyTreeSnapshot(seed + 0x2200),
-    makeTuple(ARCHIVE_HEIGHT, fr, 0x2300),
-    fr(seed + 0x2400),
-    makePartialStateReference(0x2400),
+    makeBlockRootRollupData(seed + 0x1000),
     makeConstantRollupData(0x2500, globalVariables),
-    fr(seed + 0x2600),
     true,
   );
 }

@@ -84,7 +84,7 @@ mod tests {
         pub fn new() -> Self {
             let mut previous_kernel = FixtureBuilder::new().in_vk_tree(PRIVATE_KERNEL_INNER_INDEX);
             previous_kernel.tx_context.gas_settings.gas_limits = Gas::new(1_000_000, 1_000_000);
-            previous_kernel.set_first_nullifier();
+            previous_kernel.set_protocol_nullifier();
             previous_kernel.set_fee_payer(AztecAddress::from_field(234234));
             previous_kernel.end_setup();
             previous_kernel.append_public_call_requests(1);
@@ -271,6 +271,25 @@ mod tests {
             27,
             GENERATOR_INDEX__TSK_M as Field,
         );
+        builder.failed();
+    }
+
+    #[test(should_fail_with = "First nullifier claim was not satisfied")]
+    fn first_nullifier_validation() {
+        let mut builder = PrivateKernelTailToPublicInputsBuilder::new();
+        let mut first_nullifier = builder.previous_kernel.nullifiers.get(0);
+        first_nullifier.nullifier.value += 1;
+        builder.previous_kernel.nullifiers.set(0, first_nullifier);
+        builder.failed();
+    }
+
+    #[test(should_fail_with = "First nullifier must be non revertible")]
+    fn first_nullifier_non_revertible_validation() {
+        let mut builder = PrivateKernelTailToPublicInputsBuilder::new();
+        let mut first_nullifier = builder.previous_kernel.nullifiers.get(0);
+        first_nullifier.nullifier.counter =
+            builder.previous_kernel.min_revertible_side_effect_counter + 1;
+        builder.previous_kernel.nullifiers.set(0, first_nullifier);
         builder.failed();
     }
 

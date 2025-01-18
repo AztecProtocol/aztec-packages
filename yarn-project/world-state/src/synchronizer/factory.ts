@@ -1,8 +1,7 @@
 import { type L1ToL2MessageSource, type L2BlockSource } from '@aztec/circuit-types';
 import { type PublicDataTreeLeaf } from '@aztec/circuits.js';
 import { type DataStoreConfig } from '@aztec/kv-store/config';
-import { type TelemetryClient } from '@aztec/telemetry-client';
-import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
+import { type TelemetryClient, getTelemetryClient } from '@aztec/telemetry-client';
 
 import { WorldStateInstrumentation } from '../instrumentation/instrumentation.js';
 import { NativeWorldStateService } from '../native/native_world_state.js';
@@ -13,7 +12,7 @@ export async function createWorldStateSynchronizer(
   config: WorldStateConfig & DataStoreConfig,
   l2BlockSource: L2BlockSource & L1ToL2MessageSource,
   prefilledPublicData: PublicDataTreeLeaf[] = [],
-  client: TelemetryClient = new NoopTelemetryClient(),
+  client: TelemetryClient = getTelemetryClient(),
 ) {
   const instrumentation = new WorldStateInstrumentation(client);
   const merkleTrees = await createWorldState(config, prefilledPublicData, instrumentation);
@@ -23,7 +22,7 @@ export async function createWorldStateSynchronizer(
 export async function createWorldState(
   config: WorldStateConfig & DataStoreConfig,
   prefilledPublicData: PublicDataTreeLeaf[] = [],
-  instrumentation: WorldStateInstrumentation = new WorldStateInstrumentation(new NoopTelemetryClient()),
+  instrumentation: WorldStateInstrumentation = new WorldStateInstrumentation(getTelemetryClient()),
 ) {
   const newConfig = {
     dataDirectory: config.worldStateDataDirectory ?? config.dataDirectory,

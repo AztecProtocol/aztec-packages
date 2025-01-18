@@ -23,7 +23,7 @@
     "test:debug": "LOG_LEVEL=${LOG_LEVEL:-verbose} NODE_NO_WARNINGS=1 node --inspect --experimental-vm-modules ../node_modules/.bin/jest --testTimeout=300000 --forceExit",
     "test:integration": "concurrently -k -s first -c reset,dim -n test,anvil \"yarn test:integration:run\" \"anvil\"",
     "test:integration:run": "NODE_NO_WARNINGS=1 node --experimental-vm-modules ../node_modules/.bin/jest --no-cache --runInBand --config jest.integration.config.json",
-    "test": "NODE_NO_WARNINGS=1 node --experimental-vm-modules ../node_modules/.bin/jest src/fixtures",
+    "test": "NODE_NO_WARNINGS=1 node --experimental-vm-modules ../node_modules/.bin/jest --passWithNoTests src/fixtures",
     "test:compose": "./scripts/test.sh compose",
     "formatting": "run -T prettier --check ./src && run -T eslint ./src"
   },
@@ -54,6 +54,7 @@
     "@aztec/simulator": "workspace:^",
     "@aztec/telemetry-client": "workspace:^",
     "@aztec/types": "workspace:^",
+    "@aztec/validator-client": "workspace:^",
     "@aztec/world-state": "workspace:^",
     "@iarna/toml": "^2.2.5",
     "@jest/globals": "^29.5.0",

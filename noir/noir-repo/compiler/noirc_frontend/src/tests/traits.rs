@@ -272,11 +272,11 @@ fn regression_6314_single_inheritance() {
         trait Foo {
             fn foo(self) -> Self;
         }
-        
+
         trait Baz: Foo {}
-        
+
         impl<T> Baz for T where T: Foo {}
-        
+
         fn main() { }
     "#;
     assert_no_errors(src);
@@ -290,31 +290,31 @@ fn regression_6314_double_inheritance() {
         trait Foo {
             fn foo(self) -> Self;
         }
-       
+
         trait Bar {
             fn bar(self) -> Self;
         }
-       
+
         trait Baz: Foo + Bar {}
-       
+
         impl<T> Baz for T where T: Foo + Bar {}
-       
+
         fn baz<T>(x: T) -> T where T: Baz {
             x.foo().bar()
         }
-       
+
         impl Foo for Field {
             fn foo(self) -> Self {
                 self + 1
             }
         }
-       
+
         impl Bar for Field {
             fn bar(self) -> Self {
                 self + 2
             }
         }
-       
+
         fn main() {
             assert(0.foo().bar() == baz(0));
         }"#;
@@ -328,7 +328,7 @@ fn trait_alias_single_member() {
         trait Foo {
             fn foo(self) -> Self;
         }
-       
+
         trait Baz = Foo;
 
         impl Foo for Field {
@@ -353,29 +353,29 @@ fn trait_alias_two_members() {
         pub trait Foo {
             fn foo(self) -> Self;
         }
-       
+
         pub trait Bar {
             fn bar(self) -> Self;
         }
-       
+
         pub trait Baz = Foo + Bar;
-       
+
         fn baz<T>(x: T) -> T where T: Baz {
             x.foo().bar()
         }
-       
+
         impl Foo for Field {
             fn foo(self) -> Self {
                 self + 1
             }
         }
-       
+
         impl Bar for Field {
             fn bar(self) -> Self {
                 self + 2
             }
         }
-       
+
         fn main() {
             assert(0.foo().bar() == baz(0));
         }"#;
@@ -393,25 +393,25 @@ fn trait_alias_polymorphic_inheritance() {
         trait Bar<T> {
             fn bar(self) -> T;
         }
-       
+
         trait Baz<T> = Foo + Bar<T>;
-       
+
         fn baz<T, U>(x: T) -> U where T: Baz<U> {
             x.foo().bar()
         }
-       
+
         impl Foo for Field {
             fn foo(self) -> Self {
                 self + 1
             }
         }
-       
+
         impl Bar<bool> for Field {
             fn bar(self) -> bool {
                 true
             }
         }
-       
+
         fn main() {
             assert(0.foo().bar() == baz(0));
         }"#;
@@ -427,39 +427,39 @@ fn trait_alias_polymorphic_where_clause() {
         trait Foo {
             fn foo(self) -> Self;
         }
-        
+
         trait Bar<T> {
             fn bar(self) -> T;
         }
-        
+
         trait Baz {
             fn baz(self) -> bool;
         }
-      
+
         trait Qux<T> = Foo + Bar<T> where T: Baz;
-       
+
         fn qux<T, U>(x: T) -> bool where T: Qux<U> {
             x.foo().bar().baz()
         }
-       
+
         impl Foo for Field {
             fn foo(self) -> Self {
                 self + 1
             }
         }
-        
+
         impl Bar<bool> for Field {
             fn bar(self) -> bool {
                 true
             }
         }
-        
+
         impl Baz for bool {
             fn baz(self) -> bool {
                 self
             }
         }
-        
+
         fn main() {
             assert(0.foo().bar().baz() == qux(0));
         }
@@ -502,18 +502,18 @@ fn trait_alias_with_where_clause_has_equivalent_errors() {
         trait Bar {
             fn bar(self) -> Self;
         }
-        
+
         trait Baz {
             fn baz(self) -> bool;
         }
-        
+
         trait Qux<T>: Bar where T: Baz {}
-        
+
         impl<T, U> Qux<T> for U where
             U: Bar,
             T: Baz,
         {}
-        
+
         pub fn qux<T, U>(x: T, _: U) -> bool where U: Qux<T> {
             x.baz()
         }
@@ -525,13 +525,13 @@ fn trait_alias_with_where_clause_has_equivalent_errors() {
         trait Bar {
             fn bar(self) -> Self;
         }
-        
+
         trait Baz {
             fn baz(self) -> bool;
         }
-        
+
         trait Qux<T> = Bar where T: Baz;
-        
+
         pub fn qux<T, U>(x: T, _: U) -> bool where U: Qux<T> {
             x.baz()
         }
@@ -880,6 +880,43 @@ fn errors_if_multiple_trait_methods_are_in_scope_for_function_call() {
 }
 
 #[test]
+fn warns_if_trait_is_not_in_scope_for_method_call_and_there_is_only_one_trait_method() {
+    let src = r#"
+    fn main() {
+        let bar = Bar { x: 42 };
+        let _ = bar.foo();
+    }
+
+    pub struct Bar {
+        x: i32,
+    }
+
+    mod private_mod {
+        pub trait Foo {
+            fn foo(self) -> i32;
+        }
+
+        impl Foo for super::Bar {
+            fn foo(self) -> i32 {
+                self.x
+            }
+        }
+    }
+    "#;
+    let errors = get_program_errors(src);
+    assert_eq!(errors.len(), 1);
+
+    let CompilationError::ResolverError(ResolverError::PathResolutionError(
+        PathResolutionError::TraitMethodNotInScope { ident, trait_name },
+    )) = &errors[0].0
+    else {
+        panic!("Expected a 'trait method not in scope' error");
+    };
+    assert_eq!(ident.to_string(), "foo");
+    assert_eq!(trait_name, "private_mod::Foo");
+}
+
+#[test]
 fn calls_trait_method_if_it_is_in_scope() {
     let src = r#"
     use private_mod::Foo;
@@ -1008,6 +1045,38 @@ fn errors_if_multiple_trait_methods_are_in_scope_for_method_call() {
 }
 
 #[test]
+fn calls_trait_method_if_it_is_in_scope_with_multiple_candidates_but_only_one_decided_by_generics()
+{
+    let src = r#"
+    struct Foo {
+        inner: Field,
+    }
+
+    trait Converter<N> {
+        fn convert(self) -> N;
+    }
+
+    impl Converter<Field> for Foo {
+        fn convert(self) -> Field {
+            self.inner
+        }
+    }
+
+    impl Converter<u32> for Foo {
+        fn convert(self) -> u32 {
+            self.inner as u32
+        }
+    }
+
+    fn main() {
+        let foo = Foo { inner: 42 };
+        let _: u32 = foo.convert();
+    }
+    "#;
+    assert_no_errors(src);
+}
+
+#[test]
 fn type_checks_trait_default_method_and_errors() {
     let src = r#"
         pub trait Foo {
@@ -1066,6 +1135,176 @@ fn type_checks_trait_default_method_and_does_not_error_using_self() {
         }
 
         fn main() {}
+    "#;
+    assert_no_errors(src);
+}
+
+#[test]
+fn warns_if_trait_is_not_in_scope_for_primitive_function_call_and_there_is_only_one_trait_method() {
+    let src = r#"
+    fn main() {
+        let _ = Field::foo();
+    }
+
+    mod private_mod {
+        pub trait Foo {
+            fn foo() -> i32;
+        }
+
+        impl Foo for Field {
+            fn foo() -> i32 {
+                42
+            }
+        }
+    }
+    "#;
+    let errors = get_program_errors(src);
+    assert_eq!(errors.len(), 1);
+
+    let CompilationError::ResolverError(ResolverError::PathResolutionError(
+        PathResolutionError::TraitMethodNotInScope { ident, trait_name },
+    )) = &errors[0].0
+    else {
+        panic!("Expected a 'trait method not in scope' error");
+    };
+    assert_eq!(ident.to_string(), "foo");
+    assert_eq!(trait_name, "private_mod::Foo");
+}
+
+#[test]
+fn warns_if_trait_is_not_in_scope_for_primitive_method_call_and_there_is_only_one_trait_method() {
+    let src = r#"
+    fn main() {
+        let x: Field = 1;
+        let _ = x.foo();
+    }
+
+    mod private_mod {
+        pub trait Foo {
+            fn foo(self) -> i32;
+        }
+
+        impl Foo for Field {
+            fn foo(self) -> i32 {
+                self as i32
+            }
+        }
+    }
+    "#;
+    let errors = get_program_errors(src);
+    assert_eq!(errors.len(), 1);
+
+    let CompilationError::ResolverError(ResolverError::PathResolutionError(
+        PathResolutionError::TraitMethodNotInScope { ident, trait_name },
+    )) = &errors[0].0
+    else {
+        panic!("Expected a 'trait method not in scope' error");
+    };
+    assert_eq!(ident.to_string(), "foo");
+    assert_eq!(trait_name, "private_mod::Foo");
+}
+
+#[test]
+fn warns_if_trait_is_not_in_scope_for_generic_function_call_and_there_is_only_one_trait_method() {
+    let src = r#"
+    fn main() {
+        let x: i32 = 1;
+        let _ = x.foo();
+    }
+
+    mod private_mod {
+        pub trait Foo<T> {
+            fn foo(self) -> i32;
+        }
+
+        impl<T> Foo<T> for T {
+            fn foo(self) -> i32 {
+                42
+            }
+        }
+    }
+    "#;
+    let errors = get_program_errors(src);
+    assert_eq!(errors.len(), 1);
+
+    let CompilationError::ResolverError(ResolverError::PathResolutionError(
+        PathResolutionError::TraitMethodNotInScope { ident, trait_name },
+    )) = &errors[0].0
+    else {
+        panic!("Expected a 'trait method not in scope' error");
+    };
+    assert_eq!(ident.to_string(), "foo");
+    assert_eq!(trait_name, "private_mod::Foo");
+}
+
+// See https://github.com/noir-lang/noir/issues/6530
+#[test]
+fn regression_6530() {
+    let src = r#"
+    pub trait From<T> {
+        fn from(input: T) -> Self;
+    }
+
+    pub trait Into<T> {
+        fn into(self) -> T;
+    }
+
+    impl<T, U> Into<T> for U
+    where
+        T: From<U>,
+    {
+        fn into(self) -> T {
+            T::from(self)
+        }
+    }
+
+    struct Foo {
+        inner: Field,
+    }
+
+    impl Into<Field> for Foo {
+        fn into(self) -> Field {
+            self.inner
+        }
+    }
+
+    fn main() {
+        let foo = Foo { inner: 0 };
+
+        // This works:
+        let _: Field = Into::<Field>::into(foo);
+
+        // This was failing with 'No matching impl':
+        let _: Field = foo.into();
+    }
+    "#;
+    let errors = get_program_errors(src);
+    assert_eq!(errors.len(), 0);
+}
+
+// See https://github.com/noir-lang/noir/issues/7090
+#[test]
+#[should_panic]
+fn calls_trait_method_using_struct_name_when_multiple_impls_exist() {
+    let src = r#"
+    trait From2<T> {
+        fn from2(input: T) -> Self;
+    }
+    struct U60Repr {}
+    impl From2<[Field; 3]> for U60Repr {
+        fn from2(_: [Field; 3]) -> Self {
+            U60Repr {}
+        }
+    }
+    impl From2<Field> for U60Repr {
+        fn from2(_: Field) -> Self {
+            U60Repr {}
+        }
+    }
+    fn main() {
+        let _ = U60Repr::from2([1, 2, 3]);
+        let _ = U60Repr::from2(1);
+    }
     "#;
     assert_no_errors(src);
 }

@@ -27,8 +27,15 @@ import { DateProvider } from '@aztec/foundation/timer';
 import { type Maybe } from '@aztec/foundation/types';
 import { type P2P } from '@aztec/p2p';
 import { type L1Publisher } from '@aztec/sequencer-client';
-import { PublicProcessorFactory } from '@aztec/simulator';
-import { Attributes, type TelemetryClient, type Traceable, type Tracer, trackSpan } from '@aztec/telemetry-client';
+import { PublicProcessorFactory } from '@aztec/simulator/server';
+import {
+  Attributes,
+  type TelemetryClient,
+  type Traceable,
+  type Tracer,
+  getTelemetryClient,
+  trackSpan,
+} from '@aztec/telemetry-client';
 
 import { type BondManager } from './bond/bond-manager.js';
 import { EpochProvingJob, type EpochProvingJobState } from './job/epoch-proving-job.js';
@@ -78,8 +85,8 @@ export class ProverNode implements ClaimsMonitorHandler, EpochMonitorHandler, Pr
     protected readonly claimsMonitor: ClaimsMonitor,
     protected readonly epochsMonitor: EpochMonitor,
     protected readonly bondManager: BondManager,
-    protected readonly telemetryClient: TelemetryClient,
     options: Partial<ProverNodeOptions> = {},
+    protected readonly telemetryClient: TelemetryClient = getTelemetryClient(),
   ) {
     this.options = {
       pollingIntervalMs: 1_000,
@@ -184,7 +191,11 @@ export class ProverNode implements ClaimsMonitorHandler, EpochMonitorHandler, Pr
       );
       await this.doSendEpochProofQuote(signed);
     } catch (err) {
-      this.log.error(`Error handling epoch completed`, err);
+      if (err instanceof EmptyEpochError) {
+        this.log.info(`Not producing quote for ${epochNumber} since no blocks were found`);
+      } else {
+        this.log.error(`Error handling epoch completed`, err);
+      }
     }
   }
 
@@ -316,7 +327,7 @@ export class ProverNode implements ClaimsMonitorHandler, EpochMonitorHandler, Pr
   private async gatherBlocks(epochNumber: bigint) {
     const blocks = await this.l2BlockSource.getBlocksForEpoch(epochNumber);
     if (blocks.length === 0) {
-      throw new Error(`No blocks found for epoch ${epochNumber}`);
+      throw new EmptyEpochError(epochNumber);
     }
     return blocks;
   }
@@ -416,5 +427,12 @@ export class ProverNode implements ClaimsMonitorHandler, EpochMonitorHandler, Pr
   protected async triggerMonitors() {
     await this.epochsMonitor.work();
     await this.claimsMonitor.work();
+  }
+}
+
+class EmptyEpochError extends Error {
+  constructor(epochNumber: bigint) {
+    super(`No blocks found for epoch ${epochNumber}`);
+    this.name = 'EmptyEpochError';
   }
 }
