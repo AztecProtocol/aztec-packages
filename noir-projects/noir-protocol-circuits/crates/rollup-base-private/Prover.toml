@@ -22,7 +22,7 @@ protocol_contract_tree_root = "0x2f9edcbdd0cfc67764aa32cdef9ea44f2914b44bfd9cf77
 
 [inputs.tube_data.public_inputs.constants.historical_header.state.l1_to_l2_message_tree]
 root = "0x2e33ee2008411c04b99c24b313513d097a0d21a5040b6193d1f978b8226892d6"
-next_available_leaf_index = "0x0000000000000000000000000000000000000000000000000000000000000070"
+next_available_leaf_index = "0x0000000000000000000000000000000000000000000000000000000000000050"
 
 [inputs.tube_data.public_inputs.constants.historical_header.state.partial.note_hash_tree]
 root = "0x0ad7cf4b139c253b28143ba262c4b5710870e8be54333f3b15ed3617f7ae5f92"
@@ -5244,7 +5244,7 @@ fee_write_sibling_path = [
 ]
 
 [inputs.archive_root_membership_witness]
-leaf_index = "7"
+leaf_index = "5"
 sibling_path = [
   "0x05c625ad4e12187e136570b29b020dea7e3963650e899ffd0fa073d73464a887",
   "0x2af669b88877cf3ac3d65e3d64c94dab025dcdbec4a3658b6a818057acf2be21",

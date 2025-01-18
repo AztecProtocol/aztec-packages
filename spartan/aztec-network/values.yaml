@@ -224,7 +224,7 @@ ethereum:
   externalHost: ""
   replicas: 1
   chainId: 1337
-  blockTime: 12sec
+  blockTime: 12
   extraAccounts: 10
   # 1 billion gas limit
   # helps ensure we can deploy public contracts
