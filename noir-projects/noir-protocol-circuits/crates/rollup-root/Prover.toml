@@ -3443,10 +3443,10 @@ prover_id = "0x0000000000000000000000000000000000000000000000000000000000000051"
     inner = "0x000000000000000000000000ad0df4c37133fd475d440a4cd5fd5d8366209721"
 
   [[inputs.previous_rollup_data.block_root_or_block_merge_public_inputs.fees]]
-  value = "0x000000000000000000000000000000000000000000000000001057ce82718190"
+  value = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
     [inputs.previous_rollup_data.block_root_or_block_merge_public_inputs.fees.recipient]
-    inner = "0x0000000000000000000000008043b75809c29debab25045670017d0468d1ed6a"
+    inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
   [[inputs.previous_rollup_data.block_root_or_block_merge_public_inputs.fees]]
   value = "0x0000000000000000000000000000000000000000000000000000000000000000"
@@ -3775,19 +3775,19 @@ z = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
   [[inputs.previous_rollup_data.block_root_or_block_merge_public_inputs.blob_public_inputs]]
 [[inputs.previous_rollup_data.block_root_or_block_merge_public_inputs.blob_public_inputs.inner]]
-z = "0x0698067eb007e0104c543ff0a17eeca7feb1ae7b4e9bcdcb1e8a71ecda4e08ba"
+z = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
   [inputs.previous_rollup_data.block_root_or_block_merge_public_inputs.blob_public_inputs.inner.y]
   limbs = [
-  "0xc0fb86ef7a6ca8e55a5af91f9dd81e",
-  "0xd13c5c9920d37bc235ced3def0f6b1",
-  "0x2d66"
+  "0x000000000000000000000000000000",
+  "0x000000000000000000000000000000",
+  "0x0000"
 ]
 
   [inputs.previous_rollup_data.block_root_or_block_merge_public_inputs.blob_public_inputs.inner.kzg_commitment]
   inner = [
-  "0x00954f3d403cc21aeebe254e7753b8fefccf7bb4482afac18b6bacc8db10d16e",
-  "0x0000000000000000000000000000002a74c5ff9e06623e544aca2e9515de8d8c"
+  "0x0000000000000000000000000000000000000000000000000000000000000000",
+  "0x0000000000000000000000000000000000000000000000000000000000000000"
 ]
 
 [[inputs.previous_rollup_data.block_root_or_block_merge_public_inputs.blob_public_inputs.inner]]
