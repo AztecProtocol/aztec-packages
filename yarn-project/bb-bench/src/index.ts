@@ -60,7 +60,6 @@ export async function generateSecondCircuit(
 ): Promise<[string, Uint8Array]> {
   const witnessGenResult = await witnessGenSecondCircuit({
     public_inputs: proverOutput.public_inputs,
-    // public_inputs: proverOutput.public_inputs.slice(0, -16) as FixedLengthArray<string, 1>,
     key_hash: '0x0',
     proof: proverOutput.proof,
     verification_key: previousVk as FixedLengthArray<string, 128>,
@@ -73,13 +72,13 @@ export async function generateSecondCircuit(
   return [bytecode, witness];
 }
 
+// TODO: comptime lengths here restrict the prove function, because of need to cast below, because of generating the input types.
 export type ProverOutputForRecursion = {
   proof: FixedLengthArray<string, 459>;
   public_inputs: FixedLengthArray<string, 2>;
-  // public_inputs: FixedLengthArray<string, 17>;
 };
 
-export async function proveUltraHonk(
+export async function proveFirstCircuit(
   bytecode: string,
   witness: Uint8Array,
   threads?: number,
@@ -93,14 +92,13 @@ export async function proveUltraHonk(
     return {
       proof: proverOutput.proof as FixedLengthArray<string, 459>,
       public_inputs: proverOutput.publicInputs as FixedLengthArray<string, 2>,
-      // public_inputs: proverOutput.publicInputs as FixedLengthArray<string, 17>,
     };
   } finally {
     await backend.destroy();
   }
 }
 
-export async function proveThenVerifyUltraHonk(
+export async function proveThenVerifySecondCircuit(
   bytecode: string,
   witness: Uint8Array,
   vk: Uint8Array,

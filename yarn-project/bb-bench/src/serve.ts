@@ -6,8 +6,8 @@ import {
   generateFirstCircuit,
   generateSecondCircuit,
   logger,
-  proveThenVerifyUltraHonk,
-  proveUltraHonk,
+  proveFirstCircuit,
+  proveThenVerifySecondCircuit,
 } from './index.js';
 
 createDebug.enable('*'); // needed for logging in Firefox but not Chrome
@@ -133,7 +133,7 @@ function hexStringToUint8Array(hex: string): Uint8Array {
 }
 
 document.addEventListener('DOMContentLoaded', function () {
-  setupConsoleOutput(); // Initialize console output capture
+  setupConsoleOutput();
 
   const button = document.createElement('button');
   button.innerText = 'Run Test';
@@ -141,11 +141,15 @@ document.addEventListener('DOMContentLoaded', function () {
     logger(`generating circuit and witness...`);
     const [bytecode1, witness1] = await generateFirstCircuit();
     logger(`done generating circuit and witness. proving...`);
-    const proverOutput = await proveUltraHonk(bytecode1, witness1);
+    const proverOutput = await proveFirstCircuit(bytecode1, witness1);
     logger(`done proving. generating second circuit and witness...`);
     const [bytecode2, witness2] = await generateSecondCircuit(proverOutput, FirstVk.keyAsFields);
     logger(`done. generating circuit and witness. proving then verifying...`);
-    const verified = await proveThenVerifyUltraHonk(bytecode2, witness2, hexStringToUint8Array(SecondVk.keyAsBytes));
+    const verified = await proveThenVerifySecondCircuit(
+      bytecode2,
+      witness2,
+      hexStringToUint8Array(SecondVk.keyAsBytes),
+    );
     logger(`verified? ${verified}`);
   });
   document.body.appendChild(button);
