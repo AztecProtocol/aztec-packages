@@ -10,7 +10,8 @@ import {
 import { type GoodByeReason, prettyGoodbyeReason } from '../reqresp/protocols/index.js';
 
 export class PeerManagerMetrics {
-  private disconnectedPeers: UpDownCounter;
+  private sentGoodbyes: UpDownCounter;
+  private receivedGoodbyes: UpDownCounter;
 
   public readonly tracer: Tracer;
 
@@ -18,14 +19,23 @@ export class PeerManagerMetrics {
     this.tracer = telemetryClient.getTracer(name);
 
     const meter = telemetryClient.getMeter(name);
-    this.disconnectedPeers = meter.createUpDownCounter(Metrics.PEER_MANAGER_DISCONNECTED_PEERS, {
-      description: 'Number of disconnected peers',
+    this.sentGoodbyes = meter.createUpDownCounter(Metrics.PEER_MANAGER_GOODBYES_SENT, {
+      description: 'Number of goodbyes sent to peers',
+      unit: 'peers',
+      valueType: ValueType.INT,
+    });
+    this.receivedGoodbyes = meter.createUpDownCounter(Metrics.PEER_MANAGER_GOODBYES_RECEIVED, {
+      description: 'Number of goodbyes received from peers',
       unit: 'peers',
       valueType: ValueType.INT,
     });
   }
 
-  public recordDisconnectedPeer(reason: GoodByeReason) {
-    this.disconnectedPeers.add(1, { [Attributes.P2P_GOODBYE_REASON]: prettyGoodbyeReason(reason) });
+  public recordGoodbyeSent(reason: GoodByeReason) {
+    this.sentGoodbyes.add(1, { [Attributes.P2P_GOODBYE_REASON]: prettyGoodbyeReason(reason) });
+  }
+
+  public recordGoodbyeReceived(reason: GoodByeReason) {
+    this.receivedGoodbyes.add(1, { [Attributes.P2P_GOODBYE_REASON]: prettyGoodbyeReason(reason) });
   }
 }

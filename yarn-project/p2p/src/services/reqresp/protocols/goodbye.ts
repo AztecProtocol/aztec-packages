@@ -6,22 +6,37 @@ import { type PeerManager } from '../../peer-manager/peer_manager.js';
 import { ReqRespSubProtocol, type ReqRespSubProtocolHandler } from '../interface.js';
 import { type ReqResp } from '../reqresp.js';
 
-// TODO: implement fully
-
 /**
  * Enum defining the possible reasons for a goodbye message.
  */
 export enum GoodByeReason {
   /** The peer has shutdown, will be received whenever a peer's node is routinely stopped */
   SHUTDOWN = 0x1,
-  // TOOD(md): what is the correct values to put in here - read other specs to see reasons
-  //           what is even the point of the reason
   /** Whenever the peer must disconnect due to maintaining max peers */
   DISCONNECTED = 0x2,
   /** The peer has a low score, will be received whenever a peer's score is low */
   LOW_SCORE = 0x3,
   /** The peer has been banned, will be received whenever a peer is banned */
   BANNED = 0x4,
+  /** Wrong network / fork */
+  WRONG_NETWORK = 0x5,
+  /** Unknown reason */
+  UNKNOWN = 0x6,
+}
+
+export function encodeGoodbyeReason(reason: GoodByeReason): Buffer {
+  return Buffer.from([reason]);
+}
+
+export function decodeGoodbyeReason(buffer: Buffer): GoodByeReason {
+  try {
+    if (buffer.length !== 1) {
+      throw new Error('Invalid goodbye reason buffer length');
+    }
+    return buffer[0] as GoodByeReason;
+  } catch (error) {
+    return GoodByeReason.UNKNOWN;
+  }
 }
 
 /**
@@ -36,9 +51,14 @@ export function prettyGoodbyeReason(reason: GoodByeReason): string {
     case GoodByeReason.DISCONNECTED:
       return 'disconnected';
     case GoodByeReason.LOW_SCORE:
-      return 'low score';
+      return 'low_score';
     case GoodByeReason.BANNED:
       return 'banned';
+    // TODO(https://github.com/AztecProtocol/aztec-packages/issues/11328): implement
+    case GoodByeReason.WRONG_NETWORK:
+      return 'wrong_network';
+    case GoodByeReason.UNKNOWN:
+      return 'unknown';
   }
 }
 
@@ -67,9 +87,11 @@ export class GoodbyeProtocolHandler {
  */
 export function reqGoodbyeHandler(peerManager: PeerManager): ReqRespSubProtocolHandler {
   return (peerId: PeerId, _msg: Buffer) => {
-    peerManager.goodbyeReceived(peerId);
+    const reason = decodeGoodbyeReason(_msg);
 
-    // TODO(md): they want to receive some kind of response, but we don't have a response here
-    return Promise.resolve(Buffer.from(''));
+    peerManager.goodbyeReceived(peerId, reason);
+
+    // Return a buffer of length 1 as an acknowledgement
+    return Promise.resolve(Buffer.from([0x0]));
   };
 }

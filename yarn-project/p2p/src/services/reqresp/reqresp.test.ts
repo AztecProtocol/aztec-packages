@@ -15,20 +15,23 @@ import {
   startNodes,
   stopNodes,
 } from '../../mocks/index.js';
+import { PeerManager } from '../peer-manager/peer_manager.js';
 import { type PeerScoring } from '../peer-manager/peer_scoring.js';
 import { ReqRespSubProtocol, RequestableBuffer } from './interface.js';
-import { GoodByeReason } from './protocols/goodbye.js';
+import { GoodByeReason, reqGoodbyeHandler } from './protocols/goodbye.js';
 
 const PING_REQUEST = RequestableBuffer.fromBuffer(Buffer.from('ping'));
 
 // The Req Resp protocol should allow nodes to dial specific peers
 // and ask for specific data that they missed via the traditional gossip protocol.
 describe('ReqResp', () => {
+  let peerManager: MockProxy<PeerManager>;
   let peerScoring: MockProxy<PeerScoring>;
   let nodes: ReqRespNode[];
 
   beforeEach(() => {
     peerScoring = mock<PeerScoring>();
+    peerManager = mock<PeerManager>();
   });
 
   afterEach(async () => {
@@ -314,19 +317,34 @@ describe('ReqResp', () => {
   });
 
   describe('Goodbye protocol', () => {
-    it('Should send a goodbye message to a peer', async () => {
-      const nodes = await createNodes(peerScoring, 2);
+    it('should send a goodbye message to a peer', async () => {
+      nodes = await createNodes(peerScoring, 2);
 
-      await startNodes(nodes);
+      const protocolHandlers = MOCK_SUB_PROTOCOL_HANDLERS;
+      // Req Goodbye Handler is defined in the reqresp.ts file
+      protocolHandlers[ReqRespSubProtocol.GOODBYE] = reqGoodbyeHandler(peerManager);
+
+      await startNodes(nodes, protocolHandlers);
       await sleep(500);
       await connectToPeers(nodes);
       await sleep(500);
 
-      await nodes[0].req.sendRequestToPeer(
+      const response = await nodes[0].req.sendRequestToPeer(
         nodes[1].p2p.peerId,
         ReqRespSubProtocol.GOODBYE,
         Buffer.from([GoodByeReason.SHUTDOWN]),
       );
+
+      // Node 1 Peer manager receives the goodbye from the sending node
+      expect(peerManager.goodbyeReceived).toHaveBeenCalledWith(
+        expect.objectContaining({
+          publicKey: nodes[0].p2p.peerId.publicKey,
+        }),
+        GoodByeReason.SHUTDOWN,
+      );
+
+      // Expect the response to be a buffer of length 1
+      expect(response).toEqual(Buffer.from([0x0]));
     });
   });
 });

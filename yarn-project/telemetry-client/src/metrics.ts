@@ -68,7 +68,8 @@ export const L1_PUBLISHER_TX_CALLDATA_GAS = 'aztec.l1_publisher.tx_calldata_gas'
 export const L1_PUBLISHER_TX_BLOBDATA_GAS_USED = 'aztec.l1_publisher.tx_blobdata_gas_used';
 export const L1_PUBLISHER_TX_BLOBDATA_GAS_COST = 'aztec.l1_publisher.tx_blobdata_gas_cost';
 
-export const PEER_MANAGER_DISCONNECTED_PEERS = 'aztec.peer_manager.disconnected_peers';
+export const PEER_MANAGER_GOODBYES_SENT = 'aztec.peer_manager.goodbyes_sent';
+export const PEER_MANAGER_GOODBYES_RECEIVED = 'aztec.peer_manager.goodbyes_received';
 
 export const PUBLIC_PROCESSOR_TX_DURATION = 'aztec.public_processor.tx_duration';
 export const PUBLIC_PROCESSOR_TX_COUNT = 'aztec.public_processor.tx_count';

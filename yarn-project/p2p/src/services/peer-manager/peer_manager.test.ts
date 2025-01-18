@@ -1,7 +1,7 @@
 import { PeerErrorSeverity } from '@aztec/circuit-types';
 import { createLogger } from '@aztec/foundation/log';
 import { sleep } from '@aztec/foundation/sleep';
-import { getTelemetryClient } from '@aztec/telemetry-client';
+import { Attributes, getTelemetryClient } from '@aztec/telemetry-client';
 
 import { type ENR, SignableENR } from '@chainsafe/enr';
 import { jest } from '@jest/globals';
@@ -131,6 +131,20 @@ describe('PeerManager', () => {
 
       // Verify that discover was called
       expect(mockPeerDiscoveryService.runRandomNodesQuery).toHaveBeenCalled();
+    });
+
+    it('should send goodbye to peers on shutdown', async () => {
+      const peerId = await createSecp256k1PeerId();
+      const peerId2 = await createSecp256k1PeerId();
+      mockLibP2PNode.getPeers.mockReturnValue([peerId, peerId2]);
+
+      const goodbyeAndDisconnectPeerSpy = jest.spyOn(peerManager as any, 'goodbyeAndDisconnectPeer');
+
+      await peerManager.stop();
+
+      // Both peers were sent goodbyes on shutdown
+      expect(goodbyeAndDisconnectPeerSpy).toHaveBeenCalledWith(peerId, GoodByeReason.SHUTDOWN);
+      expect(goodbyeAndDisconnectPeerSpy).toHaveBeenCalledWith(peerId2, GoodByeReason.SHUTDOWN);
     });
   });
 
@@ -335,6 +349,51 @@ describe('PeerManager', () => {
 
       // Verify that goodbyes were sent to all peers
       expect(mockReqResp.sendRequestToPeer).toHaveBeenCalledTimes(2);
+    });
+  });
+
+  describe('goodbye metrics', () => {
+    it('should record metrics when receiving goodbye messages', async () => {
+      const peerId = await createSecp256k1PeerId();
+
+      // Get reference to the counter's add function
+      const goodbyeReceivedMetric = jest.spyOn((peerManager as any).metrics.receivedGoodbyes, 'add');
+
+      // Test receiving goodbye for different reasons
+      peerManager.goodbyeReceived(peerId, GoodByeReason.BANNED);
+      expect(goodbyeReceivedMetric).toHaveBeenCalledWith(1, { [Attributes.P2P_GOODBYE_REASON]: 'banned' });
+
+      peerManager.goodbyeReceived(peerId, GoodByeReason.DISCONNECTED);
+      expect(goodbyeReceivedMetric).toHaveBeenCalledWith(1, { [Attributes.P2P_GOODBYE_REASON]: 'disconnected' });
+
+      peerManager.goodbyeReceived(peerId, GoodByeReason.SHUTDOWN);
+      expect(goodbyeReceivedMetric).toHaveBeenCalledWith(1, { [Attributes.P2P_GOODBYE_REASON]: 'shutdown' });
+    });
+
+    it('should record metrics when sending goodbye messages', async () => {
+      const peerId = await createSecp256k1PeerId();
+
+      // Get reference to the counter's add function
+      const goodbyeSentMetric = jest.spyOn((peerManager as any).metrics.sentGoodbyes, 'add');
+
+      // Mock connections to include our test peer
+      mockLibP2PNode.getConnections.mockReturnValue([{ remotePeer: peerId }]);
+
+      // Test sending goodbye for different scenarios
+
+      // Test banned scenario
+      peerManager.penalizePeer(peerId, PeerErrorSeverity.LowToleranceError); // Set score below -100
+      peerManager.penalizePeer(peerId, PeerErrorSeverity.LowToleranceError);
+      peerManager.penalizePeer(peerId, PeerErrorSeverity.HighToleranceError);
+      peerManager.heartbeat();
+      expect(goodbyeSentMetric).toHaveBeenCalledWith(1, { [Attributes.P2P_GOODBYE_REASON]: 'banned' });
+
+      // Reset mocks
+      mockLibP2PNode.getPeers.mockReturnValue([{ remotePeer: peerId }]);
+
+      // Test shutdown scenario
+      await peerManager.stop();
+      expect(goodbyeSentMetric).toHaveBeenCalledWith(1, { [Attributes.P2P_GOODBYE_REASON]: 'shutdown' });
     });
   });
 });

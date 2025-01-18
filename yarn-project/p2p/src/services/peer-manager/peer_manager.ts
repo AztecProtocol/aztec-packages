@@ -1,6 +1,6 @@
 import { type PeerErrorSeverity, type PeerInfo } from '@aztec/circuit-types';
 import { createLogger } from '@aztec/foundation/log';
-import { type TelemetryClient, WithTracer, trackSpan } from '@aztec/telemetry-client';
+import { type TelemetryClient, trackSpan } from '@aztec/telemetry-client';
 
 import { type ENR } from '@chainsafe/enr';
 import { type Connection, type PeerId } from '@libp2p/interface';
@@ -123,9 +123,17 @@ export class PeerManager {
     }
   }
 
-  // TODO: include reason here and add to metrics, but this is fine for now
-  public goodbyeReceived(peerId: PeerId) {
-    this.logger.debug(`Goodbye received from peer ${peerId.toString()}`);
+  /**
+   * Handles a goodbye received from a peer.
+   *
+   * Used as the reqresp handler when a peer sends us goodbye message.
+   * @param peerId - The peer ID.
+   * @param reason - The reason for the goodbye.
+   */
+  public goodbyeReceived(peerId: PeerId, reason: GoodByeReason) {
+    this.logger.debug(`Goodbye received from peer ${peerId.toString()} with reason ${prettyGoodbyeReason(reason)}`);
+
+    this.metrics.recordGoodbyeReceived(reason);
 
     void this.disconnectPeer(peerId);
   }
@@ -258,7 +266,7 @@ export class PeerManager {
   private async goodbyeAndDisconnectPeer(peer: PeerId, reason: GoodByeReason) {
     this.logger.debug(`Disconnecting peer ${peer.toString()} with reason ${prettyGoodbyeReason(reason)}`);
 
-    this.metrics.recordDisconnectedPeer(reason);
+    this.metrics.recordGoodbyeSent(reason);
 
     try {
       await this.reqresp.sendRequestToPeer(peer, ReqRespSubProtocol.GOODBYE, Buffer.from([reason]));
@@ -403,14 +411,15 @@ export class PeerManager {
    * Removing all event listeners.
    */
   public async stop() {
-    this.libP2PNode.removeEventListener(PeerEvent.CONNECTED, this.handleConnectedPeerEvent);
-    this.libP2PNode.removeEventListener(PeerEvent.DISCONNECTED, this.handleDisconnectedPeerEvent);
     this.peerDiscoveryService.off(PeerEvent.DISCOVERED, this.handleDiscoveredPeer);
 
     // Send goodbyes to all peers
     await Promise.all(
-      this.libP2PNode.getPeers().map(peer => this.goodbyeAndDisconnectPeer(peer, GoodByeReason.DISCONNECTED)),
+      this.libP2PNode.getPeers().map(peer => this.goodbyeAndDisconnectPeer(peer, GoodByeReason.SHUTDOWN)),
     );
+
+    this.libP2PNode.removeEventListener(PeerEvent.CONNECTED, this.handleConnectedPeerEvent);
+    this.libP2PNode.removeEventListener(PeerEvent.DISCONNECTED, this.handleDisconnectedPeerEvent);
   }
 }
 
