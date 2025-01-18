@@ -132,6 +132,12 @@ export class LibP2PService<T extends P2PClientType> extends WithTracer implement
       this.reqresp,
     );
 
+    // Update gossipsub score params
+    this.node.services.pubsub.score.params.appSpecificScore = (peerId: string) => {
+      return this.peerManager.getPeerScore(peerId);
+    };
+    this.node.services.pubsub.score.params.appSpecificWeight = 10;
+
     this.attestationValidator = new AttestationValidator(epochCache);
     this.blockProposalValidator = new BlockProposalValidator(epochCache);
     this.epochProofQuoteValidator = new EpochProofQuoteValidator(epochCache);

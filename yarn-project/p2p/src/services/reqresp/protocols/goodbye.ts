@@ -54,7 +54,7 @@ export function prettyGoodbyeReason(reason: GoodByeReason): string {
       return 'low_score';
     case GoodByeReason.BANNED:
       return 'banned';
-    // TODO(https://github.com/AztecProtocol/aztec-packages/issues/11328): implement
+    // TODO(#11328): implement
     case GoodByeReason.WRONG_NETWORK:
       return 'wrong_network';
     case GoodByeReason.UNKNOWN:
@@ -81,8 +81,12 @@ export class GoodbyeProtocolHandler {
 }
 
 /**
- * Handles the goodbye request.
- * @param _msg - The goodbye request message.
+ * Handles the goodbye request. In request response, the goodbye request is handled by the peer manager.
+ *
+ * @dev Implemented as returning a function as the function is bound in the libp2p service, however
+ *      its implementation is here to keep functionality together.
+ *
+ * @param peerManager - The peer manager.
  * @returns A resolved promise with the goodbye response.
  */
 export function reqGoodbyeHandler(peerManager: PeerManager): ReqRespSubProtocolHandler {

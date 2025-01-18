@@ -15,7 +15,7 @@ import {
   startNodes,
   stopNodes,
 } from '../../mocks/index.js';
-import { PeerManager } from '../peer-manager/peer_manager.js';
+import { type PeerManager } from '../peer-manager/peer_manager.js';
 import { type PeerScoring } from '../peer-manager/peer_scoring.js';
 import { ReqRespSubProtocol, RequestableBuffer } from './interface.js';
 import { GoodByeReason, reqGoodbyeHandler } from './protocols/goodbye.js';

@@ -32,7 +32,6 @@ export const DEFAULT_RATE_LIMITS: ReqRespSubProtocolRateLimits = {
       quotaCount: 10,
     },
   },
-  // TODO(md): feels like goodbye is an exception to the rule here
   [ReqRespSubProtocol.GOODBYE]: {
     peerLimit: {
       quotaTimeMs: 1000,
