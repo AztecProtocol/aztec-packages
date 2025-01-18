@@ -5,7 +5,9 @@ use acvm::acir::circuit::ErrorSelector;
 use crate::ssa::{
     function_builder::FunctionBuilder,
     ir::{
-        basic_block::BasicBlockId, function::FunctionId, instruction::ConstrainError,
+        basic_block::BasicBlockId,
+        function::{Function, FunctionId},
+        instruction::ConstrainError,
         value::ValueId,
     },
 };
@@ -16,15 +18,15 @@ use super::{
 };
 
 impl ParsedSsa {
-    pub(crate) fn into_ssa(self) -> Result<Ssa, SsaError> {
-        Translator::translate(self)
+    pub(crate) fn into_ssa(self, simplify: bool) -> Result<Ssa, SsaError> {
+        Translator::translate(self, simplify)
     }
 }
 
 struct Translator {
     builder: FunctionBuilder,
 
-    /// Maps function names to their IDs
+    /// Maps internal function names (e.g. "f1") to their IDs
     functions: HashMap<String, FunctionId>,
 
     /// Maps block names to their IDs
@@ -41,8 +43,8 @@ struct Translator {
 }
 
 impl Translator {
-    fn translate(mut parsed_ssa: ParsedSsa) -> Result<Ssa, SsaError> {
-        let mut translator = Self::new(&mut parsed_ssa)?;
+    fn translate(mut parsed_ssa: ParsedSsa, simplify: bool) -> Result<Ssa, SsaError> {
+        let mut translator = Self::new(&mut parsed_ssa, simplify)?;
 
         // Note that the `new` call above removed the main function,
         // so all we are left with are non-main functions.
@@ -53,13 +55,14 @@ impl Translator {
         Ok(translator.finish())
     }
 
-    fn new(parsed_ssa: &mut ParsedSsa) -> Result<Self, SsaError> {
+    fn new(parsed_ssa: &mut ParsedSsa, simplify: bool) -> Result<Self, SsaError> {
         // A FunctionBuilder must be created with a main Function, so here wer remove it
         // from the parsed SSA to avoid adding it twice later on.
         let main_function = parsed_ssa.functions.remove(0);
         let main_id = FunctionId::test_new(0);
         let mut builder = FunctionBuilder::new(main_function.external_name.clone(), main_id);
         builder.set_runtime(main_function.runtime_type);
+        builder.simplify = simplify;
 
         // Map function names to their IDs so calls can be resolved
         let mut function_id_counter = 1;
@@ -134,14 +137,14 @@ impl Translator {
 
         match block.terminator {
             ParsedTerminator::Jmp { destination, arguments } => {
-                let block_id = self.lookup_block(destination)?;
+                let block_id = self.lookup_block(&destination)?;
                 let arguments = self.translate_values(arguments)?;
                 self.builder.terminate_with_jmp(block_id, arguments);
             }
             ParsedTerminator::Jmpif { condition, then_block, else_block } => {
                 let condition = self.translate_value(condition)?;
-                let then_destination = self.lookup_block(then_block)?;
-                let else_destination = self.lookup_block(else_block)?;
+                let then_destination = self.lookup_block(&then_block)?;
+                let else_destination = self.lookup_block(&else_block)?;
                 self.builder.terminate_with_jmpif(condition, then_destination, else_destination);
             }
             ParsedTerminator::Return(values) => {
@@ -186,8 +189,13 @@ impl Translator {
                 let function_id = if let Some(id) = self.builder.import_intrinsic(&function.name) {
                     id
                 } else {
-                    let function_id = self.lookup_function(function)?;
-                    self.builder.import_function(function_id)
+                    let maybe_func =
+                        self.lookup_function(&function).map(|f| self.builder.import_function(f));
+
+                    maybe_func.or_else(|e| {
+                        // e.g. `v2 = call v0(v1) -> u32`, a lambda passed as a parameter
+                        self.lookup_variable(&function).map_err(|_| e)
+                    })?
                 };
 
                 let arguments = self.translate_values(arguments)?;
@@ -292,7 +300,14 @@ impl Translator {
             ParsedValue::NumericConstant { constant, typ } => {
                 Ok(self.builder.numeric_constant(constant, typ.unwrap_numeric()))
             }
-            ParsedValue::Variable(identifier) => self.lookup_variable(identifier),
+            ParsedValue::Variable(identifier) => self.lookup_variable(&identifier).or_else(|e| {
+                self.lookup_function(&identifier)
+                    .map(|f| {
+                        // e.g. `v3 = call f1(f2, v0) -> u32`
+                        self.builder.import_function(f)
+                    })
+                    .map_err(|_| e)
+            }),
         }
     }
 
@@ -313,27 +328,27 @@ impl Translator {
         Ok(())
     }
 
-    fn lookup_variable(&mut self, identifier: Identifier) -> Result<ValueId, SsaError> {
+    fn lookup_variable(&mut self, identifier: &Identifier) -> Result<ValueId, SsaError> {
         if let Some(value_id) = self.variables[&self.current_function_id()].get(&identifier.name) {
             Ok(*value_id)
         } else {
-            Err(SsaError::UnknownVariable(identifier))
+            Err(SsaError::UnknownVariable(identifier.clone()))
         }
     }
 
-    fn lookup_block(&mut self, identifier: Identifier) -> Result<BasicBlockId, SsaError> {
+    fn lookup_block(&mut self, identifier: &Identifier) -> Result<BasicBlockId, SsaError> {
         if let Some(block_id) = self.blocks[&self.current_function_id()].get(&identifier.name) {
             Ok(*block_id)
         } else {
-            Err(SsaError::UnknownBlock(identifier))
+            Err(SsaError::UnknownBlock(identifier.clone()))
         }
     }
 
-    fn lookup_function(&mut self, identifier: Identifier) -> Result<FunctionId, SsaError> {
+    fn lookup_function(&mut self, identifier: &Identifier) -> Result<FunctionId, SsaError> {
         if let Some(function_id) = self.functions.get(&identifier.name) {
             Ok(*function_id)
         } else {
-            Err(SsaError::UnknownFunction(identifier))
+            Err(SsaError::UnknownFunction(identifier.clone()))
         }
     }
 
@@ -344,6 +359,8 @@ impl Translator {
         // that the SSA we parsed was printed by the `SsaBuilder`, which normalizes
         // before each print.
         ssa.normalize_ids();
+        // Does not matter what ID we use here.
+        ssa.globals = Function::new("globals".to_owned(), ssa.main_id);
         ssa
     }
 

@@ -18,11 +18,16 @@
 //!
 //! When unrolling ACIR code, we remove reference count instructions because they are
 //! only used by Brillig bytecode.
+use std::collections::BTreeSet;
+
 use acvm::{acir::AcirField, FieldElement};
 use im::HashSet;
 
 use crate::{
-    brillig::brillig_gen::convert_ssa_function,
+    brillig::{
+        brillig_gen::{brillig_globals::convert_ssa_globals, convert_ssa_function},
+        brillig_ir::brillig_variable::BrilligVariable,
+    },
     errors::RuntimeError,
     ssa::{
         ir::{
@@ -85,8 +90,13 @@ impl Ssa {
 
             if has_unrolled {
                 if let Some((orig_function, max_incr_pct)) = orig_func_and_max_incr_pct {
-                    let new_size = brillig_bytecode_size(function);
-                    let orig_size = brillig_bytecode_size(&orig_function);
+                    // DIE is run at the end of our SSA optimizations, so we mark all globals as in use here.
+                    let used_globals = &self.globals.dfg.values_iter().map(|(id, _)| id).collect();
+                    let (_, brillig_globals) =
+                        convert_ssa_globals(false, &self.globals, used_globals);
+
+                    let new_size = brillig_bytecode_size(function, &brillig_globals);
+                    let orig_size = brillig_bytecode_size(&orig_function, &brillig_globals);
                     if !is_new_size_ok(orig_size, new_size, max_incr_pct) {
                         *function = orig_function;
                     }
@@ -117,7 +127,7 @@ pub(super) struct Loop {
     back_edge_start: BasicBlockId,
 
     /// All the blocks contained within the loop, including `header` and `back_edge_start`.
-    pub(super) blocks: HashSet<BasicBlockId>,
+    pub(super) blocks: BTreeSet<BasicBlockId>,
 }
 
 pub(super) struct Loops {
@@ -238,7 +248,7 @@ impl Loop {
         back_edge_start: BasicBlockId,
         cfg: &ControlFlowGraph,
     ) -> Self {
-        let mut blocks = HashSet::default();
+        let mut blocks = BTreeSet::default();
         blocks.insert(header);
 
         let mut insert = |block, stack: &mut Vec<BasicBlockId>| {
@@ -308,11 +318,13 @@ impl Loop {
             // simplified to a simple jump.
             return None;
         }
-        assert_eq!(
-            instructions.len(),
-            1,
-            "The header should just compare the induction variable and jump"
-        );
+
+        if instructions.len() != 1 {
+            // The header should just compare the induction variable and jump.
+            // If that's not the case, this might be a `loop` and not a `for` loop.
+            return None;
+        }
+
         match &function.dfg[instructions[0]] {
             Instruction::Binary(Binary { lhs: _, operator: BinaryOp::Lt, rhs }) => {
                 function.dfg.get_numeric_constant(*rhs)
@@ -617,10 +629,16 @@ impl Loop {
         let header = &function.dfg[self.header];
         let induction_var = header.parameters()[0];
 
-        back.instructions().iter().filter(|instruction|  {
-            let instruction = &function.dfg[**instruction];
-            matches!(instruction, Instruction::Binary(Binary { lhs, operator: BinaryOp::Add, rhs: _ }) if *lhs == induction_var)
-        }).count()
+        back.instructions()
+            .iter()
+            .filter(|instruction| {
+                let instruction = &function.dfg[**instruction];
+                matches!(instruction,
+                    Instruction::Binary(Binary { lhs, operator: BinaryOp::Add { .. }, rhs: _ })
+                        if *lhs == induction_var
+                )
+            })
+            .count()
     }
 
     /// Decide if this loop is small enough that it can be inlined in a way that the number
@@ -742,7 +760,13 @@ fn get_induction_variable(function: &Function, block: BasicBlockId) -> Result<Va
             // block parameters. If that becomes the case we'll need to figure out which variable
             // is generally constant and increasing to guess which parameter is the induction
             // variable.
-            assert_eq!(arguments.len(), 1, "It is expected that a loop's induction variable is the only block parameter of the loop header");
+            if arguments.len() != 1 {
+                // It is expected that a loop's induction variable is the only block parameter of the loop header.
+                // If there's no variable this might be a `loop`.
+                let call_stack = function.dfg.get_call_stack(*location);
+                return Err(call_stack);
+            }
+
             let value = arguments[0];
             if function.dfg.get_numeric_constant(value).is_some() {
                 Ok(value)
@@ -972,7 +996,10 @@ fn simplify_between_unrolls(function: &mut Function) {
 }
 
 /// Convert the function to Brillig bytecode and return the resulting size.
-fn brillig_bytecode_size(function: &Function) -> usize {
+fn brillig_bytecode_size(
+    function: &Function,
+    globals: &HashMap<ValueId, BrilligVariable>,
+) -> usize {
     // We need to do some SSA passes in order for the conversion to be able to go ahead,
     // otherwise we can hit `unreachable!()` instructions in `convert_ssa_instruction`.
     // Creating a clone so as not to modify the originals.
@@ -982,9 +1009,9 @@ fn brillig_bytecode_size(function: &Function) -> usize {
     simplify_between_unrolls(&mut temp);
 
     // This is to try to prevent hitting ICE.
-    temp.dead_instruction_elimination(false);
+    temp.dead_instruction_elimination(false, true);
 
-    convert_ssa_function(&temp, false).byte_code.len()
+    convert_ssa_function(&temp, false, globals).byte_code.len()
 }
 
 /// Decide if the new bytecode size is acceptable, compared to the original.
