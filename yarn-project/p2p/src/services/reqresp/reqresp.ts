@@ -14,7 +14,7 @@ import {
   InvalidResponseError,
 } from '../../errors/reqresp.error.js';
 import { SnappyTransform } from '../encoding.js';
-import { type PeerScoring } from '../peer-scoring/peer_scoring.js';
+import { type PeerScoring } from '../peer-manager/peer_scoring.js';
 import { type P2PReqRespConfig } from './config.js';
 import {
   DEFAULT_SUB_PROTOCOL_HANDLERS,

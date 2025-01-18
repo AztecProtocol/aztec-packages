@@ -4,7 +4,7 @@ import { jest } from '@jest/globals';
 import { type PeerId } from '@libp2p/interface';
 import { type MockProxy, mock } from 'jest-mock-extended';
 
-import { type PeerScoring } from '../../peer-scoring/peer_scoring.js';
+import { type PeerScoring } from '../../peer-manager/peer_scoring.js';
 import { ReqRespSubProtocol, type ReqRespSubProtocolRateLimits } from '../interface.js';
 import { RequestResponseRateLimiter } from './rate_limiter.js';
 

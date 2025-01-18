@@ -26,7 +26,7 @@ import { type BootnodeConfig, type P2PConfig } from '../config.js';
 import { type MemPools } from '../mem_pools/interface.js';
 import { DiscV5Service } from '../services/discv5/discV5_service.js';
 import { LibP2PService } from '../services/libp2p/libp2p_service.js';
-import { type PeerScoring } from '../services/peer-scoring/peer_scoring.js';
+import { type PeerScoring } from '../services/peer-manager/peer_scoring.js';
 import { type P2PReqRespConfig } from '../services/reqresp/config.js';
 import {
   ReqRespSubProtocol,

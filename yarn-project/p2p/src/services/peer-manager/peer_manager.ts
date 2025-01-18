@@ -7,14 +7,15 @@ import { type Connection, type PeerId } from '@libp2p/interface';
 import { type Multiaddr } from '@multiformats/multiaddr';
 import { inspect } from 'util';
 
-import { type P2PConfig } from '../config.js';
-import { type PubSubLibp2p } from '../util.js';
-import { PeerScoreState, type PeerScoring } from './peer-scoring/peer_scoring.js';
-import { ReqRespSubProtocol } from './reqresp/interface.js';
-import { GoodByeReason, prettyGoodbyeReason } from './reqresp/protocols/goodbye.js';
-import { type ReqResp } from './reqresp/reqresp.js';
-import { type PeerDiscoveryService } from './service.js';
-import { PeerEvent } from './types.js';
+import { type P2PConfig } from '../../config.js';
+import { type PubSubLibp2p } from '../../util.js';
+import { ReqRespSubProtocol } from '../reqresp/interface.js';
+import { GoodByeReason, prettyGoodbyeReason } from '../reqresp/protocols/goodbye.js';
+import { type ReqResp } from '../reqresp/reqresp.js';
+import { type PeerDiscoveryService } from '../service.js';
+import { PeerEvent } from '../types.js';
+import { PeerManagerMetrics } from './metrics.js';
+import { PeerScoreState, type PeerScoring } from './peer_scoring.js';
 
 const MAX_DIAL_ATTEMPTS = 3;
 const MAX_CACHED_PEERS = 100;
@@ -34,11 +35,13 @@ type TimedOutPeer = {
   timeoutUntilMs: number;
 };
 
-export class PeerManager extends WithTracer {
+export class PeerManager {
   private cachedPeers: Map<string, CachedPeer> = new Map();
   private heartbeatCounter: number = 0;
   private displayPeerCountsPeerHeartbeat: number = 0;
   private timedOutPeers: Map<string, TimedOutPeer> = new Map();
+
+  private metrics: PeerManagerMetrics;
 
   constructor(
     private libP2PNode: PubSubLibp2p,
@@ -49,7 +52,7 @@ export class PeerManager extends WithTracer {
     private peerScoring: PeerScoring,
     private reqresp: ReqResp,
   ) {
-    super(telemetryClient, 'PeerManager');
+    this.metrics = new PeerManagerMetrics(telemetryClient, 'PeerManager');
 
     // Handle new established connections
     this.libP2PNode.addEventListener(PeerEvent.CONNECTED, this.handleConnectedPeerEvent.bind(this));
@@ -61,6 +64,10 @@ export class PeerManager extends WithTracer {
 
     // Display peer counts every 60 seconds
     this.displayPeerCountsPeerHeartbeat = Math.floor(60_000 / this.config.peerCheckIntervalMS);
+  }
+
+  get tracer() {
+    return this.metrics.tracer;
   }
 
   @trackSpan('PeerManager.heartbeat')
@@ -251,6 +258,8 @@ export class PeerManager extends WithTracer {
   private async goodbyeAndDisconnectPeer(peer: PeerId, reason: GoodByeReason) {
     this.logger.debug(`Disconnecting peer ${peer.toString()} with reason ${prettyGoodbyeReason(reason)}`);
 
+    this.metrics.recordDisconnectedPeer(reason);
+
     try {
       await this.reqresp.sendRequestToPeer(peer, ReqRespSubProtocol.GOODBYE, Buffer.from([reason]));
     } catch (error) {
@@ -303,7 +312,7 @@ export class PeerManager extends WithTracer {
     }
     // check if peer is already connected
     const connections = this.libP2PNode.getConnections();
-    if (connections.some(conn => conn.remotePeer.equals(peerId))) {
+    if (connections.some((conn: Connection) => conn.remotePeer.equals(peerId))) {
       this.logger.trace(`Already connected to peer ${peerId}`);
       return;
     }

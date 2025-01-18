@@ -56,8 +56,8 @@ import {
 import { type PubSubLibp2p, convertToMultiaddr } from '../../util.js';
 import { AztecDatastore } from '../data_store.js';
 import { SnappyTransform, fastMsgIdFn, getMsgIdFn, msgIdToStrFn } from '../encoding.js';
-import { PeerScoring } from '../peer-scoring/peer_scoring.js';
-import { PeerManager } from '../peer_manager.js';
+import { PeerManager } from '../peer-manager/peer_manager.js';
+import { PeerScoring } from '../peer-manager/peer_scoring.js';
 import { DEFAULT_SUB_PROTOCOL_VALIDATORS, ReqRespSubProtocol, type SubProtocolMap } from '../reqresp/interface.js';
 import { reqGoodbyeHandler } from '../reqresp/protocols/goodbye.js';
 import { pingHandler, statusHandler } from '../reqresp/protocols/index.js';

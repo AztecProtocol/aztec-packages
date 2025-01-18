@@ -8,12 +8,12 @@ import { jest } from '@jest/globals';
 import { createSecp256k1PeerId } from '@libp2p/peer-id-factory';
 import { multiaddr } from '@multiformats/multiaddr';
 
-import { type P2PConfig, getP2PDefaultConfig } from '../config.js';
-import { PeerScoring } from './peer-scoring/peer_scoring.js';
+import { type P2PConfig, getP2PDefaultConfig } from '../../config.js';
+import { ReqRespSubProtocol } from '../reqresp/interface.js';
+import { GoodByeReason } from '../reqresp/protocols/index.js';
+import { PeerEvent } from '../types.js';
 import { PeerManager } from './peer_manager.js';
-import { ReqRespSubProtocol } from './reqresp/interface.js';
-import { GoodByeReason } from './reqresp/protocols/index.js';
-import { PeerEvent } from './types.js';
+import { PeerScoring } from './peer_scoring.js';
 
 describe('PeerManager', () => {
   const mockLibP2PNode: any = {
