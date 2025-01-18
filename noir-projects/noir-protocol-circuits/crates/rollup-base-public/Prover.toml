@@ -18,7 +18,7 @@ protocol_contract_tree_root = "0x2f9edcbdd0cfc67764aa32cdef9ea44f2914b44bfd9cf77
 
 [inputs.tube_data.public_inputs.constants.historical_header.state.l1_to_l2_message_tree]
 root = "0x2e33ee2008411c04b99c24b313513d097a0d21a5040b6193d1f978b8226892d6"
-next_available_leaf_index = "0x0000000000000000000000000000000000000000000000000000000000000050"
+next_available_leaf_index = "0x0000000000000000000000000000000000000000000000000000000000000080"
 
 [inputs.tube_data.public_inputs.constants.historical_header.state.partial.note_hash_tree]
 root = "0x2596f3d6b05b7055c3c5ab89de6e270b653cb30c3dd6b9cfd230ff41b5ffa623"
@@ -3515,7 +3515,7 @@ reverted = false
 
 [inputs.avm_proof_data.public_inputs.start_tree_snapshots.l1_to_l2_message_tree]
 root = "0x2e33ee2008411c04b99c24b313513d097a0d21a5040b6193d1f978b8226892d6"
-next_available_leaf_index = "0x0000000000000000000000000000000000000000000000000000000000000070"
+next_available_leaf_index = "0x00000000000000000000000000000000000000000000000000000000000000a0"
 
 [inputs.avm_proof_data.public_inputs.start_tree_snapshots.note_hash_tree]
 root = "0x2da60f40a9ef5e4c47aca72c089ac5b94fdf0ca8508a087a870f6cf78be61ab0"
@@ -4853,7 +4853,7 @@ inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
 [inputs.avm_proof_data.public_inputs.end_tree_snapshots.l1_to_l2_message_tree]
 root = "0x2e33ee2008411c04b99c24b313513d097a0d21a5040b6193d1f978b8226892d6"
-next_available_leaf_index = "0x0000000000000000000000000000000000000000000000000000000000000070"
+next_available_leaf_index = "0x00000000000000000000000000000000000000000000000000000000000000a0"
 
 [inputs.avm_proof_data.public_inputs.end_tree_snapshots.note_hash_tree]
 root = "0x2da60f40a9ef5e4c47aca72c089ac5b94fdf0ca8508a087a870f6cf78be61ab0"
@@ -19073,7 +19073,7 @@ public_data_tree_sibling_paths = [
 ]
 
 [inputs.archive_root_membership_witness]
-leaf_index = "5"
+leaf_index = "8"
 sibling_path = [
   "0x190e7dc0a4fcb9c317c351190ee064f5cd8a5f575da0377390f8add3c5d5d4d9",
   "0x0186a873772f6337a7539a2062dd2e501cf9a991df463cee3e9e068fe8058d98",
