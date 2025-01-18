@@ -1,4 +1,4 @@
-use dep::aztec::protocol_types::traits::{Deserialize, Serialize};
+use dep::aztec::protocol_types::traits::{Deserialize, Packable, Serialize};
 
 pub struct Asset {
     price: U128,
@@ -16,5 +16,15 @@ impl Deserialize<ASSET_SERIALIZED_LEN> for Asset {
     fn deserialize(fields: [Field; ASSET_SERIALIZED_LEN]) -> Asset {
         let price = U128 { lo: fields[0], hi: fields[1] };
         Asset { price }
+    }
+}
+
+impl Packable<ASSET_SERIALIZED_LEN> for Asset {
+    fn pack(self) -> [Field; ASSET_SERIALIZED_LEN] {
+        self.serialize()
+    }
+
+    fn unpack(fields: [Field; ASSET_SERIALIZED_LEN]) -> Self {
+        Self::deserialize(fields)
     }
 }
