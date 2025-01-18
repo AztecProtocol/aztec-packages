@@ -12,7 +12,7 @@ import {
   type RawGossipMessage,
   TopicTypeMap,
   Tx,
-  TxHash,
+  type TxHash,
   type TxValidationResult,
   type WorldStateSynchronizer,
   getTopicTypeForClientType,
@@ -63,9 +63,7 @@ import {
   ReqRespSubProtocol,
   type ReqRespSubProtocolHandlers,
   type SubProtocolMap,
-  TX_REQ_PROTOCOL,
 } from '../reqresp/interface.js';
-import { goodbyeHandler } from '../reqresp/protocols/goodbye.js';
 import { pingHandler, statusHandler } from '../reqresp/protocols/index.js';
 import { reqRespTxHandler } from '../reqresp/protocols/tx.js';
 import { ReqResp } from '../reqresp/reqresp.js';
@@ -343,7 +341,6 @@ export class LibP2PService<T extends P2PClientType> extends WithTracer implement
       [ReqRespSubProtocol.PING]: pingHandler,
       [ReqRespSubProtocol.STATUS]: statusHandler,
       [ReqRespSubProtocol.TX]: txHandler,
-      [ReqRespSubProtocol.GOODBYE]: goodbyeHandler,
     };
 
     return new LibP2PService(
@@ -539,7 +536,7 @@ export class LibP2PService<T extends P2PClientType> extends WithTracer implement
    * In order to perform this check, the tx proof must be verified.
    *
    * Note: This function is called from within `ReqResp.sendRequest` as part of the
-   * TX_REQ_PROTOCOL subprotocol validation.
+   * ReqRespSubProtocol.TX subprotocol validation.
    *
    * @param requestedTxHash - The hash of the tx that was requested.
    * @param responseTx - The tx that was received as a response to the request.

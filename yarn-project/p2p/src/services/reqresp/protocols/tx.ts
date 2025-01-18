@@ -1,7 +1,7 @@
-import { P2PClientType } from '@aztec/circuit-types';
+import { type P2PClientType } from '@aztec/circuit-types';
 import { TxHash } from '@aztec/circuit-types/tx_hash';
 
-import { MemPools } from '../../../mem_pools/interface.js';
+import { type MemPools } from '../../../mem_pools/interface.js';
 
 /**
  * We want to keep the logic of the req resp handler in this file, but we do not have a reference to the mempools here
