@@ -106,8 +106,7 @@ void ECCVMProver::execute_relation_check_rounds()
 
     zk_sumcheck_data = ZKData(key->log_circuit_size, transcript, key->commitment_key);
 
-    sumcheck_output = sumcheck.prove(
-        key->polynomials, relation_parameters, alpha, gate_challenges, zk_sumcheck_data, key->commitment_key);
+    sumcheck_output = sumcheck.prove(key->polynomials, relation_parameters, alpha, gate_challenges, zk_sumcheck_data);
 }
 
 /**

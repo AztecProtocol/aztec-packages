@@ -87,8 +87,15 @@ template <typename Flavor> struct ZKSumcheckData {
         setup_auxiliary_data(libra_univariates, libra_scaling_factor, libra_challenge, libra_running_sum);
     }
 
-    // Constructor for test purposes. Creates log_circuit size polynomials g_i(X_i) of length univariate_length,
-    // computes the sum \sum_H (constant_term + \sum g_i).
+    /**
+     * @brief For test purposes: Constructs a sumcheck instance from the polynomial \f$ g + \sum_{i=0}^d g_i(X_i)\f$,
+     * where \f$ g_i \f$ is a random univariate of a given length and \f$ g\f$ is a random constant term.
+     *
+     * @details To test Shplemini with commitments to Sumcheck Round Univariates, we need to create valid Sumcheck Round
+     * Univariates. Fortunately, the functionality of ZKSumcheckData could be re-used for this purpose.
+     * @param multivariate_d
+     * @param univariate_length
+     */
     ZKSumcheckData(const size_t multivariate_d, const size_t univariate_length)
         : constant_term(FF::random_element())
         , libra_univariates(generate_libra_univariates(multivariate_d, univariate_length))

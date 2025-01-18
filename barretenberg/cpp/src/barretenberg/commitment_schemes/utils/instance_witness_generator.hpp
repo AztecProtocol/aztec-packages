@@ -65,6 +65,18 @@ template <typename Curve> struct InstanceWitnessGenerator {
             idx++;
         }
     }
+    InstanceWitnessGenerator(const size_t n,
+                             const size_t num_zero_polynomials,
+                             std::shared_ptr<CommitmentKey>& commitment_key)
+        : ck(commitment_key) // Initialize the commitment key
+        , unshifted_polynomials(num_zero_polynomials)
+    {
+        for (size_t idx = 0; idx < num_zero_polynomials; idx++) {
+            unshifted_polynomials[idx] = Polynomial(n);
+            unshifted_commitments.push_back(ck->commit(unshifted_polynomials[idx]));
+            unshifted_evals.push_back(Fr(0));
+        }
+    }
 };
 
 } // namespace bb

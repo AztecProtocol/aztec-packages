@@ -143,8 +143,8 @@ TEST_F(ECCVMTests, CommitedSumcheck)
 
     ZKData zk_sumcheck_data = ZKData(log_circuit_size, prover_transcript);
 
-    auto prover_output = sumcheck_prover.prove(
-        pk->polynomials, relation_parameters, alpha, gate_challenges, zk_sumcheck_data, pk->commitment_key);
+    auto prover_output =
+        sumcheck_prover.prove(pk->polynomials, relation_parameters, alpha, gate_challenges, zk_sumcheck_data);
 
     ECCVMVerifier verifier(prover.key);
     std::shared_ptr<Transcript> verifier_transcript = std::make_shared<Transcript>(prover_transcript->proof_data);

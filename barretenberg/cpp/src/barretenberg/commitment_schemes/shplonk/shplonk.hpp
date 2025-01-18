@@ -87,7 +87,7 @@ template <typename Curve> class ShplonkProver_ {
             Q.add_scaled(tmp, current_nu);
             current_nu *= nu;
         }
-        // size_t counter = 0;
+
         for (const auto& claim : sumcheck_round_claims) {
 
             // Compute individual claim quotient tmp = ( fⱼ(X) − vⱼ) / ( X − xⱼ )
@@ -99,7 +99,6 @@ template <typename Curve> class ShplonkProver_ {
             // Add the claim quotient to the batched quotient polynomial
             Q.add_scaled(tmp, current_nu);
             current_nu *= nu;
-            // counter++;
         }
         // Return batched quotient polynomial Q(X)
         return Q;

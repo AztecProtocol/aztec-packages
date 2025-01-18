@@ -262,10 +262,14 @@ template <typename Flavor> class SumcheckProver {
                                  const bb::RelationParameters<FF>& relation_parameters,
                                  const RelationSeparator alpha,
                                  const std::vector<FF>& gate_challenges,
-                                 ZKData& zk_sumcheck_data,
-                                 const std::shared_ptr<CommitmentKey>& ck = nullptr)
+                                 ZKData& zk_sumcheck_data)
         requires Flavor::HasZK
     {
+        std::shared_ptr<CommitmentKey> ck = nullptr;
+
+        if constexpr (IS_ECCVM) {
+            ck = std::make_shared<CommitmentKey>(BATCHED_RELATION_PARTIAL_LENGTH);
+        }
 
         bb::GateSeparatorPolynomial<FF> gate_separators(gate_challenges, multivariate_d);
 
@@ -744,7 +748,6 @@ template <typename Flavor> class SumcheckVerifier {
         multivariate_challenge.reserve(CONST_PROOF_SIZE_LOG_N);
         // if Flavor has ZK, the target total sum is corrected by Libra total sum multiplied by the Libra
         // challenge
-        info(round.target_total_sum);
         round.target_total_sum += libra_total_sum * libra_challenge;
 
         for (size_t round_idx = 0; round_idx < CONST_PROOF_SIZE_LOG_N; round_idx++) {
@@ -779,28 +782,13 @@ template <typename Flavor> class SumcheckVerifier {
             }
         }
 
-        // Populate claimed evaluations at the challenge
-        for (size_t round_idx = 1; round_idx < CONST_PROOF_SIZE_LOG_N; round_idx++) {
-            round_univariate_evaluations[round_idx - 1][2] =
-                round_univariate_evaluations[round_idx][0] + round_univariate_evaluations[round_idx][1];
-        }
         FF first_sumcheck_round_evaluations_sum =
             round_univariate_evaluations[0][0] + round_univariate_evaluations[0][1];
-        info("sum of evals", first_sumcheck_round_evaluations_sum);
-        if constexpr (IsRecursiveFlavor<Flavor>) {
-            first_sumcheck_round_evaluations_sum.self_reduce();
-            round.target_total_sum.self_reduce();
-            first_sumcheck_round_evaluations_sum.assert_equal(round.target_total_sum);
-            verified = (first_sumcheck_round_evaluations_sum.get_value() == round.target_total_sum.get_value());
-        } else {
-            info(round.target_total_sum);
-            verified = (first_sumcheck_round_evaluations_sum == round.target_total_sum);
-            info(verified);
-        }
+
+        // Populate claimed evaluations at the challenge
 
         // Extract claimed evaluations of Libra univariates and compute their sum multiplied by the Libra challenge
 
-        // Final round
         ClaimedEvaluations purported_evaluations;
         auto transcript_evaluations =
             transcript->template receive_from_prover<std::array<FF, NUM_POLYNOMIALS>>("Sumcheck:evaluations");
@@ -821,7 +809,33 @@ template <typename Flavor> class SumcheckVerifier {
             // TODO(https://github.com/AztecProtocol/barretenberg/issues/1197)
             full_honk_purported_value.self_reduce();
         }
-        round_univariate_evaluations[multivariate_d - 1][2] = full_honk_purported_value;
+
+        if constexpr (IsRecursiveFlavor<Flavor>) {
+
+            for (size_t round_idx = 1; round_idx < CONST_PROOF_SIZE_LOG_N; round_idx++) {
+                typename Flavor::CircuitBuilder* builder = libra_challenge.get_context();
+                // TODO(https://github.com/AztecProtocol/barretenberg/issues/1114): insecure dummy_round derivation!
+                stdlib::bool_t dummy_round = stdlib::witness_t(builder, round_idx >= multivariate_d);
+                round_univariate_evaluations[round_idx - 1][2] = FF::conditional_assign(
+                    dummy_round,
+                    full_honk_purported_value,
+                    round_univariate_evaluations[round_idx][0] + round_univariate_evaluations[round_idx][1]);
+            };
+
+            first_sumcheck_round_evaluations_sum.self_reduce();
+            round.target_total_sum.self_reduce();
+            first_sumcheck_round_evaluations_sum.assert_equal(round.target_total_sum);
+            verified = (first_sumcheck_round_evaluations_sum.get_value() == round.target_total_sum.get_value());
+        } else {
+            for (size_t round_idx = 1; round_idx < multivariate_d; round_idx++) {
+                round_univariate_evaluations[round_idx - 1][2] =
+                    round_univariate_evaluations[round_idx][0] + round_univariate_evaluations[round_idx][1];
+            };
+            for (size_t round_idx = multivariate_d; round_idx < CONST_PROOF_SIZE_LOG_N; round_idx++) {
+                round_univariate_evaluations[round_idx - 1][2] = full_honk_purported_value;
+            };
+            verified = (first_sumcheck_round_evaluations_sum == round.target_total_sum);
+        }
 
         //! [Final Verification Step]
         // For ZK Flavors: the evaluations of Libra univariates are included in the Sumcheck Output

@@ -27,6 +27,8 @@ ECCVMRecursiveVerifier_<Flavor>::verify_proof(const ECCVMProof& proof)
     using OpeningClaim = OpeningClaim<Curve>;
 
     RelationParameters<FF> relation_parameters;
+    auto init_num_gates = builder->get_estimated_num_finalized_gates();
+    info("before sumcheck", init_num_gates);
 
     StdlibProof<Builder> stdlib_proof = bb::convert_native_proof_to_stdlib(builder, proof.pre_ipa_proof);
     StdlibProof<Builder> stdlib_ipa_proof = bb::convert_native_proof_to_stdlib(builder, proof.ipa_proof);
@@ -87,6 +89,8 @@ ECCVMRecursiveVerifier_<Flavor>::verify_proof(const ECCVMProof& proof)
 
     // Compute the Shplemini accumulator consisting of the Shplonk evaluation and the commitments and scalars vector
     // produced by the unified protocol
+    auto num_gates = builder->get_estimated_num_finalized_gates();
+    info("after sumcheck", num_gates - init_num_gates);
     bool consistency_checked = true;
     BatchOpeningClaim<Curve> sumcheck_batch_opening_claims =
         Shplemini::compute_batch_opening_claim(circuit_size,
@@ -148,7 +152,7 @@ ECCVMRecursiveVerifier_<Flavor>::verify_proof(const ECCVMProof& proof)
 
     const OpeningClaim batch_opening_claim =
         Shplonk::reduce_verification(key->pcs_verification_key->get_g1_identity(), opening_claims, transcript);
-
+    info(" after shplemini ", builder->get_estimated_num_finalized_gates() - init_num_gates);
     ASSERT(sumcheck_output.verified);
     return { batch_opening_claim, ipa_transcript };
 }
