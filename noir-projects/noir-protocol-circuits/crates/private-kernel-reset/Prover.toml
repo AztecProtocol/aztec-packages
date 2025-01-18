@@ -182,7 +182,7 @@ claimed_first_nullifier = "0x1bdf1f2eb2d18abc58a3a5e428275f9bd24bba2b68e281ab59d
 
 [previous_kernel_public_inputs.constants.historical_header.state.l1_to_l2_message_tree]
 root = "0x2e33ee2008411c04b99c24b313513d097a0d21a5040b6193d1f978b8226892d6"
-next_available_leaf_index = "0x0000000000000000000000000000000000000000000000000000000000000080"
+next_available_leaf_index = "0x0000000000000000000000000000000000000000000000000000000000000050"
 
 [previous_kernel_public_inputs.constants.historical_header.state.partial.note_hash_tree]
 root = "0x2596f3d6b05b7055c3c5ab89de6e270b653cb30c3dd6b9cfd230ff41b5ffa623"

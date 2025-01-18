@@ -3,7 +3,6 @@ use std::collections::BTreeMap;
 use crate::ssa::{
     ir::{
         basic_block::BasicBlockId,
-        dfg::DataFlowGraph,
         function::{Function, FunctionId},
         map::SparseMap,
         post_order::PostOrder,
@@ -26,7 +25,7 @@ impl Ssa {
         let mut context = Context::default();
         context.populate_functions(&self.functions);
         for function in self.functions.values_mut() {
-            context.normalize_ids(function, &self.globals.dfg);
+            context.normalize_ids(function);
         }
         self.functions = context.functions.into_btree();
     }
@@ -66,7 +65,7 @@ impl Context {
         }
     }
 
-    fn normalize_ids(&mut self, old_function: &mut Function, globals: &DataFlowGraph) {
+    fn normalize_ids(&mut self, old_function: &mut Function) {
         self.new_ids.blocks.clear();
         self.new_ids.values.clear();
 
