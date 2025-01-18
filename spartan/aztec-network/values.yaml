@@ -221,7 +221,6 @@ bot:
   otelExcludeMetrics: ""
 
 ethereum:
-  externalHost: ""
   replicas: 1
   chainId: 1337
   blockTime: 12
@@ -230,9 +229,34 @@ ethereum:
   # helps ensure we can deploy public contracts
   gasLimit: "1000000000"
   args: ""
-  service:
-    port: 8545
-    targetPort: 8545
+  execution:
+    externalHost: ""
+    service:
+      port: 8545
+      targetPort: 8545
+      nodePort: ""
+    resources:
+      requests:
+        memory: "4Gi"
+        cpu: "1"
+    storageSize: "80Gi"
+  beacon:
+    externalHost: ""
+    service:
+      port: 5052
+      targetPort: 5052
+      nodePort: ""
+    resources:
+      requests:
+        memory: "4Gi"
+        cpu: "1"
+    storageSize: "80Gi"
+  validator:
+    resources:
+      requests:
+        memory: "4Gi"
+        cpu: "1"
+    storageSize: "80Gi"
   readinessProbe:
     initialDelaySeconds: 5
     periodSeconds: 10
