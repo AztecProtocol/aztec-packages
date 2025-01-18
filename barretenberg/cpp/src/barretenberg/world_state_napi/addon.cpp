@@ -45,6 +45,7 @@ WorldStateAddon::WorldStateAddon(const Napi::CallbackInfo& info)
     };
     std::unordered_map<MerkleTreeId, uint32_t> tree_height;
     std::unordered_map<MerkleTreeId, index_t> tree_prefill;
+    std::vector<PublicDataLeafValue> prefilled_public_data;
     std::vector<MerkleTreeId> tree_ids{
         MerkleTreeId::NULLIFIER_TREE,        MerkleTreeId::NOTE_HASH_TREE, MerkleTreeId::PUBLIC_DATA_TREE,
         MerkleTreeId::L1_TO_L2_MESSAGE_TREE, MerkleTreeId::ARCHIVE,
@@ -86,7 +87,30 @@ WorldStateAddon::WorldStateAddon(const Napi::CallbackInfo& info)
         throw Napi::TypeError::New(env, "Tree prefill must be a map");
     }
 
-    size_t initial_header_generator_point_index = 3;
+    size_t prefilled_public_data_index = 3;
+    if (info.Length() > prefilled_public_data_index && info[prefilled_public_data_index].IsArray()) {
+        Napi::Array arr = info[prefilled_public_data_index].As<Napi::Array>();
+        for (uint32_t i = 0; i < arr.Length(); ++i) {
+            Napi::Array deserialized = arr.Get(i).As<Napi::Array>();
+            if (deserialized.Length() != 2 || !deserialized.Get(uint32_t(0)).IsBuffer() ||
+                !deserialized.Get(uint32_t(1)).IsBuffer()) {
+                throw Napi::TypeError::New(env, "Prefilled public data value must be a buffer array of size 2");
+            }
+            Napi::Buffer<uint8_t> slot_buf = deserialized.Get(uint32_t(0)).As<Napi::Buffer<uint8_t>>();
+            Napi::Buffer<uint8_t> value_buf = deserialized.Get(uint32_t(1)).As<Napi::Buffer<uint8_t>>();
+            uint256_t slot = 0;
+            uint256_t value = 0;
+            for (size_t j = 0; j < 32; ++j) {
+                slot = (slot << 8) | slot_buf[j];
+                value = (value << 8) | value_buf[j];
+            }
+            prefilled_public_data.push_back(PublicDataLeafValue(slot, value));
+        }
+    } else {
+        throw Napi::TypeError::New(env, "Prefilled public data must be an array");
+    }
+
+    size_t initial_header_generator_point_index = 4;
     if (info.Length() > initial_header_generator_point_index && info[initial_header_generator_point_index].IsNumber()) {
         initial_header_generator_point = info[initial_header_generator_point_index].As<Napi::Number>().Uint32Value();
     } else {
@@ -94,7 +118,7 @@ WorldStateAddon::WorldStateAddon(const Napi::CallbackInfo& info)
     }
 
     // optional parameters
-    size_t map_size_index = 4;
+    size_t map_size_index = 5;
     if (info.Length() > map_size_index) {
         if (info[4].IsObject()) {
             Napi::Object obj = info[map_size_index].As<Napi::Object>();
@@ -114,7 +138,7 @@ WorldStateAddon::WorldStateAddon(const Napi::CallbackInfo& info)
         }
     }
 
-    size_t thread_pool_size_index = 5;
+    size_t thread_pool_size_index = 6;
     if (info.Length() > thread_pool_size_index) {
         if (!info[thread_pool_size_index].IsNumber()) {
             throw Napi::TypeError::New(env, "Thread pool size must be a number");
@@ -123,8 +147,13 @@ WorldStateAddon::WorldStateAddon(const Napi::CallbackInfo& info)
         thread_pool_size = info[thread_pool_size_index].As<Napi::Number>().Uint32Value();
     }
 
-    _ws = std::make_unique<WorldState>(
-        thread_pool_size, data_dir, map_size, tree_height, tree_prefill, initial_header_generator_point);
+    _ws = std::make_unique<WorldState>(thread_pool_size,
+                                       data_dir,
+                                       map_size,
+                                       tree_height,
+                                       tree_prefill,
+                                       prefilled_public_data,
+                                       initial_header_generator_point);
 
     _dispatcher.registerTarget(
         WorldStateMessageType::GET_TREE_INFO,

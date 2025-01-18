@@ -187,6 +187,71 @@ TEST_F(WorldStateTest, GetInitialTreeInfoForAllTrees)
     }
 }
 
+TEST_F(WorldStateTest, GetInitialTreeInfoWithPrefilledPublicData)
+{
+    std::string data_dir_prefilled = random_temp_directory();
+    std::filesystem::create_directories(data_dir_prefilled);
+
+    std::vector<PublicDataLeafValue> prefilled_values = { PublicDataLeafValue(1000, 2000),
+                                                          PublicDataLeafValue(3000, 4000) };
+
+    WorldState ws_prefilled(thread_pool_size,
+                            data_dir_prefilled,
+                            map_size,
+                            tree_heights,
+                            tree_prefill,
+                            prefilled_values,
+                            initial_header_generator_point);
+
+    WorldState ws(thread_pool_size, data_dir, map_size, tree_heights, tree_prefill, initial_header_generator_point);
+
+    {
+        auto prefilled = ws_prefilled.get_tree_info(WorldStateRevision::committed(), MerkleTreeId::NULLIFIER_TREE);
+        auto info = ws.get_tree_info(WorldStateRevision::committed(), MerkleTreeId::NULLIFIER_TREE);
+        EXPECT_EQ(prefilled.meta.size, info.meta.size);
+        EXPECT_EQ(prefilled.meta.depth, info.meta.depth);
+        EXPECT_EQ(prefilled.meta.root, info.meta.root);
+    }
+
+    {
+        auto prefilled = ws_prefilled.get_tree_info(WorldStateRevision::committed(), MerkleTreeId::NOTE_HASH_TREE);
+        auto info = ws.get_tree_info(WorldStateRevision::committed(), MerkleTreeId::NOTE_HASH_TREE);
+        EXPECT_EQ(prefilled.meta.size, info.meta.size);
+        EXPECT_EQ(prefilled.meta.depth, info.meta.depth);
+        EXPECT_EQ(prefilled.meta.root, info.meta.root);
+    }
+
+    {
+        auto prefilled = ws_prefilled.get_tree_info(WorldStateRevision::committed(), MerkleTreeId::PUBLIC_DATA_TREE);
+        auto info = ws.get_tree_info(WorldStateRevision::committed(), MerkleTreeId::PUBLIC_DATA_TREE);
+        EXPECT_EQ(prefilled.meta.size, info.meta.size);
+        EXPECT_EQ(prefilled.meta.depth, info.meta.depth);
+        // Public data tree roots are different.
+        EXPECT_NE(prefilled.meta.root, info.meta.root);
+
+        // Prefilled values are appended at the end.
+        {
+            auto leaf = ws_prefilled.get_indexed_leaf<PublicDataLeafValue>(
+                WorldStateRevision::uncommitted(), MerkleTreeId::PUBLIC_DATA_TREE, prefilled.meta.size - 2);
+            EXPECT_EQ(leaf.value().value, prefilled_values[0]);
+        }
+        {
+            auto leaf = ws_prefilled.get_indexed_leaf<PublicDataLeafValue>(
+                WorldStateRevision::uncommitted(), MerkleTreeId::PUBLIC_DATA_TREE, prefilled.meta.size - 1);
+            EXPECT_EQ(leaf.value().value, prefilled_values[1]);
+        }
+    }
+
+    {
+        auto prefilled = ws_prefilled.get_tree_info(WorldStateRevision::committed(), MerkleTreeId::ARCHIVE);
+        auto info = ws.get_tree_info(WorldStateRevision::committed(), MerkleTreeId::ARCHIVE);
+        EXPECT_EQ(prefilled.meta.size, info.meta.size);
+        EXPECT_EQ(prefilled.meta.depth, info.meta.depth);
+        // Archive tree roots are different.
+        EXPECT_NE(prefilled.meta.root, info.meta.root);
+    }
+}
+
 TEST_F(WorldStateTest, GetStateReference)
 {
     WorldState ws(thread_pool_size, data_dir, map_size, tree_heights, tree_prefill, initial_header_generator_point);

@@ -39,6 +39,7 @@ WorldState::WorldState(uint64_t thread_pool_size,
                        const std::unordered_map<MerkleTreeId, uint64_t>& map_size,
                        const std::unordered_map<MerkleTreeId, uint32_t>& tree_heights,
                        const std::unordered_map<MerkleTreeId, index_t>& tree_prefill,
+                       const std::vector<PublicDataLeafValue>& prefilled_public_data,
                        uint32_t initial_header_generator_point)
     : _workers(std::make_shared<ThreadPool>(thread_pool_size))
     , _tree_heights(tree_heights)
@@ -46,14 +47,30 @@ WorldState::WorldState(uint64_t thread_pool_size,
     , _forkId(CANONICAL_FORK_ID)
     , _initial_header_generator_point(initial_header_generator_point)
 {
-    create_canonical_fork(data_dir, map_size, thread_pool_size);
+    create_canonical_fork(data_dir, map_size, prefilled_public_data, thread_pool_size);
 }
+
+WorldState::WorldState(uint64_t thread_pool_size,
+                       const std::string& data_dir,
+                       const std::unordered_map<MerkleTreeId, uint64_t>& map_size,
+                       const std::unordered_map<MerkleTreeId, uint32_t>& tree_heights,
+                       const std::unordered_map<MerkleTreeId, index_t>& tree_prefill,
+                       uint32_t initial_header_generator_point)
+    : WorldState::WorldState(thread_pool_size,
+                             data_dir,
+                             map_size,
+                             tree_heights,
+                             tree_prefill,
+                             std::vector<PublicDataLeafValue>(),
+                             initial_header_generator_point)
+{}
 
 WorldState::WorldState(uint64_t thread_pool_size,
                        const std::string& data_dir,
                        uint64_t map_size,
                        const std::unordered_map<MerkleTreeId, uint32_t>& tree_heights,
                        const std::unordered_map<MerkleTreeId, index_t>& tree_prefill,
+                       const std::vector<PublicDataLeafValue>& prefilled_public_data,
                        uint32_t initial_header_generator_point)
     : WorldState(thread_pool_size,
                  data_dir,
@@ -66,11 +83,28 @@ WorldState::WorldState(uint64_t thread_pool_size,
                  },
                  tree_heights,
                  tree_prefill,
+                 prefilled_public_data,
+                 initial_header_generator_point)
+{}
+
+WorldState::WorldState(uint64_t thread_pool_size,
+                       const std::string& data_dir,
+                       uint64_t map_size,
+                       const std::unordered_map<MerkleTreeId, uint32_t>& tree_heights,
+                       const std::unordered_map<MerkleTreeId, index_t>& tree_prefill,
+                       uint32_t initial_header_generator_point)
+    : WorldState(thread_pool_size,
+                 data_dir,
+                 map_size,
+                 tree_heights,
+                 tree_prefill,
+                 std::vector<PublicDataLeafValue>(),
                  initial_header_generator_point)
 {}
 
 void WorldState::create_canonical_fork(const std::string& dataDir,
                                        const std::unordered_map<MerkleTreeId, uint64_t>& dbSize,
+                                       const std::vector<PublicDataLeafValue>& prefilled_public_data,
                                        uint64_t maxReaders)
 {
     // create the underlying stores
@@ -109,7 +143,7 @@ void WorldState::create_canonical_fork(const std::string& dataDir,
         index_t initial_size = _initial_tree_size.at(MerkleTreeId::PUBLIC_DATA_TREE);
         auto store = std::make_unique<PublicDataStore>(
             getMerkleTreeName(MerkleTreeId::PUBLIC_DATA_TREE), levels, _persistentStores->publicDataStore);
-        auto tree = std::make_unique<PublicDataTree>(std::move(store), _workers, initial_size);
+        auto tree = std::make_unique<PublicDataTree>(std::move(store), _workers, initial_size, prefilled_public_data);
         fork->_trees.insert({ MerkleTreeId::PUBLIC_DATA_TREE, TreeWithStore(std::move(tree)) });
     }
     {

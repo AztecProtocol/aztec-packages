@@ -507,7 +507,7 @@ describe('e2e_synching', () => {
           });
           const pendingBlockNumber = await rollup.read.getPendingBlockNumber();
 
-          const worldState = await createWorldStateSynchronizer(opts.config!, archiver, new NoopTelemetryClient());
+          const worldState = await createWorldStateSynchronizer(opts.config!, archiver);
           await worldState.start();
           expect(await worldState.getLatestBlockNumber()).toEqual(Number(pendingBlockNumber));
 

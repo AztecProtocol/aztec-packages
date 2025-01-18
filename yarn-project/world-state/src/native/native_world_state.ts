@@ -68,6 +68,7 @@ export class NativeWorldStateService implements MerkleTreeDatabase {
     rollupAddress: EthAddress,
     dataDir: string,
     dbMapSizeKb: number,
+    prefilledPublicData: PublicDataTreeLeaf[] = [],
     instrumentation = new WorldStateInstrumentation(new NoopTelemetryClient()),
     log = createLogger('world-state:database'),
     cleanup = () => Promise.resolve(),
@@ -92,7 +93,7 @@ export class NativeWorldStateService implements MerkleTreeDatabase {
     await mkdir(worldStateDirectory, { recursive: true });
     await newWorldStateVersion.writeVersionFile(versionFile);
 
-    const instance = new NativeWorldState(worldStateDirectory, dbMapSizeKb, instrumentation);
+    const instance = new NativeWorldState(worldStateDirectory, dbMapSizeKb, prefilledPublicData, instrumentation);
     const worldState = new this(instance, instrumentation, log, cleanup);
     try {
       await worldState.init();
@@ -107,6 +108,7 @@ export class NativeWorldStateService implements MerkleTreeDatabase {
   static async tmp(
     rollupAddress = EthAddress.ZERO,
     cleanupTmpDir = true,
+    prefilledPublicData: PublicDataTreeLeaf[] = [],
     instrumentation = new WorldStateInstrumentation(new NoopTelemetryClient()),
   ): Promise<NativeWorldStateService> {
     const log = createLogger('world-state:database');
@@ -124,7 +126,7 @@ export class NativeWorldStateService implements MerkleTreeDatabase {
       }
     };
 
-    return this.new(rollupAddress, dataDir, dbMapSizeKb, instrumentation, log, cleanup);
+    return this.new(rollupAddress, dataDir, dbMapSizeKb, prefilledPublicData, instrumentation, log, cleanup);
   }
 
   protected async init() {

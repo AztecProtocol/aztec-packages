@@ -51,6 +51,7 @@ import {
   type PUBLIC_DATA_TREE_HEIGHT,
   type PrivateLog,
   type ProtocolContractAddresses,
+  type PublicDataTreeLeaf,
   type PublicDataTreeLeafPreimage,
   REGISTERER_CONTRACT_ADDRESS,
 } from '@aztec/circuits.js';
@@ -141,6 +142,9 @@ export class AztecNodeService implements AztecNode, Traceable {
       dateProvider?: DateProvider;
       blobSinkClient?: BlobSinkClientInterface;
     } = {},
+    options: {
+      prefilledPublicData?: PublicDataTreeLeaf[];
+    } = {},
   ): Promise<AztecNodeService> {
     const telemetry = deps.telemetry ?? new NoopTelemetryClient();
     const log = deps.logger ?? createLogger('node');
@@ -162,7 +166,12 @@ export class AztecNodeService implements AztecNode, Traceable {
     config.transactionProtocol = `/aztec/tx/${rollupAddress.toString()}`;
 
     // now create the merkle trees and the world state synchronizer
-    const worldStateSynchronizer = await createWorldStateSynchronizer(config, archiver, telemetry);
+    const worldStateSynchronizer = await createWorldStateSynchronizer(
+      config,
+      archiver,
+      options.prefilledPublicData,
+      telemetry,
+    );
     const proofVerifier = config.realProofs ? await BBCircuitVerifier.new(config) : new TestCircuitVerifier();
     if (!config.realProofs) {
       log.warn(`Aztec node is accepting fake proofs`);

@@ -13,6 +13,7 @@ import {
   NOTE_HASH_TREE_HEIGHT,
   NULLIFIER_TREE_HEIGHT,
   PUBLIC_DATA_TREE_HEIGHT,
+  PublicDataTreeLeaf,
 } from '@aztec/circuits.js';
 import { makeContentCommitment, makeGlobalVariables } from '@aztec/circuits.js/testing';
 
@@ -707,6 +708,42 @@ describe('NativeWorldState', () => {
       expect(statuses[0].dbStats.publicDataTreeStats.mapSize).toBe(mapSizeBytes);
 
       await ws.close();
+    });
+  });
+
+  describe('Initialization args', () => {
+    it('initializes with prefilled public data', async () => {
+      // Without prefilled.
+      const ws = await NativeWorldStateService.new(EthAddress.random(), dataDir, defaultDBMapSize);
+      const { state: initialState, ...initialRest } = ws.getInitialHeader();
+
+      // With prefilled.
+      const prefilledPublicData = [
+        new PublicDataTreeLeaf(new Fr(1000), new Fr(2000)),
+        new PublicDataTreeLeaf(new Fr(3000), new Fr(4000)),
+      ];
+      const wsPrefilled = await NativeWorldStateService.new(
+        EthAddress.random(),
+        dataDir,
+        defaultDBMapSize,
+        prefilledPublicData,
+      );
+      const { state: prefilledState, ...prefilledRest } = wsPrefilled.getInitialHeader();
+
+      // The root of the public data tree has changed.
+      expect(initialState.partial.publicDataTree.root).not.toEqual(prefilledState.partial.publicDataTree.root);
+
+      // The rest of the values are the same.
+      expect(initialRest).toEqual(prefilledRest);
+      expect(initialState.l1ToL2MessageTree).toEqual(prefilledState.l1ToL2MessageTree);
+      expect(initialState.partial.noteHashTree).toEqual(prefilledState.partial.noteHashTree);
+      expect(initialState.partial.nullifierTree).toEqual(prefilledState.partial.nullifierTree);
+      expect(initialState.partial.publicDataTree.nextAvailableLeafIndex).toEqual(
+        prefilledState.partial.publicDataTree.nextAvailableLeafIndex,
+      );
+
+      await ws.close();
+      await wsPrefilled.close();
     });
   });
 });
