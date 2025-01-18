@@ -452,10 +452,10 @@ bool get_value(Key& key, uint64_t& data, const LMDBDatabase& db, const LMDBTrans
 
 bool set_at_key(const LMDBCursor& cursor, Key& key);
 
-void read_next(const LMDBCursor& cursor, KeyValuesVector& keyValues, uint64_t numKeysToRead);
-void read_prev(const LMDBCursor& cursor, KeyValuesVector& keyValues, uint64_t numKeysToRead);
-
 void read_next(const LMDBCursor& cursor, KeyDupValuesVector& keyValues, uint64_t numKeysToRead);
 void read_prev(const LMDBCursor& cursor, KeyDupValuesVector& keyValues, uint64_t numKeysToRead);
+
+void read_next_dup(const LMDBCursor& cursor, KeyDupValuesVector& keyValues, uint64_t numKeysToRead);
+void read_prev_dup(const LMDBCursor& cursor, KeyDupValuesVector& keyValues, uint64_t numKeysToRead);
 } // namespace lmdb_queries
 } // namespace bb::lmdblib

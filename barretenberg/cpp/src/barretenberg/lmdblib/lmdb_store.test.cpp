@@ -144,8 +144,8 @@ TEST_F(LMDBStoreTest, can_write_and_read_multiple)
         for (uint64_t count = 0; count < numValues; count++) {
             auto key = serialise((std::stringstream() << "Key" << count).str());
             auto data = serialise((std::stringstream() << "TestData" << count).str());
-            DupValue dup = { data };
-            KeyDupValuePair pair = { key, dup };
+            ValuesVector dup = { data };
+            KeyValuesPair pair = { key, dup };
             toWrite.emplace_back(pair);
         }
         store->put(toWrite, toDelete, dbNames[0]);
@@ -194,12 +194,12 @@ TEST_F(LMDBStoreTest, can_write_and_read_multiple_duplicates)
         KeyDupValuesVector toDelete;
         for (uint64_t count = 0; count < numValues; count++) {
             auto key = serialise((std::stringstream() << "Key" << count).str());
-            DupValue dup;
+            ValuesVector dup;
             for (uint64_t dupCount = 0; dupCount < numDups; dupCount++) {
                 auto data = serialise((std::stringstream() << "TestData" << dupCount).str());
                 dup.emplace_back(data);
             }
-            KeyDupValuePair pair = { key, dup };
+            KeyValuesPair pair = { key, dup };
             toWrite.emplace_back(pair);
         }
         store->put(toWrite, toDelete, dbNames[0]);
@@ -215,13 +215,13 @@ TEST_F(LMDBStoreTest, can_write_and_read_multiple_duplicates)
             // For the no dup DB we expect the last written value to be present
             auto expectedNoDup = serialise((std::stringstream() << "TestData" << numDups - 1).str());
             keys.push_back(key);
-            DupValue dup;
+            ValuesVector dup;
             for (uint64_t dupCount = 0; dupCount < numDups; dupCount++) {
                 auto expectedWithDup = serialise((std::stringstream() << "TestData" << dupCount).str());
                 dup.emplace_back(expectedWithDup);
             }
             valuesWithDups.emplace_back(dup);
-            valuesWithoutDups.emplace_back(DupValue{ expectedNoDup });
+            valuesWithoutDups.emplace_back(ValuesVector{ expectedNoDup });
         }
 
         {
@@ -278,8 +278,8 @@ TEST_F(LMDBStoreTest, can_write_and_delete)
         for (uint64_t count = 0; count < numValues; count++) {
             auto key = serialise((std::stringstream() << "Key" << count).str());
             auto data = serialise((std::stringstream() << "TestData" << count).str());
-            DupValue dup = { data };
-            KeyDupValuePair pair = { key, dup };
+            ValuesVector dup = { data };
+            KeyValuesPair pair = { key, dup };
             toWrite.emplace_back(pair);
         }
         store->put(toWrite, toDelete, dbNames[0]);
@@ -289,17 +289,17 @@ TEST_F(LMDBStoreTest, can_write_and_delete)
         // Write 2 more and delete some
         KeyDupValuesVector toWrite;
         KeyDupValuesVector toDelete;
-        for (uint64_t count = 10; count < numValues + 2; count++) {
+        for (uint64_t count = numValues; count < numValues + 2; count++) {
             auto key = serialise((std::stringstream() << "Key" << count).str());
             auto data = serialise((std::stringstream() << "TestData" << count).str());
-            DupValue dup = { data };
-            KeyDupValuePair pair = { key, dup };
+            ValuesVector dup = { data };
+            KeyValuesPair pair = { key, dup };
             toWrite.emplace_back(pair);
         }
         for (uint64_t count = 3; count < numValues - 2; count++) {
             auto key = serialise((std::stringstream() << "Key" << count).str());
             auto data = serialise((std::stringstream() << "TestData" << count).str());
-            KeyDupValuePair pair = { key, { data } };
+            KeyValuesPair pair = { key, { data } };
             toDelete.emplace_back(pair);
         }
         store->put(toWrite, toDelete, dbNames[0]);
@@ -325,14 +325,99 @@ TEST_F(LMDBStoreTest, can_write_and_delete)
     }
 }
 
+TEST_F(LMDBStoreTest, can_write_and_delete_duplicates)
+{
+    LMDBStore::Ptr store = create_store(2);
+
+    const std::string dbName = "Test Database";
+    store->open_database(dbName, true);
+
+    uint64_t numValues = 10;
+    uint64_t numDups = 5;
+
+    {
+        // This write multiple keys and multiple values against each key
+        KeyDupValuesVector toWrite;
+        KeyDupValuesVector toDelete;
+        for (uint64_t count = 0; count < numValues; count++) {
+            auto key = serialise((std::stringstream() << "Key" << count).str());
+            ValuesVector dup;
+            for (uint64_t dupCount = 0; dupCount < numDups; dupCount++) {
+                auto data = serialise((std::stringstream() << "TestData" << dupCount).str());
+                dup.emplace_back(data);
+            }
+            KeyValuesPair pair = { key, dup };
+            toWrite.emplace_back(pair);
+        }
+        store->put(toWrite, toDelete, dbName);
+    }
+
+    {
+        // Write 2 more and delete some
+        KeyDupValuesVector toWrite;
+        KeyDupValuesVector toDelete;
+        for (uint64_t count = numValues; count < numValues + 2; count++) {
+            auto key = serialise((std::stringstream() << "Key" << count).str());
+            ValuesVector dup;
+            for (uint64_t dupCount = 0; dupCount < numDups; dupCount++) {
+                auto data = serialise((std::stringstream() << "TestData" << dupCount).str());
+                dup.emplace_back(data);
+            }
+            KeyValuesPair pair = { key, dup };
+            toWrite.emplace_back(pair);
+        }
+
+        // Remove some of the duplicate keys
+        for (uint64_t count = 3; count < numValues - 2; count++) {
+            auto key = serialise((std::stringstream() << "Key" << count).str());
+            ValuesVector dup;
+            // Remove some of the keys
+            for (uint64_t dupCount = 1; dupCount < numDups - 1; dupCount++) {
+                auto data = serialise((std::stringstream() << "TestData" << dupCount).str());
+                dup.emplace_back(data);
+            }
+            KeyValuesPair pair = { key, dup };
+            toDelete.emplace_back(pair);
+        }
+        store->put(toWrite, toDelete, dbName);
+    }
+
+    {
+        KeysVector keys;
+        OptionalValuesVector expectedValues;
+        for (uint64_t count = 0; count < numValues + 2; count++) {
+            auto key = serialise((std::stringstream() << "Key" << count).str());
+            auto expected = serialise((std::stringstream() << "TestData" << count).str());
+            keys.push_back(key);
+            uint64_t deletedDupStart = (count < 3 || count >= (numValues - 2)) ? numDups : 1;
+            uint64_t deletedDupEnd = (count < 3 || count >= (numValues - 2)) ? 0 : numDups - 1;
+            ValuesVector dup;
+            // The number of keys retrieved depends on whether this key had some value deleted
+            for (uint64_t dupCount = 0; dupCount < numDups; dupCount++) {
+                if (dupCount >= deletedDupStart && dupCount < deletedDupEnd) {
+                    continue;
+                }
+                auto data = serialise((std::stringstream() << "TestData" << dupCount).str());
+                dup.emplace_back(data);
+            }
+            expectedValues.emplace_back(OptionalValues(ValuesVector{ dup }));
+        }
+
+        {
+            OptionalValuesVector retrieved;
+            store->get(keys, retrieved, dbName);
+            EXPECT_EQ(retrieved.size(), numValues + 2);
+            EXPECT_EQ(retrieved, expectedValues);
+        }
+    }
+}
+
 TEST_F(LMDBStoreTest, can_read_forwards_with_cursors)
 {
     LMDBStore::Ptr store = create_store(2);
 
-    const std::vector<std::string> dbNames = { "Test Database 1", "Test Database 2" };
-    for (const auto& s : dbNames) {
-        store->open_database(s);
-    }
+    const std::string dbName = "Test Database";
+    store->open_database(dbName);
 
     int64_t numValues = 10;
 
@@ -342,11 +427,11 @@ TEST_F(LMDBStoreTest, can_read_forwards_with_cursors)
         for (int64_t count = 0; count < numValues; count++) {
             auto key = serialise((std::stringstream() << "Key" << count).str());
             auto data = serialise((std::stringstream() << "TestData" << count).str());
-            DupValue dup = { data };
-            KeyDupValuePair pair = { key, dup };
+            ValuesVector dup = { data };
+            KeyValuesPair pair = { key, dup };
             toWrite.emplace_back(pair);
         }
-        store->put(toWrite, toDelete, dbNames[0]);
+        store->put(toWrite, toDelete, dbName);
     }
 
     {
@@ -354,19 +439,74 @@ TEST_F(LMDBStoreTest, can_read_forwards_with_cursors)
         int64_t startKey = 3;
         auto key = serialise((std::stringstream() << "Key" << startKey).str());
         LMDBStore::ReadTransaction::SharedPtr tx = store->create_shared_read_transaction();
-        LMDBStore::Cursor::Ptr cursor = store->create_cursor(tx, dbNames[0]);
+        LMDBStore::Cursor::Ptr cursor = store->create_cursor(tx, dbName);
         bool setResult = cursor->set_at_key(key);
         EXPECT_TRUE(setResult);
 
         int64_t batchSize = 4;
-        KeyValuesVector keyValues;
+        KeyDupValuesVector keyValues;
         cursor->read_next((uint64_t)batchSize, keyValues);
 
-        KeyValuesVector expected;
+        KeyDupValuesVector expected;
         for (int64_t count = startKey; count < startKey + batchSize; count++) {
             auto key = serialise((std::stringstream() << "Key" << count).str());
             auto data = serialise((std::stringstream() << "TestData" << count).str());
-            expected.emplace_back(key, data);
+            expected.emplace_back(KeyValuesPair{ key, { data } });
+        }
+        EXPECT_EQ(keyValues, expected);
+    }
+}
+
+TEST_F(LMDBStoreTest, can_read_duplicate_values_forwards_with_cursors)
+{
+    LMDBStore::Ptr store = create_store(2);
+
+    const std::string dbName = "Test Database";
+    store->open_database(dbName, true);
+
+    uint64_t numValues = 10;
+    uint64_t numDups = 5;
+
+    {
+        // This write multiple keys and multiple values against each key
+        KeyDupValuesVector toWrite;
+        KeyDupValuesVector toDelete;
+        for (uint64_t count = 0; count < numValues; count++) {
+            auto key = serialise((std::stringstream() << "Key" << count).str());
+            ValuesVector dup;
+            for (uint64_t dupCount = 0; dupCount < numDups; dupCount++) {
+                auto data = serialise((std::stringstream() << "TestData" << dupCount).str());
+                dup.emplace_back(data);
+            }
+            KeyValuesPair pair = { key, dup };
+            toWrite.emplace_back(pair);
+        }
+        store->put(toWrite, toDelete, dbName);
+    }
+
+    {
+        // read from a key mid-way through
+        int64_t startKey = 3;
+        auto key = serialise((std::stringstream() << "Key" << startKey).str());
+        LMDBStore::ReadTransaction::SharedPtr tx = store->create_shared_read_transaction();
+        LMDBStore::Cursor::Ptr cursor = store->create_cursor(tx, dbName);
+        bool setResult = cursor->set_at_key(key);
+        EXPECT_TRUE(setResult);
+
+        int64_t batchSize = 4;
+        KeyDupValuesVector keyValues;
+        cursor->read_next((uint64_t)batchSize, keyValues);
+
+        KeyDupValuesVector expected;
+        for (int64_t count = startKey; count < startKey + batchSize; count++) {
+            auto key = serialise((std::stringstream() << "Key" << count).str());
+            ValuesVector dup;
+            for (uint64_t dupCount = 0; dupCount < numDups; dupCount++) {
+                auto data = serialise((std::stringstream() << "TestData" << dupCount).str());
+                dup.emplace_back(data);
+            }
+            KeyValuesPair pair = { key, dup };
+            expected.emplace_back(pair);
         }
         EXPECT_EQ(keyValues, expected);
     }
@@ -389,8 +529,8 @@ TEST_F(LMDBStoreTest, can_read_backwards_with_cursors)
         for (int64_t count = 0; count < numValues; count++) {
             auto key = serialise((std::stringstream() << "Key" << count).str());
             auto data = serialise((std::stringstream() << "TestData" << count).str());
-            DupValue dup = { data };
-            KeyDupValuePair pair = { key, dup };
+            ValuesVector dup = { data };
+            KeyValuesPair pair = { key, dup };
             toWrite.emplace_back(pair);
         }
         store->put(toWrite, toDelete, dbNames[0]);
@@ -406,14 +546,69 @@ TEST_F(LMDBStoreTest, can_read_backwards_with_cursors)
         EXPECT_TRUE(setResult);
 
         int64_t batchSize = 4;
-        KeyValuesVector keyValues;
+        KeyDupValuesVector keyValues;
         cursor->read_prev((uint64_t)batchSize, keyValues);
 
-        KeyValuesVector expected;
+        KeyDupValuesVector expected;
         for (int64_t count = startKey; count > startKey - batchSize; count--) {
             auto key = serialise((std::stringstream() << "Key" << count).str());
             auto data = serialise((std::stringstream() << "TestData" << count).str());
-            expected.emplace_back(key, data);
+            expected.emplace_back(KeyValuesPair{ key, { data } });
+        }
+        EXPECT_EQ(keyValues, expected);
+    }
+}
+
+TEST_F(LMDBStoreTest, can_read_duplicate_values_backwards_with_cursors)
+{
+    LMDBStore::Ptr store = create_store(2);
+
+    const std::string dbName = "Test Database";
+    store->open_database(dbName, true);
+
+    uint64_t numValues = 10;
+    uint64_t numDups = 5;
+
+    {
+        // This write multiple keys and multiple values against each key
+        KeyDupValuesVector toWrite;
+        KeyDupValuesVector toDelete;
+        for (uint64_t count = 0; count < numValues; count++) {
+            auto key = serialise((std::stringstream() << "Key" << count).str());
+            ValuesVector dup;
+            for (uint64_t dupCount = 0; dupCount < numDups; dupCount++) {
+                auto data = serialise((std::stringstream() << "TestData" << dupCount).str());
+                dup.emplace_back(data);
+            }
+            KeyValuesPair pair = { key, dup };
+            toWrite.emplace_back(pair);
+        }
+        store->put(toWrite, toDelete, dbName);
+    }
+
+    {
+        // read from a key mid-way through
+        int64_t startKey = 7;
+        auto key = serialise((std::stringstream() << "Key" << startKey).str());
+        LMDBStore::ReadTransaction::SharedPtr tx = store->create_shared_read_transaction();
+        LMDBStore::Cursor::Ptr cursor = store->create_cursor(tx, dbName);
+        bool setResult = cursor->set_at_key(key);
+        EXPECT_TRUE(setResult);
+
+        int64_t batchSize = 4;
+        KeyDupValuesVector keyValues;
+        cursor->read_prev((uint64_t)batchSize, keyValues);
+
+        KeyDupValuesVector expected;
+        for (int64_t count = startKey; count > startKey - batchSize; count--) {
+            auto key = serialise((std::stringstream() << "Key" << count).str());
+            ValuesVector dup;
+            for (uint64_t dupCount = 0; dupCount < numDups; dupCount++) {
+                auto data = serialise((std::stringstream() << "TestData" << dupCount).str());
+                dup.emplace_back(data);
+            }
+            KeyValuesPair pair = { key, dup };
+            expected.emplace_back(pair);
         }
         EXPECT_EQ(keyValues, expected);
     }
@@ -423,10 +618,8 @@ TEST_F(LMDBStoreTest, can_read_past_the_end_with_cursors)
 {
     LMDBStore::Ptr store = create_store(2);
 
-    const std::vector<std::string> dbNames = { "Test Database 1", "Test Database 2" };
-    for (const auto& s : dbNames) {
-        store->open_database(s);
-    }
+    const std::string dbName = "Test Database";
+    store->open_database(dbName, false);
 
     int64_t numValues = 10;
 
@@ -436,11 +629,11 @@ TEST_F(LMDBStoreTest, can_read_past_the_end_with_cursors)
         for (int64_t count = 0; count < numValues; count++) {
             auto key = serialise((std::stringstream() << "Key" << count).str());
             auto data = serialise((std::stringstream() << "TestData" << count).str());
-            DupValue dup = { data };
-            KeyDupValuePair pair = { key, dup };
+            ValuesVector dup = { data };
+            KeyValuesPair pair = { key, dup };
             toWrite.emplace_back(pair);
         }
-        store->put(toWrite, toDelete, dbNames[0]);
+        store->put(toWrite, toDelete, dbName);
     }
 
     {
@@ -448,19 +641,19 @@ TEST_F(LMDBStoreTest, can_read_past_the_end_with_cursors)
         int64_t startKey = 3;
         auto key = serialise((std::stringstream() << "Key" << startKey).str());
         LMDBStore::ReadTransaction::SharedPtr tx = store->create_shared_read_transaction();
-        LMDBStore::Cursor::Ptr cursor = store->create_cursor(tx, dbNames[0]);
+        LMDBStore::Cursor::Ptr cursor = store->create_cursor(tx, dbName);
         bool setResult = cursor->set_at_key(key);
         EXPECT_TRUE(setResult);
 
         int64_t batchSize = 50;
-        KeyValuesVector keyValues;
+        KeyDupValuesVector keyValues;
         cursor->read_next((uint64_t)batchSize, keyValues);
 
-        KeyValuesVector expected;
+        KeyDupValuesVector expected;
         for (int64_t count = startKey; count < numValues; count++) {
             auto key = serialise((std::stringstream() << "Key" << count).str());
             auto data = serialise((std::stringstream() << "TestData" << count).str());
-            expected.emplace_back(key, data);
+            expected.emplace_back(KeyValuesPair{ key, { data } });
         }
         EXPECT_EQ(keyValues, expected);
     }
@@ -470,10 +663,8 @@ TEST_F(LMDBStoreTest, can_read_past_the_start_with_cursors)
 {
     LMDBStore::Ptr store = create_store(2);
 
-    const std::vector<std::string> dbNames = { "Test Database 1", "Test Database 2" };
-    for (const auto& s : dbNames) {
-        store->open_database(s);
-    }
+    const std::string dbName = "Test Database";
+    store->open_database(dbName, false);
 
     int64_t numValues = 10;
 
@@ -483,11 +674,11 @@ TEST_F(LMDBStoreTest, can_read_past_the_start_with_cursors)
         for (int64_t count = 0; count < numValues; count++) {
             auto key = serialise((std::stringstream() << "Key" << count).str());
             auto data = serialise((std::stringstream() << "TestData" << count).str());
-            DupValue dup = { data };
-            KeyDupValuePair pair = { key, dup };
+            ValuesVector dup = { data };
+            KeyValuesPair pair = { key, dup };
             toWrite.emplace_back(pair);
         }
-        store->put(toWrite, toDelete, dbNames[0]);
+        store->put(toWrite, toDelete, dbName);
     }
 
     {
@@ -495,19 +686,129 @@ TEST_F(LMDBStoreTest, can_read_past_the_start_with_cursors)
         int64_t startKey = 7;
         auto key = serialise((std::stringstream() << "Key" << startKey).str());
         LMDBStore::ReadTransaction::SharedPtr tx = store->create_shared_read_transaction();
-        LMDBStore::Cursor::Ptr cursor = store->create_cursor(tx, dbNames[0]);
+        LMDBStore::Cursor::Ptr cursor = store->create_cursor(tx, dbName);
         bool setResult = cursor->set_at_key(key);
         EXPECT_TRUE(setResult);
 
         int64_t batchSize = 50;
-        KeyValuesVector keyValues;
+        KeyDupValuesVector keyValues;
         cursor->read_prev((uint64_t)batchSize, keyValues);
 
-        KeyValuesVector expected;
+        KeyDupValuesVector expected;
         for (int64_t count = startKey; count >= 0; count--) {
             auto key = serialise((std::stringstream() << "Key" << count).str());
             auto data = serialise((std::stringstream() << "TestData" << count).str());
-            expected.emplace_back(key, data);
+            expected.emplace_back(KeyValuesPair{ key, { data } });
+        }
+        EXPECT_EQ(keyValues, expected);
+    }
+}
+
+TEST_F(LMDBStoreTest, can_read_duplicates_past_the_end_with_cursors)
+{
+    LMDBStore::Ptr store = create_store(2);
+
+    const std::string dbName = "Test Database";
+    store->open_database(dbName, true);
+
+    int64_t numValues = 10;
+    int64_t numDups = 5;
+
+    {
+        // This write multiple keys and multiple values against each key
+        KeyDupValuesVector toWrite;
+        KeyDupValuesVector toDelete;
+        for (int64_t count = 0; count < numValues; count++) {
+            auto key = serialise((std::stringstream() << "Key" << count).str());
+            ValuesVector dup;
+            for (int64_t dupCount = 0; dupCount < numDups; dupCount++) {
+                auto data = serialise((std::stringstream() << "TestData" << dupCount).str());
+                dup.emplace_back(data);
+            }
+            KeyValuesPair pair = { key, dup };
+            toWrite.emplace_back(pair);
+        }
+        store->put(toWrite, toDelete, dbName);
+    }
+
+    {
+        // read from a key mid-way through
+        int64_t startKey = 3;
+        auto key = serialise((std::stringstream() << "Key" << startKey).str());
+        LMDBStore::ReadTransaction::SharedPtr tx = store->create_shared_read_transaction();
+        LMDBStore::Cursor::Ptr cursor = store->create_cursor(tx, dbName);
+        bool setResult = cursor->set_at_key(key);
+        EXPECT_TRUE(setResult);
+
+        int64_t batchSize = 50;
+        KeyDupValuesVector keyValues;
+        cursor->read_next((uint64_t)batchSize, keyValues);
+
+        KeyDupValuesVector expected;
+        for (int64_t count = startKey; count < numValues; count++) {
+            auto key = serialise((std::stringstream() << "Key" << count).str());
+            ValuesVector dup;
+            for (int64_t dupCount = 0; dupCount < numDups; dupCount++) {
+                auto data = serialise((std::stringstream() << "TestData" << dupCount).str());
+                dup.emplace_back(data);
+            }
+            KeyValuesPair pair = { key, dup };
+            expected.emplace_back(pair);
+        }
+        EXPECT_EQ(keyValues, expected);
+    }
+}
+
+TEST_F(LMDBStoreTest, can_read_duplicates_past_the_start_with_cursors)
+{
+    LMDBStore::Ptr store = create_store(2);
+
+    const std::string dbName = "Test Database";
+    store->open_database(dbName, true);
+
+    int64_t numValues = 10;
+    int64_t numDups = 5;
+
+    {
+        // This write multiple keys and multiple values against each key
+        KeyDupValuesVector toWrite;
+        KeyDupValuesVector toDelete;
+        for (int64_t count = 0; count < numValues; count++) {
+            auto key = serialise((std::stringstream() << "Key" << count).str());
+            ValuesVector dup;
+            for (int64_t dupCount = 0; dupCount < numDups; dupCount++) {
+                auto data = serialise((std::stringstream() << "TestData" << dupCount).str());
+                dup.emplace_back(data);
+            }
+            KeyValuesPair pair = { key, dup };
+            toWrite.emplace_back(pair);
+        }
+        store->put(toWrite, toDelete, dbName);
+    }
+
+    {
+        // read from a key mid-way through
+        int64_t startKey = 7;
+        auto key = serialise((std::stringstream() << "Key" << startKey).str());
+        LMDBStore::ReadTransaction::SharedPtr tx = store->create_shared_read_transaction();
+        LMDBStore::Cursor::Ptr cursor = store->create_cursor(tx, dbName);
+        bool setResult = cursor->set_at_key(key);
+        EXPECT_TRUE(setResult);
+
+        int64_t batchSize = 50;
+        KeyDupValuesVector keyValues;
+        cursor->read_prev((uint64_t)batchSize, keyValues);
+
+        KeyDupValuesVector expected;
+        for (int64_t count = startKey; count >= 0; count--) {
+            auto key = serialise((std::stringstream() << "Key" << count).str());
+            ValuesVector dup;
+            for (int64_t dupCount = 0; dupCount < numDups; dupCount++) {
+                auto data = serialise((std::stringstream() << "TestData" << dupCount).str());
+                dup.emplace_back(data);
+            }
+            KeyValuesPair pair = { key, dup };
+            expected.emplace_back(pair);
         }
         EXPECT_EQ(keyValues, expected);
     }

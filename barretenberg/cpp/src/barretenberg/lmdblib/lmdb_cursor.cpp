@@ -33,23 +33,21 @@ bool LMDBCursor::set_at_key(Key& key) const
     return lmdb_queries::set_at_key(*this, key);
 }
 
-void LMDBCursor::read_next(uint64_t numKeysToRead, KeyValuesVector& keyValuePairs) const
-{
-    lmdb_queries::read_next(*this, keyValuePairs, numKeysToRead);
-}
-
-void LMDBCursor::read_prev(uint64_t numKeysToRead, KeyValuesVector& keyValuePairs) const
-{
-    lmdb_queries::read_prev(*this, keyValuePairs, numKeysToRead);
-}
-
 void LMDBCursor::read_next(uint64_t numKeysToRead, KeyDupValuesVector& keyValuePairs) const
 {
+    if (_db->duplicate_keys_permitted()) {
+        lmdb_queries::read_next_dup(*this, keyValuePairs, numKeysToRead);
+        return;
+    }
     lmdb_queries::read_next(*this, keyValuePairs, numKeysToRead);
 }
 
 void LMDBCursor::read_prev(uint64_t numKeysToRead, KeyDupValuesVector& keyValuePairs) const
 {
+    if (_db->duplicate_keys_permitted()) {
+        lmdb_queries::read_prev_dup(*this, keyValuePairs, numKeysToRead);
+        return;
+    }
     lmdb_queries::read_prev(*this, keyValuePairs, numKeysToRead);
 }
 

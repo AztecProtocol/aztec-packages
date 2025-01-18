@@ -117,7 +117,7 @@ bool set_at_key(const LMDBCursor& cursor, Key& key)
     return code == MDB_SUCCESS;
 }
 
-void read_next(const LMDBCursor& cursor, KeyValuesVector& keyValues, uint64_t numKeysToRead, MDB_cursor_op op)
+void read_next(const LMDBCursor& cursor, KeyDupValuesVector& keyValues, uint64_t numKeysToRead, MDB_cursor_op op)
 {
     uint64_t numKeysRead = 0;
     MDB_val dbKey;
@@ -129,19 +129,21 @@ void read_next(const LMDBCursor& cursor, KeyValuesVector& keyValues, uint64_t nu
         Key key;
         copy_to_vector(dbVal, value);
         copy_to_vector(dbKey, key);
-        keyValues.emplace_back(std::move(key), std::move(value));
+        ValuesVector values;
+        values.emplace_back(std::move(value));
+        keyValues.emplace_back(std::move(key), std::move(values));
         ++numKeysRead;
         // move to the next key
         code = mdb_cursor_get(cursor.underlying(), &dbKey, &dbVal, op);
     }
 }
 
-void read_next(const LMDBCursor& cursor, KeyDupValuesVector& keyValues, uint64_t numKeysToRead, MDB_cursor_op op)
+void read_next_dup(const LMDBCursor& cursor, KeyDupValuesVector& keyValues, uint64_t numKeysToRead, MDB_cursor_op op)
 {
     uint64_t numKeysRead = 0;
     MDB_val dbKey;
     MDB_val dbVal;
-    DupValue values;
+    ValuesVector values;
 
     // ensure we are positioned at first data item of current key
     int code = mdb_cursor_get(cursor.underlying(), &dbKey, &dbVal, MDB_FIRST_DUP);
@@ -160,20 +162,14 @@ void read_next(const LMDBCursor& cursor, KeyDupValuesVector& keyValues, uint64_t
             // No more values at this key
             ++numKeysRead;
             keyValues.emplace_back(std::move(key), std::move(values));
-            values = DupValue();
+            values = ValuesVector();
             // move to the next key
             code = mdb_cursor_get(cursor.underlying(), &dbKey, &dbVal, op);
+            if (code == MDB_SUCCESS) {
+                code = mdb_cursor_get(cursor.underlying(), &dbKey, &dbVal, MDB_FIRST_DUP);
+            }
         }
     }
-}
-
-void read_next(const LMDBCursor& cursor, KeyValuesVector& keyValues, uint64_t numKeysToRead)
-{
-    read_next(cursor, keyValues, numKeysToRead, MDB_NEXT);
-}
-void read_prev(const LMDBCursor& cursor, KeyValuesVector& keyValues, uint64_t numKeysToRead)
-{
-    read_next(cursor, keyValues, numKeysToRead, MDB_PREV);
 }
 
 void read_next(const LMDBCursor& cursor, KeyDupValuesVector& keyValues, uint64_t numKeysToRead)
@@ -183,5 +179,14 @@ void read_next(const LMDBCursor& cursor, KeyDupValuesVector& keyValues, uint64_t
 void read_prev(const LMDBCursor& cursor, KeyDupValuesVector& keyValues, uint64_t numKeysToRead)
 {
     read_next(cursor, keyValues, numKeysToRead, MDB_PREV);
+}
+
+void read_next_dup(const LMDBCursor& cursor, KeyDupValuesVector& keyValues, uint64_t numKeysToRead)
+{
+    read_next_dup(cursor, keyValues, numKeysToRead, MDB_NEXT_NODUP);
+}
+void read_prev_dup(const LMDBCursor& cursor, KeyDupValuesVector& keyValues, uint64_t numKeysToRead)
+{
+    read_next_dup(cursor, keyValues, numKeysToRead, MDB_PREV_NODUP);
 }
 } // namespace bb::lmdblib::lmdb_queries
