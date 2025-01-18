@@ -19,12 +19,14 @@ impl Deserialize<ASSET_SERIALIZED_LEN> for Asset {
     }
 }
 
-impl Packable<ASSET_SERIALIZED_LEN> for Asset {
-    fn pack(self) -> [Field; ASSET_SERIALIZED_LEN] {
-        self.serialize()
+global ASSET_PACKED_LEN: u32 = 1;
+
+impl Packable<ASSET_PACKED_LEN> for Asset {
+    fn pack(self) -> [Field; ASSET_PACKED_LEN] {
+        self.price.pack()
     }
 
-    fn unpack(fields: [Field; ASSET_SERIALIZED_LEN]) -> Self {
-        Self::deserialize(fields)
+    fn unpack(fields: [Field; ASSET_PACKED_LEN]) -> Self {
+        Self { price: U128::unpack(fields) }
     }
 }
