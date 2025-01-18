@@ -120,10 +120,6 @@ export class TXE implements TypedOracle {
 
   private noteCache: ExecutionNoteCache;
 
-  private simulationProvider = new WASMSimulator();
-
-  private noteCache: ExecutionNoteCache;
-
   debug: LogFn;
 
   constructor(

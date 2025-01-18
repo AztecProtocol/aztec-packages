@@ -180,19 +180,4 @@ describe('BrokerCircuitProverFacade', () => {
 
     await expect(promise).resolves.toEqual({ err: new Error('Broker facade stopped') });
   });
-
-  it('rejects jobs when the facade is stopped', async () => {
-    const inputs = makeBaseParityInputs();
-    const controller = new AbortController();
-
-    const resultPromise = promiseWithResolvers<any>();
-    jest.spyOn(broker, 'enqueueProvingJob');
-    jest.spyOn(prover, 'getBaseParityProof').mockReturnValue(resultPromise.promise);
-
-    const promise = facade.getBaseParityProof(inputs, controller.signal, 42).catch(err => ({ err }));
-
-    await facade.stop();
-
-    await expect(promise).resolves.toEqual({ err: new Error('Broker facade stopped') });
-  });
 });
