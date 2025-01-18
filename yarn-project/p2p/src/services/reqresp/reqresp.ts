@@ -25,7 +25,7 @@ import {
   type SubProtocolMap,
   subProtocolMap,
 } from './interface.js';
-import { RequestResponseRateLimiter } from './rate_limiter/rate_limiter.js';
+import { RequestResponseRateLimiter } from './rate-limiter/rate_limiter.js';
 
 /**
  * The Request Response Service
