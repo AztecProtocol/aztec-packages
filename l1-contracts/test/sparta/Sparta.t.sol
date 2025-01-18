@@ -124,7 +124,8 @@ contract SpartaTest is DecoderBase {
         aztecEpochProofClaimWindowInL2Slots: TestConstants.AZTEC_EPOCH_PROOF_CLAIM_WINDOW_IN_L2_SLOTS,
         minimumStake: TestConstants.AZTEC_MINIMUM_STAKE,
         slashingQuorum: TestConstants.AZTEC_SLASHING_QUORUM,
-        slashingRoundSize: TestConstants.AZTEC_SLASHING_ROUND_SIZE
+        slashingRoundSize: TestConstants.AZTEC_SLASHING_ROUND_SIZE,
+        rollupVersion: TestConstants.ROLLUP_VERSION
       })
     });
     slasher = rollup.SLASHER();
