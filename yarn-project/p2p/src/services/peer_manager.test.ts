@@ -292,6 +292,7 @@ describe('PeerManager', () => {
       // Set the peer scores to trigger different states
       peerManager.penalizePeer(bannedPeerId, PeerErrorSeverity.LowToleranceError); // Will set score below -100
       peerManager.penalizePeer(bannedPeerId, PeerErrorSeverity.LowToleranceError); // Additional penalty to ensure banned state
+      peerManager.penalizePeer(bannedPeerId, PeerErrorSeverity.HighToleranceError);
 
       peerManager.penalizePeer(disconnectPeerId, PeerErrorSeverity.LowToleranceError); // Will set score between -100 and -50
       peerManager.penalizePeer(disconnectPeerId, PeerErrorSeverity.HighToleranceError);
@@ -315,6 +316,7 @@ describe('PeerManager', () => {
         ReqRespSubProtocol.GOODBYE,
         Buffer.from([GoodByeReason.DISCONNECTED]),
       );
+
       // Verify that hangUp was not called for the healthy peer
       expect(mockLibP2PNode.hangUp).not.toHaveBeenCalledWith(healthyPeerId);
 
