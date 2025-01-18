@@ -94,6 +94,7 @@ export const l1ContractsConfigMappings: ConfigMappingsType<L1ContractsConfig> = 
     env: 'AZTEC_GOVERNANCE_PROPOSER_ROUND_SIZE',
     description: 'The governance proposing round size',
     ...numberConfigHelper(DefaultL1ContractsConfig.governanceProposerRoundSize),
+  },
   rollupVersion: {
     env: 'ROLLUP_VERSION',
     description: 'The version of the rollup.',
