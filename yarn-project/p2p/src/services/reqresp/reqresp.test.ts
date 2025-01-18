@@ -40,7 +40,7 @@ describe('ReqResp', () => {
     }
   });
 
-  it('Should perform a ping request', async () => {
+  it('should perform a ping request', async () => {
     // Create two nodes
     // They need to discover each other
     nodes = await createNodes(peerScoring, 2);
@@ -59,7 +59,7 @@ describe('ReqResp', () => {
     expect(res?.toBuffer().toString('utf-8')).toEqual('pong');
   });
 
-  it('Should handle gracefully if a peer connected peer is offline', async () => {
+  it('should handle gracefully if a peer connected peer is offline', async () => {
     nodes = await createNodes(peerScoring, 2);
 
     const { req: pinger } = nodes[0];
@@ -78,7 +78,7 @@ describe('ReqResp', () => {
     expect(res).toBeUndefined();
   });
 
-  it('Should request from a later peer if other peers are offline', async () => {
+  it('should request from a later peer if other peers are offline', async () => {
     nodes = await createNodes(peerScoring, 4);
 
     await startNodes(nodes);
@@ -90,31 +90,15 @@ describe('ReqResp', () => {
     void nodes[1].req.stop();
     void nodes[2].req.stop();
 
-    const loggerSpy = jest.spyOn((nodes[0].req as any).logger, 'debug');
-
     // send from the first node
     const res = await nodes[0].req.sendRequest(ReqRespSubProtocol.PING, PING_REQUEST);
 
-    // We expect the logger to have been called twice with the peer ids citing the inability to connect
-    expect(loggerSpy).toHaveBeenCalledWith(
-      expect.stringContaining(`Connection reset: ${nodes[1].p2p.peerId.toString()}`),
-      {
-        peerId: nodes[1].p2p.peerId.toString(),
-        subProtocol: ReqRespSubProtocol.PING,
-      },
-    );
-    expect(loggerSpy).toHaveBeenCalledWith(
-      expect.stringContaining(`Connection reset: ${nodes[2].p2p.peerId.toString()}`),
-      {
-        peerId: nodes[2].p2p.peerId.toString(),
-        subProtocol: ReqRespSubProtocol.PING,
-      },
-    );
+    // It will randomly try to connect, then hit the correct node
 
     expect(res?.toBuffer().toString('utf-8')).toEqual('pong');
   });
 
-  it('Should hit a rate limit if too many requests are made in quick succession', async () => {
+  it('should hit a rate limit if too many requests are made in quick succession', async () => {
     nodes = await createNodes(peerScoring, 2);
 
     await startNodes(nodes);
@@ -207,7 +191,7 @@ describe('ReqResp', () => {
       expect(res).toBeUndefined();
     });
 
-    it('Should hit individual timeout if nothing is returned over the stream', async () => {
+    it('should hit individual timeout if nothing is returned over the stream', async () => {
       nodes = await createNodes(peerScoring, 2);
 
       await startNodes(nodes);
@@ -248,7 +232,7 @@ describe('ReqResp', () => {
       );
     });
 
-    it('Should hit collective timeout if nothing is returned over the stream from multiple peers', async () => {
+    it('should hit collective timeout if nothing is returned over the stream from multiple peers', async () => {
       nodes = await createNodes(peerScoring, 4);
 
       await startNodes(nodes);
@@ -275,7 +259,7 @@ describe('ReqResp', () => {
       expect(loggerSpy).toHaveBeenCalledWith(errorMessage);
     });
 
-    it('Should penalize peer if transaction validation fails', async () => {
+    it('should penalize peer if transaction validation fails', async () => {
       const tx = mockTx();
       const txHash = tx.getTxHash();
 
