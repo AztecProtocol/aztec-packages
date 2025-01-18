@@ -72,6 +72,25 @@ export class ConnectionSampler {
     return peers[randomIndex];
   }
 
+  /**
+   * Samples a batch of peers from the libp2p node
+   *
+   * @param maxPeers - The maximum number of peers to sample
+   * @returns The sampled peers
+   */
+  samplePeersBatch(maxPeers: number): PeerId[] {
+    const peers = [];
+    for (let i = 0; i < maxPeers; i++) {
+      const peer = this.getPeer();
+      // Can be undefined if we have no peers
+      if (peer) {
+        peers.push(peer);
+      }
+    }
+    this.logger.trace(`Batch sampled ${peers.length} peers`, { peers });
+    return peers;
+  }
+
   // Set of passthrough functions to keep track of active connections
 
   /**
