@@ -19,7 +19,7 @@ import {
 import { type ContractDataSource, EthAddress } from '@aztec/circuits.js';
 import { type EpochCache } from '@aztec/epoch-cache';
 import { times } from '@aztec/foundation/collection';
-import { Signature } from '@aztec/foundation/eth-signature';
+import { Secp256k1Signer } from '@aztec/foundation/crypto';
 import { makeBackoff, retry } from '@aztec/foundation/retry';
 import { sleep } from '@aztec/foundation/sleep';
 import { openTmpStore } from '@aztec/kv-store/lmdb';
@@ -52,6 +52,7 @@ describe('prover-node', () => {
   let mockCoordination: MockProxy<ProverCoordination>;
   let quoteProvider: MockProxy<QuoteProvider>;
   let quoteSigner: MockProxy<QuoteSigner>;
+  let epochProofQuoteHasher: EpochProofQuoteHasher;
   let bondManager: MockProxy<BondManager>;
   let config: ProverNodeOptions;
 
@@ -117,6 +118,9 @@ describe('prover-node', () => {
     quoteSigner = mock<QuoteSigner>();
     bondManager = mock<BondManager>();
 
+    epochProofQuoteHasher = new EpochProofQuoteHasher(EthAddress.random(), /*version=*/ 1, /*chainId=*/ 1);
+    const signer = Secp256k1Signer.random();
+
     config = {
       maxPendingJobs: 3,
       pollingIntervalMs: 10,
@@ -134,15 +138,15 @@ describe('prover-node', () => {
     });
 
     // Publisher returns its sender address
-    address = EthAddress.random();
+    address = signer.address;
     publisher.getSenderAddress.mockReturnValue(address);
 
     // Quote provider returns a mock
     partialQuote = { basisPointFee: 100, bondAmount: 0n, validUntilSlot: 30n };
     quoteProvider.getQuote.mockResolvedValue(partialQuote);
 
-    // Signer returns an empty signature
-    quoteSigner.sign.mockImplementation(payload => new EpochProofQuote(payload, Signature.empty()));
+    // Signer return the signature of quoteSigner
+    quoteSigner.sign.mockImplementation(payload => EpochProofQuote.new(epochProofQuoteHasher, payload, signer));
 
     // We create 3 fake blocks with 1 tx effect each
     blocks = times(3, i => L2Block.random(i + 20, 1));
@@ -374,7 +378,6 @@ describe('prover-node', () => {
         epochProofQuotePool: new MemoryEpochProofQuotePool(),
       };
       epochCache = mock<EpochCache>();
-      const epochProofQuoteHasher = new EpochProofQuoteHasher(EthAddress.random(), /*version=*/ 1, /*chainId=*/ 1);
       const libp2pService = await createTestLibP2PService(
         P2PClientType.Prover,
         [bootnodeAddr],
