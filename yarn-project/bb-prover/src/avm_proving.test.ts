@@ -5,7 +5,6 @@ import {
   MAX_PUBLIC_CALLS_TO_UNIQUE_CONTRACT_CLASS_IDS,
   MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
   MAX_UNENCRYPTED_LOGS_PER_TX,
-  VerificationKeyData,
 } from '@aztec/circuits.js';
 import { Fr } from '@aztec/foundation/fields';
 import { createLogger } from '@aztec/foundation/log';
@@ -18,15 +17,8 @@ import fs from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'path';
 
-import {
-  type BBSuccess,
-  BB_RESULT,
-  generateAvmProof,
-  generateAvmProofV2,
-  verifyAvmProof,
-  verifyAvmProofV2,
-} from './bb/execute.js';
-import { extractAvmVkData } from './verification_key/verification_key_data.js';
+import { proveAndVerifyAvmTestContract, proveAndVerifyAvmTestContractSimple } from './avm_proving_test_helpers.js';
+import { type BBSuccess, BB_RESULT, generateAvmProofV2, verifyAvmProofV2 } from './bb/execute.js';
 
 const TIMEOUT = 300_000;
 
@@ -150,116 +142,6 @@ describe('AVM WitGen, "check circuit" tests', () => {
     TIMEOUT,
   );
   it(
-    'top-level exceptional halts in both app logic and teardown',
-    async () => {
-      await proveAndVerifyAvmTestContract(
-        /*checkCircuitOnly=*/ true,
-        /*setupFunctionNames=*/ [],
-        /*setupArgs=*/ [],
-        /*appFunctionNames=*/ ['divide_by_zero'],
-        /*appArgs=*/ [[]],
-        /*teardownFunctionName=*/ 'divide_by_zero',
-        /*teardownArgs=*/ [],
-        /*expectRevert=*/ true,
-      );
-    },
-    TIMEOUT,
-  );
-  it(
-    'top-level exceptional halt in app logic, but teardown succeeds',
-    async () => {
-      await proveAndVerifyAvmTestContract(
-        /*checkCircuitOnly=*/ true,
-        /*setupFunctionNames=*/ [],
-        /*setupArgs=*/ [],
-        /*appFunctionNames=*/ ['divide_by_zero'],
-        /*appArgs=*/ [[]],
-        /*teardownFunctionName=*/ 'add_args_return',
-        /*teardownArgs=*/ [new Fr(1), new Fr(2)],
-        /*expectRevert=*/ true,
-      );
-    },
-    TIMEOUT,
-  );
-  it(
-    'top-level exceptional halt in teardown, but app logic succeeds',
-    async () => {
-      await proveAndVerifyAvmTestContract(
-        /*checkCircuitOnly=*/ true,
-        /*setupFunctionNames=*/ [],
-        /*setupArgs=*/ [],
-        /*appFunctionNames=*/ ['add_args_return'],
-        /*appArgs=*/ [[new Fr(1), new Fr(2)]],
-        /*teardownFunctionName=*/ 'divide_by_zero',
-        /*teardownArgs=*/ [],
-        /*expectRevert=*/ true,
-      );
-    },
-    TIMEOUT,
-  );
-  it(
-    'a nested exceptional halt propagate to top-level',
-    async () => {
-      await proveAndVerifyAvmTestContractSimple(
-        /*checkCircuitOnly=*/ true, // quick
-        'external_call_to_divide_by_zero',
-        /*args=*/ [],
-        /*expectRevert=*/ true,
-      );
-    },
-    TIMEOUT,
-  );
-  it(
-    'a nested exceptional halt is recovered from in caller',
-    async () => {
-      await proveAndVerifyAvmTestContractSimple(
-        /*checkCircuitOnly=*/ true, // quick
-        'external_call_to_divide_by_zero_recovers',
-        /*args=*/ [],
-        /*expectRevert=*/ false,
-      );
-    },
-    TIMEOUT,
-  );
-  it(
-    'an exceptional halt due to a nested call to non-existent contract is propagated to top-level',
-    async () => {
-      await proveAndVerifyAvmTestContractSimple(
-        /*checkCircuitOnly=*/ true, // quick
-        'nested_call_to_nothing',
-        /*args=*/ [],
-        /*expectRevert=*/ true,
-      );
-    },
-    TIMEOUT,
-  );
-  it(
-    'an exceptional halt due to a nested call to non-existent contract is recovered from in caller',
-    async () => {
-      await proveAndVerifyAvmTestContractSimple(
-        /*checkCircuitOnly=*/ true, // quick
-        'nested_call_to_nothing_recovers',
-        /*args=*/ [],
-        /*expectRevert=*/ false,
-      );
-    },
-    TIMEOUT,
-  );
-  // FIXME(dbanks12): fails with "Lookup PERM_MAIN_ALU failed."
-  it.skip('a top-level exceptional halts due to a non-existent contract in app-logic and teardown', async () => {
-    await proveAndVerifyAvmTestContract(
-      /*checkCircuitOnly=*/ true,
-      /*setupFunctionNames=*/ [],
-      /*setupArgs=*/ [],
-      /*appFunctionNames=*/ ['add_args_return'],
-      /*appArgs=*/ [[new Fr(1), new Fr(2)]],
-      /*teardownFunctionName=*/ 'add_args_return',
-      /*teardownArgs=*/ [new Fr(1), new Fr(2)],
-      /*expectRevert=*/ true,
-      /*skipContractDeployments=*/ true,
-    );
-  });
-  it(
     'enqueued calls in every phase, with enqueued calls that depend on each other',
     async () => {
       await proveAndVerifyAvmTestContract(
@@ -291,84 +173,6 @@ describe('AVM WitGen, "check circuit" tests', () => {
     TIMEOUT,
   );
 });
-
-/**
- * Simulate, prove and verify just a single App Logic enqueued call.
- */
-async function proveAndVerifyAvmTestContractSimple(
-  checkCircuitOnly: boolean,
-  functionName: string,
-  args: Fr[] = [],
-  expectRevert = false,
-  skipContractDeployments = false,
-  contractDataSource = new MockedAvmTestContractDataSource(skipContractDeployments),
-) {
-  await proveAndVerifyAvmTestContract(
-    checkCircuitOnly,
-    /*setupFunctionNames=*/ [],
-    /*setupArgs=*/ [],
-    /*appFunctionNames=*/ [functionName],
-    /*appArgs=*/ [args],
-    /*teardownFunctionName=*/ undefined,
-    /*teardownArgs=*/ [],
-    expectRevert,
-    skipContractDeployments,
-    contractDataSource,
-  );
-}
-
-/**
- * Simulate, prove and verify setup calls, app logic calls and optionally a teardown call in one TX.
- */
-async function proveAndVerifyAvmTestContract(
-  checkCircuitOnly: boolean,
-  setupFunctionNames: string[],
-  setupArgs: Fr[][],
-  appFunctionNames: string[],
-  appArgs: Fr[][] = [],
-  teardownFunctionName?: string,
-  teardownArgs: Fr[] = [],
-  expectRevert = false,
-  skipContractDeployments = false,
-  contractDataSource = new MockedAvmTestContractDataSource(skipContractDeployments),
-) {
-  const avmCircuitInputs = await simulateAvmTestContractGenerateCircuitInputs(
-    setupFunctionNames,
-    setupArgs,
-    appFunctionNames,
-    appArgs,
-    teardownFunctionName,
-    teardownArgs,
-    expectRevert,
-    contractDataSource,
-  );
-
-  const logger = createLogger('bb-prover:avm-proving-test');
-
-  // The paths for the barretenberg binary and the write path are hardcoded for now.
-  const bbPath = path.resolve('../../barretenberg/cpp/build/bin/bb');
-  const bbWorkingDirectory = await fs.mkdtemp(path.join(tmpdir(), 'bb-'));
-
-  // Then we prove.
-  const proofRes = await generateAvmProof(bbPath, bbWorkingDirectory, avmCircuitInputs, logger, checkCircuitOnly);
-  if (proofRes.status === BB_RESULT.FAILURE) {
-    logger.error(`Proof generation failed: ${proofRes.reason}`);
-  }
-  expect(proofRes.status).toEqual(BB_RESULT.SUCCESS);
-
-  // There is no proof to verify if we only check circuit.
-  if (!checkCircuitOnly) {
-    // Then we test VK extraction and serialization.
-    const succeededRes = proofRes as BBSuccess;
-    const vkData = await extractAvmVkData(succeededRes.vkPath!);
-    VerificationKeyData.fromBuffer(vkData.toBuffer());
-
-    // Then we verify.
-    const rawVkPath = path.join(succeededRes.vkPath!, 'vk');
-    const verificationRes = await verifyAvmProof(bbPath, succeededRes.proofPath!, rawVkPath, logger);
-    expect(verificationRes.status).toBe(BB_RESULT.SUCCESS);
-  }
-}
 
 describe('AVM WitGen, proof generation and verification', () => {
   it('bulk_testing v2', async () => {

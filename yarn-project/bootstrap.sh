@@ -42,6 +42,7 @@ function build {
       fi
   esac
 
+
   denoise 'cd end-to-end && yarn build:web'
 
   # Upload common patterns for artifacts: dest, fixtures, build, artifacts, generated
@@ -69,12 +70,12 @@ function test_cmds {
 
   # Exclusions:
   # end-to-end: e2e tests handled separately with end-to-end/bootstrap.sh.
-  # kv-store: Uses mocha so will need different treatment.
-  # bb-prover: Excluded as per package.json.
-  # bb-client: Excluded as per package.json.
+  # kv-store: Uses mocha so will need different treatment. WORKTODO(adam)
   # prover-node: Isolated using docker above.
   # p2p: Isolated using docker above.
-  for test in !(end-to-end|kv-store|bb-prover|prover-client|prover-node|p2p)/src/**/*.test.ts; do
+  # WORKTODO(adam) I reenabled bb-prover and prover-client as we have tested these in the past.
+  # WORKTODO(adam) if we don't want these has to be conscious decision
+  for test in !(end-to-end|kv-store|prover-node|p2p)/src/**/*.test.ts; do
     echo $hash yarn-project/scripts/run_test.sh $test
   done
 

@@ -153,7 +153,6 @@ function build {
 function test_cmds {
   local -A cache
   i=0
-  echo "$circuits_hash $NARGO fmt --check"
   $NARGO test --list-tests --silence-warnings | sort | while read -r package test; do
     port=$((45730 + (i++ % ${NUM_TXES:-1})))
     [ -z "${cache[$package]:-}" ] && cache[$package]=$(get_contract_hash $package)

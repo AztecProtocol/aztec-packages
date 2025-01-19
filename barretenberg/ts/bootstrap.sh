@@ -11,7 +11,7 @@ function build {
 
   if ! cache_download bb.js-$hash.tar.gz; then
     find . -exec touch -d "@0" {} + 2>/dev/null || true
-    denoise "yarn build"
+    denoise "yarn formatting && yarn build"
     cache_upload bb.js-$hash.tar.gz dest
   fi
 
@@ -32,7 +32,6 @@ function test_cmds {
   for test in **/*.test.js; do
     echo "$hash barretenberg/ts/scripts/run_test.sh $test"
   done
-  echo "$hash barretenberg/ts/bootstrap.sh format --check"
 }
 
 # # WORKTODO(adam) remove once publish-aztec-packages is refactored
@@ -73,12 +72,7 @@ case "$cmd" in
     test_cmds
     ;;
   "format")
-    shift 1
-    if [ "${1-:}" = "--check" ]; then
-      yarn formatting
-    else
-      yarn formatting:fix
-    fi
+    yarn formatting:fix
     ;;
   "hash")
     echo "$hash"

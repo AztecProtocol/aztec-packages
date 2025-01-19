@@ -147,7 +147,6 @@ ci-noir-bb:
 ci-rest:
   FROM +bootstrap
   WAIT
-    BUILD +avm-transpiler-with-cache
     # internally uses cache:
     BUILD +l1-contracts-with-cache
     BUILD +noir-projects-with-cache
@@ -186,64 +185,6 @@ ci:
 ########################################################################################################################
 # Build helpers
 ########################################################################################################################
-docs-with-cache:
-  FROM +bootstrap
-  ENV CI=1
-  ENV USE_CACHE=1
-  LET artifact=docs-ci-deploy-$(./docs/bootstrap.sh hash)
-  IF ci3/test_should_run $artifact
-    WAIT
-      BUILD --pass-args ./docs/+deploy-preview
-    END
-    RUN ci3/cache_upload_flag $artifact
-  END
-prover-client-with-cache:
-  FROM +bootstrap
-  ENV CI=1
-  ENV USE_CACHE=1
-  LET artifact=prover-client-test-$(./yarn-project/bootstrap.sh hash)
-  IF ci3/test_should_run $artifact
-    WAIT
-      BUILD ./yarn-project/+prover-client-test
-    END
-    RUN ci3/cache_upload_flag $artifact
-  END
-avm-transpiler-with-cache:
-  FROM +bootstrap
-  ENV CI=1
-  ENV USE_CACHE=1
-  LET artifact=avm-transpiler-ci-$(./avm-transpiler/bootstrap.sh hash)
-  IF ci3/test_should_run $artifact
-    WAIT
-      BUILD ./avm-transpiler/+format
-    END
-    RUN ci3/cache_upload_flag $artifact
-  END
-l1-contracts-with-cache:
-  FROM +bootstrap
-  ENV CI=1
-  ENV USE_CACHE=1
-  LET artifact=l1-contracts-test-$(./l1-contracts/bootstrap.sh hash)
-  IF ci3/test_should_run $artifact
-    WAIT
-      BUILD ./l1-contracts/+test
-    END
-    RUN ci3/cache_upload_flag $artifact
-  END
-# uses flag cache
-noir-projects-with-cache:
-  FROM +bootstrap
-  ENV CI=1
-  ENV USE_CACHE=1
-  LET artifact=noir-projects-ci-tests-$(./noir-projects/bootstrap.sh hash)
-  IF ci3/test_should_run $artifact
-    # could be changed to bootstrap once txe solution found
-    WAIT
-      BUILD ./noir-projects/+format
-      BUILD ./noir-projects/+test
-    END
-    RUN ci3/cache_upload_flag $artifact
-  END
 
 rollup-verifier-contract-with-cache:
   FROM +bootstrap

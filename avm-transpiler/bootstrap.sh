@@ -18,18 +18,8 @@ function build {
     denoise "cargo build --release"
     denoise "cargo fmt --check"
     denoise "cargo clippy"
-    cache_upload $artifact target/release
+    cache_upload $artifact target/release/avm-transpiler
   fi
-}
-
-function test_cmds {
-  echo "$hash cd avm-transpiler && cargo fmt --check"
-  echo "$hash cd avm-transpiler && cargo clippy"
-}
-
-function test {
-  echo_header "avm-transpiler test"
-  test_cmds | filter_test_cmds | parallelise
 }
 
 case "$cmd" in
@@ -40,10 +30,7 @@ case "$cmd" in
     build
     ;;
   "test")
-    test
-    ;;
-  "test-cmds")
-    test_cmds
+    echo "No tests."
     ;;
   "hash")
     echo $hash
