@@ -1,4 +1,5 @@
 import { createLogger } from '@aztec/foundation/log';
+import { SerialQueue } from '@aztec/foundation/queue';
 import { RunningPromise } from '@aztec/foundation/running-promise';
 
 import { type Libp2p, type PeerId, type Stream } from '@libp2p/interface';
@@ -30,15 +31,18 @@ export class ConnectionSampler {
   private readonly activeConnectionsCount: Map<PeerId, number> = new Map();
   private readonly streams: Map<string, StreamAndPeerId> = new Map();
 
+  // Serial queue to ensure that we only dial one peer at a time
+  private dialQueue: SerialQueue = new SerialQueue();
+
   constructor(
     private readonly libp2p: Libp2p,
     private readonly cleanupIntervalMs: number = 60000, // Default to 1 minute
-
-    // Random sampler provided so that it can be mocked
-    private readonly sampler: RandomSampler = new RandomSampler(),
+    private readonly sampler: RandomSampler = new RandomSampler(), // Allow randomness to be mocked for testing
   ) {
     this.cleanupJob = new RunningPromise(() => this.cleanupStaleConnections(), this.logger, this.cleanupIntervalMs);
     this.cleanupJob.start();
+
+    this.dialQueue.start();
   }
 
   /**
@@ -46,18 +50,18 @@ export class ConnectionSampler {
    */
   async stop() {
     await this.cleanupJob?.stop();
+    await this.dialQueue.end();
 
     // Close all active streams
     const closePromises = Array.from(this.streams.keys()).map(streamId => this.close(streamId));
-
     await Promise.all(closePromises);
   }
 
   getPeer(): PeerId {
     const peers = this.libp2p.getPeers();
-
     let randomIndex = this.sampler.random(peers.length);
     let attempts = 0;
+
     // If the active connections count is greater than 0, then we already have a connection open
     // So we try to sample a different peer, but only MAX_SAMPLE_ATTEMPTS times
     while ((this.activeConnectionsCount.get(peers[randomIndex]) ?? 0) > 0 && attempts < MAX_SAMPLE_ATTEMPTS) {
@@ -73,22 +77,41 @@ export class ConnectionSampler {
   }
 
   /**
-   * Samples a batch of peers from the libp2p node
+   * Samples a batch of unique peers from the libp2p node, prioritizing peers without active connections
    *
-   * @param maxPeers - The maximum number of peers to sample
-   * @returns The sampled peers
+   * @param numberToSample - The number of peers to sample
+   * @returns Array of unique sampled peers, prioritizing those without active connections
    */
-  samplePeersBatch(maxPeers: number): PeerId[] {
-    const peers = [];
-    for (let i = 0; i < maxPeers; i++) {
-      const peer = this.getPeer();
-      // Can be undefined if we have no peers
-      if (peer) {
-        peers.push(peer);
+  samplePeersBatch(numberToSample: number): PeerId[] {
+    const peers = this.libp2p.getPeers();
+    const sampledPeers: PeerId[] = [];
+    const peersWithConnections: PeerId[] = []; // Hold onto peers with active connections incase we need to sample more
+
+    for (const peer of peers) {
+      const activeConnections = this.activeConnectionsCount.get(peer) ?? 0;
+      if (activeConnections === 0) {
+        if (sampledPeers.push(peer) === numberToSample) {
+          return sampledPeers;
+        }
+      } else {
+        peersWithConnections.push(peer);
       }
     }
-    this.logger.trace(`Batch sampled ${peers.length} peers`, { peers });
-    return peers;
+
+    // If we still need more peers, sample from those with connections
+    while (sampledPeers.length < numberToSample && peersWithConnections.length > 0) {
+      const randomIndex = this.sampler.random(peersWithConnections.length);
+      const [peer] = peersWithConnections.splice(randomIndex, 1);
+      sampledPeers.push(peer);
+    }
+
+    this.logger.trace(`Batch sampled ${sampledPeers.length} unique peers`, {
+      peers: sampledPeers,
+      withoutConnections: sampledPeers.length - peersWithConnections.length,
+      withConnections: peersWithConnections.length,
+    });
+
+    return sampledPeers;
   }
 
   // Set of passthrough functions to keep track of active connections
@@ -101,9 +124,11 @@ export class ConnectionSampler {
    * @returns The stream
    */
   async dialProtocol(peerId: PeerId, protocol: string): Promise<Stream> {
-    const stream = await this.libp2p.dialProtocol(peerId, protocol);
-    this.streams.set(stream.id, { stream, peerId });
+    // Dialling at the same time can cause race conditions where two different streams
+    // end up with the same id, hence a serial queue
+    const stream = await this.dialQueue.put(() => this.libp2p.dialProtocol(peerId, protocol));
 
+    this.streams.set(stream.id, { stream, peerId });
     const updatedActiveConnectionsCount = (this.activeConnectionsCount.get(peerId) ?? 0) + 1;
     this.activeConnectionsCount.set(peerId, updatedActiveConnectionsCount);
 

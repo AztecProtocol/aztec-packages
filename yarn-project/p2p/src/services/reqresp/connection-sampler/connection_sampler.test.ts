@@ -167,4 +167,95 @@ describe('ConnectionSampler', () => {
       expect((sampler as any).streams.size).toBe(0);
     });
   });
+
+  describe('samplePeersBatch', () => {
+    beforeEach(async () => {
+      // Create test peers
+      peers = await Promise.all(new Array(5).fill(0).map(() => createSecp256k1PeerId()));
+
+      // Mock libp2p
+      mockLibp2p = {
+        getPeers: jest.fn().mockReturnValue(peers),
+        dialProtocol: jest.fn(),
+      };
+
+      mockRandomSampler = mock<RandomSampler>();
+      sampler = new ConnectionSampler(mockLibp2p, 1000, mockRandomSampler);
+    });
+
+    it('prioritizes peers without active connections', () => {
+      // Set up some peers with active connections
+      sampler['activeConnectionsCount'].set(peers[3], 1);
+      sampler['activeConnectionsCount'].set(peers[4], 2);
+
+      // Sample 3 peers
+      const sampledPeers = sampler.samplePeersBatch(3);
+
+      // Should get peers[0,1,2] first as they have no connections
+      expect(sampledPeers).toHaveLength(3);
+      expect(sampledPeers).toContain(peers[0]);
+      expect(sampledPeers).toContain(peers[1]);
+      expect(sampledPeers).toContain(peers[2]);
+      // Should not include peers with active connections when enough peers without connections exist
+      expect(sampledPeers).not.toContain(peers[3]);
+      expect(sampledPeers).not.toContain(peers[4]);
+    });
+
+    it('falls back to peers with connections when needed', () => {
+      // Set up most peers with active connections
+      sampler['activeConnectionsCount'].set(peers[1], 1);
+      sampler['activeConnectionsCount'].set(peers[2], 1);
+      sampler['activeConnectionsCount'].set(peers[3], 1);
+      sampler['activeConnectionsCount'].set(peers[4], 1);
+
+      mockRandomSampler.random.mockReturnValue(0); // Always pick first available peer
+
+      const sampledPeers = sampler.samplePeersBatch(3);
+
+      // Should get peers[0] first (no connections), then some with connections
+      expect(sampledPeers).toHaveLength(3);
+      expect(sampledPeers[0]).toBe(peers[0]); // The only peer without connections
+      expect(sampledPeers.slice(1)).toEqual(expect.arrayContaining([peers[1]])); // Should include some peers with connections
+    });
+
+    it('handles case when all peers have active connections', () => {
+      // Set up all peers with active connections
+      peers.forEach(peer => sampler['activeConnectionsCount'].set(peer, 1));
+
+      mockRandomSampler.random.mockReturnValue(0); // Always pick first available peer
+
+      const sampledPeers = sampler.samplePeersBatch(3);
+
+      expect(sampledPeers).toHaveLength(3);
+      expect(sampledPeers).toEqual(expect.arrayContaining([peers[0], peers[1], peers[2]]));
+    });
+
+    it('handles case when fewer peers available than requested', () => {
+      // Mock libp2p to return fewer peers
+      const fewPeers = peers.slice(0, 2);
+      mockLibp2p.getPeers.mockReturnValue(fewPeers);
+
+      const sampledPeers = sampler.samplePeersBatch(5);
+
+      expect(sampledPeers).toHaveLength(2); // Should only return available peers
+      expect(sampledPeers).toEqual(expect.arrayContaining(fewPeers));
+    });
+
+    it('handles case when no peers available', () => {
+      mockLibp2p.getPeers.mockReturnValue([]);
+
+      const sampledPeers = sampler.samplePeersBatch(3);
+
+      expect(sampledPeers).toHaveLength(0);
+    });
+
+    it('returns exactly the number of peers requested when available', () => {
+      const sampledPeers = sampler.samplePeersBatch(3);
+
+      expect(sampledPeers).toHaveLength(3);
+      // Verify all peers are unique
+      const uniquePeers = new Set(sampledPeers);
+      expect(uniquePeers.size).toBe(3);
+    });
+  });
 });

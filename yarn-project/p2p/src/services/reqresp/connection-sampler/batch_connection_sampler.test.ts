@@ -1,10 +1,9 @@
 import { describe, expect, it, jest } from '@jest/globals';
 import { createSecp256k1PeerId } from '@libp2p/peer-id-factory';
-import { Libp2p } from 'libp2p';
+import { type Libp2p } from 'libp2p';
 
 import { BatchConnectionSampler } from './batch_connection_sampler.js';
-import { ConnectionSampler } from './connection_sampler.js';
-import { RandomSampler } from './connection_sampler.js';
+import { ConnectionSampler, type RandomSampler } from './connection_sampler.js';
 
 describe('BatchConnectionSampler', () => {
   const mockRandomSampler = {
@@ -34,7 +33,7 @@ describe('BatchConnectionSampler', () => {
     await connectionSampler.stop();
   });
 
-  it('initializes with correct number of peers and request distribution', async () => {
+  it('initializes with correct number of peers and request distribution', () => {
     // Mock random to return sequential indices
     mockRandomSampler.random.mockImplementation(_ => 0);
 
@@ -42,10 +41,9 @@ describe('BatchConnectionSampler', () => {
 
     expect(sampler.activePeerCount).toBe(3);
     expect(sampler.requestsPerBucket).toBe(3); // floor(10/3) = 3
-    expect(mockRandomSampler.random).toHaveBeenCalledTimes(3);
   });
 
-  it('assigns requests to peers deterministically with wraparound', async () => {
+  it('assigns requests to peers deterministically with wraparound', () => {
     // Mock to return first two peers
     let callCount = 0;
     mockRandomSampler.random.mockImplementation(() => callCount++ % 2);
@@ -67,10 +65,8 @@ describe('BatchConnectionSampler', () => {
     expect(assignments[3]).toBe(peers[1]);
   });
 
-  it('handles peer removal and replacement', async () => {
-    let callCount = 0;
-    mockRandomSampler.random.mockImplementation(max => {
-      if (callCount < 2) return callCount++; // Return 0, then 1 for initial peers
+  it('handles peer removal and replacement', () => {
+    mockRandomSampler.random.mockImplementation(_ => {
       return 2; // Return index 2 for replacement peer
     });
 
@@ -97,10 +93,12 @@ describe('BatchConnectionSampler', () => {
     expect(sampler.getPeerForRequest(3)).toBe(peers[1]);
   });
 
-  it('distributes requests according to documentation example', async () => {
+  it('distributes requests according to documentation example', () => {
     let callCount = 0;
     mockRandomSampler.random.mockImplementation(() => {
-      if (callCount < 3) return callCount++;
+      if (callCount < 3) {
+        return callCount++;
+      }
       return 0;
     });
 
@@ -129,7 +127,19 @@ describe('BatchConnectionSampler', () => {
     expect(sampler.getPeerForRequest(8)).toBe(peers[2]);
   });
 
-  it('handles edge cases', async () => {
+  it('same number of requests per peers', () => {
+    let callCount = 0;
+    mockRandomSampler.random.mockImplementation(() => callCount++ % 2);
+
+    const sampler = new BatchConnectionSampler(connectionSampler, /* batchSize */ 2, /* maxPeers */ 2);
+    expect(sampler.requestsPerBucket).toBe(1);
+    expect(sampler.activePeerCount).toBe(2);
+
+    expect(sampler.getPeerForRequest(0)).toBe(peers[0]);
+    expect(sampler.getPeerForRequest(1)).toBe(peers[1]);
+  });
+
+  it('handles edge cases, 0 peers, smaller batch than max peers', () => {
     mockRandomSampler.random.mockImplementation(() => 0);
     libp2p.getPeers.mockReturnValue([]);
 

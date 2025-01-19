@@ -2,7 +2,7 @@ import { createLogger } from '@aztec/foundation/log';
 
 import { type PeerId } from '@libp2p/interface';
 
-import { ConnectionSampler } from './connection_sampler.js';
+import { type ConnectionSampler } from './connection_sampler.js';
 
 /**
  * Manages batches of peers for parallel request processing.
@@ -22,11 +22,14 @@ export class BatchConnectionSampler {
   private readonly batch: PeerId[] = [];
   private readonly requestsPerPeer: number;
 
-  constructor(
-    private readonly connectionSampler: ConnectionSampler,
-    private readonly batchSize: number,
-    private readonly maxPeers: number,
-  ) {
+  constructor(private readonly connectionSampler: ConnectionSampler, batchSize: number, maxPeers: number) {
+    if (maxPeers <= 0) {
+      throw new Error('Max peers cannot be 0');
+    }
+    if (batchSize <= 0) {
+      throw new Error('Batch size cannot be 0');
+    }
+
     // Calculate how many requests each peer should handle, cannot be 0
     this.requestsPerPeer = Math.max(1, Math.floor(batchSize / maxPeers));
 
@@ -41,7 +44,9 @@ export class BatchConnectionSampler {
    * @returns The peer assigned to handle this request
    */
   getPeerForRequest(index: number): PeerId | undefined {
-    if (this.batch.length === 0) return undefined;
+    if (this.batch.length === 0) {
+      return undefined;
+    }
 
     // Calculate which peer bucket this index belongs to
     const peerIndex = Math.floor(index / this.requestsPerPeer) % this.batch.length;
@@ -56,26 +61,17 @@ export class BatchConnectionSampler {
    */
   removePeerAndReplace(peerId: PeerId): void {
     const index = this.batch.findIndex(p => p === peerId);
-    if (index !== -1) {
-      const newPeer = this.addReplacement();
-      if (newPeer) {
-        this.batch[index] = newPeer;
-        this.logger.trace(`Replaced peer ${peerId} with ${newPeer}`, { peerId, newPeer });
-      } else {
-        // If we couldn't get a replacement, remove the peer and compact the array
-        this.batch.splice(index, 1);
-        this.logger.trace(`Removed peer ${peerId}`, { peerId });
-      }
-    }
-  }
+    if (index === -1) return;
 
-  /**
-   * Adds a new peer
-   *
-   * @returns The new peer if successful, undefined otherwise
-   */
-  private addReplacement(): PeerId | undefined {
-    return this.connectionSampler.getPeer();
+    const newPeer = this.connectionSampler.getPeer();
+    if (newPeer) {
+      this.batch[index] = newPeer;
+      this.logger.trace(`Replaced peer ${peerId} with ${newPeer}`, { peerId, newPeer });
+    } else {
+      // If we couldn't get a replacement, remove the peer and compact the array
+      this.batch.splice(index, 1);
+      this.logger.trace(`Removed peer ${peerId}`, { peerId });
+    }
   }
 
   /**
