@@ -444,9 +444,9 @@ export class P2PClient<T extends P2PClientType = P2PClientType.Full>
    * @param txHashes - The hashes of the transactions to request.
    * @returns A promise that resolves to an array of transactions or undefined.
    */
-  public requestTxs(txHashes: TxHash[]): Promise<(Tx | undefined)[]> {
-    const requestPromises = txHashes.map(txHash => this.requestTxByHash(txHash));
-    return Promise.all(requestPromises);
+  public async requestTxs(txHashes: TxHash[]): Promise<(Tx | undefined)[]> {
+    const res = await this.p2pService.sendBatchRequest(ReqRespSubProtocol.TX, txHashes);
+    return Promise.resolve(res ?? []);
   }
 
   /**
