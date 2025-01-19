@@ -1,5 +1,6 @@
 import { type Fr } from '@aztec/foundation/fields';
 import { type Logger } from '@aztec/foundation/log';
+import { RollupAbi } from '@aztec/l1-artifacts';
 
 import {
   type Abi,
@@ -9,6 +10,7 @@ import {
   type DecodeEventLogReturnType,
   type Hex,
   type Log,
+  decodeErrorResult,
   decodeEventLog,
 } from 'viem';
 
@@ -80,7 +82,43 @@ export function prettyLogViemErrorMsg(err: any) {
   return err?.message ?? err;
 }
 
-export function formatViemError(error: any): string {
+/**
+ * Formats a Viem error into a human-readable string.
+ * @param error - The error to format.
+ * @param abi - The ABI to use for decoding.
+ * @returns A human-readable string.
+ */
+export function formatViemError(error: any, abi: Abi = RollupAbi): string {
+  // First try to decode as a custom error using the ABI
+  try {
+    if (error?.data) {
+      // Try to decode the error data using the ABI
+      const decoded = decodeErrorResult({
+        abi,
+        data: error.data as Hex,
+      });
+      if (decoded) {
+        return `${decoded.errorName}(${decoded.args?.join(', ') ?? ''})`;
+      }
+    }
+
+    // If it's a BaseError, try to get the custom error through ContractFunctionRevertedError
+    if (error instanceof BaseError) {
+      const revertError = error.walk(err => err instanceof ContractFunctionRevertedError);
+      if (revertError instanceof ContractFunctionRevertedError) {
+        const errorName = revertError.data?.errorName ?? '';
+        const args =
+          revertError.metaMessages && revertError.metaMessages?.length > 1
+            ? revertError.metaMessages[1].trimStart()
+            : '';
+        return `${errorName}${args}`;
+      }
+    }
+  } catch (decodeErr) {
+    // If decoding fails, we fall back to the original formatting
+  }
+
+  // Original formatting logic for non-custom errors
   const truncateHex = (hex: string, length = 100) => {
     if (!hex || typeof hex !== 'string') {
       return hex;
