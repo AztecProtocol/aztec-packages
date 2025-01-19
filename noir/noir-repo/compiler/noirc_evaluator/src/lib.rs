@@ -2,6 +2,10 @@
 #![warn(unused_crate_dependencies, unused_extern_crates)]
 #![warn(unreachable_pub)]
 #![warn(clippy::semicolon_if_nothing_returned)]
+pub mod acir_instruction_builder;
+pub use acir_instruction_builder::{
+    InstructionArtifacts, VariableType, Variable
+};
 
 pub mod errors;
 
