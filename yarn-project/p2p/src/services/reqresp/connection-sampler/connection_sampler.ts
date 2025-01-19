@@ -57,14 +57,24 @@ export class ConnectionSampler {
     await Promise.all(closePromises);
   }
 
-  getPeer(): PeerId {
+  /**
+   *
+   * @param excluding - The peers to exclude from the sampling
+   *        This is to prevent sampling with replacement
+   * @returns
+   */
+  getPeer(excluding?: Map<PeerId, boolean>): PeerId {
     const peers = this.libp2p.getPeers();
     let randomIndex = this.sampler.random(peers.length);
     let attempts = 0;
 
-    // If the active connections count is greater than 0, then we already have a connection open
-    // So we try to sample a different peer, but only MAX_SAMPLE_ATTEMPTS times
-    while ((this.activeConnectionsCount.get(peers[randomIndex]) ?? 0) > 0 && attempts < MAX_SAMPLE_ATTEMPTS) {
+    // Keep sampling while:
+    // - we haven't exceeded max attempts AND
+    // - either the peer has active connections OR is in the exclusion list
+    while (
+      attempts < MAX_SAMPLE_ATTEMPTS &&
+      ((this.activeConnectionsCount.get(peers[randomIndex]) ?? 0) > 0 || (excluding?.get(peers[randomIndex]) ?? false))
+    ) {
       randomIndex = this.sampler.random(peers.length);
       attempts++;
     }

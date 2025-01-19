@@ -150,14 +150,17 @@ export class ReqResp {
       // Attempt to ask all of our peers, but sampled in a random order
       // This function is wrapped in a timeout, so we will exit the loop if we have not received a response
       const numberOfPeers = this.libp2p.getPeers().length;
+
       if (numberOfPeers === 0) {
         this.logger.debug('No active peers to send requests to');
         return undefined;
       }
 
+      let attemptedPeers: Map<PeerId, boolean> = new Map();
       for (let i = 0; i < numberOfPeers; i++) {
         // Sample a peer to make a request to
-        const peer = this.connectionSampler.getPeer();
+        const peer = this.connectionSampler.getPeer(attemptedPeers);
+        attemptedPeers.set(peer, true);
 
         this.logger.trace(`Sending request to peer: ${peer.toString()}`);
         const response = await this.sendRequestToPeer(peer, subProtocol, requestBuffer);

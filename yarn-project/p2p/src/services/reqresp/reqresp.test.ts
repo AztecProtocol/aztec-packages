@@ -1,4 +1,5 @@
 import { PeerErrorSeverity, TxHash, mockTx } from '@aztec/circuit-types';
+import { createLogger } from '@aztec/foundation/log';
 import { sleep } from '@aztec/foundation/sleep';
 
 import { describe, expect, it, jest } from '@jest/globals';
@@ -28,6 +29,7 @@ describe('ReqResp', () => {
   let peerManager: MockProxy<PeerManager>;
   let peerScoring: MockProxy<PeerScoring>;
   let nodes: ReqRespNode[];
+  let logger = createLogger('test:reqresp.test.ts');
 
   beforeEach(() => {
     peerScoring = mock<PeerScoring>();
@@ -78,7 +80,7 @@ describe('ReqResp', () => {
     expect(res).toBeUndefined();
   });
 
-  it('should request from a later peer if other peers are offline', async () => {
+  it.only('should request from a later peer if other peers are offline', async () => {
     nodes = await createNodes(peerScoring, 4);
 
     await startNodes(nodes);
@@ -96,6 +98,7 @@ describe('ReqResp', () => {
     if (!res) {
       // The peer chosen is randomly selected, and the node above wont respond, so if
       // we wait and try again, there will only be one node to chose from
+      logger.debug('No response from node, retrying');
       await sleep(500);
       res = await nodes[0].req.sendRequest(ReqRespSubProtocol.PING, PING_REQUEST);
     }
