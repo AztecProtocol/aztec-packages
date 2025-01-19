@@ -10,7 +10,7 @@ pub struct PreviousKernelValidatorBuilder {
 impl PreviousKernelValidatorBuilder {
     pub fn new() -> Self {
         let mut previous_kernel = FixtureBuilder::new();
-        previous_kernel.set_first_nullifier();
+        previous_kernel.set_protocol_nullifier();
         PreviousKernelValidatorBuilder { previous_kernel }
     }
 

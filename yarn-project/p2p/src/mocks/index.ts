@@ -8,8 +8,7 @@ import {
 import { type EpochCache } from '@aztec/epoch-cache';
 import { type DataStoreConfig } from '@aztec/kv-store/config';
 import { openTmpStore } from '@aztec/kv-store/lmdb';
-import { type TelemetryClient } from '@aztec/telemetry-client';
-import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
+import { type TelemetryClient, getTelemetryClient } from '@aztec/telemetry-client';
 
 import { gossipsub } from '@chainsafe/libp2p-gossipsub';
 import { noise } from '@chainsafe/libp2p-noise';
@@ -29,15 +28,14 @@ import { DiscV5Service } from '../services/discv5/discV5_service.js';
 import { LibP2PService } from '../services/libp2p/libp2p_service.js';
 import { type PeerManager } from '../services/peer_manager.js';
 import { type P2PReqRespConfig } from '../services/reqresp/config.js';
-import { pingHandler, statusHandler } from '../services/reqresp/handlers.js';
 import {
-  PING_PROTOCOL,
+  ReqRespSubProtocol,
   type ReqRespSubProtocolHandlers,
   type ReqRespSubProtocolValidators,
-  STATUS_PROTOCOL,
-  TX_REQ_PROTOCOL,
   noopValidator,
 } from '../services/reqresp/interface.js';
+import { pingHandler } from '../services/reqresp/protocols/ping.js';
+import { statusHandler } from '../services/reqresp/protocols/status.js';
 import { ReqResp } from '../services/reqresp/reqresp.js';
 import { type PubSubLibp2p } from '../util.js';
 
@@ -152,17 +150,17 @@ export type ReqRespNode = {
 
 // Mock sub protocol handlers
 export const MOCK_SUB_PROTOCOL_HANDLERS: ReqRespSubProtocolHandlers = {
-  [PING_PROTOCOL]: pingHandler,
-  [STATUS_PROTOCOL]: statusHandler,
-  [TX_REQ_PROTOCOL]: (_msg: any) => Promise.resolve(Buffer.from('tx')),
+  [ReqRespSubProtocol.PING]: pingHandler,
+  [ReqRespSubProtocol.STATUS]: statusHandler,
+  [ReqRespSubProtocol.TX]: (_msg: any) => Promise.resolve(Buffer.from('tx')),
 };
 
 // By default, all requests are valid
 // If you want to test an invalid response, you can override the validator
 export const MOCK_SUB_PROTOCOL_VALIDATORS: ReqRespSubProtocolValidators = {
-  [PING_PROTOCOL]: noopValidator,
-  [STATUS_PROTOCOL]: noopValidator,
-  [TX_REQ_PROTOCOL]: noopValidator,
+  [ReqRespSubProtocol.PING]: noopValidator,
+  [ReqRespSubProtocol.STATUS]: noopValidator,
+  [ReqRespSubProtocol.TX]: noopValidator,
 };
 
 /**
@@ -247,7 +245,7 @@ export function createBootstrapNodeConfig(privateKey: string, port: number): Boo
 export function createBootstrapNodeFromPrivateKey(
   privateKey: string,
   port: number,
-  telemetry: TelemetryClient = new NoopTelemetryClient(),
+  telemetry: TelemetryClient = getTelemetryClient(),
 ): Promise<BootstrapNode> {
   const config = createBootstrapNodeConfig(privateKey, port);
   return startBootstrapNode(config, telemetry);
@@ -255,7 +253,7 @@ export function createBootstrapNodeFromPrivateKey(
 
 export async function createBootstrapNode(
   port: number,
-  telemetry: TelemetryClient = new NoopTelemetryClient(),
+  telemetry: TelemetryClient = getTelemetryClient(),
 ): Promise<BootstrapNode> {
   const peerId = await createSecp256k1PeerId();
   const config = createBootstrapNodeConfig(Buffer.from(peerId.privateKey!).toString('hex'), port);

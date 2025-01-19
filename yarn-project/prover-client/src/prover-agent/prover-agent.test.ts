@@ -1,7 +1,7 @@
 import { type ServerCircuitProver, makePublicInputsAndRecursiveProof } from '@aztec/circuit-types';
 import { RECURSIVE_PROOF_LENGTH, VerificationKeyData, makeRecursiveProof } from '@aztec/circuits.js';
 import { makeBaseParityInputs, makeParityPublicInputs } from '@aztec/circuits.js/testing';
-import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
+import { getTelemetryClient } from '@aztec/telemetry-client';
 
 import { type MockProxy, mock } from 'jest-mock-extended';
 
@@ -15,7 +15,7 @@ describe('ProverAgent', () => {
 
   beforeEach(() => {
     prover = mock<ServerCircuitProver>();
-    queue = new MemoryProvingQueue(new NoopTelemetryClient());
+    queue = new MemoryProvingQueue(getTelemetryClient());
     agent = new ProverAgent(prover);
   });
 

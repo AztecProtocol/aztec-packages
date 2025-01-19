@@ -56,16 +56,16 @@ export abstract class TypedOracle {
     return Fr.random();
   }
 
-  packArgumentsArray(_args: Fr[]): Promise<Fr> {
-    throw new OracleMethodNotAvailableError('packArgumentsArray');
+  storeArrayInExecutionCache(_args: Fr[]): Promise<Fr> {
+    throw new OracleMethodNotAvailableError('storeArrayInExecutionCache');
   }
 
-  packReturns(_returns: Fr[]): Promise<Fr> {
-    throw new OracleMethodNotAvailableError('packReturns');
+  storeInExecutionCache(_values: Fr[]): Promise<Fr> {
+    throw new OracleMethodNotAvailableError('storeInExecutionCache');
   }
 
-  unpackReturns(_returnsHash: Fr): Promise<Fr[]> {
-    throw new OracleMethodNotAvailableError('unpackReturns');
+  loadFromExecutionCache(_hash: Fr): Promise<Fr[]> {
+    throw new OracleMethodNotAvailableError('loadFromExecutionCache');
   }
 
   getBlockNumber(): Promise<number> {
@@ -154,6 +154,10 @@ export abstract class TypedOracle {
     throw new OracleMethodNotAvailableError('notifyNullifiedNote');
   }
 
+  notifyCreatedNullifier(_innerNullifier: Fr): Promise<void> {
+    throw new OracleMethodNotAvailableError('notifyCreatedNullifier');
+  }
+
   checkNullifierExists(_innerNullifier: Fr): Promise<boolean> {
     throw new OracleMethodNotAvailableError('checkNullifierExists');
   }
@@ -233,11 +237,32 @@ export abstract class TypedOracle {
     throw new OracleMethodNotAvailableError('syncNotes');
   }
 
-  store(_contract: AztecAddress, _key: Fr, _values: Fr[]): Promise<void> {
-    throw new OracleMethodNotAvailableError('store');
+  deliverNote(
+    _contractAddress: AztecAddress,
+    _storageSlot: Fr,
+    _nonce: Fr,
+    _content: Fr[],
+    _noteHash: Fr,
+    _nullifier: Fr,
+    _txHash: Fr,
+    _recipient: AztecAddress,
+  ): Promise<void> {
+    throw new OracleMethodNotAvailableError('deliverNote');
   }
 
-  load(_contract: AztecAddress, _key: Fr): Promise<Fr[] | null> {
-    throw new OracleMethodNotAvailableError('load');
+  dbStore(_contractAddress: AztecAddress, _key: Fr, _values: Fr[]): Promise<void> {
+    throw new OracleMethodNotAvailableError('dbStore');
+  }
+
+  dbLoad(_contractAddress: AztecAddress, _key: Fr): Promise<Fr[] | null> {
+    throw new OracleMethodNotAvailableError('dbLoad');
+  }
+
+  dbDelete(_contractAddress: AztecAddress, _key: Fr): Promise<void> {
+    throw new OracleMethodNotAvailableError('dbDelete');
+  }
+
+  dbCopy(_contractAddress: AztecAddress, _srcKey: Fr, _dstKey: Fr, _numEntries: number): Promise<void> {
+    throw new OracleMethodNotAvailableError('dbCopy');
   }
 }

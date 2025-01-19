@@ -310,23 +310,53 @@ export class ViewDataOracle extends TypedOracle {
     await this.db.removeNullifiedNotes(this.contractAddress);
   }
 
-  public override store(contract: AztecAddress, key: Fr, values: Fr[]): Promise<void> {
-    if (!contract.equals(this.contractAddress)) {
-      // TODO(#10727): instead of this check check that this.contractAddress is allowed to process notes for contract
-      throw new Error(
-        `Contract address ${contract} does not match the oracle's contract address ${this.contractAddress}`,
-      );
+  public override async deliverNote(
+    contractAddress: AztecAddress,
+    storageSlot: Fr,
+    nonce: Fr,
+    content: Fr[],
+    noteHash: Fr,
+    nullifier: Fr,
+    txHash: Fr,
+    recipient: AztecAddress,
+  ) {
+    // TODO(#10727): allow other contracts to deliver notes
+    if (!this.contractAddress.equals(contractAddress)) {
+      throw new Error(`Got a note delivery request from ${contractAddress}, expected ${this.contractAddress}`);
     }
-    return this.db.store(this.contractAddress, key, values);
+
+    await this.db.deliverNote(contractAddress, storageSlot, nonce, content, noteHash, nullifier, txHash, recipient);
   }
 
-  public override load(contract: AztecAddress, key: Fr): Promise<Fr[] | null> {
-    if (!contract.equals(this.contractAddress)) {
-      // TODO(#10727): instead of this check check that this.contractAddress is allowed to process notes for contract
-      throw new Error(
-        `Contract address ${contract} does not match the oracle's contract address ${this.contractAddress}`,
-      );
+  public override dbStore(contractAddress: AztecAddress, slot: Fr, values: Fr[]): Promise<void> {
+    if (!contractAddress.equals(this.contractAddress)) {
+      // TODO(#10727): instead of this check that this.contractAddress is allowed to access the external DB
+      throw new Error(`Contract ${contractAddress} is not allowed to access ${this.contractAddress}'s PXE DB`);
     }
-    return this.db.load(this.contractAddress, key);
+    return this.db.dbStore(this.contractAddress, slot, values);
+  }
+
+  public override dbLoad(contractAddress: AztecAddress, slot: Fr): Promise<Fr[] | null> {
+    if (!contractAddress.equals(this.contractAddress)) {
+      // TODO(#10727): instead of this check that this.contractAddress is allowed to access the external DB
+      throw new Error(`Contract ${contractAddress} is not allowed to access ${this.contractAddress}'s PXE DB`);
+    }
+    return this.db.dbLoad(this.contractAddress, slot);
+  }
+
+  public override dbDelete(contractAddress: AztecAddress, slot: Fr): Promise<void> {
+    if (!contractAddress.equals(this.contractAddress)) {
+      // TODO(#10727): instead of this check that this.contractAddress is allowed to access the external DB
+      throw new Error(`Contract ${contractAddress} is not allowed to access ${this.contractAddress}'s PXE DB`);
+    }
+    return this.db.dbDelete(this.contractAddress, slot);
+  }
+
+  public override dbCopy(contractAddress: AztecAddress, srcSlot: Fr, dstSlot: Fr, numEntries: number): Promise<void> {
+    if (!contractAddress.equals(this.contractAddress)) {
+      // TODO(#10727): instead of this check that this.contractAddress is allowed to access the external DB
+      throw new Error(`Contract ${contractAddress} is not allowed to access ${this.contractAddress}'s PXE DB`);
+    }
+    return this.db.dbCopy(this.contractAddress, srcSlot, dstSlot, numEntries);
   }
 }

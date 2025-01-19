@@ -19,6 +19,7 @@ storage:
 telemetry:
   enabled: false
   otelCollectorEndpoint:
+  useGcloudObservability: false
 
 images:
   aztec:
@@ -149,7 +150,6 @@ proverNode:
     jobTimeoutMs: 30000
     pollIntervalMs: 1000
     jobMaxRetries: 3
-    dataDirectory: ""
   resources:
     requests:
       memory: "4Gi"
@@ -165,6 +165,7 @@ proverNode:
     timeoutMs: 60000
     intervalMs: 1000
     maxParallelRequests: 100
+  failedProofStore: "gs://aztec-develop/spartan/failed-proofs"
 
 pxe:
   logLevel: "debug; info: aztec:simulator, json-rpc"
@@ -216,6 +217,7 @@ ethereum:
   replicas: 1
   chainId: 1337
   blockTime: 12sec
+  extraAccounts: 10
   # 1 billion gas limit
   # helps ensure we can deploy public contracts
   gasLimit: "1000000000"

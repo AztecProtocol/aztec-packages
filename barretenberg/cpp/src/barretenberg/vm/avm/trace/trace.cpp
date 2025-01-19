@@ -429,6 +429,22 @@ void AvmTraceBuilder::handle_exceptional_halt()
     }
 }
 
+void AvmTraceBuilder::handle_end_of_teardown(uint32_t pre_teardown_l2_gas_left, uint32_t pre_teardown_da_gas_left)
+{
+    vinfo("Handling end of teardown");
+
+    // modify the last row of the gas trace to reset back to pre-teardown gas
+    // since gas used by teardown doesn't contribute to end-gas
+    gas_trace_builder.constrain_gas_for_halt(/*exceptional_halt=*/true, // not really an exceptional halt
+                                             pre_teardown_l2_gas_left,
+                                             pre_teardown_da_gas_left,
+                                             /*l2_gas_allocated_to_nested_call=*/0,
+                                             /*da_gas_allocated_to_nested_call=*/0);
+
+    // max out the pc to signify "done"
+    pc = UINT32_MAX;
+}
+
 /**
  * @brief Loads a value from memory into a given intermediate register at a specified clock cycle.
  * Handles both direct and indirect memory access.
@@ -2122,11 +2138,7 @@ AvmError AvmTraceBuilder::op_fee_per_da_gas(uint8_t indirect, uint32_t dst_offse
  *        Simplified version with exclusively memory store operations and
  *        values from calldata passed by an array and loaded into
  *        intermediate registers.
- *        Assume that caller passes call_data_mem which is large enough so that
- *        no out-of-bound memory issues occur.
- *        TODO: error handling if dst_offset + copy_size > 2^32 which would lead to
- *              out-of-bound memory write. Similarly, if cd_offset + copy_size is larger
- *              than call_data_mem.size()
+ *        Slice calldata portion which is out-of-range will be filled with zero values.
  *
  * @param indirect A byte encoding information about indirect/direct memory access.
  * @param cd_offset_address The starting index of the region in calldata to be copied.
@@ -2161,22 +2173,33 @@ AvmError AvmTraceBuilder::op_calldata_copy(uint8_t indirect,
 
     bool is_top_level = current_ext_call_ctx.is_top_level;
 
-    // Do not take a reference as calldata might be resized below.
+    // No reference as we mutate calldata
     auto calldata = current_ext_call_ctx.calldata;
+
+    // Any out-of-range values from calldata is replaced by a zero value.
+    // We append zeros in this case to calldata.
+    // TODO: Properly constrain this use case. Currently, for top level calls we do not add any padding in
+    // calldata public columns but concatenate the calldata vectors of the top-level calls.
+    if (cd_offset + copy_size > calldata.size()) {
+        calldata.resize(cd_offset + copy_size, FF(0));
+    }
+
     if (is_ok(error)) {
         if (is_top_level) {
             if (!check_slice_mem_range(dst_offset_resolved, copy_size)) {
                 error = AvmError::MEM_SLICE_OUT_OF_RANGE;
             } else {
                 slice_trace_builder.create_calldata_copy_slice(
-                    calldata, clk, call_ptr, cd_offset, copy_size, dst_offset_resolved);
+                    calldata, clk, call_ptr, cd_offset, copy_size, dst_offset_resolved, top_calldata_offset);
                 mem_trace_builder.write_calldata_copy(
                     calldata, clk, call_ptr, cd_offset, copy_size, dst_offset_resolved);
             }
         } else {
-            calldata.resize(copy_size);
             // If we are not at the top level, we write to memory directly
-            error = write_slice_to_memory(dst_offset_resolved, AvmMemoryTag::FF, calldata);
+            error = write_slice_to_memory(
+                dst_offset_resolved,
+                AvmMemoryTag::FF,
+                std::vector<FF>(calldata.begin() + cd_offset, calldata.begin() + cd_offset + copy_size));
         }
     }
 
@@ -2283,6 +2306,7 @@ AvmError AvmTraceBuilder::op_returndata_copy(uint8_t indirect,
 
     main_trace.push_back(Row{
         .main_clk = clk,
+        .main_call_ptr = call_ptr,
         .main_internal_return_ptr = FF(internal_return_ptr),
         .main_op_err = static_cast<uint32_t>(!is_ok(error)),
         .main_pc = FF(pc),
@@ -2292,9 +2316,17 @@ AvmError AvmTraceBuilder::op_returndata_copy(uint8_t indirect,
 
     if (is_ok(error)) {
         // Write the return data to memory
-        // TODO: validate bounds
-        auto returndata_slice = std::vector(current_ext_call_ctx.nested_returndata.begin() + rd_offset,
-                                            current_ext_call_ctx.nested_returndata.begin() + rd_offset + copy_size);
+
+        // No reference as we potentially mutate.
+        auto returndata = current_ext_call_ctx.nested_returndata;
+
+        // Any out-of-range values from returndata is replaced by a zero value.
+        // We append zeros in this case to returndata.
+        if (rd_offset + copy_size > returndata.size()) {
+            returndata.resize(rd_offset + copy_size, FF(0));
+        }
+
+        auto returndata_slice = std::vector(returndata.begin() + rd_offset, returndata.begin() + rd_offset + copy_size);
 
         pc += Deserialization::get_pc_increment(OpCode::RETURNDATACOPY);
 
@@ -2725,6 +2757,7 @@ RowWithError AvmTraceBuilder::create_kernel_output_opcode(uint8_t indirect, uint
     return RowWithError{ .row =
                              Row{
                                  .main_clk = clk,
+                                 .main_call_ptr = call_ptr,
                                  .main_ia = read_a.val,
                                  .main_ind_addr_a = FF(read_a.indirect_address),
                                  .main_internal_return_ptr = internal_return_ptr,
@@ -2780,6 +2813,7 @@ RowWithError AvmTraceBuilder::create_kernel_output_opcode_with_metadata(uint8_t 
     return RowWithError{ .row =
                              Row{
                                  .main_clk = clk,
+                                 .main_call_ptr = call_ptr,
                                  .main_ia = read_a.val,
                                  .main_ib = read_b.val,
                                  .main_ind_addr_a = FF(read_a.indirect_address),
@@ -2851,6 +2885,7 @@ AvmError AvmTraceBuilder::op_sload(uint8_t indirect, uint32_t slot_offset, uint3
     // TODO(8945): remove fake rows
     auto row = Row{
         .main_clk = clk,
+        .main_call_ptr = call_ptr,
         .main_ia = value,
         .main_ib = read_slot,
         .main_ind_addr_a = write_a.indirect_address,
@@ -2898,6 +2933,7 @@ AvmError AvmTraceBuilder::op_sstore(uint8_t indirect, uint32_t src_offset, uint3
         // made for the fee juice storage write made after teardown.
         auto row = Row{
             .main_clk = clk,
+            .main_call_ptr = call_ptr,
             .main_internal_return_ptr = internal_return_ptr,
             .main_op_err = FF(static_cast<uint32_t>(!is_ok(error))),
             .main_pc = pc,
@@ -2944,6 +2980,7 @@ AvmError AvmTraceBuilder::op_sstore(uint8_t indirect, uint32_t src_offset, uint3
     // TODO(8945): remove fake rows
     Row row = Row{
         .main_clk = clk,
+        .main_call_ptr = call_ptr,
         .main_ia = read_a.val,
         .main_ib = read_slot,
         .main_ind_addr_a = read_a.indirect_address,
@@ -3023,6 +3060,7 @@ AvmError AvmTraceBuilder::op_note_hash_exists(uint8_t indirect,
 
         row = Row{
             .main_clk = clk,
+            .main_call_ptr = call_ptr,
             .main_ia = read_a.val,
             .main_ib = write_b.val,
             .main_ind_addr_a = FF(read_a.indirect_address),
@@ -3050,6 +3088,7 @@ AvmError AvmTraceBuilder::op_note_hash_exists(uint8_t indirect,
     } else {
         row = Row{
             .main_clk = clk,
+            .main_call_ptr = call_ptr,
             .main_internal_return_ptr = internal_return_ptr,
             .main_op_err = FF(1),
             .main_pc = pc,
@@ -3081,6 +3120,7 @@ AvmError AvmTraceBuilder::op_emit_note_hash(uint8_t indirect, uint32_t note_hash
     if (!is_ok(error)) {
         auto row = Row{
             .main_clk = clk,
+            .main_call_ptr = call_ptr,
             .main_internal_return_ptr = internal_return_ptr,
             .main_op_err = FF(static_cast<uint32_t>(!is_ok(error))),
             .main_pc = pc,
@@ -3182,6 +3222,7 @@ AvmError AvmTraceBuilder::op_nullifier_exists(uint8_t indirect,
         bool tag_match = read_a.tag_match && write_b.tag_match;
         row = Row{
             .main_clk = clk,
+            .main_call_ptr = call_ptr,
             .main_ia = read_a.val,
             .main_ib = write_b.val,
             .main_ind_addr_a = FF(read_a.indirect_address),
@@ -3209,6 +3250,7 @@ AvmError AvmTraceBuilder::op_nullifier_exists(uint8_t indirect,
     } else {
         row = Row{
             .main_clk = clk,
+            .main_call_ptr = call_ptr,
             .main_internal_return_ptr = internal_return_ptr,
             .main_op_err = FF(1),
             .main_pc = pc,
@@ -3243,6 +3285,7 @@ AvmError AvmTraceBuilder::op_emit_nullifier(uint8_t indirect, uint32_t nullifier
     if (!is_ok(error)) {
         auto row = Row{
             .main_clk = clk,
+            .main_call_ptr = call_ptr,
             .main_internal_return_ptr = internal_return_ptr,
             .main_op_err = FF(static_cast<uint32_t>(!is_ok(error))),
             .main_pc = pc,
@@ -3359,6 +3402,7 @@ AvmError AvmTraceBuilder::op_l1_to_l2_msg_exists(uint8_t indirect,
 
         row = Row{
             .main_clk = clk,
+            .main_call_ptr = call_ptr,
             .main_ia = read_a.val,
             .main_ib = write_b.val,
             .main_ind_addr_a = FF(read_a.indirect_address),
@@ -3386,6 +3430,7 @@ AvmError AvmTraceBuilder::op_l1_to_l2_msg_exists(uint8_t indirect,
     } else {
         row = Row{
             .main_clk = clk,
+            .main_call_ptr = call_ptr,
             .main_internal_return_ptr = internal_return_ptr,
             .main_op_err = FF(1),
             .main_pc = pc,
@@ -3625,6 +3670,7 @@ AvmError AvmTraceBuilder::op_emit_unencrypted_log(uint8_t indirect, uint32_t log
         error = AvmError::SIDE_EFFECT_LIMIT_REACHED;
         auto row = Row{
             .main_clk = clk,
+            .main_call_ptr = call_ptr,
             .main_internal_return_ptr = internal_return_ptr,
             .main_op_err = FF(static_cast<uint32_t>(!is_ok(error))),
             .main_pc = pc,
@@ -3659,6 +3705,7 @@ AvmError AvmTraceBuilder::op_emit_unencrypted_log(uint8_t indirect, uint32_t log
         FF metadata_log_length = length_of_preimage + 4;
         row = Row{
             .main_clk = clk,
+            .main_call_ptr = call_ptr,
             .main_ia = trunc_hash,
             .main_ib = metadata_log_length,
             .main_internal_return_ptr = internal_return_ptr,
@@ -3670,6 +3717,7 @@ AvmError AvmTraceBuilder::op_emit_unencrypted_log(uint8_t indirect, uint32_t log
     } else {
         row = Row{
             .main_clk = clk,
+            .main_call_ptr = call_ptr,
             .main_internal_return_ptr = internal_return_ptr,
             .main_op_err = FF(1),
             .main_pc = pc,
@@ -3701,6 +3749,7 @@ AvmError AvmTraceBuilder::op_emit_l2_to_l1_msg(uint8_t indirect, uint32_t recipi
         error = AvmError::SIDE_EFFECT_LIMIT_REACHED;
         auto row = Row{
             .main_clk = clk,
+            .main_call_ptr = call_ptr,
             .main_internal_return_ptr = internal_return_ptr,
             .main_op_err = FF(static_cast<uint32_t>(!is_ok(error))),
             .main_pc = pc,
@@ -3798,6 +3847,7 @@ AvmError AvmTraceBuilder::constrain_external_call(OpCode opcode,
 
     main_trace.push_back(Row{
         .main_clk = clk,
+        .main_call_ptr = call_ptr,
         .main_ia = read_gas_l2.val, /* gas_offset_l2 */
         .main_ib = read_gas_da.val, /* gas_offset_da */
         .main_ic = read_addr.val,   /* addr_offset */
@@ -4005,7 +4055,8 @@ ReturnDataError AvmTraceBuilder::op_return(uint8_t indirect, uint32_t ret_offset
             // direct destination offset stored in main_mem_addr_c.
             // All the other memory operations are triggered by the slice gadget.
             returndata = mem_trace_builder.read_return_opcode(clk, call_ptr, resolved_ret_offset, ret_size);
-            slice_trace_builder.create_return_slice(returndata, clk, call_ptr, resolved_ret_offset, ret_size);
+            slice_trace_builder.create_return_slice(
+                returndata, clk, call_ptr, resolved_ret_offset, ret_size, static_cast<uint32_t>(all_returndata.size()));
             all_returndata.insert(all_returndata.end(), returndata.begin(), returndata.end());
         } else {
             // before the nested call was made, how much gas does the parent have?
@@ -4149,7 +4200,8 @@ ReturnDataError AvmTraceBuilder::op_revert(uint8_t indirect, uint32_t ret_offset
             // direct destination offset stored in main_mem_addr_c.
             // All the other memory operations are triggered by the slice gadget.
             returndata = mem_trace_builder.read_return_opcode(clk, call_ptr, resolved_ret_offset, ret_size);
-            slice_trace_builder.create_return_slice(returndata, clk, call_ptr, resolved_ret_offset, ret_size);
+            slice_trace_builder.create_return_slice(
+                returndata, clk, call_ptr, resolved_ret_offset, ret_size, static_cast<uint32_t>(all_returndata.size()));
             all_returndata.insert(all_returndata.end(), returndata.begin(), returndata.end());
         } else {
             // before the nested call was made, how much gas does the parent have?
@@ -4431,6 +4483,7 @@ AvmError AvmTraceBuilder::op_poseidon2_permutation(uint8_t indirect, uint32_t in
     // Main trace contains on operand values from the bytecode and resolved indirects
     main_trace.push_back(Row{
         .main_clk = clk,
+        .main_call_ptr = call_ptr,
         .main_internal_return_ptr = FF(internal_return_ptr),
         .main_mem_addr_a = resolved_input_offset,
         .main_mem_addr_b = resolved_output_offset,
@@ -4508,6 +4561,7 @@ AvmError AvmTraceBuilder::op_sha256_compression(uint8_t indirect,
     // did not lay down constraints), but this is a simplification
     main_trace.push_back(Row{
         .main_clk = clk,
+        .main_call_ptr = call_ptr,
         .main_ia = read_a.val, // First element of state
         .main_ib = read_b.val, // First element of input
         .main_ind_addr_a = FF(read_a.indirect_address),
@@ -4616,6 +4670,7 @@ AvmError AvmTraceBuilder::op_keccakf1600(uint8_t indirect, uint32_t output_offse
 
     main_trace.push_back(Row{
         .main_clk = clk,
+        .main_call_ptr = call_ptr,
         .main_ia = input_read.val, // First element of input
         .main_ind_addr_a = FF(input_read.indirect_address),
         .main_internal_return_ptr = FF(internal_return_ptr),
@@ -4708,6 +4763,7 @@ AvmError AvmTraceBuilder::op_ec_add(uint16_t indirect,
     if (!is_ok(error)) {
         main_trace.push_back(Row{
             .main_clk = clk,
+            .main_call_ptr = call_ptr,
             .main_internal_return_ptr = FF(internal_return_ptr),
             .main_op_err = FF(1),
             .main_pc = FF(pc),
@@ -4828,6 +4884,7 @@ AvmError AvmTraceBuilder::op_variable_msm(uint8_t indirect,
     if (!is_ok(error)) {
         main_trace.push_back(Row{
             .main_clk = clk,
+            .main_call_ptr = call_ptr,
             .main_internal_return_ptr = FF(internal_return_ptr),
             .main_op_err = FF(1),
             .main_pc = FF(pc),
@@ -4890,6 +4947,7 @@ AvmError AvmTraceBuilder::op_variable_msm(uint8_t indirect,
 
     main_trace.push_back(Row{
         .main_clk = clk,
+        .main_call_ptr = call_ptr,
         .main_internal_return_ptr = FF(internal_return_ptr),
         .main_pc = FF(pc),
         .main_sel_op_msm = 1,
