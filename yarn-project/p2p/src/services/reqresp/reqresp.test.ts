@@ -91,10 +91,16 @@ describe('ReqResp', () => {
     void nodes[2].req.stop();
 
     // send from the first node
-    const res = await nodes[0].req.sendRequest(ReqRespSubProtocol.PING, PING_REQUEST);
+    let res = await nodes[0].req.sendRequest(ReqRespSubProtocol.PING, PING_REQUEST);
+
+    if (!res) {
+      // The peer chosen is randomly selected, and the node above wont respond, so if
+      // we wait and try again, there will only be one node to chose from
+      await sleep(500);
+      res = await nodes[0].req.sendRequest(ReqRespSubProtocol.PING, PING_REQUEST);
+    }
 
     // It will randomly try to connect, then hit the correct node
-
     expect(res?.toBuffer().toString('utf-8')).toEqual('pong');
   });
 
