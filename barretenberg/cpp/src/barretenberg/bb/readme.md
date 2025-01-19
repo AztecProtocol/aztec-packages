@@ -47,7 +47,7 @@ Documented with Noir v0.33.0 <> BB v0.47.1:
 
 ##### Proving and verifying
 
-1. Follow [the Noir docs](https://noir-lang.org/docs/getting_started/hello_noir/) to compile and generate witness of your Noir program
+1. Follow [the Noir docs](https://noir-lang.org/docs/getting_started/quick_start) to compile and generate witness of your Noir program
 
 2. Prove the valid execution of your Noir program running:
 
@@ -75,7 +75,7 @@ Refer to all available `bb` commands linked above for full list of functionality
 
 Barretenberg UltraHonk comes with the capability to verify proofs in Solidity, i.e. in smart contracts on EVM chains.
 
-1. Follow [the Noir docs](https://noir-lang.org/docs/getting_started/hello_noir/) to compile and generate witness of your Noir program
+1. Follow [the Noir docs](https://noir-lang.org/docs/getting_started/quick_start) to compile and generate witness of your Noir program
 
 2. Prove the valid execution of your Noir program running:
 
