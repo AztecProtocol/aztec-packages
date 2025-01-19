@@ -22,6 +22,16 @@ function build {
   fi
 }
 
+function test_cmds {
+  echo "$hash cd avm-transpiler && cargo fmt --check"
+  echo "$hash cd avm-transpiler && cargo clippy"
+}
+
+function test {
+  echo_header "avm-transpiler test"
+  test_cmds | filter_test_cmds | parallelise
+}
+
 case "$cmd" in
   "clean")
     git clean -fdx
@@ -30,6 +40,10 @@ case "$cmd" in
     build
     ;;
   "test")
+    test
+    ;;
+  "test-cmds")
+    test_cmds
     ;;
   "hash")
     echo $hash

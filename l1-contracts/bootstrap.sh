@@ -33,9 +33,7 @@ function test_cmds {
 
 function test {
   echo_header "l1-contracts test"
-  solhint --config ./.solhint.json "src/**/*.sol"
-  forge fmt --check
-  forge test --no-match-contract UniswapPortalTest
+  test_cmds | filter_test_cmds | parallelise
 }
 
 case "$cmd" in

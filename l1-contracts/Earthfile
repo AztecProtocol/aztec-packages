@@ -1,16 +1,6 @@
 VERSION 0.8
 
-lint:
-    FROM ../+bootstrap
-    WORKDIR /usr/src/l1-contracts
-    RUN solhint --config ./.solhint.json "src/**/*.sol"
-    RUN forge clean && forge fmt --check
-
-test:
-    FROM ../+bootstrap
-    WORKDIR /usr/src/l1-contracts
-    RUN USE_CACHE=1 ./bootstrap.sh test
-
+# WORKTODO(adam): do packaging.
 publish-npm:
     FROM ../+bootstrap
     ARG VERSION

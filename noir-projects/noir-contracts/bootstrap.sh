@@ -19,7 +19,6 @@
 source $(git rev-parse --show-toplevel)/ci3/source_bootstrap
 
 cmd=${1:-}
-test_flag=noir-contracts-test-$(cache_content_hash "^noir-projects/noir-contracts")
 
 export RAYON_NUM_THREADS=${RAYON_NUM_THREADS:-16}
 export HARDWARE_CONCURRENCY=${HARDWARE_CONCURRENCY:-16}
@@ -154,6 +153,7 @@ function build {
 function test_cmds {
   local -A cache
   i=0
+  echo "$circuits_hash $NARGO fmt --check"
   $NARGO test --list-tests --silence-warnings | sort | while read -r package test; do
     port=$((45730 + (i++ % ${NUM_TXES:-1})))
     [ -z "${cache[$package]:-}" ] && cache[$package]=$(get_contract_hash $package)

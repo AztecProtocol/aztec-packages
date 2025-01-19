@@ -27,12 +27,24 @@ function build {
     noir-contracts
 }
 
+function test_cmds {
+  parallel -k ./{}/bootstrap.sh test-cmds ::: noir-protocol-circuits noir-contracts aztec-nr
+}
+
+function test {
+  echo_header "noir-projects test"
+  test_cmds | filter_test_cmds | parallelise
+}
+
 case "$cmd" in
-  full|fast|ci|test|"")
+  full|fast|ci|"")
     build
     ;;
   "test-cmds")
     parallel -k ./{}/bootstrap.sh test-cmds ::: noir-protocol-circuits noir-contracts aztec-nr
+    ;;
+  "test")
+    test
     ;;
   "hash")
     cache_content_hash .rebuild_patterns ../noir/.rebuild_patterns

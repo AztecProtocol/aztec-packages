@@ -51,11 +51,10 @@ bootstrap:
     DENOISE=1 CI=1 ./l1-contracts/bootstrap.sh ci &&
     DENOISE=1 CI=1 ./avm-transpiler/bootstrap.sh ci &&
     DENOISE=1 CI=1 ./noir-projects/bootstrap.sh ci &&
-    DENOISE=1 CI=1 ./yarn-project/bootstrap.sh ci &&
-    DENOISE=1 CI=1 ./boxes/bootstrap.sh ci &&
+    DENOISE=1 CI=1 ./yarn-project/bootstrap.sh fast &&
+    DENOISE=1 CI=1 ./boxes/bootstrap.sh fast &&
     mv $(ls -A) /usr/src'
   # Use a mounted volume for performance.
-  # TODO don't retry noir projects. It seems to have been flakey.
   RUN --raw-output --mount type=cache,id=bootstrap-$EARTHLY_GIT_HASH,target=/build-volume \
     bash -c "$bootstrap"
 

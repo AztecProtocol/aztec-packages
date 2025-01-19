@@ -152,6 +152,7 @@ function build {
 }
 
 function test_cmds {
+  echo "$circuits_hash $NARGO fmt --check"
   $NARGO test --list-tests --silence-warnings | sort | while read -r package test; do
     echo "$circuits_hash noir-projects/scripts/run_test.sh noir-protocol-circuits $package $test"
   done

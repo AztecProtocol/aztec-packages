@@ -18,7 +18,6 @@ on:
     inputs: {}
 
 concurrency:
-  # allow parallelism in master and merge queue
   group: ci-${{ (contains(github.ref_name, 'gh-readonly-queue') || github.ref_name == 'master') && github.run_id || github.ref_name }}
   cancel-in-progress: true
 
@@ -34,31 +33,30 @@ env:
   GITHUB_RUN_URL: "https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}/attempts/${{ github.run_attempt }}"
   GIT_COMMIT: ${{ github.event.pull_request.head.sha || github.sha }}
   RUNNER_CONCURRENCY: 0
+
 jobs:
   configure:
     runs-on: ubuntu-latest
     if: github.event.pull_request.draft == false
-    # Required permissions.
     permissions:
       pull-requests: read
-    # Set job outputs to values from filter step.
-    # Set username to a value derived from our github username.
     outputs:
       username: ${{ steps.compute_username.outputs.username }}
       noir: ${{ steps.filter.outputs.noir }}
-      noir-projects: ${{ steps.filter.outputs.noir-projects }}
+      noir-projects: ${{ steps.filter.outputs['noir-projects'] }}
       bb: ${{ steps.filter.outputs.bb }}
-      yarn-project: ${{ steps.filter.outputs.yarn-project }}
-      non-docs: ${{ steps.filter.outputs.non-docs }}
-      non-bb: ${{ steps.filter.outputs.non-bb }}
-      # Test flags:
+      yarn-project: ${{ steps.filter.outputs['yarn-project'] }}
+      non-docs: ${{ steps.filter.outputs['non-docs'] }}
+      non-bb: ${{ steps.filter.outputs['non-bb'] }}
       e2e-all: ${{ github.ref_name == 'master' || contains(github.event.pull_request.labels.*.name, 'e2e-all') || github.event_name == 'merge_group' }}
       network-all: ${{ github.ref_name == 'master' || contains(github.event.pull_request.labels.*.name, 'network-all') }}
-      e2e-list: ${{ steps.e2e_list.outputs.e2e-list }}
-      bench-list: ${{ steps.e2e_list.outputs.bench-list }}
+      e2e-list: ${{ steps.e2e_list.outputs['e2e-list'] }}
+      bench-list: ${{ steps.e2e_list.outputs['bench-list'] }}
+
     steps:
       - uses: actions/checkout@v4
         with: { ref: "${{ env.GIT_COMMIT }}" }
+
       - name: Compute Username
         id: compute_username
         shell: bash
@@ -71,9 +69,10 @@ jobs:
             echo "username=$instance_name"
             echo "username=$instance_name" >> $GITHUB_OUTPUT
           else
-            echo "username=${{ github.sha }}""
-            echo "username=${{ github.sha }}"" >> $GITHUB_OUTPUT
+            echo "username=${{ github.sha }}"
+            echo "username=${{ github.sha }}" >> $GITHUB_OUTPUT
           fi
+
       - name: Create Job Lists
         id: e2e_list
         run: |
@@ -86,6 +85,7 @@ jobs:
           set -x
           echo "e2e-list=$(./scripts/ci/get_e2e_jobs.sh ${{github.ref_name}} "$LABELS")" >> $GITHUB_OUTPUT
           echo "bench-list=$(./scripts/ci/get_bench_jobs.sh ${{github.ref_name}} "$LABELS")" >> $GITHUB_OUTPUT
+
       - uses: dorny/paths-filter@de90cc6fb38fc0963ad72b210f1f284cd68cea36
         id: filter
         with:
@@ -101,7 +101,6 @@ jobs:
               - 'yarn-project/**'
             non-bb:
               - '!(barretenberg/cpp/**)'
-              # don't consider AVM stuff 'core bb'
               - barretenberg/cpp/pil/**
               - barretenberg/cpp/src/barretenberg/vm/**
               - barretenberg/cpp/src/barretenberg/**/generated/*
@@ -110,7 +109,6 @@ jobs:
             non-docs:
               - '!(docs/**)'
 
-  # CI for noir and bb.
   ci-noir-bb:
     needs: [configure]
     runs-on: ubuntu-latest
@@ -119,13 +117,14 @@ jobs:
         with: { ref: "${{ env.GIT_COMMIT }}" }
       - name: "CI (noir and bb)"
         uses: ./.github/ensure-builder
-        # we place this here as ci-noir-bb is a dependency for rest of chain
         if: needs.configure.outputs.noir == 'true' || needs.configure.outputs.bb == 'true'
         timeout-minutes: 40
         with:
           runner_type: builder-x86
           username: ${{ needs.configure.outputs.username }}
-          run: scripts/earthly-ci +ci-noir-bb
+          # Old Earthly usage was: scripts/earthly-ci +ci-noir-bb
+          # Now we call our new imperative script:
+          run: scripts/targets.sh ci-noir-bb
 
   bootstrap:
     needs: [ci-noir-bb, configure]
@@ -140,7 +139,8 @@ jobs:
         with:
           runner_type: builder-x86
           username: ${{ needs.configure.outputs.username }}
-          run: scripts/earthly-ci +bootstrap
+          # Old Earthly usage: scripts/earthly-ci +bootstrap
+          run: scripts/targets.sh bootstrap
 
   ci-rest:
     needs: [bootstrap, configure]
@@ -155,7 +155,8 @@ jobs:
         with:
           runner_type: builder-x86
           username: ${{ needs.configure.outputs.username }}
-          run: scripts/earthly-ci +ci-rest
+          # Old Earthly usage: scripts/earthly-ci +ci-rest
+          run: scripts/targets.sh ci-rest
 
   images-e2e:
     needs: [bootstrap, configure]
@@ -170,7 +171,8 @@ jobs:
         with:
           runner_type: builder-x86
           username: ${{ needs.configure.outputs.username }}
-          run: ./bootstrap.sh image-e2e
+          # Replaces: run: ./bootstrap.sh image-e2e
+          run: scripts/targets.sh image-e2e
 
   docs:
     needs: [bootstrap, configure]
@@ -185,11 +187,12 @@ jobs:
         with:
           runner_type: builder-x86
           username: ${{ needs.configure.outputs.username }}
-          run:
-            scripts/earthly-ci +docs-with-cache --ENV=staging --PR=${{ github.event.number }} \
-            --AZTEC_BOT_COMMENTER_GITHUB_TOKEN=${{ secrets.AZTEC_BOT_GITHUB_TOKEN }} \
-            --NETLIFY_AUTH_TOKEN=${{ secrets.NETLIFY_AUTH_TOKEN }} \
-            --NETLIFY_SITE_ID=${{ secrets.NETLIFY_SITE_ID }}
+          # Old Earthly usage: scripts/earthly-ci +docs-with-cache --ENV=staging ...
+          run: |
+            scripts/targets.sh docs-with-cache staging ${{ github.event.number }} \
+              ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }} \
+              ${{ secrets.NETLIFY_AUTH_TOKEN }} \
+              ${{ secrets.NETLIFY_SITE_ID }}
 
   e2e:
     needs: [images-e2e, configure]
@@ -215,7 +218,6 @@ jobs:
             ci3/cache_upload_flag "$artifact"
           fi
 
-  # All the benchmarking end-to-end integration tests for aztec (not required to merge)
   bench-e2e:
     needs: [images-e2e, configure]
     if: needs.configure.outputs.e2e-all == 'true' || needs.configure.outputs.bench-list != '[]'
@@ -259,7 +261,6 @@ jobs:
           alert-comment-cc-users: "@philwindle @spalladino"
           max-items-in-chart: 50
 
-  # Only e2e test that can't run on standard github runner
   e2e-prover-full:
     runs-on: ubuntu-latest
     needs: [images-e2e, configure]
@@ -305,7 +306,8 @@ jobs:
             echo ${{ secrets.DOCKERHUB_PASSWORD }} | docker login -u aztecprotocolci --password-stdin
             export CI=1 USE_CACHE=1
             if ci3/test_should_run acir-bench-$(./barretenberg/acir_tests/bootstrap.sh hash); then
-              scripts/earthly-ci ./barretenberg/acir_tests+bench-publish
+              # Old Earthly usage: scripts/earthly-ci ./barretenberg/acir_tests+bench-publish
+              scripts/targets.sh barretenberg-acir-tests-bench-publish
               ci3/cache_upload_flag acir-bench-$(./barretenberg/acir_tests/bootstrap.sh hash)
             fi
 
@@ -347,18 +349,10 @@ jobs:
       fail-fast: false
       matrix:
         config:
-          # - test: reorg.test.ts
-          #   values: ci
-          #   runner_type: 16core-tester-x86-high-memory
-          #   timeout: 60
           - test: 4epochs.test.ts
             values: ci
             runner_type: 16core-tester-x86
             timeout: 40
-          # - test: gating-passive.test.ts
-          #   values: ci
-          #   runner_type: 16core-tester-x86
-          #   timeout: 40
     steps:
       - uses: actions/checkout@v4
         with: { ref: "${{ env.GIT_COMMIT }}" }
@@ -368,7 +362,7 @@ jobs:
         with:
           username: ${{ needs.configure.outputs.username }}
           runner_type: ${{ matrix.config.runner_type }}
-          spot_strategy: None # use on-demand machines
+          spot_strategy: None
           ttl: ${{ matrix.config.timeout }}
           run: |
             export CI=1 USE_CACHE=1
@@ -382,7 +376,6 @@ jobs:
       - name: Copy Network Logs
         if: always()
         run: scripts/copy_from_tester yarn-project/end-to-end/scripts/network-test.log network-test.log || true
-
       - name: Upload Network Logs
         if: always()
         uses: actions/upload-artifact@v4
@@ -405,9 +398,9 @@ jobs:
           run: |
             export CI=1
             export USE_CACHE=1
-            # We gate the build with this
             if ci3/test_should_run bb-bench-$(./barretenberg/cpp/bootstrap.sh hash); then
-              scripts/earthly-ci --push ./barretenberg/cpp/+bench-binaries
+              # Old Earthly usage: scripts/earthly-ci --push ./barretenberg/cpp/+bench-binaries
+              scripts/targets.sh barretenberg-cpp-bench-binaries
             fi
       - name: Run Bench
         uses: ./.github/ensure-tester
@@ -419,7 +412,8 @@ jobs:
             HASH=$(ci3/cache_content_hash ./barretenberg/cpp/.rebuild_patterns)-${{ github.ref }}
             export CI=1 USE_CACHE=1
             if ci3/test_should_run bb-bench-$HASH; then
-              scripts/earthly-ci --artifact ./barretenberg/cpp/+bench/bench.json --bench_mode=cache
+              # Old Earthly usage: scripts/earthly-ci --artifact ./barretenberg/cpp/+bench/bench.json --bench_mode=cache
+              scripts/targets.sh barretenberg-cpp-bench cache
               ci3/cache_upload_flag bb-bench-$HASH
             fi
       - name: Copy Bench.json
@@ -447,23 +441,19 @@ jobs:
       - uses: actions/checkout@v4
         with: { ref: "${{ github.event.pull_request.head.sha }}" }
       - uses: ./.github/ci-setup-action
-
       - name: Build Boxes
         uses: ./.github/ensure-builder
         timeout-minutes: 40
         with:
           username: ${{ needs.configure.outputs.username }}
           runner_type: builder-x86
-          run: |
-            export CI=1 USE_CACHE=1
-            if ci3/test_should_run "boxes-test-$(./boxes/bootstrap.sh hash)"; then
-              ./bootstrap.sh test-boxes
-            fi
+          # Old Earthly usage: scripts/earthly-ci ./boxes/bootstrap.sh test-boxes
+          run: scripts/targets.sh boxes-test
 
   prover-client-test:
     needs: [ci-rest, configure]
     runs-on: ubuntu-latest
-    if: needs.configure.outputs.e2e-all == 'true' || needs.configure.outputs.noir == 'true' || needs.configure.outputs.bb == 'true' || needs.configure.outputs.noir-projects == 'true'
+    if: needs.configure.outputs.e2e-all == 'true' || needs.configure.outputs.noir == 'true' || needs.configure.outputs.bb == 'true' || needs.configure.outputs['noir-projects'] == 'true'
     steps:
       - uses: actions/checkout@v4
         with: { ref: "${{ github.event.pull_request.head.sha }}" }
@@ -474,29 +464,14 @@ jobs:
         with:
           username: ${{ needs.configure.outputs.username }}
           runner_type: builder-x86
-          run: |
-            export CI=1 USE_CACHE=1
-            scripts/earthly-ci +prover-client-with-cache
+          # Old Earthly usage: scripts/earthly-ci +prover-client-with-cache
+          run: scripts/targets.sh prover-client-with-cache
 
-  # testnet-installer:
-  #   needs: [bootstrap, configure]
-  #   runs-on: ubuntu-latest
-  #   steps:
-  #     - uses: actions/checkout@v4
-  #       with: { ref: "${{ github.event.pull_request.head.sha }}" }
-  #     - uses: ./.github/ci-setup-action
-  #     - name: Testnet Installer Helper Script
-  #       uses: ./.github/ensure-builder
-  #       timeout-minutes: 40
-  #       with:
-  #         username: ${{ needs.configure.outputs.username }}
-  #         runner_type: builder-x86
-  #         run: |
-  #           scripts/earthly-ci ./spartan/releases/testnet/+test-all
+  # TODO testnet-installer: (commented out in your snippet)
 
   protocol-circuits-gates-report:
     needs: [ci-rest, configure]
-    if: github.ref_name == 'master' || (needs.configure.outputs.non-docs == 'true' && needs.configure.outputs.non-bb == 'true')
+    if: github.ref_name == 'master' || (needs.configure.outputs['non-docs'] == 'true' && needs.configure.outputs['non-bb'] == 'true')
     runs-on: ubuntu-latest
     permissions:
       pull-requests: write
@@ -509,8 +484,8 @@ jobs:
         with:
           username: ${{ needs.configure.outputs.username }}
           runner_type: builder-x86
-          run: |
-            scripts/earthly-ci --artifact ./noir-projects/+gates-report/gates_report.json
+          # Old Earthly usage: scripts/earthly-ci --artifact ./noir-projects/+gates-report/gates_report.json
+          run: scripts/targets.sh noir-projects-gates-report
       - name: Copy Report
         run: |
           scripts/copy_from_builder ./noir-projects/gates_report.json protocol_circuits_report.json
@@ -521,20 +496,18 @@ jobs:
         timeout-minutes: 1
         with:
           report: protocol_circuits_report.json
-          summaryQuantile: 0 # Display any diff in gate count
-
+          summaryQuantile: 0
       - name: Add gates diff to sticky comment
         if: github.event_name == 'pull_request' || github.event_name == 'pull_request_target'
         uses: marocchino/sticky-pull-request-comment@v2
         continue-on-error: true
         with:
-          # delete the comment in case changes no longer impact circuit sizes
           delete: ${{ !steps.gates_diff.outputs.markdown }}
           message: ${{ steps.gates_diff.outputs.markdown }}
 
   public-functions-size-report:
     needs: [ci-rest, configure]
-    if: github.ref_name == 'master' || needs.configure.outputs.non-docs == 'true'
+    if: github.ref_name == 'master' || needs.configure.outputs['non-docs'] == 'true'
     runs-on: ubuntu-latest
     permissions:
       pull-requests: write
@@ -547,8 +520,8 @@ jobs:
         with:
           username: ${{ needs.configure.outputs.username }}
           runner_type: builder-x86
-          run: |
-            scripts/earthly-ci --artifact ./noir-projects/+public-functions-report/public_functions_report.json
+          # Old Earthly usage: scripts/earthly-ci --artifact ./noir-projects/+public-functions-report/public_functions_report.json
+          run: scripts/targets.sh noir-projects-public-functions-report
       - name: Copy Report
         run: |
           scripts/copy_from_builder noir-projects/public_functions_report.json public_functions_report.json
@@ -563,8 +536,7 @@ jobs:
             # Changes to public function bytecode sizes
           brillig_report: true
           brillig_report_bytes: true
-          summaryQuantile: 0 # Display any diff in bytecode size count
-
+          summaryQuantile: 0
       - name: Add bytecode size diff to sticky comment
         if: github.event_name == 'pull_request' || github.event_name == 'pull_request_target'
         uses: marocchino/sticky-pull-request-comment@v2
@@ -586,11 +558,9 @@ jobs:
       - docs
       - e2e
       - e2e-prover-full
-      - bb-native-tests
       - kind-network-smoke
       - kind-network-test
       - boxes-test
-      # - testnet-installer
     if: always()
     outputs:
       failure: ${{ steps.set_failed_jobs.outputs.failure }}
@@ -610,7 +580,6 @@ jobs:
       - name: Report overall success (non-draft)
         if: github.event.pull_request.draft == false
         env:
-          # We treat any skipped or failing jobs as a failure for the workflow as a whole.
           FAIL: ${{ contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled') }}
         run: |
           if [[ $FAIL == true ]]; then
@@ -620,6 +589,7 @@ jobs:
               echo "All jobs succeeded, merge allowed."
               exit 0
           fi
+
       - name: Block merge (draft)
         if: github.event.pull_request.draft
         run: echo "Can't merge drafts." && exit 1
@@ -632,14 +602,12 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
-
       - name: Get Authors of Recent Commit
         id: get_authors
         run: |
           git fetch --depth=1 origin ${{ github.sha }}
           authors=$(git log -1 --pretty=format:'%an <%ae>' ${{ github.sha }})
           echo "authors=${authors}" >> $GITHUB_OUTPUT
-
       - name: Send notification to aztec3-ci channel if workflow failed on master
         uses: slackapi/slack-github-action@v1.25.0
         with:

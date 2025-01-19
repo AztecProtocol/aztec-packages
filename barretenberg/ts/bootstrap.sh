@@ -35,6 +35,21 @@ function test_cmds {
   echo "$hash barretenberg/ts/bootstrap.sh format --check"
 }
 
+# # WORKTODO(adam) remove once publish-aztec-packages is refactored
+# publish-npm:
+#     FROM +deps
+#     ARG VERSION
+#     ARG DIST_TAG
+#     ARG DRY_RUN=0
+#     RUN --secret NPM_TOKEN echo "//registry.npmjs.org/:_authToken=${NPM_TOKEN}" > /usr/src/barretenberg/ts/.npmrc
+#     WORKDIR /usr/src/barretenberg/ts
+#     RUN jq --arg v $VERSION '.version = $v' package.json > _tmp.json && mv  _tmp.json package.json
+#     RUN if [ "$DRY_RUN" = "1" ]; then \
+#         npm publish --tag $DIST_TAG --access public --dry-run; \
+#     else \
+#         npm publish --tag $DIST_TAG --access public; \
+#     fi
+
 function test {
   echo_header "bb.js test"
   test_cmds | parallelise
