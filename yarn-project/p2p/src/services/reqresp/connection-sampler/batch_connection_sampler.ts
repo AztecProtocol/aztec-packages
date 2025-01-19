@@ -61,7 +61,9 @@ export class BatchConnectionSampler {
    */
   removePeerAndReplace(peerId: PeerId): void {
     const index = this.batch.findIndex(p => p === peerId);
-    if (index === -1) return;
+    if (index === -1) {
+      return;
+    }
 
     const newPeer = this.connectionSampler.getPeer();
     if (newPeer) {
