@@ -68,7 +68,7 @@ impl Packable<U128_PACKED_LEN> for U128 {
     }
 
     fn unpack(fields: [Field; U128_PACKED_LEN]) -> Self {
-        U128::from_u64s_le(fields[0] as u64, fields[1] as u64)
+        U128::from_integer(fields[0])
     }
 }
 
