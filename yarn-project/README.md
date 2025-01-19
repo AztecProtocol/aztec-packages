@@ -75,8 +75,6 @@ To add a new package, make sure to add it to the `build_manifest.json`, to the `
 - `README.md`
 - `tsconfig.json`
 
-You may also need to modify the [Dockerfile](yarn-project/yarn-project-base/Dockerfile) to copy your new `package.json` into the container to get CI to pass.
-
 ## Deploying npm packages
 
 `deploy-npm` script handles the releases of npm packages within yarn-project. But the initial release is a manual process:
