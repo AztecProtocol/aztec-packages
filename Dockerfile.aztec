@@ -4,6 +4,14 @@ ENV BB_BINARY_PATH=/usr/src/barretenberg/cpp/build/bin/bb
 ENV ACVM_WORKING_DIRECTORY=/usr/src/acvm
 ENV ACVM_BINARY_PATH=/usr/src/noir/noir-repo/target/release/acvm
 RUN mkdir -p $BB_WORKING_DIRECTORY $ACVM_WORKING_DIRECTORY /usr/src/yarn-project/world-state/build
+
+# aztec-base assumed to have jq installed
+ARG VERSION=0.1.0
+RUN if [ -n "$VERSION" ]; then \
+    echo "Setting version to $VERSION"; \
+    cat package.json | jq '.version = $VERSION' > /usr/src/yarn-project/package.json; \
+  fi
+
 COPY /usr/src /usr/src
 ENTRYPOINT ["node", "--no-warnings", "/usr/src/yarn-project/aztec/dest/bin/index.js"]
 ARG PORT=8080
