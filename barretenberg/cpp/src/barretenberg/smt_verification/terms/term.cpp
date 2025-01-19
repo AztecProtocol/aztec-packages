@@ -429,6 +429,16 @@ STerm STerm::rotl(const uint32_t& n) const
     return { res, this->solver, this->type };
 }
 
+STerm STerm::sdiv(const STerm& other) const
+{
+    if (!this->operations.contains(OpType::SDIV)) {
+        info("SDIV is not compatible with ", this->type);
+        return *this;
+    }
+    cvc5::Term res = this->solver->term_manager.mkTerm(this->operations.at(OpType::SDIV), { this->term, other.term });
+    return { res, this->solver, this->type };
+}
+
 /**
  * @brief Create an inclusion constraint
  *

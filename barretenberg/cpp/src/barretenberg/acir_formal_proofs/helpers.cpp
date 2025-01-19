@@ -44,20 +44,50 @@ smt_circuit::STerm shr(smt_circuit::STerm v0, smt_circuit::STerm v1, smt_solver:
     return res;
 }
 
+smt_circuit::STerm truncate(smt_circuit::STerm v0, uint32_t bit_size, smt_solver::Solver* solver)
+{
+    smt_circuit::STerm power = smt_terms::BVConst(std::to_string(bit_size), solver, 10);
+    auto mask = pow2_8(power, solver);
+    return v0 & (mask - 1);
+}
+
 smt_circuit::STerm shl64(smt_circuit::STerm v0, smt_circuit::STerm v1, smt_solver::Solver* solver)
 {
     auto shifted = shl(v0, v1, solver);
     // 2^64 - 1
-    auto mask = smt_terms::BVConst("18446744073709551615", solver, 10);
-    auto res = shifted & mask;
+    /*auto mask = smt_terms::BVConst("18446744073709551615", solver, 10);
+    auto res = shifted & mask;*/
+    auto res = truncate(shifted, 64, solver);
     return res;
 }
 
 smt_circuit::STerm shl32(smt_circuit::STerm v0, smt_circuit::STerm v1, smt_solver::Solver* solver)
 {
     auto shifted = shl(v0, v1, solver);
-    // 2^32 - 1
-    auto mask = smt_terms::BVConst("4294967295", solver, 10);
-    auto res = shifted & mask;
+    auto res = truncate(shifted, 32, solver);
+    return res;
+}
+
+smt_circuit::STerm idiv(smt_circuit::STerm v0, smt_circuit::STerm v1, uint32_t bit_size, smt_solver::Solver* solver)
+{
+    // highest bit of v0 and v1 is sign bit
+    smt_circuit::STerm exponent = smt_terms::BVConst(std::to_string(bit_size), solver, 10);
+    // because pow(2, 0) == 1
+    auto mask_abs_value = pow2_8(exponent - 1, solver);
+    auto sign_bit_v0 = v0 & mask_abs_value;
+    auto sign_bit_v1 = v1 & mask_abs_value;
+    auto res_sign_bit = sign_bit_v0 ^ sign_bit_v1;
+    auto abs_value_v0 = truncate(v0, bit_size - 1, solver);
+    auto abs_value_v1 = truncate(v1, bit_size - 1, solver);
+    auto abs_res = abs_value_v0 / abs_value_v1;
+
+    // if abs_value_v0 == 0 then res = 0
+    auto res = smt_terms::BVVar("res_haboba", solver);
+    auto condition = smt_terms::Bool(abs_value_v0, solver) == smt_terms::Bool(smt_terms::BVConst("0", solver, 10));
+    auto eq1 = condition & (smt_terms::Bool(res, solver) == smt_terms::Bool(smt_terms::BVConst("0", solver, 10)));
+    auto eq2 = !condition & (smt_terms::Bool(res, solver) == smt_terms::Bool(res_sign_bit | abs_res, solver));
+
+    (eq1 | eq2).assert_term();
+
     return res;
 }

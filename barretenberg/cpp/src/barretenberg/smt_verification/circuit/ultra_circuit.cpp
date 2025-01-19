@@ -44,10 +44,10 @@ UltraCircuit::UltraCircuit(
         elliptic_cursor = this->handle_elliptic_relation(elliptic_cursor, 3);
     }
 
-    // size_t delta_range_cursor = 0;
-    // while(delta_range_cursor < this->selectors[2].size()){
-    //     delta_range_cursor = this->handle_delta_range_relation(delta_range_cursor, 2);
-    // }
+    size_t delta_range_cursor = 0;
+    while (delta_range_cursor < this->selectors[2].size()) {
+        delta_range_cursor = this->handle_arithmetic_relation(delta_range_cursor, 2);
+    }
     handle_range_constraints();
 
     // TODO(alex): aux
@@ -88,7 +88,7 @@ size_t UltraCircuit::handle_arithmetic_relation(size_t cursor, size_t idx)
 
     std::vector<bb::fr> boolean_gate = { 1, -1, 0, 0, 0, 0, 1, 0, 0, 0, 0 };
     bool boolean_gate_flag =
-        (boolean_gate == selectors[1][cursor]) && (w_l_idx == w_r_idx) && (w_o_idx == 0) && (w_4_idx == 0);
+        (boolean_gate == selectors[idx][cursor]) && (w_l_idx == w_r_idx) && (w_o_idx == 0) && (w_4_idx == 0);
     if (boolean_gate_flag) {
         (Bool(w_l) == Bool(STerm(0, this->solver, this->type)) | Bool(w_l) == Bool(STerm(1, this->solver, this->type)))
             .assert_term();

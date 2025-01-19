@@ -15,7 +15,27 @@ using namespace smt_solver;
 enum class TermType { FFTerm, FFITerm, BVTerm, ITerm };
 std::ostream& operator<<(std::ostream& os, TermType type);
 
-enum class OpType : int32_t { ADD, SUB, MUL, DIV, NEG, XOR, AND, OR, GT, GE, LT, LE, MOD, RSH, LSH, ROTR, ROTL, NOT };
+enum class OpType : int32_t {
+    ADD,
+    SUB,
+    MUL,
+    DIV,
+    NEG,
+    XOR,
+    AND,
+    OR,
+    GT,
+    GE,
+    LT,
+    LE,
+    MOD,
+    RSH,
+    LSH,
+    ROTR,
+    ROTL,
+    NOT,
+    SDIV
+};
 
 /**
  * @brief precomputed map that contains allowed
@@ -75,7 +95,7 @@ const std::unordered_map<TermType, std::unordered_map<OpType, cvc5::Kind>> typed
           { OpType::MOD, cvc5::Kind::BITVECTOR_UREM },
           { OpType::DIV, cvc5::Kind::BITVECTOR_UDIV },
           { OpType::NOT, cvc5::Kind::BITVECTOR_NOT },
-      } }
+          { OpType::SDIV, cvc5::Kind::BITVECTOR_SDIV } } }
 };
 
 /**
@@ -173,6 +193,8 @@ class STerm {
 
     STerm rotr(const uint32_t& n) const;
     STerm rotl(const uint32_t& n) const;
+    STerm equal_bv(const uint32_t& other) const;
+    STerm sdiv(const STerm& other) const;
 
     void in(const cvc5::Term& table) const;
 

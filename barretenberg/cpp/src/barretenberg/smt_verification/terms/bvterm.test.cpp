@@ -10,14 +10,14 @@ auto& engine = bb::numeric::get_debug_randomness();
 }
 
 using namespace bb;
-using witness_ct = stdlib::witness_t<StandardCircuitBuilder>;
-using uint_ct = stdlib::uint32<StandardCircuitBuilder>;
+using witness_ct = stdlib::witness_t<UltraCircuitBuilder>;
+using uint_ct = stdlib::uint64<UltraCircuitBuilder>;
 
 using namespace smt_terms;
 
 TEST(BVTerm, addition)
 {
-    StandardCircuitBuilder builder;
+    UltraCircuitBuilder builder;
     uint_ct a = witness_ct(&builder, engine.get_random_uint32());
     uint_ct b = witness_ct(&builder, engine.get_random_uint32());
     uint_ct c = a + b;
@@ -46,7 +46,7 @@ TEST(BVTerm, addition)
 
 TEST(BVTerm, subtraction)
 {
-    StandardCircuitBuilder builder;
+    UltraCircuitBuilder builder;
     uint_ct a = witness_ct(&builder, engine.get_random_uint32());
     uint_ct b = witness_ct(&builder, engine.get_random_uint32());
     uint_ct c = a - b;
@@ -75,7 +75,7 @@ TEST(BVTerm, subtraction)
 
 TEST(BVTerm, xor)
 {
-    StandardCircuitBuilder builder;
+    UltraCircuitBuilder builder;
     uint_ct a = witness_ct(&builder, engine.get_random_uint32());
     uint_ct b = witness_ct(&builder, engine.get_random_uint32());
     uint_ct c = a ^ b;
@@ -104,7 +104,7 @@ TEST(BVTerm, xor)
 
 TEST(BVTerm, rotr)
 {
-    StandardCircuitBuilder builder;
+    UltraCircuitBuilder builder;
     uint_ct a = witness_ct(&builder, engine.get_random_uint32());
     uint_ct b = a.ror(10);
 
@@ -130,7 +130,7 @@ TEST(BVTerm, rotr)
 
 TEST(BVTerm, rotl)
 {
-    StandardCircuitBuilder builder;
+    UltraCircuitBuilder builder;
     uint_ct a = witness_ct(&builder, engine.get_random_uint32());
     uint_ct b = a.rol(10);
 
@@ -157,7 +157,7 @@ TEST(BVTerm, rotl)
 // non bijective operators
 TEST(BVTerm, mul)
 {
-    StandardCircuitBuilder builder;
+    UltraCircuitBuilder builder;
     uint_ct a = witness_ct(&builder, engine.get_random_uint32());
     uint_ct b = witness_ct(&builder, engine.get_random_uint32());
     uint_ct c = a * b;
@@ -186,7 +186,7 @@ TEST(BVTerm, mul)
 
 TEST(BVTerm, and)
 {
-    StandardCircuitBuilder builder;
+    UltraCircuitBuilder builder;
     uint_ct a = witness_ct(&builder, engine.get_random_uint32());
     uint_ct b = witness_ct(&builder, engine.get_random_uint32());
     uint_ct c = a & b;
@@ -215,7 +215,7 @@ TEST(BVTerm, and)
 
 TEST(BVTerm, or)
 {
-    StandardCircuitBuilder builder;
+    UltraCircuitBuilder builder;
     uint_ct a = witness_ct(&builder, engine.get_random_uint32());
     uint_ct b = witness_ct(&builder, engine.get_random_uint32());
     uint_ct c = a | b;
@@ -244,7 +244,7 @@ TEST(BVTerm, or)
 
 TEST(BVTerm, div)
 {
-    StandardCircuitBuilder builder;
+    UltraCircuitBuilder builder;
     uint_ct a = witness_ct(&builder, engine.get_random_uint32());
     uint_ct b = witness_ct(&builder, engine.get_random_uint32());
     uint_ct c = a / b;
@@ -273,7 +273,7 @@ TEST(BVTerm, div)
 
 TEST(BVTerm, shr)
 {
-    StandardCircuitBuilder builder;
+    UltraCircuitBuilder builder;
     uint_ct a = witness_ct(&builder, engine.get_random_uint32());
     uint_ct b = a >> 5;
 
@@ -299,7 +299,7 @@ TEST(BVTerm, shr)
 
 TEST(BVTerm, shl)
 {
-    StandardCircuitBuilder builder;
+    UltraCircuitBuilder builder;
     uint_ct a = witness_ct(&builder, engine.get_random_uint32());
     uint_ct b = a << 5;
 

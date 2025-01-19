@@ -45,6 +45,14 @@ bool verify_mul(smt_solver::Solver* solver, smt_circuit::UltraCircuit circuit);
 bool verify_div(smt_solver::Solver* solver, smt_circuit::UltraCircuit circuit);
 
 /**
+ * @brief Verify signed integer division operation: c = a / b
+ * @param solver SMT solver instance
+ * @param circuit Circuit containing variables a, b, c
+ * @return true if a counterexample is found (verification fails)
+ */
+bool verify_idiv(smt_solver::Solver* solver, smt_circuit::UltraCircuit circuit, uint32_t bit_size);
+
+/**
  * @brief Verify field division operation: c = a / b (in field)
  * @param solver SMT solver instance
  * @param circuit Circuit containing variables a, b, c

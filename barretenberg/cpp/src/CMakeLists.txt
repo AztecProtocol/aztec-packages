@@ -98,13 +98,13 @@ add_subdirectory(barretenberg/vm)
 add_subdirectory(barretenberg/wasi)
 add_subdirectory(barretenberg/world_state)
 
-if(SMT)
-    add_subdirectory(barretenberg/smt_verification)
-endif()
 
-if(SMT AND ACIR_FORMAL_PROOFS)
-    add_subdirectory(barretenberg/acir_formal_proofs)
-endif()
+add_subdirectory(barretenberg/smt_verification)
+
+
+
+add_subdirectory(barretenberg/acir_formal_proofs)
+
 
 add_subdirectory(barretenberg/benchmark)
 

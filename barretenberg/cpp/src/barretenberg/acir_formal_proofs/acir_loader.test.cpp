@@ -20,7 +20,7 @@
 #include <vector>
 
 // Path to test artifacts containing ACIR programs and witness files
-const std::string ARTIFACTS_PATH = "../src/barretenberg/acir_formal_proofs/artifacts/";
+const std::string ARTIFACTS_PATH = "/tmp/";
 
 /**
  * @brief Saves witness data when a bug is found during verification
@@ -396,6 +396,12 @@ TEST(acir_formal_proofs, field_terms_add)
 {
     std::string TESTNAME = "Binary::Add_Field_0_Field_0";
     AcirToSmtLoader loader = AcirToSmtLoader(ARTIFACTS_PATH + TESTNAME + ".acir");
+    bb::UltraCircuitBuilder builder = loader.get_circuit_builder();
+    EXPECT_TRUE(bb::CircuitChecker::check(builder));
+    info(builder.variables.size());
+    info(builder.rom_arrays.size());
+    info(builder.ram_arrays.size());
+    info(builder.public_inputs.size());
     smt_solver::Solver solver = loader.get_smt_solver();
     smt_circuit::UltraCircuit circuit = loader.get_field_smt_circuit(&solver);
     bool res = verify_add(&solver, circuit);
@@ -476,13 +482,57 @@ TEST(acir_formal_proofs, field_terms_mul)
  * Verifies that the ACIR implementation of signed division is correct
  * Execution time: >17 DAYS on SMTBOX
  */
-TEST(acir_formal_proofs, integer_terms_div)
+TEST(acir_formal_proofs, uint_terms_div_signed)
 {
     std::string TESTNAME = "Binary::Div_Signed_126_Signed_126";
     AcirToSmtLoader loader = AcirToSmtLoader(ARTIFACTS_PATH + TESTNAME + ".acir");
     smt_solver::Solver solver = loader.get_smt_solver();
-    smt_circuit::UltraCircuit circuit = loader.get_integer_smt_circuit(&solver);
-    bool res = verify_div(&solver, circuit);
+    smt_circuit::UltraCircuit circuit = loader.get_bitvec_smt_circuit(&solver);
+    bool res = verify_idiv(&solver, circuit, 126);
+    EXPECT_FALSE(res);
+    if (res) {
+        save_buggy_witness(TESTNAME, circuit);
+    }
+}
+
+TEST(acir_formal_proofs, uint_terms_div_signed_2)
+{
+    std::string TESTNAME = "Binary::Div_Signed_2_Signed_2";
+    AcirToSmtLoader loader = AcirToSmtLoader(ARTIFACTS_PATH + TESTNAME + ".acir");
+    smt_solver::Solver solver = loader.get_smt_solver();
+    smt_circuit::UltraCircuit circuit = loader.get_bitvec_smt_circuit(&solver);
+    bool res = verify_idiv(&solver, circuit, 2);
+    EXPECT_FALSE(res);
+    if (res) {
+        save_buggy_witness(TESTNAME, circuit);
+    }
+}
+
+/**
+ * @brief Tests 126-bit signed division
+ * Verifies that the ACIR implementation of signed division is correct
+ * Execution time: >17 DAYS on SMTBOX
+ */
+TEST(acir_formal_proofs, integer_terms_div_unsigned)
+{
+    std::string TESTNAME = "Binary::Div_Unsigned_126_Unsigned_126";
+    AcirToSmtLoader loader = AcirToSmtLoader(ARTIFACTS_PATH + TESTNAME + ".acir");
+    smt_solver::Solver solver = loader.get_smt_solver();
+    smt_circuit::UltraCircuit circuit = loader.get_bitvec_smt_circuit(&solver);
+    bool res = verify_idiv(&solver, circuit, 126);
+    EXPECT_FALSE(res);
+    if (res) {
+        save_buggy_witness(TESTNAME, circuit);
+    }
+}
+
+TEST(acir_formal_proofs, integer_terms_div_unsigned_2)
+{
+    std::string TESTNAME = "Binary::Div_Unsigned_2_Unsigned_2";
+    AcirToSmtLoader loader = AcirToSmtLoader(ARTIFACTS_PATH + TESTNAME + ".acir");
+    smt_solver::Solver solver = loader.get_smt_solver();
+    smt_circuit::UltraCircuit circuit = loader.get_bitvec_smt_circuit(&solver);
+    bool res = verify_idiv(&solver, circuit, 2);
     EXPECT_FALSE(res);
     if (res) {
         save_buggy_witness(TESTNAME, circuit);

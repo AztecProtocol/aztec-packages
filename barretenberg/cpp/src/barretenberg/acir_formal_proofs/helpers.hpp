@@ -45,3 +45,22 @@ smt_circuit::STerm shr(smt_circuit::STerm v0, smt_circuit::STerm v1, smt_solver:
  * @return Result of (v0 << v1) without truncation
  */
 smt_circuit::STerm shl(smt_circuit::STerm v0, smt_circuit::STerm v1, smt_solver::Solver* solver);
+
+/**
+ * @brief Truncates value to specified bit size
+ * @param v0 Value to truncate
+ * @param bit_size Number of bits to truncate to
+ * @param solver SMT solver instance
+ * @return Value truncated to bit_size bits
+ */
+smt_circuit::STerm truncate(smt_circuit::STerm v0, uint32_t bit_size, smt_solver::Solver* solver);
+
+/**
+ * @brief Integer division operation
+ * @param v0 Value to divide
+ * @param v1 Value to divide by
+ * @param bit_size Number of bits to truncate to
+ * @param solver SMT solver instance
+ * @return Result of (v0 / v1) truncated to bit_size bits
+ */
+smt_circuit::STerm idiv(smt_circuit::STerm v0, smt_circuit::STerm v1, uint32_t bit_size, smt_solver::Solver* solver);
