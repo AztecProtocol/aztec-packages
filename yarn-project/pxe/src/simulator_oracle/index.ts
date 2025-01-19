@@ -1,14 +1,16 @@
 import {
   type AztecNode,
+  type FunctionCall,
   type InBlock,
   L1NotePayload,
   type L2Block,
   type L2BlockNumber,
   MerkleTreeId,
+  Note,
   type NoteStatus,
   type NullifierMembershipWitness,
   type PublicDataWitness,
-  type TxEffect,
+  TxHash,
   type TxScopedL2Log,
   getNonNullifiedL1ToL2MessageWitness,
 } from '@aztec/circuit-types';
@@ -18,15 +20,24 @@ import {
   type CompleteAddress,
   type ContractInstance,
   Fr,
-  type FunctionSelector,
+  FunctionSelector,
   IndexedTaggingSecret,
   type KeyValidationRequest,
   type L1_TO_L2_MSG_TREE_HEIGHT,
+  MAX_NOTE_HASHES_PER_TX,
+  PRIVATE_LOG_SIZE_IN_FIELDS,
   PrivateLog,
   computeAddressSecret,
   computeTaggingSecretPoint,
 } from '@aztec/circuits.js';
-import { type FunctionArtifact, getFunctionArtifact } from '@aztec/foundation/abi';
+import { computeUniqueNoteHash, siloNoteHash, siloNullifier } from '@aztec/circuits.js/hash';
+import {
+  type FunctionArtifact,
+  FunctionType,
+  NoteSelector,
+  encodeArguments,
+  getFunctionArtifact,
+} from '@aztec/foundation/abi';
 import { poseidon2Hash } from '@aztec/foundation/crypto';
 import { createLogger } from '@aztec/foundation/log';
 import { type KeyStore } from '@aztec/key-store';
@@ -37,10 +48,10 @@ import {
   type SimulationProvider,
 } from '@aztec/simulator/client';
 
-import { type ContractDataOracle } from '../contract_data_oracle/index.js';
+import { ContractDataOracle } from '../contract_data_oracle/index.js';
 import { type PxeDatabase } from '../database/index.js';
-import { type NoteDao } from '../database/note_dao.js';
-import { produceNoteDaos } from '../note_decryption_utils/produce_note_daos.js';
+import { NoteDao } from '../database/note_dao.js';
+import { getOrderedNoteItems } from '../note_decryption_utils/add_public_values_to_payload.js';
 import { getAcirSimulator } from '../simulator/index.js';
 import { WINDOW_HALF_SIZE, getIndexedTaggingSecretsForTheWindow, getInitialIndexesMap } from './tagging_utils.js';
 
@@ -431,6 +442,8 @@ export class SimulatorOracle implements DBOracle {
     maxBlockNumber: number,
     scopes?: AztecAddress[],
   ): Promise<Map<string, TxScopedL2Log[]>> {
+    this.log.verbose('Searching for tagged logs', { contract: contractAddress });
+
     // Ideally this algorithm would be implemented in noir, exposing its building blocks as oracles.
     // However it is impossible at the moment due to the language not supporting nested slices.
     // This nesting is necessary because for a given set of tags we don't
@@ -568,10 +581,9 @@ export class SimulatorOracle implements DBOracle {
    * Decrypts logs tagged for a recipient and returns them.
    * @param scopedLogs - The logs to decrypt.
    * @param recipient - The recipient of the logs.
-   * @param simulator - The simulator to use for decryption.
    * @returns The decrypted notes.
    */
-  async #decryptTaggedLogs(scopedLogs: TxScopedL2Log[], recipient: AztecAddress, simulator?: AcirSimulator) {
+  async #decryptTaggedLogs(scopedLogs: TxScopedL2Log[], recipient: AztecAddress) {
     const recipientCompleteAddress = await this.getCompleteAddress(recipient);
     const ivskM = await this.keyStore.getMasterSecretKey(
       recipientCompleteAddress.publicKeys.masterIncomingViewingPublicKey,
@@ -581,56 +593,29 @@ export class SimulatorOracle implements DBOracle {
     // Since we could have notes with the same index for different txs, we need
     // to keep track of them scoping by txHash
     const excludedIndices: Map<string, Set<number>> = new Map();
-    const notes: NoteDao[] = [];
-
-    const txEffectsCache = new Map<string, InBlock<TxEffect> | undefined>();
+    const decrypted = [];
 
     for (const scopedLog of scopedLogs) {
-      const notePayload = scopedLog.isFromPublic
+      const payload = scopedLog.isFromPublic
         ? L1NotePayload.decryptAsIncomingFromPublic(scopedLog.logData, addressSecret)
         : L1NotePayload.decryptAsIncoming(PrivateLog.fromBuffer(scopedLog.logData), addressSecret);
 
-      if (notePayload) {
-        const payload = notePayload;
-
-        const txEffect =
-          txEffectsCache.get(scopedLog.txHash.toString()) ?? (await this.aztecNode.getTxEffect(scopedLog.txHash));
-
-        if (!txEffect) {
-          this.log.warn(`No tx effect found for ${scopedLog.txHash} while decrypting tagged logs`);
-          continue;
-        }
-
-        txEffectsCache.set(scopedLog.txHash.toString(), txEffect);
-
-        if (!excludedIndices.has(scopedLog.txHash.toString())) {
-          excludedIndices.set(scopedLog.txHash.toString(), new Set());
-        }
-        const { note } = await produceNoteDaos(
-          // I don't like this at all, but we need a simulator to run `computeNoteHashAndOptionallyANullifier`. This generates
-          // a chicken-and-egg problem due to this oracle requiring a simulator, which in turn requires this oracle. Furthermore, since jest doesn't allow
-          // mocking ESM exports, we have to pollute the method even more by providing a simulator parameter so tests can inject a fake one.
-          simulator ??
-            getAcirSimulator(this.db, this.aztecNode, this.keyStore, this.simulationProvider, this.contractDataOracle),
-          this.db,
-          notePayload ? recipient.toAddressPoint() : undefined,
-          payload!,
-          txEffect.data.txHash,
-          txEffect.data.nullifiers[0],
-          txEffect.l2BlockNumber,
-          txEffect.l2BlockHash,
-          txEffect.data.noteHashes,
-          scopedLog.dataStartIndexForTx,
-          excludedIndices.get(scopedLog.txHash.toString())!,
-          this.log,
-        );
-
-        if (note) {
-          notes.push(note);
-        }
+      if (!payload) {
+        this.log.verbose('Unable to decrypt log');
+        continue;
       }
+
+      if (!excludedIndices.has(scopedLog.txHash.toString())) {
+        excludedIndices.set(scopedLog.txHash.toString(), new Set());
+      }
+
+      const note = await getOrderedNoteItems(this.db, payload);
+      const plaintext = [payload.storageSlot, payload.noteTypeId.toField(), ...note.items];
+
+      decrypted.push({ plaintext, txHash: scopedLog.txHash, contractAddress: payload.contractAddress });
     }
-    return { notes };
+
+    return decrypted;
   }
 
   /**
@@ -643,20 +628,68 @@ export class SimulatorOracle implements DBOracle {
     recipient: AztecAddress,
     simulator?: AcirSimulator,
   ): Promise<void> {
-    const { notes } = await this.#decryptTaggedLogs(logs, recipient, simulator);
-    if (notes.length) {
-      await this.db.addNotes(notes, recipient);
-      notes.forEach(noteDao => {
-        this.log.verbose(`Added incoming note for contract ${noteDao.contractAddress} at slot ${noteDao.storageSlot}`, {
-          contract: noteDao.contractAddress,
-          slot: noteDao.storageSlot,
-          nullifier: noteDao.siloedNullifier.toString(),
-        });
-      });
+    const decryptedLogs = await this.#decryptTaggedLogs(logs, recipient);
+
+    // We've produced the full NoteDao, which we'd be able to simply insert into the database. However, this is
+    // only a temporary measure as we migrate from the PXE-driven discovery into the new contract-driven approach. We
+    // discard most of the work done up to this point and reconstruct the note plaintext to then hand over to the
+    // contract for further processing.
+    for (const decryptedLog of decryptedLogs) {
+      // Log processing requires the note hashes in the tx in which the note was created. We are now assuming that the
+      // note was included in the same block in which the log was delivered - note that partial notes will not work this
+      // way.
+      const txEffect = await this.aztecNode.getTxEffect(decryptedLog.txHash);
+      if (!txEffect) {
+        throw new Error(`Could not find tx effect for tx hash ${decryptedLog.txHash}`);
+      }
+
+      // This will trigger calls to the deliverNote oracle
+      await this.callProcessLog(
+        decryptedLog.contractAddress,
+        decryptedLog.plaintext,
+        decryptedLog.txHash,
+        txEffect.data.noteHashes,
+        txEffect.data.nullifiers[0],
+        recipient,
+        simulator,
+      );
     }
+    return;
+  }
+
+  // Called when notes are delivered, usually as a result to a call to the process_log contract function
+  public async deliverNote(
+    contractAddress: AztecAddress,
+    storageSlot: Fr,
+    nonce: Fr,
+    content: Fr[],
+    noteHash: Fr,
+    nullifier: Fr,
+    txHash: Fr,
+    recipient: AztecAddress,
+  ): Promise<void> {
+    const noteDao = await this.produceNoteDao(
+      contractAddress,
+      storageSlot,
+      nonce,
+      content,
+      noteHash,
+      nullifier,
+      txHash,
+      recipient,
+    );
+
+    await this.db.addNotes([noteDao], recipient);
+    this.log.verbose('Added note', {
+      contract: noteDao.contractAddress,
+      slot: noteDao.storageSlot,
+      nullifier: noteDao.siloedNullifier.toString,
+    });
   }
 
   public async removeNullifiedNotes(contractAddress: AztecAddress) {
+    this.log.verbose('Removing nullified notes', { contract: contractAddress });
+
     for (const recipient of await this.keyStore.getAccounts()) {
       const currentNotesForRecipient = await this.db.getNotes({ contractAddress, owner: recipient });
       const nullifiersToCheck = currentNotesForRecipient.map(note => note.siloedNullifier);
@@ -681,25 +714,113 @@ export class SimulatorOracle implements DBOracle {
     }
   }
 
-  /**
-   * Used by contracts during execution to store arbitrary data in the local PXE database. The data is siloed/scoped
-   * to a specific `contract`.
-   * @param contract - An address of a contract that is requesting to store the data.
-   * @param key - A field element representing the key to store the data under.
-   * @param values - An array of field elements representing the data to store.
-   */
-  store(contract: AztecAddress, key: Fr, values: Fr[]): Promise<void> {
-    return this.db.store(contract, key, values);
+  async produceNoteDao(
+    contractAddress: AztecAddress,
+    storageSlot: Fr,
+    nonce: Fr,
+    content: Fr[],
+    noteHash: Fr,
+    nullifier: Fr,
+    txHash: Fr,
+    recipient: AztecAddress,
+  ): Promise<NoteDao> {
+    const receipt = await this.aztecNode.getTxReceipt(new TxHash(txHash));
+    if (receipt === undefined) {
+      throw new Error(`Failed to fetch tx receipt for tx hash ${txHash} when searching for note hashes`);
+    }
+    const { blockNumber, blockHash } = receipt;
+
+    const uniqueNoteHash = computeUniqueNoteHash(nonce, siloNoteHash(contractAddress, noteHash));
+    const siloedNullifier = siloNullifier(contractAddress, nullifier);
+
+    const uniqueNoteHashTreeIndex = (
+      await this.aztecNode.findLeavesIndexes(blockNumber!, MerkleTreeId.NOTE_HASH_TREE, [uniqueNoteHash])
+    )[0];
+    if (uniqueNoteHashTreeIndex === undefined) {
+      throw new Error(
+        `Note hash ${noteHash} (uniqued as ${uniqueNoteHash}) is not present on the tree at block ${blockNumber} (from tx ${txHash})`,
+      );
+    }
+
+    return new NoteDao(
+      new Note(content),
+      contractAddress,
+      storageSlot,
+      nonce,
+      noteHash,
+      siloedNullifier,
+      new TxHash(txHash),
+      blockNumber!,
+      blockHash!.toString(),
+      uniqueNoteHashTreeIndex,
+      recipient.toAddressPoint(),
+      NoteSelector.empty(), // todo: remove
+    );
   }
 
-  /**
-   * Used by contracts during execution to load arbitrary data from the local PXE database. The data is siloed/scoped
-   * to a specific `contract`.
-   * @param contract - An address of a contract that is requesting to load the data.
-   * @param key - A field element representing the key under which to load the data..
-   * @returns An array of field elements representing the stored data or `null` if no data is stored under the key.
-   */
-  load(contract: AztecAddress, key: Fr): Promise<Fr[] | null> {
-    return this.db.load(contract, key);
+  async callProcessLog(
+    contractAddress: AztecAddress,
+    logPlaintext: Fr[],
+    txHash: TxHash,
+    noteHashes: Fr[],
+    firstNullifier: Fr,
+    recipient: AztecAddress,
+    simulator?: AcirSimulator,
+  ) {
+    const artifact: FunctionArtifact | undefined = await new ContractDataOracle(this.db).getFunctionArtifactByName(
+      contractAddress,
+      'process_log',
+    );
+    if (!artifact) {
+      throw new Error(
+        `Mandatory implementation of "process_log" missing in noir contract ${contractAddress.toString()}.`,
+      );
+    }
+
+    const execRequest: FunctionCall = {
+      name: artifact.name,
+      to: contractAddress,
+      selector: FunctionSelector.fromNameAndParameters(artifact),
+      type: FunctionType.UNCONSTRAINED,
+      isStatic: artifact.isStatic,
+      args: encodeArguments(artifact, [
+        toBoundedVec(logPlaintext, PRIVATE_LOG_SIZE_IN_FIELDS),
+        txHash.toString(),
+        toBoundedVec(noteHashes, MAX_NOTE_HASHES_PER_TX),
+        firstNullifier,
+        recipient,
+      ]),
+      returnTypes: artifact.returnTypes,
+    };
+
+    await (
+      simulator ??
+      getAcirSimulator(this.db, this.aztecNode, this.keyStore, this.simulationProvider, this.contractDataOracle)
+    ).runUnconstrained(
+      execRequest,
+      artifact,
+      contractAddress,
+      [], // empty scope as this call should not require access to private information
+    );
   }
+
+  dbStore(contractAddress: AztecAddress, slot: Fr, values: Fr[]): Promise<void> {
+    return this.db.dbStore(contractAddress, slot, values);
+  }
+
+  dbLoad(contractAddress: AztecAddress, slot: Fr): Promise<Fr[] | null> {
+    return this.db.dbLoad(contractAddress, slot);
+  }
+
+  dbDelete(contractAddress: AztecAddress, slot: Fr): Promise<void> {
+    return this.db.dbDelete(contractAddress, slot);
+  }
+
+  dbCopy(contractAddress: AztecAddress, srcSlot: Fr, dstSlot: Fr, numEntries: number): Promise<void> {
+    return this.db.dbCopy(contractAddress, srcSlot, dstSlot, numEntries);
+  }
+}
+
+function toBoundedVec(array: Fr[], maxLength: number) {
+  return { storage: array.concat(Array(maxLength - array.length).fill(new Fr(0))), len: array.length };
 }

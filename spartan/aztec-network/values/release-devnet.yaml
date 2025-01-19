@@ -1,6 +1,5 @@
 telemetry:
   enabled: true
-  otelCollectorEndpoint: http://35.197.100.168:4318
 
 validator:
   replicas: 1
@@ -18,21 +17,13 @@ bootNode:
     disabled: true
 
 proverAgent:
-  replicas: 10
-  bb:
-    hardwareConcurrency: 31
-  gke:
-    spotEnabled: true
-  resources:
-    requests:
-      memory: "116Gi"
-      cpu: "31"
+  replicas: 1
 
 bot:
   followChain: "PENDING"
   feePaymentMethod: "none" # disabled until the bot can fund itself
   enabled: true
-  txIntervalSeconds: 200
+  txIntervalSeconds: 30
 
 network:
   public: true

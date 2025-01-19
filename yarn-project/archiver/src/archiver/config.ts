@@ -55,7 +55,7 @@ export const archiverConfigMappings: ConfigMappingsType<ArchiverConfig> = {
   archiverPollingIntervalMS: {
     env: 'ARCHIVER_POLLING_INTERVAL_MS',
     description: 'The polling interval in ms for retrieving new L2 blocks and encrypted logs.',
-    ...numberConfigHelper(1_000),
+    ...numberConfigHelper(500),
   },
   archiverBatchSize: {
     env: 'ARCHIVER_BATCH_SIZE',

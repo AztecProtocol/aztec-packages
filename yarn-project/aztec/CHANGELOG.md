@@ -1,5 +1,27 @@
 # Changelog
 
+## [0.71.0](https://github.com/AztecProtocol/aztec-packages/compare/aztec-package-v0.70.0...aztec-package-v0.71.0) (2025-01-17)
+
+
+### Features
+
+* Track block building helpers ([#11190](https://github.com/AztecProtocol/aztec-packages/issues/11190)) ([a749dc1](https://github.com/AztecProtocol/aztec-packages/commit/a749dc1656c0b4d1b0715dae90883b800be591ca)), closes [#11184](https://github.com/AztecProtocol/aztec-packages/issues/11184)
+
+## [0.70.0](https://github.com/AztecProtocol/aztec-packages/compare/aztec-package-v0.69.1...aztec-package-v0.70.0) (2025-01-15)
+
+
+### Features
+
+* Blob sink in sandbox without extra process ([#11032](https://github.com/AztecProtocol/aztec-packages/issues/11032)) ([4600f54](https://github.com/AztecProtocol/aztec-packages/commit/4600f540e519e1b80b4e780491be29707ccf9f40))
+* Browser chunking ([#11102](https://github.com/AztecProtocol/aztec-packages/issues/11102)) ([393e843](https://github.com/AztecProtocol/aztec-packages/commit/393e8438b082db7d45a45c78e0bf39719b11c56b))
+
+
+### Miscellaneous
+
+* Greater stability at 1TPS ([#10981](https://github.com/AztecProtocol/aztec-packages/issues/10981)) ([1c23662](https://github.com/AztecProtocol/aztec-packages/commit/1c23662f1bbf132680540fbb61afb49b6ead91f5))
+* Prover db config ([#11126](https://github.com/AztecProtocol/aztec-packages/issues/11126)) ([9d49393](https://github.com/AztecProtocol/aztec-packages/commit/9d49393e66eb38054e0ecf8202aab05919b1bfd4)), closes [#10267](https://github.com/AztecProtocol/aztec-packages/issues/10267)
+* Rpc server cleanup & misc fixes ([#11145](https://github.com/AztecProtocol/aztec-packages/issues/11145)) ([8a927eb](https://github.com/AztecProtocol/aztec-packages/commit/8a927ebad0c70eaf2aecebbfe9d32eff0990d6f4))
+
 ## [0.69.1](https://github.com/AztecProtocol/aztec-packages/compare/aztec-package-v0.69.0...aztec-package-v0.69.1) (2025-01-08)
 
 

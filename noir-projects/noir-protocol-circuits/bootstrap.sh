@@ -15,13 +15,6 @@ export NARGO=${NARGO:-../../noir/noir-repo/target/release/nargo}
 export BB_HASH=$(cache_content_hash ../../barretenberg/cpp/.rebuild_patterns)
 export NARGO_HASH=$(cache_content_hash ../../noir/.rebuild_patterns)
 
-# Set flags for parallel
-export PARALLELISM=${PARALLELISM:-16}
-export PARALLEL_FLAGS="-j$PARALLELISM -v --line-buffer --tag --halt now,fail=1"
-if [[ -n "${MEMSUSPEND-}" ]]; then
-  export PARALLEL_FLAGS="$PARALLEL_FLAGS --memsuspend $MEMSUSPEND"
-fi
-
 tmp_dir=./target/tmp
 key_dir=./target/keys
 
@@ -133,6 +126,7 @@ function compile {
 export -f compile
 
 function build {
+  # We allow errors so we can output the joblog.
   set +e
   set -u
 
@@ -145,7 +139,8 @@ function build {
           echo "$(basename $dir)"
       fi
     done | \
-    parallel $PARALLEL_FLAGS --joblog joblog.txt compile {}
+    parallel -j${PARALLELISM:-16} -v --line-buffer --tag --halt now,fail=1 --memsuspend ${MEMSUSPEND:-64G} \
+      --joblog joblog.txt compile {}
   code=$?
   cat joblog.txt
   return $code
@@ -154,6 +149,23 @@ function build {
 function test_cmds {
   $NARGO test --list-tests --silence-warnings | sort | while read -r package test; do
     echo "$circuits_hash noir-projects/scripts/run_test.sh noir-protocol-circuits $package $test"
+  done
+  # We don't blindly execute all circuits as some will have no `Prover.toml`.
+  circuits_to_execute="
+    private-kernel-init
+    private-kernel-inner
+    private-kernel-reset
+    private-kernel-tail-to-public
+    private-kernel-tail
+    rollup-base-private
+    rollup-base-public
+    rollup-block-root
+    rollup-block-merge
+    rollup-merge rollup-root
+  "
+  nargo_root_rel=$(realpath --relative-to=$root $NARGO)
+  for circuit in $circuits_to_execute; do
+    echo "$circuits_hash $nargo_root_rel execute --program-dir noir-projects/noir-protocol-circuits/crates/$circuit --silence-warnings --skip-brillig-constraints-check"
   done
 }
 

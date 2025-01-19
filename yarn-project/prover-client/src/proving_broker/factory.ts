@@ -11,11 +11,15 @@ export async function createAndStartProvingBroker(
 ): Promise<ProvingBroker> {
   const database = config.dataDirectory ? await KVBrokerDatabase.new(config, client) : new InMemoryBrokerDatabase();
 
-  const broker = new ProvingBroker(database, client, {
-    jobTimeoutMs: config.proverBrokerJobTimeoutMs,
-    maxRetries: config.proverBrokerJobMaxRetries,
-    timeoutIntervalMs: config.proverBrokerPollIntervalMs,
-  });
+  const broker = new ProvingBroker(
+    database,
+    {
+      jobTimeoutMs: config.proverBrokerJobTimeoutMs,
+      maxRetries: config.proverBrokerJobMaxRetries,
+      timeoutIntervalMs: config.proverBrokerPollIntervalMs,
+    },
+    client,
+  );
 
   await broker.start();
   return broker;

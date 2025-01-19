@@ -11,10 +11,16 @@ import {
 import { createLogger } from '@aztec/foundation/log';
 import { RunningPromise } from '@aztec/foundation/running-promise';
 import { elapsed } from '@aztec/foundation/timer';
-import { Attributes, type TelemetryClient, type Traceable, type Tracer, trackSpan } from '@aztec/telemetry-client';
-import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
+import {
+  Attributes,
+  type TelemetryClient,
+  type Traceable,
+  type Tracer,
+  getTelemetryClient,
+  trackSpan,
+} from '@aztec/telemetry-client';
 
-import { InlineProofStore } from '../proving_broker/proof_store.js';
+import { InlineProofStore } from '../proving_broker/proof_store/index.js';
 
 const PRINT_THRESHOLD_NS = 6e10; // 60 seconds
 
@@ -42,7 +48,7 @@ export class ProverAgent implements ProverAgentApi, Traceable {
     /** How long to wait between jobs */
     private pollIntervalMs = 100,
     /** Telemetry client */
-    private telemetry: TelemetryClient = new NoopTelemetryClient(),
+    telemetry: TelemetryClient = getTelemetryClient(),
     /** Logger */
     private log = createLogger('prover-client:prover-agent'),
   ) {

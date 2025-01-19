@@ -1,3 +1,5 @@
+use crate::constants::TWO_POW_64;
+
 // This is a quick struct made to pack 32 bytes into 4 u64s
 // and then pack those into two u128s.
 //
@@ -62,10 +64,8 @@ impl U256 {
     //
     // TODO: Add a test for this.
     pub fn to_u128_limbs(self) -> [Field; 2] {
-        let two_pow_64 = 2.pow_32(64);
-
-        let high = (self.inner[0] as Field) * two_pow_64 + self.inner[1] as Field;
-        let low = (self.inner[2] as Field) * two_pow_64 + self.inner[3] as Field;
+        let high = (self.inner[0] as Field) * TWO_POW_64 + self.inner[1] as Field;
+        let low = (self.inner[2] as Field) * TWO_POW_64 + self.inner[3] as Field;
 
         [high, low]
     }
