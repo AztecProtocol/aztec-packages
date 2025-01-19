@@ -44,6 +44,7 @@ import {MockVerifier} from "@aztec/mock/MockVerifier.sol";
 import {Ownable} from "@oz/access/Ownable.sol";
 import {IERC20} from "@oz/token/ERC20/IERC20.sol";
 import {EIP712} from "@oz/utils/cryptography/EIP712.sol";
+import {AccessControl} from "@oz/access/AccessControl.sol";
 
 struct Config {
   uint256 aztecSlotDuration;
@@ -60,12 +61,16 @@ struct Config {
  * not giving a damn about gas costs.
  * @dev WARNING: This contract is VERY close to the size limit (500B at time of writing).
  */
-contract Rollup is EIP712("Aztec Rollup", "1"), Ownable, Leonidas, IRollup, ITestRollup {
+contract Rollup is EIP712("Aztec Rollup", "1"), Ownable, Leonidas, AccessControl, IRollup, ITestRollup {
   using SlotLib for Slot;
   using EpochLib for Epoch;
   using ProposeLib for ProposeArgs;
   using IntRollupLib for uint256;
   using IntRollupLib for ManaBaseFeeComponents;
+
+  // Define roles for access control
+  bytes32 public constant VALIDATOR_ROLE = keccak256("VALIDATOR_ROLE");
+  bytes32 public constant ADMIN_ROLE = keccak256("ADMIN_ROLE");
 
   Slot public constant LIFETIME = Slot.wrap(5);
   Slot public constant LAG = Slot.wrap(2);
@@ -109,6 +114,7 @@ contract Rollup is EIP712("Aztec Rollup", "1"), Ownable, Leonidas, IRollup, ITes
     Config memory _config
   )
     Ownable(_ares)
+    AccessControl()
     Leonidas(
       _ares,
       _stakingAsset,
@@ -135,6 +141,10 @@ contract Rollup is EIP712("Aztec Rollup", "1"), Ownable, Leonidas, IRollup, ITes
 
     IS_FOUNDRY_TEST = VM_ADDRESS.code.length > 0;
 
+    // Grant the deployer the admin role and validator role
+    _grantRole(ADMIN_ROLE, msg.sender);
+    _grantRole(VALIDATOR_ROLE, msg.sender);
+
     // Genesis block
     rollupStore.blocks[0] = BlockLog({
       feeHeader: FeeHeader({
@@ -155,6 +165,17 @@ contract Rollup is EIP712("Aztec Rollup", "1"), Ownable, Leonidas, IRollup, ITes
     });
   }
 
+  //add a new validator
+  function addValidator(address validator) external override(IRollup) onlyRole(ADMIN_ROLE) {
+    grantRole(VALIDATOR_ROLE, validator);
+  }
+
+  //revoke/remove a validator
+  function removeValidator(address validator) external override(IRollup) onlyRole(ADMIN_ROLE) {
+    revokeRole(VALIDATOR_ROLE, validator);
+  }
+
+
   function cheat__InitialiseValidatorSet(CheatDepositArgs[] memory _args)
     external
     override(ITestRollup)
@@ -171,7 +192,7 @@ contract Rollup is EIP712("Aztec Rollup", "1"), Ownable, Leonidas, IRollup, ITes
    *
    * @dev     Will revert if there is nothing to prune or if the chain is not ready to be pruned
    */
-  function prune() external override(IRollup) {
+  function prune() external override(IRollup) onlyRole(VALIDATOR_ROLE)  {
     require(canPrune(), Errors.Rollup__NothingToPrune());
     _prune();
   }
@@ -242,7 +263,7 @@ contract Rollup is EIP712("Aztec Rollup", "1"), Ownable, Leonidas, IRollup, ITes
     bytes calldata _body,
     bytes calldata _blobInput,
     SignedEpochProofQuote calldata _quote
-  ) external override(IRollup) {
+  ) external override(IRollup) onlyRole(VALIDATOR_ROLE) {
     propose(_args, _signatures, _body, _blobInput);
     claimEpochProofRight(_quote);
   }
@@ -269,7 +290,7 @@ contract Rollup is EIP712("Aztec Rollup", "1"), Ownable, Leonidas, IRollup, ITes
    *          _aggregationObject - The aggregation object for the proof
    *          _proof - The proof to verify
    */
-  function submitEpochRootProof(SubmitEpochRootProofArgs calldata _args) external override(IRollup) {
+  function submitEpochRootProof(SubmitEpochRootProofArgs calldata _args) external override(IRollup) onlyRole(VALIDATOR_ROLE) {
     if (canPrune()) {
       _prune();
     }
@@ -501,7 +522,7 @@ contract Rollup is EIP712("Aztec Rollup", "1"), Ownable, Leonidas, IRollup, ITes
     // TODO(#9101): Extract blobs from beacon chain => remove below body input
     bytes calldata,
     bytes calldata _blobInput
-  ) public override(IRollup) {
+  ) public override(IRollup) onlyRole(VALIDATOR_ROLE) {
     if (canPrune()) {
       _prune();
     }
