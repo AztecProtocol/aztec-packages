@@ -1,22 +1,6 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-export SKIP_PORT_ASSIGNMENT=1
-export WALLET_DATA_DIRECTORY=$(dirname $0)/wallet-data
-export BB_WORKING_DIRECTORY=$(dirname $0)/bb-workdir
+export ENV_VARS_TO_INJECT="SSH_AUTH_SOCK PXE_PROVER LOG_LEVEL"
 
-if [ -z "${BB_BINARY_PATH:-}" ]; then
-    export BB_BINARY_PATH=$HOME/.bb/bb
-fi
-
-if [ ! -f $BB_BINARY_PATH ]; then
-    echo "bb binary does not exist at $BB_BINARY_PATH. Set BB_BINARY_PATH environment variable to the path of the bb binary."
-    exit 1
-fi
-
-export ENV_VARS_TO_INJECT="WALLET_DATA_DIRECTORY SSH_AUTH_SOCK PXE_PROVER_ENABLED BB_BINARY_PATH BB_WORKING_DIRECTORY"
-
-mkdir -p $BB_WORKING_DIRECTORY
-mkdir -p $WALLET_DATA_DIRECTORY
-
-$(dirname $0)/.aztec-run aztecprotocol/cli-wallet $@
+exec $(dirname $0)/.aztec-run aztec-wallet /usr/src/yarn-project/cli-wallet/wallet-entrypoint.sh "$@"

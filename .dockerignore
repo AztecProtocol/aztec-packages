@@ -1,0 +1,24 @@
+*
+!/avm-transpiler/target/release/avm-transpiler
+!/barretenberg/cpp/build/bin/bb
+!/barretenberg/ts/dest/
+!/barretenberg/ts/package.json
+!/noir/noir-repo/target/release/nargo
+!/noir/noir-repo/target/release/acvm
+!/noir/packages/
+!/yarn-project/package.json
+!/yarn-project/*/package.json
+!/yarn-project/*/dest/
+!/yarn-project/cli-wallet/wallet-entrypoint.sh
+!/yarn-project/accounts/artifacts/
+!/yarn-project/noir-protocol-circuits-types/artifacts/
+!/yarn-project/protocol-contracts/artifacts/
+!/yarn-project/noir-contracts.js/artifacts/
+!/yarn-project/world-state/build/world_state_napi.node
+
+# These are copied in so we can perform a "production dependency install", after which they're deleted.
+!/yarn-project/.yarn/
+!/yarn-project/.yarnrc.yml
+
+# Needed to generate list of env vars to know what to be able to inject into the container.
+!/yarn-project/foundation/src/config/env_var.ts

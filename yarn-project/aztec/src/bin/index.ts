@@ -21,6 +21,12 @@ const debugLogger = createLogger('cli');
 
 /** CLI & full node main entrypoint */
 async function main() {
+  const shutdown = () => {
+    process.exit(0);
+  };
+  process.once('SIGINT', shutdown);
+  process.once('SIGTERM', shutdown);
+
   const packageJsonPath = resolve(dirname(fileURLToPath(import.meta.url)), '../../package.json');
   const cliVersion: string = JSON.parse(readFileSync(packageJsonPath).toString()).version;
   let program = new Command('aztec');

@@ -3,11 +3,12 @@ set -euo pipefail
 
 export VERSION=${1:-${VERSION:-}}
 export NON_INTERACTIVE=1
+INSTALL_URI=${INSTALL_URI:-https://install.aztec.network}
 
 if [ -n "$VERSION" ] && [ "$VERSION" != "latest" ]; then
-  INSTALL_URL="https://install.aztec.network/$VERSION/aztec-install"
+  INSTALL_URL="$INSTALL_URI/$VERSION/aztec-install"
 else
-  INSTALL_URL="https://install.aztec.network/aztec-install"
+  INSTALL_URL="$INSTALL_URI/aztec-install"
 fi
 
-bash -i <(curl -s $INSTALL_URL)
+bash <(curl -s $INSTALL_URL)

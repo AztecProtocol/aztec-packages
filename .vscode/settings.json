@@ -193,6 +193,8 @@
     "memfree",
     "parallelise",
     "sysbox",
-    "tmpfs"
+    "tmpfs",
+    "socat",
+    "reuseaddr"
   ]
 }
