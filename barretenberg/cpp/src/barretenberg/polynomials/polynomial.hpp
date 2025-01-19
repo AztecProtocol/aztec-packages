@@ -506,4 +506,5 @@ template <typename Poly, typename... Polys> auto zip_polys(Poly&& poly, Polys&&.
     ASSERT((poly.start_index() == polys.start_index() && poly.end_index() == polys.end_index()) && ...);
     return zip_view(poly.indices(), poly.coeffs(), polys.coeffs()...);
 }
+
 } // namespace bb
