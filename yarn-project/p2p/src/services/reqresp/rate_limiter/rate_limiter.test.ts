@@ -5,7 +5,7 @@ import { type PeerId } from '@libp2p/interface';
 import { type MockProxy, mock } from 'jest-mock-extended';
 
 import { type PeerManager } from '../../peer_manager.js';
-import { PING_PROTOCOL, type ReqRespSubProtocolRateLimits, TX_REQ_PROTOCOL } from '../interface.js';
+import { ReqRespSubProtocol, type ReqRespSubProtocolRateLimits } from '../interface.js';
 import { RequestResponseRateLimiter } from './rate_limiter.js';
 
 class MockPeerId {
@@ -29,7 +29,7 @@ describe('rate limiter', () => {
   beforeEach(() => {
     jest.useFakeTimers();
     const config = {
-      [TX_REQ_PROTOCOL]: {
+      [ReqRespSubProtocol.TX]: {
         // One request every 200ms
         peerLimit: {
           quotaCount: 5,
@@ -57,24 +57,24 @@ describe('rate limiter', () => {
     const peerId = makePeer('peer1');
     // Expect to allow a burst of 5, then not allow
     for (let i = 0; i < 5; i++) {
-      expect(rateLimiter.allow(TX_REQ_PROTOCOL, peerId)).toBe(true);
+      expect(rateLimiter.allow(ReqRespSubProtocol.TX, peerId)).toBe(true);
     }
-    expect(rateLimiter.allow(TX_REQ_PROTOCOL, peerId)).toBe(false);
+    expect(rateLimiter.allow(ReqRespSubProtocol.TX, peerId)).toBe(false);
 
     // Smooth requests
     for (let i = 0; i < 5; i++) {
       jest.advanceTimersByTime(200);
-      expect(rateLimiter.allow(TX_REQ_PROTOCOL, peerId)).toBe(true);
+      expect(rateLimiter.allow(ReqRespSubProtocol.TX, peerId)).toBe(true);
     }
-    expect(rateLimiter.allow(TX_REQ_PROTOCOL, peerId)).toBe(false);
+    expect(rateLimiter.allow(ReqRespSubProtocol.TX, peerId)).toBe(false);
 
     // Reset after quota has passed
     jest.advanceTimersByTime(1000);
     // Second burst
     for (let i = 0; i < 5; i++) {
-      expect(rateLimiter.allow(TX_REQ_PROTOCOL, peerId)).toBe(true);
+      expect(rateLimiter.allow(ReqRespSubProtocol.TX, peerId)).toBe(true);
     }
-    expect(rateLimiter.allow(TX_REQ_PROTOCOL, peerId)).toBe(false);
+    expect(rateLimiter.allow(ReqRespSubProtocol.TX, peerId)).toBe(false);
 
     // Spy on the peer manager and check that penalizePeer is called
     expect(peerManager.penalizePeer).toHaveBeenCalledWith(peerId, PeerErrorSeverity.MidToleranceError);
@@ -84,39 +84,39 @@ describe('rate limiter', () => {
     // Initial burst
     const falingPeer = makePeer('nolettoinno');
     for (let i = 0; i < 10; i++) {
-      expect(rateLimiter.allow(TX_REQ_PROTOCOL, makePeer(`peer${i}`))).toBe(true);
+      expect(rateLimiter.allow(ReqRespSubProtocol.TX, makePeer(`peer${i}`))).toBe(true);
     }
-    expect(rateLimiter.allow(TX_REQ_PROTOCOL, falingPeer)).toBe(false);
+    expect(rateLimiter.allow(ReqRespSubProtocol.TX, falingPeer)).toBe(false);
 
     // Smooth requests
     for (let i = 0; i < 10; i++) {
       jest.advanceTimersByTime(100);
-      expect(rateLimiter.allow(TX_REQ_PROTOCOL, makePeer(`peer${i}`))).toBe(true);
+      expect(rateLimiter.allow(ReqRespSubProtocol.TX, makePeer(`peer${i}`))).toBe(true);
     }
-    expect(rateLimiter.allow(TX_REQ_PROTOCOL, falingPeer)).toBe(false);
+    expect(rateLimiter.allow(ReqRespSubProtocol.TX, falingPeer)).toBe(false);
 
     // Reset after quota has passed
     jest.advanceTimersByTime(1000);
     // Second burst
     for (let i = 0; i < 10; i++) {
-      expect(rateLimiter.allow(TX_REQ_PROTOCOL, makePeer(`peer${i}`))).toBe(true);
+      expect(rateLimiter.allow(ReqRespSubProtocol.TX, makePeer(`peer${i}`))).toBe(true);
     }
-    expect(rateLimiter.allow(TX_REQ_PROTOCOL, falingPeer)).toBe(false);
+    expect(rateLimiter.allow(ReqRespSubProtocol.TX, falingPeer)).toBe(false);
   });
 
   it('Should reset after quota has passed', () => {
     const peerId = makePeer('peer1');
     for (let i = 0; i < 5; i++) {
-      expect(rateLimiter.allow(TX_REQ_PROTOCOL, peerId)).toBe(true);
+      expect(rateLimiter.allow(ReqRespSubProtocol.TX, peerId)).toBe(true);
     }
-    expect(rateLimiter.allow(TX_REQ_PROTOCOL, peerId)).toBe(false);
+    expect(rateLimiter.allow(ReqRespSubProtocol.TX, peerId)).toBe(false);
     jest.advanceTimersByTime(1000);
-    expect(rateLimiter.allow(TX_REQ_PROTOCOL, peerId)).toBe(true);
+    expect(rateLimiter.allow(ReqRespSubProtocol.TX, peerId)).toBe(true);
   });
 
   it('Should handle multiple protocols separately', () => {
     const config = {
-      [TX_REQ_PROTOCOL]: {
+      [ReqRespSubProtocol.TX]: {
         peerLimit: {
           quotaCount: 5,
           quotaTimeMs: 1000,
@@ -126,7 +126,7 @@ describe('rate limiter', () => {
           quotaTimeMs: 1000,
         },
       },
-      [PING_PROTOCOL]: {
+      [ReqRespSubProtocol.PING]: {
         peerLimit: {
           quotaCount: 2,
           quotaTimeMs: 1000,
@@ -143,22 +143,22 @@ describe('rate limiter', () => {
 
     // Protocol 1
     for (let i = 0; i < 5; i++) {
-      expect(multiProtocolRateLimiter.allow(TX_REQ_PROTOCOL, peerId)).toBe(true);
+      expect(multiProtocolRateLimiter.allow(ReqRespSubProtocol.TX, peerId)).toBe(true);
     }
-    expect(multiProtocolRateLimiter.allow(TX_REQ_PROTOCOL, peerId)).toBe(false);
+    expect(multiProtocolRateLimiter.allow(ReqRespSubProtocol.TX, peerId)).toBe(false);
 
     // Protocol 2
     for (let i = 0; i < 2; i++) {
-      expect(multiProtocolRateLimiter.allow(PING_PROTOCOL, peerId)).toBe(true);
+      expect(multiProtocolRateLimiter.allow(ReqRespSubProtocol.PING, peerId)).toBe(true);
     }
-    expect(multiProtocolRateLimiter.allow(PING_PROTOCOL, peerId)).toBe(false);
+    expect(multiProtocolRateLimiter.allow(ReqRespSubProtocol.PING, peerId)).toBe(false);
 
     multiProtocolRateLimiter.stop();
   });
 
   it('Should allow requests if no rate limiter is configured', () => {
     const rateLimiter = new RequestResponseRateLimiter(peerManager, {} as ReqRespSubProtocolRateLimits);
-    expect(rateLimiter.allow(TX_REQ_PROTOCOL, makePeer('peer1'))).toBe(true);
+    expect(rateLimiter.allow(ReqRespSubProtocol.TX, makePeer('peer1'))).toBe(true);
   });
 
   it('Should smooth out spam', () => {
@@ -168,7 +168,7 @@ describe('rate limiter', () => {
 
     for (let i = 0; i < requests; i++) {
       const peerId = makePeer(`peer${i % peers}`);
-      if (rateLimiter.allow(TX_REQ_PROTOCOL, peerId)) {
+      if (rateLimiter.allow(ReqRespSubProtocol.TX, peerId)) {
         allowedRequests++;
       }
       jest.advanceTimersByTime(5);
