@@ -1,4 +1,5 @@
 import { type Archiver, createArchiver } from '@aztec/archiver';
+import { type BlobSinkClientInterface, createBlobSinkClient } from '@aztec/blob-sink/client';
 import { type ProverCoordination, type ProvingJobBroker } from '@aztec/circuit-types';
 import { EpochCache } from '@aztec/epoch-cache';
 import { createEthereumChain } from '@aztec/ethereum';
@@ -9,8 +10,7 @@ import { RollupAbi } from '@aztec/l1-artifacts';
 import { createProverClient } from '@aztec/prover-client';
 import { createAndStartProvingBroker } from '@aztec/prover-client/broker';
 import { L1Publisher } from '@aztec/sequencer-client';
-import { type TelemetryClient } from '@aztec/telemetry-client';
-import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
+import { type TelemetryClient, getTelemetryClient } from '@aztec/telemetry-client';
 import { createWorldStateSynchronizer } from '@aztec/world-state';
 
 import { createPublicClient, getAddress, getContract, http } from 'viem';
@@ -34,12 +34,14 @@ export async function createProverNode(
     aztecNodeTxProvider?: ProverCoordination;
     archiver?: Archiver;
     publisher?: L1Publisher;
+    blobSinkClient?: BlobSinkClientInterface;
     broker?: ProvingJobBroker;
   } = {},
 ) {
-  const telemetry = deps.telemetry ?? new NoopTelemetryClient();
+  const telemetry = deps.telemetry ?? getTelemetryClient();
+  const blobSinkClient = deps.blobSinkClient ?? createBlobSinkClient(config.blobSinkUrl);
   const log = deps.log ?? createLogger('prover-node');
-  const archiver = deps.archiver ?? (await createArchiver(config, telemetry, { blockUntilSync: true }));
+  const archiver = deps.archiver ?? (await createArchiver(config, blobSinkClient, { blockUntilSync: true }, telemetry));
   log.verbose(`Created archiver and synced to block ${await archiver.getBlockNumber()}`);
 
   const worldStateConfig = { ...config, worldStateProvenBlocksOnly: false };
@@ -50,7 +52,7 @@ export async function createProverNode(
   const prover = await createProverClient(config, worldStateSynchronizer, broker, telemetry);
 
   // REFACTOR: Move publisher out of sequencer package and into an L1-related package
-  const publisher = deps.publisher ?? new L1Publisher(config, telemetry);
+  const publisher = deps.publisher ?? new L1Publisher(config, { telemetry, blobSinkClient });
 
   const epochCache = await EpochCache.create(config.l1Contracts.rollupAddress, config);
 
@@ -76,8 +78,8 @@ export async function createProverNode(
     txGatheringTimeoutMs: config.txGatheringTimeoutMs,
   };
 
-  const claimsMonitor = new ClaimsMonitor(publisher, telemetry, proverNodeConfig);
-  const epochMonitor = new EpochMonitor(archiver, telemetry, proverNodeConfig);
+  const claimsMonitor = new ClaimsMonitor(publisher, proverNodeConfig, telemetry);
+  const epochMonitor = new EpochMonitor(archiver, proverNodeConfig, telemetry);
 
   const rollupContract = publisher.getRollupContract();
   const walletClient = publisher.getClient();
@@ -96,8 +98,8 @@ export async function createProverNode(
     claimsMonitor,
     epochMonitor,
     bondManager,
-    telemetry,
     proverNodeConfig,
+    telemetry,
   );
 }
 

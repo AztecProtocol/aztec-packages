@@ -21,6 +21,7 @@ import { millisToHrTime } from '@opentelemetry/core';
 import { Writable } from 'stream';
 
 import { registerOtelLoggerProvider } from '../otel_logger_provider.js';
+import { getOtelResource } from '../otel_resource.js';
 
 /* eslint-disable @typescript-eslint/ban-types */
 /* eslint-disable camelcase */
@@ -272,9 +273,10 @@ export class OTelPinoStream extends Writable {
 // Invoked by pino when creating a transport in a worker thread out of this stream.
 // Note that the original open-telemetry/opentelemetry-js-contrib was set up to run on the main
 // nodejs loop, as opposed to in a worker as pino recommends.
-export default async function (options: OTelPinoStreamOptions) {
+export default function (options: OTelPinoStreamOptions): OTelPinoStream {
   const url = process.env.OTEL_EXPORTER_OTLP_LOGS_ENDPOINT;
+  const resource = getOtelResource();
   // We re-register here because this runs on a worker thread
-  await registerOtelLoggerProvider(undefined, url ? new URL(url) : undefined);
+  registerOtelLoggerProvider(resource, url ? new URL(url) : undefined);
   return new OTelPinoStream(options);
 }

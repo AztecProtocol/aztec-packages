@@ -64,7 +64,6 @@ import {
   NOTE_HASH_SUBTREE_SIBLING_PATH_LENGTH,
   NULLIFIER_SUBTREE_SIBLING_PATH_LENGTH,
   NULLIFIER_TREE_HEIGHT,
-  NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
   NUM_BASE_PARITY_PER_ROOT_PARITY,
   NUM_MSGS_PER_BASE_PARITY,
   NoteHash,
@@ -140,7 +139,7 @@ import {
   TxConstantData,
   VkWitnessData,
 } from '../structs/index.js';
-import { PrivateToRollupKernelCircuitPublicInputs } from '../structs/kernel/kernel_circuit_public_inputs.js';
+import { PrivateToRollupKernelCircuitPublicInputs } from '../structs/kernel/private_to_rollup_kernel_circuit_public_inputs.js';
 import { AvmProofData } from '../structs/rollup/avm_proof_data.js';
 import { BaseOrMergeRollupPublicInputs } from '../structs/rollup/base_or_merge_rollup_public_inputs.js';
 import { PrivateBaseRollupHints, PublicBaseRollupHints } from '../structs/rollup/base_rollup_hints.js';
@@ -149,7 +148,12 @@ import {
   BlockRootOrBlockMergePublicInputs,
   FeeRecipient,
 } from '../structs/rollup/block_root_or_block_merge_public_inputs.js';
-import { BlockRootRollupInputs } from '../structs/rollup/block_root_rollup.js';
+import {
+  BlockRootRollupBlobData,
+  BlockRootRollupData,
+  BlockRootRollupInputs,
+  SingleTxBlockRootRollupInputs,
+} from '../structs/rollup/block_root_rollup.js';
 import { ConstantRollupData } from '../structs/rollup/constant_rollup_data.js';
 import { EmptyBlockRootRollupInputs } from '../structs/rollup/empty_block_root_rollup_inputs.js';
 import { MergeRollupInputs } from '../structs/rollup/merge_rollup.js';
@@ -419,9 +423,9 @@ export function makePrivateToRollupKernelCircuitPublicInputs(
   fullAccumulatedData = true,
 ): PrivateToRollupKernelCircuitPublicInputs {
   return new PrivateToRollupKernelCircuitPublicInputs(
+    makeTxConstantData(seed + 0x100),
     makeRollupValidationRequests(seed),
     makePrivateToRollupAccumulatedData(seed, fullAccumulatedData),
-    makeTxConstantData(seed + 0x100),
     makeGas(seed + 0x600),
     makeAztecAddress(seed + 0x700),
   );
@@ -601,7 +605,7 @@ export function makeFeeRecipient(seed = 1) {
  * @param blockNumber - The block number to use for generating the global variables.
  * @returns A constant base rollup data.
  */
-export function makeConstantBaseRollupData(
+export function makeConstantRollupData(
   seed = 1,
   globalVariables: GlobalVariables | undefined = undefined,
 ): ConstantRollupData {
@@ -706,7 +710,7 @@ export function makeBaseOrMergeRollupPublicInputs(
   return new BaseOrMergeRollupPublicInputs(
     RollupTypes.Base,
     1,
-    makeConstantBaseRollupData(seed + 0x200, globalVariables),
+    makeConstantRollupData(seed + 0x200, globalVariables),
     makePartialStateReference(seed + 0x300),
     makePartialStateReference(seed + 0x400),
     makeSpongeBlob(seed + 0x500),
@@ -798,6 +802,24 @@ export function makeRootRollupInputs(seed = 0, globalVariables?: GlobalVariables
   );
 }
 
+function makeBlockRootRollupData(seed = 0) {
+  return new BlockRootRollupData(
+    makeRootParityInput<typeof NESTED_RECURSIVE_PROOF_LENGTH>(NESTED_RECURSIVE_PROOF_LENGTH, seed + 0x2000),
+    makeTuple(L1_TO_L2_MSG_SUBTREE_SIBLING_PATH_LENGTH, fr, 0x2100),
+    makeTuple(ARCHIVE_HEIGHT, fr, 0x2200),
+    makeHeader(seed + 0x2300),
+    fr(seed + 0x2400),
+  );
+}
+
+function makeBlockRootRollupBlobData(seed = 0) {
+  return new BlockRootRollupBlobData(
+    makeTuple(FIELDS_PER_BLOB * BLOBS_PER_BLOCK, fr, 0x2500),
+    makeTuple(BLOBS_PER_BLOCK, () => makeTuple(2, fr, 0x2600)),
+    fr(seed + 0x2700),
+  );
+}
+
 /**
  * Makes block root rollup inputs.
  * @param seed - The seed to use for generating the root rollup inputs.
@@ -807,17 +829,16 @@ export function makeRootRollupInputs(seed = 0, globalVariables?: GlobalVariables
 export function makeBlockRootRollupInputs(seed = 0, globalVariables?: GlobalVariables): BlockRootRollupInputs {
   return new BlockRootRollupInputs(
     [makePreviousRollupData(seed, globalVariables), makePreviousRollupData(seed + 0x1000, globalVariables)],
-    makeRootParityInput<typeof NESTED_RECURSIVE_PROOF_LENGTH>(NESTED_RECURSIVE_PROOF_LENGTH, seed + 0x2000),
-    makeTuple(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP, fr, 0x2100),
-    makeTuple(L1_TO_L2_MSG_SUBTREE_SIBLING_PATH_LENGTH, fr, 0x2100),
-    makeAppendOnlyTreeSnapshot(seed + 0x2200),
-    makeAppendOnlyTreeSnapshot(seed + 0x2200),
-    makeTuple(ARCHIVE_HEIGHT, fr, 0x2300),
-    fr(seed + 0x2400),
-    fr(seed + 0x2500),
-    makeTuple(FIELDS_PER_BLOB * BLOBS_PER_BLOCK, fr, 0x2400),
-    makeTuple(BLOBS_PER_BLOCK, () => makeTuple(2, fr, 0x2500)),
-    fr(seed + 0x2600),
+    makeBlockRootRollupData(seed + 0x2000),
+    makeBlockRootRollupBlobData(seed + 0x4000),
+  );
+}
+
+export function makeSingleTxBlockRootRollupInputs(seed = 0, globalVariables?: GlobalVariables) {
+  return new SingleTxBlockRootRollupInputs(
+    [makePreviousRollupData(seed, globalVariables)],
+    makeBlockRootRollupData(seed + 0x2000),
+    makeBlockRootRollupBlobData(seed + 0x4000),
   );
 }
 
@@ -832,12 +853,9 @@ export function makeEmptyBlockRootRollupInputs(
   globalVariables?: GlobalVariables,
 ): EmptyBlockRootRollupInputs {
   return new EmptyBlockRootRollupInputs(
-    makeAppendOnlyTreeSnapshot(seed),
-    fr(seed + 0x100),
-    globalVariables ?? makeGlobalVariables(seed + 0x200),
-    fr(seed + 0x300),
-    fr(seed + 0x301),
-    fr(seed + 0x400),
+    makeBlockRootRollupData(seed + 0x1000),
+    makeConstantRollupData(0x2500, globalVariables),
+    true,
   );
 }
 
@@ -1131,7 +1149,7 @@ function makePrivateBaseRollupHints(seed = 1) {
 
   const archiveRootMembershipWitness = makeMembershipWitness(ARCHIVE_HEIGHT, seed + 0x9000);
 
-  const constants = makeConstantBaseRollupData(0x100);
+  const constants = makeConstantRollupData(0x100);
 
   const feePayerFeeJuiceBalanceReadHint = PublicDataHint.empty();
 
@@ -1154,7 +1172,7 @@ function makePublicBaseRollupHints(seed = 1) {
 
   const archiveRootMembershipWitness = makeMembershipWitness(ARCHIVE_HEIGHT, seed + 0x9000);
 
-  const constants = makeConstantBaseRollupData(0x100);
+  const constants = makeConstantRollupData(0x100);
 
   return PublicBaseRollupHints.from({
     start,

@@ -28,7 +28,7 @@ Public functions can call other public functions as well as private functions. P
 
 ### Unconstrained Functions
 
-Unconstrained functions are used to extract useful data for users, such as the user balance. They are not proved, and are simulated client-side.
+Unconstrained functions are used to extract useful data for users, such as the user balance. They are not proven, and are simulated client-side.
 
 They are run with the assistance of a DB oracle that provides any private data requested by the function.
 

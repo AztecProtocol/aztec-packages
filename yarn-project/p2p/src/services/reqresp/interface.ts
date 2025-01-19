@@ -5,12 +5,15 @@ import { type PeerId } from '@libp2p/interface';
 /*
  * Request Response Sub Protocols
  */
-export const PING_PROTOCOL = '/aztec/req/ping/0.1.0';
-export const STATUS_PROTOCOL = '/aztec/req/status/0.1.0';
-export const TX_REQ_PROTOCOL = '/aztec/req/tx/0.1.0';
+const PING_PROTOCOL = '/aztec/req/ping/0.1.0';
+const STATUS_PROTOCOL = '/aztec/req/status/0.1.0';
+const TX_PROTOCOL = '/aztec/req/tx/0.1.0';
 
-// Sum type for sub protocols
-export type ReqRespSubProtocol = typeof PING_PROTOCOL | typeof STATUS_PROTOCOL | typeof TX_REQ_PROTOCOL;
+export enum ReqRespSubProtocol {
+  PING = PING_PROTOCOL,
+  STATUS = STATUS_PROTOCOL,
+  TX = TX_PROTOCOL,
+}
 
 /**
  * A handler for a sub protocol
@@ -66,9 +69,9 @@ export type ReqRespSubProtocolValidators = {
 };
 
 export const DEFAULT_SUB_PROTOCOL_VALIDATORS: ReqRespSubProtocolValidators = {
-  [PING_PROTOCOL]: noopValidator,
-  [STATUS_PROTOCOL]: noopValidator,
-  [TX_REQ_PROTOCOL]: noopValidator,
+  [ReqRespSubProtocol.PING]: noopValidator,
+  [ReqRespSubProtocol.STATUS]: noopValidator,
+  [ReqRespSubProtocol.TX]: noopValidator,
 };
 
 /**
@@ -91,9 +94,9 @@ const defaultHandler = (_msg: any): Promise<Buffer> => {
  * Default sub protocol handlers - this SHOULD be overwritten by the service,
  */
 export const DEFAULT_SUB_PROTOCOL_HANDLERS: ReqRespSubProtocolHandlers = {
-  [PING_PROTOCOL]: defaultHandler,
-  [STATUS_PROTOCOL]: defaultHandler,
-  [TX_REQ_PROTOCOL]: defaultHandler,
+  [ReqRespSubProtocol.PING]: defaultHandler,
+  [ReqRespSubProtocol.STATUS]: defaultHandler,
+  [ReqRespSubProtocol.TX]: defaultHandler,
 };
 
 /**
@@ -135,15 +138,15 @@ export class RequestableBuffer {
  * as a type rather than an object
  */
 export const subProtocolMap: SubProtocolMap = {
-  [PING_PROTOCOL]: {
+  [ReqRespSubProtocol.PING]: {
     request: RequestableBuffer,
     response: RequestableBuffer,
   },
-  [STATUS_PROTOCOL]: {
+  [ReqRespSubProtocol.STATUS]: {
     request: RequestableBuffer,
     response: RequestableBuffer,
   },
-  [TX_REQ_PROTOCOL]: {
+  [ReqRespSubProtocol.TX]: {
     request: TxHash,
     response: Tx,
   },

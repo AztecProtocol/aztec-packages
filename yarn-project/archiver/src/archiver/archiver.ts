@@ -1,3 +1,4 @@
+import { type BlobSinkClientInterface } from '@aztec/blob-sink/client';
 import {
   type GetUnencryptedLogsResponse,
   type InBlock,
@@ -115,6 +116,7 @@ export class Archiver implements ArchiveSource, Traceable {
     private readonly l1Addresses: { rollupAddress: EthAddress; inboxAddress: EthAddress; registryAddress: EthAddress },
     readonly dataStore: ArchiverDataStore,
     private readonly config: { pollingIntervalMs: number; batchSize: number },
+    private readonly _blobSinkClient: BlobSinkClientInterface,
     private readonly instrumentation: ArchiverInstrumentation,
     private readonly l1constants: L1RollupConstants,
     private readonly log: Logger = createLogger('archiver'),
@@ -145,7 +147,7 @@ export class Archiver implements ArchiveSource, Traceable {
   public static async createAndSync(
     config: ArchiverConfig,
     archiverStore: ArchiverDataStore,
-    telemetry: TelemetryClient,
+    deps: { telemetry: TelemetryClient; blobSinkClient: BlobSinkClientInterface },
     blockUntilSynced = true,
   ): Promise<Archiver> {
     const chain = createEthereumChain(config.l1RpcUrl, config.l1ChainId);
@@ -176,7 +178,8 @@ export class Archiver implements ArchiveSource, Traceable {
         pollingIntervalMs: config.archiverPollingIntervalMS ?? 10_000,
         batchSize: config.archiverBatchSize ?? 100,
       },
-      await ArchiverInstrumentation.new(telemetry, () => archiverStore.estimateSize()),
+      deps.blobSinkClient,
+      await ArchiverInstrumentation.new(deps.telemetry, () => archiverStore.estimateSize()),
       { l1StartBlock, l1GenesisTime, epochDuration, slotDuration, ethereumSlotDuration },
     );
     await archiver.start(blockUntilSynced);
@@ -271,7 +274,10 @@ export class Archiver implements ArchiveSource, Traceable {
     }
 
     if (initialRun) {
-      this.log.info(`Initial archiver sync to L1 block ${currentL1BlockNumber} complete.`);
+      this.log.info(`Initial archiver sync to L1 block ${currentL1BlockNumber} complete.`, {
+        l1BlockNumber: currentL1BlockNumber,
+        ...(await this.getL2Tips()),
+      });
     }
   }
 
@@ -361,17 +367,35 @@ export class Archiver implements ArchiveSource, Traceable {
 
     const updateProvenBlock = async () => {
       const localBlockForDestinationProvenBlockNumber = await this.getBlock(Number(provenBlockNumber));
+
+      // Sanity check. I've hit what seems to be a state where the proven block is set to a value greater than the latest
+      // synched block when requesting L2Tips from the archiver. This is the only place where the proven block is set.
+      const synched = await this.store.getSynchedL2BlockNumber();
+      if (localBlockForDestinationProvenBlockNumber && synched < localBlockForDestinationProvenBlockNumber?.number) {
+        this.log.error(
+          `Hit local block greater than last synched block: ${localBlockForDestinationProvenBlockNumber.number} > ${synched}`,
+        );
+      }
+
       if (
         localBlockForDestinationProvenBlockNumber &&
         provenArchive === localBlockForDestinationProvenBlockNumber.archive.root.toString()
       ) {
-        await this.store.setProvenL2BlockNumber(Number(provenBlockNumber));
-        // if we are here then we must have a valid proven epoch number
-        await this.store.setProvenL2EpochNumber(Number(provenEpochNumber));
-        this.log.info(`Updated proven chain to block ${provenBlockNumber} (epoch ${provenEpochNumber})`, {
-          provenBlockNumber,
-          provenEpochNumber,
-        });
+        const [localProvenEpochNumber, localProvenBlockNumber] = await Promise.all([
+          this.store.getProvenL2EpochNumber(),
+          this.store.getProvenL2BlockNumber(),
+        ]);
+        if (
+          localProvenEpochNumber !== Number(provenEpochNumber) ||
+          localProvenBlockNumber !== Number(provenBlockNumber)
+        ) {
+          await this.store.setProvenL2BlockNumber(Number(provenBlockNumber));
+          await this.store.setProvenL2EpochNumber(Number(provenEpochNumber));
+          this.log.info(`Updated proven chain to block ${provenBlockNumber} (epoch ${provenEpochNumber})`, {
+            provenBlockNumber,
+            provenEpochNumber,
+          });
+        }
       }
       this.instrumentation.updateLastProvenBlock(Number(provenBlockNumber));
     };
@@ -508,8 +532,8 @@ export class Archiver implements ArchiveSource, Traceable {
     return Promise.resolve();
   }
 
-  public getL1Constants(): L1RollupConstants {
-    return this.l1constants;
+  public getL1Constants(): Promise<L1RollupConstants> {
+    return Promise.resolve(this.l1constants);
   }
 
   public getRollupAddress(): Promise<EthAddress> {
@@ -795,11 +819,13 @@ export class Archiver implements ArchiveSource, Traceable {
     ] as const);
 
     if (latestBlockNumber > 0 && !latestBlockHeader) {
-      throw new Error('Failed to retrieve latest block header');
+      throw new Error(`Failed to retrieve latest block header for block ${latestBlockNumber}`);
     }
 
     if (provenBlockNumber > 0 && !provenBlockHeader) {
-      throw new Error('Failed to retrieve proven block header');
+      throw new Error(
+        `Failed to retrieve proven block header for block ${provenBlockNumber} (latest block is ${latestBlockNumber})`,
+      );
     }
 
     return {

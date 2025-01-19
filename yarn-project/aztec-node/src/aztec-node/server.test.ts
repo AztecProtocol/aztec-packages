@@ -10,10 +10,16 @@ import {
   type WorldStateSynchronizer,
   mockTxForRollup,
 } from '@aztec/circuit-types';
-import { type ContractDataSource, EthAddress, Fr, GasFees, MaxBlockNumber } from '@aztec/circuits.js';
+import {
+  type ContractDataSource,
+  EthAddress,
+  Fr,
+  GasFees,
+  MaxBlockNumber,
+  RollupValidationRequests,
+} from '@aztec/circuits.js';
 import { type P2P } from '@aztec/p2p';
 import { type GlobalVariableBuilder } from '@aztec/sequencer-client';
-import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
 
 import { type MockProxy, mock } from 'jest-mock-extended';
 
@@ -40,8 +46,12 @@ describe('aztec node', () => {
     globalVariablesBuilder.getCurrentBaseFees.mockResolvedValue(new GasFees(0, 0));
 
     merkleTreeOps = mock<MerkleTreeReadOperations>();
-    merkleTreeOps.findLeafIndices.mockImplementation((_treeId: MerkleTreeId, _value: any[]) => {
-      return Promise.resolve([undefined]);
+    merkleTreeOps.findLeafIndices.mockImplementation((treeId: MerkleTreeId, _value: any[]) => {
+      if (treeId === MerkleTreeId.ARCHIVE) {
+        return Promise.resolve([1n]);
+      } else {
+        return Promise.resolve([undefined]);
+      }
     });
 
     const worldState = mock<WorldStateSynchronizer>({
@@ -86,7 +96,6 @@ describe('aztec node', () => {
       1,
       globalVariablesBuilder,
       new TestCircuitVerifier(),
-      new NoopTelemetryClient(),
     );
   });
 
@@ -103,7 +112,7 @@ describe('aztec node', () => {
       expect(await node.isValidTx(doubleSpendTx)).toEqual({ result: 'valid' });
 
       // We push a duplicate nullifier that was created in the same transaction
-      doubleSpendTx.data.forRollup!.end.nullifiers.push(doubleSpendTx.data.forRollup!.end.nullifiers[0]);
+      doubleSpendTx.data.forRollup!.end.nullifiers[1] = doubleSpendTx.data.forRollup!.end.nullifiers[0];
 
       expect(await node.isValidTx(doubleSpendTx)).toEqual({ result: 'invalid', reason: ['Duplicate nullifier in tx'] });
 
@@ -112,9 +121,13 @@ describe('aztec node', () => {
       // We make a nullifier from `doubleSpendWithExistingTx` a part of the nullifier tree, so it gets rejected as double spend
       const doubleSpendNullifier = doubleSpendWithExistingTx.data.forRollup!.end.nullifiers[0].toBuffer();
       merkleTreeOps.findLeafIndices.mockImplementation((treeId: MerkleTreeId, value: any[]) => {
-        return Promise.resolve(
-          treeId === MerkleTreeId.NULLIFIER_TREE && value[0].equals(doubleSpendNullifier) ? [1n] : [undefined],
-        );
+        let retVal: [bigint | undefined] = [undefined];
+        if (treeId === MerkleTreeId.ARCHIVE) {
+          retVal = [1n];
+        } else if (treeId === MerkleTreeId.NULLIFIER_TREE) {
+          retVal = value[0].equals(doubleSpendNullifier) ? [1n] : [undefined];
+        }
+        return Promise.resolve(retVal);
       });
 
       expect(await node.isValidTx(doubleSpendWithExistingTx)).toEqual({
@@ -146,19 +159,13 @@ describe('aztec node', () => {
       const invalidMaxBlockNumberMetadata = txs[1];
       const validMaxBlockNumberMetadata = txs[2];
 
-      invalidMaxBlockNumberMetadata.data.rollupValidationRequests = {
-        maxBlockNumber: new MaxBlockNumber(true, new Fr(1)),
-        getSize: () => 1,
-        toBuffer: () => Fr.ZERO.toBuffer(),
-        toString: () => Fr.ZERO.toString(),
-      };
+      invalidMaxBlockNumberMetadata.data.rollupValidationRequests = new RollupValidationRequests(
+        new MaxBlockNumber(true, new Fr(1)),
+      );
 
-      validMaxBlockNumberMetadata.data.rollupValidationRequests = {
-        maxBlockNumber: new MaxBlockNumber(true, new Fr(5)),
-        getSize: () => 1,
-        toBuffer: () => Fr.ZERO.toBuffer(),
-        toString: () => Fr.ZERO.toString(),
-      };
+      validMaxBlockNumberMetadata.data.rollupValidationRequests = new RollupValidationRequests(
+        new MaxBlockNumber(true, new Fr(5)),
+      );
 
       lastBlockNumber = 3;
 

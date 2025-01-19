@@ -1,3 +1,4 @@
+import { type BlobSinkClientInterface } from '@aztec/blob-sink/client';
 import { InboxLeaf, type L1RollupConstants, L2Block } from '@aztec/circuit-types';
 import { GENESIS_ARCHIVE_ROOT, PrivateLog } from '@aztec/circuits.js';
 import { DefaultL1ContractsConfig } from '@aztec/ethereum';
@@ -7,7 +8,7 @@ import { Fr } from '@aztec/foundation/fields';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { sleep } from '@aztec/foundation/sleep';
 import { type InboxAbi, RollupAbi } from '@aztec/l1-artifacts';
-import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
+import { getTelemetryClient } from '@aztec/telemetry-client';
 
 import { jest } from '@jest/globals';
 import { type MockProxy, mock } from 'jest-mock-extended';
@@ -53,6 +54,7 @@ describe('Archiver', () => {
 
   let publicClient: MockProxy<PublicClient<HttpTransport, Chain>>;
   let instrumentation: MockProxy<ArchiverInstrumentation>;
+  let blobSinkClient: MockProxy<BlobSinkClientInterface>;
   let archiverStore: ArchiverDataStore;
   let now: number;
   let l1Constants: L1RollupConstants;
@@ -92,8 +94,9 @@ describe('Archiver', () => {
         );
       }) as any,
     });
+    blobSinkClient = mock<BlobSinkClientInterface>();
 
-    const tracer = new NoopTelemetryClient().getTracer();
+    const tracer = getTelemetryClient().getTracer('');
     instrumentation = mock<ArchiverInstrumentation>({ isEnabled: () => true, tracer });
     archiverStore = new MemoryArchiverStore(1000);
     l1Constants = {
@@ -109,6 +112,7 @@ describe('Archiver', () => {
       { rollupAddress, inboxAddress, registryAddress },
       archiverStore,
       { pollingIntervalMs: 1000, batchSize: 1000 },
+      blobSinkClient,
       instrumentation,
       l1Constants,
     );

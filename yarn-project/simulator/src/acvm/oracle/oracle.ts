@@ -2,14 +2,11 @@ import { MerkleTreeId, UnencryptedL2Log } from '@aztec/circuit-types';
 import { FunctionSelector, NoteSelector } from '@aztec/foundation/abi';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { Fr } from '@aztec/foundation/fields';
-import { createLogger } from '@aztec/foundation/log';
 
 import { type ACVMField } from '../acvm_types.js';
-import { frToBoolean, frToNumber, fromACVMField } from '../deserialize.js';
+import { frToBoolean, frToNumber, fromACVMField, fromBoundedVec } from '../deserialize.js';
 import { toACVMField } from '../serialize.js';
 import { type TypedOracle } from './typed_oracle.js';
-
-const logger = createLogger('simulator:acvm:oracle');
 
 /**
  * A data source that has all the apis required by Aztec.nr.
@@ -22,25 +19,20 @@ export class Oracle {
     return toACVMField(val);
   }
 
-  async packArgumentsArray(args: ACVMField[]): Promise<ACVMField> {
-    const packed = await this.typedOracle.packArgumentsArray(args.map(fromACVMField));
-    return toACVMField(packed);
-  }
-
-  async packArguments(_length: ACVMField[], values: ACVMField[]): Promise<ACVMField> {
-    const packed = await this.typedOracle.packArgumentsArray(values.map(fromACVMField));
-    return toACVMField(packed);
+  async storeArrayInExecutionCache(values: ACVMField[]): Promise<ACVMField> {
+    const hash = await this.typedOracle.storeArrayInExecutionCache(values.map(fromACVMField));
+    return toACVMField(hash);
   }
 
   // Since the argument is a slice, noir automatically adds a length field to oracle call.
-  async packReturns(_length: ACVMField[], values: ACVMField[]): Promise<ACVMField> {
-    const packed = await this.typedOracle.packReturns(values.map(fromACVMField));
-    return toACVMField(packed);
+  async storeInExecutionCache(_length: ACVMField[], values: ACVMField[]): Promise<ACVMField> {
+    const hash = await this.typedOracle.storeInExecutionCache(values.map(fromACVMField));
+    return toACVMField(hash);
   }
 
-  async unpackReturns([returnsHash]: ACVMField[]): Promise<ACVMField[]> {
-    const unpacked = await this.typedOracle.unpackReturns(fromACVMField(returnsHash));
-    return unpacked.map(toACVMField);
+  async loadFromExecutionCache([returnsHash]: ACVMField[]): Promise<ACVMField[]> {
+    const values = await this.typedOracle.loadFromExecutionCache(fromACVMField(returnsHash));
+    return values.map(toACVMField);
   }
 
   async getBlockNumber(): Promise<ACVMField> {
@@ -93,19 +85,6 @@ export class Oracle {
       );
     }
     return witness.map(toACVMField);
-  }
-
-  async getSiblingPath(
-    [blockNumber]: ACVMField[],
-    [treeId]: ACVMField[],
-    [leafIndex]: ACVMField[],
-  ): Promise<ACVMField[]> {
-    const parsedBlockNumber = frToNumber(fromACVMField(blockNumber));
-    const parsedTreeId = frToNumber(fromACVMField(treeId));
-    const parsedLeafIndex = fromACVMField(leafIndex);
-
-    const path = await this.typedOracle.getSiblingPath(parsedBlockNumber, parsedTreeId, parsedLeafIndex);
-    return path.map(toACVMField);
   }
 
   async getNullifierMembershipWitness(
@@ -271,6 +250,11 @@ export class Oracle {
     return toACVMField(0);
   }
 
+  async notifyCreatedNullifier([innerNullifier]: ACVMField[]): Promise<ACVMField> {
+    await this.typedOracle.notifyCreatedNullifier(fromACVMField(innerNullifier));
+    return toACVMField(0);
+  }
+
   async checkNullifierExists([innerNullifier]: ACVMField[]): Promise<ACVMField> {
     const exists = await this.typedOracle.checkNullifierExists(fromACVMField(innerNullifier));
     return toACVMField(exists);
@@ -397,34 +381,78 @@ export class Oracle {
     await this.typedOracle.syncNotes();
   }
 
-  async store([contract]: ACVMField[], [key]: ACVMField[], values: ACVMField[]) {
-    const processedContract = AztecAddress.fromField(fromACVMField(contract));
-    const processedKey = fromACVMField(key);
-    const processedValues = values.map(fromACVMField);
-    logger.debug(`Storing data for key ${processedKey} in contract ${processedContract}. Data: [${processedValues}]`);
-    await this.typedOracle.store(processedContract, processedKey, processedValues);
+  async deliverNote(
+    [contractAddress]: ACVMField[],
+    [storageSlot]: ACVMField[],
+    [nonce]: ACVMField[],
+    content: ACVMField[],
+    [contentLength]: ACVMField[],
+    [noteHash]: ACVMField[],
+    [nullifier]: ACVMField[],
+    [txHash]: ACVMField[],
+    [recipient]: ACVMField[],
+  ): Promise<ACVMField> {
+    // TODO(#10728): try-catch this block and return false if we get an exception so that the contract can decide what
+    // to do if a note fails delivery (e.g. not increment the tagging index, or add it to some pending work list).
+    // Delivery might fail due to temporary issues, such as poor node connectivity.
+    await this.typedOracle.deliverNote(
+      AztecAddress.fromString(contractAddress),
+      fromACVMField(storageSlot),
+      fromACVMField(nonce),
+      fromBoundedVec(content, contentLength),
+      fromACVMField(noteHash),
+      fromACVMField(nullifier),
+      fromACVMField(txHash),
+      AztecAddress.fromString(recipient),
+    );
+
+    return toACVMField(true);
   }
 
-  /**
-   * Load data from pxe db.
-   * @param contract - The contract address.
-   * @param key - The key to load.
-   * @param tSize - The size of the serialized object to return.
-   * @returns The data found flag and the serialized object concatenated in one array.
-   */
-  async load([contract]: ACVMField[], [key]: ACVMField[], [tSize]: ACVMField[]): Promise<(ACVMField | ACVMField[])[]> {
-    const processedContract = AztecAddress.fromField(fromACVMField(contract));
-    const processedKey = fromACVMField(key);
-    const values = await this.typedOracle.load(processedContract, processedKey);
+  async dbStore([contractAddress]: ACVMField[], [slot]: ACVMField[], values: ACVMField[]) {
+    await this.typedOracle.dbStore(
+      AztecAddress.fromField(fromACVMField(contractAddress)),
+      fromACVMField(slot),
+      values.map(fromACVMField),
+    );
+  }
+
+  async dbLoad(
+    [contractAddress]: ACVMField[],
+    [slot]: ACVMField[],
+    [tSize]: ACVMField[],
+  ): Promise<(ACVMField | ACVMField[])[]> {
+    const values = await this.typedOracle.dbLoad(
+      AztecAddress.fromField(fromACVMField(contractAddress)),
+      fromACVMField(slot),
+    );
+
+    // We are going to return a Noir Option struct to represent the possibility of null values. Options are a struct
+    // with two fields: `some` (a boolean) and `value` (a field array in this case).
     if (values === null) {
-      // No data was found so we set the data-found flag to 0 and we pad with zeros get the correct return size.
-      const processedTSize = frToNumber(fromACVMField(tSize));
-      logger.debug(`No data found for key ${processedKey} in contract ${processedContract}`);
-      return [toACVMField(0), Array(processedTSize).fill(toACVMField(0))];
+      // No data was found so we set `some` to 0 and pad `value` with zeros get the correct return size.
+      return [toACVMField(0), Array(frToNumber(fromACVMField(tSize))).fill(toACVMField(0))];
     } else {
-      // Data was found so we set the data-found flag to 1 and return it along with the data.
-      logger.debug(`Returning data for key ${processedKey} in contract ${processedContract}. Data: [${values}]`);
+      // Data was found so we set `some` to 1 and return it along with `value`.
       return [toACVMField(1), values.map(toACVMField)];
     }
+  }
+
+  async dbDelete([contractAddress]: ACVMField[], [slot]: ACVMField[]) {
+    await this.typedOracle.dbDelete(AztecAddress.fromField(fromACVMField(contractAddress)), fromACVMField(slot));
+  }
+
+  async dbCopy(
+    [contractAddress]: ACVMField[],
+    [srcSlot]: ACVMField[],
+    [dstSlot]: ACVMField[],
+    [numEntries]: ACVMField[],
+  ) {
+    await this.typedOracle.dbCopy(
+      AztecAddress.fromField(fromACVMField(contractAddress)),
+      fromACVMField(srcSlot),
+      fromACVMField(dstSlot),
+      frToNumber(fromACVMField(numEntries)),
+    );
   }
 }

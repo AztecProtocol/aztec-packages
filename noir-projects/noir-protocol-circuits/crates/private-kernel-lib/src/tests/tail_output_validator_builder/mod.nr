@@ -36,8 +36,8 @@ impl TailOutputValidatorBuilder {
         let mut previous_kernel = FixtureBuilder::new();
         output.tx_context.gas_settings = gas_settings;
         previous_kernel.tx_context.gas_settings = gas_settings;
-        output.set_first_nullifier();
-        previous_kernel.set_first_nullifier();
+        output.set_protocol_nullifier();
+        previous_kernel.set_protocol_nullifier();
         TailOutputValidatorBuilder { output, previous_kernel }
     }
 

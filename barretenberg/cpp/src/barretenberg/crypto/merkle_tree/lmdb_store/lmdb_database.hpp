@@ -12,6 +12,7 @@ class LMDBDatabaseCreationTransaction;
 class LMDBDatabase {
   public:
     using Ptr = std::unique_ptr<LMDBDatabase>;
+    using SharedPtr = std::shared_ptr<LMDBDatabase>;
 
     LMDBDatabase(LMDBEnvironment::SharedPtr env,
                  const LMDBDatabaseCreationTransaction& transaction,

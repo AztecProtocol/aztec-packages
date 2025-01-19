@@ -104,8 +104,9 @@ typename TraceToPolynomials<Flavor>::TraceData TraceToPolynomials<Flavor>::const
 
         // Save ranges over which the blocks are "active" for use in structured commitments
         if constexpr (IsUltraFlavor<Flavor>) { // Mega and Ultra
+            PROFILE_THIS_NAME("construct_active_indices");
             if (block.size() > 0) {
-                proving_key.active_block_ranges.emplace_back(offset, offset + block.size());
+                proving_key.active_region_data.add_range(offset, offset + block.size());
             }
         }
 

@@ -1,4 +1,4 @@
-use crate::address::AztecAddress;
+use crate::{address::AztecAddress, traits::FromField};
 
 pub global MAX_FIELD_VALUE: Field =
     21888242871839275222246405745257275088548364400416034343698204186575808495616;
@@ -99,23 +99,22 @@ pub global MAX_CONTRACT_CLASS_LOGS_PER_TX: u32 = 1;
 pub global NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP: u32 = 16;
 
 // VK TREE CONSTANTS
-pub comptime global EMPTY_NESTED_INDEX: u32 = 0;
-pub comptime global PRIVATE_KERNEL_EMPTY_INDEX: u32 = 1;
-pub comptime global PRIVATE_KERNEL_INIT_INDEX: u32 = 2;
-pub comptime global PRIVATE_KERNEL_INNER_INDEX: u32 = 3;
-pub comptime global PRIVATE_KERNEL_TAIL_INDEX: u32 = 4;
-pub comptime global PRIVATE_KERNEL_TAIL_TO_PUBLIC_INDEX: u32 = 5;
-pub comptime global TUBE_VK_INDEX: u32 = 6;
-pub comptime global AVM_VK_INDEX: u32 = 7;
-pub comptime global PRIVATE_BASE_ROLLUP_VK_INDEX: u32 = 8;
-pub comptime global PUBLIC_BASE_ROLLUP_VK_INDEX: u32 = 9;
-pub comptime global BASE_PARITY_INDEX: u32 = 10;
-pub comptime global ROOT_PARITY_INDEX: u32 = 11;
-pub comptime global MERGE_ROLLUP_INDEX: u32 = 12;
-pub comptime global BLOCK_ROOT_ROLLUP_INDEX: u32 = 13;
-pub comptime global BLOCK_MERGE_ROLLUP_INDEX: u32 = 14;
-pub comptime global ROOT_ROLLUP_INDEX: u32 = 15;
-pub comptime global BLOCK_ROOT_ROLLUP_EMPTY_INDEX: u32 = 16;
+pub comptime global PRIVATE_KERNEL_INIT_INDEX: u32 = 0;
+pub comptime global PRIVATE_KERNEL_INNER_INDEX: u32 = 1;
+pub comptime global PRIVATE_KERNEL_TAIL_INDEX: u32 = 2;
+pub comptime global PRIVATE_KERNEL_TAIL_TO_PUBLIC_INDEX: u32 = 3;
+pub comptime global TUBE_VK_INDEX: u32 = 4;
+pub comptime global AVM_VK_INDEX: u32 = 5;
+pub comptime global PRIVATE_BASE_ROLLUP_VK_INDEX: u32 = 6;
+pub comptime global PUBLIC_BASE_ROLLUP_VK_INDEX: u32 = 7;
+pub comptime global MERGE_ROLLUP_INDEX: u32 = 8;
+pub comptime global BLOCK_ROOT_ROLLUP_INDEX: u32 = 9;
+pub comptime global BLOCK_ROOT_ROLLUP_SINGLE_TX_INDEX: u32 = 10;
+pub comptime global BLOCK_ROOT_ROLLUP_EMPTY_INDEX: u32 = 11;
+pub comptime global BLOCK_MERGE_ROLLUP_INDEX: u32 = 12;
+pub comptime global ROOT_ROLLUP_INDEX: u32 = 13;
+pub comptime global BASE_PARITY_INDEX: u32 = 14;
+pub comptime global ROOT_PARITY_INDEX: u32 = 15;
 pub comptime global PRIVATE_KERNEL_RESET_INDEX: u32 = 20;
 // Important: Do not define indexes after the PRIVATE_KERNEL_RESET_INDEX. They are allocated for the variants of private kernel reset.
 
@@ -131,8 +130,9 @@ pub global FIELDS_PER_BLOB: u32 = 4096;
 pub global BLOBS_PER_BLOCK: u32 = 3;
 pub global PRIVATE_LOG_SIZE_IN_FIELDS: u32 = 18; // This is currently affected by the size of the log overhead defined in aztec-nr/aztec/src/encrypted_logs/payload.nr.
 pub global AZTEC_MAX_EPOCH_DURATION: u32 = 48;
-// The following is taken from building a block and looking at the `lastArchive` value in it.
-// You can run the `integration_l1_publisher.test.ts` and look at the first blocks in the fixtures.
+// The following genesis values are taken from world_state.test.cpp > WorldStateTest.GetInitialTreeInfoForAllTrees
+pub global GENESIS_BLOCK_HASH: Field =
+    0x2da55666630fdf8594065c377958c827dc1c130dac91f17c6699b53dce60ef75;
 pub global GENESIS_ARCHIVE_ROOT: Field =
     0x0237797d6a2c04d20d4fa06b74482bd970ccd51a43d9b05b57e9b91fa1ae1cae;
 // The following and the value in `deploy_l1_contracts` must match. We should not have the code both places, but
@@ -360,7 +360,8 @@ pub global PRIVATE_KERNEL_CIRCUIT_PUBLIC_INPUTS_LENGTH: u32 = TX_CONSTANT_DATA_L
     + PRIVATE_ACCUMULATED_DATA_LENGTH
     + PUBLIC_CALL_REQUEST_LENGTH
     + AZTEC_ADDRESS_LENGTH
-    + 1 /* is private only */;
+    + 1 /* is private only */
+    + 1 /* claimed_first_nullifier */;
 
 pub global PRIVATE_TO_PUBLIC_ACCUMULATED_DATA_LENGTH: u32 = MAX_NOTE_HASHES_PER_TX
     + MAX_NULLIFIERS_PER_TX
@@ -459,7 +460,7 @@ pub global NUM_BASE_PARITY_PER_ROOT_PARITY: u32 = 4;
 // Lengths of the different types of proofs in fields
 pub global RECURSIVE_PROOF_LENGTH: u32 = 459;
 pub global NESTED_RECURSIVE_PROOF_LENGTH: u32 = RECURSIVE_PROOF_LENGTH;
-pub global IPA_PROOF_LENGTH: u32 = 65;
+pub global IPA_PROOF_LENGTH: u32 = 69;
 pub global RECURSIVE_ROLLUP_HONK_PROOF_LENGTH: u32 =
     RECURSIVE_PROOF_LENGTH + IPA_CLAIM_LENGTH + IPA_PROOF_LENGTH;
 pub global NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH: u32 = RECURSIVE_ROLLUP_HONK_PROOF_LENGTH;
@@ -486,24 +487,11 @@ pub global MAX_PUBLIC_CALLS_TO_UNIQUE_CONTRACT_CLASS_IDS: u32 = 21;
 // `AVM_PROOF_LENGTH_IN_FIELDS` must be updated when AVM circuit changes.
 // To determine latest value, hover `COMPUTED_AVM_PROOF_LENGTH_IN_FIELDS`
 // in barretenberg/cpp/src/barretenberg/vm/avm/generated/flavor.hpp
-pub global AVM_PROOF_LENGTH_IN_FIELDS: u32 = 4155;
+pub global AVM_PROOF_LENGTH_IN_FIELDS: u32 = 4154;
 pub global AVM_PUBLIC_COLUMN_MAX_SIZE: u32 = 1024;
 pub global AVM_PUBLIC_INPUTS_FLATTENED_SIZE: u32 =
     2 * AVM_PUBLIC_COLUMN_MAX_SIZE + PUBLIC_CIRCUIT_PUBLIC_INPUTS_LENGTH;
-/**
- * Enumerate the hash_indices which are used for pedersen hashing.
- * We start from 1 to avoid the default generators. The generator indices are listed
- * based on the number of elements each index hashes. The following conditions must be met:
- *
- * +-----------+-------------------------------+----------------------+
- * | Hash size | Number of elements hashed (n) | Condition to use     |
- * |-----------+-------------------------------+----------------------|
- * | LOW       | n <= 8                         | 0 < hash_index <= 32  |
- * | MID       | 8 < n <= 16                    | 32 < hash_index <= 40 |
- * | HIGH      | 16 < n <= 48                   | 40 < hash_index <= 48 |
- * +-----------+-------------------------------+----------------------+
- */
-// Indices with size <= 8
+
 pub global GENERATOR_INDEX__NOTE_HASH: u32 = 1;
 pub global GENERATOR_INDEX__NOTE_HASH_NONCE: u32 = 2;
 pub global GENERATOR_INDEX__UNIQUE_NOTE_HASH: u32 = 3;
@@ -536,14 +524,11 @@ pub global GENERATOR_INDEX__SIDE_EFFECT: u32 = 29;
 pub global GENERATOR_INDEX__FEE_PAYLOAD: u32 = 30;
 pub global GENERATOR_INDEX__COMBINED_PAYLOAD: u32 = 31;
 pub global GENERATOR_INDEX__TX_NULLIFIER: u32 = 32;
-// Indices with size <= 16
 pub global GENERATOR_INDEX__TX_REQUEST: u32 = 33;
 pub global GENERATOR_INDEX__SIGNATURE_PAYLOAD: u32 = 34;
-// Indices with size <= 44
 pub global GENERATOR_INDEX__VK: u32 = 41;
 pub global GENERATOR_INDEX__PRIVATE_CIRCUIT_PUBLIC_INPUTS: u32 = 42;
 pub global GENERATOR_INDEX__PUBLIC_CIRCUIT_PUBLIC_INPUTS: u32 = 43;
-// TODO: Function args generator index is being used to hash 64 items
 pub global GENERATOR_INDEX__FUNCTION_ARGS: u32 = 44;
 pub global GENERATOR_INDEX__AUTHWIT_INNER: u32 = 45;
 pub global GENERATOR_INDEX__AUTHWIT_OUTER: u32 = 46;
@@ -557,6 +542,9 @@ pub global GENERATOR_INDEX__PUBLIC_KEYS_HASH: u32 = 52;
 pub global GENERATOR_INDEX__NOTE_NULLIFIER: u32 = 53;
 pub global GENERATOR_INDEX__NOTE_HIDING_POINT: u32 = 54;
 pub global GENERATOR_INDEX__SYMMETRIC_KEY: u8 = 55;
+
+pub global GENERATOR_INDEX__PUBLIC_TX_HASH: u32 = 56;
+pub global GENERATOR_INDEX__PRIVATE_TX_HASH: u32 = 57;
 
 // AVM memory tags
 pub global MEM_TAG_FF: Field = 0;
@@ -767,6 +755,8 @@ pub global PROOF_TYPE_PG: u32 = 3;
 pub global PROOF_TYPE_AVM: u32 = 4;
 pub global PROOF_TYPE_ROLLUP_HONK: u32 = 5;
 pub global PROOF_TYPE_ROOT_ROLLUP_HONK: u32 = 6;
+
+pub global TWO_POW_64: Field = 2.pow_32(64);
 
 mod test {
     use crate::constants::{

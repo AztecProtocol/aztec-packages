@@ -28,7 +28,7 @@ export class NoteSelector extends Selector {
     const reader = BufferReader.asReader(buffer);
     const value = Number(toBigIntBE(reader.readBytes(Selector.SIZE)));
     if (value >= 1 << 7) {
-      throw new Error('Invalid note selector');
+      throw new Error(`Invalid note selector: ${value}`);
     }
     return new NoteSelector(value);
   }

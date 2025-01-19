@@ -73,26 +73,29 @@ export type NodeSyncedChainHistoryStats = {
   dbSize: number;
 };
 
-export type CircuitName =
+export type ClientCircuitName =
+  | 'private-kernel-init'
+  | 'private-kernel-inner'
+  | 'private-kernel-reset'
+  | 'private-kernel-tail'
+  | 'private-kernel-tail-to-public'
+  | 'app-circuit';
+
+export type ServerCircuitName =
   | 'base-parity'
   | 'root-parity'
   | 'private-base-rollup'
   | 'public-base-rollup'
   | 'merge-rollup'
   | 'block-root-rollup'
+  | 'single-tx-block-root-rollup'
   | 'empty-block-root-rollup'
   | 'block-merge-rollup'
   | 'root-rollup'
-  | 'private-kernel-init'
-  | 'private-kernel-inner'
-  | 'private-kernel-reset'
-  | 'private-kernel-tail'
-  | 'private-kernel-tail-to-public'
-  | 'app-circuit'
   | 'avm-circuit'
-  | 'empty-nested'
-  | 'private-kernel-empty'
   | 'tube-circuit';
+
+export type CircuitName = ClientCircuitName | ServerCircuitName;
 
 /** Stats for circuit simulation. */
 export type CircuitSimulationStats = {

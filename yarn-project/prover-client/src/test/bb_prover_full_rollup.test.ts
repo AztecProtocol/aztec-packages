@@ -6,8 +6,8 @@ import { times } from '@aztec/foundation/collection';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { getTestData, isGenerateTestDataEnabled } from '@aztec/foundation/testing';
 import { writeTestData } from '@aztec/foundation/testing/files';
-import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types';
-import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
+import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types/vks';
+import { getTelemetryClient } from '@aztec/telemetry-client';
 
 import { buildBlock } from '../block_builder/light.js';
 import { makeGlobals } from '../mocks/fixtures.js';
@@ -20,7 +20,7 @@ describe('prover/bb_prover/full-rollup', () => {
 
   beforeEach(async () => {
     const buildProver = async (bbConfig: BBProverConfig) => {
-      prover = await BBNativeRollupProver.new(bbConfig, new NoopTelemetryClient());
+      prover = await BBNativeRollupProver.new(bbConfig, getTelemetryClient());
       return prover;
     };
     log = createLogger('prover-client:test:bb-prover-full-rollup');
@@ -56,7 +56,7 @@ describe('prover/bb_prover/full-rollup', () => {
 
         log.info(`Starting new block #${blockNum}`);
 
-        await context.orchestrator.startNewBlock(globals, l1ToL2Messages);
+        await context.orchestrator.startNewBlock(globals, l1ToL2Messages, context.getPreviousBlockHeader(blockNum));
         log.info(`Processing public functions`);
         const [processed, failed] = await context.processPublicFunctions(txs, nonEmptyTxs);
         expect(processed.length).toBe(nonEmptyTxs);
@@ -108,7 +108,7 @@ describe('prover/bb_prover/full-rollup', () => {
 
     context.orchestrator.startNewEpoch(1, 1, 1);
 
-    await context.orchestrator.startNewBlock(context.globalVariables, l1ToL2Messages);
+    await context.orchestrator.startNewBlock(context.globalVariables, l1ToL2Messages, context.getPreviousBlockHeader());
 
     const [processed, failed] = await context.processPublicFunctions(txs, numTransactions);
 

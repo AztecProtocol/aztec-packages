@@ -2,7 +2,6 @@ import { type EpochProofClaim } from '@aztec/circuit-types';
 import { EthAddress } from '@aztec/circuits.js';
 import { sleep } from '@aztec/foundation/sleep';
 import { type L1Publisher } from '@aztec/sequencer-client';
-import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
 
 import { type MockProxy, mock } from 'jest-mock-extended';
 
@@ -22,7 +21,7 @@ describe('ClaimsMonitor', () => {
     publisherAddress = EthAddress.random();
     l1Publisher.getSenderAddress.mockReturnValue(publisherAddress);
 
-    claimsMonitor = new ClaimsMonitor(l1Publisher, new NoopTelemetryClient(), { pollingIntervalMs: 10 });
+    claimsMonitor = new ClaimsMonitor(l1Publisher, { pollingIntervalMs: 10 });
   });
 
   afterEach(async () => {

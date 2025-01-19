@@ -1,11 +1,9 @@
-import { type L1NotePayload, Note, TxHash, randomTxHash } from '@aztec/circuit-types';
+import { Note, TxHash, randomTxHash } from '@aztec/circuit-types';
 import { AztecAddress, Fr, Point, type PublicKey } from '@aztec/circuits.js';
 import { NoteSelector } from '@aztec/foundation/abi';
 import { toBigIntBE } from '@aztec/foundation/bigint-buffer';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
-import { type NoteData } from '@aztec/simulator/acvm';
-
-import { type NoteInfo } from '../note_decryption_utils/index.js';
+import { type NoteData } from '@aztec/simulator/client';
 
 /**
  * A Note Data Access Object, representing a note that was comitted to the note hash tree, holding all of the
@@ -60,32 +58,6 @@ export class NoteDao implements NoteData {
      */
     public noteTypeId: NoteSelector,
   ) {}
-
-  static fromPayloadAndNoteInfo(
-    note: Note,
-    payload: L1NotePayload,
-    noteInfo: NoteInfo,
-    l2BlockNumber: number,
-    l2BlockHash: string,
-    dataStartIndexForTx: number,
-    addressPoint: PublicKey,
-  ) {
-    const noteHashIndexInTheWholeTree = BigInt(dataStartIndexForTx + noteInfo.noteHashIndex);
-    return new NoteDao(
-      note,
-      payload.contractAddress,
-      payload.storageSlot,
-      noteInfo.nonce,
-      noteInfo.noteHash,
-      noteInfo.siloedNullifier,
-      noteInfo.txHash,
-      l2BlockNumber,
-      l2BlockHash,
-      noteHashIndexInTheWholeTree,
-      addressPoint,
-      payload.noteTypeId,
-    );
-  }
 
   toBuffer(): Buffer {
     return serializeToBuffer([

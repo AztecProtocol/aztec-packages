@@ -239,10 +239,16 @@ class AvmTraceBuilder {
     void insert_private_state(const std::vector<FF>& siloed_nullifiers, const std::vector<FF>& unique_note_hashes);
     void insert_private_revertible_state(const std::vector<FF>& siloed_nullifiers,
                                          const std::vector<FF>& siloed_note_hashes);
+    void update_calldata_size_values(const uint32_t calldata_size)
+    {
+        top_calldata_offset += previous_enqueued_calldata_size;
+        previous_enqueued_calldata_size = calldata_size;
+    }
     void pay_fee();
     void pad_trees();
     void allocate_gas_for_call(uint32_t l2_gas, uint32_t da_gas);
     void handle_exceptional_halt();
+    void handle_end_of_teardown(uint32_t pre_teardown_l2_gas_left, uint32_t pre_teardown_da_gas_left);
 
     // These are used for testing only.
     AvmTraceBuilder& set_range_check_required(bool required)
@@ -377,6 +383,15 @@ class AvmTraceBuilder {
         0; // After a nested call, it should be initialized with MAX_SIZE_INTERNAL_STACK * call_ptr
     uint8_t call_ptr = 0;
 
+    // Calldata global offset pointing at the top of calldata values which are the concatenated
+    // calldata's of the top-level enqueued function calls.
+    // We might have more than one calldatacopy opcode per top-level function call and therefore we update
+    // top_calldata_offset in execute_enqueued_call(). For this, we need to keep track of the previous
+    // enqueued call calldata size. Note that this mechanism is not required for returndata as there can
+    // be only one RETURN or REVERT opcode.
+    uint32_t top_calldata_offset = 0;
+    uint32_t previous_enqueued_calldata_size = 0;
+
     MemOp constrained_read_from_memory(uint8_t space_id,
                                        uint32_t clk,
                                        AddressWithMode addr,
@@ -395,7 +410,7 @@ class AvmTraceBuilder {
     uint32_t get_inserted_note_hashes_count();
     uint32_t get_inserted_nullifiers_count();
     uint32_t get_public_data_writes_count();
-    FF get_tx_hash() const { return public_inputs.previous_non_revertible_accumulated_data.nullifiers[0]; }
+    FF get_first_nullifier() const { return public_inputs.previous_non_revertible_accumulated_data.nullifiers[0]; }
 
     // TODO: remove these once everything is constrained.
     AvmMemoryTag unconstrained_get_memory_tag(AddressWithMode addr);

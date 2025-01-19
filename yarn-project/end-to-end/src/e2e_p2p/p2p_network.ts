@@ -1,7 +1,8 @@
 import { getSchnorrAccount } from '@aztec/accounts/schnorr';
 import { type AztecNodeConfig, type AztecNodeService } from '@aztec/aztec-node';
 import { type AccountWalletWithSecretKey } from '@aztec/aztec.js';
-import { L1TxUtils, getL1ContractsConfigEnvVars } from '@aztec/ethereum';
+import { ChainMonitor } from '@aztec/aztec.js/utils';
+import { L1TxUtils, RollupContract, getL1ContractsConfigEnvVars } from '@aztec/ethereum';
 import { EthCheatCodesWithState } from '@aztec/ethereum/test';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { RollupAbi, TestERC20Abi } from '@aztec/l1-artifacts';
@@ -38,6 +39,7 @@ export class P2PNetworkTest {
   private baseAccount;
 
   public logger: Logger;
+  public monitor!: ChainMonitor;
 
   public ctx!: SubsystemsContext;
   public attesterPrivateKeys: `0x${string}`[] = [];
@@ -112,7 +114,7 @@ export class P2PNetworkTest {
   }) {
     const port = basePort || (await getPort());
 
-    const telemetry = await getEndToEndTestTelemetryClient(metricsPort);
+    const telemetry = getEndToEndTestTelemetryClient(metricsPort);
     const bootstrapNode = await createBootstrapNodeFromPrivateKey(BOOTSTRAP_NODE_PRIVATE_KEY, port, telemetry);
     const bootstrapNodeEnr = bootstrapNode.getENR().encodeTxt();
 
@@ -148,7 +150,7 @@ export class P2PNetworkTest {
     this.logger.info('Syncing mock system time');
     const { dateProvider, deployL1ContractsValues } = this.ctx!;
     // Send a tx and only update the time after the tx is mined, as eth time is not continuous
-    const receipt = await this.gasUtils!.sendAndMonitorTransaction({
+    const { receipt } = await this.gasUtils!.sendAndMonitorTransaction({
       to: this.baseAccount.address,
       data: '0x',
       value: 1n,
@@ -300,7 +302,7 @@ export class P2PNetworkTest {
       this.ctx.deployL1ContractsValues.walletClient,
       this.logger,
       {
-        gasLimitBufferPercentage: 20n,
+        gasLimitBufferPercentage: 20,
         maxGwei: 500n,
         minGwei: 1n,
         maxAttempts: 3,
@@ -308,6 +310,9 @@ export class P2PNetworkTest {
         stallTimeMs: 1000,
       },
     );
+
+    this.monitor = new ChainMonitor(RollupContract.getFromL1ContractsValues(this.ctx.deployL1ContractsValues));
+    this.monitor.start();
   }
 
   async stopNodes(nodes: AztecNodeService[]) {
@@ -325,6 +330,7 @@ export class P2PNetworkTest {
   }
 
   async teardown() {
+    this.monitor.stop();
     await this.bootstrapNode.stop();
     await this.snapshotManager.teardown();
     if (this.cleanupInterval) {

@@ -31,32 +31,33 @@ where
 mod tests {
     use crate::{
         tests::types::TestValue,
+        traits::Empty,
         utils::arrays::sort_by_counter::{
             compare_by_counter_empty_padded_asc, compare_by_counter_empty_padded_desc,
             sort_by_counter_asc, sort_by_counter_desc,
         },
     };
 
-    fn asc_values_to_equal<let N: u32>(values: [u32; N], expected: [u32; N]) {
+    unconstrained fn asc_values_to_equal<let N: u32>(values: [u32; N], expected: [u32; N]) {
         let items = values.map(|value| TestValue { value: value as Field, counter: value });
-        let sorted = unsafe { sort_by_counter_asc(items).map(|item: TestValue| item.counter) };
+        let sorted = sort_by_counter_asc(items).map(|item: TestValue| item.counter);
         assert_eq(sorted, expected);
     }
 
-    fn desc_values_to_equal<let N: u32>(values: [u32; N], expected: [u32; N]) {
+    unconstrained fn desc_values_to_equal<let N: u32>(values: [u32; N], expected: [u32; N]) {
         let items = values.map(|value| TestValue { value: value as Field, counter: value });
-        let sorted = unsafe { sort_by_counter_desc(items).map(|item: TestValue| item.counter) };
+        let sorted = sort_by_counter_desc(items).map(|item: TestValue| item.counter);
         assert_eq(sorted, expected);
     }
 
-    fn compare_test_items_asc(value_1: u32, value_2: u32) -> bool {
+    unconstrained fn compare_test_items_asc(value_1: u32, value_2: u32) -> bool {
         compare_by_counter_empty_padded_asc(
             TestValue { value: value_1 as Field, counter: value_1 },
             TestValue { value: value_2 as Field, counter: value_2 },
         )
     }
 
-    fn compare_test_items_desc(value_1: u32, value_2: u32) -> bool {
+    unconstrained fn compare_test_items_desc(value_1: u32, value_2: u32) -> bool {
         compare_by_counter_empty_padded_desc(
             TestValue { value: value_1 as Field, counter: value_1 },
             TestValue { value: value_2 as Field, counter: value_2 },
@@ -64,7 +65,7 @@ mod tests {
     }
 
     #[test]
-    fn compare_by_counter_empty_padded_asc_expected() {
+    unconstrained fn compare_by_counter_empty_padded_asc_expected() {
         assert_eq(compare_test_items_asc(1, 2), true);
         assert_eq(compare_test_items_asc(1, 1), false);
         assert_eq(compare_test_items_asc(2, 1), false);
@@ -72,7 +73,7 @@ mod tests {
     }
 
     #[test]
-    fn compare_by_counter_empty_padded_desc_expected() {
+    unconstrained fn compare_by_counter_empty_padded_desc_expected() {
         assert_eq(compare_test_items_desc(1, 2), false);
         assert_eq(compare_test_items_desc(1, 1), true);
         assert_eq(compare_test_items_desc(2, 1), true);
@@ -80,27 +81,27 @@ mod tests {
     }
 
     #[test]
-    fn sort_by_counter_asc_full_non_empty() {
+    unconstrained fn sort_by_counter_asc_full_non_empty() {
         asc_values_to_equal([4, 2, 1, 3, 5], [1, 2, 3, 4, 5]);
     }
 
     #[test]
-    fn sort_by_counter_desc_full_non_empty() {
+    unconstrained fn sort_by_counter_desc_full_non_empty() {
         desc_values_to_equal([4, 2, 1, 3, 5], [5, 4, 3, 2, 1]);
     }
 
     #[test]
-    fn sort_by_counter_asc_padded_empty() {
+    unconstrained fn sort_by_counter_asc_padded_empty() {
         asc_values_to_equal([4, 2, 0, 0, 1, 0, 3, 5], [1, 2, 3, 4, 5, 0, 0, 0]);
     }
 
     #[test]
-    fn sort_by_counter_desc_padded_empty() {
+    unconstrained fn sort_by_counter_desc_padded_empty() {
         desc_values_to_equal([4, 2, 0, 0, 1, 0, 3, 5], [5, 4, 3, 2, 1, 0, 0, 0]);
     }
 
     #[test]
-    fn sort_by_counter_asc_with_zero_counters() {
+    unconstrained fn sort_by_counter_asc_with_zero_counters() {
         let original = [
             TestValue { value: 55, counter: 1 },
             TestValue { value: 11, counter: 0 },
@@ -119,12 +120,12 @@ mod tests {
             TestValue::empty(),
             TestValue::empty(),
         ];
-        let sorted = unsafe { sort_by_counter_asc(original) };
+        let sorted = sort_by_counter_asc(original);
         assert_eq(sorted, expected);
     }
 
     #[test]
-    fn sort_by_counter_desc_with_zero_counters() {
+    unconstrained fn sort_by_counter_desc_with_zero_counters() {
         let original = [
             TestValue { value: 55, counter: 1 },
             TestValue { value: 11, counter: 0 },
@@ -143,7 +144,7 @@ mod tests {
             TestValue::empty(),
             TestValue::empty(),
         ];
-        let sorted = unsafe { sort_by_counter_desc(original) };
+        let sorted = sort_by_counter_desc(original);
         assert_eq(sorted, expected);
     }
 }

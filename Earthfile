@@ -23,6 +23,7 @@ bootstrap-noir-bb:
     git remote add origin https://github.com/aztecprotocol/aztec-packages >/dev/null 2>&1 &&
     (git fetch --depth 1 origin $EARTHLY_GIT_HASH >/dev/null 2>&1 || (echo "The commit was not pushed, run aborted." && exit 1)) &&
     git reset --hard FETCH_HEAD >/dev/null 2>&1 &&
+    ./build-images/adhoc-installs.sh &&
     DENOISE=1 CI=1 ./noir/bootstrap.sh fast &&
     DENOISE=1 CI=1 ./barretenberg/bootstrap.sh fast &&
     mv $(ls -A) /usr/src'

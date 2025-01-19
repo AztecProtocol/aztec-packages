@@ -6,7 +6,6 @@ import {
   type AvmCircuitPublicInputs,
   BLOBS_PER_BLOCK,
   type BaseParityInputs,
-  type EmptyNestedData,
   Fr,
   HONK_VERIFICATION_KEY_LENGTH_IN_FIELDS,
   type MembershipWitness,
@@ -14,7 +13,6 @@ import {
   type NULLIFIER_TREE_HEIGHT,
   type PUBLIC_DATA_TREE_HEIGHT,
   ParityPublicInputs,
-  type PrivateKernelEmptyInputs,
   type PrivateToAvmAccumulatedData,
   type PrivateToAvmAccumulatedDataArrayLengths,
   type PrivateToPublicAccumulatedData,
@@ -40,6 +38,8 @@ import {
   BaseOrMergeRollupPublicInputs,
   type BlockMergeRollupInputs,
   BlockRootOrBlockMergePublicInputs,
+  type BlockRootRollupBlobData,
+  type BlockRootRollupData,
   type BlockRootRollupInputs,
   ConstantRollupData,
   type EmptyBlockRootRollupInputs,
@@ -55,6 +55,7 @@ import {
   type PublicTubeData,
   type RootRollupInputs,
   RootRollupPublicInputs,
+  type SingleTxBlockRootRollupInputs,
 } from '@aztec/circuits.js/rollup';
 import { toHex } from '@aztec/foundation/bigint-buffer';
 import { mapTuple } from '@aztec/foundation/serialize';
@@ -71,22 +72,22 @@ import type {
   BlockBlobPublicInputs as BlockBlobPublicInputsNoir,
   BlockMergeRollupInputs as BlockMergeRollupInputsNoir,
   BlockRootOrBlockMergePublicInputs as BlockRootOrBlockMergePublicInputsNoir,
+  BlockRootRollupBlobData as BlockRootRollupBlobDataNoir,
+  BlockRootRollupData as BlockRootRollupDataNoir,
   BlockRootRollupInputs as BlockRootRollupInputsNoir,
   ConstantRollupData as ConstantRollupDataNoir,
   EmptyBlockRootRollupInputs as EmptyBlockRootRollupInputsNoir,
-  EmptyNestedCircuitPublicInputs as EmptyNestedDataNoir,
   FeeRecipient as FeeRecipientNoir,
   FixedLengthArray,
   MergeRollupInputs as MergeRollupInputsNoir,
   Field as NoirField,
   ParityPublicInputs as ParityPublicInputsNoir,
   RootParityInput as ParityRootParityInputNoir,
-  Poseidon2 as Poseidon2SpongeNoir,
+  Poseidon2Sponge as Poseidon2SpongeNoir,
   PreviousRollupBlockData as PreviousRollupBlockDataNoir,
   PreviousRollupData as PreviousRollupDataNoir,
   PrivateBaseRollupInputs as PrivateBaseRollupInputsNoir,
   PrivateBaseStateDiffHints as PrivateBaseStateDiffHintsNoir,
-  PrivateKernelEmptyPrivateInputs as PrivateKernelEmptyPrivateInputsNoir,
   PrivateToAvmAccumulatedDataArrayLengths as PrivateToAvmAccumulatedDataArrayLengthsNoir,
   PrivateToAvmAccumulatedData as PrivateToAvmAccumulatedDataNoir,
   PrivateToPublicAccumulatedData as PrivateToPublicAccumulatedDataNoir,
@@ -103,6 +104,7 @@ import type {
   RootRollupInputs as RootRollupInputsNoir,
   RootRollupParityInput as RootRollupParityInputNoir,
   RootRollupPublicInputs as RootRollupPublicInputsNoir,
+  SingleTxBlockRootRollupInputs as SingleTxBlockRootRollupInputsNoir,
   SpongeBlob as SpongeBlobNoir,
   TreeSnapshots as TreeSnapshotsNoir,
   TxConstantData as TxConstantDataNoir,
@@ -666,6 +668,25 @@ export function mapRootRollupParityInputToNoir(
   };
 }
 
+function mapBlockRootRollupDataToNoir(data: BlockRootRollupData): BlockRootRollupDataNoir {
+  return {
+    l1_to_l2_roots: mapRootRollupParityInputToNoir(data.l1ToL2Roots),
+    l1_to_l2_message_subtree_sibling_path: mapTuple(data.l1ToL2MessageSubtreeSiblingPath, mapFieldToNoir),
+    new_archive_sibling_path: mapTuple(data.newArchiveSiblingPath, mapFieldToNoir),
+    previous_block_header: mapHeaderToNoir(data.previousBlockHeader),
+    prover_id: mapFieldToNoir(data.proverId),
+  };
+}
+
+function mapBlockRootRollupBlobDataToNoir(data: BlockRootRollupBlobData): BlockRootRollupBlobDataNoir {
+  return {
+    // @ts-expect-error - below line gives error 'Type instantiation is excessively deep and possibly infinite. ts(2589)'
+    blobs_fields: mapTuple(data.blobFields, mapFieldToNoir),
+    blob_commitments: mapTuple(data.blobCommitments, mapBlobCommitmentToNoir),
+    blobs_hash: mapFieldToNoir(data.blobsHash),
+  };
+}
+
 /**
  * Maps the block root rollup inputs to noir.
  * @param rootRollupInputs - The circuits.js block root rollup inputs.
@@ -674,23 +695,18 @@ export function mapRootRollupParityInputToNoir(
 export function mapBlockRootRollupInputsToNoir(rootRollupInputs: BlockRootRollupInputs): BlockRootRollupInputsNoir {
   return {
     previous_rollup_data: mapTuple(rootRollupInputs.previousRollupData, mapPreviousRollupDataToNoir),
-    l1_to_l2_roots: mapRootRollupParityInputToNoir(rootRollupInputs.l1ToL2Roots),
-    l1_to_l2_messages: mapTuple(rootRollupInputs.newL1ToL2Messages, mapFieldToNoir),
-    l1_to_l2_message_subtree_sibling_path: mapTuple(
-      rootRollupInputs.newL1ToL2MessageTreeRootSiblingPath,
-      mapFieldToNoir,
-    ),
-    start_l1_to_l2_message_tree_snapshot: mapAppendOnlyTreeSnapshotToNoir(
-      rootRollupInputs.startL1ToL2MessageTreeSnapshot,
-    ),
-    start_archive_snapshot: mapAppendOnlyTreeSnapshotToNoir(rootRollupInputs.startArchiveSnapshot),
-    new_archive_sibling_path: mapTuple(rootRollupInputs.newArchiveSiblingPath, mapFieldToNoir),
-    previous_block_hash: mapFieldToNoir(rootRollupInputs.previousBlockHash),
-    prover_id: mapFieldToNoir(rootRollupInputs.proverId),
-    // @ts-expect-error - below line gives error 'Type instantiation is excessively deep and possibly infinite. ts(2589)'
-    blobs_fields: mapTuple(rootRollupInputs.blobFields, mapFieldToNoir),
-    blob_commitments: mapTuple(rootRollupInputs.blobCommitments, mapBlobCommitmentToNoir),
-    blobs_hash: mapFieldToNoir(rootRollupInputs.blobsHash),
+    data: mapBlockRootRollupDataToNoir(rootRollupInputs.data),
+    blob_data: mapBlockRootRollupBlobDataToNoir(rootRollupInputs.blobData),
+  };
+}
+
+export function mapSingleTxBlockRootRollupInputsToNoir(
+  rootRollupInputs: SingleTxBlockRootRollupInputs,
+): SingleTxBlockRootRollupInputsNoir {
+  return {
+    previous_rollup_data: [mapPreviousRollupDataToNoir(rootRollupInputs.previousRollupData[0])],
+    data: mapBlockRootRollupDataToNoir(rootRollupInputs.data),
+    blob_data: mapBlockRootRollupBlobDataToNoir(rootRollupInputs.blobData),
   };
 }
 
@@ -703,12 +719,9 @@ export function mapEmptyBlockRootRollupInputsToNoir(
   rootRollupInputs: EmptyBlockRootRollupInputs,
 ): EmptyBlockRootRollupInputsNoir {
   return {
-    archive: mapAppendOnlyTreeSnapshotToNoir(rootRollupInputs.archive),
-    block_hash: mapFieldToNoir(rootRollupInputs.blockHash),
-    global_variables: mapGlobalVariablesToNoir(rootRollupInputs.globalVariables),
-    vk_tree_root: mapFieldToNoir(rootRollupInputs.vkTreeRoot),
-    protocol_contract_tree_root: mapFieldToNoir(rootRollupInputs.protocolContractTreeRoot),
-    prover_id: mapFieldToNoir(rootRollupInputs.proverId),
+    data: mapBlockRootRollupDataToNoir(rootRollupInputs.data),
+    constants: mapConstantRollupDataToNoir(rootRollupInputs.constants),
+    is_padding: rootRollupInputs.isPadding,
   };
 }
 
@@ -879,24 +892,6 @@ export function mapPublicBaseRollupInputsToNoir(inputs: PublicBaseRollupInputs):
   };
 }
 
-export function mapEmptyKernelInputsToNoir(inputs: PrivateKernelEmptyInputs): PrivateKernelEmptyPrivateInputsNoir {
-  return {
-    empty_nested: mapEmptyNestedDataToNoir(inputs.emptyNested),
-    historical_header: mapHeaderToNoir(inputs.header),
-    chain_id: mapFieldToNoir(inputs.chainId),
-    version: mapFieldToNoir(inputs.version),
-    vk_tree_root: mapFieldToNoir(inputs.vkTreeRoot),
-    protocol_contract_tree_root: mapFieldToNoir(inputs.protocolContractTreeRoot),
-  };
-}
-
-function mapEmptyNestedDataToNoir(inputs: EmptyNestedData): EmptyNestedDataNoir {
-  return {
-    proof: mapRecursiveProofToNoir(inputs.proof),
-    vk: mapVerificationKeyToNoir(inputs.vk, ROLLUP_HONK_VERIFICATION_KEY_LENGTH_IN_FIELDS),
-  };
-}
-
 /**
  * Maps the merge rollup inputs to noir.
  * @param mergeRollupInputs - The circuits.js merge rollup inputs.
@@ -945,9 +940,9 @@ export function mapPrivateToRollupKernelCircuitPublicInputsFromNoir(
   inputs: PrivateToRollupKernelCircuitPublicInputsNoir,
 ) {
   return new PrivateToRollupKernelCircuitPublicInputs(
+    mapTxConstantDataFromNoir(inputs.constants),
     mapRollupValidationRequestsFromNoir(inputs.rollup_validation_requests),
     mapPrivateToRollupAccumulatedDataFromNoir(inputs.end),
-    mapTxConstantDataFromNoir(inputs.constants),
     mapGasFromNoir(inputs.gas_used),
     mapAztecAddressFromNoir(inputs.fee_payer),
   );

@@ -7,6 +7,8 @@ import {
   type TxEffect,
   TxHash,
   TxScopedL2Log,
+  randomContractArtifact,
+  randomContractInstanceWithAddress,
   randomInBlock,
   wrapInBlock,
 } from '@aztec/circuit-types';
@@ -23,10 +25,11 @@ import {
   computeTaggingSecretPoint,
   deriveKeys,
 } from '@aztec/circuits.js';
+import { type FunctionArtifact, FunctionType } from '@aztec/foundation/abi';
 import { pedersenHash, poseidon2Hash } from '@aztec/foundation/crypto';
 import { KeyStore } from '@aztec/key-store';
 import { openTmpStore } from '@aztec/kv-store/lmdb';
-import { type AcirSimulator } from '@aztec/simulator/client';
+import { type AcirSimulator, type SimulationProvider, WASMSimulator } from '@aztec/simulator/client';
 
 import { jest } from '@jest/globals';
 import { type MockProxy, mock } from 'jest-mock-extended';
@@ -34,7 +37,6 @@ import times from 'lodash.times';
 
 import { type PxeDatabase } from '../database/index.js';
 import { KVPxeDatabase } from '../database/kv_pxe_database.js';
-import { type NoteDao } from '../database/note_dao.js';
 import { ContractDataOracle } from '../index.js';
 import { SimulatorOracle } from './index.js';
 import { WINDOW_HALF_SIZE } from './tagging_utils.js';
@@ -118,6 +120,7 @@ describe('Simulator oracle', () => {
   let contractDataOracle: ContractDataOracle;
   let simulatorOracle: SimulatorOracle;
   let keyStore: KeyStore;
+  let simulationProvider: SimulationProvider;
 
   let recipient: CompleteAddress;
   let contractAddress: AztecAddress;
@@ -129,7 +132,8 @@ describe('Simulator oracle', () => {
     contractDataOracle = new ContractDataOracle(database);
     jest.spyOn(contractDataOracle, 'getDebugContractName').mockImplementation(() => Promise.resolve('TestContract'));
     keyStore = new KeyStore(db);
-    simulatorOracle = new SimulatorOracle(contractDataOracle, database, keyStore, aztecNode);
+    simulationProvider = new WASMSimulator();
+    simulatorOracle = new SimulatorOracle(contractDataOracle, database, keyStore, aztecNode, simulationProvider);
     // Set up contract address
     contractAddress = AztecAddress.random();
     // Set up recipient account
@@ -464,21 +468,41 @@ describe('Simulator oracle', () => {
     let getNotesSpy: any;
     let removeNullifiedNotesSpy: any;
     let simulator: MockProxy<AcirSimulator>;
+    let runUnconstrainedSpy: any;
 
-    beforeEach(() => {
+    let processLogFuncArtifact: FunctionArtifact;
+
+    beforeEach(async () => {
+      // Set up process_log function artifact --> it is never executed as simulator.runUnconstrained(...) is mocked
+      processLogFuncArtifact = {
+        name: 'process_log',
+        functionType: FunctionType.UNCONSTRAINED,
+        isInternal: false,
+        parameters: [],
+        returnTypes: [],
+        errorTypes: {},
+        isInitializer: false,
+        isStatic: false,
+        bytecode: Buffer.alloc(0),
+        debugSymbols: '',
+      };
+
+      // Set up contract instance and artifact
+      const contractInstance = randomContractInstanceWithAddress();
+      const contractArtifact = randomContractArtifact();
+      contractArtifact.functions = [processLogFuncArtifact];
+      await database.addContractInstance(contractInstance);
+      await database.addContractArtifact(contractInstance.contractClassId, contractArtifact);
+      contractAddress = contractInstance.address;
+
       addNotesSpy = jest.spyOn(database, 'addNotes');
       getNotesSpy = jest.spyOn(database, 'getNotes');
       removeNullifiedNotesSpy = jest.spyOn(database, 'removeNullifiedNotes');
       removeNullifiedNotesSpy.mockImplementation(() => Promise.resolve([]));
       simulator = mock<AcirSimulator>();
-      simulator.computeNoteHashAndOptionallyANullifier.mockImplementation((...args: any) =>
-        Promise.resolve({
-          noteHash: Fr.random(),
-          uniqueNoteHash: pedersenHash(args[5].items), // args[5] is note
-          siloedNoteHash: Fr.random(),
-          innerNullifier: Fr.random(),
-        }),
-      );
+      simulator.runUnconstrained.mockImplementation(() => Promise.resolve({}));
+
+      runUnconstrainedSpy = jest.spyOn(simulator, 'runUnconstrained');
     });
 
     afterEach(() => {
@@ -490,7 +514,7 @@ describe('Simulator oracle', () => {
     });
 
     function mockTaggedLogs(requests: MockNoteRequest[], nullifiers: number = 0) {
-      const txEffectsMap: { [k: string]: { noteHashes: Fr[]; txHash: TxHash } } = {};
+      const txEffectsMap: { [k: string]: { noteHashes: Fr[]; txHash: TxHash; nullifiers: Fr[] } } = {};
       const taggedLogs: TxScopedL2Log[] = [];
       const groupedByTx = requests.reduce<{ [i: number]: { [j: number]: MockNoteRequest[] } }>((acc, request) => {
         if (!acc[request.blockNumber]) {
@@ -513,6 +537,7 @@ describe('Simulator oracle', () => {
             if (!txEffectsMap[txHash.toString()]) {
               txEffectsMap[txHash.toString()] = {
                 txHash,
+                nullifiers: [new Fr(txHash.hash.toBigInt() + 27n)],
                 noteHashes: Array(maxNoteIndex + 1)
                   .fill(0)
                   .map(() => Fr.random()),
@@ -541,32 +566,7 @@ describe('Simulator oracle', () => {
       );
       return taggedLogs;
     }
-
-    it('should store an incoming note that belongs to us', async () => {
-      const request = new MockNoteRequest(
-        getRandomNoteLogPayload(Fr.random(), contractAddress),
-        4,
-        0,
-        2,
-        recipient.address,
-      );
-      const taggedLogs = mockTaggedLogs([request]);
-
-      await simulatorOracle.processTaggedLogs(taggedLogs, recipient.address, simulator);
-
-      expect(addNotesSpy).toHaveBeenCalledTimes(1);
-      expect(addNotesSpy).toHaveBeenCalledWith(
-        [
-          expect.objectContaining({
-            ...request.snippetOfNoteDao,
-            index: request.indexWithinNoteHashTree,
-          }),
-        ],
-        recipient.address,
-      );
-    }, 25_000);
-
-    it('should store multiple notes that belong to us', async () => {
+    it('should call processLog on multiple notes', async () => {
       const requests = [
         new MockNoteRequest(getRandomNoteLogPayload(Fr.random(), contractAddress), 1, 1, 1, recipient.address),
         new MockNoteRequest(
@@ -591,25 +591,9 @@ describe('Simulator oracle', () => {
 
       await simulatorOracle.processTaggedLogs(taggedLogs, recipient.address, simulator);
 
-      expect(addNotesSpy).toHaveBeenCalledTimes(1);
-      expect(addNotesSpy).toHaveBeenCalledWith(
-        // Incoming should contain notes from requests 0, 2, 4 because in those requests we set owner address point.
-        [
-          expect.objectContaining({
-            ...requests[0].snippetOfNoteDao,
-            index: requests[0].indexWithinNoteHashTree,
-          }),
-          expect.objectContaining({
-            ...requests[2].snippetOfNoteDao,
-            index: requests[2].indexWithinNoteHashTree,
-          }),
-          expect.objectContaining({
-            ...requests[4].snippetOfNoteDao,
-            index: requests[4].indexWithinNoteHashTree,
-          }),
-        ],
-        recipient.address,
-      );
+      // We test that a call to `processLog` is made with the correct function artifact and contract address
+      expect(runUnconstrainedSpy).toHaveBeenCalledTimes(3);
+      expect(runUnconstrainedSpy).toHaveBeenCalledWith(expect.anything(), processLogFuncArtifact, contractAddress, []);
     }, 30_000);
 
     it('should not store notes that do not belong to us', async () => {
@@ -624,40 +608,6 @@ describe('Simulator oracle', () => {
       await simulatorOracle.processTaggedLogs(taggedLogs, recipient.address, simulator);
 
       expect(addNotesSpy).toHaveBeenCalledTimes(0);
-    });
-
-    it('should be able to recover two note payloads containing the same note', async () => {
-      const note = getRandomNoteLogPayload(Fr.random(), contractAddress);
-      const note2 = getRandomNoteLogPayload(Fr.random(), contractAddress);
-      // All note payloads except one have the same contract address, storage slot, and the actual note.
-      const requests = [
-        new MockNoteRequest(note, 3, 0, 0, recipient.address),
-        new MockNoteRequest(note, 4, 0, 2, recipient.address),
-        new MockNoteRequest(note, 4, 2, 0, recipient.address),
-        new MockNoteRequest(note2, 5, 2, 1, recipient.address),
-        new MockNoteRequest(note, 6, 2, 3, recipient.address),
-      ];
-
-      const taggedLogs = mockTaggedLogs(requests);
-
-      await simulatorOracle.processTaggedLogs(taggedLogs, recipient.address, simulator);
-
-      // Check notes
-      {
-        const addedNotes: NoteDao[] = addNotesSpy.mock.calls[0][0];
-        expect(addedNotes.map(dao => dao)).toEqual([
-          expect.objectContaining({ ...requests[0].snippetOfNoteDao, index: requests[0].indexWithinNoteHashTree }),
-          expect.objectContaining({ ...requests[1].snippetOfNoteDao, index: requests[1].indexWithinNoteHashTree }),
-          expect.objectContaining({ ...requests[2].snippetOfNoteDao, index: requests[2].indexWithinNoteHashTree }),
-          expect.objectContaining({ ...requests[3].snippetOfNoteDao, index: requests[3].indexWithinNoteHashTree }),
-          expect.objectContaining({ ...requests[4].snippetOfNoteDao, index: requests[4].indexWithinNoteHashTree }),
-        ]);
-
-        // Check that every note has a different nonce.
-        const nonceSet = new Set<bigint>();
-        addedNotes.forEach(info => nonceSet.add(info.nonce.value));
-        expect(nonceSet.size).toBe(requests.length);
-      }
     });
 
     it('should remove nullified notes', async () => {

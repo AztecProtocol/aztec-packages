@@ -15,7 +15,7 @@ import {
   stopNodes,
 } from '../../mocks/index.js';
 import { type PeerManager } from '../peer_manager.js';
-import { PING_PROTOCOL, RequestableBuffer, TX_REQ_PROTOCOL } from './interface.js';
+import { ReqRespSubProtocol, RequestableBuffer } from './interface.js';
 
 const PING_REQUEST = RequestableBuffer.fromBuffer(Buffer.from('ping'));
 
@@ -48,7 +48,7 @@ describe('ReqResp', () => {
 
     await sleep(500);
 
-    const res = await pinger.sendRequest(PING_PROTOCOL, PING_REQUEST);
+    const res = await pinger.sendRequest(ReqRespSubProtocol.PING, PING_REQUEST);
 
     await sleep(500);
     expect(res?.toBuffer().toString('utf-8')).toEqual('pong');
@@ -68,7 +68,7 @@ describe('ReqResp', () => {
     void ponger.stop();
 
     // It should return undefined if it cannot dial the peer
-    const res = await pinger.sendRequest(PING_PROTOCOL, PING_REQUEST);
+    const res = await pinger.sendRequest(ReqRespSubProtocol.PING, PING_REQUEST);
 
     expect(res).toBeUndefined();
   });
@@ -88,21 +88,21 @@ describe('ReqResp', () => {
     const loggerSpy = jest.spyOn((nodes[0].req as any).logger, 'debug');
 
     // send from the first node
-    const res = await nodes[0].req.sendRequest(PING_PROTOCOL, PING_REQUEST);
+    const res = await nodes[0].req.sendRequest(ReqRespSubProtocol.PING, PING_REQUEST);
 
     // We expect the logger to have been called twice with the peer ids citing the inability to connect
     expect(loggerSpy).toHaveBeenCalledWith(
       expect.stringContaining(`Connection reset: ${nodes[1].p2p.peerId.toString()}`),
       {
         peerId: nodes[1].p2p.peerId.toString(),
-        subProtocol: PING_PROTOCOL,
+        subProtocol: ReqRespSubProtocol.PING,
       },
     );
     expect(loggerSpy).toHaveBeenCalledWith(
       expect.stringContaining(`Connection reset: ${nodes[2].p2p.peerId.toString()}`),
       {
         peerId: nodes[2].p2p.peerId.toString(),
-        subProtocol: PING_PROTOCOL,
+        subProtocol: ReqRespSubProtocol.PING,
       },
     );
 
@@ -123,11 +123,11 @@ describe('ReqResp', () => {
 
     // Default rate is set at 1 every 200 ms; so this should fire a few times
     for (let i = 0; i < 10; i++) {
-      await nodes[0].req.sendRequestToPeer(nodes[1].p2p.peerId, PING_PROTOCOL, Buffer.from('ping'));
+      await nodes[0].req.sendRequestToPeer(nodes[1].p2p.peerId, ReqRespSubProtocol.PING, Buffer.from('ping'));
     }
 
     // Make sure the error message is logged
-    const errorMessage = `Rate limit exceeded for ${PING_PROTOCOL} from ${nodes[0].p2p.peerId.toString()}`;
+    const errorMessage = `Rate limit exceeded for ${ReqRespSubProtocol.PING} from ${nodes[0].p2p.peerId.toString()}`;
     expect(loggerSpy).toHaveBeenCalledWith(expect.stringContaining(errorMessage));
   });
 
@@ -137,7 +137,7 @@ describe('ReqResp', () => {
       const txHash = tx.getTxHash();
 
       const protocolHandlers = MOCK_SUB_PROTOCOL_HANDLERS;
-      protocolHandlers[TX_REQ_PROTOCOL] = (message: Buffer): Promise<Buffer> => {
+      protocolHandlers[ReqRespSubProtocol.TX] = (message: Buffer): Promise<Buffer> => {
         const receivedHash = TxHash.fromBuffer(message);
         if (txHash.equals(receivedHash)) {
           return Promise.resolve(tx.toBuffer());
@@ -152,7 +152,9 @@ describe('ReqResp', () => {
       await connectToPeers(nodes);
       await sleep(500);
 
-      const res = await nodes[0].req.sendRequest(TX_REQ_PROTOCOL, txHash);
+      const res = await nodes[0].req.sendRequest(ReqRespSubProtocol.TX, txHash);
+      // Set tx hash since expect will compare private properties
+      res.getTxHash();
       expect(res).toEqual(tx);
     });
 
@@ -161,7 +163,7 @@ describe('ReqResp', () => {
       const txHash = tx.getTxHash();
 
       const protocolHandlers = MOCK_SUB_PROTOCOL_HANDLERS;
-      protocolHandlers[TX_REQ_PROTOCOL] = (_message: Buffer): Promise<Buffer> => {
+      protocolHandlers[ReqRespSubProtocol.TX] = (_message: Buffer): Promise<Buffer> => {
         return Promise.resolve(Buffer.alloc(0));
       };
 
@@ -174,7 +176,7 @@ describe('ReqResp', () => {
       await connectToPeers(nodes);
       await sleep(500);
 
-      const res = await nodes[0].req.sendRequest(TX_REQ_PROTOCOL, txHash);
+      const res = await nodes[0].req.sendRequest(ReqRespSubProtocol.TX, txHash);
       expect(spySendRequestToPeer).toHaveBeenCalledTimes(1);
       expect(res).toEqual(undefined);
     });
@@ -185,7 +187,7 @@ describe('ReqResp', () => {
 
       const protocolHandlers = MOCK_SUB_PROTOCOL_HANDLERS;
       // Return nothing
-      protocolHandlers[TX_REQ_PROTOCOL] = (_message: Buffer): Promise<Buffer> => {
+      protocolHandlers[ReqRespSubProtocol.TX] = (_message: Buffer): Promise<Buffer> => {
         return Promise.resolve(Buffer.from(''));
       };
 
@@ -196,7 +198,7 @@ describe('ReqResp', () => {
       await connectToPeers(nodes);
       await sleep(500);
 
-      const res = await nodes[0].req.sendRequest(TX_REQ_PROTOCOL, txHash);
+      const res = await nodes[0].req.sendRequest(ReqRespSubProtocol.TX, txHash);
       expect(res).toBeUndefined();
     });
 
@@ -205,7 +207,7 @@ describe('ReqResp', () => {
 
       await startNodes(nodes);
 
-      jest.spyOn((nodes[1].req as any).subProtocolHandlers, TX_REQ_PROTOCOL).mockImplementation(() => {
+      jest.spyOn((nodes[1].req as any).subProtocolHandlers, ReqRespSubProtocol.TX).mockImplementation(() => {
         return new Promise(() => {});
       });
 
@@ -217,18 +219,18 @@ describe('ReqResp', () => {
       await sleep(500);
 
       const request = TxHash.random();
-      const res = await nodes[0].req.sendRequest(TX_REQ_PROTOCOL, request);
+      const res = await nodes[0].req.sendRequest(ReqRespSubProtocol.TX, request);
       expect(res).toBeUndefined();
 
       // Make sure the error message is logged
       const peerId = nodes[1].p2p.peerId.toString();
       expect(loggerSpy).toHaveBeenCalledWith(
-        `Timeout error: ${
-          new IndividualReqRespTimeoutError().message
-        } | peerId: ${peerId} | subProtocol: ${TX_REQ_PROTOCOL}`,
+        `Timeout error: ${new IndividualReqRespTimeoutError().message} | peerId: ${peerId} | subProtocol: ${
+          ReqRespSubProtocol.TX
+        }`,
         expect.objectContaining({
           peerId: peerId,
-          subProtocol: TX_REQ_PROTOCOL,
+          subProtocol: ReqRespSubProtocol.TX,
         }),
       );
 
@@ -247,7 +249,7 @@ describe('ReqResp', () => {
       await startNodes(nodes);
 
       for (let i = 1; i < nodes.length; i++) {
-        jest.spyOn((nodes[i].req as any).subProtocolHandlers, TX_REQ_PROTOCOL).mockImplementation(() => {
+        jest.spyOn((nodes[i].req as any).subProtocolHandlers, ReqRespSubProtocol.TX).mockImplementation(() => {
           return new Promise(() => {});
         });
       }
@@ -260,11 +262,11 @@ describe('ReqResp', () => {
       await sleep(500);
 
       const request = TxHash.random();
-      const res = await nodes[0].req.sendRequest(TX_REQ_PROTOCOL, request);
+      const res = await nodes[0].req.sendRequest(ReqRespSubProtocol.TX, request);
       expect(res).toBeUndefined();
 
       // Make sure the error message is logged
-      const errorMessage = `${new CollectiveReqRespTimeoutError().message} | subProtocol: ${TX_REQ_PROTOCOL}`;
+      const errorMessage = `${new CollectiveReqRespTimeoutError().message} | subProtocol: ${ReqRespSubProtocol.TX}`;
       expect(loggerSpy).toHaveBeenCalledWith(errorMessage);
     });
 
@@ -274,7 +276,7 @@ describe('ReqResp', () => {
 
       // Mock that the node will respond with the tx
       const protocolHandlers = MOCK_SUB_PROTOCOL_HANDLERS;
-      protocolHandlers[TX_REQ_PROTOCOL] = (message: Buffer): Promise<Buffer> => {
+      protocolHandlers[ReqRespSubProtocol.TX] = (message: Buffer): Promise<Buffer> => {
         const receivedHash = TxHash.fromBuffer(message);
         if (txHash.equals(receivedHash)) {
           return Promise.resolve(tx.toBuffer());
@@ -284,7 +286,7 @@ describe('ReqResp', () => {
 
       // Mock that the receiving node will find that the transaction is invalid
       const protocolValidators = MOCK_SUB_PROTOCOL_VALIDATORS;
-      protocolValidators[TX_REQ_PROTOCOL] = (_request, _response, peer) => {
+      protocolValidators[ReqRespSubProtocol.TX] = (_request, _response, peer) => {
         peerManager.penalizePeer(peer, PeerErrorSeverity.LowToleranceError);
         return Promise.resolve(false);
       };
@@ -296,7 +298,7 @@ describe('ReqResp', () => {
       await connectToPeers(nodes);
       await sleep(500);
 
-      const res = await nodes[0].req.sendRequest(TX_REQ_PROTOCOL, txHash);
+      const res = await nodes[0].req.sendRequest(ReqRespSubProtocol.TX, txHash);
       expect(res).toBeUndefined();
 
       // Expect the peer to be penalized for sending an invalid response

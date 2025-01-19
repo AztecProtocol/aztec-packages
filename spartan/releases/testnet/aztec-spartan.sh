@@ -134,7 +134,7 @@ get_node_info() {
     echo -e "${BLUE}Fetching node info...${NC}"
     CMD="get-node-info --node-url ${BOOTNODE_URL} --json"
     # TODO: use the correct (corresponding) image
-    # Can't do it today because `release/troll-turtle` doesn't support --json flag
+    # Can't do it today because `release/unhinged-unicorn` doesn't support --json flag
     NODE_INFO=$(curl -X POST -H 'Content-Type: application/json' -d '{"jsonrpc":"2.0","method":"node_getNodeInfo","params":[],"id":1}' -s ${BOOTNODE_URL})
 
     # Extract the relevant fields
@@ -165,15 +165,15 @@ configure_environment() {
     if [ -n "$NETWORK" ]; then
         NETWORK="$NETWORK"
     else
-        read -p "Network [troll-turtle]: " NETWORK
-        NETWORK=${NETWORK:-troll-turtle}
+        read -p "Network [unhinged-unicorn]: " NETWORK
+        NETWORK=${NETWORK:-unhinged-unicorn}
     fi
 
-    # if the network is `troll-turtle`
-    if [ "$NETWORK" = "troll-turtle" ]; then
-        BOOTNODE_URL="${BOOTNODE_URL:-http://34.82.108.83:8080}"
-        ETHEREUM_HOST="${ETHEREUM_HOST:-http://34.82.53.127:8545}"
-        IMAGE="${IMAGE:-aztecprotocol/aztec:troll-turtle}"
+    # if the network is `unhinged-unicorn`
+    if [ "$NETWORK" = "unhinged-unicorn" ]; then
+        BOOTNODE_URL="${BOOTNODE_URL:-http://34.169.19.201:8080}"
+        ETHEREUM_HOST="${ETHEREUM_HOST:-http://34.82.214.254:8545}"
+        IMAGE="${IMAGE:-aztecprotocol/aztec:unhinged-unicorn}"
     else
         # unknown network
         echo -e "${RED}Unknown network: $NETWORK${NC}"
@@ -220,7 +220,7 @@ configure_environment() {
     COINBASE="$CLI_COINBASE"
     else
         while true; do
-            read -p "COINBASE (default: 0xbaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa): " COINBASE
+            read -p "Validator Address (default: 0xbaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa): " COINBASE
             COINBASE=${COINBASE:-0xbaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa}
             if [[ "$COINBASE" =~ ^0x[a-fA-F0-9]{40}$ ]]; then
                 break
@@ -277,7 +277,7 @@ PROVER_REAL_PROOFS=true
 PXE_PROVER_ENABLED=true
 ETHEREUM_SLOT_DURATION=12sec
 AZTEC_SLOT_DURATION=36
-AZTEC_EPOCH_DURATION=32
+AZTEC_EPOCH_DURATION=48
 AZTEC_EPOCH_PROOF_CLAIM_WINDOW_IN_L2_SLOTS=13
 ETHEREUM_HOST=${ETHEREUM_HOST}
 BOOTSTRAP_NODES=${BOOTSTRAP_NODES}
