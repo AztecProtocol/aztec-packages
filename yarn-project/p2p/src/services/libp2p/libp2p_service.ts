@@ -179,7 +179,7 @@ export class LibP2PService<T extends P2PClientType> extends WithTracer implement
 
     const otelMetricsAdapter = new OtelMetricsAdapter(telemetry);
 
-    const node = (await createLibp2p({
+    const node = await createLibp2p({
       start: false,
       peerId,
       addresses: {
@@ -254,7 +254,7 @@ export class LibP2PService<T extends P2PClientType> extends WithTracer implement
           connectionManager: components.connectionManager,
         }),
       },
-    })) as PubSubLibp2p;
+    });
 
     return new LibP2PService(
       clientType,
