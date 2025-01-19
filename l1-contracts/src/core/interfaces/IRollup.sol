@@ -88,6 +88,8 @@ interface IRollup {
     Slot currentSlot
   );
 
+  function addValidator(address validator) external;
+  function removeValidator(address validator) external;
   function prune() external;
   function updateL1GasFeeOracle() external;
 
