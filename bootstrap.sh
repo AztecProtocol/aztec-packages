@@ -229,6 +229,8 @@ case "$cmd" in
         else
           echo "Image $image already exists and has been downloaded with correct architecture." && exit
         fi
+      elif [ -n "$version" ]; then
+        echo "Image $image already exists and has been downloaded. Setting version to $version."
       else
         echo "Image $image already exists and has been downloaded." && exit
       fi

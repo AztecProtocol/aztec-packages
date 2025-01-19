@@ -5,14 +5,17 @@ ENV ACVM_WORKING_DIRECTORY=/usr/src/acvm
 ENV ACVM_BINARY_PATH=/usr/src/noir/noir-repo/target/release/acvm
 RUN mkdir -p $BB_WORKING_DIRECTORY $ACVM_WORKING_DIRECTORY /usr/src/yarn-project/world-state/build
 
+COPY /usr/src /usr/src
+
+# Set the version returned in getNodeVersion to current version
 # aztec-base assumed to have jq installed
 ARG VERSION=0.1.0
 RUN if [ -n "$VERSION" ]; then \
     echo "Setting version to $VERSION"; \
-    cat package.json | jq '.version = $VERSION' > /usr/src/yarn-project/package.json; \
+    cat /usr/src/yarn-project/aztec-node/package.json | jq --arg version "$VERSION" '.version = $version' > /usr/src/yarn-project/aztec-node/package.tmp.json; \
+    mv /usr/src/yarn-project/aztec-node/package.tmp.json /usr/src/yarn-project/aztec-node/package.json; \
   fi
 
-COPY /usr/src /usr/src
 ENTRYPOINT ["node", "--no-warnings", "/usr/src/yarn-project/aztec/dest/bin/index.js"]
 ARG PORT=8080
 ENV PORT=$PORT
