@@ -29,7 +29,7 @@ describe('ReqResp', () => {
   let peerManager: MockProxy<PeerManager>;
   let peerScoring: MockProxy<PeerScoring>;
   let nodes: ReqRespNode[];
-  let logger = createLogger('test:reqresp.test.ts');
+  const logger = createLogger('test:reqresp.test.ts');
 
   beforeEach(() => {
     peerScoring = mock<PeerScoring>();
@@ -80,7 +80,7 @@ describe('ReqResp', () => {
     expect(res).toBeUndefined();
   });
 
-  it.only('should request from a later peer if other peers are offline', async () => {
+  it('should request from a later peer if other peers are offline', async () => {
     nodes = await createNodes(peerScoring, 4);
 
     await startNodes(nodes);

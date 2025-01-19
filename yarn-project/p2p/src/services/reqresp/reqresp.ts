@@ -156,7 +156,7 @@ export class ReqResp {
         return undefined;
       }
 
-      let attemptedPeers: Map<PeerId, boolean> = new Map();
+      const attemptedPeers: Map<PeerId, boolean> = new Map();
       for (let i = 0; i < numberOfPeers; i++) {
         // Sample a peer to make a request to
         const peer = this.connectionSampler.getPeer(attemptedPeers);
