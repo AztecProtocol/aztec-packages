@@ -16,6 +16,7 @@ import {
 import { SnappyTransform } from '../encoding.js';
 import { type PeerScoring } from '../peer-manager/peer_scoring.js';
 import { type P2PReqRespConfig } from './config.js';
+import { ConnectionSampler } from './connection-sampler/connection_sampler.js';
 import {
   DEFAULT_SUB_PROTOCOL_HANDLERS,
   DEFAULT_SUB_PROTOCOL_VALIDATORS,
@@ -55,6 +56,8 @@ export class ReqResp {
 
   private snappyTransform: SnappyTransform;
 
+  private connectionSampler: ConnectionSampler;
+
   constructor(config: P2PReqRespConfig, private libp2p: Libp2p, private peerScoring: PeerScoring) {
     this.logger = createLogger('p2p:reqresp');
 
@@ -62,6 +65,10 @@ export class ReqResp {
     this.individualRequestTimeoutMs = config.individualRequestTimeoutMs;
 
     this.rateLimiter = new RequestResponseRateLimiter(peerScoring);
+
+    // Connection sampler is used to sample our connected peers
+    this.connectionSampler = new ConnectionSampler(libp2p);
+
     this.snappyTransform = new SnappyTransform();
   }
 
@@ -95,6 +102,9 @@ export class ReqResp {
 
     this.rateLimiter.stop();
     this.logger.debug('ReqResp: Rate limiter stopped');
+
+    await this.connectionSampler.stop();
+    this.logger.debug('ReqResp: Connection sampler stopped');
 
     // NOTE: We assume libp2p instance is managed by the caller
   }
@@ -136,11 +146,14 @@ export class ReqResp {
       const responseValidator = this.subProtocolValidators[subProtocol];
       const requestBuffer = request.toBuffer();
 
-      // Get active peers
-      const peers = this.libp2p.getPeers();
+      // Attempt to ask all of our peers, but sampled in a random order
+      // This function is wrapped in a timeout, so we will exit the loop if we have not received a response
+      const numberOfPeers = this.libp2p.getPeers().length;
+      for (let i = 0; i < numberOfPeers; i++) {
+        // Sample a peer to make a request to
+        const peer = this.connectionSampler.getPeer();
 
-      // Attempt to ask all of our peers
-      for (const peer of peers) {
+        this.logger.trace(`Sending request to peer: ${peer.toString()}`);
         const response = await this.sendRequestToPeer(peer, subProtocol, requestBuffer);
 
         // If we get a response, return it, otherwise we iterate onto the next peer
@@ -155,7 +168,6 @@ export class ReqResp {
           return object;
         }
       }
-      return undefined;
     };
 
     try {
@@ -201,7 +213,7 @@ export class ReqResp {
   ): Promise<Buffer | undefined> {
     let stream: Stream | undefined;
     try {
-      stream = await this.libp2p.dialProtocol(peerId, subProtocol);
+      stream = await this.connectionSampler.dialProtocol(peerId, subProtocol);
       this.logger.trace(`Stream opened with ${peerId.toString()} for ${subProtocol}`);
 
       // Open the stream with a timeout
@@ -217,8 +229,7 @@ export class ReqResp {
     } finally {
       if (stream) {
         try {
-          await stream.close();
-          this.logger.trace(`Stream closed with ${peerId.toString()} for ${subProtocol}`);
+          await this.connectionSampler.close(stream.id);
         } catch (closeError) {
           this.logger.error(
             `Error closing stream: ${closeError instanceof Error ? closeError.message : 'Unknown error'}`,

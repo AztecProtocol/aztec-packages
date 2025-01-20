@@ -38,6 +38,7 @@ import { noise } from '@chainsafe/libp2p-noise';
 import { yamux } from '@chainsafe/libp2p-yamux';
 import { identify } from '@libp2p/identify';
 import { type Message, type PeerId, TopicValidatorResult } from '@libp2p/interface';
+import { type ConnectionManager } from '@libp2p/interface-internal';
 import '@libp2p/kad-dht';
 import { mplex } from '@libp2p/mplex';
 import { tcp } from '@libp2p/tcp';
@@ -249,6 +250,9 @@ export class LibP2PService<T extends P2PClientType> extends WithTracer implement
             },
           }),
         }) as (components: GossipSubComponents) => GossipSub,
+        components: (components: { connectionManager: ConnectionManager }) => ({
+          connectionManager: components.connectionManager,
+        }),
       },
     });
 
