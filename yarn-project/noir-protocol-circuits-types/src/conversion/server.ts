@@ -17,7 +17,6 @@ import {
   type PrivateToAvmAccumulatedDataArrayLengths,
   type PrivateToPublicAccumulatedData,
   type PrivateToPublicKernelCircuitPublicInputs,
-  type PrivateToRollupAccumulatedData,
   PrivateToRollupKernelCircuitPublicInputs,
   type PublicDataHint,
   type RECURSIVE_PROOF_LENGTH,
@@ -92,7 +91,6 @@ import type {
   PrivateToAvmAccumulatedData as PrivateToAvmAccumulatedDataNoir,
   PrivateToPublicAccumulatedData as PrivateToPublicAccumulatedDataNoir,
   PrivateToPublicKernelCircuitPublicInputs as PrivateToPublicKernelCircuitPublicInputsNoir,
-  PrivateToRollupAccumulatedData as PrivateToRollupAccumulatedDataNoir,
   PrivateToRollupKernelCircuitPublicInputs as PrivateToRollupKernelCircuitPublicInputsNoir,
   PrivateTubeData as PrivateTubeDataNoir,
   PublicBaseRollupInputs as PublicBaseRollupInputsNoir,
@@ -136,9 +134,11 @@ import {
   mapPartialStateReferenceToNoir,
   mapPrivateLogToNoir,
   mapPrivateToRollupAccumulatedDataFromNoir,
+  mapPrivateToRollupAccumulatedDataToNoir,
   mapPublicCallRequestToNoir,
   mapPublicDataTreePreimageToNoir,
   mapPublicDataWriteToNoir,
+  mapPublicLogToNoir,
   mapScopedL2ToL1MessageToNoir,
   mapScopedLogHashToNoir,
   mapTupleFromNoir,
@@ -471,22 +471,6 @@ export function mapPrivateToPublicAccumulatedDataToNoir(
   };
 }
 
-export function mapPrivateToRollupAccumulatedDataToNoir(
-  privateToRollupAccumulatedData: PrivateToRollupAccumulatedData,
-): PrivateToRollupAccumulatedDataNoir {
-  return {
-    note_hashes: mapTuple(privateToRollupAccumulatedData.noteHashes, mapFieldToNoir),
-    nullifiers: mapTuple(privateToRollupAccumulatedData.nullifiers, mapFieldToNoir),
-    l2_to_l1_msgs: mapTuple(privateToRollupAccumulatedData.l2ToL1Msgs, mapScopedL2ToL1MessageToNoir),
-    private_logs: mapTuple(privateToRollupAccumulatedData.privateLogs, mapPrivateLogToNoir),
-    contract_class_logs_hashes: mapTuple(
-      privateToRollupAccumulatedData.contractClassLogsHashes,
-      mapScopedLogHashToNoir,
-    ),
-    contract_class_log_preimages_length: mapFieldToNoir(privateToRollupAccumulatedData.contractClassLogPreimagesLength),
-  };
-}
-
 function mapTxConstantDataFromNoir(combinedConstantData: TxConstantDataNoir): TxConstantData {
   return new TxConstantData(
     mapHeaderFromNoir(combinedConstantData.historical_header),
@@ -554,7 +538,7 @@ function mapAvmAccumulatedDataToNoir(data: AvmAccumulatedData): AvmAccumulatedDa
     note_hashes: mapTuple(data.noteHashes, mapFieldToNoir),
     nullifiers: mapTuple(data.nullifiers, mapFieldToNoir),
     l2_to_l1_msgs: mapTuple(data.l2ToL1Msgs, mapScopedL2ToL1MessageToNoir),
-    unencrypted_logs_hashes: mapTuple(data.unencryptedLogsHashes, mapScopedLogHashToNoir),
+    public_logs: mapTuple(data.publicLogs, mapPublicLogToNoir),
     public_data_writes: mapTuple(data.publicDataWrites, mapPublicDataWriteToNoir),
   };
 }
