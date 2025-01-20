@@ -1,4 +1,5 @@
-import { PeerErrorSeverity, TxHash, mockTx } from '@aztec/circuit-types';
+import { L2Block, type L2BlockSource, PeerErrorSeverity, TxHash, mockTx } from '@aztec/circuit-types';
+import { Fr } from '@aztec/foundation/fields';
 import { createLogger } from '@aztec/foundation/log';
 import { sleep } from '@aztec/foundation/sleep';
 
@@ -19,6 +20,7 @@ import {
 import { type PeerManager } from '../peer-manager/peer_manager.js';
 import { type PeerScoring } from '../peer-manager/peer_scoring.js';
 import { ReqRespSubProtocol, RequestableBuffer } from './interface.js';
+import { reqRespBlockHandler } from './protocols/block.js';
 import { GoodByeReason, reqGoodbyeHandler } from './protocols/goodbye.js';
 
 const PING_REQUEST = RequestableBuffer.fromBuffer(Buffer.from('ping'));
@@ -338,6 +340,32 @@ describe('ReqResp', () => {
 
       // Expect the response to be a buffer of length 1
       expect(response).toEqual(Buffer.from([0x0]));
+    });
+  });
+
+  describe('Block protocol', () => {
+    it('should handle block requests', async () => {
+      const blockNumber = 1;
+      const blockNumberFr = Fr.ONE;
+      const block = L2Block.random(blockNumber);
+
+      const l2BlockSource: MockProxy<L2BlockSource> = mock<L2BlockSource>();
+      l2BlockSource.getBlock.mockImplementation((_blockNumber: number) => {
+        return Promise.resolve(block);
+      });
+
+      const protocolHandlers = MOCK_SUB_PROTOCOL_HANDLERS;
+      protocolHandlers[ReqRespSubProtocol.BLOCK] = reqRespBlockHandler(l2BlockSource);
+
+      nodes = await createNodes(peerScoring, 2);
+
+      await startNodes(nodes, protocolHandlers);
+      await sleep(500);
+      await connectToPeers(nodes);
+      await sleep(500);
+
+      const res = await nodes[0].req.sendRequest(ReqRespSubProtocol.BLOCK, blockNumberFr);
+      expect(res).toEqual(block);
     });
   });
 
