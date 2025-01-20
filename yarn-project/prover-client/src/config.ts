@@ -25,7 +25,7 @@ export const bbConfigMappings: ConfigMappingsType<BBConfig & ACVMConfig> = {
   },
   bbWorkingDirectory: {
     env: 'BB_WORKING_DIRECTORY',
-    description: 'The working directory to for proving',
+    description: 'The working directory to use for proving',
   },
   bbBinaryPath: {
     env: 'BB_BINARY_PATH',

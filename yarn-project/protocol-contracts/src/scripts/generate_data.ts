@@ -168,7 +168,7 @@ async function main() {
     await fs.readFile(path.join(noirContractsRoot, 'protocol_contracts.json'), 'utf8'),
   ) as string[];
 
-  const leaves = [];
+  const leaves: Fr[] = [];
   const destNames = srcNames.map(n => n.split('-')[1]);
   for (let i = 0; i < srcNames.length; i++) {
     const srcName = srcNames[i];
