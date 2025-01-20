@@ -1,14 +1,18 @@
 use dep::aztec::macros::aztec;
 
 #[aztec]
-contract ContractInstanceDeployer {
-    use dep::aztec::macros::{events::event, functions::private};
+pub contract ContractInstanceDeployer {
+    use dep::aztec::macros::{events::event, functions::{private, public}, storage::storage};
+    use dep::aztec::prelude::{Map, SharedMutable};
     use dep::aztec::protocol_types::{
         address::{AztecAddress, PartialAddress},
-        constants::{DEPLOYER_CONTRACT_INSTANCE_DEPLOYED_MAGIC_VALUE, REGISTERER_CONTRACT_ADDRESS},
+        constants::{
+            DEPLOYER_CONTRACT_INSTANCE_DEPLOYED_MAGIC_VALUE,
+            DEPLOYER_CONTRACT_INSTANCE_UPDATED_MAGIC_VALUE, REGISTERER_CONTRACT_ADDRESS,
+        },
         contract_class_id::ContractClassId,
         public_keys::PublicKeys,
-        traits::Serialize,
+        traits::{Serialize, ToField},
         utils::arrays::array_concat,
     };
     use dep::contract_class_registerer::ContractClassRegisterer;
@@ -78,6 +82,21 @@ contract ContractInstanceDeployer {
         }
     }
 
+    #[derive(Serialize)]
+    #[event]
+    struct ContractInstanceUpdated {
+        DEPLOYER_CONTRACT_INSTANCE_UPDATED_MAGIC_VALUE: Field,
+        address: AztecAddress,
+        new_contract_class_id: ContractClassId,
+    }
+
+    global UPDATE_DELAY: u32 = 10;
+
+    #[storage]
+    struct Storage<Context> {
+        updated_class_ids: Map<AztecAddress, SharedMutable<ContractClassId, UPDATE_DELAY, Context>, Context>,
+    }
+
     #[private]
     fn deploy(
         salt: Field,
@@ -125,5 +144,32 @@ contract ContractInstanceDeployer {
 
         let padded_log = array_concat(payload, [0; 3]);
         context.emit_private_log(padded_log);
+    }
+
+    #[public]
+    fn update(new_contract_class_id: ContractClassId) {
+        let address = context.msg_sender();
+
+        // Is it possible for this to fail?
+        assert(
+            context.nullifier_exists(address.to_field(), context.this_address()),
+            "msg.sender is not deployed",
+        );
+
+        assert(
+            context.nullifier_exists(new_contract_class_id.to_field(), REGISTERER_CONTRACT_ADDRESS),
+            "New contract class is not registered",
+        );
+
+        storage.updated_class_ids.at(address).schedule_value_change(new_contract_class_id);
+
+        let event = ContractInstanceUpdated {
+            DEPLOYER_CONTRACT_INSTANCE_UPDATED_MAGIC_VALUE,
+            address,
+            new_contract_class_id,
+        };
+
+        let payload = event.serialize();
+        context.emit_unencrypted_log(payload);
     }
 }
