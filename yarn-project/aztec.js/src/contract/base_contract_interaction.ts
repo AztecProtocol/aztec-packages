@@ -116,9 +116,11 @@ export abstract class BaseContractInteraction {
    * @param fee - User-provided fee options.
    */
   protected async getDefaultFeeOptions(fee: UserFeeOptions | undefined): Promise<FeeOptions> {
-    const maxFeesPerGas = fee?.gasSettings?.maxFeesPerGas ?? (await this.wallet.getCurrentBaseFees());
+    const maxFeesPerGas =
+      fee?.gasSettings?.maxFeesPerGas ?? (await this.wallet.getCurrentBaseFees()).mul(1 + (fee?.baseFeePadding ?? 0.5));
     const paymentMethod = fee?.paymentMethod ?? new NoFeePaymentMethod();
     const gasSettings: GasSettings = GasSettings.default({ ...fee?.gasSettings, maxFeesPerGas });
+    this.log.debug(`Using gas settings`, gasSettings);
     return { gasSettings, paymentMethod };
   }
 
