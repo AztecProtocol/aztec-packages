@@ -446,7 +446,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: kind-network-test-${{ matrix.config.values }}-${{ matrix.config.test }}.log
+          name: kind-network-test-${{ matrix.config.values }}-${{ matrix.config.test }}-${{ matrix.config.overrides }}.log
           path: network-test.log
 
   bb-bench:
