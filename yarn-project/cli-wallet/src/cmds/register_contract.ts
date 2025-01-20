@@ -1,4 +1,4 @@
-import { type AccountWalletWithSecretKey, type AztecAddress, AztecNode } from '@aztec/aztec.js';
+import { type AccountWalletWithSecretKey, type AztecAddress, type AztecNode } from '@aztec/aztec.js';
 import { getContractArtifact } from '@aztec/cli/cli-utils';
 import { type LogFn } from '@aztec/foundation/log';
 

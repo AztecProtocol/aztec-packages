@@ -657,7 +657,7 @@ export function injectCommands(
       const { registerContract } = await import('./register_contract.js');
       const { from: parsedFromAddress, rpcUrl, nodeUrl, secretKey, alias } = command.optsWithGlobals();
       const client = pxeWrapper?.getPXE() ?? (await createCompatibleClient(rpcUrl, debugLogger));
-      const node = pxeWrapper?.getNode() ?? (await createAztecNodeClient(nodeUrl));
+      const node = pxeWrapper?.getNode() ?? createAztecNodeClient(nodeUrl);
       const account = await createOrRetrieveAccount(client, parsedFromAddress, db, secretKey);
       const wallet = await getWalletWithScopes(account, db);
 

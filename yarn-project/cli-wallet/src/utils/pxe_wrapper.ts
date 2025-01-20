@@ -1,4 +1,4 @@
-import { AztecNode, type PXE, createAztecNodeClient } from '@aztec/circuit-types';
+import { type AztecNode, type PXE, createAztecNodeClient } from '@aztec/circuit-types';
 import { type PXEServiceConfig, createPXEService, getPXEServiceConfig } from '@aztec/pxe';
 
 /*
