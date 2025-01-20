@@ -17,7 +17,7 @@ In Aztec, circuits come from two sources:
 1. Core protocol circuits
 2. User-written circuits (written as Aztec.nr Contracts and deployed to the network)
 
-This page focusses on the core protocol circuits. These circuits check that the rules of the protocol are being adhered to.
+This page focuses on the core protocol circuits. These circuits check that the rules of the protocol are being adhered to.
 
 When a function in an Ethereum smart contract is executed, the EVM performs checks to ensure that Ethereum's transaction rules are being adhered-to correctly. Stuff like:
 

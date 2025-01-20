@@ -200,7 +200,7 @@ library Constants {
   uint256 internal constant TX_CONSTANT_DATA_LENGTH = 37;
   uint256 internal constant COMBINED_CONSTANT_DATA_LENGTH = 46;
   uint256 internal constant PRIVATE_ACCUMULATED_DATA_LENGTH = 1412;
-  uint256 internal constant PRIVATE_KERNEL_CIRCUIT_PUBLIC_INPUTS_LENGTH = 2229;
+  uint256 internal constant PRIVATE_KERNEL_CIRCUIT_PUBLIC_INPUTS_LENGTH = 2230;
   uint256 internal constant PRIVATE_TO_PUBLIC_ACCUMULATED_DATA_LENGTH = 900;
   uint256 internal constant PRIVATE_TO_AVM_ACCUMULATED_DATA_LENGTH = 160;
   uint256 internal constant NUM_PRIVATE_TO_AVM_ACCUMULATED_DATA_ARRAYS = 3;
@@ -224,10 +224,10 @@ library Constants {
   uint256 internal constant NUM_BASE_PARITY_PER_ROOT_PARITY = 4;
   uint256 internal constant RECURSIVE_PROOF_LENGTH = 459;
   uint256 internal constant NESTED_RECURSIVE_PROOF_LENGTH = 459;
-  uint256 internal constant IPA_PROOF_LENGTH = 65;
-  uint256 internal constant RECURSIVE_ROLLUP_HONK_PROOF_LENGTH = 534;
-  uint256 internal constant NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH = 534;
-  uint256 internal constant TUBE_PROOF_LENGTH = 534;
+  uint256 internal constant IPA_PROOF_LENGTH = 69;
+  uint256 internal constant RECURSIVE_ROLLUP_HONK_PROOF_LENGTH = 538;
+  uint256 internal constant NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH = 538;
+  uint256 internal constant TUBE_PROOF_LENGTH = 538;
   uint256 internal constant HONK_VERIFICATION_KEY_LENGTH_IN_FIELDS = 128;
   uint256 internal constant ROLLUP_HONK_VERIFICATION_KEY_LENGTH_IN_FIELDS = 139;
   uint256 internal constant CLIENT_IVC_VERIFICATION_KEY_LENGTH_IN_FIELDS = 143;
