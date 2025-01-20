@@ -14,11 +14,13 @@ import {
   SpanStatusCode,
   Tracer,
 } from '@opentelemetry/api';
+import { isPromise } from 'node:util/types';
 
 import * as Attributes from './attributes.js';
 import * as Metrics from './metrics.js';
+import { getTelemetryClient } from './start.js';
 
-export { Span, ValueType } from '@opentelemetry/api';
+export { Span, SpanStatusCode, ValueType } from '@opentelemetry/api';
 
 type ValuesOf<T> = T extends Record<string, infer U> ? U : never;
 
@@ -220,4 +222,46 @@ export function wrapCallbackInSpan<F extends (...args: any[]) => any>(
       span.end();
     }
   }) as F;
+}
+
+export function runInSpan<A extends any[], R>(
+  tracer: Tracer | string,
+  spanName: string,
+  callback: (span: Span, ...args: A) => R,
+): (...args: A) => R {
+  return (...args: A): R => {
+    const actualTracer = typeof tracer === 'string' ? getTelemetryClient().getTracer(tracer) : tracer;
+    return actualTracer.startActiveSpan(spanName, (span: Span): R => {
+      let deferSpanEnd = false;
+      try {
+        const res = callback(span, ...args);
+        if (isPromise(res)) {
+          deferSpanEnd = true;
+          return res
+            .catch(err => {
+              span.setStatus({
+                code: SpanStatusCode.ERROR,
+                message: String(err),
+              });
+              throw err;
+            })
+            .finally(() => {
+              span.end();
+            }) as R;
+        } else {
+          return res;
+        }
+      } catch (err) {
+        span.setStatus({
+          code: SpanStatusCode.ERROR,
+          message: String(err),
+        });
+        throw err;
+      } finally {
+        if (!deferSpanEnd) {
+          span.end();
+        }
+      }
+    });
+  };
 }

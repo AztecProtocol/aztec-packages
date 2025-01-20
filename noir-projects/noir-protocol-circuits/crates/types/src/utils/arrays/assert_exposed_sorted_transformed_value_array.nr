@@ -48,6 +48,7 @@ where
 mod tests {
     use crate::{
         tests::types::{is_combined_from_two_values, TestCombinedValue, TestTwoValues},
+        traits::Empty,
         utils::arrays::assert_exposed_sorted_transformed_value_array::{
             assert_exposed_sorted_transformed_value_array, get_order_hints::OrderHint,
         },

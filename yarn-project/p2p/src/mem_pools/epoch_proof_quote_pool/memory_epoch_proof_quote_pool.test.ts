@@ -1,5 +1,4 @@
 import { type EpochProofQuote, mockEpochProofQuote } from '@aztec/circuit-types';
-import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
 
 import { type MockProxy, mock } from 'jest-mock-extended';
 
@@ -12,8 +11,7 @@ describe('MemoryEpochProofQuotePool', () => {
   let metricsMock: MockProxy<PoolInstrumentation<EpochProofQuote>>;
 
   beforeEach(() => {
-    const telemetry = new NoopTelemetryClient();
-    pool = new MemoryEpochProofQuotePool(telemetry);
+    pool = new MemoryEpochProofQuotePool();
 
     metricsMock = mock<PoolInstrumentation<EpochProofQuote>>();
     (pool as any).metrics = metricsMock;

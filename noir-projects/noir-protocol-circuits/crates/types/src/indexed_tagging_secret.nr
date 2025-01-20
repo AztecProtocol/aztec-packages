@@ -1,4 +1,4 @@
-use crate::traits::{Deserialize, Serialize};
+use crate::traits::{Deserialize, Serialize, ToField};
 use super::{address::aztec_address::AztecAddress, hash::poseidon2_hash};
 use std::meta::derive;
 

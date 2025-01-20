@@ -4,6 +4,6 @@ export * from './rpc.js';
 export * from './proving_broker_database.js';
 export * from './proving_broker_database/memory.js';
 export * from './proving_broker_database/persisted.js';
-export * from './proof_store.js';
+export * from './proof_store/index.js';
 export * from './factory.js';
 export * from './config.js';

@@ -1,4 +1,5 @@
 pub mod interfaces;
+pub mod initialization_utils;
 
 use super::utils::{
     add_to_hasher, fn_has_noinitcheck, get_fn_visibility, is_fn_initializer, is_fn_internal,
@@ -64,18 +65,19 @@ pub comptime fn noinitcheck(_f: FunctionDefinition) {
 
 comptime fn create_assert_correct_initializer_args(f: FunctionDefinition) -> Quoted {
     let fn_visibility = get_fn_visibility(f);
-    f"dep::aztec::initializer::assert_initialization_matches_address_preimage_{fn_visibility}(context);"
+    f"dep::aztec::macros::functions::initialization_utils::assert_initialization_matches_address_preimage_{fn_visibility}(context);"
         .quoted_contents()
 }
 
 comptime fn create_mark_as_initialized(f: FunctionDefinition) -> Quoted {
     let fn_visibility = get_fn_visibility(f);
-    f"dep::aztec::initializer::mark_as_initialized_{fn_visibility}(&mut context);".quoted_contents()
+    f"dep::aztec::macros::functions::initialization_utils::mark_as_initialized_{fn_visibility}(&mut context);"
+        .quoted_contents()
 }
 
 comptime fn create_init_check(f: FunctionDefinition) -> Quoted {
     let fn_visibility = get_fn_visibility(f);
-    f"dep::aztec::initializer::assert_is_initialized_{fn_visibility}(&mut context);"
+    f"dep::aztec::macros::functions::initialization_utils::assert_is_initialized_{fn_visibility}(&mut context);"
         .quoted_contents()
 }
 

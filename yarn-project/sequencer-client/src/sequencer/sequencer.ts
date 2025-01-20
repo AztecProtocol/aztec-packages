@@ -33,7 +33,7 @@ import { type DateProvider, Timer, elapsed } from '@aztec/foundation/timer';
 import { type P2P } from '@aztec/p2p';
 import { type BlockBuilderFactory } from '@aztec/prover-client/block-builder';
 import { type PublicProcessorFactory } from '@aztec/simulator/server';
-import { Attributes, type TelemetryClient, type Tracer, trackSpan } from '@aztec/telemetry-client';
+import { Attributes, type TelemetryClient, type Tracer, getTelemetryClient, trackSpan } from '@aztec/telemetry-client';
 import { type ValidatorClient } from '@aztec/validator-client';
 
 import { type GlobalVariableBuilder } from '../global_variable_builder/global_builder.js';
@@ -63,7 +63,7 @@ export class Sequencer {
   private runningPromise?: RunningPromise;
   private pollingIntervalMs: number = 1000;
   private maxTxsPerBlock = 32;
-  private minTxsPerBLock = 1;
+  private minTxsPerBlock = 1;
   private maxL1TxInclusionTimeIntoSlot = 0;
   // TODO: zero values should not be allowed for the following 2 values in PROD
   private _coinbase = EthAddress.ZERO;
@@ -71,7 +71,7 @@ export class Sequencer {
   private state = SequencerState.STOPPED;
   private allowedInSetup: AllowedElement[] = getDefaultAllowedSetupFunctions();
   private maxBlockSizeInBytes: number = 1024 * 1024;
-  private maxBlockGas: Gas = new Gas(10e9, 10e9);
+  private maxBlockGas: Gas = new Gas(100e9, 100e9);
   private metrics: SequencerMetrics;
   private isFlushing: boolean = false;
 
@@ -94,8 +94,8 @@ export class Sequencer {
     protected contractDataSource: ContractDataSource,
     protected l1Constants: SequencerRollupConstants,
     protected dateProvider: DateProvider,
-    telemetry: TelemetryClient,
     protected config: SequencerConfig = {},
+    telemetry: TelemetryClient = getTelemetryClient(),
     protected log = createLogger('sequencer'),
   ) {
     this.updateConfig(config);
@@ -126,7 +126,7 @@ export class Sequencer {
       this.maxTxsPerBlock = config.maxTxsPerBlock;
     }
     if (config.minTxsPerBlock !== undefined) {
-      this.minTxsPerBLock = config.minTxsPerBlock;
+      this.minTxsPerBlock = config.minTxsPerBlock;
     }
     if (config.maxDABlockGas !== undefined) {
       this.maxBlockGas = new Gas(config.maxDABlockGas, this.maxBlockGas.l2Gas);
@@ -236,20 +236,15 @@ export class Sequencer {
     this.setState(SequencerState.PROPOSER_CHECK, 0n);
 
     const chainTip = await this.l2BlockSource.getBlock(-1);
-    const historicalHeader = chainTip?.header;
 
-    const newBlockNumber =
-      (historicalHeader === undefined
-        ? await this.l2BlockSource.getBlockNumber()
-        : Number(historicalHeader.globalVariables.blockNumber.toBigInt())) + 1;
+    const newBlockNumber = (chainTip?.header.globalVariables.blockNumber.toNumber() ?? 0) + 1;
 
     // If we cannot find a tip archive, assume genesis.
-    const chainTipArchive =
-      chainTip == undefined ? new Fr(GENESIS_ARCHIVE_ROOT).toBuffer() : chainTip?.archive.root.toBuffer();
+    const chainTipArchive = chainTip?.archive.root ?? new Fr(GENESIS_ARCHIVE_ROOT);
 
     let slot: bigint;
     try {
-      slot = await this.mayProposeBlock(chainTipArchive, BigInt(newBlockNumber));
+      slot = await this.mayProposeBlock(chainTipArchive.toBuffer(), BigInt(newBlockNumber));
     } catch (err) {
       this.log.debug(`Cannot propose for block ${newBlockNumber}`);
       return;
@@ -267,8 +262,8 @@ export class Sequencer {
 
     // Check the pool has enough txs to build a block
     const pendingTxCount = this.p2pClient.getPendingTxCount();
-    if (pendingTxCount < this.minTxsPerBLock && !this.isFlushing) {
-      this.log.verbose(`Not enough txs to propose block. Got ${pendingTxCount} min ${this.minTxsPerBLock}.`, {
+    if (pendingTxCount < this.minTxsPerBlock && !this.isFlushing) {
+      this.log.verbose(`Not enough txs to propose block. Got ${pendingTxCount} min ${this.minTxsPerBlock}.`, {
         slot,
         blockNumber: newBlockNumber,
       });
@@ -278,7 +273,7 @@ export class Sequencer {
 
     this.setState(SequencerState.INITIALIZING_PROPOSAL, slot);
     this.log.verbose(`Preparing proposal for block ${newBlockNumber} at slot ${slot}`, {
-      chainTipArchive: new Fr(chainTipArchive),
+      chainTipArchive,
       blockNumber: newBlockNumber,
       slot,
     });
@@ -289,7 +284,7 @@ export class Sequencer {
 
     // If I created a "partial" header here that should make our job much easier.
     const proposalHeader = new BlockHeader(
-      new AppendOnlyTreeSnapshot(Fr.fromBuffer(chainTipArchive), 1),
+      new AppendOnlyTreeSnapshot(chainTipArchive, 1),
       ContentCommitment.empty(),
       StateReference.empty(),
       newGlobalVariables,
@@ -302,7 +297,7 @@ export class Sequencer {
       // @note  It is very important that the following function will FAIL and not just return early
       //        if it have made any state changes. If not, we won't rollback the state, and you will
       //        be in for a world of pain.
-      await this.buildBlockAndAttemptToPublish(pendingTxs, proposalHeader, historicalHeader);
+      await this.buildBlockAndAttemptToPublish(pendingTxs, proposalHeader);
     } catch (err) {
       this.log.error(`Error assembling block`, err, { blockNumber: newBlockNumber, slot });
     }
@@ -375,17 +370,16 @@ export class Sequencer {
    * @param historicalHeader - The historical header of the parent
    * @param opts - Whether to just validate the block as a validator, as opposed to building it as a proposal
    */
-  private async buildBlock(
+  protected async buildBlock(
     pendingTxs: Iterable<Tx>,
     newGlobalVariables: GlobalVariables,
-    historicalHeader?: BlockHeader,
     opts: { validateOnly?: boolean } = {},
   ) {
-    const blockNumber = newGlobalVariables.blockNumber.toBigInt();
+    const blockNumber = newGlobalVariables.blockNumber.toNumber();
     const slot = newGlobalVariables.slotNumber.toBigInt();
 
     this.log.debug(`Requesting L1 to L2 messages from contract for block ${blockNumber}`);
-    const l1ToL2Messages = await this.l1ToL2MessageSource.getL1ToL2Messages(blockNumber);
+    const l1ToL2Messages = await this.l1ToL2MessageSource.getL1ToL2Messages(BigInt(blockNumber));
     const msgCount = l1ToL2Messages.length;
 
     this.log.verbose(`Building block ${blockNumber} for slot ${slot}`, {
@@ -396,23 +390,21 @@ export class Sequencer {
     });
 
     // Sync to the previous block at least
-    await this.worldState.syncImmediate(newGlobalVariables.blockNumber.toNumber() - 1);
-    this.log.debug(`Synced to previous block ${newGlobalVariables.blockNumber.toNumber() - 1}`);
+    await this.worldState.syncImmediate(blockNumber - 1);
+    this.log.debug(`Synced to previous block ${blockNumber - 1}`);
 
     // NB: separating the dbs because both should update the state
     const publicProcessorFork = await this.worldState.fork();
     const orchestratorFork = await this.worldState.fork();
 
+    const previousBlockHeader =
+      (await this.l2BlockSource.getBlock(blockNumber - 1))?.header ?? orchestratorFork.getInitialHeader();
+
     try {
-      const processor = this.publicProcessorFactory.create(
-        publicProcessorFork,
-        historicalHeader,
-        newGlobalVariables,
-        true,
-      );
+      const processor = this.publicProcessorFactory.create(publicProcessorFork, newGlobalVariables, true);
       const blockBuildingTimer = new Timer();
       const blockBuilder = this.blockBuilderFactory.create(orchestratorFork);
-      await blockBuilder.startNewBlock(newGlobalVariables, l1ToL2Messages);
+      await blockBuilder.startNewBlock(newGlobalVariables, l1ToL2Messages, previousBlockHeader);
 
       // Deadline for processing depends on whether we're proposing a block
       const secondsIntoSlot = this.getSecondsIntoSlot(slot);
@@ -443,7 +435,12 @@ export class Sequencer {
       // TODO(#11000): Public processor should just handle processing, one tx at a time. It should be responsibility
       // of the sequencer to update world state and iterate over txs. We should refactor this along with unifying the
       // publicProcessorFork and orchestratorFork, to avoid doing tree insertions twice when building the block.
-      const limits = { deadline, maxTransactions: this.maxTxsPerBlock, maxBlockSize: this.maxBlockSizeInBytes };
+      const proposerLimits = {
+        maxTransactions: this.maxTxsPerBlock,
+        maxBlockSize: this.maxBlockSizeInBytes,
+        maxBlockGas: this.maxBlockGas,
+      };
+      const limits = opts.validateOnly ? { deadline } : { deadline, ...proposerLimits };
       const [publicProcessorDuration, [processedTxs, failedTxs]] = await elapsed(() =>
         processor.process(pendingTxs, limits, validators),
       );
@@ -457,11 +454,11 @@ export class Sequencer {
       if (
         !opts.validateOnly && // We check for minTxCount only if we are proposing a block, not if we are validating it
         !this.isFlushing && // And we skip the check when flushing, since we want all pending txs to go out, no matter if too few
-        this.minTxsPerBLock !== undefined &&
-        processedTxs.length < this.minTxsPerBLock
+        this.minTxsPerBlock !== undefined &&
+        processedTxs.length < this.minTxsPerBlock
       ) {
         this.log.warn(
-          `Block ${blockNumber} has too few txs to be proposed (got ${processedTxs.length} but required ${this.minTxsPerBLock})`,
+          `Block ${blockNumber} has too few txs to be proposed (got ${processedTxs.length} but required ${this.minTxsPerBlock})`,
           { slot, blockNumber, processedTxCount: processedTxs.length },
         );
         throw new Error(`Block has too few successful txs to be proposed`);
@@ -497,7 +494,8 @@ export class Sequencer {
           await publicProcessorFork.close();
           await orchestratorFork.close();
         } catch (err) {
-          this.log.error(`Error closing forks`, err);
+          // This can happen if the sequencer is stopped before we hit this timeout.
+          this.log.warn(`Error closing forks for block processing`, err);
         }
       }, 5000);
     }
@@ -511,16 +509,11 @@ export class Sequencer {
    *
    * @param pendingTxs - Iterable of pending transactions to construct the block from
    * @param proposalHeader - The partial header constructed for the proposal
-   * @param historicalHeader - The historical header of the parent
    */
-  @trackSpan('Sequencer.buildBlockAndAttemptToPublish', (_validTxs, proposalHeader, _historicalHeader) => ({
+  @trackSpan('Sequencer.buildBlockAndAttemptToPublish', (_validTxs, proposalHeader) => ({
     [Attributes.BLOCK_NUMBER]: proposalHeader.globalVariables.blockNumber.toNumber(),
   }))
-  private async buildBlockAndAttemptToPublish(
-    pendingTxs: Iterable<Tx>,
-    proposalHeader: BlockHeader,
-    historicalHeader: BlockHeader | undefined,
-  ): Promise<void> {
+  private async buildBlockAndAttemptToPublish(pendingTxs: Iterable<Tx>, proposalHeader: BlockHeader): Promise<void> {
     await this.publisher.validateBlockForSubmission(proposalHeader);
 
     const newGlobalVariables = proposalHeader.globalVariables;
@@ -535,7 +528,7 @@ export class Sequencer {
     const proofQuotePromise = this.createProofClaimForPreviousEpoch(slot);
 
     try {
-      const buildBlockRes = await this.buildBlock(pendingTxs, newGlobalVariables, historicalHeader);
+      const buildBlockRes = await this.buildBlock(pendingTxs, newGlobalVariables);
       const { publicGas, block, publicProcessorDuration, numTxs, numMsgs, blockBuildingTimer } = buildBlockRes;
 
       // TODO(@PhilWindle) We should probably periodically check for things like another

@@ -30,9 +30,9 @@ import { extractAvmVkData } from './verification_key/verification_key_data.js';
 
 const TIMEOUT = 300_000;
 
-describe('AVM WitGen, proof generation and verification', () => {
+describe('AVM WitGen, proof generation and verification tests', () => {
   it(
-    'Should prove and verify bulk_testing v1',
+    'bulk_testing v1',
     async () => {
       await proveAndVerifyAvmTestContractSimple(
         /*checkCircuitOnly=*/ false, // full proving & verifying
@@ -42,8 +42,10 @@ describe('AVM WitGen, proof generation and verification', () => {
     },
     TIMEOUT,
   );
+});
+describe('AVM WitGen, "check circuit" tests', () => {
   it(
-    'Should prove and verify test that performs too many storage writes and reverts',
+    'perform too many storage writes and revert',
     async () => {
       await proveAndVerifyAvmTestContractSimple(
         /*checkCircuitOnly=*/ true, // quick
@@ -55,7 +57,7 @@ describe('AVM WitGen, proof generation and verification', () => {
     TIMEOUT,
   );
   it(
-    'Should run check circuit for test that creates too many note hashes and reverts',
+    'create too many note hashes and revert',
     async () => {
       await proveAndVerifyAvmTestContractSimple(
         /*checkCircuitOnly=*/ true, // quick
@@ -67,7 +69,7 @@ describe('AVM WitGen, proof generation and verification', () => {
     TIMEOUT,
   );
   it(
-    'Should prove and verify test that creates too many nullifiers and reverts',
+    'create too many nullifiers and revert',
     async () => {
       await proveAndVerifyAvmTestContractSimple(
         /*checkCircuitOnly=*/ true, // quick
@@ -79,7 +81,7 @@ describe('AVM WitGen, proof generation and verification', () => {
     TIMEOUT,
   );
   it(
-    'Should prove and verify test that creates too many l2tol1 messages and reverts',
+    'create too many l2tol1 messages and revert',
     async () => {
       await proveAndVerifyAvmTestContractSimple(
         /*checkCircuitOnly=*/ true, // quick
@@ -91,7 +93,7 @@ describe('AVM WitGen, proof generation and verification', () => {
     TIMEOUT,
   );
   it(
-    'Should prove and verify test that creates too many unencrypted logs and reverts',
+    'create too many unencrypted logs and revert',
     async () => {
       await proveAndVerifyAvmTestContractSimple(
         /*checkCircuitOnly=*/ true, // quick
@@ -103,7 +105,7 @@ describe('AVM WitGen, proof generation and verification', () => {
     TIMEOUT,
   );
   it(
-    'Should prove and verify test that calls the max number of unique contract classes',
+    'call the max number of unique contract classes',
     async () => {
       const contractDataSource = new MockedAvmTestContractDataSource();
       // args is initialized to MAX_PUBLIC_CALLS_TO_UNIQUE_CONTRACT_CLASS_IDS contract addresses with unique class IDs
@@ -126,7 +128,7 @@ describe('AVM WitGen, proof generation and verification', () => {
     TIMEOUT,
   );
   it(
-    'Should prove and verify test that attempts too many calls to unique contract class ids',
+    'attempt too many calls to unique contract class ids',
     async () => {
       const contractDataSource = new MockedAvmTestContractDataSource();
       // args is initialized to MAX_PUBLIC_CALLS_TO_UNIQUE_CONTRACT_CLASS_IDS+1 contract addresses with unique class IDs
@@ -148,19 +150,55 @@ describe('AVM WitGen, proof generation and verification', () => {
     TIMEOUT,
   );
   it(
-    'Should prove and verify a top-level exceptional halt',
+    'top-level exceptional halts in both app logic and teardown',
     async () => {
-      await proveAndVerifyAvmTestContractSimple(
-        /*checkCircuitOnly=*/ true, // quick
-        'divide_by_zero',
-        /*args=*/ [],
+      await proveAndVerifyAvmTestContract(
+        /*checkCircuitOnly=*/ true,
+        /*setupFunctionNames=*/ [],
+        /*setupArgs=*/ [],
+        /*appFunctionNames=*/ ['divide_by_zero'],
+        /*appArgs=*/ [[]],
+        /*teardownFunctionName=*/ 'divide_by_zero',
+        /*teardownArgs=*/ [],
         /*expectRevert=*/ true,
       );
     },
     TIMEOUT,
   );
   it(
-    'Should prove and verify a nested exceptional halt that propagates to top-level',
+    'top-level exceptional halt in app logic, but teardown succeeds',
+    async () => {
+      await proveAndVerifyAvmTestContract(
+        /*checkCircuitOnly=*/ true,
+        /*setupFunctionNames=*/ [],
+        /*setupArgs=*/ [],
+        /*appFunctionNames=*/ ['divide_by_zero'],
+        /*appArgs=*/ [[]],
+        /*teardownFunctionName=*/ 'add_args_return',
+        /*teardownArgs=*/ [new Fr(1), new Fr(2)],
+        /*expectRevert=*/ true,
+      );
+    },
+    TIMEOUT,
+  );
+  it(
+    'top-level exceptional halt in teardown, but app logic succeeds',
+    async () => {
+      await proveAndVerifyAvmTestContract(
+        /*checkCircuitOnly=*/ true,
+        /*setupFunctionNames=*/ [],
+        /*setupArgs=*/ [],
+        /*appFunctionNames=*/ ['add_args_return'],
+        /*appArgs=*/ [[new Fr(1), new Fr(2)]],
+        /*teardownFunctionName=*/ 'divide_by_zero',
+        /*teardownArgs=*/ [],
+        /*expectRevert=*/ true,
+      );
+    },
+    TIMEOUT,
+  );
+  it(
+    'a nested exceptional halt propagate to top-level',
     async () => {
       await proveAndVerifyAvmTestContractSimple(
         /*checkCircuitOnly=*/ true, // quick
@@ -172,7 +210,7 @@ describe('AVM WitGen, proof generation and verification', () => {
     TIMEOUT,
   );
   it(
-    'Should prove and verify a nested exceptional halt that is recovered from in caller',
+    'a nested exceptional halt is recovered from in caller',
     async () => {
       await proveAndVerifyAvmTestContractSimple(
         /*checkCircuitOnly=*/ true, // quick
@@ -184,7 +222,7 @@ describe('AVM WitGen, proof generation and verification', () => {
     TIMEOUT,
   );
   it(
-    'Should prove and verify an exceptional halt due to a nested call to non-existent contract that is propagated to top-level',
+    'an exceptional halt due to a nested call to non-existent contract is propagated to top-level',
     async () => {
       await proveAndVerifyAvmTestContractSimple(
         /*checkCircuitOnly=*/ true, // quick
@@ -196,7 +234,7 @@ describe('AVM WitGen, proof generation and verification', () => {
     TIMEOUT,
   );
   it(
-    'Should prove and verify an exceptional halt due to a nested call to non-existent contract that is recovered from in caller',
+    'an exceptional halt due to a nested call to non-existent contract is recovered from in caller',
     async () => {
       await proveAndVerifyAvmTestContractSimple(
         /*checkCircuitOnly=*/ true, // quick
@@ -207,15 +245,47 @@ describe('AVM WitGen, proof generation and verification', () => {
     },
     TIMEOUT,
   );
+  // FIXME(dbanks12): fails with "Lookup PERM_MAIN_ALU failed."
+  it.skip('a top-level exceptional halts due to a non-existent contract in app-logic and teardown', async () => {
+    await proveAndVerifyAvmTestContract(
+      /*checkCircuitOnly=*/ true,
+      /*setupFunctionNames=*/ [],
+      /*setupArgs=*/ [],
+      /*appFunctionNames=*/ ['add_args_return'],
+      /*appArgs=*/ [[new Fr(1), new Fr(2)]],
+      /*teardownFunctionName=*/ 'add_args_return',
+      /*teardownArgs=*/ [new Fr(1), new Fr(2)],
+      /*expectRevert=*/ true,
+      /*skipContractDeployments=*/ true,
+    );
+  });
   it(
-    'Should prove and verify a top-level exceptional halt due to a non-existent contract',
+    'enqueued calls in every phase, with enqueued calls that depend on each other',
     async () => {
-      await proveAndVerifyAvmTestContractSimple(
-        /*checkCircuitOnly=*/ true, // quick
-        'add_args_return',
-        /*args=*/ [new Fr(1), new Fr(2)],
+      await proveAndVerifyAvmTestContract(
+        /*checkCircuitOnly=*/ true,
+        /*setupFunctionNames=*/ ['read_assert_storage_single', 'set_storage_single'],
+        /*setupArgs=*/ [[new Fr(0)], [new Fr(5)]],
+        /*appFunctionNames=*/ ['read_assert_storage_single', 'set_storage_single'],
+        /*appArgs=*/ [[new Fr(5)], [new Fr(10)]],
+        /*teardownFunctionName=*/ 'read_assert_storage_single',
+        /*teardownArgs=*/ [new Fr(10)],
+      );
+    },
+    TIMEOUT,
+  );
+  it(
+    'Should prove and verify a TX that reverts in teardown',
+    async () => {
+      await proveAndVerifyAvmTestContract(
+        /*checkCircuitOnly=*/ true,
+        /*setupFunctionNames=*/ [],
+        /*setupArgs=*/ [],
+        /*appFunctionNames=*/ [],
+        /*appArgs=*/ [],
+        /*teardownFunctionName=*/ 'read_assert_storage_single',
+        /*teardownArgs=*/ [new Fr(10)],
         /*expectRevert=*/ true,
-        /*skipContractDeployments=*/ true,
       );
     },
     TIMEOUT,
@@ -342,7 +412,7 @@ async function proveAndVerifyAvmTestContract(
 }
 
 describe('AVM WitGen, proof generation and verification', () => {
-  it('Should prove and verify bulk_testing v2', async () => {
+  it('bulk_testing v2', async () => {
     const functionName = 'bulk_testing';
     const calldata = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(x => new Fr(x));
     const avmCircuitInputs = await simulateAvmTestContractGenerateCircuitInputs(

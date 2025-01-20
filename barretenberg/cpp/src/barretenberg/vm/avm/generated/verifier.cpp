@@ -85,46 +85,45 @@ bool AvmVerifier::verify_proof(const HonkProof& proof, const std::vector<std::ve
         gate_challenges[idx] = transcript->template get_challenge<FF>("Sumcheck:gate_challenge_" + std::to_string(idx));
     }
 
-    auto [multivariate_challenge, claimed_evaluations, sumcheck_verified] =
-        sumcheck.verify(relation_parameters, alpha, gate_challenges);
+    SumcheckOutput<Flavor> output = sumcheck.verify(relation_parameters, alpha, gate_challenges);
 
     // If Sumcheck did not verify, return false
-    if (!sumcheck_verified.has_value() || !sumcheck_verified.value()) {
+    if (!output.verified.has_value() || !output.verified.value()) {
         vinfo("Sumcheck verification failed");
         return false;
     }
 
     // Public columns evaluation checks
-    std::vector<FF> mle_challenge(multivariate_challenge.begin(),
-                                  multivariate_challenge.begin() + static_cast<int>(log_circuit_size));
+    std::vector<FF> mle_challenge(output.challenge.begin(),
+                                  output.challenge.begin() + static_cast<int>(log_circuit_size));
 
     FF main_kernel_inputs_evaluation = evaluate_public_input_column(public_inputs[0], mle_challenge);
-    if (main_kernel_inputs_evaluation != claimed_evaluations.main_kernel_inputs) {
+    if (main_kernel_inputs_evaluation != output.claimed_evaluations.main_kernel_inputs) {
         vinfo("main_kernel_inputs_evaluation failed");
         return false;
     }
     FF main_kernel_value_out_evaluation = evaluate_public_input_column(public_inputs[1], mle_challenge);
-    if (main_kernel_value_out_evaluation != claimed_evaluations.main_kernel_value_out) {
+    if (main_kernel_value_out_evaluation != output.claimed_evaluations.main_kernel_value_out) {
         vinfo("main_kernel_value_out_evaluation failed");
         return false;
     }
     FF main_kernel_side_effect_out_evaluation = evaluate_public_input_column(public_inputs[2], mle_challenge);
-    if (main_kernel_side_effect_out_evaluation != claimed_evaluations.main_kernel_side_effect_out) {
+    if (main_kernel_side_effect_out_evaluation != output.claimed_evaluations.main_kernel_side_effect_out) {
         vinfo("main_kernel_side_effect_out_evaluation failed");
         return false;
     }
     FF main_kernel_metadata_out_evaluation = evaluate_public_input_column(public_inputs[3], mle_challenge);
-    if (main_kernel_metadata_out_evaluation != claimed_evaluations.main_kernel_metadata_out) {
+    if (main_kernel_metadata_out_evaluation != output.claimed_evaluations.main_kernel_metadata_out) {
         vinfo("main_kernel_metadata_out_evaluation failed");
         return false;
     }
     FF main_calldata_evaluation = evaluate_public_input_column(public_inputs[4], mle_challenge);
-    if (main_calldata_evaluation != claimed_evaluations.main_calldata) {
+    if (main_calldata_evaluation != output.claimed_evaluations.main_calldata) {
         vinfo("main_calldata_evaluation failed");
         return false;
     }
     FF main_returndata_evaluation = evaluate_public_input_column(public_inputs[5], mle_challenge);
-    if (main_returndata_evaluation != claimed_evaluations.main_returndata) {
+    if (main_returndata_evaluation != output.claimed_evaluations.main_returndata) {
         vinfo("main_returndata_evaluation failed");
         return false;
     }
@@ -133,9 +132,9 @@ bool AvmVerifier::verify_proof(const HonkProof& proof, const std::vector<std::ve
         Shplemini::compute_batch_opening_claim(circuit_size,
                                                commitments.get_unshifted(),
                                                commitments.get_to_be_shifted(),
-                                               claimed_evaluations.get_unshifted(),
-                                               claimed_evaluations.get_shifted(),
-                                               multivariate_challenge,
+                                               output.claimed_evaluations.get_unshifted(),
+                                               output.claimed_evaluations.get_shifted(),
+                                               output.challenge,
                                                Commitment::one(),
                                                transcript);
 

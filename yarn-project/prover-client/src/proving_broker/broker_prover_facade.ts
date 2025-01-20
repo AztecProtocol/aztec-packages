@@ -1,5 +1,6 @@
 import {
   type ProofAndVerificationKey,
+  type ProofUri,
   type ProvingJobId,
   type ProvingJobInputsMap,
   type ProvingJobProducer,
@@ -41,10 +42,22 @@ import { RunningPromise, promiseWithResolvers } from '@aztec/foundation/promise'
 import { SerialQueue } from '@aztec/foundation/queue';
 import { truncate } from '@aztec/foundation/string';
 
-import { InlineProofStore, type ProofStore } from './proof_store.js';
+import { InlineProofStore, type ProofStore } from './proof_store/index.js';
 
-// 20 minutes, roughly the length of an Aztec epoch. If a proof isn't ready in this amount of time then we've failed to prove the whole epoch
-const MAX_WAIT_MS = 1_200_000;
+// Perform a snapshot sync every 30 seconds
+const SNAPSHOT_SYNC_INTERVAL_MS = 30_000;
+
+const MAX_CONCURRENT_JOB_SETTLED_REQUESTS = 10;
+const SNAPSHOT_SYNC_CHECK_MAX_REQUEST_SIZE = 1000;
+
+type ProvingJob = {
+  id: ProvingJobId;
+  type: ProvingRequestType;
+  inputsUri: ProofUri;
+  promise: PromiseWithResolvers<any>;
+  abortFn?: () => Promise<void>;
+  signal?: AbortSignal;
+};
 
 // Perform a snapshot sync every 30 seconds
 const SNAPSHOT_SYNC_INTERVAL_MS = 30_000;
@@ -70,7 +83,7 @@ export class BrokerCircuitProverFacade implements ServerCircuitProver {
   constructor(
     private broker: ProvingJobProducer,
     private proofStore: ProofStore = new InlineProofStore(),
-    private waitTimeoutMs = MAX_WAIT_MS,
+    private failedProofStore?: ProofStore,
     private pollIntervalMs = 1000,
     private log = createLogger('prover-client:broker-circuit-prover-facade'),
   ) {}
@@ -125,6 +138,7 @@ export class BrokerCircuitProverFacade implements ServerCircuitProver {
     const job: ProvingJob = {
       id,
       type,
+      inputsUri,
       promise,
       abortFn,
       signal,
@@ -335,6 +349,9 @@ export class BrokerCircuitProverFacade implements ServerCircuitProver {
           `Resolving proving job with error id=${job.id} type=${ProvingRequestType[job.type]}`,
           result.reason,
         );
+        if (result.reason !== 'Aborted') {
+          void this.backupFailedProofInputs(job);
+        }
         job.promise.reject(new Error(result.reason));
       }
 
@@ -361,6 +378,26 @@ export class BrokerCircuitProverFacade implements ServerCircuitProver {
     if (totalJobsToRetrieve > 0) {
       this.log.verbose(
         `Successfully retrieved ${totalJobsRetrieved} of ${totalJobsToRetrieve} jobs that should be ready, total ready jobs is now: ${this.jobsToRetrieve.size}`,
+      );
+    }
+  }
+
+  private async backupFailedProofInputs(job: ProvingJob) {
+    try {
+      if (!this.failedProofStore) {
+        return;
+      }
+      const inputs = await this.proofStore.getProofInput(job.inputsUri);
+      const uri = await this.failedProofStore.saveProofInput(job.id, inputs.type, inputs.inputs);
+      this.log.info(`Stored proof inputs for failed job id=${job.id} type=${ProvingRequestType[job.type]} at ${uri}`, {
+        id: job.id,
+        type: job.type,
+        uri,
+      });
+    } catch (err) {
+      this.log.error(
+        `Error backing up proof inputs for failed job id=${job.id} type=${ProvingRequestType[job.type]}`,
+        err,
       );
     }
   }
