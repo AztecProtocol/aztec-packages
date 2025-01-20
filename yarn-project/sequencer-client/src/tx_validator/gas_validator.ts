@@ -1,7 +1,7 @@
-import { type Tx, TxExecutionPhase, type TxValidator } from '@aztec/circuit-types';
+import { type Tx, TxExecutionPhase, type TxValidationResult, type TxValidator } from '@aztec/circuit-types';
 import { type AztecAddress, type Fr, FunctionSelector, type GasFees } from '@aztec/circuits.js';
 import { createLogger } from '@aztec/foundation/log';
-import { computeFeePayerBalanceStorageSlot, getExecutionRequestsByPhase } from '@aztec/simulator';
+import { computeFeePayerBalanceStorageSlot, getExecutionRequestsByPhase } from '@aztec/simulator/server';
 
 /** Provides a view into public contract state */
 export interface PublicStateSource {
@@ -27,25 +27,10 @@ export class GasTxValidator implements TxValidator<Tx> {
     this.#gasFees = gasFees;
   }
 
-  async validateTxs(txs: Tx[]): Promise<[validTxs: Tx[], invalidTxs: Tx[], skippedTxs: Tx[]]> {
-    const validTxs: Tx[] = [];
-    const invalidTxs: Tx[] = [];
-    const skippedTxs: Tx[] = [];
-
-    for (const tx of txs) {
-      if (this.#shouldSkip(tx)) {
-        skippedTxs.push(tx);
-      } else if (await this.#validateTxFee(tx)) {
-        validTxs.push(tx);
-      } else {
-        invalidTxs.push(tx);
-      }
+  validateTx(tx: Tx): Promise<TxValidationResult> {
+    if (this.#shouldSkip(tx)) {
+      return Promise.resolve({ result: 'skipped', reason: ['Insufficient fee per gas'] });
     }
-
-    return [validTxs, invalidTxs, skippedTxs];
-  }
-
-  validateTx(tx: Tx): Promise<boolean> {
     return this.#validateTxFee(tx);
   }
 
@@ -57,20 +42,22 @@ export class GasTxValidator implements TxValidator<Tx> {
     const notEnoughMaxFees =
       maxFeesPerGas.feePerDaGas.lt(this.#gasFees.feePerDaGas) ||
       maxFeesPerGas.feePerL2Gas.lt(this.#gasFees.feePerL2Gas);
+
     if (notEnoughMaxFees) {
       this.#log.warn(`Skipping transaction ${tx.getTxHash()} due to insufficient fee per gas`);
     }
     return notEnoughMaxFees;
   }
 
-  async #validateTxFee(tx: Tx): Promise<boolean> {
+  async #validateTxFee(tx: Tx): Promise<TxValidationResult> {
     const feePayer = tx.data.feePayer;
     // TODO(@spalladino) Eventually remove the is_zero condition as we should always charge fees to every tx
     if (feePayer.isZero()) {
       if (this.#enforceFees) {
         this.#log.warn(`Rejecting transaction ${tx.getTxHash()} due to missing fee payer`);
+        return { result: 'invalid', reason: ['Missing fee payer'] };
       } else {
-        return true;
+        return { result: 'valid' };
       }
     }
 
@@ -98,13 +85,13 @@ export class GasTxValidator implements TxValidator<Tx> {
 
     const balance = claimFunctionCall ? initialBalance.add(claimFunctionCall.args[2]) : initialBalance;
     if (balance.lt(feeLimit)) {
-      this.#log.info(`Rejecting transaction due to not enough fee payer balance`, {
+      this.#log.warn(`Rejecting transaction due to not enough fee payer balance`, {
         feePayer,
         balance: balance.toBigInt(),
         feeLimit: feeLimit.toBigInt(),
       });
-      return false;
+      return { result: 'invalid', reason: ['Insufficient fee payer balance'] };
     }
-    return true;
+    return { result: 'valid' };
   }
 }

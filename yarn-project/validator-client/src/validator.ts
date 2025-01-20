@@ -1,11 +1,4 @@
-import {
-  type BlockAttestation,
-  type BlockProposal,
-  type L2Block,
-  type ProcessedTx,
-  type Tx,
-  type TxHash,
-} from '@aztec/circuit-types';
+import { type BlockAttestation, type BlockProposal, type L2Block, type Tx, type TxHash } from '@aztec/circuit-types';
 import { type BlockHeader, type GlobalVariables } from '@aztec/circuits.js';
 import { type EpochCache } from '@aztec/epoch-cache';
 import { Buffer32 } from '@aztec/foundation/buffer';
@@ -13,10 +6,10 @@ import { type Fr } from '@aztec/foundation/fields';
 import { createLogger } from '@aztec/foundation/log';
 import { RunningPromise } from '@aztec/foundation/running-promise';
 import { sleep } from '@aztec/foundation/sleep';
-import { type Timer } from '@aztec/foundation/timer';
+import { DateProvider, type Timer } from '@aztec/foundation/timer';
 import { type P2P } from '@aztec/p2p';
-import { type TelemetryClient, WithTracer } from '@aztec/telemetry-client';
-import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
+import { BlockProposalValidator } from '@aztec/p2p/msg_validators';
+import { type TelemetryClient, WithTracer, getTelemetryClient } from '@aztec/telemetry-client';
 
 import { type ValidatorClientConfig } from './config.js';
 import { ValidationService } from './duties/validation_service.js';
@@ -24,7 +17,9 @@ import {
   AttestationTimeoutError,
   BlockBuilderNotProvidedError,
   InvalidValidatorPrivateKeyError,
+  ReExFailedTxsError,
   ReExStateMismatchError,
+  ReExTimeoutError,
   TransactionsNotAvailableError,
 } from './errors/validator.error.js';
 import { type ValidatorKeyStore } from './key_store/interface.js';
@@ -37,11 +32,16 @@ import { ValidatorMetrics } from './metrics.js';
  * We reuse the sequencer's block building functionality for re-execution
  */
 type BlockBuilderCallback = (
-  txs: Tx[],
+  txs: Iterable<Tx>,
   globalVariables: GlobalVariables,
-  historicalHeader?: BlockHeader,
-  interrupt?: (processedTxs: ProcessedTx[]) => Promise<void>,
-) => Promise<{ block: L2Block; publicProcessorDuration: number; numProcessedTxs: number; blockBuildingTimer: Timer }>;
+  opts?: { validateOnly?: boolean },
+) => Promise<{
+  block: L2Block;
+  publicProcessorDuration: number;
+  numTxs: number;
+  numFailedTxs: number;
+  blockBuildingTimer: Timer;
+}>;
 
 export interface Validator {
   start(): Promise<void>;
@@ -53,7 +53,7 @@ export interface Validator {
   attestToProposal(proposal: BlockProposal): void;
 
   broadcastBlockProposal(proposal: BlockProposal): void;
-  collectAttestations(proposal: BlockProposal, numberOfRequiredAttestations: number): Promise<BlockAttestation[]>;
+  collectAttestations(proposal: BlockProposal, required: number, deadline: Date): Promise<BlockAttestation[]>;
 }
 
 /**
@@ -71,12 +71,15 @@ export class ValidatorClient extends WithTracer implements Validator {
 
   private epochCacheUpdateLoop: RunningPromise;
 
+  private blockProposalValidator: BlockProposalValidator;
+
   constructor(
     private keyStore: ValidatorKeyStore,
     private epochCache: EpochCache,
     private p2pClient: P2P,
     private config: ValidatorClientConfig,
-    telemetry: TelemetryClient = new NoopTelemetryClient(),
+    private dateProvider: DateProvider = new DateProvider(),
+    telemetry: TelemetryClient = getTelemetryClient(),
     private log = createLogger('validator'),
   ) {
     // Instantiate tracer
@@ -84,6 +87,8 @@ export class ValidatorClient extends WithTracer implements Validator {
     this.metrics = new ValidatorMetrics(telemetry);
 
     this.validationService = new ValidationService(keyStore);
+
+    this.blockProposalValidator = new BlockProposalValidator(epochCache);
 
     // Refresh epoch cache every second to trigger commiteeChanged event
     this.epochCacheUpdateLoop = new RunningPromise(
@@ -113,7 +118,8 @@ export class ValidatorClient extends WithTracer implements Validator {
     config: ValidatorClientConfig,
     epochCache: EpochCache,
     p2pClient: P2P,
-    telemetry: TelemetryClient = new NoopTelemetryClient(),
+    dateProvider: DateProvider = new DateProvider(),
+    telemetry: TelemetryClient = getTelemetryClient(),
   ) {
     if (!config.validatorPrivateKey) {
       throw new InvalidValidatorPrivateKeyError();
@@ -122,7 +128,7 @@ export class ValidatorClient extends WithTracer implements Validator {
     const privateKey = validatePrivateKey(config.validatorPrivateKey);
     const localKeyStore = new LocalKeyStore(privateKey);
 
-    const validator = new ValidatorClient(localKeyStore, epochCache, p2pClient, config, telemetry);
+    const validator = new ValidatorClient(localKeyStore, epochCache, p2pClient, config, dateProvider, telemetry);
     validator.registerBlockProposalHandler();
     return validator;
   }
@@ -180,18 +186,9 @@ export class ValidatorClient extends WithTracer implements Validator {
     }
 
     // Check that the proposal is from the current proposer, or the next proposer.
-    const proposalSender = proposal.getSender();
-    const { currentProposer, nextProposer, currentSlot, nextSlot } =
-      await this.epochCache.getProposerInCurrentOrNextSlot();
-    if (!proposalSender.equals(currentProposer) && !proposalSender.equals(nextProposer)) {
-      this.log.verbose(`Not the current or next proposer, skipping attestation`);
-      return undefined;
-    }
-
-    // Check that the proposal is for the current or next slot
-    const slotNumberBigInt = proposal.slotNumber.toBigInt();
-    if (slotNumberBigInt !== currentSlot && slotNumberBigInt !== nextSlot) {
-      this.log.verbose(`Not the current or next slot, skipping attestation`);
+    const invalidProposal = await this.blockProposalValidator.validate(proposal);
+    if (invalidProposal) {
+      this.log.verbose(`Proposal is not valid, skipping attestation`);
       return undefined;
     }
 
@@ -246,10 +243,22 @@ export class ValidatorClient extends WithTracer implements Validator {
 
     // Use the sequencer's block building logic to re-execute the transactions
     const stopTimer = this.metrics.reExecutionTimer();
-    const { block } = await this.blockBuilder(txs, header.globalVariables);
+    const { block, numFailedTxs } = await this.blockBuilder(txs, header.globalVariables, {
+      validateOnly: true,
+    });
     stopTimer();
 
     this.log.verbose(`Transaction re-execution complete`);
+
+    if (numFailedTxs > 0) {
+      this.metrics.recordFailedReexecution(proposal);
+      throw new ReExFailedTxsError(numFailedTxs);
+    }
+
+    if (block.body.txEffects.length !== txHashes.length) {
+      this.metrics.recordFailedReexecution(proposal);
+      throw new ReExTimeoutError();
+    }
 
     // This function will throw an error if state updates do not match
     if (!block.archive.root.equals(proposal.archive)) {
@@ -300,18 +309,20 @@ export class ValidatorClient extends WithTracer implements Validator {
   }
 
   // TODO(https://github.com/AztecProtocol/aztec-packages/issues/7962)
-  async collectAttestations(
-    proposal: BlockProposal,
-    numberOfRequiredAttestations: number,
-  ): Promise<BlockAttestation[]> {
+  async collectAttestations(proposal: BlockProposal, required: number, deadline: Date): Promise<BlockAttestation[]> {
     // Wait and poll the p2pClient's attestation pool for this block until we have enough attestations
     const slot = proposal.payload.header.globalVariables.slotNumber.toBigInt();
-    this.log.debug(`Collecting ${numberOfRequiredAttestations} attestations for slot ${slot}`);
+    this.log.debug(`Collecting ${required} attestations for slot ${slot} with deadline ${deadline.toISOString()}`);
+
+    if (+deadline < this.dateProvider.now()) {
+      this.log.error(
+        `Deadline ${deadline.toISOString()} for collecting ${required} attestations for slot ${slot} is in the past`,
+      );
+      throw new AttestationTimeoutError(required, slot);
+    }
 
     const proposalId = proposal.archive.toString();
     const myAttestation = await this.validationService.attestToProposal(proposal);
-
-    const startTime = Date.now();
 
     let attestations: BlockAttestation[] = [];
     while (true) {
@@ -324,15 +335,14 @@ export class ValidatorClient extends WithTracer implements Validator {
       }
       attestations = collectedAttestations;
 
-      if (attestations.length >= numberOfRequiredAttestations) {
-        this.log.verbose(`Collected all ${numberOfRequiredAttestations} attestations for slot ${slot}`);
+      if (attestations.length >= required) {
+        this.log.verbose(`Collected all ${required} attestations for slot ${slot}`);
         return attestations;
       }
 
-      const elapsedTime = Date.now() - startTime;
-      if (elapsedTime > this.config.attestationWaitTimeoutMs) {
-        this.log.error(`Timeout waiting for ${numberOfRequiredAttestations} attestations for slot ${slot}`);
-        throw new AttestationTimeoutError(numberOfRequiredAttestations, slot);
+      if (+deadline < this.dateProvider.now()) {
+        this.log.error(`Timeout ${deadline.toISOString()} waiting for ${required} attestations for slot ${slot}`);
+        throw new AttestationTimeoutError(required, slot);
       }
 
       this.log.debug(`Collected ${attestations.length} attestations so far`);

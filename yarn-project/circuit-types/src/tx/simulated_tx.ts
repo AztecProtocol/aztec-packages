@@ -9,6 +9,7 @@ import {
 } from '../interfaces/private_kernel_prover.js';
 import { ContractClassTxL2Logs, UnencryptedTxL2Logs } from '../logs/tx_l2_logs.js';
 import {
+  type PrivateCallExecutionResult,
   PrivateExecutionResult,
   collectEnqueuedPublicFunctionCalls,
   collectPublicTeardownFunctionCall,
@@ -61,6 +62,7 @@ export class TxSimulationResult extends PrivateSimulationResult {
       this.publicOutput?.gasUsed ?? {
         totalGas: this.publicInputs.gasUsed,
         teardownGas: Gas.empty(),
+        publicGas: Gas.empty(),
       }
     );
   }
@@ -165,7 +167,14 @@ export class TxProvingResult {
  * @returns
  */
 export function accumulatePrivateReturnValues(executionResult: PrivateExecutionResult): NestedProcessReturnValues {
-  const acc = new NestedProcessReturnValues(executionResult.returnValues);
-  acc.nested = executionResult.nestedExecutions.map(nestedExecution => accumulatePrivateReturnValues(nestedExecution));
-  return acc;
+  const collectPrivateReturnValuesRecursive = (
+    executionResult: PrivateCallExecutionResult,
+  ): NestedProcessReturnValues => {
+    const acc = new NestedProcessReturnValues(executionResult.returnValues);
+    acc.nested = executionResult.nestedExecutions.map(nestedExecution =>
+      collectPrivateReturnValuesRecursive(nestedExecution),
+    );
+    return acc;
+  };
+  return collectPrivateReturnValuesRecursive(executionResult.entrypoint);
 }

@@ -1,7 +1,10 @@
 import { type SimulationError, isNoirCallStackUnresolved } from '@aztec/circuit-types';
-import { AztecAddress, Fr, FunctionSelector, PUBLIC_DISPATCH_SELECTOR } from '@aztec/circuits.js';
+import { PUBLIC_DISPATCH_SELECTOR } from '@aztec/circuits.js/constants';
+import { FunctionSelector } from '@aztec/foundation/abi';
+import { AztecAddress } from '@aztec/foundation/aztec-address';
+import { Fr } from '@aztec/foundation/fields';
 import { type Logger } from '@aztec/foundation/log';
-import { resolveAssertionMessageFromRevertData, resolveOpcodeLocations } from '@aztec/simulator/errors';
+import { resolveAssertionMessageFromRevertData, resolveOpcodeLocations } from '@aztec/simulator/client';
 
 import { type ContractDataOracle, type PxeDatabase } from '../index.js';
 
@@ -39,7 +42,7 @@ export async function enrichSimulationError(err: SimulationError, db: PxeDatabas
             );
           } else {
             logger.warn(
-              `Could not function artifact in contract ${contract.name} for function '${fnName}' when enriching error callstack`,
+              `Could not find function artifact in contract ${contract.name} for function '${fnName}' when enriching error callstack`,
             );
           }
         });

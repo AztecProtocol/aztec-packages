@@ -1,9 +1,9 @@
 use crate::{
-    constants::{BLOBS_PER_BLOCK, FIELDS_PER_BLOB, SPONGE_BLOB_LENGTH},
+    constants::{BLOBS_PER_BLOCK, FIELDS_PER_BLOB, SPONGE_BLOB_LENGTH, TWO_POW_64},
     hash::poseidon2_absorb_chunks_existing_sponge,
+    poseidon2::Poseidon2Sponge,
     traits::{Deserialize, Empty, Serialize},
 };
-use std::hash::poseidon2::Poseidon2;
 
 // A Poseidon2 sponge used to accumulate data that will be added to blob(s)
 // (More accurately called BlobSponge, but that's not as fun)
@@ -19,22 +19,22 @@ use std::hash::poseidon2::Poseidon2;
 // The hash is used as part of the blob challenge, as we've proven it encompasses all elts of the blob(s).
 
 // Init is given by input len * 2^64 (see noir/noir-repo/noir_stdlib/src/hash/poseidon2.nr -> hash_internal)
-global IV: Field = (FIELDS_PER_BLOB * BLOBS_PER_BLOCK) as Field * 18446744073709551616;
+global IV: Field = (FIELDS_PER_BLOB * BLOBS_PER_BLOCK) as Field * TWO_POW_64;
 
 pub struct SpongeBlob {
-    pub sponge: Poseidon2,
+    pub sponge: Poseidon2Sponge,
     pub fields: u32,
     pub expected_fields: u32, // The hinted number of tx effects this will absorb
 }
 
 impl SpongeBlob {
     pub fn new_full_blobs() -> Self {
-        Self { sponge: Poseidon2::new(IV), fields: 0, expected_fields: 0 }
+        Self { sponge: Poseidon2Sponge::new(IV), fields: 0, expected_fields: 0 }
     }
 
     pub fn new(expected_fields_hint: u32) -> Self {
         Self {
-            sponge: Poseidon2::new((expected_fields_hint as Field) * 18446744073709551616),
+            sponge: Poseidon2Sponge::new((expected_fields_hint as Field) * TWO_POW_64),
             fields: 0,
             expected_fields: expected_fields_hint,
         }
@@ -87,7 +87,7 @@ impl Serialize<SPONGE_BLOB_LENGTH> for SpongeBlob {
 impl Deserialize<SPONGE_BLOB_LENGTH> for SpongeBlob {
     fn deserialize(fields: [Field; SPONGE_BLOB_LENGTH]) -> Self {
         Self {
-            sponge: Poseidon2 {
+            sponge: Poseidon2Sponge {
                 cache: [fields[0], fields[1], fields[2]],
                 state: [fields[3], fields[4], fields[5], fields[6]],
                 cache_size: fields[7] as u32,
@@ -101,7 +101,7 @@ impl Deserialize<SPONGE_BLOB_LENGTH> for SpongeBlob {
 
 impl Empty for SpongeBlob {
     fn empty() -> Self {
-        Self { sponge: Poseidon2::new(0), fields: 0, expected_fields: 0 }
+        Self { sponge: Poseidon2Sponge::new(0), fields: 0, expected_fields: 0 }
     }
 }
 
@@ -129,7 +129,7 @@ unconstrained fn absorb() {
     spongeblob.absorb(input_4, input_4.len());
     // ...and create a normal poseidon2 hash of the same input
     let input: [Field; 7] = array_concat(input_3, input_4);
-    let expected = Poseidon2::hash(input, input.len());
+    let expected = Poseidon2Sponge::hash(input, input.len());
     assert(spongeblob.squeeze() == expected);
 }
 

@@ -1,4 +1,4 @@
-import { type IncomingNotesFilter, NoteStatus, randomTxHash } from '@aztec/circuit-types';
+import { NoteStatus, type NotesFilter, randomTxHash } from '@aztec/circuit-types';
 import {
   AztecAddress,
   CompleteAddress,
@@ -13,7 +13,7 @@ import { Fr, Point } from '@aztec/foundation/fields';
 import { BenchmarkingContractArtifact } from '@aztec/noir-contracts.js/Benchmarking';
 import { TestContractArtifact } from '@aztec/noir-contracts.js/Test';
 
-import { IncomingNoteDao } from './incoming_note_dao.js';
+import { NoteDao } from './note_dao.js';
 import { type PxeDatabase } from './pxe_database.js';
 
 /**
@@ -78,9 +78,9 @@ export function describePxeDatabase(getDatabase: () => PxeDatabase) {
       let owners: CompleteAddress[];
       let contractAddresses: AztecAddress[];
       let storageSlots: Fr[];
-      let notes: IncomingNoteDao[];
+      let notes: NoteDao[];
 
-      const filteringTests: [() => IncomingNotesFilter, () => IncomingNoteDao[]][] = [
+      const filteringTests: [() => NotesFilter, () => NoteDao[]][] = [
         [() => ({}), () => notes],
 
         [
@@ -119,7 +119,7 @@ export function describePxeDatabase(getDatabase: () => PxeDatabase) {
         storageSlots = Array.from({ length: 2 }).map(() => Fr.random());
 
         notes = Array.from({ length: 10 }).map((_, i) =>
-          IncomingNoteDao.random({
+          NoteDao.random({
             contractAddress: contractAddresses[i % contractAddresses.length],
             storageSlot: storageSlots[i % storageSlots.length],
             addressPoint: owners[i % owners.length].address.toAddressPoint(),
@@ -135,7 +135,7 @@ export function describePxeDatabase(getDatabase: () => PxeDatabase) {
 
       it.each(filteringTests)('stores notes in bulk and retrieves notes', async (getFilter, getExpected) => {
         await database.addNotes(notes);
-        const returnedNotes = await database.getIncomingNotes(getFilter());
+        const returnedNotes = await database.getNotes(getFilter());
 
         expect(returnedNotes.sort()).toEqual(getExpected().sort());
       });
@@ -145,7 +145,7 @@ export function describePxeDatabase(getDatabase: () => PxeDatabase) {
           await database.addNote(note);
         }
 
-        const returnedNotes = await database.getIncomingNotes(getFilter());
+        const returnedNotes = await database.getNotes(getFilter());
 
         expect(returnedNotes.sort()).toEqual(getExpected().sort());
       });
@@ -166,9 +166,9 @@ export function describePxeDatabase(getDatabase: () => PxeDatabase) {
           );
         }
 
-        await expect(
-          database.getIncomingNotes({ ...getFilter(), status: NoteStatus.ACTIVE_OR_NULLIFIED }),
-        ).resolves.toEqual(getExpected());
+        await expect(database.getNotes({ ...getFilter(), status: NoteStatus.ACTIVE_OR_NULLIFIED })).resolves.toEqual(
+          getExpected(),
+        );
       });
 
       it('skips nullified notes by default or when requesting active', async () => {
@@ -184,8 +184,8 @@ export function describePxeDatabase(getDatabase: () => PxeDatabase) {
           notesToNullify,
         );
 
-        const actualNotesWithDefault = await database.getIncomingNotes({});
-        const actualNotesWithActive = await database.getIncomingNotes({ status: NoteStatus.ACTIVE });
+        const actualNotesWithDefault = await database.getNotes({});
+        const actualNotesWithActive = await database.getNotes({ status: NoteStatus.ACTIVE });
 
         expect(actualNotesWithDefault).toEqual(actualNotesWithActive);
         expect(actualNotesWithActive).toEqual(notes.filter(note => !notesToNullify.includes(note)));
@@ -206,7 +206,7 @@ export function describePxeDatabase(getDatabase: () => PxeDatabase) {
         );
         await expect(database.unnullifyNotesAfter(98)).resolves.toEqual(undefined);
 
-        const result = await database.getIncomingNotes({ status: NoteStatus.ACTIVE, owner: owners[0].address });
+        const result = await database.getNotes({ status: NoteStatus.ACTIVE, owner: owners[0].address });
 
         expect(result.sort()).toEqual([...notesToNullify].sort());
       });
@@ -224,7 +224,7 @@ export function describePxeDatabase(getDatabase: () => PxeDatabase) {
           notesToNullify,
         );
 
-        const result = await database.getIncomingNotes({
+        const result = await database.getNotes({
           status: NoteStatus.ACTIVE_OR_NULLIFIED,
         });
 
@@ -242,23 +242,23 @@ export function describePxeDatabase(getDatabase: () => PxeDatabase) {
           await database.addNote(note, owners[1].address);
         }
 
-        const owner0IncomingNotes = await database.getIncomingNotes({
+        const owner0Notes = await database.getNotes({
           scopes: [owners[0].address],
         });
 
-        expect(owner0IncomingNotes.sort()).toEqual(notes.slice(0, 5).sort());
+        expect(owner0Notes.sort()).toEqual(notes.slice(0, 5).sort());
 
-        const owner1IncomingNotes = await database.getIncomingNotes({
+        const owner1Notes = await database.getNotes({
           scopes: [owners[1].address],
         });
 
-        expect(owner1IncomingNotes.sort()).toEqual(notes.slice(5).sort());
+        expect(owner1Notes.sort()).toEqual(notes.slice(5).sort());
 
-        const bothOwnerIncomingNotes = await database.getIncomingNotes({
+        const bothOwnerNotes = await database.getNotes({
           scopes: [owners[0].address, owners[1].address],
         });
 
-        expect(bothOwnerIncomingNotes.sort()).toEqual(notes.sort());
+        expect(bothOwnerNotes.sort()).toEqual(notes.sort());
       });
 
       it('a nullified note removes notes from all accounts in the pxe', async () => {
@@ -266,12 +266,12 @@ export function describePxeDatabase(getDatabase: () => PxeDatabase) {
         await database.addNote(notes[0], owners[1].address);
 
         await expect(
-          database.getIncomingNotes({
+          database.getNotes({
             scopes: [owners[0].address],
           }),
         ).resolves.toEqual([notes[0]]);
         await expect(
-          database.getIncomingNotes({
+          database.getNotes({
             scopes: [owners[1].address],
           }),
         ).resolves.toEqual([notes[0]]);
@@ -290,12 +290,12 @@ export function describePxeDatabase(getDatabase: () => PxeDatabase) {
         ).resolves.toEqual([notes[0]]);
 
         await expect(
-          database.getIncomingNotes({
+          database.getNotes({
             scopes: [owners[0].address],
           }),
         ).resolves.toEqual([]);
         await expect(
-          database.getIncomingNotes({
+          database.getNotes({
             scopes: [owners[1].address],
           }),
         ).resolves.toEqual([]);
@@ -305,7 +305,7 @@ export function describePxeDatabase(getDatabase: () => PxeDatabase) {
         await database.addNotes(notes, owners[0].address);
 
         await database.removeNotesAfter(5);
-        const result = await database.getIncomingNotes({ scopes: [owners[0].address] });
+        const result = await database.getNotes({ scopes: [owners[0].address] });
         expect(new Set(result)).toEqual(new Set(notes.slice(0, 6)));
       });
     });
@@ -403,6 +403,166 @@ export function describePxeDatabase(getDatabase: () => PxeDatabase) {
         const instance = SerializableContractInstance.random().withAddress(address);
         await database.addContractInstance(instance);
         await expect(database.getContractInstance(address)).resolves.toEqual(instance);
+      });
+    });
+
+    describe('contract non-volatile database', () => {
+      let contract: AztecAddress;
+
+      beforeEach(() => {
+        // Setup mock contract address
+        contract = AztecAddress.random();
+      });
+
+      it('stores and loads a single value', async () => {
+        const slot = new Fr(1);
+        const values = [new Fr(42)];
+
+        await database.dbStore(contract, slot, values);
+        const result = await database.dbLoad(contract, slot);
+        expect(result).toEqual(values);
+      });
+
+      it('stores and loads multiple values', async () => {
+        const slot = new Fr(1);
+        const values = [new Fr(42), new Fr(43), new Fr(44)];
+
+        await database.dbStore(contract, slot, values);
+        const result = await database.dbLoad(contract, slot);
+        expect(result).toEqual(values);
+      });
+
+      it('overwrites existing values', async () => {
+        const slot = new Fr(1);
+        const initialValues = [new Fr(42)];
+        const newValues = [new Fr(100)];
+
+        await database.dbStore(contract, slot, initialValues);
+        await database.dbStore(contract, slot, newValues);
+
+        const result = await database.dbLoad(contract, slot);
+        expect(result).toEqual(newValues);
+      });
+
+      it('stores values for different contracts independently', async () => {
+        const anotherContract = AztecAddress.random();
+        const slot = new Fr(1);
+        const values1 = [new Fr(42)];
+        const values2 = [new Fr(100)];
+
+        await database.dbStore(contract, slot, values1);
+        await database.dbStore(anotherContract, slot, values2);
+
+        const result1 = await database.dbLoad(contract, slot);
+        const result2 = await database.dbLoad(anotherContract, slot);
+
+        expect(result1).toEqual(values1);
+        expect(result2).toEqual(values2);
+      });
+
+      it('returns null for non-existent slots', async () => {
+        const slot = Fr.random();
+        const result = await database.dbLoad(contract, slot);
+        expect(result).toBeNull();
+      });
+
+      it('deletes a slot', async () => {
+        const slot = new Fr(1);
+        const values = [new Fr(42)];
+
+        await database.dbStore(contract, slot, values);
+        await database.dbDelete(contract, slot);
+
+        expect(await database.dbLoad(contract, slot)).toBeNull();
+      });
+
+      it('deletes an empty slot', async () => {
+        const slot = new Fr(1);
+        await database.dbDelete(contract, slot);
+
+        expect(await database.dbLoad(contract, slot)).toBeNull();
+      });
+
+      it('copies a single value', async () => {
+        const slot = new Fr(1);
+        const values = [new Fr(42)];
+
+        await database.dbStore(contract, slot, values);
+
+        const dstSlot = new Fr(5);
+        await database.dbCopy(contract, slot, dstSlot, 1);
+
+        expect(await database.dbLoad(contract, dstSlot)).toEqual(values);
+      });
+
+      it('copies multiple non-overlapping values', async () => {
+        const src = new Fr(1);
+        const valuesArray = [[new Fr(42)], [new Fr(1337)], [new Fr(13)]];
+
+        await database.dbStore(contract, src, valuesArray[0]);
+        await database.dbStore(contract, src.add(new Fr(1)), valuesArray[1]);
+        await database.dbStore(contract, src.add(new Fr(2)), valuesArray[2]);
+
+        const dst = new Fr(5);
+        await database.dbCopy(contract, src, dst, 3);
+
+        expect(await database.dbLoad(contract, dst)).toEqual(valuesArray[0]);
+        expect(await database.dbLoad(contract, dst.add(new Fr(1)))).toEqual(valuesArray[1]);
+        expect(await database.dbLoad(contract, dst.add(new Fr(2)))).toEqual(valuesArray[2]);
+      });
+
+      it('copies overlapping values with src ahead', async () => {
+        const src = new Fr(1);
+        const valuesArray = [[new Fr(42)], [new Fr(1337)], [new Fr(13)]];
+
+        await database.dbStore(contract, src, valuesArray[0]);
+        await database.dbStore(contract, src.add(new Fr(1)), valuesArray[1]);
+        await database.dbStore(contract, src.add(new Fr(2)), valuesArray[2]);
+
+        const dst = new Fr(2);
+        await database.dbCopy(contract, src, dst, 3);
+
+        expect(await database.dbLoad(contract, dst)).toEqual(valuesArray[0]);
+        expect(await database.dbLoad(contract, dst.add(new Fr(1)))).toEqual(valuesArray[1]);
+        expect(await database.dbLoad(contract, dst.add(new Fr(2)))).toEqual(valuesArray[2]);
+
+        // Slots 2 and 3 (src[1] and src[2]) should have been overwritten since they are also dst[0] and dst[1]
+        expect(await database.dbLoad(contract, src)).toEqual(valuesArray[0]); // src[0] (unchanged)
+        expect(await database.dbLoad(contract, src.add(new Fr(1)))).toEqual(valuesArray[0]); // dst[0]
+        expect(await database.dbLoad(contract, src.add(new Fr(2)))).toEqual(valuesArray[1]); // dst[1]
+      });
+
+      it('copies overlapping values with dst ahead', async () => {
+        const src = new Fr(5);
+        const valuesArray = [[new Fr(42)], [new Fr(1337)], [new Fr(13)]];
+
+        await database.dbStore(contract, src, valuesArray[0]);
+        await database.dbStore(contract, src.add(new Fr(1)), valuesArray[1]);
+        await database.dbStore(contract, src.add(new Fr(2)), valuesArray[2]);
+
+        const dst = new Fr(4);
+        await database.dbCopy(contract, src, dst, 3);
+
+        expect(await database.dbLoad(contract, dst)).toEqual(valuesArray[0]);
+        expect(await database.dbLoad(contract, dst.add(new Fr(1)))).toEqual(valuesArray[1]);
+        expect(await database.dbLoad(contract, dst.add(new Fr(2)))).toEqual(valuesArray[2]);
+
+        // Slots 5 and 6 (src[0] and src[1]) should have been overwritten since they are also dst[1] and dst[2]
+        expect(await database.dbLoad(contract, src)).toEqual(valuesArray[1]); // dst[1]
+        expect(await database.dbLoad(contract, src.add(new Fr(1)))).toEqual(valuesArray[2]); // dst[2]
+        expect(await database.dbLoad(contract, src.add(new Fr(2)))).toEqual(valuesArray[2]); // src[2] (unchanged)
+      });
+
+      it('copying fails if any value is empty', async () => {
+        const src = new Fr(1);
+        const valuesArray = [[new Fr(42)], [new Fr(1337)], [new Fr(13)]];
+
+        await database.dbStore(contract, src, valuesArray[0]);
+        // We skip src[1]
+        await database.dbStore(contract, src.add(new Fr(2)), valuesArray[2]);
+
+        const dst = new Fr(5);
+        await expect(database.dbCopy(contract, src, dst, 3)).rejects.toThrow('Attempted to copy empty slot');
       });
     });
   });

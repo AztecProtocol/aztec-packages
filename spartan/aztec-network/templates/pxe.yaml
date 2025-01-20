@@ -89,6 +89,12 @@ spec:
               valueFrom:
                 fieldRef:
                   fieldPath: metadata.name
+            - name: OTEL_SERVICE_NAME
+              value: pxe
+            - name: K8S_NAMESPACE_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
             - name: AZTEC_PORT
               value: "{{ .Values.pxe.service.nodePort }}"
             - name: LOG_JSON
@@ -97,6 +103,10 @@ spec:
               value: "{{ .Values.pxe.logLevel }}"
             - name: PXE_PROVER_ENABLED
               value: "{{ .Values.aztec.realProofs }}"
+            - name: USE_GCLOUD_OBSERVABILITY
+              value: "{{ .Values.telemetry.useGcloudObservability }}"
+            - name: OTEL_EXCLUDE_METRICS
+              value: "{{ .Values.pxe.otelExcludeMetrics }}"
           ports:
             - name: http
               containerPort: {{ .Values.pxe.service.nodePort }}

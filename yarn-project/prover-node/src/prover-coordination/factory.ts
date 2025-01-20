@@ -6,10 +6,11 @@ import {
   type WorldStateSynchronizer,
   createAztecNodeClient,
 } from '@aztec/circuit-types';
+import { type EpochCache } from '@aztec/epoch-cache';
 import { createLogger } from '@aztec/foundation/log';
 import { type DataStoreConfig } from '@aztec/kv-store/config';
 import { createP2PClient } from '@aztec/p2p';
-import { type TelemetryClient } from '@aztec/telemetry-client';
+import { type TelemetryClient, makeTracedFetch } from '@aztec/telemetry-client';
 
 import { type ProverNodeConfig } from '../config.js';
 
@@ -19,6 +20,7 @@ type ProverCoordinationDeps = {
   worldStateSynchronizer?: WorldStateSynchronizer;
   archiver?: Archiver | ArchiveSource;
   telemetry?: TelemetryClient;
+  epochCache?: EpochCache;
 };
 
 /**
@@ -41,7 +43,7 @@ export async function createProverCoordination(
   if (config.p2pEnabled) {
     log.info('Using prover coordination via p2p');
 
-    if (!deps.archiver || !deps.worldStateSynchronizer || !deps.telemetry) {
+    if (!deps.archiver || !deps.worldStateSynchronizer || !deps.telemetry || !deps.epochCache) {
       throw new Error('Missing dependencies for p2p prover coordination');
     }
 
@@ -52,6 +54,7 @@ export async function createProverCoordination(
       deps.archiver,
       proofVerifier,
       deps.worldStateSynchronizer,
+      deps.epochCache,
       deps.telemetry,
     );
     await p2pClient.start();
@@ -61,7 +64,7 @@ export async function createProverCoordination(
 
   if (config.proverCoordinationNodeUrl) {
     log.info('Using prover coordination via node url');
-    return createAztecNodeClient(config.proverCoordinationNodeUrl);
+    return createAztecNodeClient(config.proverCoordinationNodeUrl, makeTracedFetch([1, 2, 3], false));
   } else {
     throw new Error(`Aztec Node URL for Tx Provider is not set.`);
   }

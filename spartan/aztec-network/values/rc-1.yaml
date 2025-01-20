@@ -3,7 +3,7 @@ network:
 
 aztec:
   slotDuration: 36
-  epochDuration: 48
+  epochDuration: 32
   realProofs: true
 
 images:
@@ -12,7 +12,6 @@ images:
 
 telemetry:
   enabled: true
-  otelCollectorEndpoint: http://35.197.100.168:4318
 
 validator:
   storageSize: "100Gi"
@@ -116,9 +115,6 @@ validator:
     - 0x7Ebb637fd68c523613bE51aad27C35C4DB199B9c
     - 0x3c3E2E178C69D4baD964568415a0f0c84fd6320A
 
-  resources:
-    requests:
-      memory: "512Mi"
   validator:
     disabled: false
 
@@ -129,7 +125,7 @@ bootNode:
   storageSize: "100Gi"
 
 proverAgent:
-  replicas: 24
+  replicas: 2
   bb:
     hardwareConcurrency: 31
   gke:
@@ -142,7 +138,7 @@ proverAgent:
 bot:
   followChain: "PENDING"
   enabled: true
-  txIntervalSeconds: 300
+  txIntervalSeconds: 900
 
 jobs:
   deployL1Verifier:

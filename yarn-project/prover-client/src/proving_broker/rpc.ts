@@ -6,13 +6,13 @@ import {
   type ProvingJobConsumer,
   ProvingJobId,
   type ProvingJobProducer,
-  ProvingJobSettledResult,
   ProvingJobStatus,
   ProvingRequestType,
 } from '@aztec/circuit-types';
-import { createSafeJsonRpcClient, makeFetch } from '@aztec/foundation/json-rpc/client';
-import { type SafeJsonRpcServer, createSafeJsonRpcServer } from '@aztec/foundation/json-rpc/server';
+import { createSafeJsonRpcClient } from '@aztec/foundation/json-rpc/client';
+import { type SafeJsonRpcServer } from '@aztec/foundation/json-rpc/server';
 import { type ApiSchemaFor, optional } from '@aztec/foundation/schemas';
+import { createTracedJsonRpcServer, makeTracedFetch } from '@aztec/telemetry-client';
 
 import { z } from 'zod';
 
@@ -26,11 +26,10 @@ const GetProvingJobResponse = z.object({
 });
 
 export const ProvingJobProducerSchema: ApiSchemaFor<ProvingJobProducer> = {
-  enqueueProvingJob: z.function().args(ProvingJob).returns(z.void()),
+  enqueueProvingJob: z.function().args(ProvingJob).returns(ProvingJobStatus),
   getProvingJobStatus: z.function().args(ProvingJobId).returns(ProvingJobStatus),
-  cleanUpProvingJobState: z.function().args(ProvingJobId).returns(z.void()),
   cancelProvingJob: z.function().args(ProvingJobId).returns(z.void()),
-  waitForJobToSettle: z.function().args(ProvingJobId).returns(ProvingJobSettledResult),
+  getCompletedJobs: z.function().args(z.array(ProvingJobId)).returns(z.array(ProvingJobId)),
 };
 
 export const ProvingJobConsumerSchema: ApiSchemaFor<ProvingJobConsumer> = {
@@ -49,17 +48,23 @@ export const ProvingJobBrokerSchema: ApiSchemaFor<ProvingJobBroker> = {
 };
 
 export function createProvingBrokerServer(broker: ProvingJobBroker): SafeJsonRpcServer {
-  return createSafeJsonRpcServer(broker, ProvingJobBrokerSchema);
+  return createTracedJsonRpcServer(broker, ProvingJobBrokerSchema);
 }
 
-export function createProvingJobBrokerClient(url: string, fetch = makeFetch([1, 2, 3], false)): ProvingJobBroker {
+export function createProvingJobBrokerClient(url: string, fetch = makeTracedFetch([1, 2, 3], false)): ProvingJobBroker {
   return createSafeJsonRpcClient(url, ProvingJobBrokerSchema, false, 'proverBroker', fetch);
 }
 
-export function createProvingJobProducerClient(url: string, fetch = makeFetch([1, 2, 3], false)): ProvingJobProducer {
+export function createProvingJobProducerClient(
+  url: string,
+  fetch = makeTracedFetch([1, 2, 3], false),
+): ProvingJobProducer {
   return createSafeJsonRpcClient(url, ProvingJobProducerSchema, false, 'provingJobProducer', fetch);
 }
 
-export function createProvingJobConsumerClient(url: string, fetch = makeFetch([1, 2, 3], false)): ProvingJobConsumer {
+export function createProvingJobConsumerClient(
+  url: string,
+  fetch = makeTracedFetch([1, 2, 3], false),
+): ProvingJobConsumer {
   return createSafeJsonRpcClient(url, ProvingJobConsumerSchema, false, 'provingJobConsumer', fetch);
 }

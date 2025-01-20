@@ -3,19 +3,26 @@ import { type AztecNodeService } from '@aztec/aztec-node';
 import { type Logger, type SentTx } from '@aztec/aztec.js';
 import { CompleteAddress, TxStatus } from '@aztec/aztec.js';
 import { Fr, GrumpkinScalar } from '@aztec/foundation/fields';
-import { type SpamContract } from '@aztec/noir-contracts.js';
+import { type SpamContract } from '@aztec/noir-contracts.js/Spam';
 import { type PXEService, createPXEService, getPXEServiceConfig as getRpcConfig } from '@aztec/pxe';
 
 import { type NodeContext } from '../fixtures/setup_p2p_test.js';
 
 // submits a set of transactions to the provided Private eXecution Environment (PXE)
-export const submitComplexTxsTo = async (logger: Logger, spamContract: SpamContract, numTxs: number) => {
+export const submitComplexTxsTo = async (
+  logger: Logger,
+  spamContract: SpamContract,
+  numTxs: number,
+  opts: { callPublic?: boolean } = {},
+) => {
   const txs: SentTx[] = [];
 
   const seed = 1234n;
   const spamCount = 15;
   for (let i = 0; i < numTxs; i++) {
-    const tx = spamContract.methods.spam(seed + BigInt(i * spamCount), spamCount, false).send();
+    const tx = spamContract.methods
+      .spam(seed + BigInt(i * spamCount), spamCount, !!opts.callPublic)
+      .send({ skipPublicSimulation: true });
     const txHash = await tx.getTxHash();
 
     logger.info(`Tx sent with hash ${txHash}`);

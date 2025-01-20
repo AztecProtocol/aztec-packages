@@ -70,6 +70,8 @@ export const L1_TX_TYPE = 'aztec.l1.tx_type';
 export const L1_SENDER = 'aztec.l1.sender';
 /** The phase of the transaction */
 export const TX_PHASE_NAME = 'aztec.tx.phase_name';
+/** The reason for disconnecting a peer */
+export const P2P_GOODBYE_REASON = 'aztec.p2p.goodbye.reason';
 /** The proving job type */
 export const PROVING_JOB_TYPE = 'aztec.proving.job_type';
 /** The proving job id */
@@ -99,3 +101,11 @@ export const WS_DB_DATA_TYPE = 'aztec.world_state.db_type';
 
 /** Identifier for component database (e.g. archiver, tx pool) */
 export const DB_DATA_TYPE = 'aztec.db_type';
+
+export const REVERTIBILITY = 'aztec.revertibility';
+
+export const GAS_DIMENSION = 'aztec.gas_dimension';
+
+export const WORLD_STATE_REQUEST_TYPE = 'aztec.world_state_request';
+
+export const NODEJS_EVENT_LOOP_STATE = 'nodejs.eventloop.state';

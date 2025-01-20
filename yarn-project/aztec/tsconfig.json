@@ -25,6 +25,9 @@
       "path": "../bb-prover"
     },
     {
+      "path": "../blob-sink"
+    },
+    {
       "path": "../bot"
     },
     {

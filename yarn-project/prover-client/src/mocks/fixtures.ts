@@ -13,7 +13,7 @@ import { padArrayEnd } from '@aztec/foundation/collection';
 import { randomBytes } from '@aztec/foundation/crypto';
 import { type Logger } from '@aztec/foundation/log';
 import { fileURLToPath } from '@aztec/foundation/url';
-import { NativeACVMSimulator, type SimulationProvider, WASMSimulator } from '@aztec/simulator';
+import { NativeACVMSimulator, type SimulationProvider, WASMSimulatorWithBlobs } from '@aztec/simulator/server';
 
 import { promises as fs } from 'fs';
 import path from 'path';
@@ -83,7 +83,7 @@ export async function getSimulationProvider(
     }
   }
   logger?.info('Using WASM ACVM simulation');
-  return new WASMSimulator();
+  return new WASMSimulatorWithBlobs();
 }
 
 // Updates the expectedDb trees based on the new note hashes, contracts, and nullifiers from these txs

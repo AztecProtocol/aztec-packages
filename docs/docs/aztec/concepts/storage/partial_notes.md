@@ -10,7 +10,7 @@ Partial notes are a concept that allows users to commit to an encrypted value, a
 
 Why is this useful?
 
-Consider the case where a user wants to pay for a transaction fee, using a [fee-payment contract](../../../protocol-specs/gas-and-fees/index.md) and they want to do this privately. They can't be certain what the transaction fee will be because the state of the network will have progressed by the time the transaction is processed by the sequencer, and transaction fees are dynamic. So the user can commit to a value for the transaction fee, publicly post this commitment, the fee payer (aka paymaster) can update the public commitment, deducting the final cost of the transaction from the commitment and returning the unused value to the user.
+Consider the case where a user wants to pay for a transaction fee, using a fee-payment contract and they want to do this privately. They can't be certain what the transaction fee will be because the state of the network will have progressed by the time the transaction is processed by the sequencer, and transaction fees are dynamic. So the user can commit to a value for the transaction fee, publicly post this commitment, the fee payer (aka paymaster) can update the public commitment, deducting the final cost of the transaction from the commitment and returning the unused value to the user.
 
 So, in general, the user is:
 
@@ -138,7 +138,7 @@ This is implemented by applying the `partial_note` attribute:
 
 #include_code UintNote noir-projects/aztec-nr/uint-note/src/uint_note.nr rust
 
-Those `G_x` are generators that generated [here](https://github.com/AztecProtocol/aztec-packages/blob/#include_aztec_version/noir-projects/noir-projects/aztec-nr/aztec/src/generators.nr). Anyone can use them for separating different fields in a "partial note".
+Those `G_x` are generators that generated [here](https://github.com/AztecProtocol/aztec-packages/blob/#include_aztec_version/noir-projects/aztec-nr/aztec/src/generators.nr). Anyone can use them for separating different fields in a "partial note".
 
 We can see the complete implementation of creating and completing partial notes in an Aztec contract in the `setup_refund` and `complete_refund` functions.
 

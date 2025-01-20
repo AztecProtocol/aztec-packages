@@ -63,6 +63,7 @@ where
 mod tests {
     use crate::{
         tests::types::{is_summed_from_two_values, TestTwoValues, TestValue},
+        traits::Empty,
         utils::arrays::assert_sorted_transformed_value_array::{
             assert_sorted_transformed_value_array,
             assert_sorted_transformed_value_array_capped_size,

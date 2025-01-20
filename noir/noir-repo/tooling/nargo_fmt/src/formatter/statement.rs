@@ -417,7 +417,7 @@ mod tests {
 
     #[test]
     fn format_let_statement_with_unsafe() {
-        let src = " fn foo() { 
+        let src = " fn foo() {
         /// Safety: some doc
         let  x  =  unsafe { 1 } ; } ";
         let expected = "fn foo() {
@@ -430,7 +430,7 @@ mod tests {
 
     #[test]
     fn format_let_statement_with_unsafe_and_comment_before_it() {
-        let src = " fn foo() { 
+        let src = " fn foo() {
         // Some comment
         /// Safety: some doc
         let  x  =  unsafe { 1 } ; } ";
@@ -558,7 +558,7 @@ mod tests {
 
     #[test]
     fn format_unsafe_statement() {
-        let src = " fn foo() { unsafe { 
+        let src = " fn foo() { unsafe {
         1  } } ";
         let expected = "fn foo() {
     unsafe {
@@ -644,10 +644,10 @@ mod tests {
 
     #[test]
     fn format_two_for_separated_by_multiple_lines() {
-        let src = " fn foo() {  for  x  in  array  {  1  } 
-        
+        let src = " fn foo() {  for  x  in  array  {  1  }
+
         for  x  in  array  {  1  }
-        
+
         } ";
         let expected = "fn foo() {
     for x in array {

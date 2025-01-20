@@ -30,7 +30,7 @@ contract AvmTest {
 
     // Libs
     use dep::aztec::context::gas::GasOpts;
-    use dep::aztec::context::public_context::call;
+    use dep::aztec::context::public_context::{call, gas_for_call, returndata_size};
     use dep::aztec::macros::{functions::{private, public}, storage::storage};
     use dep::aztec::oracle::get_contract_instance::{
         get_contract_instance_class_id_avm, get_contract_instance_deployer_avm,
@@ -38,11 +38,13 @@ contract AvmTest {
     };
     use dep::aztec::prelude::Map;
     use dep::aztec::protocol_types::{
+        abis::function_selector::FunctionSelector,
         address::{AztecAddress, EthAddress},
         point::Point,
         scalar::Scalar,
     };
     use dep::aztec::protocol_types::{
+        constants::MAX_PUBLIC_CALLS_TO_UNIQUE_CONTRACT_CLASS_IDS,
         contract_class_id::ContractClassId, storage::map::derive_storage_slot_in_map,
     };
     use dep::aztec::state_vars::PublicMutable;
@@ -67,6 +69,11 @@ contract AvmTest {
     #[public]
     fn read_storage_single() -> Field {
         storage.single.read()
+    }
+
+    #[public]
+    fn read_assert_storage_single(a: Field) {
+        assert(a == storage.single.read(), "Storage value does not match input");
     }
 
     // should still be able to use ` -> pub *` for return type even though macro forces `pub`
@@ -241,6 +248,29 @@ contract AvmTest {
     #[public]
     fn external_call_to_divide_by_zero() {
         AvmTest::at(context.this_address()).divide_by_zero().call(&mut context);
+    }
+
+    #[public]
+    fn external_call_to_divide_by_zero_recovers() {
+        // Be sure to allocate ~200k+ gas to this function~
+
+        // Get the gas remaining and allocate some smaller amount to nested call.
+        // We don't want to allocate too much to the nested call
+        // since it will all be consumed on exceptional halt.
+        let l2_gas_left = context.l2_gas_left();
+        let da_gas_left = context.da_gas_left();
+        let gas_allocation: [Field; 2] = [l2_gas_left - 200_000, da_gas_left - 200_000];
+        let selector = FunctionSelector::from_signature("divide_by_zero()");
+        let success = call(
+            gas_allocation,
+            context.this_address(),
+            &[selector.to_field()],
+        );
+        assert(!success, "Nested CALL instruction should return failure on exceptional halt");
+        assert(
+            returndata_size() == 0,
+            "Returndata should be empty when nested call exceptionally halts",
+        );
     }
 
     #[public]
@@ -572,6 +602,18 @@ contract AvmTest {
         AvmTest::at(context.this_address()).add_args_return(arg_a, arg_b).call(&mut context)
     }
 
+    #[public]
+    fn nested_call_to_add_n_times_different_addresses(
+        addrs: [AztecAddress; MAX_PUBLIC_CALLS_TO_UNIQUE_CONTRACT_CLASS_IDS + 2],
+    ) {
+        for i in 0..MAX_PUBLIC_CALLS_TO_UNIQUE_CONTRACT_CLASS_IDS + 2 {
+            let addr = addrs[i];
+            if addr != AztecAddress::empty() {
+                let _ = AvmTest::at(addr).add_args_return(1, 2).call(&mut context);
+            }
+        }
+    }
+
     // Indirectly call_static the external call opcode to initiate a nested call to the add function
     #[public]
     fn nested_static_call_to_add(arg_a: Field, arg_b: Field) -> pub Field {
@@ -639,6 +681,8 @@ contract AvmTest {
         dep::aztec::oracle::debug_log::debug_log("pedersen_hash_with_index");
         let _ = pedersen_hash_with_index(args_field);
         dep::aztec::oracle::debug_log::debug_log("test_get_contract_instance");
+        // address should match yarn-project/simulator/src/public/fixtures/index.ts's
+        // MockedAvmTestContractDataSource.otherContractInstance
         test_get_contract_instance(AztecAddress::from_field(0x4444));
         dep::aztec::oracle::debug_log::debug_log("get_address");
         let _ = get_address();

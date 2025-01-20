@@ -1,5 +1,5 @@
 import { type AztecAddress, Fr, generateClaimSecret } from '@aztec/aztec.js';
-import { TestContract } from '@aztec/noir-contracts.js';
+import { TestContract } from '@aztec/noir-contracts.js/Test';
 
 import { sendL1ToL2Message } from '../fixtures/l1_to_l2_messaging.js';
 import { CrossChainMessagingTest } from './cross_chain_messaging_test.js';

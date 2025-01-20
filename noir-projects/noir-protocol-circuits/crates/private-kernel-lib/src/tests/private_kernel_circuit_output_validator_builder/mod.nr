@@ -5,7 +5,7 @@ mod validate_propagated_from_private_call;
 
 use crate::components::{
     private_kernel_circuit_output_validator::PrivateKernelCircuitOutputValidator,
-    private_kernel_circuit_public_inputs_composer::create_first_nullifier,
+    private_kernel_circuit_public_inputs_composer::create_protocol_nullifier,
 };
 use dep::types::{
     abis::{
@@ -23,6 +23,7 @@ pub struct PrivateKernelCircuitOutputValidatorBuilder {
     private_call: FixtureBuilder,
     output: FixtureBuilder,
     tx_request: TxRequest,
+    first_nullifier_hint: Field,
 }
 
 impl PrivateKernelCircuitOutputValidatorBuilder {
@@ -31,9 +32,8 @@ impl PrivateKernelCircuitOutputValidatorBuilder {
         let private_call = FixtureBuilder::new();
         let mut output = FixtureBuilder::new();
         let tx_request = output.build_tx_request();
-        let first_nullifier = create_first_nullifier(tx_request);
-        output.nullifiers.push(first_nullifier);
-        previous_kernel.nullifiers.push(first_nullifier);
+        output.claimed_first_nullifier = 27;
+        previous_kernel.claimed_first_nullifier = 27;
         previous_kernel = previous_kernel.in_vk_tree(PRIVATE_KERNEL_INIT_INDEX);
 
         PrivateKernelCircuitOutputValidatorBuilder {
@@ -41,7 +41,19 @@ impl PrivateKernelCircuitOutputValidatorBuilder {
             private_call,
             output,
             tx_request,
+            first_nullifier_hint: 27,
         }
+    }
+
+    pub fn with_protocol_nullifier(&mut self) {
+        let protocol_nullifier = create_protocol_nullifier(self.tx_request);
+        self.output.nullifiers.push(protocol_nullifier);
+        self.previous_kernel.nullifiers.push(protocol_nullifier);
+
+        self.previous_kernel.claimed_first_nullifier = protocol_nullifier.value();
+        self.output.claimed_first_nullifier = protocol_nullifier.value();
+        // First nullifier hint of zero signals that the protocol nullifier will be used as the first nullifier.
+        self.first_nullifier_hint = 0;
     }
 
     pub fn with_previous_kernel_vk_index(&mut self, vk_index: u32) {
@@ -67,6 +79,7 @@ impl PrivateKernelCircuitOutputValidatorBuilder {
             FixtureBuilder::vk_tree_root(),
             self.private_call.protocol_contract_tree_root,
             is_private_only,
+            self.first_nullifier_hint,
         );
     }
 

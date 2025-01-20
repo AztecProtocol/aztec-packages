@@ -3,9 +3,9 @@ import { bufferSchemaFor } from '@aztec/foundation/schemas';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 import { bufferToHex, hexToBuffer } from '@aztec/foundation/string';
 
+import { SpongeBlob } from '../blobs/sponge_blob.js';
 import { PartialStateReference } from '../partial_state_reference.js';
 import { RollupTypes } from '../shared.js';
-import { SpongeBlob } from '../sponge_blob.js';
 import { ConstantRollupData } from './constant_rollup_data.js';
 
 /**
@@ -42,7 +42,7 @@ export class BaseOrMergeRollupPublicInputs {
      */
     public endSpongeBlob: SpongeBlob,
     /**
-     * SHA256 hash of outhash. Used to make public inputs constant-sized (to then be unpacked on-chain).
+     * SHA256 hash of L2 to L1 messages. Used to make public inputs constant-sized (to then be opened on-chain).
      * Note: Truncated to 31 bytes to fit in Fr.
      */
     public outHash: Fr,

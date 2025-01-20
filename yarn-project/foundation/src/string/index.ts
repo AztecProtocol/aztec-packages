@@ -25,3 +25,7 @@ export function pluralize(str: string, count: number | bigint, plural?: string):
 export function count(count: number | bigint, str: string, plural?: string): string {
   return `${count} ${pluralize(str, count, plural)}`;
 }
+
+export function truncate(str: string, length: number = 64): string {
+  return str.length > length ? str.slice(0, length) + '...' : str;
+}

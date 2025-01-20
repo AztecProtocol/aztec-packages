@@ -3,9 +3,9 @@ import {
   type EventMetadataDefinition,
   type ExtendedNote,
   type GetUnencryptedLogsResponse,
-  type IncomingNotesFilter,
   type L2Block,
   type LogFilter,
+  type NotesFilter,
   type PXE,
   type PXEInfo,
   type PrivateExecutionResult,
@@ -83,17 +83,14 @@ export abstract class BaseWallet implements Wallet {
   getRegisteredAccounts(): Promise<CompleteAddress[]> {
     return this.pxe.getRegisteredAccounts();
   }
-  getRegisteredAccount(address: AztecAddress): Promise<CompleteAddress | undefined> {
-    return this.pxe.getRegisteredAccount(address);
+  registerSender(address: AztecAddress): Promise<AztecAddress> {
+    return this.pxe.registerSender(address);
   }
-  registerContact(address: AztecAddress): Promise<AztecAddress> {
-    return this.pxe.registerContact(address);
+  getSenders(): Promise<AztecAddress[]> {
+    return this.pxe.getSenders();
   }
-  getContacts(): Promise<AztecAddress[]> {
-    return this.pxe.getContacts();
-  }
-  async removeContact(address: AztecAddress): Promise<void> {
-    await this.pxe.removeContact(address);
+  async removeSender(address: AztecAddress): Promise<void> {
+    await this.pxe.removeSender(address);
   }
   registerContract(contract: {
     /** Instance */ instance: ContractInstanceWithAddress;
@@ -115,9 +112,18 @@ export abstract class BaseWallet implements Wallet {
     simulatePublic: boolean,
     msgSender?: AztecAddress,
     skipTxValidation?: boolean,
+    enforceFeePayment?: boolean,
     profile?: boolean,
   ): Promise<TxSimulationResult> {
-    return this.pxe.simulateTx(txRequest, simulatePublic, msgSender, skipTxValidation, profile, this.scopes);
+    return this.pxe.simulateTx(
+      txRequest,
+      simulatePublic,
+      msgSender,
+      skipTxValidation,
+      enforceFeePayment,
+      profile,
+      this.scopes,
+    );
   }
   sendTx(tx: Tx): Promise<TxHash> {
     return this.pxe.sendTx(tx);
@@ -128,8 +134,8 @@ export abstract class BaseWallet implements Wallet {
   getTxReceipt(txHash: TxHash): Promise<TxReceipt> {
     return this.pxe.getTxReceipt(txHash);
   }
-  getIncomingNotes(filter: IncomingNotesFilter): Promise<UniqueNote[]> {
-    return this.pxe.getIncomingNotes(filter);
+  getNotes(filter: NotesFilter): Promise<UniqueNote[]> {
+    return this.pxe.getNotes(filter);
   }
   getPublicStorageAt(contract: AztecAddress, storageSlot: Fr): Promise<any> {
     return this.pxe.getPublicStorageAt(contract, storageSlot);
@@ -204,5 +210,8 @@ export abstract class BaseWallet implements Wallet {
     secret: Fr,
   ): Promise<[bigint, SiblingPath<typeof L1_TO_L2_MSG_TREE_HEIGHT>]> {
     return this.pxe.getL1ToL2MembershipWitness(contractAddress, messageHash, secret);
+  }
+  getL2ToL1MembershipWitness(blockNumber: number, l2Tol1Message: Fr): Promise<[bigint, SiblingPath<number>]> {
+    return this.pxe.getL2ToL1MembershipWitness(blockNumber, l2Tol1Message);
   }
 }

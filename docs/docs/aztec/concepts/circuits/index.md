@@ -17,7 +17,7 @@ In Aztec, circuits come from two sources:
 1. Core protocol circuits
 2. User-written circuits (written as Aztec.nr Contracts and deployed to the network)
 
-This page focusses on the core protocol circuits. These circuits check that the rules of the protocol are being adhered to.
+This page focuses on the core protocol circuits. These circuits check that the rules of the protocol are being adhered to.
 
 When a function in an Ethereum smart contract is executed, the EVM performs checks to ensure that Ethereum's transaction rules are being adhered-to correctly. Stuff like:
 
@@ -61,14 +61,6 @@ What kind of extra rules / checks does a rollup need, to enforce notions of priv
 
 So what kinds of core protocol circuits does Aztec have?
 
-### Kernel Circuits
+### Kernel, Rollup, and Squisher Circuits
 
-Read more about the Kernel circuits in the protocol specs [here](../../../protocol-specs/circuits/high-level-topology.md).
-
-### Rollup Circuits
-
-- [Rollup Circuits](../../../protocol-specs/rollup-circuits/index.md)
-
-#### Squisher Circuits
-
-We haven't fully spec'ed these out, as Honk and Goblin Plonk schemes are still being improved! But we'll need some extra circuit(s) to squish a Honk proof (as produced by the Root Rollup Circuit) into a Standard Plonk or Fflonk proof, for cheap verification on Ethereum.
+The specs of these have recently been updated. Eg for squisher circuits since Honk and Goblin Plonk schemes are still being improved! But we'll need some extra circuit(s) to squish a Honk proof (as produced by the Root Rollup Circuit) into a Standard Plonk or Fflonk proof, for cheap verification on Ethereum.

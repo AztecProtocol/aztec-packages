@@ -1,10 +1,11 @@
-import { type ContractArtifact, createLogger } from '@aztec/aztec.js';
+import { createLogger } from '@aztec/aztec.js';
 import {
   type AztecNode,
   type EpochProofQuote,
   type GetUnencryptedLogsResponse,
   type InBlock,
   type L2Block,
+  L2BlockHash,
   type L2BlockNumber,
   type L2Tips,
   type LogFilter,
@@ -18,8 +19,9 @@ import {
   type Tx,
   type TxEffect,
   TxHash,
-  type TxReceipt,
+  TxReceipt,
   TxScopedL2Log,
+  type TxValidationResult,
   type UnencryptedL2Log,
 } from '@aztec/circuit-types';
 import {
@@ -38,27 +40,32 @@ import {
   type ProtocolContractAddresses,
 } from '@aztec/circuits.js';
 import { type L1ContractAddresses } from '@aztec/ethereum';
+import { poseidon2Hash } from '@aztec/foundation/crypto';
 import { Fr } from '@aztec/foundation/fields';
+import { MerkleTreeSnapshotOperationsFacade, type MerkleTrees } from '@aztec/world-state';
 
 export class TXENode implements AztecNode {
   #logsByTags = new Map<string, TxScopedL2Log[]>();
-  #txEffectsByTxHash = new Map<string, InBlock<TxEffect> | undefined>();
+  #txEffectsByTxHash = new Map<string, InBlock<TxEffect>>();
+  #txReceiptsByTxHash = new Map<string, TxReceipt>();
   #blockNumberToNullifiers = new Map<number, Fr[]>();
   #noteIndex = 0;
 
-  #blockNumber: number;
   #logger = createLogger('aztec:txe_node');
 
-  constructor(blockNumber: number) {
-    this.#blockNumber = blockNumber;
-  }
+  constructor(
+    private blockNumber: number,
+    private version: number,
+    private chainId: number,
+    private trees: MerkleTrees,
+  ) {}
 
   /**
    * Fetches the current block number.
    * @returns The block number.
    */
   getBlockNumber(): Promise<number> {
-    return Promise.resolve(this.#blockNumber);
+    return Promise.resolve(this.blockNumber);
   }
 
   /**
@@ -66,7 +73,7 @@ export class TXENode implements AztecNode {
    * @param - The block number to set.
    */
   setBlockNumber(blockNumber: number) {
-    this.#blockNumber = blockNumber;
+    this.blockNumber = blockNumber;
   }
 
   /**
@@ -75,23 +82,42 @@ export class TXENode implements AztecNode {
    * @returns The requested tx effect.
    */
   getTxEffect(txHash: TxHash): Promise<InBlock<TxEffect> | undefined> {
-    const txEffect = this.#txEffectsByTxHash.get(new Fr(txHash.toBuffer()).toString());
+    const txEffect = this.#txEffectsByTxHash.get(txHash.toString());
 
     return Promise.resolve(txEffect);
   }
 
   /**
-   * Sets a tx effect for a given block number.
+   * Sets a tx effect and receipt for a given block number.
    * @param blockNumber - The block number that this tx effect resides.
    * @param txHash - The transaction hash of the transaction.
    * @param effect - The tx effect to set.
    */
   setTxEffect(blockNumber: number, txHash: TxHash, effect: TxEffect) {
-    this.#txEffectsByTxHash.set(new Fr(txHash.toBuffer()).toString(), {
-      l2BlockHash: blockNumber.toString(),
+    // We are not creating real blocks on which membership proofs can be constructed - we instead define its hash as
+    // simply the hash of the block number.
+    const blockHash = poseidon2Hash([blockNumber]);
+
+    this.#txEffectsByTxHash.set(txHash.toString(), {
+      l2BlockHash: blockHash.toString(),
       l2BlockNumber: blockNumber,
       data: effect,
     });
+
+    // We also set the receipt since we want to be able to serve `getTxReceipt` - we don't care about most values here,
+    // but we do need to be able to retrieve the block number of a given txHash.
+    this.#txReceiptsByTxHash.set(
+      txHash.toString(),
+      new TxReceipt(
+        txHash,
+        TxReceipt.statusFromRevertCode(effect.revertCode),
+        '',
+        undefined,
+        new L2BlockHash(blockHash.toBuffer()),
+        blockNumber,
+        undefined,
+      ),
+    );
   }
 
   /**
@@ -149,7 +175,7 @@ export class TXENode implements AztecNode {
       const tag = log.fields[0];
       const currentLogs = this.#logsByTags.get(tag.toString()) ?? [];
       const scopedLog = new TxScopedL2Log(
-        new TxHash(new Fr(blockNumber).toBuffer()),
+        new TxHash(new Fr(blockNumber)),
         this.#noteIndex,
         blockNumber,
         false,
@@ -193,7 +219,7 @@ export class TXENode implements AztecNode {
 
         const currentLogs = this.#logsByTags.get(tag.toString()) ?? [];
         const scopedLog = new TxScopedL2Log(
-          new TxHash(new Fr(blockNumber).toBuffer()),
+          new TxHash(new Fr(blockNumber)),
           this.#noteIndex,
           blockNumber,
           true,
@@ -233,12 +259,28 @@ export class TXENode implements AztecNode {
    * @param leafValue - The values to search for
    * @returns The indexes of the given leaves in the given tree or undefined if not found.
    */
-  findLeavesIndexes(
-    _blockNumber: L2BlockNumber,
-    _treeId: MerkleTreeId,
-    _leafValues: Fr[],
+  async findLeavesIndexes(
+    blockNumber: L2BlockNumber,
+    treeId: MerkleTreeId,
+    leafValues: Fr[],
   ): Promise<(bigint | undefined)[]> {
-    throw new Error('TXE Node method findLeavesIndexes not implemented');
+    // Temporary workaround to be able to respond this query: the trees are currently stored in the TXE oracle, but we
+    // hold a reference to them.
+    // We should likely migrate this so that the trees are owned by the node.
+
+    if (blockNumber == 'latest') {
+      blockNumber = await this.getBlockNumber();
+    }
+
+    const db =
+      blockNumber === (await this.getBlockNumber())
+        ? await this.trees.getLatest()
+        : new MerkleTreeSnapshotOperationsFacade(this.trees, blockNumber);
+
+    return await db.findLeafIndices(
+      treeId,
+      leafValues.map(x => x.toBuffer()),
+    );
   }
 
   /**
@@ -419,7 +461,7 @@ export class TXENode implements AztecNode {
    * @returns The rollup version.
    */
   getVersion(): Promise<number> {
-    throw new Error('TXE Node method getVersion not implemented');
+    return Promise.resolve(this.version);
   }
 
   /**
@@ -427,7 +469,7 @@ export class TXENode implements AztecNode {
    * @returns The chain id.
    */
   getChainId(): Promise<number> {
-    throw new Error('TXE Node method getChainId not implemented');
+    return Promise.resolve(this.chainId);
   }
 
   /**
@@ -450,7 +492,7 @@ export class TXENode implements AztecNode {
    * @param aztecAddress
    * @param artifact
    */
-  addContractArtifact(_address: AztecAddress, _artifact: ContractArtifact): Promise<void> {
+  registerContractFunctionSignatures(_address: AztecAddress, _signatures: string[]): Promise<void> {
     throw new Error('TXE Node method addContractArtifact not implemented');
   }
 
@@ -489,8 +531,13 @@ export class TXENode implements AztecNode {
    * @param txHash - The transaction hash.
    * @returns A receipt of the transaction.
    */
-  getTxReceipt(_txHash: TxHash): Promise<TxReceipt> {
-    throw new Error('TXE Node method getTxReceipt not implemented');
+  getTxReceipt(txHash: TxHash): Promise<TxReceipt> {
+    const txEffect = this.#txReceiptsByTxHash.get(txHash.toString());
+    if (!txEffect) {
+      throw new Error('Unknown txHash');
+    }
+
+    return Promise.resolve(txEffect);
   }
 
   /**
@@ -546,7 +593,7 @@ export class TXENode implements AztecNode {
    * This currently just checks that the transaction execution succeeds.
    * @param tx - The transaction to simulate.
    **/
-  simulatePublicCalls(_tx: Tx): Promise<PublicSimulationOutput> {
+  simulatePublicCalls(_tx: Tx, _enforceFeePayment = false): Promise<PublicSimulationOutput> {
     throw new Error('TXE Node method simulatePublicCalls not implemented');
   }
 
@@ -557,7 +604,7 @@ export class TXENode implements AztecNode {
    * @param tx - The transaction to validate for correctness.
    * @param isSimulation - True if the transaction is a simulated one without generated proofs. (Optional)
    */
-  isValidTx(_tx: Tx, _isSimulation?: boolean): Promise<boolean> {
+  isValidTx(_tx: Tx, _isSimulation?: boolean): Promise<TxValidationResult> {
     throw new Error('TXE Node method isValidTx not implemented');
   }
 

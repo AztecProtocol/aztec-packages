@@ -13,29 +13,12 @@
  * ```typescript
  *   import { TxHash } from '@aztec.js/tx_hash'
  *   import { type ContractArtifact, type FunctionArtifact, FunctionSelector } from '@aztec/aztec.js/abi';
- *   import { AztecAddress } from '@aztec/aztec.js/aztec_address';
+ *   import { AztecAddress } from '@aztec/aztec.js/addresses';
  *   import { EthAddress } from '@aztec/aztec.js/eth_address';
  * ```
  *
  * TODO: Ultimately reimplement this mega exporter by mega exporting a granular api (then deprecate it).
  */
-export {
-  BatchCall,
-  Contract,
-  ContractBase,
-  ContractFunctionInteraction,
-  DefaultWaitOpts,
-  DeployMethod,
-  DeploySentTx,
-  SentTx,
-  type ContractMethod,
-  type ContractNotes,
-  type ContractStorageLayout,
-  type DeployOptions,
-  type ProfileResult,
-  type SendMethodOptions,
-  type WaitOpts,
-} from './contract/index.js';
 
 export { ContractDeployer } from './deployment/index.js';
 
@@ -63,6 +46,7 @@ export {
   type L2AmountClaimWithRecipient,
   type L2Claim,
   type WrappedFieldLike,
+  type IntentAction,
 } from './utils/index.js';
 
 export { NoteSelector } from '@aztec/foundation/abi';
@@ -79,7 +63,6 @@ export { AccountWallet, AccountWalletWithSecretKey, SignerlessWallet, type Walle
 // // TODO https://github.com/AztecProtocol/aztec-packages/issues/2632 --> FunctionSelector might not need to be exposed
 // // here once the issue is resolved.
 export {
-  AztecAddress,
   ContractClassWithId,
   ContractInstanceWithAddress,
   EthAddress,
@@ -110,7 +93,6 @@ export {
   AuthWitness,
   Body,
   Comparator,
-  CompleteAddress,
   ContractClass2BlockL2Logs,
   EncryptedLogPayload,
   EpochProofQuote,
@@ -128,7 +110,7 @@ export {
   LogId,
   MerkleTreeId,
   Note,
-  PackedValues,
+  HashedValues,
   SiblingPath,
   Tx,
   TxExecutionRequest,
@@ -144,7 +126,6 @@ export {
   mockEpochProofQuote,
   mockTx,
   type AztecNode,
-  type EpochConstants,
   type LogFilter,
   type PXE,
   type PartialAddress,
@@ -174,3 +155,6 @@ export { EthCheatCodes, deployL1Contract, deployL1Contracts, type DeployL1Contra
 export * from './api/abi.js';
 export * from './api/fee.js';
 export * from './api/init.js';
+// Granular export, even if not in the api folder
+export * from './contract/index.js';
+export * from './api/addresses.js';

@@ -10,10 +10,17 @@ import {
 } from '@aztec/circuit-types';
 import { createLogger } from '@aztec/foundation/log';
 import { RunningPromise } from '@aztec/foundation/running-promise';
+import { truncate } from '@aztec/foundation/string';
 import { Timer } from '@aztec/foundation/timer';
-import { type TelemetryClient, type Traceable, type Tracer, trackSpan } from '@aztec/telemetry-client';
+import {
+  type TelemetryClient,
+  type Traceable,
+  type Tracer,
+  getTelemetryClient,
+  trackSpan,
+} from '@aztec/telemetry-client';
 
-import { type ProofStore } from './proof_store.js';
+import { type ProofStore } from './proof_store/index.js';
 import { ProvingAgentInstrumentation } from './proving_agent_instrumentation.js';
 import { ProvingJobController, ProvingJobControllerStatus } from './proving_job_controller.js';
 
@@ -35,12 +42,12 @@ export class ProvingAgent implements Traceable {
     private proofStore: ProofStore,
     /** The prover implementation to defer jobs to */
     private circuitProver: ServerCircuitProver,
-    /** A telemetry client through which to emit metrics */
-    client: TelemetryClient,
     /** Optional list of allowed proof types to build */
     private proofAllowList: Array<ProvingRequestType> = [],
     /** How long to wait between jobs */
     private pollIntervalMs = 1000,
+    /** A telemetry client through which to emit metrics */
+    client: TelemetryClient = getTelemetryClient(),
     private log = createLogger('prover-client:proving-agent'),
   ) {
     this.tracer = client.getTracer('ProvingAgent');
@@ -107,6 +114,7 @@ export class ProvingAgent implements Traceable {
     this.currentJobController = new ProvingJobController(
       job.id,
       inputs,
+      job.epochNumber,
       time,
       this.circuitProver,
       this.handleJobResult,
@@ -114,13 +122,13 @@ export class ProvingAgent implements Traceable {
 
     if (abortedProofJobId) {
       this.log.info(
-        `Aborting job id=${abortedProofJobId} type=${abortedProofName} to start new job id=${this.currentJobController.getJobId()} type=${this.currentJobController.getProofTypeName()} inputsUri=${truncateString(
+        `Aborting job id=${abortedProofJobId} type=${abortedProofName} to start new job id=${this.currentJobController.getJobId()} type=${this.currentJobController.getProofTypeName()} inputsUri=${truncate(
           job.inputsUri,
         )}`,
       );
     } else {
       this.log.info(
-        `Starting job id=${this.currentJobController.getJobId()} type=${this.currentJobController.getProofTypeName()} inputsUri=${truncateString(
+        `Starting job id=${this.currentJobController.getJobId()} type=${this.currentJobController.getProofTypeName()} inputsUri=${truncate(
           job.inputsUri,
         )}`,
       );
@@ -147,14 +155,8 @@ export class ProvingAgent implements Traceable {
       return this.broker.reportProvingJobError(jobId, err.message, retry);
     } else if (result) {
       const outputUri = await this.proofStore.saveProofOutput(jobId, type, result);
-      this.log.info(
-        `Job id=${jobId} type=${ProvingRequestType[type]} completed outputUri=${truncateString(outputUri)}`,
-      );
+      this.log.info(`Job id=${jobId} type=${ProvingRequestType[type]} completed outputUri=${truncate(outputUri)}`);
       return this.broker.reportProvingJobSuccess(jobId, outputUri);
     }
   };
-}
-
-function truncateString(str: string, length: number = 64): string {
-  return str.length > length ? str.slice(0, length) + '...' : str;
 }

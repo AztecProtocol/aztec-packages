@@ -9,8 +9,9 @@ import {
 } from '@aztec/aztec.js';
 import { type AztecNode, type FunctionCall, type PXE } from '@aztec/circuit-types';
 import { Fr, deriveSigningKey } from '@aztec/circuits.js';
-import { EasyPrivateTokenContract } from '@aztec/noir-contracts.js';
+import { EasyPrivateTokenContract } from '@aztec/noir-contracts.js/EasyPrivateToken';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
+import { makeTracedFetch } from '@aztec/telemetry-client';
 
 import { type BotConfig, SupportedTokenContracts } from './config.js';
 import { getBalances, getPrivateBalance, isStandardTokenContract } from './utils.js';
@@ -39,7 +40,7 @@ export class BotFactory {
       return;
     }
     this.log.info(`Using remote PXE at ${config.pxeUrl!}`);
-    this.pxe = createPXEClient(config.pxeUrl!);
+    this.pxe = createPXEClient(config.pxeUrl!, makeTracedFetch([1, 2, 3], false));
   }
 
   /**

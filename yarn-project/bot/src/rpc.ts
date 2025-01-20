@@ -1,4 +1,5 @@
-import { type ApiHandler, createSafeJsonRpcServer } from '@aztec/foundation/json-rpc/server';
+import { type ApiHandler } from '@aztec/foundation/json-rpc/server';
+import { createTracedJsonRpcServer } from '@aztec/telemetry-client';
 
 import { BotRunnerApiSchema } from './interface.js';
 import { type BotRunner } from './runner.js';
@@ -9,7 +10,10 @@ import { type BotRunner } from './runner.js';
  * @returns An JSON-RPC HTTP server
  */
 export function createBotRunnerRpcServer(botRunner: BotRunner) {
-  createSafeJsonRpcServer(botRunner, BotRunnerApiSchema, botRunner.isHealthy.bind(botRunner));
+  createTracedJsonRpcServer(botRunner, BotRunnerApiSchema, {
+    http200OnError: false,
+    healthCheck: botRunner.isHealthy.bind(botRunner),
+  });
 }
 
 export function getBotRunnerApiHandler(botRunner: BotRunner): ApiHandler {

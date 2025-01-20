@@ -108,8 +108,17 @@ export class RollupCheatCodes {
     const slotsUntilNextEpoch = epochDuration - (slot % epochDuration) + 1n;
     const timeToNextEpoch = slotsUntilNextEpoch * slotDuration;
     const l1Timestamp = BigInt((await this.client.getBlock()).timestamp);
-    await this.ethCheatCodes.warp(Number(l1Timestamp + timeToNextEpoch));
-    this.logger.verbose(`Advanced to next epoch`);
+    await this.ethCheatCodes.warp(Number(l1Timestamp + timeToNextEpoch), true);
+    this.logger.warn(`Advanced to next epoch`);
+  }
+
+  /** Warps time in L1 until the beginning of the next slot. */
+  public async advanceToNextSlot() {
+    const currentSlot = await this.getSlot();
+    const timestamp = await this.rollup.read.getTimestampForSlot([currentSlot + 1n]);
+    await this.ethCheatCodes.warp(Number(timestamp));
+    this.logger.warn(`Advanced to slot ${currentSlot + 1n}`);
+    return [timestamp, currentSlot + 1n];
   }
 
   /**
@@ -120,9 +129,9 @@ export class RollupCheatCodes {
     const l1Timestamp = (await this.client.getBlock()).timestamp;
     const slotDuration = await this.rollup.read.SLOT_DURATION();
     const timeToWarp = BigInt(howMany) * slotDuration;
-    await this.ethCheatCodes.warp(l1Timestamp + timeToWarp);
+    await this.ethCheatCodes.warp(l1Timestamp + timeToWarp, true);
     const [slot, epoch] = await Promise.all([this.getSlot(), this.getEpoch()]);
-    this.logger.verbose(`Advanced ${howMany} slots up to slot ${slot} in epoch ${epoch}`);
+    this.logger.warn(`Advanced ${howMany} slots up to slot ${slot} in epoch ${epoch}`);
   }
 
   /** Returns the current proof claim (if any) */
@@ -163,7 +172,7 @@ export class RollupCheatCodes {
 
     await this.asOwner(async account => {
       await this.rollup.write.setAssumeProvenThroughBlockNumber([blockNumber], { account, chain: this.client.chain });
-      this.logger.verbose(`Marked ${blockNumber} as proven`);
+      this.logger.warn(`Marked ${blockNumber} as proven`);
     });
   }
 
@@ -247,7 +256,7 @@ export class AztecCheatCodes {
    * @returns The notes stored at the given slot
    */
   public async loadPrivate(owner: AztecAddress, contract: AztecAddress, slot: Fr | bigint): Promise<Note[]> {
-    const extendedNotes = await this.pxe.getIncomingNotes({
+    const extendedNotes = await this.pxe.getNotes({
       owner,
       contractAddress: contract,
       storageSlot: new Fr(slot),

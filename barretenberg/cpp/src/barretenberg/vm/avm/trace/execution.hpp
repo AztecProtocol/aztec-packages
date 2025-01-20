@@ -40,8 +40,10 @@ class Execution {
                                       ExecutionHints const& execution_hints,
                                       bool apply_e2e_assertions = false);
 
-    static AvmError execute_enqueued_call(AvmTraceBuilder& trace_builder,
+    static AvmError execute_enqueued_call(TxExecutionPhase& phase,
+                                          AvmTraceBuilder& trace_builder,
                                           AvmEnqueuedCallHint& enqueued_call_hint,
+                                          Gas const teardown_gas_limits,
                                           std::vector<FF>& returndata,
                                           bool check_bytecode_membership);
 
@@ -53,6 +55,8 @@ class Execution {
 
     static std::tuple<bb::avm::AvmFlavor::VerificationKey, bb::HonkProof> prove(
         AvmPublicInputs const& public_inputs = AvmPublicInputs(), ExecutionHints const& execution_hints = {});
+    static void check_circuit(AvmPublicInputs const& public_inputs = AvmPublicInputs(),
+                              ExecutionHints const& execution_hints = {});
     static bool verify(bb::avm::AvmFlavor::VerificationKey vk, HonkProof const& proof);
 
   private:

@@ -1,9 +1,12 @@
 import {
   type PublicInputsAndRecursiveProof,
   type ServerCircuitProver,
+  type Tx,
   makePublicInputsAndRecursiveProof,
 } from '@aztec/circuit-types';
 import {
+  type BlockHeader,
+  ClientIvcProof,
   Fr,
   type GlobalVariables,
   NESTED_RECURSIVE_PROOF_LENGTH,
@@ -16,8 +19,9 @@ import { makeParityPublicInputs } from '@aztec/circuits.js/testing';
 import { createLogger } from '@aztec/foundation/log';
 import { promiseWithResolvers } from '@aztec/foundation/promise';
 import { sleep } from '@aztec/foundation/sleep';
-import { ProtocolCircuitVks } from '@aztec/noir-protocol-circuits-types';
+import { ProtocolCircuitVks } from '@aztec/noir-protocol-circuits-types/vks';
 
+import { jest } from '@jest/globals';
 import { type MockProxy, mock } from 'jest-mock-extended';
 
 import { TestContext } from '../mocks/test_context.js';
@@ -29,6 +33,7 @@ describe('prover/orchestrator', () => {
   describe('workflow', () => {
     let orchestrator: ProvingOrchestrator;
     let globalVariables: GlobalVariables;
+    let previousBlockHeader: BlockHeader;
     let context: TestContext;
 
     describe('with mock prover', () => {
@@ -38,6 +43,7 @@ describe('prover/orchestrator', () => {
         mockProver = mock<ServerCircuitProver>();
         context = await TestContext.new(logger, 4, () => Promise.resolve(mockProver));
         ({ orchestrator, globalVariables } = context);
+        previousBlockHeader = context.getPreviousBlockHeader();
       });
 
       it('calls root parity circuit only when ready', async () => {
@@ -76,7 +82,7 @@ describe('prover/orchestrator', () => {
         });
 
         orchestrator.startNewEpoch(1, 1, 1);
-        await orchestrator.startNewBlock(globalVariables, [message]);
+        await orchestrator.startNewBlock(globalVariables, [message], previousBlockHeader);
 
         await sleep(10);
         expect(mockProver.getBaseParityProof).toHaveBeenCalledTimes(NUM_BASE_PARITY_PER_ROOT_PARITY);
@@ -98,15 +104,19 @@ describe('prover/orchestrator', () => {
     });
 
     describe('with simulated prover', () => {
+      let prover: ServerCircuitProver;
+
       beforeEach(async () => {
         context = await TestContext.new(logger);
-        ({ orchestrator, globalVariables } = context);
+        ({ prover, orchestrator, globalVariables } = context);
       });
 
       it('waits for block to be completed before enqueueing block root proof', async () => {
         orchestrator.startNewEpoch(1, 1, 1);
-        await orchestrator.startNewBlock(globalVariables, []);
-        await orchestrator.addTxs([context.makeProcessedTx(1), context.makeProcessedTx(2)]);
+        await orchestrator.startNewBlock(globalVariables, [], previousBlockHeader);
+        const txs = [context.makeProcessedTx(1), context.makeProcessedTx(2)];
+        await context.setEndTreeRoots(txs);
+        await orchestrator.addTxs(txs);
 
         // wait for the block root proof to try to be enqueued
         await sleep(1000);
@@ -116,6 +126,27 @@ describe('prover/orchestrator', () => {
 
         const result = await orchestrator.finaliseEpoch();
         expect(result.proof).toBeDefined();
+      });
+
+      it('can start tube proofs before adding processed txs', async () => {
+        const getTubeSpy = jest.spyOn(prover, 'getTubeProof');
+        orchestrator.startNewEpoch(1, 1, 1);
+        const processedTxs = [context.makeProcessedTx(1), context.makeProcessedTx(2)];
+        processedTxs.forEach((tx, i) => (tx.clientIvcProof = ClientIvcProof.fake(i + 1)));
+        const txs = processedTxs.map(tx => ({ getTxHash: () => tx.hash, clientIvcProof: tx.clientIvcProof } as Tx));
+        orchestrator.startTubeCircuits(txs);
+
+        await sleep(100);
+        expect(getTubeSpy).toHaveBeenCalledTimes(2);
+        getTubeSpy.mockReset();
+
+        await orchestrator.startNewBlock(globalVariables, [], previousBlockHeader);
+        await context.setEndTreeRoots(processedTxs);
+        await orchestrator.addTxs(processedTxs);
+        await orchestrator.setBlockCompleted(context.blockNumber);
+        const result = await orchestrator.finaliseEpoch();
+        expect(result.proof).toBeDefined();
+        expect(getTubeSpy).toHaveBeenCalledTimes(0);
       });
     });
   });

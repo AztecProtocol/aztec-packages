@@ -1,6 +1,6 @@
 import { mockTx } from '@aztec/circuit-types';
 import { createLogger } from '@aztec/foundation/log';
-import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types';
+import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types/vks';
 import { protocolContractTreeRoot } from '@aztec/protocol-contracts';
 
 import { TestContext } from '../mocks/test_context.js';
@@ -43,7 +43,7 @@ describe('prover/orchestrator/public-functions', () => {
 
         // This will need to be a 2 tx block
         context.orchestrator.startNewEpoch(1, 1, 1);
-        await context.orchestrator.startNewBlock(context.globalVariables, []);
+        await context.orchestrator.startNewBlock(context.globalVariables, [], context.getPreviousBlockHeader());
 
         await context.orchestrator.addTxs(processed);
 

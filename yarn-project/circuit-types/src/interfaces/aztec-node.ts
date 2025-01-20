@@ -17,7 +17,6 @@ import {
   ProtocolContractAddressesSchema,
 } from '@aztec/circuits.js';
 import { type L1ContractAddresses, L1ContractAddressesSchema } from '@aztec/ethereum';
-import { type ContractArtifact, ContractArtifactSchema } from '@aztec/foundation/abi';
 import type { AztecAddress } from '@aztec/foundation/aztec-address';
 import type { Fr } from '@aztec/foundation/fields';
 import { createSafeJsonRpcClient, defaultFetch } from '@aztec/foundation/json-rpc/client';
@@ -39,11 +38,18 @@ import { MerkleTreeId } from '../merkle_tree_id.js';
 import { EpochProofQuote } from '../prover_coordination/epoch_proof_quote.js';
 import { PublicDataWitness } from '../public_data_witness.js';
 import { SiblingPath } from '../sibling_path/index.js';
-import { PublicSimulationOutput, Tx, TxHash, TxReceipt } from '../tx/index.js';
+import {
+  PublicSimulationOutput,
+  Tx,
+  TxHash,
+  TxReceipt,
+  type TxValidationResult,
+  TxValidationResultSchema,
+} from '../tx/index.js';
 import { TxEffect } from '../tx_effect.js';
 import { type SequencerConfig, SequencerConfigSchema } from './configs.js';
 import { type L2BlockNumber, L2BlockNumberSchema } from './l2_block_number.js';
-import { NullifierMembershipWitness } from './nullifier_tree.js';
+import { NullifierMembershipWitness } from './nullifier_membership_witness.js';
 import { type ProverConfig, ProverConfigSchema } from './prover-client.js';
 import { type ProverCoordination, ProverCoordinationApiSchema } from './prover-coordination.js';
 
@@ -287,7 +293,7 @@ export interface AztecNode
    * @param aztecAddress
    * @param artifact
    */
-  addContractArtifact(address: AztecAddress, artifact: ContractArtifact): Promise<void>;
+  registerContractFunctionSignatures(address: AztecAddress, functionSignatures: string[]): Promise<void>;
 
   /**
    * Retrieves all private logs from up to `limit` blocks, starting from the block number `from`.
@@ -315,7 +321,8 @@ export interface AztecNode
    * Gets all logs that match any of the received tags (i.e. logs with their first field equal to a tag).
    * @param tags - The tags to filter the logs by.
    * @returns For each received tag, an array of matching logs and metadata (e.g. tx hash) is returned. An empty
-   array implies no logs match that tag.
+   * array implies no logs match that tag. There can be multiple logs for 1 tag because tag reuse can happen
+   * --> e.g. when sending a note from multiple unsynched devices.
    */
   getLogsByTags(tags: Fr[]): Promise<TxScopedL2Log[][]>;
 
@@ -386,7 +393,7 @@ export interface AztecNode
    * This currently just checks that the transaction execution succeeds.
    * @param tx - The transaction to simulate.
    **/
-  simulatePublicCalls(tx: Tx): Promise<PublicSimulationOutput>;
+  simulatePublicCalls(tx: Tx, enforceFeePayment?: boolean): Promise<PublicSimulationOutput>;
 
   /**
    * Returns true if the transaction is valid for inclusion at the current state. Valid transactions can be
@@ -395,7 +402,7 @@ export interface AztecNode
    * @param tx - The transaction to validate for correctness.
    * @param isSimulation - True if the transaction is a simulated one without generated proofs. (Optional)
    */
-  isValidTx(tx: Tx, isSimulation?: boolean): Promise<boolean>;
+  isValidTx(tx: Tx, isSimulation?: boolean): Promise<TxValidationResult>;
 
   /**
    * Updates the configuration of this node.
@@ -533,7 +540,7 @@ export const AztecNodeApiSchema: ApiSchemaFor<AztecNode> = {
 
   getProtocolContractAddresses: z.function().returns(ProtocolContractAddressesSchema),
 
-  addContractArtifact: z.function().args(schemas.AztecAddress, ContractArtifactSchema).returns(z.void()),
+  registerContractFunctionSignatures: z.function().args(schemas.AztecAddress, z.array(z.string())).returns(z.void()),
 
   getPrivateLogs: z.function().args(z.number(), z.number()).returns(z.array(PrivateLog.schema)),
 
@@ -562,9 +569,9 @@ export const AztecNodeApiSchema: ApiSchemaFor<AztecNode> = {
 
   getBlockHeader: z.function().args(optional(L2BlockNumberSchema)).returns(BlockHeader.schema),
 
-  simulatePublicCalls: z.function().args(Tx.schema).returns(PublicSimulationOutput.schema),
+  simulatePublicCalls: z.function().args(Tx.schema, optional(z.boolean())).returns(PublicSimulationOutput.schema),
 
-  isValidTx: z.function().args(Tx.schema, optional(z.boolean())).returns(z.boolean()),
+  isValidTx: z.function().args(Tx.schema, optional(z.boolean())).returns(TxValidationResultSchema),
 
   setConfig: z.function().args(SequencerConfigSchema.merge(ProverConfigSchema).partial()).returns(z.void()),
 

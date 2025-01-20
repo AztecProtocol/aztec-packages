@@ -8,7 +8,8 @@
     "./broker": "./dest/proving_broker/index.js",
     "./prover-agent": "./dest/prover-agent/index.js",
     "./orchestrator": "./dest/orchestrator/index.js",
-    "./helpers": "./dest/orchestrator/block-building-helpers.js"
+    "./helpers": "./dest/orchestrator/block-building-helpers.js",
+    "./config": "./dest/config.js"
   },
   "typedocOptions": {
     "entryPoints": [
@@ -29,7 +30,8 @@
     "formatting:fix": "run -T eslint --fix ./src && run -T prettier -w ./src",
     "bb": "node --no-warnings ./dest/bb/index.js",
     "test": "NODE_NO_WARNINGS=1 node --experimental-vm-modules ../node_modules/.bin/jest --testTimeout=3500000 --forceExit",
-    "test:debug": "LOG_LEVEL=debug NODE_NO_WARNINGS=1 node --experimental-vm-modules ../node_modules/.bin/jest --testTimeout=1500000 --forceExit --testNamePattern prover/bb_prover/parity"
+    "test:debug": "LOG_LEVEL=debug NODE_NO_WARNINGS=1 node --experimental-vm-modules ../node_modules/.bin/jest --testTimeout=1500000 --forceExit --testNamePattern prover/bb_prover/parity",
+    "get-proof-inputs": "node --no-warnings ./dest/bin/get-proof-inputs.js"
   },
   "jest": {
     "moduleNameMapper": {
@@ -57,12 +59,7 @@
       ".ts"
     ],
     "reporters": [
-      [
-        "default",
-        {
-          "summaryThreshold": 9999
-        }
-      ]
+      "default"
     ],
     "testTimeout": 30000,
     "setupFiles": [
@@ -80,6 +77,7 @@
     "@aztec/simulator": "workspace:^",
     "@aztec/telemetry-client": "workspace:^",
     "@aztec/world-state": "workspace:^",
+    "@google-cloud/storage": "^7.15.0",
     "@noir-lang/types": "portal:../../noir/packages/types",
     "commander": "^12.1.0",
     "lodash.chunk": "^4.2.0",

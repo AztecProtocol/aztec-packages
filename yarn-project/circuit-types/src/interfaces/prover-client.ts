@@ -7,7 +7,6 @@ import { z } from 'zod';
 import { type TxHash } from '../tx/tx_hash.js';
 import { type EpochProver } from './epoch-prover.js';
 import { type ProvingJobConsumer } from './prover-broker.js';
-import { type ProvingJobStatus } from './proving-job.js';
 
 export type ActualProverConfig = {
   /** Whether to construct real proofs */
@@ -24,10 +23,10 @@ export type ProverConfig = ActualProverConfig & {
   nodeUrl?: string;
   /** Identifier of the prover */
   proverId: Fr;
-  /** Where to store temporary data */
-  cacheDir?: string;
-
+  /** Number of proving agents to start within the prover. */
   proverAgentCount: number;
+  /** Store for failed proof inputs. */
+  failedProofStore?: string;
 };
 
 export const ProverConfigSchema = z.object({
@@ -35,7 +34,6 @@ export const ProverConfigSchema = z.object({
   realProofs: z.boolean(),
   proverId: schemas.Fr,
   proverTestDelayMs: z.number(),
-  cacheDir: z.string().optional(),
   proverAgentCount: z.number(),
 }) satisfies ZodFor<ProverConfig>;
 
@@ -60,15 +58,15 @@ export const proverConfigMappings: ConfigMappingsType<ProverConfig> = {
     description: 'Artificial delay to introduce to all operations to the test prover.',
     ...numberConfigHelper(0),
   },
-  cacheDir: {
-    env: 'PROVER_CACHE_DIR',
-    description: 'Where to store cache data generated while proving',
-    defaultValue: '/tmp/aztec-prover',
-  },
   proverAgentCount: {
     env: 'PROVER_AGENT_COUNT',
     description: 'The number of prover agents to start',
     ...numberConfigHelper(1),
+  },
+  failedProofStore: {
+    env: 'PROVER_FAILED_PROOF_STORE',
+    description:
+      'Store for failed proof inputs. Google cloud storage is only supported at the moment. Set this value as gs://bucket-name/path/to/store.',
   },
 };
 
@@ -77,34 +75,11 @@ function parseProverId(str: string) {
 }
 
 /**
- * A database where the proving orchestrator can store intermediate results
- */
-export interface ProverCache {
-  /**
-   * Saves the status of a proving job
-   * @param jobId - The job ID
-   * @param status - The status of the proof
-   */
-  setProvingJobStatus(jobId: string, status: ProvingJobStatus): Promise<void>;
-
-  /**
-   * Retrieves the status of a proving job (if known)
-   * @param jobId - The job ID
-   */
-  getProvingJobStatus(jobId: string): Promise<ProvingJobStatus>;
-
-  /**
-   * Closes the cache
-   */
-  close(): Promise<void>;
-}
-
-/**
  * The interface to the prover client.
  * Provides the ability to generate proofs and build rollups.
  */
 export interface EpochProverManager {
-  createEpochProver(cache?: ProverCache): EpochProver;
+  createEpochProver(): EpochProver;
 
   start(): Promise<void>;
 
