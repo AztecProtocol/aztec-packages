@@ -42,8 +42,11 @@ rollup_honk_patterns=(
   "rollup_merge"
 )
 
+
 ivc_regex=$(IFS="|"; echo "${ivc_patterns[*]}")
 rollup_honk_regex=$(IFS="|"; echo "${rollup_honk_patterns[*]}")
+# We do this for the rollup root only.
+verifier_generate_regex=rollup_root
 
 function on_exit() {
   rm -rf $tmp_dir
@@ -115,6 +118,12 @@ function compile {
     local vkf_cmd="echo '$vk' | xxd -r -p | $BB $vk_as_fields_cmd -k - -o -"
     # echo_stderrr $vkf_cmd
     vk_fields=$(dump_fail "$vkf_cmd")
+
+    if echo "$name" | grep -qE "${verifier_generate_regex}"; then
+      # Generate solidity verifier for this contract.
+
+    fi
+    $BB contract_ultra_honk -k target/keys/rollup_root.vk.data.json -o UltraHonkVerifier.sol
     jq -n --arg vk "$vk" --argjson vkf "$vk_fields" '{keyAsBytes: $vk, keyAsFields: $vkf}' > $key_path
     echo_stderr "Key output at: $key_path (${SECONDS}s)"
     cache_upload vk-$hash.tar.gz $key_path &> /dev/null
@@ -127,7 +136,6 @@ function build {
 
   [ -f "package.json" ] && denoise "yarn && node ./scripts/generate_variants.js"
 
-  grep -oP '(?<=crates/)[^"]+' Nargo.toml | \
     while read -r dir; do
       toml_file=./crates/$dir/Nargo.toml
       if grep -q 'type = "bin"' "$toml_file"; then

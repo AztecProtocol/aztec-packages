@@ -590,7 +590,7 @@ void contract_honk(const std::string& output_path, const std::string& vk_path)
     auto vk = std::make_shared<VerificationKey>(from_buffer<VerificationKey>(read_file(vk_path)));
     vk->pcs_verification_key = std::make_shared<VerifierCommitmentKey>();
 
-    std::string contract = get_honk_solidity_verifier(std::move(vk));
+    std::string contract = get_honk_solidity_verifier(vk);
 
     if (output_path == "-") {
         writeStringToStdout(contract);
