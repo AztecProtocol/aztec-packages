@@ -97,7 +97,7 @@ describe('AVM WitGen, "check circuit" tests', () => {
     async () => {
       await proveAndVerifyAvmTestContractSimple(
         /*checkCircuitOnly=*/ true, // quick
-        'n_new_unencrypted_logs',
+        'n_new_public_logs',
         /*args=*/ [new Fr(MAX_PUBLIC_LOGS_PER_TX + 1)],
         /*expectRevert=*/ true,
       );

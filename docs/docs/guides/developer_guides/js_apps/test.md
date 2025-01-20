@@ -121,11 +121,11 @@ Public state behaves as a key-value store, much like in the EVM. We can directly
 
 You can check the logs of events emitted by contracts. Contracts in Aztec can emit both encrypted and unencrypted events.
 
-#### Querying unencrypted logs
+#### Querying public logs
 
-We can query the PXE for the unencrypted logs emitted in the block where our transaction is mined. Logs need to be unrolled and formatted as strings for consumption.
+We can query the PXE for the public logs emitted in the block where our transaction is mined.
 
-#include_code unencrypted-logs /yarn-project/end-to-end/src/guides/dapp_testing.test.ts typescript
+#include_code public-logs /yarn-project/end-to-end/src/guides/dapp_testing.test.ts typescript
 
 ## Cheats
 

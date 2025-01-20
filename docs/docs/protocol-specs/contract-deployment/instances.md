@@ -130,7 +130,7 @@ fn deploy (
 
   emit_nullifier(address);
 
-  emit_unencrypted_event(ContractInstanceDeployed::new(address, version, salt, contract_class_id, initialization_hash, public_keys_hash));
+  emit_public_log(ContractInstanceDeployed::new(address, version, salt, contract_class_id, initialization_hash, public_keys_hash));
 ```
 
 > See [address](../addresses-and-keys/address.md) for `address_crh`.

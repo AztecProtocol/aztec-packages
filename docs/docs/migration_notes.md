@@ -16,6 +16,12 @@ Any log emitted from public is now known as a public log, rather than an unencry
 + getPublicEvents<T>(eventMetadata: EventMetadataDefinition, from: number, limit: number): Promise<T[]>
 ```
 
+The context method in aztec.nr is now:
+```diff
+- context.emit_unencrypted_log(log)
++ context.emit_public_log(log)
+```
+
 These logs were treated as bytes in the node and as hashes in the protocol circuits. Now, public logs are treated as fields everywhere:
 ```diff
 - unencryptedLogs: UnencryptedTxL2Logs

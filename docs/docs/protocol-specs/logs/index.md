@@ -4,6 +4,7 @@ title: Logs
 
 <!-- Did we resolve how to prevent impersonation for all kinds of log? -->
 <!-- We have a DoS problem, if a user sends a huge, malicious log preimage which DOES NOT hash to the logs_hash in the public inputs. The sequencer wastes time computing the hash, but cannot include the hash in their tx. -->
+<!-- TODO: completely overhaul this, it's been incorrect for a long time. -->
 
 Logs on Aztec are similar to logs on Ethereum, enabling smart contracts to convey arbitrary data to external entities. Offchain applications can use logs to interpret events that have occurred on-chain. There are three types of log:
 
@@ -64,12 +65,12 @@ Both the `accumulated_logs_hash` and `accumulated_logs_length` for each type are
 
 When publishing a block on L1, the raw logs of each type and their lengths are provided (**Availability**), hashed and accumulated into each respective `accumulated_logs_hash` and `accumulated_logs_length`, then included in the on-chain recalculation of `txs_effect_hash`. If this value doesn't match the one from the rollup circuits, the block will not be valid (**Immutability**).
 
-<!-- 
+<!--
 In cases where two proofs are combined to form a single proof, the _accumulated_logs_hash_ and _accumulated_logs_length_ from the two child proofs must be merged into one accumulated value:
 
 - _`accumulated_logs_hash = hash(proof_0.accumulated_logs_hash, proof_1.accumulated_logs_hash)`_
   - If either hash is zero, the new hash will be _`proof_0.accumulated_logs_hash | proof_1.accumulated_logs_hash`_.
-- _`accumulated_logs_length = proof_0.accumulated_logs_length + proof_1.accumulated_logs_length`_ 
+- _`accumulated_logs_length = proof_0.accumulated_logs_length + proof_1.accumulated_logs_length`_
 -->
 
 For private and public kernel circuits, beyond aggregating logs from a function call, they ensure that the contract's address emitting the logs is linked to the _logs_hash_. For more details, refer to the "Hashing" sections in [Unencrypted Log](#hashing-1), [Encrypted Log](#hashing-2), and [Encrypted Note Preimage](#hashing-3).

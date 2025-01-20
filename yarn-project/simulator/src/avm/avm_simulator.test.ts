@@ -696,7 +696,7 @@ describe('AVM simulator: transpiled Noir contracts', () => {
     describe('Public Logs', () => {
       it(`Emit public logs (should be traced)`, async () => {
         const context = createContext();
-        const bytecode = getAvmTestContractBytecode('emit_unencrypted_log');
+        const bytecode = getAvmTestContractBytecode('emit_public_log');
 
         const results = await new AvmSimulator(context).executeBytecode(bytecode);
         expect(results.reverted).toBe(false);

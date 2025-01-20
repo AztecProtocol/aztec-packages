@@ -10,10 +10,8 @@ In particular, the following fields of the returned `CallStackItem` must be zero
 - `new_nullifiers`
 - `nullified_commitments`
 - `new_l2_to_l1_msgs`
-- `encrypted_logs_hash`
-- `unencrypted_logs_hash`
-- `encrypted_log_preimages_length`
-- `unencrypted_log_preimages_length`
+- `private_logs`
+- `public_logs`
 
 From the moment a static call is made, every subsequent nested call is forced to be static by setting a flag in the derived `CallContext`, which propagates through the call stack.
 

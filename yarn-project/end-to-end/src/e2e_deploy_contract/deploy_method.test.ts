@@ -107,7 +107,7 @@ describe('e2e_deploy_contract deploy method', () => {
     logger.debug(`Deploying contract with no constructor`);
     const contract = await TestContract.deploy(wallet).send().deployed();
     logger.debug(`Call a public function to check that it was publicly deployed`);
-    const receipt = await contract.methods.emit_unencrypted(42).send().wait();
+    const receipt = await contract.methods.emit_public(42).send().wait();
     const logs = await pxe.getPublicLogs({ txHash: receipt.txHash });
     expect(logs.logs[0].log.log[0]).toEqual(new Fr(42));
   });
