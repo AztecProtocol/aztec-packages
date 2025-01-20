@@ -32,17 +32,17 @@ describe('buildBlobHints', () => {
     // Run with AZTEC_GENERATE_TEST_DATA=1 to update noir test data.
     updateInlineTestData(
       'noir-projects/noir-protocol-circuits/crates/rollup-lib/src/block_root/empty_block_root_rollup_inputs.nr',
-      'expected_empty_blob_commitment',
+      'expected_empty_effect_blob_commitment',
       blobCommitmentStr,
     );
     updateInlineTestData(
       'noir-projects/noir-protocol-circuits/crates/rollup-lib/src/block_root/empty_block_root_rollup_inputs.nr',
-      'expected_empty_blobs_hash',
+      'expected_empty_effect_blobs_hash',
       blobsHashStr,
     );
     updateInlineTestData(
       'noir-projects/noir-protocol-circuits/crates/rollup-lib/src/block_root/empty_block_root_rollup_inputs.nr',
-      'expected_z',
+      'expected_empty_effect_challenge_z',
       zStr,
     );
   });
@@ -100,7 +100,7 @@ describe('buildBlobHints', () => {
     );
     updateInlineTestData(
       'noir-projects/noir-protocol-circuits/crates/rollup-lib/src/block_root/block_root_rollup_inputs.nr',
-      'expected_z',
+      'expected_challenge_z',
       zStr,
     );
   });
