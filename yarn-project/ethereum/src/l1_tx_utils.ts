@@ -101,7 +101,7 @@ export const l1TxUtilsConfigMappings: ConfigMappingsType<L1TxUtilsConfig> = {
   gasLimitBufferPercentage: {
     description: 'How much to increase calculated gas limit by (percentage)',
     env: 'L1_GAS_LIMIT_BUFFER_PERCENTAGE',
-    ...numberConfigHelper(15),
+    ...numberConfigHelper(20),
   },
   minGwei: {
     description: 'Minimum gas price in gwei',
@@ -252,9 +252,9 @@ export class L1TxUtils {
 
       return { txHash, gasLimit, gasPrice };
     } catch (err: any) {
-      const formattedErr = formatViemError(err);
-      this.logger?.error(`Failed to send transaction`, formattedErr);
-      throw formattedErr;
+      const { message, ...error } = formatViemError(err);
+      this.logger?.error(`Failed to send transaction`, message, error);
+      throw { ...error, message };
     }
   }
 
@@ -389,10 +389,10 @@ export class L1TxUtils {
         }
         await sleep(gasConfig.checkIntervalMs!);
       } catch (err: any) {
-        const formattedErr = formatViemError(err);
-        this.logger?.warn(`Error monitoring tx ${currentTxHash}:`, formattedErr);
+        const { message, ...error } = formatViemError(err);
+        this.logger?.warn(`Error monitoring tx ${currentTxHash}:`, message);
         if (err.message?.includes('reverted')) {
-          throw formattedErr;
+          throw { ...error, message };
         }
         await sleep(gasConfig.checkIntervalMs!);
       }

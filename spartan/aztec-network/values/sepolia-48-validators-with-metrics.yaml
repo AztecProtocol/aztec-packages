@@ -1,6 +1,9 @@
 telemetry:
   enabled: true
 
+aztec:
+  slotDuration: 36 # in seconds,
+
 network:
   setupL2Contracts: false
   public: false

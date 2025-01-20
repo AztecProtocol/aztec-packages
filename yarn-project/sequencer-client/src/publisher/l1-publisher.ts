@@ -546,8 +546,8 @@ export class L1Publisher {
         account: this.account,
       });
     } catch (err) {
-      const msg = formatViemError(err);
-      logger.error(`Failed to vote`, msg);
+      const { message, ...error } = formatViemError(err);
+      logger.error(`Failed to vote`, message, error);
       this.myLastVotes[voteType] = cachedMyLastVote;
       return false;
     }

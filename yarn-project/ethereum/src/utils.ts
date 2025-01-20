@@ -88,7 +88,7 @@ export function prettyLogViemErrorMsg(err: any) {
  * @param abi - The ABI to use for decoding.
  * @returns A human-readable string.
  */
-export function formatViemError(error: any, abi: Abi = RollupAbi): string {
+export function formatViemError(error: any, abi: Abi = RollupAbi) {
   // First try to decode as a custom error using the ABI
   try {
     if (error?.data) {
@@ -98,7 +98,7 @@ export function formatViemError(error: any, abi: Abi = RollupAbi): string {
         data: error.data as Hex,
       });
       if (decoded) {
-        return `${decoded.errorName}(${decoded.args?.join(', ') ?? ''})`;
+        return { ...error, message: `${decoded.errorName}(${decoded.args?.join(', ') ?? ''})` };
       }
     }
 
@@ -111,7 +111,7 @@ export function formatViemError(error: any, abi: Abi = RollupAbi): string {
           revertError.metaMessages && revertError.metaMessages?.length > 1
             ? revertError.metaMessages[1].trimStart()
             : '';
-        return `${errorName}${args}`;
+        return { ...error, message: `${errorName}${args}` };
       }
     }
   } catch (decodeErr) {
@@ -206,8 +206,12 @@ export function formatViemError(error: any, abi: Abi = RollupAbi): string {
     return result;
   };
 
-  return JSON.stringify({ error: extractAndFormatRequestBody(error?.message || String(error)) }, null, 2).replace(
-    /\\n/g,
-    '\n',
-  );
+  return JSON.stringify(
+    {
+      ...(typeof error === 'object' ? error : {}),
+      message: extractAndFormatRequestBody(error?.message || String(error)),
+    },
+    null,
+    2,
+  ).replace(/\\n/g, '\n');
 }

@@ -14,7 +14,6 @@ import {
   createPublicClient,
   createWalletClient,
   http,
-  keccak256,
 } from 'viem';
 import { mnemonicToAccount, privateKeyToAccount } from 'viem/accounts';
 import { foundry } from 'viem/chains';
