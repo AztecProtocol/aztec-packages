@@ -6,12 +6,14 @@ keywords: [sandbox, aztec, notes, migration, updating, upgrading]
 
 Aztec is in full-speed development. Literally every version breaks compatibility with the previous ones. This page attempts to target errors and difficulties you might encounter when upgrading, and how to resolve them.
 
-## 0.71.0
+## 0.72.0
 ### Public logs replace unencrypted logs
 Any log emitted from public is now known as a public log, rather than an unencrypted log. This means methods relating to these logs have been renamed e.g. in the pxe, archiver, txe:
 ```diff
 - getUnencryptedLogs(filter: LogFilter): Promise<GetUnencryptedLogsResponse>
+- getUnencryptedEvents<T>(eventMetadata: EventMetadataDefinition, from: number, limit: number): Promise<T[]>
 + getPublicLogs(filter: LogFilter): Promise<GetPublicLogsResponse>
++ getPublicEvents<T>(eventMetadata: EventMetadataDefinition, from: number, limit: number): Promise<T[]>
 ```
 
 These logs were treated as bytes in the node and as hashes in the protocol circuits. Now, public logs are treated as fields everywhere:
@@ -22,6 +24,12 @@ These logs were treated as bytes in the node and as hashes in the protocol circu
 + public_logs: [PublicLog; MAX_PUBLIC_LOGS_PER_TX]
 ```
 A `PublicLog` contains the log (as an array of fields) and the app address.
+
+This PR also renamed encrypted events to private events:
+```diff
+- getEncryptedEvents<T>(eventMetadata: EventMetadataDefinition, from: number, limit: number, vpks: Point[]): Promise<T[]>
++ getPrivateEvents<T>(eventMetadata: EventMetadataDefinition, from: number, limit: number, vpks: Point[]): Promise<T[]>
+```
 
 ## 0.70.0
 ### [Aztec.nr] Removal of `getSiblingPath` oracle
