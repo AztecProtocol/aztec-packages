@@ -6,6 +6,7 @@ cmd=${1:-}
 hash=$(cache_content_hash ^aztec-up/)
 
 function build_dind_image {
+  echo_header "aztec-up build test image"
   docker build -t aztecprotocol/dind .
 }
 

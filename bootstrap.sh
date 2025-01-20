@@ -147,6 +147,7 @@ function build {
     yarn-project
     boxes
     docs
+    release-image
     aztec-up
   )
 
@@ -261,10 +262,6 @@ case "$cmd" in
       docker push $image
     fi
   ;;
-  "image")
-    docker build -t aztecprotocol/aztec:$(git rev-parse HEAD) .
-    docker tag aztecprotocol/aztec:$(git rev-parse HEAD) aztecprotocol/aztec:latest
-    ;;
   ""|"fast"|"full")
     build $cmd
   ;;
