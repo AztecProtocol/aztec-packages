@@ -296,11 +296,14 @@ template <typename Flavor> class SumcheckProver {
                 // Place the evaluations of the round univariate into transcript.
                 transcript->send_to_verifier("Sumcheck:univariate_0", round_univariate);
             } else {
-
+                // Compute the vector {0, 1, \ldots, BATCHED_RELATION_PARTIAL_LENGTH-1} needed to transform the round
+                // univariates from Lagrange to monomial basis
                 for (size_t idx = 0; idx < BATCHED_RELATION_PARTIAL_LENGTH; idx++) {
                     eval_domain.push_back(FF(idx));
                 }
 
+                // Compute monomial coefficients of the round univariate, commit to it, populate an auxiliary structure
+                // needed in the PCS round
                 commit_to_round_univariate(
                     round_idx, round_univariate, eval_domain, transcript, ck, round_univariates, round_evaluations);
             }
@@ -334,6 +337,9 @@ template <typename Flavor> class SumcheckProver {
                 // Place evaluations of Sumcheck Round Univariate in the transcript
                 transcript->send_to_verifier("Sumcheck:univariate_" + std::to_string(round_idx), round_univariate);
             } else {
+
+                // Compute monomial coefficients of the round univariate, commit to it, populate an auxiliary structure
+                // needed in the PCS round
                 commit_to_round_univariate(
                     round_idx, round_univariate, eval_domain, transcript, ck, round_univariates, round_evaluations);
             }
@@ -485,6 +491,18 @@ polynomials that are sent in clear.
         return multivariate_evaluations;
     };
 
+    /**
+     * @brief  Compute monomial coefficients of the round univariate, commit to it, populate an auxiliary structure
+     * needed in the PCS round
+     *
+     * @param round_idx
+     * @param round_univariate Sumcheck Round Univariate
+     * @param eval_domain {0, 1, ... , BATCHED_RELATION_PARTIAL_LENGTH-1}
+     * @param transcript
+     * @param ck Commitment key of size BATCHED_RELATION_PARTIAL_LENGTH
+     * @param round_univariates Auxiliary container to be fed to Shplemini
+     * @param round_univariate_evaluations  Auxiliary container to be fed to Shplemini
+     */
     void commit_to_round_univariate(const size_t round_idx,
                                     bb::Univariate<FF, BATCHED_RELATION_PARTIAL_LENGTH>& round_univariate,
                                     const std::vector<FF>& eval_domain,
@@ -495,20 +513,20 @@ polynomials that are sent in clear.
     {
 
         const std::string idx = std::to_string(round_idx);
+
+        // Transform to monomial form and commit to it
         Polynomial<FF> round_poly_monomial =
             Polynomial<FF>(eval_domain, std::span<FF>(round_univariate.evaluations), BATCHED_RELATION_PARTIAL_LENGTH);
-        auto round_univariate_commitment = ck->commit(round_poly_monomial);
-        transcript->send_to_verifier("Sumcheck:univariate_comm_" + idx, round_univariate_commitment);
+        transcript->send_to_verifier("Sumcheck:univariate_comm_" + idx, ck->commit(round_poly_monomial));
 
-        // Store round univariate in monomial, as it is required for Shplonk
+        // Store round univariate in monomial, as it is required by Shplemini
         round_univariates.push_back(std::move(round_poly_monomial));
 
-        // Send the evaluations of the rounds univariate at 0 and 1
+        // Send the evaluations of the round univariate at 0 and 1
         transcript->send_to_verifier("Sumcheck:univariate_" + idx + "_eval_0", round_univariate.value_at(0));
         transcript->send_to_verifier("Sumcheck:univariate_" + idx + "_eval_1", round_univariate.value_at(1));
 
-        // Store the evaluations to be used in Shplonk. Third value will be computed after getting the round
-        // challenge
+        // Store the evaluations to be used by ShpleminiProver.
         round_univariate_evaluations.push_back({ round_univariate.value_at(0), round_univariate.value_at(1), FF(0) });
         if (round_idx > 0) {
             round_univariate_evaluations[round_idx - 1][2] =
@@ -588,11 +606,14 @@ template <typename Flavor> class SumcheckVerifier {
 
     std::shared_ptr<Transcript> transcript;
     SumcheckVerifierRound<Flavor> round;
-
-    static constexpr bool IS_ECCVM = std::is_same_v<Flavor, ECCVMFlavor> || IsECCVMRecursiveFlavor<Flavor>;
+    FF libra_evaluation{ 0 };
+    FF libra_challenge;
+    FF libra_total_sum;
 
     std::vector<Commitment> round_univariate_commitments = {};
     std::vector<std::array<FF, 3>> round_univariate_evaluations = {};
+
+    typename Flavor::CircuitBuilder* builder;
 
     // Verifier instantiates sumcheck with circuit size, optionally a different target sum than 0 can be specified.
     explicit SumcheckVerifier(size_t multivariate_d, std::shared_ptr<Transcript> transcript, FF target_sum = 0)
@@ -624,13 +645,12 @@ template <typename Flavor> class SumcheckVerifier {
             throw_or_abort("Number of variables in multivariate is 0.");
         }
 
-        FF libra_challenge;
         bb::Univariate<FF, BATCHED_RELATION_PARTIAL_LENGTH> round_univariate;
 
         if constexpr (Flavor::HasZK) {
             // If running zero-knowledge sumcheck the target total sum is corrected by the claimed sum of libra masking
             // multivariate over the hypercube
-            FF libra_total_sum = transcript->template receive_from_prover<FF>("Libra:Sum");
+            libra_total_sum = transcript->template receive_from_prover<FF>("Libra:Sum");
             libra_challenge = transcript->template get_challenge<FF>("Libra:Challenge");
             round.target_total_sum += libra_total_sum * libra_challenge;
         }
@@ -683,17 +703,12 @@ template <typename Flavor> class SumcheckVerifier {
             purported_evaluations, relation_parameters, gate_separators, alpha);
 
         // For ZK Flavors: the evaluation of the Row Disabling Polynomial at the sumcheck challenge
-        FF libra_evaluation{ 0 };
         if constexpr (Flavor::HasZK) {
             libra_evaluation = transcript->template receive_from_prover<FF>("Libra:claimed_evaluation");
             FF correcting_factor =
                 RowDisablingPolynomial<FF>::evaluate_at_challenge(multivariate_challenge, multivariate_d);
             full_honk_purported_value =
                 full_honk_purported_value * correcting_factor + libra_evaluation * libra_challenge;
-            if constexpr (IsECCVMRecursiveFlavor<Flavor>) {
-                // TODO(https://github.com/AztecProtocol/barretenberg/issues/1197)
-                full_honk_purported_value.self_reduce();
-            }
         }
 
         //! [Final Verification Step]
@@ -713,11 +728,11 @@ template <typename Flavor> class SumcheckVerifier {
      * @brief Sumcheck Verifier for ECCVM and ECCVMRecursive.
      * @details The verifier receives commitments to RoundUnivariates, along with their evaluations at 0 and 1. These
      * evaluations will be proved as a part of Shplemini. The only check that the Verifier performs in this version is
-     * the comparison of the target sumcheck sum with the claimed evaluations of the first sumcheck round univariate.
+     * the comparison of the target sumcheck sum with the claimed evaluations of the first sumcheck round univariate at
+     * 0 and 1.
      *
-     * Note that the SumcheckOutput in this case contains a vector of commitments and a vector of arrays of evaluations
-     * at 0 and 1. Moreover, the purported honk value computed by the verifier has to be propagated to the PCS round, as
-     * it gives a claimed evaluation of the last sumcheck univariate.
+     * Note that the SumcheckOutput in this case contains a vector of commitments and a vector of arrays (of size 3) of
+     * evaluations at 0, 1, and a round challenge.
      *
      * @param relation_parameters
      * @param alpha
@@ -740,7 +755,7 @@ template <typename Flavor> class SumcheckVerifier {
         }
 
         // get the claimed sum of libra masking multivariate over the hypercube
-        const FF libra_total_sum = transcript->template receive_from_prover<FF>("Libra:Sum");
+        libra_total_sum = transcript->template receive_from_prover<FF>("Libra:Sum");
         // get the challenge for the ZK Sumcheck claim
         const FF libra_challenge = transcript->template get_challenge<FF>("Libra:Challenge");
 
@@ -769,7 +784,7 @@ template <typename Flavor> class SumcheckVerifier {
             multivariate_challenge.emplace_back(round_challenge);
 
             if constexpr (IsRecursiveFlavor<Flavor>) {
-                typename Flavor::CircuitBuilder* builder = round_challenge.get_context();
+                builder = round_challenge.get_context();
                 // TODO(https://github.com/AztecProtocol/barretenberg/issues/1114): insecure dummy_round derivation!
                 stdlib::bool_t dummy_round = stdlib::witness_t(builder, round_idx >= multivariate_d);
                 // Only utilize the checked value if this is not a constant proof size padding round
@@ -786,9 +801,6 @@ template <typename Flavor> class SumcheckVerifier {
             round_univariate_evaluations[0][0] + round_univariate_evaluations[0][1];
 
         // Populate claimed evaluations at the challenge
-
-        // Extract claimed evaluations of Libra univariates and compute their sum multiplied by the Libra challenge
-
         ClaimedEvaluations purported_evaluations;
         auto transcript_evaluations =
             transcript->template receive_from_prover<std::array<FF, NUM_POLYNOMIALS>>("Sumcheck:evaluations");
@@ -801,19 +813,29 @@ template <typename Flavor> class SumcheckVerifier {
         FF full_honk_purported_value = round.compute_full_relation_purported_value(
             purported_evaluations, relation_parameters, gate_separators, alpha);
 
+        // Extract claimed evaluations of Libra univariates and compute their sum multiplied by the Libra challenge
         const FF libra_evaluation = transcript->template receive_from_prover<FF>("Libra:claimed_evaluation");
-        const FF correcting_factor =
-            RowDisablingPolynomial<FF>::evaluate_at_challenge(multivariate_challenge, multivariate_d);
-        full_honk_purported_value = full_honk_purported_value * correcting_factor + libra_evaluation * libra_challenge;
-        if constexpr (IsECCVMRecursiveFlavor<Flavor>) {
+
+        // We have to branch here for two reasons:
+        // 1) need to make the vk constant
+        // 2) ECCVMRecursive uses big_field where we need to self_reduce().
+        if constexpr (IsRecursiveFlavor<Flavor>) {
+            // Compute the evaluations of the polynomial (1 - \sum L_i) where the sum is for i corresponding to the rows
+            // where all sumcheck relations are disabled
+            const FF correcting_factor =
+                RowDisablingPolynomial<FF>::evaluate_at_challenge(multivariate_challenge, multivariate_d, builder);
+
+            // Verifier computes full ZK Honk value, taking into account the contribution from the disabled row and the
+            // Libra polynomials
+            full_honk_purported_value =
+                full_honk_purported_value * correcting_factor + libra_evaluation * libra_challenge;
+
             // TODO(https://github.com/AztecProtocol/barretenberg/issues/1197)
             full_honk_purported_value.self_reduce();
-        }
 
-        if constexpr (IsRecursiveFlavor<Flavor>) {
-
+            // Populate claimed evaluations of Sumcheck Round Unviariates at the round challenges. These will be
+            // checked as a part of Shplemini and pad claimed evaluations to the CONST_PROOF_SIZE_LOG_N
             for (size_t round_idx = 1; round_idx < CONST_PROOF_SIZE_LOG_N; round_idx++) {
-                typename Flavor::CircuitBuilder* builder = libra_challenge.get_context();
                 // TODO(https://github.com/AztecProtocol/barretenberg/issues/1114): insecure dummy_round derivation!
                 stdlib::bool_t dummy_round = stdlib::witness_t(builder, round_idx >= multivariate_d);
                 round_univariate_evaluations[round_idx - 1][2] = FF::conditional_assign(
@@ -824,16 +846,36 @@ template <typename Flavor> class SumcheckVerifier {
 
             first_sumcheck_round_evaluations_sum.self_reduce();
             round.target_total_sum.self_reduce();
+
+            // Ensure that the sum of the evaluations of the first Sumcheck Round Univariate is equal to the claimed
+            // target total sum
             first_sumcheck_round_evaluations_sum.assert_equal(round.target_total_sum);
             verified = (first_sumcheck_round_evaluations_sum.get_value() == round.target_total_sum.get_value());
         } else {
+            // Compute the evaluations of the polynomial (1 - \sum L_i) where the sum is for i corresponding to the rows
+            // where all sumcheck relations are disabled
+            const FF correcting_factor =
+                RowDisablingPolynomial<FF>::evaluate_at_challenge(multivariate_challenge, multivariate_d);
+
+            // Verifier computes full ZK Honk value, taking into account the contribution from the disabled row and the
+            // Libra polynomials
+            full_honk_purported_value =
+                full_honk_purported_value * correcting_factor + libra_evaluation * libra_challenge;
+
+            // Populate claimed evaluations of Sumcheck Round Unviariates at the round challenges. These will be checked
+            // as a part of Shplemini
             for (size_t round_idx = 1; round_idx < multivariate_d; round_idx++) {
                 round_univariate_evaluations[round_idx - 1][2] =
                     round_univariate_evaluations[round_idx][0] + round_univariate_evaluations[round_idx][1];
             };
+
+            // Pad claimed evaluations to the CONST_PROOF_SIZE_LOG_N
             for (size_t round_idx = multivariate_d; round_idx < CONST_PROOF_SIZE_LOG_N; round_idx++) {
                 round_univariate_evaluations[round_idx - 1][2] = full_honk_purported_value;
             };
+
+            // Ensure that the sum of the evaluations of the first Sumcheck Round Univariate is equal to the claimed
+            // target total sum
             verified = (first_sumcheck_round_evaluations_sum == round.target_total_sum);
         }
 

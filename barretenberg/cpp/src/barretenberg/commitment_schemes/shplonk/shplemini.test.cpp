@@ -34,7 +34,15 @@ template <class Flavor> class ShpleminiTest : public CommitmentTest<typename Fla
     using GroupElement = typename Flavor::Curve::Element;
     using Commitment = typename Flavor::Curve::AffineElement;
     using CK = typename Flavor::CommitmentKey;
-
+    /**
+     * @brief Create Sumcheck
+     *
+     * @param round_univariates
+     * @param sumcheck_commitments
+     * @param sumcheck_evaluations
+     * @param challenge
+     * @param ck
+     */
     void compute_sumcheck_opening_data(std::vector<bb::Polynomial<Fr>>& round_univariates,
                                        std::vector<Commitment>& sumcheck_commitments,
                                        std::vector<std::array<Fr, 3>>& sumcheck_evaluations,
