@@ -1,6 +1,6 @@
 import DialogTitle from "@mui/material/DialogTitle";
 import Dialog from "@mui/material/Dialog";
-import { AccountWalletWithSecretKey, Fr, PXE } from "@aztec/aztec.js";
+import { AccountWalletWithSecretKey, Fr } from "@aztec/aztec.js";
 import { getSchnorrAccount } from "@aztec/accounts/schnorr";
 import {
   Button,
@@ -10,7 +10,7 @@ import {
   css,
 } from "@mui/material";
 import { useContext, useState } from "react";
-import { deriveSigningKey } from "@aztec/circuits.js";
+import { deriveSigningKey } from "@aztec/circuits.js/keys";
 import { AztecContext } from "../../home/home";
 
 const creationForm = css({

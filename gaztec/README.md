@@ -1,50 +1,34 @@
-# React + TypeScript + Vite
+# GAztec
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+Initial version of an "everything app" that can be used to test and benchmark Aztec.
 
-Currently, two official plugins are available:
+  * PXE in the browser with client proofs
+  * Connect to local sandbox or any network (scoped data)
+  * Lazy loading of most assets (think contract artifacts) and WASM (bb still loads at start due to top-level await, but in parallel as it is separated from the main index,js)
+  * Bundled by vite, 1MB compressed
+  * Drop any contract artifact, interpret its ABI, simulate and send
+  * Acts as a barebones wallet, managing auth scopes and separating accounts
+  * Stores artifacts, accounts and all that's required to pick up where you left off without having to redeploy everything (indexeddb)
+  * Supports basic aliasing of addresses
+  * Allows loading an artifact, provide the address and go (instead of having to deploy it)
+  * Add senders/contact management
+  * Authwits
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react/README.md) uses [Babel](https://babeljs.io/) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+Missing:
 
-## Expanding the ESLint configuration
+  * Benchmarking window where simulation/proving stats are displayed
 
-If you are developing a production application, we recommend updating the configuration to enable type aware lint rules:
+## To run
 
-- Configure the top-level `parserOptions` property like this:
+Dev:
 
-```js
-export default tseslint.config({
-  languageOptions: {
-    // other options...
-    parserOptions: {
-      project: ['./tsconfig.node.json', './tsconfig.app.json'],
-      tsconfigRootDir: import.meta.dirname,
-    },
-  },
-})
+```
+yarn dev
 ```
 
-- Replace `tseslint.configs.recommended` to `tseslint.configs.recommendedTypeChecked` or `tseslint.configs.strictTypeChecked`
-- Optionally add `...tseslint.configs.stylisticTypeChecked`
-- Install [eslint-plugin-react](https://github.com/jsx-eslint/eslint-plugin-react) and update the config:
+Production:
 
-```js
-// eslint.config.js
-import react from 'eslint-plugin-react'
-
-export default tseslint.config({
-  // Set the react version
-  settings: { react: { version: '18.3' } },
-  plugins: {
-    // Add the react plugin
-    react,
-  },
-  rules: {
-    // other rules...
-    // Enable its recommended rules
-    ...react.configs.recommended.rules,
-    ...react.configs['jsx-runtime'].rules,
-  },
-})
 ```
+yarn build
+yarn preview
+``````

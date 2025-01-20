@@ -4,7 +4,6 @@ import "./dropzone.css";
 import { useContext, useEffect, useState } from "react";
 import {
   AuthWitness,
-  AztecAddress,
   Contract,
   ContractArtifact,
   ContractInstanceWithAddress,

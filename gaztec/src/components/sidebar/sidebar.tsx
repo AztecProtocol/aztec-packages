@@ -13,12 +13,12 @@ import {
   TxHash,
   createLogger,
   loadContractArtifact,
+  AztecAddress,
 } from "@aztec/aztec.js";
 import { WalletDB } from "../../utils/storage";
 import { useContext, useEffect, useState } from "react";
 import { CreateAccountDialog } from "./components/createAccountDialog";
 import { getSchnorrAccount } from "@aztec/accounts/schnorr";
-import { AztecAddress, deriveSigningKey } from "@aztec/circuits.js";
 import AddIcon from "@mui/icons-material/Add";
 import logoURL from "../../assets/Aztec_logo.png";
 import { Button, Divider, Typography } from "@mui/material";
@@ -31,6 +31,7 @@ import { ContractFunctionInteractionTx } from "../../utils/txs";
 import ContactsIcon from "@mui/icons-material/Contacts";
 import { CopyToClipboardButton } from "../common/copyToClipboardButton";
 import { AddSendersDialog } from "./components/addSenderDialog";
+import { deriveSigningKey } from "@aztec/circuits.js/keys";
 
 const container = css({
   display: "flex",

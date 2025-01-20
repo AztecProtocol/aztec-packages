@@ -14,7 +14,6 @@
     "@aztec/accounts": "link:../yarn-project/accounts",
     "@aztec/aztec.js": "link:../yarn-project/aztec.js",
     "@aztec/bb-prover": "link:../yarn-project/bb-prover",
-    "@aztec/circuit-types": "link:../yarn-project/circuit-types",
     "@aztec/circuits.js": "link:../yarn-project/circuits.js",
     "@aztec/foundation": "link:../yarn-project/foundation",
     "@aztec/key-store": "link:../yarn-project/key-store",

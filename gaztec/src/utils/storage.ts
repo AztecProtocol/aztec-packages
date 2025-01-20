@@ -1,6 +1,11 @@
-import { ContractArtifact } from "@aztec/aztec.js";
-import { TxReceipt, type AuthWitness, type TxHash } from "@aztec/circuit-types";
-import { type AztecAddress, Fr } from "@aztec/circuits.js";
+import {
+  ContractArtifact,
+  type AztecAddress,
+  Fr,
+  TxReceipt,
+  type AuthWitness,
+  type TxHash,
+} from "@aztec/aztec.js";
 import { type LogFn } from "@aztec/foundation/log";
 import {
   type AztecAsyncMap,

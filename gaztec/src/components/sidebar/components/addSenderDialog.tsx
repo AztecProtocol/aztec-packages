@@ -2,7 +2,7 @@ import DialogTitle from "@mui/material/DialogTitle";
 import Dialog from "@mui/material/Dialog";
 import { Button, TextField, css } from "@mui/material";
 import { useState } from "react";
-import { AztecAddress } from "@aztec/circuits.js";
+import { AztecAddress } from "@aztec/aztec.js";
 
 const creationForm = css({
   display: "flex",

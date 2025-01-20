@@ -1,6 +1,11 @@
 import DialogTitle from "@mui/material/DialogTitle";
 import Dialog from "@mui/material/Dialog";
-import { Contract } from "@aztec/aztec.js";
+import {
+  Contract,
+  AztecAddress,
+  ContractInstanceWithAddress,
+  ContractArtifact,
+} from "@aztec/aztec.js";
 import {
   Button,
   CircularProgress,
@@ -11,8 +16,6 @@ import {
   css,
 } from "@mui/material";
 import { useContext, useState } from "react";
-import { AztecAddress, ContractInstanceWithAddress } from "@aztec/circuits.js";
-import { ContractArtifact } from "@aztec/foundation/abi";
 import { GITHUB_TAG_PREFIX } from "../../../utils/interactions";
 import { AztecContext } from "../../home/home";
 

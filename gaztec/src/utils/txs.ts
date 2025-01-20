@@ -1,5 +1,4 @@
-import { TxHash, TxReceipt, TxStatus } from "@aztec/circuit-types";
-import { AztecAddress } from "@aztec/circuits.js";
+import { TxHash, TxReceipt, TxStatus, AztecAddress } from "@aztec/aztec.js";
 
 export type ContractFunctionInteractionTx = {
   txHash?: TxHash;

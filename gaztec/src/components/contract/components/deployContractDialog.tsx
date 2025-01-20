@@ -1,12 +1,11 @@
 import DialogTitle from "@mui/material/DialogTitle";
 import Dialog from "@mui/material/Dialog";
 import {
-  AccountWalletWithSecretKey,
   ContractDeployer,
-  Fr,
+  ContractInstanceWithAddress,
+  PublicKeys,
 } from "@aztec/aztec.js";
 import {
-  Autocomplete,
   Button,
   CircularProgress,
   FormControl,
@@ -19,7 +18,6 @@ import {
   css,
 } from "@mui/material";
 import { useContext, useEffect, useState } from "react";
-import { ContractInstanceWithAddress, PublicKeys } from "@aztec/circuits.js";
 import {
   ContractArtifact,
   FunctionArtifact,

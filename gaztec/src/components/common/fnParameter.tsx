@@ -14,7 +14,6 @@ import {
 import { Fragment, useContext, useState } from "react";
 import EditIcon from "@mui/icons-material/Edit";
 import { AztecContext } from "../home/home";
-import { SerializedStyles } from "@emotion/react";
 
 const container = css({
   display: "flex",
