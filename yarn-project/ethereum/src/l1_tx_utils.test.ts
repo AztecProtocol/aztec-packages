@@ -375,19 +375,20 @@ describe('GasUtils', () => {
       });
       fail('Should have thrown');
     } catch (err: any) {
-      const { message: formattedError } = formatViemError(err);
-
+      const res = err;
+      // console.log('res', res);
+      const { message } = res;
       // Verify the error contains actual newlines, not escaped \n
-      expect(formattedError).not.toContain('\\n');
-      expect(formattedError.split('\n').length).toBeGreaterThan(1);
+      expect(message).not.toContain('\\n');
+      expect(message.split('\n').length).toBeGreaterThan(1);
 
       // Check that we have the key error information
-      expect(formattedError).toContain('fee cap');
+      expect(message).toContain('fee cap');
 
       // Check request body formatting if present
-      if (formattedError.includes('Request body:')) {
-        const bodyStart = formattedError.indexOf('Request body:');
-        const body = formattedError.slice(bodyStart);
+      if (message.includes('Request body:')) {
+        const bodyStart = message.indexOf('Request body:');
+        const body = message.slice(bodyStart);
         expect(body).toContain('eth_sendRawTransaction');
         // Check params are truncated if too long
         if (body.includes('0x')) {
@@ -456,8 +457,8 @@ describe('GasUtils', () => {
         args: [33],
       });
     } catch (err: any) {
-      const errorMessage = formatViemError(err, abi);
-      expect(errorMessage).toBe('Test_Error(33)');
+      const { message } = formatViemError(err, abi);
+      expect(message).toBe('Test_Error(33)');
     }
   });
   it('stops trying after timeout', async () => {

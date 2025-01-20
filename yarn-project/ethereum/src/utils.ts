@@ -206,12 +206,10 @@ export function formatViemError(error: any, abi: Abi = RollupAbi) {
     return result;
   };
 
-  return JSON.stringify(
-    {
-      ...(typeof error === 'object' ? error : {}),
-      message: extractAndFormatRequestBody(error?.message || String(error)),
-    },
-    null,
-    2,
-  ).replace(/\\n/g, '\n');
+  const formattedRes = extractAndFormatRequestBody(error?.message || String(error));
+
+  return {
+    message: formattedRes.replace(/\\n/g, '\n'),
+    metaMessages: error?.metaMessages,
+  };
 }
