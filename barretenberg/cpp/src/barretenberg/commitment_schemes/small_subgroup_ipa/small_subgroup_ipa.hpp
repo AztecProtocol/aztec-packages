@@ -4,6 +4,7 @@
 #include "barretenberg/ecc/curves/bn254/bn254.hpp"
 #include "barretenberg/polynomials/polynomial.hpp"
 #include "barretenberg/polynomials/univariate.hpp"
+#include "barretenberg/stdlib/primitives/curves/grumpkin.hpp"
 #include "barretenberg/sumcheck/zk_sumcheck_data.hpp"
 
 #include <array>
@@ -493,6 +494,11 @@ template <typename Curve> class SmallSubgroupIPAVerifier {
         diff += lagrange_last * (big_sum_eval - inner_product_eval_claim) - vanishing_poly_eval * quotient_eval;
 
         if constexpr (Curve::is_stdlib_type) {
+            if constexpr (std::is_same_v<Curve, stdlib::grumpkin<UltraCircuitBuilder>>) {
+                // TODO(https://github.com/AztecProtocol/barretenberg/issues/1197)
+                diff.self_reduce();
+            }
+            diff.assert_equal(FF(0));
             // TODO(https://github.com/AztecProtocol/barretenberg/issues/1186). Insecure pattern.
             return (diff.get_value() == FF(0).get_value());
         } else {

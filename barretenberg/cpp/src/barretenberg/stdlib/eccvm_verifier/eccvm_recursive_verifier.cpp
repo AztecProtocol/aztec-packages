@@ -149,7 +149,6 @@ ECCVMRecursiveVerifier_<Flavor>::verify_proof(const ECCVMProof& proof)
     const OpeningClaim batch_opening_claim =
         Shplonk::reduce_verification(key->pcs_verification_key->get_g1_identity(), opening_claims, transcript);
 
-    ASSERT(sumcheck_output.verified.value());
     return { batch_opening_claim, ipa_transcript };
 }
 
