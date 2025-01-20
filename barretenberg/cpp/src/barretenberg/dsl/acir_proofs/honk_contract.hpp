@@ -4,6 +4,7 @@
 
 // Source code for the Ultrahonk Solidity verifier.
 // It's expected that the AcirComposer will inject a library which will load the verification key into memory.
+// NOLINTNEXTLINE(cppcoreguidelines-avoid-c-arrays)
 static const char HONK_CONTRACT_SOURCE[] = R"(
 pragma solidity ^0.8.27;
 
@@ -960,7 +961,7 @@ library RelationsLib {
 
         // Contribution 10 point doubling, x-coordinate check
         // (x3 + x1 + x1) (4y1*y1) - 9 * x1 * x1 * x1 * x1 = 0
-        // N.B. we're using the equivalence x1*x1*x1 === y1*y1 - curve_b to reduce degree by 1
+        // n.B. we're using the equivalence x1*x1*x1 === y1*y1 - curve_b to reduce degree by 1
         {
             Fr x_pow_4 = (y1_sqr + GRUMPKIN_CURVE_B_PARAMETER_NEGATED) * ep.x_1;
             Fr y1_sqr_mul_4 = y1_sqr + y1_sqr;
@@ -1180,7 +1181,7 @@ library RelationsLib {
          * The gate boolean check is
          * (A && B) => C  === !(A && B) || C ===  !A || !B || C
          *
-         * N.B. it is the responsibility of the circuit writer to ensure that every RAM cell is initialized
+         * n.B. it is the responsibility of the circuit writer to ensure that every RAM cell is initialized
          * with a WRITE operation.
          */
         Fr access_type = (wire(p, WIRE.W_4) - ap.partial_record_check); // will be 0 or 1 for honest Prover; deg 1 or 4
@@ -1448,12 +1449,12 @@ interface IVerifier {
 abstract contract BaseHonkVerifier is IVerifier {
     using FrLib for Fr;
 
-    uint256 immutable N;
+    uint256 immutable n;
     uint256 immutable logN;
     uint256 immutable numPublicInputs;
 
-    constructor(uint256 _N, uint256 _logN, uint256 _numPublicInputs) {
-        N = _N;
+    constructor(uint256 _n, uint256 _logN, uint256 _numPublicInputs) {
+        n = _n;
         logN = _logN;
         numPublicInputs = _numPublicInputs;
     }
@@ -1498,7 +1499,7 @@ abstract contract BaseHonkVerifier is IVerifier {
         Fr numerator = Fr.wrap(1);
         Fr denominator = Fr.wrap(1);
 
-        Fr numeratorAcc = gamma + (beta * FrLib.from(N + offset));
+        Fr numeratorAcc = gamma + (beta * FrLib.from(n + offset));
         Fr denominatorAcc = gamma - (beta * FrLib.from(offset + 1));
 
         {
@@ -1586,7 +1587,7 @@ abstract contract BaseHonkVerifier is IVerifier {
             numeratorValue = numeratorValue * (roundChallenge - Fr.wrap(i));
         }
 
-        // Calculate domain size N of inverses
+        // Calculate domain size n of inverses
         Fr[BATCHED_RELATION_PARTIAL_LENGTH] memory denominatorInverses;
         for (uint256 i; i < BATCHED_RELATION_PARTIAL_LENGTH; ++i) {
             Fr inv = BARYCENTRIC_LAGRANGE_DENOMINATORS[i];

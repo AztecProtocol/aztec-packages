@@ -18,8 +18,17 @@ function build {
     # Ensure libraries are at the correct version
     git submodule update --init --recursive ./lib
 
+    mkdir -p src/generated
+    # cp ../noir-projects/noir-protocol-circuits/target/keys/rollup_root_verifier.sol src/generated
+
     # Compile contracts
-    forge build
+    # Step 1: Build everything except rollup_root_verifier.sol.
+    forge build $(find src -name '*.sol' -not -path '*/generated/*')
+
+    # Step 2: Build the generated folder (i.e. the verifier contract) with optimization.
+    forge build rollup_root_verifier.sol \
+      --optimize \
+      --optimizer-runs 200
 
     cache_upload $artifact out
   fi
