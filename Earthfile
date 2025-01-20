@@ -60,16 +60,9 @@ bootstrap:
   SAVE ARTIFACT /usr/src /usr/src
   WORKDIR /usr/src
 
-bootstrap-with-verifier:
-  # TODO(ci3) roll this into normal bootstrap
-  FROM +bootstrap
-  WORKDIR /usr/src/yarn-project
-  ENV DENOISE=1
-  COPY --dir +rollup-verifier-contract-with-cache/usr/src/bb /usr/src
-
 # Locally downloaded aztec image contents.
 bootstrap-aztec:
-  FROM +bootstrap-with-verifier
+  FROM +bootstrap
   WORKDIR /usr/src/yarn-project
   ENV DENOISE=1
   RUN yarn workspaces focus @aztec/aztec --production && yarn cache clean
@@ -92,7 +85,7 @@ bootstrap-aztec:
 
 # Locally downloaded end-to-end image contents.
 bootstrap-end-to-end:
-  FROM +bootstrap-with-verifier
+  FROM +bootstrap
   WORKDIR /usr/src/yarn-project
   RUN yarn workspaces focus @aztec/end-to-end @aztec/cli-wallet --production && yarn cache clean
   WORKDIR /usr/src
@@ -261,19 +254,6 @@ noir-projects-with-cache:
     RUN ci3/cache_upload_flag $artifact
   END
 
-rollup-verifier-contract-with-cache:
-  FROM +bootstrap
-  ENV CI=1
-  ENV USE_CACHE=1
-  LET artifact=rollup-verifier-contract-$(./noir-projects/bootstrap.sh hash).tar.gz
-  # Running this directly in the 'if' means files are not permanent
-  RUN ci3/cache_download rollup-verifier-contract-3e3a78f9a68f1f1e04240acf0728522d87a313ac-linux-gnu-x86_64 || true
-  IF ! [ -d /usr/src/bb ]
-    COPY --dir +rollup-verifier-contract/usr/src/bb /usr/src
-    RUN ci3/cache_upload $artifact bb
-  END
-  SAVE ARTIFACT /usr/src/bb /usr/src/bb
-
 bb-cli:
     FROM +bootstrap
     ENV BB_WORKING_DIRECTORY=/usr/src/bb
@@ -287,42 +267,6 @@ bb-cli:
     # yarn symlinks the binary to node_modules/.bin
     ENTRYPOINT ["/usr/src/yarn-project/node_modules/.bin/bb-cli"]
 
-# helper target to generate vks in parallel
-verification-key:
-    ARG circuit="RootRollupArtifact"
-    FROM +bb-cli
-
-    # this needs to be exported as an env var for RUN to pick it up
-    ENV CIRCUIT=$circuit
-    RUN --entrypoint write-vk -c $CIRCUIT
-
-    SAVE ARTIFACT /usr/src/bb /usr/src/bb
-
-protocol-verification-keys:
-    LOCALLY
-    LET circuits = "RootRollupArtifact PrivateKernelTailArtifact PrivateKernelTailToPublicArtifact"
-
-    FOR circuit IN $circuits
-        BUILD +verification-key --circuit=$circuit
-    END
-
-    # this could be FROM scratch
-    # but FOR doesn't work without /bin/sh
-    FROM ubuntu:noble
-    WORKDIR /usr/src/bb
-
-    FOR circuit IN $circuits
-        COPY (+verification-key/usr/src/bb --circuit=$circuit) .
-    END
-
-    SAVE ARTIFACT /usr/src/bb /usr/src/bb
-
-# TODO(ci3): we either don't need this or should be in bootstrap
-rollup-verifier-contract:
-    FROM +bb-cli
-    COPY --dir +protocol-verification-keys/usr/src/bb /usr/src
-    RUN --entrypoint write-contract -c RootRollupArtifact -n UltraHonkVerifier.sol
-    SAVE ARTIFACT /usr/src/bb /usr/src/bb
 ########################################################################################################################
 # File-copying boilerplate
 ########################################################################################################################

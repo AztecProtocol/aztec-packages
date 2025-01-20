@@ -41,7 +41,6 @@ rollup_honk_patterns=(
   "rollup_merge"
 )
 
-
 ivc_regex=$(IFS="|"; echo "${ivc_patterns[*]}")
 rollup_honk_regex=$(IFS="|"; echo "${rollup_honk_patterns[*]}")
 # We do this for the rollup root only.
