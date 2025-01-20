@@ -5,7 +5,7 @@ import { sleep } from '@aztec/foundation/sleep';
 
 import { type Anvil } from '@viem/anvil';
 import {
-  Abi,
+  type Abi,
   type Account,
   type Chain,
   type HttpTransport,
@@ -375,7 +375,7 @@ describe('GasUtils', () => {
       });
       fail('Should have thrown');
     } catch (err: any) {
-      const formattedError = formatViemError(err);
+      const { message: formattedError } = formatViemError(err);
 
       // Verify the error contains actual newlines, not escaped \n
       expect(formattedError).not.toContain('\\n');
@@ -443,7 +443,9 @@ describe('GasUtils', () => {
     });
 
     const receipt = await publicClient.waitForTransactionReceipt({ hash: deployHash });
-    if (!receipt.contractAddress) throw new Error('No contract address');
+    if (!receipt.contractAddress) {
+      throw new Error('No contract address');
+    }
     const contractAddress = receipt.contractAddress;
 
     try {

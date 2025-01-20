@@ -174,7 +174,7 @@ describe('Archiver', () => {
     await archiver?.stop();
   });
 
-  it.only('can start, sync and stop and handle l1 to l2 messages and logs', async () => {
+  it('can start, sync and stop and handle l1 to l2 messages and logs', async () => {
     let latestBlockNum = await archiver.getBlockNumber();
     expect(latestBlockNum).toEqual(0);
 
