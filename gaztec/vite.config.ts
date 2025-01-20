@@ -29,8 +29,7 @@ export default defineConfig({
       "Cross-Origin-Embedder-Policy": "require-corp",
     },
     // Allow vite to serve files from these directories, since they are symlinked
-    // These are the protocol circuit artifacts
-    // and noir WASMs.
+    // These are the protocol circuit artifacts and noir WASMs.
     fs: {
       allow: [
         searchForWorkspaceRoot(process.cwd()),
