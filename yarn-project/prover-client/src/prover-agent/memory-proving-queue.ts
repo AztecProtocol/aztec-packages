@@ -40,7 +40,7 @@ import { type PromiseWithResolvers, RunningPromise, promiseWithResolvers } from 
 import { PriorityMemoryQueue } from '@aztec/foundation/queue';
 import { type TelemetryClient, type Tracer, trackSpan } from '@aztec/telemetry-client';
 
-import { InlineProofStore, type ProofStore } from '../proving_broker/proof_store.js';
+import { InlineProofStore, type ProofStore } from '../proving_broker/proof_store/index.js';
 import { ProvingQueueMetrics } from './queue_metrics.js';
 
 type ProvingJobWithResolvers<T extends ProvingRequestType = ProvingRequestType> = ProvingJob &

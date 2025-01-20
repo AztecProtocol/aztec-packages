@@ -12,6 +12,7 @@ export BB=${BB:-../../barretenberg/cpp/build/bin/bb}
 export NARGO=${NARGO:-../../noir/noir-repo/target/release/nargo}
 export BB_HASH=$(cache_content_hash ../../barretenberg/cpp/.rebuild_patterns)
 export NARGO_HASH=$(cache_content_hash ../../noir/.rebuild_patterns)
+export CRATES_HASH=$(cache_content_hash crates)
 
 # Set flags for parallel
 export PARALLELISM=${PARALLELISM:-16}
@@ -41,7 +42,6 @@ rollup_honk_patterns=(
   "rollup_merge"
 )
 
-
 ivc_regex=$(IFS="|"; echo "${ivc_patterns[*]}")
 rollup_honk_regex=$(IFS="|"; echo "${rollup_honk_patterns[*]}")
 
@@ -65,10 +65,12 @@ function compile {
   local json_path="./target/$filename"
   local program_hash hash bytecode_hash vk vk_fields
   local program_hash_cmd="$NARGO check --package $name --silence-warnings --show-program-hash | cut -d' ' -f2"
-  # echo_stderr $program_hash_cmd
   program_hash=$(dump_fail "$program_hash_cmd")
-  echo_stderr "Hash preimage: $NARGO_HASH-$program_hash"
-  hash=$(hash_str "$NARGO_HASH-$program_hash")
+  echo_stderr "Hash preimage: $NARGO_HASH-$CRATES_HASH-$program_hash"
+  # We include CRATES_HASH as --show-program-hash does not do a good job at hashing dependencies.
+  # TODO(ci3) we may need to do a less granular hash if this doesn't work out.
+  hash=$(hash_str "$NARGO_HASH-$CRATES_HASH-$program_hash")
+
   if ! cache_download circuit-$hash.tar.gz 1>&2; then
     SECONDS=0
     rm -f $json_path
@@ -138,6 +140,9 @@ function build {
   return $code
 }
 
+# We don't blindly execute all circuits as some will have no `Prover.toml`.
+CIRCUITS_TO_EXECUTE="private-kernel-init private-kernel-inner private-kernel-reset private-kernel-tail-to-public private-kernel-tail rollup-base-private rollup-base-public rollup-block-root rollup-block-merge rollup-merge rollup-root"
+
 function test {
   set -eu
   name=$(basename "$PWD")
@@ -146,6 +151,10 @@ function test {
 
   RAYON_NUM_THREADS= $NARGO test --skip-brillig-constraints-check
   cache_upload_flag $name-tests-$CIRCUITS_HASH
+
+  for circuit in $CIRCUITS_TO_EXECUTE; do
+    $NARGO execute --program-dir noir-projects/noir-protocol-circuits/crates/$circuit --silence-warnings --skip-brillig-constraints-check
+  done
 }
 
 export -f compile test build
@@ -170,6 +179,9 @@ case "$CMD" in
   "test-cmds")
     $NARGO test --list-tests --silence-warnings | while read -r package test; do
       echo "noir-projects/scripts/run_test.sh noir-protocol-circuits $package $test"
+    done
+    for circuit in $CIRCUITS_TO_EXECUTE; do
+      echo "$NARGO execute --program-dir noir-projects/noir-protocol-circuits/crates/$circuit --silence-warnings --skip-brillig-constraints-check"
     done
     ;;
   "ci")

@@ -4,7 +4,7 @@ use dep::protocol_types::{
 };
 use std::{
     aes128::aes128_encrypt, embedded_curve_ops::fixed_base_scalar_mul as derive_public_key,
-    field::bn254::decompose, hash::from_field_unsafe as fr_to_fq_unsafe,
+    hash::from_field_unsafe as fr_to_fq_unsafe,
 };
 
 use crate::{
@@ -167,14 +167,6 @@ unconstrained fn get_random_bytes<let N: u32>() -> [u8; N] {
         idx += 1;
     }
     bytes
-}
-
-/// Converts a base field element to scalar field element.
-/// This is fine because modulus of the base field is smaller than the modulus of the scalar field.
-fn fr_to_fq(r: Field) -> Scalar {
-    let (lo, hi) = decompose(r);
-
-    Scalar { lo, hi }
 }
 
 fn generate_ephemeral_key_pair() -> (Scalar, Point) {

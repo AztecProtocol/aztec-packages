@@ -100,6 +100,10 @@ export class InMemoryTxPool implements TxPool {
     return result === undefined ? undefined : Tx.clone(result);
   }
 
+  public getArchivedTxByHash(): Tx | undefined {
+    return undefined;
+  }
+
   /**
    * Adds a list of transactions to the pool. Duplicates are ignored.
    * @param txs - An array of txs to be added to the pool.
