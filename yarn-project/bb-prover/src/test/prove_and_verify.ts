@@ -11,8 +11,8 @@ import fs from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'path';
 
-import { type BBSuccess, BB_RESULT, generateAvmProof, verifyAvmProof } from './bb/execute.js';
-import { extractAvmVkData } from './verification_key/verification_key_data.js';
+import { type BBSuccess, BB_RESULT, generateAvmProof, verifyAvmProof } from '../bb/execute.js';
+import { extractAvmVkData } from '../verification_key/verification_key_data.js';
 
 /**
  * Simulate, prove and verify just a single App Logic enqueued call.
