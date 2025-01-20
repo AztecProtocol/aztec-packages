@@ -21,6 +21,16 @@ export interface L2Claim {
   messageLeafIndex: bigint;
 }
 
+export class FormattedViemError extends Error {
+  metaMessages?: any[];
+
+  constructor(message: string, metaMessages?: any[]) {
+    super(message);
+    this.name = 'FormattedViemError';
+    this.metaMessages = metaMessages;
+  }
+}
+
 export function extractEvent<
   const TAbi extends Abi | readonly unknown[],
   TEventName extends ContractEventName<TAbi>,
@@ -83,12 +93,12 @@ export function prettyLogViemErrorMsg(err: any) {
 }
 
 /**
- * Formats a Viem error into a human-readable string.
+ * Formats a Viem error into a FormattedViemError instance.
  * @param error - The error to format.
  * @param abi - The ABI to use for decoding.
- * @returns A human-readable string.
+ * @returns A FormattedViemError instance.
  */
-export function formatViemError(error: any, abi: Abi = RollupAbi) {
+export function formatViemError(error: any, abi: Abi = RollupAbi): FormattedViemError {
   // First try to decode as a custom error using the ABI
   try {
     if (error?.data) {
@@ -98,7 +108,7 @@ export function formatViemError(error: any, abi: Abi = RollupAbi) {
         data: error.data as Hex,
       });
       if (decoded) {
-        return { ...error, message: `${decoded.errorName}(${decoded.args?.join(', ') ?? ''})` };
+        return new FormattedViemError(`${decoded.errorName}(${decoded.args?.join(', ') ?? ''})`, error?.metaMessages);
       }
     }
 
@@ -111,7 +121,7 @@ export function formatViemError(error: any, abi: Abi = RollupAbi) {
           revertError.metaMessages && revertError.metaMessages?.length > 1
             ? revertError.metaMessages[1].trimStart()
             : '';
-        return { ...error, message: `${errorName}${args}` };
+        return new FormattedViemError(`${errorName}${args}`, error?.metaMessages);
       }
     }
   } catch (decodeErr) {
@@ -208,8 +218,5 @@ export function formatViemError(error: any, abi: Abi = RollupAbi) {
 
   const formattedRes = extractAndFormatRequestBody(error?.message || String(error));
 
-  return {
-    message: formattedRes.replace(/\\n/g, '\n'),
-    metaMessages: error?.metaMessages,
-  };
+  return new FormattedViemError(formattedRes.replace(/\\n/g, '\n'), error?.metaMessages);
 }

@@ -19,6 +19,7 @@ import {
 import { type FeeRecipient, type RootRollupPublicInputs } from '@aztec/circuits.js/rollup';
 import {
   type EthereumChain,
+  FormattedViemError,
   type GasPrice,
   type L1ContractsConfig,
   L1TxUtils,
@@ -546,8 +547,8 @@ export class L1Publisher {
         account: this.account,
       });
     } catch (err) {
-      const { message, ...error } = formatViemError(err);
-      logger.error(`Failed to vote`, message, error);
+      const { message, metaMessages } = formatViemError(err);
+      logger.error(`Failed to vote`, message, { metaMessages });
       this.myLastVotes[voteType] = cachedMyLastVote;
       return false;
     }
@@ -1108,7 +1109,12 @@ export class L1Publisher {
         data,
       };
     } catch (err) {
-      this.log.error(`Rollup publish failed.`, err);
+      if (err instanceof FormattedViemError) {
+        const { message, metaMessages } = err;
+        this.log.error(`Rollup publish failed.`, message, { metaMessages });
+      } else {
+        this.log.error(`Rollup publish failed.`, err);
+      }
       return undefined;
     }
   }
@@ -1181,7 +1187,12 @@ export class L1Publisher {
         data,
       };
     } catch (err) {
-      this.log.error(`Rollup publish failed.`, err);
+      if (err instanceof FormattedViemError) {
+        const { message, metaMessages } = err;
+        this.log.error(`Rollup publish failed.`, message, { metaMessages });
+      } else {
+        this.log.error(`Rollup publish failed.`, err);
+      }
       return undefined;
     }
   }
