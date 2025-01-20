@@ -41,6 +41,12 @@ describe('ConnectionSampler', () => {
       expect(peers).toContain(peer);
     });
 
+    it('returns undefined if no peers are available', () => {
+      mockLibp2p.getPeers.mockReturnValue([]);
+      const peer = sampler.getPeer(excluding);
+      expect(peer).toBeUndefined();
+    });
+
     it('attempts to find peer with no active connections', async () => {
       // Setup: Create active connection to first two peers
       const mockStream1: Partial<Stream> = { id: '1', close: jest.fn() } as Partial<Stream>;

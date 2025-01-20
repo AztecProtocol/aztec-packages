@@ -93,6 +93,24 @@ describe('BatchConnectionSampler', () => {
     expect(sampler.getPeerForRequest(3)).toBe(peers[1]);
   });
 
+  it('handles peer removal and replacement - no replacement available', () => {
+    mockRandomSampler.random.mockImplementation(() => 2);
+    const sampler = new BatchConnectionSampler(connectionSampler, /* batchSize */ 4, /* maxPeers */ 2);
+
+    expect(sampler.activePeerCount).toBe(2);
+    expect(sampler.getPeerForRequest(0)).toBe(peers[0]);
+
+    // Will sample no peers
+    libp2p.getPeers.mockReturnValue([]);
+
+    // Remove peer 0, its requests will be distributed to peer 1
+    sampler.removePeerAndReplace(peers[0]);
+    // Decrease the number of active peers
+    expect(sampler.activePeerCount).toBe(1);
+
+    expect(sampler.getPeerForRequest(0)).toBe(peers[1]);
+  });
+
   it('distributes requests according to documentation example', () => {
     let callCount = 0;
     mockRandomSampler.random.mockImplementation(() => {

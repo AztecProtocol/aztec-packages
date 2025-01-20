@@ -26,7 +26,7 @@ export class RandomSampler {
  */
 export class ConnectionSampler {
   private readonly logger = createLogger('p2p:reqresp:connection-sampler');
-  private cleanupJob?: RunningPromise;
+  private cleanupJob: RunningPromise;
 
   private readonly activeConnectionsCount: Map<PeerId, number> = new Map();
   private readonly streams: Map<string, StreamAndPeerId> = new Map();
@@ -49,12 +49,14 @@ export class ConnectionSampler {
    * Stops the cleanup job and closes all active connections
    */
   async stop() {
-    await this.cleanupJob?.stop();
+    this.logger.info('Stopping connection sampler');
+    await this.cleanupJob.stop();
     await this.dialQueue.end();
 
     // Close all active streams
     const closePromises = Array.from(this.streams.keys()).map(streamId => this.close(streamId));
     await Promise.all(closePromises);
+    this.logger.info('Connection sampler stopped');
   }
 
   /**
@@ -63,8 +65,13 @@ export class ConnectionSampler {
    *        This is to prevent sampling with replacement
    * @returns
    */
-  getPeer(excluding?: Map<PeerId, boolean>): PeerId {
+  getPeer(excluding?: Map<PeerId, boolean>): PeerId | undefined {
     const peers = this.libp2p.getPeers();
+
+    if (peers.length === 0) {
+      return undefined;
+    }
+
     let randomIndex = this.sampler.random(peers.length);
     let attempts = 0;
 

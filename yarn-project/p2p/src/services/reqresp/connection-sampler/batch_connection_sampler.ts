@@ -67,6 +67,7 @@ export class BatchConnectionSampler {
 
     const excluding = new Map([[peerId, true]]);
     const newPeer = this.connectionSampler.getPeer(excluding);
+
     if (newPeer) {
       this.batch[index] = newPeer;
       this.logger.trace(`Replaced peer ${peerId} with ${newPeer}`, { peerId, newPeer });

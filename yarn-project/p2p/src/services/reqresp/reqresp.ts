@@ -173,6 +173,11 @@ export class ReqResp {
       for (let i = 0; i < numberOfPeers; i++) {
         // Sample a peer to make a request to
         const peer = this.connectionSampler.getPeer(attemptedPeers);
+        if (!peer) {
+          this.logger.debug('No peers available to send requests to');
+          return undefined;
+        }
+
         attemptedPeers.set(peer, true);
 
         this.logger.trace(`Sending request to peer: ${peer.toString()}`);
@@ -285,10 +290,10 @@ export class ReqResp {
         // Make parallel requests for each peer's batch
         // A batch entry will look something like this:
         // PeerId0: [0, 1, 2, 3]
-        // PeerId1: [0, 1, 2, 3]
+        // PeerId1: [4, 5, 6, 7]
 
         // Peer Id 0 will send requests 0, 1, 2, 3 in serial
-        // while simultaneously Peer Id 1 will send requests 0, 1, 2, 3 in serial
+        // while simultaneously Peer Id 1 will send requests 4, 5, 6, 7 in serial
 
         const batchResults = await Promise.all(
           Array.from(requestBatches.entries()).map(async ([peer, indices]) => {
