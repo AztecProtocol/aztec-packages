@@ -491,6 +491,7 @@ mod tests {
         blob_public_inputs::BlobCommitment,
         config::{D, D_INV, F},
     };
+    use super::{__compute_partial_sums, __compute_sum, compute_roots_of_unity};
     use bigint::{BigNum, fields::bls12_381Fr::BLS12_381_Fr_Params};
     use bigint::bignum::BigNumTrait;
     use types::{
@@ -724,6 +725,18 @@ mod tests {
     unconstrained fn test_compute_d_inv() {
         let d_inversed = D.__invmod();
         assert_eq(d_inversed, D_INV);
+    }
+
+    #[test]
+    unconstrained fn compute_sum_and_compute_partial_sums_agree(fields: [Field; FIELDS_PER_BLOB]) {
+        let fields = fields.map(|f| field_to_bignum(f));
+
+        let UNCONSTRAINED_ROOTS = compute_roots_of_unity();
+
+        let partial_sums = __compute_partial_sums(fields, UNCONSTRAINED_ROOTS);
+        let sum = __compute_sum(fields, UNCONSTRAINED_ROOTS);
+
+        assert_eq(partial_sums[FIELDS_PER_BLOB - 1], sum);
     }
 }
 
