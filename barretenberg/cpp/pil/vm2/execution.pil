@@ -20,6 +20,7 @@ pol commit rop3;
 pol commit rop4;
 
 pol commit pc;
+pol commit bytecode_id;
 pol commit clk;
 pol commit last;
 

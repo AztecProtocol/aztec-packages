@@ -1,7 +1,5 @@
 #pragma once
 
-#include <list>
-
 #include "barretenberg/vm2/simulation/events/addressing_event.hpp"
 #include "barretenberg/vm2/simulation/events/alu_event.hpp"
 #include "barretenberg/vm2/simulation/events/bytecode_events.hpp"
@@ -16,6 +14,7 @@ struct EventsContainer {
     EventEmitterInterface<AluEvent>::Container alu;
     EventEmitterInterface<MemoryEvent>::Container memory;
     EventEmitterInterface<AddressingEvent>::Container addressing;
+    EventEmitterInterface<BytecodeRetrievalEvent>::Container bytecode_retrieval;
     EventEmitterInterface<BytecodeHashingEvent>::Container bytecode_hashing;
     EventEmitterInterface<BytecodeDecompositionEvent>::Container bytecode_decomposition;
 };

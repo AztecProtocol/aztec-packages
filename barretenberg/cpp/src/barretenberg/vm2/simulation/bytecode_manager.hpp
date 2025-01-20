@@ -16,8 +16,6 @@
 
 namespace bb::avm2::simulation {
 
-using BytecodeId = uint32_t;
-
 // Manages the bytecode operations of all calls in a transaction.
 // In particular, it will not duplicate hashing and decomposition.
 class TxBytecodeManagerInterface {
@@ -30,34 +28,29 @@ class TxBytecodeManagerInterface {
     virtual BytecodeId get_bytecode(const AztecAddress& address) = 0;
     // Retrieves an instruction and decomposes it if needed.
     virtual Instruction read_instruction(BytecodeId bytecode_id, uint32_t pc) = 0;
-    // Retrieves the class id of a bytecode, in case you need it.
-    virtual ContractClassId get_class_id(BytecodeId bytecode_id) const = 0;
 };
 
 class TxBytecodeManager : public TxBytecodeManagerInterface {
   public:
     TxBytecodeManager(RawDataDBInterface& db,
+                      EventEmitterInterface<BytecodeRetrievalEvent>& retrieval_events,
                       EventEmitterInterface<BytecodeHashingEvent>& hash_events,
                       EventEmitterInterface<BytecodeDecompositionEvent>& decomposition_events)
         : db(db)
+        , retrieval_events(retrieval_events)
         , hash_events(hash_events)
         , decomposition_events(decomposition_events)
     {}
 
     BytecodeId get_bytecode(const AztecAddress& address) override;
     Instruction read_instruction(BytecodeId bytecode_id, uint32_t pc) override;
-    ContractClassId get_class_id(BytecodeId bytecode_id) const override;
 
   private:
-    struct BytecodeInfo {
-        std::shared_ptr<std::vector<uint8_t>> bytecode;
-        ContractClassId class_id;
-    };
-
     RawDataDBInterface& db;
+    EventEmitterInterface<BytecodeRetrievalEvent>& retrieval_events;
     EventEmitterInterface<BytecodeHashingEvent>& hash_events;
     EventEmitterInterface<BytecodeDecompositionEvent>& decomposition_events;
-    unordered_flat_map<BytecodeId, const BytecodeInfo> bytecodes;
+    unordered_flat_map<BytecodeId, std::shared_ptr<std::vector<uint8_t>>> bytecodes;
     unordered_flat_map<AztecAddress, BytecodeId> resolved_addresses;
     BytecodeId next_bytecode_id = 0;
 };
@@ -69,7 +62,7 @@ class BytecodeManagerInterface {
     virtual ~BytecodeManagerInterface() = default;
 
     virtual Instruction read_instruction(uint32_t pc) const = 0;
-    virtual ContractClassId get_class_id() const = 0;
+    virtual BytecodeId get_bytecode_id() const = 0;
 };
 
 class BytecodeManager : public BytecodeManagerInterface {
@@ -83,7 +76,7 @@ class BytecodeManager : public BytecodeManagerInterface {
     {
         return tx_bytecode_manager.read_instruction(bytecode_id, pc);
     }
-    ContractClassId get_class_id() const override { return tx_bytecode_manager.get_class_id(bytecode_id); }
+    BytecodeId get_bytecode_id() const override { return bytecode_id; }
 
   private:
     BytecodeId bytecode_id;
