@@ -23,7 +23,7 @@ import {
   MAX_NULLIFIER_READ_REQUESTS_PER_CALL,
   MAX_PUBLIC_DATA_READS_PER_CALL,
   MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL,
-  MAX_UNENCRYPTED_LOGS_PER_CALL,
+  MAX_PUBLIC_LOGS_PER_CALL,
   PUBLIC_CIRCUIT_PUBLIC_INPUTS_LENGTH,
 } from '../constants.gen.js';
 import { isEmptyArray } from '../utils/index.js';
@@ -34,10 +34,10 @@ import { ContractStorageUpdateRequest } from './contract_storage_update_request.
 import { Gas } from './gas.js';
 import { GlobalVariables } from './global_variables.js';
 import { L2ToL1Message } from './l2_to_l1_message.js';
-import { LogHash } from './log_hash.js';
 import { NoteHash } from './note_hash.js';
 import { Nullifier } from './nullifier.js';
 import { PublicInnerCallRequest } from './public_inner_call_request.js';
+import { PublicLog } from './public_log.js';
 import { ReadRequest } from './read_request.js';
 import { RevertCode } from './revert_code.js';
 import { TreeLeafReadRequest } from './tree_leaf_read_request.js';
@@ -113,10 +113,9 @@ export class PublicCircuitPublicInputs {
      */
     public endSideEffectCounter: Fr,
     /**
-     * Hash of the unencrypted logs emitted in this function call.
-     * Note: Truncated to 31 bytes to fit in Fr.
+     * The public logs emitted in this function call.
      */
-    public unencryptedLogsHashes: Tuple<LogHash, typeof MAX_UNENCRYPTED_LOGS_PER_CALL>,
+    public publicLogs: Tuple<PublicLog, typeof MAX_PUBLIC_LOGS_PER_CALL>,
     /**
      * Header of a block whose state is used during public execution. Set by sequencer to be a header of a block
      * previous to the one in which the tx is included.
@@ -174,7 +173,7 @@ export class PublicCircuitPublicInputs {
       makeTuple(MAX_L2_TO_L1_MSGS_PER_CALL, L2ToL1Message.empty),
       Fr.ZERO,
       Fr.ZERO,
-      makeTuple(MAX_UNENCRYPTED_LOGS_PER_CALL, LogHash.empty),
+      makeTuple(MAX_PUBLIC_LOGS_PER_CALL, PublicLog.empty),
       BlockHeader.empty(),
       GlobalVariables.empty(),
       AztecAddress.ZERO,
@@ -201,7 +200,7 @@ export class PublicCircuitPublicInputs {
       isEmptyArray(this.l2ToL1Msgs) &&
       this.startSideEffectCounter.isZero() &&
       this.endSideEffectCounter.isZero() &&
-      isEmptyArray(this.unencryptedLogsHashes) &&
+      isEmptyArray(this.publicLogs) &&
       this.historicalHeader.isEmpty() &&
       this.globalVariables.isEmpty() &&
       this.proverAddress.isZero() &&
@@ -234,7 +233,7 @@ export class PublicCircuitPublicInputs {
       fields.l2ToL1Msgs,
       fields.startSideEffectCounter,
       fields.endSideEffectCounter,
-      fields.unencryptedLogsHashes,
+      fields.publicLogs,
       fields.historicalHeader,
       fields.globalVariables,
       fields.proverAddress,
@@ -286,7 +285,7 @@ export class PublicCircuitPublicInputs {
       reader.readArray(MAX_L2_TO_L1_MSGS_PER_CALL, L2ToL1Message),
       reader.readObject(Fr),
       reader.readObject(Fr),
-      reader.readArray(MAX_UNENCRYPTED_LOGS_PER_CALL, LogHash),
+      reader.readArray(MAX_PUBLIC_LOGS_PER_CALL, PublicLog),
       reader.readObject(BlockHeader),
       reader.readObject(GlobalVariables),
       reader.readObject(AztecAddress),
@@ -316,7 +315,7 @@ export class PublicCircuitPublicInputs {
       reader.readArray(MAX_L2_TO_L1_MSGS_PER_CALL, L2ToL1Message),
       reader.readField(),
       reader.readField(),
-      reader.readArray(MAX_UNENCRYPTED_LOGS_PER_CALL, LogHash),
+      reader.readArray(MAX_PUBLIC_LOGS_PER_CALL, PublicLog),
       BlockHeader.fromFields(reader),
       GlobalVariables.fromFields(reader),
       AztecAddress.fromFields(reader),
@@ -375,7 +374,7 @@ export class PublicCircuitPublicInputs {
       startSideEffectCounter: ${inspect(this.startSideEffectCounter)},
       endSideEffectCounter: ${inspect(this.endSideEffectCounter)},
       startSideEffectCounter: ${inspect(this.startSideEffectCounter)},
-      unencryptedLogsHashes: [${this.unencryptedLogsHashes
+      publicLogs: [${this.publicLogs
         .filter(x => !x.isEmpty())
         .map(h => inspect(h))
         .join(', ')}]},

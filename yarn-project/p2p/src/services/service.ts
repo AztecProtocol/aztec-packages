@@ -45,6 +45,18 @@ export interface P2PService {
     request: InstanceType<SubProtocolMap[Protocol]['request']>,
   ): Promise<InstanceType<SubProtocolMap[Protocol]['response']> | undefined>;
 
+  /**
+   * Send a batch of requests to peers, and return the responses
+   *
+   * @param protocol - The request response protocol to use
+   * @param requests - The requests to send to the peers
+   * @returns The responses to the requests
+   */
+  sendBatchRequest<Protocol extends ReqRespSubProtocol>(
+    protocol: Protocol,
+    requests: InstanceType<SubProtocolMap[Protocol]['request']>[],
+  ): Promise<InstanceType<SubProtocolMap[Protocol]['response']>[] | undefined>;
+
   // Leaky abstraction: fix https://github.com/AztecProtocol/aztec-packages/issues/7963
   registerBlockReceivedCallback(callback: (block: BlockProposal) => Promise<BlockAttestation | undefined>): void;
 

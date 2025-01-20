@@ -1,5 +1,8 @@
 import { PeerErrorSeverity } from '@aztec/circuit-types';
 import { median } from '@aztec/foundation/collection';
+import { createLogger } from '@aztec/foundation/log';
+
+import { type PeerId } from '@libp2p/interface';
 
 import { type P2PConfig } from '../../config.js';
 
@@ -20,6 +23,7 @@ const MIN_SCORE_BEFORE_BAN = -100;
 const MIN_SCORE_BEFORE_DISCONNECT = -50;
 
 export class PeerScoring {
+  private logger = createLogger('p2p:peer-scoring');
   private scores: Map<string, number> = new Map();
   private lastUpdateTime: Map<string, number> = new Map();
   private decayInterval = 1000 * 60; // 1 minute
@@ -36,6 +40,14 @@ export class PeerScoring {
       [PeerErrorSeverity.LowToleranceError]:
         orderedValues?.[2] ?? DefaultPeerPenalties[PeerErrorSeverity.LowToleranceError],
     };
+  }
+
+  public penalizePeer(peerId: PeerId, penalty: PeerErrorSeverity) {
+    const id = peerId.toString();
+    const penaltyValue = this.peerPenalties[penalty];
+    const newScore = this.updateScore(id, -penaltyValue);
+    this.logger.verbose(`Penalizing peer ${id} with ${penalty} (new score is ${newScore})`);
+    return newScore;
   }
 
   updateScore(peerId: string, scoreDelta: number): number {
@@ -75,12 +87,13 @@ export class PeerScoring {
     return this.scores.get(peerId) || 0;
   }
 
-  getScoreState(peerId: string) {
-    // TODO: permanently store banned peers???
+  public getScoreState(peerId: string): PeerScoreState {
+    // TODO(#11329): permanently store banned peers?
     const score = this.getScore(peerId);
     if (score < MIN_SCORE_BEFORE_BAN) {
       return PeerScoreState.Banned;
-    } else if (score < MIN_SCORE_BEFORE_DISCONNECT) {
+    }
+    if (score < MIN_SCORE_BEFORE_DISCONNECT) {
       return PeerScoreState.Disconnect;
     }
     return PeerScoreState.Healthy;

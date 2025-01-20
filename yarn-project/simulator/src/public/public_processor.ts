@@ -309,7 +309,7 @@ export class PublicProcessor implements Traceable {
         nullifierCount: processedTx.txEffect.nullifiers.length,
         noteHashCount: processedTx.txEffect.noteHashes.length,
         contractClassLogCount: processedTx.txEffect.contractClassLogs.getTotalLogCount(),
-        unencryptedLogCount: processedTx.txEffect.unencryptedLogs.getTotalLogCount(),
+        publicLogCount: processedTx.txEffect.publicLogs.length,
         privateLogCount: processedTx.txEffect.privateLogs.length,
         l2ToL1MessageCount: processedTx.txEffect.l2ToL1Msgs.length,
         durationMs: time,
@@ -372,16 +372,17 @@ export class PublicProcessor implements Traceable {
       return await processFn();
     }
 
+    const txHash = tx.getTxHash().toString();
     const timeout = +deadline - this.dateProvider.now();
+    if (timeout <= 0) {
+      throw new PublicProcessorTimeoutError();
+    }
+
     this.log.debug(`Processing tx ${tx.getTxHash().toString()} within ${timeout}ms`, {
       deadline: deadline.toISOString(),
       now: new Date(this.dateProvider.now()).toISOString(),
-      txHash: tx.getTxHash().toString(),
+      txHash,
     });
-
-    if (timeout < 0) {
-      throw new PublicProcessorTimeoutError();
-    }
 
     return await executeTimeout(
       () => processFn(),
