@@ -39,14 +39,23 @@ spec:
 
                 const genesis = JSON.parse(fs.readFileSync('/genesis-template/genesis.json', 'utf8'));
 
+                genesis.alloc[wallet.address] = {
+                  balance: '0x3635c9adc5dea00000', // 1000 ETH in wei
+                };
+
                 // Generate wallets for each index
                 const numValidators = {{ .Values.validator.replicas }};
                 const numExtraAccounts = {{ .Values.ethereum.extraAccounts }};
                 const totalAccounts = numValidators + numExtraAccounts;
 
+                const path = "m/44'/60'/0'/0/";
                 for (let i = 0; i < totalAccounts; i++) {
                   // Derive wallet for the current index
-                  const childWallet = wallet.deriveChild(i);
+                  const childWallet = ethers.HDNodeWallet.fromPhrase(
+                    mnemonic,
+                    null,
+                    `${path}${i}`
+                  );
 
                   // Add the wallet's address and balance to the genesis allocation
                   genesis.alloc[childWallet.address] = {

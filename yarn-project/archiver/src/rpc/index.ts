@@ -1,11 +1,11 @@
 import { type ArchiverApi, ArchiverApiSchema } from '@aztec/circuit-types';
-import { createSafeJsonRpcClient, makeFetch } from '@aztec/foundation/json-rpc/client';
-import { createSafeJsonRpcServer } from '@aztec/foundation/json-rpc/server';
+import { createSafeJsonRpcClient } from '@aztec/foundation/json-rpc/client';
+import { createTracedJsonRpcServer, makeTracedFetch } from '@aztec/telemetry-client';
 
-export function createArchiverClient(url: string, fetch = makeFetch([1, 2, 3], true)): ArchiverApi {
+export function createArchiverClient(url: string, fetch = makeTracedFetch([1, 2, 3], true)): ArchiverApi {
   return createSafeJsonRpcClient<ArchiverApi>(url, ArchiverApiSchema, false, 'archiver', fetch);
 }
 
 export function createArchiverRpcServer(handler: ArchiverApi) {
-  return createSafeJsonRpcServer(handler, ArchiverApiSchema);
+  return createTracedJsonRpcServer(handler, ArchiverApiSchema);
 }

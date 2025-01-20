@@ -11,7 +11,6 @@ import {
 import {
   AvmCircuitInputs,
   AztecAddress,
-  BlockHeader,
   Fr,
   Gas,
   GasFees,
@@ -84,7 +83,6 @@ describe('public_processor', () => {
     processor = new PublicProcessor(
       db,
       globalVariables,
-      BlockHeader.empty(),
       worldStateDB,
       publicTxSimulator,
       new TestDateProvider(),
@@ -190,12 +188,12 @@ describe('public_processor', () => {
 
       // The simulator will take 400ms to process each tx
       publicTxSimulator.simulate.mockImplementation(async () => {
-        await sleep(400);
+        await sleep(800);
         return mockedEnqueuedCallsResult;
       });
 
-      // We allocate a deadline of 1s, so only one 2 txs should fit
-      const deadline = new Date(Date.now() + 1000);
+      // We allocate a deadline of 2s, so only 2 txs should fit
+      const deadline = new Date(Date.now() + 2000);
       const [processed, failed] = await processor.process(txs, { deadline });
 
       expect(processed.length).toBe(2);
