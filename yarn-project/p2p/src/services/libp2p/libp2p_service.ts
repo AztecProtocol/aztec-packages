@@ -61,8 +61,7 @@ import { PeerManager } from '../peer-manager/peer_manager.js';
 import { PeerScoring } from '../peer-manager/peer_scoring.js';
 import { DEFAULT_SUB_PROTOCOL_VALIDATORS, ReqRespSubProtocol, type SubProtocolMap } from '../reqresp/interface.js';
 import { reqGoodbyeHandler } from '../reqresp/protocols/goodbye.js';
-import { pingHandler, statusHandler } from '../reqresp/protocols/index.js';
-import { reqRespTxHandler } from '../reqresp/protocols/tx.js';
+import { pingHandler, reqRespBlockHandler, reqRespTxHandler, statusHandler } from '../reqresp/protocols/index.js';
 import { ReqResp } from '../reqresp/reqresp.js';
 import type { P2PService, PeerDiscoveryService } from '../service.js';
 import { GossipSubEvent } from '../types.js';
@@ -300,12 +299,14 @@ export class LibP2PService<T extends P2PClientType> extends WithTracer implement
     // Create request response protocol handlers
     const txHandler = reqRespTxHandler(this.mempools);
     const goodbyeHandler = reqGoodbyeHandler(this.peerManager);
+    const blockHandler = reqRespBlockHandler(this.l2BlockSource);
 
     const requestResponseHandlers = {
       [ReqRespSubProtocol.PING]: pingHandler,
       [ReqRespSubProtocol.STATUS]: statusHandler,
       [ReqRespSubProtocol.TX]: txHandler.bind(this),
       [ReqRespSubProtocol.GOODBYE]: goodbyeHandler.bind(this),
+      [ReqRespSubProtocol.BLOCK]: blockHandler.bind(this),
     };
 
     // Add p2p topic validators
@@ -335,6 +336,7 @@ export class LibP2PService<T extends P2PClientType> extends WithTracer implement
     // Define the sub protocol validators - This is done within this start() method to gain a callback to the existing validateTx function
     const reqrespSubProtocolValidators = {
       ...DEFAULT_SUB_PROTOCOL_VALIDATORS,
+      // TODO(#11336): A request validator for blocks
       [ReqRespSubProtocol.TX]: this.validateRequestedTx.bind(this),
     };
     await this.reqresp.start(requestResponseHandlers, reqrespSubProtocolValidators);
