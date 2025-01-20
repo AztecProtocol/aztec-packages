@@ -119,9 +119,11 @@ function compile {
     jq -n --arg vk "$vk" --argjson vkf "$vk_fields" '{keyAsBytes: $vk, keyAsFields: $vkf}' > $key_path
     echo_stderr "Key output at: $key_path (${SECONDS}s)"
     if echo "$name" | grep -qE "${verifier_generate_regex}"; then
-      local verifier_path="$key_dir/$name-verifier.sol"
+      local verifier_path="$key_dir/${name}_verifier.sol"
+      SECONDS=0
       # Generate solidity verifier for this contract.
-      echo "$vk_fields" | $BB contract_ultra_honk -k - -o verifier_path
+      echo "$vk" | $BB contract_ultra_honk -k - -o $verifier_path
+      echo_stderr "VK output at: $verifier_path (${SECONDS}s)"
       # Include the verifier path if we create it.
       cache_upload vk-$hash.tar.gz $key_path $verifier_path &> /dev/null
     else
@@ -136,6 +138,7 @@ function build {
 
   [ -f "package.json" ] && denoise "yarn && node ./scripts/generate_variants.js"
 
+  grep -oP '(?<=crates/)[^"]+' Nargo.toml | \
     while read -r dir; do
       toml_file=./crates/$dir/Nargo.toml
       if grep -q 'type = "bin"' "$toml_file"; then
