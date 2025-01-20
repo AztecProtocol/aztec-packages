@@ -1,7 +1,6 @@
 use crate::{
     blob_public_inputs::{BlobCommitment, BlobPublicInputs, BlockBlobPublicInputs},
     config::{D_INV, F, LOG_FIELDS_PER_BLOB, ROOTS},
-    unconstrained_config::compute_roots_of_unity,
 };
 
 use bigint::{BigNum, BigNumTrait};
