@@ -93,6 +93,12 @@ describe('Avm circuit inputs', () => {
           packedBytecode: Buffer.from('secondbuffer'),
         },
       ],
+      initialTreeRoots: {
+        publicDataTree: new Fr(1),
+        nullifierTree: new Fr(2),
+        noteHashTree: new Fr(3),
+        l1ToL2MessageTree: new Fr(4),
+      },
     };
 
     const enqueuedCalls = [
@@ -125,7 +131,7 @@ describe('Avm circuit inputs', () => {
 
     // Run with AZTEC_GENERATE_TEST_DATA=1 to update test data
     const path = 'barretenberg/cpp/src/barretenberg/vm2/common/avm_inputs.testdata.bin';
-    writeTestData(path, buffer);
+    writeTestData(path, buffer, /*raw=*/ true);
 
     const expected = readTestData(path);
     expect(buffer).toEqual(expected);

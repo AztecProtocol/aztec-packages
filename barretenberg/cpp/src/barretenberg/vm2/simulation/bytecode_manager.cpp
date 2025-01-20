@@ -35,7 +35,8 @@ BytecodeId TxBytecodeManager::get_bytecode(const AztecAddress& address)
         .address = address,
         .siloed_address = address, // FIXME: compute, check.
         .contract_instance = instance,
-        .contract_class = klass // WARNING: this class has the whole bytecode.
+        .contract_class = klass, // WARNING: this class has the whole bytecode.
+        .nullifier_root = db.get_tree_roots().nullifierTree,
     });
 
     return bytecode_id;

@@ -27,6 +27,7 @@ struct BytecodeRetrievalEvent {
     AztecAddress siloed_address;
     ContractInstance contract_instance;
     ContractClass contract_class;
+    FF nullifier_root;
     bool error = false;
 };
 

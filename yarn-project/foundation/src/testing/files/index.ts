@@ -6,12 +6,12 @@ import { fileURLToPath } from '../../url/index.js';
 import { isGenerateTestDataEnabled } from '../test_data.js';
 
 /** Writes the contents specified to the target file if test data generation is enabled. */
-export function writeTestData(targetFileFromRepoRoot: string, contents: string | Buffer) {
+export function writeTestData(targetFileFromRepoRoot: string, contents: string | Buffer, raw: boolean = false) {
   if (!isGenerateTestDataEnabled()) {
     return;
   }
   const targetFile = getPathToFile(targetFileFromRepoRoot);
-  const toWrite = typeof contents === 'string' ? contents : contents.toString('hex');
+  const toWrite = raw ? contents : typeof contents === 'string' ? contents : contents.toString('hex');
   writeFileSync(targetFile, toWrite);
   const logger = createConsoleLogger('aztec:testing:test_data');
   logger(`Wrote test data to ${targetFile}`);
