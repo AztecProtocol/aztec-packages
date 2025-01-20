@@ -419,7 +419,9 @@ template <typename Curve> class SmallSubgroupIPAVerifier {
 
     static constexpr size_t SUBGROUP_SIZE = Curve::SUBGROUP_SIZE;
 
-    static constexpr size_t LIBRA_UNIVARIATES_LENGTH = (std::is_same_v<Curve, curve::BN254>) ? 9 : 3;
+    static constexpr size_t LIBRA_UNIVARIATES_LENGTH =
+        (std::is_same_v<Curve, curve::Grumpkin> || std::is_same_v<Curve, stdlib::grumpkin<UltraCircuitBuilder>>) ? 3
+                                                                                                                 : 9;
 
   public:
     /*!
