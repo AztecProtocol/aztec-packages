@@ -1,5 +1,5 @@
 // Convenience struct to hold an account's address and secret that can easily be passed around.
-import { type AztecAddress, type CheatCodes, Fr } from '@aztec/aztec.js';
+import { AztecAddress, type CheatCodes, Fr } from '@aztec/aztec.js';
 import { pedersenHash } from '@aztec/foundation/crypto';
 import { type RollupAbi } from '@aztec/l1-artifacts';
 import { type LendingContract } from '@aztec/noir-contracts.js/Lending';
@@ -191,7 +191,7 @@ export class LendingSimulator {
     expect(interestAccumulatorBigint).toEqual(this.accumulator);
     expect(asset['last_updated_ts']).toEqual(BigInt(this.time));
 
-    for (const key of [this.account.address, this.account.key()]) {
+    for (const key of [this.account.address, AztecAddress.fromField(this.account.key())]) {
       const privatePos = await this.lendingContract.methods.get_position(key).simulate();
       expect(new Fr(privatePos['collateral'])).toEqual(this.collateral[key.toString()] ?? Fr.ZERO);
       expect(new Fr(privatePos['static_debt'])).toEqual(this.staticDebt[key.toString()] ?? Fr.ZERO);
