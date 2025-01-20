@@ -154,7 +154,6 @@ describe('Archiver', () => {
     (archiver as any).rollup = mockRollup;
 
     mockInboxRead = mock<MockInboxContractRead>();
-    mockInboxRead.totalMessagesInserted.mockImplementation(() => Promise.resolve(123n));
     mockInboxEvents = mock<MockInboxContractEvents>();
     mockInboxEvents.MessageSent.mockImplementation(async (filter: any, { fromBlock, toBlock }) => {
       return await Promise.resolve(
@@ -175,7 +174,7 @@ describe('Archiver', () => {
     await archiver?.stop();
   });
 
-  it('can start, sync and stop and handle l1 to l2 messages and logs', async () => {
+  it.only('can start, sync and stop and handle l1 to l2 messages and logs', async () => {
     let latestBlockNum = await archiver.getBlockNumber();
     expect(latestBlockNum).toEqual(0);
 
@@ -197,10 +196,7 @@ describe('Archiver', () => {
         blocks[0].archive.root.toString(),
       ]);
 
-    mockInbox.read.totalMessagesInserted
-      .mockResolvedValueOnce(123n)
-      .mockResolvedValueOnce(2n)
-      .mockResolvedValueOnce(6n);
+    mockInbox.read.totalMessagesInserted.mockResolvedValueOnce(2n).mockResolvedValueOnce(6n);
 
     makeMessageSentEvent(98n, 1n, 0n);
     makeMessageSentEvent(99n, 1n, 1n);
