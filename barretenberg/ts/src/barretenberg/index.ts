@@ -3,7 +3,7 @@ import { BarretenbergApi, BarretenbergApiSync } from '../barretenberg_api/index.
 import { createMainWorker } from '../barretenberg_wasm/barretenberg_wasm_main/factory/node/index.js';
 import { BarretenbergWasmMain, BarretenbergWasmMainWorker } from '../barretenberg_wasm/barretenberg_wasm_main/index.js';
 import { getRemoteBarretenbergWasm } from '../barretenberg_wasm/helpers/index.js';
-import { BarretenbergWasmWorker, fetchModuleAndThreads } from '../barretenberg_wasm/index.js';
+import { BarretenbergWasm, BarretenbergWasmWorker, fetchModuleAndThreads } from '../barretenberg_wasm/index.js';
 import createDebug from 'debug';
 import { Crs, GrumpkinCrs } from '../crs/index.js';
 import { RawBuffer } from '../types/raw_buffer.js';
@@ -116,6 +116,30 @@ export class BarretenbergSync extends BarretenbergApiSync {
       throw new Error('First call BarretenbergSync.initSingleton() on @aztec/bb.js module.');
     }
     return barretenbergSyncSingleton;
+  }
+
+  getWasm() {
+    return this.wasm;
+  }
+}
+
+let barrentenbergLazySingleton: BarretenbergLazy;
+
+export class BarretenbergLazy extends BarretenbergApi {
+  private constructor(wasm: BarretenbergWasmMainWorker) {
+    super(wasm);
+  }
+
+  private static async new() {
+    const { wasm } = await BarretenbergWasm.new(1);
+    return new BarretenbergLazy(wasm);
+  }
+
+  static async getSingleton() {
+    if (!barrentenbergLazySingleton) {
+      barrentenbergLazySingleton = await BarretenbergLazy.new();
+    }
+    return barrentenbergLazySingleton;
   }
 
   getWasm() {
