@@ -112,7 +112,10 @@ export const DEFAULT_SUB_PROTOCOL_HANDLERS: ReqRespSubProtocolHandlers = {
  * The Request Response Pair interface defines the methods that each
  * request response pair must implement
  */
-interface RequestResponsePair<Req, Res> {
+interface RequestResponsePair<Req extends { toBuffer(): Buffer }, Res> {
+  /**
+   * The request must implement the toBuffer method (generic serialisation)
+   */
   request: new (...args: any[]) => Req;
   /**
    * The response must implement the static fromBuffer method (generic serialisation)

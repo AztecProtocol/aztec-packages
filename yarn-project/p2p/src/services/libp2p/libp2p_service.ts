@@ -401,6 +401,19 @@ export class LibP2PService<T extends P2PClientType> extends WithTracer implement
   }
 
   /**
+   * Send a batch of requests to peers, and return the responses
+   * @param protocol - The request response protocol to use
+   * @param requests - The requests to send to the peers
+   * @returns The responses to the requests
+   */
+  sendBatchRequest<SubProtocol extends ReqRespSubProtocol>(
+    protocol: SubProtocol,
+    requests: InstanceType<SubProtocolMap[SubProtocol]['request']>[],
+  ): Promise<InstanceType<SubProtocolMap[SubProtocol]['response']>[] | undefined> {
+    return this.reqresp.sendBatchRequest(protocol, requests);
+  }
+
+  /**
    * Get the ENR of the node
    * @returns The ENR of the node
    */
