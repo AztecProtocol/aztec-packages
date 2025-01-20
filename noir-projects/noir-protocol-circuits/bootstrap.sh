@@ -66,12 +66,10 @@ function compile {
   local program_hash hash bytecode_hash vk vk_fields
 
   # We get the monomorphized program hash from nargo. If this changes, we have to recompile.
-  # local program_hash_cmd="$NARGO check --package $name --silence-warnings --show-program-hash | cut -d' ' -f2"
-  # program_hash=$(dump_fail "$program_hash_cmd")
-  # echo_stderr "Hash preimage: $NARGO_HASH-$program_hash"
-  # hash=$(hash_str "$NARGO_HASH-$program_hash")
-  echo_stderr "Hash preimage: $NARGO_HASH-$circuits_hash"
-  hash=$(hash_str "$NARGO_HASH-$circuits_hash")
+  local program_hash_cmd="$NARGO check --package $name --silence-warnings --show-program-hash | cut -d' ' -f2"
+  program_hash=$(dump_fail "$program_hash_cmd")
+  echo_stderr "Hash preimage: $NARGO_HASH-$program_hash"
+  hash=$(hash_str "$NARGO_HASH-$program_hash")
 
   if ! cache_download circuit-$hash.tar.gz 1>&2; then
     SECONDS=0

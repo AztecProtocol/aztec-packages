@@ -104,6 +104,7 @@ ssh ${ssh_args:-} -F $ci3/aws/build_instance_ssh_config ubuntu@$ip "
     -e LOCAL_USER_ID=\$(id -u) \
     -e LOCAL_GROUP_ID=\$(id -g) \
     -e BUILD_SYSTEM_DEBUG=${BUILD_SYSTEM_DEBUG:-} \
+    -e MASTER=${MASTER:-0} \
     --pids-limit=32768 \
     $DEVBOX_IMAGE bash -c '
       set -euo pipefail

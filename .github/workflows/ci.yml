@@ -1,21 +1,21 @@
 name: CI
 on:
-  push:
-    branches:
-      - master
-      - provernet ./bootstrap.sh
-      - "*/ci-push*"
-  merge_group:
-  pull_request:
-    types:
-      - opened
-      - reopened
-      - synchronize
-      - ready_for_review
-      - labeled
-    branches-ignore: [devnet]
-  workflow_dispatch:
-    inputs: {}
+  # push:
+  #   branches:
+  #     - master
+  #     - provernet ./bootstrap.sh
+  #     - "*/ci-push*"
+  # merge_group:
+  # pull_request:
+  #   types:
+  #     - opened
+  #     - reopened
+  #     - synchronize
+  #     - ready_for_review
+  #     - labeled
+  #   branches-ignore: [devnet]
+  # workflow_dispatch:
+  #   inputs: {}
 
 concurrency:
   # allow parallelism in master and merge queue

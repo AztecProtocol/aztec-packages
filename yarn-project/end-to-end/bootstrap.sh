@@ -6,9 +6,18 @@ cmd=${1:-}
 hash=$(../bootstrap.sh hash)
 
 function test_cmds {
-  local run_test_script="yarn-project/end-to-end/scripts/test.sh"
+  local run_test_script="yarn-project/end-to-end/scripts/run_test.sh"
   local prefix="$hash $run_test_script"
 
+  if [ "${MASTER:-0}" -eq 1 ]; then
+    # Only executed on master due to being so heavy.
+    # Needs fixing.
+    # echo "$prefix $run_test_script simple e2e_prover/full"
+    true
+  fi
+
+  # These are best ordered by longest running first as they're scheduled in order.
+  echo "$prefix simple e2e_block_building"
   echo "$prefix simple e2e_2_pxes"
   echo "$prefix simple e2e_account_contracts"
   echo "$prefix simple e2e_authwit"
@@ -20,7 +29,6 @@ function test_cmds {
   echo "$prefix simple e2e_blacklist_token_contract/transfer_private"
   echo "$prefix simple e2e_blacklist_token_contract/transfer_public"
   echo "$prefix simple e2e_blacklist_token_contract/unshielding"
-  echo "$prefix simple e2e_block_building"
   echo "$prefix simple e2e_bot"
   echo "$prefix simple e2e_card_game"
   echo "$prefix simple e2e_cheat_codes"

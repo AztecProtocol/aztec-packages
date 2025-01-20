@@ -4,14 +4,13 @@
 # - You can enable BUILD_SYSTEM_DEBUG=1 but the output is quite verbose that it's not much use by default.
 # - This flag however, isn't carried into exported functions. You need to do "set -x" in those functions manually.
 # - You can call ./bootstrap.sh compile <package name> to compile and process a single contract.
-# - You can disable further parallelism by setting passing 1 as arg to 'parallelise'.
+# - You can disable further parallelism by setting passing 1 as arg to 'parallelise' and with PARALLELISM=1.
 # - The exported functions called by parallel must enable their own flags at the start e.g. set -euo pipefail
 # - The exported functions are using stdin/stdout, so be very careful about what's printed where.
 # - The exported functions need to have external variables they require, to have been exported first.
 # - You can't export bash arrays or maps to be used by external functions, only strings.
 # - If you want to echo something, send it to stderr e.g. echo_stderr "My debug"
 # - If you call another script, be sure it also doesn't output something you don't want.
-# - Note calls to cache scripts swallow everything with &> /dev/null.
 # - Local assignments with subshells don't propagate errors e.g. local capture=$(false). Declare locals separately.
 # - Just ask me (charlie) for guidance if you're suffering.
 # - I remain convinced we don't need node for these kinds of things, and we can be more performant/expressive with bash.
@@ -97,7 +96,8 @@ function get_contract_hash {
     ../../noir/.rebuild_patterns \
     ../../avm-transpiler/.rebuild_patterns \
     "^noir-projects/noir-contracts/contracts/$1/" \
-    "^noir-projects/aztec-nr/"
+    "^noir-projects/aztec-nr/" \
+    "^noir-projects/noir-protocol-circuits/crates/types"
 }
 export -f get_contract_hash
 

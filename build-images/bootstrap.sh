@@ -96,7 +96,7 @@ case "$cmd" in
     docker_login
     update_manifests
     ;;
-  "ci")
+  "deploy")
     docker_login
     build_all
     update_manifests

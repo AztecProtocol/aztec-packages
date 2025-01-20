@@ -32,12 +32,8 @@ noir_lsp-.* requests::
 # test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 232 filtered out; finished in 60.34s
 tests::debug_ram_blowup_regression
 
-# end-to-end
-# This is just too slow at over 10m, grinding it 32 times it didn't flake.
-simple e2e_block_building
-
 # Seen this error on all the below.
-# e.g. to grind: seq 1 16 | parallel --bar --tag --halt now,fail=1 ci3/dump_fail "NAME_POSTFIX=_{} yarn-project/end-to-end/scripts/test.sh simple e2e_p2p/gossip_network >/dev/null"
+# e.g. to grind: seq 1 16 | parallel --bar --tag --halt now,fail=1 ci3/dump_fail "NAME_POSTFIX=_{} yarn-project/end-to-end/scripts/run_test.sh simple e2e_p2p/gossip_network >/dev/null"
 # FAIL  e2e_p2p/reqresp.test.ts
 #  ● e2e_p2p_reqresp_tx › should produce an attestation by requesting tx data over the p2p network
 

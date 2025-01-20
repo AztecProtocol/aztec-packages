@@ -2,16 +2,16 @@ name: CI3
 
 on:
   workflow_dispatch:
-  # push:
-  #   branches:
-  #     - master
-  # pull_request:
-  #   types:
-  #     - opened
-  #     - synchronize
-  #     - reopened
-  #     - ready_for_review
-  #     - labeled
+  push:
+    branches:
+      - master
+  pull_request:
+    types:
+      - opened
+      - synchronize
+      - reopened
+      - ready_for_review
+      - labeled
 
 concurrency:
   # force parallelism in master
@@ -43,6 +43,7 @@ jobs:
         run: |
           export LOG_ID=${{ github.run_id }}
           export BRANCH=${{ github.event.pull_request.head.ref || github.ref_name }}
+          [ "${{ github.ref_name }}" == "master" ] && export MASTER=1 || export MASTER=0
           ./ci.sh ec2
       # TODO: We will need to extract the result from the remote container before termination.
       # Also only on master?
