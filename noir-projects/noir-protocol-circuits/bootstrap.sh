@@ -14,6 +14,7 @@ export BB=${BB:-../../barretenberg/cpp/build/bin/bb}
 export NARGO=${NARGO:-../../noir/noir-repo/target/release/nargo}
 export BB_HASH=$(cache_content_hash ../../barretenberg/cpp/.rebuild_patterns)
 export NARGO_HASH=$(cache_content_hash ../../noir/.rebuild_patterns)
+export CRATES_HASH=$(cache_content_hash crates)
 
 # Set flags for parallel
 export PARALLELISM=${PARALLELISM:-16}
@@ -74,8 +75,10 @@ function compile {
   # We get the monomorphized program hash from nargo. If this changes, we have to recompile.
   local program_hash_cmd="$NARGO check --package $name --silence-warnings --show-program-hash | cut -d' ' -f2"
   program_hash=$(dump_fail "$program_hash_cmd")
-  echo_stderr "Hash preimage: $NARGO_HASH-$program_hash"
-  hash=$(hash_str "$NARGO_HASH-$program_hash")
+  echo_stderr "Hash preimage: $NARGO_HASH-$CRATES_HASH-$program_hash"
+  # We include CRATES_HASH as --show-program-hash does not do a good job at hashing dependencies.
+  # TODO(ci3) we may need to do a less granular hash if this doesn't work out.
+  hash=$(hash_str "$NARGO_HASH-$CRATES_HASH-$program_hash")
 
   if ! cache_download circuit-$hash.tar.gz 1>&2; then
     SECONDS=0
