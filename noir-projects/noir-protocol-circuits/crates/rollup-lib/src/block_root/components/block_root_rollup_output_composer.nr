@@ -2,11 +2,11 @@ use crate::{
     abis::{
         base_or_merge_rollup_public_inputs::BaseOrMergeRollupPublicInputs,
         block_root_or_block_merge_public_inputs::{BlockRootOrBlockMergePublicInputs, FeeRecipient},
-        block_root_rollup_data::BlockRootRollupData,
+        block_root_rollup_data::{BlockRootRollupBlobData, BlockRootRollupData},
     },
     merge::utils::merge_rollups::merge_rollups,
 };
-use blob::{blob::evaluate_blobs, blob_public_inputs::BlockBlobPublicInputs};
+use blob::{blob::evaluate_blobs, blob_public_inputs::{BlobPublicInputs, BlockBlobPublicInputs}};
 use types::{
     abis::{
         append_only_tree_snapshot::AppendOnlyTreeSnapshot, constant_rollup_data::ConstantRollupData,
@@ -17,6 +17,7 @@ use types::{
     merkle_tree::{append_only_tree, calculate_empty_tree_root},
     partial_state_reference::PartialStateReference,
     state_reference::StateReference,
+    traits::{Empty, Hash},
 };
 
 pub struct BlockRootRollupOutputComposer {
@@ -47,69 +48,97 @@ impl BlockRootRollupOutputComposer {
         }
     }
 
-    pub fn finish(self) -> BlockRootOrBlockMergePublicInputs {
+    pub fn finish(self, blob_data: BlockRootRollupBlobData) -> BlockRootOrBlockMergePublicInputs {
         let constants = self.merged_rollup.constants;
 
         // Build the block hash for this by hashing the header and then insert the new leaf to archive tree.
-        let block_hash = self.compute_block_hash(constants, self.merged_rollup.end);
-        let new_archive = self.update_archive(constants.last_archive, block_hash);
+        let new_block_header =
+            self.create_new_block_header(constants, self.merged_rollup.end, blob_data.blobs_hash);
 
-        let fees = self.get_fees();
+        let block_blob_public_inputs = self.get_block_blob_public_inputs(blob_data);
 
-        let blob_public_inputs = self.get_blob_public_inputs();
-
-        BlockRootOrBlockMergePublicInputs {
-            previous_archive: constants.last_archive, // archive before this block was added
-            new_archive, // archive once this block was added
-            previous_block_hash: self.data.previous_block_hash,
-            end_block_hash: block_hash, // current newest block hash = this block hash
-            start_global_variables: constants.global_variables, // we have asserted that left.constants == right.constants => ...
-            end_global_variables: constants.global_variables, // ...with a current block range of 1, we only have 1 set of constants
-            out_hash: self.merged_rollup.out_hash,
-            fees,
-            vk_tree_root: constants.vk_tree_root,
-            protocol_contract_tree_root: constants.protocol_contract_tree_root,
-            prover_id: self.data.prover_id,
-            blob_public_inputs,
-        }
+        self.finish_with_new_values(
+            constants,
+            new_block_header,
+            self.merged_rollup.out_hash,
+            block_blob_public_inputs,
+            self.merged_rollup.accumulated_fees,
+        )
     }
 
     pub fn finish_empty(
         self,
         constants: ConstantRollupData,
-        previous_partial_state: PartialStateReference,
-        challenge_z: Field,
+        empty_effect_blobs_hash: Field,
+        empty_effect_blob_public_input: BlobPublicInputs,
         is_padding: bool,
     ) -> BlockRootOrBlockMergePublicInputs {
-        // Build the block hash for this by hashing the header and then insert the new leaf to archive tree.
-        let block_hash = if is_padding {
-            self.data.previous_block_hash
+        let new_block_header = if is_padding {
+            self.data.previous_block_header
         } else {
-            self.compute_block_hash(constants, previous_partial_state)
+            self.create_new_block_header(
+                constants,
+                self.data.previous_block_header.state.partial,
+                empty_effect_blobs_hash,
+            )
         };
 
-        let new_archive = if is_padding {
-            constants.last_archive
-        } else {
-            self.update_archive(constants.last_archive, block_hash)
+        let mut block_blob_public_inputs = BlockBlobPublicInputs::empty();
+        if !is_padding {
+            block_blob_public_inputs.inner[0] = empty_effect_blob_public_input;
         };
 
-        let fees = [FeeRecipient::empty(); AZTEC_MAX_EPOCH_DURATION];
+        self.finish_with_new_values(
+            constants,
+            new_block_header,
+            0 /* out_hash */,
+            block_blob_public_inputs,
+            0, /* accumulated_fees */
+        )
+    }
+
+    fn finish_with_new_values(
+        self,
+        constants: ConstantRollupData,
+        new_block_header: BlockHeader,
+        out_hash: Field,
+        block_blob_public_inputs: BlockBlobPublicInputs,
+        accumulated_fees: Field,
+    ) -> BlockRootOrBlockMergePublicInputs {
+        let previous_block_hash = self.data.previous_block_header.hash();
+        let end_block_hash = new_block_header.hash();
+
+        let previous_archive = constants.last_archive;
+        let new_archive = if end_block_hash == previous_block_hash {
+            // If the block hash hasn't changed, the archive remains the same.
+            // This scenario only applies to padding blocks.
+            // For non-padding blocks, create_new_block_header will be called. And the next_available_leaf_index of the
+            // l1_to_l2_message_tree will be incremented when a new block header is created. So the block hash will
+            // always be different.
+            previous_archive
+        } else {
+            self.update_archive(constants.last_archive, end_block_hash)
+        };
+
+        let mut fees = [FeeRecipient::empty(); AZTEC_MAX_EPOCH_DURATION];
+        if accumulated_fees != 0 {
+            fees[0] = FeeRecipient {
+                recipient: constants.global_variables.coinbase,
+                value: accumulated_fees,
+            };
+        }
 
         let mut blob_public_inputs = [BlockBlobPublicInputs::empty(); AZTEC_MAX_EPOCH_DURATION];
-        if !is_padding {
-            blob_public_inputs[0].inner[0].z = challenge_z;
-            blob_public_inputs[0].inner[0].kzg_commitment = self.data.blob_commitments[0];
-        };
+        blob_public_inputs[0] = block_blob_public_inputs;
 
         BlockRootOrBlockMergePublicInputs {
-            previous_archive: constants.last_archive, // archive before this block was added
+            previous_archive, // archive before this block was added
             new_archive, // archive once this block was added
-            previous_block_hash: self.data.previous_block_hash,
-            end_block_hash: block_hash, // current newest block hash = this block hash
+            previous_block_hash,
+            end_block_hash, // current newest block hash = this block hash
             start_global_variables: constants.global_variables, // we have asserted that left.constants == right.constants => ...
             end_global_variables: constants.global_variables, // ...with a current block range of 1, we only have 1 set of constants
-            out_hash: 0,
+            out_hash,
             fees,
             vk_tree_root: constants.vk_tree_root,
             protocol_contract_tree_root: constants.protocol_contract_tree_root,
@@ -118,22 +147,24 @@ impl BlockRootRollupOutputComposer {
         }
     }
 
-    fn compute_block_hash(
+    fn create_new_block_header(
         self,
         constants: ConstantRollupData,
         end_partial_state: PartialStateReference,
-    ) -> Field {
+        blobs_hash: Field,
+    ) -> BlockHeader {
         let content_commitment = ContentCommitment {
             num_txs: self.merged_rollup.num_txs as Field,
-            blobs_hash: self.data.blobs_hash,
+            blobs_hash,
             in_hash: self.data.l1_to_l2_roots.public_inputs.sha_root,
             out_hash: self.merged_rollup.out_hash,
         };
 
         // Insert subtree into the l1 to l2 data tree
+        let last_l1_to_l2_snapshot = self.data.previous_block_header.state.l1_to_l2_message_tree;
         let empty_l1_to_l2_subtree_root = calculate_empty_tree_root(L1_TO_L2_MSG_SUBTREE_HEIGHT);
         let new_l1_to_l2_message_tree_snapshot = append_only_tree::insert_subtree_to_snapshot_tree(
-            self.data.start_l1_to_l2_message_tree_snapshot,
+            last_l1_to_l2_snapshot,
             self.data.l1_to_l2_message_subtree_sibling_path,
             empty_l1_to_l2_subtree_root,
             self.data.l1_to_l2_roots.public_inputs.converted_root,
@@ -144,16 +175,14 @@ impl BlockRootRollupOutputComposer {
             partial: end_partial_state,
         };
 
-        let header = BlockHeader {
+        BlockHeader {
             last_archive: constants.last_archive,
             content_commitment,
             state,
             global_variables: constants.global_variables,
             total_fees: self.merged_rollup.accumulated_fees,
             total_mana_used: self.merged_rollup.accumulated_mana_used,
-        };
-
-        header.hash()
+        }
     }
 
     fn update_archive(
@@ -170,33 +199,22 @@ impl BlockRootRollupOutputComposer {
         )
     }
 
-    fn get_fees(self) -> [FeeRecipient; AZTEC_MAX_EPOCH_DURATION] {
-        let mut arr = [FeeRecipient::empty(); AZTEC_MAX_EPOCH_DURATION];
-        arr[0] = FeeRecipient {
-            recipient: self.merged_rollup.constants.global_variables.coinbase,
-            value: self.merged_rollup.accumulated_fees,
-        };
-        arr
-    }
-
-    fn get_blob_public_inputs(self) -> [BlockBlobPublicInputs; AZTEC_MAX_EPOCH_DURATION] {
-        let mut blob_public_inputs = [BlockBlobPublicInputs::empty(); AZTEC_MAX_EPOCH_DURATION];
+    fn get_block_blob_public_inputs(self, data: BlockRootRollupBlobData) -> BlockBlobPublicInputs {
         if !dep::std::runtime::is_unconstrained() {
-            blob_public_inputs[0] = evaluate_blobs(
-                self.data.blobs_fields,
-                self.data.blob_commitments,
+            evaluate_blobs(
+                data.blobs_fields,
+                data.blob_commitments,
                 self.merged_rollup.end_sponge_blob,
-            );
+            )
         } else {
-            // TODO(#10323): this was added to save simulation time, if/when simulation times of unconstrained are improved, remove this.
-            blob_public_inputs[0] = unsafe {
+            /// Safety: TODO(#10323): this was added to save simulation time, if/when simulation times of unconstrained are improved, remove this.
+            unsafe {
                 blob::mock_blob_oracle::evaluate_blobs(
-                    self.data.blobs_fields,
-                    self.data.blob_commitments,
+                    data.blobs_fields,
+                    data.blob_commitments,
                     self.merged_rollup.end_sponge_blob,
                 )
-            };
+            }
         }
-        blob_public_inputs
     }
 }

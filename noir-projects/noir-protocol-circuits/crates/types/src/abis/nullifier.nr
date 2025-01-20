@@ -3,7 +3,7 @@ use crate::{
     address::AztecAddress,
     constants::{NULLIFIER_LENGTH, SCOPED_NULLIFIER_LENGTH},
     hash::compute_siloed_nullifier,
-    traits::{Deserialize, Empty, Serialize},
+    traits::{Deserialize, Empty, Serialize, ToField},
     utils::{arrays::array_concat, reader::Reader},
 };
 

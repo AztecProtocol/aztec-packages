@@ -7,7 +7,7 @@ use dep::types::{
         traits::Verifiable,
         verification_key::{RollupHonkVerificationKey, VerificationKey},
     },
-    traits::Empty,
+    traits::{Empty, Serialize},
     utils::arrays::find_index_hint,
 };
 
@@ -48,6 +48,7 @@ impl PreviousRollupData {
         self.vk.check_hash();
 
         let leaf_index = self.vk_witness.leaf_index as u32;
+        /// Safety: This is a hint which is constrained by the asserts below.
         let index_hint =
             unsafe { find_index_hint(allowed_indices, |index: u32| index == leaf_index) };
         assert(index_hint < N, "Invalid vk index");

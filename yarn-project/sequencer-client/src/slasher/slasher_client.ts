@@ -12,8 +12,7 @@ import { EthAddress } from '@aztec/foundation/eth-address';
 import { createLogger } from '@aztec/foundation/log';
 import { type AztecKVStore, type AztecMap, type AztecSingleton } from '@aztec/kv-store';
 import { SlashFactoryAbi } from '@aztec/l1-artifacts';
-import { type TelemetryClient, WithTracer } from '@aztec/telemetry-client';
-import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
+import { type TelemetryClient, WithTracer, getTelemetryClient } from '@aztec/telemetry-client';
 
 import {
   type Chain,
@@ -113,7 +112,7 @@ export class SlasherClient extends WithTracer {
     private config: SlasherConfig & L1ContractsConfig & L1ReaderConfig,
     private store: AztecKVStore,
     private l2BlockSource: L2BlockSource,
-    telemetry: TelemetryClient = new NoopTelemetryClient(),
+    telemetry: TelemetryClient = getTelemetryClient(),
     private log = createLogger('slasher'),
   ) {
     super(telemetry, 'slasher');
