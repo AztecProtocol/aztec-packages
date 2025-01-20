@@ -227,7 +227,7 @@ export class TxEffect {
       makeTuple(MAX_L2_TO_L1_MSGS_PER_TX, Fr.random),
       makeTuple(MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, () => new PublicDataWrite(Fr.random(), Fr.random())),
       makeTuple(MAX_PRIVATE_LOGS_PER_TX, () => new PrivateLog(makeTuple(PRIVATE_LOG_SIZE_IN_FIELDS, Fr.random))),
-      makeTupleAsync(numPublicCallsPerTx * numPublicLogsPerCall, PublicLog.random),
+      await makeTupleAsync(numPublicCallsPerTx * numPublicLogsPerCall, PublicLog.random),
       new Fr(contractClassLogs.getKernelLength()),
       contractClassLogs,
     );

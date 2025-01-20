@@ -34,12 +34,12 @@ export function makeTuple<T, N extends number>(length: N, fn: (i: number) => T, 
  * @param fn - The generator function.
  * @returns The array of numbers.
  */
-export function makeTupleAsync<T, N extends number>(length: N, fn: (i: number) => Promise<T>, offset = 0) {
-  return Promise.all(
+export async function makeTupleAsync<T, N extends number>(length: N, fn: (i: number) => Promise<T>, offset = 0) {
+  return (await Promise.all(
     Array(length)
       .fill(0)
       .map(async (_: any, i: number) => await fn(i + offset)),
-  ) as Tuple<T, N>;
+  )) as Tuple<T, N>;
 }
 
 /**

@@ -253,8 +253,10 @@ describe('e2e_deploy_contract contract class registration', () => {
       });
 
       describe('using a public constructor', async () => {
-        const ignoredArg = await AztecAddress.random();
+        let ignoredArg: AztecAddress;
         beforeAll(async () => {
+          ignoredArg = await AztecAddress.random();
+
           ({ instance, initArgs, contract } = await deployInstance({
             constructorName: 'public_constructor',
           }));

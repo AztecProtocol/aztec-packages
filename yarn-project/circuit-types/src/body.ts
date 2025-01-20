@@ -1,4 +1,5 @@
 import { type Fr } from '@aztec/circuits.js';
+import { timesParallel } from '@aztec/foundation/collection';
 import { type ZodFor } from '@aztec/foundation/schemas';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 
@@ -89,8 +90,8 @@ export class Body {
   }
 
   static async random(txsPerBlock = 4, numPublicCallsPerTx = 3, numPublicLogsPerCall = 1) {
-    const txEffects = await Promise.all(
-      [...new Array(txsPerBlock)].map(_ => TxEffect.random(numPublicCallsPerTx, numPublicLogsPerCall)),
+    const txEffects = await timesParallel(txsPerBlock, () =>
+      TxEffect.random(numPublicCallsPerTx, numPublicLogsPerCall),
     );
 
     return new Body(txEffects);
