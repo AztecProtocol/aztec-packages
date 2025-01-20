@@ -122,7 +122,7 @@ function compile {
       local verifier_path="$key_dir/${name}_verifier.sol"
       SECONDS=0
       # Generate solidity verifier for this contract.
-      echo "$vk" | $BB contract_ultra_honk -k - -o $verifier_path
+      echo "$vk" | xxd -r -p | $BB contract_ultra_honk -k - -o $verifier_path
       echo_stderr "VK output at: $verifier_path (${SECONDS}s)"
       # Include the verifier path if we create it.
       cache_upload vk-$hash.tar.gz $key_path $verifier_path &> /dev/null
