@@ -373,7 +373,7 @@ jobs:
         uses: ./.github/ensure-tester
         with:
           username: ${{ needs.configure.outputs.username }}
-          runner_type: 8core-tester-x86
+          runner_type: 16core-tester-x86
           ttl: 60
           run: |
             until docker info &>/dev/null; do sleep 1; done
