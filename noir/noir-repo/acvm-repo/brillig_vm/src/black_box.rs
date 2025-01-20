@@ -5,7 +5,7 @@ use acvm_blackbox_solver::{
     sha256_compression, BigIntSolverWithId, BlackBoxFunctionSolver, BlackBoxResolutionError,
 };
 use num_bigint::BigUint;
-use num_traits::Zero;
+use num_traits::{ToPrimitive, Zero};
 use thiserror::Error;
 
 use crate::memory::MemoryValue;
@@ -307,7 +307,7 @@ pub(crate) fn evaluate_black_box<F: AcirField, Solver: BlackBoxFunctionSolver<F>
             let inputs = read_heap_array(memory, input);
             if inputs.len() != 16 {
                 return Err(BrilligBlackBoxResolutionError::Failed(
-                    BlackBoxFunc::Sha256Compression.into(),
+                    BrilligBlackBoxFunc::Sha256Compression,
                     format!("Expected 16 inputs but encountered {}", &inputs.len()),
                 ));
             }
@@ -318,7 +318,7 @@ pub(crate) fn evaluate_black_box<F: AcirField, Solver: BlackBoxFunctionSolver<F>
             let values = read_heap_array(memory, hash_values);
             if values.len() != 8 {
                 return Err(BrilligBlackBoxResolutionError::Failed(
-                    BlackBoxFunc::Sha256Compression.into(),
+                    BrilligBlackBoxFunc::Sha256Compression,
                     format!("Expected 8 values but encountered {}", &values.len()),
                 ));
             }
@@ -338,7 +338,12 @@ pub(crate) fn evaluate_black_box<F: AcirField, Solver: BlackBoxFunctionSolver<F>
                 .read(*radix)
                 .expect_integer_with_bit_size(IntegerBitSize::U32)
                 .expect("ToRadix opcode's radix bit size does not match expected bit size 32");
-            let num_limbs = memory.read(*num_limbs).to_usize();
+            let num_limbs = memory
+                .read(*num_limbs)
+                .expect_integer_with_bit_size(IntegerBitSize::U32)
+                .expect("ToRadix opcode's number of limbs does not match expected bit size 32")
+                .to_usize()
+                .expect("usize type is not of bit size 32");
             let output_bits = !memory
                 .read(*output_bits)
                 .expect_integer_with_bit_size(IntegerBitSize::U1)
@@ -347,6 +352,27 @@ pub(crate) fn evaluate_black_box<F: AcirField, Solver: BlackBoxFunctionSolver<F>
 
             let mut input = BigUint::from_bytes_be(&input.to_be_bytes());
             let radix = BigUint::from_bytes_be(&radix.to_be_bytes());
+
+            if radix < BigUint::from(2u32) || radix > BigUint::from(256u32) {
+                return Err(BrilligBlackBoxResolutionError::Failed(
+                    BrilligBlackBoxFunc::ToRadix,
+                    format!("Radix out of the valid range [2,256]. Value: {}", radix),
+                ));
+            }
+
+            if num_limbs < 1 && input != BigUint::from(0u32) {
+                return Err(BrilligBlackBoxResolutionError::Failed(
+                    BrilligBlackBoxFunc::ToRadix,
+                    format!(" Input value {} is not zero but number of limbs is zero.", input),
+                ));
+            }
+
+            if output_bits && radix != BigUint::from(2u32) {
+                return Err(BrilligBlackBoxResolutionError::Failed(
+                    BrilligBlackBoxFunc::ToRadix,
+                    format!("Radix {} is not equal to two in bit mode.", radix),
+                ));
+            }
 
             let mut limbs: Vec<MemoryValue<F>> = vec![MemoryValue::default(); num_limbs];
 
