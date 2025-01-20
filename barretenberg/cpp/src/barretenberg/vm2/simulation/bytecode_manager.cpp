@@ -17,7 +17,9 @@ BytecodeId TxBytecodeManager::get_bytecode(const AztecAddress& address)
     // TODO: catch errors etc.
     // TODO: we should trigger the proper merkle checks etc. The raw DB doesn't.
     ContractInstance instance = db.get_contract_instance(address);
+    address_derivation.assert_derivation(address, instance);
     ContractClass klass = db.get_contract_class(instance.contract_class_id);
+    class_id_derivation.assert_derivation(instance.contract_class_id, klass);
     auto bytecode_id = next_bytecode_id++;
     info("Bytecode for ", address, " successfully retrieved!");
 
