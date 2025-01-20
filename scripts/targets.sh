@@ -1,18 +1,6 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-#
-# scripts/targets.sh
-#
-# A single entry script that replaces the old Earthly targets with
-# shell functions. Usage:
-#
-#    scripts/targets.sh <command> [args...]
-#
-# Example:
-#    scripts/targets.sh ci-noir-bb
-#
-
 # Utility: a simple function to echo usage and exit
 usage() {
   cat <<EOF
@@ -32,7 +20,6 @@ Available commands include:
   # ... add or remove as needed
 
 Examples:
-  $0 ci-noir-bb
   $0 docs-with-cache staging 12345 <AZTEC_BOT_TOKEN> <NETLIFY_AUTH> <NETLIFY_SITE_ID>
 EOF
   exit 1
@@ -191,9 +178,6 @@ shift || true
 
 echo "COMMAND IS $COMMAND"
 case "$COMMAND" in
-  ci-noir-bb)
-    cmd_ci_noir_bb "$@"
-    ;;
   ci-rest)
     cmd_ci_rest "$@"
     ;;

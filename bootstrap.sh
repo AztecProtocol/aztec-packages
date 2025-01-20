@@ -138,14 +138,21 @@ function build {
 
   check_toolchains
 
+  # We use parallelism in each step, and keep a simple linear dependency order.
   projects=(
     noir
+    # Acir tests depend on noir.
     barretenberg
-    l1-contracts
     avm-transpiler
+    # Uses noir for contract builds, barretenberg for VKs and the solidity verifier contract.
     noir-projects
+    # Relies on solidity verifier contract built by noir-projects.
+    l1-contracts
+    # As the 'blockchain component', yarn-project combines the above.
     yarn-project
+    # Boxes are demos for external devs, we use the above components.
     boxes
+    # Docs pull parts of the above code as examples.
     docs
   )
 

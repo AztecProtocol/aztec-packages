@@ -125,32 +125,9 @@ bootstrap-aztec-faucet:
     yarn-project/**/src
   SAVE ARTIFACT /usr/src /usr/src
 
-# Simulates noir+bb CI with chunks that use resources
-ci-noir-bb:
-  FROM +bootstrap-noir-bb
-  LET artifact=noir-ci-tests-$(./noir/bootstrap.sh hash-test)
-  IF ci3/test_should_run $artifact
-    WAIT
-      BUILD ./noir/+examples
-    END
-    RUN ci3/cache_upload_flag $artifact
-  END
-  SET artifact=bb-ci-gcc-$(./barretenberg/cpp/bootstrap.sh hash)
-  IF ci3/test_should_run $artifact
-    WAIT
-      BUILD ./barretenberg/cpp/+preset-gcc
-    END
-    RUN ci3/cache_upload_flag $artifact
-  END
-
 # Simulates non-noir non-bb CI with chunks that use resources
 ci-rest:
   FROM +bootstrap
-  WAIT
-    # internally uses cache:
-    BUILD +l1-contracts-with-cache
-    BUILD +noir-projects-with-cache
-  END
   LET artifact=yarn-project-ci-tests-$(./yarn-project/bootstrap.sh hash)
   IF ci3/test_should_run $artifact
     WAIT
@@ -160,27 +137,6 @@ ci-rest:
     END
     RUN ci3/cache_upload_flag $artifact
   END
-
-# Not actually used by current CI, but a good approximation.
-ci:
-  WAIT
-    BUILD +ci-noir-bb
-  END
-  WAIT
-    BUILD ./barretenberg/cpp/+bench
-    BUILD ./barretenberg/cpp/+test --jobs=32
-  END
-  WAIT
-    BUILD +ci-rest
-  END
-  WAIT
-    BUILD +prover-client-with-cache
-  END
-  WAIT
-    BUILD ./docs/+build
-  END
-  LOCALLY
-  RUN ./bootstrap.sh test-e2e e2e_blacklist
 
 ########################################################################################################################
 # Build helpers
