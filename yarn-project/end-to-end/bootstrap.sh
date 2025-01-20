@@ -9,7 +9,6 @@ function test_cmds {
   local run_test_script="yarn-project/end-to-end/scripts/test.sh"
   local prefix="$hash $run_test_script"
 
-  echo "$prefix simple setup_l1_contracts"
   echo "$prefix simple e2e_2_pxes"
   echo "$prefix simple e2e_account_contracts"
   echo "$prefix simple e2e_authwit"
