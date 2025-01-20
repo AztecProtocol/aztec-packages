@@ -13,7 +13,7 @@ mod black_box;
 mod foreign_call;
 mod opcodes;
 
-pub use black_box::BlackBoxOp;
+pub use black_box::{BlackBoxOp, BrilligBlackBoxFunc};
 pub use foreign_call::{ForeignCallParam, ForeignCallResult};
 pub use opcodes::{
     BinaryFieldOp, BinaryIntOp, HeapArray, HeapValueType, HeapVector, MemoryAddress, ValueOrArray,
