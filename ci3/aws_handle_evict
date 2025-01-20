@@ -1,6 +1,6 @@
 # Gracefully signals eviction status with a 155 exit code.
 # Runs the given command in the background and waits on it while polling for eviction status.
-eval "$*" &
+bash -c "$1" &
 child_pid=$!
 
 token=$(curl -X PUT "http://169.254.169.254/latest/api/token" -H "X-aws-ec2-metadata-token-ttl-seconds: 21600")
@@ -17,13 +17,8 @@ while true; do
   done
   # Check for imminent spot termination
   if curl -fs -H "X-aws-ec2-metadata-token: $token" http://169.254.169.254/latest/meta-data/spot/termination-time &>/dev/null; then
-    # Termination notice found; kill the child and exit with 155
+    # Termination notice found, exit with 155.
     echo "Spot will be terminated! Exiting early."
-    kill "$child_pid" && wait "$child_pid"
     exit 155
   fi
 done
-
-# If we get here, the child exited naturally; return its exit code
-wait "$child_pid"
-exit $?

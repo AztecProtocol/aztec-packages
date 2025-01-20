@@ -35,11 +35,7 @@ case "$type" in
   "compose")
     name="${TEST//[\/\.]/_}${NAME_POSTFIX:-}"
     name_arg="-p $name"
-    function cleanup {
-      # Docker compose down doesn't work here. Something to do with us running within various nests.
-      docker ps -q --filter "label=com.docker.compose.project=$name" | xargs -r docker kill &>/dev/null
-    }
-    trap 'cleanup' EXIT
+    trap 'docker compose $name_arg down --timeout 0' SIGTERM SIGINT EXIT
     docker compose $name_arg down --timeout 0 &> /dev/null
     docker compose $name_arg up --exit-code-from=end-to-end --abort-on-container-exit --force-recreate
   ;;

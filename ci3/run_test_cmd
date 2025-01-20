@@ -1,4 +1,5 @@
 #!/bin/bash
+# Called by 'parallelise' to execute a given test cmd.
 NO_CD=1 source $(git rev-parse --show-toplevel)/ci3/source
 
 cmd=$1
@@ -19,8 +20,15 @@ fi
 export VERBOSE=1
 
 # Run the test, capturing output, with a timeout of 10m.
+# We cannot use "output=$(timeout ...)" here as it stymies proper signal propagation.
+# To ensure we can propagate SIGTERM to timeouts process group we use a temp file and forward the signal.
 set +e
-output=$(timeout -v 600s bash -c "$test_cmd" 2>&1)
+tmp_file=$(mktemp)
+trap "rm -f $tmp_file" EXIT
+timeout -v 600s bash -c "$test_cmd" 2>&1 > $tmp_file &
+timeout_pid=$!
+trap "kill -- -$timeout_pid" SIGTERM
+wait $timeout_pid
 code=$?
 
 if [ "$CI_REDIS_AVAILABLE" -eq 1 ]; then
@@ -32,7 +40,7 @@ if [ "$CI_REDIS_AVAILABLE" -eq 1 ]; then
   fi
 
   # Set the test log. This key is globally unique.
-  echo "$output" | redis_cli -x SETEX $log_key 604800 &>/dev/null
+  cat $tmp_file | redis_cli -x SETEX $log_key 604800 &>/dev/null
   log_info=" ${yellow}$log_key${reset}"
 fi
 
@@ -40,7 +48,7 @@ if [ $code -eq 0 ]; then
   echo -e "${green}PASSED${reset}${log_info:-}: $test_cmd"
 else
   echo -e "${red}FAILED${reset}${log_info:-}: $test_cmd (code: $code)"
-  echo "$output"
+  cat $tmp_file
   echo -e "${red}FAILED${reset}${log_info:-}: $test_cmd (code: $code)"
 fi
 
