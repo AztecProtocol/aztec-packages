@@ -36,6 +36,7 @@ import {
   type NULLIFIER_TREE_HEIGHT,
   type NodeInfo,
   type PUBLIC_DATA_TREE_HEIGHT,
+  PUBLIC_LOG_DATA_SIZE_IN_FIELDS,
   type PrivateLog,
   type ProtocolContractAddresses,
   type PublicLog,
@@ -209,8 +210,14 @@ export class TXENode implements AztecNode {
         this.#logger.warn(`Skipping public log with invalid first field: ${log.log[0]}`);
         return;
       }
-      if (!log.log[1]) {
-        this.#logger.warn(`Skipping public log with single field`);
+      // Check that the length values line up with the log contents
+      const publicValuesLength = firstFieldBuf.subarray(-8).readUint16BE();
+      const privateValuesLength = firstFieldBuf.subarray(-8).readUint16BE(3);
+      // Add 1 for the first field holding lengths
+      const totalLogLength = 1 + publicValuesLength + privateValuesLength;
+      // Note that zeroes can be valid log values, so we can only assert that we do not go over the given length
+      if (totalLogLength > PUBLIC_LOG_DATA_SIZE_IN_FIELDS || log.log.slice(totalLogLength).find(f => !f.isZero())) {
+        this.#logger.warn(`Skipping invalid tagged public log with first field: ${log.log[0]}`);
         return;
       }
       // The first elt stores lengths => tag is in fields[1]

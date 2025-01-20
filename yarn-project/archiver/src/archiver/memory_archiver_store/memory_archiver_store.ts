@@ -26,6 +26,7 @@ import {
   INITIAL_L2_BLOCK_NUM,
   MAX_NOTE_HASHES_PER_TX,
   MAX_NULLIFIERS_PER_TX,
+  PUBLIC_LOG_DATA_SIZE_IN_FIELDS,
   type PrivateLog,
   type PublicLog,
   type UnconstrainedFunctionWithMembershipProof,
@@ -255,20 +256,39 @@ export class MemoryArchiverStore implements ArchiverDataStore {
       const txHash = txEffect.txHash;
       const dataStartIndexForTx = dataStartIndexForBlock + txIndex * MAX_NOTE_HASHES_PER_TX;
       txEffect.publicLogs.forEach(log => {
-        try {
-          // The first elt stores lengths => tag is in fields[1]
-          const tag = log.log[1];
-          this.#log.verbose(`Storing public tagged log with tag ${tag.toString()} in block ${block.number}`);
-          const currentLogs = this.taggedLogs.get(tag.toString()) || [];
-          this.taggedLogs.set(tag.toString(), [
-            ...currentLogs,
-            new TxScopedL2Log(txHash, dataStartIndexForTx, block.number, /* isFromPublic */ true, log.toBuffer()),
-          ]);
-          const currentTagsInBlock = this.logTagsPerBlock.get(block.number) || [];
-          this.logTagsPerBlock.set(block.number, [...currentTagsInBlock, tag]);
-        } catch (err) {
-          this.#log.warn(`Failed to add tagged log to store: ${err}`);
+        // Check that each log stores 3 lengths in its first field. If not, it's not a tagged log:
+        const firstFieldBuf = log.log[0].toBuffer();
+        if (
+          !firstFieldBuf.subarray(0, 24).equals(Buffer.alloc(24)) ||
+          firstFieldBuf[26] !== 0 ||
+          firstFieldBuf[29] !== 0
+        ) {
+          // See parseLogFromPublic - the first field of a tagged log is 8 bytes structured:
+          // [ publicLen[0], publicLen[1], 0, privateLen[0], privateLen[1], 0, ciphertextLen[0], ciphertextLen[1]]
+          this.#log.warn(`Skipping public log with invalid first field: ${log.log[0]}`);
+          return;
         }
+        // Check that the length values line up with the log contents
+        const publicValuesLength = firstFieldBuf.subarray(-8).readUint16BE();
+        const privateValuesLength = firstFieldBuf.subarray(-8).readUint16BE(3);
+        // Add 1 for the first field holding lengths
+        const totalLogLength = 1 + publicValuesLength + privateValuesLength;
+        // Note that zeroes can be valid log values, so we can only assert that we do not go over the given length
+        if (totalLogLength > PUBLIC_LOG_DATA_SIZE_IN_FIELDS || log.log.slice(totalLogLength).find(f => !f.isZero())) {
+          this.#log.warn(`Skipping invalid tagged public log with first field: ${log.log[0]}`);
+          return;
+        }
+
+        // The first elt stores lengths => tag is in fields[1]
+        const tag = log.log[1];
+        this.#log.verbose(`Storing public tagged log with tag ${tag.toString()} in block ${block.number}`);
+        const currentLogs = this.taggedLogs.get(tag.toString()) || [];
+        this.taggedLogs.set(tag.toString(), [
+          ...currentLogs,
+          new TxScopedL2Log(txHash, dataStartIndexForTx, block.number, /* isFromPublic */ true, log.toBuffer()),
+        ]);
+        const currentTagsInBlock = this.logTagsPerBlock.get(block.number) || [];
+        this.logTagsPerBlock.set(block.number, [...currentTagsInBlock, tag]);
       });
     });
   }

@@ -11,7 +11,11 @@ import {
   UnencryptedL2Log,
 } from '@aztec/circuit-types';
 import { type Fr, PrivateLog, PublicLog } from '@aztec/circuits.js';
-import { INITIAL_L2_BLOCK_NUM, MAX_NOTE_HASHES_PER_TX } from '@aztec/circuits.js/constants';
+import {
+  INITIAL_L2_BLOCK_NUM,
+  MAX_NOTE_HASHES_PER_TX,
+  PUBLIC_LOG_DATA_SIZE_IN_FIELDS,
+} from '@aztec/circuits.js/constants';
 import { createLogger } from '@aztec/foundation/log';
 import { BufferReader, numToUInt32BE } from '@aztec/foundation/serialize';
 import { type AztecKVStore, type AztecMap } from '@aztec/kv-store';
@@ -87,8 +91,14 @@ export class LogStore {
           this.#log.warn(`Skipping public log with invalid first field: ${log.log[0]}`);
           return;
         }
-        if (!log.log[1]) {
-          this.#log.warn(`Skipping public log with single field`);
+        // Check that the length values line up with the log contents
+        const publicValuesLength = firstFieldBuf.subarray(-8).readUint16BE();
+        const privateValuesLength = firstFieldBuf.subarray(-8).readUint16BE(3);
+        // Add 1 for the first field holding lengths
+        const totalLogLength = 1 + publicValuesLength + privateValuesLength;
+        // Note that zeroes can be valid log values, so we can only assert that we do not go over the given length
+        if (totalLogLength > PUBLIC_LOG_DATA_SIZE_IN_FIELDS || log.log.slice(totalLogLength).find(f => !f.isZero())) {
+          this.#log.warn(`Skipping invalid tagged public log with first field: ${log.log[0]}`);
           return;
         }
 
