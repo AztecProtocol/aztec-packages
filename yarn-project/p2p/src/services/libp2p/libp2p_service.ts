@@ -38,6 +38,7 @@ import { noise } from '@chainsafe/libp2p-noise';
 import { yamux } from '@chainsafe/libp2p-yamux';
 import { identify } from '@libp2p/identify';
 import { type Message, type PeerId, TopicValidatorResult } from '@libp2p/interface';
+import { type ConnectionManager } from '@libp2p/interface-internal';
 import '@libp2p/kad-dht';
 import { mplex } from '@libp2p/mplex';
 import { tcp } from '@libp2p/tcp';
@@ -56,14 +57,10 @@ import {
 import { type PubSubLibp2p, convertToMultiaddr } from '../../util.js';
 import { AztecDatastore } from '../data_store.js';
 import { SnappyTransform, fastMsgIdFn, getMsgIdFn, msgIdToStrFn } from '../encoding.js';
-import { PeerManager } from '../peer_manager.js';
-import {
-  DEFAULT_SUB_PROTOCOL_HANDLERS,
-  DEFAULT_SUB_PROTOCOL_VALIDATORS,
-  ReqRespSubProtocol,
-  type ReqRespSubProtocolHandlers,
-  type SubProtocolMap,
-} from '../reqresp/interface.js';
+import { PeerManager } from '../peer-manager/peer_manager.js';
+import { PeerScoring } from '../peer-manager/peer_scoring.js';
+import { DEFAULT_SUB_PROTOCOL_VALIDATORS, ReqRespSubProtocol, type SubProtocolMap } from '../reqresp/interface.js';
+import { reqGoodbyeHandler } from '../reqresp/protocols/goodbye.js';
 import { pingHandler, statusHandler } from '../reqresp/protocols/index.js';
 import { reqRespTxHandler } from '../reqresp/protocols/tx.js';
 import { ReqResp } from '../reqresp/reqresp.js';
@@ -115,21 +112,32 @@ export class LibP2PService<T extends P2PClientType> extends WithTracer implement
     private peerDiscoveryService: PeerDiscoveryService,
     private mempools: MemPools<T>,
     private l2BlockSource: L2BlockSource,
-    private epochCache: EpochCache,
+    epochCache: EpochCache,
     private proofVerifier: ClientProtocolCircuitVerifier,
     private worldStateSynchronizer: WorldStateSynchronizer,
-    private telemetry: TelemetryClient,
-    private requestResponseHandlers: ReqRespSubProtocolHandlers = DEFAULT_SUB_PROTOCOL_HANDLERS,
+    telemetry: TelemetryClient,
     private logger = createLogger('p2p:libp2p_service'),
   ) {
     super(telemetry, 'LibP2PService');
 
-    this.peerManager = new PeerManager(node, peerDiscoveryService, config, telemetry, logger);
+    const peerScoring = new PeerScoring(config);
+    this.reqresp = new ReqResp(config, node, peerScoring);
+
+    this.peerManager = new PeerManager(
+      node,
+      peerDiscoveryService,
+      config,
+      telemetry,
+      logger,
+      peerScoring,
+      this.reqresp,
+    );
+
+    // Update gossipsub score params
     this.node.services.pubsub.score.params.appSpecificScore = (peerId: string) => {
       return this.peerManager.getPeerScore(peerId);
     };
     this.node.services.pubsub.score.params.appSpecificWeight = 10;
-    this.reqresp = new ReqResp(config, node, this.peerManager);
 
     this.attestationValidator = new AttestationValidator(epochCache);
     this.blockProposalValidator = new BlockProposalValidator(epochCache);
@@ -141,95 +149,6 @@ export class LibP2PService<T extends P2PClientType> extends WithTracer implement
       );
       return Promise.resolve(undefined);
     };
-  }
-
-  /**
-   * Starts the LibP2P service.
-   * @returns An empty promise.
-   */
-  public async start() {
-    // Check if service is already started
-    if (this.node.status === 'started') {
-      throw new Error('P2P service already started');
-    }
-
-    // Get listen & announce addresses for logging
-    const { tcpListenAddress, tcpAnnounceAddress } = this.config;
-    if (!tcpAnnounceAddress) {
-      throw new Error('Announce address not provided.');
-    }
-    const announceTcpMultiaddr = convertToMultiaddr(tcpAnnounceAddress, 'tcp');
-
-    // Start job queue, peer discovery service and libp2p node
-    this.jobQueue.start();
-    await this.peerDiscoveryService.start();
-    await this.node.start();
-
-    // Subscribe to standard GossipSub topics by default
-    for (const topic of getTopicTypeForClientType(this.clientType)) {
-      this.subscribeToTopic(TopicTypeMap[topic].p2pTopic);
-    }
-
-    // Add p2p topic validators
-    // As they are stored within a kv pair, there is no need to register them conditionally
-    // based on the client type
-    const topicValidators = {
-      [Tx.p2pTopic]: this.validatePropagatedTxFromMessage.bind(this),
-      [BlockAttestation.p2pTopic]: this.validatePropagatedAttestationFromMessage.bind(this),
-      [BlockProposal.p2pTopic]: this.validatePropagatedBlockFromMessage.bind(this),
-      [EpochProofQuote.p2pTopic]: this.validatePropagatedEpochProofQuoteFromMessage.bind(this),
-    };
-    for (const [topic, validator] of Object.entries(topicValidators)) {
-      this.node.services.pubsub.topicValidators.set(topic, validator);
-    }
-
-    // add GossipSub listener
-    this.node.services.pubsub.addEventListener(GossipSubEvent.MESSAGE, this.handleGossipSubEvent.bind(this));
-
-    // Start running promise for peer discovery
-    this.discoveryRunningPromise = new RunningPromise(
-      () => this.peerManager.heartbeat(),
-      this.logger,
-      this.config.peerCheckIntervalMS,
-    );
-    this.discoveryRunningPromise.start();
-
-    // Define the sub protocol validators - This is done within this start() method to gain a callback to the existing validateTx function
-    const reqrespSubProtocolValidators = {
-      ...DEFAULT_SUB_PROTOCOL_VALIDATORS,
-      [ReqRespSubProtocol.TX]: this.validateRequestedTx.bind(this),
-    };
-    await this.reqresp.start(this.requestResponseHandlers, reqrespSubProtocolValidators);
-    this.logger.info(`Started P2P service`, {
-      listen: tcpListenAddress,
-      announce: announceTcpMultiaddr,
-      peerId: this.node.peerId.toString(),
-    });
-  }
-
-  /**
-   * Stops the LibP2P service.
-   * @returns An empty promise.
-   */
-  public async stop() {
-    // Remove gossip sub listener
-    this.node.services.pubsub.removeEventListener(GossipSubEvent.MESSAGE, this.handleGossipSubEvent.bind(this));
-
-    // Stop peer manager
-    this.logger.debug('Stopping peer manager...');
-    this.peerManager.stop();
-
-    this.logger.debug('Stopping job queue...');
-    await this.jobQueue.end();
-    this.logger.debug('Stopping running promise...');
-    await this.discoveryRunningPromise?.stop();
-    this.logger.debug('Stopping peer discovery service...');
-    await this.peerDiscoveryService.stop();
-    this.logger.debug('Request response service stopped...');
-    await this.reqresp.stop();
-    this.logger.debug('Stopping LibP2P...');
-    await this.stopLibP2P();
-    this.logger.info('LibP2P service stopped');
   }
 
   /**
@@ -331,17 +250,11 @@ export class LibP2PService<T extends P2PClientType> extends WithTracer implement
             },
           }),
         }) as (components: GossipSubComponents) => GossipSub,
+        components: (components: { connectionManager: ConnectionManager }) => ({
+          connectionManager: components.connectionManager,
+        }),
       },
     });
-
-    // Create request response protocol handlers
-    const txHandler = reqRespTxHandler(mempools);
-
-    const requestResponseHandlers = {
-      [ReqRespSubProtocol.PING]: pingHandler,
-      [ReqRespSubProtocol.STATUS]: statusHandler,
-      [ReqRespSubProtocol.TX]: txHandler,
-    };
 
     return new LibP2PService(
       clientType,
@@ -354,8 +267,107 @@ export class LibP2PService<T extends P2PClientType> extends WithTracer implement
       proofVerifier,
       worldStateSynchronizer,
       telemetry,
-      requestResponseHandlers,
     );
+  }
+
+  /**
+   * Starts the LibP2P service.
+   * @returns An empty promise.
+   */
+  public async start() {
+    // Check if service is already started
+    if (this.node.status === 'started') {
+      throw new Error('P2P service already started');
+    }
+
+    // Get listen & announce addresses for logging
+    const { tcpListenAddress, tcpAnnounceAddress } = this.config;
+    if (!tcpAnnounceAddress) {
+      throw new Error('Announce address not provided.');
+    }
+    const announceTcpMultiaddr = convertToMultiaddr(tcpAnnounceAddress, 'tcp');
+
+    // Start job queue, peer discovery service and libp2p node
+    this.jobQueue.start();
+    await this.peerDiscoveryService.start();
+    await this.node.start();
+
+    // Subscribe to standard GossipSub topics by default
+    for (const topic of getTopicTypeForClientType(this.clientType)) {
+      this.subscribeToTopic(TopicTypeMap[topic].p2pTopic);
+    }
+
+    // Create request response protocol handlers
+    const txHandler = reqRespTxHandler(this.mempools);
+    const goodbyeHandler = reqGoodbyeHandler(this.peerManager);
+
+    const requestResponseHandlers = {
+      [ReqRespSubProtocol.PING]: pingHandler,
+      [ReqRespSubProtocol.STATUS]: statusHandler,
+      [ReqRespSubProtocol.TX]: txHandler.bind(this),
+      [ReqRespSubProtocol.GOODBYE]: goodbyeHandler.bind(this),
+    };
+
+    // Add p2p topic validators
+    // As they are stored within a kv pair, there is no need to register them conditionally
+    // based on the client type
+    const topicValidators = {
+      [Tx.p2pTopic]: this.validatePropagatedTxFromMessage.bind(this),
+      [BlockAttestation.p2pTopic]: this.validatePropagatedAttestationFromMessage.bind(this),
+      [BlockProposal.p2pTopic]: this.validatePropagatedBlockFromMessage.bind(this),
+      [EpochProofQuote.p2pTopic]: this.validatePropagatedEpochProofQuoteFromMessage.bind(this),
+    };
+    for (const [topic, validator] of Object.entries(topicValidators)) {
+      this.node.services.pubsub.topicValidators.set(topic, validator);
+    }
+
+    // add GossipSub listener
+    this.node.services.pubsub.addEventListener(GossipSubEvent.MESSAGE, this.handleGossipSubEvent.bind(this));
+
+    // Start running promise for peer discovery
+    this.discoveryRunningPromise = new RunningPromise(
+      () => this.peerManager.heartbeat(),
+      this.logger,
+      this.config.peerCheckIntervalMS,
+    );
+    this.discoveryRunningPromise.start();
+
+    // Define the sub protocol validators - This is done within this start() method to gain a callback to the existing validateTx function
+    const reqrespSubProtocolValidators = {
+      ...DEFAULT_SUB_PROTOCOL_VALIDATORS,
+      [ReqRespSubProtocol.TX]: this.validateRequestedTx.bind(this),
+    };
+    await this.reqresp.start(requestResponseHandlers, reqrespSubProtocolValidators);
+    this.logger.info(`Started P2P service`, {
+      listen: tcpListenAddress,
+      announce: announceTcpMultiaddr,
+      peerId: this.node.peerId.toString(),
+    });
+  }
+
+  /**
+   * Stops the LibP2P service.
+   * @returns An empty promise.
+   */
+  public async stop() {
+    // Remove gossip sub listener
+    this.node.services.pubsub.removeEventListener(GossipSubEvent.MESSAGE, this.handleGossipSubEvent.bind(this));
+
+    // Stop peer manager
+    this.logger.debug('Stopping peer manager...');
+    await this.peerManager.stop();
+
+    this.logger.debug('Stopping job queue...');
+    await this.jobQueue.end();
+    this.logger.debug('Stopping running promise...');
+    await this.discoveryRunningPromise?.stop();
+    this.logger.debug('Stopping peer discovery service...');
+    await this.peerDiscoveryService.stop();
+    this.logger.debug('Request response service stopped...');
+    await this.reqresp.stop();
+    this.logger.debug('Stopping LibP2P...');
+    await this.stopLibP2P();
+    this.logger.info('LibP2P service stopped');
   }
 
   public getPeers(includePending?: boolean): PeerInfo[] {

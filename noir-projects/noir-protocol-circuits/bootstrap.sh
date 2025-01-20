@@ -14,6 +14,7 @@ export BB=${BB:-../../barretenberg/cpp/build/bin/bb}
 export NARGO=${NARGO:-../../noir/noir-repo/target/release/nargo}
 export BB_HASH=$(cache_content_hash ../../barretenberg/cpp/.rebuild_patterns)
 export NARGO_HASH=$(cache_content_hash ../../noir/.rebuild_patterns)
+export CRATES_HASH=$(cache_content_hash crates)
 
 tmp_dir=./target/tmp
 key_dir=./target/keys

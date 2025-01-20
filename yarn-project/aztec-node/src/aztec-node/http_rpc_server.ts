@@ -1,5 +1,5 @@
 import { type AztecNode, AztecNodeApiSchema } from '@aztec/circuit-types';
-import { createSafeJsonRpcServer } from '@aztec/foundation/json-rpc/server';
+import { createTracedJsonRpcServer } from '@aztec/telemetry-client';
 
 /**
  * Wrap an AztecNode instance with a JSON RPC HTTP server.
@@ -7,5 +7,5 @@ import { createSafeJsonRpcServer } from '@aztec/foundation/json-rpc/server';
  * @returns An JSON-RPC HTTP server
  */
 export function createAztecNodeRpcServer(node: AztecNode) {
-  return createSafeJsonRpcServer(node, AztecNodeApiSchema);
+  return createTracedJsonRpcServer(node, AztecNodeApiSchema);
 }

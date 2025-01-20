@@ -14,8 +14,9 @@ import {
   InvalidResponseError,
 } from '../../errors/reqresp.error.js';
 import { SnappyTransform } from '../encoding.js';
-import { type PeerManager } from '../peer_manager.js';
+import { type PeerScoring } from '../peer-manager/peer_scoring.js';
 import { type P2PReqRespConfig } from './config.js';
+import { ConnectionSampler } from './connection-sampler/connection_sampler.js';
 import {
   DEFAULT_SUB_PROTOCOL_HANDLERS,
   DEFAULT_SUB_PROTOCOL_VALIDATORS,
@@ -25,7 +26,7 @@ import {
   type SubProtocolMap,
   subProtocolMap,
 } from './interface.js';
-import { RequestResponseRateLimiter } from './rate_limiter/rate_limiter.js';
+import { RequestResponseRateLimiter } from './rate-limiter/rate_limiter.js';
 
 /**
  * The Request Response Service
@@ -55,13 +56,19 @@ export class ReqResp {
 
   private snappyTransform: SnappyTransform;
 
-  constructor(config: P2PReqRespConfig, protected readonly libp2p: Libp2p, private peerManager: PeerManager) {
+  private connectionSampler: ConnectionSampler;
+
+  constructor(config: P2PReqRespConfig, private libp2p: Libp2p, private peerScoring: PeerScoring) {
     this.logger = createLogger('p2p:reqresp');
 
     this.overallRequestTimeoutMs = config.overallRequestTimeoutMs;
     this.individualRequestTimeoutMs = config.individualRequestTimeoutMs;
 
-    this.rateLimiter = new RequestResponseRateLimiter(peerManager);
+    this.rateLimiter = new RequestResponseRateLimiter(peerScoring);
+
+    // Connection sampler is used to sample our connected peers
+    this.connectionSampler = new ConnectionSampler(libp2p);
+
     this.snappyTransform = new SnappyTransform();
   }
 
@@ -95,6 +102,9 @@ export class ReqResp {
 
     this.rateLimiter.stop();
     this.logger.debug('ReqResp: Rate limiter stopped');
+
+    await this.connectionSampler.stop();
+    this.logger.debug('ReqResp: Connection sampler stopped');
 
     // NOTE: We assume libp2p instance is managed by the caller
   }
@@ -136,11 +146,14 @@ export class ReqResp {
       const responseValidator = this.subProtocolValidators[subProtocol];
       const requestBuffer = request.toBuffer();
 
-      // Get active peers
-      const peers = this.libp2p.getPeers();
+      // Attempt to ask all of our peers, but sampled in a random order
+      // This function is wrapped in a timeout, so we will exit the loop if we have not received a response
+      const numberOfPeers = this.libp2p.getPeers().length;
+      for (let i = 0; i < numberOfPeers; i++) {
+        // Sample a peer to make a request to
+        const peer = this.connectionSampler.getPeer();
 
-      // Attempt to ask all of our peers
-      for (const peer of peers) {
+        this.logger.trace(`Sending request to peer: ${peer.toString()}`);
         const response = await this.sendRequestToPeer(peer, subProtocol, requestBuffer);
 
         // If we get a response, return it, otherwise we iterate onto the next peer
@@ -155,7 +168,6 @@ export class ReqResp {
           return object;
         }
       }
-      return undefined;
     };
 
     try {
@@ -194,14 +206,14 @@ export class ReqResp {
    * If the stream is not closed by the dialled peer, and a timeout occurs, then
    * the stream is closed on the requester's end and sender (us) updates its peer score
    */
-  async sendRequestToPeer(
+  public async sendRequestToPeer(
     peerId: PeerId,
     subProtocol: ReqRespSubProtocol,
     payload: Buffer,
   ): Promise<Buffer | undefined> {
     let stream: Stream | undefined;
     try {
-      stream = await this.libp2p.dialProtocol(peerId, subProtocol);
+      stream = await this.connectionSampler.dialProtocol(peerId, subProtocol);
       this.logger.trace(`Stream opened with ${peerId.toString()} for ${subProtocol}`);
 
       // Open the stream with a timeout
@@ -217,8 +229,7 @@ export class ReqResp {
     } finally {
       if (stream) {
         try {
-          await stream.close();
-          this.logger.trace(`Stream closed with ${peerId.toString()} for ${subProtocol}`);
+          await this.connectionSampler.close(stream.id);
         } catch (closeError) {
           this.logger.error(
             `Error closing stream: ${closeError instanceof Error ? closeError.message : 'Unknown error'}`,
@@ -241,7 +252,7 @@ export class ReqResp {
   private handleResponseError(e: any, peerId: PeerId, subProtocol: ReqRespSubProtocol): void {
     const severity = this.categorizeError(e, peerId, subProtocol);
     if (severity) {
-      this.peerManager.penalizePeer(peerId, severity);
+      this.peerScoring.penalizePeer(peerId, severity);
     }
   }
 
@@ -339,7 +350,7 @@ export class ReqResp {
         async function* (source: any) {
           for await (const chunkList of source) {
             const msg = Buffer.from(chunkList.subarray());
-            const response = await handler(msg);
+            const response = await handler(connection.remotePeer, msg);
             yield new Uint8Array(transform.outboundTransformNoTopic(response));
           }
         },
