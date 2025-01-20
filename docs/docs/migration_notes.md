@@ -41,6 +41,27 @@ This PR also renamed encrypted events to private events:
 ### [Aztec.nr] Removal of `getSiblingPath` oracle
 Use `getMembershipWitness` oracle instead that returns both the sibling path and index.
 
+### [Aztec.nr] Introduction of `Packable` trait
+We have introduced a `Packable` trait that allows types to be serialized and deserialized with a focus on minimizing the size of the resulting Field array, even at the cost of additional constraints.
+This is in contrast to the `Serialize` and `Deserialize` traits, which prioritize minimizing constraint costs but may result in larger arrays.
+This is a breaking change because we now require `Packable` trait implementation for any type that is to be stored in contract storage.
+
+Example implementation of Packable trait for `U128` type from `noir::std`:
+
+```
+use crate::traits::{Packable, ToField};
+
+impl Packable<U128_PACKED_LEN> for U128 {
+    fn pack(self) -> [Field; U128_PACKED_LEN] {
+        [self.to_field()]
+    }
+
+    fn unpack(fields: [Field; U128_PACKED_LEN]) -> Self {
+        U128::from_integer(fields[0])
+    }
+}
+```
+
 ## 0.68.0
 ### [archiver, node, pxe] Remove contract artifacts in node and archiver and store function names instead
 Contract artifacts were only in the archiver for debugging purposes. Instead function names are now (optionally) emitted
