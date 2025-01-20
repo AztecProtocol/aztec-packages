@@ -65,8 +65,8 @@ void eccvm_prove(State& state) noexcept
     };
 }
 
-BENCHMARK(eccvm_generate_prover)->Unit(kMillisecond)->DenseRange(12, 18);
-BENCHMARK(eccvm_prove)->Unit(kMillisecond)->DenseRange(12, 18);
+BENCHMARK(eccvm_generate_prover)->Unit(kMillisecond)->DenseRange(12, CONST_ECCVM_LOG_N);
+BENCHMARK(eccvm_prove)->Unit(kMillisecond)->DenseRange(12, CONST_ECCVM_LOG_N);
 } // namespace
 
 BENCHMARK_MAIN();
