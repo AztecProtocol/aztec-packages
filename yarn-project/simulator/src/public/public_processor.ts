@@ -372,16 +372,17 @@ export class PublicProcessor implements Traceable {
       return await processFn();
     }
 
+    const txHash = tx.getTxHash().toString();
     const timeout = +deadline - this.dateProvider.now();
+    if (timeout <= 0) {
+      throw new PublicProcessorTimeoutError();
+    }
+
     this.log.debug(`Processing tx ${tx.getTxHash().toString()} within ${timeout}ms`, {
       deadline: deadline.toISOString(),
       now: new Date(this.dateProvider.now()).toISOString(),
-      txHash: tx.getTxHash().toString(),
+      txHash,
     });
-
-    if (timeout < 0) {
-      throw new PublicProcessorTimeoutError();
-    }
 
     return await executeTimeout(
       () => processFn(),

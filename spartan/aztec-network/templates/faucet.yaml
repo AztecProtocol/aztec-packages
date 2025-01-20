@@ -86,6 +86,8 @@ spec:
               value: faucet
             - name: USE_GCLOUD_OBSERVABILITY
               value: "{{ .Values.telemetry.useGcloudObservability }}"
+            - name: OTEL_EXCLUDE_METRICS
+              value: "{{ .Values.faucet.otelExcludeMetrics }}"
           ports:
             - name: http
               containerPort: {{ .Values.faucet.service.nodePort }}

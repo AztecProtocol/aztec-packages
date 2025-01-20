@@ -244,6 +244,8 @@ spec:
               value: "{{ .Values.storage.worldStateMapSize }}"
             - name: USE_GCLOUD_OBSERVABILITY
               value: "{{ .Values.telemetry.useGcloudObservability }}"
+            - name: OTEL_EXCLUDE_METRICS
+              value: "{{ .Values.bootNode.otelExcludeMetrics }}"
           ports:
             - containerPort: {{ .Values.bootNode.service.nodePort }}
             - containerPort: {{ .Values.bootNode.service.p2pTcpPort }}
