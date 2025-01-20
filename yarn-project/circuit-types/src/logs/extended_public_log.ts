@@ -1,3 +1,4 @@
+import { PublicLog } from '@aztec/circuits.js';
 import { BufferReader } from '@aztec/foundation/serialize';
 import { bufferToHex, hexToBuffer } from '@aztec/foundation/string';
 import { type FieldsOf } from '@aztec/foundation/types';
@@ -6,35 +7,33 @@ import isEqual from 'lodash.isequal';
 import { z } from 'zod';
 
 import { LogId } from './log_id.js';
-import { UnencryptedL2Log } from './unencrypted_l2_log.js';
 
 /**
- * Represents an individual unencrypted log entry extended with info about the block and tx it was emitted in.
- * TODO(#8945): Currently only used for contract class logs. When these are fields, delete this class.
+ * Represents an individual public log entry extended with info about the block and tx it was emitted in.
  */
-export class ExtendedUnencryptedL2Log {
+export class ExtendedPublicLog {
   constructor(
     /** Globally unique id of the log. */
     public readonly id: LogId,
     /** The data contents of the log. */
-    public readonly log: UnencryptedL2Log,
+    public readonly log: PublicLog,
   ) {}
 
   static random() {
-    return new ExtendedUnencryptedL2Log(LogId.random(), UnencryptedL2Log.random());
+    return new ExtendedPublicLog(LogId.random(), PublicLog.random());
   }
 
   static get schema() {
     return z
       .object({
         id: LogId.schema,
-        log: UnencryptedL2Log.schema,
+        log: PublicLog.schema,
       })
-      .transform(ExtendedUnencryptedL2Log.from);
+      .transform(ExtendedPublicLog.from);
   }
 
-  static from(fields: FieldsOf<ExtendedUnencryptedL2Log>) {
-    return new ExtendedUnencryptedL2Log(fields.id, fields.log);
+  static from(fields: FieldsOf<ExtendedPublicLog>) {
+    return new ExtendedPublicLog(fields.id, fields.log);
   }
 
   /**
@@ -62,11 +61,11 @@ export class ExtendedUnencryptedL2Log {
   }
 
   /**
-   * Checks if two ExtendedUnencryptedL2Log objects are equal.
-   * @param other - Another ExtendedUnencryptedL2Log object to compare with.
+   * Checks if two ExtendedPublicLog objects are equal.
+   * @param other - Another ExtendedPublicLog object to compare with.
    * @returns True if the two objects are equal, false otherwise.
    */
-  public equals(other: ExtendedUnencryptedL2Log): boolean {
+  public equals(other: ExtendedPublicLog): boolean {
     return isEqual(this, other);
   }
 
@@ -75,21 +74,21 @@ export class ExtendedUnencryptedL2Log {
    * @param buffer - The buffer or buffer reader containing the log.
    * @returns Deserialized instance of `Log`.
    */
-  public static fromBuffer(buffer: Buffer | BufferReader): ExtendedUnencryptedL2Log {
+  public static fromBuffer(buffer: Buffer | BufferReader): ExtendedPublicLog {
     const reader = BufferReader.asReader(buffer);
 
     const logId = LogId.fromBuffer(reader);
-    const log = UnencryptedL2Log.fromBuffer(reader);
+    const log = PublicLog.fromBuffer(reader);
 
-    return new ExtendedUnencryptedL2Log(logId, log);
+    return new ExtendedPublicLog(logId, log);
   }
 
   /**
-   * Deserializes `ExtendedUnencryptedL2Log` object from a hex string representation.
+   * Deserializes `ExtendedPublicLog` object from a hex string representation.
    * @param data - A hex string representation of the log.
-   * @returns An `ExtendedUnencryptedL2Log` object.
+   * @returns An `ExtendedPublicLog` object.
    */
-  public static fromString(data: string): ExtendedUnencryptedL2Log {
-    return ExtendedUnencryptedL2Log.fromBuffer(hexToBuffer(data));
+  public static fromString(data: string): ExtendedPublicLog {
+    return ExtendedPublicLog.fromBuffer(hexToBuffer(data));
   }
 }

@@ -11,7 +11,6 @@ export class ProvenTx extends Tx {
     super(
       tx.data,
       tx.clientIvcProof,
-      tx.unencryptedLogs,
       tx.contractClassLogs,
       tx.enqueuedPublicFunctionCalls,
       tx.publicTeardownFunctionCall,
@@ -23,7 +22,6 @@ export class ProvenTx extends Tx {
     return new Tx(
       this.data,
       this.clientIvcProof,
-      this.unencryptedLogs,
       this.contractClassLogs,
       this.enqueuedPublicFunctionCalls,
       this.publicTeardownFunctionCall,

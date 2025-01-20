@@ -98,9 +98,8 @@ export function makeProcessedTxFromPrivateOnlyTx(
       .filter(h => !h.isZero()),
     publicDataWrites,
     data.end.privateLogs.filter(l => !l.isEmpty()),
-    Fr.ZERO,
+    [],
     data.end.contractClassLogPreimagesLength,
-    tx.unencryptedLogs,
     tx.contractClassLogs,
   );
 
@@ -146,8 +145,6 @@ export function makeProcessedTxFromTxWithPublicCalls(
     ...(revertCode.isOK() ? tx.data.forPublic!.revertibleAccumulatedData.privateLogs : []),
   ].filter(l => !l.isEmpty());
 
-  // Unencrypted logs emitted from public functions are inserted to tx.unencryptedLogs directly :(
-  const unencryptedLogPreimagesLength = tx.unencryptedLogs.getKernelLength();
   const contractClassLogPreimagesLength = tx.contractClassLogs.getKernelLength();
 
   const txEffect = new TxEffect(
@@ -161,9 +158,8 @@ export function makeProcessedTxFromTxWithPublicCalls(
       .filter(h => !h.isZero()),
     publicDataWrites,
     privateLogs,
-    new Fr(unencryptedLogPreimagesLength),
+    avmOutput.accumulatedData.publicLogs.filter(l => !l.isEmpty()),
     new Fr(contractClassLogPreimagesLength),
-    tx.unencryptedLogs,
     tx.contractClassLogs,
   );
 
