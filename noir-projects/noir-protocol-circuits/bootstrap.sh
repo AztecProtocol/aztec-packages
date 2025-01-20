@@ -54,7 +54,7 @@ mkdir -p $tmp_dir
 mkdir -p $key_dir
 
 # Export vars needed inside compile.
-export tmp_dir key_dir ci3 ivc_regex project_name rollup_honk_regex
+export tmp_dir key_dir ci3 ivc_regex project_name rollup_honk_regex circuits_hash
 
 function compile {
   set -euo pipefail
@@ -65,10 +65,12 @@ function compile {
   local program_hash hash bytecode_hash vk vk_fields
 
   # We get the monomorphized program hash from nargo. If this changes, we have to recompile.
-  local program_hash_cmd="$NARGO check --package $name --silence-warnings --show-program-hash | cut -d' ' -f2"
-  program_hash=$(dump_fail "$program_hash_cmd")
-  echo_stderr "Hash preimage: $NARGO_HASH-$program_hash"
-  hash=$(hash_str "$NARGO_HASH-$program_hash")
+  # local program_hash_cmd="$NARGO check --package $name --silence-warnings --show-program-hash | cut -d' ' -f2"
+  # program_hash=$(dump_fail "$program_hash_cmd")
+  # echo_stderr "Hash preimage: $NARGO_HASH-$program_hash"
+  # hash=$(hash_str "$NARGO_HASH-$program_hash")
+  echo_stderr "Hash preimage: $NARGO_HASH-$circuits_hash"
+  hash=$(hash_str "$NARGO_HASH-$circuits_hash")
 
   if ! cache_download circuit-$hash.tar.gz 1>&2; then
     SECONDS=0
@@ -139,7 +141,7 @@ function build {
           echo "$(basename $dir)"
       fi
     done | \
-    parallel -j${PARALLELISM:-16} -v --line-buffer --tag --halt now,fail=1 --memsuspend ${MEMSUSPEND:-64G} \
+    parallel -v --line-buffer --tag --halt now,fail=1 --memsuspend ${MEMSUSPEND:-64G} \
       --joblog joblog.txt compile {}
   code=$?
   cat joblog.txt
