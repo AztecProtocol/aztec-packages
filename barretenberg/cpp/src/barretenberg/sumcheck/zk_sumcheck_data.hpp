@@ -82,7 +82,7 @@ template <typename Flavor> struct ZKSumcheckData {
         // Initialize the Libra running sum
         libra_running_sum = libra_total_sum * libra_challenge;
 
-        // Setup the Libra data
+        // Prepare the Libra data for the first round of sumcheck
 
         setup_auxiliary_data(libra_univariates, libra_scaling_factor, libra_challenge, libra_running_sum);
     }

@@ -65,6 +65,8 @@ template <typename Curve> struct InstanceWitnessGenerator {
             idx++;
         }
     }
+
+    // Generate zero polynomials to test edge cases in PCS
     InstanceWitnessGenerator(const size_t n,
                              const size_t num_zero_polynomials,
                              std::shared_ptr<CommitmentKey>& commitment_key)

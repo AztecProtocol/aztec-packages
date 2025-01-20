@@ -93,7 +93,6 @@ template <typename Curve> class ShplonkProver_ {
             // Compute individual claim quotient tmp = ( fⱼ(X) − vⱼ) / ( X − xⱼ )
             tmp = claim.polynomial;
             tmp.at(0) = tmp[0] - claim.opening_pair.evaluation;
-            // info("prover const term", tmp.at(0));
             tmp.factor_roots(claim.opening_pair.challenge);
 
             // Add the claim quotient to the batched quotient polynomial
