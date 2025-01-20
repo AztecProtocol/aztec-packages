@@ -1,5 +1,5 @@
 import { L2Block } from '@aztec/circuit-types';
-import { times, timesParallel } from '@aztec/foundation/collection';
+import { timesParallel } from '@aztec/foundation/collection';
 import { promiseWithResolvers } from '@aztec/foundation/promise';
 
 import { type Server, createServer } from 'http';

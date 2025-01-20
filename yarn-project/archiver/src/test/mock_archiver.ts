@@ -42,7 +42,7 @@ export class MockPrefilledArchiver extends MockArchiver {
     messages.forEach((msgs, i) => this.setL1ToL2Messages(blocks[i].number, msgs));
   }
 
-  public override async createBlocks(numBlocks: number) {
+  public override createBlocks(numBlocks: number) {
     if (this.l2Blocks.length + numBlocks > this.precomputed.length) {
       throw new Error(
         `Not enough precomputed blocks to create ${numBlocks} more blocks (already at ${this.l2Blocks.length})`,
@@ -51,5 +51,6 @@ export class MockPrefilledArchiver extends MockArchiver {
 
     const fromBlock = this.l2Blocks.length;
     this.addBlocks(this.precomputed.slice(fromBlock, fromBlock + numBlocks));
+    return Promise.resolve();
   }
 }

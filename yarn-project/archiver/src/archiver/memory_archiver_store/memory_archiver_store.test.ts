@@ -1,5 +1,5 @@
 import { L2Block } from '@aztec/circuit-types';
-import { times, timesParallel } from '@aztec/foundation/collection';
+import { timesParallel } from '@aztec/foundation/collection';
 
 import { type ArchiverDataStore } from '../archiver_store.js';
 import { describeArchiverDataStore } from '../archiver_store_test_suite.js';

@@ -427,7 +427,7 @@ export function describeArchiverDataStore(testName: string, getStore: () => Arch
       };
 
       beforeEach(async () => {
-        blocks = await timesParallel(numBlocks, async (index: number) => mockBlockWithLogs(index));
+        blocks = await timesParallel(numBlocks, (index: number) => mockBlockWithLogs(index));
 
         await store.addBlocks(blocks);
         await store.addLogs(blocks.map(b => b.data));

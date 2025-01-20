@@ -113,7 +113,7 @@ export class AztecAddress {
   /**
    * @returns the Point from which the address is derived. Throws if the address is invalid.
    */
-  async toAddressPoint(): Promise<Point> {
+  toAddressPoint(): Promise<Point> {
     return Point.fromXAndSign(this.xCoord, true);
   }
 

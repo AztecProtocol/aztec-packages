@@ -25,7 +25,7 @@ describe('In-Memory P2P Client', () => {
   let kvStore: AztecKVStore;
   let client: P2PClient;
 
-  beforeEach(() => {
+  beforeEach(async () => {
     txPool = mock<TxPool>();
     txPool.getAllTxs.mockReturnValue([]);
     txPool.getPendingTxHashes.mockReturnValue([]);
@@ -40,7 +40,7 @@ describe('In-Memory P2P Client', () => {
     epochProofQuotePool.getQuotes.mockReturnValue([]);
 
     blockSource = new MockL2BlockSource();
-    blockSource.createBlocks(100);
+    await blockSource.createBlocks(100);
 
     mempools = {
       txPool,

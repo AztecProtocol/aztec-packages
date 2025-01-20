@@ -5,7 +5,6 @@ import { L2TipsStore } from '@aztec/kv-store/stores';
 
 import { jest } from '@jest/globals';
 import { type MockProxy, mock } from 'jest-mock-extended';
-import times from 'lodash.times';
 
 import { type PxeDatabase } from '../database/index.js';
 import { KVPxeDatabase } from '../database/kv_pxe_database.js';

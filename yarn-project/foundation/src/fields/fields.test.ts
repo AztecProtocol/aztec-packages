@@ -221,7 +221,7 @@ describe('Bn254 arithmetic', () => {
     });
   });
 
-  describe.only('Square root', () => {
+  describe('Square root', () => {
     it.each([
       [new Fr(0), 0n],
       [new Fr(4), 2n],

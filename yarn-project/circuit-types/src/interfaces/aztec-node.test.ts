@@ -27,7 +27,6 @@ import { loadContractArtifact } from '@aztec/types/abi';
 
 import { readFileSync } from 'fs';
 import omit from 'lodash.omit';
-import times from 'lodash.times';
 import { resolve } from 'path';
 
 import { type InBlock, randomInBlock } from '../in_block.js';
