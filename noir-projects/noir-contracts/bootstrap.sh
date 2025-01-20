@@ -11,7 +11,7 @@
 # - You can't export bash arrays or maps to be used by external functions, only strings.
 # - If you want to echo something, send it to stderr e.g. echo_stderr "My debug"
 # - If you call another script, be sure it also doesn't output something you don't want.
-# - Local assignments with subshells don't propagate errors e.g. local capture=$(false). Declare locals separately.
+# - Local assignments with sub-shells don't propagate errors e.g. local capture=$(false). Declare locals separately.
 # - Just ask me (charlie) for guidance if you're suffering.
 # - I remain convinced we don't need node for these kinds of things, and we can be more performant/expressive with bash.
 # - We could perhaps make it less tricky to work with by leveraging more tempfiles and less stdin/stdout.

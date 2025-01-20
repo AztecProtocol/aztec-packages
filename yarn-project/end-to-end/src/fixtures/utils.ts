@@ -14,7 +14,6 @@ import {
   type Logger,
   NoFeePaymentMethod,
   type PXE,
-  type SentTx,
   SignerlessWallet,
   type Wallet,
   createAztecNodeClient,
@@ -634,38 +633,6 @@ export function getLogger() {
   }
   return createLogger('e2e:' + describeBlockName);
 }
-
-/**
- * Checks that the last block contains the given expected unencrypted log messages.
- * @param tx - An instance of SentTx for which to retrieve the logs.
- * @param logMessages - The set of expected log messages.
- */
-export const expectUnencryptedLogsInTxToBe = async (tx: SentTx, logMessages: string[]) => {
-  const unencryptedLogs = (await tx.getUnencryptedLogs()).logs;
-  const asciiLogs = unencryptedLogs.map(extendedLog => extendedLog.log.data.toString('ascii'));
-
-  expect(asciiLogs).toStrictEqual(logMessages);
-};
-
-/**
- * Checks that the last block contains the given expected unencrypted log messages.
- * @param pxe - An instance of PXE for retrieving the logs.
- * @param logMessages - The set of expected log messages.
- */
-export const expectUnencryptedLogsFromLastBlockToBe = async (pxe: PXE, logMessages: string[]) => {
-  // docs:start:get_logs
-  // Get the unencrypted logs from the last block
-  const fromBlock = await pxe.getBlockNumber();
-  const logFilter = {
-    fromBlock,
-    toBlock: fromBlock + 1,
-  };
-  const unencryptedLogs = (await pxe.getUnencryptedLogs(logFilter)).logs;
-  // docs:end:get_logs
-  const asciiLogs = unencryptedLogs.map(extendedLog => extendedLog.log.data.toString('ascii'));
-
-  expect(asciiLogs).toStrictEqual(logMessages);
-};
 
 export type BalancesFn = ReturnType<typeof getBalancesFn>;
 export function getBalancesFn(

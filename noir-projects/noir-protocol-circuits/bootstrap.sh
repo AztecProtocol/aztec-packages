@@ -14,7 +14,6 @@ export BB=${BB:-../../barretenberg/cpp/build/bin/bb}
 export NARGO=${NARGO:-../../noir/noir-repo/target/release/nargo}
 export BB_HASH=$(cache_content_hash ../../barretenberg/cpp/.rebuild_patterns)
 export NARGO_HASH=$(cache_content_hash ../../noir/.rebuild_patterns)
-export CRATES_HASH=$(cache_content_hash crates)
 
 tmp_dir=./target/tmp
 key_dir=./target/keys
@@ -24,7 +23,7 @@ key_dir=./target/keys
 # Means if anything within the dir changes, the tests will rerun.
 circuits_hash=$(cache_content_hash "^noir-projects/$project_name/crates/" ../../noir/.rebuild_patterns)
 
-# Circuits matching these patterns we have clientivc keys computed, rather than ultrahonk.
+# Circuits matching these patterns we have client-ivc keys computed, rather than ultra-honk.
 ivc_patterns=(
   "private_kernel_init"
   "private_kernel_inner"
@@ -41,6 +40,7 @@ rollup_honk_patterns=(
   "rollup_block.*"
   "rollup_merge"
 )
+
 
 ivc_regex=$(IFS="|"; echo "${ivc_patterns[*]}")
 rollup_honk_regex=$(IFS="|"; echo "${rollup_honk_patterns[*]}")
@@ -67,6 +67,7 @@ function compile {
 
   # We get the monomorphized program hash from nargo. If this changes, we have to recompile.
   local program_hash_cmd="$NARGO check --package $name --silence-warnings --show-program-hash | cut -d' ' -f2"
+  # echo_stderr $program_hash_cmd
   program_hash=$(dump_fail "$program_hash_cmd")
   echo_stderr "Hash preimage: $NARGO_HASH-$program_hash"
   hash=$(hash_str "$NARGO_HASH-$program_hash")
@@ -117,7 +118,7 @@ function compile {
     echo_stderr $vk_cmd
     vk=$(dump_fail "$vk_cmd")
     local vkf_cmd="echo '$vk' | xxd -r -p | $BB $vk_as_fields_cmd -k - -o -"
-    # echo_stderrr $vkf_cmd
+    # echo_stderr $vkf_cmd
     vk_fields=$(dump_fail "$vkf_cmd")
     jq -n --arg vk "$vk" --argjson vkf "$vk_fields" '{keyAsBytes: $vk, keyAsFields: $vkf}' > $key_path
     echo_stderr "Key output at: $key_path (${SECONDS}s)"
