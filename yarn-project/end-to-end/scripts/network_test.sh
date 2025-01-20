@@ -32,6 +32,8 @@ FRESH_INSTALL="${FRESH_INSTALL:-false}"
 AZTEC_DOCKER_TAG=${AZTEC_DOCKER_TAG:-$(git rev-parse HEAD)}
 INSTALL_TIMEOUT=${INSTALL_TIMEOUT:-30m}
 CLEANUP_CLUSTER=${CLEANUP_CLUSTER:-false}
+export INSTALL_CHAOS_MESH=${INSTALL_CHAOS_MESH:-true}
+export INSTALL_METRICS=${INSTALL_METRICS:-true}
 
 # Check required environment variable
 if [ -z "${NAMESPACE:-}" ]; then
@@ -125,7 +127,7 @@ function cleanup() {
 trap cleanup SIGINT SIGTERM EXIT
 
 # if we don't have a chaos values, remove any existing chaos experiments
-if [ -z "${CHAOS_VALUES:-}" ]; then
+if [ -z "${CHAOS_VALUES:-}" ] && [ "$INSTALL_CHAOS_MESH" = "true" ]; then
   echo "Deleting existing network chaos experiments..."
   kubectl delete networkchaos --all --all-namespaces
 fi
@@ -152,20 +154,28 @@ PXE_PORT=$(echo $FREE_PORTS | awk '{print $1}')
 ANVIL_PORT=$(echo $FREE_PORTS | awk '{print $2}')
 METRICS_PORT=$(echo $FREE_PORTS | awk '{print $3}')
 
-GRAFANA_PASSWORD=$(kubectl get secrets -n metrics metrics-grafana -o jsonpath='{.data.admin-password}' | base64 --decode)
+if [ "$INSTALL_METRICS" = "true" ]; then
+  GRAFANA_PASSWORD=$(kubectl get secrets -n metrics metrics-grafana -o jsonpath='{.data.admin-password}' | base64 --decode)
+else
+  GRAFANA_PASSWORD=""
+fi
 
 # Namespace variable (assuming it's set)
 NAMESPACE=${NAMESPACE:-default}
 
 # If we are unable to apply network shaping, as we cannot change existing chaos configurations, then delete existing configurations and try again
-if ! handle_network_shaping; then
-  echo "Deleting existing network chaos experiments..."
-  kubectl delete networkchaos --all --all-namespaces
-
+if [ "$INSTALL_CHAOS_MESH" = "true" ]; then
   if ! handle_network_shaping; then
-    echo "Error: failed to apply network shaping configuration!"
-    exit 1
+    echo "Deleting existing network chaos experiments..."
+    kubectl delete networkchaos --all --all-namespaces
+
+    if ! handle_network_shaping; then
+      echo "Error: failed to apply network shaping configuration!"
+      exit 1
+    fi
   fi
+else
+  echo "Skipping network chaos configuration (INSTALL_CHAOS_MESH=false)"
 fi
 
 # Get the values from the values file
