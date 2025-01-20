@@ -2,6 +2,7 @@
 import { PeerErrorSeverity } from '@aztec/circuit-types';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { executeTimeout } from '@aztec/foundation/timer';
+import { Attributes, type TelemetryClient, getTelemetryClient, trackSpan } from '@aztec/telemetry-client';
 
 import { type IncomingStreamData, type PeerId, type Stream } from '@libp2p/interface';
 import { pipe } from 'it-pipe';
@@ -27,6 +28,7 @@ import {
   type SubProtocolMap,
   subProtocolMap,
 } from './interface.js';
+import { ReqRespMetrics } from './metrics.js';
 import { RequestResponseRateLimiter } from './rate-limiter/rate_limiter.js';
 
 /**
@@ -53,13 +55,19 @@ export class ReqResp {
   private subProtocolHandlers: ReqRespSubProtocolHandlers = DEFAULT_SUB_PROTOCOL_HANDLERS;
   private subProtocolValidators: ReqRespSubProtocolValidators = DEFAULT_SUB_PROTOCOL_VALIDATORS;
 
+  private connectionSampler: ConnectionSampler;
   private rateLimiter: RequestResponseRateLimiter;
 
   private snappyTransform: SnappyTransform;
 
-  private connectionSampler: ConnectionSampler;
+  private metrics: ReqRespMetrics;
 
-  constructor(config: P2PReqRespConfig, private libp2p: Libp2p, private peerScoring: PeerScoring) {
+  constructor(
+    config: P2PReqRespConfig,
+    private libp2p: Libp2p,
+    private peerScoring: PeerScoring,
+    telemetryClient: TelemetryClient = getTelemetryClient(),
+  ) {
     this.logger = createLogger('p2p:reqresp');
 
     this.overallRequestTimeoutMs = config.overallRequestTimeoutMs;
@@ -71,6 +79,11 @@ export class ReqResp {
     this.connectionSampler = new ConnectionSampler(libp2p);
 
     this.snappyTransform = new SnappyTransform();
+    this.metrics = new ReqRespMetrics(telemetryClient);
+  }
+
+  get tracer() {
+    return this.metrics.tracer;
   }
 
   /**
@@ -97,15 +110,15 @@ export class ReqResp {
     }
 
     // Close all active connections
+    await this.connectionSampler.stop();
+    this.logger.debug('ReqResp: Connection sampler stopped');
+
     const closeStreamPromises = this.libp2p.getConnections().map(connection => connection.close());
     await Promise.all(closeStreamPromises);
     this.logger.debug('ReqResp: All active streams closed');
 
     this.rateLimiter.stop();
     this.logger.debug('ReqResp: Rate limiter stopped');
-
-    await this.connectionSampler.stop();
-    this.logger.debug('ReqResp: Connection sampler stopped');
 
     // NOTE: We assume libp2p instance is managed by the caller
   }
@@ -213,6 +226,13 @@ export class ReqResp {
    *
    * @throws {CollectiveReqRespTimeoutError} - If the request batch exceeds the specified timeout (`timeoutMs`).
    */
+  @trackSpan(
+    'ReqResp.sendBatchRequest',
+    (subProtocol: ReqRespSubProtocol, requests: InstanceType<SubProtocolMap[ReqRespSubProtocol]['request']>[]) => ({
+      [Attributes.P2P_REQ_RESP_PROTOCOL]: subProtocol,
+      [Attributes.P2P_REQ_RESP_BATCH_REQUESTS_COUNT]: requests.length,
+    }),
+  )
   async sendBatchRequest<SubProtocol extends ReqRespSubProtocol>(
     subProtocol: SubProtocol,
     requests: InstanceType<SubProtocolMap[SubProtocol]['request']>[],
@@ -354,6 +374,10 @@ export class ReqResp {
    * If the stream is not closed by the dialled peer, and a timeout occurs, then
    * the stream is closed on the requester's end and sender (us) updates its peer score
    */
+  @trackSpan('ReqResp.sendRequestToPeer', (peerId: PeerId, subProtocol: ReqRespSubProtocol, _: Buffer) => ({
+    [Attributes.P2P_ID]: peerId.toString(),
+    [Attributes.P2P_REQ_RESP_PROTOCOL]: subProtocol,
+  }))
   public async sendRequestToPeer(
     peerId: PeerId,
     subProtocol: ReqRespSubProtocol,
@@ -361,6 +385,8 @@ export class ReqResp {
   ): Promise<Buffer | undefined> {
     let stream: Stream | undefined;
     try {
+      this.metrics.recordRequestSent(subProtocol);
+
       stream = await this.connectionSampler.dialProtocol(peerId, subProtocol);
 
       // Open the stream with a timeout
@@ -372,6 +398,7 @@ export class ReqResp {
 
       return result;
     } catch (e: any) {
+      this.metrics.recordRequestError(subProtocol);
       this.handleResponseError(e, peerId, subProtocol);
     } finally {
       // Only close the stream if we created it
@@ -479,7 +506,13 @@ export class ReqResp {
    * We check rate limits for each peer, note the peer will be penalised within the rate limiter implementation
    * if they exceed their peer specific limits.
    */
+  @trackSpan('ReqResp.streamHandler', (protocol: ReqRespSubProtocol, { connection }: IncomingStreamData) => ({
+    [Attributes.P2P_REQ_RESP_PROTOCOL]: protocol,
+    [Attributes.P2P_ID]: connection.remotePeer.toString(),
+  }))
   private async streamHandler(protocol: ReqRespSubProtocol, { stream, connection }: IncomingStreamData) {
+    this.metrics.recordRequestReceived(protocol);
+
     // Store a reference to from this for the async generator
     if (!this.rateLimiter.allow(protocol, connection.remotePeer)) {
       this.logger.warn(`Rate limit exceeded for ${protocol} from ${connection.remotePeer}`);
@@ -506,6 +539,7 @@ export class ReqResp {
       );
     } catch (e: any) {
       this.logger.warn(e);
+      this.metrics.recordResponseError(protocol);
     } finally {
       await stream.close();
     }

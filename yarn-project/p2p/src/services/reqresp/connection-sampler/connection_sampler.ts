@@ -171,7 +171,7 @@ export class ConnectionSampler {
 
       await stream?.close();
     } catch (error) {
-      this.logger.error(`Failed to close connection to peer ${streamId}`, { error });
+      this.logger.warn(`Failed to close connection to peer with stream id ${streamId}`);
     } finally {
       this.streams.delete(streamId);
     }
