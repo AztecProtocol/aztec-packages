@@ -48,8 +48,8 @@ function fieldsToEncryptedBytes(fields: Fr[]) {
 class Overhead {
   constructor(public ephPk: Point, public incomingHeader: Buffer) {}
 
-  static fromBuffer(reader: BufferReader) {
-    const ephPk = Point.fromCompressedBuffer(reader.readBytes(Point.COMPRESSED_SIZE_IN_BYTES));
+  static async fromBuffer(reader: BufferReader) {
+    const ephPk = await Point.fromCompressedBuffer(reader.readBytes(Point.COMPRESSED_SIZE_IN_BYTES));
     const incomingHeader = reader.readBytes(HEADER_SIZE);
 
     // Advance the index to skip the padding.
@@ -78,12 +78,12 @@ export class EncryptedLogPayload {
     public readonly incomingBodyPlaintext: Buffer,
   ) {}
 
-  public generatePayload(
+  public async generatePayload(
     ephSk: GrumpkinScalar,
     recipient: AztecAddress,
     rand: (len: number) => Buffer = randomBytes,
-  ): PrivateLog {
-    const addressPoint = recipient.toAddressPoint();
+  ): Promise<PrivateLog> {
+    const addressPoint = await recipient.toAddressPoint();
 
     const ephPk = derivePublicKeyFromSecretKey(ephSk);
     const incomingHeaderCiphertext = encrypt(this.contractAddress.toBuffer(), ephSk, addressPoint);
@@ -137,13 +137,16 @@ export class EncryptedLogPayload {
    * @param addressSecret - The address secret, used to decrypt the logs
    * @returns The decrypted log payload
    */
-  public static decryptAsIncoming(payload: PrivateLog, addressSecret: GrumpkinScalar): EncryptedLogPayload | undefined {
+  public static async decryptAsIncoming(
+    payload: PrivateLog,
+    addressSecret: GrumpkinScalar,
+  ): Promise<EncryptedLogPayload | undefined> {
     try {
       const logFields = payload.fields;
       const tag = logFields[0];
       const reader = BufferReader.asReader(fieldsToEncryptedBytes(logFields.slice(1)));
 
-      const overhead = Overhead.fromBuffer(reader);
+      const overhead = await Overhead.fromBuffer(reader);
       const { contractAddress } = this.#decryptOverhead(overhead, { addressSecret });
 
       const ciphertext = reader.readToEnd();
@@ -165,15 +168,15 @@ export class EncryptedLogPayload {
    * bytes that don't have 0 byte at the beginning of every 32 bytes.
    * And the incoming body is of variable size.
    */
-  public static decryptAsIncomingFromPublic(
+  public static async decryptAsIncomingFromPublic(
     payload: Buffer,
     addressSecret: GrumpkinScalar,
-  ): EncryptedLogPayload | undefined {
+  ): Promise<EncryptedLogPayload | undefined> {
     try {
       const reader = BufferReader.asReader(payload);
       const tag = reader.readObject(Fr);
 
-      const overhead = Overhead.fromBuffer(reader);
+      const overhead = await Overhead.fromBuffer(reader);
       const { contractAddress } = this.#decryptOverhead(overhead, { addressSecret });
 
       // The incoming can be of variable size, so we read until the end

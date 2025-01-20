@@ -183,7 +183,7 @@ describe('L1Publisher integration', () => {
     });
 
     coinbase = config.coinbase || EthAddress.random();
-    feeRecipient = config.feeRecipient || AztecAddress.random();
+    feeRecipient = config.feeRecipient || (await AztecAddress.random());
 
     const fork = await worldStateSynchronizer.fork();
 

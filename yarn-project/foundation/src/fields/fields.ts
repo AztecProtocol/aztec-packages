@@ -6,6 +6,7 @@ import { toBigIntBE, toBufferBE } from '../bigint-buffer/index.js';
 import { randomBytes } from '../crypto/random/index.js';
 import { hexSchemaFor } from '../schemas/utils.js';
 import { BufferReader } from '../serialize/buffer_reader.js';
+import { serializeArrayOfBufferableToVector } from '../serialize/serialize.js';
 import { TypeRegistry } from '../serialize/type_registry.js';
 
 const ZERO_BUFFER = Buffer.alloc(32);
@@ -307,17 +308,14 @@ export class Fr extends BaseField {
    */
   async sqrt(): Promise<Fr | null> {
     const wasm = (await BarretenbergLazy.getSingleton()).getWasm();
-    await wasm.writeMemory(0, this.toBuffer());
-    await wasm.call('bn254_fr_sqrt', 0, Fr.SIZE_IN_BYTES);
-    const isSqrtBuf = Buffer.from(await wasm.getMemorySlice(Fr.SIZE_IN_BYTES, Fr.SIZE_IN_BYTES + 1));
-    const isSqrt = isSqrtBuf[0] === 1;
+    const [buf] = await wasm.callWasmExport('bn254_fr_sqrt', [this.toBuffer()], [Fr.SIZE_IN_BYTES * 2 + 1]);
+    const isSqrt = buf[0] === 1;
     if (!isSqrt) {
       // Field element is not a quadratic residue mod p so it has no square root.
       return null;
     }
-
-    const rootBuf = Buffer.from(await wasm.getMemorySlice(Fr.SIZE_IN_BYTES + 1, Fr.SIZE_IN_BYTES * 2 + 1));
-    return Fr.fromBuffer(rootBuf);
+    const reader = BufferReader.asReader(buf.slice(1));
+    return new Fr(reader.readBytes(Fr.SIZE_IN_BYTES));
   }
 
   toJSON() {

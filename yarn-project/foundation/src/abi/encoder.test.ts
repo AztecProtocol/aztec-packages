@@ -87,7 +87,7 @@ describe('abi/encoder', () => {
     expect(encodeArguments(abi, [str])).toEqual(expected);
   });
 
-  it.each(['AztecAddress', 'EthAddress'])('accepts address instance for %s structs', (structType: string) => {
+  it.each(['AztecAddress', 'EthAddress'])('accepts address instance for %s structs', async (structType: string) => {
     const abi: FunctionAbi = {
       name: 'constructor',
       isInitializer: true,
@@ -114,7 +114,7 @@ describe('abi/encoder', () => {
       errorTypes: {},
     };
 
-    const address = AztecAddress.random();
+    const address = await AztecAddress.random();
     expect(encodeArguments(abi, [address])).toEqual([address.toField()]);
     expect(encodeArguments(abi, [{ address }])).toEqual([address.toField()]);
     expect(encodeArguments(abi, [{ address: address.toField() }])).toEqual([address.toField()]);

@@ -46,8 +46,8 @@ export class L1EventPayload {
     return payload;
   }
 
-  static decryptAsIncoming(log: PrivateLog, sk: Fq): L1EventPayload | undefined {
-    const decryptedLog = EncryptedLogPayload.decryptAsIncoming(log, sk);
+  static async decryptAsIncoming(log: PrivateLog, sk: Fq): Promise<L1EventPayload | undefined> {
+    const decryptedLog = await EncryptedLogPayload.decryptAsIncoming(log, sk);
     if (!decryptedLog) {
       return undefined;
     }
@@ -72,8 +72,8 @@ export class L1EventPayload {
    * @param contract - The address of a contract the event was emitted from.
    * @returns A random L1EventPayload object.
    */
-  static random(contract = AztecAddress.random()) {
-    return new L1EventPayload(Event.random(), contract, EventSelector.random());
+  static async random(contract?: AztecAddress) {
+    return new L1EventPayload(Event.random(), contract ?? (await AztecAddress.random()), EventSelector.random());
   }
 
   public equals(other: L1EventPayload) {

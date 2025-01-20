@@ -104,11 +104,11 @@ export class TxSimulationResult extends PrivateSimulationResult {
     );
   }
 
-  static random() {
+  static async random() {
     return new TxSimulationResult(
-      PrivateExecutionResult.random(),
+      await PrivateExecutionResult.random(),
       PrivateKernelTailCircuitPublicInputs.empty(),
-      PublicSimulationOutput.random(),
+      await PublicSimulationOutput.random(),
     );
   }
 }
@@ -151,9 +151,9 @@ export class TxProvingResult {
     return new TxProvingResult(fields.privateExecutionResult, fields.publicInputs, fields.clientIvcProof);
   }
 
-  static random() {
+  static async random() {
     return new TxProvingResult(
-      PrivateExecutionResult.random(),
+      await PrivateExecutionResult.random(),
       PrivateKernelTailCircuitPublicInputs.empty(),
       ClientIvcProof.empty(),
     );

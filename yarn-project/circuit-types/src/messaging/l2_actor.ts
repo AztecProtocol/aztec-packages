@@ -37,7 +37,7 @@ export class L2Actor {
     return new L2Actor(aztecAddr, version);
   }
 
-  static random(): L2Actor {
-    return new L2Actor(AztecAddress.random(), randomInt(1000));
+  static async random(): Promise<L2Actor> {
+    return new L2Actor(await AztecAddress.random(), randomInt(1000));
   }
 }

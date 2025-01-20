@@ -11,9 +11,9 @@ import { type AvmPersistableStateManager } from '../journal/journal.js';
 import { mockGetContractInstance, mockNullifierExists } from '../test_utils.js';
 import { ContractInstanceMember, GetContractInstance } from './contract.js';
 
-describe('Contract opcodes', () => {
-  const address = AztecAddress.random();
-  const contractInstance = SerializableContractInstance.random();
+describe('Contract opcodes', async () => {
+  const address = await AztecAddress.random();
+  const contractInstance = await SerializableContractInstance.random();
   const deployer = contractInstance.deployer;
   const contractClassId = contractInstance.contractClassId;
   const initializationHash = contractInstance.initializationHash;

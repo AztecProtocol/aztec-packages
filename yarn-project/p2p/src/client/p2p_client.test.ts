@@ -225,7 +225,7 @@ describe('In-Memory P2P Client', () => {
         finalized: { number: 90, hash: expect.any(String) },
       });
 
-      blockSource.addBlocks([L2Block.random(91), L2Block.random(92)]);
+      blockSource.addBlocks([await L2Block.random(91), await L2Block.random(92)]);
 
       // give the client a chance to react to the new blocks
       await sleep(100);

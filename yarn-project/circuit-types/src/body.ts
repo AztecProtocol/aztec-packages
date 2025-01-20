@@ -98,9 +98,9 @@ export class Body {
     return new ContractClass2BlockL2Logs(logs);
   }
 
-  static random(txsPerBlock = 4, numPublicCallsPerTx = 3, numUnencryptedLogsPerCall = 1) {
-    const txEffects = [...new Array(txsPerBlock)].map(_ =>
-      TxEffect.random(numPublicCallsPerTx, numUnencryptedLogsPerCall),
+  static async random(txsPerBlock = 4, numPublicCallsPerTx = 3, numUnencryptedLogsPerCall = 1) {
+    const txEffects = await Promise.all(
+      [...new Array(txsPerBlock)].map(_ => TxEffect.random(numPublicCallsPerTx, numUnencryptedLogsPerCall)),
     );
 
     return new Body(txEffects);

@@ -131,7 +131,7 @@ export class TXE implements TypedOracle {
   ) {
     this.noteCache = new ExecutionNoteCache(this.getTxRequestHash());
     this.contractDataOracle = new ContractDataOracle(txeDatabase);
-    this.contractAddress = AztecAddress.random();
+    this.contractAddress = AztecAddress.ZERO;
 
     this.node = new TXENode(this.blockNumber, this.VERSION, this.CHAIN_ID, this.trees);
 
@@ -953,7 +953,7 @@ export class TXE implements TypedOracle {
   async #calculateAppTaggingSecret(contractAddress: AztecAddress, sender: AztecAddress, recipient: AztecAddress) {
     const senderCompleteAddress = await this.getCompleteAddress(sender);
     const senderIvsk = await this.keyStore.getMasterIncomingViewingSecretKey(sender);
-    const secretPoint = computeTaggingSecretPoint(senderCompleteAddress, senderIvsk, recipient);
+    const secretPoint = await computeTaggingSecretPoint(senderCompleteAddress, senderIvsk, recipient);
     // Silo the secret to the app so it can't be used to track other app's notes
     const appSecret = poseidon2Hash([secretPoint.x, secretPoint.y, contractAddress]);
     return appSecret;

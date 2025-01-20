@@ -59,8 +59,8 @@ export class L1NotePayload {
     }
   }
 
-  static decryptAsIncoming(log: PrivateLog, sk: Fq): L1NotePayload | undefined {
-    const decryptedLog = EncryptedLogPayload.decryptAsIncoming(log, sk);
+  static async decryptAsIncoming(log: PrivateLog, sk: Fq): Promise<L1NotePayload | undefined> {
+    const decryptedLog = await EncryptedLogPayload.decryptAsIncoming(log, sk);
     if (!decryptedLog) {
       return undefined;
     }
@@ -72,13 +72,13 @@ export class L1NotePayload {
     );
   }
 
-  static decryptAsIncomingFromPublic(log: Buffer, sk: Fq): L1NotePayload | undefined {
+  static async decryptAsIncomingFromPublic(log: Buffer, sk: Fq): Promise<L1NotePayload | undefined> {
     const { privateValues, publicValues } = parseLogFromPublic(log);
     if (!privateValues) {
       return undefined;
     }
 
-    const decryptedLog = EncryptedLogPayload.decryptAsIncomingFromPublic(privateValues, sk);
+    const decryptedLog = await EncryptedLogPayload.decryptAsIncomingFromPublic(privateValues, sk);
     if (!decryptedLog) {
       return undefined;
     }
@@ -104,14 +104,20 @@ export class L1NotePayload {
    * @param contract - The address of a contract the note was emitted from.
    * @returns A random L1NotePayload object.
    */
-  static random(contract = AztecAddress.random()) {
+  static async random(contract?: AztecAddress) {
     const numPrivateNoteValues = randomInt(2) + 1;
     const privateNoteValues = Array.from({ length: numPrivateNoteValues }, () => Fr.random());
 
     const numPublicNoteValues = randomInt(2) + 1;
     const publicNoteValues = Array.from({ length: numPublicNoteValues }, () => Fr.random());
 
-    return new L1NotePayload(contract, Fr.random(), NoteSelector.random(), privateNoteValues, publicNoteValues);
+    return new L1NotePayload(
+      contract ?? (await AztecAddress.random()),
+      Fr.random(),
+      NoteSelector.random(),
+      privateNoteValues,
+      publicNoteValues,
+    );
   }
 
   public equals(other: L1NotePayload) {

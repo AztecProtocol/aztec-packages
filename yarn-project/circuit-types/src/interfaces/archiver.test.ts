@@ -164,7 +164,7 @@ describe('ArchiverApiSchema', () => {
   it('getUnencryptedLogs', async () => {
     const result = await context.client.getUnencryptedLogs({
       txHash: TxHash.random(),
-      contractAddress: AztecAddress.random(),
+      contractAddress: await AztecAddress.random(),
     });
     expect(result).toEqual({ logs: [expect.any(ExtendedUnencryptedL2Log)], maxLogsHit: true });
   });
@@ -172,14 +172,14 @@ describe('ArchiverApiSchema', () => {
   it('getContractClassLogs', async () => {
     const result = await context.client.getContractClassLogs({
       txHash: TxHash.random(),
-      contractAddress: AztecAddress.random(),
+      contractAddress: await AztecAddress.random(),
     });
     expect(result).toEqual({ logs: [expect.any(ExtendedUnencryptedL2Log)], maxLogsHit: true });
   });
 
   it('getPublicFunction', async () => {
     const selector = FunctionSelector.random();
-    const result = await context.client.getPublicFunction(AztecAddress.random(), selector);
+    const result = await context.client.getPublicFunction(await AztecAddress.random(), selector);
     expect(result).toEqual({ selector, bytecode: Buffer.alloc(10, 10) });
   });
 
@@ -198,7 +198,7 @@ describe('ArchiverApiSchema', () => {
       artifact.functions[0].name,
       artifact.functions[0].parameters,
     );
-    const result = await context.client.getContractFunctionName(AztecAddress.random(), selector);
+    const result = await context.client.getContractFunctionName(await AztecAddress.random(), selector);
     expect(result).toEqual(artifact.functions[0].name);
   });
 
@@ -224,11 +224,11 @@ describe('ArchiverApiSchema', () => {
   });
 
   it('registerContractFunctionSignatures', async () => {
-    await context.client.registerContractFunctionSignatures(AztecAddress.random(), ['test()']);
+    await context.client.registerContractFunctionSignatures(await AztecAddress.random(), ['test()']);
   });
 
   it('getContract', async () => {
-    const address = AztecAddress.random();
+    const address = await AztecAddress.random();
     const result = await context.client.getContract(address);
     expect(result).toEqual({
       address,
@@ -280,12 +280,12 @@ class MockArchiver implements ArchiverApi {
   getBlockHeader(_number: number | 'latest'): Promise<BlockHeader | undefined> {
     return Promise.resolve(BlockHeader.empty());
   }
-  getBlocks(from: number, _limit: number, _proven?: boolean | undefined): Promise<L2Block[]> {
-    return Promise.resolve([L2Block.random(from)]);
+  async getBlocks(from: number, _limit: number, _proven?: boolean | undefined): Promise<L2Block[]> {
+    return [await L2Block.random(from)];
   }
-  getTxEffect(_txHash: TxHash): Promise<InBlock<TxEffect> | undefined> {
+  async getTxEffect(_txHash: TxHash): Promise<InBlock<TxEffect> | undefined> {
     expect(_txHash).toBeInstanceOf(TxHash);
-    return Promise.resolve({ l2BlockNumber: 1, l2BlockHash: '0x12', data: TxEffect.random() });
+    return { l2BlockNumber: 1, l2BlockHash: '0x12', data: await TxEffect.random() };
   }
   getSettledTxReceipt(txHash: TxHash): Promise<TxReceipt | undefined> {
     expect(txHash).toBeInstanceOf(TxHash);
@@ -297,9 +297,9 @@ class MockArchiver implements ArchiverApi {
   getL2EpochNumber(): Promise<bigint> {
     return Promise.resolve(1n);
   }
-  getBlocksForEpoch(epochNumber: bigint): Promise<L2Block[]> {
+  async getBlocksForEpoch(epochNumber: bigint): Promise<L2Block[]> {
     expect(epochNumber).toEqual(1n);
-    return Promise.resolve([L2Block.random(Number(epochNumber))]);
+    return [await L2Block.random(Number(epochNumber))];
   }
   isEpochComplete(epochNumber: bigint): Promise<boolean> {
     expect(epochNumber).toEqual(1n);
@@ -326,15 +326,15 @@ class MockArchiver implements ArchiverApi {
     expect(tags[0]).toBeInstanceOf(Fr);
     return Promise.resolve([Array.from({ length: tags.length }, () => TxScopedL2Log.random())]);
   }
-  getUnencryptedLogs(filter: LogFilter): Promise<GetUnencryptedLogsResponse> {
+  async getUnencryptedLogs(filter: LogFilter): Promise<GetUnencryptedLogsResponse> {
     expect(filter.txHash).toBeInstanceOf(TxHash);
     expect(filter.contractAddress).toBeInstanceOf(AztecAddress);
-    return Promise.resolve({ logs: [ExtendedUnencryptedL2Log.random()], maxLogsHit: true });
+    return { logs: [await ExtendedUnencryptedL2Log.random()], maxLogsHit: true };
   }
-  getContractClassLogs(filter: LogFilter): Promise<GetUnencryptedLogsResponse> {
+  async getContractClassLogs(filter: LogFilter): Promise<GetUnencryptedLogsResponse> {
     expect(filter.txHash).toBeInstanceOf(TxHash);
     expect(filter.contractAddress).toBeInstanceOf(AztecAddress);
-    return Promise.resolve({ logs: [ExtendedUnencryptedL2Log.random()], maxLogsHit: true });
+    return { logs: [await ExtendedUnencryptedL2Log.random()], maxLogsHit: true };
   }
   getPublicFunction(address: AztecAddress, selector: FunctionSelector): Promise<PublicFunction | undefined> {
     expect(address).toBeInstanceOf(AztecAddress);
@@ -360,16 +360,16 @@ class MockArchiver implements ArchiverApi {
       )?.name,
     );
   }
-  getContract(address: AztecAddress): Promise<ContractInstanceWithAddress | undefined> {
-    return Promise.resolve({
+  async getContract(address: AztecAddress): Promise<ContractInstanceWithAddress | undefined> {
+    return {
       address,
       contractClassId: Fr.random(),
-      deployer: AztecAddress.random(),
+      deployer: await AztecAddress.random(),
       initializationHash: Fr.random(),
-      publicKeys: PublicKeys.random(),
+      publicKeys: await PublicKeys.random(),
       salt: Fr.random(),
       version: 1,
-    });
+    };
   }
   getContractClassIds(): Promise<Fr[]> {
     return Promise.resolve([Fr.random()]);

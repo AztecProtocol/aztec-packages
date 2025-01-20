@@ -32,8 +32,8 @@ import { randomInt } from 'crypto';
 import { PublicEnqueuedCallSideEffectTrace, SideEffectArrayLengths } from './enqueued_call_side_effect_trace.js';
 import { SideEffectLimitReachedError } from './side_effect_errors.js';
 
-describe('Enqueued-call Side Effect Trace', () => {
-  const address = AztecAddress.random();
+describe('Enqueued-call Side Effect Trace', async () => {
+  const address = await AztecAddress.random();
   const bytecode = Buffer.from('0xdeadbeef');
   const utxo = Fr.random();
   const leafIndex = Fr.random();
@@ -161,8 +161,8 @@ describe('Enqueued-call Side Effect Trace', () => {
     expect(trace.getSideEffects().unencryptedLogsHashes).toEqual(expectedHashes);
   });
 
-  it('Should trace get contract instance', () => {
-    const instance = SerializableContractInstance.random();
+  it('Should trace get contract instance', async () => {
+    const instance = await SerializableContractInstance.random();
     const { version: _, ...instanceWithoutVersion } = instance;
     const lowLeafPreimage = new NullifierLeafPreimage(/*siloedNullifier=*/ address.toField(), Fr.ZERO, 0n);
     const exists = true;
@@ -180,8 +180,8 @@ describe('Enqueued-call Side Effect Trace', () => {
     ]);
   });
 
-  it('Should trace get bytecode', () => {
-    const instance = SerializableContractInstance.random();
+  it('Should trace get bytecode', async () => {
+    const instance = await SerializableContractInstance.random();
     const contractClass: ContractClassIdPreimage = {
       artifactHash: Fr.random(),
       privateFunctionsRoot: Fr.random(),
@@ -320,19 +320,19 @@ describe('Enqueued-call Side Effect Trace', () => {
       );
     });
 
-    it('Should enforce maximum number of calls to unique contract class IDs', () => {
+    it('Should enforce maximum number of calls to unique contract class IDs', async () => {
       const firstAddr = AztecAddress.fromNumber(0);
-      const firstInstance = SerializableContractInstance.random();
+      const firstInstance = await SerializableContractInstance.random();
       trace.traceGetBytecode(firstAddr, /*exists=*/ true, bytecode, firstInstance);
 
       for (let i = 1; i < MAX_PUBLIC_CALLS_TO_UNIQUE_CONTRACT_CLASS_IDS; i++) {
         const addr = AztecAddress.fromNumber(i);
-        const instance = SerializableContractInstance.random();
+        const instance = await SerializableContractInstance.random();
         trace.traceGetBytecode(addr, /*exists=*/ true, bytecode, instance);
       }
 
       const addr = AztecAddress.fromNumber(MAX_PUBLIC_CALLS_TO_UNIQUE_CONTRACT_CLASS_IDS);
-      const instance = SerializableContractInstance.random();
+      const instance = await SerializableContractInstance.random();
       expect(() => trace.traceGetBytecode(addr, /*exists=*/ true, bytecode, instance)).toThrow(
         SideEffectLimitReachedError,
       );
@@ -341,7 +341,7 @@ describe('Enqueued-call Side Effect Trace', () => {
       trace.traceGetBytecode(firstAddr, /*exists=*/ true, bytecode, firstInstance);
 
       const differentAddr = AztecAddress.fromNumber(MAX_PUBLIC_CALLS_TO_UNIQUE_CONTRACT_CLASS_IDS + 1);
-      const instanceWithSameClassId = SerializableContractInstance.random({
+      const instanceWithSameClassId = await SerializableContractInstance.random({
         contractClassId: firstInstance.contractClassId,
       });
       // can re-trace different contract address if it has a duplicate class ID

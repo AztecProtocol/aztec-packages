@@ -154,7 +154,7 @@ describe('AVM simulator: transpiled Noir contracts', () => {
   });
 
   it('call max unique contract classes', async () => {
-    const contractDataSource = new MockedAvmTestContractDataSource();
+    const contractDataSource = await MockedAvmTestContractDataSource.create();
     // args is initialized to MAX_PUBLIC_CALLS_TO_UNIQUE_CONTRACT_CLASS_IDS contract addresses with unique class IDs
     const args = Array.from(contractDataSource.contractInstances.values())
       .map(instance => instance.address.toField())
@@ -172,7 +172,7 @@ describe('AVM simulator: transpiled Noir contracts', () => {
   });
 
   it('call too many unique contract classes fails', async () => {
-    const contractDataSource = new MockedAvmTestContractDataSource();
+    const contractDataSource = await MockedAvmTestContractDataSource.create();
     // args is initialized to MAX_PUBLIC_CALLS_TO_UNIQUE_CONTRACT_CLASS_IDS+1 contract addresses with unique class IDs
     // should fail because we are trying to call MAX+1 unique class IDs
     const args = Array.from(contractDataSource.contractInstances.values()).map(instance => instance.address.toField());
@@ -442,9 +442,9 @@ describe('AVM simulator: transpiled Noir contracts', () => {
     });
   });
 
-  describe('Environment getters', () => {
-    const address = AztecAddress.random();
-    const sender = AztecAddress.random();
+  describe('Environment getters', async () => {
+    const address = await AztecAddress.random();
+    const sender = await AztecAddress.random();
     const transactionFee = Fr.random();
     const chainId = Fr.random();
     const version = Fr.random();
@@ -919,7 +919,7 @@ describe('AVM simulator: transpiled Noir contracts', () => {
           selector: FunctionSelector.random(),
         });
         mockGetContractClass(worldStateDB, contractClass);
-        const contractInstance = makeContractInstanceFromClassId(contractClass.id);
+        const contractInstance = await makeContractInstanceFromClassId(contractClass.id);
         mockGetContractInstance(worldStateDB, contractInstance);
         mockNullifierExists(worldStateDB, siloAddress(contractInstance.address));
 
@@ -943,7 +943,7 @@ describe('AVM simulator: transpiled Noir contracts', () => {
           selector: FunctionSelector.random(),
         });
         mockGetContractClass(worldStateDB, contractClass);
-        const contractInstance = makeContractInstanceFromClassId(contractClass.id);
+        const contractInstance = await makeContractInstanceFromClassId(contractClass.id);
         mockGetContractInstance(worldStateDB, contractInstance);
         mockNullifierExists(worldStateDB, siloAddress(contractInstance.address));
 
@@ -970,7 +970,7 @@ describe('AVM simulator: transpiled Noir contracts', () => {
           selector: FunctionSelector.random(),
         });
         mockGetContractClass(worldStateDB, contractClass);
-        const contractInstance = makeContractInstanceFromClassId(contractClass.id);
+        const contractInstance = await makeContractInstanceFromClassId(contractClass.id);
         mockGetContractInstance(worldStateDB, contractInstance);
         mockNullifierExists(worldStateDB, siloAddress(contractInstance.address));
 
@@ -992,7 +992,7 @@ describe('AVM simulator: transpiled Noir contracts', () => {
           selector: FunctionSelector.random(),
         });
         mockGetContractClass(worldStateDB, contractClass);
-        const contractInstance = makeContractInstanceFromClassId(contractClass.id);
+        const contractInstance = await makeContractInstanceFromClassId(contractClass.id);
         mockGetContractInstance(worldStateDB, contractInstance);
         mockNullifierExists(worldStateDB, siloAddress(contractInstance.address));
 
@@ -1022,7 +1022,7 @@ describe('AVM simulator: transpiled Noir contracts', () => {
           selector: FunctionSelector.random(),
         });
         mockGetContractClass(worldStateDB, contractClass);
-        const contractInstance = makeContractInstanceFromClassId(contractClass.id);
+        const contractInstance = await makeContractInstanceFromClassId(contractClass.id);
         mockGetContractInstance(worldStateDB, contractInstance);
         mockNullifierExists(worldStateDB, siloAddress(contractInstance.address));
 
@@ -1047,7 +1047,7 @@ describe('AVM simulator: transpiled Noir contracts', () => {
           selector: FunctionSelector.random(),
         });
         mockGetContractClass(worldStateDB, contractClass);
-        const contractInstance = makeContractInstanceFromClassId(contractClass.id);
+        const contractInstance = await makeContractInstanceFromClassId(contractClass.id);
         mockGetContractInstance(worldStateDB, contractInstance);
         mockNullifierExists(worldStateDB, siloAddress(contractInstance.address));
 

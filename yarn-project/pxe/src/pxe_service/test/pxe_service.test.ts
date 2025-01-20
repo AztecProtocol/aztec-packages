@@ -91,7 +91,7 @@ describe('PXEService', () => {
   });
 
   it('throws when submitting a tx with a nullifier of already settled tx', async () => {
-    const settledTx = TxEffect.random();
+    const settledTx = await TxEffect.random();
     const duplicateTx = mockTx();
 
     node.getTxEffect.mockResolvedValue(randomInBlock(settledTx));

@@ -214,9 +214,9 @@ export class TxEffect {
     return thisLayer[0];
   }
 
-  static random(numPublicCallsPerTx = 3, numUnencryptedLogsPerCall = 1): TxEffect {
-    const unencryptedLogs = UnencryptedTxL2Logs.random(numPublicCallsPerTx, numUnencryptedLogsPerCall);
-    const contractClassLogs = ContractClassTxL2Logs.random(1, 1);
+  static async random(numPublicCallsPerTx = 3, numUnencryptedLogsPerCall = 1): Promise<TxEffect> {
+    const unencryptedLogs = await UnencryptedTxL2Logs.random(numPublicCallsPerTx, numUnencryptedLogsPerCall);
+    const contractClassLogs = await ContractClassTxL2Logs.random(1, 1);
     return new TxEffect(
       RevertCode.random(),
       TxHash.random(),

@@ -18,8 +18,8 @@ import {
 } from '../structs/index.js';
 import { buildNullifierReadRequestHints } from './build_nullifier_read_request_hints.js';
 
-describe('buildNullifierReadRequestHints', () => {
-  const contractAddress = AztecAddress.random();
+describe('buildNullifierReadRequestHints', async () => {
+  const contractAddress = await AztecAddress.random();
   const settledNullifierInnerValue = 99999;
   const oracle = {
     getNullifierMembershipWitness: () => ({ membershipWitness: {}, leafPreimage: {} } as any),

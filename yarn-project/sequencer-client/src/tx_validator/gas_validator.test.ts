@@ -22,7 +22,7 @@ describe('GasTxValidator', () => {
   let expectedBalanceSlot: Fr;
   let feeLimit: bigint;
 
-  beforeEach(() => {
+  beforeEach(async () => {
     publicStateSource = mock<PublicStateSource>({
       storageRead: mockFn().mockImplementation((_address: AztecAddress, _slot: Fr) => Fr.ZERO),
     });
@@ -31,7 +31,7 @@ describe('GasTxValidator', () => {
     gasFees = new GasFees(11, 22);
 
     tx = mockTx(1, { numberOfNonRevertiblePublicCallRequests: 2 });
-    tx.data.feePayer = AztecAddress.random();
+    tx.data.feePayer = await AztecAddress.random();
     tx.data.constants.txContext.gasSettings = GasSettings.default({ maxFeesPerGas: gasFees.clone() });
     payer = tx.data.feePayer;
     expectedBalanceSlot = poseidon2Hash([FeeJuiceContract.storage.balances.slot, payer]);

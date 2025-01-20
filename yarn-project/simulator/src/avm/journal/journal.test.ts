@@ -20,8 +20,8 @@ import {
 } from '../test_utils.js';
 import { type AvmPersistableStateManager } from './journal.js';
 
-describe('journal', () => {
-  const address = AztecAddress.random();
+describe('journal', async () => {
+  const address = await AztecAddress.random();
   const utxo = Fr.random();
   const leafIndex = Fr.random();
 

@@ -17,8 +17,8 @@ import {
 } from '../structs/index.js';
 import { buildNoteHashReadRequestHints } from './build_note_hash_read_request_hints.js';
 
-describe('buildNoteHashReadRequestHints', () => {
-  const contractAddress = AztecAddress.random();
+describe('buildNoteHashReadRequestHints', async () => {
+  const contractAddress = await AztecAddress.random();
   const settledNoteHashes = [111, 222, 333];
   const settledLeafIndexes = [1010n, 2020n, 3030n];
   const oracle = {

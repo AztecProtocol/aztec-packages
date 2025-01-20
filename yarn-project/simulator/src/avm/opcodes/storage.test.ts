@@ -10,10 +10,10 @@ import { initContext, initExecutionEnvironment } from '../fixtures/index.js';
 import { type AvmPersistableStateManager } from '../journal/journal.js';
 import { SLoad, SStore } from './storage.js';
 
-describe('Storage Instructions', () => {
+describe('Storage Instructions', async () => {
   let context: AvmContext;
   let persistableState: MockProxy<AvmPersistableStateManager>;
-  const address = AztecAddress.random();
+  const address = await AztecAddress.random();
 
   beforeEach(async () => {
     persistableState = mock<AvmPersistableStateManager>();

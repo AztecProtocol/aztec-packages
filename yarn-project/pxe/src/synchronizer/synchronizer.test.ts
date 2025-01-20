@@ -1,4 +1,5 @@
 import { type AztecNode, L2Block, type L2BlockStream } from '@aztec/circuit-types';
+import { timesParallel } from '@aztec/foundation/collection';
 import { openTmpStore } from '@aztec/kv-store/lmdb';
 import { L2TipsStore } from '@aztec/kv-store/stores';
 
@@ -34,7 +35,7 @@ describe('Synchronizer', () => {
   });
 
   it('sets header from latest block', async () => {
-    const block = L2Block.random(1, 4);
+    const block = await L2Block.random(1, 4);
     await synchronizer.handleBlockStreamEvent({ type: 'blocks-added', blocks: [block] });
 
     const obtainedHeader = await database.getBlockHeader();
@@ -45,11 +46,14 @@ describe('Synchronizer', () => {
     const removeNotesAfter = jest.spyOn(database, 'removeNotesAfter').mockImplementation(() => Promise.resolve());
     const unnullifyNotesAfter = jest.spyOn(database, 'unnullifyNotesAfter').mockImplementation(() => Promise.resolve());
     const resetNoteSyncData = jest.spyOn(database, 'resetNoteSyncData').mockImplementation(() => Promise.resolve());
-    aztecNode.getBlockHeader.mockImplementation(blockNumber =>
-      Promise.resolve(L2Block.random(blockNumber as number).header),
+    aztecNode.getBlockHeader.mockImplementation(
+      async blockNumber => (await L2Block.random(blockNumber as number)).header,
     );
 
-    await synchronizer.handleBlockStreamEvent({ type: 'blocks-added', blocks: times(5, L2Block.random) });
+    await synchronizer.handleBlockStreamEvent({
+      type: 'blocks-added',
+      blocks: await timesParallel(5, i => L2Block.random(i)),
+    });
     await synchronizer.handleBlockStreamEvent({ type: 'chain-pruned', blockNumber: 3 });
 
     expect(removeNotesAfter).toHaveBeenCalledWith(3);

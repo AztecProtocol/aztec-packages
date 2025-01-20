@@ -250,9 +250,9 @@ export class SimulationError extends Error {
       );
   }
 
-  static random() {
+  static async random() {
     return new SimulationError('Random simulation error', [
-      { contractAddress: AztecAddress.random(), functionSelector: FunctionSelector.random() },
+      { contractAddress: await AztecAddress.random(), functionSelector: FunctionSelector.random() },
     ]);
   }
 }

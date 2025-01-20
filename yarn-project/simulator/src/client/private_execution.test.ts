@@ -75,7 +75,7 @@ import { AcirSimulator } from './simulator.js';
 
 jest.setTimeout(60_000);
 
-describe('Private Execution test suite', () => {
+describe('Private Execution test suite', async () => {
   const simulationProvider = new WASMSimulator();
 
   let oracle: MockProxy<DBOracle>;
@@ -85,7 +85,7 @@ describe('Private Execution test suite', () => {
   let header = BlockHeader.empty();
   let logger: Logger;
 
-  const defaultContractAddress = AztecAddress.random();
+  const defaultContractAddress = await AztecAddress.random();
   const ownerSk = Fr.fromHexString('2dcc5485a58316776299be08c78fa3788a1a7961ae30dc747fb1be17692a8d32');
   const recipientSk = Fr.fromHexString('0c9ed344548e8f9ba8aa3c9f8651eaa2853130f6c1e9c050ccf198f7ea18a7ec');
   let owner: AztecAddress;
@@ -627,7 +627,7 @@ describe('Private Execution test suite', () => {
       });
 
       it('Invalid recipient', async () => {
-        crossChainMsgRecipient = AztecAddress.random();
+        crossChainMsgRecipient = await AztecAddress.random();
 
         preimage = computePreimage();
 
@@ -783,9 +783,9 @@ describe('Private Execution test suite', () => {
       const parentArtifact = getFunctionArtifact(ParentContractArtifact, 'enqueue_call_to_child');
       const childContractArtifact = ChildContractArtifact.functions.find(fn => fn.name === 'public_dispatch')!;
       expect(childContractArtifact).toBeDefined();
-      const childAddress = AztecAddress.random();
+      const childAddress = await AztecAddress.random();
       const childSelector = FunctionSelector.fromSignature('pub_set_value(Field)');
-      const parentAddress = AztecAddress.random();
+      const parentAddress = await AztecAddress.random();
 
       oracle.getFunctionArtifact.mockImplementation(() => Promise.resolve({ ...childContractArtifact, isInternal }));
 
@@ -831,14 +831,14 @@ describe('Private Execution test suite', () => {
     it('should default to not being a fee payer', async () => {
       // arbitrary random function that doesn't set a fee payer
       const entrypoint = getFunctionArtifact(TestContractArtifact, 'get_this_address');
-      const contractAddress = AztecAddress.random();
+      const contractAddress = await AztecAddress.random();
       const { entrypoint: result } = await runSimulator({ artifact: entrypoint, contractAddress });
       expect(result.publicInputs.isFeePayer).toBe(false);
     });
 
     it('should be able to set a fee payer', async () => {
       const entrypoint = getFunctionArtifact(TestContractArtifact, 'test_setting_fee_payer');
-      const contractAddress = AztecAddress.random();
+      const contractAddress = await AztecAddress.random();
       const { entrypoint: result } = await runSimulator({ artifact: entrypoint, contractAddress });
       expect(result.publicInputs.isFeePayer).toBe(true);
     });
@@ -863,7 +863,7 @@ describe('Private Execution test suite', () => {
 
       const amountToTransfer = 100n;
 
-      const contractAddress = AztecAddress.random();
+      const contractAddress = await AztecAddress.random();
       const artifact = getFunctionArtifact(PendingNoteHashesContractArtifact, 'test_insert_then_get_then_nullify_flat');
 
       const sender = owner;
@@ -921,7 +921,7 @@ describe('Private Execution test suite', () => {
 
       const amountToTransfer = 100n;
 
-      const contractAddress = AztecAddress.random();
+      const contractAddress = await AztecAddress.random();
       const artifact = getFunctionArtifact(
         PendingNoteHashesContractArtifact,
         'test_insert_then_get_then_nullify_all_in_nested_calls',
@@ -994,7 +994,7 @@ describe('Private Execution test suite', () => {
 
       const amountToTransfer = 100n;
 
-      const contractAddress = AztecAddress.random();
+      const contractAddress = await AztecAddress.random();
 
       const artifact = getFunctionArtifact(PendingNoteHashesContractArtifact, 'test_bad_get_then_insert_flat');
 
@@ -1041,7 +1041,7 @@ describe('Private Execution test suite', () => {
 
   describe('Context oracles', () => {
     it('this_address should return the current context address', async () => {
-      const contractAddress = AztecAddress.random();
+      const contractAddress = await AztecAddress.random();
 
       // Tweak the contract artifact so we can extract return values
       const artifact = getFunctionArtifact(TestContractArtifact, 'get_this_address');

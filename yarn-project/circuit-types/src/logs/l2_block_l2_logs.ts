@@ -113,10 +113,14 @@ export class UnencryptedL2BlockL2Logs extends L2BlockL2Logs {
    * @param numLogsPerCall - The number of logs emitted in each function call.
    * @returns A new `L2BlockL2Logs` object.
    */
-  public static random(numTxs: number, numCalls: number, numLogsPerCall: number): UnencryptedL2BlockL2Logs {
+  public static async random(
+    numTxs: number,
+    numCalls: number,
+    numLogsPerCall: number,
+  ): Promise<UnencryptedL2BlockL2Logs> {
     const txLogs: UnencryptedTxL2Logs[] = [];
     for (let i = 0; i < numTxs; i++) {
-      txLogs.push(UnencryptedTxL2Logs.random(numCalls, numLogsPerCall));
+      txLogs.push(await UnencryptedTxL2Logs.random(numCalls, numLogsPerCall));
     }
     return new UnencryptedL2BlockL2Logs(txLogs);
   }
@@ -184,10 +188,14 @@ export class ContractClass2BlockL2Logs extends L2BlockL2Logs {
    * @param numLogsPerCall - The number of logs emitted in each function call.
    * @returns A new `L2BlockL2Logs` object.
    */
-  public static random(numTxs: number, numCalls: number, numLogsPerCall: number): ContractClass2BlockL2Logs {
+  public static async random(
+    numTxs: number,
+    numCalls: number,
+    numLogsPerCall: number,
+  ): Promise<ContractClass2BlockL2Logs> {
     const txLogs: ContractClassTxL2Logs[] = [];
     for (let i = 0; i < numTxs; i++) {
-      txLogs.push(ContractClassTxL2Logs.random(numCalls, numLogsPerCall));
+      txLogs.push(await ContractClassTxL2Logs.random(numCalls, numLogsPerCall));
     }
     return new ContractClass2BlockL2Logs(txLogs);
   }

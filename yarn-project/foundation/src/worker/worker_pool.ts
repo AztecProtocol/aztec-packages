@@ -1,3 +1,4 @@
+import { timesParallel } from '../collection/array.js';
 import { createLogger } from '../log/index.js';
 import { type WasmWorker } from './wasm_worker.js';
 
@@ -55,10 +56,8 @@ export class WorkerPool {
   public async init(createWorker: CreateWorker, poolSize: number, maxMem = WorkerPool.MAX_PAGES) {
     log.debug(`creating ${poolSize} workers...`);
     const start = new Date().getTime();
-    this.workers = await Promise.all(
-      Array(poolSize)
-        .fill(0)
-        .map((_, i) => createWorker(`${i}`, i === 0 ? Math.min(WorkerPool.MAX_PAGES, maxMem) : 768, maxMem)),
+    this.workers = await timesParallel(poolSize, async i =>
+      createWorker(`${i}`, i === 0 ? Math.min(WorkerPool.MAX_PAGES, maxMem) : 768, maxMem),
     );
 
     log.debug(`created workers: ${new Date().getTime() - start}ms`);

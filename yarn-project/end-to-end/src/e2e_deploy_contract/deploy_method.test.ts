@@ -16,14 +16,14 @@ import { TokenContract } from '@aztec/noir-contracts.js/Token';
 
 import { DeployTest } from './deploy_test.js';
 
-describe('e2e_deploy_contract deploy method', () => {
+describe('e2e_deploy_contract deploy method', async () => {
   const t = new DeployTest('deploy method');
 
   let pxe: PXE;
   let logger: Logger;
   let wallet: Wallet;
 
-  const ignoredArg = AztecAddress.random();
+  const ignoredArg = await AztecAddress.random();
 
   beforeAll(async () => {
     ({ pxe, logger, wallet } = await t.setup());

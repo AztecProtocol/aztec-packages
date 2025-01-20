@@ -6,11 +6,11 @@ function shouldBehaveLikeL2BlockL2Logs(
   L2BlockL2Logs: typeof UnencryptedL2BlockL2Logs | typeof ContractClass2BlockL2Logs,
 ) {
   describe(L2BlockL2Logs.name, () => {
-    it('can encode L2Logs to buffer and back', () => {
+    it('can encode L2Logs to buffer and back', async () => {
       const l2Logs =
         L2BlockL2Logs.name == 'ContractClass2BlockL2Logs'
-          ? L2BlockL2Logs.random(3, 1, 1)
-          : L2BlockL2Logs.random(3, 4, 2);
+          ? await L2BlockL2Logs.random(3, 1, 1)
+          : await L2BlockL2Logs.random(3, 4, 2);
 
       const buffer = l2Logs.toBuffer();
       const recovered = L2BlockL2Logs.fromBuffer(buffer);
@@ -18,11 +18,11 @@ function shouldBehaveLikeL2BlockL2Logs(
       expect(recovered).toEqual(l2Logs);
     });
 
-    it('getSerializedLength returns the correct length', () => {
+    it('getSerializedLength returns the correct length', async () => {
       const l2Logs =
         L2BlockL2Logs.name == 'ContractClass2BlockL2Logs'
-          ? L2BlockL2Logs.random(3, 1, 1)
-          : L2BlockL2Logs.random(3, 4, 2);
+          ? await L2BlockL2Logs.random(3, 1, 1)
+          : await L2BlockL2Logs.random(3, 4, 2);
 
       const buffer = l2Logs.toBuffer();
       const recovered = L2BlockL2Logs.fromBuffer(buffer);
