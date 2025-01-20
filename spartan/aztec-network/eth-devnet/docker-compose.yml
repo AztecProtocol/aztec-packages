@@ -13,7 +13,7 @@ services:
     volumes:
       - "eth_execution_data:/data"
       - "${PWD}/out/genesis.json:/genesis/genesis.json"
-      - "${PWD}/out/jwt-secret.txt:/genesis/jwt-secret.txt"
+      - "${PWD}/out/jwt-secret.hex:/genesis/jwt-secret.hex"
     environment:
       - HTTP_PORT=8545
       - MAX_TX_INPUT_SIZE_BYTES=1310720
@@ -35,9 +35,6 @@ services:
     environment:
       ETH_EXECUTION_URL: "http://eth_execution:8545"
       BEACON_HTTP_PORT: 5052
-    entrypoint:
-      - "/bin/sh"
-      - "/entrypoints/eth-beacon.sh"
 
   eth_validator:
     depends_on:
@@ -55,6 +52,3 @@ services:
       - "${PWD}/out/genesis.ssz:/genesis/genesis.ssz"
     environment:
       ETH_BEACON_URL: "http://eth_beacon:5052/"
-    entrypoint:
-      - "/bin/sh"
-      - "/entrypoints/eth-validator.sh"

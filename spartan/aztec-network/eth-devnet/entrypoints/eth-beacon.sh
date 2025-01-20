@@ -1,5 +1,13 @@
 #! /bin/bash
 
+if [ "$K8S_MODE" = "true" ]; then
+    # In k8s config maps cannot contain ssz files
+    # Genesis information is copied such that we can write into it
+    # First serialize the ssz file
+    cp -r /genesis-template /genesis &&
+    base64 -d /genesis/genesis-ssz > /genesis/genesis.ssz
+fi
+
 lighthouse bn \
     --disable-peer-scoring \
     --disable-packet-filter \

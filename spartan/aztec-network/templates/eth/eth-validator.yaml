@@ -46,31 +46,22 @@ spec:
         - name: eth-validator
           image: "{{ .Values.images.lighthouse.image }}"
           imagePullPolicy: {{ .Values.images.lighthouse.pullPolicy }}
-          command: ["/bin/sh", "-c"]
-          # Copy the genesis and validator setup into the data directory
-          args:
-            - >-
-              cp -r /genesis-template /genesis &&
-              mkdir -p /data/validators &&
-              mkdir -p /data/secrets &&
-              cp -r /validator-setup/keys/* /data/validators &&
-              cp -r /validator-setup/secrets/* /data/secrets &&
-              base64 -d /genesis/genesis-ssz > /genesis/genesis.ssz &&
-
-              lighthouse vc
-              --datadir="/data"
-              --beacon-nodes="http://{{ include "aztec-network.fullname" . }}-eth-beacon.{{ .Release.Namespace }}.svc.cluster.local:{{ .Values.ethereum.beacon.service.port }}"
-              --testnet-dir=/genesis
-              --init-slashing-protection
-              --suggested-fee-recipient="0xff00000000000000000000000000000000c0ffee"
-              --debug-level=debug
+          command: ["/bin/sh"]
+          args: ["/entrypoints/eth-validator.sh"]
+          env:
+            - name: ETH_BEACON_URL
+              value: "http://{{ include "aztec-network.fullname" . }}-eth-beacon.{{ .Release.Namespace }}.svc.cluster.local:{{ .Values.ethereum.beacon.service.port }}"
+            - name: K8S_MODE
+              value: "true"
           volumeMounts:
             - name: shared-volume
               mountPath: /data
             - name: genesis
-              mountPath: /genesis-template
+              mountPath: /genesis
             - name: validator-setup
               mountPath: /validator-setup
+            - name: entrypoint-scripts
+              mountPath: /entrypoints
           resources:
             {{- toYaml .Values.ethereum.validator.resources | nindent 12 }}
       volumes:
@@ -83,6 +74,10 @@ spec:
             name: {{ include "aztec-network.fullname" . }}-eth-beacon-genesis
         - name: validator-setup
           emptyDir: {}
+        - name: entrypoint-scripts
+          configMap:
+            name: {{ include "aztec-network.fullname" . }}-entrypoint-scripts
+            defaultMode: 0755
 {{- if gt (.Values.ethereum.replicas | int) 0 }}
 ---
 apiVersion: v1

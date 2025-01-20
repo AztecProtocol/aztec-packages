@@ -1,5 +1,16 @@
 #! /bin/bash
 
+if [ "$K8S_MODE" = "true" ]; then
+    cp -r /genesis-template /genesis &&
+    mkdir -p /data/validators &&
+    mkdir -p /data/secrets &&
+    cp -r /validator-setup/keys/* /data/validators &&
+    cp -r /validator-setup/secrets/* /data/secrets &&
+    base64 -d /genesis/genesis-ssz > /genesis/genesis.ssz
+fi
+
+echo $ETH_BEACON_URL
+
 lighthouse vc \
     --datadir="/data" \
     --beacon-nodes=$ETH_BEACON_URL \

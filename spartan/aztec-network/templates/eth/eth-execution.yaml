@@ -24,27 +24,15 @@ spec:
         - name: ethereum
           image: "{{ .Values.images.reth.image }}"
           imagePullPolicy: {{ .Values.images.reth.pullPolicy }}
-          command: ["/bin/sh", "-c"]
-          args:
-            - >-
-              reth node
-              {{ include "helpers.flag" (list "http.port" .Values.ethereum.execution.service.port) }}
-              --http
-              --http.addr="0.0.0.0"
-              --http.api="admin,net,eth,web3,debug,trace"
-              --http.corsdomain="*"
-              --txpool.max-tx-input-bytes={{ .Values.ethereum.maxTxInputSizeBytes }}
-              --max-outbound-peers=0
-              --max-inbound-peers=0
-              --ipcdisable
-              --disable-discovery
-              --authrpc.addr="0.0.0.0"
-              --authrpc.port=8551
-              --authrpc.jwtsecret="/genesis/jwt-secret.hex"
-              --chain="/genesis/genesis.json"
-              --datadir="/data"
-              -vvvv
-
+          command: ["/bin/sh"]
+          args: ["/entrypoints/eth-execution.sh"]
+          env:
+            - name: K8S_MODE
+              value: "true"
+            - name: HTTP_PORT
+              value: "{{ .Values.ethereum.execution.service.port }}"
+            - name: MAX_TX_INPUT_SIZE_BYTES
+              value: "{{ .Values.ethereum.maxTxInputSizeBytes }}"
           ports:
             - containerPort: {{ .Values.ethereum.execution.service.port }}
               name: eth-execution
@@ -53,6 +41,8 @@ spec:
               mountPath: /genesis
             - name: shared-volume
               mountPath: /data
+            - name: entrypoint-scripts
+              mountPath: /entrypoints
           resources:
             {{- toYaml .Values.ethereum.resources | nindent 12 }}
       volumes:
@@ -62,6 +52,10 @@ spec:
         - name: genesis
           configMap:
             name: {{ include "aztec-network.fullname" . }}-eth-execution-genesis
+        - name: entrypoint-scripts
+          configMap:
+            name: {{ include "aztec-network.fullname" . }}-entrypoint-scripts
+            defaultMode: 0755
 ---
 apiVersion: v1
 kind: Service
