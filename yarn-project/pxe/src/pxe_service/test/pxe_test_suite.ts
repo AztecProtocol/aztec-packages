@@ -97,7 +97,7 @@ export const pxeTestSuite = (testName: string, pxeSetup: () => Promise<PXE>) => 
       );
     });
 
-    // Note: Not testing `getContractData` and `getUnencryptedLogs` here as these
+    // Note: Not testing `getContractData` and `getPublicLogs` here as these
     //       functions only call AztecNode and these methods are frequently used by the e2e tests.
 
     it('successfully gets a block number', async () => {

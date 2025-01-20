@@ -33,7 +33,13 @@ import { resolve } from 'path';
 import { AuthWitness } from '../auth_witness.js';
 import { type InBlock } from '../in_block.js';
 import { L2Block } from '../l2_block.js';
-import { ExtendedUnencryptedL2Log, type GetUnencryptedLogsResponse, type LogFilter } from '../logs/index.js';
+import {
+  ExtendedPublicLog,
+  ExtendedUnencryptedL2Log,
+  type GetContractClassLogsResponse,
+  type GetPublicLogsResponse,
+  type LogFilter,
+} from '../logs/index.js';
 import { ExtendedNote, UniqueNote } from '../notes/index.js';
 import { type NotesFilter } from '../notes/notes_filter.js';
 import { PrivateExecutionResult } from '../private_execution_result.js';
@@ -239,9 +245,9 @@ describe('PXESchema', () => {
     expect(result).toEqual(10n);
   });
 
-  it('getUnencryptedLogs', async () => {
-    const result = await context.client.getUnencryptedLogs({ contractAddress: address });
-    expect(result).toEqual({ logs: [expect.any(ExtendedUnencryptedL2Log)], maxLogsHit: true });
+  it('getPublicLogs', async () => {
+    const result = await context.client.getPublicLogs({ contractAddress: address });
+    expect(result).toEqual({ logs: [expect.any(ExtendedPublicLog)], maxLogsHit: true });
   });
 
   it('getContractClassLogs', async () => {
@@ -300,8 +306,8 @@ describe('PXESchema', () => {
     expect(result).toBe(true);
   });
 
-  it('getEncryptedEvents', async () => {
-    const result = await context.client.getEncryptedEvents<EpochProofQuote>(
+  it('getPrivateEvents', async () => {
+    const result = await context.client.getPrivateEvents<EpochProofQuote>(
       { abiType: { kind: 'boolean' }, eventSelector: EventSelector.random(), fieldNames: ['name'] },
       1,
       1,
@@ -310,8 +316,8 @@ describe('PXESchema', () => {
     expect(result).toEqual([{ value: 1n }]);
   });
 
-  it('getUnencryptedEvents', async () => {
-    const result = await context.client.getUnencryptedEvents<EpochProofQuote>(
+  it('getPublicEvents', async () => {
+    const result = await context.client.getPublicEvents<EpochProofQuote>(
       { abiType: { kind: 'boolean' }, eventSelector: EventSelector.random(), fieldNames: ['name'] },
       1,
       1,
@@ -470,11 +476,11 @@ class MockPXE implements PXE {
     expect(scopes).toEqual([this.address]);
     return Promise.resolve(10n);
   }
-  async getUnencryptedLogs(filter: LogFilter): Promise<GetUnencryptedLogsResponse> {
+  async getPublicLogs(filter: LogFilter): Promise<GetPublicLogsResponse> {
     expect(filter.contractAddress).toEqual(this.address);
-    return { logs: [await ExtendedUnencryptedL2Log.random()], maxLogsHit: true };
+    return { logs: [await ExtendedPublicLog.random()], maxLogsHit: true };
   }
-  async getContractClassLogs(filter: LogFilter): Promise<GetUnencryptedLogsResponse> {
+  async getContractClassLogs(filter: LogFilter): Promise<GetContractClassLogsResponse> {
     expect(filter.contractAddress).toEqual(this.address);
     return { logs: [await ExtendedUnencryptedL2Log.random()], maxLogsHit: true };
   }
@@ -535,7 +541,7 @@ class MockPXE implements PXE {
     expect(address).toEqual(this.address);
     return Promise.resolve(true);
   }
-  getEncryptedEvents<T>(
+  getPrivateEvents<T>(
     _eventMetadata: EventMetadataDefinition,
     from: number,
     limit: number,
@@ -546,7 +552,7 @@ class MockPXE implements PXE {
     expect(vpks[0]).toBeInstanceOf(Point);
     return Promise.resolve([{ value: 1n } as T]);
   }
-  getUnencryptedEvents<T>(_eventMetadata: EventMetadataDefinition, from: number, limit: number): Promise<T[]> {
+  getPublicEvents<T>(_eventMetadata: EventMetadataDefinition, from: number, limit: number): Promise<T[]> {
     expect(from).toBe(1);
     expect(limit).toBe(1);
     return Promise.resolve([{ value: 1n } as T]);

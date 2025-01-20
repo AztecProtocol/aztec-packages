@@ -4,7 +4,7 @@ import { bufferToHex, hexToBuffer } from '@aztec/foundation/string';
 import isEqual from 'lodash.isequal';
 import { z } from 'zod';
 
-import { ContractClassTxL2Logs, type TxL2Logs, UnencryptedTxL2Logs } from './tx_l2_logs.js';
+import { ContractClassTxL2Logs, type TxL2Logs } from './tx_l2_logs.js';
 import { type UnencryptedL2Log } from './unencrypted_l2_log.js';
 
 /**
@@ -67,79 +67,6 @@ abstract class L2BlockL2Logs {
    */
   public static getTotalLogCount(l2BlockL2logs: L2BlockL2Logs[]): number {
     return l2BlockL2logs.reduce((sum, log) => sum + log.getTotalLogCount(), 0);
-  }
-}
-
-export class UnencryptedL2BlockL2Logs extends L2BlockL2Logs {
-  static get schema() {
-    return z
-      .object({ txLogs: z.array(UnencryptedTxL2Logs.schema) })
-      .transform(({ txLogs }) => new UnencryptedL2BlockL2Logs(txLogs));
-  }
-
-  public get type() {
-    return 'Unencrypted';
-  }
-
-  /**
-   * Deserializes logs from a buffer.
-   * @param buffer - The buffer containing the serialized logs.
-   * @returns A new `L2BlockL2Logs` object.
-   */
-  public static fromBuffer(buffer: Buffer | BufferReader): UnencryptedL2BlockL2Logs {
-    const reader = BufferReader.asReader(buffer);
-
-    const logsBufLength = reader.readNumber();
-    const serializedTxLogs = reader.readBufferArray(logsBufLength);
-
-    const txLogs = serializedTxLogs.map(logs => UnencryptedTxL2Logs.fromBuffer(logs, false));
-    return new UnencryptedL2BlockL2Logs(txLogs);
-  }
-
-  /**
-   * Deserializes logs from a string.
-   * @param data - The string containing the serialized logs.
-   * @returns A new `L2BlockL2Logs` object.
-   */
-  public static fromString(data: string): UnencryptedL2BlockL2Logs {
-    return UnencryptedL2BlockL2Logs.fromBuffer(hexToBuffer(data));
-  }
-
-  /**
-   * Creates a new `L2BlockL2Logs` object with `numCalls` function logs and `numLogsPerCall` logs in each function
-   * call.
-   * @param numTxs - The number of txs in the block.
-   * @param numCalls - The number of function calls in the tx.
-   * @param numLogsPerCall - The number of logs emitted in each function call.
-   * @returns A new `L2BlockL2Logs` object.
-   */
-  public static async random(
-    numTxs: number,
-    numCalls: number,
-    numLogsPerCall: number,
-  ): Promise<UnencryptedL2BlockL2Logs> {
-    const txLogs: UnencryptedTxL2Logs[] = [];
-    for (let i = 0; i < numTxs; i++) {
-      txLogs.push(await UnencryptedTxL2Logs.random(numCalls, numLogsPerCall));
-    }
-    return new UnencryptedL2BlockL2Logs(txLogs);
-  }
-
-  /**
-   * Unrolls logs from a set of blocks.
-   * @param blockLogs - Input logs from a set of blocks.
-   * @returns Unrolled logs.
-   */
-  public static unrollLogs(blockLogs: (UnencryptedL2BlockL2Logs | undefined)[]): UnencryptedL2Log[] {
-    const logs: UnencryptedL2Log[] = [];
-    for (const blockLog of blockLogs) {
-      if (blockLog) {
-        for (const txLog of blockLog.txLogs) {
-          logs.push(...txLog.unrollLogs());
-        }
-      }
-    }
-    return logs;
   }
 }
 

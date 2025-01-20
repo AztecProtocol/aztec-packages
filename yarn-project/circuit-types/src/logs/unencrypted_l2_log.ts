@@ -7,6 +7,7 @@ import { z } from 'zod';
 
 /**
  * Represents an individual unencrypted log entry.
+ * TODO(#8945): Currently only used for contract class logs. When these are fields, delete this class.
  */
 export class UnencryptedL2Log {
   constructor(

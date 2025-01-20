@@ -5,7 +5,7 @@ import { UnencryptedFunctionL2Logs } from './function_l2_logs.js';
 function shouldBehaveLikeFunctionL2Logs(FunctionL2Logs: typeof UnencryptedFunctionL2Logs) {
   describe(FunctionL2Logs.name, () => {
     it('can encode L2Logs to buffer and back', async () => {
-      const l2Logs = await FunctionL2Logs.random(3);
+      const l2Logs = await FunctionL2Logs.random(1);
 
       const buffer = l2Logs.toBuffer();
       const recovered = FunctionL2Logs.fromBuffer(buffer);
@@ -14,7 +14,7 @@ function shouldBehaveLikeFunctionL2Logs(FunctionL2Logs: typeof UnencryptedFuncti
     });
 
     it('can encode L2Logs to JSON and back', () => {
-      const l2Logs = FunctionL2Logs.random(3);
+      const l2Logs = FunctionL2Logs.random(1);
 
       const buffer = jsonStringify(l2Logs);
       const recovered = FunctionL2Logs.schema.parse(JSON.parse(buffer));
@@ -23,7 +23,7 @@ function shouldBehaveLikeFunctionL2Logs(FunctionL2Logs: typeof UnencryptedFuncti
     });
 
     it('getSerializedLength returns the correct length', async () => {
-      const l2Logs = await FunctionL2Logs.random(3);
+      const l2Logs = await FunctionL2Logs.random(1);
 
       const buffer = l2Logs.toBuffer();
       const recovered = FunctionL2Logs.fromBuffer(buffer);
@@ -37,7 +37,7 @@ function shouldBehaveLikeFunctionL2Logs(FunctionL2Logs: typeof UnencryptedFuncti
     });
 
     it('getKernelLength returns the correct length', async () => {
-      const l2Logs = await FunctionL2Logs.random(3);
+      const l2Logs = await FunctionL2Logs.random(1);
 
       const expectedLength = l2Logs.logs.map(l => l.length).reduce((a, b) => a + b + 4, 0);
 

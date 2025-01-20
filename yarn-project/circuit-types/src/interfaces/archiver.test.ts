@@ -25,8 +25,13 @@ import { EmptyL1RollupConstants, type L1RollupConstants } from '../epoch-helpers
 import { type InBlock, randomInBlock } from '../in_block.js';
 import { L2Block } from '../l2_block.js';
 import { type L2Tips } from '../l2_block_source.js';
+import { ExtendedPublicLog } from '../logs/extended_public_log.js';
 import { ExtendedUnencryptedL2Log } from '../logs/extended_unencrypted_l2_log.js';
-import { type GetUnencryptedLogsResponse, TxScopedL2Log } from '../logs/get_logs_response.js';
+import {
+  type GetContractClassLogsResponse,
+  type GetPublicLogsResponse,
+  TxScopedL2Log,
+} from '../logs/get_logs_response.js';
 import { type LogFilter } from '../logs/log_filter.js';
 import { TxHash } from '../tx/tx_hash.js';
 import { TxReceipt } from '../tx/tx_receipt.js';
@@ -161,12 +166,12 @@ describe('ArchiverApiSchema', () => {
     expect(result).toEqual([[expect.any(TxScopedL2Log)]]);
   });
 
-  it('getUnencryptedLogs', async () => {
-    const result = await context.client.getUnencryptedLogs({
+  it('getPublicLogs', async () => {
+    const result = await context.client.getPublicLogs({
       txHash: TxHash.random(),
       contractAddress: await AztecAddress.random(),
     });
-    expect(result).toEqual({ logs: [expect.any(ExtendedUnencryptedL2Log)], maxLogsHit: true });
+    expect(result).toEqual({ logs: [expect.any(ExtendedPublicLog)], maxLogsHit: true });
   });
 
   it('getContractClassLogs', async () => {
@@ -326,12 +331,12 @@ class MockArchiver implements ArchiverApi {
     expect(tags[0]).toBeInstanceOf(Fr);
     return Promise.resolve([Array.from({ length: tags.length }, () => TxScopedL2Log.random())]);
   }
-  async getUnencryptedLogs(filter: LogFilter): Promise<GetUnencryptedLogsResponse> {
+  async getPublicLogs(filter: LogFilter): Promise<GetPublicLogsResponse> {
     expect(filter.txHash).toBeInstanceOf(TxHash);
     expect(filter.contractAddress).toBeInstanceOf(AztecAddress);
-    return { logs: [await ExtendedUnencryptedL2Log.random()], maxLogsHit: true };
+    return { logs: [await ExtendedPublicLog.random()], maxLogsHit: true };
   }
-  async getContractClassLogs(filter: LogFilter): Promise<GetUnencryptedLogsResponse> {
+  async getContractClassLogs(filter: LogFilter): Promise<GetContractClassLogsResponse> {
     expect(filter.txHash).toBeInstanceOf(TxHash);
     expect(filter.contractAddress).toBeInstanceOf(AztecAddress);
     return { logs: [await ExtendedUnencryptedL2Log.random()], maxLogsHit: true };

@@ -47,7 +47,7 @@ export class L1EventPayload {
   }
 
   static async decryptAsIncoming(log: PrivateLog, sk: Fq): Promise<L1EventPayload | undefined> {
-    const decryptedLog = await EncryptedLogPayload.decryptAsIncoming(log, sk);
+    const decryptedLog = await EncryptedLogPayload.decryptAsIncoming(log.fields, sk);
     if (!decryptedLog) {
       return undefined;
     }

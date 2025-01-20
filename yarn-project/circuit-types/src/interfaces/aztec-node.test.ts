@@ -33,8 +33,13 @@ import { resolve } from 'path';
 import { type InBlock, randomInBlock } from '../in_block.js';
 import { L2Block } from '../l2_block.js';
 import { type L2Tips } from '../l2_block_source.js';
+import { ExtendedPublicLog } from '../logs/extended_public_log.js';
 import { ExtendedUnencryptedL2Log } from '../logs/extended_unencrypted_l2_log.js';
-import { type GetUnencryptedLogsResponse, TxScopedL2Log } from '../logs/get_logs_response.js';
+import {
+  type GetContractClassLogsResponse,
+  type GetPublicLogsResponse,
+  TxScopedL2Log,
+} from '../logs/get_logs_response.js';
 import { type LogFilter } from '../logs/log_filter.js';
 import { MerkleTreeId } from '../merkle_tree_id.js';
 import { EpochProofQuote } from '../prover_coordination/epoch_proof_quote.js';
@@ -233,9 +238,9 @@ describe('AztecNodeApiSchema', () => {
     expect(response).toEqual([expect.any(PrivateLog)]);
   });
 
-  it('getUnencryptedLogs', async () => {
-    const response = await context.client.getUnencryptedLogs({ contractAddress: await AztecAddress.random() });
-    expect(response).toEqual({ logs: [expect.any(ExtendedUnencryptedL2Log)], maxLogsHit: true });
+  it('getPublicLogs', async () => {
+    const response = await context.client.getPublicLogs({ contractAddress: await AztecAddress.random() });
+    expect(response).toEqual({ logs: [expect.any(ExtendedPublicLog)], maxLogsHit: true });
   });
 
   it('getContractClassLogs', async () => {
@@ -520,11 +525,11 @@ class MockAztecNode implements AztecNode {
   getPrivateLogs(_from: number, _limit: number): Promise<PrivateLog[]> {
     return Promise.resolve([PrivateLog.random()]);
   }
-  async getUnencryptedLogs(filter: LogFilter): Promise<GetUnencryptedLogsResponse> {
+  async getPublicLogs(filter: LogFilter): Promise<GetPublicLogsResponse> {
     expect(filter.contractAddress).toBeInstanceOf(AztecAddress);
-    return { logs: [await ExtendedUnencryptedL2Log.random()], maxLogsHit: true };
+    return { logs: [await ExtendedPublicLog.random()], maxLogsHit: true };
   }
-  async getContractClassLogs(filter: LogFilter): Promise<GetUnencryptedLogsResponse> {
+  async getContractClassLogs(filter: LogFilter): Promise<GetContractClassLogsResponse> {
     expect(filter.contractAddress).toBeInstanceOf(AztecAddress);
     return { logs: [await ExtendedUnencryptedL2Log.random()], maxLogsHit: true };
   }
