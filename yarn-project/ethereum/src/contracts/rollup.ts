@@ -17,6 +17,8 @@ import { type DeployL1Contracts } from '../deploy_l1_contracts.js';
 import { createEthereumChain } from '../ethereum_chain.js';
 import { type L1ReaderConfig } from '../l1_reader.js';
 
+export { RollupAbi } from '@aztec/l1-artifacts';
+
 export class RollupContract {
   private readonly rollup: GetContractReturnType<typeof RollupAbi, PublicClient<HttpTransport, Chain>>;
 

@@ -6,10 +6,11 @@ import { type FieldsOf } from '@aztec/foundation/types';
 
 import omit from 'lodash.omit';
 import { inspect } from 'util';
-import { encodeAbiParameters, keccak256, parseAbiParameters } from 'viem';
+import { encodeAbiParameters } from 'viem';
 import { z } from 'zod';
 
 import { type Signable } from '../p2p/index.js';
+import { EpochProofQuoteHasher } from './epoch_proof_quote_hasher.js';
 
 // Required so typescript can properly annotate the exported schema
 export { type EthAddress };
@@ -18,12 +19,6 @@ export class EpochProofQuotePayload implements Signable {
   // Cached values
   private asBuffer: Buffer | undefined;
   private size: number | undefined;
-
-  private typeHash: `0x${string}` = keccak256(
-    Buffer.from(
-      'EpochProofQuote(uint256 epochToProve,uint256 validUntilSlot,uint256 bondAmount,address prover,uint32 basisPointFee)',
-    ),
-  );
 
   constructor(
     public readonly epochToProve: bigint,
@@ -83,9 +78,9 @@ export class EpochProofQuotePayload implements Signable {
   }
 
   getPayloadToSign(): Buffer {
-    const abi = parseAbiParameters('bytes32, uint256, uint256, uint256, address, uint256');
+    const abi = EpochProofQuoteHasher.HASHER_ABI;
     const encodedData = encodeAbiParameters(abi, [
-      this.typeHash,
+      EpochProofQuoteHasher.EPOCH_PROOF_QUOTE_TYPE_HASH,
       this.epochToProve,
       this.validUntilSlot,
       this.bondAmount,
