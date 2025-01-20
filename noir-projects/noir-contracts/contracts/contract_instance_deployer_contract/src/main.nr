@@ -1,7 +1,7 @@
 use dep::aztec::macros::aztec;
 
 #[aztec]
-pub contract ContractInstanceDeployer {
+contract ContractInstanceDeployer {
     use dep::aztec::macros::{events::event, functions::{private, public}, storage::storage};
     use dep::aztec::prelude::{Map, SharedMutable};
     use dep::aztec::protocol_types::{
