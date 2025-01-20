@@ -35,6 +35,7 @@ import {
   PublicDataTreeLeaf,
   type PublicDataTreeLeafPreimage,
   type PublicDataWrite,
+  type PublicLog,
   computeContractClassId,
   computeTaggingSecretPoint,
   deriveKeys,
@@ -107,7 +108,7 @@ export class TXE implements TypedOracle {
   private uniqueNoteHashesFromPublic: Fr[] = [];
   private siloedNullifiersFromPublic: Fr[] = [];
   private privateLogs: PrivateLog[] = [];
-  private publicLogs: UnencryptedL2Log[] = [];
+  private publicLogs: PublicLog[] = [];
 
   private committedBlocks = new Set<number>();
 
@@ -324,26 +325,13 @@ export class TXE implements TypedOracle {
     this.privateLogs.push(...privateLogs);
   }
 
-  addPublicLogs(logs: UnencryptedL2Log[]) {
+  addPublicLogs(logs: PublicLog[]) {
     logs.forEach(log => {
-      if (log.data.length < 32 * 33) {
-        // TODO remove when #9835 and #9836 are fixed
-        this.logger.warn(`Skipping unencrypted log with insufficient data length: ${log.data.length}`);
-        return;
-      }
       try {
-        // TODO remove when #9835 and #9836 are fixed. The partial note logs are emitted as bytes, but encoded as Fields.
-        // This means that for every 32 bytes of payload, we only have 1 byte of data.
-        // Also, the tag is not stored in the first 32 bytes of the log, (that's the length of public fields now) but in the next 32.
-        const correctedBuffer = Buffer.alloc(32);
-        const initialOffset = 32;
-        for (let i = 0; i < 32; i++) {
-          const byte = Fr.fromBuffer(log.data.subarray(i * 32 + initialOffset, i * 32 + 32 + initialOffset)).toNumber();
-          correctedBuffer.writeUInt8(byte, i);
-        }
-        const tag = new Fr(correctedBuffer);
+        // The first elt stores lengths => tag is in fields[1]
+        const tag = log.log[1];
 
-        this.logger.verbose(`Found tagged unencrypted log with tag ${tag.toString()} in block ${this.blockNumber}`);
+        this.logger.verbose(`Found tagged public log with tag ${tag.toString()} in block ${this.blockNumber}`);
         this.publicLogs.push(log);
       } catch (err) {
         this.logger.warn(`Failed to add tagged log to store: ${err}`);
@@ -371,10 +359,6 @@ export class TXE implements TypedOracle {
 
   getRandomField() {
     return Fr.random();
-  }
-
-  storeArrayInExecutionCache(values: Fr[]) {
-    return Promise.resolve(this.executionCache.store(values));
   }
 
   storeInExecutionCache(values: Fr[]) {
@@ -847,7 +831,7 @@ export class TXE implements TypedOracle {
 
     const result = await simulator.simulate(tx);
 
-    this.addPublicLogs(tx.unencryptedLogs.unrollLogs());
+    this.addPublicLogs(result.avmProvingRequest.inputs.publicInputs.publicLogs);
 
     return Promise.resolve(result);
   }

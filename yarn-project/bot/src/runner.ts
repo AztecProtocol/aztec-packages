@@ -1,6 +1,6 @@
 import { type AztecNode, type PXE, createAztecNodeClient, createLogger } from '@aztec/aztec.js';
 import { RunningPromise } from '@aztec/foundation/running-promise';
-import { type TelemetryClient, type Traceable, type Tracer, trackSpan } from '@aztec/telemetry-client';
+import { type TelemetryClient, type Traceable, type Tracer, makeTracedFetch, trackSpan } from '@aztec/telemetry-client';
 
 import { Bot } from './bot.js';
 import { type BotConfig } from './config.js';
@@ -26,17 +26,22 @@ export class BotRunner implements BotRunnerApi, Traceable {
     if (!dependencies.node && !config.nodeUrl) {
       throw new Error(`Missing node URL in config or dependencies`);
     }
-    this.node = dependencies.node ?? createAztecNodeClient(config.nodeUrl!);
+    this.node = dependencies.node ?? createAztecNodeClient(config.nodeUrl!, makeTracedFetch([1, 2, 3], true));
     this.runningPromise = new RunningPromise(() => this.#work(), this.log, config.txIntervalSeconds * 1000);
   }
 
   /** Initializes the bot if needed. Blocks until the bot setup is finished. */
   public async setup() {
     if (!this.bot) {
-      this.log.verbose(`Setting up bot`);
-      await this.#createBot();
-      this.log.info(`Bot set up completed`);
+      await this.doSetup();
     }
+  }
+
+  @trackSpan('Bot.setup')
+  private async doSetup() {
+    this.log.verbose(`Setting up bot`);
+    await this.#createBot();
+    this.log.info(`Bot set up completed`);
   }
 
   /**
