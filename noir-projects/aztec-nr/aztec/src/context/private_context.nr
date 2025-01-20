@@ -45,7 +45,7 @@ use dep::protocol_types::{
         PRIVATE_LOG_SIZE_IN_FIELDS, PUBLIC_DISPATCH_SELECTOR,
     },
     messaging::l2_to_l1_message::L2ToL1Message,
-    traits::{Empty, FromField, Hash},
+    traits::Empty,
 };
 
 // When finished, one can call .finish() to convert back to the abi
