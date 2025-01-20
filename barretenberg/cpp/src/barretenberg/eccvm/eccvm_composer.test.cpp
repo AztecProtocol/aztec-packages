@@ -114,7 +114,7 @@ TEST_F(ECCVMTests, EqFails)
     ASSERT_FALSE(verified);
 }
 
-TEST_F(ECCVMTests, CommitedSumcheck)
+TEST_F(ECCVMTests, CommittedSumcheck)
 {
     using Flavor = ECCVMFlavor;
     using ProvingKey = ECCVMFlavor::ProvingKey;

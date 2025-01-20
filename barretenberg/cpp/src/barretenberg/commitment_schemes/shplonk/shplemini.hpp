@@ -38,8 +38,6 @@ template <typename Curve> class ShpleminiProver_ {
     {
         // While Shplemini is not templated on Flavor, we derive ZK flag this way
         const bool has_zk = (libra_polynomials[0].size() > 0);
-        const bool is_eccvm = (!sumcheck_round_univariates.empty());
-
         std::vector<OpeningClaim> opening_claims = GeminiProver::prove(circuit_size,
                                                                        f_polynomials,
                                                                        g_polynomials,
@@ -49,27 +47,10 @@ template <typename Curve> class ShpleminiProver_ {
                                                                        concatenated_polynomials,
                                                                        groups_to_be_concatenated,
                                                                        has_zk);
-        // Create opening claims for Libra masking univariates
+        // Create opening claims for Libra masking univariates and Sumcheck Round Univariates
         std::vector<OpeningClaim> libra_opening_claims;
-        std::vector<OpeningClaim> sumcheck_round_claims;
 
         OpeningClaim new_claim;
-        if (is_eccvm) {
-
-            const size_t log_circuit_size = numeric::get_msb(static_cast<uint32_t>(circuit_size));
-            for (size_t idx = 0; idx < log_circuit_size; idx++) {
-                const std::vector<FF> evaluation_points = { FF(0), FF(1), multilinear_challenge[idx] };
-                size_t eval_idx = 0;
-                new_claim.polynomial = std::move(sumcheck_round_univariates[idx]);
-
-                for (auto& eval_point : evaluation_points) {
-                    new_claim.opening_pair.challenge = eval_point;
-                    new_claim.opening_pair.evaluation = sumcheck_round_evaluations[idx][eval_idx];
-                    sumcheck_round_claims.push_back(new_claim);
-                    eval_idx++;
-                }
-            }
-        }
 
         if (has_zk) {
             static constexpr FF subgroup_generator = Curve::subgroup_generator;
@@ -87,6 +68,25 @@ template <typename Curve> class ShpleminiProver_ {
                 new_claim.opening_pair.evaluation = new_claim.polynomial.evaluate(evaluation_points[idx]);
                 transcript->send_to_verifier(libra_eval_labels[idx], new_claim.opening_pair.evaluation);
                 libra_opening_claims.push_back(new_claim);
+            }
+        }
+
+        // Currently, only used in ECCVM.
+        std::vector<OpeningClaim> sumcheck_round_claims;
+
+        if (!sumcheck_round_univariates.empty()) {
+            const size_t log_circuit_size = numeric::get_msb(static_cast<uint32_t>(circuit_size));
+            for (size_t idx = 0; idx < log_circuit_size; idx++) {
+                const std::vector<FF> evaluation_points = { FF(0), FF(1), multilinear_challenge[idx] };
+                size_t eval_idx = 0;
+                new_claim.polynomial = std::move(sumcheck_round_univariates[idx]);
+
+                for (auto& eval_point : evaluation_points) {
+                    new_claim.opening_pair.challenge = eval_point;
+                    new_claim.opening_pair.evaluation = sumcheck_round_evaluations[idx][eval_idx];
+                    sumcheck_round_claims.push_back(new_claim);
+                    eval_idx++;
+                }
             }
         }
 
@@ -332,10 +332,6 @@ template <typename Curve> class ShpleminiVerifier_ {
         // Add A₀(−r)/(z+r) to the constant term accumulator
         constant_term_accumulator += gemini_evaluations[0] * shplonk_batching_challenge * inverse_vanishing_evals[1];
 
-        // Finalize the batch opening claim
-        commitments.emplace_back(g1_identity);
-        scalars.emplace_back(constant_term_accumulator);
-
         remove_repeated_commitments(commitments, scalars, repeated_commitments, has_zk);
 
         // For ZK flavors, the sumcheck output contains the evaluations of Libra univariates that submitted to the
@@ -343,6 +339,7 @@ template <typename Curve> class ShpleminiVerifier_ {
         if (has_zk) {
             add_zk_data(commitments,
                         scalars,
+                        constant_term_accumulator,
                         libra_commitments,
                         libra_evaluations,
                         gemini_evaluation_challenge,
@@ -353,16 +350,23 @@ template <typename Curve> class ShpleminiVerifier_ {
                 libra_evaluations, gemini_evaluation_challenge, multivariate_challenge, libra_univariate_evaluation);
         }
 
+        // Currently, only used in ECCVM
         if (!sumcheck_round_evaluations.empty()) {
             batch_sumcheck_round_claims(log_circuit_size,
                                         commitments,
                                         scalars,
+                                        constant_term_accumulator,
                                         multivariate_challenge,
                                         shplonk_batching_challenge,
                                         shplonk_evaluation_challenge,
                                         sumcheck_round_commitments,
                                         sumcheck_round_evaluations);
         }
+
+        // Finalize the batch opening claim
+        commitments.emplace_back(g1_identity);
+        scalars.emplace_back(constant_term_accumulator);
+
         return { commitments, scalars, shplonk_evaluation_challenge };
     };
     /**
@@ -655,6 +659,7 @@ template <typename Curve> class ShpleminiVerifier_ {
      */
     static void add_zk_data(std::vector<Commitment>& commitments,
                             std::vector<Fr>& scalars,
+                            Fr& constant_term_accumulator,
                             const std::array<Commitment, NUM_LIBRA_COMMITMENTS>& libra_commitments,
                             const std::array<Fr, NUM_LIBRA_EVALUATIONS>& libra_evaluations,
                             const Fr& gemini_evaluation_challenge,
@@ -667,9 +672,6 @@ template <typename Curve> class ShpleminiVerifier_ {
         for (size_t j = 0; j < CONST_PROOF_SIZE_LOG_N + 2; ++j) {
             shplonk_challenge_power *= shplonk_batching_challenge;
         }
-
-        // need to keep track of the contribution to the constant term
-        Fr& constant_term = scalars.back();
 
         // add Libra commitments to the vector of commitments
         for (size_t idx = 0; idx < libra_commitments.size(); idx++) {
@@ -692,7 +694,7 @@ template <typename Curve> class ShpleminiVerifier_ {
             Fr scaling_factor = denominators[idx] * shplonk_challenge_power;
             batching_scalars[idx] = -scaling_factor;
             shplonk_challenge_power *= shplonk_batching_challenge;
-            constant_term += scaling_factor * libra_evaluations[idx];
+            constant_term_accumulator += scaling_factor * libra_evaluations[idx];
         }
 
         // to save a scalar mul, add the sum of the batching scalars corresponding to the big sum evaluations
@@ -701,9 +703,52 @@ template <typename Curve> class ShpleminiVerifier_ {
         scalars.push_back(batching_scalars[3]);
     }
 
+    /**
+     * @brief Adds the Sumcheck data into the  Shplemini BatchOpeningClaim.
+     *
+     * @details This method computes denominators for the evaluations of Sumcheck Round Unviariates, combines them with
+     * powers of the Shplonk batching challenge (\f$\nu\f$), and appends the resulting batched scalar factors to
+     * \p scalars. It also updates \p commitments with Sumcheck's round commitments. The \p constant_term_accumulator is
+     * incremented by each round's constant term contribution.
+     *
+     * Specifically, for round \f$i\f$ (with Sumcheck challenge \f$u_i\f$), we define:
+     * \f[
+     *   \alpha_i^0 = \frac{\nu^{k+3i}}{z}, \quad
+     *   \alpha_i^1 = \frac{\nu^{k+3i+1}}{z - 1}, \quad
+     *   \alpha_i^2 = \frac{\nu^{k+3i+2}}{z - u_i},
+     * \f]
+     * where \f$ z\f$ is the Shplonk evaluation challenge, \f$\nu\f$ is the batching challenge, and \f$k\f$ is an
+     * offset exponent equal to CONST_PROOF_SIZE_LOG_N + 2 + NUM_LIBRA_EVALATIONS. Then:
+     *
+     * - The **batched scalar** appended to \p scalars is
+     *   \f[
+     *     \text{batched_scaling_factor}_i \;=\;
+     *       -\bigl(\alpha_i^0 + \alpha_i^1 + \alpha_i^2\bigr).
+     *   \f]
+     * - The **constant term** contribution for round \f$i\f$ is
+     *   \f[
+     *     \text{const_term_contribution}_i \;=\;
+     *         \alpha_i^0 \cdot S_i(0)
+     *       + \alpha_i^1 \cdot S_i(1)
+     *       + \alpha_i^2 \cdot S_i\bigl(u_i\bigr),
+     *   \f]
+     *   where \f$S_i(x)\f$ denotes the Sumcheck round-\f$i\f$ univariate polynomial. This contribution is added to
+     *   \p constant_term_accumulator.
+     *
+     * @param log_circuit_size
+     * @param commitments
+     * @param scalars
+     * @param constant_term_accumulator
+     * @param multilinear_challenge
+     * @param shplonk_batching_challenge
+     * @param shplonk_evaluation_challenge
+     * @param sumcheck_round_commitments
+     * @param sumcheck_round_evaluations
+     */
     static void batch_sumcheck_round_claims(const size_t log_circuit_size,
                                             std::vector<Commitment>& commitments,
                                             std::vector<Fr>& scalars,
+                                            Fr& constant_term_accumulator,
                                             const std::vector<Fr>& multilinear_challenge,
                                             const Fr& shplonk_batching_challenge,
                                             const Fr& shplonk_evaluation_challenge,
@@ -712,22 +757,28 @@ template <typename Curve> class ShpleminiVerifier_ {
     {
 
         std::vector<Fr> denominators = {};
+
+        // Compute the next power of Shplonk batching challenge \nu
         Fr shplonk_challenge_power = Fr{ 1 };
-        for (size_t j = 0; j < CONST_PROOF_SIZE_LOG_N + 2 + NUM_LIBRA_COMMITMENTS + 1; ++j) {
+        for (size_t j = 0; j < CONST_PROOF_SIZE_LOG_N + 2 + NUM_LIBRA_EVALUATIONS; ++j) {
             shplonk_challenge_power *= shplonk_batching_challenge;
         }
 
-        Fr& constant_term = scalars[scalars.size() - 4];
-
+        // Denominators for the opening claims at 0 and 1. Need to be computed only once as opposed to the claims at the
+        // sumcheck round challenges.
         std::array<Fr, 2> const_denominators;
 
         const_denominators[0] = Fr(1) / (shplonk_evaluation_challenge);
         const_denominators[1] = Fr(1) / (shplonk_evaluation_challenge - Fr{ 1 });
 
+        // Compute the denominators corresponding to the evaluation claims at the round challenges and add the
+        // commitments to the sumcheck round univariates to the vector of commitments
         for (const auto& [challenge, comm] : zip_view(multilinear_challenge, sumcheck_round_commitments)) {
             denominators.push_back(shplonk_evaluation_challenge - challenge);
             commitments.push_back(comm);
         }
+
+        // Invert denominators
         if constexpr (!Curve::is_stdlib_type) {
             Fr::batch_invert(denominators);
         } else {
@@ -735,39 +786,47 @@ template <typename Curve> class ShpleminiVerifier_ {
                 denominator = Fr{ 1 } / denominator;
             }
         }
+
+        // Each commitment to a sumcheck round univariate [S_i] is multiplied by the sum of three scalars corresponding
+        // to the evaluations at 0, 1, and the round challenge u_i
         size_t round_idx = 0;
         for (const auto& [eval_array, denominator] : zip_view(sumcheck_round_evaluations, denominators)) {
-            Fr batched_scaling_factor = Fr(0);
+            // Initialize batched_scalar corresponding to 3 evaluations claims
+            Fr batched_scalar = Fr(0);
             Fr const_term_contribution = Fr(0);
 
+            // Compute the contribution from the evaluations at 0 and 1
             for (size_t idx = 0; idx < 2; idx++) {
                 Fr current_scaling_factor = const_denominators[idx] * shplonk_challenge_power;
-                batched_scaling_factor -= current_scaling_factor;
+                batched_scalar -= current_scaling_factor;
                 shplonk_challenge_power *= shplonk_batching_challenge;
                 const_term_contribution += current_scaling_factor * eval_array[idx];
             }
+
+            // Compute the contribution from the evaluation at the challenge u_i
             Fr current_scaling_factor = denominator * shplonk_challenge_power;
-
-            batched_scaling_factor -= current_scaling_factor;
+            batched_scalar -= current_scaling_factor;
             shplonk_challenge_power *= shplonk_batching_challenge;
-
             const_term_contribution += current_scaling_factor * eval_array[2];
 
+            // Pad the accumulators with dummy 0 values
+            const Fr zero = Fr(0);
             if constexpr (Curve::is_stdlib_type) {
                 auto builder = shplonk_batching_challenge.get_context();
                 // TODO(https://github.com/AztecProtocol/barretenberg/issues/1114): insecure!
                 stdlib::bool_t dummy_round = stdlib::witness_t(builder, round_idx >= log_circuit_size);
-                Fr zero = Fr(0);
                 const_term_contribution = Fr::conditional_assign(dummy_round, zero, const_term_contribution);
-                batched_scaling_factor = Fr::conditional_assign(dummy_round, zero, batched_scaling_factor);
+                batched_scalar = Fr::conditional_assign(dummy_round, zero, batched_scalar);
             } else {
                 if (round_idx >= log_circuit_size) {
                     const_term_contribution = 0;
-                    batched_scaling_factor = 0;
+                    batched_scalar = 0;
                 }
             }
-            constant_term += const_term_contribution;
-            scalars.push_back(batched_scaling_factor);
+
+            // Update Shplonk constant term accumualator
+            constant_term_accumulator += const_term_contribution;
+            scalars.push_back(batched_scalar);
             round_idx++;
         }
     };

@@ -613,8 +613,6 @@ template <typename Flavor> class SumcheckVerifier {
     std::vector<Commitment> round_univariate_commitments = {};
     std::vector<std::array<FF, 3>> round_univariate_evaluations = {};
 
-    typename Flavor::CircuitBuilder* builder;
-
     // Verifier instantiates sumcheck with circuit size, optionally a different target sum than 0 can be specified.
     explicit SumcheckVerifier(size_t multivariate_d, std::shared_ptr<Transcript> transcript, FF target_sum = 0)
         : multivariate_d(multivariate_d)
@@ -784,7 +782,7 @@ template <typename Flavor> class SumcheckVerifier {
             multivariate_challenge.emplace_back(round_challenge);
 
             if constexpr (IsRecursiveFlavor<Flavor>) {
-                builder = round_challenge.get_context();
+                typename Flavor::CircuitBuilder* builder = round_challenge.get_context();
                 // TODO(https://github.com/AztecProtocol/barretenberg/issues/1114): insecure dummy_round derivation!
                 stdlib::bool_t dummy_round = stdlib::witness_t(builder, round_idx >= multivariate_d);
                 // Only utilize the checked value if this is not a constant proof size padding round
@@ -820,6 +818,8 @@ template <typename Flavor> class SumcheckVerifier {
         // 1) need to make the vk constant
         // 2) ECCVMRecursive uses big_field where we need to self_reduce().
         if constexpr (IsRecursiveFlavor<Flavor>) {
+            typename Flavor::CircuitBuilder* builder = libra_challenge.get_context();
+
             // Compute the evaluations of the polynomial (1 - \sum L_i) where the sum is for i corresponding to the rows
             // where all sumcheck relations are disabled
             const FF correcting_factor =

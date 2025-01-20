@@ -11,6 +11,7 @@ namespace bb {
  * @brief Contains the evaluations of multilinear polynomials \f$ P_1, \ldots, P_N\f$ at the challenge point \f$\vec u
  * =(u_0,\ldots, u_{d-1})\f$. These are computed by \ref bb::SumcheckProver< Flavor > "Sumcheck Prover" and need to be
  * checked using Shplemini.
+ * @tparam Flavor
  */
 template <typename Flavor> struct SumcheckOutput {
     using FF = typename Flavor::FF;

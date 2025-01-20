@@ -241,6 +241,31 @@ template <typename Flavor> struct ZKSumcheckData {
         }
     }
 
+    /**
+     * @brief Upon receiving the challenge \f$u_i\f$, the prover updates Libra data. If \f$ i < d-1\f$
+
+        -  update the table of Libra univariates by multiplying every term by \f$1/2\f$.
+        -  computes the value \f$2^{d-i - 2} \cdot \texttt{libra_challenge} \cdot g_0(u_0)\f$ applying \ref
+        bb::Univariate::evaluate "evaluate" method to the first univariate in the table \f$\texttt{libra_univariates}\f$
+        -  places the value \f$ g_0(u_0)\f$ to the vector \f$ \texttt{libra_evaluations}\f$
+        -  update the running sum
+        \f{align}{
+                \texttt{libra_running_sum} \gets  2^{d-i-2} \cdot \texttt{libra_challenge} \cdot g_0(u_0) +  2^{-1}
+     \cdot \left( \texttt{libra_running_sum} - (\texttt{libra_univariates}_{i+1}(0) +
+     \texttt{libra_univariates}_{i+1}(1)) \right) \f} If \f$ i = d-1\f$
+        -  compute the value \f$ g_{d-1}(u_{d-1})\f$ applying \ref bb::Univariate::evaluate "evaluate" method to the
+     last univariate in the table \f$\texttt{libra_univariates}\f$ and dividing the result by \f$
+     \texttt{libra_challenge} \f$.
+        -  update the table of Libra univariates by multiplying every term by \f$\texttt{libra_challenge}^{-1}\f$.
+     @todo Refactor once the Libra univariates are extracted from the Proving Key. Then the prover does not need to
+        update the first round_idx - 1 univariates and could release the memory. Also, use batch_invert / reduce
+        the number of divisions by 2.
+     * @param libra_univariates
+     * @param round_challenge
+     * @param round_idx
+     * @param libra_running_sum
+     * @param libra_evaluations
+     */
     void update_zk_sumcheck_data(const FF round_challenge, const size_t round_idx)
     {
         static constexpr FF two_inv = FF(1) / FF(2);
