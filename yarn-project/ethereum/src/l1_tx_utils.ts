@@ -603,7 +603,7 @@ export class L1TxUtils {
                 data: request.data,
                 maxFeePerGas: gasPrice.maxFeePerGas,
                 maxPriorityFeePerGas: gasPrice.maxPriorityFeePerGas,
-                gas: 2_000_000n * WEI_CONST,
+                gas: 12_000_000n,
                 // gasLimit: 12_000_000n * WEI_CONST,
               },
             ],
