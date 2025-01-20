@@ -113,6 +113,7 @@ function compile {
 
   # No vks needed for simulated circuits.
   [[ "$name" == *"simulated"* ]] && return
+  [[ "$name" != *"root"* ]] && return
 
   # TODO: Change this to add verification_key to original json, like contracts does.
   # Will require changing TS code downstream.
