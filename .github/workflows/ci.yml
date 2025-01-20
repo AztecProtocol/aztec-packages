@@ -381,7 +381,14 @@ jobs:
             docker pull aztecprotocol/end-to-end:${{ env.GIT_COMMIT }}
             echo ${{ secrets.DOCKERHUB_PASSWORD }} | docker login -u aztecprotocolci --password-stdin
             cd yarn-project/end-to-end
-            NAMESPACE=smoke FRESH_INSTALL=true VALUES_FILE=ci-smoke.yaml ./scripts/network_test.sh ./src/spartan/smoke.test.ts
+
+            export INSTALL_CHAOS_MESH=false
+            export INSTALL_METRICS=false
+            export NAMESPACE=smoke
+            export FRESH_INSTALL=true
+            export VALUES_FILE=ci-smoke.yaml
+
+            ./scripts/network_test.sh ./src/spartan/smoke.test.ts
       - name: Copy Network Logs
         if: always()
         run: scripts/copy_from_tester yarn-project/end-to-end/scripts/network-test.log network-test.log || true
