@@ -142,7 +142,7 @@ describe('e2e_crowdfunding_and_claim', () => {
         note_hash_counter: 0, // set as 0 as note is not transient
         nonce: uniqueNote.nonce,
       },
-      value: uniqueNote.note.items[0],
+      value: uniqueNote.note.items[0].toBigInt(), // We convert to bigint as Fr is not serializable to U128
       // eslint-disable-next-line camelcase
       owner: AztecAddress.fromField(uniqueNote.note.items[1]),
       randomness: uniqueNote.note.items[2],
