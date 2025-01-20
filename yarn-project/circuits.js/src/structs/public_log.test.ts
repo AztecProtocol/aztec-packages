@@ -4,8 +4,8 @@ import { PublicLog } from './public_log.js';
 describe('PublicLog', () => {
   let log: PublicLog;
 
-  beforeAll(() => {
-    log = PublicLog.random();
+  beforeAll(async () => {
+    log = await PublicLog.random();
   });
 
   it('serializes to buffer and deserializes it back', () => {
