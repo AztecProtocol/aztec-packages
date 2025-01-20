@@ -154,7 +154,11 @@ PXE_PORT=$(echo $FREE_PORTS | awk '{print $1}')
 ANVIL_PORT=$(echo $FREE_PORTS | awk '{print $2}')
 METRICS_PORT=$(echo $FREE_PORTS | awk '{print $3}')
 
-GRAFANA_PASSWORD=$(kubectl get secrets -n metrics metrics-grafana -o jsonpath='{.data.admin-password}' | base64 --decode)
+if [ "$INSTALL_METRICS" = "true" ]; then
+  GRAFANA_PASSWORD=$(kubectl get secrets -n metrics metrics-grafana -o jsonpath='{.data.admin-password}' | base64 --decode)
+else
+  GRAFANA_PASSWORD=""
+fi
 
 # Namespace variable (assuming it's set)
 NAMESPACE=${NAMESPACE:-default}
