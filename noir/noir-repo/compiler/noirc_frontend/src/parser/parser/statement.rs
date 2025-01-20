@@ -702,7 +702,7 @@ mod tests {
 
     #[test]
     fn parses_assignment_with_unsafe() {
-        let src = "/// Safety: test
+        let src = "/// Safety: test 
         x = unsafe { 1 }";
         let statement = parse_statement_no_errors(src);
         let StatementKind::Assign(assign) = statement.kind else {

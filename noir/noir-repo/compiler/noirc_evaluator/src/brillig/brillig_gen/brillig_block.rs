@@ -1624,7 +1624,7 @@ impl<'block, Registers: RegisterAllocator> BrilligBlock<'block, Registers> {
 
         match value {
             Value::Global(_) => {
-                unreachable!("Expected global value to be resolved to its inner value");
+                unreachable!("Expected global value to be resolve to its inner value");
             }
             Value::Param { .. } | Value::Instruction { .. } => {
                 // All block parameters and instruction results should have already been
