@@ -1,4 +1,5 @@
 import { PeerErrorSeverity, TxHash, mockTx } from '@aztec/circuit-types';
+import { createLogger } from '@aztec/foundation/log';
 import { sleep } from '@aztec/foundation/sleep';
 
 import { describe, expect, it, jest } from '@jest/globals';
@@ -28,6 +29,7 @@ describe('ReqResp', () => {
   let peerManager: MockProxy<PeerManager>;
   let peerScoring: MockProxy<PeerScoring>;
   let nodes: ReqRespNode[];
+  const logger = createLogger('test:reqresp.test.ts');
 
   beforeEach(() => {
     peerScoring = mock<PeerScoring>();
@@ -96,6 +98,7 @@ describe('ReqResp', () => {
     if (!res) {
       // The peer chosen is randomly selected, and the node above wont respond, so if
       // we wait and try again, there will only be one node to chose from
+      logger.debug('No response from node, retrying');
       await sleep(500);
       res = await nodes[0].req.sendRequest(ReqRespSubProtocol.PING, PING_REQUEST);
     }
@@ -335,6 +338,62 @@ describe('ReqResp', () => {
 
       // Expect the response to be a buffer of length 1
       expect(response).toEqual(Buffer.from([0x0]));
+    });
+  });
+
+  describe('Batch requests', () => {
+    it('should send a batch request between many peers', async () => {
+      const batchSize = 9;
+      nodes = await createNodes(peerScoring, 3);
+
+      await startNodes(nodes);
+      await sleep(500);
+      await connectToPeers(nodes);
+      await sleep(500);
+
+      const sendRequestToPeerSpy = jest.spyOn(nodes[0].req, 'sendRequestToPeer');
+
+      const requests = Array.from({ length: batchSize }, _ => RequestableBuffer.fromBuffer(Buffer.from(`ping`)));
+      const expectResponses = Array.from({ length: batchSize }, _ => RequestableBuffer.fromBuffer(Buffer.from(`pong`)));
+
+      const res = await nodes[0].req.sendBatchRequest(ReqRespSubProtocol.PING, requests);
+      expect(res).toEqual(expectResponses);
+
+      // Expect one request to have been sent to each peer
+      expect(sendRequestToPeerSpy).toHaveBeenCalledTimes(batchSize);
+      expect(sendRequestToPeerSpy).toHaveBeenCalledWith(
+        expect.objectContaining({
+          publicKey: nodes[1].p2p.peerId.publicKey,
+        }),
+        ReqRespSubProtocol.PING,
+        Buffer.from('ping'),
+      );
+      expect(sendRequestToPeerSpy).toHaveBeenCalledWith(
+        expect.objectContaining({
+          publicKey: nodes[2].p2p.peerId.publicKey,
+        }),
+        ReqRespSubProtocol.PING,
+        Buffer.from('ping'),
+      );
+    });
+
+    it('should stop after max retry attempts', async () => {
+      const batchSize = 12;
+      nodes = await createNodes(peerScoring, 3);
+
+      await startNodes(nodes);
+      await sleep(500);
+      await connectToPeers(nodes);
+      await sleep(500);
+
+      const requests = Array.from({ length: batchSize }, _ => RequestableBuffer.fromBuffer(Buffer.from(`ping`)));
+      // We will fail two of the responses - due to hitting the ping rate limit on the responding nodes
+      const expectResponses = Array.from({ length: batchSize - 2 }, _ =>
+        RequestableBuffer.fromBuffer(Buffer.from(`pong`)),
+      );
+
+      const res = await nodes[0].req.sendBatchRequest(ReqRespSubProtocol.PING, requests);
+      expect(res).toEqual(expectResponses);
     });
   });
 });
