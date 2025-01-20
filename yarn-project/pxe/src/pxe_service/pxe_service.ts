@@ -834,7 +834,7 @@ export class PXEService implements PXE {
     return !!(await this.node.getNullifierMembershipWitness('latest', initNullifier));
   }
 
-  public async getEncryptedEvents<T>(
+  public async getPrivateEvents<T>(
     eventMetadataDef: EventMetadataDefinition,
     from: number,
     limit: number,
@@ -906,7 +906,7 @@ export class PXEService implements PXE {
     return decodedEvents;
   }
 
-  async getUnencryptedEvents<T>(eventMetadataDef: EventMetadataDefinition, from: number, limit: number): Promise<T[]> {
+  async getPublicEvents<T>(eventMetadataDef: EventMetadataDefinition, from: number, limit: number): Promise<T[]> {
     const eventMetadata = new EventMetadata<T>(eventMetadataDef);
     const { logs } = await this.node.getPublicLogs({
       fromBlock: from,

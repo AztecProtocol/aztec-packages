@@ -398,28 +398,23 @@ export interface PXE {
   isContractInitialized(address: AztecAddress): Promise<boolean>;
 
   /**
-   * Returns the encrypted events given search parameters.
+   * Returns the private events given search parameters.
    * @param eventMetadata - Metadata of the event. This should be the class generated from the contract. e.g. Contract.events.Event
    * @param from - The block number to search from.
    * @param limit - The amount of blocks to search.
    * @param vpks - The incoming viewing public keys that can decrypt the log.
    * @returns - The deserialized events.
    */
-  getEncryptedEvents<T>(
-    eventMetadata: EventMetadataDefinition,
-    from: number,
-    limit: number,
-    vpks: Point[],
-  ): Promise<T[]>;
+  getPrivateEvents<T>(eventMetadata: EventMetadataDefinition, from: number, limit: number, vpks: Point[]): Promise<T[]>;
 
   /**
-   * Returns the unencrypted events given search parameters.
+   * Returns the public events given search parameters.
    * @param eventMetadata - Metadata of the event. This should be the class generated from the contract. e.g. Contract.events.Event
    * @param from - The block number to search from.
    * @param limit - The amount of blocks to search.
    * @returns - The deserialized events.
    */
-  getUnencryptedEvents<T>(eventMetadata: EventMetadataDefinition, from: number, limit: number): Promise<T[]>;
+  getPublicEvents<T>(eventMetadata: EventMetadataDefinition, from: number, limit: number): Promise<T[]>;
 }
 // docs:end:pxe-interface
 
@@ -541,11 +536,11 @@ export const PXESchema: ApiSchemaFor<PXE> = {
   isContractClassPubliclyRegistered: z.function().args(schemas.Fr).returns(z.boolean()),
   isContractPubliclyDeployed: z.function().args(schemas.AztecAddress).returns(z.boolean()),
   isContractInitialized: z.function().args(schemas.AztecAddress).returns(z.boolean()),
-  getEncryptedEvents: z
+  getPrivateEvents: z
     .function()
     .args(EventMetadataDefinitionSchema, z.number(), z.number(), z.array(schemas.Point))
     .returns(z.array(AbiDecodedSchema)),
-  getUnencryptedEvents: z
+  getPublicEvents: z
     .function()
     .args(EventMetadataDefinitionSchema, z.number(), z.number())
     .returns(z.array(AbiDecodedSchema)),

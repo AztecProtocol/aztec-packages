@@ -295,8 +295,8 @@ describe('PXESchema', () => {
     expect(result).toBe(true);
   });
 
-  it('getEncryptedEvents', async () => {
-    const result = await context.client.getEncryptedEvents<EpochProofQuote>(
+  it('getPrivateEvents', async () => {
+    const result = await context.client.getPrivateEvents<EpochProofQuote>(
       { abiType: { kind: 'boolean' }, eventSelector: EventSelector.random(), fieldNames: ['name'] },
       1,
       1,
@@ -305,8 +305,8 @@ describe('PXESchema', () => {
     expect(result).toEqual([{ value: 1n }]);
   });
 
-  it('getUnencryptedEvents', async () => {
-    const result = await context.client.getUnencryptedEvents<EpochProofQuote>(
+  it('getPublicEvents', async () => {
+    const result = await context.client.getPublicEvents<EpochProofQuote>(
       { abiType: { kind: 'boolean' }, eventSelector: EventSelector.random(), fieldNames: ['name'] },
       1,
       1,
@@ -529,7 +529,7 @@ class MockPXE implements PXE {
     expect(address).toEqual(this.address);
     return Promise.resolve(true);
   }
-  getEncryptedEvents<T>(
+  getPrivateEvents<T>(
     _eventMetadata: EventMetadataDefinition,
     from: number,
     limit: number,
@@ -540,7 +540,7 @@ class MockPXE implements PXE {
     expect(vpks[0]).toBeInstanceOf(Point);
     return Promise.resolve([{ value: 1n } as T]);
   }
-  getUnencryptedEvents<T>(_eventMetadata: EventMetadataDefinition, from: number, limit: number): Promise<T[]> {
+  getPublicEvents<T>(_eventMetadata: EventMetadataDefinition, from: number, limit: number): Promise<T[]> {
     expect(from).toBe(1);
     expect(limit).toBe(1);
     return Promise.resolve([{ value: 1n } as T]);
