@@ -693,8 +693,8 @@ describe('AVM simulator: transpiled Noir contracts', () => {
       });
     });
 
-    describe('Unencrypted Logs', () => {
-      it(`Emit unencrypted logs (should be traced)`, async () => {
+    describe('Public Logs', () => {
+      it(`Emit public logs (should be traced)`, async () => {
         const context = createContext();
         const bytecode = getAvmTestContractBytecode('emit_unencrypted_log');
 
@@ -708,10 +708,10 @@ describe('AVM simulator: transpiled Noir contracts', () => {
           '\0r far away...\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0',
         ].map(s => new Fr(Buffer.from(s)));
 
-        expect(trace.traceUnencryptedLog).toHaveBeenCalledTimes(3);
-        expect(trace.traceUnencryptedLog).toHaveBeenCalledWith(address, expectedFields);
-        expect(trace.traceUnencryptedLog).toHaveBeenCalledWith(address, expectedString);
-        expect(trace.traceUnencryptedLog).toHaveBeenCalledWith(address, expectedCompressedString);
+        expect(trace.tracePublicLog).toHaveBeenCalledTimes(3);
+        expect(trace.tracePublicLog).toHaveBeenCalledWith(address, expectedFields);
+        expect(trace.tracePublicLog).toHaveBeenCalledWith(address, expectedString);
+        expect(trace.tracePublicLog).toHaveBeenCalledWith(address, expectedCompressedString);
       });
     });
 

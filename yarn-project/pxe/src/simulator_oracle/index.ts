@@ -27,6 +27,7 @@ import {
   MAX_NOTE_HASHES_PER_TX,
   PRIVATE_LOG_SIZE_IN_FIELDS,
   PrivateLog,
+  PublicLog,
   computeAddressSecret,
   computeTaggingSecretPoint,
 } from '@aztec/circuits.js';
@@ -499,15 +500,31 @@ export class SimulatorOracle implements DBOracle {
 
         logsByTags.forEach((logsByTag, logIndex) => {
           if (logsByTag.length > 0) {
+            // Check that public logs have the correct contract address
+            const checkedLogsbyTag = logsByTag.filter(
+              l => !l.isFromPublic || PublicLog.fromBuffer(l.logData).contractAddress.equals(contractAddress),
+            );
+            if (checkedLogsbyTag.length < logsByTag.length) {
+              const discarded = logsByTag.filter(
+                log => checkedLogsbyTag.find(filteredLog => filteredLog.equals(log)) === undefined,
+              );
+              this.log.warn(
+                `Discarded ${
+                  logsByTag.length - checkedLogsbyTag.length
+                } public logs with mismatched contract address ${contractAddress}:`,
+                discarded.map(l => PublicLog.fromBuffer(l.logData)),
+              );
+            }
+
             // The logs for the given tag exist so we store them for later processing
-            logsForRecipient.push(...logsByTag);
+            logsForRecipient.push(...checkedLogsbyTag);
 
             // We retrieve the indexed tagging secret corresponding to the log as I need that to evaluate whether
             // a new largest index have been found.
             const secretCorrespondingToLog = secretsForTheWholeWindow[logIndex];
             const initialIndex = initialIndexesMap[secretCorrespondingToLog.appTaggingSecret.toString()];
 
-            this.log.debug(`Found ${logsByTag.length} logs as recipient ${recipient}`, {
+            this.log.debug(`Found ${checkedLogsbyTag.length} logs as recipient ${recipient}`, {
               recipient,
               secret: secretCorrespondingToLog.appTaggingSecret,
               contractName,
@@ -597,7 +614,7 @@ export class SimulatorOracle implements DBOracle {
 
     for (const scopedLog of scopedLogs) {
       const payload = scopedLog.isFromPublic
-        ? L1NotePayload.decryptAsIncomingFromPublic(scopedLog.logData, addressSecret)
+        ? L1NotePayload.decryptAsIncomingFromPublic(PublicLog.fromBuffer(scopedLog.logData), addressSecret)
         : L1NotePayload.decryptAsIncoming(PrivateLog.fromBuffer(scopedLog.logData), addressSecret);
 
       if (!payload) {

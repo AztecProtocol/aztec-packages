@@ -4,7 +4,7 @@ import { jest } from '@jest/globals';
 import { type PeerId } from '@libp2p/interface';
 import { type MockProxy, mock } from 'jest-mock-extended';
 
-import { type PeerManager } from '../../peer_manager.js';
+import { type PeerScoring } from '../../peer-manager/peer_scoring.js';
 import { ReqRespSubProtocol, type ReqRespSubProtocolRateLimits } from '../interface.js';
 import { RequestResponseRateLimiter } from './rate_limiter.js';
 
@@ -24,7 +24,7 @@ const makePeer = (id: string): PeerId => {
 
 describe('rate limiter', () => {
   let rateLimiter: RequestResponseRateLimiter;
-  let peerManager: MockProxy<PeerManager>;
+  let peerScoring: MockProxy<PeerScoring>;
 
   beforeEach(() => {
     jest.useFakeTimers();
@@ -43,9 +43,9 @@ describe('rate limiter', () => {
       },
     } as ReqRespSubProtocolRateLimits; // force type as we will not provide descriptions of all protocols
 
-    peerManager = mock<PeerManager>();
+    peerScoring = mock<PeerScoring>();
 
-    rateLimiter = new RequestResponseRateLimiter(peerManager, config);
+    rateLimiter = new RequestResponseRateLimiter(peerScoring, config);
   });
 
   afterEach(() => {
@@ -77,7 +77,7 @@ describe('rate limiter', () => {
     expect(rateLimiter.allow(ReqRespSubProtocol.TX, peerId)).toBe(false);
 
     // Spy on the peer manager and check that penalizePeer is called
-    expect(peerManager.penalizePeer).toHaveBeenCalledWith(peerId, PeerErrorSeverity.MidToleranceError);
+    expect(peerScoring.penalizePeer).toHaveBeenCalledWith(peerId, PeerErrorSeverity.MidToleranceError);
   });
 
   it('Should allow requests within the global limit', () => {
@@ -137,7 +137,7 @@ describe('rate limiter', () => {
         },
       },
     } as ReqRespSubProtocolRateLimits;
-    const multiProtocolRateLimiter = new RequestResponseRateLimiter(peerManager, config);
+    const multiProtocolRateLimiter = new RequestResponseRateLimiter(peerScoring, config);
 
     const peerId = makePeer('peer1');
 
@@ -157,7 +157,7 @@ describe('rate limiter', () => {
   });
 
   it('Should allow requests if no rate limiter is configured', () => {
-    const rateLimiter = new RequestResponseRateLimiter(peerManager, {} as ReqRespSubProtocolRateLimits);
+    const rateLimiter = new RequestResponseRateLimiter(peerScoring, {} as ReqRespSubProtocolRateLimits);
     expect(rateLimiter.allow(ReqRespSubProtocol.TX, makePeer('peer1'))).toBe(true);
   });
 

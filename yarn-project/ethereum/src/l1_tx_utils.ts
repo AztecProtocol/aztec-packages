@@ -441,7 +441,7 @@ export class L1TxUtils {
 
     let priorityFee: bigint;
     if (gasConfig.fixedPriorityFeePerGas) {
-      this.logger?.debug('Using fixed priority fee per gas', {
+      this.logger?.debug('Using fixed priority fee per L1 gas', {
         fixedPriorityFeePerGas: gasConfig.fixedPriorityFeePerGas,
       });
       // try to maintain precision up to 1000000 wei
@@ -519,7 +519,7 @@ export class L1TxUtils {
       maxFeePerBlobGas = maxFeePerBlobGas > minBlobFee ? maxFeePerBlobGas : minBlobFee;
     }
 
-    this.logger?.debug(`Computed gas price`, {
+    this.logger?.debug(`Computed L1 gas price`, {
       attempt,
       baseFee: formatGwei(baseFee),
       maxFeePerGas: formatGwei(maxFeePerGas),

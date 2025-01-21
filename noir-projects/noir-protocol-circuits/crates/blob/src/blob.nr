@@ -515,7 +515,7 @@ mod tests {
         tx_data.set_protocol_nullifier();
         tx_data.append_nullifiers(50);
         tx_data.append_l2_to_l1_msgs(5);
-        tx_data.append_unencrypted_log_hashes(5);
+        tx_data.append_public_logs(5);
         let mut blob: [Field; FIELDS_PER_BLOB] = [0; FIELDS_PER_BLOB];
         let blob_fields = tx_data.to_private_to_rollup_accumulated_data().serialize();
         for i in 0..blob_fields.len() {
