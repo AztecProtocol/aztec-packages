@@ -1,0 +1,78 @@
+// Bytecode decomposition.
+include "bytecode.pil";
+
+namespace bc_decomposition;
+
+pol commit sel;
+// No relations will be checked if this identity is satisfied.
+#[skippable_if]
+sel = 0;
+
+pol commit pc;
+pol commit bytecode_id;
+// TODO: How do we handle parsing errors?
+// pol commit parsing_err;
+
+// bytecode[pc] to bytecode[pc + 35]
+pol commit bd0, bd1, bd2, bd3, bd4,
+           bd5, bd6, bd7, bd8, bd9, bd10,
+           bd11, bd12, bd13, bd14, bd15,
+           bd16, bd17, bd18, bd19, bd20,
+           bd21, bd22, bd23, bd24, bd25,
+           bd26, bd27, bd28, bd29, bd30,
+           bd31, bd32, bd33, bd34, bd35;
+
+pol commit indirect;
+// Operands.
+pol commit op1, op2, op3, op4;
+// Wire to execution opcodes translation.
+pol commit ex_opcode;
+
+// Helper possible formats.
+// TODO: dummy for now.
+pol commit fmt_3_op_u8;
+
+// Bring in the bytes from the bytecode columns.
+// #[LOOKUP_BYTES]
+// sel {
+//     pc,
+//     bytecode_id,
+//     bd0, bd1, bd2, bd3, bd4,
+//     bd5, bd7, bd8, bd9, bd10,
+//     bd11, bd12, bd13, bd14, bd15,
+//     bd16, bd17, bd18, bd19, bd20,
+//     bd21, bd22, bd23, bd24, bd25,
+//     bd26, bd27, bd28, bd29, bd30,
+//     bd31, bd32, bd33, bd34, bd35
+// } in bytecode.sel {
+//     bytecode.pc,
+//     bytecode.id,
+//     bytecode.bytes_pc_plus_0, bytecode.bytes_pc_plus_1, bytecode.bytes_pc_plus_2, bytecode.bytes_pc_plus_3, bytecode.bytes_pc_plus_4,
+//     bytecode.bytes_pc_plus_5, bytecode.bytes_pc_plus_7, bytecode.bytes_pc_plus_8, bytecode.bytes_pc_plus_9, bytecode.bytes_pc_plus_10,
+//     bytecode.bytes_pc_plus_11, bytecode.bytes_pc_plus_12, bytecode.bytes_pc_plus_13, bytecode.bytes_pc_plus_14, bytecode.bytes_pc_plus_15,
+//     bytecode.bytes_pc_plus_16, bytecode.bytes_pc_plus_17, bytecode.bytes_pc_plus_18, bytecode.bytes_pc_plus_19, bytecode.bytes_pc_plus_20,
+//     bytecode.bytes_pc_plus_21, bytecode.bytes_pc_plus_22, bytecode.bytes_pc_plus_23, bytecode.bytes_pc_plus_24, bytecode.bytes_pc_plus_25,
+//     bytecode.bytes_pc_plus_26, bytecode.bytes_pc_plus_27, bytecode.bytes_pc_plus_28, bytecode.bytes_pc_plus_29, bytecode.bytes_pc_plus_30,
+//     bytecode.bytes_pc_plus_31, bytecode.bytes_pc_plus_32, bytecode.bytes_pc_plus_33, bytecode.bytes_pc_plus_34, bytecode.bytes_pc_plus_35
+// }
+
+// Get some info from the instruction information table.
+// TODO: guard selector by error flag.
+// #[LOOKUP_INSTRUCTION_INFO]
+// sel {
+//     bd0, // wire opcode!
+//     ex_opcode,
+//     fmt_3_op_u8,
+// } in instruction_info.sel {
+//     instruction_info.wire_opcode,
+//     instruction_info.ex_opcode,
+//     instruction_info.fmt_3_op_u8
+// }
+
+// TODO: relations that translate single bytes to operands using formats.
+// indirect = ...
+// op0 = fmt_3_op_u8 * (bd0 + 2^8 * bd1 ...)
+// op1 = ...
+
+// Dummy relation to make codegen work.
+sel = sel;

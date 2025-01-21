@@ -1,0 +1,3 @@
+// Bytecode hashing.
+// This will probably be a virtual bytecode gadget.
+include "bytecode.pil";

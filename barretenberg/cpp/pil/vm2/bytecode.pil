@@ -1,0 +1,64 @@
+// This file owns the bytecode columns, and other helper columns.
+// TODO: Constrain.
+namespace bytecode;
+
+pol commit sel;
+// No relations will be checked if this identity is satisfied.
+#[skippable_if]
+sel = 0;
+
+pol commit pc;
+pol commit id;
+
+// This is the most important column. It contains the bytecode one byte at a time on each row.
+// If the TX uses several bytecodes, they should go one after the other in this column.
+pol commit bytes;
+
+// These are helper columns that will be used for bytecode decomposition.
+pol bytes_pc_plus_0 = bytes;
+pol commit bytes_pc_plus_1, bytes_pc_plus_2, bytes_pc_plus_3, bytes_pc_plus_4, bytes_pc_plus_5,
+           bytes_pc_plus_6, bytes_pc_plus_7, bytes_pc_plus_8, bytes_pc_plus_9, bytes_pc_plus_10,
+           bytes_pc_plus_11, bytes_pc_plus_12, bytes_pc_plus_13, bytes_pc_plus_14, bytes_pc_plus_15,
+           bytes_pc_plus_16, bytes_pc_plus_17, bytes_pc_plus_18, bytes_pc_plus_19, bytes_pc_plus_20,
+           bytes_pc_plus_21, bytes_pc_plus_22, bytes_pc_plus_23, bytes_pc_plus_24, bytes_pc_plus_25,
+           bytes_pc_plus_26, bytes_pc_plus_27, bytes_pc_plus_28, bytes_pc_plus_29, bytes_pc_plus_30,
+           bytes_pc_plus_31, bytes_pc_plus_32, bytes_pc_plus_33, bytes_pc_plus_34, bytes_pc_plus_35;
+
+// Constrain shifted columns.
+// TODO: This is a bit silly since we are only giving names to shifts.
+// The above columns and these relations can be removed if we ask BB to support 35-row shifts.
+sel * (bytes_pc_plus_1 - bytes') = 0;
+sel * (bytes_pc_plus_2 - bytes_pc_plus_1') = 0;
+sel * (bytes_pc_plus_3 - bytes_pc_plus_2') = 0;
+sel * (bytes_pc_plus_4 - bytes_pc_plus_3') = 0;
+sel * (bytes_pc_plus_5 - bytes_pc_plus_4') = 0;
+sel * (bytes_pc_plus_6 - bytes_pc_plus_5') = 0;
+sel * (bytes_pc_plus_7 - bytes_pc_plus_6') = 0;
+sel * (bytes_pc_plus_8 - bytes_pc_plus_7') = 0;
+sel * (bytes_pc_plus_9 - bytes_pc_plus_8') = 0;
+sel * (bytes_pc_plus_10 - bytes_pc_plus_9') = 0;
+sel * (bytes_pc_plus_11 - bytes_pc_plus_10') = 0;
+sel * (bytes_pc_plus_12 - bytes_pc_plus_11') = 0;
+sel * (bytes_pc_plus_13 - bytes_pc_plus_12') = 0;
+sel * (bytes_pc_plus_14 - bytes_pc_plus_13') = 0;
+sel * (bytes_pc_plus_15 - bytes_pc_plus_14') = 0;
+sel * (bytes_pc_plus_16 - bytes_pc_plus_15') = 0;
+sel * (bytes_pc_plus_17 - bytes_pc_plus_16') = 0;
+sel * (bytes_pc_plus_18 - bytes_pc_plus_17') = 0;
+sel * (bytes_pc_plus_19 - bytes_pc_plus_18') = 0;
+sel * (bytes_pc_plus_20 - bytes_pc_plus_19') = 0;
+sel * (bytes_pc_plus_21 - bytes_pc_plus_20') = 0;
+sel * (bytes_pc_plus_22 - bytes_pc_plus_21') = 0;
+sel * (bytes_pc_plus_23 - bytes_pc_plus_22') = 0;
+sel * (bytes_pc_plus_24 - bytes_pc_plus_23') = 0;
+sel * (bytes_pc_plus_25 - bytes_pc_plus_24') = 0;
+sel * (bytes_pc_plus_26 - bytes_pc_plus_25') = 0;
+sel * (bytes_pc_plus_27 - bytes_pc_plus_26') = 0;
+sel * (bytes_pc_plus_28 - bytes_pc_plus_27') = 0;
+sel * (bytes_pc_plus_29 - bytes_pc_plus_28') = 0;
+sel * (bytes_pc_plus_30 - bytes_pc_plus_29') = 0;
+sel * (bytes_pc_plus_31 - bytes_pc_plus_30') = 0;
+sel * (bytes_pc_plus_32 - bytes_pc_plus_31') = 0;
+sel * (bytes_pc_plus_33 - bytes_pc_plus_32') = 0;
+sel * (bytes_pc_plus_34 - bytes_pc_plus_33') = 0;
+sel * (bytes_pc_plus_35 - bytes_pc_plus_34') = 0;
