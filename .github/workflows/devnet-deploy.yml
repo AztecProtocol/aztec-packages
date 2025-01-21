@@ -26,6 +26,11 @@ on:
         description: Whether to deploy to Sepolia
         required: false
         default: "false"
+      ref:
+        description: The branch name to deploy from
+        required: false
+        type: string
+        default: "master"
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -52,6 +57,8 @@ jobs:
       respect_tf_lock: ${{ github.event.inputs.respect_tf_lock }}
       run_terraform_destroy: "true"
       sepolia_deployment: ${{ github.event.inputs.sepolia_deployment }}
+      ref: ${{ github.event.inputs.ref }}
+
     secrets:
       GCP_SA_KEY: ${{ secrets.GCP_SA_KEY }}
 
