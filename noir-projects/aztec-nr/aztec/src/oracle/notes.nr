@@ -200,7 +200,7 @@ where
             let note_hash_counter = fields[read_offset + 1] as u32;
             let note_content = array::subarray(fields, read_offset + 2);
 
-            let mut note = Note::deserialize_content(note_content);
+            let mut note = Note::unpack_content(note_content);
             note.set_header(NoteHeader { contract_address, nonce, storage_slot, note_hash_counter });
 
             placeholder_opt_notes[i] = Option::some(note);

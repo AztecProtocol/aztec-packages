@@ -27,7 +27,7 @@ impl NoteInterface<ECDSA_PUBLIC_KEY_NOTE_LEN> for EcdsaPublicKeyNote {
     // [2] = y[0..31]
     // [3] = y[31]
     // [4] = owner
-    fn serialize_content(self) -> [Field; ECDSA_PUBLIC_KEY_NOTE_LEN] {
+    fn pack_content(self) -> [Field; ECDSA_PUBLIC_KEY_NOTE_LEN] {
         let mut x: Field = 0;
         let mut y: Field = 0;
         let mut mul: Field = 1;
@@ -47,7 +47,7 @@ impl NoteInterface<ECDSA_PUBLIC_KEY_NOTE_LEN> for EcdsaPublicKeyNote {
     }
 
     // Cannot use the automatic deserialization for the aforementioned reasons
-    fn deserialize_content(serialized_note: [Field; ECDSA_PUBLIC_KEY_NOTE_LEN]) -> EcdsaPublicKeyNote {
+    fn unpack_content(serialized_note: [Field; ECDSA_PUBLIC_KEY_NOTE_LEN]) -> EcdsaPublicKeyNote {
         let mut x: [u8; 32] = [0; 32];
         let mut y: [u8; 32] = [0; 32];
 
@@ -67,7 +67,7 @@ impl NoteInterface<ECDSA_PUBLIC_KEY_NOTE_LEN> for EcdsaPublicKeyNote {
     }
 
     fn to_be_bytes(self, storage_slot: Field) -> [u8; ECDSA_PUBLIC_KEY_NOTE_LEN * 32 + 64] {
-        let serialized_note = self.serialize_content();
+        let serialized_note = self.pack_content();
 
         let mut buffer: [u8; ECDSA_PUBLIC_KEY_NOTE_LEN * 32 + 64] = [0; ECDSA_PUBLIC_KEY_NOTE_LEN * 32 + 64];
 
@@ -102,7 +102,7 @@ impl NoteInterface<ECDSA_PUBLIC_KEY_NOTE_LEN> for EcdsaPublicKeyNote {
     }
 
     fn compute_note_hash(self) -> Field {
-        let serialized = self.serialize_content();
+        let serialized = self.pack_content();
         std::embedded_curve_ops::multi_scalar_mul(
             [Gx_1, Gx_2, Gy_1, Gy_2, G_owner, G_slot],
             [

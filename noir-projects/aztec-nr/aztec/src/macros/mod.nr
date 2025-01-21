@@ -138,7 +138,7 @@ comptime fn generate_compute_note_hash_and_optionally_a_nullifier() -> Quoted {
             if_statements_list = if_statements_list.push_back(
                 quote {
                 $if_or_else_if note_type_id == $typ::get_note_type_id() {
-                    aztec::note::utils::compute_note_hash_and_optionally_a_nullifier($typ::deserialize_content, note_header, compute_nullifier, serialized_note)
+                    aztec::note::utils::compute_note_hash_and_optionally_a_nullifier($typ::unpack_content, note_header, compute_nullifier, serialized_note)
                 }
             },
             );
@@ -184,14 +184,14 @@ comptime fn generate_process_log() -> Quoted {
 
     // A typical implementation of the lambda looks something like this:
     // ```
-    // |serialized_note_content: BoundedVec<Field, MAX_NOTE_SERIALIZED_LEN>, note_header: NoteHeader, note_type_id: Field| {
+    // |packed_note_content: BoundedVec<Field, MAX_NOTE_SERIALIZED_LEN>, note_header: NoteHeader, note_type_id: Field| {
     //     let hashes = if note_type_id == MyNoteType::get_note_type_id() {
-    //         assert(serialized_note_content.len() == MY_NOTE_TYPE_SERIALIZATION_LENGTH);
+    //         assert(packed_note_content.len() == MY_NOTE_TYPE_SERIALIZATION_LENGTH);
     //         dep::aztec::note::utils::compute_note_hash_and_optionally_a_nullifier(
-    //             MyNoteType::deserialize_content,
+    //             MyNoteType::unpack_content,
     //             note_header,
     //             true,
-    //             serialized_note_content.storage(),
+    //             packed_note_content.storage(),
     //         )
     //     } else {
     //         panic(f"Unknown note type id {note_type_id}")
@@ -224,17 +224,17 @@ comptime fn generate_process_log() -> Quoted {
         if_note_type_id_match_statements_list = if_note_type_id_match_statements_list.push_back(
             quote {
                 $if_or_else_if note_type_id == $typ::get_note_type_id() {
-                    // As an extra safety check we make sure that the serialized_note_content bounded vec has the
+                    // As an extra safety check we make sure that the packed_note_content bounded vec has the
                     // expected length, to avoid scenarios in which compute_note_hash_and_optionally_a_nullifier
                     // silently trims the end if the log were to be longer.
                     let expected_len = $serialized_note_length;
-                    let actual_len = serialized_note_content.len();
+                    let actual_len = packed_note_content.len();
                     assert(
                         actual_len == expected_len,
                         f"Expected note content of length {expected_len} but got {actual_len} for note type id {note_type_id}"
                     );
 
-                    aztec::note::utils::compute_note_hash_and_optionally_a_nullifier($typ::deserialize_content, note_header, true, serialized_note_content.storage())
+                    aztec::note::utils::compute_note_hash_and_optionally_a_nullifier($typ::unpack_content, note_header, true, packed_note_content.storage())
                 }
             },
         );
@@ -256,7 +256,7 @@ comptime fn generate_process_log() -> Quoted {
                 unique_note_hashes_in_tx,
                 first_nullifier_in_tx,
                 recipient,
-                |serialized_note_content: BoundedVec<Field, _>, note_header, note_type_id| {
+                |packed_note_content: BoundedVec<Field, _>, note_header, note_type_id| {
                     let hashes = $if_note_type_id_match_statements
                     else {
                         panic(f"Unknown note type id {note_type_id}")

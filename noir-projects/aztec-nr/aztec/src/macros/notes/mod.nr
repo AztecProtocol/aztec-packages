@@ -12,7 +12,7 @@ use std::{
 
 comptime global NOTE_HEADER_TYPE: Type = type_of(NoteHeader::empty());
 
-/// A map from note type to (note_struct_definition, serialized_note_length, note_type_id, fields).
+/// A map from note type to (note_struct_definition, note_packed_len, note_type_id, fields).
 /// `fields` is an array of tuples where each tuple contains the name of the field/struct member (e.g. `amount`
 /// in `TokenNote`), the index of where the serialized member starts in the serialized note and a flag indicating
 /// whether the field is nullable or not.
@@ -42,11 +42,11 @@ comptime fn get_next_note_type_id() -> Field {
 ///         ...
 ///     }
 ///
-///     fn deserialize_content(serialized_content: [Field; N]) -> Self {
+///     fn unpack_content(packed_content: [Field; N]) -> Self {
 ///         ...
 ///     }
 ///
-///     fn serialize_content(self) -> [Field; N] {
+///     fn pack_content(self) -> [Field; N] {
 ///         ...
 ///     }
 ///
@@ -90,10 +90,10 @@ comptime fn generate_note_interface(
     let content_fields = content_fields_list.join(quote {,});
     let content_len = content_fields_list.len();
 
-    let (deserialized_content, _) = generate_deserialize_from_fields(
+    let (unpacked_content, _) = generate_deserialize_from_fields(
         quote {},
         typ,
-        quote { serialized_content }, // "serialized_content" is argument of NoteInterface::deserialize_content
+        quote { packed_content }, // "packed_content" is argument of NoteInterface::deserialize_content
         0,
         quote {header},
         quote { aztec::note::note_header::NoteHeader::empty() },
@@ -119,7 +119,7 @@ comptime fn generate_note_interface(
         quote {
         impl aztec::note::note_interface::NoteInterface<$content_len> for $name {
             fn to_be_bytes(self, storage_slot: Field) -> [u8; $content_len * 32 + 64] {
-                let serialized_note = self.serialize_content();
+                let packed_note_content = self.pack_content();
 
                 let mut buffer: [u8; $content_len * 32 + 64] = [0; $content_len * 32 + 64];
 
@@ -132,8 +132,8 @@ comptime fn generate_note_interface(
                     buffer[32 + i] = note_type_id_bytes[i];
                 }
 
-                for i in 0..serialized_note.len() {
-                    let bytes: [u8; 32] = serialized_note[i].to_be_bytes();
+                for i in 0..packed_note_content.len() {
+                    let bytes: [u8; 32] = packed_note_content[i].to_be_bytes();
                     for j in 0..32 {
                         buffer[64 + i * 32 + j] = bytes[j];
                     }
@@ -141,11 +141,11 @@ comptime fn generate_note_interface(
                 buffer
             }
 
-            fn deserialize_content(serialized_content: [Field; $content_len]) -> Self {
-                $deserialized_content
+            fn unpack_content(packed_content: [Field; $content_len]) -> Self {
+                $unpacked_content
             }
 
-            fn serialize_content(self) -> [Field; $content_len] {
+            fn pack_content(self) -> [Field; $content_len] {
                 $content_aux_vars
                 [$content_fields]
             }
@@ -380,10 +380,10 @@ comptime fn generate_multi_scalar_mul(
 ///             log_plaintext[32 + i] = note_type_id_bytes[i];
 ///         }
 ///
-///         let serialized_note = [npk_m_hash as Field, randomness as Field];
+///         let packed_note_content = [npk_m_hash as Field, randomness as Field];
 ///
-///         for i in 0..serialized_note.len() {
-///             let bytes: [u8; 32] = serialized_note[i].to_be_bytes();
+///         for i in 0..packed_note_content.len() {
+///             let bytes: [u8; 32] = packed_note_content[i].to_be_bytes();
 ///             for j in 0..32 {
 ///                 log_plaintext[64 + i * 32 + j] = bytes[j];
 ///             }
@@ -528,10 +528,10 @@ comptime fn get_setup_log_plaintext_body(
         }
 
         $aux_vars_for_serialization
-        let serialized_note = [$fields];
+        let packed_note_content = [$fields];
 
-        for i in 0..serialized_note.len() {
-            let bytes: [u8; 32] = serialized_note[i].to_be_bytes();
+        for i in 0..packed_note_content.len() {
+            let bytes: [u8; 32] = packed_note_content[i].to_be_bytes();
             for j in 0..32 {
                 log_plaintext[64 + i * 32 + j] = bytes[j];
             }
@@ -804,11 +804,11 @@ comptime fn generate_partial_note_impl(
     }
 }
 
-/// Registers a note struct `note` with the given `note_serialized_len`, `note_type_id`, `fixed_fields` and
+/// Registers a note struct `note` with the given `note_packed_len`, `note_type_id`, `fixed_fields` and
 /// `nullable_fields` in the global `NOTES` map.
 comptime fn register_note(
     note: StructDefinition,
-    note_serialized_len: u32,
+    note_packed_len: u32,
     note_type_id: Field,
     fixed_fields: [(Quoted, Type, u32)],
     nullable_fields: [(Quoted, Type, u32)],
@@ -823,7 +823,7 @@ comptime fn register_note(
         fields = fields.push_back((name, index, true));
     }
 
-    NOTES.insert(note.as_type(), (note, note_serialized_len, note_type_id, fields));
+    NOTES.insert(note.as_type(), (note, note_packed_len, note_type_id, fields));
 }
 
 /// Separates note struct members into fixed and nullable ones. It also stores the index of where each struct member
@@ -887,7 +887,7 @@ pub comptime fn partial_note(s: StructDefinition, nullable_fields: [Quoted]) -> 
         generate_setup_payload(s, indexed_fixed_fields, indexed_nullable_fields);
     let (finalization_payload_impl, finalization_payload_name) =
         generate_finalization_payload(s, indexed_fixed_fields, indexed_nullable_fields);
-    let (note_interface_impl, note_serialized_len) = generate_note_interface(
+    let (note_interface_impl, note_packed_len) = generate_note_interface(
         s,
         note_type_id,
         indexed_fixed_fields,
@@ -897,7 +897,7 @@ pub comptime fn partial_note(s: StructDefinition, nullable_fields: [Quoted]) -> 
         generate_partial_note_impl(s, setup_payload_name, finalization_payload_name);
     register_note(
         s,
-        note_serialized_len,
+        note_packed_len,
         note_type_id,
         indexed_fixed_fields,
         indexed_nullable_fields,
@@ -926,7 +926,7 @@ pub comptime fn note(s: StructDefinition) -> Quoted {
 
     let note_properties = generate_note_properties(s);
     let note_type_id = get_next_note_type_id();
-    let (note_interface_impl, note_serialized_len) = generate_note_interface(
+    let (note_interface_impl, note_packed_len) = generate_note_interface(
         s,
         note_type_id,
         indexed_fixed_fields,
@@ -934,7 +934,7 @@ pub comptime fn note(s: StructDefinition) -> Quoted {
     );
     register_note(
         s,
-        note_serialized_len,
+        note_packed_len,
         note_type_id,
         indexed_fixed_fields,
         indexed_nullable_fields,
@@ -963,7 +963,7 @@ pub comptime fn note_custom_interface(s: StructDefinition) -> Quoted {
     );
     let name = s.name();
 
-    let note_serialized_len = note_interface_impl
+    let note_packed_len = note_interface_impl
         .expect(f"Note {name} must implement NoteInterface trait")
         .trait_generic_args()[0]
         .as_constant()
@@ -972,7 +972,7 @@ pub comptime fn note_custom_interface(s: StructDefinition) -> Quoted {
     let (indexed_fixed_fields, indexed_nullable_fields) = index_note_fields(s, &[]);
     register_note(
         s,
-        note_serialized_len,
+        note_packed_len,
         note_type_id,
         indexed_fixed_fields,
         indexed_nullable_fields,

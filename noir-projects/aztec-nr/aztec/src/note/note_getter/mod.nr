@@ -154,7 +154,7 @@ where
     for i in 0..options.limit {
         if i < notes.len() {
             let note = notes.get_unchecked(i);
-            let fields = note.serialize_content();
+            let fields = note.pack_content();
             check_note_header(*context, storage_slot, note);
             check_note_fields(fields, options.selects);
             if i != 0 {
