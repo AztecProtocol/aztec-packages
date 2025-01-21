@@ -154,8 +154,7 @@ fn optimize_all(builder: SsaBuilder, options: &SsaEvaluatorOptions) -> Result<Ss
         .run_pass(Ssa::defunctionalize, "Defunctionalization")
         .run_pass(Ssa::remove_paired_rc, "Removing Paired rc_inc & rc_decs")
         .run_pass(
-            |ssa|
-                if false { ssa.preprocess_functions(options.inliner_aggressiveness) } else { ssa },
+            |ssa| ssa.preprocess_functions(options.inliner_aggressiveness),
             "Preprocessing Functions",
         )
         .run_pass(|ssa| ssa.inline_functions(options.inliner_aggressiveness), "Inlining (1st)")
