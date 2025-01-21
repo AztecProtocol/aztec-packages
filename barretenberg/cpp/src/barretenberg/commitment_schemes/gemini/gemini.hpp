@@ -119,14 +119,14 @@ template <typename Curve> class GeminiProver_ {
 
         Polynomial get_batched_to_open() { return get_form_to_open(batched); }
 
-        void compute_batched(const Fr& challenge, Fr& running_scalar)
-        {
-            initialize_batched();
-            for (auto poly : polynomials) {
-                batched.add_scaled(poly, running_scalar);
-                running_scalar *= challenge;
-            }
-        }
+        // void compute_batched(const Fr& challenge, Fr& running_scalar)
+        // {
+        //     initialize_batched();
+        //     for (auto poly : polynomials) {
+        //         batched.add_scaled(poly, running_scalar);
+        //         running_scalar *= challenge;
+        //     }
+        // }
     };
 
   public:
