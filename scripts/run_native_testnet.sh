@@ -34,7 +34,7 @@ INTERLEAVED=false
 METRICS=false
 DISABLE_BLOB_SINK=false
 LOG_LEVEL="info"
-ETHEREUM_HOST="http://localhost:8545"
+ETHEREUM_HOST=
 L1_CONSENSUS_HOST_URL=
 
 OTEL_COLLECTOR_ENDPOINT=${OTEL_COLLECTOR_ENDPOINT:-"http://localhost:4318"}
@@ -135,8 +135,12 @@ if $METRICS; then
 fi
 
 # If an ethereum rpc url is provided, use it
-export ETHEREUM_HOST
-export L1_CONSENSUS_HOST_URL
+if [ -n "$ETHEREUM_HOST" ]; then
+  export ETHEREUM_HOST
+fi
+if [ -n "$L1_CONSENSUS_HOST_URL" ]; then
+  export L1_CONSENSUS_HOST_URL
+fi
 
 # If an ethereum url has been provided, do not run the ethereum.sh script
 if [ -n "$ETHEREUM_HOST" ]; then
