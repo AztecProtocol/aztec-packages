@@ -194,7 +194,9 @@ describe('e2e_block_building', () => {
     });
 
     it('processes txs until hitting timetable', async () => {
-      const TX_COUNT = 32;
+      // We send enough txs so they are spread across multiple blocks, but not
+      // so many so that we don't end up hitting a reorg or timing out the tx wait().
+      const TX_COUNT = 16;
 
       const ownerAddress = owner.getCompleteAddress().address;
       const contract = await StatefulTestContract.deploy(owner, ownerAddress, ownerAddress, 1).send().deployed();
@@ -212,7 +214,7 @@ describe('e2e_block_building', () => {
 
       // We also cheat the sequencer's timetable so it allocates little time to processing.
       // This will leave the sequencer with just a few seconds to build the block, so it shouldn't
-      // be able to squeeze in more than ~12 txs in each. This is sensitive to the time it takes
+      // be able to squeeze in more than a few txs in each. This is sensitive to the time it takes
       // to pick up and validate the txs, so we may need to bump it to work on CI.
       jest
         .spyOn(sequencer.sequencer.timetable, 'getBlockProposalExecTimeEnd')

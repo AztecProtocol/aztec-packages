@@ -1,4 +1,4 @@
-import { type GetUnencryptedLogsResponse, type PXE, type TxHash, type TxReceipt, TxStatus } from '@aztec/circuit-types';
+import { type GetPublicLogsResponse, type PXE, type TxHash, type TxReceipt, TxStatus } from '@aztec/circuit-types';
 import { retryUntil } from '@aztec/foundation/retry';
 import { type FieldsOf } from '@aztec/foundation/types';
 
@@ -87,13 +87,13 @@ export class SentTx {
   }
 
   /**
-   * Gets unencrypted logs emitted by this tx.
+   * Gets public logs emitted by this tx.
    * @remarks This function will wait for the tx to be mined if it hasn't been already.
    * @returns The requested logs.
    */
-  public async getUnencryptedLogs(): Promise<GetUnencryptedLogsResponse> {
+  public async getPublicLogs(): Promise<GetPublicLogsResponse> {
     await this.wait();
-    return this.pxe.getUnencryptedLogs({ txHash: await this.getTxHash() });
+    return this.pxe.getPublicLogs({ txHash: await this.getTxHash() });
   }
 
   protected async waitForReceipt(opts?: WaitOpts): Promise<TxReceipt> {

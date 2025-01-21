@@ -111,7 +111,7 @@ jobs:
 
           PXE_PORT="$(jq -r .pxe.service.nodePort helm_values.json)"
           FAUCET_PORT="$(jq -r .faucet.apiServerPort helm_values.json)"
-          ETHEREUM_PORT="$(jq -r .ethereum.service.port helm_values.json)"
+          ETHEREUM_PORT="$(jq -r .ethereum.execution.service.port helm_values.json)"
           L1_CHAIN_ID="$(jq -r .ethereum.chainId helm_values.json)"
 
           MNEMONIC="$(jq -r .aztec.l1DeploymentMnemonic helm_values.json)"

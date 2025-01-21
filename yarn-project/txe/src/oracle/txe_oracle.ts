@@ -35,6 +35,7 @@ import {
   PublicDataTreeLeaf,
   type PublicDataTreeLeafPreimage,
   type PublicDataWrite,
+  type PublicLog,
   computeContractClassId,
   computeTaggingSecretPoint,
   deriveKeys,
@@ -107,7 +108,7 @@ export class TXE implements TypedOracle {
   private uniqueNoteHashesFromPublic: Fr[] = [];
   private siloedNullifiersFromPublic: Fr[] = [];
   private privateLogs: PrivateLog[] = [];
-  private publicLogs: UnencryptedL2Log[] = [];
+  private publicLogs: PublicLog[] = [];
 
   private committedBlocks = new Set<number>();
 
@@ -324,26 +325,13 @@ export class TXE implements TypedOracle {
     this.privateLogs.push(...privateLogs);
   }
 
-  addPublicLogs(logs: UnencryptedL2Log[]) {
+  addPublicLogs(logs: PublicLog[]) {
     logs.forEach(log => {
-      if (log.data.length < 32 * 33) {
-        // TODO remove when #9835 and #9836 are fixed
-        this.logger.warn(`Skipping unencrypted log with insufficient data length: ${log.data.length}`);
-        return;
-      }
       try {
-        // TODO remove when #9835 and #9836 are fixed. The partial note logs are emitted as bytes, but encoded as Fields.
-        // This means that for every 32 bytes of payload, we only have 1 byte of data.
-        // Also, the tag is not stored in the first 32 bytes of the log, (that's the length of public fields now) but in the next 32.
-        const correctedBuffer = Buffer.alloc(32);
-        const initialOffset = 32;
-        for (let i = 0; i < 32; i++) {
-          const byte = Fr.fromBuffer(log.data.subarray(i * 32 + initialOffset, i * 32 + 32 + initialOffset)).toNumber();
-          correctedBuffer.writeUInt8(byte, i);
-        }
-        const tag = new Fr(correctedBuffer);
+        // The first elt stores lengths => tag is in fields[1]
+        const tag = log.log[1];
 
-        this.logger.verbose(`Found tagged unencrypted log with tag ${tag.toString()} in block ${this.blockNumber}`);
+        this.logger.verbose(`Found tagged public log with tag ${tag.toString()} in block ${this.blockNumber}`);
         this.publicLogs.push(log);
       } catch (err) {
         this.logger.warn(`Failed to add tagged log to store: ${err}`);
@@ -371,10 +359,6 @@ export class TXE implements TypedOracle {
 
   getRandomField() {
     return Fr.random();
-  }
-
-  storeArrayInExecutionCache(values: Fr[]) {
-    return Promise.resolve(this.executionCache.store(values));
   }
 
   storeInExecutionCache(values: Fr[]) {
@@ -847,7 +831,7 @@ export class TXE implements TypedOracle {
 
     const result = await simulator.simulate(tx);
 
-    this.addPublicLogs(tx.unencryptedLogs.unrollLogs());
+    this.addPublicLogs(result.avmProvingRequest.inputs.publicInputs.publicLogs);
 
     return Promise.resolve(result);
   }
@@ -1072,36 +1056,35 @@ export class TXE implements TypedOracle {
     return preimage.value;
   }
 
-  /**
-   * Used by contracts during execution to store arbitrary data in the local PXE database. The data is siloed/scoped
-   * to a specific `contract`.
-   * @param contract - The contract address to store the data under.
-   * @param key - A field element representing the key to store the data under.
-   * @param values - An array of field elements representing the data to store.
-   */
-  store(contract: AztecAddress, key: Fr, values: Fr[]): Promise<void> {
-    if (!contract.equals(this.contractAddress)) {
-      // TODO(#10727): instead of this check check that this.contractAddress is allowed to process notes for contract
-      throw new Error(
-        `Contract address ${contract} does not match the oracle's contract address ${this.contractAddress}`,
-      );
+  dbStore(contractAddress: AztecAddress, slot: Fr, values: Fr[]): Promise<void> {
+    if (!contractAddress.equals(this.contractAddress)) {
+      // TODO(#10727): instead of this check that this.contractAddress is allowed to access the external DB
+      throw new Error(`Contract ${contractAddress} is not allowed to access ${this.contractAddress}'s PXE DB`);
     }
-    return this.txeDatabase.store(this.contractAddress, key, values);
+    return this.txeDatabase.dbStore(this.contractAddress, slot, values);
   }
 
-  /**
-   * Used by contracts during execution to load arbitrary data from the local PXE database. The data is siloed/scoped
-   * to a specific `contract`.
-   * @param contract - The contract address to load the data from.
-   * @param key - A field element representing the key under which to load the data..
-   * @returns An array of field elements representing the stored data or `null` if no data is stored under the key.
-   */
-  load(contract: AztecAddress, key: Fr): Promise<Fr[] | null> {
-    if (!contract.equals(this.contractAddress)) {
-      // TODO(#10727): instead of this check check that this.contractAddress is allowed to process notes for contract
-      this.debug(`Data not found for contract ${contract.toString()} and key ${key.toString()}`);
-      return Promise.resolve(null);
+  dbLoad(contractAddress: AztecAddress, slot: Fr): Promise<Fr[] | null> {
+    if (!contractAddress.equals(this.contractAddress)) {
+      // TODO(#10727): instead of this check that this.contractAddress is allowed to access the external DB
+      throw new Error(`Contract ${contractAddress} is not allowed to access ${this.contractAddress}'s PXE DB`);
     }
-    return this.txeDatabase.load(this.contractAddress, key);
+    return this.txeDatabase.dbLoad(this.contractAddress, slot);
+  }
+
+  dbDelete(contractAddress: AztecAddress, slot: Fr): Promise<void> {
+    if (!contractAddress.equals(this.contractAddress)) {
+      // TODO(#10727): instead of this check that this.contractAddress is allowed to access the external DB
+      throw new Error(`Contract ${contractAddress} is not allowed to access ${this.contractAddress}'s PXE DB`);
+    }
+    return this.txeDatabase.dbDelete(this.contractAddress, slot);
+  }
+
+  dbCopy(contractAddress: AztecAddress, srcSlot: Fr, dstSlot: Fr, numEntries: number): Promise<void> {
+    if (!contractAddress.equals(this.contractAddress)) {
+      // TODO(#10727): instead of this check that this.contractAddress is allowed to access the external DB
+      throw new Error(`Contract ${contractAddress} is not allowed to access ${this.contractAddress}'s PXE DB`);
+    }
+    return this.txeDatabase.dbCopy(this.contractAddress, srcSlot, dstSlot, numEntries);
   }
 }

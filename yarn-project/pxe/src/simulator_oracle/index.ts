@@ -27,6 +27,7 @@ import {
   MAX_NOTE_HASHES_PER_TX,
   PRIVATE_LOG_SIZE_IN_FIELDS,
   PrivateLog,
+  PublicLog,
   computeAddressSecret,
   computeTaggingSecretPoint,
 } from '@aztec/circuits.js';
@@ -499,15 +500,31 @@ export class SimulatorOracle implements DBOracle {
 
         logsByTags.forEach((logsByTag, logIndex) => {
           if (logsByTag.length > 0) {
+            // Check that public logs have the correct contract address
+            const checkedLogsbyTag = logsByTag.filter(
+              l => !l.isFromPublic || PublicLog.fromBuffer(l.logData).contractAddress.equals(contractAddress),
+            );
+            if (checkedLogsbyTag.length < logsByTag.length) {
+              const discarded = logsByTag.filter(
+                log => checkedLogsbyTag.find(filteredLog => filteredLog.equals(log)) === undefined,
+              );
+              this.log.warn(
+                `Discarded ${
+                  logsByTag.length - checkedLogsbyTag.length
+                } public logs with mismatched contract address ${contractAddress}:`,
+                discarded.map(l => PublicLog.fromBuffer(l.logData)),
+              );
+            }
+
             // The logs for the given tag exist so we store them for later processing
-            logsForRecipient.push(...logsByTag);
+            logsForRecipient.push(...checkedLogsbyTag);
 
             // We retrieve the indexed tagging secret corresponding to the log as I need that to evaluate whether
             // a new largest index have been found.
             const secretCorrespondingToLog = secretsForTheWholeWindow[logIndex];
             const initialIndex = initialIndexesMap[secretCorrespondingToLog.appTaggingSecret.toString()];
 
-            this.log.debug(`Found ${logsByTag.length} logs as recipient ${recipient}`, {
+            this.log.debug(`Found ${checkedLogsbyTag.length} logs as recipient ${recipient}`, {
               recipient,
               secret: secretCorrespondingToLog.appTaggingSecret,
               contractName,
@@ -597,7 +614,7 @@ export class SimulatorOracle implements DBOracle {
 
     for (const scopedLog of scopedLogs) {
       const payload = scopedLog.isFromPublic
-        ? L1NotePayload.decryptAsIncomingFromPublic(scopedLog.logData, addressSecret)
+        ? L1NotePayload.decryptAsIncomingFromPublic(PublicLog.fromBuffer(scopedLog.logData), addressSecret)
         : L1NotePayload.decryptAsIncoming(PrivateLog.fromBuffer(scopedLog.logData), addressSecret);
 
       if (!payload) {
@@ -804,26 +821,20 @@ export class SimulatorOracle implements DBOracle {
     );
   }
 
-  /**
-   * Used by contracts during execution to store arbitrary data in the local PXE database. The data is siloed/scoped
-   * to a specific `contract`.
-   * @param contract - An address of a contract that is requesting to store the data.
-   * @param key - A field element representing the key to store the data under.
-   * @param values - An array of field elements representing the data to store.
-   */
-  store(contract: AztecAddress, key: Fr, values: Fr[]): Promise<void> {
-    return this.db.store(contract, key, values);
+  dbStore(contractAddress: AztecAddress, slot: Fr, values: Fr[]): Promise<void> {
+    return this.db.dbStore(contractAddress, slot, values);
   }
 
-  /**
-   * Used by contracts during execution to load arbitrary data from the local PXE database. The data is siloed/scoped
-   * to a specific `contract`.
-   * @param contract - An address of a contract that is requesting to load the data.
-   * @param key - A field element representing the key under which to load the data..
-   * @returns An array of field elements representing the stored data or `null` if no data is stored under the key.
-   */
-  load(contract: AztecAddress, key: Fr): Promise<Fr[] | null> {
-    return this.db.load(contract, key);
+  dbLoad(contractAddress: AztecAddress, slot: Fr): Promise<Fr[] | null> {
+    return this.db.dbLoad(contractAddress, slot);
+  }
+
+  dbDelete(contractAddress: AztecAddress, slot: Fr): Promise<void> {
+    return this.db.dbDelete(contractAddress, slot);
+  }
+
+  dbCopy(contractAddress: AztecAddress, srcSlot: Fr, dstSlot: Fr, numEntries: number): Promise<void> {
+    return this.db.dbCopy(contractAddress, srcSlot, dstSlot, numEntries);
   }
 }
 

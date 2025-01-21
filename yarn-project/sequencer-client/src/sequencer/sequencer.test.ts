@@ -65,6 +65,7 @@ describe('sequencer', () => {
   let l1ToL2MessageSource: MockProxy<L1ToL2MessageSource>;
   let publicProcessorFactory: MockProxy<PublicProcessorFactory>;
 
+  let initialBlockHeader: BlockHeader;
   let lastBlockNumber: number;
   let newBlockNumber: number;
   let newSlotNumber: number;
@@ -138,6 +139,7 @@ describe('sequencer', () => {
   };
 
   beforeEach(() => {
+    initialBlockHeader = BlockHeader.empty();
     lastBlockNumber = 0;
     newBlockNumber = lastBlockNumber + 1;
     newSlotNumber = newBlockNumber;
@@ -180,7 +182,9 @@ describe('sequencer', () => {
       }),
     });
 
-    fork = mock<MerkleTreeWriteOperations>();
+    fork = mock<MerkleTreeWriteOperations>({
+      getInitialHeader: () => initialBlockHeader,
+    });
     worldState = mock<WorldStateSynchronizer>({
       fork: () => Promise.resolve(fork),
       getCommitted: () => merkleTreeOps,
@@ -203,6 +207,7 @@ describe('sequencer', () => {
     });
 
     l2BlockSource = mock<L2BlockSource>({
+      getBlock: mockFn().mockResolvedValue(L2Block.empty()),
       getBlockNumber: mockFn().mockResolvedValue(lastBlockNumber),
       getL2Tips: mockFn().mockResolvedValue({ latest: { number: lastBlockNumber, hash } }),
     });
@@ -261,6 +266,7 @@ describe('sequencer', () => {
     expect(blockBuilder.startNewBlock).toHaveBeenCalledWith(
       globalVariables,
       Array(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP).fill(new Fr(0n)),
+      initialBlockHeader,
     );
 
     expectPublisherProposeL2Block([txHash]);
@@ -268,7 +274,7 @@ describe('sequencer', () => {
 
   it('builds a block for proposal setting limits', async () => {
     const txs = times(5, i => makeTx(i * 0x10000));
-    await sequencer.buildBlock(txs, globalVariables, undefined, { validateOnly: false });
+    await sequencer.buildBlock(txs, globalVariables, { validateOnly: false });
 
     expect(publicProcessor.process).toHaveBeenCalledWith(
       txs,
@@ -284,7 +290,7 @@ describe('sequencer', () => {
 
   it('builds a block for validation ignoring limits', async () => {
     const txs = times(5, i => makeTx(i * 0x10000));
-    await sequencer.buildBlock(txs, globalVariables, undefined, { validateOnly: true });
+    await sequencer.buildBlock(txs, globalVariables, { validateOnly: true });
 
     expect(publicProcessor.process).toHaveBeenCalledWith(txs, { deadline: expect.any(Date) }, expect.anything());
   });
@@ -341,6 +347,7 @@ describe('sequencer', () => {
     expect(blockBuilder.startNewBlock).toHaveBeenCalledWith(
       globalVariables,
       Array(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP).fill(new Fr(0n)),
+      initialBlockHeader,
     );
     expectPublisherProposeL2Block([txHash]);
   });
@@ -364,6 +371,7 @@ describe('sequencer', () => {
     expect(blockBuilder.startNewBlock).toHaveBeenCalledWith(
       globalVariables,
       Array(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP).fill(new Fr(0n)),
+      initialBlockHeader,
     );
     expectPublisherProposeL2Block(validTxHashes);
     expect(p2p.deleteTxs).toHaveBeenCalledWith([invalidTx.getTxHash()]);
@@ -394,6 +402,7 @@ describe('sequencer', () => {
     expect(blockBuilder.startNewBlock).toHaveBeenCalledWith(
       globalVariables,
       times(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP, Fr.zero),
+      initialBlockHeader,
     );
 
     expectPublisherProposeL2Block(neededTxs.map(tx => tx.getTxHash()));
@@ -427,6 +436,7 @@ describe('sequencer', () => {
     expect(blockBuilder.startNewBlock).toHaveBeenCalledWith(
       globalVariables,
       times(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP, Fr.zero),
+      initialBlockHeader,
     );
     expect(blockBuilder.addTxs).toHaveBeenCalledWith([]);
     expectPublisherProposeL2Block([]);
@@ -461,6 +471,7 @@ describe('sequencer', () => {
     expect(blockBuilder.startNewBlock).toHaveBeenCalledWith(
       globalVariables,
       Array(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP).fill(new Fr(0n)),
+      initialBlockHeader,
     );
 
     expectPublisherProposeL2Block(postFlushTxHashes);
@@ -510,6 +521,7 @@ describe('sequencer', () => {
         syncedToL2Block: { number: blockNumber - 1, hash },
       });
 
+      l2BlockSource.getBlock.mockResolvedValue(L2Block.random(blockNumber - 1));
       l2BlockSource.getBlockNumber.mockResolvedValue(blockNumber - 1);
 
       l1ToL2MessageSource.getBlockNumber.mockResolvedValue(blockNumber - 1);
@@ -692,7 +704,6 @@ class TestSubject extends Sequencer {
   public override buildBlock(
     pendingTxs: Iterable<Tx>,
     newGlobalVariables: GlobalVariables,
-    historicalHeader?: BlockHeader | undefined,
     opts?: { validateOnly?: boolean | undefined },
   ): Promise<{
     block: L2Block;
@@ -703,6 +714,6 @@ class TestSubject extends Sequencer {
     numFailedTxs: number;
     blockBuildingTimer: Timer;
   }> {
-    return super.buildBlock(pendingTxs, newGlobalVariables, historicalHeader, opts);
+    return super.buildBlock(pendingTxs, newGlobalVariables, opts);
   }
 }

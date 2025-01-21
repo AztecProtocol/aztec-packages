@@ -19,7 +19,7 @@ use crate::{
     traits::{FromField, Hash, is_empty, ToField},
     utils::field::field_from_bytes_32_trunc,
 };
-use super::utils::{arrays::array_concat, field::field_from_bytes};
+use super::{constants::TWO_POW_64, utils::{arrays::array_concat, field::field_from_bytes}};
 
 pub fn sha256_to_field<let N: u32>(bytes_to_hash: [u8; N]) -> Field {
     let sha256_hashed = std::hash::sha256(bytes_to_hash);
@@ -117,15 +117,15 @@ pub fn silo_private_log(private_log: Scoped<PrivateLogData>) -> PrivateLog {
     }
 }
 
-fn compute_siloed_unencrypted_log_hash(address: AztecAddress, log_hash: Field) -> Field {
+fn compute_siloed_contract_class_log_hash(address: AztecAddress, log_hash: Field) -> Field {
     accumulate_sha256([address.to_field(), log_hash])
 }
 
-pub fn silo_unencrypted_log_hash(log_hash: ScopedLogHash) -> Field {
+pub fn silo_contract_class_log_hash(log_hash: ScopedLogHash) -> Field {
     if log_hash.contract_address.is_zero() {
         0
     } else {
-        compute_siloed_unencrypted_log_hash(log_hash.contract_address, log_hash.value())
+        compute_siloed_contract_class_log_hash(log_hash.contract_address, log_hash.value())
     }
 }
 
@@ -288,8 +288,7 @@ fn poseidon2_absorb_chunks<let N: u32>(
     in_len: u32,
     variable: bool,
 ) -> Poseidon2Sponge {
-    let two_pow_64 = 18446744073709551616;
-    let iv: Field = (in_len as Field) * two_pow_64;
+    let iv: Field = (in_len as Field) * TWO_POW_64;
     let mut sponge = Poseidon2Sponge::new(iv);
     // Even though shift is always 1 here, if we input in_len = 0 we get an underflow
     // since we cannot isolate computation branches. The below is just to avoid that.
@@ -424,8 +423,7 @@ where
     T: ToField,
 {
     let in_len = inputs.len() + 1;
-    let two_pow_64 = 18446744073709551616;
-    let iv: Field = (in_len as Field) * two_pow_64;
+    let iv: Field = (in_len as Field) * TWO_POW_64;
     let mut sponge = Poseidon2Sponge::new(iv);
     sponge.absorb(separator.to_field());
 
@@ -492,8 +490,7 @@ fn existing_sponge_poseidon_chunks_matches_fixed() {
         input[i] = 3;
     }
     // absorb 250 of the 501 things
-    let two_pow_64 = 18446744073709551616;
-    let empty_sponge = Poseidon2Sponge::new((in_len as Field) * two_pow_64);
+    let empty_sponge = Poseidon2Sponge::new((in_len as Field) * TWO_POW_64);
     let first_sponge = poseidon2_absorb_chunks_existing_sponge(empty_sponge, input, 250, true);
     // now absorb the final 251 (since they are all 3s, im being lazy and not making a new array)
     let mut final_sponge = poseidon2_absorb_chunks_existing_sponge(first_sponge, input, 251, true);

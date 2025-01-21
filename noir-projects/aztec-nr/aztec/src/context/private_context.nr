@@ -271,7 +271,7 @@ impl PrivateContext {
             /// Safety: Kernels verify that the key validation request is valid and below we verify that a request
             /// for the correct public key has been received.
             let request = unsafe { get_key_validation_request(pk_m_hash, key_index) };
-            assert(request.pk_m.hash() == pk_m_hash);
+            assert_eq(request.pk_m.hash(), pk_m_hash, "Obtained invalid key validation request");
 
             self.key_validation_requests_and_generators.push(
                 KeyValidationRequestAndGenerator {
@@ -340,7 +340,7 @@ impl PrivateContext {
         args: [Field; ARGS_COUNT],
     ) -> ReturnsHash {
         let args_hash = hash_args_array(args);
-        execution_cache::store_array(args);
+        execution_cache::store(args);
         self.call_private_function_with_args_hash(
             contract_address,
             function_selector,
@@ -356,7 +356,7 @@ impl PrivateContext {
         args: [Field; ARGS_COUNT],
     ) -> ReturnsHash {
         let args_hash = hash_args_array(args);
-        execution_cache::store_array(args);
+        execution_cache::store(args);
         self.call_private_function_with_args_hash(
             contract_address,
             function_selector,
@@ -443,7 +443,7 @@ impl PrivateContext {
         args: [Field; ARGS_COUNT],
     ) {
         let args_hash = hash_args_array(args);
-        execution_cache::store_array(args);
+        execution_cache::store(args);
         self.call_public_function_with_args_hash(
             contract_address,
             function_selector,
@@ -459,7 +459,7 @@ impl PrivateContext {
         args: [Field; ARGS_COUNT],
     ) {
         let args_hash = hash_args_array(args);
-        execution_cache::store_array(args);
+        execution_cache::store(args);
         self.call_public_function_with_args_hash(
             contract_address,
             function_selector,
@@ -496,7 +496,7 @@ impl PrivateContext {
         let mut is_static_call = is_static_call | self.inputs.call_context.is_static_call;
         /// Safety: TODO(https://github.com/AztecProtocol/aztec-packages/issues/8985): Fix this.
         /// WARNING: This is insecure and should be temporary!
-        /// The oracle repacks the arguments and returns a new args_hash.
+        /// The oracle hashes the arguments and returns a new args_hash.
         /// new_args = [selector, ...old_args], so as to make it suitable to call the public dispatch function.
         /// We don't validate or compute it in the circuit because a) it's harder to do with slices, and
         /// b) this is only temporary.
@@ -531,7 +531,7 @@ impl PrivateContext {
         args: [Field; ARGS_COUNT],
     ) {
         let args_hash = hash_args_array(args);
-        execution_cache::store_array(args);
+        execution_cache::store(args);
         self.set_public_teardown_function_with_args_hash(
             contract_address,
             function_selector,
@@ -552,7 +552,7 @@ impl PrivateContext {
         let mut is_static_call = is_static_call | self.inputs.call_context.is_static_call;
         /// Safety: TODO(https://github.com/AztecProtocol/aztec-packages/issues/8985): Fix this.
         /// WARNING: This is insecure and should be temporary!
-        /// The oracle repacks the arguments and returns a new args_hash.
+        /// The oracle hashes the arguments and returns a new args_hash.
         /// new_args = [selector, ...old_args], so as to make it suitable to call the public dispatch function.
         /// We don't validate or compute it in the circuit because a) it's harder to do with slices, and
         /// b) this is only temporary.

@@ -81,10 +81,6 @@ impl PublicBaseRollupInputs {
         };
         let contract_class_log_preimages_length =
             contract_class_logs_hashes.fold(0, |len, l: ScopedLogHash| len + l.log_hash.length);
-        let unencrypted_log_preimages_length = from_public
-            .accumulated_data
-            .unencrypted_logs_hashes
-            .fold(0, |len, l: ScopedLogHash| len + l.log_hash.length);
 
         TxEffect {
             tx_hash: self.tube_data.public_inputs.hash(),
@@ -95,8 +91,7 @@ impl PublicBaseRollupInputs {
             l2_to_l1_msgs: siloed_l2_to_l1_msgs,
             public_data_writes: from_public.accumulated_data.public_data_writes,
             private_logs,
-            unencrypted_logs_hashes: from_public.accumulated_data.unencrypted_logs_hashes,
-            unencrypted_log_preimages_length,
+            public_logs: from_public.accumulated_data.public_logs,
             contract_class_log_preimages_length,
             contract_class_logs_hashes,
         }
@@ -298,8 +293,8 @@ mod tests {
             NOTE_HASH_SUBTREE_SIBLING_PATH_LENGTH, NOTE_HASH_TREE_HEIGHT, NOTES_PREFIX,
             NULLIFIER_SUBTREE_HEIGHT, NULLIFIER_SUBTREE_SIBLING_PATH_LENGTH, NULLIFIER_TREE_HEIGHT,
             NULLIFIERS_PREFIX, PRIVATE_LOG_SIZE_IN_FIELDS, PRIVATE_LOGS_PREFIX,
-            PUBLIC_DATA_TREE_HEIGHT, PUBLIC_DATA_UPDATE_REQUESTS_PREFIX, REVERT_CODE_PREFIX,
-            TUBE_VK_INDEX, TX_FEE_PREFIX, TX_START_PREFIX, UNENCRYPTED_LOGS_PREFIX,
+            PUBLIC_DATA_TREE_HEIGHT, PUBLIC_DATA_UPDATE_REQUESTS_PREFIX, PUBLIC_LOG_SIZE_IN_FIELDS,
+            PUBLIC_LOGS_PREFIX, REVERT_CODE_PREFIX, TUBE_VK_INDEX, TX_FEE_PREFIX, TX_START_PREFIX,
         },
         data::{PublicDataTreeLeaf, PublicDataTreeLeafPreimage},
         hash::silo_l2_to_l1_message,
@@ -954,7 +949,7 @@ mod tests {
         let NUM_NULLIFIERS = 3;
         let NUM_MSGS = 5;
         let NUM_PRIV_EVENT_LOGS = 4;
-        let NUM_UNENC_LOGS = 6;
+        let NUM_PUB_LOGS = 6;
         let NUM_CC_LOGS = 1;
         let PUB_DATA_SLOT = 25;
         let PUB_DATA_VALUE = 60;
@@ -965,8 +960,8 @@ mod tests {
             + 1 // nullifiers and prefix
             + NUM_MSGS
             + 1 // L2 to L1 msgs and prefix
-            + NUM_UNENC_LOGS
-            + 1 // unenc. logs and prefix
+            + NUM_PUB_LOGS * PUBLIC_LOG_SIZE_IN_FIELDS
+            + 1 // public logs and prefix
             + NUM_CC_LOGS
             + 1 // contract class logs and prefix
             + 2
@@ -995,7 +990,7 @@ mod tests {
             0, PublicDataTreeLeaf { slot: PUB_DATA_SLOT, value: PUB_DATA_VALUE },
         ));
         builder.tube_data.append_private_logs(NUM_PRIV_EVENT_LOGS);
-        builder.avm_data.append_unencrypted_log_hashes(NUM_UNENC_LOGS);
+        builder.avm_data.append_public_logs(NUM_PUB_LOGS);
         // Below will only work with NUM_CC_LOGS=1
         builder.tube_data.add_contract_class_log_hash(1, 2);
         let inputs = builder.build_inputs();
@@ -1077,24 +1072,25 @@ mod tests {
             }
         }
         offset += total_private_logs_len;
-        // TODO(#8954): The below will change with log deconstruction
-        // unenc logs
-        let unencrypted_logs_prefix = encode_blob_prefix(UNENCRYPTED_LOGS_PREFIX, NUM_UNENC_LOGS);
-        reconstructed_tx_effects[offset] = unencrypted_logs_prefix;
+        // public logs
+        let public_logs_prefix =
+            encode_blob_prefix(PUBLIC_LOGS_PREFIX, NUM_PUB_LOGS * PUBLIC_LOG_SIZE_IN_FIELDS);
+        reconstructed_tx_effects[offset] = public_logs_prefix;
         offset += 1;
-        for i in 0..NUM_UNENC_LOGS {
-            reconstructed_tx_effects[offset + i] = types::hash::silo_unencrypted_log_hash(
-                builder.avm_data.unencrypted_logs_hashes.storage()[i],
-            );
+        for i in 0..NUM_PUB_LOGS {
+            let log = builder.avm_data.public_logs.storage()[i].serialize();
+            for j in 0..PUBLIC_LOG_SIZE_IN_FIELDS {
+                reconstructed_tx_effects[offset + i * PUBLIC_LOG_SIZE_IN_FIELDS + j] = log[j];
+            }
         }
-        offset += NUM_UNENC_LOGS;
+        offset += NUM_PUB_LOGS * PUBLIC_LOG_SIZE_IN_FIELDS;
         // cc logs
         let contract_class_logs_prefix =
             encode_blob_prefix(CONTRACT_CLASS_LOGS_PREFIX, NUM_CC_LOGS);
         reconstructed_tx_effects[offset] = contract_class_logs_prefix;
         offset += 1;
         for i in 0..NUM_CC_LOGS {
-            reconstructed_tx_effects[offset + i] = types::hash::silo_unencrypted_log_hash(
+            reconstructed_tx_effects[offset + i] = types::hash::silo_contract_class_log_hash(
                 builder.tube_data.contract_class_logs_hashes.storage()[i],
             );
         }
