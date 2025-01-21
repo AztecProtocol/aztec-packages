@@ -199,7 +199,7 @@ describe('L1Publisher', () => {
     });
   };
 
-  it.only('publishes and propose l2 block to l1', async () => {
+  it('publishes and propose l2 block to l1', async () => {
     rollupContractRead.archive.mockResolvedValue(l2Block.header.lastArchive.root.toString() as `0x${string}`);
     rollupContractWrite.propose.mockResolvedValueOnce(proposeTxHash);
 
