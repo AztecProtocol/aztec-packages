@@ -34,6 +34,12 @@ export class GasTxValidator implements TxValidator<Tx> {
     return this.#validateTxFee(tx);
   }
 
+  /**
+   * Check whether the tx's max fees are valid for the current block, and skip if not.
+   * We skip instead of invalidating since the tx may become elligible later.
+   * Note that circuits check max fees even if fee payer is unset, so we
+   * keep this validation even if the tx does not pay fees.
+   */
   #shouldSkip(tx: Tx): boolean {
     const gasSettings = tx.data.constants.txContext.gasSettings;
 

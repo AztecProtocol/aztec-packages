@@ -3,6 +3,7 @@ import {
   type AccountWallet,
   type AztecAddress,
   type AztecNode,
+  CheatCodes,
   type Logger,
   type PXE,
   SignerlessWallet,
@@ -52,6 +53,7 @@ export class FeesTest {
   public logger: Logger;
   public pxe!: PXE;
   public aztecNode!: AztecNode;
+  public cheatCodes!: CheatCodes;
 
   public aliceWallet!: AccountWallet;
   public aliceAddress!: AztecAddress;
@@ -133,6 +135,7 @@ export class FeesTest {
         this.pxe = pxe;
         this.aztecNode = aztecNode;
         this.gasSettings = GasSettings.default({ maxFeesPerGas: (await this.aztecNode.getCurrentBaseFees()).mul(2) });
+        this.cheatCodes = await CheatCodes.create(aztecNodeConfig.l1RpcUrl, pxe);
         const accountManagers = accountKeys.map(ak => getSchnorrAccount(pxe, ak[0], ak[1], 1));
         await Promise.all(accountManagers.map(a => a.register()));
         this.wallets = await Promise.all(accountManagers.map(a => a.getWallet()));

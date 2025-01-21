@@ -99,11 +99,24 @@ abstract class BaseField {
     return Boolean(this.toBigInt());
   }
 
+  /**
+   * Converts this field to a number.
+   * Throws if the underlying value is greater than MAX_SAFE_INTEGER.
+   */
   toNumber(): number {
     const value = this.toBigInt();
     if (value > Number.MAX_SAFE_INTEGER) {
       throw new Error(`Value ${value.toString(16)} greater than than max safe integer`);
     }
+    return Number(value);
+  }
+
+  /**
+   * Converts this field to a number.
+   * May cause loss of precision if the underlying value is greater than MAX_SAFE_INTEGER.
+   */
+  toNumberUnsafe(): number {
+    const value = this.toBigInt();
     return Number(value);
   }
 
