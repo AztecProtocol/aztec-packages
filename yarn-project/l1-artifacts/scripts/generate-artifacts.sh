@@ -1,78 +1,95 @@
 #!/usr/bin/env bash
-set -euo pipefail;
+set -euo pipefail
 
-target_dir=./generated
+# Contracts name list (all assumed to be in l1-contracts).
+# This script writes into the generated/ folder:
+# - index.ts: entrypoint
+# - {name}Abi.ts: contains the ABI
+# - {name}Bytecode.ts: contains the bytecode and link references
 
-
-# CONTRACT elements have structure PROJECT_DIR_NAME:CONTRACT_NAME.
-#   This will generate the following artifacts for the contracts within the target_dir{./generated} directory.
-#   - a .{CONTRACT_NAME}Bytecode.ts containing the contract bytecode.
-#   - a .{CONTRACT_NAME}Abi.ts containing the contract ABI.
-
-CONTRACTS=(
-  "l1-contracts:Registry"
-  "l1-contracts:Inbox"
-  "l1-contracts:Outbox"
-  "l1-contracts:Rollup"
-  "l1-contracts:TokenPortal"
-  "l1-contracts:TestERC20"
-  "l1-contracts:UniswapPortal"
-  "l1-contracts:IERC20"
-  "l1-contracts:FeeJuicePortal"
-  "l1-contracts:MockVerifier"
-  "l1-contracts:IVerifier"
-  "l1-contracts:IProofCommitmentEscrow"
-  "l1-contracts:ProofCommitmentEscrow"
-  "l1-contracts:CoinIssuer"
-  "l1-contracts:RewardDistributor"
-  "l1-contracts:GovernanceProposer"
-  "l1-contracts:Governance"
-  "l1-contracts:NewGovernanceProposerPayload"
-  "l1-contracts:LeonidasLib"
-  "l1-contracts:ExtRollupLib"
-  "l1-contracts:SlashingProposer"
-  "l1-contracts:Slasher"
-  "l1-contracts:EmpireBase"
-  "l1-contracts:SlashFactory"
+contracts=(
+  "Registry"
+  "Inbox"
+  "Outbox"
+  "Rollup"
+  "TokenPortal"
+  "TestERC20"
+  "UniswapPortal"
+  "IERC20"
+  "FeeJuicePortal"
+  "MockVerifier"
+  "IVerifier"
+  "IProofCommitmentEscrow"
+  "ProofCommitmentEscrow"
+  "CoinIssuer"
+  "RewardDistributor"
+  "GovernanceProposer"
+  "Governance"
+  "NewGovernanceProposerPayload"
+  "LeonidasLib"
+  "ExtRollupLib"
+  "SlashingProposer"
+  "Slasher"
+  "EmpireBase"
+  "SlashFactory"
+  "RollupVerifier"
 )
 
-# Read the error ABI's once and store it in COMBINED_ERRORS variable
-COMBINED_ERRORS=$(jq -s '
-    .[0].abi + .[1].abi |
-    unique_by({type: .type, name: .name})
-' \
-    ../../l1-contracts/out/Errors.sol/Errors.json \
-    ../../l1-contracts/out/libraries/Errors.sol/Errors.json)
+# Combine error ABIs once, removing duplicates by {type, name}.
+combined_errors_abi=$(
+  jq -s '
+    .[0].abi + .[1].abi
+    | unique_by({type: .type, name: .name})
+  ' \
+  ../../l1-contracts/out/Errors.sol/Errors.json \
+  ../../l1-contracts/out/libraries/Errors.sol/Errors.json
+)
 
-# create target dir if it doesn't exist
-mkdir -p "$target_dir";
+# Start from clean.
+rm -rf generated && mkdir generated
 
-echo -ne "// Auto generated module\n" > "$target_dir/index.ts";
+echo "// Auto-generated module" > "generated/index.ts"
 
-for E in "${CONTRACTS[@]}"; do
-    ARR=(${E//:/ })
-    ROOT="${ARR[0]}";
-    CONTRACT_NAME="${ARR[1]}";
+for contract_name in "${contracts[@]}"; do
 
-    echo -ne "/**\n * $CONTRACT_NAME ABI.\n */\nexport const ${CONTRACT_NAME}Abi = " > "$target_dir/${CONTRACT_NAME}Abi.ts";
-
+  # Generate <ContractName>Abi.ts
+  (
+    echo "/**"
+    echo " * ${contract_name} ABI."
+    echo " */"
+    echo -n "export const ${contract_name}Abi = "
     # Merge contract abi and errors abi while removing duplicates based on both type and name
     # Just merging it into all, it is not the cleanest, but it does the job.
-    jq -j --argjson errors "$COMBINED_ERRORS" '
-        .abi + $errors |
-        unique_by({type: .type, name: .name})
-    ' ../../$ROOT/out/$CONTRACT_NAME.sol/$CONTRACT_NAME.json >> "$target_dir/${CONTRACT_NAME}Abi.ts";
+    jq -j --argjson errs "$combined_errors_abi" '
+      .abi + $errs
+      | unique_by({type: .type, name: .name})
+    ' \
+      "../../l1-contracts/out/${contract_name}.sol/${contract_name}.json"
+    echo " as const;"
+  ) > "generated/${contract_name}Abi.ts"
 
-    echo " as const;" >> "$target_dir/${CONTRACT_NAME}Abi.ts";
+  # Generate <ContractName>Bytecode.ts
+  (
+    echo "/**"
+    echo " * ${contract_name} bytecode."
+    echo " */"
+    echo -n "export const ${contract_name}Bytecode = \""
+    jq -j '.bytecode.object' \
+      "../../l1-contracts/out/${contract_name}.sol/${contract_name}.json"
+    echo "\";"
 
-    echo -ne "/**\n * $CONTRACT_NAME bytecode.\n */\nexport const ${CONTRACT_NAME}Bytecode = \"" > "$target_dir/${CONTRACT_NAME}Bytecode.ts";
-    jq -j '.bytecode.object' ../../$ROOT/out/$CONTRACT_NAME.sol/$CONTRACT_NAME.json >> "$target_dir/${CONTRACT_NAME}Bytecode.ts";
-    echo "\";" >> "$target_dir/${CONTRACT_NAME}Bytecode.ts";
-    echo -ne "/**\n * $CONTRACT_NAME link references.\n */\nexport const ${CONTRACT_NAME}LinkReferences = " >> "$target_dir/${CONTRACT_NAME}Bytecode.ts";
-    jq -j '.bytecode.linkReferences' ../../$ROOT/out/$CONTRACT_NAME.sol/$CONTRACT_NAME.json >> "$target_dir/${CONTRACT_NAME}Bytecode.ts";
-    echo " as const;" >> "$target_dir/${CONTRACT_NAME}Bytecode.ts";
+    echo "/**"
+    echo " * ${contract_name} link references."
+    echo " */"
+    echo -n "export const ${contract_name}LinkReferences = "
+    jq -j '.bytecode.linkReferences' \
+      "../../l1-contracts/out/${contract_name}.sol/${contract_name}.json"
+    echo " as const;"
+  ) > "generated/${contract_name}Bytecode.ts"
 
-    echo -ne "export * from './${CONTRACT_NAME}Abi.js';\nexport * from './${CONTRACT_NAME}Bytecode.js';\n" >> "$target_dir/index.ts";
-done;
+  # Update index.ts exports
+  echo "export * from './${contract_name}Abi.js';" >> "generated/index.ts"
+  echo "export * from './${contract_name}Bytecode.js';" >> "generated/index.ts"
+done
 
-echo "Successfully generated TS artifacts!";
+echo "Successfully generated TS artifacts!"
