@@ -10,7 +10,7 @@ out/
 # Dotenv file
 .env
 
-src/generated
+generated
 lcov.info
 
 # Local foundry env
