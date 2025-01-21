@@ -1,7 +1,6 @@
 import { MerkleTreeId } from '@aztec/circuit-types';
 import {
   ARCHIVE_HEIGHT,
-  Fr,
   GeneratorIndex,
   L1_TO_L2_MSG_TREE_HEIGHT,
   MAX_NULLIFIERS_PER_TX,
@@ -11,16 +10,13 @@ import {
   PUBLIC_DATA_TREE_HEIGHT,
 } from '@aztec/circuits.js';
 import { createLogger } from '@aztec/foundation/log';
-import { NativeWorldState as BaseNativeWorldState } from '@aztec/native';
+import { NativeWorldState as BaseNativeWorldState, MsgpackChannel } from '@aztec/native';
 
 import assert from 'assert';
-import { addExtension } from 'msgpackr';
 import { cpus } from 'os';
 
 import { type WorldStateInstrumentation } from '../instrumentation/instrumentation.js';
 import {
-  MessageHeader,
-  TypedMessage,
   WorldStateMessageType,
   type WorldStateRequest,
   type WorldStateRequestCategories,
@@ -31,18 +27,7 @@ import {
 } from './message.js';
 import { WorldStateOpsQueue } from './world_state_ops_queue.js';
 
-// small extension to pack an NodeJS Fr instance to a representation that the C++ code can understand
-// this only works for writes. Unpacking from C++ can't create Fr instances because the data is passed
-// as raw, untagged, buffers. On the NodeJS side we don't know what the buffer represents
-// Adding a tag would be a solution, but it would have to be done on both sides and it's unclear where else
-// C++ fr instances are sent/received/stored.
-addExtension({
-  Class: Fr,
-  write: fr => fr.toBuffer(),
-});
-
 const MAX_WORLD_STATE_THREADS = +(process.env.HARDWARE_CONCURRENCY || '16');
-const THREADS = Math.min(cpus().length, MAX_WORLD_STATE_THREADS);
 
 export interface NativeWorldStateInstance {
   call<T extends WorldStateMessageType>(
@@ -52,16 +37,15 @@ export interface NativeWorldStateInstance {
 }
 
 /**
- * Strongly-typed interface to access the WorldState class in the native nodejs_module library.
+ * Strongly-typed interface to access the WorldState class in the native world_state_napi module.
  */
-export class NativeWorldState extends BaseNativeWorldState implements NativeWorldStateInstance {
+export class NativeWorldState implements NativeWorldStateInstance {
   private open = true;
-
-  /** Each message needs a unique ID */
-  private nextMessageId = 0;
 
   // We maintain a map of queue to fork
   private queues = new Map<number, WorldStateOpsQueue>();
+
+  private instance: MsgpackChannel<WorldStateMessageType, WorldStateRequest, WorldStateResponse>;
 
   /** Creates a new native WorldState instance */
   constructor(
@@ -70,11 +54,11 @@ export class NativeWorldState extends BaseNativeWorldState implements NativeWorl
     private instrumentation: WorldStateInstrumentation,
     private log = createLogger('world-state:database'),
   ) {
+    const threads = Math.min(cpus().length, MAX_WORLD_STATE_THREADS);
     log.info(
-      `Creating world state data store at directory ${dataDir} with map size ${dbMapSizeKb} KB and ${THREADS} threads.`,
+      `Creating world state data store at directory ${dataDir} with map size ${dbMapSizeKb} KB and ${threads} threads.`,
     );
-
-    super(
+    const ws = new BaseNativeWorldState(
       dataDir,
       {
         [MerkleTreeId.NULLIFIER_TREE]: NULLIFIER_TREE_HEIGHT,
@@ -89,8 +73,9 @@ export class NativeWorldState extends BaseNativeWorldState implements NativeWorl
       },
       GeneratorIndex.BLOCK_HASH,
       dbMapSizeKb,
-      THREADS,
+      threads,
     );
+    this.instance = new MsgpackChannel(ws);
     // Manually create the queue for the canonical fork
     this.queues.set(0, new WorldStateOpsQueue());
   }
@@ -108,10 +93,13 @@ export class NativeWorldState extends BaseNativeWorldState implements NativeWorl
     body: WorldStateRequest[T] & WorldStateRequestCategories,
     // allows for the pre-processing of responses on the job queue before being passed back
     responseHandler = (response: WorldStateResponse[T]): WorldStateResponse[T] => response,
+    errorHandler = (_: string) => {},
   ): Promise<WorldStateResponse[T]> {
     // Here we determine which fork the request is being executed against and whether it requires uncommitted data
+    // We use the fork Id to select the appropriate request queue and the uncommitted data flag to pass to the queue
     let forkId = -1;
     // We assume it includes uncommitted unless explicitly told otherwise
+    let committedOnly = false;
 
     // Canonical requests ALWAYS go against the canonical fork
     // These include things like block syncs/unwinds etc
@@ -185,70 +173,61 @@ export class NativeWorldState extends BaseNativeWorldState implements NativeWorl
     messageType: T,
     body: WorldStateRequest[T] & WorldStateRequestCategories,
   ): Promise<WorldStateResponse[T]> {
-    const messageId = this.nextMessageId++;
+    let logMetadata: Record<string, any> = {};
+
     if (body) {
-      let data: Record<string, any> = {};
       if ('treeId' in body) {
-        data['treeId'] = MerkleTreeId[body.treeId];
+        logMetadata['treeId'] = MerkleTreeId[body.treeId];
       }
 
       if ('revision' in body) {
-        data = { ...data, ...body.revision };
+        logMetadata = { ...logMetadata, ...body.revision };
       }
 
       if ('forkId' in body) {
-        data['forkId'] = body.forkId;
+        logMetadata['forkId'] = body.forkId;
       }
 
       if ('blockNumber' in body) {
-        data['blockNumber'] = body.blockNumber;
+        logMetadata['blockNumber'] = body.blockNumber;
       }
 
       if ('toBlockNumber' in body) {
-        data['toBlockNumber'] = body.toBlockNumber;
+        logMetadata['toBlockNumber'] = body.toBlockNumber;
       }
 
       if ('leafIndex' in body) {
-        data['leafIndex'] = body.leafIndex;
+        logMetadata['leafIndex'] = body.leafIndex;
       }
 
       if ('blockHeaderHash' in body) {
-        data['blockHeaderHash'] = '0x' + body.blockHeaderHash.toString('hex');
+        logMetadata['blockHeaderHash'] = '0x' + body.blockHeaderHash.toString('hex');
       }
 
       if ('leaves' in body) {
-        data['leavesCount'] = body.leaves.length;
+        logMetadata['leavesCount'] = body.leaves.length;
       }
 
       // sync operation
       if ('paddedNoteHashes' in body) {
-        data['notesCount'] = body.paddedNoteHashes.length;
-        data['nullifiersCount'] = body.paddedNullifiers.length;
-        data['l1ToL2MessagesCount'] = body.paddedL1ToL2Messages.length;
-        data['publicDataWritesCount'] = body.publicDataWrites.length;
+        logMetadata['notesCount'] = body.paddedNoteHashes.length;
+        logMetadata['nullifiersCount'] = body.paddedNullifiers.length;
+        logMetadata['l1ToL2MessagesCount'] = body.paddedL1ToL2Messages.length;
+        logMetadata['publicDataWritesCount'] = body.publicDataWrites.length;
       }
-
-      this.log.trace(`Calling messageId=${messageId} ${WorldStateMessageType[messageType]}`, data);
-    } else {
-      this.log.trace(`Calling messageId=${messageId} ${WorldStateMessageType[messageType]}`);
     }
 
     try {
-      const request = new TypedMessage(messageType, new MessageHeader({ messageId }), body);
-      const { duration, response } = await this.sendMessage<T, WorldStateRequest[T], WorldStateResponse[T]>(request);
-
-      this.log.trace(`Call messageId=${messageId} ${WorldStateMessageType[messageType]} took (ms)`, {
-        totalDuration: duration.totalUs / 1e3,
-        encodingDuration: duration.encodingUs / 1e3,
-        callDuration: duration.callUs / 1e3,
-        decodingDuration: duration.decodingUs / 1e3,
+      const { duration, response } = await this.instance.sendMessage(messageType, body);
+      this.log.trace(`Call ${WorldStateMessageType[messageType]} took (ms)`, {
+        duration,
+        ...logMetadata,
       });
 
-      this.instrumentation.recordRoundTrip(duration.callUs, messageType);
-
-      return response.value;
+      this.instrumentation.recordRoundTrip(duration.totalUs, messageType);
+      return response;
     } catch (error) {
-      this.log.error(`Call messageId=${messageId} ${WorldStateMessageType[messageType]} failed: ${error}`);
+      this.log.error(`Call ${WorldStateMessageType[messageType]} failed: ${error}`, error, logMetadata);
       throw error;
     }
   }

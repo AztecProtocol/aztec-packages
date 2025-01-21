@@ -1,29 +1,37 @@
-import { TypedMessage } from '@aztec/foundation/message';
+import { Fr } from '@aztec/foundation/fields';
+import { MessageHeader, TypedMessage } from '@aztec/foundation/message';
 
-import { Decoder, Encoder } from 'msgpackr';
+import { Decoder, Encoder, addExtension } from 'msgpackr';
 import { isAnyArrayBuffer } from 'util/types';
 
-export interface NativeInstance {
+export interface MessageReceiver {
   call(msg: Buffer | Uint8Array): Promise<Buffer | Uint8Array>;
 }
 
-export interface NativeClass {
-  new (...args: unknown[]): NativeInstance;
-}
-
-export type NativeModule = Record<string, NativeClass>;
-
-export type WrappedNativeClass = { new (...args: unknown[]): NativeInstanceWrapper };
-export type WrappedNativeModule = Record<string, WrappedNativeClass>;
-
-export type NativeCallDuration = {
+type RoundtripDuration = {
   encodingUs: number;
   callUs: number;
   decodingUs: number;
   totalUs: number;
 };
 
-export class NativeInstanceWrapper {
+// small extension to pack an NodeJS Fr instance to a representation that the C++ code can understand
+// this only works for writes. Unpacking from C++ can't create Fr instances because the data is passed
+// as raw, untagged, buffers. On the NodeJS side we don't know what the buffer represents
+// Adding a tag would be a solution, but it would have to be done on both sides and it's unclear where else
+// C++ fr instances are sent/received/stored.
+addExtension({
+  Class: Fr,
+  write: fr => fr.toBuffer(),
+});
+
+export type MessageBody<T extends number> = { [K in T]: object | void };
+
+export class MsgpackChannel<
+  M extends number = number,
+  Req extends MessageBody<M> = any,
+  Resp extends MessageBody<M> = any,
+> {
   /** A long-lived msgpack encoder */
   private encoder = new Encoder({
     // always encode JS objects as MessagePack maps
@@ -38,16 +46,15 @@ export class NativeInstanceWrapper {
     int64AsType: 'bigint',
   });
 
-  protected instance: NativeInstance;
+  private msgId = 1;
 
-  protected constructor(protected klass: NativeClass, ...args: unknown[]) {
-    this.instance = new klass(...args);
-  }
+  public constructor(private dest: MessageReceiver) {}
 
-  protected async sendMessage<T, REQ, RESP>(
-    request: TypedMessage<T, REQ>,
-  ): Promise<{ duration: NativeCallDuration; response: TypedMessage<T, RESP> }> {
-    const duration: NativeCallDuration = {
+  public async sendMessage<T extends M>(
+    msgType: T,
+    body: Req[T],
+  ): Promise<{ requestId: number; duration: RoundtripDuration; response: Resp[T] }> {
+    const duration: RoundtripDuration = {
       callUs: 0,
       totalUs: 0,
       decodingUs: 0,
@@ -55,11 +62,13 @@ export class NativeInstanceWrapper {
     };
 
     const start = process.hrtime.bigint();
+    const requestId = this.msgId++;
+    const request = new TypedMessage(msgType, new MessageHeader({ requestId }), body);
     const encodedRequest = this.encoder.encode(request);
     const encodingEnd = process.hrtime.bigint();
     duration.encodingUs = Number((encodingEnd - start) / 1000n);
 
-    const encodedResponse = await this.instance.call(encodedRequest);
+    const encodedResponse = await this.dest.call(encodedRequest);
     const callEnd = process.hrtime.bigint();
     duration.callUs = Number((callEnd - encodingEnd) / 1000n);
 
@@ -84,7 +93,7 @@ export class NativeInstanceWrapper {
       );
     }
 
-    const response = TypedMessage.fromMessagePack<T, RESP>(decodedResponse);
+    const response = TypedMessage.fromMessagePack<T, Resp[T]>(decodedResponse);
     const decodingEnd = process.hrtime.bigint();
     duration.decodingUs = Number((decodingEnd - callEnd) / 1000n);
 
@@ -100,23 +109,6 @@ export class NativeInstanceWrapper {
 
     duration.totalUs = Number((process.hrtime.bigint() - start) / 1000n);
 
-    return { duration, response };
+    return { requestId, duration, response: response.value };
   }
-}
-
-export function wrap(name: string, klass: NativeClass): WrappedNativeClass {
-  // use a dummy object in order to give a name to this anonymous class
-  const dummy = {
-    [name]: class extends NativeInstanceWrapper {
-      constructor(...args: unknown[]) {
-        super(klass, ...args);
-      }
-    },
-  };
-
-  return dummy.name;
-}
-
-export function wrapModule(module: NativeModule): WrappedNativeModule {
-  return Object.fromEntries(Object.entries(module).map(([name, klass]) => [name, wrap(name, klass)]));
 }

@@ -1421,16 +1421,13 @@ __metadata:
     "@aztec/telemetry-client": "workspace:^"
     "@aztec/types": "workspace:^"
     "@jest/globals": "npm:^29.5.0"
-    "@types/bindings": "npm:^1.5.5"
     "@types/jest": "npm:^29.5.0"
     "@types/levelup": "npm:^5.1.2"
     "@types/memdown": "npm:^3.0.0"
     "@types/node": "npm:^18.7.23"
-    bindings: "npm:^1.5.0"
     jest: "npm:^29.5.0"
     jest-mock-extended: "npm:^3.0.5"
     memdown: "npm:^6.1.1"
-    msgpackr: "npm:^1.10.2"
     ts-node: "npm:^10.9.1"
     tslib: "npm:^2.4.0"
     typescript: "npm:^5.0.4"
@@ -15274,18 +15271,6 @@ __metadata:
     msgpackr-extract:
       optional: true
   checksum: 10/7602f1e91e5ba13f4289ec9cab0d3f3db87d4ed323bebcb40a0c43ba2f6153192bffb63a5bb4755faacb6e0985f307c35084f40eaba1c325b7035da91381f01a
-  languageName: node
-  linkType: hard
-
-"msgpackr@npm:^1.10.2":
-  version: 1.10.2
-  resolution: "msgpackr@npm:1.10.2"
-  dependencies:
-    msgpackr-extract: "npm:^3.0.2"
-  dependenciesMeta:
-    msgpackr-extract:
-      optional: true
-  checksum: 10/c422bed19f70d23b5f8945cb8e334cb9e773350b422d606794397c22260ef64a42a17284c5e14c2693203f871ecb18157dc47e2b8bd2e66d7764fcde3442a5c1
   languageName: node
   linkType: hard
 

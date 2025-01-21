@@ -70,15 +70,12 @@
     "@aztec/native": "workspace:^",
     "@aztec/telemetry-client": "workspace:^",
     "@aztec/types": "workspace:^",
-    "bindings": "^1.5.0",
-    "msgpackr": "^1.10.2",
     "tslib": "^2.4.0",
     "zod": "^3.23.8"
   },
   "devDependencies": {
     "@aztec/archiver": "workspace:^",
     "@jest/globals": "^29.5.0",
-    "@types/bindings": "^1.5.5",
     "@types/jest": "^29.5.0",
     "@types/levelup": "^5.1.2",
     "@types/memdown": "^3.0.0",
