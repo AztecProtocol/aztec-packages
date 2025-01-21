@@ -151,6 +151,7 @@ template <typename Flavor> class SumcheckProver {
     std::vector<std::array<FF, 3>> round_evaluations = {};
     std::vector<Polynomial<FF>> round_univariates = {};
     std::vector<FF> eval_domain = {};
+    FF libra_evaluation = FF{ 0 };
 
     /**
     *
@@ -237,8 +238,7 @@ template <typename Flavor> class SumcheckProver {
         }
         // Claimed evaluations of Prover polynomials are extracted and added to the transcript. When Flavor has ZK, the
         // evaluations of all witnesses are masked.
-        ClaimedEvaluations multivariate_evaluations;
-        multivariate_evaluations = extract_claimed_evaluations(partially_evaluated_polynomials);
+        ClaimedEvaluations multivariate_evaluations = extract_claimed_evaluations(partially_evaluated_polynomials);
         transcript->send_to_verifier("Sumcheck:evaluations", multivariate_evaluations.get_all());
         // For ZK Flavors: the evaluations of Libra univariates are included in the Sumcheck Output
 
@@ -269,6 +269,10 @@ template <typename Flavor> class SumcheckProver {
 
         if constexpr (IS_ECCVM) {
             ck = std::make_shared<CommitmentKey>(BATCHED_RELATION_PARTIAL_LENGTH);
+        } else {
+            // Ensure that the length of Sumcheck Round Univariates does not exceed the length of Libra masking
+            // polynomials.
+            ASSERT(BATCHED_RELATION_PARTIAL_LENGTH <= Flavor::Curve::LIBRA_UNIVARIATES_LENGTH);
         }
 
         bb::GateSeparatorPolynomial<FF> gate_separators(gate_challenges, multivariate_d);
@@ -379,17 +383,15 @@ template <typename Flavor> class SumcheckProver {
 
         // Claimed evaluations of Prover polynomials are extracted and added to the transcript. When Flavor has ZK, the
         // evaluations of all witnesses are masked.
-        ClaimedEvaluations multivariate_evaluations;
-        multivariate_evaluations = extract_claimed_evaluations(partially_evaluated_polynomials);
+        ClaimedEvaluations multivariate_evaluations = extract_claimed_evaluations(partially_evaluated_polynomials);
         transcript->send_to_verifier("Sumcheck:evaluations", multivariate_evaluations.get_all());
 
         // The evaluations of Libra uninvariates at \f$ g_0(u_0), \ldots, g_{d-1} (u_{d-1}) \f$ are added to the
         // transcript.
-        FF libra_evaluation{ 0 };
+        FF libra_evaluation = zk_sumcheck_data.constant_term;
         for (const auto& libra_eval : zk_sumcheck_data.libra_evaluations) {
             libra_evaluation += libra_eval;
         }
-        libra_evaluation += zk_sumcheck_data.constant_term;
         transcript->send_to_verifier("Libra:claimed_evaluation", libra_evaluation);
 
         // The sum of the Libra constant term and the evaluations of Libra univariates at corresponding sumcheck
@@ -515,8 +517,8 @@ polynomials that are sent in clear.
         const std::string idx = std::to_string(round_idx);
 
         // Transform to monomial form and commit to it
-        Polynomial<FF> round_poly_monomial =
-            Polynomial<FF>(eval_domain, std::span<FF>(round_univariate.evaluations), BATCHED_RELATION_PARTIAL_LENGTH);
+        Polynomial<FF> round_poly_monomial(
+            eval_domain, std::span<FF>(round_univariate.evaluations), BATCHED_RELATION_PARTIAL_LENGTH);
         transcript->send_to_verifier("Sumcheck:univariate_comm_" + idx, ck->commit(round_poly_monomial));
 
         // Store round univariate in monomial, as it is required by Shplemini
