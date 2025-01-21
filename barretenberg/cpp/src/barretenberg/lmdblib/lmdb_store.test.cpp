@@ -76,7 +76,9 @@ void write_test_data(std::vector<std::string> dbNames, int64_t numKeys, int64_t 
     KeyOptionalValuesVector toDelete;
     prepare_test_data(numKeys, numValues, toWrite);
     for (auto& name : dbNames) {
-        store.put(toWrite, toDelete, name);
+        LMDBStore::PutData putData = { toWrite, toDelete, name };
+        std::vector<LMDBStore::PutData> putDatas = { putData };
+        store.put(putDatas);
     }
 }
 
@@ -113,7 +115,24 @@ TEST_F(LMDBStoreTest, can_write_to_database)
     auto data = get_value(0, 1);
     KeyDupValuesVector toWrite = { { { key, { data } } } };
     KeyOptionalValuesVector toDelete;
-    EXPECT_NO_THROW(store->put(toWrite, toDelete, name));
+    LMDBStore::PutData putData = { toWrite, toDelete, name };
+    std::vector<LMDBStore::PutData> putDatas = { putData };
+    EXPECT_NO_THROW(store->put(putDatas));
+}
+
+TEST_F(LMDBStoreTest, can_not_write_to_database_that_does_not_exist)
+{
+    LMDBStore::Ptr store = create_store();
+    const std::string name = "Test Database";
+    store->open_database(name);
+
+    auto key = get_key(0);
+    auto data = get_value(0, 1);
+    KeyDupValuesVector toWrite = { { { key, { data } } } };
+    KeyOptionalValuesVector toDelete;
+    LMDBStore::PutData putData = { toWrite, toDelete, "Non Existent Database" };
+    std::vector<LMDBStore::PutData> putDatas = { putData };
+    EXPECT_THROW(store->put(putDatas), std::runtime_error);
 }
 
 TEST_F(LMDBStoreTest, can_close_database)
@@ -126,7 +145,9 @@ TEST_F(LMDBStoreTest, can_close_database)
     auto data = get_value(0, 1);
     KeyDupValuesVector toWrite = { { { key, { data } } } };
     KeyOptionalValuesVector toDelete;
-    EXPECT_NO_THROW(store->put(toWrite, toDelete, name));
+    LMDBStore::PutData putData = { toWrite, toDelete, name };
+    std::vector<LMDBStore::PutData> putDatas = { putData };
+    EXPECT_NO_THROW(store->put(putDatas));
 
     EXPECT_NO_THROW(store->close_database(name));
 
@@ -134,7 +155,9 @@ TEST_F(LMDBStoreTest, can_close_database)
     key = get_key(1);
     data = get_value(1, 1);
     toWrite = { { { key, { data } } } };
-    EXPECT_THROW(store->put(toWrite, toDelete, name), std::runtime_error);
+    putData = { toWrite, toDelete, name };
+    putDatas = { putData };
+    EXPECT_THROW(store->put(putDatas), std::runtime_error);
 }
 
 TEST_F(LMDBStoreTest, can_write_duplicate_keys_to_database)
@@ -151,8 +174,12 @@ TEST_F(LMDBStoreTest, can_write_duplicate_keys_to_database)
     auto dataDup = get_value(0, 2);
     KeyDupValuesVector toWrite = { { { key, { data, dataDup } } } };
     KeyOptionalValuesVector toDelete;
-    EXPECT_NO_THROW(store->put(toWrite, toDelete, name));
-    EXPECT_NO_THROW(store->put(toWrite, toDelete, nameDups));
+    LMDBStore::PutData putData = { toWrite, toDelete, name };
+    std::vector<LMDBStore::PutData> putDatas = { putData };
+    EXPECT_NO_THROW(store->put(putDatas));
+    LMDBStore::PutData putDataDups = { toWrite, toDelete, nameDups };
+    putDatas = { putDataDups };
+    EXPECT_NO_THROW(store->put(putDatas));
 }
 
 TEST_F(LMDBStoreTest, can_read_from_database)
@@ -165,7 +192,9 @@ TEST_F(LMDBStoreTest, can_read_from_database)
     auto expected = get_value(0, 1);
     KeyDupValuesVector toWrite = { { { key, { expected } } } };
     KeyOptionalValuesVector toDelete;
-    store->put(toWrite, toDelete, dbName);
+    LMDBStore::PutData putData = { toWrite, toDelete, dbName };
+    std::vector<LMDBStore::PutData> putDatas = { putData };
+    store->put(putDatas);
 
     OptionalValuesVector data;
     KeysVector keys = { { key } };
@@ -173,6 +202,25 @@ TEST_F(LMDBStoreTest, can_read_from_database)
     EXPECT_EQ(data.size(), 1);
     EXPECT_TRUE(data[0].has_value());
     EXPECT_EQ(data[0].value(), ValuesVector{ expected });
+}
+
+TEST_F(LMDBStoreTest, can_not_read_from_non_existent_database)
+{
+    LMDBStore::Ptr store = create_store();
+    const std::string dbName = "Test Database";
+    store->open_database(dbName);
+
+    auto key = get_key(0);
+    auto expected = get_value(0, 1);
+    KeyDupValuesVector toWrite = { { { key, { expected } } } };
+    KeyOptionalValuesVector toDelete;
+    LMDBStore::PutData putData = { toWrite, toDelete, dbName };
+    std::vector<LMDBStore::PutData> putDatas = { putData };
+    store->put(putDatas);
+
+    OptionalValuesVector data;
+    KeysVector keys = { { key } };
+    EXPECT_THROW(store->get(keys, data, "Non Existent Database"), std::runtime_error);
 }
 
 TEST_F(LMDBStoreTest, can_write_and_read_multiple)
@@ -276,7 +324,9 @@ TEST_F(LMDBStoreTest, can_read_missing_keys_from_database)
     auto expected = get_value(0, 0);
     KeyDupValuesVector toWrite = { { { key, { expected } } } };
     KeyOptionalValuesVector toDelete;
-    store->put(toWrite, toDelete, dbName);
+    LMDBStore::PutData putData = { toWrite, toDelete, dbName };
+    std::vector<LMDBStore::PutData> putDatas = { putData };
+    store->put(putDatas);
 
     OptionalValuesVector data;
     auto missing = serialise(std::string("Missing Key"));
@@ -319,7 +369,9 @@ TEST_F(LMDBStoreTest, can_write_and_delete)
             KeyValuesPair pair = { key, { data } };
             toDelete.emplace_back(pair);
         }
-        store->put(toWrite, toDelete, dbName);
+        LMDBStore::PutData putData = { toWrite, toDelete, dbName };
+        std::vector<LMDBStore::PutData> putDatas = { putData };
+        store->put(putDatas);
     }
 
     {
@@ -383,7 +435,9 @@ TEST_F(LMDBStoreTest, can_write_and_delete_duplicates)
             KeyValuesPair pair = { key, dup };
             toDelete.emplace_back(pair);
         }
-        store->put(toWrite, toDelete, dbName);
+        LMDBStore::PutData putData = { toWrite, toDelete, dbName };
+        std::vector<LMDBStore::PutData> putDatas = { putData };
+        store->put(putDatas);
     }
 
     {
@@ -437,9 +491,10 @@ TEST_F(LMDBStoreTest, can_delete_all_values_from_keys)
         KeyOptionalValuesPair pair = { key, std::nullopt };
         toDelete.emplace_back(pair);
     }
-    store->put(toWrite, toDelete, dbNames[0]);
-    store->put(toWrite, toDelete, dbNames[1]);
-
+    LMDBStore::PutData putData1 = { toWrite, toDelete, dbNames[0] };
+    LMDBStore::PutData putData2 = { toWrite, toDelete, dbNames[1] };
+    std::vector<LMDBStore::PutData> putDatas = { putData1, putData2 };
+    store->put(putDatas);
     // read all the key/value pairs
     {
         // We first read the database that supports duplicates
@@ -897,8 +952,10 @@ TEST_F(LMDBStoreTest, can_write_and_delete_many_times)
                 toDelete.emplace_back(get_key(keyToDelete), std::nullopt);
             }
         }
-        EXPECT_NO_THROW(store->put(testDataNoDuplicates, toDelete, dbNames[0]));
-        EXPECT_NO_THROW(store->put(testDataDuplicates, toDelete, dbNames[1]));
+        LMDBStore::PutData putData1 = { testDataNoDuplicates, toDelete, dbNames[0] };
+        LMDBStore::PutData putData2 = { testDataDuplicates, toDelete, dbNames[1] };
+        std::vector<LMDBStore::PutData> putDatas{ putData1, putData2 };
+        EXPECT_NO_THROW(store->put(putDatas));
     }
 }
 

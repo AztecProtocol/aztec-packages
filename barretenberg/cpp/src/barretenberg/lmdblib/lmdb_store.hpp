@@ -25,6 +25,12 @@ class LMDBStore : public LMDBStoreBase {
     using Database = LMDBDatabase;
     using Cursor = LMDBCursor;
 
+    struct PutData {
+        KeyDupValuesVector toWrite;
+        KeyOptionalValuesVector toDelete;
+        std::string name;
+    };
+
     LMDBStore(std::string directory, uint64_t mapSizeKb, uint64_t maxNumReaders, uint64_t maxDbs);
     LMDBStore(const LMDBStore& other) = delete;
     LMDBStore(LMDBStore&& other) = delete;
@@ -35,7 +41,7 @@ class LMDBStore : public LMDBStoreBase {
     void open_database(const std::string& name, bool duplicateKeysPermitted = false);
     void close_database(const std::string& name);
 
-    void put(KeyDupValuesVector& toWrite, KeyOptionalValuesVector& toDelete, const std::string& name);
+    void put(std::vector<PutData>& data);
     void get(KeysVector& keys, OptionalValuesVector& values, const std::string& name);
 
     Cursor::Ptr create_cursor(ReadTransaction::SharedPtr tx, const std::string& dbName);
@@ -47,9 +53,18 @@ class LMDBStore : public LMDBStoreBase {
     mutable std::mutex databasesMutex;
     std::unordered_map<std::string, LMDBDatabase::SharedPtr> databases;
 
-    void put(KeyDupValuesVector& toWrite, KeyOptionalValuesVector& toDelete, const LMDBDatabase& db);
+    void put(KeyDupValuesVector& toWrite,
+             KeyOptionalValuesVector& toDelete,
+             const LMDBDatabase& db,
+             LMDBWriteTransaction& tx);
     void get(KeysVector& keys, OptionalValuesVector& values, LMDBDatabase::SharedPtr db);
+    // Returns the database of the given name
     Database::SharedPtr get_database(const std::string& name);
+    // Returns all databases
     std::vector<Database::SharedPtr> get_databases() const;
+    // Returns database corresponding to the requested put operations
+    // Databases are returned in the order of the puts
+    // Throws if any of the databases are not found
+    std::vector<Database::SharedPtr> get_databases(const std::vector<PutData>& puts) const;
 };
 } // namespace bb::lmdblib

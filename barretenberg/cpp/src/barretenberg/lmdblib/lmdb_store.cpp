@@ -69,6 +69,21 @@ std::vector<LMDBStore::Database::SharedPtr> LMDBStore::get_databases() const
     return dbs;
 }
 
+std::vector<LMDBStore::Database::SharedPtr> LMDBStore::get_databases(const std::vector<PutData>& puts) const
+{
+    std::unique_lock<std::mutex> lock(databasesMutex);
+    std::vector<LMDBStore::Database::SharedPtr> dbs;
+    dbs.reserve(puts.size());
+    for (const auto& p : puts) {
+        const auto it = databases.find(p.name);
+        if (it == databases.end()) {
+            throw std::runtime_error(format("Database ", p.name, " not found"));
+        }
+        dbs.push_back(it->second);
+    }
+    return dbs;
+}
+
 uint64_t LMDBStore::get_stats(std::vector<DBStats>& stats) const
 {
     std::vector<LMDBStore::Database::SharedPtr> dbs = get_databases();
@@ -79,38 +94,44 @@ uint64_t LMDBStore::get_stats(std::vector<DBStats>& stats) const
     return _environment->get_map_size();
 }
 
-void LMDBStore::put(KeyDupValuesVector& toWrite, KeyOptionalValuesVector& toDelete, const std::string& name)
+void LMDBStore::put(std::vector<PutData>& data)
 {
-    put(toWrite, toDelete, *get_database(name));
+    std::vector<LMDBDatabase::SharedPtr> dbs = get_databases(data);
+    WriteTransaction::Ptr tx = create_write_transaction();
+    try {
+        for (size_t i = 0; i < data.size(); i++) {
+            put(data[i].toWrite, data[i].toDelete, *dbs[i], *tx);
+        }
+        tx->commit();
+    } catch (std::exception& e) {
+        tx->try_abort();
+        throw std::runtime_error(format("Failed to commit data", " Error: ", e.what()));
+    }
 }
+
 void LMDBStore::get(KeysVector& keys, OptionalValuesVector& values, const std::string& name)
 {
     get(keys, values, get_database(name));
 }
 
-void LMDBStore::put(KeyDupValuesVector& toWrite, KeyOptionalValuesVector& toDelete, const LMDBDatabase& db)
+void LMDBStore::put(KeyDupValuesVector& toWrite,
+                    KeyOptionalValuesVector& toDelete,
+                    const LMDBDatabase& db,
+                    LMDBWriteTransaction& tx)
 {
-    // lock used to ensure single write transaction
-    LMDBWriteTransaction::Ptr tx = create_write_transaction();
-    try {
-        for (auto& kd : toWrite) {
-            for (auto& p : kd.second) {
-                tx->put_value(kd.first, p, db);
-            }
+    for (auto& kd : toWrite) {
+        for (auto& p : kd.second) {
+            tx.put_value(kd.first, p, db);
         }
-        for (auto& kd : toDelete) {
-            if (!kd.second.has_value()) {
-                tx->delete_value(kd.first, db);
-                continue;
-            }
-            for (auto& p : kd.second.value()) {
-                tx->delete_value(kd.first, p, db);
-            }
+    }
+    for (auto& kd : toDelete) {
+        if (!kd.second.has_value()) {
+            tx.delete_value(kd.first, db);
+            continue;
         }
-        tx->commit();
-    } catch (std::exception& e) {
-        tx->try_abort();
-        throw std::runtime_error(format("Failed to commit data to ", db.name(), " Error: ", e.what()));
+        for (auto& p : kd.second.value()) {
+            tx.delete_value(kd.first, p, db);
+        }
     }
 }
 void LMDBStore::get(KeysVector& keys, OptionalValuesVector& values, LMDBDatabase::SharedPtr db)
