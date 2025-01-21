@@ -148,7 +148,7 @@ impl TestEnvironment {
         let header = NoteHeader { contract_address, storage_slot, nonce: 0, note_hash_counter };
         note.set_header(header);
         let note_hash = note.compute_note_hash();
-        let serialized_note = Note::serialize_content(*note);
+        let serialized_note = Note::pack_content(*note);
         notify_created_note(
             storage_slot,
             Note::get_note_type_id(),
