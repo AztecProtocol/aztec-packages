@@ -4,8 +4,8 @@ import { updateInlineTestData } from '@aztec/foundation/testing/files';
 import { PublicKeys } from './public_keys.js';
 
 describe('PublicKeys', () => {
-  it('serialization and deserialization', () => {
-    const pk = PublicKeys.random();
+  it('serialization and deserialization', async () => {
+    const pk = await PublicKeys.random();
     const serialized = pk.toString();
     const deserialized = PublicKeys.fromString(serialized);
 

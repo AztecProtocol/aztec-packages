@@ -101,11 +101,11 @@ describe('L1Publisher', () => {
 
   const GAS_GUESS = 300_000n;
 
-  beforeEach(() => {
+  beforeEach(async () => {
     mockBlobSinkServer = undefined;
     blobSinkClient = new HttpBlobSinkClient({ blobSinkUrl: BLOB_SINK_URL });
 
-    l2Block = L2Block.random(42);
+    l2Block = await L2Block.random(42);
 
     header = l2Block.header.toBuffer();
     archive = l2Block.archive.root.toBuffer();

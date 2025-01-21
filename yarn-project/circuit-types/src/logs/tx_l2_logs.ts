@@ -168,7 +168,7 @@ export class ContractClassTxL2Logs extends TxL2Logs {
    * @param numLogsPerCall - The number of logs emitted in each function call.
    * @returns A new `TxL2Logs` object.
    */
-  public static random(numCalls: number, numLogsPerCall: number): ContractClassTxL2Logs {
+  public static async random(numCalls: number, numLogsPerCall: number): Promise<ContractClassTxL2Logs> {
     if (numCalls * numLogsPerCall > MAX_CONTRACT_CLASS_LOGS_PER_TX) {
       throw new Error(
         `Trying to create ${numCalls * numLogsPerCall} logs for one tx (max: ${MAX_CONTRACT_CLASS_LOGS_PER_TX})`,
@@ -176,7 +176,7 @@ export class ContractClassTxL2Logs extends TxL2Logs {
     }
     const functionLogs: UnencryptedFunctionL2Logs[] = [];
     for (let i = 0; i < numCalls; i++) {
-      functionLogs.push(UnencryptedFunctionL2Logs.random(numLogsPerCall));
+      functionLogs.push(await UnencryptedFunctionL2Logs.random(numLogsPerCall));
     }
     return new ContractClassTxL2Logs(functionLogs);
   }

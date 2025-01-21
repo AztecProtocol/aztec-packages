@@ -12,18 +12,23 @@ import { mockGetContractInstance, mockNullifierExists } from '../test_utils.js';
 import { ContractInstanceMember, GetContractInstance } from './contract.js';
 
 describe('Contract opcodes', () => {
-  const address = AztecAddress.random();
-  const contractInstance = SerializableContractInstance.random();
-  const deployer = contractInstance.deployer;
-  const contractClassId = contractInstance.contractClassId;
-  const initializationHash = contractInstance.initializationHash;
+  let address: AztecAddress;
+  let contractInstance: SerializableContractInstance;
+  let deployer: AztecAddress;
+  let contractClassId: Fr;
+  let initializationHash: Fr;
 
   let worldStateDB: WorldStateDB;
   let trace: PublicSideEffectTraceInterface;
   let persistableState: AvmPersistableStateManager;
   let context: AvmContext;
 
-  beforeEach(() => {
+  beforeEach(async () => {
+    address = await AztecAddress.random();
+    contractInstance = await SerializableContractInstance.random();
+    deployer = contractInstance.deployer;
+    contractClassId = contractInstance.contractClassId;
+    initializationHash = contractInstance.initializationHash;
     worldStateDB = mock<WorldStateDB>();
     trace = mock<PublicSideEffectTraceInterface>();
     persistableState = initPersistableStateManager({ worldStateDB, trace });
@@ -53,11 +58,12 @@ describe('Contract opcodes', () => {
     });
 
     describe.each([
-      [ContractInstanceMember.DEPLOYER, deployer.toField()],
-      [ContractInstanceMember.CLASS_ID, contractClassId.toField()],
-      [ContractInstanceMember.INIT_HASH, initializationHash.toField()],
-    ])('GETCONTRACTINSTANCE member instruction ', (memberEnum: ContractInstanceMember, value: Fr) => {
+      [ContractInstanceMember.DEPLOYER, () => deployer.toField()],
+      [ContractInstanceMember.CLASS_ID, () => contractClassId.toField()],
+      [ContractInstanceMember.INIT_HASH, () => initializationHash.toField()],
+    ])('GETCONTRACTINSTANCE member instruction ', (memberEnum: ContractInstanceMember, valueGetter: () => Fr) => {
       it(`Should read '${ContractInstanceMember[memberEnum]}' correctly`, async () => {
+        const value = valueGetter();
         mockGetContractInstance(worldStateDB, contractInstance.withAddress(address));
         mockNullifierExists(worldStateDB, address.toField());
 

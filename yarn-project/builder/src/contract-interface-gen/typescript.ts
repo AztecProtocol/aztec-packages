@@ -8,6 +8,7 @@ import {
   isAztecAddressStruct,
   isEthAddressStruct,
   isFunctionSelectorStruct,
+  isU128Struct,
   isWrappedFieldStruct,
 } from '@aztec/foundation/abi';
 
@@ -37,6 +38,9 @@ function abiTypeToTypescript(type: ABIParameter['type']): string {
       }
       if (isFunctionSelectorStruct(type)) {
         return 'FunctionSelectorLike';
+      }
+      if (isU128Struct(type)) {
+        return 'U128Like';
       }
       if (isWrappedFieldStruct(type)) {
         return 'WrappedFieldLike';
@@ -340,6 +344,7 @@ import {
   PublicKeys,
   type UnencryptedL2Log,
   type Wallet,
+  type U128Like,
   type WrappedFieldLike,
 } from '@aztec/aztec.js';
 ${artifactStatement}

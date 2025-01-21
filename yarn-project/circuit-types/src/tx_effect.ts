@@ -21,7 +21,7 @@ import {
   RevertCode,
   TX_FEE_PREFIX,
 } from '@aztec/circuits.js';
-import { type FieldsOf, makeTuple } from '@aztec/foundation/array';
+import { type FieldsOf, makeTuple, makeTupleAsync } from '@aztec/foundation/array';
 import { toBufferBE } from '@aztec/foundation/bigint-buffer';
 import { TX_EFFECT_PREFIX_BYTE_LENGTH, TX_START_PREFIX, TX_START_PREFIX_BYTES_LENGTH } from '@aztec/foundation/blob';
 import { padArrayEnd } from '@aztec/foundation/collection';
@@ -211,8 +211,8 @@ export class TxEffect {
     return thisLayer[0];
   }
 
-  static random(numPublicCallsPerTx = 3, numPublicLogsPerCall = 1): TxEffect {
-    const contractClassLogs = ContractClassTxL2Logs.random(1, 1);
+  static async random(numPublicCallsPerTx = 3, numPublicLogsPerCall = 1): Promise<TxEffect> {
+    const contractClassLogs = await ContractClassTxL2Logs.random(1, 1);
     return new TxEffect(
       RevertCode.random(),
       TxHash.random(),
@@ -222,7 +222,7 @@ export class TxEffect {
       makeTuple(MAX_L2_TO_L1_MSGS_PER_TX, Fr.random),
       makeTuple(MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, () => new PublicDataWrite(Fr.random(), Fr.random())),
       makeTuple(MAX_PRIVATE_LOGS_PER_TX, () => new PrivateLog(makeTuple(PRIVATE_LOG_SIZE_IN_FIELDS, Fr.random))),
-      makeTuple(numPublicCallsPerTx * numPublicLogsPerCall, PublicLog.random),
+      await makeTupleAsync(numPublicCallsPerTx * numPublicLogsPerCall, PublicLog.random),
       new Fr(contractClassLogs.getKernelLength()),
       contractClassLogs,
     );

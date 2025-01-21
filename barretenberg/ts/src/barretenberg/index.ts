@@ -123,6 +123,32 @@ export class BarretenbergSync extends BarretenbergApiSync {
   }
 }
 
+let barrentenbergLazySingleton: BarretenbergLazy;
+
+export class BarretenbergLazy extends BarretenbergApi {
+  private constructor(wasm: BarretenbergWasmMain) {
+    super(wasm);
+  }
+
+  private static async new() {
+    const wasm = new BarretenbergWasmMain();
+    const { module, threads } = await fetchModuleAndThreads(1);
+    await wasm.init(module, threads);
+    return new BarretenbergLazy(wasm);
+  }
+
+  static async getSingleton() {
+    if (!barrentenbergLazySingleton) {
+      barrentenbergLazySingleton = await BarretenbergLazy.new();
+    }
+    return barrentenbergLazySingleton;
+  }
+
+  getWasm() {
+    return this.wasm;
+  }
+}
+
 // If we're in ESM environment, use top level await. CJS users need to call it manually.
 // Need to ignore for cjs build.
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment

@@ -5,15 +5,10 @@ import { PublicKeys } from '../types/public_keys.js';
 import { CompleteAddress } from './complete_address.js';
 
 describe('CompleteAddress', () => {
-  it('refuses to add an account with incorrect address for given partial address and pubkey', () => {
-    expect(
-      () =>
-        new CompleteAddress(
-          AztecAddress.random(),
-          new PublicKeys(Point.random(), Point.random(), Point.random(), Point.random()),
-          Fr.random(),
-        ),
-    ).toThrow(/cannot be derived/);
+  it('refuses to add an account with incorrect address for given partial address and pubkey', async () => {
+    await expect(
+      async () => new CompleteAddress(await AztecAddress.random(), await PublicKeys.random(), Fr.random()),
+    ).rejects.toThrow(/cannot be derived/);
   });
 
   it('equals returns true when 2 instances are equal', () => {

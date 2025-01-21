@@ -152,13 +152,14 @@ function read_values_file() {
 ## so that it can generate the genesis.json and config.yaml file with the correct values.
 function generate_eth_devnet_config() {
   export NUMBER_OF_KEYS=$(read_values_file "validator.replicas")
-  export NUMBER_OF_KEYS=$(read_values_file "validator.replicas")
   export MNEMONIC=$(read_values_file "aztec.l1DeploymentMnemonic")
   export BLOCK_TIME=$(read_values_file "ethereum.blockTime")
   export GAS_LIMIT=$(read_values_file "ethereum.gasLimit")
   export CHAIN_ID=$(read_values_file "ethereum.chainId")
+  export EXTRA_ACCOUNTS=$(read_values_file "ethereum.extraAccounts")
 
   echo "Generating eth devnet config..."
+  NUMBER_OF_KEYS=$((NUMBER_OF_KEYS + EXTRA_ACCOUNTS))
   echo "NUMBER_OF_KEYS: $NUMBER_OF_KEYS"
   echo "MNEMONIC: $MNEMONIC"
   echo "BLOCK_TIME: $BLOCK_TIME"
