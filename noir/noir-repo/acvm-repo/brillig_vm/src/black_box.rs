@@ -343,7 +343,7 @@ pub(crate) fn evaluate_black_box<F: AcirField, Solver: BlackBoxFunctionSolver<F>
                 .expect_integer_with_bit_size(IntegerBitSize::U32)
                 .expect("ToRadix opcode's number of limbs does not match expected bit size 32")
                 .to_usize()
-                .expect("usize type is not of bit size 32");
+                .unwrap(); // Will not panic as 32 bits must fit into usize type.
             let output_bits = !memory
                 .read(*output_bits)
                 .expect_integer_with_bit_size(IntegerBitSize::U1)
@@ -363,14 +363,14 @@ pub(crate) fn evaluate_black_box<F: AcirField, Solver: BlackBoxFunctionSolver<F>
             if num_limbs < 1 && input != BigUint::from(0u32) {
                 return Err(BrilligBlackBoxResolutionError::Failed(
                     BrilligBlackBoxFunc::ToRadix,
-                    format!(" Input value {} is not zero but number of limbs is zero.", input),
+                    format!("Input value {} is not zero but number of limbs is zero.", input),
                 ));
             }
 
             if output_bits && radix != BigUint::from(2u32) {
                 return Err(BrilligBlackBoxResolutionError::Failed(
                     BrilligBlackBoxFunc::ToRadix,
-                    format!("Radix {} is not equal to two in bit mode.", radix),
+                    format!("Radix {} is not equal to 2 and bit mode is activated.", radix),
                 ));
             }
 

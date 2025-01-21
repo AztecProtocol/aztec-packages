@@ -1,6 +1,6 @@
 import { type AvmContext } from '../avm_context.js';
 import { TypeTag, Uint1, Uint8 } from '../avm_memory_types.js';
-import { InstructionExecutionError } from '../errors.js';
+import { InstructionExecutionError, InvalidToRadixInputsError } from '../errors.js';
 import { Opcode, OperandType } from '../serialization/instruction_serialization.js';
 import { Addressing } from './addressing_mode.js';
 import { Instruction } from './instruction.js';
@@ -49,12 +49,21 @@ export class ToRadixBE extends Instruction {
 
     let value: bigint = memory.get(srcOffset).toBigInt();
     const radix: bigint = memory.get(radixOffset).toBigInt();
-    if (numLimbs < 1) {
-      throw new InstructionExecutionError(`ToRadixBE instruction's numLimbs should be > 0 (was ${numLimbs})`);
+
+    if (radix < 2 || radix > 256) {
+      throw new InvalidToRadixInputsError(`ToRadixBE instruction's radix should be in range [2,256] (was ${radix}).`);
     }
-    if (radix > 256) {
-      throw new InstructionExecutionError(`ToRadixBE instruction's radix should be <= 256 (was ${radix})`);
+
+    if (numLimbs < 1 && value != BigInt(0)) {
+      throw new InvalidToRadixInputsError(
+        `ToRadixBE instruction's input value is not zero (was ${value}) but numLimbs zero.`,
+      );
     }
+
+    if (outputBits != 0 && radix != BigInt(2)) {
+      throw new InvalidToRadixInputsError(`Radix ${radix} is not equal to 2 and bit mode is activated.`);
+    }
+
     const radixBN: bigint = BigInt(radix);
     const limbArray = new Array(numLimbs);
 
