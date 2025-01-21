@@ -33,8 +33,7 @@ import { randomInt } from 'crypto';
 import { PublicEnqueuedCallSideEffectTrace, SideEffectArrayLengths } from './enqueued_call_side_effect_trace.js';
 import { SideEffectLimitReachedError } from './side_effect_errors.js';
 
-describe('Enqueued-call Side Effect Trace', async () => {
-  const address = await AztecAddress.random();
+describe('Enqueued-call Side Effect Trace', () => {
   const bytecode = Buffer.from('0xdeadbeef');
   const utxo = Fr.random();
   const leafIndex = Fr.random();
@@ -51,8 +50,10 @@ describe('Enqueued-call Side Effect Trace', async () => {
   let startCounter: number;
   let startCounterPlus1: number;
   let trace: PublicEnqueuedCallSideEffectTrace;
+  let address: AztecAddress;
 
-  beforeEach(() => {
+  beforeEach(async () => {
+    address = await AztecAddress.random();
     startCounter = randomInt(/*max=*/ 1000000);
     startCounterPlus1 = startCounter + 1;
     trace = new PublicEnqueuedCallSideEffectTrace(startCounter);

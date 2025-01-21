@@ -20,8 +20,8 @@ import {
 } from '../test_utils.js';
 import { type AvmPersistableStateManager } from './journal.js';
 
-describe('journal', async () => {
-  const address = await AztecAddress.random();
+describe('journal', () => {
+  let address: AztecAddress;
   const utxo = Fr.random();
   const leafIndex = Fr.random();
 
@@ -29,7 +29,8 @@ describe('journal', async () => {
   let trace: PublicSideEffectTraceInterface;
   let persistableState: AvmPersistableStateManager;
 
-  beforeEach(() => {
+  beforeEach(async () => {
+    address = await AztecAddress.random();
     worldStateDB = mock<WorldStateDB>();
     trace = mock<PublicSideEffectTraceInterface>();
     persistableState = initPersistableStateManager({ worldStateDB, trace });

@@ -13,8 +13,8 @@ function shouldBehaveLikeFunctionL2Logs(FunctionL2Logs: typeof UnencryptedFuncti
       expect(recovered).toEqual(l2Logs);
     });
 
-    it('can encode L2Logs to JSON and back', () => {
-      const l2Logs = FunctionL2Logs.random(1);
+    it('can encode L2Logs to JSON and back', async () => {
+      const l2Logs = await FunctionL2Logs.random(1);
 
       const buffer = jsonStringify(l2Logs);
       const recovered = FunctionL2Logs.schema.parse(JSON.parse(buffer));

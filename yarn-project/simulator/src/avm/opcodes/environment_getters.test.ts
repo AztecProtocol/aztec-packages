@@ -12,7 +12,7 @@ import { EnvironmentVariable, GetEnvVar } from './environment_getters.js';
 
 const address = await AztecAddress.random();
 const sender = await AztecAddress.random();
-describe('Environment getters', async () => {
+describe('Environment getters', () => {
   const transactionFee = Fr.random();
   const chainId = Fr.random();
   const version = Fr.random();

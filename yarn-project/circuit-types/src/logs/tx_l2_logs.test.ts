@@ -12,8 +12,8 @@ function shouldBehaveLikeTxL2Logs(TxL2Logs: typeof ContractClassTxL2Logs) {
       expect(recovered).toEqual(l2Logs);
     });
 
-    it('can encode TxL2Logs to JSON and back', () => {
-      const l2Logs = TxL2Logs.random(1, 1);
+    it('can encode TxL2Logs to JSON and back', async () => {
+      const l2Logs = await TxL2Logs.random(1, 1);
       const buffer = jsonStringify(l2Logs);
       const recovered = TxL2Logs.schema.parse(JSON.parse(buffer));
 

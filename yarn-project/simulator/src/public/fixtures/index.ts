@@ -129,6 +129,7 @@ export async function simulateAvmTestContractCall(
   }
 
   const merkleTrees = await (await MerkleTrees.new(openTmpStore())).fork();
+  await contractDataSource.deployContracts(merkleTrees);
   const worldStateDB = new WorldStateDB(merkleTrees, contractDataSource);
 
   const trace = new PublicEnqueuedCallSideEffectTrace();

@@ -19,8 +19,8 @@ function shouldBehaveLikeL2BlockL2Logs(L2BlockL2Logs: typeof ContractClass2Block
       expect(recovered.getSerializedLength()).toEqual(buffer.length);
     });
 
-    it('serializes to and from JSON via schema', () => {
-      const l2Logs = L2BlockL2Logs.random(3, 1, 1);
+    it('serializes to and from JSON via schema', async () => {
+      const l2Logs = await L2BlockL2Logs.random(3, 1, 1);
       const json = jsonStringify(l2Logs);
       const recovered = L2BlockL2Logs.schema.parse(JSON.parse(json));
       expect(recovered).toEqual(l2Logs);
