@@ -23,7 +23,7 @@ contract AppSubscription {
         target_address: PublicImmutable<AztecAddress, Context>,
         subscription_token_address: PublicImmutable<AztecAddress, Context>,
         subscription_recipient_address: PublicImmutable<AztecAddress, Context>,
-        subscription_price: PublicImmutable<Field, Context>,
+        subscription_price: PublicImmutable<U128, Context>,
         subscriptions: Map<AztecAddress, PrivateMutable<SubscriptionNote, Context>, Context>,
         fee_juice_limit_per_tx: PublicImmutable<Field, Context>,
     }
@@ -68,7 +68,7 @@ contract AppSubscription {
         target_address: AztecAddress,
         subscription_recipient_address: AztecAddress,
         subscription_token_address: AztecAddress,
-        subscription_price: Field,
+        subscription_price: U128,
         fee_juice_limit_per_tx: Field,
     ) {
         storage.target_address.initialize(target_address);

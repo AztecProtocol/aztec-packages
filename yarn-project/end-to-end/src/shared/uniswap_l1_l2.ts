@@ -347,7 +347,7 @@ export const uniswapL1L2TestSuite = (
       // 6. claim dai on L2
       logger.info('Consuming messages to mint dai on L2');
       await daiCrossChainHarness.consumeMessageOnAztecAndMintPrivately({
-        claimAmount: new Fr(daiAmountToBridge),
+        claimAmount: daiAmountToBridge,
         claimSecret: secretForDepositingSwappedDai,
         messageLeafIndex: tokenOutMsgIndex,
         recipient: ownerAddress,

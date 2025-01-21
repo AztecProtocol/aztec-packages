@@ -565,7 +565,7 @@ describe('Private Execution test suite', () => {
 
       let preimage: L1ToL2Message;
 
-      let args: Fr[];
+      let args: any[];
 
       beforeEach(() => {
         bridgedAmount = 100n;
@@ -584,13 +584,12 @@ describe('Private Execution test suite', () => {
           l1ToL2MessageIndex,
         );
 
-      const computeArgs = () =>
-        encodeArguments(artifact, [
-          bridgedAmount,
-          secretForL1ToL2MessageConsumption,
-          crossChainMsgSender ?? preimage.sender.sender,
-          l1ToL2MessageIndex,
-        ]);
+      const computeArgs = () => [
+        bridgedAmount,
+        secretForL1ToL2MessageConsumption,
+        crossChainMsgSender ?? preimage.sender.sender,
+        l1ToL2MessageIndex,
+      ];
 
       const mockOracles = async (updateHeader = true) => {
         const tree = await insertLeaves([preimage.hash()], 'l1ToL2Messages');
