@@ -121,6 +121,104 @@ template <typename RecursiveFlavor> class TranslatorRecursiveTests : public ::te
             ASSERT(verified);
         }
     }
+
+    static void test_independent_vk_hash()
+    {
+
+        // Retrieves the trace blocks (each consisting of a specific gate) from the recursive verifier circuit
+        auto get_blocks = [](size_t inner_size) -> std::tuple<typename OuterBuilder::ExecutionTrace,
+                                                              std::shared_ptr<typename OuterFlavor::VerificationKey>> {
+            // Create an arbitrary inner circuit
+            auto P1 = InnerG1::random_element();
+            auto P2 = InnerG1::random_element();
+            auto z = InnerFF::random_element();
+
+            // Add the same operations to the ECC op queue; the native computation is performed under the hood.
+            auto op_queue = std::make_shared<bb::ECCOpQueue>();
+            op_queue->append_nonzero_ops();
+
+            for (size_t i = 0; i < inner_size; i++) {
+                op_queue->add_accumulate(P1);
+                op_queue->mul_accumulate(P2, z);
+            }
+
+            auto prover_transcript = std::make_shared<Transcript>();
+            prover_transcript->send_to_verifier("init", InnerBF::random_element());
+
+            // normally this would be the eccvm proof
+            auto fake_inital_proof = prover_transcript->export_proof();
+            InnerBF translation_batching_challenge =
+                prover_transcript->template get_challenge<InnerBF>("Translation:batching_challenge");
+            InnerBF translation_evaluation_challenge = InnerBF::random_element();
+
+            auto inner_circuit =
+                InnerBuilder(translation_batching_challenge, translation_evaluation_challenge, op_queue);
+
+            // Generate a proof over the inner circuit
+            auto inner_proving_key = std::make_shared<TranslatorProvingKey>(inner_circuit);
+            InnerProver inner_prover(inner_proving_key, prover_transcript);
+            info("test circuit size: ", inner_proving_key->proving_key->circuit_size);
+            auto verification_key =
+                std::make_shared<typename InnerFlavor::VerificationKey>(inner_prover.key->proving_key);
+            auto inner_proof = inner_prover.construct_proof();
+
+            // Create a recursive verification circuit for the proof of the inner circuit
+            OuterBuilder outer_circuit;
+
+            // Mock a previous verifier that would in reality be the ECCVM recursive verifier
+            StdlibProof<OuterBuilder> stdlib_proof =
+                bb::convert_native_proof_to_stdlib(&outer_circuit, fake_inital_proof);
+            auto transcript = std::make_shared<typename RecursiveFlavor::Transcript>(stdlib_proof);
+            transcript->template receive_from_prover<typename RecursiveFlavor::BF>("init");
+
+            RecursiveVerifier verifier{ &outer_circuit, verification_key, transcript };
+
+            auto outer_proving_key = std::make_shared<OuterDeciderProvingKey>(outer_circuit);
+            auto outer_verification_key =
+                std::make_shared<typename OuterFlavor::VerificationKey>(outer_proving_key->proving_key);
+
+            return { outer_circuit.blocks, outer_verification_key };
+        };
+
+        bool broke(false);
+        auto check_eq = [&broke](auto& p1, auto& p2) {
+            EXPECT_TRUE(p1.size() == p2.size());
+            for (size_t idx = 0; idx < p1.size(); idx++) {
+                if (p1[idx] != p2[idx]) {
+                    broke = true;
+                    break;
+                }
+            }
+        };
+
+        auto [blocks_10, verification_key_10] = get_blocks(256);
+        auto [blocks_11, verification_key_11] = get_blocks(512);
+
+        size_t block_idx = 0;
+        for (auto [b_10, b_11] : zip_view(blocks_10.get(), blocks_11.get())) {
+            info("block index: ", block_idx);
+            EXPECT_TRUE(b_10.selectors.size() == 13);
+            EXPECT_TRUE(b_11.selectors.size() == 13);
+            for (auto [p_10, p_11] : zip_view(b_10.selectors, b_11.selectors)) {
+                check_eq(p_10, p_11);
+            }
+            block_idx++;
+        }
+
+        typename OuterFlavor::CommitmentLabels labels;
+        for (auto [vk_10, vk_11, label] :
+             zip_view(verification_key_10->get_all(), verification_key_11->get_all(), labels.get_precomputed())) {
+            if (vk_10 != vk_11) {
+                broke = true;
+                info("Mismatch verification key label: ", label, " left: ", vk_10, " right: ", vk_11);
+            }
+        }
+
+        EXPECT_TRUE(verification_key_10->circuit_size == verification_key_11->circuit_size);
+        EXPECT_TRUE(verification_key_10->num_public_inputs == verification_key_11->num_public_inputs);
+
+        EXPECT_FALSE(broke);
+    };
 };
 
 using FlavorTypes = testing::Types<TranslatorRecursiveFlavor_<UltraCircuitBuilder>,
@@ -132,5 +230,14 @@ TYPED_TEST_SUITE(TranslatorRecursiveTests, FlavorTypes);
 TYPED_TEST(TranslatorRecursiveTests, SingleRecursiveVerification)
 {
     TestFixture::test_recursive_verification();
+};
+
+TYPED_TEST(TranslatorRecursiveTests, IndependentVKHash)
+{
+    if constexpr (std::is_same_v<TypeParam, TranslatorRecursiveFlavor_<UltraCircuitBuilder>>) {
+        TestFixture::test_independent_vk_hash();
+    } else {
+        GTEST_SKIP() << "Not built for this parameter";
+    }
 };
 } // namespace bb

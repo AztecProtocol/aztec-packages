@@ -137,7 +137,7 @@ template <typename RecursiveFlavor> class RecursiveVerifierTest : public testing
 
     /**
      * @brief  Ensures that the recursive verifier circuit for two inner circuits of different size is the same as the
-     * proofs are currently constant. This is done by taking each trace block in part and checking all it's selector
+     * proofs are currently constant. This is done by taking each trace block in part and checking all its selector
      * values.
      *
      */
