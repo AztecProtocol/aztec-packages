@@ -175,15 +175,15 @@ jobs:
               -var="BOOT_NODE_SEQ_PUBLISHER_PRIVATE_KEY=${{ secrets.BOOT_NODE_SEQ_PUBLISHER_PRIVATE_KEY }}" \
               -var="PROVER_PUBLISHER_PRIVATE_KEY=${{ secrets.PROVER_PUBLISHER_PRIVATE_KEY }}" \
               -var="ETHEREUM_EXTERNAL_HOST=${{ secrets.SEPOLIA_EXTERNAL_HOST }}" \
-            -lock=${{ inputs.respect_tf_lock }}
+              -lock=${{ inputs.respect_tf_lock }}
           else
             terraform destroy -auto-approve \
               -var="RELEASE_NAME=${{ env.NAMESPACE }}" \
               -var="VALUES_FILE=${{ env.VALUES_FILE }}" \
               -var="GKE_CLUSTER_CONTEXT=${{ env.GKE_CLUSTER_CONTEXT }}" \
               -var="AZTEC_DOCKER_IMAGE=${{ env.AZTEC_DOCKER_IMAGE }}" \
-              -var="L1_DEPLOYMENT_MNEMONIC=${{ steps.get-mnemonic.outputs.mnemonic }}"
-            -lock=${{ inputs.respect_tf_lock }}
+              -var="L1_DEPLOYMENT_MNEMONIC=${{ steps.get-mnemonic.outputs.mnemonic }}" \
+              -lock=${{ inputs.respect_tf_lock }}
           fi
 
       - name: Terraform Plan

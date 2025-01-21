@@ -52,6 +52,7 @@ jobs:
       respect_tf_lock: ${{ github.event.inputs.respect_tf_lock }}
       run_terraform_destroy: "true"
       sepolia_deployment: ${{ github.event.inputs.sepolia_deployment }}
+      ref: ${{ github.ref }}
     secrets:
       GCP_SA_KEY: ${{ secrets.GCP_SA_KEY }}
 
