@@ -18,22 +18,22 @@ function build {
     # Ensure libraries are at the correct version
     git submodule update --init --recursive ./lib
 
-    mkdir -p src/generated
+    mkdir -p generated
     # Copy from noir-projects. Bootstrap must hav
     local rollup_verifier_path=../noir-projects/noir-protocol-circuits/target/keys/rollup_root_verifier.sol
     if [ -f "$rollup_verifier_path" ]; then
-      cp "$rollup_verifier_path" src/generated/HonkVerifier.sol
+      cp "$rollup_verifier_path" generated/HonkVerifier.sol
     else
       echo_stderr "You may need to run ./bootstrap.sh in the noir-projects folder. Could not find the rollup verifier at $rollup_verifier_path."
       exit 1
     fi
 
     # Compile contracts
-    # Step 1: Build everything except HonkVerifier.sol.
-    forge build $(find src -name '*.sol' -not -name 'HonkVerifier.sol')
+    # Step 1: Build everything in src.
+    forge build $(find src test -name '*.sol')
 
-    # Step 2: Build the the verifier contract with optimization.
-    forge build HonkVerifier.sol \
+    # Step 2: Build the the generated verifier contract with optimization.
+    forge build $(find generated -name '*.sol') \
       --optimize \
       --optimizer-runs 200
 
