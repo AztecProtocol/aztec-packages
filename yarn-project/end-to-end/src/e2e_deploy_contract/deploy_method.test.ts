@@ -24,9 +24,10 @@ describe('e2e_deploy_contract deploy method', () => {
   let logger: Logger;
   let wallet: Wallet;
 
-  const ignoredArg = AztecAddress.random();
+  let ignoredArg: AztecAddress;
 
   beforeAll(async () => {
+    ignoredArg = await AztecAddress.random();
     ({ pxe, logger, wallet } = await t.setup());
   });
 

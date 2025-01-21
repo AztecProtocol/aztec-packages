@@ -330,7 +330,7 @@ export class SimulatorOracle implements DBOracle {
   async #calculateAppTaggingSecret(contractAddress: AztecAddress, sender: AztecAddress, recipient: AztecAddress) {
     const senderCompleteAddress = await this.getCompleteAddress(sender);
     const senderIvsk = await this.keyStore.getMasterIncomingViewingSecretKey(sender);
-    const secretPoint = computeTaggingSecretPoint(senderCompleteAddress, senderIvsk, recipient);
+    const secretPoint = await computeTaggingSecretPoint(senderCompleteAddress, senderIvsk, recipient);
     // Silo the secret so it can't be used to track other app's notes
     const appSecret = poseidon2Hash([secretPoint.x, secretPoint.y, contractAddress]);
     return appSecret;
@@ -357,10 +357,12 @@ export class SimulatorOracle implements DBOracle {
     const senders = [...(await this.db.getSenderAddresses()), ...(await this.keyStore.getAccounts())].filter(
       (address, index, self) => index === self.findIndex(otherAddress => otherAddress.equals(address)),
     );
-    const appTaggingSecrets = senders.map(contact => {
-      const sharedSecret = computeTaggingSecretPoint(recipientCompleteAddress, recipientIvsk, contact);
-      return poseidon2Hash([sharedSecret.x, sharedSecret.y, contractAddress]);
-    });
+    const appTaggingSecrets = await Promise.all(
+      senders.map(async contact => {
+        const sharedSecret = await computeTaggingSecretPoint(recipientCompleteAddress, recipientIvsk, contact);
+        return poseidon2Hash([sharedSecret.x, sharedSecret.y, contractAddress]);
+      }),
+    );
     const indexes = await this.db.getTaggingSecretsIndexesAsRecipient(appTaggingSecrets);
     return appTaggingSecrets.map((secret, i) => new IndexedTaggingSecret(secret, indexes[i]));
   }
@@ -614,8 +616,8 @@ export class SimulatorOracle implements DBOracle {
 
     for (const scopedLog of scopedLogs) {
       const payload = scopedLog.isFromPublic
-        ? L1NotePayload.decryptAsIncomingFromPublic(PublicLog.fromBuffer(scopedLog.logData), addressSecret)
-        : L1NotePayload.decryptAsIncoming(PrivateLog.fromBuffer(scopedLog.logData), addressSecret);
+        ? await L1NotePayload.decryptAsIncomingFromPublic(PublicLog.fromBuffer(scopedLog.logData), addressSecret)
+        : await L1NotePayload.decryptAsIncoming(PrivateLog.fromBuffer(scopedLog.logData), addressSecret);
 
       if (!payload) {
         this.log.verbose('Unable to decrypt log');
@@ -720,7 +722,7 @@ export class SimulatorOracle implements DBOracle {
         })
         .filter(nullifier => nullifier !== undefined) as InBlock<Fr>[];
 
-      const nullifiedNotes = await this.db.removeNullifiedNotes(foundNullifiers, recipient.toAddressPoint());
+      const nullifiedNotes = await this.db.removeNullifiedNotes(foundNullifiers, await recipient.toAddressPoint());
       nullifiedNotes.forEach(noteDao => {
         this.log.verbose(`Removed note for contract ${noteDao.contractAddress} at slot ${noteDao.storageSlot}`, {
           contract: noteDao.contractAddress,
@@ -770,7 +772,7 @@ export class SimulatorOracle implements DBOracle {
       blockNumber!,
       blockHash!.toString(),
       uniqueNoteHashTreeIndex,
-      recipient.toAddressPoint(),
+      await recipient.toAddressPoint(),
       NoteSelector.empty(), // todo: remove
     );
   }

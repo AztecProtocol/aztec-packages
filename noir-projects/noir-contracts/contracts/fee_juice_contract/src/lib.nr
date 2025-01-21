@@ -6,10 +6,10 @@ pub fn calculate_fee<TPublicContext>(context: PublicContext) -> Field {
     context.transaction_fee()
 }
 
-pub fn get_bridge_gas_msg_hash(owner: AztecAddress, amount: Field) -> Field {
+pub fn get_bridge_gas_msg_hash(owner: AztecAddress, amount: U128) -> Field {
     let mut hash_bytes = [0; 68];
     let recipient_bytes: [u8; 32] = owner.to_field().to_be_bytes();
-    let amount_bytes: [u8; 32] = amount.to_be_bytes();
+    let amount_bytes: [u8; 32] = amount.to_field().to_be_bytes();
 
     // The purpose of including the following selector is to make the message unique to that specific call. Note that
     // it has nothing to do with calling the function.

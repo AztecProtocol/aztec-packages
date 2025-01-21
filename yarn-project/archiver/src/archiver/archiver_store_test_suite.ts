@@ -20,7 +20,7 @@ import {
   makeExecutablePrivateFunctionWithMembershipProof,
   makeUnconstrainedFunctionWithMembershipProof,
 } from '@aztec/circuits.js/testing';
-import { times } from '@aztec/foundation/collection';
+import { times, timesParallel } from '@aztec/foundation/collection';
 import { randomInt } from '@aztec/foundation/crypto';
 
 import { type ArchiverDataStore, type ArchiverL1SynchPoint } from './archiver_store.js';
@@ -51,9 +51,9 @@ export function describeArchiverDataStore(testName: string, getStore: () => Arch
       },
     });
 
-    beforeEach(() => {
+    beforeEach(async () => {
       store = getStore();
-      blocks = times(10, i => makeL1Published(L2Block.random(i + 1), i + 10));
+      blocks = await timesParallel(10, async i => makeL1Published(await L2Block.random(i + 1), i + 10));
     });
 
     describe('addBlocks', () => {
@@ -81,7 +81,7 @@ export function describeArchiverDataStore(testName: string, getStore: () => Arch
       });
 
       it('can unwind multiple empty blocks', async () => {
-        const emptyBlocks = times(10, i => makeL1Published(L2Block.random(i + 1, 0), i + 10));
+        const emptyBlocks = await timesParallel(10, async i => makeL1Published(await L2Block.random(i + 1, 0), i + 10));
         await store.addBlocks(emptyBlocks);
         expect(await store.getSynchedL2BlockNumber()).toBe(10);
 
@@ -276,7 +276,8 @@ export function describeArchiverDataStore(testName: string, getStore: () => Arch
       const blockNum = 10;
 
       beforeEach(async () => {
-        contractInstance = { ...SerializableContractInstance.random(), address: AztecAddress.random() };
+        const randomInstance = await SerializableContractInstance.random();
+        contractInstance = { ...randomInstance, address: await AztecAddress.random() };
         await store.addContractInstances([contractInstance], blockNum);
       });
 
@@ -285,7 +286,7 @@ export function describeArchiverDataStore(testName: string, getStore: () => Arch
       });
 
       it('returns undefined if contract instance is not found', async () => {
-        await expect(store.getContractInstance(AztecAddress.random())).resolves.toBeUndefined();
+        await expect(store.getContractInstance(await AztecAddress.random())).resolves.toBeUndefined();
       });
 
       it('returns undefined if previously stored contract instances was deleted', async () => {
@@ -408,12 +409,12 @@ export function describeArchiverDataStore(testName: string, getStore: () => Arch
         });
       };
 
-      const mockBlockWithLogs = (blockNumber: number): L1Published<L2Block> => {
-        const block = L2Block.random(blockNumber);
+      const mockBlockWithLogs = async (blockNumber: number): Promise<L1Published<L2Block>> => {
+        const block = await L2Block.random(blockNumber);
         block.header.globalVariables.blockNumber = new Fr(blockNumber);
 
-        block.body.txEffects = times(numTxsPerBlock, (txIndex: number) => {
-          const txEffect = TxEffect.random();
+        block.body.txEffects = await timesParallel(numTxsPerBlock, async (txIndex: number) => {
+          const txEffect = await TxEffect.random();
           txEffect.privateLogs = mockPrivateLogs(blockNumber, txIndex);
           txEffect.publicLogs = mockPublicLogs(blockNumber, txIndex);
           return txEffect;
@@ -426,7 +427,7 @@ export function describeArchiverDataStore(testName: string, getStore: () => Arch
       };
 
       beforeEach(async () => {
-        blocks = times(numBlocks, (index: number) => mockBlockWithLogs(index));
+        blocks = await timesParallel(numBlocks, (index: number) => mockBlockWithLogs(index));
 
         await store.addBlocks(blocks);
         await store.addLogs(blocks.map(b => b.data));
@@ -482,7 +483,7 @@ export function describeArchiverDataStore(testName: string, getStore: () => Arch
 
         // Create a block containing logs that have the same tag as the blocks before.
         const newBlockNumber = numBlocks;
-        const newBlock = mockBlockWithLogs(newBlockNumber);
+        const newBlock = await mockBlockWithLogs(newBlockNumber);
         const newLog = newBlock.data.body.txEffects[1].privateLogs[1];
         newLog.fields[0] = tags[0];
         newBlock.data.body.txEffects[1].privateLogs[1] = newLog;
@@ -545,7 +546,7 @@ export function describeArchiverDataStore(testName: string, getStore: () => Arch
 
         // Create a block containing these invalid logs
         const newBlockNumber = numBlocks;
-        const newBlock = mockBlockWithLogs(newBlockNumber);
+        const newBlock = await mockBlockWithLogs(newBlockNumber);
         newBlock.data.body.txEffects[0].publicLogs = invalidLogs;
         await store.addBlocks([newBlock]);
         await store.addLogs([newBlock.data]);
@@ -565,8 +566,8 @@ export function describeArchiverDataStore(testName: string, getStore: () => Arch
       let blocks: L1Published<L2Block>[];
 
       beforeEach(async () => {
-        blocks = times(numBlocks, (index: number) => ({
-          data: L2Block.random(index + 1, txsPerBlock, numPublicFunctionCalls, numPublicLogs),
+        blocks = await timesParallel(numBlocks, async (index: number) => ({
+          data: await L2Block.random(index + 1, txsPerBlock, numPublicFunctionCalls, numPublicLogs),
           l1: { blockNumber: BigInt(index), blockHash: `0x${index}`, timestamp: BigInt(index) },
         }));
 
@@ -748,8 +749,8 @@ export function describeArchiverDataStore(testName: string, getStore: () => Arch
       const numBlocks = 10;
       const nullifiersPerBlock = new Map<number, Fr[]>();
 
-      beforeEach(() => {
-        blocks = times(numBlocks, (index: number) => L2Block.random(index + 1, 1));
+      beforeEach(async () => {
+        blocks = await timesParallel(numBlocks, (index: number) => L2Block.random(index + 1, 1));
 
         blocks.forEach((block, blockIndex) => {
           nullifiersPerBlock.set(

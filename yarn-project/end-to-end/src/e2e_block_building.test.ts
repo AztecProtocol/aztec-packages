@@ -420,11 +420,13 @@ describe('e2e_block_building', () => {
 
       // compare logs
       expect(rct.status).toEqual('success');
-      const noteValues = tx.data.getNonEmptyPrivateLogs().map(log => {
-        const notePayload = L1NotePayload.decryptAsIncoming(log, thisWallet.getEncryptionSecret());
-        // In this test we care only about the privately delivered values
-        return notePayload?.privateNoteValues[0];
-      });
+      const noteValues = await Promise.all(
+        tx.data.getNonEmptyPrivateLogs().map(async log => {
+          const notePayload = await L1NotePayload.decryptAsIncoming(log, thisWallet.getEncryptionSecret());
+          // In this test we care only about the privately delivered values
+          return notePayload?.privateNoteValues[0];
+        }),
+      );
       expect(noteValues[0]).toEqual(new Fr(10));
       expect(noteValues[1]).toEqual(new Fr(11));
       expect(noteValues[2]).toEqual(new Fr(12));
@@ -452,10 +454,10 @@ describe('e2e_block_building', () => {
       expect(privateLogs.length).toBe(3);
 
       // The first two logs are encrypted.
-      const event0 = L1EventPayload.decryptAsIncoming(privateLogs[0], thisWallet.getEncryptionSecret())!;
+      const event0 = (await L1EventPayload.decryptAsIncoming(privateLogs[0], thisWallet.getEncryptionSecret()))!;
       expect(event0.event.items).toEqual(values);
 
-      const event1 = L1EventPayload.decryptAsIncoming(privateLogs[1], thisWallet.getEncryptionSecret())!;
+      const event1 = (await L1EventPayload.decryptAsIncoming(privateLogs[1], thisWallet.getEncryptionSecret()))!;
       expect(event1.event.items).toEqual(nestedValues);
 
       // The last log is not encrypted.

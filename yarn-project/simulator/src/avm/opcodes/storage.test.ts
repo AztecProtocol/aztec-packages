@@ -13,9 +13,10 @@ import { SLoad, SStore } from './storage.js';
 describe('Storage Instructions', () => {
   let context: AvmContext;
   let persistableState: MockProxy<AvmPersistableStateManager>;
-  const address = AztecAddress.random();
+  let address: AztecAddress;
 
   beforeEach(async () => {
+    address = await AztecAddress.random();
     persistableState = mock<AvmPersistableStateManager>();
     context = initContext({
       persistableState: persistableState,

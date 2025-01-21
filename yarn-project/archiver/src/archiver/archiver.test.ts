@@ -95,7 +95,7 @@ describe('Archiver', () => {
 
   const GENESIS_ROOT = new Fr(GENESIS_ARCHIVE_ROOT).toString();
 
-  beforeEach(() => {
+  beforeEach(async () => {
     logger = createLogger('archiver:test');
     now = +new Date();
     publicClient = mock<PublicClient<HttpTransport, Chain>>({
@@ -127,7 +127,7 @@ describe('Archiver', () => {
       l1Constants,
     );
 
-    blocks = blockNumbers.map(x => L2Block.random(x, txsPerBlock, x + 1, 2));
+    blocks = await Promise.all(blockNumbers.map(x => L2Block.random(x, txsPerBlock, x + 1, 2)));
     blocks.forEach(block => {
       block.body.txEffects.forEach((txEffect, i) => {
         txEffect.privateLogs = Array(getNumPrivateLogsForTx(block.number, i))
