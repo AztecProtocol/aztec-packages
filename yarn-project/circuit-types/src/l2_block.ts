@@ -79,15 +79,15 @@ export class L2Block {
    * @param inHash - The hash of the L1 to L2 messages subtree which got inserted in this block.
    * @returns The L2 block.
    */
-  static random(
+  static async random(
     l2BlockNum: number,
     txsPerBlock = 4,
     numPublicCallsPerTx = 3,
     numPublicLogsPerCall = 1,
     inHash: Buffer | undefined = undefined,
     slotNumber: number | undefined = undefined,
-  ): L2Block {
-    const body = Body.random(txsPerBlock, numPublicCallsPerTx, numPublicLogsPerCall);
+  ): Promise<L2Block> {
+    const body = await Body.random(txsPerBlock, numPublicCallsPerTx, numPublicLogsPerCall);
 
     return new L2Block(
       makeAppendOnlyTreeSnapshot(l2BlockNum + 1),

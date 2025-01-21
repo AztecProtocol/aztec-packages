@@ -10,7 +10,7 @@ import {
 } from '@aztec/circuit-types';
 import { BlockHeader, Proof } from '@aztec/circuits.js';
 import { RootRollupPublicInputs } from '@aztec/circuits.js/rollup';
-import { times } from '@aztec/foundation/collection';
+import { times, timesParallel } from '@aztec/foundation/collection';
 import { sleep } from '@aztec/foundation/sleep';
 import { type L1Publisher } from '@aztec/sequencer-client';
 import { type PublicProcessor, type PublicProcessorFactory } from '@aztec/simulator/server';
@@ -65,7 +65,7 @@ describe('epoch-proving-job', () => {
       { parallelBlockLimit: opts.parallelBlockLimit ?? 32 },
     );
 
-  beforeEach(() => {
+  beforeEach(async () => {
     prover = mock<EpochProver>();
     publisher = mock<L1Publisher>();
     l2BlockSource = mock<L2BlockSource>();
@@ -80,7 +80,7 @@ describe('epoch-proving-job', () => {
     proof = Proof.empty();
     epochNumber = 1;
     initialHeader = BlockHeader.empty();
-    blocks = times(NUM_BLOCKS, i => L2Block.random(i + 1, TXS_PER_BLOCK));
+    blocks = await timesParallel(NUM_BLOCKS, i => L2Block.random(i + 1, TXS_PER_BLOCK));
     txs = times(NUM_TXS, i =>
       mock<Tx>({
         getTxHash: () => blocks[i % NUM_BLOCKS].body.txEffects[i % TXS_PER_BLOCK].txHash,

@@ -18,7 +18,7 @@ import {
 import { buildNoteHashReadRequestHints } from './build_note_hash_read_request_hints.js';
 
 describe('buildNoteHashReadRequestHints', () => {
-  const contractAddress = AztecAddress.random();
+  let contractAddress: AztecAddress;
   const settledNoteHashes = [111, 222, 333];
   const settledLeafIndexes = [1010n, 2020n, 3030n];
   const oracle = {
@@ -81,7 +81,8 @@ describe('buildNoteHashReadRequestHints', () => {
       futureNoteHashes,
     );
 
-  beforeEach(() => {
+  beforeEach(async () => {
+    contractAddress = await AztecAddress.random();
     noteHashReadRequests = makeTuple(MAX_NOTE_HASH_READ_REQUESTS_PER_TX, ScopedReadRequest.empty);
     noteHashes = makeTuple(MAX_NOTE_HASHES_PER_TX, i => makeNoteHash(getNoteHashValue(i)));
     noteHashLeafIndexMap = new Map();

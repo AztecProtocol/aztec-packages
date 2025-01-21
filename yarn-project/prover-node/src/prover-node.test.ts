@@ -17,7 +17,7 @@ import {
 } from '@aztec/circuit-types';
 import { type ContractDataSource, EthAddress } from '@aztec/circuits.js';
 import { type EpochCache } from '@aztec/epoch-cache';
-import { times } from '@aztec/foundation/collection';
+import { times, timesParallel } from '@aztec/foundation/collection';
 import { Signature } from '@aztec/foundation/eth-signature';
 import { makeBackoff, retry } from '@aztec/foundation/retry';
 import { sleep } from '@aztec/foundation/sleep';
@@ -103,7 +103,7 @@ describe('prover-node', () => {
       config,
     );
 
-  beforeEach(() => {
+  beforeEach(async () => {
     prover = mock<EpochProverManager>();
     publisher = mock<L1Publisher>();
     l2BlockSource = mock<L2BlockSource>();
@@ -144,7 +144,7 @@ describe('prover-node', () => {
     quoteSigner.sign.mockImplementation(payload => Promise.resolve(new EpochProofQuote(payload, Signature.empty())));
 
     // We create 3 fake blocks with 1 tx effect each
-    blocks = times(3, i => L2Block.random(i + 20, 1));
+    blocks = await timesParallel(3, async i => await L2Block.random(i + 20, 1));
 
     // Archiver returns a bunch of fake blocks
     l2BlockSource.getBlocksForEpoch.mockResolvedValue(blocks);

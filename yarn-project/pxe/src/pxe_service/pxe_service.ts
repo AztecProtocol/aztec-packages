@@ -279,13 +279,15 @@ export class PXEService implements PXE {
     const extendedNotes = noteDaos.map(async dao => {
       let owner = filter.owner;
       if (owner === undefined) {
-        const completeAddresses = (await this.db.getCompleteAddresses()).find(completeAddress =>
-          completeAddress.address.toAddressPoint().equals(dao.addressPoint),
-        );
-        if (completeAddresses === undefined) {
+        const completeAddresses = await this.db.getCompleteAddresses();
+        const completeAddressIndex = (
+          await Promise.all(completeAddresses.map(completeAddresses => completeAddresses.address.toAddressPoint()))
+        ).findIndex(addressPoint => addressPoint.equals(dao.addressPoint));
+        const completeAddress = completeAddresses[completeAddressIndex];
+        if (completeAddress === undefined) {
           throw new Error(`Cannot find complete address for addressPoint ${dao.addressPoint.toString()}`);
         }
-        owner = completeAddresses.address;
+        owner = completeAddress.address;
       }
       return new UniqueNote(
         dao.note,
@@ -358,7 +360,7 @@ export class PXEService implements PXE {
           l2BlockNumber,
           l2BlockHash,
           index,
-          owner.address.toAddressPoint(),
+          await owner.address.toAddressPoint(),
           note.noteTypeId,
         ),
         scope,
@@ -403,7 +405,7 @@ export class PXEService implements PXE {
           l2BlockNumber,
           l2BlockHash,
           index,
-          note.owner.toAddressPoint(),
+          await note.owner.toAddressPoint(),
           note.noteTypeId,
         ),
       );
@@ -872,18 +874,22 @@ export class PXEService implements PXE {
       }),
     );
 
-    const visibleEvents = privateLogs.flatMap(log => {
-      for (const sk of vsks) {
-        // TODO: Verify that the first field of the log is the tag siloed with contract address.
-        // Or use tags to query logs, like we do with notes.
-        const decryptedEvent = L1EventPayload.decryptAsIncoming(log, sk);
-        if (decryptedEvent !== undefined) {
-          return [decryptedEvent];
-        }
-      }
+    const visibleEvents = (
+      await Promise.all(
+        privateLogs.map(async log => {
+          for (const sk of vsks) {
+            // TODO: Verify that the first field of the log is the tag siloed with contract address.
+            // Or use tags to query logs, like we do with notes.
+            const decryptedEvent = await L1EventPayload.decryptAsIncoming(log, sk);
+            if (decryptedEvent !== undefined) {
+              return [decryptedEvent];
+            }
+          }
 
-      return [];
-    });
+          return [];
+        }),
+      )
+    ).flat();
 
     const decodedEvents = visibleEvents
       .map(visibleEvent => {
@@ -892,11 +898,6 @@ export class PXEService implements PXE {
         }
         if (!visibleEvent.eventTypeId.equals(eventMetadata.eventSelector)) {
           return undefined;
-        }
-        if (visibleEvent.event.items.length !== eventMetadata.fieldNames.length) {
-          throw new Error(
-            'Something is weird here, we have matching EventSelectors, but the actual payload has mismatched length',
-          );
         }
 
         return eventMetadata.decode(visibleEvent);

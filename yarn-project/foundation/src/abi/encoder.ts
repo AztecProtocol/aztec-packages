@@ -1,6 +1,7 @@
 import { Fr } from '../fields/index.js';
 import { type AbiType, type FunctionAbi } from './abi.js';
-import { isAddressStruct, isFunctionSelectorStruct, isWrappedFieldStruct } from './utils.js';
+import { U128 } from './u128.js';
+import { isAddressStruct, isFunctionSelectorStruct, isU128Struct, isWrappedFieldStruct } from './utils.js';
 
 /**
  * Encodes arguments for a function call.
@@ -103,6 +104,15 @@ class ArgumentEncoder {
         }
         if (isFunctionSelectorStruct(abiType)) {
           this.encodeArgument({ kind: 'integer', sign: 'unsigned', width: 32 }, arg.value ?? arg, `${name}.inner`);
+          break;
+        }
+        if (isU128Struct(abiType)) {
+          // U128 struct has low and high limbs - so we first convert the value to the 2 limbs and then we encode them
+          const value = new U128(arg);
+          const limbs = value.toFields();
+          const limbNames = U128.getLimbNames();
+          this.encodeArgument({ kind: 'field' }, limbs[0], `${name}.${limbNames[0]}`);
+          this.encodeArgument({ kind: 'field' }, limbs[1], `${name}.${limbNames[1]}`);
           break;
         }
         if (isWrappedFieldStruct(abiType)) {

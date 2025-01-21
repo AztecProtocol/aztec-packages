@@ -32,6 +32,8 @@ FRESH_INSTALL="${FRESH_INSTALL:-false}"
 AZTEC_DOCKER_TAG=${AZTEC_DOCKER_TAG:-$(git rev-parse HEAD)}
 INSTALL_TIMEOUT=${INSTALL_TIMEOUT:-30m}
 CLEANUP_CLUSTER=${CLEANUP_CLUSTER:-false}
+export INSTALL_CHAOS_MESH=${INSTALL_CHAOS_MESH:-true}
+export INSTALL_METRICS=${INSTALL_METRICS:-true}
 
 # Check required environment variable
 if [ -z "${NAMESPACE:-}" ]; then
@@ -124,13 +126,49 @@ function cleanup() {
 }
 trap cleanup SIGINT SIGTERM EXIT
 
+
 # if we don't have a chaos values, remove any existing chaos experiments
-if [ -z "${CHAOS_VALUES:-}" ]; then
+if [ -z "${CHAOS_VALUES:-}" ] && [ "$INSTALL_CHAOS_MESH" = "true" ]; then
   echo "Deleting existing network chaos experiments..."
   kubectl delete networkchaos --all --all-namespaces
 fi
 
 VALUES_PATH="$REPO/spartan/aztec-network/values/$VALUES_FILE"
+DEFAULT_VALUES_PATH="$REPO/spartan/aztec-network/values.yaml"
+
+function read_values_file() {
+  local key="$1"
+
+  value=$(yq -r ".$key" "$VALUES_PATH")
+  if [ -z "$value" ] || [ "$value" = "null" ]; then
+    value=$(yq -r ".$key" "$DEFAULT_VALUES_PATH")
+  fi
+  echo "$value"
+}
+
+## Some configuration values are set in the eth-devnet/config/config.yaml file
+## and are used to generate the genesis.json file.
+## We need to read these values and pass them into the eth devnet create.sh script
+## so that it can generate the genesis.json and config.yaml file with the correct values.
+function generate_eth_devnet_config() {
+  export NUMBER_OF_KEYS=$(read_values_file "validator.replicas")
+  export MNEMONIC=$(read_values_file "aztec.l1DeploymentMnemonic")
+  export BLOCK_TIME=$(read_values_file "ethereum.blockTime")
+  export GAS_LIMIT=$(read_values_file "ethereum.gasLimit")
+  export CHAIN_ID=$(read_values_file "ethereum.chainId")
+  export EXTRA_ACCOUNTS=$(read_values_file "ethereum.extraAccounts")
+
+  echo "Generating eth devnet config..."
+  NUMBER_OF_KEYS=$((NUMBER_OF_KEYS + EXTRA_ACCOUNTS))
+  echo "NUMBER_OF_KEYS: $NUMBER_OF_KEYS"
+  echo "MNEMONIC: $MNEMONIC"
+  echo "BLOCK_TIME: $BLOCK_TIME"
+  echo "GAS_LIMIT: $GAS_LIMIT"
+  echo "CHAIN_ID: $CHAIN_ID"
+
+  $REPO/spartan/aztec-network/eth-devnet/create.sh
+}
+generate_eth_devnet_config
 
 # Install the Helm chart
 helm upgrade --install spartan "$REPO/spartan/aztec-network/" \
@@ -152,28 +190,35 @@ PXE_PORT=$(echo $FREE_PORTS | awk '{print $1}')
 ANVIL_PORT=$(echo $FREE_PORTS | awk '{print $2}')
 METRICS_PORT=$(echo $FREE_PORTS | awk '{print $3}')
 
-GRAFANA_PASSWORD=$(kubectl get secrets -n metrics metrics-grafana -o jsonpath='{.data.admin-password}' | base64 --decode)
+if [ "$INSTALL_METRICS" = "true" ]; then
+  GRAFANA_PASSWORD=$(kubectl get secrets -n metrics metrics-grafana -o jsonpath='{.data.admin-password}' | base64 --decode)
+else
+  GRAFANA_PASSWORD=""
+fi
 
 # Namespace variable (assuming it's set)
 NAMESPACE=${NAMESPACE:-default}
 
 # If we are unable to apply network shaping, as we cannot change existing chaos configurations, then delete existing configurations and try again
-if ! handle_network_shaping; then
-  echo "Deleting existing network chaos experiments..."
-  kubectl delete networkchaos --all --all-namespaces
-
+if [ "$INSTALL_CHAOS_MESH" = "true" ]; then
   if ! handle_network_shaping; then
-    echo "Error: failed to apply network shaping configuration!"
-    exit 1
+    echo "Deleting existing network chaos experiments..."
+    kubectl delete networkchaos --all --all-namespaces
+
+    if ! handle_network_shaping; then
+      echo "Error: failed to apply network shaping configuration!"
+      exit 1
+    fi
   fi
+else
+  echo "Skipping network chaos configuration (INSTALL_CHAOS_MESH=false)"
 fi
 
 # Get the values from the values file
-VALUES=$(cat "$VALUES_PATH")
-ETHEREUM_SLOT_DURATION=$(yq -r '.ethereum.blockTime' <<<"$VALUES")
-AZTEC_SLOT_DURATION=$(yq -r '.aztec.slotDuration' <<<"$VALUES")
-AZTEC_EPOCH_DURATION=$(yq -r '.aztec.epochDuration' <<<"$VALUES")
-AZTEC_EPOCH_PROOF_CLAIM_WINDOW_IN_L2_SLOTS=$(yq -r '.aztec.epochProofClaimWindow' <<<"$VALUES")
+ETHEREUM_SLOT_DURATION=$(read_values_file "ethereum.blockTime")
+AZTEC_SLOT_DURATION=$(read_values_file "aztec.slotDuration")
+AZTEC_EPOCH_DURATION=$(read_values_file "aztec.epochDuration")
+AZTEC_EPOCH_PROOF_CLAIM_WINDOW_IN_L2_SLOTS=$(read_values_file "aztec.epochProofClaimWindow")
 
 # Run the test if $TEST is not empty
 if [ -n "$TEST" ]; then

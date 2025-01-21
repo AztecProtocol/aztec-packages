@@ -150,7 +150,7 @@ describe('e2e_deploy_contract contract class registration', () => {
       const deployInstance = async (opts: { constructorName?: string; deployer?: AztecAddress } = {}) => {
         const initArgs = [wallet.getAddress(), wallet.getAddress(), 42] as StatefulContractCtorArgs;
         const salt = Fr.random();
-        const publicKeys = PublicKeys.random();
+        const publicKeys = await PublicKeys.random();
         const instance = getContractInstanceFromDeployParams(artifact, {
           constructorArgs: initArgs,
           salt,
@@ -209,7 +209,7 @@ describe('e2e_deploy_contract contract class registration', () => {
         });
 
         it('calls a public function with no init check on the deployed instance', async () => {
-          const whom = AztecAddress.random();
+          const whom = await AztecAddress.random();
           await contract.methods
             .increment_public_value_no_init_check(whom, 10)
             .send({ skipPublicSimulation: true })
@@ -219,7 +219,7 @@ describe('e2e_deploy_contract contract class registration', () => {
         });
 
         it('refuses to call a public function with init check if the instance is not initialized', async () => {
-          const whom = AztecAddress.random();
+          const whom = await AztecAddress.random();
           const receipt = await contract.methods
             .increment_public_value(whom, 10)
             .send({ skipPublicSimulation: true })
@@ -232,7 +232,7 @@ describe('e2e_deploy_contract contract class registration', () => {
 
         it('refuses to initialize the instance with wrong args via a private function', async () => {
           await expect(
-            contract.methods.constructor(AztecAddress.random(), AztecAddress.random(), 43).prove(),
+            contract.methods.constructor(await AztecAddress.random(), await AztecAddress.random(), 43).prove(),
           ).rejects.toThrow(/initialization hash does not match/i);
         });
 
@@ -241,7 +241,7 @@ describe('e2e_deploy_contract contract class registration', () => {
             .constructor(...initArgs)
             .send()
             .wait();
-          const whom = AztecAddress.random();
+          const whom = await AztecAddress.random();
           await contract.methods.increment_public_value(whom, 10).send({ skipPublicSimulation: true }).wait();
           const stored = await contract.methods.get_public_value(whom).simulate();
           expect(stored).toEqual(10n);
@@ -259,15 +259,17 @@ describe('e2e_deploy_contract contract class registration', () => {
       });
 
       describe('using a public constructor', () => {
-        const ignoredArg = AztecAddress.random();
+        let ignoredArg: AztecAddress;
         beforeAll(async () => {
+          ignoredArg = await AztecAddress.random();
+
           ({ instance, initArgs, contract } = await deployInstance({
             constructorName: 'public_constructor',
           }));
         });
 
         it('refuses to initialize the instance with wrong args via a public function', async () => {
-          const whom = AztecAddress.random();
+          const whom = await AztecAddress.random();
           const receipt = await contract.methods
             .public_constructor(whom, ignoredArg, 43)
             .send({ skipPublicSimulation: true })
@@ -281,7 +283,7 @@ describe('e2e_deploy_contract contract class registration', () => {
             .public_constructor(...initArgs)
             .send()
             .wait();
-          const whom = AztecAddress.random();
+          const whom = await AztecAddress.random();
           await contract.methods.increment_public_value(whom, 10).send({ skipPublicSimulation: true }).wait();
           const stored = await contract.methods.get_public_value(whom).simulate();
           expect(stored).toEqual(10n);
@@ -329,10 +331,10 @@ describe('e2e_deploy_contract contract class registration', () => {
       expect(tx.status).toEqual(TxStatus.APP_LOGIC_REVERTED);
     });
 
-    it('refuses to deploy an instance from a different deployer', () => {
+    it('refuses to deploy an instance from a different deployer', async () => {
       const instance = getContractInstanceFromDeployParams(artifact, {
-        constructorArgs: [AztecAddress.random(), AztecAddress.random(), 42],
-        deployer: AztecAddress.random(),
+        constructorArgs: [await AztecAddress.random(), await AztecAddress.random(), 42],
+        deployer: await AztecAddress.random(),
       });
       expect(() => deployInstance(wallet, instance)).toThrow(/does not match/i);
     });

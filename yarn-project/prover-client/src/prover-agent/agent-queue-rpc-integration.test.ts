@@ -32,22 +32,22 @@ describe('Prover agent <-> queue integration', () => {
   let prover: ServerCircuitProver;
 
   type MakeInputs = {
-    [K in keyof ServerCircuitProver]: () => Parameters<ServerCircuitProver[K]>[0];
+    [K in keyof ServerCircuitProver]: () => Promise<Parameters<ServerCircuitProver[K]>[0]>;
   };
 
   const makeInputs: MakeInputs = {
     getAvmProof: makeAvmCircuitInputs,
-    getBaseParityProof: makeBaseParityInputs,
-    getPrivateBaseRollupProof: makePrivateBaseRollupInputs,
-    getPublicBaseRollupProof: makePublicBaseRollupInputs,
-    getRootParityProof: makeRootParityInputs,
-    getBlockMergeRollupProof: makeBlockMergeRollupInputs,
-    getEmptyBlockRootRollupProof: makeEmptyBlockRootRollupInputs,
-    getBlockRootRollupProof: makeBlockRootRollupInputs,
-    getSingleTxBlockRootRollupProof: makeSingleTxBlockRootRollupInputs,
-    getMergeRollupProof: makeMergeRollupInputs,
-    getRootRollupProof: makeRootRollupInputs,
-    getTubeProof: () => new TubeInputs(ClientIvcProof.empty()),
+    getBaseParityProof: (...args) => Promise.resolve(makeBaseParityInputs(...args)),
+    getPrivateBaseRollupProof: (...args) => Promise.resolve(makePrivateBaseRollupInputs(...args)),
+    getPublicBaseRollupProof: (...args) => Promise.resolve(makePublicBaseRollupInputs(...args)),
+    getRootParityProof: (...args) => Promise.resolve(makeRootParityInputs(...args)),
+    getBlockMergeRollupProof: (...args) => Promise.resolve(makeBlockMergeRollupInputs(...args)),
+    getEmptyBlockRootRollupProof: (...args) => Promise.resolve(makeEmptyBlockRootRollupInputs(...args)),
+    getBlockRootRollupProof: (...args) => Promise.resolve(makeBlockRootRollupInputs(...args)),
+    getSingleTxBlockRootRollupProof: (...args) => Promise.resolve(makeSingleTxBlockRootRollupInputs(...args)),
+    getMergeRollupProof: (...args) => Promise.resolve(makeMergeRollupInputs(...args)),
+    getRootRollupProof: (...args) => Promise.resolve(makeRootRollupInputs(...args)),
+    getTubeProof: () => Promise.resolve(new TubeInputs(ClientIvcProof.empty())),
   };
 
   beforeEach(async () => {
@@ -72,7 +72,7 @@ describe('Prover agent <-> queue integration', () => {
 
   // TODO: This test hangs instead of failing when the Inputs are not registered on the RPC wrapper
   it.each(Object.entries(makeInputs))('can call %s over JSON-RPC', async (fnName, makeInputs) => {
-    const resp = await queue[fnName as keyof ServerCircuitProver](makeInputs() as any);
+    const resp = await queue[fnName as keyof ServerCircuitProver]((await makeInputs()) as any);
     expect(resp).toBeDefined();
   });
 });
