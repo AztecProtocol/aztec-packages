@@ -8,6 +8,7 @@ import {
 } from '@aztec/aztec.js';
 import { EventSelector } from '@aztec/foundation/abi';
 import { makeTuple } from '@aztec/foundation/array';
+import { timesParallel } from '@aztec/foundation/collection';
 import { type Tuple } from '@aztec/foundation/serialize';
 import { type ExampleEvent0, type ExampleEvent1, TestLogContract } from '@aztec/noir-contracts.js/TestLog';
 
@@ -47,7 +48,10 @@ describe('Logs', () => {
       const privateLogs = txEffect!.data.privateLogs;
       expect(privateLogs.length).toBe(3);
 
-      const decryptedEvent0 = L1EventPayload.decryptAsIncoming(privateLogs[0], wallets[0].getEncryptionSecret())!;
+      const decryptedEvent0 = (await L1EventPayload.decryptAsIncoming(
+        privateLogs[0],
+        wallets[0].getEncryptionSecret(),
+      ))!;
 
       expect(decryptedEvent0.contractAddress).toStrictEqual(testLogContract.address);
       expect(decryptedEvent0.eventTypeId).toStrictEqual(EventSelector.fromSignature('ExampleEvent0(Field,Field)'));
@@ -60,7 +64,10 @@ describe('Logs', () => {
       expect(event0?.value0).toStrictEqual(preimage[0].toBigInt());
       expect(event0?.value1).toStrictEqual(preimage[1].toBigInt());
 
-      const decryptedEvent1 = L1EventPayload.decryptAsIncoming(privateLogs[2], wallets[0].getEncryptionSecret())!;
+      const decryptedEvent1 = (await L1EventPayload.decryptAsIncoming(
+        privateLogs[2],
+        wallets[0].getEncryptionSecret(),
+      ))!;
 
       const event1Metadata = new EventMetadata<ExampleEvent1>(TestLogContract.events.ExampleEvent1);
 
@@ -84,7 +91,7 @@ describe('Logs', () => {
       expect(badEvent1).toBe(undefined);
     });
 
-    it('emits multiple events as encrypted logs and decodes them', async () => {
+    it('emits multiple events as private logs and decodes them', async () => {
       const preimages = makeTuple(5, makeTuple.bind(undefined, 4, Fr.random)) as Tuple<Tuple<Fr, 4>, 5>;
 
       const txs = await Promise.all(
@@ -98,13 +105,13 @@ describe('Logs', () => {
 
       // We get all the events we can decrypt with our incoming viewing keys
 
-      const collectedEvent0s = await wallets[0].getEncryptedEvents<ExampleEvent0>(
+      const collectedEvent0s = await wallets[0].getPrivateEvents<ExampleEvent0>(
         TestLogContract.events.ExampleEvent0,
         firstBlockNumber,
         numBlocks,
       );
 
-      const collectedEvent0sWithIncoming = await wallets[0].getEncryptedEvents<ExampleEvent0>(
+      const collectedEvent0sWithIncoming = await wallets[0].getPrivateEvents<ExampleEvent0>(
         TestLogContract.events.ExampleEvent0,
         firstBlockNumber,
         numBlocks,
@@ -112,7 +119,7 @@ describe('Logs', () => {
         [wallets[0].getCompleteAddress().publicKeys.masterIncomingViewingPublicKey],
       );
 
-      const collectedEvent1s = await wallets[0].getEncryptedEvents<ExampleEvent1>(
+      const collectedEvent1s = await wallets[0].getPrivateEvents<ExampleEvent1>(
         TestLogContract.events.ExampleEvent1,
         firstBlockNumber,
         numBlocks,
@@ -123,7 +130,7 @@ describe('Logs', () => {
       expect(collectedEvent0s.length).toBe(5);
       expect(collectedEvent1s.length).toBe(5);
 
-      const emptyEvent1s = await wallets[0].getEncryptedEvents<ExampleEvent1>(
+      const emptyEvent1s = await wallets[0].getPrivateEvents<ExampleEvent1>(
         TestLogContract.events.ExampleEvent1,
         firstBlockNumber,
         numBlocks,
@@ -151,23 +158,21 @@ describe('Logs', () => {
       );
     });
 
-    it('emits multiple events as unencrypted logs and decodes them', async () => {
+    it('emits multiple unencrypted events as public logs and decodes them', async () => {
       const preimage = makeTuple(5, makeTuple.bind(undefined, 4, Fr.random)) as Tuple<Tuple<Fr, 4>, 5>;
 
       let i = 0;
       const firstTx = await testLogContract.methods.emit_unencrypted_events(preimage[i]).send().wait();
-      await Promise.all(
-        [...new Array(3)].map(() => testLogContract.methods.emit_unencrypted_events(preimage[++i]).send().wait()),
-      );
+      await timesParallel(3, () => testLogContract.methods.emit_unencrypted_events(preimage[++i]).send().wait());
       const lastTx = await testLogContract.methods.emit_unencrypted_events(preimage[++i]).send().wait();
 
-      const collectedEvent0s = await wallets[0].getUnencryptedEvents<ExampleEvent0>(
+      const collectedEvent0s = await wallets[0].getPublicEvents<ExampleEvent0>(
         TestLogContract.events.ExampleEvent0,
         firstTx.blockNumber!,
         lastTx.blockNumber! - firstTx.blockNumber! + 1,
       );
 
-      const collectedEvent1s = await wallets[0].getUnencryptedEvents<ExampleEvent1>(
+      const collectedEvent1s = await wallets[0].getPublicEvents<ExampleEvent1>(
         TestLogContract.events.ExampleEvent1,
         firstTx.blockNumber!,
         lastTx.blockNumber! - firstTx.blockNumber! + 1,

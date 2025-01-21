@@ -90,6 +90,21 @@ export async function timesAsync<T>(n: number, fn: (i: number) => Promise<T>): P
 }
 
 /**
+ * Executes the given async function n times in parallel and returns the results in an array.
+ * @param n - How many times to repeat.
+ * @param fn - Mapper from index to value.
+ * @returns The array with the result from all executions.
+ */
+export async function timesParallel<T>(n: number, fn: (i: number) => Promise<T>): Promise<T[]> {
+  const results: T[] = await Promise.all(
+    Array(n)
+      .fill(0)
+      .map((_, i) => fn(i)),
+  );
+  return results;
+}
+
+/**
  * Returns the serialized size of all non-empty items in an array.
  * @param arr - Array
  * @returns The serialized size in bytes.

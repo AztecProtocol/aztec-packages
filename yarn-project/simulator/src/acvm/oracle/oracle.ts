@@ -19,11 +19,6 @@ export class Oracle {
     return toACVMField(val);
   }
 
-  async storeArrayInExecutionCache(values: ACVMField[]): Promise<ACVMField> {
-    const hash = await this.typedOracle.storeArrayInExecutionCache(values.map(fromACVMField));
-    return toACVMField(hash);
-  }
-
   // Since the argument is a slice, noir automatically adds a length field to oracle call.
   async storeInExecutionCache(_length: ACVMField[], values: ACVMField[]): Promise<ACVMField> {
     const hash = await this.typedOracle.storeInExecutionCache(values.map(fromACVMField));

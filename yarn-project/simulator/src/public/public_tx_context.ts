@@ -97,7 +97,7 @@ export class PublicTxContext {
       /*noteHashes*/ 0,
       /*nullifiers=*/ 0,
       countAccumulatedItems(nonRevertibleAccumulatedDataFromPrivate.l2ToL1Msgs),
-      /*unencryptedLogsHashes*/ 0,
+      /*publicLogs*/ 0,
     );
     const enqueuedCallTrace = new PublicEnqueuedCallSideEffectTrace(
       /*startSideEffectCounter=*/ 0,

@@ -25,35 +25,36 @@ AvmFlavor::AllConstRefValues::AllConstRefValues(
     , execution_addressing_error_kind(il[17])
     , execution_base_address_tag(il[18])
     , execution_base_address_val(il[19])
-    , execution_clk(il[20])
-    , execution_ex_opcode(il[21])
-    , execution_indirect(il[22])
-    , execution_last(il[23])
-    , execution_op1(il[24])
-    , execution_op1_after_relative(il[25])
-    , execution_op2(il[26])
-    , execution_op2_after_relative(il[27])
-    , execution_op3(il[28])
-    , execution_op3_after_relative(il[29])
-    , execution_op4(il[30])
-    , execution_op4_after_relative(il[31])
-    , execution_pc(il[32])
-    , execution_rop1(il[33])
-    , execution_rop2(il[34])
-    , execution_rop3(il[35])
-    , execution_rop4(il[36])
-    , execution_sel(il[37])
-    , execution_sel_addressing_error(il[38])
-    , execution_sel_op1_is_address(il[39])
-    , execution_sel_op2_is_address(il[40])
-    , execution_sel_op3_is_address(il[41])
-    , execution_sel_op4_is_address(il[42])
-    , lookup_dummy_precomputed_counts(il[43])
-    , lookup_dummy_dynamic_counts(il[44])
-    , perm_dummy_dynamic_inv(il[45])
-    , lookup_dummy_precomputed_inv(il[46])
-    , lookup_dummy_dynamic_inv(il[47])
-    , execution_sel_shift(il[48])
+    , execution_bytecode_id(il[20])
+    , execution_clk(il[21])
+    , execution_ex_opcode(il[22])
+    , execution_indirect(il[23])
+    , execution_last(il[24])
+    , execution_op1(il[25])
+    , execution_op1_after_relative(il[26])
+    , execution_op2(il[27])
+    , execution_op2_after_relative(il[28])
+    , execution_op3(il[29])
+    , execution_op3_after_relative(il[30])
+    , execution_op4(il[31])
+    , execution_op4_after_relative(il[32])
+    , execution_pc(il[33])
+    , execution_rop1(il[34])
+    , execution_rop2(il[35])
+    , execution_rop3(il[36])
+    , execution_rop4(il[37])
+    , execution_sel(il[38])
+    , execution_sel_addressing_error(il[39])
+    , execution_sel_op1_is_address(il[40])
+    , execution_sel_op2_is_address(il[41])
+    , execution_sel_op3_is_address(il[42])
+    , execution_sel_op4_is_address(il[43])
+    , lookup_dummy_precomputed_counts(il[44])
+    , lookup_dummy_dynamic_counts(il[45])
+    , perm_dummy_dynamic_inv(il[46])
+    , lookup_dummy_precomputed_inv(il[47])
+    , lookup_dummy_dynamic_inv(il[48])
+    , execution_sel_shift(il[49])
 {}
 
 AvmFlavor::ProverPolynomials::ProverPolynomials(ProvingKey& proving_key)
@@ -90,6 +91,7 @@ AvmFlavor::AllConstRefValues AvmFlavor::ProverPolynomials::get_row(size_t row_id
                      execution_addressing_error_kind[row_idx],
                      execution_base_address_tag[row_idx],
                      execution_base_address_val[row_idx],
+                     execution_bytecode_id[row_idx],
                      execution_clk[row_idx],
                      execution_ex_opcode[row_idx],
                      execution_indirect[row_idx],
@@ -143,6 +145,7 @@ AvmFlavor::CommitmentLabels::CommitmentLabels()
     Base::execution_addressing_error_kind = "EXECUTION_ADDRESSING_ERROR_KIND";
     Base::execution_base_address_tag = "EXECUTION_BASE_ADDRESS_TAG";
     Base::execution_base_address_val = "EXECUTION_BASE_ADDRESS_VAL";
+    Base::execution_bytecode_id = "EXECUTION_BYTECODE_ID";
     Base::execution_clk = "EXECUTION_CLK";
     Base::execution_ex_opcode = "EXECUTION_EX_OPCODE";
     Base::execution_indirect = "EXECUTION_INDIRECT";

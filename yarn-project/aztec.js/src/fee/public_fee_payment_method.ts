@@ -1,6 +1,6 @@
 import { type FunctionCall } from '@aztec/circuit-types';
 import { type GasSettings } from '@aztec/circuits.js';
-import { FunctionSelector, FunctionType } from '@aztec/foundation/abi';
+import { FunctionSelector, FunctionType, U128 } from '@aztec/foundation/abi';
 import { type AztecAddress } from '@aztec/foundation/aztec-address';
 import { Fr } from '@aztec/foundation/fields';
 
@@ -80,7 +80,7 @@ export class PublicFeePaymentMethod implements FeePaymentMethod {
    */
   async getFunctionCalls(gasSettings: GasSettings): Promise<FunctionCall[]> {
     const nonce = Fr.random();
-    const maxFee = gasSettings.getFeeLimit();
+    const maxFee = new U128(gasSettings.getFeeLimit().toBigInt());
 
     return Promise.resolve([
       this.wallet
@@ -89,8 +89,8 @@ export class PublicFeePaymentMethod implements FeePaymentMethod {
             caller: this.paymentContract,
             action: {
               name: 'transfer_in_public',
-              args: [this.wallet.getAddress().toField(), this.paymentContract.toField(), maxFee, nonce],
-              selector: FunctionSelector.fromSignature('transfer_in_public((Field),(Field),Field,Field)'),
+              args: [this.wallet.getAddress().toField(), this.paymentContract.toField(), ...maxFee.toFields(), nonce],
+              selector: FunctionSelector.fromSignature('transfer_in_public((Field),(Field),(Field,Field),Field)'),
               type: FunctionType.PUBLIC,
               isStatic: false,
               to: await this.getAsset(),
@@ -103,10 +103,10 @@ export class PublicFeePaymentMethod implements FeePaymentMethod {
       {
         name: 'fee_entrypoint_public',
         to: this.paymentContract,
-        selector: FunctionSelector.fromSignature('fee_entrypoint_public(Field,Field)'),
+        selector: FunctionSelector.fromSignature('fee_entrypoint_public((Field,Field),Field)'),
         type: FunctionType.PRIVATE,
         isStatic: false,
-        args: [maxFee, nonce],
+        args: [...maxFee.toFields(), nonce],
         returnTypes: [],
       },
     ]);

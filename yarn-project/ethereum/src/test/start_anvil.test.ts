@@ -1,3 +1,5 @@
+import { times } from '@aztec/foundation/collection';
+
 import { createPublicClient, http } from 'viem';
 
 import { startAnvil } from './start_anvil.js';
@@ -21,5 +23,12 @@ describe('start_anvil', () => {
 
     await anvil.stop();
     expect(anvil.status).toEqual('idle');
+  });
+
+  it('does not reuse ports when starting multiple instances', async () => {
+    const anvils = await Promise.all(times(20, () => startAnvil()));
+    const ports = anvils.map(({ rpcUrl }) => parseInt(new URL(rpcUrl).port));
+    expect(new Set(ports).size).toEqual(20);
+    await Promise.all(anvils.map(({ anvil }) => anvil.stop()));
   });
 });
