@@ -251,7 +251,7 @@ export class L1TxUtils {
       return { txHash, gasLimit, gasPrice };
     } catch (err: any) {
       const { message, metaMessages } = formatViemError(err);
-      this.logger?.error(`Failed to send transaction`, message, { metaMessages });
+      this.logger?.error(`Failed to send L1 transaction`, message, { metaMessages });
       throw { ...err, message, metaMessages };
     }
   }
@@ -388,7 +388,7 @@ export class L1TxUtils {
         await sleep(gasConfig.checkIntervalMs!);
       } catch (err: any) {
         const { message, ...error } = formatViemError(err);
-        this.logger?.warn(`Error monitoring tx ${currentTxHash}:`, message);
+        this.logger?.warn(`Error monitoring L1 transaction ${currentTxHash}:`, message);
         if (err.message?.includes('reverted')) {
           throw { ...error, message };
         }
@@ -434,9 +434,9 @@ export class L1TxUtils {
     try {
       const blobBaseFeeHex = await this.publicClient.request({ method: 'eth_blobBaseFee' });
       blobBaseFee = BigInt(blobBaseFeeHex);
-      this.logger?.debug('Blob base fee:', { blobBaseFee: formatGwei(blobBaseFee) });
+      this.logger?.debug('L1 Blob base fee:', { blobBaseFee: formatGwei(blobBaseFee) });
     } catch {
-      this.logger?.warn('Failed to get blob base fee', attempt);
+      this.logger?.warn('Failed to get L1 blob base fee', attempt);
     }
 
     let priorityFee: bigint;
@@ -558,10 +558,10 @@ export class L1TxUtils {
           maxFeePerBlobGas: gasPrice.maxFeePerBlobGas!,
         })
       )?.gas;
-      this.logger?.debug('Gas used in estimateGas by blob tx', { gas: initialEstimate });
+      this.logger?.debug('L1 gas used in estimateGas by blob tx', { gas: initialEstimate });
     } else {
       initialEstimate = await this.publicClient.estimateGas({ account, ...request });
-      this.logger?.debug('Gas used in estimateGas by non-blob tx', { gas: initialEstimate });
+      this.logger?.debug('L1 gas used in estimateGas by non-blob tx', { gas: initialEstimate });
     }
 
     // Add buffer based on either fixed amount or percentage
@@ -602,19 +602,19 @@ export class L1TxUtils {
           },
         ],
       });
-      this.logger?.debug(`Gas used in simulation: ${result[0].calls[0].gasUsed}`, {
+      this.logger?.debug(`L1 gas used in simulation: ${result[0].calls[0].gasUsed}`, {
         result,
       });
       if (result[0].calls[0].status === 'failure') {
-        this.logger?.error('Simulation failed', {
+        this.logger?.error('L1 transaction Simulation failed', {
           error: result[0].calls[0].error,
         });
-        throw new Error(`Simulation failed with error: ${result[0].calls[0].error.message}`);
+        throw new Error(`L1 transaction simulation failed with error: ${result[0].calls[0].error.message}`);
       }
       return result[0].gasUsed;
     } catch (err) {
       if (err instanceof MethodNotFoundRpcError || err instanceof MethodNotSupportedRpcError) {
-        this.logger?.error('Node does not support simulation API');
+        this.logger?.error('Node does not support eth_simulateV1 API');
       }
       throw err;
     }
