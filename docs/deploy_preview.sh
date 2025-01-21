@@ -23,7 +23,7 @@ if [ -n "$PR_NUMBER" ]; then
 fi
 
 # Deploy and capture exit code and output
-if ! DEPLOY_OUTPUT=$(yarn netlify deploy --site aztec-docs-dev 2>&1); then
+if ! DEPLOY_OUTPUT=$(yarn netlify deploy --dir /usr/src/docs --site aztec-docs-dev 2>&1); then
     echo "Netlify deploy failed with error:"
     echo "$DEPLOY_OUTPUT"
     exit 1
