@@ -129,8 +129,8 @@ std::string to_name(AvmError error)
         return "ENVIRONMENT VARIABLE UNKNOWN";
     case AvmError::CONTRACT_INST_MEM_UNKNOWN:
         return "CONTRACT INSTANCE MEMBER UNKNOWN";
-    case AvmError::RADIX_OUT_OF_BOUNDS:
-        return "RADIX OUT OF BOUNDS";
+    case AvmError::INVALID_TORADIXBE_INPUTS:
+        return "INVALID TO_RADIX_BE INPUTS";
     case AvmError::DUPLICATE_NULLIFIER:
         return "DUPLICATE NULLIFIER";
     case AvmError::SIDE_EFFECT_LIMIT_REACHED:
