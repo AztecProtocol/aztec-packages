@@ -9,9 +9,10 @@ network:
   public: false
 
 ethereum:
-  externalHost:
   chainId: "11155111"
   deployL1ContractsPrivateKey:
+  execution:
+    externalHost:
 
 validator:
   l1FixedPriorityFeePerGas: 1
