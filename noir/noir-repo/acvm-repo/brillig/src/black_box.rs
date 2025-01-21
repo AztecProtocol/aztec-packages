@@ -114,71 +114,59 @@ pub enum BlackBoxOp {
 pub enum BrilligBlackBoxFunc {
     /// Ciphers (encrypts) the provided plaintext using AES128 in CBC mode,
     /// padding the input using PKCS#7.
-    /// - inputs: byte array `[u8; N]`
-    /// - iv: initialization vector `[u8; 16]`
-    /// - key: user key `[u8; 16]`
-    /// - outputs: byte vector `[u8]` of length `input.len() + (16 - input.len() % 16)`
+    /// - inputs: HeapVector of `u8`
+    /// - iv: initialization vector of type HeapArray `[u8; 16]`
+    /// - key: HeapArray `[u8; 16]`
+    /// - outputs: HeapVector of `u8` of length `inputs.len() + (16 - inputs.len() % 16)`
     AES128Encrypt,
 
-    /// Computes the Blake2s hash of the inputs, as specified in
+    /// Computes the Blake2s hash of the message, as specified in
     /// https://tools.ietf.org/html/rfc7693
-    /// - inputs are a byte array, i.e a vector of (witness, 8)
-    /// - output is a byte array of length 32, i.e. an array of 32
-    ///   (witness, 8), constrained to be the blake2s of the inputs.
+    /// - message: HeapVector of `u8`
+    /// - output: HeapArray of `u8` of length 32
     Blake2s,
 
-    /// Computes the Blake3 hash of the inputs
-    /// - inputs are a byte array, i.e a vector of (witness, 8)
-    /// - output is a byte array of length 32, i.e an array of 32
-    ///   (witness, 8), constrained to be the blake3 of the inputs.
+    /// Computes the Blake3 hash of the message.
+    /// - message: HeapVector of `u8`
+    /// - output: HeapArray of `u8` of length 32
     Blake3,
 
     /// Keccak Permutation function of width 1600
-    /// - inputs: An array of 25 64-bit Keccak lanes that represent a keccak sponge of 1600 bits
-    /// - outputs: The result of a keccak f1600 permutation on the input state. Also an array of 25 Keccak lanes.
+    /// - input:  HeapArray of `u8` representing 25 64-bit Keccak lanes that represent a keccak sponge of 1600 bits
+    /// - output: HeapArray of `u8` containing the result of a keccak f1600 permutation on the input state. Also an array of 25 Keccak lanes.
     Keccakf1600,
 
-    /// Verifies a ECDSA signature over the secp256k1 curve.
+    /// Verifies an ECDSA signature over the secp256k1 curve.
     /// - inputs:
-    ///     - x coordinate of public key as 32 bytes
-    ///     - y coordinate of public key as 32 bytes
-    ///     - the signature, as a 64 bytes array
-    ///     - the hash of the message, as a vector of bytes
-    /// - output: 0 for failure and 1 for success
+    ///     - x coordinate of public key as 32 bytes (HeapArray of `u8`)
+    ///     - y coordinate of public key as 32 bytes (HeapArray of `u8`)
+    ///     - the signature, as a 64 bytes array (HeapArray of `u8`)
+    ///     - the hash of the message, as a vector of bytes (HeapVector of `u8`)
+    /// - result: 0 for failure and 1 for success
     EcdsaSecp256k1,
 
-    /// Verifies a ECDSA signature over the secp256r1 curve.
+    /// Verifies an ECDSA signature over the secp256r1 curve.
     ///
     /// Same as EcdsaSecp256k1, but done over another curve.
     EcdsaSecp256r1,
 
     /// Multiple scalar multiplication (MSM) with a variable base/input point
-    /// (P) of the embedded curve. An MSM multiplies the points and scalars and
+    /// (P) of the embedded (Grumpkin) curve. An MSM multiplies the points and scalars and
     /// sums the results.
     /// - input:
-    ///     points (witness, N) a vector of x and y coordinates of input
-    ///     points `[x1, y1, x2, y2,...]`.
-    ///     scalars (witness, N) a vector of low and high limbs of input
-    ///     scalars `[s1_low, s1_high, s2_low, s2_high, ...]`. (witness, N)
-    ///     For Barretenberg, they must both be less than 128 bits.
-    /// - output:
-    ///     a tuple of `x` and `y` coordinates of output.
-    ///     Points computed as `s_low*P+s_high*2^{128}*P`
+    ///     points: HeapVector of x and y coordinates (and infinity point flag) of the input
+    ///             points `[x1, y1, x2, y2,...]`.
+    ///     scalars: HeapVector of low and high limbs of input
+    ///              scalars `[s1_low, s1_high, s2_low, s2_high, ...]`. (witness, N)
+    /// - outputs: HeapArray containing a tuple of `x` and `y` coordinates
+    ///            (and infinity point flag) of output.
     ///
     /// Because the Grumpkin scalar field is bigger than the ACIR field, we
     /// provide 2 ACIR fields representing the low and high parts of the Grumpkin
     /// scalar $a$: `a=low+high*2^{128}`, with `low, high < 2^{128}`
     MultiScalarMul,
 
-    /// Addition over the embedded curve on which the witness is defined
-    /// The opcode makes the following assumptions but does not enforce them because
-    /// it is more efficient to do it only when required. For instance, adding two
-    /// points that are on the curve it guarantee to give a point on the curve.
-    ///
-    /// It assumes that the points are on the curve.
-    /// If the inputs are the same witnesses index, it will perform a doubling,
-    /// If not, it assumes that the points' x-coordinates are not equal.
-    /// It also assumes neither point is the infinity point.
+    /// Addition over the embedded (Grumpkin) curve.
     EmbeddedCurveAdd,
 
     /// BigInt addition
@@ -203,9 +191,9 @@ pub enum BrilligBlackBoxFunc {
     Poseidon2Permutation,
 
     /// SHA256 compression function
-    /// - input: [(witness, 32); 16]
-    /// - state: [(witness, 32); 8]
-    /// - output: [(witness, 32); 8]
+    /// - input: HeapArray of `u32` of length 16
+    /// - state (hash_values): HeapArray of `u32` of length 8
+    /// - output: HeapArray of `u32` of length 8
     Sha256Compression,
 
     /// Big-endian radix decomposition
