@@ -1,13 +1,5 @@
 import { type BlobSinkClientInterface, createBlobSinkClient } from '@aztec/blob-sink/client';
-import {
-  ConsensusPayload,
-  type EpochProofClaim,
-  type EpochProofQuote,
-  type L2Block,
-  SignatureDomainSeparator,
-  type TxHash,
-  getHashedSignaturePayload,
-} from '@aztec/circuit-types';
+import { type EpochProofClaim, type EpochProofQuote, type L2Block, type TxHash } from '@aztec/circuit-types';
 import { type L1PublishBlockStats, type L1PublishProofStats, type L1PublishStats } from '@aztec/circuit-types/stats';
 import { AGGREGATION_OBJECT_LENGTH, AZTEC_MAX_EPOCH_DURATION, EthAddress, type Proof } from '@aztec/circuits.js';
 import { type FeeRecipient, type RootRollupPublicInputs } from '@aztec/circuits.js/rollup';
@@ -43,8 +35,8 @@ import {
   type GetContractReturnType,
   type Hex,
   type HttpTransport,
-  type MethodNotFoundRpcError,
-  type MethodNotSupportedRpcError,
+  MethodNotFoundRpcError,
+  MethodNotSupportedRpcError,
   type PrivateKeyAccount,
   type PublicActions,
   type PublicClient,
