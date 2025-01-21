@@ -24,8 +24,10 @@ spec:
         - name: ethereum
           image: "{{ .Values.images.reth.image }}"
           imagePullPolicy: {{ .Values.images.reth.pullPolicy }}
-          command: ["/bin/sh"]
-          args: ["/entrypoints/eth-execution.sh"]
+          command: ["/bin/sh", "-c"]
+          args:
+            - |
+              exec /entrypoints/eth-execution.sh
           env:
             - name: K8S_MODE
               value: "true"

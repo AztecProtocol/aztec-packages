@@ -57,7 +57,7 @@ spec:
             - name: shared-volume
               mountPath: /data
             - name: genesis
-              mountPath: /genesis
+              mountPath: /genesis-template
             - name: validator-setup
               mountPath: /validator-setup
             - name: entrypoint-scripts

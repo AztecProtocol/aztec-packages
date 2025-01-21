@@ -45,8 +45,8 @@ services:
       dockerfile: entrypoints/eth-validator.Dockerfile
     volumes:
       - "eth_validator_data:/data"
-      - "${PWD}/config/keys:/data/validators"
-      - "${PWD}/config/secrets:/data/secrets"
+      - "${PWD}/config/val-keys/data/keys:/validator_setup/validators"
+      - "${PWD}/config/val-keys/data/secrets:/validator_setup/secrets"
       - "${PWD}/out/config.yaml:/genesis/config.yaml"
       - "${PWD}/out/deposit_contract_block.txt:/genesis/deposit_contract_block.txt"
       - "${PWD}/out/genesis.ssz:/genesis/genesis.ssz"
