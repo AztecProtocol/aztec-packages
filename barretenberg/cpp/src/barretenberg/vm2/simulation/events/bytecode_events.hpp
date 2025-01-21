@@ -40,6 +40,7 @@ struct BytecodeDecompositionEvent {
     uint32_t pc;
     // TODO: Do we want to have a dep on Instruction here or do we redefine what we need?
     Instruction instruction;
+    std::shared_ptr<std::vector<uint8_t>> bytecode;
 };
 
 } // namespace bb::avm2::simulation

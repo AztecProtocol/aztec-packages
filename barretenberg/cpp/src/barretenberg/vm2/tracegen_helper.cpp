@@ -16,6 +16,7 @@
 #include "barretenberg/vm2/generated/relations/lookup_dummy_precomputed.hpp"
 #include "barretenberg/vm2/generated/relations/perm_dummy_dynamic.hpp"
 #include "barretenberg/vm2/tracegen/alu_trace.hpp"
+#include "barretenberg/vm2/tracegen/bytecode_trace.hpp"
 #include "barretenberg/vm2/tracegen/execution_trace.hpp"
 #include "barretenberg/vm2/tracegen/lib/lookup_into_bitwise.hpp"
 #include "barretenberg/vm2/tracegen/lib/permutation_builder.hpp"
@@ -90,7 +91,7 @@ TraceContainer AvmTraceGenHelper::generate_trace(EventsContainer&& events)
             // Precomputed column jobs.
             build_precomputed_columns_jobs(trace),
             // Subtrace jobs.
-            std::array<std::function<void()>, 2>{
+            std::array<std::function<void()>, 5>{
                 [&]() {
                     ExecutionTraceBuilder exec_builder;
                     AVM_TRACK_TIME("tracegen/execution",
@@ -102,6 +103,25 @@ TraceContainer AvmTraceGenHelper::generate_trace(EventsContainer&& events)
                     AluTraceBuilder alu_builder;
                     AVM_TRACK_TIME("tracegen/alu", alu_builder.process(events.alu, trace));
                     clear_events(events.alu);
+                },
+                [&]() {
+                    // TODO: We only store the bytecode for now, hashing is not handled!
+                    BytecodeTraceBuilder bytecode_builder;
+                    AVM_TRACK_TIME("tracegen/bytecode_hashing",
+                                   bytecode_builder.process_hashing(events.bytecode_hashing, trace));
+                    clear_events(events.bytecode_hashing);
+                },
+                [&]() {
+                    BytecodeTraceBuilder bytecode_builder;
+                    AVM_TRACK_TIME("tracegen/bytecode_retrieval",
+                                   bytecode_builder.process_retrieval(events.bytecode_retrieval, trace));
+                    clear_events(events.bytecode_retrieval);
+                },
+                [&]() {
+                    BytecodeTraceBuilder bytecode_builder;
+                    AVM_TRACK_TIME("tracegen/bytecode_decomposition",
+                                   bytecode_builder.process_decomposition(events.bytecode_decomposition, trace));
+                    clear_events(events.bytecode_decomposition);
                 },
             });
         AVM_TRACK_TIME("tracegen/traces", execute_jobs(jobs));

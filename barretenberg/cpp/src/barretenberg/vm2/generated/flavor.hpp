@@ -18,6 +18,9 @@
 
 // Relations
 #include "relations/alu.hpp"
+#include "relations/bc_decomposition.hpp"
+#include "relations/bc_retrieval.hpp"
+#include "relations/bytecode.hpp"
 #include "relations/execution.hpp"
 
 // Lookup and permutation relations
@@ -53,12 +56,12 @@ class AvmFlavor {
     static constexpr bool HasZK = false;
 
     static constexpr size_t NUM_PRECOMPUTED_ENTITIES = 7;
-    static constexpr size_t NUM_WITNESS_ENTITIES = 42;
-    static constexpr size_t NUM_SHIFTED_ENTITIES = 1;
+    static constexpr size_t NUM_WITNESS_ENTITIES = 146;
+    static constexpr size_t NUM_SHIFTED_ENTITIES = 36;
     static constexpr size_t NUM_WIRES = NUM_WITNESS_ENTITIES + NUM_PRECOMPUTED_ENTITIES;
     // We have two copies of the witness entities, so we subtract the number of fixed ones (they have no shift), one for
     // the unshifted and one for the shifted
-    static constexpr size_t NUM_ALL_ENTITIES = 50;
+    static constexpr size_t NUM_ALL_ENTITIES = 189;
     // The total number of witnesses including shifts and derived entities.
     static constexpr size_t NUM_ALL_WITNESS_ENTITIES = NUM_WITNESS_ENTITIES + NUM_SHIFTED_ENTITIES;
 
@@ -67,6 +70,9 @@ class AvmFlavor {
     using MainRelations_ = std::tuple<
         // Relations
         avm2::alu<FF_>,
+        avm2::bc_decomposition<FF_>,
+        avm2::bc_retrieval<FF_>,
+        avm2::bytecode<FF_>,
         avm2::execution<FF_>>;
 
     using MainRelations = MainRelations_<FF>;

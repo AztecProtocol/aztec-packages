@@ -49,11 +49,13 @@ Instruction TxBytecodeManager::read_instruction(BytecodeId bytecode_id, uint32_t
         throw std::runtime_error("Bytecode not found");
     }
 
-    const auto& bytecode = *it->second;
+    auto bytecode_ptr = it->second;
+    const auto& bytecode = *bytecode_ptr;
     // TODO: catch errors etc.
     Instruction instruction = decode_instruction(bytecode, pc);
 
-    decomposition_events.emit({ .bytecode_id = bytecode_id, .pc = pc, .instruction = instruction });
+    decomposition_events.emit(
+        { .bytecode_id = bytecode_id, .pc = pc, .instruction = instruction, .bytecode = bytecode_ptr });
 
     return instruction;
 }

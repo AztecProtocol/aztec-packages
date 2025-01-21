@@ -21,40 +21,179 @@ AvmFlavor::AllConstRefValues::AllConstRefValues(
     , alu_ic(il[13])
     , alu_op(il[14])
     , alu_sel_op_add(il[15])
-    , execution_addressing_error_idx(il[16])
-    , execution_addressing_error_kind(il[17])
-    , execution_base_address_tag(il[18])
-    , execution_base_address_val(il[19])
-    , execution_bytecode_id(il[20])
-    , execution_clk(il[21])
-    , execution_ex_opcode(il[22])
-    , execution_indirect(il[23])
-    , execution_last(il[24])
-    , execution_op1(il[25])
-    , execution_op1_after_relative(il[26])
-    , execution_op2(il[27])
-    , execution_op2_after_relative(il[28])
-    , execution_op3(il[29])
-    , execution_op3_after_relative(il[30])
-    , execution_op4(il[31])
-    , execution_op4_after_relative(il[32])
-    , execution_pc(il[33])
-    , execution_rop1(il[34])
-    , execution_rop2(il[35])
-    , execution_rop3(il[36])
-    , execution_rop4(il[37])
-    , execution_sel(il[38])
-    , execution_sel_addressing_error(il[39])
-    , execution_sel_op1_is_address(il[40])
-    , execution_sel_op2_is_address(il[41])
-    , execution_sel_op3_is_address(il[42])
-    , execution_sel_op4_is_address(il[43])
-    , lookup_dummy_precomputed_counts(il[44])
-    , lookup_dummy_dynamic_counts(il[45])
-    , perm_dummy_dynamic_inv(il[46])
-    , lookup_dummy_precomputed_inv(il[47])
-    , lookup_dummy_dynamic_inv(il[48])
-    , execution_sel_shift(il[49])
+    , bc_decomposition_bd0(il[16])
+    , bc_decomposition_bd1(il[17])
+    , bc_decomposition_bd10(il[18])
+    , bc_decomposition_bd11(il[19])
+    , bc_decomposition_bd12(il[20])
+    , bc_decomposition_bd13(il[21])
+    , bc_decomposition_bd14(il[22])
+    , bc_decomposition_bd15(il[23])
+    , bc_decomposition_bd16(il[24])
+    , bc_decomposition_bd17(il[25])
+    , bc_decomposition_bd18(il[26])
+    , bc_decomposition_bd19(il[27])
+    , bc_decomposition_bd2(il[28])
+    , bc_decomposition_bd20(il[29])
+    , bc_decomposition_bd21(il[30])
+    , bc_decomposition_bd22(il[31])
+    , bc_decomposition_bd23(il[32])
+    , bc_decomposition_bd24(il[33])
+    , bc_decomposition_bd25(il[34])
+    , bc_decomposition_bd26(il[35])
+    , bc_decomposition_bd27(il[36])
+    , bc_decomposition_bd28(il[37])
+    , bc_decomposition_bd29(il[38])
+    , bc_decomposition_bd3(il[39])
+    , bc_decomposition_bd30(il[40])
+    , bc_decomposition_bd31(il[41])
+    , bc_decomposition_bd32(il[42])
+    , bc_decomposition_bd33(il[43])
+    , bc_decomposition_bd34(il[44])
+    , bc_decomposition_bd35(il[45])
+    , bc_decomposition_bd4(il[46])
+    , bc_decomposition_bd5(il[47])
+    , bc_decomposition_bd6(il[48])
+    , bc_decomposition_bd7(il[49])
+    , bc_decomposition_bd8(il[50])
+    , bc_decomposition_bd9(il[51])
+    , bc_decomposition_bytecode_id(il[52])
+    , bc_decomposition_ex_opcode(il[53])
+    , bc_decomposition_fmt_3_op_u8(il[54])
+    , bc_decomposition_indirect(il[55])
+    , bc_decomposition_op1(il[56])
+    , bc_decomposition_op2(il[57])
+    , bc_decomposition_op3(il[58])
+    , bc_decomposition_op4(il[59])
+    , bc_decomposition_pc(il[60])
+    , bc_decomposition_sel(il[61])
+    , bc_retrieval_address(il[62])
+    , bc_retrieval_artifact_hash(il[63])
+    , bc_retrieval_bytecode_id(il[64])
+    , bc_retrieval_class_id(il[65])
+    , bc_retrieval_deployer_addr(il[66])
+    , bc_retrieval_err(il[67])
+    , bc_retrieval_incoming_viewing_key_x(il[68])
+    , bc_retrieval_incoming_viewing_key_y(il[69])
+    , bc_retrieval_init_hash(il[70])
+    , bc_retrieval_nullifier_key_x(il[71])
+    , bc_retrieval_nullifier_key_y(il[72])
+    , bc_retrieval_outgoing_viewing_key_x(il[73])
+    , bc_retrieval_outgoing_viewing_key_y(il[74])
+    , bc_retrieval_private_function_root(il[75])
+    , bc_retrieval_public_bytecode_commitment(il[76])
+    , bc_retrieval_salt(il[77])
+    , bc_retrieval_sel(il[78])
+    , bc_retrieval_tagging_key_x(il[79])
+    , bc_retrieval_tagging_key_y(il[80])
+    , bytecode_bytes(il[81])
+    , bytecode_bytes_pc_plus_1(il[82])
+    , bytecode_bytes_pc_plus_10(il[83])
+    , bytecode_bytes_pc_plus_11(il[84])
+    , bytecode_bytes_pc_plus_12(il[85])
+    , bytecode_bytes_pc_plus_13(il[86])
+    , bytecode_bytes_pc_plus_14(il[87])
+    , bytecode_bytes_pc_plus_15(il[88])
+    , bytecode_bytes_pc_plus_16(il[89])
+    , bytecode_bytes_pc_plus_17(il[90])
+    , bytecode_bytes_pc_plus_18(il[91])
+    , bytecode_bytes_pc_plus_19(il[92])
+    , bytecode_bytes_pc_plus_2(il[93])
+    , bytecode_bytes_pc_plus_20(il[94])
+    , bytecode_bytes_pc_plus_21(il[95])
+    , bytecode_bytes_pc_plus_22(il[96])
+    , bytecode_bytes_pc_plus_23(il[97])
+    , bytecode_bytes_pc_plus_24(il[98])
+    , bytecode_bytes_pc_plus_25(il[99])
+    , bytecode_bytes_pc_plus_26(il[100])
+    , bytecode_bytes_pc_plus_27(il[101])
+    , bytecode_bytes_pc_plus_28(il[102])
+    , bytecode_bytes_pc_plus_29(il[103])
+    , bytecode_bytes_pc_plus_3(il[104])
+    , bytecode_bytes_pc_plus_30(il[105])
+    , bytecode_bytes_pc_plus_31(il[106])
+    , bytecode_bytes_pc_plus_32(il[107])
+    , bytecode_bytes_pc_plus_33(il[108])
+    , bytecode_bytes_pc_plus_34(il[109])
+    , bytecode_bytes_pc_plus_35(il[110])
+    , bytecode_bytes_pc_plus_4(il[111])
+    , bytecode_bytes_pc_plus_5(il[112])
+    , bytecode_bytes_pc_plus_6(il[113])
+    , bytecode_bytes_pc_plus_7(il[114])
+    , bytecode_bytes_pc_plus_8(il[115])
+    , bytecode_bytes_pc_plus_9(il[116])
+    , bytecode_id(il[117])
+    , bytecode_pc(il[118])
+    , bytecode_sel(il[119])
+    , execution_addressing_error_idx(il[120])
+    , execution_addressing_error_kind(il[121])
+    , execution_base_address_tag(il[122])
+    , execution_base_address_val(il[123])
+    , execution_bytecode_id(il[124])
+    , execution_clk(il[125])
+    , execution_ex_opcode(il[126])
+    , execution_indirect(il[127])
+    , execution_last(il[128])
+    , execution_op1(il[129])
+    , execution_op1_after_relative(il[130])
+    , execution_op2(il[131])
+    , execution_op2_after_relative(il[132])
+    , execution_op3(il[133])
+    , execution_op3_after_relative(il[134])
+    , execution_op4(il[135])
+    , execution_op4_after_relative(il[136])
+    , execution_pc(il[137])
+    , execution_rop1(il[138])
+    , execution_rop2(il[139])
+    , execution_rop3(il[140])
+    , execution_rop4(il[141])
+    , execution_sel(il[142])
+    , execution_sel_addressing_error(il[143])
+    , execution_sel_op1_is_address(il[144])
+    , execution_sel_op2_is_address(il[145])
+    , execution_sel_op3_is_address(il[146])
+    , execution_sel_op4_is_address(il[147])
+    , lookup_dummy_precomputed_counts(il[148])
+    , lookup_dummy_dynamic_counts(il[149])
+    , perm_dummy_dynamic_inv(il[150])
+    , lookup_dummy_precomputed_inv(il[151])
+    , lookup_dummy_dynamic_inv(il[152])
+    , bytecode_bytes_shift(il[153])
+    , bytecode_bytes_pc_plus_1_shift(il[154])
+    , bytecode_bytes_pc_plus_10_shift(il[155])
+    , bytecode_bytes_pc_plus_11_shift(il[156])
+    , bytecode_bytes_pc_plus_12_shift(il[157])
+    , bytecode_bytes_pc_plus_13_shift(il[158])
+    , bytecode_bytes_pc_plus_14_shift(il[159])
+    , bytecode_bytes_pc_plus_15_shift(il[160])
+    , bytecode_bytes_pc_plus_16_shift(il[161])
+    , bytecode_bytes_pc_plus_17_shift(il[162])
+    , bytecode_bytes_pc_plus_18_shift(il[163])
+    , bytecode_bytes_pc_plus_19_shift(il[164])
+    , bytecode_bytes_pc_plus_2_shift(il[165])
+    , bytecode_bytes_pc_plus_20_shift(il[166])
+    , bytecode_bytes_pc_plus_21_shift(il[167])
+    , bytecode_bytes_pc_plus_22_shift(il[168])
+    , bytecode_bytes_pc_plus_23_shift(il[169])
+    , bytecode_bytes_pc_plus_24_shift(il[170])
+    , bytecode_bytes_pc_plus_25_shift(il[171])
+    , bytecode_bytes_pc_plus_26_shift(il[172])
+    , bytecode_bytes_pc_plus_27_shift(il[173])
+    , bytecode_bytes_pc_plus_28_shift(il[174])
+    , bytecode_bytes_pc_plus_29_shift(il[175])
+    , bytecode_bytes_pc_plus_3_shift(il[176])
+    , bytecode_bytes_pc_plus_30_shift(il[177])
+    , bytecode_bytes_pc_plus_31_shift(il[178])
+    , bytecode_bytes_pc_plus_32_shift(il[179])
+    , bytecode_bytes_pc_plus_33_shift(il[180])
+    , bytecode_bytes_pc_plus_34_shift(il[181])
+    , bytecode_bytes_pc_plus_4_shift(il[182])
+    , bytecode_bytes_pc_plus_5_shift(il[183])
+    , bytecode_bytes_pc_plus_6_shift(il[184])
+    , bytecode_bytes_pc_plus_7_shift(il[185])
+    , bytecode_bytes_pc_plus_8_shift(il[186])
+    , bytecode_bytes_pc_plus_9_shift(il[187])
+    , execution_sel_shift(il[188])
 {}
 
 AvmFlavor::ProverPolynomials::ProverPolynomials(ProvingKey& proving_key)
@@ -87,6 +226,110 @@ AvmFlavor::AllConstRefValues AvmFlavor::ProverPolynomials::get_row(size_t row_id
                      alu_ic[row_idx],
                      alu_op[row_idx],
                      alu_sel_op_add[row_idx],
+                     bc_decomposition_bd0[row_idx],
+                     bc_decomposition_bd1[row_idx],
+                     bc_decomposition_bd10[row_idx],
+                     bc_decomposition_bd11[row_idx],
+                     bc_decomposition_bd12[row_idx],
+                     bc_decomposition_bd13[row_idx],
+                     bc_decomposition_bd14[row_idx],
+                     bc_decomposition_bd15[row_idx],
+                     bc_decomposition_bd16[row_idx],
+                     bc_decomposition_bd17[row_idx],
+                     bc_decomposition_bd18[row_idx],
+                     bc_decomposition_bd19[row_idx],
+                     bc_decomposition_bd2[row_idx],
+                     bc_decomposition_bd20[row_idx],
+                     bc_decomposition_bd21[row_idx],
+                     bc_decomposition_bd22[row_idx],
+                     bc_decomposition_bd23[row_idx],
+                     bc_decomposition_bd24[row_idx],
+                     bc_decomposition_bd25[row_idx],
+                     bc_decomposition_bd26[row_idx],
+                     bc_decomposition_bd27[row_idx],
+                     bc_decomposition_bd28[row_idx],
+                     bc_decomposition_bd29[row_idx],
+                     bc_decomposition_bd3[row_idx],
+                     bc_decomposition_bd30[row_idx],
+                     bc_decomposition_bd31[row_idx],
+                     bc_decomposition_bd32[row_idx],
+                     bc_decomposition_bd33[row_idx],
+                     bc_decomposition_bd34[row_idx],
+                     bc_decomposition_bd35[row_idx],
+                     bc_decomposition_bd4[row_idx],
+                     bc_decomposition_bd5[row_idx],
+                     bc_decomposition_bd6[row_idx],
+                     bc_decomposition_bd7[row_idx],
+                     bc_decomposition_bd8[row_idx],
+                     bc_decomposition_bd9[row_idx],
+                     bc_decomposition_bytecode_id[row_idx],
+                     bc_decomposition_ex_opcode[row_idx],
+                     bc_decomposition_fmt_3_op_u8[row_idx],
+                     bc_decomposition_indirect[row_idx],
+                     bc_decomposition_op1[row_idx],
+                     bc_decomposition_op2[row_idx],
+                     bc_decomposition_op3[row_idx],
+                     bc_decomposition_op4[row_idx],
+                     bc_decomposition_pc[row_idx],
+                     bc_decomposition_sel[row_idx],
+                     bc_retrieval_address[row_idx],
+                     bc_retrieval_artifact_hash[row_idx],
+                     bc_retrieval_bytecode_id[row_idx],
+                     bc_retrieval_class_id[row_idx],
+                     bc_retrieval_deployer_addr[row_idx],
+                     bc_retrieval_err[row_idx],
+                     bc_retrieval_incoming_viewing_key_x[row_idx],
+                     bc_retrieval_incoming_viewing_key_y[row_idx],
+                     bc_retrieval_init_hash[row_idx],
+                     bc_retrieval_nullifier_key_x[row_idx],
+                     bc_retrieval_nullifier_key_y[row_idx],
+                     bc_retrieval_outgoing_viewing_key_x[row_idx],
+                     bc_retrieval_outgoing_viewing_key_y[row_idx],
+                     bc_retrieval_private_function_root[row_idx],
+                     bc_retrieval_public_bytecode_commitment[row_idx],
+                     bc_retrieval_salt[row_idx],
+                     bc_retrieval_sel[row_idx],
+                     bc_retrieval_tagging_key_x[row_idx],
+                     bc_retrieval_tagging_key_y[row_idx],
+                     bytecode_bytes[row_idx],
+                     bytecode_bytes_pc_plus_1[row_idx],
+                     bytecode_bytes_pc_plus_10[row_idx],
+                     bytecode_bytes_pc_plus_11[row_idx],
+                     bytecode_bytes_pc_plus_12[row_idx],
+                     bytecode_bytes_pc_plus_13[row_idx],
+                     bytecode_bytes_pc_plus_14[row_idx],
+                     bytecode_bytes_pc_plus_15[row_idx],
+                     bytecode_bytes_pc_plus_16[row_idx],
+                     bytecode_bytes_pc_plus_17[row_idx],
+                     bytecode_bytes_pc_plus_18[row_idx],
+                     bytecode_bytes_pc_plus_19[row_idx],
+                     bytecode_bytes_pc_plus_2[row_idx],
+                     bytecode_bytes_pc_plus_20[row_idx],
+                     bytecode_bytes_pc_plus_21[row_idx],
+                     bytecode_bytes_pc_plus_22[row_idx],
+                     bytecode_bytes_pc_plus_23[row_idx],
+                     bytecode_bytes_pc_plus_24[row_idx],
+                     bytecode_bytes_pc_plus_25[row_idx],
+                     bytecode_bytes_pc_plus_26[row_idx],
+                     bytecode_bytes_pc_plus_27[row_idx],
+                     bytecode_bytes_pc_plus_28[row_idx],
+                     bytecode_bytes_pc_plus_29[row_idx],
+                     bytecode_bytes_pc_plus_3[row_idx],
+                     bytecode_bytes_pc_plus_30[row_idx],
+                     bytecode_bytes_pc_plus_31[row_idx],
+                     bytecode_bytes_pc_plus_32[row_idx],
+                     bytecode_bytes_pc_plus_33[row_idx],
+                     bytecode_bytes_pc_plus_34[row_idx],
+                     bytecode_bytes_pc_plus_35[row_idx],
+                     bytecode_bytes_pc_plus_4[row_idx],
+                     bytecode_bytes_pc_plus_5[row_idx],
+                     bytecode_bytes_pc_plus_6[row_idx],
+                     bytecode_bytes_pc_plus_7[row_idx],
+                     bytecode_bytes_pc_plus_8[row_idx],
+                     bytecode_bytes_pc_plus_9[row_idx],
+                     bytecode_id[row_idx],
+                     bytecode_pc[row_idx],
+                     bytecode_sel[row_idx],
                      execution_addressing_error_idx[row_idx],
                      execution_addressing_error_kind[row_idx],
                      execution_base_address_tag[row_idx],
@@ -120,6 +363,41 @@ AvmFlavor::AllConstRefValues AvmFlavor::ProverPolynomials::get_row(size_t row_id
                      perm_dummy_dynamic_inv[row_idx],
                      lookup_dummy_precomputed_inv[row_idx],
                      lookup_dummy_dynamic_inv[row_idx],
+                     bytecode_bytes_shift[row_idx],
+                     bytecode_bytes_pc_plus_1_shift[row_idx],
+                     bytecode_bytes_pc_plus_10_shift[row_idx],
+                     bytecode_bytes_pc_plus_11_shift[row_idx],
+                     bytecode_bytes_pc_plus_12_shift[row_idx],
+                     bytecode_bytes_pc_plus_13_shift[row_idx],
+                     bytecode_bytes_pc_plus_14_shift[row_idx],
+                     bytecode_bytes_pc_plus_15_shift[row_idx],
+                     bytecode_bytes_pc_plus_16_shift[row_idx],
+                     bytecode_bytes_pc_plus_17_shift[row_idx],
+                     bytecode_bytes_pc_plus_18_shift[row_idx],
+                     bytecode_bytes_pc_plus_19_shift[row_idx],
+                     bytecode_bytes_pc_plus_2_shift[row_idx],
+                     bytecode_bytes_pc_plus_20_shift[row_idx],
+                     bytecode_bytes_pc_plus_21_shift[row_idx],
+                     bytecode_bytes_pc_plus_22_shift[row_idx],
+                     bytecode_bytes_pc_plus_23_shift[row_idx],
+                     bytecode_bytes_pc_plus_24_shift[row_idx],
+                     bytecode_bytes_pc_plus_25_shift[row_idx],
+                     bytecode_bytes_pc_plus_26_shift[row_idx],
+                     bytecode_bytes_pc_plus_27_shift[row_idx],
+                     bytecode_bytes_pc_plus_28_shift[row_idx],
+                     bytecode_bytes_pc_plus_29_shift[row_idx],
+                     bytecode_bytes_pc_plus_3_shift[row_idx],
+                     bytecode_bytes_pc_plus_30_shift[row_idx],
+                     bytecode_bytes_pc_plus_31_shift[row_idx],
+                     bytecode_bytes_pc_plus_32_shift[row_idx],
+                     bytecode_bytes_pc_plus_33_shift[row_idx],
+                     bytecode_bytes_pc_plus_34_shift[row_idx],
+                     bytecode_bytes_pc_plus_4_shift[row_idx],
+                     bytecode_bytes_pc_plus_5_shift[row_idx],
+                     bytecode_bytes_pc_plus_6_shift[row_idx],
+                     bytecode_bytes_pc_plus_7_shift[row_idx],
+                     bytecode_bytes_pc_plus_8_shift[row_idx],
+                     bytecode_bytes_pc_plus_9_shift[row_idx],
                      execution_sel_shift[row_idx] };
 }
 
@@ -141,6 +419,110 @@ AvmFlavor::CommitmentLabels::CommitmentLabels()
     Base::alu_ic = "ALU_IC";
     Base::alu_op = "ALU_OP";
     Base::alu_sel_op_add = "ALU_SEL_OP_ADD";
+    Base::bc_decomposition_bd0 = "BC_DECOMPOSITION_BD0";
+    Base::bc_decomposition_bd1 = "BC_DECOMPOSITION_BD1";
+    Base::bc_decomposition_bd10 = "BC_DECOMPOSITION_BD10";
+    Base::bc_decomposition_bd11 = "BC_DECOMPOSITION_BD11";
+    Base::bc_decomposition_bd12 = "BC_DECOMPOSITION_BD12";
+    Base::bc_decomposition_bd13 = "BC_DECOMPOSITION_BD13";
+    Base::bc_decomposition_bd14 = "BC_DECOMPOSITION_BD14";
+    Base::bc_decomposition_bd15 = "BC_DECOMPOSITION_BD15";
+    Base::bc_decomposition_bd16 = "BC_DECOMPOSITION_BD16";
+    Base::bc_decomposition_bd17 = "BC_DECOMPOSITION_BD17";
+    Base::bc_decomposition_bd18 = "BC_DECOMPOSITION_BD18";
+    Base::bc_decomposition_bd19 = "BC_DECOMPOSITION_BD19";
+    Base::bc_decomposition_bd2 = "BC_DECOMPOSITION_BD2";
+    Base::bc_decomposition_bd20 = "BC_DECOMPOSITION_BD20";
+    Base::bc_decomposition_bd21 = "BC_DECOMPOSITION_BD21";
+    Base::bc_decomposition_bd22 = "BC_DECOMPOSITION_BD22";
+    Base::bc_decomposition_bd23 = "BC_DECOMPOSITION_BD23";
+    Base::bc_decomposition_bd24 = "BC_DECOMPOSITION_BD24";
+    Base::bc_decomposition_bd25 = "BC_DECOMPOSITION_BD25";
+    Base::bc_decomposition_bd26 = "BC_DECOMPOSITION_BD26";
+    Base::bc_decomposition_bd27 = "BC_DECOMPOSITION_BD27";
+    Base::bc_decomposition_bd28 = "BC_DECOMPOSITION_BD28";
+    Base::bc_decomposition_bd29 = "BC_DECOMPOSITION_BD29";
+    Base::bc_decomposition_bd3 = "BC_DECOMPOSITION_BD3";
+    Base::bc_decomposition_bd30 = "BC_DECOMPOSITION_BD30";
+    Base::bc_decomposition_bd31 = "BC_DECOMPOSITION_BD31";
+    Base::bc_decomposition_bd32 = "BC_DECOMPOSITION_BD32";
+    Base::bc_decomposition_bd33 = "BC_DECOMPOSITION_BD33";
+    Base::bc_decomposition_bd34 = "BC_DECOMPOSITION_BD34";
+    Base::bc_decomposition_bd35 = "BC_DECOMPOSITION_BD35";
+    Base::bc_decomposition_bd4 = "BC_DECOMPOSITION_BD4";
+    Base::bc_decomposition_bd5 = "BC_DECOMPOSITION_BD5";
+    Base::bc_decomposition_bd6 = "BC_DECOMPOSITION_BD6";
+    Base::bc_decomposition_bd7 = "BC_DECOMPOSITION_BD7";
+    Base::bc_decomposition_bd8 = "BC_DECOMPOSITION_BD8";
+    Base::bc_decomposition_bd9 = "BC_DECOMPOSITION_BD9";
+    Base::bc_decomposition_bytecode_id = "BC_DECOMPOSITION_BYTECODE_ID";
+    Base::bc_decomposition_ex_opcode = "BC_DECOMPOSITION_EX_OPCODE";
+    Base::bc_decomposition_fmt_3_op_u8 = "BC_DECOMPOSITION_FMT_3_OP_U8";
+    Base::bc_decomposition_indirect = "BC_DECOMPOSITION_INDIRECT";
+    Base::bc_decomposition_op1 = "BC_DECOMPOSITION_OP1";
+    Base::bc_decomposition_op2 = "BC_DECOMPOSITION_OP2";
+    Base::bc_decomposition_op3 = "BC_DECOMPOSITION_OP3";
+    Base::bc_decomposition_op4 = "BC_DECOMPOSITION_OP4";
+    Base::bc_decomposition_pc = "BC_DECOMPOSITION_PC";
+    Base::bc_decomposition_sel = "BC_DECOMPOSITION_SEL";
+    Base::bc_retrieval_address = "BC_RETRIEVAL_ADDRESS";
+    Base::bc_retrieval_artifact_hash = "BC_RETRIEVAL_ARTIFACT_HASH";
+    Base::bc_retrieval_bytecode_id = "BC_RETRIEVAL_BYTECODE_ID";
+    Base::bc_retrieval_class_id = "BC_RETRIEVAL_CLASS_ID";
+    Base::bc_retrieval_deployer_addr = "BC_RETRIEVAL_DEPLOYER_ADDR";
+    Base::bc_retrieval_err = "BC_RETRIEVAL_ERR";
+    Base::bc_retrieval_incoming_viewing_key_x = "BC_RETRIEVAL_INCOMING_VIEWING_KEY_X";
+    Base::bc_retrieval_incoming_viewing_key_y = "BC_RETRIEVAL_INCOMING_VIEWING_KEY_Y";
+    Base::bc_retrieval_init_hash = "BC_RETRIEVAL_INIT_HASH";
+    Base::bc_retrieval_nullifier_key_x = "BC_RETRIEVAL_NULLIFIER_KEY_X";
+    Base::bc_retrieval_nullifier_key_y = "BC_RETRIEVAL_NULLIFIER_KEY_Y";
+    Base::bc_retrieval_outgoing_viewing_key_x = "BC_RETRIEVAL_OUTGOING_VIEWING_KEY_X";
+    Base::bc_retrieval_outgoing_viewing_key_y = "BC_RETRIEVAL_OUTGOING_VIEWING_KEY_Y";
+    Base::bc_retrieval_private_function_root = "BC_RETRIEVAL_PRIVATE_FUNCTION_ROOT";
+    Base::bc_retrieval_public_bytecode_commitment = "BC_RETRIEVAL_PUBLIC_BYTECODE_COMMITMENT";
+    Base::bc_retrieval_salt = "BC_RETRIEVAL_SALT";
+    Base::bc_retrieval_sel = "BC_RETRIEVAL_SEL";
+    Base::bc_retrieval_tagging_key_x = "BC_RETRIEVAL_TAGGING_KEY_X";
+    Base::bc_retrieval_tagging_key_y = "BC_RETRIEVAL_TAGGING_KEY_Y";
+    Base::bytecode_bytes = "BYTECODE_BYTES";
+    Base::bytecode_bytes_pc_plus_1 = "BYTECODE_BYTES_PC_PLUS_1";
+    Base::bytecode_bytes_pc_plus_10 = "BYTECODE_BYTES_PC_PLUS_10";
+    Base::bytecode_bytes_pc_plus_11 = "BYTECODE_BYTES_PC_PLUS_11";
+    Base::bytecode_bytes_pc_plus_12 = "BYTECODE_BYTES_PC_PLUS_12";
+    Base::bytecode_bytes_pc_plus_13 = "BYTECODE_BYTES_PC_PLUS_13";
+    Base::bytecode_bytes_pc_plus_14 = "BYTECODE_BYTES_PC_PLUS_14";
+    Base::bytecode_bytes_pc_plus_15 = "BYTECODE_BYTES_PC_PLUS_15";
+    Base::bytecode_bytes_pc_plus_16 = "BYTECODE_BYTES_PC_PLUS_16";
+    Base::bytecode_bytes_pc_plus_17 = "BYTECODE_BYTES_PC_PLUS_17";
+    Base::bytecode_bytes_pc_plus_18 = "BYTECODE_BYTES_PC_PLUS_18";
+    Base::bytecode_bytes_pc_plus_19 = "BYTECODE_BYTES_PC_PLUS_19";
+    Base::bytecode_bytes_pc_plus_2 = "BYTECODE_BYTES_PC_PLUS_2";
+    Base::bytecode_bytes_pc_plus_20 = "BYTECODE_BYTES_PC_PLUS_20";
+    Base::bytecode_bytes_pc_plus_21 = "BYTECODE_BYTES_PC_PLUS_21";
+    Base::bytecode_bytes_pc_plus_22 = "BYTECODE_BYTES_PC_PLUS_22";
+    Base::bytecode_bytes_pc_plus_23 = "BYTECODE_BYTES_PC_PLUS_23";
+    Base::bytecode_bytes_pc_plus_24 = "BYTECODE_BYTES_PC_PLUS_24";
+    Base::bytecode_bytes_pc_plus_25 = "BYTECODE_BYTES_PC_PLUS_25";
+    Base::bytecode_bytes_pc_plus_26 = "BYTECODE_BYTES_PC_PLUS_26";
+    Base::bytecode_bytes_pc_plus_27 = "BYTECODE_BYTES_PC_PLUS_27";
+    Base::bytecode_bytes_pc_plus_28 = "BYTECODE_BYTES_PC_PLUS_28";
+    Base::bytecode_bytes_pc_plus_29 = "BYTECODE_BYTES_PC_PLUS_29";
+    Base::bytecode_bytes_pc_plus_3 = "BYTECODE_BYTES_PC_PLUS_3";
+    Base::bytecode_bytes_pc_plus_30 = "BYTECODE_BYTES_PC_PLUS_30";
+    Base::bytecode_bytes_pc_plus_31 = "BYTECODE_BYTES_PC_PLUS_31";
+    Base::bytecode_bytes_pc_plus_32 = "BYTECODE_BYTES_PC_PLUS_32";
+    Base::bytecode_bytes_pc_plus_33 = "BYTECODE_BYTES_PC_PLUS_33";
+    Base::bytecode_bytes_pc_plus_34 = "BYTECODE_BYTES_PC_PLUS_34";
+    Base::bytecode_bytes_pc_plus_35 = "BYTECODE_BYTES_PC_PLUS_35";
+    Base::bytecode_bytes_pc_plus_4 = "BYTECODE_BYTES_PC_PLUS_4";
+    Base::bytecode_bytes_pc_plus_5 = "BYTECODE_BYTES_PC_PLUS_5";
+    Base::bytecode_bytes_pc_plus_6 = "BYTECODE_BYTES_PC_PLUS_6";
+    Base::bytecode_bytes_pc_plus_7 = "BYTECODE_BYTES_PC_PLUS_7";
+    Base::bytecode_bytes_pc_plus_8 = "BYTECODE_BYTES_PC_PLUS_8";
+    Base::bytecode_bytes_pc_plus_9 = "BYTECODE_BYTES_PC_PLUS_9";
+    Base::bytecode_id = "BYTECODE_ID";
+    Base::bytecode_pc = "BYTECODE_PC";
+    Base::bytecode_sel = "BYTECODE_SEL";
     Base::execution_addressing_error_idx = "EXECUTION_ADDRESSING_ERROR_IDX";
     Base::execution_addressing_error_kind = "EXECUTION_ADDRESSING_ERROR_KIND";
     Base::execution_base_address_tag = "EXECUTION_BASE_ADDRESS_TAG";
