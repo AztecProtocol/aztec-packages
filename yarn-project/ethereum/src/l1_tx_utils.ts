@@ -571,7 +571,7 @@ export class L1TxUtils {
   }
 
   public async simulateGasUsed(
-    request: L1TxRequest,
+    request: L1TxRequest & { gas?: bigint },
     blockOverrides: BlockOverrides<bigint, number> = {},
     stateOverrides: StateOverride = [],
     _gasConfig?: L1TxUtilsConfig,
@@ -595,7 +595,7 @@ export class L1TxUtils {
                 data: request.data,
                 maxFeePerGas: gasPrice.maxFeePerGas,
                 maxPriorityFeePerGas: gasPrice.maxPriorityFeePerGas,
-                gas: 12_000_000n,
+                gas: request.gas ?? 10_000_000n,
                 nonce,
               },
             ],

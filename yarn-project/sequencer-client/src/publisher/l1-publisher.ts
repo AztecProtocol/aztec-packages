@@ -1062,10 +1062,13 @@ export class L1Publisher {
           {
             to: this.rollupContract.address,
             data,
+            gas: L1Publisher.PROPOSE_GAS_GUESS,
           },
           {
             // @note we add 1n to the timestamp because geth implementation doesn't like simulation timestamp to be equal to the current block timestamp
             time: timestamp + 1n,
+            // @note reth should have a 30m gas limit per block but throws errors that this tx is beyond limit
+            gasLimit: L1Publisher.PROPOSE_GAS_GUESS * 2n,
           },
           [
             {
@@ -1145,10 +1148,13 @@ export class L1Publisher {
           {
             to: this.rollupContract.address,
             data,
+            gas: L1Publisher.PROPOSE_AND_CLAIM_GAS_GUESS,
           },
           {
             // @note we add 1n to the timestamp because geth implementation doesn't like simulation timestamp to be equal to the current block timestamp
             time: timestamp + 1n,
+            // @note reth should have a 30m gas limit per block but throws errors that this tx is beyond limit
+            gasLimit: L1Publisher.PROPOSE_AND_CLAIM_GAS_GUESS * 2n,
           },
           [
             {
