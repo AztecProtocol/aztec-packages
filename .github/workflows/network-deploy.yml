@@ -154,6 +154,8 @@ jobs:
           export VALUES_PATH="$REPO/spartan/aztec-network/values/${{ env.VALUES_FILE }}"
           export DEFAULT_VALUES_PATH="$REPO/spartan/aztec-network/values.yaml"
 
+          export MNEMONIC=${{ steps.get-mnemonic.outputs.mnemonic }}
+
           $REPO/yarn-project/end-to-end/scripts/bash/generate_devnet_config.sh
 
       - name: Setup Terraform
