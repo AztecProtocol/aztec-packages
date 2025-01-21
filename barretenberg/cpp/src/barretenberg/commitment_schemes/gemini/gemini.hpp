@@ -145,10 +145,10 @@ template <typename Curve> class GeminiProver_ {
         {
             Polynomial full_batched(full_batched_size);
 
+            if (!batched_unshifted_initialized) {
+                batched_unshifted = Polynomial(full_batched_size);
+            }
             if (has_unshifted()) {
-                if (!batched_unshifted_initialized) {
-                    batched_unshifted = Polynomial(full_batched_size);
-                }
                 batch_into(batched_unshifted, unshifted, challenge, running_scalar);
                 full_batched += batched_unshifted;
             }

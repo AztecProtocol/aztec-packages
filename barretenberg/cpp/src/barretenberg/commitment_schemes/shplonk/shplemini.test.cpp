@@ -154,9 +154,12 @@ TYPED_TEST(ShpleminiTest, CorrectnessOfGeminiClaimBatching)
     // Collect multilinear evaluations
     std::vector<Fr> rhos = gemini::powers_of_rho(rho, this->num_polynomials + this->num_shiftable);
 
+    RefVector<Polynomial> f_polynomials(pcs_instance_witness.unshifted_polynomials);
+    RefVector<Polynomial> g_polynomials(pcs_instance_witness.to_be_shifted_polynomials);
+
     PolynomialBatches polynomial_batches(this->n);
-    polynomial_batches.set_unshifted(RefVector(pcs_instance_witness.unshifted_polynomials));
-    polynomial_batches.set_to_be_1_shifted(RefVector(pcs_instance_witness.to_be_shifted_polynomials));
+    polynomial_batches.set_unshifted(f_polynomials);
+    polynomial_batches.set_to_be_1_shifted(g_polynomials);
 
     Fr running_scalar = Fr(1);
     Polynomial batched = polynomial_batches.compute_batched(rho, running_scalar);
