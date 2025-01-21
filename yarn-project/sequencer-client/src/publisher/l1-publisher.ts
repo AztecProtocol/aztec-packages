@@ -964,7 +964,7 @@ export class L1Publisher {
   private async prepareProposeTx(encodedData: L1ProcessArgs) {
     const kzg = Blob.getViemKzgInstance();
     const blobInput = Blob.getEthBlobEvaluationInputs(encodedData.blobs);
-    this.log.debug('validating blob input', { blobInput });
+    this.log.debug('Validating blob input', { blobInput });
     const blobEvaluationGas = await this.l1TxUtils.estimateGas(
       this.account,
       {
