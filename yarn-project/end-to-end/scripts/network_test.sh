@@ -133,42 +133,17 @@ if [ -z "${CHAOS_VALUES:-}" ] && [ "$INSTALL_CHAOS_MESH" = "true" ]; then
   kubectl delete networkchaos --all --all-namespaces
 fi
 
-VALUES_PATH="$REPO/spartan/aztec-network/values/$VALUES_FILE"
-DEFAULT_VALUES_PATH="$REPO/spartan/aztec-network/values.yaml"
+export VALUES_PATH="$REPO/spartan/aztec-network/values/$VALUES_FILE"
+export DEFAULT_VALUES_PATH="$REPO/spartan/aztec-network/values.yaml"
 
-function read_values_file() {
-  local key="$1"
-
-  value=$(yq -r ".$key" "$VALUES_PATH")
-  if [ -z "$value" ] || [ "$value" = "null" ]; then
-    value=$(yq -r ".$key" "$DEFAULT_VALUES_PATH")
-  fi
-  echo "$value"
-}
+# Load the read_values_file.sh script
+source "$REPO/yarn-project/end-to-end/scripts/bash/read_values_file.sh"
 
 ## Some configuration values are set in the eth-devnet/config/config.yaml file
 ## and are used to generate the genesis.json file.
 ## We need to read these values and pass them into the eth devnet create.sh script
 ## so that it can generate the genesis.json and config.yaml file with the correct values.
-function generate_eth_devnet_config() {
-  export NUMBER_OF_KEYS=$(read_values_file "validator.replicas")
-  export MNEMONIC=$(read_values_file "aztec.l1DeploymentMnemonic")
-  export BLOCK_TIME=$(read_values_file "ethereum.blockTime")
-  export GAS_LIMIT=$(read_values_file "ethereum.gasLimit")
-  export CHAIN_ID=$(read_values_file "ethereum.chainId")
-  export EXTRA_ACCOUNTS=$(read_values_file "ethereum.extraAccounts")
-
-  echo "Generating eth devnet config..."
-  NUMBER_OF_KEYS=$((NUMBER_OF_KEYS + EXTRA_ACCOUNTS))
-  echo "NUMBER_OF_KEYS: $NUMBER_OF_KEYS"
-  echo "MNEMONIC: $MNEMONIC"
-  echo "BLOCK_TIME: $BLOCK_TIME"
-  echo "GAS_LIMIT: $GAS_LIMIT"
-  echo "CHAIN_ID: $CHAIN_ID"
-
-  $REPO/spartan/aztec-network/eth-devnet/create.sh
-}
-generate_eth_devnet_config
+$REPO/yarn-project/end-to-end/scripts/bash/generate_devnet_config.sh
 
 # Install the Helm chart
 helm upgrade --install spartan "$REPO/spartan/aztec-network/" \
