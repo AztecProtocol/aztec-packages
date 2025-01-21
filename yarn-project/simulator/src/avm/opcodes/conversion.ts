@@ -54,13 +54,13 @@ export class ToRadixBE extends Instruction {
       throw new InvalidToRadixInputsError(`ToRadixBE instruction's radix should be in range [2,256] (was ${radix}).`);
     }
 
-    if (numLimbs < 1 && value != BigInt(0)) {
+    if (numLimbs < 1 && value != BigInt(0n)) {
       throw new InvalidToRadixInputsError(
         `ToRadixBE instruction's input value is not zero (was ${value}) but numLimbs zero.`,
       );
     }
 
-    if (outputBits != 0 && radix != BigInt(2)) {
+    if (outputBits != 0 && radix != BigInt(2n)) {
       throw new InvalidToRadixInputsError(`Radix ${radix} is not equal to 2 and bit mode is activated.`);
     }
 

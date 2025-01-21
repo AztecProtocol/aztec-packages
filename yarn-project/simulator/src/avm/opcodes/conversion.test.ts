@@ -152,7 +152,7 @@ describe('Conversion Opcodes', () => {
       }
     });
 
-    test.each([0, 1, 257] as const)('Should throw an error for radix equal to %s', async radix => {
+    it.each([0, 1, 257])('Should throw an error for radix equal to %s', async radix => {
       const radixOffset = 1;
       const numLimbsOffset = 100;
       const outputBitsOffset = 200;
@@ -172,7 +172,7 @@ describe('Conversion Opcodes', () => {
       ).rejects.toThrow(InvalidToRadixInputsError);
     });
 
-    test.each([1, 2, 256, 98263423541] as const)(
+    it.each([1, 2, 256, 98263423541])(
       'Should throw an error for non-zero input %s when number of limbs is zero',
       async arg => {
         const srcOffset = 0;
@@ -197,7 +197,7 @@ describe('Conversion Opcodes', () => {
       },
     );
 
-    test.each([3, 4, 256] as const)(
+    it.each([3, 4, 256])(
       'Should throw an error for radix %s not equal to 2 when bit mode is activated',
       async radix => {
         const radixOffset = 1;
