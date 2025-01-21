@@ -57,36 +57,29 @@ std::vector<typename GeminiProver_<Curve>::Claim> GeminiProver_<Curve>::prove(
 
     const bool has_concatenations = concatenated_polynomials.size() > 0;
 
-    // Compute batched polynomials
-    Polynomial batched_unshifted(n);
-    Polynomial batched_to_be_shifted = Polynomial::shiftable(n);
+    PolynomialBatches polynomial_batches(n);
+    polynomial_batches.set_unshifted(f_polynomials);
+    polynomial_batches.set_to_be_1_shifted(g_polynomials);
 
     // To achieve ZK, we mask the batched polynomial by a random polynomial of the same size
+    Polynomial random_polynomial;
     if (has_zk) {
-        batched_unshifted = Polynomial::random(n);
-        transcript->send_to_verifier("Gemini:masking_poly_comm", commitment_key->commit(batched_unshifted));
+        random_polynomial = Polynomial::random(n);
+        transcript->send_to_verifier("Gemini:masking_poly_comm", commitment_key->commit(random_polynomial));
         // In the provers, the size of multilinear_challenge is CONST_PROOF_SIZE_LOG_N, but we need to evaluate the
         // hiding polynomial as multilinear in log_n variables
         transcript->send_to_verifier("Gemini:masking_poly_eval",
-                                     batched_unshifted.evaluate_mle(multilinear_challenge.subspan(0, log_n)));
+                                     random_polynomial.evaluate_mle(multilinear_challenge.subspan(0, log_n)));
     }
 
     // Get the batching challenge
     const Fr rho = transcript->template get_challenge<Fr>("rho");
 
-    Fr rho_challenge{ 1 };
-    if (has_zk) {
-        // ρ⁰ is used to batch the hiding polynomial
-        rho_challenge *= rho;
-    }
+    Fr rho_challenge = has_zk ? rho : 1; // ρ⁰ is used to batch the hiding polynomial
 
-    for (size_t i = 0; i < f_polynomials.size(); i++) {
-        batched_unshifted.add_scaled(f_polynomials[i], rho_challenge);
-        rho_challenge *= rho;
-    }
-    for (size_t i = 0; i < g_polynomials.size(); i++) {
-        batched_to_be_shifted.add_scaled(g_polynomials[i], rho_challenge);
-        rho_challenge *= rho;
+    Polynomial A_0 = polynomial_batches.compute_batched(rho, rho_challenge);
+    if (has_zk) {
+        A_0 += random_polynomial;
     }
 
     size_t num_groups = groups_to_be_concatenated.size();
@@ -108,12 +101,7 @@ std::vector<typename GeminiProver_<Curve>::Claim> GeminiProver_<Curve>::prove(
             }
             rho_challenge *= rho;
         }
-    }
-
-    // Construct the batched polynomial A₀(X) = F(X) + G↺(X) = F(X) + G(X)/X
-    Polynomial A_0 = batched_unshifted;
-    A_0 += batched_to_be_shifted.shifted();
-    if (has_concatenations) { // If proving for translator, add contribution of the batched concatenation polynomials
+        // If proving for translator, add contribution of the batched concatenation polynomials
         A_0 += batched_concatenated;
     }
 
@@ -140,9 +128,13 @@ std::vector<typename GeminiProver_<Curve>::Claim> GeminiProver_<Curve>::prove(
         throw_or_abort("Gemini evaluation challenge is in the SmallSubgroup.");
     }
 
+    if (has_zk) {
+        polynomial_batches.batched_unshifted += random_polynomial;
+    }
+
     // Compute polynomials A₀₊(X) = F(X) + G(X)/r and A₀₋(X) = F(X) - G(X)/r
-    auto [A_0_pos, A_0_neg] = compute_partially_evaluated_batch_polynomials(
-        log_n, std::move(batched_unshifted), std::move(batched_to_be_shifted), r_challenge, batched_group);
+    auto [A_0_pos, A_0_neg] =
+        compute_partially_evaluated_batch_polynomials(log_n, polynomial_batches, r_challenge, batched_group);
 
     // Construct claims for the d + 1 univariate evaluations A₀₊(r), A₀₋(-r), and Foldₗ(−r^{2ˡ}), l = 1, ..., d-1
     std::vector<Claim> claims = construct_univariate_opening_claims(
@@ -237,20 +229,11 @@ std::vector<typename GeminiProver_<Curve>::Polynomial> GeminiProver_<Curve>::com
 template <typename Curve>
 std::pair<typename GeminiProver_<Curve>::Polynomial, typename GeminiProver_<Curve>::Polynomial> GeminiProver_<
     Curve>::compute_partially_evaluated_batch_polynomials(const size_t log_n,
-                                                          Polynomial&& batched_F,
-                                                          Polynomial&& batched_G,
+                                                          PolynomialBatches& polynomial_batches,
                                                           const Fr& r_challenge,
                                                           std::vector<Polynomial> batched_groups_to_be_concatenated)
 {
-    Polynomial& A_0_pos = batched_F; // A₀₊ = F
-    Polynomial A_0_neg = batched_F;  // A₀₋ = F
-
-    // Compute G/r
-    Fr r_inv = r_challenge.invert();
-    batched_G *= r_inv;
-
-    A_0_pos += batched_G; // A₀₊ = F + G/r
-    A_0_neg -= batched_G; // A₀₋ = F - G/r
+    auto [A_0_pos, A_0_neg] = polynomial_batches.compute_partially_evaluated_batch_polynomials(r_challenge);
 
     // Reconstruct the batched concatenated polynomial from the batched groups, partially evaluated at r and -r and add
     // the result to A₀₊(X) and  A₀₋(X). Explanation (for simplification assume a single concatenated polynomial):

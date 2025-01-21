@@ -100,14 +100,98 @@ template <typename Curve> class GeminiProver_ {
     using Claim = ProverOpeningClaim<Curve>;
 
   public:
+    class PolynomialBatches {
+      public:
+        size_t full_batched_size = 0;
+        bool has_randomness = false;
+
+        // Polynomial random_polynomial;
+
+        RefSpan<Polynomial> unshifted;
+        RefSpan<Polynomial> to_be_1_shifted;
+
+        Polynomial batched_unshifted;
+        Polynomial batched_to_be_1_shifted;
+
+        Polynomial batch(RefSpan<Polynomial> polynomials, const Fr& challenge, Fr& running_scalar)
+        {
+            Polynomial batched(polynomials[0].size(), polynomials[0].virtual_size(), polynomials[0].start_index());
+            for (auto poly : polynomials) {
+                batched.add_scaled(poly, running_scalar);
+                running_scalar *= challenge;
+            }
+            return batched;
+        }
+
+      public:
+        PolynomialBatches(const size_t full_batched_size)
+            : full_batched_size(full_batched_size)
+            , batched_unshifted(Polynomial(full_batched_size))
+        {}
+
+        bool has_unshifted() const { return unshifted.size() > 0; }
+        bool has_to_be_1_shifted() const { return to_be_1_shifted.size() > 0; }
+
+        void set_unshifted(RefSpan<Polynomial> polynomials) { unshifted = polynomials; }
+        void set_to_be_1_shifted(RefSpan<Polynomial> polynomials) { to_be_1_shifted = polynomials; }
+
+        // void set_random_polynomial(Polynomial&& random)
+        // {
+        //     has_randomness = true;
+        //     random_polynomial = random;
+        // }
+
+        Polynomial compute_batched(const Fr& challenge, Fr& running_scalar)
+        {
+            Polynomial full_batched(full_batched_size);
+            // if (has_randomness) {
+            //     full_batched = batch({ random_polynomial }, challenge, running_scalar);
+            // }
+            if (has_unshifted()) {
+                batched_unshifted = batch(unshifted, challenge, running_scalar);
+                full_batched += batched_unshifted;
+            }
+            if (has_to_be_1_shifted()) {
+                batched_to_be_1_shifted = batch(to_be_1_shifted, challenge, running_scalar);
+                full_batched += batched_to_be_1_shifted.shifted();
+            }
+
+            return full_batched;
+        }
+
+        std::pair<Polynomial, Polynomial> compute_partially_evaluated_batch_polynomials(const Fr& r_challenge)
+        {
+            Polynomial& batched_F = batched_unshifted;
+
+            // if (has_randomness) {
+            //     batched_F += random_polynomial;
+            // }
+
+            Polynomial& A_0_pos = batched_F; // A₀₊ = F
+            Polynomial A_0_neg = batched_F;  // A₀₋ = F
+
+            if (has_to_be_1_shifted()) {
+                Polynomial& batched_G = batched_to_be_1_shifted;
+
+                // Compute G/r
+                Fr r_inv = r_challenge.invert();
+                batched_G *= r_inv;
+
+                A_0_pos += batched_G; // A₀₊ = F + G/r
+                A_0_neg -= batched_G; // A₀₋ = F - G/r}
+            }
+
+            return { std::move(A_0_pos), std::move(A_0_neg) };
+        };
+    };
+
     static std::vector<Polynomial> compute_fold_polynomials(const size_t log_n,
                                                             std::span<const Fr> multilinear_challenge,
                                                             const Polynomial& A_0);
 
     static std::pair<Polynomial, Polynomial> compute_partially_evaluated_batch_polynomials(
         const size_t log_n,
-        Polynomial&& batched_F,
-        Polynomial&& batched_G,
+        PolynomialBatches& polynomial_batches,
         const Fr& r_challenge,
         std::vector<Polynomial> batched_groups_to_be_concatenated = {});
 
