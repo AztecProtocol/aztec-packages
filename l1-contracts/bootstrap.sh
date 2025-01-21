@@ -10,7 +10,7 @@ function build {
   local artifact=l1-contracts-$hash.tar.gz
   if ! cache_download $artifact; then
     # Clean
-    rm -rf broadcast cache out serve
+    rm -rf broadcast cache out serve generated
 
     # Install
     forge install --no-commit
@@ -19,13 +19,20 @@ function build {
     git submodule update --init --recursive ./lib
 
     mkdir -p src/generated
-    # cp ../noir-projects/noir-protocol-circuits/target/keys/rollup_root_verifier.sol src/generated
+    # Copy from noir-projects. Bootstrap must hav
+    local rollup_verifier_path=../noir-projects/noir-protocol-circuits/target/keys/rollup_root_verifier.sol
+    if [ -f "$rollup_verifier_path" ]; then
+      cp "$rollup_verifier_path" src/generated
+    else
+      echo_stderr "You likely need to call bootstrap.sh in the noir-projects folder. Could not find the rollup verifier at $rollup_verifier_path."
+      exit 1
+    fi
 
     # Compile contracts
     # Step 1: Build everything except rollup_root_verifier.sol.
-    forge build $(find src -name '*.sol' -not -path '*/generated/*')
+    forge build $(find src -name '*.sol' -not -name 'rollup_root_verifier.sol')
 
-    # Step 2: Build the generated folder (i.e. the verifier contract) with optimization.
+    # Step 2: Build the the verifier contract with optimization.
     forge build rollup_root_verifier.sol \
       --optimize \
       --optimizer-runs 200
