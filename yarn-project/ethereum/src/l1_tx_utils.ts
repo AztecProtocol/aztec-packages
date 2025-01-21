@@ -203,7 +203,7 @@ export class L1TxUtils {
    */
   public async sendTransaction(
     request: L1TxRequest,
-    _gasConfig?: Partial<L1TxUtilsConfig> & { fixedGas?: bigint; gasLimit?: bigint; txTimeoutAt?: Date },
+    _gasConfig?: Partial<L1TxUtilsConfig> & { gasLimit?: bigint; txTimeoutAt?: Date },
     blobInputs?: L1BlobInputs,
   ): Promise<{ txHash: Hex; gasLimit: bigint; gasPrice: GasPrice }> {
     try {
@@ -211,10 +211,8 @@ export class L1TxUtils {
       const account = this.walletClient.account;
       let gasLimit: bigint;
 
-      if (gasConfig.fixedGas) {
-        gasLimit = gasConfig.fixedGas;
-      } else if (gasConfig.gasLimit) {
-        gasLimit = this.bumpGasLimit(gasConfig.gasLimit, gasConfig);
+      if (gasConfig.gasLimit) {
+        gasLimit = gasConfig.gasLimit;
       } else {
         gasLimit = await this.estimateGas(account, request);
       }
@@ -410,7 +408,7 @@ export class L1TxUtils {
    */
   public async sendAndMonitorTransaction(
     request: L1TxRequest,
-    gasConfig?: Partial<L1TxUtilsConfig> & { fixedGas?: bigint; gasLimit?: bigint; txTimeoutAt?: Date },
+    gasConfig?: Partial<L1TxUtilsConfig> & { gasLimit?: bigint; txTimeoutAt?: Date },
     blobInputs?: L1BlobInputs,
   ): Promise<{ receipt: TransactionReceipt; gasPrice: GasPrice }> {
     const { txHash, gasLimit, gasPrice } = await this.sendTransaction(request, gasConfig, blobInputs);
@@ -624,7 +622,8 @@ export class L1TxUtils {
     }
   }
 
-  private bumpGasLimit(gasLimit: bigint, gasConfig: L1TxUtilsConfig): bigint {
-    return gasLimit + (gasLimit * BigInt((gasConfig.gasLimitBufferPercentage || 0) * 1_00)) / 100_00n;
+  public bumpGasLimit(gasLimit: bigint, _gasConfig?: L1TxUtilsConfig): bigint {
+    const gasConfig = { ...this.config, ..._gasConfig };
+    return gasLimit + (gasLimit * BigInt((gasConfig?.gasLimitBufferPercentage || 0) * 1_00)) / 100_00n;
   }
 }

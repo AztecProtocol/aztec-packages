@@ -1094,7 +1094,7 @@ export class L1Publisher {
         },
         {
           ...opts,
-          gasLimit: simulationResult + blobEvaluationGas,
+          gasLimit: this.l1TxUtils.bumpGasLimit(simulationResult + blobEvaluationGas),
         },
         {
           blobs: encodedData.blobs.map(b => b.dataWithZeros),
@@ -1171,7 +1171,7 @@ export class L1Publisher {
         },
         {
           ...opts,
-          gasLimit: simulationResult + blobEvaluationGas,
+          gasLimit: this.l1TxUtils.bumpGasLimit(simulationResult + blobEvaluationGas),
         },
         {
           blobs: encodedData.blobs.map(b => b.dataWithZeros),
