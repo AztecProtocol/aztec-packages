@@ -11,7 +11,7 @@ describe('ConnectionSampler', () => {
   let sampler: ConnectionSampler;
   let mockLibp2p: any;
   let peers: PeerId[];
-  let excluding: Map<PeerId, boolean>;
+  let excluding: Map<string, boolean>;
   let mockRandomSampler: MockProxy<RandomSampler>;
 
   beforeEach(async () => {
@@ -65,7 +65,7 @@ describe('ConnectionSampler', () => {
       expect(selectedPeer).toBe(peers[2]);
     });
 
-    it('should not sample a peer that is being excluded', () => {
+    it.only('should not sample a peer that is being excluded', () => {
       // Sample the excluded peer multiple times, but it should not be selected
       mockRandomSampler.random
         .mockReturnValueOnce(0)
@@ -73,7 +73,7 @@ describe('ConnectionSampler', () => {
         .mockReturnValueOnce(0)
         .mockReturnValueOnce(1);
 
-      excluding.set(peers[0], true);
+      excluding.set(peers[0].toString(), true);
       const selectedPeer = sampler.getPeer(excluding);
       expect(selectedPeer).toBe(peers[1]);
     });

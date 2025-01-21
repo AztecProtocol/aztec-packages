@@ -169,7 +169,7 @@ export class ReqResp {
         return undefined;
       }
 
-      const attemptedPeers: Map<PeerId, boolean> = new Map();
+      const attemptedPeers: Map<string, boolean> = new Map();
       for (let i = 0; i < numberOfPeers; i++) {
         // Sample a peer to make a request to
         const peer = this.connectionSampler.getPeer(attemptedPeers);
@@ -179,7 +179,7 @@ export class ReqResp {
           return undefined;
         }
 
-        attemptedPeers.set(peer, true);
+        attemptedPeers.set(peer.toString(), true);
 
         this.logger.trace(`Sending request to peer: ${peer.toString()}`);
         const response = await this.sendRequestToPeer(peer, subProtocol, requestBuffer);

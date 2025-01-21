@@ -185,11 +185,7 @@ export const startNodes = async (
 };
 
 export const stopNodes = async (nodes: ReqRespNode[]): Promise<void> => {
-  const stopPromises = [];
-  for (const node of nodes) {
-    stopPromises.push(node.req.stop());
-    stopPromises.push(node.p2p.stop());
-  }
+  const stopPromises = nodes.flatMap(node => [node.req.stop(), node.p2p.stop()]);
   await Promise.all(stopPromises);
 };
 

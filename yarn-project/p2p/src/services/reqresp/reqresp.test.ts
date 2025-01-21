@@ -40,7 +40,7 @@ describe('ReqResp', () => {
 
   afterEach(async () => {
     if (nodes) {
-      await Promise.all(nodes.flatMap(node => [node.req.stop(), node.p2p.stop()]));
+      await stopNodes(nodes);
     }
   });
 
@@ -107,7 +107,7 @@ describe('ReqResp', () => {
     if (!res) {
       // The peer chosen is randomly selected, and the node above wont respond, so if
       // we wait and try again, there will only be one node to chose from
-      logger.debug('No response from node, retrying');
+      logger.debug('\n\n\n\n\nNo response from node, retrying\n\n\n\n\n');
       await sleep(500);
       res = await nodes[0].req.sendRequest(ReqRespSubProtocol.PING, PING_REQUEST);
     }

@@ -67,7 +67,7 @@ export class ConnectionSampler {
    *        This is to prevent sampling with replacement
    * @returns
    */
-  getPeer(excluding?: Map<PeerId, boolean>): PeerId | undefined {
+  getPeer(excluding?: Map<string, boolean>): PeerId | undefined {
     const peers = this.libp2p.getPeers();
 
     if (peers.length === 0) {
@@ -82,7 +82,8 @@ export class ConnectionSampler {
     // - either the peer has active connections OR is in the exclusion list
     while (
       attempts < MAX_SAMPLE_ATTEMPTS &&
-      ((this.activeConnectionsCount.get(peers[randomIndex]) ?? 0) > 0 || (excluding?.get(peers[randomIndex]) ?? false))
+      ((this.activeConnectionsCount.get(peers[randomIndex]) ?? 0) > 0 ||
+        (excluding?.get(peers[randomIndex]?.toString()) ?? false))
     ) {
       randomIndex = this.sampler.random(peers.length);
       attempts++;
