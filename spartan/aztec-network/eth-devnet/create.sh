@@ -14,9 +14,8 @@ CHAIN_ID=${CHAIN_ID:-"1337"}
 # Install cast if it is not installed
 if ! command -v cast &> /dev/null; then
   curl -L https://foundry.paradigm.xyz | bash
-  $HOME/.foundry/bin/foundryup || $XDG_CONFIG_HOME/.foundry/bin/foundryup
   ## add cast to path
-  export PATH="$PATH:~/.foundry/bin"
+  $HOME/.foundry/bin/foundryup && export PATH="$PATH:$HOME/.foundry/bin" || $XDG_CONFIG_HOME/.foundry/bin/foundryup && export PATH="$PATH:$XDG_CONFIG_HOME/.foundry/bin"
 fi
 
 # Function to create execution genesis
