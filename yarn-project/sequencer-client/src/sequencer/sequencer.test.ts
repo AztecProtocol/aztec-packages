@@ -51,7 +51,7 @@ import { type SlasherClient } from '../slasher/index.js';
 import { Sequencer } from './sequencer.js';
 import { SequencerState } from './utils.js';
 
-describe('sequencer', async () => {
+describe('sequencer', () => {
   let publisher: MockProxy<L1Publisher>;
   let validatorClient: MockProxy<ValidatorClient>;
   let globalVariableBuilder: MockProxy<GlobalVariableBuilder>;
@@ -86,7 +86,7 @@ describe('sequencer', async () => {
   const chainId = new Fr(12345);
   const version = Fr.ZERO;
   const coinbase = EthAddress.random();
-  const feeRecipient = await AztecAddress.random();
+  let feeRecipient: AztecAddress;
   const gasFees = GasFees.empty();
 
   const archive = Fr.random();
@@ -138,7 +138,8 @@ describe('sequencer', async () => {
     });
   };
 
-  beforeEach(() => {
+  beforeEach(async () => {
+    feeRecipient = await AztecAddress.random();
     initialBlockHeader = BlockHeader.empty();
     lastBlockNumber = 0;
     newBlockNumber = lastBlockNumber + 1;
