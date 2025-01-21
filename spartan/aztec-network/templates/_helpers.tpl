@@ -192,6 +192,9 @@ nodeSelector:
 {{- end -}}
 
 {{- define "aztec-network.waitForEthereum" -}}
+if [ -n "${EXTERNAL_ETHEREUM_HOST}" ]; then
+  export ETHEREUM_HOST="${EXTERNAL_ETHEREUM_HOST}"
+fi
 echo "Awaiting ethereum node at ${ETHEREUM_HOST}"
 until curl -s -X POST -H 'Content-Type: application/json' \
   -d '{"jsonrpc":"2.0","method":"eth_chainId","params":[],"id":67}' \
