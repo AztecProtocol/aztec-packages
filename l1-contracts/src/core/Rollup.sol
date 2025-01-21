@@ -402,38 +402,6 @@ contract Rollup is EIP712("Aztec Rollup", "1"), Ownable, Leonidas, IRollup, ITes
   }
 
   /**
-   * @notice  Validate a header for submission
-   *
-   * @dev     This is a convenience function that can be used by the sequencer to validate a "partial" header
-   *          without having to deal with viem or anvil for simulating timestamps in the future.
-   *
-   * @param _header - The header to validate
-   * @param _signatures - The signatures to validate
-   * @param _digest - The digest to validate
-   * @param _currentTime - The current time
-   * @param _blobsHash - The blobs hash for this block
-   * @param _flags - The flags to validate
-   */
-  function validateHeader(
-    bytes calldata _header,
-    Signature[] memory _signatures,
-    bytes32 _digest,
-    Timestamp _currentTime,
-    bytes32 _blobsHash,
-    DataStructures.ExecutionFlags memory _flags
-  ) external view override(IRollup) {
-    _validateHeader(
-      ExtRollupLib.decodeHeader(_header),
-      _signatures,
-      _digest,
-      _currentTime,
-      getManaBaseFeeAt(_currentTime, true),
-      _blobsHash,
-      _flags
-    );
-  }
-
-  /**
    * @notice  Validate blob transactions against given inputs.
    * @dev     Only exists here for gas estimation.
    */

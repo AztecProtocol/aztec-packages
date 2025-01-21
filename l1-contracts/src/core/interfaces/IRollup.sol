@@ -112,15 +112,6 @@ interface IRollup {
 
   function canProposeAtTime(Timestamp _ts, bytes32 _archive) external view returns (Slot, uint256);
 
-  function validateHeader(
-    bytes calldata _header,
-    Signature[] memory _signatures,
-    bytes32 _digest,
-    Timestamp _currentTime,
-    bytes32 _blobsHash,
-    DataStructures.ExecutionFlags memory _flags
-  ) external view;
-
   // solhint-disable-next-line func-name-mixedcase
   function INBOX() external view returns (IInbox);
 
