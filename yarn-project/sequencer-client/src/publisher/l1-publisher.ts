@@ -1,5 +1,13 @@
 import { type BlobSinkClientInterface, createBlobSinkClient } from '@aztec/blob-sink/client';
-import { type EpochProofClaim, type EpochProofQuote, type L2Block, type TxHash } from '@aztec/circuit-types';
+import {
+  ConsensusPayload,
+  type EpochProofClaim,
+  type EpochProofQuote,
+  type L2Block,
+  SignatureDomainSeparator,
+  type TxHash,
+  getHashedSignaturePayload,
+} from '@aztec/circuit-types';
 import { type L1PublishBlockStats, type L1PublishProofStats, type L1PublishStats } from '@aztec/circuit-types/stats';
 import {
   AGGREGATION_OBJECT_LENGTH,
@@ -685,9 +693,17 @@ export class L1Publisher {
         }),
       });
     } catch (err) {
-      this.log.error(`Failed to claim epoch proof right`, err, {
-        proofQuote: proofQuote.toInspect(),
-      });
+      if (err instanceof FormattedViemError) {
+        const { message, metaMessages } = err;
+        this.log.error(`Failed to claim epoch proof right`, message, {
+          metaMessages,
+          proofQuote: proofQuote.toInspect(),
+        });
+      } else {
+        this.log.error(`Failed to claim epoch proof right`, err, {
+          proofQuote: proofQuote.toInspect(),
+        });
+      }
       return false;
     }
 
