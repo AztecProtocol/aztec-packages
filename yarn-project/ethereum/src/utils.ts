@@ -99,6 +99,11 @@ export function prettyLogViemErrorMsg(err: any) {
  * @returns A FormattedViemError instance.
  */
 export function formatViemError(error: any, abi: Abi = ErrorsAbi): FormattedViemError {
+  // If error is already a FormattedViemError, return it as is
+  if (error instanceof FormattedViemError) {
+    return error;
+  }
+
   // First try to decode as a custom error using the ABI
   try {
     if (error?.data) {
@@ -129,6 +134,11 @@ export function formatViemError(error: any, abi: Abi = ErrorsAbi): FormattedViem
     }
   } catch (decodeErr) {
     // If decoding fails, we fall back to the original formatting
+  }
+
+  // If it's a regular Error instance, return it with its message
+  if (error instanceof Error) {
+    return new FormattedViemError(error.message);
   }
 
   // Original formatting logic for non-custom errors
