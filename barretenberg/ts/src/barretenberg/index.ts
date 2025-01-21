@@ -126,12 +126,14 @@ export class BarretenbergSync extends BarretenbergApiSync {
 let barrentenbergLazySingleton: BarretenbergLazy;
 
 export class BarretenbergLazy extends BarretenbergApi {
-  private constructor(wasm: BarretenbergWasmMainWorker) {
+  private constructor(wasm: BarretenbergWasmMain) {
     super(wasm);
   }
 
   private static async new() {
-    const { wasm } = await BarretenbergWasm.new(1);
+    const wasm = new BarretenbergWasmMain();
+    const { module, threads } = await fetchModuleAndThreads(1);
+    await wasm.init(module, threads);
     return new BarretenbergLazy(wasm);
   }
 

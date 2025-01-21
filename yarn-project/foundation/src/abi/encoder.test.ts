@@ -119,7 +119,7 @@ describe('abi/encoder', () => {
     expect(encodeArguments(abi, [{ address }])).toEqual([address.toField()]);
     expect(encodeArguments(abi, [{ address: address.toField() }])).toEqual([address.toField()]);
 
-    const completeAddressLike = { address, publicKey: Point.random(), partialAddress: Fr.random() };
+    const completeAddressLike = { address, publicKey: await Point.random(), partialAddress: Fr.random() };
     expect(encodeArguments(abi, [completeAddressLike])).toEqual([address.toField()]);
 
     const serializedAddress = jsonParseWithSchema(jsonStringify(address), schemas.AztecAddress);

@@ -95,7 +95,6 @@ import { TXEWorldStateDB } from '../util/txe_world_state_db.js';
 export class TXE implements TypedOracle {
   private blockNumber = 0;
   private sideEffectCounter = 0;
-  private contractAddress: AztecAddress;
   private msgSender: AztecAddress;
   private functionSelector = FunctionSelector.fromField(new Fr(0));
   private isStaticCall = false;
@@ -123,16 +122,16 @@ export class TXE implements TypedOracle {
 
   debug: LogFn;
 
-  constructor(
+  private constructor(
     private logger: Logger,
     private trees: MerkleTrees,
     private executionCache: HashedValuesCache,
     private keyStore: KeyStore,
     private txeDatabase: TXEDatabase,
+    private contractAddress: AztecAddress,
   ) {
     this.noteCache = new ExecutionNoteCache(this.getTxRequestHash());
     this.contractDataOracle = new ContractDataOracle(txeDatabase);
-    this.contractAddress = AztecAddress.ZERO;
 
     this.node = new TXENode(this.blockNumber, this.VERSION, this.CHAIN_ID, this.trees);
 
@@ -147,6 +146,16 @@ export class TXE implements TypedOracle {
     );
 
     this.debug = createDebugOnlyLogger('aztec:kv-pxe-database');
+  }
+
+  static async create(
+    logger: Logger,
+    trees: MerkleTrees,
+    executionCache: HashedValuesCache,
+    keyStore: KeyStore,
+    txeDatabase: TXEDatabase,
+  ) {
+    return new TXE(logger, trees, executionCache, keyStore, txeDatabase, await AztecAddress.random());
   }
 
   // Utils
