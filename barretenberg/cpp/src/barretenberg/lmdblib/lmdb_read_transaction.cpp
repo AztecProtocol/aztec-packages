@@ -10,11 +10,6 @@ LMDBReadTransaction::LMDBReadTransaction(LMDBEnvironment::SharedPtr env)
 
 LMDBReadTransaction::~LMDBReadTransaction()
 {
-    abort();
-}
-
-void LMDBReadTransaction::abort()
-{
     LMDBTransaction::abort();
     _environment->release_reader();
 }

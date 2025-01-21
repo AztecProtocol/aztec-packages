@@ -5,6 +5,7 @@
 #include "barretenberg/ecc/curves/bn254/fr.hpp"
 #include "barretenberg/lmdblib/lmdb_db_transaction.hpp"
 #include "barretenberg/lmdblib/lmdb_helpers.hpp"
+#include "barretenberg/lmdblib/lmdb_store_base.hpp"
 #include "barretenberg/numeric/uint128/uint128.hpp"
 #include "barretenberg/numeric/uint256/uint256.hpp"
 #include "barretenberg/serialize/msgpack.hpp"
@@ -48,74 +49,54 @@ int index_key_cmp(const MDB_val* a, const MDB_val* b)
 }
 
 LMDBTreeStore::LMDBTreeStore(std::string directory, std::string name, uint64_t mapSizeKb, uint64_t maxNumReaders)
-    : _name(std::move(name))
-    , _directory(std::move(directory))
-    , _environment(std::make_shared<LMDBEnvironment>(_directory, mapSizeKb, 5, maxNumReaders))
+    : LMDBStoreBase(directory, mapSizeKb, maxNumReaders, 5)
+    , _name(std::move(name))
 {
 
     {
-        LMDBDatabaseCreationTransaction tx(_environment);
+        LMDBDatabaseCreationTransaction::Ptr tx = create_db_transaction();
         _blockDatabase =
-            std::make_unique<LMDBDatabase>(_environment, tx, _name + BLOCKS_DB, false, false, false, block_key_cmp);
-        tx.commit();
+            std::make_unique<LMDBDatabase>(_environment, *tx, _name + BLOCKS_DB, false, false, false, block_key_cmp);
+        tx->commit();
     }
 
     {
-        LMDBDatabaseCreationTransaction tx(_environment);
+        LMDBDatabaseCreationTransaction::Ptr tx = create_db_transaction();
         _nodeDatabase =
-            std::make_unique<LMDBDatabase>(_environment, tx, _name + NODES_DB, false, false, false, fr_key_cmp);
-        tx.commit();
+            std::make_unique<LMDBDatabase>(_environment, *tx, _name + NODES_DB, false, false, false, fr_key_cmp);
+        tx->commit();
     }
 
     {
-        LMDBDatabaseCreationTransaction tx(_environment);
+        LMDBDatabaseCreationTransaction::Ptr tx = create_db_transaction();
         _leafKeyToIndexDatabase =
-            std::make_unique<LMDBDatabase>(_environment, tx, _name + LEAF_INDICES_DB, false, false, false, fr_key_cmp);
-        tx.commit();
+            std::make_unique<LMDBDatabase>(_environment, *tx, _name + LEAF_INDICES_DB, false, false, false, fr_key_cmp);
+        tx->commit();
     }
 
     {
-        LMDBDatabaseCreationTransaction tx(_environment);
+        LMDBDatabaseCreationTransaction::Ptr tx = create_db_transaction();
         _leafHashToPreImageDatabase = std::make_unique<LMDBDatabase>(
-            _environment, tx, _name + LEAF_PREIMAGES_DB, false, false, false, fr_key_cmp);
-        tx.commit();
+            _environment, *tx, _name + LEAF_PREIMAGES_DB, false, false, false, fr_key_cmp);
+        tx->commit();
     }
 
     {
-        LMDBDatabaseCreationTransaction tx(_environment);
+        LMDBDatabaseCreationTransaction::Ptr tx = create_db_transaction();
         _indexToBlockDatabase = std::make_unique<LMDBDatabase>(
-            _environment, tx, _name + BLOCK_INDICES_DB, false, false, false, index_key_cmp);
-        tx.commit();
+            _environment, *tx, _name + BLOCK_INDICES_DB, false, false, false, index_key_cmp);
+        tx->commit();
     }
-}
-
-LMDBTreeStore::WriteTransaction::Ptr LMDBTreeStore::create_write_transaction() const
-{
-    return std::make_unique<LMDBWriteTransaction>(_environment);
-}
-LMDBTreeStore::ReadTransaction::Ptr LMDBTreeStore::create_read_transaction()
-{
-    _environment->wait_for_reader();
-    return std::make_unique<LMDBReadTransaction>(_environment);
 }
 
 void LMDBTreeStore::get_stats(TreeDBStats& stats, ReadTransaction& tx)
 {
-
-    MDB_stat stat;
-    MDB_envinfo info;
-    call_lmdb_func(mdb_env_info, _environment->underlying(), &info);
-    stats.mapSize = info.me_mapsize;
-    call_lmdb_func(mdb_stat, tx.underlying(), _blockDatabase->underlying(), &stat);
-    stats.blocksDBStats = DBStats(BLOCKS_DB, stat);
-    call_lmdb_func(mdb_stat, tx.underlying(), _leafHashToPreImageDatabase->underlying(), &stat);
-    stats.leafPreimagesDBStats = DBStats(LEAF_PREIMAGES_DB, stat);
-    call_lmdb_func(mdb_stat, tx.underlying(), _leafKeyToIndexDatabase->underlying(), &stat);
-    stats.leafIndicesDBStats = DBStats(LEAF_INDICES_DB, stat);
-    call_lmdb_func(mdb_stat, tx.underlying(), _nodeDatabase->underlying(), &stat);
-    stats.nodesDBStats = DBStats(NODES_DB, stat);
-    call_lmdb_func(mdb_stat, tx.underlying(), _indexToBlockDatabase->underlying(), &stat);
-    stats.blockIndicesDBStats = DBStats(BLOCK_INDICES_DB, stat);
+    stats.mapSize = _environment->get_map_size();
+    stats.blocksDBStats = _blockDatabase->get_stats(tx);
+    stats.leafPreimagesDBStats = _leafHashToPreImageDatabase->get_stats(tx);
+    stats.leafIndicesDBStats = _leafKeyToIndexDatabase->get_stats(tx);
+    stats.nodesDBStats = _nodeDatabase->get_stats(tx);
+    stats.blockIndicesDBStats = _indexToBlockDatabase->get_stats(tx);
 }
 
 void LMDBTreeStore::write_block_data(const block_number_t& blockNumber,

@@ -1,9 +1,11 @@
 #pragma once
 #include "barretenberg/lmdblib/lmdb_environment.hpp"
+#include "barretenberg/lmdblib/types.hpp"
 
 namespace bb::lmdblib {
 
 class LMDBDatabaseCreationTransaction;
+class LMDBReadTransaction;
 /**
  * RAII wrapper atound the opening and closing of an LMDB database
  * Contains a reference to its LMDB environment
@@ -31,6 +33,7 @@ class LMDBDatabase {
     const MDB_dbi& underlying() const;
     const std::string& name() const;
     bool duplicate_keys_permitted() const;
+    DBStats get_stats(LMDBReadTransaction& tx);
 
   private:
     std::string dbName;

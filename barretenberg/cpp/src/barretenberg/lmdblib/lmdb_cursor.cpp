@@ -33,6 +33,11 @@ bool LMDBCursor::set_at_key(Key& key) const
     return lmdb_queries::set_at_key(*this, key);
 }
 
+bool LMDBCursor::set_at_start() const
+{
+    return lmdb_queries::set_at_start(*this);
+}
+
 void LMDBCursor::read_next(uint64_t numKeysToRead, KeyDupValuesVector& keyValuePairs) const
 {
     if (_db->duplicate_keys_permitted()) {

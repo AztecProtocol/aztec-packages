@@ -1,4 +1,5 @@
 #include "barretenberg/lmdblib/queries.hpp"
+#include "barretenberg/lmdblib/lmdb_cursor.hpp"
 #include "barretenberg/lmdblib/lmdb_helpers.hpp"
 #include "barretenberg/lmdblib/lmdb_write_transaction.hpp"
 #include "barretenberg/lmdblib/types.hpp"
@@ -114,6 +115,14 @@ bool set_at_key(const LMDBCursor& cursor, Key& key)
 
     MDB_val dbVal;
     int code = mdb_cursor_get(cursor.underlying(), &dbKey, &dbVal, MDB_SET);
+    return code == MDB_SUCCESS;
+}
+
+bool set_at_start(const LMDBCursor& cursor)
+{
+    MDB_val dbKey;
+    MDB_val dbVal;
+    int code = mdb_cursor_get(cursor.underlying(), &dbKey, &dbVal, MDB_FIRST);
     return code == MDB_SUCCESS;
 }
 

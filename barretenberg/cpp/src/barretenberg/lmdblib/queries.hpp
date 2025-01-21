@@ -1,6 +1,5 @@
 #pragma once
 
-#include "barretenberg/lmdblib/lmdb_cursor.hpp"
 #include "barretenberg/lmdblib/lmdb_database.hpp"
 #include "barretenberg/lmdblib/lmdb_helpers.hpp"
 #include "barretenberg/lmdblib/types.hpp"
@@ -13,6 +12,7 @@ namespace bb::lmdblib {
 
 class LMDBTransaction;
 class LMDBWriteTransaction;
+class LMDBCursor;
 
 namespace lmdb_queries {
 
@@ -451,6 +451,7 @@ bool get_value(Key& key, Value& data, const LMDBDatabase& db, const LMDBTransact
 bool get_value(Key& key, uint64_t& data, const LMDBDatabase& db, const LMDBTransaction& tx);
 
 bool set_at_key(const LMDBCursor& cursor, Key& key);
+bool set_at_start(const LMDBCursor& cursor);
 
 void read_next(const LMDBCursor& cursor, KeyDupValuesVector& keyValues, uint64_t numKeysToRead);
 void read_prev(const LMDBCursor& cursor, KeyDupValuesVector& keyValues, uint64_t numKeysToRead);

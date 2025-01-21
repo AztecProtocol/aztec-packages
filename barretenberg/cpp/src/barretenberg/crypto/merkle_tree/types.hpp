@@ -1,10 +1,14 @@
 #pragma once
 
 #include "barretenberg/ecc/curves/bn254/fr.hpp"
+#include "barretenberg/lmdblib/types.hpp"
 #include "lmdb.h"
 #include <cstdint>
 #include <optional>
 namespace bb::crypto::merkle_tree {
+
+using namespace bb::lmdblib;
+
 using index_t = uint64_t;
 using block_number_t = uint64_t;
 using LeafIndexKeyType = uint64_t;
@@ -54,53 +58,6 @@ const std::string NODES_DB = "nodes";
 const std::string LEAF_PREIMAGES_DB = "leaf preimages";
 const std::string LEAF_INDICES_DB = "leaf indices";
 const std::string BLOCK_INDICES_DB = "block indices";
-
-struct DBStats {
-    std::string name;
-    uint64_t numDataItems;
-    uint64_t totalUsedSize;
-
-    DBStats() = default;
-    DBStats(const DBStats& other) = default;
-    DBStats(DBStats&& other) noexcept { *this = std::move(other); }
-    ~DBStats() = default;
-    DBStats(std::string name, MDB_stat& stat)
-        : name(std::move(name))
-        , numDataItems(stat.ms_entries)
-        , totalUsedSize(stat.ms_psize * (stat.ms_branch_pages + stat.ms_leaf_pages + stat.ms_overflow_pages))
-    {}
-    DBStats(const std::string& name, uint64_t numDataItems, uint64_t totalUsedSize)
-        : name(name)
-        , numDataItems(numDataItems)
-        , totalUsedSize(totalUsedSize)
-    {}
-
-    MSGPACK_FIELDS(name, numDataItems, totalUsedSize)
-
-    bool operator==(const DBStats& other) const
-    {
-        return name == other.name && numDataItems == other.numDataItems && totalUsedSize == other.totalUsedSize;
-    }
-
-    DBStats& operator=(const DBStats& other) = default;
-
-    DBStats& operator=(DBStats&& other) noexcept
-    {
-        if (this != &other) {
-            name = std::move(other.name);
-            numDataItems = other.numDataItems;
-            totalUsedSize = other.totalUsedSize;
-        }
-        return *this;
-    }
-
-    friend std::ostream& operator<<(std::ostream& os, const DBStats& stats)
-    {
-        os << "DB " << stats.name << ", num items: " << stats.numDataItems
-           << ", total used size: " << stats.totalUsedSize;
-        return os;
-    }
-};
 
 struct TreeDBStats {
     uint64_t mapSize;

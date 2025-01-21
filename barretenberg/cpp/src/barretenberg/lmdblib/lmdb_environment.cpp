@@ -1,6 +1,7 @@
 #include "barretenberg/lmdblib/lmdb_environment.hpp"
 #include "barretenberg/lmdblib/lmdb_helpers.hpp"
 #include "lmdb.h"
+#include <cstdint>
 #include <stdexcept>
 #include <sys/stat.h>
 
@@ -11,8 +12,8 @@ LMDBEnvironment::LMDBEnvironment(const std::string& directory,
                                  uint32_t maxNumDBs,
                                  uint32_t maxNumReaders)
     : _id(0)
-    , _maxReaders(maxNumReaders)
-    , _numReaders(0)
+    , _readGuard(maxNumReaders)
+    , _writeGuard(1) // LMDB only permits one write transaction at a time
 {
     call_lmdb_func("mdb_env_create", mdb_env_create, &_mdbEnv);
     uint64_t kb = 1024;
@@ -36,18 +37,22 @@ LMDBEnvironment::LMDBEnvironment(const std::string& directory,
 
 void LMDBEnvironment::wait_for_reader()
 {
-    std::unique_lock lock(_readersLock);
-    if (_numReaders >= _maxReaders) {
-        _readersCondition.wait(lock, [&] { return _numReaders < _maxReaders; });
-    }
-    ++_numReaders;
+    _readGuard.wait();
 }
 
 void LMDBEnvironment::release_reader()
 {
-    std::unique_lock lock(_readersLock);
-    --_numReaders;
-    _readersCondition.notify_one();
+    _readGuard.release();
+}
+
+void LMDBEnvironment::wait_for_writer()
+{
+    _writeGuard.wait();
+}
+
+void LMDBEnvironment::release_writer()
+{
+    _writeGuard.release();
 }
 
 LMDBEnvironment::~LMDBEnvironment()
@@ -60,4 +65,10 @@ MDB_env* LMDBEnvironment::underlying() const
     return _mdbEnv;
 }
 
+uint64_t LMDBEnvironment::get_map_size() const
+{
+    MDB_envinfo info;
+    call_lmdb_func(mdb_env_info, _mdbEnv, &info);
+    return info.me_mapsize;
+}
 } // namespace bb::lmdblib

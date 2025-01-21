@@ -18,6 +18,7 @@ LMDBWriteTransaction::LMDBWriteTransaction(LMDBEnvironment::SharedPtr env)
 LMDBWriteTransaction::~LMDBWriteTransaction()
 {
     try_abort();
+    _environment->release_writer();
 }
 
 void LMDBWriteTransaction::commit()
@@ -31,9 +32,6 @@ void LMDBWriteTransaction::commit()
 
 void LMDBWriteTransaction::try_abort()
 {
-    if (state != TransactionState::OPEN) {
-        return;
-    }
     LMDBTransaction::abort();
 }
 

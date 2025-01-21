@@ -1,5 +1,4 @@
 #pragma once
-#include "barretenberg/lmdblib/lmdb_database.hpp"
 #include "barretenberg/lmdblib/lmdb_environment.hpp"
 #include "barretenberg/lmdblib/queries.hpp"
 #include "lmdb.h"
@@ -19,6 +18,8 @@ enum TransactionState {
     COMMITTED,
     ABORTED,
 };
+
+class LMDBDatabase;
 
 class LMDBTransaction {
   public:

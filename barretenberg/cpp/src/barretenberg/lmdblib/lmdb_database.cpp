@@ -2,6 +2,9 @@
 #include "barretenberg/lmdblib/lmdb_db_transaction.hpp"
 #include "barretenberg/lmdblib/lmdb_environment.hpp"
 #include "barretenberg/lmdblib/lmdb_helpers.hpp"
+#include "barretenberg/lmdblib/lmdb_read_transaction.hpp"
+#include "barretenberg/lmdblib/types.hpp"
+#include "lmdb.h"
 #include <utility>
 
 namespace bb::lmdblib {
@@ -51,4 +54,12 @@ bool LMDBDatabase::duplicate_keys_permitted() const
 {
     return duplicateKeysPermitted;
 }
+
+DBStats LMDBDatabase::get_stats(LMDBReadTransaction& tx)
+{
+    MDB_stat stat;
+    call_lmdb_func(mdb_stat, tx.underlying(), underlying(), &stat);
+    return DBStats(name(), stat);
+}
+
 } // namespace bb::lmdblib

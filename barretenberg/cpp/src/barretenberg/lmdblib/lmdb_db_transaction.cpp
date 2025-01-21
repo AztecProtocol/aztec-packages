@@ -10,6 +10,7 @@ LMDBDatabaseCreationTransaction::LMDBDatabaseCreationTransaction(LMDBEnvironment
 LMDBDatabaseCreationTransaction::~LMDBDatabaseCreationTransaction()
 {
     try_abort();
+    _environment->release_writer();
 }
 void LMDBDatabaseCreationTransaction::commit()
 {
@@ -22,9 +23,6 @@ void LMDBDatabaseCreationTransaction::commit()
 
 void LMDBDatabaseCreationTransaction::try_abort()
 {
-    if (state != TransactionState::OPEN) {
-        return;
-    }
     LMDBTransaction::abort();
 }
 } // namespace bb::lmdblib

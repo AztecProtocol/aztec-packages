@@ -1,7 +1,6 @@
 #pragma once
 #include "barretenberg/common/serialize.hpp"
 #include "barretenberg/crypto/merkle_tree/types.hpp"
-#include "barretenberg/lmdblib/lmdb_database.hpp"
 #include "barretenberg/lmdblib/lmdb_environment.hpp"
 #include "barretenberg/lmdblib/lmdb_helpers.hpp"
 #include "barretenberg/lmdblib/lmdb_transaction.hpp"
@@ -32,7 +31,5 @@ class LMDBReadTransaction : public LMDBTransaction {
     LMDBReadTransaction& operator=(LMDBReadTransaction&& other) = delete;
 
     ~LMDBReadTransaction() override;
-
-    void abort() override;
 };
 } // namespace bb::lmdblib

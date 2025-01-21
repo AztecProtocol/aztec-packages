@@ -8,6 +8,7 @@
 #include "barretenberg/lmdblib/lmdb_database.hpp"
 #include "barretenberg/lmdblib/lmdb_environment.hpp"
 #include "barretenberg/lmdblib/lmdb_read_transaction.hpp"
+#include "barretenberg/lmdblib/lmdb_store_base.hpp"
 #include "barretenberg/lmdblib/lmdb_write_transaction.hpp"
 #include "barretenberg/serialize/msgpack.hpp"
 #include "barretenberg/world_state/types.hpp"
@@ -157,7 +158,7 @@ struct BlockIndexPayload {
  * data
  */
 
-class LMDBTreeStore {
+class LMDBTreeStore : public LMDBStoreBase {
   public:
     using Ptr = std::unique_ptr<LMDBTreeStore>;
     using SharedPtr = std::shared_ptr<LMDBTreeStore>;
@@ -168,10 +169,7 @@ class LMDBTreeStore {
     LMDBTreeStore(LMDBTreeStore&& other) = delete;
     LMDBTreeStore& operator=(const LMDBTreeStore& other) = delete;
     LMDBTreeStore& operator=(LMDBTreeStore&& other) = delete;
-    ~LMDBTreeStore() = default;
-
-    WriteTransaction::Ptr create_write_transaction() const;
-    ReadTransaction::Ptr create_read_transaction();
+    ~LMDBTreeStore() override = default;
 
     void get_stats(TreeDBStats& stats, ReadTransaction& tx);
 
@@ -234,8 +232,6 @@ class LMDBTreeStore {
 
   private:
     std::string _name;
-    std::string _directory;
-    LMDBEnvironment::SharedPtr _environment;
     LMDBDatabase::Ptr _blockDatabase;
     LMDBDatabase::Ptr _nodeDatabase;
     LMDBDatabase::Ptr _leafKeyToIndexDatabase;

@@ -73,8 +73,8 @@ TEST_F(LMDBEnvironmentTest, can_write_to_database)
 
     {
         LMDBWriteTransaction::Ptr tx = std::make_unique<LMDBWriteTransaction>(environment);
-        auto key = serialise(std::string("Key"));
-        auto data = serialise(std::string("TestData"));
+        auto key = get_key(0);
+        auto data = get_value(0, 0);
         EXPECT_NO_THROW(tx->put_value(key, data, *db));
         EXPECT_NO_THROW(tx->commit());
     }
@@ -91,8 +91,8 @@ TEST_F(LMDBEnvironmentTest, can_read_from_database)
 
     {
         LMDBWriteTransaction::Ptr tx = std::make_unique<LMDBWriteTransaction>(environment);
-        auto key = serialise(std::string("Key"));
-        auto data = serialise(std::string("TestData"));
+        auto key = get_key(0);
+        auto data = get_value(0, 0);
         EXPECT_NO_THROW(tx->put_value(key, data, *db));
         EXPECT_NO_THROW(tx->commit());
     }
@@ -100,8 +100,8 @@ TEST_F(LMDBEnvironmentTest, can_read_from_database)
     {
         environment->wait_for_reader();
         LMDBReadTransaction::Ptr tx = std::make_unique<LMDBReadTransaction>(environment);
-        auto key = serialise(std::string("Key"));
-        auto expected = serialise(std::string("TestData"));
+        auto key = get_key(0);
+        auto expected = get_value(0, 0);
         std::vector<uint8_t> data;
         tx->get_value(key, data, *db);
         EXPECT_EQ(data, expected);
@@ -117,24 +117,24 @@ TEST_F(LMDBEnvironmentTest, can_write_and_read_multiple)
     LMDBDatabase::SharedPtr db = std::make_unique<LMDBDatabase>(environment, tx, "DB", false, false);
     EXPECT_NO_THROW(tx.commit());
 
-    uint64_t numValues = 10;
+    int64_t numValues = 10;
 
     {
-        for (uint64_t count = 0; count < numValues; count++) {
+        for (int64_t count = 0; count < numValues; count++) {
             LMDBWriteTransaction::Ptr tx = std::make_unique<LMDBWriteTransaction>(environment);
-            auto key = serialise((std::stringstream() << "Key" << count).str());
-            auto data = serialise((std::stringstream() << "TestData" << count).str());
+            auto key = get_key(count);
+            auto data = get_value(count, 0);
             EXPECT_NO_THROW(tx->put_value(key, data, *db));
             EXPECT_NO_THROW(tx->commit());
         }
     }
 
     {
-        for (uint64_t count = 0; count < numValues; count++) {
+        for (int64_t count = 0; count < numValues; count++) {
             environment->wait_for_reader();
             LMDBReadTransaction::Ptr tx = std::make_unique<LMDBReadTransaction>(environment);
-            auto key = serialise((std::stringstream() << "Key" << count).str());
-            auto expected = serialise((std::stringstream() << "TestData" << count).str());
+            auto key = get_key(count);
+            auto expected = get_value(count, 0);
             std::vector<uint8_t> data;
             tx->get_value(key, data, *db);
             EXPECT_EQ(data, expected);
@@ -151,28 +151,28 @@ TEST_F(LMDBEnvironmentTest, can_read_multiple_threads)
     LMDBDatabase::SharedPtr db = std::make_unique<LMDBDatabase>(environment, tx, "DB", false, false);
     EXPECT_NO_THROW(tx.commit());
 
-    uint64_t numValues = 10;
-    uint64_t numIterationsPerThread = 1000;
+    int64_t numValues = 10;
+    int64_t numIterationsPerThread = 1000;
     uint32_t numThreads = 16;
 
     {
-        for (uint64_t count = 0; count < numValues; count++) {
+        for (int64_t count = 0; count < numValues; count++) {
             LMDBWriteTransaction::Ptr tx = std::make_unique<LMDBWriteTransaction>(environment);
-            auto key = serialise((std::stringstream() << "Key" << count).str());
-            auto data = serialise((std::stringstream() << "TestData" << count).str());
-            EXPECT_NO_THROW(tx->put_value(key, data, *db));
+            auto key = get_key(count);
+            auto expected = get_value(count, 0);
+            EXPECT_NO_THROW(tx->put_value(key, expected, *db));
             EXPECT_NO_THROW(tx->commit());
         }
     }
 
     {
         auto func = [&]() -> void {
-            for (uint64_t iteration = 0; iteration < numIterationsPerThread; iteration++) {
-                for (uint64_t count = 0; count < numValues; count++) {
+            for (int64_t iteration = 0; iteration < numIterationsPerThread; iteration++) {
+                for (int64_t count = 0; count < numValues; count++) {
                     environment->wait_for_reader();
                     LMDBReadTransaction::Ptr tx = std::make_unique<LMDBReadTransaction>(environment);
-                    auto key = serialise((std::stringstream() << "Key" << count).str());
-                    auto expected = serialise((std::stringstream() << "TestData" << count).str());
+                    auto key = get_key(count);
+                    auto expected = get_value(count, 0);
                     std::vector<uint8_t> data;
                     tx->get_value(key, data, *db);
                     EXPECT_EQ(data, expected);
