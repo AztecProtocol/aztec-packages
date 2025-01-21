@@ -1,10 +1,11 @@
 /* eslint-disable camelcase */
 import { type ForeignCallOutput, Noir } from '@noir-lang/noir_js';
+import { type InputValue } from '@noir-lang/noirc_abi';
 import createDebug from 'debug';
 
 import Circuit1 from '../artifacts/circuit_1.json' assert { type: 'json' };
 import Circuit2 from '../artifacts/circuit_2.json' assert { type: 'json' };
-import type { Circuit_1InputType, Circuit_2InputType, FixedLengthArray } from './types/index.js';
+import type { FixedLengthArray } from './types/index.js';
 
 export const logger = createDebug('aztec:bb-bench');
 
@@ -14,64 +15,40 @@ function foreignCallHandler(): Promise<ForeignCallOutput[]> {
   throw new Error('Unexpected foreign call');
 }
 
-export interface WitnessGenResult<PublicInputsType> {
-  witness: Uint8Array;
-  publicInputs: PublicInputsType;
-}
-
 export type u8 = string;
 
-export async function witnessGenCircuit1(args: Circuit_1InputType): Promise<WitnessGenResult<u8>> {
+export async function generateCircuit1(): Promise<[string, Uint8Array, InputValue]> {
   const program = new Noir(Circuit1);
-  const { witness, returnValue } = await program.execute(args, foreignCallHandler);
-  return {
-    witness,
-    publicInputs: returnValue as u8,
-  };
-}
-
-export async function witnessGenCircuit2(args: Circuit_2InputType): Promise<WitnessGenResult<u8>> {
-  const program = new Noir(Circuit2);
-  const { witness, returnValue } = await program.execute(args, foreignCallHandler);
-  return {
-    witness,
-    publicInputs: returnValue as u8,
-  };
-}
-
-export async function generateCircuit1(): Promise<[string, Uint8Array]> {
-  const witnessGenResult = await witnessGenCircuit1({
-    x: '0x1',
-    y: '0x10',
-    z: '0x100',
-  });
+  const { witness, returnValue } = await program.execute(
+    {
+      x: '0x1',
+      y: '0x10',
+      z: '0x100',
+    },
+    foreignCallHandler,
+  );
   logger('generated circuit 1');
-
-  const bytecode = Circuit1.bytecode;
-  const witness = witnessGenResult.witness;
-
-  return [bytecode, witness];
+  return [Circuit1.bytecode, witness, returnValue];
 }
 
 export async function generateCircuit2(
   proverOutput: ProverOutputForRecursion,
   previousVk: string[],
-): Promise<[string, Uint8Array]> {
-  const witnessGenResult = await witnessGenCircuit2({
-    public_inputs: proverOutput.public_inputs,
-    key_hash: '0x0',
-    proof: proverOutput.proof,
-    verification_key: previousVk as FixedLengthArray<string, 128>,
-  });
+): Promise<[string, Uint8Array, InputValue]> {
+  const program = new Noir(Circuit2);
+  const { witness, returnValue } = await program.execute(
+    {
+      public_inputs: proverOutput.public_inputs,
+      key_hash: '0x0',
+      proof: proverOutput.proof,
+      verification_key: previousVk as FixedLengthArray<string, 128>,
+    },
+    foreignCallHandler,
+  );
   logger('generated circuit 2');
-
-  const bytecode = Circuit2.bytecode;
-  const witness = witnessGenResult.witness;
-
-  return [bytecode, witness];
+  return [Circuit2.bytecode, witness, returnValue];
 }
 
-// TODO: comptime lengths here restrict the prove function, because of need to cast below, because of generating the input types.
 export type ProverOutputForRecursion = {
   proof: FixedLengthArray<string, 459>;
   public_inputs: FixedLengthArray<string, 2>;
