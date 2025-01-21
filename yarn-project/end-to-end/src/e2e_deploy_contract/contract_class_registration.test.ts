@@ -9,6 +9,7 @@ import {
   Fr,
   type Logger,
   type PXE,
+  SignerlessWallet,
   type TxReceipt,
   TxStatus,
   type Wallet,
@@ -21,8 +22,13 @@ import {
   deployInstance,
   registerContractClass,
 } from '@aztec/aztec.js/deployment';
-import { type ContractClassIdPreimage, PublicKeys, computeContractClassId } from '@aztec/circuits.js';
-import { FunctionSelector, FunctionType } from '@aztec/foundation/abi';
+import {
+  type ContractClassIdPreimage,
+  MAX_PACKED_PUBLIC_BYTECODE_SIZE_IN_FIELDS,
+  PublicKeys,
+  computeContractClassId,
+} from '@aztec/circuits.js';
+import { FunctionSelector, FunctionType, bufferAsFields } from '@aztec/foundation/abi';
 import { writeTestData } from '@aztec/foundation/testing/files';
 import { StatefulTestContract } from '@aztec/noir-contracts.js/StatefulTest';
 import { TestContract } from '@aztec/noir-contracts.js/Test';
@@ -329,6 +335,42 @@ describe('e2e_deploy_contract contract class registration', () => {
         deployer: AztecAddress.random(),
       });
       expect(() => deployInstance(wallet, instance)).toThrow(/does not match/i);
+    });
+
+    it.each([
+      [' not', 'revertible'],
+      ['', 'non-revertible'],
+    ])('after a revert, does%s retain contract classes emitted from %s logs', async (_, kind) => {
+      // To create a non-revertible contract class log, we must currently emit it during setup.
+      // We use a signerless wallet to avoid going through an entrypoint, which ends the setup phase.
+      const testWallet = new SignerlessWallet(pxe);
+      // Gather inputs for emitting a contract class log and prepare capsule.
+      const { artifactHash, privateFunctionsRoot, publicBytecodeCommitment, packedBytecode, id } =
+        getContractClassFromArtifact(TokenContractArtifact);
+      await testWallet.addCapsule(bufferAsFields(packedBytecode, MAX_PACKED_PUBLIC_BYTECODE_SIZE_IN_FIELDS));
+      const deployed = await TestContract.deploy(wallet).send().deployed();
+      const testContract = await TestContract.at(deployed.address, testWallet);
+      // As in the above revert test, we don't want the call to throw.
+      const tx = await testContract.methods
+        .register_and_make_public_call(
+          artifactHash,
+          privateFunctionsRoot,
+          publicBytecodeCommitment,
+          true,
+          kind == 'revertible',
+        )
+        .send({ skipPublicSimulation: true })
+        .wait({ dontThrowOnRevert: true });
+      const txLogs = await aztecNode.getContractClassLogs({ txHash: tx.txHash });
+      const contractClass = await aztecNode.getContractClass(id);
+      expect(tx.status).toEqual(TxStatus.APP_LOGIC_REVERTED);
+      if (kind == 'revertible') {
+        expect(txLogs.logs.length).toEqual(0);
+        expect(contractClass).toBeUndefined();
+      } else {
+        expect(txLogs.logs.length).toEqual(1);
+        expect(contractClass).toBeDefined();
+      }
     });
   });
 });
