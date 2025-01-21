@@ -1,6 +1,5 @@
 import { createLogger } from '@aztec/foundation/log';
 import { SerialQueue } from '@aztec/foundation/queue';
-import { RunningPromise } from '@aztec/foundation/running-promise';
 
 import { type Libp2p, type PeerId, type Stream } from '@libp2p/interface';
 

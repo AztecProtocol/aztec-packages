@@ -84,18 +84,13 @@ describe('ReqResp', () => {
     await stopPonger;
   });
 
-  it.only('should request from a later peer if other peers are offline', async () => {
+  it('should request from a later peer if other peers are offline', async () => {
     nodes = await createNodes(peerScoring, 4);
 
     await startNodes(nodes);
     await sleep(500);
     await connectToPeers(nodes);
     await sleep(500);
-
-    console.log(
-      'All peer ids',
-      nodes.map(node => node.p2p.peerId.toString()),
-    );
 
     // Stop the second middle two nodes
     const stopNode1 = nodes[1].req.stop();

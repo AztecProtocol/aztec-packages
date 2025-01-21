@@ -65,7 +65,7 @@ describe('ConnectionSampler', () => {
       expect(selectedPeer).toBe(peers[2]);
     });
 
-    it.only('should not sample a peer that is being excluded', () => {
+    it('should not sample a peer that is being excluded', () => {
       // Sample the excluded peer multiple times, but it should not be selected
       mockRandomSampler.random
         .mockReturnValueOnce(0)
