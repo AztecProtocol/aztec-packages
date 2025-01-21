@@ -96,24 +96,15 @@ export async function createSandbox(config: Partial<SandboxConfig> = {}) {
   }
 
   if (!aztecNodeConfig.p2pEnabled) {
-    const l1ContractAddresses = await deployContractsToL1(aztecNodeConfig, hdAccount, undefined, {
+    await deployContractsToL1(aztecNodeConfig, hdAccount, undefined, {
       assumeProvenThroughBlockNumber: Number.MAX_SAFE_INTEGER,
       salt: config.l1Salt ? parseInt(config.l1Salt) : undefined,
-    });
-
-    const chain = aztecNodeConfig.l1RpcUrl
-      ? createEthereumChain(aztecNodeConfig.l1RpcUrl, aztecNodeConfig.l1ChainId)
-      : { chainInfo: localAnvil };
-
-    const publicClient = createPublicClient({
-      chain: chain.chainInfo,
-      transport: httpViemTransport(aztecNodeConfig.l1RpcUrl),
     });
 
     const cheatCodes = new EthCheatCodes(aztecNodeConfig.l1RpcUrl);
     const ethSlotDuration = getL1ContractsConfigEnvVars().ethereumSlotDuration;
     try {
-      cheatCodes.setIntervalMining(ethSlotDuration);
+      await cheatCodes.setIntervalMining(ethSlotDuration);
     } catch (err) {
       logger.warn(`Failed to set interval mining to ${ethSlotDuration}`);
     }
