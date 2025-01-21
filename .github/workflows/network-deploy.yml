@@ -166,7 +166,7 @@ jobs:
         run: |
           terraform init \
             -backend-config="bucket=${{ env.TF_STATE_BUCKET }}" \
-            -backend-config="prefix=network-deploy/${{ env.REGION }}/${{ env.CLUSTER_NAME }}/${{ env.NAMESPACE }}/terraform.tfstate" \
+            -backend-config="prefix=network-deploy/${{ env.REGION }}/${{ env.CLUSTER_NAME }}/${{ env.NAMESPACE }}/terraform.tfstate"
 
       - name: Terraform Destroy
         working-directory: ./spartan/terraform/deploy-release
