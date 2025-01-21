@@ -1,74 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1737393891390,
+  "lastUpdate": 1737450404696,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "mara@aztecprotocol.com",
-            "name": "maramihali",
-            "username": "maramihali"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "f6fef05119af7714d60f00c52455e52bdfa98288",
-          "message": "chore: clean up translator circuit builder function definitions  (#10944)\n\nSome of the core functions in `TranslatorCircuitBuilder` were not\r\nactually defined as part of the class. This PR addresses it, which\r\nremoves the need to resolve the scope of member variables in the class,\r\nwhen used in those functions, and constified / staticfied function\r\nsignatures where appropriate",
-          "timestamp": "2024-12-24T16:26:03+01:00",
-          "tree_id": "77291f32991c1387bfee815d54b0b9cb33c33f73",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/f6fef05119af7714d60f00c52455e52bdfa98288"
-        },
-        "date": 1735055516004,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "nativeClientIVCBench/Ambient_17_in_20/6",
-            "value": 20104.694028999973,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 17574.052976 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeClientIVCBench/Full/6",
-            "value": 21826.818340999976,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 19063.207024999996 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 4633.245838000022,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 4316.263722000001 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmClientIVCBench/Full/6",
-            "value": 72941.80755700001,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 72941809000 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 13911.937908,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 13911938000 ms\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 2884668919,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 2884668919 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 146851888,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 146851888 ns\nthreads: 1"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -3284,6 +3218,72 @@ window.BENCHMARK_DATA = {
             "value": 146190272,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 146190272 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "fcarreiro@users.noreply.github.com",
+            "name": "Facundo",
+            "username": "fcarreiro"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "4a9c0724e3dd6fa3ea8753fc17a090c33c307d01",
+          "message": "feat(avm): bytecode manager changes (#11347)\n\n* We don't need the bytecode hash when simulating, since tracegen should\r\nrecompute it anyways. This should save ~25ms per bytecode.\r\n* Use `bytecode_id` instead of `class_id`.\r\n* Add bytecode retrieval events.",
+          "timestamp": "2025-01-21T08:40:58Z",
+          "tree_id": "441c65a1c28099f899f9df57a5f5c8fafb7fc4ee",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/4a9c0724e3dd6fa3ea8753fc17a090c33c307d01"
+        },
+        "date": 1737450397337,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Ambient_17_in_20/6",
+            "value": 19318.682417999982,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 16497.570429 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 21894.544296999982,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 19314.204303 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 4135.295727999988,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 3803.7697100000005 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 75709.889634,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 75709889000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 14808.398434,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 14808399000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 3124544064,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 3124544064 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 135510641,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 135510641 ns\nthreads: 1"
           }
         ]
       }
