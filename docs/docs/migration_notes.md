@@ -51,6 +51,8 @@ Example implementation of Packable trait for `U128` type from `noir::std`:
 ```
 use crate::traits::{Packable, ToField};
 
+let U128_PACKED_LEN: u32 = 1;
+
 impl Packable<U128_PACKED_LEN> for U128 {
     fn pack(self) -> [Field; U128_PACKED_LEN] {
         [self.to_field()]
