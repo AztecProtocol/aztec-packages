@@ -1,4 +1,5 @@
 import { type PXE, TxHash, type TxReceipt, TxStatus } from '@aztec/circuit-types';
+import { Fr } from '@aztec/circuits.js';
 
 import { type MockProxy, mock } from 'jest-mock-extended';
 
@@ -12,7 +13,7 @@ describe('SentTx', () => {
 
   beforeEach(() => {
     pxe = mock();
-    txHashPromise = Promise.resolve(TxHash.fromBigInt(1n));
+    txHashPromise = Promise.resolve(new TxHash(new Fr(1n)));
     sentTx = new SentTx(pxe, txHashPromise);
   });
 

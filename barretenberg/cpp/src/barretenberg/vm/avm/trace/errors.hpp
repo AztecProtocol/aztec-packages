@@ -12,6 +12,7 @@ enum class AvmError : uint32_t {
     INVALID_TAG_VALUE,
     CHECK_TAG_ERROR,
     ADDR_RES_TAG_ERROR,
+    MEM_SLICE_OUT_OF_RANGE,
     REL_ADDR_OUT_OF_RANGE,
     DIV_ZERO,
     PARSING_ERROR,
@@ -22,7 +23,9 @@ enum class AvmError : uint32_t {
     SIDE_EFFECT_LIMIT_REACHED,
     OUT_OF_GAS,
     STATIC_CALL_ALTERATION,
-    NO_BYTECODE_FOUND,
+    FAILED_BYTECODE_RETRIEVAL,
+    MSM_POINTS_LEN_INVALID,
+    MSM_POINT_NOT_ON_CURVE,
 };
 
 } // namespace bb::avm_trace

@@ -144,6 +144,7 @@ fn create_permutation_settings_data(permutation: &Permutation, vm_name: &str) ->
         "lhs_selector": lhs_selector,
         "rhs_selector": rhs_selector,
         "perm_entities": perm_entities,
+        "inverses_col": permutation.inverse.clone(),
     })
 }
 

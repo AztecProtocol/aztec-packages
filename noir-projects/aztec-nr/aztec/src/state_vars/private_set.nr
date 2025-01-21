@@ -26,7 +26,11 @@ pub struct PrivateSet<Note, Context> {
 impl<T, Context, let N: u32> Storage<T, N> for PrivateSet<T, Context>
 where
     T: Serialize<N> + Deserialize<N>,
-{}
+{
+    fn get_storage_slot(self) -> Field {
+        self.storage_slot
+    }
+}
 
 impl<Note, Context> PrivateSet<Note, Context> {
     // docs:start:new

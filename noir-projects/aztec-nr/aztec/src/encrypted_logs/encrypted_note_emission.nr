@@ -47,9 +47,6 @@ where
     compute_payload(context, note, recipient, sender)
 }
 
-// This function seems to be affected by the following Noir bug:
-// https://github.com/noir-lang/noir/issues/5771
-// If you get weird behavior it might be because of it.
 pub fn encode_and_encrypt_note<Note, let N: u32>(
     context: &mut PrivateContext,
     recipient: AztecAddress,
@@ -76,16 +73,15 @@ where
     Note: NoteInterface<N>,
 {
     |e: NoteEmission<Note>| {
-        //   Unconstrained logs have both their content and encryption unconstrained - it could occur that the
-        // recipient is unable to decrypt the payload.
-        //   Regarding the note hash counter, this is used for squashing. The kernel assumes that a given note can have
-        // more than one log and removes all of the matching ones, so all a malicious sender could do is either: cause
-        // for the log to be deleted when it shouldn't have (which is fine - they can already make the content be
-        // whatever), or cause for the log to not be deleted when it should have (which is also fine - it'll be a log
-        // for a note that doesn't exist).
-        //   It's important here that we do not
-        // return the log from this function to the app, otherwise it could try to do stuff with it and then that might
-        // be wrong.
+        /// Safety:   Unconstrained logs have both their content and encryption unconstrained - it could occur that
+        /// the recipient is unable to decrypt the payload.
+        ///   Regarding the note hash counter, this is used for squashing. The kernel assumes that a given note can
+        /// have more than one log and removes all of the matching ones, so all a malicious sender could do is
+        /// either: cause for the log to be deleted when it shouldn't have (which is fine - they can already make
+        /// the content be whatever), or cause for the log to not be deleted when it should have (which is also fine
+        /// - it'll be a log for a note that doesn't exist).
+        ///   It's important here that we do not return the log from this function to the app, otherwise it could
+        /// try to do stuff with it and then that might be wrong.
         let (encrypted_log, note_hash_counter) =
             unsafe { compute_payload_unconstrained(*context, e.note, recipient, sender) };
         context.emit_raw_note_log(encrypted_log, note_hash_counter);

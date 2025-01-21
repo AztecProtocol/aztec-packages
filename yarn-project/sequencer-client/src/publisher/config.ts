@@ -24,6 +24,11 @@ export type PublisherConfig = L1TxUtilsConfig & {
    * The interval to wait between publish retries.
    */
   l1PublishRetryIntervalMS: number;
+
+  /**
+   * The URL of the blob sink.
+   */
+  blobSinkUrl?: string;
 };
 
 export const getTxSenderConfigMappings: (
@@ -72,6 +77,11 @@ export const getPublisherConfigMappings: (
     description: 'The interval to wait between publish retries.',
   },
   ...l1TxUtilsConfigMappings,
+  blobSinkUrl: {
+    env: `${scope}_BLOB_SINK_URL`,
+    description: 'The URL of the blob sink.',
+    parseEnv: (val?: string) => val,
+  },
 });
 
 export function getPublisherConfigFromEnv(scope: 'PROVER' | 'SEQ'): PublisherConfig {

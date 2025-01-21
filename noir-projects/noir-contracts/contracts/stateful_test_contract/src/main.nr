@@ -3,9 +3,12 @@ use dep::aztec::macros::aztec;
 
 #[aztec]
 contract StatefulTest {
-    use dep::aztec::{
-        initializer::assert_is_initialized_private,
-        macros::{functions::{initializer, noinitcheck, private, public, view}, storage::storage},
+    use dep::aztec::macros::{
+        functions::{
+            initialization_utils::assert_is_initialized_private, initializer, noinitcheck, private,
+            public, view,
+        },
+        storage::storage,
     };
     use dep::aztec::prelude::{AztecAddress, FunctionSelector, Map, PrivateSet, PublicMutable};
     use dep::value_note::{balance_utils, utils::{decrement, increment}, value_note::ValueNote};

@@ -5,8 +5,6 @@ tags: [protocol, circuits]
 
 This circuit is executed by the user, on their own device. This is to ensure private inputs to the circuit remain private!
 
-Read the latest information about the Aztec Private Kernel Circuit in the [protocol specs section](../../../../protocol-specs/circuits/private-kernel-tail.md).
-
 :::note
 
 **This is the only core protocol circuit which actually needs to be "zk" (zero-knowledge)!!!** That's because this is the only core protocol circuit which handles private data, and hence the only circuit for which proofs must not leak any information about witnesses! (The private data being handled includes: details of the Aztec.nr Contract function which has been executed; the address of the user who executed the function; the intelligible inputs and outputs of that function).

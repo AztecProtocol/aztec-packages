@@ -68,9 +68,9 @@ export default {
 
   guidesSidebar: [
     {
-      type: "doc", 
-      id: "guides/index",  
-      label: "Guides and Tutorials",  
+      type: "doc",
+      id: "guides/index",
+      label: "Guides and Tutorials",
     },
     {
       type: "html",
@@ -80,7 +80,7 @@ export default {
     {
       type: "doc",
       label: "Quickstart",
-      id: "guides/getting_started"   
+      id: "guides/getting_started"
     },
     {
       type: "html",
@@ -121,7 +121,7 @@ export default {
       type: "html",
       value: '<span class="sidebar-divider" />',
     },
-  ],   
+  ],
 
   referenceSidebar: [
     {
@@ -150,7 +150,7 @@ export default {
     {
       type: "doc",
       label: "Privacy Considerations",
-      id: "guides/privacy_considerations"   
+      id: "guides/privacy_considerations"
     },
     {
       type: "html",
@@ -160,7 +160,7 @@ export default {
       type: "doc",
       id: "aztec_connect_sunset",
     },
-  ],   
+  ],
 
   roadmapSidebar: [
     {
@@ -168,6 +168,8 @@ export default {
       dirName: "aztec/roadmap",
     },
   ],
+
+  ...(process.env.SHOW_PROTOCOL_SPECS ? {
   protocolSpecSidebar: [
     "protocol-specs/intro",
     {
@@ -387,5 +389,5 @@ export default {
         "protocol-specs/public-vm/type-structs",
       ],
     },
-  ],
+  ]}: {}),
 };

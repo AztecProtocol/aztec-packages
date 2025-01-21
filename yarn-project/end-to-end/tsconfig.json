@@ -22,6 +22,9 @@
       "path": "../bb-prover"
     },
     {
+      "path": "../blob-sink"
+    },
+    {
       "path": "../bot"
     },
     {
@@ -80,6 +83,9 @@
     },
     {
       "path": "../types"
+    },
+    {
+      "path": "../validator-client"
     },
     {
       "path": "../world-state"

@@ -1,5 +1,4 @@
 import {
-  AztecNode,
   Fr,
   createLogger,
   deriveMasterIncomingViewingSecretKey,
@@ -12,10 +11,10 @@ import { PXEService } from "@aztec/pxe/service";
 import { PXEServiceConfig, getPXEServiceConfig } from "@aztec/pxe/config";
 import { KVPxeDatabase } from "@aztec/pxe/database";
 import { KeyStore } from "@aztec/key-store";
-import { PrivateKernelProver } from "@aztec/circuit-types";
 import { L2TipsStore } from "@aztec/kv-store/stores";
 import { createStore } from "@aztec/kv-store/indexeddb";
-import { BBWasmPrivateKernelProver } from "@aztec/bb-prover/wasm";
+import { BBWASMLazyPrivateKernelProver } from "@aztec/bb-prover/wasm/lazy";
+import { WASMSimulator } from "@aztec/simulator/client";
 
 process.env = Object.keys(import.meta.env).reduce((acc, key) => {
   acc[key.replace("VITE_", "")] = import.meta.env[key];
@@ -37,26 +36,13 @@ export class PrivateEnv {
   async init() {
     const config = getPXEServiceConfig();
     config.dataDirectory = "pxe";
+    config.proverEnabled = true;
     const aztecNode = await createAztecNodeClient(this.nodeURL);
-    const proofCreator = new BBWasmPrivateKernelProver(16);
-    this.pxe = await this.createPXEService(aztecNode, config, proofCreator);
-    const encryptionPrivateKey = deriveMasterIncomingViewingSecretKey(
-      this.secretKey,
+    const simulationProvider = new WASMSimulator();
+    const proofCreator = new BBWASMLazyPrivateKernelProver(
+      simulationProvider,
+      16,
     );
-    this.accountContract = new SchnorrAccountContract(encryptionPrivateKey);
-    this.account = new AccountManager(
-      this.pxe,
-      this.secretKey,
-      this.accountContract,
-    );
-    await this.account.deploy().wait();
-  }
-
-  async createPXEService(
-    aztecNode: AztecNode,
-    config: PXEServiceConfig,
-    proofCreator?: PrivateKernelProver,
-  ) {
     const l1Contracts = await aztecNode.getL1ContractAddresses();
     const configWithContracts = {
       ...config,
@@ -74,16 +60,26 @@ export class PrivateEnv {
     const db = await KVPxeDatabase.create(store);
     const tips = new L2TipsStore(store, "pxe");
 
-    const pxe = new PXEService(
+    this.pxe = new PXEService(
       keyStore,
       aztecNode,
       db,
       tips,
       proofCreator,
+      simulationProvider,
       config,
     );
-    await pxe.init();
-    return pxe;
+    await this.pxe.init();
+    const encryptionPrivateKey = deriveMasterIncomingViewingSecretKey(
+      this.secretKey,
+    );
+    this.accountContract = new SchnorrAccountContract(encryptionPrivateKey);
+    this.account = new AccountManager(
+      this.pxe,
+      this.secretKey,
+      this.accountContract,
+    );
+    await this.account.deploy().wait();
   }
 
   async getWallet() {

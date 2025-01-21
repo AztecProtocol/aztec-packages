@@ -3,7 +3,6 @@ import {
   type ProvingJob,
   type ProvingJobId,
   type ProvingJobProducer,
-  type ProvingJobSettledResult,
   type ProvingJobStatus,
   type PublicInputsAndRecursiveProof,
   type ServerCircuitProver,
@@ -15,9 +14,8 @@ import {
   AVM_VERIFICATION_KEY_LENGTH_IN_FIELDS,
   type AvmCircuitInputs,
   type BaseParityInputs,
-  type KernelCircuitPublicInputs,
   NESTED_RECURSIVE_PROOF_LENGTH,
-  type PrivateKernelEmptyInputData,
+  NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH,
   RECURSIVE_PROOF_LENGTH,
   type RootParityInputs,
   TUBE_PROOF_LENGTH,
@@ -36,24 +34,23 @@ import {
   type PublicBaseRollupInputs,
   type RootRollupInputs,
   type RootRollupPublicInputs,
+  type SingleTxBlockRootRollupInputs,
 } from '@aztec/circuits.js/rollup';
 import {
   makeBaseOrMergeRollupPublicInputs,
   makeBlockRootOrBlockMergeRollupPublicInputs,
-  makeKernelCircuitPublicInputs,
   makeParityPublicInputs,
   makeRootRollupPublicInputs,
 } from '@aztec/circuits.js/testing';
 import { times } from '@aztec/foundation/collection';
-import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
 
-import { InlineProofStore, type ProofStore } from '../proving_broker/proof_store.js';
+import { InlineProofStore, type ProofStore } from '../proving_broker/proof_store/index.js';
 import { ProvingAgent } from '../proving_broker/proving_agent.js';
 import { ProvingBroker } from '../proving_broker/proving_broker.js';
 import { InMemoryBrokerDatabase } from '../proving_broker/proving_broker_database/memory.js';
 
 export class TestBroker implements ProvingJobProducer {
-  private broker = new ProvingBroker(new InMemoryBrokerDatabase(), new NoopTelemetryClient());
+  private broker = new ProvingBroker(new InMemoryBrokerDatabase());
   private agents: ProvingAgent[];
 
   constructor(
@@ -64,7 +61,7 @@ export class TestBroker implements ProvingJobProducer {
   ) {
     this.agents = times(
       agentCount,
-      () => new ProvingAgent(this.broker, proofStore, prover, new NoopTelemetryClient(), undefined, agentPollInterval),
+      () => new ProvingAgent(this.broker, proofStore, prover, undefined, agentPollInterval),
     );
   }
 
@@ -82,7 +79,7 @@ export class TestBroker implements ProvingJobProducer {
     return this.proofStore;
   }
 
-  enqueueProvingJob(job: ProvingJob): Promise<void> {
+  enqueueProvingJob(job: ProvingJob): Promise<ProvingJobStatus> {
     return this.broker.enqueueProvingJob(job);
   }
   getProvingJobStatus(id: ProvingJobId): Promise<ProvingJobStatus> {
@@ -91,8 +88,9 @@ export class TestBroker implements ProvingJobProducer {
   cancelProvingJob(id: string): Promise<void> {
     return this.broker.cancelProvingJob(id);
   }
-  waitForJobToSettle(id: ProvingJobId): Promise<ProvingJobSettledResult> {
-    return this.broker.waitForJobToSettle(id);
+
+  getCompletedJobs(ids: ProvingJobId[]): Promise<ProvingJobId[]> {
+    return this.broker.getCompletedJobs(ids);
   }
 }
 
@@ -132,12 +130,14 @@ export class MockProver implements ServerCircuitProver {
     _baseRollupInput: PrivateBaseRollupInputs,
     _signal?: AbortSignal,
     _epochNumber?: number,
-  ): Promise<PublicInputsAndRecursiveProof<BaseOrMergeRollupPublicInputs>> {
+  ): Promise<
+    PublicInputsAndRecursiveProof<BaseOrMergeRollupPublicInputs, typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH>
+  > {
     return Promise.resolve(
       makePublicInputsAndRecursiveProof(
         makeBaseOrMergeRollupPublicInputs(),
-        makeRecursiveProof(RECURSIVE_PROOF_LENGTH),
-        VerificationKeyData.makeFakeHonk(),
+        makeRecursiveProof(NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH),
+        VerificationKeyData.makeFakeRollupHonk(),
       ),
     );
   }
@@ -146,12 +146,14 @@ export class MockProver implements ServerCircuitProver {
     _inputs: PublicBaseRollupInputs,
     _signal?: AbortSignal,
     _epochNumber?: number,
-  ): Promise<PublicInputsAndRecursiveProof<BaseOrMergeRollupPublicInputs>> {
+  ): Promise<
+    PublicInputsAndRecursiveProof<BaseOrMergeRollupPublicInputs, typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH>
+  > {
     return Promise.resolve(
       makePublicInputsAndRecursiveProof(
         makeBaseOrMergeRollupPublicInputs(),
-        makeRecursiveProof(RECURSIVE_PROOF_LENGTH),
-        VerificationKeyData.makeFakeHonk(),
+        makeRecursiveProof(NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH),
+        VerificationKeyData.makeFakeRollupHonk(),
       ),
     );
   }
@@ -160,12 +162,14 @@ export class MockProver implements ServerCircuitProver {
     _input: MergeRollupInputs,
     _signal?: AbortSignal,
     _epochNumber?: number,
-  ): Promise<PublicInputsAndRecursiveProof<BaseOrMergeRollupPublicInputs>> {
+  ): Promise<
+    PublicInputsAndRecursiveProof<BaseOrMergeRollupPublicInputs, typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH>
+  > {
     return Promise.resolve(
       makePublicInputsAndRecursiveProof(
         makeBaseOrMergeRollupPublicInputs(),
-        makeRecursiveProof(RECURSIVE_PROOF_LENGTH),
-        VerificationKeyData.makeFakeHonk(),
+        makeRecursiveProof(NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH),
+        VerificationKeyData.makeFakeRollupHonk(),
       ),
     );
   }
@@ -174,8 +178,8 @@ export class MockProver implements ServerCircuitProver {
     return Promise.resolve(
       makePublicInputsAndRecursiveProof(
         makeBlockRootOrBlockMergeRollupPublicInputs(),
-        makeRecursiveProof(RECURSIVE_PROOF_LENGTH),
-        VerificationKeyData.makeFakeHonk(),
+        makeRecursiveProof(NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH),
+        VerificationKeyData.makeFakeRollupHonk(),
       ),
     );
   }
@@ -184,12 +188,14 @@ export class MockProver implements ServerCircuitProver {
     _input: EmptyBlockRootRollupInputs,
     _signal?: AbortSignal,
     _epochNumber?: number,
-  ): Promise<PublicInputsAndRecursiveProof<BlockRootOrBlockMergePublicInputs>> {
+  ): Promise<
+    PublicInputsAndRecursiveProof<BlockRootOrBlockMergePublicInputs, typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH>
+  > {
     return Promise.resolve(
       makePublicInputsAndRecursiveProof(
         makeBlockRootOrBlockMergeRollupPublicInputs(),
-        makeRecursiveProof(RECURSIVE_PROOF_LENGTH),
-        VerificationKeyData.makeFakeHonk(),
+        makeRecursiveProof(NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH),
+        VerificationKeyData.makeFakeRollupHonk(),
       ),
     );
   }
@@ -198,25 +204,29 @@ export class MockProver implements ServerCircuitProver {
     _input: BlockRootRollupInputs,
     _signal?: AbortSignal,
     _epochNumber?: number,
-  ): Promise<PublicInputsAndRecursiveProof<BlockRootOrBlockMergePublicInputs>> {
+  ): Promise<
+    PublicInputsAndRecursiveProof<BlockRootOrBlockMergePublicInputs, typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH>
+  > {
     return Promise.resolve(
       makePublicInputsAndRecursiveProof(
         makeBlockRootOrBlockMergeRollupPublicInputs(),
-        makeRecursiveProof(RECURSIVE_PROOF_LENGTH),
-        VerificationKeyData.makeFakeHonk(),
+        makeRecursiveProof(NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH),
+        VerificationKeyData.makeFakeRollupHonk(),
       ),
     );
   }
 
-  getEmptyPrivateKernelProof(
-    _inputs: PrivateKernelEmptyInputData,
+  getSingleTxBlockRootRollupProof(
+    _input: SingleTxBlockRootRollupInputs,
     _signal?: AbortSignal,
     _epochNumber?: number,
-  ): Promise<PublicInputsAndRecursiveProof<KernelCircuitPublicInputs>> {
+  ): Promise<
+    PublicInputsAndRecursiveProof<BlockRootOrBlockMergePublicInputs, typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH>
+  > {
     return Promise.resolve(
       makePublicInputsAndRecursiveProof(
-        makeKernelCircuitPublicInputs(),
-        makeRecursiveProof(RECURSIVE_PROOF_LENGTH),
+        makeBlockRootOrBlockMergeRollupPublicInputs(),
+        makeRecursiveProof(NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH),
         VerificationKeyData.makeFakeHonk(),
       ),
     );
@@ -238,7 +248,7 @@ export class MockProver implements ServerCircuitProver {
 
   getTubeProof(): Promise<ProofAndVerificationKey<typeof TUBE_PROOF_LENGTH>> {
     return Promise.resolve(
-      makeProofAndVerificationKey(makeRecursiveProof(TUBE_PROOF_LENGTH), VerificationKeyData.makeFake()),
+      makeProofAndVerificationKey(makeRecursiveProof(TUBE_PROOF_LENGTH), VerificationKeyData.makeFakeRollupHonk()),
     );
   }
 }

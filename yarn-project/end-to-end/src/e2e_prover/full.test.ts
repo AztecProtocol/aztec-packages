@@ -256,6 +256,7 @@ describe('full_prover', () => {
       'rollup-base-public',
       'rollup-merge',
       'rollup-block-root',
+      'rollup-block-merge',
       'rollup-root',
     ].forEach(circuitName => {
       const data = getTestData(circuitName);

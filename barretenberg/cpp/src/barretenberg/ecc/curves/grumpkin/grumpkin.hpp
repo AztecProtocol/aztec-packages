@@ -54,5 +54,18 @@ class Grumpkin {
     // classes are instantiated with "native" curve types. Eventually, the verifier classes will be instantiated only
     // with stdlib types, and "native" verification will be acheived via a simulated builder.
     static constexpr bool is_stdlib_type = false;
+
+    // Required by SmallSubgroupIPA argument. This constant needs to divide the size of the multiplicative subgroup of
+    // the ScalarField and satisfy SUBGROUP_SIZE > CONST_PROOF_SIZE_LOG_N * 3, since in every round of Sumcheck, the
+    // prover sends 3 elements to the verifier.
+    static constexpr size_t SUBGROUP_SIZE = 87;
+    // The generator below was derived by factoring r - 1 into primes, where r is the modulus of the Grumkin scalar
+    // field. A random field element was sampled and raised to the power (r - 1) / (3 * 29). We verified that the
+    // resulting element does not generate a smaller subgroup by further raising it to the powers of 3 and 29. To
+    // optimize the recursive verifier and avoid costly inversions, we also precompute and store its inverse.
+    static constexpr ScalarField subgroup_generator =
+        ScalarField(uint256_t("0x147c647c09fb639514909e9f0513f31ec1a523bf8a0880bc7c24fbc962a9586b"));
+    static constexpr ScalarField subgroup_generator_inverse =
+        ScalarField("0x0c68e27477b5e78cfab790bd3b59806fa871771f71ec7452cde5384f6e3a1988");
 };
 } // namespace bb::curve

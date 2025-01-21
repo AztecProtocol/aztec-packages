@@ -26,7 +26,7 @@ get_filenames() {
     done
 }
 
-NAUGHTY_LIST=("empty_nested") # files with no opcodes, which break the flamegraph tool.
+NAUGHTY_LIST=("") # files with no opcodes, which break the flamegraph tool.
 
 get_valid_circuit_names() {
     # Capture the output of function call in an array:
@@ -124,6 +124,7 @@ DEST="$SCRIPT_DIR/../dest"
 mkdir -p $DEST
 
 MEGA_HONK_CIRCUIT_PATTERNS=$(jq -r '.[]' "$SCRIPT_DIR/../../client_ivc_circuits.json")
+ROLLUP_HONK_CIRCUIT_PATTERNS=$(jq -r '.[]' "$SCRIPT_DIR/../../rollup_honk_circuits.json")
 
 # Process each CIRCUIT_NAME.
 for CIRCUIT_NAME in "${CIRCUIT_NAMES[@]}"; do
@@ -148,11 +149,21 @@ for CIRCUIT_NAME in "${CIRCUIT_NAMES[@]}"; do
             fi
         done
 
+        IS_ROLLUP_HONK_CIRCUIT="false"
+        for pattern in $ROLLUP_HONK_CIRCUIT_PATTERNS; do
+            if echo "$ARTIFACT_FILE_NAME" | grep -qE "$pattern"; then
+                IS_ROLLUP_HONK_CIRCUIT="true"
+                break
+            fi
+        done
+
         # Generate the flamegraph.
         if [ "$IS_MEGA_HONK_CIRCUIT" = "true" ]; then
-            $PROFILER gates --artifact-path "${ARTIFACT}" --backend-path "$SCRIPT_DIR/../../../barretenberg/cpp/build/bin/bb" --output "$DEST" --output-filename "$CIRCUIT_NAME" --backend-gates-command "gates_for_ivc" -- -h
+            $PROFILER gates --artifact-path "${ARTIFACT}" --backend-path "$SCRIPT_DIR/../../../barretenberg/cpp/build/bin/bb" --output "$DEST" --output-filename "$CIRCUIT_NAME" --backend-gates-command "gates_for_ivc" -- -h 0
+        elif [ "$IS_ROLLUP_HONK_CIRCUIT" = "true" ]; then
+            $PROFILER gates --artifact-path "${ARTIFACT}" --backend-path "$SCRIPT_DIR/../../../barretenberg/cpp/build/bin/bb" --output "$DEST" --output-filename "$CIRCUIT_NAME" -- -h 2
         else
-            $PROFILER gates --artifact-path "${ARTIFACT}" --backend-path "$SCRIPT_DIR/../../../barretenberg/cpp/build/bin/bb" --output "$DEST" --output-filename "$CIRCUIT_NAME" -- -h
+            $PROFILER gates --artifact-path "${ARTIFACT}" --backend-path "$SCRIPT_DIR/../../../barretenberg/cpp/build/bin/bb" --output "$DEST" --output-filename "$CIRCUIT_NAME" -- -h 1
         fi
 
         echo "Flamegraph generated for circuit: $CIRCUIT_NAME"

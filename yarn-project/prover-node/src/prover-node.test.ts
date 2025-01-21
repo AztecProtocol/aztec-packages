@@ -1,20 +1,23 @@
 import {
+  EmptyL1RollupConstants,
   type EpochProofClaim,
   EpochProofQuote,
   EpochProofQuotePayload,
   type EpochProverManager,
   type L1ToL2MessageSource,
-  type L2Block,
+  L2Block,
   type L2BlockSource,
   type MerkleTreeWriteOperations,
   P2PClientType,
   type ProverCoordination,
+  type Tx,
+  type TxHash,
   WorldStateRunningState,
   type WorldStateSynchronizer,
 } from '@aztec/circuit-types';
-import { type ContractDataSource, EthAddress, Fr } from '@aztec/circuits.js';
+import { type ContractDataSource, EthAddress } from '@aztec/circuits.js';
 import { type EpochCache } from '@aztec/epoch-cache';
-import { times } from '@aztec/foundation/collection';
+import { times, timesParallel } from '@aztec/foundation/collection';
 import { Signature } from '@aztec/foundation/eth-signature';
 import { makeBackoff, retry } from '@aztec/foundation/retry';
 import { sleep } from '@aztec/foundation/sleep';
@@ -22,8 +25,8 @@ import { openTmpStore } from '@aztec/kv-store/lmdb';
 import { type BootstrapNode, InMemoryTxPool, MemoryEpochProofQuotePool, P2PClient } from '@aztec/p2p';
 import { createBootstrapNode, createTestLibP2PService } from '@aztec/p2p/mocks';
 import { type L1Publisher } from '@aztec/sequencer-client';
-import { type PublicProcessorFactory } from '@aztec/simulator';
-import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
+import { type PublicProcessorFactory } from '@aztec/simulator/server';
+import { getTelemetryClient } from '@aztec/telemetry-client';
 
 import { jest } from '@jest/globals';
 import { type MockProxy, mock } from 'jest-mock-extended';
@@ -44,11 +47,11 @@ describe('prover-node', () => {
   let l1ToL2MessageSource: MockProxy<L1ToL2MessageSource>;
   let contractDataSource: MockProxy<ContractDataSource>;
   let worldState: MockProxy<WorldStateSynchronizer>;
-  let coordination: MockProxy<ProverCoordination> | ProverCoordination;
+  let coordination: ProverCoordination;
+  let mockCoordination: MockProxy<ProverCoordination>;
   let quoteProvider: MockProxy<QuoteProvider>;
   let quoteSigner: MockProxy<QuoteSigner>;
   let bondManager: MockProxy<BondManager>;
-  let telemetryClient: NoopTelemetryClient;
   let config: ProverNodeOptions;
 
   // Subject under test
@@ -61,7 +64,7 @@ describe('prover-node', () => {
   let claim: MockProxy<EpochProofClaim>;
 
   // Blocks returned by the archiver
-  let blocks: MockProxy<L2Block>[];
+  let blocks: L2Block[];
 
   // Address of the publisher
   let address: EthAddress;
@@ -97,24 +100,30 @@ describe('prover-node', () => {
       claimsMonitor,
       epochMonitor,
       bondManager,
-      telemetryClient,
       config,
     );
 
-  beforeEach(() => {
+  beforeEach(async () => {
     prover = mock<EpochProverManager>();
     publisher = mock<L1Publisher>();
     l2BlockSource = mock<L2BlockSource>();
     l1ToL2MessageSource = mock<L1ToL2MessageSource>();
     contractDataSource = mock<ContractDataSource>();
     worldState = mock<WorldStateSynchronizer>();
-    coordination = mock<ProverCoordination>();
+    mockCoordination = mock<ProverCoordination>();
+    coordination = mockCoordination;
     quoteProvider = mock<QuoteProvider>();
     quoteSigner = mock<QuoteSigner>();
     bondManager = mock<BondManager>();
 
-    telemetryClient = new NoopTelemetryClient();
-    config = { maxPendingJobs: 3, pollingIntervalMs: 10, maxParallelBlocksPerEpoch: 32 };
+    config = {
+      maxPendingJobs: 3,
+      pollingIntervalMs: 10,
+      maxParallelBlocksPerEpoch: 32,
+      txGatheringMaxParallelRequests: 10,
+      txGatheringIntervalMs: 100,
+      txGatheringTimeoutMs: 1000,
+    };
 
     // World state returns a new mock db every time it is asked to fork
     worldState.fork.mockImplementation(() => Promise.resolve(mock<MerkleTreeWriteOperations>()));
@@ -134,9 +143,15 @@ describe('prover-node', () => {
     // Signer returns an empty signature
     quoteSigner.sign.mockImplementation(payload => Promise.resolve(new EpochProofQuote(payload, Signature.empty())));
 
+    // We create 3 fake blocks with 1 tx effect each
+    blocks = await timesParallel(3, async i => await L2Block.random(i + 20, 1));
+
     // Archiver returns a bunch of fake blocks
-    blocks = times(3, i => mock<L2Block>({ number: i + 20, hash: () => new Fr(i) }));
     l2BlockSource.getBlocksForEpoch.mockResolvedValue(blocks);
+    l2BlockSource.getL1Constants.mockResolvedValue(EmptyL1RollupConstants);
+
+    // Coordination plays along and returns a tx whenever requested
+    mockCoordination.getTxByHash.mockImplementation(hash => Promise.resolve(mock<Tx>({ getTxHash: () => hash })));
 
     // A sample claim
     claim = { epochToProve: 10n, bondProvider: address } as EpochProofClaim;
@@ -171,6 +186,12 @@ describe('prover-node', () => {
 
     it('does not send a quote if there are no blocks in the epoch', async () => {
       l2BlockSource.getBlocksForEpoch.mockResolvedValue([]);
+      await proverNode.handleEpochCompleted(10n);
+      expect(coordination.addEpochProofQuote).not.toHaveBeenCalled();
+    });
+
+    it('does not send a quote if there is a tx missing from coordinator', async () => {
+      mockCoordination.getTxByHash.mockResolvedValue(undefined);
       await proverNode.handleEpochCompleted(10n);
       expect(coordination.addEpochProofQuote).not.toHaveBeenCalled();
     });
@@ -241,9 +262,8 @@ describe('prover-node', () => {
     let lastEpochComplete: bigint = 0n;
 
     beforeEach(() => {
-      const telemetry = new NoopTelemetryClient();
-      claimsMonitor = new ClaimsMonitor(publisher, telemetry, config);
-      epochMonitor = new EpochMonitor(l2BlockSource, telemetry, config);
+      claimsMonitor = new ClaimsMonitor(publisher, config);
+      epochMonitor = new EpochMonitor(l2BlockSource, config);
 
       l2BlockSource.isEpochComplete.mockImplementation(epochNumber =>
         Promise.resolve(epochNumber <= lastEpochComplete),
@@ -269,6 +289,38 @@ describe('prover-node', () => {
 
       expect(jobs[0].epochNumber).toEqual(10n);
       expect(jobs.length).toEqual(1);
+    });
+
+    it('retries acquiring txs if they are not immediately available', async () => {
+      l2BlockSource.getL2EpochNumber.mockResolvedValue(11n);
+      publisher.getProofClaim.mockResolvedValue(claim);
+      const mockGetTxByHash = mockCoordination.getTxByHash.getMockImplementation();
+      mockCoordination.getTxByHash.mockResolvedValue(undefined);
+
+      await proverNode.start();
+      await sleep(100);
+
+      // initially no job will be started because the txs aren't available
+      expect(jobs).toHaveLength(0);
+      expect(mockCoordination.getTxByHash).toHaveBeenCalled();
+
+      mockCoordination.getTxByHash.mockImplementation(mockGetTxByHash);
+      await sleep(100);
+
+      // now it should have all the txs necessary to start proving
+      expect(jobs[0].epochNumber).toEqual(10n);
+      expect(jobs.length).toEqual(1);
+    });
+
+    it('does not start proving if txs are not all available', async () => {
+      l2BlockSource.getL2EpochNumber.mockResolvedValue(11n);
+      publisher.getProofClaim.mockResolvedValue(claim);
+
+      mockCoordination.getTxByHash.mockResolvedValue(undefined);
+
+      await proverNode.start();
+      await sleep(2000);
+      expect(jobs).toHaveLength(0);
     });
 
     it('does not start proving if there is a claim for proven epoch during initial sync', async () => {
@@ -309,7 +361,7 @@ describe('prover-node', () => {
   // Things to test
   // - Another aztec node receives the proof quote via p2p
   // - The prover node can get the  it is missing via p2p, or it has them in it's mempool
-  describe('Using a p2p coordination', () => {
+  describe('using a p2p coordination', () => {
     let bootnode: BootstrapNode;
     let epochCache: MockProxy<EpochCache>;
     let p2pClient: P2PClient<P2PClientType.Prover>;
@@ -317,8 +369,8 @@ describe('prover-node', () => {
 
     const createP2PClient = async (bootnodeAddr: string, port: number) => {
       const mempools = {
-        txPool: new InMemoryTxPool(telemetryClient),
-        epochProofQuotePool: new MemoryEpochProofQuotePool(telemetryClient),
+        txPool: new InMemoryTxPool(),
+        epochProofQuotePool: new MemoryEpochProofQuotePool(),
       };
       epochCache = mock<EpochCache>();
       const libp2pService = await createTestLibP2PService(
@@ -328,11 +380,11 @@ describe('prover-node', () => {
         worldState,
         epochCache,
         mempools,
-        telemetryClient,
+        getTelemetryClient(),
         port,
       );
       const kvStore = openTmpStore();
-      return new P2PClient(P2PClientType.Prover, kvStore, l2BlockSource, mempools, libp2pService, 0);
+      return new P2PClient(P2PClientType.Prover, kvStore, l2BlockSource, mempools, libp2pService);
     };
 
     beforeEach(async () => {
@@ -345,6 +397,11 @@ describe('prover-node', () => {
 
       // Set the p2p client to be the coordination method
       coordination = p2pClient;
+
+      // But still mock getTxByHash
+      const mockGetTxByHash = (hash: TxHash) => Promise.resolve(mock<Tx>({ getTxHash: () => hash }));
+      jest.spyOn(p2pClient, 'getTxByHash').mockImplementation(mockGetTxByHash);
+      jest.spyOn(otherP2PClient, 'getTxByHash').mockImplementation(mockGetTxByHash);
 
       await Promise.all([p2pClient.start(), otherP2PClient.start()]);
 
@@ -373,7 +430,7 @@ describe('prover-node', () => {
         await proverNode.stop();
       });
 
-      it('Should send a proof quote via p2p to another node', async () => {
+      it('should send a proof quote via p2p to another node', async () => {
         const epochNumber = 10n;
         epochCache.getEpochAndSlotNow.mockReturnValue({
           epoch: epochNumber,
@@ -411,7 +468,9 @@ describe('prover-node', () => {
   class TestProverNode extends ProverNode {
     protected override doCreateEpochProvingJob(
       epochNumber: bigint,
+      _deadline: Date | undefined,
       _blocks: L2Block[],
+      _txs: Tx[],
       _publicProcessorFactory: PublicProcessorFactory,
       cleanUp: (job: EpochProvingJob) => Promise<void>,
     ): EpochProvingJob {

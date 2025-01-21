@@ -171,5 +171,4 @@ Follow the tutorial [here](../../js_tutorials/aztecjs-getting-started.md).
 
 ### Optional: Learn more about concepts mentioned here
 
-- [Portals (protocol specs)](../../../../protocol-specs/l1-smart-contracts/index.md#portals)
 - [Functions under the hood (concepts)](../../../../aztec/smart_contracts/functions/function_transforms.md)

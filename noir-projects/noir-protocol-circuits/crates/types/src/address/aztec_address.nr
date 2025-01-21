@@ -10,7 +10,7 @@ use crate::{
     contract_class_id::ContractClassId,
     hash::{poseidon2_hash_with_separator, private_functions_root_from_siblings},
     merkle_tree::membership::MembershipWitness,
-    public_keys::{IvpkM, NpkM, OvpkM, PublicKeys, TpkM},
+    public_keys::{IvpkM, NpkM, OvpkM, PublicKeys, ToPoint, TpkM},
     traits::{Deserialize, Empty, FromField, Serialize, ToField},
 };
 
@@ -19,7 +19,10 @@ use dep::std::embedded_curve_ops::EmbeddedCurvePoint as Point;
 
 use crate::public_keys::AddressPoint;
 use ec::{pow, sqrt};
-use std::embedded_curve_ops::{EmbeddedCurveScalar, fixed_base_scalar_mul as derive_public_key};
+use std::{
+    embedded_curve_ops::{EmbeddedCurveScalar, fixed_base_scalar_mul as derive_public_key},
+    ops::Add,
+};
 
 // Aztec address
 pub struct AztecAddress {

@@ -109,14 +109,9 @@ Lo and behold, we get `Error: Assertion failed: 'verification == true'` when run
 
 ## Next Steps
 
-### Build a hybrid token tutorial
-
-Follow the token contract tutorial on the [next page](./token_contract.md) and learn more about hybrid state.
-
 ### Optional: Learn more about concepts mentioned here
 
 - [ECDSA signer account contract (GitHub link)](https://github.com/AztecProtocol/aztec-packages/blob/#include_aztec_version/noir-projects/noir-contracts/contracts/ecdsa_account_contract/src/main.nr)
 - [Schnorr signer account contract (GitHub link)](https://github.com/AztecProtocol/aztec-packages/tree/#include_aztec_version/noir-projects/noir-contracts/contracts/schnorr_account_contract)
 - [Account abstraction](../../../aztec/concepts/accounts/index.md#what-is-account-abstraction)
 - [Authentication witness](../../../aztec/concepts/accounts/authwit.md)
-- [Fee abstraction](../../../protocol-specs/gas-and-fees/tx-setup-and-teardown.md).

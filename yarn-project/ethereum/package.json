@@ -33,7 +33,6 @@
     "@aztec/l1-artifacts": "workspace:^",
     "@viem/anvil": "^0.0.10",
     "dotenv": "^16.0.3",
-    "get-port": "^7.1.0",
     "tslib": "^2.4.0",
     "viem": "^2.7.15",
     "zod": "^3.23.8"
@@ -80,12 +79,7 @@
       ".ts"
     ],
     "reporters": [
-      [
-        "jest-silent-reporter",
-        {
-          "useDots": true
-        }
-      ]
+      "default"
     ],
     "testTimeout": 30000,
     "setupFiles": [

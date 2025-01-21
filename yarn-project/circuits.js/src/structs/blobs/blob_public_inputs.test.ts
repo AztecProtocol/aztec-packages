@@ -20,7 +20,7 @@ describe('BlobPublicInputs', () => {
   });
 
   it('converts correctly from Blob class', () => {
-    const blob = new Blob(Array(400).fill(new Fr(3)));
+    const blob = Blob.fromFields(Array(400).fill(new Fr(3)));
     const converted = BlobPublicInputs.fromBlob(blob);
     expect(converted.z).toEqual(blob.challengeZ);
     expect(Buffer.from(converted.y.toString(16), 'hex')).toEqual(blob.evaluationY);
@@ -55,7 +55,7 @@ describe('BlockBlobPublicInputs', () => {
   });
 
   it('converts correctly from Blob class', () => {
-    const blobs = Array.from({ length: BLOBS_PER_BLOCK }, (_, i) => new Blob(Array(400).fill(new Fr(i + 1))));
+    const blobs = Array.from({ length: BLOBS_PER_BLOCK }, (_, i) => Blob.fromFields(Array(400).fill(new Fr(i + 1))));
     const converted = BlockBlobPublicInputs.fromBlobs(blobs);
     converted.inner.forEach((blobPI, i) => {
       expect(blobPI.z).toEqual(blobs[i].challengeZ);

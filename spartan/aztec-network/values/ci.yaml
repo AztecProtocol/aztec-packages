@@ -4,7 +4,31 @@ aztec:
   epochProofClaimWindow: 2
 
 ethereum:
-  blockTime: 8sec
+  blockTime: 8
+  execution:
+    resources:
+      requests:
+        memory: "2Gi"
+        cpu: "200m"
+      limits:
+        memory: "2Gi"
+        cpu: "200m"
+  beacon:
+    resources:
+      requests:
+        memory: "2Gi"
+        cpu: "200m"
+      limits:
+        memory: "2Gi"
+        cpu: "200m"
+  validator:
+    resources:
+      requests:
+        memory: "2Gi"
+        cpu: "200m"
+      limits:
+        memory: "2Gi"
+        cpu: "200m"
 
 telemetry:
   enabled: true
@@ -32,6 +56,7 @@ validator:
   resources:
     requests:
       memory: "512Mi"
+      cpu: "200m"
   validator:
     disabled: false
   sequencer:
@@ -45,3 +70,25 @@ bot:
 bootNode:
   validator:
     disabled: true
+  resources:
+    requests:
+      memory: "2Gi"
+      cpu: "200m"
+
+proverAgent:
+  resources:
+    requests:
+      memory: "2Gi"
+      cpu: "200m"
+
+proverBroker:
+  resources:
+    requests:
+      memory: "2Gi"
+      cpu: "200m"
+
+proverNode:
+  resources:
+    requests:
+      memory: "2Gi"
+      cpu: "200m"

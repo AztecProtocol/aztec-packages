@@ -8,6 +8,7 @@
 namespace bb::avm {
 
 class AvmVerifier {
+  public:
     using Flavor = AvmFlavor;
     using FF = Flavor::FF;
     using Commitment = Flavor::Commitment;
@@ -15,7 +16,6 @@ class AvmVerifier {
     using VerifierCommitmentKey = Flavor::VerifierCommitmentKey;
     using Transcript = Flavor::Transcript;
 
-  public:
     explicit AvmVerifier(std::shared_ptr<VerificationKey> verifier_key);
     AvmVerifier(AvmVerifier&& other) noexcept;
     AvmVerifier(const AvmVerifier& other) = delete;

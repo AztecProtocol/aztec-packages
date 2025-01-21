@@ -6,16 +6,23 @@ The base rollup circuit is the most complex of the rollup circuits, as it has to
 
 Take `BaseRollupInputs` as an input value, and transform it to `BaseOrMergeRollupPublicInputs` as an output value while making sure that the validity conditions are met.
 
-```mermaid
+```mdx
+import { Mermaid } from '@docusaurus/theme-mermaid';
+
+<Mermaid>
 graph LR
 A[BaseRollupInputs] --> C[BaseRollupCircuit] --> B[BaseOrMergeRollupPublicInputs]
+</Mermaid>
 ```
 
 ## Overview
 
 Below is a subset of the figure from [earlier](./index.md) (granted, not much is removed). The figure shows the data structures related to the Base Rollup circuit.
 
-```mermaid
+```mdx
+import { Mermaid } from '@docusaurus/theme-mermaid';
+
+<Mermaid>
 classDiagram
 direction TB
 
@@ -226,6 +233,7 @@ class BaseOrMergeRollupPublicInputs {
 BaseOrMergeRollupPublicInputs *-- ConstantRollupData : constants
 BaseOrMergeRollupPublicInputs *-- PartialStateReference : start
 BaseOrMergeRollupPublicInputs *-- PartialStateReference : end
+</Mermaid>
 ```
 
 :::warning TODO  

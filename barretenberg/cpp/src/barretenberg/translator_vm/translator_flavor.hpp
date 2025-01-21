@@ -7,7 +7,6 @@
 #include "barretenberg/flavor/flavor_macros.hpp"
 #include "barretenberg/flavor/relation_definitions.hpp"
 #include "barretenberg/flavor/repeated_commitments_data.hpp"
-#include "barretenberg/honk/proof_system/permutation_library.hpp"
 #include "barretenberg/polynomials/polynomial.hpp"
 #include "barretenberg/polynomials/univariate.hpp"
 #include "barretenberg/relations/relation_parameters.hpp"
@@ -133,14 +132,7 @@ class TranslatorFlavor {
     static constexpr size_t NUM_RELATIONS = std::tuple_size_v<Relations>;
 
     // define the containers for storing the contributions from each relation in Sumcheck
-    using SumcheckTupleOfTuplesOfUnivariates =
-        std::tuple<typename TranslatorPermutationRelation<FF>::SumcheckTupleOfUnivariatesOverSubrelations,
-                   typename TranslatorDeltaRangeConstraintRelation<FF>::SumcheckTupleOfUnivariatesOverSubrelations,
-                   typename TranslatorOpcodeConstraintRelation<FF>::SumcheckTupleOfUnivariatesOverSubrelations,
-                   typename TranslatorAccumulatorTransferRelation<FF>::SumcheckTupleOfUnivariatesOverSubrelations,
-                   typename TranslatorDecompositionRelation<FF>::SumcheckTupleOfUnivariatesOverSubrelations,
-                   typename TranslatorNonNativeFieldRelation<FF>::SumcheckTupleOfUnivariatesOverSubrelations,
-                   typename TranslatorZeroConstraintsRelation<FF>::SumcheckTupleOfUnivariatesOverSubrelations>;
+    using SumcheckTupleOfTuplesOfUnivariates = decltype(create_sumcheck_tuple_of_tuples_of_univariates<Relations>());
     using TupleOfArraysOfValues = decltype(create_tuple_of_arrays_of_values<Relations>());
 
     /**
@@ -169,7 +161,6 @@ class TranslatorFlavor {
                               concatenated_range_constraints_2, // column 2
                               concatenated_range_constraints_3) // column 3
     };
-    // TODO(https://github.com/AztecProtocol/barretenberg/issues/790) dedupe with shifted?
     template <typename DataType> class WireToBeShiftedWithoutConcatenated {
       public:
         DEFINE_FLAVOR_MEMBERS(DataType,
@@ -548,7 +539,7 @@ class TranslatorFlavor {
       public:
         DEFINE_COMPOUND_GET_ALL(PrecomputedEntities<DataType>, WitnessEntities<DataType>, ShiftedEntities<DataType>)
 
-        auto get_precomputed() { return PrecomputedEntities<DataType>::get_all(); };
+        auto get_precomputed() const { return PrecomputedEntities<DataType>::get_all(); };
 
         /**
          * @brief Get entities concatenated for the permutation relation
@@ -596,14 +587,6 @@ class TranslatorFlavor {
             return WitnessEntities<DataType>::get_wires_and_ordered_range_constraints();
         };
 
-        // Get witness polynomials including shifts. This getter is required by ZK-Sumcheck.
-        auto get_all_witnesses()
-        {
-            return concatenate(WitnessEntities<DataType>::get_all(), ShiftedEntities<DataType>::get_all());
-        };
-        // Get all non-witness polynomials. In this case, contains only PrecomputedEntities.
-        auto get_non_witnesses() { return PrecomputedEntities<DataType>::get_all(); };
-
         friend std::ostream& operator<<(std::ostream& os, const AllEntities& a)
         {
             os << "{ ";
@@ -618,29 +601,6 @@ class TranslatorFlavor {
             return os;
         }
     };
-
-  public:
-    static inline size_t compute_total_num_gates(const CircuitBuilder& builder)
-    {
-        return std::max(builder.num_gates, MINIMUM_MINI_CIRCUIT_SIZE);
-    }
-
-    static inline size_t compute_dyadic_circuit_size(const CircuitBuilder& builder)
-    {
-        const size_t total_num_gates = compute_total_num_gates(builder);
-
-        // Next power of 2
-        const size_t mini_circuit_dyadic_size = builder.get_circuit_subgroup_size(total_num_gates);
-
-        // The actual circuit size is several times bigger than the trace in the builder, because we use concatenation
-        // to bring the degree of relations down, while extending the length.
-        return mini_circuit_dyadic_size * CONCATENATION_GROUP_SIZE;
-    }
-
-    static inline size_t compute_mini_circuit_dyadic_size(const CircuitBuilder& builder)
-    {
-        return builder.get_circuit_subgroup_size(compute_total_num_gates(builder));
-    }
 
     /**
      * @brief A field element for each entity of the flavor.  These entities represent the prover polynomials
@@ -708,8 +668,6 @@ class TranslatorFlavor {
      */
     class ProvingKey : public ProvingKey_<FF, CommitmentKey> {
       public:
-        BF batching_challenge_v = { 0 };
-        BF evaluation_input_x = { 0 };
         ProverPolynomials polynomials; // storage for all polynomials evaluated by the prover
 
         // Expose constructors on the base class
@@ -717,80 +675,10 @@ class TranslatorFlavor {
         using Base::Base;
 
         ProvingKey() = default;
-        ProvingKey(const CircuitBuilder& builder)
-            : Base(compute_dyadic_circuit_size(builder), 0)
-            , batching_challenge_v(builder.batching_challenge_v)
-            , evaluation_input_x(builder.evaluation_input_x)
+        ProvingKey(const size_t dyadic_circuit_size, std::shared_ptr<CommitmentKey> commitment_key = nullptr)
+            : Base(dyadic_circuit_size, 0, std::move(commitment_key))
             , polynomials(this->circuit_size)
-        {
-            // First and last lagrange polynomials (in the full circuit size)
-            polynomials.lagrange_first.at(0) = 1;
-            polynomials.lagrange_last.at(circuit_size - 1) = 1;
-
-            // Compute polynomials with odd and even indices set to 1 up to the minicircuit margin + lagrange
-            // polynomials at second and second to last indices in the minicircuit
-            compute_lagrange_polynomials(builder);
-
-            // Compute the numerator for the permutation argument with several repetitions of steps bridging 0 and
-            // maximum range constraint compute_extra_range_constraint_numerator();
-            compute_extra_range_constraint_numerator();
-        }
-
-        inline void compute_lagrange_polynomials(const CircuitBuilder& builder)
-        {
-            const size_t mini_circuit_dyadic_size = compute_mini_circuit_dyadic_size(builder);
-
-            for (size_t i = 1; i < mini_circuit_dyadic_size - 1; i += 2) {
-                polynomials.lagrange_odd_in_minicircuit.at(i) = 1;
-                polynomials.lagrange_even_in_minicircuit.at(i + 1) = 1;
-            }
-            polynomials.lagrange_second.at(1) = 1;
-            polynomials.lagrange_second_to_last_in_minicircuit.at(mini_circuit_dyadic_size - 2) = 1;
-        }
-
-        /**
-         * @brief Compute the extra numerator for Goblin range constraint argument
-         *
-         * @details Goblin proves that several polynomials contain only values in a certain range through 2
-         * relations: 1) A grand product which ignores positions of elements (TranslatorPermutationRelation) 2) A
-         * relation enforcing a certain ordering on the elements of the given polynomial
-         * (TranslatorDeltaRangeConstraintRelation)
-         *
-         * We take the values from 4 polynomials, and spread them into 5 polynomials + add all the steps from
-         * MAX_VALUE to 0. We order these polynomials and use them in the denominator of the grand product, at the
-         * same time checking that they go from MAX_VALUE to 0. To counteract the added steps we also generate an
-         * extra range constraint numerator, which contains 5 MAX_VALUE, 5 (MAX_VALUE-STEP),... values
-         *
-         */
-        inline void compute_extra_range_constraint_numerator()
-        {
-            auto& extra_range_constraint_numerator = polynomials.ordered_extra_range_constraints_numerator;
-
-            static constexpr uint32_t MAX_VALUE = (1 << MICRO_LIMB_BITS) - 1;
-
-            // Calculate how many elements there are in the sequence MAX_VALUE, MAX_VALUE - 3,...,0
-            size_t sorted_elements_count = (MAX_VALUE / SORT_STEP) + 1 + (MAX_VALUE % SORT_STEP == 0 ? 0 : 1);
-
-            // Check that we can fit every element in the polynomial
-            ASSERT((NUM_CONCATENATED_WIRES + 1) * sorted_elements_count < extra_range_constraint_numerator.size());
-
-            std::vector<size_t> sorted_elements(sorted_elements_count);
-
-            // Calculate the sequence in integers
-            sorted_elements[0] = MAX_VALUE;
-            for (size_t i = 1; i < sorted_elements_count; i++) {
-                sorted_elements[i] = (sorted_elements_count - 1 - i) * SORT_STEP;
-            }
-
-            // TODO(#756): can be parallelized further. This will use at most 5 threads
-            auto fill_with_shift = [&](size_t shift) {
-                for (size_t i = 0; i < sorted_elements_count; i++) {
-                    extra_range_constraint_numerator.at(shift + i * (NUM_CONCATENATED_WIRES + 1)) = sorted_elements[i];
-                }
-            };
-            // Fill polynomials with a sequence, where each element is repeated NUM_CONCATENATED_WIRES+1 times
-            parallel_for(NUM_CONCATENATED_WIRES + 1, fill_with_shift);
-        }
+        {}
     };
 
     /**

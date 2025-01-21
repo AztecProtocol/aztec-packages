@@ -25,32 +25,55 @@ export class ExecutionNoteCache {
   private noteMap: Map<bigint, PendingNote[]> = new Map();
 
   /**
-   * The list of nullifiers created in this transaction.
-   * This mapping maps from a contract address to the nullifiers emitted from the contract.
+   * This maps from a contract address to the nullifiers emitted from the contract.
    * The note which is nullified might be new or not (i.e., was generated in a previous transaction).
    * Note that their value (bigint representation) is used because Frs cannot be looked up in Sets.
    */
   private nullifierMap: Map<bigint, Set<bigint>> = new Map();
 
+  /**
+   * All nullifiers emitted in this transaction.
+   */
+  private allNullifiers: Set<bigint> = new Set();
+
   private minRevertibleSideEffectCounter = 0;
 
-  constructor(private readonly txHash: Fr) {}
+  private inRevertiblePhase = false;
 
+  /**
+   * We don't need to use the tx request hash for nonces if another non revertible nullifier is emitted.
+   * In that case we disable injecting the tx request hash as a nullifier.
+   */
+  private usedTxRequestHashForNonces = true;
+
+  constructor(private readonly txRequestHash: Fr) {}
+
+  /**
+   * Enters the revertible phase of the transaction.
+   * @param minRevertibleSideEffectCounter - The counter at which the transaction enters the revertible phase.
+   */
   public setMinRevertibleSideEffectCounter(minRevertibleSideEffectCounter: number) {
-    if (this.minRevertibleSideEffectCounter && this.minRevertibleSideEffectCounter !== minRevertibleSideEffectCounter) {
+    if (this.inRevertiblePhase) {
       throw new Error(
-        `Cannot override minRevertibleSideEffectCounter. Current value: ${minRevertibleSideEffectCounter}. Previous value: ${this.minRevertibleSideEffectCounter}`,
+        `Cannot enter the revertible phase twice. Current counter: ${minRevertibleSideEffectCounter}. Previous enter counter: ${this.minRevertibleSideEffectCounter}`,
       );
     }
-
+    this.inRevertiblePhase = true;
     this.minRevertibleSideEffectCounter = minRevertibleSideEffectCounter;
+
+    let nonceGenerator = this.txRequestHash;
+    const nullifiers = this.getAllNullifiers();
+    if (nullifiers.length > 0) {
+      nonceGenerator = new Fr(nullifiers[0]);
+      this.usedTxRequestHashForNonces = false;
+    }
 
     // The existing pending notes are all non-revertible.
     // They cannot be squashed by nullifiers emitted after minRevertibleSideEffectCounter is set.
     // Their indexes in the tx are known at this point and won't change. So we can assign a nonce to each one of them.
     // The nonces will be used to create the "complete" nullifier.
     const updatedNotes = this.notes.map(({ note, counter }, i) => {
-      const nonce = computeNoteHashNonce(this.txHash, i);
+      const nonce = computeNoteHashNonce(nonceGenerator, i);
       const uniqueNoteHash = computeUniqueNoteHash(nonce, siloNoteHash(note.contractAddress, note.noteHash));
       return {
         counter,
@@ -62,6 +85,17 @@ export class ExecutionNoteCache {
     this.notes = [];
     this.noteMap = new Map();
     updatedNotes.forEach(n => this.#addNote(n));
+  }
+
+  public finish() {
+    // If we never entered the revertible phase, we need to use the tx request hash as a nonce for the notes if no nullifiers have been emitted.
+    if (!this.inRevertiblePhase) {
+      this.usedTxRequestHashForNonces = this.getAllNullifiers().length === 0;
+    }
+    // If we entered the revertible phase, the nonce generator was decided based on wether or not a nullifier was emitted before entering.
+    return {
+      usedTxRequestHashForNonces: this.usedTxRequestHashForNonces,
+    };
   }
 
   /**
@@ -88,10 +122,6 @@ export class ExecutionNoteCache {
    */
   public nullifyNote(contractAddress: AztecAddress, innerNullifier: Fr, noteHash: Fr) {
     const siloedNullifier = siloNullifier(contractAddress, innerNullifier);
-    const nullifiers = this.getNullifiers(contractAddress);
-    nullifiers.add(siloedNullifier.value);
-    this.nullifierMap.set(contractAddress.toBigInt(), nullifiers);
-
     let nullifiedNoteHashCounter: number | undefined = undefined;
     // Find and remove the matching new note and log(s) if the emitted noteHash is not empty.
     if (!noteHash.isEmpty()) {
@@ -105,8 +135,26 @@ export class ExecutionNoteCache {
       nullifiedNoteHashCounter = note.counter;
       this.noteMap.set(contractAddress.toBigInt(), notesInContract);
       this.notes = this.notes.filter(n => n.counter !== note.counter);
+
+      // If the note is non revertible and the nullifier was emitted in the revertible phase, both the note hash and the nullifier will be emitted
+      if (this.inRevertiblePhase && note.counter < this.minRevertibleSideEffectCounter) {
+        this.recordNullifier(contractAddress, siloedNullifier);
+      }
+    } else {
+      // If the note being nullified comes from a previous tx the nullifier will be emitted.
+      this.recordNullifier(contractAddress, siloedNullifier);
     }
     return nullifiedNoteHashCounter;
+  }
+
+  /**
+   * Adds a nullifier to the cache. Note cache needs to track all nullifiers to decide which nullifier to use for note siloing.
+   * @param contractAddress - Contract address that emitted the nullifier.
+   * @param innerNullifier
+   */
+  public nullifierCreated(contractAddress: AztecAddress, innerNullifier: Fr) {
+    const siloedNullifier = siloNullifier(contractAddress, innerNullifier);
+    this.recordNullifier(contractAddress, siloedNullifier);
   }
 
   /**
@@ -152,8 +200,13 @@ export class ExecutionNoteCache {
   }
 
   getAllNullifiers(): Fr[] {
-    return [...this.nullifierMap.values()].flatMap(nullifierArray =>
-      [...nullifierArray.values()].map(val => new Fr(val)),
-    );
+    return [...this.allNullifiers].map(n => new Fr(n));
+  }
+
+  recordNullifier(contractAddress: AztecAddress, siloedNullifier: Fr) {
+    const nullifiers = this.getNullifiers(contractAddress);
+    nullifiers.add(siloedNullifier.toBigInt());
+    this.nullifierMap.set(contractAddress.toBigInt(), nullifiers);
+    this.allNullifiers.add(siloedNullifier.toBigInt());
   }
 }

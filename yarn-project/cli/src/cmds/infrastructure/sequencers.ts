@@ -1,5 +1,5 @@
 import { createCompatibleClient } from '@aztec/aztec.js';
-import { MINIMUM_STAKE, createEthereumChain } from '@aztec/ethereum';
+import { createEthereumChain, getL1ContractsConfigEnvVars } from '@aztec/ethereum';
 import { type LogFn, type Logger } from '@aztec/foundation/log';
 import { RollupAbi, TestERC20Abi } from '@aztec/l1-artifacts';
 
@@ -71,14 +71,16 @@ export async function sequencers(opts: {
       client: walletClient,
     });
 
+    const config = getL1ContractsConfigEnvVars();
+
     await Promise.all(
       [
-        await stakingAsset.write.mint([walletClient.account.address, MINIMUM_STAKE], {} as any),
-        await stakingAsset.write.approve([rollup.address, MINIMUM_STAKE], {} as any),
+        await stakingAsset.write.mint([walletClient.account.address, config.minimumStake], {} as any),
+        await stakingAsset.write.approve([rollup.address, config.minimumStake], {} as any),
       ].map(txHash => publicClient.waitForTransactionReceipt({ hash: txHash })),
     );
 
-    const hash = await writeableRollup.write.deposit([who, who, who, MINIMUM_STAKE]);
+    const hash = await writeableRollup.write.deposit([who, who, who, config.minimumStake]);
     await publicClient.waitForTransactionReceipt({ hash });
     log(`Added in tx ${hash}`);
   } else if (command === 'remove') {

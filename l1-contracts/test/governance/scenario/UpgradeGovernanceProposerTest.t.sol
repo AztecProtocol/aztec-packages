@@ -6,7 +6,7 @@ import {TestBase} from "@test/base/Base.sol";
 import {IMintableERC20} from "@aztec/governance/interfaces/IMintableERC20.sol";
 import {Rollup} from "../../harnesses/Rollup.sol";
 import {Governance} from "@aztec/governance/Governance.sol";
-import {GovernanceProposer} from "@aztec/governance/GovernanceProposer.sol";
+import {GovernanceProposer} from "@aztec/governance/proposer/GovernanceProposer.sol";
 import {Registry} from "@aztec/governance/Registry.sol";
 import {DataStructures} from "@aztec/governance/libraries/DataStructures.sol";
 import {IMintableERC20} from "@aztec/governance/interfaces/IMintableERC20.sol";
@@ -92,7 +92,7 @@ contract UpgradeGovernanceProposerTest is TestBase {
       vm.warp(Timestamp.unwrap(rollup.getTimestampForSlot(rollup.getCurrentSlot() + Slot.wrap(1))));
     }
 
-    governanceProposer.pushProposal(0);
+    governanceProposer.executeProposal(0);
     proposal = governance.getProposal(0);
     assertEq(address(proposal.payload), address(payload));
 

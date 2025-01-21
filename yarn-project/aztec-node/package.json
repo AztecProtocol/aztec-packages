@@ -54,12 +54,7 @@
     "testRegex": "./src/.*\\.test\\.(js|mjs|ts)$",
     "rootDir": "./src",
     "reporters": [
-      [
-        "jest-silent-reporter",
-        {
-          "useDots": true
-        }
-      ]
+      "default"
     ],
     "testTimeout": 30000,
     "setupFiles": [
@@ -69,6 +64,7 @@
   "dependencies": {
     "@aztec/archiver": "workspace:^",
     "@aztec/bb-prover": "workspace:^",
+    "@aztec/blob-sink": "workspace:^",
     "@aztec/circuit-types": "workspace:^",
     "@aztec/circuits.js": "workspace:^",
     "@aztec/epoch-cache": "workspace:^",

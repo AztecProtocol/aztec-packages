@@ -7,10 +7,13 @@ import { StatefulTestContractArtifact } from '@aztec/noir-contracts.js/StatefulT
 
 import { mock } from 'jest-mock-extended';
 
+import { WASMSimulator } from '../providers/acvm_wasm.js';
 import { type DBOracle } from './db_oracle.js';
 import { AcirSimulator } from './simulator.js';
 
 describe('Unconstrained Execution test suite', () => {
+  const simulationProvider = new WASMSimulator();
+
   let oracle: ReturnType<typeof mock<DBOracle>>;
   let node: ReturnType<typeof mock<AztecNode>>;
   let acirSimulator: AcirSimulator;
@@ -23,7 +26,7 @@ describe('Unconstrained Execution test suite', () => {
     node.getChainId.mockResolvedValue(1);
     node.getVersion.mockResolvedValue(1);
 
-    acirSimulator = new AcirSimulator(oracle, node);
+    acirSimulator = new AcirSimulator(oracle, node, simulationProvider);
   });
 
   describe('private token contract', () => {
@@ -48,7 +51,7 @@ describe('Unconstrained Execution test suite', () => {
     });
 
     it('should run the summed_values function', async () => {
-      const contractAddress = AztecAddress.random();
+      const contractAddress = await AztecAddress.random();
       const artifact = StatefulTestContractArtifact.functions.find(f => f.name === 'summed_values')!;
 
       const notes: Note[] = [...Array(5).fill(buildNote(1n, owner)), ...Array(2).fill(buildNote(2n, owner))];
@@ -79,7 +82,7 @@ describe('Unconstrained Execution test suite', () => {
         returnTypes: artifact.returnTypes,
       };
 
-      const result = await acirSimulator.runUnconstrained(execRequest, artifact, AztecAddress.random());
+      const result = await acirSimulator.runUnconstrained(execRequest, artifact, await AztecAddress.random());
 
       expect(result).toEqual(9n);
     }, 30_000);

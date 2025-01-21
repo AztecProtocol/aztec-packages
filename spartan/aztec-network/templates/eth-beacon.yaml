@@ -1,0 +1,120 @@
+{{- if not .Values.ethereum.externalHost }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "aztec-network.fullname" . }}-eth-beacon
+  labels:
+    {{- include "aztec-network.labels" . | nindent 4 }}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      {{- include "aztec-network.selectorLabels" . | nindent 6 }}
+      app: eth-beacon
+  template:
+    metadata:
+      labels:
+        {{- include "aztec-network.selectorLabels" . | nindent 8 }}
+        app: eth-beacon
+    spec:
+      {{- if .Values.network.public }}
+      hostNetwork: true
+      {{- end }}
+      containers:
+        - name: eth-beacon
+          image: "{{ .Values.images.lighthouse.image }}"
+          imagePullPolicy: {{ .Values.images.lighthouse.pullPolicy }}
+          command: ["/bin/sh", "-c"]
+          args:
+            # Genesis information is copied such that we can write into it
+            # First serialize the ssz file
+            - >-
+              cp -r /genesis-template /genesis &&
+              base64 -d /genesis/genesis-ssz > /genesis/genesis.ssz &&
+
+
+              lighthouse bn
+              --disable-peer-scoring
+              --disable-packet-filter
+              --enable-private-discovery
+              --disable-enr-auto-update
+              --staking
+              --http
+              --http-address=0.0.0.0
+              --http-port=5052
+              --validator-monitor-auto
+              --http-allow-origin='*'
+              --listen-address=0.0.0.0
+              {{- include "helpers.flag" (list "port" .Values.ethereum.beacon.port) }}
+              --target-peers=0
+              --testnet-dir=/genesis
+              --execution-endpoints="http://{{ include "aztec-network.fullname" . }}-eth-execution.{{ .Release.Namespace }}.svc.cluster.local:8551"
+              --execution-jwt-secret-key="61e1dd9539e8cc37b3d71dcf8ce372f0e119cc1c73426ee80472a4214f2a41a1"
+              --allow-insecure-genesis-sync
+              --debug-level=info
+          volumeMounts:
+            - name: shared-volume
+              mountPath: /data
+            - name: genesis
+              mountPath: /genesis-template
+          resources:
+            {{- toYaml .Values.ethereum.beacon.resources | nindent 12 }}
+      volumes:
+        - name: shared-volume
+          persistentVolumeClaim:
+            claimName: {{ include "aztec-network.fullname" . }}-eth-beacon-pvc
+        - name: genesis
+          configMap:
+            name: {{ include "aztec-network.fullname" . }}-eth-beacon-genesis
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "aztec-network.fullname" . }}-eth-beacon
+  labels:
+    {{- include "aztec-network.labels" . | nindent 4 }}
+spec:
+  {{- if .Values.network.public}}
+  type: LoadBalancer
+  {{- else }}
+  type: ClusterIP
+  {{- end }}
+  selector:
+    {{- include "aztec-network.selectorLabels" . | nindent 4 }}
+    app: eth-beacon
+  ports:
+    - protocol: TCP
+      port: {{ .Values.ethereum.beacon.service.port }}
+      targetPort: {{ .Values.ethereum.beacon.service.targetPort }}
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "aztec-network.fullname" . }}-eth-beacon-genesis
+  labels:
+    {{- include "aztec-network.labels" . | nindent 4 }}
+data:
+  config.yaml: |
+    {{ .Files.Get "eth-devnet/out/config.yaml" | nindent 4 }}
+  deposit_contract_block.txt: |
+    {{ .Files.Get "eth-devnet/out/deposit_contract_block.txt" | nindent 4 }}
+  jwt-secret.hex: |
+    {{ .Files.Get "eth-devnet/out/jwt-secret.hex" | nindent 4 }}
+  genesis-ssz: |
+    {{ .Files.Get "eth-devnet/out/genesis-ssz" | nindent 4 }}
+---
+{{- if gt (.Values.ethereum.replicas | int) 0 }}
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ include "aztec-network.fullname" . }}-eth-beacon-pvc
+  labels:
+    {{- include "aztec-network.labels" . | nindent 4 }}
+spec:
+  accessModes: ["ReadWriteOnce"]
+  resources:
+    requests:
+      storage: {{ .Values.ethereum.beacon.storageSize }}
+{{- end }}
+---
+{{ end }}

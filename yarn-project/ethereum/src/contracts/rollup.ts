@@ -1,3 +1,4 @@
+import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { memoize } from '@aztec/foundation/decorators';
 import { RollupAbi } from '@aztec/l1-artifacts';
 
@@ -12,14 +13,19 @@ import {
   http,
 } from 'viem';
 
+import { type DeployL1Contracts } from '../deploy_l1_contracts.js';
 import { createEthereumChain } from '../ethereum_chain.js';
 import { type L1ReaderConfig } from '../l1_reader.js';
 
 export class RollupContract {
   private readonly rollup: GetContractReturnType<typeof RollupAbi, PublicClient<HttpTransport, Chain>>;
 
-  constructor(client: PublicClient, address: Hex) {
+  constructor(public readonly client: PublicClient, address: Hex) {
     this.rollup = getContract({ address, abi: RollupAbi, client });
+  }
+
+  public get address() {
+    return AztecAddress.fromString(this.rollup.address);
   }
 
   @memoize
@@ -67,6 +73,14 @@ export class RollupContract {
   async getEpochNumber(blockNumber?: bigint) {
     blockNumber ??= await this.getBlockNumber();
     return this.rollup.read.getEpochForBlock([BigInt(blockNumber)]);
+  }
+
+  static getFromL1ContractsValues(deployL1ContractsValues: DeployL1Contracts) {
+    const {
+      publicClient,
+      l1ContractAddresses: { rollupAddress },
+    } = deployL1ContractsValues;
+    return new RollupContract(publicClient, rollupAddress.toString());
   }
 
   static getFromConfig(config: L1ReaderConfig) {

@@ -42,13 +42,17 @@ contract Leonidas is Staking, TimeFns, ILeonidas {
   LeonidasStorage private leonidasStore;
 
   constructor(
-    address _ares,
     IERC20 _stakingAsset,
     uint256 _minimumStake,
+    uint256 _slashingQuorum,
+    uint256 _roundSize,
     uint256 _slotDuration,
     uint256 _epochDuration,
     uint256 _targetCommitteeSize
-  ) Staking(_ares, _stakingAsset, _minimumStake) TimeFns(_slotDuration, _epochDuration) {
+  )
+    Staking(_stakingAsset, _minimumStake, _slashingQuorum, _roundSize)
+    TimeFns(_slotDuration, _epochDuration)
+  {
     GENESIS_TIME = Timestamp.wrap(block.timestamp);
     SLOT_DURATION = _slotDuration;
     EPOCH_DURATION = _epochDuration;

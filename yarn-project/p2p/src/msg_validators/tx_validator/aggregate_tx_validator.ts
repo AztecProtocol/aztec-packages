@@ -1,4 +1,4 @@
-import { type ProcessedTx, type Tx, type TxValidator } from '@aztec/circuit-types';
+import { type ProcessedTx, type Tx, type TxValidationResult, type TxValidator } from '@aztec/circuit-types';
 
 export class AggregateTxValidator<T extends Tx | ProcessedTx> implements TxValidator<T> {
   #validators: TxValidator<T>[];
@@ -10,27 +10,23 @@ export class AggregateTxValidator<T extends Tx | ProcessedTx> implements TxValid
     this.#validators = validators;
   }
 
-  async validateTxs(txs: T[]): Promise<[validTxs: T[], invalidTxs: T[], skippedTxs: T[]]> {
-    const invalidTxs: T[] = [];
-    const skippedTxs: T[] = [];
-    let txPool = txs;
+  async validateTx(tx: T): Promise<TxValidationResult> {
+    const aggregate: { result: string; reason?: string[] } = { result: 'valid', reason: [] };
     for (const validator of this.#validators) {
-      const [valid, invalid, skipped] = await validator.validateTxs(txPool);
-      invalidTxs.push(...invalid);
-      skippedTxs.push(...(skipped ?? []));
-      txPool = valid;
-    }
-
-    return [txPool, invalidTxs, skippedTxs];
-  }
-
-  async validateTx(tx: T): Promise<boolean> {
-    for (const validator of this.#validators) {
-      const valid = await validator.validateTx(tx);
-      if (!valid) {
-        return false;
+      const result = await validator.validateTx(tx);
+      if (result.result === 'invalid') {
+        aggregate.result = 'invalid';
+        aggregate.reason!.push(...result.reason);
+      } else if (result.result === 'skipped') {
+        if (aggregate.result === 'valid') {
+          aggregate.result = 'skipped';
+        }
+        aggregate.reason!.push(...result.reason);
       }
     }
-    return true;
+    if (aggregate.result === 'valid') {
+      delete aggregate.reason;
+    }
+    return aggregate as TxValidationResult;
   }
 }

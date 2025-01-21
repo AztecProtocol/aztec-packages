@@ -1,4 +1,4 @@
-import { type FunctionCall, PackedValues } from '@aztec/circuit-types';
+import { type FunctionCall, HashedValues } from '@aztec/circuit-types';
 import { type AztecAddress, Fr, GeneratorIndex } from '@aztec/circuits.js';
 import { poseidon2HashWithSeparator } from '@aztec/foundation/crypto';
 
@@ -70,7 +70,7 @@ export const computeAuthWitMessageHash = (intent: IntentInnerHash | IntentAction
 // docs:end:authwit_computeAuthWitMessageHash
 
 export const computeInnerAuthWitHashFromAction = (caller: AztecAddress, action: FunctionCall) =>
-  computeInnerAuthWitHash([caller.toField(), action.selector.toField(), PackedValues.fromValues(action.args).hash]);
+  computeInnerAuthWitHash([caller.toField(), action.selector.toField(), HashedValues.fromValues(action.args).hash]);
 
 /**
  * Compute the inner hash for an authentication witness.

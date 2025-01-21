@@ -1,6 +1,6 @@
 ---
 title: "Private & Public token contract"
-sidebar_position: 5
+draft: true
 ---
 
 In this tutorial we will go through writing an L2 native token contract

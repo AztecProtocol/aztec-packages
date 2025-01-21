@@ -1,3 +1,4 @@
+import { Blob } from '@aztec/foundation/blob';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { createLogger } from '@aztec/foundation/log';
 import { sleep } from '@aztec/foundation/sleep';
@@ -19,6 +20,7 @@ import { foundry } from 'viem/chains';
 import { EthCheatCodes } from './eth_cheat_codes.js';
 import { L1TxUtils, defaultL1TxUtilsConfig } from './l1_tx_utils.js';
 import { startAnvil } from './test/start_anvil.js';
+import { formatViemError } from './utils.js';
 
 const MNEMONIC = 'test test test test test test test test test test test junk';
 const WEI_CONST = 1_000_000_000n;
@@ -71,7 +73,7 @@ describe('GasUtils', () => {
     await cheatCodes.evmMine();
 
     gasUtils = new L1TxUtils(publicClient, walletClient, logger, {
-      gasLimitBufferPercentage: 20n,
+      gasLimitBufferPercentage: 20,
       maxGwei: 500n,
       minGwei: 1n,
       maxAttempts: 3,
@@ -92,7 +94,7 @@ describe('GasUtils', () => {
   }, 5_000);
 
   it('sends and monitors a simple transaction', async () => {
-    const receipt = await gasUtils.sendAndMonitorTransaction({
+    const { receipt } = await gasUtils.sendAndMonitorTransaction({
       to: '0x1234567890123456789012345678901234567890',
       data: '0x',
       value: 0n,
@@ -106,8 +108,9 @@ describe('GasUtils', () => {
     await cheatCodes.setAutomine(false);
     await cheatCodes.setIntervalMining(0);
 
-    // Ensure initial base fee is low
-    await cheatCodes.setNextBlockBaseFeePerGas(initialBaseFee);
+    // Add blob data
+    const blobData = new Uint8Array(131072).fill(1);
+    const kzg = Blob.getViemKzgInstance();
 
     const request = {
       to: '0x1234567890123456789012345678901234567890' as `0x${string}`,
@@ -119,12 +122,16 @@ describe('GasUtils', () => {
 
     const originalMaxFeePerGas = WEI_CONST * 10n;
     const originalMaxPriorityFeePerGas = WEI_CONST;
+    const originalMaxFeePerBlobGas = WEI_CONST * 10n;
 
     const txHash = await walletClient.sendTransaction({
       ...request,
       gas: estimatedGas,
       maxFeePerGas: originalMaxFeePerGas,
       maxPriorityFeePerGas: originalMaxPriorityFeePerGas,
+      blobs: [blobData],
+      kzg,
+      maxFeePerBlobGas: originalMaxFeePerBlobGas,
     });
 
     const rawTx = await cheatCodes.getRawTransaction(txHash);
@@ -142,11 +149,12 @@ describe('GasUtils', () => {
       params: [rawTx],
     });
 
-    // keeping auto-mining disabled to simulate a stuck transaction
-    // The monitor should detect the stall and create a replacement tx
-
     // Monitor should detect stall and replace with higher gas price
-    const monitorFn = gasUtils.monitorTransaction(request, txHash, { gasLimit: estimatedGas });
+    const monitorFn = gasUtils.monitorTransaction(request, txHash, { gasLimit: estimatedGas }, undefined, {
+      blobs: [blobData],
+      kzg,
+      maxFeePerBlobGas: WEI_CONST * 20n,
+    });
 
     await sleep(2000);
     // re-enable mining
@@ -156,11 +164,12 @@ describe('GasUtils', () => {
     // Verify that a replacement transaction was created
     expect(receipt.transactionHash).not.toBe(txHash);
 
-    // Get details of replacement tx to verify higher gas price
+    // Get details of replacement tx to verify higher gas prices
     const replacementTx = await publicClient.getTransaction({ hash: receipt.transactionHash });
 
     expect(replacementTx.maxFeePerGas!).toBeGreaterThan(originalMaxFeePerGas);
     expect(replacementTx.maxPriorityFeePerGas!).toBeGreaterThan(originalMaxPriorityFeePerGas);
+    expect(replacementTx.maxFeePerBlobGas!).toBeGreaterThan(originalMaxFeePerBlobGas);
   }, 20_000);
 
   it('respects max gas price limits during spikes', async () => {
@@ -173,11 +182,14 @@ describe('GasUtils', () => {
     // Mine a new block to make the base fee change take effect
     await cheatCodes.evmMine();
 
-    const receipt = await gasUtils.sendAndMonitorTransaction({
-      to: '0x1234567890123456789012345678901234567890',
-      data: '0x',
-      value: 0n,
-    });
+    const { receipt } = await gasUtils.sendAndMonitorTransaction(
+      {
+        to: '0x1234567890123456789012345678901234567890',
+        data: '0x',
+        value: 0n,
+      },
+      { maxGwei },
+    );
 
     expect(receipt.effectiveGasPrice).toBeLessThanOrEqual(maxGwei * WEI_CONST);
   }, 60_000);
@@ -189,7 +201,7 @@ describe('GasUtils', () => {
 
     // First deploy without any buffer
     const baselineGasUtils = new L1TxUtils(publicClient, walletClient, logger, {
-      gasLimitBufferPercentage: 0n,
+      gasLimitBufferPercentage: 0,
       maxGwei: 500n,
       minGwei: 10n, // Increased minimum gas price
       maxAttempts: 5,
@@ -197,7 +209,7 @@ describe('GasUtils', () => {
       stallTimeMs: 1000,
     });
 
-    const baselineTx = await baselineGasUtils.sendAndMonitorTransaction({
+    const { receipt: baselineTx } = await baselineGasUtils.sendAndMonitorTransaction({
       to: EthAddress.ZERO.toString(),
       data: SIMPLE_CONTRACT_BYTECODE,
     });
@@ -209,7 +221,7 @@ describe('GasUtils', () => {
 
     // Now deploy with 20% buffer
     const bufferedGasUtils = new L1TxUtils(publicClient, walletClient, logger, {
-      gasLimitBufferPercentage: 20n,
+      gasLimitBufferPercentage: 20,
       maxGwei: 500n,
       minGwei: 1n,
       maxAttempts: 3,
@@ -217,7 +229,7 @@ describe('GasUtils', () => {
       stallTimeMs: 1000,
     });
 
-    const bufferedTx = await bufferedGasUtils.sendAndMonitorTransaction({
+    const { receipt: bufferedTx } = await bufferedGasUtils.sendAndMonitorTransaction({
       to: EthAddress.ZERO.toString(),
       data: SIMPLE_CONTRACT_BYTECODE,
     });
@@ -256,7 +268,7 @@ describe('GasUtils', () => {
     const initialGasPrice = await gasUtils['getGasPrice']();
 
     // Get retry gas price for 2nd attempt
-    const retryGasPrice = await gasUtils['getGasPrice'](undefined, 1, initialGasPrice);
+    const retryGasPrice = await gasUtils['getGasPrice'](undefined, false, 1, initialGasPrice);
 
     // With default config, retry should bump fees by 50%
     const expectedPriorityFee = (initialGasPrice.maxPriorityFeePerGas * 150n) / 100n;
@@ -269,13 +281,13 @@ describe('GasUtils', () => {
   it('respects minimum gas price bump for replacements', async () => {
     const gasUtils = new L1TxUtils(publicClient, walletClient, logger, {
       ...defaultL1TxUtilsConfig,
-      priorityFeeRetryBumpPercentage: 5n, // Set lower than minimum 10%
+      priorityFeeRetryBumpPercentage: 5, // Set lower than minimum 10%
     });
 
     const initialGasPrice = await gasUtils['getGasPrice']();
 
     // Get retry gas price with attempt = 1
-    const retryGasPrice = await gasUtils['getGasPrice'](undefined, 1, initialGasPrice);
+    const retryGasPrice = await gasUtils['getGasPrice'](undefined, false, 1, initialGasPrice);
 
     // Should use 10% minimum bump even though config specified 5%
     const expectedPriorityFee = (initialGasPrice.maxPriorityFeePerGas * 110n) / 100n;
@@ -299,4 +311,105 @@ describe('GasUtils', () => {
     const expectedEstimate = baseEstimate + (baseEstimate * 20n) / 100n;
     expect(bufferedEstimate).toBe(expectedEstimate);
   });
+
+  it('correctly handles transactions with blobs', async () => {
+    // Create a sample blob
+    const blobData = new Uint8Array(131072).fill(1); // 128KB blob
+    const kzg = Blob.getViemKzgInstance();
+
+    const { receipt } = await gasUtils.sendAndMonitorTransaction(
+      {
+        to: '0x1234567890123456789012345678901234567890',
+        data: '0x',
+        value: 0n,
+      },
+      undefined,
+      {
+        blobs: [blobData],
+        kzg,
+        maxFeePerBlobGas: 10000000000n, // 10 gwei
+      },
+    );
+
+    expect(receipt.status).toBe('success');
+    expect(receipt.blobGasUsed).toBeDefined();
+    expect(receipt.blobGasPrice).toBeDefined();
+  }, 20_000);
+
+  it('estimates gas correctly for blob transactions', async () => {
+    // Create a sample blob
+    const blobData = new Uint8Array(131072).fill(1); // 128KB blob
+    const kzg = Blob.getViemKzgInstance();
+
+    const request = {
+      to: '0x1234567890123456789012345678901234567890' as `0x${string}`,
+      data: '0x' as `0x${string}`,
+      value: 0n,
+    };
+
+    // Estimate gas without blobs first
+    const baseEstimate = await gasUtils.estimateGas(walletClient.account!, request);
+
+    // Estimate gas with blobs
+    const blobEstimate = await gasUtils.estimateGas(walletClient.account!, request, undefined, {
+      blobs: [blobData],
+      kzg,
+      maxFeePerBlobGas: 10000000000n,
+    });
+    // Blob transactions should require more gas
+    expect(blobEstimate).toBeGreaterThan(baseEstimate);
+  }, 20_000);
+
+  it('formats eth node errors correctly', async () => {
+    // Set base fee extremely high to trigger error
+    const extremelyHighBaseFee = WEI_CONST * 1_000_000n; // 1M gwei
+    await cheatCodes.setNextBlockBaseFeePerGas(extremelyHighBaseFee);
+    await cheatCodes.evmMine();
+
+    try {
+      await gasUtils.sendAndMonitorTransaction({
+        to: '0x1234567890123456789012345678901234567890',
+        data: '0x',
+        value: 0n,
+      });
+      fail('Should have thrown');
+    } catch (err: any) {
+      const formattedError = formatViemError(err);
+
+      // Verify the error contains actual newlines, not escaped \n
+      expect(formattedError).not.toContain('\\n');
+      expect(formattedError.split('\n').length).toBeGreaterThan(1);
+
+      // Check that we have the key error information
+      expect(formattedError).toContain('fee cap');
+
+      // Check request body formatting if present
+      if (formattedError.includes('Request body:')) {
+        const bodyStart = formattedError.indexOf('Request body:');
+        const body = formattedError.slice(bodyStart);
+        expect(body).toContain('eth_sendRawTransaction');
+        // Check params are truncated if too long
+        if (body.includes('0x')) {
+          expect(body).toContain('...');
+        }
+      }
+    }
+  }, 10_000);
+  it('stops trying after timeout', async () => {
+    await cheatCodes.setAutomine(false);
+    await cheatCodes.setIntervalMining(0);
+
+    const now = Date.now();
+    await expect(
+      gasUtils.sendAndMonitorTransaction(
+        {
+          to: '0x1234567890123456789012345678901234567890',
+          data: '0x',
+          value: 0n,
+        },
+        { txTimeoutAt: new Date(now + 1000) },
+      ),
+    ).rejects.toThrow(/timed out/);
+    expect(Date.now() - now).toBeGreaterThanOrEqual(990);
+  }, 60_000);
 });

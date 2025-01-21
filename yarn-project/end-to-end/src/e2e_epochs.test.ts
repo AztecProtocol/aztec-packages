@@ -1,8 +1,16 @@
+import { type Logger, getTimestampRangeForEpoch, retryUntil, sleep } from '@aztec/aztec.js';
+import { ChainMonitor } from '@aztec/aztec.js/utils';
 // eslint-disable-next-line no-restricted-imports
-import { type EpochConstants, type Logger, getTimestampRangeForEpoch, retryUntil } from '@aztec/aztec.js';
+import { type L1RollupConstants } from '@aztec/circuit-types';
+import { Proof } from '@aztec/circuits.js';
+import { RootRollupPublicInputs } from '@aztec/circuits.js/rollup';
 import { RollupContract } from '@aztec/ethereum/contracts';
 import { type Delayer, waitUntilL1Timestamp } from '@aztec/ethereum/test';
+import { promiseWithResolvers } from '@aztec/foundation/promise';
+import { type TestProverNode } from '@aztec/prover-node/test';
+import { type TestL1Publisher, type TestSequencerClient } from '@aztec/sequencer-client/test';
 
+import { jest } from '@jest/globals';
 import { type PublicClient } from 'viem';
 
 import { type EndToEndContext, setup } from './fixtures/utils.js';
@@ -14,15 +22,11 @@ describe('e2e_epochs', () => {
   let context: EndToEndContext;
   let l1Client: PublicClient;
   let rollup: RollupContract;
-  let constants: EpochConstants;
+  let constants: L1RollupConstants;
   let logger: Logger;
   let proverDelayer: Delayer;
   let sequencerDelayer: Delayer;
-
-  let l2BlockNumber: number = 0;
-  let l2ProvenBlockNumber: number = 0;
-  let l1BlockNumber: number;
-  let handle: NodeJS.Timeout;
+  let monitor: ChainMonitor;
 
   const EPOCH_DURATION_IN_L2_SLOTS = 4;
   const L2_SLOT_DURATION_IN_L1_SLOTS = 2;
@@ -52,39 +56,11 @@ describe('e2e_epochs', () => {
     rollup = RollupContract.getFromConfig(context.config);
 
     // Loop that tracks L1 and L2 block numbers and logs whenever there's a new one.
-    // We could refactor this out to an utility if we want to use this in other tests.
-    handle = setInterval(async () => {
-      const newL1BlockNumber = Number(await l1Client.getBlockNumber({ cacheTime: 0 }));
-      if (l1BlockNumber === newL1BlockNumber) {
-        return;
-      }
-      const block = await l1Client.getBlock({ blockNumber: BigInt(newL1BlockNumber), includeTransactions: false });
-      const timestamp = block.timestamp;
-      l1BlockNumber = newL1BlockNumber;
+    monitor = new ChainMonitor(rollup, logger);
+    monitor.start();
 
-      let msg = `L1 block ${newL1BlockNumber} mined at ${timestamp}`;
-
-      const newL2BlockNumber = Number(await rollup.getBlockNumber());
-      if (l2BlockNumber !== newL2BlockNumber) {
-        const epochNumber = await rollup.getEpochNumber(BigInt(newL2BlockNumber));
-        msg += ` with new L2 block ${newL2BlockNumber} for epoch ${epochNumber}`;
-        l2BlockNumber = newL2BlockNumber;
-      }
-
-      const newL2ProvenBlockNumber = Number(await rollup.getProvenBlockNumber());
-      if (l2ProvenBlockNumber !== newL2ProvenBlockNumber) {
-        const epochNumber = await rollup.getEpochNumber(BigInt(newL2ProvenBlockNumber));
-        msg += ` with proof up to L2 block ${newL2ProvenBlockNumber} for epoch ${epochNumber}`;
-        l2ProvenBlockNumber = newL2ProvenBlockNumber;
-      }
-      logger.info(msg);
-    }, 200);
-
-    // The "as any" cast sucks, but it saves us from having to define test-only types for the provernode
-    // and sequencer that are exactly like the real ones but with the publisher exposed. We should
-    // do it if we see the this pattern popping up in more places.
-    proverDelayer = (context.proverNode as any).publisher.delayer;
-    sequencerDelayer = (context.sequencer as any).sequencer.publisher.delayer;
+    proverDelayer = ((context.proverNode as TestProverNode).publisher as TestL1Publisher).delayer!;
+    sequencerDelayer = ((context.sequencer as TestSequencerClient).sequencer.publisher as TestL1Publisher).delayer!;
     expect(proverDelayer).toBeDefined();
     expect(sequencerDelayer).toBeDefined();
 
@@ -92,16 +68,17 @@ describe('e2e_epochs', () => {
     constants = {
       epochDuration: EPOCH_DURATION_IN_L2_SLOTS,
       slotDuration: L1_BLOCK_TIME_IN_S * L2_SLOT_DURATION_IN_L1_SLOTS,
-      l1GenesisBlock: await rollup.getL1StartBlock(),
+      l1StartBlock: await rollup.getL1StartBlock(),
       l1GenesisTime: await rollup.getL1GenesisTime(),
       ethereumSlotDuration: L1_BLOCK_TIME_IN_S,
     };
 
-    logger.info(`L2 genesis at L1 block ${constants.l1GenesisBlock} (timestamp ${constants.l1GenesisTime})`);
+    logger.info(`L2 genesis at L1 block ${constants.l1StartBlock} (timestamp ${constants.l1GenesisTime})`);
   });
 
   afterEach(async () => {
-    clearInterval(handle);
+    jest.restoreAllMocks();
+    monitor.stop();
     await context.teardown();
   });
 
@@ -115,12 +92,12 @@ describe('e2e_epochs', () => {
 
   /** Waits until the given L2 block number is mined. */
   const waitUntilL2BlockNumber = async (target: number) => {
-    await retryUntil(() => Promise.resolve(target === l2BlockNumber), `Wait until L2 block ${target}`, 60, 0.1);
+    await retryUntil(() => Promise.resolve(target === monitor.l2BlockNumber), `Wait until L2 block ${target}`, 60, 0.1);
   };
 
   /** Waits until the given L2 block number is marked as proven. */
-  const waitUntilProvenL2BlockNumber = async (target: number) => {
-    await retryUntil(() => Promise.resolve(target === l2ProvenBlockNumber), `Wait proven L2 block ${target}`, 60, 0.1);
+  const waitUntilProvenL2BlockNumber = async (t: number) => {
+    await retryUntil(() => Promise.resolve(t === monitor.l2ProvenBlockNumber), `Wait proven L2 block ${t}`, 60, 0.1);
   };
 
   it('does not allow submitting proof after epoch end', async () => {
@@ -156,14 +133,49 @@ describe('e2e_epochs', () => {
     logger.info(`Test succeeded`);
   });
 
-  it('submits proof claim alone if there is no txs to build a block', async () => {
+  it('submits proof claim alone if there are no txs to build a block', async () => {
     context.sequencer?.updateSequencerConfig({ minTxsPerBlock: 1 });
     await waitUntilEpochStarts(1);
     const blockNumberAtEndOfEpoch0 = Number(await rollup.getBlockNumber());
     logger.info(`Starting epoch 1 after L2 block ${blockNumberAtEndOfEpoch0}`);
 
     await waitUntilProvenL2BlockNumber(blockNumberAtEndOfEpoch0);
-    expect(l2BlockNumber).toEqual(blockNumberAtEndOfEpoch0);
+    expect(monitor.l2BlockNumber).toEqual(blockNumberAtEndOfEpoch0);
     logger.info(`Test succeeded`);
+  });
+
+  it('aborts proving if end of next epoch is reached', async () => {
+    // Inject a delay in prover node proving equal to the length of an epoch, to make sure deadline will be hit
+    const epochProverManager = (context.proverNode as TestProverNode).prover;
+    const originalCreate = epochProverManager.createEpochProver.bind(epochProverManager);
+    const finaliseEpochPromise = promiseWithResolvers<void>();
+    jest.spyOn(epochProverManager, 'createEpochProver').mockImplementation(() => {
+      const prover = originalCreate();
+      jest.spyOn(prover, 'finaliseEpoch').mockImplementation(async () => {
+        const seconds = L1_BLOCK_TIME_IN_S * L2_SLOT_DURATION_IN_L1_SLOTS * EPOCH_DURATION_IN_L2_SLOTS;
+        logger.warn(`Finalise epoch: sleeping ${seconds}s.`);
+        await sleep(L1_BLOCK_TIME_IN_S * L2_SLOT_DURATION_IN_L1_SLOTS * EPOCH_DURATION_IN_L2_SLOTS * 1000);
+        logger.warn(`Finalise epoch: returning.`);
+        finaliseEpochPromise.resolve();
+        return { publicInputs: RootRollupPublicInputs.random(), proof: Proof.empty() };
+      });
+      return prover;
+    });
+
+    await waitUntilEpochStarts(1);
+    logger.info(`Starting epoch 1`);
+    const proverTxCount = proverDelayer.getTxs().length;
+
+    await waitUntilEpochStarts(2);
+    logger.info(`Starting epoch 2`);
+
+    // No proof for epoch zero should have landed during epoch one
+    expect(monitor.l2ProvenBlockNumber).toEqual(0);
+
+    // Wait until the prover job finalises (and a bit more) and check that it aborted and never attempted to submit a tx
+    logger.info(`Awaiting finalise epoch`);
+    await finaliseEpochPromise.promise;
+    await sleep(1000);
+    expect(proverDelayer.getTxs().length - proverTxCount).toEqual(0);
   });
 });

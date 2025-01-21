@@ -1,6 +1,6 @@
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 
-import { NESTED_RECURSIVE_PROOF_LENGTH, VK_TREE_HEIGHT } from '../../constants.gen.js';
+import { NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH, VK_TREE_HEIGHT } from '../../constants.gen.js';
 import { MembershipWitness } from '../membership_witness.js';
 import { RecursiveProof } from '../recursive_proof.js';
 import { VerificationKeyAsFields } from '../verification_key.js';
@@ -18,7 +18,7 @@ export class PreviousRollupBlockData {
     /**
      * The proof of the block merge or block root rollup circuit.
      */
-    public proof: RecursiveProof<typeof NESTED_RECURSIVE_PROOF_LENGTH>,
+    public proof: RecursiveProof<typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH>,
     /**
      * The verification key of the block merge or block root rollup circuit.
      */
@@ -46,7 +46,7 @@ export class PreviousRollupBlockData {
     const reader = BufferReader.asReader(buffer);
     return new PreviousRollupBlockData(
       reader.readObject(BlockRootOrBlockMergePublicInputs),
-      RecursiveProof.fromBuffer(reader, NESTED_RECURSIVE_PROOF_LENGTH),
+      RecursiveProof.fromBuffer(reader, NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH),
       reader.readObject(VerificationKeyAsFields),
       MembershipWitness.fromBuffer(reader, VK_TREE_HEIGHT),
     );

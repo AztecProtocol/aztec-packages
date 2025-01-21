@@ -48,7 +48,7 @@ export class TokenContractTest {
     await this.snapshotManager.snapshot('3_accounts', addAccounts(3, this.logger), async ({ accountKeys }, { pxe }) => {
       const accountManagers = accountKeys.map(ak => getSchnorrAccount(pxe, ak[0], ak[1], 1));
       this.wallets = await Promise.all(accountManagers.map(a => a.getWallet()));
-      this.accounts = await pxe.getRegisteredAccounts();
+      this.accounts = accountManagers.map(a => a.getCompleteAddress());
     });
 
     await this.snapshotManager.snapshot(

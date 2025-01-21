@@ -4,6 +4,14 @@
 #include "barretenberg/ultra_honk/oink_prover.hpp"
 namespace bb {
 
+template <IsUltraFlavor Flavor>
+UltraProver_<Flavor>::UltraProver_(const std::shared_ptr<DeciderPK>& proving_key,
+                                   const std::shared_ptr<CommitmentKey>& commitment_key)
+    : proving_key(std::move(proving_key))
+    , transcript(std::make_shared<Transcript>())
+    , commitment_key(commitment_key)
+{}
+
 /**
  * @brief Create UltraProver_ from a decider proving key.
  *
@@ -39,7 +47,7 @@ template <IsUltraFlavor Flavor> HonkProof UltraProver_<Flavor>::export_proof()
     // Add the IPA proof
     if constexpr (HasIPAAccumulator<Flavor>) {
         // The extra calculation is for the IPA proof length.
-        ASSERT(proving_key->proving_key.ipa_proof.size() == 1 + 4 * (CONST_ECCVM_LOG_N) + 2 + 2);
+        ASSERT(proving_key->proving_key.ipa_proof.size() == IPA_PROOF_LENGTH);
         proof.insert(proof.end(), proving_key->proving_key.ipa_proof.begin(), proving_key->proving_key.ipa_proof.end());
     }
     return proof;
@@ -69,7 +77,9 @@ template <IsUltraFlavor Flavor> HonkProof UltraProver_<Flavor>::construct_proof(
 }
 
 template class UltraProver_<UltraFlavor>;
+template class UltraProver_<UltraZKFlavor>;
 template class UltraProver_<UltraKeccakFlavor>;
+template class UltraProver_<UltraKeccakZKFlavor>;
 template class UltraProver_<UltraRollupFlavor>;
 template class UltraProver_<MegaFlavor>;
 template class UltraProver_<MegaZKFlavor>;

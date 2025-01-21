@@ -5,7 +5,7 @@ mod test;
 
 // This data structure is used by SharedMutable to store the minimum delay with which a ScheduledValueChange object can
 // schedule a change.
-// This delay is initally equal to INITIAL_DELAY, and can be safely mutated to any other value over time. This mutation
+// This delay is initially equal to INITIAL_DELAY, and can be safely mutated to any other value over time. This mutation
 // is performed via `schedule_change` in order to satisfy ScheduleValueChange constraints: if e.g. we allowed for the
 // delay to be decreased immediately then it'd be possible for the state variable to schedule a value change with a
 // reduced delay, invalidating prior private reads.

@@ -3,7 +3,9 @@ title: Contract Deployment
 tags: [contracts, protocol]
 ---
 
-The latest information about contract deployment has moved to the protocol specification. You can find it [here](../../protocol-specs/contract-deployment/index.md).
+import Spec_Placeholder from '/components/snippet';
+
+<Spec_Placeholder />
 
 ## Further reading
 

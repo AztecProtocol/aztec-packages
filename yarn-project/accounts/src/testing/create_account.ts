@@ -38,13 +38,23 @@ export async function createAccounts(
 
   // Prepare deployments
   const accountsAndDeployments = await Promise.all(
-    secrets.map(async secret => {
+    secrets.map(async (secret, index) => {
       const signingKey = deriveSigningKey(secret);
       const account = getSchnorrAccount(pxe, secret, signingKey);
+
+      // only register the contract class once
+      let skipClassRegistration = true;
+      if (index === 0) {
+        // for the first account, check if the contract class is already registered, otherwise we should register now
+        if (!(await pxe.isContractClassPubliclyRegistered(account.getInstance().contractClassId))) {
+          skipClassRegistration = false;
+        }
+      }
+
       const deployMethod = await account.getDeployMethod();
       const provenTx = await deployMethod.prove({
         contractAddressSalt: account.salt,
-        skipClassRegistration: true,
+        skipClassRegistration,
         skipPublicDeployment: true,
         universalDeploy: true,
       });

@@ -3,27 +3,32 @@ use dep::types::{
     constants::VK_TREE_HEIGHT,
     merkle_tree::{membership::assert_check_membership, MembershipWitness},
     proof::{
-        recursive_proof::NestedRecursiveProof,
-        traits::Verifiable,
-        verification_key::{HonkVerificationKey, VerificationKey},
+        rollup_recursive_proof::NestedRecursiveProof,
+        verification_key::{RollupHonkVerificationKey, VerificationKey},
     },
-    traits::Empty,
+    traits::{Empty, Serialize},
     utils::arrays::find_index_hint,
 };
 
 pub struct PreviousRollupBlockData {
     pub block_root_or_block_merge_public_inputs: BlockRootOrBlockMergePublicInputs,
     pub proof: NestedRecursiveProof,
-    pub vk: HonkVerificationKey,
+    pub vk: RollupHonkVerificationKey,
     pub vk_witness: MembershipWitness<VK_TREE_HEIGHT>,
 }
 
-impl Verifiable for PreviousRollupBlockData {
-    fn verify(self) {
+impl PreviousRollupBlockData {
+    pub fn verify(self, proof_type_id: u32) {
         let inputs = BlockRootOrBlockMergePublicInputs::serialize(
             self.block_root_or_block_merge_public_inputs,
         );
-        std::verify_proof(self.vk.key, self.proof.fields, inputs, self.vk.hash);
+        std::verify_proof_with_type(
+            self.vk.key,
+            self.proof.fields,
+            inputs,
+            self.vk.hash,
+            proof_type_id,
+        );
     }
 }
 
@@ -43,6 +48,7 @@ impl PreviousRollupBlockData {
         self.vk.check_hash();
 
         let leaf_index = self.vk_witness.leaf_index as u32;
+        /// Safety: This is a hint which is constrained by the asserts below.
         let index_hint =
             unsafe { find_index_hint(allowed_indices, |index: u32| index == leaf_index) };
         assert(index_hint < N, "Invalid vk index");

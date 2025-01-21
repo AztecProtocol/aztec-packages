@@ -162,7 +162,10 @@ describe('e2e_p2p_governance_proposer', () => {
 
     await waitL1Block();
 
-    const txHash = await governanceProposer.write.pushProposal([govData.round], { account: emperor, gas: 1_000_000n });
+    const txHash = await governanceProposer.write.executeProposal([govData.round], {
+      account: emperor,
+      gas: 1_000_000n,
+    });
     await t.ctx.deployL1ContractsValues.publicClient.waitForTransactionReceipt({ hash: txHash });
 
     const token = getContract({

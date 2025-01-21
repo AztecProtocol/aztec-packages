@@ -30,6 +30,10 @@ CONTRACTS=(
   "l1-contracts:NewGovernanceProposerPayload"
   "l1-contracts:LeonidasLib"
   "l1-contracts:ExtRollupLib"
+  "l1-contracts:SlashingProposer"
+  "l1-contracts:Slasher"
+  "l1-contracts:EmpireBase"
+  "l1-contracts:SlashFactory"
 )
 
 # Read the error ABI's once and store it in COMBINED_ERRORS variable

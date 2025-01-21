@@ -2,7 +2,7 @@ import {
   BlockAttestation,
   BlockProposal,
   ConsensusPayload,
-  SignatureDomainSeperator,
+  SignatureDomainSeparator,
   type TxHash,
 } from '@aztec/circuit-types';
 import { type BlockHeader } from '@aztec/circuits.js';
@@ -43,7 +43,7 @@ export class ValidationService {
     // TODO(https://github.com/AztecProtocol/aztec-packages/issues/7961): check that the current validator is correct
 
     const buf = Buffer32.fromBuffer(
-      keccak256(proposal.payload.getPayloadToSign(SignatureDomainSeperator.blockAttestation)),
+      keccak256(proposal.payload.getPayloadToSign(SignatureDomainSeparator.blockAttestation)),
     );
     const sig = await this.keyStore.signMessage(buf);
     return new BlockAttestation(proposal.payload, sig);

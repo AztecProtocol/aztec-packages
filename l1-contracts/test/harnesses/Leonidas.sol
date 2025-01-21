@@ -7,11 +7,12 @@ import {TestConstants} from "./TestConstants.sol";
 import {TestERC20} from "@aztec/mock/TestERC20.sol";
 
 contract Leonidas is RealLeonidas {
-  constructor(address _ares)
+  constructor()
     RealLeonidas(
-      _ares,
       new TestERC20("test", "TEST", address(this)),
       100e18,
+      TestConstants.AZTEC_SLASHING_QUORUM,
+      TestConstants.AZTEC_SLASHING_ROUND_SIZE,
       TestConstants.AZTEC_SLOT_DURATION,
       TestConstants.AZTEC_EPOCH_DURATION,
       TestConstants.AZTEC_TARGET_COMMITTEE_SIZE

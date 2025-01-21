@@ -16,6 +16,7 @@ pub struct PrivateKernelCircuitPublicInputsComposerBuilder {
     tx_request: TxRequest,
     previous_kernel: FixtureBuilder,
     private_call: FixtureBuilder,
+    first_nullifier_hint: Field,
 }
 
 impl PrivateKernelCircuitPublicInputsComposerBuilder {
@@ -31,7 +32,12 @@ impl PrivateKernelCircuitPublicInputsComposerBuilder {
             tx_request,
             previous_kernel,
             private_call,
+            first_nullifier_hint: 27,
         }
+    }
+
+    pub fn with_protocol_nullifier(&mut self) {
+        self.first_nullifier_hint = 0;
     }
 
     pub fn new_from_tx_request(
@@ -45,6 +51,7 @@ impl PrivateKernelCircuitPublicInputsComposerBuilder {
             FixtureBuilder::vk_tree_root(),
             self.private_call.protocol_contract_tree_root,
             is_private_only,
+            self.first_nullifier_hint,
         )
     }
 

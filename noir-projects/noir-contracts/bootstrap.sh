@@ -20,7 +20,6 @@ cmd=${1:-}
 
 export RAYON_NUM_THREADS=${RAYON_NUM_THREADS:-16}
 export HARDWARE_CONCURRENCY=${HARDWARE_CONCURRENCY:-16}
-export PARALLELISM=${PARALLELISM:-16}
 export PLATFORM_TAG=any
 
 export BB=${BB:-../../barretenberg/cpp/build/bin/bb}
@@ -37,6 +36,13 @@ function on_exit() {
 }
 trap on_exit EXIT
 mkdir -p $tmp_dir
+
+# Set flags for parallel
+export PARALLELISM=${PARALLELISM:-16}
+export PARALLEL_FLAGS="-j$PARALLELISM --halt now,fail=1"
+if [[ -n "${MEMSUSPEND-}" ]]; then
+  export PARALLEL_FLAGS="$PARALLEL_FLAGS --memsuspend $MEMSUSPEND"
+fi
 
 # This computes a vk and adds it to the input function json if it's private, else returns same input.
 # stdin has the function json.
@@ -72,7 +78,7 @@ function process_function() {
     if ! cache_download vk-$hash.tar.gz &> /dev/null; then
       # It's not in the cache. Generate the vk file and upload it to the cache.
       echo_stderr "Generating vk for function: $name..."
-      echo "$bytecode_b64" | base64 -d | gunzip | $BB write_vk_for_ivc -h -b - -o $tmp_dir/$hash 2>/dev/null
+      echo "$bytecode_b64" | base64 -d | gunzip | $BB write_vk_for_ivc -b - -o $tmp_dir/$hash 2>/dev/null
       cache_upload vk-$hash.tar.gz $tmp_dir/$hash &> /dev/null
     fi
 
@@ -102,10 +108,11 @@ function compile {
     ../../noir/.rebuild_patterns \
     ../../avm-transpiler/.rebuild_patterns \
     "^noir-projects/noir-contracts/contracts/$contract/" \
+    "^noir-projects/noir-protocol-circuits/crates/types" \
     "^noir-projects/aztec-nr/" \
   )"
   if ! cache_download contract-$contract_hash.tar.gz &> /dev/null; then
-    $NARGO compile --package $contract --silence-warnings --inliner-aggressiveness 0
+    $NARGO compile --package $contract --inliner-aggressiveness 0
     $TRANSPILER $json_path $json_path
     cache_upload contract-$contract_hash.tar.gz $json_path &> /dev/null
   fi
@@ -117,7 +124,7 @@ function compile {
   # .[1] is the updated functions on stdin (-)
   # * merges their fields.
   jq -c '.functions[]' $json_path | \
-    parallel -j$PARALLELISM --keep-order -N1 --block 8M --pipe --halt now,fail=1 process_function | \
+    parallel $PARALLEL_FLAGS --keep-order -N1 --block 8M --pipe process_function | \
     jq -s '{functions: .}' | jq -s '.[0] * {functions: .[1].functions}' $json_path - > $tmp_dir/$filename
   mv $tmp_dir/$filename $json_path
 }
@@ -132,7 +139,7 @@ function build {
     set +e
     echo_stderr "Compiling contracts (bb-hash: $BB_HASH)..."
     grep -oP '(?<=contracts/)[^"]+' Nargo.toml | \
-      parallel -j$PARALLELISM --joblog joblog.txt -v --line-buffer --tag --halt now,fail=1 compile {}
+      parallel $PARALLEL_FLAGS --joblog joblog.txt -v --line-buffer --tag compile {}
     code=$?
     cat joblog.txt
     return $code
@@ -140,6 +147,31 @@ function build {
 
   # For testing. Small parallel case.
   # echo -e "uniswap_contract\ncontract_class_registerer_contract" | parallel --joblog joblog.txt -v --line-buffer --tag --halt now,fail=1 compile {}
+}
+
+function test_cmds {
+  i=0
+  $NARGO test --list-tests | while read -r package test; do
+    # We assume there are 8 txe's running.
+    port=$((45730 + (i++ % ${NUM_TXES:-1})))
+    echo "noir-projects/scripts/run_test.sh noir-contracts $package $test $port"
+  done
+}
+
+function test {
+  # Starting txe servers with incrementing port numbers.
+  NUM_TXES=8
+  trap 'kill $(jobs -p)' EXIT
+  for i in $(seq 0 $((NUM_TXES-1))); do
+    (cd $root/yarn-project/txe && LOG_LEVEL=silent TXE_PORT=$((45730 + i)) yarn start) &
+  done
+  echo "Waiting for TXE's to start..."
+  for i in $(seq 0 $((NUM_TXES-1))); do
+      while ! nc -z 127.0.0.1 $((45730 + i)) &>/dev/null; do sleep 1; done
+  done
+
+  echo "Starting test run..."
+  test_cmds | (cd $root; NARGO_FOREIGN_CALL_TIMEOUT=300000 parallel --bar $PARALLEL_FLAGS 'dump_fail {} >/dev/null')
 }
 
 case "$cmd" in
@@ -153,7 +185,10 @@ case "$cmd" in
       mv "${artifact}.tmp" "$artifact"
     done
     ;;
-  ""|"fast"|"full"|"ci")
+  ""|"fast"|"full")
+    build
+    ;;
+  "ci")
     build
     ;;
   "compile")
@@ -161,8 +196,10 @@ case "$cmd" in
     build $1
     ;;
   "test")
-    # TODO: Needs TXE. Handle after yarn-project.
-    exit 0
+    test
+    ;;
+  "test-cmds")
+    test_cmds
     ;;
   *)
     echo_stderr "Unknown command: $cmd"

@@ -1,9 +1,6 @@
 // SPDX-License-Identifier: MIT
 pragma solidity >=0.8.21;
 
-// Temp only set here for testing, logn will be templated
-import {LOG_N} from "./keys/Add2HonkVerificationKey.sol";
-
 import {Fr} from "./Fr.sol";
 
 uint256 constant CONST_PROOF_SIZE_LOG_N = 28;
@@ -112,6 +109,17 @@ library Honk {
         // Fixed first and last
         G1Point lagrangeFirst;
         G1Point lagrangeLast;
+    }
+
+    struct RelationParameters {
+        // challenges
+        Fr eta;
+        Fr etaTwo;
+        Fr etaThree;
+        Fr beta;
+        Fr gamma;
+        // derived
+        Fr publicInputsDelta;
     }
 
     struct Proof {

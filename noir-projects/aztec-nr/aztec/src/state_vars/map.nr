@@ -15,7 +15,11 @@ pub struct Map<K, V, Context> {
 impl<K, T, Context, let N: u32> Storage<T, N> for Map<K, T, Context>
 where
     T: Serialize<N> + Deserialize<N>,
-{}
+{
+    fn get_storage_slot(self) -> Field {
+        self.storage_slot
+    }
+}
 
 impl<K, V, Context> Map<K, V, Context> {
     // docs:start:new

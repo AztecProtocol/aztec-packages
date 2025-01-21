@@ -1,5 +1,130 @@
 # Changelog
 
+## [0.71.0](https://github.com/AztecProtocol/aztec-packages/compare/barretenberg-v0.70.0...barretenberg-v0.71.0) (2025-01-17)
+
+
+### Bug Fixes
+
+* Reallocate commitment key to avoid pippenger error ([#11249](https://github.com/AztecProtocol/aztec-packages/issues/11249)) ([8fc2011](https://github.com/AztecProtocol/aztec-packages/commit/8fc2011fbe0e3545924898a53e851279b8cc0084))
+* Resolve misc bugs handling phases in avm witgen ([#11218](https://github.com/AztecProtocol/aztec-packages/issues/11218)) ([29bc4bd](https://github.com/AztecProtocol/aztec-packages/commit/29bc4bdd5b59ee1050951e0c143654ef3cdd25b0))
+
+
+### Miscellaneous
+
+* **avm:** Calldata, returndata slices out of range padded with zeros ([#11265](https://github.com/AztecProtocol/aztec-packages/issues/11265)) ([a469c94](https://github.com/AztecProtocol/aztec-packages/commit/a469c94ccfa37723aa79f132e55c31ae7c4c6693)), closes [#10933](https://github.com/AztecProtocol/aztec-packages/issues/10933)
+* Move shared pcs functionality to internal library in solidity and small refactorings in sumcheck ([#11230](https://github.com/AztecProtocol/aztec-packages/issues/11230)) ([507ae9d](https://github.com/AztecProtocol/aztec-packages/commit/507ae9df9c369603da20f25ccc228729ee2733cd))
+
+## [0.70.0](https://github.com/AztecProtocol/aztec-packages/compare/barretenberg-v0.69.1...barretenberg-v0.70.0) (2025-01-15)
+
+
+### Features
+
+* Allow concurrent world state access ([#11216](https://github.com/AztecProtocol/aztec-packages/issues/11216)) ([17aa4b4](https://github.com/AztecProtocol/aztec-packages/commit/17aa4b4cf2164d29d24d4da29d4b55d273802747))
+* **avm2:** Avm redesign init ([#10906](https://github.com/AztecProtocol/aztec-packages/issues/10906)) ([231f017](https://github.com/AztecProtocol/aztec-packages/commit/231f017d14c3d261b28ab19dcbdf368c561d0cc7))
+* Permutation argument optimizations  ([#10960](https://github.com/AztecProtocol/aztec-packages/issues/10960)) ([de99603](https://github.com/AztecProtocol/aztec-packages/commit/de9960345da17e97464d2c36c35e3eada4fa3680))
+* Use tail public inputs as transaction hash ([#11100](https://github.com/AztecProtocol/aztec-packages/issues/11100)) ([34be2c3](https://github.com/AztecProtocol/aztec-packages/commit/34be2c3800c2d99c11fe3448e01c77abf60c726d))
+
+
+### Bug Fixes
+
+* **avm:** AVM circuit fixes related calldata, returndata and call_ptr ([#11207](https://github.com/AztecProtocol/aztec-packages/issues/11207)) ([2f05dc0](https://github.com/AztecProtocol/aztec-packages/commit/2f05dc02fe7b147c7cd6fc235134279dbf332c08))
+* **avm:** Mac build ([#11195](https://github.com/AztecProtocol/aztec-packages/issues/11195)) ([c4f4452](https://github.com/AztecProtocol/aztec-packages/commit/c4f44520a8cc234219f7e9e021b0574a894aa06e))
+* **avm:** Mac build (retry) ([#11197](https://github.com/AztecProtocol/aztec-packages/issues/11197)) ([0a4b763](https://github.com/AztecProtocol/aztec-packages/commit/0a4b763a39fde0f37ac5baa3bd1e3052c01ca946))
+* **bootstrap:** Don't download bad cache if unstaged changes ([#11198](https://github.com/AztecProtocol/aztec-packages/issues/11198)) ([2bd895b](https://github.com/AztecProtocol/aztec-packages/commit/2bd895bb0887fddc45433224b3ebef04660f744c))
+* Remove max lookup table size constant (for now) ([#11095](https://github.com/AztecProtocol/aztec-packages/issues/11095)) ([7e9e268](https://github.com/AztecProtocol/aztec-packages/commit/7e9e2681e314145237f95f79ffdc95ad25a0e319))
+
+
+### Miscellaneous
+
+* **avm:** Fix mac build ([#11147](https://github.com/AztecProtocol/aztec-packages/issues/11147)) ([1775e53](https://github.com/AztecProtocol/aztec-packages/commit/1775e53025f9946ba26b8b624a0f15f4ccdabd2f))
+* **avm:** Improve column stats ([#11135](https://github.com/AztecProtocol/aztec-packages/issues/11135)) ([535a14c](https://github.com/AztecProtocol/aztec-packages/commit/535a14c8c59399ce7579c69f6aec862f71981699))
+* **avm:** Re-enable bb-prover tests in CI, change some to check-circuit-only, enable multi-enqueued call tests ([#11180](https://github.com/AztecProtocol/aztec-packages/issues/11180)) ([3092212](https://github.com/AztecProtocol/aztec-packages/commit/3092212d61cb1359d10b1741b48627518e5437d7))
+* **avm:** Vm2 followup cleanup ([#11186](https://github.com/AztecProtocol/aztec-packages/issues/11186)) ([6de4013](https://github.com/AztecProtocol/aztec-packages/commit/6de4013c1204b3478b6d444c0cff5ca9c5c6cd03))
+* **docs:** Update tx concepts page ([#10947](https://github.com/AztecProtocol/aztec-packages/issues/10947)) ([d9d9798](https://github.com/AztecProtocol/aztec-packages/commit/d9d9798f90cce34ff03cc89d8aa18bb9db0414f1))
+* Move witness computation into class plus some other cleanup ([#11140](https://github.com/AztecProtocol/aztec-packages/issues/11140)) ([d41e9ab](https://github.com/AztecProtocol/aztec-packages/commit/d41e9abc8c2428be224400ec43f4844adfd954c3))
+* Redo typo PR by longxiangqiao ([#11109](https://github.com/AztecProtocol/aztec-packages/issues/11109)) ([b8ef30e](https://github.com/AztecProtocol/aztec-packages/commit/b8ef30e2a147b5318b70ff2146186dfbae70af42))
+* Refactor Solidity Transcript and improve error handling in  sol_honk flow ([#11158](https://github.com/AztecProtocol/aztec-packages/issues/11158)) ([58fdf87](https://github.com/AztecProtocol/aztec-packages/commit/58fdf87560fc2c43255675c83dbc36eb370ca5b0))
+* SmallSubgroupIPA tests  ([#11106](https://github.com/AztecProtocol/aztec-packages/issues/11106)) ([f034e2a](https://github.com/AztecProtocol/aztec-packages/commit/f034e2af6f372e393b63ff19ca6d118d03506e1f))
+
+## [0.69.1](https://github.com/AztecProtocol/aztec-packages/compare/barretenberg-v0.69.0...barretenberg-v0.69.1) (2025-01-08)
+
+
+### Features
+
+* Acir formal proofs ([#10973](https://github.com/AztecProtocol/aztec-packages/issues/10973)) ([1cb7cd7](https://github.com/AztecProtocol/aztec-packages/commit/1cb7cd78d089fd1e2706d9d5993b6115bcdd6a84))
+* Derive transcript structure between non-zk and zk flavors and between Ultra and UltraKeccak ([#11086](https://github.com/AztecProtocol/aztec-packages/issues/11086)) ([48286c6](https://github.com/AztecProtocol/aztec-packages/commit/48286c671a61dbe18e5f8e0c44e71ab6c3fd109a))
+* Fix commitments and openings of masking polynomials used in zk sumcheck  ([#10773](https://github.com/AztecProtocol/aztec-packages/issues/10773)) ([fc48dcc](https://github.com/AztecProtocol/aztec-packages/commit/fc48dcca537fa790ed6866ad4e184cb89c2617a2))
+* Improve witness generation for cycle_group::batch_mul ([#9563](https://github.com/AztecProtocol/aztec-packages/issues/9563)) ([7da7f2b](https://github.com/AztecProtocol/aztec-packages/commit/7da7f2bb6c26a7c55a5869d21c3a5f546880a001))
+
+
+### Bug Fixes
+
+* Add bytecode instances in reverse ([#11064](https://github.com/AztecProtocol/aztec-packages/issues/11064)) ([036496c](https://github.com/AztecProtocol/aztec-packages/commit/036496ce7496132b7376c9a6708a9a6ed460771d))
+* Reset pc to 0 for next enqueued call in avm witgen ([#11043](https://github.com/AztecProtocol/aztec-packages/issues/11043)) ([44e4816](https://github.com/AztecProtocol/aztec-packages/commit/44e481650e99de0bcae6e5299413e12cb15227b9))
+* Update requests per call should be less than per tx ([#11072](https://github.com/AztecProtocol/aztec-packages/issues/11072)) ([da5e95f](https://github.com/AztecProtocol/aztec-packages/commit/da5e95ffab1694bad22817edd9abdf8e48c992ca))
+
+
+### Miscellaneous
+
+* **avm:** Handle specific MSM errors ([#11068](https://github.com/AztecProtocol/aztec-packages/issues/11068)) ([a5097a9](https://github.com/AztecProtocol/aztec-packages/commit/a5097a994e7ecc0be2b6c7d7b320bd7bad5a27a0)), closes [#10854](https://github.com/AztecProtocol/aztec-packages/issues/10854)
+* **avm:** More column information in permutations ([#11070](https://github.com/AztecProtocol/aztec-packages/issues/11070)) ([8829f24](https://github.com/AztecProtocol/aztec-packages/commit/8829f2421238945f042338bac0c9e7342517248b))
+* Clean up proof lengths and IPA ([#11020](https://github.com/AztecProtocol/aztec-packages/issues/11020)) ([800c834](https://github.com/AztecProtocol/aztec-packages/commit/800c83475c2b23ac6cf501c998f7c57b3803ad8f))
+* Fix write_recursion_inputs flow in bootstrap ([#11080](https://github.com/AztecProtocol/aztec-packages/issues/11080)) ([cd5a615](https://github.com/AztecProtocol/aztec-packages/commit/cd5a615f154446878cb8681d70b9e55c14511690))
+* Restore `prove_then_verify` test on `verify_rollup_honk_proof` ([#11018](https://github.com/AztecProtocol/aztec-packages/issues/11018)) ([79e289d](https://github.com/AztecProtocol/aztec-packages/commit/79e289d4c77c36e847851ec2a910ed0bc122d307))
+* Unify honk verifier contracts ([#11067](https://github.com/AztecProtocol/aztec-packages/issues/11067)) ([9968849](https://github.com/AztecProtocol/aztec-packages/commit/9968849f1e3680ad26edb174d81693f0ced0edd4))
+
+## [0.69.0](https://github.com/AztecProtocol/aztec-packages/compare/barretenberg-v0.68.2...barretenberg-v0.69.0) (2025-01-03)
+
+
+### Features
+
+* Encapsulated UltraHonk Vanilla IVC ([#10900](https://github.com/AztecProtocol/aztec-packages/issues/10900)) ([fd5f611](https://github.com/AztecProtocol/aztec-packages/commit/fd5f611aca60c9c906a6440fdb5683794a183d53))
+* Use full IPA recursive verifier in root rollup ([#10962](https://github.com/AztecProtocol/aztec-packages/issues/10962)) ([37095ce](https://github.com/AztecProtocol/aztec-packages/commit/37095ceba560ad66516467387d186b5afd19a6e0))
+
+
+### Bug Fixes
+
+* Bigint builtins are foreigns (https://github.com/noir-lang/noir/pull/6892) ([2d3805a](https://github.com/AztecProtocol/aztec-packages/commit/2d3805a3b682b27bf6275c547b4b3d68d214eebe))
+* **ci:** Acir bench ([#11021](https://github.com/AztecProtocol/aztec-packages/issues/11021)) ([9eaa109](https://github.com/AztecProtocol/aztec-packages/commit/9eaa10983b26616876099896accb0e3093ae8d20))
+* Consistent file_id across installation paths (https://github.com/noir-lang/noir/pull/6912) ([2d3805a](https://github.com/AztecProtocol/aztec-packages/commit/2d3805a3b682b27bf6275c547b4b3d68d214eebe))
+* Remove unnecessary cast in bit-shift (https://github.com/noir-lang/noir/pull/6890) ([2d3805a](https://github.com/AztecProtocol/aztec-packages/commit/2d3805a3b682b27bf6275c547b4b3d68d214eebe))
+
+
+### Miscellaneous
+
+* Add `Instruction::Noop` (https://github.com/noir-lang/noir/pull/6899) ([2d3805a](https://github.com/AztecProtocol/aztec-packages/commit/2d3805a3b682b27bf6275c547b4b3d68d214eebe))
+* Add `rollup_root` and `rollup_block_merge` to tracked protocol circuits (https://github.com/noir-lang/noir/pull/6903) ([2d3805a](https://github.com/AztecProtocol/aztec-packages/commit/2d3805a3b682b27bf6275c547b4b3d68d214eebe))
+* Cl/ci3.2 ([#10919](https://github.com/AztecProtocol/aztec-packages/issues/10919)) ([49dacc3](https://github.com/AztecProtocol/aztec-packages/commit/49dacc3378a339f8cc36971b630c52952249f60c))
+* Clean up translator circuit builder function definitions  ([#10944](https://github.com/AztecProtocol/aztec-packages/issues/10944)) ([f6fef05](https://github.com/AztecProtocol/aztec-packages/commit/f6fef05119af7714d60f00c52455e52bdfa98288))
+* Disable broken honk test ([#11010](https://github.com/AztecProtocol/aztec-packages/issues/11010)) ([8ad239a](https://github.com/AztecProtocol/aztec-packages/commit/8ad239a7cddcde8df610e9c0287681fc12cca306))
+* Fix mac build ([#10963](https://github.com/AztecProtocol/aztec-packages/issues/10963)) ([158afc4](https://github.com/AztecProtocol/aztec-packages/commit/158afc4cd34a9fc9cb41bcb083b5197eae1ce442))
+* Redo typo PR by Anon-im ([#11009](https://github.com/AztecProtocol/aztec-packages/issues/11009)) ([2044c58](https://github.com/AztecProtocol/aztec-packages/commit/2044c58387b5687658f190cf1b4a078a036eabc0))
+* Redo typo PR by Hack666r ([#10992](https://github.com/AztecProtocol/aztec-packages/issues/10992)) ([018f11e](https://github.com/AztecProtocol/aztec-packages/commit/018f11e39266423376b3a56afbc8aaf54b4de31d))
+* Redo typo PR by MonkeyKing44 ([#10996](https://github.com/AztecProtocol/aztec-packages/issues/10996)) ([faca458](https://github.com/AztecProtocol/aztec-packages/commit/faca458adda3139e92dcb2709f2c087c85842dd8))
+* Redo typo PR by petryshkaCODE ([#10993](https://github.com/AztecProtocol/aztec-packages/issues/10993)) ([0c6a4be](https://github.com/AztecProtocol/aztec-packages/commit/0c6a4bee82c62a522f69756f0d233ec637cd1a7a))
+* Redo typo PR by VitalikBerashvili ([#10994](https://github.com/AztecProtocol/aztec-packages/issues/10994)) ([da36da4](https://github.com/AztecProtocol/aztec-packages/commit/da36da48560d3610b2d9abf1a56c47d1b28cf9a1))
+* Release Noir(1.0.0-beta.1) (https://github.com/noir-lang/noir/pull/6622) ([2d3805a](https://github.com/AztecProtocol/aztec-packages/commit/2d3805a3b682b27bf6275c547b4b3d68d214eebe))
+
+## [0.68.2](https://github.com/AztecProtocol/aztec-packages/compare/barretenberg-v0.68.1...barretenberg-v0.68.2) (2024-12-24)
+
+
+### Features
+
+* Use UltraRollupHonk in rollup ([#10342](https://github.com/AztecProtocol/aztec-packages/issues/10342)) ([82bc146](https://github.com/AztecProtocol/aztec-packages/commit/82bc146989f1375bb36b7d2ab47e3068af513f71))
+
+## [0.68.1](https://github.com/AztecProtocol/aztec-packages/compare/barretenberg-v0.68.0...barretenberg-v0.68.1) (2024-12-23)
+
+
+### Features
+
+* Add limit to unique contract call ([#10640](https://github.com/AztecProtocol/aztec-packages/issues/10640)) ([d340f0b](https://github.com/AztecProtocol/aztec-packages/commit/d340f0b0c2c97b59d2a8830bdae452d85945322c))
+
+
+### Miscellaneous
+
+* **avm:** Check that slice read/write are not out of memory range ([#10879](https://github.com/AztecProtocol/aztec-packages/issues/10879)) ([ab3f318](https://github.com/AztecProtocol/aztec-packages/commit/ab3f31858b09cb6c8afcc3d2f8f361814cbe531c)), closes [#7385](https://github.com/AztecProtocol/aztec-packages/issues/7385)
+* Reorganise translator proving key construction ([#10853](https://github.com/AztecProtocol/aztec-packages/issues/10853)) ([5da4d1b](https://github.com/AztecProtocol/aztec-packages/commit/5da4d1b661cb27b81c657adacf928a74f98c264c))
+
 ## [0.68.0](https://github.com/AztecProtocol/aztec-packages/compare/barretenberg-v0.67.1...barretenberg-v0.68.0) (2024-12-20)
 
 

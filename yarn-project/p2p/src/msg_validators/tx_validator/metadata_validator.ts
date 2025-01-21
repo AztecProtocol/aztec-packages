@@ -1,4 +1,4 @@
-import { type AnyTx, Tx, type TxValidator } from '@aztec/circuit-types';
+import { type AnyTx, Tx, type TxValidationResult, type TxValidator } from '@aztec/circuit-types';
 import { type Fr } from '@aztec/circuits.js';
 import { createLogger } from '@aztec/foundation/log';
 
@@ -7,28 +7,15 @@ export class MetadataTxValidator<T extends AnyTx> implements TxValidator<T> {
 
   constructor(private chainId: Fr, private blockNumber: Fr) {}
 
-  validateTxs(txs: T[]): Promise<[validTxs: T[], invalidTxs: T[]]> {
-    const validTxs: T[] = [];
-    const invalidTxs: T[] = [];
-    for (const tx of txs) {
-      if (!this.#hasCorrectChainId(tx)) {
-        invalidTxs.push(tx);
-        continue;
-      }
-
-      if (!this.#isValidForBlockNumber(tx)) {
-        invalidTxs.push(tx);
-        continue;
-      }
-
-      validTxs.push(tx);
+  validateTx(tx: T): Promise<TxValidationResult> {
+    const errors = [];
+    if (!this.#hasCorrectChainId(tx)) {
+      errors.push('Incorrect chain id');
     }
-
-    return Promise.resolve([validTxs, invalidTxs]);
-  }
-
-  validateTx(tx: T): Promise<boolean> {
-    return Promise.resolve(this.#hasCorrectChainId(tx) && this.#isValidForBlockNumber(tx));
+    if (!this.#isValidForBlockNumber(tx)) {
+      errors.push('Invalid block number');
+    }
+    return Promise.resolve(errors.length > 0 ? { result: 'invalid', reason: errors } : { result: 'valid' });
   }
 
   #hasCorrectChainId(tx: T): boolean {

@@ -49,7 +49,7 @@ class AvmExecutionTests : public ::testing::Test {
     // TODO(640): The Standard Honk on Grumpkin test suite fails unless the SRS is initialised for every test.
     void SetUp() override
     {
-        srs::init_crs_factory("../srs_db/ignition");
+        srs::init_crs_factory(bb::srs::get_ignition_crs_path());
         public_inputs.gas_settings.gas_limits.l2_gas = DEFAULT_INITIAL_L2_GAS;
         public_inputs.gas_settings.gas_limits.da_gas = DEFAULT_INITIAL_DA_GAS;
         public_inputs.start_gas_used.l2_gas = 0;
@@ -84,6 +84,7 @@ class AvmExecutionTests : public ::testing::Test {
         auto [contract_class_id, contract_instance] = gen_test_contract_hint(bytecode);
         auto execution_hints = ExecutionHints().with_avm_contract_bytecode(
             { AvmContractBytecode{ bytecode, contract_instance, contract_class_id } });
+        execution_hints.contract_instance_hints.emplace(contract_instance.address, contract_instance);
 
         vinfo("Calling execution::gen_trace");
         return AvmExecutionTests::gen_trace(bytecode, calldata, public_inputs, returndata, execution_hints);
@@ -98,6 +99,7 @@ class AvmExecutionTests : public ::testing::Test {
         auto [contract_class_id, contract_instance] = gen_test_contract_hint(bytecode);
         execution_hints.with_avm_contract_bytecode(
             { AvmContractBytecode{ bytecode, contract_instance, contract_class_id } });
+        execution_hints.contract_instance_hints.emplace(contract_instance.address, contract_instance);
 
         // These are magic values because of how some tests work! Don't change them
         public_inputs.public_app_logic_call_requests[0].contract_address = contract_instance.address;
@@ -1797,46 +1799,48 @@ TEST_F(AvmExecutionTests, kernelOutputEmitOpcodes)
     // EXPECT_EQ(emit_nullifier_kernel_out_row->main_kernel_side_effect_out, 1);
     // feed_output(emit_nullifier_out_offset, 1, 1, 0);
 
+    // TODO(#11124): Rewrite for field based public logs
     // CHECK EMIT UNENCRYPTED LOG
     // Unencrypted logs are hashed with sha256 and truncated to 31 bytes - and then padded back to 32 bytes
-    auto [contract_class_id, contract_instance] = gen_test_contract_hint(bytecode);
-    FF address = AvmBytecodeTraceBuilder::compute_address_from_instance(contract_instance);
+    // auto [contract_class_id, contract_instance] = gen_test_contract_hint(bytecode);
+    // FF address = AvmBytecodeTraceBuilder::compute_address_from_instance(contract_instance);
 
-    std::vector<uint8_t> contract_address_bytes = address.to_buffer();
-    // Test log is empty, so just have to hash the contract address with 0
-    //
-    std::vector<uint8_t> bytes_to_hash;
-    bytes_to_hash.insert(bytes_to_hash.end(),
-                         std::make_move_iterator(contract_address_bytes.begin()),
-                         std::make_move_iterator(contract_address_bytes.end()));
-    uint32_t num_bytes = 0;
-    std::vector<uint8_t> log_size_bytes = to_buffer(num_bytes);
-    // Add the log size to the hash to bytes
-    bytes_to_hash.insert(bytes_to_hash.end(),
-                         std::make_move_iterator(log_size_bytes.begin()),
-                         std::make_move_iterator(log_size_bytes.end()));
+    // std::vector<uint8_t> contract_address_bytes = address.to_buffer();
+    // // Test log is empty, so just have to hash the contract address with 0
+    // //
+    // std::vector<uint8_t> bytes_to_hash;
+    // bytes_to_hash.insert(bytes_to_hash.end(),
+    //                      std::make_move_iterator(contract_address_bytes.begin()),
+    //                      std::make_move_iterator(contract_address_bytes.end()));
+    // uint32_t num_bytes = 0;
+    // std::vector<uint8_t> log_size_bytes = to_buffer(num_bytes);
+    // // Add the log size to the hash to bytes
+    // bytes_to_hash.insert(bytes_to_hash.end(),
+    //                      std::make_move_iterator(log_size_bytes.begin()),
+    //                      std::make_move_iterator(log_size_bytes.end()));
 
-    std::array<uint8_t, 32> output = crypto::sha256(bytes_to_hash);
-    // Truncate the hash to 31 bytes so it will be a valid field element
-    FF expected_hash = FF(from_buffer<uint256_t>(output.data()) >> 8);
+    // std::array<uint8_t, 32> output = crypto::sha256(bytes_to_hash);
+    // // Truncate the hash to 31 bytes so it will be a valid field element
+    // FF expected_hash = FF(from_buffer<uint256_t>(output.data()) >> 8);
 
-    auto emit_log_row =
-        std::ranges::find_if(trace.begin(), trace.end(), [](Row r) { return r.main_sel_op_emit_unencrypted_log == 1; });
-    ASSERT_TRUE(emit_log_row != trace.end());
+    // auto emit_log_row =
+    //     std::ranges::find_if(trace.begin(), trace.end(), [](Row r) { return r.main_sel_op_emit_unencrypted_log == 1;
+    //     });
+    // ASSERT_TRUE(emit_log_row != trace.end());
 
-    EXPECT_EQ(emit_log_row->main_ia, expected_hash);
-    // EXPECT_EQ(emit_log_row->main_side_effect_counter, 2);
-    // Value is 40 = 32 * log_length + 40 (and log_length is 0 in this case).
-    EXPECT_EQ(emit_log_row->main_ib, 40);
+    // EXPECT_EQ(emit_log_row->main_ia, expected_hash);
+    // // EXPECT_EQ(emit_log_row->main_side_effect_counter, 2);
+    // // Value is 40 = 32 * log_length + 40 (and log_length is 0 in this case).
+    // EXPECT_EQ(emit_log_row->main_ib, 40);
 
-    uint32_t emit_log_out_offset = START_EMIT_UNENCRYPTED_LOG_WRITE_OFFSET;
-    auto emit_log_kernel_out_row =
-        std::ranges::find_if(trace.begin(), trace.end(), [&](Row r) { return r.main_clk == emit_log_out_offset; });
-    ASSERT_TRUE(emit_log_kernel_out_row != trace.end());
-    EXPECT_EQ(emit_log_kernel_out_row->main_kernel_value_out, expected_hash);
-    EXPECT_EQ(emit_log_kernel_out_row->main_kernel_side_effect_out, 2);
-    EXPECT_EQ(emit_log_kernel_out_row->main_kernel_metadata_out, 40);
-    // feed_output(emit_log_out_offset, expected_hash, 2, 40);
+    // uint32_t emit_log_out_offset = START_EMIT_UNENCRYPTED_LOG_WRITE_OFFSET;
+    // auto emit_log_kernel_out_row =
+    //     std::ranges::find_if(trace.begin(), trace.end(), [&](Row r) { return r.main_clk == emit_log_out_offset; });
+    // ASSERT_TRUE(emit_log_kernel_out_row != trace.end());
+    // EXPECT_EQ(emit_log_kernel_out_row->main_kernel_value_out, expected_hash);
+    // EXPECT_EQ(emit_log_kernel_out_row->main_kernel_side_effect_out, 2);
+    // EXPECT_EQ(emit_log_kernel_out_row->main_kernel_metadata_out, 40);
+    // // feed_output(emit_log_out_offset, expected_hash, 2, 40);
 
     // CHECK SEND L2 TO L1 MSG
     auto send_row =

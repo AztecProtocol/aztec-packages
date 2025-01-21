@@ -6,10 +6,18 @@ import {
   startHttpRpcServer,
 } from '@aztec/foundation/json-rpc/server';
 import { type LogFn, type Logger } from '@aztec/foundation/log';
+import { fileURLToPath } from '@aztec/foundation/url';
+import { getOtelJsonRpcPropagationMiddleware } from '@aztec/telemetry-client';
+
+import { readFileSync } from 'fs';
+import { dirname, resolve } from 'path';
 
 import { createSandbox } from '../sandbox.js';
 import { github, splash } from '../splash.js';
 import { createAccountLogs, extractNamespacedOptions, installSignalHandlers } from './util.js';
+
+const packageJsonPath = resolve(dirname(fileURLToPath(import.meta.url)), '../../package.json');
+const cliVersion: string = JSON.parse(readFileSync(packageJsonPath).toString()).version;
 
 export async function aztecStart(options: any, userLog: LogFn, debugLogger: Logger) {
   // list of 'stop' functions to call when process ends
@@ -18,12 +26,14 @@ export async function aztecStart(options: any, userLog: LogFn, debugLogger: Logg
 
   if (options.sandbox) {
     const sandboxOptions = extractNamespacedOptions(options, 'sandbox');
+    const nodeOptions = extractNamespacedOptions(options, 'node');
     userLog(`${splash}\n${github}\n\n`);
-    userLog(`Setting up Aztec Sandbox, please stand by...`);
+    userLog(`Setting up Aztec Sandbox ${cliVersion}, please stand by...`);
+
     const { aztecNodeConfig, node, pxe, stop } = await createSandbox({
-      enableGas: sandboxOptions.enableGas,
       l1Mnemonic: options.l1Mnemonic,
       l1RpcUrl: options.l1RpcUrl,
+      l1Salt: nodeOptions.deployAztecContractsSalt,
     });
 
     // Deploy test accounts by default
@@ -94,7 +104,11 @@ export async function aztecStart(options: any, userLog: LogFn, debugLogger: Logg
   installSignalHandlers(debugLogger.info, signalHandlers);
 
   if (Object.entries(services).length > 0) {
-    const rpcServer = createNamespacedSafeJsonRpcServer(services, debugLogger);
+    const rpcServer = createNamespacedSafeJsonRpcServer(services, {
+      http200OnError: false,
+      log: debugLogger,
+      middlewares: [getOtelJsonRpcPropagationMiddleware()],
+    });
     const { port } = await startHttpRpcServer(rpcServer, { port: options.port });
     debugLogger.info(`Aztec Server listening on port ${port}`);
   }

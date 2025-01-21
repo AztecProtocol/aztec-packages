@@ -24,7 +24,7 @@ export interface ContractInstance {
   contractClassId: Fr;
   /** Hash of the selector and arguments to the constructor. */
   initializationHash: Fr;
-  /** Public keys associated with this intsance. */
+  /** Public keys associated with this instance. */
   publicKeys: PublicKeys;
 }
 

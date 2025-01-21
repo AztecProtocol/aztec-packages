@@ -1,8 +1,9 @@
 use crate::{
     abis::{
         accumulated_data::{
-            avm_accumulated_data::AvmAccumulatedData, CombinedAccumulatedData,
-            PrivateAccumulatedData, PrivateAccumulatedDataBuilder, PrivateToPublicAccumulatedData,
+            avm_accumulated_data::AvmAccumulatedData, PrivateAccumulatedData,
+            PrivateAccumulatedDataBuilder, PrivateToPublicAccumulatedData,
+            PrivateToRollupAccumulatedData,
         },
         append_only_tree_snapshot::AppendOnlyTreeSnapshot,
         avm_circuit_public_inputs::AvmProofData,
@@ -14,8 +15,8 @@ use crate::{
         gas_settings::GasSettings,
         global_variables::GlobalVariables,
         kernel_circuit_public_inputs::{
-            KernelCircuitPublicInputs, PrivateKernelCircuitPublicInputs,
-            PrivateToPublicKernelCircuitPublicInputs,
+            PrivateKernelCircuitPublicInputs, PrivateToPublicKernelCircuitPublicInputs,
+            PrivateToRollupKernelCircuitPublicInputs,
         },
         log::Log,
         log_hash::{LogHash, ScopedLogHash},
@@ -29,8 +30,9 @@ use crate::{
         private_log::PrivateLogData,
         public_call_request::PublicCallRequest,
         public_data_write::PublicDataWrite,
+        public_log::PublicLog,
         read_request::{ReadRequest, ScopedReadRequest},
-        side_effect::{Counted, scoped::Scoped},
+        side_effect::{Counted, OrderedValue, scoped::Scoped},
         tube::{PrivateTubeData, PublicTubeData},
         tx_constant_data::TxConstantData,
         validation_requests::{
@@ -46,10 +48,10 @@ use crate::{
         MAX_KEY_VALIDATION_REQUESTS_PER_TX, MAX_L2_TO_L1_MSGS_PER_TX,
         MAX_NOTE_HASH_READ_REQUESTS_PER_TX, MAX_NOTE_HASHES_PER_TX,
         MAX_NULLIFIER_READ_REQUESTS_PER_TX, MAX_NULLIFIERS_PER_TX,
-        MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX, MAX_PRIVATE_LOGS_PER_TX,
-        MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, MAX_UNENCRYPTED_LOGS_PER_TX,
-        PRIVATE_CALL_REQUEST_LENGTH, PRIVATE_LOG_SIZE_IN_FIELDS, PROTOCOL_CONTRACT_TREE_HEIGHT,
-        PUBLIC_CALL_REQUEST_LENGTH, VK_TREE_HEIGHT,
+        MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX, MAX_PRIVATE_LOGS_PER_TX, MAX_PUBLIC_LOGS_PER_TX,
+        MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, PRIVATE_CALL_REQUEST_LENGTH,
+        PRIVATE_LOG_SIZE_IN_FIELDS, PROTOCOL_CONTRACT_TREE_HEIGHT, PUBLIC_CALL_REQUEST_LENGTH,
+        PUBLIC_LOG_DATA_SIZE_IN_FIELDS, VK_TREE_HEIGHT,
     },
     hash::{
         compute_l2_to_l1_hash, compute_siloed_nullifier, compute_siloed_private_log_field,
@@ -65,7 +67,7 @@ use crate::{
     },
     public_keys::PublicKeys,
     tests::fixtures::{self, contract_functions::ContractFunction, contracts::ContractData},
-    traits::Empty,
+    traits::{Deserialize, Empty, FromField},
     transaction::{tx_context::TxContext, tx_request::TxRequest},
 };
 
@@ -94,6 +96,7 @@ pub struct FixtureBuilder {
     pub msg_sender: AztecAddress,
     pub is_static_call: bool,
     pub is_private_only: bool,
+    pub claimed_first_nullifier: Field,
 
     // Fees.
     pub is_fee_payer: bool,
@@ -113,9 +116,8 @@ pub struct FixtureBuilder {
     pub nullifiers: BoundedVec<ScopedNullifier, MAX_NULLIFIERS_PER_TX>,
     pub l2_to_l1_msgs: BoundedVec<ScopedL2ToL1Message, MAX_L2_TO_L1_MSGS_PER_TX>,
     pub private_logs: BoundedVec<Scoped<PrivateLogData>, MAX_PRIVATE_LOGS_PER_TX>,
-    pub unencrypted_logs_hashes: BoundedVec<ScopedLogHash, MAX_UNENCRYPTED_LOGS_PER_TX>,
+    pub public_logs: BoundedVec<PublicLog, MAX_PUBLIC_LOGS_PER_TX>,
     pub contract_class_logs_hashes: BoundedVec<ScopedLogHash, MAX_CONTRACT_CLASS_LOGS_PER_TX>,
-    pub unencrypted_log_preimages_length: Field,
     pub contract_class_log_preimages_length: Field,
     pub public_data_writes: BoundedVec<PublicDataWrite, MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX>,
     pub private_call_requests: BoundedVec<PrivateCallRequest, MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX>,
@@ -436,23 +438,18 @@ impl FixtureBuilder {
         }
     }
 
-    pub fn to_combined_accumulated_data(self) -> CombinedAccumulatedData {
-        CombinedAccumulatedData {
+    pub fn to_private_to_rollup_accumulated_data(self) -> PrivateToRollupAccumulatedData {
+        PrivateToRollupAccumulatedData {
             note_hashes: self.note_hashes.storage().map(|n: ScopedNoteHash| n.note_hash.value),
             nullifiers: self.nullifiers.storage().map(|n: ScopedNullifier| n.nullifier.value),
             l2_to_l1_msgs: self.l2_to_l1_msgs.storage().map(|m: ScopedL2ToL1Message| {
                 m.expose_to_public()
             }),
             private_logs: self.private_logs.storage().map(|l: Scoped<PrivateLogData>| l.inner.log),
-            unencrypted_logs_hashes: self.unencrypted_logs_hashes.storage().map(|l: ScopedLogHash| {
-                l.expose_to_public()
-            }),
             contract_class_logs_hashes: self.contract_class_logs_hashes.storage().map(
                 |l: ScopedLogHash| l.expose_to_public(),
             ),
-            unencrypted_log_preimages_length: self.unencrypted_log_preimages_length,
             contract_class_log_preimages_length: self.contract_class_log_preimages_length,
-            public_data_writes: self.public_data_writes.storage(),
         }
     }
 
@@ -482,6 +479,7 @@ impl FixtureBuilder {
             public_teardown_call_request,
             fee_payer: self.fee_payer,
             is_private_only: self.is_private_only,
+            claimed_first_nullifier: self.claimed_first_nullifier,
         }
     }
 
@@ -527,17 +525,17 @@ impl FixtureBuilder {
         RollupValidationRequests { max_block_number: self.max_block_number }
     }
 
-    pub fn to_kernel_circuit_public_inputs(self) -> KernelCircuitPublicInputs {
+    pub fn to_private_to_rollup_kernel_circuit_public_inputs(
+        self,
+    ) -> PrivateToRollupKernelCircuitPublicInputs {
         let rollup_validation_requests = self.to_rollup_validation_requests();
-        let end = self.to_combined_accumulated_data();
-        let constants = self.to_constant_data();
+        let end = self.to_private_to_rollup_accumulated_data();
+        let constants = self.to_tx_constant_data();
 
-        KernelCircuitPublicInputs {
+        PrivateToRollupKernelCircuitPublicInputs {
             rollup_validation_requests,
             end,
             constants,
-            start_state: self.start_state,
-            revert_code: self.revert_code,
             gas_used: self.gas_used,
             fee_payer: self.fee_payer,
         }
@@ -545,7 +543,7 @@ impl FixtureBuilder {
 
     pub fn to_private_tube_data(self) -> PrivateTubeData {
         let mut result: PrivateTubeData = std::mem::zeroed();
-        result.public_inputs = self.to_kernel_circuit_public_inputs();
+        result.public_inputs = self.to_private_to_rollup_kernel_circuit_public_inputs();
         result
     }
 
@@ -560,7 +558,7 @@ impl FixtureBuilder {
             note_hashes: self.note_hashes.storage().map(|n: ScopedNoteHash| n.note_hash.value),
             nullifiers: self.nullifiers.storage().map(|n: ScopedNullifier| n.nullifier.value),
             l2_to_l1_msgs: self.l2_to_l1_msgs.storage(),
-            unencrypted_logs_hashes: self.unencrypted_logs_hashes.storage(),
+            public_logs: self.public_logs.storage(),
             public_data_writes: self.public_data_writes.storage(),
         }
     }
@@ -593,9 +591,11 @@ impl FixtureBuilder {
         let note_hash_to_silo = NoteHash { value, counter: 0 }.scope(self.contract_address);
         let siloed_value = silo_note_hash(note_hash_to_silo);
         let current_index = self.note_hashes.len();
-        let first_nullifier = self.nullifiers.get(0).value();
-        let unique_siloed_value =
-            compute_unique_siloed_note_hash(siloed_value, first_nullifier, current_index);
+        let unique_siloed_value = compute_unique_siloed_note_hash(
+            siloed_value,
+            self.claimed_first_nullifier,
+            current_index,
+        );
 
         self.note_hashes.push(NoteHash { value: unique_siloed_value, counter: self.next_counter() }
             .scope(AztecAddress::zero()));
@@ -642,12 +642,13 @@ impl FixtureBuilder {
         }
     }
 
-    pub fn set_first_nullifier(&mut self) {
+    pub fn set_protocol_nullifier(&mut self) {
         assert_eq(self.nullifiers.len(), 0, "first nullifier already set");
         let value = self.mock_nullifier_value(0);
         let first_nullifier =
             Nullifier { value, counter: 0, note_hash: 0 }.scope(AztecAddress::zero());
         self.nullifiers.push(first_nullifier);
+        self.claimed_first_nullifier = value;
     }
 
     pub fn add_nullifier(&mut self, value: Field) {
@@ -868,18 +869,19 @@ impl FixtureBuilder {
         }
     }
 
-    pub fn add_unencrypted_log_hash(&mut self, hash: Field, length: Field) {
-        let log_hash = LogHash { value: hash, counter: self.next_counter(), length };
-        self.unencrypted_logs_hashes.push(log_hash.scope(self.contract_address));
-        self.unencrypted_log_preimages_length += length;
+    pub fn add_public_log(&mut self, fields: [Field; PUBLIC_LOG_DATA_SIZE_IN_FIELDS]) {
+        let inner = Log { fields };
+        let log = PublicLog { log: inner, contract_address: self.contract_address };
+        let _ = self.next_counter();
+        self.public_logs.push(log);
     }
 
-    pub fn append_unencrypted_log_hashes(&mut self, num: u32) {
-        let index_offset = self.unencrypted_logs_hashes.len();
-        for i in 0..self.unencrypted_logs_hashes.max_len() {
-            if i < num {
-                let (log_hash, length) = self.mock_unencrypted_log(index_offset + i);
-                self.add_unencrypted_log_hash(log_hash, length);
+    pub fn append_public_logs(&mut self, num_logs: u32) {
+        let index_offset = self.public_logs.len();
+        for i in 0..self.public_logs.max_len() {
+            if i < num_logs {
+                let fields = self.mock_public_log_fields(index_offset + i);
+                self.add_public_log(fields);
             }
         }
     }
@@ -1034,20 +1036,18 @@ impl FixtureBuilder {
         fields
     }
 
+    fn mock_public_log_fields(self, index: u32) -> [Field; PUBLIC_LOG_DATA_SIZE_IN_FIELDS] {
+        let value_offset =
+            199199 + self.value_offset + (index * PUBLIC_LOG_DATA_SIZE_IN_FIELDS) as Field;
+        let mut fields = [0; PUBLIC_LOG_DATA_SIZE_IN_FIELDS];
+        for i in 0..PUBLIC_LOG_DATA_SIZE_IN_FIELDS {
+            fields[i] = value_offset + i as Field;
+        }
+        fields
+    }
+
     fn mock_private_log_randomness(self, index: u32) -> Field {
         579579 + self.value_offset + index as Field
-    }
-
-    fn mock_encrypted_log(self, index: u32) -> (Field, Field) {
-        let log_hash = 50403 + self.value_offset + index as Field;
-        let length = 3 + index as Field;
-        (log_hash, length)
-    }
-
-    fn mock_unencrypted_log(self, index: u32) -> (Field, Field) {
-        let log_hash = 199199 + self.value_offset + index as Field;
-        let length = 1 + index as Field;
-        (log_hash, length)
     }
 
     fn mock_private_call_request(self, index: u32) -> PrivateCallRequest {
@@ -1095,6 +1095,7 @@ impl Empty for FixtureBuilder {
             contract_address: AztecAddress::zero(),
             msg_sender: AztecAddress::zero(),
             is_private_only: false,
+            claimed_first_nullifier: 0,
             is_static_call: false,
             is_fee_payer: false,
             fee_payer: AztecAddress::zero(),
@@ -1106,9 +1107,8 @@ impl Empty for FixtureBuilder {
             nullifiers: BoundedVec::new(),
             l2_to_l1_msgs: BoundedVec::new(),
             private_logs: BoundedVec::new(),
-            unencrypted_logs_hashes: BoundedVec::new(),
+            public_logs: BoundedVec::new(),
             contract_class_logs_hashes: BoundedVec::new(),
-            unencrypted_log_preimages_length: 0,
             contract_class_log_preimages_length: 0,
             public_data_writes: BoundedVec::new(),
             private_call_requests: BoundedVec::new(),

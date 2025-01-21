@@ -3,6 +3,8 @@ use std::{collections::umap::UHashMap, hash::{BuildHasherDefault, poseidon2::Pos
 use super::utils::get_serialized_size;
 use super::utils::is_note;
 
+/// Stores a map from a module to the name of the struct that describes its storage layout.
+/// This is then used when generating a `storage_layout()` getter on the contract struct.
 pub comptime mut global STORAGE_LAYOUT_NAME: UHashMap<Module, Quoted, BuildHasherDefault<Poseidon2Hasher>> =
     UHashMap::default();
 
@@ -25,7 +27,8 @@ pub comptime fn storage(s: StructDefinition) -> Quoted {
     // TODO(#8658): uncomment the code below to inject the Context type parameter.
     //let mut new_storage_fields = &[];
     //let context_generic = s.add_generic("Context");
-    for field in s.fields() {
+    for field in s.fields_as_written() {
+        // FIXME: This doesn't handle field types with generics
         let (name, typ) = field;
         let (storage_field_constructor, serialized_size) =
             generate_storage_field_constructor(typ, quote { $slot }, false);

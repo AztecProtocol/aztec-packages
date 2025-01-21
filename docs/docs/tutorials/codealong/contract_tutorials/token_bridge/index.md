@@ -5,7 +5,7 @@ sidebar_position: 6
 
 import Image from "@theme/IdealImage";
 
-In this tutorial, we will learn how to build the entire flow of a cross-chain token using portals. If this is your first time hearing the word portal, you’ll want to read [this page in the protocol specs](../../../../protocol-specs/l1-smart-contracts/index.md).
+In this tutorial, we will learn how to build the entire flow of a cross-chain token using portals.
 
 ## A refresher on Portals
 
@@ -42,7 +42,7 @@ The goal for this tutorial is to create functionality such that a token can be b
 
 This is just a reference implementation for educational purposes only. It has not been through an in-depth security audit.
 
-Let’s assume a token exists on Ethereum and Aztec (see a [the token tutorial](../token_contract.md)).
+Let’s assume a token exists on Ethereum and Aztec (see [the example token contract](https://github.com/AztecProtocol/aztec-packages/blob/#include_aztec_version/noir-projects/noir-contracts/contracts/token_contract/src/main.nr)).
 
 We will build:
 

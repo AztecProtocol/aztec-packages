@@ -28,6 +28,7 @@ if [ "$status" -ne 0 ]; then
     echo -e "$output"
     echo -e "${blue}--- stderr ---${reset}"
     cat "$stderr"
+    echo -e "${blue}--------------${reset}"
   } >&2
 else
   echo -n "$output"

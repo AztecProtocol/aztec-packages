@@ -1,20 +1,20 @@
-mod abis;
+pub(crate) mod abis;
 
 // Base rollup
-mod base;
+pub(crate) mod base;
 
 // Merge rollup
-mod merge;
+pub(crate) mod merge;
 
 // Block root rollup
-mod block_root;
+pub(crate) mod block_root;
 
 // Block merge rollup
-mod block_merge;
+pub(crate) mod block_merge;
 
 // Root rollup
-mod root;
+pub(crate) mod root;
 
-mod components;
+pub(crate) mod components;
 
-mod tests;
+pub(crate) mod tests;

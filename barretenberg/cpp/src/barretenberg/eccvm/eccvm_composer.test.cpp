@@ -16,7 +16,7 @@ using namespace bb;
 
 class ECCVMTests : public ::testing::Test {
   protected:
-    void SetUp() override { srs::init_grumpkin_crs_factory("../srs_db/grumpkin"); };
+    void SetUp() override { srs::init_grumpkin_crs_factory(bb::srs::get_grumpkin_crs_path()); };
 };
 namespace {
 auto& engine = numeric::get_debug_randomness();

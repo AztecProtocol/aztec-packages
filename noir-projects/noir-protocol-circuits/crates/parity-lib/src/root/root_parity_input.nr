@@ -1,6 +1,6 @@
 use crate::parity_public_inputs::ParityPublicInputs;
 use dep::types::{
-    constants::{BASE_PARITY_INDEX, VK_TREE_HEIGHT},
+    constants::{BASE_PARITY_INDEX, PROOF_TYPE_HONK, VK_TREE_HEIGHT},
     merkle_tree::membership::assert_check_membership,
     proof::{
         recursive_proof::RecursiveProof,
@@ -31,11 +31,12 @@ impl Empty for RootParityInput {
 impl Verifiable for RootParityInput {
     fn verify(self) {
         let inputs = ParityPublicInputs::serialize(self.public_inputs);
-        std::verify_proof(
+        std::verify_proof_with_type(
             self.verification_key.key,
             self.proof.fields,
             inputs,
             self.verification_key.hash,
+            PROOF_TYPE_HONK,
         );
     }
 }

@@ -131,7 +131,9 @@ contract FeeRollupTest is FeeModelTestPoints, DecoderBase {
         aztecEpochDuration: EPOCH_DURATION,
         targetCommitteeSize: 48,
         aztecEpochProofClaimWindowInL2Slots: 16,
-        minimumStake: 100 ether
+        minimumStake: TestConstants.AZTEC_MINIMUM_STAKE,
+        slashingQuorum: TestConstants.AZTEC_SLASHING_QUORUM,
+        slashingRoundSize: TestConstants.AZTEC_SLASHING_ROUND_SIZE
       })
     );
     fakeCanonical.setCanonicalRollup(address(rollup));
@@ -157,7 +159,7 @@ contract FeeRollupTest is FeeModelTestPoints, DecoderBase {
     // We will be using the genesis for both before and after. This will be impossible
     // to prove, but we don't need to prove anything here.
     bytes32 archiveRoot = bytes32(Constants.GENESIS_ARCHIVE_ROOT);
-    bytes32 blockHash = 0x267f79fe7e757b20e924fac9f78264a0d1c8c4b481fea21d0bbe74650d87a1f1;
+    bytes32 blockHash = bytes32(Constants.GENESIS_BLOCK_HASH);
 
     bytes32[] memory txHashes = new bytes32[](0);
     Signature[] memory signatures = new Signature[](0);
