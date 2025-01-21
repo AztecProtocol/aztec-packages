@@ -960,43 +960,6 @@ export async function generateContractForVerificationKey(
   return res;
 }
 
-export async function generateContractForCircuit(
-  pathToBB: string,
-  workingDirectory: string,
-  circuitName: string,
-  compiledCircuit: NoirCompiledCircuit,
-  contractName: string,
-  log: LogFn,
-  force = false,
-) {
-  // Verifier contracts are never recursion friendly, because non-recursive proofs are generated using the keccak256 hash function.
-  // We need to use the same hash function during verification so proofs generated using keccak256 are cheap to verify on ethereum
-  // (where the verifier contract would be deployed) whereas if we want to verify the proof within a snark (for recursion) we want
-  // to use a snark-friendly hash function.
-  const recursive = false;
-
-  const vkResult = await generateKeyForNoirCircuit(
-    pathToBB,
-    workingDirectory,
-    circuitName,
-    compiledCircuit,
-    recursive,
-    'ultra_keccak_honk',
-    log,
-    force,
-  );
-  if (vkResult.status === BB_RESULT.FAILURE) {
-    return vkResult;
-  }
-
-  return generateContractForVerificationKey(
-    pathToBB,
-    join(vkResult.vkPath!, VK_FILENAME),
-    join(workingDirectory, 'contract', circuitName, contractName),
-    log,
-  );
-}
-
 /**
  * Compute bb gate count for a given circuit
  * @param pathToBB - The full path to the bb binary

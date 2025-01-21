@@ -1,6 +1,7 @@
 import { createCompatibleClient } from '@aztec/aztec.js';
-import { compileContract, createEthereumChain, createL1Clients, deployL1Contract } from '@aztec/ethereum';
+import { createEthereumChain, createL1Clients, deployL1Contract } from '@aztec/ethereum';
 import { type LogFn, type Logger } from '@aztec/foundation/log';
+import { HonkVerifierAbi, HonkVerifierBytecode } from '@aztec/l1-artifacts';
 
 import { InvalidOptionArgumentError } from 'commander';
 import { type Hex, getContract } from 'viem';
@@ -20,10 +21,6 @@ export async function deployUltraHonkVerifier(
   if (!bbBinaryPath || !bbWorkingDirectory) {
     throw new InvalidOptionArgumentError('Missing path to bb binary and working directory');
   }
-  // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-  // @ts-ignore - Importing bb-prover even in devDeps results in a circular dependency error through @aztec/simulator. Need to ignore because this line doesn't cause an error in a dev environment
-  const { BBCircuitVerifier } = await import('@aztec/bb-prover');
-  const verifier = await BBCircuitVerifier.new({ bbBinaryPath, bbWorkingDirectory, bbSkipCleanup: false });
 
   const { publicClient, walletClient } = createL1Clients(
     ethRpcUrl,
@@ -49,22 +46,15 @@ export async function deployUltraHonkVerifier(
     client: walletClient,
   });
 
-  // REFACTOR: Extract this method to a common package. We need a package that deals with L1
-  // but also has a reference to L1 artifacts and bb-prover.
-  const setupVerifier = async (
-    artifact: Parameters<(typeof verifier)['generateSolidityContract']>[0], // Cannot properly import the type here due to the hack above
-  ) => {
-    const contract = await verifier.generateSolidityContract(artifact, 'UltraHonkVerifier.sol');
-    log(`Generated UltraHonkVerifier contract for ${artifact}`);
-    const { abi, bytecode } = compileContract('UltraHonkVerifier.sol', 'HonkVerifier', contract, solc);
-    log(`Compiled UltraHonkVerifier contract for ${artifact}`);
-    const { address: verifierAddress } = await deployL1Contract(walletClient, publicClient, abi, bytecode);
-    log(`Deployed real ${artifact} verifier at ${verifierAddress}`);
-    await rollup.write.setEpochVerifier([verifierAddress.toString()]);
-    log(`Set ${artifact} verifier in ${rollup.address} rollup contract to ${verifierAddress}`);
-  };
+  const { address: verifierAddress } = await deployL1Contract(
+    walletClient,
+    publicClient,
+    HonkVerifierAbi,
+    HonkVerifierBytecode,
+  );
+  log(`Deployed honk verifier at ${verifierAddress}`);
 
-  await setupVerifier('RootRollupArtifact');
+  await rollup.write.setEpochVerifier([verifierAddress.toString()]);
 
   log(`Rollup accepts only real proofs now`);
 }

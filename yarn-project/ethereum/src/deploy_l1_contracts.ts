@@ -579,50 +579,6 @@ class L1Deployer {
   }
 }
 
-/**
- * Compiles a contract source code using the provided solc compiler.
- * @param fileName - Contract file name (eg UltraHonkVerifier.sol)
- * @param contractName - Contract name within the file (eg HonkVerifier)
- * @param source - Source code to compile
- * @param solc - Solc instance
- * @returns ABI and bytecode of the compiled contract
- */
-export function compileContract(
-  fileName: string,
-  contractName: string,
-  source: string,
-  solc: { compile: (source: string) => string },
-): { abi: Narrow<Abi | readonly unknown[]>; bytecode: Hex } {
-  const input = {
-    language: 'Solidity',
-    sources: {
-      [fileName]: {
-        content: source,
-      },
-    },
-    settings: {
-      // we require the optimizer
-      optimizer: {
-        enabled: true,
-        runs: 200,
-      },
-      evmVersion: 'cancun',
-      outputSelection: {
-        '*': {
-          '*': ['evm.bytecode.object', 'abi'],
-        },
-      },
-    },
-  };
-
-  const output = JSON.parse(solc.compile(JSON.stringify(input)));
-
-  const abi = output.contracts[fileName][contractName].abi;
-  const bytecode: `0x${string}` = `0x${output.contracts[fileName][contractName].evm.bytecode.object}`;
-
-  return { abi, bytecode };
-}
-
 // docs:start:deployL1Contract
 /**
  * Helper function to deploy ETH contracts.

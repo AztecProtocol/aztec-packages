@@ -17,13 +17,12 @@ import {
   BB_RESULT,
   PROOF_FILENAME,
   VK_FILENAME,
-  generateContractForCircuit,
   generateKeyForNoirCircuit,
   verifyClientIvcProof,
   verifyProof,
 } from '../bb/execute.js';
 import { type BBConfig } from '../config.js';
-import { type UltraKeccakHonkServerProtocolArtifact, getUltraHonkFlavorForCircuit } from '../honk.js';
+import { getUltraHonkFlavorForCircuit } from '../honk.js';
 import { writeToOutputDirectory } from '../prover/client_ivc_proof_utils.js';
 import { isProtocolArtifactRecursive, mapProtocolArtifactNameToCircuitName } from '../stats.js';
 import { extractVkData } from '../verification_key/verification_key_data.js';
@@ -124,23 +123,6 @@ export class BBCircuitVerifier implements ClientProtocolCircuitVerifier {
       } satisfies CircuitVerificationStats);
     };
     await runInDirectory(this.config.bbWorkingDirectory, operation, this.config.bbSkipCleanup);
-  }
-
-  public async generateSolidityContract(circuit: UltraKeccakHonkServerProtocolArtifact, contractName: string) {
-    const result = await generateContractForCircuit(
-      this.config.bbBinaryPath,
-      this.config.bbWorkingDirectory,
-      circuit,
-      ServerCircuitArtifacts[circuit],
-      contractName,
-      this.logger.debug,
-    );
-
-    if (result.status === BB_RESULT.FAILURE) {
-      throw new Error(`Failed to create verifier contract for ${circuit}, ${result.reason}`);
-    }
-
-    return fs.readFile(result.contractPath!, 'utf-8');
   }
 
   public async verifyProof(tx: Tx): Promise<boolean> {

@@ -14,24 +14,15 @@ import {
   createLogger,
   deployL1Contract,
 } from '@aztec/aztec.js';
-import {
-  BBCircuitVerifier,
-  type ClientProtocolCircuitVerifier,
-  TestCircuitVerifier,
-  type UltraKeccakHonkServerProtocolArtifact,
-} from '@aztec/bb-prover';
+import { BBCircuitVerifier, type ClientProtocolCircuitVerifier, TestCircuitVerifier } from '@aztec/bb-prover';
 import { createBlobSinkClient } from '@aztec/blob-sink/client';
 import { type BlobSinkServer } from '@aztec/blob-sink/server';
-import { compileContract } from '@aztec/ethereum';
 import { Buffer32 } from '@aztec/foundation/buffer';
-import { RollupAbi, TestERC20Abi } from '@aztec/l1-artifacts';
+import { HonkVerifierAbi, HonkVerifierBytecode, RollupAbi, TestERC20Abi } from '@aztec/l1-artifacts';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
 import { type ProverNode, type ProverNodeConfig, createProverNode } from '@aztec/prover-node';
 import { type PXEService } from '@aztec/pxe';
 
-// TODO(#7373): Deploy honk solidity verifier
-// @ts-expect-error solc-js doesn't publish its types https://github.com/ethereum/solc-js/issues/689
-import solc from 'solc';
 import { type Hex, getContract } from 'viem';
 import { privateKeyToAddress } from 'viem/accounts';
 
@@ -382,7 +373,6 @@ export class FullProverTest {
       throw new Error('No verifier');
     }
 
-    const verifier = this.circuitProofVerifier as BBCircuitVerifier;
     const { walletClient, publicClient, l1ContractAddresses } = this.context.deployL1ContractsValues;
     const rollup = getContract({
       abi: RollupAbi,
@@ -390,18 +380,15 @@ export class FullProverTest {
       client: walletClient,
     });
 
-    // REFACTOR: Extract this method to a common package. We need a package that deals with L1
-    // but also has a reference to L1 artifacts and bb-prover.
-    const setupVerifier = async (artifact: UltraKeccakHonkServerProtocolArtifact) => {
-      const contract = await verifier.generateSolidityContract(artifact, 'UltraHonkVerifier.sol');
-      const { abi, bytecode } = compileContract('UltraHonkVerifier.sol', 'HonkVerifier', contract, solc);
-      const { address: verifierAddress } = await deployL1Contract(walletClient, publicClient, abi, bytecode);
-      this.logger.info(`Deployed real ${artifact} verifier at ${verifierAddress}`);
+    const { address: verifierAddress } = await deployL1Contract(
+      walletClient,
+      publicClient,
+      HonkVerifierAbi,
+      HonkVerifierBytecode,
+    );
+    this.logger.info(`Deployed honk verifier at ${verifierAddress}`);
 
-      await rollup.write.setEpochVerifier([verifierAddress.toString()]);
-    };
-
-    await setupVerifier('RootRollupArtifact');
+    await rollup.write.setEpochVerifier([verifierAddress.toString()]);
 
     this.logger.info('Rollup only accepts valid proofs now');
   }
