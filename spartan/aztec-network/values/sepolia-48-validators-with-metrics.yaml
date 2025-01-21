@@ -11,8 +11,7 @@ network:
 ethereum:
   chainId: "11155111"
   deployL1ContractsPrivateKey:
-  execution:
-    externalHost:
+  externalHost:
 
 validator:
   l1FixedPriorityFeePerGas: 1
