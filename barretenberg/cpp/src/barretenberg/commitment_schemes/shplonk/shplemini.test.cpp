@@ -129,6 +129,7 @@ TYPED_TEST(ShpleminiTest, CorrectnessOfGeminiClaimBatching)
 {
     using Curve = TypeParam::Curve;
     using GeminiProver = GeminiProver_<Curve>;
+    using PolynomialBatches = GeminiProver::PolynomialBatches;
     using ShpleminiVerifier = ShpleminiVerifier_<Curve>;
     using ShplonkVerifier = ShplonkVerifier_<Curve>;
     using Fr = typename Curve::ScalarField;
@@ -153,22 +154,12 @@ TYPED_TEST(ShpleminiTest, CorrectnessOfGeminiClaimBatching)
     // Collect multilinear evaluations
     std::vector<Fr> rhos = gemini::powers_of_rho(rho, this->num_polynomials + this->num_shiftable);
 
-    Polynomial batched_unshifted(this->n);
-    Polynomial batched_to_be_shifted = Polynomial::shiftable(this->n);
+    PolynomialBatches polynomial_batches(this->n);
+    polynomial_batches.set_unshifted(RefVector(pcs_instance_witness.unshifted_polynomials));
+    polynomial_batches.set_to_be_1_shifted(RefVector(pcs_instance_witness.to_be_shifted_polynomials));
 
-    size_t idx = 0;
-    for (auto& poly : pcs_instance_witness.unshifted_polynomials) {
-        batched_unshifted.add_scaled(poly, rhos[idx]);
-        idx++;
-    }
-
-    for (auto& poly : pcs_instance_witness.to_be_shifted_polynomials) {
-        batched_to_be_shifted.add_scaled(poly, rhos[idx]);
-        idx++;
-    }
-
-    Polynomial batched = batched_unshifted;
-    batched += batched_to_be_shifted;
+    Fr running_scalar = Fr(1);
+    Polynomial batched = polynomial_batches.compute_batched(rho, running_scalar);
 
     // Compute:
     // - (d+1) opening pairs: {r, \hat{a}_0}, {-r^{2^i}, a_i}, i = 0, ..., d-1
@@ -182,7 +173,7 @@ TYPED_TEST(ShpleminiTest, CorrectnessOfGeminiClaimBatching)
     }
 
     auto [A_0_pos, A_0_neg] = GeminiProver::compute_partially_evaluated_batch_polynomials(
-        this->log_n, std::move(batched_unshifted), std::move(batched_to_be_shifted), gemini_eval_challenge);
+        this->log_n, polynomial_batches, gemini_eval_challenge);
 
     const auto opening_claims = GeminiProver::construct_univariate_opening_claims(
         this->log_n, std::move(A_0_pos), std::move(A_0_neg), std::move(fold_polynomials), gemini_eval_challenge);
