@@ -15,7 +15,7 @@ unconstrained fn assert_equal_after_conversion(original: ScheduledDelayChange<TE
 }
 
 #[test]
-unconstrained fn test_serde() {
+unconstrained fn test_packable() {
     let pre = 1;
     let post = 2;
     let block_of_change = 50;
@@ -43,7 +43,7 @@ unconstrained fn test_serde() {
 }
 
 #[test]
-unconstrained fn test_serde_large_values() {
+unconstrained fn test_packable_large_values() {
     let max_u32: u64 = (1 << 32) - 1;
 
     let pre = max_u32 as u32;
