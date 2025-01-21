@@ -1,13 +1,15 @@
 telemetry:
   enabled: true
-  otelCollectorEndpoint: http://metrics-opentelemetry-collector.metrics:4318
 
 network:
   setupL2Contracts: false
   public: false
 
 ethereum:
-  externalHost:
+  execution:
+    externalHost:
+  beacon:
+    externalHost:
   chainId: "11155111"
 
 validator:

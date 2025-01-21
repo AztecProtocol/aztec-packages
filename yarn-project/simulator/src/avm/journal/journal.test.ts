@@ -21,7 +21,7 @@ import {
 import { type AvmPersistableStateManager } from './journal.js';
 
 describe('journal', () => {
-  const address = AztecAddress.random();
+  let address: AztecAddress;
   const utxo = Fr.random();
   const leafIndex = Fr.random();
 
@@ -29,7 +29,8 @@ describe('journal', () => {
   let trace: PublicSideEffectTraceInterface;
   let persistableState: AvmPersistableStateManager;
 
-  beforeEach(() => {
+  beforeEach(async () => {
+    address = await AztecAddress.random();
     worldStateDB = mock<WorldStateDB>();
     trace = mock<PublicSideEffectTraceInterface>();
     persistableState = initPersistableStateManager({ worldStateDB, trace });
@@ -85,7 +86,7 @@ describe('journal', () => {
       persistableState.writeNoteHash(address, utxo);
       expect(trace.traceNewNoteHash).toHaveBeenCalledTimes(1);
       const siloedNotehash = siloNoteHash(address, utxo);
-      const nonce = computeNoteHashNonce(Fr.fromBuffer(persistableState.txHash.toBuffer()), 1);
+      const nonce = computeNoteHashNonce(persistableState.firstNullifier, 1);
       const uniqueNoteHash = computeUniqueNoteHash(nonce, siloedNotehash);
       expect(trace.traceNewNoteHash).toHaveBeenCalledWith(uniqueNoteHash);
     });

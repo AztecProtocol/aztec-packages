@@ -1,4 +1,4 @@
-import { type EpochProver, type L2Block, type ProcessedTx } from '@aztec/circuit-types';
+import { type EpochProver, type L2Block, type ProcessedTx, type Tx } from '@aztec/circuit-types';
 import { type BlockHeader, type Fr, type GlobalVariables, type Proof } from '@aztec/circuits.js';
 import { type RootRollupPublicInputs } from '@aztec/circuits.js/rollup';
 
@@ -12,6 +12,9 @@ export class ServerEpochProver implements EpochProver {
   startNewEpoch(epochNumber: number, firstBlockNumber: number, totalNumBlocks: number): void {
     this.orchestrator.startNewEpoch(epochNumber, firstBlockNumber, totalNumBlocks);
     this.facade.start();
+  }
+  startTubeCircuits(txs: Tx[]): void {
+    this.orchestrator.startTubeCircuits(txs);
   }
   setBlockCompleted(blockNumber: number, expectedBlockHeader?: BlockHeader): Promise<L2Block> {
     return this.orchestrator.setBlockCompleted(blockNumber, expectedBlockHeader);
@@ -32,8 +35,12 @@ export class ServerEpochProver implements EpochProver {
     await this.facade.stop();
     await this.orchestrator.stop();
   }
-  startNewBlock(globalVariables: GlobalVariables, l1ToL2Messages: Fr[]): Promise<void> {
-    return this.orchestrator.startNewBlock(globalVariables, l1ToL2Messages);
+  startNewBlock(
+    globalVariables: GlobalVariables,
+    l1ToL2Messages: Fr[],
+    previousBlockHeader: BlockHeader,
+  ): Promise<void> {
+    return this.orchestrator.startNewBlock(globalVariables, l1ToL2Messages, previousBlockHeader);
   }
   addTxs(txs: ProcessedTx[]): Promise<void> {
     return this.orchestrator.addTxs(txs);

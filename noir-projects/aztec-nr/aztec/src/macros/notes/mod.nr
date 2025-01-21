@@ -203,7 +203,8 @@ comptime fn generate_note_properties(s: StructDefinition) -> Quoted {
     let property_selector_type = type_of(PropertySelector { index: 0, offset: 0, length: 0 });
     let note_header_type: Type = type_of(NoteHeader::empty());
 
-    let non_header_fields = s.fields().filter(|(_, typ): (Quoted, Type)| typ != note_header_type);
+    let non_header_fields =
+        s.fields_as_written().filter(|(_, typ): (Quoted, Type)| typ != note_header_type);
 
     let properties_types = non_header_fields
         .map(|(name, _): (Quoted, Type)| quote { pub $name: $property_selector_type })
@@ -436,14 +437,13 @@ comptime fn generate_setup_payload(
         get_setup_log_plaintext_body(s, log_plaintext_length, indexed_nullable_fields);
 
     // Then we compute values for `encrypt_log(...)` function
-    let encrypted_log_byte_length = 32 /* tag */
-        + OVERHEAD_SIZE
+    let untagged_encrypted_log_byte_length = OVERHEAD_SIZE
         + log_plaintext_length /* log_plaintext */
         + 2 /* log_plaintext_length */
         + 14 /* AES padding */;
-    // Each field contains 31 bytes so the length in fields is computed as ceil(encrypted_log_byte_length / 31)
-    // --> we achieve rounding by adding 30 and then dividing without remainder
-    let encrypted_log_field_length = (encrypted_log_byte_length + 30) / 31;
+    // Each field (apart from the tag) contains 31 bytes so the length in fields is computed as ceil(encrypted_log_byte_length / 31)
+    // --> we achieve rounding by adding 30 and then dividing without remainder, then add one for the 32 byte tag
+    let encrypted_log_field_length = 1 + (untagged_encrypted_log_byte_length + 30) / 31;
 
     (
         quote {
@@ -468,14 +468,12 @@ comptime fn generate_setup_payload(
             }
 
             pub fn encrypt_log(self, context: &mut PrivateContext, recipient: aztec::protocol_types::address::AztecAddress, sender: aztec::protocol_types::address::AztecAddress) -> [Field; $encrypted_log_field_length] {
-                let encrypted_log_bytes: [u8; $encrypted_log_byte_length] = aztec::encrypted_logs::payload::compute_partial_public_log_payload(
+                aztec::encrypted_logs::payload::compute_partial_public_log_payload::<$log_plaintext_length, $untagged_encrypted_log_byte_length>(
                     context.this_address(),
                     recipient,
                     sender,
                     self.log_plaintext,
-                );
-
-                aztec::utils::bytes::bytes_to_fields(encrypted_log_bytes)
+                )
             }
         }
 
@@ -619,7 +617,7 @@ comptime fn generate_finalization_payload(
     let name = s.name();
     let finalization_payload_name = f"{name}FinalizationPayload".quoted_contents();
 
-    // We compute serialization of the nullable fields which are to be emitted as an unencrypted log. We do that by
+    // We compute serialization of the nullable fields which are to be emitted as a public log. We do that by
     // passing the whole note struct to the `flatten_to_fields(...)` function but we omit the `NoteHeader` and
     // the fixed fields.
     let to_omit = indexed_fixed_fields.map(|(name, _, _): (Quoted, Type, u32)| name).push_back(
@@ -656,17 +654,14 @@ comptime fn generate_finalization_payload(
 
     // Then we compute values for `encrypt_log(...)` function
     let setup_log_plaintext_length = indexed_fixed_fields.len() * 32 + 64;
-    let setup_log_byte_length = 32 /* tag */
-        + OVERHEAD_SIZE
+    let untagged_setup_log_byte_length = OVERHEAD_SIZE
         + setup_log_plaintext_length
         + 2 /* log_plaintext_length */
         + 14 /* AES padding */;
-    // Each field contains 31 bytes so the length in fields is computed as ceil(setup_log_byte_length / 31)
-    // --> we achieve rounding by adding 30 and then dividing without remainder
-    let setup_log_field_length = (setup_log_byte_length + 30) / 31;
-    let public_values_field_length = public_values_length * 32;
-    let finalization_log_byte_length =
-        1 /* public_values_length */ + setup_log_byte_length + public_values_field_length;
+    // Each field (apart from the tag) contains 31 bytes so the length in fields is computed as ceil(setup_log_byte_length / 31)
+    // --> we achieve rounding by adding 30 and then dividing without remainder, then add one for the 32 byte tag
+    let setup_log_field_length = 1 + (untagged_setup_log_byte_length + 30) / 31;
+    let finalization_log_field_length = 1 + setup_log_field_length + public_values_length;
 
     (
         quote {
@@ -717,32 +712,43 @@ comptime fn generate_finalization_payload(
             }
 
             pub fn emit_log(self) {
+                let max_log_len = aztec::protocol_types::constants::PUBLIC_LOG_DATA_SIZE_IN_FIELDS;
+                // Make sure we aren't overflowing the public log maximum
+                assert(
+                    $finalization_log_field_length <= max_log_len,
+                    f"finalization public log must not exceed {max_log_len} fields",
+                );
+
                 // We load the setup log from storage
                 let setup_log_fields: [Field; $setup_log_field_length] = self.context.storage_read(self.setup_log_slot);
 
-                // We convert the log from fields to bytes
-                let setup_log: [u8; $setup_log_byte_length] = aztec::utils::bytes::fields_to_bytes(setup_log_fields);
-
-                // We append the public value to the log and emit it as unencrypted log
-                let mut finalization_log = [0; $finalization_log_byte_length];
+                // We append the public value to the log and emit it as public log
+                let mut finalization_log = [0; $finalization_log_field_length];
 
                 // Iterate over the partial log and copy it to the final log
-                for i in 0..setup_log.len() {
-                    finalization_log[i + 1] = setup_log[i];
+                for i in 0..setup_log_fields.len() {
+                    finalization_log[i + 1] = setup_log_fields[i];
                 }
 
                 // Iterate over the public values and append them to the log
-                for i in 0..$public_values_length {
-                    let public_value_bytes: [u8; 32] = self.public_values[i].to_be_bytes();
-                    for j in 0..public_value_bytes.len() {
-                        finalization_log[1 + $setup_log_byte_length + i * 32 + j] = public_value_bytes[j];
-                    }
+                for i in 0..self.public_values.len() {
+                    finalization_log[1 + $setup_log_field_length + i] = self.public_values[i];
                 }
 
-                // Populate the first byte with number of public values
-                finalization_log[0] = $public_values_length;
+                // Populate the first field with number of public values, private values, and ciphertext length
+                let ciphertext_bytes_length = $untagged_setup_log_byte_length - aztec::encrypted_logs::payload::OVERHEAD_SIZE;
+                finalization_log[0] = aztec::protocol_types::utils::field::field_from_bytes([
+                    ($public_values_length >> 8) as u8,
+                    $public_values_length as u8,
+                    0,
+                    ($setup_log_field_length >> 8) as u8,
+                    $setup_log_field_length as u8,
+                    0,
+                    (ciphertext_bytes_length >> 8) as u8,
+                    ciphertext_bytes_length as u8,
+                ], true);
 
-                // We emit the finalization log via the unencrypted logs stream
+                // We emit the finalization log via the public logs stream
                 self.context.emit_unencrypted_log(finalization_log);
 
                 // We reset public storage to zero to achieve the effect of transient storage - kernels will squash
@@ -827,7 +833,7 @@ comptime fn index_note_fields(
     let mut indexed_fixed_fields: [(Quoted, Type, u32)] = &[];
     let mut indexed_nullable_fields = &[];
     let mut counter: u32 = 0;
-    for field in s.fields() {
+    for field in s.fields_as_written() {
         let (name, typ) = field;
         if (typ != NOTE_HEADER_TYPE) {
             if nullable_fields.all(|field| field != name) {
@@ -845,9 +851,10 @@ comptime fn index_note_fields(
 
 /// Injects `NoteHeader` to the note struct if not present.
 comptime fn inject_note_header(s: StructDefinition) {
-    let filtered_header = s.fields().filter(|(_, typ): (Quoted, Type)| typ == NOTE_HEADER_TYPE);
+    let filtered_header =
+        s.fields_as_written().filter(|(_, typ): (Quoted, Type)| typ == NOTE_HEADER_TYPE);
     if (filtered_header.len() == 0) {
-        let new_fields = s.fields().push_back((quote { header }, NOTE_HEADER_TYPE));
+        let new_fields = s.fields_as_written().push_back((quote { header }, NOTE_HEADER_TYPE));
         s.set_fields(new_fields);
     }
 }

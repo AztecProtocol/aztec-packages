@@ -1,4 +1,4 @@
-import { MerkleTreeId, type TxHash } from '@aztec/circuit-types';
+import { MerkleTreeId } from '@aztec/circuit-types';
 import {
   AztecAddress,
   CANONICAL_AUTH_REGISTRY_ADDRESS,
@@ -61,7 +61,7 @@ export class AvmPersistableStateManager {
     private readonly doMerkleOperations: boolean = false,
     /** Ephmeral forest for merkle tree operations */
     public merkleTrees: AvmEphemeralForest,
-    public readonly txHash: TxHash,
+    public readonly firstNullifier: Fr,
   ) {}
 
   /**
@@ -71,7 +71,7 @@ export class AvmPersistableStateManager {
     worldStateDB: WorldStateDB,
     trace: PublicSideEffectTraceInterface,
     doMerkleOperations: boolean = false,
-    txHash: TxHash,
+    firstNullifier: Fr,
   ) {
     const ephemeralForest = await AvmEphemeralForest.create(worldStateDB.getMerkleInterface());
     return new AvmPersistableStateManager(
@@ -81,7 +81,7 @@ export class AvmPersistableStateManager {
       /*nullifiers=*/ new NullifierManager(worldStateDB),
       /*doMerkleOperations=*/ doMerkleOperations,
       ephemeralForest,
-      txHash,
+      firstNullifier,
     );
   }
 
@@ -96,7 +96,7 @@ export class AvmPersistableStateManager {
       this.nullifiers.fork(),
       this.doMerkleOperations,
       this.merkleTrees.fork(),
-      this.txHash,
+      this.firstNullifier,
     );
   }
 
@@ -294,8 +294,7 @@ export class AvmPersistableStateManager {
    * @param noteHash - the non unique note hash to write
    */
   public writeSiloedNoteHash(noteHash: Fr): void {
-    const txHash = Fr.fromBuffer(this.txHash.toBuffer());
-    const nonce = computeNoteHashNonce(txHash, this.trace.getNoteHashCount());
+    const nonce = computeNoteHashNonce(this.firstNullifier, this.trace.getNoteHashCount());
     const uniqueNoteHash = computeUniqueNoteHash(nonce, noteHash);
 
     this.writeUniqueNoteHash(uniqueNoteHash);
@@ -525,14 +524,13 @@ export class AvmPersistableStateManager {
   }
 
   /**
-   * Write an unencrypted log
+   * Write a public log
    * @param contractAddress - address of the contract that emitted the log
-   * @param event - log event selector
    * @param log - log contents
    */
-  public writeUnencryptedLog(contractAddress: AztecAddress, log: Fr[]) {
-    this.log.debug(`UnencryptedL2Log(${contractAddress}) += event with ${log.length} fields.`);
-    this.trace.traceUnencryptedLog(contractAddress, log);
+  public writePublicLog(contractAddress: AztecAddress, log: Fr[]) {
+    this.log.debug(`PublicLog(${contractAddress}) += event with ${log.length} fields.`);
+    this.trace.tracePublicLog(contractAddress, log);
   }
 
   /**

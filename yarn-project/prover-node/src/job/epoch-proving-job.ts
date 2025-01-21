@@ -14,7 +14,7 @@ import { createLogger } from '@aztec/foundation/log';
 import { promiseWithResolvers } from '@aztec/foundation/promise';
 import { Timer } from '@aztec/foundation/timer';
 import { type L1Publisher } from '@aztec/sequencer-client';
-import { type PublicProcessor, type PublicProcessorFactory } from '@aztec/simulator';
+import { type PublicProcessor, type PublicProcessorFactory } from '@aztec/simulator/server';
 import { Attributes, type Traceable, type Tracer, trackSpan } from '@aztec/telemetry-client';
 
 import * as crypto from 'node:crypto';
@@ -91,6 +91,7 @@ export class EpochProvingJob implements Traceable {
 
     try {
       this.prover.startNewEpoch(epochNumber, fromBlock, epochSizeBlocks);
+      this.prover.startTubeCircuits(this.txs);
 
       await asyncPool(this.config.parallelBlockLimit, this.blocks, async block => {
         this.checkState();
@@ -98,7 +99,7 @@ export class EpochProvingJob implements Traceable {
         const globalVariables = block.header.globalVariables;
         const txs = this.getTxs(block);
         const l1ToL2Messages = await this.getL1ToL2Messages(block);
-        const previousHeader = await this.getBlockHeader(block.number - 1);
+        const previousHeader = (await this.getBlockHeader(block.number - 1))!;
 
         this.log.verbose(`Starting processing block ${block.number}`, {
           number: block.number,
@@ -107,17 +108,17 @@ export class EpochProvingJob implements Traceable {
           noteHashTreeRoot: block.header.state.partial.noteHashTree.root,
           nullifierTreeRoot: block.header.state.partial.nullifierTree.root,
           publicDataTreeRoot: block.header.state.partial.publicDataTree.root,
-          previousHeader: previousHeader?.hash(),
+          previousHeader: previousHeader.hash(),
           uuid: this.uuid,
           ...globalVariables,
         });
 
         // Start block proving
-        await this.prover.startNewBlock(globalVariables, l1ToL2Messages);
+        await this.prover.startNewBlock(globalVariables, l1ToL2Messages, previousHeader);
 
         // Process public fns
         const db = await this.dbProvider.fork(block.number - 1);
-        const publicProcessor = this.publicProcessorFactory.create(db, previousHeader, globalVariables, true);
+        const publicProcessor = this.publicProcessorFactory.create(db, globalVariables, true);
         const processed = await this.processTxs(publicProcessor, txs);
         await this.prover.addTxs(processed);
         await db.close();
@@ -201,10 +202,10 @@ export class EpochProvingJob implements Traceable {
     }
   }
 
-  /* Returns the header for the given block number, or undefined for block zero. */
-  private getBlockHeader(blockNumber: number) {
+  /* Returns the header for the given block number, or the genesis block for block zero. */
+  private async getBlockHeader(blockNumber: number) {
     if (blockNumber === 0) {
-      return undefined;
+      return (await this.dbProvider.fork()).getInitialHeader();
     }
     return this.l2BlockSource.getBlockHeader(blockNumber);
   }

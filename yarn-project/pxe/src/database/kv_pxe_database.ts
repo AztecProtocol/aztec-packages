@@ -10,7 +10,7 @@ import {
 } from '@aztec/circuits.js';
 import { type ContractArtifact, FunctionSelector, FunctionType } from '@aztec/foundation/abi';
 import { toBufferBE } from '@aztec/foundation/bigint-buffer';
-import { Fr } from '@aztec/foundation/fields';
+import { Fr, type Point } from '@aztec/foundation/fields';
 import { toArray } from '@aztec/foundation/iterable';
 import { type LogFn, createDebugOnlyLogger } from '@aztec/foundation/log';
 import {
@@ -297,7 +297,7 @@ export class KVPxeDatabase implements PxeDatabase {
   }
 
   async getNotes(filter: NotesFilter): Promise<NoteDao[]> {
-    const publicKey: PublicKey | undefined = filter.owner ? filter.owner.toAddressPoint() : undefined;
+    const publicKey: PublicKey | undefined = filter.owner ? await filter.owner.toAddressPoint() : undefined;
 
     filter.status = filter.status ?? NoteStatus.ACTIVE;
 
@@ -394,7 +394,7 @@ export class KVPxeDatabase implements PxeDatabase {
     return result;
   }
 
-  removeNullifiedNotes(nullifiers: InBlock<Fr>[], accountAddressPoint: PublicKey): Promise<NoteDao[]> {
+  removeNullifiedNotes(nullifiers: InBlock<Fr>[], accountAddressPoint: Point): Promise<NoteDao[]> {
     if (nullifiers.length === 0) {
       return Promise.resolve([]);
     }
@@ -622,17 +622,17 @@ export class KVPxeDatabase implements PxeDatabase {
     });
   }
 
-  async store(contract: AztecAddress, key: Fr, values: Fr[]): Promise<void> {
-    const dataKey = `${contract.toString()}:${key.toString()}`;
-    const dataBuffer = Buffer.concat(values.map(value => value.toBuffer()));
-    await this.#contractStore.set(dataKey, dataBuffer);
+  async dbStore(contractAddress: AztecAddress, slot: Fr, values: Fr[]): Promise<void> {
+    await this.#contractStore.set(
+      dbSlotToKey(contractAddress, slot),
+      Buffer.concat(values.map(value => value.toBuffer())),
+    );
   }
 
-  async load(contract: AztecAddress, key: Fr): Promise<Fr[] | null> {
-    const dataKey = `${contract.toString()}:${key.toString()}`;
-    const dataBuffer = await this.#contractStore.getAsync(dataKey);
+  async dbLoad(contractAddress: AztecAddress, slot: Fr): Promise<Fr[] | null> {
+    const dataBuffer = await this.#contractStore.getAsync(dbSlotToKey(contractAddress, slot));
     if (!dataBuffer) {
-      this.debug(`Data not found for contract ${contract.toString()} and key ${key.toString()}`);
+      this.debug(`Data not found for contract ${contractAddress.toString()} and slot ${slot.toString()}`);
       return null;
     }
     const values: Fr[] = [];
@@ -641,4 +641,36 @@ export class KVPxeDatabase implements PxeDatabase {
     }
     return values;
   }
+
+  async dbDelete(contractAddress: AztecAddress, slot: Fr): Promise<void> {
+    await this.#contractStore.delete(dbSlotToKey(contractAddress, slot));
+  }
+
+  async dbCopy(contractAddress: AztecAddress, srcSlot: Fr, dstSlot: Fr, numEntries: number): Promise<void> {
+    // In order to support overlaping source and destination regions we need to check the relative positions of source
+    // and destination. If destination is ahead of source, then by the time we overwrite source elements using forward
+    // indexes we'll have already read those. On the contrary, if source is ahead of destination we need to use backward
+    // indexes to avoid reading elements that've been overwritten.
+
+    const indexes = Array.from(Array(numEntries).keys());
+    if (srcSlot.lt(dstSlot)) {
+      indexes.reverse();
+    }
+
+    for (const i of indexes) {
+      const currentSrcSlot = dbSlotToKey(contractAddress, srcSlot.add(new Fr(i)));
+      const currentDstSlot = dbSlotToKey(contractAddress, dstSlot.add(new Fr(i)));
+
+      const toCopy = await this.#contractStore.getAsync(currentSrcSlot);
+      if (!toCopy) {
+        throw new Error(`Attempted to copy empty slot ${currentSrcSlot} for contract ${contractAddress.toString()}`);
+      }
+
+      await this.#contractStore.set(currentDstSlot, toCopy);
+    }
+  }
+}
+
+function dbSlotToKey(contractAddress: AztecAddress, slot: Fr): string {
+  return `${contractAddress.toString()}:${slot.toString()}`;
 }

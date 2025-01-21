@@ -7,7 +7,9 @@ import { type WitnessMap } from '@noir-lang/types';
 import * as proc from 'child_process';
 import { promises as fs } from 'fs';
 
-import { type SimulationProvider } from './simulation_provider.js';
+import { type ACIRCallback, type ACIRExecutionResult } from '../acvm/acvm.js';
+import { type ACVMWitness } from '../acvm/acvm_types.js';
+import { type SimulationProvider } from '../common/simulation_provider.js';
 
 const logger = createLogger('simulator:acvm-native');
 
@@ -134,7 +136,7 @@ export async function executeNativeCircuit(
 
 export class NativeACVMSimulator implements SimulationProvider {
   constructor(private workingDirectory: string, private pathToAcvm: string, private witnessFilename?: string) {}
-  async simulateCircuit(input: WitnessMap, compiledCircuit: NoirCompiledCircuit): Promise<WitnessMap> {
+  async executeProtocolCircuit(input: WitnessMap, compiledCircuit: NoirCompiledCircuit): Promise<WitnessMap> {
     // Execute the circuit on those initial witness values
 
     const operation = async (directory: string) => {
@@ -157,5 +159,13 @@ export class NativeACVMSimulator implements SimulationProvider {
     };
 
     return await runInDirectory(this.workingDirectory, operation, false);
+  }
+
+  executeUserCircuit(
+    _acir: Buffer,
+    _initialWitness: ACVMWitness,
+    _callback: ACIRCallback,
+  ): Promise<ACIRExecutionResult> {
+    throw new Error('Not implemented');
   }
 }

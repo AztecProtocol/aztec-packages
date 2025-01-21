@@ -1,0 +1,121 @@
+{{- if not .Values.ethereum.externalHost }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "aztec-network.fullname" . }}-eth-execution
+  labels:
+    {{- include "aztec-network.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.ethereum.replicas }}
+  selector:
+    matchLabels:
+      {{- include "aztec-network.selectorLabels" . | nindent 6 }}
+      app: eth-execution
+  template:
+    metadata:
+      labels:
+        {{- include "aztec-network.selectorLabels" . | nindent 8 }}
+        app: eth-execution
+    spec:
+      {{- if .Values.network.public }}
+      hostNetwork: true
+      {{- end }}
+      containers:
+        - name: ethereum
+          image: "{{ .Values.images.reth.image }}"
+          imagePullPolicy: {{ .Values.images.reth.pullPolicy }}
+          command: ["/bin/sh", "-c"]
+          args:
+            - >-
+              reth node
+              {{ include "helpers.flag" (list "http.port" .Values.ethereum.execution.service.port) }}
+              --http
+              --http.addr="0.0.0.0"
+              --http.api="admin,net,eth,web3,debug,trace"
+              --http.corsdomain="*"
+              --txpool.max-tx-input-bytes={{ .Values.ethereum.maxTxInputSizeBytes }}
+              --max-outbound-peers=0
+              --max-inbound-peers=0
+              --ipcdisable
+              --disable-discovery
+              --authrpc.addr="0.0.0.0"
+              --authrpc.port=8551
+              --authrpc.jwtsecret="/genesis/jwt-secret.hex"
+              --chain="/genesis/genesis.json"
+              --datadir="/data"
+              -vvvv
+
+          ports:
+            - containerPort: {{ .Values.ethereum.execution.service.port }}
+              name: eth-execution
+          volumeMounts:
+            - name: genesis
+              mountPath: /genesis
+            - name: shared-volume
+              mountPath: /data
+          resources:
+            {{- toYaml .Values.ethereum.resources | nindent 12 }}
+      volumes:
+        - name: shared-volume
+          persistentVolumeClaim:
+            claimName: {{ include "aztec-network.fullname" . }}-eth-execution-pvc
+        - name: genesis
+          configMap:
+            name: {{ include "aztec-network.fullname" . }}-eth-execution-genesis
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "aztec-network.fullname" . }}-eth-execution
+  labels:
+    {{- include "aztec-network.labels" . | nindent 4 }}
+spec:
+  {{- if .Values.network.public }}
+  type: LoadBalancer
+  {{- else }}
+  type: ClusterIP
+  {{- end }}
+  selector:
+    {{- include "aztec-network.selectorLabels" . | nindent 4 }}
+    app: eth-execution
+  ports:
+    - name: jsonrpc
+      protocol: TCP
+      port: {{ .Values.ethereum.execution.service.port }}
+      targetPort: {{ .Values.ethereum.execution.service.targetPort }}
+      {{- if and (eq .Values.ethereum.execution.service.type "NodePort") .Values.ethereum.execution.service.nodePort }}
+      nodePort: {{ .Values.ethereum.execution.service.nodePort }}
+      {{- end }}
+    # Engine Api
+    - name: engine
+      protocol: TCP
+      port: 8551
+      targetPort: 8551
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "aztec-network.fullname" . }}-eth-execution-genesis
+  labels:
+    {{- include "aztec-network.labels" . | nindent 4 }}
+data:
+  genesis.json: |
+    {{ .Files.Get "eth-devnet/out/genesis.json" | nindent 4 }}
+  jwt-secret.hex: |
+    {{ .Files.Get "eth-devnet/out/jwt-secret.hex" | nindent 4 }}
+---
+{{- if gt (.Values.ethereum.replicas | int) 0 }}
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ include "aztec-network.fullname" . }}-eth-execution-pvc
+  labels:
+    {{- include "aztec-network.labels" . | nindent 4 }}
+spec:
+  accessModes: ["ReadWriteOnce"]
+  resources:
+    requests:
+      storage: {{ .Values.ethereum.execution.storageSize }}
+{{- end }}
+---
+{{ end }}

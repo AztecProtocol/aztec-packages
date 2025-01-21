@@ -7,14 +7,13 @@ import {
   type SimulationError,
   type Tx,
   TxExecutionPhase,
-  UnencryptedFunctionL2Logs,
 } from '@aztec/circuit-types';
 import { type AvmSimulationStats } from '@aztec/circuit-types/stats';
 import { type Fr, type Gas, type GlobalVariables, type PublicCallRequest, type RevertCode } from '@aztec/circuits.js';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { Timer } from '@aztec/foundation/timer';
 import { ProtocolContractAddress } from '@aztec/protocol-contracts';
-import { Attributes, type TelemetryClient, type Tracer, trackSpan } from '@aztec/telemetry-client';
+import { Attributes, type TelemetryClient, type Tracer, getTelemetryClient, trackSpan } from '@aztec/telemetry-client';
 
 import { strict as assert } from 'assert';
 
@@ -53,10 +52,10 @@ export class PublicTxSimulator {
   constructor(
     private db: MerkleTreeReadOperations,
     private worldStateDB: WorldStateDB,
-    telemetryClient: TelemetryClient,
     private globalVariables: GlobalVariables,
     private doMerkleOperations: boolean = false,
     private enforceFeePayment: boolean = true,
+    telemetryClient: TelemetryClient = getTelemetryClient(),
   ) {
     this.log = createLogger(`simulator:public_tx_simulator`);
     this.metrics = new ExecutorMetrics(telemetryClient, 'PublicTxSimulator');
@@ -121,7 +120,6 @@ export class PublicTxSimulator {
     const endStateReference = await this.db.getStateReference();
 
     const avmProvingRequest = context.generateProvingRequest(endStateReference);
-    const avmCircuitPublicInputs = avmProvingRequest.inputs.output!;
 
     const revertCode = context.getFinalRevertCode();
     if (!revertCode.isOK()) {
@@ -131,13 +129,8 @@ export class PublicTxSimulator {
       // FIXME: we shouldn't need to directly modify worldStateDb here!
       await this.worldStateDB.removeNewContracts(tx);
       // FIXME(dbanks12): should not be changing immutable tx
-      tx.filterRevertedLogs(
-        tx.data.forPublic!.nonRevertibleAccumulatedData,
-        avmCircuitPublicInputs.accumulatedData.unencryptedLogsHashes,
-      );
+      tx.filterRevertedLogs(tx.data.forPublic!.nonRevertibleAccumulatedData);
     }
-    // FIXME(dbanks12): should not be changing immutable tx
-    tx.unencryptedLogs.addFunctionLogs([new UnencryptedFunctionL2Logs(context.trace.getUnencryptedLogs())]);
 
     return {
       avmProvingRequest,
@@ -219,8 +212,8 @@ export class PublicTxSimulator {
     const callRequests = context.getCallRequestsForPhase(phase);
     const executionRequests = context.getExecutionRequestsForPhase(phase);
 
-    this.log.debug(`Processing phase ${TxExecutionPhase[phase]} for tx ${context.getTxHash()}`, {
-      txHash: context.getTxHash().toString(),
+    this.log.debug(`Processing phase ${TxExecutionPhase[phase]} for tx ${context.txHash}`, {
+      txHash: context.txHash.toString(),
       phase: TxExecutionPhase[phase],
       callRequests: callRequests.length,
       executionRequests: executionRequests.length,
@@ -266,7 +259,7 @@ export class PublicTxSimulator {
    * @returns The result of execution.
    */
   @trackSpan('PublicTxSimulator.simulateEnqueuedCall', (phase, context, _callRequest, executionRequest) => ({
-    [Attributes.TX_HASH]: context.getTxHash().toString(),
+    [Attributes.TX_HASH]: context.txHash.toString(),
     [Attributes.TARGET_ADDRESS]: executionRequest.callContext.contractAddress.toString(),
     [Attributes.SENDER_ADDRESS]: executionRequest.callContext.msgSender.toString(),
     [Attributes.SIMULATOR_PHASE]: TxExecutionPhase[phase].toString(),
@@ -294,7 +287,7 @@ export class PublicTxSimulator {
     const gasUsed = allocatedGas.sub(result.gasLeft); // by enqueued call
     context.consumeGas(phase, gasUsed);
     this.log.debug(
-      `Simulated enqueued public call consumed ${gasUsed.l2Gas} L2 gas ending with ${result.gasLeft.l2Gas} L2 gas left.`,
+      `Simulated enqueued public call (${fnName}) consumed ${gasUsed.l2Gas} L2 gas ending with ${result.gasLeft.l2Gas} L2 gas left.`,
     );
 
     stateManager.traceEnqueuedCall(callRequest, executionRequest.args, result.reverted);

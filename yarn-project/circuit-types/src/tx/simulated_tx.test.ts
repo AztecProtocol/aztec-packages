@@ -6,8 +6,8 @@ import { TxProvingResult, TxSimulationResult } from './simulated_tx.js';
 describe('simulated_tx', () => {
   describe('TxSimulationResult', () => {
     let simulatedTx: TxSimulationResult;
-    beforeEach(() => {
-      simulatedTx = mockSimulatedTx();
+    beforeEach(async () => {
+      simulatedTx = await mockSimulatedTx();
     });
 
     it('convert to and from json', () => {
@@ -22,8 +22,8 @@ describe('simulated_tx', () => {
 
   describe('TxProvingResult', () => {
     let tx: TxProvingResult;
-    beforeEach(() => {
-      tx = TxProvingResult.random();
+    beforeEach(async () => {
+      tx = await TxProvingResult.random();
     });
 
     it('convert to and from json', () => {

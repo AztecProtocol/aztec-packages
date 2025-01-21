@@ -83,7 +83,6 @@ The Sequencer Client is a criticial component that coordinates tx validation, L2
 |Variable| Description|
 |----|-----|
 | VALIDATOR_DISABLED | If this is True, the client won't perform any validator duties. |
-|VALIDATOR_ATTESTATIONS_WAIT_TIMEOUT_MS | Wait for attestations timeout. After this, client throws an error and does not propose a block for that slot. |
 | VALIDATOR_ATTESTATIONS_POLLING_INTERVAL_MS | If not enough attestations, sleep for this long and check again |
 |GOVERNANCE_PROPOSER_PAYLOAD_ADDRESS | To nominate proposals for voting, you must set this variable to the Ethereum address of the `proposal` payload. You must edit this to vote on a governance upgrade.|
 | SEQ_ENFORCE_TIME_TABLE | Whether to enforce strict timeliness requirement when building blocks. Refer [here](#sequencer-timeliness-requirements) for more on the timetable |

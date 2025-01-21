@@ -1,15 +1,16 @@
 import { Tx, TxHash } from '@aztec/circuit-types';
 import { type TxAddedToPoolStats } from '@aztec/circuit-types/stats';
+import { ClientIvcProof } from '@aztec/circuits.js';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { type AztecKVStore, type AztecMap, type AztecMultiMap } from '@aztec/kv-store';
-import { type TelemetryClient } from '@aztec/telemetry-client';
+import { type TelemetryClient, getTelemetryClient } from '@aztec/telemetry-client';
 
 import { PoolInstrumentation, PoolName } from '../instrumentation.js';
 import { getPendingTxPriority } from './priority.js';
 import { type TxPool } from './tx_pool.js';
 
 /**
- * In-memory implementation of the Transaction Pool.
+ * KV implementation of the Transaction Pool.
  */
 export class AztecKVTxPool implements TxPool {
   #store: AztecKVStore;
@@ -23,21 +24,47 @@ export class AztecKVTxPool implements TxPool {
   /** Index from tx priority (stored as hex) to its tx hash, filtered by pending txs. */
   #pendingTxPriorityToHash: AztecMultiMap<string, string>;
 
+  /** KV store for archived txs. */
+  #archive: AztecKVStore;
+
+  /** Archived txs map for future lookup. */
+  #archivedTxs: AztecMap<string, Buffer>;
+
+  /** Indexes of the archived txs by insertion order. */
+  #archivedTxIndices: AztecMap<number, string>;
+
+  /** Number of txs to archive. */
+  #archivedTxLimit: number;
+
   #log: Logger;
 
   #metrics: PoolInstrumentation<Tx>;
 
   /**
-   * Class constructor for in-memory TxPool. Initiates our transaction pool as a JS Map.
-   * @param store - A KV store.
+   * Class constructor for KV TxPool. Initiates our transaction pool as an AztecMap.
+   * @param store - A KV store for live txs in the pool.
+   * @param archive - A KV store for archived txs.
+   * @param telemetry - A telemetry client.
+   * @param archivedTxLimit - The number of txs to archive.
    * @param log - A logger.
    */
-  constructor(store: AztecKVStore, telemetry: TelemetryClient, log = createLogger('p2p:tx_pool')) {
+  constructor(
+    store: AztecKVStore,
+    archive: AztecKVStore,
+    telemetry: TelemetryClient = getTelemetryClient(),
+    archivedTxLimit: number = 0,
+    log = createLogger('p2p:tx_pool'),
+  ) {
     this.#txs = store.openMap('txs');
     this.#minedTxHashToBlock = store.openMap('txHashToBlockMined');
     this.#pendingTxPriorityToHash = store.openMultiMap('pendingTxFeeToHash');
 
+    this.#archivedTxs = archive.openMap('archivedTxs');
+    this.#archivedTxIndices = archive.openMap('archivedTxIndices');
+    this.#archivedTxLimit = archivedTxLimit;
+
     this.#store = store;
+    this.#archive = archive;
     this.#log = log;
     this.#metrics = new PoolInstrumentation(telemetry, PoolName.TX_POOL, () => store.estimateSize());
   }
@@ -117,7 +144,27 @@ export class AztecKVTxPool implements TxPool {
    */
   public getTxByHash(txHash: TxHash): Tx | undefined {
     const buffer = this.#txs.get(txHash.toString());
-    return buffer ? Tx.fromBuffer(buffer) : undefined;
+    if (buffer) {
+      const tx = Tx.fromBuffer(buffer);
+      tx.setTxHash(txHash);
+      return tx;
+    }
+    return undefined;
+  }
+
+  /**
+   * Checks if an archived tx exists and returns it.
+   * @param txHash - The tx hash.
+   * @returns The transaction metadata, if found, 'undefined' otherwise.
+   */
+  public getArchivedTxByHash(txHash: TxHash): Tx | undefined {
+    const buffer = this.#archivedTxs.get(txHash.toString());
+    if (buffer) {
+      const tx = Tx.fromBuffer(buffer);
+      tx.setTxHash(txHash);
+      return tx;
+    }
+    return undefined;
   }
 
   /**
@@ -153,13 +200,14 @@ export class AztecKVTxPool implements TxPool {
   /**
    * Deletes transactions from the pool. Tx hashes that are not present are ignored.
    * @param txHashes - An array of tx hashes to be removed from the tx pool.
-   * @returns The number of transactions that was deleted from the pool.
+   * @returns Empty promise.
    */
   public deleteTxs(txHashes: TxHash[]): Promise<void> {
     let pendingDeleted = 0;
     let minedDeleted = 0;
 
-    return this.#store.transaction(() => {
+    const deletedTxs: Tx[] = [];
+    const poolDbTx = this.#store.transaction(() => {
       for (const hash of txHashes) {
         const key = hash.toString();
         const tx = this.getTxByHash(hash);
@@ -175,6 +223,10 @@ export class AztecKVTxPool implements TxPool {
             pendingDeleted++;
           }
 
+          if (this.#archivedTxLimit) {
+            deletedTxs.push(tx);
+          }
+
           void this.#txs.delete(key);
           void this.#minedTxHashToBlock.delete(key);
         }
@@ -183,6 +235,8 @@ export class AztecKVTxPool implements TxPool {
       this.#metrics.recordRemovedObjects(pendingDeleted, 'pending');
       this.#metrics.recordRemovedObjects(minedDeleted, 'mined');
     });
+
+    return this.#archivedTxLimit ? poolDbTx.then(() => this.archiveTxs(deletedTxs)) : poolDbTx;
   }
 
   /**
@@ -190,7 +244,11 @@ export class AztecKVTxPool implements TxPool {
    * @returns Array of tx objects in the order they were added to the pool.
    */
   public getAllTxs(): Tx[] {
-    return Array.from(this.#txs.values()).map(buffer => Tx.fromBuffer(buffer));
+    return Array.from(this.#txs.entries()).map(([hash, buffer]) => {
+      const tx = Tx.fromBuffer(buffer);
+      tx.setTxHash(TxHash.fromString(hash));
+      return tx;
+    });
   }
 
   /**
@@ -199,5 +257,41 @@ export class AztecKVTxPool implements TxPool {
    */
   public getAllTxHashes(): TxHash[] {
     return Array.from(this.#txs.keys()).map(x => TxHash.fromString(x));
+  }
+
+  /**
+   * Archives a list of txs for future reference. The number of archived txs is limited by the specified archivedTxLimit.
+   * @param txs - The list of transactions to archive.
+   * @returns Empty promise.
+   */
+  private archiveTxs(txs: Tx[]): Promise<void> {
+    return this.#archive.transaction(() => {
+      // calcualte the head and tail indices of the archived txs by insertion order.
+      let headIdx = (this.#archivedTxIndices.entries({ limit: 1, reverse: true }).next().value?.[0] ?? -1) + 1;
+      let tailIdx = this.#archivedTxIndices.entries({ limit: 1 }).next().value?.[0] ?? 0;
+
+      for (const tx of txs) {
+        while (headIdx - tailIdx >= this.#archivedTxLimit) {
+          const txHash = this.#archivedTxIndices.get(tailIdx);
+          if (txHash) {
+            void this.#archivedTxs.delete(txHash);
+            void this.#archivedTxIndices.delete(tailIdx);
+          }
+          tailIdx++;
+        }
+
+        const archivedTx: Tx = new Tx(
+          tx.data,
+          ClientIvcProof.empty(),
+          tx.contractClassLogs,
+          tx.enqueuedPublicFunctionCalls,
+          tx.publicTeardownFunctionCall,
+        );
+        const txHash = tx.getTxHash().toString();
+        void this.#archivedTxs.set(txHash, archivedTx.toBuffer());
+        void this.#archivedTxIndices.set(headIdx, txHash);
+        headIdx++;
+      }
+    });
   }
 }

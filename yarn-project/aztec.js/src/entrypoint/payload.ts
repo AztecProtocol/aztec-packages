@@ -1,4 +1,4 @@
-import { FunctionCall, PackedValues } from '@aztec/circuit-types';
+import { FunctionCall, HashedValues } from '@aztec/circuit-types';
 import { type AztecAddress, Fr, type GasSettings, GeneratorIndex } from '@aztec/circuits.js';
 import { FunctionType } from '@aztec/foundation/abi';
 import { padArrayEnd } from '@aztec/foundation/collection';
@@ -24,6 +24,8 @@ export type UserFeeOptions = {
   paymentMethod?: FeePaymentMethod;
   /** The gas settings */
   gasSettings?: Partial<FieldsOf<GasSettings>>;
+  /** Percentage to pad the base fee by, if empty, defaults to 0.5 */
+  baseFeePadding?: number;
   /** Whether to run an initial simulation of the tx with high gas limit to figure out actual gas settings. */
   estimateGas?: boolean;
   /** Percentage to pad the estimated gas limits by, if empty, defaults to 0.1. Only relevant if estimateGas is set. */
@@ -54,19 +56,19 @@ type EncodedFunctionCall = {
 
 /** Assembles an entrypoint payload */
 export abstract class EntrypointPayload {
-  #packedArguments: PackedValues[] = [];
+  #hashedArguments: HashedValues[] = [];
   #functionCalls: EncodedFunctionCall[] = [];
   #nonce: Fr;
   #generatorIndex: number;
 
   protected constructor(functionCalls: FunctionCall[], generatorIndex: number, nonce = Fr.random()) {
     for (const call of functionCalls) {
-      this.#packedArguments.push(PackedValues.fromValues(call.args));
+      this.#hashedArguments.push(HashedValues.fromValues(call.args));
     }
 
     /* eslint-disable camelcase */
     this.#functionCalls = functionCalls.map((call, index) => ({
-      args_hash: this.#packedArguments[index].hash,
+      args_hash: this.#hashedArguments[index].hash,
       function_selector: call.selector.toField(),
       target_address: call.to.toField(),
       is_public: call.type == FunctionType.PUBLIC,
@@ -97,10 +99,10 @@ export abstract class EntrypointPayload {
   }
 
   /**
-   * The packed arguments for the function calls
+   * The hashed arguments for the function calls
    */
-  get packedArguments() {
-    return this.#packedArguments;
+  get hashedArguments() {
+    return this.#hashedArguments;
   }
 
   /**

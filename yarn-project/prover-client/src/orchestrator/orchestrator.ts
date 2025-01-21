@@ -3,12 +3,14 @@ import {
   MerkleTreeId,
   type ProcessedTx,
   type ServerCircuitProver,
+  type Tx,
   toNumBlobFields,
 } from '@aztec/circuit-types';
 import {
   type EpochProver,
   type ForkMerkleTreeOperations,
   type MerkleTreeWriteOperations,
+  type ProofAndVerificationKey,
 } from '@aztec/circuit-types/interfaces';
 import { type CircuitName } from '@aztec/circuit-types/stats';
 import {
@@ -16,16 +18,14 @@ import {
   AVM_VERIFICATION_KEY_LENGTH_IN_FIELDS,
   type AppendOnlyTreeSnapshot,
   BaseParityInputs,
-  BlockHeader,
-  ContentCommitment,
+  type BlockHeader,
   Fr,
-  GlobalVariables,
+  type GlobalVariables,
   L1_TO_L2_MSG_SUBTREE_HEIGHT,
   L1_TO_L2_MSG_SUBTREE_SIBLING_PATH_LENGTH,
   NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
   NUM_BASE_PARITY_PER_ROOT_PARITY,
-  PartialStateReference,
-  StateReference,
+  type TUBE_PROOF_LENGTH,
   VerificationKeyData,
   makeEmptyRecursiveProof,
 } from '@aztec/circuits.js';
@@ -34,18 +34,25 @@ import {
   EmptyBlockRootRollupInputs,
   PrivateBaseRollupInputs,
   SingleTxBlockRootRollupInputs,
+  TubeInputs,
 } from '@aztec/circuits.js/rollup';
-import { makeTuple } from '@aztec/foundation/array';
 import { padArrayEnd } from '@aztec/foundation/collection';
 import { AbortError } from '@aztec/foundation/error';
 import { createLogger } from '@aztec/foundation/log';
 import { promiseWithResolvers } from '@aztec/foundation/promise';
-import { type Tuple } from '@aztec/foundation/serialize';
+import { assertLength } from '@aztec/foundation/serialize';
 import { pushTestData } from '@aztec/foundation/testing';
 import { elapsed } from '@aztec/foundation/timer';
 import { type TreeNodeLocation } from '@aztec/foundation/trees';
 import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types/vks';
-import { Attributes, type TelemetryClient, type Tracer, trackSpan, wrapCallbackInSpan } from '@aztec/telemetry-client';
+import {
+  Attributes,
+  type TelemetryClient,
+  type Tracer,
+  getTelemetryClient,
+  trackSpan,
+  wrapCallbackInSpan,
+} from '@aztec/telemetry-client';
 
 import { inspect } from 'util';
 
@@ -90,8 +97,8 @@ export class ProvingOrchestrator implements EpochProver {
   constructor(
     private dbProvider: ForkMerkleTreeOperations,
     private prover: ServerCircuitProver,
-    telemetryClient: TelemetryClient,
     private readonly proverId: Fr = Fr.ZERO,
+    telemetryClient: TelemetryClient = getTelemetryClient(),
   ) {
     this.metrics = new ProvingOrchestratorMetrics(telemetryClient, 'ProvingOrchestrator');
   }
@@ -129,7 +136,7 @@ export class ProvingOrchestrator implements EpochProver {
   @trackSpan('ProvingOrchestrator.startNewBlock', globalVariables => ({
     [Attributes.BLOCK_NUMBER]: globalVariables.blockNumber.toNumber(),
   }))
-  public async startNewBlock(globalVariables: GlobalVariables, l1ToL2Messages: Fr[]) {
+  public async startNewBlock(globalVariables: GlobalVariables, l1ToL2Messages: Fr[], previousBlockHeader: BlockHeader) {
     if (!this.provingState) {
       throw new Error(`Invalid proving state, call startNewEpoch before starting a block`);
     }
@@ -147,70 +154,21 @@ export class ProvingOrchestrator implements EpochProver {
     this.dbs.set(globalVariables.blockNumber.toNumber(), db);
 
     // we start the block by enqueueing all of the base parity circuits
-    let baseParityInputs: BaseParityInputs[] = [];
-    let l1ToL2MessagesPadded: Tuple<Fr, typeof NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP>;
-    try {
-      l1ToL2MessagesPadded = padArrayEnd(l1ToL2Messages, Fr.ZERO, NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP);
-    } catch (err) {
-      throw new Error('Too many L1 to L2 messages');
-    }
-    baseParityInputs = Array.from({ length: NUM_BASE_PARITY_PER_ROOT_PARITY }, (_, i) =>
-      BaseParityInputs.fromSlice(l1ToL2MessagesPadded, i, getVKTreeRoot()),
-    );
-
-    const messageTreeSnapshot = await getTreeSnapshot(MerkleTreeId.L1_TO_L2_MESSAGE_TREE, db);
-
-    const newL1ToL2MessageTreeRootSiblingPathArray = await getSubtreeSiblingPath(
-      MerkleTreeId.L1_TO_L2_MESSAGE_TREE,
-      L1_TO_L2_MSG_SUBTREE_HEIGHT,
-      db,
-    );
-
-    const newL1ToL2MessageTreeRootSiblingPath = makeTuple(
-      L1_TO_L2_MSG_SUBTREE_SIBLING_PATH_LENGTH,
-      i =>
-        i < newL1ToL2MessageTreeRootSiblingPathArray.length ? newL1ToL2MessageTreeRootSiblingPathArray[i] : Fr.ZERO,
-      0,
-    );
-
-    // Update the local trees to include the new l1 to l2 messages
-    await db.appendLeaves(MerkleTreeId.L1_TO_L2_MESSAGE_TREE, l1ToL2MessagesPadded);
-    const messageTreeSnapshotAfterInsertion = await getTreeSnapshot(MerkleTreeId.L1_TO_L2_MESSAGE_TREE, db);
+    const { l1ToL2MessageSubtreeSiblingPath, l1ToL2MessageTreeSnapshotAfterInsertion, baseParityInputs } =
+      await this.prepareBaseParityInputs(l1ToL2Messages, db);
 
     // Get archive snapshot before this block lands
-    const startArchiveSnapshot = await getTreeSnapshot(MerkleTreeId.ARCHIVE, db);
+    const lastArchive = await getTreeSnapshot(MerkleTreeId.ARCHIVE, db);
     const newArchiveSiblingPath = await getRootTreeSiblingPath(MerkleTreeId.ARCHIVE, db);
-    const previousBlockHash = await db.getLeafValue(
-      MerkleTreeId.ARCHIVE,
-      BigInt(startArchiveSnapshot.nextAvailableLeafIndex - 1),
-    );
-
-    const partial = new PartialStateReference(
-      await getTreeSnapshot(MerkleTreeId.NOTE_HASH_TREE, db),
-      await getTreeSnapshot(MerkleTreeId.NULLIFIER_TREE, db),
-      await getTreeSnapshot(MerkleTreeId.PUBLIC_DATA_TREE, db),
-    );
-    const state = new StateReference(messageTreeSnapshot, partial);
-    // TODO: Construct the full previousBlockHeader.
-    const previousBlockHeader = BlockHeader.from({
-      lastArchive: startArchiveSnapshot,
-      contentCommitment: ContentCommitment.empty(),
-      state,
-      globalVariables: GlobalVariables.empty(),
-      totalFees: Fr.ZERO,
-      totalManaUsed: Fr.ZERO,
-    });
 
     const blockProvingState = this.provingState!.startNewBlock(
       globalVariables,
-      l1ToL2MessagesPadded,
-      messageTreeSnapshot,
-      newL1ToL2MessageTreeRootSiblingPath,
-      messageTreeSnapshotAfterInsertion,
-      startArchiveSnapshot,
+      l1ToL2Messages,
+      l1ToL2MessageSubtreeSiblingPath,
+      l1ToL2MessageTreeSnapshotAfterInsertion,
+      lastArchive,
       newArchiveSiblingPath,
       previousBlockHeader,
-      previousBlockHash!,
     );
 
     // Enqueue base parity circuits for the block
@@ -259,15 +217,10 @@ export class ProvingOrchestrator implements EpochProver {
 
         logger.info(`Received transaction: ${tx.hash}`);
 
-        if (tx.isEmpty) {
-          logger.warn(`Ignoring empty transaction ${tx.hash} - it will not be added to this block`);
-          continue;
-        }
-
         const [hints, treeSnapshots] = await this.prepareTransaction(tx, provingState);
         const txProvingState = new TxProvingState(tx, hints, treeSnapshots);
         const txIndex = provingState.addNewTx(txProvingState);
-        this.enqueueTube(provingState, txIndex);
+        this.getOrEnqueueTube(provingState, txIndex);
         if (txProvingState.requireAvmProof) {
           logger.debug(`Enqueueing public VM for tx ${txIndex}`);
           this.enqueueVM(provingState, txIndex);
@@ -277,6 +230,25 @@ export class ProvingOrchestrator implements EpochProver {
           cause: err,
         });
       }
+    }
+  }
+
+  /**
+   * Kickstarts tube circuits for the specified txs. These will be used during epoch proving.
+   * Note that if the tube circuits are not started this way, they will be started nontheless after processing.
+   */
+  @trackSpan('ProvingOrchestrator.startTubeCircuits')
+  public startTubeCircuits(txs: Tx[]) {
+    if (!this.provingState?.verifyState()) {
+      throw new Error(`Invalid proving state, call startNewEpoch before starting tube circuits`);
+    }
+    for (const tx of txs) {
+      const txHash = tx.getTxHash().toString();
+      const tubeInputs = new TubeInputs(tx.clientIvcProof);
+      const tubeProof = promiseWithResolvers<ProofAndVerificationKey<typeof TUBE_PROOF_LENGTH>>();
+      logger.debug(`Starting tube circuit for tx ${txHash}`);
+      this.doEnqueueTube(txHash, tubeInputs, proof => tubeProof.resolve(proof));
+      this.provingState?.cachedTubeProofs.set(txHash, tubeProof.promise);
     }
   }
 
@@ -477,6 +449,33 @@ export class ProvingOrchestrator implements EpochProver {
     setImmediate(safeJob);
   }
 
+  private async prepareBaseParityInputs(l1ToL2Messages: Fr[], db: MerkleTreeWriteOperations) {
+    const l1ToL2MessagesPadded = padArrayEnd(
+      l1ToL2Messages,
+      Fr.ZERO,
+      NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
+      'Too many L1 to L2 messages',
+    );
+    const baseParityInputs = Array.from({ length: NUM_BASE_PARITY_PER_ROOT_PARITY }, (_, i) =>
+      BaseParityInputs.fromSlice(l1ToL2MessagesPadded, i, getVKTreeRoot()),
+    );
+
+    const l1ToL2MessageSubtreeSiblingPath = assertLength(
+      await getSubtreeSiblingPath(MerkleTreeId.L1_TO_L2_MESSAGE_TREE, L1_TO_L2_MSG_SUBTREE_HEIGHT, db),
+      L1_TO_L2_MSG_SUBTREE_SIBLING_PATH_LENGTH,
+    );
+
+    // Update the local trees to include the new l1 to l2 messages
+    await db.appendLeaves(MerkleTreeId.L1_TO_L2_MESSAGE_TREE, l1ToL2MessagesPadded);
+    const l1ToL2MessageTreeSnapshotAfterInsertion = await getTreeSnapshot(MerkleTreeId.L1_TO_L2_MESSAGE_TREE, db);
+
+    return {
+      l1ToL2MessageSubtreeSiblingPath,
+      l1ToL2MessageTreeSnapshotAfterInsertion,
+      baseParityInputs,
+    };
+  }
+
   // Updates the merkle trees for a transaction. The first enqueued job for a transaction
   @trackSpan('ProvingOrchestrator.prepareBaseRollupInputs', (_, tx) => ({
     [Attributes.TX_HASH]: tx.hash.toString(),
@@ -498,9 +497,7 @@ export class ProvingOrchestrator implements EpochProver {
       buildBaseRollupHints(tx, provingState.globalVariables, db, provingState.spongeBlobState),
     );
 
-    if (!tx.isEmpty) {
-      this.metrics.recordBaseRollupInputs(ms);
-    }
+    this.metrics.recordBaseRollupInputs(ms);
 
     const promises = [MerkleTreeId.NOTE_HASH_TREE, MerkleTreeId.NULLIFIER_TREE, MerkleTreeId.PUBLIC_DATA_TREE].map(
       async (id: MerkleTreeId) => {
@@ -528,11 +525,7 @@ export class ProvingOrchestrator implements EpochProver {
     const { processedTx } = txProvingState;
     const { rollupType, inputs } = txProvingState.getBaseRollupTypeAndInputs();
 
-    logger.debug(
-      `Enqueuing deferred proving base rollup${
-        processedTx.isEmpty ? ' with padding tx' : ''
-      } for ${processedTx.hash.toString()}`,
-    );
+    logger.debug(`Enqueuing deferred proving base rollup for ${processedTx.hash.toString()}`);
 
     this.deferredProving(
       provingState,
@@ -567,16 +560,44 @@ export class ProvingOrchestrator implements EpochProver {
     );
   }
 
-  // Enqueues the tube circuit for a given transaction index
+  // Enqueues the tube circuit for a given transaction index, or reuses the one already enqueued
   // Once completed, will enqueue the next circuit, either a public kernel or the base rollup
-  private enqueueTube(provingState: BlockProvingState, txIndex: number) {
+  private getOrEnqueueTube(provingState: BlockProvingState, txIndex: number) {
     if (!provingState.verifyState()) {
       logger.debug('Not running tube circuit, state invalid');
       return;
     }
 
     const txProvingState = provingState.getTxProvingState(txIndex);
+    const txHash = txProvingState.processedTx.hash.toString();
+
+    const handleResult = (result: ProofAndVerificationKey<typeof TUBE_PROOF_LENGTH>) => {
+      logger.debug(`Got tube proof for tx index: ${txIndex}`, { txHash });
+      txProvingState.setTubeProof(result);
+      this.provingState?.cachedTubeProofs.delete(txHash);
+      this.checkAndEnqueueNextTxCircuit(provingState, txIndex);
+    };
+
+    if (this.provingState?.cachedTubeProofs.has(txHash)) {
+      logger.debug(`Tube proof already enqueued for tx index: ${txIndex}`, { txHash });
+      void this.provingState!.cachedTubeProofs.get(txHash)!.then(handleResult);
+      return;
+    }
+
     logger.debug(`Enqueuing tube circuit for tx index: ${txIndex}`);
+    this.doEnqueueTube(txHash, txProvingState.getTubeInputs(), handleResult);
+  }
+
+  private doEnqueueTube(
+    txHash: string,
+    inputs: TubeInputs,
+    handler: (result: ProofAndVerificationKey<typeof TUBE_PROOF_LENGTH>) => void,
+    provingState: EpochProvingState | BlockProvingState = this.provingState!,
+  ) {
+    if (!provingState?.verifyState()) {
+      logger.debug('Not running tube circuit, state invalid');
+      return;
+    }
 
     this.deferredProving(
       provingState,
@@ -584,20 +605,13 @@ export class ProvingOrchestrator implements EpochProver {
         this.tracer,
         'ProvingOrchestrator.prover.getTubeProof',
         {
-          [Attributes.TX_HASH]: txProvingState.processedTx.hash.toString(),
+          [Attributes.TX_HASH]: txHash,
           [Attributes.PROTOCOL_CIRCUIT_TYPE]: 'server',
           [Attributes.PROTOCOL_CIRCUIT_NAME]: 'tube-circuit' satisfies CircuitName,
         },
-        signal => {
-          const inputs = txProvingState.getTubeInputs();
-          return this.prover.getTubeProof(inputs, signal, provingState.epochNumber);
-        },
+        signal => this.prover.getTubeProof(inputs, signal, this.provingState!.epochNumber),
       ),
-      result => {
-        logger.debug(`Completed tube proof for tx index: ${txIndex}`);
-        txProvingState.setTubeProof(result);
-        this.checkAndEnqueueNextTxCircuit(provingState, txIndex);
-      },
+      handler,
     );
   }
 

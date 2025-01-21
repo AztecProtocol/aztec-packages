@@ -6,7 +6,7 @@ import { type EthAddress } from '@aztec/foundation/eth-address';
 import { type DateProvider } from '@aztec/foundation/timer';
 import { type P2P } from '@aztec/p2p';
 import { LightweightBlockBuilderFactory } from '@aztec/prover-client/block-builder';
-import { PublicProcessorFactory } from '@aztec/simulator';
+import { PublicProcessorFactory } from '@aztec/simulator/server';
 import { type TelemetryClient } from '@aztec/telemetry-client';
 import { type ValidatorClient } from '@aztec/validator-client';
 
@@ -104,8 +104,8 @@ export class SequencerClient {
       contractDataSource,
       l1Constants,
       deps.dateProvider,
-      telemetryClient,
       { ...config, maxL1TxInclusionTimeIntoSlot },
+      telemetryClient,
     );
     await validatorClient?.start();
     await sequencer.start();

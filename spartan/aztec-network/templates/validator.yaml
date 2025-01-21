@@ -49,22 +49,7 @@ spec:
             - |
               source /shared/config/service-addresses
               cat /shared/config/service-addresses
-              # First check ethereum node
-              until curl -s -X POST -H 'Content-Type: application/json' \
-                -d '{"jsonrpc":"2.0","method":"eth_chainId","params":[],"id":67}' \
-                $ETHEREUM_HOST | grep 0x; do
-                echo "Waiting for Ethereum node ${ETHEREUM_HOST}..."
-                sleep 5
-              done
-              echo "Ethereum node is ready!"
-
-              {{- if .Values.telemetry.enabled }}
-              until curl --head --silent $OTEL_COLLECTOR_ENDPOINT > /dev/null; do
-                echo "Waiting for OpenTelemetry collector $OTEL_COLLECTOR_ENDPOINT..."
-                sleep 5
-              done
-              echo "OpenTelemetry collector is ready!"
-              {{- end }}
+              {{- include "aztec-network.waitForEthereum" . | nindent 14 }}
 
               if [ "{{ .Values.validator.dynamicBootNode }}" = "true" ]; then
                 echo "{{ include "aztec-network.pxeUrl" . }}" > /shared/pxe/pxe_url
@@ -158,10 +143,16 @@ spec:
               valueFrom:
                 fieldRef:
                   fieldPath: metadata.name
+            - name: OTEL_SERVICE_NAME
+              value: validator
             - name: POD_IP
               valueFrom:
                 fieldRef:
                   fieldPath: status.podIP
+            - name: K8S_NAMESPACE_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
             - name: NODE_OPTIONS
               value: "--max-old-space-size={{ .Values.validator.maxOldSpaceSize}}"
             - name: AZTEC_PORT
@@ -208,12 +199,20 @@ spec:
               value: {{ .Values.validator.viemPollingInterval | quote }}
             - name: SEQ_VIEM_POLLING_INTERVAL_MS
               value: {{ .Values.validator.viemPollingInterval | quote }}
+            - name: L1_FIXED_PRIORITY_FEE_PER_GAS
+              value: {{ .Values.validator.l1FixedPriorityFeePerGas | quote }}
+            - name: L1_GAS_LIMIT_BUFFER_PERCENTAGE
+              value: {{ .Values.validator.l1GasLimitBufferPercentage | quote }}
             - name: DATA_DIRECTORY
               value: "{{ .Values.validator.dataDir }}"
             - name: DATA_STORE_MAP_SIZE_KB
               value: "{{ .Values.storage.dataStoreMapSize }}"
             - name: WS_DB_MAP_SIZE_KB
               value: "{{ .Values.storage.worldStateMapSize }}"
+            - name: USE_GCLOUD_OBSERVABILITY
+              value: "{{ .Values.telemetry.useGcloudObservability }}"
+            - name: OTEL_EXCLUDE_METRICS
+              value: "{{ .Values.validator.otelExcludeMetrics }}"
           ports:
             - containerPort: {{ .Values.validator.service.nodePort }}
             - containerPort: {{ .Values.validator.service.p2pTcpPort }}

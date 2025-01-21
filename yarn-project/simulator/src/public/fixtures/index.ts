@@ -32,56 +32,71 @@ import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { Fr, Point } from '@aztec/foundation/fields';
 import { openTmpStore } from '@aztec/kv-store/lmdb';
 import { AvmTestContractArtifact } from '@aztec/noir-contracts.js/AvmTest';
-import {
-  AvmEphemeralForest,
-  AvmSimulator,
-  PublicEnqueuedCallSideEffectTrace,
-  PublicTxSimulator,
-  WorldStateDB,
-} from '@aztec/simulator';
-import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
 import { MerkleTrees } from '@aztec/world-state';
 
 import { strict as assert } from 'assert';
 
 import { initContext, initExecutionEnvironment, initPersistableStateManager } from '../../avm/fixtures/index.js';
+import { AvmEphemeralForest, AvmSimulator } from '../../server.js';
+import { PublicEnqueuedCallSideEffectTrace } from '../enqueued_call_side_effect_trace.js';
+import { WorldStateDB } from '../public_db_sources.js';
+import { PublicTxSimulator } from '../public_tx_simulator.js';
 
 const TIMESTAMP = new Fr(99833);
 
 export async function simulateAvmTestContractGenerateCircuitInputs(
-  functionName: string,
-  args: Fr[] = [],
+  setupFunctionNames: string[],
+  setupArgs: Fr[][] = [],
+  appFunctionNames: string[],
+  appArgs: Fr[][] = [],
+  teardownFunctionName?: string,
+  teardownArgs: Fr[] = [],
   expectRevert: boolean = false,
-  contractDataSource = new MockedAvmTestContractDataSource(),
+  contractDataSource?: MockedAvmTestContractDataSource,
   assertionErrString?: string,
 ): Promise<AvmCircuitInputs> {
   const globals = GlobalVariables.empty();
   globals.timestamp = TIMESTAMP;
 
-  const merkleTrees = await (await MerkleTrees.new(openTmpStore(), new NoopTelemetryClient())).fork();
+  const merkleTrees = await (await MerkleTrees.new(openTmpStore())).fork();
+  if (!contractDataSource) {
+    contractDataSource = await MockedAvmTestContractDataSource.create();
+  }
   await contractDataSource.deployContracts(merkleTrees);
   const worldStateDB = new WorldStateDB(merkleTrees, contractDataSource);
 
-  const simulator = new PublicTxSimulator(
-    merkleTrees,
-    worldStateDB,
-    new NoopTelemetryClient(),
-    globals,
-    /*doMerkleOperations=*/ true,
-  );
+  const simulator = new PublicTxSimulator(merkleTrees, worldStateDB, globals, /*doMerkleOperations=*/ true);
 
-  const sender = AztecAddress.random();
-  const functionSelector = getAvmTestContractFunctionSelector(functionName);
-  args = [functionSelector.toField(), ...args];
+  const sender = await AztecAddress.random();
   const callContext = new CallContext(
     sender,
     contractDataSource.firstContractInstance.address,
     contractDataSource.fnSelector,
     /*isStaticCall=*/ false,
   );
-  const executionRequest = new PublicExecutionRequest(callContext, args);
+  const setupExecutionRequests: PublicExecutionRequest[] = [];
+  for (let i = 0; i < setupFunctionNames.length; i++) {
+    const functionSelector = getAvmTestContractFunctionSelector(setupFunctionNames[i]);
+    const fnArgs = [functionSelector.toField(), ...setupArgs[i]];
+    const executionRequest = new PublicExecutionRequest(callContext, fnArgs);
+    setupExecutionRequests.push(executionRequest);
+  }
+  const appExecutionRequests: PublicExecutionRequest[] = [];
+  for (let i = 0; i < appFunctionNames.length; i++) {
+    const functionSelector = getAvmTestContractFunctionSelector(appFunctionNames[i]);
+    const fnArgs = [functionSelector.toField(), ...appArgs[i]];
+    const executionRequest = new PublicExecutionRequest(callContext, fnArgs);
+    appExecutionRequests.push(executionRequest);
+  }
 
-  const tx: Tx = createTxForPublicCall(executionRequest);
+  let teardownExecutionRequest: PublicExecutionRequest | undefined = undefined;
+  if (teardownFunctionName) {
+    const functionSelector = getAvmTestContractFunctionSelector(teardownFunctionName);
+    const fnArgs = [functionSelector.toField(), ...teardownArgs];
+    teardownExecutionRequest = new PublicExecutionRequest(callContext, fnArgs);
+  }
+
+  const tx: Tx = createTxForPublicCalls(setupExecutionRequests, appExecutionRequests, teardownExecutionRequest);
 
   const avmResult = await simulator.simulate(tx);
 
@@ -104,12 +119,16 @@ export async function simulateAvmTestContractCall(
   functionName: string,
   args: Fr[] = [],
   expectRevert: boolean = false,
-  contractDataSource = new MockedAvmTestContractDataSource(),
+  contractDataSource?: MockedAvmTestContractDataSource,
 ) {
   const globals = GlobalVariables.empty();
   globals.timestamp = TIMESTAMP;
 
-  const merkleTrees = await (await MerkleTrees.new(openTmpStore(), new NoopTelemetryClient())).fork();
+  if (!contractDataSource) {
+    contractDataSource = await MockedAvmTestContractDataSource.create();
+  }
+
+  const merkleTrees = await (await MerkleTrees.new(openTmpStore())).fork();
   await contractDataSource.deployContracts(merkleTrees);
   const worldStateDB = new WorldStateDB(merkleTrees, contractDataSource);
 
@@ -122,7 +141,7 @@ export async function simulateAvmTestContractCall(
     doMerkleOperations: true,
   });
 
-  const sender = AztecAddress.random();
+  const sender = await AztecAddress.random();
   const functionSelector = getAvmTestContractFunctionSelector(functionName);
   args = [functionSelector.toField(), ...args];
   const environment = initExecutionEnvironment({
@@ -141,27 +160,39 @@ export async function simulateAvmTestContractCall(
 }
 
 /**
- * Craft a carrier transaction for a public call for simulation by PublicTxSimulator.
+ * Craft a carrier transaction for some public calls for simulation by PublicTxSimulator.
  */
-export function createTxForPublicCall(
-  executionRequest: PublicExecutionRequest,
+export function createTxForPublicCalls(
+  setupExecutionRequests: PublicExecutionRequest[],
+  appExecutionRequests: PublicExecutionRequest[],
+  teardownExecutionRequest?: PublicExecutionRequest,
   gasUsedByPrivate: Gas = Gas.empty(),
-  isTeardown: boolean = false,
 ): Tx {
-  const callRequest = executionRequest.toCallRequest();
+  assert(
+    setupExecutionRequests.length > 0 || appExecutionRequests.length > 0 || teardownExecutionRequest !== undefined,
+    "Can't create public tx with no enqueued calls",
+  );
+  const setupCallRequests = setupExecutionRequests.map(er => er.toCallRequest());
+  const appCallRequests = appExecutionRequests.map(er => er.toCallRequest());
   // use max limits
   const gasLimits = new Gas(DEFAULT_GAS_LIMIT, MAX_L2_GAS_PER_TX_PUBLIC_PORTION);
 
   const forPublic = PartialPrivateTailPublicInputsForPublic.empty();
   // TODO(#9269): Remove this fake nullifier method as we move away from 1st nullifier as hash.
   forPublic.nonRevertibleAccumulatedData.nullifiers[0] = Fr.random(); // fake tx nullifier
-  if (isTeardown) {
-    forPublic.publicTeardownCallRequest = callRequest;
-  } else {
-    forPublic.revertibleAccumulatedData.publicCallRequests[0] = callRequest;
+
+  // We reverse order because the simulator expects it to be like a "stack" of calls to pop from
+  for (let i = setupCallRequests.length - 1; i >= 0; i--) {
+    forPublic.nonRevertibleAccumulatedData.publicCallRequests[i] = setupCallRequests[i];
+  }
+  for (let i = appCallRequests.length - 1; i >= 0; i--) {
+    forPublic.revertibleAccumulatedData.publicCallRequests[i] = appCallRequests[i];
+  }
+  if (teardownExecutionRequest) {
+    forPublic.publicTeardownCallRequest = teardownExecutionRequest.toCallRequest();
   }
 
-  const teardownGasLimits = isTeardown ? gasLimits : Gas.empty();
+  const teardownGasLimits = teardownExecutionRequest ? gasLimits : Gas.empty();
   const gasSettings = new GasSettings(gasLimits, teardownGasLimits, GasFees.empty(), GasFees.empty());
   const txContext = new TxContext(Fr.zero(), Fr.zero(), gasSettings);
   const constantData = new TxConstantData(BlockHeader.empty(), txContext, Fr.zero(), Fr.zero());
@@ -173,9 +204,15 @@ export function createTxForPublicCall(
     AztecAddress.zero(),
     forPublic,
   );
-  const tx = isTeardown ? Tx.newWithTxData(txData, executionRequest) : Tx.newWithTxData(txData);
-  if (!isTeardown) {
-    tx.enqueuedPublicFunctionCalls[0] = executionRequest;
+  const tx = Tx.newWithTxData(txData, teardownExecutionRequest);
+
+  // Reverse order because the simulator expects it to be like a "stack" of calls to pop from.
+  // Also push app calls before setup calls for this reason.
+  for (let i = appExecutionRequests.length - 1; i >= 0; i--) {
+    tx.enqueuedPublicFunctionCalls.push(appExecutionRequests[i]);
+  }
+  for (let i = setupExecutionRequests.length - 1; i >= 0; i--) {
+    tx.enqueuedPublicFunctionCalls.push(setupExecutionRequests[i]);
   }
 
   return tx;
@@ -198,45 +235,13 @@ export class MockedAvmTestContractDataSource implements ContractDataSource {
   );
   public instanceSameClassAsFirstContract: ContractInstanceWithAddress =
     SerializableContractInstance.default().withAddress(AztecAddress.fromNumber(0));
-  public otherContractInstance: ContractInstanceWithAddress;
+  public otherContractInstance!: ContractInstanceWithAddress;
 
-  constructor(private skipContractDeployments: boolean = false) {
+  private constructor(private skipContractDeployments: boolean) {
     this.bytecode = getAvmTestContractBytecode(this.fnName);
     this.fnSelector = getAvmTestContractFunctionSelector(this.fnName);
     this.publicFn = { bytecode: this.bytecode, selector: this.fnSelector };
     this.bytecodeCommitment = computePublicBytecodeCommitment(this.bytecode);
-
-    // create enough unique classes to hit the limit (plus two extra)
-    for (let i = 0; i < MAX_PUBLIC_CALLS_TO_UNIQUE_CONTRACT_CLASS_IDS + 1; i++) {
-      const contractClass = makeContractClassPublic(/*seed=*/ i, this.publicFn);
-      const contractInstance = makeContractInstanceFromClassId(contractClass.id, /*seed=*/ i);
-      this.contractClasses.set(contractClass.id.toString(), contractClass);
-      this.contractInstances.set(contractInstance.address.toString(), contractInstance);
-      if (i === 0) {
-        this.firstContractInstance = contractInstance;
-      }
-    }
-    // a contract with the same class but different instance/address as the first contract
-    this.instanceSameClassAsFirstContract = makeContractInstanceFromClassId(
-      this.firstContractInstance.contractClassId,
-      /*seed=*/ 1000,
-    );
-
-    // The values here should match those in `avm_simulator.test.ts`
-    // Used for GETCONTRACTINSTANCE test
-    this.otherContractInstance = new SerializableContractInstance({
-      version: 1,
-      salt: new Fr(0x123),
-      deployer: new AztecAddress(new Fr(0x456)),
-      contractClassId: new Fr(0x789),
-      initializationHash: new Fr(0x101112),
-      publicKeys: new PublicKeys(
-        new Point(new Fr(0x131415), new Fr(0x161718), false),
-        new Point(new Fr(0x192021), new Fr(0x222324), false),
-        new Point(new Fr(0x252627), new Fr(0x282930), false),
-        new Point(new Fr(0x313233), new Fr(0x343536), false),
-      ),
-    }).withAddress(AztecAddress.fromNumber(0x4444));
   }
 
   async deployContracts(merkleTrees: MerkleTreeWriteOperations) {
@@ -268,14 +273,39 @@ export class MockedAvmTestContractDataSource implements ContractDataSource {
     }
   }
 
-  public static async create(
-    merkleTrees: MerkleTreeWriteOperations,
-    skipContractDeployments: boolean = false,
-  ): Promise<MockedAvmTestContractDataSource> {
+  public static async create(skipContractDeployments: boolean = false): Promise<MockedAvmTestContractDataSource> {
     const dataSource = new MockedAvmTestContractDataSource(skipContractDeployments);
-    if (!skipContractDeployments) {
-      await dataSource.deployContracts(merkleTrees);
+    // create enough unique classes to hit the limit (plus two extra)
+    for (let i = 0; i < MAX_PUBLIC_CALLS_TO_UNIQUE_CONTRACT_CLASS_IDS + 1; i++) {
+      const contractClass = makeContractClassPublic(/*seed=*/ i, dataSource.publicFn);
+      const contractInstance = await makeContractInstanceFromClassId(contractClass.id, /*seed=*/ i);
+      dataSource.contractClasses.set(contractClass.id.toString(), contractClass);
+      dataSource.contractInstances.set(contractInstance.address.toString(), contractInstance);
+      if (i === 0) {
+        dataSource.firstContractInstance = contractInstance;
+      }
     }
+    // a contract with the same class but different instance/address as the first contract
+    dataSource.instanceSameClassAsFirstContract = await makeContractInstanceFromClassId(
+      dataSource.firstContractInstance.contractClassId,
+      /*seed=*/ 1000,
+    );
+
+    // The values here should match those in `avm_simulator.test.ts`
+    // Used for GETCONTRACTINSTANCE test
+    dataSource.otherContractInstance = new SerializableContractInstance({
+      version: 1,
+      salt: new Fr(0x123),
+      deployer: new AztecAddress(new Fr(0x456)),
+      contractClassId: new Fr(0x789),
+      initializationHash: new Fr(0x101112),
+      publicKeys: new PublicKeys(
+        new Point(new Fr(0x131415), new Fr(0x161718), false),
+        new Point(new Fr(0x192021), new Fr(0x222324), false),
+        new Point(new Fr(0x252627), new Fr(0x282930), false),
+        new Point(new Fr(0x313233), new Fr(0x343536), false),
+      ),
+    }).withAddress(AztecAddress.fromNumber(0x4444));
     return dataSource;
   }
 

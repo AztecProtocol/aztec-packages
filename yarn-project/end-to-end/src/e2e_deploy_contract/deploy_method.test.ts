@@ -2,6 +2,7 @@ import { getDeployedTestAccountsWallets } from '@aztec/accounts/testing';
 import {
   AztecAddress,
   BatchCall,
+  Fr,
   type Logger,
   type PXE,
   type Wallet,
@@ -23,13 +24,23 @@ describe('e2e_deploy_contract deploy method', () => {
   let logger: Logger;
   let wallet: Wallet;
 
-  const ignoredArg = AztecAddress.random();
+  let ignoredArg: AztecAddress;
 
   beforeAll(async () => {
+    ignoredArg = await AztecAddress.random();
     ({ pxe, logger, wallet } = await t.setup());
   });
 
   afterAll(() => t.teardown());
+
+  it('refused to deploy a contract instance whose contract class is not yet registered', async () => {
+    const owner = wallet.getAddress();
+    const opts = { skipClassRegistration: true };
+    logger.debug(`Trying to deploy contract instance without registering its contract class`);
+    await expect(StatefulTestContract.deploy(wallet, owner, owner, 42).send(opts).wait()).rejects.toThrow(
+      /Cannot find the leaf for nullifier/,
+    );
+  });
 
   it('publicly deploys and initializes a contract', async () => {
     const owner = wallet.getAddress();
@@ -98,8 +109,8 @@ describe('e2e_deploy_contract deploy method', () => {
     const contract = await TestContract.deploy(wallet).send().deployed();
     logger.debug(`Call a public function to check that it was publicly deployed`);
     const receipt = await contract.methods.emit_unencrypted(42).send().wait();
-    const logs = await pxe.getUnencryptedLogs({ txHash: receipt.txHash });
-    expect(logs.logs[0].log.data.toString('hex').replace(/^0+/, '')).toEqual('2a');
+    const logs = await pxe.getPublicLogs({ txHash: receipt.txHash });
+    expect(logs.logs[0].log.log[0]).toEqual(new Fr(42));
   });
 
   it('refuses to deploy a contract with no constructor and no public deployment', async () => {

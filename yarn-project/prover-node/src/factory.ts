@@ -10,8 +10,7 @@ import { RollupAbi } from '@aztec/l1-artifacts';
 import { createProverClient } from '@aztec/prover-client';
 import { createAndStartProvingBroker } from '@aztec/prover-client/broker';
 import { L1Publisher } from '@aztec/sequencer-client';
-import { type TelemetryClient } from '@aztec/telemetry-client';
-import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
+import { type TelemetryClient, getTelemetryClient } from '@aztec/telemetry-client';
 import { createWorldStateSynchronizer } from '@aztec/world-state';
 
 import { createPublicClient, getAddress, getContract, http } from 'viem';
@@ -39,10 +38,10 @@ export async function createProverNode(
     broker?: ProvingJobBroker;
   } = {},
 ) {
-  const telemetry = deps.telemetry ?? new NoopTelemetryClient();
+  const telemetry = deps.telemetry ?? getTelemetryClient();
   const blobSinkClient = deps.blobSinkClient ?? createBlobSinkClient(config.blobSinkUrl);
   const log = deps.log ?? createLogger('prover-node');
-  const archiver = deps.archiver ?? (await createArchiver(config, blobSinkClient, telemetry, { blockUntilSync: true }));
+  const archiver = deps.archiver ?? (await createArchiver(config, blobSinkClient, { blockUntilSync: true }, telemetry));
   log.verbose(`Created archiver and synced to block ${await archiver.getBlockNumber()}`);
 
   const worldStateConfig = { ...config, worldStateProvenBlocksOnly: false };
@@ -79,8 +78,8 @@ export async function createProverNode(
     txGatheringTimeoutMs: config.txGatheringTimeoutMs,
   };
 
-  const claimsMonitor = new ClaimsMonitor(publisher, telemetry, proverNodeConfig);
-  const epochMonitor = new EpochMonitor(archiver, telemetry, proverNodeConfig);
+  const claimsMonitor = new ClaimsMonitor(publisher, proverNodeConfig, telemetry);
+  const epochMonitor = new EpochMonitor(archiver, proverNodeConfig, telemetry);
 
   const rollupContract = publisher.getRollupContract();
   const walletClient = publisher.getClient();
@@ -99,8 +98,8 @@ export async function createProverNode(
     claimsMonitor,
     epochMonitor,
     bondManager,
-    telemetry,
     proverNodeConfig,
+    telemetry,
   );
 }
 

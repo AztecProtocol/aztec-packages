@@ -23,10 +23,10 @@ pub comptime fn pack_from_fields<N>(
             result = quote { $buffer[$already_consumed] as $typ };
             consumed = 1;
         } else if typ.as_struct().is_some() {
-            let (nested_def, _) = typ.as_struct().unwrap();
+            let (nested_def, generics) = typ.as_struct().unwrap();
             let nested_name = nested_def.name();
             let mut deserialized_fields_list = &[];
-            for field in nested_def.fields() {
+            for field in nested_def.fields(generics) {
                 let (field_name, field_type) = field;
                 let (deserialized_field, consumed_by_field) = pack_from_fields(
                     quote { $field_name },
@@ -96,7 +96,8 @@ pub comptime fn flatten_to_fields(name: Quoted, typ: Type, omit: [Quoted]) -> ([
     let mut fields = &[];
     let mut aux_vars = &[];
 
-    if omit.all(|to_omit| to_omit != name) {
+    // Proceed if none of the omit rules omis this name
+    if !omit.any(|to_omit| to_omit == name) {
         if typ.is_field() {
             // For field we just add the value to fields
             fields = fields.push_back(name);
@@ -106,7 +107,7 @@ pub comptime fn flatten_to_fields(name: Quoted, typ: Type, omit: [Quoted]) -> ([
         } else if typ.as_struct().is_some() {
             // For struct we pref
             let nested_struct = typ.as_struct().unwrap();
-            let params = nested_struct.0.fields();
+            let params = nested_struct.0.fields(nested_struct.1);
             let struct_flattened = params.map(|(param_name, param_type): (Quoted, Type)| {
                 let maybe_prefixed_name = if name == quote {} {
                     // Triggered when the param name is of a value available in the current scope (e.g. a function

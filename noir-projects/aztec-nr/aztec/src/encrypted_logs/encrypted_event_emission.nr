@@ -55,8 +55,8 @@ where
     Event: EventInterface<N>,
 {
     |e: Event| {
-        // Unconstrained logs have both their content and encryption unconstrained - it could occur that the
-        // recipient is unable to decrypt the payload.
+        /// Safety: Unconstrained logs have both their content and encryption unconstrained - it could occur that the
+        /// recipient is unable to decrypt the payload.
         let encrypted_log =
             unsafe { compute_payload_unconstrained(*context, e, recipient, sender) };
         context.emit_private_log(encrypted_log);

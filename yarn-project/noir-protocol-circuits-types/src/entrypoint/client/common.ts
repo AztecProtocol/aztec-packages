@@ -11,7 +11,7 @@ export {
   convertPrivateKernelTailToPublicInputsToWitnessMapWithAbi,
 } from '../../execution/client.js';
 
-export { getPrivateKernelResetArtifactName } from '../../utils/private_kernel_reset.js';
+export { getPrivateKernelResetArtifactName, updateResetCircuitSampleInputs } from '../../utils/private_kernel_reset.js';
 export {
   maxPrivateKernelResetDimensions,
   privateKernelResetDimensionsConfig,

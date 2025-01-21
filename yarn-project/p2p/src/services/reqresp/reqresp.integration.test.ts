@@ -117,7 +117,7 @@ describe('Req Resp p2p client integration', () => {
       } as P2PConfig & DataStoreConfig;
 
       l2BlockSource = new MockL2BlockSource();
-      l2BlockSource.createBlocks(100);
+      await l2BlockSource.createBlocks(100);
 
       proofVerifier = alwaysTrueVerifier ? new AlwaysTrueCircuitVerifier() : new AlwaysFalseCircuitVerifier();
       kvStore = openTmpStore();

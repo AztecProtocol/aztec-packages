@@ -19,6 +19,7 @@ storage:
 telemetry:
   enabled: false
   otelCollectorEndpoint:
+  useGcloudObservability: false
 
 images:
   aztec:
@@ -32,6 +33,9 @@ images:
     pullPolicy: IfNotPresent
   reth:
     image: ghcr.io/paradigmxyz/reth:v1.0.8
+    pullPolicy: IfNotPresent
+  lighthouse:
+    image: sigp/lighthouse:v6.0.1
     pullPolicy: IfNotPresent
 
 aztec:
@@ -84,6 +88,7 @@ bootNode:
   stakingAssetAddress: ""
   storageSize: "1Gi"
   dataDir: "/data"
+  otelExcludeMetrics: ""
 
 validator:
   # If true, the validator will use its peers to serve as the boot node.
@@ -127,6 +132,9 @@ validator:
   viemPollingInterval: 1000
   storageSize: "1Gi"
   dataDir: "/data"
+  l1FixedPriorityFeePerGas: ""
+  l1GasLimitBufferPercentage: ""
+  otelExcludeMetrics: ""
 
 proverNode:
   proverPublisherPrivateKey: "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80"
@@ -147,7 +155,6 @@ proverNode:
     jobTimeoutMs: 30000
     pollIntervalMs: 1000
     jobMaxRetries: 3
-    dataDirectory: ""
   resources:
     requests:
       memory: "4Gi"
@@ -163,6 +170,8 @@ proverNode:
     timeoutMs: 60000
     intervalMs: 1000
     maxParallelRequests: 100
+  failedProofStore: "gs://aztec-develop/spartan/failed-proofs"
+  otelExcludeMetrics: ""
 
 pxe:
   logLevel: "debug; info: aztec:simulator, json-rpc"
@@ -179,6 +188,7 @@ pxe:
     requests:
       memory: "4Gi"
       cpu: "1"
+  otelExcludeMetrics: ""
 
 bot:
   enabled: true
@@ -208,21 +218,47 @@ bot:
     requests:
       memory: "4Gi"
       cpu: "1"
+  otelExcludeMetrics: ""
 
 ethereum:
-  externalHost: ""
   replicas: 1
   chainId: 1337
-  blockTime: 12sec
+  blockTime: 12
+  extraAccounts: 10
   # 1 billion gas limit
   # helps ensure we can deploy public contracts
   gasLimit: "1000000000"
+  # 10 times the default of 131072
+  maxTxInputSizeBytes: "1310720"
   args: ""
-  service:
-    type: ClusterIP
-    port: 8545
-    targetPort: 8545
-    nodePort: ""
+  execution:
+    externalHost: ""
+    service:
+      port: 8545
+      targetPort: 8545
+      nodePort: ""
+    resources:
+      requests:
+        memory: "4Gi"
+        cpu: "1"
+    storageSize: "80Gi"
+  beacon:
+    externalHost: ""
+    service:
+      port: 5052
+      targetPort: 5052
+      nodePort: ""
+    resources:
+      requests:
+        memory: "4Gi"
+        cpu: "1"
+    storageSize: "80Gi"
+  validator:
+    resources:
+      requests:
+        memory: "4Gi"
+        cpu: "1"
+    storageSize: "80Gi"
   readinessProbe:
     initialDelaySeconds: 5
     periodSeconds: 10
@@ -235,6 +271,7 @@ ethereum:
       cpu: "1"
   storageSize: "80Gi"
   deployL1ContractsPrivateKey:
+  otelExcludeMetrics: ""
 
 proverAgent:
   service:
@@ -253,6 +290,7 @@ proverAgent:
       memory: "4Gi"
       cpu: "1"
   pollInterval: 200
+  otelExcludeMetrics: ""
 
 proverBroker:
   service:
@@ -270,6 +308,7 @@ proverBroker:
       memory: "4Gi"
       cpu: "1"
   maxOldSpaceSize: "3584"
+  otelExcludeMetrics: ""
 
 jobs:
   deployL1Verifier:
@@ -287,3 +326,4 @@ faucet:
     requests:
       memory: "2Gi"
       cpu: "200m"
+  otelExcludeMetrics: ""

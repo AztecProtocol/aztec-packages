@@ -1,4 +1,4 @@
-import { TxEffect } from '@aztec/circuit-types';
+import { TxEffect, TxHash } from '@aztec/circuit-types';
 import { Fr } from '@aztec/circuits.js';
 import { BlobPublicInputs } from '@aztec/circuits.js/blobs';
 import { updateInlineTestData } from '@aztec/foundation/testing/files';
@@ -32,46 +32,50 @@ describe('buildBlobHints', () => {
     // Run with AZTEC_GENERATE_TEST_DATA=1 to update noir test data.
     updateInlineTestData(
       'noir-projects/noir-protocol-circuits/crates/rollup-lib/src/block_root/empty_block_root_rollup_inputs.nr',
-      'expected_empty_blob_commitment',
+      'expected_empty_effect_blob_commitment',
       blobCommitmentStr,
     );
     updateInlineTestData(
       'noir-projects/noir-protocol-circuits/crates/rollup-lib/src/block_root/empty_block_root_rollup_inputs.nr',
-      'expected_empty_blobs_hash',
+      'expected_empty_effect_blobs_hash',
       blobsHashStr,
     );
     updateInlineTestData(
       'noir-projects/noir-protocol-circuits/crates/rollup-lib/src/block_root/empty_block_root_rollup_inputs.nr',
-      'expected_z',
+      'expected_empty_effect_challenge_z',
       zStr,
     );
   });
 
   it('correctly builds hints for non-empty blob fields', () => {
     const txEffect0 = TxEffect.empty();
+    txEffect0.txHash = new TxHash(new Fr(42));
     txEffect0.nullifiers[0] = new Fr(0x123);
     const txEffect1 = TxEffect.empty();
+    txEffect1.txHash = new TxHash(new Fr(43));
     txEffect1.noteHashes[0] = new Fr(0x6789);
     txEffect1.nullifiers[0] = new Fr(0x45);
     const { blobFields, blobCommitments, blobsHash, blobs } = buildBlobHints([txEffect0, txEffect1]);
 
-    const blobFields0Str = fieldArrToStr(blobFields.slice(0, 4));
-    const blobFields1Str = fieldArrToStr(blobFields.slice(4));
-    expect(blobFields.length).toBe(4 + 6);
+    const blobFields0Str = fieldArrToStr(blobFields.slice(0, 5));
+    const blobFields1Str = fieldArrToStr(blobFields.slice(5));
+    expect(blobFields.length).toBe(5 + 7);
 
     expect(blobCommitments.length).toBe(1);
     const blobCommitmentStr = fieldArrToStr(blobCommitments[0]);
     expect(blobCommitmentStr).toMatchInlineSnapshot(
-      `"[0x00ad8be66e7276942652627bb00fe1e65dc1c3c6701ab27cc05eff662950071d, 0x00000000000000000000000000000071baf7a9af9757f1d3878b37b438797213]"`,
+      `"[0x008c32fe581c8fdba12c0d7597911dead2d937d68525bae655508412bb53bb98, 0x0000000000000000000000000000006aaa0680f21270e7d8de4e19da5164f95c]"`,
     );
 
     const blobsHashStr = blobsHash.toString();
-    expect(blobsHashStr).toMatchInlineSnapshot(`"0x00dc577f5c94c82b847693b76ee69cd33d4e5eee3adb6f37d8d7ab662c84725d"`);
+    expect(blobsHashStr).toMatchInlineSnapshot(`"0x00a965619c8668b834755678b32d023b9c5e8588ce449f44f7fa9335455b5cc5"`);
 
     const publicInputs = BlobPublicInputs.fromBlob(blobs[0]);
-    expect(publicInputs.y).toBe(11463660905914812112228400842008710735611240877901286242511876802170210355245n);
+    expect(publicInputs.y).toMatchInlineSnapshot(
+      `17179655213294173540446545222866729565951946174336496855332549059993428157821n`,
+    );
     const zStr = publicInputs.z.toString();
-    expect(zStr).toMatchInlineSnapshot(`"0x1582b354f32263abde313d597582ebceafe17d4e2a68dd47533383e85b4cb780"`);
+    expect(zStr).toMatchInlineSnapshot(`"0x1f92b871671f27a378d23f1cef10fbd8f0d90dd7172da9e3c3fc1aa745a072c3"`);
 
     // Run with AZTEC_GENERATE_TEST_DATA=1 to update noir test data.
     updateInlineTestData(
@@ -96,7 +100,7 @@ describe('buildBlobHints', () => {
     );
     updateInlineTestData(
       'noir-projects/noir-protocol-circuits/crates/rollup-lib/src/block_root/block_root_rollup_inputs.nr',
-      'expected_z',
+      'expected_challenge_z',
       zStr,
     );
   });

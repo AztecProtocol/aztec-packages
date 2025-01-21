@@ -1,0 +1,56 @@
+include "alu.pil";
+include "addressing.pil";
+include "precomputed.pil";
+
+namespace execution;
+
+pol commit sel; // subtrace selector
+
+pol commit ex_opcode;
+pol commit indirect;
+// operands
+pol commit op1;
+pol commit op2;
+pol commit op3;
+pol commit op4;
+// resolved operands
+pol commit rop1;
+pol commit rop2;
+pol commit rop3;
+pol commit rop4;
+
+pol commit pc;
+pol commit bytecode_id;
+pol commit clk;
+pol commit last;
+
+// Selector constraints
+sel * (1 - sel) = 0;
+last * (1 - last) = 0;
+
+// If the current row is an execution row, then either
+// the next row is an execution row, or the current row is marked as the last row.
+// sel => (sel' v last) = 1              iff
+// ¬sel v (sel' v last) = 1              iff
+// ¬(¬sel v (sel' v last)) = 0           iff
+// sel ^ (¬sel' ^ ¬last) = 0             iff
+// sel * (1 - sel') * (1 - last) = 0
+#[TRACE_CONTINUITY_1]
+sel * (1 - sel') * (1 - last) = 0;
+// If the current row is not an execution row, then there are no more execution rows after that.
+// (not enforced for the first row)
+#[TRACE_CONTINUITY_2]
+(1 - precomputed.first_row) * (1 - sel) * sel' = 0;
+// If the current row is the last row, then the next row is not an execution row.
+#[LAST_IS_LAST]
+last * sel' = 0;
+
+// These are needed to have a non-empty set of columns for each type.
+pol public input;
+#[LOOKUP_DUMMY_PRECOMPUTED]
+sel {/*will be 1=OR*/ sel, clk, clk, clk} in
+precomputed.sel_bitwise {precomputed.bitwise_op_id, precomputed.bitwise_input_a, precomputed.bitwise_input_b, precomputed.bitwise_output};
+#[LOOKUP_DUMMY_DYNAMIC]  // Just a self-lookup for now, for testing.
+sel {op1, op2, op3, op4} in sel {op1, op2, op3, op4};
+#[PERM_DUMMY_DYNAMIC]  // Just a self-permutation for now, for testing.
+sel {op1, op2, op3, op4} is sel {op1, op2, op3, op4};

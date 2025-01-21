@@ -2,9 +2,11 @@ import { createLogger } from '@aztec/aztec.js';
 import {
   type AztecNode,
   type EpochProofQuote,
-  type GetUnencryptedLogsResponse,
+  type GetContractClassLogsResponse,
+  type GetPublicLogsResponse,
   type InBlock,
   type L2Block,
+  L2BlockHash,
   type L2BlockNumber,
   type L2Tips,
   type LogFilter,
@@ -18,10 +20,9 @@ import {
   type Tx,
   type TxEffect,
   TxHash,
-  type TxReceipt,
+  TxReceipt,
   TxScopedL2Log,
   type TxValidationResult,
-  type UnencryptedL2Log,
 } from '@aztec/circuit-types';
 import {
   type ARCHIVE_HEIGHT,
@@ -35,31 +36,38 @@ import {
   type NULLIFIER_TREE_HEIGHT,
   type NodeInfo,
   type PUBLIC_DATA_TREE_HEIGHT,
+  PUBLIC_LOG_DATA_SIZE_IN_FIELDS,
   type PrivateLog,
   type ProtocolContractAddresses,
+  type PublicLog,
 } from '@aztec/circuits.js';
 import { type L1ContractAddresses } from '@aztec/ethereum';
+import { poseidon2Hash } from '@aztec/foundation/crypto';
 import { Fr } from '@aztec/foundation/fields';
+import { MerkleTreeSnapshotOperationsFacade, type MerkleTrees } from '@aztec/world-state';
 
 export class TXENode implements AztecNode {
   #logsByTags = new Map<string, TxScopedL2Log[]>();
-  #txEffectsByTxHash = new Map<string, InBlock<TxEffect> | undefined>();
+  #txEffectsByTxHash = new Map<string, InBlock<TxEffect>>();
+  #txReceiptsByTxHash = new Map<string, TxReceipt>();
   #blockNumberToNullifiers = new Map<number, Fr[]>();
   #noteIndex = 0;
 
-  #blockNumber: number;
   #logger = createLogger('aztec:txe_node');
 
-  constructor(blockNumber: number) {
-    this.#blockNumber = blockNumber;
-  }
+  constructor(
+    private blockNumber: number,
+    private version: number,
+    private chainId: number,
+    private trees: MerkleTrees,
+  ) {}
 
   /**
    * Fetches the current block number.
    * @returns The block number.
    */
   getBlockNumber(): Promise<number> {
-    return Promise.resolve(this.#blockNumber);
+    return Promise.resolve(this.blockNumber);
   }
 
   /**
@@ -67,7 +75,7 @@ export class TXENode implements AztecNode {
    * @param - The block number to set.
    */
   setBlockNumber(blockNumber: number) {
-    this.#blockNumber = blockNumber;
+    this.blockNumber = blockNumber;
   }
 
   /**
@@ -76,23 +84,42 @@ export class TXENode implements AztecNode {
    * @returns The requested tx effect.
    */
   getTxEffect(txHash: TxHash): Promise<InBlock<TxEffect> | undefined> {
-    const txEffect = this.#txEffectsByTxHash.get(new Fr(txHash.toBuffer()).toString());
+    const txEffect = this.#txEffectsByTxHash.get(txHash.toString());
 
     return Promise.resolve(txEffect);
   }
 
   /**
-   * Sets a tx effect for a given block number.
+   * Sets a tx effect and receipt for a given block number.
    * @param blockNumber - The block number that this tx effect resides.
    * @param txHash - The transaction hash of the transaction.
    * @param effect - The tx effect to set.
    */
   setTxEffect(blockNumber: number, txHash: TxHash, effect: TxEffect) {
-    this.#txEffectsByTxHash.set(new Fr(txHash.toBuffer()).toString(), {
-      l2BlockHash: blockNumber.toString(),
+    // We are not creating real blocks on which membership proofs can be constructed - we instead define its hash as
+    // simply the hash of the block number.
+    const blockHash = poseidon2Hash([blockNumber]);
+
+    this.#txEffectsByTxHash.set(txHash.toString(), {
+      l2BlockHash: blockHash.toString(),
       l2BlockNumber: blockNumber,
       data: effect,
     });
+
+    // We also set the receipt since we want to be able to serve `getTxReceipt` - we don't care about most values here,
+    // but we do need to be able to retrieve the block number of a given txHash.
+    this.#txReceiptsByTxHash.set(
+      txHash.toString(),
+      new TxReceipt(
+        txHash,
+        TxReceipt.statusFromRevertCode(effect.revertCode),
+        '',
+        undefined,
+        new L2BlockHash(blockHash.toBuffer()),
+        blockNumber,
+        undefined,
+      ),
+    );
   }
 
   /**
@@ -167,45 +194,48 @@ export class TXENode implements AztecNode {
   /**
    * Adds public logs to the txe node, given a block
    * @param blockNumber - The block number at which to add the public logs.
-   * @param privateLogs - The unencrypted logs to be added.
+   * @param publicLogs - The public logs to be added.
    */
-  addPublicLogsByTags(blockNumber: number, unencryptedLogs: UnencryptedL2Log[]) {
-    unencryptedLogs.forEach(log => {
-      if (log.data.length < 32 * 33) {
-        // TODO remove when #9835 and #9836 are fixed
-        this.#logger.warn(`Skipping unencrypted log with insufficient data length: ${log.data.length}`);
+  addPublicLogsByTags(blockNumber: number, publicLogs: PublicLog[]) {
+    publicLogs.forEach(log => {
+      // Check that each log stores 3 lengths in its first field. If not, it's not a tagged log:
+      const firstFieldBuf = log.log[0].toBuffer();
+      if (
+        !firstFieldBuf.subarray(0, 24).equals(Buffer.alloc(24)) ||
+        firstFieldBuf[26] !== 0 ||
+        firstFieldBuf[29] !== 0
+      ) {
+        // See parseLogFromPublic - the first field of a tagged log is 8 bytes structured:
+        // [ publicLen[0], publicLen[1], 0, privateLen[0], privateLen[1], 0, ciphertextLen[0], ciphertextLen[1]]
+        this.#logger.warn(`Skipping public log with invalid first field: ${log.log[0]}`);
         return;
       }
-      try {
-        // TODO remove when #9835 and #9836 are fixed. The partial note logs are emitted as bytes, but encoded as Fields.
-        // This means that for every 32 bytes of payload, we only have 1 byte of data.
-        // Also, the tag is not stored in the first 32 bytes of the log, (that's the length of public fields now) but in the next 32.
-        const correctedBuffer = Buffer.alloc(32);
-        const initialOffset = 32;
-        for (let i = 0; i < 32; i++) {
-          const byte = Fr.fromBuffer(log.data.subarray(i * 32 + initialOffset, i * 32 + 32 + initialOffset)).toNumber();
-          correctedBuffer.writeUInt8(byte, i);
-        }
-        const tag = new Fr(correctedBuffer);
-
-        this.#logger.verbose(
-          `Found tagged unencrypted log with tag ${tag.toString()} in block ${this.getBlockNumber()}`,
-        );
-
-        const currentLogs = this.#logsByTags.get(tag.toString()) ?? [];
-        const scopedLog = new TxScopedL2Log(
-          new TxHash(new Fr(blockNumber)),
-          this.#noteIndex,
-          blockNumber,
-          true,
-          log.toBuffer(),
-        );
-
-        currentLogs.push(scopedLog);
-        this.#logsByTags.set(tag.toString(), currentLogs);
-      } catch (err) {
-        this.#logger.warn(`Failed to add tagged log to store: ${err}`);
+      // Check that the length values line up with the log contents
+      const publicValuesLength = firstFieldBuf.subarray(-8).readUint16BE();
+      const privateValuesLength = firstFieldBuf.subarray(-8).readUint16BE(3);
+      // Add 1 for the first field holding lengths
+      const totalLogLength = 1 + publicValuesLength + privateValuesLength;
+      // Note that zeroes can be valid log values, so we can only assert that we do not go over the given length
+      if (totalLogLength > PUBLIC_LOG_DATA_SIZE_IN_FIELDS || log.log.slice(totalLogLength).find(f => !f.isZero())) {
+        this.#logger.warn(`Skipping invalid tagged public log with first field: ${log.log[0]}`);
+        return;
       }
+      // The first elt stores lengths => tag is in fields[1]
+      const tag = log.log[1];
+
+      this.#logger.verbose(`Found tagged public log with tag ${tag.toString()} in block ${this.getBlockNumber()}`);
+
+      const currentLogs = this.#logsByTags.get(tag.toString()) ?? [];
+      const scopedLog = new TxScopedL2Log(
+        new TxHash(new Fr(blockNumber)),
+        this.#noteIndex,
+        blockNumber,
+        true,
+        log.toBuffer(),
+      );
+
+      currentLogs.push(scopedLog);
+      this.#logsByTags.set(tag.toString(), currentLogs);
     });
   }
   /**
@@ -234,12 +264,28 @@ export class TXENode implements AztecNode {
    * @param leafValue - The values to search for
    * @returns The indexes of the given leaves in the given tree or undefined if not found.
    */
-  findLeavesIndexes(
-    _blockNumber: L2BlockNumber,
-    _treeId: MerkleTreeId,
-    _leafValues: Fr[],
+  async findLeavesIndexes(
+    blockNumber: L2BlockNumber,
+    treeId: MerkleTreeId,
+    leafValues: Fr[],
   ): Promise<(bigint | undefined)[]> {
-    throw new Error('TXE Node method findLeavesIndexes not implemented');
+    // Temporary workaround to be able to respond this query: the trees are currently stored in the TXE oracle, but we
+    // hold a reference to them.
+    // We should likely migrate this so that the trees are owned by the node.
+
+    if (blockNumber == 'latest') {
+      blockNumber = await this.getBlockNumber();
+    }
+
+    const db =
+      blockNumber === (await this.getBlockNumber())
+        ? await this.trees.getLatest()
+        : new MerkleTreeSnapshotOperationsFacade(this.trees, blockNumber);
+
+    return await db.findLeafIndices(
+      treeId,
+      leafValues.map(x => x.toBuffer()),
+    );
   }
 
   /**
@@ -420,7 +466,7 @@ export class TXENode implements AztecNode {
    * @returns The rollup version.
    */
   getVersion(): Promise<number> {
-    throw new Error('TXE Node method getVersion not implemented');
+    return Promise.resolve(this.version);
   }
 
   /**
@@ -428,7 +474,7 @@ export class TXENode implements AztecNode {
    * @returns The chain id.
    */
   getChainId(): Promise<number> {
-    throw new Error('TXE Node method getChainId not implemented');
+    return Promise.resolve(this.chainId);
   }
 
   /**
@@ -456,12 +502,12 @@ export class TXENode implements AztecNode {
   }
 
   /**
-   * Gets unencrypted logs based on the provided filter.
+   * Gets public logs based on the provided filter.
    * @param filter - The filter to apply to the logs.
    * @returns The requested logs.
    */
-  getUnencryptedLogs(_filter: LogFilter): Promise<GetUnencryptedLogsResponse> {
-    throw new Error('TXE Node method getUnencryptedLogs not implemented');
+  getPublicLogs(_filter: LogFilter): Promise<GetPublicLogsResponse> {
+    throw new Error('TXE Node method getPublicLogs not implemented');
   }
 
   /**
@@ -469,7 +515,7 @@ export class TXENode implements AztecNode {
    * @param filter - The filter to apply to the logs.
    * @returns The requested logs.
    */
-  getContractClassLogs(_filter: LogFilter): Promise<GetUnencryptedLogsResponse> {
+  getContractClassLogs(_filter: LogFilter): Promise<GetContractClassLogsResponse> {
     throw new Error('TXE Node method getContractClassLogs not implemented');
   }
 
@@ -490,8 +536,13 @@ export class TXENode implements AztecNode {
    * @param txHash - The transaction hash.
    * @returns A receipt of the transaction.
    */
-  getTxReceipt(_txHash: TxHash): Promise<TxReceipt> {
-    throw new Error('TXE Node method getTxReceipt not implemented');
+  getTxReceipt(txHash: TxHash): Promise<TxReceipt> {
+    const txEffect = this.#txReceiptsByTxHash.get(txHash.toString());
+    if (!txEffect) {
+      throw new Error('Unknown txHash');
+    }
+
+    return Promise.resolve(txEffect);
   }
 
   /**
