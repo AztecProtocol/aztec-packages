@@ -3,8 +3,6 @@ import { compileContract, createEthereumChain, createL1Clients, deployL1Contract
 import { type LogFn, type Logger } from '@aztec/foundation/log';
 
 import { InvalidOptionArgumentError } from 'commander';
-// @ts-expect-error solc-js doesn't publish its types https://github.com/ethereum/solc-js/issues/689
-import solc from 'solc';
 import { type Hex, getContract } from 'viem';
 
 export async function deployUltraHonkVerifier(
