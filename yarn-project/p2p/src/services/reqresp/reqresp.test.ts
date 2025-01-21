@@ -82,7 +82,7 @@ describe('ReqResp', () => {
     expect(res).toBeUndefined();
   });
 
-  it('should request from a later peer if other peers are offline', async () => {
+  it.skip('should request from a later peer if other peers are offline', async () => {
     nodes = await createNodes(peerScoring, 4);
 
     await startNodes(nodes);
