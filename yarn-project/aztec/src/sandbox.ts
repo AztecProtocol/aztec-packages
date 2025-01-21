@@ -1,6 +1,6 @@
 #!/usr/bin/env -S node --no-warnings
 import { type AztecNodeConfig, AztecNodeService, getConfigEnvVars } from '@aztec/aztec-node';
-import { AnvilTestWatcher, EthCheatCodes, SignerlessWallet } from '@aztec/aztec.js';
+import { EthCheatCodes, SignerlessWallet } from '@aztec/aztec.js';
 import { DefaultMultiCallEntrypoint } from '@aztec/aztec.js/entrypoint';
 import { type BlobSinkClientInterface, createBlobSinkClient } from '@aztec/blob-sink/client';
 import { type AztecNode } from '@aztec/circuit-types';
@@ -95,7 +95,6 @@ export async function createSandbox(config: Partial<SandboxConfig> = {}) {
     aztecNodeConfig.validatorPrivateKey = `0x${Buffer.from(privKey!).toString('hex')}`;
   }
 
-  let watcher: AnvilTestWatcher | undefined = undefined;
   if (!aztecNodeConfig.p2pEnabled) {
     const l1ContractAddresses = await deployContractsToL1(aztecNodeConfig, hdAccount, undefined, {
       assumeProvenThroughBlockNumber: Number.MAX_SAFE_INTEGER,
@@ -111,12 +110,13 @@ export async function createSandbox(config: Partial<SandboxConfig> = {}) {
       transport: httpViemTransport(aztecNodeConfig.l1RpcUrl),
     });
 
-    watcher = new AnvilTestWatcher(
-      new EthCheatCodes(aztecNodeConfig.l1RpcUrl),
-      l1ContractAddresses.rollupAddress,
-      publicClient,
-    );
-    await watcher.start();
+    const cheatCodes = new EthCheatCodes(aztecNodeConfig.l1RpcUrl);
+    const ethSlotDuration = getL1ContractsConfigEnvVars().ethereumSlotDuration;
+    try {
+      cheatCodes.setIntervalMining(ethSlotDuration);
+    } catch (err) {
+      logger.warn(`Failed to set interval mining to ${ethSlotDuration}`);
+    }
   }
 
   const telemetry = initTelemetryClient(getTelemetryClientConfig());
@@ -134,7 +134,6 @@ export async function createSandbox(config: Partial<SandboxConfig> = {}) {
 
   const stop = async () => {
     await node.stop();
-    await watcher?.stop();
   };
 
   return { node, pxe, aztecNodeConfig, stop };
