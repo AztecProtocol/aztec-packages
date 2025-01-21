@@ -14,6 +14,7 @@ import {
   MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
   PublicCircuitPublicInputs,
   PublicDataWrite,
+  PublicLog,
   RevertCode,
   ScopedLogHash,
   TxConstantData,
@@ -140,7 +141,7 @@ export function makeBloatedProcessedTx({
 }
 
 // Remove all logs as it's ugly to mock them at the moment and we are going to change it to have the preimages be part of the public inputs soon.
-function clearLogs(data: { unencryptedLogsHashes?: ScopedLogHash[]; contractClassLogsHashes: ScopedLogHash[] }) {
-  data.unencryptedLogsHashes?.forEach((_, i) => (data.unencryptedLogsHashes![i] = ScopedLogHash.empty()));
+function clearLogs(data: { publicLogs?: PublicLog[]; contractClassLogsHashes: ScopedLogHash[] }) {
+  data.publicLogs?.forEach((_, i) => (data.publicLogs![i] = PublicLog.empty()));
   data.contractClassLogsHashes.forEach((_, i) => (data.contractClassLogsHashes[i] = ScopedLogHash.empty()));
 }

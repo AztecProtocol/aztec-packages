@@ -31,8 +31,10 @@ import { AuthWitness } from '../auth_witness.js';
 import { type InBlock, inBlockSchemaFor } from '../in_block.js';
 import { L2Block } from '../l2_block.js';
 import {
-  type GetUnencryptedLogsResponse,
-  GetUnencryptedLogsResponseSchema,
+  type GetContractClassLogsResponse,
+  GetContractClassLogsResponseSchema,
+  type GetPublicLogsResponse,
+  GetPublicLogsResponseSchema,
   type LogFilter,
   LogFilterSchema,
 } from '../logs/index.js';
@@ -313,18 +315,18 @@ export interface PXE {
   ): Promise<AbiDecoded>;
 
   /**
-   * Gets unencrypted logs based on the provided filter.
+   * Gets public logs based on the provided filter.
    * @param filter - The filter to apply to the logs.
    * @returns The requested logs.
    */
-  getUnencryptedLogs(filter: LogFilter): Promise<GetUnencryptedLogsResponse>;
+  getPublicLogs(filter: LogFilter): Promise<GetPublicLogsResponse>;
 
   /**
    * Gets contract class logs based on the provided filter.
    * @param filter - The filter to apply to the logs.
    * @returns The requested logs.
    */
-  getContractClassLogs(filter: LogFilter): Promise<GetUnencryptedLogsResponse>;
+  getContractClassLogs(filter: LogFilter): Promise<GetContractClassLogsResponse>;
 
   /**
    * Fetches the current block number.
@@ -396,28 +398,23 @@ export interface PXE {
   isContractInitialized(address: AztecAddress): Promise<boolean>;
 
   /**
-   * Returns the encrypted events given search parameters.
+   * Returns the private events given search parameters.
    * @param eventMetadata - Metadata of the event. This should be the class generated from the contract. e.g. Contract.events.Event
    * @param from - The block number to search from.
    * @param limit - The amount of blocks to search.
    * @param vpks - The incoming viewing public keys that can decrypt the log.
    * @returns - The deserialized events.
    */
-  getEncryptedEvents<T>(
-    eventMetadata: EventMetadataDefinition,
-    from: number,
-    limit: number,
-    vpks: Point[],
-  ): Promise<T[]>;
+  getPrivateEvents<T>(eventMetadata: EventMetadataDefinition, from: number, limit: number, vpks: Point[]): Promise<T[]>;
 
   /**
-   * Returns the unencrypted events given search parameters.
+   * Returns the public events given search parameters.
    * @param eventMetadata - Metadata of the event. This should be the class generated from the contract. e.g. Contract.events.Event
    * @param from - The block number to search from.
    * @param limit - The amount of blocks to search.
    * @returns - The deserialized events.
    */
-  getUnencryptedEvents<T>(eventMetadata: EventMetadataDefinition, from: number, limit: number): Promise<T[]>;
+  getPublicEvents<T>(eventMetadata: EventMetadataDefinition, from: number, limit: number): Promise<T[]>;
 }
 // docs:end:pxe-interface
 
@@ -518,8 +515,8 @@ export const PXESchema: ApiSchemaFor<PXE> = {
       optional(z.array(schemas.AztecAddress)),
     )
     .returns(AbiDecodedSchema),
-  getUnencryptedLogs: z.function().args(LogFilterSchema).returns(GetUnencryptedLogsResponseSchema),
-  getContractClassLogs: z.function().args(LogFilterSchema).returns(GetUnencryptedLogsResponseSchema),
+  getPublicLogs: z.function().args(LogFilterSchema).returns(GetPublicLogsResponseSchema),
+  getContractClassLogs: z.function().args(LogFilterSchema).returns(GetContractClassLogsResponseSchema),
   getBlockNumber: z.function().returns(z.number()),
   getProvenBlockNumber: z.function().returns(z.number()),
   getNodeInfo: z.function().returns(NodeInfoSchema),
@@ -539,11 +536,11 @@ export const PXESchema: ApiSchemaFor<PXE> = {
   isContractClassPubliclyRegistered: z.function().args(schemas.Fr).returns(z.boolean()),
   isContractPubliclyDeployed: z.function().args(schemas.AztecAddress).returns(z.boolean()),
   isContractInitialized: z.function().args(schemas.AztecAddress).returns(z.boolean()),
-  getEncryptedEvents: z
+  getPrivateEvents: z
     .function()
     .args(EventMetadataDefinitionSchema, z.number(), z.number(), z.array(schemas.Point))
     .returns(z.array(AbiDecodedSchema)),
-  getUnencryptedEvents: z
+  getPublicEvents: z
     .function()
     .args(EventMetadataDefinitionSchema, z.number(), z.number())
     .returns(z.array(AbiDecodedSchema)),

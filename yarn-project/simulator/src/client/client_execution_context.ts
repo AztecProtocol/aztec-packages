@@ -95,7 +95,7 @@ export class ClientExecutionContext extends ViewDataOracle {
     const args = this.executionCache.getPreimage(this.argsHash);
 
     if (args.length !== argumentsSize) {
-      throw new Error('Invalid arguments size');
+      throw new Error(`Invalid arguments size: expected ${argumentsSize}, got ${args.length}`);
     }
 
     const privateContextInputs = new PrivateContextInputs(
@@ -158,14 +158,6 @@ export class ClientExecutionContext extends ViewDataOracle {
    */
   public getPublicTeardownFunctionCall() {
     return this.publicTeardownFunctionCall;
-  }
-
-  /**
-   * Store values in the execution cache.
-   * @param values - Values to store.
-   */
-  public override storeArrayInExecutionCache(args: Fr[]): Promise<Fr> {
-    return Promise.resolve(this.executionCache.store(args));
   }
 
   /**
@@ -327,6 +319,7 @@ export class ClientExecutionContext extends ViewDataOracle {
    * This fn exists because sha hashing the preimage
    * is too large to compile (16,200 fields, 518,400 bytes) => the oracle hashes it.
    * See private_context.nr
+   * TODO(#8945): Contract class logs are currently sha hashes. When these are fields, delete this.
    * @param log - The unencrypted log to be emitted.
    */
   public override emitContractClassLog(log: UnencryptedL2Log, counter: number) {

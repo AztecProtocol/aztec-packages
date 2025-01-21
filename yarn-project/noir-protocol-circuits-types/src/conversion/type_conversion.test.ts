@@ -30,8 +30,8 @@ describe('Noir<>Circuits.js type conversion test suite', () => {
       expect(mapPointFromNoir(mapPointToNoir(point))).toEqual(point);
     });
 
-    it('should map aztec addresses', () => {
-      const aztecAddress = AztecAddress.random();
+    it('should map aztec addresses', async () => {
+      const aztecAddress = await AztecAddress.random();
       expect(mapAztecAddressFromNoir(mapAztecAddressToNoir(aztecAddress))).toEqual(aztecAddress);
     });
 

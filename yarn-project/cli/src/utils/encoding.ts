@@ -1,4 +1,4 @@
-import { type ABIParameter, type AbiType, type StructType } from '@aztec/foundation/abi';
+import { type ABIParameter, type AbiType, type StructType, isU128Struct } from '@aztec/foundation/abi';
 import { Fr } from '@aztec/foundation/fields';
 
 /**
@@ -85,13 +85,19 @@ function encodeArg(arg: string, abiType: AbiType, name: string): any {
       throw Error(`Array passed for arg ${name}. Expected a struct.`);
     }
     const res: any = {};
-    for (const field of abiType.fields) {
-      // Remove field name from list as it's present
-      const arg = obj[field.name];
-      if (!arg) {
-        throw Error(`Expected field ${field.name} not found in struct ${name}.`);
+    if (isU128Struct(abiType)) {
+      // When dealing with U128 we don't expect to receive limbs from the user but instead just a normal number.
+      // Also encoder.ts expects a normal number so we just return it as such.
+      return obj;
+    } else {
+      for (const field of abiType.fields) {
+        // Remove field name from list as it's present
+        const arg = obj[field.name];
+        if (!arg) {
+          throw Error(`Expected field ${field.name} not found in struct ${name}.`);
+        }
+        res[field.name] = encodeArg(obj[field.name], field.type, field.name);
       }
-      res[field.name] = encodeArg(obj[field.name], field.type, field.name);
     }
     return res;
   }

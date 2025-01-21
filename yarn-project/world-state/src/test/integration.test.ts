@@ -115,33 +115,33 @@ describe('world-state integration', () => {
 
   describe('block syncing', () => {
     it('performs initial sync from the archiver from genesis', async () => {
-      archiver.createBlocks(5);
+      await archiver.createBlocks(5);
       await synchronizer.start();
       await expectSynchedToBlock(5);
     });
 
     it('syncs new blocks from the archiver from genesis', async () => {
       await synchronizer.start();
-      archiver.createBlocks(5);
+      await archiver.createBlocks(5);
       await awaitSync(5);
       await expectSynchedToBlock(5);
     });
 
     it('syncs new blocks as they are added to archiver', async () => {
-      archiver.createBlocks(5);
+      await archiver.createBlocks(5);
       await synchronizer.start();
 
-      archiver.createBlocks(3);
+      await archiver.createBlocks(3);
       await awaitSync(8);
       await expectSynchedToBlock(8);
     });
 
     it('syncs new blocks via multiple batches', async () => {
-      archiver.createBlocks(10);
+      await archiver.createBlocks(10);
       await synchronizer.start();
       await expectSynchedToBlock(10);
 
-      archiver.createBlocks(10);
+      await archiver.createBlocks(10);
       await awaitSync(20);
       await expectSynchedToBlock(20);
     });
@@ -150,7 +150,7 @@ describe('world-state integration', () => {
       const getBlocksSpy = jest.spyOn(archiver, 'getBlocks');
 
       await synchronizer.start();
-      archiver.createBlocks(5);
+      await archiver.createBlocks(5);
       await awaitSync(5);
       await expectSynchedToBlock(5);
       await synchronizer.stopBlockStream();
@@ -162,11 +162,11 @@ describe('world-state integration', () => {
         new WorldStateInstrumentation(getTelemetryClient()),
       );
 
-      archiver.createBlocks(3);
+      await archiver.createBlocks(3);
       await synchronizer.start();
       await expectSynchedToBlock(8);
 
-      archiver.createBlocks(4);
+      await archiver.createBlocks(4);
       await awaitSync(12);
       await expectSynchedToBlock(12);
 
@@ -184,7 +184,7 @@ describe('world-state integration', () => {
         new WorldStateInstrumentation(getTelemetryClient()),
       );
 
-      archiver.createBlocks(5);
+      await archiver.createBlocks(5);
       archiver.setProvenBlockNumber(3);
       await synchronizer.start();
       await expectSynchedToBlock(3);
@@ -197,7 +197,7 @@ describe('world-state integration', () => {
 
   describe('reorgs', () => {
     it('prunes blocks upon a reorg and resyncs', async () => {
-      archiver.createBlocks(5);
+      await archiver.createBlocks(5);
       await synchronizer.start();
       await expectSynchedToBlock(5);
 
@@ -206,7 +206,7 @@ describe('world-state integration', () => {
       archiver.setPrefilledBlocks(blocks, messages);
 
       archiver.removeBlocks(3);
-      archiver.createBlocks(2);
+      await archiver.createBlocks(2);
       await sleep(2000);
       await awaitSync(4);
       await expectSynchedToBlock(4);
@@ -225,44 +225,44 @@ describe('world-state integration', () => {
     });
 
     it('syncs immediately to the latest block', async () => {
-      archiver.createBlocks(5);
+      await archiver.createBlocks(5);
       await synchronizer.start();
       await expectSynchedToBlock(5);
 
-      archiver.createBlocks(2);
+      await archiver.createBlocks(2);
       await expectSynchedToBlock(5);
       await synchronizer.syncImmediate();
       await expectSynchedToBlock(7);
     });
 
     it('syncs immediately to at least the target block', async () => {
-      archiver.createBlocks(5);
+      await archiver.createBlocks(5);
       await synchronizer.start();
       await expectSynchedToBlock(5);
 
-      archiver.createBlocks(2);
+      await archiver.createBlocks(2);
       await expectSynchedToBlock(5);
       await synchronizer.syncImmediate(6);
       await expectSynchedToBlock(7);
     });
 
     it('syncs immediately to a past block', async () => {
-      archiver.createBlocks(5);
+      await archiver.createBlocks(5);
       await synchronizer.start();
       await expectSynchedToBlock(5);
 
-      archiver.createBlocks(2);
+      await archiver.createBlocks(2);
       await expectSynchedToBlock(5);
       await synchronizer.syncImmediate(4);
       await expectSynchedToBlock(5);
     });
 
     it('fails to sync to unreachable block', async () => {
-      archiver.createBlocks(5);
+      await archiver.createBlocks(5);
       await synchronizer.start();
       await expectSynchedToBlock(5);
 
-      archiver.createBlocks(2);
+      await archiver.createBlocks(2);
       await expectSynchedToBlock(5);
       await expect(() => synchronizer.syncImmediate(9)).rejects.toThrow(/unable to sync/i);
     });
@@ -270,7 +270,7 @@ describe('world-state integration', () => {
 
   describe('finalized chain', () => {
     it('syncs finalized chain tip', async () => {
-      archiver.createBlocks(5);
+      await archiver.createBlocks(5);
       archiver.setProvenBlockNumber(3);
 
       await synchronizer.start();

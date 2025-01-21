@@ -347,7 +347,7 @@ export const uniswapL1L2TestSuite = (
       // 6. claim dai on L2
       logger.info('Consuming messages to mint dai on L2');
       await daiCrossChainHarness.consumeMessageOnAztecAndMintPrivately({
-        claimAmount: new Fr(daiAmountToBridge),
+        claimAmount: daiAmountToBridge,
         claimSecret: secretForDepositingSwappedDai,
         messageLeafIndex: tokenOutMsgIndex,
         recipient: ownerAddress,
@@ -728,7 +728,7 @@ export const uniswapL1L2TestSuite = (
 
     it("someone can't call swap_public on my behalf without approval", async () => {
       // Owner approves a a user to swap_public:
-      const approvedUser = AztecAddress.random();
+      const approvedUser = await AztecAddress.random();
 
       const nonceForWETHTransferApproval = new Fr(3n);
       const nonceForSwap = new Fr(3n);

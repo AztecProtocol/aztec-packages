@@ -1,6 +1,6 @@
 import { type FunctionCall } from '@aztec/circuit-types';
 import { type GasSettings } from '@aztec/circuits.js';
-import { FunctionSelector, FunctionType } from '@aztec/foundation/abi';
+import { FunctionSelector, FunctionType, U128 } from '@aztec/foundation/abi';
 import { type AztecAddress } from '@aztec/foundation/aztec-address';
 import { Fr } from '@aztec/foundation/fields';
 
@@ -88,15 +88,15 @@ export class PrivateFeePaymentMethod implements FeePaymentMethod {
   async getFunctionCalls(gasSettings: GasSettings): Promise<FunctionCall[]> {
     // We assume 1:1 exchange rate between fee juice and token. But in reality you would need to convert feeLimit
     // (maxFee) to be in token denomination.
-    const maxFee = this.setMaxFeeToOne ? Fr.ONE : gasSettings.getFeeLimit();
+    const maxFee = new U128(this.setMaxFeeToOne ? 1n : gasSettings.getFeeLimit().toBigInt());
     const nonce = Fr.random();
 
     await this.wallet.createAuthWit({
       caller: this.paymentContract,
       action: {
         name: 'setup_refund',
-        args: [this.wallet.getAddress().toField(), maxFee, nonce],
-        selector: FunctionSelector.fromSignature('setup_refund((Field),Field,Field)'),
+        args: [this.wallet.getAddress().toField(), ...maxFee.toFields(), nonce],
+        selector: FunctionSelector.fromSignature('setup_refund((Field),(Field,Field),Field)'),
         type: FunctionType.PRIVATE,
         isStatic: false,
         to: await this.getAsset(),
@@ -108,10 +108,10 @@ export class PrivateFeePaymentMethod implements FeePaymentMethod {
       {
         name: 'fee_entrypoint_private',
         to: this.paymentContract,
-        selector: FunctionSelector.fromSignature('fee_entrypoint_private(Field,Field)'),
+        selector: FunctionSelector.fromSignature('fee_entrypoint_private((Field,Field),Field)'),
         type: FunctionType.PRIVATE,
         isStatic: false,
-        args: [maxFee, nonce],
+        args: [...maxFee.toFields(), nonce],
         returnTypes: [],
       },
     ];

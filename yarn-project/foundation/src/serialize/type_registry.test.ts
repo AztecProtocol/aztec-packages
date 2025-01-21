@@ -14,11 +14,11 @@ describe('TypeRegistry', () => {
     expect(parsed.fr).toEqual({ type: 'Fr', value: data.fr.toString() });
   });
 
-  it('deserializes registered types in objects', () => {
+  it('deserializes registered types in objects', async () => {
     const data = {
       fr: Fr.random(),
       fq: Fq.random(),
-      aztecAddress: AztecAddress.random(),
+      aztecAddress: await AztecAddress.random(),
       ethAddress: EthAddress.random(),
       functionSelector: FunctionSelector.random(),
       noteSelector: NoteSelector.random(),
@@ -36,11 +36,11 @@ describe('TypeRegistry', () => {
     expect(parsed.noteSelector).toBeInstanceOf(NoteSelector);
   });
 
-  it('deserializes registered types in arrays', () => {
+  it('deserializes registered types in arrays', async () => {
     const data = [
       Fr.random(),
       Fq.random(),
-      AztecAddress.random(),
+      await AztecAddress.random(),
       EthAddress.random(),
       FunctionSelector.random(),
       NoteSelector.random(),
