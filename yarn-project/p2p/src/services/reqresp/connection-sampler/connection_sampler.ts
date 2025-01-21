@@ -67,6 +67,7 @@ export class ConnectionSampler {
    * @returns
    */
   getPeer(excluding?: Map<string, boolean>): PeerId | undefined {
+    // In libp2p getPeers performs a shallow copy, so this array can be sliced from safetly
     const peers = this.libp2p.getPeers();
 
     if (peers.length === 0) {
@@ -84,6 +85,7 @@ export class ConnectionSampler {
       ((this.activeConnectionsCount.get(peers[randomIndex]) ?? 0) > 0 ||
         (excluding?.get(peers[randomIndex]?.toString()) ?? false))
     ) {
+      peers.splice(randomIndex, 1);
       randomIndex = this.sampler.random(peers.length);
       attempts++;
     }
