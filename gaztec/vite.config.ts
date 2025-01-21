@@ -11,10 +11,10 @@ const nodePolyfillsFix = (options?: PolyfillOptions | undefined): Plugin => {
     resolveId(source: string) {
       const m =
         /^vite-plugin-node-polyfills\/shims\/(buffer|global|process)$/.exec(
-          source,
+          source
         );
       if (m) {
-        return `../../node_modules/vite-plugin-node-polyfills/shims/${m[1]}/dist/index.cjs`;
+        return `./node_modules/vite-plugin-node-polyfills/shims/${m[1]}/dist/index.cjs`;
       }
     },
   };
@@ -29,19 +29,18 @@ export default defineConfig({
       "Cross-Origin-Embedder-Policy": "require-corp",
     },
     // Allow vite to serve files from these directories, since they are symlinked
-    // These are the protocol circuit artifacts
-    // and noir WASMs.
+    // These are the protocol circuit artifacts and noir WASMs.
     fs: {
       allow: [
         searchForWorkspaceRoot(process.cwd()),
-        "../../../yarn-project/noir-protocol-circuits-types/artifacts",
-        "../../../noir/packages/noirc_abi/web",
-        "../../../noir/packages/acvm_js/web",
+        "../yarn-project/noir-protocol-circuits-types/artifacts",
+        "../noir/packages/noirc_abi/web",
+        "../noir/packages/acvm_js/web",
       ],
     },
   },
   plugins: [
-    react(),
+    react({ jsxImportSource: "@emotion/react" }),
     nodePolyfillsFix({ include: ["buffer", "process", "path"] }),
   ],
   build: {
