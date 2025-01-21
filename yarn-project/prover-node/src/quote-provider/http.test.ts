@@ -1,5 +1,5 @@
 import { L2Block } from '@aztec/circuit-types';
-import { times } from '@aztec/foundation/collection';
+import { timesParallel } from '@aztec/foundation/collection';
 import { promiseWithResolvers } from '@aztec/foundation/promise';
 
 import { type Server, createServer } from 'http';
@@ -39,9 +39,9 @@ describe('HttpQuoteProvider', () => {
     port = (server.address() as AddressInfo).port;
   });
 
-  beforeEach(() => {
+  beforeEach(async () => {
     provider = new HttpQuoteProvider(`http://127.0.0.1:${port}`);
-    blocks = times(3, i => L2Block.random(i + 1, 4));
+    blocks = await timesParallel(3, i => L2Block.random(i + 1, 4));
     response = { basisPointFee: 100, bondAmount: '100000000000000000000', validUntilSlot: '100' };
   });
 

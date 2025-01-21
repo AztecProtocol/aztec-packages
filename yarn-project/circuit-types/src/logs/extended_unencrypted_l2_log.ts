@@ -10,6 +10,7 @@ import { UnencryptedL2Log } from './unencrypted_l2_log.js';
 
 /**
  * Represents an individual unencrypted log entry extended with info about the block and tx it was emitted in.
+ * TODO(#8945): Currently only used for contract class logs. When these are fields, delete this class.
  */
 export class ExtendedUnencryptedL2Log {
   constructor(
@@ -19,8 +20,8 @@ export class ExtendedUnencryptedL2Log {
     public readonly log: UnencryptedL2Log,
   ) {}
 
-  static random() {
-    return new ExtendedUnencryptedL2Log(LogId.random(), UnencryptedL2Log.random());
+  static async random() {
+    return new ExtendedUnencryptedL2Log(LogId.random(), await UnencryptedL2Log.random());
   }
 
   static get schema() {

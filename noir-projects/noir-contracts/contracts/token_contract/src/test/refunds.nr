@@ -13,10 +13,10 @@ unconstrained fn setup_refund_success() {
     let txe_expected_gas_used = Gas::new(1, 1);
     // TXE oracle uses gas fees of (1, 1)
     let txe_gas_fees = GasFees::new(1, 1);
-    let expected_tx_fee = txe_expected_gas_used.compute_fee(txe_gas_fees);
+    let expected_tx_fee = U128::from_integer(txe_expected_gas_used.compute_fee(txe_gas_fees));
 
     // Fund account with enough to cover tx fee plus some
-    let funded_amount = 1_000 + expected_tx_fee;
+    let funded_amount = U128::from_integer(1_000) + expected_tx_fee;
 
     let (env, token_contract_address, owner, recipient, mint_amount) =
         utils::setup_and_mint_amount_to_private(true, funded_amount);
@@ -82,7 +82,7 @@ unconstrained fn setup_refund_insufficient_funded_amount() {
     let fee_payer = recipient;
 
     // We set funded amount to 0 to make the transaction fee higher than the funded amount
-    let funded_amount = 0;
+    let funded_amount = U128::zero();
     let nonce = random();
 
     let setup_refund_from_call_interface =

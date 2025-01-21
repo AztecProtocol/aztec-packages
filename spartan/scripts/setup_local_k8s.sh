@@ -4,6 +4,10 @@ set -e
 
 SCRIPT_DIR="$(dirname $(realpath -s "${BASH_SOURCE[0]}"))"
 
+# Selectively install metrics and chaos mesh
+INSTALL_METRICS=${INSTALL_METRICS:-true}
+INSTALL_CHAOS_MESH=${INSTALL_CHAOS_MESH:-true}
+
 # exit if we are not on linux amd64
 if [ "$(uname)" != "Linux" ] || [ "$(uname -m)" != "x86_64" ]; then
   echo "This script is only supported on Linux amd64"
@@ -61,5 +65,13 @@ fi
 
 kubectl config use-context kind-kind || true
 
-"$SCRIPT_DIR"/../chaos-mesh/install.sh
-"$SCRIPT_DIR"/../metrics/install-kind.sh
+if [ "$INSTALL_CHAOS_MESH" = "true" ]; then
+  echo "Installing chaos mesh"
+  "$SCRIPT_DIR"/../chaos-mesh/install.sh
+fi
+
+if [ "$INSTALL_METRICS" = "true" ]; then
+  echo "Installing metrics"
+  "$SCRIPT_DIR"/../metrics/install-kind.sh
+fi
+

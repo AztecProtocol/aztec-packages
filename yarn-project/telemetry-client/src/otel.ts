@@ -32,6 +32,7 @@ import { ATTR_SERVICE_NAME, ATTR_SERVICE_VERSION } from '@opentelemetry/semantic
 import { type TelemetryClientConfig } from './config.js';
 import { EventLoopMonitor } from './event_loop_monitor.js';
 import { linearBuckets } from './histogram_utils.js';
+import { OtelFilterMetricExporter } from './otel_filter_metric_exporter.js';
 import { registerOtelLoggerProvider } from './otel_logger_provider.js';
 import { getOtelResource } from './otel_resource.js';
 import { type Gauge, type TelemetryClient } from './telemetry.js';
@@ -247,7 +248,7 @@ export class OpenTelemetryClient implements TelemetryClient {
       tracerProvider.register();
 
       const meterProvider = OpenTelemetryClient.createMeterProvider(resource, {
-        exporter: new GoogleCloudMetricExporter(),
+        exporter: new OtelFilterMetricExporter(new GoogleCloudMetricExporter(), config.otelExcludeMetrics ?? []),
         exportTimeoutMillis: config.otelExportTimeoutMs,
         exportIntervalMillis: config.otelCollectIntervalMs,
       });
@@ -269,7 +270,10 @@ export class OpenTelemetryClient implements TelemetryClient {
 
       const meterProvider = OpenTelemetryClient.createMeterProvider(resource, {
         exporter: config.metricsCollectorUrl
-          ? new OTLPMetricExporter({ url: config.metricsCollectorUrl.href })
+          ? new OtelFilterMetricExporter(
+              new OTLPMetricExporter({ url: config.metricsCollectorUrl.href }),
+              config.otelExcludeMetrics ?? [],
+            )
           : undefined,
         exportTimeoutMillis: config.otelExportTimeoutMs,
         exportIntervalMillis: config.otelCollectIntervalMs,

@@ -1,4 +1,5 @@
 import { type AztecAddress, BatchCall, Fr, type Wallet, toBigIntBE } from '@aztec/aztec.js';
+import { serializeToBuffer } from '@aztec/foundation/serialize';
 
 import { NestedContractTest } from './nested_contract_test.js';
 
@@ -50,11 +51,13 @@ describe('e2e_nested_contract manual', () => {
 
     const tx = await new BatchCall(wallet, actions).send().wait();
     const extendedLogs = (
-      await wallet.getUnencryptedLogs({
+      await wallet.getPublicLogs({
         fromBlock: tx.blockNumber!,
       })
     ).logs;
-    const processedLogs = extendedLogs.map(extendedLog => toBigIntBE(extendedLog.log.data));
+    const processedLogs = extendedLogs.map(extendedLog =>
+      toBigIntBE(serializeToBuffer(extendedLog.log.log.filter(elt => !elt.isZero()))),
+    );
     expect(processedLogs).toEqual([20n, 40n]);
     expect(await getChildStoredValue(childContract)).toEqual(new Fr(40n));
   });

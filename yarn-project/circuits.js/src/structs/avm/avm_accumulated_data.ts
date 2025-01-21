@@ -10,12 +10,12 @@ import {
   MAX_L2_TO_L1_MSGS_PER_TX,
   MAX_NOTE_HASHES_PER_TX,
   MAX_NULLIFIERS_PER_TX,
+  MAX_PUBLIC_LOGS_PER_TX,
   MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
-  MAX_UNENCRYPTED_LOGS_PER_TX,
 } from '../../constants.gen.js';
 import { ScopedL2ToL1Message } from '../l2_to_l1_message.js';
-import { ScopedLogHash } from '../log_hash.js';
 import { PublicDataWrite } from '../public_data_write.js';
+import { PublicLog } from '../public_log.js';
 
 export class AvmAccumulatedData {
   constructor(
@@ -32,9 +32,9 @@ export class AvmAccumulatedData {
      */
     public l2ToL1Msgs: Tuple<ScopedL2ToL1Message, typeof MAX_L2_TO_L1_MSGS_PER_TX>,
     /**
-     * The unencrypted logs emitted from the AVM execution.
+     * The public logs emitted from the AVM execution.
      */
-    public unencryptedLogsHashes: Tuple<ScopedLogHash, typeof MAX_UNENCRYPTED_LOGS_PER_TX>,
+    public publicLogs: Tuple<PublicLog, typeof MAX_PUBLIC_LOGS_PER_TX>,
     /**
      * The public data writes made in the AVM execution.
      */
@@ -46,7 +46,7 @@ export class AvmAccumulatedData {
       arraySerializedSizeOfNonEmpty(this.noteHashes) +
       arraySerializedSizeOfNonEmpty(this.nullifiers) +
       arraySerializedSizeOfNonEmpty(this.l2ToL1Msgs) +
-      arraySerializedSizeOfNonEmpty(this.unencryptedLogsHashes) +
+      arraySerializedSizeOfNonEmpty(this.publicLogs) +
       arraySerializedSizeOfNonEmpty(this.publicDataWrites)
     );
   }
@@ -57,19 +57,13 @@ export class AvmAccumulatedData {
       reader.readArray(MAX_NOTE_HASHES_PER_TX, Fr),
       reader.readArray(MAX_NULLIFIERS_PER_TX, Fr),
       reader.readArray(MAX_L2_TO_L1_MSGS_PER_TX, ScopedL2ToL1Message),
-      reader.readArray(MAX_UNENCRYPTED_LOGS_PER_TX, ScopedLogHash),
+      reader.readArray(MAX_PUBLIC_LOGS_PER_TX, PublicLog),
       reader.readArray(MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, PublicDataWrite),
     );
   }
 
   toBuffer() {
-    return serializeToBuffer(
-      this.noteHashes,
-      this.nullifiers,
-      this.l2ToL1Msgs,
-      this.unencryptedLogsHashes,
-      this.publicDataWrites,
-    );
+    return serializeToBuffer(this.noteHashes, this.nullifiers, this.l2ToL1Msgs, this.publicLogs, this.publicDataWrites);
   }
 
   static fromFields(fields: Fr[] | FieldReader) {
@@ -78,7 +72,7 @@ export class AvmAccumulatedData {
       reader.readFieldArray(MAX_NOTE_HASHES_PER_TX),
       reader.readFieldArray(MAX_NULLIFIERS_PER_TX),
       reader.readArray(MAX_L2_TO_L1_MSGS_PER_TX, ScopedL2ToL1Message),
-      reader.readArray(MAX_UNENCRYPTED_LOGS_PER_TX, ScopedLogHash),
+      reader.readArray(MAX_PUBLIC_LOGS_PER_TX, PublicLog),
       reader.readArray(MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, PublicDataWrite),
     );
   }
@@ -96,7 +90,7 @@ export class AvmAccumulatedData {
       makeTuple(MAX_NOTE_HASHES_PER_TX, Fr.zero),
       makeTuple(MAX_NULLIFIERS_PER_TX, Fr.zero),
       makeTuple(MAX_L2_TO_L1_MSGS_PER_TX, ScopedL2ToL1Message.empty),
-      makeTuple(MAX_UNENCRYPTED_LOGS_PER_TX, ScopedLogHash.empty),
+      makeTuple(MAX_PUBLIC_LOGS_PER_TX, PublicLog.empty),
       makeTuple(MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, PublicDataWrite.empty),
     );
   }
@@ -106,7 +100,7 @@ export class AvmAccumulatedData {
       this.noteHashes.every(x => x.isZero()) &&
       this.nullifiers.every(x => x.isZero()) &&
       this.l2ToL1Msgs.every(x => x.isEmpty()) &&
-      this.unencryptedLogsHashes.every(x => x.isEmpty()) &&
+      this.publicLogs.every(x => x.isEmpty()) &&
       this.publicDataWrites.every(x => x.isEmpty())
     );
   }
@@ -126,7 +120,7 @@ export class AvmAccumulatedData {
     .filter(x => !x.isEmpty())
     .map(h => inspect(h))
     .join(', ')}],
-  unencryptedLogsHashes: [${this.unencryptedLogsHashes
+  publicLogs: [${this.publicLogs
     .filter(x => !x.isEmpty())
     .map(h => inspect(h))
     .join(', ')}],

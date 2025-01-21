@@ -52,6 +52,7 @@ void ExecutionTraceBuilder::process(
                       { C::execution_op3, static_cast<FF>(operands.at(2)) },
                       { C::execution_op4, static_cast<FF>(operands.at(3)) },
                       { C::execution_pc, ex_event.pc },
+                      { C::execution_bytecode_id, ex_event.bytecode_id },
                       { C::execution_rop1, static_cast<FF>(resolved_operands.at(0)) },
                       { C::execution_rop2, static_cast<FF>(resolved_operands.at(1)) },
                       { C::execution_rop3, static_cast<FF>(resolved_operands.at(2)) },

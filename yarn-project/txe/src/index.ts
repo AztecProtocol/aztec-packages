@@ -1,7 +1,7 @@
 import { loadContractArtifact } from '@aztec/aztec.js';
-import { createSafeJsonRpcServer } from '@aztec/foundation/json-rpc/server';
 import { type Logger } from '@aztec/foundation/log';
 import { type ApiSchemaFor, type ZodFor } from '@aztec/foundation/schemas';
+import { createTracedJsonRpcServer } from '@aztec/telemetry-client';
 
 import { readFile, readdir } from 'fs/promises';
 import { join } from 'path';
@@ -120,5 +120,7 @@ const TXEDispatcherApiSchema: ApiSchemaFor<TXEDispatcher> = {
  * @returns A TXE RPC server.
  */
 export function createTXERpcServer(logger: Logger) {
-  return createSafeJsonRpcServer(new TXEDispatcher(logger), TXEDispatcherApiSchema, { http200OnError: true });
+  return createTracedJsonRpcServer(new TXEDispatcher(logger), TXEDispatcherApiSchema, {
+    http200OnError: true,
+  });
 }

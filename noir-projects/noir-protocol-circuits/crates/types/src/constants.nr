@@ -39,7 +39,7 @@ pub global MAX_NULLIFIER_NON_EXISTENT_READ_REQUESTS_PER_CALL: u32 = 16;
 pub global MAX_L1_TO_L2_MSG_READ_REQUESTS_PER_CALL: u32 = 16;
 pub global MAX_KEY_VALIDATION_REQUESTS_PER_CALL: u32 = 16;
 pub global MAX_PRIVATE_LOGS_PER_CALL: u32 = 16;
-pub global MAX_UNENCRYPTED_LOGS_PER_CALL: u32 = 4;
+pub global MAX_PUBLIC_LOGS_PER_CALL: u32 = 4;
 pub global MAX_CONTRACT_CLASS_LOGS_PER_CALL: u32 = 1;
 
 // TREES RELATED CONSTANTS
@@ -91,7 +91,7 @@ pub global MAX_L1_TO_L2_MSG_READ_REQUESTS_PER_TX: u32 = 64;
 // databus will hopefully make the issue go away.
 pub global MAX_KEY_VALIDATION_REQUESTS_PER_TX: u32 = 64;
 pub global MAX_PRIVATE_LOGS_PER_TX: u32 = 32;
-pub global MAX_UNENCRYPTED_LOGS_PER_TX: u32 = 8;
+pub global MAX_PUBLIC_LOGS_PER_TX: u32 = 8;
 pub global MAX_CONTRACT_CLASS_LOGS_PER_TX: u32 = 1;
 // docs:end:constants
 
@@ -128,6 +128,8 @@ pub global INITIALIZATION_SLOT_SEPARATOR: Field = 1000_000_000;
 pub global INITIAL_L2_BLOCK_NUM: Field = 1;
 pub global FIELDS_PER_BLOB: u32 = 4096;
 pub global BLOBS_PER_BLOCK: u32 = 3;
+pub global PUBLIC_LOG_DATA_SIZE_IN_FIELDS: u32 = 13;
+pub global PUBLIC_LOG_SIZE_IN_FIELDS: u32 = PUBLIC_LOG_DATA_SIZE_IN_FIELDS + 1; // This includes the contract address, since it is always emitted with a public log
 pub global PRIVATE_LOG_SIZE_IN_FIELDS: u32 = 18; // This is currently affected by the size of the log overhead defined in aztec-nr/aztec/src/encrypted_logs/payload.nr.
 pub global AZTEC_MAX_EPOCH_DURATION: u32 = 48;
 // The following genesis values are taken from world_state.test.cpp > WorldStateTest.GetInitialTreeInfoForAllTrees
@@ -137,7 +139,7 @@ pub global GENESIS_ARCHIVE_ROOT: Field =
     0x0237797d6a2c04d20d4fa06b74482bd970ccd51a43d9b05b57e9b91fa1ae1cae;
 // The following and the value in `deploy_l1_contracts` must match. We should not have the code both places, but
 // we are running into circular dependency issues. #3342
-pub global FEE_JUICE_INITIAL_MINT: Field = 200000000000000000000;
+pub global FEE_JUICE_INITIAL_MINT: Field = 200000000000000000000000;
 // Last 4 bytes of the Poseidon2 hash of 'public_dispatch(Field)'.
 pub global PUBLIC_DISPATCH_SELECTOR: Field = 0xd5441b0d;
 
@@ -312,7 +314,7 @@ pub global PUBLIC_CIRCUIT_PUBLIC_INPUTS_LENGTH: u32 = CALL_CONTEXT_LENGTH
     + (NULLIFIER_LENGTH * MAX_NULLIFIERS_PER_CALL)
     + (L2_TO_L1_MESSAGE_LENGTH * MAX_L2_TO_L1_MSGS_PER_CALL)
     + 2
-    + (LOG_HASH_LENGTH * MAX_UNENCRYPTED_LOGS_PER_CALL)
+    + (PUBLIC_LOG_SIZE_IN_FIELDS * MAX_PUBLIC_LOGS_PER_CALL)
     + BLOCK_HEADER_LENGTH
     + GLOBAL_VARIABLES_LENGTH
     + AZTEC_ADDRESS_LENGTH
@@ -378,7 +380,7 @@ pub global NUM_PRIVATE_TO_AVM_ACCUMULATED_DATA_ARRAYS: u32 = 3;
 pub global AVM_ACCUMULATED_DATA_LENGTH: u32 = MAX_NOTE_HASHES_PER_TX
     + MAX_NULLIFIERS_PER_TX
     + (MAX_L2_TO_L1_MSGS_PER_TX * SCOPED_L2_TO_L1_MESSAGE_LENGTH)
-    + (MAX_UNENCRYPTED_LOGS_PER_TX * SCOPED_LOG_HASH_LENGTH)
+    + (MAX_PUBLIC_LOGS_PER_TX * PUBLIC_LOG_SIZE_IN_FIELDS)
     + (MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX * PUBLIC_DATA_WRITE_LENGTH);
 
 pub global PRIVATE_TO_PUBLIC_KERNEL_CIRCUIT_PUBLIC_INPUTS_LENGTH: u32 = TX_CONSTANT_DATA_LENGTH
@@ -460,7 +462,7 @@ pub global NUM_BASE_PARITY_PER_ROOT_PARITY: u32 = 4;
 // Lengths of the different types of proofs in fields
 pub global RECURSIVE_PROOF_LENGTH: u32 = 459;
 pub global NESTED_RECURSIVE_PROOF_LENGTH: u32 = RECURSIVE_PROOF_LENGTH;
-pub global IPA_PROOF_LENGTH: u32 = 65;
+pub global IPA_PROOF_LENGTH: u32 = 69;
 pub global RECURSIVE_ROLLUP_HONK_PROOF_LENGTH: u32 =
     RECURSIVE_PROOF_LENGTH + IPA_CLAIM_LENGTH + IPA_PROOF_LENGTH;
 pub global NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH: u32 = RECURSIVE_ROLLUP_HONK_PROOF_LENGTH;
@@ -743,7 +745,7 @@ pub global NULLIFIERS_PREFIX: u8 = 4;
 pub global L2_L1_MSGS_PREFIX: u8 = 5;
 pub global PUBLIC_DATA_UPDATE_REQUESTS_PREFIX: u8 = 6;
 pub global PRIVATE_LOGS_PREFIX: u8 = 7;
-pub global UNENCRYPTED_LOGS_PREFIX: u8 = 8;
+pub global PUBLIC_LOGS_PREFIX: u8 = 8;
 pub global CONTRACT_CLASS_LOGS_PREFIX: u8 = 9;
 
 // Constants related to proof type of a recursive proof verification.
