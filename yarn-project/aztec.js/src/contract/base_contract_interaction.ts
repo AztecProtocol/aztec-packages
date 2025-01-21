@@ -120,7 +120,7 @@ export abstract class BaseContractInteraction {
       fee?.gasSettings?.maxFeesPerGas ?? (await this.wallet.getCurrentBaseFees()).mul(1 + (fee?.baseFeePadding ?? 0.5));
     const paymentMethod = fee?.paymentMethod ?? new NoFeePaymentMethod();
     const gasSettings: GasSettings = GasSettings.default({ ...fee?.gasSettings, maxFeesPerGas });
-    this.log.debug(`Using gas settings`, gasSettings);
+    this.log.debug(`Using L2 gas settings`, gasSettings);
     return { gasSettings, paymentMethod };
   }
 
