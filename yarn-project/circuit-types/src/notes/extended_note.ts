@@ -75,11 +75,11 @@ export class ExtendedNote {
     return ExtendedNote.fromBuffer(hexToBuffer(str));
   }
 
-  static random() {
+  static async random() {
     return new ExtendedNote(
       Note.random(),
-      AztecAddress.random(),
-      AztecAddress.random(),
+      await AztecAddress.random(),
+      await AztecAddress.random(),
       Fr.random(),
       NoteSelector.random(),
       TxHash.random(),
@@ -135,11 +135,11 @@ export class UniqueNote extends ExtendedNote {
     ]);
   }
 
-  static override random() {
+  static override async random() {
     return new UniqueNote(
       Note.random(),
-      AztecAddress.random(),
-      AztecAddress.random(),
+      await AztecAddress.random(),
+      await AztecAddress.random(),
       Fr.random(),
       NoteSelector.random(),
       TxHash.random(),

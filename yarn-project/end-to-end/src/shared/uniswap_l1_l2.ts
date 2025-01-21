@@ -728,7 +728,7 @@ export const uniswapL1L2TestSuite = (
 
     it("someone can't call swap_public on my behalf without approval", async () => {
       // Owner approves a a user to swap_public:
-      const approvedUser = AztecAddress.random();
+      const approvedUser = await AztecAddress.random();
 
       const nonceForWETHTransferApproval = new Fr(3n);
       const nonceForSwap = new Fr(3n);

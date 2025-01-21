@@ -23,9 +23,9 @@ describe('EncryptedLogPayload', () => {
     let original: EncryptedLogPayload;
     let payload: PrivateLog;
 
-    beforeAll(() => {
+    beforeAll(async () => {
       const incomingBodyPlaintext = randomBytes(128);
-      const contract = AztecAddress.random();
+      const contract = await AztecAddress.random();
       original = new EncryptedLogPayload(PLACEHOLDER_TAG, contract, incomingBodyPlaintext);
 
       const secretKey = Fr.random();
@@ -36,19 +36,19 @@ describe('EncryptedLogPayload', () => {
 
       const ephSk = GrumpkinScalar.random();
 
-      payload = original.generatePayload(ephSk, completeAddress.address);
+      payload = await original.generatePayload(ephSk, completeAddress.address);
     });
 
-    it('decrypt a log as incoming', () => {
+    it('decrypt a log as incoming', async () => {
       const addressSecret = computeAddressSecret(completeAddress.getPreaddress(), ivskM);
 
-      const recreated = EncryptedLogPayload.decryptAsIncoming(payload.fields, addressSecret);
+      const recreated = await EncryptedLogPayload.decryptAsIncoming(payload.fields, addressSecret);
 
       expect(recreated?.toBuffer()).toEqual(original.toBuffer());
     });
   });
 
-  it('encrypted tagged log matches Noir', () => {
+  it('encrypted tagged log matches Noir', async () => {
     // All the values in this test were arbitrarily set and copied over to `payload.nr`
     const contract = AztecAddress.fromString('0x10f48cd9eff7ae5b209c557c70de2e657ee79166868676b787e9417e19260e04');
     const plaintext = Buffer.from(
@@ -73,7 +73,7 @@ describe('EncryptedLogPayload', () => {
       return Buffer.from(Array(len).fill(1));
     };
 
-    const payload = log.generatePayload(ephSk, recipientCompleteAddress.address, fixedRand);
+    const payload = await log.generatePayload(ephSk, recipientCompleteAddress.address, fixedRand);
 
     expect(payload.toBuffer().toString('hex')).toMatchInlineSnapshot(
       `"0e9cffc3ddd746affb02410d8f0a823e89939785bcc8e88ee4f3cae05e737c36008d460c0e434d846ec1ea286e4090eb56376ff27bddc1aacae1d856549f701f00a70577790aeabcc2d81ec8d0c99e7f5d2bf2f1452025dc777a178404f851d9003de818923f85187871d99bdf95d695eff0a900000000000000000000000000000000a600a61f7d59eeaf52eb51bc0592ff981d9ba3ea8e6ea8ba9dc0cec8c7000b81e84556a77ce6c3ca47a527f99ffe7b2524bb885a23020b7295748ad19c001083618ad96298b76ee07eb1a56d19cc798710e9f5de96501bd59b3781c9c0002a6c95c5912f8936b1500d362afbf0922c85b1ada18db8b95162a6e9d06765005cdf669eb387f8e0492a95fdcdb39429d5340b4bebc250ba9bf62c2f49f54900f37beed75a668aa51967e0e57547e5a655157bcf381e22f30e25881548ec960006a151b5fbfb2d14ee4b34bf4c1dbd71c7be15ad4c63474bb6f89970aeb3d900489c8edbdff80a1a3a5c28370e534abc870a85ea4318326ea19222fb10df35008c765edada497db4284ae30507a2e03e983d23cfa0bd831577e857bbef9cf70090c97cb5699cc8783a1b4276d929be2882e5b9b72829a4f8404f7e3c853d1100d6d5a000b80134891e95f81007ad35d3945eaeecbe137fff85d01d7eaf8f1900a15eb965c6a4bc97aa87fd3463c31c9d4e0d722a8ba870bcc50c9c7a8b48ad0063c861bdbe490d44c57382decbae663927909652f87ac18dcfd5b30649cce500820f14caa725efe1fa3485ceac88499eadf0565c5b20998c05931bbf478e68"`,
@@ -90,7 +90,7 @@ describe('EncryptedLogPayload', () => {
     const ivskM = new GrumpkinScalar(0x0d6e27b21c89a7632f7766e35cc280d43f75bea3898d7328400a5fefc804d462n);
 
     const addressSecret = computeAddressSecret(recipientCompleteAddress.getPreaddress(), ivskM);
-    const recreated = EncryptedLogPayload.decryptAsIncoming(payload.fields, addressSecret);
+    const recreated = await EncryptedLogPayload.decryptAsIncoming(payload.fields, addressSecret);
     expect(recreated?.toBuffer()).toEqual(log.toBuffer());
   });
 });

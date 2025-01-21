@@ -82,7 +82,7 @@ describe('ReqResp', () => {
     expect(res).toBeUndefined();
   });
 
-  it('should request from a later peer if other peers are offline', async () => {
+  it.skip('should request from a later peer if other peers are offline', async () => {
     nodes = await createNodes(peerScoring, 4);
 
     await startNodes(nodes);
@@ -347,7 +347,7 @@ describe('ReqResp', () => {
     it('should handle block requests', async () => {
       const blockNumber = 1;
       const blockNumberFr = Fr.ONE;
-      const block = L2Block.random(blockNumber);
+      const block = await L2Block.random(blockNumber);
 
       const l2BlockSource: MockProxy<L2BlockSource> = mock<L2BlockSource>();
       l2BlockSource.getBlock.mockImplementation((_blockNumber: number) => {

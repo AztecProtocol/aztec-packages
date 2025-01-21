@@ -3,6 +3,7 @@ export {
   BackendOptions,
   Barretenberg,
   BarretenbergSync,
+  BarretenbergLazy,
   BarretenbergVerifier,
   UltraPlonkBackend,
   UltraHonkBackend,
