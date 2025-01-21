@@ -201,6 +201,7 @@ export class L1ToL2MessageExists extends Instruction {
 }
 
 export class EmitUnencryptedLog extends Instruction {
+  // TODO(MW): rename unencrypted -> public
   static type: string = 'EMITUNENCRYPTEDLOG';
   static readonly opcode: Opcode = Opcode.EMITUNENCRYPTEDLOG;
   // Informs (de)serialization. See Instruction.deserialize.
@@ -228,7 +229,7 @@ export class EmitUnencryptedLog extends Instruction {
 
     context.machineState.consumeGas(this.gasCost(logSize));
     const log = memory.getSlice(logOffset, logSize).map(f => f.toFr());
-    context.persistableState.writeUnencryptedLog(contractAddress, log);
+    context.persistableState.writePublicLog(contractAddress, log);
 
     memory.assert({ reads: 1 + logSize, addressing });
   }

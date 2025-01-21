@@ -28,6 +28,21 @@ export function makeTuple<T, N extends number>(length: N, fn: (i: number) => T, 
 }
 
 /**
+ * Create an array over an integer range, filled with a function 'fn'.
+ * This is used over e.g. lodash because it resolved to a tuple type, needed for our fixed array type safety.
+ * @param n - The number of integers.
+ * @param fn - The generator function.
+ * @returns The array of numbers.
+ */
+export async function makeTupleAsync<T, N extends number>(length: N, fn: (i: number) => Promise<T>, offset = 0) {
+  return (await Promise.all(
+    Array(length)
+      .fill(0)
+      .map(async (_: any, i: number) => await fn(i + offset)),
+  )) as Tuple<T, N>;
+}
+
+/**
  * Create an array over an integer range, filled with a function 'fn'. However, the latter half of the array are set to zeros.
  * see `makeTuple` above.
  * @param n - The number of integers.

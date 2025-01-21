@@ -26,13 +26,14 @@ export async function aztecStart(options: any, userLog: LogFn, debugLogger: Logg
 
   if (options.sandbox) {
     const sandboxOptions = extractNamespacedOptions(options, 'sandbox');
+    const nodeOptions = extractNamespacedOptions(options, 'node');
     userLog(`${splash}\n${github}\n\n`);
     userLog(`Setting up Aztec Sandbox ${cliVersion}, please stand by...`);
 
     const { aztecNodeConfig, node, pxe, stop } = await createSandbox({
-      enableGas: sandboxOptions.enableGas,
       l1Mnemonic: options.l1Mnemonic,
       l1RpcUrl: options.l1RpcUrl,
+      l1Salt: nodeOptions.deployAztecContractsSalt,
     });
 
     // Deploy test accounts by default
