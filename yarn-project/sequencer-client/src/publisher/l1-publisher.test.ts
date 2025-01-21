@@ -54,6 +54,15 @@ interface MockRollupContractWrite {
 interface MockRollupContractRead {
   archive: () => Promise<`0x${string}`>;
   getCurrentSlot(): Promise<bigint>;
+  validateHeader: (
+    args: readonly [
+      `0x${string}`,
+      ViemSignature[],
+      `0x${string}`,
+      bigint,
+      { ignoreDA: boolean; ignoreSignatures: boolean },
+    ],
+  ) => Promise<void>;
 }
 
 class MockRollupContract {
@@ -255,11 +264,11 @@ describe('L1Publisher', () => {
 
   it('does not retry if simulating a publish and propose tx fails', async () => {
     rollupContractRead.archive.mockResolvedValue(l2Block.header.lastArchive.root.toString() as `0x${string}`);
-    (l1TxUtils as any).simulateGasUsed.mockResolvedValue(new Error());
+    rollupContractRead.validateHeader.mockRejectedValueOnce(new Error('Test error'));
 
-    const result = await publisher.proposeL2Block(l2Block);
+    await expect(publisher.proposeL2Block(l2Block)).rejects.toThrow();
 
-    expect(result).toEqual(false);
+    expect(rollupContractRead.validateHeader).toHaveBeenCalledTimes(1);
   });
 
   it('does not retry if sending a publish and propose tx fails', async () => {

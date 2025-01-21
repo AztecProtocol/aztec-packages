@@ -1,7 +1,13 @@
 import { type BlobSinkClientInterface, createBlobSinkClient } from '@aztec/blob-sink/client';
 import { type EpochProofClaim, type EpochProofQuote, type L2Block, type TxHash } from '@aztec/circuit-types';
 import { type L1PublishBlockStats, type L1PublishProofStats, type L1PublishStats } from '@aztec/circuit-types/stats';
-import { AGGREGATION_OBJECT_LENGTH, AZTEC_MAX_EPOCH_DURATION, EthAddress, type Proof } from '@aztec/circuits.js';
+import {
+  AGGREGATION_OBJECT_LENGTH,
+  AZTEC_MAX_EPOCH_DURATION,
+  type BlockHeader,
+  EthAddress,
+  type Proof,
+} from '@aztec/circuits.js';
 import { type FeeRecipient, type RootRollupPublicInputs } from '@aztec/circuits.js/rollup';
 import {
   type EthereumChain,
@@ -31,7 +37,7 @@ import {
   type Chain,
   type Client,
   type ContractFunctionExecutionError,
-  type ContractFunctionRevertedError,
+  ContractFunctionRevertedError,
   type GetContractReturnType,
   type Hex,
   type HttpTransport,
@@ -390,6 +396,49 @@ export class L1Publisher {
     return quote;
   }
 
+  /**
+   * @notice  Will call `validateHeader` to make sure that it is possible to propose
+   *
+   * @dev     Throws if unable to propose
+   *
+   * @param header - The header to propose
+   * @param digest - The digest that attestations are signing over
+   *
+   */
+  public async validateBlockForSubmission(
+    header: BlockHeader,
+    attestationData: { digest: Buffer; signatures: Signature[] } = {
+      digest: Buffer.alloc(32),
+      signatures: [],
+    },
+  ): Promise<bigint> {
+    const ts = BigInt((await this.publicClient.getBlock()).timestamp + this.ethereumSlotDuration);
+
+    const formattedSignatures = attestationData.signatures.map(attest => attest.toViemSignature());
+    const flags = { ignoreDA: true, ignoreSignatures: formattedSignatures.length == 0 };
+
+    const args = [
+      `0x${header.toBuffer().toString('hex')}`,
+      formattedSignatures,
+      `0x${attestationData.digest.toString('hex')}`,
+      ts,
+      `0x${header.contentCommitment.blobsHash.toString('hex')}`,
+      flags,
+    ] as const;
+
+    try {
+      await this.rollupContract.read.validateHeader(args, { account: this.account });
+    } catch (error: unknown) {
+      // Specify the type of error
+      if (error instanceof ContractFunctionRevertedError) {
+        const err = error as ContractFunctionRevertedError;
+        this.log.debug(`Validation failed: ${err.message}`, err.data);
+      }
+      throw error;
+    }
+    return ts;
+  }
+
   public async getCurrentEpochCommittee(): Promise<EthAddress[]> {
     const committee = await this.rollupContract.read.getCurrentEpochCommittee();
     return committee.map(EthAddress.fromString);
@@ -529,6 +578,10 @@ export class L1Publisher {
       blockHash: block.hash().toString(),
     };
 
+    const consensusPayload = new ConsensusPayload(block.header, block.archive.root, txHashes ?? []);
+
+    const digest = getHashedSignaturePayload(consensusPayload, SignatureDomainSeparator.blockAttestation);
+
     const blobs = Blob.getBlobs(block.body.toBlobFields());
     const proposeTxArgs = {
       header: block.header.toBuffer(),
@@ -548,8 +601,16 @@ export class L1Publisher {
 
     const timer = new Timer();
 
+    // @note  This will make sure that we are passing the checks for our header ASSUMING that the data is also made available
+    //        This means that we can avoid the simulation issues in later checks.
+    //        By simulation issue, I mean the fact that the block.timestamp is equal to the last block, not the next, which
+    //        make time consistency checks break.
+    const ts = await this.validateBlockForSubmission(block.header, {
+      digest: digest.toBuffer(),
+      signatures: attestations ?? [],
+    });
+
     this.log.debug(`Submitting propose transaction`);
-    const ts = BigInt((await this.publicClient.getBlock()).timestamp + this.ethereumSlotDuration);
     const result = proofQuote
       ? await this.sendProposeAndClaimTx(proposeTxArgs, proofQuote, opts, ts)
       : await this.sendProposeTx(proposeTxArgs, opts, ts);
