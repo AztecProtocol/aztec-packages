@@ -2,32 +2,24 @@ use dep::aztec::protocol_types::{
     traits::{Deserialize, Packable, Serialize},
     utils::field::field_from_bytes,
 };
+use std::meta::derive;
 
 // A Fixedsize Compressed String.
 // Essentially a special version of Compressed String for practical use.
+#[derive(Serialize, Deserialize)]
 pub struct FieldCompressedString {
     value: Field,
 }
 
+/// We implement the Packable trait for FieldCompressedString because it can be stored in contract's storage
+/// (and there the implementation of Packable is required).
 impl Packable<1> for FieldCompressedString {
     fn pack(self) -> [Field; 1] {
-        [self.value]
+        self.serialize()
     }
 
     fn unpack(input: [Field; 1]) -> Self {
-        Self { value: input[0] }
-    }
-}
-
-impl Serialize<1> for FieldCompressedString {
-    fn serialize(self) -> [Field; 1] {
-        [self.value]
-    }
-}
-
-impl Deserialize<1> for FieldCompressedString {
-    fn deserialize(input: [Field; 1]) -> Self {
-        Self { value: input[0] }
+        Self::deserialize(input)
     }
 }
 

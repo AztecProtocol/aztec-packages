@@ -65,15 +65,18 @@ impl Deserialize<AZTEC_ADDRESS_LENGTH> for AztecAddress {
     }
 }
 
+/// We implement the Packable trait for AztecAddress because it can be stored in contract's storage (and there
+/// the implementation of Packable is required).
 impl Packable<AZTEC_ADDRESS_LENGTH> for AztecAddress {
     fn pack(self) -> [Field; AZTEC_ADDRESS_LENGTH] {
-        [self.to_field()]
+        self.serialize()
     }
 
     fn unpack(fields: [Field; AZTEC_ADDRESS_LENGTH]) -> Self {
-        AztecAddress::from_field(fields[0])
+        Self::deserialize(fields)
     }
 }
+
 impl AztecAddress {
     pub fn zero() -> Self {
         Self { inner: 0 }
