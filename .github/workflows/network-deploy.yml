@@ -146,6 +146,41 @@ jobs:
           echo "::add-mask::$(gcloud secrets versions access latest --secret=${{ env.DEPLOYMENT_MNEMONIC_SECRET_NAME }})"
           echo "mnemonic=$(gcloud secrets versions access latest --secret=${{ env.DEPLOYMENT_MNEMONIC_SECRET_NAME }})" >> "$GITHUB_OUTPUT"
 
+      - name: Generate eth devnet config
+        id: generate-eth-devnet-config
+        run: |
+
+          REPO=$(git rev-parse --show-toplevel)
+
+          VALUES_PATH="$REPO/spartan/aztec-network/values/${{ env.VALUES_FILE }}"
+          DEFAULT_VALUES_PATH="$REPO/spartan/aztec-network/values.yaml"
+
+          function read_values_file() {
+            local key="$1"
+
+            value=$(yq -r ".$key" "$VALUES_PATH")
+            if [ -z "$value" ] || [ "$value" = "null" ]; then
+              value=$(yq -r ".$key" "$DEFAULT_VALUES_PATH")
+            fi
+            echo "$value"
+          }
+
+          export NUMBER_OF_KEYS=$(read_values_file "validator.replicas")
+          export NUMBER_OF_KEYS=$(read_values_file "validator.replicas")
+          export MNEMONIC=$(read_values_file "aztec.l1DeploymentMnemonic")
+          export BLOCK_TIME=$(read_values_file "ethereum.blockTime")
+          export GAS_LIMIT=$(read_values_file "ethereum.gasLimit")
+          export CHAIN_ID=$(read_values_file "ethereum.chainId")
+
+          echo "Generating eth devnet config..."
+          echo "NUMBER_OF_KEYS: $NUMBER_OF_KEYS"
+          echo "MNEMONIC: $MNEMONIC"
+          echo "BLOCK_TIME: $BLOCK_TIME"
+          echo "GAS_LIMIT: $GAS_LIMIT"
+          echo "CHAIN_ID: $CHAIN_ID"
+
+          $REPO/spartan/aztec-network/eth-devnet/create.sh
+
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v2
         with:
