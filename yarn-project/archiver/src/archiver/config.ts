@@ -22,7 +22,7 @@ export type ArchiverConfig = {
   archiverUrl?: string;
 
   /** URL for an L1 consensus client */
-  l1ConsensusHostUrl: string;
+  l1ConsensusHostUrl?: string;
 
   /** The polling interval in ms for retrieving new L2 blocks and encrypted logs. */
   archiverPollingIntervalMS?: number;
@@ -50,7 +50,7 @@ export const archiverConfigMappings: ConfigMappingsType<ArchiverConfig> = {
   l1ConsensusHostUrl: {
     env: 'L1_CONSENSUS_HOST_URL',
     description: 'URL for an L1 consensus client.',
-    parseEnv: (val: string) => (val ? val : 'http://localhost:5052'),
+    parseEnv: (val: string) => val,
   },
   archiverPollingIntervalMS: {
     env: 'ARCHIVER_POLLING_INTERVAL_MS',
