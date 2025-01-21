@@ -56,10 +56,6 @@ export abstract class TypedOracle {
     return Fr.random();
   }
 
-  storeArrayInExecutionCache(_args: Fr[]): Promise<Fr> {
-    throw new OracleMethodNotAvailableError('storeArrayInExecutionCache');
-  }
-
   storeInExecutionCache(_values: Fr[]): Promise<Fr> {
     throw new OracleMethodNotAvailableError('storeInExecutionCache');
   }

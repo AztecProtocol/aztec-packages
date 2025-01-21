@@ -361,10 +361,6 @@ export class TXE implements TypedOracle {
     return Fr.random();
   }
 
-  storeArrayInExecutionCache(values: Fr[]) {
-    return Promise.resolve(this.executionCache.store(values));
-  }
-
   storeInExecutionCache(values: Fr[]) {
     return Promise.resolve(this.executionCache.store(values));
   }
