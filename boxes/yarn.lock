@@ -77,8 +77,10 @@ __metadata:
     "@aztec/circuit-types": "workspace:^"
     "@aztec/ethereum": "workspace:^"
     "@aztec/foundation": "workspace:^"
+    bindings: "npm:^1.5.0"
     idb: "npm:^8.0.0"
     lmdb: "npm:^3.2.0"
+    msgpackr: "npm:*"
   languageName: node
   linkType: soft
 
@@ -3814,6 +3816,15 @@ __metadata:
   languageName: node
   linkType: hard
 
+"bindings@npm:^1.5.0":
+  version: 1.5.0
+  resolution: "bindings@npm:1.5.0"
+  dependencies:
+    file-uri-to-path: "npm:1.0.0"
+  checksum: 10c0/3dab2491b4bb24124252a91e656803eac24292473e56554e35bbfe3cc1875332cfa77600c3bac7564049dc95075bf6fcc63a4609920ff2d64d0fe405fcf0d4ba
+  languageName: node
+  linkType: hard
+
 "bn.js@npm:^4.0.0, bn.js@npm:^4.1.0, bn.js@npm:^4.11.9":
   version: 4.12.1
   resolution: "bn.js@npm:4.12.1"
@@ -6263,6 +6274,13 @@ __metadata:
   dependencies:
     flat-cache: "npm:^4.0.0"
   checksum: 10c0/9e2b5938b1cd9b6d7e3612bdc533afd4ac17b2fc646569e9a8abbf2eb48e5eb8e316bc38815a3ef6a1b456f4107f0d0f055a614ca613e75db6bf9ff4d72c1638
+  languageName: node
+  linkType: hard
+
+"file-uri-to-path@npm:1.0.0":
+  version: 1.0.0
+  resolution: "file-uri-to-path@npm:1.0.0"
+  checksum: 10c0/3b545e3a341d322d368e880e1c204ef55f1d45cdea65f7efc6c6ce9e0c4d22d802d5629320eb779d006fe59624ac17b0e848d83cc5af7cd101f206cb704f5519
   languageName: node
   linkType: hard
 
@@ -8941,7 +8959,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"msgpackr@npm:^1.11.2":
+"msgpackr@npm:*, msgpackr@npm:^1.11.2":
   version: 1.11.2
   resolution: "msgpackr@npm:1.11.2"
   dependencies:
