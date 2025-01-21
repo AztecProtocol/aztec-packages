@@ -31,10 +31,6 @@ pub(crate) struct CheckCommand {
     #[clap(long = "overwrite")]
     pub(super) allow_overwrite: bool,
 
-    /// Show the program hash.
-    #[clap(long)]
-    show_program_hash: bool,
-
     #[clap(flatten)]
     compile_options: CompileOptions,
 }
