@@ -6,11 +6,14 @@ aztec:
 validator:
   replicas: 1
   validatorKeys:
-    - 0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80
+    - "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80"
   validatorAddresses:
-    - 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266
+    - "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266"
   validator:
     disabled: false
+    monitoring:
+      enabled: true
+      scrapeInterval: 15s
 
 bootNode:
   validator:
@@ -20,6 +23,9 @@ proverAgent:
   replicas: 6
   bb:
     hardwareConcurrency: 16
+    cache:
+      enabled: true
+      size: "10Gi"
   resources:
     requests:
       memory: "64Gi"
@@ -27,14 +33,57 @@ proverAgent:
     limits:
       memory: "96Gi"
       cpu: "16"
+  autoscaling:
+    enabled: true
+    minReplicas: 3
+    maxReplicas: 10
+    targetCPUUtilizationPercentage: 80
+    targetMemoryUtilizationPercentage: 80
 
 bot:
   enabled: true
   txIntervalSeconds: 200
+  retry:
+    maxAttempts: 3
+    initialDelay: 5s
+  resources:
+    requests:
+      memory: "1Gi"
+      cpu: "0.5"
+    limits:
+      memory: "2Gi"
+      cpu: "1"
 
 jobs:
   deployL1Verifier:
     enable: true
+    timeout: 600s
+    retry:
+      limit: 3
+      interval: 30s
 
 telemetry:
   enabled: true
+  prometheus:
+    enabled: true
+    retention: 15d
+  grafana:
+    enabled: true
+    persistence:
+      enabled: true
+      size: 10Gi
+  alerting:
+    enabled: true
+    slack:
+      enabled: false
+      webhook: ""
+
+security:
+  networkPolicy:
+    enabled: true
+  podSecurityContext:
+    runAsNonRoot: true
+    runAsUser: 1000
+  containerSecurityContext:
+    allowPrivilegeEscalation: false
+    readOnlyRootFilesystem: true
