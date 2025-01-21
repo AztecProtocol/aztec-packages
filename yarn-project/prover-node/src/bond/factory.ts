@@ -8,7 +8,7 @@ import {
   type GetContractReturnType,
   type HttpTransport,
   type PrivateKeyAccount,
-  type PublicActions, // type PublicClient,
+  type PublicActions,
   type PublicRpcSchema,
   type WalletActions,
   type WalletClient,
