@@ -360,7 +360,8 @@ HEAVY_TYPED_TEST(RecursiveVerifierTest, IndependentVKHash)
 {
     if constexpr (IsAnyOf<TypeParam,
                           UltraRecursiveFlavor_<UltraCircuitBuilder>,
-                          UltraRollupRecursiveFlavor_<UltraCircuitBuilder>>) {
+                          UltraRollupRecursiveFlavor_<UltraCircuitBuilder>,
+                          MegaZKRecursiveFlavor_<UltraCircuitBuilder>>) {
         TestFixture::test_independent_vk_hash();
     } else {
         GTEST_SKIP() << "Not built for this parameter";

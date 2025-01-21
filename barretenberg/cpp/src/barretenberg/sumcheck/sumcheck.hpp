@@ -609,6 +609,7 @@ template <typename Flavor> class SumcheckVerifier {
     FF libra_evaluation{ 0 };
     FF libra_challenge;
     FF libra_total_sum;
+    FF correcting_factor;
 
     std::vector<Commitment> round_univariate_commitments = {};
     std::vector<std::array<FF, 3>> round_univariate_evaluations = {};
@@ -703,8 +704,15 @@ template <typename Flavor> class SumcheckVerifier {
         // For ZK Flavors: the evaluation of the Row Disabling Polynomial at the sumcheck challenge
         if constexpr (Flavor::HasZK) {
             libra_evaluation = transcript->template receive_from_prover<FF>("Libra:claimed_evaluation");
-            FF correcting_factor =
-                RowDisablingPolynomial<FF>::evaluate_at_challenge(multivariate_challenge, multivariate_d);
+            if constexpr (!IsRecursiveFlavor<Flavor>) {
+                correcting_factor =
+                    RowDisablingPolynomial<FF>::evaluate_at_challenge(multivariate_challenge, multivariate_d);
+            } else {
+                typename Flavor::CircuitBuilder* builder = libra_evaluation.get_context();
+                correcting_factor =
+                    RowDisablingPolynomial<FF>::evaluate_at_challenge(multivariate_challenge, multivariate_d, builder);
+            }
+
             full_honk_purported_value =
                 full_honk_purported_value * correcting_factor + libra_evaluation * libra_challenge;
         }
@@ -819,11 +827,12 @@ template <typename Flavor> class SumcheckVerifier {
         // 2) ECCVMRecursive uses big_field where we need to self_reduce().
         if constexpr (IsRecursiveFlavor<Flavor>) {
             typename Flavor::CircuitBuilder* builder = libra_challenge.get_context();
-
+            info("before correcting factor ", builder->get_estimated_num_finalized_gates);
             // Compute the evaluations of the polynomial (1 - \sum L_i) where the sum is for i corresponding to the rows
             // where all sumcheck relations are disabled
             const FF correcting_factor =
                 RowDisablingPolynomial<FF>::evaluate_at_challenge(multivariate_challenge, multivariate_d, builder);
+            info("after correcting factor ", builder->get_estimated_num_finalized_gates);
 
             // Verifier computes full ZK Honk value, taking into account the contribution from the disabled row and the
             // Libra polynomials
