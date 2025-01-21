@@ -29,6 +29,7 @@ struct ProvingSettings {
     using AluEventEmitter = EventEmitter<AluEvent>;
     using MemoryEventEmitter = EventEmitter<MemoryEvent>;
     using AddressingEventEmitter = EventEmitter<AddressingEvent>;
+    using BytecodeRetrievalEventEmitter = EventEmitter<BytecodeRetrievalEvent>;
     using BytecodeHashingEventEmitter = EventEmitter<BytecodeHashingEvent>;
     using BytecodeDecompositionEventEmitter = EventEmitter<BytecodeDecompositionEvent>;
 };
@@ -39,6 +40,7 @@ struct FastSettings {
     using AluEventEmitter = NoopEventEmitter<AluEvent>;
     using MemoryEventEmitter = NoopEventEmitter<MemoryEvent>;
     using AddressingEventEmitter = NoopEventEmitter<AddressingEvent>;
+    using BytecodeRetrievalEventEmitter = NoopEventEmitter<BytecodeRetrievalEvent>;
     using BytecodeHashingEventEmitter = NoopEventEmitter<BytecodeHashingEvent>;
     using BytecodeDecompositionEventEmitter = NoopEventEmitter<BytecodeDecompositionEvent>;
     // Customization can go here, for example a BytecodeManager that does NOT hash bytecodes.
@@ -52,11 +54,13 @@ template <typename S> EventsContainer AvmSimulationHelper::simulate_with_setting
     typename S::AluEventEmitter alu_emitter;
     typename S::MemoryEventEmitter memory_emitter;
     typename S::AddressingEventEmitter addressing_emitter;
+    typename S::BytecodeRetrievalEventEmitter bytecode_retrieval_emitter;
     typename S::BytecodeHashingEventEmitter bytecode_hashing_emitter;
     typename S::BytecodeDecompositionEventEmitter bytecode_decomposition_emitter;
 
     HintedRawDataDB db(inputs.hints);
-    TxBytecodeManager bytecode_manager(db, bytecode_hashing_emitter, bytecode_decomposition_emitter);
+    TxBytecodeManager bytecode_manager(
+        db, bytecode_retrieval_emitter, bytecode_hashing_emitter, bytecode_decomposition_emitter);
     ContextProvider context_provider(bytecode_manager, memory_emitter);
 
     Alu alu(alu_emitter);
@@ -68,9 +72,13 @@ template <typename S> EventsContainer AvmSimulationHelper::simulate_with_setting
 
     tx_execution.simulate({ .enqueued_calls = inputs.enqueuedCalls });
 
-    return { execution_emitter.dump_events(),        alu_emitter.dump_events(),
-             memory_emitter.dump_events(),           addressing_emitter.dump_events(),
-             bytecode_hashing_emitter.dump_events(), bytecode_decomposition_emitter.dump_events() };
+    return { execution_emitter.dump_events(),
+             alu_emitter.dump_events(),
+             memory_emitter.dump_events(),
+             addressing_emitter.dump_events(),
+             bytecode_retrieval_emitter.dump_events(),
+             bytecode_hashing_emitter.dump_events(),
+             bytecode_decomposition_emitter.dump_events() };
 }
 
 EventsContainer AvmSimulationHelper::simulate()
