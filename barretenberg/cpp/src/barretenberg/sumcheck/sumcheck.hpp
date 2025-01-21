@@ -827,12 +827,10 @@ template <typename Flavor> class SumcheckVerifier {
         // 2) ECCVMRecursive uses big_field where we need to self_reduce().
         if constexpr (IsRecursiveFlavor<Flavor>) {
             typename Flavor::CircuitBuilder* builder = libra_challenge.get_context();
-            info("before correcting factor ", builder->get_estimated_num_finalized_gates);
             // Compute the evaluations of the polynomial (1 - \sum L_i) where the sum is for i corresponding to the rows
             // where all sumcheck relations are disabled
             const FF correcting_factor =
                 RowDisablingPolynomial<FF>::evaluate_at_challenge(multivariate_challenge, multivariate_d, builder);
-            info("after correcting factor ", builder->get_estimated_num_finalized_gates);
 
             // Verifier computes full ZK Honk value, taking into account the contribution from the disabled row and the
             // Libra polynomials

@@ -160,7 +160,6 @@ template <typename RecursiveFlavor> class RecursiveVerifierTest : public testing
             // Create a recursive verification circuit for the proof of the inner circuit
             OuterBuilder outer_circuit;
             RecursiveVerifier verifier{ &outer_circuit, verification_key };
-            HonkProof honk_proof;
 
             typename RecursiveVerifier::Output verifier_output = verifier.verify_proof(
                 inner_proof,

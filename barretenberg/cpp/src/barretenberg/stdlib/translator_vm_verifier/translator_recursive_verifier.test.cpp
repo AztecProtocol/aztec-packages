@@ -172,6 +172,7 @@ template <typename RecursiveFlavor> class TranslatorRecursiveTests : public ::te
             transcript->template receive_from_prover<typename RecursiveFlavor::BF>("init");
 
             RecursiveVerifier verifier{ &outer_circuit, verification_key, transcript };
+            verifier.verify_proof(inner_proof);
 
             auto outer_proving_key = std::make_shared<OuterDeciderProvingKey>(outer_circuit);
             auto outer_verification_key =

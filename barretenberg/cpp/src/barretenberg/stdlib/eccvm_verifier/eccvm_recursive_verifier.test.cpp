@@ -20,6 +20,8 @@ template <typename RecursiveFlavor> class ECCVMRecursiveTests : public ::testing
     using InnerG1 = InnerFlavor::Commitment;
     using InnerFF = InnerFlavor::FF;
     using InnerBF = InnerFlavor::BF;
+    using InnerPK = InnerFlavor::ProvingKey;
+    using InnerVK = InnerFlavor::VerificationKey;
 
     using Transcript = InnerFlavor::Transcript;
 
@@ -42,7 +44,7 @@ template <typename RecursiveFlavor> class ECCVMRecursiveTests : public ::testing
      * @param engine
      * @return ECCVMCircuitBuilder
      */
-    static InnerBuilder generate_circuit(numeric::RNG* engine = nullptr)
+    static InnerBuilder generate_circuit(numeric::RNG* engine = nullptr, const size_t num_iterations = 1)
     {
         using Curve = curve::BN254;
         using G1 = Curve::Element;
@@ -54,21 +56,22 @@ template <typename RecursiveFlavor> class ECCVMRecursiveTests : public ::testing
         G1 c = G1::random_element(engine);
         Fr x = Fr::random_element(engine);
         Fr y = Fr::random_element(engine);
-
-        op_queue->add_accumulate(a);
-        op_queue->mul_accumulate(a, x);
-        op_queue->mul_accumulate(b, x);
-        op_queue->mul_accumulate(b, y);
-        op_queue->add_accumulate(a);
-        op_queue->mul_accumulate(b, x);
-        op_queue->eq_and_reset();
-        op_queue->add_accumulate(c);
-        op_queue->mul_accumulate(a, x);
-        op_queue->mul_accumulate(b, x);
-        op_queue->eq_and_reset();
-        op_queue->mul_accumulate(a, x);
-        op_queue->mul_accumulate(b, x);
-        op_queue->mul_accumulate(c, x);
+        for (size_t idx = 0; idx < num_iterations; idx++) {
+            op_queue->add_accumulate(a);
+            op_queue->mul_accumulate(a, x);
+            op_queue->mul_accumulate(b, x);
+            op_queue->mul_accumulate(b, y);
+            op_queue->add_accumulate(a);
+            op_queue->mul_accumulate(b, x);
+            op_queue->eq_and_reset();
+            op_queue->add_accumulate(c);
+            op_queue->mul_accumulate(a, x);
+            op_queue->mul_accumulate(b, x);
+            op_queue->eq_and_reset();
+            op_queue->mul_accumulate(a, x);
+            op_queue->mul_accumulate(b, x);
+            op_queue->mul_accumulate(c, x);
+        }
         InnerBuilder builder{ op_queue };
         return builder;
     }
@@ -140,6 +143,73 @@ template <typename RecursiveFlavor> class ECCVMRecursiveTests : public ::testing
         // Check for a failure flag in the recursive verifier circuit
         EXPECT_FALSE(CircuitChecker::check(outer_circuit));
     }
+
+    static void test_independent_vk_hash()
+    {
+
+        // Retrieves the trace blocks (each consisting of a specific gate) from the recursive verifier circuit
+        auto get_blocks = [](size_t inner_size) -> std::tuple<typename OuterBuilder::ExecutionTrace,
+                                                              std::shared_ptr<typename OuterFlavor::VerificationKey>> {
+            auto inner_circuit = generate_circuit(&engine, inner_size);
+            InnerProver inner_prover(inner_circuit);
+            info("test circuit size: ", inner_prover.key->circuit_size);
+
+            ECCVMProof inner_proof = inner_prover.construct_proof();
+            auto verification_key = std::make_shared<typename InnerFlavor::VerificationKey>(inner_prover.key);
+
+            // Create a recursive verification circuit for the proof of the inner circuit
+            OuterBuilder outer_circuit;
+
+            RecursiveVerifier verifier{ &outer_circuit, verification_key };
+
+            auto [opening_claim, ipa_transcript] = verifier.verify_proof(inner_proof);
+
+            auto outer_proving_key = std::make_shared<OuterDeciderProvingKey>(outer_circuit);
+            auto outer_verification_key =
+                std::make_shared<typename OuterFlavor::VerificationKey>(outer_proving_key->proving_key);
+
+            return { outer_circuit.blocks, outer_verification_key };
+        };
+
+        bool broke(false);
+        auto check_eq = [&broke](auto& p1, auto& p2) {
+            EXPECT_TRUE(p1.size() == p2.size());
+            for (size_t idx = 0; idx < p1.size(); idx++) {
+                if (p1[idx] != p2[idx]) {
+                    broke = true;
+                    break;
+                }
+            }
+        };
+
+        auto [blocks_10, verification_key_10] = get_blocks(20);
+        auto [blocks_11, verification_key_11] = get_blocks(50);
+
+        size_t block_idx = 0;
+        for (auto [b_10, b_11] : zip_view(blocks_10.get(), blocks_11.get())) {
+            info("block index: ", block_idx);
+            EXPECT_TRUE(b_10.selectors.size() == 13);
+            EXPECT_TRUE(b_11.selectors.size() == 13);
+            for (auto [p_10, p_11] : zip_view(b_10.selectors, b_11.selectors)) {
+                check_eq(p_10, p_11);
+            }
+            block_idx++;
+        }
+
+        typename OuterFlavor::CommitmentLabels labels;
+        for (auto [vk_10, vk_11, label] :
+             zip_view(verification_key_10->get_all(), verification_key_11->get_all(), labels.get_precomputed())) {
+            if (vk_10 != vk_11) {
+                broke = true;
+                info("Mismatch verification key label: ", label, " left: ", vk_10, " right: ", vk_11);
+            }
+        }
+
+        EXPECT_TRUE(verification_key_10->circuit_size == verification_key_11->circuit_size);
+        EXPECT_TRUE(verification_key_10->num_public_inputs == verification_key_11->num_public_inputs);
+
+        EXPECT_FALSE(broke);
+    };
 };
 using FlavorTypes = testing::Types<ECCVMRecursiveFlavor_<UltraCircuitBuilder>>;
 
@@ -153,5 +223,10 @@ TYPED_TEST(ECCVMRecursiveTests, SingleRecursiveVerification)
 TYPED_TEST(ECCVMRecursiveTests, SingleRecursiveVerificationFailure)
 {
     TestFixture::test_recursive_verification_failure();
+};
+
+TYPED_TEST(ECCVMRecursiveTests, IndependentVKHash)
+{
+    TestFixture::test_independent_vk_hash();
 };
 } // namespace bb
