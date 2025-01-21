@@ -1,6 +1,6 @@
 import { type FunctionCall } from '@aztec/circuit-types';
 import { type AztecAddress, Fr, FunctionSelector } from '@aztec/circuits.js';
-import { FunctionType } from '@aztec/foundation/abi';
+import { FunctionType, U128 } from '@aztec/foundation/abi';
 import { ProtocolContractAddress } from '@aztec/protocol-contracts';
 import { getCanonicalFeeJuice } from '@aztec/protocol-contracts/fee-juice';
 
@@ -35,7 +35,7 @@ export class FeeJuicePaymentMethodWithClaim extends FeeJuicePaymentMethod {
         isStatic: false,
         args: [
           this.sender.toField(),
-          this.claim.claimAmount,
+          ...new U128(this.claim.claimAmount).toFields(),
           this.claim.claimSecret,
           new Fr(this.claim.messageLeafIndex),
         ],

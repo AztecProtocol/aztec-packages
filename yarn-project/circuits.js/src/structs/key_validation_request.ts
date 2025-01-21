@@ -58,7 +58,7 @@ export class KeyValidationRequest {
     return new KeyValidationRequest(Point.ZERO, Fr.ZERO);
   }
 
-  static random() {
-    return new KeyValidationRequest(Point.random(), Fr.random());
+  static async random() {
+    return new KeyValidationRequest(await Point.random(), Fr.random());
   }
 }

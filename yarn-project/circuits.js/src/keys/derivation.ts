@@ -124,10 +124,14 @@ export function deriveKeys(secretKey: Fr) {
 }
 
 // Returns shared tagging secret computed with Diffie-Hellman key exchange.
-export function computeTaggingSecretPoint(knownAddress: CompleteAddress, ivsk: Fq, externalAddress: AztecAddress) {
+export async function computeTaggingSecretPoint(
+  knownAddress: CompleteAddress,
+  ivsk: Fq,
+  externalAddress: AztecAddress,
+) {
   const knownPreaddress = computePreaddress(knownAddress.publicKeys.hash(), knownAddress.partialAddress);
   // TODO: #8970 - Computation of address point from x coordinate might fail
-  const externalAddressPoint = externalAddress.toAddressPoint();
+  const externalAddressPoint = await externalAddress.toAddressPoint();
   const curve = new Grumpkin();
   // Given A (known complete address) -> B (external address) and h == preaddress
   // Compute shared secret as S = (h_A + ivsk_A) * Addr_Point_B

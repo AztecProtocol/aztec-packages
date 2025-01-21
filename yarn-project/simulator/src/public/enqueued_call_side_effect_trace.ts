@@ -1,4 +1,3 @@
-import { UnencryptedFunctionL2Logs, UnencryptedL2Log } from '@aztec/circuit-types';
 import {
   AvmAccumulatedData,
   AvmAppendTreeHint,
@@ -19,15 +18,14 @@ import {
   type GlobalVariables,
   L1_TO_L2_MSG_TREE_HEIGHT,
   L2ToL1Message,
-  LogHash,
   MAX_ENQUEUED_CALLS_PER_TX,
   MAX_L2_TO_L1_MSGS_PER_TX,
   MAX_NOTE_HASHES_PER_TX,
   MAX_NULLIFIERS_PER_TX,
   MAX_PUBLIC_CALLS_TO_UNIQUE_CONTRACT_CLASS_IDS,
   MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
+  MAX_PUBLIC_LOGS_PER_TX,
   MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
-  MAX_UNENCRYPTED_LOGS_PER_TX,
   NOTE_HASH_TREE_HEIGHT,
   NULLIFIER_TREE_HEIGHT,
   NoteHash,
@@ -35,14 +33,15 @@ import {
   NullifierLeafPreimage,
   PROTOCOL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
   PUBLIC_DATA_TREE_HEIGHT,
+  PUBLIC_LOG_DATA_SIZE_IN_FIELDS,
   PrivateToAvmAccumulatedData,
   PrivateToAvmAccumulatedDataArrayLengths,
   PublicCallRequest,
   PublicDataTreeLeafPreimage,
   PublicDataUpdateRequest,
   PublicDataWrite,
+  PublicLog,
   ScopedL2ToL1Message,
-  ScopedLogHash,
   SerializableContractInstance,
   type TreeSnapshots,
 } from '@aztec/circuits.js';
@@ -79,8 +78,7 @@ export type SideEffects = {
   nullifiers: Nullifier[];
   l2ToL1Msgs: ScopedL2ToL1Message[];
 
-  unencryptedLogs: UnencryptedL2Log[];
-  unencryptedLogsHashes: ScopedLogHash[];
+  publicLogs: PublicLog[];
 };
 
 export class SideEffectArrayLengths {
@@ -90,7 +88,7 @@ export class SideEffectArrayLengths {
     public readonly noteHashes: number,
     public readonly nullifiers: number,
     public readonly l2ToL1Msgs: number,
-    public readonly unencryptedLogs: number,
+    public readonly publicLogs: number,
   ) {}
 
   static empty() {
@@ -115,8 +113,7 @@ export class PublicEnqueuedCallSideEffectTrace implements PublicSideEffectTraceI
   private noteHashes: NoteHash[] = [];
   private nullifiers: Nullifier[] = [];
   private l2ToL1Messages: ScopedL2ToL1Message[] = [];
-  private unencryptedLogs: UnencryptedL2Log[] = [];
-  private unencryptedLogsHashes: ScopedLogHash[] = [];
+  private publicLogs: PublicLog[] = [];
 
   private avmCircuitHints: AvmExecutionHints;
 
@@ -147,7 +144,7 @@ export class PublicEnqueuedCallSideEffectTrace implements PublicSideEffectTraceI
         this.previousSideEffectArrayLengths.noteHashes + this.noteHashes.length,
         this.previousSideEffectArrayLengths.nullifiers + this.nullifiers.length,
         this.previousSideEffectArrayLengths.l2ToL1Msgs + this.l2ToL1Messages.length,
-        this.previousSideEffectArrayLengths.unencryptedLogs + this.unencryptedLogs.length,
+        this.previousSideEffectArrayLengths.publicLogs + this.publicLogs.length,
       ),
       this.gotBytecodeFromClassIds.fork(),
     );
@@ -169,8 +166,7 @@ export class PublicEnqueuedCallSideEffectTrace implements PublicSideEffectTraceI
       this.noteHashes.push(...forkedTrace.noteHashes);
       this.nullifiers.push(...forkedTrace.nullifiers);
       this.l2ToL1Messages.push(...forkedTrace.l2ToL1Messages);
-      this.unencryptedLogs.push(...forkedTrace.unencryptedLogs);
-      this.unencryptedLogsHashes.push(...forkedTrace.unencryptedLogsHashes);
+      this.publicLogs.push(...forkedTrace.publicLogs);
     }
     this.mergeHints(forkedTrace);
   }
@@ -359,23 +355,17 @@ export class PublicEnqueuedCallSideEffectTrace implements PublicSideEffectTraceI
     this.incrementSideEffectCounter();
   }
 
-  public traceUnencryptedLog(contractAddress: AztecAddress, log: Fr[]) {
-    if (
-      this.unencryptedLogs.length + this.previousSideEffectArrayLengths.unencryptedLogs >=
-      MAX_UNENCRYPTED_LOGS_PER_TX
-    ) {
-      throw new SideEffectLimitReachedError('unencrypted log', MAX_UNENCRYPTED_LOGS_PER_TX);
+  public tracePublicLog(contractAddress: AztecAddress, log: Fr[]) {
+    if (this.publicLogs.length + this.previousSideEffectArrayLengths.publicLogs >= MAX_PUBLIC_LOGS_PER_TX) {
+      throw new SideEffectLimitReachedError('public log', MAX_PUBLIC_LOGS_PER_TX);
     }
 
-    const ulog = new UnencryptedL2Log(contractAddress, Buffer.concat(log.map(f => f.toBuffer())));
-    const basicLogHash = Fr.fromBuffer(ulog.hash());
-    this.unencryptedLogs.push(ulog);
-    // This length is for charging DA and is checked on-chain - has to be length of log preimage + 4 bytes.
-    // The .length call also has a +4 but that is unrelated
-    this.unencryptedLogsHashes.push(
-      new LogHash(basicLogHash, this.sideEffectCounter, new Fr(ulog.length + 4)).scope(contractAddress),
-    );
-    this.log.debug(`NEW_UNENCRYPTED_LOG cnt: ${this.sideEffectCounter}`);
+    if (log.length > PUBLIC_LOG_DATA_SIZE_IN_FIELDS) {
+      throw new Error(`Emitted public log is too large, max: ${PUBLIC_LOG_DATA_SIZE_IN_FIELDS}, passed: ${log.length}`);
+    }
+    const publicLog = new PublicLog(contractAddress, padArrayEnd(log, Fr.ZERO, PUBLIC_LOG_DATA_SIZE_IN_FIELDS));
+    this.publicLogs.push(publicLog);
+    this.log.debug(`NEW_PUBLIC_LOG cnt: ${this.sideEffectCounter}`);
     this.incrementSideEffectCounter();
   }
 
@@ -518,8 +508,7 @@ export class PublicEnqueuedCallSideEffectTrace implements PublicSideEffectTraceI
       noteHashes: this.noteHashes,
       nullifiers: this.nullifiers,
       l2ToL1Msgs: this.l2ToL1Messages,
-      unencryptedLogs: this.unencryptedLogs,
-      unencryptedLogsHashes: this.unencryptedLogsHashes,
+      publicLogs: this.publicLogs,
     };
   }
 
@@ -541,8 +530,7 @@ export class PublicEnqueuedCallSideEffectTrace implements PublicSideEffectTraceI
         noteHashes: this.noteHashes,
         nullifiers: this.nullifiers,
         l2ToL1Messages: this.l2ToL1Messages,
-        unencryptedLogsHashes: this.unencryptedLogsHashes, // Scoped?
-        unencryptedLogs: new UnencryptedFunctionL2Logs(this.unencryptedLogs),
+        publicLogs: this.publicLogs,
       },
     };
   }
@@ -612,8 +600,8 @@ export class PublicEnqueuedCallSideEffectTrace implements PublicSideEffectTraceI
     throw new Error('Not implemented');
   }
 
-  public getUnencryptedLogs() {
-    return this.unencryptedLogs;
+  public getPublicLogs() {
+    return this.publicLogs;
   }
 
   public getAvmCircuitHints() {
@@ -633,7 +621,7 @@ export class PublicEnqueuedCallSideEffectTrace implements PublicSideEffectTraceI
         MAX_NULLIFIERS_PER_TX,
       ),
       padArrayEnd(this.l2ToL1Messages, ScopedL2ToL1Message.empty(), MAX_L2_TO_L1_MSGS_PER_TX),
-      padArrayEnd(this.unencryptedLogsHashes, ScopedLogHash.empty(), MAX_UNENCRYPTED_LOGS_PER_TX),
+      padArrayEnd(this.publicLogs, PublicLog.empty(), MAX_PUBLIC_LOGS_PER_TX),
       padArrayEnd(
         this.publicDataWrites.map(w => new PublicDataWrite(w.leafSlot, w.newValue)),
         PublicDataWrite.empty(),

@@ -7,7 +7,7 @@ import { PeerErrorSeverity } from '@aztec/circuit-types';
 
 import { type PeerId } from '@libp2p/interface';
 
-import { type PeerManager } from '../../peer_manager.js';
+import { type PeerScoring } from '../../peer-manager/peer_scoring.js';
 import { type ReqRespSubProtocol, type ReqRespSubProtocolRateLimits } from '../interface.js';
 import { DEFAULT_RATE_LIMITS } from './rate_limits.js';
 
@@ -169,7 +169,7 @@ export class RequestResponseRateLimiter {
 
   private cleanupInterval: NodeJS.Timeout | undefined = undefined;
 
-  constructor(private peerManager: PeerManager, rateLimits: ReqRespSubProtocolRateLimits = DEFAULT_RATE_LIMITS) {
+  constructor(private peerScoring: PeerScoring, rateLimits: ReqRespSubProtocolRateLimits = DEFAULT_RATE_LIMITS) {
     this.subProtocolRateLimiters = new Map();
 
     for (const [subProtocol, protocolLimits] of Object.entries(rateLimits)) {
@@ -200,7 +200,7 @@ export class RequestResponseRateLimiter {
 
     switch (rateLimitStatus) {
       case RateLimitStatus.DeniedPeer:
-        this.peerManager.penalizePeer(peerId, PeerErrorSeverity.MidToleranceError);
+        this.peerScoring.penalizePeer(peerId, PeerErrorSeverity.MidToleranceError);
         return false;
       case RateLimitStatus.DeniedGlobal:
         return false;

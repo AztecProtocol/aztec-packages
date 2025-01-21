@@ -3,7 +3,7 @@ import { BarretenbergApi, BarretenbergApiSync } from '../barretenberg_api/index.
 import { createMainWorker } from '../barretenberg_wasm/barretenberg_wasm_main/factory/node/index.js';
 import { BarretenbergWasmMain, BarretenbergWasmMainWorker } from '../barretenberg_wasm/barretenberg_wasm_main/index.js';
 import { getRemoteBarretenbergWasm } from '../barretenberg_wasm/helpers/index.js';
-import { BarretenbergWasmWorker, fetchModuleAndThreads } from '../barretenberg_wasm/index.js';
+import { BarretenbergWasm, BarretenbergWasmWorker, fetchModuleAndThreads } from '../barretenberg_wasm/index.js';
 import createDebug from 'debug';
 import { Crs, GrumpkinCrs } from '../crs/index.js';
 import { RawBuffer } from '../types/raw_buffer.js';
@@ -69,7 +69,7 @@ export class Barretenberg extends BarretenbergApi {
   async initSRSClientIVC(): Promise<void> {
     // crsPath can be undefined
     const crs = await Crs.new(2 ** 20 + 1, this.options.crsPath);
-    const grumpkinCrs = await GrumpkinCrs.new(2 ** 15 + 1, this.options.crsPath);
+    const grumpkinCrs = await GrumpkinCrs.new(2 ** 16 + 1, this.options.crsPath);
 
     // Load CRS into wasm global CRS state.
     // TODO: Make RawBuffer be default behavior, and have a specific Vector type for when wanting length prefixed.
@@ -116,6 +116,32 @@ export class BarretenbergSync extends BarretenbergApiSync {
       throw new Error('First call BarretenbergSync.initSingleton() on @aztec/bb.js module.');
     }
     return barretenbergSyncSingleton;
+  }
+
+  getWasm() {
+    return this.wasm;
+  }
+}
+
+let barrentenbergLazySingleton: BarretenbergLazy;
+
+export class BarretenbergLazy extends BarretenbergApi {
+  private constructor(wasm: BarretenbergWasmMain) {
+    super(wasm);
+  }
+
+  private static async new() {
+    const wasm = new BarretenbergWasmMain();
+    const { module, threads } = await fetchModuleAndThreads(1);
+    await wasm.init(module, threads);
+    return new BarretenbergLazy(wasm);
+  }
+
+  static async getSingleton() {
+    if (!barrentenbergLazySingleton) {
+      barrentenbergLazySingleton = await BarretenbergLazy.new();
+    }
+    return barrentenbergLazySingleton;
   }
 
   getWasm() {

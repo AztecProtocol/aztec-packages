@@ -99,7 +99,7 @@ spec:
             - name: NAMESPACE
               value: {{ .Release.Namespace }}
             - name: EXTERNAL_ETHEREUM_HOST
-              value: "{{ .Values.ethereum.externalHost }}"
+              value: "{{ .Values.ethereum.execution.externalHost }}"
             - name: ETHEREUM_PORT
               value: "{{ .Values.ethereum.execution.service.port }}"
             - name: EXTERNAL_BOOT_NODE_HOST

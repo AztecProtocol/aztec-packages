@@ -10,14 +10,23 @@ ethereum:
       requests:
         memory: "2Gi"
         cpu: "200m"
+      limits:
+        memory: "2Gi"
+        cpu: "200m"
   beacon:
     resources:
       requests:
         memory: "2Gi"
         cpu: "200m"
+      limits:
+        memory: "2Gi"
+        cpu: "200m"
   validator:
     resources:
       requests:
+        memory: "2Gi"
+        cpu: "200m"
+      limits:
         memory: "2Gi"
         cpu: "200m"
 

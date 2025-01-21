@@ -2,6 +2,7 @@
 import { PeerErrorSeverity } from '@aztec/circuit-types';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { executeTimeout } from '@aztec/foundation/timer';
+import { Attributes, type TelemetryClient, getTelemetryClient, trackSpan } from '@aztec/telemetry-client';
 
 import { type IncomingStreamData, type PeerId, type Stream } from '@libp2p/interface';
 import { pipe } from 'it-pipe';
@@ -14,8 +15,10 @@ import {
   InvalidResponseError,
 } from '../../errors/reqresp.error.js';
 import { SnappyTransform } from '../encoding.js';
-import { type PeerManager } from '../peer_manager.js';
+import { type PeerScoring } from '../peer-manager/peer_scoring.js';
 import { type P2PReqRespConfig } from './config.js';
+import { BatchConnectionSampler } from './connection-sampler/batch_connection_sampler.js';
+import { ConnectionSampler } from './connection-sampler/connection_sampler.js';
 import {
   DEFAULT_SUB_PROTOCOL_HANDLERS,
   DEFAULT_SUB_PROTOCOL_VALIDATORS,
@@ -25,7 +28,8 @@ import {
   type SubProtocolMap,
   subProtocolMap,
 } from './interface.js';
-import { RequestResponseRateLimiter } from './rate_limiter/rate_limiter.js';
+import { ReqRespMetrics } from './metrics.js';
+import { RequestResponseRateLimiter } from './rate-limiter/rate_limiter.js';
 
 /**
  * The Request Response Service
@@ -51,18 +55,35 @@ export class ReqResp {
   private subProtocolHandlers: ReqRespSubProtocolHandlers = DEFAULT_SUB_PROTOCOL_HANDLERS;
   private subProtocolValidators: ReqRespSubProtocolValidators = DEFAULT_SUB_PROTOCOL_VALIDATORS;
 
+  private connectionSampler: ConnectionSampler;
   private rateLimiter: RequestResponseRateLimiter;
 
   private snappyTransform: SnappyTransform;
 
-  constructor(config: P2PReqRespConfig, protected readonly libp2p: Libp2p, private peerManager: PeerManager) {
+  private metrics: ReqRespMetrics;
+
+  constructor(
+    config: P2PReqRespConfig,
+    private libp2p: Libp2p,
+    private peerScoring: PeerScoring,
+    telemetryClient: TelemetryClient = getTelemetryClient(),
+  ) {
     this.logger = createLogger('p2p:reqresp');
 
     this.overallRequestTimeoutMs = config.overallRequestTimeoutMs;
     this.individualRequestTimeoutMs = config.individualRequestTimeoutMs;
 
-    this.rateLimiter = new RequestResponseRateLimiter(peerManager);
+    this.rateLimiter = new RequestResponseRateLimiter(peerScoring);
+
+    // Connection sampler is used to sample our connected peers
+    this.connectionSampler = new ConnectionSampler(libp2p);
+
     this.snappyTransform = new SnappyTransform();
+    this.metrics = new ReqRespMetrics(telemetryClient);
+  }
+
+  get tracer() {
+    return this.metrics.tracer;
   }
 
   /**
@@ -89,6 +110,9 @@ export class ReqResp {
     }
 
     // Close all active connections
+    await this.connectionSampler.stop();
+    this.logger.debug('ReqResp: Connection sampler stopped');
+
     const closeStreamPromises = this.libp2p.getConnections().map(connection => connection.close());
     await Promise.all(closeStreamPromises);
     this.logger.debug('ReqResp: All active streams closed');
@@ -113,8 +137,8 @@ export class ReqResp {
    * If no response is received from any peer, it returns undefined.
    *
    * The method performs the following steps:
-   * - Iterates over all active peers.
-   * - Opens a stream with each peer using the specified sub-protocol.
+   * - Sample a peer to send the request to.
+   * - Opens a stream with the peer using the specified sub-protocol.
    *
    * When a response is received, it is validated using the given sub protocols response validator.
    * To see the interface for the response validator - see `interface.ts`
@@ -132,15 +156,31 @@ export class ReqResp {
     subProtocol: SubProtocol,
     request: InstanceType<SubProtocolMap[SubProtocol]['request']>,
   ): Promise<InstanceType<SubProtocolMap[SubProtocol]['response']> | undefined> {
+    const responseValidator = this.subProtocolValidators[subProtocol];
+    const requestBuffer = request.toBuffer();
+
     const requestFunction = async () => {
-      const responseValidator = this.subProtocolValidators[subProtocol];
-      const requestBuffer = request.toBuffer();
+      // Attempt to ask all of our peers, but sampled in a random order
+      // This function is wrapped in a timeout, so we will exit the loop if we have not received a response
+      const numberOfPeers = this.libp2p.getPeers().length;
 
-      // Get active peers
-      const peers = this.libp2p.getPeers();
+      if (numberOfPeers === 0) {
+        this.logger.debug('No active peers to send requests to');
+        return undefined;
+      }
 
-      // Attempt to ask all of our peers
-      for (const peer of peers) {
+      const attemptedPeers: Map<PeerId, boolean> = new Map();
+      for (let i = 0; i < numberOfPeers; i++) {
+        // Sample a peer to make a request to
+        const peer = this.connectionSampler.getPeer(attemptedPeers);
+        if (!peer) {
+          this.logger.debug('No peers available to send requests to');
+          return undefined;
+        }
+
+        attemptedPeers.set(peer, true);
+
+        this.logger.trace(`Sending request to peer: ${peer.toString()}`);
         const response = await this.sendRequestToPeer(peer, subProtocol, requestBuffer);
 
         // If we get a response, return it, otherwise we iterate onto the next peer
@@ -155,7 +195,6 @@ export class ReqResp {
           return object;
         }
       }
-      return undefined;
     };
 
     try {
@@ -167,6 +206,152 @@ export class ReqResp {
     } catch (e: any) {
       this.logger.debug(`${e.message} | subProtocol: ${subProtocol}`);
       return undefined;
+    }
+  }
+
+  /**
+   * Request multiple messages over the same sub protocol, balancing the requests across peers.
+   *
+   * @devnote
+   * - The function prioritizes sending requests to free peers using a batch sampling strategy.
+   * - If a peer fails to respond or returns an invalid response, it is removed from the sampling pool and replaced.
+   * - The function stops retrying once all requests are processed, no active peers remain, or the maximum retry attempts are reached.
+   * - Responses are validated using a custom validator for the sub-protocol.*
+   *
+   * Requests are sent in parallel to each peer, but multiple requests are sent to the same peer in series
+   * - If a peer fails to respond or returns an invalid response, it is removed from the sampling pool and replaced.
+   * - The function stops retrying once all requests are processed, no active peers remain, or the maximum retry attempts are reached.
+   * - Responses are validated using a custom validator for the sub-protocol.*
+   *
+   * @param subProtocol
+   * @param requests
+   * @param timeoutMs
+   * @param maxPeers
+   * @returns
+   *
+   * @throws {CollectiveReqRespTimeoutError} - If the request batch exceeds the specified timeout (`timeoutMs`).
+   */
+  @trackSpan(
+    'ReqResp.sendBatchRequest',
+    (subProtocol: ReqRespSubProtocol, requests: InstanceType<SubProtocolMap[ReqRespSubProtocol]['request']>[]) => ({
+      [Attributes.P2P_REQ_RESP_PROTOCOL]: subProtocol,
+      [Attributes.P2P_REQ_RESP_BATCH_REQUESTS_COUNT]: requests.length,
+    }),
+  )
+  async sendBatchRequest<SubProtocol extends ReqRespSubProtocol>(
+    subProtocol: SubProtocol,
+    requests: InstanceType<SubProtocolMap[SubProtocol]['request']>[],
+    timeoutMs = 10000,
+    maxPeers = Math.min(10, requests.length),
+    maxRetryAttempts = 3,
+  ): Promise<InstanceType<SubProtocolMap[SubProtocol]['response']>[]> {
+    const responseValidator = this.subProtocolValidators[subProtocol];
+    const responses: InstanceType<SubProtocolMap[SubProtocol]['response']>[] = new Array(requests.length);
+    const requestBuffers = requests.map(req => req.toBuffer());
+
+    const requestFunction = async () => {
+      // Track which requests still need to be processed
+      const pendingRequestIndices = new Set(requestBuffers.map((_, i) => i));
+
+      // Create batch sampler with the total number of requests and max peers
+      const batchSampler = new BatchConnectionSampler(this.connectionSampler, requests.length, maxPeers);
+
+      if (batchSampler.activePeerCount === 0) {
+        this.logger.debug('No active peers to send requests to');
+        return [];
+      }
+
+      // This is where it gets fun
+      // The outer loop is the retry loop, we will continue to retry until we process all indices we have
+      // not received a response for, or we have reached the max retry attempts
+
+      // The inner loop is the batch loop, we will process all requests for each peer in parallel
+      // We will then process the results of the requests, and resample any peers that failed to respond
+      // We will continue to retry until we have processed all indices, or we have reached the max retry attempts
+
+      let retryAttempts = 0;
+      while (pendingRequestIndices.size > 0 && batchSampler.activePeerCount > 0 && retryAttempts < maxRetryAttempts) {
+        // Process requests in parallel for each available peer
+        const requestBatches = new Map<PeerId, number[]>();
+
+        // Group requests by peer
+        for (const requestIndex of pendingRequestIndices) {
+          const peer = batchSampler.getPeerForRequest(requestIndex);
+          if (!peer) {
+            break;
+          }
+
+          if (!requestBatches.has(peer)) {
+            requestBatches.set(peer, []);
+          }
+          requestBatches.get(peer)!.push(requestIndex);
+        }
+
+        // Make parallel requests for each peer's batch
+        // A batch entry will look something like this:
+        // PeerId0: [0, 1, 2, 3]
+        // PeerId1: [4, 5, 6, 7]
+
+        // Peer Id 0 will send requests 0, 1, 2, 3 in serial
+        // while simultaneously Peer Id 1 will send requests 4, 5, 6, 7 in serial
+
+        const batchResults = await Promise.all(
+          Array.from(requestBatches.entries()).map(async ([peer, indices]) => {
+            try {
+              // Requests all going to the same peer are sent synchronously
+              const peerResults: { index: number; response: InstanceType<SubProtocolMap[SubProtocol]['response']> }[] =
+                [];
+              for (const index of indices) {
+                const response = await this.sendRequestToPeer(peer, subProtocol, requestBuffers[index]);
+
+                if (response && response.length > 0) {
+                  const object = subProtocolMap[subProtocol].response.fromBuffer(response);
+                  const isValid = await responseValidator(requests[index], object, peer);
+
+                  if (isValid) {
+                    peerResults.push({ index, response: object });
+                  }
+                }
+              }
+
+              return { peer, results: peerResults };
+            } catch (error) {
+              this.logger.debug(`Failed batch request to peer ${peer.toString()}:`, error);
+              batchSampler.removePeerAndReplace(peer);
+              return { peer, results: [] };
+            }
+          }),
+        );
+
+        // Process results
+        for (const { results } of batchResults) {
+          for (const { index, response } of results) {
+            if (response) {
+              responses[index] = response;
+              pendingRequestIndices.delete(index);
+            }
+          }
+        }
+
+        retryAttempts++;
+      }
+
+      if (retryAttempts >= maxRetryAttempts) {
+        this.logger.debug(`Max retry attempts ${maxRetryAttempts} reached for batch request`);
+      }
+
+      return responses;
+    };
+
+    try {
+      return await executeTimeout<InstanceType<SubProtocolMap[SubProtocol]['response']>[]>(
+        requestFunction,
+        timeoutMs,
+        () => new CollectiveReqRespTimeoutError(),
+      );
+    } catch (e: any) {
+      this.logger.debug(`${e.message} | subProtocol: ${subProtocol}`);
+      return [];
     }
   }
 
@@ -194,15 +379,20 @@ export class ReqResp {
    * If the stream is not closed by the dialled peer, and a timeout occurs, then
    * the stream is closed on the requester's end and sender (us) updates its peer score
    */
-  async sendRequestToPeer(
+  @trackSpan('ReqResp.sendRequestToPeer', (peerId: PeerId, subProtocol: ReqRespSubProtocol, _: Buffer) => ({
+    [Attributes.P2P_ID]: peerId.toString(),
+    [Attributes.P2P_REQ_RESP_PROTOCOL]: subProtocol,
+  }))
+  public async sendRequestToPeer(
     peerId: PeerId,
     subProtocol: ReqRespSubProtocol,
     payload: Buffer,
   ): Promise<Buffer | undefined> {
     let stream: Stream | undefined;
     try {
-      stream = await this.libp2p.dialProtocol(peerId, subProtocol);
-      this.logger.trace(`Stream opened with ${peerId.toString()} for ${subProtocol}`);
+      this.metrics.recordRequestSent(subProtocol);
+
+      stream = await this.connectionSampler.dialProtocol(peerId, subProtocol);
 
       // Open the stream with a timeout
       const result = await executeTimeout<Buffer>(
@@ -213,12 +403,13 @@ export class ReqResp {
 
       return result;
     } catch (e: any) {
+      this.metrics.recordRequestError(subProtocol);
       this.handleResponseError(e, peerId, subProtocol);
     } finally {
+      // Only close the stream if we created it
       if (stream) {
         try {
-          await stream.close();
-          this.logger.trace(`Stream closed with ${peerId.toString()} for ${subProtocol}`);
+          await this.connectionSampler.close(stream.id);
         } catch (closeError) {
           this.logger.error(
             `Error closing stream: ${closeError instanceof Error ? closeError.message : 'Unknown error'}`,
@@ -241,7 +432,7 @@ export class ReqResp {
   private handleResponseError(e: any, peerId: PeerId, subProtocol: ReqRespSubProtocol): void {
     const severity = this.categorizeError(e, peerId, subProtocol);
     if (severity) {
-      this.peerManager.penalizePeer(peerId, severity);
+      this.peerScoring.penalizePeer(peerId, severity);
     }
   }
 
@@ -320,7 +511,13 @@ export class ReqResp {
    * We check rate limits for each peer, note the peer will be penalised within the rate limiter implementation
    * if they exceed their peer specific limits.
    */
+  @trackSpan('ReqResp.streamHandler', (protocol: ReqRespSubProtocol, { connection }: IncomingStreamData) => ({
+    [Attributes.P2P_REQ_RESP_PROTOCOL]: protocol,
+    [Attributes.P2P_ID]: connection.remotePeer.toString(),
+  }))
   private async streamHandler(protocol: ReqRespSubProtocol, { stream, connection }: IncomingStreamData) {
+    this.metrics.recordRequestReceived(protocol);
+
     // Store a reference to from this for the async generator
     if (!this.rateLimiter.allow(protocol, connection.remotePeer)) {
       this.logger.warn(`Rate limit exceeded for ${protocol} from ${connection.remotePeer}`);
@@ -339,7 +536,7 @@ export class ReqResp {
         async function* (source: any) {
           for await (const chunkList of source) {
             const msg = Buffer.from(chunkList.subarray());
-            const response = await handler(msg);
+            const response = await handler(connection.remotePeer, msg);
             yield new Uint8Array(transform.outboundTransformNoTopic(response));
           }
         },
@@ -347,6 +544,7 @@ export class ReqResp {
       );
     } catch (e: any) {
       this.logger.warn(e);
+      this.metrics.recordResponseError(protocol);
     } finally {
       await stream.close();
     }

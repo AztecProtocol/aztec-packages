@@ -4,7 +4,7 @@ import {
   MAX_NULLIFIERS_PER_TX,
   MAX_PUBLIC_CALLS_TO_UNIQUE_CONTRACT_CLASS_IDS,
   MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
-  MAX_UNENCRYPTED_LOGS_PER_TX,
+  MAX_PUBLIC_LOGS_PER_TX,
   VerificationKeyData,
 } from '@aztec/circuits.js';
 import { Fr } from '@aztec/foundation/fields';
@@ -93,12 +93,12 @@ describe('AVM WitGen, "check circuit" tests', () => {
     TIMEOUT,
   );
   it(
-    'create too many unencrypted logs and revert',
+    'create too many public logs and revert',
     async () => {
       await proveAndVerifyAvmTestContractSimple(
         /*checkCircuitOnly=*/ true, // quick
         'n_new_unencrypted_logs',
-        /*args=*/ [new Fr(MAX_UNENCRYPTED_LOGS_PER_TX + 1)],
+        /*args=*/ [new Fr(MAX_PUBLIC_LOGS_PER_TX + 1)],
         /*expectRevert=*/ true,
       );
     },
@@ -107,7 +107,7 @@ describe('AVM WitGen, "check circuit" tests', () => {
   it(
     'call the max number of unique contract classes',
     async () => {
-      const contractDataSource = new MockedAvmTestContractDataSource();
+      const contractDataSource = await MockedAvmTestContractDataSource.create();
       // args is initialized to MAX_PUBLIC_CALLS_TO_UNIQUE_CONTRACT_CLASS_IDS contract addresses with unique class IDs
       const args = Array.from(contractDataSource.contractInstances.values())
         .map(instance => instance.address.toField())
@@ -130,7 +130,7 @@ describe('AVM WitGen, "check circuit" tests', () => {
   it(
     'attempt too many calls to unique contract class ids',
     async () => {
-      const contractDataSource = new MockedAvmTestContractDataSource();
+      const contractDataSource = await MockedAvmTestContractDataSource.create();
       // args is initialized to MAX_PUBLIC_CALLS_TO_UNIQUE_CONTRACT_CLASS_IDS+1 contract addresses with unique class IDs
       // should fail because we are trying to call MAX+1 unique class IDs
       const args = Array.from(contractDataSource.contractInstances.values()).map(instance =>
@@ -301,8 +301,11 @@ async function proveAndVerifyAvmTestContractSimple(
   args: Fr[] = [],
   expectRevert = false,
   skipContractDeployments = false,
-  contractDataSource = new MockedAvmTestContractDataSource(skipContractDeployments),
+  contractDataSource?: MockedAvmTestContractDataSource,
 ) {
+  if (!contractDataSource) {
+    contractDataSource = await MockedAvmTestContractDataSource.create(skipContractDeployments);
+  }
   await proveAndVerifyAvmTestContract(
     checkCircuitOnly,
     /*setupFunctionNames=*/ [],
@@ -330,8 +333,11 @@ async function proveAndVerifyAvmTestContract(
   teardownArgs: Fr[] = [],
   expectRevert = false,
   skipContractDeployments = false,
-  contractDataSource = new MockedAvmTestContractDataSource(skipContractDeployments),
+  contractDataSource?: MockedAvmTestContractDataSource,
 ) {
+  if (!contractDataSource) {
+    contractDataSource = await MockedAvmTestContractDataSource.create(skipContractDeployments);
+  }
   const avmCircuitInputs = await simulateAvmTestContractGenerateCircuitInputs(
     setupFunctionNames,
     setupArgs,

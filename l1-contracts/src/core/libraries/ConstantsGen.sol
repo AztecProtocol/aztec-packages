@@ -29,7 +29,7 @@ library Constants {
   uint256 internal constant MAX_L1_TO_L2_MSG_READ_REQUESTS_PER_CALL = 16;
   uint256 internal constant MAX_KEY_VALIDATION_REQUESTS_PER_CALL = 16;
   uint256 internal constant MAX_PRIVATE_LOGS_PER_CALL = 16;
-  uint256 internal constant MAX_UNENCRYPTED_LOGS_PER_CALL = 4;
+  uint256 internal constant MAX_PUBLIC_LOGS_PER_CALL = 4;
   uint256 internal constant MAX_CONTRACT_CLASS_LOGS_PER_CALL = 1;
   uint256 internal constant ARCHIVE_HEIGHT = 29;
   uint256 internal constant VK_TREE_HEIGHT = 6;
@@ -67,7 +67,7 @@ library Constants {
   uint256 internal constant MAX_L1_TO_L2_MSG_READ_REQUESTS_PER_TX = 64;
   uint256 internal constant MAX_KEY_VALIDATION_REQUESTS_PER_TX = 64;
   uint256 internal constant MAX_PRIVATE_LOGS_PER_TX = 32;
-  uint256 internal constant MAX_UNENCRYPTED_LOGS_PER_TX = 8;
+  uint256 internal constant MAX_PUBLIC_LOGS_PER_TX = 8;
   uint256 internal constant MAX_CONTRACT_CLASS_LOGS_PER_TX = 1;
   uint256 internal constant NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP = 16;
   uint256 internal constant PRIVATE_KERNEL_INIT_INDEX = 0;
@@ -91,13 +91,15 @@ library Constants {
   uint256 internal constant INITIAL_L2_BLOCK_NUM = 1;
   uint256 internal constant FIELDS_PER_BLOB = 4096;
   uint256 internal constant BLOBS_PER_BLOCK = 3;
+  uint256 internal constant PUBLIC_LOG_DATA_SIZE_IN_FIELDS = 13;
+  uint256 internal constant PUBLIC_LOG_SIZE_IN_FIELDS = 14;
   uint256 internal constant PRIVATE_LOG_SIZE_IN_FIELDS = 18;
   uint256 internal constant AZTEC_MAX_EPOCH_DURATION = 48;
   uint256 internal constant GENESIS_BLOCK_HASH =
     20646204262468251631976884937192820660867507115079672078981654411421834866549;
   uint256 internal constant GENESIS_ARCHIVE_ROOT =
     1002640778211850180189505934749257244705296832326768971348723156503780793518;
-  uint256 internal constant FEE_JUICE_INITIAL_MINT = 200000000000000000000;
+  uint256 internal constant FEE_JUICE_INITIAL_MINT = 200000000000000000000000;
   uint256 internal constant PUBLIC_DISPATCH_SELECTOR = 3578010381;
   uint256 internal constant MAX_PACKED_PUBLIC_BYTECODE_SIZE_IN_FIELDS = 3000;
   uint256 internal constant MAX_PACKED_BYTECODE_SIZE_PER_PRIVATE_FUNCTION_IN_FIELDS = 3000;
@@ -188,7 +190,7 @@ library Constants {
   uint256 internal constant BLOCK_HEADER_LENGTH = 25;
   uint256 internal constant BLOCK_HEADER_LENGTH_BYTES = 648;
   uint256 internal constant PRIVATE_CIRCUIT_PUBLIC_INPUTS_LENGTH = 741;
-  uint256 internal constant PUBLIC_CIRCUIT_PUBLIC_INPUTS_LENGTH = 864;
+  uint256 internal constant PUBLIC_CIRCUIT_PUBLIC_INPUTS_LENGTH = 908;
   uint256 internal constant PRIVATE_CONTEXT_INPUTS_LENGTH = 40;
   uint256 internal constant FEE_RECIPIENT_LENGTH = 2;
   uint256 internal constant AGGREGATION_OBJECT_LENGTH = 16;
@@ -200,7 +202,7 @@ library Constants {
   uint256 internal constant TX_CONSTANT_DATA_LENGTH = 37;
   uint256 internal constant COMBINED_CONSTANT_DATA_LENGTH = 46;
   uint256 internal constant PRIVATE_ACCUMULATED_DATA_LENGTH = 1412;
-  uint256 internal constant PRIVATE_KERNEL_CIRCUIT_PUBLIC_INPUTS_LENGTH = 2229;
+  uint256 internal constant PRIVATE_KERNEL_CIRCUIT_PUBLIC_INPUTS_LENGTH = 2230;
   uint256 internal constant PRIVATE_TO_PUBLIC_ACCUMULATED_DATA_LENGTH = 900;
   uint256 internal constant PRIVATE_TO_AVM_ACCUMULATED_DATA_LENGTH = 160;
   uint256 internal constant NUM_PRIVATE_TO_AVM_ACCUMULATED_DATA_ARRAYS = 3;
@@ -224,10 +226,10 @@ library Constants {
   uint256 internal constant NUM_BASE_PARITY_PER_ROOT_PARITY = 4;
   uint256 internal constant RECURSIVE_PROOF_LENGTH = 459;
   uint256 internal constant NESTED_RECURSIVE_PROOF_LENGTH = 459;
-  uint256 internal constant IPA_PROOF_LENGTH = 65;
-  uint256 internal constant RECURSIVE_ROLLUP_HONK_PROOF_LENGTH = 534;
-  uint256 internal constant NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH = 534;
-  uint256 internal constant TUBE_PROOF_LENGTH = 534;
+  uint256 internal constant IPA_PROOF_LENGTH = 69;
+  uint256 internal constant RECURSIVE_ROLLUP_HONK_PROOF_LENGTH = 538;
+  uint256 internal constant NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH = 538;
+  uint256 internal constant TUBE_PROOF_LENGTH = 538;
   uint256 internal constant HONK_VERIFICATION_KEY_LENGTH_IN_FIELDS = 128;
   uint256 internal constant ROLLUP_HONK_VERIFICATION_KEY_LENGTH_IN_FIELDS = 139;
   uint256 internal constant CLIENT_IVC_VERIFICATION_KEY_LENGTH_IN_FIELDS = 143;
@@ -293,7 +295,7 @@ library Constants {
   uint256 internal constant L2_L1_MSGS_PREFIX = 5;
   uint256 internal constant PUBLIC_DATA_UPDATE_REQUESTS_PREFIX = 6;
   uint256 internal constant PRIVATE_LOGS_PREFIX = 7;
-  uint256 internal constant UNENCRYPTED_LOGS_PREFIX = 8;
+  uint256 internal constant PUBLIC_LOGS_PREFIX = 8;
   uint256 internal constant CONTRACT_CLASS_LOGS_PREFIX = 9;
   uint256 internal constant PROOF_TYPE_PLONK = 0;
   uint256 internal constant PROOF_TYPE_HONK = 1;
