@@ -242,23 +242,15 @@ std::pair<typename GeminiProver_<Curve>::Polynomial, typename GeminiProver_<Curv
                                                           const Fr& r_challenge,
                                                           std::vector<Polynomial> batched_groups_to_be_concatenated)
 {
+    Polynomial& A_0_pos = batched_F; // A₀₊ = F
+    Polynomial A_0_neg = batched_F;  // A₀₋ = F
+
     // Compute G/r
     Fr r_inv = r_challenge.invert();
     batched_G *= r_inv;
 
-    // Construct A₀₊ = F + G/r and A₀₋ = F - G/r in place in fold_polynomials
-    Polynomial tmp = batched_F;
-    Polynomial& A_0_pos = batched_F;
-
-    // A₀₊(X) = F(X) + G(X)/r, s.t. A₀₊(r) = A₀(r)
-    A_0_pos += batched_G;
-
-    // Perform a swap so that tmp = G(X)/r and A_0_neg = F(X)
-    std::swap(tmp, batched_G);
-    Polynomial& A_0_neg = batched_G;
-
-    // A₀₋(X) = F(X) - G(X)/r, s.t. A₀₋(-r) = A₀(-r)
-    A_0_neg -= tmp;
+    A_0_pos += batched_G; // A₀₊ = F + G/r
+    A_0_neg -= batched_G; // A₀₋ = F - G/r
 
     // Reconstruct the batched concatenated polynomial from the batched groups, partially evaluated at r and -r and add
     // the result to A₀₊(X) and  A₀₋(X). Explanation (for simplification assume a single concatenated polynomial):
