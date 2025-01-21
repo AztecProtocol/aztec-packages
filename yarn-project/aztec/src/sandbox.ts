@@ -102,8 +102,6 @@ export type SandboxConfig = AztecNodeConfig & {
   l1Mnemonic: string;
   /** Salt used to deploy L1 contracts.*/
   l1Salt: string;
-  /** Enable the contracts to track and pay for gas */
-  enableGas: boolean;
 };
 
 /**
@@ -153,14 +151,12 @@ export async function createSandbox(config: Partial<SandboxConfig> = {}) {
   const node = await createAztecNode(aztecNodeConfig, { telemetry, blobSinkClient });
   const pxe = await createAztecPXE(node);
 
-  if (config.enableGas) {
-    await setupCanonicalL2FeeJuice(
-      new SignerlessWallet(pxe, new DefaultMultiCallEntrypoint(aztecNodeConfig.l1ChainId, aztecNodeConfig.version)),
-      aztecNodeConfig.l1Contracts.feeJuicePortalAddress,
-      undefined,
-      logger.info,
-    );
-  }
+  await setupCanonicalL2FeeJuice(
+    new SignerlessWallet(pxe, new DefaultMultiCallEntrypoint(aztecNodeConfig.l1ChainId, aztecNodeConfig.version)),
+    aztecNodeConfig.l1Contracts.feeJuicePortalAddress,
+    undefined,
+    logger.info,
+  );
 
   const stop = async () => {
     await node.stop();
