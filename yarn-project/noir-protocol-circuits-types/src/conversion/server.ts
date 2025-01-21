@@ -17,7 +17,6 @@ import {
   type PrivateToAvmAccumulatedDataArrayLengths,
   type PrivateToPublicAccumulatedData,
   type PrivateToPublicKernelCircuitPublicInputs,
-  type PrivateToRollupAccumulatedData,
   PrivateToRollupKernelCircuitPublicInputs,
   type PublicDataHint,
   type RECURSIVE_PROOF_LENGTH,
@@ -38,6 +37,7 @@ import {
   BaseOrMergeRollupPublicInputs,
   type BlockMergeRollupInputs,
   BlockRootOrBlockMergePublicInputs,
+  type BlockRootRollupBlobData,
   type BlockRootRollupData,
   type BlockRootRollupInputs,
   ConstantRollupData,
@@ -71,6 +71,7 @@ import type {
   BlockBlobPublicInputs as BlockBlobPublicInputsNoir,
   BlockMergeRollupInputs as BlockMergeRollupInputsNoir,
   BlockRootOrBlockMergePublicInputs as BlockRootOrBlockMergePublicInputsNoir,
+  BlockRootRollupBlobData as BlockRootRollupBlobDataNoir,
   BlockRootRollupData as BlockRootRollupDataNoir,
   BlockRootRollupInputs as BlockRootRollupInputsNoir,
   ConstantRollupData as ConstantRollupDataNoir,
@@ -81,7 +82,7 @@ import type {
   Field as NoirField,
   ParityPublicInputs as ParityPublicInputsNoir,
   RootParityInput as ParityRootParityInputNoir,
-  Poseidon2 as Poseidon2SpongeNoir,
+  Poseidon2Sponge as Poseidon2SpongeNoir,
   PreviousRollupBlockData as PreviousRollupBlockDataNoir,
   PreviousRollupData as PreviousRollupDataNoir,
   PrivateBaseRollupInputs as PrivateBaseRollupInputsNoir,
@@ -90,7 +91,6 @@ import type {
   PrivateToAvmAccumulatedData as PrivateToAvmAccumulatedDataNoir,
   PrivateToPublicAccumulatedData as PrivateToPublicAccumulatedDataNoir,
   PrivateToPublicKernelCircuitPublicInputs as PrivateToPublicKernelCircuitPublicInputsNoir,
-  PrivateToRollupAccumulatedData as PrivateToRollupAccumulatedDataNoir,
   PrivateToRollupKernelCircuitPublicInputs as PrivateToRollupKernelCircuitPublicInputsNoir,
   PrivateTubeData as PrivateTubeDataNoir,
   PublicBaseRollupInputs as PublicBaseRollupInputsNoir,
@@ -134,9 +134,11 @@ import {
   mapPartialStateReferenceToNoir,
   mapPrivateLogToNoir,
   mapPrivateToRollupAccumulatedDataFromNoir,
+  mapPrivateToRollupAccumulatedDataToNoir,
   mapPublicCallRequestToNoir,
   mapPublicDataTreePreimageToNoir,
   mapPublicDataWriteToNoir,
+  mapPublicLogToNoir,
   mapScopedL2ToL1MessageToNoir,
   mapScopedLogHashToNoir,
   mapTupleFromNoir,
@@ -469,22 +471,6 @@ export function mapPrivateToPublicAccumulatedDataToNoir(
   };
 }
 
-export function mapPrivateToRollupAccumulatedDataToNoir(
-  privateToRollupAccumulatedData: PrivateToRollupAccumulatedData,
-): PrivateToRollupAccumulatedDataNoir {
-  return {
-    note_hashes: mapTuple(privateToRollupAccumulatedData.noteHashes, mapFieldToNoir),
-    nullifiers: mapTuple(privateToRollupAccumulatedData.nullifiers, mapFieldToNoir),
-    l2_to_l1_msgs: mapTuple(privateToRollupAccumulatedData.l2ToL1Msgs, mapScopedL2ToL1MessageToNoir),
-    private_logs: mapTuple(privateToRollupAccumulatedData.privateLogs, mapPrivateLogToNoir),
-    contract_class_logs_hashes: mapTuple(
-      privateToRollupAccumulatedData.contractClassLogsHashes,
-      mapScopedLogHashToNoir,
-    ),
-    contract_class_log_preimages_length: mapFieldToNoir(privateToRollupAccumulatedData.contractClassLogPreimagesLength),
-  };
-}
-
 function mapTxConstantDataFromNoir(combinedConstantData: TxConstantDataNoir): TxConstantData {
   return new TxConstantData(
     mapHeaderFromNoir(combinedConstantData.historical_header),
@@ -552,7 +538,7 @@ function mapAvmAccumulatedDataToNoir(data: AvmAccumulatedData): AvmAccumulatedDa
     note_hashes: mapTuple(data.noteHashes, mapFieldToNoir),
     nullifiers: mapTuple(data.nullifiers, mapFieldToNoir),
     l2_to_l1_msgs: mapTuple(data.l2ToL1Msgs, mapScopedL2ToL1MessageToNoir),
-    unencrypted_logs_hashes: mapTuple(data.unencryptedLogsHashes, mapScopedLogHashToNoir),
+    public_logs: mapTuple(data.publicLogs, mapPublicLogToNoir),
     public_data_writes: mapTuple(data.publicDataWrites, mapPublicDataWriteToNoir),
   };
 }
@@ -669,11 +655,15 @@ export function mapRootRollupParityInputToNoir(
 function mapBlockRootRollupDataToNoir(data: BlockRootRollupData): BlockRootRollupDataNoir {
   return {
     l1_to_l2_roots: mapRootRollupParityInputToNoir(data.l1ToL2Roots),
-    l1_to_l2_message_subtree_sibling_path: mapTuple(data.newL1ToL2MessageTreeRootSiblingPath, mapFieldToNoir),
-    start_l1_to_l2_message_tree_snapshot: mapAppendOnlyTreeSnapshotToNoir(data.startL1ToL2MessageTreeSnapshot),
+    l1_to_l2_message_subtree_sibling_path: mapTuple(data.l1ToL2MessageSubtreeSiblingPath, mapFieldToNoir),
     new_archive_sibling_path: mapTuple(data.newArchiveSiblingPath, mapFieldToNoir),
-    previous_block_hash: mapFieldToNoir(data.previousBlockHash),
+    previous_block_header: mapHeaderToNoir(data.previousBlockHeader),
     prover_id: mapFieldToNoir(data.proverId),
+  };
+}
+
+function mapBlockRootRollupBlobDataToNoir(data: BlockRootRollupBlobData): BlockRootRollupBlobDataNoir {
+  return {
     // @ts-expect-error - below line gives error 'Type instantiation is excessively deep and possibly infinite. ts(2589)'
     blobs_fields: mapTuple(data.blobFields, mapFieldToNoir),
     blob_commitments: mapTuple(data.blobCommitments, mapBlobCommitmentToNoir),
@@ -690,6 +680,7 @@ export function mapBlockRootRollupInputsToNoir(rootRollupInputs: BlockRootRollup
   return {
     previous_rollup_data: mapTuple(rootRollupInputs.previousRollupData, mapPreviousRollupDataToNoir),
     data: mapBlockRootRollupDataToNoir(rootRollupInputs.data),
+    blob_data: mapBlockRootRollupBlobDataToNoir(rootRollupInputs.blobData),
   };
 }
 
@@ -699,6 +690,7 @@ export function mapSingleTxBlockRootRollupInputsToNoir(
   return {
     previous_rollup_data: [mapPreviousRollupDataToNoir(rootRollupInputs.previousRollupData[0])],
     data: mapBlockRootRollupDataToNoir(rootRollupInputs.data),
+    blob_data: mapBlockRootRollupBlobDataToNoir(rootRollupInputs.blobData),
   };
 }
 
@@ -711,19 +703,8 @@ export function mapEmptyBlockRootRollupInputsToNoir(
   rootRollupInputs: EmptyBlockRootRollupInputs,
 ): EmptyBlockRootRollupInputsNoir {
   return {
-    l1_to_l2_roots: mapRootRollupParityInputToNoir(rootRollupInputs.l1ToL2Roots),
-    l1_to_l2_message_subtree_sibling_path: mapTuple(
-      rootRollupInputs.newL1ToL2MessageTreeRootSiblingPath,
-      mapFieldToNoir,
-    ),
-    start_l1_to_l2_message_tree_snapshot: mapAppendOnlyTreeSnapshotToNoir(
-      rootRollupInputs.startL1ToL2MessageTreeSnapshot,
-    ),
-    new_archive_sibling_path: mapTuple(rootRollupInputs.newArchiveSiblingPath, mapFieldToNoir),
-    previous_block_hash: mapFieldToNoir(rootRollupInputs.previousBlockHash),
-    previous_partial_state: mapPartialStateReferenceToNoir(rootRollupInputs.previousPartialState),
+    data: mapBlockRootRollupDataToNoir(rootRollupInputs.data),
     constants: mapConstantRollupDataToNoir(rootRollupInputs.constants),
-    prover_id: mapFieldToNoir(rootRollupInputs.proverId),
     is_padding: rootRollupInputs.isPadding,
   };
 }

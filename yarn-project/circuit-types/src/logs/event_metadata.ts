@@ -1,17 +1,16 @@
+import { type PublicLog } from '@aztec/circuits.js';
 import { type AbiType, AbiTypeSchema, type EventSelector, decodeFromAbi } from '@aztec/foundation/abi';
-import { Fr } from '@aztec/foundation/fields';
 import { schemas } from '@aztec/foundation/schemas';
 
 import { z } from 'zod';
 
 import { L1EventPayload } from './l1_payload/l1_event_payload.js';
-import { type UnencryptedL2Log } from './unencrypted_l2_log.js';
 
 /**
  * Represents metadata for an event decoder, including all information needed to reconstruct it.
  */
 export class EventMetadata<T> {
-  public readonly decode: (payload: L1EventPayload | UnencryptedL2Log) => T | undefined;
+  public readonly decode: (payload: L1EventPayload | PublicLog) => T | undefined;
 
   public readonly eventSelector: EventSelector;
   public readonly abiType: AbiType;
@@ -27,8 +26,8 @@ export class EventMetadata<T> {
   public static decodeEvent<T>(
     eventSelector: EventSelector,
     abiType: AbiType,
-  ): (payload: L1EventPayload | UnencryptedL2Log | undefined) => T | undefined {
-    return (payload: L1EventPayload | UnencryptedL2Log | undefined): T | undefined => {
+  ): (payload: L1EventPayload | PublicLog | undefined) => T | undefined {
+    return (payload: L1EventPayload | PublicLog | undefined): T | undefined => {
       if (payload === undefined) {
         return undefined;
       }
@@ -39,12 +38,7 @@ export class EventMetadata<T> {
         }
         return decodeFromAbi([abiType], payload.event.items) as T;
       } else {
-        const items = [];
-        for (let i = 0; i < payload.data.length; i += 32) {
-          items.push(new Fr(payload.data.subarray(i, i + 32)));
-        }
-
-        return decodeFromAbi([abiType], items) as T;
+        return decodeFromAbi([abiType], payload.log) as T;
       }
     };
   }

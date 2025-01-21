@@ -8,7 +8,7 @@ import { Fr } from '@aztec/foundation/fields';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { sleep } from '@aztec/foundation/sleep';
 import { type InboxAbi, RollupAbi } from '@aztec/l1-artifacts';
-import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
+import { getTelemetryClient } from '@aztec/telemetry-client';
 
 import { jest } from '@jest/globals';
 import { type MockProxy, mock } from 'jest-mock-extended';
@@ -96,7 +96,7 @@ describe('Archiver', () => {
     });
     blobSinkClient = mock<BlobSinkClientInterface>();
 
-    const tracer = new NoopTelemetryClient().getTracer();
+    const tracer = getTelemetryClient().getTracer('');
     instrumentation = mock<ArchiverInstrumentation>({ isEnabled: () => true, tracer });
     archiverStore = new MemoryArchiverStore(1000);
     l1Constants = {
@@ -218,10 +218,9 @@ describe('Archiver', () => {
       const privateLogs = await archiver.getPrivateLogs(blockNumber, 1);
       expect(privateLogs.length).toBe(getNumPrivateLogsForBlock(blockNumber));
 
-      const unencryptedLogs = (await archiver.getUnencryptedLogs({ fromBlock: blockNumber, toBlock: blockNumber + 1 }))
-        .logs;
-      const expectedTotalNumUnencryptedLogs = 4 * (blockNumber + 1) * 2;
-      expect(unencryptedLogs.length).toEqual(expectedTotalNumUnencryptedLogs);
+      const publicLogs = (await archiver.getPublicLogs({ fromBlock: blockNumber, toBlock: blockNumber + 1 })).logs;
+      const expectedTotalNumPublicLogs = 4 * (blockNumber + 1) * 2;
+      expect(publicLogs.length).toEqual(expectedTotalNumPublicLogs);
     }
 
     blockNumbers.forEach(async x => {
@@ -377,7 +376,7 @@ describe('Archiver', () => {
     expect(await archiver.getBlock(2)).resolves.toBeUndefined;
 
     expect(await archiver.getPrivateLogs(2, 1)).toEqual([]);
-    expect((await archiver.getUnencryptedLogs({ fromBlock: 2, toBlock: 3 })).logs).toEqual([]);
+    expect((await archiver.getPublicLogs({ fromBlock: 2, toBlock: 3 })).logs).toEqual([]);
     expect((await archiver.getContractClassLogs({ fromBlock: 2, toBlock: 3 })).logs).toEqual([]);
   }, 10_000);
 

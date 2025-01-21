@@ -19,7 +19,7 @@ import {
 } from '@aztec/prover-client/broker';
 import { proverNodeConfigMappings } from '@aztec/prover-node/config';
 import { allPxeConfigMappings } from '@aztec/pxe/config';
-import { telemetryClientConfigMappings } from '@aztec/telemetry-client/start';
+import { telemetryClientConfigMappings } from '@aztec/telemetry-client';
 
 import { DefaultMnemonic } from '../mnemonic.js';
 
@@ -69,12 +69,6 @@ export const aztecStartOptions: { [key: string]: AztecStartOption[] } = {
       description: 'Deploy test accounts on sandbox start',
       envVar: 'TEST_ACCOUNTS',
       ...booleanConfigHelper(true),
-    },
-    {
-      flag: '--sandbox.enableGas',
-      description: 'Enable gas on sandbox start',
-      envVar: 'ENABLE_GAS',
-      ...booleanConfigHelper(),
     },
     {
       flag: '--sandbox.noPXE',

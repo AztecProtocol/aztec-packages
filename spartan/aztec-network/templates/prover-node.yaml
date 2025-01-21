@@ -46,13 +46,8 @@ spec:
             - -c
             - |
               source /shared/config/service-addresses
-              until curl -s -X POST -H 'Content-Type: application/json' \
-                -d '{"jsonrpc":"2.0","method":"eth_chainId","params":[],"id":67}' \
-                ${ETHEREUM_HOST} | grep 0x; do
-                echo "Waiting for Ethereum node ${ETHEREUM_HOST}..."
-                sleep 5
-              done
-              echo "Ethereum node is ready!"
+              cat /shared/config/service-addresses
+              {{- include "aztec-network.waitForEthereum" . | nindent 14 }}
 
               if [ "${PROVER_BROKER_ENABLED}" == "false" ]; then
                 until curl -s -X POST ${PROVER_BROKER_HOST}/status; do
@@ -165,6 +160,8 @@ spec:
               value: "{{ .Values.proverNode.txGathering.intervalMs }}"
             - name: PROVER_NODE_TX_GATHERING_MAX_PARALLEL_REQUESTS
               value: "{{ .Values.proverNode.txGathering.maxParallelRequests }}"
+            - name: PROVER_FAILED_PROOF_STORE
+              value: "{{ .Values.proverNode.failedProofStore }}"
             - name: OTEL_RESOURCE_ATTRIBUTES
               value: service.name={{ .Release.Name }},service.namespace={{ .Release.Namespace }},service.version={{ .Chart.AppVersion }},environment={{ .Values.environment | default "production" }}
             - name: L1_CHAIN_ID
@@ -193,6 +190,8 @@ spec:
               value: "{{ .Values.storage.worldStateMapSize }}"
             - name: USE_GCLOUD_OBSERVABILITY
               value: "{{ .Values.telemetry.useGcloudObservability }}"
+            - name: OTEL_EXCLUDE_METRICS
+              value: "{{ .Values.proverNode.otelExcludeMetrics }}"
           ports:
             - containerPort: {{ .Values.proverNode.service.nodePort }}
             - containerPort: {{ .Values.proverNode.service.p2pTcpPort }}

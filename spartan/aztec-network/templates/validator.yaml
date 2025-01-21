@@ -49,15 +49,7 @@ spec:
             - |
               source /shared/config/service-addresses
               cat /shared/config/service-addresses
-              # First check ethereum node
-              until curl -s -X POST -H 'Content-Type: application/json' \
-                -d '{"jsonrpc":"2.0","method":"eth_chainId","params":[],"id":67}' \
-                $ETHEREUM_HOST | grep 0x; do
-                echo "Waiting for Ethereum node ${ETHEREUM_HOST}..."
-                sleep 5
-              done
-              echo "Ethereum node is ready!"
-
+              {{- include "aztec-network.waitForEthereum" . | nindent 14 }}
 
               if [ "{{ .Values.validator.dynamicBootNode }}" = "true" ]; then
                 echo "{{ include "aztec-network.pxeUrl" . }}" > /shared/pxe/pxe_url
@@ -219,6 +211,8 @@ spec:
               value: "{{ .Values.storage.worldStateMapSize }}"
             - name: USE_GCLOUD_OBSERVABILITY
               value: "{{ .Values.telemetry.useGcloudObservability }}"
+            - name: OTEL_EXCLUDE_METRICS
+              value: "{{ .Values.validator.otelExcludeMetrics }}"
           ports:
             - containerPort: {{ .Values.validator.service.nodePort }}
             - containerPort: {{ .Values.validator.service.p2pTcpPort }}

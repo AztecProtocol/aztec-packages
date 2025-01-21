@@ -53,12 +53,12 @@ class AvmFlavor {
     static constexpr bool HasZK = false;
 
     static constexpr size_t NUM_PRECOMPUTED_ENTITIES = 7;
-    static constexpr size_t NUM_WITNESS_ENTITIES = 41;
+    static constexpr size_t NUM_WITNESS_ENTITIES = 42;
     static constexpr size_t NUM_SHIFTED_ENTITIES = 1;
     static constexpr size_t NUM_WIRES = NUM_WITNESS_ENTITIES + NUM_PRECOMPUTED_ENTITIES;
     // We have two copies of the witness entities, so we subtract the number of fixed ones (they have no shift), one for
     // the unshifted and one for the shifted
-    static constexpr size_t NUM_ALL_ENTITIES = 49;
+    static constexpr size_t NUM_ALL_ENTITIES = 50;
     // The total number of witnesses including shifts and derived entities.
     static constexpr size_t NUM_ALL_WITNESS_ENTITIES = NUM_WITNESS_ENTITIES + NUM_SHIFTED_ENTITIES;
 

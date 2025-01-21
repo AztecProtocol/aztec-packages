@@ -37,7 +37,7 @@ describe('token transfer test', () => {
         hostPort: config.HOST_PXE_PORT,
       });
       await startPortForward({
-        resource: `svc/${config.INSTANCE_NAME}-aztec-network-ethereum`,
+        resource: `svc/${config.INSTANCE_NAME}-aztec-network-eth-execution`,
         namespace: config.NAMESPACE,
         containerPort: config.CONTAINER_ETHEREUM_PORT,
         hostPort: config.HOST_ETHEREUM_PORT,

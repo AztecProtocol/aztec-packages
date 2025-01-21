@@ -16,10 +16,8 @@ export type L2BlockStats = {
   txCount: number;
   /** Number of the L2 block. */
   blockNumber: number;
-  /** Number of unencrypted logs. */
-  unencryptedLogCount?: number;
-  /** Serialized size of unencrypted logs. */
-  unencryptedLogSize?: number;
+  /** Number of public logs. */
+  publicLogCount?: number;
 };
 
 /** Stats logged for each L1 publish tx.*/
@@ -73,7 +71,15 @@ export type NodeSyncedChainHistoryStats = {
   dbSize: number;
 };
 
-export type CircuitName =
+export type ClientCircuitName =
+  | 'private-kernel-init'
+  | 'private-kernel-inner'
+  | 'private-kernel-reset'
+  | 'private-kernel-tail'
+  | 'private-kernel-tail-to-public'
+  | 'app-circuit';
+
+export type ServerCircuitName =
   | 'base-parity'
   | 'root-parity'
   | 'private-base-rollup'
@@ -84,14 +90,10 @@ export type CircuitName =
   | 'empty-block-root-rollup'
   | 'block-merge-rollup'
   | 'root-rollup'
-  | 'private-kernel-init'
-  | 'private-kernel-inner'
-  | 'private-kernel-reset'
-  | 'private-kernel-tail'
-  | 'private-kernel-tail-to-public'
-  | 'app-circuit'
   | 'avm-circuit'
   | 'tube-circuit';
+
+export type CircuitName = ClientCircuitName | ServerCircuitName;
 
 /** Stats for circuit simulation. */
 export type CircuitSimulationStats = {
@@ -208,10 +210,6 @@ export type TxStats = {
   size: number;
   /** Size of the proof. */
   proofSize: number;
-  /** Number of unencrypted logs. */
-  unencryptedLogCount: number;
-  /** Serialized size of unencrypted logs. */
-  unencryptedLogSize: number;
   /** Number of note hashes */
   noteHashCount: number;
   /** Number of nullifiers */

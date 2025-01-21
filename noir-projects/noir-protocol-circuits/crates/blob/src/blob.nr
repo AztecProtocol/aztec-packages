@@ -1,23 +1,23 @@
-// TODO(#9982): Replace unconstrained_config with config and import ROOTS - calculating ROOTS in unconstrained is insecure.
 use crate::{
     blob_public_inputs::{BlobCommitment, BlobPublicInputs, BlockBlobPublicInputs},
-    unconstrained_config::{compute_roots_of_unity, D_INV, F, LOG_FIELDS_PER_BLOB},
+    config::{D_INV, F, LOG_FIELDS_PER_BLOB, ROOTS},
+    unconstrained_config::compute_roots_of_unity,
 };
 
-use bigint::BigNum;
+use bigint::{BigNum, BigNumTrait};
 // Fixed hash method:
 use types::hash::poseidon2_hash_subarray;
 // Variable hash method:
 // use types::hash::poseidon2_cheaper_variable_hash;
+use std::ops::{Mul, Neg};
 use types::{
     abis::sponge_blob::SpongeBlob,
-    constants::{BLOBS_PER_BLOCK, FIELDS_PER_BLOB},
+    constants::{BLOBS_PER_BLOCK, FIELDS_PER_BLOB, TWO_POW_64},
     utils::arrays::array_splice,
 };
 
 global LIMB_MAX: Field = 0x1000000000000000000000000000000; // 2^120
 global TWO_POW_56: u64 = 0x100000000000000; // u64 to aid integer only modulo in __field_to_bignum_limbs
-global TWO_POW_64: Field = 0x10000000000000000;
 
 unconstrained fn __batch_invert_impl<let N: u32>(mut x: [F; N]) -> [F; N] {
     let mut accumulator: F = BigNum::one();
@@ -185,7 +185,7 @@ pub fn evaluate_blobs(
  */
 fn barycentric_evaluate_blob_at_z(z: F, ys: [F; FIELDS_PER_BLOB]) -> F {
     // TODO(#9982): Delete below and go back to using config.nr - calculating ROOTS in unconstrained is insecure.
-    let ROOTS = unsafe { compute_roots_of_unity() };
+    let UNCONSTRAINED_ROOTS = unsafe { compute_roots_of_unity() };
 
     // Note: it's more efficient (saving 30k constraints) to compute:
     //    ___d-1
@@ -205,7 +205,7 @@ fn barycentric_evaluate_blob_at_z(z: F, ys: [F; FIELDS_PER_BLOB]) -> F {
     //    i=0
     //
     // perhaps because all the omega^i terms are constant witnesses?
-    let fracs = compute_fracs(z, ys, ROOTS);
+    let fracs = compute_fracs(z, ys, UNCONSTRAINED_ROOTS);
 
     // OK so...we can add multiple product terms into a sum...but I am not sure how many!
     // we are computing 254 * 254 bit products and we need to ensure each product limb doesn't overflow
@@ -222,10 +222,9 @@ fn barycentric_evaluate_blob_at_z(z: F, ys: [F; FIELDS_PER_BLOB]) -> F {
     //                   /____       z - omega^i
     //                    i=0
     let NUM_PARTIAL_SUMS = FIELDS_PER_BLOB / 8;
-    let partial_sums: [F; FIELDS_PER_BLOB / 8] = unsafe {
-        // Safety: This sum is checked by the following `BigNum::evaluate_quadratic_expression` calls.
-        __compute_partial_sums(fracs, ROOTS)
-    };
+    /// Safety: This sum is checked by the following `BigNum::evaluate_quadratic_expression` calls.
+    let partial_sums: [F; FIELDS_PER_BLOB / 8] =
+        unsafe { __compute_partial_sums(fracs, UNCONSTRAINED_ROOTS) };
 
     if !std::runtime::is_unconstrained() {
         // We split off the first term to check the initial sum
@@ -271,20 +270,31 @@ fn barycentric_evaluate_blob_at_z(z: F, ys: [F; FIELDS_PER_BLOB]) -> F {
 
             //    partial_sums[i] <- partial_sums[i-1] + (lhs[8*i] * rhs[8*i] + ... + lhs[8*i + 7] * rhs[8*i + 7])
             // => (lhs[8*i] * rhs[8*i] + ... + lhs[8*i + 7] * rhs[8*i + 7]) + partial_sums[i-1] - partial_sums[i] == 0
-            let mut lhs: [[F; 1]; 8] = [std::mem::zeroed(); 8];
-            let mut rhs: [[F; 1]; 8] = [std::mem::zeroed(); 8];
-            for j in 0..8 {
-                let k = i * 8 + j;
-                lhs[j] = [ROOTS[k]]; // omega^k
-                rhs[j] = [fracs[k]]; // y_k / (z - omega^k)
-            }
-
             let linear_terms = [partial_sums[i - 1], partial_sums[i]];
 
             BigNum::evaluate_quadratic_expression(
-                lhs,
+                /* lhs */ [
+                    [ROOTS[i * 8 + 0]],
+                    [ROOTS[i * 8 + 1]],
+                    [ROOTS[i * 8 + 2]],
+                    [ROOTS[i * 8 + 3]],
+                    [ROOTS[i * 8 + 4]],
+                    [ROOTS[i * 8 + 5]],
+                    [ROOTS[i * 8 + 6]],
+                    [ROOTS[i * 8 + 7]],
+                ],
                 [[false], [false], [false], [false], [false], [false], [false], [false]],
-                rhs,
+                /* rhs */
+                [
+                    [fracs[i * 8 + 0]],
+                    [fracs[i * 8 + 1]],
+                    [fracs[i * 8 + 2]],
+                    [fracs[i * 8 + 3]],
+                    [fracs[i * 8 + 4]],
+                    [fracs[i * 8 + 5]],
+                    [fracs[i * 8 + 6]],
+                    [fracs[i * 8 + 7]],
+                ],
                 [[false], [false], [false], [false], [false], [false], [false], [false]],
                 linear_terms,
                 [false, true],
@@ -312,10 +322,9 @@ fn compute_factor(z: F) -> F {
 
     let z_pow_d = t;
 
-    let factor = unsafe {
-        // Safety: We immediately check that this result is correct in the following `BigNum::evaluate_quadratic_expression` call.
-        __compute_factor_helper(z_pow_d)
-    };
+    /// Safety: We immediately check that this result is correct in the following
+    /// `BigNum::evaluate_quadratic_expression` call.
+    let factor = unsafe { __compute_factor_helper(z_pow_d) };
 
     // (z_pow_d - one) * (D_INV) - factor = 0
     // z_pow_d * D_INV - D_INV - factor = 0
@@ -346,11 +355,11 @@ fn compute_factor(z: F) -> F {
 unconstrained fn __compute_fracs(
     z: F,
     ys: [F; FIELDS_PER_BLOB],
-    ROOTS: [F; FIELDS_PER_BLOB],
+    unconstrained_roots: [F; FIELDS_PER_BLOB],
 ) -> [F; FIELDS_PER_BLOB] {
     let mut denoms = [BigNum::new(); FIELDS_PER_BLOB];
     for i in 0..FIELDS_PER_BLOB {
-        denoms[i] = z.__sub(ROOTS[i]); // (z - omega^i)
+        denoms[i] = z.__sub(unconstrained_roots[i]); // (z - omega^i)
     }
     let inv_denoms = __batch_invert_impl(denoms); // 1 / (z - omega^i), for all i
 
@@ -368,12 +377,11 @@ unconstrained fn __compute_fracs(
 fn compute_fracs(
     z: F,
     ys: [F; FIELDS_PER_BLOB],
-    ROOTS: [F; FIELDS_PER_BLOB],
+    unconstrained_roots: [F; FIELDS_PER_BLOB],
 ) -> [F; FIELDS_PER_BLOB] {
-    let mut fracs: [F; FIELDS_PER_BLOB] = unsafe {
-        // Safety: We immediately constrain these `fracs` to be correct in the following call to `BigNum::evaluate_quadratic_expression`.
-        __compute_fracs(z, ys, ROOTS)
-    };
+    /// Safety: We immediately constrain these `fracs` to be correct in the following call
+    /// to `BigNum::evaluate_quadratic_expression`.
+    let mut fracs: [F; FIELDS_PER_BLOB] = unsafe { __compute_fracs(z, ys, unconstrained_roots) };
 
     if !std::runtime::is_unconstrained() {
         for i in 0..FIELDS_PER_BLOB {
@@ -396,7 +404,7 @@ fn compute_fracs(
 // TODO: Clean me
 unconstrained fn __compute_partial_sums(
     fracs: [F; FIELDS_PER_BLOB],
-    ROOTS: [F; FIELDS_PER_BLOB],
+    unconstrained_roots: [F; FIELDS_PER_BLOB],
 ) -> [F; FIELDS_PER_BLOB / 8] {
     let mut partial_sums: [F; FIELDS_PER_BLOB / 8] = std::mem::zeroed();
 
@@ -411,7 +419,7 @@ unconstrained fn __compute_partial_sums(
     let mut partial_sum: F = BigNum::new();
     for i in 0..8 {
         // y_k * ( omega^k / (z - omega^k) )
-        let summand = ROOTS[i].__mul(fracs[i]);
+        let summand = unconstrained_roots[i].__mul(fracs[i]);
 
         // partial_sum + ( y_k * ( omega^k / (z - omega^k) ) -> partial_sum
         partial_sum = partial_sum.__add(summand);
@@ -430,7 +438,7 @@ unconstrained fn __compute_partial_sums(
         for j in 0..8 {
             let k = i * 8 + j;
             // y_k * ( omega^k / (z - omega^k) )
-            let summand = ROOTS[k].__mul(fracs[k]);
+            let summand = unconstrained_roots[k].__mul(fracs[k]);
             // partial_sum + ( y_k * ( omega^k / (z - omega^k) ) -> partial_sum
             partial_sum = partial_sum.__add(summand);
         }
@@ -448,14 +456,16 @@ mod tests {
             field_to_bignum,
         },
         blob_public_inputs::BlobCommitment,
-        unconstrained_config::{D, D_INV, F},
+        config::{D, D_INV, F},
     };
     use bigint::{BigNum, fields::bls12_381Fr::BLS12_381_Fr_Params};
+    use bigint::bignum::BigNumTrait;
     use types::{
         abis::sponge_blob::SpongeBlob,
         constants::{BLOBS_PER_BLOCK, FIELDS_PER_BLOB},
         tests::{fixture_builder::FixtureBuilder, utils::pad_end},
     };
+    use types::traits::Serialize;
 
     #[test]
     unconstrained fn test_one_note() {
@@ -505,7 +515,7 @@ mod tests {
         tx_data.set_protocol_nullifier();
         tx_data.append_nullifiers(50);
         tx_data.append_l2_to_l1_msgs(5);
-        tx_data.append_unencrypted_log_hashes(5);
+        tx_data.append_public_logs(5);
         let mut blob: [Field; FIELDS_PER_BLOB] = [0; FIELDS_PER_BLOB];
         let blob_fields = tx_data.to_private_to_rollup_accumulated_data().serialize();
         for i in 0..blob_fields.len() {

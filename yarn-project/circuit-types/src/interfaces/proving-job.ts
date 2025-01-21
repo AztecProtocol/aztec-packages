@@ -29,7 +29,7 @@ import { type ZodFor } from '@aztec/foundation/schemas';
 
 import { z } from 'zod';
 
-import { type CircuitName } from '../stats/index.js';
+import { type ServerCircuitName } from '../stats/index.js';
 
 export type ProofAndVerificationKey<N extends number> = {
   proof: RecursiveProof<N>;
@@ -95,7 +95,7 @@ export enum ProvingRequestType {
   TUBE_PROOF,
 }
 
-export function mapProvingRequestTypeToCircuitName(type: ProvingRequestType): CircuitName {
+export function mapProvingRequestTypeToCircuitName(type: ProvingRequestType): ServerCircuitName {
   switch (type) {
     case ProvingRequestType.PUBLIC_VM:
       return 'avm-circuit';
@@ -121,11 +121,12 @@ export function mapProvingRequestTypeToCircuitName(type: ProvingRequestType): Ci
       return 'root-parity';
     case ProvingRequestType.TUBE_PROOF:
       return 'tube-circuit';
-    default:
+    default: {
+      const _exhaustive: never = type;
       throw new Error(`Cannot find circuit name for proving request type: ${type}`);
+    }
   }
 }
-
 export type AvmProvingRequest = z.infer<typeof AvmProvingRequestSchema>;
 
 export const AvmProvingRequestSchema = z.object({
@@ -150,7 +151,42 @@ export const ProvingJobInputs = z.discriminatedUnion('type', [
   z.object({ type: z.literal(ProvingRequestType.ROOT_ROLLUP), inputs: RootRollupInputs.schema }),
   z.object({ type: z.literal(ProvingRequestType.TUBE_PROOF), inputs: TubeInputs.schema }),
 ]);
+
+export function getProvingJobInputClassFor(type: ProvingRequestType) {
+  switch (type) {
+    case ProvingRequestType.PUBLIC_VM:
+      return AvmCircuitInputs;
+    case ProvingRequestType.PRIVATE_BASE_ROLLUP:
+      return PrivateBaseRollupInputs;
+    case ProvingRequestType.PUBLIC_BASE_ROLLUP:
+      return PublicBaseRollupInputs;
+    case ProvingRequestType.MERGE_ROLLUP:
+      return MergeRollupInputs;
+    case ProvingRequestType.EMPTY_BLOCK_ROOT_ROLLUP:
+      return EmptyBlockRootRollupInputs;
+    case ProvingRequestType.BLOCK_ROOT_ROLLUP:
+      return BlockRootRollupInputs;
+    case ProvingRequestType.SINGLE_TX_BLOCK_ROOT_ROLLUP:
+      return SingleTxBlockRootRollupInputs;
+    case ProvingRequestType.BLOCK_MERGE_ROLLUP:
+      return BlockMergeRollupInputs;
+    case ProvingRequestType.ROOT_ROLLUP:
+      return RootRollupInputs;
+    case ProvingRequestType.BASE_PARITY:
+      return BaseParityInputs;
+    case ProvingRequestType.ROOT_PARITY:
+      return RootParityInputs;
+    case ProvingRequestType.TUBE_PROOF:
+      return TubeInputs;
+    default: {
+      const _exhaustive: never = type;
+      throw new Error(`Cannot find circuit inputs class for proving type ${type}`);
+    }
+  }
+}
+
 export type ProvingJobInputs = z.infer<typeof ProvingJobInputs>;
+
 export type ProvingJobInputsMap = {
   [ProvingRequestType.PUBLIC_VM]: AvmCircuitInputs;
   [ProvingRequestType.PRIVATE_BASE_ROLLUP]: PrivateBaseRollupInputs;
