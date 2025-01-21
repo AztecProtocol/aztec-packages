@@ -109,7 +109,7 @@ describe('Private Execution test suite', () => {
     gasSettings: GasSettings.default({ maxFeesPerGas: new GasFees(10, 10) }),
   };
 
-  const runSimulator = async ({
+  const runSimulator = ({
     artifact,
     args = [],
     msgSender = AztecAddress.fromField(Fr.MAX_FIELD_VALUE),

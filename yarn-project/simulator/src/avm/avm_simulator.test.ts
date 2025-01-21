@@ -34,7 +34,7 @@ import { MockedAvmTestContractDataSource, simulateAvmTestContractCall } from '..
 import { type WorldStateDB } from '../public/public_db_sources.js';
 import { type PublicSideEffectTraceInterface } from '../public/side_effect_trace_interface.js';
 import { type AvmContext } from './avm_context.js';
-import { AvmExecutionEnvironment } from './avm_execution_environment.js';
+import { type AvmExecutionEnvironment } from './avm_execution_environment.js';
 import { type MemoryValue, TypeTag, type Uint8, type Uint64 } from './avm_memory_types.js';
 import { AvmSimulator } from './avm_simulator.js';
 import { AvmEphemeralForest } from './avm_tree.js';
