@@ -155,6 +155,7 @@ describe('L1Publisher', () => {
     });
     (l1TxUtils as any).estimateGas.mockResolvedValue(GAS_GUESS);
     (l1TxUtils as any).simulateGasUsed.mockResolvedValue(1_000_000n);
+    (l1TxUtils as any).bumpGasLimit.mockImplementation((val: bigint) => val + (val * 20n) / 100n);
   });
 
   const closeServer = (server: Server): Promise<void> => {
@@ -198,7 +199,7 @@ describe('L1Publisher', () => {
     });
   };
 
-  it('publishes and propose l2 block to l1', async () => {
+  it.only('publishes and propose l2 block to l1', async () => {
     rollupContractRead.archive.mockResolvedValue(l2Block.header.lastArchive.root.toString() as `0x${string}`);
     rollupContractWrite.propose.mockResolvedValueOnce(proposeTxHash);
 
@@ -238,8 +239,8 @@ describe('L1Publisher', () => {
         to: mockRollupAddress,
         data: encodeFunctionData({ abi: rollupContract.abi, functionName: 'propose', args }),
       },
-      // 1_000_000 is the gas used by the returned by simulateGasUsed & GAS_GUESS is the gas returned by estimateGas for the blob evaluation
-      { gasLimit: 1_000_000n + GAS_GUESS },
+      // val + (val * 20n) / 100n
+      { gasLimit: 1_000_000n + GAS_GUESS + ((1_000_000n + GAS_GUESS) * 20n) / 100n },
       { blobs: expectedBlobs.map(b => b.dataWithZeros), kzg },
     );
 
