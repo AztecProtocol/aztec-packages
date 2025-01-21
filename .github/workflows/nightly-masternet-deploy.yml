@@ -1,31 +1,40 @@
 name: Nightly masternet deploy
+
 on:
   schedule:
-    # Run the workflow every night at 2:00 AM UTC.
     - cron: "0 2 * * *"
+  workflow_dispatch:
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: false
+  cancel-in-progress: true
 
 jobs:
   get-latest-commit:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     outputs:
       commit: ${{ steps.get_commit.outputs.COMMIT }}
 
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
 
       - name: Get latest published commit
         id: get_commit
         run: |
-          COMMIT=$(curl -s https://registry.hub.docker.com/v2/repositories/aztecprotocol/aztec/tags/master | jq ".digest" | tr -d '"')
+          COMMIT=$(curl -sL --retry 3 https://registry.hub.docker.com/v2/repositories/aztecprotocol/aztec/tags/master | jq -r ".digest")
+          if [ -z "$COMMIT" ]; then
+            echo "Failed to fetch commit hash"
+            exit 1
+          fi
           echo "COMMIT=$COMMIT" >> $GITHUB_OUTPUT
 
   deploy-network:
     needs: get-latest-commit
     uses: ./.github/workflows/network-deploy.yml
+    if: needs.get-latest-commit.result == 'success'
     with:
       ref: master
       namespace: masternet
