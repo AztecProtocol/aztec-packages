@@ -26,7 +26,7 @@ function get_load_balancer_url() {
 # Fetch the service URLs based on the namespace for injection in the test-transfer.sh
 export BOOTNODE_URL=$($(dirname $0)/get_service_address boot-node 8080)
 export PXE_URL=$($(dirname $0)/get_service_address pxe 8080)
-export ETHEREUM_HOST=$($(dirname $0)/get_service_address ethereum 8545)
+export ETHEREUM_HOST=$($(dirname $0)/get_service_address eth-execution 8545)
 
 echo "BOOTNODE_URL: $BOOTNODE_URL"
 echo "PXE_URL: $PXE_URL"
