@@ -137,13 +137,13 @@ export VALUES_PATH="$REPO/spartan/aztec-network/values/$VALUES_FILE"
 export DEFAULT_VALUES_PATH="$REPO/spartan/aztec-network/values.yaml"
 
 # Load the read_values_file.sh script
-source "$REPO/spartan/aztec-network/scripts/bash/read_values_file.sh"
+source "$REPO/yarn-project/end-to-end/scripts/bash/read_values_file.sh"
 
 ## Some configuration values are set in the eth-devnet/config/config.yaml file
 ## and are used to generate the genesis.json file.
 ## We need to read these values and pass them into the eth devnet create.sh script
 ## so that it can generate the genesis.json and config.yaml file with the correct values.
-$REPO/spartan/aztec-network/scripts/bash/generate_devnet_config.sh
+$REPO/yarn-project/end-to-end/scripts/bash/generate_devnet_config.sh
 
 # Install the Helm chart
 helm upgrade --install spartan "$REPO/spartan/aztec-network/" \
