@@ -10,6 +10,7 @@ MNEMONIC=${MNEMONIC:-"test test test test test test test test test test test jun
 BLOCK_TIME=${BLOCK_TIME:-"12"}
 GAS_LIMIT=${GAS_LIMIT:-"1000000000"}
 CHAIN_ID=${CHAIN_ID:-"1337"}
+XDG_CONFIG_HOME=${XDG_CONFIG_HOME:-"$HOME/.config"}
 
 # Install cast if it is not installed
 if ! command -v cast &> /dev/null; then
