@@ -56,6 +56,7 @@ TEST_F(LMDBEnvironmentTest, can_create_database)
         LMDBEnvironmentTest::_directory, LMDBEnvironmentTest::_mapSize, 1, LMDBEnvironmentTest::_maxReaders);
 
     {
+        environment->wait_for_writer();
         LMDBDatabaseCreationTransaction tx(environment);
         LMDBDatabase::SharedPtr db = std::make_unique<LMDBDatabase>(environment, tx, "DB", false, false);
         EXPECT_NO_THROW(tx.commit());
@@ -67,11 +68,16 @@ TEST_F(LMDBEnvironmentTest, can_write_to_database)
     LMDBEnvironment::SharedPtr environment = std::make_shared<LMDBEnvironment>(
         LMDBEnvironmentTest::_directory, LMDBEnvironmentTest::_mapSize, 1, LMDBEnvironmentTest::_maxReaders);
 
-    LMDBDatabaseCreationTransaction tx(environment);
-    LMDBDatabase::SharedPtr db = std::make_unique<LMDBDatabase>(environment, tx, "DB", false, false);
-    EXPECT_NO_THROW(tx.commit());
+    LMDBDatabase::SharedPtr db;
+    {
+        environment->wait_for_writer();
+        LMDBDatabaseCreationTransaction tx(environment);
+        db = std::make_unique<LMDBDatabase>(environment, tx, "DB", false, false);
+        EXPECT_NO_THROW(tx.commit());
+    }
 
     {
+        environment->wait_for_writer();
         LMDBWriteTransaction::Ptr tx = std::make_unique<LMDBWriteTransaction>(environment);
         auto key = get_key(0);
         auto data = get_value(0, 0);
@@ -84,12 +90,17 @@ TEST_F(LMDBEnvironmentTest, can_read_from_database)
 {
     LMDBEnvironment::SharedPtr environment = std::make_shared<LMDBEnvironment>(
         LMDBEnvironmentTest::_directory, LMDBEnvironmentTest::_mapSize, 1, LMDBEnvironmentTest::_maxReaders);
-
-    LMDBDatabaseCreationTransaction tx(environment);
-    LMDBDatabase::SharedPtr db = std::make_unique<LMDBDatabase>(environment, tx, "DB", false, false);
-    EXPECT_NO_THROW(tx.commit());
+    LMDBDatabase::SharedPtr db;
 
     {
+        environment->wait_for_writer();
+        LMDBDatabaseCreationTransaction tx(environment);
+        db = std::make_unique<LMDBDatabase>(environment, tx, "DB", false, false);
+        EXPECT_NO_THROW(tx.commit());
+    }
+
+    {
+        environment->wait_for_writer();
         LMDBWriteTransaction::Ptr tx = std::make_unique<LMDBWriteTransaction>(environment);
         auto key = get_key(0);
         auto data = get_value(0, 0);
@@ -113,14 +124,20 @@ TEST_F(LMDBEnvironmentTest, can_write_and_read_multiple)
     LMDBEnvironment::SharedPtr environment = std::make_shared<LMDBEnvironment>(
         LMDBEnvironmentTest::_directory, LMDBEnvironmentTest::_mapSize, 1, LMDBEnvironmentTest::_maxReaders);
 
-    LMDBDatabaseCreationTransaction tx(environment);
-    LMDBDatabase::SharedPtr db = std::make_unique<LMDBDatabase>(environment, tx, "DB", false, false);
-    EXPECT_NO_THROW(tx.commit());
+    LMDBDatabase::SharedPtr db;
+
+    {
+        environment->wait_for_writer();
+        LMDBDatabaseCreationTransaction tx(environment);
+        db = std::make_unique<LMDBDatabase>(environment, tx, "DB", false, false);
+        EXPECT_NO_THROW(tx.commit());
+    }
 
     int64_t numValues = 10;
 
     {
         for (int64_t count = 0; count < numValues; count++) {
+            environment->wait_for_writer();
             LMDBWriteTransaction::Ptr tx = std::make_unique<LMDBWriteTransaction>(environment);
             auto key = get_key(count);
             auto data = get_value(count, 0);
@@ -147,9 +164,13 @@ TEST_F(LMDBEnvironmentTest, can_read_multiple_threads)
     LMDBEnvironment::SharedPtr environment =
         std::make_shared<LMDBEnvironment>(LMDBEnvironmentTest::_directory, LMDBEnvironmentTest::_mapSize, 1, 2);
 
-    LMDBDatabaseCreationTransaction tx(environment);
-    LMDBDatabase::SharedPtr db = std::make_unique<LMDBDatabase>(environment, tx, "DB", false, false);
-    EXPECT_NO_THROW(tx.commit());
+    LMDBDatabase::SharedPtr db;
+    {
+        environment->wait_for_writer();
+        LMDBDatabaseCreationTransaction tx(environment);
+        db = std::make_unique<LMDBDatabase>(environment, tx, "DB", false, false);
+        EXPECT_NO_THROW(tx.commit());
+    }
 
     int64_t numValues = 10;
     int64_t numIterationsPerThread = 1000;
@@ -157,6 +178,7 @@ TEST_F(LMDBEnvironmentTest, can_read_multiple_threads)
 
     {
         for (int64_t count = 0; count < numValues; count++) {
+            environment->wait_for_writer();
             LMDBWriteTransaction::Ptr tx = std::make_unique<LMDBWriteTransaction>(environment);
             auto key = get_key(count);
             auto expected = get_value(count, 0);
