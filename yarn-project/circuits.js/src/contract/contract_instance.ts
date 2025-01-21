@@ -68,14 +68,14 @@ export class SerializableContractInstance {
     });
   }
 
-  static random(opts: Partial<FieldsOf<ContractInstance>> = {}) {
+  static async random(opts: Partial<FieldsOf<ContractInstance>> = {}) {
     return new SerializableContractInstance({
       version: VERSION,
       salt: Fr.random(),
-      deployer: AztecAddress.random(),
+      deployer: await AztecAddress.random(),
       contractClassId: Fr.random(),
       initializationHash: Fr.random(),
-      publicKeys: PublicKeys.random(),
+      publicKeys: await PublicKeys.random(),
       ...opts,
     });
   }

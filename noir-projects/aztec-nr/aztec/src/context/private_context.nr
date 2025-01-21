@@ -340,7 +340,7 @@ impl PrivateContext {
         args: [Field; ARGS_COUNT],
     ) -> ReturnsHash {
         let args_hash = hash_args_array(args);
-        execution_cache::store_array(args);
+        execution_cache::store(args);
         self.call_private_function_with_args_hash(
             contract_address,
             function_selector,
@@ -356,7 +356,7 @@ impl PrivateContext {
         args: [Field; ARGS_COUNT],
     ) -> ReturnsHash {
         let args_hash = hash_args_array(args);
-        execution_cache::store_array(args);
+        execution_cache::store(args);
         self.call_private_function_with_args_hash(
             contract_address,
             function_selector,
@@ -443,7 +443,7 @@ impl PrivateContext {
         args: [Field; ARGS_COUNT],
     ) {
         let args_hash = hash_args_array(args);
-        execution_cache::store_array(args);
+        execution_cache::store(args);
         self.call_public_function_with_args_hash(
             contract_address,
             function_selector,
@@ -459,7 +459,7 @@ impl PrivateContext {
         args: [Field; ARGS_COUNT],
     ) {
         let args_hash = hash_args_array(args);
-        execution_cache::store_array(args);
+        execution_cache::store(args);
         self.call_public_function_with_args_hash(
             contract_address,
             function_selector,
@@ -531,7 +531,7 @@ impl PrivateContext {
         args: [Field; ARGS_COUNT],
     ) {
         let args_hash = hash_args_array(args);
-        execution_cache::store_array(args);
+        execution_cache::store(args);
         self.set_public_teardown_function_with_args_hash(
             contract_address,
             function_selector,

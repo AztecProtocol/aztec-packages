@@ -17,7 +17,7 @@ template <typename FF_> struct AvmFullRow {
 
     RefVector<const FF> as_vector() const;
     static std::vector<std::string> names();
-    static constexpr size_t SIZE = 48;
+    static constexpr size_t SIZE = 49;
 
     // Risky but oh so efficient.
     FF& get_column(ColumnAndShifts col)

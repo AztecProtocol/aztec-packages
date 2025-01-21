@@ -24,6 +24,8 @@ export type UserFeeOptions = {
   paymentMethod?: FeePaymentMethod;
   /** The gas settings */
   gasSettings?: Partial<FieldsOf<GasSettings>>;
+  /** Percentage to pad the base fee by, if empty, defaults to 0.5 */
+  baseFeePadding?: number;
   /** Whether to run an initial simulation of the tx with high gas limit to figure out actual gas settings. */
   estimateGas?: boolean;
   /** Percentage to pad the estimated gas limits by, if empty, defaults to 0.1. Only relevant if estimateGas is set. */
