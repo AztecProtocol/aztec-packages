@@ -10,6 +10,7 @@ import { UnencryptedL2Log } from './unencrypted_l2_log.js';
 
 /**
  * Represents an individual unencrypted log entry extended with info about the block and tx it was emitted in.
+ * TODO(#8945): Currently only used for contract class logs. When these are fields, delete this class.
  */
 export class ExtendedUnencryptedL2Log {
   constructor(

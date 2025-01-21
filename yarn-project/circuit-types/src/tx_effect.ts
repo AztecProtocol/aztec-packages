@@ -12,12 +12,14 @@ import {
   PRIVATE_LOGS_PREFIX,
   PRIVATE_LOG_SIZE_IN_FIELDS,
   PUBLIC_DATA_UPDATE_REQUESTS_PREFIX,
+  PUBLIC_LOGS_PREFIX,
+  PUBLIC_LOG_SIZE_IN_FIELDS,
   PrivateLog,
   PublicDataWrite,
+  PublicLog,
   REVERT_CODE_PREFIX,
   RevertCode,
   TX_FEE_PREFIX,
-  UNENCRYPTED_LOGS_PREFIX,
 } from '@aztec/circuits.js';
 import { type FieldsOf, makeTuple } from '@aztec/foundation/array';
 import { toBufferBE } from '@aztec/foundation/bigint-buffer';
@@ -37,7 +39,7 @@ import { bufferToHex, hexToBuffer } from '@aztec/foundation/string';
 import { inspect } from 'util';
 import { z } from 'zod';
 
-import { ContractClassTxL2Logs, type TxL2Logs, UnencryptedTxL2Logs } from './logs/index.js';
+import { ContractClassTxL2Logs, type TxL2Logs } from './logs/index.js';
 import { TxHash } from './tx/tx_hash.js';
 
 export { RevertCodeEnum } from '@aztec/circuits.js';
@@ -78,11 +80,13 @@ export class TxEffect {
      */
     public privateLogs: PrivateLog[],
     /**
+     * The public logs.
+     */
+    public publicLogs: PublicLog[],
+    /**
      * The logs and logs lengths of the txEffect
      */
-    public unencryptedLogsLength: Fr,
     public contractClassLogsLength: Fr,
-    public unencryptedLogs: UnencryptedTxL2Logs,
     public contractClassLogs: ContractClassTxL2Logs,
   ) {
     // TODO(#4638): Clean this up once we have isDefault() everywhere --> then we don't have to deal with 2 different
@@ -145,9 +149,8 @@ export class TxEffect {
       serializeArrayOfBufferableToVector(this.l2ToL1Msgs, 1),
       serializeArrayOfBufferableToVector(this.publicDataWrites, 1),
       serializeArrayOfBufferableToVector(this.privateLogs, 1),
-      this.unencryptedLogsLength,
+      serializeArrayOfBufferableToVector(this.publicLogs, 1),
       this.contractClassLogsLength,
-      this.unencryptedLogs,
       this.contractClassLogs,
     ]);
   }
@@ -174,9 +177,8 @@ export class TxEffect {
       reader.readVectorUint8Prefix(Fr),
       reader.readVectorUint8Prefix(PublicDataWrite),
       reader.readVectorUint8Prefix(PrivateLog),
+      reader.readVectorUint8Prefix(PublicLog),
       Fr.fromBuffer(reader),
-      Fr.fromBuffer(reader),
-      reader.readObject(UnencryptedTxL2Logs),
       reader.readObject(ContractClassTxL2Logs),
     );
   }
@@ -209,8 +211,7 @@ export class TxEffect {
     return thisLayer[0];
   }
 
-  static random(numPublicCallsPerTx = 3, numUnencryptedLogsPerCall = 1): TxEffect {
-    const unencryptedLogs = UnencryptedTxL2Logs.random(numPublicCallsPerTx, numUnencryptedLogsPerCall);
+  static random(numPublicCallsPerTx = 3, numPublicLogsPerCall = 1): TxEffect {
     const contractClassLogs = ContractClassTxL2Logs.random(1, 1);
     return new TxEffect(
       RevertCode.random(),
@@ -221,9 +222,8 @@ export class TxEffect {
       makeTuple(MAX_L2_TO_L1_MSGS_PER_TX, Fr.random),
       makeTuple(MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, () => new PublicDataWrite(Fr.random(), Fr.random())),
       makeTuple(MAX_PRIVATE_LOGS_PER_TX, () => new PrivateLog(makeTuple(PRIVATE_LOG_SIZE_IN_FIELDS, Fr.random))),
-      new Fr(unencryptedLogs.getKernelLength()),
+      makeTuple(numPublicCallsPerTx * numPublicLogsPerCall, PublicLog.random),
       new Fr(contractClassLogs.getKernelLength()),
-      unencryptedLogs,
       contractClassLogs,
     );
   }
@@ -238,9 +238,8 @@ export class TxEffect {
       [],
       [],
       [],
+      [],
       Fr.ZERO,
-      Fr.ZERO,
-      UnencryptedTxL2Logs.empty(),
       ContractClassTxL2Logs.empty(),
     );
   }
@@ -370,12 +369,12 @@ export class TxEffect {
       flattened.push(this.toPrefix(PRIVATE_LOGS_PREFIX, this.privateLogs.length * PRIVATE_LOG_SIZE_IN_FIELDS));
       flattened.push(...this.privateLogs.map(l => l.fields).flat());
     }
+    if (this.publicLogs.length) {
+      flattened.push(this.toPrefix(PUBLIC_LOGS_PREFIX, this.publicLogs.length * PUBLIC_LOG_SIZE_IN_FIELDS));
+      flattened.push(...this.publicLogs.map(l => l.toFields()).flat());
+    }
     // TODO(#8954): When logs are refactored into fields, we will append the values here
     // Currently appending the single log hash as an interim solution
-    if (this.unencryptedLogs.unrollLogs().length) {
-      flattened.push(this.toPrefix(UNENCRYPTED_LOGS_PREFIX, this.unencryptedLogs.unrollLogs().length));
-      flattened.push(...this.unencryptedLogs.unrollLogs().map(log => Fr.fromBuffer(log.getSiloedHash())));
-    }
     if (this.contractClassLogs.unrollLogs().length) {
       flattened.push(this.toPrefix(CONTRACT_CLASS_LOGS_PREFIX, this.contractClassLogs.unrollLogs().length));
       flattened.push(...this.contractClassLogs.unrollLogs().map(log => Fr.fromBuffer(log.getSiloedHash())));
@@ -393,11 +392,7 @@ export class TxEffect {
    * Decodes a flat packed array of prefixed fields to TxEffect
    * TODO(#8954): When logs are refactored into fields, we won't need to inject them here, instead just reading from fields as below
    */
-  static fromBlobFields(
-    fields: Fr[] | FieldReader,
-    unencryptedLogs?: UnencryptedTxL2Logs,
-    contractClassLogs?: ContractClassTxL2Logs,
-  ) {
+  static fromBlobFields(fields: Fr[] | FieldReader, contractClassLogs?: ContractClassTxL2Logs) {
     const ensureEmpty = <T>(arr: Array<T>) => {
       if (arr.length) {
         throw new Error('Invalid fields given to TxEffect.fromBlobFields(): Attempted to assign property twice.');
@@ -453,17 +448,15 @@ export class TxEffect {
           }
           break;
         }
-        // TODO(#8954): When logs are refactored into fields, we will append the read fields here
-        case UNENCRYPTED_LOGS_PREFIX:
-          // effect.unencryptedLogs = UnencryptedTxL2Logs.fromFields(reader.readFieldArray(length));
-          ensureEmpty(effect.unencryptedLogs.functionLogs);
-          if (!unencryptedLogs) {
-            throw new Error(`Tx effect has unencrypted logs, but they were not passed raw to .fromBlobFields()`);
+        case PUBLIC_LOGS_PREFIX: {
+          ensureEmpty(effect.publicLogs);
+          const flatPublicLogs = reader.readFieldArray(length);
+          for (let i = 0; i < length; i += PUBLIC_LOG_SIZE_IN_FIELDS) {
+            effect.publicLogs.push(PublicLog.fromFields(flatPublicLogs.slice(i, i + PUBLIC_LOG_SIZE_IN_FIELDS)));
           }
-          this.checkInjectedLogs(unencryptedLogs, reader.readFieldArray(length));
-          effect.unencryptedLogs = unencryptedLogs;
-          effect.unencryptedLogsLength = new Fr(unencryptedLogs.getKernelLength());
           break;
+        }
+        // TODO(#8954): When logs are refactored into fields, we will append the read fields here
         case CONTRACT_CLASS_LOGS_PREFIX:
           // effect.contractClassLogs = ContractClassTxL2Logs.fromFields(reader.readFieldArray(length));
           ensureEmpty(effect.contractClassLogs.functionLogs);
@@ -481,8 +474,6 @@ export class TxEffect {
     }
 
     // If the input fields have no logs, ensure we match the original struct by reassigning injected logs
-    effect.unencryptedLogs =
-      !effect.unencryptedLogs.getTotalLogCount() && unencryptedLogs ? unencryptedLogs : effect.unencryptedLogs;
     effect.contractClassLogs =
       !effect.contractClassLogs.getTotalLogCount() && contractClassLogs ? contractClassLogs : effect.contractClassLogs;
     return effect;
@@ -512,9 +503,8 @@ export class TxEffect {
       fields.l2ToL1Msgs,
       fields.publicDataWrites,
       fields.privateLogs,
-      fields.unencryptedLogsLength,
+      fields.publicLogs,
       fields.contractClassLogsLength,
-      fields.unencryptedLogs,
       fields.contractClassLogs,
     );
   }
@@ -530,9 +520,8 @@ export class TxEffect {
         l2ToL1Msgs: z.array(schemas.Fr),
         publicDataWrites: z.array(PublicDataWrite.schema),
         privateLogs: z.array(PrivateLog.schema),
-        unencryptedLogsLength: schemas.Fr,
+        publicLogs: z.array(PublicLog.schema),
         contractClassLogsLength: schemas.Fr,
-        unencryptedLogs: UnencryptedTxL2Logs.schema,
         contractClassLogs: ContractClassTxL2Logs.schema,
       })
       .transform(TxEffect.from);
@@ -548,9 +537,8 @@ export class TxEffect {
       l2ToL1Msgs: [${this.l2ToL1Msgs.map(h => h.toString()).join(', ')}],
       publicDataWrites: [${this.publicDataWrites.map(h => h.toString()).join(', ')}],
       privateLogs: [${this.privateLogs.map(l => l.toString()).join(', ')}],
-      unencryptedLogsLength: ${this.unencryptedLogsLength},
+      publicLogs: [${this.publicLogs.map(l => l.toString()).join(', ')}],
       contractClassLogsLength: ${this.contractClassLogsLength},
-      unencryptedLogs: ${jsonStringify(this.unencryptedLogs)}
       contractClassLogs: ${jsonStringify(this.contractClassLogs)}
      }`;
   }

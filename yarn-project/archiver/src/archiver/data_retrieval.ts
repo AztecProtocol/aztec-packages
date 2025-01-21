@@ -183,7 +183,7 @@ async function getBlockFromRollupTx(
   // TODO(#9101): The below reconstruction is currently redundant, but once we extract blobs will be the way to construct blocks.
   // The blob source will give us blockFields, and we must construct the body from them:
   // TODO(#8954): When logs are refactored into fields, we won't need to inject them here.
-  const reconstructedBlock = Body.fromBlobFields(blockFields, blockBody.unencryptedLogs, blockBody.contractClassLogs);
+  const reconstructedBlock = Body.fromBlobFields(blockFields, blockBody.contractClassLogs);
 
   if (!reconstructedBlock.toBuffer().equals(blockBody.toBuffer())) {
     // TODO(#9101): Remove below check (without calldata there will be nothing to check against)

@@ -28,7 +28,7 @@ export async function getLogs(
   const filter: LogFilter = { txHash, fromBlock, toBlock, afterLog, contractAddress };
 
   const fetchLogs = async () => {
-    const response = await pxe.getUnencryptedLogs(filter);
+    const response = await pxe.getPublicLogs(filter);
     const logs = response.logs;
 
     if (!logs.length) {
@@ -43,7 +43,7 @@ export async function getLogs(
       if (!follow && !filter.afterLog) {
         log('Logs found: \n');
       }
-      logs.forEach(unencryptedLog => log(unencryptedLog.toHumanReadable()));
+      logs.forEach(publicLog => log(publicLog.toHumanReadable()));
       // Set the continuation parameter for the following requests
       filter.afterLog = logs[logs.length - 1].id;
     }

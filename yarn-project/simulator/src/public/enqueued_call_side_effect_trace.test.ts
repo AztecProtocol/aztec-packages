@@ -1,4 +1,3 @@
-import { UnencryptedL2Log } from '@aztec/circuit-types';
 import {
   AvmAppendTreeHint,
   AvmNullifierReadTreeHint,
@@ -9,22 +8,24 @@ import {
   type ContractClassIdPreimage,
   EthAddress,
   L2ToL1Message,
-  LogHash,
   MAX_L2_TO_L1_MSGS_PER_TX,
   MAX_NOTE_HASHES_PER_TX,
   MAX_NULLIFIERS_PER_TX,
   MAX_PUBLIC_CALLS_TO_UNIQUE_CONTRACT_CLASS_IDS,
   MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
-  MAX_UNENCRYPTED_LOGS_PER_TX,
+  MAX_PUBLIC_LOGS_PER_TX,
   NoteHash,
   Nullifier,
   NullifierLeafPreimage,
   PROTOCOL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
+  PUBLIC_LOG_DATA_SIZE_IN_FIELDS,
   PublicDataTreeLeafPreimage,
   PublicDataUpdateRequest,
+  PublicLog,
   SerializableContractInstance,
 } from '@aztec/circuits.js';
 import { computePublicDataTreeLeafSlot } from '@aztec/circuits.js/hash';
+import { padArrayEnd } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/fields';
 
 import { randomInt } from 'crypto';
@@ -148,17 +149,14 @@ describe('Enqueued-call Side Effect Trace', () => {
     expect(trace.getSideEffects().l2ToL1Msgs).toEqual(expected);
   });
 
-  it('Should trace new unencrypted logs', () => {
-    trace.traceUnencryptedLog(address, log);
+  it('Should trace new public logs', () => {
+    trace.tracePublicLog(address, log);
     expect(trace.getCounter()).toBe(startCounterPlus1);
 
-    const expectedLog = new UnencryptedL2Log(address, Buffer.concat(log.map(f => f.toBuffer())));
-    const expectedHashes = [
-      new LogHash(Fr.fromBuffer(expectedLog.hash()), startCounter, new Fr(expectedLog.length + 4)).scope(address),
-    ];
+    const expectedLog = new PublicLog(address, padArrayEnd(log, Fr.ZERO, PUBLIC_LOG_DATA_SIZE_IN_FIELDS));
 
-    expect(trace.getUnencryptedLogs()).toEqual([expectedLog]);
-    expect(trace.getSideEffects().unencryptedLogsHashes).toEqual(expectedHashes);
+    expect(trace.getPublicLogs()).toEqual([expectedLog]);
+    expect(trace.getSideEffects().publicLogs).toEqual([expectedLog]);
   });
 
   it('Should trace get contract instance', () => {
@@ -311,11 +309,11 @@ describe('Enqueued-call Side Effect Trace', () => {
       );
     });
 
-    it('Should enforce maximum number of new logs hashes', () => {
-      for (let i = 0; i < MAX_UNENCRYPTED_LOGS_PER_TX; i++) {
-        trace.traceUnencryptedLog(AztecAddress.fromNumber(i), [new Fr(i), new Fr(i)]);
+    it('Should enforce maximum number of new logs', () => {
+      for (let i = 0; i < MAX_PUBLIC_LOGS_PER_TX; i++) {
+        trace.tracePublicLog(AztecAddress.fromNumber(i), [new Fr(i), new Fr(i)]);
       }
-      expect(() => trace.traceUnencryptedLog(AztecAddress.fromNumber(42), [new Fr(42), new Fr(42)])).toThrow(
+      expect(() => trace.tracePublicLog(AztecAddress.fromNumber(42), [new Fr(42), new Fr(42)])).toThrow(
         SideEffectLimitReachedError,
       );
     });
@@ -360,7 +358,7 @@ describe('Enqueued-call Side Effect Trace', () => {
           MAX_NOTE_HASHES_PER_TX,
           MAX_NULLIFIERS_PER_TX,
           MAX_L2_TO_L1_MSGS_PER_TX,
-          MAX_UNENCRYPTED_LOGS_PER_TX,
+          MAX_PUBLIC_LOGS_PER_TX,
         ),
       );
       expect(() => trace.tracePublicStorageWrite(AztecAddress.fromNumber(42), new Fr(42), new Fr(42), false)).toThrow(
@@ -374,7 +372,7 @@ describe('Enqueued-call Side Effect Trace', () => {
       expect(() => trace.traceNewL2ToL1Message(AztecAddress.fromNumber(42), new Fr(42), new Fr(42))).toThrow(
         SideEffectLimitReachedError,
       );
-      expect(() => trace.traceUnencryptedLog(AztecAddress.fromNumber(42), [new Fr(42), new Fr(42)])).toThrow(
+      expect(() => trace.tracePublicLog(AztecAddress.fromNumber(42), [new Fr(42), new Fr(42)])).toThrow(
         SideEffectLimitReachedError,
       );
     });
@@ -406,7 +404,7 @@ describe('Enqueued-call Side Effect Trace', () => {
       // counter does not increment for l1tol2 message checks
       nestedTrace.traceNewL2ToL1Message(address, recipient, content);
       testCounter++;
-      nestedTrace.traceUnencryptedLog(address, log);
+      nestedTrace.tracePublicLog(address, log);
       testCounter++;
       nestedTrace.traceGetContractInstance(address, /*exists=*/ true, contractInstance, lowLeafPreimage, Fr.ZERO, []);
       testCounter++;
@@ -427,8 +425,7 @@ describe('Enqueued-call Side Effect Trace', () => {
         expect(parentSideEffects.noteHashes).toEqual([]);
         expect(parentSideEffects.nullifiers).toEqual([]);
         expect(parentSideEffects.l2ToL1Msgs).toEqual([]);
-        expect(parentSideEffects.unencryptedLogs).toEqual([]);
-        expect(parentSideEffects.unencryptedLogsHashes).toEqual([]);
+        expect(parentSideEffects.publicLogs).toEqual([]);
       } else {
         expect(parentSideEffects).toEqual(childSideEffects);
       }

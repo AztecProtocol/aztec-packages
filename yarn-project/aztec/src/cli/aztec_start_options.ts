@@ -72,12 +72,6 @@ export const aztecStartOptions: { [key: string]: AztecStartOption[] } = {
       ...booleanConfigHelper(true),
     },
     {
-      flag: '--sandbox.enableGas',
-      description: 'Enable gas on sandbox start',
-      envVar: 'ENABLE_GAS',
-      ...booleanConfigHelper(),
-    },
-    {
       flag: '--sandbox.noPXE',
       description: 'Do not expose PXE service on sandbox start',
       envVar: 'NO_PXE',

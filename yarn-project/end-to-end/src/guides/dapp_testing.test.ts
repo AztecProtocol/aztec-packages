@@ -131,7 +131,7 @@ describe('guides/dapp/testing', () => {
         // docs:end:public-storage
       });
 
-      it('checks unencrypted logs, [Kinda broken with current implementation]', async () => {
+      it('checks public logs, [Kinda broken with current implementation]', async () => {
         // docs:start:unencrypted-logs
         const value = Fr.fromHexString('ef'); // Only 1 bytes will make its way in there :( so no larger stuff
         const tx = await testContract.methods.emit_unencrypted(value).send().wait();
@@ -139,8 +139,8 @@ describe('guides/dapp/testing', () => {
           fromBlock: tx.blockNumber!,
           limit: 1, // 1 log expected
         };
-        const logs = (await pxe.getUnencryptedLogs(filter)).logs;
-        expect(Fr.fromBuffer(logs[0].log.data)).toEqual(value);
+        const logs = (await pxe.getPublicLogs(filter)).logs;
+        expect(logs[0].log.log[0]).toEqual(value);
         // docs:end:unencrypted-logs
       });
 
