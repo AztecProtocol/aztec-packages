@@ -209,7 +209,7 @@ export class UltraHonkBackend {
 
     const proofAsStrings = deflattenFields(proofWithPublicInputs.slice(4));
 
-    const numPublicInputs = Number(proofAsStrings[1]) - 16; // WORKTODO
+    const numPublicInputs = Number(proofAsStrings[1]);
 
     // Account for the serialized buffer size at start
     const publicInputsOffset = publicInputsOffsetBytes + serializedBufferSize;
@@ -322,7 +322,7 @@ export class UltraHonkBackend {
 
     return {
       // TODO(https://github.com/noir-lang/noir/issues/5661)
-      proofAsFields: proofAsFrs.map(proofAsFrs => proofAsFrs.toString()), // WORKTODO, why this?
+      proofAsFields: proofAsFrs.map(proofAsFrs => proofAsFrs.toString()),
     };
   }
 
