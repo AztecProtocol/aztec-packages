@@ -334,7 +334,7 @@ contract AvmTest {
 
     #[public]
     fn sha256_hash(data: [u8; 10]) -> [u8; 32] {
-        std::hash::sha256(data)
+        sha256::digest(data)
     }
 
     #[public]
