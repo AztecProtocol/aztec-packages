@@ -1,6 +1,6 @@
 import { type Fr } from '@aztec/foundation/fields';
 import { type Logger } from '@aztec/foundation/log';
-import { RollupAbi } from '@aztec/l1-artifacts';
+import { ErrorsAbi } from '@aztec/l1-artifacts';
 
 import {
   type Abi,
@@ -98,7 +98,7 @@ export function prettyLogViemErrorMsg(err: any) {
  * @param abi - The ABI to use for decoding.
  * @returns A FormattedViemError instance.
  */
-export function formatViemError(error: any, abi: Abi = RollupAbi): FormattedViemError {
+export function formatViemError(error: any, abi: Abi = ErrorsAbi): FormattedViemError {
   // First try to decode as a custom error using the ABI
   try {
     if (error?.data) {
@@ -116,7 +116,10 @@ export function formatViemError(error: any, abi: Abi = RollupAbi): FormattedViem
     if (error instanceof BaseError) {
       const revertError = error.walk(err => err instanceof ContractFunctionRevertedError);
       if (revertError instanceof ContractFunctionRevertedError) {
-        const errorName = revertError.data?.errorName ?? '';
+        let errorName = revertError.data?.errorName;
+        if (!errorName) {
+          errorName = revertError.signature ?? '';
+        }
         const args =
           revertError.metaMessages && revertError.metaMessages?.length > 1
             ? revertError.metaMessages[1].trimStart()

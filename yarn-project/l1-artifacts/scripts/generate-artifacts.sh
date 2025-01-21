@@ -49,6 +49,12 @@ mkdir -p "$target_dir";
 
 echo -ne "// Auto generated module\n" > "$target_dir/index.ts";
 
+# Generate Errors ABI artifact
+echo -ne "/**\n * Combined Errors ABI.\n */\nexport const ErrorsAbi = " > "$target_dir/ErrorsAbi.ts";
+echo -n "$COMBINED_ERRORS" >> "$target_dir/ErrorsAbi.ts";
+echo -n " as const;" >> "$target_dir/ErrorsAbi.ts";
+echo -ne "export * from './ErrorsAbi.js';\n" >> "$target_dir/index.ts";
+
 for E in "${CONTRACTS[@]}"; do
     ARR=(${E//:/ })
     ROOT="${ARR[0]}";
