@@ -505,7 +505,7 @@ describe('Simulator oracle', () => {
 
     it('should not sync public tagged logs with incorrect contract address', async () => {
       const logs: { [k: string]: TxScopedL2Log[] } = {};
-      const tag = computeSiloedTagForIndex(senders[0], recipient.address, contractAddress, 0);
+      const tag = await computeSiloedTagForIndex(senders[0], recipient.address, contractAddress, 0);
       // Create a public log with an address which doesn't match the tag
       const logData = PublicLog.fromFields([
         AztecAddress.fromNumber(2).toField(),
