@@ -614,9 +614,7 @@ export class L1TxUtils {
       return result[0].gasUsed;
     } catch (err) {
       if (err instanceof MethodNotFoundRpcError || err instanceof MethodNotSupportedRpcError) {
-        // Node doesn't support simulation, return -1n gas estimate
         this.logger?.error('Node does not support simulation API');
-        return -1n;
       }
       throw err;
     }

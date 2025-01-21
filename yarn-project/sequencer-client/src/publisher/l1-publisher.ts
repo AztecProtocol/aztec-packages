@@ -49,6 +49,8 @@ import {
   type GetContractReturnType,
   type Hex,
   type HttpTransport,
+  MethodNotFoundRpcError,
+  MethodNotSupportedRpcError,
   type PrivateKeyAccount,
   type PublicActions,
   type PublicClient,
@@ -982,13 +984,6 @@ export class L1Publisher {
       },
     );
 
-    // @note  We perform this guesstimate instead of the usual `gasEstimate` since
-    //        viem will use the current state to simulate against, which means that
-    //        we will fail estimation in the case where we are simulating for the
-    //        first ethereum block within our slot (as current time is not in the
-    //        slot yet).
-    // const gasGuesstimate = blobEvaluationGas + L1Publisher.PROPOSE_GAS_GUESS;
-
     const attestations = encodedData.attestations
       ? encodedData.attestations.map(attest => attest.toViemSignature())
       : [];
@@ -1060,31 +1055,39 @@ export class L1Publisher {
         functionName: 'propose',
         args,
       });
-      let simulationResult = await this.l1TxUtils.simulateGasUsed(
-        {
-          to: this.rollupContract.address,
-          data,
-        },
-        {
-          time: timestamp + 1n,
-        },
-        [
-          {
-            address: this.rollupContract.address,
-            // @note we override checkBlob to false since blobs are not part simulate()
-            stateDiff: [
-              {
-                slot: toHex(9n, true),
-                value: toHex(0n, true),
-              },
-            ],
-          },
-        ],
-      );
 
-      if (simulationResult === -1n) {
-        this.log.warn('Node does not support simulation API. Using gas guesstimate');
-        simulationResult = L1Publisher.PROPOSE_GAS_GUESS;
+      let simulationResult: bigint;
+      try {
+        simulationResult = await this.l1TxUtils.simulateGasUsed(
+          {
+            to: this.rollupContract.address,
+            data,
+          },
+          {
+            // @note we add 1n to the timestamp because geth implementation doesn't like simulation timestamp to be equal to the current block timestamp
+            time: timestamp + 1n,
+          },
+          [
+            {
+              address: this.rollupContract.address,
+              // @note we override checkBlob to false since blobs are not part simulate()
+              stateDiff: [
+                {
+                  slot: toHex(9n, true),
+                  value: toHex(0n, true),
+                },
+              ],
+            },
+          ],
+        );
+      } catch (simErr) {
+        if (simErr instanceof MethodNotFoundRpcError || simErr instanceof MethodNotSupportedRpcError) {
+          // @note node doesn't support simulation API, we will use gas guesstimate
+          this.log.warn('Using gas guesstimate');
+          simulationResult = L1Publisher.PROPOSE_GAS_GUESS;
+        } else {
+          throw simErr;
+        }
       }
 
       const result = await this.l1TxUtils.sendAndMonitorTransaction(
@@ -1128,6 +1131,7 @@ export class L1Publisher {
     if (this.interrupted) {
       return undefined;
     }
+    let simulationResult: bigint;
     try {
       const kzg = Blob.getViemKzgInstance();
       const { args, blobEvaluationGas } = await this.prepareProposeTx(encodedData);
@@ -1136,34 +1140,38 @@ export class L1Publisher {
         functionName: 'proposeAndClaim',
         args: [...args, quote.toViemArgs()],
       });
-
-      let simulationResult = await this.l1TxUtils.simulateGasUsed(
-        {
-          to: this.rollupContract.address,
-          data,
-        },
-        {
-          time: timestamp + 1n,
-        },
-        [
+      try {
+        simulationResult = await this.l1TxUtils.simulateGasUsed(
           {
-            address: this.rollupContract.address,
-            // @note we override checkBlob to false since blobs are not part simulate()
-            stateDiff: [
-              {
-                slot: toHex(9n, true),
-                value: toHex(0n, true),
-              },
-            ],
+            to: this.rollupContract.address,
+            data,
           },
-        ],
-      );
-
-      if (simulationResult === -1n) {
-        this.log.warn('Node does not support simulation API. Using gas guesstimate');
-        simulationResult = L1Publisher.PROPOSE_GAS_GUESS;
+          {
+            // @note we add 1n to the timestamp because geth implementation doesn't like simulation timestamp to be equal to the current block timestamp
+            time: timestamp + 1n,
+          },
+          [
+            {
+              address: this.rollupContract.address,
+              // @note we override checkBlob to false since blobs are not part simulate()
+              stateDiff: [
+                {
+                  slot: toHex(9n, true),
+                  value: toHex(0n, true),
+                },
+              ],
+            },
+          ],
+        );
+      } catch (simErr) {
+        if (simErr instanceof MethodNotFoundRpcError || simErr instanceof MethodNotSupportedRpcError) {
+          // @note node doesn't support simulation API, we will use gas guesstimate
+          this.log.warn('Using gas guesstimate');
+          simulationResult = L1Publisher.PROPOSE_GAS_GUESS;
+        } else {
+          throw simErr;
+        }
       }
-
       const result = await this.l1TxUtils.sendAndMonitorTransaction(
         {
           to: this.rollupContract.address,
