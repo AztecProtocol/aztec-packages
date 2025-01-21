@@ -20,7 +20,7 @@ describe('ConnectionSampler', () => {
 
     // Mock libp2p
     mockLibp2p = {
-      getPeers: jest.fn().mockReturnValue(peers),
+      getPeers: jest.fn().mockReturnValue([...peers]),
       dialProtocol: jest.fn(),
     };
 
