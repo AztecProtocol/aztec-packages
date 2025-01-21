@@ -163,14 +163,6 @@ export class ClientExecutionContext extends ViewDataOracle {
   /**
    * Store values in the execution cache.
    * @param values - Values to store.
-   */
-  public override storeArrayInExecutionCache(args: Fr[]): Promise<Fr> {
-    return Promise.resolve(this.executionCache.store(args));
-  }
-
-  /**
-   * Store values in the execution cache.
-   * @param values - Values to store.
    * @returns The hash of the values.
    */
   public override storeInExecutionCache(values: Fr[]): Promise<Fr> {

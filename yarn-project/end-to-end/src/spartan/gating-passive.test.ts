@@ -76,7 +76,7 @@ describe('a test that passively observes the network in the presence of network 
       hostPort: HOST_PXE_PORT,
     });
     await startPortForward({
-      resource: `svc/${config.INSTANCE_NAME}-aztec-network-ethereum`,
+      resource: `svc/${config.INSTANCE_NAME}-aztec-network-eth-execution`,
       namespace: NAMESPACE,
       containerPort: CONTAINER_ETHEREUM_PORT,
       hostPort: HOST_ETHEREUM_PORT,
