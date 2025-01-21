@@ -19,11 +19,11 @@ use super::components::constants::validate_tx_constant_data;
 use dep::types::{
     abis::{
         append_only_tree_snapshot::AppendOnlyTreeSnapshot, constant_rollup_data::ConstantRollupData,
-        log_hash::ScopedLogHash, nullifier_leaf_preimage::NullifierLeafPreimage,
-        public_data_write::PublicDataWrite, sponge_blob::SpongeBlob, tube::PrivateTubeData,
+        nullifier_leaf_preimage::NullifierLeafPreimage, public_data_write::PublicDataWrite,
+        public_log::PublicLog, sponge_blob::SpongeBlob, tube::PrivateTubeData,
     },
     constants::{
-        ARCHIVE_HEIGHT, MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, MAX_UNENCRYPTED_LOGS_PER_TX,
+        ARCHIVE_HEIGHT, MAX_PUBLIC_LOGS_PER_TX, MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
         NOTE_HASH_SUBTREE_HEIGHT, TUBE_VK_INDEX,
     },
     data::{hash::compute_public_data_tree_value, public_data_hint::PublicDataHint},
@@ -33,6 +33,7 @@ use dep::types::{
     },
     messaging::l2_to_l1_message::ScopedL2ToL1Message,
     partial_state_reference::PartialStateReference,
+    traits::{Empty, Hash},
 };
 
 global ALLOWED_PREVIOUS_CIRCUITS: [u32; 1] = [TUBE_VK_INDEX];
@@ -119,8 +120,7 @@ impl PrivateBaseRollupInputs {
             l2_to_l1_msgs: siloed_l2_to_l1_msgs,
             public_data_writes: all_public_data_update_requests,
             private_logs: self.tube_data.public_inputs.end.private_logs,
-            unencrypted_log_preimages_length: 0,
-            unencrypted_logs_hashes: [ScopedLogHash::empty(); MAX_UNENCRYPTED_LOGS_PER_TX],
+            public_logs: [PublicLog::empty(); MAX_PUBLIC_LOGS_PER_TX],
             contract_class_log_preimages_length: self
                 .tube_data
                 .public_inputs
@@ -231,7 +231,7 @@ mod tests {
             constant_rollup_data::ConstantRollupData, gas::Gas, gas_fees::GasFees,
             kernel_circuit_public_inputs::PrivateToRollupKernelCircuitPublicInputs,
             nullifier_leaf_preimage::NullifierLeafPreimage, public_data_write::PublicDataWrite,
-            sponge_blob::SpongeBlob,
+            side_effect::OrderedValue, sponge_blob::SpongeBlob,
         },
         address::{AztecAddress, EthAddress},
         constants::{
@@ -254,7 +254,7 @@ mod tests {
             fixtures::{self, merkle_tree::generate_full_sha_tree},
             merkle_tree_utils::NonEmptyMerkleTree,
         },
-        traits::{Empty, is_empty},
+        traits::{Empty, FromField, Hash, is_empty},
         utils::{
             arrays::{array_concat, get_sorted_tuple::get_sorted_tuple},
             field::{field_from_bytes, full_field_less_than},
@@ -429,6 +429,7 @@ mod tests {
             let mut low_nullifier_membership_witness =
                 [MembershipWitness::empty(); MAX_NULLIFIERS_PER_TX];
 
+            /// Safety: This is a mock for testing only
             let sorted_new_nullifier_tuples = unsafe {
                 get_sorted_tuple(
                     self.nullifiers.storage().map(|insertion: NullifierInsertion| insertion.value),
@@ -604,6 +605,7 @@ mod tests {
         }
 
         fn execute(self) -> BaseOrMergeRollupPublicInputs {
+            /// Safety: This is a mock for testing only
             let inputs = unsafe { self.build_inputs() };
             inputs.execute()
         }
@@ -937,7 +939,7 @@ mod tests {
         reconstructed_tx_effects[offset] = contract_class_logs_prefix;
         offset += 1;
         for i in 0..NUM_CC_LOGS {
-            reconstructed_tx_effects[offset + i] = types::hash::silo_unencrypted_log_hash(
+            reconstructed_tx_effects[offset + i] = types::hash::silo_contract_class_log_hash(
                 builder.tube_data.contract_class_logs_hashes.storage()[i],
             );
         }

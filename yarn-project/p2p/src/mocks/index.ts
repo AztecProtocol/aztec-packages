@@ -6,10 +6,10 @@ import {
   type WorldStateSynchronizer,
 } from '@aztec/circuit-types';
 import { type EpochCache } from '@aztec/epoch-cache';
+import { timesParallel } from '@aztec/foundation/collection';
 import { type DataStoreConfig } from '@aztec/kv-store/config';
 import { openTmpStore } from '@aztec/kv-store/lmdb';
-import { type TelemetryClient } from '@aztec/telemetry-client';
-import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
+import { type TelemetryClient, getTelemetryClient } from '@aztec/telemetry-client';
 
 import { gossipsub } from '@chainsafe/libp2p-gossipsub';
 import { noise } from '@chainsafe/libp2p-noise';
@@ -27,17 +27,15 @@ import { type BootnodeConfig, type P2PConfig } from '../config.js';
 import { type MemPools } from '../mem_pools/interface.js';
 import { DiscV5Service } from '../services/discv5/discV5_service.js';
 import { LibP2PService } from '../services/libp2p/libp2p_service.js';
-import { type PeerManager } from '../services/peer_manager.js';
+import { type PeerScoring } from '../services/peer-manager/peer_scoring.js';
 import { type P2PReqRespConfig } from '../services/reqresp/config.js';
-import { pingHandler, statusHandler } from '../services/reqresp/handlers.js';
 import {
-  PING_PROTOCOL,
+  ReqRespSubProtocol,
   type ReqRespSubProtocolHandlers,
   type ReqRespSubProtocolValidators,
-  STATUS_PROTOCOL,
-  TX_REQ_PROTOCOL,
   noopValidator,
 } from '../services/reqresp/interface.js';
+import { pingHandler, statusHandler } from '../services/reqresp/protocols/index.js';
 import { ReqResp } from '../services/reqresp/reqresp.js';
 import { type PubSubLibp2p } from '../util.js';
 
@@ -152,25 +150,29 @@ export type ReqRespNode = {
 
 // Mock sub protocol handlers
 export const MOCK_SUB_PROTOCOL_HANDLERS: ReqRespSubProtocolHandlers = {
-  [PING_PROTOCOL]: pingHandler,
-  [STATUS_PROTOCOL]: statusHandler,
-  [TX_REQ_PROTOCOL]: (_msg: any) => Promise.resolve(Buffer.from('tx')),
+  [ReqRespSubProtocol.PING]: pingHandler,
+  [ReqRespSubProtocol.STATUS]: statusHandler,
+  [ReqRespSubProtocol.TX]: (_msg: any) => Promise.resolve(Buffer.from('tx')),
+  [ReqRespSubProtocol.GOODBYE]: (_msg: any) => Promise.resolve(Buffer.from('goodbye')),
+  [ReqRespSubProtocol.BLOCK]: (_msg: any) => Promise.resolve(Buffer.from('block')),
 };
 
 // By default, all requests are valid
 // If you want to test an invalid response, you can override the validator
 export const MOCK_SUB_PROTOCOL_VALIDATORS: ReqRespSubProtocolValidators = {
-  [PING_PROTOCOL]: noopValidator,
-  [STATUS_PROTOCOL]: noopValidator,
-  [TX_REQ_PROTOCOL]: noopValidator,
+  [ReqRespSubProtocol.PING]: noopValidator,
+  [ReqRespSubProtocol.STATUS]: noopValidator,
+  [ReqRespSubProtocol.TX]: noopValidator,
+  [ReqRespSubProtocol.GOODBYE]: noopValidator,
+  [ReqRespSubProtocol.BLOCK]: noopValidator,
 };
 
 /**
  * @param numberOfNodes - the number of nodes to create
  * @returns An array of the created nodes
  */
-export const createNodes = async (peerManager: PeerManager, numberOfNodes: number): Promise<ReqRespNode[]> => {
-  return await Promise.all(Array.from({ length: numberOfNodes }, () => createReqResp(peerManager)));
+export const createNodes = (peerScoring: PeerScoring, numberOfNodes: number): Promise<ReqRespNode[]> => {
+  return timesParallel(numberOfNodes, () => createReqResp(peerScoring));
 };
 
 export const startNodes = async (
@@ -193,13 +195,13 @@ export const stopNodes = async (nodes: ReqRespNode[]): Promise<void> => {
 };
 
 // Create a req resp node, exposing the underlying p2p node
-export const createReqResp = async (peerManager: PeerManager): Promise<ReqRespNode> => {
+export const createReqResp = async (peerScoring: PeerScoring): Promise<ReqRespNode> => {
   const p2p = await createLibp2pNode();
   const config: P2PReqRespConfig = {
     overallRequestTimeoutMs: 4000,
     individualRequestTimeoutMs: 2000,
   };
-  const req = new ReqResp(config, p2p, peerManager);
+  const req = new ReqResp(config, p2p, peerScoring);
   return {
     p2p,
     req,
@@ -247,7 +249,7 @@ export function createBootstrapNodeConfig(privateKey: string, port: number): Boo
 export function createBootstrapNodeFromPrivateKey(
   privateKey: string,
   port: number,
-  telemetry: TelemetryClient = new NoopTelemetryClient(),
+  telemetry: TelemetryClient = getTelemetryClient(),
 ): Promise<BootstrapNode> {
   const config = createBootstrapNodeConfig(privateKey, port);
   return startBootstrapNode(config, telemetry);
@@ -255,7 +257,7 @@ export function createBootstrapNodeFromPrivateKey(
 
 export async function createBootstrapNode(
   port: number,
-  telemetry: TelemetryClient = new NoopTelemetryClient(),
+  telemetry: TelemetryClient = getTelemetryClient(),
 ): Promise<BootstrapNode> {
   const peerId = await createSecp256k1PeerId();
   const config = createBootstrapNodeConfig(Buffer.from(peerId.privateKey!).toString('hex'), port);

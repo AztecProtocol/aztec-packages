@@ -63,7 +63,10 @@ For more information around the requirements we have for the availability, see [
 
 Using the data structures defined throughout the [rollup circuits](./../rollup-circuits/index.md) section, we can outline the validating light node structure as follows:
 
-```mermaid
+```mdx
+import { Mermaid } from '@docusaurus/theme-mermaid';
+
+<Mermaid>
 classDiagram
 
 class Inbox {
@@ -85,6 +88,7 @@ class StateTransitioner {
 StateTransitioner --> Inbox: consume()
 StateTransitioner --> Outbox: insert()
 StateTransitioner --> Verifier: verify()
+</Mermaid>
 ```
 
 ### State transitioner
@@ -477,7 +481,10 @@ Below, we will outline the **LOGICAL** execution of a L2 block and how the contr
 We will be executing cross-chain communication before and after the block itself.
 Note that the L2 inbox only exists conceptually and its functionality is handled by the kernel and the rollup circuits.
 
-```mermaid
+```mdx
+import { Mermaid } from '@docusaurus/theme-mermaid';
+
+<Mermaid>
 sequenceDiagram
     autonumber
     title Logical Interactions of Crosschain Messages
@@ -540,6 +547,7 @@ sequenceDiagram
     P->>O: Consume a msg
     O->>O: Validate msg
     O->>O: Update state (nullify)
+</Mermaid>
 ```
 
 We will walk briefly through the steps of the diagram above.

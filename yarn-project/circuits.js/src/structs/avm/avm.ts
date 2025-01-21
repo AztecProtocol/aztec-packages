@@ -955,6 +955,12 @@ export class AvmCircuitInputs {
     const hints = {
       contractInstances: [] as any[],
       contractClasses: [] as any[],
+      initialTreeRoots: {
+        publicDataTree: this.output.startTreeSnapshots.publicDataTree.root,
+        nullifierTree: this.output.startTreeSnapshots.nullifierTree.root,
+        noteHashTree: this.output.startTreeSnapshots.noteHashTree.root,
+        l1ToL2MessageTree: this.output.startTreeSnapshots.l1ToL2MessageTree.root,
+      },
     };
     const inputs = {
       hints: hints,

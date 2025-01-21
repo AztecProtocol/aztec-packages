@@ -84,8 +84,8 @@ export class PublicKeys {
     );
   }
 
-  static random(): PublicKeys {
-    return new PublicKeys(Point.random(), Point.random(), Point.random(), Point.random());
+  static async random(): Promise<PublicKeys> {
+    return new PublicKeys(await Point.random(), await Point.random(), await Point.random(), await Point.random());
   }
 
   /**

@@ -20,7 +20,7 @@ import { getCanonicalProtocolContract } from '@aztec/protocol-contracts/bundle';
 import { enrichPublicSimulationError } from '@aztec/pxe';
 import { type TypedOracle } from '@aztec/simulator/client';
 import { HashedValuesCache } from '@aztec/simulator/server';
-import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
+import { getTelemetryClient } from '@aztec/telemetry-client';
 import { MerkleTrees } from '@aztec/world-state';
 
 import { TXE } from '../oracle/txe_oracle.js';
@@ -42,7 +42,7 @@ export class TXEService {
 
   static async init(logger: Logger) {
     const store = openTmpStore(true);
-    const trees = await MerkleTrees.new(store, new NoopTelemetryClient(), logger);
+    const trees = await MerkleTrees.new(store, getTelemetryClient(), logger);
     const executionCache = new HashedValuesCache();
     const keyStore = new KeyStore(store);
     const txeDatabase = new TXEDatabase(store);
@@ -53,7 +53,7 @@ export class TXEService {
       await txeDatabase.addContractInstance(instance);
     }
     logger.debug(`TXE service initialized`);
-    const txe = new TXE(logger, trees, executionCache, keyStore, txeDatabase);
+    const txe = await TXE.create(logger, trees, executionCache, keyStore, txeDatabase);
     const service = new TXEService(logger, txe);
     await service.advanceBlocksBy(toSingle(new Fr(1n)));
     return service;
@@ -269,11 +269,6 @@ export class TXEService {
   async getBlockNumber() {
     const blockNumber = await this.typedOracle.getBlockNumber();
     return toForeignCallResult([toSingle(new Fr(blockNumber))]);
-  }
-
-  async storeArrayInExecutionCache(args: ForeignCallArray) {
-    const hash = await this.typedOracle.storeArrayInExecutionCache(fromArray(args));
-    return toForeignCallResult([toSingle(hash)]);
   }
 
   // Since the argument is a slice, noir automatically adds a length field to oracle call.
@@ -588,35 +583,47 @@ export class TXEService {
     return toForeignCallResult([]);
   }
 
-  async store(contract: ForeignCallSingle, key: ForeignCallSingle, values: ForeignCallArray) {
-    const processedContract = AztecAddress.fromField(fromSingle(contract));
-    const processedKey = fromSingle(key);
-    const processedValues = fromArray(values);
-    await this.typedOracle.store(processedContract, processedKey, processedValues);
+  async dbStore(contractAddress: ForeignCallSingle, slot: ForeignCallSingle, values: ForeignCallArray) {
+    await this.typedOracle.dbStore(
+      AztecAddress.fromField(fromSingle(contractAddress)),
+      fromSingle(slot),
+      fromArray(values),
+    );
     return toForeignCallResult([]);
   }
 
-  /**
-   * Load data from pxe db.
-   * @param contract - The contract address.
-   * @param key - The key to load.
-   * @param tSize - The size of the serialized object to return.
-   * @returns The data found flag and the serialized object concatenated in one array.
-   */
-  async load(contract: ForeignCallSingle, key: ForeignCallSingle, tSize: ForeignCallSingle) {
-    const processedContract = AztecAddress.fromField(fromSingle(contract));
-    const processedKey = fromSingle(key);
-    const values = await this.typedOracle.load(processedContract, processedKey);
+  async dbLoad(contractAddress: ForeignCallSingle, slot: ForeignCallSingle, tSize: ForeignCallSingle) {
+    const values = await this.typedOracle.dbLoad(AztecAddress.fromField(fromSingle(contractAddress)), fromSingle(slot));
     // We are going to return a Noir Option struct to represent the possibility of null values. Options are a struct
     // with two fields: `some` (a boolean) and `value` (a field array in this case).
     if (values === null) {
       // No data was found so we set `some` to 0 and pad `value` with zeros get the correct return size.
-      const processedTSize = fromSingle(tSize).toNumber();
-      return toForeignCallResult([toSingle(new Fr(0)), toArray(Array(processedTSize).fill(new Fr(0)))]);
+      return toForeignCallResult([toSingle(new Fr(0)), toArray(Array(fromSingle(tSize).toNumber()).fill(new Fr(0)))]);
     } else {
       // Data was found so we set `some` to 1 and return it along with `value`.
       return toForeignCallResult([toSingle(new Fr(1)), toArray(values)]);
     }
+  }
+
+  async dbDelete(contractAddress: ForeignCallSingle, slot: ForeignCallSingle) {
+    await this.typedOracle.dbDelete(AztecAddress.fromField(fromSingle(contractAddress)), fromSingle(slot));
+    return toForeignCallResult([]);
+  }
+
+  async dbCopy(
+    contractAddress: ForeignCallSingle,
+    srcSlot: ForeignCallSingle,
+    dstSlot: ForeignCallSingle,
+    numEntries: ForeignCallSingle,
+  ) {
+    await this.typedOracle.dbCopy(
+      AztecAddress.fromField(fromSingle(contractAddress)),
+      fromSingle(srcSlot),
+      fromSingle(dstSlot),
+      fromSingle(numEntries).toNumber(),
+    );
+
+    return toForeignCallResult([]);
   }
 
   // AVM opcodes

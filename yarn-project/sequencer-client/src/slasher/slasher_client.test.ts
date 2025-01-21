@@ -23,9 +23,9 @@ describe('In-Memory Slasher Client', () => {
   let client: SlasherClient;
   let config: SlasherConfig & L1ContractsConfig & L1ReaderConfig;
 
-  beforeEach(() => {
+  beforeEach(async () => {
     blockSource = new MockL2BlockSource();
-    blockSource.createBlocks(100);
+    await blockSource.createBlocks(100);
 
     const l1Config = getL1ContractsConfigEnvVars();
 
@@ -105,7 +105,7 @@ describe('In-Memory Slasher Client', () => {
         finalized: { number: 90, hash: expect.any(String) },
       });
 
-      blockSource.addBlocks([L2Block.random(91), L2Block.random(92)]);
+      blockSource.addBlocks([await L2Block.random(91), await L2Block.random(92)]);
 
       // give the client a chance to react to the new blocks
       await sleep(100);

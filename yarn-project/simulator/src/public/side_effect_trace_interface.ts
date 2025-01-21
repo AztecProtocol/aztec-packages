@@ -1,10 +1,10 @@
-import { type UnencryptedL2Log } from '@aztec/circuit-types';
 import {
   type ContractClassIdPreimage,
   type Gas,
   type NullifierLeafPreimage,
   type PublicCallRequest,
   type PublicDataTreeLeafPreimage,
+  type PublicLog,
   type SerializableContractInstance,
 } from '@aztec/circuits.js';
 import { type AztecAddress } from '@aztec/foundation/aztec-address';
@@ -63,7 +63,7 @@ export interface PublicSideEffectTraceInterface {
     path?: Fr[],
   ): void;
   traceNewL2ToL1Message(contractAddress: AztecAddress, recipient: Fr, content: Fr): void;
-  traceUnencryptedLog(contractAddress: AztecAddress, log: Fr[]): void;
+  tracePublicLog(contractAddress: AztecAddress, log: Fr[]): void;
   traceGetContractInstance(
     contractAddress: AztecAddress,
     exists: boolean,
@@ -106,5 +106,5 @@ export interface PublicSideEffectTraceInterface {
     /** Function name for logging */
     functionName: string,
   ): PublicFunctionCallResult;
-  getUnencryptedLogs(): UnencryptedL2Log[];
+  getPublicLogs(): PublicLog[];
 }

@@ -23,7 +23,7 @@ import { keccak256, keccakf1600, pedersenCommit, pedersenHash, poseidon2Hash, sh
 import { Fq, Fr, Point } from '@aztec/foundation/fields';
 import { type Fieldable } from '@aztec/foundation/serialize';
 import { openTmpStore } from '@aztec/kv-store/lmdb';
-import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
+import { getTelemetryClient } from '@aztec/telemetry-client';
 import { MerkleTrees } from '@aztec/world-state';
 
 import { randomInt } from 'crypto';
@@ -34,6 +34,7 @@ import { MockedAvmTestContractDataSource, simulateAvmTestContractCall } from '..
 import { type WorldStateDB } from '../public/public_db_sources.js';
 import { type PublicSideEffectTraceInterface } from '../public/side_effect_trace_interface.js';
 import { type AvmContext } from './avm_context.js';
+import { type AvmExecutionEnvironment } from './avm_execution_environment.js';
 import { type MemoryValue, TypeTag, type Uint8, type Uint64 } from './avm_memory_types.js';
 import { AvmSimulator } from './avm_simulator.js';
 import { AvmEphemeralForest } from './avm_tree.js';
@@ -154,7 +155,7 @@ describe('AVM simulator: transpiled Noir contracts', () => {
   });
 
   it('call max unique contract classes', async () => {
-    const contractDataSource = new MockedAvmTestContractDataSource();
+    const contractDataSource = await MockedAvmTestContractDataSource.create();
     // args is initialized to MAX_PUBLIC_CALLS_TO_UNIQUE_CONTRACT_CLASS_IDS contract addresses with unique class IDs
     const args = Array.from(contractDataSource.contractInstances.values())
       .map(instance => instance.address.toField())
@@ -172,7 +173,7 @@ describe('AVM simulator: transpiled Noir contracts', () => {
   });
 
   it('call too many unique contract classes fails', async () => {
-    const contractDataSource = new MockedAvmTestContractDataSource();
+    const contractDataSource = await MockedAvmTestContractDataSource.create();
     // args is initialized to MAX_PUBLIC_CALLS_TO_UNIQUE_CONTRACT_CLASS_IDS+1 contract addresses with unique class IDs
     // should fail because we are trying to call MAX+1 unique class IDs
     const args = Array.from(contractDataSource.contractInstances.values()).map(instance => instance.address.toField());
@@ -443,8 +444,11 @@ describe('AVM simulator: transpiled Noir contracts', () => {
   });
 
   describe('Environment getters', () => {
-    const address = AztecAddress.random();
-    const sender = AztecAddress.random();
+    let env: AvmExecutionEnvironment;
+    let context: AvmContext;
+    let address: AztecAddress;
+    let sender: AztecAddress;
+
     const transactionFee = Fr.random();
     const chainId = Fr.random();
     const version = Fr.random();
@@ -453,35 +457,42 @@ describe('AVM simulator: transpiled Noir contracts', () => {
     const feePerDaGas = Fr.random();
     const feePerL2Gas = Fr.random();
     const gasFees = new GasFees(feePerDaGas, feePerL2Gas);
-    const globals = initGlobalVariables({
-      chainId,
-      version,
-      blockNumber,
-      timestamp,
-      gasFees,
+
+    beforeAll(async () => {
+      address = await AztecAddress.random();
+      sender = await AztecAddress.random();
+
+      const globals = initGlobalVariables({
+        chainId,
+        version,
+        blockNumber,
+        timestamp,
+        gasFees,
+      });
+      env = initExecutionEnvironment({
+        address,
+        sender,
+        transactionFee,
+        globals,
+      });
     });
-    const env = initExecutionEnvironment({
-      address,
-      sender,
-      transactionFee,
-      globals,
-    });
-    let context: AvmContext;
+
     beforeEach(() => {
       context = initContext({ env });
     });
 
     it.each([
-      ['address', address.toField(), 'get_address'],
-      ['sender', sender.toField(), 'get_sender'],
-      ['transactionFee', transactionFee.toField(), 'get_transaction_fee'],
-      ['chainId', chainId.toField(), 'get_chain_id'],
-      ['version', version.toField(), 'get_version'],
-      ['blockNumber', blockNumber.toField(), 'get_block_number'],
-      ['timestamp', timestamp.toField(), 'get_timestamp'],
-      ['feePerDaGas', feePerDaGas.toField(), 'get_fee_per_da_gas'],
-      ['feePerL2Gas', feePerL2Gas.toField(), 'get_fee_per_l2_gas'],
-    ])('%s getter', async (_name: string, value: Fr, functionName: string) => {
+      ['address', () => address.toField(), 'get_address'],
+      ['sender', () => sender.toField(), 'get_sender'],
+      ['transactionFee', () => transactionFee.toField(), 'get_transaction_fee'],
+      ['chainId', () => chainId.toField(), 'get_chain_id'],
+      ['version', () => version.toField(), 'get_version'],
+      ['blockNumber', () => blockNumber.toField(), 'get_block_number'],
+      ['timestamp', () => timestamp.toField(), 'get_timestamp'],
+      ['feePerDaGas', () => feePerDaGas.toField(), 'get_fee_per_da_gas'],
+      ['feePerL2Gas', () => feePerL2Gas.toField(), 'get_fee_per_l2_gas'],
+    ])('%s getter', async (_name: string, valueGetter: () => Fr, functionName: string) => {
+      const value = valueGetter();
       const bytecode = getAvmTestContractBytecode(functionName);
       const results = await new AvmSimulator(context).executeBytecode(bytecode);
 
@@ -693,8 +704,8 @@ describe('AVM simulator: transpiled Noir contracts', () => {
       });
     });
 
-    describe('Unencrypted Logs', () => {
-      it(`Emit unencrypted logs (should be traced)`, async () => {
+    describe('Public Logs', () => {
+      it(`Emit public logs (should be traced)`, async () => {
         const context = createContext();
         const bytecode = getAvmTestContractBytecode('emit_unencrypted_log');
 
@@ -708,10 +719,10 @@ describe('AVM simulator: transpiled Noir contracts', () => {
           '\0r far away...\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0',
         ].map(s => new Fr(Buffer.from(s)));
 
-        expect(trace.traceUnencryptedLog).toHaveBeenCalledTimes(3);
-        expect(trace.traceUnencryptedLog).toHaveBeenCalledWith(address, expectedFields);
-        expect(trace.traceUnencryptedLog).toHaveBeenCalledWith(address, expectedString);
-        expect(trace.traceUnencryptedLog).toHaveBeenCalledWith(address, expectedCompressedString);
+        expect(trace.tracePublicLog).toHaveBeenCalledTimes(3);
+        expect(trace.tracePublicLog).toHaveBeenCalledWith(address, expectedFields);
+        expect(trace.tracePublicLog).toHaveBeenCalledWith(address, expectedString);
+        expect(trace.tracePublicLog).toHaveBeenCalledWith(address, expectedCompressedString);
       });
     });
 
@@ -919,7 +930,7 @@ describe('AVM simulator: transpiled Noir contracts', () => {
           selector: FunctionSelector.random(),
         });
         mockGetContractClass(worldStateDB, contractClass);
-        const contractInstance = makeContractInstanceFromClassId(contractClass.id);
+        const contractInstance = await makeContractInstanceFromClassId(contractClass.id);
         mockGetContractInstance(worldStateDB, contractInstance);
         mockNullifierExists(worldStateDB, siloAddress(contractInstance.address));
 
@@ -943,7 +954,7 @@ describe('AVM simulator: transpiled Noir contracts', () => {
           selector: FunctionSelector.random(),
         });
         mockGetContractClass(worldStateDB, contractClass);
-        const contractInstance = makeContractInstanceFromClassId(contractClass.id);
+        const contractInstance = await makeContractInstanceFromClassId(contractClass.id);
         mockGetContractInstance(worldStateDB, contractInstance);
         mockNullifierExists(worldStateDB, siloAddress(contractInstance.address));
 
@@ -970,7 +981,7 @@ describe('AVM simulator: transpiled Noir contracts', () => {
           selector: FunctionSelector.random(),
         });
         mockGetContractClass(worldStateDB, contractClass);
-        const contractInstance = makeContractInstanceFromClassId(contractClass.id);
+        const contractInstance = await makeContractInstanceFromClassId(contractClass.id);
         mockGetContractInstance(worldStateDB, contractInstance);
         mockNullifierExists(worldStateDB, siloAddress(contractInstance.address));
 
@@ -992,7 +1003,7 @@ describe('AVM simulator: transpiled Noir contracts', () => {
           selector: FunctionSelector.random(),
         });
         mockGetContractClass(worldStateDB, contractClass);
-        const contractInstance = makeContractInstanceFromClassId(contractClass.id);
+        const contractInstance = await makeContractInstanceFromClassId(contractClass.id);
         mockGetContractInstance(worldStateDB, contractInstance);
         mockNullifierExists(worldStateDB, siloAddress(contractInstance.address));
 
@@ -1022,7 +1033,7 @@ describe('AVM simulator: transpiled Noir contracts', () => {
           selector: FunctionSelector.random(),
         });
         mockGetContractClass(worldStateDB, contractClass);
-        const contractInstance = makeContractInstanceFromClassId(contractClass.id);
+        const contractInstance = await makeContractInstanceFromClassId(contractClass.id);
         mockGetContractInstance(worldStateDB, contractInstance);
         mockNullifierExists(worldStateDB, siloAddress(contractInstance.address));
 
@@ -1047,7 +1058,7 @@ describe('AVM simulator: transpiled Noir contracts', () => {
           selector: FunctionSelector.random(),
         });
         mockGetContractClass(worldStateDB, contractClass);
-        const contractInstance = makeContractInstanceFromClassId(contractClass.id);
+        const contractInstance = await makeContractInstanceFromClassId(contractClass.id);
         mockGetContractInstance(worldStateDB, contractInstance);
         mockNullifierExists(worldStateDB, siloAddress(contractInstance.address));
 
@@ -1119,7 +1130,7 @@ describe('AVM simulator: transpiled Noir contracts', () => {
 
       worldStateDB = mock<WorldStateDB>();
       const tmp = openTmpStore();
-      const telemetryClient = new NoopTelemetryClient();
+      const telemetryClient = getTelemetryClient();
       merkleTrees = await (await MerkleTrees.new(tmp, telemetryClient)).fork();
       (worldStateDB as jest.Mocked<WorldStateDB>).getMerkleInterface.mockReturnValue(merkleTrees);
       ephemeralForest = await AvmEphemeralForest.create(worldStateDB.getMerkleInterface());

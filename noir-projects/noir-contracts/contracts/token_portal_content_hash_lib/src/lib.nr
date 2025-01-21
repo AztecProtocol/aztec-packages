@@ -1,13 +1,13 @@
 // docs:start:mint_to_public_content_hash_nr
 use dep::aztec::prelude::{AztecAddress, EthAddress};
-use dep::aztec::protocol_types::hash::sha256_to_field;
+use dep::aztec::protocol_types::{hash::sha256_to_field, traits::ToField};
 
 // Computes a content hash of a deposit/mint_to_public message.
 // Refer TokenPortal.sol for reference on L1.
-pub fn get_mint_to_public_content_hash(owner: AztecAddress, amount: Field) -> Field {
+pub fn get_mint_to_public_content_hash(owner: AztecAddress, amount: U128) -> Field {
     let mut hash_bytes = [0; 68];
     let recipient_bytes:[u8; 32] = owner.to_field().to_be_bytes();
-    let amount_bytes:[u8; 32] = amount.to_be_bytes();
+    let amount_bytes:[u8; 32] = amount.to_field().to_be_bytes();
 
     // The purpose of including the following selector is to make the message unique to that specific call. Note that
     // it has nothing to do with calling the function.
@@ -30,11 +30,9 @@ pub fn get_mint_to_public_content_hash(owner: AztecAddress, amount: Field) -> Fi
 // docs:start:get_mint_to_private_content_hash
 // Computes a content hash of a deposit/mint_to_private message.
 // Refer TokenPortal.sol for reference on L1.
-pub fn get_mint_to_private_content_hash(
-    amount: Field
-) -> Field {
+pub fn get_mint_to_private_content_hash(amount: U128) -> Field {
     let mut hash_bytes = [0; 36];
-    let amount_bytes:[u8; 32] = amount.to_be_bytes();
+    let amount_bytes:[u8; 32] = amount.to_field().to_be_bytes();
 
     // The purpose of including the following selector is to make the message unique to that specific call. Note that
     // it has nothing to do with calling the function.
@@ -55,14 +53,14 @@ pub fn get_mint_to_private_content_hash(
 
 // docs:start:get_withdraw_content_hash
 // Computes a content hash of a withdraw message.
-pub fn get_withdraw_content_hash(recipient: EthAddress, amount: Field, caller_on_l1: EthAddress) -> Field {
+pub fn get_withdraw_content_hash(recipient: EthAddress, amount: U128, caller_on_l1: EthAddress) -> Field {
     // Compute the content hash
     // Compute sha256(selector || amount || recipient)
     // then convert to a single field element
     // add that to the l2 to l1 messages
     let mut hash_bytes: [u8; 100] = [0; 100];
     let recipient_bytes: [u8; 32] = recipient.to_field().to_be_bytes();
-    let amount_bytes: [u8; 32] = amount.to_be_bytes();
+    let amount_bytes: [u8; 32] = amount.to_field().to_be_bytes();
     let caller_on_l1_bytes: [u8; 32] = caller_on_l1.to_field().to_be_bytes();
 
     // The purpose of including the following selector is to make the message unique to that specific call. Note that

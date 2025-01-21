@@ -41,10 +41,10 @@ export class CallContext {
     return new CallContext(AztecAddress.ZERO, AztecAddress.ZERO, FunctionSelector.empty(), false);
   }
 
-  static random() {
+  static async random() {
     return new CallContext(
-      AztecAddress.random(),
-      AztecAddress.random(),
+      await AztecAddress.random(),
+      await AztecAddress.random(),
       FunctionSelector.random(),
       Math.random() > 0.5,
     );

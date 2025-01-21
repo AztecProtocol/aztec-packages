@@ -8,10 +8,13 @@ import {
 } from '@aztec/circuits.js';
 import { makeHeader } from '@aztec/circuits.js/testing';
 import { FunctionType } from '@aztec/foundation/abi';
+import { timesParallel } from '@aztec/foundation/collection';
 import { randomInt } from '@aztec/foundation/crypto';
 import { Fr, Point } from '@aztec/foundation/fields';
 import { BenchmarkingContractArtifact } from '@aztec/noir-contracts.js/Benchmarking';
 import { TestContractArtifact } from '@aztec/noir-contracts.js/Test';
+
+import times from 'lodash.times';
 
 import { NoteDao } from './note_dao.js';
 import { type PxeDatabase } from './pxe_database.js';
@@ -80,53 +83,62 @@ export function describePxeDatabase(getDatabase: () => PxeDatabase) {
       let storageSlots: Fr[];
       let notes: NoteDao[];
 
-      const filteringTests: [() => NotesFilter, () => NoteDao[]][] = [
-        [() => ({}), () => notes],
+      const filteringTests: [() => Promise<NotesFilter>, () => Promise<NoteDao[]>][] = [
+        [() => Promise.resolve({}), () => Promise.resolve(notes)],
 
         [
-          () => ({ contractAddress: contractAddresses[0] }),
-          () => notes.filter(note => note.contractAddress.equals(contractAddresses[0])),
+          () => Promise.resolve({ contractAddress: contractAddresses[0] }),
+          () => Promise.resolve(notes.filter(note => note.contractAddress.equals(contractAddresses[0]))),
         ],
-        [() => ({ contractAddress: AztecAddress.random() }), () => []],
+        [async () => ({ contractAddress: await AztecAddress.random() }), () => Promise.resolve([])],
 
         [
-          () => ({ storageSlot: storageSlots[0] }),
-          () => notes.filter(note => note.storageSlot.equals(storageSlots[0])),
+          () => Promise.resolve({ storageSlot: storageSlots[0] }),
+          () => Promise.resolve(notes.filter(note => note.storageSlot.equals(storageSlots[0]))),
         ],
-        [() => ({ storageSlot: Fr.random() }), () => []],
+        [() => Promise.resolve({ storageSlot: Fr.random() }), () => Promise.resolve([])],
 
-        [() => ({ txHash: notes[0].txHash }), () => [notes[0]]],
-        [() => ({ txHash: randomTxHash() }), () => []],
+        [() => Promise.resolve({ txHash: notes[0].txHash }), () => Promise.resolve([notes[0]])],
+        [() => Promise.resolve({ txHash: randomTxHash() }), () => Promise.resolve([])],
 
         [
-          () => ({ owner: owners[0].address }),
-          () => notes.filter(note => note.addressPoint.equals(owners[0].address.toAddressPoint())),
+          () => Promise.resolve({ owner: owners[0].address }),
+          async () => {
+            const ownerAddressPoint = await owners[0].address.toAddressPoint();
+            return notes.filter(note => note.addressPoint.equals(ownerAddressPoint));
+          },
         ],
 
         [
-          () => ({ contractAddress: contractAddresses[0], storageSlot: storageSlots[0] }),
+          () => Promise.resolve({ contractAddress: contractAddresses[0], storageSlot: storageSlots[0] }),
           () =>
-            notes.filter(
-              note => note.contractAddress.equals(contractAddresses[0]) && note.storageSlot.equals(storageSlots[0]),
+            Promise.resolve(
+              notes.filter(
+                note => note.contractAddress.equals(contractAddresses[0]) && note.storageSlot.equals(storageSlots[0]),
+              ),
             ),
         ],
-        [() => ({ contractAddress: contractAddresses[0], storageSlot: storageSlots[1] }), () => []],
+        [
+          () => Promise.resolve({ contractAddress: contractAddresses[0], storageSlot: storageSlots[1] }),
+          () => Promise.resolve([]),
+        ],
       ];
 
       beforeEach(async () => {
-        owners = Array.from({ length: 2 }).map(() => CompleteAddress.random());
-        contractAddresses = Array.from({ length: 2 }).map(() => AztecAddress.random());
-        storageSlots = Array.from({ length: 2 }).map(() => Fr.random());
+        owners = times(2, () => CompleteAddress.random());
+        contractAddresses = await timesParallel(2, () => AztecAddress.random());
+        storageSlots = times(2, () => Fr.random());
 
-        notes = Array.from({ length: 10 }).map((_, i) =>
-          NoteDao.random({
+        notes = await timesParallel(10, async i => {
+          const addressPoint = await owners[i % owners.length].address.toAddressPoint();
+          return NoteDao.random({
             contractAddress: contractAddresses[i % contractAddresses.length],
             storageSlot: storageSlots[i % storageSlots.length],
-            addressPoint: owners[i % owners.length].address.toAddressPoint(),
+            addressPoint,
             index: BigInt(i),
             l2BlockNumber: i,
-          }),
-        );
+          });
+        });
 
         for (const owner of owners) {
           await database.addCompleteAddress(owner);
@@ -135,9 +147,9 @@ export function describePxeDatabase(getDatabase: () => PxeDatabase) {
 
       it.each(filteringTests)('stores notes in bulk and retrieves notes', async (getFilter, getExpected) => {
         await database.addNotes(notes);
-        const returnedNotes = await database.getNotes(getFilter());
-
-        expect(returnedNotes.sort()).toEqual(getExpected().sort());
+        const returnedNotes = await database.getNotes(await getFilter());
+        const expected = await getExpected();
+        expect(returnedNotes.sort()).toEqual(expected.sort());
       });
 
       it.each(filteringTests)('stores notes one by one and retrieves notes', async (getFilter, getExpected) => {
@@ -145,9 +157,10 @@ export function describePxeDatabase(getDatabase: () => PxeDatabase) {
           await database.addNote(note);
         }
 
-        const returnedNotes = await database.getNotes(getFilter());
+        const returnedNotes = await database.getNotes(await getFilter());
 
-        expect(returnedNotes.sort()).toEqual(getExpected().sort());
+        const expected = await getExpected();
+        expect(returnedNotes.sort()).toEqual(expected.sort());
       });
 
       it.each(filteringTests)('retrieves nullified notes', async (getFilter, getExpected) => {
@@ -155,26 +168,25 @@ export function describePxeDatabase(getDatabase: () => PxeDatabase) {
 
         // Nullify all notes and use the same filter as other test cases
         for (const owner of owners) {
-          const notesToNullify = notes.filter(note => note.addressPoint.equals(owner.address.toAddressPoint()));
+          const ownerAddressPoint = await owner.address.toAddressPoint();
+          const notesToNullify = notes.filter(note => note.addressPoint.equals(ownerAddressPoint));
           const nullifiers = notesToNullify.map(note => ({
             data: note.siloedNullifier,
             l2BlockNumber: note.l2BlockNumber,
             l2BlockHash: note.l2BlockHash,
           }));
-          await expect(database.removeNullifiedNotes(nullifiers, owner.address.toAddressPoint())).resolves.toEqual(
-            notesToNullify,
-          );
+          await expect(database.removeNullifiedNotes(nullifiers, ownerAddressPoint)).resolves.toEqual(notesToNullify);
         }
-
-        await expect(database.getNotes({ ...getFilter(), status: NoteStatus.ACTIVE_OR_NULLIFIED })).resolves.toEqual(
-          getExpected(),
-        );
+        const filter = await getFilter();
+        const returnedNotes = await database.getNotes({ ...filter, status: NoteStatus.ACTIVE_OR_NULLIFIED });
+        const expected = await getExpected();
+        expect(returnedNotes.sort()).toEqual(expected.sort());
       });
 
       it('skips nullified notes by default or when requesting active', async () => {
         await database.addNotes(notes);
-
-        const notesToNullify = notes.filter(note => note.addressPoint.equals(owners[0].address.toAddressPoint()));
+        const ownerAddressPoint = await owners[0].address.toAddressPoint();
+        const notesToNullify = notes.filter(note => note.addressPoint.equals(ownerAddressPoint));
         const nullifiers = notesToNullify.map(note => ({
           data: note.siloedNullifier,
           l2BlockNumber: note.l2BlockNumber,
@@ -194,8 +206,9 @@ export function describePxeDatabase(getDatabase: () => PxeDatabase) {
       it('handles note unnullification', async () => {
         await database.setHeader(makeHeader(randomInt(1000), 100, 0 /** slot number */));
         await database.addNotes(notes);
+        const ownerAddressPoint = await owners[0].address.toAddressPoint();
 
-        const notesToNullify = notes.filter(note => note.addressPoint.equals(owners[0].address.toAddressPoint()));
+        const notesToNullify = notes.filter(note => note.addressPoint.equals(ownerAddressPoint));
         const nullifiers = notesToNullify.map(note => ({
           data: note.siloedNullifier,
           l2BlockNumber: 99,
@@ -213,8 +226,9 @@ export function describePxeDatabase(getDatabase: () => PxeDatabase) {
 
       it('returns active and nullified notes when requesting either', async () => {
         await database.addNotes(notes);
+        const ownerAddressPoint = await owners[0].address.toAddressPoint();
 
-        const notesToNullify = notes.filter(note => note.addressPoint.equals(owners[0].address.toAddressPoint()));
+        const notesToNullify = notes.filter(note => note.addressPoint.equals(ownerAddressPoint));
         const nullifiers = notesToNullify.map(note => ({
           data: note.siloedNullifier,
           l2BlockNumber: note.l2BlockNumber,
@@ -275,7 +289,7 @@ export function describePxeDatabase(getDatabase: () => PxeDatabase) {
             scopes: [owners[1].address],
           }),
         ).resolves.toEqual([notes[0]]);
-
+        const ownerAddressPoint = await owners[0].address.toAddressPoint();
         await expect(
           database.removeNullifiedNotes(
             [
@@ -285,7 +299,7 @@ export function describePxeDatabase(getDatabase: () => PxeDatabase) {
                 l2BlockNumber: notes[0].l2BlockNumber,
               },
             ],
-            owners[0].address.toAddressPoint(),
+            ownerAddressPoint,
           ),
         ).resolves.toEqual([notes[0]]);
 
@@ -340,7 +354,7 @@ export function describePxeDatabase(getDatabase: () => PxeDatabase) {
         const address = CompleteAddress.random();
         const otherAddress = new CompleteAddress(
           address.address,
-          new PublicKeys(Point.random(), Point.random(), Point.random(), Point.random()),
+          new PublicKeys(await Point.random(), await Point.random(), await Point.random(), await Point.random()),
           address.partialAddress,
         );
 
@@ -399,71 +413,170 @@ export function describePxeDatabase(getDatabase: () => PxeDatabase) {
       });
 
       it('stores a contract instance', async () => {
-        const address = AztecAddress.random();
-        const instance = SerializableContractInstance.random().withAddress(address);
+        const address = await AztecAddress.random();
+        const instance = (await SerializableContractInstance.random()).withAddress(address);
         await database.addContractInstance(instance);
         await expect(database.getContractInstance(address)).resolves.toEqual(instance);
       });
     });
 
-    describe('contract store', () => {
+    describe('contract non-volatile database', () => {
       let contract: AztecAddress;
 
-      beforeEach(() => {
+      beforeEach(async () => {
         // Setup mock contract address
-        contract = AztecAddress.random();
+        contract = await AztecAddress.random();
       });
 
       it('stores and loads a single value', async () => {
-        const key = new Fr(1);
+        const slot = new Fr(1);
         const values = [new Fr(42)];
 
-        await database.store(contract, key, values);
-        const result = await database.load(contract, key);
+        await database.dbStore(contract, slot, values);
+        const result = await database.dbLoad(contract, slot);
         expect(result).toEqual(values);
       });
 
       it('stores and loads multiple values', async () => {
-        const key = new Fr(1);
+        const slot = new Fr(1);
         const values = [new Fr(42), new Fr(43), new Fr(44)];
 
-        await database.store(contract, key, values);
-        const result = await database.load(contract, key);
+        await database.dbStore(contract, slot, values);
+        const result = await database.dbLoad(contract, slot);
         expect(result).toEqual(values);
       });
 
       it('overwrites existing values', async () => {
-        const key = new Fr(1);
+        const slot = new Fr(1);
         const initialValues = [new Fr(42)];
         const newValues = [new Fr(100)];
 
-        await database.store(contract, key, initialValues);
-        await database.store(contract, key, newValues);
+        await database.dbStore(contract, slot, initialValues);
+        await database.dbStore(contract, slot, newValues);
 
-        const result = await database.load(contract, key);
+        const result = await database.dbLoad(contract, slot);
         expect(result).toEqual(newValues);
       });
 
       it('stores values for different contracts independently', async () => {
-        const anotherContract = AztecAddress.random();
-        const key = new Fr(1);
+        const anotherContract = await AztecAddress.random();
+        const slot = new Fr(1);
         const values1 = [new Fr(42)];
         const values2 = [new Fr(100)];
 
-        await database.store(contract, key, values1);
-        await database.store(anotherContract, key, values2);
+        await database.dbStore(contract, slot, values1);
+        await database.dbStore(anotherContract, slot, values2);
 
-        const result1 = await database.load(contract, key);
-        const result2 = await database.load(anotherContract, key);
+        const result1 = await database.dbLoad(contract, slot);
+        const result2 = await database.dbLoad(anotherContract, slot);
 
         expect(result1).toEqual(values1);
         expect(result2).toEqual(values2);
       });
 
-      it('returns null for non-existent keys', async () => {
-        const key = Fr.random();
-        const result = await database.load(contract, key);
+      it('returns null for non-existent slots', async () => {
+        const slot = Fr.random();
+        const result = await database.dbLoad(contract, slot);
         expect(result).toBeNull();
+      });
+
+      it('deletes a slot', async () => {
+        const slot = new Fr(1);
+        const values = [new Fr(42)];
+
+        await database.dbStore(contract, slot, values);
+        await database.dbDelete(contract, slot);
+
+        expect(await database.dbLoad(contract, slot)).toBeNull();
+      });
+
+      it('deletes an empty slot', async () => {
+        const slot = new Fr(1);
+        await database.dbDelete(contract, slot);
+
+        expect(await database.dbLoad(contract, slot)).toBeNull();
+      });
+
+      it('copies a single value', async () => {
+        const slot = new Fr(1);
+        const values = [new Fr(42)];
+
+        await database.dbStore(contract, slot, values);
+
+        const dstSlot = new Fr(5);
+        await database.dbCopy(contract, slot, dstSlot, 1);
+
+        expect(await database.dbLoad(contract, dstSlot)).toEqual(values);
+      });
+
+      it('copies multiple non-overlapping values', async () => {
+        const src = new Fr(1);
+        const valuesArray = [[new Fr(42)], [new Fr(1337)], [new Fr(13)]];
+
+        await database.dbStore(contract, src, valuesArray[0]);
+        await database.dbStore(contract, src.add(new Fr(1)), valuesArray[1]);
+        await database.dbStore(contract, src.add(new Fr(2)), valuesArray[2]);
+
+        const dst = new Fr(5);
+        await database.dbCopy(contract, src, dst, 3);
+
+        expect(await database.dbLoad(contract, dst)).toEqual(valuesArray[0]);
+        expect(await database.dbLoad(contract, dst.add(new Fr(1)))).toEqual(valuesArray[1]);
+        expect(await database.dbLoad(contract, dst.add(new Fr(2)))).toEqual(valuesArray[2]);
+      });
+
+      it('copies overlapping values with src ahead', async () => {
+        const src = new Fr(1);
+        const valuesArray = [[new Fr(42)], [new Fr(1337)], [new Fr(13)]];
+
+        await database.dbStore(contract, src, valuesArray[0]);
+        await database.dbStore(contract, src.add(new Fr(1)), valuesArray[1]);
+        await database.dbStore(contract, src.add(new Fr(2)), valuesArray[2]);
+
+        const dst = new Fr(2);
+        await database.dbCopy(contract, src, dst, 3);
+
+        expect(await database.dbLoad(contract, dst)).toEqual(valuesArray[0]);
+        expect(await database.dbLoad(contract, dst.add(new Fr(1)))).toEqual(valuesArray[1]);
+        expect(await database.dbLoad(contract, dst.add(new Fr(2)))).toEqual(valuesArray[2]);
+
+        // Slots 2 and 3 (src[1] and src[2]) should have been overwritten since they are also dst[0] and dst[1]
+        expect(await database.dbLoad(contract, src)).toEqual(valuesArray[0]); // src[0] (unchanged)
+        expect(await database.dbLoad(contract, src.add(new Fr(1)))).toEqual(valuesArray[0]); // dst[0]
+        expect(await database.dbLoad(contract, src.add(new Fr(2)))).toEqual(valuesArray[1]); // dst[1]
+      });
+
+      it('copies overlapping values with dst ahead', async () => {
+        const src = new Fr(5);
+        const valuesArray = [[new Fr(42)], [new Fr(1337)], [new Fr(13)]];
+
+        await database.dbStore(contract, src, valuesArray[0]);
+        await database.dbStore(contract, src.add(new Fr(1)), valuesArray[1]);
+        await database.dbStore(contract, src.add(new Fr(2)), valuesArray[2]);
+
+        const dst = new Fr(4);
+        await database.dbCopy(contract, src, dst, 3);
+
+        expect(await database.dbLoad(contract, dst)).toEqual(valuesArray[0]);
+        expect(await database.dbLoad(contract, dst.add(new Fr(1)))).toEqual(valuesArray[1]);
+        expect(await database.dbLoad(contract, dst.add(new Fr(2)))).toEqual(valuesArray[2]);
+
+        // Slots 5 and 6 (src[0] and src[1]) should have been overwritten since they are also dst[1] and dst[2]
+        expect(await database.dbLoad(contract, src)).toEqual(valuesArray[1]); // dst[1]
+        expect(await database.dbLoad(contract, src.add(new Fr(1)))).toEqual(valuesArray[2]); // dst[2]
+        expect(await database.dbLoad(contract, src.add(new Fr(2)))).toEqual(valuesArray[2]); // src[2] (unchanged)
+      });
+
+      it('copying fails if any value is empty', async () => {
+        const src = new Fr(1);
+        const valuesArray = [[new Fr(42)], [new Fr(1337)], [new Fr(13)]];
+
+        await database.dbStore(contract, src, valuesArray[0]);
+        // We skip src[1]
+        await database.dbStore(contract, src.add(new Fr(2)), valuesArray[2]);
+
+        const dst = new Fr(5);
+        await expect(database.dbCopy(contract, src, dst, 3)).rejects.toThrow('Attempted to copy empty slot');
       });
     });
   });
