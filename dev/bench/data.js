@@ -1,74 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1737453136730,
+  "lastUpdate": 1737456945749,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "karl.lye@gmail.com",
-            "name": "Charlie Lye",
-            "username": "charlielye"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "49dacc3378a339f8cc36971b630c52952249f60c",
-          "message": "chore: Cl/ci3.2 (#10919)\n\nFurther iteration towards full CI3.\r\nTLDR: Working towards ~10m repo test time.\r\n\r\n* Begin to separate out \"building of tests\" (mainly thinking of C++ and\r\nRust). We don't want to do this on a fast bootstrap, but we do want to\r\ndo it if we're going to run the tests. And moving towards the new\r\ntesting model we need to separate building and running of tests.\r\n* Introduce `test-cmds` cmd on bootstrap scripts. Returns a list of\r\ncommands, that if run from repo root, execute individual (usually)\r\ntests.\r\n* Note this also introduces the standard of `./scripts/run_test.sh`\r\nbeing a script that given some succinct arguments, can run a single\r\ntest.\r\n* Introduce `test-all` (eventually to become just `test`) in root\r\nbootstrap.sh. No args runs all tests, or you can give it a list of\r\nfolders to projects with their own bootstrap scripts and it'll run their\r\ntests. Runs in 10m20s. Currently skipping some things (see TODO below).\r\nReports slow tests after run.\r\n* Note this also runs our TS project tests *directly as javascript*.\r\ni.e. it's assumed the tests have all been compiled to the dest folder\r\nand have whatever they need to operate. Hitting yarn + transpiler is\r\njust gruesome use of resources.\r\n* Improve cache script to not deal with env vars, but just args. If the\r\nargs is a file, its treated as a rebuild patterns file, otherwise\r\ntreated as a pattern itself.\r\n* Remove `TEST=0/1` flag. Unnecessary. Normal bootstraps don't run\r\ntests, and If i request to run tests I want them to run. So the \"skip\r\ntests if cache flag exists\" only needs to be applied if `CI=1`.\r\n* Get's rid of all hardcoded srs paths in favour of making function call\r\nto get the path. Will check environment variables first, and fallback on\r\nhardcoded path (now in one place). I ultimately didn't need this like I\r\nthought I would, but it's the right move anyway, and will make the\r\nswitch to the flat crs easier.\r\n* Bit of refactoring to remove \"right drift\" of cache blocks. i.e.\r\nreturn if nothing to do instead of enclosing in an if statement.\r\n* bb.js uses @swc/jest like yarn-projects does.\r\n* Delete `bootstrap` folder. Is was there to help test the bootstrap\r\nscript in CI, but now we use the bootstrap script in CI.\r\n* Add build cache to `boxes`.\r\n* Enable extended globs in CI3 scripts.\r\n* Revert back to default jest reporter, unless running all tests from\r\nroot, then it uses summary reporter.\r\n\r\nTODO:\r\n- [ ] kv-store tests\r\n- [x] TXE for contracts/aztec.nr tests\r\n- [x] noir js packages tests\r\n- [ ] Skipping tests matching `test_caches_open|requests` in noir tests.\r\n- [x] Standardise how tests are skipped so we can see in one place.\r\n\r\n---------\r\n\r\nCo-authored-by: ludamad <adam.domurad@gmail.com>",
-          "timestamp": "2025-01-02T12:37:03Z",
-          "tree_id": "7d7c340709bc212fa5fa493dc1586a4ddb5c1eb7",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/49dacc3378a339f8cc36971b630c52952249f60c"
-        },
-        "date": 1735822393862,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "nativeClientIVCBench/Ambient_17_in_20/6",
-            "value": 20261.802672999976,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 17801.997142 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeClientIVCBench/Full/6",
-            "value": 21823.828717000026,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 19275.886926 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 4613.451245999982,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 4301.50535 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmClientIVCBench/Full/6",
-            "value": 72823.09977500001,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 72823100000 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 13925.252640000002,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 13925253000 ms\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 2869725092,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 2869725092 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 142542608,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 142542608 ns\nthreads: 1"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -3284,6 +3218,72 @@ window.BENCHMARK_DATA = {
             "value": 133853433,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 133853433 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "fcarreiro@users.noreply.github.com",
+            "name": "Facundo",
+            "username": "fcarreiro"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "4d149be20e73321fece072a1b7e410225b5dc8c9",
+          "message": "feat(avm): include initial tree roots in DB (#11360)\n\nWe'll need the roots for the context and other stuff. I expect that `get_tree_roots()` will not lay constraints. I expect that the roots will be advanced via hints in, e.g, `emit_nullifier` (root before, root after).",
+          "timestamp": "2025-01-21T10:37:49Z",
+          "tree_id": "d61059801c174dd1b2c16c013c4b1bf6abe5f182",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/4d149be20e73321fece072a1b7e410225b5dc8c9"
+        },
+        "date": 1737456937849,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Ambient_17_in_20/6",
+            "value": 18934.115093000004,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 16022.106673 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 21571.164356000052,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 18870.275763999998 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 4069.3137160000106,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 3759.5047959999997 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 82807.149561,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 82807149000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 14677.943532000001,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 14677944000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 4028415386,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 4028415386 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 166153934,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 166153934 ns\nthreads: 1"
           }
         ]
       }
