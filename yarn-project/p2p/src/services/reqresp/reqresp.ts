@@ -104,15 +104,15 @@ export class ReqResp {
    * Stop the reqresp service
    */
   async stop() {
-    // Unregister all handlers
-    for (const protocol of Object.keys(this.subProtocolHandlers)) {
-      await this.libp2p.unhandle(protocol);
-    }
+    // Unregister handlers in parallel
+    const unregisterPromises = Object.keys(this.subProtocolHandlers).map(protocol => this.libp2p.unhandle(protocol));
+    await Promise.all(unregisterPromises);
 
-    // Close all active connections
+    // Close connection sampler
     await this.connectionSampler.stop();
     this.logger.debug('ReqResp: Connection sampler stopped');
 
+    // Close streams in parallel
     const closeStreamPromises = this.libp2p.getConnections().map(connection => connection.close());
     await Promise.all(closeStreamPromises);
     this.logger.debug('ReqResp: All active streams closed');
@@ -173,6 +173,7 @@ export class ReqResp {
       for (let i = 0; i < numberOfPeers; i++) {
         // Sample a peer to make a request to
         const peer = this.connectionSampler.getPeer(attemptedPeers);
+        this.logger.trace(`Attempting to send request to peer: ${peer?.toString()}`);
         if (!peer) {
           this.logger.debug('No peers available to send requests to');
           return undefined;

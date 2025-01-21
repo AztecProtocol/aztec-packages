@@ -26,7 +26,8 @@ export class RandomSampler {
  */
 export class ConnectionSampler {
   private readonly logger = createLogger('p2p:reqresp:connection-sampler');
-  private cleanupJob: RunningPromise;
+  private cleanupInterval: NodeJS.Timeout;
+  private abortController: AbortController = new AbortController();
 
   private readonly activeConnectionsCount: Map<PeerId, number> = new Map();
   private readonly streams: Map<string, StreamAndPeerId> = new Map();
@@ -39,8 +40,7 @@ export class ConnectionSampler {
     private readonly cleanupIntervalMs: number = 60000, // Default to 1 minute
     private readonly sampler: RandomSampler = new RandomSampler(), // Allow randomness to be mocked for testing
   ) {
-    this.cleanupJob = new RunningPromise(() => this.cleanupStaleConnections(), this.logger, this.cleanupIntervalMs);
-    this.cleanupJob.start();
+    this.cleanupInterval = setInterval(() => void this.cleanupStaleConnections(), this.cleanupIntervalMs);
 
     this.dialQueue.start();
   }
@@ -50,7 +50,9 @@ export class ConnectionSampler {
    */
   async stop() {
     this.logger.info('Stopping connection sampler');
-    await this.cleanupJob.stop();
+    clearInterval(this.cleanupInterval);
+
+    this.abortController.abort();
     await this.dialQueue.end();
 
     // Close all active streams
@@ -143,7 +145,9 @@ export class ConnectionSampler {
   async dialProtocol(peerId: PeerId, protocol: string): Promise<Stream> {
     // Dialling at the same time can cause race conditions where two different streams
     // end up with the same id, hence a serial queue
-    const stream = await this.dialQueue.put(() => this.libp2p.dialProtocol(peerId, protocol));
+    const stream = await this.dialQueue.put(() =>
+      this.libp2p.dialProtocol(peerId, protocol, { signal: this.abortController.signal }),
+    );
 
     this.streams.set(stream.id, { stream, peerId });
     const updatedActiveConnectionsCount = (this.activeConnectionsCount.get(peerId) ?? 0) + 1;

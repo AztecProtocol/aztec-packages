@@ -40,7 +40,7 @@ describe('ReqResp', () => {
 
   afterEach(async () => {
     if (nodes) {
-      await stopNodes(nodes as ReqRespNode[]);
+      await Promise.all(nodes.flatMap(node => [node.req.stop(), node.p2p.stop()]));
     }
   });
 
@@ -74,15 +74,17 @@ describe('ReqResp', () => {
     await connectToPeers(nodes);
     await sleep(500);
 
-    void ponger.stop();
+    const stopPonger = ponger.stop();
 
     // It should return undefined if it cannot dial the peer
     const res = await pinger.sendRequest(ReqRespSubProtocol.PING, PING_REQUEST);
 
     expect(res).toBeUndefined();
+
+    await stopPonger;
   });
 
-  it.skip('should request from a later peer if other peers are offline', async () => {
+  it.only('should request from a later peer if other peers are offline', async () => {
     nodes = await createNodes(peerScoring, 4);
 
     await startNodes(nodes);
@@ -90,9 +92,14 @@ describe('ReqResp', () => {
     await connectToPeers(nodes);
     await sleep(500);
 
+    console.log(
+      'All peer ids',
+      nodes.map(node => node.p2p.peerId.toString()),
+    );
+
     // Stop the second middle two nodes
-    void nodes[1].req.stop();
-    void nodes[2].req.stop();
+    const stopNode1 = nodes[1].req.stop();
+    const stopNode2 = nodes[2].req.stop();
 
     // send from the first node
     let res = await nodes[0].req.sendRequest(ReqRespSubProtocol.PING, PING_REQUEST);
@@ -107,6 +114,8 @@ describe('ReqResp', () => {
 
     // It will randomly try to connect, then hit the correct node
     expect(res?.toBuffer().toString('utf-8')).toEqual('pong');
+
+    await Promise.all([stopNode1, stopNode2]);
   });
 
   it('should hit a rate limit if too many requests are made in quick succession', async () => {
