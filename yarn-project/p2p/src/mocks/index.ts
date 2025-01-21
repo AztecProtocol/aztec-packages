@@ -6,6 +6,7 @@ import {
   type WorldStateSynchronizer,
 } from '@aztec/circuit-types';
 import { type EpochCache } from '@aztec/epoch-cache';
+import { timesParallel } from '@aztec/foundation/collection';
 import { type DataStoreConfig } from '@aztec/kv-store/config';
 import { openTmpStore } from '@aztec/kv-store/lmdb';
 import { type TelemetryClient, getTelemetryClient } from '@aztec/telemetry-client';
@@ -171,7 +172,7 @@ export const MOCK_SUB_PROTOCOL_VALIDATORS: ReqRespSubProtocolValidators = {
  * @returns An array of the created nodes
  */
 export const createNodes = async (peerScoring: PeerScoring, numberOfNodes: number): Promise<ReqRespNode[]> => {
-  return await Promise.all(Array.from({ length: numberOfNodes }, () => createReqResp(peerScoring)));
+  return timesParallel(numberOfNodes, () => createReqResp(peerScoring));
 };
 
 export const startNodes = async (

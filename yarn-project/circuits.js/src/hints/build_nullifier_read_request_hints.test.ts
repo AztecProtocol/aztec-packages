@@ -18,8 +18,8 @@ import {
 } from '../structs/index.js';
 import { buildNullifierReadRequestHints } from './build_nullifier_read_request_hints.js';
 
-describe('buildNullifierReadRequestHints', async () => {
-  const contractAddress = await AztecAddress.random();
+describe('buildNullifierReadRequestHints', () => {
+  let contractAddress: AztecAddress;
   const settledNullifierInnerValue = 99999;
   const oracle = {
     getNullifierMembershipWitness: () => ({ membershipWitness: {}, leafPreimage: {} } as any),
@@ -82,7 +82,8 @@ describe('buildNullifierReadRequestHints', async () => {
   const buildHints = async () =>
     await buildNullifierReadRequestHints(oracle, nullifierReadRequests, nullifiers, futureNullifiers);
 
-  beforeEach(() => {
+  beforeEach(async () => {
+    contractAddress = await AztecAddress.random();
     nullifierReadRequests = makeTuple(MAX_NULLIFIER_READ_REQUESTS_PER_TX, ScopedReadRequest.empty);
     nullifiers = makeTuple(MAX_NULLIFIERS_PER_TX, i => makeNullifier(innerNullifier(i)));
     expectedHints = NullifierReadRequestHintsBuilder.empty(
