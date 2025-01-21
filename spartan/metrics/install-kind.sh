@@ -14,7 +14,7 @@ fi
 DASHBOARD_JSON=$(jq -c '.' grafana_dashboards/aztec-dashboard-all-in-one.json)
 DASHBOARD_JSON=$DASHBOARD_JSON yq e '.grafana.dashboards.default."aztec-networks".json = strenv(DASHBOARD_JSON)' values.tmp.yaml > values.yaml
 
-helm repo add open-telemetry https://open-telemetry.github.io/opentelemetry-helm-charts
+helm repo add open-telemetry https://github.com/open-telemetry/opentelemetry-helm-charts
 helm repo add grafana https://grafana.github.io/helm-charts
 helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
 helm dependency update
