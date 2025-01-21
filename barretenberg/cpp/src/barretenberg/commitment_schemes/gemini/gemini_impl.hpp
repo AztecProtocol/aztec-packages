@@ -62,14 +62,15 @@ std::vector<typename GeminiProver_<Curve>::Claim> GeminiProver_<Curve>::prove(
     polynomial_batches.set_to_be_1_shifted(g_polynomials);
 
     // To achieve ZK, we mask the batched polynomial by a random polynomial of the same size
-    Polynomial random_polynomial;
     if (has_zk) {
-        random_polynomial = Polynomial::random(n);
+        Polynomial random_polynomial(n);
         transcript->send_to_verifier("Gemini:masking_poly_comm", commitment_key->commit(random_polynomial));
         // In the provers, the size of multilinear_challenge is CONST_PROOF_SIZE_LOG_N, but we need to evaluate the
         // hiding polynomial as multilinear in log_n variables
         transcript->send_to_verifier("Gemini:masking_poly_eval",
                                      random_polynomial.evaluate_mle(multilinear_challenge.subspan(0, log_n)));
+        // Initialize batched unshifted poly with the random masking poly so that the full batched poly is masked
+        polynomial_batches.initialize_batched_unshifted(std::move(random_polynomial));
     }
 
     // Get the batching challenge
@@ -78,9 +79,6 @@ std::vector<typename GeminiProver_<Curve>::Claim> GeminiProver_<Curve>::prove(
     Fr rho_challenge = has_zk ? rho : 1; // ρ⁰ is used to batch the hiding polynomial
 
     Polynomial A_0 = polynomial_batches.compute_batched(rho, rho_challenge);
-    if (has_zk) {
-        A_0 += random_polynomial;
-    }
 
     size_t num_groups = groups_to_be_concatenated.size();
     size_t num_chunks_per_group = groups_to_be_concatenated.empty() ? 0 : groups_to_be_concatenated[0].size();
@@ -126,10 +124,6 @@ std::vector<typename GeminiProver_<Curve>::Claim> GeminiProver_<Curve>::prove(
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/1194). Handle edge cases in PCS
     if (gemini_challenge_in_small_subgroup) {
         throw_or_abort("Gemini evaluation challenge is in the SmallSubgroup.");
-    }
-
-    if (has_zk) {
-        polynomial_batches.batched_unshifted += random_polynomial;
     }
 
     // Compute polynomials A₀₊(X) = F(X) + G(X)/r and A₀₋(X) = F(X) - G(X)/r

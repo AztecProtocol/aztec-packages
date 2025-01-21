@@ -103,9 +103,7 @@ template <typename Curve> class GeminiProver_ {
     class PolynomialBatches {
       public:
         size_t full_batched_size = 0;
-        bool has_randomness = false;
-
-        // Polynomial random_polynomial;
+        bool batched_unshifted_initialized = false;
 
         RefSpan<Polynomial> unshifted;
         RefSpan<Polynomial> to_be_1_shifted;
@@ -113,9 +111,12 @@ template <typename Curve> class GeminiProver_ {
         Polynomial batched_unshifted;
         Polynomial batched_to_be_1_shifted;
 
-        Polynomial batch(RefSpan<Polynomial> polynomials, const Fr& challenge, Fr& running_scalar)
+        Polynomial batch_into(Polynomial& batched,
+                              RefSpan<Polynomial> polynomials,
+                              const Fr& challenge,
+                              Fr& running_scalar)
         {
-            Polynomial batched(polynomials[0].size(), polynomials[0].virtual_size(), polynomials[0].start_index());
+            // Polynomial batched(polynomials[0].size(), polynomials[0].virtual_size(), polynomials[0].start_index());
             for (auto poly : polynomials) {
                 batched.add_scaled(poly, running_scalar);
                 running_scalar *= challenge;
@@ -126,7 +127,6 @@ template <typename Curve> class GeminiProver_ {
       public:
         PolynomialBatches(const size_t full_batched_size)
             : full_batched_size(full_batched_size)
-            , batched_unshifted(Polynomial(full_batched_size))
         {}
 
         bool has_unshifted() const { return unshifted.size() > 0; }
@@ -135,24 +135,27 @@ template <typename Curve> class GeminiProver_ {
         void set_unshifted(RefSpan<Polynomial> polynomials) { unshifted = polynomials; }
         void set_to_be_1_shifted(RefSpan<Polynomial> polynomials) { to_be_1_shifted = polynomials; }
 
-        // void set_random_polynomial(Polynomial&& random)
-        // {
-        //     has_randomness = true;
-        //     random_polynomial = random;
-        // }
+        void initialize_batched_unshifted(Polynomial&& random)
+        {
+            batched_unshifted_initialized = true;
+            batched_unshifted = random;
+        }
 
         Polynomial compute_batched(const Fr& challenge, Fr& running_scalar)
         {
             Polynomial full_batched(full_batched_size);
-            // if (has_randomness) {
-            //     full_batched = batch({ random_polynomial }, challenge, running_scalar);
-            // }
+
             if (has_unshifted()) {
-                batched_unshifted = batch(unshifted, challenge, running_scalar);
+                if (!batched_unshifted_initialized) {
+                    batched_unshifted = Polynomial(full_batched_size);
+                }
+                batch_into(batched_unshifted, unshifted, challenge, running_scalar);
                 full_batched += batched_unshifted;
             }
+
             if (has_to_be_1_shifted()) {
-                batched_to_be_1_shifted = batch(to_be_1_shifted, challenge, running_scalar);
+                batched_to_be_1_shifted = Polynomial::shiftable(full_batched_size);
+                batch_into(batched_to_be_1_shifted, to_be_1_shifted, challenge, running_scalar);
                 full_batched += batched_to_be_1_shifted.shifted();
             }
 
@@ -162,10 +165,6 @@ template <typename Curve> class GeminiProver_ {
         std::pair<Polynomial, Polynomial> compute_partially_evaluated_batch_polynomials(const Fr& r_challenge)
         {
             Polynomial& batched_F = batched_unshifted;
-
-            // if (has_randomness) {
-            //     batched_F += random_polynomial;
-            // }
 
             Polynomial& A_0_pos = batched_F; // A₀₊ = F
             Polynomial A_0_neg = batched_F;  // A₀₋ = F
