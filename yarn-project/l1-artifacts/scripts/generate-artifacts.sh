@@ -1,6 +1,9 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+# Working directory independent.
+cd $(git rev-parse --show-toplevel)/yarn-project/l1-artifacts
+
 # Contracts name list (all assumed to be in l1-contracts).
 # This script writes into the generated/ folder:
 # - index.ts: entrypoint
@@ -32,7 +35,7 @@ contracts=(
   "Slasher"
   "EmpireBase"
   "SlashFactory"
-  "RollupVerifier"
+  "HonkVerifier"
 )
 
 # Combine error ABIs once, removing duplicates by {type, name}.
@@ -51,7 +54,6 @@ rm -rf generated && mkdir generated
 echo "// Auto-generated module" > "generated/index.ts"
 
 for contract_name in "${contracts[@]}"; do
-
   # Generate <ContractName>Abi.ts
   (
     echo "/**"
