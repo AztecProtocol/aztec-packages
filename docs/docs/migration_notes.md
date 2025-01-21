@@ -42,8 +42,8 @@ This PR also renamed encrypted events to private events:
 Use `getMembershipWitness` oracle instead that returns both the sibling path and index.
 
 ### [Aztec.nr] Introduction of `Packable` trait
-We have introduced a `Packable` trait that allows types to be serialized and deserialized with a focus on minimizing the size of the resulting Field array, even at the cost of additional constraints.
-This is in contrast to the `Serialize` and `Deserialize` traits, which prioritize minimizing constraint costs but may result in larger arrays.
+We have introduced a `Packable` trait that allows types to be serialized and deserialized with a focus on minimizing the size of the resulting Field array.
+This is in contrast to the `Serialize` and `Deserialize` traits, which follows Noir's intrinsic serialization format.
 This is a breaking change because we now require `Packable` trait implementation for any type that is to be stored in contract storage.
 
 Example implementation of Packable trait for `U128` type from `noir::std`:
