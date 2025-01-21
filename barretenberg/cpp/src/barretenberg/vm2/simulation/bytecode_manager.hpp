@@ -9,10 +9,13 @@
 
 #include "barretenberg/vm2/common/aztec_types.hpp"
 #include "barretenberg/vm2/common/map.hpp"
+#include "barretenberg/vm2/simulation/address_derivation.hpp"
+#include "barretenberg/vm2/simulation/class_id_derivation.hpp"
 #include "barretenberg/vm2/simulation/events/bytecode_events.hpp"
 #include "barretenberg/vm2/simulation/events/event_emitter.hpp"
 #include "barretenberg/vm2/simulation/lib/raw_data_db.hpp"
 #include "barretenberg/vm2/simulation/lib/serialization.hpp"
+#include "barretenberg/vm2/simulation/siloing.hpp"
 
 namespace bb::avm2::simulation {
 
@@ -33,10 +36,14 @@ class TxBytecodeManagerInterface {
 class TxBytecodeManager : public TxBytecodeManagerInterface {
   public:
     TxBytecodeManager(RawDataDBInterface& db,
+                      AddressDerivationInterface& address_derivation,
+                      ClassIdDerivationInterface& class_id_derivation,
                       EventEmitterInterface<BytecodeRetrievalEvent>& retrieval_events,
                       EventEmitterInterface<BytecodeHashingEvent>& hash_events,
                       EventEmitterInterface<BytecodeDecompositionEvent>& decomposition_events)
         : db(db)
+        , address_derivation(address_derivation)
+        , class_id_derivation(class_id_derivation)
         , retrieval_events(retrieval_events)
         , hash_events(hash_events)
         , decomposition_events(decomposition_events)
@@ -47,6 +54,8 @@ class TxBytecodeManager : public TxBytecodeManagerInterface {
 
   private:
     RawDataDBInterface& db;
+    AddressDerivationInterface& address_derivation;
+    ClassIdDerivationInterface& class_id_derivation;
     EventEmitterInterface<BytecodeRetrievalEvent>& retrieval_events;
     EventEmitterInterface<BytecodeHashingEvent>& hash_events;
     EventEmitterInterface<BytecodeDecompositionEvent>& decomposition_events;
