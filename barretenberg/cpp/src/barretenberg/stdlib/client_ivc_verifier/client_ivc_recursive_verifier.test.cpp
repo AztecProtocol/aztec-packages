@@ -11,9 +11,9 @@ class ClientIVCRecursionTests : public testing::Test {
     using ClientIVCVerifier = ClientIVCRecursiveVerifier;
     using FoldVerifierInput = ClientIVCVerifier::FoldVerifierInput;
     using Proof = ClientIVC::Proof;
-    using Flavor = UltraRollupRecursiveFlavor_<Builder>;
-    using NativeFlavor = Flavor::NativeFlavor;
-    using UltraRecursiveVerifier = UltraRecursiveVerifier_<Flavor>;
+    using RollupFlavor = UltraRollupRecursiveFlavor_<Builder>;
+    using NativeFlavor = RollupFlavor::NativeFlavor;
+    using UltraRecursiveVerifier = UltraRecursiveVerifier_<RollupFlavor>;
     using MockCircuitProducer = PrivateFunctionExecutionMockCircuitProducer;
     using IVCVerificationKey = ClientIVC::VerificationKey;
 
@@ -131,12 +131,12 @@ TEST_F(ClientIVCRecursionTests, ClientTubeBase)
     // Construct a base rollup circuit that recursively verifies the tube proof and forwards the IPA proof.
     Builder base_builder;
     auto native_vk = std::make_shared<NativeFlavor::VerificationKey>(proving_key->proving_key);
-    auto vk = std::make_shared<Flavor::VerificationKey>(&base_builder, native_vk);
+    auto tube_vk = std::make_shared<RollupFlavor::VerificationKey>(&base_builder, native_vk);
     auto tube_proof = bb::convert_native_proof_to_stdlib(&base_builder, native_tube_proof);
-    UltraRecursiveVerifier base_verifier{ &base_builder, vk };
-    UltraRecursiveVerifierOutput<Flavor> output = base_verifier.verify_proof(
-        tube_proof, stdlib::recursion::init_default_aggregation_state<Builder, Flavor::Curve>(base_builder));
-    info("UH Recursive Verifier: num prefinalized gates = ", base_builder.num_gates);
+    UltraRecursiveVerifier base_verifier{ &base_builder, tube_vk };
+    UltraRecursiveVerifierOutput<RollupFlavor> output = base_verifier.verify_proof(
+        tube_proof, stdlib::recursion::init_default_aggregation_state<Builder, RollupFlavor::Curve>(base_builder));
+    info("Tube UH Recursive Verifier: num prefinalized gates = ", base_builder.num_gates);
     base_builder.add_pairing_point_accumulator(output.agg_obj.get_witness_indices());
     base_builder.add_ipa_claim(output.ipa_opening_claim.get_witness_indices());
     base_builder.ipa_proof = tube_prover.proving_key->proving_key.ipa_proof;
