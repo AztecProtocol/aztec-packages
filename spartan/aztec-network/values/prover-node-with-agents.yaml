@@ -33,4 +33,7 @@ jobs:
 
 ethereum:
   external: true
-  externalHost: ""
+  execution:
+    externalHost: ""
+  beacon:
+    externalHost: ""
