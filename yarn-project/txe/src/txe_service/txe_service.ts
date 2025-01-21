@@ -53,7 +53,7 @@ export class TXEService {
       await txeDatabase.addContractInstance(instance);
     }
     logger.debug(`TXE service initialized`);
-    const txe = new TXE(logger, trees, executionCache, keyStore, txeDatabase);
+    const txe = await TXE.create(logger, trees, executionCache, keyStore, txeDatabase);
     const service = new TXEService(logger, txe);
     await service.advanceBlocksBy(toSingle(new Fr(1n)));
     return service;

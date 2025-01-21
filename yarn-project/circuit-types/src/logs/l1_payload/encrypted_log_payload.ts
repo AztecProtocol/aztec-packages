@@ -62,8 +62,8 @@ function trimCiphertext(buf: Buffer, ciphertextLength: number) {
 class Overhead {
   constructor(public ephPk: Point, public incomingHeader: Buffer) {}
 
-  static fromBuffer(reader: BufferReader) {
-    const ephPk = Point.fromCompressedBuffer(reader.readBytes(Point.COMPRESSED_SIZE_IN_BYTES));
+  static async fromBuffer(reader: BufferReader) {
+    const ephPk = await Point.fromCompressedBuffer(reader.readBytes(Point.COMPRESSED_SIZE_IN_BYTES));
     const incomingHeader = reader.readBytes(HEADER_SIZE);
 
     // Advance the index to skip the padding.
@@ -92,12 +92,12 @@ export class EncryptedLogPayload {
     public readonly incomingBodyPlaintext: Buffer,
   ) {}
 
-  public generatePayload(
+  public async generatePayload(
     ephSk: GrumpkinScalar,
     recipient: AztecAddress,
     rand: (len: number) => Buffer = randomBytes,
-  ): PrivateLog {
-    const addressPoint = recipient.toAddressPoint();
+  ): Promise<PrivateLog> {
+    const addressPoint = await recipient.toAddressPoint();
 
     const ephPk = derivePublicKeyFromSecretKey(ephSk);
     const incomingHeaderCiphertext = encrypt(this.contractAddress.toBuffer(), ephSk, addressPoint);
@@ -152,16 +152,16 @@ export class EncryptedLogPayload {
    * @param ciphertextLength - Optionally supply the ciphertext length (see trimCiphertext())
    * @returns The decrypted log payload
    */
-  public static decryptAsIncoming(
+  public static async decryptAsIncoming(
     payload: Fr[],
     addressSecret: GrumpkinScalar,
     ciphertextLength?: number,
-  ): EncryptedLogPayload | undefined {
+  ): Promise<EncryptedLogPayload | undefined> {
     try {
       const tag = payload[0];
       const reader = BufferReader.asReader(fieldsToEncryptedBytes(payload.slice(1)));
 
-      const overhead = Overhead.fromBuffer(reader);
+      const overhead = await Overhead.fromBuffer(reader);
       const { contractAddress } = this.#decryptOverhead(overhead, { addressSecret });
 
       let ciphertext = reader.readToEnd();

@@ -68,8 +68,8 @@ export class L1ToL2Message {
     return new L1ToL2Message(L1Actor.empty(), L2Actor.empty(), Fr.ZERO, Fr.ZERO, Fr.ZERO);
   }
 
-  static random(): L1ToL2Message {
-    return new L1ToL2Message(L1Actor.random(), L2Actor.random(), Fr.random(), Fr.random(), Fr.random());
+  static async random(): Promise<L1ToL2Message> {
+    return new L1ToL2Message(L1Actor.random(), await L2Actor.random(), Fr.random(), Fr.random(), Fr.random());
   }
 }
 
