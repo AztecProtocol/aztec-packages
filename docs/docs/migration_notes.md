@@ -7,6 +7,17 @@ keywords: [sandbox, aztec, notes, migration, updating, upgrading]
 Aztec is in full-speed development. Literally every version breaks compatibility with the previous ones. This page attempts to target errors and difficulties you might encounter when upgrading, and how to resolve them.
 
 ## 0.72.0
+### Some functions in `aztec.js` and `@aztec/accounts` are now async
+In our efforts to make libraries more browser-friendly and providing with more bundling options for `bb.js` (like a non top-level-await version), some functions are being made async, in particular those that access our cryptographic functions.
+
+```diff
+- AztecAddress.random();
++ await AztecAddress.random();
+
+- getSchnorrAccount();
++ await getSchnorrAccount();
+```
+
 ### Public logs replace unencrypted logs
 Any log emitted from public is now known as a public log, rather than an unencrypted log. This means methods relating to these logs have been renamed e.g. in the pxe, archiver, txe:
 ```diff
