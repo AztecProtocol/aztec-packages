@@ -3,8 +3,8 @@ use crate::{
     encrypted_logs::{
         encrypt::aes128::derive_aes_symmetric_key_and_iv_from_ecdh_shared_secret_using_sha256,
         log_assembly_strategies::default_aes128::note::{
-            get_arr_of_size_fields_padding_from_PT, get_arr_of_size_log_bytes_from_PT,
-            get_arr_of_size_p_from_PT, HEADER_CIPHERTEXT_SIZE_IN_BYTES,
+            get_arr_of_size__log_bytes__from_PT,
+            get_arr_of_size__log_bytes_padding__from_PT, HEADER_CIPHERTEXT_SIZE_IN_BYTES,
         },
     },
     event::event_interface::EventInterface,
@@ -51,9 +51,6 @@ use std::aes128::aes128_encrypt;
  * LOG LAYOUT CHOICE:
  *
  * As per ./note.nr, but replace `note_bytes` with `event_bytes`.
- *
- * log = [tag, Epk, header_ct=[contract_address], ct=[pt_len, pt, padding]]
- *
  */
 
 fn compute_log<Event, let N: u32>(
@@ -152,10 +149,10 @@ where
     // to fields.
     // *****************************************************************************
 
-    let mut log_bytes_padding_to_mult_31 = get_arr_of_size_p_from_PT::<(N * 32) + 32>();
+    let mut log_bytes_padding_to_mult_31 = get_arr_of_size__log_bytes_padding__from_PT::<(N * 32) + 32>();
     log_bytes_padding_to_mult_31 = unsafe { get_random_bytes() };
 
-    let mut log_bytes = get_arr_of_size_log_bytes_from_PT::<(N * 32) + 32>();
+    let mut log_bytes = get_arr_of_size__log_bytes__from_PT::<(N * 32) + 32>();
 
     log_bytes[0] = eph_pk_sign_byte;
     let mut offset = 1;

@@ -5,7 +5,7 @@ use crate::{
     encrypted_logs::{
         encrypt::aes128::derive_aes_symmetric_key_and_iv_from_ecdh_shared_secret_using_sha256,
         log_assembly_strategies::default_aes128::note::{
-            get_arr_of_size_log_bytes_from_PT, get_arr_of_size_p_from_PT,
+            get_arr_of_size__log_bytes__from_PT, get_arr_of_size__log_bytes_padding__from_PT,
             HEADER_CIPHERTEXT_SIZE_IN_BYTES,
         },
     },
@@ -102,10 +102,10 @@ pub fn compute_partial_public_log_payload<let N: u32, let M: u32>(
     // to fields.
     // *****************************************************************************
 
-    let mut log_bytes_padding_to_mult_31 = get_arr_of_size_p_from_PT::<2 + N>();
+    let mut log_bytes_padding_to_mult_31 = get_arr_of_size__log_bytes_padding__from_PT::<2 + N>();
     log_bytes_padding_to_mult_31 = unsafe { get_random_bytes() };
 
-    let mut log_bytes = get_arr_of_size_log_bytes_from_PT::<2 + N>();
+    let mut log_bytes = get_arr_of_size__log_bytes__from_PT::<2 + N>();
 
     log_bytes[0] = eph_pk_sign_byte;
     let mut offset = 1;

@@ -17,32 +17,7 @@ use dep::protocol_types::{
 };
 use std::aes128::aes128_encrypt;
 
-// These globals are used in arithmetic with generics; hence why they're declared as globals.
-// Local variables cannot be used in arithmetic with generics.
-
-global TAG_SIZE_IN_FIELDS: u32 = 1;
-global EPK_SIZE_IN_FIELDS: u32 = 1;
-
-global USABLE_PRIVATE_LOG_SIZE_IN_FIELDS: u32 =
-    PRIVATE_LOG_SIZE_IN_FIELDS - TAG_SIZE_IN_FIELDS - EPK_SIZE_IN_FIELDS;
-
-// Let C = USABLE_PRIVATE_LOG_SIZE_IN_FIELDS.
-// How many bytes is that? Call it D bytes.
-// For this strategy, we'll be using `le_bytes_31_to_fields()` to convert the D
-// output bytes into C output fields. That function will spit out ceil(D/31)
-// fields, which we want to be equal to C fields.
-// Note also that D will be a multiple of 16, as the output of AES.
-// So let E * 16 = D.
-// Solve: C = ceil(D / 31)
-// C - 1 < D / 31 <= C
-// So D is in the range: 31 * C - 31 < D <= 31 * C
-// So E is in the range: (31 * C - 31) / 16 < E <= (31 * C) / 16
-// floor((31 * c) / 16) is the value of E we want to choose.
-// floor((31 * C) / 16) * 16 is the highest value of D that is a multiple of 16.
-pub(crate) global USABLE_PRIVATE_LOG_SIZE_IN_BYTES: u32 =
-    ((USABLE_PRIVATE_LOG_SIZE_IN_FIELDS * 31) / 16) * 16;
-
-pub(crate) global HEADER_CIPHERTEXT_SIZE_IN_BYTES: u32 = 48; // contract_address + 16 bytes pkcs#7 AES padding (unfortunately).
+pub(crate) global HEADER_CIPHERTEXT_SIZE_IN_BYTES: u32 = 48; // contract_address (32) + ciphertext_length (2) + 16 bytes pkcs#7 AES padding.
 
 /*
  * WHY IS THERE LOTS OF CODE DUPLICATION BETWEEN event.nr and note.nr?
@@ -74,8 +49,10 @@ pub(crate) global HEADER_CIPHERTEXT_SIZE_IN_BYTES: u32 = 48; // contract_address
 /*
  * LOG LAYOUT CHOICE:
  *
- * log = [tag, epk, fixed_padding, header_ct=[[contract_address], pkcs7_pad], ct=[[pt_len, pt], pkcs7_pad]]
+ * Short explanation:
+ * log = [tag, epk, header_ct=[[contract_address, ct_len], pkcs7_pad], ct=[[pt], pkcs7_pad], some bytes padding, some fields padding]
  *
+ * Long explanation:
  * tag: Field
  * epk: [Field, u8]
  * header_ct: [[u8; 32], [u8; 2], [u8; 16]]
@@ -98,12 +75,11 @@ pub(crate) global HEADER_CIPHERTEXT_SIZE_IN_BYTES: u32 = 48; // contract_address
  *
  *                 // the aes128_encrypt fn automatically inserts padding:
  *                 header_pt_aes_padding: [u8; 14], // `16 - (input.len() % 16)`
- *                                    [u8; HEADER_PT_PADDING_SIZE_IN_BYTES]
+
  *             ): [u8; 48],
  *
  *             ciphertext: aes_encrypt(
  *                 final_pt: [
- *                                         // plaintexts can be longer than 2^8=256 bytes.
  *                     pt: {
  *                         note_bytes: {
  *                             storage_slot: [u8; 32],
@@ -111,7 +87,7 @@ pub(crate) global HEADER_CIPHERTEXT_SIZE_IN_BYTES: u32 = 48; // contract_address
  *                             ...note: [u8; N * 32],
  *                         }: [u8; N * 32 + 64],
  *                     }: [u8; N * 32 + 64],
- *
+
  *                 ]: [u8; N * 32 + 64],
  *
  *                 // the aes128_encrypt fn automatically inserts padding:
@@ -139,19 +115,19 @@ pub(crate) global HEADER_CIPHERTEXT_SIZE_IN_BYTES: u32 = 48; // contract_address
 /********************************************************/
 
 // |full_pt| = |pt| = (N * 32) + 64
-fn get_arr_of_size_full_pt<let PT: u32>() -> [u8; PT] {
+fn get_arr_of_size__full_plaintext<let PT: u32>() -> [u8; PT] {
     [0; PT]
 }
 
 // |pt_aes_padding| = 16 - (|full_pt| % 16)
-fn get_arr_of_size_pt_aes_padding<let FULL_PT: u32>(
+fn get_arr_of_size__plaintext_aes_padding<let FULL_PT: u32>(
     _full_pt: [u8; FULL_PT],
 ) -> [u8; 16 - (FULL_PT % 16)] {
     [0; 16 - (FULL_PT % 16)]
 }
 
 // |ct| = |full_pt| + |pt_aes_padding|
-fn get_arr_of_size_ct<let FULL_PT: u32, let PT_AES_PADDING: u32>(
+fn get_arr_of_size__ciphertext<let FULL_PT: u32, let PT_AES_PADDING: u32>(
     _full_pt: [u8; FULL_PT],
     _pt_aes_padding: [u8; PT_AES_PADDING],
 ) -> [u8; FULL_PT + PT_AES_PADDING] {
@@ -159,73 +135,53 @@ fn get_arr_of_size_ct<let FULL_PT: u32, let PT_AES_PADDING: u32>(
 }
 
 // Ok, so we have the following bytes:
-// eph_pk_sign, header_ciphertext, ciphertext
-// Let b = 1 + 48 + |ct|.
-fn get_arr_of_size_b<let CT: u32>(_ct: [u8; CT]) -> [u8; 1 + 48 + CT] {
+// eph_pk_sign, header_ciphertext, ciphertext:
+// Let lbwop = 1 + 48 + |ct| // aka log bytes without padding
+fn get_arr_of_size__log_bytes_without_padding<let CT: u32>(_ct: [u8; CT]) -> [u8; 1 + 48 + CT] {
     [0; 1 + 48 + CT]
 }
 
 // Recall:
-//   b := 1 + 48 + |ct|
+//   lbwop := 1 + 48 + |ct| // aka log bytes without padding
 // We now want to pad b to the next multiple of 31, so as to "fill" fields.
 // Let p be that padding.
-// p = 31 * ceil(b / 31) - b
-//   = 31 * ((b + 30) // 31) - b
+// p = 31 * ceil(lbwop / 31) - lbwop
+//   = 31 * ((lbwop + 30) // 31) - lbwop
 //     (because ceil(x / y) = (x + y - 1) // y ).
-fn get_arr_of_size_p<let B: u32>(_b: [u8; B]) -> [u8; (31 * ((B + 30) / 31)) - B] {
-    [0; 31 * ((B + 30) / 31) - B]
+fn get_arr_of_size__log_bytes_padding<let LBWOP: u32>(_lbwop: [u8; LBWOP]) -> [u8; (31 * ((LBWOP + 30) / 31)) - LBWOP] {
+    [0; 31 * ((LBWOP + 30) / 31) - LBWOP]
 }
 
-// |log_bytes| = 1 + 48 + |ct| + p
+// |log_bytes| = 1 + 48 + |ct| + p // aka log bytes (with padding)
 // Recall:
-//   b := 1 + 48 + |ct|
-fn get_arr_of_size_log_bytes<let B: u32, let P: u32>(_b: [u8; B], _p: [u8; P]) -> [u8; B + P] {
-    [0; B + P]
-}
-
-// We need to pad with some extra fields:
-// |log_bytes| = 1 + 48 + |ct| + p
-// = 31 * (((1 + 48 + (16 * (1 + ( 2 + (N * 32) + 64 ) // 16))) + 30) // 31)
-//
-// |log_bytes_as_fields| = |log_bytes| / 31 (note that this is exactly divisible
-// by 31, by the design of p).
-//
-// |fields_padding| = USABLE_PRIVATE_LOG_SIZE_IN_FIELDS - |log_bytes_as_fields|
-fn get_arr_of_size_fields_padding<let LOG_BYTES: u32>(
-    _log_bytes: [u8; LOG_BYTES],
-) -> [Field; USABLE_PRIVATE_LOG_SIZE_IN_FIELDS - LOG_BYTES / 31] {
-    [0; USABLE_PRIVATE_LOG_SIZE_IN_FIELDS - LOG_BYTES / 31]
+//   lbwop := 1 + 48 + |ct|
+//   p is the padding
+fn get_arr_of_size__log_bytes<let LBWOP: u32, let P: u32>(_lbwop: [u8; LBWOP], _p: [u8; P]) -> [u8; LBWOP + P] {
+    [0; LBWOP + P]
 }
 
 // The return type is pasted from the LSP's expectation, because it was too difficult
 // to match its weird way of doing algebra. It doesn't know all rules of arithmetic.
-pub(crate) fn get_arr_of_size_p_from_PT<let PT: u32>() -> [u8; ((((((PT + (16 - (PT % 16))) + 49) + 30) / 31) * 31) - ((PT + (16 - (PT % 16))) + 49))] {
-    let full_pt = get_arr_of_size_full_pt::<PT>();
-    let pt_aes_padding = get_arr_of_size_pt_aes_padding(full_pt);
-    let ct = get_arr_of_size_ct(full_pt, pt_aes_padding);
-    let b = get_arr_of_size_b(ct);
-    let p = get_arr_of_size_p(b);
+// PT is the plaintext length.
+pub(crate) fn get_arr_of_size__log_bytes_padding__from_PT<let PT: u32>() -> [u8; ((((((PT + (16 - (PT % 16))) + 49) + 30) / 31) * 31) - ((PT + (16 - (PT % 16))) + 49))] {
+    let full_pt = get_arr_of_size__full_plaintext::<PT>();
+    let pt_aes_padding = get_arr_of_size__plaintext_aes_padding(full_pt);
+    let ct = get_arr_of_size__ciphertext(full_pt, pt_aes_padding);
+    let lbwop = get_arr_of_size__log_bytes_without_padding(ct);
+    let p = get_arr_of_size__log_bytes_padding(lbwop);
     p
 }
 
 // The return type is pasted from the LSP's expectation, because it was too difficult
 // to match its weird way of doing algebra. It doesn't know all rules of arithmetic.
-pub(crate) fn get_arr_of_size_log_bytes_from_PT<let PT: u32>() -> [u8; (((PT + (16 - (PT % 16))) + 49) + ((((((PT + (16 - (PT % 16))) + 49) + 30) / 31) * 31) - ((PT + (16 - (PT % 16))) + 49)))] {
-    let full_pt = get_arr_of_size_full_pt::<PT>();
-    let pt_aes_padding = get_arr_of_size_pt_aes_padding(full_pt);
-    let ct = get_arr_of_size_ct(full_pt, pt_aes_padding);
-    let b = get_arr_of_size_b(ct);
-    let p = get_arr_of_size_p(b);
-    let log_bytes = get_arr_of_size_log_bytes(b, p);
+pub(crate) fn get_arr_of_size__log_bytes__from_PT<let PT: u32>() -> [u8; (((PT + (16 - (PT % 16))) + 49) + ((((((PT + (16 - (PT % 16))) + 49) + 30) / 31) * 31) - ((PT + (16 - (PT % 16))) + 49)))] {
+    let full_pt = get_arr_of_size__full_plaintext::<PT>();
+    let pt_aes_padding = get_arr_of_size__plaintext_aes_padding(full_pt);
+    let ct = get_arr_of_size__ciphertext(full_pt, pt_aes_padding);
+    let lbwop = get_arr_of_size__log_bytes_without_padding(ct);
+    let p = get_arr_of_size__log_bytes_padding(lbwop);
+    let log_bytes = get_arr_of_size__log_bytes(lbwop, p);
     log_bytes
-}
-
-// The return type is pasted from the LSP's expectation, because it was too difficult
-// to match its weird way of doing algebra. It doesn't know all rules of arithmetic.
-pub(crate) fn get_arr_of_size_fields_padding_from_PT<let PT: u32>() -> [Field; (16 - (((((PT + (16 - (PT % 16))) + 79) / 31) * 31) / 31))] {
-    let log_bytes = get_arr_of_size_log_bytes_from_PT::<PT>();
-    let fields_padding = get_arr_of_size_fields_padding(log_bytes);
-    fields_padding
 }
 
 /********************************************************/
@@ -347,10 +303,12 @@ where
     // to fields.
     // *****************************************************************************
 
-    let mut log_bytes_padding_to_mult_31 = get_arr_of_size_p_from_PT::<(N * 32) + 64>();
+    let mut log_bytes_padding_to_mult_31 = get_arr_of_size__log_bytes_padding__from_PT::<(N * 32) + 64>();
+    /// Safety: this randomness won't be constrained to be random. It's in the
+    /// interest of the executor of this fn to encrypt with random bytes.
     log_bytes_padding_to_mult_31 = unsafe { get_random_bytes() };
 
-    let mut log_bytes = get_arr_of_size_log_bytes_from_PT::<(N * 32) + 64>();
+    let mut log_bytes = get_arr_of_size__log_bytes__from_PT::<(N * 32) + 64>();
 
     assert(
         log_bytes.len() % 31 == 0,
@@ -387,9 +345,6 @@ where
     // *****************************************************************************
     // Prepend / append fields, to create the final log
     // *****************************************************************************
-
-    // We need to pad with some extra fields:
-    let fields_padding = get_arr_of_size_fields_padding_from_PT::<(N * 32) + 64>();
 
     // In this strategy, we prepend [tag, eph_pk.x]
 
