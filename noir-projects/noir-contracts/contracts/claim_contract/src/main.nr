@@ -34,6 +34,7 @@ contract Claim {
             target_address == proof_note.header.contract_address,
             "Note does not correspond to the target contract",
         );
+        assert_eq(proof_note.owner, context.msg_sender(), "Note does not belong to the sender");
 
         // 2) Prove that the note hash exists in the note hash tree
         let header = context.get_block_header();
