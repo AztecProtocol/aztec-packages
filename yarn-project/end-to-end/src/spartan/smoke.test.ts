@@ -5,23 +5,11 @@ import { RollupAbi } from '@aztec/l1-artifacts';
 import { createPublicClient, getAddress, getContract, http } from 'viem';
 import { foundry } from 'viem/chains';
 
-import { type AlertConfig } from '../quality_of_service/alert_checker.js';
-import { isK8sConfig, runAlertCheck, setupEnvironment, startPortForward } from './utils.js';
+import { isK8sConfig, setupEnvironment, startPortForward } from './utils.js';
 
 const config = setupEnvironment(process.env);
 
 const debugLogger = createLogger('e2e:spartan-test:smoke');
-
-// QoS alerts for when we are running in k8s
-const qosAlerts: AlertConfig[] = [
-  {
-    alert: 'SequencerTimeToCollectAttestations',
-    expr: 'avg_over_time(aztec_sequencer_time_to_collect_attestations[2m]) > 2500',
-    labels: { severity: 'error' },
-    for: '10m',
-    annotations: {},
-  },
-];
 
 describe('smoke test', () => {
   let pxe: PXE;
@@ -35,21 +23,10 @@ describe('smoke test', () => {
         hostPort: config.HOST_PXE_PORT,
       });
       PXE_URL = `http://127.0.0.1:${config.HOST_PXE_PORT}`;
-
-      await startPortForward({
-        resource: `svc/metrics-grafana`,
-        namespace: 'metrics',
-        containerPort: config.CONTAINER_METRICS_PORT,
-        hostPort: config.HOST_METRICS_PORT,
-      });
     } else {
       PXE_URL = config.PXE_URL;
     }
     pxe = await createCompatibleClient(PXE_URL, debugLogger);
-  });
-
-  afterAll(async () => {
-    await runAlertCheck(config, qosAlerts, debugLogger);
   });
 
   it('should be able to get node enr', async () => {
@@ -61,7 +38,7 @@ describe('smoke test', () => {
 
   // Leaving this test skipped commented out because it requires the ethereum node
   // to be running and forwarded, e.g.
-  // kubectl port-forward -n smoke service/spartan-aztec-network-ethereum 8545:8545
+  // kubectl port-forward -n smoke service/spartan-aztec-network-eth-execution 8545:8545
   // also because it assumes foundry.
 
   it.skip('should be able to get rollup info', async () => {

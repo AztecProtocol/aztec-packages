@@ -19,8 +19,8 @@ describe('world_state_public_db', () => {
 
   let worldStateDB: WorldStateDB;
 
-  beforeEach(() => {
-    addresses = Array(DB_VALUES_SIZE).fill(0).map(AztecAddress.random);
+  beforeEach(async () => {
+    addresses = await Promise.all(Array(DB_VALUES_SIZE).fill(0).map(AztecAddress.random));
     slots = Array(DB_VALUES_SIZE).fill(0).map(Fr.random);
     dbValues = Array(DB_VALUES_SIZE).fill(0).map(Fr.random);
     const publicDataEntries = Array(DB_VALUES_SIZE)

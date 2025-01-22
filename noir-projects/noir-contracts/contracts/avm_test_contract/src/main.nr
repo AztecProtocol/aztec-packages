@@ -463,12 +463,12 @@ contract AvmTest {
     }
 
     #[public]
-    fn emit_unencrypted_log() {
-        context.emit_unencrypted_log(/*message=*/ [10, 20, 30]);
-        context.emit_unencrypted_log(/*message=*/ "Hello, world!");
+    fn emit_public_log() {
+        context.emit_public_log(/*message=*/ [10, 20, 30]);
+        context.emit_public_log(/*message=*/ "Hello, world!");
         let s: CompressedString<2, 44> =
             CompressedString::from_string("A long time ago, in a galaxy far far away...");
-        context.emit_unencrypted_log(/*message=*/ s);
+        context.emit_public_log(/*message=*/ s);
     }
 
     #[public]
@@ -517,9 +517,9 @@ contract AvmTest {
     }
 
     #[public]
-    fn n_new_unencrypted_logs(num: u32) {
+    fn n_new_public_logs(num: u32) {
         for i in 0..num {
-            context.emit_unencrypted_log(/*message=*/ [i as Field]);
+            context.emit_public_log(/*message=*/ [i as Field]);
         }
     }
 
@@ -706,8 +706,8 @@ contract AvmTest {
         let _ = get_l2_gas_left();
         dep::aztec::oracle::debug_log::debug_log("get_da_gas_left");
         let _ = get_da_gas_left();
-        dep::aztec::oracle::debug_log::debug_log("emit_unencrypted_log");
-        let _ = emit_unencrypted_log();
+        dep::aztec::oracle::debug_log::debug_log("emit_public_log");
+        let _ = emit_public_log();
         dep::aztec::oracle::debug_log::debug_log("note_hash_exists");
         let _ = note_hash_exists(1, 2);
         dep::aztec::oracle::debug_log::debug_log("new_note_hash");

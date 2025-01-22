@@ -95,7 +95,6 @@ import { TXEWorldStateDB } from '../util/txe_world_state_db.js';
 export class TXE implements TypedOracle {
   private blockNumber = 0;
   private sideEffectCounter = 0;
-  private contractAddress: AztecAddress;
   private msgSender: AztecAddress;
   private functionSelector = FunctionSelector.fromField(new Fr(0));
   private isStaticCall = false;
@@ -123,16 +122,16 @@ export class TXE implements TypedOracle {
 
   debug: LogFn;
 
-  constructor(
+  private constructor(
     private logger: Logger,
     private trees: MerkleTrees,
     private executionCache: HashedValuesCache,
     private keyStore: KeyStore,
     private txeDatabase: TXEDatabase,
+    private contractAddress: AztecAddress,
   ) {
     this.noteCache = new ExecutionNoteCache(this.getTxRequestHash());
     this.contractDataOracle = new ContractDataOracle(txeDatabase);
-    this.contractAddress = AztecAddress.random();
 
     this.node = new TXENode(this.blockNumber, this.VERSION, this.CHAIN_ID, this.trees);
 
@@ -147,6 +146,16 @@ export class TXE implements TypedOracle {
     );
 
     this.debug = createDebugOnlyLogger('aztec:kv-pxe-database');
+  }
+
+  static async create(
+    logger: Logger,
+    trees: MerkleTrees,
+    executionCache: HashedValuesCache,
+    keyStore: KeyStore,
+    txeDatabase: TXEDatabase,
+  ) {
+    return new TXE(logger, trees, executionCache, keyStore, txeDatabase, await AztecAddress.random());
   }
 
   // Utils
@@ -359,10 +368,6 @@ export class TXE implements TypedOracle {
 
   getRandomField() {
     return Fr.random();
-  }
-
-  storeArrayInExecutionCache(values: Fr[]) {
-    return Promise.resolve(this.executionCache.store(values));
   }
 
   storeInExecutionCache(values: Fr[]) {
@@ -941,7 +946,7 @@ export class TXE implements TypedOracle {
   async #calculateAppTaggingSecret(contractAddress: AztecAddress, sender: AztecAddress, recipient: AztecAddress) {
     const senderCompleteAddress = await this.getCompleteAddress(sender);
     const senderIvsk = await this.keyStore.getMasterIncomingViewingSecretKey(sender);
-    const secretPoint = computeTaggingSecretPoint(senderCompleteAddress, senderIvsk, recipient);
+    const secretPoint = await computeTaggingSecretPoint(senderCompleteAddress, senderIvsk, recipient);
     // Silo the secret to the app so it can't be used to track other app's notes
     const appSecret = poseidon2Hash([secretPoint.x, secretPoint.y, contractAddress]);
     return appSecret;
