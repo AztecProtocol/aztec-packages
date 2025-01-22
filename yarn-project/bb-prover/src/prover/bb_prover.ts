@@ -23,7 +23,6 @@ import {
   RecursiveProof,
   type RootParityInputs,
   TUBE_PROOF_LENGTH,
-  type VerificationKeyAsFields,
   type VerificationKeyData,
   makeRecursiveProofFromBinary,
 } from '@aztec/circuits.js';
@@ -69,6 +68,7 @@ import {
   convertSingleTxBlockRootRollupInputsToWitnessMap,
   convertSingleTxBlockRootRollupOutputsFromWitnessMap,
 } from '@aztec/noir-protocol-circuits-types/server';
+import { ServerCircuitVks } from '@aztec/noir-protocol-circuits-types/vks';
 import { NativeACVMSimulator } from '@aztec/simulator/server';
 import { Attributes, type TelemetryClient, getTelemetryClient, trackSpan } from '@aztec/telemetry-client';
 
@@ -86,7 +86,6 @@ import {
   PROOF_FILENAME,
   VK_FILENAME,
   generateAvmProof,
-  generateKeyForNoirCircuit,
   generateProof,
   generateTubeProof,
   verifyAvmProof,
@@ -114,11 +113,6 @@ export interface BBProverConfig extends BBConfig, ACVMConfig {
  * Prover implementation that uses barretenberg native proving
  */
 export class BBNativeRollupProver implements ServerCircuitProver {
-  private verificationKeys = new Map<
-    `ultra${'_keccak_' | '_' | '_rollup_'}honk_${ServerProtocolArtifact}`,
-    Promise<VerificationKeyData>
-  >();
-
   private instrumentation: ProverInstrumentation;
 
   constructor(private config: BBProverConfig, telemetry: TelemetryClient) {
@@ -157,7 +151,7 @@ export class BBNativeRollupProver implements ServerCircuitProver {
       convertBaseParityOutputsFromWitnessMap,
     );
 
-    const verificationKey = await this.getVerificationKeyDataForCircuit('BaseParityArtifact');
+    const verificationKey = this.getVerificationKeyDataForCircuit('BaseParityArtifact');
     await this.verifyProof('BaseParityArtifact', proof.binaryProof);
 
     return makePublicInputsAndRecursiveProof(circuitOutput, proof, verificationKey);
@@ -180,7 +174,7 @@ export class BBNativeRollupProver implements ServerCircuitProver {
       convertRootParityOutputsFromWitnessMap,
     );
 
-    const verificationKey = await this.getVerificationKeyDataForCircuit('RootParityArtifact');
+    const verificationKey = this.getVerificationKeyDataForCircuit('RootParityArtifact');
     await this.verifyProof('RootParityArtifact', proof.binaryProof);
 
     return makePublicInputsAndRecursiveProof(circuitOutput, proof, verificationKey);
@@ -222,7 +216,7 @@ export class BBNativeRollupProver implements ServerCircuitProver {
       convertPrivateBaseRollupOutputsFromWitnessMap,
     );
 
-    const verificationKey = await this.getVerificationKeyDataForCircuit(artifactName);
+    const verificationKey = this.getVerificationKeyDataForCircuit(artifactName);
 
     await this.verifyProof(artifactName, proof.binaryProof);
 
@@ -249,7 +243,7 @@ export class BBNativeRollupProver implements ServerCircuitProver {
       convertPublicBaseRollupOutputsFromWitnessMap,
     );
 
-    const verificationKey = await this.getVerificationKeyDataForCircuit(artifactName);
+    const verificationKey = this.getVerificationKeyDataForCircuit(artifactName);
 
     await this.verifyProof(artifactName, proof.binaryProof);
 
@@ -274,7 +268,7 @@ export class BBNativeRollupProver implements ServerCircuitProver {
       convertMergeRollupOutputsFromWitnessMap,
     );
 
-    const verificationKey = await this.getVerificationKeyDataForCircuit('MergeRollupArtifact');
+    const verificationKey = this.getVerificationKeyDataForCircuit('MergeRollupArtifact');
 
     await this.verifyProof('MergeRollupArtifact', proof.binaryProof);
 
@@ -299,7 +293,7 @@ export class BBNativeRollupProver implements ServerCircuitProver {
       convertBlockRootRollupOutputsFromWitnessMap,
     );
 
-    const verificationKey = await this.getVerificationKeyDataForCircuit('BlockRootRollupArtifact');
+    const verificationKey = this.getVerificationKeyDataForCircuit('BlockRootRollupArtifact');
 
     await this.verifyProof('BlockRootRollupArtifact', proof.binaryProof);
 
@@ -319,7 +313,7 @@ export class BBNativeRollupProver implements ServerCircuitProver {
       convertSingleTxBlockRootRollupOutputsFromWitnessMap,
     );
 
-    const verificationKey = await this.getVerificationKeyDataForCircuit('SingleTxBlockRootRollupArtifact');
+    const verificationKey = this.getVerificationKeyDataForCircuit('SingleTxBlockRootRollupArtifact');
 
     await this.verifyProof('SingleTxBlockRootRollupArtifact', proof.binaryProof);
 
@@ -344,7 +338,7 @@ export class BBNativeRollupProver implements ServerCircuitProver {
       convertEmptyBlockRootRollupOutputsFromWitnessMap,
     );
 
-    const verificationKey = await this.getVerificationKeyDataForCircuit('EmptyBlockRootRollupArtifact');
+    const verificationKey = this.getVerificationKeyDataForCircuit('EmptyBlockRootRollupArtifact');
 
     await this.verifyProof('EmptyBlockRootRollupArtifact', proof.binaryProof);
 
@@ -369,7 +363,7 @@ export class BBNativeRollupProver implements ServerCircuitProver {
       convertBlockMergeRollupOutputsFromWitnessMap,
     );
 
-    const verificationKey = await this.getVerificationKeyDataForCircuit('BlockMergeRollupArtifact');
+    const verificationKey = this.getVerificationKeyDataForCircuit('BlockMergeRollupArtifact');
 
     await this.verifyProof('BlockMergeRollupArtifact', proof.binaryProof);
 
@@ -393,7 +387,7 @@ export class BBNativeRollupProver implements ServerCircuitProver {
 
     const recursiveProof = makeRecursiveProofFromBinary(proof, NESTED_RECURSIVE_PROOF_LENGTH);
 
-    const verificationKey = await this.getVerificationKeyDataForCircuit('RootRollupArtifact');
+    const verificationKey = this.getVerificationKeyDataForCircuit('RootRollupArtifact');
 
     await this.verifyProof('RootRollupArtifact', proof);
 
@@ -462,12 +456,9 @@ export class BBNativeRollupProver implements ServerCircuitProver {
       throw new ProvingError(provingResult.reason, provingResult, provingResult.retry);
     }
 
-    // Ensure our vk cache is up to date
-    const vkData = await this.updateVerificationKeyAfterProof(provingResult.vkPath!, circuitType);
-
     return {
       circuitOutput: output,
-      vkData,
+      vkData: this.getVerificationKeyDataForCircuit(circuitType),
       provingResult,
     };
   }
@@ -581,12 +572,12 @@ export class BBNativeRollupProver implements ServerCircuitProver {
   }
 
   public async getTubeProof(input: TubeInputs): Promise<ProofAndVerificationKey<typeof TUBE_PROOF_LENGTH>> {
-    // this probably is gonna need to call client ivc
     const operation = async (bbWorkingDirectory: string) => {
       logger.debug(`createTubeProof: ${bbWorkingDirectory}`);
       const provingResult = await this.generateTubeProofWithBB(bbWorkingDirectory, input);
 
       // Read the proof as fields
+      // TODO(AD): this is the only remaining use of extractVkData.
       const tubeVK = await extractVkData(provingResult.vkPath!);
       const tubeProof = await this.readProofAsFields(provingResult.proofPath!, tubeVK, TUBE_PROOF_LENGTH);
 
@@ -674,7 +665,7 @@ export class BBNativeRollupProver implements ServerCircuitProver {
    * @param proof - The proof to be verified
    */
   public async verifyProof(circuitType: ServerProtocolArtifact, proof: Proof) {
-    const verificationKey = await this.getVerificationKeyDataForCircuit(circuitType);
+    const verificationKey = this.getVerificationKeyDataForCircuit(circuitType);
     return await this.verifyWithKey(getUltraHonkFlavorForCircuit(circuitType), verificationKey, proof);
   }
 
@@ -713,16 +704,6 @@ export class BBNativeRollupProver implements ServerCircuitProver {
     };
 
     await this.runInDirectory(operation);
-  }
-
-  /**
-   * Returns the verification key for a circuit, will generate it if not cached internally
-   * @param circuitType - The type of circuit for which the verification key is required
-   * @returns The verification key
-   */
-  public async getVerificationKeyForCircuit(circuitType: ServerProtocolArtifact): Promise<VerificationKeyAsFields> {
-    const vkData = await this.getVerificationKeyDataForCircuit(circuitType);
-    return vkData.clone().keyAsFields;
   }
 
   /**
@@ -789,54 +770,16 @@ export class BBNativeRollupProver implements ServerCircuitProver {
   }
 
   /**
-   * Returns the verification key data for a circuit, will generate and cache it if not cached internally
+   * Returns the verification key data for a circuit.
    * @param circuitType - The type of circuit for which the verification key is required
    * @returns The verification key data
    */
-  private async getVerificationKeyDataForCircuit(circuitType: ServerProtocolArtifact): Promise<VerificationKeyData> {
-    const flavor = getUltraHonkFlavorForCircuit(circuitType);
-    let promise = this.verificationKeys.get(`${flavor}_${circuitType}`);
-    if (!promise) {
-      promise = generateKeyForNoirCircuit(
-        this.config.bbBinaryPath,
-        this.config.bbWorkingDirectory,
-        circuitType,
-        ServerCircuitArtifacts[circuitType],
-        SERVER_CIRCUIT_RECURSIVE,
-        flavor,
-        logger.debug,
-      ).then(result => {
-        if (result.status === BB_RESULT.FAILURE) {
-          throw new ProvingError(
-            `Failed to generate verification key for ${circuitType}, ${result.reason}`,
-            result,
-            result.retry,
-          );
-        }
-        return extractVkData(result.vkPath!);
-      });
-      this.verificationKeys.set(`${flavor}_${circuitType}`, promise);
+  private getVerificationKeyDataForCircuit(circuitType: ServerProtocolArtifact): VerificationKeyData {
+    const vk = ServerCircuitVks[circuitType];
+    if (vk === undefined) {
+      throw new Error('Could not find VK for server artifact ' + circuitType);
     }
-    const vk = await promise;
-    return vk.clone();
-  }
-
-  /**
-   * Ensures our verification key cache includes the key data located at the specified directory
-   * @param filePath - The directory containing the verification key data files
-   * @param circuitType - The type of circuit to which the verification key corresponds
-   */
-  private async updateVerificationKeyAfterProof(
-    filePath: string,
-    circuitType: ServerProtocolArtifact,
-  ): Promise<VerificationKeyData> {
-    const flavor = getUltraHonkFlavorForCircuit(circuitType);
-    let promise = this.verificationKeys.get(`${flavor}_${circuitType}`);
-    if (!promise) {
-      promise = extractVkData(filePath);
-      this.verificationKeys.set(`${flavor}_${circuitType}`, promise);
-    }
-    return promise;
+    return vk;
   }
 
   private async readProofAsFields<PROOF_LENGTH extends number>(

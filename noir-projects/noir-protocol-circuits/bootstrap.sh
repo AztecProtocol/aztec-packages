@@ -174,7 +174,7 @@ case "$CMD" in
     git clean -fdx
     ;;
   "clean-keys")
-    rm -rf target/keys
+    rm -rf $key_dir
     ;;
   ""|"fast"|"full")
     build
