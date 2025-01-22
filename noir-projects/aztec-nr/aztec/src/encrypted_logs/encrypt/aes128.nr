@@ -1,16 +1,12 @@
-use std::{
-    hash::{from_field_unsafe as fr_to_fq_unsafe, sha256},
-};
+use std::hash::{from_field_unsafe as fr_to_fq_unsafe, sha256};
 
 use dep::protocol_types::{
     constants::{GENERATOR_INDEX__SYMMETRIC_KEY, GENERATOR_INDEX__SYMMETRIC_KEY_2},
-    hash::{poseidon2_hash_with_separator},
+    hash::poseidon2_hash_with_separator,
     point::Point,
 };
 
-use crate::{
-    utils::{point::point_to_bytes},
-};
+use crate::utils::point::point_to_bytes;
 
 fn extract_close_to_uniformly_random_256_bits_from_ecdh_shared_secret_using_poseidon2(
     shared_secret: Point,
