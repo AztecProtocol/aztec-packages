@@ -198,13 +198,17 @@ where
     increment_app_tagging_secret_index_as_sender(sender, recipient);
 
     let mut final_log: [Field; PRIVATE_LOG_SIZE_IN_FIELDS] = [0; PRIVATE_LOG_SIZE_IN_FIELDS];
+
     final_log[0] = tag;
     final_log[1] = eph_pk.x;
+
     let mut offset = 2;
     for i in 0..log_bytes_as_fields.len() {
         final_log[offset + i] = log_bytes_as_fields[i];
     }
-    for i in log_bytes_as_fields.len()..PRIVATE_LOG_SIZE_IN_FIELDS {
+    offset += log_bytes_as_fields.len();
+
+    for i in offset..PRIVATE_LOG_SIZE_IN_FIELDS {
         final_log[i] = unsafe { random() };
     }
 
