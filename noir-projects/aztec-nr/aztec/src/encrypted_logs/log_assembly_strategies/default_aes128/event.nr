@@ -97,7 +97,6 @@ where
 
     // "Proper" meaning the main meaty stuff that we care about.
     let proper_plaintext = event_bytes;
-    // The final_plaintext also contains the length of this "proper" plaintext, and padding.
     let final_plaintext = proper_plaintext;
 
     // *****************************************************************************

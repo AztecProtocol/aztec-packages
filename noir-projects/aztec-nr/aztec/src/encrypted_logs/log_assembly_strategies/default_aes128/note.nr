@@ -377,7 +377,6 @@ where
     }
     let offset = 32;
     let ciphertext_bytes_length = ciphertext_bytes.len();
-    // This is a big-endian encoding
     header_plaintext[offset] = (ciphertext_bytes_length >> 8) as u8;
     header_plaintext[offset + 1] = ciphertext_bytes_length as u8;
 
