@@ -25,7 +25,7 @@ export VERBOSE=1
 set +e
 tmp_file=$(mktemp)
 trap "rm -f $tmp_file" EXIT
-timeout -v 600s bash -c "$test_cmd" 2>&1 > $tmp_file &
+timeout -v 600s bash -c "$test_cmd" &> $tmp_file &
 timeout_pid=$!
 trap "kill -- -$timeout_pid" SIGTERM
 wait $timeout_pid

@@ -119,7 +119,7 @@ case "$cmd" in
     gh pr edit "$pr_number" --remove-label "trigger-workflow" &> /dev/null
     run_id=$(get_latest_run_id)
     echo "In progress..." | redis_cli -x SETEX $run_id 3600 &> /dev/null
-    echo -e "Triggered CI workflow for PR: $pr_number (${yellow}$run_id${reset})"
+    echo -e "Triggered CI for PR: $pr_number (ci rlog ${yellow}$run_id${reset})"
     ;;
   "rlog")
     [ -z "${1:-}" ] && run_id=$(get_latest_run_id) || run_id=$1

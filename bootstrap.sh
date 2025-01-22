@@ -7,8 +7,8 @@
 # Use ci3 script base.
 source $(git rev-parse --show-toplevel)/ci3/source_bootstrap
 
-# Enable abbreviated output.
-export DENOISE=1
+# Enable abbreviated output by default.
+export DENOISE=${DENOISE:-1}
 
 cmd=${1:-}
 [ -n "$cmd" ] && shift
