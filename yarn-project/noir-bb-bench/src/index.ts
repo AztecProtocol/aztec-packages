@@ -25,7 +25,6 @@ export async function generateCircuit1(): Promise<[string, Uint8Array, InputValu
     {
       x: '0x1',
       y: '0x10',
-      z: '0x100',
     },
     foreignCallHandler,
   );
@@ -44,6 +43,7 @@ export async function generateCircuit2(
       key_hash: '0x0',
       proof: proverOutput.proof,
       verification_key: previousVk as FixedLengthArray<string, 128>,
+      x: '0xd00d',
     },
     foreignCallHandler,
   );

@@ -1,17 +1,16 @@
 use std::hash::poseidon;
 
 // This circuit aggregates a single Honk proof from `assert_statement`.
-global SIZE_OF_PROOF_IF_LOGN_IS_28: u32 = 459;
+global ULTRA_VK_SIZE: u32 = 128;
+global ULTRA_PROOF_SIZE: u32 = 459;
+global NUM_NON_ACCUMULATOR_PUBLIC_INPUTS: u32 = 1;
 global HONK_IDENTIFIER: u32 = 1;
 fn main(
-    verification_key: [Field; 128],
-    // This is the proof without public inputs attached.
-    // This means: the size of this does not change with the number of public inputs.
-    proof: [Field; SIZE_OF_PROOF_IF_LOGN_IS_28],
-    public_inputs: pub [Field; 2],
-    // This is currently not public. It is fine given that the vk is a part of the circuit definition.
-    // I believe we want to eventually make it public too though.
-    mut key_hash: Field,
+    verification_key: [Field; ULTRA_VK_SIZE],
+    proof: [Field; ULTRA_PROOF_SIZE],
+    public_inputs: pub [Field; NUM_NON_ACCUMULATOR_PUBLIC_INPUTS],
+    key_hash: Field,
+    mut x: Field
 ) {
     std::verify_proof_with_type(
         verification_key,
@@ -22,8 +21,9 @@ fn main(
     );
 
     for _ in 0..250 {
-        key_hash += poseidon::bn254::hash_1([key_hash]);
+        x += poseidon::bn254::hash_1([x]);
     }
 
-    assert(key_hash != 0);
+    // Make sure the hash value is used so it's not optimized away.
+    assert(x != 0);
 }

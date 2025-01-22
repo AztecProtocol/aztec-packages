@@ -11,38 +11,38 @@ export type Field = string;
 export type Circuit_1InputType = {
   x: Field;
   y: Field;
-  z: Field;
 };
 
 export async function Circuit_1(
   x: Field,
   y: Field,
-  z: Field,
   Circuit_1_circuit: CompiledCircuit,
   foreignCallHandler?: ForeignCallHandler,
 ): Promise<null> {
   const program = new Noir(Circuit_1_circuit);
-  const args: InputMap = { x, y, z };
+  const args: InputMap = { x, y };
   const { returnValue } = await program.execute(args, foreignCallHandler);
   return returnValue as null;
 }
 export type Circuit_2InputType = {
   verification_key: FixedLengthArray<Field, 128>;
   proof: FixedLengthArray<Field, 459>;
-  public_inputs: FixedLengthArray<Field, 2>;
+  public_inputs: FixedLengthArray<Field, 1>;
   key_hash: Field;
+  x: Field;
 };
 
 export async function Circuit_2(
   verification_key: FixedLengthArray<Field, 128>,
   proof: FixedLengthArray<Field, 459>,
-  public_inputs: FixedLengthArray<Field, 2>,
+  public_inputs: FixedLengthArray<Field, 1>,
   key_hash: Field,
+  x: Field,
   Circuit_2_circuit: CompiledCircuit,
   foreignCallHandler?: ForeignCallHandler,
 ): Promise<null> {
   const program = new Noir(Circuit_2_circuit);
-  const args: InputMap = { verification_key, proof, public_inputs, key_hash };
+  const args: InputMap = { verification_key, proof, public_inputs, key_hash, x };
   const { returnValue } = await program.execute(args, foreignCallHandler);
   return returnValue as null;
 }
