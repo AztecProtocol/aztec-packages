@@ -17,7 +17,7 @@ export function encrypt(
   secret: GrumpkinScalar,
   publicKey: PublicKey,
   deriveSecret: (secret: GrumpkinScalar, publicKey: PublicKey) => Buffer = deriveAESSecret,
-): Buffer {
+): Promise<Buffer> {
   const aesSecret = deriveSecret(secret, publicKey);
   const key = aesSecret.subarray(0, 16);
   const iv = aesSecret.subarray(16, 32);
@@ -39,7 +39,7 @@ export function decrypt(
   secret: GrumpkinScalar,
   publicKey: PublicKey,
   deriveSecret: (secret: GrumpkinScalar, publicKey: PublicKey) => Buffer = deriveAESSecret,
-): Buffer {
+): Promise<Buffer> {
   const aesSecret = deriveSecret(secret, publicKey);
   const key = aesSecret.subarray(0, 16);
   const iv = aesSecret.subarray(16, 32);

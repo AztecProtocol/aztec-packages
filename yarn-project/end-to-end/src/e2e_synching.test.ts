@@ -146,13 +146,13 @@ class TestVariant {
   async deployWallets(numberOfAccounts: number) {
     // Create accounts such that we can send from many to not have colliding nullifiers
     const { accountKeys } = await addAccounts(numberOfAccounts, this.logger, false)({ pxe: this.pxe });
-    const accountManagers = accountKeys.map(ak => getSchnorrAccount(this.pxe, ak[0], ak[1], 1));
 
     return await Promise.all(
-      accountManagers.map(async (a, i) => {
-        const partialAddress = a.getCompleteAddress().partialAddress;
+      accountKeys.map(async (ak, i) => {
+        const account = await getSchnorrAccount(this.pxe, ak[0], ak[1], 1);
+        const partialAddress = account.getCompleteAddress().partialAddress;
         await this.pxe.registerAccount(accountKeys[i][0], partialAddress);
-        const wallet = await a.getWallet();
+        const wallet = await account.getWallet();
         this.logger.verbose(`Wallet ${i} address: ${wallet.getAddress()} registered`);
         return wallet;
       }),
@@ -192,11 +192,11 @@ class TestVariant {
     if (this.txComplexity == TxComplexity.Deployment) {
       const txs = [];
       for (let i = 0; i < this.txCount; i++) {
-        const accountManager = getSchnorrAccount(this.pxe, Fr.random(), GrumpkinScalar.random(), Fr.random());
+        const accountManager = await getSchnorrAccount(this.pxe, Fr.random(), GrumpkinScalar.random(), Fr.random());
         this.contractAddresses.push(accountManager.getAddress());
         const deployMethod = await accountManager.getDeployMethod();
         const tx = deployMethod.send({
-          contractAddressSalt: accountManager.salt,
+          contractAddressSalt: new Fr(accountManager.salt),
           skipClassRegistration: true,
           skipPublicDeployment: true,
           universalDeploy: true,

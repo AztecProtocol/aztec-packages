@@ -65,10 +65,10 @@ export const createPXEServiceAndSubmitTransactions = async (
 const submitTxsTo = async (logger: Logger, pxe: PXEService, numTxs: number) => {
   const provenTxs = [];
   for (let i = 0; i < numTxs; i++) {
-    const accountManager = getSchnorrAccount(pxe, Fr.random(), GrumpkinScalar.random(), Fr.random());
+    const accountManager = await getSchnorrAccount(pxe, Fr.random(), GrumpkinScalar.random(), Fr.random());
     const deployMethod = await accountManager.getDeployMethod();
     const tx = await deployMethod.prove({
-      contractAddressSalt: accountManager.salt,
+      contractAddressSalt: new Fr(accountManager.salt),
       skipClassRegistration: true,
       skipPublicDeployment: true,
       universalDeploy: true,

@@ -6,5 +6,6 @@ export type ContractFunctionInteractionTx = {
   date?: number;
   status: "error" | "simulating" | "proving" | "sending" | TxStatus;
   fnName: string;
+  error?: string;
   contractAddress: AztecAddress;
 };

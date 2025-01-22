@@ -553,7 +553,7 @@ export const addAccounts =
     logger.verbose('Simulating account deployment...');
     const provenTxs = await Promise.all(
       accountKeys.map(async ([secretKey, signPk], index) => {
-        const account = getSchnorrAccount(pxe, secretKey, signPk, 1);
+        const account = await getSchnorrAccount(pxe, secretKey, signPk, 1);
 
         // only register the contract class once
         let skipClassRegistration = true;
@@ -566,7 +566,7 @@ export const addAccounts =
 
         const deployMethod = await account.getDeployMethod();
         const provenTx = await deployMethod.prove({
-          contractAddressSalt: account.salt,
+          contractAddressSalt: new Fr(account.salt),
           skipClassRegistration,
           skipPublicDeployment: true,
           universalDeploy: true,
