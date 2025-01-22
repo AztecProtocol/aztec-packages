@@ -524,7 +524,6 @@ __metadata:
     lodash.chunk: "npm:^4.2.0"
     lodash.groupby: "npm:^4.6.0"
     semver: "npm:^7.5.4"
-    solc: "npm:^0.8.27"
     source-map-support: "npm:^0.5.21"
     ts-jest: "npm:^29.1.0"
     ts-node: "npm:^10.9.1"
@@ -620,7 +619,6 @@ __metadata:
     process: "npm:^0.11.10"
     puppeteer-core: "npm:^22.2"
     resolve-typescript-plugin: "npm:^2.0.1"
-    solc: "npm:^0.8.27"
     stream-browserify: "npm:^3.0.0"
     string-argv: "npm:^0.3.2"
     ts-loader: "npm:^9.4.4"
@@ -8563,13 +8561,6 @@ __metadata:
   languageName: node
   linkType: hard
 
-"command-exists@npm:^1.2.8":
-  version: 1.2.9
-  resolution: "command-exists@npm:1.2.9"
-  checksum: 10/46fb3c4d626ca5a9d274f8fe241230817496abc34d12911505370b7411999e183c11adff7078dd8a03ec4cf1391290facda40c6a4faac8203ae38c985eaedd63
-  languageName: node
-  linkType: hard
-
 "command-line-args@npm:^5.1.1":
   version: 5.2.1
   resolution: "command-line-args@npm:5.2.1"
@@ -8634,7 +8625,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"commander@npm:^8.1.0, commander@npm:^8.3.0":
+"commander@npm:^8.3.0":
   version: 8.3.0
   resolution: "commander@npm:8.3.0"
   checksum: 10/6b7b5d334483ce24bd73c5dac2eab901a7dbb25fd983ea24a1eeac6e7166bb1967f641546e8abf1920afbde86a45fbfe5812fbc69d0dc451bb45ca416a12a3a3
@@ -11324,7 +11315,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"follow-redirects@npm:^1.0.0, follow-redirects@npm:^1.12.1, follow-redirects@npm:^1.15.6":
+"follow-redirects@npm:^1.0.0, follow-redirects@npm:^1.15.6":
   version: 1.15.6
   resolution: "follow-redirects@npm:1.15.6"
   peerDependenciesMeta:
@@ -13933,13 +13924,6 @@ __metadata:
   languageName: node
   linkType: hard
 
-"js-sha3@npm:0.8.0":
-  version: 0.8.0
-  resolution: "js-sha3@npm:0.8.0"
-  checksum: 10/a49ac6d3a6bfd7091472a28ab82a94c7fb8544cc584ee1906486536ba1cb4073a166f8c7bb2b0565eade23c5b3a7b8f7816231e0309ab5c549b737632377a20c
-  languageName: node
-  linkType: hard
-
 "js-tokens@npm:^4.0.0":
   version: 4.0.0
   resolution: "js-tokens@npm:4.0.0"
@@ -14873,13 +14857,6 @@ __metadata:
     tree-dump: "npm:^1.0.1"
     tslib: "npm:^2.0.0"
   checksum: 10/d1a5a38fb8e97cbdff012e47d05c92852484f37a03e9c57b252fdc180c4ffe35ee7ec83acea3be8950e1f13f9152db4d5478124b43f9673f4653e741ba26d584
-  languageName: node
-  linkType: hard
-
-"memorystream@npm:^0.3.1":
-  version: 0.3.1
-  resolution: "memorystream@npm:0.3.1"
-  checksum: 10/2e34a1e35e6eb2e342f788f75f96c16f115b81ff6dd39e6c2f48c78b464dbf5b1a4c6ebfae4c573bd0f8dbe8c57d72bb357c60523be184655260d25855c03902
   languageName: node
   linkType: hard
 
@@ -17851,7 +17828,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"semver@npm:2 || 3 || 4 || 5, semver@npm:^5.1.0, semver@npm:^5.5.0":
+"semver@npm:2 || 3 || 4 || 5, semver@npm:^5.1.0":
   version: 5.7.2
   resolution: "semver@npm:5.7.2"
   bin:
@@ -18271,23 +18248,6 @@ __metadata:
     ip-address: "npm:^9.0.5"
     smart-buffer: "npm:^4.2.0"
   checksum: 10/ffcb622c22481dfcd7589aae71fbfd71ca34334064d181df64bf8b7feaeee19706aba4cffd1de35cc7bbaeeaa0af96be2d7f40fcbc7bc0ab69533a7ae9ffc4fb
-  languageName: node
-  linkType: hard
-
-"solc@npm:^0.8.27":
-  version: 0.8.28
-  resolution: "solc@npm:0.8.28"
-  dependencies:
-    command-exists: "npm:^1.2.8"
-    commander: "npm:^8.1.0"
-    follow-redirects: "npm:^1.12.1"
-    js-sha3: "npm:0.8.0"
-    memorystream: "npm:^0.3.1"
-    semver: "npm:^5.5.0"
-    tmp: "npm:0.0.33"
-  bin:
-    solcjs: solc.js
-  checksum: 10/2ed06cb9d3507d3da7c5a5a7fb8c8ee08ff4c3a14d863625f9c666ad5f1194ff3f6dad635f67ef1726f197505aefa7038e4930b267d67a3c94d0af155dd08718
   languageName: node
   linkType: hard
 
@@ -19177,7 +19137,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"tmp@npm:0.0.33, tmp@npm:^0.0.33":
+"tmp@npm:^0.0.33":
   version: 0.0.33
   resolution: "tmp@npm:0.0.33"
   dependencies:
