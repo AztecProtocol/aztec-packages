@@ -16,13 +16,13 @@ impl PublicContext {
     pub fn new(compute_args_hash: fn() -> Field) -> Self {
         PublicContext { args_hash: Option::none(), compute_args_hash }
     }
-    // TODO(MW): continue renaming unencrypted -> public
-    pub fn emit_unencrypted_log<T, let N: u32>(_self: &mut Self, log: T)
+
+    pub fn emit_public_log<T, let N: u32>(_self: &mut Self, log: T)
     where
         T: Serialize<N>,
     {
         /// Safety: AVM opcodes are constrained by the AVM itself
-        unsafe { emit_unencrypted_log(Serialize::serialize(log).as_slice()) };
+        unsafe { emit_public_log(Serialize::serialize(log).as_slice()) };
     }
 
     pub fn note_hash_exists(_self: Self, note_hash: Field, leaf_index: Field) -> bool {
@@ -295,8 +295,8 @@ unconstrained fn nullifier_exists(nullifier: Field, address: Field) -> u1 {
 unconstrained fn emit_nullifier(nullifier: Field) {
     emit_nullifier_opcode(nullifier)
 }
-unconstrained fn emit_unencrypted_log(message: [Field]) {
-    emit_unencrypted_log_opcode(message)
+unconstrained fn emit_public_log(message: [Field]) {
+    emit_public_log_opcode(message)
 }
 unconstrained fn l1_to_l2_msg_exists(msg_hash: Field, msg_leaf_index: Field) -> u1 {
     l1_to_l2_msg_exists_opcode(msg_hash, msg_leaf_index)
@@ -398,8 +398,9 @@ unconstrained fn nullifier_exists_opcode(nullifier: Field, address: Field) -> u1
 #[oracle(avmOpcodeEmitNullifier)]
 unconstrained fn emit_nullifier_opcode(nullifier: Field) {}
 
+// TODO(#11124): rename unencrypted to public in avm
 #[oracle(avmOpcodeEmitUnencryptedLog)]
-unconstrained fn emit_unencrypted_log_opcode(message: [Field]) {}
+unconstrained fn emit_public_log_opcode(message: [Field]) {}
 
 #[oracle(avmOpcodeL1ToL2MsgExists)]
 unconstrained fn l1_to_l2_msg_exists_opcode(msg_hash: Field, msg_leaf_index: Field) -> u1 {}

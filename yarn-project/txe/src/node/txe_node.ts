@@ -273,7 +273,8 @@ export class TXENode implements AztecNode {
     // hold a reference to them.
     // We should likely migrate this so that the trees are owned by the node.
 
-    if (blockNumber == 'latest') {
+    // TODO: blockNumber is being passed as undefined, figure out why
+    if (blockNumber === 'latest' || blockNumber === undefined) {
       blockNumber = await this.getBlockNumber();
     }
 

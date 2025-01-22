@@ -35,6 +35,7 @@ allow_list=(
   "e2e_max_block_number"
   "e2e_nested_contract"
   "e2e_ordering"
+  "e2e_pruned_blocks"
   "e2e_static_calls"
   "integration_l1_publisher"
   "e2e_cheat_codes"

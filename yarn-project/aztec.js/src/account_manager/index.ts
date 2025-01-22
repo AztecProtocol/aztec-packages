@@ -25,21 +25,28 @@ export type DeployAccountOptions = Pick<
  * and creating and registering the user wallet in the PXE Service.
  */
 export class AccountManager {
-  /** Deployment salt for the account contract. */
-  public readonly salt: Fr;
+  private constructor(
+    private pxe: PXE,
+    private secretKey: Fr,
+    private accountContract: AccountContract,
+    private instance: ContractInstanceWithAddress,
+    /**
+     * Deployment salt for the account contract
+     */
+    public readonly salt: Salt,
+  ) {}
 
-  private instance: ContractInstanceWithAddress;
-
-  constructor(private pxe: PXE, private secretKey: Fr, private accountContract: AccountContract, salt?: Salt) {
-    this.salt = salt !== undefined ? new Fr(salt) : Fr.random();
-
+  static async create(pxe: PXE, secretKey: Fr, accountContract: AccountContract, salt?: Salt) {
     const { publicKeys } = deriveKeys(secretKey);
+    salt = salt !== undefined ? new Fr(salt) : Fr.random();
 
-    this.instance = getContractInstanceFromDeployParams(this.accountContract.getContractArtifact(), {
-      constructorArgs: this.accountContract.getDeploymentArgs(),
-      salt: this.salt,
+    const instance = getContractInstanceFromDeployParams(accountContract.getContractArtifact(), {
+      constructorArgs: await accountContract.getDeploymentArgs(),
+      salt: salt,
       publicKeys,
     });
+
+    return new AccountManager(pxe, secretKey, accountContract, instance, salt);
   }
 
   protected getPublicKeys() {
@@ -136,7 +143,7 @@ export class AccountManager {
     // We use a signerless wallet with the multi call entrypoint in order to make multiple calls in one go
     // If we used getWallet, the deployment would get routed via the account contract entrypoint
     // and it can't be used unless the contract is initialized
-    const args = this.accountContract.getDeploymentArgs() ?? [];
+    const args = (await this.accountContract.getDeploymentArgs()) ?? [];
     return new DeployAccountMethod(
       this.accountContract.getAuthWitnessProvider(this.getCompleteAddress()),
       this.getPublicKeys(),
@@ -160,7 +167,7 @@ export class AccountManager {
     const sentTx = this.getDeployMethod()
       .then(deployMethod =>
         deployMethod.send({
-          contractAddressSalt: this.salt,
+          contractAddressSalt: new Fr(this.salt),
           skipClassRegistration: opts?.skipClassRegistration ?? true,
           skipPublicDeployment: opts?.skipPublicDeployment ?? true,
           skipInitialization: opts?.skipInitialization ?? false,
@@ -180,14 +187,14 @@ export class AccountManager {
    * @returns A Wallet instance.
    */
   public async waitSetup(opts: WaitOpts = DefaultWaitOpts): Promise<AccountWalletWithSecretKey> {
-    await (this.isDeployable() ? this.deploy().wait(opts) : this.register());
+    await ((await this.isDeployable()) ? this.deploy().wait(opts) : this.register());
     return this.getWallet();
   }
 
   /**
    * Returns whether this account contract has a constructor and needs deployment.
    */
-  public isDeployable() {
-    return this.accountContract.getDeploymentArgs() !== undefined;
+  public async isDeployable() {
+    return (await this.accountContract.getDeploymentArgs()) !== undefined;
   }
 }

@@ -578,28 +578,29 @@ comptime fn get_setup_log_plaintext_body(
 ///     }
 ///
 ///     fn emit_log(self) {
-///         let setup_log_fields: [Field; 16] = self.context.storage_read(self.setup_log_slot);
+///         let setup_log_fields: [Field; 8] = self.context.storage_read(self.setup_log_slot);
 ///
-///         let setup_log: [u8; 481] = aztec::utils::bytes::fields_to_bytes(setup_log_fields);
+///         let mut finalization_log = [0; 11];
 ///
-///         let mut finalization_log = [0; 513];
-///
-///         for i in 0..setup_log.len() {
-///             finalization_log[i] = setup_log[i];
+///         for i in 0..setup_log_fields.len() {
+///             finalization_log[i + 1] = setup_log_fields[i];
 ///         }
 ///
 ///         for i in 0..self.public_values.len() {
-///             let public_value_bytes: [u8; 32] = self.public_values[i].to_be_bytes();
-///             for j in 0..public_value_bytes.len() {
-///                 finalization_log[160 + i * 32 + j] = public_value_bytes[j];
-///             }
+///            finalization_log[i + 1 + 8] = self.public_values[j];
 ///         }
 ///
-///         self.context.emit_unencrypted_log(finalization_log);
+///         finalization_log[0] = aztec::protocol_types::utils::field::field_from_bytes([
+///                 (2 >> 8) as u8, 2 as u8, 0,
+///                 (8 >> 8) as u8, 8 as u8, 0,
+///                 (91 >> 8) as u8, 91 as u8,
+///                ], true);
+///
+///         self.context.emit_public_log(finalization_log);
 ///
 ///         // We reset public storage to zero to achieve the effect of transient storage - kernels will squash
 ///         // the writes
-///         // self.context.storage_write(self.setup_log_slot, [0; 16]);
+///         // self.context.storage_write(self.setup_log_slot, [0; 8]);
 ///     }
 /// }
 ///
@@ -749,7 +750,7 @@ comptime fn generate_finalization_payload(
                 ], true);
 
                 // We emit the finalization log via the public logs stream
-                self.context.emit_unencrypted_log(finalization_log);
+                self.context.emit_public_log(finalization_log);
 
                 // We reset public storage to zero to achieve the effect of transient storage - kernels will squash
                 // the writes

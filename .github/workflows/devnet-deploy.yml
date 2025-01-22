@@ -26,6 +26,11 @@ on:
         description: Whether to deploy to Sepolia
         required: false
         default: "false"
+      ref:
+        description: The branch name to deploy from
+        required: false
+        type: string
+        default: "master"
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -52,6 +57,8 @@ jobs:
       respect_tf_lock: ${{ github.event.inputs.respect_tf_lock }}
       run_terraform_destroy: "true"
       sepolia_deployment: ${{ github.event.inputs.sepolia_deployment }}
+      ref: ${{ github.event.inputs.ref }}
+
     secrets:
       GCP_SA_KEY: ${{ secrets.GCP_SA_KEY }}
 
@@ -111,7 +118,7 @@ jobs:
 
           PXE_PORT="$(jq -r .pxe.service.nodePort helm_values.json)"
           FAUCET_PORT="$(jq -r .faucet.apiServerPort helm_values.json)"
-          ETHEREUM_PORT="$(jq -r .ethereum.service.port helm_values.json)"
+          ETHEREUM_PORT="$(jq -r .ethereum.execution.service.port helm_values.json)"
           L1_CHAIN_ID="$(jq -r .ethereum.chainId helm_values.json)"
 
           MNEMONIC="$(jq -r .aztec.l1DeploymentMnemonic helm_values.json)"
