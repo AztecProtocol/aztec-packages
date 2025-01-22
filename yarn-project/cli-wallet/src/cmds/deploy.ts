@@ -65,7 +65,6 @@ export async function deploy(
     return;
   }
 
-  await deploy.create(deployOpts);
   const tx = deploy.send(deployOpts);
 
   const txHash = await tx.getTxHash();

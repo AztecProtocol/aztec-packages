@@ -3,11 +3,11 @@ import { AztecAddress, Fr } from '@aztec/circuits.js';
 import { allSameExcept, initContext } from './fixtures/index.js';
 
 describe('Avm Context', () => {
-  it('New call should fork context correctly', () => {
+  it('New call should fork context correctly', async () => {
     const context = initContext();
     context.machineState.pc = 20;
 
-    const newAddress = AztecAddress.random();
+    const newAddress = await AztecAddress.random();
     const newCalldata = [new Fr(1), new Fr(2)];
     const allocatedGas = { l2Gas: 2, daGas: 3 }; // How much of the current call gas we pass to the nested call
     const newContext = context.createNestedContractCallContext(newAddress, newCalldata, allocatedGas, 'CALL');
@@ -32,11 +32,11 @@ describe('Avm Context', () => {
     expect(JSON.stringify(newContext.persistableState)).toEqual(JSON.stringify(context.persistableState.fork()));
   });
 
-  it('New static call should fork context correctly', () => {
+  it('New static call should fork context correctly', async () => {
     const context = initContext();
     context.machineState.pc = 20;
 
-    const newAddress = AztecAddress.random();
+    const newAddress = await AztecAddress.random();
     const newCalldata = [new Fr(1), new Fr(2)];
     const allocatedGas = { l2Gas: 2, daGas: 3 };
     const newContext = context.createNestedContractCallContext(newAddress, newCalldata, allocatedGas, 'STATICCALL');

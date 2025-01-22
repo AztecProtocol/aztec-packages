@@ -202,12 +202,17 @@ case "$cmd" in
   "image-aztec")
     image=aztecprotocol/aztec:$(git rev-parse HEAD)
     check_arch=false
+    version="0.1.0"
 
     # Check for --check-arch flag in args
     for arg in "$@"; do
       if [ "$arg" = "--check-arch" ]; then
         check_arch=true
         break
+      fi
+      if [ "$arg" = "--version" ]; then
+        version=$2
+        shift 2
       fi
     done
 
@@ -224,6 +229,8 @@ case "$cmd" in
         else
           echo "Image $image already exists and has been downloaded with correct architecture." && exit
         fi
+      elif [ -n "$version" ]; then
+        echo "Image $image already exists and has been downloaded. Setting version to $version."
       else
         echo "Image $image already exists and has been downloaded." && exit
       fi
@@ -237,7 +244,8 @@ case "$cmd" in
     echo "docker image build:"
     docker pull aztecprotocol/aztec-base:v1.0-$(arch)
     docker tag aztecprotocol/aztec-base:v1.0-$(arch) aztecprotocol/aztec-base:latest
-    docker build -f Dockerfile.aztec -t $image $TMP
+    docker build -f Dockerfile.aztec -t $image $TMP --build-arg VERSION=$version
+
     if [ "${CI:-0}" = 1 ]; then
       docker push $image
     fi

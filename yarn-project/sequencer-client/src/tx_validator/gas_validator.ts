@@ -1,5 +1,6 @@
 import { type Tx, TxExecutionPhase, type TxValidationResult, type TxValidator } from '@aztec/circuit-types';
-import { type AztecAddress, type Fr, FunctionSelector, type GasFees } from '@aztec/circuits.js';
+import { type AztecAddress, Fr, FunctionSelector, type GasFees } from '@aztec/circuits.js';
+import { U128 } from '@aztec/foundation/abi';
 import { createLogger } from '@aztec/foundation/log';
 import { computeFeePayerBalanceStorageSlot, getExecutionRequestsByPhase } from '@aztec/simulator/server';
 
@@ -71,10 +72,26 @@ export class GasTxValidator implements TxValidator<Tx> {
     const feeLimit = tx.data.constants.txContext.gasSettings.getFeeLimit();
 
     // Read current balance of the feePayer
-    const initialBalance = await this.#publicDataSource.storageRead(
+    // TODO(#11285): Remove the 2 reads below with the commented out code.
+    // Uncomment below ######################
+    // const initialBalance = await this.#publicDataSource.storageRead(
+    //   this.#feeJuiceAddress,
+    //   computeFeePayerBalanceStorageSlot(feePayer),
+    // );
+    // Uncomment above ######################
+    // Remove the following ######################
+    const initialBalanceLowLimb = await this.#publicDataSource.storageRead(
       this.#feeJuiceAddress,
       computeFeePayerBalanceStorageSlot(feePayer),
     );
+    const initialBalanceHighLimb = await this.#publicDataSource.storageRead(
+      this.#feeJuiceAddress,
+      new Fr(computeFeePayerBalanceStorageSlot(feePayer).toBigInt() + 1n),
+    );
+    const initialBalance = new Fr(
+      U128.fromU64sLE(initialBalanceLowLimb.toBigInt(), initialBalanceHighLimb.toBigInt()).toInteger(),
+    );
+    // Remove the above ######################
 
     // If there is a claim in this tx that increases the fee payer balance in Fee Juice, add it to balance
     const setupFns = getExecutionRequestsByPhase(tx, TxExecutionPhase.SETUP);
@@ -84,12 +101,17 @@ export class GasTxValidator implements TxValidator<Tx> {
         fn.callContext.msgSender.equals(this.#feeJuiceAddress) &&
         fn.args.length > 2 &&
         // Public functions get routed through the dispatch function, whose first argument is the target function selector.
-        fn.args[0].equals(FunctionSelector.fromSignature('_increase_public_balance((Field),Field)').toField()) &&
+        fn.args[0].equals(
+          FunctionSelector.fromSignature('_increase_public_balance((Field),(Field,Field))').toField(),
+        ) &&
         fn.args[1].equals(feePayer.toField()) &&
         !fn.callContext.isStaticCall,
     );
 
-    const balance = claimFunctionCall ? initialBalance.add(claimFunctionCall.args[2]) : initialBalance;
+    // `amount` in the claim function call arguments occupies 2 fields as it is represented as U128.
+    const balance = claimFunctionCall
+      ? initialBalance.add(new Fr(U128.fromFields(claimFunctionCall.args.slice(2, 4)).toInteger()))
+      : initialBalance;
     if (balance.lt(feeLimit)) {
       this.#log.warn(`Rejecting transaction due to not enough fee payer balance`, {
         feePayer,

@@ -108,7 +108,7 @@ function compile {
     ../../noir/.rebuild_patterns \
     ../../avm-transpiler/.rebuild_patterns \
     "^noir-projects/noir-contracts/contracts/$contract/" \
-    "^noir-projects/noir-protocol-circuits/crates" \
+    "^noir-projects/noir-protocol-circuits/crates/types" \
     "^noir-projects/aztec-nr/" \
   )"
   if ! cache_download contract-$contract_hash.tar.gz &> /dev/null; then
