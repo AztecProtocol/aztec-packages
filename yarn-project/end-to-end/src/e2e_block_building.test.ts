@@ -38,7 +38,6 @@ import {
   type WorldStateDB,
 } from '@aztec/simulator/server';
 import { type TelemetryClient } from '@aztec/telemetry-client';
-import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
 
 import { jest } from '@jest/globals';
 import 'jest-extended';
@@ -79,7 +78,12 @@ describe('e2e_block_building', () => {
         sequencer: sequencerClient,
         dateProvider,
         cheatCodes,
-      } = await setup(2));
+      } = await setup(2, {
+        archiverPollingIntervalMS: 200,
+        transactionPollingIntervalMS: 200,
+        worldStateBlockCheckIntervalMS: 200,
+        blockCheckIntervalMS: 200,
+      }));
       sequencer = sequencerClient! as TestSequencerClient;
     });
 
@@ -190,7 +194,9 @@ describe('e2e_block_building', () => {
     });
 
     it('processes txs until hitting timetable', async () => {
-      const TX_COUNT = 32;
+      // We send enough txs so they are spread across multiple blocks, but not
+      // so many so that we don't end up hitting a reorg or timing out the tx wait().
+      const TX_COUNT = 16;
 
       const ownerAddress = owner.getCompleteAddress().address;
       const contract = await StatefulTestContract.deploy(owner, ownerAddress, ownerAddress, 1).send().deployed();
@@ -204,15 +210,11 @@ describe('e2e_block_building', () => {
 
       // We tweak the sequencer so it uses a fake simulator that adds a delay to every public tx.
       const archiver = (aztecNode as AztecNodeService).getContractDataSource();
-      sequencer.sequencer.publicProcessorFactory = new TestPublicProcessorFactory(
-        archiver,
-        dateProvider!,
-        new NoopTelemetryClient(),
-      );
+      sequencer.sequencer.publicProcessorFactory = new TestPublicProcessorFactory(archiver, dateProvider!);
 
       // We also cheat the sequencer's timetable so it allocates little time to processing.
       // This will leave the sequencer with just a few seconds to build the block, so it shouldn't
-      // be able to squeeze in more than ~12 txs in each. This is sensitive to the time it takes
+      // be able to squeeze in more than a few txs in each. This is sensitive to the time it takes
       // to pick up and validate the txs, so we may need to bump it to work on CI.
       jest
         .spyOn(sequencer.sequencer.timetable, 'getBlockProposalExecTimeEnd')
@@ -471,7 +473,7 @@ describe('e2e_block_building', () => {
     });
 
     // Regression for https://github.com/AztecProtocol/aztec-packages/issues/7918
-    it('publishes two blocks with only padding txs', async () => {
+    it('publishes two empty blocks', async () => {
       ({ teardown, pxe, logger, aztecNode } = await setup(0, {
         minTxsPerBlock: 0,
         skipProtocolContracts: true,
@@ -629,18 +631,18 @@ class TestPublicProcessorFactory extends PublicProcessorFactory {
   protected override createPublicTxSimulator(
     db: MerkleTreeWriteOperations,
     worldStateDB: WorldStateDB,
-    telemetryClient: TelemetryClient,
     globalVariables: GlobalVariables,
     doMerkleOperations: boolean,
     enforceFeePayment: boolean,
+    telemetryClient?: TelemetryClient,
   ): PublicTxSimulator {
     return new TestPublicTxSimulator(
       db,
       worldStateDB,
-      telemetryClient,
       globalVariables,
       doMerkleOperations,
       enforceFeePayment,
+      telemetryClient,
     );
   }
 }

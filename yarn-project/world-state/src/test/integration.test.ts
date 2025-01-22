@@ -4,7 +4,7 @@ import { EthAddress, type Fr } from '@aztec/circuits.js';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { sleep } from '@aztec/foundation/sleep';
 import { type DataStoreConfig } from '@aztec/kv-store/config';
-import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
+import { getTelemetryClient } from '@aztec/telemetry-client';
 
 import { jest } from '@jest/globals';
 
@@ -55,13 +55,13 @@ describe('world-state integration', () => {
 
     db = (await createWorldState(
       config,
-      new WorldStateInstrumentation(new NoopTelemetryClient()),
+      new WorldStateInstrumentation(getTelemetryClient()),
     )) as NativeWorldStateService;
     synchronizer = new TestWorldStateSynchronizer(
       db,
       archiver,
       config,
-      new WorldStateInstrumentation(new NoopTelemetryClient()),
+      new WorldStateInstrumentation(getTelemetryClient()),
     );
     log.info(`Created synchronizer`);
   }, 30_000);
@@ -159,7 +159,7 @@ describe('world-state integration', () => {
         db,
         archiver,
         config,
-        new WorldStateInstrumentation(new NoopTelemetryClient()),
+        new WorldStateInstrumentation(getTelemetryClient()),
       );
 
       archiver.createBlocks(3);
@@ -181,7 +181,7 @@ describe('world-state integration', () => {
         db,
         archiver,
         { ...config, worldStateProvenBlocksOnly: true },
-        new WorldStateInstrumentation(new NoopTelemetryClient()),
+        new WorldStateInstrumentation(getTelemetryClient()),
       );
 
       archiver.createBlocks(5);
@@ -220,7 +220,7 @@ describe('world-state integration', () => {
         db,
         archiver,
         { ...config, worldStateBlockCheckIntervalMS: 1000 },
-        new WorldStateInstrumentation(new NoopTelemetryClient()),
+        new WorldStateInstrumentation(getTelemetryClient()),
       );
     });
 

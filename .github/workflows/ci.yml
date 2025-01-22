@@ -191,6 +191,7 @@ jobs:
       - name: Test
         timeout-minutes: 40
         run: |
+          until docker info &>/dev/null; do sleep 1; done
           echo ${{ secrets.DOCKERHUB_PASSWORD }} | docker login -u aztecprotocolci --password-stdin
           export CI=1 USE_CACHE=1
           artifact="e2e-${{matrix.test}}-$(./yarn-project/bootstrap.sh hash)"
@@ -215,6 +216,7 @@ jobs:
       - name: Test
         timeout-minutes: 40
         run: |
+          until docker info &>/dev/null; do sleep 1; done
           echo ${{ secrets.DOCKERHUB_PASSWORD }} | docker login -u aztecprotocolci --password-stdin
           export CI=1 USE_CACHE=1
           artifact="bench-${{matrix.test}}-$(./yarn-project/bootstrap.sh hash)"
@@ -286,6 +288,7 @@ jobs:
         with:
           runner_type: 16core-tester-x86
           run: |
+            until docker info &>/dev/null; do sleep 1; done
             echo ${{ secrets.DOCKERHUB_PASSWORD }} | docker login -u aztecprotocolci --password-stdin
             export CI=1 USE_CACHE=1
             if ci3/test_should_run acir-bench-$(./barretenberg/acir_tests/bootstrap.sh hash); then
@@ -309,6 +312,7 @@ jobs:
           runner_type: 8core-tester-x86
           ttl: 60
           run: |
+            until docker info &>/dev/null; do sleep 1; done
             docker pull aztecprotocol/aztec:${{ env.GIT_COMMIT }}
             docker pull aztecprotocol/end-to-end:${{ env.GIT_COMMIT }}
             echo ${{ secrets.DOCKERHUB_PASSWORD }} | docker login -u aztecprotocolci --password-stdin
@@ -348,6 +352,7 @@ jobs:
           spot_strategy: None
           ttl: ${{ matrix.config.timeout }}
           run: |
+            until docker info &>/dev/null; do sleep 1; done
             export CI=1 USE_CACHE=1
             artifact="kind-network-${{matrix.config.test}}-$(./yarn-project/bootstrap.sh hash)"
             if ci3/test_should_run "$artifact"; then

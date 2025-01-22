@@ -15,13 +15,6 @@ export NARGO=${NARGO:-../../noir/noir-repo/target/release/nargo}
 export BB_HASH=$(cache_content_hash ../../barretenberg/cpp/.rebuild_patterns)
 export NARGO_HASH=$(cache_content_hash ../../noir/.rebuild_patterns)
 
-# Set flags for parallel
-export PARALLELISM=${PARALLELISM:-16}
-export PARALLEL_FLAGS="-j$PARALLELISM -v --line-buffer --tag --halt now,fail=1"
-if [[ -n "${MEMSUSPEND-}" ]]; then
-  export PARALLEL_FLAGS="$PARALLEL_FLAGS --memsuspend $MEMSUSPEND"
-fi
-
 tmp_dir=./target/tmp
 key_dir=./target/keys
 
@@ -30,7 +23,7 @@ key_dir=./target/keys
 # Means if anything within the dir changes, the tests will rerun.
 circuits_hash=$(cache_content_hash "^noir-projects/$project_name/crates/" ../../noir/.rebuild_patterns)
 
-# Circuits matching these patterns we have clientivc keys computed, rather than ultrahonk.
+# Circuits matching these patterns we have client-ivc keys computed, rather than ultra-honk.
 ivc_patterns=(
   "private_kernel_init"
   "private_kernel_inner"
@@ -48,6 +41,7 @@ rollup_honk_patterns=(
   "rollup_merge"
 )
 
+
 ivc_regex=$(IFS="|"; echo "${ivc_patterns[*]}")
 rollup_honk_regex=$(IFS="|"; echo "${rollup_honk_patterns[*]}")
 
@@ -61,7 +55,7 @@ mkdir -p $tmp_dir
 mkdir -p $key_dir
 
 # Export vars needed inside compile.
-export tmp_dir key_dir ci3 ivc_regex project_name rollup_honk_regex
+export tmp_dir key_dir ci3 ivc_regex project_name rollup_honk_regex circuits_hash
 
 function compile {
   set -euo pipefail
@@ -73,6 +67,7 @@ function compile {
 
   # We get the monomorphized program hash from nargo. If this changes, we have to recompile.
   local program_hash_cmd="$NARGO check --package $name --silence-warnings --show-program-hash | cut -d' ' -f2"
+  # echo_stderr $program_hash_cmd
   program_hash=$(dump_fail "$program_hash_cmd")
   echo_stderr "Hash preimage: $NARGO_HASH-$program_hash"
   hash=$(hash_str "$NARGO_HASH-$program_hash")
@@ -124,7 +119,7 @@ function compile {
     echo_stderr $vk_cmd
     vk=$(dump_fail "$vk_cmd")
     local vkf_cmd="echo '$vk' | xxd -r -p | $BB $vk_as_fields_cmd -k - -o -"
-    # echo_stderrr $vkf_cmd
+    # echo_stderr $vkf_cmd
     vk_fields=$(dump_fail "$vkf_cmd")
     jq -n --arg vk "$vk" --argjson vkf "$vk_fields" '{keyAsBytes: $vk, keyAsFields: $vkf}' > $key_path
     echo_stderr "Key output at: $key_path (${SECONDS}s)"
@@ -142,6 +137,7 @@ function compile {
 export -f compile
 
 function build {
+  # We allow errors so we can output the joblog.
   set +e
   set -u
 
@@ -154,7 +150,8 @@ function build {
           echo "$(basename $dir)"
       fi
     done | \
-    parallel $PARALLEL_FLAGS --joblog joblog.txt compile {}
+    parallel -v --line-buffer --tag --halt now,fail=1 --memsuspend ${MEMSUSPEND:-64G} \
+      --joblog joblog.txt compile {}
   code=$?
   cat joblog.txt
   return $code
@@ -164,6 +161,23 @@ function test_cmds {
   echo "$circuits_hash $NARGO fmt --check"
   $NARGO test --list-tests --silence-warnings | sort | while read -r package test; do
     echo "$circuits_hash noir-projects/scripts/run_test.sh noir-protocol-circuits $package $test"
+  done
+  # We don't blindly execute all circuits as some will have no `Prover.toml`.
+  circuits_to_execute="
+    private-kernel-init
+    private-kernel-inner
+    private-kernel-reset
+    private-kernel-tail-to-public
+    private-kernel-tail
+    rollup-base-private
+    rollup-base-public
+    rollup-block-root
+    rollup-block-merge
+    rollup-merge rollup-root
+  "
+  nargo_root_rel=$(realpath --relative-to=$root $NARGO)
+  for circuit in $circuits_to_execute; do
+    echo "$circuits_hash $nargo_root_rel execute --program-dir noir-projects/noir-protocol-circuits/crates/$circuit --silence-warnings --skip-brillig-constraints-check"
   done
 }
 

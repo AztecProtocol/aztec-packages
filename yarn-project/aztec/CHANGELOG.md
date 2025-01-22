@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.71.0](https://github.com/AztecProtocol/aztec-packages/compare/aztec-package-v0.70.0...aztec-package-v0.71.0) (2025-01-17)
+
+
+### Features
+
+* Track block building helpers ([#11190](https://github.com/AztecProtocol/aztec-packages/issues/11190)) ([a749dc1](https://github.com/AztecProtocol/aztec-packages/commit/a749dc1656c0b4d1b0715dae90883b800be591ca)), closes [#11184](https://github.com/AztecProtocol/aztec-packages/issues/11184)
+
 ## [0.70.0](https://github.com/AztecProtocol/aztec-packages/compare/aztec-package-v0.69.1...aztec-package-v0.70.0) (2025-01-15)
 
 

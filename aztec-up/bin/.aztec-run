@@ -1,31 +1,26 @@
 #!/usr/bin/env bash
-# The script starts a Docker container passing any commands and arguments to the command running inside the container.
+#
+# STOP! BEFORE YOU MODIFY THIS SCRIPT:
+#
+# The script starts the aztec mono-container.
 # It handles mounting paths into the container.
-# It handles networking comms back to the host.
+# It handles networking and comms back to the host.
+# It handles uid/gid adjustments.
+# It handles environment variable forwarding.
+# It's called with a multitude of entrypoints.
+#
+# DO NOT ADD CALLER SPECIFIC SHENANIGANS.
+# Such stuff belongs in higher level e.g. `aztec` or `aztec-wallet` scripts.
 set -euo pipefail
 
-IMAGE=${1:-}
+CONTAINER_NAME=$1
 shift
 
-DEFAULT_PORT=8080
 VERSION=${VERSION:-"latest"}
-AZTEC_PORT=${AZTEC_PORT:-$DEFAULT_PORT}
-INHERIT_USER=${INHERIT_USER:-1}
-
-if [[ -n "${NETWORK:-}" ]]; then
-  VERSION=$NETWORK
-  # enable proving if connecting to a network by default
-  export PXE_PROVER_ENABLED=${PXE_PROVER_ENABLED:-1}
-fi
-
-# preserve arguments to pass to docker run
-declare -a preserved_args
-
-# Colors.
-y="\033[33m"
-r="\033[0m"
 
 function warn {
+  y="\033[33m"
+  r="\033[0m"
   echo -e "${y}$1${r}"
 }
 
@@ -39,26 +34,26 @@ if [[ $PWD != ${HOME}* ]]; then
   exit 1
 fi
 
-UNAME=$(uname -s)
-if [ "$UNAME" == "Linux" ] && docker info 2>/dev/null | grep -q rootless; then
+uname=$(uname -s)
+if [ "$uname" == "Linux" ] && docker info 2>/dev/null | grep -q rootless; then
   ROOTLESS=1
 fi
 
 # If running in rootless docker, don't set uid/gid in container, as it breaks the write perms to the home mount.
 # Otherwise we set the uid/gid to be that of user running the container to ensure write perms to the home mount.
-if [[ -z "${ROOTLESS:-}" && "${INHERIT_USER:-}" == "1" ]]; then
-  DOCKER_USER="--user $(id -u):$(id -g)"
+if [ -z "${ROOTLESS:-}" ]; then
+  arg_user="--user $(id -u):$(id -g)"
 fi
 
 # Set up host.docker.internal alias on Linux, just like it is on mac.
-if [[ -z "${SKIP_NET:-}" && "$UNAME" == "Linux" ]]; then
+if [[ -z "${SKIP_NET:-}" && "$uname" == "Linux" ]]; then
   if [ -n "${ROOTLESS:-}" ]; then
     # We're in rootless docker. Probe for the host ip and use that.
     ip=$(hostname -I | head | tr -d ' ')
     warn "WARNING: Running within rootless docker. Using $ip as host ip. Ensure listening services are listening on this interface."
-    DOCKER_HOST_BINDS="--add-host host.docker.internal:$ip"
+    arg_host_binds="--add-host host.docker.internal:$ip"
   else
-    DOCKER_HOST_BINDS="--add-host host.docker.internal:host-gateway"
+    arg_host_binds="--add-host host.docker.internal:host-gateway"
   fi
 fi
 
@@ -80,81 +75,69 @@ for i in "${!args[@]}"; do
   fi
 done
 
-# Parse command-line arguments
-while [[ "$#" -gt 0 ]]; do
-  case $1 in
-  -p | --port)
-    AZTEC_PORT="$2"
-    preserved_args+=("$1" "$2") # Store both argument and value
-    shift 2                     # Move past argument and value
-    ;;
-  --pxe.network)
-    VERSION="$2" # Set version to user-specified network (e.g. 'devnet')
-    echo "Using aztecprotocol/aztec: $VERSION"
-    preserved_args+=("$1" "$2") # Store both argument and value
-    # turn on proving if connecting to a network by default
-    export PXE_PROVER_ENABLED=${PXE_PROVER_ENABLED:-1}
-    shift 2
-    ;; # Move past argument and value
-  *)
-    preserved_args+=("$1") # Store unrecognized/other arguments
-    shift                  # Move to next argument
-    ;;
-  esac
-done
+# Volume mounts. We always mount in users home dir and cache volume.
+arg_volume_mounts="-v $HOME:$HOME -v cache:/cache"
 
-DOCKER_ENV="-e HOME=$HOME"
-if ! [ -z "${LOG_LEVEL:-}" ] ; then
-  DOCKER_ENV="-e LOG_LEVEL=$LOG_LEVEL"
-fi
-for env in ${ENV_VARS_TO_INJECT:-}; do
-  # SSH_AUTH_SOCK must be handled separately
-  if [[ $env != "SSH_AUTH_SOCK" ]] && [[ -n "${!env:-}" ]]; then
-    # First substitute any reference to localhost with our host gateway.
-    env=${env//localhost/host.docker.internal}
-    # Inject into container.
-    DOCKER_ENV+=" -e $env=${!env:-}"
-  fi
-done
+# If we have an ssh agent running, mount it into container, or if on mac, forward it with socat.
+if [ -n "${SSH_AUTH_SOCK:-}" ]; then
+  # warn "SSH_AUTH_SOCK is set to ${SSH_AUTH_SOCK:-}. Attempting to enable SSH agent forwarding..."
 
-# Dynamic port assignment
-port_assignment=""
-if [[ -z "${SKIP_PORT_ASSIGNMENT:-}" ]]; then
-  port_assignment="-p $AZTEC_PORT:$AZTEC_PORT"
-fi
-
-ssh_agent_socket_mount=""
-if [[ "${ENV_VARS_TO_INJECT:-}" == *"SSH_AUTH_SOCK"* && -n "${SSH_AUTH_SOCK:-}" ]]; then
-  warn "SSH_AUTH_SOCK is set to ${SSH_AUTH_SOCK:-}. Attempting to enable SSH agent forwarding"
-
-  if [[ "$UNAME" == "Darwin" ]]; then
+  if [ "$uname" == "Darwin" ]; then
     if ! command -v socat &> /dev/null; then
-      warn "Socat is not installed. To make SSH agent forwarding work in MacOS, please run:\n\nbrew install socat\n"
+      warn "Socat is not installed. To make SSH agent forwarding work in MacOS, please run:\nbrew install socat"
     else
       socat TCP-LISTEN:${SSH_AUTH_SOCK_SOCAT_PORT:-12345},reuseaddr,fork UNIX-CLIENT:$SSH_AUTH_SOCK &
-      SOCAT_PID=$!
-      trap "kill -9 $SOCAT_PID" SIGINT SIGTERM EXIT
-      DOCKER_ENV+=" -e SSH_AUTH_SOCK_SOCAT_PORT=${SSH_AUTH_SOCK_SOCAT_PORT:-12345}"
+      socat_pid=$!
+      trap 'kill -9 $socat_pid &>/dev/null' EXIT
+      ENV_VARS_TO_INJECT+=" SSH_AUTH_SOCK_SOCAT_PORT"
     fi
   else
-    DOCKER_ENV+=" -e SSH_AUTH_SOCK=${SSH_AUTH_SOCK}"
-    ssh_agent_socket_mount="-v $SSH_AUTH_SOCK:$SSH_AUTH_SOCK"
+    ENV_VARS_TO_INJECT+=" SSH_AUTH_SOCK"
+    arg_volume_mounts+=" -v $SSH_AUTH_SOCK:$SSH_AUTH_SOCK"
   fi
 fi
 
-docker_opt_interactive=-ti
-if [[ -n "${NON_INTERACTIVE:-}" ]]; then
-  docker_opt_interactive=
+# Forward all requested environment variables into the container.
+# Substitute any reference to localhost with our host gateway.
+arg_env_vars="-e HOME=$HOME"
+for env in ${ENV_VARS_TO_INJECT:-}; do
+  if [ -n "${!env:-}" ]; then
+    env=${env//localhost/host.docker.internal}
+    arg_env_vars+=" -e $env=${!env:-}"
+  fi
+done
+
+# Dynamic port assignment.
+if [ -n "${AZTEC_PORT:-}" ]; then
+  arg_port_assignment="-p $AZTEC_PORT:$AZTEC_PORT"
 fi
 
-docker run \
-  $docker_opt_interactive \
-  --rm \
-  --workdir "$PWD" \
-  -v $HOME:$HOME -v cache:/cache \
-  $port_assignment \
-  $ssh_agent_socket_mount \
-  ${DOCKER_ENV:-} \
-  ${DOCKER_HOST_BINDS:-} \
-  ${DOCKER_USER:-} \
-  $IMAGE:$VERSION ${preserved_args[@]:-}
+# For debugging the aztec-up scripts, can be useful to mount local code into container.
+if [ "${MOUNT_LOCAL_CODE:-0}" -eq 1 ]; then
+  arg_volume_mounts=" -v $PWD/..:/usr/src:ro"
+fi
+
+function run {
+  docker run \
+    --name $CONTAINER_NAME \
+    --rm \
+    --workdir "$PWD" \
+    ${arg_interactive:-} \
+    ${arg_volume_mounts:-} \
+    ${arg_port_assignment:-} \
+    ${arg_env_vars:-} \
+    ${arg_host_binds:-} \
+    ${arg_user:-} \
+    aztecprotocol/aztec:$VERSION "${args[@]}"
+}
+
+if [ -t 0 ]; then
+  # We're in a terminal. Docker will receive e.g. SIGINT directly.
+  arg_interactive=-ti
+  run
+else
+  # Not connected to a terminal. We need to ensure we can propagate kill signals.
+  trap 'echo "Sending kill to $CONTAINER_NAME"; docker kill $CONTAINER_NAME &>/dev/null; exit 0' SIGINT SIGTERM
+  run &
+  wait $!
+fi

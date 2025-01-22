@@ -105,6 +105,8 @@ spec:
               value: "{{ .Values.aztec.realProofs }}"
             - name: USE_GCLOUD_OBSERVABILITY
               value: "{{ .Values.telemetry.useGcloudObservability }}"
+            - name: OTEL_EXCLUDE_METRICS
+              value: "{{ .Values.pxe.otelExcludeMetrics }}"
           ports:
             - name: http
               containerPort: {{ .Values.pxe.service.nodePort }}

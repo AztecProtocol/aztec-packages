@@ -48,7 +48,7 @@ To emit unencrypted logs you don't need to import any library. You call the cont
 
 Once emitted, unencrypted events are stored in AztecNode and can be queried by anyone:
 
-#include_code get_logs /yarn-project/end-to-end/src/fixtures/utils.ts typescript
+#include_code get_logs /yarn-project/end-to-end/src/e2e_ordering.test.ts typescript
 
 ## Costs
 

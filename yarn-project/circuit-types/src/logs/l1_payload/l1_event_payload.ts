@@ -47,7 +47,7 @@ export class L1EventPayload {
   }
 
   static decryptAsIncoming(log: PrivateLog, sk: Fq): L1EventPayload | undefined {
-    const decryptedLog = EncryptedLogPayload.decryptAsIncoming(log, sk);
+    const decryptedLog = EncryptedLogPayload.decryptAsIncoming(log.fields, sk);
     if (!decryptedLog) {
       return undefined;
     }

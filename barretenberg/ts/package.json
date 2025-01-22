@@ -1,7 +1,7 @@
 {
   "name": "@aztec/bb.js",
   "packageManager": "yarn@4.5.2",
-  "version": "0.70.0",
+  "version": "0.71.0",
   "homepage": "https://github.com/AztecProtocol/aztec-packages/tree/master/barretenberg/ts",
   "license": "MIT",
   "type": "module",

@@ -123,7 +123,7 @@ template <typename Flavor> class SmallSubgroupIPAProver {
                            const std::vector<FF>& multivariate_challenge,
                            const FF claimed_ipa_eval,
                            std::shared_ptr<typename Flavor::Transcript> transcript,
-                           std::shared_ptr<typename Flavor::CommitmentKey> commitment_key)
+                           std::shared_ptr<typename Flavor::CommitmentKey>& commitment_key)
         : interpolation_domain(zk_sumcheck_data.interpolation_domain)
         , concatenated_polynomial(zk_sumcheck_data.libra_concatenated_monomial_form)
         , libra_concatenated_lagrange_form(zk_sumcheck_data.libra_concatenated_lagrange_form)
@@ -135,6 +135,11 @@ template <typename Flavor> class SmallSubgroupIPAProver {
         , batched_quotient(QUOTIENT_LENGTH)
 
     {
+        // Reallocate the commitment key if necessary. This is an edge case with SmallSubgroupIPA since it has
+        // polynomials that may exceed the circuit size.
+        if (commitment_key->dyadic_size < SUBGROUP_SIZE + 3) {
+            commitment_key = std::make_shared<typename Flavor::CommitmentKey>(SUBGROUP_SIZE + 3);
+        }
         // Extract the evaluation domain computed by ZKSumcheckData
         if constexpr (std::is_same_v<Curve, curve::BN254>) {
             bn_evaluation_domain = std::move(zk_sumcheck_data.bn_evaluation_domain);

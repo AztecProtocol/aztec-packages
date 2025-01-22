@@ -30,7 +30,6 @@ import { type AztecKVStore } from '@aztec/kv-store';
 import { openTmpStore } from '@aztec/kv-store/lmdb';
 import { type AppendOnlyTree, Poseidon, StandardTree, newTree } from '@aztec/merkle-tree';
 import { ProtocolContractAddress } from '@aztec/protocol-contracts';
-import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
 import { MerkleTrees } from '@aztec/world-state';
 
 import { jest } from '@jest/globals';
@@ -209,7 +208,6 @@ describe('public_tx_simulator', () => {
     const simulator = new PublicTxSimulator(
       db,
       worldStateDB,
-      new NoopTelemetryClient(),
       GlobalVariables.from({ ...GlobalVariables.empty(), gasFees }),
       doMerkleOperations,
       enforceFeePayment,
@@ -243,8 +241,7 @@ describe('public_tx_simulator', () => {
 
   beforeEach(async () => {
     const tmp = openTmpStore();
-    const telemetryClient = new NoopTelemetryClient();
-    db = await (await MerkleTrees.new(tmp, telemetryClient)).fork();
+    db = await (await MerkleTrees.new(tmp)).fork();
     worldStateDB = new WorldStateDB(db, mock<ContractDataSource>());
 
     treeStore = openTmpStore();

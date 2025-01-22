@@ -1,10 +1,8 @@
-import { type L1NotePayload, Note, TxHash, randomTxHash } from '@aztec/circuit-types';
+import { Note, TxHash, randomTxHash } from '@aztec/circuit-types';
 import { AztecAddress, Fr, Point, type PublicKey } from '@aztec/circuits.js';
 import { NoteSelector } from '@aztec/foundation/abi';
 import { toBigIntBE } from '@aztec/foundation/bigint-buffer';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
-
-import { type NoteInfo } from '../note_decryption_utils/index.js';
 
 /**
  * A note with contextual data which was decrypted as outgoing.
@@ -37,31 +35,6 @@ export class OutgoingNoteDao {
     /** The public key with which the note was encrypted. */
     public ovpkM: PublicKey,
   ) {}
-
-  static fromPayloadAndNoteInfo(
-    note: Note,
-    payload: L1NotePayload,
-    noteInfo: NoteInfo,
-    l2BlockNumber: number,
-    l2BlockHash: string,
-    dataStartIndexForTx: number,
-    ovpkM: PublicKey,
-  ) {
-    const noteHashIndexInTheWholeTree = BigInt(dataStartIndexForTx + noteInfo.noteHashIndex);
-    return new OutgoingNoteDao(
-      note,
-      payload.contractAddress,
-      payload.storageSlot,
-      payload.noteTypeId,
-      noteInfo.txHash,
-      l2BlockNumber,
-      l2BlockHash,
-      noteInfo.nonce,
-      noteInfo.noteHash,
-      noteHashIndexInTheWholeTree,
-      ovpkM,
-    );
-  }
 
   toBuffer(): Buffer {
     return serializeToBuffer([

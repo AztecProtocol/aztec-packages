@@ -20,7 +20,7 @@ import {
 } from '@aztec/circuits.js';
 import { padArrayEnd } from '@aztec/foundation/collection';
 import { createLogger } from '@aztec/foundation/log';
-import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
+import { getTelemetryClient } from '@aztec/telemetry-client';
 
 import assert from 'assert/strict';
 import { mkdir, mkdtemp, rm } from 'fs/promises';
@@ -68,7 +68,7 @@ export class NativeWorldStateService implements MerkleTreeDatabase {
     rollupAddress: EthAddress,
     dataDir: string,
     dbMapSizeKb: number,
-    instrumentation = new WorldStateInstrumentation(new NoopTelemetryClient()),
+    instrumentation = new WorldStateInstrumentation(getTelemetryClient()),
     log = createLogger('world-state:database'),
     cleanup = () => Promise.resolve(),
   ): Promise<NativeWorldStateService> {
@@ -107,7 +107,7 @@ export class NativeWorldStateService implements MerkleTreeDatabase {
   static async tmp(
     rollupAddress = EthAddress.ZERO,
     cleanupTmpDir = true,
-    instrumentation = new WorldStateInstrumentation(new NoopTelemetryClient()),
+    instrumentation = new WorldStateInstrumentation(getTelemetryClient()),
   ): Promise<NativeWorldStateService> {
     const log = createLogger('world-state:database');
     const dataDir = await mkdtemp(join(tmpdir(), 'aztec-world-state-'));

@@ -13,6 +13,7 @@ pub mod contract_instance;
 
 pub mod messaging;
 pub mod hash;
+pub mod poseidon2;
 pub mod traits;
 pub mod type_serialization;
 

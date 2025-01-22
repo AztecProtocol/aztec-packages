@@ -6,7 +6,7 @@ pub(crate) struct MockStruct {
 }
 
 impl MockStruct {
-    fn new(a: Field, b: Field) -> Self {
+    pub(crate) fn new(a: Field, b: Field) -> Self {
         Self { a, b }
     }
 }

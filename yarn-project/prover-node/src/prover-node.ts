@@ -28,7 +28,14 @@ import { type Maybe } from '@aztec/foundation/types';
 import { type P2P } from '@aztec/p2p';
 import { type L1Publisher } from '@aztec/sequencer-client';
 import { PublicProcessorFactory } from '@aztec/simulator/server';
-import { Attributes, type TelemetryClient, type Traceable, type Tracer, trackSpan } from '@aztec/telemetry-client';
+import {
+  Attributes,
+  type TelemetryClient,
+  type Traceable,
+  type Tracer,
+  getTelemetryClient,
+  trackSpan,
+} from '@aztec/telemetry-client';
 
 import { type BondManager } from './bond/bond-manager.js';
 import { EpochProvingJob, type EpochProvingJobState } from './job/epoch-proving-job.js';
@@ -78,8 +85,8 @@ export class ProverNode implements ClaimsMonitorHandler, EpochMonitorHandler, Pr
     protected readonly claimsMonitor: ClaimsMonitor,
     protected readonly epochsMonitor: EpochMonitor,
     protected readonly bondManager: BondManager,
-    protected readonly telemetryClient: TelemetryClient,
     options: Partial<ProverNodeOptions> = {},
+    protected readonly telemetryClient: TelemetryClient = getTelemetryClient(),
   ) {
     this.options = {
       pollingIntervalMs: 1_000,

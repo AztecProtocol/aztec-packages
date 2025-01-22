@@ -598,9 +598,7 @@ template <typename Flavor> class SumcheckVerifierRound {
     FF compute_full_relation_purported_value(ClaimedEvaluations purported_evaluations,
                                              const bb::RelationParameters<FF>& relation_parameters,
                                              const bb::GateSeparatorPolynomial<FF>& gate_sparators,
-                                             const RelationSeparator alpha,
-                                             const FF full_libra_purported_value = FF{ 0 },
-                                             FF correcting_factor = FF{ 1 })
+                                             const RelationSeparator alpha)
     {
         // The verifier should never skip computation of contributions from any relation
         Utils::template accumulate_relation_evaluations_without_skipping<>(
@@ -609,12 +607,6 @@ template <typename Flavor> class SumcheckVerifierRound {
         FF running_challenge{ 1 };
         FF output{ 0 };
         Utils::scale_and_batch_elements(relation_evaluations, alpha, running_challenge, output);
-        if constexpr (Flavor::HasZK) {
-            output = output * correcting_factor + full_libra_purported_value;
-            if constexpr (IsECCVMRecursiveFlavor<Flavor>) {
-                output.self_reduce();
-            }
-        };
         return output;
     }
 };

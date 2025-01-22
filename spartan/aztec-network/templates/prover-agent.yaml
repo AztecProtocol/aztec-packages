@@ -105,6 +105,8 @@ spec:
               value: service.name={{ .Release.Name }},service.namespace={{ .Release.Namespace }},service.version={{ .Chart.AppVersion }},environment={{ .Values.environment | default "production" }}
             - name: USE_GCLOUD_OBSERVABILITY
               value: "{{ .Values.telemetry.useGcloudObservability }}"
+            - name: OTEL_EXCLUDE_METRICS
+              value: "{{ .Values.proverAgent.otelExcludeMetrics }}"
           resources:
             {{- toYaml .Values.proverAgent.resources | nindent 12 }}
 {{- end }}

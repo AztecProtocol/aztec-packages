@@ -605,7 +605,6 @@ pub fn build_debug_crate_file() -> String {
                 pub fn __debug_member_assign_{n}<T, Index>(var_id: u32, value: T, {var_sig}) {{
                     /// Safety: debug context
                     unsafe {{
-                        //@safety: debug context
                         __debug_inner_member_assign_{n}(var_id, value, {vars});
                     }}
                 }}

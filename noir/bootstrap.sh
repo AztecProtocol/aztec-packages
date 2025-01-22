@@ -3,7 +3,6 @@ source $(git rev-parse --show-toplevel)/ci3/source_bootstrap
 
 cmd=${1:-}
 
-# WORKTODO(ci3) remove this -2
 export hash=$(cache_content_hash .rebuild_patterns)
 export test_hash=$(cache_content_hash .rebuild_patterns .rebuild_patterns_tests)
 

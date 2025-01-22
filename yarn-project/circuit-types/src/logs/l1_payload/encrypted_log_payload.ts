@@ -45,6 +45,20 @@ function fieldsToEncryptedBytes(fields: Fr[]) {
   return Buffer.concat(fields.map(f => f.toBuffer().subarray(1)));
 }
 
+function trimCiphertext(buf: Buffer, ciphertextLength: number) {
+  // bytes_to_fields in nr pads fields smaller than 31 bytes, meaning fieldsToEncryptedBytes can give incorrect ciphertext
+  // e.g. input
+  //  Fr<0x003b1cb893d1fdab1d55420181669aa5251acc8beaed8438dca7960f217cfe1f>,
+  //  Fr<0x00000000000000000000a3a3d57e7221e9bb201917f09caa475f2d00658e8f5e>
+  // becomes: 3b1cb893d1fdab1d55420181669aa5251acc8beaed8438dca7960f217cfe1f00000000000000000a3a3d57e7221e9bb201917f09caa475f2d00658e8f5e
+  // but should be: 3b1cb893d1fdab1d55420181669aa5251acc8beaed8438dca7960f217cfe1fa3a3d57e7221e9bb201917f09caa475f2d00658e8f5e
+  // This fn trims the correct number of zeroes.
+  const zeroesToTrim = buf.length - ciphertextLength;
+  const finalFieldBytes = buf.subarray(-31).subarray(zeroesToTrim);
+  const ciphertextBytes = Buffer.concat([buf.subarray(0, -31), finalFieldBytes]);
+  return ciphertextBytes;
+}
+
 class Overhead {
   constructor(public ephPk: Point, public incomingHeader: Buffer) {}
 
@@ -135,49 +149,25 @@ export class EncryptedLogPayload {
    *
    * @param payload - The payload for the log
    * @param addressSecret - The address secret, used to decrypt the logs
+   * @param ciphertextLength - Optionally supply the ciphertext length (see trimCiphertext())
    * @returns The decrypted log payload
    */
-  public static decryptAsIncoming(payload: PrivateLog, addressSecret: GrumpkinScalar): EncryptedLogPayload | undefined {
-    try {
-      const logFields = payload.fields;
-      const tag = logFields[0];
-      const reader = BufferReader.asReader(fieldsToEncryptedBytes(logFields.slice(1)));
-
-      const overhead = Overhead.fromBuffer(reader);
-      const { contractAddress } = this.#decryptOverhead(overhead, { addressSecret });
-
-      const ciphertext = reader.readToEnd();
-      const incomingBodyPlaintext = this.#decryptIncomingBody(ciphertext, addressSecret, overhead.ephPk);
-
-      return new EncryptedLogPayload(tag, contractAddress, incomingBodyPlaintext);
-    } catch (e: any) {
-      // Following error messages are expected to occur when decryption fails
-      if (!this.isAcceptableError(e)) {
-        // If we encounter an unexpected error, we rethrow it
-        throw e;
-      }
-      return;
-    }
-  }
-
-  /**
-   * Similar to `decryptAsIncoming`. Except that this is for the payload coming from public, which has tightly packed
-   * bytes that don't have 0 byte at the beginning of every 32 bytes.
-   * And the incoming body is of variable size.
-   */
-  public static decryptAsIncomingFromPublic(
-    payload: Buffer,
+  public static decryptAsIncoming(
+    payload: Fr[],
     addressSecret: GrumpkinScalar,
+    ciphertextLength?: number,
   ): EncryptedLogPayload | undefined {
     try {
-      const reader = BufferReader.asReader(payload);
-      const tag = reader.readObject(Fr);
+      const tag = payload[0];
+      const reader = BufferReader.asReader(fieldsToEncryptedBytes(payload.slice(1)));
 
       const overhead = Overhead.fromBuffer(reader);
       const { contractAddress } = this.#decryptOverhead(overhead, { addressSecret });
 
-      // The incoming can be of variable size, so we read until the end
-      const ciphertext = reader.readToEnd();
+      let ciphertext = reader.readToEnd();
+      if (ciphertextLength && ciphertext.length !== ciphertextLength) {
+        ciphertext = trimCiphertext(ciphertext, ciphertextLength);
+      }
       const incomingBodyPlaintext = this.#decryptIncomingBody(ciphertext, addressSecret, overhead.ephPk);
 
       return new EncryptedLogPayload(tag, contractAddress, incomingBodyPlaintext);

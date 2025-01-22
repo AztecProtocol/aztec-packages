@@ -16,7 +16,7 @@ import {
 } from '@aztec/circuits.js/testing';
 import { createSafeJsonRpcClient } from '@aztec/foundation/json-rpc/client';
 import { type SafeJsonRpcServer } from '@aztec/foundation/json-rpc/server';
-import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
+import { getTelemetryClient } from '@aztec/telemetry-client';
 
 import getPort from 'get-port';
 
@@ -53,7 +53,7 @@ describe('Prover agent <-> queue integration', () => {
   beforeEach(async () => {
     prover = new MockProver();
 
-    queue = new MemoryProvingQueue(new NoopTelemetryClient(), 100, 10);
+    queue = new MemoryProvingQueue(getTelemetryClient(), 100, 10);
     queue.start();
     const port = await getPort();
     queueRpcServer = createProvingJobSourceServer(queue);

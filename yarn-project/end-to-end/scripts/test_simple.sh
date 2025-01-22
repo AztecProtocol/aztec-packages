@@ -1,5 +1,5 @@
 #!/bin/bash
-# This is called from the outer script test.sh, but is sometimes useful to call directly.
+# This is called from the outer script run_test.sh, but is sometimes useful to call directly.
 # A "simple" test is one that doesn't use docker compose.
 # If the given test is a shell script, execute it directly, otherwise assume it's a jest test and run via node.
 # Jest arguments:

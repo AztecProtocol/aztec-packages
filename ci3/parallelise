@@ -14,8 +14,9 @@ echo "Starting test run with max $jobs jobs..."
 if [ -t 1 ]; then
   set +e
   output=$(parallel $parallel_args --bar "run_test_cmd {}")
+  code=$?
   echo -e "$output" | cache_log "Test run" >/dev/null
-  if [ $? -ne 0 ]; then
+  if [ "$code" -ne 0 ]; then
     echo -e "$output"
     exit 1
   fi

@@ -73,6 +73,7 @@
     "@noir-lang/types": "portal:../../noir/packages/types",
     "levelup": "^5.1.1",
     "lodash.clonedeep": "^4.5.0",
+    "lodash.merge": "^4.6.2",
     "memdown": "^6.1.1",
     "tslib": "^2.4.0"
   },
@@ -89,7 +90,6 @@
     "@types/node": "^18.7.23",
     "jest": "^29.5.0",
     "jest-mock-extended": "^3.0.4",
-    "lodash.merge": "^4.6.2",
     "ts-node": "^10.9.1",
     "typescript": "^5.0.4",
     "viem": "^2.7.15"

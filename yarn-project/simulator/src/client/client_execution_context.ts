@@ -327,6 +327,7 @@ export class ClientExecutionContext extends ViewDataOracle {
    * This fn exists because sha hashing the preimage
    * is too large to compile (16,200 fields, 518,400 bytes) => the oracle hashes it.
    * See private_context.nr
+   * TODO(#8945): Contract class logs are currently sha hashes. When these are fields, delete this.
    * @param log - The unencrypted log to be emitted.
    */
   public override emitContractClassLog(log: UnencryptedL2Log, counter: number) {

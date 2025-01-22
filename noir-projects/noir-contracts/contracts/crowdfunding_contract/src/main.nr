@@ -105,7 +105,7 @@ contract Crowdfunding {
         Token::at(storage.donation_token.read()).transfer(operator_address, amount as Field).call(
             &mut context,
         );
-        // 3) Emit an unencrypted event so that anyone can audit how much the operator has withdrawn
+        // 3) Emit a public event so that anyone can audit how much the operator has withdrawn
         Crowdfunding::at(context.this_address())
             ._publish_donation_receipts(amount, operator_address)
             .enqueue(&mut context);

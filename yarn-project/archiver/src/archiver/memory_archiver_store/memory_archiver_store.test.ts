@@ -14,7 +14,7 @@ describe('MemoryArchiverStore', () => {
 
   describeArchiverDataStore('implements ArchiverStore', () => archiverStore);
 
-  describe('getUnencryptedLogs config', () => {
+  describe('getPublicLogs config', () => {
     it('does not return more than "maxLogs" logs', async () => {
       const maxLogs = 5;
       archiverStore = new MemoryArchiverStore(maxLogs);
@@ -26,7 +26,7 @@ describe('MemoryArchiverStore', () => {
       await archiverStore.addBlocks(blocks);
       await archiverStore.addLogs(blocks.map(b => b.data));
 
-      const response = await archiverStore.getUnencryptedLogs({});
+      const response = await archiverStore.getPublicLogs({});
 
       expect(response.maxLogsHit).toBeTruthy();
       expect(response.logs.length).toEqual(maxLogs);
