@@ -1,74 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1737560420252,
+  "lastUpdate": 1737561410164,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "lucasxia01@gmail.com",
-            "name": "Lucas Xia",
-            "username": "lucasxia01"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "37095ceba560ad66516467387d186b5afd19a6e0",
-          "message": "feat: Use full IPA recursive verifier in root rollup (#10962)\n\nModifies the root rollup circuit to use different recursion proof type,\r\nROOT_ROLLUP_HONK and processing of honk_recursion_constraints, so the\r\nbackend knows to run the full IPA recursive verifier.\r\n\r\nResolves https://github.com/AztecProtocol/barretenberg/issues/1183.",
-          "timestamp": "2025-01-02T21:45:58Z",
-          "tree_id": "fcf966e3b8c5d404c4ec30b396ed70c37832b480",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/37095ceba560ad66516467387d186b5afd19a6e0"
-        },
-        "date": 1735855292530,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "nativeClientIVCBench/Ambient_17_in_20/6",
-            "value": 20245.989401999992,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 17751.176918999998 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeClientIVCBench/Full/6",
-            "value": 21845.095571,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 19073.680909 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 4635.720676000034,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 4339.428815 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmClientIVCBench/Full/6",
-            "value": 73467.872584,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 73467873000 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 13970.039669,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 13970039000 ms\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 2980474638,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 2980474638 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 141687442,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 141687442 ns\nthreads: 1"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -3284,6 +3218,72 @@ window.BENCHMARK_DATA = {
             "value": 150311423,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 150311423 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "105737703+iakovenkos@users.noreply.github.com",
+            "name": "sergei iakovenko",
+            "username": "iakovenkos"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "fe34b0580a308665c655a897c72f06bd05dcd4c4",
+          "message": "feat: eccvm sumcheck with commitments to round univariates (#11206)\n\n[Protocol outline](https://hackmd.io/sxlCHpVISdaaQJbCpcXA-Q)\r\n\r\n* combined with SmallSubgroup inner product argument, ensures that the\r\nsumcheck round univariates do not leak witness information (In ECCVM)\r\n* drastically reduces the eccvm proof size - instead of sending 24\r\ncoefficients of each round univariate, the prover sends evals at 0, 1,\r\nand a group element\r\n* reduces eccvm recursive verifier costs by avoiding expensive\r\nevaluations of polys of degree 23 (360K gates -> 230K gates)",
+          "timestamp": "2025-01-22T16:32:11+01:00",
+          "tree_id": "7cca89d27ac7e50ea84edf7fc6be7c76918360b3",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/fe34b0580a308665c655a897c72f06bd05dcd4c4"
+        },
+        "date": 1737561402901,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Ambient_17_in_20/6",
+            "value": 19591.829495000013,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 16680.902129 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 24930.087184,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 19013.502672000002 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 4438.269887000019,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 4097.429571000001 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 80693.997431,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 80693998000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 13536.199834000001,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 13536201000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 3549754629,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 3549754629 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 153191669,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 153191669 ns\nthreads: 1"
           }
         ]
       }
