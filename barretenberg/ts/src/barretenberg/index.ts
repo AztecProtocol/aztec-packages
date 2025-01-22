@@ -3,7 +3,7 @@ import { BarretenbergApi, BarretenbergApiSync } from '../barretenberg_api/index.
 import { createMainWorker } from '../barretenberg_wasm/barretenberg_wasm_main/factory/node/index.js';
 import { BarretenbergWasmMain, BarretenbergWasmMainWorker } from '../barretenberg_wasm/barretenberg_wasm_main/index.js';
 import { getRemoteBarretenbergWasm } from '../barretenberg_wasm/helpers/index.js';
-import { BarretenbergWasm, BarretenbergWasmWorker, fetchModuleAndThreads } from '../barretenberg_wasm/index.js';
+import { BarretenbergWasmWorker, fetchModuleAndThreads } from '../barretenberg_wasm/index.js';
 import createDebug from 'debug';
 import { Crs, GrumpkinCrs } from '../crs/index.js';
 import { RawBuffer } from '../types/raw_buffer.js';
