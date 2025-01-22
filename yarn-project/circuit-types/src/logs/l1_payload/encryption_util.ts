@@ -9,7 +9,10 @@ function extractCloseToUniformlyRandom256BitsFromEcdhSharedSecretUsingSha256(sha
   return hash;
 }
 
-function deriveAesSymmetricKeyAndIvFromEcdhSharedSecret(sharedSecret: Point, randomnessExtractionFunction: (sharedSecret: Point) => Buffer): [Buffer, Buffer] {
+function deriveAesSymmetricKeyAndIvFromEcdhSharedSecret(
+  sharedSecret: Point,
+  randomnessExtractionFunction: (sharedSecret: Point) => Buffer,
+): [Buffer, Buffer] {
   const random256Bits = randomnessExtractionFunction(sharedSecret);
   const symKey = random256Bits.subarray(0, 16);
   const iv = random256Bits.subarray(16, 32);
@@ -19,7 +22,7 @@ function deriveAesSymmetricKeyAndIvFromEcdhSharedSecret(sharedSecret: Point, ran
 export function deriveAesSymmetricKeyAndIvFromEcdhSharedSecretUsingSha256(sharedSecret: Point): [Buffer, Buffer] {
   return deriveAesSymmetricKeyAndIvFromEcdhSharedSecret(
     sharedSecret,
-    extractCloseToUniformlyRandom256BitsFromEcdhSharedSecretUsingSha256
+    extractCloseToUniformlyRandom256BitsFromEcdhSharedSecretUsingSha256,
   );
 }
 
@@ -32,11 +35,7 @@ export function deriveAesSymmetricKeyAndIvFromEcdhSharedSecretUsingSha256(shared
  * @param deriveSecret - Function to derive the AES secret from the ephemeral secret key and public key
  * @returns The ciphertext
  */
-export function aes128Encrypt(
-  plaintext: Buffer,
-  iv: Buffer,
-  symKey: Buffer,
-): Buffer {
+export function aes128Encrypt(plaintext: Buffer, iv: Buffer, symKey: Buffer): Promise<Buffer> {
   const aes128 = new Aes128();
   return aes128.encryptBufferCBC(plaintext, iv, symKey);
 }
@@ -49,11 +48,7 @@ export function aes128Encrypt(
  * @param deriveSecret - Function to derive the AES secret from the ephemeral secret key and public key
  * @returns
  */
-export function aes128Decrypt(
-  ciphertext: Buffer,
-  iv: Buffer,
-  symKey: Buffer,
-): Buffer {
+export function aes128Decrypt(ciphertext: Buffer, iv: Buffer, symKey: Buffer): Promise<Buffer> {
   const aes128 = new Aes128();
   return aes128.decryptBufferCBC(ciphertext, iv, symKey);
 }

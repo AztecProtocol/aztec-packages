@@ -9,7 +9,6 @@ import {
   derivePublicKeyFromSecretKey,
 } from '@aztec/circuits.js';
 import { randomBytes } from '@aztec/foundation/crypto';
-import { createLogger } from '@aztec/foundation/log';
 import { BufferReader, type Tuple, numToUInt16BE, serializeToBuffer } from '@aztec/foundation/serialize';
 
 import {
@@ -92,12 +91,12 @@ export class EncryptedLogPayload {
 
     const finalPlaintext = this.incomingBodyPlaintext;
 
-    const ciphertextBytes = aes128Encrypt(finalPlaintext, iv, symKey);
+    const ciphertextBytes = await aes128Encrypt(finalPlaintext, iv, symKey);
 
     const headerPlaintext = serializeToBuffer(this.contractAddress.toBuffer(), numToUInt16BE(ciphertextBytes.length));
 
     // TODO: it is unsafe to re-use the same iv and symKey. We'll need to do something cleverer.
-    const headerCiphertextBytes = aes128Encrypt(headerPlaintext, iv, symKey);
+    const headerCiphertextBytes = await aes128Encrypt(headerPlaintext, iv, symKey);
 
     if (headerCiphertextBytes.length !== HEADER_CIPHERTEXT_SIZE_IN_BYTES) {
       throw new Error(`Invalid header ciphertext size: ${headerCiphertextBytes.length}`);
@@ -168,7 +167,7 @@ export class EncryptedLogPayload {
 
       const [symKey, iv] = deriveAesSymmetricKeyAndIvFromEcdhSharedSecretUsingSha256(ciphertextSharedSecret);
 
-      const headerPlaintextBytes = aes128Decrypt(headerCiphertextBytes, iv, symKey);
+      const headerPlaintextBytes = await aes128Decrypt(headerCiphertextBytes, iv, symKey);
 
       const headerReader = BufferReader.asReader(headerPlaintextBytes);
 
@@ -180,7 +179,7 @@ export class EncryptedLogPayload {
 
       const ciphertextBytes = reader.readBytes(ciphertextBytesLength);
 
-      const plaintextBytes = aes128Decrypt(ciphertextBytes, iv, symKey);
+      const plaintextBytes = await aes128Decrypt(ciphertextBytes, iv, symKey);
 
       return new EncryptedLogPayload(tag, contractAddress, plaintextBytes);
     } catch (e: any) {

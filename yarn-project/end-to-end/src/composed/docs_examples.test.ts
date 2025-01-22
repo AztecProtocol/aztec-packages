@@ -22,7 +22,8 @@ describe('docs_examples', () => {
     // docs:end:define_account_vars
 
     // docs:start:create_wallet
-    const wallet = await getSchnorrAccount(pxe, secretKey, signingPrivateKey).waitSetup();
+    const account = await getSchnorrAccount(pxe, secretKey, signingPrivateKey);
+    const wallet = await account.waitSetup();
     // docs:end:create_wallet
 
     // docs:start:deploy_contract

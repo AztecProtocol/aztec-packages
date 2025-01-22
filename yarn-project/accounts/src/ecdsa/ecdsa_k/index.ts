@@ -21,8 +21,13 @@ export { EcdsaKAccountContract };
  * @param signingPrivateKey - Secp256k1 key used for signing transactions.
  * @param salt - Deployment salt.
  */
-export function getEcdsaKAccount(pxe: PXE, secretKey: Fr, signingPrivateKey: Buffer, salt?: Salt): AccountManager {
-  return new AccountManager(pxe, secretKey, new EcdsaKAccountContract(signingPrivateKey), salt);
+export function getEcdsaKAccount(
+  pxe: PXE,
+  secretKey: Fr,
+  signingPrivateKey: Buffer,
+  salt?: Salt,
+): Promise<AccountManager> {
+  return AccountManager.create(pxe, secretKey, new EcdsaKAccountContract(signingPrivateKey), salt);
 }
 
 /**
