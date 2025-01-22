@@ -397,6 +397,10 @@ export class L1TxUtils {
       // Check if tx has timed out.
       txTimedOut = isTimedOut();
     }
+    this.logger?.error(`L1 transaction ${currentTxHash} timed out`, {
+      txHash: currentTxHash,
+      ...tx,
+    });
     throw new Error(`L1 transaction ${currentTxHash} timed out`);
   }
 

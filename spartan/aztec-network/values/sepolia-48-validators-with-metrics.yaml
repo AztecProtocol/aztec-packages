@@ -77,4 +77,4 @@ proverNode:
   proverPublisherPrivateKey:
 
 bot:
-  txIntervalSeconds: 5
+  txIntervalSeconds: 0
