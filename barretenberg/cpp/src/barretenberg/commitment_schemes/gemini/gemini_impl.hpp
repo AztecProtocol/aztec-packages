@@ -235,12 +235,12 @@ std::vector<typename GeminiProver_<Curve>::Polynomial> GeminiProver_<Curve>::com
  * @return {A₀₊(X), A₀₋(X)}
  */
 template <typename Curve>
-std::pair<typename GeminiProver_<Curve>::Polynomial, typename GeminiProver_<Curve>::Polynomial> GeminiProver_<
-    Curve>::compute_partially_evaluated_batch_polynomials(const size_t log_n,
-                                                          Polynomial&& batched_F,
-                                                          Polynomial&& batched_G,
-                                                          const Fr& r_challenge,
-                                                          std::vector<Polynomial> batched_groups_to_be_concatenated)
+std::pair<typename GeminiProver_<Curve>::Polynomial, typename GeminiProver_<Curve>::Polynomial> GeminiProver_<Curve>::
+    compute_partially_evaluated_batch_polynomials(const size_t log_n,
+                                                  Polynomial&& batched_F,
+                                                  Polynomial&& batched_G,
+                                                  const Fr& r_challenge,
+                                                  const std::vector<Polynomial>& batched_groups_to_be_concatenated)
 {
     Polynomial& A_0_pos = batched_F; // A₀₊ = F
     Polynomial A_0_neg = batched_F;  // A₀₋ = F
@@ -315,10 +315,10 @@ std::vector<typename GeminiProver_<Curve>::Claim> GeminiProver_<Curve>::construc
 
     // Compute evaluation of partially evaluated batch polynomial (positive) A₀₊(r)
     Fr a_0_pos = A_0_pos.evaluate(r_challenge);
-    claims.emplace_back(Claim{ A_0_pos, { r_challenge, a_0_pos } });
+    claims.emplace_back(Claim{ std::move(A_0_pos), { r_challenge, a_0_pos } });
     // Compute evaluation of partially evaluated batch polynomial (negative) A₀₋(-r)
     Fr a_0_neg = A_0_neg.evaluate(-r_challenge);
-    claims.emplace_back(Claim{ A_0_neg, { -r_challenge, a_0_neg } });
+    claims.emplace_back(Claim{ std::move(A_0_neg), { -r_challenge, a_0_neg } });
 
     // Compute univariate opening queries rₗ = r^{2ˡ} for l = 0, 1, ..., m-1
     std::vector<Fr> r_squares = gemini::powers_of_evaluation_challenge(r_challenge, log_n);
