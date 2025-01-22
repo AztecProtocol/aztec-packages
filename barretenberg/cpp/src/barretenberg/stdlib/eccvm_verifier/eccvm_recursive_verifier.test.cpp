@@ -2,6 +2,7 @@
 #include "barretenberg/circuit_checker/circuit_checker.hpp"
 #include "barretenberg/eccvm/eccvm_prover.hpp"
 #include "barretenberg/eccvm/eccvm_verifier.hpp"
+#include "barretenberg/stdlib/honk_verifier/ultra_verification_keys_comparator.hpp"
 #include "barretenberg/ultra_honk/ultra_prover.hpp"
 #include "barretenberg/ultra_honk/ultra_verifier.hpp"
 
@@ -171,44 +172,11 @@ template <typename RecursiveFlavor> class ECCVMRecursiveTests : public ::testing
             return { outer_circuit.blocks, outer_verification_key };
         };
 
-        bool broke(false);
-        auto check_eq = [&broke](auto& p1, auto& p2) {
-            EXPECT_TRUE(p1.size() == p2.size());
-            for (size_t idx = 0; idx < p1.size(); idx++) {
-                if (p1[idx] != p2[idx]) {
-                    broke = true;
-                    break;
-                }
-            }
-        };
+        auto [blocks_20, verification_key_20] = get_blocks(20);
+        auto [blocks_40, verification_key_40] = get_blocks(40);
 
-        auto [blocks_10, verification_key_10] = get_blocks(20);
-        auto [blocks_11, verification_key_11] = get_blocks(50);
-
-        size_t block_idx = 0;
-        for (auto [b_10, b_11] : zip_view(blocks_10.get(), blocks_11.get())) {
-            info("block index: ", block_idx);
-            EXPECT_TRUE(b_10.selectors.size() == 13);
-            EXPECT_TRUE(b_11.selectors.size() == 13);
-            for (auto [p_10, p_11] : zip_view(b_10.selectors, b_11.selectors)) {
-                check_eq(p_10, p_11);
-            }
-            block_idx++;
-        }
-
-        typename OuterFlavor::CommitmentLabels labels;
-        for (auto [vk_10, vk_11, label] :
-             zip_view(verification_key_10->get_all(), verification_key_11->get_all(), labels.get_precomputed())) {
-            if (vk_10 != vk_11) {
-                broke = true;
-                info("Mismatch verification key label: ", label, " left: ", vk_10, " right: ", vk_11);
-            }
-        }
-
-        EXPECT_TRUE(verification_key_10->circuit_size == verification_key_11->circuit_size);
-        EXPECT_TRUE(verification_key_10->num_public_inputs == verification_key_11->num_public_inputs);
-
-        EXPECT_FALSE(broke);
+        compare_ultra_verification_keys<OuterFlavor>({ blocks_20, blocks_40 },
+                                                     { verification_key_20, verification_key_40 });
     };
 };
 using FlavorTypes = testing::Types<ECCVMRecursiveFlavor_<UltraCircuitBuilder>>;

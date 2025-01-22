@@ -1,10 +1,6 @@
 #include "barretenberg/stdlib/translator_vm_verifier/translator_recursive_verifier.hpp"
 #include "barretenberg/common/log.hpp"
-#include "barretenberg/numeric/uint256/uint256.hpp"
-#include "barretenberg/relations/relation_parameters.hpp"
-#include "barretenberg/sumcheck/sumcheck_round.hpp"
-#include "barretenberg/translator_vm/translator_circuit_builder.hpp"
-#include "barretenberg/translator_vm/translator_prover.hpp"
+#include "barretenberg/stdlib/honk_verifier/ultra_verification_keys_comparator.hpp"
 #include "barretenberg/translator_vm/translator_verifier.hpp"
 #include "barretenberg/ultra_honk/ultra_prover.hpp"
 #include "barretenberg/ultra_honk/ultra_verifier.hpp"
@@ -44,7 +40,7 @@ template <typename RecursiveFlavor> class TranslatorRecursiveTests : public ::te
 
     static void SetUpTestSuite() { bb::srs::init_crs_factory(bb::srs::get_ignition_crs_path()); }
 
-    static void test_recursive_verification()
+    static std::shared_ptr<bb::ECCOpQueue> create_op_queue(const size_t num_ops)
     {
         auto P1 = InnerG1::random_element();
         auto P2 = InnerG1::random_element();
@@ -54,10 +50,17 @@ template <typename RecursiveFlavor> class TranslatorRecursiveTests : public ::te
         auto op_queue = std::make_shared<bb::ECCOpQueue>();
         op_queue->append_nonzero_ops();
 
-        for (size_t i = 0; i < 500; i++) {
+        for (size_t i = 0; i < num_ops; i++) {
             op_queue->add_accumulate(P1);
             op_queue->mul_accumulate(P2, z);
         }
+        return op_queue;
+    }
+
+    static void test_recursive_verification()
+    {
+        // Add the same operations to the ECC op queue; the native computation is performed under the hood.
+        auto op_queue = create_op_queue(500);
 
         auto prover_transcript = std::make_shared<Transcript>();
         prover_transcript->send_to_verifier("init", InnerBF::random_element());
@@ -126,21 +129,9 @@ template <typename RecursiveFlavor> class TranslatorRecursiveTests : public ::te
     {
 
         // Retrieves the trace blocks (each consisting of a specific gate) from the recursive verifier circuit
-        auto get_blocks = [](size_t inner_size) -> std::tuple<typename OuterBuilder::ExecutionTrace,
-                                                              std::shared_ptr<typename OuterFlavor::VerificationKey>> {
-            // Create an arbitrary inner circuit
-            auto P1 = InnerG1::random_element();
-            auto P2 = InnerG1::random_element();
-            auto z = InnerFF::random_element();
-
-            // Add the same operations to the ECC op queue; the native computation is performed under the hood.
-            auto op_queue = std::make_shared<bb::ECCOpQueue>();
-            op_queue->append_nonzero_ops();
-
-            for (size_t i = 0; i < inner_size; i++) {
-                op_queue->add_accumulate(P1);
-                op_queue->mul_accumulate(P2, z);
-            }
+        auto get_blocks = [](size_t num_ops) -> std::tuple<typename OuterBuilder::ExecutionTrace,
+                                                           std::shared_ptr<typename OuterFlavor::VerificationKey>> {
+            auto op_queue = create_op_queue(num_ops);
 
             auto prover_transcript = std::make_shared<Transcript>();
             prover_transcript->send_to_verifier("init", InnerBF::random_element());
@@ -181,44 +172,11 @@ template <typename RecursiveFlavor> class TranslatorRecursiveTests : public ::te
             return { outer_circuit.blocks, outer_verification_key };
         };
 
-        bool broke(false);
-        auto check_eq = [&broke](auto& p1, auto& p2) {
-            EXPECT_TRUE(p1.size() == p2.size());
-            for (size_t idx = 0; idx < p1.size(); idx++) {
-                if (p1[idx] != p2[idx]) {
-                    broke = true;
-                    break;
-                }
-            }
-        };
+        auto [blocks_256, verification_key_256] = get_blocks(256);
+        auto [blocks_512, verification_key_512] = get_blocks(512);
 
-        auto [blocks_10, verification_key_10] = get_blocks(256);
-        auto [blocks_11, verification_key_11] = get_blocks(512);
-
-        size_t block_idx = 0;
-        for (auto [b_10, b_11] : zip_view(blocks_10.get(), blocks_11.get())) {
-            info("block index: ", block_idx);
-            EXPECT_TRUE(b_10.selectors.size() == 13);
-            EXPECT_TRUE(b_11.selectors.size() == 13);
-            for (auto [p_10, p_11] : zip_view(b_10.selectors, b_11.selectors)) {
-                check_eq(p_10, p_11);
-            }
-            block_idx++;
-        }
-
-        typename OuterFlavor::CommitmentLabels labels;
-        for (auto [vk_10, vk_11, label] :
-             zip_view(verification_key_10->get_all(), verification_key_11->get_all(), labels.get_precomputed())) {
-            if (vk_10 != vk_11) {
-                broke = true;
-                info("Mismatch verification key label: ", label, " left: ", vk_10, " right: ", vk_11);
-            }
-        }
-
-        EXPECT_TRUE(verification_key_10->circuit_size == verification_key_11->circuit_size);
-        EXPECT_TRUE(verification_key_10->num_public_inputs == verification_key_11->num_public_inputs);
-
-        EXPECT_FALSE(broke);
+        compare_ultra_verification_keys<OuterFlavor>({ blocks_256, blocks_512 },
+                                                     { verification_key_256, verification_key_512 });
     };
 };
 

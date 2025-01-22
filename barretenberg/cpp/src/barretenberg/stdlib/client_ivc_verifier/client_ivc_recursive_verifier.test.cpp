@@ -3,6 +3,7 @@
 #include "barretenberg/client_ivc/client_ivc.hpp"
 #include "barretenberg/client_ivc/test_bench_shared.hpp"
 #include "barretenberg/common/test.hpp"
+#include "barretenberg/stdlib/honk_verifier/ultra_verification_keys_comparator.hpp"
 
 namespace bb::stdlib::recursion::honk {
 class ClientIVCRecursionTests : public testing::Test {
@@ -191,43 +192,9 @@ TEST_F(ClientIVCRecursionTests, TubeVKIndependentOfInputCircuits)
         return { tube_builder->blocks, tube_vk };
     };
 
-    bool broke(false);
-    auto check_eq = [&broke](auto& p1, auto& p2) {
-        EXPECT_TRUE(p1.size() == p2.size());
-        for (size_t idx = 0; idx < p1.size(); idx++) {
-            if (p1[idx] != p2[idx]) {
-                broke = true;
-                break;
-            }
-        }
-    };
+    auto [blocks_2, verification_key_2] = get_blocks(2);
+    auto [blocks_4, verification_key_4] = get_blocks(4);
 
-    auto [blocks_10, verification_key_10] = get_blocks(2);
-    auto [blocks_11, verification_key_11] = get_blocks(4);
-
-    size_t block_idx = 0;
-    for (auto [b_10, b_11] : zip_view(blocks_10.get(), blocks_11.get())) {
-        info("block index: ", block_idx);
-        EXPECT_TRUE(b_10.selectors.size() == 13);
-        EXPECT_TRUE(b_11.selectors.size() == 13);
-        for (auto [p_10, p_11] : zip_view(b_10.selectors, b_11.selectors)) {
-            check_eq(p_10, p_11);
-        }
-        block_idx++;
-    }
-
-    typename NativeFlavor::CommitmentLabels labels;
-    for (auto [vk_10, vk_11, label] :
-         zip_view(verification_key_10->get_all(), verification_key_11->get_all(), labels.get_precomputed())) {
-        if (vk_10 != vk_11) {
-            broke = true;
-            info("Mismatch verification key label: ", label, " left: ", vk_10, " right: ", vk_11);
-        }
-    }
-
-    EXPECT_TRUE(verification_key_10->circuit_size == verification_key_11->circuit_size);
-    EXPECT_TRUE(verification_key_10->num_public_inputs == verification_key_11->num_public_inputs);
-
-    EXPECT_FALSE(broke);
+    compare_ultra_verification_keys<NativeFlavor>({ blocks_2, blocks_4 }, { verification_key_2, verification_key_4 });
 }
 } // namespace bb::stdlib::recursion::honk
