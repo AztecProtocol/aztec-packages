@@ -9,7 +9,7 @@ import {
   TxStatus,
 } from '@aztec/aztec.js';
 import { Gas, GasSettings } from '@aztec/circuits.js';
-import { FunctionType } from '@aztec/foundation/abi';
+import { FunctionType, U128 } from '@aztec/foundation/abi';
 import { type FPCContract } from '@aztec/noir-contracts.js/FPC';
 import { type TokenContract as BananaCoin } from '@aztec/noir-contracts.js/Token';
 
@@ -310,10 +310,10 @@ describe('e2e_fees failures', () => {
 
 class BuggedSetupFeePaymentMethod extends PublicFeePaymentMethod {
   override async getFunctionCalls(gasSettings: GasSettings): Promise<FunctionCall[]> {
-    const maxFee = gasSettings.getFeeLimit();
+    const maxFee = new U128(gasSettings.getFeeLimit().toBigInt());
     const nonce = Fr.random();
 
-    const tooMuchFee = new Fr(maxFee.toBigInt() * 2n);
+    const tooMuchFee = new U128(maxFee.toInteger() * 2n);
 
     const asset = await this.getAsset();
 
@@ -324,8 +324,8 @@ class BuggedSetupFeePaymentMethod extends PublicFeePaymentMethod {
             caller: this.paymentContract,
             action: {
               name: 'transfer_in_public',
-              args: [this.wallet.getAddress().toField(), this.paymentContract.toField(), maxFee, nonce],
-              selector: FunctionSelector.fromSignature('transfer_in_public((Field),(Field),Field,Field)'),
+              args: [this.wallet.getAddress().toField(), this.paymentContract.toField(), ...maxFee.toFields(), nonce],
+              selector: FunctionSelector.fromSignature('transfer_in_public((Field),(Field),(Field,Field),Field)'),
               type: FunctionType.PUBLIC,
               isStatic: false,
               to: asset,
@@ -338,10 +338,10 @@ class BuggedSetupFeePaymentMethod extends PublicFeePaymentMethod {
       {
         name: 'fee_entrypoint_public',
         to: this.paymentContract,
-        selector: FunctionSelector.fromSignature('fee_entrypoint_public(Field,Field)'),
+        selector: FunctionSelector.fromSignature('fee_entrypoint_public((Field,Field),Field)'),
         type: FunctionType.PRIVATE,
         isStatic: false,
-        args: [tooMuchFee, nonce],
+        args: [...tooMuchFee.toFields(), nonce],
         returnTypes: [],
       },
     ]);

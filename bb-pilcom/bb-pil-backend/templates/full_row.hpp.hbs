@@ -16,8 +16,6 @@ struct AvmFullRow {
 
     FF {{shoutySnakeCase name}}_ALL_ENTITIES;
 
-    RefVector<const FF> as_vector() const;
-    static std::vector<std::string> names();
     static constexpr size_t SIZE = {{len all_cols}};
 
     // Risky but oh so efficient.

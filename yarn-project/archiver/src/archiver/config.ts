@@ -36,7 +36,7 @@ export type ArchiverConfig = {
   /** The deployed L1 contract addresses */
   l1Contracts: L1ContractAddresses;
 
-  /** The max number of logs that can be obtained in 1 "getUnencryptedLogs" call. */
+  /** The max number of logs that can be obtained in 1 "getPublicLogs" call. */
   maxLogs?: number;
 } & L1ReaderConfig &
   L1ContractsConfig;
@@ -64,7 +64,7 @@ export const archiverConfigMappings: ConfigMappingsType<ArchiverConfig> = {
   },
   maxLogs: {
     env: 'ARCHIVER_MAX_LOGS',
-    description: 'The max number of logs that can be obtained in 1 "getUnencryptedLogs" call.',
+    description: 'The max number of logs that can be obtained in 1 "getPublicLogs" call.',
     ...numberConfigHelper(1_000),
   },
   ...l1ReaderConfigMappings,

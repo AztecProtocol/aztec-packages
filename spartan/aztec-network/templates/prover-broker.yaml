@@ -109,7 +109,7 @@ spec:
             - name: USE_GCLOUD_OBSERVABILITY
               value: "{{ .Values.telemetry.useGcloudObservability }}"
             - name: OTEL_EXCLUDE_METRICS
-              value: "{{ .Values.proverBroker.otelExcludeMetrics }}"
+              value: "{{ .Values.telemetry.excludeMetrics }}"
           resources:
             {{- toYaml .Values.proverBroker.resources | nindent 12 }}
       volumes:

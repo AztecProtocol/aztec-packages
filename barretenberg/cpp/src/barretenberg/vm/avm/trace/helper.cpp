@@ -1,7 +1,9 @@
 #include "barretenberg/vm/avm/trace/helper.hpp"
+#include "barretenberg/vm/avm/generated/columns.hpp"
 #include "barretenberg/vm/avm/trace/common.hpp"
 #include "barretenberg/vm/avm/trace/mem_trace.hpp"
 #include "barretenberg/vm/avm/trace/public_inputs.hpp"
+
 #include <algorithm>
 #include <cassert>
 
@@ -17,14 +19,17 @@ template <typename FF> std::string field_to_string(const FF& ff)
     return result;
 }
 
-void dump_trace_as_csv(std::vector<Row> const& trace, std::filesystem::path const& filename)
+void dump_trace_as_csv([[maybe_unused]] std::vector<Row> const& trace,
+                       [[maybe_unused]] std::filesystem::path const& filename)
 {
+    assert(false && "Not implemented");
+    /*
     std::ofstream file;
     file.open(filename);
 
     // Filter zero columns indices (ugly and slow).
     std::set<size_t> non_zero_columns;
-    const size_t num_columns = Row::names().size();
+    const size_t num_columns = static_cast<size_t>(avm::ColumnAndShifts::NUM_COLUMNS);
     for (const Row& row : trace) {
         const auto row_vec = row.as_vector();
         for (size_t i = 0; i < num_columns; ++i) {
@@ -36,7 +41,7 @@ void dump_trace_as_csv(std::vector<Row> const& trace, std::filesystem::path cons
     std::vector<size_t> sorted_non_zero_columns(non_zero_columns.begin(), non_zero_columns.end());
     std::sort(sorted_non_zero_columns.begin(), sorted_non_zero_columns.end());
 
-    const auto& names = Row::names();
+    const auto& names = avm::COLUMN_NAMES;
     file << "ROW_NUMBER,";
     for (const auto& column_idx : sorted_non_zero_columns) {
         file << names[column_idx] << ",";
@@ -61,6 +66,7 @@ void dump_trace_as_csv(std::vector<Row> const& trace, std::filesystem::path cons
             file << std::endl;
         }
     }
+    */
 }
 
 bool is_operand_indirect(uint8_t ind_value, uint8_t operand_idx)

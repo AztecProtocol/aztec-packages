@@ -51,7 +51,7 @@ describe('Unconstrained Execution test suite', () => {
     });
 
     it('should run the summed_values function', async () => {
-      const contractAddress = AztecAddress.random();
+      const contractAddress = await AztecAddress.random();
       const artifact = StatefulTestContractArtifact.functions.find(f => f.name === 'summed_values')!;
 
       const notes: Note[] = [...Array(5).fill(buildNote(1n, owner)), ...Array(2).fill(buildNote(2n, owner))];
@@ -82,7 +82,7 @@ describe('Unconstrained Execution test suite', () => {
         returnTypes: artifact.returnTypes,
       };
 
-      const result = await acirSimulator.runUnconstrained(execRequest, artifact, AztecAddress.random());
+      const result = await acirSimulator.runUnconstrained(execRequest, artifact, await AztecAddress.random());
 
       expect(result).toEqual(9n);
     }, 30_000);
