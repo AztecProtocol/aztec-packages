@@ -9,9 +9,21 @@
 #include "barretenberg/vm2/simulation/events/event_emitter.hpp"
 
 namespace bb::avm2::tracegen {
+namespace {
 
-// TODO: We only store the bytecode and shifted columns for now.
-void BytecodeTraceBuilder::process_hashing(
+constexpr uint32_t DECOMPOSE_WINDOW_SIZE = 36;
+
+// This returns a number whose first n bits are set to 1.
+uint64_t as_unary(uint32_t n)
+{
+    assert(n <= DECOMPOSE_WINDOW_SIZE);
+    uint64_t tmp = (static_cast<uint64_t>(1) << n) - 1;
+    return tmp;
+}
+
+} // namespace
+
+void BytecodeTraceBuilder::process_bytecode(
     const simulation::EventEmitterInterface<simulation::BytecodeHashingEvent>::Container& events, TraceContainer& trace)
 {
     using C = Column;
@@ -23,13 +35,25 @@ void BytecodeTraceBuilder::process_hashing(
     for (const auto& event : events) {
         const auto& bytecode = *event.bytecode;
         auto bytecode_at = [&bytecode](size_t i) -> uint8_t { return i < bytecode.size() ? bytecode[i] : 0; };
+        auto bytecode_exists_at = [&bytecode](size_t i) -> uint8_t { return i < bytecode.size() ? 1 : 0; };
+        const uint32_t bytecode_len = static_cast<uint32_t>(bytecode.size());
 
-        for (size_t i = 0; i < bytecode.size(); i++) {
+        for (uint32_t i = 0; i < bytecode.size(); i++) {
+            const uint32_t remaining = bytecode_len - i;
+            const uint32_t bytes_to_read = std::min(remaining, DECOMPOSE_WINDOW_SIZE);
+            bool is_last = remaining == 1;
+
             trace.set(row,
                       { {
                           { C::bytecode_sel, 1 },
                           { C::bytecode_id, id },
                           { C::bytecode_pc, i },
+                          { C::bytecode_last_of_contract, is_last ? 1 : 0 },
+                          { C::bytecode_bytes_remaining, remaining },
+                          { C::bytecode_bytes_to_read, bytes_to_read },
+                          { C::bytecode_bytes_to_read_unary, as_unary(bytes_to_read) },
+                          { C::bytecode_sel_overflow_correction_needed, remaining < DECOMPOSE_WINDOW_SIZE ? 1 : 0 },
+                          // Sliding window.
                           { C::bytecode_bytes, bytecode_at(i) },
                           { C::bytecode_bytes_pc_plus_1, bytecode_at(i + 1) },
                           { C::bytecode_bytes_pc_plus_2, bytecode_at(i + 2) },
@@ -66,6 +90,43 @@ void BytecodeTraceBuilder::process_hashing(
                           { C::bytecode_bytes_pc_plus_33, bytecode_at(i + 33) },
                           { C::bytecode_bytes_pc_plus_34, bytecode_at(i + 34) },
                           { C::bytecode_bytes_pc_plus_35, bytecode_at(i + 35) },
+                          // Bytecode overflow selectors.
+                          { C::bytecode_sel_pc_plus_0, bytecode_exists_at(i) },
+                          { C::bytecode_sel_pc_plus_1, bytecode_exists_at(i + 1) },
+                          { C::bytecode_sel_pc_plus_2, bytecode_exists_at(i + 2) },
+                          { C::bytecode_sel_pc_plus_3, bytecode_exists_at(i + 3) },
+                          { C::bytecode_sel_pc_plus_4, bytecode_exists_at(i + 4) },
+                          { C::bytecode_sel_pc_plus_5, bytecode_exists_at(i + 5) },
+                          { C::bytecode_sel_pc_plus_6, bytecode_exists_at(i + 6) },
+                          { C::bytecode_sel_pc_plus_7, bytecode_exists_at(i + 7) },
+                          { C::bytecode_sel_pc_plus_8, bytecode_exists_at(i + 8) },
+                          { C::bytecode_sel_pc_plus_9, bytecode_exists_at(i + 9) },
+                          { C::bytecode_sel_pc_plus_10, bytecode_exists_at(i + 10) },
+                          { C::bytecode_sel_pc_plus_11, bytecode_exists_at(i + 11) },
+                          { C::bytecode_sel_pc_plus_12, bytecode_exists_at(i + 12) },
+                          { C::bytecode_sel_pc_plus_13, bytecode_exists_at(i + 13) },
+                          { C::bytecode_sel_pc_plus_14, bytecode_exists_at(i + 14) },
+                          { C::bytecode_sel_pc_plus_15, bytecode_exists_at(i + 15) },
+                          { C::bytecode_sel_pc_plus_16, bytecode_exists_at(i + 16) },
+                          { C::bytecode_sel_pc_plus_17, bytecode_exists_at(i + 17) },
+                          { C::bytecode_sel_pc_plus_18, bytecode_exists_at(i + 18) },
+                          { C::bytecode_sel_pc_plus_19, bytecode_exists_at(i + 19) },
+                          { C::bytecode_sel_pc_plus_20, bytecode_exists_at(i + 20) },
+                          { C::bytecode_sel_pc_plus_21, bytecode_exists_at(i + 21) },
+                          { C::bytecode_sel_pc_plus_22, bytecode_exists_at(i + 22) },
+                          { C::bytecode_sel_pc_plus_23, bytecode_exists_at(i + 23) },
+                          { C::bytecode_sel_pc_plus_24, bytecode_exists_at(i + 24) },
+                          { C::bytecode_sel_pc_plus_25, bytecode_exists_at(i + 25) },
+                          { C::bytecode_sel_pc_plus_26, bytecode_exists_at(i + 26) },
+                          { C::bytecode_sel_pc_plus_27, bytecode_exists_at(i + 27) },
+                          { C::bytecode_sel_pc_plus_28, bytecode_exists_at(i + 28) },
+                          { C::bytecode_sel_pc_plus_29, bytecode_exists_at(i + 29) },
+                          { C::bytecode_sel_pc_plus_30, bytecode_exists_at(i + 30) },
+                          { C::bytecode_sel_pc_plus_31, bytecode_exists_at(i + 31) },
+                          { C::bytecode_sel_pc_plus_32, bytecode_exists_at(i + 32) },
+                          { C::bytecode_sel_pc_plus_33, bytecode_exists_at(i + 33) },
+                          { C::bytecode_sel_pc_plus_34, bytecode_exists_at(i + 34) },
+                          { C::bytecode_sel_pc_plus_35, bytecode_exists_at(i + 35) },
                       } });
             row++;
         }

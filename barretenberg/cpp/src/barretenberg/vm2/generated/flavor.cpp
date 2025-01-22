@@ -122,78 +122,119 @@ AvmFlavor::AllConstRefValues::AllConstRefValues(
     , bytecode_bytes_pc_plus_7(il[114])
     , bytecode_bytes_pc_plus_8(il[115])
     , bytecode_bytes_pc_plus_9(il[116])
-    , bytecode_id(il[117])
-    , bytecode_pc(il[118])
-    , bytecode_sel(il[119])
-    , execution_addressing_error_idx(il[120])
-    , execution_addressing_error_kind(il[121])
-    , execution_base_address_tag(il[122])
-    , execution_base_address_val(il[123])
-    , execution_bytecode_id(il[124])
-    , execution_clk(il[125])
-    , execution_ex_opcode(il[126])
-    , execution_indirect(il[127])
-    , execution_last(il[128])
-    , execution_op1(il[129])
-    , execution_op1_after_relative(il[130])
-    , execution_op2(il[131])
-    , execution_op2_after_relative(il[132])
-    , execution_op3(il[133])
-    , execution_op3_after_relative(il[134])
-    , execution_op4(il[135])
-    , execution_op4_after_relative(il[136])
-    , execution_pc(il[137])
-    , execution_rop1(il[138])
-    , execution_rop2(il[139])
-    , execution_rop3(il[140])
-    , execution_rop4(il[141])
-    , execution_sel(il[142])
-    , execution_sel_addressing_error(il[143])
-    , execution_sel_op1_is_address(il[144])
-    , execution_sel_op2_is_address(il[145])
-    , execution_sel_op3_is_address(il[146])
-    , execution_sel_op4_is_address(il[147])
-    , lookup_dummy_precomputed_counts(il[148])
-    , lookup_dummy_dynamic_counts(il[149])
-    , perm_dummy_dynamic_inv(il[150])
-    , lookup_dummy_precomputed_inv(il[151])
-    , lookup_dummy_dynamic_inv(il[152])
-    , bytecode_bytes_shift(il[153])
-    , bytecode_bytes_pc_plus_1_shift(il[154])
-    , bytecode_bytes_pc_plus_10_shift(il[155])
-    , bytecode_bytes_pc_plus_11_shift(il[156])
-    , bytecode_bytes_pc_plus_12_shift(il[157])
-    , bytecode_bytes_pc_plus_13_shift(il[158])
-    , bytecode_bytes_pc_plus_14_shift(il[159])
-    , bytecode_bytes_pc_plus_15_shift(il[160])
-    , bytecode_bytes_pc_plus_16_shift(il[161])
-    , bytecode_bytes_pc_plus_17_shift(il[162])
-    , bytecode_bytes_pc_plus_18_shift(il[163])
-    , bytecode_bytes_pc_plus_19_shift(il[164])
-    , bytecode_bytes_pc_plus_2_shift(il[165])
-    , bytecode_bytes_pc_plus_20_shift(il[166])
-    , bytecode_bytes_pc_plus_21_shift(il[167])
-    , bytecode_bytes_pc_plus_22_shift(il[168])
-    , bytecode_bytes_pc_plus_23_shift(il[169])
-    , bytecode_bytes_pc_plus_24_shift(il[170])
-    , bytecode_bytes_pc_plus_25_shift(il[171])
-    , bytecode_bytes_pc_plus_26_shift(il[172])
-    , bytecode_bytes_pc_plus_27_shift(il[173])
-    , bytecode_bytes_pc_plus_28_shift(il[174])
-    , bytecode_bytes_pc_plus_29_shift(il[175])
-    , bytecode_bytes_pc_plus_3_shift(il[176])
-    , bytecode_bytes_pc_plus_30_shift(il[177])
-    , bytecode_bytes_pc_plus_31_shift(il[178])
-    , bytecode_bytes_pc_plus_32_shift(il[179])
-    , bytecode_bytes_pc_plus_33_shift(il[180])
-    , bytecode_bytes_pc_plus_34_shift(il[181])
-    , bytecode_bytes_pc_plus_4_shift(il[182])
-    , bytecode_bytes_pc_plus_5_shift(il[183])
-    , bytecode_bytes_pc_plus_6_shift(il[184])
-    , bytecode_bytes_pc_plus_7_shift(il[185])
-    , bytecode_bytes_pc_plus_8_shift(il[186])
-    , bytecode_bytes_pc_plus_9_shift(il[187])
-    , execution_sel_shift(il[188])
+    , bytecode_bytes_remaining(il[117])
+    , bytecode_bytes_to_read(il[118])
+    , bytecode_bytes_to_read_unary(il[119])
+    , bytecode_id(il[120])
+    , bytecode_last_of_contract(il[121])
+    , bytecode_pc(il[122])
+    , bytecode_sel(il[123])
+    , bytecode_sel_overflow_correction_needed(il[124])
+    , bytecode_sel_pc_plus_0(il[125])
+    , bytecode_sel_pc_plus_1(il[126])
+    , bytecode_sel_pc_plus_10(il[127])
+    , bytecode_sel_pc_plus_11(il[128])
+    , bytecode_sel_pc_plus_12(il[129])
+    , bytecode_sel_pc_plus_13(il[130])
+    , bytecode_sel_pc_plus_14(il[131])
+    , bytecode_sel_pc_plus_15(il[132])
+    , bytecode_sel_pc_plus_16(il[133])
+    , bytecode_sel_pc_plus_17(il[134])
+    , bytecode_sel_pc_plus_18(il[135])
+    , bytecode_sel_pc_plus_19(il[136])
+    , bytecode_sel_pc_plus_2(il[137])
+    , bytecode_sel_pc_plus_20(il[138])
+    , bytecode_sel_pc_plus_21(il[139])
+    , bytecode_sel_pc_plus_22(il[140])
+    , bytecode_sel_pc_plus_23(il[141])
+    , bytecode_sel_pc_plus_24(il[142])
+    , bytecode_sel_pc_plus_25(il[143])
+    , bytecode_sel_pc_plus_26(il[144])
+    , bytecode_sel_pc_plus_27(il[145])
+    , bytecode_sel_pc_plus_28(il[146])
+    , bytecode_sel_pc_plus_29(il[147])
+    , bytecode_sel_pc_plus_3(il[148])
+    , bytecode_sel_pc_plus_30(il[149])
+    , bytecode_sel_pc_plus_31(il[150])
+    , bytecode_sel_pc_plus_32(il[151])
+    , bytecode_sel_pc_plus_33(il[152])
+    , bytecode_sel_pc_plus_34(il[153])
+    , bytecode_sel_pc_plus_35(il[154])
+    , bytecode_sel_pc_plus_4(il[155])
+    , bytecode_sel_pc_plus_5(il[156])
+    , bytecode_sel_pc_plus_6(il[157])
+    , bytecode_sel_pc_plus_7(il[158])
+    , bytecode_sel_pc_plus_8(il[159])
+    , bytecode_sel_pc_plus_9(il[160])
+    , execution_addressing_error_idx(il[161])
+    , execution_addressing_error_kind(il[162])
+    , execution_base_address_tag(il[163])
+    , execution_base_address_val(il[164])
+    , execution_bytecode_id(il[165])
+    , execution_clk(il[166])
+    , execution_ex_opcode(il[167])
+    , execution_indirect(il[168])
+    , execution_last(il[169])
+    , execution_op1(il[170])
+    , execution_op1_after_relative(il[171])
+    , execution_op2(il[172])
+    , execution_op2_after_relative(il[173])
+    , execution_op3(il[174])
+    , execution_op3_after_relative(il[175])
+    , execution_op4(il[176])
+    , execution_op4_after_relative(il[177])
+    , execution_pc(il[178])
+    , execution_rop1(il[179])
+    , execution_rop2(il[180])
+    , execution_rop3(il[181])
+    , execution_rop4(il[182])
+    , execution_sel(il[183])
+    , execution_sel_addressing_error(il[184])
+    , execution_sel_op1_is_address(il[185])
+    , execution_sel_op2_is_address(il[186])
+    , execution_sel_op3_is_address(il[187])
+    , execution_sel_op4_is_address(il[188])
+    , lookup_dummy_precomputed_counts(il[189])
+    , lookup_dummy_dynamic_counts(il[190])
+    , perm_dummy_dynamic_inv(il[191])
+    , lookup_dummy_precomputed_inv(il[192])
+    , lookup_dummy_dynamic_inv(il[193])
+    , bytecode_bytes_shift(il[194])
+    , bytecode_bytes_pc_plus_1_shift(il[195])
+    , bytecode_bytes_pc_plus_10_shift(il[196])
+    , bytecode_bytes_pc_plus_11_shift(il[197])
+    , bytecode_bytes_pc_plus_12_shift(il[198])
+    , bytecode_bytes_pc_plus_13_shift(il[199])
+    , bytecode_bytes_pc_plus_14_shift(il[200])
+    , bytecode_bytes_pc_plus_15_shift(il[201])
+    , bytecode_bytes_pc_plus_16_shift(il[202])
+    , bytecode_bytes_pc_plus_17_shift(il[203])
+    , bytecode_bytes_pc_plus_18_shift(il[204])
+    , bytecode_bytes_pc_plus_19_shift(il[205])
+    , bytecode_bytes_pc_plus_2_shift(il[206])
+    , bytecode_bytes_pc_plus_20_shift(il[207])
+    , bytecode_bytes_pc_plus_21_shift(il[208])
+    , bytecode_bytes_pc_plus_22_shift(il[209])
+    , bytecode_bytes_pc_plus_23_shift(il[210])
+    , bytecode_bytes_pc_plus_24_shift(il[211])
+    , bytecode_bytes_pc_plus_25_shift(il[212])
+    , bytecode_bytes_pc_plus_26_shift(il[213])
+    , bytecode_bytes_pc_plus_27_shift(il[214])
+    , bytecode_bytes_pc_plus_28_shift(il[215])
+    , bytecode_bytes_pc_plus_29_shift(il[216])
+    , bytecode_bytes_pc_plus_3_shift(il[217])
+    , bytecode_bytes_pc_plus_30_shift(il[218])
+    , bytecode_bytes_pc_plus_31_shift(il[219])
+    , bytecode_bytes_pc_plus_32_shift(il[220])
+    , bytecode_bytes_pc_plus_33_shift(il[221])
+    , bytecode_bytes_pc_plus_34_shift(il[222])
+    , bytecode_bytes_pc_plus_4_shift(il[223])
+    , bytecode_bytes_pc_plus_5_shift(il[224])
+    , bytecode_bytes_pc_plus_6_shift(il[225])
+    , bytecode_bytes_pc_plus_7_shift(il[226])
+    , bytecode_bytes_pc_plus_8_shift(il[227])
+    , bytecode_bytes_pc_plus_9_shift(il[228])
+    , execution_sel_shift(il[229])
 {}
 
 AvmFlavor::ProverPolynomials::ProverPolynomials(ProvingKey& proving_key)
@@ -327,9 +368,50 @@ AvmFlavor::AllConstRefValues AvmFlavor::ProverPolynomials::get_row(size_t row_id
                      bytecode_bytes_pc_plus_7[row_idx],
                      bytecode_bytes_pc_plus_8[row_idx],
                      bytecode_bytes_pc_plus_9[row_idx],
+                     bytecode_bytes_remaining[row_idx],
+                     bytecode_bytes_to_read[row_idx],
+                     bytecode_bytes_to_read_unary[row_idx],
                      bytecode_id[row_idx],
+                     bytecode_last_of_contract[row_idx],
                      bytecode_pc[row_idx],
                      bytecode_sel[row_idx],
+                     bytecode_sel_overflow_correction_needed[row_idx],
+                     bytecode_sel_pc_plus_0[row_idx],
+                     bytecode_sel_pc_plus_1[row_idx],
+                     bytecode_sel_pc_plus_10[row_idx],
+                     bytecode_sel_pc_plus_11[row_idx],
+                     bytecode_sel_pc_plus_12[row_idx],
+                     bytecode_sel_pc_plus_13[row_idx],
+                     bytecode_sel_pc_plus_14[row_idx],
+                     bytecode_sel_pc_plus_15[row_idx],
+                     bytecode_sel_pc_plus_16[row_idx],
+                     bytecode_sel_pc_plus_17[row_idx],
+                     bytecode_sel_pc_plus_18[row_idx],
+                     bytecode_sel_pc_plus_19[row_idx],
+                     bytecode_sel_pc_plus_2[row_idx],
+                     bytecode_sel_pc_plus_20[row_idx],
+                     bytecode_sel_pc_plus_21[row_idx],
+                     bytecode_sel_pc_plus_22[row_idx],
+                     bytecode_sel_pc_plus_23[row_idx],
+                     bytecode_sel_pc_plus_24[row_idx],
+                     bytecode_sel_pc_plus_25[row_idx],
+                     bytecode_sel_pc_plus_26[row_idx],
+                     bytecode_sel_pc_plus_27[row_idx],
+                     bytecode_sel_pc_plus_28[row_idx],
+                     bytecode_sel_pc_plus_29[row_idx],
+                     bytecode_sel_pc_plus_3[row_idx],
+                     bytecode_sel_pc_plus_30[row_idx],
+                     bytecode_sel_pc_plus_31[row_idx],
+                     bytecode_sel_pc_plus_32[row_idx],
+                     bytecode_sel_pc_plus_33[row_idx],
+                     bytecode_sel_pc_plus_34[row_idx],
+                     bytecode_sel_pc_plus_35[row_idx],
+                     bytecode_sel_pc_plus_4[row_idx],
+                     bytecode_sel_pc_plus_5[row_idx],
+                     bytecode_sel_pc_plus_6[row_idx],
+                     bytecode_sel_pc_plus_7[row_idx],
+                     bytecode_sel_pc_plus_8[row_idx],
+                     bytecode_sel_pc_plus_9[row_idx],
                      execution_addressing_error_idx[row_idx],
                      execution_addressing_error_kind[row_idx],
                      execution_base_address_tag[row_idx],
@@ -520,9 +602,50 @@ AvmFlavor::CommitmentLabels::CommitmentLabels()
     Base::bytecode_bytes_pc_plus_7 = "BYTECODE_BYTES_PC_PLUS_7";
     Base::bytecode_bytes_pc_plus_8 = "BYTECODE_BYTES_PC_PLUS_8";
     Base::bytecode_bytes_pc_plus_9 = "BYTECODE_BYTES_PC_PLUS_9";
+    Base::bytecode_bytes_remaining = "BYTECODE_BYTES_REMAINING";
+    Base::bytecode_bytes_to_read = "BYTECODE_BYTES_TO_READ";
+    Base::bytecode_bytes_to_read_unary = "BYTECODE_BYTES_TO_READ_UNARY";
     Base::bytecode_id = "BYTECODE_ID";
+    Base::bytecode_last_of_contract = "BYTECODE_LAST_OF_CONTRACT";
     Base::bytecode_pc = "BYTECODE_PC";
     Base::bytecode_sel = "BYTECODE_SEL";
+    Base::bytecode_sel_overflow_correction_needed = "BYTECODE_SEL_OVERFLOW_CORRECTION_NEEDED";
+    Base::bytecode_sel_pc_plus_0 = "BYTECODE_SEL_PC_PLUS_0";
+    Base::bytecode_sel_pc_plus_1 = "BYTECODE_SEL_PC_PLUS_1";
+    Base::bytecode_sel_pc_plus_10 = "BYTECODE_SEL_PC_PLUS_10";
+    Base::bytecode_sel_pc_plus_11 = "BYTECODE_SEL_PC_PLUS_11";
+    Base::bytecode_sel_pc_plus_12 = "BYTECODE_SEL_PC_PLUS_12";
+    Base::bytecode_sel_pc_plus_13 = "BYTECODE_SEL_PC_PLUS_13";
+    Base::bytecode_sel_pc_plus_14 = "BYTECODE_SEL_PC_PLUS_14";
+    Base::bytecode_sel_pc_plus_15 = "BYTECODE_SEL_PC_PLUS_15";
+    Base::bytecode_sel_pc_plus_16 = "BYTECODE_SEL_PC_PLUS_16";
+    Base::bytecode_sel_pc_plus_17 = "BYTECODE_SEL_PC_PLUS_17";
+    Base::bytecode_sel_pc_plus_18 = "BYTECODE_SEL_PC_PLUS_18";
+    Base::bytecode_sel_pc_plus_19 = "BYTECODE_SEL_PC_PLUS_19";
+    Base::bytecode_sel_pc_plus_2 = "BYTECODE_SEL_PC_PLUS_2";
+    Base::bytecode_sel_pc_plus_20 = "BYTECODE_SEL_PC_PLUS_20";
+    Base::bytecode_sel_pc_plus_21 = "BYTECODE_SEL_PC_PLUS_21";
+    Base::bytecode_sel_pc_plus_22 = "BYTECODE_SEL_PC_PLUS_22";
+    Base::bytecode_sel_pc_plus_23 = "BYTECODE_SEL_PC_PLUS_23";
+    Base::bytecode_sel_pc_plus_24 = "BYTECODE_SEL_PC_PLUS_24";
+    Base::bytecode_sel_pc_plus_25 = "BYTECODE_SEL_PC_PLUS_25";
+    Base::bytecode_sel_pc_plus_26 = "BYTECODE_SEL_PC_PLUS_26";
+    Base::bytecode_sel_pc_plus_27 = "BYTECODE_SEL_PC_PLUS_27";
+    Base::bytecode_sel_pc_plus_28 = "BYTECODE_SEL_PC_PLUS_28";
+    Base::bytecode_sel_pc_plus_29 = "BYTECODE_SEL_PC_PLUS_29";
+    Base::bytecode_sel_pc_plus_3 = "BYTECODE_SEL_PC_PLUS_3";
+    Base::bytecode_sel_pc_plus_30 = "BYTECODE_SEL_PC_PLUS_30";
+    Base::bytecode_sel_pc_plus_31 = "BYTECODE_SEL_PC_PLUS_31";
+    Base::bytecode_sel_pc_plus_32 = "BYTECODE_SEL_PC_PLUS_32";
+    Base::bytecode_sel_pc_plus_33 = "BYTECODE_SEL_PC_PLUS_33";
+    Base::bytecode_sel_pc_plus_34 = "BYTECODE_SEL_PC_PLUS_34";
+    Base::bytecode_sel_pc_plus_35 = "BYTECODE_SEL_PC_PLUS_35";
+    Base::bytecode_sel_pc_plus_4 = "BYTECODE_SEL_PC_PLUS_4";
+    Base::bytecode_sel_pc_plus_5 = "BYTECODE_SEL_PC_PLUS_5";
+    Base::bytecode_sel_pc_plus_6 = "BYTECODE_SEL_PC_PLUS_6";
+    Base::bytecode_sel_pc_plus_7 = "BYTECODE_SEL_PC_PLUS_7";
+    Base::bytecode_sel_pc_plus_8 = "BYTECODE_SEL_PC_PLUS_8";
+    Base::bytecode_sel_pc_plus_9 = "BYTECODE_SEL_PC_PLUS_9";
     Base::execution_addressing_error_idx = "EXECUTION_ADDRESSING_ERROR_IDX";
     Base::execution_addressing_error_kind = "EXECUTION_ADDRESSING_ERROR_KIND";
     Base::execution_base_address_tag = "EXECUTION_BASE_ADDRESS_TAG";

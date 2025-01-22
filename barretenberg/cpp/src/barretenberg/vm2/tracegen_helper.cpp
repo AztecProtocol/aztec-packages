@@ -105,10 +105,9 @@ TraceContainer AvmTraceGenHelper::generate_trace(EventsContainer&& events)
                     clear_events(events.alu);
                 },
                 [&]() {
-                    // TODO: We only store the bytecode for now, hashing is not handled!
                     BytecodeTraceBuilder bytecode_builder;
-                    AVM_TRACK_TIME("tracegen/bytecode_hashing",
-                                   bytecode_builder.process_hashing(events.bytecode_hashing, trace));
+                    AVM_TRACK_TIME("tracegen/bytecode_storage",
+                                   bytecode_builder.process_bytecode(events.bytecode_hashing, trace));
                     clear_events(events.bytecode_hashing);
                 },
                 [&]() {
