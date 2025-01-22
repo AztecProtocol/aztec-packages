@@ -192,7 +192,7 @@ template <typename Curve> class GeminiProver_ {
         const size_t log_n,
         PolynomialBatches& polynomial_batches,
         const Fr& r_challenge,
-        std::vector<Polynomial> batched_groups_to_be_concatenated = {});
+        const std::vector<Polynomial>& batched_groups_to_be_concatenated = {});
 
     static std::vector<Claim> construct_univariate_opening_claims(const size_t log_n,
                                                                   Polynomial&& A_0_pos,
