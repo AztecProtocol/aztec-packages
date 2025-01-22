@@ -61,12 +61,12 @@ if [ -t 1 ]; then
   ssh_args="-t"
   docker_args+=" -t"
   if [ "$NO_TERMINATE" -eq 0 ]; then
-    cmd+="|| exec zsh"
+    cmd_postfix="|| exec zsh"
   else
-    cmd+="&& exec zsh"
+    cmd_postfix="&& exec zsh"
   fi
 else
-  cmd+="2>&1 | ci3/add_timestamps | ci3/cache_log 'CI run' ${LOG_ID:-}"
+  cmd_postfix="2>&1 | ci3/add_timestamps | ci3/cache_log 'CI run' ${LOG_ID:-}"
 fi
 
 # Use ~/.ssh/build_instance_key to ssh into our requested instance.
