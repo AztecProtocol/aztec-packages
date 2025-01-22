@@ -1,7 +1,7 @@
 import {
   AuthWitness,
   MerkleTreeId,
-  MerkleTreeWriteOperations,
+  type MerkleTreeWriteOperations,
   Note,
   type NoteStatus,
   NullifierMembershipWitness,
@@ -86,7 +86,7 @@ import {
   createSimulationError,
   resolveAssertionMessageFromError,
 } from '@aztec/simulator/server';
-import { MerkleTreeAdminDatabase } from '@aztec/world-state';
+import { type MerkleTreeAdminDatabase } from '@aztec/world-state';
 
 import { TXENode } from '../node/txe_node.js';
 import { type TXEDatabase } from '../util/txe_database.js';

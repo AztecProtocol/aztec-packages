@@ -73,7 +73,7 @@ export class TXEService {
     await (this.typedOracle as TXE).commitState();
 
     for (let i = 0; i < nBlocks; i++) {
-      let fork = await trees.fork();
+      const fork = await trees.fork();
       try {
         const blockNumber = await this.typedOracle.getBlockNumber();
         const { block, messages } = await mockBlock(blockNumber, 2, fork);

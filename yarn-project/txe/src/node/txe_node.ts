@@ -11,7 +11,7 @@ import {
   type L2Tips,
   type LogFilter,
   type MerkleTreeId,
-  MerkleTreeWriteOperations,
+  type MerkleTreeWriteOperations,
   type NullifierMembershipWitness,
   type ProverConfig,
   type PublicDataWitness,
@@ -45,7 +45,7 @@ import {
 import { type L1ContractAddresses } from '@aztec/ethereum';
 import { poseidon2Hash } from '@aztec/foundation/crypto';
 import { Fr } from '@aztec/foundation/fields';
-import { MerkleTreeAdminDatabase } from '@aztec/world-state';
+import { type MerkleTreeAdminDatabase } from '@aztec/world-state';
 
 export class TXENode implements AztecNode {
   #logsByTags = new Map<string, TxScopedL2Log[]>();
