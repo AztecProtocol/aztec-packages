@@ -264,8 +264,8 @@ export class TXE implements TypedOracle {
     const account = await this.txeDatabase.getAccount(address);
     const privateKey = await this.keyStore.getMasterSecretKey(account.publicKeys.masterIncomingViewingPublicKey);
     const schnorr = new Schnorr();
-    const signature = schnorr.constructSignature(messageHash.toBuffer(), privateKey).toBuffer();
-    const authWitness = new AuthWitness(messageHash, [...signature]);
+    const signature = await schnorr.constructSignature(messageHash.toBuffer(), privateKey);
+    const authWitness = new AuthWitness(messageHash, [...signature.toBuffer()]);
     return this.txeDatabase.addAuthWitness(authWitness.requestHash, authWitness.witness);
   }
 

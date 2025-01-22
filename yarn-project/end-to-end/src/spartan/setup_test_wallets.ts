@@ -31,7 +31,7 @@ export async function setupTestWalletsWithTokens(
 
   {
     const { accountKeys } = await addAccounts(1, logger, false)({ pxe });
-    const accountManagers = accountKeys.map(ak => getSchnorrAccount(pxe, ak[0], ak[1], 1));
+    const accountManagers = await Promise.all(accountKeys.map(ak => getSchnorrAccount(pxe, ak[0], ak[1], 1)));
 
     const partialAddress = accountManagers[0].getCompleteAddress().partialAddress;
     await pxe.registerAccount(accountKeys[0][0], partialAddress);
@@ -40,7 +40,7 @@ export async function setupTestWalletsWithTokens(
   }
 
   const { accountKeys } = await addAccounts(WALLET_COUNT, logger, false)({ pxe });
-  const accountManagers = accountKeys.map(ak => getSchnorrAccount(pxe, ak[0], ak[1], 1));
+  const accountManagers = await Promise.all(accountKeys.map(ak => getSchnorrAccount(pxe, ak[0], ak[1], 1)));
 
   const wallets = await Promise.all(
     accountManagers.map(async (a, i) => {

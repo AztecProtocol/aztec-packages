@@ -29,9 +29,15 @@ export const INITIAL_TEST_ACCOUNT_SALTS = [Fr.ZERO, Fr.ZERO, Fr.ZERO];
  */
 export function getInitialTestAccountsWallets(pxe: PXE): Promise<AccountWalletWithSecretKey[]> {
   return Promise.all(
-    INITIAL_TEST_SECRET_KEYS.map((encryptionKey, i) =>
-      getSchnorrAccount(pxe, encryptionKey!, INITIAL_TEST_SIGNING_KEYS[i]!, INITIAL_TEST_ACCOUNT_SALTS[i]).getWallet(),
-    ),
+    INITIAL_TEST_SECRET_KEYS.map(async (encryptionKey, i) => {
+      const account = await getSchnorrAccount(
+        pxe,
+        encryptionKey!,
+        INITIAL_TEST_SIGNING_KEYS[i]!,
+        INITIAL_TEST_ACCOUNT_SALTS[i],
+      );
+      return account.getWallet();
+    }),
   );
 }
 
@@ -50,10 +56,11 @@ export async function getDeployedTestAccountsWallets(pxe: PXE): Promise<AccountW
         registeredAccounts.find(registered => registered.publicKeys.masterIncomingViewingPublicKey.equals(publicKey)) !=
         undefined
       );
-    }).map(secretKey => {
+    }).map(async secretKey => {
       const signingKey = deriveSigningKey(secretKey);
       // TODO(#5726): use actual salt here instead of hardcoding Fr.ZERO
-      return getSchnorrAccount(pxe, secretKey, signingKey, Fr.ZERO).getWallet();
+      const account = await getSchnorrAccount(pxe, secretKey, signingKey, Fr.ZERO);
+      return account.getWallet();
     }),
   );
 }
@@ -64,13 +71,20 @@ export async function getDeployedTestAccountsWallets(pxe: PXE): Promise<AccountW
  * @returns The set of deployed Account objects and associated private encryption keys
  */
 export async function deployInitialTestAccounts(pxe: PXE) {
-  const accounts = INITIAL_TEST_SECRET_KEYS.map((secretKey, i) => {
-    const account = getSchnorrAccount(pxe, secretKey, INITIAL_TEST_SIGNING_KEYS[i], INITIAL_TEST_ACCOUNT_SALTS[i]);
-    return {
-      account,
-      secretKey,
-    };
-  });
+  const accounts = await Promise.all(
+    INITIAL_TEST_SECRET_KEYS.map(async (secretKey, i) => {
+      const account = await getSchnorrAccount(
+        pxe,
+        secretKey,
+        INITIAL_TEST_SIGNING_KEYS[i],
+        INITIAL_TEST_ACCOUNT_SALTS[i],
+      );
+      return {
+        account,
+        secretKey,
+      };
+    }),
+  );
   // Register contract class to avoid duplicate nullifier errors
   const { l1ChainId: chainId, protocolVersion } = await pxe.getNodeInfo();
   const deployWallet = new SignerlessWallet(pxe, new DefaultMultiCallEntrypoint(chainId, protocolVersion));
@@ -80,7 +94,7 @@ export async function deployInitialTestAccounts(pxe: PXE) {
     accounts.map(async x => {
       const deployMethod = await x.account.getDeployMethod();
       const tx = await deployMethod.prove({
-        contractAddressSalt: x.account.salt,
+        contractAddressSalt: new Fr(x.account.salt),
         universalDeploy: true,
       });
       return tx;

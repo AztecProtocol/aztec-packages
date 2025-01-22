@@ -312,6 +312,7 @@ esac
 hooks_dir=$(git rev-parse --git-path hooks)
 echo "(cd barretenberg/cpp && ./format.sh staged)" >$hooks_dir/pre-commit
 echo "./yarn-project/precommit.sh" >>$hooks_dir/pre-commit
+echo "./noir-projects/precommit.sh" >>$hooks_dir/pre-commit
 chmod +x $hooks_dir/pre-commit
 
 github_group "pull submodules"
