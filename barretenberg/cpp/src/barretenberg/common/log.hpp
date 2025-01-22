@@ -47,13 +47,10 @@ template <typename... Args> std::string benchmark_format(Args... args)
     return os.str();
 }
 
-extern bool debug_logging;
 #ifndef NDEBUG
 template <typename... Args> inline void debug(Args... args)
 {
-    if (debug_logging) {
-        logstr(format(args...).c_str());
-    }
+    logstr(format(args...).c_str());
 }
 #else
 template <typename... Args> inline void debug(Args... /*unused*/) {}

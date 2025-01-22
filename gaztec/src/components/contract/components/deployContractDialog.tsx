@@ -25,10 +25,10 @@ import {
   getDefaultInitializer,
   getInitializer,
 } from "@aztec/foundation/abi";
-import { GITHUB_TAG_PREFIX } from "../../../utils/interactions";
 import { AztecContext } from "../../home/home";
 import { parseAliasedBuffersAsString } from "../../../utils/conversion";
 import { FunctionParameter } from "../../common/fnParameter";
+import { GITHUB_TAG_PREFIX } from "../../../utils/constants";
 
 const creationForm = css({
   display: "flex",
