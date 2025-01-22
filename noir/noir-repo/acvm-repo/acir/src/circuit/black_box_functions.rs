@@ -3,7 +3,6 @@
 //! This makes certain zk-snark unfriendly computations cheaper than if they were
 //! implemented in more basic constraints.
 
-use crate::brillig::BrilligBlackBoxFunc;
 use serde::{Deserialize, Serialize};
 use strum_macros::EnumIter;
 
@@ -219,43 +218,6 @@ impl BlackBoxFunc {
 
     pub fn is_valid_black_box_func_name(op_name: &str) -> bool {
         BlackBoxFunc::lookup(op_name).is_some()
-    }
-}
-
-impl From<BlackBoxFunc> for BrilligBlackBoxFunc {
-    fn from(func: BlackBoxFunc) -> Self {
-        match func {
-            BlackBoxFunc::AES128Encrypt => BrilligBlackBoxFunc::AES128Encrypt,
-            BlackBoxFunc::AND => {
-                unreachable!("BlackBoxFunc::AND does not have a Brillig counterpart")
-            }
-            BlackBoxFunc::XOR => {
-                unreachable!("BlackBoxFunc::XOR does not have a Brillig counterpart")
-            }
-            BlackBoxFunc::RANGE => {
-                unreachable!("BlackBoxFunc::RANGE does not have a Brillig counterpart")
-            }
-            BlackBoxFunc::Blake2s => BrilligBlackBoxFunc::Blake2s,
-            BlackBoxFunc::Blake3 => BrilligBlackBoxFunc::Blake3,
-            BlackBoxFunc::EcdsaSecp256k1 => BrilligBlackBoxFunc::EcdsaSecp256k1,
-            BlackBoxFunc::EcdsaSecp256r1 => BrilligBlackBoxFunc::EcdsaSecp256r1,
-            BlackBoxFunc::MultiScalarMul => BrilligBlackBoxFunc::MultiScalarMul,
-            BlackBoxFunc::Keccakf1600 => BrilligBlackBoxFunc::Keccakf1600,
-            BlackBoxFunc::RecursiveAggregation => {
-                unreachable!(
-                    "BlackBoxFunc::RecursiveAggregation does not have a Brillig counterpart"
-                )
-            }
-            BlackBoxFunc::EmbeddedCurveAdd => BrilligBlackBoxFunc::EmbeddedCurveAdd,
-            BlackBoxFunc::BigIntAdd => BrilligBlackBoxFunc::BigIntAdd,
-            BlackBoxFunc::BigIntSub => BrilligBlackBoxFunc::BigIntSub,
-            BlackBoxFunc::BigIntMul => BrilligBlackBoxFunc::BigIntMul,
-            BlackBoxFunc::BigIntDiv => BrilligBlackBoxFunc::BigIntDiv,
-            BlackBoxFunc::BigIntFromLeBytes => BrilligBlackBoxFunc::BigIntFromLeBytes,
-            BlackBoxFunc::BigIntToLeBytes => BrilligBlackBoxFunc::BigIntToLeBytes,
-            BlackBoxFunc::Poseidon2Permutation => BrilligBlackBoxFunc::Poseidon2Permutation,
-            BlackBoxFunc::Sha256Compression => BrilligBlackBoxFunc::Sha256Compression,
-        }
     }
 }
 
