@@ -162,15 +162,15 @@ template <typename FF_> VmPublicInputs_<FF_> convert_public_inputs(std::vector<F
         ko_side_effect[dest_offset] = public_inputs_vec[pcpi_offset + 1];
         ko_metadata[dest_offset] = public_inputs_vec[pcpi_offset + 2];
     }
-    // // TODO(#11426): Fix public input columns.
-    // if constexpr (!std::same_as<FF_, field<Bn254FrParams>>) {
-    //     auto ctx = public_inputs_vec[0].get_context();
-    //     for (size_t i = 0; i < KERNEL_OUTPUTS_LENGTH; i++) {
-    //         ko_values[i] = FF_::from_witness(ctx, 0);
-    //         ko_side_effect[i] = FF_::from_witness(ctx, 0);
-    //         ko_metadata[i] = FF_::from_witness(ctx, 0);
-    //     }
-    // }
+    // TODO(#11426): Fix public input columns.
+    if constexpr (!std::same_as<FF_, field<Bn254FrParams>>) {
+        auto ctx = public_inputs_vec[0].get_context();
+        for (size_t i = 0; i < KERNEL_OUTPUTS_LENGTH; i++) {
+            ko_values[i] = FF_::from_witness(ctx, 0);
+            ko_side_effect[i] = FF_::from_witness(ctx, 0);
+            ko_metadata[i] = FF_::from_witness(ctx, 0);
+        }
+    }
 
     return public_inputs;
 }
