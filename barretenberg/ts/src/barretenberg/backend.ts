@@ -315,14 +315,24 @@ export class UltraHonkBackend {
     return await this.api.acirHonkSolidityVerifier(this.acirUncompressedBytecode, new RawBuffer(vkBuf));
   }
 
-  // TODO(https://github.com/noir-lang/noir/issues/5661): Update this to handle Honk recursive aggregation in the browser once it is ready in the backend itself
-  async generateRecursiveProofArtifacts(proof: Uint8Array): Promise<{ proofAsFields: string[] }> {
+  async generateRecursiveProofArtifacts(
+    proof: Uint8Array,
+  ): Promise<{ proofAsFields: string[]; vkAsFields: string[]; vkHash: string }> {
     await this.instantiate();
     const proofAsFrs = await this.api.acirProofAsFieldsUltraHonk(proof);
+    // TODO: perhaps we should put this in the init function. Need to benchmark
+    // TODO how long it takes.
+    const vkBuf = await this.api.acirWriteVkUltraHonk(this.acirUncompressedBytecode, this.circuitOptions.recursive);
+    const vk = await this.api.acirVkAsFieldsUltraHonk(vkBuf);
 
     return {
       // TODO(https://github.com/noir-lang/noir/issues/5661)
       proofAsFields: proofAsFrs.map(proofAsFrs => proofAsFrs.toString()),
+      vkAsFields: vk.map(vk => vk.toString()),
+      // We use an empty string for the vk hash here as it is unneeded as part of the recursive artifacts
+      // The user can be expected to hash the vk inside their circuit to check whether the vk is the circuit
+      // they expect
+      vkHash: '',
     };
   }
 
