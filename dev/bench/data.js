@@ -1,74 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1737568851782,
+  "lastUpdate": 1737573804155,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "49558828+AztecBot@users.noreply.github.com",
-            "name": "Aztec Bot",
-            "username": "AztecBot"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "2d3805a3b682b27bf6275c547b4b3d68d214eebe",
-          "message": "feat: Sync from noir (#10922)\n\nAutomated pull of development from the\n[noir](https://github.com/noir-lang/noir) programming language, a\ndependency of Aztec.\nBEGIN_COMMIT_OVERRIDE\nchore: add `rollup_root` and `rollup_block_merge` to tracked protocol\ncircuits (https://github.com/noir-lang/noir/pull/6903)\nfix: consistent file_id across installation paths\n(https://github.com/noir-lang/noir/pull/6912)\nfix: bigint builtins are foreigns\n(https://github.com/noir-lang/noir/pull/6892)\nfix: remove unnecessary cast in bit-shift\n(https://github.com/noir-lang/noir/pull/6890)\nchore: Release Noir(1.0.0-beta.1)\n(https://github.com/noir-lang/noir/pull/6622)\nchore: Add `Instruction::Noop`\n(https://github.com/noir-lang/noir/pull/6899)\nEND_COMMIT_OVERRIDE\n\n---------\n\nCo-authored-by: Tom French <15848336+TomAFrench@users.noreply.github.com>",
-          "timestamp": "2025-01-02T22:19:38Z",
-          "tree_id": "f959518d63905f05b879372ef583417ae33ee7b4",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/2d3805a3b682b27bf6275c547b4b3d68d214eebe"
-        },
-        "date": 1735857750701,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "nativeClientIVCBench/Ambient_17_in_20/6",
-            "value": 20568.767926000022,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 18035.928342000003 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeClientIVCBench/Full/6",
-            "value": 21991.315463000006,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 19276.388183000003 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 4671.218221000004,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 4317.6563129999995 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmClientIVCBench/Full/6",
-            "value": 74022.71658800001,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 74022717000 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 13998.589694000002,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 13998590000 ms\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 2890858706,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 2890858706 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 143202427,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 143202427 ns\nthreads: 1"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -3284,6 +3218,72 @@ window.BENCHMARK_DATA = {
             "value": 132574195,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 132574195 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "lucasxia01@gmail.com",
+            "name": "Lucas Xia",
+            "username": "lucasxia01"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "436c3c63b76e36d172619436b3237133f295aca7",
+          "message": "fix: hackily fix the public input columns of avm recursion constraint (#11428)\n\nCurrently, this test triggers a builder failure. The hack sets some of\r\nthe public input columns of the recursive verifier to be all 0\r\nwitnesses. Add TODO for fixing it properly later.\r\n\r\nDiscovered when experimenting during\r\nhttps://github.com/AztecProtocol/aztec-packages/pull/11205.",
+          "timestamp": "2025-01-22T13:57:36-05:00",
+          "tree_id": "fd9e51b05b3e2b520226d7e78ee2b5c1a7f97edf",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/436c3c63b76e36d172619436b3237133f295aca7"
+        },
+        "date": 1737573796826,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Ambient_17_in_20/6",
+            "value": 19695.662481,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 16858.984866 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 21452.209710999967,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 18648.052611 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 4463.859380999992,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 4119.559339000001 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 82485.749544,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 82485750000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 13509.475802,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 13509477000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 3467897005,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 3467897005 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 146839577,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 146839577 ns\nthreads: 1"
           }
         ]
       }
