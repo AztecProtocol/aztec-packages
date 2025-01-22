@@ -1,74 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1737456945749,
+  "lastUpdate": 1737549039358,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "49558828+AztecBot@users.noreply.github.com",
-            "name": "Aztec Bot",
-            "username": "AztecBot"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "2044c58387b5687658f190cf1b4a078a036eabc0",
-          "message": "chore: redo typo PR by Anon-im (#11009)\n\nThanks Anon-im for\nhttps://github.com/AztecProtocol/aztec-packages/pull/10955. Our policy\nis to redo typo changes to dissuade metric farming. This is an automated\nscript.",
-          "timestamp": "2025-01-02T15:08:02Z",
-          "tree_id": "12d5f6b9ca82ea4cc91f7b4c6dcbbd0f7a09d547",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/2044c58387b5687658f190cf1b4a078a036eabc0"
-        },
-        "date": 1735831416875,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "nativeClientIVCBench/Ambient_17_in_20/6",
-            "value": 20514.750378,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 18044.736857 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeClientIVCBench/Full/6",
-            "value": 22024.17950700004,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 19090.315262999997 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 4681.815486000005,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 4321.173408999999 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmClientIVCBench/Full/6",
-            "value": 73860.84801599999,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 73860849000 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 14015.076969000002,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 14015077000 ms\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 2883417471,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 2883417471 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 141694091,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 141694091 ns\nthreads: 1"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -3284,6 +3218,72 @@ window.BENCHMARK_DATA = {
             "value": 166153934,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 166153934 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "fcarreiro@users.noreply.github.com",
+            "name": "Facundo",
+            "username": "fcarreiro"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "6b0106c1eedf098779e7903ac37e96e6b3a9d478",
+          "message": "refactor(avm): remove some codegen bloat (#11418)\n\nTL;DR: Removes bloat, old and new witgen are still proving. Please review without nitpicking I recommend just merging if CI passes.\n\nMore detail:\n* Removes explicit column names, they now get generated via the macro.\n* Remove as_vector, replaced uses with get_column (and commented out some other uses).\n\nI also added, in vm2, nice per-namespace stats:\n\n```\nColumn sizes per namespace:\n  precomputed: 2097152 (~2^21)\n  execution: 6 (~2^3)\n  alu: 1 (~2^0)\n  lookup: 196608 (~2^18)\n  perm: 6 (~2^3)\n```\n\nIt autoupdates without us having to add columns manually.",
+          "timestamp": "2025-01-22T12:06:39Z",
+          "tree_id": "923f1f7a94635cf6bd1e230117036b680e50bed9",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/6b0106c1eedf098779e7903ac37e96e6b3a9d478"
+        },
+        "date": 1737549031955,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Ambient_17_in_20/6",
+            "value": 19260.21167099998,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 16400.763047 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 21595.914428999975,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 19044.071107 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 4065.5179260000123,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 3732.402794 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 75921.92059600001,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 75921921000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 14679.953011,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 14679954000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 3123650853,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 3123650853 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 133979790,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 133979790 ns\nthreads: 1"
           }
         ]
       }
