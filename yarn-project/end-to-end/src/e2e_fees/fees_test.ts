@@ -136,12 +136,9 @@ export class FeesTest {
         this.aztecNode = aztecNode;
         this.gasSettings = GasSettings.default({ maxFeesPerGas: (await this.aztecNode.getCurrentBaseFees()).mul(2) });
         this.cheatCodes = await CheatCodes.create(aztecNodeConfig.l1RpcUrl, pxe);
-        this.wallets = await Promise.all(
-          accountKeys.map(async ak => {
-            const account = await getSchnorrAccount(pxe, ak[0], ak[1], 1);
-            return account.waitSetup();
-          }),
-        );
+        const accountManagers = await Promise.all(accountKeys.map(ak => getSchnorrAccount(pxe, ak[0], ak[1], 1)));
+        await Promise.all(accountManagers.map(a => a.register()));
+        this.wallets = await Promise.all(accountManagers.map(a => a.getWallet()));
         this.wallets.forEach((w, i) => this.logger.verbose(`Wallet ${i} address: ${w.getAddress()}`));
         [this.aliceWallet, this.bobWallet] = this.wallets.slice(0, 2);
         [this.aliceAddress, this.bobAddress, this.sequencerAddress] = this.wallets.map(w => w.getAddress());
