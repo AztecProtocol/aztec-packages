@@ -411,7 +411,7 @@ contract Rollup is EIP712("Aztec Rollup", "1"), Ownable, Leonidas, IRollup, ITes
    * @param _signatures - The signatures to validate
    * @param _digest - The digest to validate
    * @param _currentTime - The current time
-   * @param _blobsHash - The blobs hash for this block
+   * @param _blobsHashesCommitment - The blobs hash for this block
    * @param _flags - The flags to validate
    */
   function validateHeader(
@@ -419,7 +419,7 @@ contract Rollup is EIP712("Aztec Rollup", "1"), Ownable, Leonidas, IRollup, ITes
     Signature[] memory _signatures,
     bytes32 _digest,
     Timestamp _currentTime,
-    bytes32 _blobsHash,
+    bytes32 _blobsHashesCommitment,
     DataStructures.ExecutionFlags memory _flags
   ) external view override(IRollup) {
     _validateHeader(
@@ -428,7 +428,7 @@ contract Rollup is EIP712("Aztec Rollup", "1"), Ownable, Leonidas, IRollup, ITes
       _digest,
       _currentTime,
       getManaBaseFeeAt(_currentTime, true),
-      _blobsHash,
+      _blobsHashesCommitment,
       _flags
     );
   }
@@ -441,7 +441,7 @@ contract Rollup is EIP712("Aztec Rollup", "1"), Ownable, Leonidas, IRollup, ITes
     external
     view
     override(IRollup)
-    returns (bytes32, bytes32)
+    returns (bytes32[] memory, bytes32, bytes32)
   {
     return ExtRollupLib.validateBlobs(_blobsInput, checkBlob);
   }
@@ -513,7 +513,7 @@ contract Rollup is EIP712("Aztec Rollup", "1"), Ownable, Leonidas, IRollup, ITes
 
     // Since an invalid blob hash here would fail the consensus checks of
     // the header, the `blobInput` is implicitly accepted by consensus as well.
-    (bytes32 blobsHash, bytes32 blobPublicInputsHash) =
+    (bytes32[] memory blobHashes, bytes32 blobsHashesCommitment, bytes32 blobPublicInputsHash) =
       ExtRollupLib.validateBlobs(_blobInput, checkBlob);
 
     // Decode and validate header
@@ -529,7 +529,7 @@ contract Rollup is EIP712("Aztec Rollup", "1"), Ownable, Leonidas, IRollup, ITes
       _digest: _args.digest(),
       _currentTime: Timestamp.wrap(block.timestamp),
       _manaBaseFee: manaBaseFee,
-      _blobsHash: blobsHash,
+      _blobsHashesCommitment: blobsHashesCommitment,
       _flags: DataStructures.ExecutionFlags({ignoreDA: false, ignoreSignatures: false})
     });
 
@@ -555,7 +555,7 @@ contract Rollup is EIP712("Aztec Rollup", "1"), Ownable, Leonidas, IRollup, ITes
     (uint256 min,) = MerkleLib.computeMinMaxPathLength(header.contentCommitment.numTxs);
     OUTBOX.insert(blockNumber, header.contentCommitment.outHash, min + 1);
 
-    emit L2BlockProposed(blockNumber, _args.archive);
+    emit L2BlockProposed(blockNumber, _args.archive, blobHashes);
 
     // Automatically flag the block as proven if we have cheated and set assumeProvenThroughBlockNumber.
     if (blockNumber <= assumeProvenThroughBlockNumber) {
@@ -828,7 +828,7 @@ contract Rollup is EIP712("Aztec Rollup", "1"), Ownable, Leonidas, IRollup, ITes
    * @param _signatures - The signatures for the attestations
    * @param _digest - The digest that signatures signed
    * @param _currentTime - The time of execution
-   * @param _blobsHash - The blobs hash for this block
+   * @param _blobsHashesCommitment - The blobs hash for this block
    * @dev                - This value is provided to allow for simple simulation of future
    * @param _flags - Flags specific to the execution, whether certain checks should be skipped
    */
@@ -838,7 +838,7 @@ contract Rollup is EIP712("Aztec Rollup", "1"), Ownable, Leonidas, IRollup, ITes
     bytes32 _digest,
     Timestamp _currentTime,
     uint256 _manaBaseFee,
-    bytes32 _blobsHash,
+    bytes32 _blobsHashesCommitment,
     DataStructures.ExecutionFlags memory _flags
   ) internal view {
     uint256 pendingBlockNumber = canPruneAtTime(_currentTime)
@@ -850,7 +850,7 @@ contract Rollup is EIP712("Aztec Rollup", "1"), Ownable, Leonidas, IRollup, ITes
         header: _header,
         currentTime: _currentTime,
         manaBaseFee: _manaBaseFee,
-        blobsHash: _blobsHash,
+        blobsHashesCommitment: _blobsHashesCommitment,
         pendingBlockNumber: pendingBlockNumber,
         flags: _flags,
         version: VERSION,
