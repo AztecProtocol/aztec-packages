@@ -163,24 +163,29 @@ TYPED_TEST(ShpleminiTest, CorrectnessOfGeminiClaimBatching)
     }
 
     for (auto& poly : pcs_instance_witness.to_be_shifted_polynomials) {
-        batched_unshifted.add_scaled(poly, rhos[idx]);
+        batched_to_be_shifted.add_scaled(poly, rhos[idx]);
         idx++;
     }
+
+    Polynomial batched = batched_unshifted;
+    batched += batched_to_be_shifted;
 
     // Compute:
     // - (d+1) opening pairs: {r, \hat{a}_0}, {-r^{2^i}, a_i}, i = 0, ..., d-1
     // - (d+1) Fold polynomials Fold_{r}^(0), Fold_{-r}^(0), and Fold^(i), i = 0, ..., d-1
-    auto fold_polynomials = GeminiProver::compute_fold_polynomials(
-        this->log_n, mle_opening_point, std::move(batched_unshifted), std::move(batched_to_be_shifted));
+    auto fold_polynomials = GeminiProver::compute_fold_polynomials(this->log_n, mle_opening_point, batched);
 
     std::vector<Commitment> prover_commitments;
     for (size_t l = 0; l < this->log_n - 1; ++l) {
-        auto commitment = ck->commit(fold_polynomials[l + 2]);
+        auto commitment = ck->commit(fold_polynomials[l]);
         prover_commitments.emplace_back(commitment);
     }
 
-    const auto opening_claims = GeminiProver::compute_fold_polynomial_evaluations(
-        this->log_n, std::move(fold_polynomials), gemini_eval_challenge);
+    auto [A_0_pos, A_0_neg] = GeminiProver::compute_partially_evaluated_batch_polynomials(
+        this->log_n, std::move(batched_unshifted), std::move(batched_to_be_shifted), gemini_eval_challenge);
+
+    const auto opening_claims = GeminiProver::construct_univariate_opening_claims(
+        this->log_n, std::move(A_0_pos), std::move(A_0_neg), std::move(fold_polynomials), gemini_eval_challenge);
 
     std::vector<Fr> prover_evaluations;
     for (size_t l = 0; l < this->log_n; ++l) {
