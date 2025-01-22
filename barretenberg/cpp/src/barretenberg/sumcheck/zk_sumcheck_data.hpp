@@ -21,8 +21,8 @@ template <typename Flavor> struct ZKSumcheckData {
 
     static constexpr FF subgroup_generator = Curve::subgroup_generator;
 
-    // The size of the LibraUnivariates. We ensure that they do not take extra space when Flavor runs non-ZK Sumcheck.
-    static constexpr size_t LIBRA_UNIVARIATES_LENGTH = (std::is_same_v<Curve, curve::BN254>) ? 9 : 3;
+    // The size of the LibraUnivariates.
+    static constexpr size_t LIBRA_UNIVARIATES_LENGTH = Curve::LIBRA_UNIVARIATES_LENGTH;
 
     static constexpr FF one_half = FF(1) / FF(2);
 

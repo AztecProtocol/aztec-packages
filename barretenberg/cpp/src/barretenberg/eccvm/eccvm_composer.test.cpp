@@ -167,5 +167,5 @@ TEST_F(ECCVMTests, CommittedSumcheck)
     EXPECT_TRUE(prover_target_sum == verifier_output.round_univariate_evaluations[0][0] +
                                          verifier_output.round_univariate_evaluations[0][1]);
 
-    EXPECT_TRUE(verifier_output.verified.value());
+    EXPECT_TRUE(verifier_output.verified);
 }

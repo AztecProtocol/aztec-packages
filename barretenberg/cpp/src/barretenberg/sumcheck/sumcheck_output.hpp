@@ -24,7 +24,7 @@ template <typename Flavor> struct SumcheckOutput {
     ClaimedEvaluations claimed_evaluations;
     // Whether or not the evaluations of multilinear polynomials \f$ P_1, \ldots, P_N \f$  and final Sumcheck evaluation
     // have been confirmed
-    std::optional<bool> verified = false; // optional b/c this struct is shared by the Prover/Verifier
+    bool verified = false;
     // For ZK Flavors: the sum of the Libra constant term and Libra univariates evaluated at Sumcheck challenges
     FF claimed_libra_evaluation = FF{ 0 };
     // For ECCVMVerifier: Commitments to round univariates

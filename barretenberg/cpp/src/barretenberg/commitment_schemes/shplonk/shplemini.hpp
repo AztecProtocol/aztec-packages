@@ -31,8 +31,8 @@ template <typename Curve> class ShpleminiProver_ {
                               const std::shared_ptr<CommitmentKey<Curve>>& commitment_key,
                               const std::shared_ptr<Transcript>& transcript,
                               const std::array<Polynomial, NUM_LIBRA_EVALUATIONS>& libra_polynomials = {},
-                              const std::vector<Polynomial> sumcheck_round_univariates = {},
-                              const std::vector<std::array<FF, 3>> sumcheck_round_evaluations = {},
+                              const std::vector<Polynomial>& sumcheck_round_univariates = {},
+                              const std::vector<std::array<FF, 3>>& sumcheck_round_evaluations = {},
                               RefSpan<Polynomial> concatenated_polynomials = {},
                               const std::vector<RefVector<Polynomial>>& groups_to_be_concatenated = {})
     {
@@ -48,52 +48,91 @@ template <typename Curve> class ShpleminiProver_ {
                                                                        groups_to_be_concatenated,
                                                                        has_zk);
         // Create opening claims for Libra masking univariates and Sumcheck Round Univariates
+        OpeningClaim new_claim;
         std::vector<OpeningClaim> libra_opening_claims;
 
-        OpeningClaim new_claim;
-
         if (has_zk) {
-            static constexpr FF subgroup_generator = Curve::subgroup_generator;
             const auto gemini_r = opening_claims[0].opening_pair.challenge;
-
-            std::array<std::string, NUM_LIBRA_EVALUATIONS> libra_eval_labels = {
-                "Libra:concatenation_eval", "Libra:shifted_big_sum_eval", "Libra:big_sum_eval", "Libra:quotient_eval"
-            };
-            const std::array<FF, NUM_LIBRA_EVALUATIONS> evaluation_points = {
-                gemini_r, gemini_r * subgroup_generator, gemini_r, gemini_r
-            };
-            for (size_t idx = 0; idx < 4; idx++) {
-                new_claim.polynomial = std::move(libra_polynomials[idx]);
-                new_claim.opening_pair.challenge = evaluation_points[idx];
-                new_claim.opening_pair.evaluation = new_claim.polynomial.evaluate(evaluation_points[idx]);
-                transcript->send_to_verifier(libra_eval_labels[idx], new_claim.opening_pair.evaluation);
-                libra_opening_claims.push_back(new_claim);
-            }
+            libra_opening_claims = compute_libra_opening_claims(gemini_r, libra_polynomials, transcript);
         }
 
         // Currently, only used in ECCVM.
         std::vector<OpeningClaim> sumcheck_round_claims;
 
         if (!sumcheck_round_univariates.empty()) {
-            const size_t log_circuit_size = numeric::get_msb(static_cast<uint32_t>(circuit_size));
-            for (size_t idx = 0; idx < log_circuit_size; idx++) {
-                const std::vector<FF> evaluation_points = { FF(0), FF(1), multilinear_challenge[idx] };
-                size_t eval_idx = 0;
-                new_claim.polynomial = std::move(sumcheck_round_univariates[idx]);
-
-                for (auto& eval_point : evaluation_points) {
-                    new_claim.opening_pair.challenge = eval_point;
-                    new_claim.opening_pair.evaluation = sumcheck_round_evaluations[idx][eval_idx];
-                    sumcheck_round_claims.push_back(new_claim);
-                    eval_idx++;
-                }
-            }
+            sumcheck_round_claims = compute_sumcheck_round_claims(
+                circuit_size, multilinear_challenge, sumcheck_round_univariates, sumcheck_round_evaluations);
         }
 
         const OpeningClaim batched_claim = ShplonkProver::prove(
             commitment_key, opening_claims, transcript, libra_opening_claims, sumcheck_round_claims);
         return batched_claim;
     };
+
+    /**
+     * @brief For ZK Flavors: Evaluate the polynomials used in SmallSubgroupIPA argument, send the evaluations to the
+     * verifier, and populate a vector of the opening claims.
+     *
+     */
+    template <typename Transcript>
+    static std::vector<OpeningClaim> compute_libra_opening_claims(
+        const FF gemini_r,
+        const std::array<Polynomial, NUM_LIBRA_EVALUATIONS>& libra_polynomials,
+        const std::shared_ptr<Transcript>& transcript)
+    {
+        OpeningClaim new_claim;
+
+        std::vector<OpeningClaim> libra_opening_claims = {};
+
+        static constexpr FF subgroup_generator = Curve::subgroup_generator;
+
+        std::array<std::string, NUM_LIBRA_EVALUATIONS> libra_eval_labels = {
+            "Libra:concatenation_eval", "Libra:shifted_big_sum_eval", "Libra:big_sum_eval", "Libra:quotient_eval"
+        };
+        const std::array<FF, NUM_LIBRA_EVALUATIONS> evaluation_points = {
+            gemini_r, gemini_r * subgroup_generator, gemini_r, gemini_r
+        };
+        for (size_t idx = 0; idx < 4; idx++) {
+            new_claim.polynomial = std::move(libra_polynomials[idx]);
+            new_claim.opening_pair.challenge = evaluation_points[idx];
+            new_claim.opening_pair.evaluation = new_claim.polynomial.evaluate(evaluation_points[idx]);
+            transcript->send_to_verifier(libra_eval_labels[idx], new_claim.opening_pair.evaluation);
+            libra_opening_claims.push_back(new_claim);
+        }
+
+        return libra_opening_claims;
+    }
+
+    /**
+     * @brief Create a vector of 3*log_circuit_size opening claims for the evaluations of Sumcheck Round Univariates at
+     * 0, 1, and a round challenge.
+     *
+     */
+    static std::vector<OpeningClaim> compute_sumcheck_round_claims(
+        const FF circuit_size,
+        std::span<FF> multilinear_challenge,
+        const std::vector<Polynomial>& sumcheck_round_univariates,
+        const std::vector<std::array<FF, 3>>& sumcheck_round_evaluations)
+    {
+        OpeningClaim new_claim;
+        std::vector<OpeningClaim> sumcheck_round_claims = {};
+
+        const size_t log_circuit_size = numeric::get_msb(static_cast<uint32_t>(circuit_size));
+        for (size_t idx = 0; idx < log_circuit_size; idx++) {
+            const std::vector<FF> evaluation_points = { FF(0), FF(1), multilinear_challenge[idx] };
+            size_t eval_idx = 0;
+            new_claim.polynomial = std::move(sumcheck_round_univariates[idx]);
+
+            for (auto& eval_point : evaluation_points) {
+                new_claim.opening_pair.challenge = eval_point;
+                new_claim.opening_pair.evaluation = sumcheck_round_evaluations[idx][eval_idx];
+                sumcheck_round_claims.push_back(new_claim);
+                eval_idx++;
+            }
+        }
+
+        return sumcheck_round_claims;
+    }
 };
 /**
  * \brief An efficient verifier for the evaluation proofs of multilinear polynomials and their shifts.

@@ -105,7 +105,7 @@ bool TranslatorVerifier::verify_proof(const HonkProof& proof)
     auto sumcheck_output = sumcheck.verify(relation_parameters, alpha, gate_challenges);
 
     // If Sumcheck did not verify, return false
-    if (sumcheck_output.verified.has_value() && !sumcheck_output.verified.value()) {
+    if (!sumcheck_output.verified) {
         return false;
     }
 
