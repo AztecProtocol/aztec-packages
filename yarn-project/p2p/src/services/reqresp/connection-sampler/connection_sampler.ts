@@ -1,6 +1,5 @@
 import { createLogger } from '@aztec/foundation/log';
 import { SerialQueue } from '@aztec/foundation/queue';
-import { RunningPromise } from '@aztec/foundation/running-promise';
 
 import { type Libp2p, type PeerId, type Stream } from '@libp2p/interface';
 
@@ -26,7 +25,8 @@ export class RandomSampler {
  */
 export class ConnectionSampler {
   private readonly logger = createLogger('p2p:reqresp:connection-sampler');
-  private cleanupJob: RunningPromise;
+  private cleanupInterval: NodeJS.Timeout;
+  private abortController: AbortController = new AbortController();
 
   private readonly activeConnectionsCount: Map<PeerId, number> = new Map();
   private readonly streams: Map<string, StreamAndPeerId> = new Map();
@@ -39,8 +39,7 @@ export class ConnectionSampler {
     private readonly cleanupIntervalMs: number = 60000, // Default to 1 minute
     private readonly sampler: RandomSampler = new RandomSampler(), // Allow randomness to be mocked for testing
   ) {
-    this.cleanupJob = new RunningPromise(() => this.cleanupStaleConnections(), this.logger, this.cleanupIntervalMs);
-    this.cleanupJob.start();
+    this.cleanupInterval = setInterval(() => void this.cleanupStaleConnections(), this.cleanupIntervalMs);
 
     this.dialQueue.start();
   }
@@ -50,7 +49,9 @@ export class ConnectionSampler {
    */
   async stop() {
     this.logger.info('Stopping connection sampler');
-    await this.cleanupJob.stop();
+    clearInterval(this.cleanupInterval);
+
+    this.abortController.abort();
     await this.dialQueue.end();
 
     // Close all active streams
@@ -65,7 +66,8 @@ export class ConnectionSampler {
    *        This is to prevent sampling with replacement
    * @returns
    */
-  getPeer(excluding?: Map<PeerId, boolean>): PeerId | undefined {
+  getPeer(excluding?: Map<string, boolean>): PeerId | undefined {
+    // In libp2p getPeers performs a shallow copy, so this array can be sliced from safetly
     const peers = this.libp2p.getPeers();
 
     if (peers.length === 0) {
@@ -80,8 +82,10 @@ export class ConnectionSampler {
     // - either the peer has active connections OR is in the exclusion list
     while (
       attempts < MAX_SAMPLE_ATTEMPTS &&
-      ((this.activeConnectionsCount.get(peers[randomIndex]) ?? 0) > 0 || (excluding?.get(peers[randomIndex]) ?? false))
+      ((this.activeConnectionsCount.get(peers[randomIndex]) ?? 0) > 0 ||
+        (excluding?.get(peers[randomIndex]?.toString()) ?? false))
     ) {
+      peers.splice(randomIndex, 1);
       randomIndex = this.sampler.random(peers.length);
       attempts++;
     }
@@ -143,7 +147,9 @@ export class ConnectionSampler {
   async dialProtocol(peerId: PeerId, protocol: string): Promise<Stream> {
     // Dialling at the same time can cause race conditions where two different streams
     // end up with the same id, hence a serial queue
-    const stream = await this.dialQueue.put(() => this.libp2p.dialProtocol(peerId, protocol));
+    const stream = await this.dialQueue.put(() =>
+      this.libp2p.dialProtocol(peerId, protocol, { signal: this.abortController.signal }),
+    );
 
     this.streams.set(stream.id, { stream, peerId });
     const updatedActiveConnectionsCount = (this.activeConnectionsCount.get(peerId) ?? 0) + 1;

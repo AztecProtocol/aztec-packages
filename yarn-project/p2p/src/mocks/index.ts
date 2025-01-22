@@ -6,6 +6,7 @@ import {
   type WorldStateSynchronizer,
 } from '@aztec/circuit-types';
 import { type EpochCache } from '@aztec/epoch-cache';
+import { timesParallel } from '@aztec/foundation/collection';
 import { type DataStoreConfig } from '@aztec/kv-store/config';
 import { openTmpStore } from '@aztec/kv-store/lmdb';
 import { type TelemetryClient, getTelemetryClient } from '@aztec/telemetry-client';
@@ -170,8 +171,8 @@ export const MOCK_SUB_PROTOCOL_VALIDATORS: ReqRespSubProtocolValidators = {
  * @param numberOfNodes - the number of nodes to create
  * @returns An array of the created nodes
  */
-export const createNodes = async (peerScoring: PeerScoring, numberOfNodes: number): Promise<ReqRespNode[]> => {
-  return await Promise.all(Array.from({ length: numberOfNodes }, () => createReqResp(peerScoring)));
+export const createNodes = (peerScoring: PeerScoring, numberOfNodes: number): Promise<ReqRespNode[]> => {
+  return timesParallel(numberOfNodes, () => createReqResp(peerScoring));
 };
 
 export const startNodes = async (
@@ -185,11 +186,7 @@ export const startNodes = async (
 };
 
 export const stopNodes = async (nodes: ReqRespNode[]): Promise<void> => {
-  const stopPromises = [];
-  for (const node of nodes) {
-    stopPromises.push(node.req.stop());
-    stopPromises.push(node.p2p.stop());
-  }
+  const stopPromises = nodes.flatMap(node => [node.req.stop(), node.p2p.stop()]);
   await Promise.all(stopPromises);
 };
 

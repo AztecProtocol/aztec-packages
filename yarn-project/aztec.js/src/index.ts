@@ -45,6 +45,7 @@ export {
   type L2AmountClaim,
   type L2AmountClaimWithRecipient,
   type L2Claim,
+  type U128Like,
   type WrappedFieldLike,
   type IntentAction,
 } from './utils/index.js';

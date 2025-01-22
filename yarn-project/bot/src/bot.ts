@@ -139,7 +139,8 @@ export class Bot {
       estimateGas = true;
       this.log.verbose(`Estimating gas for transaction`);
     }
+    const baseFeePadding = 2; // Send 3x the current base fee
     this.log.verbose(skipPublicSimulation ? `Skipping public simulation` : `Simulating public transfers`);
-    return { fee: { estimateGas, paymentMethod, gasSettings }, skipPublicSimulation };
+    return { fee: { estimateGas, paymentMethod, gasSettings, baseFeePadding }, skipPublicSimulation };
   }
 }

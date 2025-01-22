@@ -3,9 +3,9 @@ import { AztecAddress, Fr, FunctionSelector } from '@aztec/circuits.js';
 import { parseSequencerAllowList } from './config.js';
 
 describe('sequencer config', () => {
-  it('parse a sequencer config', () => {
-    const instance = { address: AztecAddress.random() };
-    const instanceFunction = { address: AztecAddress.random(), selector: FunctionSelector.random() };
+  it('parse a sequencer config', async () => {
+    const instance = { address: await AztecAddress.random() };
+    const instanceFunction = { address: await AztecAddress.random(), selector: FunctionSelector.random() };
     const classId = { classId: Fr.random() };
     const classFunction = { classId: Fr.random(), selector: FunctionSelector.random() };
 
