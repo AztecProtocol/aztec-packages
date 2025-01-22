@@ -15,8 +15,6 @@ template <typename FF_> struct AvmFullRow {
 
     FF AVM2_ALL_ENTITIES;
 
-    RefVector<const FF> as_vector() const;
-    static std::vector<std::string> names();
     static constexpr size_t SIZE = 49;
 
     // Risky but oh so efficient.

@@ -203,7 +203,7 @@ void show_trace_info(const auto& trace)
         }
 
         vinfo("Details for 20 most sparse columns:");
-        const auto names = AvmFullRow<FF>::names();
+        const auto names = avm::COLUMN_NAMES;
         for (size_t i = 0; i < 20; i++) {
             const auto& stat = column_stats.at(column_stats.size() - i - 1);
             vinfo("Column \"",

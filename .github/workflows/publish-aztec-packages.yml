@@ -39,6 +39,8 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       username: ${{ steps.compute_username.outputs.username }}
+      version: ${{ steps.set_version.outputs.version }}
+      dist_tag: ${{ steps.set_version.outputs.dist_tag }}
     steps:
       - name: Compute Username
         id: compute_username
@@ -58,6 +60,25 @@ jobs:
             echo "username=master-${GIT_HASH_MODULO_8}"
             echo "username=master-${GIT_HASH_MODULO_8}" >> $GITHUB_OUTPUT
           fi
+      - name: Set version and tags
+        id: set_version
+        run: |
+          if [[ "${{ github.ref_name }}" =~ ^release/ ]]; then
+            echo "dist_tag=devnet" >> $GITHUB_OUTPUT
+            TAG="${{ github.ref_name }}"
+            VERSION="${TAG#release/}"
+            if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
+              VERSION=${DEPLOY_TAG#aztec-packages-v}-devnet
+            fi
+          elif [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
+            echo "dist_tag=latest" >> $GITHUB_OUTPUT
+            TAG=${{ env.DEPLOY_TAG }}
+            VERSION=${TAG#aztec-packages-v}
+          else
+            echo "dist_tag=$(echo "${{ github.ref_name }}" | sed 's/\//-/g')" >> $GITHUB_OUTPUT
+            VERSION=""
+          fi
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
       - name: Check if tag is valid
         id: check_tag
         if: github.event_name == 'workflow_dispatch'
@@ -101,10 +122,13 @@ jobs:
           dockerhub_password: "${{ env.DOCKERHUB_PASSWORD }}"
       - name: Build & Push Aztec and End-to-End x86_64
         timeout-minutes: 40
+        env:
+          VERSION: ${{ needs.configure.outputs.version }}
         run: |
-          ./bootstrap.sh image-aztec
+          ./bootstrap.sh image-aztec --version $VERSION
           docker tag aztecprotocol/aztec:${{ env.GIT_COMMIT }} aztecprotocol/aztec:${{ env.GIT_COMMIT }}-x86_64
           docker push aztecprotocol/aztec:${{ env.GIT_COMMIT }}-x86_64
+
   build-aztec-arm:
     needs: [configure, setup-arm]
     runs-on: ${{ needs.configure.outputs.username }}-arm
@@ -118,11 +142,14 @@ jobs:
           dockerhub_password: "${{ env.DOCKERHUB_PASSWORD }}"
       - name: Build & Push Aztec arm64
         timeout-minutes: 80
+        env:
+          VERSION: ${{ needs.configure.outputs.version }}
         run: |
           sudo shutdown -P 80
-          ./bootstrap.sh image-aztec --check-arch
+          ./bootstrap.sh image-aztec --check-arch --version $VERSION
           docker tag aztecprotocol/aztec:${{ env.GIT_COMMIT }} aztecprotocol/aztec:${{ env.GIT_COMMIT }}-arm64
           docker push aztecprotocol/aztec:${{ env.GIT_COMMIT }}-arm64
+
   build-nargo-x86:
     needs: [configure, build-aztec-x86]
     runs-on: ${{ needs.configure.outputs.username }}-x86
@@ -202,20 +229,10 @@ jobs:
           dockerhub_password: "${{ env.DOCKERHUB_PASSWORD }}"
       - name: Publish aztec manifests
         if: ${{ env.SHOULD_PUBLISH_DOCKER_IMAGES == 'true' }}
+        env:
+          VERSION: ${{ needs.configure.outputs.version }}
+          DIST_TAG: ${{ needs.configure.outputs.dist_tag }}
         run: |
-          if [[ "${{ github.ref_name }}" =~ ^release/ ]]; then
-            TAG="${{ github.ref_name }}"
-            VERSION="${TAG#release/}"
-            DIST_TAG=devnet
-          elif [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
-            TAG=${{ env.DEPLOY_TAG }}
-            VERSION=${TAG#aztec-packages-v}
-            DIST_TAG=latest
-          else
-            VERSION=""
-            DIST_TAG=$(echo "${{ github.ref_name }}" | sed 's/\//-/g')
-          fi
-
           docker pull aztecprotocol/aztec:${{ env.GIT_COMMIT }}-x86_64
           docker pull aztecprotocol/aztec:${{ env.GIT_COMMIT }}-arm64
           docker pull aztecprotocol/aztec-nargo:${{ env.GIT_COMMIT }}-x86_64
@@ -271,29 +288,17 @@ jobs:
           concurrency_key: publish-npm
           dockerhub_password: "${{ env.DOCKERHUB_PASSWORD }}"
 
-      - name: Set tags and versions
-        id: version_step
-        run: |
-          if [[ "${{ github.ref_name }}" =~ ^release/ ]]; then
-            DIST_TAG=devnet
-            TAG=${{ env.DEPLOY_TAG }}
-            VERSION=${TAG#aztec-packages-v}-devnet
-          else
-            DIST_TAG=latest
-            TAG=${{ env.DEPLOY_TAG }}
-            VERSION=${TAG#aztec-packages-v}
-          fi
-          echo "VERSION=$VERSION" >> $GITHUB_OUTPUT
-          echo "DIST_TAG=$DIST_TAG" >> $GITHUB_OUTPUT
-
       - name: Publish bb.js NPM package
+        env:
+          VERSION: ${{ needs.configure.outputs.version }}
+          DIST_TAG: ${{ needs.configure.outputs.dist_tag }}
         run: |
           earthly-ci \
             --no-output \
             --secret NPM_TOKEN=${{ env.NPM_TOKEN }} \
             ./barretenberg/ts+publish-npm \
-            --DIST_TAG=${{ steps.version_step.outputs.DIST_TAG }} \
-            --VERSION=${{ steps.version_step.outputs.VERSION }} \
+            --DIST_TAG=$DIST_TAG \
+            --VERSION=$VERSION \
             --DRY_RUN=${{ (github.event.inputs.publish == 'false') && '1' || '0' }}
 
       - name: Publish yarn-project NPM packages
