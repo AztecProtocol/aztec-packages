@@ -77,7 +77,7 @@ describe('e2e_fees account_init', () => {
   beforeEach(async () => {
     bobsSecretKey = Fr.random();
     bobsPrivateSigningKey = Fq.random();
-    bobsAccountManager = getSchnorrAccount(pxe, bobsSecretKey, bobsPrivateSigningKey, Fr.random());
+    bobsAccountManager = await getSchnorrAccount(pxe, bobsSecretKey, bobsPrivateSigningKey, Fr.random());
     bobsCompleteAddress = bobsAccountManager.getCompleteAddress();
     bobsAddress = bobsCompleteAddress.address;
     bobsWallet = await bobsAccountManager.getWallet();
@@ -167,7 +167,7 @@ describe('e2e_fees account_init', () => {
 
       // bob generates the private keys for his account on his own
       const bobsPublicKeys = deriveKeys(bobsSecretKey).publicKeys;
-      const bobsSigningPubKey = new Schnorr().computePublicKey(bobsPrivateSigningKey);
+      const bobsSigningPubKey = await new Schnorr().computePublicKey(bobsPrivateSigningKey);
       const bobsInstance = bobsAccountManager.getInstance();
 
       // and deploys bob's account, paying the fee from her balance

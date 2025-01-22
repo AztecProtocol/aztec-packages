@@ -26,7 +26,7 @@ describe('aes128', () => {
     return paddedBuffer.subarray(0, paddedBuffer.length - paddingToRemove);
   };
 
-  it('should correctly encrypt input', () => {
+  it('should correctly encrypt input', async () => {
     const data = randomBytes(32);
     const key = randomBytes(16);
     const iv = randomBytes(16);
@@ -37,12 +37,12 @@ describe('aes128', () => {
     cipher.setAutoPadding(false);
     const expected = Buffer.concat([cipher.update(paddedData), cipher.final()]);
 
-    const result: Buffer = aes128.encryptBufferCBC(data, iv, key);
+    const result: Buffer = await aes128.encryptBufferCBC(data, iv, key);
 
     expect(result).toEqual(expected);
   });
 
-  it('should correctly decrypt input', () => {
+  it('should correctly decrypt input', async () => {
     const data = randomBytes(32);
     const key = randomBytes(16);
     const iv = randomBytes(16);
@@ -57,7 +57,7 @@ describe('aes128', () => {
     decipher.setAutoPadding(false);
     const expected = removePadding(Buffer.concat([decipher.update(ciphertext), decipher.final()]));
 
-    const result: Buffer = aes128.decryptBufferCBC(ciphertext, iv, key);
+    const result: Buffer = await aes128.decryptBufferCBC(ciphertext, iv, key);
 
     expect(result).toEqual(expected);
   });

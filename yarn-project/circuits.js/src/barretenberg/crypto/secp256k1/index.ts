@@ -1,11 +1,9 @@
-import { BarretenbergSync } from '@aztec/bb.js';
+import { BarretenbergLazy } from '@aztec/bb.js';
 
 /**
  * Secp256k1 elliptic curve operations.
  */
 export class Secp256k1 {
-  private wasm = BarretenbergSync.getSingleton().getWasm();
-
   // prettier-ignore
   static generator = Buffer.from([
     0x79, 0xbe, 0x66, 0x7e, 0xf9, 0xdc, 0xbb, 0xac, 0x55, 0xa0, 0x62, 0x95, 0xce, 0x87, 0x0b, 0x07,
@@ -28,20 +26,22 @@ export class Secp256k1 {
    * @param scalar - Scalar to multiply by.
    * @returns Result of the multiplication.
    */
-  public mul(point: Uint8Array, scalar: Uint8Array) {
-    this.wasm.writeMemory(0, point);
-    this.wasm.writeMemory(64, scalar);
-    this.wasm.call('ecc_secp256k1__mul', 0, 64, 96);
-    return Buffer.from(this.wasm.getMemorySlice(96, 160));
+  public async mul(point: Uint8Array, scalar: Uint8Array) {
+    const api = await BarretenbergLazy.getSingleton();
+    const [result] = await api.getWasm().callWasmExport('ecc_secp256k1__mul', [point, scalar], [64]);
+    return Buffer.from(result);
   }
 
   /**
    * Gets a random field element.
    * @returns Random field element.
    */
-  public getRandomFr() {
-    this.wasm.call('ecc_secp256k1__get_random_scalar_mod_circuit_modulus', 0);
-    return Buffer.from(this.wasm.getMemorySlice(0, 32));
+  public async getRandomFr() {
+    const api = await BarretenbergLazy.getSingleton();
+    const [result] = await api
+      .getWasm()
+      .callWasmExport('ecc_secp256k1__get_random_scalar_mod_circuit_modulus', [], [32]);
+    return Buffer.from(result);
   }
 
   /**
@@ -49,9 +49,11 @@ export class Secp256k1 {
    * @param uint512Buf - The buffer to convert.
    * @returns Buffer representation of the field element.
    */
-  public reduce512BufferToFr(uint512Buf: Buffer) {
-    this.wasm.writeMemory(0, uint512Buf);
-    this.wasm.call('ecc_secp256k1__reduce512_buffer_mod_circuit_modulus', 0, 64);
-    return Buffer.from(this.wasm.getMemorySlice(64, 96));
+  public async reduce512BufferToFr(uint512Buf: Buffer) {
+    const api = await BarretenbergLazy.getSingleton();
+    const [result] = await api
+      .getWasm()
+      .callWasmExport('ecc_secp256k1__reduce512_buffer_mod_circuit_modulus', [uint512Buf], [32]);
+    return Buffer.from(result);
   }
 }
