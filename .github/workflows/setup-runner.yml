@@ -13,6 +13,9 @@ on:
       runner_type:
         required: true
         type: string
+      runner_action:  
+        required: true
+        type: string
     secrets:
       AWS_ACCESS_KEY_ID:
         required: true
