@@ -1,8 +1,6 @@
 import createDebug from 'debug';
 
-import Vk1 from '../artifacts/keys/circuit_1.vk.data.json' assert { type: 'json' };
-import Vk2 from '../artifacts/keys/circuit_2.vk.data.json' assert { type: 'json' };
-import { generateCircuit1, generateCircuit2, logger, proveCircuit1, proveThenVerifyCircuit2 } from './index.js';
+import { proveThenVerifyStack } from './index.js';
 
 createDebug.enable('*'); // needed for logging in Firefox but not Chrome
 
@@ -114,33 +112,13 @@ function overrideCreateDebugLog(addLogMessage: (message: string) => void): void 
   };
 }
 
-function hexStringToUint8Array(hex: string): Uint8Array {
-  const length = hex.length / 2;
-  const uint8Array = new Uint8Array(length);
-
-  for (let i = 0; i < length; i++) {
-    const byte = hex.substr(i * 2, 2);
-    uint8Array[i] = parseInt(byte, 16);
-  }
-
-  return uint8Array;
-}
-
 document.addEventListener('DOMContentLoaded', function () {
   setupConsoleOutput();
 
   const button = document.createElement('button');
   button.innerText = 'Run Test';
   button.addEventListener('click', async () => {
-    logger(`generating circuit and witness...`);
-    const [bytecode1, witness1] = await generateCircuit1();
-    logger(`done generating circuit and witness. proving...`);
-    const proverOutput = await proveCircuit1(bytecode1, witness1);
-    logger(`done proving. generating circuit 2 and witness...`);
-    const [bytecode2, witness2] = await generateCircuit2(proverOutput, Vk1.keyAsFields);
-    logger(`done. generating circuit and witness. proving then verifying...`);
-    const verified = await proveThenVerifyCircuit2(bytecode2, witness2, hexStringToUint8Array(Vk2.keyAsBytes));
-    logger(`verified? ${verified}`);
+    const _ = await proveThenVerifyStack();
   });
   document.body.appendChild(button);
 });

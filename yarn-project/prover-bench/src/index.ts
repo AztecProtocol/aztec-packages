@@ -5,6 +5,8 @@ import createDebug from 'debug';
 
 import Circuit1 from '../artifacts/circuit_1.json' assert { type: 'json' };
 import Circuit2 from '../artifacts/circuit_2.json' assert { type: 'json' };
+import Vk1 from '../artifacts/keys/circuit_1.vk.data.json' assert { type: 'json' };
+import Vk2 from '../artifacts/keys/circuit_2.vk.data.json' assert { type: 'json' };
 import type { FixedLengthArray } from './types/index.js';
 
 export const logger = createDebug('aztec:bb-bench');
@@ -94,4 +96,29 @@ export async function proveThenVerifyCircuit2(
   } finally {
     await backend.destroy();
   }
+}
+
+function hexStringToUint8Array(hex: string): Uint8Array {
+  const length = hex.length / 2;
+  const uint8Array = new Uint8Array(length);
+
+  for (let i = 0; i < length; i++) {
+    const byte = hex.substr(i * 2, 2);
+    uint8Array[i] = parseInt(byte, 16);
+  }
+
+  return uint8Array;
+}
+
+export async function proveThenVerifyStack(): Promise<boolean> {
+  logger(`generating circuit and witness...`);
+  const [bytecode1, witness1] = await generateCircuit1();
+  logger(`done generating circuit and witness. proving...`);
+  const proverOutput = await proveCircuit1(bytecode1, witness1);
+  logger(`done proving. generating circuit 2 and witness...`);
+  const [bytecode2, witness2] = await generateCircuit2(proverOutput, Vk1.keyAsFields);
+  logger(`done. generating circuit and witness. proving then verifying...`);
+  const verified = await proveThenVerifyCircuit2(bytecode2, witness2, hexStringToUint8Array(Vk2.keyAsBytes));
+  logger(`verified? ${verified}`);
+  return verified;
 }
