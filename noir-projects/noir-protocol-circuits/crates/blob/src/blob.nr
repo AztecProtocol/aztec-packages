@@ -490,8 +490,9 @@ mod tests {
         },
         blob_public_inputs::BlobCommitment,
         config::{D, D_INV, F},
+        unconstrained_config::compute_roots_of_unity,
     };
-    use super::{__compute_partial_sums, __compute_sum, compute_roots_of_unity};
+    use super::{__compute_partial_sums, __compute_sum};
     use bigint::{BigNum, fields::bls12_381Fr::BLS12_381_Fr_Params};
     use bigint::bignum::BigNumTrait;
     use types::{
