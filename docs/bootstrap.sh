@@ -25,19 +25,6 @@ function build {
   cache_upload docs-$hash.tar.gz build
 }
 
-# WORKTODO(ADAM)
-# docs-with-cache:
-#   FROM +bootstrap
-#   ENV CI=1
-#   ENV USE_CACHE=1
-#   LET artifact=docs-ci-deploy-$(./docs/bootstrap.sh hash)
-#   IF ci3/test_should_run $artifact
-#     WAIT
-#       BUILD --pass-args ./docs/+deploy-preview
-#     END
-#     RUN ci3/cache_upload_flag $artifact
-#   END
-
 case "$cmd" in
   ""|"full")
     build
@@ -46,8 +33,12 @@ case "$cmd" in
     echo "$hash"
     ;;
   "deploy-prod")
+    ./deploy_prod.sh
     ;;
   "deploy-preview")
+    PR_NUMBER=$1
+    AZTEC_BOT_COMMENTER_GITHUB_TOKEN="$2"
+    ./deploy_preview.sh "$PR_NUMBER" "$AZTEC_BOT_COMMENTER_GITHUB_TOKEN"
     ;;
   *)
     echo "Unknown command: $cmd"
