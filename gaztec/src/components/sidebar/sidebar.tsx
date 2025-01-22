@@ -100,10 +100,10 @@ export function SidebarComponent() {
     setPXEInitialized,
     setWalletDB,
     setWallet,
-    setCurrentContract,
+    setCurrentContractAddress,
     setAztecNode,
     currentTx,
-    currentContract,
+    currentContractAddress,
     wallet,
     walletDB,
     nodeURL,
@@ -166,7 +166,7 @@ export function SidebarComponent() {
     if (walletDB) {
       refreshContracts();
     }
-  }, [currentContract, walletDB]);
+  }, [currentContractAddress, walletDB]);
 
   useEffect(() => {
     const refreshAccounts = async () => {
@@ -181,7 +181,7 @@ export function SidebarComponent() {
   useEffect(() => {
     const refreshTransactions = async () => {
       const txsPerContract = await walletDB.retrieveTxsPerContract(
-        currentContract.address
+        currentContractAddress
       );
       const txHashes = txsPerContract.map((txHash) =>
         TxHash.fromString(convertFromUTF8BufferAsString(txHash))
@@ -190,7 +190,7 @@ export function SidebarComponent() {
         txHashes.map(async (txHash) => {
           const txData = await walletDB.retrieveTxData(txHash);
           return {
-            contractAddress: currentContract.address,
+            contractAddress: currentContractAddress,
             txHash: txData.txHash,
             status: convertFromUTF8BufferAsString(txData.status),
             fnName: convertFromUTF8BufferAsString(txData.fnName),
@@ -201,7 +201,7 @@ export function SidebarComponent() {
       txs.sort((a, b) => (b.date >= a.date ? -1 : 1));
       if (
         currentTx &&
-        currentTx.contractAddress === currentContract.address &&
+        currentTx.contractAddress === currentContractAddress &&
         (!currentTx.txHash ||
           !txs.find((tx) => tx.txHash.equals(currentTx.txHash)))
       ) {
@@ -209,10 +209,10 @@ export function SidebarComponent() {
       }
       setTransactions(txs);
     };
-    if (currentContract && walletDB) {
+    if (currentContractAddress && walletDB) {
       refreshTransactions();
     }
-  }, [currentContract, currentTx]);
+  }, [currentContractAddress, currentTx]);
 
   const handleAccountChange = async (event: SelectChangeEvent) => {
     if (event.target.value == "") {
@@ -254,18 +254,7 @@ export function SidebarComponent() {
       return;
     }
     const contractAddress = AztecAddress.fromString(event.target.value);
-    const artifactAsString = await walletDB.retrieveAlias(
-      `artifacts:${contractAddress}`
-    );
-    const contractArtifact = loadContractArtifact(
-      JSON.parse(convertFromUTF8BufferAsString(artifactAsString))
-    );
-    const contract = await Contract.at(
-      contractAddress,
-      contractArtifact,
-      wallet
-    );
-    setCurrentContract(contract);
+    setCurrentContractAddress(contractAddress);
   };
 
   const handleSenderAdded = async (sender?: AztecAddress, alias?: string) => {
@@ -349,7 +338,7 @@ export function SidebarComponent() {
           <FormControl css={select}>
             <InputLabel>Contracts</InputLabel>
             <Select
-              value={currentContract?.address.toString() ?? ""}
+              value={currentContractAddress?.toString() ?? ""}
               label="Contract"
               onChange={handleContractChange}
               fullWidth
@@ -365,8 +354,8 @@ export function SidebarComponent() {
               ))}
             </Select>
             <CopyToClipboardButton
-              disabled={!currentContract}
-              data={currentContract?.address.toString()}
+              disabled={!currentContractAddress}
+              data={currentContractAddress?.toString()}
             />
           </FormControl>
           <Button
@@ -397,7 +386,10 @@ export function SidebarComponent() {
                 {tx.receipt
                   ? tx.receipt.status.toUpperCase()
                   : tx.status.toUpperCase()}
-                {tx.receipt?.error}
+                &nbsp;
+                {tx.receipt && tx.receipt.status === "error"
+                  ? tx.receipt.error
+                  : tx.error}
               </Typography>
             </div>
             <Typography variant="body2">
