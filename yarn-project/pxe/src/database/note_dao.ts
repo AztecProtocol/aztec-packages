@@ -127,9 +127,9 @@ export class NoteDao implements NoteData {
     return noteSize + AztecAddress.SIZE_IN_BYTES + Fr.SIZE_IN_BYTES * 4 + TxHash.SIZE + Point.SIZE_IN_BYTES + indexSize;
   }
 
-  static random({
+  static async random({
     note = Note.random(),
-    contractAddress = AztecAddress.random(),
+    contractAddress = undefined,
     storageSlot = Fr.random(),
     nonce = Fr.random(),
     noteHash = Fr.random(),
@@ -138,12 +138,12 @@ export class NoteDao implements NoteData {
     l2BlockNumber = Math.floor(Math.random() * 1000),
     l2BlockHash = Fr.random().toString(),
     index = Fr.random().toBigInt(),
-    addressPoint = Point.random(),
+    addressPoint = undefined,
     noteTypeId = NoteSelector.random(),
   }: Partial<NoteDao> = {}) {
     return new NoteDao(
       note,
-      contractAddress,
+      contractAddress ?? (await AztecAddress.random()),
       storageSlot,
       nonce,
       noteHash,
@@ -152,7 +152,7 @@ export class NoteDao implements NoteData {
       l2BlockNumber,
       l2BlockHash,
       index,
-      addressPoint,
+      addressPoint ?? (await Point.random()),
       noteTypeId,
     );
   }

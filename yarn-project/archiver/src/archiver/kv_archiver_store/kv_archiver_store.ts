@@ -1,5 +1,6 @@
 import {
-  type GetUnencryptedLogsResponse,
+  type GetContractClassLogsResponse,
+  type GetPublicLogsResponse,
   type InBlock,
   type InboxLeaf,
   type L2Block,
@@ -290,13 +291,13 @@ export class KVArchiverDataStore implements ArchiverDataStore {
   }
 
   /**
-   * Gets unencrypted logs based on the provided filter.
+   * Gets public logs based on the provided filter.
    * @param filter - The filter to apply to the logs.
    * @returns The requested logs.
    */
-  getUnencryptedLogs(filter: LogFilter): Promise<GetUnencryptedLogsResponse> {
+  getPublicLogs(filter: LogFilter): Promise<GetPublicLogsResponse> {
     try {
-      return Promise.resolve(this.#logStore.getUnencryptedLogs(filter));
+      return Promise.resolve(this.#logStore.getPublicLogs(filter));
     } catch (err) {
       return Promise.reject(err);
     }
@@ -307,7 +308,7 @@ export class KVArchiverDataStore implements ArchiverDataStore {
    * @param filter - The filter to apply to the logs.
    * @returns The requested logs.
    */
-  getContractClassLogs(filter: LogFilter): Promise<GetUnencryptedLogsResponse> {
+  getContractClassLogs(filter: LogFilter): Promise<GetContractClassLogsResponse> {
     try {
       return Promise.resolve(this.#logStore.getContractClassLogs(filter));
     } catch (err) {

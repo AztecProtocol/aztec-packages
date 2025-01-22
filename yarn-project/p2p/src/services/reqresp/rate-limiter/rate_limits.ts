@@ -32,6 +32,16 @@ export const DEFAULT_RATE_LIMITS: ReqRespSubProtocolRateLimits = {
       quotaCount: 10,
     },
   },
+  [ReqRespSubProtocol.BLOCK]: {
+    peerLimit: {
+      quotaTimeMs: 1000,
+      quotaCount: 2,
+    },
+    globalLimit: {
+      quotaTimeMs: 1000,
+      quotaCount: 5,
+    },
+  },
   [ReqRespSubProtocol.GOODBYE]: {
     peerLimit: {
       quotaTimeMs: 1000,

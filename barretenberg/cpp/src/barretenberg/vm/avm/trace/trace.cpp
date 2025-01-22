@@ -3612,7 +3612,7 @@ AvmError AvmTraceBuilder::op_get_contract_instance(
 
 AvmError AvmTraceBuilder::op_emit_unencrypted_log(uint8_t indirect, uint32_t log_offset, uint32_t log_size_offset)
 {
-    std::vector<uint8_t> bytes_to_hash;
+    // TODO(#11124): Check this aligns with new public logs
 
     // We keep the first encountered error
     AvmError error = AvmError::NO_ERROR;
@@ -3627,12 +3627,6 @@ AvmError AvmTraceBuilder::op_emit_unencrypted_log(uint8_t indirect, uint32_t log
     // This is a hack to get the contract address from the first contract instance
     // Once we have 1-enqueued call and proper nested contexts, this should use that address of the current context
     FF contract_address = execution_hints.all_contract_bytecode.at(0).contract_instance.address;
-    std::vector<uint8_t> contract_address_bytes = contract_address.to_buffer();
-
-    // Unencrypted logs are hashed with sha256 and truncated to 31 bytes - and then padded back to 32 bytes
-    bytes_to_hash.insert(bytes_to_hash.end(),
-                         std::make_move_iterator(contract_address_bytes.begin()),
-                         std::make_move_iterator(contract_address_bytes.end()));
 
     if (is_ok(error) &&
         !(check_tag(AvmMemoryTag::FF, resolved_log_offset) && check_tag(AvmMemoryTag::U32, resolved_log_size_offset))) {
@@ -3641,18 +3635,10 @@ AvmError AvmTraceBuilder::op_emit_unencrypted_log(uint8_t indirect, uint32_t log
 
     Row row;
     uint32_t log_size = 0;
-    uint32_t num_bytes = 0;
 
     if (is_ok(error)) {
         log_size = static_cast<uint32_t>(unconstrained_read_from_memory(resolved_log_size_offset));
-
-        // The size is in fields of 32 bytes, the length used for the hash is in terms of bytes
-        num_bytes = log_size * 32;
-        std::vector<uint8_t> log_size_bytes = to_buffer(num_bytes);
-        // Add the log size to the hash to bytes
-        bytes_to_hash.insert(bytes_to_hash.end(),
-                             std::make_move_iterator(log_size_bytes.begin()),
-                             std::make_move_iterator(log_size_bytes.end()));
+        ASSERT(log_size <= PUBLIC_LOG_DATA_SIZE_IN_FIELDS);
 
         if (!check_slice_mem_range(resolved_log_offset, log_size)) {
             error = AvmError::MEM_SLICE_OUT_OF_RANGE;
@@ -3666,7 +3652,7 @@ AvmError AvmTraceBuilder::op_emit_unencrypted_log(uint8_t indirect, uint32_t log
     // Can't return earlier as we do elsewhere for side-effect-limit because we need
     // to at least retrieve log_size first to charge proper gas.
     // This means a tag error could occur before side-effect-limit first.
-    if (is_ok(error) && unencrypted_log_write_counter >= MAX_UNENCRYPTED_LOGS_PER_TX) {
+    if (is_ok(error) && unencrypted_log_write_counter >= MAX_PUBLIC_LOGS_PER_TX) {
         error = AvmError::SIDE_EFFECT_LIMIT_REACHED;
         auto row = Row{
             .main_clk = clk,
@@ -3681,39 +3667,27 @@ AvmError AvmTraceBuilder::op_emit_unencrypted_log(uint8_t indirect, uint32_t log
         return error;
     }
     unencrypted_log_write_counter++;
+    std::vector<FF> log_values{ contract_address };
 
     if (is_ok(error)) {
         // We need to read the rest of the log_size number of elements
         for (uint32_t i = 0; i < log_size; i++) {
             FF log_value = unconstrained_read_from_memory(resolved_log_offset + i);
-            std::vector<uint8_t> log_value_byte = log_value.to_buffer();
-            bytes_to_hash.insert(bytes_to_hash.end(),
-                                 std::make_move_iterator(log_value_byte.begin()),
-                                 std::make_move_iterator(log_value_byte.end()));
+            log_values.emplace_back(log_value);
         }
-
-        std::array<uint8_t, 32> output = crypto::sha256(bytes_to_hash);
-        // Truncate the hash to 31 bytes so it will be a valid field element
-        FF trunc_hash = FF(from_buffer<uint256_t>(output.data()) >> 8);
-
-        // The + 32 here is for the contract_address in bytes, the +4 is for the extra 4 bytes that contain log_size
-        // and is prefixed to message see toBuffer in unencrypted_l2_log.ts
-        FF length_of_preimage = num_bytes + 32 + 4;
-        // The + 4 is because the kernels store the length of the
-        // processed log as 4 bytes; thus for this length value to match the log length stored in the kernels, we
-        // need to add four to the length here. [Copied from unencrypted_l2_log.ts]
-        FF metadata_log_length = length_of_preimage + 4;
+        // Add 1 for the contract address (= PUBLIC_LOG_SIZE_IN_FIELDS)
+        log_values.resize(PUBLIC_LOG_DATA_SIZE_IN_FIELDS + 1, FF::zero());
         row = Row{
             .main_clk = clk,
             .main_call_ptr = call_ptr,
-            .main_ia = trunc_hash,
-            .main_ib = metadata_log_length,
+            // .main_ia = trunc_hash,
+            // .main_ib = metadata_log_length,
             .main_internal_return_ptr = internal_return_ptr,
             .main_pc = pc,
+            .main_sel_op_emit_unencrypted_log = FF(1),
         };
         // Write to offset
         // kernel_trace_builder.op_emit_unencrypted_log(clk, side_effect_counter, trunc_hash, metadata_log_length);
-        row.main_sel_op_emit_unencrypted_log = FF(1);
     } else {
         row = Row{
             .main_clk = clk,

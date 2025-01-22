@@ -19,11 +19,11 @@ use super::components::constants::validate_tx_constant_data;
 use dep::types::{
     abis::{
         append_only_tree_snapshot::AppendOnlyTreeSnapshot, constant_rollup_data::ConstantRollupData,
-        log_hash::ScopedLogHash, nullifier_leaf_preimage::NullifierLeafPreimage,
-        public_data_write::PublicDataWrite, sponge_blob::SpongeBlob, tube::PrivateTubeData,
+        nullifier_leaf_preimage::NullifierLeafPreimage, public_data_write::PublicDataWrite,
+        public_log::PublicLog, sponge_blob::SpongeBlob, tube::PrivateTubeData,
     },
     constants::{
-        ARCHIVE_HEIGHT, MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, MAX_UNENCRYPTED_LOGS_PER_TX,
+        ARCHIVE_HEIGHT, MAX_PUBLIC_LOGS_PER_TX, MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
         NOTE_HASH_SUBTREE_HEIGHT, TUBE_VK_INDEX,
     },
     data::{hash::compute_public_data_tree_value, public_data_hint::PublicDataHint},
@@ -120,8 +120,7 @@ impl PrivateBaseRollupInputs {
             l2_to_l1_msgs: siloed_l2_to_l1_msgs,
             public_data_writes: all_public_data_update_requests,
             private_logs: self.tube_data.public_inputs.end.private_logs,
-            unencrypted_log_preimages_length: 0,
-            unencrypted_logs_hashes: [ScopedLogHash::empty(); MAX_UNENCRYPTED_LOGS_PER_TX],
+            public_logs: [PublicLog::empty(); MAX_PUBLIC_LOGS_PER_TX],
             contract_class_log_preimages_length: self
                 .tube_data
                 .public_inputs
@@ -940,7 +939,7 @@ mod tests {
         reconstructed_tx_effects[offset] = contract_class_logs_prefix;
         offset += 1;
         for i in 0..NUM_CC_LOGS {
-            reconstructed_tx_effects[offset + i] = types::hash::silo_unencrypted_log_hash(
+            reconstructed_tx_effects[offset + i] = types::hash::silo_contract_class_log_hash(
                 builder.tube_data.contract_class_logs_hashes.storage()[i],
             );
         }

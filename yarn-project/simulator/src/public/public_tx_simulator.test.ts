@@ -823,7 +823,7 @@ describe('public_tx_simulator', () => {
 
   describe('fees', () => {
     it('deducts fees from the fee payer balance', async () => {
-      const feePayer = AztecAddress.random();
+      const feePayer = await AztecAddress.random();
       await setFeeBalance(feePayer, Fr.MAX_FIELD_VALUE);
 
       const tx = mockTxWithPublicCalls({
@@ -838,7 +838,7 @@ describe('public_tx_simulator', () => {
     });
 
     it('fails if fee payer cant pay for the tx', async () => {
-      const feePayer = AztecAddress.random();
+      const feePayer = await AztecAddress.random();
 
       await expect(
         simulator.simulate(
@@ -854,7 +854,7 @@ describe('public_tx_simulator', () => {
 
     it('allows disabling fee balance checks for fee estimation', async () => {
       simulator = createSimulator({ enforceFeePayment: false });
-      const feePayer = AztecAddress.random();
+      const feePayer = await AztecAddress.random();
 
       const txResult = await simulator.simulate(
         mockTxWithPublicCalls({

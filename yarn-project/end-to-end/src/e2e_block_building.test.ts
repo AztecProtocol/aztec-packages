@@ -194,7 +194,9 @@ describe('e2e_block_building', () => {
     });
 
     it('processes txs until hitting timetable', async () => {
-      const TX_COUNT = 32;
+      // We send enough txs so they are spread across multiple blocks, but not
+      // so many so that we don't end up hitting a reorg or timing out the tx wait().
+      const TX_COUNT = 16;
 
       const ownerAddress = owner.getCompleteAddress().address;
       const contract = await StatefulTestContract.deploy(owner, ownerAddress, ownerAddress, 1).send().deployed();
@@ -212,7 +214,7 @@ describe('e2e_block_building', () => {
 
       // We also cheat the sequencer's timetable so it allocates little time to processing.
       // This will leave the sequencer with just a few seconds to build the block, so it shouldn't
-      // be able to squeeze in more than ~12 txs in each. This is sensitive to the time it takes
+      // be able to squeeze in more than a few txs in each. This is sensitive to the time it takes
       // to pick up and validate the txs, so we may need to bump it to work on CI.
       jest
         .spyOn(sequencer.sequencer.timetable, 'getBlockProposalExecTimeEnd')
@@ -418,11 +420,13 @@ describe('e2e_block_building', () => {
 
       // compare logs
       expect(rct.status).toEqual('success');
-      const noteValues = tx.data.getNonEmptyPrivateLogs().map(log => {
-        const notePayload = L1NotePayload.decryptAsIncoming(log, thisWallet.getEncryptionSecret());
-        // In this test we care only about the privately delivered values
-        return notePayload?.privateNoteValues[0];
-      });
+      const noteValues = await Promise.all(
+        tx.data.getNonEmptyPrivateLogs().map(async log => {
+          const notePayload = await L1NotePayload.decryptAsIncoming(log, thisWallet.getEncryptionSecret());
+          // In this test we care only about the privately delivered values
+          return notePayload?.privateNoteValues[0];
+        }),
+      );
       expect(noteValues[0]).toEqual(new Fr(10));
       expect(noteValues[1]).toEqual(new Fr(11));
       expect(noteValues[2]).toEqual(new Fr(12));
@@ -450,10 +454,10 @@ describe('e2e_block_building', () => {
       expect(privateLogs.length).toBe(3);
 
       // The first two logs are encrypted.
-      const event0 = L1EventPayload.decryptAsIncoming(privateLogs[0], thisWallet.getEncryptionSecret())!;
+      const event0 = (await L1EventPayload.decryptAsIncoming(privateLogs[0], thisWallet.getEncryptionSecret()))!;
       expect(event0.event.items).toEqual(values);
 
-      const event1 = L1EventPayload.decryptAsIncoming(privateLogs[1], thisWallet.getEncryptionSecret())!;
+      const event1 = (await L1EventPayload.decryptAsIncoming(privateLogs[1], thisWallet.getEncryptionSecret()))!;
       expect(event1.event.items).toEqual(nestedValues);
 
       // The last log is not encrypted.

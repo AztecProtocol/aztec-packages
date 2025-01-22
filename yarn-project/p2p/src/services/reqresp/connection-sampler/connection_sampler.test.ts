@@ -11,7 +11,7 @@ describe('ConnectionSampler', () => {
   let sampler: ConnectionSampler;
   let mockLibp2p: any;
   let peers: PeerId[];
-  let excluding: Map<PeerId, boolean>;
+  let excluding: Map<string, boolean>;
   let mockRandomSampler: MockProxy<RandomSampler>;
 
   beforeEach(async () => {
@@ -20,7 +20,7 @@ describe('ConnectionSampler', () => {
 
     // Mock libp2p
     mockLibp2p = {
-      getPeers: jest.fn().mockReturnValue(peers),
+      getPeers: jest.fn().mockReturnValue([...peers]),
       dialProtocol: jest.fn(),
     };
 
@@ -73,7 +73,7 @@ describe('ConnectionSampler', () => {
         .mockReturnValueOnce(0)
         .mockReturnValueOnce(1);
 
-      excluding.set(peers[0], true);
+      excluding.set(peers[0].toString(), true);
       const selectedPeer = sampler.getPeer(excluding);
       expect(selectedPeer).toBe(peers[1]);
     });

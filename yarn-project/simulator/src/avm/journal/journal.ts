@@ -524,14 +524,13 @@ export class AvmPersistableStateManager {
   }
 
   /**
-   * Write an unencrypted log
+   * Write a public log
    * @param contractAddress - address of the contract that emitted the log
-   * @param event - log event selector
    * @param log - log contents
    */
-  public writeUnencryptedLog(contractAddress: AztecAddress, log: Fr[]) {
-    this.log.debug(`UnencryptedL2Log(${contractAddress}) += event with ${log.length} fields.`);
-    this.trace.traceUnencryptedLog(contractAddress, log);
+  public writePublicLog(contractAddress: AztecAddress, log: Fr[]) {
+    this.log.debug(`PublicLog(${contractAddress}) += event with ${log.length} fields.`);
+    this.trace.tracePublicLog(contractAddress, log);
   }
 
   /**
