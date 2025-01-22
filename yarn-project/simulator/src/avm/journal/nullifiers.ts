@@ -1,6 +1,6 @@
 import { Fr } from '@aztec/foundation/fields';
 
-import type { CommitmentsDB } from '../../index.js';
+import type { CommitmentsDB } from '../../server.js';
 
 /**
  * A class to manage new nullifier staging and existence checks during a contract call's AVM simulation.
@@ -16,17 +16,6 @@ export class NullifierManager {
     /** Parent nullifier manager to fall back on */
     private readonly parent?: NullifierManager,
   ) {}
-
-  /**
-   * Create a new nullifiers manager with some preloaded pending siloed nullifiers
-   */
-  public static newWithPendingSiloedNullifiers(hostNullifiers: CommitmentsDB, pendingSiloedNullifiers?: Fr[]) {
-    const cachedSiloedNullifiers = new Set<bigint>();
-    if (pendingSiloedNullifiers !== undefined) {
-      pendingSiloedNullifiers.forEach(nullifier => cachedSiloedNullifiers.add(nullifier.toBigInt()));
-    }
-    return new NullifierManager(hostNullifiers, cachedSiloedNullifiers);
-  }
 
   /**
    * Create a new nullifiers manager forked from this one

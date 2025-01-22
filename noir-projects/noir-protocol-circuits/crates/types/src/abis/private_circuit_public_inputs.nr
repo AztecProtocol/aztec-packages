@@ -6,6 +6,7 @@ use crate::{
         read_request::ReadRequest, side_effect::Counted,
         validation_requests::KeyValidationRequestAndGenerator,
     },
+    block_header::BlockHeader,
     constants::{
         MAX_CONTRACT_CLASS_LOGS_PER_CALL, MAX_ENQUEUED_CALLS_PER_CALL,
         MAX_KEY_VALIDATION_REQUESTS_PER_CALL, MAX_L2_TO_L1_MSGS_PER_CALL,
@@ -14,7 +15,6 @@ use crate::{
         MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL, MAX_PRIVATE_LOGS_PER_CALL,
         PRIVATE_CIRCUIT_PUBLIC_INPUTS_LENGTH,
     },
-    header::Header,
     messaging::l2_to_l1_message::L2ToL1Message,
     traits::{Deserialize, Empty, Serialize},
     transaction::tx_context::TxContext,
@@ -82,7 +82,7 @@ pub struct PrivateCircuitPublicInputs {
     pub end_side_effect_counter: u32,
 
     // Header of a block whose state is used during private execution (not the block the transaction is included in).
-    pub historical_header: Header,
+    pub historical_header: BlockHeader,
 
     // Note: The chain_id and version here are not redundant to the values in self.historical_header.global_variables because
     // they can be different in case of a protocol upgrade. In such a situation we could be using header from a block
@@ -226,7 +226,7 @@ impl Deserialize<PRIVATE_CIRCUIT_PUBLIC_INPUTS_LENGTH> for PrivateCircuitPublicI
             ),
             start_side_effect_counter: reader.read() as u32,
             end_side_effect_counter: reader.read() as u32,
-            historical_header: reader.read_struct(Header::deserialize),
+            historical_header: reader.read_struct(BlockHeader::deserialize),
             tx_context: reader.read_struct(TxContext::deserialize),
         };
 
@@ -261,7 +261,7 @@ impl Empty for PrivateCircuitPublicInputs {
             contract_class_logs_hashes: [LogHash::empty(); MAX_CONTRACT_CLASS_LOGS_PER_CALL],
             start_side_effect_counter: 0 as u32,
             end_side_effect_counter: 0 as u32,
-            historical_header: Header::empty(),
+            historical_header: BlockHeader::empty(),
             tx_context: TxContext::empty(),
         }
     }

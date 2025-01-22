@@ -8,7 +8,7 @@ In this guide we will cover how to interact with your Aztec.nr smart contracts i
 ## Prerequisites
 
 - A compiled contract with TS interface (read [how to compile](../smart_contracts/how_to_compile_contract.md))
-- Your sandbox running (read [getting started](../getting_started.md))
+- Your sandbox running (read [getting started](../../getting_started.md))
 
 ## Create TS file and install libraries
 
@@ -107,7 +107,7 @@ To query storage directly, you'll need to know the slot you want to access. This
 
 #### Querying private state
 
-Private state in the Aztec is represented via sets of [private notes](../../../aztec/concepts/state_model/index.md#private-state). We can query the Private Execution Environment (PXE) for all notes encrypted for a given user in a contract slot. For example, this gets all notes encrypted for the `owner` user that are stored on the token contract address and on the slot that was calculated earlier. To calculate the actual balance, it extracts the `value` of each note, which is the first element, and sums them up.
+Private state in the Aztec is represented via sets of [private notes](../../../aztec/concepts/storage/state_model/index.md#private-state). We can query the Private Execution Environment (PXE) for all notes encrypted for a given user in a contract slot. For example, this gets all notes encrypted for the `owner` user that are stored on the token contract address and on the slot that was calculated earlier. To calculate the actual balance, it extracts the `value` of each note, which is the first element, and sums them up.
 
 #include_code private-storage /yarn-project/end-to-end/src/guides/dapp_testing.test.ts typescript
 
@@ -121,11 +121,11 @@ Public state behaves as a key-value store, much like in the EVM. We can directly
 
 You can check the logs of events emitted by contracts. Contracts in Aztec can emit both encrypted and unencrypted events.
 
-#### Querying unencrypted logs
+#### Querying public logs
 
-We can query the PXE for the unencrypted logs emitted in the block where our transaction is mined. Logs need to be unrolled and formatted as strings for consumption.
+We can query the PXE for the public logs emitted in the block where our transaction is mined.
 
-#include_code unencrypted-logs /yarn-project/end-to-end/src/guides/dapp_testing.test.ts typescript
+#include_code public-logs /yarn-project/end-to-end/src/guides/dapp_testing.test.ts typescript
 
 ## Cheats
 

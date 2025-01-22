@@ -1,19 +1,19 @@
 import { serializeToFields } from '@aztec/foundation/serialize';
 
+import { BlockHeader } from '../block_header.js';
 import { CallContext } from '../call_context.js';
-import { Header } from '../header.js';
 import { TxContext } from '../tx_context.js';
 
 export class PrivateContextInputs {
   constructor(
     public callContext: CallContext,
-    public historicalHeader: Header,
+    public historicalHeader: BlockHeader,
     public txContext: TxContext,
     public startSideEffectCounter: number,
   ) {}
 
   public static empty(): PrivateContextInputs {
-    return new PrivateContextInputs(CallContext.empty(), Header.empty(), TxContext.empty(), 0);
+    return new PrivateContextInputs(CallContext.empty(), BlockHeader.empty(), TxContext.empty(), 0);
   }
 
   public toFields() {

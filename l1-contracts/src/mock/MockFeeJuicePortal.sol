@@ -13,7 +13,7 @@ contract MockFeeJuicePortal is IFeeJuicePortal {
   IRegistry public constant REGISTRY = IRegistry(address(0));
 
   constructor() {
-    UNDERLYING = new TestERC20();
+    UNDERLYING = new TestERC20("test", "TEST", msg.sender);
   }
 
   function initialize() external override(IFeeJuicePortal) {}

@@ -32,6 +32,9 @@
     },
     {
       "path": "../noir-contracts.js"
+    },
+    {
+      "path": "../pxe"
     }
   ],
   "include": ["src"]

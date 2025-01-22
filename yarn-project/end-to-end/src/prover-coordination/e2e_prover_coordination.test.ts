@@ -2,11 +2,11 @@ import { getSchnorrAccount } from '@aztec/accounts/schnorr';
 import { createAccount } from '@aztec/accounts/testing';
 import {
   type AccountWalletWithSecretKey,
-  type DebugLogger,
   EpochProofQuote,
   EpochProofQuotePayload,
+  type Logger,
   TxStatus,
-  createDebugLogger,
+  createLogger,
   retryUntil,
   sleep,
 } from '@aztec/aztec.js';
@@ -15,7 +15,7 @@ import { Buffer32 } from '@aztec/foundation/buffer';
 import { times } from '@aztec/foundation/collection';
 import { Secp256k1Signer, keccak256, randomBigInt, randomInt } from '@aztec/foundation/crypto';
 import { ProofCommitmentEscrowAbi, RollupAbi, TestERC20Abi } from '@aztec/l1-artifacts';
-import { StatefulTestContract, StatefulTestContractArtifact } from '@aztec/noir-contracts.js';
+import { StatefulTestContract, StatefulTestContractArtifact } from '@aztec/noir-contracts.js/StatefulTest';
 import { createPXEService, getPXEServiceConfig } from '@aztec/pxe';
 
 import {
@@ -57,22 +57,25 @@ describe('e2e_prover_coordination', () => {
   let proverSigner: Secp256k1Signer;
   let proverWallet: WalletClient<HttpTransport, Chain, Account>;
 
-  let logger: DebugLogger;
+  let logger: Logger;
   let snapshotManager: ISnapshotManager;
 
   beforeEach(async () => {
-    logger = createDebugLogger('aztec:prover_coordination:e2e_json_coordination');
+    logger = createLogger('e2e:prover_coordination');
     snapshotManager = createSnapshotManager(
-      `prover_coordination/e2e_json_coordination`,
+      `prover_coordination/e2e_prover_coordination`,
       process.env.E2E_DATA_PATH,
       { startProverNode: true },
       { assumeProvenThrough: undefined },
     );
 
     await snapshotManager.snapshot('setup', addAccounts(2, logger), async ({ accountKeys }, ctx) => {
-      const accountManagers = accountKeys.map(ak => getSchnorrAccount(ctx.pxe, ak[0], ak[1], 1));
-      await Promise.all(accountManagers.map(a => a.register()));
-      const wallets = await Promise.all(accountManagers.map(a => a.getWallet()));
+      const wallets = await Promise.all(
+        accountKeys.map(async ak => {
+          const account = await getSchnorrAccount(ctx.pxe, ak[0], ak[1], 1);
+          return account.getWallet();
+        }),
+      );
       wallets.forEach((w, i) => logger.verbose(`Wallet ${i} address: ${w.getAddress()}`));
       wallet = wallets[0];
       recipient = wallets[1].getAddress();

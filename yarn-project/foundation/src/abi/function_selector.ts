@@ -82,16 +82,15 @@ export class FunctionSelector extends Selector {
 
   /**
    * Create a Selector instance from a hex-encoded string.
-   * The input 'address' should be prefixed with '0x' or not, and have exactly 64 hex characters.
-   * Throws an error if the input length is invalid or address value is out of range.
    *
    * @param selector - The hex-encoded string representing the Selector.
    * @returns An Selector instance.
+   * @throws If the selector length is invalid.
    */
   static fromString(selector: string) {
     const buf = fromHex(selector);
     if (buf.length !== Selector.SIZE) {
-      throw new Error(`Invalid Selector length ${buf.length} (expected ${Selector.SIZE}).`);
+      throw new Error(`Invalid FunctionSelector length ${buf.length} (expected ${Selector.SIZE}).`);
     }
     return FunctionSelector.fromBuffer(buf);
   }

@@ -1,4 +1,4 @@
-import { MAX_UNENCRYPTED_LOGS_PER_CALL } from '@aztec/circuits.js';
+import { MAX_CONTRACT_CLASS_LOGS_PER_CALL } from '@aztec/circuits.js';
 import { sha256Trunc } from '@aztec/foundation/crypto';
 import { BufferReader, prefixBufferWithLength } from '@aztec/foundation/serialize';
 
@@ -91,13 +91,13 @@ export class UnencryptedFunctionL2Logs {
    * @param numLogs - The number of logs to create.
    * @returns A new UnencryptedFunctionL2Logs object.
    */
-  public static random(numLogs: number): UnencryptedFunctionL2Logs {
-    if (numLogs > MAX_UNENCRYPTED_LOGS_PER_CALL) {
-      throw new Error(`Trying to create ${numLogs} logs for one call (max: ${MAX_UNENCRYPTED_LOGS_PER_CALL})`);
+  public static async random(numLogs: number): Promise<UnencryptedFunctionL2Logs> {
+    if (numLogs > MAX_CONTRACT_CLASS_LOGS_PER_CALL) {
+      throw new Error(`Trying to create ${numLogs} logs for one call (max: ${MAX_CONTRACT_CLASS_LOGS_PER_CALL})`);
     }
     const logs: UnencryptedL2Log[] = [];
     for (let i = 0; i < numLogs; i++) {
-      logs.push(UnencryptedL2Log.random());
+      logs.push(await UnencryptedL2Log.random());
     }
     return new UnencryptedFunctionL2Logs(logs);
   }

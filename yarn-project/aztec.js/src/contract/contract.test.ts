@@ -41,24 +41,13 @@ describe('Contract Class', () => {
     inboxAddress: EthAddress.random(),
     outboxAddress: EthAddress.random(),
     feeJuiceAddress: EthAddress.random(),
+    stakingAssetAddress: EthAddress.random(),
     feeJuicePortalAddress: EthAddress.random(),
     governanceAddress: EthAddress.random(),
     coinIssuerAddress: EthAddress.random(),
     rewardDistributorAddress: EthAddress.random(),
     governanceProposerAddress: EthAddress.random(),
-  };
-  const mockNodeInfo: NodeInfo = {
-    nodeVersion: 'vx.x.x',
-    l1ChainId: 1,
-    protocolVersion: 2,
-    l1ContractAddresses: l1Addresses,
-    enr: undefined,
-    protocolContractAddresses: {
-      classRegisterer: AztecAddress.random(),
-      feeJuice: AztecAddress.random(),
-      instanceDeployer: AztecAddress.random(),
-      multiCallEntrypoint: AztecAddress.random(),
-    },
+    slashFactoryAddress: EthAddress.random(),
   };
 
   const defaultArtifact: ContractArtifact = {
@@ -139,10 +128,24 @@ describe('Contract Class', () => {
     notes: {},
   };
 
-  beforeEach(() => {
-    contractAddress = AztecAddress.random();
+  beforeEach(async () => {
+    contractAddress = await AztecAddress.random();
     account = CompleteAddress.random();
     contractInstance = { address: contractAddress } as ContractInstanceWithAddress;
+
+    const mockNodeInfo: NodeInfo = {
+      nodeVersion: 'vx.x.x',
+      l1ChainId: 1,
+      protocolVersion: 2,
+      l1ContractAddresses: l1Addresses,
+      enr: undefined,
+      protocolContractAddresses: {
+        classRegisterer: await AztecAddress.random(),
+        feeJuice: await AztecAddress.random(),
+        instanceDeployer: await AztecAddress.random(),
+        multiCallEntrypoint: await AztecAddress.random(),
+      },
+    };
 
     wallet = mock<Wallet>();
     wallet.simulateTx.mockResolvedValue(mockTxSimulationResult);

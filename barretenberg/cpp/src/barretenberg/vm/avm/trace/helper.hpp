@@ -38,28 +38,12 @@ template <typename FF_> VmPublicInputs_<FF_> convert_public_inputs(std::vector<F
         throw_or_abort("Public inputs vector is not of PUBLIC_CIRCUIT_PUBLIC_INPUTS_LENGTH");
     }
 
-    // WARNING: this must be constrained by the kernel!
-    // Here this is just a sanity check to prevent generation of proofs that
-    // will be thrown out by the kernel anyway.
-    if constexpr (IsAnyOf<FF_, bb::fr>) {
-        if (public_inputs_vec[L2_START_GAS_LEFT_PCPI_OFFSET] > MAX_L2_GAS_PER_ENQUEUED_CALL) {
-            throw_or_abort(
-                "Cannot allocate more than MAX_L2_GAS_PER_ENQUEUED_CALL to the AVM for execution of an enqueued call");
-        }
-    } else {
-        if (public_inputs_vec[L2_START_GAS_LEFT_PCPI_OFFSET].get_value() > MAX_L2_GAS_PER_ENQUEUED_CALL) {
-            throw_or_abort(
-                "Cannot allocate more than MAX_L2_GAS_PER_ENQUEUED_CALL to the AVM for execution of an enqueued call");
-        }
-    }
-
     std::array<FF_, KERNEL_INPUTS_LENGTH>& kernel_inputs = std::get<KERNEL_INPUTS>(public_inputs);
 
     // Copy items from PublicCircuitPublicInputs vector to public input columns
     // PublicCircuitPublicInputs - CallContext
     kernel_inputs[SENDER_KERNEL_INPUTS_COL_OFFSET] = public_inputs_vec[SENDER_PCPI_OFFSET];   // Sender
     kernel_inputs[ADDRESS_KERNEL_INPUTS_COL_OFFSET] = public_inputs_vec[ADDRESS_PCPI_OFFSET]; // Address
-    kernel_inputs[FUNCTION_SELECTOR_KERNEL_INPUTS_COL_OFFSET] = public_inputs_vec[FUNCTION_SELECTOR_PCPI_OFFSET];
     kernel_inputs[IS_STATIC_CALL_KERNEL_INPUTS_COL_OFFSET] = public_inputs_vec[IS_STATIC_CALL_PCPI_OFFSET];
 
     // PublicCircuitPublicInputs - GlobalVariables
@@ -167,7 +151,9 @@ template <typename FF_> VmPublicInputs_<FF_> convert_public_inputs(std::vector<F
         ko_side_effect[dest_offset] = public_inputs_vec[pcpi_offset + 2];
     }
     // For EMITUNENCRYPTEDLOG
-    for (size_t i = 0; i < MAX_UNENCRYPTED_LOGS_PER_CALL; i++) {
+    for (size_t i = 0; i < MAX_PUBLIC_LOGS_PER_CALL; i++) {
+        // TODO(#11124): logs are now arrays of fields, we should append PUBLIC_LOG_SIZE_IN_FIELDS
+        // for each MAX_PUBLIC_LOGS_PER_CALL
         size_t dest_offset = START_EMIT_UNENCRYPTED_LOG_WRITE_OFFSET + i;
         size_t pcpi_offset =
             NEW_UNENCRYPTED_LOGS_PCPI_OFFSET + (i * 3); // 3 because we have metadata, this is the window size
@@ -175,6 +161,15 @@ template <typename FF_> VmPublicInputs_<FF_> convert_public_inputs(std::vector<F
         ko_values[dest_offset] = public_inputs_vec[pcpi_offset];
         ko_side_effect[dest_offset] = public_inputs_vec[pcpi_offset + 1];
         ko_metadata[dest_offset] = public_inputs_vec[pcpi_offset + 2];
+    }
+    // TODO(#11426): Fix public input columns.
+    if constexpr (!std::same_as<FF_, field<Bn254FrParams>>) {
+        auto ctx = public_inputs_vec[0].get_context();
+        for (size_t i = 0; i < KERNEL_OUTPUTS_LENGTH; i++) {
+            ko_values[i] = FF_::from_witness(ctx, 0);
+            ko_side_effect[i] = FF_::from_witness(ctx, 0);
+            ko_metadata[i] = FF_::from_witness(ctx, 0);
+        }
     }
 
     return public_inputs;
@@ -235,6 +230,7 @@ std::string to_name(bb::avm_trace::AvmMemoryTag tag);
 
 std::string to_name(AvmError error);
 bool is_ok(AvmError error);
+bool exceptionally_halted(AvmError error);
 
 // Mutate the inputs
 void inject_end_gas_values(AvmPublicInputs& public_inputs, std::vector<Row>& trace);

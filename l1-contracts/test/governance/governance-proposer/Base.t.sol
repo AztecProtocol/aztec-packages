@@ -4,7 +4,7 @@ pragma solidity >=0.8.27;
 import {Test} from "forge-std/Test.sol";
 
 import {Registry} from "@aztec/governance/Registry.sol";
-import {GovernanceProposer} from "@aztec/governance/GovernanceProposer.sol";
+import {GovernanceProposer} from "@aztec/governance/proposer/GovernanceProposer.sol";
 
 import {IPayload} from "@aztec/governance/interfaces/IPayload.sol";
 

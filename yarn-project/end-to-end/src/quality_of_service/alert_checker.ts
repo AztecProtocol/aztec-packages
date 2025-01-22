@@ -1,4 +1,4 @@
-import { type DebugLogger } from '@aztec/aztec.js';
+import { type Logger } from '@aztec/aztec.js';
 
 import * as fs from 'fs';
 import * as yaml from 'js-yaml';
@@ -6,6 +6,9 @@ import * as yaml from 'js-yaml';
 export interface AlertConfig {
   alert: string;
   expr: string;
+  start?: number;
+  end?: number;
+  step?: number;
   for: string;
   labels: Record<string, string>;
   annotations: Record<string, string>;
@@ -18,15 +21,15 @@ export interface AlertCheckerConfig {
 
 // This config is good if you're running the otel-lgtm stack locally
 const DEFAULT_CONFIG: AlertCheckerConfig = {
-  grafanaEndpoint: 'http://localhost:3000/api/datasources/proxy/uid/prometheus/api/v1/query',
+  grafanaEndpoint: 'http://localhost:3000/api/datasources/proxy/uid/prometheus/api/v1',
   grafanaCredentials: 'admin:admin',
 };
 
 export class AlertChecker {
   private config: AlertCheckerConfig;
-  private logger: DebugLogger;
+  private logger: Logger;
 
-  constructor(logger: DebugLogger, config: Partial<AlertCheckerConfig> = {}) {
+  constructor(logger: Logger, config: Partial<AlertCheckerConfig> = {}) {
     this.config = { ...DEFAULT_CONFIG, ...config };
     this.logger = logger;
   }
@@ -41,10 +44,29 @@ export class AlertChecker {
     return data.alerts;
   }
 
-  private async queryGrafana(expr: string): Promise<number> {
+  private async queryGrafana({ expr, start, end, step }: AlertConfig): Promise<number> {
     const credentials = Buffer.from(this.config.grafanaCredentials).toString('base64');
 
-    const response = await fetch(`${this.config.grafanaEndpoint}?query=${encodeURIComponent(expr)}`, {
+    let query = `query=${encodeURIComponent(expr)}`;
+    let action = 'query';
+
+    if (start) {
+      action = 'query_range';
+      query += `&start=${start}`;
+    }
+
+    if (end) {
+      query += `&end=${end}`;
+    }
+
+    if (step) {
+      query += `&step=${step}`;
+    }
+
+    const urlString = `${this.config.grafanaEndpoint}/${action}?${query}`;
+    this.logger.debug(`Querying Grafana: ${urlString}`);
+
+    const response = await fetch(urlString, {
       headers: {
         Authorization: `Basic ${credentials}`,
       },
@@ -65,7 +87,7 @@ export class AlertChecker {
     for (const alert of alerts) {
       this.logger.info(`Checking alert: ${JSON.stringify(alert)}`);
 
-      const metricValue = await this.queryGrafana(alert.expr);
+      const metricValue = await this.queryGrafana(alert);
       this.logger.info(`Metric value: ${metricValue}`);
       if (metricValue > 0) {
         this.logger.error(`Alert ${alert.alert} triggered! Value: ${metricValue}`);

@@ -3,9 +3,11 @@ variable "grafana_url" {
 }
 
 variable "grafana_auth" {
-  type = string
+  type      = string
+  sensitive = true
 }
 
 variable "slack_url" {
-  type = string
+  type      = string
+  sensitive = true
 }

@@ -5,7 +5,7 @@ import {
   getConfigFromMappings,
   numberConfigHelper,
 } from '@aztec/foundation/config';
-import { type TelemetryClientConfig, telemetryClientConfigMappings } from '@aztec/telemetry-client/start';
+import { type TelemetryClientConfig, telemetryClientConfigMappings } from '@aztec/telemetry-client';
 
 export type ProofVerifierConfig = {
   /** The URL to an L1 node */

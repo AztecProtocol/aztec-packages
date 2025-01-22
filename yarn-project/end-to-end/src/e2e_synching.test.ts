@@ -39,22 +39,24 @@ import {
   AnvilTestWatcher,
   BatchCall,
   type Contract,
-  type DebugLogger,
   Fr,
   GrumpkinScalar,
-  createDebugLogger,
+  type Logger,
+  createLogger,
   sleep,
 } from '@aztec/aztec.js';
+import { createBlobSinkClient } from '@aztec/blob-sink/client';
 // eslint-disable-next-line no-restricted-imports
 import { L2Block, tryStop } from '@aztec/circuit-types';
 import { type AztecAddress } from '@aztec/circuits.js';
 import { getL1ContractsConfigEnvVars } from '@aztec/ethereum';
 import { Timer } from '@aztec/foundation/timer';
 import { RollupAbi } from '@aztec/l1-artifacts';
-import { SchnorrHardcodedAccountContract, SpamContract, TokenContract } from '@aztec/noir-contracts.js';
+import { SchnorrHardcodedAccountContract } from '@aztec/noir-contracts.js/SchnorrHardcodedAccount';
+import { SpamContract } from '@aztec/noir-contracts.js/Spam';
+import { TokenContract } from '@aztec/noir-contracts.js/Token';
 import { type PXEService } from '@aztec/pxe';
 import { L1Publisher } from '@aztec/sequencer-client';
-import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
 import { createWorldStateSynchronizer } from '@aztec/world-state';
 
 import * as fs from 'fs';
@@ -96,7 +98,7 @@ type VariantDefinition = {
  *
  */
 class TestVariant {
-  private logger: DebugLogger = createDebugLogger(`test_variant`);
+  private logger: Logger = createLogger(`test_variant`);
   private pxe!: PXEService;
   private token!: TokenContract;
   private spam!: SpamContract;
@@ -144,13 +146,13 @@ class TestVariant {
   async deployWallets(numberOfAccounts: number) {
     // Create accounts such that we can send from many to not have colliding nullifiers
     const { accountKeys } = await addAccounts(numberOfAccounts, this.logger, false)({ pxe: this.pxe });
-    const accountManagers = accountKeys.map(ak => getSchnorrAccount(this.pxe, ak[0], ak[1], 1));
 
     return await Promise.all(
-      accountManagers.map(async (a, i) => {
-        const partialAddress = a.getCompleteAddress().partialAddress;
+      accountKeys.map(async (ak, i) => {
+        const account = await getSchnorrAccount(this.pxe, ak[0], ak[1], 1);
+        const partialAddress = account.getCompleteAddress().partialAddress;
         await this.pxe.registerAccount(accountKeys[i][0], partialAddress);
-        const wallet = await a.getWallet();
+        const wallet = await account.getWallet();
         this.logger.verbose(`Wallet ${i} address: ${wallet.getAddress()} registered`);
         return wallet;
       }),
@@ -190,11 +192,11 @@ class TestVariant {
     if (this.txComplexity == TxComplexity.Deployment) {
       const txs = [];
       for (let i = 0; i < this.txCount; i++) {
-        const accountManager = getSchnorrAccount(this.pxe, Fr.random(), GrumpkinScalar.random(), Fr.random());
+        const accountManager = await getSchnorrAccount(this.pxe, Fr.random(), GrumpkinScalar.random(), Fr.random());
         this.contractAddresses.push(accountManager.getAddress());
         const deployMethod = await accountManager.getDeployMethod();
         const tx = deployMethod.send({
-          contractAddressSalt: accountManager.salt,
+          contractAddressSalt: new Fr(accountManager.salt),
           skipClassRegistration: true,
           skipPublicDeployment: true,
           universalDeploy: true,
@@ -358,17 +360,29 @@ describe('e2e_synching', () => {
       return;
     }
 
-    const { teardown, logger, deployL1ContractsValues, config, cheatCodes, aztecNode, sequencer, watcher, pxe } =
-      await setup(0, {
-        salt: SALT,
-        l1StartTime: START_TIME,
-        skipProtocolContracts: true,
-        assumeProvenThrough,
-      });
+    const {
+      teardown,
+      logger,
+      deployL1ContractsValues,
+      config,
+      cheatCodes,
+      aztecNode,
+      sequencer,
+      watcher,
+      pxe,
+      blobSink,
+    } = await setup(0, {
+      salt: SALT,
+      l1StartTime: START_TIME,
+      skipProtocolContracts: true,
+      assumeProvenThrough,
+    });
 
     await (aztecNode as any).stop();
     await (sequencer as any).stop();
     await watcher?.stop();
+
+    const blobSinkClient = createBlobSinkClient(`http://localhost:${blobSink?.port ?? 5052}`);
 
     const sequencerPK: `0x${string}` = `0x${getPrivateKeyFromIndex(0)!.toString('hex')}`;
     const publisher = new L1Publisher(
@@ -381,8 +395,9 @@ describe('e2e_synching', () => {
         l1ChainId: 31337,
         viemPollingIntervalMS: 100,
         ethereumSlotDuration: ETHEREUM_SLOT_DURATION,
+        blobSinkUrl: `http://localhost:${blobSink?.port ?? 5052}`,
       },
-      new NoopTelemetryClient(),
+      { blobSinkClient },
     );
 
     const blocks = variant.loadBlocks();
@@ -485,10 +500,13 @@ describe('e2e_synching', () => {
             await aztecNode.stop();
           }
 
-          const archiver = await createArchiver(opts.config!);
+          const blobSinkClient = createBlobSinkClient(`http://localhost:${opts.blobSink?.port ?? 5052}`);
+          const archiver = await createArchiver(opts.config!, blobSinkClient, {
+            blockUntilSync: true,
+          });
           const pendingBlockNumber = await rollup.read.getPendingBlockNumber();
 
-          const worldState = await createWorldStateSynchronizer(opts.config!, archiver, new NoopTelemetryClient());
+          const worldState = await createWorldStateSynchronizer(opts.config!, archiver);
           await worldState.start();
           expect(await worldState.getLatestBlockNumber()).toEqual(Number(pendingBlockNumber));
 
@@ -515,7 +533,7 @@ describe('e2e_synching', () => {
           expect(await archiver.getTxEffect(txHash)).not.toBeUndefined;
           expect(await archiver.getPrivateLogs(blockTip.number, 1)).not.toEqual([]);
           expect(
-            await archiver.getUnencryptedLogs({ fromBlock: blockTip.number, toBlock: blockTip.number + 1 }),
+            await archiver.getPublicLogs({ fromBlock: blockTip.number, toBlock: blockTip.number + 1 }),
           ).not.toEqual([]);
 
           await rollup.write.prune();
@@ -539,9 +557,9 @@ describe('e2e_synching', () => {
 
           expect(await archiver.getTxEffect(txHash)).toBeUndefined;
           expect(await archiver.getPrivateLogs(blockTip.number, 1)).toEqual([]);
-          expect(
-            await archiver.getUnencryptedLogs({ fromBlock: blockTip.number, toBlock: blockTip.number + 1 }),
-          ).toEqual([]);
+          expect(await archiver.getPublicLogs({ fromBlock: blockTip.number, toBlock: blockTip.number + 1 })).toEqual(
+            [],
+          );
 
           // Check world state reverted as well
           expect(await worldState.getLatestBlockNumber()).toEqual(Number(assumeProvenThrough));

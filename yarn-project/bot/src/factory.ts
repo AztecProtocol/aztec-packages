@@ -4,14 +4,14 @@ import {
   BatchCall,
   type DeployMethod,
   type DeployOptions,
-  createDebugLogger,
+  createLogger,
   createPXEClient,
-  retryUntil,
 } from '@aztec/aztec.js';
 import { type AztecNode, type FunctionCall, type PXE } from '@aztec/circuit-types';
 import { Fr, deriveSigningKey } from '@aztec/circuits.js';
-import { EasyPrivateTokenContract } from '@aztec/noir-contracts.js';
+import { EasyPrivateTokenContract } from '@aztec/noir-contracts.js/EasyPrivateToken';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
+import { makeTracedFetch } from '@aztec/telemetry-client';
 
 import { type BotConfig, SupportedTokenContracts } from './config.js';
 import { getBalances, getPrivateBalance, isStandardTokenContract } from './utils.js';
@@ -22,7 +22,7 @@ const MIN_BALANCE = 1e3;
 export class BotFactory {
   private pxe: PXE;
   private node?: AztecNode;
-  private log = createDebugLogger('aztec:bot');
+  private log = createLogger('bot');
 
   constructor(private readonly config: BotConfig, dependencies: { pxe?: PXE; node?: AztecNode } = {}) {
     if (config.flushSetupTransactions && !dependencies.node) {
@@ -40,7 +40,7 @@ export class BotFactory {
       return;
     }
     this.log.info(`Using remote PXE at ${config.pxeUrl!}`);
-    this.pxe = createPXEClient(config.pxeUrl!);
+    this.pxe = createPXEClient(config.pxeUrl!, makeTracedFetch([1, 2, 3], false));
   }
 
   /**
@@ -62,21 +62,11 @@ export class BotFactory {
   private async setupAccount() {
     const salt = Fr.ONE;
     const signingKey = deriveSigningKey(this.config.senderPrivateKey);
-    const account = getSchnorrAccount(this.pxe, this.config.senderPrivateKey, signingKey, salt);
+    const account = await getSchnorrAccount(this.pxe, this.config.senderPrivateKey, signingKey, salt);
     const isInit = await this.pxe.isContractInitialized(account.getAddress());
     if (isInit) {
       this.log.info(`Account at ${account.getAddress().toString()} already initialized`);
       const wallet = await account.register();
-      const blockNumber = await this.pxe.getBlockNumber();
-      await retryUntil(
-        async () => {
-          const status = await this.pxe.getSyncStatus();
-          return blockNumber <= status.blocks;
-        },
-        'pxe synch',
-        3600,
-        1,
-      );
       return wallet;
     } else {
       this.log.info(`Initializing account at ${account.getAddress().toString()}`);
@@ -112,7 +102,7 @@ export class BotFactory {
     if (this.config.contract === SupportedTokenContracts.TokenContract) {
       deploy = TokenContract.deploy(wallet, wallet.getAddress(), 'BotToken', 'BOT', 18);
     } else if (this.config.contract === SupportedTokenContracts.EasyPrivateTokenContract) {
-      deploy = EasyPrivateTokenContract.deploy(wallet, MINT_BALANCE, wallet.getAddress(), wallet.getAddress());
+      deploy = EasyPrivateTokenContract.deploy(wallet, MINT_BALANCE, wallet.getAddress());
       deployOpts.skipPublicDeployment = true;
       deployOpts.skipClassRegistration = true;
       deployOpts.skipInitialization = false;
@@ -163,7 +153,7 @@ export class BotFactory {
       calls.push(
         isStandardToken
           ? token.methods.mint_to_private(from, sender, MINT_BALANCE).request()
-          : token.methods.mint(MINT_BALANCE, sender, sender).request(),
+          : token.methods.mint(MINT_BALANCE, sender).request(),
       );
     }
     if (isStandardToken && publicBalance < MIN_BALANCE) {

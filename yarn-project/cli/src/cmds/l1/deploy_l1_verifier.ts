@@ -1,6 +1,6 @@
 import { createCompatibleClient } from '@aztec/aztec.js';
 import { compileContract, createEthereumChain, createL1Clients, deployL1Contract } from '@aztec/ethereum';
-import { type DebugLogger, type LogFn } from '@aztec/foundation/log';
+import { type LogFn, type Logger } from '@aztec/foundation/log';
 
 import { InvalidOptionArgumentError } from 'commander';
 // @ts-expect-error solc-js doesn't publish its types https://github.com/ethereum/solc-js/issues/689
@@ -17,7 +17,7 @@ export async function deployUltraHonkVerifier(
   bbBinaryPath: string,
   bbWorkingDirectory: string,
   log: LogFn,
-  debugLogger: DebugLogger,
+  debugLogger: Logger,
 ) {
   if (!bbBinaryPath || !bbWorkingDirectory) {
     throw new InvalidOptionArgumentError('Missing path to bb binary and working directory');
@@ -79,7 +79,7 @@ export async function deployMockVerifier(
   mnemonic: string,
   pxeRpcUrl: string,
   log: LogFn,
-  debugLogger: DebugLogger,
+  debugLogger: Logger,
 ) {
   const { publicClient, walletClient } = createL1Clients(
     ethRpcUrl,

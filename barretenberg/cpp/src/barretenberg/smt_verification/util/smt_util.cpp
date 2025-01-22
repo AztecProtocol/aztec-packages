@@ -51,11 +51,11 @@ bb::fr string_to_fr(const std::string& number, int base, size_t step)
  * @param fname file to store the resulting witness if succeded
  * @param pack flags out to pack the resulting witness using msgpack
  */
-void default_model(const std::vector<std::string>& special,
-                   smt_circuit::CircuitBase& c1,
-                   smt_circuit::CircuitBase& c2,
-                   const std::string& fname,
-                   bool pack)
+std::vector<std::vector<bb::fr>> default_model(const std::vector<std::string>& special,
+                                               smt_circuit::CircuitBase& c1,
+                                               smt_circuit::CircuitBase& c2,
+                                               const std::string& fname,
+                                               bool pack)
 {
     std::vector<cvc5::Term> vterms1;
     std::vector<cvc5::Term> vterms2;
@@ -91,13 +91,28 @@ void default_model(const std::vector<std::string>& special,
             info(RED, new_line, RESET);
         }
         myfile << new_line << std::endl;
-        ;
-
         packed_witness.push_back({ string_to_fr(mmap1[vname1], base), string_to_fr(mmap2[vname2], base) });
     }
     myfile << "};";
     myfile.close();
 
+    // Accessing post processing functionality of the symbolic circuit
+    // Once we obtained the witness, compatible with current configuration(e.g. BVTerm)
+    // We can further compute the remaining witness entries, which were optimized and hence
+    // are not provided by the solver
+    for (const auto& post : c1.post_process) {
+        uint32_t res_idx = post.first;
+        auto left_idx = static_cast<uint32_t>(post.second[0]);
+        auto right_idx = static_cast<uint32_t>(post.second[1]);
+        bb::fr q_m = post.second[2];
+        bb::fr q_l = post.second[3];
+        bb::fr q_r = post.second[4];
+        bb::fr q_c = post.second[5];
+        packed_witness[res_idx][0] = q_m * packed_witness[left_idx][0] * packed_witness[right_idx][0] +
+                                     q_l * packed_witness[left_idx][0] + q_r * packed_witness[right_idx][0] + q_c;
+        packed_witness[res_idx][1] = q_m * packed_witness[left_idx][1] * packed_witness[right_idx][1] +
+                                     q_l * packed_witness[left_idx][1] + q_r * packed_witness[right_idx][1] + q_c;
+    }
     if (pack) {
         msgpack::sbuffer buffer;
         msgpack::pack(buffer, packed_witness);
@@ -119,6 +134,7 @@ void default_model(const std::vector<std::string>& special,
     for (const auto& vname : special) {
         info(vname, "_1, ", vname, "_2 = ", mmap[vname + "_1"], ", ", mmap[vname + "_2"]);
     }
+    return packed_witness;
 }
 
 /**
@@ -135,10 +151,10 @@ void default_model(const std::vector<std::string>& special,
  * @param fname file to store the resulting witness if succeded
  * @param pack flags out to pack the resulting witness using msgpack
  */
-void default_model_single(const std::vector<std::string>& special,
-                          smt_circuit::CircuitBase& c,
-                          const std::string& fname,
-                          bool pack)
+std::vector<bb::fr> default_model_single(const std::vector<std::string>& special,
+                                         smt_circuit::CircuitBase& c,
+                                         const std::string& fname,
+                                         bool pack)
 {
     std::vector<cvc5::Term> vterms;
     vterms.reserve(c.get_num_vars());
@@ -157,7 +173,7 @@ void default_model_single(const std::vector<std::string>& special,
     packed_witness.reserve(c.get_num_vars());
     int base = c.type == smt_terms::TermType::BVTerm ? 2 : 10;
 
-    for (size_t i = 0; i < c.get_num_vars(); i++) {
+    for (uint32_t i = 0; i < c.get_num_vars(); i++) {
         std::string vname = vterms[i].toString();
         std::string new_line = mmap[vname] + ",              // " + vname;
         if (c.real_variable_index[i] != i) {
@@ -169,6 +185,21 @@ void default_model_single(const std::vector<std::string>& special,
     myfile << "};";
     myfile.close();
 
+    // Accessing post processing functionality of the symbolic circuit
+    // Once we obtained the witness, compatible with current configuration(e.g. BVTerm)
+    // We can further compute the remaining witness entries, which were optimized and hence
+    // are not provided by the solver
+    for (const auto& post : c.post_process) {
+        uint32_t res_idx = post.first;
+        auto left_idx = static_cast<uint32_t>(post.second[0]);
+        auto right_idx = static_cast<uint32_t>(post.second[1]);
+        bb::fr q_m = post.second[2];
+        bb::fr q_l = post.second[3];
+        bb::fr q_r = post.second[4];
+        bb::fr q_c = post.second[5];
+        packed_witness[res_idx] = q_m * packed_witness[left_idx] * packed_witness[right_idx] +
+                                  q_l * packed_witness[left_idx] + q_r * packed_witness[right_idx] + q_c;
+    }
     if (pack) {
         msgpack::sbuffer buffer;
         msgpack::pack(buffer, packed_witness);
@@ -189,6 +220,7 @@ void default_model_single(const std::vector<std::string>& special,
     for (const auto& vname : special) {
         info(vname, " = ", mmap1[vname]);
     }
+    return packed_witness;
 }
 
 /**

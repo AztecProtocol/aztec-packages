@@ -4,7 +4,7 @@
 #include "barretenberg/relations/relation_parameters.hpp"
 #include "barretenberg/relations/relation_types.hpp"
 
-namespace bb::Avm_vm {
+namespace bb::avm {
 
 template <typename FF_> class bytecodeImpl {
   public:
@@ -39,4 +39,4 @@ template <typename FF> class bytecode : public Relation<bytecodeImpl<FF>> {
     }
 };
 
-} // namespace bb::Avm_vm
+} // namespace bb::avm

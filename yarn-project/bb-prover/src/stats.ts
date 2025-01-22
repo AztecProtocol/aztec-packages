@@ -1,9 +1,7 @@
 import type { CircuitName } from '@aztec/circuit-types/stats';
-import { type ClientProtocolArtifact, type ServerProtocolArtifact } from '@aztec/noir-protocol-circuits-types';
+import { type ProtocolArtifact } from '@aztec/noir-protocol-circuits-types/types';
 
-export function mapProtocolArtifactNameToCircuitName(
-  artifact: ServerProtocolArtifact | ClientProtocolArtifact,
-): CircuitName {
+export function mapProtocolArtifactNameToCircuitName(artifact: ProtocolArtifact): CircuitName {
   switch (artifact) {
     case 'BaseParityArtifact':
       return 'base-parity';
@@ -17,6 +15,8 @@ export function mapProtocolArtifactNameToCircuitName(
       return 'merge-rollup';
     case 'BlockRootRollupArtifact':
       return 'block-root-rollup';
+    case 'SingleTxBlockRootRollupArtifact':
+      return 'single-tx-block-root-rollup';
     case 'EmptyBlockRootRollupArtifact':
       return 'empty-block-root-rollup';
     case 'BlockMergeRollupArtifact':
@@ -31,10 +31,6 @@ export function mapProtocolArtifactNameToCircuitName(
       return 'private-kernel-tail';
     case 'PrivateKernelTailToPublicArtifact':
       return 'private-kernel-tail-to-public';
-    case 'EmptyNestedArtifact':
-      return 'empty-nested';
-    case 'PrivateKernelEmptyArtifact':
-      return 'private-kernel-empty';
     default: {
       if (artifact.startsWith('PrivateKernelReset')) {
         return 'private-kernel-reset';
@@ -44,16 +40,15 @@ export function mapProtocolArtifactNameToCircuitName(
   }
 }
 
-export function isProtocolArtifactRecursive(artifact: ServerProtocolArtifact | ClientProtocolArtifact): boolean {
+export function isProtocolArtifactRecursive(artifact: ProtocolArtifact): boolean {
   switch (artifact) {
-    case 'EmptyNestedArtifact':
-    case 'PrivateKernelEmptyArtifact':
     case 'BaseParityArtifact':
     case 'RootParityArtifact':
     case 'PrivateBaseRollupArtifact':
     case 'PublicBaseRollupArtifact':
     case 'MergeRollupArtifact':
     case 'BlockRootRollupArtifact':
+    case 'SingleTxBlockRootRollupArtifact':
     case 'EmptyBlockRootRollupArtifact':
     case 'BlockMergeRollupArtifact':
     case 'RootRollupArtifact':

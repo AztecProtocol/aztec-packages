@@ -1,6 +1,0 @@
-[
-  "private_kernel_init",
-  "private_kernel_inner",
-  "private_kernel_reset.*",
-  "private_kernel_tail.*"
-]

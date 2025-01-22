@@ -1,12 +1,20 @@
 import { type LogFn } from '@aztec/foundation/log';
-import { type ProtocolArtifact, ProtocolCircuitArtifacts } from '@aztec/noir-protocol-circuits-types';
+import { ClientCircuitArtifacts } from '@aztec/noir-protocol-circuits-types/client/bundle';
+import { ServerCircuitArtifacts } from '@aztec/noir-protocol-circuits-types/server';
+import { type ProtocolArtifact } from '@aztec/noir-protocol-circuits-types/types';
+import { type NoirCompiledCircuit } from '@aztec/types/noir';
 
 import { Command } from 'commander';
-import * as fs from 'fs/promises';
+import { promises as fs } from 'fs';
 
 import { generateContractForCircuit, generateKeyForNoirCircuit } from './execute.js';
 
 const { BB_WORKING_DIRECTORY, BB_BINARY_PATH } = process.env;
+
+export const ProtocolCircuitArtifacts: Record<ProtocolArtifact, NoirCompiledCircuit> = {
+  ...ClientCircuitArtifacts,
+  ...ServerCircuitArtifacts,
+};
 
 /**
  * Returns commander program that defines the CLI.

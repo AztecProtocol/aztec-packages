@@ -1,13 +1,13 @@
 import { type ACVMConfig, type BBConfig } from '@aztec/bb-prover';
+import { type ProverConfig, proverConfigMappings } from '@aztec/circuit-types';
+import { type ConfigMappingsType, booleanConfigHelper, getConfigFromMappings } from '@aztec/foundation/config';
+
 import {
   type ProverAgentConfig,
   type ProverBrokerConfig,
-  type ProverConfig,
   proverAgentConfigMappings,
   proverBrokerConfigMappings,
-  proverConfigMappings,
-} from '@aztec/circuit-types';
-import { type ConfigMappingsType, booleanConfigHelper, getConfigFromMappings } from '@aztec/foundation/config';
+} from './proving_broker/config.js';
 
 /**
  * The prover configuration.

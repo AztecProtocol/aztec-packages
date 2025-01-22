@@ -1,5 +1,6 @@
 import { times } from '@aztec/foundation/collection';
-import { setupCustomSnapshotSerializers, updateInlineTestData } from '@aztec/foundation/testing';
+import { setupCustomSnapshotSerializers } from '@aztec/foundation/testing';
+import { updateInlineTestData } from '@aztec/foundation/testing/files';
 
 import { AztecAddress, EthAddress, Fr, L2ToL1Message, ScopedL2ToL1Message } from '../index.js';
 import { makeAztecAddress } from '../tests/factories.js';

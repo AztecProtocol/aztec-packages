@@ -1,12 +1,12 @@
 use crate::abis::{global_variables::GlobalVariables, tx_constant_data::TxConstantData};
+use crate::block_header::BlockHeader;
 use crate::constants::COMBINED_CONSTANT_DATA_LENGTH;
-use crate::header::Header;
 use crate::traits::{Deserialize, Empty, Serialize};
 use crate::transaction::tx_context::TxContext;
 use crate::utils::reader::Reader;
 
 pub struct CombinedConstantData {
-    pub historical_header: Header,
+    pub historical_header: BlockHeader,
     // Note: `chain_id` and `version` in tx_context are not redundant to the values in
     // self.historical_header.global_variables because they can be different in case of a protocol upgrade. In such
     // a situation we could be using header from a block before the upgrade took place but be using the updated
@@ -37,7 +37,7 @@ impl CombinedConstantData {
 impl Empty for CombinedConstantData {
     fn empty() -> Self {
         CombinedConstantData {
-            historical_header: Header::empty(),
+            historical_header: BlockHeader::empty(),
             tx_context: TxContext::empty(),
             vk_tree_root: 0,
             protocol_contract_tree_root: 0,
@@ -67,7 +67,7 @@ impl Deserialize<COMBINED_CONSTANT_DATA_LENGTH> for CombinedConstantData {
         let mut reader = Reader::new(fields);
 
         let item = CombinedConstantData {
-            historical_header: reader.read_struct(Header::deserialize),
+            historical_header: reader.read_struct(BlockHeader::deserialize),
             tx_context: reader.read_struct(TxContext::deserialize),
             vk_tree_root: reader.read(),
             protocol_contract_tree_root: reader.read(),

@@ -5,15 +5,15 @@ import {
   type AztecNode,
   type ContractArtifact,
   type ContractBase,
-  type DebugLogger,
   Fr,
+  type Logger,
   type PXE,
   type PublicKeys,
   type Wallet,
-  createDebugLogger,
+  createLogger,
   getContractInstanceFromDeployParams,
 } from '@aztec/aztec.js';
-import { type StatefulTestContract } from '@aztec/noir-contracts.js';
+import { type StatefulTestContract } from '@aztec/noir-contracts.js/StatefulTest';
 
 import { type ISnapshotManager, addAccounts, createSnapshotManager } from '../fixtures/snapshot_manager.js';
 
@@ -23,13 +23,13 @@ export class DeployTest {
   private snapshotManager: ISnapshotManager;
   private wallets: AccountWallet[] = [];
 
-  public logger: DebugLogger;
+  public logger: Logger;
   public pxe!: PXE;
   public wallet!: AccountWallet;
   public aztecNode!: AztecNode;
 
   constructor(testName: string) {
-    this.logger = createDebugLogger(`aztec:e2e_deploy_contract:${testName}`);
+    this.logger = createLogger(`e2e:e2e_deploy_contract:${testName}`);
     this.snapshotManager = createSnapshotManager(`e2e_deploy_contract/${testName}`, dataPath);
   }
 
@@ -49,8 +49,12 @@ export class DeployTest {
       'initial_account',
       addAccounts(1, this.logger),
       async ({ accountKeys }, { pxe }) => {
-        const accountManagers = accountKeys.map(ak => getSchnorrAccount(pxe, ak[0], ak[1], 1));
-        this.wallets = await Promise.all(accountManagers.map(a => a.getWallet()));
+        this.wallets = await Promise.all(
+          accountKeys.map(async ak => {
+            const account = await getSchnorrAccount(pxe, ak[0], ak[1], 1);
+            return account.getWallet();
+          }),
+        );
         this.wallets.forEach((w, i) => this.logger.verbose(`Wallet ${i} address: ${w.getAddress()}`));
         this.wallet = this.wallets[0];
       },

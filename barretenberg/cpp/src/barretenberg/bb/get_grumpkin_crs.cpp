@@ -25,6 +25,8 @@ std::vector<uint8_t> download_grumpkin_g1_data(size_t num_points)
 namespace bb {
 std::vector<curve::Grumpkin::AffineElement> get_grumpkin_g1_data(const std::filesystem::path& path, size_t num_points)
 {
+    // TODO: per Charlie this should just download and replace the flat file portion atomically so we have no race
+    // condition
     std::filesystem::create_directories(path);
     std::ifstream size_file(path / "grumpkin_size");
     size_t size = 0;

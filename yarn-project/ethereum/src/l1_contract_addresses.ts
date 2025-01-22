@@ -20,6 +20,8 @@ export const L1ContractsNames = [
   'rewardDistributorAddress',
   'governanceProposerAddress',
   'governanceAddress',
+  'stakingAssetAddress',
+  'slashFactoryAddress',
 ] as const;
 
 /** Provides the directory of current L1 contract addresses */
@@ -33,11 +35,13 @@ export const L1ContractAddressesSchema = z.object({
   inboxAddress: schemas.EthAddress,
   outboxAddress: schemas.EthAddress,
   feeJuiceAddress: schemas.EthAddress,
+  stakingAssetAddress: schemas.EthAddress,
   feeJuicePortalAddress: schemas.EthAddress,
   coinIssuerAddress: schemas.EthAddress,
   rewardDistributorAddress: schemas.EthAddress,
   governanceProposerAddress: schemas.EthAddress,
   governanceAddress: schemas.EthAddress,
+  slashFactoryAddress: schemas.EthAddress,
 }) satisfies ZodFor<L1ContractAddresses>;
 
 const parseEnv = (val: string) => EthAddress.fromString(val);
@@ -68,6 +72,11 @@ export const l1ContractAddressesMapping: ConfigMappingsType<L1ContractAddresses>
     description: 'The deployed L1 Fee Juice contract address.',
     parseEnv,
   },
+  stakingAssetAddress: {
+    env: 'STAKING_ASSET_CONTRACT_ADDRESS',
+    description: 'The deployed L1 staking asset contract address.',
+    parseEnv,
+  },
   feeJuicePortalAddress: {
     env: 'FEE_JUICE_PORTAL_CONTRACT_ADDRESS',
     description: 'The deployed L1 Fee Juice portal contract address.',
@@ -91,6 +100,11 @@ export const l1ContractAddressesMapping: ConfigMappingsType<L1ContractAddresses>
   governanceAddress: {
     env: 'GOVERNANCE_CONTRACT_ADDRESS',
     description: 'The deployed L1 governance contract address',
+    parseEnv,
+  },
+  slashFactoryAddress: {
+    env: 'SLASH_FACTORY_CONTRACT_ADDRESS',
+    description: 'The deployed L1 slashFactory contract address',
     parseEnv,
   },
 };

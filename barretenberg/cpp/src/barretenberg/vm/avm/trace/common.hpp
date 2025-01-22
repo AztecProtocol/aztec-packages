@@ -11,7 +11,7 @@
 
 namespace bb::avm_trace {
 
-using FF = AvmFlavorSettings::FF;
+using FF = bb::avm::AvmFlavorSettings::FF;
 
 // There are 4 public input columns, 1 for context inputs, and 3 for emitting side effects
 template <typename FF_>

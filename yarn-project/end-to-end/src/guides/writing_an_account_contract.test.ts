@@ -14,7 +14,7 @@ import { TokenContract } from '@aztec/noir-contracts.js/Token';
 import { setup } from '../fixtures/utils.js';
 
 // docs:start:account-contract
-const PRIVATE_KEY = GrumpkinScalar.fromString('0xd35d743ac0dfe3d6dbe6be8c877cb524a00ab1e3d52d7bada095dfc8894ccfa');
+const PRIVATE_KEY = GrumpkinScalar.fromHexString('0xd35d743ac0dfe3d6dbe6be8c877cb524a00ab1e3d52d7bada095dfc8894ccfa');
 
 /** Account contract implementation that authenticates txs using Schnorr signatures. */
 class SchnorrHardcodedKeyAccountContract extends DefaultAccountContract {
@@ -22,17 +22,17 @@ class SchnorrHardcodedKeyAccountContract extends DefaultAccountContract {
     super(SchnorrHardcodedAccountContractArtifact);
   }
 
-  getDeploymentArgs(): undefined {
+  getDeploymentArgs() {
     // This contract has no constructor
-    return undefined;
+    return Promise.resolve(undefined);
   }
 
   getAuthWitnessProvider(_address: CompleteAddress): AuthWitnessProvider {
     const privateKey = this.privateKey;
     return {
-      createAuthWit(messageHash: Fr): Promise<AuthWitness> {
+      async createAuthWit(messageHash: Fr): Promise<AuthWitness> {
         const signer = new Schnorr();
-        const signature = signer.constructSignature(messageHash.toBuffer(), privateKey);
+        const signature = await signer.constructSignature(messageHash.toBuffer(), privateKey);
         return Promise.resolve(new AuthWitness(messageHash, [...signature.toBuffer()]));
       },
     };
@@ -53,7 +53,7 @@ describe('guides/writing_an_account_contract', () => {
     const { pxe, logger } = context;
     // docs:start:account-contract-deploy
     const secretKey = Fr.random();
-    const account = new AccountManager(pxe, secretKey, new SchnorrHardcodedKeyAccountContract());
+    const account = await AccountManager.create(pxe, secretKey, new SchnorrHardcodedKeyAccountContract());
     const wallet = await account.waitSetup();
     const address = wallet.getCompleteAddress().address;
     // docs:end:account-contract-deploy
@@ -75,7 +75,7 @@ describe('guides/writing_an_account_contract', () => {
     // docs:start:account-contract-fails
     const wrongKey = GrumpkinScalar.random();
     const wrongAccountContract = new SchnorrHardcodedKeyAccountContract(wrongKey);
-    const wrongAccount = new AccountManager(pxe, secretKey, wrongAccountContract, account.salt);
+    const wrongAccount = await AccountManager.create(pxe, secretKey, wrongAccountContract, account.salt);
     const wrongWallet = await wrongAccount.getWallet();
     const tokenWithWrongWallet = token.withWallet(wrongWallet);
 

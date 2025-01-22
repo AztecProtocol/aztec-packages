@@ -8,3 +8,4 @@ export * from './l1_reader.js';
 export * from './utils.js';
 export * from './config.js';
 export * from './types.js';
+export * from './contracts/index.js';

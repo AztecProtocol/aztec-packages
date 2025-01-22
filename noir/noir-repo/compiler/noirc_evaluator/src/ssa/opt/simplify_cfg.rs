@@ -109,7 +109,7 @@ fn check_for_constant_jmpif(
             };
 
             let arguments = Vec::new();
-            let call_stack = call_stack.clone();
+            let call_stack = *call_stack;
             let jmp = TerminatorInstruction::Jmp { destination, arguments, call_stack };
             function.dfg[block].set_terminator(jmp);
             cfg.recompute_block(function, block);
@@ -223,7 +223,7 @@ fn check_for_negated_jmpif_condition(
     {
         if let Value::Instruction { instruction, .. } = function.dfg[*condition] {
             if let Instruction::Not(negated_condition) = function.dfg[instruction] {
-                let call_stack = call_stack.clone();
+                let call_stack = *call_stack;
                 let jmpif = TerminatorInstruction::JmpIf {
                     condition: negated_condition,
                     then_destination: *else_destination,
@@ -442,14 +442,14 @@ mod test {
             store Field 0 at v1
             v3 = not v0
             jmpif v0 then: b2, else: b1
+          b1():
+            store Field 2 at v1
+            jmp b2()
           b2():
             v5 = load v1 -> Field
             v6 = eq v5, Field 2
             constrain v5 == Field 2
             return
-          b1():
-            store Field 2 at v1
-            jmp b2()
         }";
         assert_normalized_ssa_equals(ssa.simplify_cfg(), expected);
     }

@@ -4,7 +4,7 @@ import { Command } from "commander";
 import chalk from "chalk";
 import os from "os";
 
-const { BROWSER } = process.env;
+const { BROWSER, PORT = "8080" } = process.env;
 
 function formatAndPrintLog(message: string): void {
   const parts = message.split("%c");
@@ -87,7 +87,7 @@ program
         page.on("console", (msg) => formatAndPrintLog(msg.text()));
       }
 
-      await page.goto("http://localhost:8080");
+      await page.goto(`http://localhost:${PORT}`);
 
       const result: boolean = await page.evaluate(
         ([acir, witnessData, threads]: [string, number[], number]) => {
@@ -95,11 +95,7 @@ program
           const witnessUint8Array = new Uint8Array(witnessData);
 
           // Call the desired function and return the result
-          return (window as any).runTest(
-            acir,
-            witnessUint8Array,
-            threads
-          );
+          return (window as any).runTest(acir, witnessUint8Array, threads);
         },
         [acir, Array.from(witness), threads]
       );

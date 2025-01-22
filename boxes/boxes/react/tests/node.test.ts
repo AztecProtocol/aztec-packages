@@ -1,8 +1,8 @@
-import { AccountWallet, CompleteAddress, Contract, Fr, createDebugLogger } from '@aztec/aztec.js';
+import { AccountWallet, CompleteAddress, Contract, Fr, createLogger } from '@aztec/aztec.js';
 import { BoxReactContract } from '../artifacts/BoxReact.js';
 import { deployerEnv } from '../src/config.js';
 
-const logger = createDebugLogger('aztec:http-pxe-client');
+const logger = createLogger('aztec:http-pxe-client');
 
 describe('BoxReact Contract Tests', () => {
   let wallet: AccountWallet;

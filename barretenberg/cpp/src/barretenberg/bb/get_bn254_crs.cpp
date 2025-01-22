@@ -32,6 +32,8 @@ std::vector<uint8_t> download_bn254_g2_data()
 namespace bb {
 std::vector<g1::affine_element> get_bn254_g1_data(const std::filesystem::path& path, size_t num_points)
 {
+    // TODO: per Charlie this should just download and replace the flat file portion atomically so we have no race
+    // condition
     std::filesystem::create_directories(path);
 
     auto g1_path = path / "bn254_g1.dat";

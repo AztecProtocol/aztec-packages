@@ -404,9 +404,10 @@ template <class T> void field<T>::batch_invert(field* coeffs, const size_t n) no
     batch_invert(std::span{ coeffs, n });
 }
 
+// TODO(https://github.com/AztecProtocol/barretenberg/issues/1166)
 template <class T> void field<T>::batch_invert(std::span<field> coeffs) noexcept
 {
-    BB_OP_COUNT_TRACK_NAME("fr::batch_invert");
+    PROFILE_THIS_NAME("fr::batch_invert");
     const size_t n = coeffs.size();
 
     auto temporaries_ptr = std::static_pointer_cast<field[]>(get_mem_slab(n * sizeof(field)));

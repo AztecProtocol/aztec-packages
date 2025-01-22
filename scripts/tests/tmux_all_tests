@@ -1,0 +1,13 @@
+#!/bin/bash
+# Runs tests on each module in parallel, in a tmux split
+# Use ci3 script base.
+source $(git rev-parse --show-toplevel)/ci3/source
+export USE_CACHE=1
+export TEST=1
+tmux_split aztec-test-all \
+   "./barretenberg/bootstrap.sh test" \
+   "./l1-contracts/bootstrap.sh test" \
+   "./noir/bootstrap.sh test" \
+   "./noir-projects/bootstrap.sh test" \
+   "./yarn-packages/bootstrap.sh test" \
+   "./boxes/bootstrap.sh test"

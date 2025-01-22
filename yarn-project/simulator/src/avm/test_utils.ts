@@ -28,6 +28,10 @@ export function mockStorageRead(worldStateDB: WorldStateDB, value: Fr) {
   (worldStateDB as jest.Mocked<WorldStateDB>).storageRead.mockResolvedValue(value);
 }
 
+export function mockNoteHashCount(mockedTrace: PublicSideEffectTraceInterface, count: number) {
+  (mockedTrace as jest.Mocked<PublicSideEffectTraceInterface>).getNoteHashCount.mockReturnValue(count);
+}
+
 export function mockStorageReadWithMap(worldStateDB: WorldStateDB, mockedStorage: Map<bigint, Fr>) {
   (worldStateDB as jest.Mocked<WorldStateDB>).storageRead.mockImplementation((_address, slot) =>
     Promise.resolve(mockedStorage.get(slot.toBigInt()) ?? Fr.ZERO),

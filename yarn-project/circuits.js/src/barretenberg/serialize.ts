@@ -72,3 +72,14 @@ export function deserializeField(buf: Buffer, offset = 0) {
   const adv = 32;
   return { elem: buf.slice(offset, offset + adv), adv };
 }
+
+export function concatenateUint8Arrays(arrayOfUint8Arrays: Uint8Array[]) {
+  const totalLength = arrayOfUint8Arrays.reduce((prev, curr) => prev + curr.length, 0);
+  const result = new Uint8Array(totalLength);
+  let length = 0;
+  for (const array of arrayOfUint8Arrays) {
+    result.set(array, length);
+    length += array.length;
+  }
+  return result;
+}

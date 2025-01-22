@@ -1,9 +1,9 @@
 import { getSchnorrAccount } from '@aztec/accounts/schnorr';
 import {
   type CompleteAddress,
-  type DebugLogger,
   Fr,
   GrumpkinScalar,
+  type Logger,
   type PXE,
   type Wallet,
   deriveKeys,
@@ -17,7 +17,7 @@ describe('e2e_multiple_accounts_1_enc_key', () => {
   let pxe: PXE;
   const wallets: Wallet[] = [];
   const accounts: CompleteAddress[] = [];
-  let logger: DebugLogger;
+  let logger: Logger;
   let teardown: () => Promise<void>;
 
   let token: TokenContract;
@@ -33,7 +33,7 @@ describe('e2e_multiple_accounts_1_enc_key', () => {
     for (let i = 0; i < numAccounts; i++) {
       logger.info(`Deploying account contract ${i}/3...`);
       const signingPrivateKey = GrumpkinScalar.random();
-      const account = getSchnorrAccount(pxe, encryptionPrivateKey, signingPrivateKey);
+      const account = await getSchnorrAccount(pxe, encryptionPrivateKey, signingPrivateKey);
       const wallet = await account.waitSetup({ interval: 0.1 });
       const completeAddress = account.getCompleteAddress();
       wallets.push(wallet);

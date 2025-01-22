@@ -13,8 +13,6 @@ template <class DeciderProvingKeys_> class ProtogalaxyProver_ {
     using FF = typename DeciderProvingKeys_::Flavor::FF;
     static constexpr size_t NUM_KEYS = DeciderProvingKeys_::NUM;
     using CombinerQuotient = Univariate<FF, DeciderProvingKeys_::BATCHED_EXTENDED_LENGTH, NUM_KEYS>;
-    using TupleOfTuplesOfUnivariatesNoOptimisticSkipping =
-        typename Flavor::template ProtogalaxyTupleOfTuplesOfUnivariatesNoOptimisticSkipping<NUM_KEYS>;
     using TupleOfTuplesOfUnivariates = typename Flavor::template ProtogalaxyTupleOfTuplesOfUnivariates<NUM_KEYS>;
     using UnivariateRelationParameters =
         bb::RelationParameters<Univariate<FF, DeciderProvingKeys_::EXTENDED_LENGTH, 0, /*skip_count=*/NUM_KEYS - 1>>;

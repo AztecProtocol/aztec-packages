@@ -4,7 +4,10 @@ use std::{
 };
 
 use super::{
-    ir::{instruction::BinaryOp, types::Type},
+    ir::{
+        instruction::BinaryOp,
+        types::{NumericType, Type},
+    },
     Ssa,
 };
 
@@ -29,16 +32,24 @@ mod token;
 
 impl Ssa {
     /// Creates an Ssa object from the given string.
-    ///
-    /// Note that the resulting Ssa might not be exactly the same as the given string.
-    /// This is because, internally, the Ssa is built using a `FunctionBuilder`, so
-    /// some instructions might be simplified while they are inserted.
     pub(crate) fn from_str(src: &str) -> Result<Ssa, SsaErrorWithSource> {
+        Self::from_str_impl(src, false)
+    }
+
+    /// Creates an Ssa object from the given string but trying to simplify
+    /// each parsed instruction as it's inserted into the final SSA.
+    pub(crate) fn from_str_simplifying(src: &str) -> Result<Ssa, SsaErrorWithSource> {
+        Self::from_str_impl(src, true)
+    }
+
+    fn from_str_impl(src: &str, simplify: bool) -> Result<Ssa, SsaErrorWithSource> {
         let mut parser =
             Parser::new(src).map_err(|err| SsaErrorWithSource::parse_error(err, src))?;
         let parsed_ssa =
             parser.parse_ssa().map_err(|err| SsaErrorWithSource::parse_error(err, src))?;
-        parsed_ssa.into_ssa().map_err(|error| SsaErrorWithSource { src: src.to_string(), error })
+        parsed_ssa
+            .into_ssa(simplify)
+            .map_err(|error| SsaErrorWithSource { src: src.to_string(), error })
     }
 }
 
@@ -275,9 +286,9 @@ impl<'a> Parser<'a> {
 
     fn eat_binary_op(&mut self) -> ParseResult<Option<BinaryOp>> {
         let op = match self.token.token() {
-            Token::Keyword(Keyword::Add) => BinaryOp::Add,
-            Token::Keyword(Keyword::Sub) => BinaryOp::Sub,
-            Token::Keyword(Keyword::Mul) => BinaryOp::Mul,
+            Token::Keyword(Keyword::Add) => BinaryOp::Add { unchecked: false },
+            Token::Keyword(Keyword::Sub) => BinaryOp::Sub { unchecked: false },
+            Token::Keyword(Keyword::Mul) => BinaryOp::Mul { unchecked: false },
             Token::Keyword(Keyword::Div) => BinaryOp::Div,
             Token::Keyword(Keyword::Eq) => BinaryOp::Eq,
             Token::Keyword(Keyword::Mod) => BinaryOp::Mod,
@@ -287,6 +298,9 @@ impl<'a> Parser<'a> {
             Token::Keyword(Keyword::Xor) => BinaryOp::Xor,
             Token::Keyword(Keyword::Shl) => BinaryOp::Shl,
             Token::Keyword(Keyword::Shr) => BinaryOp::Shr,
+            Token::Keyword(Keyword::UncheckedAdd) => BinaryOp::Add { unchecked: true },
+            Token::Keyword(Keyword::UncheckedSub) => BinaryOp::Sub { unchecked: true },
+            Token::Keyword(Keyword::UncheckedMul) => BinaryOp::Mul { unchecked: true },
             _ => return Ok(None),
         };
 
@@ -448,12 +462,39 @@ impl<'a> Parser<'a> {
         }
 
         if self.eat_keyword(Keyword::MakeArray)? {
-            self.eat_or_error(Token::LeftBracket)?;
-            let elements = self.parse_comma_separated_values()?;
-            self.eat_or_error(Token::RightBracket)?;
-            self.eat_or_error(Token::Colon)?;
-            let typ = self.parse_type()?;
-            return Ok(ParsedInstruction::MakeArray { target, elements, typ });
+            if self.eat(Token::Ampersand)? {
+                let Some(string) = self.eat_byte_str()? else {
+                    return self.expected_byte_string();
+                };
+                let u8 = Type::Numeric(NumericType::Unsigned { bit_size: 8 });
+                let typ = Type::Slice(Arc::new(vec![u8.clone()]));
+                let elements = string
+                    .bytes()
+                    .map(|byte| ParsedValue::NumericConstant {
+                        constant: FieldElement::from(byte as u128),
+                        typ: u8.clone(),
+                    })
+                    .collect();
+                return Ok(ParsedInstruction::MakeArray { target, elements, typ });
+            } else if let Some(string) = self.eat_byte_str()? {
+                let u8 = Type::Numeric(NumericType::Unsigned { bit_size: 8 });
+                let typ = Type::Array(Arc::new(vec![u8.clone()]), string.len() as u32);
+                let elements = string
+                    .bytes()
+                    .map(|byte| ParsedValue::NumericConstant {
+                        constant: FieldElement::from(byte as u128),
+                        typ: u8.clone(),
+                    })
+                    .collect();
+                return Ok(ParsedInstruction::MakeArray { target, elements, typ });
+            } else {
+                self.eat_or_error(Token::LeftBracket)?;
+                let elements = self.parse_comma_separated_values()?;
+                self.eat_or_error(Token::RightBracket)?;
+                self.eat_or_error(Token::Colon)?;
+                let typ = self.parse_type()?;
+                return Ok(ParsedInstruction::MakeArray { target, elements, typ });
+            }
         }
 
         if self.eat_keyword(Keyword::Not)? {
@@ -656,7 +697,7 @@ impl<'a> Parser<'a> {
             if self.eat(Token::Semicolon)? {
                 let length = self.eat_int_or_error()?;
                 self.eat_or_error(Token::RightBracket)?;
-                return Ok(Type::Array(Arc::new(element_types), length.to_u128() as usize));
+                return Ok(Type::Array(Arc::new(element_types), length.to_u128() as u32));
             } else {
                 self.eat_or_error(Token::RightBracket)?;
                 return Ok(Type::Slice(Arc::new(element_types)));
@@ -796,6 +837,18 @@ impl<'a> Parser<'a> {
         }
     }
 
+    fn eat_byte_str(&mut self) -> ParseResult<Option<String>> {
+        if matches!(self.token.token(), Token::ByteStr(..)) {
+            let token = self.bump()?;
+            match token.into_token() {
+                Token::ByteStr(string) => Ok(Some(string)),
+                _ => unreachable!(),
+            }
+        } else {
+            Ok(None)
+        }
+    }
+
     fn eat(&mut self, token: Token) -> ParseResult<bool> {
         if self.token.token() == &token {
             self.bump()?;
@@ -815,10 +868,6 @@ impl<'a> Parser<'a> {
 
     fn at(&self, token: Token) -> bool {
         self.token.token() == &token
-    }
-
-    fn at_keyword(&self, keyword: Keyword) -> bool {
-        self.at(Token::Keyword(keyword))
     }
 
     fn newline_follows(&self) -> bool {
@@ -843,6 +892,13 @@ impl<'a> Parser<'a> {
 
     fn expected_string_or_data<T>(&mut self) -> ParseResult<T> {
         Err(ParserError::ExpectedStringOrData {
+            found: self.token.token().clone(),
+            span: self.token.to_span(),
+        })
+    }
+
+    fn expected_byte_string<T>(&mut self) -> ParseResult<T> {
+        Err(ParserError::ExpectedByteString {
             found: self.token.token().clone(),
             span: self.token.to_span(),
         })
@@ -911,6 +967,8 @@ pub(crate) enum ParserError {
     ExpectedInstructionOrTerminator { found: Token, span: Span },
     #[error("Expected a string literal or 'data', found '{found}'")]
     ExpectedStringOrData { found: Token, span: Span },
+    #[error("Expected a byte string literal, found '{found}'")]
+    ExpectedByteString { found: Token, span: Span },
     #[error("Expected a value, found '{found}'")]
     ExpectedValue { found: Token, span: Span },
     #[error("Multiple return values only allowed for call")]
@@ -928,6 +986,7 @@ impl ParserError {
             | ParserError::ExpectedType { span, .. }
             | ParserError::ExpectedInstructionOrTerminator { span, .. }
             | ParserError::ExpectedStringOrData { span, .. }
+            | ParserError::ExpectedByteString { span, .. }
             | ParserError::ExpectedValue { span, .. } => *span,
             ParserError::MultipleReturnValuesOnlyAllowedForCall { second_target, .. } => {
                 second_target.span

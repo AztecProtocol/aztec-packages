@@ -5,28 +5,29 @@ import {
   type AztecNode,
   type CheatCodes,
   type CompleteAddress,
-  type DebugLogger,
   type DeployL1Contracts,
   EthAddress,
   type Fq,
   Fr,
+  type Logger,
   type PXE,
-  createDebugLogger,
+  createLogger,
   deployL1Contract,
 } from '@aztec/aztec.js';
 import {
   BBCircuitVerifier,
   type ClientProtocolCircuitVerifier,
   TestCircuitVerifier,
-  type UltraKeccakHonkProtocolArtifact,
+  type UltraKeccakHonkServerProtocolArtifact,
 } from '@aztec/bb-prover';
+import { createBlobSinkClient } from '@aztec/blob-sink/client';
+import { type BlobSinkServer } from '@aztec/blob-sink/server';
 import { compileContract } from '@aztec/ethereum';
 import { Buffer32 } from '@aztec/foundation/buffer';
 import { RollupAbi, TestERC20Abi } from '@aztec/l1-artifacts';
-import { TokenContract } from '@aztec/noir-contracts.js';
+import { TokenContract } from '@aztec/noir-contracts.js/Token';
 import { type ProverNode, type ProverNodeConfig, createProverNode } from '@aztec/prover-node';
 import { type PXEService } from '@aztec/pxe';
-import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
 
 // TODO(#7373): Deploy honk solidity verifier
 // @ts-expect-error solc-js doesn't publish its types https://github.com/ethereum/solc-js/issues/689
@@ -67,7 +68,7 @@ export class FullProverTest {
   static TOKEN_SYMBOL = 'USD';
   static TOKEN_DECIMALS = 18n;
   private snapshotManager: ISnapshotManager;
-  logger: DebugLogger;
+  logger: Logger;
   keys: Array<[Fr, Fq]> = [];
   wallets: AccountWalletWithSecretKey[] = [];
   accounts: CompleteAddress[] = [];
@@ -76,6 +77,7 @@ export class FullProverTest {
   aztecNode!: AztecNode;
   pxe!: PXEService;
   cheatCodes!: CheatCodes;
+  blobSink!: BlobSinkServer;
   private provenComponents: ProvenSetup[] = [];
   private bbConfigCleanup?: () => Promise<void>;
   private acvmConfigCleanup?: () => Promise<void>;
@@ -93,7 +95,7 @@ export class FullProverTest {
     coinbase: EthAddress,
     private realProofs = true,
   ) {
-    this.logger = createDebugLogger(`aztec:full_prover_test:${testName}`);
+    this.logger = createLogger(`e2e:full_prover_test:${testName}`);
     this.snapshotManager = createSnapshotManager(
       `full_prover_integration/${testName}`,
       dataPath,
@@ -110,9 +112,13 @@ export class FullProverTest {
   async applyBaseSnapshots() {
     await this.snapshotManager.snapshot('2_accounts', addAccounts(2, this.logger), async ({ accountKeys }, { pxe }) => {
       this.keys = accountKeys;
-      const accountManagers = accountKeys.map(ak => getSchnorrAccount(pxe, ak[0], ak[1], SALT));
-      this.wallets = await Promise.all(accountManagers.map(a => a.getWallet()));
-      this.accounts = await pxe.getRegisteredAccounts();
+      this.wallets = await Promise.all(
+        accountKeys.map(async ak => {
+          const account = await getSchnorrAccount(pxe, ak[0], ak[1], SALT);
+          return account.getWallet();
+        }),
+      );
+      this.accounts = this.wallets.map(w => w.getCompleteAddress());
       this.wallets.forEach((w, i) => this.logger.verbose(`Wallet ${i} address: ${w.getAddress()}`));
     });
 
@@ -163,7 +169,10 @@ export class FullProverTest {
       aztecNode: this.aztecNode,
       deployL1ContractsValues: this.l1Contracts,
       cheatCodes: this.cheatCodes,
+      blobSink: this.blobSink,
     } = this.context);
+
+    const blobSinkClient = createBlobSinkClient(`http://localhost:${this.blobSink.port}`);
 
     // Configure a full prover PXE
     let acvmConfig: Awaited<ReturnType<typeof getACVMConfig>> | undefined;
@@ -222,7 +231,7 @@ export class FullProverTest {
         await this.pxe.registerAccount(this.keys[i][0], this.wallets[i].getCompleteAddress().partialAddress);
       }
 
-      const account = getSchnorrAccount(result.pxe, this.keys[0][0], this.keys[0][1], SALT);
+      const account = await getSchnorrAccount(result.pxe, this.keys[0][0], this.keys[0][1], SALT);
 
       await result.pxe.registerContract({
         instance: account.getInstance(),
@@ -247,7 +256,7 @@ export class FullProverTest {
     this.logger.verbose('Starting archiver for new prover node');
     const archiver = await createArchiver(
       { ...this.context.aztecNodeConfig, dataDirectory: undefined },
-      new NoopTelemetryClient(),
+      blobSinkClient,
       { blockUntilSync: true },
     );
 
@@ -275,10 +284,14 @@ export class FullProverTest {
       quoteProviderBondAmount: 1000n,
       proverMinimumEscrowAmount: 3000n,
       proverTargetEscrowAmount: 6000n,
+      txGatheringTimeoutMs: 60000,
+      txGatheringIntervalMs: 1000,
+      txGatheringMaxParallelRequests: 100,
     };
     this.proverNode = await createProverNode(proverConfig, {
       aztecNodeTxProvider: this.aztecNode,
       archiver: archiver as Archiver,
+      blobSinkClient,
     });
     await this.proverNode.start();
 
@@ -383,7 +396,7 @@ export class FullProverTest {
 
     // REFACTOR: Extract this method to a common package. We need a package that deals with L1
     // but also has a reference to L1 artifacts and bb-prover.
-    const setupVerifier = async (artifact: UltraKeccakHonkProtocolArtifact) => {
+    const setupVerifier = async (artifact: UltraKeccakHonkServerProtocolArtifact) => {
       const contract = await verifier.generateSolidityContract(artifact, 'UltraHonkVerifier.sol');
       const { abi, bytecode } = compileContract('UltraHonkVerifier.sol', 'HonkVerifier', contract, solc);
       const { address: verifierAddress } = await deployL1Contract(walletClient, publicClient, abi, bytecode);

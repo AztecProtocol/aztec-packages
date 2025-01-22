@@ -69,6 +69,22 @@ template <typename Flavor_, size_t NUM_ = 2> struct DeciderProvingKeys_ {
         return results;
     }
 
+    typename Flavor::template ProverUnivariates<2> row_to_short_univariates(size_t row_idx) const
+    {
+        auto prover_polynomials_views = get_polynomials_views();
+        typename Flavor::template ProverUnivariates<2> results;
+        // Set the size corresponding to the number of rows in the execution trace
+        // Iterate over the prover polynomials' views corresponding to each proving key
+        for (size_t dpk_idx = 0; const auto& view : prover_polynomials_views) {
+            // Iterate over all columns in the trace execution of a proving key and extract their value at row_idx.
+            for (auto [result, poly_ptr] : zip_view(results.get_all(), view)) {
+                result.evaluations[dpk_idx] = poly_ptr[row_idx];
+            }
+            dpk_idx++;
+        }
+        return results;
+    }
+
   private:
     // Returns a vector containing pointer views to the prover polynomials corresponding to each proving key.
     auto get_polynomials_views() const

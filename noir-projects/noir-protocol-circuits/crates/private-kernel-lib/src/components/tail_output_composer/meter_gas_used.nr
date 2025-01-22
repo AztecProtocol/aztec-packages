@@ -1,5 +1,8 @@
 use dep::types::{
-    abis::{accumulated_data::combined_accumulated_data::CombinedAccumulatedData, gas::Gas},
+    abis::{
+        accumulated_data::private_to_rollup_accumulated_data::PrivateToRollupAccumulatedData,
+        gas::Gas,
+    },
     constants::{
         DA_BYTES_PER_FIELD, DA_GAS_PER_BYTE, L2_GAS_PER_L2_TO_L1_MSG, L2_GAS_PER_LOG_BYTE,
         L2_GAS_PER_NOTE_HASH, L2_GAS_PER_NULLIFIER, L2_GAS_PER_PRIVATE_LOG,
@@ -8,7 +11,7 @@ use dep::types::{
     utils::arrays::array_length,
 };
 
-pub fn meter_gas_used(data: CombinedAccumulatedData) -> Gas {
+pub fn meter_gas_used(data: PrivateToRollupAccumulatedData) -> Gas {
     let mut metered_da_fields = 0;
     let mut metered_l2_gas = 0;
 

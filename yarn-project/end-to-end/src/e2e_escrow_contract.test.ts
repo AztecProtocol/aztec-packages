@@ -2,8 +2,8 @@ import {
   type AccountWallet,
   type AztecAddress,
   BatchCall,
-  type DebugLogger,
   Fr,
+  type Logger,
   type PXE,
   deriveKeys,
 } from '@aztec/aztec.js';
@@ -19,7 +19,7 @@ describe('e2e_escrow_contract', () => {
   let wallet: AccountWallet;
   let recipientWallet: AccountWallet;
 
-  let logger: DebugLogger;
+  let logger: Logger;
   let teardown: () => Promise<void>;
 
   let token: TokenContract;

@@ -9,19 +9,22 @@ import {EnumerableSet} from "@oz/utils/structs/EnumerableSet.sol";
 contract StakingCheater is Staking {
   using EnumerableSet for EnumerableSet.AddressSet;
 
-  constructor(address _slasher, IERC20 _stakingAsset, uint256 _minimumStake)
-    Staking(_slasher, _stakingAsset, _minimumStake)
-  {}
+  constructor(
+    IERC20 _stakingAsset,
+    uint256 _minimumStake,
+    uint256 _slashingQuorum,
+    uint256 _roundSize
+  ) Staking(_stakingAsset, _minimumStake, _slashingQuorum, _roundSize) {}
 
   function cheat__SetStatus(address _attester, Status _status) external {
-    info[_attester].status = _status;
+    stakingStore.info[_attester].status = _status;
   }
 
   function cheat__AddAttester(address _attester) external {
-    attesters.add(_attester);
+    stakingStore.attesters.add(_attester);
   }
 
   function cheat__RemoveAttester(address _attester) external {
-    attesters.remove(_attester);
+    stakingStore.attesters.remove(_attester);
   }
 }

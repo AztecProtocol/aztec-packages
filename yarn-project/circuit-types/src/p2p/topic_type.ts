@@ -1,3 +1,5 @@
+import { P2PClientType } from './client_type.js';
+
 /** Create Topic String
  *
  * The topic channel identifier
@@ -16,6 +18,13 @@ export enum TopicType {
   block_proposal = 'block_proposal',
   block_attestation = 'block_attestation',
   epoch_proof_quote = 'epoch_proof_quote',
+}
+
+export function getTopicTypeForClientType(clientType: P2PClientType) {
+  if (clientType === P2PClientType.Full) {
+    return Object.values(TopicType);
+  }
+  return [TopicType.tx, TopicType.epoch_proof_quote];
 }
 
 /**
