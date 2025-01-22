@@ -146,12 +146,15 @@ template <typename Flavor> class SumcheckProver {
     std::shared_ptr<Transcript> transcript;
     SumcheckProverRound<Flavor> round;
 
-    static constexpr bool IS_ECCVM = std::is_same_v<Flavor, ECCVMFlavor>;
+    std::vector<FF> multivariate_challenge;
+
     std::vector<typename Flavor::Commitment> round_univariate_commitments = {};
     std::vector<std::array<FF, 3>> round_evaluations = {};
     std::vector<Polynomial<FF>> round_univariates = {};
     std::vector<FF> eval_domain = {};
     FF libra_evaluation = FF{ 0 };
+
+    RowDisablingPolynomial<FF> row_disabling_polynomial;
 
     /**
     *
@@ -189,7 +192,6 @@ template <typename Flavor> class SumcheckProver {
 
         bb::GateSeparatorPolynomial<FF> gate_separators(gate_challenges, multivariate_d);
 
-        std::vector<FF> multivariate_challenge;
         multivariate_challenge.reserve(multivariate_d);
         // In the first round, we compute the first univariate polynomial and populate the book-keeping table of
         // #partially_evaluated_polynomials, which has \f$ n/2 \f$ rows and \f$ N \f$ columns. When the Flavor has ZK,
@@ -267,8 +269,13 @@ template <typename Flavor> class SumcheckProver {
     {
         std::shared_ptr<CommitmentKey> ck = nullptr;
 
-        if constexpr (IS_ECCVM) {
+        if constexpr (IsGrumpkinFlavor<Flavor>) {
             ck = std::make_shared<CommitmentKey>(BATCHED_RELATION_PARTIAL_LENGTH);
+            // Compute the vector {0, 1, \ldots, BATCHED_RELATION_PARTIAL_LENGTH-1} needed to transform the round
+            // univariates from Lagrange to monomial basis
+            for (size_t idx = 0; idx < BATCHED_RELATION_PARTIAL_LENGTH; idx++) {
+                eval_domain.push_back(FF(idx));
+            }
         } else {
             // Ensure that the length of Sumcheck Round Univariates does not exceed the length of Libra masking
             // polynomials.
@@ -277,10 +284,8 @@ template <typename Flavor> class SumcheckProver {
 
         bb::GateSeparatorPolynomial<FF> gate_separators(gate_challenges, multivariate_d);
 
-        std::vector<FF> multivariate_challenge;
         multivariate_challenge.reserve(multivariate_d);
         size_t round_idx = 0;
-        RowDisablingPolynomial<FF> row_disabling_polynomial;
         // In the first round, we compute the first univariate polynomial and populate the book-keeping table of
         // #partially_evaluated_polynomials, which has \f$ n/2 \f$ rows and \f$ N \f$ columns. When the Flavor has ZK,
         // compute_univariate also takes into account the zk_sumcheck_data.
@@ -296,15 +301,10 @@ template <typename Flavor> class SumcheckProver {
 
             PROFILE_THIS_NAME("rest of sumcheck round 1");
 
-            if constexpr (!IS_ECCVM) {
+            if constexpr (!IsGrumpkinFlavor<Flavor>) {
                 // Place the evaluations of the round univariate into transcript.
                 transcript->send_to_verifier("Sumcheck:univariate_0", round_univariate);
             } else {
-                // Compute the vector {0, 1, \ldots, BATCHED_RELATION_PARTIAL_LENGTH-1} needed to transform the round
-                // univariates from Lagrange to monomial basis
-                for (size_t idx = 0; idx < BATCHED_RELATION_PARTIAL_LENGTH; idx++) {
-                    eval_domain.push_back(FF(idx));
-                }
 
                 // Compute monomial coefficients of the round univariate, commit to it, populate an auxiliary structure
                 // needed in the PCS round
@@ -337,7 +337,7 @@ template <typename Flavor> class SumcheckProver {
                                                         alpha,
                                                         zk_sumcheck_data,
                                                         row_disabling_polynomial);
-            if constexpr (!IS_ECCVM) {
+            if constexpr (!IsGrumpkinFlavor<Flavor>) {
                 // Place evaluations of Sumcheck Round Univariate in the transcript
                 transcript->send_to_verifier("Sumcheck:univariate_" + std::to_string(round_idx), round_univariate);
             } else {
@@ -360,7 +360,7 @@ template <typename Flavor> class SumcheckProver {
             round.round_size = round.round_size >> 1;
         }
 
-        if constexpr (IS_ECCVM) {
+        if constexpr (IsGrumpkinFlavor<Flavor>) {
             round_evaluations[multivariate_d - 1][2] =
                 round_univariate.evaluate(multivariate_challenge[multivariate_d - 1]);
         }
@@ -369,7 +369,7 @@ template <typename Flavor> class SumcheckProver {
         // Zero univariates are used to pad the proof to the fixed size CONST_PROOF_SIZE_LOG_N.
         auto zero_univariate = bb::Univariate<FF, Flavor::BATCHED_RELATION_PARTIAL_LENGTH>::zero();
         for (size_t idx = multivariate_d; idx < CONST_PROOF_SIZE_LOG_N; idx++) {
-            if constexpr (!IS_ECCVM) {
+            if constexpr (!IsGrumpkinFlavor<Flavor>) {
                 transcript->send_to_verifier("Sumcheck:univariate_" + std::to_string(idx), zero_univariate);
             } else {
                 transcript->send_to_verifier("Sumcheck:univariate_comm_" + std::to_string(idx),
@@ -396,7 +396,7 @@ template <typename Flavor> class SumcheckProver {
 
         // The sum of the Libra constant term and the evaluations of Libra univariates at corresponding sumcheck
         // challenges is included in the Sumcheck Output
-        if constexpr (!IS_ECCVM) {
+        if constexpr (!IsGrumpkinFlavor<Flavor>) {
             return SumcheckOutput<Flavor>{ .challenge = multivariate_challenge,
                                            .claimed_evaluations = multivariate_evaluations,
                                            .claimed_libra_evaluation = libra_evaluation };
@@ -742,7 +742,7 @@ template <typename Flavor> class SumcheckVerifier {
     SumcheckOutput<Flavor> verify(const bb::RelationParameters<FF>& relation_parameters,
                                   RelationSeparator alpha,
                                   const std::vector<FF>& gate_challenges)
-        requires std::is_same_v<Flavor, ECCVMFlavor> || IsECCVMRecursiveFlavor<Flavor>
+        requires IsGrumpkinFlavor<Flavor>
     {
         bool verified(false);
 

@@ -27,6 +27,11 @@ template <typename Curve> struct InstanceWitnessGenerator {
     std::vector<Fr> unshifted_evals;
     std::vector<Fr> shifted_evals;
 
+    // Containers for mock Sumcheck data
+    std::vector<bb::Polynomial<Fr>> round_univariates;
+    std::vector<Commitment> sumcheck_commitments;
+    std::vector<std::array<Fr, 3>> sumcheck_evaluations;
+
     InstanceWitnessGenerator(const size_t n,
                              const size_t num_polynomials,
                              const size_t num_shiftable,
@@ -78,16 +83,15 @@ template <typename Curve> struct InstanceWitnessGenerator {
     }
 
     template <typename Flavor>
-    void compute_sumcheck_opening_data(const size_t log_n,
+    void compute_sumcheck_opening_data(const size_t n,
+                                       const size_t log_n,
                                        const size_t sumcheck_univariate_length,
-                                       std::vector<bb::Polynomial<Fr>>& round_univariates,
-                                       std::vector<Commitment>& sumcheck_commitments,
-                                       std::vector<std::array<Fr, 3>>& sumcheck_evaluations,
                                        std::vector<Fr>& challenge,
                                        std::shared_ptr<CommitmentKey>& ck)
     {
         // Generate valid sumcheck polynomials of given length
         auto mock_sumcheck_polynomials = ZKSumcheckData<Flavor>(log_n, sumcheck_univariate_length);
+
         for (size_t idx = 0; idx < log_n; idx++) {
             bb::Polynomial<Fr> round_univariate = mock_sumcheck_polynomials.libra_univariates[idx];
 
@@ -104,8 +108,8 @@ template <typename Curve> struct InstanceWitnessGenerator {
         }
 
         // Simulate the `const proof size` logic
-        auto round_univariate = bb::Polynomial<Fr>(this->n);
-        for (size_t idx = this->log_n; idx < CONST_PROOF_SIZE_LOG_N; idx++) {
+        auto round_univariate = bb::Polynomial<Fr>(n);
+        for (size_t idx = log_n; idx < CONST_PROOF_SIZE_LOG_N; idx++) {
             round_univariates.push_back(round_univariate);
             sumcheck_commitments.push_back(ck->commit(round_univariate));
             sumcheck_evaluations.push_back({ Fr(0), Fr(0), Fr(0) });
