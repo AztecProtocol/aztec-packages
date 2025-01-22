@@ -12,6 +12,8 @@ export FORCE_COLOR=true
 
 staged_files_cmd="git diff-index --diff-filter=d --relative --cached --name-only HEAD"
 
+[ -z "$(staged_files_cmd)" ] && exit
+
 function lint {
   ls -d ./*/src | xargs dirname | parallel 'cd {} && ../node_modules/.bin/eslint --cache ./src'
 }
