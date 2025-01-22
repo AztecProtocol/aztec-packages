@@ -1,7 +1,5 @@
 [package]
 name = "circuit_2"
 type = "bin"
-authors = [""]
-compiler_version = ">=0.31.0"
 
 [dependencies]
