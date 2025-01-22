@@ -1,7 +1,6 @@
 import { SchnorrAccountContractArtifact } from '@aztec/accounts/schnorr';
-import { L2Block, MerkleTreeId, SimulationError } from '@aztec/circuit-types';
+import { MerkleTreeId, SimulationError } from '@aztec/circuit-types';
 import {
-  BlockHeader,
   Fr,
   FunctionSelector,
   PublicDataTreeLeaf,
@@ -21,6 +20,7 @@ import { enrichPublicSimulationError } from '@aztec/pxe';
 import { type TypedOracle } from '@aztec/simulator/client';
 import { HashedValuesCache } from '@aztec/simulator/server';
 import { NativeWorldStateService } from '@aztec/world-state';
+import { mockBlock } from '@aztec/world-state/test';
 
 import { TXE } from '../oracle/txe_oracle.js';
 import {
@@ -74,17 +74,15 @@ export class TXEService {
 
     for (let i = 0; i < nBlocks; i++) {
       let fork = await trees.fork();
-      const blockNumber = await this.typedOracle.getBlockNumber();
-      const header = BlockHeader.empty();
-      const l2Block = L2Block.empty();
-      header.state = await fork.getStateReference();
-      header.globalVariables.blockNumber = new Fr(blockNumber);
-      await fork.appendLeaves(MerkleTreeId.ARCHIVE, [header.hash()]);
-      l2Block.archive.root = Fr.fromBuffer((await fork.getTreeInfo(MerkleTreeId.ARCHIVE)).root);
-      l2Block.header = header;
-      this.logger.debug(`Block ${blockNumber} created, header hash ${header.hash().toString()}`);
-      await trees.handleL2BlockAndMessages(l2Block, []);
-      (this.typedOracle as TXE).setBlockNumber(blockNumber + 1);
+      try {
+        const blockNumber = await this.typedOracle.getBlockNumber();
+        const { block, messages } = await mockBlock(blockNumber, 2, fork);
+        this.logger.debug(`Block ${blockNumber} created, header hash ${block.header.hash().toString()}`);
+        await trees.handleL2BlockAndMessages(block, messages);
+        (this.typedOracle as TXE).setBlockNumber(blockNumber + 1);
+      } finally {
+        await fork.close();
+      }
     }
     return toForeignCallResult([]);
   }
