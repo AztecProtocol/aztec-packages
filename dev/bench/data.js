@@ -1,74 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1737560190227,
+  "lastUpdate": 1737560420252,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "49558828+AztecBot@users.noreply.github.com",
-            "name": "Aztec Bot",
-            "username": "AztecBot"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "0c6a4bee82c62a522f69756f0d233ec637cd1a7a",
-          "message": "chore: redo typo PR by petryshkaCODE (#10993)\n\nThanks petryshkaCODE for\nhttps://github.com/AztecProtocol/aztec-packages/pull/10982. Our policy\nis to redo typo changes to dissuade metric farming. This is an automated\nscript.",
-          "timestamp": "2025-01-02T15:38:56Z",
-          "tree_id": "0f4a236590bf14aeafdc6fa26dcd5d0831f1d846",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/0c6a4bee82c62a522f69756f0d233ec637cd1a7a"
-        },
-        "date": 1735833763118,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "nativeClientIVCBench/Ambient_17_in_20/6",
-            "value": 20306.493022000013,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 17804.506748 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeClientIVCBench/Full/6",
-            "value": 21891.938364999987,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 19106.475278 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 4667.638124999996,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 4338.460036999999 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmClientIVCBench/Full/6",
-            "value": 72991.96774299999,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 72991968000 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 13953.806374,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 13953807000 ms\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 2893676788,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 2893676788 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 142504165,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 142504165 ns\nthreads: 1"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -3284,6 +3218,72 @@ window.BENCHMARK_DATA = {
             "value": 133538618,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 133538618 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "98505400+ledwards2225@users.noreply.github.com",
+            "name": "ledwards2225",
+            "username": "ledwards2225"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "30a063a65f95403773d13da0d9a896da45d9608d",
+          "message": "chore: minor Gemini refactor to prep for opening k-shifts (#11393)\n\nThe first in a series of Gemini updates that will facilitate the\naddition of k-shifts and hopefully improve the code along the way.\n\nEach method now has a single clear purpose and the storage of\npolynomials is general enough to accommodate opening a new set of\npolynomials. We make a distinction between the partially evaluated batch\npolynomials A₀₊(r), A₀₋(-r), and the d-1 \"fold\" polynomials Aₗ(−r^{2ˡ}),\nl = 1, ..., d-1. The former are constructed via\n`compute_partially_evaluated_batch_polynomials` and the latter through\n`compute_fold_polynomials`. Univariate opening claims for all d+1\npolynomials are constructed through\n`construct_univariate_opening_claims`. This makes each method clearer\nand avoids the need to store \"F\" and \"G\" in the first two slots of the\nold `fold_polynomials`, a trick which no longer works once we have a 3rd\npolynomial type, i.e. F, G and H.",
+          "timestamp": "2025-01-22T08:14:15-07:00",
+          "tree_id": "f58d37e59900136c1888981237ecc5b243c94d84",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/30a063a65f95403773d13da0d9a896da45d9608d"
+        },
+        "date": 1737560413143,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Ambient_17_in_20/6",
+            "value": 19523.162044999994,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 16868.68424 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 21587.687391999963,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 18953.551667 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 4520.827936999978,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 4169.100918000001 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 72265.65905000002,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 72265659000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 13568.763116000002,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 13568764000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 3284759030,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 3284759030 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 150311423,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 150311423 ns\nthreads: 1"
           }
         ]
       }
