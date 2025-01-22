@@ -284,6 +284,7 @@ TYPED_TEST(ShpleminiTest, ShpleminiZKNoSumcheckOpenings)
     using Fr = typename Curve::ScalarField;
     using Commitment = typename Curve::AffineElement;
     using CK = typename TypeParam::CommitmentKey;
+    using PolynomialBatches = GeminiProver_<Curve>::PolynomialBatches;
 
     // Initialize transcript and commitment key
     auto prover_transcript = TypeParam::Transcript::prover_init_empty();
@@ -315,10 +316,16 @@ TYPED_TEST(ShpleminiTest, ShpleminiZKNoSumcheckOpenings)
     SmallSubgroupIPAProver<TypeParam> small_subgroup_ipa_prover(
         zk_sumcheck_data, const_size_mle_opening_point, claimed_inner_product, prover_transcript, ck);
 
+    RefVector<Polynomial<Fr>> f_polynomials(pcs_instance_witness.unshifted_polynomials);
+    RefVector<Polynomial<Fr>> g_polynomials(pcs_instance_witness.to_be_shifted_polynomials);
+
+    PolynomialBatches polynomial_batches(this->n);
+    polynomial_batches.set_unshifted(f_polynomials);
+    polynomial_batches.set_to_be_1_shifted(g_polynomials);
+
     // Reduce to KZG or IPA based on the curve used in the test Flavor
     const auto opening_claim = ShpleminiProver::prove(this->n,
-                                                      RefVector(pcs_instance_witness.unshifted_polynomials),
-                                                      RefVector(pcs_instance_witness.to_be_shifted_polynomials),
+                                                      polynomial_batches,
                                                       const_size_mle_opening_point,
                                                       ck,
                                                       prover_transcript,
@@ -399,6 +406,7 @@ TYPED_TEST(ShpleminiTest, ShpleminiZKWithSumcheckOpenings)
 
     using ShpleminiProver = ShpleminiProver_<Curve>;
     using ShpleminiVerifier = ShpleminiVerifier_<Curve>;
+    using PolynomialBatches = GeminiProver_<Curve>::PolynomialBatches;
 
     std::shared_ptr<CK> ck = create_commitment_key<CK>(4096);
 
@@ -427,10 +435,16 @@ TYPED_TEST(ShpleminiTest, ShpleminiZKWithSumcheckOpenings)
     SmallSubgroupIPAProver<TypeParam> small_subgroup_ipa_prover(
         zk_sumcheck_data, challenge, claimed_inner_product, prover_transcript, ck);
 
+    RefVector<Polynomial<Fr>> f_polynomials(pcs_instance_witness.unshifted_polynomials);
+    RefVector<Polynomial<Fr>> g_polynomials(pcs_instance_witness.to_be_shifted_polynomials);
+
+    PolynomialBatches polynomial_batches(this->n);
+    polynomial_batches.set_unshifted(f_polynomials);
+    polynomial_batches.set_to_be_1_shifted(g_polynomials);
+
     // Reduce proving to a single claimed fed to KZG or IPA
     const auto opening_claim = ShpleminiProver::prove(this->n,
-                                                      RefVector(pcs_instance_witness.unshifted_polynomials),
-                                                      RefVector(pcs_instance_witness.to_be_shifted_polynomials),
+                                                      polynomial_batches,
                                                       challenge,
                                                       ck,
                                                       prover_transcript,

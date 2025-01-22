@@ -40,6 +40,7 @@ TEST(ShpleminiRecursionTest, ProveAndVerifySingle)
     using NativeFr = typename Curve::NativeCurve::ScalarField;
     using Polynomial = bb::Polynomial<NativeFr>;
     using Transcript = bb::BaseTranscript<bb::stdlib::recursion::honk::StdlibTranscriptParams<Builder>>;
+    using PolynomialBatches = GeminiProver_<NativeCurve>::PolynomialBatches;
 
     srs::init_crs_factory(bb::srs::get_ignition_crs_path());
     auto run_shplemini = [](size_t log_circuit_size) {
@@ -82,10 +83,17 @@ TEST(ShpleminiRecursionTest, ProveAndVerifySingle)
             g_commitments.emplace_back(f_commitments[i]);
         }
 
+        RefVector<Polynomial> unshifted_polynomials(f_polynomials);
+        RefVector<Polynomial> to_be_shifted_polynomials(g_polynomials);
+
+        PolynomialBatches polynomial_batches(N);
+        polynomial_batches.set_unshifted(unshifted_polynomials);
+        polynomial_batches.set_to_be_1_shifted(to_be_shifted_polynomials);
+
         // Initialize an empty NativeTranscript
         auto prover_transcript = NativeTranscript::prover_init_empty();
-        auto prover_opening_claims = ShpleminiProver::prove(
-            N, RefVector(f_polynomials), RefVector(g_polynomials), u_challenge, commitment_key, prover_transcript);
+        auto prover_opening_claims =
+            ShpleminiProver::prove(N, polynomial_batches, u_challenge, commitment_key, prover_transcript);
         KZG<NativeCurve>::compute_opening_proof(commitment_key, prover_opening_claims, prover_transcript);
         Builder builder;
         StdlibProof<Builder> stdlib_proof = bb::convert_native_proof_to_stdlib(&builder, prover_transcript->proof_data);

@@ -121,6 +121,7 @@ void ECCVMProver::execute_pcs_rounds()
     using Shplemini = ShpleminiProver_<Curve>;
     using Shplonk = ShplonkProver_<Curve>;
     using OpeningClaim = ProverOpeningClaim<Curve>;
+    using PolynomialBatches = GeminiProver_<Curve>::PolynomialBatches;
 
     SmallSubgroupIPA small_subgroup_ipa_prover(zk_sumcheck_data,
                                                sumcheck_output.challenge,
@@ -129,10 +130,13 @@ void ECCVMProver::execute_pcs_rounds()
                                                key->commitment_key);
     // Execute the Shplemini (Gemini + Shplonk) protocol to produce a univariate opening claim for the multilinear
     // evaluations produced by Sumcheck
+    PolynomialBatches polynomial_batches(key->circuit_size);
+    polynomial_batches.set_unshifted(key->polynomials.get_unshifted());
+    polynomial_batches.set_to_be_1_shifted(key->polynomials.get_to_be_shifted());
+
     const OpeningClaim multivariate_to_univariate_opening_claim =
         Shplemini::prove(key->circuit_size,
-                         key->polynomials.get_unshifted(),
-                         key->polynomials.get_to_be_shifted(),
+                         polynomial_batches,
                          sumcheck_output.challenge,
                          key->commitment_key,
                          transcript,

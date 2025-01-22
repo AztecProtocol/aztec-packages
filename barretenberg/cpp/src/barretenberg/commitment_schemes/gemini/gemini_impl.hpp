@@ -43,8 +43,7 @@ template <typename Curve>
 template <typename Transcript>
 std::vector<typename GeminiProver_<Curve>::Claim> GeminiProver_<Curve>::prove(
     Fr circuit_size,
-    RefSpan<Polynomial> f_polynomials, // unshifted
-    RefSpan<Polynomial> g_polynomials, // to-be-shifted
+    PolynomialBatches& polynomial_batches,
     std::span<Fr> multilinear_challenge,
     const std::shared_ptr<CommitmentKey<Curve>>& commitment_key,
     const std::shared_ptr<Transcript>& transcript,
@@ -56,10 +55,6 @@ std::vector<typename GeminiProver_<Curve>::Claim> GeminiProver_<Curve>::prove(
     const size_t n = 1 << log_n;
 
     const bool has_concatenations = concatenated_polynomials.size() > 0;
-
-    PolynomialBatches polynomial_batches(n);
-    polynomial_batches.set_unshifted(f_polynomials);
-    polynomial_batches.set_to_be_1_shifted(g_polynomials);
 
     // To achieve ZK, we mask the batched polynomial by a random polynomial of the same size
     if (has_zk) {

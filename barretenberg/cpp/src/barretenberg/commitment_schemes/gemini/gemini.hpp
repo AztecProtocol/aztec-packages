@@ -202,8 +202,7 @@ template <typename Curve> class GeminiProver_ {
 
     template <typename Transcript>
     static std::vector<Claim> prove(const Fr circuit_size,
-                                    RefSpan<Polynomial> f_polynomials,
-                                    RefSpan<Polynomial> g_polynomials,
+                                    PolynomialBatches& polynomial_batches,
                                     std::span<Fr> multilinear_challenge,
                                     const std::shared_ptr<CommitmentKey<Curve>>& commitment_key,
                                     const std::shared_ptr<Transcript>& transcript,

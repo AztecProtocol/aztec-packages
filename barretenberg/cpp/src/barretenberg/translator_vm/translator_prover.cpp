@@ -135,10 +135,9 @@ void TranslatorProver::execute_relation_check_rounds()
 void TranslatorProver::execute_pcs_rounds()
 {
     using Curve = typename Flavor::Curve;
-
     using OpeningClaim = ProverOpeningClaim<Curve>;
-
     using SmallSubgroupIPA = SmallSubgroupIPAProver<Flavor>;
+    using PolynomialBatches = GeminiProver_<Curve>::PolynomialBatches;
 
     SmallSubgroupIPA small_subgroup_ipa_prover(zk_sumcheck_data,
                                                sumcheck_output.challenge,
@@ -146,10 +145,13 @@ void TranslatorProver::execute_pcs_rounds()
                                                transcript,
                                                key->proving_key->commitment_key);
 
+    PolynomialBatches polynomial_batches(key->proving_key->circuit_size);
+    polynomial_batches.set_unshifted(key->proving_key->polynomials.get_unshifted_without_concatenated());
+    polynomial_batches.set_to_be_1_shifted(key->proving_key->polynomials.get_to_be_shifted());
+
     const OpeningClaim prover_opening_claim =
         ShpleminiProver_<Curve>::prove(key->proving_key->circuit_size,
-                                       key->proving_key->polynomials.get_unshifted_without_concatenated(),
-                                       key->proving_key->polynomials.get_to_be_shifted(),
+                                       polynomial_batches,
                                        sumcheck_output.challenge,
                                        key->proving_key->commitment_key,
                                        transcript,
