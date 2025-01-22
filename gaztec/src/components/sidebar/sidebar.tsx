@@ -220,7 +220,7 @@ export function SidebarComponent() {
     }
     const accountAddress = AztecAddress.fromString(event.target.value);
     const accountData = await walletDB.retrieveAccount(accountAddress);
-    const account = getSchnorrAccount(
+    const account = await getSchnorrAccount(
       pxe,
       accountData.secretKey,
       deriveSigningKey(accountData.secretKey),

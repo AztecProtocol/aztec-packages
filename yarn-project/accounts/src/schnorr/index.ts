@@ -27,8 +27,8 @@ export function getSchnorrAccount(
   secretKey: Fr,
   signingPrivateKey: GrumpkinScalar,
   salt?: Salt,
-): AccountManager {
-  return new AccountManager(pxe, secretKey, new SchnorrAccountContract(signingPrivateKey), salt);
+): Promise<AccountManager> {
+  return AccountManager.create(pxe, secretKey, new SchnorrAccountContract(signingPrivateKey), salt);
 }
 
 /**
