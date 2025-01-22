@@ -5,26 +5,18 @@ use crate::{
     encrypted_logs::{
         encrypt::aes128::derive_aes_symmetric_key_and_iv_from_ecdh_shared_secret_using_sha256,
         log_assembly_strategies::default_aes128::note::{
-            get_arr_of_size_log_bytes_from_PT,
-            get_arr_of_size_p_from_PT, HEADER_CIPHERTEXT_SIZE_IN_BYTES,
+            get_arr_of_size_log_bytes_from_PT, get_arr_of_size_p_from_PT,
+            HEADER_CIPHERTEXT_SIZE_IN_BYTES,
         },
     },
     keys::{
         ecdh_shared_secret::derive_ecdh_shared_secret_using_aztec_address,
         ephemeral::generate_ephemeral_key_pair,
     },
-    oracle::{
-        notes::{get_app_tag_as_sender, increment_app_tagging_secret_index_as_sender},
-    },
-    utils::{
-        bytes::{be_bytes_31_to_fields, get_random_bytes},
-        point::{get_sign_of_point},
-    },
+    oracle::notes::{get_app_tag_as_sender, increment_app_tagging_secret_index_as_sender},
+    utils::{bytes::{be_bytes_31_to_fields, get_random_bytes}, point::get_sign_of_point},
 };
-use dep::protocol_types::{
-    address::{aztec_address::ToField, AztecAddress},
-    hash::poseidon2_hash,
-};
+use dep::protocol_types::{address::{aztec_address::ToField, AztecAddress}, hash::poseidon2_hash};
 use std::aes128::aes128_encrypt;
 
 pub fn compute_partial_public_log_payload<let N: u32, let M: u32>(

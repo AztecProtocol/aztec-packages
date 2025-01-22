@@ -16,14 +16,9 @@ use crate::{
         notes::{get_app_tag_as_sender, increment_app_tagging_secret_index_as_sender},
         random::random,
     },
-    utils::{
-        bytes::{be_bytes_31_to_fields, get_random_bytes},
-        point::{get_sign_of_point},
-    },
+    utils::{bytes::{be_bytes_31_to_fields, get_random_bytes}, point::get_sign_of_point},
 };
-use dep::protocol_types::{
-    address::AztecAddress, constants::PRIVATE_LOG_SIZE_IN_FIELDS,
-};
+use dep::protocol_types::{address::AztecAddress, constants::PRIVATE_LOG_SIZE_IN_FIELDS};
 use std::aes128::aes128_encrypt;
 
 /*
