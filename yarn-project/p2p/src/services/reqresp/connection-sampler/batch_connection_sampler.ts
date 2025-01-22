@@ -65,7 +65,7 @@ export class BatchConnectionSampler {
       return;
     }
 
-    const excluding = new Map([[peerId, true]]);
+    const excluding = new Map([[peerId.toString(), true]]);
     const newPeer = this.connectionSampler.getPeer(excluding);
 
     if (newPeer) {
