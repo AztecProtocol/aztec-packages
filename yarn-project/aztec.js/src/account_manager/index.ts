@@ -30,6 +30,9 @@ export class AccountManager {
     private secretKey: Fr,
     private accountContract: AccountContract,
     private instance: ContractInstanceWithAddress,
+    /**
+     * Deployment salt for the account contract
+     */
     public readonly salt: Salt,
   ) {}
 

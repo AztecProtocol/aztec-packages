@@ -12,7 +12,7 @@ import { deriveAESSecret } from './shared_secret_derivation.js';
  * @param deriveSecret - Function to derive the AES secret from the ephemeral secret key and public key
  * @returns The ciphertext
  */
-export async function encrypt(
+export function encrypt(
   plaintext: Buffer,
   secret: GrumpkinScalar,
   publicKey: PublicKey,
@@ -34,7 +34,7 @@ export async function encrypt(
  * @param deriveSecret - Function to derive the AES secret from the ephemeral secret key and public key
  * @returns
  */
-export async function decrypt(
+export function decrypt(
   ciphertext: Buffer,
   secret: GrumpkinScalar,
   publicKey: PublicKey,

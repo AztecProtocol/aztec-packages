@@ -1,6 +1,6 @@
 import { BarretenbergLazy } from '@aztec/bb.js';
 import { type GrumpkinScalar, Point } from '@aztec/foundation/fields';
-import { numToInt32BE, numToUInt32BE } from '@aztec/foundation/serialize';
+import { numToInt32BE } from '@aztec/foundation/serialize';
 
 import { type PublicKey } from '../../../types/public_key.js';
 import { concatenateUint8Arrays } from '../../serialize.js';
