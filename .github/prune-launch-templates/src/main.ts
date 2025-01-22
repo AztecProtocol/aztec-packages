@@ -80,7 +80,7 @@ async function pruneOldInstances(config: ActionConfig) {
       }
     }
   } catch (error) {
-    core.error("Error pruning instances:", error);
+    core.error(`Error pruning instances: ${error}`);
   }
 }
 
