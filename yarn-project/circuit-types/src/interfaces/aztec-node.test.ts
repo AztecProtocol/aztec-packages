@@ -27,14 +27,18 @@ import { loadContractArtifact } from '@aztec/types/abi';
 
 import { readFileSync } from 'fs';
 import omit from 'lodash.omit';
-import times from 'lodash.times';
 import { resolve } from 'path';
 
 import { type InBlock, randomInBlock } from '../in_block.js';
 import { L2Block } from '../l2_block.js';
 import { type L2Tips } from '../l2_block_source.js';
+import { ExtendedPublicLog } from '../logs/extended_public_log.js';
 import { ExtendedUnencryptedL2Log } from '../logs/extended_unencrypted_l2_log.js';
-import { type GetUnencryptedLogsResponse, TxScopedL2Log } from '../logs/get_logs_response.js';
+import {
+  type GetContractClassLogsResponse,
+  type GetPublicLogsResponse,
+  TxScopedL2Log,
+} from '../logs/get_logs_response.js';
 import { type LogFilter } from '../logs/log_filter.js';
 import { MerkleTreeId } from '../merkle_tree_id.js';
 import { EpochProofQuote } from '../prover_coordination/epoch_proof_quote.js';
@@ -225,7 +229,7 @@ describe('AztecNodeApiSchema', () => {
   });
 
   it('registerContractFunctionSignatures', async () => {
-    await context.client.registerContractFunctionSignatures(AztecAddress.random(), ['test()']);
+    await context.client.registerContractFunctionSignatures(await AztecAddress.random(), ['test()']);
   });
 
   it('getPrivateLogs', async () => {
@@ -233,13 +237,13 @@ describe('AztecNodeApiSchema', () => {
     expect(response).toEqual([expect.any(PrivateLog)]);
   });
 
-  it('getUnencryptedLogs', async () => {
-    const response = await context.client.getUnencryptedLogs({ contractAddress: AztecAddress.random() });
-    expect(response).toEqual({ logs: [expect.any(ExtendedUnencryptedL2Log)], maxLogsHit: true });
+  it('getPublicLogs', async () => {
+    const response = await context.client.getPublicLogs({ contractAddress: await AztecAddress.random() });
+    expect(response).toEqual({ logs: [expect.any(ExtendedPublicLog)], maxLogsHit: true });
   });
 
   it('getContractClassLogs', async () => {
-    const response = await context.client.getContractClassLogs({ contractAddress: AztecAddress.random() });
+    const response = await context.client.getContractClassLogs({ contractAddress: await AztecAddress.random() });
     expect(response).toEqual({ logs: [expect.any(ExtendedUnencryptedL2Log)], maxLogsHit: true });
   });
 
@@ -249,7 +253,7 @@ describe('AztecNodeApiSchema', () => {
   });
 
   it('sendTx', async () => {
-    await context.client.sendTx(Tx.random());
+    await context.client.sendTx(await Tx.random());
   });
 
   it('getTxReceipt', async () => {
@@ -278,7 +282,7 @@ describe('AztecNodeApiSchema', () => {
   });
 
   it('getPublicStorageAt', async () => {
-    const response = await context.client.getPublicStorageAt(AztecAddress.random(), Fr.random(), 1);
+    const response = await context.client.getPublicStorageAt(await AztecAddress.random(), Fr.random(), 1);
     expect(response).toBeInstanceOf(Fr);
   });
 
@@ -288,17 +292,17 @@ describe('AztecNodeApiSchema', () => {
   });
 
   it('simulatePublicCalls', async () => {
-    const response = await context.client.simulatePublicCalls(Tx.random());
+    const response = await context.client.simulatePublicCalls(await Tx.random());
     expect(response).toBeInstanceOf(PublicSimulationOutput);
   });
 
   it('isValidTx(valid)', async () => {
-    const response = await context.client.isValidTx(Tx.random(), true);
+    const response = await context.client.isValidTx(await Tx.random(), true);
     expect(response).toEqual({ result: 'valid' });
   });
 
   it('isValidTx(invalid)', async () => {
-    const response = await context.client.isValidTx(Tx.random());
+    const response = await context.client.isValidTx(await Tx.random());
     expect(response).toEqual({ result: 'invalid', reason: ['Invalid'] });
   });
 
@@ -317,7 +321,7 @@ describe('AztecNodeApiSchema', () => {
   });
 
   it('getContract', async () => {
-    const response = await context.client.getContract(AztecAddress.random());
+    const response = await context.client.getContract(await AztecAddress.random());
     expect(response).toEqual({
       address: expect.any(AztecAddress),
       contractClassId: expect.any(Fr),
@@ -470,8 +474,11 @@ class MockAztecNode implements AztecNode {
   isReady(): Promise<boolean> {
     return Promise.resolve(true);
   }
-  getNodeInfo(): Promise<NodeInfo> {
-    return Promise.resolve({
+  async getNodeInfo(): Promise<NodeInfo> {
+    const protocolContracts = await Promise.all(
+      ProtocolContractsNames.map(async name => [name, await AztecAddress.random()]),
+    );
+    return {
       nodeVersion: '1.0',
       l1ChainId: 1,
       protocolVersion: 1,
@@ -479,13 +486,15 @@ class MockAztecNode implements AztecNode {
       l1ContractAddresses: Object.fromEntries(
         L1ContractsNames.map(name => [name, EthAddress.random()]),
       ) as L1ContractAddresses,
-      protocolContractAddresses: Object.fromEntries(
-        ProtocolContractsNames.map(name => [name, AztecAddress.random()]),
-      ) as ProtocolContractAddresses,
-    });
+      protocolContractAddresses: Object.fromEntries(protocolContracts) as ProtocolContractAddresses,
+    };
   }
   getBlocks(from: number, limit: number): Promise<L2Block[]> {
-    return Promise.resolve(times(limit, i => L2Block.random(from + i)));
+    return Promise.all(
+      Array(limit)
+        .fill(0)
+        .map(i => L2Block.random(from + i)),
+    );
   }
   getNodeVersion(): Promise<string> {
     return Promise.resolve('1.0.0');
@@ -503,12 +512,11 @@ class MockAztecNode implements AztecNode {
     );
   }
   @memoize
-  getProtocolContractAddresses(): Promise<ProtocolContractAddresses> {
-    return Promise.resolve(
-      Object.fromEntries(
-        ProtocolContractsNames.map(name => [name, AztecAddress.random()]),
-      ) as ProtocolContractAddresses,
+  async getProtocolContractAddresses(): Promise<ProtocolContractAddresses> {
+    const protocolContracts = await Promise.all(
+      ProtocolContractsNames.map(async name => [name, await AztecAddress.random()]),
     );
+    return Object.fromEntries(protocolContracts) as ProtocolContractAddresses;
   }
   registerContractFunctionSignatures(_address: AztecAddress, _signatures: string[]): Promise<void> {
     return Promise.resolve();
@@ -516,13 +524,13 @@ class MockAztecNode implements AztecNode {
   getPrivateLogs(_from: number, _limit: number): Promise<PrivateLog[]> {
     return Promise.resolve([PrivateLog.random()]);
   }
-  getUnencryptedLogs(filter: LogFilter): Promise<GetUnencryptedLogsResponse> {
+  async getPublicLogs(filter: LogFilter): Promise<GetPublicLogsResponse> {
     expect(filter.contractAddress).toBeInstanceOf(AztecAddress);
-    return Promise.resolve({ logs: [ExtendedUnencryptedL2Log.random()], maxLogsHit: true });
+    return { logs: [await ExtendedPublicLog.random()], maxLogsHit: true };
   }
-  getContractClassLogs(filter: LogFilter): Promise<GetUnencryptedLogsResponse> {
+  async getContractClassLogs(filter: LogFilter): Promise<GetContractClassLogsResponse> {
     expect(filter.contractAddress).toBeInstanceOf(AztecAddress);
-    return Promise.resolve({ logs: [ExtendedUnencryptedL2Log.random()], maxLogsHit: true });
+    return { logs: [await ExtendedUnencryptedL2Log.random()], maxLogsHit: true };
   }
   getLogsByTags(tags: Fr[]): Promise<TxScopedL2Log[][]> {
     expect(tags).toHaveLength(1);
@@ -537,12 +545,12 @@ class MockAztecNode implements AztecNode {
     expect(txHash).toBeInstanceOf(TxHash);
     return Promise.resolve(TxReceipt.empty());
   }
-  getTxEffect(txHash: TxHash): Promise<InBlock<TxEffect> | undefined> {
+  async getTxEffect(txHash: TxHash): Promise<InBlock<TxEffect> | undefined> {
     expect(txHash).toBeInstanceOf(TxHash);
-    return Promise.resolve({ l2BlockNumber: 1, l2BlockHash: '0x12', data: TxEffect.random() });
+    return { l2BlockNumber: 1, l2BlockHash: '0x12', data: await TxEffect.random() };
   }
-  getPendingTxs(): Promise<Tx[]> {
-    return Promise.resolve([Tx.random()]);
+  async getPendingTxs(): Promise<Tx[]> {
+    return [await Tx.random()];
   }
   getPendingTxCount(): Promise<number> {
     return Promise.resolve(1);
@@ -576,18 +584,18 @@ class MockAztecNode implements AztecNode {
     const contractClass = getContractClassFromArtifact(this.artifact);
     return Promise.resolve({ ...contractClass, unconstrainedFunctions: [], privateFunctions: [] });
   }
-  getContract(address: AztecAddress): Promise<ContractInstanceWithAddress | undefined> {
+  async getContract(address: AztecAddress): Promise<ContractInstanceWithAddress | undefined> {
     expect(address).toBeInstanceOf(AztecAddress);
     const instance = {
       version: 1 as const,
       contractClassId: Fr.random(),
-      deployer: AztecAddress.random(),
+      deployer: await AztecAddress.random(),
       initializationHash: Fr.random(),
-      publicKeys: PublicKeys.random(),
+      publicKeys: await PublicKeys.random(),
       salt: Fr.random(),
-      address: AztecAddress.random(),
+      address: await AztecAddress.random(),
     };
-    return Promise.resolve(instance);
+    return instance;
   }
   flushTxs(): Promise<void> {
     return Promise.resolve();

@@ -1,4 +1,6 @@
-import { PeerErrorSeverity, TxHash, mockTx } from '@aztec/circuit-types';
+import { L2Block, type L2BlockSource, PeerErrorSeverity, TxHash, mockTx } from '@aztec/circuit-types';
+import { Fr } from '@aztec/foundation/fields';
+import { createLogger } from '@aztec/foundation/log';
 import { sleep } from '@aztec/foundation/sleep';
 
 import { describe, expect, it, jest } from '@jest/globals';
@@ -18,6 +20,7 @@ import {
 import { type PeerManager } from '../peer-manager/peer_manager.js';
 import { type PeerScoring } from '../peer-manager/peer_scoring.js';
 import { ReqRespSubProtocol, RequestableBuffer } from './interface.js';
+import { reqRespBlockHandler } from './protocols/block.js';
 import { GoodByeReason, reqGoodbyeHandler } from './protocols/goodbye.js';
 
 const PING_REQUEST = RequestableBuffer.fromBuffer(Buffer.from('ping'));
@@ -28,6 +31,7 @@ describe('ReqResp', () => {
   let peerManager: MockProxy<PeerManager>;
   let peerScoring: MockProxy<PeerScoring>;
   let nodes: ReqRespNode[];
+  const logger = createLogger('test:reqresp.test.ts');
 
   beforeEach(() => {
     peerScoring = mock<PeerScoring>();
@@ -36,7 +40,7 @@ describe('ReqResp', () => {
 
   afterEach(async () => {
     if (nodes) {
-      await stopNodes(nodes as ReqRespNode[]);
+      await stopNodes(nodes);
     }
   });
 
@@ -70,12 +74,14 @@ describe('ReqResp', () => {
     await connectToPeers(nodes);
     await sleep(500);
 
-    void ponger.stop();
+    const stopPonger = ponger.stop();
 
     // It should return undefined if it cannot dial the peer
     const res = await pinger.sendRequest(ReqRespSubProtocol.PING, PING_REQUEST);
 
     expect(res).toBeUndefined();
+
+    await stopPonger;
   });
 
   it('should request from a later peer if other peers are offline', async () => {
@@ -87,8 +93,8 @@ describe('ReqResp', () => {
     await sleep(500);
 
     // Stop the second middle two nodes
-    void nodes[1].req.stop();
-    void nodes[2].req.stop();
+    const stopNode1 = nodes[1].req.stop();
+    const stopNode2 = nodes[2].req.stop();
 
     // send from the first node
     let res = await nodes[0].req.sendRequest(ReqRespSubProtocol.PING, PING_REQUEST);
@@ -96,12 +102,15 @@ describe('ReqResp', () => {
     if (!res) {
       // The peer chosen is randomly selected, and the node above wont respond, so if
       // we wait and try again, there will only be one node to chose from
+      logger.debug('\n\n\n\n\nNo response from node, retrying\n\n\n\n\n');
       await sleep(500);
       res = await nodes[0].req.sendRequest(ReqRespSubProtocol.PING, PING_REQUEST);
     }
 
     // It will randomly try to connect, then hit the correct node
     expect(res?.toBuffer().toString('utf-8')).toEqual('pong');
+
+    await Promise.all([stopNode1, stopNode2]);
   });
 
   it('should hit a rate limit if too many requests are made in quick succession', async () => {
@@ -335,6 +344,88 @@ describe('ReqResp', () => {
 
       // Expect the response to be a buffer of length 1
       expect(response).toEqual(Buffer.from([0x0]));
+    });
+  });
+
+  describe('Block protocol', () => {
+    it('should handle block requests', async () => {
+      const blockNumber = 1;
+      const blockNumberFr = Fr.ONE;
+      const block = await L2Block.random(blockNumber);
+
+      const l2BlockSource: MockProxy<L2BlockSource> = mock<L2BlockSource>();
+      l2BlockSource.getBlock.mockImplementation((_blockNumber: number) => {
+        return Promise.resolve(block);
+      });
+
+      const protocolHandlers = MOCK_SUB_PROTOCOL_HANDLERS;
+      protocolHandlers[ReqRespSubProtocol.BLOCK] = reqRespBlockHandler(l2BlockSource);
+
+      nodes = await createNodes(peerScoring, 2);
+
+      await startNodes(nodes, protocolHandlers);
+      await sleep(500);
+      await connectToPeers(nodes);
+      await sleep(500);
+
+      const res = await nodes[0].req.sendRequest(ReqRespSubProtocol.BLOCK, blockNumberFr);
+      expect(res).toEqual(block);
+    });
+  });
+
+  describe('Batch requests', () => {
+    it('should send a batch request between many peers', async () => {
+      const batchSize = 9;
+      nodes = await createNodes(peerScoring, 3);
+
+      await startNodes(nodes);
+      await sleep(500);
+      await connectToPeers(nodes);
+      await sleep(500);
+
+      const sendRequestToPeerSpy = jest.spyOn(nodes[0].req, 'sendRequestToPeer');
+
+      const requests = Array.from({ length: batchSize }, _ => RequestableBuffer.fromBuffer(Buffer.from(`ping`)));
+      const expectResponses = Array.from({ length: batchSize }, _ => RequestableBuffer.fromBuffer(Buffer.from(`pong`)));
+
+      const res = await nodes[0].req.sendBatchRequest(ReqRespSubProtocol.PING, requests);
+      expect(res).toEqual(expectResponses);
+
+      // Expect one request to have been sent to each peer
+      expect(sendRequestToPeerSpy).toHaveBeenCalledTimes(batchSize);
+      expect(sendRequestToPeerSpy).toHaveBeenCalledWith(
+        expect.objectContaining({
+          publicKey: nodes[1].p2p.peerId.publicKey,
+        }),
+        ReqRespSubProtocol.PING,
+        Buffer.from('ping'),
+      );
+      expect(sendRequestToPeerSpy).toHaveBeenCalledWith(
+        expect.objectContaining({
+          publicKey: nodes[2].p2p.peerId.publicKey,
+        }),
+        ReqRespSubProtocol.PING,
+        Buffer.from('ping'),
+      );
+    });
+
+    it('should stop after max retry attempts', async () => {
+      const batchSize = 12;
+      nodes = await createNodes(peerScoring, 3);
+
+      await startNodes(nodes);
+      await sleep(500);
+      await connectToPeers(nodes);
+      await sleep(500);
+
+      const requests = Array.from({ length: batchSize }, _ => RequestableBuffer.fromBuffer(Buffer.from(`ping`)));
+      // We will fail two of the responses - due to hitting the ping rate limit on the responding nodes
+      const expectResponses = Array.from({ length: batchSize - 2 }, _ =>
+        RequestableBuffer.fromBuffer(Buffer.from(`pong`)),
+      );
+
+      const res = await nodes[0].req.sendBatchRequest(ReqRespSubProtocol.PING, requests);
+      expect(res).toEqual(expectResponses);
     });
   });
 });

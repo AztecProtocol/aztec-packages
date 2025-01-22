@@ -23,7 +23,7 @@ contract FeeJuice {
     // Not flagged as initializer to reduce cost of checking init nullifier in all functions.
     // This function should be called as entrypoint to initialize the contract by minting itself funds.
     #[private]
-    fn initialize(portal_address: EthAddress, initial_mint: Field) {
+    fn initialize(portal_address: EthAddress, initial_mint: U128) {
         // Validate contract class parameters are correct
         let self = context.this_address();
 
@@ -46,7 +46,7 @@ contract FeeJuice {
     }
 
     #[private]
-    fn claim(to: AztecAddress, amount: Field, secret: Field, message_leaf_index: Field) {
+    fn claim(to: AztecAddress, amount: U128, secret: Field, message_leaf_index: Field) {
         let content_hash = get_bridge_gas_msg_hash(to, amount);
         let portal_address = storage.portal_address.read();
         assert(!portal_address.is_zero());
@@ -63,22 +63,21 @@ contract FeeJuice {
 
     #[public]
     #[internal]
-    fn _increase_public_balance(to: AztecAddress, amount: Field) {
-        let new_balance = storage.balances.at(to).read().add(U128::from_integer(amount));
+    fn _increase_public_balance(to: AztecAddress, amount: U128) {
+        let new_balance = storage.balances.at(to).read().add(amount);
         storage.balances.at(to).write(new_balance);
     }
 
     #[public]
     #[view]
-    fn check_balance(fee_limit: Field) {
-        let fee_limit = U128::from_integer(fee_limit);
+    fn check_balance(fee_limit: U128) {
         assert(storage.balances.at(context.msg_sender()).read() >= fee_limit, "Balance too low");
     }
 
     // utility function for testing
     #[public]
     #[view]
-    fn balance_of_public(owner: AztecAddress) -> pub Field {
-        storage.balances.at(owner).read().to_field()
+    fn balance_of_public(owner: AztecAddress) -> pub U128 {
+        storage.balances.at(owner).read()
     }
 }

@@ -86,7 +86,7 @@ describe('sequencer', () => {
   const chainId = new Fr(12345);
   const version = Fr.ZERO;
   const coinbase = EthAddress.random();
-  const feeRecipient = AztecAddress.random();
+  let feeRecipient: AztecAddress;
   const gasFees = GasFees.empty();
 
   const archive = Fr.random();
@@ -138,7 +138,8 @@ describe('sequencer', () => {
     });
   };
 
-  beforeEach(() => {
+  beforeEach(async () => {
+    feeRecipient = await AztecAddress.random();
     initialBlockHeader = BlockHeader.empty();
     lastBlockNumber = 0;
     newBlockNumber = lastBlockNumber + 1;

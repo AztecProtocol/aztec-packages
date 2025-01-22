@@ -25,7 +25,7 @@ import { randomBigInt, randomBytes, randomInt } from '@aztec/foundation/crypto';
 import { Signature } from '@aztec/foundation/eth-signature';
 import { Fr } from '@aztec/foundation/fields';
 
-import { ContractClassTxL2Logs, Note, UnencryptedTxL2Logs } from './logs/index.js';
+import { ContractClassTxL2Logs, Note } from './logs/index.js';
 import { ExtendedNote, UniqueNote } from './notes/index.js';
 import {
   CountedPublicExecutionRequest,
@@ -151,7 +151,6 @@ export const mockTx = (
   const tx = new Tx(
     data,
     ClientIvcProof.empty(),
-    UnencryptedTxL2Logs.empty(),
     ContractClassTxL2Logs.empty(),
     enqueuedPublicFunctionCalls,
     publicTeardownFunctionCall,
@@ -163,13 +162,13 @@ export const mockTx = (
 export const mockTxForRollup = (seed = 1) =>
   mockTx(seed, { numberOfNonRevertiblePublicCallRequests: 0, numberOfRevertiblePublicCallRequests: 0 });
 
-export const mockSimulatedTx = (seed = 1) => {
+export const mockSimulatedTx = async (seed = 1) => {
   const privateExecutionResult = mockPrivateExecutionResult(seed);
   const tx = mockTx(seed);
   const output = new PublicSimulationOutput(
     undefined,
     makeCombinedConstantData(),
-    TxEffect.random(),
+    await TxEffect.random(),
     [accumulatePrivateReturnValues(privateExecutionResult)],
     {
       totalGas: makeGas(),
@@ -210,39 +209,54 @@ export const randomContractArtifact = (): ContractArtifact => ({
   notes: {},
 });
 
-export const randomContractInstanceWithAddress = (
+export const randomContractInstanceWithAddress = async (
   opts: { contractClassId?: Fr } = {},
   address?: AztecAddress,
-): ContractInstanceWithAddress => {
-  const instance = SerializableContractInstance.random(opts);
+): Promise<ContractInstanceWithAddress> => {
+  const instance = await SerializableContractInstance.random(opts);
   return instance.withAddress(address ?? computeContractAddressFromInstance(instance));
 };
 
-export const randomDeployedContract = () => {
+export const randomDeployedContract = async () => {
   const artifact = randomContractArtifact();
   const contractClassId = computeContractClassId(getContractClassFromArtifact(artifact));
-  return { artifact, instance: randomContractInstanceWithAddress({ contractClassId }) };
+  return { artifact, instance: await randomContractInstanceWithAddress({ contractClassId }) };
 };
 
-export const randomExtendedNote = ({
+export const randomExtendedNote = async ({
   note = Note.random(),
-  owner = AztecAddress.random(),
-  contractAddress = AztecAddress.random(),
+  owner = undefined,
+  contractAddress = undefined,
   txHash = randomTxHash(),
   storageSlot = Fr.random(),
   noteTypeId = NoteSelector.random(),
 }: Partial<ExtendedNote> = {}) => {
-  return new ExtendedNote(note, owner, contractAddress, storageSlot, noteTypeId, txHash);
+  return new ExtendedNote(
+    note,
+    owner ?? (await AztecAddress.random()),
+    contractAddress ?? (await AztecAddress.random()),
+    storageSlot,
+    noteTypeId,
+    txHash,
+  );
 };
 
-export const randomUniqueNote = ({
+export const randomUniqueNote = async ({
   note = Note.random(),
-  owner = AztecAddress.random(),
-  contractAddress = AztecAddress.random(),
+  owner = undefined,
+  contractAddress = undefined,
   txHash = randomTxHash(),
   storageSlot = Fr.random(),
   noteTypeId = NoteSelector.random(),
   nonce = Fr.random(),
 }: Partial<UniqueNote> = {}) => {
-  return new UniqueNote(note, owner, contractAddress, storageSlot, noteTypeId, txHash, nonce);
+  return new UniqueNote(
+    note,
+    owner ?? (await AztecAddress.random()),
+    contractAddress ?? (await AztecAddress.random()),
+    storageSlot,
+    noteTypeId,
+    txHash,
+    nonce,
+  );
 };

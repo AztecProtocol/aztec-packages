@@ -57,8 +57,8 @@ export class PublicExecutionRequest {
     return new PublicExecutionRequest(CallContext.empty(), []);
   }
 
-  static random() {
-    return new PublicExecutionRequest(CallContext.random(), [Fr.random(), Fr.random()]);
+  static async random() {
+    return new PublicExecutionRequest(await CallContext.random(), [Fr.random(), Fr.random()]);
   }
 
   isEmpty(): boolean {

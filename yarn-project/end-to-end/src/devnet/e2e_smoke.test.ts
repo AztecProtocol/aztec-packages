@@ -180,7 +180,7 @@ describe('End-to-end tests for devnet', () => {
       .deploy({
         fee: {
           paymentMethod: new FeeJuicePaymentMethodWithClaim(l2Account.getAddress(), {
-            claimAmount: Fr.fromHexString(claimAmount),
+            claimAmount: Fr.fromHexString(claimAmount).toBigInt(),
             claimSecret: Fr.fromHexString(claimSecret.value),
             messageLeafIndex: BigInt(messageLeafIndex),
           }),
