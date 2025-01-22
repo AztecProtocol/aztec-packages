@@ -17,10 +17,7 @@ contract Test {
     };
 
     use dep::aztec::protocol_types::{
-        constants::{
-            MAX_NOTE_HASH_READ_REQUESTS_PER_CALL, PRIVATE_LOG_SIZE_IN_FIELDS,
-            REGISTERER_CONTRACT_ADDRESS,
-        },
+        constants::{MAX_NOTE_HASH_READ_REQUESTS_PER_CALL, PRIVATE_LOG_SIZE_IN_FIELDS},
         point::Point,
         traits::Serialize,
         utils::arrays::array_concat,
@@ -42,7 +39,6 @@ contract Test {
         test::mocks::mock_struct::MockStruct,
         utils::comparison::Comparator,
     };
-    use dep::contract_class_registerer::ContractClassRegisterer;
     use dep::token_portal_content_hash_lib::{
         get_mint_to_private_content_hash, get_mint_to_public_content_hash,
     };
@@ -100,12 +96,6 @@ contract Test {
     #[public]
     #[internal]
     fn dummy_public_call() {}
-
-    #[public]
-    #[internal]
-    fn dummy_revertible_public_call(should_revert: bool) {
-        assert(!should_revert);
-    }
 
     #[private]
     fn call_create_note(
@@ -457,30 +447,6 @@ contract Test {
     #[private]
     fn deploy_contract(target: AztecAddress) {
         aztec_deploy_contract(&mut context, target);
-    }
-
-    // Exists to test a public call (optionally, a revert) in the same context as a contract class log emission
-    // Note: this must be called as an entrypoint, or end_setup() will fail
-    #[private]
-    fn register_and_make_public_call(
-        artifact_hash: Field,
-        private_functions_root: Field,
-        public_bytecode_commitment: Field,
-        should_revert: bool,
-        log_revertible: bool,
-    ) {
-        if (log_revertible) {
-            context.end_setup();
-        }
-        ContractClassRegisterer::at(REGISTERER_CONTRACT_ADDRESS)
-            .register(artifact_hash, private_functions_root, public_bytecode_commitment, true)
-            .call(&mut context);
-        if (!log_revertible) {
-            context.end_setup();
-        }
-        Test::at(context.this_address()).dummy_revertible_public_call(should_revert).enqueue(
-            &mut context,
-        );
     }
 
     #[private]
