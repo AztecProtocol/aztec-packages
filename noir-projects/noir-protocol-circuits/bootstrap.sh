@@ -104,7 +104,7 @@ function compile {
   # Will require changing TS code downstream.
   bytecode_hash=$(jq -r '.bytecode' $json_path | sha256sum | tr -d ' -')
   # TODO(AD) remove the -2 after this lands on master, needed to disambiguate
-  hash=$(hash_str "$BB_HASH-$bytecode_hash-$proto-2")
+  hash=$(hash_str "$BB_HASH-$bytecode_hash-$proto-3")
   if ! cache_download vk-$hash.tar.gz 1>&2; then
     local key_path="$key_dir/$name.vk.data.json"
     echo_stderr "Generating vk for function: $name..."
