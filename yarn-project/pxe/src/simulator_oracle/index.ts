@@ -743,21 +743,30 @@ export class SimulatorOracle implements DBOracle {
     txHash: Fr,
     recipient: AztecAddress,
   ): Promise<NoteDao> {
+    // We need to validate that the note does indeed exist in the world state to avoid adding notes that are then
+    // impossible to prove.
+
     const receipt = await this.aztecNode.getTxReceipt(new TxHash(txHash));
     if (receipt === undefined) {
       throw new Error(`Failed to fetch tx receipt for tx hash ${txHash} when searching for note hashes`);
     }
-    const { blockNumber, blockHash } = receipt;
 
+    // Siloed and unique hashes are computed by us instead of relying on values sent by the contract to make sure
+    // we're not e.g. storing notes that belong to some other contract, which would constitute a security breach.
     const uniqueNoteHash = computeUniqueNoteHash(nonce, siloNoteHash(contractAddress, noteHash));
     const siloedNullifier = siloNullifier(contractAddress, nullifier);
 
+    // We store notes by their index in the global note hash tree, which has the convenient side effect of validating
+    // note existence in said tree. Note that while this is technically a historical query, we perform it at the latest
+    // locally synced block number which *should* be recent enough to be available. We avoid querying at 'latest' since
+    // we want to avoid accidentally processing notes that only exist ahead in time of the locally synced state.
+    const syncedBlockNumber = await this.db.getBlockNumber();
     const uniqueNoteHashTreeIndex = (
-      await this.aztecNode.findLeavesIndexes(blockNumber!, MerkleTreeId.NOTE_HASH_TREE, [uniqueNoteHash])
+      await this.aztecNode.findLeavesIndexes(syncedBlockNumber!, MerkleTreeId.NOTE_HASH_TREE, [uniqueNoteHash])
     )[0];
     if (uniqueNoteHashTreeIndex === undefined) {
       throw new Error(
-        `Note hash ${noteHash} (uniqued as ${uniqueNoteHash}) is not present on the tree at block ${blockNumber} (from tx ${txHash})`,
+        `Note hash ${noteHash} (uniqued as ${uniqueNoteHash}) is not present on the tree at block ${syncedBlockNumber} (from tx ${txHash})`,
       );
     }
 
@@ -769,8 +778,8 @@ export class SimulatorOracle implements DBOracle {
       noteHash,
       siloedNullifier,
       new TxHash(txHash),
-      blockNumber!,
-      blockHash!.toString(),
+      receipt.blockNumber!,
+      receipt.blockHash!.toString(),
       uniqueNoteHashTreeIndex,
       await recipient.toAddressPoint(),
       NoteSelector.empty(), // todo: remove
