@@ -33,7 +33,7 @@ unconstrained fn test_derive_aes_secret() {
     let hard_coded_key = Point {
         x: 0x15d55a5b3b2caa6a6207f313f05c5113deba5da9927d6421bcaa164822b911bc,
         y: 0x0974c3d0825031ae933243d653ebb1a0b08b90ee7f228f94c5c74739ea3c871e,
-        is_infinite: false
+        is_infinite: false,
     };
     assert_eq(key, hard_coded_key);
 }

@@ -148,7 +148,9 @@ fn get_arr_of_size__log_bytes_without_padding<let CT: u32>(_ct: [u8; CT]) -> [u8
 // p = 31 * ceil(lbwop / 31) - lbwop
 //   = 31 * ((lbwop + 30) // 31) - lbwop
 //     (because ceil(x / y) = (x + y - 1) // y ).
-fn get_arr_of_size__log_bytes_padding<let LBWOP: u32>(_lbwop: [u8; LBWOP]) -> [u8; (31 * ((LBWOP + 30) / 31)) - LBWOP] {
+fn get_arr_of_size__log_bytes_padding<let LBWOP: u32>(
+    _lbwop: [u8; LBWOP],
+) -> [u8; (31 * ((LBWOP + 30) / 31)) - LBWOP] {
     [0; 31 * ((LBWOP + 30) / 31) - LBWOP]
 }
 
@@ -156,7 +158,10 @@ fn get_arr_of_size__log_bytes_padding<let LBWOP: u32>(_lbwop: [u8; LBWOP]) -> [u
 // Recall:
 //   lbwop := 1 + 48 + |ct|
 //   p is the padding
-fn get_arr_of_size__log_bytes<let LBWOP: u32, let P: u32>(_lbwop: [u8; LBWOP], _p: [u8; P]) -> [u8; LBWOP + P] {
+fn get_arr_of_size__log_bytes<let LBWOP: u32, let P: u32>(
+    _lbwop: [u8; LBWOP],
+    _p: [u8; P],
+) -> [u8; LBWOP + P] {
     [0; LBWOP + P]
 }
 
@@ -303,7 +308,8 @@ where
     // to fields.
     // *****************************************************************************
 
-    let mut log_bytes_padding_to_mult_31 = get_arr_of_size__log_bytes_padding__from_PT::<(N * 32) + 64>();
+    let mut log_bytes_padding_to_mult_31 =
+        get_arr_of_size__log_bytes_padding__from_PT::<(N * 32) + 64>();
     /// Safety: this randomness won't be constrained to be random. It's in the
     /// interest of the executor of this fn to encrypt with random bytes.
     log_bytes_padding_to_mult_31 = unsafe { get_random_bytes() };
