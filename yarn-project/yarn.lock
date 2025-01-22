@@ -285,9 +285,9 @@ __metadata:
   languageName: unknown
   linkType: soft
 
-"@aztec/bb-bench@workspace:bb-bench":
+"@aztec/bb-bench@workspace:prover-bench":
   version: 0.0.0-use.local
-  resolution: "@aztec/bb-bench@workspace:bb-bench"
+  resolution: "@aztec/bb-bench@workspace:prover-bench"
   dependencies:
     "@aztec/bb-prover": "workspace:^"
     "@aztec/bb.js": ../../ts
