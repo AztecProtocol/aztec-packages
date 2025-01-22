@@ -116,7 +116,7 @@ void Execution::execution_loop()
             dispatch_opcode(opcode, resolved_operands);
 
             events.emit({ .pc = pc,
-                          .contract_class_id = context.get_bytecode_manager().get_class_id(),
+                          .bytecode_id = context.get_bytecode_manager().get_bytecode_id(),
                           .wire_instruction = std::move(instruction),
                           .instruction_spec = spec,
                           .opcode = opcode,

@@ -45,6 +45,10 @@ case "$cmd" in
   "hash")
     echo "$hash"
     ;;
+  "deploy-prod")
+    ;;
+  "deploy-preview")
+    ;;
   *)
     echo "Unknown command: $cmd"
     exit 1

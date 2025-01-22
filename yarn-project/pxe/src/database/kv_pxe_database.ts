@@ -10,7 +10,7 @@ import {
 } from '@aztec/circuits.js';
 import { type ContractArtifact, FunctionSelector, FunctionType } from '@aztec/foundation/abi';
 import { toBufferBE } from '@aztec/foundation/bigint-buffer';
-import { Fr } from '@aztec/foundation/fields';
+import { Fr, type Point } from '@aztec/foundation/fields';
 import { toArray } from '@aztec/foundation/iterable';
 import { type LogFn, createDebugOnlyLogger } from '@aztec/foundation/log';
 import {
@@ -297,7 +297,7 @@ export class KVPxeDatabase implements PxeDatabase {
   }
 
   async getNotes(filter: NotesFilter): Promise<NoteDao[]> {
-    const publicKey: PublicKey | undefined = filter.owner ? filter.owner.toAddressPoint() : undefined;
+    const publicKey: PublicKey | undefined = filter.owner ? await filter.owner.toAddressPoint() : undefined;
 
     filter.status = filter.status ?? NoteStatus.ACTIVE;
 
@@ -394,7 +394,7 @@ export class KVPxeDatabase implements PxeDatabase {
     return result;
   }
 
-  removeNullifiedNotes(nullifiers: InBlock<Fr>[], accountAddressPoint: PublicKey): Promise<NoteDao[]> {
+  removeNullifiedNotes(nullifiers: InBlock<Fr>[], accountAddressPoint: Point): Promise<NoteDao[]> {
     if (nullifiers.length === 0) {
       return Promise.resolve([]);
     }

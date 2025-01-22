@@ -346,6 +346,8 @@ export const deployL1Contracts = async (
     account.address.toString(),
     rollupConfigArgs,
   ];
+  await deployer.waitForDeployments();
+
   const rollupAddress = await deployer.deploy(l1Artifacts.rollup, rollupArgs);
   logger.verbose(`Deployed Rollup at ${rollupAddress}`, rollupConfigArgs);
 
@@ -431,7 +433,7 @@ export const deployL1Contracts = async (
   //        because there is circular dependency hell. This is a temporary solution. #3342
   // @todo  #8084
   // fund the portal contract with Fee Juice
-  const FEE_JUICE_INITIAL_MINT = 200000000000000000000n;
+  const FEE_JUICE_INITIAL_MINT = 200000000000000000000000n;
   const mintTxHash = await feeAsset.write.mint([feeJuicePortalAddress.toString(), FEE_JUICE_INITIAL_MINT], {} as any);
 
   // @note  This is used to ensure we fully wait for the transaction when running against a real chain

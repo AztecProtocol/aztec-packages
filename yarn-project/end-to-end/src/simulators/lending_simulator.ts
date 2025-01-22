@@ -187,8 +187,7 @@ export class LendingSimulator {
     const asset = await this.lendingContract.methods.get_asset(0).simulate();
 
     const interestAccumulator = asset['interest_accumulator'];
-    const interestAccumulatorBigint = BigInt(interestAccumulator.lo + interestAccumulator.hi * 2n ** 64n);
-    expect(interestAccumulatorBigint).toEqual(this.accumulator);
+    expect(interestAccumulator).toEqual(this.accumulator);
     expect(asset['last_updated_ts']).toEqual(BigInt(this.time));
 
     for (const key of [this.account.address, this.account.key()]) {
