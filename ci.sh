@@ -28,10 +28,10 @@ function print_usage {
                           "Can provide a command to run instead of dropping into a shell, e.g. 'ci shell ls'."
   echo_cmd "trigger"      "Trigger the GA workflow on the PR associated with the current branch.\n" \
                           "Effectively the same as ec2, only the results will be tracked on your PR."
-  echo_cmd "rlog"         "Will tail the logs of the current GA run, or the given GA run id."
+  echo_cmd "rlog"         "Will tail the logs of the latest GA run, or tail/dump the given GA run id."
   echo_cmd "ilog"         "Will tail the logs of the current running build instance."
-  echo_cmd "dlog"         "Display the log of the given denoise log it."
-  echo_cmd "tlog"         "Display the last log of the given test command."
+  echo_cmd "dlog"         "Display the log of the given denoise log id."
+  echo_cmd "tlog"         "Display the last log of the given test command as output by test-cmds."
   echo_cmd "shell-host"   "Connect to host instance of the current running build."
   echo_cmd "draft"        "Mark current PR as draft (no automatic CI runs when pushing)."
   echo_cmd "ready"        "Mark current PR as ready (enable automatic CI runs when pushing)."
@@ -130,6 +130,8 @@ case "$cmd" in
         echo "Waiting on instance with name: $instance_name"
         sleep 10
       done
+    elif [ -z "$output" ]; then
+      echo "Nothing found. CI run may still be booting."
     else
       echo "$output" | $PAGER
     fi

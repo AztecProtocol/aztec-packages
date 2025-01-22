@@ -22,7 +22,7 @@ export class EcdsaRSSHAccountContract extends DefaultAccountContract {
   }
 
   getDeploymentArgs() {
-    return [this.signingPublicKey.subarray(0, 32), this.signingPublicKey.subarray(32, 64)];
+    return Promise.resolve([this.signingPublicKey.subarray(0, 32), this.signingPublicKey.subarray(32, 64)]);
   }
 
   getAuthWitnessProvider(_address: CompleteAddress): AuthWitnessProvider {

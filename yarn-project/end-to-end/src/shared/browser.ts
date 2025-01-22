@@ -126,7 +126,7 @@ export const browserTestSuite = (
           const { Fr, createPXEClient, getUnsafeSchnorrAccount } = window.AztecJs;
           const pxe = createPXEClient(rpcUrl!);
           const secretKey = Fr.fromHexString(secretKeyString);
-          const account = getUnsafeSchnorrAccount(pxe, secretKey);
+          const account = await getUnsafeSchnorrAccount(pxe, secretKey);
           await account.waitSetup();
           const completeAddress = account.getCompleteAddress();
           const addressString = completeAddress.address.toString();
@@ -194,7 +194,8 @@ export const browserTestSuite = (
             getUnsafeSchnorrAccount,
           } = window.AztecJs;
           const pxe = createPXEClient(rpcUrl!);
-          const newReceiverAccount = await getUnsafeSchnorrAccount(pxe, AztecJs.Fr.random()).waitSetup();
+          const newReceiverAccountManager = await getUnsafeSchnorrAccount(pxe, AztecJs.Fr.random());
+          const newReceiverAccount = await newReceiverAccountManager.waitSetup();
           const receiverAddress = newReceiverAccount.getCompleteAddress().address;
           const [wallet] = await getDeployedTestAccountsWallets(pxe);
           const contract = await Contract.at(AztecAddress.fromString(contractAddress), TokenContractArtifact, wallet);
@@ -234,12 +235,13 @@ export const browserTestSuite = (
           // we need to ensure that a known account is present in order to create a wallet
           const knownAccounts = await getDeployedTestAccountsWallets(pxe);
           if (!knownAccounts.length) {
-            const newAccount = await getSchnorrAccount(
+            const newAccountManager = await getSchnorrAccount(
               pxe,
               INITIAL_TEST_SECRET_KEYS[0],
               INITIAL_TEST_SIGNING_KEYS[0],
               INITIAL_TEST_ACCOUNT_SALTS[0],
-            ).waitSetup();
+            );
+            const newAccount = await newAccountManager.waitSetup();
             knownAccounts.push(newAccount);
           }
           const owner = knownAccounts[0];

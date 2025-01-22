@@ -146,7 +146,7 @@ describe('End-to-end tests for devnet', () => {
   it('deploys an account while paying with FeeJuice', async () => {
     const privateKey = Fr.random();
     const l1Account = await cli<{ privateKey: string; address: string }>('create-l1-account');
-    const l2Account = getSchnorrAccount(pxe, privateKey, deriveSigningKey(privateKey), Fr.ZERO);
+    const l2Account = await getSchnorrAccount(pxe, privateKey, deriveSigningKey(privateKey), Fr.ZERO);
 
     await expect(getL1Balance(l1Account.address)).resolves.toEqual(0n);
     await expect(getL1Balance(l1Account.address, feeJuiceL1)).resolves.toEqual(0n);

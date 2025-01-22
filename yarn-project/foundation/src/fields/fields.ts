@@ -320,14 +320,13 @@ export class Fr extends BaseField {
    */
   async sqrt(): Promise<Fr | null> {
     const wasm = (await BarretenbergLazy.getSingleton()).getWasm();
-    const [buf] = await wasm.callWasmExport('bn254_fr_sqrt', [this.toBuffer()], [Fr.SIZE_IN_BYTES * 2 + 1]);
+    const [buf] = await wasm.callWasmExport('bn254_fr_sqrt', [this.toBuffer()], [Fr.SIZE_IN_BYTES + 1]);
     const isSqrt = buf[0] === 1;
     if (!isSqrt) {
       // Field element is not a quadratic residue mod p so it has no square root.
       return null;
     }
-    const reader = BufferReader.asReader(buf.slice(1));
-    return new Fr(reader.readBytes(Fr.SIZE_IN_BYTES));
+    return new Fr(Buffer.from(buf.slice(1)));
   }
 
   toJSON() {

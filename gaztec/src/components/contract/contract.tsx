@@ -25,8 +25,10 @@ import {
   Typography,
 } from "@mui/material";
 import FindInPageIcon from "@mui/icons-material/FindInPage";
-import { prepTx } from "../../utils/interactions";
-import { formatFrAsString } from "../../utils/conversion";
+import {
+  convertFromUTF8BufferAsString,
+  formatFrAsString,
+} from "../../utils/conversion";
 import { DeployContractDialog } from "./components/deployContractDialog";
 import { FunctionParameter } from "../common/fnParameter";
 import ClearIcon from "@mui/icons-material/Clear";
@@ -81,6 +83,15 @@ const checkBoxLabel = css({
   height: "1.5rem",
 });
 
+const loadingArtifactContainer = css({
+  display: "flex",
+  flexDirection: "column",
+  textAlign: "center",
+  alignItems: "center",
+  justifyContent: "center",
+  gap: "2rem",
+});
+
 const FORBIDDEN_FUNCTIONS = [
   "process_log",
   "compute_note_hash_and_optionally_a_nullifier",
@@ -97,6 +108,8 @@ export function ContractComponent() {
     public: true,
     unconstrained: true,
   });
+
+  const [isLoadingArtifact, setIsLoadingArtifact] = useState(false);
 
   const [isWorking, setIsWorking] = useState(false);
 
@@ -117,32 +130,52 @@ export function ContractComponent() {
   const {
     wallet,
     walletDB,
+    currentContractAddress,
     currentContract,
     setCurrentContract,
     setCurrentTx,
   } = useContext(AztecContext);
 
   useEffect(() => {
-    if (currentContract) {
-      setContractArtifact(currentContract.artifact);
+    const loadCurrentContract = async () => {
+      setIsLoadingArtifact(true);
+      const artifactAsString = await walletDB.retrieveAlias(
+        `artifacts:${currentContractAddress}`
+      );
+      const contractArtifact = loadContractArtifact(
+        JSON.parse(convertFromUTF8BufferAsString(artifactAsString))
+      );
+      const contract = await Contract.at(
+        currentContractAddress,
+        contractArtifact,
+        wallet
+      );
+      setCurrentContract(contract);
+      setContractArtifact(contract.artifact);
       setFilters({
         searchTerm: "",
         private: true,
         public: true,
         unconstrained: true,
       });
+      setIsLoadingArtifact(false);
+    };
+    if (currentContractAddress) {
+      loadCurrentContract();
     }
-  }, [currentContract]);
+  }, [currentContractAddress]);
 
   const { getRootProps, getInputProps } = useDropzone({
     onDrop: async (files) => {
       const file = files[0];
       const reader = new FileReader();
+      setIsLoadingArtifact(true);
       reader.onload = async (e) => {
         const contractArtifact = loadContractArtifact(
           JSON.parse(e.target?.result as string)
         );
         setContractArtifact(contractArtifact);
+        setIsLoadingArtifact(false);
       };
       reader.readAsText(file);
     },
@@ -177,12 +210,7 @@ export function ContractComponent() {
     setIsWorking(true);
     let result;
     try {
-      const { encodedArgs } = await prepTx(
-        contractArtifact,
-        fnName,
-        parameters[fnName]
-      );
-      const call = currentContract.methods[fnName](...encodedArgs);
+      const call = currentContract.methods[fnName](...parameters[fnName]);
 
       result = await call.simulate();
       setSimulationResults({
@@ -210,12 +238,7 @@ export function ContractComponent() {
     };
     setCurrentTx(currentTx);
     try {
-      const { encodedArgs } = await prepTx(
-        contractArtifact,
-        fnName,
-        parameters[fnName]
-      );
-      const call = currentContract.methods[fnName](...encodedArgs);
+      const call = currentContract.methods[fnName](...parameters[fnName]);
 
       const provenCall = await call.prove();
       txHash = provenCall.getTxHash();
@@ -240,6 +263,7 @@ export function ContractComponent() {
         },
       });
     } catch (e) {
+      console.error(e);
       setCurrentTx({
         ...currentTx,
         ...{
@@ -277,14 +301,21 @@ export function ContractComponent() {
   return (
     <div css={container}>
       {!contractArtifact ? (
-        <div css={dropZoneContainer}>
-          <div {...getRootProps({ className: "dropzone" })}>
-            <input {...getInputProps()} />
-            <Typography>
-              Drag 'n' drop some files here, or click to select files
-            </Typography>
+        !isLoadingArtifact ? (
+          <div css={dropZoneContainer}>
+            <div {...getRootProps({ className: "dropzone" })}>
+              <input {...getInputProps()} />
+              <Typography>
+                Drag 'n' drop some files here, or click to select files
+              </Typography>
+            </div>
           </div>
-        </div>
+        ) : (
+          <div css={loadingArtifactContainer}>
+            <Typography variant="h5">Loading artifact...</Typography>
+            <CircularProgress size={100} />
+          </div>
+        )
       ) : (
         <div css={contractFnContainer}>
           <div css={header}>
