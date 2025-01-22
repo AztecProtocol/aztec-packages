@@ -5,6 +5,7 @@ import {
   type Logger,
   MerkleTreeId,
   type Wallet,
+  retryUntil,
   sleep,
 } from '@aztec/aztec.js';
 import { type CheatCodes } from '@aztec/aztec.js/utils';
@@ -37,11 +38,13 @@ describe('e2e_pruned_blocks', () => {
   // Don't make this value too high since we need to mine this number of empty blocks, which is relatively slow.
   const WORLD_STATE_BLOCK_HISTORY = 2;
   const WORLD_STATE_CHECK_INTERVAL_MS = 300;
+  const ARCHIVER_POLLING_INTERVAL_MS = 300;
 
   beforeAll(async () => {
     ({ aztecNode, cheatCodes, logger, teardown, wallets } = await setup(3, {
       worldStateBlockHistory: WORLD_STATE_BLOCK_HISTORY,
       worldStateBlockCheckIntervalMS: WORLD_STATE_CHECK_INTERVAL_MS,
+      archiverPollingIntervalMS: ARCHIVER_POLLING_INTERVAL_MS,
     }));
 
     [adminWallet, senderWallet] = wallets;
@@ -90,12 +93,22 @@ describe('e2e_pruned_blocks', () => {
     // blocks (notably the one with the minted note) being pruned.
     await mineBlocks(WORLD_STATE_BLOCK_HISTORY);
     await cheatCodes.rollup.markAsProven();
-    await sleep(WORLD_STATE_CHECK_INTERVAL_MS * 2);
 
-    // The same historical query we performed before should now fail since this block is not available anymore.
-    await expect(
-      aztecNode.findLeavesIndexes(firstMintReceipt.blockNumber!, MerkleTreeId.NOTE_HASH_TREE, [mintedNote!]),
-    ).rejects.toThrow('Unable to find leaf');
+    // The same historical query we performed before should now fail since this block is not available anymore. We poll
+    // the node for a bit until it processes the blocks we marked as proven, causing the historical query to fail.
+    await retryUntil(
+      async () => {
+        try {
+          await aztecNode.findLeavesIndexes(firstMintReceipt.blockNumber!, MerkleTreeId.NOTE_HASH_TREE, [mintedNote!]);
+          return false;
+        } catch (error) {
+          return (error as Error).message.includes('Unable to find leaf');
+        }
+      },
+      'waiting for pruning',
+      (WORLD_STATE_CHECK_INTERVAL_MS + ARCHIVER_POLLING_INTERVAL_MS) * 5,
+      0.2,
+    );
 
     // We've completed the setup we were interested in, and can now simply mint the second half of the amount, transfer
     // the full amount to the recipient (which will require the sender to discover and prove both the old and new notes)
