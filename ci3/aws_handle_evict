@@ -3,7 +3,7 @@
 bash -c "$1" &
 child_pid=$!
 
-token=$(curl -X PUT "http://169.254.169.254/latest/api/token" -H "X-aws-ec2-metadata-token-ttl-seconds: 21600")
+token=$(curl -sX PUT "http://169.254.169.254/latest/api/token" -H "X-aws-ec2-metadata-token-ttl-seconds: 21600")
 
 # Poll until the child finishes or a termination notice is detected
 while true; do
