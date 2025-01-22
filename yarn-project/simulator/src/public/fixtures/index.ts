@@ -30,9 +30,8 @@ import { makeContractClassPublic, makeContractInstanceFromClassId } from '@aztec
 import { type ContractArtifact, type FunctionArtifact } from '@aztec/foundation/abi';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { Fr, Point } from '@aztec/foundation/fields';
-import { openTmpStore } from '@aztec/kv-store/lmdb';
 import { AvmTestContractArtifact } from '@aztec/noir-contracts.js/AvmTest';
-import { MerkleTrees } from '@aztec/world-state';
+import { NativeWorldStateService } from '@aztec/world-state';
 
 import { strict as assert } from 'assert';
 
@@ -58,7 +57,7 @@ export async function simulateAvmTestContractGenerateCircuitInputs(
   const globals = GlobalVariables.empty();
   globals.timestamp = TIMESTAMP;
 
-  const merkleTrees = await (await MerkleTrees.new(openTmpStore())).fork();
+  const merkleTrees = await (await NativeWorldStateService.tmp()).fork();
   if (!contractDataSource) {
     contractDataSource = await MockedAvmTestContractDataSource.create();
   }
@@ -128,7 +127,7 @@ export async function simulateAvmTestContractCall(
     contractDataSource = await MockedAvmTestContractDataSource.create();
   }
 
-  const merkleTrees = await (await MerkleTrees.new(openTmpStore())).fork();
+  const merkleTrees = await (await NativeWorldStateService.tmp()).fork();
   await contractDataSource.deployContracts(merkleTrees);
   const worldStateDB = new WorldStateDB(merkleTrees, contractDataSource);
 

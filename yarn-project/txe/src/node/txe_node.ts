@@ -11,6 +11,7 @@ import {
   type L2Tips,
   type LogFilter,
   type MerkleTreeId,
+  MerkleTreeWriteOperations,
   type NullifierMembershipWitness,
   type ProverConfig,
   type PublicDataWitness,
@@ -44,7 +45,7 @@ import {
 import { type L1ContractAddresses } from '@aztec/ethereum';
 import { poseidon2Hash } from '@aztec/foundation/crypto';
 import { Fr } from '@aztec/foundation/fields';
-import { MerkleTreeSnapshotOperationsFacade, type MerkleTrees } from '@aztec/world-state';
+import { MerkleTreeAdminDatabase } from '@aztec/world-state';
 
 export class TXENode implements AztecNode {
   #logsByTags = new Map<string, TxScopedL2Log[]>();
@@ -59,7 +60,8 @@ export class TXENode implements AztecNode {
     private blockNumber: number,
     private version: number,
     private chainId: number,
-    private trees: MerkleTrees,
+    private trees: MerkleTreeAdminDatabase,
+    private currentFork: MerkleTreeWriteOperations,
   ) {}
 
   /**
@@ -277,10 +279,7 @@ export class TXENode implements AztecNode {
       blockNumber = await this.getBlockNumber();
     }
 
-    const db =
-      blockNumber === (await this.getBlockNumber())
-        ? await this.trees.getLatest()
-        : new MerkleTreeSnapshotOperationsFacade(this.trees, blockNumber);
+    const db = blockNumber === (await this.getBlockNumber()) ? this.currentFork : this.trees.getSnapshot(blockNumber);
 
     return await db.findLeafIndices(
       treeId,

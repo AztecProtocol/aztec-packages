@@ -20,8 +20,7 @@ import { getCanonicalProtocolContract } from '@aztec/protocol-contracts/bundle';
 import { enrichPublicSimulationError } from '@aztec/pxe';
 import { type TypedOracle } from '@aztec/simulator/client';
 import { HashedValuesCache } from '@aztec/simulator/server';
-import { getTelemetryClient } from '@aztec/telemetry-client';
-import { MerkleTrees } from '@aztec/world-state';
+import { NativeWorldStateService } from '@aztec/world-state';
 
 import { TXE } from '../oracle/txe_oracle.js';
 import {
@@ -42,7 +41,7 @@ export class TXEService {
 
   static async init(logger: Logger) {
     const store = openTmpStore(true);
-    const trees = await MerkleTrees.new(store, getTelemetryClient(), logger);
+    const trees = await NativeWorldStateService.tmp();
     const executionCache = new HashedValuesCache();
     const keyStore = new KeyStore(store);
     const txeDatabase = new TXEDatabase(store);
@@ -74,13 +73,14 @@ export class TXEService {
     await (this.typedOracle as TXE).commitState();
 
     for (let i = 0; i < nBlocks; i++) {
+      let fork = await trees.fork();
       const blockNumber = await this.typedOracle.getBlockNumber();
       const header = BlockHeader.empty();
       const l2Block = L2Block.empty();
-      header.state = await trees.getStateReference(true);
+      header.state = await fork.getStateReference();
       header.globalVariables.blockNumber = new Fr(blockNumber);
-      await trees.appendLeaves(MerkleTreeId.ARCHIVE, [header.hash()]);
-      l2Block.archive.root = Fr.fromBuffer((await trees.getTreeInfo(MerkleTreeId.ARCHIVE, true)).root);
+      await fork.appendLeaves(MerkleTreeId.ARCHIVE, [header.hash()]);
+      l2Block.archive.root = Fr.fromBuffer((await fork.getTreeInfo(MerkleTreeId.ARCHIVE)).root);
       l2Block.header = header;
       this.logger.debug(`Block ${blockNumber} created, header hash ${header.hash().toString()}`);
       await trees.handleL2BlockAndMessages(l2Block, []);
@@ -145,11 +145,10 @@ export class TXEService {
     startStorageSlot: ForeignCallSingle,
     values: ForeignCallArray,
   ) {
-    const trees = (this.typedOracle as TXE).getTrees();
+    const db = (this.typedOracle as TXE).getCurrentFork();
     const startStorageSlotFr = fromSingle(startStorageSlot);
     const valuesFr = fromArray(values);
     const contractAddressFr = addressFromSingle(contractAddress);
-    const db = await trees.getLatest();
 
     const publicDataWrites = valuesFr.map((value, i) => {
       const storageSlot = startStorageSlotFr.add(new Fr(i));
