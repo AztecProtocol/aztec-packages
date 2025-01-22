@@ -14,8 +14,8 @@ ethereum:
   externalHost:
 
 validator:
-  l1FixedPriorityFeePerGas: 1
-  l1GasLimitBufferPercentage: 5
+  l1FixedPriorityFeePerGas: 2
+  l1GasLimitBufferPercentage: 15
   replicas: 48
   validatorKeys:
   validatorAddresses:
