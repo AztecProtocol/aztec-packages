@@ -141,10 +141,9 @@ describe('Archiver', () => {
       Promise.resolve(blocks[Number(args[0] - 1n)].archive.root.toString()),
     );
     mockRollupEvents = mock<MockRollupContractEvents>();
-    mockRollupEvents.L2BlockProposed.mockImplementation((filter: any, { fromBlock, toBlock }) => 
-      Promise.resolve(
-        l2BlockProposedLogs.filter(log => log.blockNumber! >= fromBlock && log.blockNumber! <= toBlock),
-      ));
+    mockRollupEvents.L2BlockProposed.mockImplementation((filter: any, { fromBlock, toBlock }) =>
+      Promise.resolve(l2BlockProposedLogs.filter(log => log.blockNumber! >= fromBlock && log.blockNumber! <= toBlock)),
+    );
     mockRollup = {
       read: mockRollupRead,
       getEvents: mockRollupEvents,
