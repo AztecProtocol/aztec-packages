@@ -251,7 +251,7 @@ noir-projects-with-cache:
   FROM +bootstrap
   ENV CI=1
   ENV USE_CACHE=1
-  LET artifact=noir-projects-ci-tests-$(./noir-projects/bootstrap.sh hash)
+  LET artifact=noir-projects-ci-tests-$(./noir-projects/bootstrap.sh hash)-$(ci3/cache_content_hash yarn-project/txe)
   IF ci3/test_should_run $artifact
     # could be changed to bootstrap once txe solution found
     WAIT
