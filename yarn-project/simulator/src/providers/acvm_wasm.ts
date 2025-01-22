@@ -1,3 +1,4 @@
+import { createLogger } from '@aztec/foundation/log';
 import { foreignCallHandler } from '@aztec/noir-protocol-circuits-types/client';
 import { type NoirCompiledCircuit } from '@aztec/types/noir';
 
@@ -10,6 +11,8 @@ import { type ACVMWitness } from '../acvm/acvm_types.js';
 import { type SimulationProvider, parseErrorPayload } from '../common/simulation_provider.js';
 
 export class WASMSimulator implements SimulationProvider {
+  constructor(protected log = createLogger('wasm-simulator')) {}
+
   async init(): Promise<void> {
     // If these are available, then we are in the
     // web environment. For the node environment, this
@@ -21,6 +24,7 @@ export class WASMSimulator implements SimulationProvider {
   }
 
   async executeProtocolCircuit(input: WitnessMap, compiledCircuit: NoirCompiledCircuit): Promise<WitnessMap> {
+    this.log.debug('init', { hash: compiledCircuit.hash });
     await this.init();
     // Execute the circuit on those initial witness values
     //
@@ -34,13 +38,20 @@ export class WASMSimulator implements SimulationProvider {
         input,
         foreignCallHandler, // handle calls to debug_log
       );
-
+      this.log.debug('execution successful', { hash: compiledCircuit.hash });
       return _witnessMap;
     } catch (err) {
       // Typescript types catched errors as unknown or any, so we need to narrow its type to check if it has raw assertion payload.
       if (typeof err === 'object' && err !== null && 'rawAssertionPayload' in err) {
-        throw parseErrorPayload(compiledCircuit.abi, err as ExecutionError);
+        let parsed = parseErrorPayload(compiledCircuit.abi, err as ExecutionError);
+        this.log.debug('execution failed', {
+          hash: compiledCircuit.hash,
+          error: parsed,
+          message: parsed.message,
+        });
+        throw parsed;
       }
+      this.log.debug('execution failed', { hash: compiledCircuit.hash, error: err });
       throw new Error(`Circuit execution failed: ${err}`);
     }
   }
