@@ -961,7 +961,7 @@ library RelationsLib {
 
         // Contribution 10 point doubling, x-coordinate check
         // (x3 + x1 + x1) (4y1*y1) - 9 * x1 * x1 * x1 * x1 = 0
-        // n.B. we're using the equivalence x1*x1*x1 === y1*y1 - curve_b to reduce degree by 1
+        // N.B. we're using the equivalence x1*x1*x1 === y1*y1 - curve_b to reduce degree by 1
         {
             Fr x_pow_4 = (y1_sqr + GRUMPKIN_CURVE_B_PARAMETER_NEGATED) * ep.x_1;
             Fr y1_sqr_mul_4 = y1_sqr + y1_sqr;
@@ -1181,7 +1181,7 @@ library RelationsLib {
          * The gate boolean check is
          * (A && B) => C  === !(A && B) || C ===  !A || !B || C
          *
-         * n.B. it is the responsibility of the circuit writer to ensure that every RAM cell is initialized
+         * N.B. it is the responsibility of the circuit writer to ensure that every RAM cell is initialized
          * with a WRITE operation.
          */
         Fr access_type = (wire(p, WIRE.W_4) - ap.partial_record_check); // will be 0 or 1 for honest Prover; deg 1 or 4
