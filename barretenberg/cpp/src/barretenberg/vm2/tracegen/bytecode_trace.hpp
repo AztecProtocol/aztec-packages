@@ -9,8 +9,6 @@ namespace bb::avm2::tracegen {
 
 class BytecodeTraceBuilder final {
   public:
-    // TODO: For now I'm putting "bytecode" and "hashing" both here but we might want to divide them into separate
-    // events.
     void process_hashing(const simulation::EventEmitterInterface<simulation::BytecodeHashingEvent>::Container& events,
                          TraceContainer& trace);
 
@@ -20,6 +18,10 @@ class BytecodeTraceBuilder final {
 
     void process_decomposition(
         const simulation::EventEmitterInterface<simulation::BytecodeDecompositionEvent>::Container& events,
+        TraceContainer& trace);
+
+    void process_instruction_fetching(
+        const simulation::EventEmitterInterface<simulation::InstructionFetchingEvent>::Container& events,
         TraceContainer& trace);
 };
 

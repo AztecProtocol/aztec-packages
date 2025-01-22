@@ -9,10 +9,23 @@
 #include "barretenberg/vm2/simulation/events/event_emitter.hpp"
 
 namespace bb::avm2::tracegen {
+namespace {
 
-// TODO: We only store the bytecode and shifted columns for now.
-void BytecodeTraceBuilder::process_hashing(
-    const simulation::EventEmitterInterface<simulation::BytecodeHashingEvent>::Container& events, TraceContainer& trace)
+constexpr uint32_t DECOMPOSE_WINDOW_SIZE = 36;
+
+// This returns a number whose first n bits are set to 1.
+uint64_t as_unary(uint32_t n)
+{
+    assert(n <= DECOMPOSE_WINDOW_SIZE);
+    uint64_t tmp = (static_cast<uint64_t>(1) << n) - 1;
+    return tmp;
+}
+
+} // namespace
+
+void BytecodeTraceBuilder::process_decomposition(
+    const simulation::EventEmitterInterface<simulation::BytecodeDecompositionEvent>::Container& events,
+    TraceContainer& trace)
 {
     using C = Column;
 
@@ -23,54 +36,110 @@ void BytecodeTraceBuilder::process_hashing(
     for (const auto& event : events) {
         const auto& bytecode = *event.bytecode;
         auto bytecode_at = [&bytecode](size_t i) -> uint8_t { return i < bytecode.size() ? bytecode[i] : 0; };
+        auto bytecode_exists_at = [&bytecode](size_t i) -> uint8_t { return i < bytecode.size() ? 1 : 0; };
+        const uint32_t bytecode_len = static_cast<uint32_t>(bytecode.size());
 
-        for (size_t i = 0; i < bytecode.size(); i++) {
-            trace.set(row,
-                      { {
-                          { C::bytecode_sel, 1 },
-                          { C::bytecode_id, id },
-                          { C::bytecode_pc, i },
-                          { C::bytecode_bytes, bytecode_at(i) },
-                          { C::bytecode_bytes_pc_plus_1, bytecode_at(i + 1) },
-                          { C::bytecode_bytes_pc_plus_2, bytecode_at(i + 2) },
-                          { C::bytecode_bytes_pc_plus_3, bytecode_at(i + 3) },
-                          { C::bytecode_bytes_pc_plus_4, bytecode_at(i + 4) },
-                          { C::bytecode_bytes_pc_plus_5, bytecode_at(i + 5) },
-                          { C::bytecode_bytes_pc_plus_6, bytecode_at(i + 6) },
-                          { C::bytecode_bytes_pc_plus_7, bytecode_at(i + 7) },
-                          { C::bytecode_bytes_pc_plus_8, bytecode_at(i + 8) },
-                          { C::bytecode_bytes_pc_plus_9, bytecode_at(i + 9) },
-                          { C::bytecode_bytes_pc_plus_10, bytecode_at(i + 10) },
-                          { C::bytecode_bytes_pc_plus_11, bytecode_at(i + 11) },
-                          { C::bytecode_bytes_pc_plus_12, bytecode_at(i + 12) },
-                          { C::bytecode_bytes_pc_plus_13, bytecode_at(i + 13) },
-                          { C::bytecode_bytes_pc_plus_14, bytecode_at(i + 14) },
-                          { C::bytecode_bytes_pc_plus_15, bytecode_at(i + 15) },
-                          { C::bytecode_bytes_pc_plus_16, bytecode_at(i + 16) },
-                          { C::bytecode_bytes_pc_plus_17, bytecode_at(i + 17) },
-                          { C::bytecode_bytes_pc_plus_18, bytecode_at(i + 18) },
-                          { C::bytecode_bytes_pc_plus_19, bytecode_at(i + 19) },
-                          { C::bytecode_bytes_pc_plus_20, bytecode_at(i + 20) },
-                          { C::bytecode_bytes_pc_plus_21, bytecode_at(i + 21) },
-                          { C::bytecode_bytes_pc_plus_22, bytecode_at(i + 22) },
-                          { C::bytecode_bytes_pc_plus_23, bytecode_at(i + 23) },
-                          { C::bytecode_bytes_pc_plus_24, bytecode_at(i + 24) },
-                          { C::bytecode_bytes_pc_plus_25, bytecode_at(i + 25) },
-                          { C::bytecode_bytes_pc_plus_26, bytecode_at(i + 26) },
-                          { C::bytecode_bytes_pc_plus_27, bytecode_at(i + 27) },
-                          { C::bytecode_bytes_pc_plus_28, bytecode_at(i + 28) },
-                          { C::bytecode_bytes_pc_plus_29, bytecode_at(i + 29) },
-                          { C::bytecode_bytes_pc_plus_30, bytecode_at(i + 30) },
-                          { C::bytecode_bytes_pc_plus_31, bytecode_at(i + 31) },
-                          { C::bytecode_bytes_pc_plus_32, bytecode_at(i + 32) },
-                          { C::bytecode_bytes_pc_plus_33, bytecode_at(i + 33) },
-                          { C::bytecode_bytes_pc_plus_34, bytecode_at(i + 34) },
-                          { C::bytecode_bytes_pc_plus_35, bytecode_at(i + 35) },
-                      } });
+        for (uint32_t i = 0; i < bytecode.size(); i++) {
+            const uint32_t remaining = bytecode_len - i;
+            const uint32_t bytes_to_read = std::min(remaining, DECOMPOSE_WINDOW_SIZE);
+            bool is_last = remaining == 1;
+
+            trace.set(
+                row,
+                { {
+                    { C::bc_decomposition_sel, 1 },
+                    { C::bc_decomposition_id, id },
+                    { C::bc_decomposition_pc, i },
+                    { C::bc_decomposition_last_of_contract, is_last ? 1 : 0 },
+                    { C::bc_decomposition_bytes_remaining, remaining },
+                    { C::bc_decomposition_bytes_to_read, bytes_to_read },
+                    { C::bc_decomposition_bytes_to_read_unary, as_unary(bytes_to_read) },
+                    { C::bc_decomposition_sel_overflow_correction_needed, remaining < DECOMPOSE_WINDOW_SIZE ? 1 : 0 },
+                    // Sliding window.
+                    { C::bc_decomposition_bytes, bytecode_at(i) },
+                    { C::bc_decomposition_bytes_pc_plus_1, bytecode_at(i + 1) },
+                    { C::bc_decomposition_bytes_pc_plus_2, bytecode_at(i + 2) },
+                    { C::bc_decomposition_bytes_pc_plus_3, bytecode_at(i + 3) },
+                    { C::bc_decomposition_bytes_pc_plus_4, bytecode_at(i + 4) },
+                    { C::bc_decomposition_bytes_pc_plus_5, bytecode_at(i + 5) },
+                    { C::bc_decomposition_bytes_pc_plus_6, bytecode_at(i + 6) },
+                    { C::bc_decomposition_bytes_pc_plus_7, bytecode_at(i + 7) },
+                    { C::bc_decomposition_bytes_pc_plus_8, bytecode_at(i + 8) },
+                    { C::bc_decomposition_bytes_pc_plus_9, bytecode_at(i + 9) },
+                    { C::bc_decomposition_bytes_pc_plus_10, bytecode_at(i + 10) },
+                    { C::bc_decomposition_bytes_pc_plus_11, bytecode_at(i + 11) },
+                    { C::bc_decomposition_bytes_pc_plus_12, bytecode_at(i + 12) },
+                    { C::bc_decomposition_bytes_pc_plus_13, bytecode_at(i + 13) },
+                    { C::bc_decomposition_bytes_pc_plus_14, bytecode_at(i + 14) },
+                    { C::bc_decomposition_bytes_pc_plus_15, bytecode_at(i + 15) },
+                    { C::bc_decomposition_bytes_pc_plus_16, bytecode_at(i + 16) },
+                    { C::bc_decomposition_bytes_pc_plus_17, bytecode_at(i + 17) },
+                    { C::bc_decomposition_bytes_pc_plus_18, bytecode_at(i + 18) },
+                    { C::bc_decomposition_bytes_pc_plus_19, bytecode_at(i + 19) },
+                    { C::bc_decomposition_bytes_pc_plus_20, bytecode_at(i + 20) },
+                    { C::bc_decomposition_bytes_pc_plus_21, bytecode_at(i + 21) },
+                    { C::bc_decomposition_bytes_pc_plus_22, bytecode_at(i + 22) },
+                    { C::bc_decomposition_bytes_pc_plus_23, bytecode_at(i + 23) },
+                    { C::bc_decomposition_bytes_pc_plus_24, bytecode_at(i + 24) },
+                    { C::bc_decomposition_bytes_pc_plus_25, bytecode_at(i + 25) },
+                    { C::bc_decomposition_bytes_pc_plus_26, bytecode_at(i + 26) },
+                    { C::bc_decomposition_bytes_pc_plus_27, bytecode_at(i + 27) },
+                    { C::bc_decomposition_bytes_pc_plus_28, bytecode_at(i + 28) },
+                    { C::bc_decomposition_bytes_pc_plus_29, bytecode_at(i + 29) },
+                    { C::bc_decomposition_bytes_pc_plus_30, bytecode_at(i + 30) },
+                    { C::bc_decomposition_bytes_pc_plus_31, bytecode_at(i + 31) },
+                    { C::bc_decomposition_bytes_pc_plus_32, bytecode_at(i + 32) },
+                    { C::bc_decomposition_bytes_pc_plus_33, bytecode_at(i + 33) },
+                    { C::bc_decomposition_bytes_pc_plus_34, bytecode_at(i + 34) },
+                    { C::bc_decomposition_bytes_pc_plus_35, bytecode_at(i + 35) },
+                    // Bytecode overflow selectors.
+                    { C::bc_decomposition_sel_pc_plus_0, bytecode_exists_at(i) },
+                    { C::bc_decomposition_sel_pc_plus_1, bytecode_exists_at(i + 1) },
+                    { C::bc_decomposition_sel_pc_plus_2, bytecode_exists_at(i + 2) },
+                    { C::bc_decomposition_sel_pc_plus_3, bytecode_exists_at(i + 3) },
+                    { C::bc_decomposition_sel_pc_plus_4, bytecode_exists_at(i + 4) },
+                    { C::bc_decomposition_sel_pc_plus_5, bytecode_exists_at(i + 5) },
+                    { C::bc_decomposition_sel_pc_plus_6, bytecode_exists_at(i + 6) },
+                    { C::bc_decomposition_sel_pc_plus_7, bytecode_exists_at(i + 7) },
+                    { C::bc_decomposition_sel_pc_plus_8, bytecode_exists_at(i + 8) },
+                    { C::bc_decomposition_sel_pc_plus_9, bytecode_exists_at(i + 9) },
+                    { C::bc_decomposition_sel_pc_plus_10, bytecode_exists_at(i + 10) },
+                    { C::bc_decomposition_sel_pc_plus_11, bytecode_exists_at(i + 11) },
+                    { C::bc_decomposition_sel_pc_plus_12, bytecode_exists_at(i + 12) },
+                    { C::bc_decomposition_sel_pc_plus_13, bytecode_exists_at(i + 13) },
+                    { C::bc_decomposition_sel_pc_plus_14, bytecode_exists_at(i + 14) },
+                    { C::bc_decomposition_sel_pc_plus_15, bytecode_exists_at(i + 15) },
+                    { C::bc_decomposition_sel_pc_plus_16, bytecode_exists_at(i + 16) },
+                    { C::bc_decomposition_sel_pc_plus_17, bytecode_exists_at(i + 17) },
+                    { C::bc_decomposition_sel_pc_plus_18, bytecode_exists_at(i + 18) },
+                    { C::bc_decomposition_sel_pc_plus_19, bytecode_exists_at(i + 19) },
+                    { C::bc_decomposition_sel_pc_plus_20, bytecode_exists_at(i + 20) },
+                    { C::bc_decomposition_sel_pc_plus_21, bytecode_exists_at(i + 21) },
+                    { C::bc_decomposition_sel_pc_plus_22, bytecode_exists_at(i + 22) },
+                    { C::bc_decomposition_sel_pc_plus_23, bytecode_exists_at(i + 23) },
+                    { C::bc_decomposition_sel_pc_plus_24, bytecode_exists_at(i + 24) },
+                    { C::bc_decomposition_sel_pc_plus_25, bytecode_exists_at(i + 25) },
+                    { C::bc_decomposition_sel_pc_plus_26, bytecode_exists_at(i + 26) },
+                    { C::bc_decomposition_sel_pc_plus_27, bytecode_exists_at(i + 27) },
+                    { C::bc_decomposition_sel_pc_plus_28, bytecode_exists_at(i + 28) },
+                    { C::bc_decomposition_sel_pc_plus_29, bytecode_exists_at(i + 29) },
+                    { C::bc_decomposition_sel_pc_plus_30, bytecode_exists_at(i + 30) },
+                    { C::bc_decomposition_sel_pc_plus_31, bytecode_exists_at(i + 31) },
+                    { C::bc_decomposition_sel_pc_plus_32, bytecode_exists_at(i + 32) },
+                    { C::bc_decomposition_sel_pc_plus_33, bytecode_exists_at(i + 33) },
+                    { C::bc_decomposition_sel_pc_plus_34, bytecode_exists_at(i + 34) },
+                    { C::bc_decomposition_sel_pc_plus_35, bytecode_exists_at(i + 35) },
+                } });
             row++;
         }
         id++;
     }
+}
+
+void BytecodeTraceBuilder::process_hashing(
+    const simulation::EventEmitterInterface<simulation::BytecodeHashingEvent>::Container&, TraceContainer&)
+{
+    // TODO.
 }
 
 void BytecodeTraceBuilder::process_retrieval(
@@ -111,8 +180,8 @@ void BytecodeTraceBuilder::process_retrieval(
     }
 }
 
-void BytecodeTraceBuilder::process_decomposition(
-    const simulation::EventEmitterInterface<simulation::BytecodeDecompositionEvent>::Container& events,
+void BytecodeTraceBuilder::process_instruction_fetching(
+    const simulation::EventEmitterInterface<simulation::InstructionFetchingEvent>::Container& events,
     TraceContainer& trace)
 {
     using C = Column;
@@ -126,56 +195,56 @@ void BytecodeTraceBuilder::process_decomposition(
 
         trace.set(row,
                   { {
-                      { C::bc_decomposition_sel, 1 },
-                      { C::bc_decomposition_bytecode_id, event.bytecode_id },
-                      { C::bc_decomposition_pc, event.pc },
+                      { C::instr_fetching_sel, 1 },
+                      { C::instr_fetching_bytecode_id, event.bytecode_id },
+                      { C::instr_fetching_pc, event.pc },
                       // indirect + operands.
-                      { C::bc_decomposition_indirect, event.instruction.indirect },
-                      { C::bc_decomposition_op1, get_operand(0) },
-                      { C::bc_decomposition_op2, get_operand(1) },
-                      { C::bc_decomposition_op3, get_operand(2) },
-                      { C::bc_decomposition_op4, get_operand(3) },
+                      { C::instr_fetching_indirect, event.instruction.indirect },
+                      { C::instr_fetching_op1, get_operand(0) },
+                      { C::instr_fetching_op2, get_operand(1) },
+                      { C::instr_fetching_op3, get_operand(2) },
+                      { C::instr_fetching_op4, get_operand(3) },
                       // From instruction table.
                       // FIXME: This one is wrong, it's the wire opcode.
-                      // { C::bc_decomposition_ex_opcode, event.instruction.opcode },
+                      // { C::instr_fetching_ex_opcode, event.instruction.opcode },
                       // TODO: add the rest.
                       // Single bytes.
-                      { C::bc_decomposition_bd0, bytecode_at(event.pc) },
-                      { C::bc_decomposition_bd1, bytecode_at(event.pc + 1) },
-                      { C::bc_decomposition_bd2, bytecode_at(event.pc + 2) },
-                      { C::bc_decomposition_bd3, bytecode_at(event.pc + 3) },
-                      { C::bc_decomposition_bd4, bytecode_at(event.pc + 4) },
-                      { C::bc_decomposition_bd5, bytecode_at(event.pc + 5) },
-                      { C::bc_decomposition_bd6, bytecode_at(event.pc + 6) },
-                      { C::bc_decomposition_bd7, bytecode_at(event.pc + 7) },
-                      { C::bc_decomposition_bd8, bytecode_at(event.pc + 8) },
-                      { C::bc_decomposition_bd9, bytecode_at(event.pc + 9) },
-                      { C::bc_decomposition_bd10, bytecode_at(event.pc + 10) },
-                      { C::bc_decomposition_bd11, bytecode_at(event.pc + 11) },
-                      { C::bc_decomposition_bd12, bytecode_at(event.pc + 12) },
-                      { C::bc_decomposition_bd13, bytecode_at(event.pc + 13) },
-                      { C::bc_decomposition_bd14, bytecode_at(event.pc + 14) },
-                      { C::bc_decomposition_bd15, bytecode_at(event.pc + 15) },
-                      { C::bc_decomposition_bd16, bytecode_at(event.pc + 16) },
-                      { C::bc_decomposition_bd17, bytecode_at(event.pc + 17) },
-                      { C::bc_decomposition_bd18, bytecode_at(event.pc + 18) },
-                      { C::bc_decomposition_bd19, bytecode_at(event.pc + 19) },
-                      { C::bc_decomposition_bd20, bytecode_at(event.pc + 20) },
-                      { C::bc_decomposition_bd21, bytecode_at(event.pc + 21) },
-                      { C::bc_decomposition_bd22, bytecode_at(event.pc + 22) },
-                      { C::bc_decomposition_bd23, bytecode_at(event.pc + 23) },
-                      { C::bc_decomposition_bd24, bytecode_at(event.pc + 24) },
-                      { C::bc_decomposition_bd25, bytecode_at(event.pc + 25) },
-                      { C::bc_decomposition_bd26, bytecode_at(event.pc + 26) },
-                      { C::bc_decomposition_bd27, bytecode_at(event.pc + 27) },
-                      { C::bc_decomposition_bd28, bytecode_at(event.pc + 28) },
-                      { C::bc_decomposition_bd29, bytecode_at(event.pc + 29) },
-                      { C::bc_decomposition_bd30, bytecode_at(event.pc + 30) },
-                      { C::bc_decomposition_bd31, bytecode_at(event.pc + 31) },
-                      { C::bc_decomposition_bd32, bytecode_at(event.pc + 32) },
-                      { C::bc_decomposition_bd33, bytecode_at(event.pc + 33) },
-                      { C::bc_decomposition_bd34, bytecode_at(event.pc + 34) },
-                      { C::bc_decomposition_bd35, bytecode_at(event.pc + 35) },
+                      { C::instr_fetching_bd0, bytecode_at(event.pc) },
+                      { C::instr_fetching_bd1, bytecode_at(event.pc + 1) },
+                      { C::instr_fetching_bd2, bytecode_at(event.pc + 2) },
+                      { C::instr_fetching_bd3, bytecode_at(event.pc + 3) },
+                      { C::instr_fetching_bd4, bytecode_at(event.pc + 4) },
+                      { C::instr_fetching_bd5, bytecode_at(event.pc + 5) },
+                      { C::instr_fetching_bd6, bytecode_at(event.pc + 6) },
+                      { C::instr_fetching_bd7, bytecode_at(event.pc + 7) },
+                      { C::instr_fetching_bd8, bytecode_at(event.pc + 8) },
+                      { C::instr_fetching_bd9, bytecode_at(event.pc + 9) },
+                      { C::instr_fetching_bd10, bytecode_at(event.pc + 10) },
+                      { C::instr_fetching_bd11, bytecode_at(event.pc + 11) },
+                      { C::instr_fetching_bd12, bytecode_at(event.pc + 12) },
+                      { C::instr_fetching_bd13, bytecode_at(event.pc + 13) },
+                      { C::instr_fetching_bd14, bytecode_at(event.pc + 14) },
+                      { C::instr_fetching_bd15, bytecode_at(event.pc + 15) },
+                      { C::instr_fetching_bd16, bytecode_at(event.pc + 16) },
+                      { C::instr_fetching_bd17, bytecode_at(event.pc + 17) },
+                      { C::instr_fetching_bd18, bytecode_at(event.pc + 18) },
+                      { C::instr_fetching_bd19, bytecode_at(event.pc + 19) },
+                      { C::instr_fetching_bd20, bytecode_at(event.pc + 20) },
+                      { C::instr_fetching_bd21, bytecode_at(event.pc + 21) },
+                      { C::instr_fetching_bd22, bytecode_at(event.pc + 22) },
+                      { C::instr_fetching_bd23, bytecode_at(event.pc + 23) },
+                      { C::instr_fetching_bd24, bytecode_at(event.pc + 24) },
+                      { C::instr_fetching_bd25, bytecode_at(event.pc + 25) },
+                      { C::instr_fetching_bd26, bytecode_at(event.pc + 26) },
+                      { C::instr_fetching_bd27, bytecode_at(event.pc + 27) },
+                      { C::instr_fetching_bd28, bytecode_at(event.pc + 28) },
+                      { C::instr_fetching_bd29, bytecode_at(event.pc + 29) },
+                      { C::instr_fetching_bd30, bytecode_at(event.pc + 30) },
+                      { C::instr_fetching_bd31, bytecode_at(event.pc + 31) },
+                      { C::instr_fetching_bd32, bytecode_at(event.pc + 32) },
+                      { C::instr_fetching_bd33, bytecode_at(event.pc + 33) },
+                      { C::instr_fetching_bd34, bytecode_at(event.pc + 34) },
+                      { C::instr_fetching_bd35, bytecode_at(event.pc + 35) },
                   } });
         row++;
     }

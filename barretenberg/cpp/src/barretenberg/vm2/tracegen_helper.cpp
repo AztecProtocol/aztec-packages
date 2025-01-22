@@ -120,7 +120,7 @@ TraceContainer AvmTraceGenHelper::generate_trace(EventsContainer&& events)
             // Precomputed column jobs.
             build_precomputed_columns_jobs(trace),
             // Subtrace jobs.
-            std::array<std::function<void()>, 5>{
+            std::array<std::function<void()>, 6>{
                 [&]() {
                     ExecutionTraceBuilder exec_builder;
                     AVM_TRACK_TIME("tracegen/execution",
@@ -134,7 +134,12 @@ TraceContainer AvmTraceGenHelper::generate_trace(EventsContainer&& events)
                     clear_events(events.alu);
                 },
                 [&]() {
-                    // TODO: We only store the bytecode for now, hashing is not handled!
+                    BytecodeTraceBuilder bytecode_builder;
+                    AVM_TRACK_TIME("tracegen/bytecode_decomposition",
+                                   bytecode_builder.process_decomposition(events.bytecode_decomposition, trace));
+                    clear_events(events.bytecode_decomposition);
+                },
+                [&]() {
                     BytecodeTraceBuilder bytecode_builder;
                     AVM_TRACK_TIME("tracegen/bytecode_hashing",
                                    bytecode_builder.process_hashing(events.bytecode_hashing, trace));
@@ -148,9 +153,9 @@ TraceContainer AvmTraceGenHelper::generate_trace(EventsContainer&& events)
                 },
                 [&]() {
                     BytecodeTraceBuilder bytecode_builder;
-                    AVM_TRACK_TIME("tracegen/bytecode_decomposition",
-                                   bytecode_builder.process_decomposition(events.bytecode_decomposition, trace));
-                    clear_events(events.bytecode_decomposition);
+                    AVM_TRACK_TIME("tracegen/instruction_fetching",
+                                   bytecode_builder.process_instruction_fetching(events.instruction_fetching, trace));
+                    clear_events(events.instruction_fetching);
                 },
                 [&]() {
                     Sha256TraceBuilder sha256_builder(trace);

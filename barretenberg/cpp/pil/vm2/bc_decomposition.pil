@@ -1,6 +1,6 @@
-// Bytecode decomposition.
-include "bytecode.pil";
-
+// This file owns the bytecode columns, and other helper columns.
+// TODO: This does NOT support empty bytecode.
+// TODO: Fully constrain.
 namespace bc_decomposition;
 
 pol commit sel;
@@ -8,71 +8,144 @@ pol commit sel;
 #[skippable_if]
 sel = 0;
 
+// Size of the sliding window.
+// This includes the "current byte" and the WINDOW_SIZE - 1 lookahead bytes.
+pol WINDOW_SIZE = 36;
+
+pol commit id;
+// pc counts from 0 to bytecode_length - 1.
 pol commit pc;
-pol commit bytecode_id;
-// TODO: How do we handle parsing errors?
-// pol commit parsing_err;
+// bytes_remaining counts from bytecode_length to 1.
+pol commit bytes_remaining;
 
-// bytecode[pc] to bytecode[pc + 35]
-pol commit bd0, bd1, bd2, bd3, bd4,
-           bd5, bd6, bd7, bd8, bd9, bd10,
-           bd11, bd12, bd13, bd14, bd15,
-           bd16, bd17, bd18, bd19, bd20,
-           bd21, bd22, bd23, bd24, bd25,
-           bd26, bd27, bd28, bd29, bd30,
-           bd31, bd32, bd33, bd34, bd35;
+// TODO: Constrain pc is increasing until contract switch.
+// TODO: Constrain bytes_remaining is decreasing until contract switch.
+// TODO: Constrain bytes_remaining = 1 iff contract switch.
+// This column should be 1 iff the contract is switching.
+pol commit last_of_contract;
+last_of_contract * (1 - last_of_contract) = 0;
 
-pol commit indirect;
-// Operands.
-pol commit op1, op2, op3, op4;
-// Wire to execution opcodes translation.
-pol commit ex_opcode;
+// This is the most important column. It contains the bytecode one byte at a time on each row.
+// If the TX uses several bytecodes, they should go one after the other in this column.
+pol commit bytes;
+// This constrains that the bytes are in the range 0 to 255.
+// #[LOOKUP_BYTECODE_BYTES]
+// sel { bytes } in precomputed.sel_u8 { precomputed.clk }
 
-// Helper possible formats.
-// TODO: dummy for now.
-pol commit fmt_3_op_u8;
+// These are helper columns that will be used for bytecode decomposition.
+pol commit bytes_pc_plus_1, bytes_pc_plus_2, bytes_pc_plus_3, bytes_pc_plus_4, bytes_pc_plus_5,
+           bytes_pc_plus_6, bytes_pc_plus_7, bytes_pc_plus_8, bytes_pc_plus_9, bytes_pc_plus_10,
+           bytes_pc_plus_11, bytes_pc_plus_12, bytes_pc_plus_13, bytes_pc_plus_14, bytes_pc_plus_15,
+           bytes_pc_plus_16, bytes_pc_plus_17, bytes_pc_plus_18, bytes_pc_plus_19, bytes_pc_plus_20,
+           bytes_pc_plus_21, bytes_pc_plus_22, bytes_pc_plus_23, bytes_pc_plus_24, bytes_pc_plus_25,
+           bytes_pc_plus_26, bytes_pc_plus_27, bytes_pc_plus_28, bytes_pc_plus_29, bytes_pc_plus_30,
+           bytes_pc_plus_31, bytes_pc_plus_32, bytes_pc_plus_33, bytes_pc_plus_34, bytes_pc_plus_35;
 
-// Bring in the bytes from the bytecode columns.
-// #[LOOKUP_BYTES]
-// sel {
-//     pc,
-//     bytecode_id,
-//     bd0, bd1, bd2, bd3, bd4,
-//     bd5, bd7, bd8, bd9, bd10,
-//     bd11, bd12, bd13, bd14, bd15,
-//     bd16, bd17, bd18, bd19, bd20,
-//     bd21, bd22, bd23, bd24, bd25,
-//     bd26, bd27, bd28, bd29, bd30,
-//     bd31, bd32, bd33, bd34, bd35
-// } in bytecode.sel {
-//     bytecode.pc,
-//     bytecode.id,
-//     bytecode.bytes_pc_plus_0, bytecode.bytes_pc_plus_1, bytecode.bytes_pc_plus_2, bytecode.bytes_pc_plus_3, bytecode.bytes_pc_plus_4,
-//     bytecode.bytes_pc_plus_5, bytecode.bytes_pc_plus_7, bytecode.bytes_pc_plus_8, bytecode.bytes_pc_plus_9, bytecode.bytes_pc_plus_10,
-//     bytecode.bytes_pc_plus_11, bytecode.bytes_pc_plus_12, bytecode.bytes_pc_plus_13, bytecode.bytes_pc_plus_14, bytecode.bytes_pc_plus_15,
-//     bytecode.bytes_pc_plus_16, bytecode.bytes_pc_plus_17, bytecode.bytes_pc_plus_18, bytecode.bytes_pc_plus_19, bytecode.bytes_pc_plus_20,
-//     bytecode.bytes_pc_plus_21, bytecode.bytes_pc_plus_22, bytecode.bytes_pc_plus_23, bytecode.bytes_pc_plus_24, bytecode.bytes_pc_plus_25,
-//     bytecode.bytes_pc_plus_26, bytecode.bytes_pc_plus_27, bytecode.bytes_pc_plus_28, bytecode.bytes_pc_plus_29, bytecode.bytes_pc_plus_30,
-//     bytecode.bytes_pc_plus_31, bytecode.bytes_pc_plus_32, bytecode.bytes_pc_plus_33, bytecode.bytes_pc_plus_34, bytecode.bytes_pc_plus_35
-// }
+// DECOMPOSITION DOES NOT GO OVER THE END OF THE BYTECODE
+//
+// We need to constrain that the bytes_pc_plus_n do not go over the end of the bytecode.
+// In that case we expect there to be 0s. We need a few extra helper columns and some tricks.
+//
+// The basic idea is that, from "bytes_remaining" we will derive some selectors for each
+// bytes_pc_plus_n. A "mask" of sorts.
+//
+// (1) First we need to know how many bytes we are going to read into the sliding window.
+// This is the minimum of WINDOW_SIZE and bytes_remaining.
+//
+// (2) The first step will be to compute a UNARY (not binary) representation of the bytes_to_read.
+// For example, if bytes_to_read = 3, then the unary representation is 111. This will mean
+// That only the first three bytes are valid. NB: Using this unary trick saves us from doing
+// WINDOW_SIZE+ lookups and we only do 1 lookup.
+//
+// (3) Then we will expand that uniary representation into a set of WINDOW_SIZE selectors. This is done
+// via the usual reconstruction technique.
+//
+// (4) Then we apply the selectors to the bytes_pc_plus_n columns.
+//
+// Example:
+// Suppose a bytecode = [0x0, 0x1, ..., 0xA, 0xB, 0xC, 0xD] of size 40.
+//
+//   pc | bytes_remaining | bytes_to_read | bytes |  +1 |  +2 | ...
+// -----+-----------------+---------------+-------+-----+-----+-----
+//    0 |              40 |   WINDOW_SIZE |   0x1 | 0x2 | 0x3 | ...
+//    1 |              39 |   WINDOW_SIZE |   0x2 | 0x3 | 0x4 | ...
+//    2 |              38 |   WINDOW_SIZE |   0x3 | 0x4 | 0x5 | ...
+//    ...
+//   36 |               4 |             4 |   0xA | 0xB | 0xC | ...
+//   37 |               3 |             3 |   0xB | 0xC | 0xD | ...
+//   38 |               2 |             2 |   0xC | 0xD | *** | ...
+//   39 |               1 |             1 |   0xD | *** | *** | ...
 
-// Get some info from the instruction information table.
-// TODO: guard selector by error flag.
-// #[LOOKUP_INSTRUCTION_INFO]
-// sel {
-//     bd0, // wire opcode!
-//     ex_opcode,
-//     fmt_3_op_u8,
-// } in instruction_info.sel {
-//     instruction_info.wire_opcode,
-//     instruction_info.ex_opcode,
-//     instruction_info.fmt_3_op_u8
-// }
+pol commit bytes_to_read;
+pol commit sel_overflow_correction_needed;
+sel_overflow_correction_needed * (1 - sel_overflow_correction_needed) = 0;
+// We need to constrain bytes_to_read = min(WINDOW_SIZE, bytes_remaining). First we do...
+#[BYTECODE_OVERFLOW_CORRECTION_VALUE]
+sel * ((1 - sel_overflow_correction_needed) * (bytes_to_read - WINDOW_SIZE) + sel_overflow_correction_needed * (bytes_to_read - bytes_remaining)) = 0;
+// And then we do sel_overflow_correction_needed = 1 iff bytes_remaining < WINDOW_SIZE.
+// #[LOOKUP_BYTECODE_REMAINING_U16]
+// sel_overflow_correction_needed { bytes_remaining - WINDOW_SIZE } in precomputed.sel_u16 { precomputed.clk }
 
-// TODO: relations that translate single bytes to operands using formats.
-// indirect = ...
-// op0 = fmt_3_op_u8 * (bd0 + 2^8 * bd1 ...)
-// op1 = ...
+pol commit bytes_to_read_unary;
+// #[LOOKUP_BYTECODE_TO_READ_UNARY]
+// sel { bytes_to_read, bytes_to_read_unary } in precomputed.sel_u8 { precomputed.clk, precomputed.to_unary }
+// Note: even if the unary table has 254 elems, using the sel_u8 selector is probably ok.
+// The table will be 254 correct n -> unary conversions plus a bunch of extra 0 -> 0.
+// We avoid adding an extra selector.
 
-// Dummy relation to make codegen work.
-sel = sel;
+pol commit sel_pc_plus_0, sel_pc_plus_1, sel_pc_plus_2, sel_pc_plus_3, sel_pc_plus_4,
+           sel_pc_plus_5, sel_pc_plus_6, sel_pc_plus_7, sel_pc_plus_8, sel_pc_plus_9,
+           sel_pc_plus_10, sel_pc_plus_11, sel_pc_plus_12, sel_pc_plus_13, sel_pc_plus_14,
+           sel_pc_plus_15, sel_pc_plus_16, sel_pc_plus_17, sel_pc_plus_18, sel_pc_plus_19,
+           sel_pc_plus_20, sel_pc_plus_21, sel_pc_plus_22, sel_pc_plus_23, sel_pc_plus_24,
+           sel_pc_plus_25, sel_pc_plus_26, sel_pc_plus_27, sel_pc_plus_28, sel_pc_plus_29,
+           sel_pc_plus_30, sel_pc_plus_31, sel_pc_plus_32, sel_pc_plus_33, sel_pc_plus_34,
+           sel_pc_plus_35;
+// TODO: I think we don't need plus_0
+#[BYTECODE_UNARY_RECONSTRUCTION]
+bytes_to_read_unary = sel_pc_plus_0  * 2**0  + sel_pc_plus_1  * 2**1  + sel_pc_plus_2  * 2**2  + sel_pc_plus_3  * 2**3  + sel_pc_plus_4  * 2**4  +
+                      sel_pc_plus_5  * 2**5  + sel_pc_plus_6  * 2**6  + sel_pc_plus_7  * 2**7  + sel_pc_plus_8  * 2**8  + sel_pc_plus_9  * 2**9  +
+                      sel_pc_plus_10 * 2**10 + sel_pc_plus_11 * 2**11 + sel_pc_plus_12 * 2**12 + sel_pc_plus_13 * 2**13 + sel_pc_plus_14 * 2**14 +
+                      sel_pc_plus_15 * 2**15 + sel_pc_plus_16 * 2**16 + sel_pc_plus_17 * 2**17 + sel_pc_plus_18 * 2**18 + sel_pc_plus_19 * 2**19 +
+                      sel_pc_plus_20 * 2**20 + sel_pc_plus_21 * 2**21 + sel_pc_plus_22 * 2**22 + sel_pc_plus_23 * 2**23 + sel_pc_plus_24 * 2**24 +
+                      sel_pc_plus_25 * 2**25 + sel_pc_plus_26 * 2**26 + sel_pc_plus_27 * 2**27 + sel_pc_plus_28 * 2**28 + sel_pc_plus_29 * 2**29 +
+                      sel_pc_plus_30 * 2**30 + sel_pc_plus_31 * 2**31 + sel_pc_plus_32 * 2**32 + sel_pc_plus_33 * 2**33 + sel_pc_plus_34 * 2**34 +
+                      sel_pc_plus_35 * 2**35;
+// Note: the above relation constrains the selectors to be binary when taken together with the lookup into unary.
+
+// Constrain shifted columns.
+bytes_pc_plus_1 = sel_pc_plus_0 * bytes';
+bytes_pc_plus_2 = sel_pc_plus_1 * bytes_pc_plus_1';
+bytes_pc_plus_3 = sel_pc_plus_2 * bytes_pc_plus_2';
+bytes_pc_plus_4 = sel_pc_plus_3 * bytes_pc_plus_3';
+bytes_pc_plus_5 = sel_pc_plus_4 * bytes_pc_plus_4';
+bytes_pc_plus_6 = sel_pc_plus_5 * bytes_pc_plus_5';
+bytes_pc_plus_7 = sel_pc_plus_6 * bytes_pc_plus_6';
+bytes_pc_plus_8 = sel_pc_plus_7 * bytes_pc_plus_7';
+bytes_pc_plus_9 = sel_pc_plus_8 * bytes_pc_plus_8';
+bytes_pc_plus_10 = sel_pc_plus_9 * bytes_pc_plus_9';
+bytes_pc_plus_11 = sel_pc_plus_10 * bytes_pc_plus_10';
+bytes_pc_plus_12 = sel_pc_plus_11 * bytes_pc_plus_11';
+bytes_pc_plus_13 = sel_pc_plus_12 * bytes_pc_plus_12';
+bytes_pc_plus_14 = sel_pc_plus_13 * bytes_pc_plus_13';
+bytes_pc_plus_15 = sel_pc_plus_14 * bytes_pc_plus_14';
+bytes_pc_plus_16 = sel_pc_plus_15 * bytes_pc_plus_15';
+bytes_pc_plus_17 = sel_pc_plus_16 * bytes_pc_plus_16';
+bytes_pc_plus_18 = sel_pc_plus_17 * bytes_pc_plus_17';
+bytes_pc_plus_19 = sel_pc_plus_18 * bytes_pc_plus_18';
+bytes_pc_plus_20 = sel_pc_plus_19 * bytes_pc_plus_19';
+bytes_pc_plus_21 = sel_pc_plus_20 * bytes_pc_plus_20';
+bytes_pc_plus_22 = sel_pc_plus_21 * bytes_pc_plus_21';
+bytes_pc_plus_23 = sel_pc_plus_22 * bytes_pc_plus_22';
+bytes_pc_plus_24 = sel_pc_plus_23 * bytes_pc_plus_23';
+bytes_pc_plus_25 = sel_pc_plus_24 * bytes_pc_plus_24';
+bytes_pc_plus_26 = sel_pc_plus_25 * bytes_pc_plus_25';
+bytes_pc_plus_27 = sel_pc_plus_26 * bytes_pc_plus_26';
+bytes_pc_plus_28 = sel_pc_plus_27 * bytes_pc_plus_27';
+bytes_pc_plus_29 = sel_pc_plus_28 * bytes_pc_plus_28';
+bytes_pc_plus_30 = sel_pc_plus_29 * bytes_pc_plus_29';
+bytes_pc_plus_31 = sel_pc_plus_30 * bytes_pc_plus_30';
+bytes_pc_plus_32 = sel_pc_plus_31 * bytes_pc_plus_31';
+bytes_pc_plus_33 = sel_pc_plus_32 * bytes_pc_plus_32';
+bytes_pc_plus_34 = sel_pc_plus_33 * bytes_pc_plus_33';
+bytes_pc_plus_35 = sel_pc_plus_34 * bytes_pc_plus_34';

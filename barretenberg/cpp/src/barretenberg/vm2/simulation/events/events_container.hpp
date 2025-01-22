@@ -21,6 +21,7 @@ struct EventsContainer {
     EventEmitterInterface<BytecodeRetrievalEvent>::Container bytecode_retrieval;
     EventEmitterInterface<BytecodeHashingEvent>::Container bytecode_hashing;
     EventEmitterInterface<BytecodeDecompositionEvent>::Container bytecode_decomposition;
+    EventEmitterInterface<InstructionFetchingEvent>::Container instruction_fetching;
     EventEmitterInterface<AddressDerivationEvent>::Container address_derivation;
     EventEmitterInterface<ClassIdDerivationEvent>::Container class_id_derivation;
     EventEmitterInterface<SiloingEvent>::Container siloing;

@@ -1,3 +1,2 @@
 // Bytecode hashing.
-// This will probably be a virtual bytecode gadget.
-include "bytecode.pil";
+include "bc_decomposition.pil";

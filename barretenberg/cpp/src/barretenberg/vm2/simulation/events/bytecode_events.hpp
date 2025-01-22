@@ -15,12 +15,19 @@ namespace bb::avm2::simulation {
 
 using BytecodeId = uint8_t;
 
-// TODO: Implement tracegen for this.
+// Storage and decomposition of bytecode into sliding window.
+struct BytecodeDecompositionEvent {
+    BytecodeId bytecode_id;
+    std::shared_ptr<std::vector<uint8_t>> bytecode;
+};
+
 struct BytecodeHashingEvent {
     BytecodeId bytecode_id;
     std::shared_ptr<std::vector<uint8_t>> bytecode;
 };
 
+// This is the event that is emitted when the simulator needs to retrieve bytecode.
+// It might or might not result into the storage/decomposition of a bytecode.
 struct BytecodeRetrievalEvent {
     BytecodeId bytecode_id;
     AztecAddress address;
@@ -31,11 +38,7 @@ struct BytecodeRetrievalEvent {
     bool error = false;
 };
 
-// WARNING: These events and the above will be "linked" by the bytecode column (1 byte per row).
-// Therefore, when generating the trace from this event, it will be absolutely necessary
-// to know where the first row of the bytecode is. That presents design challenges.
-// Question: consider processing in tandem?
-struct BytecodeDecompositionEvent {
+struct InstructionFetchingEvent {
     BytecodeId bytecode_id;
     uint32_t pc;
     // TODO: Do we want to have a dep on Instruction here or do we redefine what we need?
