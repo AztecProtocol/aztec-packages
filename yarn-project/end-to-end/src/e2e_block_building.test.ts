@@ -408,7 +408,7 @@ describe('e2e_block_building', () => {
       // account setup
       const privateKey = new Fr(7n);
       const keys = deriveKeys(privateKey);
-      const account = getSchnorrAccount(pxe, privateKey, keys.masterIncomingViewingSecretKey);
+      const account = await getSchnorrAccount(pxe, privateKey, keys.masterIncomingViewingSecretKey);
       await account.deploy().wait();
       const thisWallet = await account.getWallet();
       const sender = thisWallet.getAddress();
@@ -436,7 +436,7 @@ describe('e2e_block_building', () => {
       // account setup
       const privateKey = new Fr(7n);
       const keys = deriveKeys(privateKey);
-      const account = getSchnorrAccount(pxe, privateKey, keys.masterIncomingViewingSecretKey);
+      const account = await getSchnorrAccount(pxe, privateKey, keys.masterIncomingViewingSecretKey);
       await account.deploy().wait();
       const thisWallet = await account.getWallet();
       const sender = thisWallet.getAddress();
@@ -492,7 +492,7 @@ describe('e2e_block_building', () => {
       }));
       await sleep(1000);
 
-      const account = getSchnorrAccount(pxe, Fr.random(), Fq.random(), Fr.random());
+      const account = await getSchnorrAccount(pxe, Fr.random(), Fq.random(), Fr.random());
       await account.waitSetup();
     });
 
