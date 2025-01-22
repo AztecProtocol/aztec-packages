@@ -60,7 +60,7 @@ template <typename Flavor> bool DeciderVerifier_<Flavor>::verify()
     }
 
     // If Sumcheck did not verify, return false
-    if (sumcheck_output.verified.has_value() && !sumcheck_output.verified.value()) {
+    if (!sumcheck_output.verified) {
         info("Sumcheck verification failed.");
         return false;
     }
@@ -81,7 +81,7 @@ template <typename Flavor> bool DeciderVerifier_<Flavor>::verify()
                                                sumcheck_output.claimed_libra_evaluation);
     const auto pairing_points = PCS::reduce_verify_batch_opening_claim(opening_claim, transcript);
     bool verified = pcs_verification_key->pairing_check(pairing_points[0], pairing_points[1]);
-    return sumcheck_output.verified.value() && verified && consistency_checked;
+    return sumcheck_output.verified && verified && consistency_checked;
 }
 
 template class DeciderVerifier_<UltraFlavor>;
