@@ -344,12 +344,12 @@ contract Test {
     // docs:end:is-time-equal
 
     #[public]
-    fn emit_unencrypted(value: Field) {
-        // docs:start:emit_unencrypted
-        context.emit_unencrypted_log(/*message=*/ value);
-        context.emit_unencrypted_log(/*message=*/ [10, 20, 30]);
-        context.emit_unencrypted_log(/*message=*/ "Hello, world!");
-        // docs:end:emit_unencrypted
+    fn emit_public(value: Field) {
+        // docs:start:emit_public
+        context.emit_public_log(/*message=*/ value);
+        context.emit_public_log(/*message=*/ [10, 20, 30]);
+        context.emit_public_log(/*message=*/ "Hello, world!");
+        // docs:end:emit_public
     }
 
     #[public]
