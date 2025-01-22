@@ -67,7 +67,7 @@ if [ -t 1 ]; then
   fi
 else
   # LOG_ID can optionally be set externally to be e.g. the GA run id.
-  cmd+=" 2>&1 | ci3/add_timestamps | ci3/cache_log \"CI run\" ${LOG_ID:-}"
+  cmd+=" 2>&1 | ci3/add_timestamps | ci3/cache_log \\\"CI run\\\" ${LOG_ID:-}"
 fi
 
 container_script=$(cat <<EOF
