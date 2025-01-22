@@ -35,8 +35,6 @@ describe('EncryptedLogPayload', () => {
 
       completeAddress = CompleteAddress.fromSecretKeyAndPartialAddress(secretKey, partialAddress);
 
-      console.log('contractAddress:', contractAddress);
-
       const ephSk = GrumpkinScalar.random();
 
       payload = await original.generatePayload(ephSk, completeAddress.address);

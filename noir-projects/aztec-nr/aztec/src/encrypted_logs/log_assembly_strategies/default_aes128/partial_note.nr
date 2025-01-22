@@ -5,7 +5,7 @@ use crate::{
     encrypted_logs::{
         encrypt::aes128::derive_aes_symmetric_key_and_iv_from_ecdh_shared_secret_using_sha256,
         log_assembly_strategies::default_aes128::note::{
-            get_arr_of_size_fields_padding_from_PT, get_arr_of_size_log_bytes_from_PT,
+            get_arr_of_size_log_bytes_from_PT,
             get_arr_of_size_p_from_PT, HEADER_CIPHERTEXT_SIZE_IN_BYTES,
         },
     },
@@ -15,16 +15,14 @@ use crate::{
     },
     oracle::{
         notes::{get_app_tag_as_sender, increment_app_tagging_secret_index_as_sender},
-        random::random,
     },
     utils::{
         bytes::{be_bytes_31_to_fields, get_random_bytes},
-        point::{get_sign_of_point, point_to_bytes},
+        point::{get_sign_of_point},
     },
 };
 use dep::protocol_types::{
     address::{aztec_address::ToField, AztecAddress},
-    debug_log::{debug_log, debug_log_format},
     hash::poseidon2_hash,
 };
 use std::aes128::aes128_encrypt;
@@ -35,8 +33,6 @@ pub fn compute_partial_public_log_payload<let N: u32, let M: u32>(
     recipient: AztecAddress,
     sender: AztecAddress,
 ) -> [Field; M] {
-    debug_log("I'm in partial_note.nr");
-
     // *****************************************************************************
     // Compute the shared secret
     // *****************************************************************************
@@ -119,73 +115,6 @@ pub fn compute_partial_public_log_payload<let N: u32, let M: u32>(
 
     let mut log_bytes = get_arr_of_size_log_bytes_from_PT::<2 + N>();
 
-    // LOGGGINGGGGG
-
-    let contract_address_bytes_length = contract_address_bytes.len() as Field;
-    let header_plaintext_length = header_plaintext.len() as Field;
-    let header_ciphertext_bytes_length = header_ciphertext_bytes.len() as Field;
-    let plaintext_length = plaintext.len() as Field;
-    let log_bytes_padding_to_mult_31_length = log_bytes_padding_to_mult_31.len() as Field;
-    let log_bytes_length = log_bytes.len() as Field;
-    debug_log("\n\n\n\nHELLO");
-    debug_log("Hi Mum!");
-    debug_log("I'm in partial_note.nr");
-    debug_log_format(
-        "\ncontract_address_bytes_length: {0}",
-        [contract_address_bytes_length],
-    );
-    debug_log_format("\nheader_plaintext_length: {0}", [header_plaintext_length]);
-    debug_log_format(
-        "\nheader_ciphertext_bytes_length: {0}",
-        [header_ciphertext_bytes_length],
-    );
-    debug_log_format(
-        "\nciphertext_bytes_length: {0}",
-        [ciphertext_bytes_length as Field],
-    );
-    debug_log_format("\nplaintext_length: {0}", [plaintext_length]);
-    debug_log_format(
-        "\nlog_bytes_padding_to_mult_31_length: {0}",
-        [log_bytes_padding_to_mult_31_length],
-    );
-    debug_log_format("\nlog_bytes_length: {0}", [log_bytes_length]);
-    debug_log_format("\ncontract_address: {0}", [contract_address.to_field()]);
-    debug_log_format(
-        "header_plaintext: {}",
-        header_plaintext.map(|byte| byte as Field),
-    );
-    debug_log_format(
-        "final_plaintext: {}",
-        final_plaintext.map(|byte| byte as Field),
-    );
-    debug_log_format(
-        "final_plaintext, attempt to convert the bytes to fields: {}",
-        be_bytes_31_to_fields(final_plaintext),
-    );
-    debug_log_format(
-        "header_ciphertext_bytes: {}",
-        header_ciphertext_bytes.map(|byte| byte as Field),
-    );
-    debug_log_format(
-        "header_ciphertext_bytes, attempt to convert the bytes to fields: {}",
-        be_bytes_31_to_fields(header_ciphertext_bytes),
-    );
-
-    debug_log_format(
-        "ciphertext_bytes: {}",
-        ciphertext_bytes.map(|byte| byte as Field),
-    );
-    debug_log_format(
-        "ciphertext_bytes, attempt to convert the bytes to fields: {}",
-        be_bytes_31_to_fields(ciphertext_bytes),
-    );
-    debug_log_format("eph_pk: \nx: {0} \ny: {1}", [eph_pk.x, eph_pk.y]);
-    debug_log_format(
-        "ciphertext_shared_secret: \nx: {0} \ny: {1}",
-        [ciphertext_shared_secret.x, ciphertext_shared_secret.y],
-    );
-    debug_log_format("sym_key: {0}", be_bytes_31_to_fields(sym_key));
-
     log_bytes[0] = eph_pk_sign_byte;
     let mut offset = 1;
     for i in 0..header_ciphertext_bytes.len() {
@@ -201,8 +130,6 @@ pub fn compute_partial_public_log_payload<let N: u32, let M: u32>(
     for i in 0..log_bytes_padding_to_mult_31.len() {
         log_bytes[offset + i] = log_bytes_padding_to_mult_31[i];
     }
-
-    debug_log("\nMade the log_bytes successfully...");
 
     // *****************************************************************************
     // Convert bytes back to fields
@@ -226,8 +153,6 @@ pub fn compute_partial_public_log_payload<let N: u32, let M: u32>(
     let tag = unsafe { get_app_tag_as_sender(sender, recipient) };
     increment_app_tagging_secret_index_as_sender(sender, recipient);
 
-    debug_log_format("tag: {0}", [tag]);
-
     // Silo the tag with contract address.
     // This is done by the kernel circuit to the private logs, but since the partial log will be finalized and emitted
     // in public as unencrypted log, its tag is not siloed at the moment.
@@ -242,12 +167,6 @@ pub fn compute_partial_public_log_payload<let N: u32, let M: u32>(
 
     final_log[0] = siloed_tag;
     final_log[1] = eph_pk.x;
-
-    debug_log_format("final_log length: {0}", [M as Field]);
-    let length_should_be = 1 + 1 + log_bytes_as_fields.len();
-    debug_log_format("length should be: {0}", [length_should_be as Field]);
-
-    debug_log("\nAbout to make the final_log...");
 
     let mut offset = 2;
     for i in 0..log_bytes_as_fields.len() {

@@ -12,15 +12,13 @@ use crate::{
     },
     utils::{
         bytes::{be_bytes_31_to_fields, get_random_bytes},
-        point::{get_sign_of_point, point_from_x_coord},
+        point::{get_sign_of_point},
     },
 };
 use dep::protocol_types::{
     abis::note_hash::NoteHash,
     address::AztecAddress,
     constants::PRIVATE_LOG_SIZE_IN_FIELDS,
-    debug_log::{debug_log, debug_log_format},
-    utils::arrays::array_concat,
 };
 use std::aes128::aes128_encrypt;
 
@@ -50,13 +48,6 @@ pub(crate) global USABLE_PRIVATE_LOG_SIZE_IN_BYTES: u32 =
     ((USABLE_PRIVATE_LOG_SIZE_IN_FIELDS * 31) / 16) * 16;
 
 pub(crate) global HEADER_CIPHERTEXT_SIZE_IN_BYTES: u32 = 48; // contract_address + 16 bytes pkcs#7 AES padding (unfortunately).
-
-pub(crate) global USABLE_PLAINTEXT_SIZE_IN_BYTES: u32 =
-    USABLE_PRIVATE_LOG_SIZE_IN_BYTES - HEADER_CIPHERTEXT_SIZE_IN_BYTES;
-
-// Very difficult to name: the size of the thing that tells us the size of the
-// unpadded plaintext.
-global SIZE_OF_ENCODING_OF_UNPADDED_PLAINTEXT_SIZE_IN_BYTES: u32 = 2;
 
 /*
  * WHY IS THERE LOTS OF CODE DUPLICATION BETWEEN event.nr and note.nr?
@@ -147,46 +138,6 @@ global SIZE_OF_ENCODING_OF_UNPADDED_PLAINTEXT_SIZE_IN_BYTES: u32 = 2;
  *
  *
  */
-
-/**
- * Prepend: 2 bytes conveying the length of the proper_plaintext.
- * Note: 1 byte isn't enough, because the length to be conveyed might be > 256 bytes.
- */
-// pub(crate) fn prepend_plaintext_length<let N: u32>(proper_plaintext: [u8; N]) -> [u8; 2 + N] {
-//     let mut prepended_plaintext: [u8; 2 + N] = [0; 2 + N];
-
-//     // We prepend the plaintext size (encoded as 1 byte), to make decoding easier
-//     // for the recipient.
-//     prepended_plaintext[0] = (N >> 8) as u8;
-//     prepended_plaintext[1] = N as u8;
-
-//     // Then the proper plaintext:
-//     let mut offset = 2;
-//     for i in 0..N {
-//         prepended_plaintext[offset + i] = proper_plaintext[i];
-//     }
-
-//     prepended_plaintext
-// }
-
-/**
- * Append: Padding up to the length DESIRED_PLAINTEXT_SIZE_IN_BYTES.
- */
-// pub(crate) fn pad_plaintext_with_zeros<let N: u32>(plaintext: [u8; N]) -> [u8; DESIRED_PLAINTEXT_SIZE_IN_BYTES] {
-//     std::static_assert(N <= DESIRED_PLAINTEXT_SIZE_IN_BYTES, "Plaintext too big.");
-
-//     let mut padded_plaintext: [u8; DESIRED_PLAINTEXT_SIZE_IN_BYTES] = [0; DESIRED_PLAINTEXT_SIZE_IN_BYTES];
-
-//     // Push the existing plaintext:
-//     for i in 0..N {
-//         padded_plaintext[i] = plaintext[i];
-//     }
-
-//     // Notice: The padding is implicitly 0, by the way we declared padded_plaintext
-//     // as having length DESIRED_PLAINTEXT_SIZE_IN_BYTES,
-//     // so we don't need to loop to add that.
-//     padded_plaintext
-// }
 
 /********************************************************/
 // Disgusting arithmetic on generics
@@ -295,8 +246,6 @@ fn compute_log<Note, let N: u32>(
 where
     Note: NoteInterface<N>,
 {
-    debug_log("MIKE: welcome to note log computation...");
-
     // *****************************************************************************
     // Compute the shared secret
     // *****************************************************************************
@@ -412,76 +361,6 @@ where
         log_bytes.len() % 31 == 0,
         "Unexpected error: log_bytes.len() should be divisible by 31, by construction.",
     );
-    // assert(1 /* eph_pk_sign */ + header_ciphertext_bytes.len() + ciphertext_bytes_length + log_bytes_padding_to_mult_31.len() == log_bytes.len(), "Unexpected error: array lengths are invalid.");
-
-    // MIKE: PRINT ARRAY LENGTHS HERE AND SEE IF 271 APPEARS
-    let contract_address_bytes_length = contract_address_bytes.len() as Field;
-    let header_plaintext_length = header_plaintext.len() as Field;
-    let header_ciphertext_bytes_length = header_ciphertext_bytes.len() as Field;
-    let note_bytes_length = note_bytes.len() as Field;
-    let log_bytes_padding_to_mult_31_length = log_bytes_padding_to_mult_31.len() as Field;
-    let log_bytes_length = log_bytes.len() as Field;
-    debug_log("\n\n\n\nHELLO");
-    debug_log("Hi Mum!");
-    debug_log("I'm in note.nr");
-    debug_log_format(
-        "contract_address_bytes_length: {0}",
-        [contract_address_bytes_length],
-    );
-    debug_log_format("header_plaintext_length: {0}", [header_plaintext_length]);
-    debug_log_format(
-        "header_ciphertext_bytes_length: {0}",
-        [header_ciphertext_bytes_length],
-    );
-    debug_log_format(
-        "ciphertext_bytes_length: {0}",
-        [ciphertext_bytes_length as Field],
-    );
-    debug_log_format("note_bytes_length: {0}", [note_bytes_length]);
-    debug_log_format(
-        "log_bytes_padding_to_mult_31_length: {0}",
-        [log_bytes_padding_to_mult_31_length],
-    );
-    debug_log_format("log_bytes_length: {0}", [log_bytes_length]);
-    debug_log_format("\ncontract_address: {0}", [contract_address.to_field()]);
-    // debug_log_format(
-    //     "header_plaintext: {}",
-    //     header_plaintext.map(|byte| byte as Field),
-    // );
-    // debug_log_format(
-    //     "final_plaintext: {}",
-    //     final_plaintext.map(|byte| byte as Field),
-    // );
-    debug_log_format(
-        "final_plaintext, attempt to convert the bytes to fields: {}",
-        be_bytes_31_to_fields(final_plaintext),
-    );
-    // debug_log_format(
-    //     "header_ciphertext_bytes: {}",
-    //     header_ciphertext_bytes.map(|byte| byte as Field),
-    // );
-    debug_log_format(
-        "header_ciphertext_bytes, attempt to convert the bytes to fields: {}",
-        be_bytes_31_to_fields(header_ciphertext_bytes),
-    );
-    // debug_log_format(
-    //     "ciphertext_bytes: {}",
-    //     ciphertext_bytes.map(|byte| byte as Field),
-    // );
-    debug_log_format(
-        "ciphertext_bytes, attempt to convert the bytes to fields: {}",
-        be_bytes_31_to_fields(ciphertext_bytes),
-    );
-    debug_log_format(
-        "log_bytes_padding_to_mult_31, attempt to convert the bytes to fields: {}",
-        be_bytes_31_to_fields(log_bytes_padding_to_mult_31),
-    );
-    debug_log_format("eph_pk: \nx: {0} \ny: {1}", [eph_pk.x, eph_pk.y]);
-    debug_log_format(
-        "ciphertext_shared_secret: \nx: {0} \ny: {1}",
-        [ciphertext_shared_secret.x, ciphertext_shared_secret.y],
-    );
-    debug_log_format("sym_key: {0}", be_bytes_31_to_fields(sym_key));
 
     log_bytes[0] = eph_pk_sign_byte;
     let mut offset = 1;
@@ -508,14 +387,7 @@ where
     // Convert bytes back to fields
     // *****************************************************************************
 
-    debug_log_format(
-        "\n\n\nlog_bytes_as_BYTES: {}",
-        log_bytes.map(|byte| byte as Field),
-    );
-
     let log_bytes_as_fields = be_bytes_31_to_fields(log_bytes);
-
-    debug_log_format("log_bytes_as_fields: {}", log_bytes_as_fields);
 
     // *****************************************************************************
     // Prepend / append fields, to create the final log
@@ -524,18 +396,6 @@ where
     // We need to pad with some extra fields:
     let fields_padding = get_arr_of_size_fields_padding_from_PT::<(N * 32) + 64>();
 
-    debug_log_format(
-        "log_bytes_as_fields.len(): {0}",
-        [log_bytes_as_fields.len() as Field],
-    );
-    debug_log_format("fields_padding.len(): {0}", [fields_padding.len() as Field]);
-
-    // assert(
-    //     TAG_SIZE_IN_FIELDS + EPK_SIZE_IN_FIELDS + log_bytes_as_fields.len() + fields_padding.len()
-    //         == PRIVATE_LOG_SIZE_IN_FIELDS,
-    //     "You've done some bad maths",
-    // );
-
     // In this strategy, we prepend [tag, eph_pk.x]
 
     // We assume that the sender wants for the recipient to find the tagged note,
@@ -543,8 +403,6 @@ where
     // tag will result in the recipient not being able to find the note automatically.
     let tag = unsafe { get_app_tag_as_sender(sender, recipient) };
     increment_app_tagging_secret_index_as_sender(sender, recipient);
-
-    debug_log_format("tag: {0}", [tag]);
 
     let mut final_log: [Field; PRIVATE_LOG_SIZE_IN_FIELDS] = [0; PRIVATE_LOG_SIZE_IN_FIELDS];
 
@@ -557,12 +415,9 @@ where
     }
     offset += log_bytes_as_fields.len();
 
-    let mut len_check = 0;
     for i in offset..PRIVATE_LOG_SIZE_IN_FIELDS {
         final_log[i] = unsafe { random() };
-        len_check += 1;
     }
-    assert(len_check == fields_padding.len());
 
     (final_log, note_hash_counter)
 }

@@ -18,11 +18,11 @@ use crate::{
     },
     utils::{
         bytes::{be_bytes_31_to_fields, get_random_bytes},
-        point::{get_sign_of_point, point_from_x_coord},
+        point::{get_sign_of_point},
     },
 };
 use dep::protocol_types::{
-    address::AztecAddress, constants::PRIVATE_LOG_SIZE_IN_FIELDS, utils::arrays::array_concat,
+    address::AztecAddress, constants::PRIVATE_LOG_SIZE_IN_FIELDS,
 };
 use std::aes128::aes128_encrypt;
 

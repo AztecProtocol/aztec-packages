@@ -163,7 +163,8 @@ function parseLogFromPublic(log: PublicLog) {
   // See aztec_nr/aztec/src/macros/note/mod.nr to see how the "finalization_log" is encoded.
   // Each length is stored in 2 bytes with a 0 separator byte between them:
   // [ publicLen[0], publicLen[1], 0, privateLen[0], privateLen[1], 0 ]
-  const lengths = log.log[0].toBuffer().subarray(-6);
+  // Search the codebase for "disgusting encoding" to see other hardcoded instances of this encoding, that you might need to change if you ever find yourself here.
+  const lengths = log.log[0].toBuffer().subarray(-5);
   const publicValuesLength = lengths.readUint16BE();
   const privateValuesLength = lengths.readUint16BE(3);
 

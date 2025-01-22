@@ -726,11 +726,6 @@ comptime fn generate_finalization_payload(
             }
 
             pub fn emit_log(self) {
-                aztec::protocol_types::debug_log::debug_log_format("\nsetup_log_plaintext_length: {0}", [$setup_log_plaintext_length as Field]);
-                aztec::protocol_types::debug_log::debug_log_format("\nsetup_log_fields_length: {0}", [$setup_log_fields_length as Field]);
-                aztec::protocol_types::debug_log::debug_log_format("\npublic_values_length: {0}", [$public_values_length as Field]);
-                aztec::protocol_types::debug_log::debug_log_format("\nfinalization_log_fields_length: {0}", [$finalization_log_fields_length as Field]);
-
                 let max_log_len = aztec::protocol_types::constants::PUBLIC_LOG_DATA_SIZE_IN_FIELDS;
                 // Make sure we aren't overflowing the public log maximum
                 assert(
@@ -744,41 +739,27 @@ comptime fn generate_finalization_payload(
                 // We append the public value to the log and emit it as unencrypted log
                 let mut finalization_log = [0; $finalization_log_fields_length];
 
-                aztec::protocol_types::debug_log::debug_log("Pushing to finalization_log[0]");
-
                 // Populate the first field with number of public values and private values:
+                // Search the codebase for "disgusting encoding" to see other hardcoded instances of this encoding, that you might need to change if you ever find yourself here.
                 finalization_log[0] = aztec::protocol_types::utils::field::field_from_bytes([
                     ($public_values_length >> 8) as u8,
                     $public_values_length as u8,
                     0,
                     ($setup_log_fields_length >> 8) as u8,
                     $setup_log_fields_length as u8,
-                    0,
                 ], true);
                 let mut offset = 1;
 
-                aztec::protocol_types::debug_log::debug_log("Pushing setup_log_fields to finalization_log");
                 // Iterate over the partial log and copy it to the final log
                 for i in 0..setup_log_fields.len() {
                     finalization_log[offset + i] = setup_log_fields[i];
                 }
                 offset += setup_log_fields.len();
 
-                aztec::protocol_types::debug_log::debug_log("Pushing self.public_values to finalization_log");
                 // Iterate over the public values and append them to the log
                 for i in 0..self.public_values.len() {
                     finalization_log[offset + i] = self.public_values[i];
                 }
-
-                aztec::protocol_types::debug_log::debug_log("Done. Now converting to bytes:");
-
-
-                // We emit the finalization log via the public logs stream.
-                // Well, we can't do that until Miranda's PR is merged, so until then, let's convert back to bytes and then push:
-
-                let finalization_log_bytes = aztec::utils::bytes::fields_to_be_bytes_32(finalization_log);
-
-                aztec::protocol_types::debug_log::debug_log("Done. Now pushing to the context:");
 
                 // We emit the finalization log via the public logs stream
                 self.context.emit_public_log(finalization_log);

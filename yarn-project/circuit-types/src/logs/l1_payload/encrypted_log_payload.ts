@@ -19,7 +19,7 @@ import {
 } from './encryption_util.js';
 import { deriveEcdhSharedSecret, deriveEcdhSharedSecretUsingAztecAddress } from './shared_secret_derivation.js';
 
-const logger = createLogger('types:encrypted_log_payload');
+// const logger = createLogger('types:encrypted_log_payload');
 
 // Below constants should match the values defined in aztec-nr/aztec/src/encrypted_logs/log_assembly_strategies/default_aes128/note.nr.
 // Note: we will soon be 'abstracting' log processing: apps will process their own logs, instead of the PXE processing all apps' logs. Therefore, this file will imminently change considerably.
@@ -37,7 +37,6 @@ const USABLE_PLAINTEXT_SIZE_IN_BYTES = USABLE_PRIVATE_LOG_SIZE_IN_BYTES - HEADER
 
 const CONTRACT_ADDRESS_SIZE_IN_BYTES = 32;
 
-const SIZE_OF_ENCODING_OF_PLAINTEXT_SIZE_IN_BYTES = 2;
 const SIZE_OF_ENCODING_OF_CIPHERTEXT_SIZE_IN_BYTES = 2;
 
 function beBytes31ToFields(bytes: Buffer): Fr[] {
@@ -52,21 +51,6 @@ function beBytes31ToFields(bytes: Buffer): Fr[] {
 function fieldsToBEBytes31(fields: Fr[]) {
   return Buffer.concat(fields.map(f => f.toBuffer().subarray(1)));
 }
-
-// class Overhead {
-//   constructor(public ephPk: Point, public incomingHeader: Buffer) {}
-
-//   static fromBuffer(reader: BufferReader) {
-//     const ephPk = Point.fromCompressedBuffer(reader.readBytes(Point.COMPRESSED_SIZE_IN_BYTES));
-//     const incomingHeader = reader.readBytes(HEADER_SIZE);
-
-// static async fromBuffer(reader: BufferReader) {
-//   const ephPk = await Point.fromCompressedBuffer(reader.readBytes(Point.COMPRESSED_SIZE_IN_BYTES));
-//   const incomingHeader = reader.readBytes(HEADER_SIZE);
-
-//     return new Overhead(ephPk, incomingHeader);
-//   }
-// }
 
 /**
  * Encrypted log payload with a tag used for retrieval by clients.
@@ -94,7 +78,6 @@ export class EncryptedLogPayload {
     recipient: AztecAddress,
     rand: (len: number) => Buffer = randomBytes,
   ): Promise<PrivateLog> {
-    logger.debug('\n\nEncrypting...');
     const ephPk = derivePublicKeyFromSecretKey(ephSk);
     const [ephPkX, ephPkSignBool] = ephPk.toXAndSign();
     const ephPkSignU8 = Buffer.from([Number(ephPkSignBool)]);
@@ -113,23 +96,8 @@ export class EncryptedLogPayload {
 
     const headerPlaintext = serializeToBuffer(this.contractAddress.toBuffer(), numToUInt16BE(ciphertextBytes.length));
 
-    logger.debug(`tag: ${this.tag.toString()}`);
-    logger.debug(`ephPk.x: ${ephPk.x.toString()}`);
-    logger.debug(`ephPk whole: ${ephPk}`);
-    logger.debug(`ephPk sign: ${ephPkSignBool}`);
-
-    logger.debug('ciphertextSharedSecret:', ciphertextSharedSecret);
-    logger.debug(`symKey: ${symKey.toString('hex')}`);
-
-    logger.debug(`headerPlaintext: ${headerPlaintext.toString('hex')}`);
-    logger.debug(`contract address: ${this.contractAddress.toString()}`);
-    logger.debug(`finalPlaintext: ${finalPlaintext.toString('hex')}`);
-
     // TODO: it is unsafe to re-use the same iv and symKey. We'll need to do something cleverer.
     const headerCiphertextBytes = aes128Encrypt(headerPlaintext, iv, symKey);
-
-    logger.debug(`headerCiphertext: ${headerCiphertextBytes.toString('hex')}`);
-    logger.debug(`ciphertext: ${ciphertextBytes.toString('hex')}`);
 
     if (headerCiphertextBytes.length !== HEADER_CIPHERTEXT_SIZE_IN_BYTES) {
       throw new Error(`Invalid header ciphertext size: ${headerCiphertextBytes.length}`);
@@ -179,7 +147,6 @@ export class EncryptedLogPayload {
   ): Promise<EncryptedLogPayload | undefined> {
     try {
       const logFields = payload;
-      logger.debug(`\n\nProcessing payload:`, payload);
 
       const tag = logFields[0];
       const ephPkX = logFields[1];
@@ -198,21 +165,8 @@ export class EncryptedLogPayload {
       }
 
       const ciphertextSharedSecret = deriveEcdhSharedSecret(addressSecret, ephPk);
-      logger.debug(`tag: ${tag.toString()}`);
-      logger.debug(`ephPk: ${ephPk.x.toString()}`);
-      logger.debug(`ephPk sign: ${ephPkSignBool}`);
-      logger.debug(`ephPk whole: ${ephPk}`);
-      logger.debug('ciphertextSharedSecret:', ciphertextSharedSecret);
-
-      const negatedEpk = await Point.fromXAndSign(ephPkX, !ephPkSignBool);
-      logger.debug(`negated ephPk whole: ${negatedEpk}`);
-
-      // const altSharedSecret = deriveEcdhSharedSecret(addressSecret, negatedEpk);
-      // logger.debug(`negatedSharedSecret: ${altSharedSecret}`);
 
       const [symKey, iv] = deriveAesSymmetricKeyAndIvFromEcdhSharedSecretUsingSha256(ciphertextSharedSecret);
-
-      logger.debug(`symKey: ${symKey.toString('hex')}`);
 
       const headerPlaintextBytes = aes128Decrypt(headerCiphertextBytes, iv, symKey);
 
@@ -221,24 +175,12 @@ export class EncryptedLogPayload {
       const contractAddressBuf = headerReader.readBytes(CONTRACT_ADDRESS_SIZE_IN_BYTES);
       contractAddress = AztecAddress.fromBuffer(contractAddressBuf);
 
-      logger.debug('Decrypted header...');
-      logger.debug(`contract address: ${contractAddress.toString()}`);
-
       const ciphertextBytesLengthBuf = headerReader.readBytes(SIZE_OF_ENCODING_OF_CIPHERTEXT_SIZE_IN_BYTES);
       const ciphertextBytesLength = (ciphertextBytesLengthBuf[0] << 8) + ciphertextBytesLengthBuf[1];
-
-      logger.debug('ciphertextBytesLengthBuf:', ciphertextBytesLengthBuf);
-      logger.debug('ciphertextBytesLength:', ciphertextBytesLength);
 
       const ciphertextBytes = reader.readBytes(ciphertextBytesLength);
 
       const plaintextBytes = aes128Decrypt(ciphertextBytes, iv, symKey);
-
-      logger.debug('plaintextBytes:', plaintextBytes.toString('hex'));
-      logger.debug('plaintextBytes length:', plaintextBytes.length);
-
-      logger.debug('headerCiphertextBytes:', headerCiphertextBytes.toString('hex'));
-      logger.debug('ciphertextBytes:', ciphertextBytes.toString('hex'));
 
       return new EncryptedLogPayload(tag, contractAddress, plaintextBytes);
     } catch (e: any) {
