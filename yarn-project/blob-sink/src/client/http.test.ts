@@ -31,11 +31,12 @@ describe('HttpBlobSinkClient', () => {
   it('should handle server connection errors gracefully', async () => {
     const client = new HttpBlobSinkClient({ blobSinkUrl: 'http://localhost:12345' }); // Invalid port
     const blob = Blob.fromFields([Fr.random()]);
+    const blobHash = blob.getEthVersionedBlobHash();
 
     const success = await client.sendBlobsToBlobSink('0x1234', [blob]);
     expect(success).toBe(false);
 
-    const retrievedBlobs = await client.getBlobSidecar('0x1234');
+    const retrievedBlobs = await client.getBlobSidecar('0x1234', [blobHash]);
     expect(retrievedBlobs).toEqual([]);
   });
 
@@ -43,6 +44,11 @@ describe('HttpBlobSinkClient', () => {
     let blobSinkServer: BlobSinkServer;
 
     let testBlob: Blob;
+    let testBlobHash: Buffer;
+
+    // A blob to be ignored when requesting blobs
+    // - we do not include it's blobHash in our queries
+    let testBlobIgnore: Blob;
 
     let executionHostServer: http.Server | undefined = undefined;
     let executionHostPort: number | undefined = undefined;
@@ -54,6 +60,9 @@ describe('HttpBlobSinkClient', () => {
 
     beforeEach(() => {
       testBlob = makeEncodedBlob(3);
+      testBlobHash = testBlob.getEthVersionedBlobHash();
+
+      testBlobIgnore = makeEncodedBlob(3);
     });
 
     const startExecutionHostServer = (): Promise<void> => {
@@ -80,6 +89,7 @@ describe('HttpBlobSinkClient', () => {
           res.end(
             JSON.stringify({
               data: [
+                // WORKTODO(md): check if eth version hash in included in the response
                 {
                   index: 0,
                   blob: `0x${Buffer.from(testBlob.data).toString('hex')}`,
@@ -87,6 +97,14 @@ describe('HttpBlobSinkClient', () => {
                   kzg_commitment: `0x${testBlob.commitment.toString('hex')}`,
                   // eslint-disable-next-line camelcase
                   kzg_proof: `0x${testBlob.proof.toString('hex')}`,
+                },
+                {
+                  index: 1,
+                  blob: `0x${Buffer.from(testBlobIgnore.data).toString('hex')}`,
+                  // eslint-disable-next-line camelcase
+                  kzg_commitment: `0x${testBlobIgnore.commitment.toString('hex')}`,
+                  // eslint-disable-next-line camelcase
+                  kzg_proof: `0x${testBlobIgnore.proof.toString('hex')}`,
                 },
               ],
             }),
@@ -133,7 +151,7 @@ describe('HttpBlobSinkClient', () => {
       const success = await client.sendBlobsToBlobSink('0x1234', [testBlob]);
       expect(success).toBe(true);
 
-      const retrievedBlobs = await client.getBlobSidecar('0x1234');
+      const retrievedBlobs = await client.getBlobSidecar('0x1234', [testBlobHash]);
       expect(retrievedBlobs).toEqual([testBlob]);
 
       // Check that the blob sink was called with the correct block hash and no index
@@ -160,7 +178,7 @@ describe('HttpBlobSinkClient', () => {
       const success = await client.sendBlobsToBlobSink('0x1234', [testBlob]);
       expect(success).toBe(true);
 
-      const retrievedBlobs = await client.getBlobSidecar('0x1234');
+      const retrievedBlobs = await client.getBlobSidecar('0x1234', [testBlobHash]);
       expect(retrievedBlobs).toEqual([testBlob]);
     });
   });

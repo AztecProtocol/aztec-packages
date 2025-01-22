@@ -98,10 +98,17 @@ export async function processL2BlockProposedLogs(
     const l2BlockNumber = log.args.blockNumber!;
     const archive = log.args.archive!;
     const archiveFromChain = await rollup.read.archiveAt([l2BlockNumber]);
+    const blobHashes = logs.blobHashes!.map(blobHash => Buffer.from(blobHash, 'hex'));
 
     // The value from the event and contract will match only if the block is in the chain.
     if (archive === archiveFromChain) {
-      const block = await getBlockFromRollupTx(publicClient, blobSinkClient, log.transactionHash!, l2BlockNumber);
+      const block = await getBlockFromRollupTx(
+        publicClient,
+        blobSinkClient,
+        log.transactionHash!,
+        blobHashes,
+        l2BlockNumber,
+      );
 
       const l1: L1PublishedData = {
         blockNumber: log.blockNumber,
@@ -139,6 +146,7 @@ async function getBlockFromRollupTx(
   publicClient: PublicClient,
   blobSinkClient: BlobSinkClientInterface,
   txHash: `0x${string}`,
+  blobHashes: Buffer[], // WORKTODO(md): buffer32?
   l2BlockNum: bigint,
 ): Promise<L2Block> {
   const { input: data, blockHash } = await publicClient.getTransaction({ hash: txHash });
@@ -169,7 +177,7 @@ async function getBlockFromRollupTx(
 
   const header = BlockHeader.fromBuffer(Buffer.from(hexToBytes(decodedArgs.header)));
 
-  const blobBodies = await blobSinkClient.getBlobSidecar(blockHash);
+  const blobBodies = await blobSinkClient.getBlobSidecar(blockHash, blobHashes);
   if (blobBodies.length === 0) {
     throw new NoBlobBodiesFoundError(Number(l2BlockNum));
   }
