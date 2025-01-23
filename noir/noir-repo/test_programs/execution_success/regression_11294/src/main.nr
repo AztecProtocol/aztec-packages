@@ -1,14 +1,12 @@
 // Capture the "attempt to subtract with overflow" from https://github.com/AztecProtocol/aztec-packages/pull/11294
 
 pub global MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX: u32 = 8;
-pub global VK_TREE_HEIGHT: u32 = 6;
 
 unconstrained fn main(
-    previous_kernel: PrivateKernelDataWithoutPublicInputs,
     previous_kernel_public_inputs: PrivateKernelCircuitPublicInputs,
 ) -> pub PrivateKernelCircuitPublicInputs {
     let private_inputs =
-        PrivateKernelInnerCircuitPrivateInputs::new(previous_kernel, previous_kernel_public_inputs);
+        PrivateKernelInnerCircuitPrivateInputs::new(previous_kernel_public_inputs);
     private_inputs.execute()
 }
 
@@ -18,13 +16,6 @@ pub struct PrivateKernelCircuitPublicInputs {
 
 pub struct PrivateKernelData {
     pub public_inputs: PrivateKernelCircuitPublicInputs,
-    pub vk_index: u32,
-    pub vk_path: [Field; VK_TREE_HEIGHT],
-}
-
-pub struct PrivateKernelDataWithoutPublicInputs {
-    vk_index: u32,
-    vk_path: [Field; VK_TREE_HEIGHT],
 }
 
 pub struct PrivateAccumulatedData {
@@ -36,15 +27,6 @@ pub struct PrivateCallRequest {
     pub returns_hash: Field,
     pub start_side_effect_counter: u32,
     pub end_side_effect_counter: u32,
-}
-
-impl PrivateKernelDataWithoutPublicInputs {
-    pub fn to_private_kernel_data(
-        self,
-        public_inputs: PrivateKernelCircuitPublicInputs,
-    ) -> PrivateKernelData {
-        PrivateKernelData { public_inputs, vk_index: self.vk_index, vk_path: self.vk_path }
-    }
 }
 
 pub struct PrivateKernelCircuitPublicInputsComposer {
@@ -102,16 +84,17 @@ pub struct PrivateKernelInnerCircuitPrivateInputs {
 
 impl PrivateKernelInnerCircuitPrivateInputs {
     pub fn new(
-        previous_kernel: PrivateKernelDataWithoutPublicInputs,
-        previous_kernel_public_inputs: PrivateKernelCircuitPublicInputs,
+        public_inputs: PrivateKernelCircuitPublicInputs,
     ) -> Self {
         Self {
-            previous_kernel: previous_kernel.to_private_kernel_data(previous_kernel_public_inputs),
+            previous_kernel: PrivateKernelData {
+                public_inputs,
+            }
         }
     }
 
     unconstrained fn generate_output(self) -> PrivateKernelCircuitPublicInputs {
-        // XXX: Declaring this `let mut composer = ` makes the circuit pass.
+        // XXX: Declaring `let mut composer = ` would make the circuit pass.
         PrivateKernelCircuitPublicInputsComposer::new_from_previous_kernel(
             self.previous_kernel.public_inputs,
         )
@@ -120,7 +103,7 @@ impl PrivateKernelInnerCircuitPrivateInputs {
     }
 
     pub fn execute(self) -> PrivateKernelCircuitPublicInputs {
-        // XXX: Running both this and the bottom assertion that makes the circuit pass.
+        // XXX: Running both this and the bottom assertion would make the circuit pass.
         // assert(!is_empty(self.previous_kernel.public_inputs.end.private_call_stack[0]), "not empty before");
 
         /// Safety:
