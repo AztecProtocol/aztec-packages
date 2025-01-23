@@ -5019,9 +5019,12 @@ AvmError AvmTraceBuilder::op_to_radix_be(uint16_t indirect,
     // uint32_t radix = static_cast<uint32_t>(read_radix.val);
     uint32_t radix = static_cast<uint32_t>(read_radix);
 
-    bool radix_out_of_bounds = radix > 256;
-    if (is_ok(error) && radix_out_of_bounds) {
-        error = AvmError::RADIX_OUT_OF_BOUNDS;
+    const bool radix_out_of_range = radix < 2 || radix > 256;
+    const bool zero_limb_input_non_zero = num_limbs == 0 && input != FF(0);
+    const bool bit_mode_radix_not_two = output_bits > 0 && radix != 2;
+
+    if (is_ok(error) && (radix_out_of_range || zero_limb_input_non_zero || bit_mode_radix_not_two)) {
+        error = AvmError::INVALID_TORADIXBE_INPUTS;
     }
 
     // In case of an error, we do not perform the computation.

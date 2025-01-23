@@ -10,9 +10,9 @@ let protocolContract: ProtocolContract;
 export const AuthRegistryArtifact = loadContractArtifact(AuthRegistryJson as NoirCompiledContract);
 
 /** Returns the canonical deployment of the auth registry. */
-export function getCanonicalAuthRegistry(): ProtocolContract {
+export async function getCanonicalAuthRegistry(): Promise<ProtocolContract> {
   if (!protocolContract) {
-    protocolContract = makeProtocolContract('AuthRegistry', AuthRegistryArtifact);
+    protocolContract = await makeProtocolContract('AuthRegistry', AuthRegistryArtifact);
   }
   return protocolContract;
 }

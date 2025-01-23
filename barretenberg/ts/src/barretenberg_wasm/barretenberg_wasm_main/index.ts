@@ -101,9 +101,9 @@ export class BarretenbergWasmMain extends BarretenbergWasmBase {
     /* eslint-enable camelcase */
   }
 
-  callWasmExport(funcName: string, inArgs: Uint8Array[], outLens: (number | undefined)[]) {
+  callWasmExport(funcName: string, inArgs: (Uint8Array | number)[], outLens: (number | undefined)[]) {
     const alloc = new HeapAllocator(this);
-    const inPtrs = alloc.copyToMemory(inArgs);
+    const inPtrs = alloc.getInputs(inArgs);
     const outPtrs = alloc.getOutputPtrs(outLens);
     this.call(funcName, ...inPtrs, ...outPtrs);
     const outArgs = this.getOutputArgs(outLens, outPtrs, alloc);

@@ -130,7 +130,7 @@ describe('Contract Class', () => {
 
   beforeEach(async () => {
     contractAddress = await AztecAddress.random();
-    account = CompleteAddress.random();
+    account = await CompleteAddress.random();
     contractInstance = { address: contractAddress } as ContractInstanceWithAddress;
 
     const mockNodeInfo: NodeInfo = {

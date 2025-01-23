@@ -12,10 +12,10 @@ describe('secp256k1', () => {
     ecdsa = new Ecdsa();
   });
 
-  it('should correctly compute public key', () => {
+  it('should correctly compute public key', async () => {
     const privateKey = randomBytes(32);
-    const lhs = secp256k1.mul(Secp256k1.generator, privateKey);
-    const rhs = ecdsa.computePublicKey(privateKey);
+    const lhs = await secp256k1.mul(Secp256k1.generator, privateKey);
+    const rhs = await ecdsa.computePublicKey(privateKey);
     expect(lhs).toEqual(rhs);
   });
 });
