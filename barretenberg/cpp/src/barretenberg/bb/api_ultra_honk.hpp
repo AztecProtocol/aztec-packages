@@ -19,7 +19,6 @@ class VectorCircuitSource : public CircuitSource<UltraFlavor> {
     VectorCircuitSource(const std::vector<acir_format::AcirProgram>& _stack,
                         const std::vector<std::shared_ptr<VK>>& _vks = {})
         : stack(std::move(_stack))
-        // WORKTODO: error handling
         // use precomputed vks if they are provided, otherwise set them all to nullptr
         , vks(_vks.size() > 0 ? _vks : std::vector<std::shared_ptr<VK>>(stack.size(), nullptr))
     {}
@@ -35,10 +34,10 @@ class VectorCircuitSource : public CircuitSource<UltraFlavor> {
         const auto metadata = [this]() {
             if (num_circuits() == 1) {
                 vinfo("case 1");
-                return acir_format::ProgramMetadata{ .recursive = false, .honk_recursion = 1 };
+                return acir_format::ProgramMetadata{ .recursive = true, .honk_recursion = 1 };
             } else if (step < num_circuits() - 1) {
                 vinfo("case 2");
-                return acir_format::ProgramMetadata{ .recursive = false, .honk_recursion = 1 };
+                return acir_format::ProgramMetadata{ .recursive = true, .honk_recursion = 1 };
             } else { // final step
                 vinfo("case 3");
                 return acir_format::ProgramMetadata{ .recursive = false, .honk_recursion = 1 };
@@ -163,7 +162,7 @@ class UltraHonkAPI : public API {
         }
 
         // TODO(https://github.com/AztecProtocol/barretenberg/issues/1163) set these dynamically
-        static constexpr size_t PROVER_SRS_LOG_SIZE = 20;
+        static constexpr size_t PROVER_SRS_LOG_SIZE = 21;
         init_bn254_crs(1 << PROVER_SRS_LOG_SIZE); // WORKTODO...
         UltraVanillaClientIVC ivc{ 1 << PROVER_SRS_LOG_SIZE };
         vinfo("instantiated ivc class");

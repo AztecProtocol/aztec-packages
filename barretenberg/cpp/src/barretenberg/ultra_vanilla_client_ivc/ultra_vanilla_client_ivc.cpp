@@ -21,14 +21,13 @@ HonkProof UltraVanillaClientIVC::prove(CircuitSource<Flavor>& source,
         if (step == 0) {
             info("internal ivc step 0");
             accumulator_indices = stdlib::recursion::init_default_agg_obj_indices(circuit);
-            if (initialize_pairing_point_accumulator) {
-                info("calling add_pairing_point_accumulator");
-                circuit.add_pairing_point_accumulator(accumulator_indices);
-            }
         } else {
             info("internal ivc step ", step);
             accumulate(circuit, previous_proof, previous_vk);
             accumulator_indices = accumulator.get_witness_indices();
+        }
+        if (initialize_pairing_point_accumulator) {
+            info("calling add_pairing_point_accumulator");
             circuit.add_pairing_point_accumulator(accumulator_indices);
         }
         vinfo("set accumulator indices");
