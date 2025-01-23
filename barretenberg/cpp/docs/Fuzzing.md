@@ -61,7 +61,7 @@ The purpose of each parameter:
 - -shrink=1 - If a new testcase is encountered that has the same coverage as some previous one in the corpus and the testcase is smaller, replace the one in the corpus with the new one. Helps keep exec/s higher.
 - -artifact_prefix=crashes/ - Where to save crashes/timeouts/ooms.
 - -use_value_profile=1 - Leverage libfuzzer internal CMP analysis. Very useful, but blows the corpus up.
-- <PATH_TO_CORPUS> (../../../<fuzzer_type>_testcases) - The path to the folder, where corpus testcases are going to be saved and loaded from (also loads testcases from there at the start of fuzzing).
+- <PATH_TO_CORPUS> (`../../../<fuzzer_type>_testcases`) - The path to the folder, where corpus testcases are going to be saved and loaded from (also loads testcases from there at the start of fuzzing).
 
 Log structure is described here https://llvm.org/docs/LibFuzzer.html
 
