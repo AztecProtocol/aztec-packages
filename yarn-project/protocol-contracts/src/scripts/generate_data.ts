@@ -69,12 +69,12 @@ async function computeContractLeaf(artifact: NoirCompiledContract) {
   return instance.address;
 }
 
-function computeRoot(names: string[], leaves: Fr[]) {
+async function computeRoot(names: string[], leaves: Fr[]) {
   const data = names.map((name, i) => ({
     address: new AztecAddress(new Fr(contractAddressMapping[name])),
     leaf: leaves[i],
   }));
-  const tree = buildProtocolContractTree(data);
+  const tree = await buildProtocolContractTree(data);
   return Fr.fromBuffer(tree.root);
 }
 
@@ -122,8 +122,8 @@ function generateContractLeaves(names: string[], leaves: Fr[]) {
   `;
 }
 
-function generateRoot(names: string[], leaves: Fr[]) {
-  const root = computeRoot(names, leaves);
+async function generateRoot(names: string[], leaves: Fr[]) {
+  const root = await computeRoot(names, leaves);
   return `
     export const protocolContractTreeRoot = Fr.fromHexString('${root.toString()}');
   `;
@@ -154,7 +154,7 @@ async function generateOutputFile(names: string[], leaves: Fr[]) {
 
     ${generateContractLeaves(names, leaves)}
 
-    ${generateRoot(names, leaves)}
+    ${await generateRoot(names, leaves)}
 
     ${generateLogTags()}
   `;

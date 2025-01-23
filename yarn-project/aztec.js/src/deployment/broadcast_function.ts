@@ -28,8 +28,8 @@ export async function broadcastPrivateFunction(
   artifact: ContractArtifact,
   selector: FunctionSelector,
 ): Promise<ContractFunctionInteraction> {
-  const contractClass = getContractClassFromArtifact(artifact);
-  const privateFunctionArtifact = artifact.functions.find(fn => selector.equals(fn));
+  const contractClass = await getContractClassFromArtifact(artifact);
+  const privateFunctionArtifact = artifact.functions.find(fn => selector.equalsFn(fn));
   if (!privateFunctionArtifact) {
     throw new Error(`Private function with selector ${selector.toString()} not found`);
   }
@@ -42,9 +42,9 @@ export async function broadcastPrivateFunction(
     unconstrainedFunctionsArtifactTreeRoot,
     privateFunctionTreeSiblingPath,
     privateFunctionTreeLeafIndex,
-  } = createPrivateFunctionMembershipProof(selector, artifact);
+  } = await createPrivateFunctionMembershipProof(selector, artifact);
 
-  const vkHash = computeVerificationKeyHash(privateFunctionArtifact);
+  const vkHash = await computeVerificationKeyHash(privateFunctionArtifact);
   const bytecode = bufferAsFields(
     privateFunctionArtifact.bytecode,
     MAX_PACKED_BYTECODE_SIZE_PER_PRIVATE_FUNCTION_IN_FIELDS,
@@ -82,9 +82,9 @@ export async function broadcastUnconstrainedFunction(
   artifact: ContractArtifact,
   selector: FunctionSelector,
 ): Promise<ContractFunctionInteraction> {
-  const contractClass = getContractClassFromArtifact(artifact);
+  const contractClass = await getContractClassFromArtifact(artifact);
   const functionArtifactIndex = artifact.functions.findIndex(
-    fn => fn.functionType === FunctionType.UNCONSTRAINED && selector.equals(fn),
+    fn => fn.functionType === FunctionType.UNCONSTRAINED && selector.equalsFn(fn),
   );
   if (functionArtifactIndex < 0) {
     throw new Error(`Unconstrained function with selector ${selector.toString()} not found`);
@@ -97,7 +97,7 @@ export async function broadcastUnconstrainedFunction(
     artifactTreeSiblingPath,
     functionMetadataHash,
     privateFunctionsArtifactTreeRoot,
-  } = createUnconstrainedFunctionMembershipProof(selector, artifact);
+  } = await createUnconstrainedFunctionMembershipProof(selector, artifact);
 
   const bytecode = bufferAsFields(functionArtifact.bytecode, MAX_PACKED_BYTECODE_SIZE_PER_PRIVATE_FUNCTION_IN_FIELDS);
 

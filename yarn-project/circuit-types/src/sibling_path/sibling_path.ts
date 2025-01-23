@@ -59,12 +59,12 @@ export class SiblingPath<N extends number> {
    * @param hasher - Implementation of a hasher interface.
    * @returns A sibling path hashed up from a zero element.
    */
-  public static ZERO<N extends number>(size: N, zeroElement: Buffer, hasher: Hasher): SiblingPath<N> {
+  public static async ZERO<N extends number>(size: N, zeroElement: Buffer, hasher: Hasher): Promise<SiblingPath<N>> {
     const bufs: Buffer[] = [];
     let current = zeroElement;
     for (let i = 0; i < size; ++i) {
       bufs.push(current);
-      current = hasher.hash(current, current);
+      current = await hasher.hash(current, current);
     }
     return new SiblingPath(size, bufs);
   }

@@ -26,7 +26,7 @@ export function runBlobSinkClientTests(
 
   it('should send and retrieve blobs', async () => {
     const testFields = [Fr.random(), Fr.random(), Fr.random()];
-    const blob = Blob.fromFields(testFields);
+    const blob = await Blob.fromFields(testFields);
     const blockId = '0x1234';
 
     const success = await client.sendBlobsToBlobSink(blockId, [blob]);
@@ -39,11 +39,11 @@ export function runBlobSinkClientTests(
   });
 
   it('should handle multiple blobs', async () => {
-    const blobs = [
+    const blobs = await Promise.all([
       Blob.fromFields([Fr.random(), Fr.random()]),
       Blob.fromFields([Fr.random(), Fr.random()]),
       Blob.fromFields([Fr.random(), Fr.random()]),
-    ];
+    ]);
     const blockId = '0x5678';
 
     const success = await client.sendBlobsToBlobSink(blockId, blobs);

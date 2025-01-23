@@ -22,11 +22,14 @@ describe('BlobSinkService', () => {
   describe('should store and retrieve a blob sidecar', () => {
     const testFields = [Fr.random(), Fr.random(), Fr.random()];
     const testFields2 = [Fr.random(), Fr.random(), Fr.random()];
-    const blob = Blob.fromFields(testFields);
-    const blob2 = Blob.fromFields(testFields2);
+
     const blockId = '0x1234';
+    let blob: Blob;
+    let blob2: Blob;
 
     beforeEach(async () => {
+      blob = await Blob.fromFields(testFields);
+      blob2 = await Blob.fromFields(testFields2);
       // Post the blob
       const postResponse = await request(service.getApp())
         .post('/blob_sidecar')

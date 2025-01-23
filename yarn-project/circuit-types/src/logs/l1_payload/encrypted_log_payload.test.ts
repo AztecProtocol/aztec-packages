@@ -40,7 +40,7 @@ describe('EncryptedLogPayload', () => {
     });
 
     it('decrypt a log as incoming', async () => {
-      const addressSecret = await computeAddressSecret(completeAddress.getPreaddress(), ivskM);
+      const addressSecret = await computeAddressSecret(await completeAddress.getPreaddress(), ivskM);
 
       const recreated = await EncryptedLogPayload.decryptAsIncoming(payload.fields, addressSecret);
 
@@ -57,7 +57,7 @@ describe('EncryptedLogPayload', () => {
     );
 
     // We set a random secret, as it is simply the result of an oracle call, and we are not actually computing this in nr.
-    const logTag = new IndexedTaggingSecret(new Fr(69420), 1337).computeTag(
+    const logTag = await new IndexedTaggingSecret(new Fr(69420), 1337).computeTag(
       AztecAddress.fromBigInt(0x25afb798ea6d0b8c1618e50fdeafa463059415013d3b7c75d46abf5e242be70cn),
     );
     const log = new EncryptedLogPayload(logTag, contract, plaintext);
@@ -89,7 +89,7 @@ describe('EncryptedLogPayload', () => {
 
     const ivskM = new GrumpkinScalar(0x0d6e27b21c89a7632f7766e35cc280d43f75bea3898d7328400a5fefc804d462n);
 
-    const addressSecret = await computeAddressSecret(recipientCompleteAddress.getPreaddress(), ivskM);
+    const addressSecret = await computeAddressSecret(await recipientCompleteAddress.getPreaddress(), ivskM);
     const recreated = await EncryptedLogPayload.decryptAsIncoming(payload.fields, addressSecret);
     expect(recreated?.toBuffer()).toEqual(log.toBuffer());
   });
