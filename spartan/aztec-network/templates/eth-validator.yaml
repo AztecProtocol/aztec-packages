@@ -59,7 +59,7 @@ spec:
 
               lighthouse vc
               --datadir="/data"
-              --beacon-nodes="http://{{ include "aztec-network.fullname" . }}-eth-beacon.{{ .Release.Namespace }}.svc.cluster.local:{{ .Values.ethereum.beacon.service.port }}"
+              --beacon-nodes="http://{{ include "aztec-network.fullname" . }}-eth-beacon.{{ .Release.Namespace }}:{{ .Values.ethereum.beacon.service.port }}"
               --testnet-dir=/genesis
               --init-slashing-protection
               --suggested-fee-recipient="0xff00000000000000000000000000000000c0ffee"
