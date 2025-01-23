@@ -376,7 +376,6 @@ describe('GasUtils', () => {
       fail('Should have thrown');
     } catch (err: any) {
       const res = err;
-      // console.log('res', res);
       const { message } = res;
       // Verify the error contains actual newlines, not escaped \n
       expect(message).not.toContain('\\n');
