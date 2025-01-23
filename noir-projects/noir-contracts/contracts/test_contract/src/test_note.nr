@@ -2,7 +2,7 @@ use dep::aztec::{
     context::PrivateContext,
     macros::notes::note,
     note::{note_header::NoteHeader, note_interface::NullifiableNote},
-    protocol_types::{address::AztecAddress, traits::{Deserialize, Serialize}},
+    protocol_types::{address::AztecAddress, traits::{Deserialize, Packable, Serialize}},
 };
 
 // A note which stores a field and is expected to be passed around using the `addNote` function.
@@ -41,5 +41,15 @@ impl TestNote {
 impl Eq for TestNote {
     fn eq(self, other: Self) -> bool {
         self.value == other.value
+    }
+}
+
+impl Packable<1> for TestNote {
+    fn pack(self) -> [Field; 1] {
+        [self.value]
+    }
+
+    fn unpack(fields: [Field; 1]) -> Self {
+        TestNote { value: fields[0], header: NoteHeader::empty() }
     }
 }

@@ -63,7 +63,7 @@ export class CompleteAddress {
     return computePreaddress(this.publicKeys.hash(), this.partialAddress);
   }
 
-  static async fromSecretKeyAndInstance(
+  static fromSecretKeyAndInstance(
     secretKey: Fr,
     instance: Parameters<typeof computePartialAddress>[0],
   ): Promise<CompleteAddress> {
