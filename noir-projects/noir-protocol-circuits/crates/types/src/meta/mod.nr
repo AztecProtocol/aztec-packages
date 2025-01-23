@@ -3,9 +3,9 @@ use super::traits::{Deserialize, Serialize};
 /// Deserializes a struct from a field_array_name of fields. The function is recursive and will call itself for each field in the
 pub comptime fn deserialize_from_fields<N>(
     name: Quoted,
-    typ: Type,
-    field_array_name: Quoted,
-    num_already_consumed: u32, // Number of fields already consumed in a previous recursion of `deserialize_from_fields`
+    typ: Type, // This is the type of the struct we are deserializing (e.g. ValueNote)
+    field_array_name: Quoted, // This would typically be an argument in the deserialization function (e.g. "values", where values in the function would be e.g. [Field; 3])
+    num_already_consumed: u32, // Number of fields already consumed in the previous recursion of `deserialize_from_fields`
     to_replace: Quoted, // A field name that should be replaced (typically a "header")
     ro_replace_with: Quoted, // The replacement for the field that should be replaced (typically e.g.: "NoteHeader::empty() ")
 ) -> (Quoted, u32) {
@@ -29,9 +29,9 @@ pub comptime fn deserialize_from_fields<N>(
             for field in nested_def.fields(generics) {
                 let (field_name, field_type) = field;
                 let (deserialized_field, consumed_by_field) = deserialize_from_fields(
-                    quote { $field_name },
+                    field_name,
                     field_type,
-                    quote { $field_array_name },
+                    field_array_name,
                     consumed_counter + num_already_consumed,
                     to_replace,
                     ro_replace_with,
@@ -52,9 +52,9 @@ pub comptime fn deserialize_from_fields<N>(
             let mut array_fields_list = &[];
             for _ in 0..array_len {
                 let (deserialized_field, consumed_by_field) = deserialize_from_fields(
-                    quote { $name },
+                    name,
                     element_type,
-                    quote { $field_array_name },
+                    field_array_name,
                     consumed_counter + num_already_consumed,
                     to_replace,
                     ro_replace_with,
@@ -70,9 +70,9 @@ pub comptime fn deserialize_from_fields<N>(
             let mut byte_list = &[];
             for _ in 0..str_len {
                 let (deserialized_field, consumed_by_field) = deserialize_from_fields(
-                    quote { $name },
+                    name,
                     quote { u8}.as_type(),
-                    quote { $field_array_name },
+                    field_array_name,
                     consumed_counter + num_already_consumed,
                     to_replace,
                     ro_replace_with,
@@ -114,7 +114,7 @@ pub comptime fn flatten_to_fields(name: Quoted, typ: Type, omit: [Quoted]) -> ([
                 let maybe_prefixed_name = if name == quote {} {
                     // Triggered when the param name is of a value available in the current scope (e.g. a function
                     // argument) --> then we don't prefix the name with anything.
-                    quote { $param_name }
+                    param_name
                 } else {
                     // Triggered when we want to prefix the param name with the `name` from function input. This
                     // can typically be `self` when implementing a method on a struct.
