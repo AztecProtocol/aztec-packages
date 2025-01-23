@@ -45,7 +45,6 @@ spec:
               --validator-monitor-auto
               --http-allow-origin='*'
               --listen-address=0.0.0.0
-              {{- include "helpers.flag" (list "port" .Values.ethereum.beacon.port) }}
               --target-peers=0
               --testnet-dir=/genesis
               --execution-endpoints="http://{{ include "aztec-network.fullname" . }}-eth-execution.{{ .Release.Namespace }}:8551"
