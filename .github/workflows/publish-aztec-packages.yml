@@ -5,6 +5,7 @@ on:
     branches:
       - master
       - "*/release-master*"
+      - "md/fix-publish"
   workflow_dispatch:
     inputs:
       tag:
@@ -125,7 +126,11 @@ jobs:
         env:
           VERSION: ${{ needs.configure.outputs.version }}
         run: |
-          ./bootstrap.sh image-aztec --version $VERSION
+          if [ -n "$VERSION" ]; then
+            ./bootstrap.sh image-aztec --version $VERSION
+          else
+            ./bootstrap.sh image-aztec
+          fi
           docker tag aztecprotocol/aztec:${{ env.GIT_COMMIT }} aztecprotocol/aztec:${{ env.GIT_COMMIT }}-x86_64
           docker push aztecprotocol/aztec:${{ env.GIT_COMMIT }}-x86_64
 
@@ -146,7 +151,11 @@ jobs:
           VERSION: ${{ needs.configure.outputs.version }}
         run: |
           sudo shutdown -P 80
-          ./bootstrap.sh image-aztec --check-arch --version $VERSION
+          if [ -n "$VERSION" ]; then
+            ./bootstrap.sh image-aztec --check-arch --version $VERSION
+          else
+            ./bootstrap.sh image-aztec --check-arch
+          fi
           docker tag aztecprotocol/aztec:${{ env.GIT_COMMIT }} aztecprotocol/aztec:${{ env.GIT_COMMIT }}-arm64
           docker push aztecprotocol/aztec:${{ env.GIT_COMMIT }}-arm64
 
