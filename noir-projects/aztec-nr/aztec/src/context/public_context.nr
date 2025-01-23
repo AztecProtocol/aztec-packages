@@ -5,7 +5,7 @@ use crate::hash::{
 use dep::protocol_types::abis::function_selector::FunctionSelector;
 use dep::protocol_types::address::{AztecAddress, EthAddress};
 use dep::protocol_types::constants::MAX_FIELD_VALUE;
-use dep::protocol_types::traits::{Deserialize, Empty, Serialize};
+use dep::protocol_types::traits::{Empty, Packable, Serialize};
 
 pub struct PublicContext {
     pub args_hash: Option<Field>,
@@ -219,9 +219,9 @@ impl PublicContext {
 
     pub fn storage_read<T, let N: u32>(self, storage_slot: Field) -> T
     where
-        T: Deserialize<N>,
+        T: Packable<N>,
     {
-        T::deserialize(self.raw_storage_read(storage_slot))
+        T::unpack(self.raw_storage_read(storage_slot))
     }
 
     pub fn raw_storage_write<let N: u32>(_self: Self, storage_slot: Field, values: [Field; N]) {
@@ -233,9 +233,9 @@ impl PublicContext {
 
     pub fn storage_write<T, let N: u32>(self, storage_slot: Field, value: T)
     where
-        T: Serialize<N>,
+        T: Packable<N>,
     {
-        self.raw_storage_write(storage_slot, value.serialize());
+        self.raw_storage_write(storage_slot, value.pack());
     }
 }
 
