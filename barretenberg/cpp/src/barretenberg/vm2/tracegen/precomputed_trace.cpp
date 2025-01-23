@@ -26,12 +26,18 @@ void PrecomputedTraceBuilder::process_bitwise(TraceContainer& trace)
 {
     using C = Column;
 
+    // 256 per input (a and b), and 3 different bitwise ops
     constexpr auto num_rows = 256 * 256 * 3;
     trace.reserve_column(C::precomputed_sel_bitwise, num_rows);
     trace.reserve_column(C::precomputed_bitwise_input_a, num_rows);
     trace.reserve_column(C::precomputed_bitwise_input_b, num_rows);
     trace.reserve_column(C::precomputed_bitwise_output, num_rows);
 
+    // row # is derived as:
+    //     - input_b: bits 0...7 (0 being LSB)
+    //     - input_a: bits 8...15
+    //     - op_id: bits 16...
+    // In other words, the first 256*256 rows are for op_id 0. Next are for op_id 1, followed by op_id 2.
     auto row_from_inputs = [](uint32_t op_id, uint32_t input_a, uint32_t input_b) -> uint32_t {
         return (op_id << 16) | (input_a << 8) | input_b;
     };
@@ -61,6 +67,61 @@ void PrecomputedTraceBuilder::process_bitwise(TraceContainer& trace)
                           } });
             }
         }
+    }
+}
+
+/**
+ * Generate a selector column that activates the first 2^8 (256) rows.
+ * We can enforce that a value X is <= 8 bits via a lookup that checks
+ * whether the selector (sel_rng_chk_8) is high at the correspending
+ * clk's row (X==clk).
+ */
+void PrecomputedTraceBuilder::process_sel_rng_chk_8(TraceContainer& trace)
+{
+    using C = Column;
+
+    constexpr auto num_rows = 1 << 8; // 256
+    // Set this selector high for the first 2^8 rows
+    // For these rows, clk will be 0...255
+    // We can enforce that a number is <= 8 bits via a lookup to the
+    // corresponding clk's row if sel_rng_chk_8 is set high
+    trace.reserve_column(C::precomputed_sel_rng_chk_8, num_rows);
+    for (uint32_t i = 0; i < num_rows; i++) {
+        trace.set(C::precomputed_sel_rng_chk_8, i, 1);
+    }
+}
+
+/**
+ * Generate a selector column that activates the first 2^16 rows.
+ * We can enforce that a value X is <= 16 bits via a lookup that checks
+ * whether the selector (sel_rng_chk_16) is high at the correspending
+ * clk's row (X==clk).
+ */
+void PrecomputedTraceBuilder::process_sel_rng_chk_16(TraceContainer& trace)
+{
+    using C = Column;
+
+    constexpr auto num_rows = 1 << 16; // 2^16
+    // Set this selector high for the first 2^16 rows
+    // For these rows, clk will be 0...2^16-1
+    trace.reserve_column(C::precomputed_sel_rng_chk_16, num_rows);
+    for (uint32_t i = 0; i < num_rows; i++) {
+        trace.set(C::precomputed_sel_rng_chk_16, i, 1);
+    }
+}
+
+/**
+ * Generate a column where each row is a power of 2 (2^clk).
+ * Populate the first 256 rows.
+ */
+void PrecomputedTraceBuilder::process_power_of_2(TraceContainer& trace)
+{
+    using C = Column;
+
+    constexpr auto num_rows = 1 << 8; // 2^8 = 256
+    trace.reserve_column(C::precomputed_power_of_2, num_rows);
+    for (uint32_t i = 0; i < num_rows; i++) {
+        trace.set(C::precomputed_power_of_2, i, 1 << i);
     }
 }
 
