@@ -158,6 +158,13 @@ jobs:
 
           $REPO/yarn-project/end-to-end/scripts/bash/generate_devnet_config.sh
 
+          echo "DEBUGGING"
+          echo "DEBUGGING"
+          echo "DEBUGGING"
+          echo "DEBUGGING"
+          echo "DEBUGGING"
+          ls -la $REPO/spartan/aztec-network/eth-devnet/out
+
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v2
         with:
