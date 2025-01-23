@@ -81,7 +81,7 @@ export class EcAdd extends Instruction {
     } else if (p2IsInfinite) {
       dest = p1;
     } else {
-      dest = grumpkin.add(p1, p2);
+      dest = await grumpkin.add(p1, p2);
     }
 
     // Important to use setSlice() and not set() in the two following statements as

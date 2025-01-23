@@ -64,8 +64,8 @@ async function copyArtifact(srcName: string, destName: string) {
   return artifact;
 }
 
-function computeContractLeaf(artifact: NoirCompiledContract) {
-  const instance = getContractInstanceFromDeployParams(loadContractArtifact(artifact), { salt });
+async function computeContractLeaf(artifact: NoirCompiledContract) {
+  const instance = await getContractInstanceFromDeployParams(loadContractArtifact(artifact), { salt });
   return instance.address;
 }
 
@@ -175,7 +175,8 @@ async function main() {
     const destName = destNames[i];
     const artifact = await copyArtifact(srcName, destName);
     await generateDeclarationFile(destName);
-    leaves.push(computeContractLeaf(artifact).toField());
+    const contractLeaf = await computeContractLeaf(artifact);
+    leaves.push(contractLeaf.toField());
   }
 
   await generateOutputFile(destNames, leaves);

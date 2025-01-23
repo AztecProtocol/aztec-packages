@@ -235,7 +235,8 @@ export class PXEService implements PXE {
           `Artifact does not match expected class id (computed ${contractClassId} but instance refers to ${instance.contractClassId})`,
         );
       }
-      if (!computeContractAddressFromInstance(instance).equals(instance.address)) {
+      const computedAddress = await computeContractAddressFromInstance(instance);
+      if (!computedAddress.equals(instance.address)) {
         throw new Error('Added a contract in which the address does not match the contract instance.');
       }
 
@@ -690,7 +691,7 @@ export class PXEService implements PXE {
   async #registerProtocolContracts() {
     const registered: Record<string, string> = {};
     for (const name of protocolContractNames) {
-      const { address, contractClass, instance, artifact } = getCanonicalProtocolContract(name);
+      const { address, contractClass, instance, artifact } = await getCanonicalProtocolContract(name);
       await this.db.addContractArtifact(contractClass.id, artifact);
       await this.db.addContractInstance(instance);
       registered[name] = address.toString();
@@ -867,7 +868,7 @@ export class PXEService implements PXE {
 
           const preaddress = registeredAccount.getPreaddress();
 
-          secretKey = computeAddressSecret(preaddress, secretKey);
+          secretKey = await computeAddressSecret(preaddress, secretKey);
         }
 
         return secretKey;

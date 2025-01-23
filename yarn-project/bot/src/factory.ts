@@ -111,7 +111,7 @@ export class BotFactory {
       throw new Error(`Unsupported token contract type: ${this.config.contract}`);
     }
 
-    const address = deploy.getInstance(deployOpts).address;
+    const address = (await deploy.getInstance(deployOpts)).address;
     if (await this.pxe.isContractPubliclyDeployed(address)) {
       this.log.info(`Token at ${address.toString()} already deployed`);
       return deploy.register();

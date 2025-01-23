@@ -186,12 +186,15 @@ describe('Private Execution test suite', () => {
     logger = createLogger('simulator:test:private_execution');
 
     const ownerPartialAddress = Fr.random();
-    ownerCompleteAddress = CompleteAddress.fromSecretKeyAndPartialAddress(ownerSk, ownerPartialAddress);
-    ({ masterNullifierSecretKey: ownerNskM } = deriveKeys(ownerSk));
+    ownerCompleteAddress = await CompleteAddress.fromSecretKeyAndPartialAddress(ownerSk, ownerPartialAddress);
+    ({ masterNullifierSecretKey: ownerNskM } = await deriveKeys(ownerSk));
 
     const recipientPartialAddress = Fr.random();
-    recipientCompleteAddress = CompleteAddress.fromSecretKeyAndPartialAddress(recipientSk, recipientPartialAddress);
-    ({ masterNullifierSecretKey: recipientNskM } = deriveKeys(recipientSk));
+    recipientCompleteAddress = await CompleteAddress.fromSecretKeyAndPartialAddress(
+      recipientSk,
+      recipientPartialAddress,
+    );
+    ({ masterNullifierSecretKey: recipientNskM } = await deriveKeys(recipientSk));
 
     owner = ownerCompleteAddress.address;
     recipient = recipientCompleteAddress.address;
@@ -313,7 +316,9 @@ describe('Private Execution test suite', () => {
 
     it('should have a constructor with arguments that inserts notes', async () => {
       const initArgs = [owner, owner, 140];
-      const instance = getContractInstanceFromDeployParams(StatefulTestContractArtifact, { constructorArgs: initArgs });
+      const instance = await getContractInstanceFromDeployParams(StatefulTestContractArtifact, {
+        constructorArgs: initArgs,
+      });
       oracle.getContractInstance.mockResolvedValue(instance);
       const artifact = getFunctionArtifact(StatefulTestContractArtifact, 'constructor');
       const executionResult = await runSimulator({ args: initArgs, artifact, contractAddress: instance.address });
@@ -1024,7 +1029,7 @@ describe('Private Execution test suite', () => {
       const artifact = getFunctionArtifact(TestContractArtifact, 'get_master_incoming_viewing_public_key');
 
       // Generate a partial address, pubkey, and resulting address
-      const completeAddress = CompleteAddress.random();
+      const completeAddress = await CompleteAddress.random();
       const args = [completeAddress.address];
       const pubKey = completeAddress.publicKeys.masterIncomingViewingPublicKey;
 
