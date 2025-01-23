@@ -62,7 +62,7 @@ Guides are step-by-step how-tos to achieve a specific goal. On this page you can
 </div>
 
 <div className="view-all-link">
-  <a href="/guides/developer_guides/smart_contracts/writing_contracts/initializers">View all smart contract guides</a>
+  <a href="/docs/docs/guides/developer_guides/smart_contracts/writing_contracts/initializers.md">View all smart contract guides</a>
 </div>
 
 ## JavaScript
@@ -88,13 +88,13 @@ Guides are step-by-step how-tos to achieve a specific goal. On this page you can
 </div>
 
 <div className="view-all-link">
-  <a href="/guides/developer_guides/js_apps/authwit">View all JavaScript guides</a>
+  <a href="/docs/docs/guides/developer_guides/js_apps/authwit.md">View all JavaScript guides</a>
 </div>
 
 ## Local environment
 
 <div className="card-container">
-  <Card shadow='tl' link='/guides/developer_guides/local_env/versions-updating'>
+  <Card shadow='tl' link='/docs/docs/guides/developer_guides/local_env/versions-updating.md'>
     <CardHeader>
       <h3>Update your environment</h3>
     </CardHeader>
@@ -135,5 +135,5 @@ Guides are step-by-step how-tos to achieve a specific goal. On this page you can
 </div>
 
 <div className="view-all-link">
-  <a href="/guides/developer_guides/local_env/versions-updating">View all local environment guides</a>
+  <a href="/docs/docs/guides/developer_guides/local_env/versions-updating.md">View all local environment guides</a>
 </div>
