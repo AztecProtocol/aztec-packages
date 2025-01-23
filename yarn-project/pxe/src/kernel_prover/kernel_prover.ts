@@ -339,7 +339,7 @@ export class KernelProver {
   private async createPrivateCallData({ publicInputs, vk: vkAsBuffer }: PrivateCallExecutionResult) {
     const { contractAddress, functionSelector } = publicInputs.callContext;
 
-    const vkAsFields = vkAsFieldsMegaHonk(vkAsBuffer);
+    const vkAsFields = await vkAsFieldsMegaHonk(vkAsBuffer);
     const vk = new VerificationKeyAsFields(vkAsFields, hashVK(vkAsFields));
 
     const functionLeafMembershipWitness = await this.oracle.getFunctionMembershipWitness(

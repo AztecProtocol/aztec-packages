@@ -123,7 +123,7 @@ export class BarretenbergSync extends BarretenbergApiSync {
   }
 }
 
-let barrentenbergLazySingleton: BarretenbergLazy;
+let barrentenbergLazySingletonPromise: Promise<BarretenbergLazy>;
 
 export class BarretenbergLazy extends BarretenbergApi {
   private constructor(wasm: BarretenbergWasmMain) {
@@ -138,10 +138,10 @@ export class BarretenbergLazy extends BarretenbergApi {
   }
 
   static async getSingleton() {
-    if (!barrentenbergLazySingleton) {
-      barrentenbergLazySingleton = await BarretenbergLazy.new();
+    if (!barrentenbergLazySingletonPromise) {
+      barrentenbergLazySingletonPromise = BarretenbergLazy.new();
     }
-    return barrentenbergLazySingleton;
+    return await barrentenbergLazySingletonPromise;
   }
 
   getWasm() {
