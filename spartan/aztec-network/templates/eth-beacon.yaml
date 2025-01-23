@@ -41,7 +41,7 @@ spec:
               --staking
               --http
               --http-address=0.0.0.0
-              --http-port=5052
+              --http-port={{ .Values.ethereum.beacon.service.port }}
               --validator-monitor-auto
               --http-allow-origin='*'
               --listen-address=0.0.0.0
