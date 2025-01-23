@@ -49,8 +49,6 @@ import {
   type GetContractReturnType,
   type Hex,
   type HttpTransport,
-  MethodNotFoundRpcError,
-  MethodNotSupportedRpcError,
   type PrivateKeyAccount,
   type PublicActions,
   type PublicClient,
