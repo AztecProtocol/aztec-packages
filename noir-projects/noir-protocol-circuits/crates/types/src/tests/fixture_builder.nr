@@ -25,7 +25,7 @@ use crate::{
         nullifier::{Nullifier, ScopedNullifier},
         private_call_request::PrivateCallRequest,
         private_circuit_public_inputs::PrivateCircuitPublicInputs,
-        private_kernel::private_call_data::PrivateCallData,
+        private_kernel::private_call_data::{PrivateCallData, PrivateVerificationKeyHints},
         private_kernel_data::PrivateKernelData,
         private_log::PrivateLogData,
         public_call_request::PublicCallRequest,
@@ -43,7 +43,7 @@ use crate::{
     address::{AztecAddress, EthAddress, SaltedInitializationHash},
     block_header::BlockHeader,
     constants::{
-        CLIENT_IVC_VERIFICATION_KEY_LENGTH_IN_FIELDS, FUNCTION_TREE_HEIGHT,
+        CLIENT_IVC_VERIFICATION_KEY_LENGTH_IN_FIELDS, DEFAULT_UPDATE_DELAY, FUNCTION_TREE_HEIGHT,
         MAX_CONTRACT_CLASS_LOGS_PER_TX, MAX_ENQUEUED_CALLS_PER_TX, MAX_FIELD_VALUE,
         MAX_KEY_VALIDATION_REQUESTS_PER_TX, MAX_L2_TO_L1_MSGS_PER_TX,
         MAX_NOTE_HASH_READ_REQUESTS_PER_TX, MAX_NOTE_HASHES_PER_TX,
@@ -51,8 +51,10 @@ use crate::{
         MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX, MAX_PRIVATE_LOGS_PER_TX, MAX_PUBLIC_LOGS_PER_TX,
         MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, PRIVATE_CALL_REQUEST_LENGTH,
         PRIVATE_LOG_SIZE_IN_FIELDS, PROTOCOL_CONTRACT_TREE_HEIGHT, PUBLIC_CALL_REQUEST_LENGTH,
-        PUBLIC_LOG_DATA_SIZE_IN_FIELDS, VK_TREE_HEIGHT,
+        PUBLIC_DATA_TREE_HEIGHT, PUBLIC_LOG_DATA_SIZE_IN_FIELDS, VK_TREE_HEIGHT,
     },
+    contract_class_id::ContractClassId,
+    data::public_data_tree_leaf_preimage::PublicDataTreeLeafPreimage,
     hash::{
         compute_l2_to_l1_hash, compute_siloed_nullifier, compute_siloed_private_log_field,
         compute_unique_siloed_note_hash, silo_note_hash,
@@ -66,6 +68,9 @@ use crate::{
         verification_key::{ClientIVCVerificationKey, HonkVerificationKey, VerificationKey},
     },
     public_keys::PublicKeys,
+    shared_mutable::{
+        scheduled_delay_change::ScheduledDelayChange, scheduled_value_change::ScheduledValueChange,
+    },
     tests::fixtures::{self, contract_functions::ContractFunction, contracts::ContractData},
     traits::{Deserialize, Empty, FromField},
     transaction::{tx_context::TxContext, tx_request::TxRequest},
@@ -160,6 +165,12 @@ pub struct FixtureBuilder {
     // Protocol contracts.
     pub protocol_contract_tree_root: Field,
     pub protocol_contract_sibling_path: [Field; PROTOCOL_CONTRACT_TREE_HEIGHT],
+
+    // Contract updates
+    pub updated_class_id_witness: MembershipWitness<PUBLIC_DATA_TREE_HEIGHT>,
+    pub updated_class_id_leaf: PublicDataTreeLeafPreimage,
+    pub updated_class_id_value_change: ScheduledValueChange<ContractClassId>,
+    pub updated_class_id_delay_change: ScheduledDelayChange<DEFAULT_UPDATE_DELAY>,
 
     // Tree snapshots.
     pub archive_tree: AppendOnlyTreeSnapshot,
@@ -380,10 +391,8 @@ impl FixtureBuilder {
         }
     }
 
-    pub fn to_private_call_data(self) -> PrivateCallData {
-        PrivateCallData {
-            public_inputs: self.to_private_circuit_public_inputs(),
-            vk: self.client_ivc_vk,
+    pub fn to_private_verification_key_hints(self) -> PrivateVerificationKeyHints {
+        PrivateVerificationKeyHints {
             function_leaf_membership_witness: self.function_leaf_membership_witness,
             salted_initialization_hash: self.salted_initialization_hash,
             public_keys: self.public_keys,
@@ -392,6 +401,18 @@ impl FixtureBuilder {
                 .contract_class_public_bytecode_commitment,
             protocol_contract_sibling_path: self.protocol_contract_sibling_path,
             acir_hash: self.acir_hash,
+            updated_class_id_witness: self.updated_class_id_witness,
+            updated_class_id_leaf: self.updated_class_id_leaf,
+            updated_class_id_value_change: self.updated_class_id_value_change,
+            updated_class_id_delay_change: self.updated_class_id_delay_change,
+        }
+    }
+
+    pub fn to_private_call_data(self) -> PrivateCallData {
+        PrivateCallData {
+            public_inputs: self.to_private_circuit_public_inputs(),
+            vk: self.client_ivc_vk,
+            verification_key_hints: self.to_private_verification_key_hints(),
         }
     }
 
@@ -1137,6 +1158,10 @@ impl Empty for FixtureBuilder {
             vk_tree_root: FixtureBuilder::vk_tree_root(),
             protocol_contract_tree_root: 0,
             protocol_contract_sibling_path: [0; PROTOCOL_CONTRACT_TREE_HEIGHT],
+            updated_class_id_witness: MembershipWitness::empty(),
+            updated_class_id_leaf: PublicDataTreeLeafPreimage::empty(),
+            updated_class_id_value_change: ScheduledValueChange::empty(),
+            updated_class_id_delay_change: ScheduledDelayChange::empty(),
             archive_tree: AppendOnlyTreeSnapshot::zero(),
             revert_code: 0,
             min_revertible_side_effect_counter: 0,

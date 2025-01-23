@@ -2,26 +2,23 @@ use crate::{
     abis::private_circuit_public_inputs::PrivateCircuitPublicInputs,
     address::SaltedInitializationHash,
     constants::{
-        FUNCTION_TREE_HEIGHT, PROOF_TYPE_OINK, PROOF_TYPE_PG, PROTOCOL_CONTRACT_TREE_HEIGHT,
+        DEFAULT_UPDATE_DELAY, FUNCTION_TREE_HEIGHT, PROOF_TYPE_OINK, PROOF_TYPE_PG,
+        PROTOCOL_CONTRACT_TREE_HEIGHT, PUBLIC_DATA_TREE_HEIGHT,
     },
+    contract_class_id::ContractClassId,
+    data::public_data_tree_leaf_preimage::PublicDataTreeLeafPreimage,
     merkle_tree::membership::MembershipWitness,
     proof::verification_key::ClientIVCVerificationKey,
     public_keys::PublicKeys,
+    shared_mutable::{
+        scheduled_delay_change::ScheduledDelayChange, scheduled_value_change::ScheduledValueChange,
+    },
 };
 
 pub struct PrivateCallData {
     pub public_inputs: PrivateCircuitPublicInputs,
-
     pub vk: ClientIVCVerificationKey,
-
-    pub salted_initialization_hash: SaltedInitializationHash,
-    pub public_keys: PublicKeys,
-    pub contract_class_artifact_hash: Field,
-    pub contract_class_public_bytecode_commitment: Field,
-    pub function_leaf_membership_witness: MembershipWitness<FUNCTION_TREE_HEIGHT>,
-    pub protocol_contract_sibling_path: [Field; PROTOCOL_CONTRACT_TREE_HEIGHT],
-
-    pub acir_hash: Field,
+    pub verification_key_hints: PrivateVerificationKeyHints,
 }
 
 impl PrivateCallData {
@@ -36,17 +33,23 @@ impl PrivateCallData {
     }
 }
 
-pub struct PrivateCallDataWithoutPublicInputs {
-    pub vk: ClientIVCVerificationKey,
-
+pub struct PrivateVerificationKeyHints {
     pub salted_initialization_hash: SaltedInitializationHash,
     pub public_keys: PublicKeys,
     pub contract_class_artifact_hash: Field,
     pub contract_class_public_bytecode_commitment: Field,
     pub function_leaf_membership_witness: MembershipWitness<FUNCTION_TREE_HEIGHT>,
     pub protocol_contract_sibling_path: [Field; PROTOCOL_CONTRACT_TREE_HEIGHT],
-
     pub acir_hash: Field,
+    pub updated_class_id_witness: MembershipWitness<PUBLIC_DATA_TREE_HEIGHT>,
+    pub updated_class_id_leaf: PublicDataTreeLeafPreimage,
+    pub updated_class_id_value_change: ScheduledValueChange<ContractClassId>,
+    pub updated_class_id_delay_change: ScheduledDelayChange<DEFAULT_UPDATE_DELAY>,
+}
+
+pub struct PrivateCallDataWithoutPublicInputs {
+    pub vk: ClientIVCVerificationKey,
+    pub verification_key_hints: PrivateVerificationKeyHints,
 }
 
 impl PrivateCallDataWithoutPublicInputs {
@@ -57,14 +60,7 @@ impl PrivateCallDataWithoutPublicInputs {
         PrivateCallData {
             public_inputs,
             vk: self.vk,
-            salted_initialization_hash: self.salted_initialization_hash,
-            public_keys: self.public_keys,
-            contract_class_artifact_hash: self.contract_class_artifact_hash,
-            contract_class_public_bytecode_commitment: self
-                .contract_class_public_bytecode_commitment,
-            function_leaf_membership_witness: self.function_leaf_membership_witness,
-            protocol_contract_sibling_path: self.protocol_contract_sibling_path,
-            acir_hash: self.acir_hash,
+            verification_key_hints: self.verification_key_hints,
         }
     }
 }

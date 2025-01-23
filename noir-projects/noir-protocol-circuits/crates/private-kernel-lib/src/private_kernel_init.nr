@@ -43,16 +43,15 @@ impl PrivateKernelInitCircuitPrivateInputs {
     }
 
     unconstrained fn generate_output(self) -> PrivateKernelCircuitPublicInputs {
-        let private_call_public_inputs = self.private_call.public_inputs;
         PrivateKernelCircuitPublicInputsComposer::new_from_tx_request(
             self.tx_request,
-            private_call_public_inputs,
+            self.private_call.public_inputs,
             self.vk_tree_root,
             self.protocol_contract_tree_root,
             self.is_private_only,
             self.first_nullifier_hint,
         )
-            .with_private_call(private_call_public_inputs)
+            .with_private_call(self.private_call)
             .finish()
     }
 

@@ -42,7 +42,7 @@ impl PrivateKernelInnerCircuitPrivateInputs {
             self.previous_kernel.public_inputs,
         )
             .pop_top_call_request()
-            .with_private_call(self.private_call.public_inputs)
+            .with_private_call(self.private_call)
             .finish()
     }
 
