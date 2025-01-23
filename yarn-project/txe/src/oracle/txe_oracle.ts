@@ -847,11 +847,13 @@ export class TXE implements TypedOracle {
 
     await this.addUniqueNoteHashesFromPublic(noteHashes);
 
-    this.addPublicLogs(
-      result.avmProvingRequest.inputs.output.accumulatedData.publicLogs.filter(
-        log => !log.contractAddress.equals(AztecAddress.ZERO),
-      ),
-    );
+    // this.addPublicLogs(
+    //   result.avmProvingRequest.inputs.output.accumulatedData.publicLogs.filter(
+    //     log => !log.contractAddress.equals(AztecAddress.ZERO),
+    //   ),
+    // );
+
+    this.addPublicLogs(result.avmProvingRequest.inputs.output.accumulatedData.publicLogs);
 
     return Promise.resolve(result);
   }

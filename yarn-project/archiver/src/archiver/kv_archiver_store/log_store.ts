@@ -84,7 +84,7 @@ export class LogStore {
         // See macros/note/mod/ and see how finalization_log[0] is constructed, to understand this monstrosity. (It wasn't me).
         // Search the codebase for "disgusting encoding" to see other hardcoded instances of this encoding, that you might need to change if you ever find yourself here.
         if (!firstFieldBuf.subarray(0, 27).equals(Buffer.alloc(27)) || firstFieldBuf[29] !== 0) {
-          // See parseLogFromPublic - the first field of a tagged log is 6 bytes structured:
+          // See parseLogFromPublic - the first field of a tagged log is 5 bytes structured:
           // [ publicLen[0], publicLen[1], 0, privateLen[0], privateLen[1]]
           this.#log.warn(`Skipping public log with invalid first field: ${log.log[0]}`);
           return;
