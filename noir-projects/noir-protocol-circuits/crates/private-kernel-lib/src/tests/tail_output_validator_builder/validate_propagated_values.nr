@@ -58,16 +58,6 @@ fn validate_propagated_values_protocol_contract_tree_root_mismatch_fails() {
     builder.validate();
 }
 
-#[test(should_fail_with = "global_variables must be empty")]
-fn validate_propagated_values_global_variables_non_empty_fails() {
-    let mut builder = TailOutputValidatorBuilder::new();
-
-    // Tweak the value in the output.
-    builder.output.global_variables.chain_id = 1;
-
-    builder.validate();
-}
-
 /**
  * max_block_number
  */
@@ -137,7 +127,9 @@ fn validate_propagated_values_note_hashes_mismatch_fails() {
     builder.output.append_note_hashes(3);
 
     // Tweak the value at index 1.
-    builder.output.note_hashes.storage[1].note_hash.value += 1;
+    let mut note_hash = builder.output.note_hashes.get(1);
+    note_hash.note_hash.value += 1;
+    builder.output.note_hashes.set(1, note_hash);
 
     builder.validate();
 }
@@ -174,7 +166,9 @@ fn validate_propagated_values_nullifiers_mismatch_fails() {
     builder.output.append_nullifiers(3);
 
     // Tweak the value at index 1.
-    builder.output.nullifiers.storage[1].nullifier.value += 1;
+    let mut nullifier = builder.output.nullifiers.get(1);
+    nullifier.nullifier.value += 1;
+    builder.output.nullifiers.set(1, nullifier);
 
     builder.validate();
 }
@@ -211,7 +205,9 @@ fn validate_propagated_values_private_logs_mismatch_fails() {
     builder.output.append_private_logs(3);
 
     // Tweak the value at index 1.
-    builder.output.private_logs.storage[1].inner.log.fields[0] += 1;
+    let mut private_log = builder.output.private_logs.get(1);
+    private_log.inner.log.fields[0] += 1;
+    builder.output.private_logs.set(1, private_log);
 
     builder.validate();
 }

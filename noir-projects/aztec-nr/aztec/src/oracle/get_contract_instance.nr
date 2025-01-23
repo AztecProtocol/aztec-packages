@@ -18,10 +18,10 @@ unconstrained fn get_contract_instance_internal(
 
 // NOTE: this is for use in private only
 pub fn get_contract_instance(address: AztecAddress) -> ContractInstance {
+    /// Safety: The to_address function combines all values in the instance object to produce an address,
+    /// so by checking that we get the expected address we validate the entire struct.
     let instance =
         unsafe { ContractInstance::deserialize(get_contract_instance_internal(address)) };
-    // The to_address function combines all values in the instance object to produce an address, so by checking that we
-    // get the expected address we validate the entire struct.
     assert_eq(instance.to_address(), address);
 
     instance
@@ -59,7 +59,8 @@ pub unconstrained fn get_contract_instance_initialization_hash_internal_avm(
 }
 
 pub fn get_contract_instance_deployer_avm(address: AztecAddress) -> Option<AztecAddress> {
-    let (member, exists) = get_contract_instance_deployer_internal_avm(address);
+    /// Safety: AVM opcodes are constrained by the AVM itself
+    let (member, exists) = unsafe { get_contract_instance_deployer_internal_avm(address) };
     if exists {
         Option::some(AztecAddress::from_field(member))
     } else {
@@ -67,7 +68,8 @@ pub fn get_contract_instance_deployer_avm(address: AztecAddress) -> Option<Aztec
     }
 }
 pub fn get_contract_instance_class_id_avm(address: AztecAddress) -> Option<ContractClassId> {
-    let (member, exists) = get_contract_instance_class_id_internal_avm(address);
+    /// Safety: AVM opcodes are constrained by the AVM itself
+    let (member, exists) = unsafe { get_contract_instance_class_id_internal_avm(address) };
     if exists {
         Option::some(ContractClassId::from_field(member))
     } else {
@@ -75,7 +77,9 @@ pub fn get_contract_instance_class_id_avm(address: AztecAddress) -> Option<Contr
     }
 }
 pub fn get_contract_instance_initialization_hash_avm(address: AztecAddress) -> Option<Field> {
-    let (member, exists) = get_contract_instance_initialization_hash_internal_avm(address);
+    /// Safety: AVM opcodes are constrained by the AVM itself
+    let (member, exists) =
+        unsafe { get_contract_instance_initialization_hash_internal_avm(address) };
     if exists {
         Option::some(member)
     } else {

@@ -10,9 +10,8 @@ use crate::{
     contract_class_id::ContractClassId,
     hash::{poseidon2_hash_with_separator, private_functions_root_from_siblings},
     merkle_tree::membership::MembershipWitness,
-    public_keys::{IvpkM, NpkM, OvpkM, PublicKeys, TpkM},
-    traits::{Deserialize, Empty, FromField, Serialize, ToField},
-    utils,
+    public_keys::{IvpkM, NpkM, OvpkM, PublicKeys, ToPoint, TpkM},
+    traits::{Deserialize, Empty, FromField, Packable, Serialize, ToField},
 };
 
 // We do below because `use crate::point::Point;` does not work
@@ -20,7 +19,10 @@ use dep::std::embedded_curve_ops::EmbeddedCurvePoint as Point;
 
 use crate::public_keys::AddressPoint;
 use ec::{pow, sqrt};
-use std::embedded_curve_ops::{EmbeddedCurveScalar, fixed_base_scalar_mul as derive_public_key};
+use std::{
+    embedded_curve_ops::{EmbeddedCurveScalar, fixed_base_scalar_mul as derive_public_key},
+    ops::Add,
+};
 
 // Aztec address
 pub struct AztecAddress {
@@ -60,6 +62,18 @@ impl Serialize<AZTEC_ADDRESS_LENGTH> for AztecAddress {
 impl Deserialize<AZTEC_ADDRESS_LENGTH> for AztecAddress {
     fn deserialize(fields: [Field; AZTEC_ADDRESS_LENGTH]) -> Self {
         FromField::from_field(fields[0])
+    }
+}
+
+/// We implement the Packable trait for AztecAddress because it can be stored in contract's storage (and there
+/// the implementation of Packable is required).
+impl Packable<AZTEC_ADDRESS_LENGTH> for AztecAddress {
+    fn pack(self) -> [Field; AZTEC_ADDRESS_LENGTH] {
+        self.serialize()
+    }
+
+    fn unpack(fields: [Field; AZTEC_ADDRESS_LENGTH]) -> Self {
+        Self::deserialize(fields)
     }
 }
 
@@ -147,11 +161,6 @@ impl AztecAddress {
 
     pub fn assert_is_zero(self) {
         assert(self.to_field() == 0);
-    }
-
-    pub fn conditional_assign(predicate: bool, lhs: Self, rhs: Self) -> Self {
-        let result = utils::conditional_assign(predicate, rhs.to_field(), lhs.to_field());
-        Self { inner: result }
     }
 }
 

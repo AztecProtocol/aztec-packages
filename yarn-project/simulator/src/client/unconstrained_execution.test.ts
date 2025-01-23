@@ -1,5 +1,5 @@
 import { type AztecNode, type FunctionCall, Note } from '@aztec/circuit-types';
-import { CompleteAddress, Header } from '@aztec/circuits.js';
+import { BlockHeader, CompleteAddress } from '@aztec/circuits.js';
 import { FunctionSelector, FunctionType, encodeArguments } from '@aztec/foundation/abi';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { Fr } from '@aztec/foundation/fields';
@@ -7,10 +7,13 @@ import { StatefulTestContractArtifact } from '@aztec/noir-contracts.js/StatefulT
 
 import { mock } from 'jest-mock-extended';
 
+import { WASMSimulator } from '../providers/acvm_wasm.js';
 import { type DBOracle } from './db_oracle.js';
 import { AcirSimulator } from './simulator.js';
 
 describe('Unconstrained Execution test suite', () => {
+  const simulationProvider = new WASMSimulator();
+
   let oracle: ReturnType<typeof mock<DBOracle>>;
   let node: ReturnType<typeof mock<AztecNode>>;
   let acirSimulator: AcirSimulator;
@@ -23,11 +26,11 @@ describe('Unconstrained Execution test suite', () => {
     node.getChainId.mockResolvedValue(1);
     node.getVersion.mockResolvedValue(1);
 
-    acirSimulator = new AcirSimulator(oracle, node);
+    acirSimulator = new AcirSimulator(oracle, node, simulationProvider);
   });
 
   describe('private token contract', () => {
-    const ownerSecretKey = Fr.fromString('2dcc5485a58316776299be08c78fa3788a1a7961ae30dc747fb1be17692a8d32');
+    const ownerSecretKey = Fr.fromHexString('2dcc5485a58316776299be08c78fa3788a1a7961ae30dc747fb1be17692a8d32');
 
     let owner: AztecAddress;
 
@@ -35,8 +38,8 @@ describe('Unconstrained Execution test suite', () => {
       return new Note([new Fr(amount), owner.toField(), Fr.random()]);
     };
 
-    beforeEach(() => {
-      const ownerCompleteAddress = CompleteAddress.fromSecretKeyAndPartialAddress(ownerSecretKey, Fr.random());
+    beforeEach(async () => {
+      const ownerCompleteAddress = await CompleteAddress.fromSecretKeyAndPartialAddress(ownerSecretKey, Fr.random());
       owner = ownerCompleteAddress.address;
 
       oracle.getCompleteAddress.mockImplementation((account: AztecAddress) => {
@@ -48,14 +51,14 @@ describe('Unconstrained Execution test suite', () => {
     });
 
     it('should run the summed_values function', async () => {
-      const contractAddress = AztecAddress.random();
+      const contractAddress = await AztecAddress.random();
       const artifact = StatefulTestContractArtifact.functions.find(f => f.name === 'summed_values')!;
 
       const notes: Note[] = [...Array(5).fill(buildNote(1n, owner)), ...Array(2).fill(buildNote(2n, owner))];
 
       oracle.syncTaggedLogs.mockResolvedValue(new Map());
       oracle.processTaggedLogs.mockResolvedValue();
-      oracle.getHeader.mockResolvedValue(Header.empty());
+      oracle.getBlockHeader.mockResolvedValue(BlockHeader.empty());
       oracle.getNotes.mockResolvedValue(
         notes.map((note, index) => ({
           contractAddress,
@@ -79,7 +82,7 @@ describe('Unconstrained Execution test suite', () => {
         returnTypes: artifact.returnTypes,
       };
 
-      const result = await acirSimulator.runUnconstrained(execRequest, artifact, AztecAddress.random());
+      const result = await acirSimulator.runUnconstrained(execRequest, artifact, await AztecAddress.random());
 
       expect(result).toEqual(9n);
     }, 30_000);

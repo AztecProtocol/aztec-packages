@@ -1,7 +1,7 @@
 pub mod globals;
 pub mod inputs;
 
-pub mod packed_returns;
+pub mod returns_hash;
 pub mod private_context;
 pub mod public_context;
 pub mod unconstrained_context;
@@ -14,7 +14,7 @@ pub use call_interfaces::{
     PrivateVoidCallInterface, PublicCallInterface, PublicStaticCallInterface,
     PublicStaticVoidCallInterface, PublicVoidCallInterface,
 };
-pub use packed_returns::PackedReturns;
 pub use private_context::PrivateContext;
 pub use public_context::PublicContext;
+pub use returns_hash::ReturnsHash;
 pub use unconstrained_context::UnconstrainedContext;

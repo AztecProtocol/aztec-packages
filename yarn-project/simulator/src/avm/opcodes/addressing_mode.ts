@@ -1,7 +1,7 @@
 import { strict as assert } from 'assert';
 
 import { TaggedMemory, type TaggedMemoryInterface } from '../avm_memory_types.js';
-import { AddressOutOfRangeError } from '../errors.js';
+import { RelativeAddressOutOfRangeError } from '../errors.js';
 
 export enum AddressingMode {
   DIRECT = 0,
@@ -67,7 +67,7 @@ export class Addressing {
         const baseAddr = Number(mem.get(0).toBigInt());
         resolved[i] += baseAddr;
         if (resolved[i] >= TaggedMemory.MAX_MEMORY_SIZE) {
-          throw new AddressOutOfRangeError(baseAddr, offset);
+          throw new RelativeAddressOutOfRangeError(baseAddr, offset);
         }
       }
       if (mode & AddressingMode.INDIRECT) {

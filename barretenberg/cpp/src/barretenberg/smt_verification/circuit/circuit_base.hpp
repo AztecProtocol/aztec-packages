@@ -30,7 +30,7 @@ class CircuitBase {
     std::vector<bb::fr> variables;                                    // circuit witness
     std::vector<uint32_t> public_inps;                                // public inputs from the circuit
     std::unordered_map<uint32_t, std::string> variable_names;         // names of the variables
-    std::unordered_map<std::string, uint32_t> variable_names_inverse; // inverse map of the previous memeber
+    std::unordered_map<std::string, uint32_t> variable_names_inverse; // inverse map of the previous member
     std::unordered_map<uint32_t, STerm> symbolic_vars;                // all the symbolic variables from the circuit
     std::vector<uint32_t> real_variable_index;                        // indexes for assert_equal'd wires
     std::vector<uint32_t> real_variable_tags;                         // tags of the variables in the circuit
@@ -41,6 +41,12 @@ class CircuitBase {
     std::unordered_map<SubcircuitType, std::unordered_map<size_t, CircuitProps>>
         cached_subcircuits; // caches subcircuits during optimization
                             // No need to recompute them each time
+    std::unordered_map<uint32_t, std::vector<bb::fr>>
+        post_process; // Values idxs that should be post processed after the solver returns a witness.
+                      // Basically it affects only optimized out variables.
+                      // Because in BitVector case we can't collect negative values since they will not be
+                      // the same in the field. That's why we store the expression and calculate it after the witness is
+                      // obtained.
 
     Solver* solver; // pointer to the solver
     TermType type;  // Type of the underlying Symbolic Terms

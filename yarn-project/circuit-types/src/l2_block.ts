@@ -1,4 +1,4 @@
-import { AppendOnlyTreeSnapshot, Header } from '@aztec/circuits.js';
+import { AppendOnlyTreeSnapshot, BlockHeader } from '@aztec/circuits.js';
 import { sha256, sha256ToField } from '@aztec/foundation/crypto';
 import { Fr } from '@aztec/foundation/fields';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
@@ -17,7 +17,7 @@ export class L2Block {
     /** Snapshot of archive tree after the block is applied. */
     public archive: AppendOnlyTreeSnapshot,
     /** L2 block header. */
-    public header: Header,
+    public header: BlockHeader,
     /** L2 block body. */
     public body: Body,
   ) {}
@@ -26,7 +26,7 @@ export class L2Block {
     return z
       .object({
         archive: AppendOnlyTreeSnapshot.schema,
-        header: Header.schema,
+        header: BlockHeader.schema,
         body: Body.schema,
       })
       .transform(({ archive, header, body }) => new L2Block(archive, header, body));
@@ -38,7 +38,7 @@ export class L2Block {
    */
   static fromBuffer(buf: Buffer | BufferReader) {
     const reader = BufferReader.asReader(buf);
-    const header = reader.readObject(Header);
+    const header = reader.readObject(BlockHeader);
     const archive = reader.readObject(AppendOnlyTreeSnapshot);
     const body = reader.readObject(Body);
 
@@ -75,25 +75,23 @@ export class L2Block {
    * @param l2BlockNum - The number of the L2 block.
    * @param txsPerBlock - The number of transactions to include in the block.
    * @param numPublicCallsPerTx - The number of public function calls to include in each transaction.
-   * @param numUnencryptedLogsPerCall - The number of unencrypted logs per 1 public function invocation.
+   * @param numPublicLogsPerCall - The number of public logs per 1 public function invocation.
    * @param inHash - The hash of the L1 to L2 messages subtree which got inserted in this block.
    * @returns The L2 block.
    */
-  static random(
+  static async random(
     l2BlockNum: number,
     txsPerBlock = 4,
     numPublicCallsPerTx = 3,
-    numUnencryptedLogsPerCall = 1,
+    numPublicLogsPerCall = 1,
     inHash: Buffer | undefined = undefined,
     slotNumber: number | undefined = undefined,
-  ): L2Block {
-    const body = Body.random(txsPerBlock, numPublicCallsPerTx, numUnencryptedLogsPerCall);
-
-    const txsEffectsHash = body.getTxsEffectsHash();
+  ): Promise<L2Block> {
+    const body = await Body.random(txsPerBlock, numPublicCallsPerTx, numPublicLogsPerCall);
 
     return new L2Block(
       makeAppendOnlyTreeSnapshot(l2BlockNum + 1),
-      makeHeader(0, l2BlockNum, slotNumber ?? l2BlockNum, txsEffectsHash, inHash),
+      makeHeader(0, txsPerBlock, l2BlockNum, slotNumber ?? l2BlockNum, inHash),
       body,
     );
   }
@@ -103,7 +101,7 @@ export class L2Block {
    * @returns The L2 block.
    */
   static empty(): L2Block {
-    return new L2Block(AppendOnlyTreeSnapshot.zero(), Header.empty(), Body.empty());
+    return new L2Block(AppendOnlyTreeSnapshot.zero(), BlockHeader.empty(), Body.empty());
   }
 
   get number(): number {
@@ -121,6 +119,7 @@ export class L2Block {
   /**
    * Computes the public inputs hash for the L2 block.
    * The same output as the hash of RootRollupPublicInputs.
+   * TODO(Miranda): Check where/if this is used (v diff now with epochs and blobs)
    * @returns The public input hash for the L2 block as a field element.
    */
   // TODO(#4844)
@@ -137,7 +136,6 @@ export class L2Block {
       this.header.state.partial.publicDataTree,
       this.header.state.l1ToL2MessageTree,
       this.archive,
-      this.body.getTxsEffectsHash(),
     ];
 
     return sha256ToField(preimage);
@@ -183,14 +181,8 @@ export class L2Block {
    */
   getStats() {
     const logsStats = {
-      unencryptedLogCount: this.body.txEffects.reduce(
-        (logCount, txEffect) => logCount + txEffect.unencryptedLogs.getTotalLogCount(),
-        0,
-      ),
-      unencryptedLogSize: this.body.txEffects.reduce(
-        (logCount, txEffect) => logCount + txEffect.unencryptedLogs.getSerializedLength(),
-        0,
-      ),
+      privateLogCount: this.body.txEffects.reduce((logCount, txEffect) => logCount + txEffect.privateLogs.length, 0),
+      publicLogCount: this.body.txEffects.reduce((logCount, txEffect) => logCount + txEffect.publicLogs.length, 0),
       contractClassLogCount: this.body.txEffects.reduce(
         (logCount, txEffect) => logCount + txEffect.contractClassLogs.getTotalLogCount(),
         0,

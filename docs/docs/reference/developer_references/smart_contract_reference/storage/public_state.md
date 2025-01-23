@@ -4,7 +4,7 @@ title: Public State
 
 On this page we will look at how to manage public state in Aztec contracts. We will look at how to declare public state, how to read and write to it, and how to use it in your contracts.
 
-For a higher level overview of the state model in Aztec, see the [state model](../../../../aztec/concepts/state_model/index.md) concepts page.
+For a higher level overview of the state model in Aztec,  see the [state model](../../../../aztec/concepts/storage/state_model/index.md) concepts page.
 
 ## `PublicMutable`
 

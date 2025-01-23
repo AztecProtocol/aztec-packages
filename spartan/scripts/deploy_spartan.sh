@@ -8,7 +8,7 @@ NAMESPACE=${3:-spartan}
 PROD=${4:-true}
 PROD_ARGS=""
 if [ "$PROD" = "true" ] ; then
-  PROD_ARGS="--set network.public=true --set telemetry.enabled=true --set telemetry.otelCollectorEndpoint=http://metrics-opentelemetry-collector.metrics:4318"
+  PROD_ARGS="--set network.public=true"
 fi
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
@@ -69,14 +69,12 @@ function upgrade() {
 if ! upgrade | tee "$SCRIPT_DIR/logs/$NAMESPACE-helm.log" ; then
   if grep 'cannot patch "'$NAMESPACE'-aztec-network-setup-l2-contracts"' "$SCRIPT_DIR/logs/$NAMESPACE-helm.log" ; then
     kubectl delete job $NAMESPACE-aztec-network-setup-l2-contracts -n $NAMESPACE
-    upgrade
   fi
-fi
 
-if ! upgrade | tee "$SCRIPT_DIR/logs/$NAMESPACE-helm.log" ; then
   if grep 'cannot patch "'$NAMESPACE'-aztec-network-deploy-l1-verifier"' "$SCRIPT_DIR/logs/$NAMESPACE-helm.log" ; then
     kubectl delete job $NAMESPACE-aztec-network-deploy-l1-verifier -n $NAMESPACE
-    upgrade
   fi
+
+  upgrade
 fi
 

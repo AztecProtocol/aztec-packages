@@ -47,7 +47,6 @@ contract Outbox is IOutbox {
     override(IOutbox)
   {
     require(msg.sender == address(ROLLUP), Errors.Outbox__Unauthorized());
-    require(_root != bytes32(0), Errors.Outbox__InsertingInvalidRoot());
 
     roots[_l2BlockNumber].root = _root;
     roots[_l2BlockNumber].minHeight = _minHeight;

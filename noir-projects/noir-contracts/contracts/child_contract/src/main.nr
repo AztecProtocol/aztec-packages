@@ -7,7 +7,6 @@ contract Child {
 
     use dep::aztec::{
         encrypted_logs::encrypted_note_emission::encode_and_encrypt_note,
-        keys::getters::get_public_keys,
         macros::{functions::{internal, private, public}, storage::storage},
         note::note_getter_options::NoteGetterOptions,
         utils::comparison::Comparator,
@@ -49,19 +48,16 @@ contract Child {
     #[public]
     fn pub_set_value(new_value: Field) -> Field {
         storage.current_value.write(new_value);
-        context.emit_unencrypted_log(new_value);
+        context.emit_public_log(new_value);
 
         new_value
     }
 
     #[private]
     fn private_set_value(new_value: Field, owner: AztecAddress) -> Field {
-        let owner_ovpk_m = get_public_keys(owner).ovpk_m;
-
         let mut note = ValueNote::new(new_value, owner);
         storage.a_map_with_private_values.at(owner).insert(&mut note).emit(encode_and_encrypt_note(
             &mut context,
-            owner_ovpk_m,
             owner,
             owner,
         ));
@@ -81,7 +77,7 @@ contract Child {
     fn pub_inc_value(new_value: Field) -> Field {
         let old_value = storage.current_value.read();
         storage.current_value.write(old_value + new_value);
-        context.emit_unencrypted_log(new_value);
+        context.emit_public_log(new_value);
 
         new_value
     }
@@ -92,7 +88,7 @@ contract Child {
     fn pub_inc_value_internal(new_value: Field) -> Field {
         let old_value = storage.current_value.read();
         storage.current_value.write(old_value + new_value);
-        context.emit_unencrypted_log(new_value);
+        context.emit_public_log(new_value);
 
         new_value
     }
@@ -101,13 +97,13 @@ contract Child {
     fn set_value_twice_with_nested_first() {
         let _result = Child::at(context.this_address()).pub_set_value(10).call(&mut context);
         storage.current_value.write(20);
-        context.emit_unencrypted_log(20);
+        context.emit_public_log(20);
     }
 
     #[public]
     fn set_value_twice_with_nested_last() {
         storage.current_value.write(20);
-        context.emit_unencrypted_log(20);
+        context.emit_public_log(20);
         let _result = Child::at(context.this_address()).pub_set_value(10).call(&mut context);
     }
 
@@ -116,6 +112,6 @@ contract Child {
         Child::at(context.this_address()).set_value_twice_with_nested_first().call(&mut context);
         Child::at(context.this_address()).set_value_twice_with_nested_last().call(&mut context);
         storage.current_value.write(20);
-        context.emit_unencrypted_log(20);
+        context.emit_public_log(20);
     }
 }

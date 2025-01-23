@@ -35,7 +35,7 @@ export function getContractClassFromArtifact(
     );
     if (!dispatchFunction) {
       throw new Error(
-        'A contract with public functions should define a public_dispatch(Field) function as its public entrypoint.',
+        `A contract with public functions should define a public_dispatch(Field) function as its public entrypoint. Contract: ${artifact.name}`,
       );
     }
     packedBytecode = dispatchFunction.bytecode;

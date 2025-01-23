@@ -83,9 +83,9 @@ To update a value, its previous note hash(es) are nullified. The new note value 
 
 Some optional background resources on notes can be found here:
 
-- [High level network architecture](../../../../../aztec/overview.md), specifically the Private Execution Environment
+- [High level network architecture](../../../../../aztec/concepts_overview.md), specifically the Private Execution Environment
 - [Transaction lifecycle (simple diagram)](../../../../../aztec/concepts/transactions.md#simple-example-of-the-private-transaction-lifecycle)
-- [Public and Private state](../../../../../aztec/concepts/state_model/index.md)
+- [Public and Private state](../../../../../aztec/concepts/storage/state_model/index.md)
 
 Notes touch several core components of the protocol, but we will focus on a the essentials first.
 
@@ -150,7 +150,7 @@ Notice how the `add` function shows the simplicity of appending a new note to al
 
 ### Apply
 
-Try the [Token tutorial](../../../../../tutorials/codealong/contract_tutorials/token_contract.md) to see what notes can achieve. In this section you will also find other tutorials using notes in different ways.
+Try the [NFT tutorial](../../../../../tutorials/codealong/contract_tutorials/nft_contract.md) to see what notes can achieve. In this section you will also find other tutorials using notes in different ways.
 
 ### Further reading
 

@@ -35,26 +35,6 @@ template <> struct std::hash<bb::fr> {
 
 namespace bb::crypto::merkle_tree {
 
-template <typename LeafType> fr preimage_to_key(const LeafType& leaf)
-{
-    return leaf.get_key();
-}
-
-inline fr preimage_to_key(const fr& leaf)
-{
-    return leaf;
-}
-
-template <typename LeafType> bool requires_preimage_for_key()
-{
-    return true;
-}
-
-template <> inline bool requires_preimage_for_key<fr>()
-{
-    return false;
-}
-
 /**
  * @brief Serves as a key-value node store for merkle trees. Caches all changes in memory before persisting them during
  * a 'commit' operation.
@@ -154,8 +134,7 @@ template <typename LeafValueType> class ContentAddressedCachedTreeStore {
      */
     std::optional<index_t> find_leaf_index(const LeafValueType& leaf,
                                            const RequestContext& requestContext,
-                                           ReadTransaction& tx,
-                                           bool includeUncommitted) const;
+                                           ReadTransaction& tx) const;
 
     /**
      * @brief Finds the index of the given leaf value in the tree if available. Includes uncommitted data if requested.
@@ -163,8 +142,7 @@ template <typename LeafValueType> class ContentAddressedCachedTreeStore {
     std::optional<index_t> find_leaf_index_from(const LeafValueType& leaf,
                                                 const index_t& start_index,
                                                 const RequestContext& requestContext,
-                                                ReadTransaction& tx,
-                                                bool includeUncommitted) const;
+                                                ReadTransaction& tx) const;
 
     /**
      * @brief Commits the uncommitted data to the underlying store
@@ -179,7 +157,7 @@ template <typename LeafValueType> class ContentAddressedCachedTreeStore {
     /**
      * @brief Returns the name of the tree
      */
-    std::string get_name() const { return name_; }
+    std::string get_name() const { return forkConstantData_.name_; }
 
     /**
      * @brief Returns a read transaction against the underlying store.
@@ -209,9 +187,12 @@ template <typename LeafValueType> class ContentAddressedCachedTreeStore {
     std::optional<block_number_t> find_block_for_index(const index_t& index, ReadTransaction& tx) const;
 
   private:
-    std::string name_;
-    uint32_t depth_;
-    std::optional<BlockPayload> initialised_from_block_;
+    struct ForkConstantData {
+        std::string name_;
+        uint32_t depth_;
+        std::optional<BlockPayload> initialised_from_block_;
+    };
+    ForkConstantData forkConstantData_;
 
     // This is a mapping between the node hash and it's payload (children and ref count) for every node in the tree,
     // including leaves. As indexed trees are updated, this will end up containing many nodes that are not part of the
@@ -239,7 +220,7 @@ template <typename LeafValueType> class ContentAddressedCachedTreeStore {
 
     bool read_persisted_meta(TreeMeta& m, ReadTransaction& tx) const;
 
-    void enrich_meta_from_block(TreeMeta& m) const;
+    void enrich_meta_from_fork_constant_data(TreeMeta& m) const;
 
     void persist_meta(TreeMeta& m, WriteTransaction& tx);
 
@@ -264,7 +245,7 @@ template <typename LeafValueType> class ContentAddressedCachedTreeStore {
 
     void delete_block_for_index(const block_number_t& blockNumber, const index_t& index, WriteTransaction& tx);
 
-    index_t constrain_tree_size(const RequestContext& requestContext, ReadTransaction& tx) const;
+    index_t constrain_tree_size_to_only_committed(const RequestContext& requestContext, ReadTransaction& tx) const;
 
     WriteTransactionPtr create_write_transaction() const { return dataStore_->create_write_transaction(); }
 };
@@ -273,10 +254,9 @@ template <typename LeafValueType>
 ContentAddressedCachedTreeStore<LeafValueType>::ContentAddressedCachedTreeStore(std::string name,
                                                                                 uint32_t levels,
                                                                                 PersistedStoreType::SharedPtr dataStore)
-    : name_(std::move(name))
-    , depth_(levels)
+    : forkConstantData_{ .name_ = (std::move(name)), .depth_ = levels }
     , dataStore_(dataStore)
-    , nodes_by_index_(std::vector<std::unordered_map<index_t, fr>>(depth_ + 1, std::unordered_map<index_t, fr>()))
+    , nodes_by_index_(std::vector<std::unordered_map<index_t, fr>>(levels + 1, std::unordered_map<index_t, fr>()))
 {
     initialise();
 }
@@ -286,26 +266,32 @@ ContentAddressedCachedTreeStore<LeafValueType>::ContentAddressedCachedTreeStore(
                                                                                 uint32_t levels,
                                                                                 const index_t& referenceBlockNumber,
                                                                                 PersistedStoreType::SharedPtr dataStore)
-    : name_(std::move(name))
-    , depth_(levels)
+    : forkConstantData_{ .name_ = (std::move(name)), .depth_ = levels }
     , dataStore_(dataStore)
-    , nodes_by_index_(std::vector<std::unordered_map<index_t, fr>>(depth_ + 1, std::unordered_map<index_t, fr>()))
+    , nodes_by_index_(std::vector<std::unordered_map<index_t, fr>>(levels + 1, std::unordered_map<index_t, fr>()))
 {
     initialise_from_block(referenceBlockNumber);
 }
 
 template <typename LeafValueType>
-index_t ContentAddressedCachedTreeStore<LeafValueType>::constrain_tree_size(const RequestContext& requestContext,
-                                                                            ReadTransaction& tx) const
+index_t ContentAddressedCachedTreeStore<LeafValueType>::constrain_tree_size_to_only_committed(
+    const RequestContext& requestContext, ReadTransaction& tx) const
 {
-    TreeMeta m;
-    get_meta(m, tx, true);
-    index_t sizeLimit = m.committedSize;
-    if (requestContext.blockNumber.has_value()) {
-        BlockPayload blockData;
-        if (dataStore_->read_block_data(requestContext.blockNumber.value(), blockData, tx)) {
-            sizeLimit = std::min(meta_.committedSize, blockData.size);
-        }
+    // We need to identify the size of the committed tree as it exists from our perspective
+    // We either take from the fork's constant data if available or we read the meta data from the store
+    index_t sizeLimit = 0;
+    if (forkConstantData_.initialised_from_block_.has_value()) {
+        // We are a fork. Take from constant data
+        sizeLimit = forkConstantData_.initialised_from_block_.value().size;
+    } else {
+        // We are the main tree. Read from the store, only use committed so as to not violate any requests for purely
+        // committed data
+        TreeMeta m;
+        get_meta(m, tx, false);
+        sizeLimit = m.committedSize;
+    }
+    if (requestContext.maxIndex.has_value() && requestContext.maxIndex.value() < sizeLimit) {
+        sizeLimit = requestContext.maxIndex.value();
     }
     return sizeLimit;
 }
@@ -314,6 +300,12 @@ template <typename LeafValueType>
 std::optional<block_number_t> ContentAddressedCachedTreeStore<LeafValueType>::find_block_for_index(
     const index_t& index, ReadTransaction& tx) const
 {
+    RequestContext context;
+    context.maxIndex = index + 1;
+    index_t constrainedSize = constrain_tree_size_to_only_committed(context, tx);
+    if (index >= constrainedSize) {
+        return std::nullopt;
+    }
     block_number_t blockNumber = 0;
     bool success = dataStore_->find_block_for_index(index, blockNumber, tx);
     return success ? std::make_optional(blockNumber) : std::nullopt;
@@ -341,10 +333,11 @@ std::pair<bool, index_t> ContentAddressedCachedTreeStore<LeafValueType>::find_lo
 {
     auto new_value_as_number = uint256_t(new_leaf_key);
     index_t committed = 0;
-    std::optional<index_t> sizeLimit = std::nullopt;
-    if (initialised_from_block_.has_value() || requestContext.blockNumber.has_value()) {
-        sizeLimit = constrain_tree_size(requestContext, tx);
-    }
+
+    // We first read committed data, so we must constrin the search to only the data committed from our perspective
+    // That means, if we are a fork, the committed size is the size of the tree as it was when we forked
+    // If we are the main tree, the committed size is the size of the tree as it is now
+    std::optional<index_t> sizeLimit = constrain_tree_size_to_only_committed(requestContext, tx);
 
     fr found_key = dataStore_->find_low_leaf(new_leaf_key, committed, sizeLimit, tx);
     index_t db_index = committed;
@@ -458,9 +451,9 @@ void ContentAddressedCachedTreeStore<LeafValueType>::update_index(const index_t&
 
 template <typename LeafValueType>
 std::optional<index_t> ContentAddressedCachedTreeStore<LeafValueType>::find_leaf_index(
-    const LeafValueType& leaf, const RequestContext& requestContext, ReadTransaction& tx, bool includeUncommitted) const
+    const LeafValueType& leaf, const RequestContext& requestContext, ReadTransaction& tx) const
 {
-    return find_leaf_index_from(leaf, 0, requestContext, tx, includeUncommitted);
+    return find_leaf_index_from(leaf, 0, requestContext, tx);
 }
 
 template <typename LeafValueType>
@@ -468,10 +461,9 @@ std::optional<index_t> ContentAddressedCachedTreeStore<LeafValueType>::find_leaf
     const LeafValueType& leaf,
     const index_t& start_index,
     const RequestContext& requestContext,
-    ReadTransaction& tx,
-    bool includeUncommitted) const
+    ReadTransaction& tx) const
 {
-    if (includeUncommitted) {
+    if (requestContext.includeUncommitted) {
         // Accessing indices_ under a lock
         std::unique_lock lock(mtx_);
         auto it = indices_.find(uint256_t(leaf));
@@ -490,7 +482,10 @@ std::optional<index_t> ContentAddressedCachedTreeStore<LeafValueType>::find_leaf
     FrKeyType key = leaf;
     bool success = dataStore_->read_leaf_index(key, committed, tx);
     if (success) {
-        index_t sizeLimit = constrain_tree_size(requestContext, tx);
+        // We must constrin the search to only the data committed from our perspective
+        // That means, if we are a fork, the committed size is the size of the tree as it was when we forked
+        // If we are the main tree, the committed size is the size of the tree as it is now
+        index_t sizeLimit = constrain_tree_size_to_only_committed(requestContext, tx);
         if (committed < start_index) {
             return std::nullopt;
         }
@@ -597,18 +592,22 @@ bool ContentAddressedCachedTreeStore<LeafValueType>::read_persisted_meta(TreeMet
     if (!dataStore_->read_meta_data(m, tx)) {
         return false;
     }
-    enrich_meta_from_block(m);
+    // Having read the meta from the store, we need to enrich it with the fork constant data if available
+    enrich_meta_from_fork_constant_data(m);
     return true;
 }
 
 template <typename LeafValueType>
-void ContentAddressedCachedTreeStore<LeafValueType>::enrich_meta_from_block(TreeMeta& m) const
+void ContentAddressedCachedTreeStore<LeafValueType>::enrich_meta_from_fork_constant_data(TreeMeta& m) const
 {
-    if (initialised_from_block_.has_value()) {
-        m.size = initialised_from_block_->size;
-        m.committedSize = initialised_from_block_->size;
-        m.root = initialised_from_block_->root;
-        m.unfinalisedBlockHeight = initialised_from_block_->blockNumber;
+    // Here we update the given meta with properties from our constant fork data if available.
+    // If we are not a fork then nothing is to be updated
+    // If we are a fork then we will overwrite the root, size and committed size with the original fork values
+    if (forkConstantData_.initialised_from_block_.has_value()) {
+        m.size = forkConstantData_.initialised_from_block_->size;
+        m.committedSize = forkConstantData_.initialised_from_block_->size;
+        m.root = forkConstantData_.initialised_from_block_->root;
+        m.unfinalisedBlockHeight = forkConstantData_.initialised_from_block_->blockNumber;
     }
 }
 
@@ -637,7 +636,7 @@ void ContentAddressedCachedTreeStore<LeafValueType>::commit(TreeMeta& finalMeta,
     TreeMeta uncommittedMeta;
     TreeMeta committedMeta;
     // We don't allow commits using images/forks
-    if (initialised_from_block_.has_value()) {
+    if (forkConstantData_.initialised_from_block_.has_value()) {
         throw std::runtime_error("Committing a fork is forbidden");
     }
     {
@@ -688,7 +687,8 @@ void ContentAddressedCachedTreeStore<LeafValueType>::commit(TreeMeta& finalMeta,
             tx->commit();
         } catch (std::exception& e) {
             tx->try_abort();
-            throw std::runtime_error(format("Unable to commit data to tree: ", name_, " Error: ", e.what()));
+            throw std::runtime_error(
+                format("Unable to commit data to tree: ", forkConstantData_.name_, " Error: ", e.what()));
         }
     }
     finalMeta = uncommittedMeta;
@@ -753,7 +753,7 @@ void ContentAddressedCachedTreeStore<LeafValueType>::persist_node(const std::opt
         }
         fr hash = so.opHash.value();
 
-        if (so.lvl == depth_) {
+        if (so.lvl == forkConstantData_.depth_) {
             // this is a leaf
             persist_leaf_pre_image(hash, tx);
         }
@@ -788,7 +788,8 @@ template <typename LeafValueType> void ContentAddressedCachedTreeStore<LeafValue
     nodes_ = std::unordered_map<fr, NodePayload>();
     indices_ = std::map<uint256_t, index_t>();
     leaves_ = std::unordered_map<fr, IndexedLeafValueType>();
-    nodes_by_index_ = std::vector<std::unordered_map<index_t, fr>>(depth_ + 1, std::unordered_map<index_t, fr>());
+    nodes_by_index_ =
+        std::vector<std::unordered_map<index_t, fr>>(forkConstantData_.depth_ + 1, std::unordered_map<index_t, fr>());
     leaf_pre_image_by_index_ = std::unordered_map<index_t, IndexedLeafValueType>();
 }
 
@@ -805,9 +806,10 @@ void ContentAddressedCachedTreeStore<LeafValueType>::advance_finalised_block(con
     TreeMeta uncommittedMeta;
     BlockPayload blockPayload;
     if (blockNumber < 1) {
-        throw std::runtime_error(format("Unable to advance finalised block: ", blockNumber, ". Tree name: ", name_));
+        throw std::runtime_error(
+            format("Unable to advance finalised block: ", blockNumber, ". Tree name: ", forkConstantData_.name_));
     }
-    if (initialised_from_block_.has_value()) {
+    if (forkConstantData_.initialised_from_block_.has_value()) {
         throw std::runtime_error("Advancing the finalised block on a fork is forbidden");
     }
     {
@@ -816,8 +818,10 @@ void ContentAddressedCachedTreeStore<LeafValueType>::advance_finalised_block(con
         get_meta(uncommittedMeta, *tx, true);
         get_meta(committedMeta, *tx, false);
         if (!dataStore_->read_block_data(blockNumber, blockPayload, *tx)) {
-            throw std::runtime_error(format(
-                "Unable to advance finalised block: ", blockNumber, ". Failed to read block data. Tree name: ", name_));
+            throw std::runtime_error(format("Unable to advance finalised block: ",
+                                            blockNumber,
+                                            ". Failed to read block data. Tree name: ",
+                                            forkConstantData_.name_));
         }
     }
     // can only finalise blocks that are not finalised
@@ -848,7 +852,7 @@ void ContentAddressedCachedTreeStore<LeafValueType>::advance_finalised_block(con
         throw std::runtime_error(format("Unable to commit advance of finalised block: ",
                                         blockNumber,
                                         ". Tree name: ",
-                                        name_,
+                                        forkConstantData_.name_,
                                         " Error: ",
                                         e.what()));
     }
@@ -868,9 +872,10 @@ void ContentAddressedCachedTreeStore<LeafValueType>::unwind_block(const block_nu
     BlockPayload blockData;
     BlockPayload previousBlockData;
     if (blockNumber < 1) {
-        throw std::runtime_error(format("Unable to unwind block: ", blockNumber, ". Tree name: ", name_));
+        throw std::runtime_error(
+            format("Unable to unwind block: ", blockNumber, ". Tree name: ", forkConstantData_.name_));
     }
-    if (initialised_from_block_.has_value()) {
+    if (forkConstantData_.initialised_from_block_.has_value()) {
         throw std::runtime_error("Removing a block on a fork is forbidden");
     }
     {
@@ -882,7 +887,7 @@ void ContentAddressedCachedTreeStore<LeafValueType>::unwind_block(const block_nu
                 format("Unable to unwind block: ",
                        blockNumber,
                        " Can't unwind with uncommitted data, first rollback before unwinding. Tree name: ",
-                       name_));
+                       forkConstantData_.name_));
         }
         if (blockNumber != uncommittedMeta.unfinalisedBlockHeight) {
             throw std::runtime_error(format("Unable to unwind block: ",
@@ -890,7 +895,7 @@ void ContentAddressedCachedTreeStore<LeafValueType>::unwind_block(const block_nu
                                             " unfinalisedBlockHeight: ",
                                             committedMeta.unfinalisedBlockHeight,
                                             ". Tree name: ",
-                                            name_));
+                                            forkConstantData_.name_));
         }
         if (blockNumber <= uncommittedMeta.finalisedBlockHeight) {
             throw std::runtime_error(format("Unable to unwind block: ",
@@ -898,7 +903,7 @@ void ContentAddressedCachedTreeStore<LeafValueType>::unwind_block(const block_nu
                                             " finalisedBlockHeight: ",
                                             committedMeta.finalisedBlockHeight,
                                             ". Tree name: ",
-                                            name_));
+                                            forkConstantData_.name_));
         }
 
         // populate the required data for the previous block
@@ -907,14 +912,18 @@ void ContentAddressedCachedTreeStore<LeafValueType>::unwind_block(const block_nu
             previousBlockData.size = uncommittedMeta.initialSize;
             previousBlockData.blockNumber = 0;
         } else if (!dataStore_->read_block_data(blockNumber - 1, previousBlockData, *tx)) {
-            throw std::runtime_error(format(
-                "Unable to unwind block: ", blockNumber, ". Failed to read previous block data. Tree name: ", name_));
+            throw std::runtime_error(format("Unable to unwind block: ",
+                                            blockNumber,
+                                            ". Failed to read previous block data. Tree name: ",
+                                            forkConstantData_.name_));
         }
 
         // now get the root for the block we want to unwind
         if (!dataStore_->read_block_data(blockNumber, blockData, *tx)) {
-            throw std::runtime_error(
-                format("Unable to unwind block: ", blockNumber, ". Failed to read block data. Tree name: ", name_));
+            throw std::runtime_error(format("Unable to unwind block: ",
+                                            blockNumber,
+                                            ". Failed to read block data. Tree name: ",
+                                            forkConstantData_.name_));
         }
     }
     WriteTransactionPtr writeTx = create_write_transaction();
@@ -937,8 +946,12 @@ void ContentAddressedCachedTreeStore<LeafValueType>::unwind_block(const block_nu
         writeTx->commit();
     } catch (std::exception& e) {
         writeTx->try_abort();
-        throw std::runtime_error(
-            format("Unable to commit unwind of block: ", blockNumber, ". Tree name: ", name_, " Error: ", e.what()));
+        throw std::runtime_error(format("Unable to commit unwind of block: ",
+                                        blockNumber,
+                                        ". Tree name: ",
+                                        forkConstantData_.name_,
+                                        " Error: ",
+                                        e.what()));
     }
 
     // now update the uncommitted meta
@@ -957,9 +970,10 @@ void ContentAddressedCachedTreeStore<LeafValueType>::remove_historical_block(con
     TreeMeta uncommittedMeta;
     BlockPayload blockData;
     if (blockNumber < 1) {
-        throw std::runtime_error(format("Unable to remove historical block: ", blockNumber, ". Tree name: ", name_));
+        throw std::runtime_error(
+            format("Unable to remove historical block: ", blockNumber, ". Tree name: ", forkConstantData_.name_));
     }
-    if (initialised_from_block_.has_value()) {
+    if (forkConstantData_.initialised_from_block_.has_value()) {
         throw std::runtime_error("Removing a block on a fork is forbidden");
     }
     {
@@ -974,7 +988,7 @@ void ContentAddressedCachedTreeStore<LeafValueType>::remove_historical_block(con
                                             " oldestHistoricBlock: ",
                                             committedMeta.oldestHistoricBlock,
                                             ". Tree name: ",
-                                            name_));
+                                            forkConstantData_.name_));
         }
         if (blockNumber >= committedMeta.finalisedBlockHeight) {
             throw std::runtime_error(format("Unable to remove historical block: ",
@@ -982,12 +996,14 @@ void ContentAddressedCachedTreeStore<LeafValueType>::remove_historical_block(con
                                             " oldestHistoricBlock: ",
                                             committedMeta.finalisedBlockHeight,
                                             ". Tree name: ",
-                                            name_));
+                                            forkConstantData_.name_));
         }
 
         if (!dataStore_->read_block_data(blockNumber, blockData, *tx)) {
-            throw std::runtime_error(format(
-                "Unable to remove historical block: ", blockNumber, ". Failed to read block data. Tree name: ", name_));
+            throw std::runtime_error(format("Unable to remove historical block: ",
+                                            blockNumber,
+                                            ". Failed to read block data. Tree name: ",
+                                            forkConstantData_.name_));
         }
     }
     WriteTransactionPtr writeTx = create_write_transaction();
@@ -1006,7 +1022,7 @@ void ContentAddressedCachedTreeStore<LeafValueType>::remove_historical_block(con
         throw std::runtime_error(format("Unable to commit removal of historical block: ",
                                         blockNumber,
                                         ". Tree name: ",
-                                        name_,
+                                        forkConstantData_.name_,
                                         " Error: ",
                                         e.what()));
     }
@@ -1093,7 +1109,7 @@ void ContentAddressedCachedTreeStore<LeafValueType>::remove_node(const std::opti
             continue;
         }
         // the node was deleted, if it was a leaf then we need to remove the pre-image
-        if (so.lvl == depth_) {
+        if (so.lvl == forkConstantData_.depth_) {
             remove_leaf(hash, maxIndex, tx);
         }
         // push the child nodes to the stack
@@ -1111,20 +1127,21 @@ template <typename LeafValueType> void ContentAddressedCachedTreeStore<LeafValue
         ReadTransactionPtr tx = create_read_transaction();
         bool success = read_persisted_meta(meta_, *tx);
         if (success) {
-            if (name_ == meta_.name && depth_ == meta_.depth) {
+            if (forkConstantData_.name_ == meta_.name && forkConstantData_.depth_ == meta_.depth) {
                 return;
             }
-            throw std::runtime_error(format("Tree found to be uninitialised when attempting to create ", name_));
+            throw std::runtime_error(
+                format("Tree found to be uninitialised when attempting to create ", forkConstantData_.name_));
         }
     }
 
     // No meta data available. Write the initial state down
-    meta_.name = name_;
+    meta_.name = forkConstantData_.name_;
     meta_.size = 0;
     meta_.committedSize = 0;
     meta_.root = fr::zero();
     meta_.initialRoot = fr::zero();
-    meta_.depth = depth_;
+    meta_.depth = forkConstantData_.depth_;
     meta_.initialSize = 0;
     meta_.oldestHistoricBlock = 0;
     meta_.unfinalisedBlockHeight = 0;
@@ -1149,11 +1166,11 @@ void ContentAddressedCachedTreeStore<LeafValueType>::initialise_from_block(const
         ReadTransactionPtr tx = create_read_transaction();
         bool success = read_persisted_meta(meta_, *tx);
         if (success) {
-            if (name_ != meta_.name || depth_ != meta_.depth) {
+            if (forkConstantData_.name_ != meta_.name || forkConstantData_.depth_ != meta_.depth) {
                 throw std::runtime_error(format("Inconsistent tree meta data when initialising ",
-                                                name_,
+                                                forkConstantData_.name_,
                                                 " with depth ",
-                                                depth_,
+                                                forkConstantData_.depth_,
                                                 " from block ",
                                                 blockNumber,
                                                 " stored name: ",
@@ -1163,8 +1180,10 @@ void ContentAddressedCachedTreeStore<LeafValueType>::initialise_from_block(const
             }
 
         } else {
-            throw std::runtime_error(format(
-                "Tree found to be uninitialised when attempting to create ", name_, " from block ", blockNumber));
+            throw std::runtime_error(format("Tree found to be uninitialised when attempting to create ",
+                                            forkConstantData_.name_,
+                                            " from block ",
+                                            blockNumber));
         }
 
         if (meta_.unfinalisedBlockHeight < blockNumber) {
@@ -1173,7 +1192,7 @@ void ContentAddressedCachedTreeStore<LeafValueType>::initialise_from_block(const
                                             " unfinalisedBlockHeight: ",
                                             meta_.unfinalisedBlockHeight,
                                             ". Tree name: ",
-                                            name_));
+                                            forkConstantData_.name_));
         }
         if (meta_.oldestHistoricBlock > blockNumber && blockNumber != 0) {
             throw std::runtime_error(format("Unable to fork from expired historical block: ",
@@ -1181,7 +1200,7 @@ void ContentAddressedCachedTreeStore<LeafValueType>::initialise_from_block(const
                                             " unfinalisedBlockHeight: ",
                                             meta_.oldestHistoricBlock,
                                             ". Tree name: ",
-                                            name_));
+                                            forkConstantData_.name_));
         }
         BlockPayload blockData;
         if (blockNumber == 0) {
@@ -1189,18 +1208,20 @@ void ContentAddressedCachedTreeStore<LeafValueType>::initialise_from_block(const
             blockData.root = meta_.initialRoot;
             blockData.size = meta_.initialSize;
         } else if (get_block_data(blockNumber, blockData, *tx) == false) {
-            throw std::runtime_error(format("Failed to retrieve block data: ", blockNumber, ". Tree name: ", name_));
+            throw std::runtime_error(
+                format("Failed to retrieve block data: ", blockNumber, ". Tree name: ", forkConstantData_.name_));
         }
-        initialised_from_block_ = blockData;
-        enrich_meta_from_block(meta_);
+        forkConstantData_.initialised_from_block_ = blockData;
+        // Ensure the meta reflects the fork constant data
+        enrich_meta_from_fork_constant_data(meta_);
     }
 }
 
 template <typename LeafValueType>
 std::optional<index_t> ContentAddressedCachedTreeStore<LeafValueType>::get_fork_block() const
 {
-    if (initialised_from_block_.has_value()) {
-        return initialised_from_block_->blockNumber;
+    if (forkConstantData_.initialised_from_block_.has_value()) {
+        return forkConstantData_.initialised_from_block_->blockNumber;
     }
     return std::nullopt;
 }

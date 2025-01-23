@@ -1,5 +1,4 @@
 use std::fmt::Display;
-use std::sync::atomic::{AtomicU32, Ordering};
 
 use acvm::acir::AcirField;
 use acvm::FieldElement;
@@ -46,6 +45,7 @@ pub enum StatementKind {
     Expression(Expression),
     Assign(AssignStatement),
     For(ForLoopStatement),
+    Loop(Expression),
     Break,
     Continue,
     /// This statement should be executed at compile-time
@@ -107,6 +107,9 @@ impl StatementKind {
             // A semicolon on a for loop is optional and does nothing
             StatementKind::For(_) => self,
 
+            // A semicolon on a loop is optional and does nothing
+            StatementKind::Loop(..) => self,
+
             // No semicolon needed for a resolved statement
             StatementKind::Interned(_) => self,
 
@@ -154,6 +157,7 @@ impl StatementKind {
             r#type,
             expression,
             comptime: false,
+            is_global_let: false,
             attributes,
         })
     }
@@ -562,6 +566,7 @@ pub struct LetStatement {
 
     // True if this should only be run during compile-time
     pub comptime: bool,
+    pub is_global_let: bool,
 }
 
 #[derive(Debug, PartialEq, Eq, Clone)]
@@ -839,10 +844,9 @@ impl ForRange {
         block: Expression,
         for_loop_span: Span,
     ) -> Statement {
-        /// Counter used to generate unique names when desugaring
-        /// code in the parser requires the creation of fresh variables.
-        /// The parser is stateless so this is a static global instead.
-        static UNIQUE_NAME_COUNTER: AtomicU32 = AtomicU32::new(0);
+        // Counter used to generate unique names when desugaring
+        // code in the parser requires the creation of fresh variables.
+        let mut unique_name_counter: u32 = 0;
 
         match self {
             ForRange::Range(..) => {
@@ -853,7 +857,8 @@ impl ForRange {
                 let start_range = ExpressionKind::integer(FieldElement::zero());
                 let start_range = Expression::new(start_range, array_span);
 
-                let next_unique_id = UNIQUE_NAME_COUNTER.fetch_add(1, Ordering::Relaxed);
+                let next_unique_id = unique_name_counter;
+                unique_name_counter += 1;
                 let array_name = format!("$i{next_unique_id}");
                 let array_span = array.span;
                 let array_ident = Ident::new(array_name, array_span);
@@ -886,7 +891,7 @@ impl ForRange {
                 }));
                 let end_range = Expression::new(end_range, array_span);
 
-                let next_unique_id = UNIQUE_NAME_COUNTER.fetch_add(1, Ordering::Relaxed);
+                let next_unique_id = unique_name_counter;
                 let index_name = format!("$i{next_unique_id}");
                 let fresh_identifier = Ident::new(index_name.clone(), array_span);
 
@@ -960,6 +965,7 @@ impl Display for StatementKind {
             StatementKind::Expression(expression) => expression.fmt(f),
             StatementKind::Assign(assign) => assign.fmt(f),
             StatementKind::For(for_loop) => for_loop.fmt(f),
+            StatementKind::Loop(block) => write!(f, "loop {}", block),
             StatementKind::Break => write!(f, "break"),
             StatementKind::Continue => write!(f, "continue"),
             StatementKind::Comptime(statement) => write!(f, "comptime {}", statement.kind),

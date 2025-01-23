@@ -67,14 +67,6 @@ contract OutboxTest is Test {
     outbox.insert(1, root, DEFAULT_TREE_HEIGHT);
   }
 
-  function testRevertIfInsertingEmptyRoot() public {
-    bytes32 root = bytes32(0);
-
-    vm.prank(ROLLUP_CONTRACT);
-    vm.expectRevert(abi.encodeWithSelector(Errors.Outbox__InsertingInvalidRoot.selector));
-    outbox.insert(1, root, DEFAULT_TREE_HEIGHT);
-  }
-
   // This function tests the insertion of random arrays of L2 to L1 messages
   // We make a naive tree with a computed height, insert the leafs into it, and compute a root. We then add the root as the root of the
   // L2 to L1 message tree, expect for the correct event to be emitted, and then query for the root in the contract—making sure the roots, as well as the

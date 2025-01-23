@@ -1,4 +1,4 @@
-import { ProverNodeApiSchema, type ProvingJobBroker, createAztecNodeClient } from '@aztec/circuit-types';
+import { P2PApiSchema, ProverNodeApiSchema, type ProvingJobBroker, createAztecNodeClient } from '@aztec/circuit-types';
 import { NULL_KEY } from '@aztec/ethereum';
 import { type NamespacedApiHandlers } from '@aztec/foundation/json-rpc/server';
 import { type LogFn } from '@aztec/foundation/log';
@@ -9,7 +9,7 @@ import {
   getProverNodeConfigFromEnv,
   proverNodeConfigMappings,
 } from '@aztec/prover-node';
-import { createAndStartTelemetryClient, telemetryClientConfigMappings } from '@aztec/telemetry-client/start';
+import { initTelemetryClient, telemetryClientConfigMappings } from '@aztec/telemetry-client';
 
 import { mnemonicToAccount } from 'viem/accounts';
 
@@ -58,9 +58,7 @@ export async function startProverNode(
     proverConfig.l1Contracts = await createAztecNodeClient(nodeUrl).getL1ContractAddresses();
   }
 
-  const telemetry = await createAndStartTelemetryClient(
-    extractRelevantOptions(options, telemetryClientConfigMappings, 'tel'),
-  );
+  const telemetry = initTelemetryClient(extractRelevantOptions(options, telemetryClientConfigMappings, 'tel'));
 
   let broker: ProvingJobBroker;
   if (proverConfig.proverBrokerUrl) {
@@ -81,12 +79,16 @@ export async function startProverNode(
   const proverNode = await createProverNode(proverConfig, { telemetry, broker });
   services.proverNode = [proverNode, ProverNodeApiSchema];
 
+  const p2p = proverNode.getP2P();
+  if (p2p) {
+    services.p2p = [proverNode.getP2P(), P2PApiSchema];
+  }
+
   if (!proverConfig.proverBrokerUrl) {
     services.provingJobSource = [proverNode.getProver().getProvingJobSource(), ProvingJobConsumerSchema];
   }
 
   signalHandlers.push(proverNode.stop.bind(proverNode));
 
-  // Automatically start proving unproven blocks
   await proverNode.start();
 }

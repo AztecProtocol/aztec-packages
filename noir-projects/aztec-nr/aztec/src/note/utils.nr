@@ -1,15 +1,12 @@
 use crate::{
     context::PrivateContext,
     note::{note_header::NoteHeader, note_interface::{NoteInterface, NullifiableNote}},
+    utils::array,
 };
 
-use dep::protocol_types::{
-    hash::{
-        compute_siloed_note_hash as compute_siloed_note_hash,
-        compute_siloed_nullifier as compute_siloed_nullifier_from_preimage,
-        compute_unique_note_hash,
-    },
-    utils::arr_copy_slice,
+use dep::protocol_types::hash::{
+    compute_siloed_note_hash, compute_siloed_nullifier as compute_siloed_nullifier_from_preimage,
+    compute_unique_note_hash,
 };
 
 pub fn compute_siloed_nullifier<Note, let N: u32>(
@@ -32,13 +29,19 @@ where
     Note: NoteInterface<N> + NullifiableNote,
 {
     let note_hash = note.compute_note_hash();
-    let nonce = note.get_header().nonce;
-    let counter = note.get_header().note_hash_counter;
+    let header = note.get_header();
+    let nonce = header.nonce;
+    let counter = header.note_hash_counter;
 
+    // If same tx note, read request always uses the normal note hash
     if counter != 0 {
         note_hash
     } else {
-        compute_unique_note_hash(nonce, note_hash)
+        // If the note comes from a different tx, we need to compute the note hash that reached the tree
+        compute_unique_note_hash(
+            nonce,
+            compute_siloed_note_hash(header.contract_address, note_hash),
+        )
     }
 }
 
@@ -52,20 +55,14 @@ where
 {
     let header = note.get_header();
 
-    if header.note_hash_counter != 0 {
-        if header.nonce == 0 {
-            // Case 1: Transient note
-            note_hash_for_read_request
-        } else {
-            // Case 2: Non-revertible note, nullified by a revertible nullifier
-            let unique_note_hash =
-                compute_unique_note_hash(header.nonce, note_hash_for_read_request);
-            compute_siloed_note_hash(header.contract_address, unique_note_hash)
-        }
+    if (header.note_hash_counter != 0) & (header.nonce != 0) {
+        // Non-revertible note, nullified by a revertible nullifier, we need to nullify the note hash that will reach the tree
+        let siloed_note_hash =
+            compute_siloed_note_hash(header.contract_address, note_hash_for_read_request);
+
+        compute_unique_note_hash(header.nonce, siloed_note_hash)
     } else {
-        // Case 3: Note from a previous transaction
-        // note_hash_for_read_request is already the unique_note_hash in this case
-        compute_siloed_note_hash(header.contract_address, note_hash_for_read_request)
+        note_hash_for_read_request
     }
 }
 
@@ -128,12 +125,12 @@ pub unconstrained fn compute_note_hash_and_optionally_a_nullifier<T, let N: u32,
 where
     T: NoteInterface<N> + NullifiableNote,
 {
-    let mut note = deserialize_content(arr_copy_slice(serialized_note, [0; N], 0));
+    let mut note = deserialize_content(array::subarray(serialized_note, 0));
     note.set_header(note_header);
 
     let note_hash = note.compute_note_hash();
-    let unique_note_hash = compute_unique_note_hash(note_header.nonce, note_hash);
-    let siloed_note_hash = compute_siloed_note_hash(note_header.contract_address, unique_note_hash);
+    let siloed_note_hash = compute_siloed_note_hash(note_header.contract_address, note_hash);
+    let unique_note_hash = compute_unique_note_hash(note_header.nonce, siloed_note_hash);
 
     let inner_nullifier = if compute_nullifier {
         note.compute_nullifier_without_context()

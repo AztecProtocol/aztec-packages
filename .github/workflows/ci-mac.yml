@@ -1,19 +1,25 @@
 name: CI (Mac)
+
 on:
   push:
     branches:
       - master
       - '*/*mac-build'
+  pull_request:
+    types: [synchronize, labeled]
 
 jobs:
   build-mac-intel:
     name: Build on Mac x86_64-apple-darwin
+    # Run this job if it's a direct push OR if a PR is labeled with "macos-ci".
+    if: >
+      github.event_name == 'push' ||
+      (github.event_name == 'pull_request' &&
+       contains(github.event.pull_request.labels.*.name, 'macos-ci'))
     runs-on: macos-13
     steps:
       - name: Checkout
         uses: actions/checkout@v3
-        with:
-          ref: ${{ inputs.tag || env.GITHUB_REF }}
 
       - name: Create Mac Build Environment
         run: brew install cmake ninja llvm@16
@@ -29,12 +35,15 @@ jobs:
 
   build-mac-m1:
     name: Build on Mac aarch64-apple-darwin
+    # Run this job if it's a direct push OR if a PR is labeled with "macos-ci".
+    if: >
+      github.event_name == 'push' ||
+      (github.event_name == 'pull_request' &&
+       contains(github.event.pull_request.labels.*.name, 'macos-ci'))
     runs-on: macos-14
     steps:
       - name: Checkout
         uses: actions/checkout@v3
-        with:
-          ref: ${{ inputs.tag || env.GITHUB_REF }}
 
       - name: Create Mac Build Environment
         run: brew install cmake ninja
@@ -48,7 +57,7 @@ jobs:
   build-check:
     name: Check builds are successful
     needs: [build-mac-intel, build-mac-m1]
-    if: ${{ always() }}
+    if: always()
     runs-on: ubuntu-latest
     steps:
       - name: Report overall success

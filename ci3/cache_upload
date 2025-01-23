@@ -1,0 +1,29 @@
+#!/bin/bash
+[ -n "${BUILD_SYSTEM_DEBUG:-}" ] && set -x
+set -eu
+
+if [ "$#" -lt 2 ]; then
+  echo "Usage: $0 <my-artifact.tar.gz> <binary_paths_to_tar_gz_and_upload...>" >&2
+  exit 1
+fi
+
+if [[ "$1" == *"disabled-cache"* ]]; then
+  echo "Skipping upload of $1 due to uncommitted changes/files."
+  exit 0
+fi
+# Name, intended to have .tar.gz ending
+name="$1"
+# Now $@ = our binary path args
+shift 1
+
+if [ -z ${S3_FORCE_UPLOAD:-} ] && aws ${S3_BUILD_CACHE_AWS_PARAMS:-} s3 ls "s3://aztec-ci-artifacts/build-cache/$name" >/dev/null 2>&1; then
+  echo "Skipping upload, already exists: $name" >&2
+  exit 0
+fi
+# Pipe tar directly to AWS S3 cp
+if tar -czf - "$@" | aws ${S3_BUILD_CACHE_AWS_PARAMS:-} s3 cp - "s3://aztec-ci-artifacts/build-cache/$name" >&2 ; then
+  echo "Cache upload of $name complete." >&2
+else
+  echo "Cache upload of $name failed." >&2
+  exit 0
+fi

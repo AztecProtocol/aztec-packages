@@ -42,6 +42,7 @@ export default (_, argv) => ({
       os: false,
       fs: false,
       path: false,
+      tty: false,
       url: false,
       worker_threads: false,
       events: require.resolve('events/'),

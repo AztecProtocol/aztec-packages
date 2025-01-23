@@ -4,6 +4,5 @@ export { type EnqueuedPublicCallExecutionResult, type PublicFunctionCallResult }
 export * from './fee_payment.js';
 export * from './public_db_sources.js';
 export { PublicProcessor, PublicProcessorFactory } from './public_processor.js';
-export { PublicSideEffectTrace } from './side_effect_trace.js';
 export { PublicEnqueuedCallSideEffectTrace } from './enqueued_call_side_effect_trace.js';
 export { getExecutionRequestsByPhase } from './utils.js';

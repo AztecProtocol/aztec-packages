@@ -11,8 +11,8 @@ exec > >(tee -a "$(dirname $0)/logs/${SCRIPT_NAME}.log") 2> >(tee -a "$(dirname 
 
 # Set environment variables
 export PORT=${PORT:-"8080"}
-export DEBUG=${DEBUG:-"aztec:*,-aztec:avm_simulator*,-aztec:libp2p_service*,-aztec:circuits:artifact_hash,-json-rpc*,-aztec:l2_block_stream,-aztec:world-state:*"}
-export LOG_LEVEL=${LOG_LEVEL:-"debug"}
+export DEBUG=${DEBUG:-""}
+export LOG_LEVEL=${LOG_LEVEL:-"verbose"}
 export ETHEREUM_HOST=${ETHEREUM_HOST:-"http://127.0.0.1:8545"}
 export P2P_ENABLED="true"
 export VALIDATOR_DISABLED="true"
@@ -27,6 +27,7 @@ export OTEL_EXPORTER_OTLP_TRACES_ENDPOINT="${OTEL_EXPORTER_OTLP_TRACES_ENDPOINT:
 export OTEL_EXPORTER_OTLP_LOGS_ENDPOINT="${OTEL_EXPORTER_OTLP_LOGS_ENDPOINT:-}"
 export OTEL_RESOURCE_ATTRIBUTES="service.name=boot-node"
 export VALIDATOR_PRIVATE_KEY=${VALIDATOR_PRIVATE_KEY:-"0x47e179ec197488593b187f80a00eb0da91f1b9d0b13f8733639f19c30a34926a"}
+
 REPO=$(git rev-parse --show-toplevel)
 
 echo "Waiting for l1 contracts to be deployed..."

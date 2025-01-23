@@ -13,7 +13,7 @@
 
 namespace tests_avm {
 using namespace bb;
-using namespace bb::Avm_vm;
+using namespace bb::avm;
 
 TEST(AvmFullPoseidon2, shouldHashCorrectly)
 {
@@ -58,7 +58,7 @@ TEST(AvmFullPoseidon2, shouldHashCorrectly)
     std::cerr << "Done computing polynomials..." << std::endl;
 
     std::cerr << "Accumulating relations..." << std::endl;
-    using Relation = Avm_vm::poseidon2_full<FF>;
+    using Relation = avm::poseidon2_full<FF>;
 
     typename Relation::SumcheckArrayOfValuesOverSubrelations result;
     for (auto& r : result) {

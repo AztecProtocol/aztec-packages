@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+# DEPRECATED: USE bootstrap.sh test
+#!/usr/bin/env bash
 # Env var overrides:
 #   BIN: to specify a different binary to test with (e.g. bb.js or bb.js-dev).
 #   VERBOSE: to enable logging for each test.
@@ -8,7 +10,24 @@ set -eu
 # Catch when running in parallel
 error_file="/tmp/error.$$"
 pids=()
-source ./bash_helpers/catch.sh
+
+# Handler for SIGCHLD, cleanup if child exit with error
+handle_sigchild() {
+    for pid in "${pids[@]}"; do
+        # If process is no longer running
+        if ! kill -0 "$pid" 2>/dev/null; then
+            # Wait for the process and get exit status
+            wait "$pid"
+            status=$?
+
+            # If exit status is error
+            if [ $status -ne 0 ]; then
+                # Create error file
+                touch "$error_file"
+            fi
+        fi
+    done
+}
 trap handle_sigchild SIGCHLD
 
 BIN=${BIN:-../cpp/build/bin/bb}
@@ -33,9 +52,6 @@ fi
 
 export BIN CRS_PATH VERBOSE BRANCH RECURSIVE
 
-# copy the gzipped acir test data from noir/noir-repo/test_programs to barretenberg/acir_tests
-./clone_test_vectors.sh
-
 cd acir_tests
 
 # Convert them to array
@@ -50,12 +66,12 @@ SKIP_ARRAY+=(regression_5045)
 # if HONK is false, we should skip verify_honk_proof
 if [ "$HONK" = false ]; then
     # Don't run programs with Honk recursive verifier
-    SKIP_ARRAY+=(verify_honk_proof double_verify_honk_proof)
+    SKIP_ARRAY+=(verify_honk_proof double_verify_honk_proof verify_rollup_honk_proof)
 fi
 
 if [ "$HONK" = true ]; then
     # Don't run programs with Plonk recursive verifier(s)
-    SKIP_ARRAY+=(single_verify_proof double_verify_proof double_verify_nested_proof)
+    SKIP_ARRAY+=(single_verify_proof double_verify_proof double_verify_nested_proof verify_rollup_honk_proof)
 fi
 
 if [ "$CLIENT_IVC_SKIPS" = true ]; then
@@ -126,4 +142,9 @@ fi
 wait
 
 # Check for parallel errors
-check_error_file
+# If error file exists, exit with error
+if [ -f "$error_file" ]; then
+    rm "$error_file"
+    echo "Error occurred in one or more child processes. Exiting..."
+    exit 1
+fi

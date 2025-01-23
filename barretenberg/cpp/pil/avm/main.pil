@@ -61,7 +61,6 @@ namespace main(256);
     // CONTEXT - ENVIRONMENT
     pol commit sel_op_address;
     pol commit sel_op_sender;
-    pol commit sel_op_function_selector;
     pol commit sel_op_transaction_fee;
     pol commit sel_op_is_static_call;
 
@@ -234,7 +233,6 @@ namespace main(256);
     // opcode decomposition.
     sel_op_address * (1 - sel_op_address) = 0;
     sel_op_sender * (1 - sel_op_sender) = 0;
-    sel_op_function_selector * (1 - sel_op_function_selector) = 0;
     sel_op_transaction_fee * (1 - sel_op_transaction_fee) = 0;
     sel_op_chain_id * (1 - sel_op_chain_id) = 0;
     sel_op_version * (1 - sel_op_version) = 0;
@@ -407,29 +405,29 @@ namespace main(256);
     // - We then write the return location (pc + 5) into the call stack (in memory), whereby the constant 5
     // corresponds to the size of the internal_call instruction in bytes.
 
-    #[RETURN_POINTER_INCREMENT]
-    sel_op_internal_call * (internal_return_ptr' - (internal_return_ptr + 1)) = 0;
-    sel_op_internal_call * (internal_return_ptr - mem_addr_b) = 0;
-    sel_op_internal_call * (pc' - ia) = 0;
-    sel_op_internal_call * ((pc + 5) - ib) = 0; // 5 = size in bytes of internal call instruction
+    //#[RETURN_POINTER_INCREMENT]
+    ////sel_op_internal_call * (internal_return_ptr' - (internal_return_ptr + 1)) = 0;
+    //sel_op_internal_call * (internal_return_ptr - mem_addr_b) = 0;
+    //sel_op_internal_call * (pc' - ia) = 0;
+    //sel_op_internal_call * ((pc + 5) - ib) = 0; // 5 = size in bytes of internal call instruction
 
     // TODO(md): Below relations may be removed through sub-op table lookup
-    sel_op_internal_call * (rwb - 1) = 0;
-    sel_op_internal_call * (sel_mem_op_b  - 1) = 0;
+    //sel_op_internal_call * (rwb - 1) = 0;
+    //sel_op_internal_call * (sel_mem_op_b  - 1) = 0;
 
     //===== INTERNAL_RETURN ===================================================
     // - We load the memory pointer to be the internal_return_ptr
     // - Constrain then next program counter to be the loaded value
     // - decrement the internal_return_ptr
 
-    #[RETURN_POINTER_DECREMENT]
-    sel_op_internal_return * (internal_return_ptr' - (internal_return_ptr - 1)) = 0;
-    sel_op_internal_return * ((internal_return_ptr - 1) - mem_addr_a) = 0;
-    sel_op_internal_return * (pc' - ia) = 0;
+    //#[RETURN_POINTER_DECREMENT]
+    //sel_op_internal_return * (internal_return_ptr' - (internal_return_ptr - 1)) = 0;
+    //sel_op_internal_return * ((internal_return_ptr - 1) - mem_addr_a) = 0;
+    //sel_op_internal_return * (pc' - ia) = 0;
 
     // TODO(md): Below relations may be removed through sub-op table lookup
-    sel_op_internal_return * rwa = 0;
-    sel_op_internal_return * (sel_mem_op_a - 1) = 0;
+    //sel_op_internal_return * rwa = 0;
+    //sel_op_internal_return * (sel_mem_op_a - 1) = 0;
 
     //===== CONTROL_FLOW_CONSISTENCY ============================================
     pol SEL_ALL_CTRL_FLOW = sel_op_jump + sel_op_jumpi + sel_op_internal_call
@@ -445,7 +443,7 @@ namespace main(256);
                        + sel_op_ecadd + sel_op_msm;
     pol SEL_ALL_MEMORY = sel_op_mov + sel_op_set;
     pol KERNEL_INPUT_SELECTORS = sel_op_address + sel_op_sender
-                               + sel_op_function_selector + sel_op_transaction_fee + sel_op_chain_id
+                               + sel_op_transaction_fee + sel_op_chain_id
                                + sel_op_version + sel_op_block_number + sel_op_timestamp
                                + sel_op_fee_per_l2_gas + sel_op_fee_per_da_gas + sel_op_is_static_call;
     pol KERNEL_OUTPUT_SELECTORS = sel_op_note_hash_exists + sel_op_emit_note_hash + sel_op_nullifier_exists
@@ -468,8 +466,8 @@ namespace main(256);
 
     // When considering two adjacent main trace rows,
     // the internal return ptr must stay the same if not jumping or returning.
-    #[INTERNAL_RETURN_POINTER_CONSISTENCY]
-    CUR_AND_NEXT_ARE_MAIN * (1 - SEL_ALL_CTRL_FLOW) * (internal_return_ptr' - internal_return_ptr) = 0;
+    // #[INTERNAL_RETURN_POINTER_CONSISTENCY]
+    // CUR_AND_NEXT_ARE_MAIN * (1 - SEL_ALL_CTRL_FLOW) * (internal_return_ptr' - internal_return_ptr) = 0;
     // TODO: for external_call and external_return the internal_return_ptr will
     // actually have to be reset (to zero for an external call) or resumed
     // (for an external return) and that the space_id/call_ptr will be incremented.
@@ -477,8 +475,8 @@ namespace main(256);
     // TODO: we want to set an initial number for the reserved memory of the jump pointer
 
     //====== SPACE ID CONSTRAINTS ===============================================
-    #[SPACE_ID_INTERNAL]
-    (sel_op_internal_call + sel_op_internal_return) * (space_id - constants_misc.INTERNAL_CALL_SPACE_ID) = 0;
+    //#[SPACE_ID_INTERNAL]
+    //(sel_op_internal_call + sel_op_internal_return) * (space_id - constants_misc.INTERNAL_CALL_SPACE_ID) = 0;
 
     #[SPACE_ID_STANDARD_OPCODES]
     (1 - sel_op_internal_call - sel_op_internal_return) * (call_ptr - space_id) = 0;
@@ -534,7 +532,7 @@ namespace main(256);
     pol commit sel_slice_gadget; // Selector to activate a slice gadget operation in the gadget (#[PERM_MAIN_SLICE]).
 
     // Activate only if op_err is disabled or retsize (ib) is non-zero
-    ib * (1 - op_err) * (sel_op_calldata_copy + sel_op_external_return - sel_slice_gadget)= 0;
+    // ib * (1 - op_err) * (sel_op_calldata_copy + sel_op_external_return - sel_slice_gadget)= 0;
 
     //====== Inter-table Constraints ============================================
 
@@ -594,10 +592,10 @@ namespace main(256);
     //is
     //keccakf1600.sel_keccakf1600 {keccakf1600.clk, keccakf1600.input, keccakf1600.output};
 
-    #[PERM_MAIN_SLICE]
-    sel_slice_gadget {clk, space_id, ia, ib, mem_addr_c, sel_op_calldata_copy, sel_op_external_return}
-    is
-    slice.sel_start {slice.clk, slice.space_id, slice.col_offset, slice.cnt, slice.addr, slice.sel_cd_cpy, slice.sel_return};
+    //#[PERM_MAIN_SLICE]
+    //sel_slice_gadget {clk, space_id, ia, ib, mem_addr_c, sel_op_calldata_copy, sel_op_external_return}
+    //is
+    //slice.sel_start {slice.clk, slice.space_id, slice.col_offset, slice.cnt, slice.addr, slice.sel_cd_cpy, slice.sel_return};
 
     #[PERM_MAIN_MEM_A]
     sel_mem_op_a {clk, space_id, mem_addr_a, ia, rwa, r_in_tag, w_in_tag, sel_mov_ia_to_ic}

@@ -1,6 +1,6 @@
 import { SiblingPath } from '@aztec/circuit-types';
 import { type AztecKVStore } from '@aztec/kv-store';
-import { openTmpStore } from '@aztec/kv-store/utils';
+import { openTmpStore } from '@aztec/kv-store/lmdb';
 import { type Hasher } from '@aztec/types/interfaces';
 
 import { Pedersen } from '../index.js';

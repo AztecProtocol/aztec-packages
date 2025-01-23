@@ -1,6 +1,6 @@
 import { type AccountManager, type DeployAccountOptions } from '@aztec/aztec.js';
 import { prettyPrintJSON } from '@aztec/cli/cli-utils';
-import { type DebugLogger, type LogFn } from '@aztec/foundation/log';
+import { type LogFn, type Logger } from '@aztec/foundation/log';
 
 import { type IFeeOpts, printGasEstimates } from '../utils/options/fees.js';
 
@@ -9,11 +9,11 @@ export async function deployAccount(
   wait: boolean,
   feeOpts: IFeeOpts,
   json: boolean,
-  debugLogger: DebugLogger,
+  debugLogger: Logger,
   log: LogFn,
 ) {
   const out: Record<string, any> = {};
-  const { address, partialAddress, publicKeys } = account.getCompleteAddress();
+  const { address, partialAddress, publicKeys } = await account.getCompleteAddress();
   const { initializationHash, deployer, salt } = account.getInstance();
   const wallet = await account.getWallet();
   const secretKey = wallet.getSecretKey();

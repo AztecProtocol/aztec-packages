@@ -1,3 +1,5 @@
+import { AssertionError } from 'assert';
+
 import {
   Field,
   MeteredTaggedMemory,
@@ -28,13 +30,13 @@ describe('TaggedMemory', () => {
     expect(mem.get(10)).toStrictEqual(new Field(5));
   });
 
-  it(`Should fail getSlice on unset elements`, () => {
+  it(`Slice should get Field(0) on unset elements`, () => {
     const mem = new TaggedMemory();
 
     mem.set(10, new Field(10));
     mem.set(12, new Field(12));
 
-    expect(() => mem.getSlice(10, /*size=*/ 4)).toThrow(/size/);
+    expect(mem.getSlice(10, /*size=*/ 4)).toStrictEqual([new Field(10), new Field(0), new Field(12), new Field(0)]);
   });
 
   it(`Should set and get slices`, () => {
@@ -44,6 +46,24 @@ describe('TaggedMemory', () => {
     mem.setSlice(10, val);
 
     expect(mem.getSlice(10, /*size=*/ 2)).toStrictEqual(val);
+  });
+
+  it(`Should access and write in last index of memory`, () => {
+    const last = TaggedMemory.MAX_MEMORY_SIZE - 1;
+    const mem = new TaggedMemory();
+    const val = new Uint64(42);
+    mem.set(last, val);
+    expect(mem.get(last)).toStrictEqual(val);
+  });
+
+  it(`Should not access beyond memory last index`, () => {
+    const mem = new TaggedMemory();
+
+    expect(() => mem.set(TaggedMemory.MAX_MEMORY_SIZE, new Field(1))).toThrow(AssertionError);
+    expect(() => mem.get(TaggedMemory.MAX_MEMORY_SIZE)).toThrow(AssertionError);
+
+    expect(() => mem.set(TaggedMemory.MAX_MEMORY_SIZE + 15, new Field(1))).toThrow(AssertionError);
+    expect(() => mem.get(TaggedMemory.MAX_MEMORY_SIZE + 7)).toThrow(AssertionError);
   });
 });
 

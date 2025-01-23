@@ -8,12 +8,12 @@ describe('ContractClass', () => {
     it('calculates the contract class id', () => {
       const contractClass: ContractClass = {
         version: 1,
-        artifactHash: Fr.fromString('0x1234'),
+        artifactHash: Fr.fromHexString('0x1234'),
         packedBytecode: Buffer.from('123456789012345678901234567890', 'hex'),
         privateFunctions: [
           {
             selector: FunctionSelector.fromString('0x12345678'),
-            vkHash: Fr.fromString('0x1234'),
+            vkHash: Fr.fromHexString('0x1234'),
           },
         ],
         publicFunctions: [

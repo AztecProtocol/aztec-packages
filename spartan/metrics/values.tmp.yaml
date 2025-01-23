@@ -1,0 +1,166 @@
+opentelemetry-collector:
+  mode: deployment
+
+  service:
+    enabled: true
+
+  image:
+    repository: "otel/opentelemetry-collector-contrib"
+
+  ports:
+    otlp-http:
+      enabled: true
+      containerPort: 4318
+      servicePort: 4318
+      hostPort: 4318
+      protocol: TCP
+    otel-metrics:
+      enabled: true
+      containerPort: 8888
+      servicePort: 8888
+      hostPort: 8888
+      protocol: TCP
+    aztec-metrics:
+      enabled: true
+      containerPort: 8889
+      servicePort: 8889
+      hostPort: 8889
+      protocol: TCP
+
+  presets:
+    kubernetesAttributes:
+      enabled: true
+  config:
+    extensions:
+      health_check:
+        endpoint: ${env:MY_POD_IP}:13133
+    processors:
+      resource:
+        attributes:
+          - action: preserve
+            key: k8s.namespace.name
+      batch: {}
+    receivers:
+      otlp:
+        protocols:
+          http:
+            endpoint: ${env:MY_POD_IP}:4318
+          grpc:
+            endpoint: ${env:MY_POD_IP}:4317
+    service:
+      extensions: [health_check]
+      telemetry:
+        metrics:
+          address: ${env:MY_POD_IP}:8888
+      pipelines:
+        logs:
+          receivers:
+            - otlp
+          processors:
+            - batch
+          exporters:
+            - otlphttp/logs
+        traces:
+          receivers:
+            - otlp
+          processors:
+            - batch
+          exporters:
+            - otlp/tempo
+        metrics:
+          receivers:
+            - otlp
+          processors:
+            - batch
+          exporters:
+            - prometheus
+            # - debug
+
+# Enable and configure the Loki subchart
+# https://artifacthub.io/packages/helm/grafana/loki
+# loki:
+# Nothing set here, because we need to use values from the values directory;
+# otherwise, things don't get overridden correctly.
+
+# Enable and configure the Tempo subchart
+# https://artifacthub.io/packages/helm/grafana/tempo
+tempo:
+  minio:
+    enabled: true
+    mode: standalone
+    rootUser: grafana-tempo
+    rootPassword: supersecret
+    buckets:
+      # Default Tempo storage bucket
+      - name: tempo-traces
+        policy: none
+        purge: false
+  traces:
+    otlp:
+      grpc:
+        enabled: true
+      http:
+        enabled: true
+    zipkin:
+      enabled: false
+    jaeger:
+      thriftHttp:
+        enabled: false
+    opencensus:
+      enabled: false
+
+prometheus:
+  server:
+    global:
+      evaluation_interval: 15s
+      scrape_interval: 15s
+  serverFiles:
+    prometheus.yml:
+      scrape_configs:
+        - job_name: otel-collector
+          static_configs:
+            - targets: ["metrics-opentelemetry-collector.metrics:8888"]
+        - job_name: aztec
+          static_configs:
+            - targets: ["metrics-opentelemetry-collector.metrics:8889"]
+        - job_name: "kube-state-metrics"
+          static_configs:
+            - targets:
+                ["metrics-kube-state-metrics.metrics.svc.cluster.local:8080"]
+
+# Enable and configure Grafana
+# https://artifacthub.io/packages/helm/grafana/grafana
+grafana:
+  datasources:
+    datasources.yaml:
+      apiVersion: 1
+      datasources:
+        - name: Loki
+          type: loki
+          url: http://metrics-loki.metrics:3100
+        - name: Tempo
+          type: tempo
+          url: http://metrics-tempo.metrics:3100
+        - name: Prometheus
+          type: prometheus
+          uid: spartan-metrics-prometheus
+          isDefault: true
+          url: http://metrics-prometheus-server.metrics:80
+  dashboardProviders:
+    dashboardproviders.yaml:
+      apiVersion: 1
+      providers:
+        - name: "default"
+          orgId: 1
+          folder: ""
+          type: file
+          disableDeletion: false
+          editable: true
+          options:
+            path: /var/lib/grafana/dashboards/default
+  dashboards:
+    default:
+      # unfortunately, we can't use the `file` helper here, so we have to inline the dashboard
+      # json. This is a limitation of Helm.
+      # See the install scripts: we inject the dashboard json into a copy of this file, which is the
+      # version that actually gets helm installed.

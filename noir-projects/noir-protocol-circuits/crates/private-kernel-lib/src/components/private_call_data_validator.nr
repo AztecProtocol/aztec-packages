@@ -2,11 +2,6 @@ mod find_first_revertible_item_index;
 mod validate_contract_address;
 mod validate_split_ranges;
 
-use crate::components::private_call_data_validator::{
-    find_first_revertible_item_index::find_first_revertible_item_index,
-    validate_contract_address::validate_contract_address,
-    validate_split_ranges::validate_split_ranges,
-};
 use dep::types::{
     abis::{
         kernel_circuit_public_inputs::PrivateKernelCircuitPublicInputs,
@@ -22,6 +17,9 @@ use dep::types::{
     transaction::tx_request::TxRequest,
     utils::arrays::find_index_hint,
 };
+use find_first_revertible_item_index::find_first_revertible_item_index;
+use validate_contract_address::validate_contract_address;
+use validate_split_ranges::validate_split_ranges;
 
 fn validate_incrementing_counters_within_range<T, let N: u32>(
     counter_start: u32,
@@ -82,7 +80,7 @@ where
 
 pub struct PrivateCallDataValidator {
     data: PrivateCallData,
-    array_lengths: PrivateCircuitPublicInputsArrayLengths,
+    pub array_lengths: PrivateCircuitPublicInputsArrayLengths,
 }
 
 impl PrivateCallDataValidator {

@@ -12,8 +12,7 @@ exec > >(tee -a "$(dirname $0)/logs/${SCRIPT_NAME}.log") 2> >(tee -a "$(dirname 
 export ETHEREUM_HOST=${ETHEREUM_HOST:-"http://127.0.0.1:8545"}
 export AZTEC_NODE_URL=${AZTEC_NODE_URL:-"http://127.0.0.1:8080"}
 export VALIDATOR_NODE_URL=${VALIDATOR_NODE_URL:-"http://127.0.0.1:8081"}
-export LOG_LEVEL=${LOG_LEVEL:-"debug"}
-export DEBUG="aztec:*"
+export LOG_LEVEL=${LOG_LEVEL:-"verbose"}
 
 echo "Waiting for Aztec Node..."
 until curl -s $AZTEC_NODE_URL/status >/dev/null; do

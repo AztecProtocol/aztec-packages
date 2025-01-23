@@ -53,13 +53,13 @@ Any time a private function makes a call to a public function, information is le
 
 ### Crossing the public -> private boundary
 
-If a public function sends a message to be consumed by a private function, the act of consuming that message might be leaked if not following recommended patterns. 
+If a public function sends a message to be consumed by a private function, the act of consuming that message might be leaked if not following recommended patterns.
 
 ### Timing of transactions
 
 Information about the nature of a transaction can be leaked based on the timing of that transaction.
 
-If a transaction is executed at 8am GMT, it's much less likely to have been made by someone in the USA. 
+If a transaction is executed at 8am GMT, it's much less likely to have been made by someone in the USA.
 
 If there's a spike in transactions on the last day of every month, those might be salaries.
 
@@ -79,7 +79,7 @@ A 'Function Fingerprint' is any data which is exposed by a function to the outsi
   - All arguments which are passed to public functions.
 - All calls to L1 functions (in the form of L2 -> L1 messages).
   - The contents of L2 -> L1 messages.
-- All unencrypted logs (topics and arguments).
+- All public logs (topics and arguments).
 - The roots of all trees which have been read from.
 - The _number_ of ['side effects'](<https://en.wikipedia.org/wiki/Side_effect_(computer_science)>):
   - \# new note hashes

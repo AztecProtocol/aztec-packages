@@ -43,6 +43,14 @@ pub fn full_field_greater_than(lhs: Field, rhs: Field) -> bool {
     rhs.lt(lhs)
 }
 
+pub fn min(f1: Field, f2: Field) -> Field {
+    if f1.lt(f2) {
+        f1
+    } else {
+        f2
+    }
+}
+
 #[test]
 unconstrained fn bytes_field_test() {
     // Tests correctness of field_from_bytes_32_trunc against existing methods

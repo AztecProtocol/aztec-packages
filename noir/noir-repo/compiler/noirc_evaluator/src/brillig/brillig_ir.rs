@@ -30,7 +30,7 @@ pub(crate) use instructions::BrilligBinaryOp;
 use registers::{RegisterAllocator, ScratchSpace};
 
 use self::{artifact::BrilligArtifact, debug_show::DebugToString, registers::Stack};
-use crate::ssa::ir::dfg::CallStack;
+use crate::ssa::ir::call_stack::CallStack;
 use acvm::{
     acir::brillig::{MemoryAddress, Opcode as BrilligOpcode},
     AcirField,
@@ -253,6 +253,10 @@ pub(crate) mod tests {
     pub(crate) struct DummyBlackBoxSolver;
 
     impl BlackBoxFunctionSolver<FieldElement> for DummyBlackBoxSolver {
+        fn pedantic_solving(&self) -> bool {
+            true
+        }
+
         fn multi_scalar_mul(
             &self,
             _points: &[FieldElement],

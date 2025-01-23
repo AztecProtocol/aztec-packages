@@ -1,4 +1,4 @@
-use dep::protocol_types::traits::{Deserialize, Serialize};
+use dep::protocol_types::traits::{Deserialize, Packable, Serialize};
 
 pub(crate) struct MockStruct {
     pub(crate) a: Field,
@@ -6,7 +6,7 @@ pub(crate) struct MockStruct {
 }
 
 impl MockStruct {
-    fn new(a: Field, b: Field) -> Self {
+    pub(crate) fn new(a: Field, b: Field) -> Self {
         Self { a, b }
     }
 }
@@ -29,8 +29,24 @@ impl Deserialize<2> for MockStruct {
     }
 }
 
+impl Packable<2> for MockStruct {
+    fn pack(self) -> [Field; 2] {
+        [self.a, self.b]
+    }
+
+    fn unpack(fields: [Field; 2]) -> Self {
+        Self { a: fields[0], b: fields[1] }
+    }
+}
+
 #[test]
 unconstrained fn test_serde() {
     let val = MockStruct::new(5, 6);
     assert_eq(val, MockStruct::deserialize(val.serialize()));
+}
+
+#[test]
+unconstrained fn test_packable() {
+    let val = MockStruct::new(5, 6);
+    assert_eq(val, MockStruct::unpack(val.pack()));
 }

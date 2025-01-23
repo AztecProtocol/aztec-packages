@@ -64,8 +64,8 @@ impl NoteInterface<MOCK_NOTE_LENGTH> for MockNote {
     }
 
     fn get_note_type_id() -> Field {
-        // randomly chose note type id
-        4135
+        // randomly chosen note type id --> has to fit within 7 bits
+        76
     }
 
     fn to_be_bytes(self, storage_slot: Field) -> [u8; MOCK_NOTE_LENGTH * 32 + 64] {

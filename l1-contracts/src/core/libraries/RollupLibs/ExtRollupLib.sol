@@ -10,6 +10,7 @@ import {IRewardDistributor} from "@aztec/governance/interfaces/IRewardDistributo
 import {IERC20} from "@oz/token/ERC20/IERC20.sol";
 import {DataStructures} from "./../DataStructures.sol";
 import {Slot, Epoch} from "./../TimeMath.sol";
+import {BlobLib} from "./BlobLib.sol";
 import {
   EpochProofLib,
   SubmitEpochRootProofAddresses,
@@ -18,7 +19,6 @@ import {
 import {SignedEpochProofQuote} from "./EpochProofQuoteLib.sol";
 import {FeeMath, ManaBaseFeeComponents, FeeHeader, L1FeeData} from "./FeeMath.sol";
 import {HeaderLib, Header} from "./HeaderLib.sol";
-import {TxsDecoder} from "./TxsDecoder.sol";
 import {ValidationLib, ValidateHeaderArgs} from "./ValidationLib.sol";
 // We are using this library such that we can more easily "link" just a larger external library
 // instead of a few smaller ones.
@@ -96,18 +96,27 @@ library ExtRollupLib {
     uint256 _epochSize,
     bytes32[7] calldata _args,
     bytes32[] calldata _fees,
+    bytes calldata _blobPublicInputs,
     bytes calldata _aggregationObject
   ) external view returns (bytes32[] memory) {
     return EpochProofLib.getEpochProofPublicInputs(
-      _rollupStore, _epochSize, _args, _fees, _aggregationObject
+      _rollupStore, _epochSize, _args, _fees, _blobPublicInputs, _aggregationObject
     );
+  }
+
+  function validateBlobs(bytes calldata _blobsInput, bool _checkBlob)
+    external
+    view
+    returns (bytes32 blobsHash, bytes32 blobPublicInputsHash)
+  {
+    return BlobLib.validateBlobs(_blobsInput, _checkBlob);
+  }
+
+  function getBlobBaseFee(address _vmAddress) external view returns (uint256) {
+    return BlobLib.getBlobBaseFee(_vmAddress);
   }
 
   function decodeHeader(bytes calldata _header) external pure returns (Header memory) {
     return HeaderLib.decode(_header);
-  }
-
-  function computeTxsEffectsHash(bytes calldata _body) external pure returns (bytes32) {
-    return TxsDecoder.decode(_body);
   }
 }

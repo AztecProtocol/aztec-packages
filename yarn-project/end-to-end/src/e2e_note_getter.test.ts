@@ -1,5 +1,6 @@
 import { type AztecAddress, Comparator, Fr, type Wallet } from '@aztec/aztec.js';
-import { DocsExampleContract, TestContract } from '@aztec/noir-contracts.js';
+import { DocsExampleContract } from '@aztec/noir-contracts.js/DocsExample';
+import { TestContract } from '@aztec/noir-contracts.js/Test';
 
 import { setup } from './fixtures/utils.js';
 
@@ -151,13 +152,12 @@ describe('e2e_note_getter', () => {
   describe('status filter', () => {
     let contract: TestContract;
     let owner: AztecAddress;
-    let outgoingViewer: AztecAddress;
+    let sender: AztecAddress;
 
     beforeAll(async () => {
       contract = await TestContract.deploy(wallet).send().deployed();
       owner = wallet.getCompleteAddress().address;
-      // Setting the outgoing viewer to owner not have to bother with setting up another account.
-      outgoingViewer = owner;
+      sender = owner;
     });
 
     const VALUE = 5;
@@ -190,12 +190,12 @@ describe('e2e_note_getter', () => {
       const activeOrNullified = false;
 
       it('returns active notes', async () => {
-        await contract.methods.call_create_note(VALUE, owner, outgoingViewer, storageSlot).send().wait();
+        await contract.methods.call_create_note(VALUE, owner, sender, storageSlot).send().wait();
         await assertNoteIsReturned(storageSlot, VALUE, activeOrNullified);
       });
 
       it('does not return nullified notes', async () => {
-        await contract.methods.call_create_note(VALUE, owner, outgoingViewer, storageSlot).send().wait();
+        await contract.methods.call_create_note(VALUE, owner, sender, storageSlot).send().wait();
         await contract.methods.call_destroy_note(storageSlot).send().wait();
 
         await assertNoReturnValue(storageSlot, activeOrNullified);
@@ -206,12 +206,12 @@ describe('e2e_note_getter', () => {
       const activeOrNullified = true;
 
       it('returns active notes', async () => {
-        await contract.methods.call_create_note(VALUE, owner, outgoingViewer, storageSlot).send().wait();
+        await contract.methods.call_create_note(VALUE, owner, sender, storageSlot).send().wait();
         await assertNoteIsReturned(storageSlot, VALUE, activeOrNullified);
       });
 
       it('returns nullified notes', async () => {
-        await contract.methods.call_create_note(VALUE, owner, outgoingViewer, storageSlot).send().wait();
+        await contract.methods.call_create_note(VALUE, owner, sender, storageSlot).send().wait();
         await contract.methods.call_destroy_note(storageSlot).send().wait();
 
         await assertNoteIsReturned(storageSlot, VALUE, activeOrNullified);
@@ -220,9 +220,9 @@ describe('e2e_note_getter', () => {
       it('returns both active and nullified notes', async () => {
         // We store two notes with two different values in the same storage slot, and then delete one of them. Note that
         // we can't be sure which one was deleted since we're just deleting based on the storage slot.
-        await contract.methods.call_create_note(VALUE, owner, outgoingViewer, storageSlot).send().wait();
+        await contract.methods.call_create_note(VALUE, owner, sender, storageSlot).send().wait();
         await contract.methods
-          .call_create_note(VALUE + 1, owner, outgoingViewer, storageSlot)
+          .call_create_note(VALUE + 1, owner, sender, storageSlot)
           .send()
           .wait();
         await contract.methods.call_destroy_note(storageSlot).send().wait();

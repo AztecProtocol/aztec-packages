@@ -37,8 +37,7 @@ fi
 # Set environment variables
 export ETHEREUM_HOST=${ETHEREUM_HOST:-"http://127.0.0.1:8545"}
 export AZTEC_NODE_URL=${AZTEC_NODE_URL:-"http://127.0.0.1:8080"}
-export LOG_LEVEL=${LOG_LEVEL:-"debug"}
-export DEBUG="aztec:*,-aztec:avm_simulator*,-aztec:libp2p_service*,-aztec:circuits:artifact_hash,-json-rpc*,-aztec:l2_block_stream,-aztec:world-state:*"
+export LOG_LEVEL=${LOG_LEVEL:-"verbose"}
 export BOT_PRIVATE_KEY="0xcafe"
 export BOT_TX_INTERVAL_SECONDS="5"
 export BOT_PRIVATE_TRANSFERS_PER_TX="1"

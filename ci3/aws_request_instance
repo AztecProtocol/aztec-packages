@@ -1,0 +1,137 @@
+#!/usr/bin/env bash
+[ -n "${BUILD_SYSTEM_DEBUG:-}" ] && set -x # conditionally trace
+set -eu
+
+NAME=$1
+CPUS=$2
+ARCH=$3
+
+cd $(dirname $0)
+
+# Declare an associative array to map CPU counts to instance type suffixes.
+declare -A cpu_map
+cpu_map=(
+  [2]="large"
+  [4]="xlarge"
+  [8]="2xlarge"
+  [16]="4xlarge"
+  [32]="8xlarge"
+  [48]="12xlarge"
+  [64]="16xlarge"
+  [96]="24xlarge"
+  [128]="32xlarge"
+  [192]="48xlarge"
+)
+
+INSTANCE_TYPE_SUFFIX=${cpu_map[$CPUS]}
+
+# Check if INSTANCE_TYPE_SUFFIX is set, if not, the CPU count is not recognized.
+if [ -z "$INSTANCE_TYPE_SUFFIX" ]; then
+  >&2 echo "Unrecognized CPU count: $CPUS"
+  exit 1
+fi
+
+# Construct the full instance type. We use m6a/m7g currently.
+if [ "$ARCH" == "x86_64" ]; then
+  MACHINE_TYPE="m6a"
+  AMI=${AMI:-"ami-044f8e99cd65daf76"}
+elif [ "$ARCH" == "arm64" ]; then
+  MACHINE_TYPE="m7g"
+  AMI=${AMI:-"ami-0d8a9b0419ddb331a"}
+else
+  echo "Unknown arch: $ARCH"
+  exit 1
+fi
+INSTANCE_TYPE="$MACHINE_TYPE.$INSTANCE_TYPE_SUFFIX"
+
+export AWS_DEFAULT_REGION=us-east-2
+
+BID_PER_CPU_HOUR=0.03125
+PRICE=$(jq -n "$BID_PER_CPU_HOUR*$CPUS*100000 | round / 100000")
+
+launch_spec=$(cat <<EOF
+{
+  "ImageId": "$AMI",
+  "KeyName": "build-instance",
+  "SecurityGroupIds": ["sg-0ccd4e5df0dcca0c9"],
+  "InstanceType": "$INSTANCE_TYPE",
+  "BlockDeviceMappings": [
+    {
+      "DeviceName": "/dev/sda1",
+      "Ebs": {
+        "VolumeSize": 64,
+        "VolumeType": "gp3"
+      }
+    }
+  ]
+}
+EOF
+)
+
+# Save the launch specification to a temporary file
+temp_file=$(mktemp)
+echo "$launch_spec" > "$temp_file"
+
+if [ "${NO_SPOT:-0}" -ne 1 ]; then
+  >&2 echo "Requesting $INSTANCE_TYPE spot instance (name: $NAME) (cpus: $CPUS) (bid: $PRICE)..."
+  SIR=$(aws ec2 request-spot-instances \
+    --spot-price "$PRICE" \
+    --instance-count 1 \
+    --type "one-time" \
+    --launch-specification file://$temp_file \
+    --query "SpotInstanceRequests[*].[SpotInstanceRequestId]" \
+    --output text)
+
+  >&2 echo "Waiting for instance id for spot request: $SIR..."
+  sleep 5
+  for I in {1..6}; do
+    IID=$(aws ec2 describe-spot-instance-requests \
+      --spot-instance-request-ids $SIR \
+      --query "SpotInstanceRequests[*].[InstanceId]" \
+      --output text)
+
+    [ -z "$IID" -o "$IID" == "None" ] || break
+
+    if [ $I -eq 6 ]; then
+      >&2 echo "Timeout waiting for spot request."
+      # Cancel spot request. We may still get allocated an instance if it's *just* happened.
+      aws ec2 cancel-spot-instance-requests --spot-instance-request-ids $SIR > /dev/null
+    fi
+
+    sleep 5
+  done
+fi
+
+if [ -z "${IID:-}" -o "${IID:-}" == "None" ]; then
+  # Request on-demand instance.
+  >&2 echo "Requesting $INSTANCE_TYPE on-demand instance (name: $NAME) (cpus: $CPUS)..."
+  IID=$(aws ec2 run-instances \
+    --cli-input-json file://$temp_file \
+    --query "Instances[*].[InstanceId]" \
+    --output text)
+fi
+
+aws ec2 create-tags --resources $IID --tags "Key=Name,Value=$NAME"
+aws ec2 create-tags --resources $IID --tags "Key=Group,Value=build-instance"
+
+while [ -z "${IP:-}" ]; do
+  sleep 1
+  IP=$(aws ec2 describe-instances \
+    --filter "Name=instance-id,Values=$IID" \
+    --query "Reservations[*].Instances[*].PublicIpAddress" \
+    --output=text)
+done
+
+# Wait till ssh port is open.
+>&2 echo "Waiting for SSH at $IP..."
+SECONDS=0
+SSH_CONFIG_PATH=${SSH_CONFIG_PATH:-aws/build_instance_ssh_config}
+[ "${NO_TERMINATE:-0}" -eq 1 ] && LIVE_CMD=true || LIVE_CMD="sudo shutdown -h +60"
+while ! ssh -F $SSH_CONFIG_PATH -o ConnectTimeout=1 $IP $LIVE_CMD > /dev/null 2>&1; do
+  if (( SECONDS >= 60 )); then
+    >&2 echo "Timeout: SSH could not login to $IP within 60 seconds."
+    exit 1
+  fi
+  sleep 1
+done
+echo $IP:${SIR:-}:$IID

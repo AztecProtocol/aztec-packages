@@ -14,7 +14,7 @@
 
 namespace tests_avm {
 using namespace bb;
-using namespace bb::Avm_vm;
+using namespace bb::avm;
 
 TEST(AvmMerkleTree, shouldCheckMembership)
 {
@@ -76,7 +76,7 @@ TEST(AvmMerkleTree, shouldCheckMembership)
     std::cerr << "Done computing polynomials..." << std::endl;
 
     std::cerr << "Accumulating relations..." << std::endl;
-    using AllRelations = std::tuple<Avm_vm::merkle_tree<FF>, Avm_vm::poseidon2_full<FF>, Avm_vm::poseidon2<FF>>;
+    using AllRelations = std::tuple<avm::merkle_tree<FF>, avm::poseidon2_full<FF>, avm::poseidon2<FF>>;
 
     bb::constexpr_for<0, std::tuple_size_v<AllRelations>, 1>([&]<size_t i>() {
         using Relation = std::tuple_element_t<i, AllRelations>;

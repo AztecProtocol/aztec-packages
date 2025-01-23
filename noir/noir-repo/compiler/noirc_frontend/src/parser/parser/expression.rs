@@ -267,15 +267,26 @@ impl<'a> Parser<'a> {
     }
 
     fn parse_atom_kind(&mut self, allow_constructors: bool) -> Option<ExpressionKind> {
+        let span_before_doc_comments = self.current_token_span;
+        let doc_comments = self.parse_outer_doc_comments();
+        let has_doc_comments = !doc_comments.is_empty();
+
+        if let Some(kind) = self.parse_unsafe_expr(&doc_comments, span_before_doc_comments) {
+            return Some(kind);
+        }
+
+        if has_doc_comments {
+            self.push_error(
+                ParserErrorReason::DocCommentDoesNotDocumentAnything,
+                self.span_since(span_before_doc_comments),
+            );
+        }
+
         if let Some(literal) = self.parse_literal() {
             return Some(literal);
         }
 
         if let Some(kind) = self.parse_parentheses_expression() {
-            return Some(kind);
-        }
-
-        if let Some(kind) = self.parse_unsafe_expr() {
             return Some(kind);
         }
 
@@ -370,12 +381,43 @@ impl<'a> Parser<'a> {
     }
 
     /// UnsafeExpression = 'unsafe' Block
-    fn parse_unsafe_expr(&mut self) -> Option<ExpressionKind> {
+    fn parse_unsafe_expr(
+        &mut self,
+        doc_comments: &[String],
+        span_before_doc_comments: Span,
+    ) -> Option<ExpressionKind> {
+        let start_span = self.current_token_span;
+
         if !self.eat_keyword(Keyword::Unsafe) {
             return None;
         }
 
-        let start_span = self.current_token_span;
+        if doc_comments.is_empty() {
+            if let Some(statement_doc_comments) = &mut self.statement_doc_comments {
+                statement_doc_comments.read = true;
+
+                let doc_comments = &statement_doc_comments.doc_comments;
+                let span_before_doc_comments = statement_doc_comments.start_span;
+                let span_after_doc_comments = statement_doc_comments.end_span;
+
+                if !doc_comments[0].trim().to_lowercase().starts_with("safety:") {
+                    self.push_error(
+                        ParserErrorReason::UnsafeDocCommentDoesNotStartWithSafety,
+                        Span::from(
+                            span_before_doc_comments.start()..span_after_doc_comments.start(),
+                        ),
+                    );
+                }
+            } else {
+                self.push_error(ParserErrorReason::MissingSafetyComment, start_span);
+            }
+        } else if !doc_comments[0].trim().to_lowercase().starts_with("safety:") {
+            self.push_error(
+                ParserErrorReason::UnsafeDocCommentDoesNotStartWithSafety,
+                self.span_since(span_before_doc_comments),
+            );
+        }
+
         if let Some(block) = self.parse_block() {
             Some(ExpressionKind::Unsafe(block, self.span_since(start_span)))
         } else {
@@ -389,9 +431,7 @@ impl<'a> Parser<'a> {
     ///
     /// VariableExpression = Path
     fn parse_path_expr(&mut self, allow_constructors: bool) -> Option<ExpressionKind> {
-        let Some(path) = self.parse_path() else {
-            return None;
-        };
+        let path = self.parse_path()?;
 
         if allow_constructors && self.eat_left_brace() {
             let typ = UnresolvedType::from_path(path);
@@ -421,15 +461,13 @@ impl<'a> Parser<'a> {
     }
 
     fn parse_constructor_field(&mut self) -> Option<(Ident, Expression)> {
-        let Some(ident) = self.eat_ident() else {
-            return None;
-        };
+        let ident = self.eat_ident()?;
 
         Some(if self.eat_colon() {
             let expression = self.parse_expression_or_error();
             (ident, expression)
-        } else if self.at(Token::Assign) {
-            // If we find '=' instead of ':', assume the user meant ':`, error and continue
+        } else if self.at(Token::DoubleColon) || self.at(Token::Assign) {
+            // If we find '='  or '::' instead of ':', assume the user meant ':`, error and continue
             self.expected_token(Token::Colon);
             self.bump();
             let expression = self.parse_expression_or_error();
@@ -534,9 +572,7 @@ impl<'a> Parser<'a> {
     /// TypePathExpression = PrimitiveType '::' identifier ( '::' GenericTypeArgs )?
     fn parse_type_path_expr(&mut self) -> Option<ExpressionKind> {
         let start_span = self.current_token_span;
-        let Some(typ) = self.parse_primitive_type() else {
-            return None;
-        };
+        let typ = self.parse_primitive_type()?;
         let typ = UnresolvedType { typ, span: self.span_since(start_span) };
 
         self.eat_or_error(Token::DoubleColon);
@@ -577,7 +613,7 @@ impl<'a> Parser<'a> {
     /// BlockExpression = Block
     fn parse_literal(&mut self) -> Option<ExpressionKind> {
         if let Some(bool) = self.eat_bool() {
-            return Some(ExpressionKind::Literal(Literal::Bool(bool)));
+            return Some(ExpressionKind::boolean(bool));
         }
 
         if let Some(int) = self.eat_int() {
@@ -585,15 +621,15 @@ impl<'a> Parser<'a> {
         }
 
         if let Some(string) = self.eat_str() {
-            return Some(ExpressionKind::Literal(Literal::Str(string)));
+            return Some(ExpressionKind::string(string));
         }
 
         if let Some((string, n)) = self.eat_raw_str() {
-            return Some(ExpressionKind::Literal(Literal::RawStr(string, n)));
+            return Some(ExpressionKind::raw_string(string, n));
         }
 
-        if let Some(string) = self.eat_fmt_str() {
-            return Some(ExpressionKind::Literal(Literal::FmtStr(string)));
+        if let Some((fragments, length)) = self.eat_fmt_str() {
+            return Some(ExpressionKind::format_string(fragments, length));
         }
 
         if let Some(tokens) = self.eat_quote() {
@@ -865,10 +901,11 @@ mod tests {
     fn parses_fmt_str() {
         let src = "f\"hello\"";
         let expr = parse_expression_no_errors(src);
-        let ExpressionKind::Literal(Literal::FmtStr(string)) = expr.kind else {
+        let ExpressionKind::Literal(Literal::FmtStr(fragments, length)) = expr.kind else {
             panic!("Expected format string literal");
         };
-        assert_eq!(string, "hello");
+        assert_eq!(fragments[0].to_string(), "hello");
+        assert_eq!(length, 5);
     }
 
     #[test]
@@ -962,7 +999,21 @@ mod tests {
 
     #[test]
     fn parses_unsafe_expression() {
-        let src = "unsafe { 1 }";
+        let src = "
+        /// Safety: test
+        unsafe { 1 }";
+        let expr = parse_expression_no_errors(src);
+        let ExpressionKind::Unsafe(block, _) = expr.kind else {
+            panic!("Expected unsafe expression");
+        };
+        assert_eq!(block.statements.len(), 1);
+    }
+
+    #[test]
+    fn parses_unsafe_expression_with_doc_comment() {
+        let src = "
+        /// Safety: test
+        unsafe { 1 }";
         let expr = parse_expression_no_errors(src);
         let ExpressionKind::Unsafe(block, _) = expr.kind else {
             panic!("Expected unsafe expression");
@@ -973,8 +1024,8 @@ mod tests {
     #[test]
     fn parses_unclosed_parentheses() {
         let src = "
-        ( 
-         ^
+        (
+        ^
         ";
         let (src, span) = get_source_with_error_span(src);
         let mut parser = Parser::for_str(&src);
@@ -1370,6 +1421,34 @@ mod tests {
     }
 
     #[test]
+    fn parses_constructor_recovers_if_double_colon_instead_of_colon() {
+        let src = "
+        Foo { x: 1, y:: z }
+                     ^^
+        ";
+        let (src, span) = get_source_with_error_span(src);
+        let mut parser = Parser::for_str(&src);
+        let expr = parser.parse_expression_or_error();
+
+        let error = get_single_error(&parser.errors, span);
+        assert_eq!(error.to_string(), "Expected a ':' but found '::'");
+
+        let ExpressionKind::Constructor(mut constructor) = expr.kind else {
+            panic!("Expected constructor");
+        };
+        assert_eq!(constructor.typ.to_string(), "Foo");
+        assert_eq!(constructor.fields.len(), 2);
+
+        let (name, expr) = constructor.fields.remove(0);
+        assert_eq!(name.to_string(), "x");
+        assert_eq!(expr.to_string(), "1");
+
+        let (name, expr) = constructor.fields.remove(0);
+        assert_eq!(name.to_string(), "y");
+        assert_eq!(expr.to_string(), "z");
+    }
+
+    #[test]
     fn parses_parses_if_true() {
         let src = "if true { 1 }";
         let expr = parse_expression_no_errors(src);
@@ -1433,8 +1512,8 @@ mod tests {
     #[test]
     fn parses_cast_missing_type() {
         let src = "
-        1 as 
-            ^
+        1 as
+           ^
         ";
         let (src, span) = get_source_with_error_span(src);
         let mut parser = Parser::for_str(&src);
