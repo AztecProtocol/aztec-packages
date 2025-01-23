@@ -729,7 +729,7 @@ mod tests {
     }
 
     #[test]
-    unconstrained fn compute_sum_and_compute_partial_sums_agree(fields: [Field; FIELDS_PER_BLOB]) {
+    fn compute_sum_and_compute_partial_sums_agree(fields: [Field; FIELDS_PER_BLOB]) {
         let fields = fields.map(|f| field_to_bignum(f));
 
         let UNCONSTRAINED_ROOTS = compute_roots_of_unity();
