@@ -115,8 +115,10 @@ export class AztecKVTxPool implements TxPool {
     });
   }
 
-  public getPendingTxHashes(): TxHash[] {
-    return Array.from(this.#pendingTxPriorityToHash.values({ reverse: true })).map(x => TxHash.fromString(x));
+  public getPendingTxHashes(): Promise<TxHash[]> {
+    return Promise.resolve(
+      Array.from(this.#pendingTxPriorityToHash.values({ reverse: true })).map(x => TxHash.fromString(x)),
+    );
   }
 
   public getMinedTxHashes(): [TxHash, number][] {

@@ -14,10 +14,10 @@ export function computeFeePayerBalanceStorageSlot(feePayer: AztecAddress) {
 /**
  * Computes the leaf slot in the public data tree for the balance of the fee payer in the Fee Juice.
  */
-export function computeFeePayerBalanceLeafSlot(feePayer: AztecAddress): Fr {
+export async function computeFeePayerBalanceLeafSlot(feePayer: AztecAddress): Promise<Fr> {
   if (feePayer.isZero()) {
     return Fr.ZERO;
   }
-  const balanceSlot = computeFeePayerBalanceStorageSlot(feePayer);
+  const balanceSlot = await computeFeePayerBalanceStorageSlot(feePayer);
   return computePublicDataTreeLeafSlot(ProtocolContractAddress.FeeJuice, balanceSlot);
 }

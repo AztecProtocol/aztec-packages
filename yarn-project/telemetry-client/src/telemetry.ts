@@ -151,16 +151,16 @@ type SpanDecorator<T extends Traceable, F extends (...args: any[]) => any> = (
  */
 export function trackSpan<T extends Traceable, F extends (...args: any[]) => any>(
   spanName: string | ((this: T, ...args: Parameters<F>) => string),
-  attributes?: Attributes | ((this: T, ...args: Parameters<F>) => Attributes),
-  extraAttributes?: (this: T, returnValue: Awaited<ReturnType<F>>) => Promise<Attributes>,
+  attributes?: Attributes | ((this: T, ...args: Parameters<F>) => Promise<Attributes> | Attributes),
+  extraAttributes?: (this: T, returnValue: Awaited<ReturnType<F>>) => Attributes,
 ): SpanDecorator<T, F> {
   // the return value of trackSpan is a decorator
   return (originalMethod: F, _context: ClassMethodDecoratorContext<T>) => {
     // the return value of the decorator replaces the original method
     // in this wrapper method we start a span, call the original method, and then end the span
-    return function replacementMethod(this: T, ...args: Parameters<F>): Promise<Awaited<ReturnType<F>>> {
+    return async function replacementMethod(this: T, ...args: Parameters<F>): Promise<Awaited<ReturnType<F>>> {
       const name = typeof spanName === 'function' ? spanName.call(this, ...args) : spanName;
-      const currentAttrs = typeof attributes === 'function' ? attributes.call(this, ...args) : attributes;
+      const currentAttrs = typeof attributes === 'function' ? await attributes.call(this, ...args) : attributes;
 
       // run originalMethod wrapped in an active span
       // "active" means the span will be alive for the duration of the function execution
@@ -171,7 +171,7 @@ export function trackSpan<T extends Traceable, F extends (...args: any[]) => any
 
         try {
           const res = await originalMethod.call(this, ...args);
-          const extraAttrs = await extraAttributes?.call(this, res);
+          const extraAttrs = extraAttributes?.call(this, res);
           span.setAttributes(extraAttrs ?? {});
           return res;
         } catch (err) {

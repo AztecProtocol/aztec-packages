@@ -137,7 +137,7 @@ export class PublicProcessor implements Traceable {
    * @returns The list of processed txs with their circuit simulation outputs.
    */
   public async process(
-    txs: Iterable<Tx>,
+    txs: Iterable<Tx> | AsyncIterableIterator<Tx>,
     limits: {
       maxTransactions?: number;
       maxBlockSize?: number;
@@ -161,7 +161,7 @@ export class PublicProcessor implements Traceable {
     let totalPublicGas = new Gas(0, 0);
     let totalBlockGas = new Gas(0, 0);
 
-    for (const origTx of txs) {
+    for await (const origTx of txs) {
       // Only process up to the max tx limit
       if (maxTransactions !== undefined && result.length >= maxTransactions) {
         this.log.debug(`Stopping tx processing due to reaching the max tx limit.`);
@@ -403,8 +403,8 @@ export class PublicProcessor implements Traceable {
     }
 
     const feeJuiceAddress = ProtocolContractAddress.FeeJuice;
-    const balanceSlot = computeFeePayerBalanceStorageSlot(feePayer);
-    const leafSlot = computeFeePayerBalanceLeafSlot(feePayer);
+    const balanceSlot = await computeFeePayerBalanceStorageSlot(feePayer);
+    const leafSlot = await computeFeePayerBalanceLeafSlot(feePayer);
 
     this.log.debug(`Deducting ${txFee.toBigInt()} balance in Fee Juice for ${feePayer}`);
 
@@ -431,7 +431,7 @@ export class PublicProcessor implements Traceable {
 
     const feePaymentPublicDataWrite = await this.getFeePaymentPublicDataWrite(transactionFee, tx.data.feePayer);
 
-    const processedTx = makeProcessedTxFromPrivateOnlyTx(
+    const processedTx = await makeProcessedTxFromPrivateOnlyTx(
       tx,
       transactionFee,
       feePaymentPublicDataWrite,
@@ -480,7 +480,13 @@ export class PublicProcessor implements Traceable {
     const durationMs = timer.ms();
     this.metrics.recordTx(phaseCount, durationMs, gasUsed.publicGas);
 
-    const processedTx = makeProcessedTxFromTxWithPublicCalls(tx, avmProvingRequest, gasUsed, revertCode, revertReason);
+    const processedTx = await makeProcessedTxFromTxWithPublicCalls(
+      tx,
+      avmProvingRequest,
+      gasUsed,
+      revertCode,
+      revertReason,
+    );
 
     const returnValues = processedPhases.find(({ phase }) => phase === TxExecutionPhase.APP_LOGIC)?.returnValues ?? [];
 

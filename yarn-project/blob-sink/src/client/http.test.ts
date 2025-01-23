@@ -24,7 +24,7 @@ describe('HttpBlobSinkClient', () => {
 
   it('should handle server connection errors gracefully', async () => {
     const client = new HttpBlobSinkClient('http://localhost:12345'); // Invalid port
-    const blob = Blob.fromFields([Fr.random()]);
+    const blob = await Blob.fromFields([Fr.random()]);
 
     const success = await client.sendBlobsToBlobSink('0x1234', [blob]);
     expect(success).toBe(false);

@@ -19,7 +19,7 @@ import {
   RevertCode,
 } from '@aztec/circuits.js';
 import { computePublicDataTreeLeafSlot } from '@aztec/circuits.js/hash';
-import { times } from '@aztec/foundation/collection';
+import { times, timesParallel } from '@aztec/foundation/collection';
 import { sleep } from '@aztec/foundation/sleep';
 import { TestDateProvider } from '@aztec/foundation/timer';
 import { getTelemetryClient } from '@aztec/telemetry-client';
@@ -92,7 +92,7 @@ describe('public_processor', () => {
 
   describe('process txs', () => {
     it('process private-only txs', async function () {
-      const tx = mockPrivateOnlyTx();
+      const tx = await mockPrivateOnlyTx();
 
       const [processed, failed] = await processor.process([tx]);
 
@@ -103,7 +103,7 @@ describe('public_processor', () => {
     });
 
     it('runs a tx with enqueued public calls', async function () {
-      const tx = mockTxWithPublicCalls();
+      const tx = await mockTxWithPublicCalls();
 
       const [processed, failed] = await processor.process([tx]);
 
@@ -116,7 +116,7 @@ describe('public_processor', () => {
     });
 
     it('runs a tx with reverted enqueued public calls', async function () {
-      const tx = mockTxWithPublicCalls();
+      const tx = await mockTxWithPublicCalls();
 
       mockedEnqueuedCallsResult.revertCode = RevertCode.APP_LOGIC_REVERTED;
       mockedEnqueuedCallsResult.revertReason = new SimulationError(`Failed`, []);
@@ -133,7 +133,7 @@ describe('public_processor', () => {
     it('returns failed txs without aborting entire operation', async function () {
       publicTxSimulator.simulate.mockRejectedValue(new SimulationError(`Failed`, []));
 
-      const tx = mockTxWithPublicCalls();
+      const tx = await mockTxWithPublicCalls();
       const [processed, failed] = await processor.process([tx]);
 
       expect(processed).toEqual([]);
@@ -145,7 +145,7 @@ describe('public_processor', () => {
     });
 
     it('does not attempt to overfill a block', async function () {
-      const txs = Array.from([1, 2, 3], seed => mockPrivateOnlyTx({ seed }));
+      const txs = await Promise.all(Array.from([1, 2, 3], seed => mockPrivateOnlyTx({ seed })));
 
       // We are passing 3 txs but only 2 can fit in the block
       const [processed, failed] = await processor.process(txs, { maxTransactions: 2 });
@@ -159,7 +159,7 @@ describe('public_processor', () => {
     });
 
     it('does not send a transaction to the prover if pre validation fails', async function () {
-      const tx = mockPrivateOnlyTx();
+      const tx = await mockPrivateOnlyTx();
 
       const txValidator: MockProxy<TxValidator<Tx>> = mock();
       txValidator.validateTx.mockResolvedValue({ result: 'invalid', reason: ['Invalid'] });
@@ -171,7 +171,7 @@ describe('public_processor', () => {
     });
 
     it('does not send a transaction to the prover if post validation fails', async function () {
-      const tx = mockPrivateOnlyTx();
+      const tx = await mockPrivateOnlyTx();
 
       const txValidator: MockProxy<TxValidator<ProcessedTx>> = mock();
       txValidator.validateTx.mockResolvedValue({ result: 'invalid', reason: ['Invalid'] });
@@ -184,7 +184,7 @@ describe('public_processor', () => {
     });
 
     it('does not go past the deadline', async function () {
-      const txs = times(3, seed => mockTxWithPublicCalls({ seed }));
+      const txs = await timesParallel(3, seed => mockTxWithPublicCalls({ seed }));
 
       // The simulator will take 400ms to process each tx
       publicTxSimulator.simulate.mockImplementation(async () => {
@@ -197,8 +197,8 @@ describe('public_processor', () => {
       const [processed, failed] = await processor.process(txs, { deadline });
 
       expect(processed.length).toBe(2);
-      expect(processed[0].hash).toEqual(txs[0].getTxHash());
-      expect(processed[1].hash).toEqual(txs[1].getTxHash());
+      expect(processed[0].hash).toEqual(await txs[0].getTxHash());
+      expect(processed[1].hash).toEqual(await txs[1].getTxHash());
       expect(failed).toEqual([]);
       expect(worldStateDB.commit).toHaveBeenCalledTimes(2);
     });
@@ -211,13 +211,13 @@ describe('public_processor', () => {
     beforeEach(() => {
       worldStateDB.storageRead.mockResolvedValue(initialBalance);
 
-      worldStateDB.storageWrite.mockImplementation((address: AztecAddress, slot: Fr) =>
-        Promise.resolve(computePublicDataTreeLeafSlot(address, slot).toBigInt()),
+      worldStateDB.storageWrite.mockImplementation(async (address: AztecAddress, slot: Fr) =>
+        (await computePublicDataTreeLeafSlot(address, slot)).toBigInt(),
       );
     });
 
     it('injects balance update with no public calls', async function () {
-      const tx = mockPrivateOnlyTx({
+      const tx = await mockPrivateOnlyTx({
         feePayer,
       });
 
@@ -231,7 +231,7 @@ describe('public_processor', () => {
       expect(processed).toHaveLength(1);
       expect(processed[0].data.feePayer).toEqual(feePayer);
       expect(processed[0].txEffect.publicDataWrites[0]).toEqual(
-        new PublicDataWrite(computeFeePayerBalanceLeafSlot(feePayer), initialBalance.sub(txFee)),
+        new PublicDataWrite(await computeFeePayerBalanceLeafSlot(feePayer), initialBalance.sub(txFee)),
       );
       expect(failed).toEqual([]);
 
@@ -240,7 +240,7 @@ describe('public_processor', () => {
     });
 
     it('rejects tx if fee payer has not enough balance', async function () {
-      const tx = mockPrivateOnlyTx({
+      const tx = await mockPrivateOnlyTx({
         feePayer,
       });
 

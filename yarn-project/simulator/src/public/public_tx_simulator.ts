@@ -119,7 +119,7 @@ export class PublicTxSimulator {
 
     const endStateReference = await this.db.getStateReference();
 
-    const avmProvingRequest = context.generateProvingRequest(endStateReference);
+    const avmProvingRequest = await context.generateProvingRequest(endStateReference);
 
     const revertCode = context.getFinalRevertCode();
     if (!revertCode.isOK()) {
@@ -423,7 +423,7 @@ export class PublicTxSimulator {
     }
 
     const feeJuiceAddress = ProtocolContractAddress.FeeJuice;
-    const balanceSlot = computeFeePayerBalanceStorageSlot(context.feePayer);
+    const balanceSlot = await computeFeePayerBalanceStorageSlot(context.feePayer);
 
     this.log.debug(`Deducting ${txFee.toBigInt()} balance in Fee Juice for ${context.feePayer}`);
     const stateManager = context.state.getActiveStateManager();

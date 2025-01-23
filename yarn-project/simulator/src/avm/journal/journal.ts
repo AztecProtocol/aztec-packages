@@ -144,7 +144,7 @@ export class AvmPersistableStateManager {
    */
   public async writeStorage(contractAddress: AztecAddress, slot: Fr, value: Fr, protocolWrite = false): Promise<void> {
     this.log.debug(`Storage write (address=${contractAddress}, slot=${slot}): value=${value}`);
-    const leafSlot = computePublicDataTreeLeafSlot(contractAddress, slot);
+    const leafSlot = await computePublicDataTreeLeafSlot(contractAddress, slot);
     this.log.debug(`leafSlot=${leafSlot}`);
     // Cache storage writes for later reference/reads
     this.publicStorage.write(contractAddress, slot, value);
@@ -195,7 +195,7 @@ export class AvmPersistableStateManager {
   public async readStorage(contractAddress: AztecAddress, slot: Fr): Promise<Fr> {
     const { value, cached } = await this.publicStorage.read(contractAddress, slot);
     this.log.debug(`Storage read  (address=${contractAddress}, slot=${slot}): value=${value}, cached=${cached}`);
-    const leafSlot = computePublicDataTreeLeafSlot(contractAddress, slot);
+    const leafSlot = await computePublicDataTreeLeafSlot(contractAddress, slot);
     this.log.debug(`leafSlot=${leafSlot}`);
 
     if (this.doMerkleOperations) {
@@ -283,8 +283,8 @@ export class AvmPersistableStateManager {
    * Write a raw note hash, silo it and make it unique, then trace the write.
    * @param noteHash - the unsiloed note hash to write
    */
-  public writeNoteHash(contractAddress: AztecAddress, noteHash: Fr): void {
-    const siloedNoteHash = siloNoteHash(contractAddress, noteHash);
+  public async writeNoteHash(contractAddress: AztecAddress, noteHash: Fr): Promise<void> {
+    const siloedNoteHash = await siloNoteHash(contractAddress, noteHash);
 
     this.writeSiloedNoteHash(siloedNoteHash);
   }
@@ -293,9 +293,9 @@ export class AvmPersistableStateManager {
    * Write a note hash, make it unique, trace the write.
    * @param noteHash - the non unique note hash to write
    */
-  public writeSiloedNoteHash(noteHash: Fr): void {
-    const nonce = computeNoteHashNonce(this.firstNullifier, this.trace.getNoteHashCount());
-    const uniqueNoteHash = computeUniqueNoteHash(nonce, noteHash);
+  public async writeSiloedNoteHash(noteHash: Fr): Promise<void> {
+    const nonce = await computeNoteHashNonce(this.firstNullifier, this.trace.getNoteHashCount());
+    const uniqueNoteHash = await computeUniqueNoteHash(nonce, noteHash);
 
     this.writeUniqueNoteHash(uniqueNoteHash);
   }
@@ -304,13 +304,13 @@ export class AvmPersistableStateManager {
    * Write a note hash, trace the write.
    * @param noteHash - the siloed unique hash to write
    */
-  public writeUniqueNoteHash(noteHash: Fr): void {
+  public async writeUniqueNoteHash(noteHash: Fr): Promise<void> {
     this.log.debug(`noteHashes += @${noteHash}.`);
 
     if (this.doMerkleOperations) {
       // Should write a helper for this
       const leafIndex = new Fr(this.merkleTrees.treeMap.get(MerkleTreeId.NOTE_HASH_TREE)!.leafCount);
-      const insertionPath = this.merkleTrees.appendNoteHash(noteHash);
+      const insertionPath = await this.merkleTrees.appendNoteHash(noteHash);
       this.trace.traceNewNoteHash(noteHash, leafIndex, insertionPath);
     } else {
       this.trace.traceNewNoteHash(noteHash);
@@ -325,7 +325,7 @@ export class AvmPersistableStateManager {
    */
   public async checkNullifierExists(contractAddress: AztecAddress, nullifier: Fr): Promise<boolean> {
     this.log.debug(`Checking existence of nullifier (address=${contractAddress}, nullifier=${nullifier})`);
-    const siloedNullifier = siloNullifier(contractAddress, nullifier);
+    const siloedNullifier = await siloNullifier(contractAddress, nullifier);
     const [exists, leafOrLowLeafPreimage, leafOrLowLeafIndex, leafOrLowLeafPath] = await this.getNullifierMembership(
       siloedNullifier,
     );
@@ -407,7 +407,7 @@ export class AvmPersistableStateManager {
    */
   public async writeNullifier(contractAddress: AztecAddress, nullifier: Fr) {
     this.log.debug(`Inserting new nullifier (address=${nullifier}, nullifier=${contractAddress})`);
-    const siloedNullifier = siloNullifier(contractAddress, nullifier);
+    const siloedNullifier = await siloNullifier(contractAddress, nullifier);
     await this.writeSiloedNullifier(siloedNullifier);
   }
 
@@ -550,7 +550,7 @@ export class AvmPersistableStateManager {
       new Array<Fr>(),
     ];
     if (!contractAddressIsCanonical(contractAddress)) {
-      const contractAddressNullifier = siloNullifier(
+      const contractAddressNullifier = await siloNullifier(
         AztecAddress.fromNumber(DEPLOYER_CONTRACT_ADDRESS),
         contractAddress.toField(),
       );
@@ -615,7 +615,7 @@ export class AvmPersistableStateManager {
       new Array<Fr>(),
     ];
     if (!contractAddressIsCanonical(contractAddress)) {
-      const contractAddressNullifier = siloNullifier(
+      const contractAddressNullifier = await siloNullifier(
         AztecAddress.fromNumber(DEPLOYER_CONTRACT_ADDRESS),
         contractAddress.toField(),
       );

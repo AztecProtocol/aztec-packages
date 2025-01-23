@@ -44,12 +44,12 @@ export class HashedValuesCache {
    * @param values - The values to store.
    * @returns The hash of the values.
    */
-  public store(values: Fr[]) {
+  public async store(values: Fr[]) {
     if (values.length === 0) {
       return Fr.ZERO;
     }
-    const hashedValues = HashedValues.fromValues(values);
-    this.cache.set(hashedValues.hash.value, hashedValues.values);
+    const hashedValues = await HashedValues.fromValues(values);
+    this.cache.set(hashedValues.hash.toBigInt(), hashedValues.values);
     return hashedValues.hash;
   }
 }

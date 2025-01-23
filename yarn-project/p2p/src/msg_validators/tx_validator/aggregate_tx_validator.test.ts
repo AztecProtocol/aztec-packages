@@ -4,10 +4,10 @@ import { AggregateTxValidator } from './aggregate_tx_validator.js';
 
 describe('AggregateTxValidator', () => {
   it('allows txs that pass all validation', async () => {
-    const txs = [mockTx(0), mockTx(1), mockTx(2), mockTx(3), mockTx(4)];
+    const txs = await Promise.all([mockTx(0), mockTx(1), mockTx(2), mockTx(3), mockTx(4)]);
     const agg = new AggregateTxValidator(
-      new TxDenyList([txs[0].getTxHash(), txs[1].getTxHash(), txs[4].getTxHash()], []),
-      new TxDenyList([txs[2].getTxHash(), txs[4].getTxHash()], []),
+      new TxDenyList(await Promise.all([txs[0].getTxHash(), txs[1].getTxHash(), txs[4].getTxHash()]), []),
+      new TxDenyList(await Promise.all([txs[2].getTxHash(), txs[4].getTxHash()]), []),
     );
 
     await expect(agg.validateTx(txs[0])).resolves.toEqual({ result: 'invalid', reason: ['Denied'] });
@@ -18,11 +18,11 @@ describe('AggregateTxValidator', () => {
   });
 
   it('aggregate skipped txs ', async () => {
-    const txs = [mockTx(0), mockTx(1), mockTx(2), mockTx(3), mockTx(4)];
+    const txs = await Promise.all([mockTx(0), mockTx(1), mockTx(2), mockTx(3), mockTx(4)]);
     const agg = new AggregateTxValidator(
-      new TxDenyList([txs[0].getTxHash()], []),
-      new TxDenyList([txs[4].getTxHash()], [txs[1].getTxHash(), txs[2].getTxHash()]),
-      new TxDenyList([], [txs[4].getTxHash()]),
+      new TxDenyList([await txs[0].getTxHash()], []),
+      new TxDenyList([await txs[4].getTxHash()], [await txs[1].getTxHash(), await txs[2].getTxHash()]),
+      new TxDenyList([], [await txs[4].getTxHash()]),
     );
 
     await expect(agg.validateTx(txs[0])).resolves.toEqual({ result: 'invalid', reason: ['Denied'] });

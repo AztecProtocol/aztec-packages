@@ -68,11 +68,11 @@ describe('Enqueued-call Side Effect Trace', () => {
     expect(trace.getAvmCircuitHints().publicDataReads.items).toEqual([expected]);
   });
 
-  it('Should trace storage writes', () => {
+  it('Should trace storage writes', async () => {
     const lowLeafPreimage = new PublicDataTreeLeafPreimage(slot, value, Fr.ZERO, 0n);
     const newLeafPreimage = new PublicDataTreeLeafPreimage(slot, value, Fr.ZERO, 0n);
 
-    trace.tracePublicStorageWrite(
+    await trace.tracePublicStorageWrite(
       address,
       slot,
       value,
@@ -85,7 +85,7 @@ describe('Enqueued-call Side Effect Trace', () => {
     );
     expect(trace.getCounter()).toBe(startCounterPlus1);
 
-    const leafSlot = computePublicDataTreeLeafSlot(address, slot);
+    const leafSlot = await computePublicDataTreeLeafSlot(address, slot);
     const expected = [new PublicDataUpdateRequest(leafSlot, value, startCounter /*contractAddress*/)];
     expect(trace.getSideEffects().publicDataWrites).toEqual(expected);
 

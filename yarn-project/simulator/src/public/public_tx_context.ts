@@ -120,7 +120,7 @@ export class PublicTxContext {
     const gasAllocatedToPublic = applyMaxToAvailableGas(gasSettings.gasLimits.sub(gasUsedByPrivate));
 
     return new PublicTxContext(
-      tx.getTxHash(),
+      await tx.getTxHash(),
       new PhaseStateManager(txStateManager),
       globalVariables,
       await db.getStateReference(),
@@ -319,13 +319,13 @@ export class PublicTxContext {
   /**
    * Generate the public inputs for the AVM circuit.
    */
-  private generateAvmCircuitPublicInputs(endStateReference: StateReference): AvmCircuitPublicInputs {
+  private async generateAvmCircuitPublicInputs(endStateReference: StateReference): Promise<AvmCircuitPublicInputs> {
     assert(this.halted, 'Can only get AvmCircuitPublicInputs after tx execution ends');
     const ephemeralTrees = this.state.getActiveStateManager().merkleTrees;
 
-    const noteHashTree = ephemeralTrees.getTreeSnapshot(MerkleTreeId.NOTE_HASH_TREE);
-    const nullifierTree = ephemeralTrees.getTreeSnapshot(MerkleTreeId.NULLIFIER_TREE);
-    const publicDataTree = ephemeralTrees.getTreeSnapshot(MerkleTreeId.PUBLIC_DATA_TREE);
+    const noteHashTree = await ephemeralTrees.getTreeSnapshot(MerkleTreeId.NOTE_HASH_TREE);
+    const nullifierTree = await ephemeralTrees.getTreeSnapshot(MerkleTreeId.NULLIFIER_TREE);
+    const publicDataTree = await ephemeralTrees.getTreeSnapshot(MerkleTreeId.PUBLIC_DATA_TREE);
     // Pad the note hash and nullifier trees
     const paddedNoteHashTreeSize =
       this.startStateReference.partial.noteHashTree.nextAvailableLeafIndex + MAX_NOTE_HASHES_PER_TX;
@@ -374,7 +374,7 @@ export class PublicTxContext {
   /**
    * Generate the proving request for the AVM circuit.
    */
-  generateProvingRequest(endStateReference: StateReference): AvmProvingRequest {
+  async generateProvingRequest(endStateReference: StateReference): Promise<AvmProvingRequest> {
     const hints = this.trace.getAvmCircuitHints();
     return {
       type: ProvingRequestType.PUBLIC_VM,
@@ -383,7 +383,7 @@ export class PublicTxContext {
         [],
         PublicCircuitPublicInputs.empty(),
         hints,
-        this.generateAvmCircuitPublicInputs(endStateReference),
+        await this.generateAvmCircuitPublicInputs(endStateReference),
       ),
     };
   }

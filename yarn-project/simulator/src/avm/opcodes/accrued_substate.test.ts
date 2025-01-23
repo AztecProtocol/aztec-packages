@@ -124,9 +124,9 @@ describe('Accrued Substate', () => {
       context.machineState.memory.set(value0Offset, new Field(value0));
       await new EmitNoteHash(/*indirect=*/ 0, /*offset=*/ value0Offset).execute(context);
       expect(trace.traceNewNoteHash).toHaveBeenCalledTimes(1);
-      const siloedNotehash = siloNoteHash(address, value0);
-      const nonce = computeNoteHashNonce(persistableState.firstNullifier, 0);
-      const uniqueNoteHash = computeUniqueNoteHash(nonce, siloedNotehash);
+      const siloedNotehash = await siloNoteHash(address, value0);
+      const nonce = await computeNoteHashNonce(persistableState.firstNullifier, 0);
+      const uniqueNoteHash = await computeUniqueNoteHash(nonce, siloedNotehash);
       expect(trace.traceNewNoteHash).toHaveBeenCalledWith(uniqueNoteHash);
     });
   });

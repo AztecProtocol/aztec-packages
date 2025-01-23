@@ -142,24 +142,22 @@ export class MockL2BlockSource implements L2BlockSource {
    * @param txHash - The hash of a tx we try to get the receipt for.
    * @returns The requested tx receipt (or undefined if not found).
    */
-  public getSettledTxReceipt(txHash: TxHash): Promise<TxReceipt | undefined> {
+  public async getSettledTxReceipt(txHash: TxHash): Promise<TxReceipt | undefined> {
     for (const block of this.l2Blocks) {
       for (const txEffect of block.body.txEffects) {
         if (txEffect.txHash.equals(txHash)) {
-          return Promise.resolve(
-            new TxReceipt(
-              txHash,
-              TxStatus.SUCCESS,
-              '',
-              txEffect.transactionFee.toBigInt(),
-              L2BlockHash.fromField(block.hash()),
-              block.number,
-            ),
+          return new TxReceipt(
+            txHash,
+            TxStatus.SUCCESS,
+            '',
+            txEffect.transactionFee.toBigInt(),
+            L2BlockHash.fromField(await block.hash()),
+            block.number,
           );
         }
       }
     }
-    return Promise.resolve(undefined);
+    return undefined;
   }
 
   async getL2Tips(): Promise<L2Tips> {

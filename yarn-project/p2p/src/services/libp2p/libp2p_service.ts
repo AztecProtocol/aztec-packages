@@ -578,7 +578,7 @@ export class LibP2PService<T extends P2PClientType> extends WithTracer implement
     const validProof = await proofValidator.validateTx(responseTx);
 
     // If the node returns the wrong data, we penalize it
-    if (!requestedTxHash.equals(responseTx.getTxHash())) {
+    if (!requestedTxHash.equals(await responseTx.getTxHash())) {
       // Returning the wrong data is a low tolerance error
       this.peerManager.penalizePeer(peerId, PeerErrorSeverity.MidToleranceError);
       return false;

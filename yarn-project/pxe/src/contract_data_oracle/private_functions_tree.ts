@@ -19,10 +19,12 @@ import { assertLength } from '@aztec/foundation/serialize';
  */
 export class PrivateFunctionsTree {
   private tree?: MerkleTree;
-  private contractClass: ContractClassWithId;
 
-  constructor(private readonly artifact: ContractArtifact) {
-    this.contractClass = getContractClassFromArtifact(artifact);
+  private constructor(private readonly artifact: ContractArtifact, private contractClass: ContractClassWithId) {}
+
+  static async create(artifact: ContractArtifact) {
+    const contractClass = await getContractClassFromArtifact(artifact);
+    return new PrivateFunctionsTree(artifact, contractClass);
   }
 
   /**
@@ -34,7 +36,7 @@ export class PrivateFunctionsTree {
    * @returns The artifact object containing relevant information about the targeted function.
    */
   public getFunctionArtifact(selector: FunctionSelector) {
-    const artifact = this.artifact.functions.find(f => selector.equals(f.name, f.parameters));
+    const artifact = this.artifact.functions.find(f => selector.equalsFn(f.name, f.parameters));
     if (!artifact) {
       throw new Error(
         `Unknown function. Selector ${selector.toString()} not found in the artifact ${
@@ -94,7 +96,7 @@ export class PrivateFunctionsTree {
    * @param selector - The function selector.
    * @returns A MembershipWitness instance representing the position and authentication path of the function in the function tree.
    */
-  public getFunctionMembershipWitness(
+  public async getFunctionMembershipWitness(
     selector: FunctionSelector,
   ): Promise<MembershipWitness<typeof FUNCTION_TREE_HEIGHT>> {
     const fn = this.getContractClass().privateFunctions.find(f => f.selector.equals(selector));
@@ -102,22 +104,21 @@ export class PrivateFunctionsTree {
       throw new Error(`Private function with selector ${selector.toString()} not found in contract class.`);
     }
 
-    const leaf = computePrivateFunctionLeaf(fn);
-    const index = this.getTree().getIndex(leaf);
-    const path = this.getTree().getSiblingPath(index);
-    return Promise.resolve(
-      new MembershipWitness<typeof FUNCTION_TREE_HEIGHT>(
-        FUNCTION_TREE_HEIGHT,
-        BigInt(index),
-        assertLength(path.map(Fr.fromBuffer), FUNCTION_TREE_HEIGHT),
-      ),
+    const leaf = await computePrivateFunctionLeaf(fn);
+    const tree = await this.getTree();
+    const index = await tree.getIndex(leaf);
+    const path = await tree.getSiblingPath(index);
+    return new MembershipWitness<typeof FUNCTION_TREE_HEIGHT>(
+      FUNCTION_TREE_HEIGHT,
+      BigInt(index),
+      assertLength(path.map(Fr.fromBuffer), FUNCTION_TREE_HEIGHT),
     );
   }
 
-  private getTree() {
+  private async getTree() {
     if (!this.tree) {
       const fns = this.getContractClass().privateFunctions;
-      this.tree = computePrivateFunctionsTree(fns);
+      this.tree = await computePrivateFunctionsTree(fns);
     }
     return this.tree;
   }

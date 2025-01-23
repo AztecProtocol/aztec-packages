@@ -115,8 +115,8 @@ async function computeSiloedTagForIndex(
   index: number,
 ) {
   const secretPoint = await computeTaggingSecretPoint(sender.completeAddress, sender.ivsk, recipient);
-  const appSecret = poseidon2Hash([secretPoint.x, secretPoint.y, contractAddress]);
-  const tag = poseidon2Hash([appSecret, recipient, index]);
+  const appSecret = await poseidon2Hash([secretPoint.x, secretPoint.y, contractAddress]);
+  const tag = await poseidon2Hash([appSecret, recipient, index]);
   return poseidon2Hash([contractAddress, tag]);
 }
 
@@ -609,7 +609,7 @@ describe('Simulator oracle', () => {
               (request.blockNumber - 1) * NUM_NOTE_HASHES_PER_BLOCK + request.txIndex * MAX_NOTE_HASHES_PER_TX;
             const taggedLog = new TxScopedL2Log(txHash, dataStartIndex, blockNumber, false, await request.encrypt());
             const note = request.snippetOfNoteDao.note;
-            const noteHash = pedersenHash(note.items);
+            const noteHash = await pedersenHash(note.items);
             txEffectsMap[txHash.toString()].noteHashes[request.noteHashIndex] = noteHash;
             taggedLogs.push(taggedLog);
           }

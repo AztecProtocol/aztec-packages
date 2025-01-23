@@ -150,10 +150,10 @@ export type P2P<T extends P2PClientType = P2PClientType.Full> = P2PApi<T> & {
   getTxStatus(txHash: TxHash): 'pending' | 'mined' | undefined;
 
   /** Returns an iterator over pending txs on the mempool. */
-  iteratePendingTxs(): Iterable<Tx>;
+  iteratePendingTxs(): AsyncIterableIterator<Tx>;
 
   /** Returns the number of pending txs in the mempool. */
-  getPendingTxCount(): number;
+  getPendingTxCount(): Promise<number>;
 
   /**
    * Starts the p2p client.
@@ -475,13 +475,13 @@ export class P2PClient<T extends P2PClientType = P2PClientType.Full>
     return Promise.resolve(this.getTxs('pending'));
   }
 
-  public getPendingTxCount(): number {
-    return this.txPool.getPendingTxHashes().length;
+  public async getPendingTxCount(): Promise<number> {
+    return (await this.txPool.getPendingTxHashes()).length;
   }
 
-  public *iteratePendingTxs() {
-    const pendingTxHashes = this.txPool.getPendingTxHashes();
-    for (const txHash of pendingTxHashes) {
+  public async *iteratePendingTxs(): AsyncIterableIterator<Tx> {
+    const txHashes = await this.txPool.getPendingTxHashes();
+    for (const txHash of txHashes) {
       const tx = this.txPool.getTxByHash(txHash);
       if (tx) {
         yield tx;
@@ -493,7 +493,7 @@ export class P2PClient<T extends P2PClientType = P2PClientType.Full>
    * Returns all transactions in the transaction pool.
    * @returns An array of Txs.
    */
-  public getTxs(filter: 'all' | 'pending' | 'mined'): Tx[] {
+  public async getTxs(filter: 'all' | 'pending' | 'mined'): Promise<Tx[]> {
     if (filter === 'all') {
       return this.txPool.getAllTxs();
     } else if (filter === 'mined') {
@@ -502,10 +502,8 @@ export class P2PClient<T extends P2PClientType = P2PClientType.Full>
         .map(([txHash]) => this.txPool.getTxByHash(txHash))
         .filter((tx): tx is Tx => !!tx);
     } else if (filter === 'pending') {
-      return this.txPool
-        .getPendingTxHashes()
-        .map(txHash => this.txPool.getTxByHash(txHash))
-        .filter((tx): tx is Tx => !!tx);
+      const txHashes = await this.txPool.getPendingTxHashes();
+      return txHashes.map(txHash => this.txPool.getTxByHash(txHash)).filter((tx): tx is Tx => !!tx);
     } else {
       const _: never = filter;
       throw new Error(`Unknown filter ${filter}`);
@@ -717,7 +715,7 @@ export class P2PClient<T extends P2PClientType = P2PClientType.Full>
     for (const tx of this.txPool.getAllTxs()) {
       // every tx that's been generated against a block that has now been pruned is no longer valid
       if (tx.data.constants.historicalHeader.globalVariables.blockNumber.toNumber() > latestBlock) {
-        txsToDelete.push(tx.getTxHash());
+        txsToDelete.push(await tx.getTxHash());
       }
     }
 

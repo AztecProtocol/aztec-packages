@@ -172,7 +172,7 @@ export const buildBaseRollupHints = runInSpan(
         ),
       });
 
-      const blockHash = tx.constants.historicalHeader.hash();
+      const blockHash = await tx.constants.historicalHeader.hash();
       const archiveRootMembershipWitness = await getMembershipWitnessFor(
         blockHash,
         MerkleTreeId.ARCHIVE,
@@ -198,7 +198,7 @@ export const buildBaseRollupHints = runInSpan(
 
       // Create data hint for reading fee payer initial balance in Fee Juice
       // If no fee payer is set, read hint should be empty
-      const leafSlot = computeFeePayerBalanceLeafSlot(tx.data.feePayer);
+      const leafSlot = await computeFeePayerBalanceLeafSlot(tx.data.feePayer);
       const feePayerFeeJuiceBalanceReadHint = tx.data.feePayer.isZero()
         ? PublicDataHint.empty()
         : await getPublicDataHint(db, leafSlot.toBigInt());
@@ -232,7 +232,7 @@ export const buildBaseRollupHints = runInSpan(
         feeWriteSiblingPath,
       });
 
-      const blockHash = tx.constants.historicalHeader.hash();
+      const blockHash = await tx.constants.historicalHeader.hash();
       const archiveRootMembershipWitness = await getMembershipWitnessFor(
         blockHash,
         MerkleTreeId.ARCHIVE,
@@ -275,9 +275,9 @@ export async function getPublicDataHint(db: MerkleTreeWriteOperations, leafSlot:
 export const buildBlobHints = runInSpan(
   'BlockBuilderHelpers',
   'buildBlobHints',
-  (_span: Span, txEffects: TxEffect[]) => {
+  async (_span: Span, txEffects: TxEffect[]) => {
     const blobFields = txEffects.flatMap(tx => tx.toBlobFields());
-    const blobs = Blob.getBlobs(blobFields);
+    const blobs = await Blob.getBlobs(blobFields);
     const blobCommitments = blobs.map(b => b.commitmentToFields());
     const blobsHash = new Fr(getBlobsHashFromBlobs(blobs));
     return { blobFields, blobCommitments, blobs, blobsHash };
@@ -287,7 +287,7 @@ export const buildBlobHints = runInSpan(
 export const buildHeaderFromCircuitOutputs = runInSpan(
   'BlockBuilderHelpers',
   'buildHeaderFromCircuitOutputs',
-  (
+  async (
     _span,
     previousRollupData: BaseOrMergeRollupPublicInputs[],
     parityPublicInputs: ParityPublicInputs,
@@ -326,7 +326,7 @@ export const buildHeaderFromCircuitOutputs = runInSpan(
       accumulatedFees,
       accumulatedManaUsed,
     );
-    if (!header.hash().equals(rootRollupOutputs.endBlockHash)) {
+    if (!(await header.hash()).equals(rootRollupOutputs.endBlockHash)) {
       logger?.error(
         `Block header mismatch when building header from circuit outputs.` +
           `\n\nHeader: ${inspect(header)}` +
@@ -375,12 +375,11 @@ export const buildHeaderAndBodyFromTxs = runInSpan(
           );
 
     l1ToL2Messages = padArrayEnd(l1ToL2Messages, Fr.ZERO, NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP);
-    const hasher = (left: Buffer, right: Buffer) => sha256Trunc(Buffer.concat([left, right]));
+    const hasher = (left: Buffer, right: Buffer) => Promise.resolve(sha256Trunc(Buffer.concat([left, right])));
     const parityHeight = Math.ceil(Math.log2(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP));
-    const parityShaRoot = new MerkleTreeCalculator(parityHeight, Fr.ZERO.toBuffer(), hasher).computeTreeRoot(
-      l1ToL2Messages.map(msg => msg.toBuffer()),
-    );
-    const blobsHash = getBlobsHashFromBlobs(Blob.getBlobs(body.toBlobFields()));
+    const parityCalculator = await MerkleTreeCalculator.create(parityHeight, Fr.ZERO.toBuffer(), hasher);
+    const parityShaRoot = await parityCalculator.computeTreeRoot(l1ToL2Messages.map(msg => msg.toBuffer()));
+    const blobsHash = getBlobsHashFromBlobs(await Blob.getBlobs(body.toBlobFields()));
 
     const contentCommitment = new ContentCommitment(new Fr(numTxs), blobsHash, parityShaRoot, outHash);
 
@@ -442,7 +441,7 @@ export const getConstantRollupData = runInSpan(
   'getConstantRollupData',
   async (_span, globalVariables: GlobalVariables, db: MerkleTreeReadOperations): Promise<ConstantRollupData> => {
     return ConstantRollupData.from({
-      vkTreeRoot: getVKTreeRoot(),
+      vkTreeRoot: await getVKTreeRoot(),
       protocolContractTreeRoot,
       lastArchive: await getTreeSnapshot(MerkleTreeId.ARCHIVE, db),
       globalVariables,

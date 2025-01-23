@@ -311,14 +311,14 @@ export class ServerWorldStateSynchronizer
    * @param inHash - The inHash of the block.
    * @throws If the L1 to L2 messages do not hash to the block inHash.
    */
-  protected verifyMessagesHashToInHash(l1ToL2Messages: Fr[], inHash: Buffer) {
-    const treeCalculator = new MerkleTreeCalculator(
+  protected async verifyMessagesHashToInHash(l1ToL2Messages: Fr[], inHash: Buffer) {
+    const treeCalculator = await MerkleTreeCalculator.create(
       L1_TO_L2_MSG_SUBTREE_HEIGHT,
       Buffer.alloc(32),
-      new SHA256Trunc().hash,
+      async (lhs, rhs) => Promise.resolve(new SHA256Trunc().hash(lhs, rhs)),
     );
 
-    const root = treeCalculator.computeTreeRoot(l1ToL2Messages.map(msg => msg.toBuffer()));
+    const root = await treeCalculator.computeTreeRoot(l1ToL2Messages.map(msg => msg.toBuffer()));
 
     if (!root.equals(inHash)) {
       throw new Error('Obtained L1 to L2 messages failed to be hashed to the block inHash');

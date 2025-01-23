@@ -261,7 +261,7 @@ export class Sequencer {
     void this.publisher.castVote(slot, newGlobalVariables.timestamp.toBigInt(), VoteType.SLASHING);
 
     // Check the pool has enough txs to build a block
-    const pendingTxCount = this.p2pClient.getPendingTxCount();
+    const pendingTxCount = await this.p2pClient.getPendingTxCount();
     if (pendingTxCount < this.minTxsPerBlock && !this.isFlushing) {
       this.log.verbose(`Not enough txs to propose block. Got ${pendingTxCount} min ${this.minTxsPerBlock}.`, {
         slot,
@@ -280,7 +280,7 @@ export class Sequencer {
 
     // We don't fetch exactly maxTxsPerBlock txs here because we may not need all of them if we hit a limit before,
     // and also we may need to fetch more if we don't have enough valid txs.
-    const pendingTxs = this.p2pClient.iteratePendingTxs();
+    const pendingTxs = await this.p2pClient.iteratePendingTxs();
 
     // If I created a "partial" header here that should make our job much easier.
     const proposalHeader = new BlockHeader(
@@ -371,7 +371,7 @@ export class Sequencer {
    * @param opts - Whether to just validate the block as a validator, as opposed to building it as a proposal
    */
   protected async buildBlock(
-    pendingTxs: Iterable<Tx>,
+    pendingTxs: Iterable<Tx> | AsyncIterableIterator<Tx>,
     newGlobalVariables: GlobalVariables,
     opts: { validateOnly?: boolean } = {},
   ) {
@@ -447,8 +447,9 @@ export class Sequencer {
 
       if (!opts.validateOnly && failedTxs.length > 0) {
         const failedTxData = failedTxs.map(fail => fail.tx);
-        this.log.verbose(`Dropping failed txs ${Tx.getHashes(failedTxData).join(', ')}`);
-        await this.p2pClient.deleteTxs(Tx.getHashes(failedTxData));
+        const failedTxHashes = await Tx.getHashes(failedTxData);
+        this.log.verbose(`Dropping failed txs ${failedTxHashes.join(', ')}`);
+        await this.p2pClient.deleteTxs(failedTxHashes);
       }
 
       if (
@@ -513,7 +514,10 @@ export class Sequencer {
   @trackSpan('Sequencer.buildBlockAndAttemptToPublish', (_validTxs, proposalHeader) => ({
     [Attributes.BLOCK_NUMBER]: proposalHeader.globalVariables.blockNumber.toNumber(),
   }))
-  private async buildBlockAndAttemptToPublish(pendingTxs: Iterable<Tx>, proposalHeader: BlockHeader): Promise<void> {
+  private async buildBlockAndAttemptToPublish(
+    pendingTxs: AsyncIterableIterator<Tx>,
+    proposalHeader: BlockHeader,
+  ): Promise<void> {
     await this.publisher.validateBlockForSubmission(proposalHeader);
 
     const newGlobalVariables = proposalHeader.globalVariables;

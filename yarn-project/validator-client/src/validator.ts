@@ -32,7 +32,7 @@ import { ValidatorMetrics } from './metrics.js';
  * We reuse the sequencer's block building functionality for re-execution
  */
 type BlockBuilderCallback = (
-  txs: Iterable<Tx>,
+  txs: Iterable<Tx> | AsyncIterableIterator<Tx>,
   globalVariables: GlobalVariables,
   opts?: { validateOnly?: boolean },
 ) => Promise<{
@@ -327,11 +327,12 @@ export class ValidatorClient extends WithTracer implements Validator {
     let attestations: BlockAttestation[] = [];
     while (true) {
       const collectedAttestations = [myAttestation, ...(await this.p2pClient.getAttestationsForSlot(slot, proposalId))];
-      const newAttestations = collectedAttestations.filter(
-        collected => !attestations.some(old => old.getSender().equals(collected.getSender())),
-      );
-      for (const attestation of newAttestations) {
-        this.log.debug(`Received attestation for slot ${slot} from ${attestation.getSender().toString()}`);
+      const oldSenders = await Promise.all(attestations.map(attestation => attestation.getSender()));
+      for (const collected of collectedAttestations) {
+        const collectedSender = await collected.getSender();
+        if (!oldSenders.some(sender => sender.equals(collectedSender))) {
+          this.log.debug(`Received attestation for slot ${slot} from ${collectedSender.toString()}`);
+        }
       }
       attestations = collectedAttestations;
 

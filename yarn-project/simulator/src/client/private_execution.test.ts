@@ -109,7 +109,7 @@ describe('Private Execution test suite', () => {
     gasSettings: GasSettings.default({ maxFeesPerGas: new GasFees(10, 10) }),
   };
 
-  const runSimulator = ({
+  const runSimulator = async ({
     artifact,
     args = [],
     msgSender = AztecAddress.fromField(Fr.MAX_FIELD_VALUE),
@@ -122,12 +122,12 @@ describe('Private Execution test suite', () => {
     args?: any[];
     txContext?: Partial<FieldsOf<TxContext>>;
   }) => {
-    const hashedArguments = HashedValues.fromValues(encodeArguments(artifact, args));
+    const hashedArguments = await HashedValues.fromValues(encodeArguments(artifact, args));
     contractAddress = contractAddress ?? defaultContractAddress;
     const txRequest = TxExecutionRequest.from({
       origin: contractAddress,
       firstCallArgsHash: hashedArguments.hash,
-      functionSelector: FunctionSelector.fromNameAndParameters(artifact.name, artifact.parameters),
+      functionSelector: await FunctionSelector.fromNameAndParameters(artifact.name, artifact.parameters),
       txContext: TxContext.from({ ...txContextFields, ...txContext }),
       argsOfCalls: [hashedArguments],
       authWitnesses: [],
@@ -204,20 +204,20 @@ describe('Private Execution test suite', () => {
   beforeEach(async () => {
     trees = {};
     oracle = mock<DBOracle>();
-    oracle.getKeyValidationRequest.mockImplementation((pkMHash: Fr, contractAddress: AztecAddress) => {
-      if (pkMHash.equals(ownerCompleteAddress.publicKeys.masterNullifierPublicKey.hash())) {
+    oracle.getKeyValidationRequest.mockImplementation(async (pkMHash: Fr, contractAddress: AztecAddress) => {
+      if (pkMHash.equals(await ownerCompleteAddress.publicKeys.masterNullifierPublicKey.hash())) {
         return Promise.resolve(
           new KeyValidationRequest(
             ownerCompleteAddress.publicKeys.masterNullifierPublicKey,
-            computeAppNullifierSecretKey(ownerNskM, contractAddress),
+            await computeAppNullifierSecretKey(ownerNskM, contractAddress),
           ),
         );
       }
-      if (pkMHash.equals(recipientCompleteAddress.publicKeys.masterNullifierPublicKey.hash())) {
+      if (pkMHash.equals(await recipientCompleteAddress.publicKeys.masterNullifierPublicKey.hash())) {
         return Promise.resolve(
           new KeyValidationRequest(
             recipientCompleteAddress.publicKeys.masterNullifierPublicKey,
-            computeAppNullifierSecretKey(recipientNskM, contractAddress),
+            await computeAppNullifierSecretKey(recipientNskM, contractAddress),
           ),
         );
       }
@@ -277,7 +277,7 @@ describe('Private Execution test suite', () => {
     const mockFirstNullifier = new Fr(1111);
     let currentNoteIndex = 0n;
 
-    const buildNote = (amount: bigint, ownerAddress: AztecAddress, storageSlot: Fr, noteTypeId: NoteSelector) => {
+    const buildNote = async (amount: bigint, ownerAddress: AztecAddress, storageSlot: Fr, noteTypeId: NoteSelector) => {
       // WARNING: this is not actually how nonces are computed!
       // For the purpose of this test we use a mocked firstNullifier and and a random number
       // to compute the nonce. Proper nonces are only enforced later by the kernel/later circuits
@@ -287,10 +287,10 @@ describe('Private Execution test suite', () => {
       // array index at the output of the final kernel/ordering circuit are used to derive nonce via:
       // `hash(firstNullifier, noteHashIndex)`
       const noteHashIndex = randomInt(1); // mock index in TX's final noteHashes array
-      const nonce = computeNoteHashNonce(mockFirstNullifier, noteHashIndex);
+      const nonce = await computeNoteHashNonce(mockFirstNullifier, noteHashIndex);
       const note = new Note([new Fr(amount), ownerAddress.toField(), Fr.random()]);
       // Note: The following does not correspond to how note hashing is generally done in real notes.
-      const noteHash = poseidon2Hash([storageSlot, ...note.items]);
+      const noteHash = await poseidon2Hash([storageSlot, ...note.items]);
       return {
         contractAddress,
         storageSlot,
@@ -363,16 +363,16 @@ describe('Private Execution test suite', () => {
       const amountToTransfer = 100n;
       const artifact = getFunctionArtifact(StatefulTestContractArtifact, 'destroy_and_create_no_init_check');
 
-      const storageSlot = deriveStorageSlotInMap(StatefulTestContractArtifact.storageLayout['notes'].slot, owner);
-      const recipientStorageSlot = deriveStorageSlotInMap(
+      const storageSlot = await deriveStorageSlotInMap(StatefulTestContractArtifact.storageLayout['notes'].slot, owner);
+      const recipientStorageSlot = await deriveStorageSlotInMap(
         StatefulTestContractArtifact.storageLayout['notes'].slot,
         recipient,
       );
 
-      const notes = [
+      const notes = await Promise.all([
         buildNote(60n, ownerCompleteAddress.address, storageSlot, valueNoteTypeId),
         buildNote(80n, ownerCompleteAddress.address, storageSlot, valueNoteTypeId),
-      ];
+      ]);
       oracle.syncTaggedLogs.mockResolvedValue(new Map());
       oracle.processTaggedLogs.mockResolvedValue();
       oracle.getNotes.mockResolvedValue(notes);
@@ -435,9 +435,9 @@ describe('Private Execution test suite', () => {
       const balance = 160n;
       const artifact = getFunctionArtifact(StatefulTestContractArtifact, 'destroy_and_create_no_init_check');
 
-      const storageSlot = deriveStorageSlotInMap(new Fr(1n), owner);
+      const storageSlot = await deriveStorageSlotInMap(new Fr(1n), owner);
 
-      const notes = [buildNote(balance, ownerCompleteAddress.address, storageSlot, valueNoteTypeId)];
+      const notes = await Promise.all([buildNote(balance, ownerCompleteAddress.address, storageSlot, valueNoteTypeId)]);
       oracle.syncTaggedLogs.mockResolvedValue(new Map());
       oracle.processTaggedLogs.mockResolvedValue();
       oracle.getNotes.mockResolvedValue(notes);
@@ -512,7 +512,7 @@ describe('Private Execution test suite', () => {
     let argsHash: Fr;
     let testCodeGenArtifact: FunctionArtifact;
 
-    beforeAll(() => {
+    beforeAll(async () => {
       // These args should match the ones hardcoded in importer contract
       // eslint-disable-next-line camelcase
       const dummyNote = { amount: 1, secret_hash: 2 };
@@ -521,7 +521,7 @@ describe('Private Execution test suite', () => {
       args = [1, true, 1, [1, 2], dummyNote, deepStruct];
       testCodeGenArtifact = getFunctionArtifact(TestContractArtifact, 'test_code_gen');
       const serializedArgs = encodeArguments(testCodeGenArtifact, args);
-      argsHash = computeVarArgsHash(serializedArgs);
+      argsHash = await computeVarArgsHash(serializedArgs);
     });
 
     it('test function should be directly callable', async () => {
@@ -607,7 +607,7 @@ describe('Private Execution test suite', () => {
       };
 
       it('Should be able to consume a dummy cross chain message', async () => {
-        preimage = computePreimage();
+        preimage = await computePreimage();
         args = computeArgs();
         await mockOracles();
 
@@ -624,7 +624,7 @@ describe('Private Execution test suite', () => {
       });
 
       it('Invalid membership proof', async () => {
-        preimage = computePreimage();
+        preimage = await computePreimage();
 
         args = computeArgs();
 
@@ -644,7 +644,7 @@ describe('Private Execution test suite', () => {
       it('Invalid recipient', async () => {
         crossChainMsgRecipient = await AztecAddress.random();
 
-        preimage = computePreimage();
+        preimage = await computePreimage();
 
         args = computeArgs();
 
@@ -664,7 +664,7 @@ describe('Private Execution test suite', () => {
 
       it('Invalid sender', async () => {
         crossChainMsgSender = EthAddress.random();
-        preimage = computePreimage();
+        preimage = await computePreimage();
 
         args = computeArgs();
 
@@ -683,7 +683,7 @@ describe('Private Execution test suite', () => {
       });
 
       it('Invalid chainid', async () => {
-        preimage = computePreimage();
+        preimage = await computePreimage();
 
         args = computeArgs();
 
@@ -702,7 +702,7 @@ describe('Private Execution test suite', () => {
       });
 
       it('Invalid version', async () => {
-        preimage = computePreimage();
+        preimage = await computePreimage();
 
         args = computeArgs();
 
@@ -721,7 +721,7 @@ describe('Private Execution test suite', () => {
       });
 
       it('Invalid content', async () => {
-        preimage = computePreimage();
+        preimage = await computePreimage();
 
         bridgedAmount = bridgedAmount + 1n; // Invalid amount
         args = computeArgs();
@@ -741,7 +741,7 @@ describe('Private Execution test suite', () => {
       });
 
       it('Invalid Secret', async () => {
-        preimage = computePreimage();
+        preimage = await computePreimage();
 
         secretForL1ToL2MessageConsumption = Fr.random();
         args = computeArgs();
@@ -764,7 +764,7 @@ describe('Private Execution test suite', () => {
     it('Should be able to consume a dummy public to private message', async () => {
       const artifact = getFunctionArtifact(TestContractArtifact, 'consume_note_from_secret');
       const secret = new Fr(1n);
-      const secretHash = computeSecretHash(secret);
+      const secretHash = await computeSecretHash(secret);
       const note = new Note([secretHash]);
       const storageSlot = TestContractArtifact.storageLayout['example_set'].slot;
       oracle.syncTaggedLogs.mockResolvedValue(new Map());
@@ -799,7 +799,7 @@ describe('Private Execution test suite', () => {
       const childContractArtifact = ChildContractArtifact.functions.find(fn => fn.name === 'public_dispatch')!;
       expect(childContractArtifact).toBeDefined();
       const childAddress = await AztecAddress.random();
-      const childSelector = FunctionSelector.fromSignature('pub_set_value(Field)');
+      const childSelector = await FunctionSelector.fromSignature('pub_set_value(Field)');
       const parentAddress = await AztecAddress.random();
 
       oracle.getFunctionArtifact.mockImplementation(() => Promise.resolve({ ...childContractArtifact, isInternal }));
@@ -899,7 +899,7 @@ describe('Private Execution test suite', () => {
       expect(noteHashesFromCall).toHaveLength(1);
 
       const noteHashFromCall = noteHashesFromCall[0].value;
-      const storageSlot = deriveStorageSlotInMap(
+      const storageSlot = await deriveStorageSlotInMap(
         PendingNoteHashesContractArtifact.storageLayout['balances'].slot,
         owner,
       );
@@ -922,8 +922,8 @@ describe('Private Execution test suite', () => {
       expect(result.returnValues).toEqual([new Fr(amountToTransfer)]);
 
       const nullifier = result.publicInputs.nullifiers[0];
-      const expectedNullifier = poseidon2HashWithSeparator(
-        [derivedNoteHash, computeAppNullifierSecretKey(ownerNskM, contractAddress)],
+      const expectedNullifier = await poseidon2HashWithSeparator(
+        [derivedNoteHash, await computeAppNullifierSecretKey(ownerNskM, contractAddress)],
         GeneratorIndex.NOTE_NULLIFIER,
       );
       expect(nullifier.value).toEqual(expectedNullifier);
@@ -945,8 +945,11 @@ describe('Private Execution test suite', () => {
 
       const getThenNullifyArtifact = getFunctionArtifact(PendingNoteHashesContractArtifact, 'get_then_nullify_note');
 
-      const insertFnSelector = FunctionSelector.fromNameAndParameters(insertArtifact.name, insertArtifact.parameters);
-      const getThenNullifyFnSelector = FunctionSelector.fromNameAndParameters(
+      const insertFnSelector = await FunctionSelector.fromNameAndParameters(
+        insertArtifact.name,
+        insertArtifact.parameters,
+      );
+      const getThenNullifyFnSelector = await FunctionSelector.fromNameAndParameters(
         getThenNullifyArtifact.name,
         getThenNullifyArtifact.parameters,
       );
@@ -995,8 +998,8 @@ describe('Private Execution test suite', () => {
       expect(execGetThenNullify.returnValues).toEqual([new Fr(amountToTransfer)]);
 
       const nullifier = execGetThenNullify.publicInputs.nullifiers[0];
-      const expectedNullifier = poseidon2HashWithSeparator(
-        [derivedNoteHash, computeAppNullifierSecretKey(ownerNskM, contractAddress)],
+      const expectedNullifier = await poseidon2HashWithSeparator(
+        [derivedNoteHash, await computeAppNullifierSecretKey(ownerNskM, contractAddress)],
         GeneratorIndex.NOTE_NULLIFIER,
       );
       expect(nullifier.value).toEqual(expectedNullifier);

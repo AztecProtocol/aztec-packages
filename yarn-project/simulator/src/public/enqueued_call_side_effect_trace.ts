@@ -224,7 +224,7 @@ export class PublicEnqueuedCallSideEffectTrace implements PublicSideEffectTraceI
     this.incrementSideEffectCounter();
   }
 
-  public tracePublicStorageWrite(
+  public async tracePublicStorageWrite(
     contractAddress: AztecAddress,
     slot: Fr,
     value: Fr,
@@ -259,7 +259,7 @@ export class PublicEnqueuedCallSideEffectTrace implements PublicSideEffectTraceI
       this.userPublicDataWritesLength++;
     }
 
-    const leafSlot = computePublicDataTreeLeafSlot(contractAddress, slot);
+    const leafSlot = await computePublicDataTreeLeafSlot(contractAddress, slot);
     this.publicDataWrites.push(new PublicDataUpdateRequest(leafSlot, value, this.sideEffectCounter));
 
     // New hinting

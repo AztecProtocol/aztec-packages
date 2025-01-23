@@ -28,7 +28,7 @@ describe('In-Memory P2P Client', () => {
   beforeEach(async () => {
     txPool = mock<TxPool>();
     txPool.getAllTxs.mockReturnValue([]);
-    txPool.getPendingTxHashes.mockReturnValue([]);
+    txPool.getPendingTxHashes.mockReturnValue(Promise.resolve([]));
     txPool.getMinedTxHashes.mockReturnValue([]);
     txPool.getAllTxHashes.mockReturnValue([]);
 
@@ -81,8 +81,8 @@ describe('In-Memory P2P Client', () => {
 
   it('adds txs to pool', async () => {
     await client.start();
-    const tx1 = mockTx();
-    const tx2 = mockTx();
+    const tx1 = await mockTx();
+    const tx2 = await mockTx();
     await client.sendTx(tx1);
     await client.sendTx(tx2);
 
@@ -92,14 +92,14 @@ describe('In-Memory P2P Client', () => {
 
   it('rejects txs after being stopped', async () => {
     await client.start();
-    const tx1 = mockTx();
-    const tx2 = mockTx();
+    const tx1 = await mockTx();
+    const tx2 = await mockTx();
     await client.sendTx(tx1);
     await client.sendTx(tx2);
 
     expect(txPool.addTxs).toHaveBeenCalledTimes(2);
     await client.stop();
-    const tx3 = mockTx();
+    const tx3 = await mockTx();
     await expect(client.sendTx(tx3)).rejects.toThrow();
     expect(txPool.addTxs).toHaveBeenCalledTimes(2);
   });
@@ -247,10 +247,10 @@ describe('In-Memory P2P Client', () => {
       // add two txs to the pool. One build against block 90, one against block 95
       // then prune the chain back to block 90
       // only one tx should be deleted
-      const goodTx = mockTx();
+      const goodTx = await mockTx();
       goodTx.data.constants.historicalHeader.globalVariables.blockNumber = new Fr(90);
 
-      const badTx = mockTx();
+      const badTx = await mockTx();
       badTx.data.constants.historicalHeader.globalVariables.blockNumber = new Fr(95);
 
       txPool.getAllTxs.mockReturnValue([goodTx, badTx]);
@@ -271,19 +271,19 @@ describe('In-Memory P2P Client', () => {
       // add three txs to the pool built against different blocks
       // then prune the chain back to block 90
       // only one tx should be deleted
-      const goodButOldTx = mockTx();
+      const goodButOldTx = await mockTx();
       goodButOldTx.data.constants.historicalHeader.globalVariables.blockNumber = new Fr(89);
 
-      const goodTx = mockTx();
+      const goodTx = await mockTx();
       goodTx.data.constants.historicalHeader.globalVariables.blockNumber = new Fr(90);
 
-      const badTx = mockTx();
+      const badTx = await mockTx();
       badTx.data.constants.historicalHeader.globalVariables.blockNumber = new Fr(95);
 
       txPool.getAllTxs.mockReturnValue([goodButOldTx, goodTx, badTx]);
       txPool.getMinedTxHashes.mockReturnValue([
-        [goodButOldTx.getTxHash(), 90],
-        [goodTx.getTxHash(), 91],
+        [await goodButOldTx.getTxHash(), 90],
+        [await goodTx.getTxHash(), 91],
       ]);
 
       blockSource.removeBlocks(10);

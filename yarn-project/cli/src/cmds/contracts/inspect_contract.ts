@@ -16,7 +16,7 @@ export async function inspectContract(contractArtifactFile: string, debugLogger:
   if (contractFns.length === 0) {
     log(`No functions found for contract ${contractArtifact.name}`);
   }
-  const contractClass = getContractClassFromArtifact(contractArtifact);
+  const contractClass = await getContractClassFromArtifact(contractArtifact);
   const bytecodeLengthInFields = 1 + Math.ceil(contractClass.packedBytecode.length / 31);
 
   log(`Contract class details:`);

@@ -300,10 +300,10 @@ export function describeArchiverDataStore(testName: string, getStore: () => Arch
       const blockNum = 10;
 
       beforeEach(async () => {
-        contractClass = makeContractClassPublic();
+        contractClass = await makeContractClassPublic();
         await store.addContractClasses(
           [contractClass],
-          [computePublicBytecodeCommitment(contractClass.packedBytecode)],
+          [await computePublicBytecodeCommitment(contractClass.packedBytecode)],
           blockNum,
         );
       });
@@ -320,7 +320,7 @@ export function describeArchiverDataStore(testName: string, getStore: () => Arch
       it('returns contract class if later "deployment" class was deleted', async () => {
         await store.addContractClasses(
           [contractClass],
-          [computePublicBytecodeCommitment(contractClass.packedBytecode)],
+          [await computePublicBytecodeCommitment(contractClass.packedBytecode)],
           blockNum + 1,
         );
         await store.deleteContractClasses([contractClass], blockNum + 1);

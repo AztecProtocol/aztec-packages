@@ -881,10 +881,11 @@ class ArchiverStoreHelper
    * @param allLogs - All logs emitted in a bunch of blocks.
    */
   async #updateRegisteredContractClasses(allLogs: UnencryptedL2Log[], blockNum: number, operation: Operation) {
-    const contractClasses = allLogs
+    const contractClassRegisteredEvents = allLogs
       .filter(log => ContractClassRegisteredEvent.isContractClassRegisteredEvent(log.data))
-      .map(log => ContractClassRegisteredEvent.fromLog(log.data))
-      .map(e => e.toContractClassPublic());
+      .map(log => ContractClassRegisteredEvent.fromLog(log.data));
+
+    const contractClasses = await Promise.all(contractClassRegisteredEvents.map(e => e.toContractClassPublic()));
     if (contractClasses.length > 0) {
       contractClasses.forEach(c => this.#log.verbose(`${Operation[operation]} contract class ${c.id.toString()}`));
       if (operation == Operation.Store) {
