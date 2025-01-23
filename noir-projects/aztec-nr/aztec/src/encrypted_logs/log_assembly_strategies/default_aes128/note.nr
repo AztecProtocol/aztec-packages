@@ -114,6 +114,13 @@ pub(crate) global HEADER_CIPHERTEXT_SIZE_IN_BYTES: u32 = 48; // contract_address
 // Disgusting arithmetic on generics
 /********************************************************/
 
+// In this section, instead of initialising arrays with very complicated generic
+// arithmetic, such as:
+// let my_arr: [u8; (((PT + (16 - (PT % 16))) + 49) + ((((((PT + (16 - (PT % 16))) + 49) + 30) / 31) * 31) - ((PT + (16 - (PT % 16))) + 49)))] = [0; (((PT + (16 - (PT % 16))) + 49) + ((((((PT + (16 - (PT % 16))) + 49) + 30) / 31) * 31) - ((PT + (16 - (PT % 16))) + 49)))];
+//... we instead do the arithmetic a little bit at a time, so that the computation
+// can be audited and understood. Now, we can't do arithmetic on generics in the body
+// of a function, so we abusing functions in the following way:
+
 // |full_pt| = |pt| = (N * 32) + 64
 fn get_arr_of_size__full_plaintext<let PT: u32>() -> [u8; PT] {
     [0; PT]
