@@ -20,6 +20,7 @@ export { EcdsaKAccountContract };
  * @param secretKey - Secret key used to derive all the keystore keys.
  * @param signingPrivateKey - Secp256k1 key used for signing transactions.
  * @param salt - Deployment salt.
+ * @returns An account manager initialized with the account contract and its deployment params
  */
 export function getEcdsaKAccount(
   pxe: PXE,

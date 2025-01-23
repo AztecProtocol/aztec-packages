@@ -128,7 +128,7 @@ export const browserTestSuite = (
           const secretKey = Fr.fromHexString(secretKeyString);
           const account = await getUnsafeSchnorrAccount(pxe, secretKey);
           await account.waitSetup();
-          const completeAddress = account.getCompleteAddress();
+          const completeAddress = await account.getCompleteAddress();
           const addressString = completeAddress.address.toString();
           console.log(`Created Account: ${addressString}`);
           return addressString;

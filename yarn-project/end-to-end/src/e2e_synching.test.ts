@@ -150,7 +150,7 @@ class TestVariant {
     return await Promise.all(
       accountKeys.map(async (ak, i) => {
         const account = await getSchnorrAccount(this.pxe, ak[0], ak[1], 1);
-        const partialAddress = account.getCompleteAddress().partialAddress;
+        const partialAddress = (await account.getCompleteAddress()).partialAddress;
         await this.pxe.registerAccount(accountKeys[i][0], partialAddress);
         const wallet = await account.getWallet();
         this.logger.verbose(`Wallet ${i} address: ${wallet.getAddress()} registered`);

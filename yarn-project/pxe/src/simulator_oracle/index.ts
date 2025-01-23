@@ -607,7 +607,7 @@ export class SimulatorOracle implements DBOracle {
     const ivskM = await this.keyStore.getMasterSecretKey(
       recipientCompleteAddress.publicKeys.masterIncomingViewingPublicKey,
     );
-    const addressSecret = computeAddressSecret(recipientCompleteAddress.getPreaddress(), ivskM);
+    const addressSecret = await computeAddressSecret(recipientCompleteAddress.getPreaddress(), ivskM);
 
     // Since we could have notes with the same index for different txs, we need
     // to keep track of them scoping by txHash
