@@ -63,7 +63,6 @@ export class BarretenbergWasmMain extends BarretenbergWasmBase {
       this.remoteWasms = await Promise.all(this.workers.map(getRemoteBarretenbergWasm<BarretenbergWasmThreadWorker>));
       await Promise.all(this.remoteWasms.map(w => w.initThread(module, this.memory)));
     }
-    this.logger('init complete.');
   }
 
   /**
