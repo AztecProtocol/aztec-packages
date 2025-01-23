@@ -1,41 +1,42 @@
 use super::traits::{Deserialize, Serialize};
 
-pub comptime fn pack_from_fields<N>(
+/// Deserializes a struct from a field_array_name of fields. The function is recursive and will call itself for each field in the
+pub comptime fn deserialize_from_fields<N>(
     name: Quoted,
     typ: Type,
-    buffer: Quoted,
-    already_consumed: u32,
-    replacements: [(Quoted, Quoted)],
+    field_array_name: Quoted,
+    num_already_consumed: u32, // Number of fields already consumed in a previous recursion of `deserialize_from_fields`
+    to_replace: Quoted, // A field name that should be replaced (typically a "header")
+    ro_replace_with: Quoted, // The replacement for the field that should be replaced (typically e.g.: "NoteHeader::empty() ")
 ) -> (Quoted, u32) {
     let mut result = quote {};
-    let mut consumed: u32 = 0;
+    let mut consumed_counter: u32 = 0;
 
-    let found_replacements = replacements.filter(|(to_omit, _): (Quoted, Quoted)| to_omit == name);
-
-    let replacement = if found_replacements.len() == 1 {
-        replacements[0].1
+    // Check if there is a replacement for the currently processed field
+    if name == to_replace {
+        // The currently processed field should be replaced so we do so
+        result = ro_replace_with;
     } else {
-        quote {}
-    };
-
-    if replacement == quote {} {
         if typ.is_field() | typ.as_integer().is_some() | typ.is_bool() {
-            result = quote { $buffer[$already_consumed] as $typ };
-            consumed = 1;
+            result = quote { $field_array_name[$num_already_consumed] as $typ };
+            consumed_counter = 1;
         } else if typ.as_struct().is_some() {
             let (nested_def, generics) = typ.as_struct().unwrap();
             let nested_name = nested_def.name();
             let mut deserialized_fields_list = &[];
+
+            // Iterate over each field in the struct
             for field in nested_def.fields(generics) {
                 let (field_name, field_type) = field;
-                let (deserialized_field, consumed_by_field) = pack_from_fields(
+                let (deserialized_field, consumed_by_field) = deserialize_from_fields(
                     quote { $field_name },
                     field_type,
-                    quote { $buffer },
-                    consumed + already_consumed,
-                    replacements,
+                    quote { $field_array_name },
+                    consumed_counter + num_already_consumed,
+                    to_replace,
+                    ro_replace_with,
                 );
-                consumed += consumed_by_field;
+                consumed_counter += consumed_by_field;
                 deserialized_fields_list =
                     deserialized_fields_list.push_back(quote { $field_name: $deserialized_field });
             }
@@ -50,15 +51,16 @@ pub comptime fn pack_from_fields<N>(
             let array_len = array_len.as_constant().unwrap();
             let mut array_fields_list = &[];
             for _ in 0..array_len {
-                let (deserialized_field, consumed_by_field) = pack_from_fields(
+                let (deserialized_field, consumed_by_field) = deserialize_from_fields(
                     quote { $name },
                     element_type,
-                    quote { $buffer },
-                    consumed + already_consumed,
-                    replacements,
+                    quote { $field_array_name },
+                    consumed_counter + num_already_consumed,
+                    to_replace,
+                    ro_replace_with,
                 );
                 array_fields_list = array_fields_list.push_back(deserialized_field);
-                consumed += consumed_by_field;
+                consumed_counter += consumed_by_field;
             }
             let array_fields = array_fields_list.join(quote {,});
             result = quote { [ $array_fields ] };
@@ -67,15 +69,16 @@ pub comptime fn pack_from_fields<N>(
             let str_len = length_type.as_constant().unwrap();
             let mut byte_list = &[];
             for _ in 0..str_len {
-                let (deserialized_field, consumed_by_field) = pack_from_fields(
+                let (deserialized_field, consumed_by_field) = deserialize_from_fields(
                     quote { $name },
                     quote { u8}.as_type(),
-                    quote { $buffer },
-                    consumed + already_consumed,
-                    replacements,
+                    quote { $field_array_name },
+                    consumed_counter + num_already_consumed,
+                    to_replace,
+                    ro_replace_with,
                 );
                 byte_list = byte_list.push_back(deserialized_field);
-                consumed += consumed_by_field;
+                consumed_counter += consumed_by_field;
             }
             let bytes = byte_list.join(quote {,});
             result = quote { [ $bytes ].as_str_unchecked() };
@@ -84,10 +87,9 @@ pub comptime fn pack_from_fields<N>(
                 f"Unsupported type for serialization of argument {name} and type {typ}",
             )
         }
-    } else {
-        result = replacement;
     }
-    (result, consumed)
+
+    (result, consumed_counter)
 }
 
 /// Flattens `typ` into a list of fields prefixed with `name` while omitting fields in `omit`. Also returns a list of
@@ -96,7 +98,7 @@ pub comptime fn flatten_to_fields(name: Quoted, typ: Type, omit: [Quoted]) -> ([
     let mut fields = &[];
     let mut aux_vars = &[];
 
-    // Proceed if none of the omit rules omis this name
+    // Proceed if none of the omit rules omits this name
     if !omit.any(|to_omit| to_omit == name) {
         if typ.is_field() {
             // For field we just add the value to fields
@@ -192,7 +194,8 @@ pub(crate) comptime fn derive_deserialize(s: StructDefinition) -> Quoted {
     let typ = s.as_type();
     let (fields, _) = flatten_to_fields(quote { self }, typ, &[]);
     let serialized_len = fields.len();
-    let (deserialized, _) = pack_from_fields(quote { self }, typ, quote { value }, 0, &[]);
+    let (deserialized, _) =
+        deserialize_from_fields(quote { self }, typ, quote { value }, 0, quote {}, quote {});
     quote {
         impl Deserialize<$serialized_len> for $typ {
             fn deserialize(value: [Field; $serialized_len]) -> Self {

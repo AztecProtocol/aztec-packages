@@ -3,7 +3,7 @@ use crate::{
     note::{note_getter_options::PropertySelector, note_header::NoteHeader},
     prelude::Point,
 };
-use protocol_types::meta::{flatten_to_fields, pack_from_fields};
+use protocol_types::meta::{deserialize_from_fields, flatten_to_fields};
 use std::{
     collections::umap::UHashMap,
     hash::{BuildHasherDefault, derive_generators, poseidon2::Poseidon2Hasher},
@@ -90,12 +90,13 @@ comptime fn generate_note_interface(
     let content_fields = content_fields_list.join(quote {,});
     let content_len = content_fields_list.len();
 
-    let (deserialized_content, _) = pack_from_fields(
+    let (deserialized_content, _) = deserialize_from_fields(
         quote { self },
         typ,
-        quote { value },
+        quote { value }, // value is argument of NoteInterface::deserialize_content
         0,
-        &[(quote {header}, quote { aztec::note::note_header::NoteHeader::empty() })],
+        quote {header},
+        quote { aztec::note::note_header::NoteHeader::empty() },
     );
 
     // Second we compute quotes for MSM
