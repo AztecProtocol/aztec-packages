@@ -17,13 +17,13 @@ pub use crate::note::constants::MAX_NOTES_PER_PAGE;
 mod test;
 
 fn extract_property_value_from_selector<let N: u32>(
-    serialized_note: [Field; N],
+    packed_note_content: [Field; N],
     selector: PropertySelector,
 ) -> Field {
     // Selectors use PropertySelectors in order to locate note properties inside the serialized note.
     // This allows easier packing and custom (de)serialization schemas. A note property is located
     // inside the serialized note using the index inside the array, a byte offset and a length.
-    let value: [u8; 32] = serialized_note[selector.index].to_be_bytes();
+    let value: [u8; 32] = packed_note_content[selector.index].to_be_bytes();
     let offset = selector.offset;
     let length = selector.length;
     let mut value_field = 0 as Field;
@@ -47,14 +47,14 @@ where
     assert(header.storage_slot == storage_slot, "Mismatch note header storage slot.");
 }
 
-fn check_note_fields<let N: u32>(
-    serialized_note: [Field; N],
+fn check_note_content<let N: u32>(
+    packed_note_content: [Field; N],
     selects: BoundedVec<Option<Select>, N>,
 ) {
     for i in 0..selects.len() {
         let select = selects.get_unchecked(i).unwrap_unchecked();
         let value_field =
-            extract_property_value_from_selector(serialized_note, select.property_selector);
+            extract_property_value_from_selector(packed_note_content, select.property_selector);
 
         assert(
             compare(value_field, select.comparator, select.value.to_field()),
@@ -156,7 +156,7 @@ where
             let note = notes.get_unchecked(i);
             let fields = note.pack_content();
             check_note_header(*context, storage_slot, note);
-            check_note_fields(fields, options.selects);
+            check_note_content(fields, options.selects);
             if i != 0 {
                 check_notes_order(prev_fields, fields, options.sorts);
             }

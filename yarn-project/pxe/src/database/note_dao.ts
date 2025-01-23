@@ -6,14 +6,14 @@ import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 import { type NoteData } from '@aztec/simulator/client';
 
 /**
- * A Note Data Access Object, representing a note that was comitted to the note hash tree, holding all of the
+ * A Note Data Access Object, representing a note that was committed to the note hash tree, holding all of the
  * information required to use it during execution and manage its state.
  */
 export class NoteDao implements NoteData {
   constructor(
     // Note information
 
-    /** The serialized content of the note, as will be returned in the getNotes oracle. */
+    /** The packed content of the note, as will be returned in the getNotes oracle. */
     public note: Note,
     /** The address of the contract that created the note (i.e. the address used by the kernel during siloing). */
     public contractAddress: AztecAddress,

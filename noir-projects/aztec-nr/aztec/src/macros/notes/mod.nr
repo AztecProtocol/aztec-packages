@@ -10,7 +10,7 @@ comptime global NOTE_HEADER_TYPE: Type = type_of(NoteHeader::empty());
 
 /// A map from note type to (note_struct_definition, note_packed_len, note_type_id, fields).
 /// `fields` is an array of tuples where each tuple contains the name of the field/struct member (e.g. `amount`
-/// in `TokenNote`), the index of where the serialized member starts in the serialized note and a flag indicating
+/// in `TokenNote`), the index of where the packed member starts in the packed note and a flag indicating
 /// whether the field is nullable or not.
 pub comptime mut global NOTES: UHashMap<Type, (StructDefinition, u32, Field, [(Quoted, u32, bool)]), BuildHasherDefault<Poseidon2Hasher>> =
     UHashMap::default();
@@ -31,7 +31,7 @@ comptime fn get_next_note_type_id() -> Field {
 }
 
 /// Generates default `NoteInterface` implementation for a given note struct `s` and returns it as quote along with
-/// the length of the serialized note.
+/// the length of the packed note.
 ///
 /// impl NoteInterface<N> for NoteStruct {
 ///     fn to_be_bytes(self, storage_slot: Field) -> [u8; N * 32 + 64] {
