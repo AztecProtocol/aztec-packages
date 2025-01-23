@@ -43,7 +43,7 @@ describe('prover/orchestrator/public-functions', () => {
 
         // This will need to be a 2 tx block
         context.orchestrator.startNewEpoch(1, 1, 1);
-        await context.orchestrator.startNewBlock(context.globalVariables, []);
+        await context.orchestrator.startNewBlock(context.globalVariables, [], context.getPreviousBlockHeader());
 
         await context.orchestrator.addTxs(processed);
 

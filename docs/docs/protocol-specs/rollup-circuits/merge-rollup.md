@@ -4,16 +4,23 @@ title: Merge Rollup
 
 The Merge rollup circuit is our in-between circuit, it doesn't need to perform any state updates, but mainly check the consistency of its inputs.
 
-```mermaid
+```mdx
+import { Mermaid } from '@docusaurus/theme-mermaid';
+
+<Mermaid>
 graph LR
 A[MergeRollupInputs] --> C[MergeRollupCircuit] --> B[BaseOrMergeRollupPublicInputs]
+</Mermaid>
 ```
 
 ## Overview
 
 Below is a subset of the data structures figure from earlier for easy reference.
 
-```mermaid
+```mdx
+import { Mermaid } from '@docusaurus/theme-mermaid';
+
+<Mermaid>
 classDiagram
 direction TB
 
@@ -68,6 +75,7 @@ class MergeRollupInputs {
 }
 MergeRollupInputs *-- ChildRollupData: left
 MergeRollupInputs *-- ChildRollupData: right
+</Mermaid>
 ```
 
 ### Validity Conditions

@@ -4,6 +4,7 @@ use dep::types::abis::append_only_tree_snapshot::AppendOnlyTreeSnapshot;
 use dep::types::constants::PUBLIC_BASE_ROLLUP_VK_INDEX;
 use dep::types::merkle_tree::MembershipWitness;
 use dep::types::tests::fixtures;
+use dep::types::traits::Empty;
 use types::abis::sponge_blob::SpongeBlob;
 use types::merkle_tree::merkle_tree::MerkleTree;
 

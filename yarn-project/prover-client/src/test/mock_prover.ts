@@ -43,15 +43,14 @@ import {
   makeRootRollupPublicInputs,
 } from '@aztec/circuits.js/testing';
 import { times } from '@aztec/foundation/collection';
-import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
 
-import { InlineProofStore, type ProofStore } from '../proving_broker/proof_store.js';
+import { InlineProofStore, type ProofStore } from '../proving_broker/proof_store/index.js';
 import { ProvingAgent } from '../proving_broker/proving_agent.js';
 import { ProvingBroker } from '../proving_broker/proving_broker.js';
 import { InMemoryBrokerDatabase } from '../proving_broker/proving_broker_database/memory.js';
 
 export class TestBroker implements ProvingJobProducer {
-  private broker = new ProvingBroker(new InMemoryBrokerDatabase(), new NoopTelemetryClient());
+  private broker = new ProvingBroker(new InMemoryBrokerDatabase());
   private agents: ProvingAgent[];
 
   constructor(
@@ -62,7 +61,7 @@ export class TestBroker implements ProvingJobProducer {
   ) {
     this.agents = times(
       agentCount,
-      () => new ProvingAgent(this.broker, proofStore, prover, new NoopTelemetryClient(), undefined, agentPollInterval),
+      () => new ProvingAgent(this.broker, proofStore, prover, undefined, agentPollInterval),
     );
   }
 

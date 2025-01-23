@@ -2,7 +2,7 @@ use crate::{
     abis::{read_request::ScopedReadRequest, side_effect::{Ordered, OrderedValue, Readable, Scoped}},
     address::AztecAddress,
     constants::{NOTE_HASH_LENGTH, SCOPED_NOTE_HASH_LENGTH},
-    traits::{Deserialize, Empty, Serialize},
+    traits::{Deserialize, Empty, Serialize, ToField},
     utils::{arrays::array_concat, reader::Reader},
 };
 

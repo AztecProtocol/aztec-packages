@@ -1,4 +1,4 @@
-use dep::aztec::protocol_types::{address::AztecAddress, traits::{Deserialize, Serialize}};
+use dep::aztec::protocol_types::{address::AztecAddress, traits::{Deserialize, Packable, Serialize}};
 
 // Shows how to create a custom struct in Public
 pub struct Leader {
@@ -17,5 +17,15 @@ impl Deserialize<LEADER_SERIALIZED_LEN> for Leader {
 impl Serialize<LEADER_SERIALIZED_LEN> for Leader {
     fn serialize(self) -> [Field; LEADER_SERIALIZED_LEN] {
         [self.account.to_field(), self.points as Field]
+    }
+}
+
+impl Packable<LEADER_SERIALIZED_LEN> for Leader {
+    fn pack(self) -> [Field; LEADER_SERIALIZED_LEN] {
+        self.serialize()
+    }
+
+    fn unpack(fields: [Field; LEADER_SERIALIZED_LEN]) -> Self {
+        Self::deserialize(fields)
     }
 }

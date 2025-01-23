@@ -13,7 +13,6 @@ import { Blob } from '@aztec/foundation/blob';
 import { type ViemSignature } from '@aztec/foundation/eth-signature';
 import { sleep } from '@aztec/foundation/sleep';
 import { RollupAbi } from '@aztec/l1-artifacts';
-import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
 
 import { jest } from '@jest/globals';
 import express, { json } from 'express';
@@ -101,11 +100,11 @@ describe('L1Publisher', () => {
 
   const GAS_GUESS = 300_000n;
 
-  beforeEach(() => {
+  beforeEach(async () => {
     mockBlobSinkServer = undefined;
     blobSinkClient = new HttpBlobSinkClient(BLOB_SINK_URL);
 
-    l2Block = L2Block.random(42);
+    l2Block = await L2Block.random(42);
 
     header = l2Block.header.toBuffer();
     archive = l2Block.archive.root.toBuffer();
@@ -140,7 +139,7 @@ describe('L1Publisher', () => {
       Pick<L1ContractsConfig, 'ethereumSlotDuration'> &
       L1TxUtilsConfig;
 
-    publisher = new L1Publisher(config, { telemetry: new NoopTelemetryClient(), blobSinkClient });
+    publisher = new L1Publisher(config, { blobSinkClient });
 
     (publisher as any)['rollupContract'] = rollupContract;
     (publisher as any)['publicClient'] = publicClient;

@@ -1,5 +1,4 @@
 import { type ProofUri, type ProvingJob, type ProvingJobSettledResult, ProvingRequestType } from '@aztec/circuit-types';
-import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
 
 import { existsSync } from 'fs';
 import { mkdir, mkdtemp, rm } from 'fs/promises';
@@ -24,7 +23,7 @@ describe('ProvingBrokerPersistedDatabase', () => {
       proverBrokerJobTimeoutMs: 1000,
       proverBrokerPollIntervalMs: 1000,
     };
-    db = await KVBrokerDatabase.new(config, new NoopTelemetryClient());
+    db = await KVBrokerDatabase.new(config);
   });
 
   afterEach(async () => {
@@ -259,7 +258,7 @@ describe('ProvingBrokerPersistedDatabase', () => {
     await mkdir(garbageDirectory, { recursive: true });
 
     // Now create another instance
-    const secondDb = await KVBrokerDatabase.new(config, new NoopTelemetryClient());
+    const secondDb = await KVBrokerDatabase.new(config);
 
     // All data should be restored
     const allJobs = Array.from(secondDb.allProvingJobs());

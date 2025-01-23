@@ -45,7 +45,9 @@ export {
   type L2AmountClaim,
   type L2AmountClaimWithRecipient,
   type L2Claim,
+  type U128Like,
   type WrappedFieldLike,
+  type IntentAction,
 } from './utils/index.js';
 
 export { NoteSelector } from '@aztec/foundation/abi';
@@ -116,7 +118,6 @@ export {
   TxHash,
   TxReceipt,
   TxStatus,
-  UnencryptedL2BlockL2Logs,
   UnencryptedL2Log,
   UniqueNote,
   createAztecNodeClient,

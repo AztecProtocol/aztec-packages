@@ -203,6 +203,11 @@ contract NFT {
         // We create a setup payload with unpopulated/zero token id for 'to'
         // TODO(#7775): Manually fetching the randomness here is not great. If we decide to include randomness in all
         // notes we could just inject it in macros.
+
+        /// Safety: We use the randomness to preserve the privacy of the note recipient by preventing brute-forcing,
+        /// so a malicious sender could use non-random values to make the note less private. But they already know
+        /// the full note pre-image anyway, and so the recipient already trusts them to not disclose this
+        /// information. We can therefore assume that the sender will cooperate in the random value generation.
         let note_randomness = unsafe { random() };
         let note_setup_payload = NFTNote::setup_payload().new(to, note_randomness, to_note_slot);
 

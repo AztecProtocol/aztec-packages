@@ -28,7 +28,6 @@ import { RollupAbi, TestERC20Abi } from '@aztec/l1-artifacts';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
 import { type ProverNode, type ProverNodeConfig, createProverNode } from '@aztec/prover-node';
 import { type PXEService } from '@aztec/pxe';
-import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
 
 // TODO(#7373): Deploy honk solidity verifier
 // @ts-expect-error solc-js doesn't publish its types https://github.com/ethereum/solc-js/issues/689
@@ -113,9 +112,13 @@ export class FullProverTest {
   async applyBaseSnapshots() {
     await this.snapshotManager.snapshot('2_accounts', addAccounts(2, this.logger), async ({ accountKeys }, { pxe }) => {
       this.keys = accountKeys;
-      const accountManagers = accountKeys.map(ak => getSchnorrAccount(pxe, ak[0], ak[1], SALT));
-      this.wallets = await Promise.all(accountManagers.map(a => a.getWallet()));
-      this.accounts = accountManagers.map(a => a.getCompleteAddress());
+      this.wallets = await Promise.all(
+        accountKeys.map(async ak => {
+          const account = await getSchnorrAccount(pxe, ak[0], ak[1], SALT);
+          return account.getWallet();
+        }),
+      );
+      this.accounts = this.wallets.map(w => w.getCompleteAddress());
       this.wallets.forEach((w, i) => this.logger.verbose(`Wallet ${i} address: ${w.getAddress()}`));
     });
 
@@ -228,7 +231,7 @@ export class FullProverTest {
         await this.pxe.registerAccount(this.keys[i][0], this.wallets[i].getCompleteAddress().partialAddress);
       }
 
-      const account = getSchnorrAccount(result.pxe, this.keys[0][0], this.keys[0][1], SALT);
+      const account = await getSchnorrAccount(result.pxe, this.keys[0][0], this.keys[0][1], SALT);
 
       await result.pxe.registerContract({
         instance: account.getInstance(),
@@ -254,7 +257,6 @@ export class FullProverTest {
     const archiver = await createArchiver(
       { ...this.context.aztecNodeConfig, dataDirectory: undefined },
       blobSinkClient,
-      new NoopTelemetryClient(),
       { blockUntilSync: true },
     );
 

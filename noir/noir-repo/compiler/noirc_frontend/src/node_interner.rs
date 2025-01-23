@@ -267,6 +267,11 @@ pub struct NodeInterner {
 
     /// Captures the documentation comments for each module, struct, trait, function, etc.
     pub(crate) doc_comments: HashMap<ReferenceId, Vec<String>>,
+
+    /// Only for LSP: a map of trait ID to each module that pub or pub(crate) exports it.
+    /// In LSP this is used to offer importing the trait via one of these exports if
+    /// the trait is not visible where it's defined.
+    trait_reexports: HashMap<TraitId, Vec<(ModuleId, Ident, ItemVisibility)>>,
 }
 
 /// A dependency in the dependency graph may be a type or a definition.
@@ -680,6 +685,7 @@ impl Default for NodeInterner {
             comptime_scopes: vec![HashMap::default()],
             trait_impl_associated_types: HashMap::default(),
             doc_comments: HashMap::default(),
+            trait_reexports: HashMap::default(),
         }
     }
 }
@@ -729,6 +735,7 @@ impl NodeInterner {
             crate_id: unresolved_trait.crate_id,
             location: Location::new(unresolved_trait.trait_def.span, unresolved_trait.file_id),
             generics,
+            visibility: ItemVisibility::Private,
             self_type_typevar: TypeVariable::unbound(self.next_type_variable_id(), Kind::Normal),
             methods: Vec::new(),
             method_ids: unresolved_trait.method_ids.clone(),
@@ -2255,6 +2262,20 @@ impl NodeInterner {
             _ => None,
         }
     }
+
+    pub fn add_trait_reexport(
+        &mut self,
+        trait_id: TraitId,
+        module_id: ModuleId,
+        name: Ident,
+        visibility: ItemVisibility,
+    ) {
+        self.trait_reexports.entry(trait_id).or_default().push((module_id, name, visibility));
+    }
+
+    pub fn get_trait_reexports(&self, trait_id: TraitId) -> &[(ModuleId, Ident, ItemVisibility)] {
+        self.trait_reexports.get(&trait_id).map_or(&[], |exports| exports)
+    }
 }
 
 impl Methods {
@@ -2268,31 +2289,26 @@ impl Methods {
     }
 
     /// Iterate through each method, starting with the direct methods
-    pub fn iter(&self) -> impl Iterator<Item = (FuncId, &Option<Type>)> + '_ {
-        let trait_impl_methods = self.trait_impl_methods.iter().map(|m| (m.method, &m.typ));
-        let direct = self.direct.iter().copied().map(|func_id| {
-            let typ: &Option<Type> = &None;
-            (func_id, typ)
-        });
+    pub fn iter(&self) -> impl Iterator<Item = (FuncId, Option<&Type>, Option<TraitId>)> {
+        let trait_impl_methods =
+            self.trait_impl_methods.iter().map(|m| (m.method, m.typ.as_ref(), Some(m.trait_id)));
+        let direct = self.direct.iter().copied().map(|func_id| (func_id, None, None));
         direct.chain(trait_impl_methods)
     }
 
-    /// Select the 1 matching method with an object type matching `typ`
-    pub fn find_matching_method(
-        &self,
-        typ: &Type,
+    pub fn find_matching_methods<'a>(
+        &'a self,
+        typ: &'a Type,
         has_self_param: bool,
-        interner: &NodeInterner,
-    ) -> Option<FuncId> {
-        // When adding methods we always check they do not overlap, so there should be
-        // at most 1 matching method in this list.
-        for (method, method_type) in self.iter() {
+        interner: &'a NodeInterner,
+    ) -> impl Iterator<Item = (FuncId, Option<TraitId>)> + 'a {
+        self.iter().filter_map(move |(method, method_type, trait_id)| {
             if Self::method_matches(typ, has_self_param, method, method_type, interner) {
-                return Some(method);
+                Some((method, trait_id))
+            } else {
+                None
             }
-        }
-
-        None
+        })
     }
 
     pub fn find_direct_method(
@@ -2302,7 +2318,7 @@ impl Methods {
         interner: &NodeInterner,
     ) -> Option<FuncId> {
         for method in &self.direct {
-            if Self::method_matches(typ, has_self_param, *method, &None, interner) {
+            if Self::method_matches(typ, has_self_param, *method, None, interner) {
                 return Some(*method);
             }
         }
@@ -2320,7 +2336,7 @@ impl Methods {
 
         for trait_impl_method in &self.trait_impl_methods {
             let method = trait_impl_method.method;
-            let method_type = &trait_impl_method.typ;
+            let method_type = trait_impl_method.typ.as_ref();
             let trait_id = trait_impl_method.trait_id;
 
             if Self::method_matches(typ, has_self_param, method, method_type, interner) {
@@ -2335,7 +2351,7 @@ impl Methods {
         typ: &Type,
         has_self_param: bool,
         method: FuncId,
-        method_type: &Option<Type>,
+        method_type: Option<&Type>,
         interner: &NodeInterner,
     ) -> bool {
         match interner.function_meta(&method).typ.instantiate(interner).0 {

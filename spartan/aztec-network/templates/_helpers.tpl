@@ -142,9 +142,9 @@ Service Address Setup Container
     - name: OTEL_COLLECTOR_ENDPOINT
       value: "{{ .Values.telemetry.otelCollectorEndpoint }}"
     - name: EXTERNAL_ETHEREUM_HOST
-      value: "{{ .Values.ethereum.externalHost }}"
+      value: "{{ .Values.ethereum.execution.externalHost }}"
     - name: ETHEREUM_PORT
-      value: "{{ .Values.ethereum.service.port }}"
+      value: "{{ .Values.ethereum.execution.service.port }}"
     - name: EXTERNAL_BOOT_NODE_HOST
       value: "{{ .Values.bootNode.externalHost }}"
     - name: BOOT_NODE_PORT
@@ -189,4 +189,15 @@ affinity:
 {{- define "aztec-network.gcpLocalSsd" -}}
 nodeSelector:
   cloud.google.com/gke-ephemeral-storage-local-ssd: "true"
+{{- end -}}
+
+{{- define "aztec-network.waitForEthereum" -}}
+echo "Awaiting ethereum node at ${ETHEREUM_HOST}"
+until curl -s -X POST -H 'Content-Type: application/json' \
+  -d '{"jsonrpc":"2.0","method":"eth_chainId","params":[],"id":67}' \
+  ${ETHEREUM_HOST} | grep 0x; do
+  echo "Waiting for Ethereum node ${ETHEREUM_HOST}..."
+  sleep 5
+done
+echo "Ethereum node is ready!"
 {{- end -}}

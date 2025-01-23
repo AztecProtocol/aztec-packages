@@ -1,5 +1,4 @@
-use crate::unconstrained_config::F;
-// TODO(#9982): Replace unconstrained_config with config.
+use crate::config::F;
 use bigint::BigNum;
 use types::{
     constants::{BLOB_PUBLIC_INPUTS, BLOBS_PER_BLOCK},

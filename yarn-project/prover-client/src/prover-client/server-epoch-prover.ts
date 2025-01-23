@@ -35,8 +35,12 @@ export class ServerEpochProver implements EpochProver {
     await this.facade.stop();
     await this.orchestrator.stop();
   }
-  startNewBlock(globalVariables: GlobalVariables, l1ToL2Messages: Fr[]): Promise<void> {
-    return this.orchestrator.startNewBlock(globalVariables, l1ToL2Messages);
+  startNewBlock(
+    globalVariables: GlobalVariables,
+    l1ToL2Messages: Fr[],
+    previousBlockHeader: BlockHeader,
+  ): Promise<void> {
+    return this.orchestrator.startNewBlock(globalVariables, l1ToL2Messages, previousBlockHeader);
   }
   addTxs(txs: ProcessedTx[]): Promise<void> {
     return this.orchestrator.addTxs(txs);
