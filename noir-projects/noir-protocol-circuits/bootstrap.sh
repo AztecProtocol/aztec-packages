@@ -43,6 +43,7 @@ rollup_honk_patterns=(
 
 ivc_regex=$(IFS="|"; echo "${ivc_patterns[*]}")
 rollup_honk_regex=$(IFS="|"; echo "${rollup_honk_patterns[*]}")
+keccak_honk_regex=rollup_root
 # We do this for the rollup root only.
 verifier_generate_regex=rollup_root
 
@@ -56,7 +57,7 @@ mkdir -p $tmp_dir
 mkdir -p $key_dir
 
 # Export vars needed inside compile.
-export tmp_dir key_dir ci3 ivc_regex rollup_honk_regex
+export tmp_dir key_dir ci3 ivc_regex rollup_honk_regex keccak_honk_regex verifier_generate_regex
 
 function compile {
   set -euo pipefail
@@ -88,8 +89,15 @@ function compile {
     local vk_as_fields_cmd="vk_as_fields_mega_honk"
   elif echo "$name" | grep -qE "${rollup_honk_regex}"; then
     local proto="ultra_rollup_honk"
+    # -h 2 injects a fake ipa claim
     local write_vk_cmd="write_vk_ultra_rollup_honk -h 2"
     local vk_as_fields_cmd="vk_as_fields_ultra_rollup_honk"
+  elif echo "$name" | grep -qE "${keccak_honk_regex}"; then
+    local proto="ultra_keccak_honk"
+    # the root rollup does not need to inject a fake ipa claim
+    # and does not need to inject a default agg obj, so no -h flag
+    local write_vk_cmd="write_vk_ultra_keccak_honk"
+    local vk_as_fields_cmd="vk_as_fields_ultra_keccak_honk"
   else
     local proto="ultra_honk"
     local write_vk_cmd="write_vk_ultra_honk -h 1"
@@ -103,8 +111,7 @@ function compile {
   # Change this to add verification_key to original json, like contracts does.
   # Will require changing TS code downstream.
   bytecode_hash=$(jq -r '.bytecode' $json_path | sha256sum | tr -d ' -')
-  # TODO(AD) remove the -2 after this lands on master, needed to disambiguate
-  hash=$(hash_str "$BB_HASH-$bytecode_hash-$proto-3")
+  hash=$(hash_str "$BB_HASH-$bytecode_hash-$proto")
   if ! cache_download vk-$hash.tar.gz 1>&2; then
     local key_path="$key_dir/$name.vk.data.json"
     echo_stderr "Generating vk for function: $name..."

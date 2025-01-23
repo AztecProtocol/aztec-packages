@@ -403,7 +403,7 @@ export class BBNativeRollupProver implements ServerCircuitProver {
     convertInput: (input: Input) => WitnessMap,
     convertOutput: (outputWitness: WitnessMap) => Output,
     workingDirectory: string,
-  ): Promise<{ circuitOutput: Output; vkData: VerificationKeyData; provingResult: BBSuccess }> {
+  ): Promise<{ circuitOutput: Output; provingResult: BBSuccess }> {
     // Have the ACVM write the partial witness here
     const outputWitnessFile = path.join(workingDirectory, 'partial-witness.gz');
 
@@ -458,7 +458,6 @@ export class BBNativeRollupProver implements ServerCircuitProver {
 
     return {
       circuitOutput: output,
-      vkData: this.getVerificationKeyDataForCircuit(circuitType),
       provingResult,
     };
   }
@@ -470,15 +469,17 @@ export class BBNativeRollupProver implements ServerCircuitProver {
     convertOutput: (outputWitness: WitnessMap) => Output,
   ): Promise<{ circuitOutput: Output; proof: Proof }> {
     const operation = async (bbWorkingDirectory: string) => {
-      const {
-        provingResult,
-        vkData,
-        circuitOutput: output,
-      } = await this.generateProofWithBB(input, circuitType, convertInput, convertOutput, bbWorkingDirectory);
+      const { provingResult, circuitOutput: output } = await this.generateProofWithBB(
+        input,
+        circuitType,
+        convertInput,
+        convertOutput,
+        bbWorkingDirectory,
+      );
 
       // Read the binary proof
       const rawProof = await fs.readFile(`${provingResult.proofPath!}/${PROOF_FILENAME}`);
-
+      const vkData = this.getVerificationKeyDataForCircuit(circuitType);
       const proof = new Proof(rawProof, vkData.numPublicInputs);
       const circuitName = mapProtocolArtifactNameToCircuitName(circuitType);
 
@@ -622,12 +623,15 @@ export class BBNativeRollupProver implements ServerCircuitProver {
   ): Promise<{ circuitOutput: CircuitOutputType; proof: RecursiveProof<PROOF_LENGTH> }> {
     // this probably is gonna need to call client ivc
     const operation = async (bbWorkingDirectory: string) => {
-      const {
-        provingResult,
-        vkData,
-        circuitOutput: output,
-      } = await this.generateProofWithBB(input, circuitType, convertInput, convertOutput, bbWorkingDirectory);
+      const { provingResult, circuitOutput: output } = await this.generateProofWithBB(
+        input,
+        circuitType,
+        convertInput,
+        convertOutput,
+        bbWorkingDirectory,
+      );
 
+      const vkData = this.getVerificationKeyDataForCircuit(circuitType);
       // Read the proof as fields
       const proof = await this.readProofAsFields(provingResult.proofPath!, vkData, proofLength);
 
