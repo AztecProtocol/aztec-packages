@@ -163,7 +163,7 @@ export class EncryptedLogPayload {
         throw new Error('Cannot decrypt without an address secret.');
       }
 
-      const ciphertextSharedSecret = deriveEcdhSharedSecret(addressSecret, ephPk);
+      const ciphertextSharedSecret = await deriveEcdhSharedSecret(addressSecret, ephPk);
 
       const [symKey, iv] = deriveAesSymmetricKeyAndIvFromEcdhSharedSecretUsingSha256(ciphertextSharedSecret);
 
