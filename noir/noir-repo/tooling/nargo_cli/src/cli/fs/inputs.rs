@@ -40,3 +40,22 @@ pub(crate) fn read_inputs_from_file<P: AsRef<Path>>(
 
     Ok((input_map, return_value))
 }
+
+/// Try to look for any format with the given file name:
+/// 1. TOML
+/// 2. JSON
+pub(crate) fn read_inputs_from_file_any_format(
+    path: &Path,
+    file_name: &str,
+    abi: &Abi,
+) -> Result<(InputMap, Option<InputValue>), FilesystemError> {
+    let read_inputs = |format| read_inputs_from_file(path, file_name, format, abi);
+
+    read_inputs(Format::Toml).or_else(|e1| match &e1 {
+        FilesystemError::MissingTomlFile(..) => read_inputs(Format::Json).map_err(|e2| match e2 {
+            FilesystemError::MissingTomlFile(..) => e1,
+            _ => e2,
+        }),
+        _ => Err(e1),
+    })
+}
