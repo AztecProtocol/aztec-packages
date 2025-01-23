@@ -1327,7 +1327,20 @@ int main(int argc, char* argv[])
             return proveAndVerifyHonkProgram<UltraFlavor>(bytecode_path, recursive, witness_path) ? 0 : 1;
         } else if (command == "prove") {
             std::string output_path = get_option(args, "-o", "./proofs/proof");
-            prove(bytecode_path, witness_path, output_path, recursive);
+            std::string quiet_str = get_option(args, "--quiet", "false"); // Check if --quiet is set
+            bool quiet = (quiet_str == "true");
+            try {
+           prove(bytecode_path, witness_path, output_path, recursive);
+          if (!quiet) {
+            std::cout << "Proof generation successful. Proof saved to: " << output_path << std::endl;
+             }
+           return 0; // Success
+           } catch (const std::exception& e) {
+          if (!quiet) {
+            std::cerr << "Proof generation failed: " << e.what() << std::endl;
+             }
+           return 1; // Failure
+        }
         } else if (command == "prove_output_all") {
             std::string output_path = get_option(args, "-o", "./proofs");
             prove_output_all(bytecode_path, witness_path, output_path, recursive);
@@ -1357,8 +1370,19 @@ int main(int argc, char* argv[])
             gateCount<MegaCircuitBuilder>(bytecode_path, recursive, honk_recursion);
         } else if (command == "gates_for_ivc") {
             gate_count_for_ivc(bytecode_path);
-        } else if (command == "verify") {
-            return verify(proof_path, vk_path) ? 0 : 1;
+        } else if (command == "verify") { 
+             std::string quiet_str = get_option(args, "--quiet", "false"); // Check if --quiet is set
+             bool quiet = (quiet_str == "true");
+             bool result = verify(proof_path, vk_path);
+
+            if (!quiet) {
+                if (result) {
+                  std::cout << "Verification successful." << std::endl; // Success message to stdout
+              } else {
+                  std::cerr << "Verification failed." << std::endl; // Failure message to stderr
+                }
+            }
+            return result ? 0 : 1;
         } else if (command == "contract") {
             std::string output_path = get_option(args, "-o", "./target/contract.sol");
             contract(output_path, vk_path);
