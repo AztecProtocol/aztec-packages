@@ -186,6 +186,33 @@ pub comptime fn generate_deserialize_from_fields<N>(
 
 /// Flattens `typ` into a list of fields prefixed with `name` while omitting fields in `omit`. Also returns a list of
 /// auxiliary variables that are needed for serialization (e.g. "let string_value_as_bytes = string_value.as_bytes()").
+///
+/// # Nested Struct Example
+/// Given the following setup:
+/// ```
+/// struct UintNote {
+///     value: U128,
+///     owner: AztecAddress,
+///     randomness: Field,
+///     header: NoteHeader,
+/// }
+///
+/// struct U128 {
+///     lo: Field,
+///     hi: Field,
+/// }
+///
+/// struct AztecAddress {
+///     inner: Field,
+/// }
+/// ```
+///
+/// generate_serialize_to_fields(quote { self }, typ, &[quote {self.header}])
+/// If quote of `self` is the name and a quote of `self.header` is in the omit list, the function will return
+/// the following array of quotes:
+/// ```
+/// [`self.value.lo`, `self.value.hi`, `self.owner.inner`, `self.randomness`]
+/// ```
 pub comptime fn generate_serialize_to_fields(
     name: Quoted,
     typ: Type,
