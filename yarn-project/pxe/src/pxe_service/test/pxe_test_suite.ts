@@ -35,7 +35,7 @@ export const pxeTestSuite = (testName: string, pxeSetup: () => Promise<PXE>) => 
     });
 
     it('successfully adds a contract', async () => {
-      const contracts = [randomDeployedContract(), randomDeployedContract()];
+      const contracts = await Promise.all([randomDeployedContract(), randomDeployedContract()]);
       for (const contract of contracts) {
         await pxe.registerContract(contract);
       }
@@ -49,7 +49,7 @@ export const pxeTestSuite = (testName: string, pxeSetup: () => Promise<PXE>) => 
       const artifact = randomContractArtifact();
       const contractClass = getContractClassFromArtifact(artifact);
       const contractClassId = contractClass.id;
-      const instance = randomContractInstanceWithAddress({ contractClassId });
+      const instance = await randomContractInstanceWithAddress({ contractClassId });
 
       await pxe.registerContractClass(artifact);
       expect(await pxe.getContractClass(contractClassId)).toMatchObject(
@@ -64,12 +64,12 @@ export const pxeTestSuite = (testName: string, pxeSetup: () => Promise<PXE>) => 
       const artifact = randomContractArtifact();
       const contractClass = getContractClassFromArtifact(artifact);
       const contractClassId = contractClass.id;
-      const instance = randomContractInstanceWithAddress({ contractClassId });
+      const instance = await randomContractInstanceWithAddress({ contractClassId });
       await expect(
         pxe.registerContract({
           instance: {
             ...instance,
-            address: AztecAddress.random(),
+            address: await AztecAddress.random(),
           },
           artifact,
         }),
@@ -77,13 +77,13 @@ export const pxeTestSuite = (testName: string, pxeSetup: () => Promise<PXE>) => 
     });
 
     it('refuses to register a contract with a class that has not been registered', async () => {
-      const instance = randomContractInstanceWithAddress();
+      const instance = await randomContractInstanceWithAddress();
       await expect(pxe.registerContract({ instance })).rejects.toThrow(/Missing contract artifact/i);
     });
 
     it('refuses to register a contract with an artifact with mismatching class id', async () => {
       const artifact = randomContractArtifact();
-      const instance = randomContractInstanceWithAddress();
+      const instance = await randomContractInstanceWithAddress();
       await expect(pxe.registerContract({ instance, artifact })).rejects.toThrow(/Artifact does not match/i);
     });
 
@@ -91,13 +91,13 @@ export const pxeTestSuite = (testName: string, pxeSetup: () => Promise<PXE>) => 
     //       a larger setup and it's sufficiently tested in the e2e tests.
 
     it('throws when getting public storage for non-existent contract', async () => {
-      const contract = AztecAddress.random();
+      const contract = await AztecAddress.random();
       await expect(async () => await pxe.getPublicStorageAt(contract, new Fr(0n))).rejects.toThrow(
         `Contract ${contract.toString()} is not deployed`,
       );
     });
 
-    // Note: Not testing `getContractData` and `getUnencryptedLogs` here as these
+    // Note: Not testing `getContractData` and `getPublicLogs` here as these
     //       functions only call AztecNode and these methods are frequently used by the e2e tests.
 
     it('successfully gets a block number', async () => {

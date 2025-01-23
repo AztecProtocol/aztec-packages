@@ -23,6 +23,7 @@ import {
   NUM_BYTES_PER_SHA256,
   type NullifierLeafPreimage,
   OptionalNumber,
+  type PRIVATE_LOG_SIZE_IN_FIELDS,
   PartialStateReference,
   Point,
   PrivateLog,
@@ -30,6 +31,7 @@ import {
   PublicCallRequest,
   type PublicDataTreeLeafPreimage,
   type PublicDataWrite,
+  PublicLog,
   ScopedL2ToL1Message,
   ScopedLogHash,
   StateReference,
@@ -53,6 +55,7 @@ import type {
   EmbeddedCurveScalar as GrumpkinScalarNoir,
   L2ToL1Message as L2ToL1MessageNoir,
   LogHash as LogHashNoir,
+  Log as LogNoir,
   MaxBlockNumber as MaxBlockNumberNoir,
   MembershipWitness as MembershipWitnessNoir,
   AztecAddress as NoirAztecAddress,
@@ -62,11 +65,11 @@ import type {
   NullifierLeafPreimage as NullifierLeafPreimageNoir,
   Option as OptionalNumberNoir,
   PartialStateReference as PartialStateReferenceNoir,
-  Log as PrivateLogNoir,
   PrivateToRollupAccumulatedData as PrivateToRollupAccumulatedDataNoir,
   PublicCallRequest as PublicCallRequestNoir,
   PublicDataTreeLeafPreimage as PublicDataTreeLeafPreimageNoir,
   PublicDataWrite as PublicDataWriteNoir,
+  PublicLog as PublicLogNoir,
   ScopedL2ToL1Message as ScopedL2ToL1MessageNoir,
   ScopedLogHash as ScopedLogHashNoir,
   StateReference as StateReferenceNoir,
@@ -243,14 +246,28 @@ export function mapGasFeesFromNoir(gasFees: GasFeesNoir): GasFees {
   return new GasFees(mapFieldFromNoir(gasFees.fee_per_da_gas), mapFieldFromNoir(gasFees.fee_per_l2_gas));
 }
 
-export function mapPrivateLogToNoir(log: PrivateLog): PrivateLogNoir {
+export function mapPrivateLogToNoir(log: PrivateLog): LogNoir<typeof PRIVATE_LOG_SIZE_IN_FIELDS> {
   return {
     fields: mapTuple(log.fields, mapFieldToNoir),
   };
 }
 
-export function mapPrivateLogFromNoir(log: PrivateLogNoir) {
+export function mapPrivateLogFromNoir(log: LogNoir<typeof PRIVATE_LOG_SIZE_IN_FIELDS>) {
   return new PrivateLog(mapTupleFromNoir(log.fields, log.fields.length, mapFieldFromNoir));
+}
+
+export function mapPublicLogToNoir(log: PublicLog): PublicLogNoir {
+  return {
+    contract_address: mapAztecAddressToNoir(log.contractAddress),
+    log: { fields: mapTuple(log.log, mapFieldToNoir) },
+  };
+}
+
+export function mapPublicLogFromNoir(log: PublicLogNoir) {
+  return new PublicLog(
+    mapAztecAddressFromNoir(log.contract_address),
+    mapTupleFromNoir(log.log.fields, log.log.fields.length, mapFieldFromNoir),
+  );
 }
 
 /**
@@ -666,9 +683,30 @@ export function mapPublicDataWriteToNoir(write: PublicDataWrite): PublicDataWrit
 }
 
 /**
- * Maps combined accumulated data from noir to the parsed type.
- * @param PrivateToRollupAccumulatedData - The noir combined accumulated data.
- * @returns The parsed combined accumulated data.
+ * Maps private to rollup accumulated data to noir to the parsed type.
+ * @param privateToRollupAccumulatedData - The ts private to rollup accumulated data.
+ * @returns The noir private to rollup accumulated data.
+ */
+export function mapPrivateToRollupAccumulatedDataToNoir(
+  privateToRollupAccumulatedData: PrivateToRollupAccumulatedData,
+): PrivateToRollupAccumulatedDataNoir {
+  return {
+    note_hashes: mapTuple(privateToRollupAccumulatedData.noteHashes, mapFieldToNoir),
+    nullifiers: mapTuple(privateToRollupAccumulatedData.nullifiers, mapFieldToNoir),
+    l2_to_l1_msgs: mapTuple(privateToRollupAccumulatedData.l2ToL1Msgs, mapScopedL2ToL1MessageToNoir),
+    private_logs: mapTuple(privateToRollupAccumulatedData.privateLogs, mapPrivateLogToNoir),
+    contract_class_logs_hashes: mapTuple(
+      privateToRollupAccumulatedData.contractClassLogsHashes,
+      mapScopedLogHashToNoir,
+    ),
+    contract_class_log_preimages_length: mapFieldToNoir(privateToRollupAccumulatedData.contractClassLogPreimagesLength),
+  };
+}
+
+/**
+ * Maps private to rollup accumulated data from noir to the parsed type.
+ * @param PrivateToRollupAccumulatedData - The noir private to rollup accumulated data.
+ * @returns The parsed private to rollup accumulated data.
  */
 export function mapPrivateToRollupAccumulatedDataFromNoir(
   privateToRollupAccumulatedData: PrivateToRollupAccumulatedDataNoir,

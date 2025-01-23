@@ -1,5 +1,5 @@
 use crate::cards::Card;
-use dep::aztec::protocol_types::{address::AztecAddress, traits::{Deserialize, Serialize}};
+use dep::aztec::protocol_types::{address::AztecAddress, traits::{Deserialize, Packable}};
 
 global NUMBER_OF_PLAYERS: u32 = 2;
 global NUMBER_OF_CARDS_DECK: u32 = 2;
@@ -50,8 +50,8 @@ pub struct Game {
 
 global GAME_SERIALIZED_LEN: u32 = 15;
 
-impl Serialize<GAME_SERIALIZED_LEN> for Game {
-    fn serialize(game: Game) -> [Field; GAME_SERIALIZED_LEN] {
+impl Packable<GAME_SERIALIZED_LEN> for Game {
+    fn pack(game: Game) -> [Field; GAME_SERIALIZED_LEN] {
         [
             game.players[0].address.to_field(),
             game.players[0].deck_strength as Field,
@@ -70,10 +70,8 @@ impl Serialize<GAME_SERIALIZED_LEN> for Game {
             game.current_round as Field,
         ]
     }
-}
 
-impl Deserialize<GAME_SERIALIZED_LEN> for Game {
-    fn deserialize(fields: [Field; GAME_SERIALIZED_LEN]) -> Game {
+    fn unpack(fields: [Field; GAME_SERIALIZED_LEN]) -> Game {
         let player1 = PlayerEntry::deserialize([fields[0], fields[1], fields[2]]);
         let player2 = PlayerEntry::deserialize([fields[3], fields[4], fields[5]]);
 

@@ -46,7 +46,7 @@ export async function bootstrapNetwork(
   const pxe = await createCompatibleClient(pxeUrl, debugLog);
 
   // setup a one-off account contract
-  const account = getSchnorrAccount(pxe, Fr.random(), Fq.random(), Fr.random());
+  const account = await getSchnorrAccount(pxe, Fr.random(), Fq.random(), Fr.random());
   const wallet = await account.deploy().getWallet();
 
   const l1Clients = createL1Clients(

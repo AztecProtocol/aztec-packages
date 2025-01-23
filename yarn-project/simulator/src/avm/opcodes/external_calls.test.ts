@@ -127,7 +127,7 @@ describe('External Calls', () => {
         selector: FunctionSelector.random(),
       });
       mockGetContractClass(worldStateDB, contractClass);
-      const contractInstance = makeContractInstanceFromClassId(contractClass.id);
+      const contractInstance = await makeContractInstanceFromClassId(contractClass.id);
       mockGetContractInstance(worldStateDB, contractInstance);
       mockNullifierExists(worldStateDB, contractInstance.address.toField());
 
@@ -180,7 +180,7 @@ describe('External Calls', () => {
         selector: FunctionSelector.random(),
       });
       mockGetContractClass(worldStateDB, contractClass);
-      const contractInstance = makeContractInstanceFromClassId(contractClass.id);
+      const contractInstance = await makeContractInstanceFromClassId(contractClass.id);
       mockGetContractInstance(worldStateDB, contractInstance);
       mockNullifierExists(worldStateDB, contractInstance.address.toField());
 
@@ -267,7 +267,7 @@ describe('External Calls', () => {
         selector: FunctionSelector.random(),
       });
       mockGetContractClass(worldStateDB, contractClass);
-      const contractInstance = makeContractInstanceFromClassId(contractClass.id);
+      const contractInstance = await makeContractInstanceFromClassId(contractClass.id);
       mockGetContractInstance(worldStateDB, contractInstance);
 
       const instruction = new StaticCall(

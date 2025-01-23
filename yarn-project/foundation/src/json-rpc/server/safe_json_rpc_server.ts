@@ -1,6 +1,6 @@
 import cors from '@koa/cors';
 import http from 'http';
-import Koa from 'koa';
+import { type default as Application, default as Koa } from 'koa';
 import bodyParser from 'koa-bodyparser';
 import compress from 'koa-compress';
 import Router from 'koa-router';
@@ -13,6 +13,15 @@ import { promiseWithResolvers } from '../../promise/utils.js';
 import { type ApiSchema, type ApiSchemaFor, parseWithOptionals, schemaHasMethod } from '../../schemas/index.js';
 import { jsonStringify } from '../convert.js';
 import { assert } from '../js_utils.js';
+
+export type DiagnosticsData = {
+  id: number | string | null;
+  method: string;
+  params: any[];
+  headers: http.IncomingHttpHeaders;
+};
+
+export type DiagnosticsMiddleware = (ctx: DiagnosticsData, next: () => Promise<void>) => Promise<void>;
 
 export class SafeJsonRpcServer {
   /**
@@ -31,6 +40,8 @@ export class SafeJsonRpcServer {
     private http200OnError = false,
     /** Health check function */
     private readonly healthCheck: StatusCheckFn = () => true,
+    /** Additional middlewares */
+    private extraMiddlewares: Application.Middleware[] = [],
     /** Logger */
     private log = createLogger('json-rpc:server'),
   ) {}
@@ -90,8 +101,11 @@ export class SafeJsonRpcServer {
       this.log.error(`Error on API handler: ${error}`);
     });
 
-    app.use(compress({ br: false } as any));
+    app.use(compress({ br: false }));
     app.use(jsonResponse);
+    for (const middleware of this.extraMiddlewares) {
+      app.use(middleware);
+    }
     app.use(exceptionHandler);
     app.use(bodyParser({ jsonLimit: '50mb', enableTypes: ['json'], detectJSON: () => true }));
     app.use(cors());
@@ -114,7 +128,9 @@ export class SafeJsonRpcServer {
       // Fail if not a registered function in the proxy
       if (typeof method !== 'string' || method === 'constructor' || !this.proxy.hasMethod(method)) {
         ctx.status = 400;
-        ctx.body = { jsonrpc, id, error: { code: -32601, message: `Method not found: ${method}` } };
+        const code = -32601;
+        const message = `Method not found: ${method}`;
+        ctx.body = { jsonrpc, id, error: { code, message } };
       } else {
         ctx.status = 200;
         const result = await this.proxy.call(method, params);
@@ -263,10 +279,11 @@ function makeAggregateHealthcheck(namedHandlers: NamespacedApiHandlers, log?: Lo
   };
 }
 
-type SafeJsonRpcServerOptions = {
+export type SafeJsonRpcServerOptions = {
   http200OnError: boolean;
   healthCheck?: StatusCheckFn;
   log?: Logger;
+  middlewares?: Application.Middleware[];
 };
 
 /**
@@ -276,25 +293,24 @@ type SafeJsonRpcServerOptions = {
  */
 export function createNamespacedSafeJsonRpcServer(
   handlers: NamespacedApiHandlers,
-  options: Omit<SafeJsonRpcServerOptions, 'healthcheck'> = {
-    http200OnError: false,
+  options: Partial<Omit<SafeJsonRpcServerOptions, 'healthcheck'>> = {
     log: createLogger('json-rpc:server'),
   },
 ): SafeJsonRpcServer {
-  const { http200OnError, log } = options;
+  const { middlewares, http200OnError, log } = options;
   const proxy = new NamespacedSafeJsonProxy(handlers);
   const healthCheck = makeAggregateHealthcheck(handlers, log);
-  return new SafeJsonRpcServer(proxy, http200OnError, healthCheck, log);
+  return new SafeJsonRpcServer(proxy, http200OnError, healthCheck, middlewares, log);
 }
 
 export function createSafeJsonRpcServer<T extends object = any>(
   handler: T,
   schema: ApiSchemaFor<T>,
-  options: SafeJsonRpcServerOptions = { http200OnError: false },
+  options: Partial<SafeJsonRpcServerOptions> = {},
 ) {
-  const { http200OnError, log, healthCheck } = options;
+  const { http200OnError, log, healthCheck, middlewares: extraMiddlewares } = options;
   const proxy = new SafeJsonProxy(handler, schema);
-  return new SafeJsonRpcServer(proxy, http200OnError, healthCheck, log);
+  return new SafeJsonRpcServer(proxy, http200OnError, healthCheck, extraMiddlewares, log);
 }
 
 /**
