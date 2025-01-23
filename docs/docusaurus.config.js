@@ -39,7 +39,7 @@ const config = {
   markdown: {
     mermaid: true,
   },
-  themes: ["@docusaurus/theme-mermaid"],
+  themes: ["@docusaurus/theme-mermaid", "docusaurus-theme-search-typesense"],
   presets: [
     [
       "@docusaurus/preset-classic",
@@ -55,7 +55,10 @@ const config = {
             );
           },
           routeBasePath: "/",
-          include: ["**/*.{md,mdx}"],
+          include: process.env.SHOW_PROTOCOL_SPECS
+            ? ['**/*.{md,mdx}']
+            : ['**/*.{md,mdx}', '!protocol-specs/**'],
+
           remarkPlugins: [math],
           rehypePlugins: [
             [
@@ -193,14 +196,19 @@ const config = {
         },
       ],
       image: "img/docs-preview-image.png",
-      algolia: {
-        appId: "CL4NK79B0W",
-        apiKey: "21d89dadaa37a4d1b6bf4b17978dcf7f",
-        indexName: "aztec",
+      typesense: {
+        typesenseCollectionName: "aztec-docs",
+        typesenseServerConfig: {
+          nodes: [
+            {
+              host: "cpk69vuom0ilr4abp.a1.typesense.net",
+              port: 443,
+              protocol: "https",
+            },
+          ],
+          apiKey: "gpH8o2YnqsOEj2jgtIMTULbtHi1kZ2X3", // public search-only api key, safe to commit
+        },
         contextualSearch: true,
-        customRanking: [
-          { asc: 'importance' },
-        ],
       },
       colorMode: {
         defaultMode: "light",
@@ -223,9 +231,9 @@ const config = {
         items: [
           {
             type: "doc",
-            docId: "aztec/overview",
+            docId: "index",
             position: "left",
-            label: "Concepts",
+            label: "Learn",
           },
           {
             type: "docSidebar",
@@ -235,15 +243,9 @@ const config = {
           },
           {
             type: "docSidebar",
-            sidebarId: "tutorialsSidebar",
-            position: "left",
-            label: "Examples",
-          },
-          {
-            type: "docSidebar",
             sidebarId: "referenceSidebar",
             position: "left",
-            label: "References",
+            label: "Reference",
           },
           {
             type: "dropdown",
@@ -254,6 +256,13 @@ const config = {
                 type: "html",
                 value: '<span class="dropdown-subtitle">GitHub</span>',
                 className: "dropdown-subtitle",
+              },
+              {
+                to: "https://github.com/AztecProtocol/aztec-starter",
+                label: "Aztec Starter repo",
+                target: "_blank",
+                rel: "noopener noreferrer",
+                className: "github-item",
               },
               {
                 to: "https://github.com/AztecProtocol/aztec-packages",
@@ -293,16 +302,17 @@ const config = {
               },
               {
                 type: "docSidebar",
-                sidebarId: "protocolSpecSidebar",
-                label: "Protocol Specification",
-                className: "no-external-icon",
-              },
-              {
-                type: "docSidebar",
                 sidebarId: "roadmapSidebar",
                 label: "Roadmap",
                 className: "no-external-icon",
               },
+              ...(process.env.SHOW_PROTOCOL_SPECS ?
+              [{
+                type: "docSidebar",
+                sidebarId: "protocolSpecSidebar",
+                label: "Protocol Specification",
+                className: "no-external-icon",
+              }] : []),
               {
                 to: "https://noir-lang.org/docs",
                 label: "Noir docs",
@@ -343,7 +353,7 @@ const config = {
               },
               {
                 label: "Developer Getting Started Guide",
-                to: "/guides/developer_guides/getting_started",
+                to: "/guides/getting_started",
               },
               {
                 label: "Aztec.nr",

@@ -1,5 +1,5 @@
 import { EthAddress } from '@aztec/circuits.js';
-import { createDebugLogger } from '@aztec/foundation/log';
+import { createLogger } from '@aztec/foundation/log';
 import { IERC20Abi, TestERC20Abi } from '@aztec/l1-artifacts';
 
 import {
@@ -21,7 +21,7 @@ const MIN_ALLOWANCE = 1n << 255n;
 
 export class TokenContract {
   private token: GetContractReturnType<typeof IERC20Abi, WalletClient<HttpTransport, Chain, PrivateKeyAccount>>;
-  private logger = createDebugLogger('aztec:prover-node:token-contract');
+  private logger = createLogger('prover-node:token-contract');
 
   constructor(
     private readonly client: Client<

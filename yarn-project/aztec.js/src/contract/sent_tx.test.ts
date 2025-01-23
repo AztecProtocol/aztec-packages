@@ -1,4 +1,5 @@
 import { type PXE, TxHash, type TxReceipt, TxStatus } from '@aztec/circuit-types';
+import { Fr } from '@aztec/circuits.js';
 
 import { type MockProxy, mock } from 'jest-mock-extended';
 
@@ -12,7 +13,7 @@ describe('SentTx', () => {
 
   beforeEach(() => {
     pxe = mock();
-    txHashPromise = Promise.resolve(TxHash.fromBigInt(1n));
+    txHashPromise = Promise.resolve(new TxHash(new Fr(1n)));
     sentTx = new SentTx(pxe, txHashPromise);
   });
 
@@ -23,22 +24,8 @@ describe('SentTx', () => {
       pxe.getTxReceipt.mockResolvedValue(txReceipt);
     });
 
-    it('waits for all notes of the accounts to be available', async () => {
-      pxe.getSyncStatus.mockResolvedValueOnce({ blocks: 25 }).mockResolvedValueOnce({ blocks: 25 });
-
-      const actual = await sentTx.wait({ timeout: 1, interval: 0.4 });
-      expect(actual).toEqual(txReceipt);
-    });
-
-    it('does not wait for notes sync', async () => {
-      pxe.getSyncStatus.mockResolvedValue({ blocks: 19 });
-      const actual = await sentTx.wait({ timeout: 1, interval: 0.4, waitForNotesAvailable: false });
-      expect(actual).toEqual(txReceipt);
-    });
-
     it('throws if tx is dropped', async () => {
       pxe.getTxReceipt.mockResolvedValue({ ...txReceipt, status: TxStatus.DROPPED } as TxReceipt);
-      pxe.getSyncStatus.mockResolvedValue({ blocks: 19 });
       await expect(sentTx.wait({ timeout: 1, interval: 0.4, ignoreDroppedReceiptsFor: 0 })).rejects.toThrow(/dropped/);
     });
 

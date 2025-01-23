@@ -161,15 +161,7 @@ void LMDBTreeStore::write_block_index_data(const block_number_t& blockNumber,
         msgpack::unpack((const char*)data.data(), data.size()).get().convert(payload);
     }
 
-    // Double check it's not already present (it shouldn't be)
-    // We then add the block number and sort
-    // Sorting shouldn't be necessary as we add blocks in ascending order, but we will make sure
-    // Sorting here and when we unwind blocks means that looking up the block number for an index becomes O(1)
-    // These lookups are much more frequent than adds or deletes so we take the hit here
-    if (!payload.contains(blockNumber)) {
-        payload.blockNumbers.emplace_back(blockNumber);
-        payload.sort();
-    }
+    payload.add_block(blockNumber);
 
     // Write the new payload back down
     msgpack::sbuffer buffer;
@@ -189,11 +181,11 @@ bool LMDBTreeStore::find_block_for_index(const index_t& index, block_number_t& b
     }
     BlockIndexPayload payload;
     msgpack::unpack((const char*)data.data(), data.size()).get().convert(payload);
-    if (payload.blockNumbers.empty()) {
+    if (payload.is_empty()) {
         return false;
     }
     // The block numbers are sorted so we simply return the lowest
-    blockNumber = payload.blockNumbers[0];
+    blockNumber = payload.get_min_block_number();
     return true;
 }
 
@@ -217,7 +209,7 @@ void LMDBTreeStore::delete_block_index(const index_t& sizeAtBlock,
     payload.delete_block(blockNumber);
 
     // if it's now empty, delete it
-    if (payload.blockNumbers.empty()) {
+    if (payload.is_empty()) {
         tx.delete_value(key, *_indexToBlockDatabase);
         return;
     }

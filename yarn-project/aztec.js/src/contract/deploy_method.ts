@@ -100,7 +100,7 @@ export class DeployMethod<TContract extends ContractBase = Contract> extends Bas
     // in case the initializer is public. This hints at the need of having "transient" contracts scoped to a
     // simulation, so we can run the simulation with a set of contracts, but only "commit" them to the wallet
     // once this tx has gone through.
-    await this.wallet.registerContract({ artifact: this.artifact, instance: this.getInstance(options) });
+    await this.wallet.registerContract({ artifact: this.artifact, instance: await this.getInstance(options) });
 
     const bootstrap = await this.getInitializeFunctionCalls(options);
 
@@ -110,10 +110,10 @@ export class DeployMethod<TContract extends ContractBase = Contract> extends Bas
 
     const calls = [...deployment.calls, ...bootstrap.calls];
     const authWitnesses = [...(deployment.authWitnesses ?? []), ...(bootstrap.authWitnesses ?? [])];
-    const packedArguments = [...(deployment.packedArguments ?? []), ...(bootstrap.packedArguments ?? [])];
+    const hashedArguments = [...(deployment.hashedArguments ?? []), ...(bootstrap.hashedArguments ?? [])];
     const { cancellable, nonce, fee: userFee } = options;
 
-    const request = { calls, authWitnesses, packedArguments, cancellable, fee: userFee, nonce };
+    const request = { calls, authWitnesses, hashedArguments, cancellable, fee: userFee, nonce };
 
     const fee = await this.getFeeOptions(request);
     return { ...request, fee };
@@ -124,7 +124,7 @@ export class DeployMethod<TContract extends ContractBase = Contract> extends Bas
    * @param options - Deployment options.
    */
   public async register(options: DeployOptions = {}): Promise<TContract> {
-    const instance = this.getInstance(options);
+    const instance = await this.getInstance(options);
     await this.wallet.registerContract({ artifact: this.artifact, instance });
     return this.postDeployCtor(instance.address, this.wallet);
   }
@@ -136,11 +136,11 @@ export class DeployMethod<TContract extends ContractBase = Contract> extends Bas
    */
   protected async getDeploymentFunctionCalls(
     options: DeployOptions = {},
-  ): Promise<Pick<ExecutionRequestInit, 'calls' | 'authWitnesses' | 'packedArguments'>> {
+  ): Promise<Pick<ExecutionRequestInit, 'calls' | 'authWitnesses' | 'hashedArguments'>> {
     const calls: FunctionCall[] = [];
 
     // Set contract instance object so it's available for populating the DeploySendTx object
-    const instance = this.getInstance(options);
+    const instance = await this.getInstance(options);
 
     // Obtain contract class from artifact and check it matches the reported one by the instance.
     // TODO(@spalladino): We're unnecessarily calculating the contract class multiple times here.
@@ -167,7 +167,8 @@ export class DeployMethod<TContract extends ContractBase = Contract> extends Bas
 
     // Deploy the contract via the instance deployer.
     if (!options.skipPublicDeployment) {
-      calls.push(deployInstance(this.wallet, instance).request());
+      const deploymentInteraction = await deployInstance(this.wallet, instance);
+      calls.push(deploymentInteraction.request());
     }
 
     return { calls };
@@ -178,10 +179,10 @@ export class DeployMethod<TContract extends ContractBase = Contract> extends Bas
    * @param options - Deployment options.
    * @returns - An array of function calls.
    */
-  protected getInitializeFunctionCalls(
+  protected async getInitializeFunctionCalls(
     options: DeployOptions,
-  ): Promise<Pick<ExecutionRequestInit, 'calls' | 'authWitnesses' | 'packedArguments'>> {
-    const { address } = this.getInstance(options);
+  ): Promise<Pick<ExecutionRequestInit, 'calls' | 'authWitnesses' | 'hashedArguments'>> {
+    const { address } = await this.getInstance(options);
     const calls: FunctionCall[] = [];
     if (this.constructorArtifact && !options.skipInitialization) {
       const constructorCall = new ContractFunctionInteraction(
@@ -192,7 +193,7 @@ export class DeployMethod<TContract extends ContractBase = Contract> extends Bas
       );
       calls.push(constructorCall.request());
     }
-    return Promise.resolve({ calls });
+    return { calls };
   }
 
   /**
@@ -205,11 +206,8 @@ export class DeployMethod<TContract extends ContractBase = Contract> extends Bas
    */
   public override send(options: DeployOptions = {}): DeploySentTx<TContract> {
     const txHashPromise = super.send(options).getTxHash();
-    const instance = this.getInstance(options);
-    this.log.debug(
-      `Sent deployment tx of ${this.artifact.name} contract with deployment address ${instance.address.toString()}`,
-    );
-    return new DeploySentTx(this.wallet, txHashPromise, this.postDeployCtor, instance);
+    this.log.debug(`Sent deployment tx of ${this.artifact.name} contract`);
+    return new DeploySentTx(this.wallet, txHashPromise, this.postDeployCtor, () => this.getInstance(options));
   }
 
   /**
@@ -218,9 +216,9 @@ export class DeployMethod<TContract extends ContractBase = Contract> extends Bas
    * @param options - An object containing various deployment options.
    * @returns An instance object.
    */
-  public getInstance(options: DeployOptions = {}): ContractInstanceWithAddress {
+  public async getInstance(options: DeployOptions = {}): Promise<ContractInstanceWithAddress> {
     if (!this.instance) {
-      this.instance = getContractInstanceFromDeployParams(this.artifact, {
+      this.instance = await getContractInstanceFromDeployParams(this.artifact, {
         constructorArgs: this.args,
         salt: options.contractAddressSalt,
         publicKeys: this.publicKeys,
@@ -238,8 +236,9 @@ export class DeployMethod<TContract extends ContractBase = Contract> extends Bas
    */
   public override async prove(options: DeployOptions): Promise<DeployProvenTx<TContract>> {
     const txProvingResult = await this.proveInternal(options);
-    const instance = this.getInstance(options);
-    return new DeployProvenTx(this.wallet, txProvingResult.toTx(), this.postDeployCtor, instance);
+    return new DeployProvenTx(this.wallet, txProvingResult.toTx(), this.postDeployCtor, () =>
+      this.getInstance(options),
+    );
   }
 
   /**

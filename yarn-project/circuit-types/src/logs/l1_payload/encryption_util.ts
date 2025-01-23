@@ -1,7 +1,7 @@
 import { type GrumpkinScalar, type PublicKey } from '@aztec/circuits.js';
 import { Aes128 } from '@aztec/circuits.js/barretenberg';
 
-import { deriveDiffieHellmanAESSecret } from './shared_secret_derivation.js';
+import { deriveAESSecret } from './shared_secret_derivation.js';
 
 /**
  * Encrypts the plaintext using the secret key and public key
@@ -12,13 +12,13 @@ import { deriveDiffieHellmanAESSecret } from './shared_secret_derivation.js';
  * @param deriveSecret - Function to derive the AES secret from the ephemeral secret key and public key
  * @returns The ciphertext
  */
-export function encrypt(
+export async function encrypt(
   plaintext: Buffer,
   secret: GrumpkinScalar,
   publicKey: PublicKey,
-  deriveSecret: (secret: GrumpkinScalar, publicKey: PublicKey) => Buffer = deriveDiffieHellmanAESSecret,
-): Buffer {
-  const aesSecret = deriveSecret(secret, publicKey);
+  deriveSecret: (secret: GrumpkinScalar, publicKey: PublicKey) => Promise<Buffer> = deriveAESSecret,
+): Promise<Buffer> {
+  const aesSecret = await deriveSecret(secret, publicKey);
   const key = aesSecret.subarray(0, 16);
   const iv = aesSecret.subarray(16, 32);
 
@@ -34,13 +34,13 @@ export function encrypt(
  * @param deriveSecret - Function to derive the AES secret from the ephemeral secret key and public key
  * @returns
  */
-export function decrypt(
+export async function decrypt(
   ciphertext: Buffer,
   secret: GrumpkinScalar,
   publicKey: PublicKey,
-  deriveSecret: (secret: GrumpkinScalar, publicKey: PublicKey) => Buffer = deriveDiffieHellmanAESSecret,
-): Buffer {
-  const aesSecret = deriveSecret(secret, publicKey);
+  deriveSecret: (secret: GrumpkinScalar, publicKey: PublicKey) => Promise<Buffer> = deriveAESSecret,
+): Promise<Buffer> {
+  const aesSecret = await deriveSecret(secret, publicKey);
   const key = aesSecret.subarray(0, 16);
   const iv = aesSecret.subarray(16, 32);
 

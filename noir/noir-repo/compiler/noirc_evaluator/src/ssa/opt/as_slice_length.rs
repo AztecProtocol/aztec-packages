@@ -2,7 +2,7 @@ use crate::ssa::{
     ir::{
         function::Function,
         instruction::{Instruction, InstructionId, Intrinsic},
-        types::Type,
+        types::{NumericType, Type},
         value::Value,
     },
     ssa_gen::Ssa,
@@ -33,7 +33,7 @@ impl Function {
     }
 }
 
-fn known_slice_lengths(func: &Function) -> HashMap<InstructionId, usize> {
+fn known_slice_lengths(func: &Function) -> HashMap<InstructionId, u32> {
     let mut known_slice_lengths = HashMap::default();
     for block_id in func.reachable_blocks() {
         let block = &func.dfg[block_id];
@@ -61,7 +61,7 @@ fn known_slice_lengths(func: &Function) -> HashMap<InstructionId, usize> {
 
 fn replace_known_slice_lengths(
     func: &mut Function,
-    known_slice_lengths: HashMap<InstructionId, usize>,
+    known_slice_lengths: HashMap<InstructionId, u32>,
 ) {
     known_slice_lengths.into_iter().for_each(|(instruction_id, known_length)| {
         let call_returns = func.dfg.instruction_results(instruction_id);
@@ -71,7 +71,7 @@ fn replace_known_slice_lengths(
         // This isn't strictly necessary as a new result will be defined the next time for which the instruction
         // is reinserted but this avoids leaving the program in an invalid state.
         func.dfg.replace_result(instruction_id, original_slice_length);
-        let known_length = func.dfg.make_constant(known_length.into(), Type::length_type());
+        let known_length = func.dfg.make_constant(known_length.into(), NumericType::length_type());
         func.dfg.set_value_from_id(original_slice_length, known_length);
     });
 }

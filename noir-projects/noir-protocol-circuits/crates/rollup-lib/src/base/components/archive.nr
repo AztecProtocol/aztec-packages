@@ -1,7 +1,8 @@
 use types::{
+    block_header::BlockHeader,
     constants::ARCHIVE_HEIGHT,
-    header::Header,
     merkle_tree::membership::{assert_check_membership, MembershipWitness},
+    traits::Hash,
 };
 
 // Check that the block header used is a member of the blocks tree --> since the block header
@@ -9,7 +10,7 @@ use types::{
 pub(crate) fn perform_archive_membership_check(
     archive_root: Field,
     previous_block_hash_witness: MembershipWitness<ARCHIVE_HEIGHT>,
-    header: Header,
+    header: BlockHeader,
 ) {
     // Rebuild the block hash
     let previous_block_hash = header.hash();

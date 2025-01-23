@@ -90,6 +90,30 @@ fn test_make_composite_array() {
 }
 
 #[test]
+fn test_make_byte_array_with_string_literal() {
+    let src = "
+        acir(inline) fn main f0 {
+          b0():
+            v9 = make_array b\"Hello world!\"
+            return v9
+        }
+        ";
+    assert_ssa_roundtrip(src);
+}
+
+#[test]
+fn test_make_byte_slice_with_string_literal() {
+    let src = "
+        acir(inline) fn main f0 {
+          b0():
+            v9 = make_array &b\"Hello world!\"
+            return v9
+        }
+        ";
+    assert_ssa_roundtrip(src);
+}
+
+#[test]
 fn test_block_parameters() {
     let src = "
         acir(inline) fn main f0 {
@@ -119,9 +143,9 @@ fn test_jmpif() {
         acir(inline) fn main f0 {
           b0(v0: Field):
             jmpif v0 then: b2, else: b1
-          b2():
-            return
           b1():
+            return
+          b2():
             return
         }
         ";
@@ -228,14 +252,14 @@ fn test_constrain_with_static_message() {
 
 #[test]
 fn test_constrain_with_dynamic_message() {
-    let src = "
+    let src = r#"
         acir(inline) fn main f0 {
           b0(v0: Field, v1: Field):
-            v7 = make_array [u8 123, u8 120, u8 125, u8 32, u8 123, u8 121, u8 125] : [u8; 7]
+            v7 = make_array b"{x} {y}"
             constrain v0 == Field 1, data v7, u32 2, v0, v1
             return
         }
-        ";
+        "#;
     assert_ssa_roundtrip(src);
 }
 
@@ -302,11 +326,27 @@ fn test_array_get_set_bug() {
 
 #[test]
 fn test_binary() {
-    for op in ["add", "sub", "mul", "div", "eq", "mod", "lt", "and", "or", "xor", "shl", "shr"] {
+    for op in [
+        "add",
+        "sub",
+        "mul",
+        "div",
+        "eq",
+        "mod",
+        "lt",
+        "and",
+        "or",
+        "xor",
+        "shl",
+        "shr",
+        "unchecked_add",
+        "unchecked_sub",
+        "unchecked_mul",
+    ] {
         let src = format!(
             "
             acir(inline) fn main f0 {{
-              b0(v0: Field, v1: Field):
+              b0(v0: u32, v1: u32):
                 v2 = {op} v0, v1
                 return
             }}
@@ -391,7 +431,7 @@ fn test_store() {
 #[test]
 fn test_inc_rc() {
     let src = "
-        acir(inline) fn main f0 {
+        brillig(inline) fn main f0 {
           b0(v0: [Field; 3]):
             inc_rc v0
             return
@@ -403,7 +443,7 @@ fn test_inc_rc() {
 #[test]
 fn test_dec_rc() {
     let src = "
-        acir(inline) fn main f0 {
+        brillig(inline) fn main f0 {
           b0(v0: [Field; 3]):
             dec_rc v0
             return
@@ -474,6 +514,18 @@ fn test_function_type() {
           b0():
             v0 = allocate -> &mut function
             return
+        }
+        ";
+    assert_ssa_roundtrip(src);
+}
+
+#[test]
+fn test_does_not_simplify() {
+    let src = "
+        acir(inline) fn main f0 {
+          b0():
+            v2 = add Field 1, Field 2
+            return v2
         }
         ";
     assert_ssa_roundtrip(src);

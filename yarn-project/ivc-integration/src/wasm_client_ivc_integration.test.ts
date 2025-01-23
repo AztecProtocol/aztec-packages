@@ -1,16 +1,22 @@
-import { createDebugLogger } from '@aztec/foundation/log';
+import { createLogger } from '@aztec/foundation/log';
 
 import { jest } from '@jest/globals';
-import { ungzip } from 'pako';
 
 import {
   MOCK_MAX_COMMITMENTS_PER_TX,
   MockAppCreatorCircuit,
+  MockAppCreatorVk,
   MockAppReaderCircuit,
+  MockAppReaderVk,
   MockPrivateKernelInitCircuit,
+  MockPrivateKernelInitVk,
   MockPrivateKernelInnerCircuit,
+  MockPrivateKernelInnerVk,
   MockPrivateKernelResetCircuit,
+  MockPrivateKernelResetVk,
   MockPrivateKernelTailCircuit,
+  getVkAsFields,
+  proveThenVerifyAztecClient,
   witnessGenCreatorAppMockCircuit,
   witnessGenMockPrivateKernelInitCircuit,
   witnessGenMockPrivateKernelInnerCircuit,
@@ -21,39 +27,12 @@ import {
 
 /* eslint-disable camelcase */
 
-const logger = createDebugLogger('aztec:clientivc-integration');
+const logger = createLogger('ivc-integration:test:wasm');
 
 jest.setTimeout(120_000);
 
 describe('Client IVC Integration', () => {
   beforeEach(async () => {});
-
-  function base64ToUint8Array(base64: string) {
-    const binaryString = atob(base64);
-    const len = binaryString.length;
-    const bytes = new Uint8Array(len);
-    for (let i = 0; i < len; i++) {
-      bytes[i] = binaryString.charCodeAt(i);
-    }
-    return bytes;
-  }
-
-  async function proveAndVerifyAztecClient(
-    witnessStack: Uint8Array[],
-    bytecodes: string[],
-    threads?: number,
-  ): Promise<boolean> {
-    const { AztecClientBackend } = await import('@aztec/bb.js');
-    const backend = new AztecClientBackend(
-      bytecodes.map(base64ToUint8Array).map((arr: Uint8Array) => ungzip(arr)),
-      { threads },
-    );
-
-    const verified = await backend.proveAndVerify(witnessStack.map((arr: Uint8Array) => ungzip(arr)));
-    logger.debug(`finished running proveAndVerify ${verified}`);
-    await backend.destroy();
-    return verified;
-  }
 
   // This test will verify a client IVC proof of a simple tx:
   // 1. Run a mock app that creates two commitments
@@ -70,11 +49,13 @@ describe('Client IVC Integration', () => {
     const initWitnessGenResult = await witnessGenMockPrivateKernelInitCircuit({
       app_inputs: appWitnessGenResult.publicInputs,
       tx,
+      app_vk: getVkAsFields(MockAppCreatorVk),
     });
     logger.debug('generated mock private kernel init witness');
 
     const tailWitnessGenResult = await witnessGenMockPrivateKernelTailCircuit({
       prev_kernel_public_inputs: initWitnessGenResult.publicInputs,
+      kernel_vk: getVkAsFields(MockPrivateKernelInitVk),
     });
     logger.debug('generated mock private kernel tail witness');
 
@@ -88,8 +69,8 @@ describe('Client IVC Integration', () => {
     const witnessStack = [appWitnessGenResult.witness, initWitnessGenResult.witness, tailWitnessGenResult.witness];
     logger.debug('built witness stack');
 
-    const verifyResult = await proveAndVerifyAztecClient(witnessStack, bytecodes);
-    logger.debug(`generated and verified proof. result: ${verifyResult}`);
+    const verifyResult = await proveThenVerifyAztecClient(bytecodes, witnessStack);
+    logger.debug(`generated then verified proof. result: ${verifyResult}`);
 
     expect(verifyResult).toEqual(true);
   });
@@ -112,10 +93,13 @@ describe('Client IVC Integration', () => {
     const initWitnessGenResult = await witnessGenMockPrivateKernelInitCircuit({
       app_inputs: creatorAppWitnessGenResult.publicInputs,
       tx,
+      app_vk: getVkAsFields(MockAppCreatorVk),
     });
     const innerWitnessGenResult = await witnessGenMockPrivateKernelInnerCircuit({
       prev_kernel_public_inputs: initWitnessGenResult.publicInputs,
       app_inputs: readerAppWitnessGenResult.publicInputs,
+      app_vk: getVkAsFields(MockAppReaderVk),
+      kernel_vk: getVkAsFields(MockPrivateKernelInitVk),
     });
 
     const resetWitnessGenResult = await witnessGenMockPrivateKernelResetCircuit({
@@ -126,10 +110,12 @@ describe('Client IVC Integration', () => {
         MOCK_MAX_COMMITMENTS_PER_TX.toString(),
         MOCK_MAX_COMMITMENTS_PER_TX.toString(),
       ],
+      kernel_vk: getVkAsFields(MockPrivateKernelInnerVk),
     });
 
     const tailWitnessGenResult = await witnessGenMockPrivateKernelTailCircuit({
       prev_kernel_public_inputs: resetWitnessGenResult.publicInputs,
+      kernel_vk: getVkAsFields(MockPrivateKernelResetVk),
     });
 
     // Create client IVC proof
@@ -150,8 +136,8 @@ describe('Client IVC Integration', () => {
       tailWitnessGenResult.witness,
     ];
 
-    const verifyResult = await proveAndVerifyAztecClient(witnessStack, bytecodes);
-    logger.debug(`generated and verified proof. result: ${verifyResult}`);
+    const verifyResult = await proveThenVerifyAztecClient(bytecodes, witnessStack);
+    logger.debug(`generated then verified proof. result: ${verifyResult}`);
 
     expect(verifyResult).toEqual(true);
   });

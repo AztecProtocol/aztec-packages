@@ -8,3 +8,4 @@ boxes/*/src/artifacts/*.ts
 boxes/*/src/contracts/target/*.json
 *.md
 end-to-end/src/fixtures/dumps/*.json
+end-to-end/src/web/main.js

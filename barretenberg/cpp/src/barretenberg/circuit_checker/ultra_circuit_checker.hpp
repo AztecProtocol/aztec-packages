@@ -64,6 +64,11 @@ class UltraCircuitChecker {
                             MemoryCheckData& memory_data,
                             LookupHashTable& lookup_hash_table);
 
+#ifdef ULTRA_FUZZ
+    template <typename Builder> static bool relaxed_check_aux_relation(Builder& builder);
+    template <typename Builder> static bool relaxed_check_delta_range_relation(Builder& builder);
+#endif
+
     /**
      * @brief Check that a given relation is satisfied for the provided inputs corresponding to a single row
      * @note Assumes the relation constraints should evaluate to zero on each row and thus does not apply to linearly

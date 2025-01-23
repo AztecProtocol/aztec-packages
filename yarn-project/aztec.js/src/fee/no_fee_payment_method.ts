@@ -10,7 +10,7 @@ export class NoFeePaymentMethod implements FeePaymentMethod {
   constructor() {}
 
   getAsset() {
-    return AztecAddress.ZERO;
+    return Promise.resolve(AztecAddress.ZERO);
   }
 
   getFunctionCalls(): Promise<FunctionCall[]> {

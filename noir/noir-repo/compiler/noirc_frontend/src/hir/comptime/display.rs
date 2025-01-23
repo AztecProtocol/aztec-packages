@@ -661,7 +661,7 @@ fn remove_interned_in_literal(interner: &NodeInterner, literal: Literal) -> Lite
         | Literal::Integer(_, _)
         | Literal::Str(_)
         | Literal::RawStr(_, _)
-        | Literal::FmtStr(_)
+        | Literal::FmtStr(_, _)
         | Literal::Unit => literal,
     }
 }
@@ -732,6 +732,9 @@ fn remove_interned_in_statement_kind(
             block: remove_interned_in_expression(interner, for_loop.block),
             ..for_loop
         }),
+        StatementKind::Loop(block) => {
+            StatementKind::Loop(remove_interned_in_expression(interner, block))
+        }
         StatementKind::Comptime(statement) => {
             StatementKind::Comptime(Box::new(remove_interned_in_statement(interner, *statement)))
         }

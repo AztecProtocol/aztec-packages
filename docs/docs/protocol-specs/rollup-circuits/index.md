@@ -33,7 +33,10 @@ And for the message parity we have:
 In the diagram the size of the tree is limited for demonstration purposes, but a larger tree would have more layers of merge rollups proofs. Exactly how many layers and what combination of `base` and/or `merge` circuits are consumed is based on filling a [wonky tree](../state/tree-implementations.md#wonky-merkle-trees) with N transactions.
 Circles mark the different types of proofs, while squares mark the different circuit types.
 
-```mermaid
+```mdx
+import { Mermaid } from '@docusaurus/theme-mermaid';
+
+<Mermaid>
 graph BT
     R_p((Root))
     R_c[Root]
@@ -136,6 +139,7 @@ graph BT
     style I1 fill:#1976D2;
     style I2 fill:#1976D2;
     style I3 fill:#1976D2;
+</Mermaid>
 ```
 
 To understand what the circuits are doing and what checks they need to apply it is useful to understand what data is going into the circuits and what data is coming out.
@@ -149,7 +153,10 @@ Note that the diagram does not include much of the operations for kernels, but m
 
 <!-- NOTE: If you're editing this diagram, there will be other diagrams (e.g. in the state / circuits sections) that will need to be updated too. There are also class definitions in other sections which will need to be updated. -->
 
-```mermaid
+```mdx
+import { Mermaid } from '@docusaurus/theme-mermaid';
+
+<Mermaid>
 classDiagram
 direction TB
 
@@ -426,7 +433,10 @@ If this is not the case, the kernel proof might be valid, but the state changes 
 It is therefore of the highest importance that the circuits ensure that the state is progressed correctly across circuit types and proofs.
 Logically, taking a few of the kernels from the above should be executed/proven as shown below, $k_n$ applied on top of the state that applied $k_{n-1}$
 
-```mermaid
+```mdx
+import { Mermaid } from '@docusaurus/theme-mermaid';
+
+<Mermaid>
 graph LR
     SM[State Machine]
     S0((State n-1))
@@ -468,7 +478,10 @@ We can do so by building merkle trees of partial "commitments", whose roots are 
 Below, we outline the `TxsHash` merkle tree that is based on the `TxEffect`s and a `OutHash` which is based on the `l2_to_l1_msgs` (cross-chain messages) for each transaction, with four transactions in this rollup.
 While the `TxsHash` implicitly includes the `OutHash` we need it separately such that it can be passed to the `Outbox` for consumption by the portals with minimal work.
 
-```mermaid
+```mdx
+import { Mermaid } from '@docusaurus/theme-mermaid';
+
+<Mermaid>
 graph BT
     R[TxsHash]
     M0[Hash 0-1]
@@ -502,7 +515,10 @@ graph BT
     K7 --> B3
 ```
 
-```mermaid
+```mdx
+import { Mermaid } from '@docusaurus/theme-mermaid';
+
+<Mermaid>
 graph BT
     R[OutHash]
     M0[Hash 0-1]
@@ -552,7 +568,10 @@ graph BT
     K15 --> K7
 ```
 
-```mermaid
+```mdx
+import { Mermaid } from '@docusaurus/theme-mermaid';
+
+<Mermaid>
 graph BT
     R[InHash]
     M0[Hash 0-1]

@@ -39,6 +39,7 @@ export default {
     path: resolve(dirname(fileURLToPath(import.meta.url)), './dest/browser'),
     filename: 'index.js',
     module: true,
+    globalObject: 'globalThis',
     library: {
       type: 'module',
     },

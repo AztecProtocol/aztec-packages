@@ -6,7 +6,7 @@ unconstrained fn assert_equal_after_conversion(original: ScheduledDelayChange<TE
     // We have to do explicit type annotations because Noir lacks turbofish support.
     // TODO: improve syntax once https://github.com/noir-lang/noir/issues/4710 is implemented.
     let converted: ScheduledDelayChange<TEST_INITIAL_DELAY> =
-        ScheduledDelayChange::deserialize((original).serialize());
+        ScheduledDelayChange::unpack(original.pack());
 
     assert_eq(original, converted); // This also tests the Eq impl
     assert_eq(original.pre, converted.pre);
@@ -15,7 +15,7 @@ unconstrained fn assert_equal_after_conversion(original: ScheduledDelayChange<TE
 }
 
 #[test]
-unconstrained fn test_serde() {
+unconstrained fn test_packable() {
     let pre = 1;
     let post = 2;
     let block_of_change = 50;
@@ -43,7 +43,7 @@ unconstrained fn test_serde() {
 }
 
 #[test]
-unconstrained fn test_serde_large_values() {
+unconstrained fn test_packable_large_values() {
     let max_u32: u64 = (1 << 32) - 1;
 
     let pre = max_u32 as u32;
@@ -81,7 +81,7 @@ unconstrained fn get_non_initial_delay_change(
 }
 
 unconstrained fn get_initial_delay_change() -> ScheduledDelayChange<TEST_INITIAL_DELAY> {
-    ScheduledDelayChange::deserialize([0])
+    ScheduledDelayChange::unpack([0])
 }
 
 #[test]

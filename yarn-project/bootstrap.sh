@@ -1,51 +1,102 @@
 #!/usr/bin/env bash
-[ -n "${BUILD_SYSTEM_DEBUG:-}" ] && set -x # conditionally trace
-set -eu
+source $(git rev-parse --show-toplevel)/ci3/source_bootstrap
 
-YELLOW="\033[93m"
-BLUE="\033[34m"
-GREEN="\033[32m"
-BOLD="\033[1m"
-RESET="\033[0m"
+TEST_FLAKES=${TEST_FLAKES:-0}
+cmd=${1:-}
 
-cd "$(dirname "$0")"
+hash=$(cache_content_hash \
+  ../noir/.rebuild_patterns \
+  ../{avm-transpiler,noir-projects,l1-contracts,yarn-project}/.rebuild_patterns \
+  ../barretenberg/*/.rebuild_patterns)
 
-CMD=${1:-}
+function build {
+  github_group "yarn-project build"
 
-if [ "$CMD" = "clean" ]; then
-  git clean -fdx
-  exit 0
-fi
+  # Generate l1-artifacts before creating lock file
+  (cd l1-artifacts && ./scripts/generate-artifacts.sh)
 
-# Generate l1-artifacts before creating lock file
-(cd l1-artifacts && bash ./scripts/generate-artifacts.sh)
+  # Fast build does not delete everything first.
+  # It regenerates all generated code, then performs an incremental tsc build.
+  echo -e "${blue}${bold}Attempting fast incremental build...${reset}"
+  denoise yarn install
 
-if [ "$CMD" = "full" ]; then
-  yarn install --immutable
-  yarn build
-  exit 0
-elif [ "$CMD" = "fast-only" ]; then
-  # Unlike fast build below, we don't fall back to a normal build.
-  # This is used when we want to ensure that fast build works.
-  yarn install --immutable
-  yarn build:fast
-  exit 0
-elif [[ -n "$CMD" && "$CMD" != "fast" ]]; then
-  echo "Unknown command: $CMD"
-  exit 1
-fi
+  # We append a cache busting number we can bump if need be.
+  tar_file=yarn-project-$hash.tar.gz
 
-# Fast build does not delete everything first.
-# It regenerates all generated code, then performs an incremental tsc build.
-echo -e "${BLUE}${BOLD}Attempting fast incremental build...${RESET}"
-echo
-yarn install --immutable
+  if ! cache_download $tar_file; then
+    case "${1:-}" in
+      "fast")
+        yarn build:fast
+        ;;
+      "full")
+        yarn build
+        ;;
+      *)
+        if ! yarn build:fast; then
+          echo -e "${yellow}${bold}Incremental build failed for some reason, attempting full build...${reset}\n"
+          yarn build
+        fi
+    esac
 
-if ! yarn build:fast; then
-  echo -e "${YELLOW}${BOLD}Incremental build failed for some reason, attempting full build...${RESET}"
-  echo
-  yarn build
-fi
+    denoise 'cd end-to-end && yarn build:web'
 
-echo
-echo -e "${GREEN}Yarn project successfully built!${RESET}"
+    # Upload common patterns for artifacts: dest, fixtures, build, artifacts, generated
+    # Then one-off cases. If you've written into src, you need to update this.
+    cache_upload $tar_file */{dest,fixtures,build,artifacts,generated} \
+      circuit-types/src/test/artifacts \
+      end-to-end/src/web/{main.js,main.js.LICENSE.txt} \
+      ivc-integration/src/types/ \
+      noir-contracts.js/{codegenCache.json,src/} \
+      noir-protocol-circuits-types/src/{private_kernel_reset_data.ts,private_kernel_reset_vks.ts,private_kernel_reset_types.ts,client_artifacts_helper.ts,types/} \
+      pxe/src/config/package_info.ts \
+      protocol-contracts/src/protocol_contract_data.ts
+    echo
+    echo -e "${green}Yarn project successfully built!${reset}"
+  fi
+  github_endgroup
+}
+
+function test {
+  test_should_run yarn-project-unit-tests-$hash || return 0
+
+  github_group "yarn-project test"
+  denoise yarn formatting
+  denoise yarn test
+  cache_upload_flag yarn-project-unit-tests-$hash
+  github_endgroup
+}
+
+case "$cmd" in
+  "clean")
+    git clean -fdx
+    ;;
+  "full")
+    build full
+    ;;
+  "fast-only")
+    build fast
+    ;;
+  ""|"fast")
+    build
+    ;;
+  "test")
+    test
+    ;;
+  "test-cmds")
+    for test in !(end-to-end|kv-store|bb-prover|prover-client)/dest/**/*.test.js; do
+      echo yarn-project/scripts/run_test.sh $test
+    done
+    ./end-to-end/bootstrap.sh test-cmds
+    ;;
+  "ci")
+    build full
+    test
+    ;;
+  "hash")
+    echo $hash
+    ;;
+  *)
+    echo "Unknown command: $cmd"
+    exit 1
+  ;;
+esac

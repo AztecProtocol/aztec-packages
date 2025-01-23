@@ -33,11 +33,12 @@ bool verify_ivc(ClientIVC::Proof& proof, ClientIVC& ivc)
 void perform_ivc_accumulation_rounds(size_t NUM_CIRCUITS,
                                      ClientIVC& ivc,
                                      auto& precomputed_vks,
-                                     const bool& mock_vk = false)
+                                     const bool& mock_vk = false,
+                                     const bool large_first_app = true)
 {
     ASSERT(precomputed_vks.size() == NUM_CIRCUITS); // ensure presence of a precomputed VK for each circuit
 
-    PrivateFunctionExecutionMockCircuitProducer circuit_producer;
+    PrivateFunctionExecutionMockCircuitProducer circuit_producer(large_first_app);
 
     for (size_t circuit_idx = 0; circuit_idx < NUM_CIRCUITS; ++circuit_idx) {
         MegaCircuitBuilder circuit;

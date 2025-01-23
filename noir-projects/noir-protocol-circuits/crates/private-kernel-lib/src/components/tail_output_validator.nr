@@ -1,48 +1,47 @@
-mod tail_output_hints;
+pub mod tail_output_hints;
 
 use crate::components::tail_output_composer::meter_gas_used;
 use dep::types::{
     abis::{
-        kernel_circuit_public_inputs::{KernelCircuitPublicInputs, PrivateKernelCircuitPublicInputs},
+        kernel_circuit_public_inputs::{
+            PrivateKernelCircuitPublicInputs, PrivateToRollupKernelCircuitPublicInputs,
+        },
         log_hash::ScopedLogHash,
         private_log::PrivateLogData,
         side_effect::scoped::Scoped,
     },
     messaging::l2_to_l1_message::ScopedL2ToL1Message,
-    traits::{is_empty, is_empty_array},
     utils::arrays::assert_exposed_sorted_transformed_value_array,
 };
 use tail_output_hints::{generate_tail_output_hints, TailOutputHints};
 
 pub struct TailOutputValidator {
-    output: KernelCircuitPublicInputs,
+    output: PrivateToRollupKernelCircuitPublicInputs,
     previous_kernel: PrivateKernelCircuitPublicInputs,
     hints: TailOutputHints,
 }
 
 impl TailOutputValidator {
     pub fn new(
-        output: KernelCircuitPublicInputs,
+        output: PrivateToRollupKernelCircuitPublicInputs,
         previous_kernel: PrivateKernelCircuitPublicInputs,
     ) -> Self {
         let hints = unsafe { generate_tail_output_hints(previous_kernel) };
+        TailOutputValidator::new_with_hints(output, previous_kernel, hints)
+    }
+
+    pub fn new_with_hints(
+        output: PrivateToRollupKernelCircuitPublicInputs,
+        previous_kernel: PrivateKernelCircuitPublicInputs,
+        hints: TailOutputHints,
+    ) -> Self {
         TailOutputValidator { output, previous_kernel, hints }
     }
 
     pub fn validate(self) {
-        self.validate_empty_values();
         self.validate_propagated_values();
         self.validate_propagated_sorted_values();
         self.validate_gas_used();
-    }
-
-    fn validate_empty_values(self) {
-        assert(is_empty(self.output.start_state), "start_state must be empty");
-        assert_eq(self.output.revert_code, 0, "revert_code must be empty");
-        assert(
-            is_empty_array(self.output.end.unencrypted_logs_hashes),
-            "unencrypted logs in private must be empty",
-        );
     }
 
     fn validate_propagated_values(self) {
@@ -66,7 +65,6 @@ impl TailOutputValidator {
             self.previous_kernel.constants.protocol_contract_tree_root,
             "mismatch protocol_contract_tree_root",
         );
-        assert(is_empty(self.output.constants.global_variables), "global_variables must be empty");
 
         assert_eq(
             self.output.rollup_validation_requests,

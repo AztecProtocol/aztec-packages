@@ -48,7 +48,7 @@ describe('e2e_cross_chain_messaging token_bridge_public', () => {
     // 2. Deposit tokens to the TokenPortal
     logger.verbose(`2. Deposit tokens to the TokenPortal`);
     const claim = await crossChainTestHarness.sendTokensToPortalPublic(bridgeAmount);
-    const msgHash = Fr.fromString(claim.messageHash);
+    const msgHash = Fr.fromHexString(claim.messageHash);
     expect(await crossChainTestHarness.getL1BalanceOf(ethAccount)).toBe(l1TokenBalance - bridgeAmount);
 
     // Wait for the message to be available for consumption
@@ -116,7 +116,7 @@ describe('e2e_cross_chain_messaging token_bridge_public', () => {
 
     await crossChainTestHarness.mintTokensOnL1(l1TokenBalance);
     const claim = await crossChainTestHarness.sendTokensToPortalPublic(bridgeAmount);
-    const msgHash = Fr.fromString(claim.messageHash);
+    const msgHash = Fr.fromHexString(claim.messageHash);
     expect(await crossChainTestHarness.getL1BalanceOf(ethAccount)).toBe(l1TokenBalance - bridgeAmount);
 
     await crossChainTestHarness.makeMessageConsumable(msgHash);

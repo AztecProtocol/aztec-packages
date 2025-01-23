@@ -1,0 +1,188 @@
+#!/usr/bin/env bash
+
+set -e
+
+# Colors and symbols
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+BLUE='\033[0;34m'
+NC='\033[0m'
+SUCCESS="✓"
+ERROR="✗"
+
+# Utility functions
+print_spinner() {
+    local pid=$1
+    local delay=0.1
+    local spinstr='|/-\'
+    while [ "$(ps a | awk '{print $1}' | grep $pid)" ]; do
+        local temp=${spinstr#?}
+        printf " [%c]  " "$spinstr"
+        local spinstr=$temp${spinstr%"$temp"}
+        sleep $delay
+        printf "\b\b\b\b\b\b"
+    done
+    printf "    \b\b\b\b"
+}
+
+get_bb_version_for_noir() {
+    local noir_version=$1
+    local url=""
+    local resolved_version=""
+
+    if [ "$noir_version" = "stable" ] || [ "$noir_version" = "nightly" ]; then
+        # Get releases from GitHub API
+        local releases=$(curl -s "https://api.github.com/repos/noir-lang/noir/releases")
+
+        if [ "$noir_version" = "stable" ]; then
+            resolved_version=$(echo "$releases" | grep -o '"tag_name": "[^"]*"' | grep -v "aztec\|nightly" | head -1 | cut -d'"' -f4)
+        else
+            resolved_version=$(echo "$releases" | grep -o '"tag_name": "nightly[^"]*"' | head -1 | cut -d'"' -f4)
+        fi
+
+        url="https://raw.githubusercontent.com/noir-lang/noir/${resolved_version}/scripts/install_bb.sh"
+    else
+        url="https://raw.githubusercontent.com/noir-lang/noir/v${noir_version}/scripts/install_bb.sh"
+    fi
+
+    # Extract BB version from install script
+    local install_script=$(curl -s "$url")
+    local bb_version=$(echo "$install_script" | grep 'VERSION=' | cut -d'"' -f2)
+    echo "$bb_version"
+}
+
+install_bb() {
+    local version=$1
+    local architecture=$(uname -m)
+    local platform=""
+
+    # Convert architecture names
+    if [ "$architecture" = "arm64" ]; then
+        architecture="aarch64"
+    elif [ "$architecture" = "x86_64" ]; then
+        architecture="x86_64"
+    else
+        printf "${RED}${ERROR} Unsupported architecture: ${architecture}${NC}\n"
+        exit 1
+    fi
+
+    # Determine platform
+    if [ "$(uname)" = "Darwin" ]; then
+        platform="apple-darwin"
+    elif [ "$(uname)" = "Linux" ]; then
+        platform="linux-gnu"
+    else
+        printf "${RED}${ERROR} Unsupported platform: $(uname)${NC}\n"
+        exit 1
+    fi
+
+    local home_dir=$HOME
+    local bb_path="${home_dir}/.bb"
+
+    printf "${BLUE}Installing to ${bb_path}${NC}\n"
+
+    # Create temporary directory
+    local temp_dir=$(mktemp -d)
+    local temp_tar="${temp_dir}/temp.tar.gz"
+
+    # Download and extract
+    local release_url="https://github.com/AztecProtocol/aztec-packages/releases/download/aztec-packages-v${version}"
+    local binary_url="${release_url}/barretenberg-${architecture}-${platform}.tar.gz"
+
+    curl -L "$binary_url" -o "$temp_tar"
+    mkdir -p "$bb_path"
+    tar xzf "$temp_tar" -C "$bb_path"
+    rm -rf "$temp_dir"
+
+    # Update shell configuration
+    update_shell_config "$bb_path"
+
+    printf "${GREEN}${SUCCESS} Installed barretenberg to ${bb_path}${NC}\n"
+}
+
+update_shell_config() {
+    local bb_bin_path=$1
+    local path_entry="export PATH=\"${bb_bin_path}:\$PATH\""
+
+    # Update various shell configs if they exist
+    if [ -f "${HOME}/.bashrc" ]; then
+        echo "$path_entry" >> "${HOME}/.bashrc"
+    fi
+
+    if [ -f "${HOME}/.zshrc" ]; then
+        echo "$path_entry" >> "${HOME}/.zshrc"
+    fi
+
+    if [ -f "${HOME}/.config/fish/config.fish" ]; then
+        echo "set -gx PATH ${bb_bin_path} \$PATH" >> "${HOME}/.config/fish/config.fish"
+    fi
+
+    # Update current session's PATH
+    export PATH="${bb_bin_path}:$PATH"
+}
+
+# Main script
+main() {
+    local version=""
+    local noir_version=""
+
+    # Parse arguments
+    while [[ $# -gt 0 ]]; do
+        case $1 in
+            -v|--version)
+                version="$2"
+                shift 2
+                ;;
+            -nv|--noir-version)
+                noir_version="$2"
+                shift 2
+                ;;
+            *)
+                printf "${RED}${ERROR} Unknown option: $1${NC}\n"
+                exit 1
+                ;;
+        esac
+    done
+
+    # If no version specified, try to get current noir version
+    if [ -z "$version" ] && [ -z "$noir_version" ]; then
+        noir_version="current"
+    fi
+
+    if [ "$noir_version" = "current" ]; then
+        printf "${BLUE}Querying noir version from nargo${NC}\n"
+        if ! command -v nargo &> /dev/null; then
+            printf "${RED}${ERROR} Could not get noir version from nargo --version. Please specify a version.${NC}\n"
+            exit 1
+        fi
+        noir_version=$(nargo --version | grep -o 'nargo version = [0-9]\+\.[0-9]\+\.[0-9]\+\(-[a-zA-Z]\+\.[0-9]\+\)\?' | cut -d' ' -f4)
+        printf "${GREEN}${SUCCESS} Resolved noir version ${noir_version} from nargo${NC}\n"
+    fi
+
+    if [ -n "$noir_version" ]; then
+        printf "${BLUE}Getting compatible barretenberg version for noir version ${noir_version}${NC}\n"
+        if [ "$noir_version" = "stable" ] || [ "$noir_version" = "nightly" ]; then
+            printf "${BLUE}Resolving noir version ${noir_version}...${NC}\n"
+            # Get releases from GitHub API to show the resolved version
+            local releases=$(curl -s "https://api.github.com/repos/noir-lang/noir/releases")
+            local resolved_version=""
+            if [ "$noir_version" = "stable" ]; then
+                resolved_version=$(echo "$releases" | grep -o '"tag_name": "[^"]*"' | grep -v "aztec\|nightly" | head -1 | cut -d'"' -f4)
+            else
+                resolved_version=$(echo "$releases" | grep -o '"tag_name": "nightly[^"]*"' | head -1 | cut -d'"' -f4)
+            fi
+            printf "${GREEN}${SUCCESS} Resolved noir version ${noir_version} to ${resolved_version}${NC}\n"
+        fi
+        version=$(get_bb_version_for_noir "$noir_version")
+        printf "${GREEN}${SUCCESS} Resolved to barretenberg version ${version}${NC}\n"
+    fi
+
+    if [ -z "$version" ]; then
+        printf "${RED}${ERROR} No version specified and couldn't determine version from noir${NC}\n"
+        exit 1
+    fi
+
+    install_bb "$version"
+}
+
+main "$@"

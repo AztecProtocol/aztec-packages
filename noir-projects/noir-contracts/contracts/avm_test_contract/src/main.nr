@@ -1,5 +1,6 @@
-use dep::aztec::protocol_types::traits::{Deserialize, Serialize};
+use dep::aztec::{macros::aztec, protocol_types::traits::{Deserialize, Packable, Serialize}};
 
+// I tried using #[derive(Serialize, Deserialize)] macro here but for whatever reason it fails to compile.
 pub struct Note {
     a: Field,
     b: Field,
@@ -17,7 +18,17 @@ impl Deserialize<2> for Note {
     }
 }
 
-use dep::aztec::macros::aztec;
+/// We implement the Packable trait for Note because it can be stored in contract's storage (and there
+/// the implementation of Packable is required).
+impl Packable<2> for Note {
+    fn pack(self) -> [Field; 2] {
+        self.serialize()
+    }
+
+    fn unpack(fields: [Field; 2]) -> Self {
+        Self::deserialize(fields)
+    }
+}
 
 #[aztec]
 contract AvmTest {
@@ -30,7 +41,7 @@ contract AvmTest {
 
     // Libs
     use dep::aztec::context::gas::GasOpts;
-    use dep::aztec::context::public_context::call;
+    use dep::aztec::context::public_context::{call, gas_for_call, returndata_size};
     use dep::aztec::macros::{functions::{private, public}, storage::storage};
     use dep::aztec::oracle::get_contract_instance::{
         get_contract_instance_class_id_avm, get_contract_instance_deployer_avm,
@@ -38,15 +49,15 @@ contract AvmTest {
     };
     use dep::aztec::prelude::Map;
     use dep::aztec::protocol_types::{
-        abis::function_selector::FunctionSelector, contract_class_id::ContractClassId,
-        storage::map::derive_storage_slot_in_map,
-    };
-    use dep::aztec::protocol_types::{
+        abis::function_selector::FunctionSelector,
         address::{AztecAddress, EthAddress},
         point::Point,
         scalar::Scalar,
     };
-    use dep::aztec::protocol_types::constants::CONTRACT_INSTANCE_LENGTH;
+    use dep::aztec::protocol_types::{
+        constants::MAX_PUBLIC_CALLS_TO_UNIQUE_CONTRACT_CLASS_IDS,
+        contract_class_id::ContractClassId, storage::map::derive_storage_slot_in_map,
+    };
     use dep::aztec::state_vars::PublicMutable;
     use dep::compressed_string::CompressedString;
     use std::embedded_curve_ops::{EmbeddedCurvePoint, multi_scalar_mul};
@@ -69,6 +80,11 @@ contract AvmTest {
     #[public]
     fn read_storage_single() -> Field {
         storage.single.read()
+    }
+
+    #[public]
+    fn read_assert_storage_single(a: Field) {
+        assert(a == storage.single.read(), "Storage value does not match input");
     }
 
     // should still be able to use ` -> pub *` for return type even though macro forces `pub`
@@ -246,6 +262,29 @@ contract AvmTest {
     }
 
     #[public]
+    fn external_call_to_divide_by_zero_recovers() {
+        // Be sure to allocate ~200k+ gas to this function~
+
+        // Get the gas remaining and allocate some smaller amount to nested call.
+        // We don't want to allocate too much to the nested call
+        // since it will all be consumed on exceptional halt.
+        let l2_gas_left = context.l2_gas_left();
+        let da_gas_left = context.da_gas_left();
+        let gas_allocation: [Field; 2] = [l2_gas_left - 200_000, da_gas_left - 200_000];
+        let selector = FunctionSelector::from_signature("divide_by_zero()");
+        let success = call(
+            gas_allocation,
+            context.this_address(),
+            &[selector.to_field()],
+        );
+        assert(!success, "Nested CALL instruction should return failure on exceptional halt");
+        assert(
+            returndata_size() == 0,
+            "Returndata should be empty when nested call exceptionally halts",
+        );
+    }
+
+    #[public]
     fn debug_logging() {
         dep::aztec::oracle::debug_log::debug_log("just text");
         dep::aztec::oracle::debug_log::debug_log_format("second: {1}", [1, 2, 3, 4]);
@@ -379,11 +418,6 @@ contract AvmTest {
     }
 
     #[public]
-    fn get_function_selector() -> FunctionSelector {
-        context.selector()
-    }
-
-    #[public]
     fn get_transaction_fee() -> Field {
         context.transaction_fee()
     }
@@ -435,25 +469,17 @@ contract AvmTest {
     }
 
     #[public]
-    fn check_selector() {
-        assert(
-            context.selector() == comptime { FunctionSelector::from_signature("check_selector()") },
-            "Unexpected selector!",
-        );
-    }
-
-    #[public]
     fn get_args_hash(_a: u8, _fields: [Field; 3]) -> Field {
         context.get_args_hash()
     }
 
     #[public]
-    fn emit_unencrypted_log() {
-        context.emit_unencrypted_log(/*message=*/ [10, 20, 30]);
-        context.emit_unencrypted_log(/*message=*/ "Hello, world!");
+    fn emit_public_log() {
+        context.emit_public_log(/*message=*/ [10, 20, 30]);
+        context.emit_public_log(/*message=*/ "Hello, world!");
         let s: CompressedString<2, 44> =
             CompressedString::from_string("A long time ago, in a galaxy far far away...");
-        context.emit_unencrypted_log(/*message=*/ s);
+        context.emit_public_log(/*message=*/ s);
     }
 
     #[public]
@@ -471,6 +497,41 @@ contract AvmTest {
     #[public]
     fn new_nullifier(nullifier: Field) {
         context.push_nullifier(nullifier);
+    }
+
+    #[public]
+    fn n_storage_writes(num: u32) {
+        for i in 0..num {
+            storage.map.at(AztecAddress::from_field(i as Field)).write(i);
+        }
+    }
+
+    #[public]
+    fn n_new_note_hashes(num: u32) {
+        for i in 0..num {
+            context.push_note_hash(i as Field);
+        }
+    }
+
+    #[public]
+    fn n_new_nullifiers(num: u32) {
+        for i in 0..num {
+            context.push_nullifier(i as Field);
+        }
+    }
+
+    #[public]
+    fn n_new_l2_to_l1_msgs(num: u32) {
+        for i in 0..num {
+            context.message_portal(EthAddress::from_field(i as Field), i as Field)
+        }
+    }
+
+    #[public]
+    fn n_new_public_logs(num: u32) {
+        for i in 0..num {
+            context.emit_public_log(/*message=*/ [i as Field]);
+        }
     }
 
     // Use the standard context interface to check for a nullifier
@@ -552,6 +613,18 @@ contract AvmTest {
         AvmTest::at(context.this_address()).add_args_return(arg_a, arg_b).call(&mut context)
     }
 
+    #[public]
+    fn nested_call_to_add_n_times_different_addresses(
+        addrs: [AztecAddress; MAX_PUBLIC_CALLS_TO_UNIQUE_CONTRACT_CLASS_IDS + 2],
+    ) {
+        for i in 0..MAX_PUBLIC_CALLS_TO_UNIQUE_CONTRACT_CLASS_IDS + 2 {
+            let addr = addrs[i];
+            if addr != AztecAddress::empty() {
+                let _ = AvmTest::at(addr).add_args_return(1, 2).call(&mut context);
+            }
+        }
+    }
+
     // Indirectly call_static the external call opcode to initiate a nested call to the add function
     #[public]
     fn nested_static_call_to_add(arg_a: Field, arg_b: Field) -> pub Field {
@@ -619,13 +692,13 @@ contract AvmTest {
         dep::aztec::oracle::debug_log::debug_log("pedersen_hash_with_index");
         let _ = pedersen_hash_with_index(args_field);
         dep::aztec::oracle::debug_log::debug_log("test_get_contract_instance");
-        test_get_contract_instance(AztecAddress::from_field(args_field[0]));
+        // address should match yarn-project/simulator/src/public/fixtures/index.ts's
+        // MockedAvmTestContractDataSource.otherContractInstance
+        test_get_contract_instance(AztecAddress::from_field(0x4444));
         dep::aztec::oracle::debug_log::debug_log("get_address");
         let _ = get_address();
         dep::aztec::oracle::debug_log::debug_log("get_sender");
         let _ = get_sender();
-        dep::aztec::oracle::debug_log::debug_log("get_function_selector");
-        let _ = get_function_selector();
         dep::aztec::oracle::debug_log::debug_log("get_transaction_fee");
         let _ = get_transaction_fee();
         dep::aztec::oracle::debug_log::debug_log("get_chain_id");
@@ -644,8 +717,8 @@ contract AvmTest {
         let _ = get_l2_gas_left();
         dep::aztec::oracle::debug_log::debug_log("get_da_gas_left");
         let _ = get_da_gas_left();
-        dep::aztec::oracle::debug_log::debug_log("emit_unencrypted_log");
-        let _ = emit_unencrypted_log();
+        dep::aztec::oracle::debug_log::debug_log("emit_public_log");
+        let _ = emit_public_log();
         dep::aztec::oracle::debug_log::debug_log("note_hash_exists");
         let _ = note_hash_exists(1, 2);
         dep::aztec::oracle::debug_log::debug_log("new_note_hash");
@@ -658,10 +731,10 @@ contract AvmTest {
         let _ = l1_to_l2_msg_exists(1, 2);
         dep::aztec::oracle::debug_log::debug_log("send_l2_to_l1_msg");
         let _ = send_l2_to_l1_msg(EthAddress::from_field(0x2020), 1);
-        //dep::aztec::oracle::debug_log::debug_log("nested_call_to_add");
-        //let _ = nested_call_to_add(1, 2);
-        //dep::aztec::oracle::debug_log::debug_log("nested_static_call_to_add");
-        //let _ = nested_static_call_to_add(1, 2);
+        dep::aztec::oracle::debug_log::debug_log("nested_call_to_add");
+        let _ = nested_call_to_add(1, 2);
+        dep::aztec::oracle::debug_log::debug_log("nested_static_call_to_add");
+        let _ = nested_static_call_to_add(1, 2);
         //let _ = nested_call_to_nothing_recovers();
     }
 }

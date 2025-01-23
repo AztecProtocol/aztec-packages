@@ -1,1 +1,1 @@
-mod sha256_merkle_tree;
+pub mod sha256_merkle_tree;

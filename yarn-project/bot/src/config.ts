@@ -105,20 +105,20 @@ export const botConfigMappings: ConfigMappingsType<BotConfig> = {
   senderPrivateKey: {
     env: 'BOT_PRIVATE_KEY',
     description: 'Signing private key for the sender account.',
-    parseEnv: (val: string) => Fr.fromString(val),
+    parseEnv: (val: string) => Fr.fromHexString(val),
     defaultValue: Fr.random(),
   },
   recipientEncryptionSecret: {
     env: 'BOT_RECIPIENT_ENCRYPTION_SECRET',
     description: 'Encryption secret for a recipient account.',
-    parseEnv: (val: string) => Fr.fromString(val),
-    defaultValue: Fr.fromString('0xcafecafe'),
+    parseEnv: (val: string) => Fr.fromHexString(val),
+    defaultValue: Fr.fromHexString('0xcafecafe'),
   },
   tokenSalt: {
     env: 'BOT_TOKEN_SALT',
     description: 'Salt for the token contract deployment.',
-    parseEnv: (val: string) => Fr.fromString(val),
-    defaultValue: Fr.fromString('1'),
+    parseEnv: (val: string) => Fr.fromHexString(val),
+    defaultValue: Fr.fromHexString('1'),
   },
   txIntervalSeconds: {
     env: 'BOT_TX_INTERVAL_SECONDS',

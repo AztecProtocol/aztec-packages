@@ -7,7 +7,7 @@ import {
   getFunctionDebugMetadata,
 } from '@aztec/foundation/abi';
 import { type Fr } from '@aztec/foundation/fields';
-import { ContractClassNotFoundError, ContractNotFoundError } from '@aztec/simulator';
+import { ContractClassNotFoundError, ContractNotFoundError } from '@aztec/simulator/client';
 
 import { type ContractArtifactDatabase } from '../database/contracts/contract_artifact_db.js';
 import { type ContractInstanceDatabase } from '../database/contracts/contract_instance_db.js';

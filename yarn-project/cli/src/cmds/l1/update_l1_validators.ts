@@ -1,8 +1,8 @@
 import { EthCheatCodes } from '@aztec/aztec.js';
 import { type EthAddress } from '@aztec/circuits.js';
 import { createEthereumChain, getL1ContractsConfigEnvVars, isAnvilTestChain } from '@aztec/ethereum';
-import { type DebugLogger, type LogFn } from '@aztec/foundation/log';
-import { RollupAbi } from '@aztec/l1-artifacts';
+import { type LogFn, type Logger } from '@aztec/foundation/log';
+import { RollupAbi, TestERC20Abi } from '@aztec/l1-artifacts';
 
 import { createPublicClient, createWalletClient, getContract, http } from 'viem';
 import { generatePrivateKey, mnemonicToAccount, privateKeyToAccount } from 'viem/accounts';
@@ -13,11 +13,12 @@ export interface RollupCommandArgs {
   privateKey?: string;
   mnemonic?: string;
   rollupAddress: EthAddress;
+  withdrawerAddress?: EthAddress;
 }
 
 export interface LoggerArgs {
   log: LogFn;
-  debugLogger: DebugLogger;
+  debugLogger: Logger;
 }
 
 export function generateL1Account() {
@@ -37,9 +38,11 @@ export async function addL1Validator({
   mnemonic,
   validatorAddress,
   rollupAddress,
+  withdrawerAddress,
   log,
   debugLogger,
 }: RollupCommandArgs & LoggerArgs & { validatorAddress: EthAddress }) {
+  const config = getL1ContractsConfigEnvVars();
   const dualLog = makeDualLog(log, debugLogger);
   const publicClient = getPublicClient(rpcUrl, chainId);
   const walletClient = getWalletClient(rpcUrl, chainId, privateKey, mnemonic);
@@ -49,8 +52,26 @@ export async function addL1Validator({
     client: walletClient,
   });
 
+  const stakingAsset = getContract({
+    address: await rollup.read.STAKING_ASSET(),
+    abi: TestERC20Abi,
+    client: walletClient,
+  });
+
+  await Promise.all(
+    [
+      await stakingAsset.write.mint([walletClient.account.address, config.minimumStake], {} as any),
+      await stakingAsset.write.approve([rollupAddress.toString(), config.minimumStake], {} as any),
+    ].map(txHash => publicClient.waitForTransactionReceipt({ hash: txHash })),
+  );
+
   dualLog(`Adding validator ${validatorAddress.toString()} to rollup ${rollupAddress.toString()}`);
-  const txHash = await rollup.write.addValidator([validatorAddress.toString()]);
+  const txHash = await rollup.write.deposit([
+    validatorAddress.toString(),
+    validatorAddress.toString(),
+    withdrawerAddress?.toString() ?? validatorAddress.toString(),
+    config.minimumStake,
+  ]);
   dualLog(`Transaction hash: ${txHash}`);
   await publicClient.waitForTransactionReceipt({ hash: txHash });
   if (isAnvilTestChain(chainId)) {
@@ -87,7 +108,7 @@ export async function removeL1Validator({
   });
 
   dualLog(`Removing validator ${validatorAddress.toString()} from rollup ${rollupAddress.toString()}`);
-  const txHash = await rollup.write.removeValidator([validatorAddress.toString()]);
+  const txHash = await rollup.write.initiateWithdraw([validatorAddress.toString(), validatorAddress.toString()]);
   dualLog(`Transaction hash: ${txHash}`);
   await publicClient.waitForTransactionReceipt({ hash: txHash });
 }
@@ -163,7 +184,7 @@ export async function debugRollup({ rpcUrl, chainId, rollupAddress, log }: Rollu
   log(`Pending block num: ${pendingNum}`);
   const provenNum = await rollup.read.getProvenBlockNumber();
   log(`Proven block num: ${provenNum}`);
-  const validators = await rollup.read.getValidators();
+  const validators = await rollup.read.getAttesters();
   log(`Validators: ${validators.map(v => v.toString()).join(', ')}`);
   const committee = await rollup.read.getCurrentEpochCommittee();
   log(`Committee: ${committee.map(v => v.toString()).join(', ')}`);
@@ -180,7 +201,7 @@ export async function debugRollup({ rpcUrl, chainId, rollupAddress, log }: Rollu
   log(`Proposer NOW: ${proposer.toString()}`);
 }
 
-function makeDualLog(log: LogFn, debugLogger: DebugLogger) {
+function makeDualLog(log: LogFn, debugLogger: Logger) {
   return (msg: string) => {
     log(msg);
     debugLogger.info(msg);

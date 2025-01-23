@@ -10,8 +10,8 @@ export function keyJsonToVKData(json: VkJson): VerificationKeyData {
   const { keyAsBytes, keyAsFields, vkHash } = json;
   return new VerificationKeyData(
     new VerificationKeyAsFields(
-      keyAsFields.map((str: string) => Fr.fromString(str)),
-      Fr.fromString(vkHash),
+      keyAsFields.map((str: string) => Fr.fromHexString(str)),
+      Fr.fromHexString(vkHash),
     ),
     Buffer.from(keyAsBytes, 'hex'),
   );

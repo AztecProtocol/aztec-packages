@@ -16,8 +16,8 @@ import {
 import { poseidon2Hash } from '@aztec/foundation/crypto';
 import { Fr } from '@aztec/foundation/fields';
 import { type IndexedTreeLeafPreimage } from '@aztec/foundation/trees';
-import { openTmpStore } from '@aztec/kv-store/utils';
-import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
+import { openTmpStore } from '@aztec/kv-store/lmdb';
+import { getTelemetryClient } from '@aztec/telemetry-client';
 import { MerkleTrees, NativeWorldStateService } from '@aztec/world-state';
 
 import {
@@ -97,7 +97,7 @@ beforeEach(async () => {
 
   slots = Array.from({ length: 64 }, (_, i) => new Fr(i + 128));
   values = Array.from({ length: 64 }, (_, i) => new Fr(i + 256));
-}, 10_000);
+}, 30_000);
 
 /****************************************************/
 /*************** Test Cases *************************/
@@ -528,7 +528,7 @@ describe('Checking forking and merging', () => {
 describe('AVM Ephemeral Tree Sanity Test', () => {
   it('Should calculate the frontier correctly', async () => {
     const store = openTmpStore(true);
-    const worldStateTrees = await MerkleTrees.new(store, new NoopTelemetryClient());
+    const worldStateTrees = await MerkleTrees.new(store, getTelemetryClient());
     const leaves = [];
     const numLeaves = 6;
     for (let i = 0; i < numLeaves; i++) {

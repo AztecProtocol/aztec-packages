@@ -78,6 +78,11 @@ export class Gas {
     return new Gas(Math.ceil(this.daGas * scalar), Math.ceil(this.l2Gas * scalar));
   }
 
+  /** Returns true if any of this instance's dimensions is greater than the corresponding on the other. */
+  gtAny(other: Gas) {
+    return this.daGas > other.daGas || this.l2Gas > other.l2Gas;
+  }
+
   computeFee(gasFees: GasFees) {
     return GasDimensions.reduce(
       (acc, dimension) => acc.add(gasFees.get(dimension).mul(new Fr(this.get(dimension)))),

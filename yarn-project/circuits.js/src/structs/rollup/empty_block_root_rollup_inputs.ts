@@ -1,24 +1,19 @@
-import { Fr } from '@aztec/foundation/fields';
 import { bufferSchemaFor } from '@aztec/foundation/schemas';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 import { bufferToHex, hexToBuffer } from '@aztec/foundation/string';
 import { type FieldsOf } from '@aztec/foundation/types';
 
-import { GlobalVariables } from '../global_variables.js';
-import { AppendOnlyTreeSnapshot } from './append_only_tree_snapshot.js';
+import { BlockRootRollupData } from './block_root_rollup.js';
+import { ConstantRollupData } from './constant_rollup_data.js';
 
 /**
  * Represents inputs of the empty block root rollup circuit.
  */
 export class EmptyBlockRootRollupInputs {
   constructor(
-    public readonly archive: AppendOnlyTreeSnapshot,
-    public readonly blockHash: Fr,
-    public readonly globalVariables: GlobalVariables,
-    public readonly vkTreeRoot: Fr,
-    public readonly protocolContractTreeRoot: Fr,
-    // // TODO(#7346): Temporarily added prover_id while we verify block-root proofs on L1
-    public readonly proverId: Fr,
+    public readonly data: BlockRootRollupData,
+    public readonly constants: ConstantRollupData,
+    public readonly isPadding: boolean,
   ) {}
 
   /**
@@ -52,14 +47,7 @@ export class EmptyBlockRootRollupInputs {
    * @returns An array of fields.
    */
   static getFields(fields: FieldsOf<EmptyBlockRootRollupInputs>) {
-    return [
-      fields.archive,
-      fields.blockHash,
-      fields.globalVariables,
-      fields.vkTreeRoot,
-      fields.protocolContractTreeRoot,
-      fields.proverId,
-    ] as const;
+    return [fields.data, fields.constants, fields.isPadding] as const;
   }
 
   /**
@@ -70,12 +58,9 @@ export class EmptyBlockRootRollupInputs {
   static fromBuffer(buffer: Buffer | BufferReader): EmptyBlockRootRollupInputs {
     const reader = BufferReader.asReader(buffer);
     return new EmptyBlockRootRollupInputs(
-      reader.readObject(AppendOnlyTreeSnapshot),
-      Fr.fromBuffer(reader),
-      GlobalVariables.fromBuffer(reader),
-      Fr.fromBuffer(reader),
-      Fr.fromBuffer(reader),
-      Fr.fromBuffer(reader),
+      reader.readObject(BlockRootRollupData),
+      reader.readObject(ConstantRollupData),
+      reader.readBoolean(),
     );
   }
 

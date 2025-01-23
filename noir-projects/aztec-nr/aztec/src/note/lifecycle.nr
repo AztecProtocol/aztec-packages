@@ -5,7 +5,7 @@ use crate::note::{
     note_interface::{NoteInterface, NullifiableNote},
     utils::{compute_note_hash_for_nullify_internal, compute_note_hash_for_read_request},
 };
-use crate::oracle::notes::{notify_created_note, notify_nullified_note};
+use crate::oracle::notes::notify_created_note;
 
 pub fn create_note<Note, let N: u32>(
     context: &mut PrivateContext,
@@ -87,9 +87,6 @@ where
         // a siloed note hash.
         note_hash_for_nullify
     };
-
-    let nullifier_counter = context.side_effect_counter;
-    notify_nullified_note(nullifier, notification_note_hash, nullifier_counter);
 
     context.push_nullifier_for_note_hash(nullifier, notification_note_hash)
 }

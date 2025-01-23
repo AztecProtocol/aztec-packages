@@ -1,10 +1,17 @@
+import { type CLIENT_IVC_VERIFICATION_KEY_LENGTH_IN_FIELDS } from '@aztec/circuits.js';
+
 import { type ForeignCallOutput, Noir } from '@noir-lang/noir_js';
 import createDebug from 'debug';
 import { ungzip } from 'pako';
-import { type Page } from 'playwright';
 
 import MockAppCreatorCircuit from '../artifacts/app_creator.json' assert { type: 'json' };
 import MockAppReaderCircuit from '../artifacts/app_reader.json' assert { type: 'json' };
+import MockAppCreatorVk from '../artifacts/keys/app_creator.vk.data.json' assert { type: 'json' };
+import MockAppReaderVk from '../artifacts/keys/app_reader.vk.data.json' assert { type: 'json' };
+import MockPrivateKernelInitVk from '../artifacts/keys/mock_private_kernel_init.vk.data.json' assert { type: 'json' };
+import MockPrivateKernelInnerVk from '../artifacts/keys/mock_private_kernel_inner.vk.data.json' assert { type: 'json' };
+import MockPrivateKernelResetVk from '../artifacts/keys/mock_private_kernel_reset.vk.data.json' assert { type: 'json' };
+import MockPrivateKernelTailVk from '../artifacts/keys/mock_private_kernel_tail.vk.data.json' assert { type: 'json' };
 import MockPrivateKernelInitCircuit from '../artifacts/mock_private_kernel_init.json' assert { type: 'json' };
 import MockPrivateKernelInnerCircuit from '../artifacts/mock_private_kernel_inner.json' assert { type: 'json' };
 import MockPrivateKernelResetCircuit from '../artifacts/mock_private_kernel_reset.json' assert { type: 'json' };
@@ -14,6 +21,7 @@ import type {
   AppCreatorInputType,
   AppPublicInputs,
   AppReaderInputType,
+  FixedLengthArray,
   KernelPublicInputs,
   MockPrivateKernelInitInputType,
   MockPrivateKernelInnerInputType,
@@ -33,9 +41,14 @@ export {
   MockPrivateKernelResetCircuit,
   MockPrivateKernelTailCircuit,
   MockPublicBaseCircuit,
+  MockAppCreatorVk,
+  MockAppReaderVk,
+  MockPrivateKernelInitVk,
+  MockPrivateKernelInnerVk,
+  MockPrivateKernelResetVk,
+  MockPrivateKernelTailVk,
 };
 
-createDebug.enable('*');
 const logger = createDebug('aztec:ivc-test');
 
 /* eslint-disable camelcase */
@@ -126,6 +139,13 @@ export async function witnessGenMockPublicBaseCircuit(args: MockPublicBaseInputT
   };
 }
 
+export function getVkAsFields(vk: {
+  keyAsBytes: string;
+  keyAsFields: string[];
+}): FixedLengthArray<string, typeof CLIENT_IVC_VERIFICATION_KEY_LENGTH_IN_FIELDS> {
+  return vk.keyAsFields as FixedLengthArray<string, typeof CLIENT_IVC_VERIFICATION_KEY_LENGTH_IN_FIELDS>;
+}
+
 export async function generate3FunctionTestingIVCStack(): Promise<[string[], Uint8Array[]]> {
   const tx = {
     number_of_calls: '0x1',
@@ -138,11 +158,13 @@ export async function generate3FunctionTestingIVCStack(): Promise<[string[], Uin
   const initWitnessGenResult = await witnessGenMockPrivateKernelInitCircuit({
     app_inputs: appWitnessGenResult.publicInputs,
     tx,
+    app_vk: getVkAsFields(MockAppCreatorVk),
   });
   logger('generated mock private kernel init witness');
 
   const tailWitnessGenResult = await witnessGenMockPrivateKernelTailCircuit({
     prev_kernel_public_inputs: initWitnessGenResult.publicInputs,
+    kernel_vk: getVkAsFields(MockPrivateKernelResetVk),
   });
   logger('generated mock private kernel tail witness');
 
@@ -168,10 +190,13 @@ export async function generate6FunctionTestingIVCStack(): Promise<[string[], Uin
   const initWitnessGenResult = await witnessGenMockPrivateKernelInitCircuit({
     app_inputs: creatorAppWitnessGenResult.publicInputs,
     tx,
+    app_vk: getVkAsFields(MockAppCreatorVk),
   });
   const innerWitnessGenResult = await witnessGenMockPrivateKernelInnerCircuit({
     prev_kernel_public_inputs: initWitnessGenResult.publicInputs,
     app_inputs: readerAppWitnessGenResult.publicInputs,
+    app_vk: getVkAsFields(MockAppReaderVk),
+    kernel_vk: getVkAsFields(MockPrivateKernelInitVk),
   });
 
   const resetWitnessGenResult = await witnessGenMockPrivateKernelResetCircuit({
@@ -182,10 +207,12 @@ export async function generate6FunctionTestingIVCStack(): Promise<[string[], Uin
       MOCK_MAX_COMMITMENTS_PER_TX.toString(),
       MOCK_MAX_COMMITMENTS_PER_TX.toString(),
     ],
+    kernel_vk: getVkAsFields(MockPrivateKernelInnerVk),
   });
 
   const tailWitnessGenResult = await witnessGenMockPrivateKernelTailCircuit({
     prev_kernel_public_inputs: resetWitnessGenResult.publicInputs,
+    kernel_vk: getVkAsFields(MockPrivateKernelResetVk),
   });
 
   // Create client IVC proof
@@ -213,30 +240,21 @@ function base64ToUint8Array(base64: string): Uint8Array {
   return Uint8Array.from(atob(base64), c => c.charCodeAt(0));
 }
 
-export async function proveAndVerifyBrowser(bytecodes: string[], witnessStack: Uint8Array[], threads?: number) {
-  const { AztecClientBackend } = await import('@aztec/bb.js');
-  const preparedBytecodes = bytecodes.map(base64ToUint8Array).map((arr: Uint8Array) => ungzip(arr));
-  const backend = new AztecClientBackend(preparedBytecodes, { threads });
-  const verified = await backend.proveAndVerify(witnessStack.map((arr: Uint8Array) => ungzip(arr)));
-
-  await backend.destroy();
-  return verified;
-}
-
-export async function proveAndVerifyAztecClient(
-  page: Page,
+export async function proveThenVerifyAztecClient(
   bytecodes: string[],
   witnessStack: Uint8Array[],
+  threads?: number,
 ): Promise<boolean> {
-  const threads = 16;
-
-  const result: boolean = await page.evaluate(
-    ([acir, witness, numThreads]) => {
-      (window as any).proveAndVerifyBrowser = proveAndVerifyBrowser;
-      return (window as any).proveAndVerifyBrowser(acir, witness, numThreads);
-    },
-    [bytecodes, witnessStack, threads],
+  const { AztecClientBackend } = await import('@aztec/bb.js');
+  const backend = new AztecClientBackend(
+    bytecodes.map(base64ToUint8Array).map((arr: Uint8Array) => ungzip(arr)),
+    { threads },
   );
-
-  return result;
+  try {
+    const [proof, vk] = await backend.prove(witnessStack.map((arr: Uint8Array) => ungzip(arr)));
+    const verified = await backend.verify(proof, vk);
+    return verified;
+  } finally {
+    await backend.destroy();
+  }
 }

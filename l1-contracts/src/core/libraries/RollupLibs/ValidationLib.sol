@@ -16,7 +16,7 @@ struct ValidateHeaderArgs {
   Header header;
   Timestamp currentTime;
   uint256 manaBaseFee;
-  bytes32 txsEffectsHash;
+  bytes32 blobsHash;
   uint256 pendingBlockNumber;
   DataStructures.ExecutionFlags flags;
   uint256 version;
@@ -76,8 +76,8 @@ library ValidationLib {
 
     // Check if the data is available
     require(
-      _args.flags.ignoreDA || _args.header.contentCommitment.txsEffectsHash == _args.txsEffectsHash,
-      Errors.Rollup__UnavailableTxs(_args.header.contentCommitment.txsEffectsHash)
+      _args.flags.ignoreDA || _args.header.contentCommitment.blobsHash == _args.blobsHash,
+      Errors.Rollup__UnavailableTxs(_args.header.contentCommitment.blobsHash)
     );
 
     // If not canonical rollup, require that the fees are zero

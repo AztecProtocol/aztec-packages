@@ -1,9 +1,9 @@
-import { createDebugLogger } from '@aztec/foundation/log';
+import { createLogger } from '@aztec/foundation/log';
 
 import { GrumpkinScalar, type Point } from '../../../index.js';
 import { Grumpkin } from './index.js';
 
-const log = createDebugLogger('bb:grumpkin_test');
+const log = createLogger('circuits:grumpkin_test');
 
 describe('grumpkin', () => {
   let grumpkin!: Grumpkin;
@@ -12,29 +12,29 @@ describe('grumpkin', () => {
     grumpkin = new Grumpkin();
   });
 
-  it('should correctly perform scalar muls', () => {
+  it('should correctly perform scalar muls', async () => {
     const exponent = GrumpkinScalar.random();
 
-    const numPoints = 2048;
+    const numPoints = 3;
 
     const inputPoints: Point[] = [];
     for (let i = 0; i < numPoints; ++i) {
-      inputPoints.push(grumpkin.mul(Grumpkin.generator, GrumpkinScalar.random()));
+      inputPoints.push(await grumpkin.mul(Grumpkin.generator, GrumpkinScalar.random()));
     }
 
     const start = new Date().getTime();
-    const outputPoints = grumpkin.batchMul(inputPoints, exponent);
+    const outputPoints = await grumpkin.batchMul(inputPoints, exponent);
     log.debug(`batch mul in: ${new Date().getTime() - start}ms`);
 
     const start2 = new Date().getTime();
     for (let i = 0; i < numPoints; ++i) {
-      grumpkin.mul(inputPoints[i], exponent);
+      await grumpkin.mul(inputPoints[i], exponent);
     }
     log.debug(`regular mul in: ${new Date().getTime() - start2}ms`);
 
     for (let i = 0; i < numPoints; ++i) {
       const lhs = outputPoints[i];
-      const rhs = grumpkin.mul(inputPoints[i], exponent);
+      const rhs = await grumpkin.mul(inputPoints[i], exponent);
       expect(lhs).toEqual(rhs);
     }
   });

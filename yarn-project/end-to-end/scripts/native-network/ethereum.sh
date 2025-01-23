@@ -23,7 +23,7 @@ function report_when_anvil_up() {
   echo "Anvil has started."
 }
 function filter_noise() {
-  grep -Ev "eth_blockNumber|eth_getTransactionReceipt|eth_getBlockByNumber"
+  grep -Ev "^eth_[a-zA-Z]*$"
 }
 
 report_when_anvil_up &

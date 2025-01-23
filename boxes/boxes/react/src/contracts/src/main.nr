@@ -25,8 +25,7 @@ contract BoxReact {
         let numbers = storage.numbers;
         let mut new_number = ValueNote::new(number, owner);
 
-        let owner_ovpk_m = get_public_keys(owner).ovpk_m;
-        numbers.at(owner).initialize(&mut new_number).emit(encode_and_encrypt_note(&mut context, owner_ovpk_m, owner, context.msg_sender()));
+        numbers.at(owner).initialize(&mut new_number).emit(encode_and_encrypt_note(&mut context, owner, context.msg_sender()));
     }
 
     #[private]
@@ -37,8 +36,7 @@ contract BoxReact {
         let numbers = storage.numbers;
         let mut new_number = ValueNote::new(number, owner);
 
-        let owner_ovpk_m = get_public_keys(owner).ovpk_m;
-        numbers.at(owner).replace(&mut new_number).emit(encode_and_encrypt_note(&mut context, owner_ovpk_m, owner, context.msg_sender()));
+        numbers.at(owner).replace(&mut new_number).emit(encode_and_encrypt_note(&mut context, owner, context.msg_sender()));
     }
 
     unconstrained fn getNumber(owner: AztecAddress) -> pub ValueNote {

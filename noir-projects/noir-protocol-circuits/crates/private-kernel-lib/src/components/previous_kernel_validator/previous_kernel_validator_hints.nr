@@ -7,7 +7,7 @@ use dep::types::{
 };
 
 pub struct PreviousKernelValidatorHints {
-    note_hash_indexes_for_nullifiers: [u32; MAX_NULLIFIERS_PER_TX],
+    pub note_hash_indexes_for_nullifiers: [u32; MAX_NULLIFIERS_PER_TX],
 }
 
 pub unconstrained fn generate_previous_kernel_validator_hints(

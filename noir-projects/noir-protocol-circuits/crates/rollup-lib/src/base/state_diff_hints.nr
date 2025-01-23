@@ -5,7 +5,7 @@ use dep::types::{
         NOTE_HASH_SUBTREE_SIBLING_PATH_LENGTH, NULLIFIER_SUBTREE_SIBLING_PATH_LENGTH,
         NULLIFIER_TREE_HEIGHT, PUBLIC_DATA_TREE_HEIGHT,
     },
-    data::{PublicDataTreeLeaf, PublicDataTreeLeafPreimage},
+    data::PublicDataTreeLeafPreimage,
     merkle_tree::MembershipWitness,
 };
 

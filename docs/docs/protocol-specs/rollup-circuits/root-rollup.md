@@ -4,9 +4,13 @@ title: Root Rollup
 
 The root rollup circuit is our top circuit, it applies the state changes passed through its children and the cross-chain messages. Essentially, it is the last step that allows us to prove that the state transition function $\mathcal{T}(S, B) \mapsto S'$ was applied correctly for a state $S$ and a block $B$. Note, that the root rollup circuit's public inputs do not comprise the block entirely as it would be too costly to verify. Given a `ProvenBlock` and proof a node can derive the public inputs and validate the correctness of the state progression.
 
-```mermaid
+```mdx
+import { Mermaid } from '@docusaurus/theme-mermaid';
+
+<Mermaid>
 graph LR
 A[RootRollupInputs] --> C[RootRollupCircuit] --> B[RootRollupPublicInputs] --> D[ProvenBlock] --> E[Node]
+</Mermaid>
 ```
 
 For rollup purposes, the node we want to convince of the correctness is the [validating light node](../l1-smart-contracts/index.md) that we put on L1. We will cover it in more detail in the [cross-chain communication](../l1-smart-contracts/index.md) section.
@@ -17,7 +21,10 @@ This might practically happen through a series of "squisher" circuits that will 
 
 ## Overview
 
-```mermaid
+```mdx
+import { Mermaid } from '@docusaurus/theme-mermaid';
+
+<Mermaid>
 classDiagram
 direction TB
 
@@ -163,6 +170,7 @@ class RootRollupPublicInputs {
     header: Header
 }
 RootRollupPublicInputs *--Header : header
+</Mermaid>
 ```
 
 ### Validity Conditions

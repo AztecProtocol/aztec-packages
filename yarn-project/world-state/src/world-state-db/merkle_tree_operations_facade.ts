@@ -6,7 +6,7 @@ import {
   type SequentialInsertionResult,
   type TreeInfo,
 } from '@aztec/circuit-types/interfaces';
-import { type Header, type StateReference } from '@aztec/circuits.js';
+import { type BlockHeader, type StateReference } from '@aztec/circuits.js';
 import { type IndexedTreeLeafPreimage } from '@aztec/foundation/trees';
 
 import { type MerkleTrees } from './merkle_trees.js';
@@ -39,7 +39,7 @@ export class MerkleTreeReadOperationsFacade implements MerkleTreeWriteOperations
    * Returns the initial header for the chain before the first block.
    * @returns The initial header.
    */
-  getInitialHeader(): Header {
+  getInitialHeader(): BlockHeader {
     return this.trees.getInitialHeader();
   }
 
@@ -110,8 +110,11 @@ export class MerkleTreeReadOperationsFacade implements MerkleTreeWriteOperations
    * @param value - The leaf value to look for.
    * @returns The index of the first leaf found with a given value (undefined if not found).
    */
-  findLeafIndex<ID extends MerkleTreeId>(treeId: ID, value: MerkleTreeLeafType<ID>): Promise<bigint | undefined> {
-    return this.trees.findLeafIndex(treeId, value, this.includeUncommitted);
+  findLeafIndices<ID extends MerkleTreeId>(
+    treeId: ID,
+    values: MerkleTreeLeafType<ID>[],
+  ): Promise<(bigint | undefined)[]> {
+    return Promise.all(values.map(leaf => this.trees.findLeafIndex(treeId, leaf, this.includeUncommitted)));
   }
 
   /**
@@ -120,12 +123,14 @@ export class MerkleTreeReadOperationsFacade implements MerkleTreeWriteOperations
    * @param value - The value to search for in the tree.
    * @param startIndex - The index to start searching from (used when skipping nullified messages)
    */
-  findLeafIndexAfter<ID extends MerkleTreeId>(
+  findLeafIndicesAfter<ID extends MerkleTreeId>(
     treeId: ID,
-    value: MerkleTreeLeafType<ID>,
+    values: MerkleTreeLeafType<ID>[],
     startIndex: bigint,
-  ): Promise<bigint | undefined> {
-    return this.trees.findLeafIndexAfter(treeId, value, startIndex, this.includeUncommitted);
+  ): Promise<(bigint | undefined)[]> {
+    return Promise.all(
+      values.map(leaf => this.trees.findLeafIndexAfter(treeId, leaf, startIndex, this.includeUncommitted)),
+    );
   }
 
   /**
@@ -149,7 +154,7 @@ export class MerkleTreeReadOperationsFacade implements MerkleTreeWriteOperations
    * This includes all of the current roots of all of the data trees and the current blocks global vars.
    * @param header - The header to insert into the archive.
    */
-  public updateArchive(header: Header): Promise<void> {
+  public updateArchive(header: BlockHeader): Promise<void> {
     return this.trees.updateArchive(header);
   }
 

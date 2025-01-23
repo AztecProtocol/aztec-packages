@@ -1,7 +1,7 @@
 terraform {
   backend "s3" {
     bucket = "aztec-terraform"
-    key    = "spartan-gke-cluster/terraform.tfstate"
+    key    = "aztec-gke-cluster/terraform.tfstate"
     region = "eu-west-2"
   }
   required_providers {
@@ -20,9 +20,9 @@ provider "google" {
 
 # Create the service account
 resource "google_service_account" "gke_sa" {
-  account_id   = "gke-nodes-sa"
-  display_name = "GKE Nodes Service Account"
-  description  = "Service account for GKE nodes"
+  account_id   = "aztec-gke-nodes-sa"
+  display_name = "Aztec GKE Nodes Service Account"
+  description  = "Service account for aztec GKE nodes"
 }
 
 # Add IAM roles to the service account
@@ -49,7 +49,8 @@ resource "google_service_account" "helm_sa" {
 resource "google_project_iam_member" "helm_sa_roles" {
   for_each = toset([
     "roles/container.admin",
-    "roles/storage.admin"
+    "roles/storage.admin",
+    "roles/secretmanager.admin"
   ])
   project = var.project
   role    = each.key
@@ -58,7 +59,7 @@ resource "google_project_iam_member" "helm_sa_roles" {
 
 # Create a GKE cluster
 resource "google_container_cluster" "primary" {
-  name     = "spartan-gke"
+  name     = var.cluster_name
   location = var.zone
 
   initial_node_count = 1
@@ -89,7 +90,7 @@ resource "google_container_node_pool" "primary_nodes" {
   # Enable autoscaling
   autoscaling {
     min_node_count = 1
-    max_node_count = 5
+    max_node_count = 2
   }
 
   # Node configuration
@@ -104,13 +105,105 @@ resource "google_container_node_pool" "primary_nodes" {
     labels = {
       env = "production"
     }
-    tags = ["gke-node"]
+    tags = ["aztec-gke-node"]
   }
 
   # Management configuration
   management {
     auto_repair  = true
     auto_upgrade = true
+  }
+}
+
+# Create 2 core node pool with local ssd
+resource "google_container_node_pool" "aztec_nodes_2core_ssd" {
+  name     = "aztec-nodes-2core-ssd"
+  location = var.zone
+  cluster  = google_container_cluster.primary.name
+
+  # Enable autoscaling
+  autoscaling {
+    min_node_count = 1
+    max_node_count = 256
+  }
+
+  # Node configuration
+  node_config {
+    machine_type = "n2d-standard-2"
+    ephemeral_storage_local_ssd_config {
+      local_ssd_count = 1
+    }
+
+    service_account = google_service_account.gke_sa.email
+    oauth_scopes = [
+      "https://www.googleapis.com/auth/cloud-platform"
+    ]
+
+    labels = {
+      env = "production"
+
+    }
+    tags = ["aztec-gke-node", "aztec"]
+  }
+}
+
+# Create 4 core node pool with local ssd
+resource "google_container_node_pool" "aztec_nodes_4core_ssd" {
+  name     = "aztec-nodes-4core-ssd"
+  location = var.zone
+  cluster  = google_container_cluster.primary.name
+
+  # Enable autoscaling
+  autoscaling {
+    min_node_count = 1
+    max_node_count = 256
+  }
+
+  # Node configuration
+  node_config {
+    machine_type = "n2d-standard-4"
+    ephemeral_storage_local_ssd_config {
+      local_ssd_count = 1
+    }
+
+    service_account = google_service_account.gke_sa.email
+    oauth_scopes = [
+      "https://www.googleapis.com/auth/cloud-platform"
+    ]
+
+    labels = {
+      env = "production"
+
+    }
+    tags = ["aztec-gke-node", "aztec"]
+  }
+}
+
+# Create node pool for simulated aztec nodes (validators, prover nodes, boot nodes)
+resource "google_container_node_pool" "aztec_nodes_simulated" {
+  name     = "aztec-node-pool-simulated"
+  location = var.zone
+  cluster  = google_container_cluster.primary.name
+
+  # Enable autoscaling
+  autoscaling {
+    min_node_count = 1
+    max_node_count = 256
+  }
+
+  # Node configuration
+  node_config {
+    machine_type = "t2d-standard-2"
+
+    service_account = google_service_account.gke_sa.email
+    oauth_scopes = [
+      "https://www.googleapis.com/auth/cloud-platform"
+    ]
+
+    labels = {
+      env = "production"
+    }
+    tags = ["aztec-gke-node", "aztec"]
   }
 }
 
@@ -123,12 +216,12 @@ resource "google_container_node_pool" "aztec_nodes" {
   # Enable autoscaling
   autoscaling {
     min_node_count = 1
-    max_node_count = 128
+    max_node_count = 256
   }
 
   # Node configuration
   node_config {
-    machine_type = "t2d-standard-8"
+    machine_type = "t2d-standard-4"
 
     service_account = google_service_account.gke_sa.email
     oauth_scopes = [
@@ -138,7 +231,7 @@ resource "google_container_node_pool" "aztec_nodes" {
     labels = {
       env = "production"
     }
-    tags = ["gke-node", "aztec"]
+    tags = ["aztec-gke-node", "aztec"]
   }
 
   # Management configuration
@@ -150,14 +243,14 @@ resource "google_container_node_pool" "aztec_nodes" {
 
 # Create spot instance node pool with autoscaling
 resource "google_container_node_pool" "spot_nodes" {
-  name     = "spot-node-pool"
+  name     = "aztec-spot-node-pool"
   location = var.zone
   cluster  = google_container_cluster.primary.name
 
   # Enable autoscaling
   autoscaling {
     min_node_count = 0
-    max_node_count = 10
+    max_node_count = 1500
   }
 
   # Node configuration
@@ -174,7 +267,7 @@ resource "google_container_node_pool" "spot_nodes" {
       env  = "production"
       pool = "spot"
     }
-    tags = ["gke-node", "spot"]
+    tags = ["aztec-gke-node", "spot"]
 
     # Spot instance termination handler
     taint {

@@ -2,7 +2,7 @@ import { Fr } from '@aztec/foundation/fields';
 
 import { type MockProxy, mock } from 'jest-mock-extended';
 
-import { type CommitmentsDB } from '../../index.js';
+import { type CommitmentsDB } from '../../server.js';
 import { NullifierManager } from './nullifiers.js';
 
 describe('avm nullifier caching', () => {

@@ -1,7 +1,8 @@
-import { type EthAddress, type Header } from '@aztec/circuits.js';
+import { type BlockHeader, type EthAddress } from '@aztec/circuits.js';
 
 import { z } from 'zod';
 
+import { type L1RollupConstants } from './epoch-helpers/index.js';
 import { type InBlock } from './in_block.js';
 import { type L2Block } from './l2_block.js';
 import { type TxHash } from './tx/tx_hash.js';
@@ -54,7 +55,7 @@ export interface L2BlockSource {
    * @param number - The block number to return or 'latest' for the most recent one.
    * @returns The requested L2 block header.
    */
-  getBlockHeader(number: number | 'latest'): Promise<Header | undefined>;
+  getBlockHeader(number: number | 'latest'): Promise<BlockHeader | undefined>;
 
   /**
    * Gets up to `limit` amount of L2 blocks starting from `from`.
@@ -106,6 +107,11 @@ export interface L2BlockSource {
    * Returns the tips of the L2 chain.
    */
   getL2Tips(): Promise<L2Tips>;
+
+  /**
+   * Returns the rollup constants for the current chain.
+   */
+  getL1Constants(): Promise<L1RollupConstants>;
 }
 
 /**

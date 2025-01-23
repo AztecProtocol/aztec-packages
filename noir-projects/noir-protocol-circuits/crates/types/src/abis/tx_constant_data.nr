@@ -1,6 +1,6 @@
 use crate::{
+    block_header::BlockHeader,
     constants::TX_CONSTANT_DATA_LENGTH,
-    header::Header,
     traits::{Deserialize, Empty, Serialize},
     transaction::tx_context::TxContext,
     utils::reader::Reader,
@@ -8,7 +8,7 @@ use crate::{
 
 // Constants used throughout the executions of both private and public.
 pub struct TxConstantData {
-    pub historical_header: Header,
+    pub historical_header: BlockHeader,
     // Note: `chain_id` and `version` in tx_context are not redundant to the values in
     // self.historical_header.global_variables because they can be different in case of a protocol upgrade. In such
     // a situation we could be using header from a block before the upgrade took place but be using the updated
@@ -21,7 +21,7 @@ pub struct TxConstantData {
 impl Empty for TxConstantData {
     fn empty() -> Self {
         TxConstantData {
-            historical_header: Header::empty(),
+            historical_header: BlockHeader::empty(),
             tx_context: TxContext::empty(),
             vk_tree_root: 0,
             protocol_contract_tree_root: 0,
@@ -58,7 +58,7 @@ impl Deserialize<TX_CONSTANT_DATA_LENGTH> for TxConstantData {
         let mut reader = Reader::new(fields);
 
         let item = TxConstantData {
-            historical_header: reader.read_struct(Header::deserialize),
+            historical_header: reader.read_struct(BlockHeader::deserialize),
             tx_context: reader.read_struct(TxContext::deserialize),
             vk_tree_root: reader.read(),
             protocol_contract_tree_root: reader.read(),

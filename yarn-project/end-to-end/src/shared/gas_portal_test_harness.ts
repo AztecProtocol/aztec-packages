@@ -1,15 +1,15 @@
 import {
   type AztecAddress,
   type AztecNode,
-  type DebugLogger,
   EthAddress,
   L1FeeJuicePortalManager,
   type L1TokenManager,
   type L2AmountClaim,
+  type Logger,
   type PXE,
   type Wallet,
 } from '@aztec/aztec.js';
-import { FeeJuiceContract } from '@aztec/noir-contracts.js';
+import { FeeJuiceContract } from '@aztec/noir-contracts.js/FeeJuice';
 import { ProtocolContractAddress } from '@aztec/protocol-contracts';
 
 import { type Account, type Chain, type HttpTransport, type PublicClient, type WalletClient } from 'viem';
@@ -28,7 +28,7 @@ export interface FeeJuicePortalTestingHarnessFactoryConfig {
   publicClient: PublicClient<HttpTransport, Chain>;
   walletClient: WalletClient<HttpTransport, Chain, Account>;
   wallet: Wallet;
-  logger: DebugLogger;
+  logger: Logger;
   mockL1?: boolean;
 }
 
@@ -83,7 +83,7 @@ export class GasBridgingTestHarness implements IGasBridgingTestHarness {
     /** Private eXecution Environment (PXE). */
     public pxeService: PXE,
     /** Logger. */
-    public logger: DebugLogger,
+    public logger: Logger,
 
     /** L2 Token/Bridge contract. */
     public feeJuice: FeeJuiceContract,

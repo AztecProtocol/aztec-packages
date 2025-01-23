@@ -60,15 +60,10 @@ contract TokenPortalTest is Test {
 
   function setUp() public {
     registry = new Registry(address(this));
-    testERC20 = new TestERC20();
+    testERC20 = new TestERC20("test", "TEST", address(this));
     rewardDistributor = new RewardDistributor(testERC20, registry, address(this));
     rollup = new Rollup(
-      new MockFeeJuicePortal(),
-      rewardDistributor,
-      bytes32(0),
-      bytes32(0),
-      address(this),
-      new address[](0)
+      new MockFeeJuicePortal(), rewardDistributor, testERC20, bytes32(0), bytes32(0), address(this)
     );
     inbox = rollup.INBOX();
     outbox = rollup.OUTBOX();
