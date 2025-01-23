@@ -1,11 +1,11 @@
 use crate::oracle::random::random;
 
-// Converts the input bytes into an array of fields. A Field is ~254 bits meaning that each field can store 31 whole bytes.
-//
-// The input bytes are chunked into chunks of 31 bytes. Each 31-byte chunk is viewed as big-endian, and is converted into a Field. If the last chunk
-// is less than 31 bytes long, then only the relevant bytes are considered.
-// For example, [1, 10, 3] is encoded as [1 * 256^2 + 10 * 256 + 3]
-// Note: ceil(N / 31) = (N + 30) / 31
+/// Converts the input bytes into an array of fields. A Field is ~254 bits meaning that each field can store 31 whole bytes.
+///
+/// The input bytes are chunked into chunks of 31 bytes. Each 31-byte chunk is viewed as big-endian, and is converted into a Field. If the last chunk
+/// is less than 31 bytes long, then only the relevant bytes are considered.
+/// For example, [1, 10, 3] is encoded as [1 * 256^2 + 10 * 256 + 3]
+/// Note: ceil(N / 31) = (N + 30) / 31
 pub fn be_bytes_31_to_fields<let N: u32>(bytes: [u8; N]) -> [Field; (N + 30) / 31] {
     let mut fields = [0; (N + 30) / 31];
 
@@ -30,10 +30,6 @@ pub fn be_bytes_31_to_fields<let N: u32>(bytes: [u8; N]) -> [Field; (N + 30) / 3
             // Shift the existing value left by 8 bits and add the new byte
             final_field = final_field * 256 + bytes[final_offset + j] as Field;
         }
-        dep::protocol_types::debug_log::debug_log_format(
-            "pushing final field in be_bytes_31_to_fields: {0}",
-            [final_field],
-        );
 
         fields[final_field_idx] = final_field;
     }
@@ -73,13 +69,17 @@ pub fn le_bytes_31_to_fields<let N: u32>(bytes: [u8; N]) -> [Field; (N + 30) / 3
     fields
 }
 
-// Converts an input array of fields into bytes. Each field of input has to contain only 31 bytes.
-// It appears that the original author of this function wants to give the caller some control
-// over the number of bytes that are returned: the final field can be mapped to fewer than 31 bytes, it seems,
-// based on the caller's choice of M.
-// Given the input is N fields, and each field (except apparently the last) is mapped to 31 bytes,
-// we definitely need M > (N - 1) * 31 to cover those first (N - 1) fields. Hence the static assertion.
-// TODO: this is the same as the "le" version of this function, save for the `field.to_be_bytes()` calls. I tried passing the conversion function in as a parameter, to reduce code duplication, but couldn't get it to work.
+/// Converts an input array of fields into a single array of bytes.
+/// Each input field must contain only 31 bytes (this is constrained to be so).
+/// Each field is converted into 31 big-endian bytes, and the resulting 31-byte
+/// chunks are concatenated back together in the order of the original fields.
+///
+/// It appears that the original author of this function wants to give the caller some control
+/// over the number of bytes that are returned: the final field can be mapped to fewer than 31 bytes,
+/// based on the caller's choice of M.
+/// Given the input is N fields, and each field (except the last) is mapped to 31 bytes,
+/// we definitely need M > (N - 1) * 31 to cover those first (N - 1) fields. Hence the static assertion.
+/// TODO: this is the same as the "le" version of this function, save for the `field.to_be_bytes()` calls. I tried passing the conversion function in as a parameter, to reduce code duplication, but couldn't get it to work.
 pub fn fields_to_be_bytes_31<let N: u32, let M: u32>(fields: [Field; N]) -> [u8; M] {
     let mut bytes = [0; M];
 
@@ -101,7 +101,6 @@ pub fn fields_to_be_bytes_31<let N: u32, let M: u32>(fields: [Field; N]) -> [u8;
         }
     }
 
-    // The final field will be
     let final_field = fields[N - 1];
     final_field.assert_max_bit_size::<8 * (M - ((N - 1) * 31))>();
 
@@ -115,6 +114,11 @@ pub fn fields_to_be_bytes_31<let N: u32, let M: u32>(fields: [Field; N]) -> [u8;
     bytes
 }
 
+/// Converts an input array of fields into a single array of bytes.
+/// Each input field must contain only 31 bytes (this is constrained to be so).
+/// Each field is converted into 31 little-endian bytes, and the resulting 31-byte
+/// chunks are concatenated back together in the order of the original fields. You'll
+/// end up with quite a strange ordering of bytes if you use this particular function.
 pub fn fields_to_le_bytes_31<let N: u32, let M: u32>(fields: [Field; N]) -> [u8; M] {
     let mut bytes = [0; M];
 
@@ -136,7 +140,6 @@ pub fn fields_to_le_bytes_31<let N: u32, let M: u32>(fields: [Field; N]) -> [u8;
         }
     }
 
-    // The final field will be
     let final_field = fields[N - 1];
     final_field.assert_max_bit_size::<8 * (M - ((N - 1) * 31))>();
 
@@ -150,6 +153,10 @@ pub fn fields_to_le_bytes_31<let N: u32, let M: u32>(fields: [Field; N]) -> [u8;
     bytes
 }
 
+/// Converts an input array of fields into a single array of bytes.
+/// Each field is converted to a 32-byte big-endian array.
+/// Since a field is ~254 bits, you'll end up with a subtle 2-bit "gap" at the big end,
+/// every 32 bytes. Be careful that such a gap doesn't leak information!
 pub fn fields_to_be_bytes_32<let N: u32>(fields: [Field; N]) -> [u8; 32 * N] {
     let mut bytes = [0; 32 * N];
 
@@ -175,6 +182,7 @@ unconstrained fn byte_to_bits(byte: u8) -> [u1; 8] {
     bits
 }
 
+/// Returns as many random bytes as specified through N.
 pub unconstrained fn get_random_bytes<let N: u32>() -> [u8; N] {
     let mut bytes = [0; N];
     let mut idx = 32;
@@ -190,6 +198,7 @@ pub unconstrained fn get_random_bytes<let N: u32>() -> [u8; N] {
     bytes
 }
 
+/// Returns as many random bits as specified through N.
 unconstrained fn get_random_bits<let N: u32>() -> [u1; N] {
     // Note: (N + 7) / 8 = ceil(N / 8)
     let bytes = get_random_bytes::<(N + 7) / 8>();
@@ -215,6 +224,7 @@ unconstrained fn get_random_bits<let N: u32>() -> [u1; N] {
     bits
 }
 
+/// Returns random bits, in chunks, according to the provided numeric generics.
 unconstrained fn get_chunks_of_random_bits<let NUM_CHUNKS: u32, let NUM_BITS: u32>() -> [[u1; NUM_BITS]; NUM_CHUNKS] {
     let random_bits = get_random_bits::<NUM_CHUNKS * NUM_BITS>();
     let mut chunks: [[u1; NUM_BITS]; NUM_CHUNKS] = [[0; NUM_BITS]; NUM_CHUNKS];
@@ -232,6 +242,8 @@ unconstrained fn get_chunks_of_random_bits<let NUM_CHUNKS: u32, let NUM_BITS: u3
  * Helper fn for be/le_bytes_to_padded_fields() fns.
  */
 fn pad_31_byte_fields_with_random_bits<let N: u32>(input: [Field; N]) -> [Field; N] {
+    /// Safety: we can't constrain whether or not the returned bits are actually random;
+    /// we can only rely on it being in the caller's best interest.
     let chunks_of_random_bits = unsafe { get_chunks_of_random_bits::<((N + 30) / 31), 6>() };
     let mut fields = input;
     // We push the random bits to the "big end" of each field
