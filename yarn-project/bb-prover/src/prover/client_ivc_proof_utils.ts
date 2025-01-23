@@ -11,7 +11,7 @@ import { join } from 'path';
  */
 export async function readFromOutputDirectory(directory: string) {
   const [clientIvcVkBuffer, clientIvcProofBuffer] = await Promise.all(
-    ['client_ivc_vk', 'client_ivc_proof'].map(fileName => fs.readFile(join(directory, fileName))),
+    ['vk', 'proof'].map(fileName => fs.readFile(join(directory, fileName))),
   );
   return new ClientIvcProof(clientIvcProofBuffer, clientIvcVkBuffer);
 }
@@ -32,8 +32,8 @@ export async function readFromOutputDirectory(directory: string) {
 export async function writeToOutputDirectory(clientIvcProof: ClientIvcProof, directory: string) {
   const { clientIvcProofBuffer, clientIvcVkBuffer } = clientIvcProof;
   const fileData = [
-    ['client_ivc_proof', clientIvcProofBuffer],
-    ['client_ivc_vk', clientIvcVkBuffer],
+    ['proof', clientIvcProofBuffer],
+    ['vk', clientIvcVkBuffer],
   ] as const;
   await Promise.all(fileData.map(([fileName, buffer]) => fs.writeFile(join(directory, fileName), buffer)));
 }

@@ -211,8 +211,8 @@ void prove_tube(const std::string& output_path)
     using Builder = UltraCircuitBuilder;
     using GrumpkinVk = bb::VerifierCommitmentKey<curve::Grumpkin>;
 
-    std::string vkPath = output_path + "/client_ivc_vk";
-    std::string proofPath = output_path + "/client_ivc_proof";
+    std::string vkPath = output_path + "/vk";
+    std::string proofPath = output_path + "/proof";
 
     // Note: this could be decreased once we optimise the size of the ClientIVC recursiveve rifier
     init_bn254_crs(1 << 25);

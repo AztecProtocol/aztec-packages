@@ -443,8 +443,8 @@ export async function generateTubeProof(
   }
 
   // // Paths for the inputs
-  const vkPath = join(workingDirectory, 'client_ivc_vk.bin');
-  const proofPath = join(workingDirectory, 'client_ivc_proof.bin');
+  const vkPath = join(workingDirectory, 'vk.bin');
+  const proofPath = join(workingDirectory, 'proof.bin');
 
   // The proof is written to e.g. /workingDirectory/proof
   const outputPath = workingDirectory;
