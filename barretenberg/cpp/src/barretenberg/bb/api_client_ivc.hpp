@@ -176,13 +176,12 @@ class ClientIVCAPI : public API {
         // Write the proof and verification keys into the working directory in  'binary' format (in practice it seems
         // this directory is passed by bb.js)
         vinfo("writing ClientIVC proof and vk...");
-        write_file(output_dir / "client_ivc_proof", to_buffer(proof));
+        write_file(output_dir / "proof", to_buffer(proof));
 
         auto eccvm_vk = std::make_shared<ECCVMFlavor::VerificationKey>(ivc->goblin.get_eccvm_proving_key());
         auto translator_vk =
             std::make_shared<TranslatorFlavor::VerificationKey>(ivc->goblin.get_translator_proving_key());
-        write_file(output_dir / "client_ivc_vk",
-                   to_buffer(ClientIVC::VerificationKey{ ivc->honk_vk, eccvm_vk, translator_vk }));
+        write_file(output_dir / "vk", to_buffer(ClientIVC::VerificationKey{ ivc->honk_vk, eccvm_vk, translator_vk }));
     };
 
     /**
@@ -273,13 +272,12 @@ class ClientIVCAPI : public API {
 
         // Write the proof and verification keys into the working directory in 'binary' format
         vinfo("writing ClientIVC proof and vk...");
-        write_file(output_dir / "client_ivc_proof", to_buffer(proof));
+        write_file(output_dir / "proof", to_buffer(proof));
 
         auto eccvm_vk = std::make_shared<ECCVMFlavor::VerificationKey>(ivc.goblin.get_eccvm_proving_key());
         auto translator_vk =
             std::make_shared<TranslatorFlavor::VerificationKey>(ivc.goblin.get_translator_proving_key());
-        write_file(output_dir / "client_ivc_vk",
-                   to_buffer(ClientIVC::VerificationKey{ ivc.honk_vk, eccvm_vk, translator_vk }));
+        write_file(output_dir / "vk", to_buffer(ClientIVC::VerificationKey{ ivc.honk_vk, eccvm_vk, translator_vk }));
     };
 
     void gates([[maybe_unused]] const API::Flags& flags,

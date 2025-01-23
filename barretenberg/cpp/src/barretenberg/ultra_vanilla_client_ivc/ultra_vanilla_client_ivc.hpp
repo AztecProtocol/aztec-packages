@@ -96,7 +96,7 @@ class UltraVanillaClientIVC {
      * @return true All circuits provided have been satisfied.
      * @return false Some circuit provided was not satisfied.
      */
-    bool verify(const Proof& proof, const std::shared_ptr<VK>& vk);
+    static bool verify(const Proof& proof, const std::shared_ptr<VK>& vk);
 
     /**
      * @brief Prove and then verify the proof. This is used for testing.

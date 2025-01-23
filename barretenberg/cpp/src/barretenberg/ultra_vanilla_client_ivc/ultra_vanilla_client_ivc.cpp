@@ -13,22 +13,29 @@ void UltraVanillaClientIVC::accumulate(Circuit& circuit, const Proof& proof, con
 HonkProof UltraVanillaClientIVC::prove(CircuitSource<Flavor>& source, const bool cache_vks)
 {
     for (size_t step = 0; step < source.num_circuits(); step++) {
+        vinfo("about to call next...");
         auto [circuit, vk] = source.next();
+        vinfo("got next pair from source");
         if (step == 0) {
             accumulator_indices = stdlib::recursion::init_default_agg_obj_indices(circuit);
         } else {
             accumulate(circuit, previous_proof, previous_vk);
             accumulator_indices = accumulator.get_witness_indices();
         }
+        vinfo("set accumulator indices");
 
         circuit.add_pairing_point_accumulator(accumulator_indices);
         accumulator_value = { accumulator.P0.get_value(), accumulator.P1.get_value() };
+        vinfo("set accumulator data");
 
         auto proving_key = std::make_shared<PK>(circuit);
+        vinfo("built proving key");
 
-        if (step < source.num_circuits() - 1) {
+        if (step + 1 == source.num_circuits()) {
             UltraProver prover{ proving_key, commitment_key };
+            vinfo("built prover");
             previous_proof = prover.construct_proof();
+            vinfo("constructed proof");
         } else {
             // TODO(https://github.com/AztecProtocol/barretenberg/issues/1176) Use UltraZKProver when it exists
             UltraProver prover{ proving_key, commitment_key };
@@ -45,15 +52,11 @@ HonkProof UltraVanillaClientIVC::prove(CircuitSource<Flavor>& source, const bool
 
 bool UltraVanillaClientIVC::verify(const Proof& proof, const std::shared_ptr<VK>& vk)
 {
-
+    ASSERT(vk != nullptr);
     UltraVerifier verifer{ vk };
+    vinfo("constructed verifier");
     bool verified = verifer.verify_proof(proof);
     vinfo("proof verified: ", verified);
-
-    using VerifierCommitmentKey = typename Flavor::VerifierCommitmentKey;
-    auto pcs_verification_key = std::make_shared<VerifierCommitmentKey>();
-    verified &= pcs_verification_key->pairing_check(accumulator_value[0], accumulator_value[1]);
-    vinfo("pairing verified: ", verified);
     return verified;
 }
 

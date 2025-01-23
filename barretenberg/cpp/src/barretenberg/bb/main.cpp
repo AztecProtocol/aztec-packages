@@ -1,5 +1,6 @@
 #include "barretenberg/bb/api.hpp"
 #include "barretenberg/bb/api_client_ivc.hpp"
+#include "barretenberg/bb/api_ultra_honk.hpp"
 #include "barretenberg/bb/file_io.hpp"
 #include "barretenberg/client_ivc/client_ivc.hpp"
 #include "barretenberg/common/benchmark.hpp"
@@ -1353,8 +1354,8 @@ int main(int argc, char* argv[])
 
             if (command == "verify") {
                 const std::filesystem::path output_dir = get_option(args, "-o", "./target");
-                const std::filesystem::path proof_path = output_dir / "client_ivc_proof";
-                const std::filesystem::path vk_path = output_dir / "client_ivc_vk";
+                const std::filesystem::path proof_path = output_dir / "proof";
+                const std::filesystem::path vk_path = output_dir / "vk";
 
                 return api.verify(flags, proof_path, vk_path) ? 0 : 1;
             }
@@ -1381,6 +1382,9 @@ int main(int argc, char* argv[])
 
         if (proof_system == "client_ivc") {
             ClientIVCAPI api;
+            execute_command(command, flags, api);
+        } else if (proof_system == "ultra_honk") {
+            UltraHonkAPI api;
             execute_command(command, flags, api);
         } else if (command == "prove_and_verify") {
             return proveAndVerify(bytecode_path, recursive, witness_path) ? 0 : 1;
