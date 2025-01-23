@@ -26,7 +26,7 @@ Along the way you will:
 
 ### Install tools
 
-Please ensure that you already have [Installed the Sandbox](../../../guides/developer_guides/getting_started)
+Please ensure that you already have [Installed the Sandbox](../../../guides/getting_started)
 
 ### Create an Aztec project
 
@@ -199,4 +199,4 @@ Follow the account contract tutorial on the [next page](./write_accounts_contrac
  - [Initializer functions](../../../guides/developer_guides/smart_contracts/writing_contracts/initializers.md)
  - [Versions](../../../guides/developer_guides/local_env/versions-updating.md).
  - [Authorizing actions](../../../aztec/concepts/accounts/index.md#authorizing-actions)
- - [Unencrypted logs](../../../guides/developer_guides/smart_contracts/writing_contracts/how_to_emit_event.md#call-emit_unencrypted_log)
+ - [Public logs](../../../guides/developer_guides/smart_contracts/writing_contracts/how_to_emit_event.md#call-emit_public_log)

@@ -1,4 +1,4 @@
-use dep::protocol_types::header::Header;
+use dep::protocol_types::block_header::BlockHeader;
 use dep::protocol_types::merkle_tree::root::root_from_sibling_path;
 
 use crate::{
@@ -7,18 +7,19 @@ use crate::{
 };
 
 trait ProveNoteInclusion {
-    fn prove_note_inclusion<Note, let N: u32>(header: Header, note: Note)
+    fn prove_note_inclusion<Note, let N: u32>(header: BlockHeader, note: Note)
     where
         Note: NoteInterface<N> + NullifiableNote;
 }
 
-impl ProveNoteInclusion for Header {
+impl ProveNoteInclusion for BlockHeader {
     fn prove_note_inclusion<Note, let N: u32>(self, note: Note)
     where
         Note: NoteInterface<N> + NullifiableNote,
     {
         let note_hash = compute_note_hash_for_nullify(note);
 
+        /// Safety: The witness is only used as a "magical value" that makes the merkle proof below pass. Hence it's safe.
         let witness = unsafe {
             get_note_hash_membership_witness(self.global_variables.block_number as u32, note_hash)
         };

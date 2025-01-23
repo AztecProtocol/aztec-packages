@@ -1,5 +1,5 @@
 use dep::protocol_types::{
-    abis::call_context::CallContext, header::Header, traits::Empty,
+    abis::call_context::CallContext, block_header::BlockHeader, traits::Empty,
     transaction::tx_context::TxContext,
 };
 
@@ -7,7 +7,7 @@ use dep::protocol_types::{
 // docs:start:private-context-inputs
 pub struct PrivateContextInputs {
     pub call_context: CallContext,
-    pub historical_header: Header,
+    pub historical_header: BlockHeader,
     pub tx_context: TxContext,
     pub start_side_effect_counter: u32,
 }
@@ -17,7 +17,7 @@ impl Empty for PrivateContextInputs {
     fn empty() -> Self {
         PrivateContextInputs {
             call_context: CallContext::empty(),
-            historical_header: Header::empty(),
+            historical_header: BlockHeader::empty(),
             tx_context: TxContext::empty(),
             start_side_effect_counter: 0 as u32,
         }

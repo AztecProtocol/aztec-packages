@@ -34,7 +34,7 @@ export class LogId {
 
   static random() {
     return new LogId(
-      Math.floor(Math.random() * 1000),
+      Math.floor(Math.random() * 1000) + 1,
       Math.floor(Math.random() * 1000),
       Math.floor(Math.random() * 100),
     );

@@ -1,0 +1,26 @@
+#!/bin/bash
+# For CI. Temporary measure.
+# Determine system architecture
+ARCH=$(uname -m)
+
+# Set the URL for Earthly downloads
+BASE_URL="https://github.com/earthly/earthly/releases/latest/download"
+
+# Determine the appropriate file based on architecture
+if [ "$ARCH" == "x86_64" ]; then
+    FILE="earthly-linux-amd64"
+elif [ "$ARCH" == "aarch64" ] || [ "$ARCH" == "arm64" ]; then
+    FILE="earthly-linux-arm64"
+else
+    echo "Unsupported architecture: $ARCH"
+    exit 1
+fi
+
+# Download the appropriate file
+echo "Downloading $FILE..."
+curl -LO "$BASE_URL/$FILE"
+
+# Make the file executable
+chmod +x "$FILE"
+
+sudo mv "$FILE" /usr/local/bin/earthly

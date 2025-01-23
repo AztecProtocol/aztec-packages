@@ -14,6 +14,7 @@ export class GasSettings {
     public readonly gasLimits: Gas,
     public readonly teardownGasLimits: Gas,
     public readonly maxFeesPerGas: GasFees,
+    public readonly maxPriorityFeesPerGas: GasFees,
   ) {}
 
   static get schema() {
@@ -22,6 +23,7 @@ export class GasSettings {
         gasLimits: Gas.schema,
         teardownGasLimits: Gas.schema,
         maxFeesPerGas: GasFees.schema,
+        maxPriorityFeesPerGas: GasFees.schema,
       })
       .transform(GasSettings.from);
   }
@@ -30,16 +32,27 @@ export class GasSettings {
     return this.toBuffer().length;
   }
 
-  static from(args: { gasLimits: FieldsOf<Gas>; teardownGasLimits: FieldsOf<Gas>; maxFeesPerGas: FieldsOf<GasFees> }) {
+  static from(args: {
+    gasLimits: FieldsOf<Gas>;
+    teardownGasLimits: FieldsOf<Gas>;
+    maxFeesPerGas: FieldsOf<GasFees>;
+    maxPriorityFeesPerGas: FieldsOf<GasFees>;
+  }) {
     return new GasSettings(
       Gas.from(args.gasLimits),
       Gas.from(args.teardownGasLimits),
       GasFees.from(args.maxFeesPerGas),
+      GasFees.from(args.maxPriorityFeesPerGas),
     );
   }
 
   clone() {
-    return new GasSettings(this.gasLimits.clone(), this.teardownGasLimits.clone(), this.maxFeesPerGas.clone());
+    return new GasSettings(
+      this.gasLimits.clone(),
+      this.teardownGasLimits.clone(),
+      this.maxFeesPerGas.clone(),
+      this.maxPriorityFeesPerGas.clone(),
+    );
   }
 
   /** Returns the maximum fee to be paid according to gas limits and max fees set. */
@@ -56,11 +69,16 @@ export class GasSettings {
 
   /** Zero-value gas settings. */
   static empty() {
-    return new GasSettings(Gas.empty(), Gas.empty(), GasFees.empty());
+    return new GasSettings(Gas.empty(), Gas.empty(), GasFees.empty(), GasFees.empty());
   }
 
   /** Default gas settings to use when user has not provided them. Requires explicit max fees per gas. */
-  static default(overrides: { gasLimits?: Gas; teardownGasLimits?: Gas; maxFeesPerGas: GasFees }) {
+  static default(overrides: {
+    gasLimits?: Gas;
+    teardownGasLimits?: Gas;
+    maxFeesPerGas: GasFees;
+    maxPriorityFeesPerGas?: GasFees;
+  }) {
     return GasSettings.from({
       gasLimits: overrides.gasLimits ?? { l2Gas: DEFAULT_GAS_LIMIT, daGas: DEFAULT_GAS_LIMIT },
       teardownGasLimits: overrides.teardownGasLimits ?? {
@@ -68,32 +86,36 @@ export class GasSettings {
         daGas: DEFAULT_TEARDOWN_GAS_LIMIT,
       },
       maxFeesPerGas: overrides.maxFeesPerGas,
-    });
-  }
-
-  /** Default gas settings with no teardown */
-  static teardownless(opts: { maxFeesPerGas: GasFees }) {
-    return GasSettings.default({
-      teardownGasLimits: Gas.from({ l2Gas: 0, daGas: 0 }),
-      maxFeesPerGas: opts.maxFeesPerGas,
+      maxPriorityFeesPerGas: overrides.maxPriorityFeesPerGas ?? GasFees.empty(),
     });
   }
 
   isEmpty() {
-    return this.gasLimits.isEmpty() && this.teardownGasLimits.isEmpty() && this.maxFeesPerGas.isEmpty();
+    return (
+      this.gasLimits.isEmpty() &&
+      this.teardownGasLimits.isEmpty() &&
+      this.maxFeesPerGas.isEmpty() &&
+      this.maxPriorityFeesPerGas.isEmpty()
+    );
   }
 
   equals(other: GasSettings) {
     return (
       this.gasLimits.equals(other.gasLimits) &&
       this.teardownGasLimits.equals(other.teardownGasLimits) &&
-      this.maxFeesPerGas.equals(other.maxFeesPerGas)
+      this.maxFeesPerGas.equals(other.maxFeesPerGas) &&
+      this.maxPriorityFeesPerGas.equals(other.maxPriorityFeesPerGas)
     );
   }
 
   static fromBuffer(buffer: Buffer | BufferReader): GasSettings {
     const reader = BufferReader.asReader(buffer);
-    return new GasSettings(reader.readObject(Gas), reader.readObject(Gas), reader.readObject(GasFees));
+    return new GasSettings(
+      reader.readObject(Gas),
+      reader.readObject(Gas),
+      reader.readObject(GasFees),
+      reader.readObject(GasFees),
+    );
   }
 
   toBuffer() {
@@ -102,7 +124,12 @@ export class GasSettings {
 
   static fromFields(fields: Fr[] | FieldReader): GasSettings {
     const reader = FieldReader.asReader(fields);
-    return new GasSettings(reader.readObject(Gas), reader.readObject(Gas), reader.readObject(GasFees));
+    return new GasSettings(
+      reader.readObject(Gas),
+      reader.readObject(Gas),
+      reader.readObject(GasFees),
+      reader.readObject(GasFees),
+    );
   }
 
   toFields(): Fr[] {
@@ -116,6 +143,6 @@ export class GasSettings {
   }
 
   static getFields(fields: FieldsOf<GasSettings>) {
-    return [fields.gasLimits, fields.teardownGasLimits, fields.maxFeesPerGas] as const;
+    return [fields.gasLimits, fields.teardownGasLimits, fields.maxFeesPerGas, fields.maxPriorityFeesPerGas] as const;
   }
 }

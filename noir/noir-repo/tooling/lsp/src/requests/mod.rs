@@ -16,8 +16,10 @@ use lsp_types::{
 };
 use nargo_fmt::Config;
 
+use noirc_frontend::ast::Ident;
 use noirc_frontend::graph::CrateId;
-use noirc_frontend::hir::def_map::CrateDefMap;
+use noirc_frontend::hir::def_map::{CrateDefMap, ModuleId};
+use noirc_frontend::parser::ParserError;
 use noirc_frontend::usage_tracker::UsageTracker;
 use noirc_frontend::{graph::Dependency, node_interner::NodeInterner};
 use serde::{Deserialize, Serialize};
@@ -285,7 +287,8 @@ fn on_formatting_inner(
 
     if let Some(source) = state.input_files.get(&path) {
         let (module, errors) = noirc_frontend::parse_program(source);
-        if !errors.is_empty() {
+        let is_all_warnings = errors.iter().all(ParserError::is_warning);
+        if !is_all_warnings {
             return Ok(None);
         }
 
@@ -617,6 +620,12 @@ pub(crate) fn find_all_references(
         .unwrap_or_default()
 }
 
+/// Represents a trait reexported from a given module with a name.
+pub(crate) struct TraitReexport<'a> {
+    pub(super) module_id: &'a ModuleId,
+    pub(super) name: &'a Ident,
+}
+
 #[cfg(test)]
 mod initialization {
     use acvm::blackbox_solver::StubbedBlackBoxSolver;
@@ -631,7 +640,7 @@ mod initialization {
     #[test]
     async fn test_on_initialize() {
         let client = ClientSocket::new_closed();
-        let mut state = LspState::new(&client, StubbedBlackBoxSolver);
+        let mut state = LspState::new(&client, StubbedBlackBoxSolver::default());
         let params = InitializeParams::default();
         let response = on_initialize(&mut state, params).await.unwrap();
         assert!(matches!(

@@ -1,5 +1,5 @@
 /* eslint-disable jsdoc/require-jsdoc */
-import { type AztecAddress, BatchCall, type DebugLogger, type Wallet } from '@aztec/aztec.js';
+import { type AztecAddress, BatchCall, type Logger, type Wallet } from '@aztec/aztec.js';
 import { type TokenContract } from '@aztec/noir-contracts.js/Token';
 
 import chunk from 'lodash.chunk';
@@ -14,7 +14,7 @@ export class TokenSimulator {
   constructor(
     protected token: TokenContract,
     protected defaultWallet: Wallet,
-    protected logger: DebugLogger,
+    protected logger: Logger,
     protected accounts: AztecAddress[],
   ) {}
 

@@ -54,7 +54,7 @@ contract TokenBridge {
     // docs:start:claim_public
     // Consumes a L1->L2 message and calls the token contract to mint the appropriate amount publicly
     #[public]
-    fn claim_public(to: AztecAddress, amount: Field, secret: Field, message_leaf_index: Field) {
+    fn claim_public(to: AztecAddress, amount: U128, secret: Field, message_leaf_index: Field) {
         let content_hash = get_mint_to_public_content_hash(to, amount);
 
         // Consume message and emit nullifier
@@ -76,7 +76,7 @@ contract TokenBridge {
     #[public]
     fn exit_to_l1_public(
         recipient: EthAddress, // ethereum address to withdraw to
-        amount: Field,
+        amount: U128,
         caller_on_l1: EthAddress, // ethereum address that can call this function on the L1 portal (0x0 if anyone can call)
         nonce: Field, // nonce used in the approval message by `msg.sender` to let bridge burn their tokens on L2
     ) {
@@ -95,11 +95,10 @@ contract TokenBridge {
     /// Claims the bridged tokens and makes them accessible in private. Note that recipient's address is not revealed
     /// but the amount is. Hence it's most likely possible to determine to which L1 deposit this claim corresponds to
     /// (unless there are multiple pending deposits of the same amount).
-    /// TODO(#8416): Consider creating a truly private claim flow.
     #[private]
     fn claim_private(
         recipient: AztecAddress, // recipient of the bridged tokens
-        amount: Field,
+        amount: U128,
         secret_for_L1_to_L2_message_consumption: Field, // secret used to consume the L1 to L2 message
         message_leaf_index: Field,
     ) {
@@ -131,7 +130,7 @@ contract TokenBridge {
     fn exit_to_l1_private(
         token: AztecAddress,
         recipient: EthAddress, // ethereum address to withdraw to
-        amount: Field,
+        amount: U128,
         caller_on_l1: EthAddress, // ethereum address that can call this function on the L1 portal (0x0 if anyone can call)
         nonce: Field, // nonce used in the approval message by `msg.sender` to let bridge burn their tokens on L2
     ) {

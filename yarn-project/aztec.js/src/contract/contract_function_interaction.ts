@@ -52,6 +52,7 @@ export class ContractFunctionInteraction extends BaseContractInteraction {
     }
   }
 
+  // docs:start:create
   /**
    * Create a transaction execution request that represents this call, encoded and authenticated by the
    * user's wallet, ready to be simulated.
@@ -59,6 +60,7 @@ export class ContractFunctionInteraction extends BaseContractInteraction {
    * @returns A Promise that resolves to a transaction instance.
    */
   public async create(opts: SendMethodOptions = {}): Promise<TxExecutionRequest> {
+    // docs:end:create
     if (this.functionDao.functionType === FunctionType.UNCONSTRAINED) {
       throw new Error("Can't call `create` on an unconstrained function.");
     }
@@ -68,12 +70,14 @@ export class ContractFunctionInteraction extends BaseContractInteraction {
     return await this.wallet.createTxExecutionRequest({ calls, fee, nonce, cancellable });
   }
 
+  // docs:start:request
   /**
    * Returns an execution request that represents this operation. Useful as a building
    * block for constructing batch requests.
    * @returns An execution request wrapped in promise.
    */
   public request(): FunctionCall {
+    // docs:end:request
     const args = encodeArguments(this.functionDao, this.args);
     return {
       name: this.functionDao.name,
@@ -86,6 +90,7 @@ export class ContractFunctionInteraction extends BaseContractInteraction {
     };
   }
 
+  // docs:start:simulate
   /**
    * Simulate a transaction and get its return values
    * Differs from prove in a few important ways:
@@ -96,6 +101,7 @@ export class ContractFunctionInteraction extends BaseContractInteraction {
    * @returns The result of the transaction as returned by the contract function.
    */
   public async simulate(options: SimulateMethodOptions = {}): Promise<any> {
+    // docs:end:simulate
     if (this.functionDao.functionType == FunctionType.UNCONSTRAINED) {
       return this.wallet.simulateUnconstrained(this.functionDao.name, this.args, this.contractAddress, options?.from);
     }
@@ -103,13 +109,20 @@ export class ContractFunctionInteraction extends BaseContractInteraction {
     const txRequest = await this.create();
     const simulatedTx = await this.wallet.simulateTx(txRequest, true, options?.from, options?.skipTxValidation);
 
-    // As account entrypoints are private, for private functions we retrieve the return values from the first nested call
-    // since we're interested in the first set of values AFTER the account entrypoint
-    // For public functions we retrieve the first values directly from the public output.
-    const rawReturnValues =
-      this.functionDao.functionType == FunctionType.PRIVATE
-        ? simulatedTx.getPrivateReturnValues().nested?.[0].values
-        : simulatedTx.getPublicReturnValues()?.[0].values;
+    let rawReturnValues;
+    if (this.functionDao.functionType == FunctionType.PRIVATE) {
+      if (simulatedTx.getPrivateReturnValues().nested.length > 0) {
+        // The function invoked is private and it was called via an account contract
+        // TODO(#10631): There is a bug here: this branch might be triggered when there is no-account contract as well
+        rawReturnValues = simulatedTx.getPrivateReturnValues().nested[0].values;
+      } else {
+        // The function invoked is private and it was called directly (without account contract)
+        rawReturnValues = simulatedTx.getPrivateReturnValues().values;
+      }
+    } else {
+      // For public functions we retrieve the first values directly from the public output.
+      rawReturnValues = simulatedTx.getPublicReturnValues()?.[0].values;
+    }
 
     return rawReturnValues ? decodeFromAbi(this.functionDao.returnTypes, rawReturnValues) : [];
   }
@@ -126,7 +139,14 @@ export class ContractFunctionInteraction extends BaseContractInteraction {
     }
 
     const txRequest = await this.create();
-    const simulatedTx = await this.wallet.simulateTx(txRequest, true, options?.from, options?.skipTxValidation, true);
+    const simulatedTx = await this.wallet.simulateTx(
+      txRequest,
+      true,
+      options?.from,
+      options?.skipTxValidation,
+      undefined,
+      true,
+    );
 
     const rawReturnValues =
       this.functionDao.functionType == FunctionType.PRIVATE

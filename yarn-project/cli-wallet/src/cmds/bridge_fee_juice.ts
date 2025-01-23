@@ -1,14 +1,14 @@
-import { L1FeeJuicePortalManager, createCompatibleClient } from '@aztec/aztec.js';
+import { L1FeeJuicePortalManager, type PXE } from '@aztec/aztec.js';
 import { prettyPrintJSON } from '@aztec/cli/utils';
 import { createEthereumChain, createL1Clients } from '@aztec/ethereum';
 import { type AztecAddress } from '@aztec/foundation/aztec-address';
 import { Fr } from '@aztec/foundation/fields';
-import { type DebugLogger, type LogFn } from '@aztec/foundation/log';
+import { type LogFn, type Logger } from '@aztec/foundation/log';
 
 export async function bridgeL1FeeJuice(
   amount: bigint,
   recipient: AztecAddress,
-  rpcUrl: string,
+  pxe: PXE,
   l1RpcUrl: string,
   chainId: number,
   privateKey: string | undefined,
@@ -18,21 +18,18 @@ export async function bridgeL1FeeJuice(
   wait: boolean,
   interval = 60_000,
   log: LogFn,
-  debugLogger: DebugLogger,
+  debugLogger: Logger,
 ) {
   // Prepare L1 client
   const chain = createEthereumChain(l1RpcUrl, chainId);
   const { publicClient, walletClient } = createL1Clients(chain.rpcUrl, privateKey ?? mnemonic, chain.chainInfo);
 
-  // Prepare L2 client
-  const client = await createCompatibleClient(rpcUrl, debugLogger);
-
   const {
     protocolContractAddresses: { feeJuice: feeJuiceAddress },
-  } = await client.getPXEInfo();
+  } = await pxe.getPXEInfo();
 
   // Setup portal manager
-  const portal = await L1FeeJuicePortalManager.new(client, publicClient, walletClient, debugLogger);
+  const portal = await L1FeeJuicePortalManager.new(pxe, publicClient, walletClient, debugLogger);
   const { claimAmount, claimSecret, messageHash, messageLeafIndex } = await portal.bridgeTokensPublic(
     recipient,
     amount,
@@ -69,9 +66,9 @@ export async function bridgeL1FeeJuice(
     const delayedCheck = (delay: number) => {
       return new Promise(resolve => {
         setTimeout(async () => {
-          const witness = await client.getL1ToL2MembershipWitness(
+          const witness = await pxe.getL1ToL2MembershipWitness(
             feeJuiceAddress,
-            Fr.fromString(messageHash),
+            Fr.fromHexString(messageHash),
             claimSecret,
           );
           resolve(witness);

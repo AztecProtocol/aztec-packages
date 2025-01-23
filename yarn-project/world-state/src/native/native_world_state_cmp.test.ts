@@ -6,11 +6,11 @@ import {
   type MerkleTreeWriteOperations,
 } from '@aztec/circuit-types';
 import { EthAddress, Fr, GENESIS_ARCHIVE_ROOT, NullifierLeaf, PublicDataTreeLeaf } from '@aztec/circuits.js';
-import { type DebugLogger, createDebugLogger } from '@aztec/foundation/log';
+import { type Logger, createLogger } from '@aztec/foundation/log';
 import { elapsed } from '@aztec/foundation/timer';
 import { type AztecKVStore } from '@aztec/kv-store';
 import { AztecLmdbStore } from '@aztec/kv-store/lmdb';
-import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
+import { getTelemetryClient } from '@aztec/telemetry-client';
 
 import { jest } from '@jest/globals';
 import { mkdtemp, rm } from 'fs/promises';
@@ -30,7 +30,7 @@ describe('NativeWorldState', () => {
   let nativeWS: NativeWorldStateService;
   let legacyWS: MerkleTrees;
 
-  let log: DebugLogger;
+  let log: Logger;
 
   let legacyStore: AztecKVStore;
 
@@ -42,7 +42,7 @@ describe('NativeWorldState', () => {
     nativeDataDir = await mkdtemp(join(tmpdir(), 'native_world_state_test-'));
     legacyDataDir = await mkdtemp(join(tmpdir(), 'js_world_state_test-'));
 
-    log = createDebugLogger('aztec:world-state:test:native_world_state_cmp');
+    log = createLogger('world-state:test:native_world_state_cmp');
   });
 
   afterAll(async () => {
@@ -53,7 +53,7 @@ describe('NativeWorldState', () => {
   beforeAll(async () => {
     legacyStore = AztecLmdbStore.open(legacyDataDir);
     nativeWS = await NativeWorldStateService.new(EthAddress.random(), nativeDataDir, 1024 * 1024);
-    legacyWS = await MerkleTrees.new(legacyStore, new NoopTelemetryClient());
+    legacyWS = await MerkleTrees.new(legacyStore, getTelemetryClient());
   });
 
   it('has to expected genesis archive tree root', async () => {

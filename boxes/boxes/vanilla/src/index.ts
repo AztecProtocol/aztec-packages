@@ -7,7 +7,7 @@ const secretKey = Fr.random();
 const pxe = createPXEClient(process.env.PXE_URL || 'http://localhost:8080');
 
 const encryptionPrivateKey = deriveMasterIncomingViewingSecretKey(secretKey);
-const account = new AccountManager(pxe, secretKey, new SingleKeyAccountContract(encryptionPrivateKey));
+const account = await AccountManager.create(pxe, secretKey, new SingleKeyAccountContract(encryptionPrivateKey));
 let contract: any = null;
 let wallet: Wallet | null = null;
 
@@ -21,11 +21,7 @@ document.querySelector('#deploy').addEventListener('click', async ({ target }: a
   setWait(true);
   wallet = await account.register();
 
-  contract = await VanillaContract.deploy(
-    wallet,
-    Fr.random(),
-    wallet.getCompleteAddress().address
-  )
+  contract = await VanillaContract.deploy(wallet, Fr.random(), wallet.getCompleteAddress().address)
     .send({ contractAddressSalt: Fr.random() })
     .deployed();
   alert(`Contract deployed at ${contract.address}`);
@@ -41,13 +37,7 @@ document.querySelector('#set').addEventListener('submit', async (e: Event) => {
 
   const { value } = document.querySelector('#number') as HTMLInputElement;
   const { address: owner } = wallet.getCompleteAddress();
-  await contract.methods
-    .setNumber(
-      parseInt(value),
-      owner,
-    )
-    .send()
-    .wait();
+  await contract.methods.setNumber(parseInt(value), owner).send().wait();
 
   setWait(false);
   alert('Number set!');

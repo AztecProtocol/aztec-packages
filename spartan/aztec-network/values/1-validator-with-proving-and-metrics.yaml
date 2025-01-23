@@ -38,4 +38,3 @@ jobs:
 
 telemetry:
   enabled: true
-  otelCollectorEndpoint: http://metrics-opentelemetry-collector.metrics:4318

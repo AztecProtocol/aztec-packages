@@ -19,9 +19,6 @@ env:
   AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
   BUILD_INSTANCE_SSH_KEY: ${{ secrets.BUILD_INSTANCE_SSH_KEY }}
   GIT_COMMIT: ${{ github.event.pull_request.head.sha || github.sha }}
-  # kludge until we move away from runners
-  WAIT_FOR_RUNNERS: false
-
 jobs:
   setup:
     uses: ./.github/workflows/setup-runner.yml
@@ -46,7 +43,7 @@ jobs:
       - name: "Build E2E Image"
         timeout-minutes: 40
         run: |
-          earthly-ci ./yarn-project+export-e2e-test-images
+          ./bootstrap.sh image-e2e
 
   test:
     needs: build
@@ -61,23 +58,15 @@ jobs:
         with: { ref: "${{ env.GIT_COMMIT }}" }
       - uses: ./.github/ci-setup-action
       - name: Setup and Test
-        uses: ./.github/ensure-tester-with-images
+        uses: ./.github/ensure-tester
         timeout-minutes: 90
         with:
           runner_type: 16core-tester-x86
-          builder_type: builder-x86
-          # these are copied to the tester and expected by the earthly command below
-          # if they fail to copy, it will try to build them on the tester and fail
-          builder_images_to_copy: aztecprotocol/aztec:${{ env.GIT_COMMIT }} aztecprotocol/end-to-end:${{ env.GIT_COMMIT }}
-          # command to produce the images in case they don't exist
-          builder_command: scripts/earthly-ci ./yarn-project+export-e2e-test-images
-          tester_ttl: 90
+          ttl: 90
           run: |
-            set -eux
-            ./spartan/scripts/setup_local_k8s.sh
-            cd yarn-project/end-to-end
-            export FORCE_COLOR=1
-            NAMESPACE=${{ matrix.test }} FRESH_INSTALL=true CLEANUP_CLUSTER=true VALUES_FILE="16-validators.yaml" ./scripts/network_test.sh ./src/spartan/${{ matrix.test }}.test.ts || true
+            docker pull aztecprotocol/aztec:${{ env.GIT_COMMIT }}
+            docker pull aztecprotocol/end-to-end:${{ env.GIT_COMMIT }}
+            FORCE_COLOR=1 CLEANUP_CLUSTER=true ./ci.sh test-kind-network ${{ matrix.test }}.test.ts 16-validators || true
 
   proving-test:
     needs: build
@@ -88,23 +77,16 @@ jobs:
         with: { ref: "${{ env.GIT_COMMIT }}" }
       - uses: ./.github/ci-setup-action
       - name: Setup and Test
-        uses: ./.github/ensure-tester-with-images
+        uses: ./.github/ensure-tester
         timeout-minutes: 90
         with:
           runner_type: 128core-tester-x86
-          builder_type: builder-x86
-          # these are copied to the tester and expected by the earthly command below
-          # if they fail to copy, it will try to build them on the tester and fail
-          builder_images_to_copy: aztecprotocol/aztec:${{ env.GIT_COMMIT }} aztecprotocol/end-to-end:${{ env.GIT_COMMIT }}
-          # command to produce the images in case they don't exist
-          builder_command: scripts/earthly-ci ./yarn-project+export-e2e-test-images
-          tester_ttl: 90
+          ttl: 90
           run: |
-            set -eux
-            ./spartan/scripts/setup_local_k8s.sh
-            cd yarn-project/end-to-end
-            export FORCE_COLOR=1
-            NAMESPACE=proving FRESH_INSTALL=true CLEANUP_CLUSTER=true INSTALL_TIMEOUT=45m VALUES_FILE="1-validator-with-proving.yaml" ./scripts/network_test.sh ./src/spartan/proving.test.ts || true
+            docker pull aztecprotocol/aztec:${{ env.GIT_COMMIT }}
+            docker pull aztecprotocol/end-to-end:${{ env.GIT_COMMIT }}
+            INSTALL_TIMEOUT=45m FORCE_COLOR=1 CLEANUP_CLUSTER=true \
+              ./ci.sh test-kind-network proving.test.ts 1-validator-with-proving || true
 
   success-check:
     runs-on: ubuntu-20.04

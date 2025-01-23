@@ -6,11 +6,12 @@ import * as AztecJs from '@aztec/aztec.js';
 import { TokenContractArtifact } from '@aztec/noir-contracts.js/Token';
 import { contractArtifactToBuffer } from '@aztec/types/abi';
 
+import getPort from 'get-port';
 import { type Server } from 'http';
 import Koa from 'koa';
 import serve from 'koa-static';
 import path, { dirname } from 'path';
-import { type Browser, type Page, launch } from 'puppeteer';
+import { type Browser, type Page, launch } from 'puppeteer-core';
 
 declare global {
   /**
@@ -51,7 +52,7 @@ export const browserTestSuite = (
      */
     pxeURL: string;
   }>,
-  pageLogger: AztecJs.DebugLogger,
+  pageLogger: AztecJs.Logger,
 ) =>
   describe('e2e_aztec.js_browser', () => {
     const initialBalance = 33n;
@@ -77,16 +78,18 @@ export const browserTestSuite = (
       app = new Koa();
       app.use(serve(path.resolve(__dirname, './web')));
 
+      const debuggingPort = await getPort({ port: 9222 });
       browser = await launch({
         executablePath: process.env.CHROME_BIN,
         headless: true,
+        debuggingPort,
         args: [
           '--no-sandbox',
           '--headless',
           '--disable-gpu',
           '--disable-dev-shm-usage',
           '--disable-software-rasterizer',
-          '--remote-debugging-port=9222',
+          `--remote-debugging-port=${debuggingPort}`,
         ],
       });
       page = await browser.newPage();
@@ -94,7 +97,7 @@ export const browserTestSuite = (
         pageLogger.info(msg.text());
       });
       page.on('pageerror', err => {
-        pageLogger.error(err.toString());
+        pageLogger.error(`Error on web page`, err);
       });
       await page.goto(`${webServerURL}/index.html`);
       while (!(await page.evaluate(() => !!window.AztecJs))) {
@@ -122,10 +125,10 @@ export const browserTestSuite = (
         async (rpcUrl, secretKeyString) => {
           const { Fr, createPXEClient, getUnsafeSchnorrAccount } = window.AztecJs;
           const pxe = createPXEClient(rpcUrl!);
-          const secretKey = Fr.fromString(secretKeyString);
-          const account = getUnsafeSchnorrAccount(pxe, secretKey);
+          const secretKey = Fr.fromHexString(secretKeyString);
+          const account = await getUnsafeSchnorrAccount(pxe, secretKey);
           await account.waitSetup();
-          const completeAddress = account.getCompleteAddress();
+          const completeAddress = await account.getCompleteAddress();
           const addressString = completeAddress.address.toString();
           console.log(`Created Account: ${addressString}`);
           return addressString;
@@ -191,7 +194,8 @@ export const browserTestSuite = (
             getUnsafeSchnorrAccount,
           } = window.AztecJs;
           const pxe = createPXEClient(rpcUrl!);
-          const newReceiverAccount = await getUnsafeSchnorrAccount(pxe, AztecJs.Fr.random()).waitSetup();
+          const newReceiverAccountManager = await getUnsafeSchnorrAccount(pxe, AztecJs.Fr.random());
+          const newReceiverAccount = await newReceiverAccountManager.waitSetup();
           const receiverAddress = newReceiverAccount.getCompleteAddress().address;
           const [wallet] = await getDeployedTestAccountsWallets(pxe);
           const contract = await Contract.at(AztecAddress.fromString(contractAddress), TokenContractArtifact, wallet);
@@ -231,12 +235,13 @@ export const browserTestSuite = (
           // we need to ensure that a known account is present in order to create a wallet
           const knownAccounts = await getDeployedTestAccountsWallets(pxe);
           if (!knownAccounts.length) {
-            const newAccount = await getSchnorrAccount(
+            const newAccountManager = await getSchnorrAccount(
               pxe,
               INITIAL_TEST_SECRET_KEYS[0],
               INITIAL_TEST_SIGNING_KEYS[0],
               INITIAL_TEST_ACCOUNT_SALTS[0],
-            ).waitSetup();
+            );
+            const newAccount = await newAccountManager.waitSetup();
             knownAccounts.push(newAccount);
           }
           const owner = knownAccounts[0];

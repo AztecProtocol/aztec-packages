@@ -1,30 +1,12 @@
 VERSION 0.8
 
-source:
-    # we rely on noir source, which this image has
-    FROM ../noir+nargo
-
-    # work in avm-transpiler
-    WORKDIR /usr/src/avm-transpiler
-
-    COPY --dir scripts src Cargo.lock Cargo.toml rust-toolchain.toml .rustfmt.toml .
-
-build:
-    FROM +source
-    # build avm transpiler, and make sure the big build and deps folders don't hit cache
-    DO ../build-system/s3-cache-scripts/+WITH_CACHE \
-        --prefix="avm-transpiler" \
-        --rebuild_patterns="../noir/.rebuild_patterns_native .rebuild_patterns" \
-        --command="./scripts/bootstrap_native.sh && rm -rf target/release/{build,deps}" \
-        --build_artifacts="target"
-    SAVE ARTIFACT target/release/avm-transpiler avm-transpiler
-
 format:
-  FROM +source
+  FROM ../+bootstrap
+  WORKDIR /usr/src/avm-transpiler
   RUN cargo fmt --check
   RUN cargo clippy
 
 run:
-    FROM ubuntu:noble
-    COPY +build/avm-transpiler /usr/src/avm-transpiler
-    ENTRYPOINT ["/usr/src/avm-transpiler"]
+  FROM ubuntu:noble
+  COPY +bootstrap/avm-transpiler /usr/src/avm-transpiler
+  ENTRYPOINT ["/usr/src/avm-transpiler"]

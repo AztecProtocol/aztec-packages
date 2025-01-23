@@ -18,6 +18,13 @@ export interface TxPool {
   getTxByHash(txHash: TxHash): Tx | undefined;
 
   /**
+   * Checks if an archived transaction exists in the pool and returns it.
+   * @param txHash - The hash of the transaction, used as an ID.
+   * @returns The transaction, if found, 'undefined' otherwise.
+   */
+  getArchivedTxByHash(txHash: TxHash): Tx | undefined;
+
+  /**
    * Marks the set of txs as mined, as opposed to pending.
    * @param txHashes - Hashes of the txs to flag as mined.
    */
@@ -49,7 +56,7 @@ export interface TxPool {
   getAllTxHashes(): TxHash[];
 
   /**
-   * Gets the hashes of pending transactions currently in the tx pool.
+   * Gets the hashes of pending transactions currently in the tx pool sorted by priority (see getPendingTxPriority).
    * @returns An array of pending transaction hashes found in the tx pool.
    */
   getPendingTxHashes(): TxHash[];

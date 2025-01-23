@@ -8,7 +8,10 @@ When users submit a `TxExecutionRequest` on the Aztec Network, they provide a `T
 
 An abridged version of the class diagram is shown below:
 
-```mermaid
+```mdx
+import { Mermaid } from '@docusaurus/theme-mermaid';
+
+<Mermaid>
 classDiagram
 class TxExecutionRequest {
   +TxContext txContext
@@ -38,6 +41,7 @@ class GasFees {
 TxContext --> GasSettings
 GasSettings --> Gas
 GasSettings --> GasFees
+</Mermaid>
 ```
 
 :::note
@@ -73,7 +77,10 @@ Separately, the **protocol** specifies the current `feePerGas` for each dimensio
 
 These are held in the L2 blocks `Header`
 
-```mermaid
+```mdx
+import { Mermaid } from '@docusaurus/theme-mermaid';
+
+<Mermaid>
 classDiagram
 class Header {
   +GlobalVariables globalVariables
@@ -93,6 +100,7 @@ class GasFees {
 
 Header --> GlobalVariables
 GlobalVariables --> GasFees
+</Mermaid>
 ```
 
 A transaction cannot be executed if the `maxFeesPerGas` is less than the `feePerGas` for any dimension.

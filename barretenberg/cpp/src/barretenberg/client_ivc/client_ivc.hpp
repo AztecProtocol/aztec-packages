@@ -126,10 +126,6 @@ class ClientIVC {
     // Settings related to the use of fixed block sizes for each gate in the execution trace
     TraceSettings trace_settings;
 
-    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1101): eventually do away with this.
-    // Setting auto_verify_mode = true will cause kernel completion logic to be added to kernels automatically
-    bool auto_verify_mode;
-
     std::shared_ptr<typename MegaFlavor::CommitmentKey> bn254_commitment_key;
 
     GoblinProver goblin;
@@ -140,10 +136,9 @@ class ClientIVC {
 
     bool initialized = false; // Is the IVC accumulator initialized
 
-    ClientIVC(TraceSettings trace_settings = {}, bool auto_verify_mode = false)
+    ClientIVC(TraceSettings trace_settings = {})
         : trace_usage_tracker(trace_settings)
         , trace_settings(trace_settings)
-        , auto_verify_mode(auto_verify_mode)
         , bn254_commitment_key(trace_settings.structure.has_value()
                                    ? std::make_shared<CommitmentKey<curve::BN254>>(trace_settings.dyadic_size())
                                    : nullptr)
@@ -170,7 +165,7 @@ class ClientIVC {
      * @param circuit The incoming statement
      * @param precomputed_vk The verification key of the incoming statement OR a mocked key whose metadata needs to be
      * set using the proving key produced from `circuit` in order to pass some assertions in the Oink prover.
-     * @param mock_vk A boolean to say whether the precomputed vk shoudl have its metadata set.
+     * @param mock_vk A boolean to say whether the precomputed vk should have its metadata set.
      */
     void accumulate(ClientCircuit& circuit,
                     const bool _one_circuit = false,
@@ -191,5 +186,12 @@ class ClientIVC {
 
     std::vector<std::shared_ptr<MegaVerificationKey>> precompute_folding_verification_keys(
         std::vector<ClientCircuit> circuits);
+
+    VerificationKey get_vk() const
+    {
+        return { honk_vk,
+                 std::make_shared<ECCVMVerificationKey>(goblin.get_eccvm_proving_key()),
+                 std::make_shared<TranslatorVerificationKey>(goblin.get_translator_proving_key()) };
+    }
 };
 } // namespace bb

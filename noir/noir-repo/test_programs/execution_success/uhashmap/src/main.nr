@@ -104,7 +104,8 @@ unconstrained fn test_insert_and_methods(input: [Entry; HASHMAP_LEN]) {
     assert(hashmap.len() == HASHMAP_LEN, "hashmap.len() does not match input length.");
 
     for entry in input {
-        assert(hashmap.contains_key(entry.key), f"Not found inserted key {entry.key}.");
+        let entry_key = entry.key;
+        assert(hashmap.contains_key(entry.key), f"Not found inserted key {entry_key}.");
     }
 
     hashmap.clear();
@@ -292,6 +293,7 @@ unconstrained fn doc_tests() {
 
 // docs:start:get_example
 fn get_example(map: UHashMap<Field, Field, BuildHasherDefault<Poseidon2Hasher>>) {
+    /// Safety: testing context
     let x = unsafe { map.get(12) };
 
     if x.is_some() {
@@ -317,6 +319,7 @@ fn entries_examples(map: UHashMap<Field, Field, BuildHasherDefault<Poseidon2Hash
     let keys = map.keys();
 
     for key in keys {
+        /// Safety: testing context
         let value = unsafe { map.get(key) }.unwrap_unchecked();
         println(f"{key} -> {value}");
     }

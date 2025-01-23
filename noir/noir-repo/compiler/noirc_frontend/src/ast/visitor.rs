@@ -16,7 +16,7 @@ use crate::{
         InternedUnresolvedTypeData, QuotedTypeId,
     },
     parser::{Item, ItemKind, ParsedSubModule},
-    token::{MetaAttribute, SecondaryAttribute, Tokens},
+    token::{FmtStrFragment, MetaAttribute, SecondaryAttribute, Tokens},
     ParsedModule, QuotedType,
 };
 
@@ -172,7 +172,7 @@ pub trait Visitor {
 
     fn visit_literal_raw_str(&mut self, _: &str, _: u8) {}
 
-    fn visit_literal_fmt_str(&mut self, _: &str) {}
+    fn visit_literal_fmt_str(&mut self, _: &[FmtStrFragment], _length: u32) {}
 
     fn visit_literal_unit(&mut self) {}
 
@@ -293,6 +293,10 @@ pub trait Visitor {
     }
 
     fn visit_for_loop_statement(&mut self, _: &ForLoopStatement) -> bool {
+        true
+    }
+
+    fn visit_loop_statement(&mut self, _: &Expression) -> bool {
         true
     }
 
@@ -900,7 +904,7 @@ impl Literal {
             Literal::Integer(value, negative) => visitor.visit_literal_integer(*value, *negative),
             Literal::Str(str) => visitor.visit_literal_str(str),
             Literal::RawStr(str, length) => visitor.visit_literal_raw_str(str, *length),
-            Literal::FmtStr(str) => visitor.visit_literal_fmt_str(str),
+            Literal::FmtStr(fragments, length) => visitor.visit_literal_fmt_str(fragments, *length),
             Literal::Unit => visitor.visit_literal_unit(),
         }
     }
@@ -1103,6 +1107,11 @@ impl Statement {
             }
             StatementKind::For(for_loop_statement) => {
                 for_loop_statement.accept(visitor);
+            }
+            StatementKind::Loop(block) => {
+                if visitor.visit_loop_statement(block) {
+                    block.accept(visitor);
+                }
             }
             StatementKind::Comptime(statement) => {
                 if visitor.visit_comptime_statement(statement) {

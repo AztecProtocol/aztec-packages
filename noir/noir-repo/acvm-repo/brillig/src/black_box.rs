@@ -3,7 +3,7 @@ use serde::{Deserialize, Serialize};
 
 /// These opcodes provide an equivalent of ACIR blackbox functions.
 /// They are implemented as native functions in the VM.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Hash)]
 pub enum BlackBoxOp {
     /// Encrypts a message using AES128.
     AES128Encrypt {
@@ -102,7 +102,8 @@ pub enum BlackBoxOp {
     ToRadix {
         input: MemoryAddress,
         radix: MemoryAddress,
-        output: HeapArray,
-        output_bits: bool,
+        output_pointer: MemoryAddress,
+        num_limbs: MemoryAddress,
+        output_bits: MemoryAddress,
     },
 }

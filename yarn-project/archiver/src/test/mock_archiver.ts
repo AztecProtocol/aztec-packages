@@ -51,5 +51,6 @@ export class MockPrefilledArchiver extends MockArchiver {
 
     const fromBlock = this.l2Blocks.length;
     this.addBlocks(this.precomputed.slice(fromBlock, fromBlock + numBlocks));
+    return Promise.resolve();
   }
 }

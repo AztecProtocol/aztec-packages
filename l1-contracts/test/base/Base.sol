@@ -219,4 +219,12 @@ contract TestBase is Test {
       assertEq(a, b);
     }
   }
+
+  // Blobs
+
+  function skipBlobCheck(address rollup) internal {
+    // 9 is the slot of checkBlob. We force it to be false (=0):
+    // Slot number can be checked by running forge inspect src/core/Rollup.sol:Rollup storage
+    vm.store(rollup, bytes32(uint256(9)), 0);
+  }
 }

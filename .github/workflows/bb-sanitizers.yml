@@ -2,16 +2,14 @@
 # Unlike most jobs uses free 4 core github runners of which we have lots of capacity (of total 1000 concurrency).
 name: BB MSAN
 on:
-  push:
-    branches:
-      - master
-      - "*/bb-sanitizers*"
-  pull_request:
-    types: [opened, synchronize, reopened, labeled]
-    paths:
-      - 'barretenberg/**'
+#   push:
+#     branches:
+#       - master
+#       - "*/bb-sanitizers*"
   workflow_dispatch:
-    inputs: {}
+    inputs:
+      branch:
+        required: false
 
 concurrency:
   # force parallelism in master
@@ -20,13 +18,12 @@ concurrency:
 jobs:
   # acts as prover performance baseline
   bb-baseline:
-    if: github.event_name != 'pull_request' || contains(github.event.pull_request.labels.*.name, 'bb-msan-check')
     runs-on: ubuntu-latest
     continue-on-error: true
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: ${{ github.event.pull_request.head.sha }}
+          ref: ${{ inputs.branch || github.sha }}
       - uses: earthly/actions-setup@v1
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
@@ -35,29 +32,27 @@ jobs:
 
   # memory sanitzer for prover
   bb-msan-check:
-    if: github.event_name != 'pull_request' || contains(github.event.pull_request.labels.*.name, 'bb-msan-check')
     runs-on: ubuntu-latest
     continue-on-error: true
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: ${{ github.event.pull_request.head.sha }}
+          ref: ${{ inputs.branch || github.sha }}
       - uses: earthly/actions-setup@v1
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
       - name: "Barretenberg Prover MSAN Check"
-        
+
         run: earthly --no-cache ./barretenberg/cpp/+preset-msan-check || true
 
   # address sanitzer for prover
   bb-asan-check:
-    if: github.event_name != 'pull_request' || contains(github.event.pull_request.labels.*.name, 'bb-asan-check')
     runs-on: ubuntu-latest
     continue-on-error: true
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: ${{ github.event.pull_request.head.sha }}
+          ref: ${{ inputs.branch || github.sha }}
       - uses: earthly/actions-setup@v1
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
@@ -67,13 +62,12 @@ jobs:
 
   # address sanitzer for prover
   bb-tsan-check:
-    if: github.event_name != 'pull_request' || contains(github.event.pull_request.labels.*.name, 'bb-tsan-check')
     runs-on: ubuntu-latest
     continue-on-error: true
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: ${{ github.event.pull_request.head.sha }}
+          ref: ${{ inputs.branch || github.sha }}
       - uses: earthly/actions-setup@v1
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
@@ -83,13 +77,12 @@ jobs:
 
   # undefined behavior sanitzer for prover
   bb-ubsan-check:
-    if: github.event_name != 'pull_request' || contains(github.event.pull_request.labels.*.name, 'bb-ubsan-check')
     runs-on: ubuntu-latest
     continue-on-error: true
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: ${{ github.event.pull_request.head.sha }}
+          ref: ${{ inputs.branch }}
       - uses: earthly/actions-setup@v1
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}

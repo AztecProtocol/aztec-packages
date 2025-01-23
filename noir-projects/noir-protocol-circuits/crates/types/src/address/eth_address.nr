@@ -1,4 +1,7 @@
-use crate::{constants::ETH_ADDRESS_LENGTH, traits::{Deserialize, Empty, Serialize, ToField}, utils};
+use crate::{
+    constants::ETH_ADDRESS_LENGTH,
+    traits::{Deserialize, Empty, Packable, Serialize, ToField},
+};
 
 pub struct EthAddress {
     inner: Field,
@@ -34,6 +37,16 @@ impl Deserialize<ETH_ADDRESS_LENGTH> for EthAddress {
     }
 }
 
+impl Packable<ETH_ADDRESS_LENGTH> for EthAddress {
+    fn pack(self) -> [Field; ETH_ADDRESS_LENGTH] {
+        self.serialize()
+    }
+
+    fn unpack(fields: [Field; ETH_ADDRESS_LENGTH]) -> Self {
+        Self::deserialize(fields)
+    }
+}
+
 impl EthAddress {
     pub fn zero() -> Self {
         Self { inner: 0 }
@@ -50,10 +63,5 @@ impl EthAddress {
 
     pub fn assert_is_zero(self) {
         assert(self.to_field() == 0);
-    }
-
-    pub fn conditional_assign(predicate: bool, lhs: Self, rhs: Self) -> Self {
-        let result = utils::conditional_assign(predicate, rhs.to_field(), lhs.to_field());
-        Self { inner: result }
     }
 }

@@ -1,0 +1,23 @@
+on:
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        required: false
+        default: true
+      max_age_in_days:
+        required: false
+        default: 14
+
+jobs:
+  rerun:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Prune launch templates
+        uses: ./.github/prune-launch-templates
+        with:
+          # inputs:
+          aws_access_key_id: ${{ env.AWS_ACCESS_KEY_ID }}
+          aws_secret_access_key: ${{ env.AWS_SECRET_ACCESS_KEY }}
+          aws_region: us-east-2
+          max_age_in_days: ${{ inputs.max_age_in_days }}
+          dry_run: ${{ inputs.dry_run }}

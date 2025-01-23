@@ -1,5 +1,6 @@
 import { type AccountWallet, Fr, computeAuthWitMessageHash, computeInnerAuthWitHash } from '@aztec/aztec.js';
-import { AuthRegistryContract, AuthWitTestContract } from '@aztec/noir-contracts.js';
+import { AuthRegistryContract } from '@aztec/noir-contracts.js/AuthRegistry';
+import { AuthWitTestContract } from '@aztec/noir-contracts.js/AuthWitTest';
 import { ProtocolContractAddress } from '@aztec/protocol-contracts';
 
 import { jest } from '@jest/globals';
@@ -43,7 +44,7 @@ describe('e2e_authwit_tests', () => {
         // 6. We check that the authwit is NOT valid in private for wallet[1] (check that it is not signed by 1)
 
         // docs:start:compute_inner_authwit_hash
-        const innerHash = computeInnerAuthWitHash([Fr.fromString('0xdead')]);
+        const innerHash = computeInnerAuthWitHash([Fr.fromHexString('0xdead')]);
         // docs:end:compute_inner_authwit_hash
         // docs:start:compute_arbitrary_authwit_hash
 
@@ -87,7 +88,7 @@ describe('e2e_authwit_tests', () => {
       });
       describe('failure case', () => {
         it('invalid chain id', async () => {
-          const innerHash = computeInnerAuthWitHash([Fr.fromString('0xdead'), Fr.fromString('0xbeef')]);
+          const innerHash = computeInnerAuthWitHash([Fr.fromHexString('0xdead'), Fr.fromHexString('0xbeef')]);
           const intent = { consumer: auth.address, innerHash };
 
           const messageHash = computeAuthWitMessageHash(intent, { chainId: Fr.random(), version });
@@ -119,7 +120,7 @@ describe('e2e_authwit_tests', () => {
         });
 
         it('invalid version', async () => {
-          const innerHash = computeInnerAuthWitHash([Fr.fromString('0xdead'), Fr.fromString('0xbeef')]);
+          const innerHash = computeInnerAuthWitHash([Fr.fromHexString('0xdead'), Fr.fromHexString('0xbeef')]);
           const intent = { consumer: auth.address, innerHash };
 
           const messageHash = computeAuthWitMessageHash(intent, { chainId, version: Fr.random() });
@@ -157,7 +158,7 @@ describe('e2e_authwit_tests', () => {
   describe('Public', () => {
     describe('arbitrary data', () => {
       it('happy path', async () => {
-        const innerHash = computeInnerAuthWitHash([Fr.fromString('0xdead'), Fr.fromString('0x01')]);
+        const innerHash = computeInnerAuthWitHash([Fr.fromHexString('0xdead'), Fr.fromHexString('0x01')]);
 
         const intent = { consumer: wallets[1].getAddress(), innerHash };
 
@@ -185,7 +186,7 @@ describe('e2e_authwit_tests', () => {
 
       describe('failure case', () => {
         it('cancel before usage', async () => {
-          const innerHash = computeInnerAuthWitHash([Fr.fromString('0xdead'), Fr.fromString('0x02')]);
+          const innerHash = computeInnerAuthWitHash([Fr.fromHexString('0xdead'), Fr.fromHexString('0x02')]);
           const intent = { consumer: auth.address, innerHash };
 
           expect(await wallets[0].lookupValidity(wallets[0].getAddress(), intent)).toEqual({

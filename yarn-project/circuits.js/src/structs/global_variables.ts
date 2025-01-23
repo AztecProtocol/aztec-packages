@@ -159,10 +159,22 @@ export class GlobalVariables {
     );
   }
 
+  toInspect() {
+    return {
+      chainId: this.chainId.toNumber(),
+      version: this.version.toNumber(),
+      blockNumber: this.blockNumber.toNumber(),
+      slotNumber: this.slotNumber.toNumber(),
+      timestamp: this.timestamp.toNumber(),
+      coinbase: this.coinbase.toString(),
+      feeRecipient: this.feeRecipient.toString(),
+      feePerDaGas: this.gasFees.feePerDaGas.toNumber(),
+      feePerL2Gas: this.gasFees.feePerL2Gas.toNumber(),
+    };
+  }
+
   [inspect.custom]() {
-    return `GlobalVariables { chainId: ${this.chainId.toString()}, version: ${this.version.toString()}, blockNumber: ${this.blockNumber.toString()}, slotNumber: ${this.slotNumber.toString()}, timestamp: ${this.timestamp.toString()}, coinbase: ${this.coinbase.toString()}, feeRecipient: ${this.feeRecipient.toString()}, gasFees: ${inspect(
-      this.gasFees,
-    )} }`;
+    return `GlobalVariables ${inspect(this.toInspect())}`;
   }
 
   public equals(other: this): boolean {

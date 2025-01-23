@@ -1,17 +1,20 @@
 ---
 id: index
 sidebar_position: 0
-title: Guides
+title: Guides and Tutorials
 ---
 
-# Popular Guides
+# Guides and Tutorials
 
-Guides are step-by-step how-tos to achieve a specific goal. On this page you can find the most popular ones. You can also explore them all by checking out the sidebar.
+In this section you will find:
+
+- A list of tutorials in order of increasing complexity, allowing you to write contracts and build applications on Aztec
+- How-to guides for accomplishing quick, specific goals
 
 ## Getting Started
 
 <div className="card-container full-width">
-  <Card shadow='tl' link='/guides/developer_guides/getting_started'>
+  <Card shadow='tl' link='/guides/getting_started'>
     <CardHeader>
       <h3>Getting Started</h3>
     </CardHeader>
@@ -94,21 +97,21 @@ Guides are step-by-step how-tos to achieve a specific goal. On this page you can
 ## Local environment
 
 <div className="card-container">
-  <Card shadow='tl' link='/guides/developer_guides/local_env/versions-updating'>
+  <Card shadow='tl' link='/tutorials/codealong/contract_tutorials/counter_contract'>
     <CardHeader>
-      <h3>Update your environment</h3>
+      <h3>Contract Tutorials</h3>
     </CardHeader>
     <CardBody>
-      Update all aspects of your Aztec environment, including the sandbox, aztec-nargo, Aztec.nr packages, and Aztec.js packages
+      Go from zero to hero by following these tutorials in order, starting with a counter contract
     </CardBody>
   </Card>
 
-  <Card shadow='tl' link='/guides/developer_guides/local_env/run_more_than_one_pxe_sandbox'>
+  <Card shadow='tl' link='/tutorials/codealong/js_tutorials/simple_dapp'>
     <CardHeader>
-      <h3>Run more than one PXE</h3>
+      <h3>Full stack app on Aztec</h3>
     </CardHeader>
     <CardBody>
-      Test that your contracts can work with multiple interactions by running a second PXE
+     Learn how everything works together by building an app in JavaScript that connects to a contract
     </CardBody>
   </Card>
 </div>

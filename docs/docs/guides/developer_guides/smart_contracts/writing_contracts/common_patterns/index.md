@@ -77,7 +77,7 @@ In this situation, try to mark the public function as `internal`. This ensures y
 
 ### Moving public data into the private domain
 
-See [partial notes](../../../../../aztec/concepts/storage/partial_notes.md). Partial notes are how public balances are transferred to private [in the token contract](../../../../../tutorials/codealong/contract_tutorials/token_contract.md).
+See [partial notes](../../../../../aztec/concepts/storage/partial_notes.md). Partial notes are how public balances are transferred to private [in the NFT contract](../../../../../tutorials/codealong/contract_tutorials/nft_contract.md).
 
 ### Discovering my notes
 
@@ -108,7 +108,7 @@ Hence, it's necessary to add a "randomness" field to your note to prevent such a
 
 ### L1 -- L2 interactions
 
-Refer to [Token Portal codealong tutorial on bridging tokens between L1 and L2](../../../../../tutorials/codealong/contract_tutorials/advanced/token_bridge/index.md) and/or [Uniswap smart contract example that shows how to swap on L1 using funds on L2](../../../../../tutorials/examples/uniswap/index.md). Both examples show how to:
+Refer to [Token Portal codealong tutorial on bridging tokens between L1 and L2](../../../../../tutorials/codealong/contract_tutorials/token_bridge/index.md) and/or [Uniswap smart contract example that shows how to swap on L1 using funds on L2](../../../../../tutorials/examples/uniswap/index.md). Both examples show how to:
 
 1. L1 -> L2 message flow
 2. L2 -> L1 message flow

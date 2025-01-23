@@ -1,6 +1,7 @@
 import { Fr } from '../fields/index.js';
 import { type AbiType, type FunctionAbi } from './abi.js';
-import { isAddressStruct, isFunctionSelectorStruct, isWrappedFieldStruct } from './utils.js';
+import { U128 } from './u128.js';
+import { isAddressStruct, isFunctionSelectorStruct, isU128Struct, isWrappedFieldStruct } from './utils.js';
 
 /**
  * Encodes arguments for a function call.
@@ -49,7 +50,7 @@ class ArgumentEncoder {
         } else if (typeof arg === 'bigint') {
           this.flattened.push(new Fr(arg));
         } else if (typeof arg === 'string') {
-          this.flattened.push(Fr.fromString(arg));
+          this.flattened.push(Fr.fromHexString(arg));
         } else if (typeof arg === 'boolean') {
           this.flattened.push(new Fr(arg ? 1n : 0n));
         } else if (typeof arg === 'object') {
@@ -58,7 +59,7 @@ class ArgumentEncoder {
           } else if (typeof arg.toField === 'function') {
             this.flattened.push(arg.toField());
           } else if (typeof arg.value === 'string') {
-            this.flattened.push(Fr.fromString(arg.value));
+            this.flattened.push(Fr.fromHexString(arg.value));
           } else {
             throw new Error(`Argument for ${name} cannot be serialized to a field`);
           }
@@ -103,6 +104,15 @@ class ArgumentEncoder {
         }
         if (isFunctionSelectorStruct(abiType)) {
           this.encodeArgument({ kind: 'integer', sign: 'unsigned', width: 32 }, arg.value ?? arg, `${name}.inner`);
+          break;
+        }
+        if (isU128Struct(abiType)) {
+          // U128 struct has low and high limbs - so we first convert the value to the 2 limbs and then we encode them
+          const value = new U128(arg);
+          const limbs = value.toFields();
+          const limbNames = U128.getLimbNames();
+          this.encodeArgument({ kind: 'field' }, limbs[0], `${name}.${limbNames[0]}`);
+          this.encodeArgument({ kind: 'field' }, limbs[1], `${name}.${limbNames[1]}`);
           break;
         }
         if (isWrappedFieldStruct(abiType)) {

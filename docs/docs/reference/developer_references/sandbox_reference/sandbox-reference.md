@@ -6,7 +6,7 @@ sidebar_position: 0
 
 :::tip
 
-For a quick start, follow the [guide](../../../guides/developer_guides/getting_started) to install the sandbox.
+For a quick start, follow the [guide](../../../guides/getting_started) to install the sandbox.
 
 :::
 
@@ -19,8 +19,7 @@ To change them, you can open `~/.aztec/docker-compose.sandbox.yml` and edit them
 **Sandbox**
 
 ```sh
-DEBUG=aztec:* # The level of debugging logs to be displayed. using "aztec:*" will log everything.
-LOG_LEVEL=debug # Setting to 'debug' will print the debug logs
+LOG_LEVEL=debug # Options are 'fatal', 'error', 'warn', 'info', 'verbose', 'debug', 'trace'
 HOST_WORKDIR='${PWD}' # The location to store log outputs. Will use ~/.aztec where the docker-compose.yml file is stored by default.
 ETHEREUM_HOST=http://ethereum:8545 # The Ethereum JSON RPC URL. We use an anvil instance that runs in parallel to the sandbox on docker by default.
 L1_CHAIN_ID=31337 # The Chain ID that the Ethereum host is using.
@@ -38,7 +37,6 @@ ARCHIVER_POLLING_INTERVAL_MS=50
 P2P_BLOCK_CHECK_INTERVAL_MS=50
 SEQ_TX_POLLING_INTERVAL_MS=50
 WS_BLOCK_CHECK_INTERVAL_MS=50
-PXE_BLOCK_POLLING_INTERVAL_MS=50
 ARCHIVER_VIEM_POLLING_INTERVAL_MS=500
 ```
 
@@ -91,7 +89,6 @@ Variables like `TEST_ACCOUNTS` & `PXE_PORT` are valid here as described above.
 AZTEC_NODE_URL='http://localhost:8079' # The address of an Aztec Node URL that the PXE will connect to (default: http://localhost:8079)
 PXE_PORT=8080 # The port that the PXE will be listening to (default: 8080)
 TEST_ACCOUNTS='true' # Option to deploy 3 test account when sandbox starts. (default: true)
-PXE_BLOCK_POLLING_INTERVAL_MS=50 # Interval to check for new L2 blocks. (default: 50)
 PXE_L2_STARTING_BLOCK=1 # L2 Block to start synching the PXE from (default: 1)
 ```
 

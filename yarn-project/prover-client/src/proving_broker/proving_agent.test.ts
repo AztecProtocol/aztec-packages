@@ -23,7 +23,7 @@ import { promiseWithResolvers } from '@aztec/foundation/promise';
 import { jest } from '@jest/globals';
 
 import { MockProver } from '../test/mock_prover.js';
-import { type ProofStore } from './proof_store.js';
+import { type ProofStore } from './proof_store/index.js';
 import { ProvingAgent } from './proving_agent.js';
 
 describe('ProvingAgent', () => {
@@ -238,7 +238,7 @@ describe('ProvingAgent', () => {
     const inputs: ProvingJobInputs = { type: ProvingRequestType.BASE_PARITY, inputs: makeBaseParityInputs() };
     const job: ProvingJob = {
       id: randomBytes(8).toString('hex') as ProvingJobId,
-      blockNumber: 1,
+      epochNumber: 1,
       type: ProvingRequestType.BASE_PARITY,
       inputsUri: randomBytes(8).toString('hex') as ProofUri,
     };

@@ -94,11 +94,11 @@ jobs:
           sudo cp -r clang+llvm-16.0.0-x86_64-linux-gnu-ubuntu-18.04/lib/* /usr/local/lib/
           sudo cp -r clang+llvm-16.0.0-x86_64-linux-gnu-ubuntu-18.04/share/* /usr/local/share/
 
-      - name: Install yarn # Needed to call 'yarn build' on barretenberg/ts
+      - name: Enable Corepack and Install Yarn v4.5.2 # Needed to call 'yarn build' on barretenberg/ts
         run: |
-          curl -sS https://dl.yarnpkg.com/debian/pubkey.gpg | sudo apt-key add -
-          echo "deb https://dl.yarnpkg.com/debian/ stable main" | sudo tee /etc/apt/sources.list.d/yarn.list
-          sudo apt -y update && sudo apt -y install yarn
+          corepack enable
+          corepack prepare yarn@4.5.2 --activate
+
       - name: Install WASI-SDK
         run: |
           cd barretenberg/cpp
@@ -204,7 +204,8 @@ jobs:
 
   build-check:
     name: Check builds are successful
-    needs: [build-x86_64-linux-gnu, build-mac-intel, build-mac-m1,build-wasm-ts]
+    needs:
+      [build-x86_64-linux-gnu, build-mac-intel, build-mac-m1, build-wasm-ts]
     if: ${{ always() }}
     runs-on: ubuntu-latest
     steps:

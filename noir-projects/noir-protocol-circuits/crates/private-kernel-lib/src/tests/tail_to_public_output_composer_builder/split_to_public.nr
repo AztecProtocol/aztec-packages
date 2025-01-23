@@ -1,4 +1,4 @@
-use crate::components::tail_to_public_output_composer::split_to_public::split_to_public;
+use crate::components::tail_to_public_output_composer::split_to_public;
 use dep::types::tests::{fixture_builder::FixtureBuilder, utils::assert_array_eq};
 
 #[test]

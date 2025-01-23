@@ -6,6 +6,7 @@
   "type": "module",
   "exports": {
     ".": "./dest/index.js",
+    "./bundle": "./dest/bundle/index.js",
     "./*": "./dest/*/index.js"
   },
   "typedocOptions": {
@@ -18,15 +19,17 @@
     "tsconfig": "./tsconfig.json"
   },
   "scripts": {
-    "build": "yarn clean && yarn generate && tsc -b",
+    "build": "yarn clean && yarn generate && yarn generate:cleanup-artifacts && tsc -b",
+    "build:keep-debug-symbols": "yarn clean && yarn generate && tsc -b",
     "generate": "yarn generate:data",
+    "generate:cleanup-artifacts": "node --no-warnings --loader ts-node/esm src/scripts/cleanup_artifacts.ts",
     "generate:data": "node --no-warnings --loader ts-node/esm src/scripts/generate_data.ts && run -T prettier -w src/protocol_contract_data.ts",
     "build:dev": "tsc -b --watch",
     "build:ts": "tsc -b",
     "clean": "rm -rf ./dest .tsbuildinfo ./artifacts",
     "formatting": "run -T prettier --check ./src && run -T eslint ./src",
     "formatting:fix": "run -T eslint --fix ./src && run -T prettier -w ./src",
-    "test": "NODE_NO_WARNINGS=1 node --experimental-vm-modules ../node_modules/.bin/jest --passWithNoTests"
+    "test": "HARDWARE_CONCURRENCY=${HARDWARE_CONCURRENCY:-16} RAYON_NUM_THREADS=${RAYON_NUM_THREADS:-4} NODE_NO_WARNINGS=1 node --experimental-vm-modules ../node_modules/.bin/jest --passWithNoTests --maxWorkers=${JEST_MAX_WORKERS:-8}"
   },
   "inherits": [
     "../package.common.json",
@@ -58,12 +61,11 @@
       ".ts"
     ],
     "reporters": [
-      [
-        "default",
-        {
-          "summaryThreshold": 9999
-        }
-      ]
+      "default"
+    ],
+    "testTimeout": 30000,
+    "setupFiles": [
+      "../../foundation/src/jest/setup.mjs"
     ]
   },
   "dependencies": {
@@ -90,7 +92,8 @@
     "dest",
     "src",
     "!*.test.*",
-    "artifacts"
+    "artifacts",
+    "!src/scripts/*"
   ],
   "engines": {
     "node": ">=18"
