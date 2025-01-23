@@ -730,14 +730,16 @@ mod tests {
 
     #[test]
     fn compute_sum_and_compute_partial_sums_agree(fields: [Field; FIELDS_PER_BLOB]) {
-        let fields = fields.map(|f| field_to_bignum(f));
+    unsafe {
+           let fields = fields.map(|f| field_to_bignum(f));
 
-        let UNCONSTRAINED_ROOTS = compute_roots_of_unity();
+            let UNCONSTRAINED_ROOTS = compute_roots_of_unity();
 
-        let partial_sums = __compute_partial_sums(fields, UNCONSTRAINED_ROOTS);
-        let sum = __compute_sum(fields, UNCONSTRAINED_ROOTS);
+            let partial_sums = __compute_partial_sums(fields, UNCONSTRAINED_ROOTS);
+            let sum = __compute_sum(fields, UNCONSTRAINED_ROOTS);
 
-        assert_eq(partial_sums[FIELDS_PER_BLOB - 1], sum);
+            assert_eq(partial_sums[FIELDS_PER_BLOB - 1], sum);
+        }
     }
 }
 
