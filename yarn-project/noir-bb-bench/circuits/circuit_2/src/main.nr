@@ -10,7 +10,7 @@ fn main(
     proof: [Field; ULTRA_PROOF_SIZE],
     public_inputs: pub [Field; NUM_NON_ACCUMULATOR_PUBLIC_INPUTS],
     key_hash: Field,
-    mut x: Field
+    mut z: Field
 ) {
     std::verify_proof_with_type(
         verification_key,
@@ -21,9 +21,9 @@ fn main(
     );
 
     for _ in 0..250 {
-        x += poseidon::bn254::hash_1([x]);
+        z += poseidon::bn254::hash_1([z]);
     }
 
     // Make sure the hash value is used so it's not optimized away.
-    assert(x != 0);
+    assert(z != 0);
 }

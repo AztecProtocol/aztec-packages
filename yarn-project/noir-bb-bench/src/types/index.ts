@@ -29,7 +29,7 @@ export type Circuit_2InputType = {
   proof: FixedLengthArray<Field, 459>;
   public_inputs: FixedLengthArray<Field, 1>;
   key_hash: Field;
-  x: Field;
+  z: Field;
 };
 
 export async function Circuit_2(
@@ -37,12 +37,12 @@ export async function Circuit_2(
   proof: FixedLengthArray<Field, 459>,
   public_inputs: FixedLengthArray<Field, 1>,
   key_hash: Field,
-  x: Field,
+  z: Field,
   Circuit_2_circuit: CompiledCircuit,
   foreignCallHandler?: ForeignCallHandler,
 ): Promise<null> {
   const program = new Noir(Circuit_2_circuit);
-  const args: InputMap = { verification_key, proof, public_inputs, key_hash, x };
+  const args: InputMap = { verification_key, proof, public_inputs, key_hash, z };
   const { returnValue } = await program.execute(args, foreignCallHandler);
   return returnValue as null;
 }

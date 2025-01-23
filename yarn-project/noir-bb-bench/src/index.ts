@@ -43,7 +43,7 @@ export async function generateCircuit2(
       key_hash: '0x0',
       proof: proverOutput.proof,
       verification_key: previousVk as FixedLengthArray<string, 128>,
-      x: '0xd00d',
+      z: '0xd00d',
     },
     foreignCallHandler,
   );
