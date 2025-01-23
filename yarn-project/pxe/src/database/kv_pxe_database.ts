@@ -537,7 +537,7 @@ export class KVPxeDatabase implements PxeDatabase {
     }
 
     const value = await this.#completeAddresses.atAsync(index);
-    return value ? await CompleteAddress.fromBuffer(value) : undefined;
+    return value ? CompleteAddress.fromBuffer(value) : undefined;
   }
 
   getCompleteAddress(account: AztecAddress): Promise<CompleteAddress | undefined> {
