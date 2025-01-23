@@ -1,6 +1,6 @@
 use super::traits::{Deserialize, Serialize};
 
-/// Deserializes a struct, primitive type, array or string from a field array.
+/// Generates code that deserializes a struct, primitive type, array or string from a field array.
 ///
 /// # Parameters
 /// - `name`: The name of the current field being processed, used to identify fields for replacement.
@@ -54,7 +54,7 @@ use super::traits::{Deserialize, Serialize};
 /// # Panics
 /// - If the deserialization logic encounters a type it does not support.
 /// - If an incorrect number of fields are consumed when deserializing a string.
-pub comptime fn deserialize_from_fields<N>(
+pub comptime fn generate_deserialize_from_fields<N>(
     name: Quoted,
     typ: Type,
     field_array_name: Quoted,
@@ -76,7 +76,8 @@ pub comptime fn deserialize_from_fields<N>(
             result = quote { $field_array_name[$num_already_consumed] as $typ };
             consumed_counter = 1;
         } else if typ.as_struct().is_some() {
-            // The field is a struct so we iterate over each struct field and recursively call `deserialize_from_fields`
+            // The field is a struct so we iterate over each struct field and recursively call
+            // `generate_deserialize_from_fields`
             let (nested_def, generics) = typ.as_struct().unwrap();
             let nested_name = nested_def.name();
             let mut deserialized_fields_list = &[];
@@ -84,8 +85,8 @@ pub comptime fn deserialize_from_fields<N>(
             // Iterate over each field in the struct
             for field in nested_def.fields(generics) {
                 let (field_name, field_type) = field;
-                // Recursively call `deserialize_from_fields` for each field in the struct
-                let (deserialized_field, num_consumed_in_recursion) = deserialize_from_fields(
+                // Recursively call `generate_deserialize_from_fields` for each field in the struct
+                let (deserialized_field, num_consumed_in_recursion) = generate_deserialize_from_fields(
                     field_name,
                     field_type,
                     field_array_name,
@@ -109,15 +110,16 @@ pub comptime fn deserialize_from_fields<N>(
                 }
             };
         } else if typ.as_array().is_some() {
-            // The field is an array so we iterate over each element and recursively call `deserialize_from_fields`
+            // The field is an array so we iterate over each element and recursively call
+            // `generate_deserialize_from_fields`
             let (element_type, array_len) = typ.as_array().unwrap();
             let array_len = array_len.as_constant().unwrap();
             let mut array_fields_list = &[];
 
             // Iterate over each element in the array
             for _ in 0..array_len {
-                // Recursively call `deserialize_from_fields` for each element in the array
-                let (deserialized_field, num_consumed_in_recursion) = deserialize_from_fields(
+                // Recursively call `generate_deserialize_from_fields` for each element in the array
+                let (deserialized_field, num_consumed_in_recursion) = generate_deserialize_from_fields(
                     name,
                     element_type,
                     field_array_name,
@@ -137,15 +139,15 @@ pub comptime fn deserialize_from_fields<N>(
         } else if typ.as_str().is_some() {
             // The field is a string and we expect each byte of the string to be represented as 1 field in the field
             // array. So we iterate over the string length and deserialize each character as u8 in the recursive call
-            // to `deserialize_from_fields`.
+            // to `generate_deserialize_from_fields`.
             let length_type = typ.as_str().unwrap();
             let str_len = length_type.as_constant().unwrap();
             let mut byte_list = &[];
 
             // Iterate over each character in the string
             for _ in 0..str_len {
-                // Recursively call `deserialize_from_fields` for each character in the string
-                let (deserialized_field, num_consumed_in_recursion) = deserialize_from_fields(
+                // Recursively call `generate_deserialize_from_fields` for each character in the string
+                let (deserialized_field, num_consumed_in_recursion) = generate_deserialize_from_fields(
                     name,
                     quote {u8}.as_type(),
                     field_array_name,
@@ -184,7 +186,11 @@ pub comptime fn deserialize_from_fields<N>(
 
 /// Flattens `typ` into a list of fields prefixed with `name` while omitting fields in `omit`. Also returns a list of
 /// auxiliary variables that are needed for serialization (e.g. "let string_value_as_bytes = string_value.as_bytes()").
-pub comptime fn flatten_to_fields(name: Quoted, typ: Type, omit: [Quoted]) -> ([Quoted], [Quoted]) {
+pub comptime fn generate_serialize_to_fields(
+    name: Quoted,
+    typ: Type,
+    omit: [Quoted],
+) -> ([Quoted], [Quoted]) {
     let mut fields = &[];
     let mut aux_vars = &[];
 
@@ -193,7 +199,7 @@ pub comptime fn flatten_to_fields(name: Quoted, typ: Type, omit: [Quoted]) -> ([
         if typ.is_field() {
             // For field we just add the value to fields
             fields = fields.push_back(name);
-        } else if typ.is_field() | typ.as_integer().is_some() | typ.is_bool() {
+        } else if typ.as_integer().is_some() | typ.is_bool() {
             // For integer and bool we just cast to Field and add the value to fields
             fields = fields.push_back(quote { $name as Field });
         } else if typ.as_struct().is_some() {
@@ -210,7 +216,7 @@ pub comptime fn flatten_to_fields(name: Quoted, typ: Type, omit: [Quoted]) -> ([
                     // can typically be `self` when implementing a method on a struct.
                     quote { $name.$param_name }
                 };
-                flatten_to_fields(quote {$maybe_prefixed_name}, param_type, omit)
+                generate_serialize_to_fields(quote {$maybe_prefixed_name}, param_type, omit)
             });
             let struct_flattened_fields = struct_flattened.fold(
                 &[],
@@ -223,12 +229,12 @@ pub comptime fn flatten_to_fields(name: Quoted, typ: Type, omit: [Quoted]) -> ([
             fields = fields.append(struct_flattened_fields);
             aux_vars = aux_vars.append(struct_flattened_aux_vars);
         } else if typ.as_array().is_some() {
-            // For array we recursively call flatten_to_fields for each element
+            // For array we recursively call generate_serialize_to_fields for each element
             let (element_type, array_len) = typ.as_array().unwrap();
             let array_len = array_len.as_constant().unwrap();
             for i in 0..array_len {
                 let (element_fields, element_aux_vars) =
-                    flatten_to_fields(quote { $name[$i] }, element_type, omit);
+                    generate_serialize_to_fields(quote { $name[$i] }, element_type, omit);
                 fields = fields.append(element_fields);
                 aux_vars = aux_vars.append(element_aux_vars);
             }
@@ -260,7 +266,7 @@ pub comptime fn flatten_to_fields(name: Quoted, typ: Type, omit: [Quoted]) -> ([
 
 pub(crate) comptime fn derive_serialize(s: StructDefinition) -> Quoted {
     let typ = s.as_type();
-    let (fields, aux_vars) = flatten_to_fields(quote { self }, typ, &[]);
+    let (fields, aux_vars) = generate_serialize_to_fields(quote { self }, typ, &[]);
     let aux_vars_for_serialization = if aux_vars.len() > 0 {
         let joint = aux_vars.join(quote {;});
         quote { $joint; }
@@ -282,9 +288,9 @@ pub(crate) comptime fn derive_serialize(s: StructDefinition) -> Quoted {
 
 pub(crate) comptime fn derive_deserialize(s: StructDefinition) -> Quoted {
     let typ = s.as_type();
-    let (fields, _) = flatten_to_fields(quote { self }, typ, &[]);
+    let (fields, _) = generate_serialize_to_fields(quote { self }, typ, &[]);
     let serialized_len = fields.len();
-    let (deserialized, _) = deserialize_from_fields(
+    let (deserialized, _) = generate_deserialize_from_fields(
         quote { self },
         typ,
         quote { serialized },
