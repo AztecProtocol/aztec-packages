@@ -7,7 +7,8 @@ unconstrained fn main(
     previous_kernel: PrivateKernelDataWithoutPublicInputs,
     previous_kernel_public_inputs: PrivateKernelCircuitPublicInputs,
 ) -> pub PrivateKernelCircuitPublicInputs {
-    let private_inputs = PrivateKernelInnerCircuitPrivateInputs::new(previous_kernel, previous_kernel_public_inputs);
+    let private_inputs =
+        PrivateKernelInnerCircuitPrivateInputs::new(previous_kernel, previous_kernel_public_inputs);
     private_inputs.execute()
 }
 
@@ -37,17 +38,12 @@ pub struct PrivateCallRequest {
     pub end_side_effect_counter: u32,
 }
 
-
 impl PrivateKernelDataWithoutPublicInputs {
     pub fn to_private_kernel_data(
         self,
         public_inputs: PrivateKernelCircuitPublicInputs,
     ) -> PrivateKernelData {
-        PrivateKernelData {
-            public_inputs,
-            vk_index: self.vk_index,
-            vk_path: self.vk_path,
-        }
+        PrivateKernelData { public_inputs, vk_index: self.vk_index, vk_path: self.vk_path }
     }
 }
 
@@ -60,9 +56,7 @@ impl PrivateKernelCircuitPublicInputsComposer {
         previous_kernel_public_inputs: PrivateKernelCircuitPublicInputs,
     ) -> Self {
         let mut public_inputs = PrivateKernelCircuitPublicInputsBuilder {
-            end: PrivateAccumulatedDataBuilder {
-                private_call_stack: BoundedVec::new(),
-            }
+            end: PrivateAccumulatedDataBuilder { private_call_stack: BoundedVec::new() },
         };
 
         let start = previous_kernel_public_inputs.end;
@@ -88,9 +82,7 @@ pub struct PrivateKernelCircuitPublicInputsBuilder {
 
 impl PrivateKernelCircuitPublicInputsBuilder {
     pub fn finish(self) -> PrivateKernelCircuitPublicInputs {
-        PrivateKernelCircuitPublicInputs {
-            end: self.end.finish(),
-        }
+        PrivateKernelCircuitPublicInputs { end: self.end.finish() }
     }
 }
 
@@ -100,16 +92,13 @@ pub struct PrivateAccumulatedDataBuilder {
 
 impl PrivateAccumulatedDataBuilder {
     pub fn finish(self) -> PrivateAccumulatedData {
-        PrivateAccumulatedData {
-            private_call_stack: self.private_call_stack.storage(),
-        }
+        PrivateAccumulatedData { private_call_stack: self.private_call_stack.storage() }
     }
 }
 
 pub struct PrivateKernelInnerCircuitPrivateInputs {
     previous_kernel: PrivateKernelData,
 }
-
 
 impl PrivateKernelInnerCircuitPrivateInputs {
     pub fn new(
@@ -137,13 +126,14 @@ impl PrivateKernelInnerCircuitPrivateInputs {
         /// Safety:
         let output = unsafe { self.generate_output() };
 
-        assert(!is_empty(self.previous_kernel.public_inputs.end.private_call_stack[0]), "not empty after");
+        assert(
+            !is_empty(self.previous_kernel.public_inputs.end.private_call_stack[0]),
+            "not empty after",
+        );
 
         output
     }
 }
-
-
 
 pub trait Empty {
     fn empty() -> Self;
@@ -175,8 +165,6 @@ impl Empty for PrivateCallRequest {
         }
     }
 }
-
-
 
 // Copy of https://github.com/AztecProtocol/aztec-packages/blob/f1fd2d104d01a4582d8a48a6ab003d8791010967/noir-projects/noir-protocol-circuits/crates/types/src/utils/arrays.nr#L110
 pub fn array_length<T, let N: u32>(array: [T; N]) -> u32
