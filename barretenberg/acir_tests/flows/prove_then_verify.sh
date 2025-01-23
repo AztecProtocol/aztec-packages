@@ -27,6 +27,24 @@ FLAGS="-c $CRS_PATH ${VERBOSE:+-v}"
 # Test we can perform the proof/verify flow.
 # This ensures we test independent pk construction through real/garbage witness data paths.
 # We use process substitution pipes to avoid temporary files, which need cleanup, and can collide with parallelism.
-$BIN verify$SYS $FLAGS \
-    -k <($BIN write_vk$SYS -o - $FLAGS $BFLAG) \
-    -p <($BIN prove$SYS -o - $FLAGS $BFLAG)
+
+case ${SYS:-} in
+  "")
+    prove_cmd=prove
+    verify_cmd=verify
+    ;;
+  "ultra_honk")
+    echo "IN THIS CASE"
+    outdir=$(mktemp -d)
+    trap "rm -rf $outdir" EXIT
+
+    flags="--scheme ultra_honk -c $CRS_PATH ${VERBOSE:+-v} -o $outdir"
+    $BIN prove $flags -b ./target/program.json --input_type ${INPUT_TYPE:-compiletime_stack}
+    $BIN verify $flags
+    ;;
+  *)
+    $BIN verify$SYS $FLAGS \
+        -k <($BIN write_vk$SYS -o - $FLAGS $BFLAG) \
+        -p <($BIN prove$SYS -o - $FLAGS $BFLAG)
+    ;;
+esac
