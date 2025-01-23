@@ -48,6 +48,7 @@ template <typename S> EventsContainer AvmSimulationHelper::simulate_with_setting
 {
     typename S::template DefaultEventEmitter<ExecutionEvent> execution_emitter;
     typename S::template DefaultEventEmitter<AluEvent> alu_emitter;
+    typename S::BitwiseEventEmitter bitwise_emitter;
     typename S::template DefaultEventEmitter<MemoryEvent> memory_emitter;
     typename S::template DefaultEventEmitter<AddressingEvent> addressing_emitter;
     typename S::template DefaultEventEmitter<BytecodeRetrievalEvent> bytecode_retrieval_emitter;
@@ -86,6 +87,7 @@ template <typename S> EventsContainer AvmSimulationHelper::simulate_with_setting
 
     return { execution_emitter.dump_events(),
              alu_emitter.dump_events(),
+             bitwise_emitter.dump_events(),
              memory_emitter.dump_events(),
              addressing_emitter.dump_events(),
              bytecode_retrieval_emitter.dump_events(),
