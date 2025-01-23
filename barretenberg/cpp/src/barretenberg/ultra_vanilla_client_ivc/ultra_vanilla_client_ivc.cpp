@@ -73,10 +73,12 @@ bool UltraVanillaClientIVC::verify(const Proof& proof, const std::shared_ptr<VK>
  * development/testing.
  *
  */
-bool UltraVanillaClientIVC::prove_and_verify(CircuitSource<Flavor>& source, const bool cache_vks)
+bool UltraVanillaClientIVC::prove_and_verify(CircuitSource<Flavor>& source,
+                                             const bool cache_vks,
+                                             const bool initialize_pairing_point_accumulator)
 {
     auto start = std::chrono::steady_clock::now();
-    prove(source, cache_vks);
+    prove(source, cache_vks, initialize_pairing_point_accumulator);
     auto end = std::chrono::steady_clock::now();
     auto diff = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
     vinfo("time to call UltraVanillaClientIVC::prove: ", diff.count(), " ms.");

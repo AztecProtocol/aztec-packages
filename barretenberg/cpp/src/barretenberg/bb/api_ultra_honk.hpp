@@ -55,54 +55,6 @@ class VectorCircuitSource : public CircuitSource<UltraFlavor> {
     }
 };
 
-// TODO(#7371): this could probably be more idiomatic
-template <typename T> T unpack_from_file_WORKTODO(const std::filesystem::path& filename)
-{
-    std::ifstream fin;
-    fin.open(filename, std::ios::ate | std::ios::binary);
-    if (!fin.is_open()) {
-        throw std::invalid_argument("file not found");
-    }
-    if (fin.tellg() == -1) {
-        throw std::invalid_argument("something went wrong");
-    }
-
-    uint64_t fsize = static_cast<uint64_t>(fin.tellg());
-    fin.seekg(0, std::ios_base::beg);
-
-    T result;
-    char* encoded_data = new char[fsize];
-    fin.read(encoded_data, static_cast<std::streamsize>(fsize));
-    msgpack::unpack(encoded_data, fsize).get().convert(result);
-    return result;
-}
-
-std::vector<uint8_t> decompress_WORKTODO(uint8_t* bytes, size_t size)
-{
-    std::vector<uint8_t> content;
-    // initial size guess
-    content.resize(1024ULL * 128ULL);
-    for (;;) {
-        auto decompressor = std::unique_ptr<libdeflate_decompressor, void (*)(libdeflate_decompressor*)>{
-            libdeflate_alloc_decompressor(), libdeflate_free_decompressor
-        };
-        size_t actual_size = 0;
-        libdeflate_result decompress_result = libdeflate_gzip_decompress(
-            decompressor.get(), bytes, size, std::data(content), std::size(content), &actual_size);
-        if (decompress_result == LIBDEFLATE_INSUFFICIENT_SPACE) {
-            // need a bigger buffer
-            content.resize(content.size() * 2);
-            continue;
-        }
-        if (decompress_result == LIBDEFLATE_BAD_DATA) {
-            throw std::invalid_argument("bad gzip data in bb main");
-        }
-        content.resize(actual_size);
-        break;
-    }
-    return content;
-}
-
 class UltraHonkAPI : public API {
     static std::vector<acir_format::AcirProgram> _build_stack(const std::string& input_type,
                                                               const std::filesystem::path& bytecode_path,
@@ -120,26 +72,6 @@ class UltraHonkAPI : public API {
                 auto stack_item = program_stack.back();
                 stack.push_back(AcirProgram{ stack_item.constraints, stack_item.witness });
                 program_stack.pop_back();
-            }
-        }
-
-        if (input_type == "runtime_stack") {
-            std::vector<std::string> gzipped_bincodes;
-            std::vector<std::string> witness_data;
-            gzipped_bincodes = unpack_from_file_WORKTODO<std::vector<std::string>>(bytecode_path);
-            witness_data = unpack_from_file_WORKTODO<std::vector<std::string>>(witness_path);
-            for (auto [bincode, wit] : zip_view(gzipped_bincodes, witness_data)) {
-                // TODO(#7371) there is a lot of copying going on in bincode, we should make sure this writes as a
-                // buffer in the future
-                std::vector<uint8_t> constraint_buf =
-                    decompress_WORKTODO(reinterpret_cast<uint8_t*>(bincode.data()), bincode.size()); // NOLINT
-                std::vector<uint8_t> witness_buf =
-                    decompress_WORKTODO(reinterpret_cast<uint8_t*>(wit.data()), wit.size()); // NOLINT
-
-                AcirFormat constraints = circuit_buf_to_acir_format(constraint_buf, /*honk_recursion=*/0);
-                WitnessVector witness = witness_buf_to_witness_data(witness_buf);
-
-                stack.push_back(AcirProgram{ constraints, witness });
             }
         }
 
@@ -207,9 +139,9 @@ class UltraHonkAPI : public API {
         auto g2_data = get_bn254_g2_data(CRS_PATH);
         srs::init_crs_factory({}, g2_data);
 
-        info("reading proof from ", proof_path);
+        vinfo("reading proof from ", proof_path);
         const auto proof = from_buffer<UltraVanillaClientIVC::Proof>(read_file(proof_path));
-        info("reading vk from ", vk_path);
+        vinfo("reading vk from ", vk_path);
         auto vk = from_buffer<UltraVanillaClientIVC::VK>(read_file(vk_path));
         vk.pcs_verification_key = std::make_shared<VerifierCommitmentKey<curve::BN254>>();
 
@@ -234,7 +166,13 @@ class UltraHonkAPI : public API {
         std::vector<acir_format::AcirProgram> stack = _build_stack(*flags.input_type, bytecode_path, witness_path);
         VectorCircuitSource circuit_source{ stack };
 
-        const bool verified = ivc.prove_and_verify(circuit_source);
+        vinfo("*flags.initialize_pairing_point_accumulator is: ", *flags.initialize_pairing_point_accumulator);
+        ASSERT((*flags.initialize_pairing_point_accumulator == "true") ||
+               (*flags.initialize_pairing_point_accumulator) == "false");
+        const bool initialize_pairing_point_accumulator = (*flags.initialize_pairing_point_accumulator == "true");
+        vinfo("initialize_pairing_point_accumulator is: ", initialize_pairing_point_accumulator);
+        const bool verified =
+            ivc.prove_and_verify(circuit_source, /* cache_vks= */ false, initialize_pairing_point_accumulator);
         return verified;
     };
 

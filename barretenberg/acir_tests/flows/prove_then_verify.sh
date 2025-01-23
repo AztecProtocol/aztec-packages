@@ -35,7 +35,7 @@ case ${SYS:-} in
         -p <($BIN prove$SYS -o - $FLAGS $BFLAG)
     ;;
   "ultra_honk")
-    FLAGS+="--scheme ultra_honk --input_type ${INPUT_TYPE:-compiletime_stack}"
+    FLAGS+=" --scheme ultra_honk --input_type ${INPUT_TYPE:-compiletime_stack}"
     $BIN prove  $FLAGS $BFLAG
     $BIN verify $FLAGS
     ;;

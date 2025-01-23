@@ -105,7 +105,11 @@ class UltraVanillaClientIVC {
     /**
      * @brief Prove and then verify the proof. This is used for testing.
      */
-    bool prove_and_verify(CircuitSource<Flavor>& source, const bool cache_vks = false);
+    bool prove_and_verify(CircuitSource<Flavor>& source,
+                          const bool cache_vks = false,
+                          // if the first step does not contain an accumulator from an earlier recursive verification,
+                          // we need to initialize the accumulator, otherwise we must not initialize it
+                          const bool initialize_pairing_point_accumulator = true);
 
     /**
      * @brief Compute the verification key of each circuit provided by the source.

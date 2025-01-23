@@ -1,6 +1,6 @@
-#!/bin/sh
+#!/bin/bash
 # prove_and_verify produces no output, so is parallel safe.
-set -eu
+set -eux
 
 flags="-c $CRS_PATH ${VERBOSE:+-v}"
 [ "${RECURSIVE}" = "true" ] && flags+=" --recursive"
@@ -12,6 +12,10 @@ case ${SYS:-} in
   "client_ivc")
     cmd=prove_and_verify
     flags+=" --scheme client_ivc --input_type ${INPUT_TYPE:-compiletime_stack}"
+    ;;
+  "ultra_honk")
+    cmd=prove_and_verify
+    flags+=" --scheme ultra_honk --input_type ${INPUT_TYPE:-compiletime_stack}"
     ;;
   *)
     cmd=prove_and_verify_$SYS
