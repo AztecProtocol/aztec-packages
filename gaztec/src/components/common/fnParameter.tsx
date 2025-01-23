@@ -1,4 +1,9 @@
-import { ABIParameter, AbiType, isAddressStruct } from "@aztec/foundation/abi";
+import {
+  ABIParameter,
+  AbiType,
+  isAddressStruct,
+  isU128Struct,
+} from "@aztec/foundation/abi";
 import {
   Autocomplete,
   CircularProgress,
@@ -29,7 +34,7 @@ export function FunctionParameter({
   onParameterChange,
 }: {
   parameter: ABIParameter;
-  onParameterChange: (value: string) => void;
+  onParameterChange: (value: any) => void;
 }) {
   const { walletDB } = useContext(AztecContext);
 
@@ -41,6 +46,13 @@ export function FunctionParameter({
       case "field": {
         onParameterChange(BigInt(value).toString(16));
         break;
+      }
+      case "struct": {
+        if (isU128Struct(type)) {
+          onParameterChange(BigInt(value));
+          break;
+        }
+        // Otherwise fall through
       }
       default: {
         onParameterChange(value);
@@ -111,7 +123,10 @@ export function FunctionParameter({
           fullWidth
           css={css}
           variant="outlined"
-          disabled={["array", "struct", "tuple"].includes(parameter.type.kind)}
+          disabled={
+            ["array", "struct", "tuple"].includes(parameter.type.kind) &&
+            !(isAddressStruct(parameter.type) || isU128Struct(parameter.type))
+          }
           key={parameter.name}
           type="text"
           label={capitalize(parameter.name)}

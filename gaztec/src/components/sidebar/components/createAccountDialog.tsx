@@ -40,7 +40,7 @@ export function CreateAccountDialog({
   const createAccount = async () => {
     setDeployingAccount(true);
     const salt = Fr.random();
-    const account = getSchnorrAccount(
+    const account = await getSchnorrAccount(
       pxe,
       secretKey,
       deriveSigningKey(secretKey),

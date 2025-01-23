@@ -12,7 +12,6 @@ import {
 } from "@mui/material";
 import { useContext, useState } from "react";
 import { AztecContext } from "../../home/home";
-import { prepTx } from "../../../utils/interactions";
 import { FunctionParameter } from "../../common/fnParameter";
 
 const creationForm = css({
@@ -54,13 +53,7 @@ export function CreateAuthwitDialog({
 
   const createAuthwit = async () => {
     setCreating(true);
-    const { encodedArgs } = await prepTx(
-      currentContract.artifact,
-      fnName,
-      args
-    );
-    const action = currentContract.methods[fnName](...encodedArgs);
-    console.log(`Creating authwit for ${fnName} with args:`, args);
+    const action = currentContract.methods[fnName](...args);
     let witness;
     if (isPrivate) {
       witness = await wallet.createAuthWit({
