@@ -34,14 +34,20 @@ class VectorCircuitSource : public CircuitSource<UltraFlavor> {
         // this, where we have a single, local description of how they are set.
         const auto metadata = [this]() {
             if (num_circuits() == 1) {
+                vinfo("case 1");
                 return acir_format::ProgramMetadata{ .recursive = false, .honk_recursion = 1 };
-            } else if (step == num_circuits() - 1) {
-                return acir_format::ProgramMetadata{ .recursive = false, .honk_recursion = 0 };
-            } else {
-                return acir_format::ProgramMetadata{ .recursive = true, .honk_recursion = 1 };
+            } else if (step < num_circuits() - 1) {
+                vinfo("case 2");
+                return acir_format::ProgramMetadata{ .recursive = false, .honk_recursion = 1 };
+            } else { // final step
+                vinfo("case 3");
+                return acir_format::ProgramMetadata{ .recursive = false, .honk_recursion = 1 };
             }
         }();
-        vinfo("about to create circuit");
+        vinfo("about to create circuit with metadata recursive = ",
+              metadata.recursive,
+              " and honk_recursion = ",
+              metadata.honk_recursion);
         Builder circuit = acir_format::create_circuit<Builder>(stack[step], metadata);
         const auto& vk = vks[step]; // will be nullptr if no precomputed vks are provided
         vinfo("vk is nullptr: ", vk == nullptr);
@@ -167,7 +173,14 @@ class UltraHonkAPI : public API {
         VectorCircuitSource circuit_source{ stack };
         vinfo("created circuit source");
 
-        UltraVanillaClientIVC::Proof proof = ivc.prove(circuit_source);
+        vinfo("*flags.initialize_pairing_point_accumulator is: ", *flags.initialize_pairing_point_accumulator);
+        ASSERT((*flags.initialize_pairing_point_accumulator == "true") ||
+               (*flags.initialize_pairing_point_accumulator) == "false");
+        const bool initialize_pairing_point_accumulator = (*flags.initialize_pairing_point_accumulator == "true");
+        vinfo("initialize_pairing_point_accumulator is: ", initialize_pairing_point_accumulator);
+
+        UltraVanillaClientIVC::Proof proof =
+            ivc.prove(circuit_source, /* cache_vks */ false, initialize_pairing_point_accumulator);
 
         vinfo("writing UltraVanillaClientIVC proof and vk...");
         vinfo("writing proof to ", output_dir / "proof");

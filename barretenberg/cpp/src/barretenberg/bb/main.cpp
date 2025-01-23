@@ -1323,11 +1323,6 @@ int main(int argc, char* argv[])
             return 1;
         }
 
-        const API::Flags flags = [&args]() {
-            return API::Flags{ .output_type = get_option(args, "--output_type", "fields_msgpack"),
-                               .input_type = get_option(args, "--input_type", "compiletime_stack") };
-        }();
-
         const std::string command = args[0];
         vinfo("bb command is: ", command);
         const std::string proof_system = get_option(args, "--scheme", "");
@@ -1338,9 +1333,15 @@ int main(int argc, char* argv[])
         const std::string pk_path = get_option(args, "-r", "./target/pk");
 
         const uint32_t honk_recursion = static_cast<uint32_t>(stoi(get_option(args, "-h", "0")));
-        debug("honk recursion is: ", honk_recursion);
         const bool recursive = flag_present(args, "--recursive");
         CRS_PATH = get_option(args, "-c", CRS_PATH);
+
+        const API::Flags flags = [&args]() {
+            return API::Flags{ .output_type = get_option(args, "--output_type", "fields_msgpack"),
+                               .input_type = get_option(args, "--input_type", "compiletime_stack"),
+                               .initialize_pairing_point_accumulator =
+                                   get_option(args, "--initialize_accumulator", "false") };
+        }();
 
         const auto execute_command = [&](const std::string& command, const API::Flags& flags, API& api) {
             ASSERT(flags.input_type.has_value());

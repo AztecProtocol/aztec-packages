@@ -8,6 +8,7 @@ class API {
     struct Flags {
         std::optional<std::string> output_type; // bytes, fields, bytes_and_fields, fields_msgpack
         std::optional<std::string> input_type;  // compiletime_stack, runtime_stack
+        std::optional<std::string> initialize_pairing_point_accumulator;
     };
 
     virtual void prove(const Flags& flags,

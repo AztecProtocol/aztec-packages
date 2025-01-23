@@ -10,21 +10,29 @@ void UltraVanillaClientIVC::accumulate(Circuit& circuit, const Proof& proof, con
     accumulator = verifier.verify_proof(proof, agg_obj).agg_obj;
 }
 
-HonkProof UltraVanillaClientIVC::prove(CircuitSource<Flavor>& source, const bool cache_vks)
+HonkProof UltraVanillaClientIVC::prove(CircuitSource<Flavor>& source,
+                                       const bool cache_vks,
+                                       const bool initialize_pairing_point_accumulator)
 {
     for (size_t step = 0; step < source.num_circuits(); step++) {
         vinfo("about to call next...");
         auto [circuit, vk] = source.next();
         vinfo("got next pair from source");
         if (step == 0) {
+            info("internal ivc step 0");
             accumulator_indices = stdlib::recursion::init_default_agg_obj_indices(circuit);
+            if (initialize_pairing_point_accumulator) {
+                info("calling add_pairing_point_accumulator");
+                circuit.add_pairing_point_accumulator(accumulator_indices);
+            }
         } else {
+            info("internal ivc step ", step);
             accumulate(circuit, previous_proof, previous_vk);
             accumulator_indices = accumulator.get_witness_indices();
+            circuit.add_pairing_point_accumulator(accumulator_indices);
         }
         vinfo("set accumulator indices");
 
-        circuit.add_pairing_point_accumulator(accumulator_indices);
         accumulator_value = { accumulator.P0.get_value(), accumulator.P1.get_value() };
         vinfo("set accumulator data");
 

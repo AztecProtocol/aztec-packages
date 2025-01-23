@@ -84,7 +84,11 @@ class UltraVanillaClientIVC {
      * @return HonkProof A proof of the final circuit which through recursive verification, demonstrates that all
      * circuits were satisfied, or one of them was not satisfied, depending on whether it verifies or does not verify.
      */
-    HonkProof prove(CircuitSource<Flavor>& source, const bool cache_vks = false);
+    HonkProof prove(CircuitSource<Flavor>& source,
+                    const bool cache_vks = false,
+                    // if the first step does not contain an accumulator from an earlier recursive verification, we need
+                    // to initialize the accumulator, otherwise we must not initialize it
+                    const bool initialize_pairing_point_accumulator = true);
 
     /**
      * @brief Verify an IVC proof.
