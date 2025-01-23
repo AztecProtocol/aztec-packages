@@ -14,9 +14,11 @@ use scheduled_value_change::ScheduledValueChange;
 pub mod scheduled_delay_change;
 pub mod scheduled_value_change;
 
+global HASH_SEPARATOR: u32 = 2;
+
 pub fn validate_shared_mutable_hints<T, let INITIAL_DELAY: u32>(
     historical_header: BlockHeader,
-    storage_slot: Field,
+    shared_mutable_storage_slot: Field,
     contract_address: AztecAddress,
     value_change_hint: ScheduledValueChange<T>,
     delay_change_hint: ScheduledDelayChange<INITIAL_DELAY>,
@@ -28,7 +30,7 @@ where
 {
     let hash = public_storage_historical_read(
         historical_header,
-        storage_slot,
+        poseidon2_hash_with_separator([shared_mutable_storage_slot], HASH_SEPARATOR),
         contract_address,
         witness,
         leaf_preimage,

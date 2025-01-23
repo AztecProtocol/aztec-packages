@@ -11,8 +11,13 @@ use dep::types::{
         private_kernel::private_call_data::PrivateCallData,
     },
     address::AztecAddress,
-    shared_mutable::compute_shared_mutable_block_horizon,
-    traits::is_empty,
+    constants::DEFAULT_UPDATE_DELAY,
+    contract_class_id::ContractClassId,
+    shared_mutable::{
+        compute_shared_mutable_block_horizon, scheduled_delay_change::ScheduledDelayChange,
+        scheduled_value_change::ScheduledValueChange,
+    },
+    traits::{Deserialize, is_empty},
     transaction::tx_request::TxRequest,
     utils::arrays::{
         assert_array_appended, assert_array_appended_and_scoped, assert_array_appended_reversed,
@@ -375,8 +380,12 @@ impl PrivateKernelCircuitOutputValidator {
             MaxBlockNumber::min(
                 max_block_number,
                 MaxBlockNumber::new(compute_shared_mutable_block_horizon(
-                    private_call.verification_key_hints.updated_class_id_value_change,
-                    private_call.verification_key_hints.updated_class_id_delay_change,
+                    ScheduledValueChange::<ContractClassId>::deserialize(
+                        private_call.verification_key_hints.updated_class_id_value_change,
+                    ),
+                    ScheduledDelayChange::<DEFAULT_UPDATE_DELAY>::deserialize(
+                        private_call.verification_key_hints.updated_class_id_delay_change,
+                    ),
                     private_call.public_inputs.historical_header.global_variables.block_number
                          as u32,
                     )),

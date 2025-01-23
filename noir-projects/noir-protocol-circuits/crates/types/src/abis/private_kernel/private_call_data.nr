@@ -2,17 +2,13 @@ use crate::{
     abis::private_circuit_public_inputs::PrivateCircuitPublicInputs,
     address::SaltedInitializationHash,
     constants::{
-        DEFAULT_UPDATE_DELAY, FUNCTION_TREE_HEIGHT, PROOF_TYPE_OINK, PROOF_TYPE_PG,
-        PROTOCOL_CONTRACT_TREE_HEIGHT, PUBLIC_DATA_TREE_HEIGHT,
+        FUNCTION_TREE_HEIGHT, PROOF_TYPE_OINK, PROOF_TYPE_PG, PROTOCOL_CONTRACT_TREE_HEIGHT,
+        PUBLIC_DATA_TREE_HEIGHT,
     },
-    contract_class_id::ContractClassId,
     data::public_data_tree_leaf_preimage::PublicDataTreeLeafPreimage,
     merkle_tree::membership::MembershipWitness,
     proof::verification_key::ClientIVCVerificationKey,
     public_keys::PublicKeys,
-    shared_mutable::{
-        scheduled_delay_change::ScheduledDelayChange, scheduled_value_change::ScheduledValueChange,
-    },
 };
 
 pub struct PrivateCallData {
@@ -43,8 +39,8 @@ pub struct PrivateVerificationKeyHints {
     pub acir_hash: Field,
     pub updated_class_id_witness: MembershipWitness<PUBLIC_DATA_TREE_HEIGHT>,
     pub updated_class_id_leaf: PublicDataTreeLeafPreimage,
-    pub updated_class_id_value_change: ScheduledValueChange<ContractClassId>,
-    pub updated_class_id_delay_change: ScheduledDelayChange<DEFAULT_UPDATE_DELAY>,
+    pub updated_class_id_value_change: [Field; 3],
+    pub updated_class_id_delay_change: [Field; 1],
 }
 
 pub struct PrivateCallDataWithoutPublicInputs {

@@ -11,8 +11,13 @@ use dep::types::{
         tx_constant_data::TxConstantData,
     },
     address::AztecAddress,
-    shared_mutable::compute_shared_mutable_block_horizon,
-    traits::{Empty, is_empty},
+    constants::DEFAULT_UPDATE_DELAY,
+    contract_class_id::ContractClassId,
+    shared_mutable::{
+        compute_shared_mutable_block_horizon, scheduled_delay_change::ScheduledDelayChange,
+        scheduled_value_change::ScheduledValueChange,
+    },
+    traits::{Deserialize, Empty, Hash, is_empty},
     transaction::tx_request::TxRequest,
     utils::arrays::{array_length, array_to_bounded_vec, sort_by_counter_asc, sort_by_counter_desc},
 };
@@ -187,8 +192,12 @@ impl PrivateKernelCircuitPublicInputsComposer {
             self.public_inputs.validation_requests.max_block_number = MaxBlockNumber::min(
                 self.public_inputs.validation_requests.max_block_number,
                 MaxBlockNumber::new(compute_shared_mutable_block_horizon(
-                    private_call.verification_key_hints.updated_class_id_value_change,
-                    private_call.verification_key_hints.updated_class_id_delay_change,
+                    ScheduledValueChange::<ContractClassId>::deserialize(
+                        private_call.verification_key_hints.updated_class_id_value_change,
+                    ),
+                    ScheduledDelayChange::<DEFAULT_UPDATE_DELAY>::deserialize(
+                        private_call.verification_key_hints.updated_class_id_delay_change,
+                    ),
                     private_call.public_inputs.historical_header.global_variables.block_number
                          as u32,
                     )),

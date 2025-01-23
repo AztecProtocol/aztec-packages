@@ -1,13 +1,16 @@
 use dep::types::{
     abis::private_kernel::private_call_data::PrivateCallData,
     address::AztecAddress,
-    constants::{DEPLOYER_CONTRACT_ADDRESS, MAX_PROTOCOL_CONTRACTS},
+    constants::{DEFAULT_UPDATE_DELAY, DEPLOYER_CONTRACT_ADDRESS, MAX_PROTOCOL_CONTRACTS},
     contract_class_id::ContractClassId,
     hash::private_functions_root_from_siblings,
     merkle_tree::root::root_from_sibling_path,
-    shared_mutable::validate_shared_mutable_hints,
+    shared_mutable::{
+        scheduled_delay_change::ScheduledDelayChange, scheduled_value_change::ScheduledValueChange,
+        validate_shared_mutable_hints,
+    },
     storage::map::derive_storage_slot_in_map,
-    traits::ToField,
+    traits::{Deserialize, ToField},
 };
 
 pub fn validate_contract_address(
@@ -53,18 +56,23 @@ pub fn validate_contract_address(
         )
     };
 
+    let value_change: ScheduledValueChange<ContractClassId> =
+        Deserialize::deserialize(hints.updated_class_id_value_change);
+    let delay_change: ScheduledDelayChange<DEFAULT_UPDATE_DELAY> =
+        Deserialize::deserialize(hints.updated_class_id_delay_change);
+
     // A block horizon for this shared mutable should be set separately when generating/validating kernel output
     validate_shared_mutable_hints(
         private_call_data.public_inputs.historical_header,
         derive_storage_slot_in_map(1, contract_address),
         DEPLOYER_CONTRACT_ADDRESS,
-        hints.updated_class_id_value_change,
-        hints.updated_class_id_delay_change,
+        value_change,
+        delay_change,
         hints.updated_class_id_witness,
         hints.updated_class_id_leaf,
     );
 
-    let updated_contract_class_id = hints.updated_class_id_value_change.get_current_at(
+    let updated_contract_class_id = value_change.get_current_at(
         private_call_data.public_inputs.historical_header.global_variables.block_number as u32,
     );
 

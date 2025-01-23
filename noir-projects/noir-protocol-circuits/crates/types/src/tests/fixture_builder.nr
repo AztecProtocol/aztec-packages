@@ -72,7 +72,7 @@ use crate::{
         scheduled_delay_change::ScheduledDelayChange, scheduled_value_change::ScheduledValueChange,
     },
     tests::fixtures::{self, contract_functions::ContractFunction, contracts::ContractData},
-    traits::{Deserialize, Empty, FromField},
+    traits::{Deserialize, Empty, FromField, Serialize},
     transaction::{tx_context::TxContext, tx_request::TxRequest},
 };
 
@@ -403,8 +403,8 @@ impl FixtureBuilder {
             acir_hash: self.acir_hash,
             updated_class_id_witness: self.updated_class_id_witness,
             updated_class_id_leaf: self.updated_class_id_leaf,
-            updated_class_id_value_change: self.updated_class_id_value_change,
-            updated_class_id_delay_change: self.updated_class_id_delay_change,
+            updated_class_id_value_change: self.updated_class_id_value_change.serialize(),
+            updated_class_id_delay_change: self.updated_class_id_delay_change.serialize(),
         }
     }
 
