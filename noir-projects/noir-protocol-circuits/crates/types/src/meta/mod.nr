@@ -1,10 +1,42 @@
 use super::traits::{Deserialize, Serialize};
 
-/// Deserializes a struct from a field_array_name of fields. The function is recursive and will call itself for each field in the
+/// Deserializes a struct, primitive type, array or string from a field array.
+///
+/// # Parameters
+/// - `name`: The name of the current field being processed, used to identify fields for replacement.
+/// - `typ`: The type of the struct or field being deserialized (e.g., a custom struct, array, or primitive).
+/// - `field_array_name`: The name of the field array containing serialized field data (e.g., `"values"`).
+/// - `num_already_consumed`: The number of fields already processed in previous recursion calls.
+/// - `to_replace`: The name of a specific field that should be replaced during deserialization.
+/// - `ro_replace_with`: The value to replace the `to_replace` field with (e.g., `NoteHeader::empty()`).
+///
+/// # Returns
+/// A tuple containing:
+/// - `Quoted`: A code that deserializes a given struct, primitive type, array, or string from the field array.
+/// - `u32`: The total number of fields consumed during deserialization (used for recursion).
 ///
 /// # Nested Struct Example
-/// If UintNote is the type on the function's input while the header is supposed to be deserialized from the fields
-/// but replaced with `NoteHeader::empty()`, the function will generate the following code:
+/// Given the following setup:
+/// ```
+/// struct UintNote {
+///     value: U128,
+///     owner: AztecAddress,
+///     randomness: Field,
+///     header: NoteHeader,
+/// }
+///
+/// struct U128 {
+///     lo: Field,
+///     hi: Field,
+/// }
+///
+/// struct AztecAddress {
+///     inner: Field,
+/// }
+/// ```
+///
+/// If `UintNote` is the input type, and `header` is replaced with `NoteHeader::empty()`,
+/// the function will generate the following deserialization code:
 /// ```
 /// UintNote {
 ///     value: U128 {
@@ -18,13 +50,17 @@ use super::traits::{Deserialize, Serialize};
 ///     header: NoteHeader::empty() // Default/empty header
 /// }
 /// ```
+///
+/// # Panics
+/// - If the deserialization logic encounters a type it does not support.
+/// - If an incorrect number of fields are consumed when deserializing a string.
 pub comptime fn deserialize_from_fields<N>(
-    name: Quoted, // The name of the field passed into the function to check for replacement
-    typ: Type, // This is the type of the struct we are deserializing (e.g. ValueNote)
-    field_array_name: Quoted, // This would typically be an argument in the deserialization function (e.g. "values", where values in the function would be e.g. [Field; 3])
-    num_already_consumed: u32, // Number of fields already consumed in the previous recursion of `deserialize_from_fields`
-    to_replace: Quoted, // A field name that should be replaced (typically a "header")
-    ro_replace_with: Quoted, // The replacement for the field that should be replaced (typically e.g.: "NoteHeader::empty() ")
+    name: Quoted,
+    typ: Type,
+    field_array_name: Quoted,
+    num_already_consumed: u32,
+    to_replace: Quoted,
+    ro_replace_with: Quoted,
 ) -> (Quoted, u32) {
     let mut result = quote {};
     // Counter for the number of fields consumed
@@ -248,11 +284,17 @@ pub(crate) comptime fn derive_deserialize(s: StructDefinition) -> Quoted {
     let typ = s.as_type();
     let (fields, _) = flatten_to_fields(quote { self }, typ, &[]);
     let serialized_len = fields.len();
-    let (deserialized, _) =
-        deserialize_from_fields(quote { self }, typ, quote { value }, 0, quote {}, quote {});
+    let (deserialized, _) = deserialize_from_fields(
+        quote { self },
+        typ,
+        quote { serialized },
+        0,
+        quote {},
+        quote {},
+    );
     quote {
         impl Deserialize<$serialized_len> for $typ {
-            fn deserialize(value: [Field; $serialized_len]) -> Self {
+            fn deserialize(serialized: [Field; $serialized_len]) -> Self {
                 $deserialized
             }
         }
