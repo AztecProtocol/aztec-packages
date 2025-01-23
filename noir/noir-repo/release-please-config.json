@@ -4,8 +4,8 @@
   "bump-patch-for-minor-pre-major": true,
   "prerelease": true,
   "prerelease-type": "beta",
-  "pull-request-title-pattern": "chore: Release Noir(${version})",
-  "group-pull-request-title-pattern": "chore: Release Noir(${version})",
+  "pull-request-title-pattern": "chore: Release Noir (${version})",
+  "group-pull-request-title-pattern": "chore: Release Noir (${version})",
   "packages": {
     ".": {
       "release-type": "simple",
@@ -23,11 +23,6 @@
         "acvm-repo/bn254_blackbox_solver/Cargo.toml",
         "acvm-repo/brillig/Cargo.toml",
         "acvm-repo/brillig_vm/Cargo.toml",
-        {
-          "type": "json",
-          "path": "acvm-repo/acvm_js/package.json",
-          "jsonpath": "$.version"
-        },
         {
           "type": "json",
           "path": "acvm-repo/acvm_js/package.json",
