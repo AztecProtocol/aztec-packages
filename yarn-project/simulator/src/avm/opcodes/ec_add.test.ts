@@ -74,7 +74,7 @@ describe('EC Instructions', () => {
         context.machineState.memory.get(7).toFr(),
         pIsInfinite,
       );
-      const expected = grumpkin.add(grumpkin.generator(), grumpkin.generator());
+      const expected = await grumpkin.add(grumpkin.generator(), grumpkin.generator());
       expect(actual).toEqual(expected);
       expect(context.machineState.memory.get(8).toFr().equals(Fr.ZERO)).toBe(true);
     });
@@ -112,7 +112,7 @@ describe('EC Instructions', () => {
         context.machineState.memory.get(7).toFr(),
         false,
       );
-      const G3 = grumpkin.add(grumpkin.generator(), G2);
+      const G3 = await grumpkin.add(grumpkin.generator(), G2);
       expect(actual).toEqual(G3);
       expect(context.machineState.memory.get(8).toFr().equals(Fr.ZERO)).toBe(true);
     });
