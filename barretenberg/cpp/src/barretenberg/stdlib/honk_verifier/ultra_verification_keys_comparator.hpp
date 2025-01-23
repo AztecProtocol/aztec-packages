@@ -48,7 +48,7 @@ static void compare_ultra_verification_keys(
     ASSERT(verification_keys[0]->circuit_size == verification_keys[1]->circuit_size);
     ASSERT(verification_keys[0]->num_public_inputs == verification_keys[1]->num_public_inputs);
 
-    ASSERT(broke);
+    ASSERT(!broke);
 }
 
 } // namespace bb
