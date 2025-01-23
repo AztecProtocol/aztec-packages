@@ -42,7 +42,7 @@ comptime fn get_next_note_type_id() -> Field {
 ///         ...
 ///     }
 ///
-///     fn deserialize_content(value: [Field; N]) -> Self {
+///     fn deserialize_content(serialized_content: [Field; N]) -> Self {
 ///         ...
 ///     }
 ///
@@ -91,9 +91,9 @@ comptime fn generate_note_interface(
     let content_len = content_fields_list.len();
 
     let (deserialized_content, _) = deserialize_from_fields(
-        quote { self },
+        quote {},
         typ,
-        quote { value }, // value is argument of NoteInterface::deserialize_content
+        quote { serialized_content }, // "serialized_content" is argument of NoteInterface::deserialize_content
         0,
         quote {header},
         quote { aztec::note::note_header::NoteHeader::empty() },
@@ -141,7 +141,7 @@ comptime fn generate_note_interface(
                 buffer
             }
 
-            fn deserialize_content(value: [Field; $content_len]) -> Self {
+            fn deserialize_content(serialized_content: [Field; $content_len]) -> Self {
                 $deserialized_content
             }
 
