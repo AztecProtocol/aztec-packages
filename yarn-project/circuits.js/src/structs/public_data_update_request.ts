@@ -79,8 +79,11 @@ export class PublicDataUpdateRequest {
     return new PublicDataUpdateRequest(Fr.fromBuffer(reader), Fr.fromBuffer(reader), reader.readNumber());
   }
 
-  static fromContractStorageUpdateRequest(contractAddress: AztecAddress, updateRequest: ContractStorageUpdateRequest) {
-    const leafSlot = computePublicDataTreeLeafSlot(contractAddress, updateRequest.storageSlot);
+  static async fromContractStorageUpdateRequest(
+    contractAddress: AztecAddress,
+    updateRequest: ContractStorageUpdateRequest,
+  ) {
+    const leafSlot = await computePublicDataTreeLeafSlot(contractAddress, updateRequest.storageSlot);
 
     return new PublicDataUpdateRequest(leafSlot, updateRequest.newValue, updateRequest.counter);
   }

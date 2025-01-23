@@ -388,7 +388,7 @@ export function getFunctionArtifact(
   const functionArtifact = artifact.functions.find(f =>
     typeof functionNameOrSelector === 'string'
       ? f.name === functionNameOrSelector
-      : functionNameOrSelector.equals(f.name, f.parameters),
+      : functionNameOrSelector.equalsFn(f.name, f.parameters),
   );
   if (!functionArtifact) {
     throw new Error(`Unknown function ${functionNameOrSelector}`);

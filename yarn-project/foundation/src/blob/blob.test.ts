@@ -74,12 +74,12 @@ describe('blob', () => {
     expect(isValid).toBe(true);
   });
 
-  it('should evaluate a blob of 400 items', () => {
+  it('should evaluate a blob of 400 items', async () => {
     // This test ensures that the Blob class correctly matches the c-kzg lib
     // The values here are used to test Noir's blob evaluation in noir-projects/noir-protocol-circuits/crates/blob/src/blob.nr -> test_400
     const blobItems = Array(400).fill(new Fr(3));
-    const ourBlob = Blob.fromFields(blobItems);
-    const blobItemsHash = poseidon2Hash(Array(400).fill(new Fr(3)));
+    const ourBlob = await Blob.fromFields(blobItems);
+    const blobItemsHash = await poseidon2Hash(Array(400).fill(new Fr(3)));
     expect(blobItemsHash).toEqual(ourBlob.fieldsHash);
 
     // We add zeros before getting commitment as we do not store the blob along with
@@ -103,7 +103,7 @@ describe('blob', () => {
     expect(isValid).toBe(true);
   });
 
-  it('should evaluate full blobs', () => {
+  it('should evaluate full blobs', async () => {
     // This test ensures that the Blob class correctly matches the c-kzg lib
     // The values here are used to test Noir's blob evaluation in noir-projects/noir-protocol-circuits/crates/blob/src/blob.nr -> test_full_blobs
 
@@ -113,8 +113,8 @@ describe('blob', () => {
         blobItems[j * FIELD_ELEMENTS_PER_BLOB + i] = new Fr(i + 2);
       }
     }
-    const blobItemsHash = poseidon2Hash(blobItems);
-    const blobs = Blob.getBlobs(blobItems);
+    const blobItemsHash = await poseidon2Hash(blobItems);
+    const blobs = await Blob.getBlobs(blobItems);
     blobs.forEach(ourBlob => {
       // const ourBlob = Blob.fromFields(blobItems.slice(j * FIELD_ELEMENTS_PER_BLOB, (j + 1) * FIELD_ELEMENTS_PER_BLOB), blobItemsHash);
       expect(blobItemsHash).toEqual(ourBlob.fieldsHash);
@@ -138,8 +138,8 @@ describe('blob', () => {
     });
   });
 
-  it('Should serialise and deserialise a blob', () => {
-    const blob = Blob.fromFields([Fr.random(), Fr.random(), Fr.random()]);
+  it('Should serialise and deserialise a blob', async () => {
+    const blob = await Blob.fromFields([Fr.random(), Fr.random(), Fr.random()]);
     const blobBuffer = blob.toBuffer();
     const deserialisedBlob = Blob.fromBuffer(blobBuffer);
     expect(blob.fieldsHash.equals(deserialisedBlob.fieldsHash)).toBe(true);

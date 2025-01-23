@@ -59,15 +59,15 @@ export class CompleteAddress {
     return new CompleteAddress(address, publicKeys, partialAddress);
   }
 
-  getPreaddress() {
-    return computePreaddress(this.publicKeys.hash(), this.partialAddress);
+  async getPreaddress() {
+    return computePreaddress(await this.publicKeys.hash(), this.partialAddress);
   }
 
-  static fromSecretKeyAndInstance(
+  static async fromSecretKeyAndInstance(
     secretKey: Fr,
     instance: Parameters<typeof computePartialAddress>[0],
   ): Promise<CompleteAddress> {
-    const partialAddress = computePartialAddress(instance);
+    const partialAddress = await computePartialAddress(instance);
     return CompleteAddress.fromSecretKeyAndPartialAddress(secretKey, partialAddress);
   }
 

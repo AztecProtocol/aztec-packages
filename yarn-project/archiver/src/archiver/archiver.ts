@@ -794,7 +794,7 @@ export class Archiver implements ArchiveSource, Traceable {
   async addContractClass(contractClass: ContractClassPublic): Promise<void> {
     await this.store.addContractClasses(
       [contractClass],
-      [computePublicBytecodeCommitment(contractClass.packedBytecode)],
+      [await computePublicBytecodeCommitment(contractClass.packedBytecode)],
       0,
     );
     return;
@@ -889,11 +889,10 @@ class ArchiverStoreHelper
       contractClasses.forEach(c => this.#log.verbose(`${Operation[operation]} contract class ${c.id.toString()}`));
       if (operation == Operation.Store) {
         // TODO: Will probably want to create some worker threads to compute these bytecode commitments as they are expensive
-        return await this.store.addContractClasses(
-          contractClasses,
-          contractClasses.map(x => computePublicBytecodeCommitment(x.packedBytecode)),
-          blockNum,
+        const commitments = await Promise.all(
+          contractClasses.map(c => computePublicBytecodeCommitment(c.packedBytecode)),
         );
+        return await this.store.addContractClasses(contractClasses, commitments, blockNum);
       } else if (operation == Operation.Delete) {
         return await this.store.deleteContractClasses(contractClasses, blockNum);
       }
@@ -961,10 +960,15 @@ class ArchiverStoreHelper
       const unconstrainedFns = allFns.filter(
         (fn): fn is UnconstrainedFunctionWithMembershipProof => 'privateFunctionsArtifactTreeRoot' in fn,
       );
-      const validPrivateFns = privateFns.filter(fn => isValidPrivateFunctionMembershipProof(fn, contractClass));
-      const validUnconstrainedFns = unconstrainedFns.filter(fn =>
-        isValidUnconstrainedFunctionMembershipProof(fn, contractClass),
+
+      const privateFunctionsWithValidity = await Promise.all(
+        privateFns.map(async fn => ({ fn, valid: await isValidPrivateFunctionMembershipProof(fn, contractClass) })),
       );
+      const validPrivateFns = privateFunctionsWithValidity.filter(({ valid }) => valid).map(({ fn }) => fn);
+      const unconstrainedFunctionsWithValidity = await Promise.all(
+        unconstrainedFns.map(async fn => ({ fn, valid: true })),
+      );
+      const validUnconstrainedFns = unconstrainedFunctionsWithValidity.filter(({ valid }) => valid).map(({ fn }) => fn);
       const validFnCount = validPrivateFns.length + validUnconstrainedFns.length;
       if (validFnCount !== allFns.length) {
         this.#log.warn(`Skipping ${allFns.length - validFnCount} invalid functions`);

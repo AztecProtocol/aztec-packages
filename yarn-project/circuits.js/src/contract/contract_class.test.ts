@@ -6,9 +6,9 @@ import { getBenchmarkContractArtifact } from '../tests/fixtures.js';
 import { getContractClassFromArtifact } from './contract_class.js';
 
 describe('ContractClass', () => {
-  it('creates a contract class from a contract compilation artifact', () => {
+  it('creates a contract class from a contract compilation artifact', async () => {
     const artifact = getBenchmarkContractArtifact();
-    const contractClass = getContractClassFromArtifact({
+    const contractClass = await getContractClassFromArtifact({
       ...artifact,
       artifactHash: Fr.fromHexString('0x1234'),
     });
