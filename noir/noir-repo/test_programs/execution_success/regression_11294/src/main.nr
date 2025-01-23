@@ -5,8 +5,7 @@ pub global MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX: u32 = 8;
 unconstrained fn main(
     previous_kernel_public_inputs: PrivateKernelCircuitPublicInputs,
 ) -> pub PrivateKernelCircuitPublicInputs {
-    let private_inputs =
-        PrivateKernelInnerCircuitPrivateInputs::new(previous_kernel_public_inputs);
+    let private_inputs = PrivateKernelInnerCircuitPrivateInputs::new(previous_kernel_public_inputs);
     private_inputs.execute()
 }
 
@@ -83,14 +82,8 @@ pub struct PrivateKernelInnerCircuitPrivateInputs {
 }
 
 impl PrivateKernelInnerCircuitPrivateInputs {
-    pub fn new(
-        public_inputs: PrivateKernelCircuitPublicInputs,
-    ) -> Self {
-        Self {
-            previous_kernel: PrivateKernelData {
-                public_inputs,
-            }
-        }
+    pub fn new(public_inputs: PrivateKernelCircuitPublicInputs) -> Self {
+        Self { previous_kernel: PrivateKernelData { public_inputs } }
     }
 
     unconstrained fn generate_output(self) -> PrivateKernelCircuitPublicInputs {
@@ -106,7 +99,7 @@ impl PrivateKernelInnerCircuitPrivateInputs {
         // XXX: Running both this and the bottom assertion would make the circuit pass.
         // assert(!is_empty(self.previous_kernel.public_inputs.end.private_call_stack[0]), "not empty before");
 
-        /// Safety:
+        // Safety: This is where the program treated the input as mutable.
         let output = unsafe { self.generate_output() };
 
         assert(
@@ -156,8 +149,8 @@ where
 {
     // We get the length by checking the index of the first empty element.
 
-    /// Safety: This is safe because we have validated the array (see function doc above) and the emptiness
-    /// of the element and non-emptiness of the previous element is checked below.
+    // Safety: This is safe because we have validated the array (see function doc above) and the emptiness
+    // of the element and non-emptiness of the previous element is checked below.
     let length = unsafe { find_index_hint(array, |elem: T| is_empty(elem)) };
     // if length != 0 {
     //     assert(!is_empty(array[length - 1]));
