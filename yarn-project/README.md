@@ -1,6 +1,6 @@
 # Aztec Typescript Packages
 
-All the Typescript packages that make up [Aztec](https://docs.aztec.network/aztec3/overview).
+All the Typescript packages that make up [Aztec](https://docs.aztec.network/aztec/concepts_overview).
 
 ## Development
 
