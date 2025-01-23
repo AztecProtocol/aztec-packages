@@ -76,7 +76,7 @@ impl PrivateKernelInitCircuitPrivateInputs {
         if dep::types::validate::should_validate_output() {
             PrivateKernelCircuitOutputValidator::new(output).validate_as_first_call(
                 self.tx_request,
-                self.private_call.public_inputs,
+                self.private_call,
                 private_call_data_validator.array_lengths,
                 self.vk_tree_root,
                 self.protocol_contract_tree_root,

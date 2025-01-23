@@ -79,7 +79,7 @@ impl PrivateKernelInnerCircuitPrivateInputs {
             PrivateKernelCircuitOutputValidator::new(output).validate_as_inner_call(
                 self.previous_kernel.public_inputs,
                 previous_kernel_array_lengths,
-                self.private_call.public_inputs,
+                self.private_call,
                 private_call_data_validator.array_lengths,
             );
         }

@@ -74,7 +74,7 @@ impl PrivateKernelCircuitOutputValidatorBuilder {
         let output = self.output.to_private_kernel_circuit_public_inputs();
         PrivateKernelCircuitOutputValidator::new(output).validate_as_first_call(
             self.tx_request,
-            private_call.public_inputs,
+            private_call,
             array_lengths,
             FixtureBuilder::vk_tree_root(),
             self.private_call.protocol_contract_tree_root,
@@ -100,7 +100,7 @@ impl PrivateKernelCircuitOutputValidatorBuilder {
         PrivateKernelCircuitOutputValidator::new(output).validate_as_inner_call(
             previous_kernel,
             previous_kernel_array_lengths,
-            private_call.public_inputs,
+            private_call,
             private_call_array_lengths,
         );
     }
