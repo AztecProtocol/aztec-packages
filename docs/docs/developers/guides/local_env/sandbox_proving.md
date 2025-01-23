@@ -21,7 +21,7 @@ Here every transaction, contract deployment will be proved. If you want to just 
 To enable client-side proving, update the docker compose file found at `~/.aztec/docker-compose.sandbox.yml` and add the following configuration settings under the `aztec:environment` scope.
 
 ```yml
-BB_BINARY_PATH: /usr/src/barretenberg/cpp/developers/bin/bb
+BB_BINARY_PATH: /usr/src/barretenberg/cpp/build/bin/bb
 PXE_PROVER_ENABLED: 1
 BB_WORKING_DIRECTORY: ~/bb-temp #any temp directory for writing circuit artifacts
 ```

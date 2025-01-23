@@ -104,15 +104,6 @@ Explore the Concepts for a deeper understanding into the components that make up
     </CardBody>
   </Card>
 
-  <Card shadow='tl' link='/aztec/concepts/advanced/circuits'>
-    <CardHeader>
-      <h3>Protocol Circuits</h3>
-    </CardHeader>
-    <CardBody>
-      Central to Aztec's operations are circuits in the core protocol and the developer-written Aztec.nr contracts
-    </CardBody>
-  </Card>
-
   <Card shadow='tl' link='/aztec/concepts/pxe'>
     <CardHeader>
       <h3>PXE (pronounced 'pixie')</h3>
@@ -146,6 +137,15 @@ Explore the Concepts for a deeper understanding into the components that make up
     </CardHeader>
     <CardBody>
      Wallets expose to dapps an interface that allows them to act on behalf of the user, such as querying private state or sending transactions
+    </CardBody>
+  </Card>
+
+  <Card shadow='tl' link='/aztec/concepts/advanced/circuits'>
+    <CardHeader>
+      <h3>Protocol Circuits</h3>
+    </CardHeader>
+    <CardBody>
+      Central to Aztec's operations are circuits in the core protocol and the developer-written Aztec.nr contracts
     </CardBody>
   </Card>
 

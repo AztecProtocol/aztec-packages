@@ -144,6 +144,10 @@ export default {
 
   nodesSidebar: [
     {
+      type: "doc",
+      id: "run_node/index",
+    },
+    {
       type: "html",
       value: '<span class="sidebar-title">Concepts</span>',
       className: "sidebar-title",

@@ -376,7 +376,7 @@ aztec codegen target -o src/artifacts
 ### Optional: Dive deeper into this contract and concepts mentioned here
 
 - Review [the end to end tests (Github link)](https://github.com/AztecProtocol/aztec-packages/blob/#include_aztec_version/yarn-project/end-to-end/src/e2e_nft.test.ts) for reference.
-- [Nullifiers](../../../../aztec/concepts/advanced/storage/indexed_merkle_tree.mdx)
+- [Nullifier tree](../../../../aztec/concepts/advanced/storage/indexed_merkle_tree.mdx)
 - [Public / Private function calls](../../../../aztec/smart_contracts/functions/public_private_calls.md).
 - [Contract Storage](../../../../aztec/concepts/storage/index.md)
 - [Authwit](../../../../aztec/concepts/advanced/authwit.md)

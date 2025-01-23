@@ -35,4 +35,4 @@ This is achieved with two main features:
 
 ## Further reading
 
-Read more about how to leverage the Aztec state model in Aztec contracts [here](../storage/state_model.md).
+Read more about how to leverage the Aztec state model in Aztec contracts [here](../../../developers/reference/smart_contract_reference/storage/index.md).

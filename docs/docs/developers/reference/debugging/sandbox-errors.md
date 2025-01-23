@@ -38,7 +38,7 @@ You cannot execute a public Aztec.nr function in the private kernel
 
 #### 2011 - PRIVATE_KERNEL\_\_UNSUPPORTED_OP
 
-You are trying to do something that is currently unsupported in the private kernel. If this is a blocker feel free to open up an issue on our monorepo [aztec-packages (GitHub link)](https://github.com/AztecProtocol/aztec3-packages/tree/master) or reach out to us on discord
+You are trying to do something that is currently unsupported in the private kernel. If this is a blocker feel free to open up an issue on our monorepo [aztec-packages (GitHub link)](https://github.com/AztecProtocol/aztec-packages/tree/master) or reach out to us on discord
 
 Note that certain operations are unsupported on certain versions of the private kernel. Eg static calls are allowed for all but the initial iteration of the private kernel (which initializes the kernel for subsequent function calls).
 
@@ -80,7 +80,7 @@ But for non transient reads, we do a merkle membership check. Reads are done at 
 
 #### 3001 - PUBLIC_KERNEL\_\_UNSUPPORTED_OP
 
-You are trying to do something that is currently unsupported in the public kernel. If this is a blocker feel free to open up an issue on our monorepo [aztec-packages (GitHub link)](https://github.com/AztecProtocol/aztec3-packages/tree/master) or reach out to us on discord
+You are trying to do something that is currently unsupported in the public kernel. If this is a blocker feel free to open up an issue on our monorepo [aztec-packages (GitHub link)](https://github.com/AztecProtocol/aztec-packages/tree/master) or reach out to us on discord
 
 #### 3002 - PUBLIC_KERNEL\_\_PRIVATE_FUNCTION_NOT_ALLOWED
 
@@ -136,7 +136,7 @@ These are errors that occur when kernel proofs (transaction proofs) are sent to 
 
 #### 4007 - BASE\_\_INVALID_CHAIN_ID
 
-The L1 chain ID you used in your proof generation (for your private transaction) is different to what the rollup circuits expected. Double check against the global variables passed to noir and the config set in [Aztec's rollup contract (GitHub link)](https://github.com/AztecProtocol/aztec-packages/blob/master/l1-contracts/src/core/Rollup.sol) which are [read in by sequencer GitHub link](https://github.com/AztecProtocol/aztec3-packages/blob/master/yarn-project/sequencer-client/src/global_variable_builder/global_builder.ts#L32) and subsequently passed in as inputs to the base rollup. When the sequencer submits the block to the rollup contracts, this is again sanity checked so ensure this is the same everywhere.
+The L1 chain ID you used in your proof generation (for your private transaction) is different to what the rollup circuits expected. Double check against the global variables passed to noir and the config set in [Aztec's rollup contract (GitHub link)](https://github.com/AztecProtocol/aztec-packages/blob/master/l1-contracts/src/core/Rollup.sol) which are [read in by sequencer GitHub link](https://github.com/AztecProtocol/aztec-packages/blob/master/yarn-project/sequencer-client/src/global_variable_builder/global_builder.ts#L32) and subsequently passed in as inputs to the base rollup. When the sequencer submits the block to the rollup contracts, this is again sanity checked so ensure this is the same everywhere.
 
 #### 4008 - BASE\_\_INVALID_VERSION
 
