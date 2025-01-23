@@ -120,12 +120,12 @@ pub unconstrained fn compute_note_hash_and_optionally_a_nullifier<T, let N: u32,
     unpack_content: fn([Field; N]) -> T,
     note_header: NoteHeader,
     compute_nullifier: bool,
-    serialized_note: [Field; S],
+    packed_note_content: [Field; S],
 ) -> [Field; 4]
 where
     T: NoteInterface<N> + NullifiableNote,
 {
-    let mut note = unpack_content(array::subarray(serialized_note, 0));
+    let mut note = unpack_content(array::subarray(packed_note_content, 0));
     note.set_header(note_header);
 
     let note_hash = note.compute_note_hash();

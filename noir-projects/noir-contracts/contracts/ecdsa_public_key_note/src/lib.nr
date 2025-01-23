@@ -21,7 +21,7 @@ pub struct EcdsaPublicKeyNote {
 }
 
 impl NoteInterface<ECDSA_PUBLIC_KEY_NOTE_LEN> for EcdsaPublicKeyNote {
-    // Cannot use the automatic serialization since x and y don't fit. Serialize the note as 5 fields where:
+    // Cannot use the automatic packing since x and y don't fit. Serialize the note as 5 fields where:
     // [0] = x[0..31] (upper bound excluded)
     // [1] = x[31]
     // [2] = y[0..31]
@@ -46,28 +46,28 @@ impl NoteInterface<ECDSA_PUBLIC_KEY_NOTE_LEN> for EcdsaPublicKeyNote {
         [x, last_x, y, last_y, self.owner.to_field()]
     }
 
-    // Cannot use the automatic deserialization for the aforementioned reasons
-    fn unpack_content(serialized_note: [Field; ECDSA_PUBLIC_KEY_NOTE_LEN]) -> EcdsaPublicKeyNote {
+    // Cannot use the automatic unpacking for the aforementioned reasons
+    fn unpack_content(packed_content: [Field; ECDSA_PUBLIC_KEY_NOTE_LEN]) -> EcdsaPublicKeyNote {
         let mut x: [u8; 32] = [0; 32];
         let mut y: [u8; 32] = [0; 32];
 
-        let part_x:[u8; 32] = serialized_note[0].to_be_bytes();
+        let part_x:[u8; 32] = packed_content[0].to_be_bytes();
         for i in 0..31 {
             x[i] = part_x[i + 1];
         }
-        x[31] = serialized_note[1].to_be_bytes::<32>()[31];
+        x[31] = packed_content[1].to_be_bytes::<32>()[31];
 
-        let part_y:[u8; 32] = serialized_note[2].to_be_bytes();
+        let part_y:[u8; 32] = packed_content[2].to_be_bytes();
         for i in 0..31 {
             y[i] = part_y[i + 1];
         }
-        y[31] = serialized_note[3].to_be_bytes::<32>()[31];
+        y[31] = packed_content[3].to_be_bytes::<32>()[31];
 
-        EcdsaPublicKeyNote { x, y, owner: AztecAddress::from_field(serialized_note[4]), header: NoteHeader::empty() }
+        EcdsaPublicKeyNote { x, y, owner: AztecAddress::from_field(packed_content[4]), header: NoteHeader::empty() }
     }
 
     fn to_be_bytes(self, storage_slot: Field) -> [u8; ECDSA_PUBLIC_KEY_NOTE_LEN * 32 + 64] {
-        let serialized_note = self.pack_content();
+        let packed_content = self.pack_content();
 
         let mut buffer: [u8; ECDSA_PUBLIC_KEY_NOTE_LEN * 32 + 64] = [0; ECDSA_PUBLIC_KEY_NOTE_LEN * 32 + 64];
 
@@ -79,8 +79,8 @@ impl NoteInterface<ECDSA_PUBLIC_KEY_NOTE_LEN> for EcdsaPublicKeyNote {
             buffer[32 + i] = note_type_id_bytes[i];
         }
 
-        for i in 0..serialized_note.len() {
-            let bytes: [u8; 32] = serialized_note[i].to_be_bytes();
+        for i in 0..packed_content.len() {
+            let bytes: [u8; 32] = packed_content[i].to_be_bytes();
             for j in 0..32 {
                 buffer[64 + i * 32 + j] = bytes[j];
             }
@@ -102,15 +102,15 @@ impl NoteInterface<ECDSA_PUBLIC_KEY_NOTE_LEN> for EcdsaPublicKeyNote {
     }
 
     fn compute_note_hash(self) -> Field {
-        let serialized = self.pack_content();
+        let packed_content = self.pack_content();
         std::embedded_curve_ops::multi_scalar_mul(
             [Gx_1, Gx_2, Gy_1, Gy_2, G_owner, G_slot],
             [
-            from_field_unsafe(serialized[0]),
-            from_field_unsafe(serialized[1]),
-            from_field_unsafe(serialized[2]),
-            from_field_unsafe(serialized[3]),
-            from_field_unsafe(serialized[4]),
+            from_field_unsafe(packed_content[0]),
+            from_field_unsafe(packed_content[1]),
+            from_field_unsafe(packed_content[2]),
+            from_field_unsafe(packed_content[3]),
+            from_field_unsafe(packed_content[4]),
             from_field_unsafe(self.get_header().storage_slot)
         ]
         ).x

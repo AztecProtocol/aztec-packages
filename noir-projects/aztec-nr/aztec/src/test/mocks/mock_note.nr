@@ -69,7 +69,7 @@ impl NoteInterface<MOCK_NOTE_LENGTH> for MockNote {
     }
 
     fn to_be_bytes(self, storage_slot: Field) -> [u8; MOCK_NOTE_LENGTH * 32 + 64] {
-        let serialized_note = self.pack_content();
+        let packed_content = self.pack_content();
 
         let mut buffer: [u8; MOCK_NOTE_LENGTH * 32 + 64] = [0; MOCK_NOTE_LENGTH * 32 + 64];
 
@@ -81,8 +81,8 @@ impl NoteInterface<MOCK_NOTE_LENGTH> for MockNote {
             buffer[32 + i] = note_type_id_bytes[i];
         }
 
-        for i in 0..serialized_note.len() {
-            let bytes: [u8; 32] = serialized_note[i].to_be_bytes();
+        for i in 0..packed_content.len() {
+            let bytes: [u8; 32] = packed_content[i].to_be_bytes();
             for j in 0..32 {
                 buffer[64 + i * 32 + j] = bytes[j];
             }

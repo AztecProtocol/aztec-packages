@@ -22,11 +22,11 @@ where
     note.set_header(header);
     let note_hash = note.compute_note_hash();
 
-    let serialized_note = Note::pack_content(*note);
+    let packed_note_content = Note::pack_content(*note);
     notify_created_note(
         storage_slot,
         Note::get_note_type_id(),
-        serialized_note,
+        packed_note_content,
         note_hash,
         note_hash_counter,
     );
