@@ -2,8 +2,7 @@ import { type ClientProtocolCircuitVerifier, Tx } from '@aztec/circuit-types';
 import { type CircuitVerificationStats } from '@aztec/circuit-types/stats';
 import { type Proof, type VerificationKeyData } from '@aztec/circuits.js';
 import { runInDirectory } from '@aztec/foundation/fs';
-import { type LogFn, type Logger, createLogger } from '@aztec/foundation/log';
-import { ServerCircuitArtifacts } from '@aztec/noir-protocol-circuits-types/server';
+import { type Logger, createLogger } from '@aztec/foundation/log';
 import { type ClientProtocolArtifact, type ServerProtocolArtifact } from '@aztec/noir-protocol-circuits-types/types';
 import { ServerCircuitVks } from '@aztec/noir-protocol-circuits-types/vks';
 
@@ -14,8 +13,7 @@ import { BB_RESULT, PROOF_FILENAME, VK_FILENAME, verifyClientIvcProof, verifyPro
 import { type BBConfig } from '../config.js';
 import { getUltraHonkFlavorForCircuit } from '../honk.js';
 import { writeToOutputDirectory } from '../prover/client_ivc_proof_utils.js';
-import { isProtocolArtifactRecursive, mapProtocolArtifactNameToCircuitName } from '../stats.js';
-import { extractVkData } from '../verification_key/verification_key_data.js';
+import { mapProtocolArtifactNameToCircuitName } from '../stats.js';
 
 export class BBCircuitVerifier implements ClientProtocolCircuitVerifier {
   private constructor(private config: BBConfig, private logger: Logger) {}
