@@ -99,7 +99,7 @@ export class EncryptedLogPayload {
   ): Promise<PrivateLog> {
     const addressPoint = await recipient.toAddressPoint();
 
-    const ephPk = derivePublicKeyFromSecretKey(ephSk);
+    const ephPk = await derivePublicKeyFromSecretKey(ephSk);
     const incomingHeaderCiphertext = await encrypt(this.contractAddress.toBuffer(), ephSk, addressPoint);
 
     if (incomingHeaderCiphertext.length !== HEADER_SIZE) {

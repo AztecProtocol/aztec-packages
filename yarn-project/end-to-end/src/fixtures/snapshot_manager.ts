@@ -608,7 +608,10 @@ export async function publicDeployAccounts(
   if (!alreadyRegistered) {
     calls.push((await registerContractClass(sender, SchnorrAccountContractArtifact)).request());
   }
-  calls.push(...instances.map(instance => deployInstance(sender, instance!).request()));
+  const requests = await Promise.all(
+    instances.map(async instance => (await deployInstance(sender, instance!)).request()),
+  );
+  calls.push(...requests);
 
   const batch = new BatchCall(sender, calls);
   await batch.send().wait({ proven: waitUntilProven });

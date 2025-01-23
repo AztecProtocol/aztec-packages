@@ -537,7 +537,7 @@ export class KVPxeDatabase implements PxeDatabase {
     }
 
     const value = await this.#completeAddresses.atAsync(index);
-    return value ? CompleteAddress.fromBuffer(value) : undefined;
+    return value ? await CompleteAddress.fromBuffer(value) : undefined;
   }
 
   getCompleteAddress(account: AztecAddress): Promise<CompleteAddress | undefined> {
@@ -545,7 +545,9 @@ export class KVPxeDatabase implements PxeDatabase {
   }
 
   async getCompleteAddresses(): Promise<CompleteAddress[]> {
-    return (await toArray(this.#completeAddresses.valuesAsync())).map(v => CompleteAddress.fromBuffer(v));
+    return await Promise.all(
+      (await toArray(this.#completeAddresses.valuesAsync())).map(v => CompleteAddress.fromBuffer(v)),
+    );
   }
 
   async addSenderAddress(address: AztecAddress): Promise<boolean> {
