@@ -145,8 +145,8 @@ export class FeesTest {
 
         // We set Alice as the FPC admin to avoid the need for deployment of another account.
         this.fpcAdmin = this.aliceAddress;
-
-        this.feeJuiceContract = await FeeJuiceContract.at(getCanonicalFeeJuice().address, this.aliceWallet);
+        const canonicalFeeJuice = await getCanonicalFeeJuice();
+        this.feeJuiceContract = await FeeJuiceContract.at(canonicalFeeJuice.address, this.aliceWallet);
         const bobInstance = await this.bobWallet.getContractInstance(this.bobAddress);
         if (!bobInstance) {
           throw new Error('Bob instance not found');

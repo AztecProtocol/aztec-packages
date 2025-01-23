@@ -60,7 +60,12 @@ pub fn assert_initialization_matches_address_preimage_private(context: PrivateCo
     );
 }
 
-fn compute_initialization_hash(init_selector: FunctionSelector, init_args_hash: Field) -> Field {
+/// This function is not only used in macros but it's also used by external people to check that an instance has been
+/// initialized with the correct constructor arguments. Don't hide this unless you implement factory functionality.
+pub fn compute_initialization_hash(
+    init_selector: FunctionSelector,
+    init_args_hash: Field,
+) -> Field {
     poseidon2_hash_with_separator(
         [init_selector.to_field(), init_args_hash],
         GENERATOR_INDEX__CONSTRUCTOR,

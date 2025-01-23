@@ -1,7 +1,7 @@
 use protocol_types::{address::AztecAddress, traits::{Deserialize, Serialize}};
 
 /// Stores arbitrary information in a per-contract non-volatile database, which can later be retrieved with `load`. If
-/// data was already stored at this slot, it is overwrriten.
+/// data was already stored at this slot, it is overwritten.
 pub unconstrained fn store<T, let N: u32>(contract_address: AztecAddress, slot: Field, value: T)
 where
     T: Serialize<N>,

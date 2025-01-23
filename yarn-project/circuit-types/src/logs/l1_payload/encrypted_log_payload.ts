@@ -77,7 +77,7 @@ export class EncryptedLogPayload {
     recipient: AztecAddress,
     rand: (len: number) => Buffer = randomBytes,
   ): Promise<PrivateLog> {
-    const ephPk = derivePublicKeyFromSecretKey(ephSk);
+    const ephPk = await derivePublicKeyFromSecretKey(ephSk);
     const [ephPkX, ephPkSignBool] = ephPk.toXAndSign();
     const ephPkSignU8 = Buffer.from([Number(ephPkSignBool)]);
 

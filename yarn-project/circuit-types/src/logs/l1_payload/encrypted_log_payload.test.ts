@@ -31,9 +31,9 @@ describe('EncryptedLogPayload', () => {
 
       const secretKey = Fr.random();
       const partialAddress = Fr.random();
-      ({ masterIncomingViewingSecretKey: ivskM } = deriveKeys(secretKey));
+      ({ masterIncomingViewingSecretKey: ivskM } = await deriveKeys(secretKey));
 
-      completeAddress = CompleteAddress.fromSecretKeyAndPartialAddress(secretKey, partialAddress);
+      completeAddress = await CompleteAddress.fromSecretKeyAndPartialAddress(secretKey, partialAddress);
 
       const ephSk = GrumpkinScalar.random();
 
@@ -41,7 +41,7 @@ describe('EncryptedLogPayload', () => {
     });
 
     it('decrypt a log as incoming', async () => {
-      const addressSecret = computeAddressSecret(completeAddress.getPreaddress(), ivskM);
+      const addressSecret = await computeAddressSecret(completeAddress.getPreaddress(), ivskM);
 
       const recreated = await EncryptedLogPayload.decryptAsIncoming(payload.fields, addressSecret);
 
@@ -92,7 +92,7 @@ describe('EncryptedLogPayload', () => {
 
     const ivskM = new GrumpkinScalar(0x0d6e27b21c89a7632f7766e35cc280d43f75bea3898d7328400a5fefc804d462n);
 
-    const addressSecret = computeAddressSecret(recipientCompleteAddress.getPreaddress(), ivskM);
+    const addressSecret = await computeAddressSecret(recipientCompleteAddress.getPreaddress(), ivskM);
     const recreated = await EncryptedLogPayload.decryptAsIncoming(payload.fields, addressSecret);
     expect(recreated?.toBuffer()).toEqual(log.toBuffer());
   });

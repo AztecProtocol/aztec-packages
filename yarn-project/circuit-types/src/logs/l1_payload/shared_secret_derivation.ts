@@ -11,14 +11,14 @@ import { Grumpkin } from '@aztec/circuits.js/barretenberg';
  * @returns A derived shared secret.
  * @throws If the publicKey is zero.
  */
-export function deriveEcdhSharedSecret(secretKey: GrumpkinScalar, publicKey: PublicKey): Point {
+export async function deriveEcdhSharedSecret(secretKey: GrumpkinScalar, publicKey: PublicKey): Promise<Point> {
   if (publicKey.isZero()) {
     throw new Error(
       `Attempting to derive a shared secret with a zero public key. You have probably passed a zero public key in your Noir code somewhere thinking that the note won't be broadcast... but it was.`,
     );
   }
   const curve = new Grumpkin();
-  const sharedSecret = curve.mul(publicKey, secretKey);
+  const sharedSecret = await curve.mul(publicKey, secretKey);
   return sharedSecret;
 }
 
@@ -27,5 +27,6 @@ export async function deriveEcdhSharedSecretUsingAztecAddress(
   address: AztecAddress,
 ): Promise<Point> {
   const addressPoint = await address.toAddressPoint();
-  return deriveEcdhSharedSecret(secretKey, addressPoint);
+  const sharedSecret = await deriveEcdhSharedSecret(secretKey, addressPoint);
+  return sharedSecret;
 }

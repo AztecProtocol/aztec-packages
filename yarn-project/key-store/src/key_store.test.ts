@@ -9,8 +9,8 @@ describe('KeyStore', () => {
 
     // Arbitrary fixed values
     const sk = new Fr(8923n);
-    const keys = deriveKeys(sk);
-    const derivedMasterNullifierPublicKey = derivePublicKeyFromSecretKey(keys.masterNullifierSecretKey);
+    const keys = await deriveKeys(sk);
+    const derivedMasterNullifierPublicKey = await derivePublicKeyFromSecretKey(keys.masterNullifierSecretKey);
     const computedMasterNullifierPublicKeyHash = derivedMasterNullifierPublicKey.hash();
 
     const partialAddress = new Fr(243523n);

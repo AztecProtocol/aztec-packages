@@ -11,9 +11,8 @@ use crate::note::{
 };
 use crate::state_vars::storage::Storage;
 use dep::protocol_types::{
-    abis::read_request::ReadRequest,
-    constants::MAX_NOTE_HASH_READ_REQUESTS_PER_CALL,
-    traits::{Deserialize, Serialize},
+    abis::read_request::ReadRequest, constants::MAX_NOTE_HASH_READ_REQUESTS_PER_CALL,
+    traits::Packable,
 };
 
 // docs:start:struct
@@ -25,7 +24,7 @@ pub struct PrivateSet<Note, Context> {
 
 impl<T, Context, let N: u32> Storage<T, N> for PrivateSet<T, Context>
 where
-    T: Serialize<N> + Deserialize<N>,
+    T: Packable<N>,
 {
     fn get_storage_slot(self) -> Field {
         self.storage_slot

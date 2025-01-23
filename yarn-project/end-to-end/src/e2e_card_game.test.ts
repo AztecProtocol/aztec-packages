@@ -107,18 +107,23 @@ describe('e2e_card_game', () => {
 
     const preRegisteredAccounts = await pxe.getRegisteredAccounts();
 
-    const secretKeysToRegister = INITIAL_TEST_SECRET_KEYS.filter(key => {
-      const publicKey = deriveKeys(key).publicKeys.masterIncomingViewingPublicKey;
+    const keyPairs = await Promise.all(
+      INITIAL_TEST_SECRET_KEYS.map(async sk => ({
+        sk,
+        pk: (await deriveKeys(sk)).publicKeys.masterIncomingViewingPublicKey,
+      })),
+    );
+    const secretKeysToRegister = keyPairs.filter(keyPair => {
       return (
         preRegisteredAccounts.find(preRegisteredAccount => {
-          return preRegisteredAccount.publicKeys.masterIncomingViewingPublicKey.equals(publicKey);
+          return preRegisteredAccount.publicKeys.masterIncomingViewingPublicKey.equals(keyPair.pk);
         }) == undefined
       );
     });
 
     for (let i = 0; i < secretKeysToRegister.length; i++) {
       logger.info(`Deploying account contract ${i}/${secretKeysToRegister.length}...`);
-      const encryptionPrivateKey = secretKeysToRegister[i];
+      const encryptionPrivateKey = secretKeysToRegister[i].sk;
       const account = await getSchnorrAccount(pxe, encryptionPrivateKey, GrumpkinScalar.random());
       const wallet = await account.waitSetup({ interval: 0.1 });
       wallets.push(wallet);

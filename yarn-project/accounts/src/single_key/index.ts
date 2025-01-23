@@ -20,6 +20,7 @@ export { SchnorrSingleKeyAccountContractArtifact as SingleKeyAccountContractArti
  * @param pxe - An PXE server instance.
  * @param secretKey - Secret key used to derive all the keystore keys (in this case also used to get signing key).
  * @param salt - Deployment salt.
+ * @returns An account manager initialized with the account contract and its deployment params
  */
 export function getSingleKeyAccount(pxe: PXE, secretKey: Fr, salt?: Salt) {
   const encryptionPrivateKey = deriveMasterIncomingViewingSecretKey(secretKey);

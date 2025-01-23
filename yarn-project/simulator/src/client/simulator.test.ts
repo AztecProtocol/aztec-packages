@@ -24,7 +24,7 @@ describe('Simulator', () => {
 
   beforeEach(async () => {
     const ownerSk = Fr.fromHexString('2dcc5485a58316776299be08c78fa3788a1a7961ae30dc747fb1be17692a8d32');
-    const allOwnerKeys = deriveKeys(ownerSk);
+    const allOwnerKeys = await deriveKeys(ownerSk);
 
     ownerMasterNullifierPublicKey = allOwnerKeys.publicKeys.masterNullifierPublicKey;
     const ownerMasterNullifierSecretKey = allOwnerKeys.masterNullifierSecretKey;
