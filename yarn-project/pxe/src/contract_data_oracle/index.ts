@@ -158,7 +158,7 @@ export class ContractDataOracle {
       if (!artifact) {
         throw new ContractClassNotFoundError(classId.toString());
       }
-      const tree = new PrivateFunctionsTree(artifact);
+      const tree = await PrivateFunctionsTree.create(artifact);
       this.contractClasses.set(classId.toString(), tree);
     }
     return this.contractClasses.get(classId.toString())!;

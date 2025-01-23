@@ -41,7 +41,11 @@ describe('e2e_token_contract burn', () => {
 
       // We need to compute the message we want to sign and add it to the wallet as approved
       const action = asset.withWallet(wallets[1]).methods.burn_public(accounts[0].address, amount, nonce);
-      await wallets[0].setPublicAuthWit({ caller: accounts[1].address, action }, true).send().wait();
+      const validateActionInteraction = await wallets[0].setPublicAuthWit(
+        { caller: accounts[1].address, action },
+        true,
+      );
+      await validateActionInteraction.send().wait();
 
       await action.send().wait();
 
@@ -89,7 +93,11 @@ describe('e2e_token_contract burn', () => {
 
         // We need to compute the message we want to sign and add it to the wallet as approved
         const action = asset.withWallet(wallets[1]).methods.burn_public(accounts[0].address, amount, nonce);
-        await wallets[0].setPublicAuthWit({ caller: accounts[1].address, action }, true).send().wait();
+        const validateActionInteraction = await wallets[0].setPublicAuthWit(
+          { caller: accounts[1].address, action },
+          true,
+        );
+        await validateActionInteraction.send().wait();
 
         await expect(action.simulate()).rejects.toThrow(U128_UNDERFLOW_ERROR);
       });
@@ -102,7 +110,11 @@ describe('e2e_token_contract burn', () => {
 
         // We need to compute the message we want to sign and add it to the wallet as approved
         const action = asset.withWallet(wallets[1]).methods.burn_public(accounts[0].address, amount, nonce);
-        await wallets[0].setPublicAuthWit({ caller: accounts[0].address, action }, true).send().wait();
+        const validateActionInteraction = await wallets[0].setPublicAuthWit(
+          { caller: accounts[0].address, action },
+          true,
+        );
+        await validateActionInteraction.send().wait();
 
         await expect(
           asset.withWallet(wallets[1]).methods.burn_public(accounts[0].address, amount, nonce).simulate(),
@@ -190,7 +202,7 @@ describe('e2e_token_contract burn', () => {
         // We need to compute the message we want to sign and add it to the wallet as approved
         const action = asset.withWallet(wallets[1]).methods.burn_private(accounts[0].address, amount, nonce);
         const messageHash = computeAuthWitMessageHash(
-          { caller: accounts[1].address, action: action.request() },
+          { caller: accounts[1].address, action },
           { chainId: wallets[0].getChainId(), version: wallets[0].getVersion() },
         );
 
@@ -211,7 +223,7 @@ describe('e2e_token_contract burn', () => {
         // We need to compute the message we want to sign and add it to the wallet as approved
         const action = asset.withWallet(wallets[2]).methods.burn_private(accounts[0].address, amount, nonce);
         const expectedMessageHash = computeAuthWitMessageHash(
-          { caller: accounts[2].address, action: action.request() },
+          { caller: accounts[2].address, action },
           { chainId: wallets[0].getChainId(), version: wallets[0].getVersion() },
         );
 

@@ -1,7 +1,7 @@
 import { NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP } from '@aztec/circuits.js';
 import { fr } from '@aztec/circuits.js/testing';
 import { range } from '@aztec/foundation/array';
-import { times } from '@aztec/foundation/collection';
+import { times, timesParallel } from '@aztec/foundation/collection';
 import { createLogger } from '@aztec/foundation/log';
 
 import { TestContext } from '../mocks/test_context.js';
@@ -12,7 +12,7 @@ describe('prover/orchestrator/mixed-blocks', () => {
   let context: TestContext;
 
   const runTest = async (numTxs: number) => {
-    const txs = times(numTxs, i => context.makeProcessedTx(i + 1));
+    const txs = await timesParallel(numTxs, i => context.makeProcessedTx(i + 1));
     await context.setEndTreeRoots(txs);
 
     const l1ToL2Messages = range(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP, 1 + 0x400).map(fr);

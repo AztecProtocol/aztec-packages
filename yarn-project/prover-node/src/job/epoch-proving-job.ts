@@ -97,7 +97,7 @@ export class EpochProvingJob implements Traceable {
         this.checkState();
 
         const globalVariables = block.header.globalVariables;
-        const txs = this.getTxs(block);
+        const txs = await this.getTxs(block);
         const l1ToL2Messages = await this.getL1ToL2Messages(block);
         const previousHeader = (await this.getBlockHeader(block.number - 1))!;
 
@@ -210,9 +210,12 @@ export class EpochProvingJob implements Traceable {
     return this.l2BlockSource.getBlockHeader(blockNumber);
   }
 
-  private getTxs(block: L2Block): Tx[] {
+  private async getTxs(block: L2Block): Promise<Tx[]> {
     const txHashes = block.body.txEffects.map(tx => tx.txHash.toBigInt());
-    return this.txs.filter(tx => txHashes.includes(tx.getTxHash().toBigInt()));
+    const txsAndHashes = await Promise.all(this.txs.map(async tx => ({ tx, hash: await tx.getTxHash() })));
+    return txsAndHashes
+      .filter(txAndHash => txHashes.includes(txAndHash.hash.toBigInt()))
+      .map(txAndHash => txAndHash.tx);
   }
 
   private getL1ToL2Messages(block: L2Block) {

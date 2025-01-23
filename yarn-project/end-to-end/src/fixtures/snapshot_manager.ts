@@ -601,12 +601,13 @@ export async function publicDeployAccounts(
   const accountAddressesToDeploy = accountsToDeploy.map(a => ('address' in a ? a.address : a));
   const instances = await Promise.all(accountAddressesToDeploy.map(account => sender.getContractInstance(account)));
 
-  const contractClass = getContractClassFromArtifact(SchnorrAccountContractArtifact);
+  const contractClass = await getContractClassFromArtifact(SchnorrAccountContractArtifact);
   const alreadyRegistered = await sender.isContractClassPubliclyRegistered(contractClass.id);
 
   const calls: FunctionCall[] = [];
   if (!alreadyRegistered) {
-    calls.push((await registerContractClass(sender, SchnorrAccountContractArtifact)).request());
+    const registerContractCall = await registerContractClass(sender, SchnorrAccountContractArtifact);
+    calls.push(await registerContractCall.request());
   }
   const requests = await Promise.all(
     instances.map(async instance => (await deployInstance(sender, instance!)).request()),

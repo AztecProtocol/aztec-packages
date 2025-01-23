@@ -69,7 +69,7 @@ export class Sequencer {
   private _coinbase = EthAddress.ZERO;
   private _feeRecipient = AztecAddress.ZERO;
   private state = SequencerState.STOPPED;
-  private allowedInSetup: AllowedElement[] = getDefaultAllowedSetupFunctions();
+  private allowedInSetup: AllowedElement[] = [];
   private maxBlockSizeInBytes: number = 1024 * 1024;
   private maxBlockGas: Gas = new Gas(100e9, 100e9);
   private metrics: SequencerMetrics;
@@ -98,7 +98,6 @@ export class Sequencer {
     telemetry: TelemetryClient = getTelemetryClient(),
     protected log = createLogger('sequencer'),
   ) {
-    this.updateConfig(config);
     this.metrics = new SequencerMetrics(telemetry, () => this.state, 'Sequencer');
 
     // Register the block builder with the validator client for re-execution
@@ -116,7 +115,7 @@ export class Sequencer {
    * Updates sequencer config.
    * @param config - New parameters.
    */
-  public updateConfig(config: SequencerConfig) {
+  public async updateConfig(config: SequencerConfig) {
     this.log.info(`Sequencer config set`, omit(pickFromSchema(config, SequencerConfigSchema), 'allowedInSetup'));
 
     if (config.transactionPollingIntervalMS !== undefined) {
@@ -142,6 +141,8 @@ export class Sequencer {
     }
     if (config.allowedInSetup) {
       this.allowedInSetup = config.allowedInSetup;
+    } else {
+      this.allowedInSetup = await getDefaultAllowedSetupFunctions();
     }
     if (config.maxBlockSizeInBytes !== undefined) {
       this.maxBlockSizeInBytes = config.maxBlockSizeInBytes;
@@ -177,12 +178,12 @@ export class Sequencer {
   /**
    * Starts the sequencer and moves to IDLE state.
    */
-  public start() {
+  public async start() {
+    await this.updateConfig(this.config);
     this.runningPromise = new RunningPromise(this.work.bind(this), this.log, this.pollingIntervalMs);
     this.setState(SequencerState.IDLE, 0n, true /** force */);
     this.runningPromise.start();
     this.log.info(`Sequencer started with address ${this.publisher.getSenderAddress().toString()}`);
-    return Promise.resolve();
   }
 
   /**

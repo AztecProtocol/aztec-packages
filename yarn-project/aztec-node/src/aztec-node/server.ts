@@ -366,7 +366,7 @@ export class AztecNodeService implements AztecNode, Traceable {
     // to emit the corresponding nullifier, which is now being checked. Note that this method
     // is only called by the PXE to check if a contract is publicly registered.
     if (klazz) {
-      const classNullifier = siloNullifier(AztecAddress.fromNumber(REGISTERER_CONTRACT_ADDRESS), id);
+      const classNullifier = await siloNullifier(AztecAddress.fromNumber(REGISTERER_CONTRACT_ADDRESS), id);
       const worldState = await this.#getWorldState('latest');
       const [index] = await worldState.findLeafIndices(MerkleTreeId.NULLIFIER_TREE, [classNullifier.toBuffer()]);
       this.log.debug(`Registration nullifier ${classNullifier} for contract class ${id} found at index ${index}`);
@@ -812,7 +812,7 @@ export class AztecNodeService implements AztecNode, Traceable {
    */
   public async getPublicStorageAt(contract: AztecAddress, slot: Fr, blockNumber: L2BlockNumber): Promise<Fr> {
     const committedDb = await this.#getWorldState(blockNumber);
-    const leafSlot = computePublicDataTreeLeafSlot(contract, slot);
+    const leafSlot = await computePublicDataTreeLeafSlot(contract, slot);
 
     const lowLeafResult = await committedDb.getPreviousValueIndex(MerkleTreeId.PUBLIC_DATA_TREE, leafSlot.toBigInt());
     if (!lowLeafResult || !lowLeafResult.alreadyPresent) {
@@ -901,7 +901,7 @@ export class AztecNodeService implements AztecNode, Traceable {
       blockNumber,
       l1ChainId: this.l1ChainId,
       enforceFees: !!this.config.enforceFees,
-      setupAllowList: this.config.allowedInSetup ?? getDefaultAllowedSetupFunctions(),
+      setupAllowList: this.config.allowedInSetup ?? (await getDefaultAllowedSetupFunctions()),
       gasFees: await this.getCurrentBaseFees(),
     });
 

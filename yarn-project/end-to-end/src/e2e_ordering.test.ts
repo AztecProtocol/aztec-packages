@@ -49,7 +49,7 @@ describe('e2e_ordering', () => {
     beforeEach(async () => {
       parent = await ParentContract.deploy(wallet).send().deployed();
       child = await ChildContract.deploy(wallet).send().deployed();
-      pubSetValueSelector = child.methods.pub_set_value.selector;
+      pubSetValueSelector = await child.methods.pub_set_value.selector();
     }, TIMEOUT);
 
     describe('enqueued public calls ordering', () => {
