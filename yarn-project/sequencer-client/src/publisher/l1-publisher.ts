@@ -1064,42 +1064,35 @@ export class L1Publisher {
         args,
       });
 
-      let simulationResult: bigint;
-      try {
-        simulationResult = await this.l1TxUtils.simulateGasUsed(
+      const simulationResult = await this.l1TxUtils.simulateGasUsed(
+        {
+          to: this.rollupContract.address,
+          data,
+          gas: L1Publisher.PROPOSE_GAS_GUESS,
+        },
+        {
+          // @note we add 1n to the timestamp because geth implementation doesn't like simulation timestamp to be equal to the current block timestamp
+          time: timestamp + 1n,
+          // @note reth should have a 30m gas limit per block but throws errors that this tx is beyond limit
+          gasLimit: L1Publisher.PROPOSE_GAS_GUESS * 2n,
+        },
+        [
           {
-            to: this.rollupContract.address,
-            data,
-            gas: L1Publisher.PROPOSE_GAS_GUESS,
+            address: this.rollupContract.address,
+            // @note we override checkBlob to false since blobs are not part simulate()
+            stateDiff: [
+              {
+                slot: toHex(9n, true),
+                value: toHex(0n, true),
+              },
+            ],
           },
-          {
-            // @note we add 1n to the timestamp because geth implementation doesn't like simulation timestamp to be equal to the current block timestamp
-            time: timestamp + 1n,
-            // @note reth should have a 30m gas limit per block but throws errors that this tx is beyond limit
-            gasLimit: L1Publisher.PROPOSE_GAS_GUESS * 2n,
-          },
-          [
-            {
-              address: this.rollupContract.address,
-              // @note we override checkBlob to false since blobs are not part simulate()
-              stateDiff: [
-                {
-                  slot: toHex(9n, true),
-                  value: toHex(0n, true),
-                },
-              ],
-            },
-          ],
-        );
-      } catch (simErr) {
-        if (simErr instanceof MethodNotFoundRpcError || simErr instanceof MethodNotSupportedRpcError) {
-          // @note node doesn't support simulation API, we will use gas guesstimate
-          this.log.warn('Using gas guesstimate');
-          simulationResult = L1Publisher.PROPOSE_GAS_GUESS;
-        } else {
-          throw simErr;
-        }
-      }
+        ],
+        {
+          // @note fallback gas estimate to use if the node doesn't support simulation API
+          fallbackGasEstimate: L1Publisher.PROPOSE_GAS_GUESS,
+        },
+      );
 
       const result = await this.l1TxUtils.sendAndMonitorTransaction(
         {
@@ -1142,7 +1135,7 @@ export class L1Publisher {
     if (this.interrupted) {
       return undefined;
     }
-    let simulationResult: bigint;
+
     try {
       const kzg = Blob.getViemKzgInstance();
       const { args, blobEvaluationGas } = await this.prepareProposeTx(encodedData);
@@ -1151,41 +1144,36 @@ export class L1Publisher {
         functionName: 'proposeAndClaim',
         args: [...args, quote.toViemArgs()],
       });
-      try {
-        simulationResult = await this.l1TxUtils.simulateGasUsed(
+
+      const simulationResult = await this.l1TxUtils.simulateGasUsed(
+        {
+          to: this.rollupContract.address,
+          data,
+          gas: L1Publisher.PROPOSE_AND_CLAIM_GAS_GUESS,
+        },
+        {
+          // @note we add 1n to the timestamp because geth implementation doesn't like simulation timestamp to be equal to the current block timestamp
+          time: timestamp + 1n,
+          // @note reth should have a 30m gas limit per block but throws errors that this tx is beyond limit
+          gasLimit: L1Publisher.PROPOSE_AND_CLAIM_GAS_GUESS * 2n,
+        },
+        [
           {
-            to: this.rollupContract.address,
-            data,
-            gas: L1Publisher.PROPOSE_AND_CLAIM_GAS_GUESS,
+            address: this.rollupContract.address,
+            // @note we override checkBlob to false since blobs are not part simulate()
+            stateDiff: [
+              {
+                slot: toHex(9n, true),
+                value: toHex(0n, true),
+              },
+            ],
           },
-          {
-            // @note we add 1n to the timestamp because geth implementation doesn't like simulation timestamp to be equal to the current block timestamp
-            time: timestamp + 1n,
-            // @note reth should have a 30m gas limit per block but throws errors that this tx is beyond limit
-            gasLimit: L1Publisher.PROPOSE_AND_CLAIM_GAS_GUESS * 2n,
-          },
-          [
-            {
-              address: this.rollupContract.address,
-              // @note we override checkBlob to false since blobs are not part simulate()
-              stateDiff: [
-                {
-                  slot: toHex(9n, true),
-                  value: toHex(0n, true),
-                },
-              ],
-            },
-          ],
-        );
-      } catch (simErr) {
-        if (simErr instanceof MethodNotFoundRpcError || simErr instanceof MethodNotSupportedRpcError) {
-          // @note node doesn't support simulation API, we will use gas guesstimate
-          this.log.warn('Using gas guesstimate');
-          simulationResult = L1Publisher.PROPOSE_GAS_GUESS;
-        } else {
-          throw simErr;
-        }
-      }
+        ],
+        {
+          // @note fallback gas estimate to use if the node doesn't support simulation API
+          fallbackGasEstimate: L1Publisher.PROPOSE_AND_CLAIM_GAS_GUESS,
+        },
+      );
       const result = await this.l1TxUtils.sendAndMonitorTransaction(
         {
           to: this.rollupContract.address,

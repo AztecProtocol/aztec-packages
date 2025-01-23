@@ -250,9 +250,9 @@ export class L1TxUtils {
 
       return { txHash, gasLimit, gasPrice };
     } catch (err: any) {
-      const { message, metaMessages } = formatViemError(err);
-      this.logger?.error(`Failed to send L1 transaction`, message, { metaMessages });
-      throw { ...err, message, metaMessages };
+      const viemError = formatViemError(err);
+      this.logger?.error(`Failed to send L1 transaction`, viemError.message, { metaMessages: viemError.metaMessages });
+      throw viemError;
     }
   }
 
@@ -387,10 +387,10 @@ export class L1TxUtils {
         }
         await sleep(gasConfig.checkIntervalMs!);
       } catch (err: any) {
-        const { message, ...error } = formatViemError(err);
-        this.logger?.warn(`Error monitoring L1 transaction ${currentTxHash}:`, message);
-        if (err.message?.includes('reverted')) {
-          throw { ...error, message };
+        const viemError = formatViemError(err);
+        this.logger?.warn(`Error monitoring L1 transaction ${currentTxHash}:`, viemError.message);
+        if (viemError.message?.includes('reverted')) {
+          throw viemError;
         }
         await sleep(gasConfig.checkIntervalMs!);
       }
@@ -578,7 +578,7 @@ export class L1TxUtils {
     request: L1TxRequest & { gas?: bigint },
     blockOverrides: BlockOverrides<bigint, number> = {},
     stateOverrides: StateOverride = [],
-    _gasConfig?: L1TxUtilsConfig,
+    _gasConfig?: L1TxUtilsConfig & { fallbackGasEstimate?: bigint },
   ): Promise<bigint> {
     const gasConfig = { ...this.config, ..._gasConfig };
     const gasPrice = await this.getGasPrice(gasConfig, false);
@@ -619,6 +619,10 @@ export class L1TxUtils {
     } catch (err) {
       if (err instanceof MethodNotFoundRpcError || err instanceof MethodNotSupportedRpcError) {
         this.logger?.error('Node does not support eth_simulateV1 API');
+        if (gasConfig.fallbackGasEstimate) {
+          this.logger?.debug(`Using fallback gas estimate: ${gasConfig.fallbackGasEstimate}`);
+          return gasConfig.fallbackGasEstimate;
+        }
       }
       throw err;
     }
