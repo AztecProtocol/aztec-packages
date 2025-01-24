@@ -3,7 +3,7 @@ use crate::{
     note::{note_getter_options::PropertySelector, note_header::NoteHeader},
     prelude::Point,
 };
-use protocol_types::meta::{flatten_to_fields, pack_from_fields};
+use protocol_types::meta::{generate_deserialize_from_fields, generate_serialize_to_fields};
 use std::{
     collections::umap::UHashMap,
     hash::{BuildHasherDefault, derive_generators, poseidon2::Poseidon2Hasher},
@@ -42,7 +42,7 @@ comptime fn get_next_note_type_id() -> Field {
 ///         ...
 ///     }
 ///
-///     fn deserialize_content(value: [Field; N]) -> Self {
+///     fn deserialize_content(serialized_content: [Field; N]) -> Self {
 ///         ...
 ///     }
 ///
@@ -76,9 +76,9 @@ comptime fn generate_note_interface(
     let typ = s.as_type();
 
     // First we compute note content serialization. We do that by passing the whole note struct
-    // to the `flatten_to_fields(...)` and omitting the header.
+    // to the `generate_serialize_to_fields(...)` and omitting the header.
     let (content_fields_list, content_aux_vars_list) =
-        flatten_to_fields(quote { self }, typ, &[quote {self.header}]);
+        generate_serialize_to_fields(quote { self }, typ, &[quote {self.header}]);
 
     // If there are `aux_vars` we need to join them with `;` and add a trailing `;` to the joined string.
     let content_aux_vars = if content_aux_vars_list.len() > 0 {
@@ -90,12 +90,13 @@ comptime fn generate_note_interface(
     let content_fields = content_fields_list.join(quote {,});
     let content_len = content_fields_list.len();
 
-    let (deserialized_content, _) = pack_from_fields(
-        quote { self },
+    let (deserialized_content, _) = generate_deserialize_from_fields(
+        quote {},
         typ,
-        quote { value },
+        quote { serialized_content }, // "serialized_content" is argument of NoteInterface::deserialize_content
         0,
-        &[(quote {header}, quote { aztec::note::note_header::NoteHeader::empty() })],
+        quote {header},
+        quote { aztec::note::note_header::NoteHeader::empty() },
     );
 
     // Second we compute quotes for MSM
@@ -140,7 +141,7 @@ comptime fn generate_note_interface(
                 buffer
             }
 
-            fn deserialize_content(value: [Field; $content_len]) -> Self {
+            fn deserialize_content(serialized_content: [Field; $content_len]) -> Self {
                 $deserialized_content
             }
 
@@ -297,7 +298,7 @@ pub(crate) comptime fn generate_note_export(
 
 /// Generates quotes necessary for multi-scalar multiplication of `indexed_fields` (indexed struct fields). Returns
 /// a tuple containing quotes for generators, scalars, arguments and auxiliary variables. For more info on what are
-/// auxiliary variables and how they are used, see `flatten_to_fields` function.
+/// auxiliary variables and how they are used, see `generate_serialize_to_fields` function.
 ///
 /// Example return values:
 /// generators_list: [aztec::generators::Ga1, aztec::generators::Ga2, aztec::generators::Ga3, aztec::generators::Ga4]
@@ -319,9 +320,9 @@ comptime fn generate_multi_scalar_mul(
     for i in 0..indexed_fields.len() {
         let (field_name, typ, index) = indexed_fields[i];
         let start_generator_index = index + 1;
-        let (flattened_field, aux_vars) = flatten_to_fields(field_name, typ, &[]);
-        for j in 0..flattened_field.len() {
-            let flattened_as_field = flattened_field[j];
+        let (serialization_fields, aux_vars) = generate_serialize_to_fields(field_name, typ, &[]);
+        for j in 0..serialization_fields.len() {
+            let serialization_field = serialization_fields[j];
             let generator_index = start_generator_index + j;
 
             let generators: [Point; 1] =
@@ -334,8 +335,9 @@ comptime fn generate_multi_scalar_mul(
                 aztec::protocol_types::point::Point { x: $generator_x, y: $generator_y, is_infinite: false }
                 },
             );
-            scalars_list =
-                scalars_list.push_back(quote { std::hash::from_field_unsafe($flattened_as_field) });
+            scalars_list = scalars_list.push_back(
+                quote { std::hash::from_field_unsafe($serialization_field) },
+            );
         }
         args_list = args_list.push_back(quote { $field_name: $typ });
         aux_vars_list = aux_vars_list.append(aux_vars);
@@ -489,7 +491,7 @@ comptime fn generate_setup_payload(
 
 /// Generates setup log plaintext for a given note struct `s`. The setup log plaintext is computed by serializing
 /// storage slot from target function arguments, note type id from the note struct `s` and the fixed fields. The fixed
-/// fields are obtained by passing the whole note struct to the `flatten_to_fields(...)` function but omitting the
+/// fields are obtained by passing the whole note struct to the `generate_serialize_to_fields(...)` function but omitting the
 /// `NoteHeader` and the nullable fields.
 comptime fn get_setup_log_plaintext_body(
     s: StructDefinition,
@@ -499,11 +501,11 @@ comptime fn get_setup_log_plaintext_body(
     let name = s.name();
 
     // Now we compute serialization of the fixed fields. We do that by passing the whole note struct
-    // to the flatten_to_fields function but we omit the NoteHeader and the nullable fields.
+    // to the generate_serialize_to_fields function but we omit the NoteHeader and the nullable fields.
     let to_omit = indexed_nullable_fields.map(|(name, _, _): (Quoted, Type, u32)| name).push_back(
         quote { header },
     );
-    let (fields_list, aux_vars) = flatten_to_fields(quote { }, s.as_type(), to_omit);
+    let (fields_list, aux_vars) = generate_serialize_to_fields(quote { }, s.as_type(), to_omit);
 
     // If there are `aux_vars` we need to join them with `;` and add a trailing `;` to the joined string.
     let aux_vars_for_serialization = if aux_vars.len() > 0 {
@@ -619,12 +621,12 @@ comptime fn generate_finalization_payload(
     let finalization_payload_name = f"{name}FinalizationPayload".quoted_contents();
 
     // We compute serialization of the nullable fields which are to be emitted as a public log. We do that by
-    // passing the whole note struct to the `flatten_to_fields(...)` function but we omit the `NoteHeader` and
+    // passing the whole note struct to the `generate_serialize_to_fields(...)` function but we omit the `NoteHeader` and
     // the fixed fields.
     let to_omit = indexed_fixed_fields.map(|(name, _, _): (Quoted, Type, u32)| name).push_back(
         quote { header },
     );
-    let (fields_list, aux_vars) = flatten_to_fields(quote { }, s.as_type(), to_omit);
+    let (fields_list, aux_vars) = generate_serialize_to_fields(quote { }, s.as_type(), to_omit);
 
     // If there are `aux_vars` we need to join them with `;` and add a trailing `;` to the joined string.
     let aux_vars_for_serialization = if aux_vars.len() > 0 {
@@ -843,9 +845,9 @@ comptime fn index_note_fields(
                 indexed_nullable_fields = indexed_nullable_fields.push_back((name, typ, counter));
             }
         }
-        let (flattened, _) = flatten_to_fields(name, typ, &[]);
+        let (serialization_fields, _) = generate_serialize_to_fields(name, typ, &[]);
         // Each struct member can occupy multiple fields so we need to increment the counter accordingly
-        counter += flattened.len();
+        counter += serialization_fields.len();
     }
     (indexed_fixed_fields, indexed_nullable_fields)
 }
