@@ -491,7 +491,7 @@ describe('sequencer', () => {
     expect(publisher.proposeL2Block).not.toHaveBeenCalled();
   });
 
-  it('does not publish a block that received no attestations', async () => {
+  it('does not publish a block if the block proposal failed', async () => {
     const tx = makeTx();
     mockPendingTxs([tx]);
     block = await makeBlock([tx]);
