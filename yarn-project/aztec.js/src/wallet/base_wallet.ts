@@ -35,7 +35,7 @@ import type { AbiDecoded, ContractArtifact } from '@aztec/foundation/abi';
 
 import { type Wallet } from '../account/wallet.js';
 import { type ExecutionRequestInit } from '../entrypoint/entrypoint.js';
-import { type IntentAction, type IntentInnerHash } from '../utils/authwit.js';
+import { type IntentCall, type IntentInnerHash } from '../utils/authwit.js';
 
 /**
  * A base class for Wallet implementations
@@ -53,7 +53,7 @@ export abstract class BaseWallet implements Wallet {
 
   abstract createTxExecutionRequest(exec: ExecutionRequestInit): Promise<TxExecutionRequest>;
 
-  abstract createAuthWit(intent: Fr | Buffer | IntentInnerHash | IntentAction): Promise<AuthWitness>;
+  abstract createAuthWit(intent: Fr | Buffer | IntentInnerHash | IntentCall): Promise<AuthWitness>;
 
   setScopes(scopes: AztecAddress[]) {
     this.scopes = scopes;
