@@ -38,7 +38,7 @@ HonkProof UltraVanillaClientIVC::prove(CircuitSource<Flavor>& source,
         auto proving_key = std::make_shared<PK>(circuit);
         vinfo("built proving key");
 
-        if (step + 1 == source.num_circuits()) {
+        if (step < source.num_circuits() - 1) {
             UltraProver prover{ proving_key, commitment_key };
             vinfo("built prover");
             previous_proof = prover.construct_proof();

@@ -1,6 +1,6 @@
 #!/bin/bash
 # prove_and_verify produces no output, so is parallel safe.
-set -eux
+set -eu
 
 flags="-c $CRS_PATH ${VERBOSE:+-v}"
 [ "${RECURSIVE}" = "true" ] && flags+=" --recursive"
