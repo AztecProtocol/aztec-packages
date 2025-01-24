@@ -50,6 +50,18 @@ use super::traits::{Deserialize, Packable, Serialize};
 ///     header: NoteHeader::empty() // Default/empty header
 /// }
 /// ```
+/// # Nested Struct Example with Unpacking
+/// - given the same setup as above and `U128` implements `Packable` and skipping `header` the result would be:
+/// ```
+/// UintNote {
+///     value: Packable::unpack([fields[0]]),
+///     owner: AztecAddress {
+///         inner: fields[1],
+///     },
+///     randomness: fields[2],
+///     header: NoteHeader::empty()
+/// }
+/// ```
 ///
 /// # Panics
 /// - If the deserialization logic encounters a type it does not support.
@@ -61,6 +73,7 @@ pub comptime fn generate_deserialize_from_fields<N>(
     num_already_consumed: u32,
     to_replace: Quoted,
     ro_replace_with: Quoted,
+    should_unpack: bool,
 ) -> (Quoted, u32) {
     let mut result = quote {};
     // Counter for the number of fields consumed
@@ -71,7 +84,29 @@ pub comptime fn generate_deserialize_from_fields<N>(
         // The currently processed field should be replaced so we do so
         result = ro_replace_with;
     } else {
-        if typ.is_field() | typ.as_integer().is_some() | typ.is_bool() {
+        // If the type implements `Packable`, its length will be assigned to the `maybe_packed_len_typ` variable.
+        let maybe_packed_len_typ = std::meta::typ::fresh_type_variable();
+        let packable_constraint = quote { Packable<$maybe_packed_len_typ> }.as_trait_constraint();
+
+        if (should_unpack & typ.implements(packable_constraint)) {
+            // Unpacking is enabled and the given type implements the `Packable` trait so we call the `unpack()`
+            // method, add the resulting field array to `aux_vars` and each field to `fields`.
+            let packed_len = maybe_packed_len_typ.as_constant().unwrap();
+
+            // We copy the packed fields into a new array and pass that to the unpack function in a quote
+            let mut packed_fields_quotes = &[];
+            for i in 0..packed_len {
+                packed_fields_quotes = packed_fields_quotes.push_back(
+                    quote { $field_array_name[$i + $num_already_consumed] },
+                );
+            }
+            let packed_fields = packed_fields_quotes.join(quote {,});
+
+            // No we call unpack on the type
+            result = quote { Packable::unpack([ $packed_fields ]) };
+
+            consumed_counter = packed_len;
+        } else if typ.is_field() | typ.as_integer().is_some() | typ.is_bool() {
             // The field is a primitive so we just reference it in the field array
             result = quote { $field_array_name[$num_already_consumed] as $typ };
             consumed_counter = 1;
@@ -93,6 +128,7 @@ pub comptime fn generate_deserialize_from_fields<N>(
                     consumed_counter + num_already_consumed,
                     to_replace,
                     ro_replace_with,
+                    should_unpack,
                 );
                 // We increment the consumed counter by the number of fields consumed in the recursion
                 consumed_counter += num_consumed_in_recursion;
@@ -126,6 +162,7 @@ pub comptime fn generate_deserialize_from_fields<N>(
                     consumed_counter + num_already_consumed,
                     to_replace,
                     ro_replace_with,
+                    should_unpack,
                 );
                 // We increment the consumed counter by the number of fields consumed in the recursion
                 consumed_counter += num_consumed_in_recursion;
@@ -154,6 +191,7 @@ pub comptime fn generate_deserialize_from_fields<N>(
                     consumed_counter + num_already_consumed,
                     to_replace,
                     ro_replace_with,
+                    should_unpack,
                 );
 
                 // We should consume just one field in the recursion so we sanity check that
@@ -408,6 +446,7 @@ pub(crate) comptime fn derive_deserialize(s: StructDefinition) -> Quoted {
         0,
         quote {},
         quote {},
+        false,
     );
     quote {
         impl Deserialize<$serialized_len> for $typ {
