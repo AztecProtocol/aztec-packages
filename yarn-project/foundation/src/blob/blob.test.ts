@@ -87,7 +87,7 @@ describe('blob', () => {
     const dataWithZeros = Buffer.concat([ourBlob.data], BYTES_PER_BLOB);
     expect(blobToKzgCommitment(dataWithZeros)).toEqual(ourBlob.commitment);
 
-    const z = poseidon2Hash([blobItemsHash, ...ourBlob.commitmentToFields()]);
+    const z = await poseidon2Hash([blobItemsHash, ...ourBlob.commitmentToFields()]);
     expect(z).toEqual(ourBlob.challengeZ);
 
     const res = computeKzgProof(dataWithZeros, ourBlob.challengeZ.toBuffer());
@@ -115,13 +115,13 @@ describe('blob', () => {
     }
     const blobItemsHash = await poseidon2Hash(blobItems);
     const blobs = await Blob.getBlobs(blobItems);
-    blobs.forEach(ourBlob => {
+    for (const ourBlob of blobs) {
       // const ourBlob = Blob.fromFields(blobItems.slice(j * FIELD_ELEMENTS_PER_BLOB, (j + 1) * FIELD_ELEMENTS_PER_BLOB), blobItemsHash);
       expect(blobItemsHash).toEqual(ourBlob.fieldsHash);
 
       expect(blobToKzgCommitment(ourBlob.data)).toEqual(ourBlob.commitment);
 
-      const z = poseidon2Hash([blobItemsHash, ...ourBlob.commitmentToFields()]);
+      const z = await poseidon2Hash([blobItemsHash, ...ourBlob.commitmentToFields()]);
       expect(z).toEqual(ourBlob.challengeZ);
 
       const res = computeKzgProof(ourBlob.data, ourBlob.challengeZ.toBuffer());
@@ -135,7 +135,7 @@ describe('blob', () => {
         ourBlob.proof,
       );
       expect(isValid).toBe(true);
-    });
+    }
   });
 
   it('Should serialise and deserialise a blob', async () => {

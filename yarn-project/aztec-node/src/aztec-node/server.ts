@@ -910,7 +910,7 @@ export class AztecNodeService implements AztecNode, Traceable {
 
   public async setConfig(config: Partial<SequencerConfig & ProverConfig>): Promise<void> {
     const newConfig = { ...this.config, ...config };
-    this.sequencer?.updateSequencerConfig(config);
+    await this.sequencer?.updateSequencerConfig(config);
 
     if (newConfig.realProofs !== this.config.realProofs) {
       this.proofVerifier = config.realProofs ? await BBCircuitVerifier.new(newConfig) : new TestCircuitVerifier();

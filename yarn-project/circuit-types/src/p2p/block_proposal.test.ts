@@ -28,7 +28,7 @@ describe('Block Proposal serialization / deserialization', () => {
     checkEquivalence(proposal, deserialized);
 
     // Recover signature
-    const sender = deserialized.getSender();
+    const sender = await deserialized.getSender();
     expect(sender).toEqual(account.address);
   });
 });

@@ -189,7 +189,7 @@ describe('ArchiverApiSchema', () => {
   });
 
   it('getContractClass', async () => {
-    const contractClass = getContractClassFromArtifact(artifact);
+    const contractClass = await getContractClassFromArtifact(artifact);
     const result = await context.client.getContractClass(Fr.random());
     expect(result).toEqual({
       ...omit(contractClass, 'publicBytecodeCommitment'),
@@ -210,7 +210,7 @@ describe('ArchiverApiSchema', () => {
   it('getBytecodeCommitment', async () => {
     const contractClass = await getContractClassFromArtifact(artifact);
     const result = await context.client.getBytecodeCommitment(Fr.random());
-    expect(result).toEqual(computePublicBytecodeCommitment(contractClass.packedBytecode));
+    expect(result).toEqual(await computePublicBytecodeCommitment(contractClass.packedBytecode));
   });
 
   it('getContractClassIds', async () => {

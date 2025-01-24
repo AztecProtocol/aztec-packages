@@ -280,7 +280,7 @@ export class ProvingOrchestrator implements EpochProver {
     await this.buildBlock(provingState, expectedHeader);
 
     // If the proofs were faster than the block building, then we need to try the block root rollup again here
-    this.checkAndEnqueueBlockRootRollup(provingState);
+    await this.checkAndEnqueueBlockRootRollup(provingState);
     return provingState.block!;
   }
 
@@ -527,7 +527,7 @@ export class ProvingOrchestrator implements EpochProver {
 
     logger.debug(`Enqueuing deferred proving base rollup for ${processedTx.hash.toString()}`);
 
-    await this.deferredProving(
+    this.deferredProving(
       provingState,
       wrapCallbackInSpan(
         this.tracer,
@@ -562,7 +562,7 @@ export class ProvingOrchestrator implements EpochProver {
 
   // Enqueues the tube circuit for a given transaction index, or reuses the one already enqueued
   // Once completed, will enqueue the next circuit, either a public kernel or the base rollup
-  private async getOrEnqueueTube(provingState: BlockProvingState, txIndex: number) {
+  private getOrEnqueueTube(provingState: BlockProvingState, txIndex: number) {
     if (!provingState.verifyState()) {
       logger.debug('Not running tube circuit, state invalid');
       return;
@@ -585,13 +585,13 @@ export class ProvingOrchestrator implements EpochProver {
     }
 
     logger.debug(`Enqueuing tube circuit for tx index: ${txIndex}`);
-    await this.doEnqueueTube(txHash, txProvingState.getTubeInputs(), handleResult);
+    this.doEnqueueTube(txHash, txProvingState.getTubeInputs(), handleResult);
   }
 
-  private async doEnqueueTube(
+  private doEnqueueTube(
     txHash: string,
     inputs: TubeInputs,
-    handler: (result: ProofAndVerificationKey<typeof TUBE_PROOF_LENGTH>) => Promise<void>,
+    handler: (result: ProofAndVerificationKey<typeof TUBE_PROOF_LENGTH>) => void,
     provingState: EpochProvingState | BlockProvingState = this.provingState!,
   ) {
     if (!provingState?.verifyState()) {
@@ -599,7 +599,7 @@ export class ProvingOrchestrator implements EpochProver {
       return;
     }
 
-    await this.deferredProving(
+    this.deferredProving(
       provingState,
       wrapCallbackInSpan(
         this.tracer,
@@ -625,7 +625,7 @@ export class ProvingOrchestrator implements EpochProver {
 
     const inputs = await provingState.getMergeRollupInputs(location);
 
-    await this.deferredProving(
+    this.deferredProving(
       provingState,
       wrapCallbackInSpan(
         this.tracer,
@@ -658,7 +658,7 @@ export class ProvingOrchestrator implements EpochProver {
       `Enqueuing ${rollupType} for block ${provingState.blockNumber} with ${provingState.newL1ToL2Messages.length} l1 to l2 msgs.`,
     );
 
-    await this.deferredProving(
+    this.deferredProving(
       provingState,
       wrapCallbackInSpan(
         this.tracer,
@@ -703,13 +703,13 @@ export class ProvingOrchestrator implements EpochProver {
 
   // Executes the base parity circuit and stores the intermediate state for the root parity circuit
   // Enqueues the root parity circuit if all inputs are available
-  private async enqueueBaseParityCircuit(provingState: BlockProvingState, inputs: BaseParityInputs, index: number) {
+  private enqueueBaseParityCircuit(provingState: BlockProvingState, inputs: BaseParityInputs, index: number) {
     if (!provingState.verifyState()) {
       logger.debug('Not running base parity. State no longer valid.');
       return;
     }
 
-    await this.deferredProving(
+    this.deferredProving(
       provingState,
       wrapCallbackInSpan(
         this.tracer,
@@ -745,7 +745,7 @@ export class ProvingOrchestrator implements EpochProver {
 
     const inputs = await provingState.getRootParityInputs();
 
-    await this.deferredProving(
+    this.deferredProving(
       provingState,
       wrapCallbackInSpan(
         this.tracer,
@@ -773,7 +773,7 @@ export class ProvingOrchestrator implements EpochProver {
 
     const inputs = await provingState.getBlockMergeRollupInputs(location);
 
-    await this.deferredProving(
+    this.deferredProving(
       provingState,
       wrapCallbackInSpan(
         this.tracer,
@@ -801,7 +801,7 @@ export class ProvingOrchestrator implements EpochProver {
 
     const inputs = await provingState.getPaddingBlockRootInputs(this.proverId);
 
-    await this.deferredProving(
+    this.deferredProving(
       provingState,
       wrapCallbackInSpan(
         this.tracer,
@@ -831,7 +831,7 @@ export class ProvingOrchestrator implements EpochProver {
 
     const inputs = await provingState.getRootRollupInputs(this.proverId);
 
-    await this.deferredProving(
+    this.deferredProving(
       provingState,
       wrapCallbackInSpan(
         this.tracer,

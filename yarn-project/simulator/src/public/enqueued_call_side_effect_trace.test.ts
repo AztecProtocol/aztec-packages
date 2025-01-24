@@ -400,7 +400,7 @@ describe('Enqueued-call Side Effect Trace', () => {
   });
 
   describe.each([false, true])('Should merge forked traces', reverted => {
-    it(`${reverted ? 'Reverted' : 'Successful'} forked trace should be merged properly`, () => {
+    it(`${reverted ? 'Reverted' : 'Successful'} forked trace should be merged properly`, async () => {
       const existsDefault = true;
 
       const nestedTrace = new PublicEnqueuedCallSideEffectTrace(startCounter);
@@ -409,7 +409,17 @@ describe('Enqueued-call Side Effect Trace', () => {
       const lowLeafPreimage = new NullifierLeafPreimage(utxo, Fr.ZERO, 0n);
       nestedTrace.tracePublicStorageRead(address, slot, value, leafPreimage, Fr.ZERO, []);
       testCounter++;
-      nestedTrace.tracePublicStorageWrite(address, slot, value, false, leafPreimage, Fr.ZERO, [], leafPreimage, []);
+      await nestedTrace.tracePublicStorageWrite(
+        address,
+        slot,
+        value,
+        false,
+        leafPreimage,
+        Fr.ZERO,
+        [],
+        leafPreimage,
+        [],
+      );
       testCounter++;
       nestedTrace.traceNoteHashCheck(address, utxo, leafIndex, existsDefault, []);
       // counter does not increment for note hash checks

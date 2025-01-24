@@ -21,9 +21,11 @@ describe('ContractClass', () => {
 
     // Check function selectors match
     const publicFunctionSelectors = [FunctionSelector.fromField(new Fr(PUBLIC_DISPATCH_SELECTOR))];
-    const privateFunctionSelectors = artifact.functions
-      .filter(fn => fn.functionType === FunctionType.PRIVATE)
-      .map(fn => FunctionSelector.fromNameAndParameters(fn));
+    const privateFunctions = artifact.functions.filter(fn => fn.functionType === FunctionType.PRIVATE);
+
+    const privateFunctionSelectors = await Promise.all(
+      privateFunctions.map(fn => FunctionSelector.fromNameAndParameters(fn)),
+    );
 
     expect(new Set(contractClass.publicFunctions.map(fn => fn.selector))).toEqual(new Set(publicFunctionSelectors));
     expect(new Set(contractClass.privateFunctions.map(fn => fn.selector))).toEqual(new Set(privateFunctionSelectors));

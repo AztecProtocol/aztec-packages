@@ -1,4 +1,4 @@
-import { type ContractArtifact, type FunctionSelector, FunctionType } from '@aztec/foundation/abi';
+import { type ContractArtifact, FunctionSelector, FunctionType } from '@aztec/foundation/abi';
 import { Fr } from '@aztec/foundation/fields';
 import { createLogger } from '@aztec/foundation/log';
 
@@ -29,7 +29,10 @@ export async function createUnconstrainedFunctionMembershipProof(
   const log = createLogger('circuits:function_membership_proof');
 
   // Locate function artifact
-  const fn = artifact.functions.find(fn => selector.equalsFn(fn));
+  const fnsAndSelectors = await Promise.all(
+    artifact.functions.map(async fn => ({ fn, selector: await FunctionSelector.fromNameAndParameters(fn) })),
+  );
+  const fn = fnsAndSelectors.find(fnAndSelector => selector.equals(fnAndSelector.selector))?.fn;
   if (!fn) {
     throw new Error(`Function with selector ${selector.toString()} not found`);
   } else if (fn.functionType !== FunctionType.UNCONSTRAINED) {

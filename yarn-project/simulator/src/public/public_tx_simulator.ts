@@ -384,7 +384,7 @@ export class PublicTxSimulator {
     }
     for (const noteHash of context.nonRevertibleAccumulatedDataFromPrivate.noteHashes) {
       if (!noteHash.isEmpty()) {
-        stateManager.writeUniqueNoteHash(noteHash);
+        await stateManager.writeUniqueNoteHash(noteHash);
       }
     }
   }
@@ -409,7 +409,7 @@ export class PublicTxSimulator {
     for (const noteHash of context.revertibleAccumulatedDataFromPrivate.noteHashes) {
       if (!noteHash.isEmpty()) {
         // Revertible note hashes from private are not hashed with nonce, since private can't know their final position, only we can.
-        stateManager.writeSiloedNoteHash(noteHash);
+        await stateManager.writeSiloedNoteHash(noteHash);
       }
     }
   }

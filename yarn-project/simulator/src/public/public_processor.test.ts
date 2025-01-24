@@ -19,7 +19,7 @@ import {
   RevertCode,
 } from '@aztec/circuits.js';
 import { computePublicDataTreeLeafSlot } from '@aztec/circuits.js/hash';
-import { times, timesParallel } from '@aztec/foundation/collection';
+import { timesParallel } from '@aztec/foundation/collection';
 import { sleep } from '@aztec/foundation/sleep';
 import { TestDateProvider } from '@aztec/foundation/timer';
 import { getTelemetryClient } from '@aztec/telemetry-client';

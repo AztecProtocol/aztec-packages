@@ -30,7 +30,7 @@ describe('unconstrained_function_membership_proof', () => {
     expect(unconstrainedFunction).toBeDefined();
     const proof = await createUnconstrainedFunctionMembershipProof(selector, artifact);
     const fn = { ...unconstrainedFunction, ...proof, selector };
-    expect(isValidUnconstrainedFunctionMembershipProof(fn, contractClass)).toBeTruthy();
+    await expect(isValidUnconstrainedFunctionMembershipProof(fn, contractClass)).resolves.toBeTruthy();
   });
 
   it('handles a contract with a single function', async () => {

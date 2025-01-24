@@ -1,4 +1,4 @@
-import { type ContractArtifact, type FunctionSelector, FunctionType } from '@aztec/foundation/abi';
+import { type ContractArtifact, FunctionSelector, FunctionType } from '@aztec/foundation/abi';
 import { poseidon2Hash } from '@aztec/foundation/crypto';
 import { Fr } from '@aztec/foundation/fields';
 import { createLogger } from '@aztec/foundation/log';
@@ -37,7 +37,15 @@ export async function createPrivateFunctionMembershipProof(
     privateFunctions.map(getContractClassPrivateFunctionFromArtifact),
   );
   const privateFunction = privateFunctionsFromArtifact.find(fn => fn.selector.equals(selector));
-  const privateFunctionArtifact = artifact.functions.find(fn => selector.equalsFn(fn));
+  const privateFunctionsAndSelectors = await Promise.all(
+    privateFunctions.map(async fn => ({
+      fn,
+      selector: await FunctionSelector.fromNameAndParameters(fn.name, fn.parameters),
+    })),
+  );
+  const privateFunctionArtifact = privateFunctionsAndSelectors.find(fnAndSelector =>
+    selector.equals(fnAndSelector.selector),
+  )?.fn;
   if (!privateFunction || !privateFunctionArtifact) {
     throw new Error(`Private function with selector ${selector.toString()} not found`);
   }

@@ -29,7 +29,7 @@ export function describeTxPool(getTxPool: () => TxPool) {
     const tx1 = await mockTx();
 
     await pool.addTxs([tx1]);
-    await pool.deleteTxs([await await tx1.getTxHash()]);
+    await pool.deleteTxs([await tx1.getTxHash()]);
 
     expect(pool.getTxByHash(await tx1.getTxHash())).toBeFalsy();
     expect(pool.getTxStatus(await tx1.getTxHash())).toBeUndefined();
@@ -122,7 +122,7 @@ export function describeTxPool(getTxPool: () => TxPool) {
 
     await pool.addTxs([tx1, tx2, tx3, tx4]);
 
-    const poolTxHashes = pool.getPendingTxHashes();
+    const poolTxHashes = await pool.getPendingTxHashes();
     expect(poolTxHashes).toHaveLength(4);
     expect(poolTxHashes).toEqual([tx4, tx1, tx3, tx2].map(tx => tx.getTxHash()));
   });

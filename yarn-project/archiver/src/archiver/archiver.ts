@@ -967,7 +967,10 @@ class ArchiverStoreHelper
       );
       const validPrivateFns = privateFunctionsWithValidity.filter(({ valid }) => valid).map(({ fn }) => fn);
       const unconstrainedFunctionsWithValidity = await Promise.all(
-        unconstrainedFns.map(async fn => ({ fn, valid: true })),
+        unconstrainedFns.map(async fn => ({
+          fn,
+          valid: await isValidUnconstrainedFunctionMembershipProof(fn, contractClass),
+        })),
       );
       const validUnconstrainedFns = unconstrainedFunctionsWithValidity.filter(({ valid }) => valid).map(({ fn }) => fn);
       const validFnCount = validPrivateFns.length + validUnconstrainedFns.length;
