@@ -2,7 +2,9 @@
 
 #include "barretenberg/bb/acir_format_getters.hpp"
 #include "barretenberg/bb/api.hpp"
+#include "barretenberg/common/log.hpp"
 #include "barretenberg/common/throw_or_abort.hpp"
+#include "barretenberg/dsl/acir_proofs/honk_contract.hpp"
 #include "barretenberg/ultra_vanilla_client_ivc/ultra_vanilla_client_ivc.hpp"
 #include "libdeflate.h"
 
@@ -33,23 +35,23 @@ class VectorCircuitSource : public CircuitSource<UltraFlavor> {
         // this, where we have a single, local description of how they are set.
         const auto metadata = [this]() {
             if (num_circuits() == 1) {
-                vinfo("case 1");
+                info("case 1");
                 return acir_format::ProgramMetadata{ .recursive = true, .honk_recursion = 1 };
             } else if (step < num_circuits() - 1) {
-                vinfo("case 2");
+                info("case 2");
                 return acir_format::ProgramMetadata{ .recursive = true, .honk_recursion = 1 };
             } else { // final step
-                vinfo("case 3");
+                info("case 3");
                 return acir_format::ProgramMetadata{ .recursive = false, .honk_recursion = 1 };
             }
         }();
-        vinfo("about to create circuit with metadata recursive = ",
-              metadata.recursive,
-              " and honk_recursion = ",
-              metadata.honk_recursion);
+        info("about to create circuit with metadata recursive = ",
+             metadata.recursive,
+             " and honk_recursion = ",
+             metadata.honk_recursion);
         Builder circuit = acir_format::create_circuit<Builder>(stack[step], metadata);
         const auto& vk = vks[step]; // will be nullptr if no precomputed vks are provided
-        vinfo("vk is nullptr: ", vk == nullptr);
+        info("vk is nullptr: ", vk == nullptr);
         ++step;
         return { circuit, vk };
     }
@@ -84,7 +86,7 @@ class UltraHonkAPI : public API {
                const std::filesystem::path& witness_path,
                const std::filesystem::path& output_dir) override
     {
-        vinfo("entered prove function");
+        info("entered prove function");
         if (!flags.output_type || *flags.output_type != "fields_msgpack") {
             throw_or_abort("No output_type or output_type not supported");
         }
@@ -97,26 +99,26 @@ class UltraHonkAPI : public API {
         static constexpr size_t PROVER_SRS_LOG_SIZE = 21;
         init_bn254_crs(1 << PROVER_SRS_LOG_SIZE); // WORKTODO...
         UltraVanillaClientIVC ivc{ 1 << PROVER_SRS_LOG_SIZE };
-        vinfo("instantiated ivc class");
+        info("instantiated ivc class");
 
         std::vector<acir_format::AcirProgram> stack = _build_stack(*flags.input_type, bytecode_path, witness_path);
-        vinfo("built stack");
+        info("built stack");
         VectorCircuitSource circuit_source{ stack };
-        vinfo("created circuit source");
+        info("created circuit source");
 
-        vinfo("*flags.initialize_pairing_point_accumulator is: ", *flags.initialize_pairing_point_accumulator);
+        info("*flags.initialize_pairing_point_accumulator is: ", *flags.initialize_pairing_point_accumulator);
         ASSERT((*flags.initialize_pairing_point_accumulator == "true") ||
                (*flags.initialize_pairing_point_accumulator) == "false");
         const bool initialize_pairing_point_accumulator = (*flags.initialize_pairing_point_accumulator == "true");
-        vinfo("initialize_pairing_point_accumulator is: ", initialize_pairing_point_accumulator);
+        info("initialize_pairing_point_accumulator is: ", initialize_pairing_point_accumulator);
 
         UltraVanillaClientIVC::Proof proof =
             ivc.prove(circuit_source, /* cache_vks */ false, initialize_pairing_point_accumulator);
 
-        vinfo("writing UltraVanillaClientIVC proof and vk...");
-        vinfo("writing proof to ", output_dir / "proof");
+        info("writing UltraVanillaClientIVC proof and vk...");
+        info("writing proof to ", output_dir / "proof");
         write_file(output_dir / "proof", to_buffer</*include_size=*/true>(proof));
-        vinfo("writing vk to ", output_dir / "vk");
+        info("writing vk to ", output_dir / "vk");
         write_file(output_dir / "vk", to_buffer(*ivc.previous_vk));
     };
 
@@ -139,14 +141,14 @@ class UltraHonkAPI : public API {
         auto g2_data = get_bn254_g2_data(CRS_PATH);
         srs::init_crs_factory({}, g2_data);
 
-        vinfo("reading proof from ", proof_path);
+        info("reading proof from ", proof_path);
         const auto proof = from_buffer<UltraVanillaClientIVC::Proof>(read_file(proof_path));
-        vinfo("reading vk from ", vk_path);
+        info("reading vk from ", vk_path);
         auto vk = from_buffer<UltraVanillaClientIVC::VK>(read_file(vk_path));
         vk.pcs_verification_key = std::make_shared<VerifierCommitmentKey<curve::BN254>>();
 
         const bool verified = UltraVanillaClientIVC::verify(proof, std::make_shared<UltraVanillaClientIVC::VK>(vk));
-        vinfo("verified: ", verified);
+        info("verified: ", verified);
         return verified;
     };
 
@@ -166,11 +168,11 @@ class UltraHonkAPI : public API {
         std::vector<acir_format::AcirProgram> stack = _build_stack(*flags.input_type, bytecode_path, witness_path);
         VectorCircuitSource circuit_source{ stack };
 
-        vinfo("*flags.initialize_pairing_point_accumulator is: ", *flags.initialize_pairing_point_accumulator);
+        info("*flags.initialize_pairing_point_accumulator is: ", *flags.initialize_pairing_point_accumulator);
         ASSERT((*flags.initialize_pairing_point_accumulator == "true") ||
                (*flags.initialize_pairing_point_accumulator) == "false");
         const bool initialize_pairing_point_accumulator = (*flags.initialize_pairing_point_accumulator == "true");
-        vinfo("initialize_pairing_point_accumulator is: ", initialize_pairing_point_accumulator);
+        info("initialize_pairing_point_accumulator is: ", initialize_pairing_point_accumulator);
         const bool verified =
             ivc.prove_and_verify(circuit_source, /* cache_vks= */ false, initialize_pairing_point_accumulator);
         return verified;
@@ -197,10 +199,31 @@ class UltraHonkAPI : public API {
     };
 
     void contract([[maybe_unused]] const API::Flags& flags,
-                  [[maybe_unused]] const std::filesystem::path& output_path,
-                  [[maybe_unused]] const std::filesystem::path& vk_path) override
+                  const std::filesystem::path& output_path,
+                  const std::filesystem::path& vk_path) override
     {
-        throw_or_abort("API function not implemented");
+        // ASSERT(flags.oracle_hash == "keccak");
+
+        using VK = UltraKeccakFlavor::VerificationKey;
+        // WOKTODO: not used?
+        auto g2_data = get_bn254_g2_data(CRS_PATH);
+        // WOKTODO: not used?
+        srs::init_crs_factory({}, g2_data);
+        info("constructing vk");
+        auto vk = std::make_shared<VK>(from_buffer<VK>(read_file(vk_path)));
+        info("done vk");
+        // WOKTODO: not used?
+        vk->pcs_verification_key = std::make_shared<VerifierCommitmentKey<curve::BN254>>();
+        // WORKTODO: std::move pointless
+        std::string contract = get_honk_solidity_verifier(std::move(vk));
+
+        if (output_path == "-") {
+            writeStringToStdout(contract);
+            info("contract written to stdout");
+        } else {
+            write_file(output_path, { contract.begin(), contract.end() });
+            info("contract written to: ", output_path);
+        }
     };
 
     void to_fields([[maybe_unused]] const API::Flags& flags,

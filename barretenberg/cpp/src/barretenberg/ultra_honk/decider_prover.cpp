@@ -87,9 +87,9 @@ template <IsUltraFlavor Flavor> void DeciderProver_<Flavor>::execute_pcs_rounds(
                                                               transcript,
                                                               small_subgroup_ipa_prover.get_witness_polynomials());
     }
-    vinfo("executed multivariate-to-univariate reduction");
+    info("executed multivariate-to-univariate reduction");
     PCS::compute_opening_proof(ck, prover_opening_claim, transcript);
-    vinfo("computed opening proof");
+    info("computed opening proof");
 }
 
 template <IsUltraFlavor Flavor> HonkProof DeciderProver_<Flavor>::export_proof()

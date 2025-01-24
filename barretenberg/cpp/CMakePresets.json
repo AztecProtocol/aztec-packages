@@ -199,6 +199,9 @@
       "inherits": "clang16",
       "environment": {
         "CMAKE_BUILD_TYPE": "RelWithAssert"
+      },
+      "cacheVariables": {
+        "DISABLE_AZTEC_VM": "ON"
       }
     },
     {

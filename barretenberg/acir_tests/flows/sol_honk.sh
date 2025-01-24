@@ -14,7 +14,7 @@ $BIN prove_ultra_keccak_honk -o $PROOF $FLAGS $BFLAG
 $BIN write_vk_ultra_keccak_honk -o $VK $FLAGS $BFLAG
 $BIN verify_ultra_keccak_honk -k $VK -p $PROOF $FLAGS
 $BIN proof_as_fields_honk $FLAGS -p $PROOF -o $PROOF_AS_FIELDS
-$BIN contract_ultra_honk -k $VK $FLAGS -o Verifier.sol
+$BIN contract --scheme ultra_honk -k $VK $FLAGS -o Verifier.sol
 
 # Export the paths to the environment variables for the js test runner
 export VERIFIER_PATH="$PWD/Verifier.sol"
