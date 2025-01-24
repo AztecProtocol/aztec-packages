@@ -155,6 +155,36 @@ impl FromField for U128 {
 }
 
 // docs:start:serialize
+/// Trait for serializing Noir types into arrays of Fields.
+///
+/// An implementation of the Serialize trait has to follow Noir's intrinsic serialization (each member of a struct
+/// converted directly into one or more Fields without any packing or compression). This trait (and Deserialize) are
+/// typically used to communicate between Noir and TypeScript (via oracles and function arguments).
+///
+/// # On Following Noir's Intrinsic Serialization
+/// When calling a Noir function from TypeScript (TS), first the function arguments are serialized into an array
+/// of fields. This array is then included in the initial witness. Noir's intrinsic serialization is then used
+/// to deserialize the arguments from the witness. When the same Noir function is called from Noir this Serialize trait
+/// is used instead of the serialization in TS. For this reason we need to have a match between TS serialization,
+/// Noir's intrinsic serialization and the implementation of this trait. If there is a mismatch, the function calls
+/// fail with an arguments hash mismatch error message.
+///
+/// # Type Parameters
+/// * `N` - The length of the output Field array, known at compile time
+///
+/// # Example
+/// ```
+/// impl<let N: u32> Serialize<N> for str<N> {
+///     fn serialize(self) -> [Field; N] {
+///         let bytes = self.as_bytes();
+///         let mut fields = [0; N];
+///         for i in 0..bytes.len() {
+///             fields[i] = bytes[i] as Field;  // Each byte gets its own Field
+///         }
+///         fields
+///     }
+/// }
+/// ```
 #[derive_via(derive_serialize)]
 pub trait Serialize<let N: u32> {
     fn serialize(self) -> [Field; N];
@@ -173,6 +203,24 @@ impl<let N: u32> Serialize<N> for str<N> {
 }
 
 // docs:start:deserialize
+/// Trait for deserializing Noir types from arrays of Fields.
+///
+/// An implementation of the Deserialize trait has to follow Noir's intrinsic serialization (each member of a struct
+/// converted directly into one or more Fields without any packing or compression). This trait is typically used when
+/// deserializing return values from function calls in Noir. Since the same function could be called from TypeScript
+/// (TS), in which case the TS deserialization would get used, we need to have a match between the 2.
+///
+/// # Type Parameters
+/// * `N` - The length of the input Field array, known at compile time
+///
+/// # Example
+/// ```
+/// impl<let N: u32> Deserialize<N> for str<N> {
+///     fn deserialize(fields: [Field; N]) -> Self {
+///         str<N>::from(fields.map(|value| value as u8))
+///     }
+/// }
+/// ```
 #[derive_via(derive_deserialize)]
 pub trait Deserialize<let N: u32> {
     fn deserialize(fields: [Field; N]) -> Self;
@@ -183,4 +231,20 @@ impl<let N: u32> Deserialize<N> for str<N> {
     fn deserialize(fields: [Field; N]) -> Self {
         str<N>::from(fields.map(|value| value as u8))
     }
+}
+
+/// Trait for efficiently packing and unpacking Noir types into and from arrays of Fields.
+///
+/// The `Packable` trait allows types to be serialized and deserialized with a focus on minimizing the size of
+/// the resulting Field array. This trait is used when storage efficiency is critical (e.g. when storing data
+/// in the contract's public storage).
+///
+/// # Type Parameters
+/// * `N` - The length of the Field array, known at compile time.
+pub trait Packable<let N: u32> {
+    /// Packs the current value into a compact array of `Field` elements.
+    fn pack(self) -> [Field; N];
+
+    /// Unpacks a compact array of `Field` elements into the original value.
+    fn unpack(fields: [Field; N]) -> Self;
 }

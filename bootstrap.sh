@@ -7,8 +7,8 @@
 # Use ci3 script base.
 source $(git rev-parse --show-toplevel)/ci3/source_bootstrap
 
-# Enable abbreviated output.
-export DENOISE=1
+# Enable abbreviated output by default.
+export DENOISE=${DENOISE:-1}
 
 cmd=${1:-}
 [ -n "$cmd" ] && shift
@@ -96,6 +96,7 @@ function install_hooks {
   hooks_dir=$(git rev-parse --git-path hooks)
   echo "(cd barretenberg/cpp && ./format.sh staged)" >$hooks_dir/pre-commit
   echo "./yarn-project/precommit.sh" >>$hooks_dir/pre-commit
+  echo "./noir-projects/precommit.sh" >>$hooks_dir/pre-commit
   chmod +x $hooks_dir/pre-commit
 }
 
@@ -138,21 +139,14 @@ function build {
 
   check_toolchains
 
-  # We use parallelism in each step, and keep a simple linear dependency order.
   projects=(
     noir
-    # Acir tests depend on noir.
     barretenberg
-    avm-transpiler
-    # Uses noir for contract builds, barretenberg for VKs and the solidity verifier contract.
-    noir-projects
-    # Relies on solidity verifier contract built by noir-projects.
     l1-contracts
-    # As the 'blockchain component', yarn-project combines the above.
+    avm-transpiler
+    noir-projects
     yarn-project
-    # Boxes are demos for external devs, we use the above components.
     boxes
-    # Docs pull parts of the above code as examples.
     docs
     release-image
     aztec-up
@@ -190,9 +184,39 @@ case "$cmd" in
   ;;
   "image-aztec")
     image=aztecprotocol/aztec:$(git rev-parse HEAD)
-    docker pull --platform linux/$(arch) $image &>/dev/null || true
+    check_arch=false
+    version="0.1.0"
+
+    # Check for --check-arch flag in args
+    for arg in "$@"; do
+      if [ "$arg" = "--check-arch" ]; then
+        check_arch=true
+        break
+      fi
+      if [ "$arg" = "--version" ]; then
+        version=$2
+        shift 2
+      fi
+    done
+
+    docker pull $image &>/dev/null || true
     if docker_has_image $image; then
-      echo "Image $image already exists and has been downloaded." && exit
+      if [ "$check_arch" = true ]; then
+        # Check we're on the correct architecture
+        image_arch=$(docker inspect $image --format '{{.Architecture}}')
+        host_arch=$(uname -m | sed 's/x86_64/amd64/' | sed 's/aarch64/arm64/')
+
+        if [ "$image_arch" != "$host_arch" ]; then
+          echo "Warning: Image architecture ($image_arch) doesn't match host architecture ($host_arch)"
+          echo "Rebuilding image for correct architecture..."
+        else
+          echo "Image $image already exists and has been downloaded with correct architecture." && exit
+        fi
+      elif [ -n "$version" ]; then
+        echo "Image $image already exists and has been downloaded. Setting version to $version."
+      else
+        echo "Image $image already exists and has been downloaded." && exit
+      fi
     else
       echo "Image $image does not exist, building..."
     fi
@@ -203,7 +227,8 @@ case "$cmd" in
     echo "docker image build:"
     docker pull aztecprotocol/aztec-base:v1.0-$(arch)
     docker tag aztecprotocol/aztec-base:v1.0-$(arch) aztecprotocol/aztec-base:latest
-    docker build -f Dockerfile.aztec -t $image $TMP
+    docker build -f Dockerfile.aztec -t $image $TMP --build-arg VERSION=$version
+
     if [ "${CI:-0}" = 1 ]; then
       docker push $image
     fi

@@ -96,7 +96,7 @@ function get_contract_hash {
     ../../avm-transpiler/.rebuild_patterns \
     "^noir-projects/noir-contracts/contracts/$1/" \
     "^noir-projects/aztec-nr/" \
-    "^noir-projects/noir-protocol-circuits/crates/types"
+    "^noir-projects/noir-protocol-circuits/crates/types/"
 }
 export -f get_contract_hash
 

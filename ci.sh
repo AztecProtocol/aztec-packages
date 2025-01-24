@@ -28,10 +28,10 @@ function print_usage {
                           "Can provide a command to run instead of dropping into a shell, e.g. 'ci shell ls'."
   echo_cmd "trigger"      "Trigger the GA workflow on the PR associated with the current branch.\n" \
                           "Effectively the same as ec2, only the results will be tracked on your PR."
-  echo_cmd "rlog"         "Will tail the logs of the current GA run, or the given GA run id."
+  echo_cmd "rlog"         "Will tail the logs of the latest GA run, or tail/dump the given GA run id."
   echo_cmd "ilog"         "Will tail the logs of the current running build instance."
-  echo_cmd "dlog"         "Display the log of the given denoise log it."
-  echo_cmd "tlog"         "Display the last log of the given test command."
+  echo_cmd "dlog"         "Display the log of the given denoise log id."
+  echo_cmd "tlog"         "Display the last log of the given test command as output by test-cmds."
   echo_cmd "shell-host"   "Connect to host instance of the current running build."
   echo_cmd "draft"        "Mark current PR as draft (no automatic CI runs when pushing)."
   echo_cmd "ready"        "Mark current PR as ready (enable automatic CI runs when pushing)."
@@ -119,12 +119,12 @@ case "$cmd" in
     gh pr edit "$pr_number" --remove-label "trigger-workflow" &> /dev/null
     run_id=$(get_latest_run_id)
     echo "In progress..." | redis_cli -x SETEX $run_id 3600 &> /dev/null
-    echo -e "Triggered CI workflow for PR: $pr_number (${yellow}$run_id${reset})"
+    echo -e "Triggered CI for PR: $pr_number (ci rlog ${yellow}$run_id${reset})"
     ;;
   "rlog")
     [ -z "${1:-}" ] && run_id=$(get_latest_run_id) || run_id=$1
     output=$(redis_cli GET $run_id)
-    if [ "$output" == "In progress..." ]; then
+    if [ -z "$output" ] || [ "$output" == "In progress..." ]; then
       # If we're in progress, tail live logs from launched instance.
       while ! tail_live_instance; do
         echo "Waiting on instance with name: $instance_name"
@@ -215,6 +215,9 @@ case "$cmd" in
       exit 1
     fi
     echo "$pr_url"
+    ;;
+  "deploy")
+    VERSION_TAG=$1
     ;;
   "help"|"")
     print_usage

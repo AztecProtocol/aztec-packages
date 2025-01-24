@@ -70,9 +70,12 @@ describe('e2e_prover_coordination', () => {
     );
 
     await snapshotManager.snapshot('setup', addAccounts(2, logger), async ({ accountKeys }, ctx) => {
-      const accountManagers = accountKeys.map(ak => getSchnorrAccount(ctx.pxe, ak[0], ak[1], 1));
-      await Promise.all(accountManagers.map(a => a.register()));
-      const wallets = await Promise.all(accountManagers.map(a => a.getWallet()));
+      const wallets = await Promise.all(
+        accountKeys.map(async ak => {
+          const account = await getSchnorrAccount(ctx.pxe, ak[0], ak[1], 1);
+          return account.getWallet();
+        }),
+      );
       wallets.forEach((w, i) => logger.verbose(`Wallet ${i} address: ${w.getAddress()}`));
       wallet = wallets[0];
       recipient = wallets[1].getAddress();

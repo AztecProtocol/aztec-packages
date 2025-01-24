@@ -7,7 +7,7 @@ case "$cmd" in
   ""|"full")
     echo_header "release-image build"
     cd ..
-    docker build -f release-image/Dockerfile -t aztecprotocol/aztec:$(git rev-parse HEAD) .
+    denoise "docker build -f release-image/Dockerfile -t aztecprotocol/aztec:$(git rev-parse HEAD) ."
     docker tag aztecprotocol/aztec:$(git rev-parse HEAD) aztecprotocol/aztec:latest
     ;;
   *)

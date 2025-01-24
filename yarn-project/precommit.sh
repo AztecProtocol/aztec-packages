@@ -10,6 +10,8 @@ export FORCE_COLOR=true
 
 staged_files_cmd="git diff-index --diff-filter=d --relative --cached --name-only HEAD"
 
+[ -z "$($staged_files_cmd)" ] && exit
+
 function lint {
   # TODO(ci3) unused
   # Linting is run over everything, but we parallelize over projects directories, and use --cache to improve repeat runs.

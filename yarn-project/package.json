@@ -47,6 +47,7 @@
     "l1-artifacts",
     "merkle-tree",
     "ivc-integration",
+    "noir-bb-bench",
     "noir-contracts.js",
     "noir-protocol-circuits-types",
     "p2p",

@@ -15,7 +15,6 @@ export NARGO=${NARGO:-../../noir/noir-repo/target/release/nargo}
 export BB_HASH=$(cache_content_hash ../../barretenberg/cpp/.rebuild_patterns)
 export NARGO_HASH=$(cache_content_hash ../../noir/.rebuild_patterns)
 
-tmp_dir=./target/tmp
 key_dir=./target/keys
 
 # Hash of the entire protocol circuits.
@@ -41,21 +40,22 @@ rollup_honk_patterns=(
   "rollup_merge"
 )
 
-
 ivc_regex=$(IFS="|"; echo "${ivc_patterns[*]}")
 rollup_honk_regex=$(IFS="|"; echo "${rollup_honk_patterns[*]}")
+# Rollup needs a verifier, and has a keccak precompile for efficiency.
+# Use patterns for consistency, even though this just applies to the root.
+keccak_honk_regex=rollup_root
+verifier_generate_regex=rollup_root
 
 function on_exit() {
-  rm -rf $tmp_dir
   rm -f joblog.txt
 }
 trap on_exit EXIT
 
-mkdir -p $tmp_dir
 mkdir -p $key_dir
 
 # Export vars needed inside compile.
-export tmp_dir key_dir ci3 ivc_regex project_name rollup_honk_regex circuits_hash
+export key_dir ci3 ivc_regex project_name rollup_honk_regex keccak_honk_regex verifier_generate_regex circuits_hash
 
 function compile {
   set -euo pipefail
@@ -95,8 +95,15 @@ function compile {
     local vk_as_fields_cmd="vk_as_fields_mega_honk"
   elif echo "$name" | grep -qE "${rollup_honk_regex}"; then
     local proto="ultra_rollup_honk"
+    # -h 2 injects a fake ipa claim
     local write_vk_cmd="write_vk_ultra_rollup_honk -h 2"
     local vk_as_fields_cmd="vk_as_fields_ultra_rollup_honk"
+  elif echo "$name" | grep -qE "${keccak_honk_regex}"; then
+    local proto="ultra_keccak_honk"
+    # the root rollup does not need to inject a fake ipa claim
+    # and does not need to inject a default agg obj, so no -h flag
+    local write_vk_cmd="write_vk_ultra_keccak_honk"
+    local vk_as_fields_cmd="vk_as_fields_ultra_keccak_honk"
   else
     local proto="ultra_honk"
     local write_vk_cmd="write_vk_ultra_honk -h 1"
@@ -105,7 +112,6 @@ function compile {
 
   # No vks needed for simulated circuits.
   [[ "$name" == *"simulated"* ]] && return
-  [[ "$name" != *"root"* ]] && return
 
   # TODO: Change this to add verification_key to original json, like contracts does.
   # Will require changing TS code downstream.
@@ -124,9 +130,11 @@ function compile {
     jq -n --arg vk "$vk" --argjson vkf "$vk_fields" '{keyAsBytes: $vk, keyAsFields: $vkf}' > $key_path
     echo_stderr "Key output at: $key_path (${SECONDS}s)"
     if echo "$name" | grep -qE "${verifier_generate_regex}"; then
-      local verifier_path="$key_dir/$name-verifier.sol"
+      local verifier_path="$key_dir/${name}_verifier.sol"
+      SECONDS=0
       # Generate solidity verifier for this contract.
-      echo "$vk_fields" | $BB contract_ultra_honk -k - -o verifier_path
+      echo "$vk" | xxd -r -p | $BB contract_ultra_honk -k - -o $verifier_path
+      echo_stderr "VK output at: $verifier_path (${SECONDS}s)"
       # Include the verifier path if we create it.
       cache_upload vk-$hash.tar.gz $key_path $verifier_path &> /dev/null
     else
@@ -143,6 +151,11 @@ function build {
 
   [ -f "package.json" ] && denoise "yarn && node ./scripts/generate_variants.js"
 
+  # We want to start the build from scratch as stale artifact issues have plagued us in the past.
+  # However, this may have been an accidental build, and this is quite heavy, so we have a backup pattern.
+  echo "Stashing previous target folder as target.bkup"
+  mkdir -p target target.bkup && cp -r target target.bkup && rm -rf target && mkdir -p $key_dir
+
   grep -oP '(?<=crates/)[^"]+' Nargo.toml | \
     while read -r dir; do
       toml_file=./crates/$dir/Nargo.toml
@@ -158,7 +171,6 @@ function build {
 }
 
 function test_cmds {
-  echo "$circuits_hash $NARGO fmt --check"
   $NARGO test --list-tests --silence-warnings | sort | while read -r package test; do
     echo "$circuits_hash noir-projects/scripts/run_test.sh noir-protocol-circuits $package $test"
   done

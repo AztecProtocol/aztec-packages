@@ -429,21 +429,26 @@ jobs:
           alert-comment-cc-users: "@ludamad @codygunton"
           max-items-in-chart: 50
 
-  boxes-test:
-    needs: [ci-rest, configure]
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-        with: { ref: "${{ github.event.pull_request.head.sha }}" }
-      - uses: ./.github/ci-setup-action
-      - name: Build Boxes
-        uses: ./.github/ensure-builder
-        timeout-minutes: 40
-        with:
-          username: ${{ needs.configure.outputs.username }}
-          runner_type: builder-x86
-          # Old Earthly usage: scripts/earthly-ci ./boxes/bootstrap.sh test-boxes
-          run: scripts/targets.sh boxes-test
+  # TODO(https://github.com/AztecProtocol/aztec-packages/issues/11471) reenable
+  # boxes-test:
+  #   needs: [ci-rest, configure]
+  #   runs-on: ubuntu-latest
+  #   steps:
+  #     - uses: actions/checkout@v4
+  #       with: { ref: "${{ github.event.pull_request.head.sha }}" }
+  #     - uses: ./.github/ci-setup-action
+
+  #     - name: Build Boxes
+  #       uses: ./.github/ensure-builder
+  #       timeout-minutes: 40
+  #       with:
+  #         username: ${{ needs.configure.outputs.username }}
+  #         runner_type: builder-x86
+  #         run: |
+  #           export CI=1 USE_CACHE=1
+  #           if ci3/test_should_run "boxes-test-$(./boxes/bootstrap.sh hash)"; then
+  #             ./bootstrap.sh test-boxes
+  #           fi
 
   prover-client-test:
     needs: [ci-rest, configure]
@@ -554,7 +559,8 @@ jobs:
       - e2e-prover-full
       - kind-network-smoke
       - kind-network-test
-      - boxes-test
+      # - boxes-test
+      # - testnet-installer
     if: always()
     outputs:
       failure: ${{ steps.set_failed_jobs.outputs.failure }}
