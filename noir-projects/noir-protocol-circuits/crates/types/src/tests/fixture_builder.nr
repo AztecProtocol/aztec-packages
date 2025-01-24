@@ -43,9 +43,9 @@ use crate::{
     address::{AztecAddress, EthAddress, SaltedInitializationHash},
     block_header::BlockHeader,
     constants::{
-        CLIENT_IVC_VERIFICATION_KEY_LENGTH_IN_FIELDS, FUNCTION_TREE_HEIGHT,
-        MAX_CONTRACT_CLASS_LOGS_PER_TX, MAX_ENQUEUED_CALLS_PER_TX, MAX_FIELD_VALUE,
-        MAX_KEY_VALIDATION_REQUESTS_PER_TX, MAX_L2_TO_L1_MSGS_PER_TX,
+        CLIENT_IVC_VERIFICATION_KEY_LENGTH_IN_FIELDS, CONTRACT_CLASS_LOG_SIZE_IN_FIELDS,
+        FUNCTION_TREE_HEIGHT, MAX_CONTRACT_CLASS_LOGS_PER_TX, MAX_ENQUEUED_CALLS_PER_TX,
+        MAX_FIELD_VALUE, MAX_KEY_VALIDATION_REQUESTS_PER_TX, MAX_L2_TO_L1_MSGS_PER_TX,
         MAX_NOTE_HASH_READ_REQUESTS_PER_TX, MAX_NOTE_HASHES_PER_TX,
         MAX_NULLIFIER_READ_REQUESTS_PER_TX, MAX_NULLIFIERS_PER_TX,
         MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX, MAX_PRIVATE_LOGS_PER_TX, MAX_PUBLIC_LOGS_PER_TX,
@@ -884,12 +884,18 @@ impl FixtureBuilder {
         }
     }
 
-    // TODO(MW): add
-    // pub fn add_contract_class_log(&mut self, hash: Field, length: Field) {
-    //     let log_hash = LogHash { value: hash, counter: self.next_counter(), length };
-    //     self.contract_class_logs_hashes.push(log_hash.scope(self.contract_address));
-    //     self.contract_class_log_preimages_length += length;
-    // }
+    pub fn add_contract_class_log<let N: u32>(&mut self, fields: [Field; N]) {
+        let mut log_fields = [0; CONTRACT_CLASS_LOG_SIZE_IN_FIELDS];
+        for i in 0..N {
+            log_fields[i] = fields[i];
+        }
+        let log = ContractClassLogData {
+            log: Log { fields: log_fields },
+            counter: self.next_counter(),
+        }
+            .scope(self.contract_address);
+        self.contract_class_logs.push(log);
+    }
 
     pub fn add_private_call_request_for_private_call(&mut self, private_call: PrivateCallData) {
         let public_inputs = private_call.public_inputs;

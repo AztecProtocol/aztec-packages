@@ -288,8 +288,9 @@ mod tests {
         },
         address::EthAddress,
         constants::{
-            ARCHIVE_HEIGHT, AVM_VK_INDEX, CONTRACT_CLASS_LOGS_PREFIX, L2_L1_MSGS_PREFIX,
-            MAX_L2_TO_L1_MSGS_PER_TX, MAX_NOTE_HASHES_PER_TX, MAX_NULLIFIERS_PER_TX,
+            ARCHIVE_HEIGHT, AVM_VK_INDEX, CONTRACT_CLASS_LOG_SIZE_IN_FIELDS,
+            CONTRACT_CLASS_LOGS_PREFIX, L2_L1_MSGS_PREFIX, MAX_L2_TO_L1_MSGS_PER_TX,
+            MAX_NOTE_HASHES_PER_TX, MAX_NULLIFIERS_PER_TX,
             MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, NOTE_HASH_SUBTREE_HEIGHT,
             NOTE_HASH_SUBTREE_SIBLING_PATH_LENGTH, NOTE_HASH_TREE_HEIGHT, NOTES_PREFIX,
             NULLIFIER_SUBTREE_HEIGHT, NULLIFIER_SUBTREE_SIBLING_PATH_LENGTH, NULLIFIER_TREE_HEIGHT,
@@ -308,7 +309,7 @@ mod tests {
             merkle_tree_utils::NonEmptyMerkleTree,
             utils::pad_end,
         },
-        traits::{Empty, Hash, is_empty},
+        traits::{Empty, Hash, is_empty, Serialize},
         utils::{
             arrays::{array_concat, get_sorted_tuple::get_sorted_tuple},
             field::{field_from_bytes, full_field_less_than},
@@ -951,7 +952,7 @@ mod tests {
         let NUM_MSGS = 5;
         let NUM_PRIV_EVENT_LOGS = 4;
         let NUM_PUB_LOGS = 6;
-        // let NUM_CC_LOGS = 1;
+        let NUM_CC_LOGS = 1;
         let PUB_DATA_SLOT = 25;
         let PUB_DATA_VALUE = 60;
         let TOTAL_BLOB_FIELDS = 3 // revert code, tx hash and tx fee
@@ -963,8 +964,8 @@ mod tests {
             + 1 // L2 to L1 msgs and prefix
             + NUM_PUB_LOGS * PUBLIC_LOG_SIZE_IN_FIELDS
             + 1 // public logs and prefix
-            // + NUM_CC_LOGS
-            // + 1 // contract class logs and prefix
+            + NUM_CC_LOGS * CONTRACT_CLASS_LOG_SIZE_IN_FIELDS
+            + 1 // contract class logs and prefix
             + 2
             + 1 // single public data update (2 fields) and prefix
             + NUM_PRIV_EVENT_LOGS * PRIVATE_LOG_SIZE_IN_FIELDS
@@ -993,8 +994,7 @@ mod tests {
         builder.tube_data.append_private_logs(NUM_PRIV_EVENT_LOGS);
         builder.avm_data.append_public_logs(NUM_PUB_LOGS);
         // Below will only work with NUM_CC_LOGS=1
-        // TODO(MW): reinstate
-        // builder.tube_data.add_contract_class_log_hash(1, 2);
+        builder.tube_data.add_contract_class_log([1, 2, 3]);
         let inputs = builder.build_inputs();
         let outputs = inputs.execute();
 
@@ -1087,17 +1087,19 @@ mod tests {
         }
         offset += NUM_PUB_LOGS * PUBLIC_LOG_SIZE_IN_FIELDS;
         // cc logs
-        // TODO(MW): reinstate
-        // let contract_class_logs_prefix =
-        //     encode_blob_prefix(CONTRACT_CLASS_LOGS_PREFIX, NUM_CC_LOGS);
-        // reconstructed_tx_effects[offset] = contract_class_logs_prefix;
-        // offset += 1;
-        // for i in 0..NUM_CC_LOGS {
-        //     reconstructed_tx_effects[offset + i] = types::hash::silo_contract_class_log_hash(
-        //         builder.tube_data.contract_class_logs_hashes.storage()[i],
-        //     );
-        // }
-        // offset += NUM_CC_LOGS;
+        let total_contract_class_logs_len = NUM_CC_LOGS * CONTRACT_CLASS_LOG_SIZE_IN_FIELDS;
+        let contract_class_logs_prefix =
+            encode_blob_prefix(CONTRACT_CLASS_LOGS_PREFIX, total_contract_class_logs_len);
+        reconstructed_tx_effects[offset] = contract_class_logs_prefix;
+        offset += 1;
+        for i in 0..NUM_CC_LOGS {
+            let siloed_log = builder.tube_data.contract_class_logs.storage()[i].inner.log;
+            for j in 0..CONTRACT_CLASS_LOG_SIZE_IN_FIELDS {
+                reconstructed_tx_effects[offset + i * CONTRACT_CLASS_LOG_SIZE_IN_FIELDS + j] =
+                    siloed_log.fields[j];
+            }
+        }
+        offset += total_contract_class_logs_len;
 
         // Sanity check
         assert(offset == TOTAL_BLOB_FIELDS);

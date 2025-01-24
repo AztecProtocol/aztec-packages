@@ -5,7 +5,7 @@ use crate::abis::{
 use super::abis::tx_effect::TxEffect;
 use dep::types::{
     abis::{
-        contract_class_log::ContractClassLog, log::Log, private_log::PrivateLog,
+        contract_class_log::ContractClassLog, private_log::PrivateLog,
         public_data_write::PublicDataWrite, public_log::PublicLog, sponge_blob::SpongeBlob,
     },
     constants::{
@@ -507,6 +507,8 @@ unconstrained fn get_tx_effects_hash_input_helper(
         offset += 1;
 
         for j in 0..num_cc_logs {
+            // TODO(MW): do not append trailing zeroes here. Can use find_index_hint_from_end() to find index, or
+            // array_length if contract class logs never contain zeroes.
             for k in 0..CONTRACT_CLASS_LOG_SIZE_IN_FIELDS {
                 let index = offset + j * CONTRACT_CLASS_LOG_SIZE_IN_FIELDS + k;
                 tx_effects_hash_input[index] = contract_class_logs[j].fields[k];

@@ -212,7 +212,7 @@ impl PrivateCallDataValidator {
             assert_eq(
                 self.array_lengths.contract_class_logs,
                 0,
-                "contract_class_logs_hashes must be empty for static calls",
+                "contract_class_logs must be empty for static calls",
             );
         }
         if (self.array_lengths.contract_class_logs != 0) {

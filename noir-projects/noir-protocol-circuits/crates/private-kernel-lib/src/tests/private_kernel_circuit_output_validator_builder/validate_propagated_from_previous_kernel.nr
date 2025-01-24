@@ -229,28 +229,27 @@ fn validate_propagated_from_previous_kernel_private_logs_less_than_fails() {
 }
 
 /**
- * contract_class_log_hashes
+ * contract_class_logs
  */
-// TODO(MW): reinstate
-// #[test]
-// fn validate_propagated_from_previous_kernel_contract_class_log_hashes_succeeds() {
-//     let mut builder = PrivateKernelCircuitOutputValidatorBuilder::new();
+#[test]
+fn validate_propagated_from_previous_kernel_contract_class_logs_succeeds() {
+    let mut builder = PrivateKernelCircuitOutputValidatorBuilder::new();
 
-//     builder.previous_kernel.add_contract_class_log_hash(2, 1);
-//     builder.output.add_contract_class_log_hash(2, 1);
+    builder.previous_kernel.add_contract_class_log([2]);
+    builder.output.add_contract_class_log([2]);
 
-//     builder.validate_as_inner_call();
-// }
+    builder.validate_as_inner_call();
+}
 
-// #[test(should_fail_with = "output should be appended with empty items")]
-// fn validate_propagated_from_previous_kernel_contract_class_log_hashes_less_than_fails() {
-//     let mut builder = PrivateKernelCircuitOutputValidatorBuilder::new();
+#[test(should_fail_with = "output should be appended with empty items")]
+fn validate_propagated_from_previous_kernel_contract_class_logs_less_than_fails() {
+    let mut builder = PrivateKernelCircuitOutputValidatorBuilder::new();
 
-//     // Propagate 1 less item to the output.
-//     builder.output.add_contract_class_log_hash(2, 1);
+    // Propagate 1 less item to the output.
+    builder.output.add_contract_class_log([2]);
 
-//     builder.validate_as_inner_call();
-// }
+    builder.validate_as_inner_call();
+}
 
 /**
  * private_call_requests

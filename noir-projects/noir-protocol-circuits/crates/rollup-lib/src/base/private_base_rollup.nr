@@ -235,14 +235,14 @@ mod tests {
         },
         address::{AztecAddress, EthAddress},
         constants::{
-            ARCHIVE_HEIGHT, CONTRACT_CLASS_LOGS_PREFIX, L2_L1_MSGS_PREFIX, MAX_L2_TO_L1_MSGS_PER_TX,
-            MAX_NOTE_HASHES_PER_TX, MAX_NULLIFIERS_PER_TX,
-            MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, NOTE_HASH_SUBTREE_HEIGHT,
-            NOTE_HASH_SUBTREE_SIBLING_PATH_LENGTH, NOTE_HASH_TREE_HEIGHT, NOTES_PREFIX,
-            NULLIFIER_SUBTREE_HEIGHT, NULLIFIER_SUBTREE_SIBLING_PATH_LENGTH, NULLIFIER_TREE_HEIGHT,
-            NULLIFIERS_PREFIX, PRIVATE_LOG_SIZE_IN_FIELDS, PRIVATE_LOGS_PREFIX,
-            PUBLIC_DATA_TREE_HEIGHT, REVERT_CODE_PREFIX, TUBE_VK_INDEX, TX_FEE_PREFIX,
-            TX_START_PREFIX,
+            ARCHIVE_HEIGHT, CONTRACT_CLASS_LOG_SIZE_IN_FIELDS, CONTRACT_CLASS_LOGS_PREFIX,
+            L2_L1_MSGS_PREFIX, MAX_L2_TO_L1_MSGS_PER_TX, MAX_NOTE_HASHES_PER_TX,
+            MAX_NULLIFIERS_PER_TX, MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
+            NOTE_HASH_SUBTREE_HEIGHT, NOTE_HASH_SUBTREE_SIBLING_PATH_LENGTH, NOTE_HASH_TREE_HEIGHT,
+            NOTES_PREFIX, NULLIFIER_SUBTREE_HEIGHT, NULLIFIER_SUBTREE_SIBLING_PATH_LENGTH,
+            NULLIFIER_TREE_HEIGHT, NULLIFIERS_PREFIX, PRIVATE_LOG_SIZE_IN_FIELDS,
+            PRIVATE_LOGS_PREFIX, PUBLIC_DATA_TREE_HEIGHT, REVERT_CODE_PREFIX, TUBE_VK_INDEX,
+            TX_FEE_PREFIX, TX_START_PREFIX,
         },
         data::{public_data_hint::PublicDataHint, PublicDataTreeLeaf, PublicDataTreeLeafPreimage},
         hash::silo_l2_to_l1_message,
@@ -879,8 +879,7 @@ mod tests {
         builder.tube_data.append_l2_to_l1_msgs(NUM_MSGS);
         builder.tube_data.append_private_logs(NUM_PRIV_EVENT_LOGS);
         // Below will only work with NUM_CC_LOGS=1
-        // TODO(MW): reinstate
-        // builder.tube_data.add_contract_class_log_hash(1, 2);
+        builder.tube_data.add_contract_class_log([1, 2, 3]);
         let inputs = builder.build_inputs();
         let outputs = inputs.execute();
 
@@ -935,17 +934,19 @@ mod tests {
         }
         offset += total_private_logs_len;
         // cc logs
-        // TODO(MW): reinstate
-        // let contract_class_logs_prefix =
-        //     encode_blob_prefix(CONTRACT_CLASS_LOGS_PREFIX, NUM_CC_LOGS);
-        // reconstructed_tx_effects[offset] = contract_class_logs_prefix;
-        // offset += 1;
-        // for i in 0..NUM_CC_LOGS {
-        //     reconstructed_tx_effects[offset + i] = types::hash::silo_contract_class_log_hash(
-        //         builder.tube_data.contract_class_logs_hashes.storage()[i],
-        //     );
-        // }
-        // offset += NUM_CC_LOGS;
+        let total_contract_class_logs_len = NUM_CC_LOGS * CONTRACT_CLASS_LOG_SIZE_IN_FIELDS;
+        let contract_class_logs_prefix =
+            encode_blob_prefix(CONTRACT_CLASS_LOGS_PREFIX, total_contract_class_logs_len);
+        reconstructed_tx_effects[offset] = contract_class_logs_prefix;
+        offset += 1;
+        for i in 0..NUM_CC_LOGS {
+            let siloed_log = builder.tube_data.contract_class_logs.storage()[i].inner.log;
+            for j in 0..CONTRACT_CLASS_LOG_SIZE_IN_FIELDS {
+                reconstructed_tx_effects[offset + i * CONTRACT_CLASS_LOG_SIZE_IN_FIELDS + j] =
+                    siloed_log.fields[j];
+            }
+        }
+        offset += total_contract_class_logs_len;
 
         // Initial field = TX_START_PREFIX | 0 | txlen[0] txlen[1] | 0 | REVERT_CODE_PREFIX | 0 | revert_code
         // revert code = 0

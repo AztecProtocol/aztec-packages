@@ -2,7 +2,7 @@ use crate::components::tail_output_composer::meter_gas_used;
 use dep::types::{
     abis::gas::Gas,
     constants::{
-        DA_BYTES_PER_FIELD, DA_GAS_PER_BYTE, L2_GAS_PER_L2_TO_L1_MSG, L2_GAS_PER_LOG_BYTE,
+        DA_BYTES_PER_FIELD, DA_GAS_PER_BYTE, L2_GAS_PER_CONTRACT_CLASS_LOG, L2_GAS_PER_L2_TO_L1_MSG,
         L2_GAS_PER_NOTE_HASH, L2_GAS_PER_NULLIFIER, L2_GAS_PER_PRIVATE_LOG,
         PRIVATE_LOG_SIZE_IN_FIELDS,
     },
@@ -44,10 +44,9 @@ fn meter_gas_used_everything_succeeds() {
     metered_da_bytes += 3 * PRIVATE_LOG_SIZE_IN_FIELDS * DA_BYTES_PER_FIELD;
     computed_l2_gas += 3 * L2_GAS_PER_PRIVATE_LOG;
 
-    // TODO(MW): reinstate
-    // builder.add_contract_class_log_hash(3001, 51);
-    // metered_da_bytes += 51;
-    // computed_l2_gas += 51 * L2_GAS_PER_LOG_BYTE;
+    builder.add_contract_class_log([1, 2, 3]);
+    metered_da_bytes += 3 * DA_BYTES_PER_FIELD;
+    computed_l2_gas += 1 * L2_GAS_PER_CONTRACT_CLASS_LOG;
 
     let data = builder.to_private_to_rollup_accumulated_data();
     let gas = meter_gas_used(data);
