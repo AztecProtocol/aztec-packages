@@ -129,12 +129,12 @@ async function generateRoot(names: string[], leaves: Fr[]) {
   `;
 }
 
-function generateLogTags() {
+async function generateLogTags() {
   return `
   export const REGISTERER_CONTRACT_CLASS_REGISTERED_TAG = new Fr(${REGISTERER_CONTRACT_CLASS_REGISTERED_MAGIC_VALUE}n);
   export const REGISTERER_PRIVATE_FUNCTION_BROADCASTED_TAG = new Fr(${REGISTERER_PRIVATE_FUNCTION_BROADCASTED_MAGIC_VALUE}n);
   export const REGISTERER_UNCONSTRAINED_FUNCTION_BROADCASTED_TAG = new Fr(${REGISTERER_UNCONSTRAINED_FUNCTION_BROADCASTED_MAGIC_VALUE}n);
-  export const DEPLOYER_CONTRACT_INSTANCE_DEPLOYED_TAG = Fr.fromHexString('${poseidon2Hash([
+  export const DEPLOYER_CONTRACT_INSTANCE_DEPLOYED_TAG = Fr.fromHexString('${await poseidon2Hash([
     DEPLOYER_CONTRACT_ADDRESS,
     DEPLOYER_CONTRACT_INSTANCE_DEPLOYED_MAGIC_VALUE,
   ])}');
@@ -156,7 +156,7 @@ async function generateOutputFile(names: string[], leaves: Fr[]) {
 
     ${await generateRoot(names, leaves)}
 
-    ${generateLogTags()}
+    ${await generateLogTags()}
   `;
   await fs.writeFile(outputFilePath, content);
 }
