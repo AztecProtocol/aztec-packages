@@ -130,6 +130,7 @@ function generateRoot(names: string[], leaves: Fr[]) {
 }
 
 function generateLogTags() {
+  // TODO(MW): replace w hashed tags
   return `
   export const REGISTERER_CONTRACT_CLASS_REGISTERED_TAG = new Fr(${REGISTERER_CONTRACT_CLASS_REGISTERED_MAGIC_VALUE}n);
   export const REGISTERER_PRIVATE_FUNCTION_BROADCASTED_TAG = new Fr(${REGISTERER_PRIVATE_FUNCTION_BROADCASTED_MAGIC_VALUE}n);

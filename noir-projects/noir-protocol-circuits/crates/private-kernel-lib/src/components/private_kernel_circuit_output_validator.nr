@@ -259,9 +259,9 @@ impl PrivateKernelCircuitOutputValidator {
             array_lengths.private_logs,
         );
         assert_array_prepended(
-            self.output.end.contract_class_logs_hashes,
-            previous_kernel.end.contract_class_logs_hashes,
-            array_lengths.contract_class_logs_hashes,
+            self.output.end.contract_class_logs,
+            previous_kernel.end.contract_class_logs,
+            array_lengths.contract_class_logs,
         );
         assert_array_prepended(
             self.output.end.public_call_requests,
@@ -334,11 +334,11 @@ impl PrivateKernelCircuitOutputValidator {
             offsets.private_logs,
             contract_address,
         );
-        assert_array_appended_scoped(
-            self.output.end.contract_class_logs_hashes,
-            private_call.contract_class_logs_hashes,
-            array_lengths.contract_class_logs_hashes,
-            offsets.contract_class_logs_hashes,
+        assert_array_appended_and_scoped(
+            self.output.end.contract_class_logs,
+            private_call.contract_class_logs,
+            array_lengths.contract_class_logs,
+            offsets.contract_class_logs,
             contract_address,
         );
         assert_array_appended(

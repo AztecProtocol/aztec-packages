@@ -4,10 +4,10 @@ use crate::components::private_kernel_circuit_public_inputs_composer::PrivateKer
 use dep::types::{
     abis::{
         accumulated_data::private_to_rollup_accumulated_data::PrivateToRollupAccumulatedData,
+        contract_class_log::ContractClassLogData,
         kernel_circuit_public_inputs::{
             PrivateKernelCircuitPublicInputs, PrivateToRollupKernelCircuitPublicInputs,
         },
-        log_hash::ScopedLogHash,
         note_hash::ScopedNoteHash,
         nullifier::ScopedNullifier,
         private_log::PrivateLogData,
@@ -52,12 +52,8 @@ impl TailOutputComposer {
             source.l2_to_l1_msgs.storage().map(|m: ScopedL2ToL1Message| m.expose_to_public());
         data.private_logs =
             source.private_logs.storage().map(|l: Scoped<PrivateLogData>| l.inner.log);
-        data.contract_class_logs_hashes = source.contract_class_logs_hashes.storage().map(
-            |l: ScopedLogHash| l.expose_to_public(),
-        );
-        data.contract_class_log_preimages_length = source.contract_class_logs_hashes.storage().fold(
-            0,
-            |len, l: ScopedLogHash| len + l.log_hash.length,
+        data.contract_class_logs = source.contract_class_logs.storage().map(
+            |l: Scoped<ContractClassLogData>| l.expose_to_public(),
         );
         data
     }

@@ -3,10 +3,10 @@ pub mod tail_output_hints;
 use crate::components::tail_output_composer::meter_gas_used;
 use dep::types::{
     abis::{
+        contract_class_log::ContractClassLogData,
         kernel_circuit_public_inputs::{
             PrivateKernelCircuitPublicInputs, PrivateToRollupKernelCircuitPublicInputs,
         },
-        log_hash::ScopedLogHash,
         private_log::PrivateLogData,
         side_effect::scoped::Scoped,
     },
@@ -108,10 +108,12 @@ impl TailOutputValidator {
         );
         // contract_class_logs
         assert_exposed_sorted_transformed_value_array(
-            self.previous_kernel.end.contract_class_logs_hashes,
-            self.output.end.contract_class_logs_hashes,
-            |prev: ScopedLogHash, out: ScopedLogHash| out == prev.expose_to_public(),
-            self.hints.sorted_contract_class_log_hash_hints,
+            self.previous_kernel.end.contract_class_logs,
+            self.output.end.contract_class_logs,
+            |prev: Scoped<ContractClassLogData>, out: Scoped<ContractClassLogData>| {
+                out == prev.expose_to_public()
+            },
+            self.hints.sorted_contract_class_log_hints,
         );
     }
 

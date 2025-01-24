@@ -20,9 +20,9 @@ use crate::{
 use dep::protocol_types::{
     abis::{
         call_context::CallContext,
+        contract_class_log::ContractClassLogData,
         function_selector::FunctionSelector,
         log::Log,
-        log_hash::LogHash,
         max_block_number::MaxBlockNumber,
         note_hash::NoteHash,
         nullifier::Nullifier,
@@ -37,9 +37,9 @@ use dep::protocol_types::{
     address::{AztecAddress, EthAddress},
     block_header::BlockHeader,
     constants::{
-        MAX_CONTRACT_CLASS_LOGS_PER_CALL, MAX_ENQUEUED_CALLS_PER_CALL,
-        MAX_KEY_VALIDATION_REQUESTS_PER_CALL, MAX_L2_TO_L1_MSGS_PER_CALL,
-        MAX_NOTE_HASH_READ_REQUESTS_PER_CALL, MAX_NOTE_HASHES_PER_CALL,
+        CONTRACT_CLASS_LOG_SIZE_IN_FIELDS, MAX_CONTRACT_CLASS_LOGS_PER_CALL,
+        MAX_ENQUEUED_CALLS_PER_CALL, MAX_KEY_VALIDATION_REQUESTS_PER_CALL,
+        MAX_L2_TO_L1_MSGS_PER_CALL, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL, MAX_NOTE_HASHES_PER_CALL,
         MAX_NULLIFIER_READ_REQUESTS_PER_CALL, MAX_NULLIFIERS_PER_CALL,
         MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL, MAX_PRIVATE_LOGS_PER_CALL,
         PRIVATE_LOG_SIZE_IN_FIELDS, PUBLIC_DISPATCH_SELECTOR,
@@ -79,7 +79,7 @@ pub struct PrivateContext {
     pub historical_header: BlockHeader,
 
     pub private_logs: BoundedVec<PrivateLogData, MAX_PRIVATE_LOGS_PER_CALL>,
-    pub contract_class_logs_hashes: BoundedVec<LogHash, MAX_CONTRACT_CLASS_LOGS_PER_CALL>,
+    pub contract_class_logs: BoundedVec<ContractClassLogData, MAX_CONTRACT_CLASS_LOGS_PER_CALL>,
 
     // Contains the last key validation request for each key type. This is used to cache the last request and avoid
     // fetching the same request multiple times.
@@ -108,7 +108,7 @@ impl PrivateContext {
             public_teardown_call_request: PublicCallRequest::empty(),
             l2_to_l1_msgs: BoundedVec::new(),
             private_logs: BoundedVec::new(),
-            contract_class_logs_hashes: BoundedVec::new(),
+            contract_class_logs: BoundedVec::new(),
             last_key_validation_requests: [Option::none(); NUM_KEY_TYPES],
         }
     }
@@ -205,7 +205,7 @@ impl PrivateContext {
             start_side_effect_counter: self.inputs.start_side_effect_counter,
             end_side_effect_counter: self.side_effect_counter,
             private_logs: self.private_logs.storage(),
-            contract_class_logs_hashes: self.contract_class_logs_hashes.storage(),
+            contract_class_logs: self.contract_class_logs.storage(),
             historical_header: self.historical_header,
             tx_context: self.inputs.tx_context,
         }
@@ -321,6 +321,12 @@ impl PrivateContext {
         let counter = self.next_counter();
         let private_log = PrivateLogData { log: Log::new(log), note_hash_counter: 0, counter };
         self.private_logs.push(private_log);
+    }
+
+    pub fn emit_contract_class_log(&mut self, log: [Field; CONTRACT_CLASS_LOG_SIZE_IN_FIELDS]) {
+        let counter = self.next_counter();
+        let contract_class_log = ContractClassLogData { log: Log::new(log), counter };
+        self.contract_class_logs.push(contract_class_log);
     }
 
     pub fn emit_raw_note_log(
@@ -605,7 +611,7 @@ impl Empty for PrivateContext {
             l2_to_l1_msgs: BoundedVec::new(),
             historical_header: BlockHeader::empty(),
             private_logs: BoundedVec::new(),
-            contract_class_logs_hashes: BoundedVec::new(),
+            contract_class_logs: BoundedVec::new(),
             last_key_validation_requests: [Option::none(); NUM_KEY_TYPES],
         }
     }

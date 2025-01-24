@@ -1,12 +1,12 @@
 use dep::types::{
     abis::{
-        accumulated_data::PrivateToPublicAccumulatedData, gas::Gas, log_hash::ScopedLogHash,
+        accumulated_data::PrivateToPublicAccumulatedData, gas::Gas,
         public_call_request::PublicCallRequest,
     },
     constants::{
-        DA_BYTES_PER_FIELD, DA_GAS_PER_BYTE, FIXED_AVM_STARTUP_L2_GAS, L2_GAS_PER_L2_TO_L1_MSG,
-        L2_GAS_PER_LOG_BYTE, L2_GAS_PER_NOTE_HASH, L2_GAS_PER_NULLIFIER, L2_GAS_PER_PRIVATE_LOG,
-        PRIVATE_LOG_SIZE_IN_FIELDS,
+        CONTRACT_CLASS_LOG_SIZE_IN_FIELDS, DA_BYTES_PER_FIELD, DA_GAS_PER_BYTE,
+        FIXED_AVM_STARTUP_L2_GAS, L2_GAS_PER_L2_TO_L1_MSG, L2_GAS_PER_NOTE_HASH,
+        L2_GAS_PER_NULLIFIER, L2_GAS_PER_PRIVATE_LOG, PRIVATE_LOG_SIZE_IN_FIELDS,
     },
     traits::is_empty,
     utils::arrays::array_length,
@@ -32,11 +32,12 @@ fn meter_accumulated_data_gas_used(data: PrivateToPublicAccumulatedData) -> Gas 
     metered_da_fields += num_private_logs * PRIVATE_LOG_SIZE_IN_FIELDS;
     metered_l2_gas += num_private_logs * L2_GAS_PER_PRIVATE_LOG;
 
+    let num_contract_class_logs = array_length(data.contract_class_logs);
+    metered_da_fields += num_contract_class_logs * CONTRACT_CLASS_LOG_SIZE_IN_FIELDS;
+    // TODO(MW): what would L2_GAS_PER_CONTRACT_CLASS_LOG be?
+    metered_l2_gas += num_contract_class_logs * L2_GAS_PER_PRIVATE_LOG;
+
     let mut metered_da_bytes = metered_da_fields * DA_BYTES_PER_FIELD;
-    let contract_class_log_preimages_length =
-        data.contract_class_logs_hashes.fold(0, |len, l: ScopedLogHash| len + l.log_hash.length);
-    metered_da_bytes += contract_class_log_preimages_length as u32;
-    metered_l2_gas += contract_class_log_preimages_length as u32 * L2_GAS_PER_LOG_BYTE;
 
     metered_l2_gas += array_length(data.public_call_requests) * FIXED_AVM_STARTUP_L2_GAS;
 

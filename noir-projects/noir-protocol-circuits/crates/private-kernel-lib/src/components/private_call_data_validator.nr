@@ -210,12 +210,12 @@ impl PrivateCallDataValidator {
                 "private_logs must be empty for static calls",
             );
             assert_eq(
-                self.array_lengths.contract_class_logs_hashes,
+                self.array_lengths.contract_class_logs,
                 0,
                 "contract_class_logs_hashes must be empty for static calls",
             );
         }
-        if (self.array_lengths.contract_class_logs_hashes != 0) {
+        if (self.array_lengths.contract_class_logs != 0) {
             assert_eq(
                 call_context.contract_address,
                 REGISTERER_CONTRACT_ADDRESS,
@@ -350,8 +350,8 @@ impl PrivateCallDataValidator {
         validate_incrementing_counters_within_range(
             counter_start,
             counter_end,
-            public_inputs.contract_class_logs_hashes,
-            self.array_lengths.contract_class_logs_hashes,
+            public_inputs.contract_class_logs,
+            self.array_lengths.contract_class_logs,
         );
         validate_incrementing_counter_ranges_within_range(
             counter_start,

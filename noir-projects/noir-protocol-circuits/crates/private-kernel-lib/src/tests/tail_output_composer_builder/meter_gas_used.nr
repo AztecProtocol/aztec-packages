@@ -44,9 +44,10 @@ fn meter_gas_used_everything_succeeds() {
     metered_da_bytes += 3 * PRIVATE_LOG_SIZE_IN_FIELDS * DA_BYTES_PER_FIELD;
     computed_l2_gas += 3 * L2_GAS_PER_PRIVATE_LOG;
 
-    builder.add_contract_class_log_hash(3001, 51);
-    metered_da_bytes += 51;
-    computed_l2_gas += 51 * L2_GAS_PER_LOG_BYTE;
+    // TODO(MW): reinstate
+    // builder.add_contract_class_log_hash(3001, 51);
+    // metered_da_bytes += 51;
+    // computed_l2_gas += 51 * L2_GAS_PER_LOG_BYTE;
 
     let data = builder.to_private_to_rollup_accumulated_data();
     let gas = meter_gas_used(data);

@@ -102,8 +102,8 @@ impl<let NH_RR_PENDING: u32, let NH_RR_SETTLED: u32, let NLL_RR_PENDING: u32, le
         // accumulated_data
         assert_eq(self.output.end.l2_to_l1_msgs, self.previous_kernel.end.l2_to_l1_msgs);
         assert_eq(
-            self.output.end.contract_class_logs_hashes,
-            self.previous_kernel.end.contract_class_logs_hashes,
+            self.output.end.contract_class_logs,
+            self.previous_kernel.end.contract_class_logs,
         );
         assert_eq(
             self.output.end.public_call_requests,

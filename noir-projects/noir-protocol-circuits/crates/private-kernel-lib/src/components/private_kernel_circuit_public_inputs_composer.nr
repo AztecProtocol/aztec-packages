@@ -106,8 +106,7 @@ impl PrivateKernelCircuitPublicInputsComposer {
         public_inputs.end.nullifiers = array_to_bounded_vec(start.nullifiers);
         public_inputs.end.l2_to_l1_msgs = array_to_bounded_vec(start.l2_to_l1_msgs);
         public_inputs.end.private_logs = array_to_bounded_vec(start.private_logs);
-        public_inputs.end.contract_class_logs_hashes =
-            array_to_bounded_vec(start.contract_class_logs_hashes);
+        public_inputs.end.contract_class_logs = array_to_bounded_vec(start.contract_class_logs);
         public_inputs.end.public_call_requests = array_to_bounded_vec(start.public_call_requests);
         public_inputs.end.private_call_stack = array_to_bounded_vec(start.private_call_stack);
 
@@ -132,8 +131,8 @@ impl PrivateKernelCircuitPublicInputsComposer {
         // Note hashes, nullifiers, and private logs are sorted in the reset circuit.
         self.public_inputs.end.l2_to_l1_msgs =
             transform_vec(self.public_inputs.end.l2_to_l1_msgs, sort_by_counter_asc);
-        self.public_inputs.end.contract_class_logs_hashes = transform_vec(
-            self.public_inputs.end.contract_class_logs_hashes,
+        self.public_inputs.end.contract_class_logs = transform_vec(
+            self.public_inputs.end.contract_class_logs,
             sort_by_counter_asc,
         );
         self.public_inputs.end.public_call_requests = transform_vec(
@@ -271,11 +270,11 @@ impl PrivateKernelCircuitPublicInputsComposer {
             }
         }
 
-        let contract_class_logs = private_call.contract_class_logs_hashes;
+        let contract_class_logs = private_call.contract_class_logs;
         for i in 0..contract_class_logs.len() {
             let log = contract_class_logs[i];
             if !is_empty(log) {
-                self.public_inputs.end.contract_class_logs_hashes.push(log.scope(
+                self.public_inputs.end.contract_class_logs.push(log.scope(
                     private_call.call_context.contract_address,
                 ));
             }

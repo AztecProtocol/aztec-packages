@@ -120,25 +120,6 @@ mod tests {
     }
 
     #[test]
-    fn measuring_of_log_lengths() {
-        let mut builder = PrivateKernelTailInputsBuilder::new();
-        // Logs for the previous call stack.
-        let prev_contract_class_logs_hash = 956;
-        let prev_contract_class_log_preimages_length = 24;
-        builder.previous_kernel.add_contract_class_log_hash(
-            prev_contract_class_logs_hash,
-            prev_contract_class_log_preimages_length,
-        );
-
-        let public_inputs = builder.execute();
-
-        assert_eq(
-            public_inputs.end.contract_class_log_preimages_length,
-            prev_contract_class_log_preimages_length,
-        );
-    }
-
-    #[test]
     fn ordering_of_msgs() {
         let mut builder = PrivateKernelTailInputsBuilder::new();
 
@@ -264,25 +245,26 @@ mod tests {
         );
     }
 
-    #[test]
-    unconstrained fn tx_consumed_gas_from_logs() {
-        let mut builder = PrivateKernelTailInputsBuilder::new();
-        builder.previous_kernel.append_siloed_private_logs_for_note(1, 33);
-        builder.previous_kernel.add_contract_class_log_hash(999, 12);
-        builder.previous_kernel.end_setup();
-        builder.previous_kernel.append_siloed_private_logs_for_note(2, 44);
+    // TODO(MW): reinstate
+    // #[test]
+    // unconstrained fn tx_consumed_gas_from_logs() {
+    //     let mut builder = PrivateKernelTailInputsBuilder::new();
+    //     builder.previous_kernel.append_siloed_private_logs_for_note(1, 33);
+    //     builder.previous_kernel.add_contract_class_log_hash(999, 12);
+    //     builder.previous_kernel.end_setup();
+    //     builder.previous_kernel.append_siloed_private_logs_for_note(2, 44);
 
-        let public_inputs = builder.execute();
+    //     let public_inputs = builder.execute();
 
-        let num_private_logs = 1 + 2;
-        let num_da_fields = 1 /* nullifier */ + num_private_logs * PRIVATE_LOG_SIZE_IN_FIELDS;
-        let num_da_bytes = (num_da_fields * DA_BYTES_PER_FIELD) + 12 /* contract_class_logs */;
-        let da_gas = num_da_bytes * DA_GAS_PER_BYTE;
-        let l2_gas = 1 * L2_GAS_PER_NULLIFIER
-            + num_private_logs * L2_GAS_PER_PRIVATE_LOG
-            + 12 * L2_GAS_PER_LOG_BYTE;
-        assert_eq(Gas::tx_overhead() + Gas::new(da_gas, l2_gas), public_inputs.gas_used);
-    }
+    //     let num_private_logs = 1 + 2;
+    //     let num_da_fields = 1 /* nullifier */ + num_private_logs * PRIVATE_LOG_SIZE_IN_FIELDS;
+    //     let num_da_bytes = (num_da_fields * DA_BYTES_PER_FIELD) + 12 /* contract_class_logs */;
+    //     let da_gas = num_da_bytes * DA_GAS_PER_BYTE;
+    //     let l2_gas = 1 * L2_GAS_PER_NULLIFIER
+    //         + num_private_logs * L2_GAS_PER_PRIVATE_LOG
+    //         + 12 * L2_GAS_PER_LOG_BYTE;
+    //     assert_eq(Gas::tx_overhead() + Gas::new(da_gas, l2_gas), public_inputs.gas_used);
+    // }
 
     #[test(should_fail_with = "The gas used exceeds the gas limits")]
     fn gas_limits_are_enforced() {

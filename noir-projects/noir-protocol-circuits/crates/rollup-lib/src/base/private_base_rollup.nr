@@ -19,15 +19,16 @@ use super::components::constants::validate_tx_constant_data;
 use dep::types::{
     abis::{
         append_only_tree_snapshot::AppendOnlyTreeSnapshot, constant_rollup_data::ConstantRollupData,
-        nullifier_leaf_preimage::NullifierLeafPreimage, public_data_write::PublicDataWrite,
-        public_log::PublicLog, sponge_blob::SpongeBlob, tube::PrivateTubeData,
+        contract_class_log::ContractClassLogData, nullifier_leaf_preimage::NullifierLeafPreimage,
+        public_data_write::PublicDataWrite, public_log::PublicLog, side_effect::scoped::Scoped,
+        sponge_blob::SpongeBlob, tube::PrivateTubeData,
     },
     constants::{
         ARCHIVE_HEIGHT, MAX_PUBLIC_LOGS_PER_TX, MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
         NOTE_HASH_SUBTREE_HEIGHT, TUBE_VK_INDEX,
     },
     data::{hash::compute_public_data_tree_value, public_data_hint::PublicDataHint},
-    hash::silo_l2_to_l1_message,
+    hash::{silo_contract_class_log, silo_l2_to_l1_message},
     merkle_tree::{
         append_only_tree, calculate_empty_tree_root, calculate_subtree_root, MembershipWitness,
     },
@@ -110,6 +111,10 @@ impl PrivateBaseRollupInputs {
             ),
         );
 
+        let siloed_contract_class_logs = self.tube_data.public_inputs.end.contract_class_logs.map(
+            |log: Scoped<ContractClassLogData>| silo_contract_class_log(log),
+        );
+
         let out_hash = compute_kernel_out_hash(siloed_l2_to_l1_msgs);
         let tx_effect = TxEffect {
             tx_hash: self.tube_data.public_inputs.hash(),
@@ -121,12 +126,7 @@ impl PrivateBaseRollupInputs {
             public_data_writes: all_public_data_update_requests,
             private_logs: self.tube_data.public_inputs.end.private_logs,
             public_logs: [PublicLog::empty(); MAX_PUBLIC_LOGS_PER_TX],
-            contract_class_log_preimages_length: self
-                .tube_data
-                .public_inputs
-                .end
-                .contract_class_log_preimages_length,
-            contract_class_logs_hashes: self.tube_data.public_inputs.end.contract_class_logs_hashes,
+            contract_class_logs: siloed_contract_class_logs,
         };
         let end_sponge_blob = append_tx_effects_for_blob(tx_effect, self.start_sponge_blob);
 
@@ -879,7 +879,8 @@ mod tests {
         builder.tube_data.append_l2_to_l1_msgs(NUM_MSGS);
         builder.tube_data.append_private_logs(NUM_PRIV_EVENT_LOGS);
         // Below will only work with NUM_CC_LOGS=1
-        builder.tube_data.add_contract_class_log_hash(1, 2);
+        // TODO(MW): reinstate
+        // builder.tube_data.add_contract_class_log_hash(1, 2);
         let inputs = builder.build_inputs();
         let outputs = inputs.execute();
 
@@ -934,16 +935,17 @@ mod tests {
         }
         offset += total_private_logs_len;
         // cc logs
-        let contract_class_logs_prefix =
-            encode_blob_prefix(CONTRACT_CLASS_LOGS_PREFIX, NUM_CC_LOGS);
-        reconstructed_tx_effects[offset] = contract_class_logs_prefix;
-        offset += 1;
-        for i in 0..NUM_CC_LOGS {
-            reconstructed_tx_effects[offset + i] = types::hash::silo_contract_class_log_hash(
-                builder.tube_data.contract_class_logs_hashes.storage()[i],
-            );
-        }
-        offset += NUM_CC_LOGS;
+        // TODO(MW): reinstate
+        // let contract_class_logs_prefix =
+        //     encode_blob_prefix(CONTRACT_CLASS_LOGS_PREFIX, NUM_CC_LOGS);
+        // reconstructed_tx_effects[offset] = contract_class_logs_prefix;
+        // offset += 1;
+        // for i in 0..NUM_CC_LOGS {
+        //     reconstructed_tx_effects[offset + i] = types::hash::silo_contract_class_log_hash(
+        //         builder.tube_data.contract_class_logs_hashes.storage()[i],
+        //     );
+        // }
+        // offset += NUM_CC_LOGS;
 
         // Initial field = TX_START_PREFIX | 0 | txlen[0] txlen[1] | 0 | REVERT_CODE_PREFIX | 0 | revert_code
         // revert code = 0

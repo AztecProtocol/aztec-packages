@@ -1,7 +1,8 @@
 use crate::{
     abis::{
         accumulated_data::private_to_public_accumulated_data::PrivateToPublicAccumulatedData,
-        log_hash::ScopedLogHash, private_log::PrivateLog, public_call_request::PublicCallRequest,
+        contract_class_log::ContractClassLogData, private_log::PrivateLog,
+        public_call_request::PublicCallRequest, side_effect::scoped::Scoped,
     },
     constants::{
         MAX_CONTRACT_CLASS_LOGS_PER_TX, MAX_ENQUEUED_CALLS_PER_TX, MAX_L2_TO_L1_MSGS_PER_TX,
@@ -17,7 +18,8 @@ pub struct PrivateToPublicAccumulatedDataBuilder {
     pub nullifiers: BoundedVec<Field, MAX_NULLIFIERS_PER_TX>,
     pub l2_to_l1_msgs: BoundedVec<ScopedL2ToL1Message, MAX_L2_TO_L1_MSGS_PER_TX>,
     pub private_logs: BoundedVec<PrivateLog, MAX_PRIVATE_LOGS_PER_TX>,
-    pub contract_class_logs_hashes: BoundedVec<ScopedLogHash, MAX_CONTRACT_CLASS_LOGS_PER_TX>,
+    // TODO(MW): Think about siloing contract class logs and what should be here
+    pub contract_class_logs: BoundedVec<Scoped<ContractClassLogData>, MAX_CONTRACT_CLASS_LOGS_PER_TX>,
     pub public_call_requests: BoundedVec<PublicCallRequest, MAX_ENQUEUED_CALLS_PER_TX>,
 }
 
@@ -28,7 +30,7 @@ impl PrivateToPublicAccumulatedDataBuilder {
             nullifiers: array_to_bounded_vec(data.nullifiers),
             l2_to_l1_msgs: array_to_bounded_vec(data.l2_to_l1_msgs),
             private_logs: array_to_bounded_vec(data.private_logs),
-            contract_class_logs_hashes: array_to_bounded_vec(data.contract_class_logs_hashes),
+            contract_class_logs: array_to_bounded_vec(data.contract_class_logs),
             public_call_requests: array_to_bounded_vec(data.public_call_requests),
         }
     }
@@ -39,7 +41,7 @@ impl PrivateToPublicAccumulatedDataBuilder {
             nullifiers: self.nullifiers.storage(),
             l2_to_l1_msgs: self.l2_to_l1_msgs.storage(),
             private_logs: self.private_logs.storage(),
-            contract_class_logs_hashes: self.contract_class_logs_hashes.storage(),
+            contract_class_logs: self.contract_class_logs.storage(),
             public_call_requests: self.public_call_requests.storage(),
         }
     }
@@ -52,7 +54,7 @@ impl Empty for PrivateToPublicAccumulatedDataBuilder {
             nullifiers: BoundedVec::new(),
             l2_to_l1_msgs: BoundedVec::new(),
             private_logs: BoundedVec::new(),
-            contract_class_logs_hashes: BoundedVec::new(),
+            contract_class_logs: BoundedVec::new(),
             public_call_requests: BoundedVec::new(),
         }
     }

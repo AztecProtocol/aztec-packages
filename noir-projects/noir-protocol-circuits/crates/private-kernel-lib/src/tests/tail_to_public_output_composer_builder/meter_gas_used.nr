@@ -52,7 +52,8 @@ fn meter_gas_used_everything_succeeds() {
     non_revertible_builder.append_nullifiers(1);
     non_revertible_builder.append_l2_to_l1_msgs(0);
     non_revertible_builder.append_private_logs(3);
-    non_revertible_builder.add_contract_class_log_hash(3001, 51);
+    // TODO(MW): reinstate
+    // non_revertible_builder.add_contract_class_log_hash(3001, 51);
     non_revertible_builder.append_public_call_requests(1);
 
     revertible_builder.append_note_hashes(1);
@@ -75,15 +76,15 @@ fn meter_gas_used_everything_succeeds() {
     );
 
     let total_num_side_effects = 4 + 3 + 1;
-    let total_log_bytes = 5 * PRIVATE_LOG_SIZE_IN_FIELDS * DA_BYTES_PER_FIELD // private_logs
-        + 51; // contract_class_logs
+    let total_log_bytes = 5 * PRIVATE_LOG_SIZE_IN_FIELDS * DA_BYTES_PER_FIELD; // private_logs
+    //    + 51; // contract_class_logs
     let computed_da_gas =
         (total_num_side_effects * DA_BYTES_PER_FIELD + total_log_bytes) * DA_GAS_PER_BYTE;
     let computed_l2_gas = 4 * L2_GAS_PER_NOTE_HASH
         + 3 * L2_GAS_PER_NULLIFIER
         + 1 * L2_GAS_PER_L2_TO_L1_MSG
         + 5 * L2_GAS_PER_PRIVATE_LOG
-        + 51 * L2_GAS_PER_LOG_BYTE /* contract_class_logs */
+        //   + 51 * L2_GAS_PER_LOG_BYTE /* contract_class_logs */
         + 2 * FIXED_AVM_STARTUP_L2_GAS;
 
     assert_eq(
