@@ -330,11 +330,18 @@ pub comptime fn generate_serialize_to_fields(
             // Packing is enabled and the given type implements the `Packable` trait so we call the `pack()`
             // method, add the resulting field array to `aux_vars` and each field to `fields`.
             let packed_len = maybe_packed_len_typ.as_constant().unwrap();
-            let packed_struct_name = f"{name}_packed".quoted_contents();
+
+            // We collapse the name to a one that gets tokenized as a single token (e.g. "self.value" -> "self_value").
+            let name_at_one_token = collapse_to_one_token(name);
+            let packed_struct_name = f"{name_at_one_token}_aux_var".quoted_contents();
+
+            // We add the individual fields to the fields array
             let packed_struct = quote { let $packed_struct_name = $name.pack() };
             for i in 0..packed_len {
-                fields = fields.push_back(quote { $packed_struct[$i] as Field });
+                fields = fields.push_back(quote { $packed_struct_name[$i] });
             }
+
+            // We add the new auxiliary variable to the aux_vars array
             aux_vars = aux_vars.push_back(packed_struct);
         } else if typ.is_field() {
             // For field we just add the value to fields
@@ -411,6 +418,19 @@ pub comptime fn generate_serialize_to_fields(
         }
     }
     (fields, aux_vars)
+}
+
+/// From a quote that gets tokenized to a multiple tokens we collapse it to a single token by replacing all `.` with `_`.
+/// E.g. "self.value" -> "self_value"
+comptime fn collapse_to_one_token(q: Quoted) -> Quoted {
+    let tokens = q.tokens();
+
+    let mut single_token = quote {};
+    for token in tokens {
+        let new_token = if token == quote {.} { quote {_} } else { token };
+        single_token = f"{single_token}{new_token}".quoted_contents();
+    }
+    single_token
 }
 
 pub(crate) comptime fn derive_serialize(s: StructDefinition) -> Quoted {
