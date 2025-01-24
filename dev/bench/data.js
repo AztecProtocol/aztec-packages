@@ -1,74 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1737750110371,
+  "lastUpdate": 1737752521873,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "105737703+iakovenkos@users.noreply.github.com",
-            "name": "iakovenkos",
-            "username": "iakovenkos"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "fc48dcca537fa790ed6866ad4e184cb89c2617a2",
-          "message": "feat: fix commitments and openings of masking polynomials used in zk sumcheck  (#10773)\n\nWe have updated the approach for committing to Libra masking\r\npolynomials. Instead of committing to them and opening them separately,\r\nwe now utilize the [inner products using KZG with ZK and a linear-time\r\nverifier](https://hackmd.io/xYHn1qqvQjey1yJutcuXdg?both#inner-products-using-KZG-with-zk-and-linear-time-verifier)\r\nprotocol, referred to as **SmallSubgroupIPA**.\r\n\r\n### Key Changes in this PR\r\n-  Addressed ZK issues of the previous approach.\r\n- Reduced the number of scalar multiplications required in our ZK\r\nverifiers over BN254.\r\n-  Finalized the necessary logic for UltraZK.\r\n\r\n### Remark\r\nHowever, the non-native arithmetic required by `ECCVMRecursiveVerifier`\r\nbecomes prohibitively expensive if we continue sending the coefficients\r\nof `SumcheckUnivariates`. To address this, we have implemented a\r\nGrumpkin-based version of **SmallSubgroupIPA**, which assumes sending\r\ncommitments to the `SumcheckRound` univariates. This will be done in a\r\nfollow-up update.",
-          "timestamp": "2025-01-07T13:39:20+01:00",
-          "tree_id": "e24381f5c2522df6b0354a4f35d8a8c79407fe18",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/fc48dcca537fa790ed6866ad4e184cb89c2617a2"
-        },
-        "date": 1736254513769,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "nativeClientIVCBench/Ambient_17_in_20/6",
-            "value": 19629.297726999994,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 17086.599381 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeClientIVCBench/Full/6",
-            "value": 21314.671893999985,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 18662.310964 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 4651.158126999973,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 4254.621628 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmClientIVCBench/Full/6",
-            "value": 72078.668879,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 72078669000 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 13991.375813999999,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 13991376000 ms\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 2854677686,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 2854677686 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 146004416,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 146004416 ns\nthreads: 1"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -3284,6 +3218,72 @@ window.BENCHMARK_DATA = {
             "value": 181293496,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 181293496 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "47112877+dbanks12@users.noreply.github.com",
+            "name": "David Banks",
+            "username": "dbanks12"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "79cbe04cfdccdc0926084d837d3ae989f70d441c",
+          "message": "feat(avm): range checks in vm2 (#11433)\n\nAlso `sel_range_8/16` and `power_of_2` precomputed tables",
+          "timestamp": "2025-01-24T20:36:20Z",
+          "tree_id": "bf1b6ef3e2a42b7c3a1581b87a6e5cfcd75a426a",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/79cbe04cfdccdc0926084d837d3ae989f70d441c"
+        },
+        "date": 1737752514329,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Ambient_17_in_20/6",
+            "value": 19612.127059999977,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 16840.31141 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 21598.104406000006,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 18911.804642 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 4464.20108000001,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 4088.8942469999997 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 81419.30016700001,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 81419300000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 13554.093519000002,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 13554094000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 3767902525,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 3767902525 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 167065101,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 167065101 ns\nthreads: 1"
           }
         ]
       }
