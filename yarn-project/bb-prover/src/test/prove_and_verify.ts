@@ -23,8 +23,11 @@ export async function proveAndVerifyAvmTestContractSimple(
   args: Fr[] = [],
   expectRevert = false,
   skipContractDeployments = false,
-  contractDataSource = new MockedAvmTestContractDataSource(skipContractDeployments),
+  contractDataSource?: MockedAvmTestContractDataSource,
 ) {
+  if (!contractDataSource) {
+    contractDataSource = await MockedAvmTestContractDataSource.create(skipContractDeployments);
+  }
   await proveAndVerifyAvmTestContract(
     checkCircuitOnly,
     /*setupFunctionNames=*/ [],
@@ -52,8 +55,11 @@ export async function proveAndVerifyAvmTestContract(
   teardownArgs: Fr[] = [],
   expectRevert = false,
   skipContractDeployments = false,
-  contractDataSource = new MockedAvmTestContractDataSource(skipContractDeployments),
+  contractDataSource?: MockedAvmTestContractDataSource,
 ) {
+  if (!contractDataSource) {
+    contractDataSource = await MockedAvmTestContractDataSource.create(skipContractDeployments);
+  }
   const avmCircuitInputs = await simulateAvmTestContractGenerateCircuitInputs(
     setupFunctionNames,
     setupArgs,

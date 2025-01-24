@@ -8,7 +8,7 @@ const TIMEOUT = 300_000;
 it(
   'call the max number of unique contract classes',
   async () => {
-    const contractDataSource = new MockedAvmTestContractDataSource();
+    const contractDataSource = await MockedAvmTestContractDataSource.create();
     // args is initialized to MAX_PUBLIC_CALLS_TO_UNIQUE_CONTRACT_CLASS_IDS contract addresses with unique class IDs
     const args = Array.from(contractDataSource.contractInstances.values())
       .map(instance => instance.address.toField())
