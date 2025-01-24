@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.72.1](https://github.com/AztecProtocol/aztec-packages/compare/aztec-packages-v0.72.0...aztec-packages-v0.72.1) (2025-01-24)
+
+
+### Bug Fixes
+
+* Fix docs deployment ([#11492](https://github.com/AztecProtocol/aztec-packages/issues/11492)) ([644570b](https://github.com/AztecProtocol/aztec-packages/commit/644570ba8fcba98f665129c944fbf0c235efc486))
+* Npm version unbound variable ([#11495](https://github.com/AztecProtocol/aztec-packages/issues/11495)) ([868600b](https://github.com/AztecProtocol/aztec-packages/commit/868600b3dcbca50b27b2056c21a2af18376990d0))
+
 ## [0.72.0](https://github.com/AztecProtocol/aztec-packages/compare/aztec-packages-v0.71.0...aztec-packages-v0.72.0) (2025-01-24)
 
 
