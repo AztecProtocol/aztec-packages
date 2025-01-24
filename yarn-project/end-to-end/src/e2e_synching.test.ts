@@ -146,13 +146,13 @@ class TestVariant {
   async deployWallets(numberOfAccounts: number) {
     // Create accounts such that we can send from many to not have colliding nullifiers
     const { accountKeys } = await addAccounts(numberOfAccounts, this.logger, false)({ pxe: this.pxe });
-    const accountManagers = accountKeys.map(ak => getSchnorrAccount(this.pxe, ak[0], ak[1], 1));
 
     return await Promise.all(
-      accountManagers.map(async (a, i) => {
-        const partialAddress = a.getCompleteAddress().partialAddress;
+      accountKeys.map(async (ak, i) => {
+        const account = await getSchnorrAccount(this.pxe, ak[0], ak[1], 1);
+        const partialAddress = (await account.getCompleteAddress()).partialAddress;
         await this.pxe.registerAccount(accountKeys[i][0], partialAddress);
-        const wallet = await a.getWallet();
+        const wallet = await account.getWallet();
         this.logger.verbose(`Wallet ${i} address: ${wallet.getAddress()} registered`);
         return wallet;
       }),
@@ -192,11 +192,11 @@ class TestVariant {
     if (this.txComplexity == TxComplexity.Deployment) {
       const txs = [];
       for (let i = 0; i < this.txCount; i++) {
-        const accountManager = getSchnorrAccount(this.pxe, Fr.random(), GrumpkinScalar.random(), Fr.random());
+        const accountManager = await getSchnorrAccount(this.pxe, Fr.random(), GrumpkinScalar.random(), Fr.random());
         this.contractAddresses.push(accountManager.getAddress());
         const deployMethod = await accountManager.getDeployMethod();
         const tx = deployMethod.send({
-          contractAddressSalt: accountManager.salt,
+          contractAddressSalt: new Fr(accountManager.salt),
           skipClassRegistration: true,
           skipPublicDeployment: true,
           universalDeploy: true,
@@ -533,7 +533,7 @@ describe('e2e_synching', () => {
           expect(await archiver.getTxEffect(txHash)).not.toBeUndefined;
           expect(await archiver.getPrivateLogs(blockTip.number, 1)).not.toEqual([]);
           expect(
-            await archiver.getUnencryptedLogs({ fromBlock: blockTip.number, toBlock: blockTip.number + 1 }),
+            await archiver.getPublicLogs({ fromBlock: blockTip.number, toBlock: blockTip.number + 1 }),
           ).not.toEqual([]);
 
           await rollup.write.prune();
@@ -557,9 +557,9 @@ describe('e2e_synching', () => {
 
           expect(await archiver.getTxEffect(txHash)).toBeUndefined;
           expect(await archiver.getPrivateLogs(blockTip.number, 1)).toEqual([]);
-          expect(
-            await archiver.getUnencryptedLogs({ fromBlock: blockTip.number, toBlock: blockTip.number + 1 }),
-          ).toEqual([]);
+          expect(await archiver.getPublicLogs({ fromBlock: blockTip.number, toBlock: blockTip.number + 1 })).toEqual(
+            [],
+          );
 
           // Check world state reverted as well
           expect(await worldState.getLatestBlockNumber()).toEqual(Number(assumeProvenThrough));

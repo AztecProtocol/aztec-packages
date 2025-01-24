@@ -3,6 +3,8 @@
 #include <array>
 #include <optional>
 
+#include "barretenberg/common/std_string.hpp"
+
 namespace bb::avm {
 
 // The entities that will be used in the flavor.
@@ -32,5 +34,13 @@ enum class ColumnAndShifts {
 constexpr auto TO_BE_SHIFTED_COLUMNS_ARRAY = []() { return std::array{ AVM_TO_BE_SHIFTED_COLUMNS }; }();
 constexpr auto SHIFTED_COLUMNS_ARRAY = []() { return std::array{ AVM_SHIFTED_COLUMNS }; }();
 static_assert(TO_BE_SHIFTED_COLUMNS_ARRAY.size() == SHIFTED_COLUMNS_ARRAY.size());
+
+// Two layers are needed to properly expand the macro. Don't ask why.
+#define VARARGS_TO_STRING(...) #__VA_ARGS__
+#define UNPACK_TO_STRING(...) VARARGS_TO_STRING(__VA_ARGS__)
+inline const std::vector<std::string>& COLUMN_NAMES = []() {
+    static auto vec = detail::split_and_trim(UNPACK_TO_STRING(AVM_ALL_ENTITIES), ',');
+    return vec;
+}();
 
 } // namespace bb::avm

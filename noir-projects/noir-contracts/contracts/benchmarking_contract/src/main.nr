@@ -50,6 +50,6 @@ contract Benchmarking {
     // Emits a public log.
     #[public]
     fn broadcast(owner: AztecAddress) {
-        context.emit_unencrypted_log(storage.balances.at(owner).read());
+        context.emit_public_log(storage.balances.at(owner).read());
     }
 }

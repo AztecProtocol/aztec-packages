@@ -3,7 +3,6 @@ import { type ExtendedNote, NoteStatus, type PXE, type TxHash } from '@aztec/cir
 import { type AztecAddress, type Fr } from '@aztec/circuits.js';
 import { siloNullifier } from '@aztec/circuits.js/hash';
 import { type LogFn } from '@aztec/foundation/log';
-import { toHumanReadable } from '@aztec/foundation/serialize';
 import { ProtocolContractAddress } from '@aztec/protocol-contracts';
 
 export async function inspectBlock(pxe: PXE, blockNumber: number, log: LogFn, opts: { showTxs?: boolean } = {}) {
@@ -65,13 +64,12 @@ export async function inspectTx(
     log(` Fee: ${receipt.transactionFee.toString()}`);
   }
 
-  // Unencrypted logs
-  const unencryptedLogs = effects.unencryptedLogs.unrollLogs();
-  if (unencryptedLogs.length > 0) {
+  // Public logs
+  const publicLogs = effects.publicLogs;
+  if (publicLogs.length > 0) {
     log(' Logs:');
-    for (const unencryptedLog of unencryptedLogs) {
-      const data = toHumanReadable(unencryptedLog.data, 1000);
-      log(`  ${toFriendlyAddress(unencryptedLog.contractAddress, artifactMap)}: ${data}`);
+    for (const publicLog of publicLogs) {
+      log(`  ${publicLog.toHumanReadable()}`);
     }
   }
 
