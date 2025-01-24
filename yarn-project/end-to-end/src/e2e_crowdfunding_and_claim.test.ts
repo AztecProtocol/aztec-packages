@@ -12,6 +12,7 @@ import {
   deriveKeys,
 } from '@aztec/aztec.js';
 import { GasSettings, TxContext, computePartialAddress } from '@aztec/circuits.js';
+import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { ClaimContract } from '@aztec/noir-contracts.js/Claim';
 import { CrowdfundingContract } from '@aztec/noir-contracts.js/Crowdfunding';
 import { InclusionProofsContract } from '@aztec/noir-contracts.js/InclusionProofs';
@@ -91,7 +92,7 @@ describe('e2e_crowdfunding_and_claim', () => {
     logger.info(`Reward Token deployed to ${rewardToken.address}`);
 
     crowdfundingSecretKey = Fr.random();
-    crowdfundingPublicKeys = deriveKeys(crowdfundingSecretKey).publicKeys;
+    crowdfundingPublicKeys = (await deriveKeys(crowdfundingSecretKey)).publicKeys;
 
     const crowdfundingDeployment = CrowdfundingContract.deployWithPublicKeys(
       crowdfundingPublicKeys,
@@ -100,7 +101,7 @@ describe('e2e_crowdfunding_and_claim', () => {
       operatorWallet.getAddress(),
       deadline,
     );
-    const crowdfundingInstance = crowdfundingDeployment.getInstance();
+    const crowdfundingInstance = await crowdfundingDeployment.getInstance();
     await pxe.registerAccount(crowdfundingSecretKey, computePartialAddress(crowdfundingInstance));
     crowdfundingContract = await crowdfundingDeployment.send().deployed();
     logger.info(`Crowdfunding contract deployed at ${crowdfundingContract.address}`);
@@ -143,7 +144,7 @@ describe('e2e_crowdfunding_and_claim', () => {
       },
       value: uniqueNote.note.items[0],
       // eslint-disable-next-line camelcase
-      owner: uniqueNote.note.items[1],
+      owner: AztecAddress.fromField(uniqueNote.note.items[1]),
       randomness: uniqueNote.note.items[2],
     };
   };
