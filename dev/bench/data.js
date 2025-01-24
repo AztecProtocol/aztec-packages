@@ -1,74 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1737726165084,
+  "lastUpdate": 1737740477691,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "132435771+jeanmon@users.noreply.github.com",
-            "name": "Jean M",
-            "username": "jeanmon"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "a5097a994e7ecc0be2b6c7d7b320bd7bad5a27a0",
-          "message": "chore(avm): Handle specific MSM errors (#11068)\n\nResolves #10854",
-          "timestamp": "2025-01-06T20:38:03Z",
-          "tree_id": "7247289a554be3e4ed63f18e538dd7fc90ff5401",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/a5097a994e7ecc0be2b6c7d7b320bd7bad5a27a0"
-        },
-        "date": 1736197371234,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "nativeClientIVCBench/Ambient_17_in_20/6",
-            "value": 20363.76701100002,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 17767.931673 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeClientIVCBench/Full/6",
-            "value": 21858.954770999957,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 19229.817922 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 4632.139879000022,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 4317.807648999999 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmClientIVCBench/Full/6",
-            "value": 72888.76763399999,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 72888768000 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 13920.162860999997,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 13920163000 ms\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 2874988943,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 2874988943 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 142345825,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 142345825 ns\nthreads: 1"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -3288,6 +3222,72 @@ window.BENCHMARK_DATA = {
             "value": 161086378,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 161086378 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "fcarreiro@users.noreply.github.com",
+            "name": "Facundo",
+            "username": "fcarreiro"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "53e57d3d52dd477714bc984c4a13bc8e5664877e",
+          "message": "feat(avm): interactive debugger (#11477)\n\nDebugger plus some fixes. This has bb-pilcom changes so update and rebuild after it merges.\n\n<div>\n    <a href=\"https://www.loom.com/share/1ce400f55d4a4d888000cb54c7361a6f\">\n      <p>AVM interactive debugger - Watch Video</p>\n    </a>\n    <a href=\"https://www.loom.com/share/1ce400f55d4a4d888000cb54c7361a6f\">\n      <img style=\"max-width:300px;\" src=\"https://cdn.loom.com/sessions/thumbnails/1ce400f55d4a4d888000cb54c7361a6f-68caa0ac8f8e7ebb-full-play.gif\">\n    </a>\n  </div>\n\nNote: it does not support history or arrow keys or tab/autocompletion. Mostly because this is terminal-dependent and I don't want to pull in a console dependency. I might attempt to do it from scratch when I have some free time.",
+          "timestamp": "2025-01-24T17:14:54Z",
+          "tree_id": "33627ee29b10a2e1e250a78ff3814dd360a255aa",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/53e57d3d52dd477714bc984c4a13bc8e5664877e"
+        },
+        "date": 1737740470086,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Ambient_17_in_20/6",
+            "value": 19551.898512999996,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 16783.315028 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 21711.950075999994,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 18795.998837 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 4509.360458000003,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 4103.1127750000005 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 80610.55416,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 80610555000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 13616.008651,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 13616009000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 3114843972,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 3114843972 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 142904597,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 142904597 ns\nthreads: 1"
           }
         ]
       }
