@@ -20,7 +20,7 @@ export type IntentInnerHash = {
   innerHash: Buffer | Fr;
 };
 
-/** Intent with an action */
+/** Intent with an call */
 export type IntentCall = {
   /** The caller to approve  */
   caller: AztecAddress;
