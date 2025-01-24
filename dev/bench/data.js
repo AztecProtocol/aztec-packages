@@ -1,74 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1737673325768,
+  "lastUpdate": 1737726165084,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "fcarreiro@users.noreply.github.com",
-            "name": "Facundo",
-            "username": "fcarreiro"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "8829f2421238945f042338bac0c9e7342517248b",
-          "message": "chore(avm): more column information in permutations (#11070)\n\nNeeded for avm2.",
-          "timestamp": "2025-01-06T18:53:41Z",
-          "tree_id": "047c6def56d1c591d3119c3077af3a927a925042",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/8829f2421238945f042338bac0c9e7342517248b"
-        },
-        "date": 1736190632742,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "nativeClientIVCBench/Ambient_17_in_20/6",
-            "value": 20378.588485000022,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 17867.288208 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeClientIVCBench/Full/6",
-            "value": 21883.914918000017,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 19310.873033 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 4636.138843999959,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 4247.608365 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmClientIVCBench/Full/6",
-            "value": 72982.11258399999,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 72982114000 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 13911.442454999999,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 13911443000 ms\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 2871577157,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 2871577157 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 145055566,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 145055566 ns\nthreads: 1"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -3288,6 +3222,72 @@ window.BENCHMARK_DATA = {
             "value": 139078838,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 139078838 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "105737703+iakovenkos@users.noreply.github.com",
+            "name": "sergei iakovenko",
+            "username": "iakovenkos"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "5018c94db30ea80c93d194453d1c837a51fbe3a0",
+          "message": "chore: fixed VK in MegaZK/ECCVM/Translator/Tube Recursive Verifier circuits (#11377)\n\n* Ensure that the verification keys for MegaZK-/ECCVM-/Translator\r\nRecursive Verifier circuits are fixed.\r\n* Ensure that the verification key for the Tube(=ClientIVC Recursive\r\nVerifier) circuit is fixed.\r\n\r\nWill close https://github.com/AztecProtocol/barretenberg/issues/1146",
+          "timestamp": "2025-01-24T13:17:08Z",
+          "tree_id": "82eec954946eb475787ebb88885dc59daf999811",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/5018c94db30ea80c93d194453d1c837a51fbe3a0"
+        },
+        "date": 1737726157056,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Ambient_17_in_20/6",
+            "value": 18791.377097999997,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 16136.8084 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 21403.117547000023,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 18821.465125 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 4056.436815000012,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 3757.1954899999996 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 85492.789257,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 85492789000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 14653.711427999999,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 14653712000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 3875433356,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 3875433356 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 161086378,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 161086378 ns\nthreads: 1"
           }
         ]
       }
