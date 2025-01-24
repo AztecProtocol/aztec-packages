@@ -22,6 +22,7 @@ import {
   PrivateKernelTailCircuitPrivateInputs,
   type PrivateKernelTailCircuitPublicInputs,
   type PrivateLog,
+  PrivateVerificationKeyHints,
   type ScopedPrivateLogData,
   type TxRequest,
   VK_TREE_HEIGHT,
@@ -363,13 +364,15 @@ export class KernelProver {
     return PrivateCallData.from({
       publicInputs,
       vk,
-      publicKeys,
-      contractClassArtifactHash,
-      contractClassPublicBytecodeCommitment,
-      saltedInitializationHash,
-      functionLeafMembershipWitness,
-      protocolContractSiblingPath,
-      acirHash,
+      verificationKeyHints: PrivateVerificationKeyHints.from({
+        publicKeys,
+        contractClassArtifactHash,
+        contractClassPublicBytecodeCommitment,
+        saltedInitializationHash,
+        functionLeafMembershipWitness,
+        protocolContractSiblingPath,
+        acirHash,
+      }),
     });
   }
 
