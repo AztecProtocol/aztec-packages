@@ -135,14 +135,17 @@ export class KVPxeDatabase implements PxeDatabase {
   }
 
   public async addContractArtifact(id: Fr, contract: ContractArtifact): Promise<void> {
-    const privateSelectors = contract.functions
-      .filter(functionArtifact => functionArtifact.functionType === FunctionType.PRIVATE)
-      .map(privateFunctionArtifact =>
-        FunctionSelector.fromNameAndParameters(
-          privateFunctionArtifact.name,
-          privateFunctionArtifact.parameters,
+    const privateFunctions = contract.functions.filter(
+      functionArtifact => functionArtifact.functionType === FunctionType.PRIVATE,
+    );
+
+    const privateSelectors = await Promise.all(
+      privateFunctions.map(async privateFunctionArtifact =>
+        (
+          await FunctionSelector.fromNameAndParameters(privateFunctionArtifact.name, privateFunctionArtifact.parameters)
         ).toString(),
-      );
+      ),
+    );
 
     if (privateSelectors.length !== new Set(privateSelectors).size) {
       throw new Error('Repeated function selectors of private functions');

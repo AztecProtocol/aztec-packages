@@ -242,7 +242,7 @@ describe('sequencer', () => {
     const l1GenesisTime = BigInt(Math.floor(Date.now() / 1000));
     const l1Constants = { l1GenesisTime, slotDuration, ethereumSlotDuration };
     const slasherClient = mock<SlasherClient>();
-
+    const config = { enforceTimeTable: true, maxTxsPerBlock: 4 };
     sequencer = new TestSubject(
       publisher,
       // TODO(md): add the relevant methods to the validator client that will prevent it stalling when waiting for attestations
@@ -258,8 +258,8 @@ describe('sequencer', () => {
       contractSource,
       l1Constants,
       new TestDateProvider(),
-      { enforceTimeTable: true, maxTxsPerBlock: 4 },
     );
+    await sequencer.updateConfig(config);
   });
 
   it('builds a block out of a single tx', async () => {
@@ -268,7 +268,6 @@ describe('sequencer', () => {
 
     block = await makeBlock([tx]);
     mockPendingTxs([tx]);
-
     await sequencer.doRealWork();
 
     expect(blockBuilder.startNewBlock).toHaveBeenCalledWith(
@@ -281,8 +280,8 @@ describe('sequencer', () => {
   });
 
   it('builds a block for proposal setting limits', async () => {
-    const txsPromise = timesParallel(5, i => makeTx(i * 0x10000));
-    await sequencer.buildBlock(mockTxIterator(txsPromise), globalVariables, { validateOnly: false });
+    const txsPromise = await timesParallel(5, i => makeTx(i * 0x10000));
+    await sequencer.buildBlock(txsPromise, globalVariables, { validateOnly: false });
 
     expect(publicProcessor.process).toHaveBeenCalledWith(
       await txsPromise,
@@ -297,8 +296,8 @@ describe('sequencer', () => {
   });
 
   it('builds a block for validation ignoring limits', async () => {
-    const txsPromise = timesParallel(5, i => makeTx(i * 0x10000));
-    await sequencer.buildBlock(mockTxIterator(txsPromise), globalVariables, { validateOnly: true });
+    const txsPromise = await timesParallel(5, i => makeTx(i * 0x10000));
+    await sequencer.buildBlock(txsPromise, globalVariables, { validateOnly: true });
 
     expect(publicProcessor.process).toHaveBeenCalledWith(
       await txsPromise,
@@ -386,11 +385,11 @@ describe('sequencer', () => {
       initialBlockHeader,
     );
     expectPublisherProposeL2Block(validTxHashes);
-    expect(p2p.deleteTxs).toHaveBeenCalledWith([invalidTx.getTxHash()]);
+    expect(p2p.deleteTxs).toHaveBeenCalledWith([await invalidTx.getTxHash()]);
   });
 
   it('builds a block once it reaches the minimum number of transactions', async () => {
-    const txs = await timesParallel(8, i => makeTx(i * 0x10000));
+    const txs: Tx[] = await timesParallel(8, i => makeTx(i * 0x10000));
     await sequencer.updateConfig({ minTxsPerBlock: 4 });
 
     // block is not built with 0 txs

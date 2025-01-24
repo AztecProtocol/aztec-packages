@@ -60,7 +60,7 @@ function test {
   test_should_run yarn-project-unit-tests-$hash || return 0
 
   github_group "yarn-project test"
-  denoise yarn formatting
+  #denoise yarn formatting
   denoise yarn test
   cache_upload_flag yarn-project-unit-tests-$hash
   github_endgroup

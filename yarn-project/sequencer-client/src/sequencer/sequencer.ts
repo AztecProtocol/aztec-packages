@@ -378,7 +378,6 @@ export class Sequencer {
   ) {
     const blockNumber = newGlobalVariables.blockNumber.toNumber();
     const slot = newGlobalVariables.slotNumber.toBigInt();
-
     this.log.debug(`Requesting L1 to L2 messages from contract for block ${blockNumber}`);
     const l1ToL2Messages = await this.l1ToL2MessageSource.getL1ToL2Messages(BigInt(blockNumber));
     const msgCount = l1ToL2Messages.length;
@@ -550,7 +549,7 @@ export class Sequencer {
         ...block.getStats(),
       };
 
-      const blockHash = block.hash();
+      const blockHash = await block.hash();
       const txHashes = block.body.txEffects.map(tx => tx.txHash);
       this.log.info(`Built block ${block.number} for slot ${slot} with ${numTxs} txs`, {
         blockHash,
