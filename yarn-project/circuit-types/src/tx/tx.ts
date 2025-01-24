@@ -188,9 +188,9 @@ export class Tx extends Gossipable {
   }
 
   /** Returns stats about this tx. */
-  getStats(): TxStats {
+  async getStats(): Promise<TxStats> {
     return {
-      txHash: this.getTxHash().toString(),
+      txHash: (await this.getTxHash()).toString(),
 
       noteHashCount: this.data.getNonEmptyNoteHashes().length,
       nullifierCount: this.data.getNonEmptyNullifiers().length,

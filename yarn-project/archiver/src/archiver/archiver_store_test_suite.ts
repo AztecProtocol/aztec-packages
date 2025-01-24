@@ -209,7 +209,7 @@ export function describeArchiverDataStore(testName: string, getStore: () => Arch
         () => wrapInBlock(blocks[5].data.body.txEffects[2], blocks[5].data),
         () => wrapInBlock(blocks[1].data.body.txEffects[0], blocks[1].data),
       ])('retrieves a previously stored transaction', async getExpectedTx => {
-        const expectedTx = getExpectedTx();
+        const expectedTx = await getExpectedTx();
         const actualTx = await store.getTxEffect(expectedTx.data.txHash);
         expect(actualTx).toEqual(expectedTx);
       });
@@ -227,7 +227,7 @@ export function describeArchiverDataStore(testName: string, getStore: () => Arch
       ])('tries to retrieves a previously stored transaction after deleted', async getExpectedTx => {
         await store.unwindBlocks(blocks.length, blocks.length);
 
-        const expectedTx = getExpectedTx();
+        const expectedTx = await getExpectedTx();
         const actualTx = await store.getTxEffect(expectedTx.data.txHash);
         expect(actualTx).toEqual(undefined);
       });

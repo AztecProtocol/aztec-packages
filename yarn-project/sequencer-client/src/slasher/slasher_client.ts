@@ -315,7 +315,10 @@ export class SlasherClient extends WithTracer {
     const blockHash =
       blockNumber == 0
         ? ''
-        : await this.l2BlockSource.getBlockHeader(blockNumber).then(header => header?.hash().toString());
+        : await this.l2BlockSource
+            .getBlockHeader(blockNumber)
+            .then(header => header?.hash())
+            .toString();
     return Promise.resolve({
       state: this.currentState,
       syncedToL2Block: { number: blockNumber, hash: blockHash },
@@ -333,7 +336,9 @@ export class SlasherClient extends WithTracer {
     }
 
     const lastBlockNum = blocks[blocks.length - 1].number;
-    await Promise.all(blocks.map(block => this.synchedBlockHashes.set(block.number, block.hash().toString())));
+    await Promise.all(
+      blocks.map(async block => this.synchedBlockHashes.set(block.number, (await block.hash()).toString())),
+    );
     await this.synchedLatestBlockNumber.set(lastBlockNum);
     this.log.debug(`Synched to latest block ${lastBlockNum}`);
     this.startServiceIfSynched();

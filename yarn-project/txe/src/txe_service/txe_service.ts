@@ -82,7 +82,8 @@ export class TXEService {
       await trees.appendLeaves(MerkleTreeId.ARCHIVE, [await header.hash()]);
       l2Block.archive.root = Fr.fromBuffer((await trees.getTreeInfo(MerkleTreeId.ARCHIVE, true)).root);
       l2Block.header = header;
-      this.logger.debug(`Block ${blockNumber} created, header hash ${header.hash().toString()}`);
+      const headerHash = await header.hash();
+      this.logger.debug(`Block ${blockNumber} created, header hash ${headerHash.toString()}`);
       await trees.handleL2BlockAndMessages(l2Block, []);
       (this.typedOracle as TXE).setBlockNumber(blockNumber + 1);
     }

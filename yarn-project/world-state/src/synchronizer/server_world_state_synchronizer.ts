@@ -170,7 +170,7 @@ export class ServerWorldStateSynchronizer
   /** Returns the L2 block hash for a given number. Used by the L2BlockStream for detecting reorgs. */
   public async getL2BlockHash(number: number): Promise<string | undefined> {
     if (number === 0) {
-      return Promise.resolve(this.merkleTreeCommitted.getInitialHeader().hash().toString());
+      return (await this.merkleTreeCommitted.getInitialHeader().hash()).toString();
     }
     if (this.latestBlockHashQuery?.hash === undefined || number !== this.latestBlockHashQuery.blockNumber) {
       this.latestBlockHashQuery = {

@@ -251,7 +251,7 @@ export class PublicProcessor implements Traceable {
             failed.push({ tx, error: new Error(`Tx failed post-process validation: ${reason}`) });
             continue;
           } else {
-            this.log.trace(`Tx ${tx.getTxHash().toString()} is valid post processing.`);
+            this.log.trace(`Tx ${(await tx.getTxHash()).toString()} is valid post processing.`);
           }
         }
 
@@ -292,7 +292,7 @@ export class PublicProcessor implements Traceable {
     return [result, failed, returns];
   }
 
-  @trackSpan('PublicProcessor.processTx', tx => ({ [Attributes.TX_HASH]: tx.getTxHash().toString() }))
+  @trackSpan('PublicProcessor.processTx', async tx => ({ [Attributes.TX_HASH]: (await tx.getTxHash()).toString() }))
   private async processTx(tx: Tx, deadline?: Date): Promise<[ProcessedTx, NestedProcessReturnValues[]]> {
     const [time, [processedTx, returnValues]] = await elapsed(() => this.processTxWithinDeadline(tx, deadline));
 
@@ -373,13 +373,13 @@ export class PublicProcessor implements Traceable {
       return await processFn();
     }
 
-    const txHash = tx.getTxHash().toString();
+    const txHash = await tx.getTxHash();
     const timeout = +deadline - this.dateProvider.now();
     if (timeout <= 0) {
       throw new PublicProcessorTimeoutError();
     }
 
-    this.log.debug(`Processing tx ${tx.getTxHash().toString()} within ${timeout}ms`, {
+    this.log.debug(`Processing tx ${txHash.toString()} within ${timeout}ms`, {
       deadline: deadline.toISOString(),
       now: new Date(this.dateProvider.now()).toISOString(),
       txHash,
@@ -423,8 +423,8 @@ export class PublicProcessor implements Traceable {
     return new PublicDataWrite(leafSlot, updatedBalance);
   }
 
-  @trackSpan('PublicProcessor.processPrivateOnlyTx', (tx: Tx) => ({
-    [Attributes.TX_HASH]: tx.getTxHash().toString(),
+  @trackSpan('PublicProcessor.processPrivateOnlyTx', async (tx: Tx) => ({
+    [Attributes.TX_HASH]: (await tx.getTxHash()).toString(),
   }))
   private async processPrivateOnlyTx(tx: Tx): Promise<[ProcessedTx, undefined]> {
     const gasFees = this.globalVariables.gasFees;
@@ -448,8 +448,8 @@ export class PublicProcessor implements Traceable {
     return [processedTx, undefined];
   }
 
-  @trackSpan('PublicProcessor.processTxWithPublicCalls', tx => ({
-    [Attributes.TX_HASH]: tx.getTxHash().toString(),
+  @trackSpan('PublicProcessor.processTxWithPublicCalls', async tx => ({
+    [Attributes.TX_HASH]: (await tx.getTxHash()).toString(),
   }))
   private async processTxWithPublicCalls(tx: Tx): Promise<[ProcessedTx, NestedProcessReturnValues[]]> {
     const timer = new Timer();

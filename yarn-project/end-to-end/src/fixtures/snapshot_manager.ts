@@ -577,7 +577,7 @@ export const addAccounts =
 
     logger.verbose('Account deployment tx hashes:');
     for (const provenTx of provenTxs) {
-      logger.verbose(provenTx.getTxHash().toString());
+      logger.verbose((await provenTx.getTxHash()).toString());
     }
 
     logger.verbose('Deploying accounts...');

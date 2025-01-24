@@ -685,8 +685,8 @@ describe('Simulator oracle', () => {
       let requestedNullifier;
       aztecNode.findNullifiersIndexesWithBlock.mockImplementationOnce(async (_blockNumber, nullifiers) => {
         const block = await L2Block.random(2);
-        requestedNullifier = wrapInBlock(nullifiers[0], block);
-        return [wrapInBlock(1n, await L2Block.random(2)), undefined, undefined];
+        requestedNullifier = await wrapInBlock(nullifiers[0], block);
+        return [await wrapInBlock(1n, await L2Block.random(2)), undefined, undefined];
       });
 
       await simulatorOracle.removeNullifiedNotes(contractAddress);

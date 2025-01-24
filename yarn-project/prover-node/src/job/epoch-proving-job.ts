@@ -103,7 +103,7 @@ export class EpochProvingJob implements Traceable {
 
         this.log.verbose(`Starting processing block ${block.number}`, {
           number: block.number,
-          blockHash: block.hash().toString(),
+          blockHash: (await block.hash()).toString(),
           lastArchive: block.header.lastArchive.root,
           noteHashTreeRoot: block.header.state.partial.noteHashTree.root,
           nullifierTreeRoot: block.header.state.partial.nullifierTree.root,
@@ -124,7 +124,7 @@ export class EpochProvingJob implements Traceable {
         await db.close();
         this.log.verbose(`Processed all ${txs.length} txs for block ${block.number}`, {
           blockNumber: block.number,
-          blockHash: block.hash().toString(),
+          blockHash: (await block.hash()).toString(),
           uuid: this.uuid,
         });
 

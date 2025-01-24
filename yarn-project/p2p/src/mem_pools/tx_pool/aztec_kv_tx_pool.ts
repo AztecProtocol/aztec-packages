@@ -266,13 +266,14 @@ export class AztecKVTxPool implements TxPool {
    * @param txs - The list of transactions to archive.
    * @returns Empty promise.
    */
-  private archiveTxs(txs: Tx[]): Promise<void> {
+  private async archiveTxs(txs: Tx[]): Promise<void> {
+    const txHashes = await Promise.all(txs.map(tx => tx.getTxHash()));
     return this.#archive.transaction(() => {
       // calcualte the head and tail indices of the archived txs by insertion order.
       let headIdx = (this.#archivedTxIndices.entries({ limit: 1, reverse: true }).next().value?.[0] ?? -1) + 1;
       let tailIdx = this.#archivedTxIndices.entries({ limit: 1 }).next().value?.[0] ?? 0;
 
-      for (const tx of txs) {
+      txs.forEach((tx, i) => {
         while (headIdx - tailIdx >= this.#archivedTxLimit) {
           const txHash = this.#archivedTxIndices.get(tailIdx);
           if (txHash) {
@@ -289,11 +290,11 @@ export class AztecKVTxPool implements TxPool {
           tx.enqueuedPublicFunctionCalls,
           tx.publicTeardownFunctionCall,
         );
-        const txHash = tx.getTxHash().toString();
+        const txHash = txHashes[i].toString();
         void this.#archivedTxs.set(txHash, archivedTx.toBuffer());
         void this.#archivedTxIndices.set(headIdx, txHash);
         headIdx++;
-      }
+      });
     });
   }
 }

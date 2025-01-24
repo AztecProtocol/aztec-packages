@@ -20,6 +20,7 @@ import {
 } from '@aztec/circuits.js';
 import { FunctionSelector } from '@aztec/foundation/abi';
 import { type AztecAddress } from '@aztec/foundation/aztec-address';
+import { toArray } from '@aztec/foundation/iterable';
 import { createLogger } from '@aztec/foundation/log';
 import { type AztecKVStore } from '@aztec/kv-store';
 
@@ -143,7 +144,7 @@ export class KVArchiverDataStore implements ArchiverDataStore {
    * @param blocksToUnwind - The number of blocks we are to unwind
    * @returns True if the operation is successful
    */
-  unwindBlocks(from: number, blocksToUnwind: number): Promise<boolean> {
+  async unwindBlocks(from: number, blocksToUnwind: number): Promise<boolean> {
     return this.#blockStore.unwindBlocks(from, blocksToUnwind);
   }
 
@@ -154,13 +155,8 @@ export class KVArchiverDataStore implements ArchiverDataStore {
    * @param limit - The number of blocks to return.
    * @returns The requested L2 blocks
    */
-  getBlocks(start: number, limit: number): Promise<L1Published<L2Block>[]> {
-    try {
-      return Promise.resolve(Array.from(this.#blockStore.getBlocks(start, limit)));
-    } catch (err) {
-      // this function is sync so if any errors are thrown we need to make sure they're passed on as rejected Promises
-      return Promise.reject(err);
-    }
+  async getBlocks(start: number, limit: number): Promise<L1Published<L2Block>[]> {
+    return toArray(this.#blockStore.getBlocks(start, limit));
   }
 
   /**

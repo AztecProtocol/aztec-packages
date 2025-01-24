@@ -126,7 +126,7 @@ export class MockL2BlockSource implements L2BlockSource {
    * @param txHash - The hash of a transaction which resulted in the returned tx effect.
    * @returns The requested tx effect.
    */
-  public getTxEffect(txHash: TxHash) {
+  public async getTxEffect(txHash: TxHash) {
     const match = this.l2Blocks
       .flatMap(b => b.body.txEffects.map(tx => [tx, b] as const))
       .find(([tx]) => tx.txHash.equals(txHash));
@@ -134,7 +134,7 @@ export class MockL2BlockSource implements L2BlockSource {
       return Promise.resolve(undefined);
     }
     const [txEffect, block] = match;
-    return Promise.resolve({ data: txEffect, l2BlockNumber: block.number, l2BlockHash: block.hash().toString() });
+    return { data: txEffect, l2BlockNumber: block.number, l2BlockHash: (await block.hash()).toString() };
   }
 
   /**
@@ -168,9 +168,9 @@ export class MockL2BlockSource implements L2BlockSource {
     ] as const;
 
     return {
-      latest: { number: latest, hash: this.l2Blocks[latest - 1]?.hash().toString() },
-      proven: { number: proven, hash: this.l2Blocks[proven - 1]?.hash().toString() },
-      finalized: { number: finalized, hash: this.l2Blocks[finalized - 1]?.hash().toString() },
+      latest: { number: latest, hash: (await this.l2Blocks[latest - 1]?.hash()).toString() },
+      proven: { number: proven, hash: (await this.l2Blocks[proven - 1]?.hash()).toString() },
+      finalized: { number: finalized, hash: (await this.l2Blocks[finalized - 1]?.hash()).toString() },
     };
   }
 
