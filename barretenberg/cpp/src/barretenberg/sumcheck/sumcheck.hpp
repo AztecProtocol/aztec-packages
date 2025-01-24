@@ -547,27 +547,27 @@ polynomials that are sent in clear.
  *
  * For \f$ i = 0,\ldots, d-1\f$:
  * - Extract Round Univariate's \f$\tilde{F}\f$ evaluations at \f$0,\ldots, D \f$ from the transcript using \ref
- bb::BaseTranscript::receive_from_prover "receive_from_prover" method from \ref bb::BaseTranscript< TranscriptParams >
- "Base Transcript Class".
+bb::BaseTranscript::receive_from_prover "receive_from_prover" method from \ref bb::BaseTranscript< TranscriptParams >
+"Base Transcript Class".
  * - \ref bb::SumcheckVerifierRound< Flavor >::check_sum "Check target sum": \f$\quad \sigma_{
  i } \stackrel{?}{=}  \tilde{S}^i(0) + \tilde{S}^i(1)  \f$
- * - Compute the challenge \f$u_i\f$ from the transcript using \ref bb::BaseTranscript::get_challenge "get_challenge"
- method.
- * - \ref bb::SumcheckVerifierRound< Flavor >::compute_next_target_sum "Compute next target sum" :\f$ \quad \sigma_{i+1}
- \gets \tilde{S}^i(u_i) \f$
+* - Compute the challenge \f$u_i\f$ from the transcript using \ref bb::BaseTranscript::get_challenge "get_challenge"
+method.
+* - \ref bb::SumcheckVerifierRound< Flavor >::compute_next_target_sum "Compute next target sum" :\f$ \quad \sigma_{i+1}
+\gets \tilde{S}^i(u_i) \f$
  * ### Verifier's Data before Final Step
- * Entering the final round, the Verifier has already checked that \f$\quad \sigma_{ d-1 } = \tilde{S}^{d-2}(u_{d-2})
- \stackrel{?}{=}  \tilde{S}^{d-1}(0) + \tilde{S}^{d-1}(1)  \f$ and computed \f$\sigma_d = \tilde{S}^{d-1}(u_{d-1})\f$.
+* Entering the final round, the Verifier has already checked that \f$\quad \sigma_{ d-1 } = \tilde{S}^{d-2}(u_{d-2})
+\stackrel{?}{=}  \tilde{S}^{d-1}(0) + \tilde{S}^{d-1}(1)  \f$ and computed \f$\sigma_d = \tilde{S}^{d-1}(u_{d-1})\f$.
  * ### Final Verification Step
  * - Extract \ref ClaimedEvaluations of prover polynomials \f$P_1,\ldots, P_N\f$ at the challenge point \f$
  (u_0,\ldots,u_{d-1}) \f$ from the transcript and \ref bb::SumcheckVerifierRound< Flavor
  >::compute_full_relation_purported_value "compute evaluation:"
  \f{align}{\tilde{F}\left( P_1(u_0,\ldots, u_{d-1}), \ldots, P_N(u_0,\ldots, u_{d-1}) \right)\f}
  and store it at \f$ \texttt{full_honk_relation_purported_value} \f$.
- * - Compare \f$ \sigma_d \f$ against the evaluation of \f$ \tilde{F} \f$ at \f$P_1(u_0,\ldots, u_{d-1}), \ldots,
- P_N(u_0,\ldots, u_{d-1})\f$:
- * \f{align}{\quad  \sigma_{ d } \stackrel{?}{=} \tilde{F}\left(P_1(u_{0}, \ldots, u_{d-1}),\ldots, P_N(u_0,\ldots,
- u_{d-1})\right)\f}
+* - Compare \f$ \sigma_d \f$ against the evaluation of \f$ \tilde{F} \f$ at \f$P_1(u_0,\ldots, u_{d-1}), \ldots,
+P_N(u_0,\ldots, u_{d-1})\f$:
+* \f{align}{\quad  \sigma_{ d } \stackrel{?}{=} \tilde{F}\left(P_1(u_{0}, \ldots, u_{d-1}),\ldots, P_N(u_0,\ldots,
+u_{d-1})\right)\f}
 
   \snippet cpp/src/barretenberg/sumcheck/sumcheck.hpp Final Verification Step
 
@@ -611,6 +611,8 @@ template <typename Flavor> class SumcheckVerifier {
     FF libra_evaluation{ 0 };
     FF libra_challenge;
     FF libra_total_sum;
+
+    FF correcting_factor;
 
     std::vector<Commitment> round_univariate_commitments = {};
     std::vector<std::array<FF, 3>> round_univariate_evaluations = {};
@@ -705,8 +707,15 @@ template <typename Flavor> class SumcheckVerifier {
         // For ZK Flavors: the evaluation of the Row Disabling Polynomial at the sumcheck challenge
         if constexpr (Flavor::HasZK) {
             libra_evaluation = transcript->template receive_from_prover<FF>("Libra:claimed_evaluation");
-            FF correcting_factor =
-                RowDisablingPolynomial<FF>::evaluate_at_challenge(multivariate_challenge, multivariate_d);
+            if constexpr (!IsRecursiveFlavor<Flavor>) {
+                correcting_factor =
+                    RowDisablingPolynomial<FF>::evaluate_at_challenge(multivariate_challenge, multivariate_d);
+            } else {
+                typename Flavor::CircuitBuilder* builder = libra_evaluation.get_context();
+                correcting_factor =
+                    RowDisablingPolynomial<FF>::evaluate_at_challenge(multivariate_challenge, multivariate_d, builder);
+            }
+
             full_honk_purported_value =
                 full_honk_purported_value * correcting_factor + libra_evaluation * libra_challenge;
         }
