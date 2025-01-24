@@ -94,10 +94,7 @@ export class PrivateVerificationKeyHints {
      */
     public acirHash: Fr,
 
-    public updatedClassIdWitness: MembershipWitness<typeof PUBLIC_DATA_TREE_HEIGHT>,
-    public updatedClassIdLeaf: PublicDataTreeLeafPreimage,
-    public updatedClassIdValueChange: Tuple<Fr, 3>,
-    public updatedClassIdDelayChange: Tuple<Fr, 1>,
+    public updatedClassIdHints: UpdatedClassIdHints,
   ) {}
 
   /**
@@ -114,10 +111,7 @@ export class PrivateVerificationKeyHints {
       fields.functionLeafMembershipWitness,
       fields.protocolContractSiblingPath,
       fields.acirHash,
-      fields.updatedClassIdWitness,
-      fields.updatedClassIdLeaf,
-      fields.updatedClassIdValueChange,
-      fields.updatedClassIdDelayChange,
+      fields.updatedClassIdHints,
     ] as const;
   }
 
@@ -148,6 +142,48 @@ export class PrivateVerificationKeyHints {
       reader.readObject(MembershipWitness.deserializer(FUNCTION_TREE_HEIGHT)),
       reader.readArray(PROTOCOL_CONTRACT_TREE_HEIGHT, Fr),
       reader.readObject(Fr),
+      reader.readObject(UpdatedClassIdHints),
+    );
+  }
+}
+
+export class UpdatedClassIdHints {
+  constructor(
+    public updatedClassIdWitness: MembershipWitness<typeof PUBLIC_DATA_TREE_HEIGHT>,
+    public updatedClassIdLeaf: PublicDataTreeLeafPreimage,
+    public updatedClassIdValueChange: Tuple<Fr, 3>,
+    public updatedClassIdDelayChange: Tuple<Fr, 1>,
+  ) {}
+
+  static getFields(fields: FieldsOf<UpdatedClassIdHints>) {
+    return [
+      fields.updatedClassIdWitness,
+      fields.updatedClassIdLeaf,
+      fields.updatedClassIdValueChange,
+      fields.updatedClassIdDelayChange,
+    ] as const;
+  }
+
+  static from(fields: FieldsOf<UpdatedClassIdHints>): UpdatedClassIdHints {
+    return new UpdatedClassIdHints(...UpdatedClassIdHints.getFields(fields));
+  }
+
+  /**
+   * Serialize this as a buffer.
+   * @returns The buffer.
+   */
+  toBuffer(): Buffer {
+    return serializeToBuffer(...UpdatedClassIdHints.getFields(this));
+  }
+
+  /**
+   * Deserializes from a buffer or reader.
+   * @param buffer - Buffer or reader to read from.
+   * @returns The deserialized instance.
+   */
+  static fromBuffer(buffer: Buffer | BufferReader): UpdatedClassIdHints {
+    const reader = BufferReader.asReader(buffer);
+    return new UpdatedClassIdHints(
       reader.readObject(MembershipWitness.deserializer(PUBLIC_DATA_TREE_HEIGHT)),
       reader.readObject(PublicDataTreeLeafPreimage),
       reader.readArray(3, Fr),

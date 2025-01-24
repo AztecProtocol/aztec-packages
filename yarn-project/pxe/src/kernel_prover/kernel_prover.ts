@@ -343,13 +343,14 @@ export class KernelProver {
     const vkAsFields = vkAsFieldsMegaHonk(vkAsBuffer);
     const vk = new VerificationKeyAsFields(vkAsFields, hashVK(vkAsFields));
 
-    const functionLeafMembershipWitness = await this.oracle.getFunctionMembershipWitness(
-      contractAddress,
-      functionSelector,
-    );
     const { contractClassId, publicKeys, saltedInitializationHash } = await this.oracle.getContractAddressPreimage(
       contractAddress,
     );
+    const functionLeafMembershipWitness = await this.oracle.getFunctionMembershipWitness(
+      contractClassId,
+      functionSelector,
+    );
+
     const { artifactHash: contractClassArtifactHash, publicBytecodeCommitment: contractClassPublicBytecodeCommitment } =
       await this.oracle.getContractClassIdPreimage(contractClassId);
 
@@ -361,6 +362,7 @@ export class KernelProver {
       ? getProtocolContractSiblingPath(contractAddress)
       : makeTuple(PROTOCOL_CONTRACT_TREE_HEIGHT, Fr.zero);
 
+    const updatedClassIdHints = await this.oracle.getUpdatedClassIdHints(contractAddress);
     return PrivateCallData.from({
       publicInputs,
       vk,
@@ -372,6 +374,7 @@ export class KernelProver {
         functionLeafMembershipWitness,
         protocolContractSiblingPath,
         acirHash,
+        updatedClassIdHints,
       }),
     });
   }

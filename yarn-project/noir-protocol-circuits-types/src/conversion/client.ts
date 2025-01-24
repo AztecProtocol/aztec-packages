@@ -621,10 +621,20 @@ export function mapPrivateVerificationKeyHintsToNoir(
     salted_initialization_hash: mapWrappedFieldToNoir(privateVerificationKeyHints.saltedInitializationHash),
     protocol_contract_sibling_path: mapTuple(privateVerificationKeyHints.protocolContractSiblingPath, mapFieldToNoir),
     acir_hash: mapFieldToNoir(privateVerificationKeyHints.acirHash),
-    updated_class_id_witness: mapMembershipWitnessToNoir(privateVerificationKeyHints.updatedClassIdWitness),
-    updated_class_id_leaf: mapPublicDataTreePreimageToNoir(privateVerificationKeyHints.updatedClassIdLeaf),
-    updated_class_id_value_change: mapTuple(privateVerificationKeyHints.updatedClassIdValueChange, mapFieldToNoir),
-    updated_class_id_delay_change: mapTuple(privateVerificationKeyHints.updatedClassIdDelayChange, mapFieldToNoir),
+    updated_class_id_witness: mapMembershipWitnessToNoir(
+      privateVerificationKeyHints.updatedClassIdHints.updatedClassIdWitness,
+    ),
+    updated_class_id_leaf: mapPublicDataTreePreimageToNoir(
+      privateVerificationKeyHints.updatedClassIdHints.updatedClassIdLeaf,
+    ),
+    updated_class_id_value_change: mapTuple(
+      privateVerificationKeyHints.updatedClassIdHints.updatedClassIdValueChange,
+      mapFieldToNoir,
+    ),
+    updated_class_id_delay_change: mapTuple(
+      privateVerificationKeyHints.updatedClassIdHints.updatedClassIdDelayChange,
+      mapFieldToNoir,
+    ),
   };
 }
 

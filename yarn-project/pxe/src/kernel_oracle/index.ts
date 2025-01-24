@@ -1,17 +1,23 @@
 import { type AztecNode, type L2BlockNumber } from '@aztec/circuit-types';
 import {
-  type AztecAddress,
-  type Fr,
+  AztecAddress,
+  DEPLOYER_CONTRACT_ADDRESS,
+  Fr,
   type FunctionSelector,
   type GrumpkinScalar,
   MembershipWitness,
   type NOTE_HASH_TREE_HEIGHT,
+  PUBLIC_DATA_TREE_HEIGHT,
   type Point,
+  UpdatedClassIdHints,
   VK_TREE_HEIGHT,
   type VerificationKeyAsFields,
   computeContractClassIdPreimage,
   computeSaltedInitializationHash,
 } from '@aztec/circuits.js';
+import { computePublicDataTreeLeafSlot, deriveStorageSlotInMap } from '@aztec/circuits.js/hash';
+import { makeTuple } from '@aztec/foundation/array';
+import { poseidon2HashWithSeparator } from '@aztec/foundation/crypto';
 import { createLogger } from '@aztec/foundation/log';
 import { type Tuple } from '@aztec/foundation/serialize';
 import { type KeyStore } from '@aztec/key-store';
@@ -47,8 +53,8 @@ export class KernelOracle implements ProvingDataOracle {
     return computeContractClassIdPreimage(contractClass);
   }
 
-  public async getFunctionMembershipWitness(contractAddress: AztecAddress, selector: FunctionSelector) {
-    return await this.contractDataOracle.getFunctionMembershipWitness(contractAddress, selector);
+  public async getFunctionMembershipWitness(contractClassId: Fr, selector: FunctionSelector) {
+    return await this.contractDataOracle.getFunctionMembershipWitness(contractClassId, selector);
   }
 
   public getVkMembershipWitness(vk: VerificationKeyAsFields) {
@@ -80,5 +86,40 @@ export class KernelOracle implements ProvingDataOracle {
 
   public getDebugFunctionName(contractAddress: AztecAddress, selector: FunctionSelector): Promise<string> {
     return this.contractDataOracle.getDebugFunctionName(contractAddress, selector);
+  }
+
+  public async getUpdatedClassIdHints(contractAddress: AztecAddress): Promise<UpdatedClassIdHints> {
+    const deployerAddress = new AztecAddress(new Fr(DEPLOYER_CONTRACT_ADDRESS));
+
+    const sharedMutableSlot = deriveStorageSlotInMap(new Fr(1), contractAddress);
+    const valueChangeSlot = poseidon2HashWithSeparator([sharedMutableSlot], 0);
+    const delayChangeSlot = poseidon2HashWithSeparator([sharedMutableSlot], 1);
+    const hashSlot = poseidon2HashWithSeparator([sharedMutableSlot], 2);
+
+    const hashLeafSlot = computePublicDataTreeLeafSlot(deployerAddress, hashSlot);
+    const updatedClassIdWitness = await this.node.getPublicDataTreeWitness(this.blockNumber, hashLeafSlot);
+
+    if (!updatedClassIdWitness) {
+      throw new Error(`No public data tree witness found for ${hashLeafSlot}`);
+    }
+
+    const valueChange = makeTuple<Fr, 3>(3, () => Fr.ZERO);
+    for (let i = 0; i < 3; i++) {
+      const valueChangeItemSlot = valueChangeSlot.add(new Fr(i));
+      valueChange[i] = await this.node.getPublicStorageAt(deployerAddress, valueChangeItemSlot, this.blockNumber);
+    }
+
+    const delayChange = await this.node.getPublicStorageAt(deployerAddress, delayChangeSlot, this.blockNumber);
+
+    return new UpdatedClassIdHints(
+      new MembershipWitness(
+        PUBLIC_DATA_TREE_HEIGHT,
+        updatedClassIdWitness.index,
+        updatedClassIdWitness.siblingPath.toTuple(),
+      ),
+      updatedClassIdWitness.leafPreimage,
+      valueChange,
+      [delayChange],
+    );
   }
 }

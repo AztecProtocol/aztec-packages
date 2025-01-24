@@ -117,16 +117,16 @@ export class ContractDataOracle {
   }
 
   /**
-   * Retrieve the function membership witness for the given contract address and function selector.
+   * Retrieve the function membership witness for the given contract class and function selector.
    * The function membership witness represents a proof that the function belongs to the specified contract.
    * Throws an error if the contract address or function selector is unknown.
    *
-   * @param contractAddress - The contract address.
+   * @param contractClassId - The id of the class.
    * @param selector - The function selector.
    * @returns A promise that resolves with the MembershipWitness instance for the specified contract's function.
    */
-  public async getFunctionMembershipWitness(contractAddress: AztecAddress, selector: FunctionSelector) {
-    const tree = await this.getTreeForAddress(contractAddress);
+  public async getFunctionMembershipWitness(contractClassId: Fr, selector: FunctionSelector) {
+    const tree = await this.getTreeForClassId(contractClassId);
     return tree.getFunctionMembershipWitness(selector);
   }
 
