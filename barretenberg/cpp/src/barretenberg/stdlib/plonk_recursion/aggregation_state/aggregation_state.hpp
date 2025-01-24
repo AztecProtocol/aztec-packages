@@ -20,7 +20,7 @@ template <typename Curve> struct aggregation_state {
     {
         return P0 == other.P0 && P1 == other.P1;
     };
-    template <typename BuilderType>
+    template <typename BuilderType = void>
     void aggregate(aggregation_state const& other, typename Curve::ScalarField recursion_separator)
     {
         if constexpr (std::is_same_v<BuilderType, MegaCircuitBuilder>) {
@@ -34,7 +34,7 @@ template <typename Curve> struct aggregation_state {
         }
     }
 
-    template <typename BuilderType>
+    template <typename BuilderType = void>
     void aggregate(std::array<typename Curve::Group, 2> const& other, typename Curve::ScalarField recursion_separator)
     {
         if constexpr (std::is_same_v<BuilderType, MegaCircuitBuilder>) {
