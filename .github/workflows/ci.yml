@@ -384,6 +384,7 @@ jobs:
             values: ci
             overrides: "network.public=true"
             runner_type: 16core-tester-x86
+            metrics: false
             timeout: 60
             if: needs.configure.outputs.network-all == 'true'
 
