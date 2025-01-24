@@ -50,7 +50,7 @@ describe('Logs', () => {
 
       const decryptedEvent0 = (await L1EventPayload.decryptAsIncoming(
         privateLogs[0],
-        wallets[0].getEncryptionSecret(),
+        await wallets[0].getEncryptionSecret(),
       ))!;
 
       expect(decryptedEvent0.contractAddress).toStrictEqual(testLogContract.address);
@@ -66,7 +66,7 @@ describe('Logs', () => {
 
       const decryptedEvent1 = (await L1EventPayload.decryptAsIncoming(
         privateLogs[2],
-        wallets[0].getEncryptionSecret(),
+        await wallets[0].getEncryptionSecret(),
       ))!;
 
       const event1Metadata = new EventMetadata<ExampleEvent1>(TestLogContract.events.ExampleEvent1);

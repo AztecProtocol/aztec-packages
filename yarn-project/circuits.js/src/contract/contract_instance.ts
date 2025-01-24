@@ -98,7 +98,7 @@ export class SerializableContractInstance {
  * @param opts - Options for the deployment.
  * @returns - The contract instance
  */
-export function getContractInstanceFromDeployParams(
+export async function getContractInstanceFromDeployParams(
   artifact: ContractArtifact,
   opts: {
     constructorArtifact?: FunctionArtifact | string;
@@ -108,7 +108,7 @@ export function getContractInstanceFromDeployParams(
     publicKeys?: PublicKeys;
     deployer?: AztecAddress;
   },
-): ContractInstanceWithAddress {
+): Promise<ContractInstanceWithAddress> {
   const args = opts.constructorArgs ?? [];
   const salt = opts.salt ?? Fr.random();
   const constructorArtifact = getConstructorArtifact(artifact, opts.constructorArtifact);
@@ -133,7 +133,7 @@ export function getContractInstanceFromDeployParams(
     version: 1,
   };
 
-  return { ...instance, address: computeContractAddressFromInstance(instance) };
+  return { ...instance, address: await computeContractAddressFromInstance(instance) };
 }
 
 function getConstructorArtifact(

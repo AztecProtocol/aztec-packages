@@ -40,7 +40,6 @@ export function createSafeJsonRpcClient<T extends object>(
     if ([null, undefined, 'null', 'undefined'].includes(res.result)) {
       return;
     }
-
     return (schema as ApiSchema)[methodName].returnType().parse(res.result);
   };
 

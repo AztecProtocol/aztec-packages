@@ -135,7 +135,9 @@ bool proveAndVerifyHonkAcirFormat(acir_format::AcirProgram program, acir_format:
 
     Verifier verifier{ verification_key };
 
-    return verifier.verify_proof(proof);
+    const bool verified = verifier.verify_proof(proof);
+    vinfo(verified ? "\033[32mVERIFIED\033[0m" : "\033[31mNOT VERIFIED\033[0m");
+    return verified;
 }
 
 /**
@@ -590,7 +592,7 @@ void contract_honk(const std::string& output_path, const std::string& vk_path)
     auto vk = std::make_shared<VerificationKey>(from_buffer<VerificationKey>(read_file(vk_path)));
     vk->pcs_verification_key = std::make_shared<VerifierCommitmentKey>();
 
-    std::string contract = get_honk_solidity_verifier(std::move(vk));
+    std::string contract = get_honk_solidity_verifier(vk);
 
     if (output_path == "-") {
         writeStringToStdout(contract);

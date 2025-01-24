@@ -73,7 +73,7 @@ export class DeployTest {
     } = {},
   ): Promise<T> {
     const { salt, publicKeys, initArgs, constructorName, deployer } = opts;
-    const instance = getContractInstanceFromDeployParams(contractArtifact.artifact, {
+    const instance = await getContractInstanceFromDeployParams(contractArtifact.artifact, {
       constructorArgs: initArgs ?? [],
       constructorArtifact: constructorName,
       salt,
