@@ -320,9 +320,9 @@ comptime fn generate_multi_scalar_mul(
     for i in 0..indexed_fields.len() {
         let (field_name, typ, index) = indexed_fields[i];
         let start_generator_index = index + 1;
-        let (flattened_field, aux_vars) = generate_serialize_to_fields(field_name, typ, &[]);
-        for j in 0..flattened_field.len() {
-            let flattened_as_field = flattened_field[j];
+        let (serialization_fields, aux_vars) = generate_serialize_to_fields(field_name, typ, &[]);
+        for j in 0..serialization_fields.len() {
+            let serialization_field = serialization_fields[j];
             let generator_index = start_generator_index + j;
 
             let generators: [Point; 1] =
@@ -335,8 +335,9 @@ comptime fn generate_multi_scalar_mul(
                 aztec::protocol_types::point::Point { x: $generator_x, y: $generator_y, is_infinite: false }
                 },
             );
-            scalars_list =
-                scalars_list.push_back(quote { std::hash::from_field_unsafe($flattened_as_field) });
+            scalars_list = scalars_list.push_back(
+                quote { std::hash::from_field_unsafe($serialization_field) },
+            );
         }
         args_list = args_list.push_back(quote { $field_name: $typ });
         aux_vars_list = aux_vars_list.append(aux_vars);
@@ -844,9 +845,9 @@ comptime fn index_note_fields(
                 indexed_nullable_fields = indexed_nullable_fields.push_back((name, typ, counter));
             }
         }
-        let (flattened, _) = generate_serialize_to_fields(name, typ, &[]);
+        let (serialization_fields, _) = generate_serialize_to_fields(name, typ, &[]);
         // Each struct member can occupy multiple fields so we need to increment the counter accordingly
-        counter += flattened.len();
+        counter += serialization_fields.len();
     }
     (indexed_fixed_fields, indexed_nullable_fields)
 }
