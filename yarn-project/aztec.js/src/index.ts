@@ -47,7 +47,7 @@ export {
   type L2Claim,
   type U128Like,
   type WrappedFieldLike,
-  type IntentAction,
+  type IntentCall,
 } from './utils/index.js';
 
 export { NoteSelector } from '@aztec/foundation/abi';
