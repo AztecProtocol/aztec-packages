@@ -26,7 +26,7 @@ contract NFT {
             AztecAddress, Map, NoteGetterOptions, NoteViewerOptions, PrivateContext, PrivateSet,
             PublicContext, PublicImmutable, PublicMutable,
         },
-        protocol_types::{debug_log::{debug_log, debug_log_format}, point::Point, traits::Serialize},
+        protocol_types::{point::Point, traits::Serialize},
         utils::comparison::Comparator,
     };
     use dep::compressed_string::FieldCompressedString;
@@ -68,7 +68,6 @@ contract NFT {
     #[public]
     #[initializer]
     fn constructor(admin: AztecAddress, name: str<31>, symbol: str<31>) {
-        debug_log("MIKE: I am in the constructor. Wassup.");
         assert(!admin.is_zero(), "invalid admin");
         storage.admin.write(admin);
         storage.minters.at(admin).write(true);
@@ -323,13 +322,11 @@ contract NFT {
     // docs:start:transfer_in_private
     #[private]
     fn transfer_in_private(from: AztecAddress, to: AztecAddress, token_id: Field, nonce: Field) {
-        debug_log("MIKE: Hello there, Michael");
         if (!from.eq(context.msg_sender())) {
             assert_current_call_valid_authwit(&mut context, from);
         } else {
             assert(nonce == 0, "invalid nonce");
         }
-        debug_log("MIKE: we're past the authwit stage");
 
         let nfts = storage.private_nfts;
 
@@ -338,11 +335,7 @@ contract NFT {
             .set_limit(1));
         assert(notes.len() == 1, "NFT not found when transferring");
 
-        debug_log("MIKE: we've grabbed some notes, hopefully...");
-
         let mut new_note = NFTNote::new(token_id, to);
-
-        debug_log("MIKE: about to encode and encrypt a note...");
 
         nfts.at(to).insert(&mut new_note).emit(encode_and_encrypt_note(&mut context, to, from));
     }

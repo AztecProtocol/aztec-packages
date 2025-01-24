@@ -29,7 +29,6 @@ impl EasyPrivateUint<&mut PrivateContext> {
 
         // Insert the new note to the owner's set of notes.
         // docs:start:insert
-        // TODO: consider how to give devs choice over this `encode_and_encrypt_note` function. At the moment, it's hard-coded as one of many potential strategies.
         self.set.insert(&mut addend_note).emit(encode_and_encrypt_note(self.context, owner, sender));
         // docs:end:insert
     }

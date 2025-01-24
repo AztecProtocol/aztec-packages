@@ -18,8 +18,6 @@ import {
 } from './encryption_util.js';
 import { deriveEcdhSharedSecret, deriveEcdhSharedSecretUsingAztecAddress } from './shared_secret_derivation.js';
 
-// const logger = createLogger('types:encrypted_log_payload');
-
 // Below constants should match the values defined in aztec-nr/aztec/src/encrypted_logs/log_assembly_strategies/default_aes128/note.nr.
 // Note: we will soon be 'abstracting' log processing: apps will process their own logs, instead of the PXE processing all apps' logs. Therefore, this file will imminently change considerably.
 
