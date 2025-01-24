@@ -1788,34 +1788,6 @@ impl<'local, 'interner> Interpreter<'local, 'interner> {
         result
     }
 
-    fn evaluate_loop(&mut self, expr: ExprId) -> IResult<Value> {
-        let was_in_loop = std::mem::replace(&mut self.in_loop, true);
-        let in_lsp = self.elaborator.interner.is_in_lsp_mode();
-        let mut counter = 0;
-
-        loop {
-            self.push_scope();
-
-            match self.evaluate(expr) {
-                Ok(_) => (),
-                Err(InterpreterError::Break) => break,
-                Err(InterpreterError::Continue) => continue,
-                Err(other) => return Err(other),
-            }
-
-            self.pop_scope();
-
-            counter += 1;
-            if in_lsp && counter == 10_000 {
-                let location = self.elaborator.interner.expr_location(&expr);
-                return Err(InterpreterError::LoopHaltedForUiResponsiveness { location });
-            }
-        }
-
-        self.in_loop = was_in_loop;
-        Ok(Value::Unit)
-    }
-
     fn evaluate_break(&mut self, id: StmtId) -> IResult<Value> {
         if self.in_loop {
             Err(InterpreterError::Break)

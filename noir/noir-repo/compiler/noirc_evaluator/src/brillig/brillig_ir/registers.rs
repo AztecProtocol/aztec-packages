@@ -7,7 +7,7 @@ use crate::brillig::brillig_ir::entry_point::MAX_STACK_SIZE;
 
 use super::{
     brillig_variable::SingleAddrVariable,
-    entry_point::{MAX_GLOBAL_SPACE, MAX_SCRATCH_SPACE, MAX_STACK_FRAME_SIZE},
+    entry_point::{MAX_SCRATCH_SPACE, MAX_STACK_FRAME_SIZE},
     BrilligContext, ReservedRegisters,
 };
 

@@ -53,8 +53,6 @@ pub(crate) fn generate_ssa(program: Program) -> Result<Ssa, RuntimeError> {
     let globals_dfg = std::mem::take(&mut context.globals_context.dfg);
     let globals = GlobalsGraph::from_dfg(globals_dfg);
 
-    let globals = GlobalsGraph::from_dfg(context.globals_context.dfg.clone());
-
     let main_id = Program::main_id();
     let main = context.program.main();
 
@@ -127,8 +125,7 @@ pub(crate) fn generate_ssa(program: Program) -> Result<Ssa, RuntimeError> {
         function_context.codegen_function_body(&function.body)?;
     }
 
-    let mut ssa = function_context.builder.finish();
-    ssa.globals = context.globals_context;
+    let ssa = function_context.builder.finish();
     Ok(ssa)
 }
 

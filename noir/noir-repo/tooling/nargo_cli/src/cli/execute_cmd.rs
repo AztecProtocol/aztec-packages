@@ -20,7 +20,7 @@ use super::compile_cmd::compile_workspace_full;
 use super::fs::{inputs::read_inputs_from_file, witness::save_witness_to_dir};
 use super::{NargoConfig, PackageOptions};
 use crate::cli::fs::program::read_program_from_file;
-use crate::errors::{CliError, FilesystemError};
+use crate::errors::CliError;
 
 /// Executes a circuit to calculate its return value
 #[derive(Debug, Clone, Args)]

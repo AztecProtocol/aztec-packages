@@ -130,55 +130,6 @@ impl Function {
     }
 }
 
-impl Function {
-    /// Create a new function which has the functions called by this one inlined into its body.
-    pub(super) fn inlined(
-        &self,
-        ssa: &Ssa,
-        inline_no_predicates_functions: bool,
-        inline_infos: &InlineInfos,
-    ) -> Function {
-        let caller_runtime = self.runtime();
-
-        let should_inline_call =
-            |_context: &PerFunctionContext, ssa: &Ssa, called_func_id: FunctionId| -> bool {
-                // Do not inline self-recursive functions on the top level.
-                // Inlining a self-recursive function works when there is something to inline into
-                // by importing all the recursive blocks, but for the entry function there is no wrapper.
-                if called_func_id == self.id() {
-                    return false;
-                }
-                let callee = &ssa.functions[&called_func_id];
-
-                match callee.runtime() {
-                    RuntimeType::Acir(inline_type) => {
-                        // If the called function is acir, we inline if it's not an entry point
-
-                        // If we have not already finished the flattening pass, functions marked
-                        // to not have predicates should be preserved.
-                        let preserve_function =
-                            !inline_no_predicates_functions && callee.is_no_predicates();
-
-                        !inline_type.is_entry_point() && !preserve_function
-                    }
-                    RuntimeType::Brillig(_) => {
-                        if caller_runtime.is_acir() {
-                            // We never inline a brillig function into an ACIR function.
-                            return false;
-                        }
-                        // We inline inline if the function called wasn't ruled out as too costly or recursive.
-                        inline_infos
-                            .get(&called_func_id)
-                            .map(|info| info.should_inline)
-                            .unwrap_or_default()
-                    }
-                }
-            };
-
-        InlineContext::new(ssa, self.id()).inline_all(ssa, &should_inline_call)
-    }
-}
-
 /// The context for the function inlining pass.
 ///
 /// This works using an internal FunctionBuilder to build a new main function from scratch.

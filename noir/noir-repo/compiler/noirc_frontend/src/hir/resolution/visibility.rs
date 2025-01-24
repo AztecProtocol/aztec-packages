@@ -98,24 +98,6 @@ fn type_member_is_visible(
     current_module_id: ModuleId,
     def_maps: &BTreeMap<CrateId, CrateDefMap>,
 ) -> bool {
-    type_member_is_visible(struct_id.module_id(), visibility, current_module_id, def_maps)
-}
-
-pub fn trait_member_is_visible(
-    trait_id: TraitId,
-    visibility: ItemVisibility,
-    current_module_id: ModuleId,
-    def_maps: &BTreeMap<CrateId, CrateDefMap>,
-) -> bool {
-    type_member_is_visible(trait_id.0, visibility, current_module_id, def_maps)
-}
-
-fn type_member_is_visible(
-    type_module_id: ModuleId,
-    visibility: ItemVisibility,
-    current_module_id: ModuleId,
-    def_maps: &BTreeMap<CrateId, CrateDefMap>,
-) -> bool {
     match visibility {
         ItemVisibility::Public => true,
         ItemVisibility::PublicCrate => {
