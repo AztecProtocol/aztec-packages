@@ -38,8 +38,8 @@ describe('Unconstrained Execution test suite', () => {
       return new Note([new Fr(amount), owner.toField(), Fr.random()]);
     };
 
-    beforeEach(() => {
-      const ownerCompleteAddress = CompleteAddress.fromSecretKeyAndPartialAddress(ownerSecretKey, Fr.random());
+    beforeEach(async () => {
+      const ownerCompleteAddress = await CompleteAddress.fromSecretKeyAndPartialAddress(ownerSecretKey, Fr.random());
       owner = ownerCompleteAddress.address;
 
       oracle.getCompleteAddress.mockImplementation((account: AztecAddress) => {

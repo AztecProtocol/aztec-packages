@@ -4,11 +4,14 @@
 #include <functional>
 #include <list>
 #include <span>
+#include <string>
 
 #include "barretenberg/common/std_array.hpp"
 #include "barretenberg/common/thread.hpp"
 #include "barretenberg/numeric/bitop/get_msb.hpp"
 #include "barretenberg/vm/stats.hpp"
+#include "barretenberg/vm2/common/map.hpp"
+#include "barretenberg/vm2/generated/columns.hpp"
 #include "barretenberg/vm2/generated/relations/lookup_dummy_dynamic.hpp"
 #include "barretenberg/vm2/generated/relations/lookup_dummy_precomputed.hpp"
 #include "barretenberg/vm2/generated/relations/perm_dummy_dynamic.hpp"
@@ -49,6 +52,30 @@ template <typename T> inline void clear_events(T& c)
 {
     c.clear();
     c.shrink_to_fit();
+}
+
+void print_trace_stats(const TraceContainer& trace)
+{
+    unordered_flat_map<std::string, uint32_t> namespace_column_sizes;
+    uint64_t total_rows = 0;
+    for (size_t col = 0; col < trace.num_columns(); ++col) {
+        const auto& column_rows = trace.get_column_rows(static_cast<Column>(col));
+        const std::string& column_name = COLUMN_NAMES.at(col);
+        const auto namespace_name = column_name.substr(0, column_name.find('_'));
+        namespace_column_sizes[namespace_name] = std::max(namespace_column_sizes[namespace_name], column_rows);
+        total_rows += column_rows;
+    }
+    vinfo("Column sizes per namespace:");
+    for (const auto& [namespace_name, column_size] : namespace_column_sizes) {
+        vinfo("  ",
+              namespace_name,
+              ": ",
+              column_size,
+              " (~2^",
+              numeric::get_msb(numeric::round_up_power_2(column_size)),
+              ")");
+    }
+    info("Sum of all column rows: ", total_rows, " (~2^", numeric::get_msb(numeric::round_up_power_2(total_rows)), ")");
 }
 
 } // namespace
@@ -99,12 +126,7 @@ TraceContainer AvmTraceGenHelper::generate_trace(EventsContainer&& events)
         AVM_TRACK_TIME("tracegen/interactions", execute_jobs(jobs_interactions));
     }
 
-    const auto rows = trace.get_num_rows_without_clk();
-    info("Generated trace with ",
-         rows,
-         " rows (closest power of 2: ",
-         numeric::get_msb(numeric::round_up_power_2(rows)),
-         ") and column clk with 2^21 rows.");
+    print_trace_stats(trace);
     return trace;
 }
 
