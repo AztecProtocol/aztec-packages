@@ -7,6 +7,7 @@ import {
   type AccountWalletWithSecretKey,
   Contract,
   AztecNode,
+  AztecAddress,
 } from "@aztec/aztec.js";
 import { type WalletDB } from "../../utils/storage";
 import { ContractFunctionInteractionTx } from "../../utils/txs";
@@ -24,6 +25,7 @@ export const AztecContext = createContext<{
   wallet: AccountWalletWithSecretKey | null;
   isPXEInitialized: boolean;
   walletDB: WalletDB | null;
+  currentContractAddress: AztecAddress;
   currentContract: Contract;
   currentTx: ContractFunctionInteractionTx;
   setWalletDB: (walletDB: WalletDB) => void;
@@ -34,6 +36,7 @@ export const AztecContext = createContext<{
   setNodeURL: (nodeURL: string) => void;
   setCurrentTx: (currentTx: ContractFunctionInteractionTx) => void;
   setCurrentContract: (currentContract: Contract) => void;
+  setCurrentContractAddress: (currentContractAddress: AztecAddress) => void;
 }>({
   pxe: null,
   nodeURL: "",
@@ -42,6 +45,7 @@ export const AztecContext = createContext<{
   isPXEInitialized: false,
   walletDB: null,
   currentContract: null,
+  currentContractAddress: null,
   currentTx: null,
   setWalletDB: (walletDB: WalletDB) => {},
   setPXEInitialized: (isPXEInitialized: boolean) => {},
@@ -51,6 +55,7 @@ export const AztecContext = createContext<{
   setAztecNode: (node: AztecNode) => {},
   setCurrentTx: (currentTx: ContractFunctionInteractionTx) => {},
   setCurrentContract: (currentContract: Contract) => {},
+  setCurrentContractAddress: (currentContractAddress: AztecAddress) => {},
 });
 
 export function Home() {
@@ -63,6 +68,7 @@ export function Home() {
   const [walletDB, setWalletDB] = useState(null);
   const [currentContract, setCurrentContract] = useState(null);
   const [currentTx, setCurrentTx] = useState(null);
+  const [currentContractAddress, setCurrentContractAddress] = useState(null);
 
   const AztecContextInitialValue = {
     pxe,
@@ -74,6 +80,7 @@ export function Home() {
     currentContract,
     currentTx,
     node,
+    currentContractAddress,
     setAztecNode,
     setCurrentTx,
     setWalletDB,
@@ -83,6 +90,7 @@ export function Home() {
     setNodeURL,
     setWalletAlias,
     setCurrentContract,
+    setCurrentContractAddress,
   };
 
   return (

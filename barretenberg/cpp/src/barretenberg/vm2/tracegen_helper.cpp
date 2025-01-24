@@ -76,7 +76,7 @@ void print_trace_stats(const TraceContainer& trace)
 {
     unordered_flat_map<std::string, uint32_t> namespace_column_sizes;
     uint64_t total_rows = 0;
-    for (size_t col = 0; col < static_cast<size_t>(ColumnAndShifts::NUM_COLUMNS); ++col) {
+    for (size_t col = 0; col < trace.num_columns(); ++col) {
         const auto& column_rows = trace.get_column_rows(static_cast<Column>(col));
         const std::string& column_name = COLUMN_NAMES.at(col);
         const auto namespace_name = column_name.substr(0, column_name.find('_'));
